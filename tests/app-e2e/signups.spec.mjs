@@ -12,8 +12,12 @@ const SHOTS=process.env.S62_29_SHOTS?'docs/design/screens/s62-29/':'test-results
 // OPS-가입자현황(S62-29): 칸 일곱(조직·부서·이름·직책·이메일·가입일·마지막 사용)과 맨 위 숫자 한 줄. 시각은 시험 때 기준(이번 주·7일 판정이 날짜에 안 흔들리게).
 // 사진은 docs/design/screens/s62-29/(S62_29_SHOTS=1). 메일은 가상(example.test).
 const NOW=Date.now(),ago=h=>new Date(NOW-h*3600000).toISOString();
+// '이번 주 새로'는 한국 시각 월요일 0시부터 센다. 월요일 0시~0시 30분에 돌면 '30분 전' 가입이 지난주가 되어 시험이 깨졌다(11/23 00:15 CI).
+// 이번 주 가입 한 사람은 '30분 전'과 '이번 주 시작 1분 뒤' 중 늦은 쪽으로 둔다.
+const KST_WEEK_START=(()=>{const k=new Date(NOW+9*3600000);const day=(k.getUTCDay()+6)%7;return Date.UTC(k.getUTCFullYear(),k.getUTCMonth(),k.getUTCDate()-day)-9*3600000;})();
+const thisWeekAgo=h=>new Date(Math.max(NOW-h*3600000,KST_WEEK_START+60000)).toISOString();
 const PEOPLE=[
-  {union_name:'가상 노조',department_name:'가상 조직국',name:'가상 사람B',job_title:'국장',email:'person-b@example.test',signed_up_at:ago(0.5),last_seen_at:ago(0.4)},
+  {union_name:'가상 노조',department_name:'가상 조직국',name:'가상 사람B',job_title:'국장',email:'person-b@example.test',signed_up_at:thisWeekAgo(0.5),last_seen_at:ago(0.4)},
   {union_name:'가상 노조',department_name:null,name:'가상 사람A',job_title:null,email:'person-a@example.test',signed_up_at:ago(24*20),last_seen_at:ago(30)},
   {union_name:null,department_name:null,name:'이름 없음',job_title:null,email:'new@example.test',signed_up_at:ago(24*25),last_seen_at:null},
   {union_name:'가상 노조',department_name:'가상 정책실',name:'가상 운영자',job_title:'실장',email:'operator@example.test',signed_up_at:ago(24*45),last_seen_at:ago(24*9)}

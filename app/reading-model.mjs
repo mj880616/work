@@ -3,12 +3,11 @@
 // 밑줄은 기존 표 app_news_highlights(종류 'reading')와 공용 부품 text-highlights.js. 여기서는 주소 다듬기·줄 값·거르기·원문 글자·상태 한 줄만 만든다.
 import {readImportUrl, hostOf, resultOutcome, failInfo} from './note-import-model.mjs';
 import {shareArticleUrl, shareArticleTitle} from './share-intake-model.mjs';
-import {savedLine} from './note-news-marks-model.mjs';
 
 export const TITLE_MAX = 500, SITE_MAX = 120, BODY_MAX = 200000, URL_MAX = 2000, LIST_LIMIT = 500;
-export const LIST_COLS = 'id,url,title,site,saved_at,read_at,body_state,body_at,business_area_id,updated_at';
+export const LIST_COLS = 'id,url,title,site,saved_at,read_at,body_state,body_at,business_area_id,updated_at,origin,news_article_id,outside_article_id';
 export const BODY_STATES = Object.freeze(['pending', 'ok', 'paywall', 'bot_check', 'robots', 'too_big', 'blocked', 'failed']);
-// 거르기 칩: [안 읽음 n] [전체] [밑줄] (+ News 기능 키가 있는 사람만 [News n], S68-24). 처음은 안 읽음.
+// 거르기 칩: [안 읽음 n] [전체] [밑줄] (+ News 기능 키가 있는 사람만 [News n] — News에서 보관한 줄). 처음은 안 읽음.
 export const FILTERS = Object.freeze(['unread', 'all', 'marks']);
 export const NEWS_FILTERS = Object.freeze([...FILTERS, 'news']);
 export const filtersOf = (newsOn = false) => (newsOn ? NEWS_FILTERS : FILTERS);
@@ -48,48 +47,27 @@ export function lineOf(row) {
     day: shortDay(row?.saved_at), unread: !row?.read_at, area: row?.business_area_id || null, state: BODY_STATES.includes(row?.body_state) ? row.body_state : 'pending'};
 }
 
-// ---- 한 목록(S68-24 READ-보관하나로, 명진 11/22 "2. A"): 읽을 거리 줄 + News에서 보관한 글(now-saved.js readSavedRows 결과) ----
-// 두 자료는 각자 표 그대로 읽어 화면에서만 합친다(복사·이전 없음). News 쪽은 News 기능 키가 있는 사람만 부르는 쪽이 넘긴다(없으면 []).
-// 줄(entry): {src:'reading', key:id, at, row, news:[{type,id}]}  — 같은 주소의 보관한 글이 있으면 news에 붙여 한 줄(읽을 거리 우선, 꼬리표 둘)
-//          | {src:'news', key:'news:<id>'|'outside:<id>', type, id, at, url, title, site, day}
-// 주소 비교: https로, 사이트 이름은 소문자·www. 빼고, 끝 '/'와 #뒤는 뺀다(물음표 뒤는 그대로 — 다른 글일 수 있음).
-export function urlKey(url) {
-  const raw = String(url ?? '').trim().replace(/^http:\/\//i, 'https://');
-  let u;
-  try { u = new URL(raw); } catch { return ''; }
-  if (u.protocol !== 'https:') return '';
-  const path = u.pathname.replace(/\/+$/, '');
-  return `${u.hostname.toLowerCase().replace(/^www\./, '')}${path}${u.search}`;
+// ---- 한 목록(S68-27 READ-보관기록일원화, 명진 11/22 "2. A" → 21:37 "저장된 기록도 일원화") ----
+// 보관의 원본은 이 표 하나다(DB 20261122230000). News에서 보관한 글도 이 표의 줄이고, 원래 글 연결 칸(news_article_id·outside_article_id)과
+// 어디서 왔나(origin: direct·news·outside)를 가진다. 화면은 이 표만 읽는다(두 곳을 합치지 않음).
+// 줄(entry): {key: 줄 id, at: 저장 시각, row, link: {type:'news'|'outside', id} | null}
+export function linkOf(row) {
+  if (isId(row?.news_article_id)) return {type: 'news', id: row.news_article_id};
+  if (isId(row?.outside_article_id)) return {type: 'outside', id: row.outside_article_id};
+  return null;
 }
-export function newsEntry(saved, nameOf = () => null) {
-  if (!saved || !isId(saved.id) || !['news', 'outside'].includes(saved.type)) return null;
-  const l = savedLine(saved, nameOf);
-  return {src: 'news', key: l.key, type: saved.type, id: saved.id, at: saved.at || '', url: saved.row?.url || '', title: l.title, site: l.media || '', day: l.day || ''};
-}
-export function mergeEntries(rows, saved = [], nameOf = () => null) {
-  const reading = (Array.isArray(rows) ? rows : []).filter(r => r?.id).map(row => ({src: 'reading', key: row.id, at: row.saved_at || '', row, news: []}));
-  const byUrl = new Map();
-  for (const e of reading) { const k = urlKey(e.row.url); if (k && !byUrl.has(k)) byUrl.set(k, e); }
-  const out = [...reading], seen = new Set();
-  for (const s of Array.isArray(saved) ? saved : []) {
-    const e = newsEntry(s, nameOf);
-    if (!e || seen.has(e.key)) continue;
-    seen.add(e.key);
-    const same = byUrl.get(urlKey(e.url));
-    if (same) same.news.push({type: e.type, id: e.id});
-    else out.push(e);
-  }
-  return out.sort((a, b) => String(b.at).localeCompare(String(a.at)) || String(a.key).localeCompare(String(b.key)));
+export const linkKey = link => (link ? `${link.type}:${link.id}` : '');
+export function entriesOf(rows) {
+  return (Array.isArray(rows) ? rows : []).filter(r => typeof r?.id === 'string' && r.id).map(row => ({key: row.id, at: row.saved_at || '', row, link: linkOf(row)}))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)) || String(a.key).localeCompare(String(b.key)));
 }
 // 밑줄 표(app_news_highlights) 줄 → '종류:id' 묶음(읽을 거리 'reading:<id>', News 'news:<id>'·'outside:<id>').
 export const markKeysOf = list => new Set((Array.isArray(list) ? list : []).filter(h => h?.source_type && h?.source_id).map(h => `${h.source_type}:${h.source_id}`));
-export function entryMarked(e, keys = new Set()) {
-  if (e?.src === 'news') return keys.has(e.key);
-  return keys.has(`reading:${e?.key}`) || (e?.news || []).some(n => keys.has(`${n.type}:${n.id}`));
-}
-export const entryUnread = e => e?.src === 'reading' && !e.row?.read_at;
-export const entryNews = e => e?.src === 'news' || (e?.news || []).length > 0;
-// 거르기. 안 읽음은 읽을 거리 줄만(보관한 글은 이미 본 글을 별표한 것이라 '안 읽음'에 넣지 않는다).
+// 밑줄: 이 줄에 그은 것(reading) 또는 News에서 원래 글에 그은 것(연결 칸으로 찾음 — 밑줄 행은 원래 글을 가리킨 그대로).
+export const entryMarked = (e, keys = new Set()) => keys.has(`reading:${e?.key}`) || (!!e?.link && keys.has(linkKey(e.link)));
+export const entryUnread = e => !!e?.row && !e.row.read_at;
+export const entryNews = e => !!e?.link;
+// 거르기.
 export function filterEntries(entries, filter, keys = new Set(), newsOn = false) {
   const f = keepFilter(filter, newsOn), list = Array.isArray(entries) ? entries : [];
   if (f === 'unread') return list.filter(entryUnread);

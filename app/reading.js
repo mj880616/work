@@ -4,11 +4,12 @@
 //   + [밑줄을 노트로](밑줄 문장 + 출처 → 기존 노트 만들기 길) · [사업에 연결](공용 사업영역 고르기 창) · [읽음]. 폰은 목록 대신(뒤로 = 목록), 761px~는 오른쪽 칸.
 // - 원래 페이지 링크는 늘 보인다. 저장·원문 받기 실패는 한 줄 상태로. 원문은 글자로만 그린다(textContent — HTML·스크립트 실행 없음).
 // - 서버 저장만(reading-data.js, owner RLS). 기기 저장 없음.
-// - S68-24 READ-보관하나로(명진 11/22 "2. A"): News 기능 키('outside', 서버 허용 표)가 있는 사람만 News에서 보관한 글(now-saved.js readSavedRows — News와 같은 읽기·RLS)도
-//   이 목록에 시각순으로 함께, 줄에 작은 'News' 꼬리표 + 칩 [News]. 같은 주소는 한 줄(읽을 거리 우선, 꼬리표 둘). 줄을 누르면 News 지금 글 보기(원문·밑줄)를
-//   라우터 openFrom으로 열어 뒤로 한 번 = 읽을 거리. ⋯ [보관 풀기]는 News와 같은 dropSaved. 두 자료는 각자 표 그대로(복사·이전 없음).
-//   키가 없거나 답을 모르면 News 쪽은 부르지도 그리지도 않는다(서버가 거절하는 길을 부르지 않음, News 모듈도 불러오지 않음).
-import {keepFilter, filterEntries, filterOptions, nextFilter, mergeEntries, markKeysOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId} from './reading-model.mjs';
+// - S68-27 READ-보관기록일원화(명진 11/22 "2. A" → 21:37 "저장된 기록도 일원화 하지 왜?"): 보관의 원본은 이 표(app_reading_items) 하나다.
+//   News에서 보관한 글도 이 표의 줄(원래 글 연결 칸 news_article_id·outside_article_id, DB 20261122230000)이라 목록은 이 표만 읽는다(두 곳 합치기 없음).
+//   연결된 줄은 작은 'News' 꼬리표 + 칩 [News](News 기능 키 'outside'가 있는 사람만). 그런 사람이 연결된 줄을 누르면 News 지금 글 보기(원문·밑줄)를
+//   라우터 openFrom으로 열어 뒤로 한 번 = 읽을 거리. ⋯ [보관 풀기]는 News 줄 ★과 같은 dropSaved(서버 함수 app_reading_keep, 5초 되돌리기).
+//   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 지우기는 읽을 거리 지우기).
+import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, markKeysOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, fetchBody, fetching} from './reading-data.js';
 import {loadHighlights, highlightsNow, sourceHighlights, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark} from './text-highlights.js';
 import {bindSelectZone} from './text-select-bar.js';
@@ -33,13 +34,13 @@ function install() {
 }
 
 const state = {rows: [], loaded: false, failed: false, filter: 'unread', open: null, body: null, bodyFor: null, adding: false, addError: '', lines: new Map(), scope: '',
-  newsOn: false, saved: []};
+  newsOn: false};
 const scopeNow = () => { const c = window.KPTURuntime?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const rowOf = id => state.rows.find(r => r.id === id) || null;
 const markKeys = () => markKeysOf(highlightsNow() || []);
-const nameOf = key => window.KPTUOutside?.sourceName?.(key) || null;
-const entriesNow = () => mergeEntries(state.rows, state.newsOn ? state.saved : [], nameOf);
-const savedOf = key => (state.newsOn ? state.saved.find(r => `${r.type}:${r.id}` === key) : null) || null;
+const entriesNow = () => entriesOf(state.rows);
+// News에서 열 수 있는 줄의 원래 글({type,id}) — News 기능 키가 있을 때만.
+const newsLinkOf = id => (state.newsOn ? linkOf(rowOf(id)) : null);
 let layer = null;
 
 // News 기능 키가 있다는 답일 때만 true(모르면 false — 그 사람에게 서버가 거절할 수 있는 길을 부르지 않는다).
@@ -47,19 +48,10 @@ async function newsAllowed() {
   const features = await myFeaturesOrNull().catch(() => null);
   return Array.isArray(features) && features.includes('outside');
 }
-// 보관한 글 읽기(News와 같은 길). 못 읽으면 지난 목록 그대로(읽을 거리 목록은 막지 않음).
-async function loadSaved() {
-  if (!state.newsOn) { state.saved = []; return; }
-  try {
-    const {readSavedRows} = await import('./now-saved.js');
-    const got = await readSavedRows();
-    if (Array.isArray(got)) state.saved = got;
-  } catch { /* 지난 목록 그대로 */ }
-}
 async function load() {
-  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; state.saved = []; }
+  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; }
   const scope = state.scope;
-  const news = newsAllowed().then(on => { if (scope !== state.scope) return; state.newsOn = on; if (!on && state.filter === 'news') state.filter = 'unread'; return loadSaved(); }).catch(() => {});
+  const news = newsAllowed().then(on => { if (scope !== state.scope) return; state.newsOn = on; if (!on && state.filter === 'news') state.filter = 'unread'; }).catch(() => {});
   try { state.rows = await listItems(); state.failed = false; state.loaded = true; }
   catch { state.failed = true; }
   await news;
@@ -88,7 +80,7 @@ const areaText = id => (id && areaNames ? areaNames(id) : '');
 // ---------- 목록 ----------
 let chipsHost = null;
 const newsTag = () => el('span', 'rd-tag rd-src-tag', 'News');
-function readingRowEl(e) {
+function rowEl(e) {
   const row = e.row, l = lineOf(row);
   const r = el('div', 'rd-row');
   r.dataset.rdOpen = row.id; r.dataset.rdPick = row.id; r.tabIndex = 0; r.setAttribute('role', 'button');
@@ -99,30 +91,17 @@ function readingRowEl(e) {
   const meta = el('span', 'rd-meta', [l.site, l.day].filter(Boolean).join(' · '));
   const more = btn('rd-more icon-btn', '⋯', {rdMore: row.id}); more.setAttribute('aria-label', '읽을 거리 메뉴: ' + l.title); more.setAttribute('aria-expanded', 'false');
   r.append(dot, title, meta, more);
-  const tag = areaText(l.area), both = e.news.length > 0;
+  const tag = areaText(l.area), news = !!e.link;
   const line = state.lines.get(row.id) || (fetching(row.id) ? stateLine(row, {busy: true}) : '');
-  if (tag || line || both) {
+  if (tag || line || news) {
     const sub = el('span', 'rd-sub');
-    // 같은 주소를 News에서도 보관했으면 꼬리표 둘(읽을 거리 · News) — 줄은 읽을 거리 보기로 연다.
-    if (both) sub.append(el('span', 'rd-tag rd-src-tag', '읽을 거리'), newsTag());
+    // News에서 보관한 줄(원래 글 연결이 있음)은 꼬리표 'News'.
+    if (news) { sub.append(newsTag()); r.classList.add('rd-row-news'); }
     if (tag) sub.append(el('span', 'rd-tag', tag));
     if (line) sub.append(el('span', 'rd-line', line));
     r.append(sub);
   }
-  r.setAttribute('aria-label', `${l.unread ? '안 읽음 · ' : ''}${l.title}${l.site ? ' · ' + l.site : ''}${both ? ' · News에도 보관' : ''}`);
-  return r;
-}
-// News에서 보관한 글 줄: 점 자리는 비우고 제목 · 매체 · 날짜, 꼬리표 'News'. 누르면 News 글 보기.
-function newsRowEl(e) {
-  const r = el('div', 'rd-row rd-row-news');
-  r.dataset.rdNews = e.key; r.dataset.rdPick = e.key; r.tabIndex = 0; r.setAttribute('role', 'button');
-  const dot = el('span', 'rd-dot'); dot.setAttribute('aria-hidden', 'true');
-  const more = btn('rd-more icon-btn', '⋯', {rdMore: e.key}); more.setAttribute('aria-label', 'News 보관 글 메뉴: ' + e.title); more.setAttribute('aria-expanded', 'false');
-  r.append(dot, el('span', 'rd-nm', e.title), el('span', 'rd-meta', [e.site, e.day].filter(Boolean).join(' · ')), more);
-  const sub = el('span', 'rd-sub');
-  sub.append(newsTag());
-  r.append(sub);
-  r.setAttribute('aria-label', `News 보관 · ${e.title}${e.site ? ' · ' + e.site : ''}`);
+  r.setAttribute('aria-label', `${l.unread ? '안 읽음 · ' : ''}${l.title}${l.site ? ' · ' + l.site : ''}${news ? ' · News에서 보관' : ''}`);
   return r;
 }
 function drawList() {
@@ -162,7 +141,7 @@ function drawList() {
   const shown = filterEntries(entries, state.filter, keys, state.newsOn);
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
-  for (const e of shown) list.append(e.src === 'news' ? newsRowEl(e) : readingRowEl(e));
+  for (const e of shown) list.append(rowEl(e));
   if (!shown.length) list.append(emptyEl(emptyText(keepFilter(state.filter, state.newsOn), entries.length)));
   parts.push(list);
   box.replaceChildren(...parts);
@@ -308,22 +287,22 @@ async function remove(id, anchor) {
   draw();
 }
 
-// News 보관 글 열기: 라우터 openFrom(화면을 다 불러온 뒤 기록 1칸, News 상세가 같은 칸을 씀) → 뒤로가기 한 번 = 읽을 거리. 새 보기 없이 News 지금 글 보기 그대로.
-async function openNews(sv) {
+// News에서 보관한 줄 열기: 라우터 openFrom(화면을 다 불러온 뒤 기록 1칸, News 상세가 같은 칸을 씀) → 뒤로가기 한 번 = 읽을 거리. 새 보기 없이 News 지금 글 보기 그대로.
+async function openNews(link) {
   const router = window.KPTURouter;
-  if (!sv || !router?.openFrom) return;
-  const ok = await router.openFrom('outside', () => window.KPTUOutside?.openItem?.({type: sv.type, id: sv.id}) ?? false).catch(() => false);
+  if (!link || !router?.openFrom) return;
+  const ok = await router.openFrom('outside', () => window.KPTUOutside?.openItem?.({type: link.type, id: link.id}) ?? false).catch(() => false);
   if (ok === false && window.KPTURouter?.current === 'reading') notify('News에서 열지 못했어요 · 잠시 뒤 다시', {error: true, record: false});
 }
-// 보관 풀기: News 줄 ★·밀기와 같은 dropSaved(5초 [되돌리기], 되돌리면 원래 별표 시각·폴더로).
-async function releaseSaved(sv) {
-  if (!state.newsOn || !sv) return;
-  const item = {type: sv.type, id: sv.id};
+// 보관 풀기(News에서 보관한 줄): News 줄 ★·밀기와 같은 dropSaved — 서버 함수가 이 줄을 지우고 별표 폴더를 비운다. 5초 [되돌리기]는 원래 저장 시각으로.
+async function releaseSaved(id) {
+  const link = newsLinkOf(id);
+  if (!link) return;
   try {
     const {dropSaved} = await import('./now-row-acts.js');
-    await dropSaved(item, {saved: true, changed: (it, kind, on) => {
-      if (kind === 'release') state.saved = state.saved.filter(r => !(r.type === it.type && r.id === it.id));
-      else if (kind === 'save' && on) void loadSaved().then(() => { if (here()) draw(); });
+    await dropSaved(link, {saved: true, changed: (it, kind, on) => {
+      if (kind === 'release') { state.rows = state.rows.filter(r => r.id !== id); if (state.open === id) closeDetail(); }
+      else if (kind === 'save' && on) void load().then(() => { if (here()) draw(); });
       if (window.KPTURouter?.current === 'reading') drawList();
     }});
   } catch { notify('보관을 풀지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
@@ -333,14 +312,16 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
   key: t => t.dataset.rdMore || '',
   row: t => t.closest('.rd-row'),
   render: id => {
-    if (savedOf(id)) return '<button type="button" class="row-act" data-rd-act="news-open">News에서 열기</button><button type="button" class="row-act" data-rd-act="release">보관 풀기</button>';
     const row = rowOf(id);
     if (!row) return '';
-    return `<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">사업에 연결</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
+    const news = newsLinkOf(id);
+    // News에서 보관한 줄(키가 있을 때): [News에서 열기] … [보관 풀기]. 그 밖은 [삭제].
+    return `${news ? '<button type="button" class="row-act" data-rd-act="news-open">News에서 열기</button>' : ''}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">사업에 연결</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}${news ? '<button type="button" class="row-act feed-menu-danger" data-rd-act="release">보관 풀기</button>' : '<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>'}`;
   },
   onAction: (button, active) => {
     const id = active.id, act = button.dataset.rdAct, at = view()?.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || null;
-    if (act === 'news-open' || act === 'release') { const sv = savedOf(id); if (sv) void (act === 'release' ? releaseSaved(sv) : openNews(sv)); return; }
+    if (act === 'news-open') { const link = newsLinkOf(id); if (link) void openNews(link); return; }
+    if (act === 'release') { void releaseSaved(id); return; }
     const row = rowOf(id);
     if (!row) return;
     if (act === 'read') void toggleRead(id, !row.read_at);
@@ -373,14 +354,15 @@ function bindRows(box) {
   bindRowSwipe(box, {row: '.rd-row[data-rd-pick]', enabled: () => state.loaded && !state.adding,
     actions: el => {
       const key = keyOf(el);
-      if (savedOf(key)) return {start: PICK, end: [{key: 'release', label: '보관 풀기', tone: 'muted'}]};
       const row = rowOf(key);
       if (!row) return null;
-      return {start: PICK, end: [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, row.read_at ? {key: 'unread', label: '안 읽음으로', tone: 'muted', icon: 'undo'} : {key: 'read', label: '읽음', tone: 'info', icon: 'done'}]};
+      const readAct = row.read_at ? {key: 'unread', label: '안 읽음으로', tone: 'muted', icon: 'undo'} : {key: 'read', label: '읽음', tone: 'info', icon: 'done'};
+      // 보관함 합치기(DB 20261122230000) 뒤 News 보관 글도 같은 줄 — [보관 풀기]를 앞에 더한다(⋯ 메뉴와 같음).
+      return {start: PICK, end: newsLinkOf(key) ? [{key: 'release', label: '보관 풀기', tone: 'muted'}, readAct] : [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, readAct]};
     },
     run: (key, el) => {
-      const id = keyOf(el), sv = savedOf(id);
-      if (key === 'release') { if (sv) void releaseSaved(sv); return; }
+      const id = keyOf(el);
+      if (key === 'release') { if (newsLinkOf(id)) void releaseSaved(id); return; }
       const row = rowOf(id);
       if (!row) return;
       if (key === 'read' || key === 'unread') void toggleRead(id, key === 'read');
@@ -391,7 +373,7 @@ function bindRows(box) {
       run: async (key, ids) => {
         for (const id of ids) {
           if (key === 'read') { const row = rowOf(id); if (row && !row.read_at) await toggleRead(id, true); }
-          else if (key === 'release') { const sv = savedOf(id); if (sv) await releaseSaved(sv); }
+          else if (key === 'release') { if (newsLinkOf(id)) await releaseSaved(id); }
         }
       }}});
 }
@@ -418,11 +400,9 @@ function bind() {
     const read = t.closest?.('[data-rd-read]');
     if (read && state.open) { void toggleRead(state.open, read.dataset.rdRead === '1'); return; }
     const open = t.closest?.('[data-rd-open]');
-    if (open && !t.closest('a,button,input')) { void openItem(open.dataset.rdOpen); return; }
-    const news = t.closest?.('[data-rd-news]');
-    if (news && !t.closest('a,button,input')) { const sv = savedOf(news.dataset.rdNews); if (sv) void openNews(sv); }
+    if (open && !t.closest('a,button,input')) { const link = newsLinkOf(open.dataset.rdOpen); void (link ? openNews(link) : openItem(open.dataset.rdOpen)); return; }
   });
-  v.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.(':is([data-rd-open],[data-rd-news])[role=button]')) { e.preventDefault(); e.target.click(); } });
+  v.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-rd-open][role=button]')) { e.preventDefault(); e.target.click(); } });
   v.addEventListener('submit', e => {
     const form = e.target.closest?.('[data-rd-form]');
     if (!form) return;

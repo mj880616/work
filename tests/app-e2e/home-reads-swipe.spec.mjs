@@ -3,7 +3,8 @@ import { openHome } from './helpers/home-entry.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
 // HOME-읽을글밀기(2026-11-11 명진 요청): 홈 [하루] '읽을 만한 글' 줄을 왼쪽으로 밀면 숨기기(뉴스 글 hidden_at), 오른쪽으로 밀면 보관(뉴스 글 별표) —
 // 어느 쪽이든 홈에서 바로 빠지고(서버 표시를 읽어 거름), 알림 [되돌리기]가 돌려 놓는다. PC는 마우스 단추·우클릭 같은 두 항목. 다 처리하면 '다 읽었어요' 한 줄.
-// 가짜 서버만 쓴다: ai-assist(home_day_picks), 표 app_home_day_picks(읽기), 내 뉴스 표시 app_news_marks(읽기·고치기, NEWS-모두에게열기 ③), 환류 app_news_now_signals(더하기). 글은 모두 가짜.
+// 가짜 서버만 쓴다: ai-assist(home_day_picks), 표 app_home_day_picks(읽기), 내 뉴스 표시 app_news_marks(숨김 읽기·고치기, NEWS-모두에게열기 ③),
+// 내 읽을 거리 app_reading_items(보관 읽기)·보관 함수 app_reading_keep(S68-27), 환류 app_news_now_signals(더하기). 글은 모두 가짜.
 // 시계: 2026-10-06 19:30 KST(home-day-picks.spec.mjs와 같음).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const EVENING = '2026-10-06T10:30:00Z';
@@ -14,10 +15,10 @@ const ROW = { day: '2026-10-06', reads: READS, reads_at: '2026-10-06T10:00:00Z',
 // gate.hold: 처리 표시 읽기(뉴스 줄 GET)를 붙잡아 느린 서버를 흉내 낸다. ask: 서버 고르기 답을 붙잡았다가 ask.row로 돌려준다.
 async function boot(page, width, height, { marks = {}, gate = null, ask = null } = {}) {
   await page.setViewportSize({ width, height });
-  const errors = [], patches = [], signals = [], reads = [];
+  const errors = [], patches = [], signals = [], reads = [], keeps = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
-  // 서버의 뉴스 줄 표시(숨김·별표). 테스트가 직접 고치면 '다른 기기에서 처리함'이다.
+  // 서버의 뉴스 줄 표시(숨김)와 보관(starred_at = 그 글을 가리키는 내 읽을 거리 줄의 저장 시각). 테스트가 직접 고치면 '다른 기기에서 처리함'이다.
   const news = new Map(READS.map(r => [r.id, { id: r.id, hidden_at: null, starred_at: null, ...(marks[r.id] || {}) }]));
   const beforeLoad = async () => {
     await page.route(u => u.origin === SB && u.pathname === '/functions/v1/ai-assist', async r => {
@@ -36,16 +37,33 @@ async function boot(page, width, height, { marks = {}, gate = null, ask = null }
         const ids = (/^in\.\((.*)\)$/.exec(q.get('article_id') || '')?.[1] || '').split(',').filter(Boolean);
         reads.push(ids);
         if (gate?.hold) await gate.hold;
-        return r.fulfill({ json: ids.map(i => news.get(i)).filter(Boolean).map(({ id, hidden_at, starred_at }) => ({ article_id: id, hidden_at, starred_at })) });
+        return r.fulfill({ json: ids.map(i => news.get(i)).filter(Boolean).map(({ id, hidden_at }) => ({ article_id: id, hidden_at })) });
       }
       if (req.method() === 'PATCH') {
         expect(q.get('workspace_id')).toBe('eq.w');
         const id = (q.get('article_id') || '').replace(/^eq\./, ''), body = req.postDataJSON(), row = news.get(id);
         if (!row) return r.fulfill({ json: [] });
         patches.push({ id, body }); Object.assign(row, body);
-        return r.fulfill({ json: [{ article_id: row.id, starred_at: row.starred_at, folder_id: null, hidden_at: row.hidden_at ?? null }] });
+        return r.fulfill({ json: [{ article_id: row.id, folder_id: null, hidden_at: row.hidden_at ?? null }] });
       }
       return r.fallback();
+    });
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_reading_items', async r => {
+      const req = r.request(), q = new URL(req.url()).searchParams;
+      if (req.method() !== 'GET' || !q.has('news_article_id')) return r.fallback();
+      expect(q.get('workspace_id')).toBe('eq.w');
+      const ids = (/^in\.\((.*)\)$/.exec(q.get('news_article_id') || '')?.[1] || '').split(',').filter(Boolean);
+      if (gate?.hold) await gate.hold;
+      return r.fulfill({ json: ids.map(i => news.get(i)).filter(row => row?.starred_at).map(row => ({ news_article_id: row.id, saved_at: row.starred_at })) });
+    });
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/rpc/app_reading_keep', async r => {
+      const body = r.request().postDataJSON(), row = news.get(body.p_article);
+      expect(body.p_workspace).toBe('w');
+      keeps.push(body);
+      if (!row) return r.fulfill({ status: 400, json: { code: '22023', message: 'READINGKEEP_ARTICLE' } });
+      const was = row.starred_at;
+      row.starred_at = body.p_on ? (was || body.p_saved_at || new Date().toISOString()) : null;
+      return r.fulfill({ json: body.p_on ? { ok: true, on: true, id: 'r-' + row.id, saved_at: row.starred_at, created: !was } : { ok: true, on: false, removed: was ? 1 : 0, saved_at: was } });
     });
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_news_now_signals', async r => {
       if (r.request().method() !== 'POST') return r.fallback();
@@ -53,7 +71,7 @@ async function boot(page, width, height, { marks = {}, gate = null, ask = null }
     });
   };
   await openHome(page, { beforeLoad, now: EVENING });
-  return { errors, patches, signals, reads, news };
+  return { errors, patches, signals, reads, news, keeps };
 }
 const reads = page => page.locator('#journalRoot [data-journal-reads]');
 const item = (page, n) => page.locator(`#journalRoot [data-journal-read="${uid(n)}"]`);
@@ -106,14 +124,14 @@ test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되
 
   await swipeTap(page, item(page, 2), 'save');
   await expect(item(page, 2)).toHaveCount(0);
-  expect(f.patches.at(-1).id).toBe(uid(2));
-  expect(Object.keys(f.patches.at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
-  expect(f.patches.at(-1).body.starred_at).toBeTruthy();
+  // S68-27: 보관 = 내 읽을 거리 한 줄(서버 함수) — 표시 표의 별표 칸에는 쓰지 않는다.
+  expect(f.keeps.at(-1)).toEqual({ p_workspace: 'w', p_source: 'news', p_article: uid(2), p_on: true, p_saved_at: null });
+  expect(f.patches.some(p => 'starred_at' in p.body)).toBe(false);
   await expect.poll(() => f.signals.some(s => s.article_id === uid(2) && s.action === 'star')).toBe(true);
   expect(await noticeText(page)).toBe('보관했어요');
   await page.locator('#kptuNotice .kptu-notice-undo').click();
   await expect(item(page, 2)).toBeVisible();
-  expect(f.patches.at(-1).body).toMatchObject({ starred_at: null });
+  expect(f.keeps.at(-1)).toMatchObject({ p_article: uid(2), p_on: false });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(f.errors).toEqual([]);
 });
@@ -224,8 +242,7 @@ test('PC 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러서 보�
   await expect(first.locator('[data-now-act="hide"]')).toBeVisible();
   await first.locator('[data-now-act="save"]').click();
   await expect(item(page, 1)).toHaveCount(0);
-  expect(f.patches.at(-1)).toMatchObject({ id: uid(1) });
-  expect(f.patches.at(-1).body.starred_at).toBeTruthy();
+  expect(f.keeps.at(-1)).toMatchObject({ p_article: uid(1), p_on: true });
   expect(await noticeText(page)).toBe('보관했어요');
 
   const second = item(page, 2);
