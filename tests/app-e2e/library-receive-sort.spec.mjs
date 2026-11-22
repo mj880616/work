@@ -171,8 +171,8 @@ test.describe('PC 1280 S68-16 AI 묶음 진행·실패',()=>{
     await expect(row(page,LOOSE[0].id).locator('.lu-sort-pick')).toContainText('가상 교섭 › 가상 회의');
     await expect(modal(page).locator('#librarySortSub')).toContainText('나머지 13개는 AI가 보고 있어요(10/23)');
     await expect(waits(page)).toHaveCount(13);
-    // 근거 없는 그림 2개는 처음부터 그대로 둬요(근거 없음).
-    for(const d of PASTE)await expect(row(page,d.id).locator('.lu-sort-why')).toHaveText('근거 없음 — 직접 선택');
+    // 근거 없는 그림 2개(이름도 기본, 그림 글자도 없음)는 AI에 보내지 않고 그림 모음 새 폴더(맨 위, 체크 꺼짐) — S68-18.
+    for(const d of PASTE){await expect(row(page,d.id).locator('.lu-sort-why')).toHaveText('근거가 없어 그림끼리 모아요');await expect(row(page,d.id).locator('.lu-sort-pick').first()).toContainText('그림 모음');await expect(row(page,d.id).locator('.lu-sort-check')).not.toBeChecked()}
     release();
     await expect(waits(page)).toHaveCount(0);
     expect(s.aiBodies.map(b=>b.document_ids.length)).toEqual([10,10,3]);
@@ -180,7 +180,7 @@ test.describe('PC 1280 S68-16 AI 묶음 진행·실패',()=>{
     await expect(row(page,LOOSE[10].id).locator('.lu-sort-why')).toHaveText('AI 답이 늦어 건너뛰었어요 — 직접 선택');
     await expect(row(page,LOOSE[22].id).locator('.lu-sort-pick')).toContainText('가상 교섭 › 가상 회의');
     await expect(modal(page).locator('#librarySortStatus')).toHaveText('AI 제안을 일부 받지 못했어요. 그 줄은 폴더를 직접 선택해 주세요.');
-    await expect(modal(page).locator('#librarySortSub')).toHaveText('25개 중 13개는 있는 폴더를 제안해요 · 그대로 둬요 12개. 체크한 것만 옮겨요.');
+    await expect(modal(page).locator('#librarySortSub')).toHaveText('25개 중 13개는 있는 폴더, 2개는 새 폴더를 제안해요 · 그대로 둬요 10개. 체크한 것만 옮겨요.');
     await expect(modal(page).locator('[data-sort-apply]')).toHaveText('선택한 13개 옮기기');
     expect(s.writes.filter(w=>w.method!=='GET')).toEqual([]);
     expect(errors).toEqual([]);
@@ -194,9 +194,63 @@ test.describe('PC 1280 S68-16 AI 묶음 진행·실패',()=>{
     await expect(modal(page).locator('#librarySortStatus')).toHaveText('AI 제안을 받지 못해 규칙으로 찾은 것만 보여요. 나머지는 폴더를 직접 선택해 주세요.');
     await expect(waits(page)).toHaveCount(0);
     expect(calls).toBe(1);
-    await expect(modal(page).locator('.lu-sort-stay summary')).toHaveText('어디에도 맞지 않는 25개 — 그대로 둬요');
+    await expect(modal(page).locator('.lu-sort-stay summary')).toHaveText('어디에도 맞지 않는 23개 — 그대로 둬요');
     await expect(row(page,LOOSE[22].id).locator('.lu-sort-why')).toHaveText('AI 답을 받지 못했어요 — 직접 선택');
     expect(s.writes.filter(w=>w.method!=='GET')).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
+
+// S68-18(명진 11/22 15:32): 이름이 기본 이름뿐인 그림은 그림 속 글자(서버가 읽어 둔 글자)로 폴더를 찾고, 못 찾으면 AI에 글자째 맡기고,
+// 그래도 모르면 그림만 모으는 폴더(이름에 '사진'이 든 기존 폴더)를 제안한다. 아직 안 읽은 그림은 글자 읽기를 서버에 맡긴다(기다리지 않음).
+test.describe('PC 1280 S68-18 그림 글자로 폴더 찾기',()=>{
+  test.use({hasTouch:false});
+  const PIC=u(4),OCR1=u(4001),OCR2=u(4002),UNREAD=u(4003),NAMED=u(4004);
+  const folders=[...FOLDERS,libFolder(PIC,null,{name:'가상 행사 사진',sort_order:3072})];
+  const png=(id,title)=>libDoc(id,null,{title,file_name:'paste.png',mime_type:'image/png'});
+  const docs=[png(OCR1,'붙여넣은 그림 11-13 03:38'),png(OCR2,'붙여넣은 그림 11-13 03:39'),png(UNREAD,'IMG_20261113_0340'),png(NAMED,'가상 현수막 시안')];
+  const items=docs.map(d=>({document_id:d.id,folder_id:RECV}));
+  const TEXT={[OCR1]:{extracted_text:'가상 회의 안내\n일시 …',extraction_status:'ready'},[OCR2]:{extracted_text:'가상 집회 현수막 문구',extraction_status:'ready'},[UNREAD]:{extracted_text:null,extraction_status:null}};
+  test('글자에 폴더 이름 → 그 폴더, 글자만 있으면 AI, 모르면 사진 폴더(체크 꺼짐), 안 읽은 그림은 글자 읽기 요청',async({page})=>{
+    const {s,errors}=await bootLibrary(page,1280,{folders,items,docs,group:'폴더',init:{viewPrefs:{library_two:false},receiveFolder:RECV}});
+    const textReads=[],textAsks=[];s.aiBodies=[];
+    await page.route('**/rest/v1/app_documents*',route=>{
+      const url=new URL(route.request().url());
+      if(route.request().method()!=='GET'||!/extracted_text/.test(url.searchParams.get('select')||''))return route.fallback();
+      const ids=String(url.searchParams.get('id')||'').replace(/^in\.\(|\)$/g,'').split(',');textReads.push(ids);
+      return route.fulfill({json:ids.filter(id=>TEXT[id]).map(id=>({id,file_name:'paste.png',mime_type:'image/png',...TEXT[id]}))});
+    });
+    await page.route('**/functions/v1/document-actions',route=>{if(route.request().method()==='OPTIONS')return route.fulfill({status:204,body:''});textAsks.push(route.request().postDataJSON());return route.fulfill({json:{ok:true,status:'ready'}})});
+    await page.route('**/functions/v1/ai-assist',route=>{
+      const req=route.request();if(req.method()==='OPTIONS')return route.fulfill({status:204,body:''});
+      s.aiBodies.push(req.postDataJSON());return route.fulfill({json:{ok:true,kind:'library_sort',items:[]}});
+    });
+    await enterReceive(page);
+    await page.locator('#libraryPath [data-lu-sort]').click();
+    await expect(modal(page).locator('.lu-sort-wait')).toHaveCount(0);
+    // 글자 읽기는 기본 이름 그림 3장만(이름이 있는 그림은 이름으로 판단).
+    expect(textReads.flat().sort()).toEqual([OCR1,OCR2,UNREAD].sort());
+    // ① 그림 글자에 폴더 이름 '가상 회의' → 그 폴더(체크 켜짐).
+    await expect(row(page,OCR1).locator('.lu-sort-pick')).toContainText('가상 교섭 › 가상 회의');
+    await expect(row(page,OCR1).locator('.lu-sort-why')).toHaveText("그림 글자: 제목에 폴더 이름 '가상 회의' 포함");
+    await expect(row(page,OCR1).locator('.lu-sort-check')).toBeChecked();
+    // ② 글자는 있으나 규칙이 못 찾은 그림·이름 있는 그림은 AI에(서버가 그 글자를 재료로 읽음). 안 읽은 기본 이름 그림은 보내지 않음.
+    expect(s.aiBodies.flatMap(b=>b.document_ids).sort()).toEqual([OCR2,NAMED].sort());
+    // ③ AI도 못 고르면 이름에 '사진'이 든 기존 폴더로(체크 꺼짐).
+    for(const id of [OCR2,NAMED]){await expect(row(page,id).locator('.lu-sort-pick')).toContainText('가상 행사 사진');await expect(row(page,id).locator('.lu-sort-why')).toHaveText('AI도 맞는 폴더를 찾지 못해 그림끼리 모아요');await expect(row(page,id).locator('.lu-sort-check')).not.toBeChecked()}
+    await expect(row(page,UNREAD).locator('.lu-sort-pick')).toContainText('가상 행사 사진');
+    await expect(row(page,UNREAD).locator('.lu-sort-why')).toHaveText('그림 글자를 읽기 시작했어요 — 지금은 그림끼리 모아요(다시 열면 글자로 찾아요)');
+    await expect.poll(()=>textAsks.length).toBe(1);
+    expect(textAsks[0]).toEqual({action:'document-text',document_id:UNREAD});
+    await expect(modal(page).locator('[data-sort-apply]')).toHaveText('선택한 1개 옮기기');
+    // 체크를 켜고 옮기면 사진 폴더로 옮긴다(새 폴더 없음).
+    await row(page,UNREAD).locator('.lu-sort-check').check();
+    await modal(page).locator('[data-sort-apply]').click();
+    await expect(modal(page)).toBeHidden();
+    expect(folderOf(s,OCR1)).toBe(HOE);
+    expect(folderOf(s,UNREAD)).toBe(PIC);
+    expect(folderOf(s,OCR2)).toBe(RECV);
+    expect(s.writes.filter(w=>w.table==='folders'&&w.method==='POST')).toEqual([]);
     expect(errors).toEqual([]);
   });
 });

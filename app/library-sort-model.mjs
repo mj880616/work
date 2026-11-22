@@ -44,31 +44,105 @@ export function ruleReasons(units,{docs=[],items=[],folders=[],receiveId,categor
 export function ruleSuggestions(units,opts={}){return new Map([...ruleReasons(units,opts)].map(([k,v])=>[k,v.folder]))}
 
 // 근거 없는 자료: 그림(사진 묶음 포함)인데 이름이 '붙여넣은 그림 11-13 03:38'·'IMG_1234'·'스크린샷'처럼 기본 이름뿐인 것.
-// 본문이 없고 이름에도 주제 낱말이 없어 규칙·AI 모두 판단할 근거가 없다 — AI에 보내지 않고(비용 절약) 처음부터 '직접 선택'.
+// S68-18(명진 11/22 15:32): 이름에 주제가 없어도 그림 속 글자(서버가 Drive OCR로 읽어 둔 app_documents.extracted_text, AI 비용 없음)가 있으면
+// 그 글자로 ① 규칙(글자 앞부분에 폴더 이름 포함·비슷한 제목)을 먼저 보고, 못 찾으면 ② AI에 보낸다(서버 library_sort가 그 글자 앞 300자를 이미 재료로 씀).
+// 이름도 기본이고 그림 글자도 없을 때만 근거 없음 — AI에 보내지 않고 그림 모음 폴더(imageHome)를 제안한다.
 const GENERIC_IMAGE=/붙여\s*넣은|그림|사진|이미지|스크린\s*샷|화면\s*캡처|캡처|캡쳐|제목\s*없음|카카오톡|screenshot|screen\s*shot|image|img|photo|pic|pasted|kakaotalk|untitled|dsc|pxl|jpe?g|png|heic|webp|gif|\d+/gi;
 export const WHY_NO_BASIS='근거 없음 — 직접 선택';
-export function noBasis(u){
-  if(!u)return false;
-  const d=u.doc||{},isImage=u.photoset||fileKindOf(d.file_name||u.title,d.mime_type)==='그림';
-  if(!isImage)return false;
+export const WHY_IMAGES='근거가 없어 그림끼리 모아요';
+export const WHY_IMAGES_AI='AI도 맞는 폴더를 찾지 못해 그림끼리 모아요';
+export const WHY_IMAGES_READING='그림 글자를 읽기 시작했어요 — 지금은 그림끼리 모아요(다시 열면 글자로 찾아요)';
+export const IMAGE_FOLDER_NAME='그림 모음';
+export const SORT_TEXT_HEAD=100; // 규칙에 쓰는 그림 글자 앞부분(글자 전체로 폴더 이름을 찾으면 우연히 든 낱말에 걸린다)
+export const SORT_OCR_MAX=6;     // 창을 열 때 아직 안 읽은 그림 글자 읽기를 맡기는 수(Drive OCR, AI 비용 없음)
+export const isImageUnit=u=>!!u&&(u.photoset||fileKindOf(u.doc?.file_name||u.title,u.doc?.mime_type)==='그림');
+// 이름이 기본 이름뿐인 그림(글자 확인 전).
+export function genericImage(u){
+  if(!isImageUnit(u))return false;
   const rest=cleanTitle(u.title).replace(GENERIC_IMAGE,' ').split(/[\s_\-·.,()[\]{}<>:;'"~!?/\\|&+=*#@%^]+/).filter(w=>[...w].length>=2);
   return !rest.length;
 }
+const hasText=t=>typeof t==='string'&&/[A-Za-z가-힣]{2,}/.test(t); // 숫자·기호뿐인 글자는 근거가 아니다
+// text: 그 자료의 그림 글자(없으면 빈 값). 기본 이름이고 글자도 없을 때만 근거 없음.
+export const noBasis=(u,text='')=>genericImage(u)&&!hasText(text);
+
+// 그림 글자가 필요한 자료(기본 이름 그림)의 실제 자료 id들(사진 묶음은 안 사진 모두).
+export const textIdsFor=units=>[...new Set(units.filter(genericImage).flatMap(u=>u.ids))];
+// 서버에서 읽은 행 [{id, extracted_text, extraction_status, file_name, mime_type}] → {texts: Map(unit.key → 글자), read:[아직 안 읽은 JPEG·PNG 자료 id, SORT_OCR_MAX개까지]}.
+// 사진 묶음은 안 사진 중 글자가 있는 첫 사진의 글자, 그 사진 id를 aiId로(AI에 그 사진을 보내야 서버가 그 글자를 읽는다).
+const OCR_OK=/\.(jpe?g|png)$/i;
+export function textsFrom(units,rows){
+  const byId=new Map((Array.isArray(rows)?rows:[]).filter(r=>r?.id).map(r=>[String(r.id).toLowerCase(),r]));
+  const texts=new Map(),aiIds=new Map(),read=[];
+  for(const u of units){
+    if(!genericImage(u))continue;
+    for(const id of u.ids){
+      const r=byId.get(String(id).toLowerCase());if(!r)continue;
+      if(r.extraction_status==='ready'&&hasText(r.extracted_text)){texts.set(u.key,String(r.extracted_text));aiIds.set(u.key,id);break}
+      const unread=!['ready','error'].includes(r.extraction_status),ocr=OCR_OK.test(String(r.file_name||''))||/^image\/(jpeg|png)$/i.test(String(r.mime_type||''));
+      if(unread&&ocr&&read.length<SORT_OCR_MAX&&!read.includes(id))read.push(id);
+    }
+  }
+  return {texts,aiIds,read};
+}
+// 그림 글자 앞부분을 제목처럼 써서 ① 규칙. 반환 Map(unit.key → {folder, why}) — 까닭 앞에 '그림 글자: '.
+export function textReasons(units,texts,{docs=[],items=[],folders=[],receiveId,categoryOf=c=>c}={}){
+  const open=targetFolders(folders,receiveId),rest=(Array.isArray(items)?items:[]).filter(x=>x?.folder_id!==receiveId);
+  const fake=units.filter(u=>texts.has(u.key)).map(u=>({id:'t:'+u.key,title:String(texts.get(u.key)).replace(/\s+/g,' ').trim().slice(0,SORT_TEXT_HEAD),category:u.category,project_id:u.project_id}));
+  const hit=folderSuggestionReasons(fake,{docs,items:rest,folders:open,categoryOf});
+  const out=new Map();for(const f of fake){const v=hit.get(f.id);if(v)out.set(f.id.slice(2),{folder:v.folder,why:'그림 글자: '+v.why})}
+  return out;
+}
+
+// 그림 모음 폴더: ㉠ 이름에 그림·사진·이미지·스크린샷·캡처가 든 기존 폴더(둘 이상이면 그림이 더 많이 든 것, 같으면 앞 차례)
+// ㉡ 아니면 든 자료가 3개 이상이고 80% 이상이 그림인 폴더(그림이 많은 것) ㉢ 없으면 null(→ 새 폴더 '그림 모음'을 맨 위에 제안 — 새 폴더 기본 자리와 같음).
+// 받는 폴더 자신·'회의 녹음' 폴더는 빼고, 놓을 수 있는 폴더(targetFolders)만.
+const IMAGE_FOLDER_RE=/그림|사진|이미지|스크린\s*샷|캡처|캡쳐|photo|image|picture/i;
+export function imageHome({docs=[],items=[],folders=[],receiveId}={}){
+  const open=targetFolders(folders,receiveId).filter(f=>String(f.name||'').trim()!==TIDY_SKIP_FOLDER),byDoc=new Map((Array.isArray(docs)?docs:[]).filter(d=>d?.id).map(d=>[d.id,d]));
+  const stat=new Map(open.map(f=>[f.id,{n:0,img:0}]));
+  for(const x of Array.isArray(items)?items:[]){const st=stat.get(x?.folder_id);if(!st)continue;const d=byDoc.get(x.document_id);if(!d||d.photoset)continue;st.n++;if(fileKindOf(d.file_name||d.title,d.mime_type)==='그림')st.img++}
+  const pick=list=>list.map((f,i)=>({f,i,img:stat.get(f.id).img})).sort((a,b)=>b.img-a.img||a.i-b.i)[0]?.f.id||null;
+  const named=open.filter(f=>IMAGE_FOLDER_RE.test(String(f.name||'')));
+  if(named.length)return pick(named);
+  return pick(open.filter(f=>{const st=stat.get(f.id);return st.n>=3&&st.img/st.n>=0.8}));
+}
+// 근거 없는 그림 줄(또는 AI도 못 고른 그림 줄)에 그림 모음 폴더 제안. home = 기존 폴더 id 또는 null(새 폴더 '그림 모음', 맨 위).
+// 체크는 기본 꺼짐(근거가 약하니 사람이 고른다). 같은 새 폴더는 한 묶음 — AI가 같은 이름·같은 자리를 제안했으면 그 묶음을 함께 쓴다.
+export function imageFallback(rows,groups,home,{why=WHY_IMAGES,only=null,folders=[]}={}){
+  const nextGroups=groups.map(g=>({...g}));let gid=null;
+  const target=()=>{
+    if(home)return {folder:home};
+    const same=(Array.isArray(folders)?folders:[]).find(f=>!f.parent_id&&String(f.name).trim()===IMAGE_FOLDER_NAME);
+    if(same)return {folder:same.id};
+    if(!gid){let g=nextGroups.find(x=>x.name===IMAGE_FOLDER_NAME&&(x.parent||null)===null);if(!g){g={gid:'img',name:IMAGE_FOLDER_NAME,parent:null};nextGroups.push(g)}gid=g.gid}
+    return {group:gid};
+  };
+  const nextRows=rows.map(r=>{
+    if(r.wait||r.to||!r.image||(only&&!only(r)))return r;
+    return {...r,to:target(),checked:false,why:typeof why==='function'?why(r):why,from:'image'};
+  });
+  return {rows:nextRows,groups:nextGroups};
+}
 
 // 제안 줄 만들기(①만). AI를 기다리는 줄은 to=null, wait=true.
-// 줄: {key, ids, title, kind, checked, to:{folder:id}|{group:gid}|null, why, wait, from:'rule'|'ai'|null}
-// rule 값은 폴더 id 또는 {folder, why}. 근거 없는 자료(noBasis)는 기다리지 않고 '그대로 둬요'(까닭 한 줄).
-export function startRows(units,rule){
+// 줄: {key, ids, title, image, checked, to:{folder:id}|{group:gid}|null, why, wait, from:'rule'|'ai'|'image'|null, aiId?}
+// rule 값은 폴더 id 또는 {folder, why}. texts(unit.key → 그림 글자)·aiIds(unit.key → 그 글자가 든 사진 id).
+// 근거 없는 자료(noBasis)는 기다리지 않고 곳 없음(nb) — 창이 imageFallback으로 그림 모음 폴더를 붙인다.
+export function startRows(units,rule,{texts=new Map(),aiIds=new Map()}={}){
   return units.map(u=>{
     const v=rule.get(u.key),f=typeof v==='string'?v:v?.folder||null,why=typeof v==='object'&&v?.why?v.why:'같은 낱말로 시작하는 자료가 이 폴더에 있어요';
-    if(f)return {key:u.key,ids:u.ids,title:u.title,photoset:u.photoset,checked:true,to:{folder:f},why,wait:false,from:'rule'};
-    const nb=noBasis(u);
-    return {key:u.key,ids:u.ids,title:u.title,photoset:u.photoset,checked:false,to:null,why:nb?WHY_NO_BASIS:'',wait:!nb,from:null,...(nb?{nb:true}:{})};
+    const base={key:u.key,ids:u.ids,title:u.title,photoset:u.photoset,image:isImageUnit(u),...(aiIds.has(u.key)?{aiId:aiIds.get(u.key)}:{})};
+    if(f)return {...base,checked:true,to:{folder:f},why,wait:false,from:'rule'};
+    const nb=noBasis(u,texts.get(u.key));
+    return {...base,checked:false,to:null,why:nb?WHY_NO_BASIS:'',wait:!nb,from:null,...(nb?{nb:true}:{})};
   });
 }
-// 서버 AI에 보낼 자료 id(사진 묶음은 첫 사진 하나), SORT_AI_BATCH개씩.
+// AI에 보내는 자료 id(사진 묶음은 그림 글자가 든 사진, 없으면 첫 사진).
+export const aiIdOf=r=>r?.aiId||r?.ids?.[0];
+// 서버 AI에 보낼 자료 id(사진 묶음은 그림 글자가 든 사진, 없으면 첫 사진 — aiIdOf), SORT_AI_BATCH개씩.
 export function aiBatches(rows){
-  const ids=rows.filter(r=>r.wait).map(r=>r.ids[0]).filter(id=>UUID.test(id||''));
+  const ids=rows.filter(r=>r.wait).map(aiIdOf).filter(id=>UUID.test(id||''));
   const out=[];for(let i=0;i<ids.length;i+=SORT_AI_BATCH)out.push(ids.slice(i,i+SORT_AI_BATCH));
   return out;
 }
@@ -82,7 +156,7 @@ export function mergeAi(rows,groups,answer,{folders=[],receiveId}={}){
   const nextRows=rows.map(r=>({...r})),nextGroups=groups.map(g=>({...g}));
   for(const r of nextRows){
     if(!r.wait)continue;
-    const it=byId.get(String(r.ids[0]||'').toLowerCase());if(!it)continue;
+    const it=byId.get(String(aiIdOf(r)||'').toLowerCase());if(!it)continue;
     const why=typeof it.why==='string'?it.why.trim().slice(0,80):'';
     if(it.folder_id&&ok.has(it.folder_id)){Object.assign(r,{to:{folder:it.folder_id},checked:true,why:why||'AI가 선택한 폴더예요',wait:false,from:'ai'});continue}
     const name=cleanFolderName(it.new?.name),parent=it.new?.parent_id||null;
@@ -98,7 +172,7 @@ export function mergeAi(rows,groups,answer,{folders=[],receiveId}={}){
 }
 // AI를 못 쓰면(실패·한도) 기다리던 줄은 '그대로 둬요'로. why를 주면 그 줄에 까닭 한 줄.
 // ids를 주면 그 자료(줄의 첫 id)가 든 줄만 — 묶음 하나가 실패·건너뜀이면 그 묶음 줄만 바로 넘긴다(영원히 '⋯' 없음).
-export const settleRows=(rows,why='',ids=null)=>{const only=ids?new Set(ids):null;return rows.map(r=>r.wait&&(!only||only.has(r.ids[0]))?{...r,wait:false,checked:false,to:null,...(why?{why}:{})}:r)};
+export const settleRows=(rows,why='',ids=null)=>{const only=ids?new Set(ids):null;return rows.map(r=>r.wait&&(!only||only.has(aiIdOf(r)))?{...r,wait:false,checked:false,to:null,...(why?{why}:{})}:r)};
 // 묶음 답 뒤 한 줄 까닭: 성공했는데 그 줄 답이 없으면 AI도 못 고른 것, 실패면 코드별.
 export const WHY_AI_NONE='AI도 맞는 폴더를 찾지 못했어요';
 export function aiFailWhy(code){
