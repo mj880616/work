@@ -57,8 +57,8 @@ export async function checkBuild(files) {
   };
   try {
     resetManifestMemo();
-    // Web2 is served on bokdoong.com only since DOMAIN-주소이전 ①-D1 (desk and work redirect there).
-    for (const host of ['bokdoong.com']) {
+    // S68-01: Web2 is served on workonplus.com (bokdoong.com and nojoplus.com show the moved notice).
+    for (const host of ['workonplus.com']) {
       for (const [file, v] of urls) {
         const response = await router.fetch(new Request(`https://${host}/work/${file}?v=${v}`), {}, { waitUntil() {} });
         if (response.headers.get('Cache-Control') !== 'public, max-age=31536000, immutable') errors.push(`(c) ${host} ${file}?v=${v}: ${response.status} ${response.headers.get('Cache-Control')}`);
