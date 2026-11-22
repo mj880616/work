@@ -1,31 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-한칸위젯디자인: 한 칸(1×1). 빠른 쓰기 큰 단추와 같은 모양 — 칸을 꽉 채우는 색 칠한 둥근 칸 + 28dp 그림 + 글자(빈 바탕 없음).
-     놓을 때 고른 기능 하나. 서버 요청 없음. 색은 기능마다 앱 테마 토큰(WidgetActions.tone). -->
+<!-- APP-한칸위젯 A(11/22): 한 칸(1×1). 앱 아이콘처럼 정사각 둥근 먹색 칸(48dp 고정, 가운데) + 흰 그림 28dp, 이름은 칸 아래 흰 글자 + 옅은 그림자.
+     홈 화면 격자가 세로로 길어도 칸은 늘지 않고 가운데 고정. 기능이 달라도 색은 먹색 하나. 놓을 때 고른 기능 하나. 서버 요청 없음. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/one_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_btn"
     android:clickable="true"
     android:focusable="true"
     android:gravity="center"
-    android:orientation="vertical"
-    android:padding="2dp">
+    android:orientation="vertical">
 
-    <ImageView
-        android:id="@+id/one_icon"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:importantForAccessibility="no"
-        android:src="@drawable/ic_w_update" />
+    <FrameLayout
+        android:id="@+id/one_tile"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/widget_one_tile">
+
+        <ImageView
+            android:id="@+id/one_icon"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="center"
+            android:importantForAccessibility="no"
+            android:tint="@color/widget_one_icon"
+            android:src="@drawable/ic_w_update" />
+    </FrameLayout>
 
     <TextView
         android:id="@+id/one_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingTop="2dp"
+        android:paddingTop="3dp"
         android:singleLine="true"
         android:ellipsize="end"
-        android:textColor="@color/widget_btn_ink"
+        android:shadowColor="#99000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="3"
+        android:textColor="@color/widget_one_label"
         android:textSize="12sp" />
 </LinearLayout>

@@ -26,4 +26,8 @@
     <color name="widget_btn_ink">#23486D</color>
     <!-- APP-위젯날짜고르기: 위젯 칸 누를 때 물결 색. -->
     <color name="widget_press">#332F5E8E</color>
+    <!-- APP-한칸위젯 A(11/22): 한 칸 위젯 먹색 칸(앱 테마 기본 먹 #22262b)·종이색 그림·흰 이름. -->
+    <color name="widget_one_bg">#22262B</color>
+    <color name="widget_one_icon">#F3F1EA</color>
+    <color name="widget_one_label">#FFFFFF</color>
 </resources>
