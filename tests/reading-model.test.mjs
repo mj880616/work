@@ -124,7 +124,8 @@ test('상태 한 줄과 [다시]: 받기 전·막힘·앞부분만, 막힌 주�
   assert.equal(stateLine({body_state: 'pending'}), '원문을 아직 가져오지 않았어요.');
   assert.equal(stateLine({body_state: 'pending'}, {busy: true}), '원문을 가져오는 중…');
   assert.equal(stateLine({body_state: 'paywall', body: '앞'}), '공개된 앞부분만 가져왔어요.');
-  assert.match(stateLine({body_state: 'robots'}), /읽기를 막아/);
+  assert.match(stateLine({body_state: 'bot_check'}), /읽기를 막아/);
+  assert.match(stateLine({body_state: 'robots'}), /다시 시도/); // S68-23: 옛 robots 상태는 다시 하면 읽힐 수 있다
   assert.match(stateLine({body_state: 'too_big'}), /너무 커서/);
   assert.equal(canRetry({body_state: 'failed'}), true);
   assert.equal(canRetry({body_state: 'blocked'}), false);

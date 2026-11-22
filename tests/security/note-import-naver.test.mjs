@@ -23,7 +23,7 @@ const NAVER=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>�
 첫째 ${s.repeat(3)}<br><br>둘째 ${s.repeat(4)}<br><br>셋째 ${s.repeat(2)}</article></div></div>
 <div class="_reactionModule">좋아요 훈훈해요 슬퍼요 화나요 후속기사 원해요</div><div class="media_end_copyright">Copyright ⓒ 합성일보. All rights reserved. 무단 전재 및 재배포 금지.</div></div></body></html>`;
 
-function world(robots){
+function world(robots,page=null){
  const outbound=[];
  const res=(v,st=200)=>new Response(v===null?null:JSON.stringify(v),{status:st,headers:{'content-type':'application/json'}});
  const doFetch=async(url,init={})=>{
@@ -37,6 +37,7 @@ function world(robots){
   }
   outbound.push(u.href);
   if(u.pathname==='/robots.txt')return robots==null?new Response('',{status:404}):new Response(robots,{status:200,headers:{'content-type':'text/plain'}});
+  if(u.href===PAGE&&page)return page();
   if(u.href===PAGE)return new Response(NAVER,{status:200,headers:{'content-type':'text/html;charset=UTF-8'}});
   return new Response('',{status:404});
  };
@@ -61,15 +62,26 @@ test('네이버 뉴스 모바일 기사: 본문 칸(#dic_area)의 <br> 문단을
  assert.ok(texts.some(t=>t.startsWith('셋째 ')),'셋째 문단');
  const all=texts.join('\n');
  assert.doesNotMatch(all,/훈훈해요|무단 전재|pstatic/,'좋아요 줄·저작권 줄·사진 주소는 본문이 아니다');
- // 읽은 곳은 robots.txt와 그 기사 둘뿐(다른 주소로 새지 않음).
- assert.deepEqual(w.outbound,[`https://${HOST}/robots.txt`,PAGE]);
+ // 읽은 곳은 그 기사 하나뿐(다른 주소로 새지 않음, robots.txt도 읽지 않음 — S68-23).
+ assert.deepEqual(w.outbound,[PAGE]);
 });
 
-test('네이버가 robots.txt로 읽기를 막아 두면 읽지 않는다(robots — 화면은 "이 사이트가 읽기를 막아 두었어요")',async()=>{
+test('S68-23: 네이버가 robots.txt로 자동 수집을 막아 두어도, 사람이 직접 저장한 기사 한 쪽은 읽는다(robots.txt는 부르지 않음)',async()=>{
  const w=world('User-agent: *\nDisallow: /\n');
  const {status,body}=await imp(w);
  assert.equal(status,200);
- assert.equal(body.state,'failed');assert.equal(body.reason,'robots');
- assert.deepEqual(body.blocks,[]);
- assert.deepEqual(w.outbound,[`https://${HOST}/robots.txt`],'기사 쪽은 부르지 않는다');
+ assert.equal(body.state,'ok',JSON.stringify(body.reason));
+ assert.equal(body.title,'합성 기사 제목');
+ assert.ok(body.blocks.some(b=>b.text.startsWith('첫째 ')));
+ assert.deepEqual(w.outbound,[PAGE],'robots.txt는 부르지 않고 기사만 한 번');
+});
+
+test('S68-23: 네이버가 봇 확인 화면·403을 주면 넘지 않고 bot_check(화면 "이 사이트가 읽기를 막아 두었어요")',async()=>{
+ for(const page of [()=>new Response('<html><head><title>Just a moment...</title></head><body>Just a moment...</body></html>',{status:200,headers:{'content-type':'text/html'}}),
+  ()=>new Response('<html><body>forbidden</body></html>',{status:403,headers:{'content-type':'text/html'}})]){
+  const w=world(null,page);
+  const {body}=await imp(w);
+  assert.equal(body.state,'failed');assert.equal(body.reason,'bot_check');assert.deepEqual(body.blocks,[]);
+  assert.deepEqual(w.outbound,[PAGE],'한 번만 묻고 다시 시도하지 않는다');
+ }
 });

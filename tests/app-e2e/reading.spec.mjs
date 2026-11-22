@@ -14,7 +14,7 @@ async function server(page, { refuseRead = false } = {}) {
   const s = {
     rows: [
       { id: A, workspace_id: 'w', url: 'https://example.com/a', title: '예시 기사 하나', site: 'example.com', saved_at: '2026-11-22T01:00:00Z', read_at: null, body_state: 'ok', body_at: '2026-11-22T01:00:10Z', business_area_id: null, updated_at: '2026-11-22T01:00:10Z', body: BODY },
-      { id: B, workspace_id: 'w', url: 'https://example.org/b', title: '예시 칼럼 둘', site: 'example.org', saved_at: '2026-11-21T01:00:00Z', read_at: '2026-11-21T02:00:00Z', body_state: 'robots', body_at: '2026-11-21T01:00:10Z', business_area_id: null, updated_at: '2026-11-21T02:00:00Z', body: null },
+      { id: B, workspace_id: 'w', url: 'https://example.org/b', title: '예시 칼럼 둘', site: 'example.org', saved_at: '2026-11-21T01:00:00Z', read_at: '2026-11-21T02:00:00Z', body_state: 'bot_check', body_at: '2026-11-21T01:00:10Z', business_area_id: null, updated_at: '2026-11-21T02:00:00Z', body: null },
     ],
     calls: [], posts: [], patches: [], imports: [], hl: [], hlPosts: [], notes: [],
   };

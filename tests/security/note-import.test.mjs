@@ -220,11 +220,11 @@ test('a public-looking name that resolves to a non-public address is never reque
   assert.equal(w.outbound().length,0);
   assert.match(w.logs.join('\n'),new RegExp(`"lookup":"${lookup}"`));
  }
- // 공개 주소만 나오면 읽는다. robots.txt와 글 모두 이름 풀이 뒤에 나간다.
+ // 공개 주소만 나오면 읽는다. 글은 이름 풀이 뒤에 나간다(사람이 직접 한 쪽 저장 — robots.txt는 읽지 않음, S68-23).
  const ok=world({sites:{'https://news.example.net/a':html(ARTICLE)}});
  const out=await imp(ok,'https://news.example.net/a');
  assert.equal(out.body.state,'ok');
- assert.deepEqual(ok.outbound().map(c=>c.url),['https://news.example.net/robots.txt','https://news.example.net/a']);
+ assert.deepEqual(ok.outbound().map(c=>c.url),['https://news.example.net/a']);
  assert.deepEqual(ok.resolved,['news.example.net']);
 });
 
@@ -294,7 +294,7 @@ test('redirects are re-checked at every step: to http, IP literals, internal nam
   // 주소 모양으로 막힌 곳은 blocked, 이름 풀이에서 멈춘 곳(안쪽 주소로 풀림·못 풂)은 unreachable — 어느 쪽이든 그 주소로는 요청이 나가지 않는다.
   const reason=/(inside|nowhere)\.example\.net/.test(to)?'unreachable':'blocked';
   assert.equal(out.body.state,'failed',to);assert.equal(out.body.reason,reason,to);assert.equal(out.body.url,null);assert.deepEqual(out.body.blocks,[]);
-  assert.deepEqual(w.outbound().map(c=>c.url),['https://example.org/robots.txt',PAGE],`only the first site was contacted for ${to}`);
+  assert.deepEqual(w.outbound().map(c=>c.url),[PAGE],`only the first site was contacted for ${to}`);
  }
  // 두 번째 단계에서 넘겨도 같다.
  const w2=world({dns:{'inside.example.net':['192.168.0.9']},sites:{[PAGE]:hop('https://www.example.org/2'),'https://www.example.org/2':hop('https://inside.example.net/secret'),
@@ -302,11 +302,11 @@ test('redirects are re-checked at every step: to http, IP literals, internal nam
  const r2=await imp(w2,PAGE);
  assert.equal(r2.body.state,'failed');assert.equal(r2.body.reason,'unreachable');
  assert.ok(!w2.outbound().some(c=>c.url.includes('inside.example.net')));
- // robots.txt가 안쪽으로 넘겨도 막힌다(글은 읽지 않음).
+ // robots.txt를 읽지 않으므로 robots.txt가 안쪽으로 넘기는 사이트도 그쪽으로는 아무 요청도 나가지 않는다(글만 읽음).
  const w3=world({sites:{'https://example.org/robots.txt':hop('https://169.254.169.254/robots.txt'),[PAGE]:html(ARTICLE)}});
  const r3=await imp(w3,PAGE);
- assert.equal(r3.body.state,'failed');assert.equal(r3.body.reason,'blocked');
- assert.deepEqual(w3.outbound().map(c=>c.url),['https://example.org/robots.txt']);
+ assert.equal(r3.body.state,'ok');
+ assert.deepEqual(w3.outbound().map(c=>c.url),[PAGE]);
 });
 
 test('redirect count is capped; an allowed redirect is followed and the final address is reported',async()=>{
@@ -319,12 +319,12 @@ test('redirect count is capped; an allowed redirect is followed and the final ad
  const ok=world({sites:{[PAGE]:hop('https://news.example.net/final'),'https://news.example.net/final':html(ARTICLE)}});
  const got=await imp(ok,PAGE);
  assert.equal(got.body.state,'ok');assert.equal(got.body.url,'https://news.example.net/final');
- assert.deepEqual(ok.outbound().map(c=>c.url),['https://example.org/robots.txt',PAGE,'https://news.example.net/final','https://news.example.net/robots.txt']);
- // 넘어간 곳의 robots.txt가 막으면 읽은 글을 돌려주지 않는다.
+ assert.deepEqual(ok.outbound().map(c=>c.url),[PAGE,'https://news.example.net/final']);
+ // 넘어간 곳의 robots.txt도 읽지 않는다(사람이 직접 한 쪽 저장, S68-23). 리다이렉트 주소 재검사는 위처럼 그대로.
  const no=world({sites:{[PAGE]:hop('https://news.example.net/final'),'https://news.example.net/final':html(ARTICLE),
   'https://news.example.net/robots.txt':{body:'User-agent: *\nDisallow: /',headers:{'content-type':'text/plain'}}}});
- const refused=await imp(no,PAGE);
- assert.equal(refused.body.state,'failed');assert.equal(refused.body.reason,'robots');assert.deepEqual(refused.body.blocks,[]);
+ const kept=await imp(no,PAGE);
+ assert.equal(kept.body.state,'ok');assert.ok(!no.outbound().some(c=>c.url.endsWith('/robots.txt')));
 });
 
 // ---- 상한 ----------------------------------------------------------------------------------------------------------
@@ -345,10 +345,10 @@ test('time cap: one import stops at the total time limit and reports a timeout',
  const out=await imp(w,PAGE);
  assert.ok(Date.now()-t<5000,'did not wait for the per-request timeout');
  assert.equal(out.status,200);assert.equal(out.body.state,'failed');assert.equal(out.body.reason,'timeout');
- const w2=world({totalTimeoutMs:20,sites:{'https://example.org/robots.txt':hang,[PAGE]:html(ARTICLE)}});
+ const w2=world({totalTimeoutMs:20,sites:{[PAGE]:hop('https://example.org/next'),'https://example.org/next':hang,'https://example.org/after':html(ARTICLE)}});
  const out2=await imp(w2,PAGE);
  assert.equal(out2.body.reason,'timeout');
- assert.deepEqual(w2.outbound().map(c=>c.url),['https://example.org/robots.txt'],'no new request after the limit');
+ assert.deepEqual(w2.outbound().map(c=>c.url),[PAGE,'https://example.org/next'],'no new request after the limit');
  assert.ok(H.TOTAL_TIMEOUT_MS<=30000);
  // 요청마다 시간 제한 신호가 붙는다.
  const w3=world();await imp(w3,PAGE);
@@ -389,7 +389,7 @@ test('daily cap: at the limit → 429 and nothing is read; below it the shared f
  assert.equal((await imp(last,PAGE)).body.state,'ok');
  assert.deepEqual(last.writes().map(c=>[c.method,c.body.fetch_n,Object.keys(c.body).sort()]),[['PATCH',H.NOTE_IMPORT_DAILY,['fetch_n','updated_at']]]);
  const order=last.calls.map(c=>c.url);
- assert.ok(order.findIndex(u=>u.includes('app_news_days')&&!u.includes('select'))<order.indexOf('https://example.org/robots.txt'),'counted before the first outside request');
+ assert.ok(order.findIndex(u=>u.includes('app_news_days')&&!u.includes('select'))<order.indexOf(PAGE),'counted before the first outside request');
  // 이름 풀이에서 막힌 시도도 한 번으로 센다(막힌 주소를 되풀이해 묻는 것을 하루 횟수로 묶는다). 모양에서 막힌 주소는 세지 않는다.
  const probe=world({dns:{'rebind.example.net':['10.0.0.1']}});
  await imp(probe,'https://rebind.example.net/a');
@@ -417,7 +417,10 @@ test('a readable article: title, site, author, date, language and text blocks; o
   assert.equal(c.headers['User-Agent'],H.USER_AGENT);
   assert.ok(!JSON.stringify(c.headers).includes(JWT)&&!JSON.stringify(c.headers).includes(SERVICE));
  }
- assert.match(H.USER_AGENT,/^Web2NoteImport\/1\.0 \(\+https:\/\/github\.com\//);
+ // 정직한 머리말(S68-23): 브라우저처럼 읽는 도구임을 밝히고(compatible; 앱 이름 Reader; 설명 주소), 특정 브라우저 이름을 대지 않는다.
+ assert.match(H.USER_AGENT,/^Mozilla\/5\.0 \(compatible; WorkOnPlusReader\/1\.0; \+https:\/\/github\.com\/mj880616\/work\//);
+ assert.doesNotMatch(H.USER_AGENT,/Chrome|Safari|Firefox|Edg\/|Gecko|AppleWebKit|Windows NT|Android|iPhone/);
+ for(const c of w.outbound())assert.match(c.headers['Accept-Language'],/^ko\b/);
 });
 
 test('author reading: structured data first, then meta; addresses, mail and markup are not names; same as the site name → empty',async()=>{
@@ -452,18 +455,15 @@ test('only text formats are accepted; plain text becomes paragraphs',async()=>{
  assert.deepEqual(out.body.blocks,[{t:'p',text:'합성 성명 첫 문단입니다.'},{t:'p',text:'합성 성명 둘째 문단입니다.'}]);
 });
 
-test('robots.txt, bot-check pages and paywalls are not bypassed; http errors and missing pages fail plainly',async()=>{
- const robots=world({sites:{'https://example.org/robots.txt':{body:'User-agent: *\nDisallow: /news/',headers:{'content-type':'text/plain'}},[PAGE]:html(ARTICLE)}});
- const r=await imp(robots,PAGE);
- assert.equal(r.body.state,'failed');assert.equal(r.body.reason,'robots');
- assert.deepEqual(robots.outbound().map(c=>c.url),['https://example.org/robots.txt'],'the page itself was not requested');
- const named=world({sites:{'https://example.org/robots.txt':{body:`User-agent: ${H.ROBOTS_AGENT}\nDisallow: /`,headers:{'content-type':'text/plain'}},[PAGE]:html(ARTICLE)}});
- assert.equal((await imp(named,PAGE)).body.reason,'robots');
- const denied=world({sites:{'https://example.org/robots.txt':{status:403},[PAGE]:html(ARTICLE)}});
- assert.equal((await imp(denied,PAGE)).body.reason,'robots');
- const broken=world({sites:{'https://example.org/robots.txt':{status:500},[PAGE]:html(ARTICLE)}});
- assert.equal((await imp(broken,PAGE)).body.reason,'unreachable');
- assert.equal(broken.outbound().length,1);
+test('a person saving one page: robots.txt is not read (S68-23); bot-check pages, 401/403 and paywalls are still not bypassed; errors fail plainly',async()=>{
+ // 사람이 직접 한 쪽 저장(명진 결정 2026-11-22 "1. A"): robots.txt가 막든·거절하든·고장 났든 읽지 않고 글만 한 번 읽는다.
+ for(const rb of [{body:'User-agent: *\nDisallow: /news/',headers:{'content-type':'text/plain'}},{body:`User-agent: ${H.ROBOTS_AGENT}\nDisallow: /`,headers:{'content-type':'text/plain'}},{status:403},{status:500}]){
+  const w=world({sites:{'https://example.org/robots.txt':rb,[PAGE]:html(ARTICLE)}});
+  const r=await imp(w,PAGE);
+  assert.equal(r.body.state,'ok',JSON.stringify(rb));
+  assert.deepEqual(w.outbound().map(c=>c.url),[PAGE],'robots.txt was not requested');
+ }
+ assert.equal(H.SKIP_ROBOTS,true);
  const bot=world({sites:{[PAGE]:html('<html><head><title>Just a moment...</title></head><body>Just a moment...</body></html>')}});
  const b=await imp(bot,PAGE);
  assert.equal(b.body.state,'failed');assert.equal(b.body.reason,'bot_check');assert.equal(b.body.title,null);
@@ -475,7 +475,8 @@ test('robots.txt, bot-check pages and paywalls are not bypassed; http errors and
  const empty=world({sites:{[PAGE]:html('<html><head><title>빈 합성 글</title></head><body><article><p>짧음</p></article></body></html>')}});
  const e=await imp(empty,PAGE);
  assert.equal(e.body.state,'failed');assert.equal(e.body.reason,'no_body');assert.equal(e.body.title,'빈 합성 글');assert.equal(e.body.url,PAGE);
- for(const [status,reason] of [[404,'not_found'],[410,'not_found'],[401,'http_error'],[403,'http_error'],[500,'http_error'],[503,'http_error']]){
+ // 401·403 = 사이트가 읽기를 거절 → bot_check(화면 '이 사이트가 읽기를 막아 두었어요'). 넘지 않는다.
+ for(const [status,reason] of [[404,'not_found'],[410,'not_found'],[401,'bot_check'],[403,'bot_check'],[500,'http_error'],[503,'http_error']]){
   const w=world({sites:{[PAGE]:{status,body:'<html><body>synthetic upstream error page 10.9.8.7</body></html>',headers:{'content-type':'text/html'}}}});
   const out=await imp(w,PAGE);
   assert.equal(out.body.state,'failed');assert.equal(out.body.reason,reason,String(status));assert.doesNotMatch(out.text,/upstream|10\.9\.8\.7/);
@@ -495,7 +496,7 @@ test('failure reason mapping: a blocked address shape wins; a stopped name looku
  }
  assert.equal(H.failReason('too_large',clear,true),'timeout');
  for(const [code,reason] of [['url_outside','blocked'],['redirect_outside','blocked'],['robots','robots'],['robots_denied','robots'],['too_large','too_big'],['timeout','timeout'],
-  ['redirect_loop','redirect'],['http_404','not_found'],['http_410','not_found'],['http_500','http_error'],['network','unreachable'],['robots_unreachable','unreachable'],['something_new','unreachable']]){
+  ['redirect_loop','redirect'],['http_404','not_found'],['http_410','not_found'],['http_401','bot_check'],['http_403','bot_check'],['http_500','http_error'],['network','unreachable'],['robots_unreachable','unreachable'],['something_new','unreachable']]){
   assert.equal(H.failReason(code,clear,false),reason,code);
  }
 });

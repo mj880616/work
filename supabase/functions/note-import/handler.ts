@@ -12,8 +12,12 @@
 // - 요청을 보내기 직전마다 이름을 풀어, 풀린 주소가 하나라도 사설·루프백·링크로컬·메타데이터·예약 대역이면 보내지 않는다.
 //   robots.txt·리다이렉트 단계도 같은 확인을 지난다(공용 읽기 _shared/feed-fetch.ts의 doFetch를 감쌈).
 //   이름 풀이 기능이 없는 런타임이면 읽지 않고 503 LOOKUP_UNAVAILABLE(닫힌 쪽으로 실패).
-// - 리다이렉트 3번·응답 2MB·요청 10초(공용 읽기 상한) + 가져오기 전체 TOTAL_TIMEOUT_MS. 쿠키·인증 헤더 없음, 정직한 User-Agent.
-// - robots.txt가 막으면 읽지 않는다. 봇 확인 쪽·유료벽은 넘지 않는다(유료 기사는 공개 리드만).
+// - 리다이렉트 3번·응답 2MB·요청 10초(공용 읽기 상한) + 가져오기 전체 TOTAL_TIMEOUT_MS. 쿠키·인증 헤더 없음, 정직한 User-Agent
+//   (다른 브라우저인 척하지 않음 — 앱 이름 + Reader, 설명 주소).
+// - robots.txt는 읽지 않는다(S68-23, 명진 결정 2026-11-22 "1. A"): 이 함수는 로그인한 사람이 주소 하나를 직접 저장할 때만 불리므로
+//   (노트 '주소로 가져오기'·노트 [원문 가져오기]·읽을 거리 저장 — 예약·대량 호출 없음) 사람이 브라우저로 그 한 쪽을 여는 것과 같게 본다.
+//   공용 읽기에 skipRobots: true를 명시해서만 건너뛴다. 자동 수집(news-feed·now-detail-build·outside-feed)은 지금처럼 robots를 지킨다.
+// - 봇 확인 쪽·유료벽은 넘지 않는다(봇 확인 화면·401·403은 bot_check로 실패, 유료 기사는 공개 리드만).
 // - 글자 판(html·xhtml·text)만 받는다. HTML은 돌려주지 않고 글자 블록만 돌려준다. 본문은 노트 글자 상한 안으로 자른다.
 // 하루 횟수: 작업공간 하루 사용량 표 app_news_days의 fetch_n 칸을 뉴스 기사 열기와 함께 쓴다(NOTE_IMPORT_DAILY, DB 변경 없음).
 // 가져온 글은 돌려주기만 한다. AI에 넘기거나 발송·공유로 잇지 않는다.
@@ -40,9 +44,11 @@ export type NoteImportDeps = {
   totalTimeoutMs?: number;
 };
 
-export const USER_AGENT = "Web2NoteImport/1.0 (+https://github.com/mj880616/work/blob/main/docs/design/note-import-by-url.md)";
-export const ROBOTS_AGENT = "Web2NoteImport";
-export const GAP_MS = 1000;            // 같은 사이트에 잇달아 보내는 요청 사이(robots.txt → 글)
+// 정직한 머리말: 'Mozilla/5.0 (compatible; …)'는 특정 브라우저를 흉내 내지 않고 '브라우저처럼 읽는 도구'임을 밝히는 관례 모양이다.
+export const USER_AGENT = "Mozilla/5.0 (compatible; WorkOnPlusReader/1.0; +https://github.com/mj880616/work/blob/main/docs/design/note-import-by-url.md)";
+export const ROBOTS_AGENT = "WorkOnPlusReader"; // 공용 읽기 모양상 필요한 이름(이 함수는 robots.txt를 읽지 않는다)
+export const SKIP_ROBOTS = true;       // 사람이 직접 한 쪽 저장(S68-23). 공용 읽기에 이 함수만 넘긴다.
+export const GAP_MS = 1000;            // 같은 사이트에 잇달아 보내는 요청 사이(리다이렉트 단계)
 export const NOTE_IMPORT_DAILY = 60;   // 작업공간 하루 횟수(fetch_n 칸 — 뉴스 기사 열기와 함께 센다)
 export const TOTAL_TIMEOUT_MS = 25000; // 가져오기 한 번 전체 시간
 export const MAX_BODY_BYTES = 4096;
@@ -136,12 +142,14 @@ export function failReason(code: string, guard: GuardState, expired: boolean): F
   if (expired) return "timeout";
   if (code === "url_outside" || code === "redirect_outside") return "blocked";
   if (code === "robots" || code === "robots_denied") return "robots";
+  // 사이트가 우리 읽기를 거절(401·403) = 봇 확인과 같은 뜻으로 알린다(화면 '이 사이트가 읽기를 막아 두었어요'). 넘지 않는다.
+  if (code === "http_401" || code === "http_403") return "bot_check";
   if (code === "too_large") return "too_big";
   if (code === "timeout") return "timeout";
   if (code === "redirect_loop") return "redirect";
   const http = /^http_(\d{3})$/.exec(code)?.[1];
   if (http) return http === "404" || http === "410" ? "not_found" : "http_error";
-  return "unreachable"; // 연결 실패 · robots.txt를 못 읽음
+  return "unreachable"; // 연결 실패
 }
 const lookupCode = (g: GuardState) => g.unavailable ? "unavailable" : g.private ? "private" : g.unresolved ? "unresolved" : "ok";
 
@@ -208,11 +216,12 @@ export function createNoteImportHandler(deps: NoteImportDeps) {
       const timer = setTimeout(() => stop.abort(), totalMs);
       let out: ImportResult;
       try {
-        // 리다이렉트가 규칙 밖 주소를 가리키면(공용 읽기가 allow로 거름) 그것도 '막음'으로 남긴다 — robots.txt 단계 포함.
+        // 리다이렉트가 규칙 밖 주소를 가리키면(공용 읽기가 allow로 거름) 그것도 '막음'으로 남긴다.
         const allow = (next: string) => { const u = noteImportUrl(next); if (!u) guard.shape = true; return u; };
         const reader = makeFeedReader({
           doFetch: makeGuardedFetch(doFetch, deps.resolve, guard, { stop: stop.signal }),
           sleep, log, now, userAgent: USER_AGENT, robotsAgent: ROBOTS_AGENT, gapMs: GAP_MS, allow,
+          skipRobots: SKIP_ROBOTS,
         });
         const got = await reader.get(start.href, ACCEPT_HTML);
         const stopped = guard.shape || guard.private || guard.unresolved || guard.unavailable;
