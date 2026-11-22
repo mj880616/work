@@ -3,22 +3,30 @@ import {dayKey} from './home-read-model.js';
 import {waitEl} from './wait-state.js';
 import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js';
 import {bindRowSwipe,PICK} from './row-swipe.js';
+import {canDrag} from './calendar-drag-model.js';
 let observer=null,focusKey=null,armScroll=null,armedStart=null;
 // 끝 지켜보기는 다시 그릴 때마다 같은 곳(renderList)에서 새 단추에 다시 건다. 사용자가 한 번 내린 뒤(armedStart)에는 다시 그려도 바로 건다.
 function unwatch(){observer?.disconnect();observer=null;if(armScroll){document.removeEventListener('scroll',armScroll,true);armScroll=null}}
 export function stopList(){unwatch();armedStart=null}
 // UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 일정 목록 줄 — 왼쪽으로 밀면 [보고할 일정]/[표시 끄기](우클릭·꾹 누르기 메뉴의 [보고할 일정]과 같은
 // KPTUCalendarEvents.setPlan, 서버 저장·다시 누르면 되돌아감, 끝까지 밀면 바로). 서버에서 읽어 둔 값이 없으면 칸이 없다(메뉴와 같은 규칙).
-// 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [보고할 일정]'(하나씩 차례로 같은 길). 일정 삭제는 되돌리는 길이 없어(Google 일정 바로 삭제) 줄 밀기에 두지 않고,
-// 다른 캘린더로 옮기기도 수정 창에서만 한다. 같은 일정이 여러 날에 보이면 함께 골라진다(같은 일정).
+// 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [보고할 일정]'(하나씩 차례로 같은 길). 다른 캘린더로 옮기기는 수정 창에서만 한다.
+// S68-31(명진 11/23 02:24 "삭제가 필요 가능한 경우 왼쪽으로 밀 때 삭제도"): 꾹 누르기·우클릭 메뉴에 [삭제]가 있는 일정(쓰기 권한 있는 캘린더, 메뉴와 같은 canDrag)은
+// 왼쪽 밀기 맨 끝에 [삭제] — 메뉴 [삭제]와 같은 KPTUCalendarEvents.act(…,'delete')(수정 창을 열고 '이 Google 일정을 삭제할까요?' 한 번 묻기). 끝까지 밀어도 칸만 열린다.
+// 일정은 여러 개 삭제 길이 없어 [선택] 묶음에는 [삭제]를 두지 않는다. 같은 일정이 여러 날에 보이면 함께 골라진다(같은 일정).
 let swipeBound=false;
 const planOf=el=>window.KPTUCalendarEvents?.planOf?.(el.dataset.googleEvent,el.dataset.googleCalendar||'primary')||null;
+// 메뉴에 [삭제]가 있는 일정인가(calendar-row-menu.mjs eventMenuItems와 같은 canDrag).
+const canDelete=el=>!!window.KPTUCalendarEvents?.act&&!!el.dataset.googleEvent&&canDrag(el.dataset.googleCalendar||'primary',window.__KPTU_GOOGLE_STATE__);
 const pickKey=el=>`${el.dataset.googleCalendar||'primary'} ${el.dataset.googleEvent}`;
 function bindSwipe(box){
   if(swipeBound)return;swipeBound=true;
   bindRowSwipe(box,{row:'.clv-event[data-google-event]',
-    actions:el=>{const plan=planOf(el);if(!plan||!window.KPTUCalendarEvents?.setPlan)return null;return {start:PICK,end:[plan.on?{key:'plan-off',label:'표시 끄기',tone:'muted',icon:'undo'}:{key:'plan-on',label:'보고할 일정',tone:'info'}]}},
-    run:(key,el)=>{const plan=planOf(el);if(!plan)return;void window.KPTUCalendarEvents?.setPlan?.(el.dataset.googleEvent,el.dataset.googleCalendar||'primary',key==='plan-on')},
+    actions:el=>{const api=window.KPTUCalendarEvents,plan=api?.setPlan?planOf(el):null,del=canDelete(el);if(!plan&&!del)return null;
+      return {start:plan?PICK:null,end:[plan?(plan.on?{key:'plan-off',label:'표시 끄기',tone:'muted',icon:'undo'}:{key:'plan-on',label:'보고할 일정',tone:'info'}):null,del?{key:'delete',label:'삭제',tone:'danger'}:null]}},
+    run:(key,el)=>{const id=el.dataset.googleEvent,cal=el.dataset.googleCalendar||'primary';
+      if(key==='delete'){if(canDelete(el))void window.KPTUCalendarEvents.act(id,cal,'delete');return}
+      const plan=planOf(el);if(!plan)return;void window.KPTUCalendarEvents?.setPlan?.(id,cal,key==='plan-on')},
     select:{attr:'data-clv-pick',label:'선택한 일정',acts:()=>[{key:'plan-on',label:'보고할 일정'}],
       run:async(key,ids)=>{if(key!=='plan-on')return;for(const id of ids){const [calendarId,eventId]=id.split(' ');const plan=window.KPTUCalendarEvents?.planOf?.(eventId,calendarId);if(plan&&!plan.on)await window.KPTUCalendarEvents.setPlan(eventId,calendarId,true)}}}});
 }
