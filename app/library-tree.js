@@ -238,17 +238,69 @@ export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_PHOTOS
 // 가장 높은 점수의 폴더가 하나뿐일 때만 추천(헷갈리면 추천하지 않음).
 const COMMON_WORDS=new Set(['자료','파일','문서','사본','복사본','최종','수정','수정본','첨부','붙임','new','copy','file']);
 export const titleWord=t=>String(t||'').replace(/\.[a-z0-9]{2,5}$/i,'').split(/[\s_\-·.,()[\]{}<>「」『』"'~]+/).map(w=>w.toLowerCase()).find(w=>w.length>=2&&!/^\d+$/.test(w)&&!COMMON_WORDS.has(w))||'';
-export function folderSuggestions(outside,{docs=[],items=[],folders=[],categoryOf=c=>c}={}){
-  const alive=new Set(folders.map(f=>f.id)),where=new Map(items.filter(x=>alive.has(x.folder_id)).map(x=>[x.document_id,x.folder_id]));
-  const inside=docs.filter(d=>!d?.photoset&&where.has(d.id)).map(d=>({folder:where.get(d.id),word:titleWord(d.title||d.file_name),category:categoryOf(d.category),project:d.project_id||null}));
-  const out=new Map();
-  for(const d of outside){
-    if(!d||d.photoset||where.has(d.id))continue;
-    const word=titleWord(d.title||d.file_name),category=categoryOf(d.category),project=d.project_id||null,best=new Map();
-    if(!word)continue;
-    for(const x of inside){if(x.word!==word)continue;const score=2+(category&&x.category===category?1:0)+(project&&x.project===project?1:0);if(score>(best.get(x.folder)||0))best.set(x.folder,score)}
-    const top=Math.max(0,...best.values());if(top<2)continue;
-    const winners=[...best].filter(([,s])=>s===top);if(winners.length===1)out.set(d.id,winners[0][0]);
+// S68-16(명진 11/22 14:45 '폴더로 나누기 제안 못하는 것들'): 첫 낱말이 똑같은 자료만 보던 규칙이 날짜 앞붙이('20261113 …')·대괄호('[취재요청]…')·
+// 붙은 낱말('제8차노사정')·회사 이름이 앞에 오는 제목을 못 맞췄다. 그래서 ㉠ 제목을 정리(날짜·괄호 번호·대괄호 떼기)하고
+// ㉡ 폴더 이름이 제목 안에 들어 있으면 그 폴더('제8차노사정' ⊃ '노사정'), ㉢ 아니면 같은 첫 낱말이거나 같은 회차 낱말('제7차노사정'·'제8차노사정' → '노사정')·
+// 같은 낱말 둘 이상이 든 자료가 있는 폴더를 고른다. 헷갈리면(같은 점수 둘 이상) 여전히 추천하지 않는다.
+const DATE_RE=/(?:(?:19|20)\d{2}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]\s*\d{1,2}\s*일?)|(?:(?<!\d)(?:19|20)\d{6}(?!\d))|(?:(?<!\d)\d{6}(?!\d))|(?:(?:19|20)\d{2}\s*년)|(?:(?<!\d)\d{1,2}\s*월\s*\d{1,2}\s*일)/g;
+const SPLIT_RE=/[\s_\-·.,()[\]{}<>「」『』"'~!?:;/\\|&+=*#@%^`’‘“”…]+/;
+const ORDINAL_RE=/^(?:제?\d+(?:차|회|호|기|번째|번|부|편|탄))+/;
+// 제목 정리: 확장자·날짜·끝 괄호 번호 '(2)'를 떼고, 대괄호 안 말은 낱말로 남긴다('[취재요청]철도' → '취재요청 철도').
+export function cleanTitle(t){
+  return String(t||'').replace(/\.[a-z0-9]{2,5}$/i,'').replace(/\s*\(\s*\d+\s*\)\s*$/,'').replace(DATE_RE,' ').replace(/[[\]【】〔〕]/g,' ').replace(/\s+/g,' ').trim();
+}
+// 제목 낱말: [{w, series}] — series는 '제8차노사정'에서 회차를 뗀 '노사정'처럼 회차 앞붙이를 떼어 생긴 낱말.
+function titleTokens(t){
+  const out=[];
+  for(const raw of cleanTitle(t).split(SPLIT_RE)){
+    const w=raw.toLowerCase();if(!w||/^\d+$/.test(w)||/^제?\d+(?:차|회|호|기|번째|번|부|편|탄)$/.test(w))continue;
+    const s=w.replace(ORDINAL_RE,'');
+    if(s!==w&&s.length>=2&&!COMMON_WORDS.has(s)){out.push({w:s,series:true});continue}
+    if(w.length>=2&&!COMMON_WORDS.has(w))out.push({w,series:false});
   }
   return out;
 }
+const compact=t=>cleanTitle(t).replace(/\s+/g,'').toLowerCase();
+// 폴더 이름 조각: 이름 전체(띄어쓰기 없앰)와 '·, /' 등으로 나눈 조각. 흔한 말·숫자·날짜뿐인 이름·한 글자는 뺀다.
+function folderNameParts(name){
+  const all=String(name||'').toLowerCase(),out=new Set();
+  for(const p of [all,...all.split(/[·,/&+|]|\s및\s/)]){const c=p.replace(/\s+/g,'');if([...c].length>=2&&!COMMON_WORDS.has(c)&&!/^\d+(?:년|월|일|차|호)?$/.test(c))out.add(c)}
+  return [...out];
+}
+const WHY_NAME=name=>`제목에 폴더 이름 '${String(name).slice(0,20)}' 포함`;
+export const WHY_FIRST='같은 낱말로 시작하는 자료가 이 폴더에 있어요';
+export const WHY_LIKE='비슷한 제목의 자료가 이 폴더에 있어요';
+// 반환 Map(자료 id → {folder, why}). folderSuggestions는 폴더 id만.
+export function folderSuggestionReasons(outside,{docs=[],items=[],folders=[],categoryOf=c=>c}={}){
+  const alive=new Set(folders.map(f=>f.id)),where=new Map(items.filter(x=>alive.has(x.folder_id)).map(x=>[x.document_id,x.folder_id]));
+  const parentOf=new Map(folders.map(f=>[f.id,f.parent_id||null]));
+  const isAncestor=(a,b)=>{let c=parentOf.get(b),g=0;while(c&&g++<FOLDER_DEPTH+2){if(c===a)return true;c=parentOf.get(c)}return false};
+  const named=folders.filter(f=>f?.id).map(f=>({id:f.id,name:f.name,parts:folderNameParts(f.name)})).filter(f=>f.parts.length);
+  const inside=docs.filter(d=>!d?.photoset&&where.has(d.id)).map(d=>{const t=d.title||d.file_name,tk=titleTokens(t);return {folder:where.get(d.id),first:tk[0]?.w||'',words:new Set(tk.map(x=>x.w)),series:new Set(tk.filter(x=>x.series).map(x=>x.w)),category:categoryOf(d.category),project:d.project_id||null}});
+  const out=new Map();
+  for(const d of outside){
+    if(!d||d.photoset||where.has(d.id))continue;
+    const t=d.title||d.file_name,tk=titleTokens(t),c=compact(t);
+    // ㉡ 폴더 이름이 제목 안에: 가장 긴 이름이 이긴다. 같은 길이면 더 안쪽(하위) 폴더, 그래도 둘 이상이면 아래 ㉢이 가린다.
+    // 제목 낱말과 통째로 같은 이름 조각은 반 점 더(낱말 안에 우연히 든 '국가철도공단' ⊃ '철도'보다 따로 쓴 '교섭'이 이긴다).
+    const whole=new Set(tk.map(x=>x.w));let hits=[];
+    for(const f of named){const len=Math.max(0,...f.parts.filter(p=>c.includes(p)).map(p=>[...p].length+(whole.has(p)?0.5:0)));if(len)hits.push({id:f.id,name:f.name,len})}
+    if(hits.length){const top=Math.max(...hits.map(h=>h.len));hits=hits.filter(h=>h.len===top);hits=hits.filter(h=>!hits.some(o=>o!==h&&isAncestor(h.id,o.id)))}
+    if(hits.length===1){out.set(d.id,{folder:hits[0].id,why:WHY_NAME(hits[0].name)});continue}
+    // ㉢ 비슷한 자료가 든 폴더.
+    if(!tk.length)continue;
+    const first=tk[0].w,words=new Set(tk.map(x=>x.w)),series=tk.filter(x=>x.series).map(x=>x.w),category=categoryOf(d.category),project=d.project_id||null,best=new Map();
+    for(const x of inside){
+      const same=x.first===first,like=series.some(w=>x.series.has(w))||[...words].filter(w=>x.words.has(w)).length>=2;
+      if(!same&&!like)continue;
+      const score=2+(category&&x.category===category?1:0)+(project&&x.project===project?1:0),why=same?WHY_FIRST:WHY_LIKE;
+      const prev=best.get(x.folder);if(!prev||score>prev.score||(score===prev.score&&same&&prev.why!==WHY_FIRST))best.set(x.folder,{score,why});
+    }
+    const top=Math.max(0,...[...best.values()].map(v=>v.score));if(top<2)continue;
+    let winners=[...best].filter(([,v])=>v.score===top);
+    if(hits.length>1){const inHits=winners.filter(([f])=>hits.some(h=>h.id===f));if(inHits.length)winners=inHits}
+    if(winners.length===1)out.set(d.id,{folder:winners[0][0],why:winners[0][1].why});
+  }
+  return out;
+}
+export function folderSuggestions(outside,opts={}){return new Map([...folderSuggestionReasons(outside,opts)].map(([k,v])=>[k,v.folder]))}

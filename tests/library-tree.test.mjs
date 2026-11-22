@@ -238,3 +238,25 @@ test('폴더 색: 노드 fc는 1~8만, 머리 그림은 칠한 폴더(폴더 보
   const outline=m.treeHtml(nodes,{...opts,emoji:false});
   assert.equal((outline.match(/data-fc=/g)||[]).length,1);assert.equal((outline.match(/class="ft-ico/g)||[]).length,4);
 });
+
+// S68-16: 제목 정리(날짜·괄호 번호·대괄호 떼기)와 폴더 이름 포함 찾기, 같은 회차 낱말 따라가기. 폴더 밖 추천(자료실)도 같은 규칙.
+test('폴더 추천 S68-16: 제목 정리·폴더 이름 포함·같은 회차 낱말, 헷갈리면 여전히 추천 없음',()=>{
+  assert.equal(m.cleanTitle('20261113 철도공사 제8차노사정.pdf'),'철도공사 제8차노사정');
+  assert.equal(m.cleanTitle('2026년11월11일7차임시대의원대회자료집'),'7차임시대의원대회자료집');
+  assert.equal(m.cleanTitle('[취재요청]철도 기자회견 (2)'),'취재요청 철도 기자회견');
+  // 폴더 이름 포함: 붙은 낱말 안에서도('제8차노사정' ⊃ '노사정'), 가장 긴 이름, 같은 길이면 더 안쪽 폴더.
+  const F=[{id:'n',name:'노사정',parent_id:null},{id:'k',name:'교섭',parent_id:null},{id:'k2',name:'교섭',parent_id:'k'},{id:'x',name:'자료',parent_id:null},{id:'y',name:'2026',parent_id:null}];
+  const r=m.folderSuggestionReasons([doc('a','q',{title:'20261113 테크 제8차노사정'}),doc('b','q',{title:'임금 교섭 결과'}),doc('c','q',{title:'2026 자료 모음'})],{folders:F});
+  assert.deepEqual([...r].map(([k,v])=>[k,v.folder]),[['a','n'],['b','k2']],'흔한 말·숫자 이름 폴더(자료·2026)는 이름으로 고르지 않음');
+  // 같은 길이 이름 두 폴더가 서로 위아래가 아니면 이름으로는 고르지 않는다.
+  const tie=m.folderSuggestions([doc('t','q',{title:'투쟁 교섭'})],{folders:[{id:'p',name:'투쟁',parent_id:null},{id:'q',name:'교섭',parent_id:null}]});
+  assert.equal(tie.size,0);
+  // 같은 회차 낱말: 폴더 이름이 맞지 않아도 '제7차노사정'이 든 폴더로 '제8차노사정'이 따라간다(첫 낱말이 회사 이름이라 달라도).
+  const folders=[{id:'g',name:'가나',parent_id:null},{id:'h',name:'다라',parent_id:null}];
+  const inside=[doc('i1','q',{title:'20261020 철도공사 제7차노사정'}),doc('i2','q',{title:'임금 요구안'})];
+  const items=[{document_id:'i1',folder_id:'g'},{document_id:'i2',folder_id:'h'}];
+  const got=m.folderSuggestionReasons([doc('o1','q',{title:'20261113 테크 제8차노사정'})],{docs:inside,items,folders});
+  assert.deepEqual(got.get('o1'),{folder:'g',why:m.WHY_LIKE});
+  // 낱말 하나만 겹치면(회차 낱말 아님) 따라가지 않는다.
+  assert.equal(m.folderSuggestions([doc('o2','q',{title:'철도공사 체육대회'})],{docs:[doc('i3','q',{title:'한국 철도공사'})],items:[{document_id:'i3',folder_id:'g'}],folders}).size,0);
+});
