@@ -54,3 +54,21 @@ test('UPDATE-소식안보임: 시작 날짜 안내 줄·보내기 창 시작 날
   assert.equal(sendStartHint('2026-11-16', '2026-11-16'), null);
   assert.equal(sendStartHint('2026-11-01', '2026-11-16'), null);
 });
+
+test('S68-14: 기록 줄 [보냄] → 거둘 소식 찾기·같이 묶인 기록 개수', async () => {
+  const {withdrawPlan, withdrawNote, WITHDRAW_TEXT} = await import('../app/update-news-model.mjs');
+  const items = [
+    {id: 'n3', sources: ['11/15-3', '11/15-2', '11/15-1'], withdrawn_at: null},
+    {id: 'n2', sources: ['11/15-3'], withdrawn_at: null},
+    {id: 'n1', sources: ['11/14-9'], withdrawn_at: '2026-11-20T00:00:00Z'},
+    {id: 'n0', sources: ['11/15-2'], withdrawn_at: null}
+  ];
+  assert.deepEqual(withdrawPlan(items, '11/15-3'), {ids: ['n3', 'n2'], others: 2});
+  assert.deepEqual(withdrawPlan(items, '11/15-2'), {ids: ['n3', 'n0'], others: 2});
+  assert.deepEqual(withdrawPlan(items, '11/14-9'), {ids: [], others: 0});
+  assert.deepEqual(withdrawPlan([{id: 'x', sources: ['a']}], 'a'), {ids: ['x'], others: 0});
+  assert.deepEqual(withdrawPlan(null, 'a'), {ids: [], others: 0});
+  assert.equal(withdrawNote(0), '');
+  assert.equal(withdrawNote(2), '같이 보낸 기록 2개도 함께 거둬져요');
+  assert.equal(WITHDRAW_TEXT, '이 소식을 거둘까요? 이용자 화면에서 사라져요.');
+});
