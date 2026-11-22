@@ -73,14 +73,10 @@ class WidgetInkTest {
                 assertEquals("@+id/quick_cell$i", attr(cell, "id"))
                 // 칸 전체는 누를 때 물결만(색 칠한 큰 단추 없음).
                 assertEquals("@drawable/widget_day_plain", attr(cell, "background"))
-                val tile = children(cell, "FrameLayout").single()
-                // 한 칸 위젯과 같은 모양 파일(새로 만들지 않음), 정사각 고정 크기.
-                assertEquals("@drawable/widget_one_tile", attr(tile, "background"))
-                assertTrue(attr(tile, "layout_width").endsWith("dp"))
-                assertEquals(attr(tile, "layout_width"), attr(tile, "layout_height"))
-                val icon = children(tile, "ImageView").single()
-                assertEquals("@color/widget_one_icon", attr(icon, "tint"))
-                assertEquals("center", attr(icon, "layout_gravity"))
+                // 한 칸 위젯과 같은 모양(둥근 먹색 칸 + 흰 그림 한 장, S68-11), 칸 크기는 fitCenter로 맞춘다.
+                val tile = children(children(cell, "LinearLayout").single(), "ImageView").single()
+                assertTrue(attr(tile, "src").startsWith("@drawable/widget_tile_"))
+                assertEquals("fitCenter", attr(tile, "scaleType"))
                 val label = children(cell, "TextView").single()
                 assertEquals(labels[i], attr(label, "text"))
                 assertEquals("@color/widget_ink", attr(label, "textColor"))

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- APP-위젯다시 ②: 빠른 쓰기(2×1). 자주 쓰는 [업데이트] [할 일] 두 개. 안드로이드 12+에서 칸이 좁으면 홈 화면이 이 그림을 고른다.
-     APP-위젯먹색 S68-06(11/22): 단추는 한 칸 위젯과 같은 정사각 둥근 먹색 칸(widget_one_tile) + 흰 그림, 이름은 칸 아래.
-     S68-08(11/22): 안드로이드 12+는 칸 크기를 위젯 크기에서 계산(WidgetTileRules.quick, 40~76dp, 그림 55%). 아래 40dp·24dp는 처음 그림·11 이하용.
+     APP-위젯먹색 S68-06(11/22): 단추는 한 칸 위젯과 같은 정사각 둥근 먹색 칸 + 흰 그림, 이름은 칸 아래.
+     S68-11(11/22): 칸은 그림 한 장(widget_tile_*)을 이름 줄 위 남는 공간 전체에 fitCenter로 그려 위젯이 실제로 받은 공간에서
+     가장 큰 정사각이 된다(크기 계산 없음). 좌우는 칸 폭의 14%씩 비운다(무게 14 : 72 : 14).
      이 위젯은 종이색 바탕(widget_bg) 안에 그리므로 이름은 먹색 글자(widget_ink, 그림자 없음). 누를 때 물결은 칸 전체(widget_day_plain). 서버 요청 없음. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/quick_root"
@@ -23,21 +24,32 @@
         android:minHeight="40dp"
         android:orientation="vertical">
 
-        <FrameLayout
-            android:id="@+id/quick_tile0"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@drawable/widget_one_tile">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="14" />
 
             <ImageView
-                android:id="@+id/quick_icon0"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="center"
+                android:id="@+id/quick_tile0"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="72"
+                android:adjustViewBounds="true"
                 android:importantForAccessibility="no"
-                android:tint="@color/widget_one_icon"
-                android:src="@drawable/ic_w_update" />
-        </FrameLayout>
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_tile_update" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="14" />
+        </LinearLayout>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -64,21 +76,32 @@
         android:minHeight="40dp"
         android:orientation="vertical">
 
-        <FrameLayout
-            android:id="@+id/quick_tile1"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@drawable/widget_one_tile">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="14" />
 
             <ImageView
-                android:id="@+id/quick_icon1"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="center"
+                android:id="@+id/quick_tile1"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="72"
+                android:adjustViewBounds="true"
                 android:importantForAccessibility="no"
-                android:tint="@color/widget_one_icon"
-                android:src="@drawable/ic_w_task" />
-        </FrameLayout>
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_tile_task" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="14" />
+        </LinearLayout>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

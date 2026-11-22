@@ -111,15 +111,50 @@ class WidgetRefreshTest {
     }
 
     @Test
+    fun shiftedWeeksReadSameCalendarAddressWithOtherRange() {
+        // S68-12: 위젯이 옮겨 둔 주(-1·+2)는 같은 일정 주소 모양을 범위만 바꿔 한 번씩 더 읽는다. 이번 주(0)는 늘 먼저.
+        val plan = WidgetRefresh(nowMs = now, weeks = setOf(2, -1, 0, 2))
+        assertEquals(listOf(0, -1, 2), plan.shifts)
+        assertEquals(plan.weekCals.getValue(0), plan.weekCal)
+        assertEquals(listOf(plan.weekCals.getValue(0), plan.weekCals.getValue(-1), plan.weekCals.getValue(2), WidgetRules.TASKS, WidgetRules.FEATURES), plan.urls)
+        plan.urls.forEach { assertTrue(it, WidgetRules.allowed("GET", it)) }
+        val (a, b) = WidgetWeek.range(now, shift = 2)
+        assertEquals(WidgetRules.calendarUrl(a, b), plan.weekCals.getValue(2))
+        // 범위 밖은 끝 주로.
+        assertEquals(listOf(0, WidgetWeek.MAX_SHIFT), WidgetRefresh(now, setOf(40)).shifts)
+        val replies = plan.urls.map { url ->
+            when (url) {
+                plan.weekCals.getValue(2) -> reply(500, null)
+                WidgetRules.TASKS -> reply(200, tasks)
+                WidgetRules.FEATURES -> reply(200, features)
+                else -> reply(200, week)
+            }
+        }
+        val r = plan.result(WidgetSession.Outcome.Ok(replies))
+        assertEquals(r.week, r.weeks[0])
+        val last = (r.weeks.getValue(-1) as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content
+        assertEquals("지난주 10/19–10/25", last.title)
+        assertEquals(java.time.LocalDate.of(2026, 10, 19), last.monday)
+        // 옮긴 주 하나가 이상해도 이번 주는 그린다(주마다 울타리).
+        val bad = plan.result(WidgetSession.Outcome.Ok(replies), weekContent = { c, t, ms, n, s ->
+            if (s == -1) throw IllegalStateException("x") else WidgetWeek.content(c.status, c.body, ms, tasksStatus = t.status, tasks = t.body, nojoWords = n, shift = s)
+        })
+        assertEquals(WidgetRefresh.Paint.Failed, bad.weeks[-1])
+        assertTrue(bad.weeks[0] is WidgetRefresh.Paint.Shown)
+        // 로그아웃·실패는 모든 주에.
+        assertEquals(setOf(0, -1, 2), plan.result(WidgetSession.Outcome.SignedOut).weeks.keys)
+    }
+
+    @Test
     fun oneWidgetFailureDoesNotBlockOthers() {
         val plan = WidgetRefresh(nowMs = now)
         // 0.3.7의 실제 실패 모양(클래스 초기화 오류): 내용 만들기가 실패해도 예외가 밖으로 나가지 않고 '실패'로 그린다.
         val r = plan.result(
             WidgetSession.Outcome.Ok(serverReplies(plan)),
-            weekContent = { _, _, _, _ -> throw ExceptionInInitializerError(IllegalArgumentException("regex")) },
+            weekContent = { _, _, _, _, _ -> throw ExceptionInInitializerError(IllegalArgumentException("regex")) },
         )
         assertEquals(WidgetRefresh.Paint.Failed, r.week)
-        val r2 = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)), weekContent = { _, _, _, _ -> throw NoClassDefFoundError("x") })
+        val r2 = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)), weekContent = { _, _, _, _, _ -> throw NoClassDefFoundError("x") })
         assertEquals(WidgetRefresh.Paint.Failed, r2.week)
         assertTrue(plan.result(WidgetSession.Outcome.Ok(serverReplies(plan))).week is WidgetRefresh.Paint.Shown)
 

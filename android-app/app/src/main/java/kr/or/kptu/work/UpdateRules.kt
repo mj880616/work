@@ -18,6 +18,8 @@ object UpdateRules {
     const val MAX_REDIRECTS = 5
     /** 앱이 뒤로 간 뒤 이만큼(분) 다시 열지 않으면 그때 설치한다. */
     const val BACKGROUND_DELAY_MIN = 10L
+    /** S68-15: 앱이 다시 앞에 나올 때(onResume) 새 판을 다시 묻는 최소 간격(분). GitHub 공개 조회 횟수 제한을 생각해 둔다. */
+    const val RECHECK_INTERVAL_MIN = 10L
 
     /** github.com 릴리스 받기 주소가 넘기는 곳(GitHub 릴리스 파일 저장소). 그 밖의 곳으로 넘기면 받지 않는다. */
     val REDIRECT_HOSTS: Set<String> = setOf("objects.githubusercontent.com", "release-assets.githubusercontent.com")
@@ -51,6 +53,25 @@ object UpdateRules {
         }
         return best
     }
+
+    /**
+     * S68-15: 새 판 확인을 지금 시작할까. 이미 확인 중이면 안 한다(동시 실행 막기).
+     * force(처음 열 때)면 간격과 상관없이, 아니면 마지막 확인 시작(lastAt, 한 번도 안 했으면 0)에서 10분이 지났을 때만.
+     * 시계가 뒤로 갔으면(now < lastAt) 다시 확인한다.
+     */
+    fun shouldCheck(now: Long, lastAt: Long, running: Boolean, force: Boolean): Boolean = when {
+        running -> false
+        force || lastAt <= 0L -> true
+        now < lastAt -> true
+        else -> now - lastAt >= RECHECK_INTERVAL_MIN * 60_000L
+    }
+
+    /**
+     * 새 판 확인이 같은 판을 다시 찾았을 때 건너뛸까(AppUpdater.found). 이미 그 판을 받는 중·설치 준비됨·실패 등 IDLE이 아니면 다시 받지 않는다.
+     * S68-15: onResume에서 다시 확인하므로 같은 판이 여러 번 들어온다.
+     */
+    fun sameRelease(heldVersion: String?, phase: Phase, foundVersion: String): Boolean =
+        heldVersion == foundVersion && phase != Phase.IDLE
 
     fun sizeAllowed(size: Long): Boolean = size in 1..MAX_APK_BYTES
 

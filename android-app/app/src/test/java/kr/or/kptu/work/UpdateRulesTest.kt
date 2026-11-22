@@ -175,4 +175,39 @@ class UpdateRulesTest {
         val actions = r.getElementsByTagName("action")
         assertEquals(listOf("android.intent.action.MY_PACKAGE_REPLACED"), (0 until actions.length).map { (actions.item(it) as Element).getAttributeNS(ns, "name") })
     }
+
+    // ── S68-15: 다시 앞에 나올 때 새 판 확인 ──
+
+    @Test fun 다시확인_처음은_바로() {
+        assertTrue(UpdateRules.shouldCheck(now = 1_000L, lastAt = 0L, running = false, force = false))
+        assertTrue(UpdateRules.shouldCheck(now = 1_000L, lastAt = 900L, running = false, force = true))
+    }
+
+    @Test fun 다시확인_10분_지나야() {
+        val t0 = 1_700_000_000_000L
+        val min = 60_000L
+        assertFalse(UpdateRules.shouldCheck(t0 + 9 * min, t0, running = false, force = false))
+        assertFalse(UpdateRules.shouldCheck(t0 + 10 * min - 1, t0, running = false, force = false))
+        assertTrue(UpdateRules.shouldCheck(t0 + 10 * min, t0, running = false, force = false))
+        assertTrue(UpdateRules.shouldCheck(t0 + 60 * min, t0, running = false, force = false))
+    }
+
+    @Test fun 다시확인_확인중이면_안함() {
+        val t0 = 1_700_000_000_000L
+        assertFalse(UpdateRules.shouldCheck(t0 + 3_600_000L, t0, running = true, force = false))
+        assertFalse(UpdateRules.shouldCheck(t0, 0L, running = true, force = true))
+    }
+
+    @Test fun 다시확인_시계가_뒤로가면_다시() {
+        assertTrue(UpdateRules.shouldCheck(now = 1_000L, lastAt = 5_000L, running = false, force = false))
+    }
+
+    @Test fun 같은판_다시찾으면_건너뜀() {
+        assertTrue(UpdateRules.sameRelease("0.5.21", Phase.DOWNLOADING, "0.5.21"))
+        assertTrue(UpdateRules.sameRelease("0.5.21", Phase.READY, "0.5.21"))
+        assertTrue(UpdateRules.sameRelease("0.5.21", Phase.FAILED, "0.5.21"))
+        assertFalse(UpdateRules.sameRelease("0.5.21", Phase.IDLE, "0.5.21"))
+        assertFalse(UpdateRules.sameRelease("0.5.21", Phase.READY, "0.5.22"))
+        assertFalse(UpdateRules.sameRelease(null, Phase.IDLE, "0.5.21"))
+    }
 }

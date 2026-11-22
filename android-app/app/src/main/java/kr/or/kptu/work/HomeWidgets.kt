@@ -102,10 +102,18 @@ class WidgetWorker(context: Context, params: WorkerParameters) : Worker(context,
             HomeWidgets.showSignedOut(ctx)
             return
         }
-        val plan = WidgetRefresh(at)
+        // S68-12: 이번 주 위젯이 옮겨 둔 주도 같은 일정 주소(범위만 다름)로 함께 읽는다.
+        val plan = WidgetRefresh(at, WidgetGuard.get { WeekWidget.shifts(at) } ?: setOf(0))
         val r = plan.result(session.readList(plan.urls))
         WidgetGuard.run { AppFolders.rememberNojoWords(ctx, r.nojoWords) }
-        if (!WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.state(r.week)) }) WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) }
+        if (!WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.state(r.weeks, at)) }) WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) }
+        // S68-12: 읽는 동안 위젯에서 다른 주로 옮겼으면(이 작업이 도는 중이라 새 작업이 끼지 못함) 한 번 더 읽는다.
+        val more = WidgetGuard.get { WeekWidget.shifts() }.orEmpty() - plan.shifts.toSet()
+        if (more.isNotEmpty()) {
+            val again = WidgetRefresh(System.currentTimeMillis(), WeekWidget.shifts())
+            val r2 = again.result(session.readList(again.urls))
+            if (!WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.state(r2.weeks, again.nowMs)) }) WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) }
+        }
     }
 }
 
@@ -220,17 +228,6 @@ object HomeWidgets {
         if (sizes.isEmpty()) return build(null)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || sizes.size == 1) return build(sizes.first())
         return RemoteViews(sizes.associateWith { build(it) })
-    }
-
-    /** S68-08: 안드로이드 12+에서 먹색 칸·그림 크기(dp)를 바로 정한다. 11 이하는 틀에 적힌 크기 그대로. */
-    fun tileSize(views: RemoteViews, tile: Int, icon: Int, tileDp: Int) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        val dp = android.util.TypedValue.COMPLEX_UNIT_DIP
-        views.setViewLayoutWidth(tile, tileDp.toFloat(), dp)
-        views.setViewLayoutHeight(tile, tileDp.toFloat(), dp)
-        val iconDp = WidgetTileRules.icon(tileDp).toFloat()
-        views.setViewLayoutWidth(icon, iconDp, dp)
-        views.setViewLayoutHeight(icon, iconDp, dp)
     }
 }
 

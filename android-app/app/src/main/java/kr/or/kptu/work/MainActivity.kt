@@ -311,7 +311,7 @@ class MainActivity : ComponentActivity() {
         ReopenBook.freshProcess = false
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) loadFromIntent(intent)
         ReopenBook.log.expect(reopenKind, System.currentTimeMillis())
-        if (savedInstanceState == null) checkForUpdate()
+        if (savedInstanceState == null) checkForUpdate(force = true)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -1584,6 +1584,8 @@ class MainActivity : ComponentActivity() {
         WidgetGuard.run { WidgetJobs.refreshOnOpen(applicationContext) }
         // APP-알림숫자지우기 ①: 앱이 앞에 나오면 알림창에 남은 웹2 폰 알림을 지운다(아이콘 숫자도 사라짐). 녹음·업데이트 알림은 두고, 웹2 안 알림 줄·최근 알림은 서버 기록이 정한다.
         PushSetup.clearAll(this)
+        // S68-15: 앱을 닫지 않고 다른 앱에 다녀와도 새 판을 확인한다(마지막 확인에서 10분이 지났고, 확인 중이 아닐 때만).
+        checkForUpdate(force = false)
     }
 
     override fun onPause() {
@@ -1761,16 +1763,24 @@ class MainActivity : ComponentActivity() {
         updateBar.addView(updateClose)
     }
 
-    private fun checkForUpdate() {
+    /** force: 처음 열 때(간격 무시). 아니면 onResume에서 10분 간격. 어느 쪽이든 확인 중이면 다시 시작하지 않는다(UpdateRules.shouldCheck). */
+    private fun checkForUpdate(force: Boolean) {
         // S62-34: 플레이 판은 플레이가 업데이트한다. GitHub 릴리스를 보지도 받지도 않는다.
         if (!BuildConfig.SELF_UPDATE) return
+        if (!UpdateCheck.begin(System.currentTimeMillis(), force)) return
         val current = BuildConfig.VERSION_NAME
         Thread {
-            val found = UpdateCheck.fetch(current) ?: return@Thread
+            val found = try {
+                UpdateCheck.fetch(current)
+            } finally {
+                UpdateCheck.end()
+            }
+            if (found == null) return@Thread
             runOnUiThread {
                 if (!alive) return@runOnUiThread
                 updateUrl = found.url
                 // 앱 안에서 받아 설치한다(AppUpdater). 어긋나면 FAILED → 예전처럼 [받기](브라우저).
+                // 같은 판을 다시 찾으면 AppUpdater.found가 건너뛴다(받는 중·설치 준비됨·실패 그대로, IDLE일 때만 새로 시작).
                 AppUpdater.found(this, found)
                 renderUpdate()
             }
