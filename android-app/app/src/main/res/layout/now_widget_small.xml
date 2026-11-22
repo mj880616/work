@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-위젯다시 ①: '지금'(2×2). 다음 일정 + 요청·챙길 것 숫자 두 칸. 안드로이드 12+에서 칸이 좁으면 홈 화면이 이 그림을 고른다. -->
+<!-- APP-위젯다시 ①: '지금'(2×2). 안드로이드 12+에서 칸이 좁으면 홈 화면이 이 그림을 고른다.
+     APP-위젯먹색 S68-06(11/22): 작은 크기는 다음 일정 남은 시간·시각·제목만(요청·챙길 것 숫자 칸은 이 틀에서 뺐다, 4×2에는 그대로). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/now_root"
     android:layout_width="match_parent"
@@ -72,77 +73,4 @@
             android:textSize="11sp" />
     </LinearLayout>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-        <LinearLayout
-            android:id="@+id/now_row_asks"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/widget_badge_req"
-            android:clickable="true"
-            android:focusable="true"
-            android:orientation="vertical"
-            android:paddingStart="8dp"
-            android:paddingTop="3dp"
-            android:paddingEnd="6dp"
-            android:paddingBottom="4dp">
-            <TextView
-                android:id="@+id/now_asks_n"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:singleLine="true"
-                android:ellipsize="end"
-                android:textColor="@color/widget_req_ink"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="요청"
-                android:singleLine="true"
-                android:ellipsize="end"
-                android:textColor="@color/widget_req_ink"
-                android:textSize="10sp" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="6dp"
-            android:layout_height="1dp" />
-        <LinearLayout
-            android:id="@+id/now_row_todo"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/widget_badge_todo"
-            android:clickable="true"
-            android:focusable="true"
-            android:orientation="vertical"
-            android:paddingStart="8dp"
-            android:paddingTop="3dp"
-            android:paddingEnd="6dp"
-            android:paddingBottom="4dp">
-            <TextView
-                android:id="@+id/now_todo_n"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:singleLine="true"
-                android:ellipsize="end"
-                android:textColor="@color/widget_todo_ink"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="잊지 말기"
-                android:singleLine="true"
-                android:ellipsize="end"
-                android:textColor="@color/widget_todo_ink"
-                android:textSize="10sp" />
-        </LinearLayout>
-    </LinearLayout>
 </LinearLayout>

@@ -56,6 +56,11 @@ class WidgetWeekTest {
         assertEquals(listOf(1, 0, 0, 3, 0, 0, 0), c.days.map { it.count })
         assertEquals(4, c.total)
         assertEquals(listOf(false, false, false, true, false, false, false), c.days.map { it.busy })
+        // APP-위젯먹색 S68-06: 그날 첫 일정 제목(종일 먼저·시각 순 = 고른 날 아래 칸 첫 일정). 지난주에서 이어진 일정은 월요일 첫 일정.
+        assertEquals(listOf("지난주 밤샘", null, null, "출장", null, null, null), c.days.map { it.first })
+        assertEquals("출장", WidgetWeek.firstLine(c.days[3], small = false))
+        assertNull(WidgetWeek.firstLine(c.days[3], small = true)) // 4×1은 지금처럼 수만
+        assertNull(WidgetWeek.firstLine(c.days[1], small = false)) // 일정 없는 날은 줄을 숨김
         // 몰린 날(목)이 이미 지났으면 '몰린 날' 줄은 없다.
         assertNull(c.busy)
         assertNull(c.note)
@@ -222,5 +227,34 @@ class WidgetWeekTest {
         assertFalse(WidgetRules.allowed("POST", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/rpc/app_my_features"))
         assertTrue(WidgetRules.allowed("GET", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/rpc/app_my_features"))
         assertFalse(WidgetRules.allowed("GET", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/rpc/app_my_features?select=*"))
+    }
+
+    @Test
+    fun firstLineAndTodayCell() {
+        // APP-위젯먹색 S68-06: 첫 일정 줄은 공백만인 제목이면 숨기고, 오늘 칸은 고른 날보다 먼저(먹색 바탕).
+        val today = LocalDate.of(2026, 10, 30)
+        val d = WidgetWeek.Day(today, "금", 30, 2, false, "  운영위 회의  ")
+        assertEquals("운영위 회의", WidgetWeek.firstLine(d, small = false))
+        assertNull(WidgetWeek.firstLine(d.copy(first = "   "), small = false))
+        assertNull(WidgetWeek.firstLine(d.copy(count = 0), small = false))
+        assertEquals(WidgetWeek.Cell.TODAY, WidgetWeek.cell(d, today, null))
+        assertEquals(WidgetWeek.Cell.TODAY, WidgetWeek.cell(d, today, today))
+        val tue = d.copy(day = LocalDate.of(2026, 10, 27))
+        assertEquals(WidgetWeek.Cell.PICKED, WidgetWeek.cell(tue, today, tue.day))
+        assertEquals(WidgetWeek.Cell.PLAIN, WidgetWeek.cell(tue, today, null))
+        // 실패·로그인 전 빈 칸(fallback)에는 첫 일정이 없다.
+        assertTrue(WidgetWeek.content(0, null, now).days.all { it.first == null })
+        // 화면: 4×2 틀에만 첫 일정 줄 7개, 4×1 틀에는 없다(새 서버 주소 없음 — 같은 일정 답에서 만든다).
+        val big = java.io.File("src/main/res/layout/week_widget.xml").readText()
+        val small = java.io.File("src/main/res/layout/week_widget_small.xml").readText()
+        for (i in 0..6) {
+            assertTrue(big.contains("@+id/week_f$i\""))
+            assertFalse(small.contains("@+id/week_f$i\""))
+        }
+        val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
+        assertTrue(src.contains("WidgetWeek.Cell.TODAY -> R.drawable.widget_day_today"))
+        assertTrue(src.contains("R.color.widget_today_ink"))
+        val todayXml = java.io.File("src/main/res/drawable/widget_day_today.xml").readText()
+        assertTrue(todayXml.contains("<ripple") && todayXml.contains("@color/widget_today_bg"))
     }
 }

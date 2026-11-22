@@ -94,30 +94,48 @@ class WidgetWorker(context: Context, params: WorkerParameters) : Worker(context,
         val at = System.currentTimeMillis()
         WidgetJobs.lastRunAt = at
         // FIX-위젯: 위젯마다 울타리를 따로 둔다. 한 위젯(또는 아스날 파일 받기)이 실패해도 나머지는 그린다.
+        // APP-위젯먹색 S68-06: 아스날 허용 여부(서버 기능 목록의 arsenal)는 지금·이번 주가 함께 받은 목록을 쓰고, 그 위젯이 없을 때만 따로 GET 한 번.
+        var arsenalOk: Boolean? = null
         if (now || week) {
-            if (!WidgetGuard.run { refreshSigned(ctx, now, week, at) }) {
+            if (!WidgetGuard.run { arsenalOk = refreshSigned(ctx, now, week, at) }) {
                 if (now) WidgetGuard.run { NowWidget.show(ctx, NowWidget.State.Failed) }
                 if (week) WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) }
             }
+        } else if (arsenal) {
+            arsenalOk = WidgetGuard.get { arsenalFeature(ctx) }
         }
         // 아스날(공개 정적 파일, 로그인 없음)은 로그인 위젯 다음에. 6시간 안에 받은 자료가 있으면 다시 그리기만.
-        if (arsenal && !WidgetGuard.run { ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), at) }) {
+        // 서버가 이 계정에 아스날을 열지 않았으면(false) 읽지 않고 '쓸 수 없는 위젯' 한 줄. 모르면(null) 지금처럼.
+        if (arsenal && !WidgetGuard.run { ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), at, arsenalOk) }) {
             WidgetGuard.run { ArsenalWidget.showFailed(ctx) }
         }
         return Result.success()
     }
 
-    private fun refreshSigned(ctx: Context, now: Boolean, week: Boolean, at: Long) {
+    /** 위젯 로그인이 없으면 기능 목록을 모르므로 null. 아스날 위젯만 있을 때의 기능 목록 읽기(허용된 GET 주소 하나). */
+    private fun arsenalFeature(ctx: Context): Boolean? {
+        val session = WidgetHub.session(ctx)
+        if (!session.signedIn()) return null
+        val reply = when (val r = session.readList(listOf(WidgetRules.FEATURES))) {
+            is WidgetSession.Outcome.Ok -> r.value.singleOrNull()
+            else -> null
+        } ?: return null
+        return WidgetArsenal.allowedOf(reply.status, reply.body)
+    }
+
+    /** 돌려주는 값: 받은 기능 목록에 arsenal이 있나(모르면 null). */
+    private fun refreshSigned(ctx: Context, now: Boolean, week: Boolean, at: Long): Boolean? {
         val session = WidgetHub.session(ctx)
         if (!session.signedIn()) {
             HomeWidgets.showSignedOut(ctx)
-            return
+            return null
         }
         val plan = WidgetRefresh(now, week, at)
         val r = plan.result(session.readList(plan.urls))
         WidgetGuard.run { AppFolders.rememberNojoWords(ctx, r.nojoWords) }
         r.now?.let { p -> WidgetGuard.run { NowWidget.show(ctx, NowWidget.state(p)) } || WidgetGuard.run { NowWidget.show(ctx, NowWidget.State.Failed) } }
         r.week?.let { p -> WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.state(p)) } || WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) } }
+        return r.arsenal
     }
 }
 
@@ -214,7 +232,7 @@ object HomeWidgets {
 /**
  * 홈 화면 '웹2 지금' 위젯(4×2·2×2, APP-위젯다시 ①). 지난 '오늘'·'텔레그램' 위젯을 합쳐 바꿨다. 홈 화면 전용(결정 W-D4).
  * 4×2: 다음 일정을 크게(시각·제목·남은 시간) + 그다음 한 줄 + 처리할 것 세 줄(요청·챙길 것·오늘 기한 할 일).
- * 2×2: 다음 일정 + 요청·챙길 것 숫자 두 칸. 줄을 누르면 그 자리(달력·정리함·할 일).
+ * 2×2: 다음 일정 남은 시간·시각·제목만(APP-위젯먹색 S68-06, 작은 화면 틀에서 숫자 칸을 뺐다). 줄을 누르면 그 자리(달력·정리함·할 일).
  * 마지막에 그린 내용은 이 프로세스 메모리에만 둔다(폰에 저장하지 않음, 결정 W-D2).
  */
 class NowWidget : AppWidgetProvider() {
@@ -363,21 +381,21 @@ class NowWidget : AppWidgetProvider() {
             } else {
                 views.setViewVisibility(R.id.now_after, View.GONE)
             }
-            line(context, views, R.id.now_row_asks, R.id.now_asks_n, R.id.now_asks_text, c.asks, R.drawable.widget_badge_req, R.color.widget_req_ink, small, "basket", 14)
-            line(context, views, R.id.now_row_todo, R.id.now_todo_n, R.id.now_todo_text, c.todo, R.drawable.widget_badge_todo, R.color.widget_todo_ink, small, "basket", 15)
-            line(context, views, R.id.now_row_due, R.id.now_due_n, R.id.now_due_text, c.due, R.drawable.widget_badge_todo, R.color.widget_todo_ink, small, "tasks", 13)
+            // APP-위젯먹색 S68-06: 2×2(small) 화면 틀에는 처리할 것 줄이 없다(다음 일정 남은 시간·시각·제목만).
+            if (small) return
+            line(context, views, R.id.now_row_asks, R.id.now_asks_n, R.id.now_asks_text, c.asks, R.drawable.widget_badge_req, R.color.widget_req_ink, "basket", 14)
+            line(context, views, R.id.now_row_todo, R.id.now_todo_n, R.id.now_todo_text, c.todo, R.drawable.widget_badge_todo, R.color.widget_todo_ink, "basket", 15)
+            line(context, views, R.id.now_row_due, R.id.now_due_n, R.id.now_due_text, c.due, R.drawable.widget_badge_todo, R.color.widget_todo_ink, "tasks", 13)
         }
 
-        /** 처리할 것 한 줄. 0·읽지 못함은 옅은 회색 표, 1 이상은 그 줄 색. 2×2는 숫자 칸이라 표 바탕을 칠하지 않는다. */
-        private fun line(context: Context, views: RemoteViews, row: Int, num: Int, text: Int, l: WidgetNow.Line, badge: Int, ink: Int, small: Boolean, view: String, code: Int) {
+        /** 처리할 것 한 줄(4×2만). 0·읽지 못함은 옅은 회색 표, 1 이상은 그 줄 색. */
+        private fun line(context: Context, views: RemoteViews, row: Int, num: Int, text: Int, l: WidgetNow.Line, badge: Int, ink: Int, view: String, code: Int) {
             views.setViewVisibility(row, View.VISIBLE)
             views.setTextViewText(num, l.count?.toString() ?: "–")
             views.setTextViewText(text, l.text)
             val on = (l.count ?: 0) > 0
-            if (!small) {
-                views.setInt(num, "setBackgroundResource", if (on) badge else R.drawable.widget_badge_zero)
-                views.setTextColor(num, context.getColor(if (on) ink else R.color.widget_zero_ink))
-            }
+            views.setInt(num, "setBackgroundResource", if (on) badge else R.drawable.widget_badge_zero)
+            views.setTextColor(num, context.getColor(if (on) ink else R.color.widget_zero_ink))
             views.setOnClickPendingIntent(row, HomeWidgets.openApp(context, view, code))
         }
 

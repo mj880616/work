@@ -14,6 +14,19 @@ import java.time.temporal.ChronoUnit
  */
 object WidgetArsenal {
     const val ARSENAL = "아스날"
+
+    /**
+     * APP-위젯먹색 S68-06: 아스날은 운영자 기능(서버 허용 표의 'arsenal', 웹 메뉴 menu-model.mjs와 같은 이름). 위젯 목록에서는 사람별로 못 숨기므로
+     * 위젯 로그인이 있고 서버 기능 목록(app_my_features)에 이 이름이 없으면 이 한 줄만 그리고 경기 파일·내 일정을 읽지 않는다.
+     */
+    const val FEATURE = "arsenal"
+    const val NOT_ALLOWED_LINE = "이 계정에서는 쓸 수 없는 위젯이에요"
+
+    /** 서버 app_my_features 답(글자 목록) → arsenal이 있나. 못 읽었거나 목록이 아니면 null(모름: 지금처럼 그린다). */
+    fun allowedOf(status: Int, body: Any?): Boolean? {
+        if (status != 200 || body !is List<*>) return null
+        return body.any { it == FEATURE }
+    }
     private val DAYS = arrayOf("월", "화", "수", "목", "금", "토", "일")
     private val HHMM = Regex("^([01]\\d|2[0-3]):[0-5]\\d$")
 

@@ -11,7 +11,7 @@ import java.time.temporal.ChronoUnit
  * APP-위젯다시 ③: '이번 주' 위젯(4×2·4×1)에 그릴 것. 안드로이드 API를 쓰지 않아 JVM 시험 대상이다.
  * 범위: 보이는 주 월요일 0시 ~ 다음 월요일 0시(서울). 토·일에는 다음 주를 보인다.
  * 읽기는 '지금' 위젯과 같은 google-calendar action=events(허용 주소 그대로).
- * - 요일 칸 7개: 일정 수. 3개 이상 몰린 날·가장 큰 일이 있는 날은 옅은 색.
+ * - 요일 칸 7개: 일정 수. 4×2는 그 아래 그날 첫 일정 제목 앞부분 한 줄(APP-위젯먹색 S68-06, 아래 칸 목록과 같은 차례의 첫 줄).
  * - 아래 줄(4×2만): '가장 큰 일 D-n'(고르는 기준은 docs/design/phone-widget-auth.md 14절), '월 주간 보고일'(nojo_words는 '상집 보고일', reportLabel), '일정 몰린 날'.
  * 칸·줄을 누르면 앱 달력의 그 날(웹 ?view=calendar&day=). 만든 내용은 폰에 저장하지 않는다(결정 W-D2).
  * APP-위젯날짜고르기: 4×2에서 요일 칸을 누르면 앱을 열지 않고 아래 칸이 그 날 일정·기한 할 일로 바뀐다(dayDetail).
@@ -28,7 +28,23 @@ object WidgetWeek {
     /** '가장 큰 일' 낱말(설계 14절). 명진이 고칠 낱말을 주면 여기만 바꾼다. */
     val BIG_WORDS = listOf("파업", "집회", "기자회견", "결의대회", "선포", "총회", "대의원", "대표자회의", "교섭", "투쟁", "출범", "토론회", "공청회", "간담회", "면담", "대회")
 
-    data class Day(val day: LocalDate, val week: String, val date: Int, val count: Int, val busy: Boolean)
+    /** first: 그날 첫 일정 제목(종일 먼저·시각 순, 고른 날 아래 칸 첫 일정과 같음). 일정이 없으면 null. */
+    data class Day(val day: LocalDate, val week: String, val date: Int, val count: Int, val busy: Boolean, val first: String? = null)
+
+    /**
+     * APP-위젯먹색 S68-06: 4×2 요일 칸 셋째 줄(그날 첫 일정 제목 앞부분). 일정이 없거나 제목이 비면 null(줄을 숨김).
+     * 4×1(small)에는 이 줄이 없다(지금처럼 수만). 앞부분 자르기는 칸 폭에 맞춘 말줄임(ellipsize)이 한다.
+     */
+    fun firstLine(d: Day, small: Boolean): String? = if (small || d.count <= 0) null else d.first?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** APP-위젯먹색 S68-06: 오늘 칸만 먹색 바탕 + 밝은 글자(고른 날 표시보다 앞선다). */
+    enum class Cell { PLAIN, PICKED, TODAY }
+
+    fun cell(d: Day, today: LocalDate, picked: LocalDate?): Cell = when (d.day) {
+        today -> Cell.TODAY
+        picked -> Cell.PICKED
+        else -> Cell.PLAIN
+    }
 
     /** 아래 줄 하나: 앞 표(D-2·월·금)와 글, 누르면 열 날. */
     data class Pick(val day: LocalDate, val tag: String, val text: String)
@@ -196,7 +212,7 @@ object WidgetWeek {
         val big = big(evs, nowMs, zone)
         val days = empty.map { d ->
             val n = counts[d.day] ?: 0
-            d.copy(count = n, busy = n >= BUSY)
+            d.copy(count = n, busy = n >= BUSY, first = evs.firstOrNull { it.day == d.day }?.title)
         }
         val bigPick = big?.let { Pick(it.day, dTag(today, it.day), "${weekday(it.day)} ${clock(it, zone)} ${it.title}") }
         // 보고일: 주간보고 기준일 규칙(journal-data.js reportDay, 월요일). 오늘 이후의 가장 가까운 월요일(오늘이 월요일이면 오늘).

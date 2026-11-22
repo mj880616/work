@@ -50,6 +50,8 @@ class WidgetRefresh(val now: Boolean, val week: Boolean, val nowMs: Long) {
         val week: Paint<WidgetWeek.Content>?,
         /** S68-02: 서버 기능 목록에 nojo_words가 있나(모르면 null). 앱 사진 폴더 이름 고르기에 쓰려고 기기 설정에 둔다(AppFolders). */
         val nojoWords: Boolean? = null,
+        /** APP-위젯먹색 S68-06: 같은 기능 목록에 arsenal이 있나(모르면 null). 아스날 위젯이 서버 읽기를 할지 정한다. */
+        val arsenal: Boolean? = null,
     )
 
     val nowCal: String
@@ -95,7 +97,8 @@ class WidgetRefresh(val now: Boolean, val week: Boolean, val nowMs: Long) {
         val weekPaint = if (!week) null else paint {
             weekContent(got.getValue(weekCal), got.getValue(WidgetRules.TASKS), nowMs, nojo)
         }
-        return Result(nowPaint, weekPaint, nojo)
+        val ars = got[WidgetRules.FEATURES]?.let { WidgetArsenal.allowedOf(it.status, it.body) }
+        return Result(nowPaint, weekPaint, nojo, ars)
     }
 
     private fun everyone(p: Paint<Nothing>): Result = Result(p.takeIf { now }, p.takeIf { week })

@@ -145,4 +145,32 @@ class WidgetArsenalTest {
             assertFalse(name, drawer.contains("WidgetArsenal.$name"))
         }
     }
+
+    @Test
+    fun featureGateFromServerList() {
+        // APP-위젯먹색 S68-06: 서버 기능 목록에 arsenal(웹 메뉴 menu-model.mjs와 같은 이름)이 있나. 모르면 null(지금처럼 그림).
+        assertEquals("arsenal", WidgetArsenal.FEATURE)
+        assertTrue(File("../../app/menu-model.mjs").readText().contains("feature: 'arsenal'"))
+        assertEquals(true, WidgetArsenal.allowedOf(200, listOf("calls", "arsenal")))
+        assertEquals(false, WidgetArsenal.allowedOf(200, listOf("nojo_words")))
+        assertEquals(false, WidgetArsenal.allowedOf(200, emptyList<String>()))
+        assertNull(WidgetArsenal.allowedOf(500, listOf("arsenal")))
+        assertNull(WidgetArsenal.allowedOf(200, mapOf("arsenal" to true)))
+        assertNull(WidgetArsenal.allowedOf(401, null))
+        assertEquals("이 계정에서는 쓸 수 없는 위젯이에요", WidgetArsenal.NOT_ALLOWED_LINE)
+        val ph = WidgetArsenal.richPlaceholder(WidgetArsenal.NOT_ALLOWED_LINE)
+        assertEquals(WidgetArsenal.NOT_ALLOWED_LINE, ph.smallBottom)
+        // 막힌 계정이면 경기 파일(readPublic)·내 일정(readList)을 읽기 전에 돌아간다. 모름(null)은 지금처럼 읽는다.
+        val src = File("src/main/java/kr/or/kptu/work/ArsenalWidget.kt").readText()
+        val body = src.substringAfter("fun refresh(context: Context, session: WidgetSession, nowMs: Long, allowed: Boolean? = null)").substringBefore("private fun readMine")
+        assertTrue(body.contains("blocked = allowed == false"))
+        assertTrue(body.indexOf("return\n") in 0 until body.indexOf("session.readPublic"))
+        assertTrue(src.contains("blocked -> WidgetArsenal.richPlaceholder(WidgetArsenal.NOT_ALLOWED_LINE)"))
+        // 갱신 작업: 지금·이번 주가 받은 기능 목록을 넘기고, 아스날만 있을 때는 허용된 기능 목록 GET 하나만.
+        val worker = File("src/main/java/kr/or/kptu/work/NowWidget.kt").readText()
+        assertTrue(worker.contains("ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), at, arsenalOk)"))
+        assertTrue(worker.contains("session.readList(listOf(WidgetRules.FEATURES))"))
+        assertTrue(WidgetRules.allowed("GET", WidgetRules.FEATURES))
+        assertFalse(WidgetRules.allowed("POST", WidgetRules.FEATURES))
+    }
 }
