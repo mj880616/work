@@ -47,8 +47,8 @@ class WidgetLayoutsTest {
     @Test
     fun widgetLayoutsUseOnlyRemoteViewsParts() {
         val names = widgetLayouts()
-        // S68-13: '지금'·'아스날' 틀 5개를 지워 빠른 쓰기 2·한 칸 3·이번 주 2 = 7개.
-        assertTrue("위젯 화면 틀을 찾지 못함", names.size >= 7)
+        // S68-13: '지금'·'아스날' 틀 5개를 지우고, S68-11이 한 칸 크기별 틀(48·72)을 지워 빠른 쓰기 2·한 칸 1·이번 주 2 = 5개.
+        assertTrue("위젯 화면 틀을 찾지 못함", names.size >= 5)
         val bad = mutableListOf<String>()
         for (name in names.sorted()) {
             val files = File("src/main/res").listFiles { f -> f.isDirectory && f.name.startsWith("layout") }!!
