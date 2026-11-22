@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- APP-한칸위젯 A(11/22): 한 칸 위젯 정사각 둥근 먹색 칸(앱 아이콘·앱 테마 기본 먹 #22262b와 같은 값). -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/widget_one_bg" />
-    <corners android:radius="14dp" />
-</shape>
