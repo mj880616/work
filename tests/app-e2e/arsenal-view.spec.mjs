@@ -12,7 +12,9 @@ const context = { window: {} };
 runInNewContext(readFileSync(new URL('../../app/arsenal/matches.js', import.meta.url), 'utf8'), context);
 // S46-26: 예정 경기 줄(upcoming:true)은 목록·개수에 안 들어가고 목록 위 작은 줄로만 보인다(오늘(한국) 이후만).
 const ALL = context.window.ARSENAL_MATCHES.filter(m => m.upcoming !== true);
-const kstToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+// 화면 시계는 openHome이 고정한다(PAGE_NOW). '오늘'도 그 시계로 센다 — 실제 날짜로 세면 예정 경기 날이 지날 때마다 시험이 깨졌다(11/23 CI, 3 대 2).
+const PAGE_NOW = '2026-10-06T01:00:00Z';
+const kstToday = new Date(Date.parse(PAGE_NOW) + 9 * 3600e3).toISOString().slice(0, 10);
 const NEXT = context.window.ARSENAL_MATCHES.filter(m => m.upcoming === true && m.date >= kstToday);
 const newest = [...ALL].sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))[0];
 
@@ -22,7 +24,7 @@ async function start(page, width) {
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
   page.on('request', r => { if (new URL(r.url()).pathname.endsWith('/arsenal/matches.js')) data.push(r.url()); });
   await page.setViewportSize({ width, height: 900 });
-  await openHome(page);
+  await openHome(page, { now: PAGE_NOW });
   return { errors, data };
 }
 async function openArsenal(page, width) {
