@@ -223,10 +223,12 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"] .now-hit`)).toHaveText('철도 민영화');
     await expect(root(page).locator('[data-now-cand]')).toBeHidden();
 
-    // 보관한 글(S68-24·S68-27): 탭 줄 끝 '보관 ↗' → 읽을 거리 [News]. 방금 보관한 사회운동 글(P1) + 옮겨 온 글(P2)이 읽을 거리 줄로, 꼬리표 'News'.
-    await root(page).locator('[data-now-go-saved]').click();
+    // 읽을 거리로 보낸 글(S68-24·S68-27·S68-28): News 탭 줄에는 '보관' 길이 없고, 메뉴 '읽을 거리' [News]에 방금 보낸 사회운동 글(P1) + 옮겨 온 글(P2), 꼬리표 'News'.
+    await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
+    await page.evaluate(() => window.KPTURouter.go('reading'));
     const rd = page.locator('#readingView');
     await expect(rd).toBeVisible();
+    await rd.locator('.rd-chips [data-filter-value="news"]').click();
     await expect(rd.locator('.rd-chips [data-filter-value="news"]')).toHaveAttribute('aria-checked', 'true');
     await expect(rd.locator('.rd-row-news')).toHaveCount(2);
     await expect(rd.locator(`[data-rd-open="r-${P1}"]`)).toContainText('[성명] 가상 철도 민영화 반대');

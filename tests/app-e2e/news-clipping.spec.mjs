@@ -53,7 +53,7 @@ for (const width of [412, 884, 1440]) {
     // S68-27: '보관한 글' 찾기 = 내 읽을 거리 줄이 가리키는 기사(표시 표의 별표 칸이 아님).
     expect(server.calls.some(c => c.what === 'app_reading_items' && c.query.includes('news_article_id=not.is.null') && c.query.includes('app_news_articles!inner(') && c.query.includes('app_news_articles.or='))).toBe(true);
     await page.locator('#outsideRoot [data-nw-find]').fill('없는낱말');
-    await expect(root(page).locator('[data-nc-empty]')).toHaveText('최근 30일·보관한 글에서 찾은 글이 없어요');
+    await expect(root(page).locator('[data-nc-empty]')).toHaveText('최근 30일·읽을 거리에서 찾은 글이 없어요');
     await page.locator('#outsideRoot [data-nw-find]').fill('');
     await expect(items(page)).toHaveCount(5);
 

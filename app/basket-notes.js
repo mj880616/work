@@ -406,7 +406,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // 얇은 구분 줄은 폴더 목록과 같은 상자 안일 때만(따로 선 상자면 상자 테두리가 이미 나눈다 — 줄 두 겹 없음).
       const news = !m && at === null && !pick.active ? newsMarks.navHtml({sep:boxed}) : '';
       const body = rows.map(r => rowHtml(r)).join('');
-      rowsBox.innerHTML = isNewsAt(at) && !m ? '' : boxed ? (at !== null ? focusBoxHtml(body) : ftBoxHtml({body:body + news, label:'노트 폴더'}) + newFolderRowHtml()) : body + (news ? ftBoxHtml({body:news, label:'밑줄·보관한 글'}) : '');
+      rowsBox.innerHTML = isNewsAt(at) && !m ? '' : boxed ? (at !== null ? focusBoxHtml(body) : ftBoxHtml({body:body + news, label:'노트 폴더'}) + newFolderRowHtml()) : body + (news ? ftBoxHtml({body:news, label:'밑줄·읽을 거리로 보낸 글'}) : '');
       // NOTE-최근5개 → 나무새기준 ①: 폰 첫 화면 맨 위 '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개).
       const recent = !m && at === null && showRecent() ? recentRows({folders, notes, folderOf, count:recentAll ? RECENT_MORE : undefined}) : [];
       recentBox.hidden = !recent.length;

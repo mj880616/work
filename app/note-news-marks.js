@@ -78,9 +78,9 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
     const l = savedLine(r, nameOf);
     // 보관 = 별표(S67-09). S67-11: ★은 단추 — 누르면 보관에서 빼기(News 줄 ★과 같은 dropSaved, 5초 [되돌리기]). 찾기 결과 꼬리표 줄은 그대로 글자.
     const mark = tag ? `<span class="nnm-tag">${esc(tag)}</span>` : '';
-    const star = tag ? '' : '<button type="button" class="icon-btn nnm-star" data-now-act="unstar" aria-label="보관에서 빼기" title="보관에서 빼기"><span aria-hidden="true">★</span></button>';
+    const star = tag ? '' : '<button type="button" class="icon-btn nnm-star" data-now-act="unstar" aria-label="읽을 거리에서 빼기" title="읽을 거리에서 빼기"><span aria-hidden="true">★</span></button>';
     const del = r.type === 'news' && canDeleteNews(r.row);
-    return `<div class="nnm-sv now-row" data-nw-key="${esc(l.key)}">${star}<button type="button" class="ghost nnm-open" data-nnm-saved="${esc(l.key)}">${mark}<span class="nnm-t">${esc(l.title)}</span><span class="nnm-m">${esc([l.media, l.day].filter(Boolean).join(' · '))}</span></button>${hoverActsHtml({saved: true, canDelete: del})}<button type="button" class="icon-btn basket-row-more" data-now-more aria-haspopup="true" aria-expanded="false" aria-label="보관한 글 메뉴">${MORE}</button></div>`;
+    return `<div class="nnm-sv now-row" data-nw-key="${esc(l.key)}">${star}<button type="button" class="ghost nnm-open" data-nnm-saved="${esc(l.key)}">${mark}<span class="nnm-t">${esc(l.title)}</span><span class="nnm-m">${esc([l.media, l.day].filter(Boolean).join(' · '))}</span></button>${hoverActsHtml({saved: true, canDelete: del})}<button type="button" class="icon-btn basket-row-more" data-now-more aria-haspopup="true" aria-expanded="false" aria-label="읽을 거리로 보낸 글 메뉴">${MORE}</button></div>`;
   }
   function listHtml(at) {
     if (at === NEWS_HL) {
@@ -88,11 +88,11 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
       if (!all) return hlFailed ? failHtml({retry: 'data-nnm-retry'}) : waitHtml({rows: 4, h: 56});
       return all.length ? `<div class="nh-list nw-card nnm-card">${hlRows(all)}</div>` : emptyHtml('저장한 밑줄 없음 · 원문에서 글을 선택해 [밑줄 저장]', {attrs: 'data-nnm-empty'});
     }
-    const chips = `<div class="filter-chips nnm-chips" role="group" aria-label="보관한 글 거르기">${SAVED_KINDS.map(k => `<button type="button" class="ds-chip" data-nnm-kind="${k.id}" aria-pressed="${kind === k.id}">${esc(k.label)}</button>`).join('')}</div>`;
-    if (!newsOn) return emptyHtml('보관한 글 없음', {attrs: 'data-nnm-empty'});
+    const chips = `<div class="filter-chips nnm-chips" role="group" aria-label="읽을 거리로 보낸 글 거르기">${SAVED_KINDS.map(k => `<button type="button" class="ds-chip" data-nnm-kind="${k.id}" aria-pressed="${kind === k.id}">${esc(k.label)}</button>`).join('')}</div>`;
+    if (!newsOn) return emptyHtml('읽을 거리로 보낸 글 없음', {attrs: 'data-nnm-empty'});
     if (!saved) return chips + (savedFailed ? failHtml({retry: 'data-nnm-retry'}) : waitHtml({rows: 4, h: 40}));
     const list = filterSavedKind(saved, kind);
-    return chips + (list.length ? `<div class="nw-card nnm-card">${list.map(r => savedRowHtml(r)).join('')}</div>` : emptyHtml('보관한 글 없음', {attrs: 'data-nnm-empty'}));
+    return chips + (list.length ? `<div class="nw-card nnm-card">${list.map(r => savedRowHtml(r)).join('')}</div>` : emptyHtml('읽을 거리로 보낸 글 없음', {attrs: 'data-nnm-empty'}));
   }
 
   // 그리기(껍데기 renderList가 부른다). at: 지금 자리, query: 노트 검색 글자, phone: 폰 '그 폴더만' 상자, notes: 찾은 노트 수.
@@ -103,7 +103,7 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
       const hit = newsSearch({highlights: hlNow() || [], saved: saved || [], query, nameOf});
       head.hidden = false;
       head.innerHTML = `<span class="nnm-q">'${esc(query)}' 찾은 것</span><span class="nnm-n">${esc(searchHead(notes, hit.highlights.length, hit.saved.length))}</span>`;
-      const rows = hlRows(hit.highlights, '밑줄') + hit.saved.map(r => savedRowHtml(r, '보관')).join('');
+      const rows = hlRows(hit.highlights, '밑줄') + hit.saved.map(r => savedRowHtml(r, '읽을 거리')).join('');
       box.hidden = !rows;
       box.innerHTML = rows ? `<div class="nw-card nnm-card nnm-found">${rows}</div>` : '';
       return;

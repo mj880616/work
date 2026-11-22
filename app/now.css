@@ -95,9 +95,6 @@
 #appView #outsideView .now-row.is-open{ background:var(--ds-select-bg); }
 #appView #outsideView .now-hit{ display:inline-grid; place-items:center; height:16px; padding:0 5px; font-size:11px; line-height:1; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-radius:var(--ds-radius-control,6px); }
 
-/* S68-24: 옛 [보관] 탭 자리의 길 '보관 ↗'(읽을 거리 [News]로) — 탭과 같은 칸 모양, 글자만 옅게(다른 화면으로 가는 단추). */
-#appView #outsideView .os-tab-go{ color:var(--kptu-muted); }
-
 /* 관심 주제 칸 */
 #appView #outsideView .now-interests{ display:flex; flex-direction:column; gap:6px; min-width:0; }
 #appView #outsideView .ni-note{ margin:0; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); }

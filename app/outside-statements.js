@@ -52,14 +52,13 @@ const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
 const PANEL = Object.freeze({all: 'nowPanelAll', movement: 'osPanelNew', media: 'nowPanelNews', marks: 'nowPanelMarks'});
 
 const TABS_HTML = NOW_TABS.map((t, i) => `<button type="button" role="tab" class="ds-seg-btn" id="osTab-${t.id}" data-os-tab="${t.id}" aria-selected="${i === 0}" aria-controls="${PANEL[t.id]}"${i ? ' tabindex="-1"' : ''}>${t.label}</button>`).join('');
-// S68-24 READ-보관하나로(명진 11/22 "2. A"): 옛 [보관] 탭 자리는 '보관한 글은 읽을 거리에서' 길 — 누르면 읽을 거리 [News] 칩(탭이 아니라 다른 화면으로 가는 단추 — role=tab이 아니라 화살표 탭 이동에는 들지 않는다).
-const GO_SAVED_HTML = '<button type="button" class="ds-seg-btn os-tab-go" data-now-go-saved aria-label="보관한 글은 읽을 거리에서" title="보관한 글은 읽을 거리에서">보관 ↗</button>';
+// S68-28(명진 11/23 "여기서 보관 자체를 없앴으면"): 탭 줄 끝 보관 길(옛 [보관] 탭 자리)은 없앴다 — 읽을 거리로 보낸 글은 메뉴 '읽을 거리'에서 본다.
 function install() {
   if (document.getElementById('outsideView')) return;
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="outsideView" class="view-panel hidden" aria-labelledby="osTitle">
 <h2 id="osTitle" class="screen-title">News</h2>
 <div id="outsideRoot" class="os now" data-mode="list" data-tab="all" data-detail="closed">
-<div class="os-tabs ds-seg" role="tablist" aria-label="News 보기" data-os-tabs>${TABS_HTML}${GO_SAVED_HTML}</div>
+<div class="os-tabs ds-seg" role="tablist" aria-label="News 보기" data-os-tabs>${TABS_HTML}</div>
 <div class="now-main" id="nowMain">
 <form class="nw-top" data-nw-top role="search" aria-label="News 찾기"><input type="search" class="nw-find" data-nw-find maxlength="100" enterkeyhint="search" placeholder="News 찾기 — 제목·문장" aria-label="News 찾기 — 제목·문장" autocomplete="off"><button type="button" class="nw-dd" data-nw-media aria-haspopup="dialog" aria-expanded="false"></button><button type="button" class="os-more" data-os-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="News 메뉴">${MORE}</button></form>
 <p class="now-cand" data-now-cand hidden></p>
@@ -821,7 +820,6 @@ root?.addEventListener('click', event => {
   const b = event.target.closest('button');
   if (!b || !root.contains(b)) return;
   if (b.matches('[data-os-tab]')) { setTab(b.dataset.osTab); return; }
-  if (b.matches('[data-now-go-saved]')) { window.KPTUReadingOpen = {filter: 'news'}; window.KPTURouter?.go?.('reading', {source: 'delegated'}); return; }
   if (b.matches('[data-now-open]')) {
     const key = b.closest('[data-nw-key]')?.dataset.nwKey || '', [type, id] = key.split(':');
     const row = type === 'news' ? state.news.find(x => x.id === id) || findNews().find(x => x.id === id) : state.posts.find(x => x.id === id) || findPosts().find(x => x.id === id);

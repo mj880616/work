@@ -101,7 +101,7 @@ function rowEl(e) {
     if (line) sub.append(el('span', 'rd-line', line));
     r.append(sub);
   }
-  r.setAttribute('aria-label', `${l.unread ? '안 읽음 · ' : ''}${l.title}${l.site ? ' · ' + l.site : ''}${news ? ' · News에서 보관' : ''}`);
+  r.setAttribute('aria-label', `${l.unread ? '안 읽음 · ' : ''}${l.title}${l.site ? ' · ' + l.site : ''}${news ? ' · News에서 보냄' : ''}`);
   return r;
 }
 function drawList() {
@@ -305,7 +305,7 @@ async function releaseSaved(id) {
       else if (kind === 'save' && on) void load().then(() => { if (here()) draw(); });
       if (window.KPTURouter?.current === 'reading') drawList();
     }});
-  } catch { notify('보관을 풀지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
+  } catch { notify('읽을 거리에서 빼지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
 }
 
 const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label: '읽을 거리 메뉴', historyKey: 'kptuReadingRowMenu',
@@ -316,7 +316,7 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     if (!row) return '';
     const news = newsLinkOf(id);
     // News에서 보관한 줄(키가 있을 때): [News에서 열기] … [보관 풀기]. 그 밖은 [삭제].
-    return `${news ? '<button type="button" class="row-act" data-rd-act="news-open">News에서 열기</button>' : ''}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">사업에 연결</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}${news ? '<button type="button" class="row-act feed-menu-danger" data-rd-act="release">보관 풀기</button>' : '<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>'}`;
+    return `${news ? '<button type="button" class="row-act" data-rd-act="news-open">News에서 열기</button>' : ''}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">사업에 연결</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}${news ? '<button type="button" class="row-act feed-menu-danger" data-rd-act="release">읽을 거리에서 빼기</button>' : '<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>'}`;
   },
   onAction: (button, active) => {
     const id = active.id, act = button.dataset.rdAct, at = view()?.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || null;
@@ -358,7 +358,7 @@ function bindRows(box) {
       if (!row) return null;
       const readAct = row.read_at ? {key: 'unread', label: '안 읽음으로', tone: 'muted', icon: 'undo'} : {key: 'read', label: '읽음', tone: 'info', icon: 'done'};
       // 보관함 합치기(DB 20261122230000) 뒤 News 보관 글도 같은 줄 — [보관 풀기]를 앞에 더한다(⋯ 메뉴와 같음).
-      return {start: PICK, end: newsLinkOf(key) ? [{key: 'release', label: '보관 풀기', tone: 'muted'}, readAct] : [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, readAct]};
+      return {start: PICK, end: newsLinkOf(key) ? [{key: 'release', label: '읽을 거리에서 빼기', tone: 'muted'}, readAct] : [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, readAct]};
     },
     run: (key, el) => {
       const id = keyOf(el);
@@ -369,7 +369,7 @@ function bindRows(box) {
       else if (key === 'area') { const at = box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`); if (at) void pickArea(at, id); }
     },
     // 고른 줄을 하나씩 차례로(⋯와 같은 길). [읽음]은 읽을 거리 줄만, [보관 풀기]는 News 보관 글 줄만.
-    select: {attr: 'data-rd-pick', label: '선택한 읽을 거리', acts: () => [{key: 'read', label: '읽음'}, ...(state.newsOn ? [{key: 'release', label: '보관 풀기'}] : [])],
+    select: {attr: 'data-rd-pick', label: '선택한 읽을 거리', acts: () => [{key: 'read', label: '읽음'}, ...(state.newsOn ? [{key: 'release', label: '읽을 거리에서 빼기'}] : [])],
       run: async (key, ids) => {
         for (const id of ids) {
           if (key === 'read') { const row = rowOf(id); if (row && !row.read_at) await toggleRead(id, true); }
@@ -430,11 +430,9 @@ async function refresh() {
   if (!areaNames) void refreshAreaNames();
 }
 // 다른 화면(전체 검색·노트 › 밑줄·폰 공유 알림 [열기])에서 이 화면의 한 줄을 열어 달라는 요청(한 번만).
-// S68-24: News 탭 줄 '보관 ↗'은 {filter:'news'} — [News] 칩으로 연다(키가 없으면 그대로 안 읽음).
 function takeAsked() {
   const ask = window.KPTUReadingOpen;
   window.KPTUReadingOpen = null;
-  if (ask?.filter === 'news' && state.newsOn) { closeDetail(); state.filter = 'news'; drawList(); return; }
   if (ask && isId(ask.id)) void openItem(ask.id, {highlight: ask.highlight || null});
 }
 

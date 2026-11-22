@@ -78,7 +78,7 @@ test('한 목록(S68-27): 읽을 거리 표 하나 — News에서 보관한 줄�
   assert.equal(keepFilter('news', true), 'news');
   assert.equal(nextFilter('marks', 1, true), 'news');
   assert.equal(nextFilter('news', 1, true), 'news');
-  assert.equal(emptyText('news', 3), 'News에서 보관한 글이 없어요');
+  assert.equal(emptyText('news', 3), 'News에서 보낸 글이 없어요');
   assert.match(emptyText('unread', 0), /^읽을 거리가 없어요/);
 });
 
@@ -93,7 +93,7 @@ test('화면 연결(S68-27): 이 표 하나만 읽고, News 길은 기능 키가
   assert.doesNotMatch(src, /\/rest\/v1\//, '서버 길은 reading-data.js·now-row-acts.js');
   const news = read('app/outside-statements.js');
   assert.doesNotMatch(news, /data-now-panel-saved|createNowSaved/);
-  assert.match(news, /data-now-go-saved/);
+  assert.doesNotMatch(news, /data-now-go-saved|보관 ↗/, 'S68-28: News 탭 줄의 보관 길은 없앴다');
   assert.match(news, /openItem: async item =>/);
 });
 
