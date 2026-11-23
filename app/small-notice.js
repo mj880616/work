@@ -20,7 +20,7 @@
 //     {silent:true} = 화면이 직접 결과를 알렸음(이 부품은 아무 말도 하지 않음).
 //   (라) 되돌리기 말고 다른 버튼: notify('정리함에 넣었어요',{actions:[{label:'메모 달기',run:({box,close})=>{…}}],undo,…}) — [되돌리기] 앞에 놓인다.
 //       run은 알림을 닫지 않는다(필요하면 close()). box 안을 작은 입력칸으로 바꿔도 되고, 초점이 안에 있는 동안은 사라지지 않는다(SHARE-바로넣기).
-import {placeAnchored,clearAnchored,keepInside,bottomInset,isWide,onViewportChange,usableAnchor,pressAnchor} from './anchored-popup.js';
+import {placeAnchored,clearAnchored,keepInside,bottomInset,isWide,onViewportChange,followAnchor,usableAnchor,pressAnchor} from './anchored-popup.js';
 import {isDockedPane} from './open-window.mjs'; // 칸에 붙인 창(role=region) 판단 하나
 
 export const NOTICE_MS=2000,NOTICE_UNDO_MS=2000,NOTICE_ERROR_MS=5000,UNDO_LIMIT=10;
@@ -212,7 +212,8 @@ function askPanel(anchor,{doc,none,maxHeight=220,build,history:own=true}){
       const r=panel.getBoundingClientRect(),limit=Math.min(innerHeight,barTop)-8;
       if(r.bottom>limit)Object.assign(panel.style,{top:Math.max(8,limit-r.height)+'px',bottom:'auto'});
     };
-    place();stopView=onViewportChange(place);
+    // S69-13: 창이 뜬 뒤 화면이 스크롤되면(늦게 그려진 내용·자리 되돌리기) 누른 칸을 따라간다. 칸이 사라지거나 화면 밖이면 그 자리에 둔다(닫지 않음).
+    place();stopView=back instanceof Element?followAnchor(panel,back,{place,lost:()=>keepInside(panel,8,isWide()?0:bottomInset())}):onViewportChange(place);
     // history:false = 기록 칸을 쓰지 않는다(라우터의 화면 떠나기 물음: 앞뒤 기록을 그대로 두어야 같은 칸으로 다시 갈 수 있다).
     state={kptuAsk:++askSeq};if(own)history.pushState({...(history.state||{}),...state},'',location.href);
     onKey=e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();finish(none)}};
