@@ -32,7 +32,7 @@ begin
      or to_regclass('public.app_update_news') is null
      or to_regclass('public.app_update_news_start') is null
      or to_regclass('public.app_release_notes') is null
-     or exists (select 1 from pg_attribute where attrelid = 'public.app_update_news'::regclass
+     or exists (select 1 from pg_attribute where attrelid = to_regclass('public.app_update_news')
          and attname in ('auto', 'source_files') and not attisdropped)
      or not exists (select 1 from pg_proc where oid = to_regprocedure('public.app_release_notes_put(jsonb,text)')
          and prosecdef and proconfig = array['search_path=""'] and md5(prosrc) = 'e83753fbe9d1088cf171c6f32806e35d')
