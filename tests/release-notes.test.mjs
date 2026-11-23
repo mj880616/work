@@ -47,7 +47,9 @@ test('버전명은 날짜-그날 순번, 최신이 먼저', () => {
   ]);
   assert.equal(errors.length, 1);
   assert.deepEqual(notes.map(n => n.v), ['10/28-2', '10/28-1', '10/27-1']);
-  assert.deepEqual(notes[2], { v: '10/27-1', date: '2026-10-27', changes: ['첫째'], checks: ['폰 확인'] });
+  assert.deepEqual(notes[2], { v: '10/27-1', file: '20261027-2300-a', date: '2026-10-27', changes: ['첫째'], checks: ['폰 확인'] });
+  // S68-46 UPDATE-소식자동: 기록마다 파일 이름이 붙는다(서버가 새 기록을 가리는 열쇠 — 순번은 늦게 들어온 기록 때문에 밀릴 수 있음).
+  assert.deepEqual(notes.map(n => n.file), ['20261028-0930-b', '20261028-0800-a', '20261027-2300-a']);
 });
 
 test('배포물 JSON은 앱이 그대로 읽는다', () => {
@@ -55,6 +57,9 @@ test('배포물 JSON은 앱이 그대로 읽는다', () => {
   const list = parseReleaseNotes(JSON.parse(out));
   assert.equal(list.current, '11/1-2');
   assert.deepEqual(list.notes.map(n => n.v), ['11/1-2', '11/1-1']);
+  assert.deepEqual(list.notes.map(n => n.file), ['20261101-0200-b', '20261101-0100-a']);
+  const odd = parseReleaseNotes({ schema: 1, notes: [{ v: '11/1-1', file: '../x', date: '2026-11-01', changes: ['a줄'], checks: [] }] });
+  assert.equal(Object.hasOwn(odd.notes[0], 'file'), false, '틀린 파일 이름은 버린다(기록은 남김)');
 });
 
 test('앱 쪽 해석: 모양이 틀린 기록만 빼고, 전체가 틀리면 null', () => {

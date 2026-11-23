@@ -78,12 +78,51 @@ export function sendStartHint(startOn, today) {
 }
 
 // ── S68-14(명진 11/22 "업데이트 기록 보낸 후 거둬들일 수가 없음"): 기록 줄의 [보냄]을 눌러 그 기록이 든 소식을 거둔다.
-/** 기록 버전 v가 들어 있는 보낸(거두지 않은) 소식 id들과, 그 소식들에 같이 묶인 다른 기록 개수. 없으면 ids는 빈 배열. */
+/** 기록 버전 v(또는 기록 {v,file})가 들어 있는 보낸(거두지 않은) 소식 id들과, 그 소식들에 같이 묶인 다른 기록 개수. 없으면 ids는 빈 배열. */
 export function withdrawPlan(items, v) {
-  const hits = (items || []).filter(item => !item.withdrawn_at && (item.sources || []).includes(v));
+  return notePlan((items || []).filter(item => !item.withdrawn_at && newsHasNote(item, v)), v);
+}
+
+// ── S68-46 UPDATE-소식자동(명진 11/23 12:37 "업데이트 기록 기본 자동으로 보내고 수동으로는 회수 가능하게"):
+// 새 기록은 배포되면 서버가 자동으로 소식 하나씩 보낸다(app_release_notes_put → private.app_update_news_auto, 자동 소식은 auto·source_files를 가짐).
+// 화면은 기록 줄 버튼 하나로 [보내기](아직 안 나감) · [보냄](눌러서 거두기) · [다시 보내기](거둔 것)를 보인다.
+
+/** 소식 하나가 기록 note({v,file} 또는 버전명 문자열)를 담았나. 기록 파일 이름(source_files)이 있으면 그것으로 가리고
+ *  (버전명 순번은 같은 날 기록이 늦게 들어오면 밀리므로), 없으면(손으로 보낸 소식) 버전명으로. */
+export function newsHasNote(item, note) {
+  const key = typeof note === 'string' ? {v: note} : (note || {});
+  if (!item) return false;
+  if (Array.isArray(item.source_files) && item.source_files.length) return !!key.file && item.source_files.includes(key.file);
+  return !!key.v && (item.sources || []).includes(key.v);
+}
+
+function notePlan(hits, note) {
+  const key = typeof note === 'string' ? {v: note} : (note || {});
   const others = new Set();
-  for (const item of hits) for (const s of item.sources || []) if (s !== v) others.add(s);
+  for (const item of hits) {
+    const byFile = Array.isArray(item.source_files) && item.source_files.length;
+    for (const s of (byFile ? item.source_files : item.sources) || []) if (s !== (byFile ? key.file : key.v)) others.add(s);
+  }
   return {ids: hits.map(item => item.id), others: others.size};
+}
+
+/** 기록 줄 버튼의 상태: 'sent'(거두지 않은 소식에 들어 있음) · 'withdrawn'(거둔 소식에만 있음) · ''(아직 안 나감). */
+export function noteState(items, note) {
+  const hits = (items || []).filter(item => newsHasNote(item, note));
+  if (hits.some(item => !item.withdrawn_at)) return 'sent';
+  return hits.length ? 'withdrawn' : '';
+}
+
+/** 거둔 기록을 다시 보낼 때: 그 기록이 든 거둔 소식 중 가장 최근 것 하나(목록은 최신 먼저)와 같이 묶인 다른 기록 개수. */
+export function resendPlan(items, note) {
+  const hit = (items || []).find(item => item.withdrawn_at && newsHasNote(item, note));
+  return notePlan(hit ? [hit] : [], note);
+}
+
+/** 다시 보내기 확인 창 글과 아래 한 줄. */
+export const RESEND_TEXT = '이 소식을 다시 보낼까요? 이용자 화면에 다시 보여요.';
+export function resendNote(others) {
+  return others > 0 ? `같이 보낸 기록 ${others}개도 함께 다시 보여요` : '';
 }
 
 /** 거두기 확인 창 글(기존 [거두기]와 같은 문구)과, 같이 묶인 기록이 있으면 아래 한 줄. */
