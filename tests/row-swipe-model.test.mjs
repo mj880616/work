@@ -6,12 +6,14 @@ import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, fullDistance, 
 import * as tg from '../app/tg-day-model.mjs';
 const read = f => readFileSync(new URL('../app/' + f, import.meta.url), 'utf8');
 
-test('가로로 충분히 민 뒤에만 밀기(세로 스크롤과 구분), 가장자리 시작은 무시', () => {
+test('가로로 충분히 민 뒤에만 밀기(세로 스크롤과 구분), 왼쪽 가장자리 시작만 무시', () => {
   assert.equal(swipeIntent(5, 2), 'wait');
   assert.equal(swipeIntent(20, 4), 'swipe');
   assert.equal(swipeIntent(14, 12), 'scroll');
   assert.equal(swipeIntent(3, 30), 'scroll');
-  assert.equal(swipeEdge(10, 412), true); assert.equal(swipeEdge(406, 412), true); assert.equal(swipeEdge(200, 412), false);
+  assert.equal(swipeEdge(10, 412), true); assert.equal(swipeEdge(23, 412), true); assert.equal(swipeEdge(24, 412), false); assert.equal(swipeEdge(200, 412), false);
+  // S68-53: 오른쪽 끝(⋯ 단추 자리)에서 시작한 왼쪽 밀기도 줄 밀기다.
+  assert.equal(swipeEdge(392, 412), false); assert.equal(swipeEdge(406, 412), false); assert.equal(swipeEdge(411, 412), false); assert.equal(swipeEdge(370, 390), false);
 });
 test('텔레그램 소식 밀기와 같은 기준을 쓴다', () => {
   assert.equal(tg.swipeIntent, swipeIntent); assert.equal(tg.swipeEdge, swipeEdge); assert.equal(tg.SWIPE_BTN, SWIPE_BTN);

@@ -138,7 +138,7 @@ test('밀기: 분명한 가로 움직임만, 세로 스크롤·가장자리 시�
   assert.equal(swipeIntent(30, 4), 'swipe'); assert.equal(swipeIntent(-30, 4), 'swipe');
   assert.equal(swipeIntent(20, 20), 'scroll', '비스듬하면 스크롤'); assert.equal(swipeIntent(3, 40), 'scroll');
   assert.equal(swipeIntent(30, 19), 'swipe'); assert.equal(swipeIntent(30, 21), 'scroll', '가로가 세로의 1.5배를 못 넘으면 스크롤');
-  assert.equal(swipeEdge(10, 400), true); assert.equal(swipeEdge(390, 400), true); assert.equal(swipeEdge(24, 400), false); assert.equal(swipeEdge(200, 400), false);
+  assert.equal(swipeEdge(10, 400), true); assert.equal(swipeEdge(390, 400), false, '오른쪽 끝은 막지 않음(S68-53)'); assert.equal(swipeEdge(24, 400), false); assert.equal(swipeEdge(200, 400), false);
 });
 
 test('밀기 폭: 버튼 64px씩, 오른쪽 밀기 128px(폴더로·보관), 왼쪽 밀기 64px(삭제), 절반 넘으면 열린 채로', () => {

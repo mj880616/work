@@ -159,7 +159,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     const wrap = inner.parentElement, day = wrap.dataset.diaryLvSwipe;
     if (wrap.hasAttribute('data-diary-lv-done')) return; // 한 일만 있는 날: 📌·★ 없음
     if (state.swipe && state.swipe.day !== day) closeSwipe();
-    if (swipeEdge(e.clientX, innerWidth)) return; // 화면 끝은 브라우저 뒤로가기 손동작에 양보
+    if (swipeEdge(e.clientX, innerWidth)) return; // 화면 왼쪽 끝은 브라우저 뒤로가기 손동작에 양보(오른쪽 끝은 막지 않음, S68-53)
     drag = {id:e.pointerId, x:e.clientX, y:e.clientY, wrap, inner, day, open:state.swipe?.day === day ? swipeOpenOffset(state.swipe.side, ALLOW) : 0, dx:0, on:false};
   });
   host.addEventListener('pointermove', e => {
