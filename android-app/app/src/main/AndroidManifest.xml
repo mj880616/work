@@ -172,6 +172,11 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
+        <!-- S68-51: '이번 주' 위젯 아래 목록(스크롤)의 안드로이드 11 이하 길. 내보내지 않고, 위젯을 그리는 시스템(BIND_REMOTEVIEWS)만 붙는다. 줄은 메모리에만. -->
+        <service
+            android:name=".WeekListService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
         <!-- MTG-폰녹음: 화면이 꺼져도 녹음을 잇는 앞쪽 서비스(마이크). 내보내지 않는다. -->
         <service
             android:name=".RecorderService"

@@ -13,7 +13,9 @@ import java.time.temporal.ChronoUnit
  * 4×2는 머리 줄 ‹ ›로 앞뒤 MAX_SHIFT주까지 옮기고(위젯마다 메모리에만), 날이 바뀌면 이번 주로 돌아온다(shiftNow).
  * 읽기는 '지금' 위젯과 같은 google-calendar action=events(허용 주소 그대로).
  * - 요일 칸 7개: 일정 수. 4×2는 그 아래 그날 첫 일정 제목 앞부분 한 줄(APP-위젯먹색 S68-06, 아래 칸 목록과 같은 차례의 첫 줄).
- * - 아래 줄(4×2만): '가장 큰 일 D-n'(고르는 기준은 docs/design/phone-widget-auth.md 14절), '월 주간 보고일'(nojo_words는 '상집 보고일', reportLabel), '일정 몰린 날'.
+ * - 아래 목록(4×2만, S68-51): 고른 날(안 고르면 오늘, 다른 주는 월요일)의 일정·할 일을 시간순으로 전부(dayList, 위젯 안에서 스크롤).
+ *   그 뒤에 '가장 큰 일 D-n'(고르는 기준은 docs/design/phone-widget-auth.md 14절)·'월 주간 보고일'(nojo_words는 '상집 보고일', reportLabel).
+ *   S68-51(11/23 명진 "일정 그냥 다 보여줘 뭘 또 4개 몰림이야"): '일정 n개 몰림' 요약 줄과 '외 n' 줄임을 없앴다.
  * 칸·줄을 누르면 앱 달력의 그 날(웹 ?view=calendar&day=). 만든 내용은 폰에 저장하지 않는다(결정 W-D2).
  * APP-위젯날짜고르기: 4×2에서 요일 칸을 누르면 앱을 열지 않고 아래 칸이 그 날 일정·기한 할 일로 바뀐다(dayDetail).
  * 할 일은 '지금' 위젯이 이미 읽는 google-tasks overview(허용 주소 그대로)를 함께 받는다. 새 주소·새 권한은 없다.
@@ -22,15 +24,13 @@ object WidgetWeek {
     private val HHMM = DateTimeFormatter.ofPattern("HH:mm")
     private val DAYS = arrayOf("월", "화", "수", "목", "금", "토", "일")
     private val DAY = Regex("^\\d{4}-\\d{2}-\\d{2}$")
-    /** 몰린 날 기준(일정 수). */
-    const val BUSY = 3
     /** 낱말이 없을 때 '가장 큰 일'로 볼 시간 일정의 최소 길이. */
     const val BIG_MIN_MS = 2 * 60 * 60 * 1000L
     /** '가장 큰 일' 낱말(설계 14절). 명진이 고칠 낱말을 주면 여기만 바꾼다. */
     val BIG_WORDS = listOf("파업", "집회", "기자회견", "결의대회", "선포", "총회", "대의원", "대표자회의", "교섭", "투쟁", "출범", "토론회", "공청회", "간담회", "면담", "대회")
 
     /** first: 그날 첫 일정 제목(종일 먼저·시각 순, 고른 날 아래 칸 첫 일정과 같음). 일정이 없으면 null. */
-    data class Day(val day: LocalDate, val week: String, val date: Int, val count: Int, val busy: Boolean, val first: String? = null)
+    data class Day(val day: LocalDate, val week: String, val date: Int, val count: Int, val first: String? = null)
 
     /**
      * APP-위젯먹색 S68-06: 4×2 요일 칸 셋째 줄(그날 첫 일정 제목 앞부분). 일정이 없거나 제목이 비면 null(줄을 숨김).
@@ -72,7 +72,6 @@ object WidgetWeek {
         val days: List<Day>,
         val big: Pick?,
         val report: Pick?,
-        val busy: Pick?,
         val note: String?,
         val details: Map<LocalDate, Detail> = emptyMap(),
     ) {
@@ -80,14 +79,8 @@ object WidgetWeek {
         val monday: LocalDate get() = days.first().day
     }
 
-    /** 4×2 아래 칸에 보일 줄 수(머리 줄 제외). */
-    const val DETAIL_ROWS = 3
-
-    /** 같은 날을 다시 누르면 고르기를 풀고(주간 요약으로), 다른 날이면 그 날. */
-    fun toggle(current: LocalDate?, tapped: LocalDate): LocalDate? = if (current == tapped) null else tapped
-
     /**
-     * 지금 보일 고른 날. 고른 날짜가 바뀌었거나(pickedOn이 오늘이 아님) 보이는 주 밖이면 null(주간 요약으로 돌아감).
+     * 지금 보일 고른 날. 고른 날짜가 바뀌었거나(pickedOn이 오늘이 아님) 보이는 주 밖이면 null(기본 날 shownDay로 돌아감).
      */
     fun active(picked: LocalDate?, pickedOn: LocalDate?, nowMs: Long, days: List<Day>, zone: ZoneId = WidgetNow.ZONE): LocalDate? {
         if (picked == null || pickedOn == null) return null
@@ -102,12 +95,34 @@ object WidgetWeek {
         return "${d.day.monthValue}/${d.day.dayOfMonth}(${weekday(d.day)}) 일정 ${d.events} · $tasks"
     }
 
-    /** 아래 칸 줄(최대 rows). 넘치면 마지막 줄을 '외 n'으로. 아무것도 없으면 '일정·할 일 없음'. */
-    fun detailRows(d: Detail, rows: Int = DETAIL_ROWS): List<String> {
-        val all = d.items.map { "${it.time}  ${it.title}" }
-        if (all.isEmpty()) return listOf("일정·할 일 없음")
-        if (all.size <= rows) return all
-        return all.take(rows - 1) + "외 ${all.size - (rows - 1)}"
+    /**
+     * S68-51: 아래 목록이 보일 날. 고른 날(active) → 보이는 주에 오늘이 있으면 오늘 → 그 주 월요일.
+     * 주간 요약 줄을 없앴으니 아래 칸은 늘 어느 하루의 목록이다. 같은 날을 다시 눌러도 그 날 그대로.
+     */
+    fun shownDay(active: LocalDate?, today: LocalDate, days: List<Day>): LocalDate? =
+        active ?: days.firstOrNull { it.day == today }?.day ?: days.firstOrNull()?.day
+
+    /**
+     * S68-51: 요일 칸·‹ ›가 그려질 때의 주(월요일, 누름에 실어 보냄) → 지금 기준 옮긴 주 수.
+     * 앱 프로세스가 내려가 메모리(옮긴 주)를 잃어도 누른 칸이 속한 주를 되찾는다. 월요일이 아니거나 ±MAX_SHIFT 밖이면 null.
+     */
+    fun shiftOf(monday: LocalDate?, nowMs: Long, zone: ZoneId = WidgetNow.ZONE): Int? {
+        if (monday == null || monday.dayOfWeek != DayOfWeek.MONDAY) return null
+        val weeks = ChronoUnit.WEEKS.between(start(nowMs, zone), monday)
+        return weeks.toInt().takeIf { it in -MAX_SHIFT..MAX_SHIFT }
+    }
+
+    /** 누른 날이 그 주(monday~+6일) 안인지. */
+    fun dayInWeek(day: LocalDate?, monday: LocalDate?): Boolean =
+        day != null && monday != null && !day.isBefore(monday) && day.isBefore(monday.plusDays(7))
+
+    /**
+     * S68-51: 아래 목록 줄 전부(줄임 없음). 그날 일정(종일 먼저·시각 순, '10:30  제목') → 기한 할 일('할 일  제목'),
+     * 아무것도 없으면 '일정·할 일 없음'. 그 뒤에 다가오는 일·보고일 줄('D-2  수 10:30 제목', '월  11/23 상집 보고일').
+     */
+    fun dayList(d: Detail, extra: List<Pick> = emptyList()): List<String> {
+        val rows = d.items.map { "${it.time}  ${it.title}" }.ifEmpty { listOf("일정·할 일 없음") }
+        return rows + extra.map { "${it.tag}  ${it.text}" }
     }
 
     /** 끝내지 않은 할 일 → 기한 날짜별 제목(받은 차례 그대로). 모양이 다르거나 기한 없는 것은 뺀다. */
@@ -215,6 +230,9 @@ object WidgetWeek {
             .firstOrNull()
     }
 
+    /** 하루 목록 차례: 종일 먼저, 그다음 시작 시각 순(전 주에서 이어진 일정도 섞이지 않게 다시 줄 세움). */
+    private val ORDER = compareBy<WidgetNow.Ev>({ !it.allDay }, { it.startMs })
+
     private fun clock(e: WidgetNow.Ev, zone: ZoneId): String = if (e.allDay) "종일" else Instant.ofEpochMilli(e.startMs).atZone(zone).format(HHMM)
 
     /**
@@ -241,36 +259,30 @@ object WidgetWeek {
         val title = header(nowMs, zone, shift)
         val monday = start(nowMs, zone, shift)
         val today = today(nowMs, zone)
-        val empty = (0 until 7).map { i -> monday.plusDays(i.toLong()).let { Day(it, weekday(it), it.dayOfMonth, 0, false) } }
-        if (status != 200) return Content(title, 0, empty, null, null, null, "일정 연결을 확인해 주세요")
+        val empty = (0 until 7).map { i -> monday.plusDays(i.toLong()).let { Day(it, weekday(it), it.dayOfMonth, 0) } }
+        if (status != 200) return Content(title, 0, empty, null, null, "일정 연결을 확인해 주세요")
         val evs = inWeek(WidgetNow.events(body, zone), monday, zone)
         val counts = evs.groupingBy { it.day }.eachCount()
         val big = big(evs, nowMs, zone)
         val days = empty.map { d ->
             val n = counts[d.day] ?: 0
-            d.copy(count = n, busy = n >= BUSY, first = evs.firstOrNull { it.day == d.day }?.title)
+            d.copy(count = n, first = evs.filter { it.day == d.day }.sortedWith(ORDER).firstOrNull()?.title)
         }
         val bigPick = big?.let { Pick(it.day, dTag(today, it.day), "${weekday(it.day)} ${clock(it, zone)} ${it.title}") }
         // 보고일: 주간보고 기준일 규칙(journal-data.js reportDay, 월요일). 이번 주는 오늘 이후의 가장 가까운 월요일(오늘이 월요일이면 오늘),
         // 옮긴 주(S68-12)는 그 주 월요일.
         val report = if (shift == 0 && monday.isBefore(today)) monday.plusDays(7) else monday
         val reportPick = Pick(report, "월", "${report.monthValue}/${report.dayOfMonth} ${reportLabel(nojoWords)}")
-        val busyDay = days.firstOrNull { it.busy && !it.day.isBefore(today) }
-        val busyPick = busyDay?.let { d ->
-            val first = evs.filter { it.day == d.day && !it.allDay }.minByOrNull { it.startMs }
-            val tail = first?.let { " · ${it.title} ${clock(it, zone)}부터" } ?: ""
-            Pick(d.day, d.week, "일정 ${d.count}개 몰림$tail")
-        }
         val note = if (evs.isEmpty() && MiniJson.obj(body)?.get("warning") != null) "일정을 읽지 못했어요" else null
         val byTask = if (tasksReadable(tasksStatus, tasks)) tasksByDay(tasks) else null
         val details = days.associate { d ->
-            val dayEvs = evs.filter { it.day == d.day }
+            val dayEvs = evs.filter { it.day == d.day }.sortedWith(ORDER)
             // S68-12: 다음 주 이후로 옮기면 서버 할 일 범위 밖 날이 생긴다. 0개로 보이지 않게 '할 일은 앱에서'.
             val beyond = d.day.isAfter(today.plusDays(TASK_DAYS))
             val dayTasks = if (beyond) emptyList() else byTask?.get(d.day).orEmpty()
             val items = dayEvs.map { Item(clock(it, zone), it.title) } + dayTasks.map { Item("할 일", it) }
             d.day to Detail(d.day, dayEvs.size, if (beyond) null else byTask?.let { dayTasks.size }, items, beyond)
         }
-        return Content(title, evs.size, days, bigPick, reportPick, busyPick, note, details)
+        return Content(title, evs.size, days, bigPick, reportPick, note, details)
     }
 }

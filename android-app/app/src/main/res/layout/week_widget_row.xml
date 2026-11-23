@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- S68-51: '이번 주' 위젯 아래 목록 한 줄('10:30  제목'). 줄임 없이 전부, 목록은 위젯 안에서 스크롤. -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/week_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="18dp"
+    android:gravity="center_vertical"
+    android:singleLine="true"
+    android:ellipsize="end"
+    android:textColor="@color/widget_ink"
+    android:textSize="12sp" />
