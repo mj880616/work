@@ -122,7 +122,7 @@ for (const width of [412, 1280]) {
     await expect(b.page.locator('#readingView .rd-chips [data-filter-value]')).toHaveText(['안 읽음 0', '전체', '밑줄']);
     await b.page.locator('#readingView .rd-chips [data-filter-value="all"]').click();
     await expect(b.page.locator('#readingView .rd-chips [data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
-    await expect(b.page.locator('#readingView [data-rd-rows]')).toContainText('읽을 거리가 없어요');
+    await expect(b.page.locator('#readingView [data-rd-rows]')).toContainText('저장한 글이 없어요');
     await expect(b.page.locator('#readingView .rd-row')).toHaveCount(0);
     await b.page.goBack();
     await expect(b.page.locator('#outsideView')).toBeVisible();

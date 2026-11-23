@@ -278,7 +278,72 @@ function grantStatement(ts, state) {
   if (keyword(tsTop[i], 'table')) i++;
   const [tables, end2] = tableList(tsTop, i);
   if (!keyword(tsTop[end2], 'to')) reject('grant-bulk');
-  for (const table of tables) if (!state.createdTables.has(table)) reject('grant-existing');
+  if (tables.every(table => state.createdTables.has(table))) return;
+  newColumnGrant(ts, tables, roles, state);
+}
+
+// --- Column grants on columns added by this file (S68-42) ---------------------
+// An existing table may get a column grant only for columns that this same file
+// created with `alter table public.T add column <c>` (not IF NOT EXISTS, which may
+// skip an existing column). Those columns had no privileges before, so the grant
+// gives nothing on any column that existed before the file ran. Conditions:
+// one table; grantee exactly `authenticated`; privileges only select/insert/update,
+// each with a column list (no table-wide grant); every listed column added
+// earlier in this file on that same table; no drop/rename of that column name in
+// this file (checked at the end); no generated column / SET EXPRESSION, INSERT,
+// UPDATE, DELETE or trigger on that table in this file (no copying of existing
+// column values into the new column); the table's RLS is never turned off here
+// (rls-disable) and is confirmed on in production before any write (run phase).
+const NEW_COLUMN_PRIVILEGES = new Set(['select', 'insert', 'update']);
+function newColumnGrant(ts, tables, roles, state) {
+  const existing = () => reject('grant-existing');
+  if (tables.length !== 1 || roles.length !== 1 || roles[0] !== 'authenticated') existing();
+  const table = tables[0];
+  const added = state.addedColumns.get(table);
+  if (!added) existing();
+  // Privilege list: `priv (col, ...) [, priv (col, ...)]` between GRANT and the top-level ON.
+  const onAt = ts.findIndex((t, k) => keyword(t, 'on') && topLevel(ts.slice(0, k + 1)).at(-1) === t);
+  let i = 1; const columns = [];
+  for (;;) {
+    const priv = ts[i];
+    if (priv?.kind !== 'word' || !NEW_COLUMN_PRIVILEGES.has(priv.value) || !symbol(ts[i + 1], '(')) existing();
+    i += 2;
+    for (;;) {
+      if (!simpleName(ts[i])) existing();
+      columns.push(ts[i].value); i++;
+      if (symbol(ts[i], ',')) { i++; continue; }
+      if (symbol(ts[i], ')')) { i++; break; }
+      existing();
+    }
+    if (i === onAt) break;
+    if (!symbol(ts[i], ',')) existing();
+    i++;
+  }
+  for (const column of columns) if (!added.has(column)) existing();
+  columns.forEach(column => state.columnGrants.push({ table, column }));
+}
+function columnActions(ts, table, state) {
+  // `alter table public.T <action>[, <action>]`: record ADD COLUMN names, taint DROP/RENAME COLUMN names.
+  const top = topLevel(ts);
+  const words = top.map(t => (isCode(t) ? t.value : null));
+  const taint = column => { if (column) state.taintedColumns.add(`${table}.${column}`); };
+  // A generated column (or SET EXPRESSION) can copy values of existing columns into a new one.
+  if (code(ts).some(v => v === 'generated' || v === 'expression')) state.filledTables.add(table);
+  for (let k = 0; k < top.length; k++) {
+    if (words[k] === 'add' && words[k + 1] === 'column') {
+      if (words[k + 2] === 'if') { taint(words[k + 5]); continue; } // IF NOT EXISTS may skip an existing column
+      const t = top[k + 2];
+      if (!simpleName(t)) continue;
+      if (!state.addedColumns.has(table)) state.addedColumns.set(table, new Set());
+      if (state.addedColumns.get(table).has(t.value)) taint(t.value);
+      state.addedColumns.get(table).add(t.value);
+    }
+    if (words[k] === 'drop' && words[k + 1] === 'column') taint(words[k + 2] === 'if' ? words[k + 4] : words[k + 2]);
+    if (words[k] === 'rename' && words[k + 1] === 'column') { taint(words[k + 2]); taint(words[k + 4]); }
+    if (words[k] === 'rename' && words[k + 1] !== 'column' && words[k + 1] !== 'constraint' && words[k + 1] !== 'to') {
+      taint(words[k + 1]); taint(words[k + 3]); // RENAME <col> TO <new> (COLUMN is optional)
+    }
+  }
 }
 
 function revokeStatement(ts, state) {
@@ -406,7 +471,7 @@ function triggerStatement(ts, state) {
   const words = top.filter(isCode).map(t => t.value);
   const onTok = top.findIndex(t => keyword(t, 'on'));
   if (onTok < 0) reject('trigger-shape');
-  publicTable(top, onTok + 1);
+  state.filledTables.add(publicTable(top, onTok + 1)[0]);
   const exec = top.findIndex(t => keyword(t, 'execute'));
   if (exec < 0 || !['function', 'procedure'].includes(top[exec + 1]?.value)) reject('trigger-shape');
   const fullExec = ts.findIndex((t, k) => keyword(t, 'execute') && ['function', 'procedure'].includes(ts[k + 1]?.value));
@@ -457,7 +522,8 @@ export function validateExpanded(sql, { version, name }) {
   if (!/^begin;$/i.test(lines[0].trim()) || !/^commit;$/i.test(lines.at(-1).trim())) reject('structure');
   const ss = statements(lex(sql));
   if (ss.length < 3 || code(ss[0]).join(' ') !== 'begin' || code(ss.at(-1)).join(' ') !== 'commit') reject('structure');
-  const state = { createdTables: new Set(), rlsTables: new Set(), functions: new Map(), dropped: new Map(), replacements: [] };
+  const state = { createdTables: new Set(), rlsTables: new Set(), functions: new Map(), dropped: new Map(), replacements: [],
+    addedColumns: new Map(), taintedColumns: new Set(), columnGrants: [], filledTables: new Set() };
   const targets = new Set();
   const review = { definer: [], policies: 0, restrictive: 0, grants: 0, triggers: 0, revokes: 0 };
   let inserts = 0;
@@ -517,6 +583,7 @@ export function validateExpanded(sql, { version, name }) {
         if (top.includes('set') && top.includes('schema')) reject('alter-table');
         if (top.includes('drop') && top.includes('cascade')) reject('alter-table');
         if (top.includes('enable') && top.includes('row') && top.includes('level') && top.includes('security')) state.rlsTables.add(table);
+        columnActions(ts, table, state);
         if (!state.createdTables.has(table)) targets.add(table);
         return;
       }
@@ -527,7 +594,7 @@ export function validateExpanded(sql, { version, name }) {
         dropPolicyStatement(ts, state); return;
       case 'insert': {
         if (root[1] !== 'into') reject('insert-target');
-        publicTable(ts, 2); return;
+        state.filledTables.add(publicTable(ts, 2)[0]); return;
       }
       case 'update': case 'delete': {
         if (!where(ts)) reject('where-missing');
@@ -536,12 +603,17 @@ export function validateExpanded(sql, { version, name }) {
         if (keyword(ts[i], 'only')) i++;
         const [table] = publicTable(ts, i);
         if (!state.createdTables.has(table)) targets.add(table);
+        state.filledTables.add(table);
         return;
       }
       default: return reject('unknown-statement');
     }
   });
   if (inserts !== 1) reject('history');
+  // A granted new column may not be dropped, re-added or renamed anywhere in the file (name reuse).
+  if (state.columnGrants.some(g => state.taintedColumns.has(`${g.table}.${g.column}`))) reject('grant-existing');
+  // Nor may the file write rows of that table or add a trigger on it (which could copy existing column values into the new column).
+  if (state.columnGrants.some(g => state.filledTables.has(g.table))) reject('grant-existing');
   if (state.dropped.size) reject('policy-drop-alter'); // every dropped policy must be recreated (same name, same table)
   for (const table of state.createdTables) if (!state.rlsTables.has(table)) reject('table-without-rls');
   for (const fn of state.functions.values()) if (!fn.revoked.has('public') || !fn.revoked.has('anon')) reject('function-revoke-missing');
@@ -549,6 +621,7 @@ export function validateExpanded(sql, { version, name }) {
   return {
     targets: [...targets].sort(), functions: [...state.functions.keys()].sort(), createdTables: [...state.createdTables].sort(),
     expanded: true, review, policyReplacements: state.replacements,
+    newColumnGrantTables: [...new Set(state.columnGrants.map(g => g.table))].sort(),
     risks: '확장 규칙 통과: 권한 확대 거절 목록·기록 일치·트랜잭션 경계 확인',
   };
 }
@@ -623,6 +696,25 @@ export function compareReplacements(replacements, rows) {
     lines.push(`| \`${label}\` | 운영: ${old.permissive.toLowerCase()} · ${old.cmd.toLowerCase()} · ${[...oldRoles].join(', ')} → 새: ${r.permissive ? 'permissive' : 'restrictive'} · ${r.cmd} · ${r.roles.join(', ')} | ${problems.length ? '아니오: ' + problems.join(', ') : '예'} |`);
   }
   return { ok, lines };
+}
+
+/** Read-only RLS state of existing tables that got a new-column grant (catalog only, no rows). */
+export function rlsLookupSQL(tables) {
+  const names = tables.map(t => {
+    if (!SAFE_ROLE.test(t)) throw new Error('Invalid table identifier');
+    return `'${t}'`;
+  });
+  return 'select c.relname::text as tbl, c.relrowsecurity as rls from pg_catalog.pg_class c '
+    + "join pg_catalog.pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' "
+    + `and c.relname::text in (${names.join(', ')});`;
+}
+/** Fail closed: every table must appear exactly once with RLS on. */
+export function rlsAllOn(tables, rows) {
+  if (!Array.isArray(rows) || !tables.length) return false;
+  return tables.every(t => {
+    const found = rows.filter(row => row && typeof row === 'object' && row.tbl === t);
+    return found.length === 1 && found[0].rls === true;
+  }) && rows.length === tables.length;
 }
 
 /** Public tables created by the file itself: they have no earlier rows to back up. */

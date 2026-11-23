@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
+import {validateExpanded} from '../../scripts/ops/db-migration-expanded.mjs';
 
 // S68-38c 노트 보드 글 상자·선 곡선 DB(20261123120000_note_board_texts). 정적 검사: 새 표 하나(RLS·owner 정책 하나·authenticated만),
 // 연결선 표는 칸·제약·색인 추가와 같은 이름 정책 교체뿐(권한 넓히지 않음), anon·PUBLIC·service_role 권한 없음, 작업공간·보드는 못 고침,
@@ -49,8 +50,14 @@ test('grants: texts select/delete + named columns; links only the four new colum
     'grant update (from_text, to_text, bend_x, bend_y) on table public.app_note_board_links to authenticated;']);
 });
 
-test('pair files exist; approved workflow refuses only because of column grants on the existing table (SQL Editor path)',()=>{
+test('pair files exist; approved workflow accepts it (new-column grants only, S68-42) with the production RLS check',()=>{
   for(const k of ['precheck.sql','snapshot.sql','postcheck.sql','rollback.sql','summary.md'])assert.ok(read(`docs/${V}_${N}.${k}`).length>0,k);
-  assert.throws(()=>prepareMigration({mode:'apply',version:V,runId:'1',root:root.pathname}),/grant-existing/);
-  assert.match(read(`supabase/migrations/${V}_${N}.sql`),/SQL Editor/);
+  for(const mode of ['dry-run','apply']){
+    const plan=prepareMigration({mode,version:V,runId:'1',root:root.pathname});
+    assert.equal(plan.rules,'expanded');assert.equal(plan.flow,'full');
+    assert.deepEqual(plan.newColumnGrantTables,['app_note_board_links']);
+  }
+  // A grant on a column that existed before this file is still refused.
+  const sql=read(`supabase/migrations/${V}_${N}.sql`).replace('grant update (from_text, to_text, bend_x, bend_y)','grant update (from_text, to_text, bend_x, bend_y, from_note)');
+  assert.throws(()=>validateExpanded(sql,{version:V,name:N}),/grant-existing/);
 });

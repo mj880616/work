@@ -40,8 +40,8 @@ async function openAll(page, width, scheme) {
   });
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: '읽을 거리' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot [data-os-tab="all"]').click();
   await expect(page.locator(`#outsideRoot [data-nw-all] [data-nw-key="news:${ITEMS[ITEMS.length - 1].id}"]`)).toBeVisible();

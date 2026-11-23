@@ -102,8 +102,8 @@ for (const width of [412, 1280]) test(`원문 ⋯ 메뉴 ${width}: 연 채 상�
   await outsideServer(page);
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: '읽을 거리' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
   const root = page.locator('#outsideRoot');
   await root.getByRole('tab', { name: '사회운동' }).click();
   await root.locator('[data-os-list] details[data-os-intl] > summary').click(); // S63-11: 국제 글은 접힌 '국제' 묶음 안

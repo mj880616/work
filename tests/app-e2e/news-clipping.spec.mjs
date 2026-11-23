@@ -53,7 +53,7 @@ for (const width of [412, 884, 1440]) {
     // S68-27: '보관한 글' 찾기 = 내 읽을 거리 줄이 가리키는 기사(표시 표의 별표 칸이 아님).
     expect(server.calls.some(c => c.what === 'app_reading_items' && c.query.includes('news_article_id=not.is.null') && c.query.includes('app_news_articles!inner(') && c.query.includes('app_news_articles.or='))).toBe(true);
     await page.locator('#outsideRoot [data-nw-find]').fill('없는낱말');
-    await expect(root(page).locator('[data-nc-empty]')).toHaveText('최근 30일·읽을 거리에서 찾은 글이 없어요');
+    await expect(root(page).locator('[data-nc-empty]')).toHaveText('최근 30일·저장한 글에서 찾은 글이 없어요');
     await page.locator('#outsideRoot [data-nw-find]').fill('');
     await expect(items(page)).toHaveCount(5);
 
@@ -166,7 +166,7 @@ test('Now [사회운동] ⋯ [지금 채우기]: 켠 단체만 read_now로 하�
   test.setTimeout(60000);
   const { errors, server } = await start(page, 1440);
   server.sources.set('kctu', { source_key: 'kctu', enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null });
-  await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
+  await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot [data-os-more]').click();
   await page.locator('#osMenu').getByRole('button', { name: '지금 채우기' }).click();
@@ -182,7 +182,7 @@ test('PC News: 목록이 오기 전에 연 ⋯ 메뉴는 목록이 와도 닫히
   const { errors } = await start(page, 1440);
   let release; const held = new Promise(r => { release = r; });
   await page.route(u => /\/rest\/v1\/(app_news_articles|app_outside_articles)$/.test(u.pathname), async r => { await held; return r.fallback(); });
-  await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
+  await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot [data-os-more]').click();
   const fill = page.locator('#osMenu').getByRole('button', { name: '지금 채우기' });

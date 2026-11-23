@@ -64,12 +64,12 @@ test('note is a highlight source; source tag; quote gone when the note text chan
   // S68-09 READ-읽을거리함: 읽을 거리도 밑줄 출처(DB 20261122100000).
   assert.deepEqual(HL_TYPES, ['news', 'outside', 'telegram', 'note', 'reading']);
   assert.equal(highlightBody('w', {type: 'reading', id: '32000000-0000-4000-8000-000000000003', url: 'https://ex.com/a'}, '고른 글').source_type, 'reading');
-  assert.equal(sourceTag({source_type: 'reading'}), '읽을 거리');
+  assert.equal(sourceTag({source_type: 'reading'}), '저장한 글'); // S68-34: 옛 '읽을 거리' 화면 이름이 '저장한 글'
   const id = '32000000-0000-4000-8000-000000000002';
   assert.deepEqual(cleanSource({type: 'note', id, title: '회의 메모', media: '노트', date: '2026-11-15T00:00:00Z', url: ''}), {type: 'note', id, title: '회의 메모', media: '노트', date: '2026-11-15T00:00:00.000Z', url: null});
   assert.equal(highlightBody('w', {type: 'note', id}, '고른 글').source_type, 'note');
   assert.equal(cleanSource({type: 'note', id: 'n1'}), null, 'note id must be a uuid');
-  assert.deepEqual(['note', 'telegram', 'news', 'outside'].map(t => sourceTag({source_type: t})), ['노트', '텔레그램', 'News', 'News']);
+  assert.deepEqual(['note', 'telegram', 'news', 'outside'].map(t => sourceTag({source_type: t})), ['노트', '텔레그램', '읽을 거리', '읽을 거리']); // S68-34: 기사 화면 이름 News → 읽을 거리
   const raw = '# 회의\n\n- **철도** 현장 간담회\n- 다음 주 _재논의_';
   assert.equal(quoteGone(raw, '철도 현장 간담회'), false, 'markdown marks and spaces are ignored');
   assert.equal(quoteGone(raw, '다음 주 재논의'), false);

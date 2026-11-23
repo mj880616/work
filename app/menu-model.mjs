@@ -18,7 +18,7 @@ export const ITEMS = Object.freeze([
   {id: 'home', label: '홈', view: 'home', icon: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9'},
   {id: 'basket', label: '잊지 말기', view: 'basket', icon: 'M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3'},
   // S68-09 READ-읽을거리함(명진 11/22 13:42 'B: 메뉴에 새 칸'): 저장한 글·원문 사본·밑줄. 모든 사람(운영자 기능 아님), 처음 자리는 위 메뉴 잊지 말기 다음.
-  {id: 'reading', label: '읽을 거리', view: 'reading', icon: 'M6 3h12v18l-6-4-6 4zM9 8h6M9 11h4'},
+  {id: 'reading', label: '저장한 글', view: 'reading', icon: 'M6 3h12v18l-6-4-6 4zM9 8h6M9 11h4'},
   {id: 'calendar', label: '일정', view: 'calendar', group: ['calendar', 'tasks', 'diary'], icon: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', pc: ['tasks', 'diary']},
   {id: 'note', label: '노트', kind: 'note', icon: 'M4 20l1-4L16 5l3 3L8 19zM14 7l3 3'},
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴는 없다. 사업영역 관리 화면(라우터 이름 projects)은 사업 보고 ⋯ 안에서 열고, 하단바·왼쪽 메뉴에서는 사업 보고 칸이 그 화면을 맡는다.
@@ -40,7 +40,7 @@ export const ITEMS = Object.freeze([
   // id는 outside 그대로라 저장된 메뉴 순서가 맞고, 옛 id news는 아래 OLD_IDS가 outside로 읽는다.
   // NEWS-운영자만(S63-03, 명진 11/16 "완성도 높아지면 그 때 열자"): S62-12g에서 모두에게 열었던 News를 다시 운영자 기능 키 'outside'로.
   //   공용 기사 한 벌 구조(news-for-all)는 그대로 두고, 화면 입구는 이 키, 수집·AI는 Edge가 같은 키로 막는다.
-  {id: 'outside', label: 'News', view: 'outside', feature: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
+  {id: 'outside', label: '읽을 거리', view: 'outside', feature: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
   {id: 'calls', label: '통화', view: 'calls', feed: true, feature: 'calls', icon: 'M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z'},
   {id: 'telegram', label: '텔레그램 소식', view: 'telegram', feed: true, feature: 'telegram', icon: 'M21 4 3 11l6 2 2 6 3-4 5 4z'},
   // 주소 개편 ② E1: [아스날]은 처음 자리가 [메뉴] 창 맨 아래(PC 사이드바도 맨 아래 묶음 끝, feed와 같은 자리). 메뉴 편집으로 옮길 수 있다.

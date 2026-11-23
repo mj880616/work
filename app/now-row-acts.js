@@ -11,20 +11,24 @@ import {openRowMenu, appMenuPoint} from './row-menu.js';
 // 쓰는 법: bindNowRows(목록 칸, {row:'줄 선택자', itemOf:줄→{type,id}|null, isSaved:item→bool, canDelete:item→bool, saved:bool, changed:(item,kind,on)=>void})
 //   changed kind: 'hide' | 'save'(on = 별표 켜짐) | 'release'(보관 탭에서 뺌, on = true) | 'delete'(on = 삭제됨, false = 되돌림).
 
-// S68-28(명진 11/23): News 화면에서 '보관' 단어를 없앴다 — 같은 동작(app_reading_keep)을 '읽을 거리로'/'읽을 거리에서 빼기'로 부른다(docs/design/ui-words.md).
-export const HIDE_LABEL = '숨기기', SAVE_LABEL = '읽을 거리로', RELEASE_LABEL = '읽을 거리에서 빼기', DELETE_LABEL = '삭제';
+// S68-28(명진 11/23): News 화면에서 '보관' 단어를 없앴다 — 같은 동작(app_reading_keep)을 '읽을 거리로'/'읽을 거리에서 빼기'로 불렀다.
+// S68-34(명진 11/23 02:32·02:41): 화면 이름이 'News → 읽을 거리', '읽을 거리 → 저장한 글'로 바뀌어 단추는 [저장]·[삭제](= 저장한 글에서 빼기, 기사는 그대로).
+//   접근성 이름·되돌리기 기록은 RELEASE_ARIA '저장한 글에서 삭제'. 내가 넣은 기사(canDelete)를 저장까지 해 둔 줄은 [삭제]가 둘이 되므로
+//   기사 자체 삭제 쪽을 '기사 삭제'(DELETE_BOTH_LABEL)로 부른다(docs/design/ui-words.md).
+export const HIDE_LABEL = '숨기기', SAVE_LABEL = '저장', RELEASE_LABEL = '삭제', RELEASE_ARIA = '저장한 글에서 삭제', DELETE_LABEL = '삭제', DELETE_BOTH_LABEL = '기사 삭제';
+export const SAVED_TEXT = '저장한 글에 넣었어요', RELEASED_TEXT = '저장한 글에서 삭제했어요';
 export const UNDO_MS = 5000; // 보관 빼기·삭제 되돌리기 알림은 5초(명진 11/19)
 
 // 보관에서 빼기(별표 끄기) 하나 — 줄 ★·밀기·단추·⋯·우클릭이 모두 부른다. saved: [보관] 목록 칸이면 true(changed 'release'), 아니면 changed('save', false).
 // S68-29: 읽을 거리 화면은 같은 길을 '삭제'로 부른다(text·label로 알림 글만 바꿈 — 서버 일은 같다).
-export async function dropSaved(item, {changed = () => {}, saved = false, text = '읽을 거리에서 뺐어요', label = RELEASE_LABEL} = {}) {
+export async function dropSaved(item, {changed = () => {}, saved = false, text = RELEASED_TEXT, label = RELEASE_ARIA} = {}) {
   const prev = await unstar(item);
   sendSignal(item, 'unstar');
   if (saved) changed(item, 'release', true); else changed(item, 'save', false);
   notify(text, {label, ms: UNDO_MS, undo: async () => { await restoreStar(item, prev); sendSignal(item, 'star'); changed(item, 'save', true); }});
 }
 // 여러 개를 한 번에(읽을 거리 고르기 [삭제]): 하나씩 같은 서버 길, 알림은 하나 — 되돌리면 뺀 것 모두 원래대로. 뺀 개수를 돌려준다.
-export async function dropSavedMany(items, {changed = () => {}, text = n => `${n}개 읽을 거리에서 뺐어요`, label = RELEASE_LABEL} = {}) {
+export async function dropSavedMany(items, {changed = () => {}, text = n => `${n}개 ${RELEASED_TEXT}`, label = RELEASE_ARIA} = {}) {
   const done = [];
   try { for (const item of items) { const prev = await unstar(item); sendSignal(item, 'unstar'); changed(item, 'release', true); done.push({item, prev}); } }
   catch { notify('저장하지 못했어요 · 잠시 뒤 다시', {error: true}); }
@@ -41,14 +45,14 @@ export async function deleteMine(item, {changed = () => {}} = {}) {
 
 // 줄에 넣는 마우스 단추(밀기를 못 하는 기기용). 폰 폭에서는 CSS가 감춘다. canDelete: 내가 넣은 기사면 [숨기기] 대신 [삭제]([보관] 탭은 [보관 풀기] 뒤에).
 export function hoverActsHtml({saved = false, isSaved = false, canDelete = false} = {}) {
-  const btn = ({id, label}) => `<button type="button" class="now-hov-btn" data-now-act="${id}">${label}</button>`;
+  const btn = ({id, label, aria}) => `<button type="button" class="now-hov-btn" data-now-act="${id}"${aria ? ` aria-label="${aria}" title="${aria}"` : ''}>${label}</button>`;
   return `<span class="now-hov" role="group" aria-label="이 글 처리">${rowMenuItems({saved, isSaved, canDelete}).map(btn).join('')}</span>`;
 }
 // 줄 ⋯·우클릭 메뉴 항목(밀기·단추와 같은 이름).
 export function rowMenuItems({saved = false, isSaved = false, canDelete = false} = {}) {
-  const del = canDelete ? [{id: 'delete', label: DELETE_LABEL}] : [];
-  if (saved) return [{id: 'release', label: RELEASE_LABEL}, ...del];
-  return [{id: 'save', label: isSaved ? RELEASE_LABEL : SAVE_LABEL}, ...(del.length ? del : [{id: 'hide', label: HIDE_LABEL}])];
+  const del = canDelete ? [{id: 'delete', label: saved || isSaved ? DELETE_BOTH_LABEL : DELETE_LABEL}] : [];
+  if (saved) return [{id: 'release', label: RELEASE_LABEL, aria: RELEASE_ARIA}, ...del];
+  return [isSaved ? {id: 'save', label: RELEASE_LABEL, aria: RELEASE_ARIA} : {id: 'save', label: SAVE_LABEL}, ...(del.length ? del : [{id: 'hide', label: HIDE_LABEL}])];
 }
 
 // titleOf: 우클릭 메뉴 머리에 보일 줄 제목(기본은 News 줄의 .nw-title — 다른 화면이 같은 줄 밀기를 쓸 때 줄 제목 위치를 알려 준다: 홈 읽을 만한 글).
@@ -70,7 +74,7 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
         await dropSaved(item, {changed, saved});
       } else if (key === 'save') {
         await setSaved(item, true); sendSignal(item, 'star'); changed(item, 'save', true);
-        notify('읽을 거리에 넣었어요', {label: SAVE_LABEL, undo: async () => { await setSaved(item, false); sendSignal(item, 'unstar'); changed(item, 'save', false); }});
+        notify(SAVED_TEXT, {label: SAVE_LABEL, undo: async () => { await setSaved(item, false); sendSignal(item, 'unstar'); changed(item, 'save', false); }});
       } else if (key === 'delete' && canDelete(item)) {
         await deleteMine(item, {changed});
       }
@@ -84,7 +88,7 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
   const swipe = bindRowSwipe(host, {row, enabled,
     actions: el => {
       const item = itemOf(el); if (!item) return null;
-      const del = canDelete(item) ? {key: 'delete', label: DELETE_LABEL, tone: 'danger'} : null;
+      const del = canDelete(item) ? {key: 'delete', label: saved || isSaved(item) ? DELETE_BOTH_LABEL : DELETE_LABEL, tone: 'danger'} : null;
       const start = attr ? PICK : null;
       if (saved) return {start, end: [{key: 'release', label: RELEASE_LABEL, tone: 'info'}, del]};
       return {start, end: [{key: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL, tone: 'info'}, del || {key: 'hide', label: HIDE_LABEL, tone: 'muted'}]};
@@ -103,8 +107,8 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
       }
     } catch { fail(); }
     if (!done.length) return;
-    const n = done.length, text = key === 'hide' ? `${n}개 숨겼어요` : key === 'save' ? `${n}개 읽을 거리에 넣었어요` : `${n}개 읽을 거리에서 뺐어요`;
-    notify(text, {label: key === 'hide' ? '글 숨기기' : key === 'save' ? SAVE_LABEL : RELEASE_LABEL, ms: UNDO_MS, undo: async () => {
+    const n = done.length, text = key === 'hide' ? `${n}개 숨겼어요` : key === 'save' ? `${n}개 ${SAVED_TEXT}` : `${n}개 ${RELEASED_TEXT}`;
+    notify(text, {label: key === 'hide' ? '글 숨기기' : key === 'save' ? SAVE_LABEL : RELEASE_ARIA, ms: UNDO_MS, undo: async () => {
       for (const {item, prev} of done) {
         if (key === 'hide') { await setMark(item, 'dismiss', false); sendSignal(item, 'undismiss'); changed(item, 'hide', false); }
         else if (key === 'save') { await setSaved(item, false); sendSignal(item, 'unstar'); changed(item, 'save', false); }

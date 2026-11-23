@@ -1,6 +1,6 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {sendSignal, setMark} from './now-marks.js';
-import {deleteMine, DELETE_LABEL, SAVE_LABEL, RELEASE_LABEL} from './now-row-acts.js';
+import {deleteMine, DELETE_LABEL, DELETE_BOTH_LABEL, SAVE_LABEL, RELEASE_LABEL, RELEASE_ARIA} from './now-row-acts.js';
 import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences} from './feed-shared.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
@@ -12,7 +12,7 @@ import {notify, askText} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
@@ -53,6 +53,7 @@ const HAND_ROW_COLS = 'title,publisher,author,published_at,url,state';
 // 직접 넣기 입력 칸 상태. pics: '[사진 n]' 번호 → {file(올리기 전 사진, 메모리만), view(미리보기 주소), src(저장된 사진 주소)}.
 const idleHand = () => ({open: false, busy: false, note: '', init: null, shown: null, pics: new Map(), next: 1, up: ''});
 function dropPics(h) { for (const p of h?.pics?.values?.() || []) if (p.file && p.view) URL.revokeObjectURL(p.view); }
+const LOAD_FAILED = Symbol('load-failed');
 const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시');
 
 // head: {meta: [글자…], title, origTitle, titleLang, lang, url}. item: {type:'outside'|'news', id}.
@@ -122,17 +123,22 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function blockHtml(b) {
     const own = b.t === 'img' ? ownPhotoOf(b.src) : null;
     if (own) {
-      // 내가 올린 사진: 서버(hand_photo)에서 받아 그린다. 받기 전에는 자리만, 못 받으면 사진 칸을 감춘다.
+      // 내가 올린 사진: 서버(hand_photo)에서 받아 그린다. 받기 전에는 자리만. S68-40: 못 받으면 칸을 감추지 않고 '사진을 불러오지 못함 [다시]'
+      // (잠깐의 오류로 사진이 '없어진' 것처럼 보이지 않게 — 사진은 본문에 그대로 있다).
       const cap = b.cap ? `<figcaption>${esc(b.cap)}</figcaption>` : '';
-      return `<figure class="nd-fig" data-nd-own-fig><img class="nd-img" data-nd-own="${esc(own.id)}" alt="${esc(b.alt || b.cap || '')}" hidden>${cap}</figure>`;
+      return `<figure class="nd-fig" data-nd-own-fig><img class="nd-img" data-nd-own="${esc(own.id)}" alt="${esc(b.alt || b.cap || '')}" hidden><p class="nd-faint" data-nd-own-fail role="status" hidden>사진을 불러오지 못함 <button type="button" class="nd-act" data-nd-own-retry>다시</button></p>${cap}</figure>`;
     }
     if (b.t === 'img') {
       const cap = b.cap ? `<figcaption>${esc(b.cap)}</figcaption>` : '';
       return `<figure class="nd-fig"><img class="nd-img" data-nd-img src="${esc(b.src)}" alt="${esc(b.alt || b.cap || '')}" loading="lazy" decoding="async" referrerpolicy="no-referrer"><a class="nd-img-link" data-nd-img-link href="${esc(b.src)}" target="_blank" rel="noopener noreferrer" hidden>사진 ↗</a>${cap}</figure>`;
     }
     if (b.t === 'h') return `<h4 class="nd-bhd">${esc(b.text)}</h4>`;
-    if (b.t === 'quote') return `<blockquote>${esc(b.text)}</blockquote>`;
-    return `<p>${esc(b.text)}</p>`;
+    if (b.t === 'quote') return `<blockquote>${proseText(b.text)}</blockquote>`;
+    return `<p>${proseText(b.text)}</p>`;
+  }
+  // 문단 글자: 본문 안 http·https 주소는 작은 줄바꿈 링크(S68-39 — 긴 주소가 큰 글자 덩어리로 줄줄이 보이지 않게). 나머지는 글자 그대로(esc).
+  function proseText(text) {
+    return textWithUrls(text).map(x => (x.url ? `<a class="nd-url" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.text)}</a>` : esc(x.text))).join('');
   }
   // 원문 칸 머리 줄 [번역]: 외국어 뉴스 기사·사회운동 영어 소식에서 글자 블록이 있을 때만. 누른 상태는 aria-pressed.
   function trHtml(b) {
@@ -170,9 +176,14 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       const hand = canHandFill(cur.item, b) ? ' <button type="button" class="ds-chip nd-hand" data-nd-hand>직접 넣기</button>' : '';
       const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}${hand}</p>` : '';
       const prose = b.blocks.length ? `<div class="nd-prose"${langAttr()} data-nd-prose>${b.blocks.map(blockHtml).join('')}</div>` : '';
-      inner = b.state === 'failed' ? why : prose + why;
+      inner = b.state === 'failed' ? why : moveUrlHtml(b) + prose + why;
     }
     return head + `<div class="nd-ob-body" data-nd-body-inner>${inner}</div>`;
+  }
+  // S68-39: 옛 직접 넣기(주소 칸이 없어 본문 첫 줄에 주소를 붙여 넣은 것) — 내가 넣은 손 기사만 작은 한 줄 + [옮기기](같은 hand_fill 저장 길).
+  function moveUrlHtml(b) {
+    if (cur.item.type !== 'news' || !cur.head?.manual || !cur.head?.mine || !bodyFirstUrl(b.blocks)) return '';
+    return `<p class="nd-faint nd-move-url" data-nd-move-url role="status">본문 첫 줄 주소를 원문 주소로 옮길까요? <button type="button" class="ds-chip" data-nd-move-url-go>옮기기</button></p>`;
   }
   // 본문 칸 아래 작은 미리보기 줄: 본문 칸에 '[사진 n]' 줄이 있는 사진만(차례대로). 올리기 전 사진은 이 기기 메모리의 그림, 저장된 사진은 서버 그림.
   function picsHtml(body) {
@@ -192,7 +203,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (!v) return `<div aria-busy="true">${waitHtml({rows: 3})}</div>`;
     const dis = h.busy ? ' disabled' : '';
     const field = (key, label, attrs = '') => `<label class="nd-hand-f"><span>${label}</span><input type="text" data-nd-hand-in="${key}" value="${esc(v[key])}" maxlength="${HAND_LIMITS[key]}" autocomplete="off"${attrs}${dis}></label>`;
-    return `<form class="nd-hand-form" data-nd-hand-form aria-label="기사 직접 넣기">${field('title', '제목')}<div class="nd-hand-row">${field('publisher', '매체')}${field('author', '기자')}</div>
+    return `<form class="nd-hand-form" data-nd-hand-form aria-label="기사 직접 넣기">${field('title', '제목')}${field('url', '원문 주소', ' inputmode="url" placeholder="https://…" spellcheck="false"')}<div class="nd-hand-row">${field('publisher', '매체')}${field('author', '기자')}</div>
 <label class="nd-hand-f"><span>기사 시각</span><input type="datetime-local" data-nd-hand-in="at" value="${esc(v.at)}"${dis}></label>
 <div class="nd-hand-f nd-hand-body"><div class="nd-hand-bh"><label for="ndHandBody">본문</label><span class="nd-hand-tools"><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-pick title="폰·PC의 사진을 선택해 커서 자리에 넣어요(여러 장). 복사한 사진은 본문 칸에 붙여 넣어도 돼요."${dis}>사진</button><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-photo title="사진 주소를 붙여 넣으면 커서 자리에 한 줄로 들어가요. 주소 바로 다음 줄을 '사진:'으로 시작하면 사진 설명이 돼요."${dis}>사진 주소 넣기</button></span><input type="file" data-nd-hand-file accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden></div><textarea id="ndHandBody" data-nd-hand-in="body" rows="8" maxlength="${HAND_LIMITS.body}"${dis}>${esc(v.body)}</textarea>${picsHtml(v.body)}</div>
 <div class="nd-memo-row">${h.up ? `<span class="nd-faint" data-nd-hand-up role="status">${esc(h.up)}</span>` : h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
@@ -204,8 +215,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const btn = (act, on, label, onLabel) => one(`data-nd-act="${act}" aria-pressed="${!!on}"`, on ? onLabel : label);
     const memo = cur.memoOpen ? '' : one('data-nd-act="memo"', cur.memo ? '메모 수정' : '메모');
     // S67-11 NEWS-보관빼기: 내가 넣은 기사(공유·손으로 넣은 것, head.mine)는 [삭제] — 내 목록 어디에도 안 보이게(공용 기사 행은 그대로), 5초 [되돌리기].
-    const del = cur.item.type === 'news' && cur.head?.mine ? one('data-nd-delete', DELETE_LABEL) : '';
-    return `${btn('star', m.star, SAVE_LABEL, RELEASE_LABEL)}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
+    // S68-34: 저장해 둔 글이면 [삭제](저장한 글에서 빼기)와 겹치지 않게 기사 자체 삭제는 '기사 삭제'.
+    const del = cur.item.type === 'news' && cur.head?.mine ? one('data-nd-delete', m.star ? DELETE_BOTH_LABEL : DELETE_LABEL) : '';
+    const star = m.star ? one(`data-nd-act="star" aria-pressed="true" aria-label="${RELEASE_ARIA}" title="${RELEASE_ARIA}"`, RELEASE_LABEL) : btn('star', false, SAVE_LABEL, RELEASE_LABEL);
+    return `${star}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
   }
   function memoHtml() {
     if (cur.memoOpen) {
@@ -255,24 +268,30 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
 <div data-nd-relslot>${relatedHtml()}</div>
 <div class="nd-acts" data-nd-acts role="group" aria-label="이 글 표시">${actsHtml()}</div><div data-nd-memo>${memoHtml()}</div></article>`;
     marksNow();
+    // S68-40: 상세 전체를 다시 그리면(같은 글 다시 열기·머리 고침 setHead·관심 주제 바뀜) 원문 칸도 새로 그려진다. 내가 올린 사진은
+    // 그린 뒤 받아 넣어야 보이므로(받기 전 hidden) 원문 칸만 다시 그릴 때(paintBody)처럼 여기서도 채운다 — 빠지면 사진이 '없어진' 것처럼 보였다.
+    const body = part('[data-nd-body]');
+    if (body) fillOwn(body);
   }
 
   // ---------- 열기 ----------
   // 원문: 저장 원문 → (뉴스 기사에 저장 원문 줄이 없거나 잠깐의 오류로 못 읽은 줄이면 기사 먼저 읽기 뒤 다시) → 예전 저장 글자. 답: {hadRow, pre:{ok,why}}.
   async function loadBody(item, my) {
     const key = itemKey(item);
-    // 저장 원문 읽기가 실패하면 줄이 없는 것과 같은 길로(예전 저장 글자). 그것도 못 읽으면 [다시].
-    let row = null;
-    try { row = await readFeedBody(item); } catch { row = null; }
+    // S68-40: 저장 원문 읽기가 실패(잠깐의 오류)하면 한 번 더 읽고, 그래도 못 읽으면 [다시]. '줄이 없음'과 같은 길(예전 저장 글자)로 가지 않는다 —
+    // 예전 저장 글자는 글만 있어 손으로 넣은 사진 등이 빠진 본문이 '진짜 본문'처럼 보였다. 줄이 정말 없을 때(null)만 예전 저장 글자.
+    let row = await readBodyRow(item);
     if (my !== seq) return {stale: true};
+    if (row === LOAD_FAILED) { bodies.set(key, {failedLoad: true}); paintBody(); return {hadRow: false}; }
     // 저장 원문 줄이 있으면 그것을 그린다. 뉴스 기사에서 그 줄이 잠깐의 오류(state failed — 늦은 답·사이트 오류)면 아래 '기사 먼저 읽기'로 한 번 다시 읽는다.
     if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); if (item.type === 'news') void freshenHead(item); return {hadRow: true}; }
     let pre = {ok: true};
     if (item.type === 'news') {
       pre = await readFirst(item, my, !!row).catch(() => ({ok: true}));
       if (my !== seq || pre.stale) return {stale: true};
-      try { row = await readFeedBody(item); } catch { row = null; }
+      row = await readBodyRow(item);
       if (my !== seq) return {stale: true};
+      if (row === LOAD_FAILED) { bodies.set(key, {failedLoad: true}); paintBody(); return {hadRow: false, pre}; }
       if (row) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); return {hadRow: true, pre}; }
     }
     let legacy;
@@ -281,6 +300,11 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (legacy.state === 'failed' && pre && !pre.ok && pre.why) legacy = {...legacy, reason: pre.why};
     bodies.set(key, legacy); paintBody();
     return {hadRow: false, pre};
+  }
+  // 저장 원문 한 줄: 줄 · null(정말 없음) · LOAD_FAILED(두 번 읽어도 오류).
+  async function readBodyRow(item) {
+    for (let i = 0; i < 2; i++) { try { return await readFeedBody(item); } catch { /* 한 번 더 */ } }
+    return LOAD_FAILED;
   }
   // 저장 원문 줄이 없는 옛 뉴스 기사: 본문·요약이 아직 없으면 그 기사 하나를 먼저 읽는다(news-feed open). 읽지 못하면 AI를 부르지 않는다.
   // again: 저장 원문 줄이 다시 읽을 실패(reopenBody — 늦은 답·사이트 오류·S68-25 robots)라 요약이 있어도 그 한 쪽을 읽는다. 이 글 하나만(목록은 읽지 않음).
@@ -430,7 +454,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (cur === c) { paintBody(); focusTr(); }
   }
   // [직접 넣기]·⋯ [수정]: 기사 줄(서버)의 지금 값 + 지금 원문 글자로 입력 칸을 채운다. 번역해서 보던 중이면 원문으로 돌린다.
-  async function openHand() {
+  // move: [옮기기](S68-39) — 처음 값에서 본문 첫 줄 주소를 원문 주소 칸으로 옮긴 값을 칸에 넣고 바로 같은 저장 길(saveHand)로 보낸다.
+  //   서버가 거절하면 칸은 열린 채 까닭 한 줄(옮긴 값 그대로), 첫 줄이 주소가 아니게 됐으면 칸만 연다.
+  async function openHand(move = false) {
     const c = cur;
     if (!c || c.item.type !== 'news' || c.hand.open) return;
     c.tr.on = false; c.tr.note = '';
@@ -444,7 +470,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     c.hand.init = handInitial(row || {url: c.head.url}, blocks);
     for (const p of c.hand.init.photos || []) c.hand.pics.set(p.n, {src: p.src});
     c.hand.next = (c.hand.init.photos?.length || 0) + 1;
+    const moved = move ? movedUrlValues(c.hand.init) : null;
+    if (moved) c.hand.shown = moved;
     paintBody();
+    if (moved) { const form = part('[data-nd-hand-form]'); if (form) { await saveHand(form); return; } }
     part('[data-nd-hand-in="title"]')?.focus({preventScroll: true});
   }
   function closeHand() {
@@ -580,7 +609,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       if (typeof r?.session?.ensure === 'function' && !(await r.session.ensure())) throw new Error('session');
       const token = r?.session?.read?.()?.access_token;
       if (!token || !r?.config?.url) throw new Error('session');
-      const res = await fetch(`${r.config.url}/functions/v1/news-feed?action=hand_photo`, {method: 'POST', cache: 'no-store', headers: {apikey: r.config.key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'}, body: JSON.stringify({id: articleId, file: fileId, size: 'large'})});
+      const res = await fetch(`${r.config.url}/functions/v1/news-feed?action=hand_photo`, {method: 'POST', cache: 'no-store', headers: {apikey: r.config.key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'}, body: JSON.stringify({id: articleId, file: fileId, size: 'large'}), signal: AbortSignal.timeout(45000)});
       if (!res.ok || !/^image\//.test(res.headers.get('content-type') || '')) throw new Error('photo');
       return URL.createObjectURL(await res.blob());
     })();
@@ -588,21 +617,38 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     flight.catch(() => { if (ownViews.get(key) === flight) ownViews.delete(key); });
     return flight;
   }
+  // S68-40: 받기가 한 번 실패하면 잠깐 뒤 한 번 더. 그래도 못 받으면 본문 사진 칸은 '사진을 불러오지 못함 [다시]'(감추지 않음).
+  // 입력 칸 미리보기 줄(실패 줄 없음)은 예전처럼 그 그림만 감춘다.
+  const OWN_RETRY_MS = 1500;
   function fillOwn(root) {
     const c = cur;
     if (!c || c.item.type !== 'news') return;
-    for (const img of root.querySelectorAll('img[data-nd-own]')) {
-      const fig = img.closest('figure');
-      ownView(c.item.id, img.dataset.ndOwn).then(url => {
-        if (!img.isConnected) return;
-        img.onerror = () => { if (fig) fig.hidden = true; };
-        img.src = url; img.hidden = false;
-      }, () => { if (img.isConnected && fig) fig.hidden = true; });
-    }
+    for (const img of root.querySelectorAll('img[data-nd-own]')) fillOwnImg(c, img, 1);
+  }
+  function fillOwnImg(c, img, again) {
+    const fig = img.closest('figure'), fail = fig?.querySelector('[data-nd-own-fail]');
+    if (fail) fail.hidden = true;
+    const failed = () => {
+      if (!img.isConnected || cur !== c) return;
+      if (again > 0) { setTimeout(() => { if (img.isConnected && cur === c) fillOwnImg(c, img, again - 1); }, OWN_RETRY_MS); return; }
+      img.hidden = true;
+      if (fail) fail.hidden = false; else if (fig) fig.hidden = true;
+    };
+    ownView(c.item.id, img.dataset.ndOwn).then(url => {
+      if (!img.isConnected) return;
+      img.onerror = () => { forgetOwn(c.item.id, img.dataset.ndOwn, url); failed(); };
+      img.src = url; img.hidden = false;
+    }, failed);
+  }
+  // 받아 둔 그림 주소가 더는 안 열리면(이 탭에서 풀린 주소 등) 기억을 지워 다음 받기가 서버에서 새로 받게 한다.
+  function forgetOwn(articleId, fileId, url) {
+    const key = `${articleId}:${fileId}`, flight = ownViews.get(key);
+    if (!flight) return;
+    flight.then(u => { if (u === url && ownViews.get(key) === flight) { ownViews.delete(key); URL.revokeObjectURL(u); } }, () => {});
   }
   function handValues(form) {
     const val = k => form.querySelector(`[data-nd-hand-in="${k}"]`)?.value ?? '';
-    return {title: val('title'), publisher: val('publisher'), author: val('author'), at: val('at'), body: val('body')};
+    return {title: val('title'), url: val('url'), publisher: val('publisher'), author: val('author'), at: val('at'), body: val('body')};
   }
   // 입력 칸 다시 그리기(사람이 넣은 값 shown 그대로, 알림 줄·누름 막기만 바뀜). 알림이 있으면 저장 단추에 초점을 둔다(화면 읽기 프로그램은 role=status로 읽음).
   function paintHand() {
@@ -658,9 +704,11 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-copy]')) { void copyArticle(b); return; }
     if (b.matches('[data-nd-ob-more]')) { obMenu.open(b); return; }
     if (b.matches('[data-nd-hand]')) { void openHand(); return; }
+    if (b.matches('[data-nd-move-url-go]')) { void openHand(true); return; }
     if (b.matches('[data-nd-hand-cancel]')) { closeHand(); return; }
     if (b.matches('[data-nd-hand-pick]')) { b.closest('[data-nd-hand-form]')?.querySelector('[data-nd-hand-file]')?.click(); return; }
     if (b.matches('[data-nd-hand-photo]')) { void addHandPhoto(b.closest('[data-nd-hand-form]')); return; }
+    if (b.matches('[data-nd-own-retry]')) { const img = b.closest('figure')?.querySelector('img[data-nd-own]'); if (img) fillOwnImg(cur, img, 0); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
     if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paintActs(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }

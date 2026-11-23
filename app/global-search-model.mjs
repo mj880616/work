@@ -14,7 +14,7 @@ export const SEARCH_KINDS = Object.freeze([...SERVER_KINDS, READING_KIND]);
 export const GROUPS = Object.freeze([
   {key: 'update', label: '업데이트', icon: 'update', chip: true},
   {key: 'note', label: '노트', icon: 'note', chip: true},
-  {key: 'reading', label: '읽을 거리', icon: 'reading', chip: false},
+  {key: 'reading', label: '저장한 글', icon: 'reading', chip: false},
   {key: 'task', label: '할 일', icon: 'task', chip: true},
   {key: 'document', label: '자료실', icon: 'document', chip: true},
   {key: 'meeting', label: word('사업 보고'), icon: 'meeting', chip: true},

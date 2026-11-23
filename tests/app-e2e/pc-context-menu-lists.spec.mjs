@@ -48,7 +48,7 @@ test('News 1440: 글 줄 우클릭 → [보관][숨기기](줄 위 단추와 같
   await keepLog(page);
   await rightAt(page,c1.locator('.nw-title'));
   await expect(menu(page)).toBeVisible();
-  expect(await labels(menu(page))).toEqual(['읽을 거리로','숨기기']);
+  expect(await labels(menu(page))).toEqual(['저장','숨기기']);
   expect(await page.evaluate(()=>window.__kept)).toEqual([false]);
   await menu(page).getByRole('button',{name:'숨기기'}).click();
   await expect(page.locator('#newsRoot [data-nc-item="c1"]')).toHaveCount(0);

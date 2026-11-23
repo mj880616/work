@@ -73,8 +73,8 @@ async function openReading(page, width) {
   const s = await readingServer(page);
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: '읽을 거리' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: '저장한 글' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '저장한 글', exact: true }).click();
   await expect(page.locator('#readingView')).toBeVisible();
   const list = page.locator('#readingView [data-rd-list]');
   await list.locator('.rd-chips [data-filter-value="all"]').click();
@@ -125,7 +125,7 @@ test('읽을 거리 412: 왼쪽 밀기 [삭제] — ⋯ 삭제와 같이 묻고,
   await swipe(rdRow(list, RA), -60);
   await touchTap(cell(list, 'delete'));
   const ask = page.locator('.kptu-ask');
-  await expect(ask).toContainText('이 읽을 거리를 삭제할까요?');
+  await expect(ask).toContainText('이 글을 삭제할까요?');
   await ask.locator('.kptu-ask-actions .secondary').click();
   await expect(ask).toHaveCount(0);
   await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(3);
@@ -133,7 +133,7 @@ test('읽을 거리 412: 왼쪽 밀기 [삭제] — ⋯ 삭제와 같이 묻고,
   await tick(page);
   await swipe(rdRow(list, RA), -60);
   await touchTap(cell(list, 'delete'));
-  await expect(ask).toContainText('이 읽을 거리를 삭제할까요?');
+  await expect(ask).toContainText('이 글을 삭제할까요?');
   await ask.locator('.kptu-ask-actions .primary').click();
   await expect.poll(() => s.deletes).toEqual([RA]);
   await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(2);
@@ -178,7 +178,7 @@ test('읽을 거리 412: 고른 줄 [삭제] — 한 번만 묻고, 취소하면
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await bar.locator('[data-row-pick-act="delete"]').click();
   const ask = page.locator('.kptu-ask');
-  await expect(ask).toContainText('선택한 읽을 거리 2개를 삭제할까요?');
+  await expect(ask).toContainText('선택한 글 2개를 삭제할까요?');
   await ask.locator('.kptu-ask-actions .secondary').click();
   await expect(ask).toHaveCount(0);
   await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(3);
