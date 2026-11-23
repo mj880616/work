@@ -232,8 +232,10 @@ function extractScope(input: ExtractInput, raw: string, scope: { html: string; o
     return `<p>${MARK_IMG}${pics.length - 1}${MARK_IMG}</p>`;
   });
   const key = (l: string) => clean(l);
+  // S69-06: 사진 캡션 줄(…ⓒ매체)은 본문 끝 표시('ⓒ·Copyright')로 보지 않는다 — 판정 글자를 비워 둔다(캡션은 아래에서 사진 블록으로 감).
+  const rangeKey = (l: string) => (l.trimStart()[0] === MARK_C ? "" : clean(l));
   const info: { start?: string | null; end?: string | null } = {};
-  const lines = bodyRange(htmlToText(html).split("\n"), input.title, scope.own, key, { start: input.rule.start, end: input.rule.end, info });
+  const lines = bodyRange(htmlToText(html).split("\n"), input.title, scope.own, rangeKey, { start: input.rule.start, end: input.rule.end, info });
   if (needStart && info.start !== "rule") return { ...failedBody("no_body", rule), scope: scope.via, cut: info.end ?? null };
   const b = new Builder();
   const files: string[] = [];

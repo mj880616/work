@@ -119,6 +119,10 @@ async function checkNews(source, nowMs) {
     }
     if (!got.ok) { if (!row.list.startsWith("robots_unreachable")) row.list = got.code; continue; }
     const xml = N.httpsLinkXml(source, got.text);
+    // 진단: 피드 글 수와 첫 글 링크의 주소 모양(scheme://host만 — 경로·제목 없음).
+    const rawItems = (xml.match(/<(item|entry)\b/gi) ?? []).length;
+    const firstLink = /<(?:item|entry)\b[\s\S]*?<link\b[^>]*?(?:href\s*=\s*["']\s*([a-z]+:\/\/[^/"'\s]+)|>\s*(?:<!\[CDATA\[)?\s*([a-z]+:\/\/[^/\s<\]]+))/i.exec(xml);
+    row.feed = `items=${rawItems} link=${firstLink ? (firstLink[1] ?? firstLink[2]) : "-"} type=${(got.contentType ?? "-").split(";")[0]} bytes=${got.text.length}`;
     for (const it of parseFeed(N.parseSource(source, xml), xml, nowMs, 20)) {
       const clean = cleanArticleUrl(it.url);
       if (clean && allowedUrl(source, clean) && !urls.includes(clean)) urls.push(clean);
@@ -126,7 +130,7 @@ async function checkNews(source, nowMs) {
     }
     if (!row.list.startsWith("robots_unreachable")) row.list = "ok";
   }
-  if (!urls.length && row.list.endsWith("ok")) row.list = "no_items";
+  if (!urls.length && row.list.endsWith("ok")) row.list = `no_items(${row.feed ?? "-"})`;
   for (const url of urls) {
     const got = await page.get(url, ACCEPT_HTML);
     if (!got.ok) { row.posts.push({ res: `fail:${got.code}` }); continue; }
@@ -147,6 +151,7 @@ async function checkOutside(source, nowMs) {
     if (items.length >= PER_SOURCE) break;
     const got = await reader.get(source, list, source.mode === "rss");
     if (!got.ok) { row.list = got.code; continue; }
+    row.feed = `items=${(got.text.match(/<(item|entry)\b/gi) ?? []).length} bytes=${got.text.length} bot=${looksLikeBotCheck(got.text) ? 1 : 0}`;
     const found = source.mode === "rss" ? parseFeed(source, got.text, nowMs, 20)
       : source.mode === "telegram" ? parseTelegram(source, got.text, nowMs, 20)
       : parseListHtml(source, got.text, got.url, 20, undefined, nowMs);
@@ -154,7 +159,7 @@ async function checkOutside(source, nowMs) {
     row.list = "ok";
   }
   items = items.slice(0, PER_SOURCE);
-  if (!items.length && row.list === "ok") row.list = "no_items";
+  if (!items.length && row.list === "ok") row.list = `no_items(${row.feed ?? "-"})`;
   for (const it of items) {
     // 수집 때 길(runSource와 같은 조건): 텔레그램·피드 본문 200자 이상이면 글 쪽을 읽지 않는다.
     const feedBody = source.mode === "telegram" || (it.content !== null && chars(it.content) >= 200);
