@@ -7,7 +7,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // 펼친 갤럭시 Z 폴드는 CSS 폭이 약 673~884px(폰 앱 WebView·삼성 인터넷 기본 배율). 옛 판정(760px 이하 = 폰)은 이 폭을 폰으로 잡아
 // 나무만 화면 가득 → 폴더를 누르면 목록만 나왔다. 공용 판정(app/screen-width.mjs, 600px~)으로 고친 뒤:
 // 파일·노트가 폴드 폭(700·768·884)과 PC(1280)에서 '왼쪽 나무 | 오른쪽 목록', 폴더를 옮겨 다녀도 나무가 남고, 경계선 끌기는 서버(view_prefs.split_ratio)에 기억.
-// 폰 412는 그대로 한 칸. 노트 보기 전환 줄은 폴드(폰 틀) 오른쪽 아래, 폰 아래 가운데, PC 위(01:25 탭 자리 규칙). 이름은 모두 지어낸 것이다.
+// 폰 412는 그대로 한 칸. 노트 보기 전환 줄은 폴드(폰 틀)·폰 모두 아래 가운데(UI-폴드보기탭가운데 S68-44), PC 위. 이름은 모두 지어낸 것이다.
 const root = page => page.locator('#filesRoot');
 const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 const box = async l => l.boundingBox();
@@ -135,19 +135,22 @@ for (const width of [700, 884]) test(`노트 폴드 ${width}: 왼쪽 폴더 나�
   expect(errors).toEqual([]);
 });
 
-test('노트 보기 전환 줄 자리: 폴드(폰 틀) 오른쪽 아래 · 폰 아래 가운데 · PC 위', async ({ page }) => {
+// UI-폴드보기탭가운데(S68-44, 명진 11/23 11:43 '노트 폴드펼침 화면 폴더 목록 보드 태그 댓글 달력 가운데 정렬'): 펼친 폴드(폰 틀 673~760)도 아래 가운데.
+test('노트 보기 전환 줄 자리: 폴드(폰 틀)·폰 아래 가운데 · PC 위', async ({ page }) => {
   const sw = () => page.locator('[data-note-list] .nv-switch');
   await notes(page, 700);
-  let s = await box(sw()), vw = 700;
-  expect(await sw().evaluate(e => getComputedStyle(e).position)).toBe('fixed');
-  expect(vw - (s.x + s.width)).toBeLessThan(24);
-  expect(s.y).toBeGreaterThan(900 / 2);
-  await page.setViewportSize({ width: 412, height: 900 }); await settle(page);
-  s = await box(sw()); vw = 412;
-  expect(Math.abs(s.x + s.width / 2 - vw / 2)).toBeLessThan(4);
-  await page.setViewportSize({ width: 1280, height: 900 }); await settle(page);
-  expect(await sw().evaluate(e => getComputedStyle(e).position)).not.toBe('fixed');
-  expect((await box(sw())).y).toBeLessThan(400);
+  for (const vw of [673, 700, 707, 760, 412, 390]) {
+    await page.setViewportSize({ width: vw, height: 900 }); await settle(page);
+    const s = await box(sw()), tabs = await box(page.locator('.mobile-tabs'));
+    expect(await sw().evaluate(e => getComputedStyle(e).position)).toBe('fixed');
+    expect(Math.abs(s.x + s.width / 2 - vw / 2), `${vw} 가운데`).toBeLessThan(4);
+    expect(s.y + s.height).toBeLessThanOrEqual(tabs.y + 1);
+  }
+  for (const vw of [884, 1280]) {
+    await page.setViewportSize({ width: vw, height: 900 }); await settle(page);
+    expect(await sw().evaluate(e => getComputedStyle(e).position)).not.toBe('fixed');
+    expect((await box(sw())).y).toBeLessThan(400);
+  }
 });
 
 // UI-폴더누르기한규칙(S57-5, LIB-나무접기 후속): 폴더 이름 누르기 = 펼침, 다시 누르기 = 접힘(들어가지 않음 — 위치 줄·목록 그대로), ←/→ 같은 규칙. 들어가기 = ⋯ [이 폴더로 들어가기].
