@@ -9,6 +9,7 @@
 // - S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 줄도 평범한 읽을 거리 한 줄이다 —
 //   'News' 꼬리표·[News] 칩 없음, 줄 모양·⋯·밀기·고르기 단추가 직접 넣은 줄과 같다. 다른 점은 화면 밖 두 가지뿐:
 //   ① News 기능 키 'outside'가 있는 사람이 그런 줄을 누르면 News 지금 글 보기(원문·News에서 그은 밑줄)를 라우터 openFrom으로 연다(뒤로 한 번 = 읽을 거리).
+//      글을 먼저 읽어 두고(ready) 옮기는 순간 글 보기를 바로 그린다 — 읽을 거리 목록이 먼저 보이지 않는다(S68-54).
 //   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
 // - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
@@ -330,10 +331,14 @@ async function remove(id, anchor) {
 }
 
 // News에서 보낸 줄 열기: 라우터 openFrom(화면을 다 불러온 뒤 기록 1칸, News 상세가 같은 칸을 씀) → 뒤로가기 한 번 = 읽을 거리. 새 보기 없이 News 지금 글 보기 그대로.
+// S68-54: 글은 화면을 옮기기 전에(ready) 읽어 두고, 옮기는 순간 바로 글 보기를 그린다 — 읽을 거리 목록이 먼저 보였다 바뀌지 않는다.
 async function openNews(link) {
   const router = window.KPTURouter;
   if (!link || !router?.openFrom) return;
-  const ok = await router.openFrom('outside', () => window.KPTUOutside?.openItem?.({type: link.type, id: link.id}) ?? false).catch(() => false);
+  const item = {type: link.type, id: link.id};
+  const ok = await router.openFrom('outside', () => window.KPTUOutside?.openItem?.(item) ?? false,
+    {ready: () => window.KPTUOutside?.prepareItem?.(item) ?? false}).catch(() => false);
+  if (ok === false) window.KPTUOutside?.dropItem?.();
   if (ok === false && window.KPTURouter?.current === 'reading') notify('읽을 거리에서 열지 못했어요 · 잠시 뒤 다시', {error: true, record: false});
 }
 // News에서 보낸 줄 [삭제]: News 줄 ★·밀기와 같은 dropSaved — 서버 함수가 이 줄을 지우고 News 쪽 표시도 끈다. 5초 [되돌리기]는 원래 저장 시각으로.

@@ -494,12 +494,20 @@
     // After every popstate listener (a window opened inside the dispatch would be taken by a later listener for one Back closes).
     requestAnimationFrame(()=>{if(here()?.key!==key||api.current!==kept.view)return;try{kept.back()}catch(err){console.error('return reopen',err)}});
   }
-  async function openFrom(view,open=null,{sub=null,back=null}={}){
+  // S68-54: ready() (optional) runs once the screen's program is loaded and before the step, while the line's screen still shows —
+  // the screen reads what open() needs (a post) there, so the step and open() draw the detail at once in one task (no list first).
+  // false (or a failure) stops: no step is taken and openFrom answers false.
+  async function openFrom(view,open=null,{sub=null,back=null,ready=null}={}){
     view=viewName(view);
     if(!view||!authenticatedShellReady())return false;
     const lazy=window.KPTUViewLoader;let token=askGo();
     if(lazy?.isLoaded&&!lazy.isLoaded(view))await lazy.load(view);
     if(!stillLatest(token))return false;
+    if(typeof ready==='function'){
+      let fine=false;
+      try{fine=(await ready())!==false}catch(err){console.error('open ready',view,err)}
+      if(!fine||!stillLatest(token))return false;
+    }
     const hadWindow=!!windowHere(),from=api.current;
     if(hadWindow){
       // Closing the window is a traversal of its own (the screens may step on it): the line stays asked while the screen is the same.

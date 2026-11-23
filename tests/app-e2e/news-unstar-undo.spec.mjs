@@ -303,3 +303,56 @@ test('읽을 거리: News 기능이 없는 사람은 [News] 칩이 없고 News �
   expect(s.calls.filter(c => c.what === 'app_news_marks' || c.what === 'app_outside_article_marks' || c.what === 'rpc/app_reading_keep')).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+// S68-54(명진 11/23 14:57 "저장된 글에서 글을 클릭하면 한 번 읽을 거리 목록이 뜨고 그 글이 열림"): 저장한 글 줄을 누르면 글을 먼저 읽어 두고
+// 화면을 옮기는 순간 글 보기를 바로 그린다. 폰은 읽을 거리 목록이 한 번도 보이지 않고, PC(목록|글 두 칸)는 오른쪽에 다른 글·빈 칸이 먼저 보이지 않는다.
+// 뒤로 한 번 = 저장한 글. 폰은 읽을 거리를 처음 여는 경우(화면 프로그램을 그때 불러옴), PC는 읽을 거리를 먼저 봐서 맨 위 글이 저절로 열리던 경우.
+async function watchOutside(page) {
+  await page.evaluate(() => {
+    const w = window.__s68_54 = { listSeen: false, titles: [] };
+    const look = () => {
+      const v = document.getElementById('outsideView');
+      if (!v || v.classList.contains('hidden') || !v.checkVisibility()) return;
+      const r = document.getElementById('outsideRoot');
+      if (innerWidth <= 760 && [...(r?.querySelectorAll('.now-main') || [])].some(m => m.checkVisibility())) w.listSeen = true;
+      const t = r?.querySelector('[data-now-detail] .nd-title');
+      const text = t && t.checkVisibility() ? t.textContent.trim() : '';
+      if (w.titles.at(-1) !== text) w.titles.push(text);
+    };
+    new MutationObserver(look).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    const tick = () => { look(); requestAnimationFrame(tick); };
+    tick();
+  });
+}
+for (const width of [412, 1280]) {
+  test(`저장한 글 ${width}: 줄을 누르면 읽을 거리 목록을 거치지 않고 바로 글 보기, 뒤로 한 번 = 저장한 글`, async ({ page }) => {
+    test.setTimeout(90000);
+    await page.setViewportSize({ width, height: 900 });
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await openHome(page);
+    const s = await server(page);
+    if (width > 760) {
+      // PC: 읽을 거리를 먼저 보면 맨 위 글이 저절로 열린다 — 저장한 글에서 다른 글을 눌렀을 때 그 글이 먼저 보이면 안 된다.
+      await goNews(page, width);
+      await tab(page, '전체');
+      await expect(root(page).locator('[data-now-detail] .nd-title')).toBeVisible();
+    }
+    await goReading(page, width);
+    await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
+    await expect(row(page, T_N2)).toBeVisible();
+    await watchOutside(page);
+    await row(page, T_N2).click();
+    const det = root(page).locator('[data-now-detail]');
+    await expect(page.locator('#outsideView')).toBeVisible();
+    await expect(det.locator('.nd-title')).toContainText(T_N2);
+    const seen = await page.evaluate(() => window.__s68_54);
+    expect(seen.listSeen).toBe(false);
+    expect(seen.titles).toEqual([T_N2]);
+    expect(s.calls.some(c => c.what === 'app_news_articles' && c.query.includes(N2))).toBe(true);
+    await page.goBack();
+    await expect(page.locator('#readingView')).toBeVisible();
+    await expect(row(page, T_N2)).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
