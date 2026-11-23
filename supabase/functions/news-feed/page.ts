@@ -5,8 +5,7 @@
 // NEWS-전면개편 P2b: 본문은 공용 추출기(_shared/feed-extract.ts) 한 번으로 뽑아 블록(화면 '원문 전체' 저장용)과 body 글자(AI·번역 재료)에 함께 쓴다.
 import { bodyScopeHtml, cut, htmlToText, looksLikeBotCheck, oneLine, stripTags } from "../outside-feed/parse.ts";
 import { decodeEntitiesDeep, decodeText } from "../_shared/html-entities.ts";
-import { extractBlocks, failedBody, textBlocks, typedBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
-import { jsonBody } from "../_shared/page-json-body.ts";
+import { extractBlocks, failedBody, JSON_BODY_RATIO, textBlocks, withPageJson, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 
 export const BODY_MAX = 100000;      // DB 검사와 같음
 export const FULL_MIN_CHARS = 200;   // 이보다 짧으면 본문을 못 뽑은 것으로 보고 메타 설명(리드)만
@@ -113,16 +112,8 @@ export function readArticlePage(html: string, nowMs: number, rule?: PageRule): P
   return { state: "ok", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: ex.state === "image_only" ? ex : { ...leadBlocks("no_body"), scope: ex.scope ?? null, cut: ex.cut ?? null }, paywall: null };
 }
 
-export const JSON_BODY_RATIO = 1.5;
-function withJsonBody(tagEx: Extracted, html: string, r: PageRule): Extracted {
-  const jb = jsonBody(html);
-  if (!jb) return tagEx;
-  // S69-02: 종류가 붙은 차례(Arc — 문단·소제목·사진)가 있으면 그대로 블록으로, 없으면(JSON-LD) 글자 문단만.
-  const js = jb.items?.length ? typedBlocks(jb.items, { key: r.key, rule: r.rule, minChars: FULL_MIN_CHARS }) : textBlocks(jb.text, { key: r.key, rule: r.rule, minChars: FULL_MIN_CHARS });
-  if (js.state !== "ok") return tagEx;
-  if (tagEx.state === "ok" && js.chars < tagEx.chars * JSON_BODY_RATIO) return tagEx;
-  return { ...js, scope: `json_${jb.via}`, cut: null };
-}
+export { JSON_BODY_RATIO };
+const withJsonBody = (tagEx: Extracted, html: string, r: PageRule) => withPageJson(tagEx, html, { key: r.key, rule: r.rule, minChars: FULL_MIN_CHARS });
 
 // 겹침 판정용 제목: 끝 꼬리 ' - 매체'(옛 키워드 기사·채널 기사 제목), 머리말([단독] 등), 공백·문장부호 떼기.
 export function titleKey(title: string): string | null {
