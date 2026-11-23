@@ -1,0 +1,208 @@
+// S69-06 실제 사이트 원문 점검(읽기만, 저장 없음). GitHub Actions `article-extract-live-check.yml`이 Deno로 돌린다(로컬 node 22+도 됨).
+// 하는 일: 뉴스 카탈로그(news-*) 전부 + 사회운동 Now 카탈로그(outside) 전부에서 목록(피드·목록 쪽)을 읽고 최신 글 몇 개를
+//   운영 Edge 함수와 **같은 코드**로 읽어 본문을 뽑은 뒤, 매체별 결과를 숫자·까닭 코드로만 표에 쓴다.
+//   - 뉴스 글: news-feed 원문 읽기(makeFeedReader, robots 건너뜀 = 운영 '기사 원문 한 쪽' 규칙) → page.ts readArticlePage(mediaRule)
+//   - 사회운동 글: outside-feed makeReader → postBody(수집 때 길: 피드 본문 200자 이상이면 피드 본문) + 다시 읽기 길(글 쪽, robots 건너뜀)
+// 지키는 것:
+//   - 글 내용(제목·본문 글자·주소)을 표·로그에 쓰지 않는다. 숫자·코드·쪽 구조(태그·class 이름)만.
+//   - 운영과 같은 User-Agent·같은 사이트 요청 간격(GAP_MS)·크기·시간 상한. 쿠키·로그인·비밀값 없음. 유료벽·봇 확인은 넘지 않는다.
+//   - 매체당 글 PER_SOURCE개(기본 3)까지. 매체끼리는 동시에 몇 개씩(사이트마다 간격은 따로 지킴).
+// 결과 칸: ok(전문) · lead(앞부분) · img(사진뿐) · fail:<까닭>. '의심'은 전문으로 뽑혔지만 페이지 안 구조화 본문·쪽 글자보다 훨씬 짧은 경우.
+import { NEWS_CATALOG } from "../../supabase/functions/_shared/news-catalog.ts";
+import { OUTSIDE_CATALOG, allowedUrl } from "../../supabase/functions/_shared/outside-catalog.ts";
+import { makeFeedReader, ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl } from "../../supabase/functions/_shared/feed-fetch.ts";
+import { jsonBody } from "../../supabase/functions/_shared/page-json-body.ts";
+import * as N from "../../supabase/functions/news-feed/handler.ts";
+import * as O from "../../supabase/functions/outside-feed/handler.ts";
+import { readArticlePage } from "../../supabase/functions/news-feed/page.ts";
+import { parseFeed, parseListHtml, parseTelegram, htmlToText, looksLikeBotCheck } from "../../supabase/functions/outside-feed/parse.ts";
+
+const env = (k, d) => (globalThis.Deno ? Deno.env.get(k) : process.env[k]) ?? d;
+const PER_SOURCE = Math.max(1, Math.min(5, Number(env("PER_SOURCE", "3")) || 3));
+const PARALLEL = Math.max(1, Math.min(8, Number(env("PARALLEL", "6")) || 6));
+const ONLY = (env("ONLY", "") || "").split(",").map((s) => s.trim()).filter(Boolean);
+const DIAG = env("DIAG", "1") === "1";
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const quiet = () => {};
+const chars = (s) => [...(s ?? "")].length;
+
+// ---- 쪽 구조 진단(글자 없이 숫자·태그 이름만) ----------------------------------------------------------------------
+// 글자가 가장 많이 몰린 칸(그 칸 바로 아래 <p>·글 줄 글자 수 기준) 상위 3개: tag#id.class 와 글자 수. 본문 칸 선택자를 찾는 데 쓴다.
+function topBlocks(html) {
+  const out = [];
+  const open = /<(div|section|article|main|td)\b([^>]*)>/gi;
+  let m, n = 0;
+  while ((m = open.exec(html)) && n++ < 4000) {
+    const cls = /\bclass\s*=\s*["']([^"']*)["']/i.exec(m[2])?.[1]?.trim().split(/\s+/).slice(0, 3).join(".") ?? "";
+    const id = /\bid\s*=\s*["']([^"']*)["']/i.exec(m[2])?.[1] ?? "";
+    if (!cls && !id) continue;
+    const tag = m[1].toLowerCase();
+    const step = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi");
+    step.lastIndex = m.index + m[0].length;
+    let depth = 1, end = -1, t;
+    while ((t = step.exec(html))) { if (t[1]) { if (--depth === 0) { end = t.index; break; } } else if (!t[0].endsWith("/>")) depth++; }
+    if (end < 0) continue;
+    const inner = html.slice(m.index + m[0].length, end).replace(/<(script|style|noscript)\b[\s\S]*?<\/\1\s*>/gi, " ");
+    const pText = [...inner.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p\s*>/gi)].reduce((a, x) => a + chars(htmlToText(x[1]).replace(/\s+/g, "")), 0);
+    const all = chars(htmlToText(inner).replace(/\s+/g, ""));
+    if (all < 300) continue;
+    out.push({ sel: `${tag}${id ? "#" + id : ""}${cls ? "." + cls : ""}`.slice(0, 80), all, p: pText });
+  }
+  // 가장 안쪽(작은) 칸 중 글자가 많은 것: all 큰 순으로 고르되, 자기 안에 거의 같은 글자의 칸이 또 있으면 안쪽을 남긴다.
+  out.sort((a, b) => b.all - a.all);
+  const pick = [];
+  for (const o of out) { if (pick.length >= 4) break; if (!pick.some((p) => p.sel === o.sel)) pick.push(o); }
+  return pick.map((o) => `${o.sel}:${o.all}/${o.p}`).join(" ");
+}
+function pageHints(html) {
+  const jb = jsonBody(html);
+  const ldRaw = /"articleBody"\s*:/.test(html);
+  return {
+    bytes: html.length,
+    textAll: chars(htmlToText(html.replace(/<(script|style|noscript)\b[\s\S]*?<\/\1\s*>/gi, " ")).replace(/\s+/g, "")),
+    json: jb ? `${jb.via}:${chars(jb.text)}` : (ldRaw ? "ld_raw" : "-"),
+    amp: /<link\b[^>]*rel\s*=\s*["']amphtml["']/i.test(html) ? 1 : 0,
+    nextData: /__NEXT_DATA__|__NUXT__|Fusion\.globalContent|window\.__INITIAL_STATE__/.test(html) ? 1 : 0,
+    pTags: (html.match(/<p\b/gi) ?? []).length,
+    bot: looksLikeBotCheck(htmlToText(html)) ? 1 : 0,
+  };
+}
+
+function cell(ex) {
+  if (!ex) return "-";
+  if (ex.state === "ok") return "ok";
+  if (ex.state === "lead") return `lead:${ex.reason ?? "-"}`;
+  if (ex.state === "image_only") return "img";
+  return `fail:${ex.reason ?? "-"}`;
+}
+const paras = (ex) => (ex?.blocks ?? []).filter((b) => b.t === "p" || b.t === "quote").length;
+
+// ---- 뉴스 매체 -----------------------------------------------------------------------------------------------------
+async function checkNews(source, nowMs) {
+  const base = { doFetch: fetch, sleep, log: quiet, userAgent: N.USER_AGENT, robotsAgent: N.ROBOTS_AGENT, gapMs: N.GAP_MS, now: Date.now };
+  const catalog = makeFeedReader({ ...base, allow: (raw) => allowedUrl(source, raw) });
+  const page = makeFeedReader({ ...base, allow: (raw) => allowedUrl(source, raw), skipRobots: N.ARTICLE_SKIP_ROBOTS });
+  const row = { group: "news", key: source.key, name: source.name, extract: source.extract === false ? "X" : `v${source.extract?.version ?? 1}`, list: "ok", posts: [] };
+  const urls = [];
+  for (const list of source.lists) {
+    if (urls.length >= PER_SOURCE) break;
+    const got = await catalog.get(list, ACCEPT_FEED);
+    if (!got.ok) { row.list = got.code; continue; }
+    const xml = N.httpsLinkXml(source, got.text);
+    for (const it of parseFeed(N.parseSource(source, xml), xml, nowMs, 20)) {
+      const clean = cleanArticleUrl(it.url);
+      if (clean && allowedUrl(source, clean) && !urls.includes(clean)) urls.push(clean);
+      if (urls.length >= PER_SOURCE) break;
+    }
+    row.list = "ok";
+  }
+  if (!urls.length && row.list === "ok") row.list = "no_items";
+  for (const url of urls) {
+    const got = await page.get(url, ACCEPT_HTML);
+    if (!got.ok) { row.posts.push({ res: `fail:${got.code}` }); continue; }
+    const info = readArticlePage(got.text, nowMs, N.mediaRule(source, got.url));
+    const ex = info.blocks;
+    const res = info.state === "bot_check" ? "fail:bot_check" : info.state === "paywall" ? `lead:paywall(${info.paywall})` : info.body_kind === "full" ? "ok" : cell(ex);
+    row.posts.push({ res, paras: paras(ex), chars: ex.chars, images: ex.images, scope: ex.scope ?? "-", cut: ex.cut ?? "-", ...(DIAG ? { hints: pageHints(got.text), top: topBlocks(got.text) } : {}) });
+  }
+  return row;
+}
+
+// ---- 사회운동 Now ---------------------------------------------------------------------------------------------------
+async function checkOutside(source, nowMs) {
+  const reader = O.makeReader(fetch, sleep, quiet);
+  const row = { group: "outside", key: source.key, name: source.name, extract: source.extract === false ? "X" : `v${source.extract?.version ?? 1}`, list: "ok", posts: [] };
+  let items = [];
+  for (const list of source.lists) {
+    if (items.length >= PER_SOURCE) break;
+    const got = await reader.get(source, list, source.mode === "rss");
+    if (!got.ok) { row.list = got.code; continue; }
+    const found = source.mode === "rss" ? parseFeed(source, got.text, nowMs, 20)
+      : source.mode === "telegram" ? parseTelegram(source, got.text, nowMs, 20)
+      : parseListHtml(source, got.text, got.url, 20, undefined, nowMs);
+    for (const it of found) if (!items.some((x) => x.url === it.url)) items.push(it);
+    row.list = "ok";
+  }
+  items = items.slice(0, PER_SOURCE);
+  if (!items.length && row.list === "ok") row.list = "no_items";
+  for (const it of items) {
+    // 수집 때 길(runSource와 같은 조건): 텔레그램·피드 본문 200자 이상이면 글 쪽을 읽지 않는다.
+    const feedBody = source.mode === "telegram" || (it.content !== null && chars(it.content) >= 200);
+    if (source.mode === "telegram") {
+      const ex = O.postBody(source, it, null);
+      row.posts.push({ res: cell(ex), paras: paras(ex), chars: ex.chars, images: ex.images, from: "telegram" });
+      continue;
+    }
+    const feedEx = feedBody ? O.postBody(source, it, null) : null;
+    // 글 쪽(다시 읽기 길: robots 건너뜀 — rereadPage와 같음).
+    const got = await reader.get(source, it.url, false, { skipRobots: true });
+    const pageIt = { ...it, content: null, contentHtml: null };
+    const ex = O.postBody(source, pageIt, got);
+    row.posts.push({ res: cell(ex), paras: paras(ex), chars: ex.chars, images: ex.images, scope: ex.scope ?? "-", cut: ex.cut ?? "-",
+      feed: feedEx ? `${cell(feedEx)}:${feedEx.chars}` : "-",
+      ...(DIAG && got.ok ? { hints: pageHints(got.text), top: topBlocks(got.text) } : {}), ...(got.ok ? {} : { code: got.code }) });
+  }
+  return row;
+}
+
+// ---- 실행·표 -------------------------------------------------------------------------------------------------------
+const nowMs = Date.now();
+const jobs = [
+  ...NEWS_CATALOG.map((s) => () => checkNews(s, nowMs)),
+  ...OUTSIDE_CATALOG.map((s) => () => checkOutside(s, nowMs)),
+].filter((_, i) => !ONLY.length || ONLY.includes([...NEWS_CATALOG, ...OUTSIDE_CATALOG][i].key));
+const rows = [];
+let next = 0;
+async function worker() {
+  while (next < jobs.length) {
+    const j = jobs[next++];
+    const t0 = Date.now();
+    try { rows.push(await Promise.race([j(), sleep(180000).then(() => { throw new Error("source_timeout"); })])); }
+    catch (e) { rows.push({ group: "?", key: "?", name: "?", list: `error:${String(e?.message ?? e).slice(0, 40)}`, posts: [] }); }
+    void t0;
+  }
+}
+await Promise.all(Array.from({ length: PARALLEL }, worker));
+const order = [...NEWS_CATALOG, ...OUTSIDE_CATALOG].map((s) => s.key);
+rows.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+
+// 매체 판정: 글 하나라도 ok면서 나머지도 ok → 전문 / ok가 하나라도 → 일부 / lead·img만 → 앞부분 / 그 밖 → 실패.
+function verdict(r) {
+  const res = r.posts.map((p) => p.res);
+  if (!res.length) return "실패";
+  if (res.every((x) => x === "ok")) return "전문";
+  if (res.some((x) => x === "ok")) return "일부";
+  if (res.some((x) => x.startsWith("lead") || x === "img")) return "앞부분";
+  return "실패";
+}
+const count = { 전문: 0, 일부: 0, 앞부분: 0, 실패: 0 };
+const lines = [];
+lines.push(`## 원문 점검 (${new Date(nowMs).toISOString()}, 매체당 글 ${PER_SOURCE}개)`);
+lines.push("");
+lines.push("| 묶음 | 매체 키 | 이름 | 수집판 | 목록 | 판정 | 글마다(결과 / 문단 / 글자 / 사진 / 본문칸 / 끝) |");
+lines.push("| --- | --- | --- | --- | --- | --- | --- |");
+for (const r of rows) {
+  const v = verdict(r);
+  count[v]++;
+  const posts = r.posts.map((p) => `${p.res} / ${p.paras ?? "-"} / ${p.chars ?? "-"} / ${p.images ?? "-"} / ${p.scope ?? p.from ?? "-"} / ${p.cut ?? "-"}${p.feed && p.feed !== "-" ? ` (피드 ${p.feed})` : ""}`).join("<br>");
+  lines.push(`| ${r.group} | ${r.key} | ${r.name} | ${r.extract ?? "-"} | ${r.list} | ${v} | ${posts || "-"} |`);
+}
+lines.push("");
+lines.push(`**합계** 매체 ${rows.length}: 전문 ${count.전문} · 일부 ${count.일부} · 앞부분 ${count.앞부분} · 실패 ${count.실패}`);
+const table = lines.join("\n");
+console.log(table);
+if (DIAG) {
+  console.log("\n## 진단(쪽 구조 숫자 — 글 내용 없음)");
+  console.log("키 | 글 | 결과 | 쪽바이트 | 쪽글자 | 구조화본문 | amp | 스크립트자료 | p태그 | 봇 | 글자 많은 칸(선택자:전체/문단)");
+  for (const r of rows) r.posts.forEach((p, i) => {
+    if (!p.hints) return;
+    const h = p.hints;
+    console.log(`${r.key} | ${i + 1} | ${p.res} | ${h.bytes} | ${h.textAll} | ${h.json} | ${h.amp} | ${h.nextData} | ${h.pTags} | ${h.bot} | ${p.top}`);
+  });
+}
+const summary = env("GITHUB_STEP_SUMMARY", "");
+if (summary) {
+  const text = table + "\n";
+  if (globalThis.Deno) await Deno.writeTextFile(summary, text, { append: true });
+  else (await import("node:fs")).appendFileSync(summary, text);
+}
