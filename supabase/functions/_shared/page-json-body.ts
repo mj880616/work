@@ -12,7 +12,9 @@
 import { decodeText } from "./html-entities.ts";
 
 export const JSON_BODY_LIMITS = Object.freeze({ ldScripts: 12, ldChars: 1_000_000, arcChars: 3_000_000, elements: 2000, depth: 6 });
-export type JsonBody = { text: string; via: "ld" | "arc" };
+// items: 종류가 붙은 차례(문단·소제목·사진) — Arc처럼 페이지 데이터가 종류를 줄 때만(S69-02). JSON-LD는 글자뿐이라 없음.
+export type JsonItem = { t: "p" | "h" | "quote"; text: string } | { t: "img"; src: string; cap?: string | null; alt?: string | null };
+export type JsonBody = { text: string; via: "ld" | "arc"; items?: JsonItem[] };
 
 const ARTICLE_TYPE = /^(?:Article|NewsArticle|ReportageNewsArticle|AnalysisNewsArticle|OpinionNewsArticle|BackgroundNewsArticle|ReviewNewsArticle|BlogPosting|Report|TechArticle|ScholarlyArticle|SocialMediaPosting|LiveBlogPosting)$/;
 const PAID_CODE = /premium|subscri|paid|member|metered|locked|plus/i;
@@ -83,7 +85,31 @@ export function objectAfter(html: string, marker: RegExp, max = JSON_BODY_LIMITS
 }
 
 // 2) Arc XP Fusion globalContent의 공개 본문 칸.
-export function arcBody(html: string): string | null {
+// S69-02(명진 11/24 06:40 조선일보 '원문 다시 불러오기를 눌러도'): 문단(text)만이 아니라 소제목(header)·사진(image, https 주소·캡션)·목록(list)·인용(quote)도
+//   차례 그대로 읽는다(화면 '원문 전체'가 사진·소제목까지 보이게). 글자는 예전과 같이 text·header·list·quote 글자를 줄로 이은 것.
+const textOf = (v: unknown) => (typeof v === "string" ? paraLines(v) : []);
+function arcItemsOf(els: unknown[], out: JsonItem[], depth = 0) {
+  for (const e of els.slice(0, JSON_BODY_LIMITS.elements)) {
+    if (out.length >= JSON_BODY_LIMITS.elements || !e || typeof e !== "object") continue;
+    const el = e as Record<string, unknown>;
+    if (el.type === "text" || el.type === "paragraph") for (const l of textOf(el.content)) out.push({ t: "p", text: l });
+    else if (el.type === "header") for (const l of textOf(el.content)) out.push({ t: "h", text: l });
+    else if (el.type === "list" && Array.isArray(el.items)) { if (depth < 3) arcItemsOf(el.items as unknown[], out, depth + 1); }
+    else if ((el.type === "quote" || el.type === "blockquote") && depth < 3) {
+      const inner: JsonItem[] = [];
+      if (Array.isArray(el.content_elements)) arcItemsOf(el.content_elements as unknown[], inner, depth + 1);
+      for (const l of textOf(el.content)) inner.push({ t: "p", text: l });
+      for (const it of inner) out.push(it.t === "img" ? it : { t: "quote", text: it.text });
+    } else if (el.type === "image") {
+      const src = typeof el.url === "string" ? el.url : "";
+      if (/^https:\/\//i.test(src)) {
+        const cap = textOf(el.caption).join(" ") || null, alt = typeof el.alt_text === "string" ? el.alt_text : null;
+        out.push({ t: "img", src, cap, alt });
+      }
+    }
+  }
+}
+export function arcItems(html: string): JsonItem[] | null {
   if (typeof html !== "string" || !html.includes("globalContent")) return null;
   const raw = objectAfter(html, /Fusion\.globalContent\s*=\s*/);
   if (!raw) return null;
@@ -91,13 +117,13 @@ export function arcBody(html: string): string | null {
   try { const v = JSON.parse(raw); if (!v || typeof v !== "object" || Array.isArray(v)) return null; g = v as Record<string, unknown>; } catch { return null; }
   const rest = g.content_restrictions as Record<string, unknown> | undefined;
   if (rest && typeof rest === "object" && typeof rest.content_code === "string" && PAID_CODE.test(rest.content_code)) return null;
-  const els = Array.isArray(g.content_elements) ? g.content_elements.slice(0, JSON_BODY_LIMITS.elements) : [];
-  const lines: string[] = [];
-  for (const e of els) {
-    if (!e || typeof e !== "object") continue;
-    const el = e as Record<string, unknown>;
-    if ((el.type === "text" || el.type === "header") && typeof el.content === "string") lines.push(...paraLines(el.content));
-  }
+  const out: JsonItem[] = [];
+  if (Array.isArray(g.content_elements)) arcItemsOf(g.content_elements, out);
+  return out.some((i) => i.t !== "img") ? out : null;
+}
+export function arcBody(html: string): string | null {
+  const items = arcItems(html);
+  const lines = (items ?? []).flatMap((i) => (i.t === "img" ? [] : [i.text]));
   return lines.length ? lines.join("\n") : null;
 }
 
@@ -105,6 +131,6 @@ export function arcBody(html: string): string | null {
 export function jsonBody(html: string): JsonBody | null {
   const ld = ldArticleBody(html), arc = arcBody(html);
   if (ld && (!arc || ld.length >= arc.length)) return { text: ld, via: "ld" };
-  if (arc) return { text: arc, via: "arc" };
+  if (arc) return { text: arc, via: "arc", items: arcItems(html) ?? undefined };
   return null;
 }

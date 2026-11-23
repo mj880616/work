@@ -1114,7 +1114,10 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         // [원문 다시 가져오기](S68-43): 글 하나(공용 글 id만 받음 — 주소·작업공간 값 없음). 공용 글은 그 사람 로그인(RLS)으로 읽고,
         // 그 글의 공용 본문이 '실패'이거나 없을 때만 글 쪽을 한 번 읽는다(robots.txt 없이 — 위 retryRobotsBodies와 같은 선택, 허용 호스트·크기 상한 그대로).
         // 하루 횟수는 누른 사람 작업공간 fetch_n(REREAD_DAILY). 예외 단체(공공운수노조·노동당)는 예약 때만 읽는다는 결정 그대로.
-        if (!exactKeys(b, ["id"]) || typeof b.id !== "string" || !UUID.test(b.id)) throw new Fail(400, "INVALID_BODY");
+        // S69-02: again(true만) — 글 보기 ⋯ [원문 다시 가져오기]. 이미 읽힌 본문(ok·lead·image_only)도 한 번 더 읽어, 새 결과가 전문(ok)이고
+        // 지금 본문보다 길 때만 바꾼다(아니면 'same', 아무것도 고치지 않음). 간격(REREAD_COOLDOWN_MS)·하루 횟수는 실패 줄 다시 읽기와 같다.
+        const again = exactKeys(b, ["id", "again"]) && b.again === true;
+        if ((!exactKeys(b, ["id"]) && !again) || typeof b.id !== "string" || !UUID.test(b.id)) throw new Fail(400, "INVALID_BODY");
         const ws = who.workspaceId;
         const reads = makeUserReads(sb, deps.env("SUPABASE_ANON_KEY") ?? "", jwt, doFetch);
         let art: Record<string, unknown> | null;
@@ -1124,13 +1127,24 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!source || source.extract === false || source.mode === "telegram" || !allowedUrl(source, art.url)) return json({ ok: true, status: "original_only" });
         if (robotsExempt(source)) return json({ ok: true, status: "scheduled_only" });
         const artId = String(art.id);
-        const have = (await db.get(`app_outside_article_bodies?article_id=eq.${artId}&select=state,reason,rule,updated_at&limit=1`))[0];
-        if (have && have.state !== "failed") return json({ ok: true, status: "stored" });
-        if (isHandRow(have)) return json({ ok: true, status: "stored" }); // 손으로 비운 본문은 사람 것 — 다시 읽지 않는다
-        if (rereadTooSoon(have, nowMs)) return json({ ok: true, status: "recent", reason: typeof have.reason === "string" ? have.reason : "" });
+        const have = (await db.get(`app_outside_article_bodies?article_id=eq.${artId}&select=state,reason,rule,updated_at,chars&limit=1`))[0];
+        if (isHandRow(have)) return json({ ok: true, status: "stored" }); // 손으로 넣은·비운 본문은 사람 것 — 다시 읽지 않는다
+        const readBefore = !!have && have.state !== "failed";
+        if (readBefore && !again) return json({ ok: true, status: "stored" });
+        if (rereadTooSoon(have, nowMs) || (readBefore && rereadTooSoon({ ...have, state: "failed" }, nowMs))) {
+          return json({ ok: true, status: "recent", reason: typeof have?.reason === "string" ? have.reason : "" });
+        }
         if (!await takeDaily(db, ws, "fetch_n", REREAD_DAILY, nowMs)) throw new Fail(429, "DAILY_LIMIT");
         const nowIso = new Date(nowMs).toISOString();
         const ex = await rereadPage(makeReader(doFetch, sleep, log), source, art.url, typeof art.title === "string" ? art.title : "");
+        if (readBefore) {
+          const longer = ex.state === "ok" && ex.chars > (have?.state === "ok" ? Number(have.chars) || 0 : 0);
+          if (!longer) { log("reread_done", { source: source.key, state: ex.state, reason: "same" }); return json({ ok: true, status: "same" }); }
+          await saveSharedBody(db, log, source, artId, ex, nowIso, true);
+          // 이미 읽힌 글을 바꿀 때는 공용 본문의 updated_at도 지금으로 — 다음 간격 판단에 쓴다(saveSharedBody가 함께 적음).
+          log("reread_done", { source: source.key, state: ex.state, reason: "longer" });
+          return json({ ok: true, status: "ok" });
+        }
         await replaceFailedSharedBody(db, log, source, artId, ex, nowIso);
         // 옮기는 동안: 누른 사람 작업공간의 같은 주소 옛 줄(있으면)에도 같은 결과. 다른 작업공간 줄은 읽지 않는다(예약 다시 읽기가 맡음).
         const olds = (await db.get(`app_outside_posts?workspace_id=eq.${ws}&url=eq.${encodeURIComponent(art.url)}&select=id&limit=2`))

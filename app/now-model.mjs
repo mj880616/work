@@ -154,15 +154,18 @@ function bodyViewOf(row) {
 // S68-25(명진 결정 2026-11-22): 원문 읽기는 이제 robots.txt를 보지 않으므로, 예전에 robots 때문에 비어 있던 뉴스 기사도 열 때 한 번 읽어 온다.
 const REOPEN_REASONS = new Set(['timeout', 'http_5xx', 'robots']);
 export const reopenBody = row => row?.state === 'failed' && REOPEN_REASONS.has(row?.reason);
-// [원문 다시 가져오기] 단추를 달 실패(S68-49, 명진 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 위 자동 다시 읽기 까닭 + 봇 확인(bot_check).
-// 봇 확인은 열 때마다 저절로 다시 읽지 않고(사이트 부담·같은 결과) 사람이 누를 때만 한 번(서버 길: 뉴스 news-feed open · 사회운동 outside-feed reread).
-// 뉴스·사회운동 두 갈래 같다. 손으로 넣은 본문(manual@1 — 비운 손 본문도 실패 줄)은 사람 것이라 다시 읽지 않는다.
-const REFETCH_REASONS = new Set([...REOPEN_REASONS, 'bot_check']);
-// S68-52(명진 11/23 14:48 조선일보 글): 유료벽이 아닌데 본문 칸을 못 뽑아 메타 설명(리드)만 남은 글(state lead · reason no_body)도 단추 —
-// 본문 추출기가 페이지 안 공개 구조화 본문(JSON-LD·Arc)을 읽게 되어 다시 읽으면 전문이 올 수 있다. 유료벽 리드(reason paywall)는 그대로 없음(넘지 않음).
-// 뉴스 갈래만(type 'news'): 서버 news-feed open은 전문이 아닌 글을 다시 읽지만, 사회운동 outside-feed reread는 실패 본문만 다시 읽는다(앞부분이면 'stored').
-const leadOnly = row => row?.state === 'lead' && row?.reason === 'no_body';
-export const canRefetch = (row, type = '') => (row?.state === 'failed' && REFETCH_REASONS.has(row?.reason) || type === 'news' && leadOnly(row)) && row?.rule !== HAND_RULE;
+// [원문 다시 가져오기](S68-49 봇 확인 → S68-52 리드 → S69-02 늘): 서버 길은 뉴스 news-feed open · 사회운동 outside-feed reread. 봇 확인 등은 열 때 저절로 다시 읽지 않고 사람이 누를 때만.
+// S69-02(명진 11/24 06:40·06:43 "글 안에서도 원문 다시 불러오기 버튼 만들기로 했었는데 어디있지"): 단추는 글 보기 안에 늘 있다.
+// - 원문을 다 못 읽은 글(앞부분만 lead — 유료벽 포함 · 실패 failed — 까닭 상관없이)은 까닭 줄 끝에 [원문 다시 가져오기](canRefetch).
+// - 다 읽은 글(ok·image_only)은 원문 칸 ⋯ 메뉴에 [원문 다시 가져오기](canRefetchMenu — 위 경우도 메뉴에 함께).
+// 뉴스·사회운동 두 갈래, 읽을 거리·저장한 글 어디서 열든 같은 글 보기라 같다. 손으로 넣은 본문(manual@1)은 사람 것이라 둘 다 없다.
+// 다시 읽어도 유료벽은 넘지 않는다(서버 그대로). 하루 한도·간격은 서버가 정하고 거절하면 그 까닭 한 줄.
+// 저장 원문 줄이 아예 없는 글(row null — 옛 글 글자로 그림)은 화면이 legacy 모양으로 같은 판단을 한다(now-detail viewOf).
+export const canRefetch = (row, _type = '') => !!row && (row.state === 'lead' || row.state === 'failed') && row.rule !== HAND_RULE;
+export const canRefetchMenu = row => !row || row.rule !== HAND_RULE;
+// 열 때 한 번 읽을 뉴스 기사(S69-02): 저장 원문 줄이 없고, 피드 소개(리드)만 있어 전문(full)이 아니며, 사람이 넣은 기사·유료벽으로 이미 읽은 기사가 아님.
+// 수집 때 본문을 읽지 않는 매체(카탈로그 extract:false — 조선일보 등)의 기사가 그렇다. 서버가 읽은 뒤에는 원문 줄이 생겨 다시 고르지 않는다.
+export const unreadLead = row => !!row && row.body_kind !== 'full' && !row.manual_at && row.state !== 'paywall';
 // 요약 서버(ai-assist now_detail)의 '재료 없음'(422 no_material)인가 — 판단은 이 함수 하나(S68-49).
 // 서버 답 {error:'no_material', message:'AI 요청을 처리하지 못했어요.'}: 화면 요청 도구는 message를 오류 글로 쓰고 error 칸은 serverCode에 둔다.
 // 예전 판단(message에 'no_material'이 드는가)은 운영 답에서 늘 거짓이라 요약 칸에 빨간 'HTTP 422'가 보였다(11/23 캡처).

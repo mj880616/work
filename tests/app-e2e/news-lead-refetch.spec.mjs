@@ -60,7 +60,7 @@ for (const width of [412, 1280]) {
   });
 }
 
-test('리드만 남은 뉴스 기사: 다시 읽어도 앞부분이면 단추를 거두고 한 줄, 요약은 다시 만들지 않음', async ({ page }) => {
+test('리드만 남은 뉴스 기사: 다시 읽어도 앞부분이면 한 줄(단추는 그대로 — S69-02), 요약은 다시 만들지 않음', async ({ page }) => {
   test.setTimeout(60000);
   const { errors, opens, ai } = await setup(page, 1280, { after: 'lead' });
   const why = detail(page).locator('[data-nd-body] [data-nd-why]');
@@ -69,19 +69,22 @@ test('리드만 남은 뉴스 기사: 다시 읽어도 앞부분이면 단추를
   await why.getByRole('button', { name: '원문 다시 가져오기' }).click();
   await expect.poll(() => opens.length).toBe(1);
   await expect(why.locator('[data-nd-refetch-note]')).toHaveText('다시 읽어도 사이트가 본문을 주지 않아요');
-  await expect(why.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
+  await expect(why.getByRole('button', { name: '원문 다시 가져오기' })).toBeVisible();
   await expect(detail(page).locator('[data-nd-prose] p')).toHaveText(['가짜 공개 리드 한 줄.']);
   await page.waitForTimeout(300);
   expect(ai.length).toBe(aiBefore);
   expect(errors).toEqual([]);
 });
 
-test('유료벽 리드(lead·paywall) 뉴스 기사에는 단추가 없다', async ({ page }) => {
+// S69-02(명진 11/24 "글 안에서도 원문 다시 불러오기 버튼"): 유료벽 리드에도 단추는 있다(누르면 서버가 다시 읽되 유료벽은 넘지 않음). 열기만으로는 읽지 않는다.
+test('유료벽 리드(lead·paywall) 뉴스 기사에도 까닭 줄 단추가 있다(열 때 저절로 읽지는 않음)', async ({ page }) => {
   test.setTimeout(60000);
-  const { opens } = await setup(page, 1280, { reason: 'paywall' });
+  const { opens } = await setup(page, 1280, { reason: 'paywall', after: 'lead' });
   const nd = detail(page);
   await expect(nd.locator('[data-nd-prose] p')).toHaveText(['가짜 공개 리드 한 줄.']);
-  await expect(nd.locator('[data-nd-body] [data-nd-why]')).toBeVisible();
-  await expect(nd.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
+  const btn = nd.locator('[data-nd-body] [data-nd-why]').getByRole('button', { name: '원문 다시 가져오기' });
+  await expect(btn).toBeVisible();
   expect(opens).toEqual([]);
+  await btn.click();
+  await expect.poll(() => opens).toEqual([{ id: 'l1' }]);
 });

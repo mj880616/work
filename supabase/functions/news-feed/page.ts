@@ -5,7 +5,7 @@
 // NEWS-전면개편 P2b: 본문은 공용 추출기(_shared/feed-extract.ts) 한 번으로 뽑아 블록(화면 '원문 전체' 저장용)과 body 글자(AI·번역 재료)에 함께 쓴다.
 import { bodyScopeHtml, cut, htmlToText, looksLikeBotCheck, oneLine, stripTags } from "../outside-feed/parse.ts";
 import { decodeEntitiesDeep, decodeText } from "../_shared/html-entities.ts";
-import { extractBlocks, failedBody, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
+import { extractBlocks, failedBody, textBlocks, typedBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 import { jsonBody } from "../_shared/page-json-body.ts";
 
 export const BODY_MAX = 100000;      // DB 검사와 같음
@@ -117,7 +117,8 @@ export const JSON_BODY_RATIO = 1.5;
 function withJsonBody(tagEx: Extracted, html: string, r: PageRule): Extracted {
   const jb = jsonBody(html);
   if (!jb) return tagEx;
-  const js = textBlocks(jb.text, { key: r.key, rule: r.rule, minChars: FULL_MIN_CHARS });
+  // S69-02: 종류가 붙은 차례(Arc — 문단·소제목·사진)가 있으면 그대로 블록으로, 없으면(JSON-LD) 글자 문단만.
+  const js = jb.items?.length ? typedBlocks(jb.items, { key: r.key, rule: r.rule, minChars: FULL_MIN_CHARS }) : textBlocks(jb.text, { key: r.key, rule: r.rule, minChars: FULL_MIN_CHARS });
   if (js.state !== "ok") return tagEx;
   if (tagEx.state === "ok" && js.chars < tagEx.chars * JSON_BODY_RATIO) return tagEx;
   return { ...js, scope: `json_${jb.via}`, cut: null };

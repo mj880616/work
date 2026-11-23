@@ -478,3 +478,79 @@ test('S68-40: 손으로 넣은 기사 본문(사진 블록 포함)은 다시 뽑
   await v.cronAt('refill', {source: 'news-beminor'});
   assert.notDeepEqual(v.db.app_news_article_bodies[0].blocks, handBlocks);
 });
+
+// ---- S69-02(명진 11/24 06:40 조선일보 '원문 다시 불러오기를 눌러도 원문을 못 가져오네') ----------------------------------------------
+// 수집 때 본문을 읽지 않는 매체(카탈로그 extract:false — 조선일보 등)의 기사는 피드 소개(리드)만 저장돼 있었고, 사람이 열어 읽어도 본문 블록을 저장하지 않았다.
+// 이제 사람이 연 읽기(open)는 그 매체도 본문 블록(문단·소제목·사진)을 저장한다. 페이지는 지어낸 Arc 모양(문장도 지어냄).
+const ARC_P = n => `합성 기사 ${n}번째 문단이다. 노동자들은 지어낸 도시에서 지어낸 일자리 이야기를 차례로 나눈다. `.repeat(2).trim();
+const ARC_PAGE = `<html lang="ko"><head><meta property="og:title" content="합성 Arc 기사"><meta property="og:description" content="합성 소개 한 문단."></head><body>
+<div id="fusion-app"></div><script>window.Fusion=window.Fusion||{};Fusion.globalContent=${JSON.stringify({content_elements: [
+  {type: 'text', content: ARC_P(1)}, {type: 'header', content: '합성 소제목'}, {type: 'image', url: 'https://images.example.org/arc/photo1.jpg', caption: '합성 사진 설명'},
+  {type: 'text', content: ARC_P(2)}, {type: 'text', content: ARC_P(3)}, {type: 'text', content: '<a href="https://www.chosun.com/x">전체 내용보기</a>'}]})};Fusion.globalContentConfig={};</script></body></html>`;
+const chosunArt = (n, extra = {}) => ({id: id(n), origin: 'site', lane: 'media', source_key: 'news-chosun', url: `https://www.chosun.com/national/2026/11/12/S69${n}/`, url_key: `www.chosun.com/national/2026/11/12/S69${n}`,
+  state: 'ok', lang: 'ko', title: '합성 조선 기사', publisher: '조선일보', summary: '합성 소개 한 문단.', body: '합성 소개 한 문단.', body_kind: 'lead', fetched_at: recent, created_at: recent, ...extra});
+const chosunSites = n => ({'https://www.chosun.com/robots.txt': 'User-agent: *\nAllow: /\n', [`https://www.chosun.com/national/2026/11/12/S69${n}/`]: ARC_PAGE});
+
+test('S69-02 open: extract:false 매체(조선일보) 리드 기사를 사람이 열면 전문을 읽어 본문 블록(문단·소제목·사진)으로 저장, 사이트 링크 글자는 빠짐', async () => {
+  assert.equal(C.newsSourceByKey('news-chosun').extract, false, '수집 때는 본문을 읽지 않는 매체');
+  const w = world({tables: {app_news_articles: [chosunArt(70)]}, sites: chosunSites(70)});
+  const r = await w.user('open', {id: id(70)});
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.status, 'ok');
+  const a = w.db.app_news_articles[0];
+  assert.equal(a.body_kind, 'full');
+  assert.equal(w.db.app_news_article_bodies.length, 1, '사람이 연 읽기는 본문 블록을 저장');
+  const b = w.db.app_news_article_bodies[0];
+  assert.equal(b.state, 'ok');
+  assert.deepEqual(b.blocks.map(x => x.t), ['p', 'h', 'img', 'p', 'p']);
+  assert.equal(b.blocks[2].src, 'https://images.example.org/arc/photo1.jpg'); assert.equal(b.blocks[2].cap, '합성 사진 설명');
+  assert.ok(!JSON.stringify(b.blocks).includes('전체 내용보기'), '사이트 링크 글자는 본문 문단이 아님');
+  assert.ok(!a.body.includes('전체 내용보기'));
+});
+
+test('S69-02 open again: 전문이 있는 글도 ⋯ 다시 가져오기 — 간격 안이면 recent(읽기 0), 더 긴 전문이면 바꾸고, 같거나 짧으면 same(쓰기 0)', async () => {
+  const old = new Date(NOW - 3 * 3600000).toISOString();
+  const shortBody = {article_id: id(71), state: 'ok', reason: null, rule: 'news-chosun@1', blocks: [{t: 'p', text: '짧은 옛 본문.'}], chars: 7, images: 0};
+  // 간격 안
+  const w0 = world({tables: {app_news_articles: [chosunArt(71, {body_kind: 'full', body: '짧은 옛 본문.', fetched_at: new Date(NOW - 60000).toISOString()})], app_news_article_bodies: [{...shortBody}]}, sites: chosunSites(71)});
+  assert.equal((await w0.user('open', {id: id(71), again: true})).body.status, 'recent');
+  assert.equal(w0.calls.site.length, 0); assert.equal(w0.db.app_news_days.length, 0, '하루 한도 안 씀');
+  // again 없이: 예전처럼 저장본
+  const w1 = world({tables: {app_news_articles: [chosunArt(71, {body_kind: 'full', body: '짧은 옛 본문.', fetched_at: old})], app_news_article_bodies: [{...shortBody}]}, sites: chosunSites(71)});
+  assert.equal((await w1.user('open', {id: id(71)})).body.status, 'stored');
+  assert.equal(w1.calls.site.length, 0);
+  // 더 긴 전문 → 바꿈
+  const r = await w1.user('open', {id: id(71), again: true});
+  assert.equal(r.body.status, 'ok');
+  assert.equal(w1.db.app_news_article_bodies[0].blocks.length, 5);
+  assert.ok(w1.db.app_news_article_bodies[0].chars > 7);
+  // 같은 길이(이미 긴 본문) → same, 고치지 않음
+  const long = structuredClone(w1.db.app_news_article_bodies[0]);
+  const w2 = world({tables: {app_news_articles: [chosunArt(72, {body_kind: 'full', body: '합성', fetched_at: old})], app_news_article_bodies: [{...long, article_id: id(72)}]}, sites: chosunSites(72)});
+  assert.equal((await w2.user('open', {id: id(72), again: true})).body.status, 'same');
+  assert.ok(!w2.calls.rest.some(c => ['POST', 'PATCH'].includes(c.method) && /article_bodies|app_news_articles/.test(c.p)), '같으면 쓰지 않음');
+  // 손 본문은 다시 읽지 않음, 이상한 몸통은 거절
+  const w3 = world({tables: {app_news_articles: [chosunArt(73, {body_kind: 'full', body: '손', fetched_at: old})], app_news_article_bodies: [{...shortBody, article_id: id(73), rule: 'manual@1'}]}, sites: chosunSites(73)});
+  assert.equal((await w3.user('open', {id: id(73), again: true})).body.status, 'stored');
+  assert.equal(w3.calls.site.length, 0);
+  for (const bad of [{id: id(73), again: false}, {id: id(73), again: 'yes'}, {id: id(73), again: true, x: 1}]) assert.equal((await w3.user('open', bad)).status, 400, JSON.stringify(bad));
+});
+
+test("S69-02 매체 단계: 피드 소개·본문 끝 '전체 내용보기' 링크 줄은 떼고, 그 줄이 붙은 피드 본문은 전문으로 치지 않는다(사람이 열 때 글 쪽을 읽음)", async () => {
+  const s = C.newsSourceByKey('news-redaily');
+  const long = '지어낸 철도 계획 문단이다. 지어낸 노선과 지어낸 예산을 길게 설명한다. '.repeat(6);
+  const rss = `<rss xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel>
+<item><title>합성 철도망 기사</title><link>https://www.redaily.co.kr/news/articleView.html?idxno=1</link>
+<description><![CDATA[<p>합성 첫 문단.</p><p>합성 둘째 문단.</p><p><a href="https://www.redaily.co.kr/news/articleView.html?idxno=1">전체 내용보기</a></p>]]></description>
+<content:encoded><![CDATA[<p>${long}</p><p><a href="https://www.redaily.co.kr/news/articleView.html?idxno=1">전체 내용보기</a></p>]]></content:encoded></item>
+<item><title>합성 버스 기사</title><link>https://www.redaily.co.kr/news/articleView.html?idxno=2</link><description>합성 소개만.</description><content:encoded><![CDATA[<p>${long}</p>]]></content:encoded></item>
+</channel></rss>`;
+  const w = world({tables: {app_outside_sources: [{workspace_id: OP, source_key: 'news-redaily', enabled: true}]},
+    sites: {[s.lists[0]]: rss, 'https://www.redaily.co.kr/robots.txt': 'User-agent: *\nAllow: /\n'}, newsWs: OP});
+  assert.equal((await w.cron({step: 'media', source: 'news-redaily'})).ok, true);
+  const rail = w.db.app_news_articles.find(a => a.title.includes('철도'));
+  const bus = w.db.app_news_articles.find(a => a.title.includes('버스'));
+  assert.ok(rail && bus);
+  assert.equal(rail.body_kind, 'lead', '링크 줄이 붙은 피드 본문은 앞부분뿐');
+  assert.ok(!rail.body.includes('전체 내용보기')); assert.ok(rail.body.includes('합성 둘째 문단'));
+  assert.equal(bus.body_kind, 'full', '링크 줄 없는 피드 본문은 예전처럼 전문');
+});

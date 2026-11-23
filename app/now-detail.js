@@ -12,7 +12,7 @@ import {notify, askText} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText, canRefetch, isNoMaterial, handBodyRequest, HAND_BODY_MAX} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText, canRefetch, canRefetchMenu, unreadLead, isNoMaterial, handBodyRequest, HAND_BODY_MAX} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
@@ -182,14 +182,17 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     else if (b.failedLoad) inner = failHtml({text: '원문을 불러오지 못함', retry: 'data-nd-body-retry'});
     else {
       const hand = canHandFill(cur.item, b) ? ` <button type="button" class="ds-chip nd-hand" data-nd-hand>${cur.item.type === 'outside' ? '본문 붙여 넣기' : '직접 넣기'}</button>` : '';
-      const again = (cur.refetching ? ' <span class="nd-faint" data-nd-refetching>원문을 다시 가져오는 중</span>' : b.again && !gaveUp.has(itemKey(cur.item)) ? ' <button type="button" class="ds-chip" data-nd-refetch>원문 다시 가져오기</button>' : '')
-        + (cur.refetchNote && !cur.refetching ? ` <span class="nd-faint" data-nd-refetch-note>${esc(cur.refetchNote)}</span>` : '');
+      // S69-02: 못 읽은 글은 단추가 늘 있다(서버가 다시 읽고도 못 읽었어도 — 그 까닭은 한 줄, 잦은 재시도는 서버 간격·하루 한도가 막는다).
+      const note = cur.refetchNote && !cur.refetching ? ` <span class="nd-faint" data-nd-refetch-note>${esc(cur.refetchNote)}</span>` : '';
+      const again = (cur.refetching ? ' <span class="nd-faint" data-nd-refetching>원문을 다시 가져오는 중</span>' : b.again ? ' <button type="button" class="ds-chip" data-nd-refetch>원문 다시 가져오기</button>' : '') + note;
       // S68-44: 손으로 넣은 기사인데 본문 글자가 없으면(비움·사진만) 까닭 대신 작은 '본문 없음' 한 줄(주소가 있을 때만 원래 사이트).
       const noText = handNoText(b);
       const why = noText ? `<div class="nd-why nd-no-text" data-nd-why role="status">${emptyHtml('본문 없음', {attrs: 'data-nd-no-text'})}${cur.head.url ? ` · ${siteLink('원래 사이트 ↗')}` : ''}${hand}</div>`
         : b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : b.state === 'failed' && gaveUp.has(itemKey(cur.item)) ? '원래 사이트에서 열기 ↗' : '원래 사이트 ↗')}` : ''}${again}${hand}</p>` : '';
       const prose = b.blocks.length ? `<div class="nd-prose"${langAttr()} data-nd-prose>${b.blocks.map(blockHtml).join('')}</div>` : '';
-      inner = b.state === 'failed' ? why : moveUrlHtml(b) + prose + why;
+      // 다 읽은 글을 ⋯ [원문 다시 가져오기]로 다시 읽는 중·결과 한 줄(까닭 줄이 없는 글만 — 까닭 줄이 있으면 그 줄 끝에 이미 보인다).
+      const line = !why && (cur.refetching || note) ? `<p class="nd-faint nd-refetch-line" data-nd-refetch-line role="status">${cur.refetching ? '<span data-nd-refetching>원문을 다시 가져오는 중</span>' : note.trim()}</p>` : '';
+      inner = b.state === 'failed' ? why : moveUrlHtml(b) + prose + why + line;
     }
     return head + `<div class="nd-ob-body" data-nd-body-inner>${inner}</div>`;
   }
@@ -303,7 +306,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, viewOf(row, item.type)); paintBody(); if (item.type === 'news') void freshenHead(item); return {hadRow: true}; }
     let pre = {ok: true};
     if (item.type === 'news') {
-      pre = await readFirst(item, my, !!row).catch(() => ({ok: true}));
+      pre = await readFirst(item, my, !!row, !row).catch(() => ({ok: true}));
       if (my !== seq || pre.stale) return {stale: true};
       row = await readBodyRow(item);
       if (my !== seq) return {stale: true};
@@ -314,12 +317,14 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     try { legacy = await readLegacyText(item); } catch { legacy = {failedLoad: true}; }
     if (my !== seq) return {stale: true};
     if (legacy.state === 'failed' && pre && !pre.ok && pre.why) legacy = {...legacy, reason: pre.why};
-    bodies.set(key, legacy); paintBody();
+    bodies.set(key, legacyView(legacy)); paintBody();
     return {hadRow: false, pre};
   }
   // 저장 원문 줄 → 그릴 모양. 다시 읽을 실패(reopenBody)면 [원문 다시 가져오기]를 단다(again).
   // S68-49: 봇 확인도 단추(canRefetch). 열 때 저절로 다시 읽는 것은 여전히 reopenBody(뉴스 — 늦은 답·사이트 오류·예전 robots)뿐.
+  // S69-02: 저장 원문 줄이 없는 옛 글(legacy)도 못 읽은 모양(lead·failed)이면 단추(뉴스·사회운동 서버 길 모두 줄이 없으면 읽는다).
   const viewOf = (row, type) => { const v = bodyView(row) || legacyBody(''); return canRefetch(row, type) ? {...v, again: true} : v; };
+  const legacyView = v => (!v?.failedLoad && (v?.state === 'lead' || v?.state === 'failed') ? {...v, again: true} : v);
   // 저장 원문 한 줄: 줄 · null(정말 없음) · LOAD_FAILED(두 번 읽어도 오류).
   async function readBodyRow(item) {
     for (let i = 0; i < 2; i++) { try { return await readFeedBody(item); } catch { /* 한 번 더 */ } }
@@ -327,9 +332,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   }
   // 저장 원문 줄이 없는 옛 뉴스 기사: 본문·요약이 아직 없으면 그 기사 하나를 먼저 읽는다(news-feed open). 읽지 못하면 AI를 부르지 않는다.
   // again: 저장 원문 줄이 다시 읽을 실패(reopenBody — 늦은 답·사이트 오류·S68-25 robots)라 요약이 있어도 그 한 쪽을 읽는다. 이 글 하나만(목록은 읽지 않음).
-  async function readFirst(item, my, again = false) {
+  // noRow(S69-02): 저장 원문 줄이 아예 없다 — 피드 소개(리드)만 있고 글 쪽을 한 번도 읽지 않은 기사(수집 때 본문을 읽지 않는 매체 — 조선일보 등)면 열 때 한 번 읽는다(unreadLead).
+  async function readFirst(item, my, again = false, noRow = false) {
     const row0 = await readNewsRow(item);
-    if (!row0 || !(again || needsRead(row0) || titlePending(row0))) return {ok: true};
+    if (!row0 || !(again || needsRead(row0) || titlePending(row0) || (noRow && unreadLead(row0)))) return {ok: true};
     cur.reading = true; paintAi(); paintBody();
     let status = '';
     try { status = (await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 90000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
@@ -342,30 +348,38 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     return hasMaterial(row) ? {ok: true} : {ok: false, why: unreadReason(status, row.state)};
   }
   // [원문 다시 가져오기](S68-43): 이 글 하나만 서버가 다시 읽게 하고(뉴스 open · 사회운동 reread) 원문 줄을 다시 읽는다. 본문이 생기면 요약·시사점을 새로.
-  async function refetchBody() {
+  // S69-02: again — ⋯ 메뉴에서 누름(다 읽은 글도 한 번 더 읽어, 더 긴 전문이면 서버가 바꿈). 까닭 줄 단추는 예전 몸통({id}) 그대로.
+  const bodySig = v => (v ? `${v.state}:${(v.blocks || []).length}:${(v.blocks || []).reduce((n, x) => n + (x.text || x.src || '').length, 0)}` : '');
+  async function refetchBody(again = false) {
     const c = cur;
     if (!c || c.refetching) return;
-    const item = c.item, key = itemKey(item), my = seq, before = bodies.get(key)?.state || '';
+    const item = c.item, key = itemKey(item), my = seq, before = bodySig(bodies.get(key));
+    // 사회운동 reread는 실패 본문만 다시 읽으므로 앞부분(lead) 글은 까닭 줄 단추도 again으로(서버가 더 긴 전문일 때만 바꿈).
+    if (item.type === 'outside' && (bodies.get(key)?.state || 'failed') !== 'failed') again = true;
     c.refetching = true; c.refetchNote = ''; paintBody();
     const path = item.type === 'news' ? 'news-feed?action=open' : 'outside-feed?action=reread';
     let status = '';
-    try { status = (await rt().api(`/functions/v1/${path}`, {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 90000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
+    try { status = (await rt().api(`/functions/v1/${path}`, {method: 'POST', body: again ? {id: item.id, again: true} : {id: item.id}, singleFlight: false, timeoutMs: 90000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
     if (my !== seq || cur !== c) return;
     const row = await readBodyRow(item);
     if (my !== seq || cur !== c) return;
     c.refetching = false;
     if (row && row !== LOAD_FAILED) bodies.set(key, viewOf(row, item.type));
+    else if (row === null && item.type === 'news') { try { const lg = await readLegacyText(item); if (my === seq && cur === c) bodies.set(key, legacyView(lg)); } catch { /* 그대로 */ } }
+    if (my !== seq || cur !== c) return;
     const b = bodies.get(key);
-    // 새 본문이 생겼을 때만(실패 → 본문, 앞부분 → 전문). 앞부분만인 글이 다시 앞부분이면 바뀐 것이 없다(요약을 다시 만들지 않음, S68-52).
-    if (b && b.state !== 'failed' && b.state !== before) {
+    // 새 본문이 생겼을 때만(실패 → 본문, 앞부분 → 전문, 전문 → 더 긴 전문). 같은 본문이면 바뀐 것이 없다(요약을 다시 만들지 않음, S68-52).
+    if (b && b.state !== 'failed' && bodySig(b) !== before) {
       details.delete(key); c.detail = null; c.failed = ''; c.unread = '';
       paintBody(); paintAi();
       if (item.type === 'news') { const nr = await readNewsRow(item).catch(() => null); if (nr && my === seq && cur === c) onRead?.(item, nr); }
       makeDetail(item, my);
       return;
     }
-    // 한도·잠깐 오류면 단추를 그대로 두고 까닭만. 서버가 다시 읽고도 못 읽었거나 방금 다시 읽었으면(recent) 이 탭에서 단추를 거두고 사람이 채울 길만.
+    // 바뀐 것이 없으면 까닭 한 줄만(단추는 그대로 — S69-02). 서버가 다시 읽고도 못 읽었거나 방금 다시 읽었으면(recent) 원래 사이트 링크를 '원래 사이트에서 열기'로(gaveUp).
     if (status === 'daily_limit' || status === 'error') c.refetchNote = unreadReason(status, '');
+    else if (status === 'original_only') c.refetchNote = '원래 사이트에서 보는 글이에요';
+    else if (status === 'same' || (b && b.state === 'ok')) c.refetchNote = '다시 읽어도 더 긴 본문이 없어요';
     else { gaveUp.add(key); c.refetchNote = status === 'recent' ? '조금 전에 다시 읽어 봤어요 · 원래 사이트에서 볼 수 있어요' : '다시 읽어도 사이트가 본문을 주지 않아요'; }
     paintBody();
   }
@@ -755,6 +769,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     sel.addRange(range);
   }
   const canShare = () => typeof navigator.share === 'function';
+  // S69-02: ⋯ [원문 다시 가져오기] — 원문 칸이 그려진 글(불러오기 실패·손 본문·다시 읽는 중이 아닌 것). 뉴스·사회운동 모두.
+  const canMenuRefetch = () => { const b = cur && bodies.get(itemKey(cur.item)); return !!b && !b.failedLoad && !b.hand && canRefetchMenu(b) && !cur.refetching && !cur.hand?.open && (cur.item.type === 'news' || cur.item.type === 'outside'); };
   async function shareArticle() {
     const data = cur && shareArticleData(cur.head);
     if (!data || !canShare()) return;
@@ -762,11 +778,11 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   }
   const obMenu = createAnchoredMenu({id: 'ndObMenu', className: 'topline-add-menu os-menu nd-ob-menu', label: '원문 메뉴', historyKey: 'kptuNowDetailMenu', key: () => (cur ? itemKey(cur.item) : ''),
     canOpen: () => !!cur,
-    render: () => `${part('[data-nd-prose]') ? '<button type="button" class="row-act" data-nd-menu="select">모두 선택</button>' : ''}<button type="button" class="row-act" data-nd-menu="copy">복사</button>${canShare() && shareArticleData(cur?.head) ? '<button type="button" class="row-act" data-nd-menu="share">공유</button>' : ''}${cur?.item.type === 'news' ? '<button type="button" class="row-act" data-nd-menu="hand">수정</button>' : ''}`,
+    render: () => `${part('[data-nd-prose]') ? '<button type="button" class="row-act" data-nd-menu="select">모두 선택</button>' : ''}<button type="button" class="row-act" data-nd-menu="copy">복사</button>${canShare() && shareArticleData(cur?.head) ? '<button type="button" class="row-act" data-nd-menu="share">공유</button>' : ''}${canMenuRefetch() ? '<button type="button" class="row-act" data-nd-menu="refetch">원문 다시 가져오기</button>' : ''}${cur?.item.type === 'news' ? '<button type="button" class="row-act" data-nd-menu="hand">수정</button>' : ''}`,
     onAction: (button, active) => {
       if (!cur || active.id !== itemKey(cur.item)) return;
       const a = button.dataset.ndMenu;
-      if (a === 'select') selectAll(); else if (a === 'copy') void copyArticle(part('[data-nd-copy]')); else if (a === 'share') void shareArticle(); else if (a === 'hand') void openHand();
+      if (a === 'select') selectAll(); else if (a === 'copy') void copyArticle(part('[data-nd-copy]')); else if (a === 'share') void shareArticle(); else if (a === 'hand') void openHand(); else if (a === 'refetch') void refetchBody(true);
     }});
   ndMenus = [obMenu];
   // 고른 글 줄(text-select-bar.js): 이 상세의 원문 칸([data-nd-prose])에서 고른 글만. 출처 = 지금 연 글.

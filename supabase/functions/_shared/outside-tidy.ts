@@ -119,9 +119,24 @@ export function betterTitle(listTitle: string, pageTitle: string | null, name = 
 const NOISE_LINE = /^(첨부\s*파일|첨부|다운로드|파일\s*받기|조회\s*수?|조회|추천|좋아요|댓글\s*\d*|작성자|글쓴이|등록일|작성일|게시일|수정일|날짜|분류|카테고리|태그|공유|공유하기|인쇄|프린트|URL\s*복사|주소\s*복사|링크\s*복사|페이스북|트위터|카카오(톡|스토리)?|밴드|facebook|twitter|kakao|print|share|tags?|목차|맨\s*위로|top)(\s*[:：]?\s*[\w가-힣.,\-/ ]{0,20})?$/i;
 // 글 머리 정보 줄('작성자 … 작성일 … 조회 …'): 머리 낱말이 둘 넘게 든 80자 안쪽 줄.
 const META_WORD = /(작성자|글쓴이|작성일|등록일|게시일|수정일|조회(수)?|추천|좋아요|댓글|분류)\s*[:：]?/g;
+// S69-02(명진 11/24 06:43 철도망 기사 캡처): 원래 사이트의 '더 보기' 링크 글자('전체 내용보기'·'기사 더보기'·'Read more' 등)가 홀로 한 줄이면 본문이 아니다.
+// 피드 소개·본문 칸·구조화 본문 어디서 와도 같은 함수로 걸러 낸다(본문 문단으로 넣지 않는다). 앞뒤 꾸밈(▶·»·→·[ ]·…)만 허용, 다른 글자가 붙으면 본문으로 둔다.
+const MORE_LINK = /^[\s[(<〈【「▶▷►»›>→…·.-]*(?:(?:기사\s*)?(?:전체\s*(?:내용|기사|본문)\s*보기|전문\s*보기|원문\s*보기|더\s*보기|계속\s*읽기|자세히\s*보기|본문\s*보기)|기사\s*원문\s*보기|(?:read|see)\s+(?:more|the\s+full\s+(?:story|article))|continue\s+reading|full\s+(?:story|article))[\s\])>〉】」▶▷►»›→….:!-]*$/i;
+export function isMoreLink(line: string): boolean {
+  const l = one(line);
+  return !!l && chars(l) <= 40 && MORE_LINK.test(l);
+}
+// 피드 글자(소개·본문)의 끝에 붙은 '더 보기' 링크 줄을 떼어 낸다. cut: 뗀 줄이 있었나(그 피드 본문은 앞부분뿐이라는 뜻).
+export function dropMoreLinks(text: string | null | undefined): { text: string; cut: boolean } {
+  const lines = String(text ?? "").split("\n");
+  let cut = false;
+  const kept = lines.filter((l) => { if (isMoreLink(l)) { cut = true; return false; } return true; });
+  return { text: kept.join("\n").trim(), cut };
+}
 export function isNoiseLine(line: string): boolean {
   const l = one(line);
   if (!l) return true;
+  if (isMoreLink(l)) return true;
   if (chars(l) <= 30 && NOISE_LINE.test(l)) return true;
   return chars(l) <= 80 && (l.match(META_WORD)?.length ?? 0) >= 2;
 }

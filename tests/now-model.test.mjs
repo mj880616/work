@@ -371,25 +371,31 @@ test('hand url: addresses inside a paragraph become link pieces; trailing punctu
 
 // S68-49(명진 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 봇 확인(bot_check)·robots 실패도 [원문 다시 가져오기], 두 갈래 같다.
 // 열 때 저절로 다시 읽는 것(reopenBody)은 그대로 — 봇 확인은 누를 때만. 손 본문(manual@1)은 다시 읽지 않는다.
-test('S68-52: canRefetch — 뉴스 글인데 유료벽이 아니고 리드만 남은 글(lead·no_body)도 단추, 유료벽 리드·손 본문·사회운동 글은 아님', async () => {
+// S69-02(명진 11/24 "글 안에서도 원문 다시 불러오기 버튼 … 어디있지"): 못 읽은 글(lead·failed — 까닭 상관없이)은 까닭 줄 단추, 두 갈래 같다.
+test('S69-02: canRefetch — 앞부분만·실패 본문은 까닭 상관없이 단추(뉴스·사회운동), 손 본문·읽힌 본문·없는 줄은 아님', async () => {
   const {canRefetch, reopenBody} = await import('../app/now-model.mjs');
-  assert.equal(canRefetch({state: 'lead', reason: 'no_body'}, 'news'), true);
-  assert.equal(canRefetch({state: 'lead', reason: 'no_body'}, 'outside'), false, '사회운동 reread는 실패 본문만 다시 읽음');
-  assert.equal(canRefetch({state: 'lead', reason: 'no_body'}), false);
-  assert.equal(canRefetch({state: 'lead', reason: 'paywall'}, 'news'), false, '유료벽은 넘지 않음');
-  assert.equal(canRefetch({state: 'lead', reason: null}, 'news'), false);
+  for (const type of ['news', 'outside', '']) {
+    for (const reason of ['no_body', 'paywall', null]) assert.equal(canRefetch({state: 'lead', reason}, type), true, `lead ${reason} ${type}`);
+    for (const reason of ['bot_check', 'robots', 'timeout', 'http_5xx', 'http_4xx', 'no_body', 'too_big', null]) assert.equal(canRefetch({state: 'failed', reason}, type), true, `failed ${reason} ${type}`);
+  }
+  for (const state of ['ok', 'image_only']) assert.equal(canRefetch({state}), false, state);
   assert.equal(canRefetch({state: 'lead', reason: 'no_body', rule: 'manual@1'}, 'news'), false, '손 본문은 사람 것');
-  assert.equal(canRefetch({state: 'failed', reason: 'bot_check'}, 'outside'), true, '실패 본문은 두 갈래 같음');
-  assert.equal(reopenBody({state: 'lead', reason: 'no_body'}), false, '열 때 저절로 다시 읽지는 않음');
-});
-test('S68-49: canRefetch — bot_check·robots·늦은 답·사이트 오류 실패면 단추, 손 본문·읽힌 본문·없는 글은 아님', async () => {
-  const {canRefetch, reopenBody} = await import('../app/now-model.mjs');
-  for (const reason of ['bot_check', 'robots', 'timeout', 'http_5xx']) assert.equal(canRefetch({state: 'failed', reason}), true, reason);
-  for (const reason of ['paywall', 'http_4xx', 'no_body', 'off_host', 'relay', 'too_big', null]) assert.equal(canRefetch({state: 'failed', reason}), false, String(reason));
-  for (const state of ['ok', 'lead', 'image_only']) assert.equal(canRefetch({state, reason: 'bot_check'}), false, state);
-  assert.equal(canRefetch({state: 'failed', reason: 'bot_check', rule: 'manual@1'}), false, '손 본문은 사람 것');
+  assert.equal(canRefetch({state: 'failed', reason: 'bot_check', rule: 'manual@1'}), false, '손으로 비운 본문');
   assert.equal(canRefetch(null), false);
+  assert.equal(reopenBody({state: 'lead', reason: 'no_body'}), false, '열 때 저절로 다시 읽지는 않음');
   assert.equal(reopenBody({state: 'failed', reason: 'bot_check'}), false, '봇 확인은 열 때 저절로 다시 읽지 않음');
+});
+test('S69-02: canRefetchMenu — 다 읽은 글도 ⋯ 메뉴에, 손 본문만 아님 · unreadLead — 피드 소개만 있는 뉴스 기사', async () => {
+  const {canRefetchMenu, unreadLead} = await import('../app/now-model.mjs');
+  for (const state of ['ok', 'image_only', 'lead', 'failed']) assert.equal(canRefetchMenu({state}), true, state);
+  assert.equal(canRefetchMenu(null), true, '저장 원문 줄이 없는 옛 글');
+  assert.equal(canRefetchMenu({state: 'ok', rule: 'manual@1'}), false);
+  assert.equal(unreadLead({state: 'ok', body_kind: 'lead', summary: '소개'}), true);
+  assert.equal(unreadLead({state: 'ok', body_kind: null, summary: '소개'}), true);
+  assert.equal(unreadLead({state: 'ok', body_kind: 'full'}), false);
+  assert.equal(unreadLead({state: 'paywall', body_kind: 'lead'}), false, '유료벽으로 이미 읽은 글');
+  assert.equal(unreadLead({state: 'ok', body_kind: 'lead', manual_at: '2026-11-23T00:00:00Z'}), false, '사람이 넣은 기사');
+  assert.equal(unreadLead(null), false);
 });
 
 test('S68-49: isNoMaterial — 운영 서버 답 모양(error 칸 no_material, message는 일반 글)으로 판단', async () => {
