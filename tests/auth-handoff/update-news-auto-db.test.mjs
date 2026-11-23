@@ -166,7 +166,7 @@ test('update news auto: new release notes become news once, old ones stay, opera
    const many=Array.from({length:21},(_,i)=>note(`11/25-${i+1}`,`20261125-${String(1000+i)}-m`));
    const flood=await put([...many,note('11/24-3','20261124-0900-ok'),...base]);
    assert.equal(flood.auto,-21);
-   assert.equal((await autoRows()).length,5);
+   assert.equal((await autoRows()).length,4,"d·e·late·ok 넷 그대로");
   });
 
   await t.test('no operator: nothing is sent; no start date: today is set so auto news is visible',async()=>{
