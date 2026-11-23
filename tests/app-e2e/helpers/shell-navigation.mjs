@@ -56,4 +56,7 @@ export async function clickView(page,view){
   await accountButton(page).click();
   const drawerButton=page.locator(`#mobileMenu [data-view="${view}"]:visible`);
   await drawerButton.click();
+  // S68-37: 새 계정 기본 하단바에서 빠진 화면(조직·사업 관리 등)은 [메뉴] 창으로 연다. 사람처럼 창이 다 닫힌 뒤 다음 조작을 한다
+  // (창을 닫으며 지우는 방문 기록 한 칸이 그 사이 연 작은 창을 같이 닫지 않게).
+  await page.locator('#mobileMenu').waitFor({state:'hidden'});
 }
