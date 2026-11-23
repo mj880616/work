@@ -67,6 +67,9 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await expect(list.locator('.br-row').nth(0).locator('[data-br-start]')).toHaveText('브리핑 받기');
     await expect(list.locator('.br-row').nth(1)).toContainText('만드는 중 7/12');
     await expect(list.locator('.br-row').nth(2)).toContainText('평가 지표 중 인건비 항목 배점이 늘고');
+    // S68-44(명진 11/23): 다 된 줄 날짜는 진행 칸 수 'n/m'과 헷갈리지 않는 노트 목록 표기('10.05', 다른 해 '26.10.05'), 진행 줄은 '만드는 중 7/12' 그대로.
+    await expect(list.locator('.br-row').nth(1).locator('.br-st')).toHaveText('만드는 중 7/12');
+    await expect(list.locator('.br-row').nth(2).locator('.br-st')).toHaveText(/^(\d{2}\.)?10\.05$/);
     await expect(list.locator('.br-row').nth(3)).toContainText('글자를 읽을 수 없는 파일이에요');
     await page.screenshot({ path: `docs/design/screens/s61-45/${label}-list.png`, fullPage: false });
     // 보기: 다 된 줄을 누르면 한 줄 요지 + 네 칸, 인용은 원문 그대로와 쪽 링크.
@@ -74,6 +77,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     const detail = page.locator('#briefView [data-br-detail]');
     await expect(detail).toBeVisible();
     await expect(detail.locator('.br-lead')).toContainText('한 줄 요지');
+    await expect(detail.locator('.br-meta')).toContainText(/(^|· )(\d{2}\.)?10\.05 브리핑$/);
     await expect(detail.locator('.br-sec h3')).toHaveText(['내 담당 조직·사업에 닿는 것', '해야 할 일·기한·숫자', '우리 쪽 주장과 부딪히는 대목', '꼭 직접 읽을 대목 원문 그대로']);
     await expect(detail.locator('.br-q')).toContainText(QUOTE);
     await expect(detail.locator('.br-pg a')).toHaveAttribute('href', 'https://drive.google.com/file/d/FILE_cccccccccc/view#page=31');
