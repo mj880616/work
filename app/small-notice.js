@@ -20,7 +20,7 @@
 //     {silent:true} = 화면이 직접 결과를 알렸음(이 부품은 아무 말도 하지 않음).
 //   (라) 되돌리기 말고 다른 버튼: notify('정리함에 넣었어요',{actions:[{label:'메모 달기',run:({box,close})=>{…}}],undo,…}) — [되돌리기] 앞에 놓인다.
 //       run은 알림을 닫지 않는다(필요하면 close()). box 안을 작은 입력칸으로 바꿔도 되고, 초점이 안에 있는 동안은 사라지지 않는다(SHARE-바로넣기).
-import {placeAnchored,clearAnchored,keepInside,bottomInset,isWide,onViewportChange} from './anchored-popup.js';
+import {placeAnchored,clearAnchored,keepInside,bottomInset,isWide,onViewportChange,usableAnchor,pressAnchor} from './anchored-popup.js';
 import {isDockedPane} from './open-window.mjs'; // 칸에 붙인 창(role=region) 판단 하나
 
 export const NOTICE_MS=2000,NOTICE_UNDO_MS=2000,NOTICE_ERROR_MS=5000,UNDO_LIMIT=10;
@@ -179,12 +179,16 @@ function askPanel(anchor,{doc,none,maxHeight=220,build,history:own=true}){
   return new Promise(resolve=>{
     const panel=doc.createElement('div');panel.className='kptu-ask';panel.setAttribute('role','alertdialog');panel.setAttribute('aria-modal','false');
     let done=false,state=null,onKey=null,onOutside=null,onPop=null,stopView=null;
-    const back=anchor instanceof Element&&anchor.isConnected?anchor:null;
+    // S69-13 UI-확인창누른자리: 받은 칸이 쓸 수 없으면(body·숨은 메뉴 항목·떨어진 칸 — ⋯ 메뉴 [삭제]처럼 메뉴가 닫히며 초점이 사라진 때)
+    // 사람이 방금 누른 자리(⋯ 메뉴면 그 ⋯ 단추)를 기준으로 쓴다(anchored-popup.js pressAnchor). null을 일부러 주면 그대로 화면 가운데 아래.
+    const given=anchor instanceof Element?anchor:null;
+    const back=usableAnchor(given)?given:anchor===null?null:pressAnchor();
+    const backEl=back instanceof Element?back:given?.isConnected?given:null; // 닫힌 뒤 초점을 돌려줄 칸
     const finish=(value,fromBack=false)=>{
       if(done)return;done=true;ask=null;
       doc.removeEventListener('keydown',onKey,true);doc.removeEventListener('pointerdown',onOutside,true);globalThis.removeEventListener?.('popstate',onPop);stopView?.();
       clearAnchored(panel);panel.remove();
-      if(back?.isConnected)back.focus({preventScroll:true});
+      if(backEl?.isConnected)backEl.focus({preventScroll:true});
       // 자기 기록 칸을 걷어 낼 때는 그 뒤로가기(popstate)가 끝난 뒤에 답을 돌려준다: [예] 바로 다음에 화면이 겹을 닫거나
       // 열어도(history.go·pushState) 뒤로가기가 두 번 겹치지 않게. popstate가 오지 않는 브라우저를 위해 0.4초 뒤에는 그냥 돌려준다.
       if(own&&!fromBack&&history.state?.kptuAsk===state.kptuAsk){
@@ -195,13 +199,13 @@ function askPanel(anchor,{doc,none,maxHeight=220,build,history:own=true}){
     };
     const first=build(panel,finish);
     // 누른 자리가 모달 창(<dialog> showModal) 안이면 그 창 안에 붙인다 — 바깥(body)은 모달 동안 누를 수 없다(UX-이미있는파일알림, 폰 공유 창).
-    (back?.closest?.('dialog[open]')||doc.body).append(panel);
+    (backEl?.closest?.('dialog[open]')||(given?.isConnected&&given.closest('dialog[open]'))||doc.body).append(panel);
     // S67-54 UI-자판이름칸가림: 폰에서는 아래 탭·자판이 덮는 높이(bottomInset)를 비우고 자리를 잡는다. 칸에 초점이 가면 자판이 뒤늦게 올라오므로
     // 보이는 화면이 바뀔 때마다(onViewportChange) 다시 잡아, 입력칸·[확인]이 늘 자판 위에 보인다. 누른 줄이 자판 밑으로 들어가도 창은 그 위로 올라온다.
     const place=()=>{
       if(!back){panel.classList.add('kptu-ask-center');return}
       const inset=isWide()?0:bottomInset();
-      if(!back.isConnected){keepInside(panel,8,inset);return}
+      if(back instanceof Element&&!back.isConnected){keepInside(panel,8,inset);return}
       placeAnchored(panel,back,{maxWidth:300,maxHeight,minHeight:0,bottomInset:inset});
       // 폰 하단바 위로: 확인창 아래 끝이 하단바에 걸리면 그만큼 올린다.
       const bar=doc.querySelector('.mobile-tabs'),barTop=bar&&bar.getClientRects().length?bar.getBoundingClientRect().top:innerHeight;
