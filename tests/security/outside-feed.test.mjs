@@ -273,7 +273,10 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
       const out=(ai??defaultAi)(name,b.input[1].content);if(out instanceof Response)return out;
       return respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(out)}]}],usage:{input_tokens:100,output_tokens:50}});}
     // 바깥 사이트: GET만, User-Agent 필수, 리다이렉트는 직접 따라감.
-    assert.equal(init.method,'GET');assert.equal(init.redirect,'manual');assert.match(init.headers['User-Agent'],/^Web2OutsideFeed\//);
+    assert.equal(init.method,'GET');assert.equal(init.redirect,'manual');assert.match(init.headers['User-Agent'],/^Mozilla\/5\.0 \(compatible; Web2OutsideFeed\/1\.0; \+https:\/\/github\.com\/mj880616\/work\//);
+    assert.doesNotMatch(init.headers['User-Agent'],/Chrome|Safari|Firefox|Edg\/|Gecko|AppleWebKit|Windows NT|Android|iPhone/,'브라우저 제품 이름으로 위장하지 않음(S68-49)');
+    assert.match(init.headers['Accept-Language'],/^ko-KR,ko;/);assert.equal(init.headers['Accept-Encoding'],undefined,'압축은 실행 환경이 알림');
+    assert.equal(init.headers.Cookie,undefined);
     assert.equal(init.headers.Authorization,undefined,'never send credentials to outside sites');
     calls.site.push(url);
     if(u.pathname==='/robots.txt'){const r0=robots[u.origin];const r=typeof r0==='function'?r0():r0;return r===undefined?new Response('',{status:404}):r instanceof Response?r:new Response(r,{status:200});}

@@ -12,7 +12,7 @@ import {notify, askText} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText, canRefetch, isNoMaterial, handBodyRequest, HAND_BODY_MAX} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
@@ -46,6 +46,10 @@ import {clipboardFiles} from './paste-files.mjs';
 // - [원문 다시 가져오기](S68-43): 원문 칸이 다시 읽을 실패(reopenBody — 늦은 답·사이트 오류·예전 robots)면 까닭 줄 끝에 작은 단추. 누른 사람 요청으로
 //   기존 서버 길(뉴스 news-feed open · 사회운동 outside-feed reread — 로그인·기능 키·하루 한도는 서버)을 한 번 부르고 원문 줄을 다시 읽는다.
 //   본문이 생기면 요약·시사점을 다시 만든다(서버가 본문보다 오래된 저장본을 버림). 재료가 없는 글은 요약을 만들지 않고 요약 칸에 '원문을 가져오면 요약해요 · 까닭' 한 줄만.
+// - S68-49(명진 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 봇 확인(bot_check)도 단추(canRefetch — 열 때 저절로 다시 읽지는 않음), 두 갈래 모두.
+//   서버가 실제로 다시 읽고도 못 읽었으면(또는 방금 다시 읽어 'recent') 이 탭에서 그 글 단추를 거두고(같은 글 잦은 재시도 막기),
+//   '원래 사이트에서 열기 ↗' + 사람이 채울 길([직접 넣기] — 사회운동 글은 본문 칸만인 [본문 붙여 넣기], 서버 outside-feed hand_body)만 남긴다.
+//   요약 422 no_material 판단은 isNoMaterial 하나(서버 error 칸 — 예전 오류 글 비교는 운영 답에서 늘 빗나가 빨간 'HTTP 422'가 보였다).
 // - 저장은 모두 서버. 기기 저장 없음. 상세·원문은 이 탭 메모리에만 다시 쓰려고 둔다. 바깥 글자는 모두 esc로 그린다. 로그에 제목·본문을 남기지 않는다.
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -87,6 +91,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   const readTranslation = item => readArticleCols(item, item.type === 'news' ? 'body,body_ko' : 'body_ko');
   const readNewsRow = item => readArticleCols(item, NEWS_ROW_COLS);
   const freshened = new Set(); // freshenHead를 이미 부른 기사(화면 메모리)
+  const gaveUp = new Set(); // [원문 다시 가져오기]를 서버가 해 보고도 못 읽은 글(이 탭 메모리 — 같은 글 잦은 재시도 막기, S68-49)
   const signal = (item, action) => sendSignal(item, action, onSignal);
 
   // ---------- 그리기(칸마다 따로 — 요약이 와도 원문 칸은 그대로) ----------
@@ -176,13 +181,13 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     }
     else if (b.failedLoad) inner = failHtml({text: '원문을 불러오지 못함', retry: 'data-nd-body-retry'});
     else {
-      const hand = canHandFill(cur.item, b) ? ' <button type="button" class="ds-chip nd-hand" data-nd-hand>직접 넣기</button>' : '';
-      const again = (cur.refetching ? ' <span class="nd-faint" data-nd-refetching>원문을 다시 가져오는 중</span>' : b.again ? ' <button type="button" class="ds-chip" data-nd-refetch>원문 다시 가져오기</button>' : '')
+      const hand = canHandFill(cur.item, b) ? ` <button type="button" class="ds-chip nd-hand" data-nd-hand>${cur.item.type === 'outside' ? '본문 붙여 넣기' : '직접 넣기'}</button>` : '';
+      const again = (cur.refetching ? ' <span class="nd-faint" data-nd-refetching>원문을 다시 가져오는 중</span>' : b.again && !gaveUp.has(itemKey(cur.item)) ? ' <button type="button" class="ds-chip" data-nd-refetch>원문 다시 가져오기</button>' : '')
         + (cur.refetchNote && !cur.refetching ? ` <span class="nd-faint" data-nd-refetch-note>${esc(cur.refetchNote)}</span>` : '');
       // S68-44: 손으로 넣은 기사인데 본문 글자가 없으면(비움·사진만) 까닭 대신 작은 '본문 없음' 한 줄(주소가 있을 때만 원래 사이트).
       const noText = handNoText(b);
       const why = noText ? `<div class="nd-why nd-no-text" data-nd-why role="status">${emptyHtml('본문 없음', {attrs: 'data-nd-no-text'})}${cur.head.url ? ` · ${siteLink('원래 사이트 ↗')}` : ''}${hand}</div>`
-        : b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}${again}${hand}</p>` : '';
+        : b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : b.state === 'failed' && gaveUp.has(itemKey(cur.item)) ? '원래 사이트에서 열기 ↗' : '원래 사이트 ↗')}` : ''}${again}${hand}</p>` : '';
       const prose = b.blocks.length ? `<div class="nd-prose"${langAttr()} data-nd-prose>${b.blocks.map(blockHtml).join('')}</div>` : '';
       inner = b.state === 'failed' ? why : moveUrlHtml(b) + prose + why;
     }
@@ -210,6 +215,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const h = cur.hand, v = h.shown || h.init;
     if (!v) return `<div aria-busy="true">${waitHtml({rows: 3})}</div>`;
     const dis = h.busy ? ' disabled' : '';
+    // 사회운동 글(S68-49): 본문 칸만(제목·매체·사진은 수집한 그대로). 원래 사이트에서 복사한 글을 붙여 넣는다.
+    if (cur.item.type === 'outside') return `<form class="nd-hand-form" data-nd-hand-form aria-label="본문 붙여 넣기"><div class="nd-hand-f nd-hand-body"><div class="nd-hand-bh"><label for="ndHandBody">본문</label>${cur.head.url ? `<span class="nd-hand-tools">${siteLink('원래 사이트에서 열기 ↗')}</span>` : ''}</div><textarea id="ndHandBody" data-nd-hand-in="body" rows="8" maxlength="${HAND_BODY_MAX}" placeholder="원래 사이트에서 본문을 복사해 붙여 넣어요"${dis}>${esc(v.body)}</textarea></div>
+<div class="nd-memo-row">${h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
     const field = (key, label, attrs = '') => `<label class="nd-hand-f"><span>${label}</span><input type="text" data-nd-hand-in="${key}" value="${esc(v[key])}" maxlength="${HAND_LIMITS[key]}" autocomplete="off"${attrs}${dis}></label>`;
     return `<form class="nd-hand-form" data-nd-hand-form aria-label="기사 직접 넣기">${field('title', '제목')}${field('url', '원문 주소', ' inputmode="url" placeholder="https://…" spellcheck="false"')}<div class="nd-hand-row">${field('publisher', '매체')}${field('author', '기자')}</div>
 <label class="nd-hand-f"><span>기사 시각</span><input type="datetime-local" data-nd-hand-in="at" value="${esc(v.at)}"${dis}></label>
@@ -310,7 +318,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     return {hadRow: false, pre};
   }
   // 저장 원문 줄 → 그릴 모양. 다시 읽을 실패(reopenBody)면 [원문 다시 가져오기]를 단다(again).
-  const viewOf = row => { const v = bodyView(row) || legacyBody(''); return reopenBody(row) ? {...v, again: true} : v; };
+  // S68-49: 봇 확인도 단추(canRefetch). 열 때 저절로 다시 읽는 것은 여전히 reopenBody(뉴스 — 늦은 답·사이트 오류·예전 robots)뿐.
+  const viewOf = row => { const v = bodyView(row) || legacyBody(''); return canRefetch(row) ? {...v, again: true} : v; };
   // 저장 원문 한 줄: 줄 · null(정말 없음) · LOAD_FAILED(두 번 읽어도 오류).
   async function readBodyRow(item) {
     for (let i = 0; i < 2; i++) { try { return await readFeedBody(item); } catch { /* 한 번 더 */ } }
@@ -354,7 +363,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       makeDetail(item, my);
       return;
     }
-    c.refetchNote = status === 'daily_limit' || status === 'error' ? unreadReason(status, '') : '다시 읽어도 본문이 없어요';
+    // 한도·잠깐 오류면 단추를 그대로 두고 까닭만. 서버가 다시 읽고도 못 읽었거나 방금 다시 읽었으면(recent) 이 탭에서 단추를 거두고 사람이 채울 길만.
+    if (status === 'daily_limit' || status === 'error') c.refetchNote = unreadReason(status, '');
+    else { gaveUp.add(key); c.refetchNote = status === 'recent' ? '조금 전에 다시 읽어 봤어요 · 원래 사이트에서 볼 수 있어요' : '다시 읽어도 사이트가 본문을 주지 않아요'; }
     paintBody();
   }
   // S63-11: 본문은 이미 저장돼 있는데 기사 줄이 아직 '읽기 전'(제목 없음)이면 서버 열기(news-feed open)를 한 번 불러 제목을 채운다.
@@ -382,7 +393,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     } catch (e) {
       if (my !== seq) return;
       // S68-44: 손으로 넣은 기사에 본문 글자가 없으면(비움·사진만) 요약을 만들지 않는다 — '만드는 중'에 머물지 않고 '본문 없음' 한 줄.
-      if (e?.status === 422 && String(e?.message || '').includes('no_material')) cur.unread = handNoText(bodies.get(key)) ? '본문 없음' : unreadReason('', 'pending');
+      if (isNoMaterial(e)) { const b = bodies.get(key); cur.unread = handNoText(b) ? '본문 없음' : b && b.state === 'failed' && b.reason ? b.reason : unreadReason('', 'pending'); }
       else cur.failed = detailError(e);
     }
     cur.reading = false;
@@ -494,7 +505,16 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   //   서버가 거절하면 칸은 열린 채 까닭 한 줄(옮긴 값 그대로), 첫 줄이 주소가 아니게 됐으면 칸만 연다.
   async function openHand(move = false) {
     const c = cur;
-    if (!c || c.item.type !== 'news' || c.hand.open) return;
+    if (!c || c.hand.open) return;
+    if (c.item.type === 'outside') {
+      if (move) return;
+      c.tr.on = false; c.tr.note = '';
+      dropPics(c.hand); c.hand = {...idleHand(), open: true, init: {body: ''}};
+      paintBody();
+      part('[data-nd-hand-in="body"]')?.focus({preventScroll: true});
+      return;
+    }
+    if (c.item.type !== 'news') return;
     c.tr.on = false; c.tr.note = '';
     dropPics(c.hand); c.hand = {...idleHand(), open: true};
     paintBody();
@@ -521,6 +541,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   async function saveHand(form) {
     const c = cur;
     if (!c || !c.hand.open || c.hand.busy || !c.hand.init) return;
+    if (c.item.type === 'outside') { await saveHandBody(c, form); return; }
     const values = handValues(form);
     const srcs = () => new Map([...c.hand.pics].filter(([n]) => tokensIn(values.body).includes(n)).map(([n, p]) => [n, p.src || '']));
     let req = handRequest(c.item.id, values, c.hand.init, srcs());
@@ -564,6 +585,28 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     notify('저장했어요', {record: false});
     load(c.item);
   }
+  // 사회운동 [본문 붙여 넣기](S68-49): 서버 outside-feed hand_body(글 id·본문 글자만). 저장되면 원문·요약을 새 본문으로 다시 읽는다.
+  async function saveHandBody(c, form) {
+    const values = handValues(form);
+    c.hand.shown = values;
+    const req = handBodyRequest(c.item.id, values.body);
+    if (req.error) { c.hand.note = req.error; paintHand(); return; }
+    c.hand.busy = true; c.hand.note = ''; paintHand();
+    try {
+      await rt().api('/functions/v1/outside-feed?action=hand_body', {method: 'POST', body: req.body, singleFlight: false, timeoutMs: 30000});
+    } catch (e) {
+      c.hand.busy = false; c.hand.note = e?.status === 409 ? '이미 원문을 읽은 글이에요' : handError(e);
+      if (cur === c) paintHand();
+      return;
+    }
+    if (cur !== c) return;
+    const key = itemKey(c.item);
+    bodies.delete(key); translations.delete(key); details.delete(key); gaveUp.delete(key);
+    c.hand = idleHand(); c.detail = null; c.failed = ''; c.unread = ''; c.refetchNote = '';
+    paint();
+    notify('저장했어요', {record: false});
+    load(c.item);
+  }
   // [사진 주소 넣기](S67-05): 작은 글 입력창에 붙여 넣은 사진 주소를 본문 칸 커서 자리에 한 줄로. 그림 파일 끝이 아닌 주소는 이 기기에서 사진으로 열리는지 보고 '#사진'을 붙인다.
   // 사진으로 볼지는 서버가 다시 판정한다(https만·포트 없음·20장까지). 사진은 리퍼러 없이 띄운다(본문 사진과 같음).
   async function addHandPhoto(form) {
@@ -602,6 +645,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function addPics(form, files) {
     const c = cur, area = form?.querySelector('[data-nd-hand-in="body"]');
     if (!c || !c.hand.open || c.hand.busy || !c.hand.init || !area || !files.length) return;
+    if (c.item.type !== 'news') return; // 사회운동 [본문 붙여 넣기]는 글자만(S68-49) — 사진은 받지 않는다
     const say = note => { c.hand.shown = handValues(form); c.hand.note = note; paintHand(); };
     const bad = files.map(photoFileError).find(Boolean);
     const good = files.filter(f => !photoFileError(f));

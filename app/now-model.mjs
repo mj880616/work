@@ -154,6 +154,15 @@ function bodyViewOf(row) {
 // S68-25(명진 결정 2026-11-22): 원문 읽기는 이제 robots.txt를 보지 않으므로, 예전에 robots 때문에 비어 있던 뉴스 기사도 열 때 한 번 읽어 온다.
 const REOPEN_REASONS = new Set(['timeout', 'http_5xx', 'robots']);
 export const reopenBody = row => row?.state === 'failed' && REOPEN_REASONS.has(row?.reason);
+// [원문 다시 가져오기] 단추를 달 실패(S68-49, 명진 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 위 자동 다시 읽기 까닭 + 봇 확인(bot_check).
+// 봇 확인은 열 때마다 저절로 다시 읽지 않고(사이트 부담·같은 결과) 사람이 누를 때만 한 번(서버 길: 뉴스 news-feed open · 사회운동 outside-feed reread).
+// 뉴스·사회운동 두 갈래 같다. 손으로 넣은 본문(manual@1 — 비운 손 본문도 실패 줄)은 사람 것이라 다시 읽지 않는다.
+const REFETCH_REASONS = new Set([...REOPEN_REASONS, 'bot_check']);
+export const canRefetch = row => row?.state === 'failed' && REFETCH_REASONS.has(row?.reason) && row?.rule !== HAND_RULE;
+// 요약 서버(ai-assist now_detail)의 '재료 없음'(422 no_material)인가 — 판단은 이 함수 하나(S68-49).
+// 서버 답 {error:'no_material', message:'AI 요청을 처리하지 못했어요.'}: 화면 요청 도구는 message를 오류 글로 쓰고 error 칸은 serverCode에 둔다.
+// 예전 판단(message에 'no_material'이 드는가)은 운영 답에서 늘 거짓이라 요약 칸에 빨간 'HTTP 422'가 보였다(11/23 캡처).
+export const isNoMaterial = e => e?.status === 422 && (e?.serverCode === 'no_material' || /\bno_material\b/.test(String(e?.message || '')));
 // 저장 원문이 아예 없는 옛 글: 예전 저장 글자(사회운동 문장·뉴스 body)를 문단 블록으로.
 export function legacyBody(text, {lead = false} = {}) {
   const blocks = String(text ?? '').split(/\n+/).map(t => t.trim()).filter(Boolean).slice(0, BLOCK_MAX).map(text => ({t: 'p', text}));
@@ -344,7 +353,16 @@ export function tabForItem(type, tab) {
 // 서버 상한과 같게(supabase/functions/news-feed/handler.ts HAND_LIMITS). 값은 글자로만 보내고 글자로만 그린다.
 export const HAND_LIMITS = Object.freeze({title: 300, publisher: 60, author: 80, body: 50000, url: 2000});
 // 못 읽은 기사인가(원문 칸에 [직접 넣기]). 뉴스 기사만 — 사회운동 글은 다른 서버 함수라 이번에 없음.
-export const canHandFill = (item, b) => item?.type === 'news' && !!b && !b.failedLoad && b.state === 'failed';
+// S68-49: 사회운동 글도 — 끝내 못 읽은 글(실패)에 [본문 붙여 넣기](본문 칸만, 서버 outside-feed hand_body). 손 본문은 다시 읽기가 덮지 않는다(#2897 규칙).
+export const canHandFill = (item, b) => (item?.type === 'news' || item?.type === 'outside') && !!b && !b.failedLoad && b.state === 'failed';
+export const HAND_BODY_MAX = 50000; // 사회운동 [본문 붙여 넣기] 본문 글자 상한(서버 HAND_BODY_MAX와 같음)
+// 사회운동 [본문 붙여 넣기] 요청: {body} 또는 {error}. 빈 본문은 보내지 않는다.
+export function handBodyRequest(id, text) {
+  const body = String(text ?? '');
+  if (!body.trim()) return {error: '본문을 넣어 주세요'};
+  if ([...body].length > HAND_BODY_MAX) return {error: `본문은 ${HAND_BODY_MAX.toLocaleString('ko-KR')}자까지`};
+  return {body: {id, body}};
+}
 // S68-44: 손으로 넣은 본문(블록 규칙 manual@1)인데 글자 블록이 없는가(본문을 비웠거나 사진만). 상세 원문 칸은 까닭 대신 '본문 없음' 한 줄.
 // 제목만 고친 못 읽은 기사(블록은 읽기 실패 그대로)는 들지 않는다 — 원래 까닭(늦은 답 등)이 그대로 보인다.
 export const handNoText = b => !!b?.hand && !b.failedLoad && !(b.blocks || []).some(x => x && x.t !== 'img');

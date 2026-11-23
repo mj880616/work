@@ -6,11 +6,13 @@
 //   사람이 직접 한 주소를 저장할 때(note-import)만 쓴다. 기본값은 robots 확인 — 수집(news-feed·now-detail-build 등)은 넘기지 않는다.
 //   건너뛰어도 allow() 주소 재검사·리다이렉트 상한·크기·시간 상한·출처별 간격·쿠키 없음은 그대로다.
 // - 응답 FETCH_MAX_BYTES·FETCH_TIMEOUT_MS 상한, 쿠키·인증 헤더 없음, 정직한 User-Agent.
+//   머리글은 reader-headers.ts 한 곳(S68-49: 브라우저 호환 꼴 User-Agent + 일반 브라우저 Accept·Accept-Language, 위장·우회 없음).
 // - 요청 사이 gapMs는 출처(사이트)마다 따로 지킨다(S54-16): 같은 사이트는 gapMs 간격 그대로, 다른 사이트끼리는 기다리지 않는다.
 //   여러 요청이 동시에 와도 출처별 다음 차례 시각을 먼저 잡아 두므로 같은 사이트 간격은 줄지 않는다.
 // outside-feed는 아직 자기 읽기를 쓴다(그 함수의 다른 PR과 겹치지 않게 이번에는 손대지 않음 — 옮기기는 후속).
 import { decodeBody, robotsAllows } from "../outside-feed/parse.ts";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "./news-url.ts";
+import { BROWSER_ACCEPT_FEED, BROWSER_ACCEPT_HTML, readerHeaders } from "./reader-headers.ts";
 export { cleanArticleUrl, openArticleUrl, urlKey };
 
 export const FETCH_MAX_BYTES = 2 * 1024 * 1024;
@@ -37,8 +39,8 @@ export type ReaderOptions = {
   skipRobots?: boolean; // true일 때만 robots.txt를 읽지 않는다(사람이 직접 한 쪽 저장 — note-import만). 다른 값·빠짐은 robots 확인.
 };
 
-export const ACCEPT_FEED = "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9";
-export const ACCEPT_HTML = "text/html, application/xhtml+xml;q=0.9";
+export const ACCEPT_FEED = BROWSER_ACCEPT_FEED;
+export const ACCEPT_HTML = BROWSER_ACCEPT_HTML;
 
 export function makeFeedReader(o: ReaderOptions): FeedReader {
   const now = o.now ?? Date.now;
@@ -55,7 +57,7 @@ export function makeFeedReader(o: ReaderOptions): FeedReader {
     try {
       const res = await o.doFetch(url.href, {
         method: "GET", redirect: "manual", credentials: "omit",
-        headers: { "User-Agent": o.userAgent, Accept: accept, "Accept-Language": "ko,en;q=0.8" },
+        headers: readerHeaders(o.userAgent, accept),
         signal: AbortSignal.timeout(timeoutMs),
       });
       return { res };

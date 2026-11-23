@@ -33,6 +33,7 @@
 //   rpc app_news_refs_sync(지도·공용 본문·사람별 읽음·자세히·반응 보충, 서버 전용 — prune 단계 앞).
 //   본문 블록(NEWS-전면개편 P2b, 4.7절): media 단계가 피드를 읽은 뒤 새 기사마다 글 쪽 1번(같은 reader라 요청 사이 GAP_MS, 예산 RUN_BUDGET_MS,
 //   매체마다 한 번 MEDIA_BODY_PER_RUN건), 남은 것은 pending 단계가 읽는다. 누를 때 열기(open)도 같은 줄을 고친다. 로그·응답에는 건수·키·단계 코드만(제목·본문·주소·키워드 없음).
+import { readerUserAgent } from "../_shared/reader-headers.ts";
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { allowedUrl } from "../_shared/outside-catalog.ts";
 import { matchedKeywords, NEWS_CATALOG, newsSourceByKey, OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
@@ -60,7 +61,8 @@ export type NewsFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number;
 export const CRON_HEADER = "x-news-feed-cron-secret";
 export const SECRET_NAME = "NEWS_FEED_CRON_SECRET";
 const FOREIGN_SECRET_HEADERS = ["x-drive-summary-cron-secret", "x-collector-feed-secret", "x-collector-heartbeat-secret", "x-outside-feed-cron-secret"];
-export const USER_AGENT = "Web2NewsFeed/1.0 (+https://github.com/mj880616/work/blob/main/docs/design/news-clipping.md)";
+// S68-49: 브라우저 호환 꼴(위장 없음 — _shared/reader-headers.ts).
+export const USER_AGENT = readerUserAgent("Web2NewsFeed", "1.0", "https://github.com/mj880616/work/blob/main/docs/design/news-clipping.md");
 export const ROBOTS_AGENT = "Web2NewsFeed";
 export const GAP_MS = 2000;
 // 켠 매체 피드 하나에서 한 번에 받는 글 수(NEWS-다받기, 11/09). 매체 피드는 그 피드가 싣는 최근 글 수(연합 섹션 120·조선 100·매경·동아·노컷 50 등,
