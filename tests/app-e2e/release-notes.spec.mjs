@@ -100,10 +100,9 @@ for(const width of [1440,412])test(`계정 메뉴 [내 프로필] 아래 [업데
   const names=await rows.evaluateAll(list=>list.map(b=>(b.querySelector('.account-action-name')||b).textContent.trim()));
   expect(names).toEqual(['내 프로필',...(phoneLike(width)?['쓰는 법']:[]),'업데이트 소식','PC에 앱 설치','앱 내려받기','메뉴 수정','화면 색','잠금','의견 보내기','업데이트 기록','가입자 현황','받은 의견','로그아웃']);
   const entry=panel.locator('[data-updates-open]');
-  await expect(entry.locator('[data-account-ver]')).toHaveText('현재 10/30-23');
-  // 한 줄: 이름과 판 이름이 같은 줄, 판 이름은 오른쪽 끝
-  const geo=await entry.evaluate(b=>{const n=b.querySelector('.account-action-name').getBoundingClientRect(),v=b.querySelector('[data-account-ver]').getBoundingClientRect(),r=b.getBoundingClientRect();return {same:Math.abs(n.top-v.top)<=4,right:r.right-v.right,size:parseFloat(getComputedStyle(b.querySelector('[data-account-ver]')).fontSize)}});
-  expect(geo.same).toBe(true);expect(geo.right).toBeLessThanOrEqual(16);expect(geo.size).toBeLessThanOrEqual(13);
+  // 명진 11/23: 메뉴 줄은 '업데이트 기록' 이름만(옆 '현재 판' 글자 없음).
+  await expect(entry).toHaveText('업데이트 기록');
+  await expect(entry.locator('[data-account-ver]')).toHaveCount(0);
   await page.screenshot({path:`test-results/account-updates-menu-${width}.png`});
   await entry.click();
   await expect(panel).toBeHidden();
@@ -152,7 +151,7 @@ test('기록을 못 읽으면 기록 화면에 실패 한 줄과 [다시], 메�
   let fail=true;
   await boot(page,{view:'calendar',notes:()=>fail?null:list([note('10/30-2',['고친 점'])])});
   const panel=await openUpdates(page,1280);
-  await expect(panel.locator('[data-updates-open] [data-account-ver]')).toBeEmpty();
+  await expect(panel.locator('[data-updates-open]')).toHaveText('업데이트 기록');
   await panel.locator('[data-updates-open]').click();
   await expect(page.locator('#updatesView [data-wait-fail]')).toBeVisible({timeout:15000});
   fail=false;
