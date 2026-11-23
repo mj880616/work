@@ -337,7 +337,7 @@ export function tabForItem(type, tab) {
 // ---- 직접 넣기(S67-02 NEWS-직접넣기) ----
 // 원문을 못 읽은 뉴스 기사(늦은 답·없는 글·막힘 등)에 사람이 제목·매체·기자·기사 시각·본문을 넣는다. 저장은 서버(news-feed hand_fill)뿐.
 // 서버 상한과 같게(supabase/functions/news-feed/handler.ts HAND_LIMITS). 값은 글자로만 보내고 글자로만 그린다.
-export const HAND_LIMITS = Object.freeze({title: 300, publisher: 60, author: 80, body: 50000});
+export const HAND_LIMITS = Object.freeze({title: 300, publisher: 60, author: 80, body: 50000, url: 2000});
 // 못 읽은 기사인가(원문 칸에 [직접 넣기]). 뉴스 기사만 — 사회운동 글은 다른 서버 함수라 이번에 없음.
 export const canHandFill = (item, b) => item?.type === 'news' && !!b && !b.failedLoad && b.state === 'failed';
 const pad2 = n => String(n).padStart(2, '0');
@@ -367,6 +367,7 @@ export function handInitial(row, blocks) {
   return {
     title: ownTitle ? title : '',
     publisher: oneLineText(row?.publisher) || hostOf(row?.url),
+    url: webUrlOf(row?.url) || '',
     author: oneLineText(row?.author),
     at: localInputOf(row?.published_at),
     body: handBodyOf(blocks, photos),
@@ -474,6 +475,49 @@ export function insertPhotoLine(value, at, line) {
   const next = before + head + line + tail + after;
   return {value: next, caret: (before + head + line + tail).length};
 }
+// ---- 원문 주소(S68-39 NEWS-직접넣기원문주소) ----
+// http·https 주소 하나인가(앞뒤 공백 뺌, 빈칸·제어 문자 없음, 사용자·비밀번호 없음, 2000자까지). 맞으면 그 주소 글자, 아니면 ''.
+export function webUrlOf(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s || s.length > 2000 || !/^https?:\/\/\S+$/i.test(s) || /[\u0000-\u001f\u007f-\u009f]/.test(s)) return '';
+  let u;
+  try { u = new URL(s); } catch { return ''; }
+  if ((u.protocol !== 'http:' && u.protocol !== 'https:') || u.username || u.password || !u.hostname.includes('.')) return '';
+  return s;
+}
+// 손으로 넣은 본문 첫 줄이 주소 하나뿐인가(옛 직접 넣기 — 주소 칸이 없어 본문에 붙여 넣은 것). 맞으면 그 주소, 아니면 ''.
+export function bodyFirstUrl(blocks) {
+  const first = Array.isArray(blocks) ? blocks.find(b => b && (b.t !== 'p' || String(b.text ?? '').trim())) : null;
+  return first && first.t === 'p' ? webUrlOf(first.text) : '';
+}
+// [옮기기]: 입력 칸 처음 값에서 본문 첫 줄 주소를 원문 주소 칸으로 옮긴 값. 첫 줄이 주소가 아니면 null. 남는 본문이 비면 null(서버가 빈 본문을 받지 않음).
+export function movedUrlValues(initial) {
+  const lines = String(initial?.body ?? '').split(/\r\n?|\n/);
+  const i = lines.findIndex(l => l.trim());
+  const url = i < 0 ? '' : webUrlOf(lines[i]);
+  if (!url) return null;
+  const body = lines.slice(i + 1).join('\n').replace(/^\s*\n/, '');
+  if (!body.trim()) return null;
+  return {...initial, url, body};
+}
+// 문단 글자 → 조각 [{url?: 주소, text}]. 본문 안 http·https 주소는 작은 줄바꿈 링크로 그린다(긴 주소가 큰 글자 덩어리로 보이지 않게).
+// 주소 끝의 문장부호·닫는 괄호는 주소에서 뺀다. 링크로 쓸 수 없는 모양은 글자 그대로.
+export function textWithUrls(text) {
+  const s = String(text ?? ''), out = [], re = /https?:\/\/[^\s<>"']+/gi;
+  let at = 0, m;
+  while ((m = re.exec(s))) {
+    let u = m[0];
+    const trail = /[.,;:!?。、)\]}>’”]+$/.exec(u);
+    if (trail) u = u.slice(0, -trail[0].length);
+    if (!webUrlOf(u)) continue;
+    if (m.index > at) out.push({text: s.slice(at, m.index)});
+    out.push({url: u, text: u});
+    at = m.index + u.length;
+    re.lastIndex = at;
+  }
+  if (at < s.length) out.push({text: s.slice(at)});
+  return out;
+}
 export function hostOf(url) {
   try { return new URL(String(url || '')).hostname.replace(/^www\./, ''); } catch { return ''; }
 }
@@ -492,6 +536,12 @@ export function handRequest(id, values, initial, photos = new Map()) {
   const known = tokensIn(body).filter(n => photos.has(n));
   if (handPhotoCount(body) + known.length > HAND_PHOTOS_MAX) return {error: `사진은 ${HAND_PHOTOS_MAX}장까지`};
   const out = {id, title, publisher: publisher || null, author: author || null, published_at: at};
+  // 원문 주소(S68-39): 비우거나 처음 값 그대로면 보내지 않는다(서버 주소 그대로). 바꾸면 http·https 주소만 — 받을지는 서버가 다시 본다.
+  const url = String(values.url ?? '').trim();
+  if (url && url !== String(initial?.url ?? '').trim()) {
+    if (url.length > HAND_LIMITS.url || !webUrlOf(url)) return {error: '원문 주소는 http·https 주소로 넣어 주세요'};
+    out.url = url;
+  }
   const changed = body.replace(/\s+/g, ' ').trim() !== String(initial?.body ?? '').replace(/\s+/g, ' ').trim();
   if (changed) {
     if (!body.trim()) return {error: '본문을 비울 수는 없어요'};
@@ -508,6 +558,8 @@ export function handError(e) {
   if (e?.status === 400 && /INVALID_DATE/.test(code)) return '기사 시각을 다시 넣어 주세요';
   if (e?.status === 400 && /TOO_MANY_PHOTOS/.test(code)) return `사진은 ${HAND_PHOTOS_MAX}장까지`;
   if (e?.status === 400 && /INVALID_TEXT/.test(code)) return '본문에 글자를 넣어 주세요';
+  if (e?.status === 400 && /INVALID_URL/.test(code)) return '넣을 수 없는 원문 주소예요 · 기사 주소를 넣어 주세요';
+  if (e?.status === 409 && /URL_TAKEN/.test(code)) return '그 주소의 기사가 이미 있어요 · 그 주소로 다시 저장해 주세요';
   if (e?.status === 413 && /PHOTO_TOO_LARGE/.test(code)) return '사진은 한 장 10MB까지';
   if (e?.status === 415) return 'jpg·png·webp·gif 사진만 넣을 수 있어요';
   if (e?.status === 424) return '구글 드라이브 연결이 필요해요 · 자료실에서 연결';

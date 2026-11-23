@@ -1426,15 +1426,19 @@ async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: 
 
 // ---- 손으로 넣기(hand_fill, S67-02 NEWS-직접넣기) ------------------------------------------------------------------------
 // 원문을 못 읽은 기사(늦은 답·없는 글·막힘)나 잘못 읽은 기사에 사람이 제목·매체·기자·기사 시각·본문을 넣는다. 화면 [직접 넣기]·⋯ [수정].
-// - 몸통 {id, title, publisher, author, published_at, body?}. body가 없으면 본문은 그대로(제목 등만 고침). 값은 글자로만 저장(HTML 해석 없음).
+// - 몸통 {id, title, publisher, author, published_at, body?, url?}. body가 없으면 본문은 그대로(제목 등만 고침). 값은 글자로만 저장(HTML 해석 없음).
+// - url(S68-39 NEWS-직접넣기원문주소, 선택): 원문 주소를 바로잡는다. 주소로 보관(save_url)과 같은 규칙(saveTarget — http는 https로, 거절 목록·추적 값 떼기,
+//   2000자까지)만 받고, 바깥 사이트는 읽지 않는다. 지금 주소와 같으면 그대로. 다른 공용 기사가 이미 그 주소면 409 URL_TAKEN(합치지 않음).
+//   바뀌면 공용 기사 url·url_key + 이 작업공간의 같은 기사 옛 줄 주소만 고친다(다른 작업공간 줄은 읽지도 고치지도 않는다).
+//   읽을 거리 줄(app_reading_items)은 서비스 역할 권한이 없는 표라 건드리지 않는다 — 그 줄의 주소 사본은 보관한 때 주소 그대로 남는다.
 // - 운영자 기능 키(outside) 작업공간만(위 newsAllowed). 기사는 누른 사람 로그인으로 읽히는 공용 기사만(ownArticle, 못 읽으면 404).
 // - 바깥 사이트를 읽지 않고 AI도 부르지 않는다. 쓰기는 서비스 역할: 공용 기사 한 줄 + 본문 블록(rule manual@1) + 이 작업공간 같은 주소 옛 줄.
 // - 본문·제목이 바뀌면 옛 번역·수집 요약과 이 작업공간의 '자세히'(요약·시사점) 저장본을 지워 새 재료로 다시 만들게 한다.
 export const HAND_RULE = "manual@1";
-export const HAND_LIMITS = Object.freeze({ title: 300, publisher: 60, author: 80, body: 50000, blocks: 400 });
+export const HAND_LIMITS = Object.freeze({ title: 300, publisher: 60, author: 80, body: 50000, blocks: 400, url: SAVE_URL_MAX });
 const HAND_MAX_BYTES = 256 * 1024;
-const HAND_KEYS = ["id", "title", "publisher", "author", "published_at", "body"];
-export type HandInput = { id: string; title: string; publisher: string | null; author: string | null; published_at: string | null; body: string[] | null; blocks: HandBlock[] | null };
+const HAND_KEYS = ["id", "title", "publisher", "author", "published_at", "body", "url"];
+export type HandInput = { id: string; title: string; publisher: string | null; author: string | null; published_at: string | null; body: string[] | null; blocks: HandBlock[] | null; url: { url: string; key: string } | null };
 // deno-lint-ignore no-control-regex
 const HAND_CTRL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200b\ufeff]/g;
 const handLine = (v: unknown) => (typeof v === "string" ? oneLine(v.replace(HAND_CTRL, " ")) : null);
@@ -1534,12 +1538,24 @@ export function parseHandFill(b: Row, nowMs: number): HandInput {
     if (!body.length) throw new Fail(400, "INVALID_TEXT");
     if (blocks.length - body.length > BODY_LIMITS.images) throw new Fail(400, "TOO_MANY_PHOTOS");
   }
-  return { id: b.id.toLowerCase(), title, publisher, author, published_at: published, body, blocks };
+  // 원문 주소(선택): null·빈 글자 = 그대로. 글자가 아니거나 열린 기사 주소 규칙 밖이면 400 INVALID_URL.
+  let url: { url: string; key: string } | null = null;
+  if ("url" in b && b.url !== null) {
+    if (typeof b.url !== "string" || b.url.length > HAND_LIMITS.url) throw new Fail(400, "INVALID_URL");
+    const raw = b.url.trim();
+    if (raw) {
+      if (!/^https?:\/\//i.test(raw) || /[\s\u0000-\u001f\u007f-\u009f]/.test(raw)) throw new Fail(400, "INVALID_URL");
+      url = saveTarget(raw);
+      if (!url) throw new Fail(400, "INVALID_URL");
+    }
+  }
+  return { id: b.id.toLowerCase(), title, publisher, author, published_at: published, body, blocks, url };
 }
 // 손으로 넣은 값 → 한 줄 고칠 칸(공용 기사·옛 줄 같은 규칙). shared면 기자 이름·'직접 넣음' 시각 칸도(공용 기사에만 있음).
 export function handPatch(row: Row, v: HandInput, nowIso: string, shared: boolean): Row {
   const patch: Row = { title: v.title, title_key: titleKey(v.title), publisher: v.publisher, published_at: v.published_at, updated_at: nowIso };
   if (shared) { patch.author = v.author; patch.manual_at = nowIso; }
+  if (v.url && v.url.key !== row.url_key) { patch.url = v.url.url; patch.url_key = v.url.key; }
   if (v.body) {
     Object.assign(patch, { body: v.body.join("\n"), body_kind: "full", state: "ok", fetched_at: row.fetched_at ?? nowIso, summary: null, title_ko: null, body_ko: null, translated_at: null });
   } else if (v.title !== row.title && row.title_ko != null) {
@@ -1560,6 +1576,12 @@ async function handFill(db: Db, reads: UserReads, log: FeedLog, ws: string, b: R
   const art = await ownArticle(reads, v.id);
   const olds = await ownOldRows(db, ws, art);
   const nowIso = new Date(nowMs).toISOString();
+  // 원문 주소를 바꾸면: 그 주소의 다른 공용 기사가 있으면 쓰기 전에 409(두 기사를 합치지 않는다 — 그 주소로 다시 보관하면 그 기사가 열린다).
+  const moving = !!v.url && v.url.key !== art.url_key;
+  if (moving) {
+    const taken = await db.get(`app_news_articles?url_key=eq.${encodeURIComponent(v.url!.key)}&select=id&limit=2`);
+    if (taken.some((r) => String(r.id) !== String(art.id))) throw new Fail(409, "URL_TAKEN");
+  }
   // 공용 기사가 먼저(실패하면 503 — 화면은 '저장하지 못함'). 옛 줄·자세히 지우기는 따라 적기라 실패해도 로그만.
   await db.send("PATCH", `app_news_articles?id=eq.${art.id}`, handPatch(art, v, nowIso, true), "return=minimal");
   if (v.body) {
@@ -1578,7 +1600,7 @@ async function handFill(db: Db, reads: UserReads, log: FeedLog, ws: string, b: R
     if (oldIds.length) await db.send("DELETE", `app_now_details?workspace_id=eq.${ws}&news_item_id=in.(${oldIds.join(",")})`, undefined, "return=minimal");
   } catch { log("detail_clear_failed"); }
   const paras = v.body?.length ?? 0;
-  log("hand_filled", { paras, olds: olds.length });
+  log("hand_filled", { paras, olds: olds.length, moved: moving });
   return { ok: true, status: "filled", id: String(art.id) };
 }
 

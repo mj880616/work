@@ -313,3 +313,39 @@ test('own photos: kind and size are checked before anything goes up; lines go in
   assert.match(M.handError({status: 413, message: 'PHOTO_TOO_LARGE'}), /10MB/);
   assert.match(M.handError({status: 424, message: 'DRIVE_NOT_CONNECTED'}), /구글 드라이브/);
 });
+
+// S68-39 NEWS-직접넣기원문주소: 손으로 넣는 칸의 원문 주소 · 옛 본문 첫 줄 주소 옮기기 · 본문 안 주소 작은 링크 조각.
+const M = await import('../app/now-model.mjs');
+test('hand url: initial value, request only when changed, http/https only, server refusals in plain words', () => {
+  const init = M.handInitial({title: '합성 제목', url: 'https://news.example.org/a/1'}, [{t: 'p', text: '본문'}]);
+  assert.equal(init.url, 'https://news.example.org/a/1');
+  assert.equal(M.handInitial({url: 'javascript:alert(1)'}, []).url, '');
+  const base = {title: '합성 제목', body: init.body};
+  assert.equal('url' in M.handRequest('id', {...base, url: 'https://news.example.org/a/1'}, init).body, false);
+  assert.equal('url' in M.handRequest('id', {...base, url: '   '}, init).body, false);
+  assert.equal(M.handRequest('id', {...base, url: ' http://news.example.org/a/2 '}, init).body.url, 'http://news.example.org/a/2');
+  for (const bad of ['javascript:alert(1)', 'news.example.org/a', 'https://a b.example.org', 'ftp://x.example.org/a', 'https://u:p@x.example.org/a', `https://x.example.org/${'a'.repeat(2000)}`]) {
+    assert.deepEqual(M.handRequest('id', {...base, url: bad}, init), {error: '원문 주소는 http·https 주소로 넣어 주세요'}, bad.slice(0, 40));
+  }
+  assert.equal(M.handError(Object.assign(new Error('INVALID_URL'), {status: 400})), '넣을 수 없는 원문 주소예요 · 기사 주소를 넣어 주세요');
+  assert.equal(M.handError(Object.assign(new Error('URL_TAKEN'), {status: 409})), '그 주소의 기사가 이미 있어요 · 그 주소로 다시 저장해 주세요');
+});
+
+test('hand url: first body line that is only an address moves to the url field; otherwise nothing', () => {
+  const url = 'https://www.example.org/portal/bbs/view.do?nttId=1&menuNo=2';
+  assert.equal(M.bodyFirstUrl([{t: 'p', text: ` ${url} `}, {t: 'p', text: '본문'}]), url);
+  assert.equal(M.bodyFirstUrl([{t: 'p', text: `보세요 ${url}`}]), '');
+  assert.equal(M.bodyFirstUrl([{t: 'img', src: 'https://www.example.org/a.jpg'}, {t: 'p', text: url}]), '');
+  assert.equal(M.bodyFirstUrl([]), '');
+  assert.deepEqual(M.movedUrlValues({title: 't', url: 'https://old.example.org/a', body: `${url}\n본문 하나\n둘`}), {title: 't', url, body: '본문 하나\n둘'});
+  assert.equal(M.movedUrlValues({body: '본문 하나'}), null);
+  assert.equal(M.movedUrlValues({body: url}), null, 'body would become empty');
+});
+
+test('hand url: addresses inside a paragraph become link pieces; trailing punctuation stays text; unsafe schemes stay text', () => {
+  const url = 'https://www.example.org/portal/bbs/view.do?nttId=1&menuNo=2';
+  assert.deepEqual(M.textWithUrls(`원문: ${url}. 끝`), [{text: '원문: '}, {url, text: url}, {text: '. 끝'}]);
+  assert.deepEqual(M.textWithUrls('그냥 글'), [{text: '그냥 글'}]);
+  assert.deepEqual(M.textWithUrls('javascript:alert(1) data:text/html,x'), [{text: 'javascript:alert(1) data:text/html,x'}]);
+  assert.deepEqual(M.textWithUrls('(https://x.example.org/a)'), [{text: '('}, {url: 'https://x.example.org/a', text: 'https://x.example.org/a'}, {text: ')'}]);
+});
