@@ -211,7 +211,8 @@ for (const width of [412, 1440]) {
     await item(page, 'w1').locator('[data-nc-open="w1"]').click();
     await expect(page.locator('[data-nd-summary]')).toContainText('가짜 기사 한 줄 요약입니다.');
     expect(order.slice(0, 2)).toEqual(['open', 'detail']);
-    expect(server.calls.find(c => c.action === 'open')).toMatchObject({ body: { id: 'w1' } });
+    // S69-02: 넓은 화면은 첫 글(c1 — 피드 소개만 있고 원문 줄 없음)을 저절로 열며 그 글도 한 번 읽는다. 여기서는 누른 w1의 읽기만 본다.
+    expect(server.calls.find(c => c.action === 'open' && c.body?.id === 'w1')).toMatchObject({ body: { id: 'w1' } });
     await expect(page.locator('[data-nd-unread]')).toHaveCount(0);
     expect(errors).toEqual([]);
   });

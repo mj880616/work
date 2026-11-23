@@ -93,14 +93,14 @@ for (const width of [412, 1280]) {
   });
 }
 
-test('사회운동 봇 확인 글: 다시 읽어도 막힘 → 단추 거둠·원래 사이트에서 열기 + [본문 붙여 넣기] → 저장 → 본문·요약', async ({ page }) => {
+test('사회운동 봇 확인 글: 다시 읽어도 막힘 → 까닭 한 줄·단추는 그대로(S69-02)·원래 사이트에서 열기 + [본문 붙여 넣기] → 저장 → 본문·요약', async ({ page }) => {
   test.setTimeout(60000);
   const { errors, s, d } = await start(page, 412, { reread: 'blocked' });
   const why = d.locator('[data-nd-body] [data-nd-why]');
   await why.getByRole('button', { name: '원문 다시 가져오기' }).click();
   await expect.poll(() => s.rereads.length).toBe(1);
   await expect(why.locator('[data-nd-refetch-note]')).toHaveText('다시 읽어도 사이트가 본문을 주지 않아요');
-  await expect(why.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
+  await expect(why.getByRole('button', { name: '원문 다시 가져오기' })).toBeVisible();
   await expect(why.locator('[data-nd-link]')).toHaveText('원래 사이트에서 열기 ↗');
   await expect(why.locator('[data-nd-link]')).toHaveAttribute('href', POST.url);
   await why.getByRole('button', { name: '본문 붙여 넣기' }).click();

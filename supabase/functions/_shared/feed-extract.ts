@@ -7,6 +7,7 @@
 // - 사진 주소는 저장만 한다. 서버가 받으러 가지 않는다(화면이 https로만, 리퍼러 없이 띄움 — 4.5절).
 import { bodyRange, bodyScopeHtml, cut, decodeEntities, htmlToText, isBodyNoise, isFileLine, oneLine } from "../outside-feed/parse.ts";
 import { decodeText } from "./html-entities.ts";
+import { isMoreLink } from "./outside-tidy.ts";
 
 // 출처마다 카탈로그 `extract` 칸(모양은 outside-catalog.ts의 ExtractRule). 본문 칸은 지금 카탈로그 `bodyClass`를 그대로 쓴다(ai-assist가 같은 칸을 읽음 — 두 벌 금지).
 import type { ExtractRule } from "./outside-catalog.ts";
@@ -268,7 +269,8 @@ function leadOf(full: Extracted): Extracted {
 export function textBlocks(text: string, opts: { key: string; rule: ExtractRule | null; minChars: number; photos?: string[]; state?: "lead"; reason?: BodyReason | null }): Extracted {
   const rule = ruleId(opts.key, opts.rule);
   const b = new Builder();
-  for (const l of text.split(/\n+/)) b.text("p", l);
+  // S69-02: 사이트 '더 보기' 링크 글자 줄('전체 내용보기' 등)은 본문 문단이 아니다.
+  for (const l of text.split(/\n+/)) if (!isMoreLink(l)) b.text("p", l);
   for (const p of opts.photos ?? []) {
     let u: URL;
     try { u = new URL(p); } catch { continue; }
@@ -277,6 +279,26 @@ export function textBlocks(text: string, opts: { key: string; rule: ExtractRule 
   if (opts.state === "lead") {
     if (!b.chars) return failedBody(opts.reason ?? "no_body", rule);
     return { state: "lead", reason: opts.reason ?? null, rule, blocks: b.blocks, chars: b.chars, images: b.images, captions: 0, text: b.textOnly(), scope: "text" };
+  }
+  return { ...finish(b, rule, opts.minChars, []), scope: "text" };
+}
+
+// S69-02: 페이지 안 구조화 본문(Arc content_elements 등)처럼 종류가 붙은 차례 목록 → 블록(문단·소제목·사진·캡션 그대로).
+// 사진은 https 주소만(imageSrc와 같은 규칙: 아이디·비밀번호 없음, 길이·모양 상한, 꾸밈 그림 빼기). '더 보기' 링크 줄은 뺀다.
+export type TypedItem = { t: "p" | "h" | "quote"; text: string } | { t: "img"; src: string; cap?: string | null; alt?: string | null };
+export function typedBlocks(items: TypedItem[], opts: { key: string; rule: ExtractRule | null; minChars: number }): Extracted {
+  const rule = ruleId(opts.key, opts.rule);
+  const b = new Builder();
+  for (const it of items) {
+    if (it.t === "img") {
+      if (typeof it.src !== "string" || !/^https:\/\//i.test(it.src)) continue; // 상대 주소·http는 받지 않는다
+      const src = imageSrc(`<img src="${String(it.src).replace(/"/g, "&quot;")}">`, "https://invalid.example/");
+      if (!src) continue;
+      b.img(src, it.alt ? String(it.alt) : null);
+      if (it.cap) b.caption(String(it.cap));
+      continue;
+    }
+    if (!isMoreLink(it.text)) b.text(it.t, it.text);
   }
   return { ...finish(b, rule, opts.minChars, []), scope: "text" };
 }

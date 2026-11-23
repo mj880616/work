@@ -17,9 +17,9 @@ class WeekListService : RemoteViewsService() {
         Rows(applicationContext, intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID))
 
     companion object {
-        private val rows = ConcurrentHashMap<Int, List<String>>()
+        private val rows = ConcurrentHashMap<Int, List<WidgetWeek.Row>>()
 
-        fun put(id: Int, list: List<String>) {
+        fun put(id: Int, list: List<WidgetWeek.Row>) {
             rows[id] = list
         }
 
@@ -29,11 +29,11 @@ class WeekListService : RemoteViewsService() {
 
         fun clear() = rows.clear()
 
-        fun rowsOf(id: Int): List<String> = rows[id].orEmpty()
+        fun rowsOf(id: Int): List<WidgetWeek.Row> = rows[id].orEmpty()
     }
 
     private class Rows(private val context: Context, private val id: Int) : RemoteViewsFactory {
-        private var items: List<String> = emptyList()
+        private var items: List<WidgetWeek.Row> = emptyList()
 
         override fun onCreate() = Unit
 
@@ -46,11 +46,11 @@ class WeekListService : RemoteViewsService() {
         override fun getCount(): Int = items.size
 
         override fun getViewAt(position: Int): RemoteViews =
-            RemoteViews(context.packageName, R.layout.week_widget_row).apply { setTextViewText(R.id.week_row, items.getOrNull(position) ?: "") }
+            WeekWidget.rowView(context, items.getOrNull(position) ?: WidgetWeek.Row(WidgetWeek.Kind.EMPTY, ""))
 
         override fun getLoadingView(): RemoteViews? = null
 
-        override fun getViewTypeCount(): Int = 1
+        override fun getViewTypeCount(): Int = WeekWidget.ROW_TYPES
 
         override fun getItemId(position: Int): Long = position.toLong()
 

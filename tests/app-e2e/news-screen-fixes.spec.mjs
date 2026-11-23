@@ -16,7 +16,9 @@ for (const width of [412, 1280]) {
       const id = (new URL(route.request().url()).searchParams.get('article_id') || '').replace(/^eq\./, '');
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(id === 'w1' ? [{ state: 'ok', reason: null, blocks: [{ t: 'p', text: '저장된 가짜 본문.' }] }] : []) });
     });
+    // S69-02: 넓은 화면은 첫 글(c1 — 피드 소개만 있고 원문 줄 없음)을 저절로 열며 그 글도 한 번 읽는다. 여기서는 누른 w1의 열기만 센다.
     await page.route('**/functions/v1/news-feed?action=open', route => {
+      if (route.request().postDataJSON()?.id !== 'w1') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: 'stored' }) });
       opened++;
       Object.assign(server.items.find(i => i.id === 'w1'), { state: 'ok', title: '서버가 채운 가짜 제목' });
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: 'titled' }) });

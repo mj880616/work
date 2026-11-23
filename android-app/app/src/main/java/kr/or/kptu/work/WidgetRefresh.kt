@@ -75,8 +75,8 @@ class WidgetRefresh(val nowMs: Long, weeks: Set<Int> = setOf(0)) {
     /** 받은 답(readList 결과) → 그릴 것. 내용 만들기는 시험에서 바꿔 끼울 수 있다. */
     fun result(
         outcome: WidgetSession.Outcome<List<WidgetSession.Reply>>,
-        weekContent: (WidgetSession.Reply, WidgetSession.Reply, Long, Boolean?, Int) -> WidgetWeek.Content = { cal, tasks, t, nojo, shift ->
-            WidgetWeek.content(cal.status, cal.body, t, tasksStatus = tasks.status, tasks = tasks.body, nojoWords = nojo, shift = shift)
+        weekContent: (WidgetSession.Reply, WidgetSession.Reply, Long, Int) -> WidgetWeek.Content = { cal, tasks, t, shift ->
+            WidgetWeek.content(cal.status, cal.body, t, tasksStatus = tasks.status, tasks = tasks.body, shift = shift)
         },
     ): Result {
         val replies = when (outcome) {
@@ -88,7 +88,7 @@ class WidgetRefresh(val nowMs: Long, weeks: Set<Int> = setOf(0)) {
         val nojo = got[WidgetRules.FEATURES]?.let { AppFolderRules.nojoWordsOf(it.status, it.body) }
         // 주마다 울타리를 따로 둔다(옮긴 주 하나가 이상해도 이번 주는 그린다).
         val weekPaints: Map<Int, Paint<WidgetWeek.Content>> = weekCals.mapValues { (s, url) ->
-            paint { weekContent(got.getValue(url), got.getValue(WidgetRules.TASKS), nowMs, nojo, s) }
+            paint { weekContent(got.getValue(url), got.getValue(WidgetRules.TASKS), nowMs, s) }
         }
         return Result(weekPaints.getValue(0), nojo, weekPaints)
     }

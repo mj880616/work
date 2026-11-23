@@ -8,7 +8,7 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.ZonedDateTime
 
-/** APP-위젯다시 ③: 이번 주 위젯(요일 칸·가장 큰 일·상집 보고일·몰린 날), 허용 주소. */
+/** APP-위젯다시 ③: 이번 주 위젯(요일 칸·하루 목록, S69-07 시안 B 일정/할 일 구분·D-n 줄 없음), 허용 주소. */
 class WidgetWeekTest {
     private fun at(y: Int, m: Int, d: Int, h: Int = 10, min: Int = 0) =
         ZonedDateTime.of(y, m, d, h, min, 0, 0, WidgetNow.ZONE).toInstant().toEpochMilli()
@@ -92,8 +92,6 @@ class WidgetWeekTest {
         assertEquals(LocalDate.of(2026, 11, 2), next.monday)
         assertEquals(listOf(0, 1, 0, 0, 0, 0, 0), next.days.map { it.count })
         assertEquals(1, next.total)
-        // 옮긴 주의 보고일은 그 주 월요일.
-        assertEquals(LocalDate.of(2026, 11, 2), next.report!!.day)
         val today = LocalDate.of(2026, 10, 30)
         // 다른 주로 옮기면 오늘 칸은 없다. 고른 날 음영은 옮긴 주에서도.
         assertTrue(next.days.none { WidgetWeek.cell(it, today, null) == WidgetWeek.Cell.TODAY })
@@ -101,21 +99,22 @@ class WidgetWeekTest {
         assertEquals(WidgetWeek.Cell.PICKED, WidgetWeek.cell(tue, today, tue.day))
         assertEquals(tue.day, WidgetWeek.active(tue.day, today, now, next.days))
         assertNull(WidgetWeek.active(tue.day, today, now, WidgetWeek.content(200, body(), now).days))
-        // 지난주: 오늘 이후가 아니므로 가장 큰 일·몰린 날은 없고 보고일은 그 주 월요일.
+        // 지난주.
         val last = WidgetWeek.content(200, body(timed("교섭", "2026-10-20T14:00:00+09:00", "2026-10-20T17:00:00+09:00")), now, shift = -1)
         assertEquals("지난주 10/19–10/25", last.title)
         assertEquals(listOf(0, 1, 0, 0, 0, 0, 0), last.days.map { it.count })
-        assertNull(last.big)
-        assertEquals(LocalDate.of(2026, 10, 19), last.report!!.day)
         // 서버 할 일 요약 범위(오늘~6일 뒤) 밖 날은 0개로 보이지 않게 '할 일은 앱에서'. 범위 안 날은 그대로.
         val tasks = MiniJson.parse("""{"connected":true,"tasks":[{"title":"보고","due":"2026-11-05T00:00:00.000Z","status":"needsAction"}]}""")
         val withTasks = WidgetWeek.content(200, body(), now, tasksStatus = 200, tasks = tasks, shift = 1)
         val thu = withTasks.details.getValue(LocalDate.of(2026, 11, 5))
         assertEquals(1, thu.tasks)
-        assertEquals("11/5(목) 일정 0 · 할 일 1", WidgetWeek.detailHead(thu))
+        assertEquals("11/5(목)", WidgetWeek.detailHead(thu))
+        // 일정이 없으면 일정 묶음 없이 할 일만(머리 위 가는 줄 없음).
+        assertEquals(listOf(WidgetWeek.Row(WidgetWeek.Kind.TASK_HEAD, "할 일 1", false), WidgetWeek.Row(WidgetWeek.Kind.TASK, "보고")), WidgetWeek.dayRows(thu))
         val fri2 = withTasks.details.getValue(LocalDate.of(2026, 11, 6))
         assertTrue(fri2.beyond)
-        assertEquals("11/6(금) 일정 0 · 할 일은 앱에서", WidgetWeek.detailHead(fri2))
+        assertEquals("11/6(금)", WidgetWeek.detailHead(fri2))
+        assertEquals(listOf(WidgetWeek.Row(WidgetWeek.Kind.TASK_HEAD, "할 일은 앱에서", false)), WidgetWeek.dayRows(fri2))
         // 이번 주는 모두 범위 안.
         assertTrue(WidgetWeek.content(200, body(), now, tasksStatus = 200, tasks = tasks).details.values.none { it.beyond })
         // 실패해도 옮긴 주의 빈 칸·머리 줄.
@@ -151,59 +150,32 @@ class WidgetWeekTest {
     }
 
     @Test
-    fun biggestUsesWordsThenLengthThenEarliest() {
-        // 낱말이 있으면 길이보다 먼저.
-        val words = WidgetWeek.content(
-            200,
-            body(
-                timed("긴 워크숍", "2026-10-30T13:00:00+09:00", "2026-10-30T18:00:00+09:00"),
-                timed("파업선포 기자회견", "2026-11-01T10:30:00+09:00", "2026-11-01T11:30:00+09:00"),
-            ),
-            now,
-        )
-        assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 1), "D-2", "일 10:30 파업선포 기자회견"), words.big)
-        // 낱말이 없으면 2시간 이상 가장 긴 시간 일정(종일 제외), 같으면 이른 것. 지난 일정은 보지 않는다.
-        val length = WidgetWeek.content(
-            200,
-            body(
-                timed("지난 긴 일", "2026-10-30T06:00:00+09:00", "2026-10-30T09:30:00+09:00"),
-                allDay("휴가", "2026-10-31", "2026-11-01"),
-                timed("짧은 일", "2026-10-30T11:00:00+09:00", "2026-10-30T12:00:00+09:00"),
-                timed("워크숍 B", "2026-10-31T13:00:00+09:00", "2026-10-31T16:00:00+09:00"),
-                timed("워크숍 A", "2026-10-30T13:00:00+09:00", "2026-10-30T16:00:00+09:00"),
-            ),
-            now,
-        )
-        assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 10, 30), "오늘", "금 13:00 워크숍 A"), length.big)
-        // 2시간이 안 되면 없음.
-        val none = WidgetWeek.content(200, body(timed("짧은 일", "2026-10-30T11:00:00+09:00", "2026-10-30T12:00:00+09:00")), now)
-        assertNull(none.big)
-        assertTrue(WidgetWeek.BIG_WORDS.containsAll(listOf("파업", "집회", "기자회견", "총회", "대표자회의", "교섭")))
-    }
-
-    @Test
-    fun reportDayAndNoBusySummary() {
-        // 금요일에는 다음 월요일이 상집 보고일, 월요일에는 그날.
-        assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 2), "월", "11/2 상집 보고일"), WidgetWeek.content(200, body(), now).report)
-        assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 2), "월", "11/2 상집 보고일"), WidgetWeek.content(200, body(), at(2026, 11, 2, 8)).report)
-        // S68-02: 새 사용자(서버 기능에 nojo_words 없음)는 '주간 보고일'.
-        assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 2), "월", "11/2 주간 보고일"), WidgetWeek.content(200, body(), now, nojoWords = false).report)
-        // S68-51(명진 "뭘 또 4개 몰림이야"): 일정이 몰려도 요약 줄은 없고, 그 날 목록에 전부 시간순(종일 먼저).
+    fun noUpcomingOrReportLinesAndNoBusySummary() {
+        // S69-07(11/24 명진 "디마이너스 1 디마이너스 2 뭐 이런 건 안 해도 돼"): 목록 끝 'D-n'·'월 보고일' 줄은 없다.
         val c = WidgetWeek.content(
             200,
             body(
                 allDay("당직", "2026-10-31", "2026-11-01"),
                 timed("궤도 대표자회의", "2026-10-31T10:00:00+09:00", "2026-10-31T12:00:00+09:00"),
                 timed("저녁 모임", "2026-10-31T18:00:00+09:00", "2026-10-31T20:00:00+09:00"),
+                timed("파업선포 기자회견", "2026-11-01T10:30:00+09:00", "2026-11-01T11:30:00+09:00"),
             ),
             now,
         )
         val sat = c.details.getValue(LocalDate.of(2026, 10, 31))
-        assertEquals(listOf("종일  당직", "10:00  궤도 대표자회의", "18:00  저녁 모임"), WidgetWeek.dayList(sat))
-        val all = WidgetWeek.dayList(sat, listOfNotNull(c.big, c.report))
-        assertFalse(all.toString(), all.any { it.contains("몰림") })
+        val rows = WidgetWeek.dayRows(sat)
+        // S68-51: 일정이 몰려도 요약 줄 없이 전부 시간순(종일 먼저). 할 일을 못 읽었으면 머리 자리에 '할 일 읽지 못함'.
+        assertEquals(listOf("종일  당직", "10:00  궤도 대표자회의", "18:00  저녁 모임", "할 일 읽지 못함"), rows.map { it.text })
+        for (d in c.details.values) {
+            for (r in WidgetWeek.dayRows(d)) {
+                assertFalse(r.text, Regex("^(D-\\d+|오늘|월)  ").containsMatchIn(r.text) || r.text.contains("보고일") || r.text.contains("몰림"))
+            }
+        }
         val src = java.io.File("src/main/java/kr/or/kptu/work/WidgetWeek.kt").readText() + java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
         assertFalse(src.contains("\"외 \$") || src.contains("const val BUSY") || src.contains("busyPick"))
+        for (gone in listOf("BIG_WORDS", "fun big(", "fun dTag(", "fun reportLabel(", "class Pick(", "c.big", "c.report", "보고일\"")) {
+            assertFalse(gone, src.contains(gone))
+        }
         assertFalse(java.io.File("src/main/res/layout/week_widget.xml").readText().contains("week_busy"))
     }
 
@@ -258,7 +230,8 @@ class WidgetWeekTest {
         val wed = LocalDate.of(2026, 11, 4)
         val active = WidgetWeek.active(wed, LocalDate.of(2026, 10, 30), now, next.days)
         assertEquals(wed, WidgetWeek.shownDay(active, LocalDate.of(2026, 10, 30), next.days))
-        assertEquals(listOf("09:00  다음 주 일"), WidgetWeek.dayList(next.details.getValue(wed)))
+        // 다음 주(서버 할 일 범위 안 수요일)에 할 일 0개면 할 일 머리·줄 모두 없음.
+        assertEquals(listOf(WidgetWeek.Row(WidgetWeek.Kind.EVENT, "09:00  다음 주 일")), WidgetWeek.dayRows(next.details.getValue(wed).copy(tasks = 0)))
 
         val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
         val pick = src.substringAfter("private fun pick(").substringBefore("\n        }\n")
@@ -279,7 +252,8 @@ class WidgetWeekTest {
         val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
         // 12+는 줄을 그림에 싣고(RemoteCollectionItems), 11 이하는 메모리만 읽는 서비스. 줄 수 제한 없음.
         assertTrue(src.contains("RemoteViews.RemoteCollectionItems.Builder()"))
-        assertTrue(src.contains("WidgetWeek.dayList(d, listOfNotNull(c.big, c.report))"))
+        assertTrue(src.contains("val rows = WidgetWeek.dayRows(d)"))
+        assertTrue(src.contains("setViewTypeCount(ROW_TYPES)"))
         val svc = java.io.File("src/main/java/kr/or/kptu/work/WeekListService.kt").readText()
         assertFalse(svc.contains("SharedPreferences") || svc.contains("openFileOutput"))
         val manifest = java.io.File("src/main/AndroidManifest.xml").readText()
@@ -287,6 +261,15 @@ class WidgetWeekTest {
         assertTrue(entry, entry.contains("android:exported=\"false\"") && entry.contains("android.permission.BIND_REMOTEVIEWS"))
         val row = java.io.File("src/main/res/layout/week_widget_row.xml").readText()
         assertTrue(row.contains("@+id/week_row"))
+        // 11 이하 길도 같은 줄 그리기(종류마다 레이아웃)와 같은 종류 수.
+        assertTrue(svc.contains("WeekWidget.rowView(context,") && svc.contains("WeekWidget.ROW_TYPES"))
+        // S69-07 시안 B: 할 일 머리(가는 줄 + 작은 회색 글), 할 일 줄(앞에 빈 네모).
+        val head = java.io.File("src/main/res/layout/week_widget_task_head.xml").readText()
+        assertTrue(head.contains("@+id/week_row_line") && head.contains("@color/widget_line") && head.contains("@color/widget_muted") && head.contains("11sp"))
+        val task = java.io.File("src/main/res/layout/week_widget_task_row.xml").readText()
+        assertTrue(task.contains("@+id/week_row") && task.contains("@drawable/widget_task_box"))
+        val box = java.io.File("src/main/res/drawable/widget_task_box.xml").readText()
+        assertTrue(box.contains("<stroke") && box.contains("transparent"))
     }
 
     @Test
@@ -310,11 +293,29 @@ class WidgetWeekTest {
             tasks = tasks,
         )
         val thu = c.details.getValue(LocalDate.of(2026, 10, 29))
-        assertEquals(listOf(WidgetWeek.Item("종일", "출장"), WidgetWeek.Item("09:00", "회의 1"), WidgetWeek.Item("13:00", "회의 2"), WidgetWeek.Item("할 일", "보고서")), thu.items)
-        assertEquals("10/29(목) 일정 3 · 할 일 1", WidgetWeek.detailHead(thu))
+        assertEquals(listOf(WidgetWeek.Item("종일", "출장"), WidgetWeek.Item("09:00", "회의 1"), WidgetWeek.Item("13:00", "회의 2")), thu.items)
+        assertEquals(listOf("보고서"), thu.todos)
+        assertEquals("10/29(목)", WidgetWeek.detailHead(thu))
         // 칸 숫자(일정 수)와 머리 줄 일정 수가 같다.
         assertEquals(c.days.first { it.day == thu.day }.count, thu.events)
-        assertEquals(listOf("종일  출장", "09:00  회의 1", "13:00  회의 2", "할 일  보고서"), WidgetWeek.dayList(thu))
+        // S69-07 시안 B: 일정(시각 + 제목) → 가는 줄 + '할 일 1' 머리 → 빈 네모 + 제목(줄마다 '할 일' 글자 없음).
+        assertEquals(
+            listOf(
+                WidgetWeek.Row(WidgetWeek.Kind.EVENT, "종일  출장"),
+                WidgetWeek.Row(WidgetWeek.Kind.EVENT, "09:00  회의 1"),
+                WidgetWeek.Row(WidgetWeek.Kind.EVENT, "13:00  회의 2"),
+                WidgetWeek.Row(WidgetWeek.Kind.TASK_HEAD, "할 일 1", true),
+                WidgetWeek.Row(WidgetWeek.Kind.TASK, "보고서"),
+            ),
+            WidgetWeek.dayRows(thu),
+        )
+        // 할 일 0개면 머리·줄 모두 없음, 둘 다 0개면 '일정·할 일 없음' 한 줄.
+        val wed = c.details.getValue(LocalDate.of(2026, 10, 28))
+        assertEquals(listOf(WidgetWeek.Row(WidgetWeek.Kind.EMPTY, "일정·할 일 없음")), WidgetWeek.dayRows(wed))
+        // 일정만 있고 할 일 0개면 일정 줄만(머리·가는 줄 없음).
+        assertEquals(thu.items.size, WidgetWeek.dayRows(thu.copy(tasks = 0, todos = emptyList())).size)
+        assertTrue(WidgetWeek.dayRows(thu.copy(tasks = 0, todos = emptyList())).all { it.kind == WidgetWeek.Kind.EVENT })
+        assertTrue(WidgetWeek.dayRows(thu).none { it.text.startsWith("할 일  ") })
         assertEquals(7, c.details.size)
         // 할 일 연결이 없거나 다시 연결이 필요하면 할 일 수는 '읽지 못함'(null), 일정은 그대로.
         val off = WidgetWeek.content(200, body(), now, tasksStatus = 200, tasks = MiniJson.parse("""{"connected":false,"tasks":[]}"""))
