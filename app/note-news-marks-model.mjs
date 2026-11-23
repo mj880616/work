@@ -6,6 +6,18 @@ import {titleHit} from './now-model.mjs';
 import {itemView} from './news-clipping-model.mjs';
 import {postView} from './outside-statements-model.mjs';
 
+// S69-04 MARK-밑줄한목록(명진 11/24 "노트 밑줄에 있는 것들 저장한 글 밑줄에 없음 두개 동기화"): 내가 그은 밑줄을 보이는 한 규칙.
+// 노트 › 밑줄(note-news-marks.js)과 저장한 글 [밑줄] 탭(reading.js)이 같은 원본(text-highlights.js가 들고 있는 app_news_highlights 목록)을
+// 이 함수 하나로 걸러 같은 목록·같은 개수를 보인다(복사본 없음). raw가 아직 없으면 null.
+// - 잠근 노트 폴더에 든 노트의 밑줄은 뺀다(noteHidden(노트 id)).
+// - News 기능 키가 없다는 답이면(newsOn false) 노트·저장한 글 밑줄만(News·텔레그램 밑줄은 누르면 News로 가므로). 모르면 다 보인다.
+export const marksNewsOn = features => !Array.isArray(features) || features.includes('outside');
+export function visibleMarks(raw, {newsOn = true, noteHidden = () => false} = {}) {
+  if (!Array.isArray(raw)) return null;
+  const all = raw.filter(h => !(h?.source_type === 'note' && noteHidden(h.source_id)));
+  return newsOn ? all : all.filter(h => h?.source_type === 'note' || h?.source_type === 'reading');
+}
+
 // 노트 목록 자리 값(at): 폴더 id·'out'(폴더 없음)·'recent'와 겹치지 않는 이름.
 export const NEWS_HL = 'news-hl';
 export const NEWS_SAVED = 'news-saved';
