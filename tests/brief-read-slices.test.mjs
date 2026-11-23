@@ -58,8 +58,8 @@ function drive(media, { sized = true } = {}) {
 const aiOk = () => {
   const seen = [];
   return { seen, ai: async name => { seen.push(name); return { ok: true, model: 'test-model', text: JSON.stringify(name === 'brief_chunk'
-    ? { lead: '조각 요지', touches: [], todos: ['기한 확인'], conflicts: [], quotes: [] }
-    : { lead: '정원 확대 계획 재제출 요구.', touches: [], todos: ['기한 확인'], conflicts: [], quotes: [] }) }; } };
+    ? { lead: '조각 요지', points: [{ heading: '', text: '기한 확인' }], quotes: [] }
+    : { gist: ['정원 확대 계획 재제출 요구.'], sections: [{ title: '', items: [{ text: '기한 확인', page: 0, ours: false }] }], quotes: [] }) }; } };
 };
 
 function runnerFor(media, file, { slice, index = {}, extractSpy } = {}) {

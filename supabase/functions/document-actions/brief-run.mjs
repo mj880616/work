@@ -22,30 +22,31 @@ export const BRIEF_BUDGET_MS = 140 * 1000;
 export const BRIEF_MAX_ATTEMPTS = 80;
 export const BRIEF_MAX_DEATHS = 3;               // 같은 단계·같은 위치에서 함수가 죽은 횟수 상한
 export const BRIEF_STALE_MS = 30 * 1000;          // 화면이 '멈춘 작업'으로 보고 이어 달라고 하는 기준(lease가 지난 뒤)
-export const CHUNK_MAX_TOKENS = 1400;
-export const MERGE_MAX_TOKENS = 2000;
+export const CHUNK_MAX_TOKENS = 1800;  // S68-56: points 12개 안 + 인용 3개
+export const MERGE_MAX_TOKENS = 3000;  // S68-56: 본문 요약(항목 40개 안)이 들어가 2000 → 3000
 // 화면·응답에 돌려주는 칸(글 원문·조각 메모는 빼고).
 export const BRIEF_PUBLIC = 'id,document_id,status,stage,step_no,step_total,page_count,brief,error_code,created_at,updated_at,finished_at,lease_until';
 
 const S = { type: 'string' };
 const LINES = { type: 'array', items: S };
+// S68-56(명진 11/23 15:06·15:12): 칸을 미리 정하지 않는다. 조각 메모 = 자료 순서 요약 points + 원문 인용(발언자 포함).
+// 진행 중이던 작업의 옛 메모(touches·todos·conflicts)는 mergeInput이 칸 이름 없이 줄만 옮겨 합친다.
+const OBJ = (props) => ({ type: 'object', additionalProperties: false, required: Object.keys(props), properties: props });
 export const CHUNK_SCHEMA = Object.freeze({
-  type: 'object', additionalProperties: false, required: ['lead', 'touches', 'todos', 'conflicts', 'quotes'],
+  type: 'object', additionalProperties: false, required: ['lead', 'points', 'quotes'],
   properties: {
-    lead: S, touches: LINES, todos: LINES, conflicts: LINES,
-    quotes: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['text', 'heading', 'why'], properties: { text: S, heading: S, why: S } } },
+    lead: S,
+    points: { type: 'array', items: OBJ({ heading: S, text: S }) },
+    quotes: { type: 'array', items: OBJ({ text: S, heading: S, speaker: S, why: S }) },
   },
 });
-// S68-45: 최종 브리핑 v2(한눈에·챙길 일·우리 조직 관련·대응할 것·원문 인용). 조각 메모(CHUNK_SCHEMA)는 그대로 — 진행 중 작업의 옛 메모도 합칠 수 있게.
-const OBJ = (props) => ({ type: 'object', additionalProperties: false, required: Object.keys(props), properties: props });
+// 최종 브리핑 v3: 요지 1~3줄 · AI가 정한 소제목·항목(쪽·우리 관련 표시) · 원문 인용(후보 번호만).
 export const MERGE_SCHEMA = Object.freeze({
-  type: 'object', additionalProperties: false, required: ['lead', 'glance', 'todos', 'orgs', 'counters', 'quotes'],
+  type: 'object', additionalProperties: false, required: ['gist', 'sections', 'quotes'],
   properties: {
-    lead: S, glance: LINES,
-    todos: { type: 'array', items: OBJ({ due: S, text: S, urgent: { type: 'boolean' } }) },
-    orgs: { type: 'array', items: OBJ({ name: S, text: S }) },
-    counters: { type: 'array', items: OBJ({ claim: S, reply: S }) },
-    quotes: { type: 'array', items: OBJ({ id: S, why: S }) },
+    gist: LINES,
+    sections: { type: 'array', items: OBJ({ title: S, items: { type: 'array', items: OBJ({ text: S, page: { type: 'integer' }, ours: { type: 'boolean' } }) } }) },
+    quotes: { type: 'array', items: OBJ({ id: S }) },
   },
 });
 
@@ -216,7 +217,7 @@ export function createBriefRunner(deps) {
     return r.ok ? r : { ok: false, code: r.code, final: r.code === 'ai_not_configured' };
   }
 
-  async function stepChunk(row, scope, title) {
+  async function stepChunk(row, title) {
     const text = row.source_text;
     if (typeof text !== 'string' || !text) { await fail(row, 'no_text'); return 'stop'; }
     const starts = pageStarts(text);
@@ -225,10 +226,10 @@ export function createBriefRunner(deps) {
     if (i >= chunks.length) { await save(row, { stage: 'merge' }); return 'next'; }
     const chunk = chunks[i];
     const body = chunkWithPages(text, starts, chunk);
-    const r = await callAi('brief_chunk', CHUNK_INSTRUCTIONS, chunkInput({ index: i, total: chunks.length, title, scope: scope.text, body }), CHUNK_SCHEMA, CHUNK_MAX_TOKENS);
+    const r = await callAi('brief_chunk', CHUNK_INSTRUCTIONS, chunkInput({ index: i, total: chunks.length, title, body }), CHUNK_SCHEMA, CHUNK_MAX_TOKENS);
     if (!r.ok) { if (r.final) { await fail(row, r.code); return 'stop'; } log(`brief_${r.code}`); return 'pause'; }
-    const note = parseChunkNote(r.text ?? '', { folded: foldForMatch(text), starts, chunk, names: scope.names })
-      ?? { lead: '', touches: [], todos: [], conflicts: [], quotes: [], skipped: true };
+    const note = parseChunkNote(r.text ?? '', { folded: foldForMatch(text), starts, chunk })
+      ?? { lead: '', points: [], quotes: [], skipped: true };
     if (note.skipped) log('brief_chunk_bad_answer');
     const notes = [...notesOf(row.parts), note];
     const partial = ctlOf(row.parts).partial;
@@ -260,7 +261,8 @@ export function createBriefRunner(deps) {
     const row = await claim(id, started);
     if (!row) return 'busy';
     const title = String(doc.title || doc.file_name || '').trim();
-    // S67-50: 담당 범위 = 이 사람이 등록한 담당 대상·프로젝트 이름뿐(사람마다 다름). 못 읽으면 names=null(touches는 비우고, '등록한 담당이 없어요' 표시는 하지 않음).
+    // S67-50: 담당 범위 = 이 사람이 등록한 담당 대상·프로젝트 이름뿐(사람마다 다름). 못 읽으면 names=null('우리 관련' 표시를 하나도 남기지 않음).
+    // S68-56: 담당 목록은 합치기에만 쓴다(조각 요약은 내용만).
     let scopeLine = null;
     const scope = async () => scopeLine ??= (async () => {
       try { const s = await deps.scope(); return { text: scopeText(s.orgs, s.areas), names: scopeNames(s.orgs, s.areas) }; }
@@ -270,7 +272,7 @@ export function createBriefRunner(deps) {
       while (deps.now() - started < (deps.budgetMs ?? BRIEF_BUDGET_MS)) {
         let step;
         if (row.stage === 'read') step = await stepRead(row, doc);
-        else if (row.stage === 'chunk') step = await stepChunk(row, await scope(), title);
+        else if (row.stage === 'chunk') step = await stepChunk(row, title);
         else if (row.stage === 'merge') step = await stepMerge(row, await scope(), title);
         else step = 'stop';
         if (step === 'stop') break;

@@ -27,54 +27,55 @@ test('listRows: folder docs and briefed docs only, newest first', () => {
   assert.equal(rows[0].state.kind, 'done');
 });
 
-// S68-45: 옛 형식(v1) 브리핑은 읽을 때 새 칸으로 옮겨 보인다(저장 행은 그대로). 빈 칸은 그리지 않는다.
-test('briefView 옛 형식(v1): 한 줄 요지가 한눈에, touches→우리 조직 관련, todos→챙길 일, conflicts→대응할 것, 빈 칸 없음', () => {
-  const v = m.briefView({ v: 1, lead: 'x', touches: ['가', 3], todos: [], conflicts: ['나'], quotes: [{ text: '원문', page: 12, heading: '3.', why: '왜' }, { text: '' }, { text: '쪽 모름', page: 0 }] });
-  assert.equal(v.legacy, true);
-  assert.deepEqual(v.glance, ['x']);
-  assert.deepEqual(v.sections.map(x => x.key), ['orgs', 'counters', 'quotes']);
-  assert.deepEqual(v.sections[0].items, [{ name: '', text: '가' }]);
-  assert.deepEqual(v.sections[1].items, [{ claim: '나', reply: '' }]);
-  assert.equal(v.sections[2].items.length, 2); assert.equal(v.sections[2].items[1].page, null);
-  const old = m.briefView({ lead: 'y', todos: ['의견 제출 11/28까지'] });
-  assert.deepEqual(old.sections.map(x => [x.key, x.title]), [['todos', '챙길 일']]);
-  assert.deepEqual(old.sections[0].items, [{ due: '', text: '의견 제출 11/28까지', urgent: false }]);
+// S68-56(명진 11/23 15:06·15:12): 보기 모델은 요지 → AI가 정한 소제목별 항목 → 원문 인용. 고정 칸 이름 없음.
+test('briefView v3: 요지·소제목(AI가 정한 이름 그대로)·항목(쪽·우리 관련)·인용(발언자·쪽), 잘못된 줄은 뺌', () => {
+  const v = m.briefView({ v: 3, lead: '첫 줄', gist: ['첫 줄', '둘째', '셋째', '넷째'], sections: [
+    { title: '안건 1. 예시 계획', items: [{ text: '국토교통부 철도국장: 연내 기준 마련', page: 2 }, { text: '예시 거래처 단가', page: null, ours: true }, { text: '' }, null] },
+    { title: '', items: [{ text: '제목 없는 묶음', page: 0 }] },
+    { title: '빈 묶음', items: [] },
+  ], quotes: [{ text: '원문 그대로', speaker: '예시 위원', heading: '안건 1', page: 3 }, { text: '' }] });
+  assert.equal(v.legacy, false);
+  assert.deepEqual(v.gist, ['첫 줄', '둘째', '셋째']);
+  assert.deepEqual(v.sections, [
+    { title: '안건 1. 예시 계획', items: [{ text: '국토교통부 철도국장: 연내 기준 마련', page: 2, ours: false }, { text: '예시 거래처 단가', page: null, ours: true }] },
+    { title: '', items: [{ text: '제목 없는 묶음', page: null, ours: false }] },
+  ]);
+  assert.deepEqual(v.quotes, [{ text: '원문 그대로', speaker: '예시 위원', heading: '안건 1', page: 3 }]);
+  assert.deepEqual(m.briefView({ v: 3, lead: '요지', gist: [] }).gist, ['요지']);
 });
 
-test('briefView 새 형식(v2): 한눈에 3줄, 칸 순서·이름, 잘못된 줄은 뺌', () => {
-  const now = new Date('2026-11-23T03:00:00Z');
-  const v = m.briefView({
+// 옛 형식(v1·v2)은 읽을 때만 같은 모양으로(저장 행은 그대로). 옛 칸 이름을 소제목으로 쓰되 '챙길 일'·'대응할 것' 같은 해석은 붙이지 않는다.
+test('briefView 옛 형식 v1·v2: legacy 표시, 옛 칸 줄을 소제목 묶음으로, 챙길 일 같은 이름 없음', () => {
+  const v1 = m.briefView({ v: 1, lead: 'x', touches: ['가', 3], todos: [], conflicts: ['나'], quotes: [{ text: '원문', page: 12, heading: '3.', why: '왜' }, { text: '' }, { text: '쪽 모름', page: 0 }] });
+  assert.equal(v1.legacy, true);
+  assert.deepEqual(v1.gist, ['x']);
+  assert.deepEqual(v1.sections, [{ title: '닿는 것', items: [{ text: '가', page: null, ours: false }] }, { title: '부딪히는 대목', items: [{ text: '나', page: null, ours: false }] }]);
+  assert.equal(v1.quotes.length, 2); assert.equal(v1.quotes[1].page, null); assert.equal(v1.quotes[0].speaker, '');
+  const v2 = m.briefView({
     v: 2, lead: '요지', glance: ['하나', '둘', '셋', '넷'],
-    todos: [{ due: '', text: '기한 없음' }, { due: '연내', text: '연내 할 일' }, { due: '11/25', text: '곧' }, { due: '일주일 내', text: '급함' }, { text: '' }, null],
+    todos: [{ due: '11/28', text: '의견 제출', urgent: true }, { due: '', text: '기한 없음' }, { text: '' }, null],
     orgs: [{ name: '예시 가지부', text: '대상' }, { name: 'x', text: '' }],
     counters: [{ claim: '저쪽 주장', reply: '반박' }, { claim: '', reply: '빈' }],
-    quotes: [],
-  }, now);
-  assert.equal(v.legacy, false);
-  assert.deepEqual(v.glance, ['하나', '둘', '셋']);
-  assert.deepEqual(v.sections.map(s => [s.key, s.title]), [['todos', '챙길 일'], ['orgs', '우리 조직 관련'], ['counters', '대응할 것']]);
-  assert.deepEqual(v.sections[0].items.map(t => [t.text, t.urgent]), [['곧', true], ['급함', true], ['연내 할 일', false], ['기한 없음', false]]);
-  assert.deepEqual(v.sections[1].items, [{ name: '예시 가지부', text: '대상' }]);
-  assert.deepEqual(v.sections[2].items, [{ claim: '저쪽 주장', reply: '반박' }]);
-  assert.deepEqual(m.briefView({ v: 2, lead: '요지', glance: [] }).glance, ['요지']);
+    quotes: [], scope: 'none',
+  });
+  assert.equal(v2.legacy, true);
+  assert.deepEqual(v2.gist, ['하나', '둘', '셋']);
+  assert.deepEqual(v2.sections.map(s => [s.title, s.items.map(i => i.text)]), [
+    ['할 일·기한·숫자', ['11/28 · 의견 제출', '기한 없음']],
+    ['닿는 것', ['예시 가지부 · 대상']],
+    ['부딪히는 대목', ['저쪽 주장 → 반박']],
+  ]);
+  const titles = JSON.stringify([v1, v2].map(v => v.sections.map(s => s.title)));
+  assert.doesNotMatch(titles, /챙길 일|대응할 것|우리 조직 관련|등록한 담당이 없어요/);
+  assert.deepEqual(m.briefView({ v: 2, lead: '요지', glance: [] }).gist, ['요지']);
+  assert.deepEqual(m.briefView({ lead: 'x', touches: [], quotes: [] }).sections, []);
 });
 
-test('dueUrgent·sortTodos·splitShown·moreLabel', () => {
-  const now = new Date('2026-11-23T03:00:00Z');
-  assert.equal(m.dueUrgent('11/28', false, now), true);
-  assert.equal(m.dueUrgent('11월 30일', false, now), true);
-  assert.equal(m.dueUrgent('12/15', false, now), false);
-  assert.equal(m.dueUrgent('2026-11-20', false, now), true, '지난 날짜도 급함');
-  assert.equal(m.dueUrgent('연내', false, now), false);
-  assert.equal(m.dueUrgent('종합감사 전', true, now), true, '서버가 급하다고 하면 그대로');
-  assert.equal(m.dueUrgent('', false, now), false);
-  assert.equal(m.dueUrgent('1/5', false, new Date('2026-12-30T03:00:00Z')), true, '해 넘김');
-  assert.equal(m.dueUrgent('1/5', false, new Date('2026-11-23T03:00:00Z')), false);
-  const sorted = m.sortTodos([{ due: '', text: 'a' }, { due: '연내', text: 'b' }, { due: '', text: 'c', urgent: true }], now);
-  assert.deepEqual(sorted.map(t => t.text), ['c', 'b', 'a']);
+test('splitShown·moreLabel·모델에 할 일 기한 함수 없음', () => {
   assert.deepEqual(m.splitShown([1, 2, 3, 4, 5]), { shown: [1, 2, 3], rest: [4, 5] });
-  assert.deepEqual(m.splitShown([1, 2]), { shown: [1, 2], rest: [] });
   assert.equal(m.moreLabel(2), '+ 2개 더 보기');
+  assert.equal(m.SHOW_N, 3);
+  assert.equal(m.dueUrgent, undefined); assert.equal(m.sortTodos, undefined);
 });
 
 test('fileBadge / sourceUrl / isStalled', () => {
@@ -135,13 +136,6 @@ test('pickResult: 넣은 수·원래 폴더에 둔 수·못 넣은 수', () => {
   assert.equal(m.pickResult({ added: 1, kept: 1 }).text, '2개 넣었어요 · 1개는 원래 폴더에 그대로 두었어요(브리핑을 받으면 계속 보여요)');
   assert.deepEqual(m.pickResult({ added: 1, failed: 1 }), { text: '1개 넣었어요 · 1개는 넣지 못했어요', error: true });
   assert.equal(m.pickResult({ failed: 2 }).error, true);
-});
-
-test('S67-50 briefView: 등록한 담당이 없으면 우리 조직 관련 칸에 "등록한 담당이 없어요"만, 칸 이름은 단어표를 거침(노동조합+ 얼굴은 그대로)', () => {
-  const none = m.briefView({ v: 2, lead: 'x', orgs: [], scope: 'none' });
-  assert.deepEqual(none.sections.map(s => [s.key, s.title, s.empty]), [['orgs', '우리 조직 관련', '등록한 담당이 없어요']]);
-  assert.deepEqual(m.briefView({ lead: 'x', touches: [], quotes: [] }).sections, []);
-  assert.equal(m.briefView({ lead: 'x', touches: ['가'], scope: 'none' }).sections[0].empty, undefined);
 });
 
 // S67-41(명진 11/20 18:10 "폴더도 보여야할 것같고 먼가 찾기쉽게"): 형식 꼬리표·이름 한 줄·올린 날짜·[최근]·[폴더].

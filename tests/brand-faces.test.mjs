@@ -143,16 +143,13 @@ test('노조 색 화면 이름은 단어표를 거쳐 나온다(글자를 곧바
   assert.match(read('app/basket-note-tasks.js'), /projects:word\('사업영역'\),team:word\('조직 관리'\)/);
 });
 
-test('S67-50 브리핑 칸 이름: 기록+ 얼굴은 노조 색 없는 글자, 노동조합+ 얼굴은 지금 글자', async () => {
-  const {faceOf, wordIn} = await import('../app/brand/faces.mjs');
-  const girok = faceOf('girok'), nojo = faceOf('nojo');
-  assert.equal(wordIn(girok, '내 담당 조직·사업에 닿는 것', 'brief'), '내 거래처·부서·직원·활동에 닿는 것');
-  assert.equal(wordIn(girok, '우리 쪽 주장과 부딪히는 대목', 'brief'), '내 입장과 부딪히는 대목');
-  assert.equal(wordIn(nojo, '내 담당 조직·사업에 닿는 것', 'brief'), '내 담당 조직·사업에 닿는 것');
-  assert.equal(wordIn(nojo, '우리 쪽 주장과 부딪히는 대목', 'brief'), '우리 쪽 주장과 부딪히는 대목');
-  // S68-45 새 칸 이름.
-  assert.equal(wordIn(girok, '우리 조직 관련', 'brief'), '내 거래처·부서 관련');
-  assert.equal(wordIn(nojo, '우리 조직 관련', 'brief'), '우리 조직 관련');
+// S68-56(명진 11/23 15:06·15:12): 브리핑은 미리 정한 칸 이름을 쓰지 않는다(소제목은 AI가 자료에서 정함). 단어표의 브리핑 칸 열쇠('#brief')도 없앴다.
+test('S68-56 브리핑: 단어표에 고정 칸 이름 열쇠가 없고, 옛 형식 소제목에 노조 색 글자가 없다', async () => {
+  const {GIROK_WORDS} = await import('../app/brand/girok-words.mjs');
+  assert.deepEqual(Object.keys(GIROK_WORDS).filter(k => k.endsWith('#brief')), []);
+  const {briefView} = await import('../app/brief-room-model.mjs');
+  const titles = briefView({ v: 2, lead: 'x', todos: [{ text: 'a' }], orgs: [{ text: 'b' }], counters: [{ claim: 'c' }] }).sections.map(s => s.title);
+  for (const t of titles) assert.doesNotMatch(t, /조직|노조|사업/);
 });
 
 // S68-02(11/22 명진 결정): WORK ON+ 기본 얼굴(girok)에 남은 노조 단어 — 한글 문서 서식 버튼·편집 백업·백업·휴지통 폴더 이름·PC 도우미 글자.
