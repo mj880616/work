@@ -2,7 +2,7 @@
 // 화면·저장·네트워크에 닿지 않는다(node --test). 창은 library-sort.js, 쓰기는 기존 소유자 RLS 표(app_library_folders·app_library_folder_items).
 // 제안 차례: ① 지금 규칙(library-tree.js folderSuggestions, AI 없음) ② 못 찾은 것만 서버 AI(ai-assist kind=library_sort)가 기존 폴더 중 고름
 // ③ 기존 폴더로 담기 어려우면 새 폴더(이름 + 놓을 자리) 제안 — 같은 이름·같은 자리 새 폴더는 하나로 묶는다. AI는 제안까지, 옮기기·만들기는 [옮기기]를 눌러야.
-import {folderSuggestionReasons,cleanFolderName,canAddChild,titleWord,fileKindOf,cleanTitle} from './library-tree.js';
+import {folderSuggestionReasons,cleanFolderName,canAddChild,titleWord,fileKindOf,cleanTitle,titleSubject,subjectKey,sameSubject,subjectHasName,folderHomes} from './library-tree.js';
 
 // S68-16: 40개 한 묶음은 답이 올 때까지(최대 75초) 모든 줄이 '⋯'였다. 10개씩 차례로 보내 묶음마다 줄이 바로 채워지게 한다
 // (서버 상한 40개는 그대로, 하루 횟수·월 예산 검사도 그대로 — 묶음 하나가 한 번으로 잡힌다).
@@ -37,7 +37,7 @@ export const targetFolders=(folders,receiveId)=>(Array.isArray(folders)?folders:
 export function ruleReasons(units,{docs=[],items=[],folders=[],receiveId,categoryOf=c=>c}={}){
   const open=targetFolders(folders,receiveId),rest=(Array.isArray(items)?items:[]).filter(x=>x?.folder_id!==receiveId);
   const loose=units.filter(u=>!u.photoset).map(u=>u.doc);
-  const hit=folderSuggestionReasons(loose,{docs,items:rest,folders:open,categoryOf});
+  const hit=folderSuggestionReasons(loose,{docs,items:rest,folders:open,categoryOf,kinds:TIDY_KIND_WORDS});
   const out=new Map();for(const u of units){const f=!u.photoset&&hit.get(u.doc.id);if(f)out.set(u.key,f)}
   return out;
 }
@@ -89,7 +89,7 @@ export function textsFrom(units,rows){
 export function textReasons(units,texts,{docs=[],items=[],folders=[],receiveId,categoryOf=c=>c}={}){
   const open=targetFolders(folders,receiveId),rest=(Array.isArray(items)?items:[]).filter(x=>x?.folder_id!==receiveId);
   const fake=units.filter(u=>texts.has(u.key)).map(u=>({id:'t:'+u.key,title:String(texts.get(u.key)).replace(/\s+/g,' ').trim().slice(0,SORT_TEXT_HEAD),category:u.category,project_id:u.project_id}));
-  const hit=folderSuggestionReasons(fake,{docs,items:rest,folders:open,categoryOf});
+  const hit=folderSuggestionReasons(fake,{docs,items:rest,folders:open,categoryOf,kinds:TIDY_KIND_WORDS});
   const out=new Map();for(const f of fake){const v=hit.get(f.id);if(v)out.set(f.id.slice(2),{folder:v.folder,why:'그림 글자: '+v.why})}
   return out;
 }
@@ -264,37 +264,82 @@ export function tidyUnits(listDocs,items,folders,{scopeId=null}={}){
   return out;
 }
 
-// 묶음 찾기. 반환 [{gid, word, total, at:[{folder|null, n}], to:{folder}|{group}, rows:[{key,ids,title,from,checked,note}], mode:'move'}], groups(새 폴더)
-// receiveId(받는 폴더)·폴더 밖(null)은 옮길 곳 후보가 아니다(잡동사니에서 꺼내는 것이 목적).
-export function tidyGroups(units,{folders=[],receiveId=null,scopeId=null}={}){
+// S69-12(명진 11/24 08:09): 묶음은 종류 낱말 하나가 아니라 '임자(단체·회의체) + 종류'로 만든다.
+// 예전에는 '본부집행위원회 회의자료'와 '다른협의회 대표자회의자료'가 모두 '회의자료' 한 묶음이 되어 가장 많이 든 폴더(집행위)로 갔다.
+// 임자는 제목에서만 뽑는다(library-tree.js titleSubject — 단체 이름 목록을 코드에 두지 않음).
+export const tidySubject=title=>titleSubject(title,TIDY_KIND_WORDS);
+const lastKind=title=>{const k=kindWords(title);return k.length?k[k.length-1]:''};
+export function tidyLabel(subject,kind){return [subject,kind].filter(Boolean).join(' ').slice(0,40)}
+
+// 묶음 찾기. 반환 {groups:[{gid, word, total, at:[{folder|null, n}], to:{folder}|{group}, rows, all, stay, mode, split?}], newGroups(새 폴더)}
+// ① 흩어진 묶음: 같은 임자·같은 종류인데 폴더가 둘 이상으로 갈라진 자료. 옮길 곳은 그 묶음이 가장 많이 든 폴더 — 단, 그 폴더의 주인 임자가 같을 때만.
+//    아니면 '임자 종류' 이름의 같은 폴더, 그것도 없으면 그 이름의 새 폴더.
+// ② 섞인 묶음(폴더 안 정돈일 때만): 폴더 주인 임자와 다른 임자의 자료를 임자별로. 같은 임자 자료가 모인 다른 폴더(또는 이름에 그 임자가 든 폴더)가 있으면 '옮기기',
+//    없으면 그 폴더 옆 새 폴더(임자 이름) 제안이되 기본은 '그대로'(애매하면 옮기지 않음 — 명진이 골라 옮김).
+// receiveId(받는 폴더)·폴더 밖(null)은 옮길 곳 후보가 아니다(잡동사니에서 꺼내는 것이 목적). allUnits: 주인 임자를 셀 때 쓰는 자료실 전체 단위(없으면 units).
+export function tidyGroups(units,{folders=[],receiveId=null,scopeId=null,allUnits=null}={}){
   const fs=Array.isArray(folders)?folders:[],byId=new Map(fs.map(f=>[f.id,f])),order=new Map(fs.map((f,i)=>[f.id,i]));
+  const subj=new Map(),every=[...(allUnits||units)];for(const u of [...units,...every])if(!subj.has(u.key))subj.set(u.key,tidySubject(u.title));
+  const homes=folderHomes(every.filter(u=>u.from).map(u=>({folder:u.from,subject:subj.get(u.key)})));
+  const nameOf=id=>String(byId.get(id)?.name||'').trim();
+  const usable=id=>id&&id!==receiveId&&byId.has(id)&&nameOf(id)!==TIDY_SKIP_FOLDER;
+  // 그 폴더가 이 임자의 자리인지: 주인 임자가 같거나, 주인 임자가 없고(섞였거나 적음) 폴더 이름이 임자 안에 있거나 임자가 없는 묶음.
+  const agrees=(id,s)=>{const h=homes.get(id);if(!s)return true;if(h)return sameSubject(h,s);return subjectHasName(s,nameOf(id))};
   const buckets=new Map();
-  for(const u of units){const w=tidyKey(u.title);if(!w)continue;if(!buckets.has(w))buckets.set(w,[]);buckets.get(w).push(u)}
-  const out=[],newGroups=[];
-  for(const [word,list] of buckets){
-    if(list.length<TIDY_MIN)continue;
+  for(const u of units){
+    const s=subj.get(u.key),k=lastKind(u.title),sk=subjectKey(s);if(!sk&&!k)continue;
+    const key=sk+'|'+k;if(!buckets.has(key))buckets.set(key,{kind:k,raw:new Map(),list:[]});
+    const b=buckets.get(key);b.list.push(u);if(s)b.raw.set(s,(b.raw.get(s)||0)+1);
+  }
+  const out=[],newGroups=[],taken=new Set();
+  // 같은 자리에 같은 이름 폴더가 있으면 그 폴더('임자 종류' 이름, 또는 종류·임자 이름만인 폴더 — 그 폴더 주인 임자가 다르지 않을 때).
+  const newFolder=(label,parent,alts=[],s='')=>{const here=fs.filter(f=>(f.parent_id||null)===parent);const same=here.find(f=>String(f.name).trim()===label)||alts.filter(Boolean).map(a=>here.find(f=>String(f.name).trim()===a&&usable(f.id)&&(!s||!homes.get(f.id)||sameSubject(homes.get(f.id),s)))).find(Boolean);if(same)return {folder:same.id};const g={gid:'t'+(newGroups.length+1),name:label,parent};newGroups.push(g);return {group:g.gid}};
+  for(const [key,b] of buckets){
+    const list=b.list;if(list.length<TIDY_MIN)continue;
     const count=new Map();for(const u of list)count.set(u.from,(count.get(u.from)||0)+1);
     if(count.size<2)continue;
+    const subject=[...b.raw].sort((x,y)=>y[1]-x[1])[0]?.[0]||'',word=tidyLabel(subject,b.kind)||key;
     const at=[...count].map(([folder,n])=>({folder,n})).sort((a,b)=>b.n-a.n||(order.get(a.folder)??1e9)-(order.get(b.folder)??1e9));
-    const best=at.find(x=>x.folder&&x.folder!==receiveId&&!(byId.get(x.folder)&&String(byId.get(x.folder).name).trim()===TIDY_SKIP_FOLDER));
-    let to;
-    if(best&&best.n>=2)to={folder:best.folder};
-    else{
-      const parent=scopeId||null,label=list.map(u=>kindWords(u.title)).flat().find(k=>k===word)||word;
-      const same=fs.find(f=>(f.parent_id||null)===parent&&String(f.name).trim()===label);
-      if(same)to={folder:same.id};else{const g={gid:'t'+(newGroups.length+1),name:label.slice(0,40),parent};newGroups.push(g);to={group:g.gid}}
-    }
+    const best=at.find(x=>usable(x.folder)&&x.n>=2&&agrees(x.folder,subject));
+    const to=best?{folder:best.folder}:newFolder(word,scopeId||null,[b.kind,subject],subject);
     const all=list.map(u=>{
-      const other=kindWords(u.title).find(k=>k!==word),fromName=String(byId.get(u.from)?.name||'');
-      const fits=u.from&&u.from!==receiveId&&fromName.includes(word);
+      const other=kindWords(u.title).find(k=>k!==b.kind),fromName=nameOf(u.from);
+      const fits=u.from&&u.from!==receiveId&&((b.kind&&fromName.includes(b.kind))||(subject&&subjectHasName(subject,fromName)&&agrees(u.from,subject)));
       const note=other?`이름에 '${other}' — 체크 풀어 둠`:fits?'지금 폴더 이름과 맞아 체크 풀어 둠':'';
       return {key:u.key,ids:u.ids,title:u.title,from:u.from,photoset:u.photoset,checked:!note,note};
     });
     const g=retargetGroup({gid:'g:'+word,word,total:list.length,at,all},to);
     if(!g.rows.length)continue;
+    for(const r of g.rows)taken.add(r.key);
     out.push({...g,mode:g.rows.some(r=>r.checked)?'move':'keep'});
   }
-  out.sort((a,b)=>b.total-a.total||a.word.localeCompare(b.word,'ko'));
+  if(scopeId){
+    const inScope=new Set(units.map(u=>u.from).filter(Boolean));
+    for(const fid of inScope){
+      // 주인 임자: 가장 많은 임자(동률이면 없음) — 없으면 폴더 이름이 든 임자 중 가장 많은 것('집행위' 폴더 → '본부집행위원회').
+      let home=homes.get(fid);
+      if(!home){const c=new Map();for(const u of units){const s=subj.get(u.key);if(u.from===fid&&s&&subjectHasName(s,nameOf(fid))){const k=subjectKey(s),x=c.get(k)||{raw:s,n:0};x.n++;c.set(k,x)}}home=[...c.values()].sort((a,b)=>b.n-a.n)[0]?.raw||''}
+      if(!home)continue;
+      const mixed=new Map();
+      for(const u of units){
+        if(u.from!==fid||taken.has(u.key))continue;
+        const s=subj.get(u.key);if(!s||sameSubject(s,home)||subjectHasName(s,nameOf(fid)))continue;
+        const k=subjectKey(s);if(!mixed.has(k))mixed.set(k,{raw:s,list:[]});mixed.get(k).list.push(u);
+      }
+      for(const [k,m] of mixed){
+        // 같은 임자의 자리: 주인 임자가 같은 다른 폴더(자료가 많은 쪽), 없으면 이름에 그 임자가 든 폴더.
+        const cand=fs.filter(f=>f.id!==fid&&usable(f.id));
+        const byHome=cand.filter(f=>homes.get(f.id)&&sameSubject(homes.get(f.id),m.raw)).sort((a,b)=>every.filter(u=>u.from===b.id).length-every.filter(u=>u.from===a.id).length)[0];
+        const byName=byHome||cand.find(f=>{const n=String(f.name||'').toLowerCase().replace(/\s+/g,'');return [...n].length>=2&&n.includes(subjectKey(m.raw))&&!(homes.get(f.id)&&!sameSubject(homes.get(f.id),m.raw))});
+        const to=byName?{folder:byName.id}:newFolder(m.raw.slice(0,40),byId.get(fid)?.parent_id||null);
+        const all=m.list.map(u=>({key:u.key,ids:u.ids,title:u.title,from:u.from,photoset:u.photoset,checked:true,note:''}));
+        const g=retargetGroup({gid:'s:'+fid+':'+k,word:m.raw.slice(0,40),total:m.list.length,at:[{folder:fid,n:m.list.length}],all,split:true},to);
+        if(!g.rows.length)continue;
+        out.push({...g,mode:to.folder?'move':'keep'});
+      }
+    }
+  }
+  out.sort((a,b)=>(a.split?1:0)-(b.split?1:0)||b.total-a.total||a.word.localeCompare(b.word,'ko'));
   return {groups:out,newGroups:newGroups.filter(g=>out.some(x=>x.to.group===g.gid))};
 }
 
@@ -322,7 +367,8 @@ export function tidyPlan(groups,newGroups){
 // '지금: 임금협약 5 · 성명·보도자료 2 · 폴더 밖 2'
 export const tidyAtText=(at,nameOf)=>'지금: '+at.map(x=>`${x.folder?nameOf(x.folder):'폴더 밖'} ${x.n}`).join(' · ');
 export function tidySummary(groups,{done=true}={}){
-  if(!groups.length)return done?'흩어진 같은 종류 자료를 찾지 못했어요.':'';
-  const n=groups.reduce((s,g)=>s+g.rows.length,0);
-  return `같은 종류인데 폴더가 갈라진 자료 ${groups.length}묶음(${n}개)을 찾았어요. 묶음마다 선택하세요.`;
+  if(!groups.length)return done?'흩어지거나 섞인 자료를 찾지 못했어요.':'';
+  const n=groups.reduce((s,g)=>s+g.rows.length,0),mix=groups.filter(g=>g.split).length,spread=groups.length-mix;
+  const parts=[spread?`흩어진 같은 자료 ${spread}묶음`:'',mix?`다른 이름이 섞인 자료 ${mix}묶음`:''].filter(Boolean).join(' · ');
+  return `${parts}(${n}개)을 찾았어요. 묶음마다 선택하세요.`;
 }
