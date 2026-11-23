@@ -142,14 +142,11 @@ class WidgetWeekTest {
         assertEquals(listOf(26, 27, 28, 29, 30, 31, 1), c.days.map { it.date })
         assertEquals(listOf(1, 0, 0, 3, 0, 0, 0), c.days.map { it.count })
         assertEquals(4, c.total)
-        assertEquals(listOf(false, false, false, true, false, false, false), c.days.map { it.busy })
         // APP-위젯먹색 S68-06: 그날 첫 일정 제목(종일 먼저·시각 순 = 고른 날 아래 칸 첫 일정). 지난주에서 이어진 일정은 월요일 첫 일정.
         assertEquals(listOf("지난주 밤샘", null, null, "출장", null, null, null), c.days.map { it.first })
         assertEquals("출장", WidgetWeek.firstLine(c.days[3], small = false))
         assertNull(WidgetWeek.firstLine(c.days[3], small = true)) // 4×1은 지금처럼 수만
         assertNull(WidgetWeek.firstLine(c.days[1], small = false)) // 일정 없는 날은 줄을 숨김
-        // 몰린 날(목)이 이미 지났으면 '몰린 날' 줄은 없다.
-        assertNull(c.busy)
         assertNull(c.note)
     }
 
@@ -185,13 +182,13 @@ class WidgetWeekTest {
     }
 
     @Test
-    fun reportDayAndBusyDay() {
+    fun reportDayAndNoBusySummary() {
         // 금요일에는 다음 월요일이 상집 보고일, 월요일에는 그날.
         assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 2), "월", "11/2 상집 보고일"), WidgetWeek.content(200, body(), now).report)
         assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 2), "월", "11/2 상집 보고일"), WidgetWeek.content(200, body(), at(2026, 11, 2, 8)).report)
         // S68-02: 새 사용자(서버 기능에 nojo_words 없음)는 '주간 보고일'.
         assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 2), "월", "11/2 주간 보고일"), WidgetWeek.content(200, body(), now, nojoWords = false).report)
-        // 오늘 이후 3개 이상인 첫 날, 첫 시간 일정부터.
+        // S68-51(명진 "뭘 또 4개 몰림이야"): 일정이 몰려도 요약 줄은 없고, 그 날 목록에 전부 시간순(종일 먼저).
         val c = WidgetWeek.content(
             200,
             body(
@@ -201,8 +198,13 @@ class WidgetWeekTest {
             ),
             now,
         )
-        assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 10, 31), "토", "일정 3개 몰림 · 궤도 대표자회의 10:00부터"), c.busy)
-        assertTrue(c.days[5].busy)
+        val sat = c.details.getValue(LocalDate.of(2026, 10, 31))
+        assertEquals(listOf("종일  당직", "10:00  궤도 대표자회의", "18:00  저녁 모임"), WidgetWeek.dayList(sat))
+        val all = WidgetWeek.dayList(sat, listOfNotNull(c.big, c.report))
+        assertFalse(all.toString(), all.any { it.contains("몰림") })
+        val src = java.io.File("src/main/java/kr/or/kptu/work/WidgetWeek.kt").readText() + java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
+        assertFalse(src.contains("\"외 \$") || src.contains("const val BUSY") || src.contains("busyPick"))
+        assertFalse(java.io.File("src/main/res/layout/week_widget.xml").readText().contains("week_busy"))
     }
 
     @Test
@@ -216,20 +218,75 @@ class WidgetWeekTest {
     }
 
     @Test
-    fun pickedDayTogglesAndResetsOnNewDay() {
+    fun pickedDayShowsAndResetsOnNewDay() {
         val c = WidgetWeek.content(200, body(), now)
         val fri = LocalDate.of(2026, 10, 30)
+        val tue = LocalDate.of(2026, 10, 27)
         val today = LocalDate.of(2026, 10, 30)
-        // 누르면 그 날, 같은 날을 다시 누르면 풀림, 다른 날이면 그 날로.
-        assertEquals(fri, WidgetWeek.toggle(null, fri))
-        assertNull(WidgetWeek.toggle(fri, fri))
-        assertEquals(LocalDate.of(2026, 10, 27), WidgetWeek.toggle(fri, LocalDate.of(2026, 10, 27)))
         assertEquals(fri, WidgetWeek.active(fri, today, now, c.days))
-        // 날이 바뀌면(고른 날짜가 오늘이 아님) 주간 요약으로.
+        // S68-51: 아래 목록은 늘 하루. 고른 날 → 오늘 → (다른 주) 월요일. 같은 날을 다시 눌러도 그대로(풀리지 않음).
+        assertEquals(tue, WidgetWeek.shownDay(WidgetWeek.active(tue, today, now, c.days), today, c.days))
+        assertEquals(today, WidgetWeek.shownDay(null, today, c.days))
+        val next = WidgetWeek.content(200, body(), now, shift = 1)
+        assertEquals(LocalDate.of(2026, 11, 2), WidgetWeek.shownDay(null, today, next.days))
+        assertEquals(WidgetWeek.Cell.PICKED, WidgetWeek.cell(c.days[1], today, tue))
+        assertEquals(WidgetWeek.Cell.TODAY, WidgetWeek.cell(c.days[4], today, tue)) // 오늘 표시는 그대로
+        // 날이 바뀌면(고른 날짜가 오늘이 아님) 기본 날(오늘)로.
         assertNull(WidgetWeek.active(fri, today, at(2026, 10, 31, 0, 1), c.days))
         // 보이는 주 밖의 날은 무시.
         assertNull(WidgetWeek.active(LocalDate.of(2026, 11, 3), today, now, c.days))
         assertNull(WidgetWeek.active(null, today, now, c.days))
+    }
+
+    @Test
+    fun tapCarriesItsWeekSoPickWorksAfterMemoryLoss() {
+        // S68-51 원인: 받은 내용(메모리)이 없으면 누름을 버렸다. 이제 누름에 실린 월요일로 주를 되찾고 그 날을 고른다.
+        assertEquals(0, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 26), now))
+        assertEquals(1, WidgetWeek.shiftOf(LocalDate.of(2026, 11, 2), now))
+        assertEquals(-2, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 12), now))
+        assertEquals(WidgetWeek.MAX_SHIFT, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 26).plusWeeks(8), now))
+        assertNull(WidgetWeek.shiftOf(LocalDate.of(2026, 10, 26).plusWeeks(9), now)) // 범위 밖
+        assertNull(WidgetWeek.shiftOf(LocalDate.of(2026, 10, 27), now)) // 월요일 아님
+        assertNull(WidgetWeek.shiftOf(null, now))
+        // 어제 그려진 칸을 오늘 눌러도(주가 바뀜) 그 주 안의 날이면 그대로 고른다.
+        assertEquals(-1, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 26), at(2026, 11, 2, 0, 5)))
+        assertTrue(WidgetWeek.dayInWeek(LocalDate.of(2026, 11, 8), LocalDate.of(2026, 11, 2)))
+        assertFalse(WidgetWeek.dayInWeek(LocalDate.of(2026, 11, 9), LocalDate.of(2026, 11, 2)))
+        assertFalse(WidgetWeek.dayInWeek(null, LocalDate.of(2026, 11, 2)))
+        // ‹ ›로 옮긴 주의 날 누름: 그 주 내용에서 고른 날이 살아 있고 목록이 그 날이다.
+        val next = WidgetWeek.content(200, body(timed("다음 주 일", "2026-11-04T09:00:00+09:00", "2026-11-04T10:00:00+09:00")), now, shift = 1)
+        val wed = LocalDate.of(2026, 11, 4)
+        val active = WidgetWeek.active(wed, LocalDate.of(2026, 10, 30), now, next.days)
+        assertEquals(wed, WidgetWeek.shownDay(active, LocalDate.of(2026, 10, 30), next.days))
+        assertEquals(listOf("09:00  다음 주 일"), WidgetWeek.dayList(next.details.getValue(wed)))
+
+        val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
+        val pick = src.substringAfter("private fun pick(").substringBefore("\n        }\n")
+        // 누름은 메모리 내용 유무와 상관없이 고른 날을 적고, 그린 상태가 없으면 '불러오는 중' + 다시 읽기(redraw).
+        assertFalse(pick, pick.contains("last["))
+        assertTrue(pick, pick.contains("picked = day") && pick.contains("redraw(context)"))
+        val redraw = src.substringAfter("private fun redraw(").substringBefore("\n        }\n")
+        assertTrue(redraw, redraw.contains("State.Loading") && redraw.contains("WidgetJobs.refreshNow(context)"))
+        // 요일 칸·화살표 누름에 그 주 월요일을 싣는다.
+        assertTrue(src.contains(".putExtra(EXTRA_DAY, day.toString()).putExtra(EXTRA_MONDAY, monday.toString())"))
+        assertTrue(src.contains(".putExtra(EXTRA_DELTA, delta).putExtra(EXTRA_MONDAY, monday.toString())"))
+        // 불러오는 중(받은 내용 없음)에는 고른 날을 풀지 않는다.
+        assertTrue(src.contains("if (!small && shown != null && active == null && v.picked != null)"))
+    }
+
+    @Test
+    fun listShowsEverythingScrollable() {
+        val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
+        // 12+는 줄을 그림에 싣고(RemoteCollectionItems), 11 이하는 메모리만 읽는 서비스. 줄 수 제한 없음.
+        assertTrue(src.contains("RemoteViews.RemoteCollectionItems.Builder()"))
+        assertTrue(src.contains("WidgetWeek.dayList(d, listOfNotNull(c.big, c.report))"))
+        val svc = java.io.File("src/main/java/kr/or/kptu/work/WeekListService.kt").readText()
+        assertFalse(svc.contains("SharedPreferences") || svc.contains("openFileOutput"))
+        val manifest = java.io.File("src/main/AndroidManifest.xml").readText()
+        val entry = manifest.substringAfter("android:name=\".WeekListService\"").substringBefore("/>")
+        assertTrue(entry, entry.contains("android:exported=\"false\"") && entry.contains("android.permission.BIND_REMOTEVIEWS"))
+        val row = java.io.File("src/main/res/layout/week_widget_row.xml").readText()
+        assertTrue(row.contains("@+id/week_row"))
     }
 
     @Test
@@ -257,7 +314,7 @@ class WidgetWeekTest {
         assertEquals("10/29(목) 일정 3 · 할 일 1", WidgetWeek.detailHead(thu))
         // 칸 숫자(일정 수)와 머리 줄 일정 수가 같다.
         assertEquals(c.days.first { it.day == thu.day }.count, thu.events)
-        assertEquals(listOf("종일  출장", "09:00  회의 1", "외 2"), WidgetWeek.detailRows(thu))
+        assertEquals(listOf("종일  출장", "09:00  회의 1", "13:00  회의 2", "할 일  보고서"), WidgetWeek.dayList(thu))
         assertEquals(7, c.details.size)
         // 할 일 연결이 없거나 다시 연결이 필요하면 할 일 수는 '읽지 못함'(null), 일정은 그대로.
         val off = WidgetWeek.content(200, body(), now, tasksStatus = 200, tasks = MiniJson.parse("""{"connected":false,"tasks":[]}"""))
@@ -271,7 +328,7 @@ class WidgetWeekTest {
     fun bigWidgetPicksInsideWidgetSmallOpensApp() {
         val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
         // 4×2 요일 칸은 이 위젯에만 가는 방송(앱을 열지 않음), 4×1은 지금처럼 앱 그 날. [열기]만 앱 그 날.
-        assertTrue(src.contains("if (small) day(context, d.day, i + 1) else pickIntent(context, id, d.day, i)"))
+        assertTrue(src.contains("if (small) day(context, d.day, i + 1) else pickIntent(context, id, d.day, monday, i)"))
         assertTrue(src.contains("Intent(context, WeekWidget::class.java).setAction(ACTION_PICK)"))
         assertTrue(src.contains("views.setOnClickPendingIntent(R.id.week_sel_open, day(context, d.day, 11))"))
         // 고른 날짜는 메모리에만(폰 저장 없음, W-D2).
@@ -287,7 +344,10 @@ class WidgetWeekTest {
         val pickXml = java.io.File("src/main/res/drawable/widget_day_pick.xml").readText()
         assertTrue(pickXml.contains("@color/widget_pick_bg") && pickXml.contains("@color/widget_pick_line"))
         val big = java.io.File("src/main/res/layout/week_widget.xml").readText()
-        for (id in listOf("week_sel", "week_sel_title", "week_sel_open", "week_sel_i0", "week_sel_i1", "week_sel_i2")) assertTrue(id, big.contains("@+id/$id\""))
+        for (id in listOf("week_sel", "week_sel_title", "week_sel_open", "week_sel_list")) assertTrue(id, big.contains("@+id/$id\""))
+        // S68-51: 줄 셋 고정 칸·주간 요약 줄을 없애고 스크롤 목록(ListView) 하나.
+        for (id in listOf("week_sel_i0", "week_big", "week_rep", "week_busy")) assertFalse(id, big.contains("@+id/$id\""))
+        assertTrue(big.contains("<ListView"))
     }
 
     @Test
@@ -320,7 +380,7 @@ class WidgetWeekTest {
     fun firstLineAndTodayCell() {
         // APP-위젯먹색 S68-06: 첫 일정 줄은 공백만인 제목이면 숨기고, 오늘 칸은 고른 날보다 먼저(먹색 바탕).
         val today = LocalDate.of(2026, 10, 30)
-        val d = WidgetWeek.Day(today, "금", 30, 2, false, "  운영위 회의  ")
+        val d = WidgetWeek.Day(today, "금", 30, 2, "  운영위 회의  ")
         assertEquals("운영위 회의", WidgetWeek.firstLine(d, small = false))
         assertNull(WidgetWeek.firstLine(d.copy(first = "   "), small = false))
         assertNull(WidgetWeek.firstLine(d.copy(count = 0), small = false))
@@ -368,10 +428,10 @@ class WidgetWeekTest {
         }
         val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
         assertTrue(src.contains("val shift = if (small) 0 else shiftOf(id, now)"))
-        assertTrue(src.contains("arrow(context, views, R.id.week_prev, id, shift, -1)"))
-        assertTrue(src.contains("arrow(context, views, R.id.week_next, id, shift, 1)"))
+        assertTrue(src.contains("arrow(context, views, R.id.week_prev, id, shift, -1, monday)"))
+        assertTrue(src.contains("arrow(context, views, R.id.week_next, id, shift, 1, monday)"))
         // 옮긴 주에서 머리 글자를 누르면 이번 주로(앱을 열지 않음), 이번 주에서는 지금처럼 앱 달력.
-        assertTrue(src.contains("if (shift == 0) day(context, null, 0) else shiftIntent(context, id, 0)"))
+        assertTrue(src.contains("if (shift == 0) day(context, null, 0) else shiftIntent(context, id, 0, monday)"))
         // 위젯마다(번호) 따로, 메모리에만. 옮기면 같은 일정 주소를 범위만 바꿔 읽는다.
         assertTrue(src.contains("putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)"))
         assertTrue(src.contains("manager.updateAppWidget(id, rv)"))

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-위젯다시 ③: '이번 주'(4×2). 요일 칸 7개(일정 수 + S68-06 그날 첫 일정 제목 앞부분 한 줄, 오늘 칸은 먹색 바탕) + 가장 큰 일·주간 보고일(명진 화면은 상집 보고일, S68-02)·일정 몰린 날. 늘 이번 주부터, 머리 줄 ‹ ›로 앞뒤 주(S68-12). 놓자마자 '불러오는 중'. -->
+<!-- APP-위젯다시 ③: '이번 주'(4×2). 요일 칸 7개(일정 수 + S68-06 그날 첫 일정 제목 앞부분 한 줄, 오늘 칸은 먹색 바탕) + 고른 날(기본 오늘) 일정 전부 목록(S68-51). 늘 이번 주부터, 머리 줄 ‹ ›로 앞뒤 주(S68-12). 놓자마자 '불러오는 중'. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/week_root"
     android:layout_width="match_parent"
@@ -446,110 +446,13 @@
                 android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
-    <LinearLayout
-        android:id="@+id/week_big"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="20dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
-        <TextView
-            android:id="@+id/week_big_tag"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textColor="@color/widget_req_ink"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:background="@drawable/widget_badge_req"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp" />
-        <TextView
-            android:id="@+id/week_big_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textColor="@color/widget_ink"
-            android:textSize="12sp"
-            android:layout_weight="1"
-            android:paddingStart="8dp" />
-    </LinearLayout>
-    <LinearLayout
-        android:id="@+id/week_rep"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="20dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
-        <TextView
-            android:id="@+id/week_rep_tag"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textColor="@color/widget_todo_ink"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:background="@drawable/widget_badge_todo"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp" />
-        <TextView
-            android:id="@+id/week_rep_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textColor="@color/widget_ink"
-            android:textSize="12sp"
-            android:layout_weight="1"
-            android:paddingStart="8dp" />
-    </LinearLayout>
-    <LinearLayout
-        android:id="@+id/week_busy"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="20dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
-        <TextView
-            android:id="@+id/week_busy_tag"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textColor="@color/widget_zero_ink"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:background="@drawable/widget_badge_zero"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp" />
-        <TextView
-            android:id="@+id/week_busy_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textColor="@color/widget_ink"
-            android:textSize="12sp"
-            android:layout_weight="1"
-            android:paddingStart="8dp" />
-    </LinearLayout>
-    <!-- APP-위젯날짜고르기: 요일 칸을 눌러 고른 날(머리 줄 + [열기] + 줄 셋). 고르지 않으면 숨기고 위 세 줄을 보인다. -->
+    <!-- S68-51(명진 11/23 "일정 그냥 다 보여줘 뭘 또 4개 몰림이야"): 주간 요약 줄(가장 큰 일·보고일·몰린 날)을 없애고 아래 칸은 늘 하루 목록.
+         머리 줄(그 날·일정 수·할 일 수) + [열기] + 그 날 줄 전부(줄임 없이, 남은 높이 안에서 스크롤). 다가오는 일·보고일은 목록 끝 줄. -->
     <LinearLayout
         android:id="@+id/week_sel"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:orientation="vertical"
         android:paddingTop="2dp"
         android:visibility="gone">
@@ -584,39 +487,14 @@
                 android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
-        <TextView
-            android:id="@+id/week_sel_i0"
+        <ListView
+            android:id="@+id/week_sel_list"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="18dp"
-            android:gravity="center_vertical"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textColor="@color/widget_ink"
-            android:textSize="12sp"
-            android:visibility="gone" />
-        <TextView
-            android:id="@+id/week_sel_i1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="18dp"
-            android:gravity="center_vertical"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textColor="@color/widget_ink"
-            android:textSize="12sp"
-            android:visibility="gone" />
-        <TextView
-            android:id="@+id/week_sel_i2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="18dp"
-            android:gravity="center_vertical"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textColor="@color/widget_ink"
-            android:textSize="12sp"
-            android:visibility="gone" />
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:divider="@null"
+            android:dividerHeight="0dp"
+            android:scrollbars="vertical" />
     </LinearLayout>
     <TextView
         android:id="@+id/week_note"
