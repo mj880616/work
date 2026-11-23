@@ -37,6 +37,9 @@ test('목록 줄: 안 읽음 점·제목(없으면 사이트)·사이트·날짜
   const only = entriesOf(rows);
   const keys = markKeysOf([{source_type: 'reading', source_id: 'b'}]);
   assert.deepEqual(filterEntries(only, 'unread').map(e => e.key), ['a']);
+  // S68-45: 열어 둔 줄은 읽음이 되어도 닫을 때까지 [안 읽음]에 남는다.
+  assert.deepEqual(filterEntries(only, 'unread', new Set(), 'b').map(e => e.key), ['a', 'b']);
+  assert.deepEqual(filterEntries(only, 'all', new Set(), 'b').map(e => e.key), ['a', 'b']);
   assert.deepEqual(filterEntries(only, 'all').map(e => e.key), ['a', 'b']);
   assert.deepEqual(filterEntries(only, 'marks', keys).map(e => e.key), ['b']);
   assert.deepEqual(filterOptions(only, keys).map(o => o.label), ['안 읽음 1', '전체', '밑줄 1']);

@@ -103,8 +103,13 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
     // 요청은 모두 내 작업공간 열쇠로만(서버 RLS가 owner를 다시 본다).
     expect(s.calls.every(c => c.search.includes('workspace_id=eq.w'))).toBe(true);
 
-    // 글 보기: 원문 사본(글자로만), 원래 페이지 링크, 밑줄 줄.
+    // 글 보기: 원문 사본(글자로만), 원래 페이지 링크, 밑줄 줄. S68-45: 열면 읽음(read_at만 서버에 저장).
+    await list(page).locator('.rd-chips [data-filter-value="unread"]').click();
     await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
+    await expect.poll(() => s.patches.length).toBe(1);
+    expect(s.patches[0].id).toBe(A);
+    expect(Object.keys(s.patches[0].body).sort()).toEqual(['read_at', 'updated_at']);
+    expect(s.patches[0].body.read_at).toBeTruthy();
     await expect(detail(page)).toBeVisible();
     await expect(detail(page).locator('.rd-title')).toHaveText('예시 기사 하나');
     await expect(detail(page).locator('a.rd-src')).toHaveAttribute('href', 'https://example.com/a');
@@ -125,10 +130,16 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
     expect(s.notes[0].raw_text).toContain('https://example.com/a');
     expect(s.notes[0].raw_text).toContain('example.com');
 
-    // [읽음] → 읽은 시각만 고친다.
+    // 연 글은 이미 읽음 → [안 읽음으로]로 되돌릴 수 있고, [읽음]으로 다시. 읽은 시각만 고친다.
+    await expect(detail(page).locator('[data-rd-read="0"]')).toHaveText('안 읽음으로');
+    if (width > 760) await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/); // 열어 둔 줄은 [안 읽음]에서도 닫을 때까지 그 자리
+    await detail(page).locator('[data-rd-read="0"]').click();
+    await expect.poll(() => s.patches.length).toBe(2);
+    expect(s.patches[1].body.read_at).toBeNull();
+    await expect(detail(page).locator('[data-rd-read="1"]')).toHaveText('읽음');
     await detail(page).locator('[data-rd-read="1"]').click();
-    await expect.poll(() => s.patches.length).toBe(1);
-    expect(Object.keys(s.patches[0].body).sort()).toEqual(['read_at', 'updated_at']);
+    await expect.poll(() => s.patches.length).toBe(3);
+    expect(Object.keys(s.patches[2].body).sort()).toEqual(['read_at', 'updated_at']);
     await expect(detail(page).locator('[data-rd-read="0"]')).toHaveText('안 읽음으로');
 
     // 폰: 뒤로 = 목록(다른 화면으로 가지 않음).
@@ -138,9 +149,45 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
       await expect(list(page)).toBeVisible();
       await expect(page.locator('#readingView')).toBeVisible();
     }
+    // 목록으로 돌아오면 점이 꺼져 있고(전체), 새로고침 뒤에도 서버 값 그대로.
+    await list(page).locator('.rd-chips [data-filter-value="all"]').click();
+    await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/);
+    await page.reload();
+    await goReading(page, width).catch(() => {});
+    await expect(page.locator('#readingView')).toBeVisible();
+    await expect(list(page).locator('.rd-chips [data-filter-value="unread"]')).toHaveText('안 읽음 0');
     expect(errors).toEqual([]);
   });
 }
+
+// S68-45(명진 11/23 11:08 "안읽은 글 눌러서 읽었는데 읽음 처리 안됨"): 안 읽은 줄을 눌러 열면 읽음. 저장이 실패하면 조용히 넘기지 않고(알림 한 줄)
+// 점은 그대로 — 다음에 열 때 다시 저장한다.
+test('열면 읽음 412: 저장 실패 → 알림 한 줄·점 그대로, 다음에 열 때 다시 저장', async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 412, height: 900 });
+  await openHome(page);
+  const s = await server(page);
+  let refuse = true;
+  await page.route(SB + '/rest/v1/app_reading_items*', route => {
+    if (route.request().method() === 'PATCH' && refuse) { s.patches.push({ id: 'refused', body: route.request().postDataJSON() }); return route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"busy"}' }); }
+    return route.fallback();
+  });
+  await goReading(page, 412);
+  await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
+  await expect(detail(page)).toBeVisible();
+  await expect.poll(() => noticeText(page)).toContain('읽음으로 저장하지 못했어요');
+  await expect(detail(page).locator('[data-rd-read="1"]')).toHaveText('읽음');
+  await page.goBack();
+  await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).toHaveClass(/is-unread/);
+  refuse = false;
+  await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
+  await expect.poll(() => s.rows.find(r => r.id === A).read_at).toBeTruthy();
+  await expect(detail(page).locator('[data-rd-read="0"]')).toHaveText('안 읽음으로');
+  await page.goBack();
+  await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).toHaveCount(0); // [안 읽음]에서 빠짐
+  await list(page).locator('.rd-chips [data-filter-value="all"]').click();
+  await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/);
+});
 
 test('[+ 추가]: 주소 → 넣기 → note-import로 원문을 받아 글자로만 저장, 막힌 줄은 한 줄 상태와 원래 페이지 링크', async ({ page }) => {
   test.setTimeout(90000);
@@ -187,6 +234,8 @@ test('남의 작업공간 줄: 서버가 거절하면 바꾸지 않고 한 줄 �
   const s = await server(page, { refuseRead: true });
   await goReading(page, 1280);
   await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
+  // S68-45: 열 때 읽음 저장도 서버가 거절 → 알림 한 줄, 그대로 안 읽음.
+  await expect.poll(() => noticeText(page)).toContain('읽음으로 저장하지 못했어요');
   await detail(page).locator('[data-rd-read="1"]').click();
   await expect.poll(() => noticeText(page)).toContain('저장하지 못했어요');
   await expect(detail(page).locator('[data-rd-read="1"]')).toHaveText('읽음');
@@ -263,6 +312,8 @@ test('자동 다시 가져오기: 옛 robots·실패·빈 줄만 한 번, News �
   expect(id(4) in byId || id(5) in byId).toBe(false);
   // 다시 열어도(다른 화면 → 읽을 거리) 다시 자동으로 하지 않는다 — 실패한 줄은 [다시] 단추만.
   await page.evaluate(() => window.KPTUReading.refresh());
+  // S68-45: 줄을 열면 읽음이 되어 [안 읽음]에서 빠지므로 [전체]에서 차례로 연다.
+  await list(page).locator('.rd-chips [data-filter-value="all"]').click();
   await list(page).locator(`.rd-row[data-rd-open="${id(3)}"]`).click();
   await expect(detail(page).locator('.rd-line')).toContainText('읽기를 막아');
   await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveText('다시');
