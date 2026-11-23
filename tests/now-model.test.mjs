@@ -419,3 +419,17 @@ test('S68-49: 사회운동 글도 못 읽으면 [본문 붙여 넣기](canHandFi
   assert.ok(handBodyRequest(A, 'ㄱ'.repeat(HAND_BODY_MAX + 1)).error);
   assert.equal(HAND_BODY_MAX, 50000);
 });
+
+// S69-01: 저장본을 바로 그릴지(full + 요약 있음만), 서버 답이 이미 그린 저장본과 같은지(같으면 다시 그리지 않음).
+test('S69-01 savedUsable·sameDetail', async () => {
+  const {savedUsable, sameDetail} = await import('../app/now-model.mjs');
+  const full = {level: 'full', summary: '요약.', generated_at: '2026-11-23T04:00:00Z', context_at: null};
+  assert.equal(savedUsable(full), true);
+  assert.equal(savedUsable({...full, level: 'basic'}), false, '한도 넘은 날의 요약만은 서버가 채우므로 기다림');
+  assert.equal(savedUsable({...full, summary: '  '}), false);
+  assert.equal(savedUsable(null), false);
+  assert.equal(sameDetail(full, {...full, related: []}), true);
+  assert.equal(sameDetail(full, {...full, generated_at: '2026-11-24T00:00:00Z'}), false);
+  assert.equal(sameDetail(full, {...full, summary: '새 요약.'}), false);
+  assert.equal(sameDetail(null, full), false);
+});

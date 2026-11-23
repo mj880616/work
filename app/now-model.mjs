@@ -169,6 +169,11 @@ export const unreadLead = row => !!row && row.body_kind !== 'full' && !row.manua
 // 요약 서버(ai-assist now_detail)의 '재료 없음'(422 no_material)인가 — 판단은 이 함수 하나(S68-49).
 // 서버 답 {error:'no_material', message:'AI 요청을 처리하지 못했어요.'}: 화면 요청 도구는 message를 오류 글로 쓰고 error 칸은 serverCode에 둔다.
 // 예전 판단(message에 'no_material'이 드는가)은 운영 답에서 늘 거짓이라 요약 칸에 빨간 'HTTP 422'가 보였다(11/23 캡처).
+// S69-01: 저장된 요약·시사점(내 자세히 표 한 줄)을 서버 답 전에 바로 그려도 되는가 — 요약이 있고 시사점까지 다 만든 것(full)만.
+// 한도 넘은 날의 요약만(basic)은 서버가 다음 날 채우므로 기다린다.
+export const savedUsable = row => !!row && typeof row === 'object' && row.level === 'full' && typeof row.summary === 'string' && !!row.summary.trim();
+// 화면에 그린 상세와 서버 답이 같은 저장본인가(같으면 다시 그리지 않는다 — 깜빡임 없음).
+export const sameDetail = (a, b) => !!a && !!b && a.generated_at === b.generated_at && (a.context_at ?? null) === (b.context_at ?? null) && a.summary === b.summary;
 export const isNoMaterial = e => e?.status === 422 && (e?.serverCode === 'no_material' || /\bno_material\b/.test(String(e?.message || '')));
 // 저장 원문이 아예 없는 옛 글: 예전 저장 글자(사회운동 문장·뉴스 body)를 문단 블록으로.
 export function legacyBody(text, {lead = false} = {}) {

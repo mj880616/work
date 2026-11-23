@@ -206,6 +206,9 @@ export async function readMarkRaw(item) {
 }
 // 공용 본문 블록 한 줄(없으면 null).
 export const readBody = item => rt().api(`/rest/v1/${T[item.type].body}?article_id=eq.${q(item.id)}&select=blocks,state,reason,rule&limit=1`, {singleFlight: false}).then(first);
+// 내 저장된 요약·시사점 한 줄(사람별 자세히 표 — 화면은 자기 줄 읽기만, 쓰기는 서버 ai-assist). 없으면 null. S69-01: 열자마자 바로 그린다.
+const DETAIL_TABLE = {news: 'app_news_now_details', outside: 'app_outside_now_details'};
+export const readSavedDetail = item => rt().api(`/rest/v1/${DETAIL_TABLE[item.type]}?workspace_id=eq.${q(workspaceOf())}&article_id=eq.${q(item.id)}&select=level,summary,key_sentences,relevance,implications,related,generated_at,context_at&limit=1`, {singleFlight: false}).then(first);
 // 공용 칸 몇 개(뉴스 기사·사회운동 글).
 export const readArticleCols = (item, cols) => rt().api(`/rest/v1/${T[item.type].art}?id=eq.${q(item.id)}&select=${cols}&limit=1`, {singleFlight: false}).then(first);
 // 사회운동 국내 글 문장(공용).

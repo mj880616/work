@@ -32,9 +32,9 @@ export function waitInlineHtml() {
 // 실패. retry: [다시] 버튼에 붙일 속성 이름(그 화면의 기존 다시 받기 처리기가 받는다, 예 'data-diary-retry'). 없으면 [다시] 없음.
 // reason(PHOTO-폰사진못읽음): 그 화면이 만든 실제 이유 글. 있으면 '불러오지 못했습니다 · 이유'로 같은 빨간 작은 글자에 붙인다(200자까지).
 export const REASON_MAX = 200;
-export function failHtml({retry = '', text = FAIL_TEXT, reason = ''} = {}) {
+export function failHtml({retry = '', text = FAIL_TEXT, reason = '', label = '다시'} = {}) {
   const attr = /^data-[a-z0-9-]+$/.test(retry) ? ` ${retry}` : '';
-  const button = attr ? ` <button type="button" class="wait-retry"${attr}>다시</button>` : '';
+  const button = attr ? ` <button type="button" class="wait-retry"${attr}>${esc(label)}</button>` : '';
   const why = String(reason ?? '').trim().slice(0, REASON_MAX);
   const reasonHtml = why ? `<span class="wait-reason" data-wait-reason> · ${esc(why)}</span>` : '';
   return `<p class="wait-fail" data-wait-fail role="alert">${esc(text)}${reasonHtml}${button}</p>`;
