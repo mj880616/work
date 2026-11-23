@@ -1,7 +1,7 @@
 // S62-34 APP-플레이스토어비공개테스트: 폰 앱 두 판(github·play)의 정적 확인.
-// - build.gradle: github 판은 kr.or.kptu.work 그대로, play 판은 com.nojoplus.app. namespace(코드 패키지)는 그대로.
+// - build.gradle: github 판은 kr.or.kptu.work 그대로, play 판은 com.workonplus.app. namespace(코드 패키지)는 그대로.
 // - play 판 매니페스트: 스스로 업데이트·설치 요청·'모든 파일 접근' 권한을 뺀다. github 판(main 매니페스트)은 그대로.
-// - 웹 로그인 복귀: native=android → kr.or.kptu.work, native=android-play → com.nojoplus.app(주소에서 패키지를 받지 않음).
+// - 웹 로그인 복귀: native=android → kr.or.kptu.work, native=android-play → com.workonplus.app(주소에서 패키지를 받지 않음).
 // - play-bundle.yml: main에서 손으로만, 공개 릴리스·태그 없음, artifact 7일, 새 비밀값 없음.
 // 빌드된 APK의 병합 매니페스트는 build-android-app.yml의 check-flavor-manifests.py가 따로 본다.
 import test from 'node:test';
@@ -22,13 +22,13 @@ const flavorBlock = name => {
   return gradle.slice(start, gradle.indexOf('\n        }', start));
 };
 
-test('github 판은 지금 앱 ID 그대로, play 판은 com.nojoplus.app, namespace는 그대로', () => {
+test('github 판은 지금 앱 ID 그대로, play 판은 com.workonplus.app, namespace는 그대로', () => {
   assert.match(gradle, /namespace 'kr\.or\.kptu\.work'/);
   assert.match(gradle, /flavorDimensions\.add\('channel'\)/);
   const github = flavorBlock('github');
   const play = flavorBlock('play');
   assert.match(github, /applicationId = 'kr\.or\.kptu\.work'/);
-  assert.match(play, /applicationId = 'com\.nojoplus\.app'/);
+  assert.match(play, /applicationId = 'com\.workonplus\.app'/);
   assert.match(github, /'SELF_UPDATE', 'true'/);
   assert.match(play, /'SELF_UPDATE', 'false'/);
   assert.match(play, /'ALL_FILES', 'false'/);
@@ -78,21 +78,37 @@ test('로그인 복귀: android는 지금 앱, android-play는 플레이 판, �
   const x = runBridge('com.evil.app');
   await new Promise(resolve => setImmediate(resolve));
   assert.match(a.link.href, /;package=kr\.or\.kptu\.work;end$/);
-  assert.match(p.link.href, /;package=com\.nojoplus\.app;end$/);
+  assert.match(p.link.href, /;package=com\.workonplus\.app;end$/);
   assert.match(p.link.href, /^intent:\/\/auth\?handoff=opaque-sealed-handoff#Intent;scheme=kptuwork;/);
   assert.equal(x.link.href, undefined);
   assert.notEqual(x.ctx.window.__KPTU_NATIVE_BRIDGE__, true);
 });
 
-test('로그인 시작: 플레이 판 사용자 에이전트(KPTUPlay)는 android-play로 돌아온다', () => {
+test('로그인 시작: 플레이 판 사용자 에이전트(WorkOnPlay)는 android-play로 돌아온다', () => {
   const src = read('app/login/native-google-return.js');
   const run = ua => {
     const auth = { APP_ROOT: 'https://desk.bokdoong.com/work/app/', googleUrl: () => 'https://example.supabase.co/auth/v1/authorize?provider=google' };
     vm.runInContext(src, vm.createContext({ window: { KPTUAuth: auth }, navigator: { userAgent: ua }, URL }));
     return new URL(auth.googleUrl()).searchParams.get('redirect_to');
   };
-  assert.match(run('Mozilla/5.0 (Linux; Android 15; wv) KPTUAndroid/0.5.11 KPTUPlay'), /native-callback\.html\?native=android-play$/);
+  assert.match(run('Mozilla/5.0 (Linux; Android 15; wv) KPTUAndroid/0.5.11 WorkOnPlay'), /native-callback\.html\?native=android-play$/);
   assert.match(run('Mozilla/5.0 (Linux; Android 15; wv) KPTUAndroid/0.5.11'), /native-callback\.html\?native=android$/);
+});
+
+test('S69-10: 플레이 판은 새 앱 com.workonplus.app — 옛 초안 앱 ID는 코드·workflow·시험 어디에도 남지 않는다', () => {
+  const old = ['com', 'nojoplus', 'app'].join('.');
+  const files = [
+    'android-app/app/build.gradle', 'android-app/app/src/main/AndroidManifest.xml', 'android-app/app/src/play/AndroidManifest.xml',
+    'android-app/scripts/check-flavor-manifests.py', 'app/native-auth-bridge.js', 'app/login/native-google-return.js',
+    '.github/workflows/play-bundle.yml', '.github/workflows/build-android-app.yml',
+    'android-app/app/src/test/java/kr/or/kptu/work/FlavorTest.kt', 'android-app/app/src/test/java/kr/or/kptu/work/WidgetAuthTest.kt',
+  ];
+  for (const f of files) assert.ok(!read(f).includes(old), `${f}에 옛 앱 ID`);
+  // 앱 이름은 두 판 모두 main 매니페스트 하나(WORK ON+). play 판이 이름을 덮어쓰지 않는다.
+  assert.match(mainManifest, /android:label="WORK ON\+"/);
+  assert.doesNotMatch(playManifest, /android:label=/);
+  assert.match(flavorBlock('play'), /'UA_MARK', '" WorkOnPlay"'/);
+  assert.match(bundle, /workonplus-play-\$VERSION\.aab/);
 });
 
 test('play-bundle.yml: main 손 실행만, 공개 릴리스·태그 없음, artifact 7일, 비밀값은 기존 넷만', () => {

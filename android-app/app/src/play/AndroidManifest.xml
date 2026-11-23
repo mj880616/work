@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- S62-34 APP-플레이스토어비공개테스트: 플레이 판(com.nojoplus.app)에서만 빼는 권한.
+<!-- S62-34 APP-플레이스토어비공개테스트: 플레이 판(com.workonplus.app)에서만 빼는 권한.
      - REQUEST_INSTALL_PACKAGES·UPDATE_PACKAGES_WITHOUT_USER_ACTION: 플레이 앱은 플레이 밖에서 스스로 업데이트하면 안 된다(기기·네트워크 악용 정책).
        업데이트는 플레이가 한다. 코드도 BuildConfig.SELF_UPDATE=false로 새 판 확인·받기를 하지 않는다.
      - MANAGE_EXTERNAL_STORAGE('모든 파일 접근'): 파일 관리자·백업 앱 등만 허용되는 권한이라 플레이 판에서는 [파일] '이 폰'을 끈다(BuildConfig.ALL_FILES=false).
