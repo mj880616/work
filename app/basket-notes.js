@@ -206,7 +206,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top ? pane : null;
   }});
 
-  const boardLinks = createBoardLinks({rt, scope:() => scope(), toast:showToast, onChange:() => { if (loaded && !selected && view === 'board') renderList(); }});
+  // 연결선·글 상자만 바뀌면(늦게 온 읽기 답·더하기·고치기) 카드는 그대로 두고 선·글 상자만 다시 그린다 — 끄는 중인 카드가 끊기지 않게(S68-47).
+  const boardLinks = createBoardLinks({rt, scope:() => scope(), toast:showToast, onChange:() => {
+    if (!loaded || selected || view !== 'board') return;
+    if (!board) { renderList(); return; }
+    const key = boards.current(); board.relink({links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key)});
+  }});
   const boards = createNoteBoards({esc, rt, links:boardLinks, wide:window.matchMedia('(min-width:761px)'), bar:host.querySelector('[data-nbb]'), side:host.querySelector('[data-nbb-side]'),
     notes:{get:() => notes, set:fn => { notes = fn(notes); }}, folderOf:note => folderOf(note), folders:() => folders, matches:() => (query ? matches : null),
     rerender:() => { if (loaded && !selected && view === 'board') renderList(); }, toast:showToast, refresh:() => refresh(), scope:() => scope(),

@@ -6,8 +6,7 @@ export const reportWeekButton=(page,to)=>page.locator(`#reportWeekFilter [data-r
 export const reportPeriodSelect=page=>page.locator('#reportPeriodPick [data-report-period]');
 export async function showAllReportWeeks(page){
   const pick=reportPeriodSelect(page);
-  await openReportBoxes(page); // S67-75: 폰 폭이면 칩을 눌러 상자 창을 연다
-  await expect(pick).toBeVisible();
+  await openReportBoxes(page,pick); // S67-75: 폰 폭이면 칩을 눌러 상자 창을 연다(S68-47: 칩/네 개가 정해진 뒤 기간 상자가 보일 때까지)
   if(await pick.inputValue()!=='all')await pick.selectOption('all');else await closeReportBoxes(page);
   await expect(pick).toHaveValue('all');
 }

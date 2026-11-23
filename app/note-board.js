@@ -168,6 +168,25 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     else if (focusLine) lineEls.get(focusLine)?.querySelector('.nb-hit')?.focus({preventScroll:true});
     else if (focusText) textEls.get(focusText)?.querySelector('.nb-tx')?.focus({preventScroll:true});
   }
+  // S68-47: 연결선·글 상자만 바뀌었을 때(따로 읽은 답이 늦게 오거나 선·글 상자를 더하고 고친 뒤) 카드는 건드리지 않고 선·글 상자만 다시 그린다.
+  // 판 전체 paint()는 끌던 카드를 취소하고 카드를 새로 만들므로, 보드가 뜨자마자 끌기 시작하면 늦게 온 답에 끌기가 끊겼다.
+  // 카드 끌기·판 이동·두 손가락·선 긋기는 이어 가고, 바뀐 목록에 기대는 글 상자 끌기·곡선 끌기만 그만둔다(paint()와 같음).
+  function relink({links:list = [], texts:textList = []}) {
+    if (tdrag) cancelTextDrag();
+    if (bend) cancelBend();
+    if (editing && !editing.isNew && !textList.some(t => t.id === editing.id)) endEdit(false);
+    texts = textList; textById = new Map(textList.map(t => [t.id, t]));
+    if (textSel && !textById.has(textSel)) textSel = null;
+    if (wire && !places.has(wire.from) && !textById.has(wire.from)) cancelWire();
+    links = list; linkOn = new Set(list.filter(l => hasEnd(endId(l, 'from')) && hasEnd(endId(l, 'to'))).map(l => l.id));
+    if (lineSel && !linkOn.has(lineSel)) closeLineMenu();
+    const focusLine = document.activeElement?.closest?.('[data-nb-hit]')?.dataset.nbHit;
+    const focusText = document.activeElement?.closest?.('.nb-tx') ? document.activeElement.closest('[data-nb-text]')?.dataset.nbText : null;
+    for (const g of lineEls.values()) g.remove(); lineEls.clear();
+    renderTexts(); sync();
+    if (focusLine) lineEls.get(focusLine)?.querySelector('.nb-hit')?.focus({preventScroll:true});
+    else if (focusText) textEls.get(focusText)?.querySelector('.nb-tx')?.focus({preventScroll:true});
+  }
   // 화면 칸 좌표·판 좌표.
   const local = e => { const r = scroll.getBoundingClientRect(); return {x:e.clientX - r.left, y:e.clientY - r.top}; };
   const pointOf = e => { const p = local(e); return toBoard(view, p.x, p.y); };
@@ -635,8 +654,11 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     menu.el.innerHTML = menuHtml(l); placeMenu();
     if (focused >= 0) menu.el.querySelectorAll('button')[focused]?.focus({preventScroll:true});
   }
+  // 다시 그린 뒤 열려 있던 선 메뉴: 그 선이 남아 있으면 새 값으로 다시, 없으면 닫는다.
+  function keepMenu(id) { if (id && links.some(l => l.id === id)) { lineSel = id; const l = links.find(k => k.id === id); if (lineEls.has(id)) paintLine(l); refreshMenu(); } else closeLineMenu(); }
   return {
-    paint(args) { const id = menu?.id; paint(args); if (id && links.some(l => l.id === id)) { lineSel = id; const l = links.find(k => k.id === id); if (lineEls.has(id)) paintLine(l); refreshMenu(); } else closeLineMenu(); },
+    paint(args) { const id = menu?.id; paint(args); keepMenu(id); },
+    relink(args) { const id = menu?.id; relink(args); keepMenu(id); },
     isDragging: () => !!(drag?.moving || tdrag?.moving || bend?.moved || wire || pan?.moved || pinch),
     places: () => new Map(places),
     view: () => ({...view}),
