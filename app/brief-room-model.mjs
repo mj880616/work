@@ -1,7 +1,6 @@
 // BRIEF-브리핑룸 ③ 화면 모델(설계 docs/design/brief-room.md 6절, 시안 docs/design/mockups/brief-room.html). DOM·네트워크 없음.
 // 화면(brief-room.js)은 이 모듈이 돌려준 글자를 textContent로만 넣는다.
 import { shortListDate } from './short-date.mjs';
-import {word} from './brand/brand.mjs';
 export const BRIEF_FOLDER = '브리핑 요청함';
 export const BRIEF_POLL_MS = 4000;
 export const BRIEF_STALE_MS = 30 * 1000;   // 서버 brief-run.mjs BRIEF_STALE_MS와 같은 값
@@ -88,72 +87,54 @@ export function listRows({ docs, folderIds, briefs }) {
   return rows.sort((a, b) => b.at - a.at);
 }
 
-// S67-50: 칸 이름은 단어표(app/brand/girok-words.mjs '#brief' 자리)를 거친다. 노동조합+ 얼굴은 지금 글자 그대로.
-export const NO_SCOPE_LINE = '등록한 담당이 없어요';
-// S68-45(명진 11/23 "직관적으로 문서가 딱 읽히지 않아", 시안 12:19 "ㄱㄱ"): 위에서 아래로 한눈에 3줄 → 챙길 일 → 우리 조직 관련 → 대응할 것 → 원문 인용(접힘).
-// 칸마다 앞 SHOW_N개만 펼치고 나머지는 '+ n개 더 보기'. 빈 칸은 그리지 않는다(등록한 담당이 없을 때의 '우리 조직 관련' 한 줄만 예외 — S67-50).
+// S68-56(명진 11/23 15:06·15:12 "챙길 일에 집착하지 마 / 미리 정해 놓은 칸에 우겨넣지 말고 걍 요약"):
+// 보기 = 요지 1~3줄(옅은 띠) → AI가 자료 짜임대로 정한 소제목별 항목(앞 SHOW_N개 소제목만 펼침, 나머지 접힘) → 원문 인용(접힘).
+// 칸 이름(챙길 일·우리 조직 관련·대응할 것)은 화면이 정하지 않는다. '우리 관련'은 항목 옆 작은 표시만(서버가 확실할 때만 남김).
 export const SHOW_N = 3;
-export const GLANCE_TITLE = '한눈에';
+export const GIST_TITLE = '요지';
+export const QUOTES_TITLE = '원문 인용';
+export const OURS_TAG = '우리 관련';
+export const LEGACY_LINE = '예전 방식 브리핑';
 export const moreLabel = n => `+ ${n}개 더 보기`;
 const strs = v => (Array.isArray(v) ? v.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim()) : []);
 const str = v => (typeof v === 'string' ? v.trim() : '');
-const DAY = 24 * 3600 * 1000;
-/**
- * 기한 꼬리표가 급한지(옅은 빨강). 서버(AI)가 urgent를 주면 그대로, 아니면 글자로: 오늘·내일·즉시·이번 주·일주일 내,
- * 또는 날짜(M/D·M월 D일·YYYY-MM-DD)가 오늘부터 7일 안(지난 날짜 포함). now는 시험용.
- */
-export function dueUrgent(due, urgent = false, now = new Date()) {
-  if (urgent === true) return true;
-  const d = str(due);
-  if (!d) return false;
-  if (/오늘|내일|즉시|당장|이번\s?주|일주일\s?(?:내|안|이내)|7일\s?(?:내|안|이내)/.test(d)) return true;
-  const kst = new Date(now.getTime() + 9 * 3600 * 1000);
-  const y = kst.getUTCFullYear(), today = Date.UTC(y, kst.getUTCMonth(), kst.getUTCDate());
-  let m = d.match(/(\d{4})[-.\/]\s?(\d{1,2})[-.\/]\s?(\d{1,2})/), at = null;
-  if (m) at = Date.UTC(+m[1], +m[2] - 1, +m[3]);
-  else if ((m = d.match(/(\d{1,2})\s?(?:\/|월\s?)(\d{1,2})/))) {
-    at = Date.UTC(y, +m[1] - 1, +m[2]);
-    if (at < today - 180 * DAY) at = Date.UTC(y + 1, +m[1] - 1, +m[2]); // 12월에 본 '1/5'는 내년
-  }
-  if (at === null || !Number.isFinite(at)) return false;
-  return at - today <= 7 * DAY;
-}
-/** 챙길 일 정렬: 급한 것 → 기한 있는 것 → 기한 없는 것. 같은 묶음 안은 서버(중요한 순) 순서 그대로. */
-export function sortTodos(list, now = new Date()) {
-  const rank = t => (t.urgent ? 0 : t.due ? 1 : 2);
-  return list.map((t, i) => ({ ...t, urgent: dueUrgent(t.due, t.urgent, now), i })).sort((a, b) => rank(a) - rank(b) || a.i - b.i).map(({ i, ...t }) => t);
-}
+const pageOf = p => (Number.isInteger(p) && p > 0 ? p : null);
 /** 앞 SHOW_N개와 나머지. */
 export const splitShown = (items, n = SHOW_N) => ({ shown: items.slice(0, n), rest: items.slice(n) });
 
+// 옛 형식 칸 → 소제목. 옛 칸 이름을 그대로 쓰되(v1 화면 이름의 짧은 꼴), '챙길 일'처럼 해석을 붙이지 않는다.
+const LEGACY_TITLES = Object.freeze({ touches: '닿는 것', orgs: '닿는 것', todos: '할 일·기한·숫자', conflicts: '부딪히는 대목', counters: '부딪히는 대목' });
+const item = text => ({ text, page: null, ours: false });
+
 /**
- * 브리핑 보기 모델. 옛 형식(v1: touches·todos·conflicts 글 줄)도 읽을 때 새 칸으로 옮겨 보인다(저장된 행은 바꾸지 않음).
- * @returns {{glance: string[], sections: {key:'todos'|'orgs'|'counters'|'quotes', title:string, items:any[], empty?:string}[], legacy: boolean}}
+ * 브리핑 보기 모델. v3(S68-56)는 그대로, 옛 형식(v1: 글 줄 칸, v2: S68-45 칸)은 읽을 때만 같은 모양으로 옮긴다(저장된 행은 바꾸지 않음).
+ * @returns {{gist: string[], sections: {title:string, items:{text:string,page:number|null,ours:boolean}[]}[], quotes: {text:string,speaker:string,heading:string,page:number|null}[], legacy: boolean}}
  */
-export function briefView(brief, now = new Date()) {
+export function briefView(brief) {
   const b = brief && typeof brief === 'object' ? brief : {};
-  const legacy = b.v !== 2;
-  const glance = (legacy ? [] : strs(b.glance)).slice(0, 3);
-  if (!glance.length && str(b.lead)) glance.push(str(b.lead));
-  const todos = legacy
-    ? strs(b.todos).map(text => ({ due: '', text, urgent: false }))
-    : (Array.isArray(b.todos) ? b.todos : []).filter(t => t && str(t.text)).map(t => ({ due: str(t.due), text: str(t.text), urgent: t.urgent === true }));
-  const orgs = legacy
-    ? strs(b.touches).map(text => ({ name: '', text }))
-    : (Array.isArray(b.orgs) ? b.orgs : []).filter(o => o && str(o.text)).map(o => ({ name: str(o.name), text: str(o.text) }));
-  const counters = legacy
-    ? strs(b.conflicts).map(claim => ({ claim, reply: '' }))
-    : (Array.isArray(b.counters) ? b.counters : []).filter(c => c && str(c.claim)).map(c => ({ claim: str(c.claim), reply: str(c.reply) }));
+  const legacy = b.v !== 3;
+  let gist = strs(legacy ? (b.v === 2 ? b.glance : []) : b.gist).slice(0, 3);
+  if (!gist.length && str(b.lead)) gist = [str(b.lead)];
+  let sections;
+  if (!legacy) {
+    sections = (Array.isArray(b.sections) ? b.sections : []).map(sec => ({
+      title: str(sec?.title),
+      items: (Array.isArray(sec?.items) ? sec.items : []).filter(it => it && str(it.text)).map(it => ({ text: str(it.text), page: pageOf(it.page), ours: it.ours === true })),
+    })).filter(sec => sec.items.length);
+  } else if (b.v === 2) {
+    const objs = v => (Array.isArray(v) ? v.filter(o => o && typeof o === 'object') : []);
+    sections = [
+      { key: 'todos', items: objs(b.todos).filter(t => str(t.text)).map(t => item(str(t.due) ? `${str(t.due)} · ${str(t.text)}` : str(t.text))) },
+      { key: 'orgs', items: objs(b.orgs).filter(o => str(o.text)).map(o => item(str(o.name) ? `${str(o.name)} · ${str(o.text)}` : str(o.text))) },
+      { key: 'counters', items: objs(b.counters).filter(c => str(c.claim)).map(c => item(str(c.reply) ? `${str(c.claim)} → ${str(c.reply)}` : str(c.claim))) },
+    ].filter(x => x.items.length).map(x => ({ title: LEGACY_TITLES[x.key], items: x.items }));
+  } else {
+    sections = ['touches', 'todos', 'conflicts'].map(k => ({ title: LEGACY_TITLES[k], items: strs(b[k]).map(item) })).filter(x => x.items.length);
+  }
   const quotes = (Array.isArray(b.quotes) ? b.quotes : [])
     .filter(q => q && typeof q.text === 'string' && q.text)
-    .map(q => ({ text: q.text, heading: str(q.heading), why: str(q.why), page: Number.isInteger(q.page) && q.page > 0 ? q.page : null }));
-  const sections = [];
-  if (todos.length) sections.push({ key: 'todos', title: '챙길 일', items: sortTodos(todos, now) });
-  if (orgs.length) sections.push({ key: 'orgs', title: word('우리 조직 관련', 'brief'), items: orgs });
-  else if (b.scope === 'none') sections.push({ key: 'orgs', title: word('우리 조직 관련', 'brief'), items: [], empty: NO_SCOPE_LINE });
-  if (counters.length) sections.push({ key: 'counters', title: '대응할 것', items: counters });
-  if (quotes.length) sections.push({ key: 'quotes', title: '원문 인용', items: quotes });
-  return { glance, sections, legacy };
+    .map(q => ({ text: q.text, speaker: str(q.speaker), heading: str(q.heading), page: pageOf(q.page) }));
+  return { gist, sections, quotes, legacy };
 }
 
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
