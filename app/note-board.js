@@ -170,10 +170,13 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   }
   // S68-47: 연결선·글 상자만 바뀌었을 때(따로 읽은 답이 늦게 오거나 선·글 상자를 더하고 고친 뒤) 카드는 건드리지 않고 선·글 상자만 다시 그린다.
   // 판 전체 paint()는 끌던 카드를 취소하고 카드를 새로 만들므로, 보드가 뜨자마자 끌기 시작하면 늦게 온 답에 끌기가 끊겼다.
-  // 카드 끌기·판 이동·두 손가락·선 긋기는 이어 가고, 바뀐 목록에 기대는 글 상자 끌기·곡선 끌기만 그만둔다(paint()와 같음).
+  // 카드 끌기·판 이동·두 손가락·선 긋기는 이어 가고, 바뀐 목록에 기대는 글 상자 끌기만 그만둔다(paint()와 같음).
+  // S68-57: 곡선 끌기는 끌던 선이 새 목록에 그대로 있으면 이어 간다 — 다른 선의 저장 답(예: [직선으로])이 끄는 도중에 와도
+  // 끌기가 끊기지 않게. 곡선은 움직일 때마다 지금 목록(links)·카드 자리로 다시 계산하므로(followBend) 새 목록으로 이어 가도 된다.
+  // 끌던 선이 없어졌거나 아직 저장 중(pending)이면 지금처럼 그만둔다.
   function relink({links:list = [], texts:textList = []}) {
     if (tdrag) cancelTextDrag();
-    if (bend) cancelBend();
+    if (bend && !list.some(l => l.id === bend.id && !l.pending)) cancelBend();
     if (editing && !editing.isNew && !textList.some(t => t.id === editing.id)) endEdit(false);
     texts = textList; textById = new Map(textList.map(t => [t.id, t]));
     if (textSel && !textById.has(textSel)) textSel = null;

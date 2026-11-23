@@ -33,6 +33,9 @@ async function open(page,{width,view='month',target='calendar',dark=false}){
 const chip=(page,root,id)=>page.locator(`${root} [data-google-event="${id}"]`).first();
 async function expectSolid(page,root,id,raw){
   const c=chip(page,root,id);await expect(c).toBeVisible();
+  // S68-57: 자료가 다 와서 마지막으로 그린 칩의 칠을 기다린 뒤(다시 그릴 때마다 새 요소) 대비를 본다.
+  await expect(c).toHaveCSS('background-color',rgbOf(toneColor(raw)));
+  await expect(c).toHaveCSS('color',rgbOf(eventInk(toneColor(raw))));
   const {background,foreground}=await expectGoogleDisplay(c);
   expect(`rgb(${background.map(Math.round).join(', ')})`).toBe(rgbOf(toneColor(raw)));
   expect(`rgb(${foreground.map(Math.round).join(', ')})`).toBe(rgbOf(eventInk(toneColor(raw))));

@@ -11,7 +11,7 @@ test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 async function fixture(page, width) {
   await page.setViewportSize({ width, height: 860 });
-  const errors = [], linkCalls = [], linkRows = [], textCalls = [], textRows = [];
+  const errors = [], linkCalls = [], linkRows = [], textCalls = [], textRows = [], hold = { linkPatch: null };
   page.on('pageerror', e => errors.push(e.message));
   await openHome(page);
   const row = (id, title, board) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + '\n본문', occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-10T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: { board } });
@@ -35,7 +35,7 @@ async function fixture(page, width) {
       if (!body.from_note === !body.from_text || !body.to_note === !body.to_text) return r.fulfill({ status: 400, json: { code: '23514', message: 'check' } });
       const saved = { id: `L${linkCalls.length}`, ...body }; delete saved.workspace_id; linkRows.push(saved); return r.fulfill({ status: 201, json: [structuredClone(saved)] });
     }
-    if (method === 'PATCH') { const hit = linkRows.find(l => 'eq.' + l.id === q.get('id')); Object.assign(hit, body); return r.fulfill({ json: [structuredClone(hit)] }); }
+    if (method === 'PATCH') { const hit = linkRows.find(l => 'eq.' + l.id === q.get('id')); Object.assign(hit, body); const answer = [structuredClone(hit)]; if (hold.linkPatch) await hold.linkPatch; return r.fulfill({ json: answer }); }
     if (method === 'DELETE') { const id = q.get('id')?.slice(3); for (let i = linkRows.length - 1; i >= 0; i--) if (linkRows[i].id === id) linkRows.splice(i, 1); return r.fulfill({ json: [] }); }
     return r.fulfill({ status: 500, json: {} });
   });
@@ -55,7 +55,7 @@ async function fixture(page, width) {
     return r.fulfill({ status: 500, json: {} });
   });
   await openBoard(page);
-  return { errors, linkCalls, linkRows, textCalls, textRows };
+  return { errors, linkCalls, linkRows, textCalls, textRows, hold };
 }
 async function openBoard(page) {
   await page.evaluate(() => window.KPTURouter.go('basket'));
@@ -89,7 +89,7 @@ async function swipe(cdp, from, to, steps = 10) { for (let i = 1; i <= steps; i+
 const noOverflow = page => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
 test('PC: 글 상자 만들기·수정·옮기기, 노트↔글 상자 선, 선 끌어 곡선·옮겨도 유지·새로고침 뒤 유지·직선 복귀, 삭제, 노트 목록에 안 나옴 (1440)', async ({ page }) => {
-  const { errors, linkCalls, linkRows, textCalls, textRows } = await fixture(page, 1440);
+  const { errors, linkCalls, linkRows, textCalls, textRows, hold } = await fixture(page, 1440);
   // [+ 글 상자] → 바로 입력칸 → 바깥 누르기 = 저장.
   await page.locator('[data-nb-add-text]').click();
   await expect(editor(page)).toBeFocused();
@@ -172,6 +172,8 @@ test('PC: 글 상자 만들기·수정·옮기기, 노트↔글 상자 선, 선 
   await page.mouse.click(m2.x, m2.y);
   await expect(menu(page)).toBeVisible();
   await expect(menu(page).locator('[data-nb-straight]')).toBeEnabled();
+  // S68-57: [직선으로]의 저장 답은 둘째 선을 끄는 도중에 오게 붙잡아 둔다(전에는 답이 늦게 오면 끌기가 끊겨 CI에서 간헐 실패).
+  let release; hold.linkPatch = new Promise(r => { release = r; });
   await menu(page).locator('[data-nb-straight]').click();
   await expect.poll(() => linkCalls.filter(x => x.method === 'PATCH').at(-1)?.body).toEqual({ shape: 'line', bend_x: null, bend_y: null });
   expect(await dOf(page, L1)).toMatch(/L/);
@@ -182,6 +184,15 @@ test('PC: 글 상자 만들기·수정·옮기기, 노트↔글 상자 선, 선 
   const m3 = await lineMid(page, L2);
   await page.mouse.move(m3.x, m3.y); await page.mouse.down();
   await page.mouse.move(m3.x + m3.nx * 60, m3.y + m3.ny * 60, { steps: 4 });
+  expect(await dOf(page, L2)).toMatch(/Q/);
+  // 끄는 도중에 다른 선의 저장 답이 와서 선을 모두 다시 그려도(끌던 선의 옛 요소가 빠짐) 끌기는 이어진다.
+  const oldLine = await page.locator(`[data-nb-line="${L2}"]`).elementHandle();
+  hold.linkPatch = null; release();
+  await expect.poll(() => oldLine.evaluate(el => el.isConnected)).toBe(false);
+  await expect(page.locator(`[data-nb-line="${L2}"]`)).toHaveCount(1);
+  expect(await dOf(page, L2)).toMatch(/Q/);
+  expect(await dOf(page, L1)).toMatch(/L/);
+  await page.mouse.move(m3.x + m3.nx * 50, m3.y + m3.ny * 50, { steps: 2 });
   expect(await dOf(page, L2)).toMatch(/Q/);
   await page.mouse.move(m3.x + m3.nx * 3, m3.y + m3.ny * 3, { steps: 4 });
   expect(await dOf(page, L2)).toMatch(/L/);
