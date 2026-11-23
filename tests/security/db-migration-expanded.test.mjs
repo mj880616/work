@@ -229,3 +229,85 @@ test('check SQL label/shape failure is reported as a SQL format error, not a DB 
   assert.match(result.summary, /사전 확인\(precheck\): 실패\. 확인 SQL 형식 오류\(항목 이름·열 모양\)/);
   assert.doesNotMatch(result.summary, /DB 요청·응답 확인 실패|bad; label|HTTP/);
 });
+
+// S68-42: column grants on an existing table, only for columns this same file added.
+const addCols = 'alter table public.app_items add column c_new uuid;\nalter table public.app_items add column c_two real;';
+test('new-column grant on an existing table: accepted only for columns added in this file, authenticated only', () => {
+  const ok = [
+    `${addCols}\ngrant insert (c_new, c_two) on table public.app_items to authenticated;\ngrant update (c_new, c_two) on table public.app_items to authenticated;`,
+    `${addCols}\ngrant select (c_new), update (c_two) on public.app_items to authenticated;`,
+    'alter table public.app_items add column c_new uuid, add column c_two real;\ngrant insert (c_new, c_two) on table public.app_items to authenticated;',
+  ];
+  for (const body of ok) assert.equal(reason(wrap(body)), 'accepted', body);
+  const result = validateExpanded(wrap(ok[0]), { version, name });
+  assert.deepEqual(result.newColumnGrantTables, ['app_items']);
+  assert.deepEqual(validateExpanded(wrap(`${table}\ngrant select on table public.ex_items to authenticated;`), { version, name }).newColumnGrantTables, []);
+  const refused = [
+    ['existing column mixed in', `${addCols}\ngrant update (c_new, label) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['only an existing column', `${addCols}\ngrant update (label) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['to anon', `${addCols}\ngrant insert (c_new) on table public.app_items to anon;`, 'grant-anon-public'],
+    ['to PUBLIC', `${addCols}\ngrant insert (c_new) on table public.app_items to public;`, 'grant-anon-public'],
+    ['to authenticated and anon', `${addCols}\ngrant insert (c_new) on table public.app_items to authenticated, anon;`, 'grant-anon-public'],
+    ['to service_role', `${addCols}\ngrant insert (c_new) on table public.app_items to service_role;`, 'grant-existing'],
+    ['to authenticated and service_role', `${addCols}\ngrant insert (c_new) on table public.app_items to authenticated, service_role;`, 'grant-existing'],
+    ['table-wide grant', `${addCols}\ngrant insert on table public.app_items to authenticated;`, 'grant-existing'],
+    ['table-wide mixed with column grant', `${addCols}\ngrant insert (c_new), delete on table public.app_items to authenticated;`, 'grant-existing'],
+    ['all privileges on columns', `${addCols}\ngrant all (c_new) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['references on a new column', `${addCols}\ngrant references (c_new) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['with grant option', `${addCols}\ngrant insert (c_new) on table public.app_items to authenticated with grant option;`, 'grant-option'],
+    ['grant before the column is added', `grant insert (c_new) on table public.app_items to authenticated;\n${addCols}`, 'grant-existing'],
+    ['drop then re-add (name reuse)', `alter table public.app_items drop column c_new;\n${addCols}\ngrant insert (c_new) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['add, drop, re-add', `${addCols}\nalter table public.app_items drop column c_new;\nalter table public.app_items add column c_new uuid;\ngrant insert (c_new) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['rename an existing column onto the new name', `${addCols}\nalter table public.app_items rename column c_new to c_old;\nalter table public.app_items rename column label to c_new;\ngrant update (c_new) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['rename without COLUMN keyword', `${addCols}\ngrant update (c_new) on table public.app_items to authenticated;\nalter table public.app_items rename c_new to c_x;`, 'alter-table'], // already refused by the ALTER TABLE rule
+    ['add column if not exists (may skip an existing column)', 'alter table public.app_items add column if not exists c_new uuid;\ngrant insert (c_new) on table public.app_items to authenticated;', 'grant-existing'],
+    ['new column name borrowed from another table', `alter table public.app_other add column c_new uuid;\ngrant insert (c_new) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['two tables in one grant', `${addCols}\nalter table public.app_other add column c_new uuid;\ngrant insert (c_new) on table public.app_items, public.app_other to authenticated;`, 'grant-existing'],
+    ['generated column copies an existing column', 'alter table public.app_items add column c_new text generated always as (label) stored;\ngrant select (c_new) on table public.app_items to authenticated;', 'grant-existing'],
+    ['set expression on the new column', `${addCols}\nalter table public.app_items alter column c_two set expression as (1);\ngrant select (c_two) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['update copies existing values into the new column', `${addCols}\nupdate public.app_items set c_new = id where id is not null;\ngrant select (c_new) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['trigger on that table could fill the new column', `${addCols}\ncreate function private.ex_fill() returns trigger language plpgsql security invoker set search_path = '' as $$begin return new; end$$;\nrevoke all on function private.ex_fill() from public, anon, authenticated;\ncreate trigger ex_fill before insert or update on public.app_items for each row execute function private.ex_fill();\ngrant select (c_new) on table public.app_items to authenticated;`, 'grant-existing'],
+    ['RLS turned off in the file', `${addCols}\nalter table public.app_items disable row level security;\ngrant insert (c_new) on table public.app_items to authenticated;`, 'rls-disable'],
+    ['RLS force removed in the file', `${addCols}\nalter table public.app_items no force row level security;\ngrant insert (c_new) on table public.app_items to authenticated;`, 'rls-disable'],
+  ];
+  for (const [label, body, expected] of refused) assert.equal(reason(wrap(body)), expected, label);
+});
+
+test('new-column grant: the S68-38c migration passes plan (dry-run) and production RLS is checked before any write', async () => {
+  const { makePlan } = await import('../../scripts/ops/db-workflow.mjs');
+  const { rlsLookupSQL, rlsAllOn, policyLookupSQL } = await import('../../scripts/ops/db-migration-expanded.mjs');
+  const { runFullPlan } = await import('../../scripts/ops/db-migration-run.mjs');
+  const repo = new URL('../../', import.meta.url).pathname;
+  const plan = makePlan('dry-run', '7', 'refs/heads/main', '20261123120000_note_board_texts.sql', repo);
+  assert.equal(plan.rules, 'expanded'); assert.equal(plan.flow, 'full');
+  assert.deepEqual(plan.newColumnGrantTables, ['app_note_board_links']);
+  assert.deepEqual(plan.createdTables, ['app_note_board_texts']);
+  assert.ok(rlsAllOn(['app_note_board_links'], [{ tbl: 'app_note_board_links', rls: true }]));
+  for (const rows of [[], [{ tbl: 'app_note_board_links', rls: false }], [{ tbl: 'app_note_board_links', rls: 'true' }],
+    [{ tbl: 'app_note_board_links', rls: true }, { tbl: 'app_note_board_links', rls: true }], null]) {
+    assert.ok(!rlsAllOn(['app_note_board_links'], rows), JSON.stringify(rows));
+  }
+  assert.throws(() => rlsLookupSQL(["x'; drop"]));
+  const lookup = rlsLookupSQL(plan.newColumnGrantTables);
+  const sent = [];
+  const query = async (sql, opts = {}) => {
+    sent.push({ sql, readOnly: Boolean(opts.readOnly) });
+    if (sql === lookup) return [{ tbl: 'app_note_board_links', rls: false }];
+    if (sql === policyLookupSQL(plan.policyReplacements)) {
+      return [{ tbl: 'app_note_board_links', name: 'note_board_links_owner_all', permissive: 'PERMISSIVE', cmd: 'ALL', roles: 'authenticated' }];
+    }
+    return [{ count: 0 }];
+  };
+  const result = await runFullPlan(plan, query);
+  assert.equal(result.ok, false);
+  assert.match(result.summary, /RLS가 켜져 있지 않거나/);
+  assert.ok(sent.every(s => s.readOnly), 'no write before the RLS check passes');
+  assert.ok(!sent.some(s => s.sql === plan.checks.precheck.sql));
+  assert.match(result.summary, /정책 교체 비교: 1개 모두 같거나 좁음/);
+  // RLS on: the run goes on to the precheck (here the fake precheck rows then stop it, still before any write).
+  sent.length = 0;
+  const onQuery = async (sql, opts) => (sql === lookup ? [{ tbl: 'app_note_board_links', rls: true }] : query(sql, opts));
+  const second = await runFullPlan(plan, onQuery);
+  assert.match(second.summary, /새 칸 권한 표 RLS 켜짐: 1개 모두 예/);
+  assert.ok(sent.some(s => s.sql === plan.checks.precheck.sql));
+});

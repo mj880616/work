@@ -223,9 +223,11 @@ export function refsCounts(v: unknown): Record<string, number> | null {
 }
 export const ART_SELECT = "id,url,url_key,origin,lane,title,title_key,lang,publisher,published_at,state,fetched_at,summary,body,body_kind,title_ko,body_ko,translated_at,source_key,manual_at";
 // S68-40: 사람이 손으로 본문을 넣은 공용 기사(manual_at + 본문 있음)인가. 그 본문(글·내가 올린 사진)은 사람 것이 먼저 — 원문 다시 읽기·수집·다시 뽑기가 덮지 않는다.
-// 제목만 고친(본문 없음) 못 읽은 기사는 여기에 들지 않아 원문 다시 읽기로 본문을 채울 수 있다.
+// S68-44(명진 11/23 "본문 글자 없이도 저장되게"): 본문 칸을 사진만 남기거나 비워서 저장한 손 기사(state ok + 기사 글자 없음)도 사람 것 — 같은 보호.
+// 제목만 고친(본문을 보내지 않은) 못 읽은 기사는 상태가 그대로(failed 등)라 여기에 들지 않아 원문 다시 읽기로 본문을 채울 수 있다.
 export const handOwned = (article: Row | null | undefined) =>
-  !!article && typeof article.manual_at === "string" && !!article.manual_at && article.body_kind === "full";
+  !!article && typeof article.manual_at === "string" && !!article.manual_at &&
+  (article.body_kind === "full" || (article.state === "ok" && article.body == null));
 // NEWS-운영자만(S63-03, _shared/news-access.ts): News 몫 일은 기능 키 'outside' 작업공간(정확히 한 곳)만. 못 읽으면 null = 아무 곳도 안 함.
 async function newsWs(db: Db): Promise<string | null> {
   try { return newsWorkspaceOf(await db.rpcValue("app_operator_feature_workspace", { p_feature: NEWS_FEATURE })); } catch { return null; }
@@ -584,6 +586,8 @@ const oldRef = (r: Row): OldRef => ({ id: String(r.id), workspace_id: String(r.w
 // 다시 뽑을 줄인가(P2c). body: 그 기사의 블록 줄(state·reason·rule) 또는 없음. current: 지금 카탈로그 규칙 이름(키@판).
 export function needsRefill(body: Row | null | undefined, current: string | null): boolean {
   if (!body) return true;
+  // S68-44: 손으로 넣은 본문(사진만·비운 것 포함)은 다시 뽑지 않는다.
+  if (body.rule === HAND_RULE) return false;
   if (body.reason === "timeout") return true;
   return body.state !== "ok" && body.rule !== current;
 }
@@ -1435,6 +1439,9 @@ async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: 
 // ---- 손으로 넣기(hand_fill, S67-02 NEWS-직접넣기) ------------------------------------------------------------------------
 // 원문을 못 읽은 기사(늦은 답·없는 글·막힘)나 잘못 읽은 기사에 사람이 제목·매체·기자·기사 시각·본문을 넣는다. 화면 [직접 넣기]·⋯ [수정].
 // - 몸통 {id, title, publisher, author, published_at, body?, url?}. body가 없으면 본문은 그대로(제목 등만 고침). 값은 글자로만 저장(HTML 해석 없음).
+// - S68-44(명진 11/23 11:07 "본문 글자 없이도 저장되게"): 본문 글자는 필수가 아니다. body가 사진만이면 사진 본문(image_only), 빈 글자면 본문 비움
+//   (블록 failed·no_body — 화면은 '본문 없음'). 제목도 비워 보낼 수 있다(빈 제목 = 지금 제목 그대로).
+//   다만 제목·원문 주소·본문(글 또는 사진)이 모두 빈 요청은 고칠 것이 없는 빈 기사라 400 EMPTY_ARTICLE. 길이·모양 검사는 그대로.
 // - url(S68-39 NEWS-직접넣기원문주소, 선택): 원문 주소를 바로잡는다. 주소로 보관(save_url)과 같은 규칙(saveTarget — http는 https로, 거절 목록·추적 값 떼기,
 //   2000자까지)만 받고, 바깥 사이트는 읽지 않는다. 지금 주소와 같으면 그대로. 다른 공용 기사가 이미 그 주소면 409 URL_TAKEN(합치지 않음).
 //   바뀌면 공용 기사 url·url_key + 이 작업공간의 같은 기사 옛 줄 주소만 고친다(다른 작업공간 줄은 읽지도 고치지도 않는다).
@@ -1446,7 +1453,7 @@ export const HAND_RULE = "manual@1";
 export const HAND_LIMITS = Object.freeze({ title: 300, publisher: 60, author: 80, body: 50000, blocks: 400, url: SAVE_URL_MAX });
 const HAND_MAX_BYTES = 256 * 1024;
 const HAND_KEYS = ["id", "title", "publisher", "author", "published_at", "body", "url"];
-export type HandInput = { id: string; title: string; publisher: string | null; author: string | null; published_at: string | null; body: string[] | null; blocks: HandBlock[] | null; url: { url: string; key: string } | null };
+export type HandInput = { id: string; title: string | null; publisher: string | null; author: string | null; published_at: string | null; body: string[] | null; blocks: HandBlock[] | null; url: { url: string; key: string } | null };
 // deno-lint-ignore no-control-regex
 const HAND_CTRL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200b\ufeff]/g;
 const handLine = (v: unknown) => (typeof v === "string" ? oneLine(v.replace(HAND_CTRL, " ")) : null);
@@ -1522,8 +1529,9 @@ export function parseHandFill(b: Row, nowMs: number): HandInput {
   const keys = Object.keys(b);
   if (keys.some((k) => !HAND_KEYS.includes(k)) || !["id", "title", "publisher", "author", "published_at"].every((k) => k in b)) throw new Fail(400, "INVALID_BODY");
   if (typeof b.id !== "string" || !UUID.test(b.id)) throw new Fail(400, "INVALID_BODY");
-  const title = handLine(b.title);
-  if (!title || [...title].length > HAND_LIMITS.title) throw new Fail(400, "INVALID_TITLE");
+  // 제목: 글자(빈 글자 = 그대로) 또는 null(그대로). 그 밖의 값·상한 넘음은 400.
+  const title = b.title === null ? "" : handLine(b.title);
+  if (title === null || [...title].length > HAND_LIMITS.title) throw new Fail(400, "INVALID_TITLE");
   const opt = (v: unknown, max: number, code: string) => {
     if (v === null) return null;
     const s = handLine(v);
@@ -1543,7 +1551,6 @@ export function parseHandFill(b: Row, nowMs: number): HandInput {
     if (typeof b.body !== "string" || [...b.body].length > HAND_LIMITS.body) throw new Fail(400, "INVALID_TEXT");
     blocks = handBlocks(b.body);
     body = blocks.flatMap((x) => (x.t === "p" ? [x.text] : []));
-    if (!body.length) throw new Fail(400, "INVALID_TEXT");
     if (blocks.length - body.length > BODY_LIMITS.images) throw new Fail(400, "TOO_MANY_PHOTOS");
   }
   // 원문 주소(선택): null·빈 글자 = 그대로. 글자가 아니거나 열린 기사 주소 규칙 밖이면 400 INVALID_URL.
@@ -1557,27 +1564,34 @@ export function parseHandFill(b: Row, nowMs: number): HandInput {
       if (!url) throw new Fail(400, "INVALID_URL");
     }
   }
-  return { id: b.id.toLowerCase(), title, publisher, author, published_at: published, body, blocks, url };
+  // 빈 기사 막기(S68-44): 제목·원문 주소·본문(글 또는 사진) 중 하나는 있어야 한다.
+  if (!title && !url && !blocks?.length) throw new Fail(400, "EMPTY_ARTICLE");
+  return { id: b.id.toLowerCase(), title: title || null, publisher, author, published_at: published, body, blocks, url };
 }
 // 손으로 넣은 값 → 한 줄 고칠 칸(공용 기사·옛 줄 같은 규칙). shared면 기자 이름·'직접 넣음' 시각 칸도(공용 기사에만 있음).
+// 빈 제목(null)은 지금 제목 그대로. 본문을 보냈으면(글·사진만·비움) 상태는 ok(손 본문) — 글자가 없으면 기사 글자 칸은 비운다(DB: 본문 글자 1자 이상 또는 null).
 export function handPatch(row: Row, v: HandInput, nowIso: string, shared: boolean): Row {
-  const patch: Row = { title: v.title, title_key: titleKey(v.title), publisher: v.publisher, published_at: v.published_at, updated_at: nowIso };
+  const patch: Row = { publisher: v.publisher, published_at: v.published_at, updated_at: nowIso };
+  if (v.title) { patch.title = v.title; patch.title_key = titleKey(v.title); }
   if (shared) { patch.author = v.author; patch.manual_at = nowIso; }
   if (v.url && v.url.key !== row.url_key) { patch.url = v.url.url; patch.url_key = v.url.key; }
   if (v.body) {
-    Object.assign(patch, { body: v.body.join("\n"), body_kind: "full", state: "ok", fetched_at: row.fetched_at ?? nowIso, summary: null, title_ko: null, body_ko: null, translated_at: null });
-  } else if (v.title !== row.title && row.title_ko != null) {
+    const text = v.body.length ? v.body.join("\n") : null;
+    Object.assign(patch, { body: text, body_kind: text ? "full" : null, state: "ok", fetched_at: row.fetched_at ?? nowIso, summary: null, title_ko: null, body_ko: null, translated_at: null });
+  } else if (v.title && v.title !== row.title && row.title_ko != null) {
     // 제목 번역은 옛 제목 것이라 비운다(본문 번역이 남아 있으면 번역 시각은 그대로 — DB 검사: 시각 = 둘 중 하나라도 있음).
     patch.title_ko = null;
     if (row.body_ko == null) patch.translated_at = null;
   }
   return patch;
 }
+// 손 본문 → 블록 줄. 글자 있음 = ok, 사진만 = image_only, 둘 다 없음(비움) = failed·no_body(블록 없음 — 화면 '본문 없음', 손 규칙이라 다시 뽑지 않음).
 export function handBody(v: HandInput): Extracted {
   const blocks = v.blocks ?? (v.body ?? []).map((text) => ({ t: "p" as const, text }));
   const text = (v.body ?? []).join("\n");
   const images = blocks.filter((x) => x.t === "img").length, captions = blocks.filter((x) => x.t === "img" && x.cap).length;
-  return { state: "ok", reason: null, rule: HAND_RULE, blocks, chars: [...(v.body ?? []).join("")].length, images, captions, text };
+  if (!v.body?.length && !images) return { ...failedBody("no_body", HAND_RULE), text: "" };
+  return { state: v.body?.length ? "ok" : "image_only", reason: null, rule: HAND_RULE, blocks, chars: [...(v.body ?? []).join("")].length, images, captions, text };
 }
 async function handFill(db: Db, reads: UserReads, log: FeedLog, ws: string, b: Row, nowMs: number) {
   const v = parseHandFill(b, nowMs);
@@ -1771,6 +1785,8 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           if (head) await patchArticle(db, log, art.id, head);
           return json({ ok: true, status: head ? "titled" : "stored" });
         }
+        // S68-44: 사진만·비운 손 본문은 사람 것 — 원문을 다시 읽지 않는다.
+        if (handOwned(art)) return json({ ok: true, status: "stored" });
         if (videoId(String(art.url))) return json({ ok: true, status: "original_only" }); // 영상: 본문이 없다 — 원문(영상)에서 보기
         let reader: FeedReader;
         if (art.lane === "channel") reader = readers.open(true);

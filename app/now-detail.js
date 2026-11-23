@@ -12,7 +12,7 @@ import {notify, askText} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
@@ -179,7 +179,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       const hand = canHandFill(cur.item, b) ? ' <button type="button" class="ds-chip nd-hand" data-nd-hand>직접 넣기</button>' : '';
       const again = (cur.refetching ? ' <span class="nd-faint" data-nd-refetching>원문을 다시 가져오는 중</span>' : b.again ? ' <button type="button" class="ds-chip" data-nd-refetch>원문 다시 가져오기</button>' : '')
         + (cur.refetchNote && !cur.refetching ? ` <span class="nd-faint" data-nd-refetch-note>${esc(cur.refetchNote)}</span>` : '');
-      const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}${again}${hand}</p>` : '';
+      // S68-44: 손으로 넣은 기사인데 본문 글자가 없으면(비움·사진만) 까닭 대신 작은 '본문 없음' 한 줄(주소가 있을 때만 원래 사이트).
+      const noText = handNoText(b);
+      const why = noText ? `<div class="nd-why nd-no-text" data-nd-why role="status">${emptyHtml('본문 없음', {attrs: 'data-nd-no-text'})}${cur.head.url ? ` · ${siteLink('원래 사이트 ↗')}` : ''}${hand}</div>`
+        : b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}${again}${hand}</p>` : '';
       const prose = b.blocks.length ? `<div class="nd-prose"${langAttr()} data-nd-prose>${b.blocks.map(blockHtml).join('')}</div>` : '';
       inner = b.state === 'failed' ? why : moveUrlHtml(b) + prose + why;
     }
@@ -378,7 +381,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       cur.detail = r.detail; cur.failed = '';
     } catch (e) {
       if (my !== seq) return;
-      if (e?.status === 422 && String(e?.message || '').includes('no_material')) cur.unread = unreadReason('', 'pending');
+      // S68-44: 손으로 넣은 기사에 본문 글자가 없으면(비움·사진만) 요약을 만들지 않는다 — '만드는 중'에 머물지 않고 '본문 없음' 한 줄.
+      if (e?.status === 422 && String(e?.message || '').includes('no_material')) cur.unread = handNoText(bodies.get(key)) ? '본문 없음' : unreadReason('', 'pending');
       else cur.failed = detailError(e);
     }
     cur.reading = false;

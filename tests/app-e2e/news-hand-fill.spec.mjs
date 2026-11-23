@@ -130,16 +130,19 @@ test('읽은 기사 ⋯ [수정] 1280: 같은 입력 칸에 지금 값, [취소]
   expect(errors).toEqual([]);
 });
 
-test('서버 거절 412: 운영자 기능 키 밖이면 입력 칸은 그대로 + 까닭 한 줄, 제목이 비면 보내지 않음', async ({ page }) => {
+test('서버 거절 412: 운영자 기능 키 밖이면 입력 칸은 그대로 + 까닭 한 줄, 제목·주소·본문이 다 비면 보내지 않음', async ({ page }) => {
   test.setTimeout(60000);
   const { errors, seen } = await setup(page, 412, { refuse: true });
   await row(page, 'x1').locator('[data-nc-open="x1"]').click();
   const nd = detail(page);
   await nd.locator('[data-nd-hand]').click();
   const form = nd.locator('[data-nd-hand-form]');
+  // S68-44: 제목은 필수가 아니다(제목이 비어도 원문 주소가 있으면 보냄). 주소까지 비우면 빈 기사라 보내지 않는다.
+  await form.locator('[data-nd-hand-in="url"]').fill('');
   await form.locator('button[type="submit"]').click();
-  await expect(form.locator('[data-nd-hand-note]')).toHaveText('제목을 넣어 주세요');
+  await expect(form.locator('[data-nd-hand-note]')).toHaveText('제목·원문 주소·본문(글이나 사진) 중 하나는 넣어 주세요');
   expect(seen.fills).toHaveLength(0);
+  await form.locator('[data-nd-hand-in="url"]').fill('https://www.example.org/x1');
   await form.locator('[data-nd-hand-in="title"]').fill('가짜 제목');
   await form.locator('[data-nd-hand-in="author"]').fill('가짜 기자');
   await form.locator('button[type="submit"]').click();

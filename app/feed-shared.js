@@ -205,7 +205,7 @@ export async function readMarkRaw(item) {
   return {...(m || {}), starred_at: s?.saved_at ?? null};
 }
 // 공용 본문 블록 한 줄(없으면 null).
-export const readBody = item => rt().api(`/rest/v1/${T[item.type].body}?article_id=eq.${q(item.id)}&select=blocks,state,reason&limit=1`, {singleFlight: false}).then(first);
+export const readBody = item => rt().api(`/rest/v1/${T[item.type].body}?article_id=eq.${q(item.id)}&select=blocks,state,reason,rule&limit=1`, {singleFlight: false}).then(first);
 // 공용 칸 몇 개(뉴스 기사·사회운동 글).
 export const readArticleCols = (item, cols) => rt().api(`/rest/v1/${T[item.type].art}?id=eq.${q(item.id)}&select=${cols}&limit=1`, {singleFlight: false}).then(first);
 // 사회운동 국내 글 문장(공용).

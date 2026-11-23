@@ -139,7 +139,7 @@ function drawList() {
   renderFilterChips(chipsHost, {options: filterOptions(entries, keys), value: keepFilter(state.filter), label: '저장한 글 거르기', small: true,
     onChange: v => { state.filter = keepFilter(v); drawList(); }});
   parts.push(chipsHost);
-  const shown = filterEntries(entries, state.filter, keys);
+  const shown = filterEntries(entries, state.filter, keys, state.open || '');
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
   for (const e of shown) list.append(rowEl(e));
@@ -165,6 +165,7 @@ async function openItem(id, {highlight = null} = {}) {
   state.open = id; state.body = null; state.bodyFor = null;
   openLayer(id);
   draw();
+  void markOpened(id);
   try { const full = await getItem(id); if (state.open !== id) return; state.body = full?.body || ''; state.bodyFor = id; if (full) Object.assign(rowOf(id) || {}, full); }
   catch { if (state.open === id) { state.body = null; state.bodyFor = 'failed:' + id; } }
   draw();
@@ -269,6 +270,20 @@ async function addUrl(text) {
   notify(out.dup ? '이미 저장한 글에 있어요' : '저장한 글에 넣었어요', {record: false});
   draw();
   if (!out.dup) void startFetch(out.row);
+}
+// S68-45(명진 11/23 11:08 "안읽은 글 눌러서 읽었는데 읽음 처리 안됨"): 글 보기를 열면(이 화면 보기·읽을 거리 원문 보기 둘 다) 그 줄을 읽음으로 서버에 저장한다.
+// [읽음]·[안 읽음으로] 단추와 같은 저장 길(setRead). 이미 읽은 줄은 다시 쓰지 않는다(안 읽음으로 되돌린 줄은 다음에 열 때 다시 읽음).
+// 실패하면 점은 그대로 두고 알림 한 줄 — read_at이 비어 있으니 다음에 열 때 다시 저장한다. 같은 줄을 겹쳐 보내지 않는다.
+const readSaving = new Set();
+async function markOpened(id) {
+  const row = rowOf(id);
+  if (!row || row.read_at || readSaving.has(id)) return;
+  const scope = state.scope;
+  readSaving.add(id);
+  try { const got = await setRead(id, true); if (scope === state.scope) Object.assign(row, got); }
+  catch { if (scope === state.scope) notify('읽음으로 저장하지 못했어요 · 다음에 열 때 다시', {error: true, record: false}); }
+  finally { readSaving.delete(id); }
+  if (scope === state.scope && here()) draw();
 }
 async function toggleRead(id, read) {
   const row = rowOf(id);
@@ -448,7 +463,11 @@ function bind() {
     const read = t.closest?.('[data-rd-read]');
     if (read && state.open) { void toggleRead(state.open, read.dataset.rdRead === '1'); return; }
     const open = t.closest?.('[data-rd-open]');
-    if (open && !t.closest('a,button,input')) { const link = newsLinkOf(open.dataset.rdOpen); void (link ? openNews(link) : openItem(open.dataset.rdOpen)); return; }
+    if (open && !t.closest('a,button,input')) {
+      const id = open.dataset.rdOpen, link = newsLinkOf(id);
+      if (link) { void markOpened(id); void openNews(link); } else void openItem(id);
+      return;
+    }
   });
   v.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-rd-open][role=button]')) { e.preventDefault(); e.target.click(); } });
   v.addEventListener('submit', e => {
