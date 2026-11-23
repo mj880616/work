@@ -680,9 +680,17 @@ async function openWanted(w, {picked = true} = {}) {
   if (!row) { notify('원래 글을 찾지 못했어요', {record: false}); return; }
   openDetail({type: w.type, id: row.id}, describe(w.type, row), {picked});
 }
+// S68-54 읽을 거리 줄에서 바로 글 보기: 라우터 openFrom의 ready에서 글을 미리 읽어 둔다(prepareItem). 들어올 때(enter)는 그 글이 든 탭만 맞추고
+// 맨 위 글 저절로 열기·주소 글 다시 열기를 쉬며, 같은 순간 openItem이 상세를 연다 — 목록이 한 번도 그려져 보이지 않는다(화면 메모리만).
+let prepared = null;
+const preparedFor = item => !!prepared && prepared.type === item?.type && (prepared.id === item.id || prepared.row.id === item.id);
 function enter() {
   resetIfOwnerChanged();
-  restorePlaced();
+  if (prepared) {
+    const tab = keepNowTab(openTabFor(prepared.type));
+    autoOpened.add(tab);
+    setTab(tab, {save: false});
+  } else restorePlaced();
   // 처음 들어올 때 탭: 노트 [기사로 가기]면 [언론], 아니면 서버에 기억한 마지막 탭(news_tab, 없으면 옛 now_tab을 옮김, 둘 다 없으면 전체).
   // 주소 ?view=news(옛 ?view=outside·?view=now 포함, S51-17 P5)는 탭을 정하지 않는다. 알림 줄 [보기]는 [사회운동](requestNewsTab).
   const asked = takeNewsTab(), wanted = takeNewsOpen();
@@ -918,6 +926,7 @@ for (const sel of ['[data-os-list]', '[data-nw-all]']) {
 }
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'outside') return;
+  prepared = null; // S68-54: 미리 읽은 글은 이 화면으로 오는 그 걸음에만 쓴다
   // 다른 화면으로 가면 켜고 끄기 칸은 닫힌 것으로(라우터가 그 화면의 겹을 정리한다). 다음에 들어오면 목록부터, 새 표시는 다시 읽는다.
   layer = null; detailLayer = null; interestsLayer = null; autoOpened.clear();
   if (mediaPicker?.isOpen) void mediaPicker.close();
@@ -931,10 +940,32 @@ window.addEventListener('kptu:view-prefs-ready', () => {
   restoreTab();
 });
 // sourceName: 사회운동 글 매체 이름(목록을 읽은 뒤에만, 아니면 null — 노트 'News에서 › 보관한 글' 줄이 쓴다).
+// prepareItem: 같은 줄이 openFrom의 ready에서 먼저 불러 글을 읽어 둔다(못 읽으면 false — 화면을 옮기지 않음). openItem은 그 글을 바로 연다.
 // openItem: 읽을 거리 [News] 줄(reading.js)이 라우터 openFrom 안에서 부른다 — 그 글이 든 탭 + 지금 상세(원문·밑줄) 그대로. 폰 상세 겹은 openFrom이 남긴 칸을 쓰고,
 // PC는 목록 고름 기록(pick)을 남기지 않아 뒤로 한 번 = 읽을 거리.
 window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); setTab('movement'); }, sourceName: key => catalogOf(key)?.name || null,
-  openItem: async item => { if (!item || !['news', 'outside'].includes(item.type) || !isUuid(item.id)) return false; setTab(openTabFor(item.type), {save: false}); await openWanted(item, {picked: false}); return !!detail.current(); }}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
+  prepareItem: async item => {
+    prepared = null;
+    if (!item || !['news', 'outside'].includes(item.type) || !isUuid(item.id)) return false;
+    let row = null;
+    try { row = await fetchItem(item.type, item.id); } catch { row = null; }
+    if (!row) return false;
+    prepared = {type: item.type, id: item.id, row};
+    return true;
+  },
+  dropItem: () => { prepared = null; },
+  openItem: async item => {
+    if (!item || !['news', 'outside'].includes(item.type) || !isUuid(item.id)) { prepared = null; return false; }
+    if (preparedFor(item)) {
+      // 미리 읽은 글: 기다림 없이 이 자리에서 연다(라우터가 화면을 옮긴 같은 순간).
+      const {type, row} = prepared; prepared = null;
+      setTab(openTabFor(type), {save: false});
+      openDetail({type, id: row.id}, describe(type, row), {picked: false});
+      return !!detail.current();
+    }
+    prepared = null;
+    setTab(openTabFor(item.type), {save: false}); await openWanted(item, {picked: false}); return !!detail.current();
+  }}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
 // [언론] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·줄 그리기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭·찾는 말·고른 매체.
 window.KPTUNow = {
   open: (item, head) => openDetail(item, head), listed: () => autoOpenTop(), describe, rowOf, topics: () => interests.topics(), hitOf, foldedHtml, selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
