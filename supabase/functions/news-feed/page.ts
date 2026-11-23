@@ -6,6 +6,7 @@
 import { bodyScopeHtml, cut, htmlToText, looksLikeBotCheck, oneLine, stripTags } from "../outside-feed/parse.ts";
 import { decodeEntitiesDeep, decodeText } from "../_shared/html-entities.ts";
 import { extractBlocks, failedBody, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
+import { jsonBody } from "../_shared/page-json-body.ts";
 
 export const BODY_MAX = 100000;      // DB 검사와 같음
 export const FULL_MIN_CHARS = 200;   // 이보다 짧으면 본문을 못 뽑은 것으로 보고 메타 설명(리드)만
@@ -102,11 +103,24 @@ export function readArticlePage(html: string, nowMs: number, rule?: PageRule): P
   if (mark) {
     return { state: "paywall", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: leadBlocks("paywall"), paywall: mark };
   }
-  const ex = extractBlocks({ html, base: r.base, title: title ?? "", key: r.key, rule: r.rule, body: r.body, minChars: FULL_MIN_CHARS });
+  const tagEx = extractBlocks({ html, base: r.base, title: title ?? "", key: r.key, rule: r.rule, body: r.body, minChars: FULL_MIN_CHARS });
+  // S68-52: 본문 태그에서 못 뽑았거나(조선일보 등 Arc XP 페이지는 문단이 스크립트 데이터에 있다) 뽑은 글자가 페이지 안 공개 구조화 본문보다 훨씬 짧으면
+  // 그 구조화 본문(JSON-LD articleBody · Arc globalContent)을 쓴다. 유료벽 페이지는 위에서 이미 끝났다(넘지 않음). 태그 본문이 충분하면 그대로(사진 유지).
+  const ex = withJsonBody(tagEx, html, r);
   const body = cut(ex.text, BODY_MAX);
   if (ex.state === "ok") return { state: "ok", title, publisher, published_at, lang, body, body_kind: "full", blocks: ex, paywall: null };
   // 본문이 짧으면 메타 설명(리드)만 body로. 블록은 그림뿐인 글이면 그 사진들, 아니면 리드(probe용 scope·cut 코드는 본문 칸에서 고른 것 — S51-15).
   return { state: "ok", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: ex.state === "image_only" ? ex : { ...leadBlocks("no_body"), scope: ex.scope ?? null, cut: ex.cut ?? null }, paywall: null };
+}
+
+export const JSON_BODY_RATIO = 1.5;
+function withJsonBody(tagEx: Extracted, html: string, r: PageRule): Extracted {
+  const jb = jsonBody(html);
+  if (!jb) return tagEx;
+  const js = textBlocks(jb.text, { key: r.key, rule: r.rule, minChars: FULL_MIN_CHARS });
+  if (js.state !== "ok") return tagEx;
+  if (tagEx.state === "ok" && js.chars < tagEx.chars * JSON_BODY_RATIO) return tagEx;
+  return { ...js, scope: `json_${jb.via}`, cut: null };
 }
 
 // 겹침 판정용 제목: 끝 꼬리 ' - 매체'(옛 키워드 기사·채널 기사 제목), 머리말([단독] 등), 공백·문장부호 떼기.

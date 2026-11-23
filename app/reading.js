@@ -207,7 +207,7 @@ function drawDetail() {
   if (line) {
     const p = el('p', 'rd-line', line);
     p.setAttribute('role', 'status');
-    if (!busy && canRetry(row)) p.append(' ', btn('row-act', '다시', {rdFetch: row.id}));
+    if (!busy && canRetry(row)) p.append(' ', btn('row-act', '원문 다시 가져오기', {rdFetch: row.id}));
     parts.push(p);
   }
   const prose = el('div', 'rd-prose');

@@ -345,7 +345,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   async function refetchBody() {
     const c = cur;
     if (!c || c.refetching) return;
-    const item = c.item, key = itemKey(item), my = seq;
+    const item = c.item, key = itemKey(item), my = seq, before = bodies.get(key)?.state || '';
     c.refetching = true; c.refetchNote = ''; paintBody();
     const path = item.type === 'news' ? 'news-feed?action=open' : 'outside-feed?action=reread';
     let status = '';
@@ -356,7 +356,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     c.refetching = false;
     if (row && row !== LOAD_FAILED) bodies.set(key, viewOf(row));
     const b = bodies.get(key);
-    if (b && b.state !== 'failed') {
+    // 새 본문이 생겼을 때만(실패 → 본문, 앞부분 → 전문). 앞부분만인 글이 다시 앞부분이면 바뀐 것이 없다(요약을 다시 만들지 않음, S68-52).
+    if (b && b.state !== 'failed' && b.state !== before) {
       details.delete(key); c.detail = null; c.failed = ''; c.unread = '';
       paintBody(); paintAi();
       if (item.type === 'news') { const nr = await readNewsRow(item).catch(() => null); if (nr && my === seq && cur === c) onRead?.(item, nr); }

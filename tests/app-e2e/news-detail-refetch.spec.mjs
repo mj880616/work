@@ -9,8 +9,8 @@ const P1 = 'a1000000-0000-4000-8000-000000000041';
 const POST = { id: P1, source_key: 'kctu', kind: 'statement', lang: 'ko', title: '가상 막힌 글', title_ko: null, url: 'https://nodong.org/statement/41', published_at: '2026-11-19T00:30:00Z', fetched_at: '2026-11-19T00:40:00Z', summary_ko: null, key_sentences: [], has_body: false, author: null };
 const DETAIL = { level: 'full', summary: '가상 본문 요약.', key_sentences: [], relevance: null, implications: { kptu: '가상 시사점.', labor: '' }, related: [], generated_at: '2026-11-23T03:00:00Z', context_at: null };
 
-async function server(page, { rereadStatus = 200 } = {}) {
-  const s = { body: { state: 'failed', reason: 'robots', blocks: [] }, rereads: [], ai: 0 };
+async function server(page, { rereadStatus = 200, body0 = { state: 'failed', reason: 'robots', blocks: [] }, after = null } = {}) {
+  const s = { body: body0, rereads: [], ai: 0 };
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
@@ -18,7 +18,7 @@ async function server(page, { rereadStatus = 200 } = {}) {
       if (u.searchParams.get('action') === 'reread') {
         s.rereads.push(req.postDataJSON?.());
         if (rereadStatus !== 200) return ok({ ok: false, error: 'DAILY_LIMIT' }, rereadStatus);
-        s.body = { state: 'ok', reason: null, blocks: [{ t: 'p', text: '가상 다시 읽은 본문 문단.' }] };
+        s.body = after || { state: 'ok', reason: null, blocks: [{ t: 'p', text: '가상 다시 읽은 본문 문단.' }] };
         return ok({ ok: true, status: 'ok' });
       }
       return ok({ ok: true, sources: [{ key: 'kctu', name: '민주노총', group: 'labor', lang: 'ko' }] });
@@ -101,4 +101,41 @@ test('읽을 거리 상세: 다시 가져오기 하루 한도 → 까닭 한 줄
   await expect(why.getByRole('button', { name: '원문 다시 가져오기' })).toBeVisible();
   await expect(nd(page).locator('[data-nd-prose]')).toHaveCount(0);
   expect(errors.filter(e => !/429/.test(e))).toEqual([]);
+});
+
+// S68-52: 유료벽이 아닌데 본문 칸을 못 뽑아 리드(메타 설명)만 남은 글(lead·no_body — 조선일보처럼 문단이 페이지 스크립트 데이터에 있는 글)도 단추.
+// 다시 읽어 전문이 오면 본문으로 바꾸고, 또 앞부분이면 단추를 거두고 한 줄(요약을 다시 만들지 않음). 유료벽 리드는 단추 없음.
+const LEAD = { state: 'lead', reason: 'no_body', blocks: [{ t: 'p', text: '가상 공개 리드 한 줄.' }] };
+test('읽을 거리 상세: 앞부분만 남은 글 → [원문 다시 가져오기] → 전문', async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors, s } = await start(page, 412, { body0: LEAD });
+  await open(page);
+  const d = nd(page);
+  await expect(d.locator('[data-nd-prose] p')).toHaveText(['가상 공개 리드 한 줄.']);
+  const btn = d.locator('[data-nd-body] [data-nd-why]').getByRole('button', { name: '원문 다시 가져오기' });
+  await btn.click();
+  await expect.poll(() => s.rereads.length).toBe(1);
+  await expect(d.locator('[data-nd-prose] p')).toHaveText(['가상 다시 읽은 본문 문단.']);
+  await expect(d.locator('[data-nd-body] [data-nd-why]')).toHaveCount(0);
+  expect(errors.filter(e => !/422/.test(e))).toEqual([]);
+});
+test('읽을 거리 상세: 다시 읽어도 앞부분뿐이면 단추를 거두고 한 줄, 유료벽 리드는 단추 없음', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s } = await start(page, 1280, { body0: LEAD, after: LEAD });
+  await open(page);
+  const why = nd(page).locator('[data-nd-body] [data-nd-why]');
+  await why.getByRole('button', { name: '원문 다시 가져오기' }).click();
+  await expect.poll(() => s.rereads.length).toBe(1);
+  await expect(why.locator('[data-nd-refetch-note]')).toHaveText('다시 읽어도 사이트가 본문을 주지 않아요');
+  await expect(why.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
+  await expect(nd(page).locator('[data-nd-prose] p')).toHaveText(['가상 공개 리드 한 줄.']);
+});
+test('읽을 거리 상세: 유료벽 리드(lead·paywall)에는 단추가 없다', async ({ page }) => {
+  test.setTimeout(60000);
+  await start(page, 1280, { body0: { state: 'lead', reason: 'paywall', blocks: [{ t: 'p', text: '가상 유료 앞부분.' }] } });
+  await open(page);
+  const d = nd(page);
+  await expect(d.locator('[data-nd-prose] p')).toHaveText(['가상 유료 앞부분.']);
+  await expect(d.locator('[data-nd-body] [data-nd-why]')).toBeVisible();
+  await expect(d.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
 });

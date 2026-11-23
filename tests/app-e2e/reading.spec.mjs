@@ -10,7 +10,7 @@ const A = 'a6800000-0000-4000-8000-000000000001', B = 'a6800000-0000-4000-8000-0
 const QUOTE = '공공부문 인력 충원이 늦어지는 까닭';
 const BODY = `첫 문단은 배경이에요.\n\n둘째 문단: ${QUOTE}을 짚어 봐요.\n\n셋째 문단은 정리예요.`;
 
-async function server(page, { refuseRead = false, extra = [], importFail = {}, newsBodies = {} } = {}) {
+async function server(page, { refuseRead = false, extra = [], importFail = {}, newsBodies = {}, importDelay = 0 } = {}) {
   const s = {
     rows: [
       { id: A, workspace_id: 'w', url: 'https://example.com/a', title: '예시 기사 하나', site: 'example.com', saved_at: '2026-11-22T01:00:00Z', read_at: null, body_state: 'ok', body_at: '2026-11-22T01:00:10Z', business_area_id: null, updated_at: '2026-11-22T01:00:10Z', body: BODY },
@@ -25,6 +25,7 @@ async function server(page, { refuseRead = false, extra = [], importFail = {}, n
     const body = req.postDataJSON?.() ?? null;
     if (p === '/functions/v1/note-import') {
       s.imports.push(body);
+      if (importDelay) await new Promise(r => setTimeout(r, importDelay));
       if (importFail[body.url]) return ok({ ok: true, state: 'failed', reason: importFail[body.url], url: body.url, title: null, site: null, author: null, published_at: null, lang: null, blocks: [], chars: 0, truncated: false });
       return ok({ ok: true, state: 'ok', reason: null, url: body.url, title: '새로 받은 글 제목', site: '예시 신문', author: null, published_at: null, lang: 'ko',
         blocks: [{ t: 'h', text: '소제목' }, { t: 'p', text: '받아 온 본문 <b>글자</b>예요.' }, { t: 'img', src: 'https://example.org/x.png' }], chars: 20, truncated: false });
@@ -316,12 +317,12 @@ test('자동 다시 가져오기: 옛 robots·실패·빈 줄만 한 번, News �
   await list(page).locator('.rd-switch [data-filter-value="all"]').click();
   await list(page).locator(`.rd-row[data-rd-open="${id(3)}"]`).click();
   await expect(detail(page).locator('.rd-line')).toContainText('읽기를 막아');
-  await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveText('다시');
+  await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveText('원문 다시 가져오기');
   await page.waitForTimeout(500);
   expect(s.imports.length).toBe(2);
   // robots 줄(자동 대상 아님)도 [다시]는 보인다. too_big은 숨김.
   await list(page).locator(`.rd-row[data-rd-open="${id(4)}"]`).click();
-  await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveText('다시');
+  await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveText('원문 다시 가져오기');
   await list(page).locator(`.rd-row[data-rd-open="${id(5)}"]`).click();
   await expect(detail(page).locator('.rd-line')).toContainText('너무 커서');
   await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveCount(0);
@@ -329,4 +330,88 @@ test('자동 다시 가져오기: 옛 robots·실패·빈 줄만 한 번, News �
   await list(page).locator(`.rd-row[data-rd-open="${id(3)}"]`).click();
   await detail(page).locator('.rd-line [data-rd-fetch]').click();
   await expect.poll(() => s.imports.length).toBe(3);
+});
+
+// S68-52: 글 보기에서도 [원문 다시 가져오기](⋯ 메뉴와 같은 함수). 앞부분만 받은 줄(조선일보처럼 본문을 못 뽑아 리드만 남은 줄) → 다시 → 전체 본문, 실패면 까닭 한 줄.
+test('글 보기 [원문 다시 가져오기]: 가져오는 중 → 본문 표시, 실패면 까닭 한 줄과 단추가 다시', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openHome(page);
+  const LEAD = 'a6800000-0000-4000-8000-000000000201', FAIL = 'a6800000-0000-4000-8000-000000000202';
+  const row = (id, n, extra) => ({ id, workspace_id: 'w', url: `https://example.net/lead/${n}`, title: `앞부분만 받은 글 ${n}`, site: 'example.net', saved_at: `2026-11-12T0${n}:00:00Z`, read_at: null,
+    body_state: 'paywall', body_at: '2026-11-23T06:00:00+09:00', business_area_id: null, updated_at: '2026-11-23T06:00:00+09:00', body: '공개 리드 문단만 있어요.', origin: 'direct', news_article_id: null, outside_article_id: null, ...extra });
+  const s = await server(page, {
+    extra: [row(LEAD, 1, {}), row(FAIL, 2, { body_state: 'failed', body: null })],
+    importFail: { 'https://example.net/lead/2': 'bot_check' },
+    importDelay: 400,
+  });
+  await goReading(page, 1280);
+  await list(page).locator(`.rd-row[data-rd-open="${LEAD}"]`).click();
+  await expect(detail(page).locator('.rd-line')).toContainText('공개된 앞부분만');
+  const again = detail(page).locator('.rd-line [data-rd-fetch]');
+  await expect(again).toHaveText('원문 다시 가져오기');
+  await page.waitForTimeout(300);
+  expect(s.imports.length).toBe(0); // 자동으로 부르지 않는다(사람이 누를 때만)
+  await again.click();
+  await expect(detail(page).locator('.rd-line')).toHaveText('원문을 가져오는 중…');
+  await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveCount(0);
+  await expect(detail(page).locator('[data-rd-prose]')).toContainText('받아 온 본문');
+  await expect(detail(page).locator('.rd-line')).toHaveCount(0);
+  expect(s.imports.map(x => x.url)).toEqual(['https://example.net/lead/1']);
+  expect(s.patches.find(x => x.id === LEAD && 'body_state' in x.body)?.body).toMatchObject({ body_state: 'ok' });
+  // 실패: 까닭 한 줄 + 단추가 다시 보인다.
+  await list(page).locator('.rd-switch [data-filter-value="all"]').click();
+  await list(page).locator(`.rd-row[data-rd-open="${FAIL}"]`).click();
+  await detail(page).locator('.rd-line [data-rd-fetch]').click();
+  await expect.poll(() => s.imports.length).toBe(2);
+  await expect(detail(page).locator('.rd-line')).toContainText('읽기를 막아');
+  await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveText('원문 다시 가져오기');
+});
+
+// S68-52: News에서 온 줄인데 News 쪽 본문이 앞부분(리드)뿐이면 — 예전에는 다시 눌러도 그 리드만 다시 넣었다. 이제 원래 주소로 한 번 더 읽어 전문을 넣고, 못 받으면 리드를 남긴다.
+// News에서 온 줄은 줄을 누르면 News 원문 보기로 열리므로(그쪽 단추는 news-detail-refetch.spec) 여기서는 줄 ⋯ 메뉴로 누른다 — 같은 fetchBody.
+test('News에서 온 앞부분만 줄: ⋯ [원문 다시 가져오기] → 원래 주소로 전문, 못 받으면 News 앞부분 유지', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openHome(page);
+  const N1 = 'a6800000-0000-4000-8000-000000000301', N2 = 'a6800000-0000-4000-8000-000000000302';
+  const ART1 = 'd6800000-0000-4000-8000-000000000301', ART2 = 'd6800000-0000-4000-8000-000000000302';
+  const row = (id, n, art) => ({ id, workspace_id: 'w', url: `https://example.net/news/${n}`, title: `News 글 ${n}`, site: 'example.net', saved_at: `2026-11-12T0${n}:00:00Z`, read_at: null,
+    body_state: 'paywall', body_at: '2026-11-23T06:00:00+09:00', business_area_id: null, updated_at: '2026-11-23T06:00:00+09:00', body: 'News 리드 문단.', origin: 'news', news_article_id: art, outside_article_id: null });
+  const lead = { state: 'lead', reason: null, blocks: [{ t: 'p', text: 'News 리드 문단.' }] };
+  const s = await server(page, {
+    extra: [row(N1, 1, ART1), row(N2, 2, ART2)],
+    newsBodies: { [ART1]: lead, [ART2]: lead },
+    importFail: { 'https://example.net/news/2': 'no_body' },
+  });
+  await goReading(page, 1280);
+  const refetch = async id => {
+    await list(page).locator(`[data-rd-more="${id}"]`).click();
+    await page.locator('#rdRowMenu [data-rd-act="fetch"]').click();
+  };
+  await refetch(N1);
+  await expect.poll(() => s.patches.filter(x => x.id === N1 && 'body_state' in x.body).length).toBe(1);
+  expect(s.imports.map(x => x.url)).toEqual(['https://example.net/news/1']);
+  expect(s.bodyReads).toContain(ART1);
+  expect(s.patches.find(x => x.id === N1 && 'body_state' in x.body).body).toMatchObject({ body_state: 'ok' });
+  await refetch(N2);
+  await expect.poll(() => s.patches.filter(x => x.id === N2 && 'body_state' in x.body).length).toBe(1);
+  expect(s.imports.map(x => x.url)).toEqual(['https://example.net/news/1', 'https://example.net/news/2']);
+  expect(s.patches.find(x => x.id === N2 && 'body_state' in x.body).body).toMatchObject({ body: 'News 리드 문단.', body_state: 'paywall' });
+});
+
+test('글 보기 [원문 다시 가져오기] 폰 폭: 단추가 줄 안에 보이고 누르면 본문, 가로 넘침 없음', async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 900 });
+  await openHome(page);
+  const LEAD = 'a6800000-0000-4000-8000-000000000401';
+  const s = await server(page, { extra: [{ id: LEAD, workspace_id: 'w', url: 'https://example.net/lead/9', title: '앞부분만 받은 글 폰', site: 'example.net', saved_at: '2026-11-12T09:00:00Z', read_at: null,
+    body_state: 'paywall', body_at: '2026-11-23T06:00:00+09:00', business_area_id: null, updated_at: '2026-11-23T06:00:00+09:00', body: '공개 리드 문단만 있어요.', origin: 'direct', news_article_id: null, outside_article_id: null }] });
+  await goReading(page, 412);
+  await list(page).locator(`.rd-row[data-rd-open="${LEAD}"]`).click();
+  const again = detail(page).locator('.rd-line [data-rd-fetch]');
+  await expect(again).toBeVisible();
+  // 글 보기 칸이 밀려 들어오는 동안은 위치가 바뀐다 — 자리 잡은 뒤의 오른쪽 끝을 본다.
+  await expect.poll(async () => { const b = await again.boundingBox(); return b ? b.x + b.width : 9999; }).toBeLessThanOrEqual(412);
+  await again.click();
+  await expect(detail(page).locator('[data-rd-prose]')).toContainText('받아 온 본문');
+  expect(s.imports.length).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
