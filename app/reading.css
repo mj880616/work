@@ -5,7 +5,11 @@
 #readingView .rd-head .rd-add,#readingView .rd-head .rd-src{margin-left:auto;flex:none}
 #readingView .rd-form{display:flex;gap:6px;align-items:center;margin:2px 0 4px}
 #readingView .rd-url{flex:1 1 auto;min-width:0;height:var(--ds-compact-height,32px);padding:0 8px;border:.5px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface,transparent);color:var(--kptu-ink);font-size:var(--ds-text-row)}
-#readingView .rd-chips{margin:2px 0 4px}
+/* S68-48 READ-보기탭아래: [안 읽음|전체|밑줄]은 공용 ⑤(.ds-seg) — 여기서는 자리만. PC 틀(761px~)은 제목 줄 오른쪽([+ 추가] 앞),
+   폰·펼친 폴드(~760px)는 ui-standard.css 공용 폰 전환 줄 규칙이 하단바 바로 위 가운데로 옮긴다(위쪽 칩 줄 없음). */
+#readingView .rd-head .rd-switch{margin-left:auto;flex:0 1 auto;min-width:0}
+#readingView .rd-head .rd-switch + .rd-add{margin-left:0}
+@media(max-width:760px){#readingView .rd-head .rd-switch + .rd-add{margin-left:auto}}
 #readingView .rd-rows{border-top:.5px solid var(--kptu-border)}
 #readingView .rd-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;gap:1px 6px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row);cursor:pointer}
 #readingView .rd-row.is-open{background:var(--kptu-surface-soft,var(--kptu-primary-soft))}

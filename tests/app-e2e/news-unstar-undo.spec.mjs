@@ -146,9 +146,9 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator('[data-now-panel-saved]')).toHaveCount(0);
     await page.evaluate(() => window.KPTURouter.go('reading'));
     await expect(page.locator('#readingView')).toBeVisible();
-    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
-    await expect(rlist(page).locator('.rd-chips [data-filter-value]')).toHaveText(['안 읽음 0', '전체', '밑줄']);
-    await expect(rlist(page).locator('.rd-chips [data-filter-value="news"]')).toHaveCount(0);
+    await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
+    await expect(rlist(page).locator('.rd-switch [data-filter-value]')).toHaveText(['안 읽음 0', '전체', '밑줄']);
+    await expect(rlist(page).locator('.rd-switch [data-filter-value="news"]')).toHaveCount(0);
     // ① 한 표의 줄을 저장 시각순으로: N1(10/06) · R1(10/05, 같은 주소 사회운동 글에 연결) · N2(10/04). 연결된 줄도 꼬리표 없이 평범한 줄.
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
     await expect(rlist(page).locator('.rd-src-tag, .rd-row-news, .rd-sub')).toHaveCount(0);
@@ -187,7 +187,7 @@ for (const width of [412, 884, 1280]) {
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     await expect(page.locator('#readingView')).toBeVisible();
-    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
+    await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1]);
     // 표시 표에는 별표·옛 보관 칸을 쓰지 않았다.
     expect(s.calls.some(c => /app_(news|outside_article)_marks/.test(c.what) && c.body && ('starred_at' in c.body || 'archived_at' in c.body))).toBe(false);
@@ -201,7 +201,7 @@ for (const width of [412, 884, 1280]) {
     await tab(page, '전체');
     await expect(root(page).locator(`[data-nw-key="news:${N2}"]`).first()).toBeVisible();
     await goReading(page, width);
-    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
+    await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect(row(page, T_N1)).toBeVisible();
     // 수집 기사(N1): 같은 상세(지금 News 글 보기), [삭제] 없음. 뒤로 한 번이면 읽을 거리 [전체] 그대로.
     await row(page, T_N1).click();
@@ -211,7 +211,7 @@ for (const width of [412, 884, 1280]) {
     await expect(det.locator('[data-nd-delete]')).toHaveCount(0);
     await page.goBack();
     await expect(page.locator('#readingView')).toBeVisible();
-    await expect(rlist(page).locator('.rd-chips [data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(rlist(page).locator('.rd-switch [data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
     // 내가 넣은 기사(N2): 키보드(Enter)로도 열린다.
     await row(page, T_N2).focus();
     await page.keyboard.press('Enter');
@@ -230,7 +230,7 @@ for (const width of [412, 884, 1280]) {
 
     // 되돌린 기사는 읽을 거리에 다시 보인다(들어올 때 다시 읽음). 다시 [삭제] → 5초 지나면 읽을 거리·전체·언론 어디에도 없다.
     await goReading(page, width);
-    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
+    await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
     await row(page, T_N2).click();
     await expect(det.locator('[data-nd-delete]')).toHaveText('기사 삭제');
@@ -238,7 +238,7 @@ for (const width of [412, 884, 1280]) {
     await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('삭제했어요');
     await expect(page.locator('#kptuNotice')).toBeHidden({ timeout: 8000 });
     await goReading(page, width);
-    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
+    await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1]);
     await goNews(page, width);
     await tab(page, '전체');
@@ -256,7 +256,7 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
   test.setTimeout(90000);
   const { errors, s } = await start(page, 412);
   await goReading(page, 412);
-  await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
+  await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
   await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
   // 오른쪽으로 밀면 [선택](공용 줄 밀기). 손가락 밀기는 포인터만 보낸다.
   await expect(async () => {
@@ -295,8 +295,8 @@ test('읽을 거리: News 기능이 없는 사람은 [News] 칩이 없고 News �
   await openHome(page, { features: [] });
   const s = await server(page, { plain: true });
   await goReading(page, 1280);
-  await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
-  await expect(rlist(page).locator('.rd-chips [data-filter-value]')).toHaveText(['안 읽음 0', '전체', '밑줄']);
+  await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
+  await expect(rlist(page).locator('.rd-switch [data-filter-value]')).toHaveText(['안 읽음 0', '전체', '밑줄']);
   await expect.poll(() => titles(page)).toEqual([T_R1]);
   await expect(rlist(page).locator('.rd-src-tag')).toHaveCount(0);
   await page.waitForTimeout(500);

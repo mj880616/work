@@ -93,18 +93,18 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
     const s = await server(page);
     await goReading(page, width);
     // 처음은 [안 읽음]: 안 읽은 줄 하나. 칩은 [안 읽음 1][전체][밑줄] 셋뿐 — News 기능이 있는 계정(기본 운영자 흉내)도 [News] 칩 없음(S68-29).
-    await expect(list(page).locator('.rd-chips [data-filter-value]')).toHaveText(['안 읽음 1', '전체', '밑줄']);
+    await expect(list(page).locator('.rd-switch [data-filter-value]')).toHaveText(['안 읽음 1', '전체', '밑줄']);
     await expect(list(page).locator('.rd-row')).toHaveCount(1);
     await expect(list(page).locator('.rd-row').first()).toContainText('예시 기사 하나');
     await expect(list(page).locator('.rd-row').first()).toContainText('example.com · 11/22');
     await expect(list(page).locator('.rd-row.is-unread .rd-dot')).toHaveCount(1);
-    await list(page).locator('.rd-chips [data-filter-value="all"]').click();
+    await list(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect(list(page).locator('.rd-row')).toHaveCount(2);
     // 요청은 모두 내 작업공간 열쇠로만(서버 RLS가 owner를 다시 본다).
     expect(s.calls.every(c => c.search.includes('workspace_id=eq.w'))).toBe(true);
 
     // 글 보기: 원문 사본(글자로만), 원래 페이지 링크, 밑줄 줄. S68-45: 열면 읽음(read_at만 서버에 저장).
-    await list(page).locator('.rd-chips [data-filter-value="unread"]').click();
+    await list(page).locator('.rd-switch [data-filter-value="unread"]').click();
     await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
     await expect.poll(() => s.patches.length).toBe(1);
     expect(s.patches[0].id).toBe(A);
@@ -150,12 +150,12 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
       await expect(page.locator('#readingView')).toBeVisible();
     }
     // 목록으로 돌아오면 점이 꺼져 있고(전체), 새로고침 뒤에도 서버 값 그대로.
-    await list(page).locator('.rd-chips [data-filter-value="all"]').click();
+    await list(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/);
     await page.reload();
     await goReading(page, width).catch(() => {});
     await expect(page.locator('#readingView')).toBeVisible();
-    await expect(list(page).locator('.rd-chips [data-filter-value="unread"]')).toHaveText('안 읽음 0');
+    await expect(list(page).locator('.rd-switch [data-filter-value="unread"]')).toHaveText('안 읽음 0');
     expect(errors).toEqual([]);
   });
 }
@@ -185,7 +185,7 @@ test('열면 읽음 412: 저장 실패 → 알림 한 줄·점 그대로, 다음
   await expect(detail(page).locator('[data-rd-read="0"]')).toHaveText('안 읽음으로');
   await page.goBack();
   await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).toHaveCount(0); // [안 읽음]에서 빠짐
-  await list(page).locator('.rd-chips [data-filter-value="all"]').click();
+  await list(page).locator('.rd-switch [data-filter-value="all"]').click();
   await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/);
 });
 
@@ -218,7 +218,7 @@ test('[+ 추가]: 주소 → 넣기 → note-import로 원문을 받아 글자�
   await expect(detail(page).locator('[data-rd-prose] p').nth(1)).toHaveText('받아 온 본문 <b>글자</b>예요.');
   await expect(detail(page).locator('[data-rd-prose] b')).toHaveCount(0);
   // 막힌 줄: 한 줄 상태 + [다시], 원래 페이지 링크는 그대로.
-  await list(page).locator('.rd-chips [data-filter-value="all"]').click();
+  await list(page).locator('.rd-switch [data-filter-value="all"]').click();
   await list(page).locator(`.rd-row[data-rd-open="${B}"]`).click();
   await expect(detail(page).locator('.rd-line')).toContainText('읽기를 막아');
   await expect(detail(page).locator('a.rd-src')).toHaveAttribute('href', 'https://example.org/b');
@@ -313,7 +313,7 @@ test('자동 다시 가져오기: 옛 robots·실패·빈 줄만 한 번, News �
   // 다시 열어도(다른 화면 → 읽을 거리) 다시 자동으로 하지 않는다 — 실패한 줄은 [다시] 단추만.
   await page.evaluate(() => window.KPTUReading.refresh());
   // S68-45: 줄을 열면 읽음이 되어 [안 읽음]에서 빠지므로 [전체]에서 차례로 연다.
-  await list(page).locator('.rd-chips [data-filter-value="all"]').click();
+  await list(page).locator('.rd-switch [data-filter-value="all"]').click();
   await list(page).locator(`.rd-row[data-rd-open="${id(3)}"]`).click();
   await expect(detail(page).locator('.rd-line')).toContainText('읽기를 막아');
   await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveText('다시');

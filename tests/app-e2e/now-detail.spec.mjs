@@ -234,9 +234,9 @@ for (const width of [412, 884, 1280]) {
     await page.evaluate(() => window.KPTURouter.go('reading'));
     const rd = page.locator('#readingView');
     await expect(rd).toBeVisible();
-    await rd.locator('.rd-chips [data-filter-value="all"]').click();
-    await expect(rd.locator('.rd-chips [data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
-    await expect(rd.locator('.rd-chips [data-filter-value="news"]')).toHaveCount(0);
+    await rd.locator('.rd-switch [data-filter-value="all"]').click();
+    await expect(rd.locator('.rd-switch [data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(rd.locator('.rd-switch [data-filter-value="news"]')).toHaveCount(0);
     await expect(rd.locator(`[data-rd-open="r-${P1}"]`)).toContainText('[성명] 가상 철도 민영화 반대');
     await expect(rd.locator(`[data-rd-open="r-${P2}"]`)).toContainText('가상의 외국 글');
     await expect(rd.locator('.rd-row-news, .rd-src-tag')).toHaveCount(0);
@@ -277,15 +277,15 @@ for (const width of [412, 1280]) {
     expect(patch.body.read_at).toBeTruthy();
     await page.goBack();
     await expect(rd).toBeVisible();
-    await rd.locator('.rd-chips [data-filter-value="all"]').click();
+    await rd.locator('.rd-switch [data-filter-value="all"]').click();
     await expect(line).toBeVisible();
     await expect(line).not.toHaveClass(/is-unread/);
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     await page.evaluate(() => window.KPTURouter.go('reading'));
-    await rd.locator('.rd-chips [data-filter-value="all"]').click();
+    await rd.locator('.rd-switch [data-filter-value="all"]').click();
     await expect(line).not.toHaveClass(/is-unread/);
-    await expect(rd.locator('.rd-chips [data-filter-value="unread"]')).toHaveText('안 읽음 0');
+    await expect(rd.locator('.rd-switch [data-filter-value="unread"]')).toHaveText('안 읽음 0');
     // 이미 읽은 줄은 다시 열어도 또 저장하지 않는다.
     expect(server.calls.filter(c => c.what === 'app_reading_items' && c.method === 'PATCH').length).toBe(1);
     expect(errors).toEqual([]);
