@@ -11,7 +11,7 @@ export const NEWS_HL = 'news-hl';
 export const NEWS_SAVED = 'news-saved';
 export const isNewsAt = v => v === NEWS_HL || v === NEWS_SAVED;
 // NOTE-News에서글자빼기(11/15 20:42 명진): 폴더 목록과 두 줄 사이는 글자 없는 얇은 줄만(밑줄이 노트·텔레그램에서도 오므로 'News에서' 이름표를 뺐다).
-export const NEWS_NAMES = Object.freeze({[NEWS_HL]: '밑줄', [NEWS_SAVED]: '읽을 거리로 보낸 글'});
+export const NEWS_NAMES = Object.freeze({[NEWS_HL]: '밑줄', [NEWS_SAVED]: '저장한 글'});
 
 // [보관한 글] 거르기: 전체 | 뉴스 | 사회운동 글.
 export const SAVED_KINDS = Object.freeze([
@@ -48,4 +48,4 @@ export function newsSearch({highlights, saved, query, nameOf} = {}) {
 }
 
 // 찾은 것 머리 글: '노트 2 · 밑줄 2 · 보관 1'.
-export const searchHead = (notes, hl, sv) => `노트 ${notes} · 밑줄 ${hl} · 읽을 거리 ${sv}`;
+export const searchHead = (notes, hl, sv) => `노트 ${notes} · 밑줄 ${hl} · 저장한 글 ${sv}`;

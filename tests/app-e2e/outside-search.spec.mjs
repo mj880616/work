@@ -60,8 +60,8 @@ for (const width of [412, 1280]) {
     const s = await server(page);
     if (width <= 760) {
       await page.locator('#mobileMenuTab').click();
-      await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
-    } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
+      await page.locator('#mobileMenu nav button:visible', { hasText: '읽을 거리' }).click();
+    } else await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
     const root = page.locator('#outsideRoot');
     await expect(root.getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     await expect(root.locator('[data-os-search]')).toBeHidden();
@@ -71,7 +71,7 @@ for (const width of [412, 1280]) {
     await root.getByRole('tab', { name: '사회운동' }).click();
     await expect(root.getByRole('tab', { name: '사회운동' })).toHaveAttribute('aria-selected', 'true');
     const find = root.locator('[data-nw-find]');
-    await expect(find).toHaveAttribute('placeholder', 'News 찾기 — 제목·문장');
+    await expect(find).toHaveAttribute('placeholder', '읽을 거리 찾기 — 제목·문장');
     await find.fill('구조조정');
     await expect(root.locator('[data-os-search]')).toBeHidden();
     expect(s.calls.filter(c => c.what === 'search')).toHaveLength(0);

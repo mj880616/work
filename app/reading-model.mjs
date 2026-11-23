@@ -85,7 +85,7 @@ export function nextFilter(current, dir) {
 }
 // 빈 목록 한 줄.
 export function emptyText(filter, total) {
-  if (!total) return '읽을 거리가 없어요 — [+ 추가]에 주소를 넣거나 폰에서 공유 → 읽을 거리';
+  if (!total) return '저장한 글이 없어요 — [+ 추가]에 주소를 넣거나 폰에서 공유 → WORK ON+ 저장한 글';
   if (filter === 'marks') return '밑줄을 그은 글이 없어요';
   return '안 읽은 글이 없어요';
 }

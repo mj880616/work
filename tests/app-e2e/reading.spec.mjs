@@ -69,8 +69,8 @@ async function server(page, { refuseRead = false, extra = [], importFail = {}, n
 async function goReading(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: '읽을 거리' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: '저장한 글' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '저장한 글', exact: true }).click();
   await expect(page.locator('#readingView')).toBeVisible();
 }
 const list = page => page.locator('#readingView [data-rd-list]');
@@ -150,11 +150,11 @@ test('[+ 추가]: 주소 → 넣기 → note-import로 원문을 받아 글자�
   await goReading(page, 1280);
   await list(page).locator('[data-rd-add]').click();
   await list(page).locator('input.rd-url').fill('javascript:alert(1)');
-  await list(page).getByRole('button', { name: '저장' }).click();
+  await list(page).getByRole('button', { name: '저장', exact: true }).click(); // S68-34: 줄 ⋯ 이름 '저장한 글 메뉴'와 겹치지 않게 정확히
   await expect(list(page).locator('.rd-bad')).toContainText('가져올 수 없어요');
   expect(s.posts).toEqual([]);
   await list(page).locator('input.rd-url').fill('example.net/new');
-  await list(page).getByRole('button', { name: '저장' }).click();
+  await list(page).getByRole('button', { name: '저장', exact: true }).click(); // S68-34: 줄 ⋯ 이름 '저장한 글 메뉴'와 겹치지 않게 정확히
   await expect.poll(() => s.posts.length).toBe(1);
   expect(s.posts[0]).toEqual({ workspace_id: 'w', url: 'https://example.net/new', title: null, site: 'example.net' });
   await expect.poll(() => s.imports.length).toBe(1);
@@ -165,7 +165,7 @@ test('[+ 추가]: 주소 → 넣기 → note-import로 원문을 받아 글자�
   expect(patch.body).toMatchObject({ title: '새로 받은 글 제목', site: '예시 신문', body_state: 'ok', body: '소제목\n\n받아 온 본문 <b>글자</b>예요.' });
   expect('workspace_id' in patch.body || 'url' in patch.body).toBe(false);
   await expect(list(page).locator(`.rd-row[data-rd-open="${NEW}"]`)).toContainText('새로 받은 글 제목');
-  await expect.poll(() => noticeText(page)).toContain('읽을 거리에 넣었어요');
+  await expect.poll(() => noticeText(page)).toContain('저장한 글에 넣었어요');
   // 원문은 글자로만: <b>가 꾸밈이 아니라 글자로 보인다.
   await list(page).locator(`.rd-row[data-rd-open="${NEW}"]`).click();
   await expect(detail(page).locator('[data-rd-prose] p').nth(1)).toHaveText('받아 온 본문 <b>글자</b>예요.');

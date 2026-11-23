@@ -32,13 +32,29 @@ test("화면 글자에 'Now'가 남지 않았다(업데이트 기록 폴더 제�
   assert.deepEqual(hits, []);
 });
 
-test("메뉴 이름은 'News', id는 그대로 outside", () => {
+// S68-34(11/23 명진 'News -> 읽을 거리 / 읽을 거리 -> 저장한 글'): 메뉴·제목·찾기 칸 등 화면 글자의 이름이 '읽을 거리'. id·주소(?view=news)·기능 키 outside는 그대로.
+test("메뉴 이름은 '읽을 거리', id는 그대로 outside · 옛 읽을 거리 화면(reading)은 '저장한 글'", () => {
   const item = MENU_ITEMS.find(m => m.id === 'outside');
-  assert.equal(item?.label, 'News');
+  assert.equal(item?.label, '읽을 거리');
   assert.equal(item?.view, 'outside');
+  assert.equal(item?.feature, 'outside');
+  assert.equal(MENU_ITEMS.find(m => m.id === 'reading')?.label, '저장한 글');
   const html = readFileSync(join(APP, 'index.html'), 'utf8');
-  assert.match(html, /data-view="outside" href="\.\/\?view=news">News</);
-  assert.match(html, /data-view="outside">[^]*?<span>News<\/span>/);
+  assert.match(html, /data-view="outside" href="\.\/\?view=news">읽을 거리</);
+  assert.match(html, /data-view="outside">[^]*?<span>읽을 거리<\/span>/);
+  assert.match(html, /data-view="reading" href="\.\/\?view=reading">저장한 글</);
   const top = readFileSync(join(APP, 'topbar-actions.js'), 'utf8');
-  assert.equal((top.match(/outside:'News'/g) || []).length, 2);
+  assert.equal((top.match(/outside:'읽을 거리'/g) || []).length, 2);
+  assert.match(top, /reading:'저장한 글'/);
+});
+
+// 낱말로 선 'News'(requestNewsOpen·NEWS_HL·news-row 같은 코드 이름 속은 아님). 매체 이름·기사 제목은 서버 데이터라 앱 코드에 없다.
+const NEWS_WORD = /(?<![A-Za-z0-9_$.\-])News(?![A-Za-z0-9_$(])/;
+test("화면 글자에 'News'(옛 화면 이름)가 남지 않았다(주석·업데이트 기록 제외)", () => {
+  const hits = [];
+  for (const f of files) {
+    const lines = stripComments(readFileSync(f, 'utf8')).split('\n');
+    lines.forEach((line, i) => { if (NEWS_WORD.test(line)) hits.push(`${relative(APP, f)}: ${line.trim().slice(0, 120)}`); });
+  }
+  assert.deepEqual(hits, []);
 });

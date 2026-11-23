@@ -39,7 +39,7 @@ export function highlightBody(workspaceId, src, quote, {prefix = '', suffix = ''
     memo: cleanMemo(memo), source_title: s.title, source_media: s.media, source_date: s.date, source_url: s.url};
 }
 // 출처 꼬리표(노트 › 밑줄 목록 줄 앞): 노트 · 텔레그램 · News(뉴스 기사·사회운동 글).
-export const sourceTag = h => (h?.source_type === 'note' ? '노트' : h?.source_type === 'telegram' ? '텔레그램' : h?.source_type === 'reading' ? '읽을 거리' : 'News');
+export const sourceTag = h => (h?.source_type === 'note' ? '노트' : h?.source_type === 'telegram' ? '텔레그램' : h?.source_type === 'reading' ? '저장한 글' : '읽을 거리');
 // 노트 밑줄의 원문 글이 바뀌어 고른 글이 노트에 없는가(노트 › 밑줄 줄의 '원문이 바뀌었어요' 작은 표시). text = 노트 글자(raw_text),
 // 노트가 없으면(null) 바뀐 것으로 본다. 빈칸·줄바꿈과 마크다운 기호(* _ # > ` ~ | [ ] ( ) \ -)는 빼고 비교한다(읽기 화면은 기호 없이 그려지므로).
 const loose = v => String(v ?? '').replace(/[\s*_#>`~|[\]()\\-]+/g, '');

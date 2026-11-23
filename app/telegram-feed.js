@@ -878,7 +878,7 @@ const newsRoom = (room, on) => guarded(async current => {
   if (!saved.ok) { state.status = NEWS_FAIL[saved.error] || NEWS_FAIL.REFUSED; if (saved.error === 'UNAVAILABLE') state.newsReady = false; if (saved.error === 'GONE') void load(); return; }
   const rooms = new Map(state.rooms); rooms.set(room, {...prev, news_at:on ? (saved.news_at || prev.news_at || new Date().toISOString()) : null});
   applyRooms(rooms);
-  state.status = on ? '뉴스방으로 정했어요 · 이 방 글 속 기사 주소가 News에 들어가요' : '뉴스방에서 뺐어요 · 이미 들어간 기사는 남아요';
+  state.status = on ? '뉴스방으로 정했어요 · 이 방 글 속 기사 주소가 읽을 거리에 들어가요' : '뉴스방에서 뺐어요 · 이미 들어간 기사는 남아요';
 });
 const moveRoom = (room, folder, archived, text) => guarded(current => roomCore(room, folder, archived, text, current));
 function trashDay(room, day) {

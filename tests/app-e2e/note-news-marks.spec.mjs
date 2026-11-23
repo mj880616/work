@@ -103,7 +103,7 @@ for (const width of [412, 880, 1280]) {
     await expect(b.locator('.nnm-hlico')).toHaveCount(1);
     await expect(b.locator('.nnm-bar')).toHaveCount(0);
     if (width < 600) { await expect(b.locator('[data-nnm-focus]')).toBeVisible(); await expect(b.locator('.ft-focus-head .nnm-hlico')).toBeVisible(); await expect(b.locator('.ft-focus-head .ft-ico:not(.nnm-hlico)')).toHaveCount(0); }
-    await expect(b.locator('.nh-row').first().locator('.nh-src')).toHaveText('News');
+    await expect(b.locator('.nh-row').first().locator('.nh-src')).toHaveText('읽을 거리');
     await press(page, b.locator('.nh-row').first().locator('[data-nh-more]'), width);
     const menu = page.locator('#hlMarkMenu');
     await expect(menu.locator('button')).toHaveText(['메모 수정', '원문에서 보기', '노트로', '복사', '삭제']);
@@ -155,7 +155,7 @@ test('880: 보관한 글 — [전체|뉴스|사회운동 글] 거르기, 줄 ⋯
   await expect(b.locator('.nnm-sv')).toHaveCount(1);
   await b.locator('[data-nnm-kind="all"]').click();
   await b.locator('.nnm-sv').nth(1).locator('[data-now-more]').click();
-  await expect(page.locator('#rowMenu')).toContainText('읽을 거리에서 빼기');
+  await expect(page.locator('#rowMenu')).toContainText('삭제');
   await page.keyboard.press('Escape');
   const key = await b.locator('.nnm-sv').nth(1).getAttribute('data-nw-key');
   await b.locator('.nnm-sv').nth(1).locator('[data-nnm-saved]').click();
@@ -169,15 +169,15 @@ test('880: 보관한 글 — [전체|뉴스|사회운동 글] 거르기, 줄 ⋯
 test('1280: 노트 검색이 노트·밑줄·보관을 함께 찾는다(꼬리표, 노트 n · 밑줄 n · 보관 n) · [목록] 보기에는 News에서가 없다', async ({ page }) => {
   const { errors } = await fixture(page, 1280);
   await page.locator('[data-note-search]').fill('철도');
-  await expect(page.locator('[data-nnm-head]')).toContainText('노트 1 · 밑줄 1 · 읽을 거리 1');
+  await expect(page.locator('[data-nnm-head]')).toContainText('노트 1 · 밑줄 1 · 저장한 글 1');
   await expect(page.locator('#noteRows [data-note-row="n1"]')).toBeVisible();
   const b = box(page);
   await expect(b.locator('.nh-row .nnm-tag')).toHaveText(['밑줄']);
-  await expect(b.locator('.nnm-sv .nnm-tag')).toHaveText(['읽을 거리']);
+  await expect(b.locator('.nnm-sv .nnm-tag')).toHaveText(['저장한 글']);
   if (SHOTS) await page.screenshot({ path: SHOTS + '1280-4-search.png' });
   // 노트에는 없고 밑줄에만 있는 말도 '맞는 노트 없음'으로 가리지 않는다.
   await page.locator('[data-note-search]').fill('총인건비');
-  await expect(page.locator('[data-nnm-head]')).toContainText('노트 0 · 밑줄 1 · 읽을 거리 0');
+  await expect(page.locator('[data-nnm-head]')).toContainText('노트 0 · 밑줄 1 · 저장한 글 0');
   await expect(page.locator('[data-note-list-status]')).not.toContainText('맞는 노트 없음');
   await page.locator('[data-note-search]').fill('');
   await page.locator('[data-note-view="list"]').click();
@@ -213,7 +213,7 @@ for (const width of [412, 880, 1280]) {
     await press(page, navRow(page, 'news-hl', width), width);
     const b = box(page);
     await expect(b.locator('.nh-row')).toHaveCount(4);
-    await expect(b.locator('.nh-row .nh-src')).toHaveText(['노트', '노트', 'News', 'News']);
+    await expect(b.locator('.nh-row .nh-src')).toHaveText(['노트', '노트', '읽을 거리', '읽을 거리']);
     await expect(b.locator(`[data-nh-row="${HL3}"] .nh-meta`)).toHaveText(/^노트10\/06/);
     await expect(b.locator(`[data-nh-row="${HL3}"] [data-nh-gone]`)).toHaveCount(0);
     await expect(b.locator(`[data-nh-row="${HL4}"] [data-nh-gone]`)).toHaveText('원문이 바뀌었어요');
