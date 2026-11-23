@@ -182,3 +182,25 @@ test('예약 robots 다시 읽기: 공용 본문이 손 본문(manual@1)이면 �
   const patch = failRun.find(s => s.method === 'PATCH' && s.path.startsWith('app_outside_article_bodies'));
   assert.match(patch.path, /state=eq\.failed&or=\(rule\.is\.null,rule\.neq\.manual@1\)/);
 });
+
+// S69-02(명진 11/24 "글 안에서도 원문 다시 불러오기 버튼"): 다 읽은 글도 ⋯ [원문 다시 가져오기](again:true) — 새 결과가 전문이고 더 길 때만 바꾼다.
+test('reread again: 읽힌 본문도 again이면 한 번 읽어 더 긴 전문이면 바꾸고, 같거나 짧으면 same(쓰기 0). again 없이는 예전처럼 stored. 간격·손 본문 그대로', async () => {
+  const old = '2026-11-01T00:00:00Z';
+  const plain = world({ body: { state: 'ok', reason: null, rule: 'ws@1', chars: 10, updated_at: old } });
+  assert.deepEqual(await (await plain.call('reread', { id: id(501) })).json(), { ok: true, status: 'stored' });
+  assert.equal(plain.calls.site.length, 0);
+  const longer = world({ body: { state: 'ok', reason: null, rule: 'ws@1', chars: 10, updated_at: old } });
+  assert.deepEqual(await (await longer.call('reread', { id: id(501), again: true })).json(), { ok: true, status: 'ok' });
+  assert.equal(longer.calls.site.length, 1);
+  assert.ok(bodyWrites(longer).some(c => c.method === 'POST' && c.body.state === 'ok' && /merge-duplicates/.test(c.prefer)));
+  const same = world({ body: { state: 'ok', reason: null, rule: 'ws@1', chars: 100000, updated_at: old } });
+  assert.deepEqual(await (await same.call('reread', { id: id(501), again: true })).json(), { ok: true, status: 'same' });
+  assert.equal(bodyWrites(same).length, 0, '같거나 짧으면 고치지 않음');
+  const soon = world({ body: { state: 'ok', reason: null, rule: 'ws@1', chars: 10, updated_at: new Date(NOW - 60000).toISOString() } });
+  assert.equal((await (await soon.call('reread', { id: id(501), again: true })).json()).status, 'recent');
+  assert.equal(soon.calls.site.length, 0);
+  const hand = world({ body: { state: 'ok', reason: null, rule: OH.HAND_RULE, chars: 10, updated_at: old } });
+  assert.equal((await (await hand.call('reread', { id: id(501), again: true })).json()).status, 'stored');
+  assert.equal(hand.calls.site.length, 0);
+  for (const bad of [{ id: id(501), again: false }, { id: id(501), again: 1 }]) assert.equal((await plain.call('reread', bad)).status, 400);
+});

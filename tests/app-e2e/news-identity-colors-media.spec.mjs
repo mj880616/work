@@ -14,7 +14,8 @@ const CATALOG = ALL.map(([key, name]) => ({ key, name, region: 'domestic', lang:
 const ITEMS = ALL.map(([key, name], i) => ({
   id: `m${String(i + 1).padStart(2, '0')}`, lane: 'media', url: `https://example.org/m${i + 1}`, title: `가짜 기사 제목 ${i + 1} — ${name} 쪽 흉내 글`, lang: 'ko', publisher: name, source_key: key, keywords: [],
   published_at: `2026-10-06T0${Math.floor((17 - i) / 6)}:${String(59 - ((i * 7) % 50)).padStart(2, '0')}:00Z`, scrapped_at: null, created_at: '2026-10-06T00:10:00Z', state: 'ok', summary: '가짜 요약.',
-  body_kind: 'lead', title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null,
+  // 이미 읽힌 기사(전문)로 둔다 — 넓은 화면이 첫 글을 저절로 열 때 '피드 소개만 있는 기사 한 번 읽기'(S69-02)로 목록이 다시 그려져 색 읽기가 흔들리지 않게.
+  body_kind: 'full', title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: '가짜 본문.',
 }));
 
 const css = readFileSync(new URL('../../app/theme-tokens.css', import.meta.url), 'utf8');

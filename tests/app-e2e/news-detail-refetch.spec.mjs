@@ -103,16 +103,20 @@ test('읽을 거리 상세: 다시 가져오기 하루 한도 → 까닭 한 줄
   expect(errors.filter(e => !/429/.test(e))).toEqual([]);
 });
 
-// S68-52: 뉴스 기사는 리드만 남은 글(lead·no_body)도 단추(news-lead-refetch.spec). 사회운동 글은 서버 reread가 실패 본문만 다시 읽으므로 앞부분 글에는 단추가 없다.
+// S69-02(명진 11/24): 사회운동 글의 앞부분(lead)에도 까닭 줄 단추 — 누르면 서버 reread에 again(더 긴 전문일 때만 바꿈). 열기만으로는 읽지 않는다.
 for (const reason of ['no_body', 'paywall']) {
-  test(`읽을 거리 상세: 사회운동 글의 앞부분(lead·${reason})에는 단추가 없다`, async ({ page }) => {
+  test(`읽을 거리 상세: 사회운동 글의 앞부분(lead·${reason})에도 단추, 누르면 again으로 한 번`, async ({ page }) => {
     test.setTimeout(60000);
     const { s } = await start(page, 1280, { body0: { state: 'lead', reason, blocks: [{ t: 'p', text: `가상 앞부분 ${reason}.` }] } });
     await open(page);
     const d = nd(page);
     await expect(d.locator('[data-nd-prose] p')).toHaveText([`가상 앞부분 ${reason}.`]);
     await expect(d.locator('[data-nd-body] [data-nd-why]')).toBeVisible();
-    await expect(d.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
+    const btn = d.locator('[data-nd-body] [data-nd-why]').getByRole('button', { name: '원문 다시 가져오기' });
+    await expect(btn).toBeVisible();
     expect(s.rereads).toEqual([]);
+    await btn.click();
+    await expect.poll(() => s.rereads.length).toBe(1);
+    expect(s.rereads[0].again).toBe(true);
   });
 }
