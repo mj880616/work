@@ -81,9 +81,10 @@ function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요�
     return res(null, 204);
   };
   const h = H.createNewsFeedHandler({env: n => ({SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: 'synthetic-service-role-key', SUPABASE_ANON_KEY: ANON, NEWS_FEED_CRON_SECRET: SECRET, WEB2_OPENAI_API_KEY: 'synthetic-openai-key-000000000000'})[n], fetch: doFetch, now: () => NOW, sleep: async ms => { sleeps.push(ms); }, log: () => {}});
+  const cronAt = async (action, b) => (await h(new Request(`${FN}?action=${action}`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: JSON.stringify(b)}))).json();
   const cron = async b => (await h(new Request(`${FN}?action=run`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: JSON.stringify(b)}))).json();
   const user = async (action, b) => { const r = await h(new Request(`${FN}?action=${action}`, {method: 'POST', headers: {authorization: `Bearer ${JWT}`, 'content-type': 'application/json'}, body: JSON.stringify(b)})); return {status: r.status, body: await r.json()}; };
-  return {db, calls, cron, user, sleeps};
+  return {db, calls, cron, cronAt, user, sleeps};
 }
 const recent = new Date(NOW - 3600000).toISOString();
 
@@ -443,4 +444,37 @@ test('S68-25 open: robots로 비어 있던 기사를 열면 그 한 쪽만 읽�
   assert.deepEqual([a.state, a.body_kind, b.state], ['ok', 'full', 'ok'], '기존 원문 칸에 저장');
   const again = await w.user('open', {id: id(800)});
   assert.equal(again.body.status, 'stored'); assert.equal(w.calls.site.length, 1, '다시 열면 읽지 않음');
+});
+
+// S68-40(명진 11/23 "아까 사진 넣었는데 없어짐"): 손으로 본문(글·내가 올린 사진)을 넣은 공용 기사는 원문 다시 뽑기·수집이 덮지 않는다.
+// 같은 주소의 다른 작업공간 옛 줄이 다시 뽑기(refill)에 걸려 원문을 읽어도, 공용 기사 본문 블록·제목·본문 칸은 손으로 넣은 그대로.
+test('S68-40: 손으로 넣은 기사 본문(사진 블록 포함)은 다시 뽑기가 덮지 않는다 — 손으로 넣지 않은 기사는 그대로 새 결과로', async () => {
+  const LONGKO = '노동자들은 오늘 합성 견본 기사 문단을 차례로 읽는다. 이 문단은 시험용으로 지어낸 글이다. '.repeat(5);
+  const page = `<html><head><meta property="og:title" content="합성 사이트 제목"></head><body><article id="article-view-content-div"><p>${LONGKO}</p></article></body></html>`;
+  const url = 'https://www.beminor.com/news/articleView.html?idxno=4040', key = 'beminor.com/news/articleView.html?idxno=4040';
+  const own = 'https://photo.web2.invalid/fakeDriveFile0001.png';
+  const handBlocks = [{t: 'p', text: 'https://example.org/some/long/address'}, {t: 'img', src: own, cap: null, alt: null}];
+  const make = manual => world({tables: {
+    app_news_articles: [{id: id(61), origin: 'site', lane: 'media', source_key: 'news-beminor', url, url_key: key, state: 'ok', body_kind: 'full', title: '손으로 넣은 제목',
+      body: 'https://example.org/some/long/address', manual_at: manual ? recent : null, created_at: recent}],
+    app_news_article_bodies: [{article_id: id(61), blocks: structuredClone(handBlocks), state: 'ok', reason: null, rule: H.HAND_RULE, chars: 37, images: 1}],
+    app_news_items: [{id: id(60), workspace_id: OP, lane: 'media', source_key: 'news-beminor', url, url_key: key, title: null, state: 'failed', created_at: recent}],
+  }, sites: {[url]: page}});
+  const w = make(true);
+  const out = await w.cronAt('refill', {source: 'news-beminor'});
+  assert.equal(out.done, 1, '옛 줄은 다시 뽑기에 걸려 원문을 읽는다');
+  assert.equal(w.calls.site.filter(u => u === url).length, 1);
+  const a = w.db.app_news_articles[0], b = w.db.app_news_article_bodies[0];
+  assert.deepEqual(b.blocks, handBlocks, '손 본문 블록(사진 포함) 그대로');
+  assert.equal(b.rule, H.HAND_RULE);
+  assert.equal(a.title, '손으로 넣은 제목'); assert.equal(a.body, 'https://example.org/some/long/address');
+  assert.equal(w.calls.rest.filter(c => c.method !== 'GET' && (c.p === 'app_news_article_bodies' || (c.p === 'app_news_articles' && c.q.includes(id(61))))).length, 0, '공용 기사·본문 쓰기 0');
+  assert.equal(w.db.app_news_items[0].state, 'ok', '옛 줄은 새 결과');
+  assert.equal(H.handOwned({manual_at: recent, body_kind: 'full'}), true);
+  assert.equal(H.handOwned({manual_at: recent, body_kind: null}), false, '제목만 고친 못 읽은 기사는 다시 읽어 채울 수 있다');
+  assert.equal(H.handOwned({manual_at: null, body_kind: 'full'}), false);
+  // 대조: 손으로 넣지 않은 기사면 같은 다시 뽑기가 새 결과로 고친다(이 시험이 실제로 덮어쓰기를 잡는지 확인).
+  const v = make(false);
+  await v.cronAt('refill', {source: 'news-beminor'});
+  assert.notDeepEqual(v.db.app_news_article_bodies[0].blocks, handBlocks);
 });
