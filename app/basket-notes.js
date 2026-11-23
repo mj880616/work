@@ -343,12 +343,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       onDrop:(id, point, places) => boards.attach([id], point, places),
       onMenu:(btn, x, y) => { window.KPTUContextMenu?.pinAt?.(btn, x, y); rowMenu(btn); },
       onBackgroundMenu:(x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(box, x, y); openMenu(box, null, 'board'); },
-      onLinkAdd:link => { void boardLinks.add(link); }, onLinkChange:(id, patch) => { void boardLinks.update(id, patch); }, onLinkRemove:id => { void boardLinks.remove(id); }, toast:showToast});
+      onLinkAdd:link => { void boardLinks.add(link); }, onLinkChange:(id, patch) => { void boardLinks.update(id, patch); }, onLinkRemove:id => { void boardLinks.remove(id); },
+      // S68-38c 글 상자(그 보드에만 있는 짧은 글, 서버 표 app_note_board_texts — 노트 목록·검색·폴더·태그와 무관).
+      onTextAdd:text => { void boardLinks.addText(text); }, onTextChange:(id, patch) => { void boardLinks.updateText(id, patch); }, onTextRemove:id => { void boardLinks.removeText(id); },
+      canText:() => boardLinks.checkTexts(), toast:showToast});
     boards.paint();
     void boardLinks.load(); // 처음 한 번(작업공간이 바뀌면 다시) — 다 읽으면 onChange로 다시 그린다
     const named = boards.boardView(), shown = named ? named.notes : notes, key = boards.current();
     board.paint({notes:shown, folderOf, colorOfFolder:id => colorOf(folderById(id)), visible:m ? new Set(shown.filter(m).map(n => n.id)) : null, pickActive:!!pick.active, isPicked:id => isPicked('n:' + id),
-      boardKey:key, links:boardLinks.forBoard(key), ...(named ? {placeOf:named.placeOf, removable:true, emptyText:named.emptyText} : {})});
+      boardKey:key, links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key), ...(named ? {placeOf:named.placeOf, removable:true, emptyText:named.emptyText} : {})});
   }
   function paintViewSwitch() {
     host.querySelectorAll('[data-note-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.noteView === view)));

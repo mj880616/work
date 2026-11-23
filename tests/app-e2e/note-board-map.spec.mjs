@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
 // S68-38 노트 '보드'(생각 지도, 명진 11/23 08:12·08:23 — Obsidian Canvas 참고): 카드 네 변의 손잡이를 끌어 다른 카드에 놓으면 연결선(화살표).
-// 선을 누르면 작은 메뉴 [곡선|직선] [실선|점선] [→|↔|없음] [뒤집기] [글자] [삭제]. 카드를 옮기면 선이 따라오고, 새로고침해도 서버 값으로 남는다.
+// 선을 누르면 작은 메뉴 [실선|점선] [직선으로] [→|↔|없음] [뒤집기] [글자] [삭제](S68-38c: 새 선은 직선, 곡선은 선 끌기 — note-board-text-curve.spec.mjs). 카드를 옮기면 선이 따라오고, 새로고침해도 서버 값으로 남는다.
 // 판: 두 손가락 확대·축소, 판 위 옆 밀기는 보기 탭 넘김이 아니다. 서버(표 app_note_board_links)가 거절하면 알리고 선을 거둔다. 이름은 지어낸 것.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -22,6 +22,7 @@ async function fixture(page, width, { reject = null } = {}) {
     return r.fulfill({ status: 500, json: {} });
   });
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.fulfill({ json: [] }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_board_texts', r => r.fulfill({ json: [] })); // 글 상자 없음(S68-38c 시험은 따로)
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   // 연결선 표(서버 흉내): 작업공간 칸을 늘 붙이는지, 고치기에 작업공간·보드를 보내지 않는지 기록한다.
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_board_links', async r => {
@@ -77,10 +78,10 @@ test('PC: 손잡이 끌어 잇기 → 카드 옮기면 선이 따라옴 → 메�
   await expect(lines(page)).toHaveCount(1);
   await expect.poll(() => linkCalls.some(c => c.method === 'POST')).toBe(true);
   const post = linkCalls.find(c => c.method === 'POST');
-  expect(post.body).toEqual({ workspace_id: expect.any(String), board_id: 'all', from_note: 'n1', to_note: 'n2', from_side: 'right', to_side: 'left', shape: 'curve', dash: 'solid', ends: 'end', label: null });
+  expect(post.body).toEqual({ workspace_id: expect.any(String), board_id: 'all', from_note: 'n1', to_note: 'n2', from_text: null, to_text: null, from_side: 'right', to_side: 'left', shape: 'line', dash: 'solid', ends: 'end', label: null, bend_x: null, bend_y: null });
   await expect(page.locator('[data-note-detail]')).toBeHidden(); // 선 긋기는 노트 열기가 아니다
   const line = page.locator('[data-nb-line] .nb-line');
-  await expect(line).toHaveAttribute('d', /C/);
+  await expect(line).toHaveAttribute('d', /^M[\d.]+ [\d.]+L/); // 새 선은 직선
   await expect(line).toHaveAttribute('marker-end', /url\(#/); await expect(line).toHaveAttribute('marker-start', 'none');
   // 카드를 옮기면 선이 따라온다(아래로 끌면 선 끝 y가 커진다).
   const d0 = await line.getAttribute('d'), c2 = await center(card(page, 'n2'));
@@ -93,23 +94,21 @@ test('PC: 손잡이 끌어 잇기 → 카드 옮기면 선이 따라옴 → 메�
   const mid = await lineMid(page);
   await page.mouse.click(mid.x, mid.y);
   await expect(menu(page)).toBeVisible();
-  await expect(menu(page).locator('[data-nb-shape="curve"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(menu(page).locator('[data-nb-straight]')).toBeDisabled(); // 이미 직선
   await expect(page.locator('[data-nb-line]')).toHaveClass(/nb-line-sel/);
   const patches = () => linkCalls.filter(c => c.method === 'PATCH');
-  await menu(page).locator('[data-nb-shape="line"]').click();
-  await expect.poll(() => patches().length).toBe(1);
-  expect(patches()[0].body).toEqual({ shape: 'line' });
-  await expect(line).toHaveAttribute('d', /^M[\d.]+ [\d.]+L/);
-  await expect(menu(page).locator('[data-nb-shape="line"]')).toHaveAttribute('aria-pressed', 'true');
   await menu(page).locator('[data-nb-dash="dashed"]').click();
+  await expect.poll(() => patches().length).toBe(1);
+  expect(patches()[0].body).toEqual({ dash: 'dashed' });
   await expect(line).toHaveClass(/nb-dashed/);
+  await expect(menu(page).locator('[data-nb-dash="dashed"]')).toHaveAttribute('aria-pressed', 'true');
   await menu(page).locator('[data-nb-ends="both"]').click();
   await expect(line).toHaveAttribute('marker-start', /url\(#/);
   await menu(page).locator('[data-nb-ends="none"]').click();
   await expect(line).toHaveAttribute('marker-end', 'none');
   await menu(page).locator('[data-nb-ends="end"]').click();
   await menu(page).locator('[data-nb-flip]').click();
-  await expect.poll(() => patches().at(-1)?.body).toEqual({ from_note: 'n2', to_note: 'n1', from_side: 'left', to_side: 'right' });
+  await expect.poll(() => patches().at(-1)?.body).toEqual({ from_note: 'n2', to_note: 'n1', from_text: null, to_text: null, from_side: 'left', to_side: 'right' });
   await menu(page).locator('[data-nb-label]').click();
   await answerText(page, '  이어지는 생각  ');
   await expect.poll(() => patches().at(-1)?.body).toEqual({ label: '이어지는 생각' });
@@ -163,8 +162,8 @@ for (const width of [390, 412, 884]) {
     expect(mb.x).toBeGreaterThanOrEqual(0); expect(mb.x + mb.width).toBeLessThanOrEqual(width);
     const tabs = page.locator('nav.mobile-tabs');
     if (await tabs.isVisible()) expect(mb.y + mb.height).toBeLessThanOrEqual((await tabs.boundingBox()).y + 1);
-    await menu(page).locator('[data-nb-shape="line"]').tap();
-    await expect(page.locator('[data-nb-line] .nb-line')).toHaveAttribute('d', /L/);
+    await menu(page).locator('[data-nb-dash="dashed"]').tap();
+    await expect(page.locator('[data-nb-line] .nb-line')).toHaveClass(/nb-dashed/);
     await menu(page).locator('[data-nb-del]').tap();
     await expect(lines(page)).toHaveCount(0);
     await expect(menu(page)).toBeHidden();
@@ -208,7 +207,7 @@ test('서버가 거절한 연결(다른 작업공간 노트 등)은 알리고 �
   await drawTo('n1', 'right', 'n2');
   await expect(lines(page)).toHaveCount(1);
   await drawTo('n1', 'top', 'n2');
-  await expect(page.locator('#toast')).toContainText('이미 이어진 노트예요');
+  await expect(page.locator('#toast')).toContainText('이미 이어져 있어요');
   expect(linkCalls.filter(c => c.method === 'POST').length).toBe(2);
   await expect(lines(page)).toHaveCount(1);
   expect(errors).toEqual([]);
