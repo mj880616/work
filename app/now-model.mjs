@@ -135,8 +135,13 @@ export function cleanBlocks(blocks) {
   }
   return out;
 }
-// row: {blocks, state, reason} | null. 답: {state, blocks, reason(한 줄 글자, 없으면 '')}.
+// row: {blocks, state, reason, rule?} | null. 답: {state, blocks, reason(한 줄 글자, 없으면 ''), hand?(손으로 넣은 본문 — S68-44)}.
+export const HAND_RULE = 'manual@1';
 export function bodyView(row) {
+  const v = bodyViewOf(row);
+  return v && row.rule === HAND_RULE ? {...v, hand: true} : v;
+}
+function bodyViewOf(row) {
   if (!row || !BODY_STATES.has(row.state)) return null;
   const blocks = row.state === 'failed' ? [] : cleanBlocks(row.blocks);
   const why = BODY_REASONS[row.reason] || '';
@@ -340,6 +345,9 @@ export function tabForItem(type, tab) {
 export const HAND_LIMITS = Object.freeze({title: 300, publisher: 60, author: 80, body: 50000, url: 2000});
 // 못 읽은 기사인가(원문 칸에 [직접 넣기]). 뉴스 기사만 — 사회운동 글은 다른 서버 함수라 이번에 없음.
 export const canHandFill = (item, b) => item?.type === 'news' && !!b && !b.failedLoad && b.state === 'failed';
+// S68-44: 손으로 넣은 본문(블록 규칙 manual@1)인데 글자 블록이 없는가(본문을 비웠거나 사진만). 상세 원문 칸은 까닭 대신 '본문 없음' 한 줄.
+// 제목만 고친 못 읽은 기사(블록은 읽기 실패 그대로)는 들지 않는다 — 원래 까닭(늦은 답 등)이 그대로 보인다.
+export const handNoText = b => !!b?.hand && !b.failedLoad && !(b.blocks || []).some(x => x && x.t !== 'img');
 const pad2 = n => String(n).padStart(2, '0');
 // ISO 시각 → 달력+시각 칸 값(이 기기 시각, 'YYYY-MM-DDTHH:mm'). 모르면 ''.
 export function localInputOf(iso) {
@@ -490,15 +498,14 @@ export function bodyFirstUrl(blocks) {
   const first = Array.isArray(blocks) ? blocks.find(b => b && (b.t !== 'p' || String(b.text ?? '').trim())) : null;
   return first && first.t === 'p' ? webUrlOf(first.text) : '';
 }
-// [옮기기]: 입력 칸 처음 값에서 본문 첫 줄 주소를 원문 주소 칸으로 옮긴 값. 첫 줄이 주소가 아니면 null. 남는 본문이 비면 null(서버가 빈 본문을 받지 않음).
+// [옮기기]: 입력 칸 처음 값에서 본문 첫 줄 주소를 원문 주소 칸으로 옮긴 값. 첫 줄이 주소가 아니면 null. 남는 본문이 비면 본문 없이 저장(S68-44).
 export function movedUrlValues(initial) {
   const lines = String(initial?.body ?? '').split(/\r\n?|\n/);
   const i = lines.findIndex(l => l.trim());
   const url = i < 0 ? '' : webUrlOf(lines[i]);
   if (!url) return null;
   const body = lines.slice(i + 1).join('\n').replace(/^\s*\n/, '');
-  if (!body.trim()) return null;
-  return {...initial, url, body};
+  return {...initial, url, body: body.trim() ? body : ''};
 }
 // 문단 글자 → 조각 [{url?: 주소, text}]. 본문 안 http·https 주소는 작은 줄바꿈 링크로 그린다(긴 주소가 큰 글자 덩어리로 보이지 않게).
 // 주소 끝의 문장부호·닫는 괄호는 주소에서 뺀다. 링크로 쓸 수 없는 모양은 글자 그대로.
@@ -523,9 +530,11 @@ export function hostOf(url) {
 }
 // 입력 값 → 서버 몸통 또는 {error: 화면 글자}. 본문은 처음 값에서 바뀌었을 때만 보낸다(바뀌지 않으면 서버가 읽어 둔 본문·사진을 그대로 둔다).
 // photos: 본문 칸 '[사진 n]' 번호 → 저장된 사진 주소(올리기 전이면 ''). 그 줄은 주소 줄로 바꿔 보내고 사진 수에 센다.
+// S68-44(명진 11/23 "본문 글자 없이도 저장되게"): 본문 글자·제목은 필수가 아니다(빈 제목 = 지금 제목 그대로, 빈 본문 = 본문 없음, 사진만 = 사진 본문).
+// 제목·원문 주소·본문(글·사진)이 모두 비면 보내지 않는다(서버도 같은 규칙 — EMPTY_ARTICLE). 제목이 비면 원문 주소 칸 값을 함께 보낸다(서버가 빈 기사로 보지 않게).
+export const HAND_EMPTY = '제목·원문 주소·본문(글이나 사진) 중 하나는 넣어 주세요';
 export function handRequest(id, values, initial, photos = new Map()) {
   const title = oneLineText(values.title), publisher = oneLineText(values.publisher), author = oneLineText(values.author);
-  if (!title) return {error: '제목을 넣어 주세요'};
   if ([...title].length > HAND_LIMITS.title) return {error: `제목은 ${HAND_LIMITS.title}자까지`};
   if ([...publisher].length > HAND_LIMITS.publisher) return {error: `매체는 ${HAND_LIMITS.publisher}자까지`};
   if ([...author].length > HAND_LIMITS.author) return {error: `기자 이름은 ${HAND_LIMITS.author}자까지`};
@@ -538,16 +547,21 @@ export function handRequest(id, values, initial, photos = new Map()) {
   const out = {id, title, publisher: publisher || null, author: author || null, published_at: at};
   // 원문 주소(S68-39): 비우거나 처음 값 그대로면 보내지 않는다(서버 주소 그대로). 바꾸면 http·https 주소만 — 받을지는 서버가 다시 본다.
   const url = String(values.url ?? '').trim();
-  if (url && url !== String(initial?.url ?? '').trim()) {
+  if (url && (url !== String(initial?.url ?? '').trim() || !title)) {
     if (url.length > HAND_LIMITS.url || !webUrlOf(url)) return {error: '원문 주소는 http·https 주소로 넣어 주세요'};
     out.url = url;
   }
   const changed = body.replace(/\s+/g, ' ').trim() !== String(initial?.body ?? '').replace(/\s+/g, ' ').trim();
   if (changed) {
-    if (!body.trim()) return {error: '본문을 비울 수는 없어요'};
-    out.body = expandPhotoTokens(body, n => photos.get(n) || '');
+    out.body = body.trim() ? expandPhotoTokens(body, n => photos.get(n) || '') : '';
     if ([...out.body].length > HAND_LIMITS.body) return {error: `본문은 ${HAND_LIMITS.body.toLocaleString('ko-KR')}자까지`};
   }
+  // 빈 기사 막기: 보낼 몸통에 제목·주소·본문(글·사진)이 하나도 없으면 보내지 않는다. 제목·주소를 비웠지만 본문 칸에 글이 그대로 있으면 그 본문을 함께 보낸다.
+  if (!title && !out.url && !changed) {
+    if (!body.trim()) return {error: HAND_EMPTY};
+    out.body = expandPhotoTokens(body, n => photos.get(n) || '');
+  }
+  if (!title && !out.url && !String(out.body ?? '').trim()) return {error: HAND_EMPTY};
   return {body: out};
 }
 // 저장 실패 → 화면 한 줄.
@@ -557,7 +571,7 @@ export function handError(e) {
   if (e?.status === 404) return '기사를 찾지 못함';
   if (e?.status === 400 && /INVALID_DATE/.test(code)) return '기사 시각을 다시 넣어 주세요';
   if (e?.status === 400 && /TOO_MANY_PHOTOS/.test(code)) return `사진은 ${HAND_PHOTOS_MAX}장까지`;
-  if (e?.status === 400 && /INVALID_TEXT/.test(code)) return '본문에 글자를 넣어 주세요';
+  if (e?.status === 400 && /EMPTY_ARTICLE/.test(code)) return HAND_EMPTY;
   if (e?.status === 400 && /INVALID_URL/.test(code)) return '넣을 수 없는 원문 주소예요 · 기사 주소를 넣어 주세요';
   if (e?.status === 409 && /URL_TAKEN/.test(code)) return '그 주소의 기사가 이미 있어요 · 그 주소로 다시 저장해 주세요';
   if (e?.status === 413 && /PHOTO_TOO_LARGE/.test(code)) return '사진은 한 장 10MB까지';

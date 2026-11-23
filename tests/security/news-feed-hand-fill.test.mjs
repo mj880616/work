@@ -90,7 +90,6 @@ test('hand_fill: only an article the person can read; body fields are checked', 
     [{...FULL, id: 'x'}, 'INVALID_BODY'],
     [{...FULL, extra: 1}, 'INVALID_BODY'],
     [(({author: _a, ...r}) => r)(FULL), 'INVALID_BODY'],
-    [{...FULL, title: '   '}, 'INVALID_TITLE'],
     [{...FULL, title: 7}, 'INVALID_TITLE'],
     [{...FULL, title: '가'.repeat(301)}, 'INVALID_TITLE'],
     [{...FULL, publisher: '가'.repeat(61)}, 'INVALID_PUBLISHER'],
@@ -100,8 +99,11 @@ test('hand_fill: only an article the person can read; body fields are checked', 
     [{...FULL, published_at: '2026-11-18'}, 'INVALID_DATE'],
     [{...FULL, published_at: '1980-01-01T00:00:00Z'}, 'INVALID_DATE'],
     [{...FULL, published_at: '2026-12-30T00:00:00Z'}, 'INVALID_DATE'],
-    [{...FULL, body: ''}, 'INVALID_TEXT'],
-    [{...FULL, body: ' \n \n'}, 'INVALID_TEXT'],
+    [{...FULL, body: 7}, 'INVALID_TEXT'],
+    // S68-44: 제목·원문 주소·본문(글·사진)이 모두 빈 요청은 빈 기사라 거절.
+    [{...FULL, title: '   ', body: ''}, 'EMPTY_ARTICLE'],
+    [{...FULL, title: null, body: ' \n \n'}, 'EMPTY_ARTICLE'],
+    [{id: ART, title: '', publisher: '합성 매체', author: null, published_at: null}, 'EMPTY_ARTICLE'],
     [{...FULL, body: '가'.repeat(50001)}, 'INVALID_TEXT'],
     [{...FULL, body: null}, 'INVALID_TEXT'],
   ];
@@ -202,10 +204,46 @@ test('hand_fill photos: unsafe or non-photo addresses stay as text; caption only
   assert.deepEqual(H.handBlocks('https://img.example.org/a.gif\n그냥 문단'), [{t: 'img', src: 'https://img.example.org/a.gif', cap: null, alt: null}, {t: 'p', text: '그냥 문단'}]);
   // 설명은 300자까지.
   assert.equal(H.handBlocks(`https://img.example.org/a.gif\n사진: ${'가'.repeat(400)}\n본문`)[0].cap.length, 300);
-  // 사진만 있고 글자가 없으면 거절(본문 상태 ok는 글자가 있어야 함).
+});
+
+// S68-44(명진 11/23 "본문 글자 없이도 저장되게"): 본문 글자는 필수가 아니다 — 사진만, 비운 본문, 제목만 모두 저장된다. 손 본문은 다시 읽기가 덮지 않는다.
+test('S68-44 hand_fill: photos only is saved as an image-only hand body; the article keeps no text', async () => {
+  const w = world({olds: [{id: OLD, workspace_id: WS, lane: 'channel', url: 'https://news.example.org/a/1', url_key: 'news.example.org/a/1', title: null, state: 'failed', fetched_at: null}],
+    bodies: [{article_id: ART, blocks: [], state: 'failed', reason: 'timeout', rule: 'open@3', chars: 0, images: 0}]});
+  assert.deepEqual(await out(await w.call({...FULL, body: 'https://img.example.org/a.jpg\n사진: 설명'})), {status: 200, body: {ok: true, status: 'filled', id: ART}});
+  const bd = w.db.app_news_article_bodies[0];
+  assert.deepEqual({state: bd.state, reason: bd.reason, rule: bd.rule, chars: bd.chars, images: bd.images}, {state: 'image_only', reason: null, rule: 'manual@1', chars: 0, images: 1});
+  assert.deepEqual(bd.blocks, [{t: 'img', src: 'https://img.example.org/a.jpg', cap: '설명', alt: null}]);
+  const a = w.db.app_news_articles[0];
+  assert.deepEqual([a.state, a.body, a.body_kind, a.summary, a.title], ['ok', null, null, null, '합성 파업 기사 제목']);
+  assert.ok(a.manual_at);
+  assert.equal(H.handOwned(a), true, 'photo-only hand body is the person\'s — reading does not overwrite it');
+  assert.equal(w.db.app_feed_bodies[0]?.state, 'image_only');
+  assert.equal(w.calls.site, 0); assert.equal(w.calls.ai, 0);
+});
+
+test('S68-44 hand_fill: an emptied body is saved as "no body" (no blocks); an empty title keeps the current title', async () => {
+  const w = world({articles: [baseArt({title: '읽어 온 제목', state: 'ok', body: '읽어 온 본문.', body_kind: 'full', summary: '요약', body_ko: '번역', translated_at: '2026-11-18T22:40:00Z'})],
+    bodies: [{article_id: ART, blocks: [{t: 'p', text: '읽어 온 본문.'}], state: 'ok', reason: null, rule: 'open@3', chars: 7, images: 0}]});
+  assert.equal((await w.call({...FULL, title: '', body: '', url: 'https://news.example.org/a/1'})).status, 200);
+  const a = w.db.app_news_articles[0];
+  assert.deepEqual([a.title, a.state, a.body, a.body_kind, a.summary, a.body_ko, a.translated_at], ['읽어 온 제목', 'ok', null, null, null, null, null]);
+  const bd = w.db.app_news_article_bodies[0];
+  assert.deepEqual({state: bd.state, reason: bd.reason, rule: bd.rule, blocks: bd.blocks, chars: bd.chars, images: bd.images}, {state: 'failed', reason: 'no_body', rule: 'manual@1', blocks: [], chars: 0, images: 0});
+  assert.equal(H.handOwned(a), true);
+  assert.equal(H.needsRefill(bd, 'synthetic@1'), false, 'a hand body is not re-extracted');
+});
+
+test('S68-44 hand_fill: title only (no body sent) still saves; a failed article stays open to reading', async () => {
   const w = world();
-  assert.deepEqual(await out(await w.call({...FULL, body: 'https://img.example.org/a.jpg\n사진: 설명'})), {status: 400, body: {ok: false, error: 'INVALID_TEXT'}});
-  assert.equal(w.calls.writes.length, 0);
+  assert.equal((await w.call({id: ART, title: '제목만', publisher: null, author: null, published_at: null})).status, 200);
+  const a = w.db.app_news_articles[0];
+  assert.deepEqual([a.title, a.state, a.body], ['제목만', 'failed', null]);
+  assert.equal(H.handOwned(a), false, 'title-only edit keeps the old rule: the original can still fill the body');
+  assert.equal(w.db.app_news_article_bodies.length, 0);
+  // 원문 주소만(제목·본문 비움)도 빈 기사가 아니다.
+  const u = world();
+  assert.equal((await u.call({id: ART, title: '', publisher: null, author: null, published_at: null, url: 'https://news.example.org/a/1'})).status, 200);
 });
 
 test('hand_fill photos: at most 20 photos per article', async () => {
