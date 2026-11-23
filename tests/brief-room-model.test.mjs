@@ -74,7 +74,10 @@ test('parseChunkNote: invented quote dropped, page reassigned by server, page re
   assert.equal(n.quotes.length, 1);
   assert.equal(n.quotes[0].page, 3);
   assert.deepEqual(n.touches, ['정원 관리 지표 신설(3쪽)']);
-  assert.deepEqual(n.todos, ['의견 제출 11/28까지(1쪽)', '없는 쪽']);
+  // S68-55: 할 일 줄은 주체 달린 줄로 읽는다. 옛 모양(글 줄)은 주체 불명.
+  assert.deepEqual(n.todos, [{ subject: '주체 불명', speaker: '', text: '의견 제출 11/28까지(1쪽)' }, { subject: '주체 불명', speaker: '', text: '없는 쪽' }]);
+  assert.deepEqual(n.conflicts, [{ subject: '주체 불명', speaker: '', text: '총인건비 안에서 재배치(3쪽)' }]);
+  assert.equal(n.quotes[0].speaker, '');
   assert.equal(m.parseChunkNote('그냥 글', ctx), null);
 });
 
@@ -83,7 +86,7 @@ test('parseChunkNote: unknown pages → page null and page refs stripped', () =>
   const ctx = { text, starts: m.pageStarts(text), folded: m.foldForMatch(text), chunk: { start: 0, end: text.length } };
   const n = m.parseChunkNote(JSON.stringify({ lead: '요지', todos: ['의견 제출(1쪽)'], quotes: [{ text: '신규 인력 수요는 기존 총인건비 범위 내에서 재배치를 우선 검토한다.' }] }), ctx);
   assert.equal(n.quotes[0].page, null);
-  assert.deepEqual(n.todos, ['의견 제출']);
+  assert.deepEqual(n.todos.map(t => t.text), ['의견 제출']);
 });
 
 test('verifyBrief: quotes only by candidate id, text from candidates, AI가 고른 순서(중요한 순) 그대로', () => {
@@ -118,38 +121,87 @@ test('chunkWithPages marks pages; inputs carry no ids', () => {
   assert.equal(m.stepTotal(3), 4);
 });
 
-// S68-45(명진 11/23): 최종 브리핑 v2 — 한눈에 3줄·챙길 일{기한,할 일,급함}·우리 조직 관련{이름,내용}·대응할 것{주장,반박}. AI 답은 믿지 않는 입력.
-test('S68-45 verifyBrief v2: 칸 모양·길이·꼬리말·쪽 표시·담당 이름 검사', () => {
+// S68-45(명진 11/23): 최종 브리핑 칸 — 한눈에 3줄·챙길 일{기한,할 일,급함}·우리 조직 관련{이름,내용}·대응할 것{주장,반박}. AI 답은 믿지 않는 입력.
+// S68-55: v3 — 줄마다 주체, 내 챙길 일은 나·우리 조직·등록한 담당만.
+test('S68-45/S68-55 verifyBrief v3: 칸 모양·길이·꼬리말·쪽 표시·담당 이름 검사', () => {
   const b = m.verifyBrief(JSON.stringify({
     lead: '인건비 배점 상향.',
-    glance: ['인건비 배점 5점→8점(3쪽)', '정원 지표 신설이 논의됨', 'x'.repeat(81), '넷째 줄'],
+    glance: [{ subject: '○○부', text: '인건비 배점 5점→8점(3쪽)' }, { subject: '', text: '정원 지표 신설이 논의됨' }, { subject: 'x', text: 'x'.repeat(81) }, '넷째 줄'],
     todos: [
-      { due: '11/28', text: '의견 제출(2쪽)', urgent: true },
-      { due: '', text: '내부 검토 계획이 언급됨', urgent: 'yes' },
-      { due: 'x'.repeat(21), text: '기한이 너무 긺', urgent: false },
-      { due: '연내', text: '<b>꺾쇠</b>', urgent: false },
+      { subject: '우리 조직', due: '11/28', text: '의견 제출(2쪽)', urgent: true },
+      { subject: '나', due: '', text: '내부 검토 계획이 언급됨', urgent: 'yes' },
+      { subject: '나', due: 'x'.repeat(21), text: '기한이 너무 긺', urgent: false },
+      { subject: '나', due: '연내', text: '<b>꺾쇠</b>', urgent: false },
       '그냥 글',
-      { due: '연내', text: '지표 대응(99쪽)', urgent: false },
+      { subject: '예시 가지부', due: '연내', text: '지표 대응(99쪽)', urgent: false },
     ],
-    orgs: [{ name: '예시 가지부', text: '정원 지표 대상' }, { name: '다른 곳', text: '무관' }, { name: '', text: '예시 가지부 인원 영향' }],
-    counters: [{ claim: '총인건비 안 재배치', reply: '충원 요구 근거(3쪽)' }, { claim: '', reply: '빈 주장' }, { claim: '반박 없음', reply: '' }],
+    promises: [],
+    orgs: [{ name: '예시 가지부', subject: '○○공단', text: '정원 지표 대상' }, { name: '다른 곳', text: '무관' }, { name: '', text: '예시 가지부 인원 영향' }],
+    counters: [{ subject: '○○부', speaker: '○○부 국장', claim: '총인건비 안 재배치', reply: '충원 요구 근거(3쪽)' }, { claim: '', reply: '빈 주장' }, { claim: '반박 없음', reply: '' }],
     quotes: [],
   }), { candidates: [], pageCount: 3, names: ['예시 가지부'] });
-  assert.equal(b.v, 2);
-  assert.deepEqual(b.glance, ['인건비 배점 5점→8점(3쪽)', '정원 지표 신설', '넷째 줄']);
+  assert.equal(b.v, 3);
+  assert.deepEqual(b.glance, [{ subject: '○○부', text: '인건비 배점 5점→8점(3쪽)' }, { subject: '주체 불명', text: '정원 지표 신설' }, { subject: '주체 불명', text: '넷째 줄' }]);
   assert.deepEqual(b.todos, [
-    { due: '11/28', text: '의견 제출(2쪽)', urgent: true },
-    { due: '', text: '내부 검토 계획', urgent: false },
-    { due: '연내', text: '지표 대응', urgent: false },
+    { subject: '우리 조직', due: '11/28', text: '의견 제출(2쪽)', urgent: true },
+    { subject: '나', due: '', text: '내부 검토 계획', urgent: false },
+    { subject: '예시 가지부', due: '연내', text: '지표 대응', urgent: false },
   ]);
-  assert.deepEqual(b.orgs, [{ name: '예시 가지부', text: '정원 지표 대상' }, { name: '예시 가지부', text: '예시 가지부 인원 영향' }]);
-  assert.deepEqual(b.counters, [{ claim: '총인건비 안 재배치', reply: '충원 요구 근거(3쪽)' }, { claim: '반박 없음', reply: '' }]);
+  assert.deepEqual(b.promises, []);
+  assert.deepEqual(b.orgs, [{ name: '예시 가지부', subject: '○○공단', speaker: '', text: '정원 지표 대상' }, { name: '예시 가지부', subject: '주체 불명', speaker: '', text: '예시 가지부 인원 영향' }]);
+  assert.deepEqual(b.counters, [{ subject: '○○부', speaker: '○○부 국장', claim: '총인건비 안 재배치', reply: '충원 요구 근거(3쪽)' }, { subject: '주체 불명', speaker: '', claim: '반박 없음', reply: '' }]);
   assert.equal(b.touches, undefined, '옛 칸은 새로 만들지 않음');
   assert.equal(b.scope, undefined);
   const none = m.verifyBrief(JSON.stringify({ lead: '요지.', orgs: [{ name: '예시', text: '아무' }] }), { candidates: [], pageCount: null, names: [] });
   assert.deepEqual(none.orgs, []);
   assert.equal(none.scope, 'none');
-  assert.deepEqual(none.glance, ['요지.']);
+  assert.deepEqual(none.glance, [{ subject: '주체 불명', text: '요지.' }]);
+});
+
+// S68-55(명진 11/23 "주체가 국토교통부 철도국장인데 내가 챙길 일로 나옴"): 상대의 약속은 서버가 약속·계획으로 옮긴다.
+test('S68-55 verifyBrief: 상대·주체 불명 할 일은 약속·계획으로, 주체 불명은 추측하지 않음', () => {
+  const b = m.verifyBrief(JSON.stringify({
+    lead: '운영기준 개정 계획.',
+    glance: [{ subject: '○○부 국장', text: '운영기준에 적정 인력 의무 반영' }],
+    todos: [
+      { subject: '○○부 국장', due: '연내', text: '운영기준에 적정 인력 확보 의무 반영', urgent: false },
+      { subject: '', due: '', text: '누가 하는지 모르는 일', urgent: true },
+      { subject: '불명', due: '', text: '불명이라 적은 일', urgent: false },
+      { subject: '우리 조직', due: '11/28', text: '의견서 제출', urgent: true },
+      { subject: '예시거래처', due: '', text: '등록한 담당 이름은 내 일', urgent: false },
+    ],
+    promises: [{ subject: '○○ 의원', speaker: '○○ 의원', due: '', text: '후속 질의', urgent: true }, { subject: '<x>', due: '', text: '꺾쇠 주체' }],
+    orgs: [], counters: [], quotes: [],
+  }), { candidates: [], pageCount: null, names: ['예시 거래처'] });
+  assert.deepEqual(b.todos.map(t => t.text), ['의견서 제출', '등록한 담당 이름은 내 일']);
+  assert.deepEqual(b.promises, [
+    { subject: '○○ 의원', speaker: '○○ 의원', due: '', text: '후속 질의' },
+    { subject: '주체 불명', speaker: '', due: '', text: '꺾쇠 주체' },
+    { subject: '○○부 국장', speaker: '', due: '연내', text: '운영기준에 적정 인력 확보 의무 반영' },
+    { subject: '주체 불명', speaker: '', due: '', text: '누가 하는지 모르는 일' },
+    { subject: '주체 불명', speaker: '', due: '', text: '불명이라 적은 일' },
+  ]);
+  assert.equal(m.isMine('주체 불명', ['예시']), false);
+  assert.equal(m.isMine('우리 조직', null), true);
+  assert.equal(m.isMine('○○부 국장', ['예시 거래처']), false);
+  assert.equal(m.cleanWho('  미상 '), '');
+  assert.equal(m.cleanWho('[○○부 국장]'), '○○부 국장');
+  assert.equal(m.cleanWho('x'.repeat(31)), '');
+});
+
+test('S68-55 인용 발언자: 조각 AI가 원문 옆에서 적은 값만, 없으면 주체 불명', () => {
+  const ctx = ctxOf();
+  const note = m.parseChunkNote(JSON.stringify({ lead: 'a', quotes: [
+    { text: '신규 인력 수요는 기존 총인건비 범위 내에서 재배치를 우선 검토한다.', heading: '3-2', why: '충원', speaker: '○○부 국장' },
+    { text: '인건비 관리의 적정성 지표 배점을 현행 5점에서 8점으로 상향하고', heading: '2', why: '배점', speaker: '알 수 없음' },
+  ] }), ctx);
+  const candidates = m.quoteCandidates([note]);
+  const input = m.mergeInput({ title: 't', scope: 's', notes: [{ ...note, todos: ['옛 글 줄 메모', { subject: '○○공단', speaker: '이사장', text: '연내 개선' }] }], candidates });
+  assert.match(input, /〔발언: ○○부 국장〕/);
+  assert.match(input, /할 일·약속·숫자: 〔주체: 주체 불명〕 옛 글 줄 메모/);
+  assert.match(input, /〔주체: ○○공단 · 발언: 이사장〕 연내 개선/);
+  const b = m.verifyBrief(JSON.stringify({ lead: '요지.', quotes: [{ id: 'q1' }, { id: 'q2' }] }), { candidates, pageCount: 3 });
+  assert.deepEqual(b.quotes.map(q => q.speaker), ['○○부 국장', '주체 불명']);
 });
 
 test('S68-45 trimTail·matchScopeName', () => {
@@ -162,16 +214,26 @@ test('S68-45 trimTail·matchScopeName', () => {
   assert.equal(m.matchScopeName('예시 거래처', '', null), null);
 });
 
-test('S68-45 MERGE_INSTRUCTIONS·MERGE_SCHEMA: v2 칸과 문장 규칙', async () => {
+test('S68-45/S68-55 MERGE_INSTRUCTIONS·MERGE_SCHEMA: v3 칸·주체 규칙·문장 규칙', async () => {
   assert.match(m.MERGE_INSTRUCTIONS, /"glance"/);
   assert.match(m.MERGE_INSTRUCTIONS, /"counters"/);
+  assert.match(m.MERGE_INSTRUCTIONS, /"promises"/);
   assert.match(m.MERGE_INSTRUCTIONS, /꼬리말을 붙이지 않는다/);
   assert.match(m.CHUNK_INSTRUCTIONS, /꼬리말을 붙이지 않는다/);
+  for (const t of [m.MERGE_INSTRUCTIONS, m.CHUNK_INSTRUCTIONS]) {
+    assert.match(t, /"주체 불명"/);
+    assert.match(t, /추측해서 채우지 않는다/);
+    assert.match(t, /이 사람이 챙길 일이 아니라 상대의 약속·계획이다/);
+  }
   const r = await import('../supabase/functions/document-actions/brief-run.mjs');
-  assert.deepEqual(r.MERGE_SCHEMA.required, ['lead', 'glance', 'todos', 'orgs', 'counters', 'quotes']);
-  assert.deepEqual(r.MERGE_SCHEMA.properties.todos.items.required, ['due', 'text', 'urgent']);
+  assert.deepEqual(r.MERGE_SCHEMA.required, ['lead', 'glance', 'todos', 'promises', 'orgs', 'counters', 'quotes']);
+  assert.deepEqual(r.MERGE_SCHEMA.properties.glance.items.required, ['subject', 'text']);
+  assert.deepEqual(r.MERGE_SCHEMA.properties.todos.items.required, ['subject', 'due', 'text', 'urgent']);
   assert.equal(r.MERGE_SCHEMA.properties.todos.items.properties.urgent.type, 'boolean');
-  assert.deepEqual(r.MERGE_SCHEMA.properties.orgs.items.required, ['name', 'text']);
-  assert.deepEqual(r.MERGE_SCHEMA.properties.counters.items.required, ['claim', 'reply']);
-  assert.deepEqual(r.CHUNK_SCHEMA.required, ['lead', 'touches', 'todos', 'conflicts', 'quotes'], '조각 메모는 그대로(진행 중 작업 호환)');
+  assert.deepEqual(r.MERGE_SCHEMA.properties.promises.items.required, ['subject', 'speaker', 'due', 'text']);
+  assert.deepEqual(r.MERGE_SCHEMA.properties.orgs.items.required, ['name', 'subject', 'speaker', 'text']);
+  assert.deepEqual(r.MERGE_SCHEMA.properties.counters.items.required, ['subject', 'speaker', 'claim', 'reply']);
+  assert.deepEqual(r.CHUNK_SCHEMA.required, ['lead', 'touches', 'todos', 'conflicts', 'quotes']);
+  assert.deepEqual(r.CHUNK_SCHEMA.properties.todos.items.required, ['subject', 'speaker', 'text']);
+  assert.deepEqual(r.CHUNK_SCHEMA.properties.quotes.items.required, ['text', 'heading', 'why', 'speaker']);
 });

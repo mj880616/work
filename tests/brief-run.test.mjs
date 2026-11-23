@@ -164,10 +164,10 @@ test('S67-50 scope: 등록한 담당 대상·프로젝트 둘 다 AI 입력에, 
     assert.match(input, /내가 등록한 담당 대상: 예시 거래처/);
     assert.match(input, /내가 등록한 프로젝트: 예시 프로젝트/);
   }
-  assert.deepEqual(f.rows[0].brief.orgs, [{ name: '예시 거래처', text: '단가 조정(12쪽)' }], '목록에 없는 철도 줄은 남지 않고, 이름은 등록 이름 그대로');
-  assert.equal(f.rows[0].brief.v, 2);
-  assert.deepEqual(f.rows[0].brief.glance, ['요지 한 줄.'], '한눈에가 비면 한 줄 요지로 채움');
-  assert.deepEqual(f.rows[0].brief.counters, [{ claim: '부담이 늘어남', reply: '' }]);
+  assert.deepEqual(f.rows[0].brief.orgs, [{ name: '예시 거래처', subject: '주체 불명', speaker: '', text: '단가 조정(12쪽)' }], '목록에 없는 철도 줄은 남지 않고, 이름은 등록 이름 그대로');
+  assert.equal(f.rows[0].brief.v, 3);
+  assert.deepEqual(f.rows[0].brief.glance, [{ subject: '주체 불명', text: '요지 한 줄.' }], '한눈에가 비면 한 줄 요지로 채움');
+  assert.deepEqual(f.rows[0].brief.counters, [{ subject: '주체 불명', speaker: '', claim: '부담이 늘어남', reply: '' }]);
   assert.equal(f.rows[0].brief.scope, undefined);
 });
 
@@ -216,4 +216,34 @@ test('S67-50 readBriefScope: 로그인 토큰 REST로 담당 대상·프로젝�
   for (const p of paths) { assert.match(p, new RegExp(`workspace_id=eq\\.${WS}&deleted_at=is\\.null`)); assert.doesNotMatch(p, /select=[^&]*\bid\b/); }
   assert.match(paths[1], /status\.not\.in\.\(archived,done\)/);
   await assert.rejects(readBriefScope(userDb, 'x'), e => e.status === 404);
+});
+
+// S68-55(명진 11/23 "주체가 국토교통부 철도국장인데 내가 챙길 일로 나옴"): v3 — 줄마다 주체, 상대의 약속은 약속·계획 칸.
+test('S68-55 run: AI에 v3 틀을 주고, 상대가 하겠다는 일은 약속·계획으로, 인용 발언자는 조각 메모 값', async () => {
+  const f = fakeDb(); const schemas = {};
+  const runner = r.createBriefRunner({
+    db: f.db, now: Date.now, extract: async () => ({ text: SOURCE }), capCheck: async () => ({ ok: true }),
+    scope: async () => ({ orgs: ['예시 가지부'], areas: [] }),
+    ai: async (name, instructions, input, schema) => {
+      schemas[name] = schema;
+      if (name === 'brief_chunk') return { ok: true, model: 'm', text: JSON.stringify({ lead: '요지', touches: [], conflicts: [],
+        todos: input.includes('3. 평가 지표 개편') ? [{ subject: '○○부 국장', speaker: '○○부 국장', text: '연내 운영기준 개정' }] : [],
+        quotes: input.includes('3. 평가 지표 개편') ? [{ text: QUOTE, heading: '3', why: '배점', speaker: '○○부 국장' }] : [] }) };
+      assert.match(input, /〔주체: ○○부 국장 · 발언: ○○부 국장〕 연내 운영기준 개정/);
+      return { ok: true, model: 'm', text: JSON.stringify({
+        lead: '운영기준 개정 계획.', glance: [{ subject: '○○부 국장', text: '운영기준 개정' }],
+        todos: [{ subject: '○○부 국장', due: '연내', text: '운영기준에 적정 인력 의무 반영', urgent: false }, { subject: '예시 가지부', due: '11/28', text: '의견 제출', urgent: true }],
+        promises: [], orgs: [], counters: [], quotes: [{ id: 'q1', why: '근거' }],
+      }) };
+    },
+  });
+  const { row } = await runner.start({ userId: USER, doc });
+  assert.equal(await runner.run(row.id, doc), 'done');
+  const b = f.rows[0].brief;
+  assert.equal(b.v, 3);
+  assert.deepEqual(b.todos, [{ subject: '예시 가지부', due: '11/28', text: '의견 제출', urgent: true }]);
+  assert.deepEqual(b.promises, [{ subject: '○○부 국장', speaker: '', due: '연내', text: '운영기준에 적정 인력 의무 반영' }]);
+  assert.equal(b.quotes[0].speaker, '○○부 국장');
+  assert.equal(schemas.brief_merge, r.MERGE_SCHEMA);
+  assert.equal(schemas.brief_chunk, r.CHUNK_SCHEMA);
 });

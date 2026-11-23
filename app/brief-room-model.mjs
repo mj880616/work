@@ -126,29 +126,60 @@ export function sortTodos(list, now = new Date()) {
 /** 앞 SHOW_N개와 나머지. */
 export const splitShown = (items, n = SHOW_N) => ({ shown: items.slice(0, n), rest: items.slice(n) });
 
+// S68-55(명진 11/23 "누가 한 발언인지에 따라서 주체를 적어서 정보를 분류 구분해야 함"): 줄마다 주체 꼬리표, 내 챙길 일과 상대의 약속·계획을 나눈다.
+export const UNKNOWN_SUBJECT = '주체 불명';
+export const MINE_TITLE = '내 챙길 일';
+export const PROMISES_TITLE = '약속·계획';
+export const LEGACY_PROMISES_TITLE = '약속·계획(주체 불명)';
+// 옛 방식(v1·v2) 브리핑 위 작은 줄. [다시 만들기]는 [브리핑 받기]와 같은 길(brief-start)로 새 형식을 만든다.
+export const LEGACY_LINE = '예전 방식 브리핑';
+/** 꼬리표 글자: 발언자가 주체를 담고 있으면 발언자, 아니면 '주체 발언자'. 둘 다 없으면 주체 불명. */
+export function whoTag(subject, speaker = '') {
+  const a = str(subject), b = str(speaker);
+  if (!a || a === UNKNOWN_SUBJECT) return b || UNKNOWN_SUBJECT;
+  if (!b || a.includes(b)) return a;
+  if (b.includes(a)) return b;
+  return `${a} ${b}`;
+}
+const who = o => whoTag(o?.subject, o?.speaker);
 /**
- * 브리핑 보기 모델. 옛 형식(v1: touches·todos·conflicts 글 줄)도 읽을 때 새 칸으로 옮겨 보인다(저장된 행은 바꾸지 않음).
- * @returns {{glance: string[], sections: {key:'todos'|'orgs'|'counters'|'quotes', title:string, items:any[], empty?:string}[], legacy: boolean}}
+ * 브리핑 보기 모델. 저장된 행은 바꾸지 않고 읽을 때만 옮긴다.
+ * - v3(S68-55): 줄마다 주체. 내 챙길 일(todos)·약속·계획(promises)·우리 조직 관련·대응할 것·원문 인용(발언자).
+ * - 옛 형식(v1: touches·todos·conflicts 글 줄, v2: S68-45 주체 없는 칸): 주체를 알 수 없으므로 '해야 할 일·기한·숫자'를
+ *   내 챙길 일로 옮기지 않고 '약속·계획(주체 불명)'으로 보인다. legacy=true면 화면이 '예전 방식 브리핑 · [다시 만들기]'를 단다.
+ * 줄 순서는 서버(중요한 순) 그대로 — 내 챙길 일만 급한 것·기한 있는 것을 앞으로(sortTodos).
+ * @returns {{glance: {who:string, text:string}[], sections: {key:'todos'|'promises'|'orgs'|'counters'|'quotes', title:string, items:any[], empty?:string}[], legacy: boolean}}
  */
 export function briefView(brief, now = new Date()) {
   const b = brief && typeof brief === 'object' ? brief : {};
-  const legacy = b.v !== 2;
-  const glance = (legacy ? [] : strs(b.glance)).slice(0, 3);
-  if (!glance.length && str(b.lead)) glance.push(str(b.lead));
-  const todos = legacy
-    ? strs(b.todos).map(text => ({ due: '', text, urgent: false }))
-    : (Array.isArray(b.todos) ? b.todos : []).filter(t => t && str(t.text)).map(t => ({ due: str(t.due), text: str(t.text), urgent: t.urgent === true }));
-  const orgs = legacy
-    ? strs(b.touches).map(text => ({ name: '', text }))
-    : (Array.isArray(b.orgs) ? b.orgs : []).filter(o => o && str(o.text)).map(o => ({ name: str(o.name), text: str(o.text) }));
-  const counters = legacy
-    ? strs(b.conflicts).map(claim => ({ claim, reply: '' }))
-    : (Array.isArray(b.counters) ? b.counters : []).filter(c => c && str(c.claim)).map(c => ({ claim: str(c.claim), reply: str(c.reply) }));
+  const legacy = b.v !== 3;
+  const objs = v => (Array.isArray(v) ? v.filter(o => o && typeof o === 'object') : []);
+  let glance, todos, promises, orgs, counters;
+  if (!legacy) {
+    glance = objs(b.glance).filter(g => str(g.text)).map(g => ({ who: who(g), text: str(g.text) }));
+    todos = objs(b.todos).filter(t => str(t.text)).map(t => ({ who: who(t), due: str(t.due), text: str(t.text), urgent: t.urgent === true }));
+    promises = objs(b.promises).filter(t => str(t.text)).map(t => ({ who: who(t), due: str(t.due), text: str(t.text) }));
+    orgs = objs(b.orgs).filter(o => str(o.text)).map(o => ({ name: str(o.name), who: who(o), text: str(o.text) }));
+    counters = objs(b.counters).filter(c => str(c.claim)).map(c => ({ who: who(c), claim: str(c.claim), reply: str(c.reply) }));
+  } else {
+    const v2 = b.v === 2;
+    // 옛 형식은 누가인지 모른다: 꼬리표 없이(칸 제목·위 줄이 알려 줌), 할 일은 약속·계획(주체 불명)으로.
+    glance = (v2 ? strs(b.glance) : []).map(text => ({ who: '', text }));
+    todos = [];
+    promises = v2
+      ? objs(b.todos).filter(t => str(t.text)).map(t => ({ who: '', due: str(t.due), text: str(t.text) }))
+      : strs(b.todos).map(text => ({ who: '', due: '', text }));
+    orgs = v2 ? objs(b.orgs).filter(o => str(o.text)).map(o => ({ name: str(o.name), who: '', text: str(o.text) })) : strs(b.touches).map(text => ({ name: '', who: '', text }));
+    counters = v2 ? objs(b.counters).filter(c => str(c.claim)).map(c => ({ who: '', claim: str(c.claim), reply: str(c.reply) })) : strs(b.conflicts).map(claim => ({ who: '', claim, reply: '' }));
+  }
+  glance = glance.slice(0, 3);
+  if (!glance.length && str(b.lead)) glance.push({ who: '', text: str(b.lead) });
   const quotes = (Array.isArray(b.quotes) ? b.quotes : [])
     .filter(q => q && typeof q.text === 'string' && q.text)
-    .map(q => ({ text: q.text, heading: str(q.heading), why: str(q.why), page: Number.isInteger(q.page) && q.page > 0 ? q.page : null }));
+    .map(q => ({ text: q.text, heading: str(q.heading), why: str(q.why), page: Number.isInteger(q.page) && q.page > 0 ? q.page : null, who: legacy ? '' : whoTag(q.speaker) }));
   const sections = [];
-  if (todos.length) sections.push({ key: 'todos', title: '챙길 일', items: sortTodos(todos, now) });
+  if (todos.length) sections.push({ key: 'todos', title: MINE_TITLE, items: sortTodos(todos, now) });
+  if (promises.length) sections.push({ key: 'promises', title: legacy ? LEGACY_PROMISES_TITLE : PROMISES_TITLE, items: promises });
   if (orgs.length) sections.push({ key: 'orgs', title: word('우리 조직 관련', 'brief'), items: orgs });
   else if (b.scope === 'none') sections.push({ key: 'orgs', title: word('우리 조직 관련', 'brief'), items: [], empty: NO_SCOPE_LINE });
   if (counters.length) sections.push({ key: 'counters', title: '대응할 것', items: counters });

@@ -11,7 +11,7 @@
 // - BRIEF-자료실에서고르기(S64-10, 명진 11/17 09:31): [자료실에서 고르기] → 공용 고르기 창(library-move-picker.js, 여러 개)으로 내 자료실 자료를 고른다.
 //   파일을 다시 올리지 않고 '브리핑 요청함' 폴더에 연결 줄만 넣는다(app_library_folder_items, owner RLS, 이미 있으면 건너뜀). 받기는 줄의 [브리핑 받기]로만.
 //   자료 하나는 폴더 하나라(표 기본키), 다른 폴더에 든 자료는 옮기지 않고 그대로 두고 이 화면 목록에만 보인다(브리핑을 받으면 계속 남음).
-import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GLANCE_TITLE,RETRY_LABEL,briefView,canRetry,doneDate,moreLabel,splitShown,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
+import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GLANCE_TITLE,LEGACY_LINE,RETRY_LABEL,briefView,canRetry,doneDate,moreLabel,splitShown,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {readLibraryFolders} from './library-folder-data.js';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
@@ -115,25 +115,37 @@ function drawList(){
   box.replaceChildren(head,drop,list);
 }
 
-// 칸 한 줄. 챙길 일: 기한 꼬리표(급하면 옅은 빨강) + 할 일 + [할 일로]. 조직: 이름 꼬리표 + 내용. 대응: 주장(회색) → 반박. 인용: 원문 그대로 + 왜, 쪽을 누르면 원문 그 쪽.
+// 칸 한 줄. 내 챙길 일: 기한 꼬리표(급하면 옅은 빨강) + 주체 + 할 일 + [할 일로]. 약속·계획: 주체 + 무엇 + 언제까지(단추 없음).
+// 조직: 이름 꼬리표 + 주체 + 내용. 대응: 주체 + 주장(회색) → 반박. 인용: 발언자 + 원문 그대로 + 왜, 쪽을 누르면 원문 그 쪽.
+// S68-55: 주체 꼬리표(.br-who)는 조직 꼬리표(.br-tag)와 다른 회색 작은 칸. 옛 형식 줄은 주체를 몰라 꼬리표 없음(who='').
+const whoEl=it=>it.who?el('span','br-who',it.who):null;
 function itemNode(key,it,doc){
   const li=el('li',`br-it br-it-${key}`);
+  const w=whoEl(it);
   if(key==='todos'){
     if(it.due){const d=el('span','br-due',it.due);if(it.urgent)d.classList.add('is-urgent');li.append(d)}
+    if(w)li.append(w);
     li.append(el('span','br-tx',it.text));
     const i=state.todos.push(it)-1;
     const t=btn('br-task row-act','할 일로',{brTask:String(i)});t.setAttribute('aria-label','할 일로: '+it.text);li.append(t);
+  }else if(key==='promises'){
+    if(w)li.append(w);
+    li.append(el('span','br-tx',it.text));
+    if(it.due)li.append(el('span','br-when',`· ${it.due}`));
   }else if(key==='orgs'){
     if(it.name)li.append(el('span','br-tag',it.name));
+    if(w)li.append(w);
     li.append(el('span','br-tx',it.text));
   }else if(key==='counters'){
-    li.append(el('span','br-claim',it.claim));
+    // 대응 줄은 주장 | → | 반박 세 칸 격자라 주체 꼬리표는 주장 칸 안 맨 앞에 둔다.
+    const c=el('span','br-claim');if(w)c.append(w,' ');c.append(document.createTextNode(it.claim));li.append(c);
     if(it.reply){li.append(el('span','br-arrow','→'),el('span','br-reply',it.reply))}
   }else{
     const q=el('blockquote','br-q'),pg=el('span','br-pg');
     const link=sourceUrl(doc,it.page);
     if(it.page){const a=el(link?'a':'span',null,`${it.page}쪽`);if(link){a.href=link;a.target='_blank';a.rel='noopener'}pg.append(a)}
     if(it.heading)pg.append(document.createTextNode(`${it.page?' · ':''}${it.heading}`));
+    if(it.who)pg.prepend(el('span','br-who',it.who));
     if(pg.childNodes.length)q.append(pg);
     // 인용을 누르면 원문 그 자리(쪽을 아는 PDF는 그 쪽, 아니면 원문 처음)로. 원문 주소가 없으면 글만.
     if(link){const a=el('a','br-qt',`“${it.text}”`);a.href=link;a.target='_blank';a.rel='noopener';q.append(a)}
@@ -159,10 +171,12 @@ function drawDetail(){
   const parts=[bar,meta];
   const part=partialLine(b.brief);if(part)parts.push(el('p','br-meta br-partial',part));
   const v=briefView(b.brief);
+  // S68-55: 옛 방식(주체 없는) 브리핑이면 작은 줄 + [다시 만들기]([브리핑 받기]와 같은 길로 새 형식을 만든다. 저장된 옛 브리핑은 그대로).
+  if(v.legacy){const lg=el('p','br-legacy',`${LEGACY_LINE} · `);lg.append(btn('br-remake mini',RETRY_LABEL,{brRemake:doc.id}));parts.push(lg)}
   if(v.glance.length){
     const g=el('section','br-glance');g.setAttribute('aria-label',GLANCE_TITLE);
     g.append(el('h3',null,GLANCE_TITLE));
-    const ol=el('ol');v.glance.forEach((line,i)=>{const li=el('li'),n=el('span','br-n','①②③'[i]||'');n.setAttribute('aria-hidden','true');li.append(n,document.createTextNode(line));ol.append(li)});
+    const ol=el('ol');v.glance.forEach((line,i)=>{const li=el('li'),n=el('span','br-n','①②③'[i]||'');n.setAttribute('aria-hidden','true');li.append(n);const w=whoEl(line);if(w)li.append(w);li.append(document.createTextNode(line.text));ol.append(li)});
     g.append(ol);parts.push(g);
   }
   state.todos=[];
@@ -252,6 +266,7 @@ function bind(){
     if(pick.active){const pr=t.closest?.('[data-br-open]');if(pr){if(!t.matches?.('[data-br-pick]'))e.preventDefault();pick.toggle([pr.dataset.brOpen]);drawList();return}}
     const task=t.closest?.('[data-br-task]');if(task){e.stopPropagation();void toTask(task);return}
     const s=t.closest?.('[data-br-start]');if(s){e.stopPropagation();void start(s.dataset.brStart,s);return}
+    const rm=t.closest?.('[data-br-remake]');if(rm){e.stopPropagation();void start(rm.dataset.brRemake,rm);return}
     const lib=t.closest?.('[data-br-pick-lib]');if(lib){void openLibraryPick(lib);return}
     if(t.closest?.('[data-br-add],[data-fu-action="brief"]')){void add();return}
     if(t.closest?.('[data-br-retry]')){void refresh();return}

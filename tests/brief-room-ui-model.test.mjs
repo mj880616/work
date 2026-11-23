@@ -28,35 +28,60 @@ test('listRows: folder docs and briefed docs only, newest first', () => {
 });
 
 // S68-45: 옛 형식(v1) 브리핑은 읽을 때 새 칸으로 옮겨 보인다(저장 행은 그대로). 빈 칸은 그리지 않는다.
-test('briefView 옛 형식(v1): 한 줄 요지가 한눈에, touches→우리 조직 관련, todos→챙길 일, conflicts→대응할 것, 빈 칸 없음', () => {
+// S68-55(명진 11/23 "주체가 국토교통부 철도국장인데 내가 챙길 일로 나옴"): 옛 형식은 주체를 모르니 할 일을 '내 챙길 일'로 옮기지 않는다.
+test('briefView 옛 형식(v1): 한 줄 요지가 한눈에, touches→우리 조직 관련, todos→약속·계획(주체 불명), conflicts→대응할 것, 내 챙길 일 없음', () => {
   const v = m.briefView({ v: 1, lead: 'x', touches: ['가', 3], todos: [], conflicts: ['나'], quotes: [{ text: '원문', page: 12, heading: '3.', why: '왜' }, { text: '' }, { text: '쪽 모름', page: 0 }] });
   assert.equal(v.legacy, true);
-  assert.deepEqual(v.glance, ['x']);
+  assert.deepEqual(v.glance, [{ who: '', text: 'x' }]);
   assert.deepEqual(v.sections.map(x => x.key), ['orgs', 'counters', 'quotes']);
-  assert.deepEqual(v.sections[0].items, [{ name: '', text: '가' }]);
-  assert.deepEqual(v.sections[1].items, [{ claim: '나', reply: '' }]);
-  assert.equal(v.sections[2].items.length, 2); assert.equal(v.sections[2].items[1].page, null);
+  assert.deepEqual(v.sections[0].items, [{ name: '', who: '', text: '가' }]);
+  assert.deepEqual(v.sections[1].items, [{ who: '', claim: '나', reply: '' }]);
+  assert.equal(v.sections[2].items.length, 2); assert.equal(v.sections[2].items[1].page, null); assert.equal(v.sections[2].items[0].who, '');
   const old = m.briefView({ lead: 'y', todos: ['의견 제출 11/28까지'] });
-  assert.deepEqual(old.sections.map(x => [x.key, x.title]), [['todos', '챙길 일']]);
-  assert.deepEqual(old.sections[0].items, [{ due: '', text: '의견 제출 11/28까지', urgent: false }]);
+  assert.equal(old.legacy, true);
+  assert.deepEqual(old.sections.map(x => [x.key, x.title]), [['promises', '약속·계획(주체 불명)']]);
+  assert.deepEqual(old.sections[0].items, [{ who: '', due: '', text: '의견 제출 11/28까지' }]);
+  assert.ok(!old.sections.some(x => x.key === 'todos'), '옛 할 일은 내 챙길 일로 가지 않음');
 });
 
-test('briefView 새 형식(v2): 한눈에 3줄, 칸 순서·이름, 잘못된 줄은 뺌', () => {
-  const now = new Date('2026-11-23T03:00:00Z');
+test('briefView 옛 형식(v2, 주체 없음): 기한 있는 할 일도 약속·계획(주체 불명)으로, 순서는 서버 그대로', () => {
   const v = m.briefView({
     v: 2, lead: '요지', glance: ['하나', '둘', '셋', '넷'],
-    todos: [{ due: '', text: '기한 없음' }, { due: '연내', text: '연내 할 일' }, { due: '11/25', text: '곧' }, { due: '일주일 내', text: '급함' }, { text: '' }, null],
+    todos: [{ due: '', text: '기한 없음' }, { due: '연내', text: '운영기준에 인력 의무 반영' }, { text: '' }, null],
     orgs: [{ name: '예시 가지부', text: '대상' }, { name: 'x', text: '' }],
     counters: [{ claim: '저쪽 주장', reply: '반박' }, { claim: '', reply: '빈' }],
     quotes: [],
+  });
+  assert.equal(v.legacy, true);
+  assert.deepEqual(v.glance.map(g => g.text), ['하나', '둘', '셋']);
+  assert.deepEqual(v.sections.map(s => [s.key, s.title]), [['promises', '약속·계획(주체 불명)'], ['orgs', '우리 조직 관련'], ['counters', '대응할 것']]);
+  assert.deepEqual(v.sections[0].items, [{ who: '', due: '', text: '기한 없음' }, { who: '', due: '연내', text: '운영기준에 인력 의무 반영' }]);
+  assert.deepEqual(v.sections[1].items, [{ name: '예시 가지부', who: '', text: '대상' }]);
+  assert.deepEqual(m.briefView({ v: 2, lead: '요지', glance: [] }).glance, [{ who: '', text: '요지' }]);
+});
+
+test('briefView 새 형식(v3): 한눈에 누가 무엇, 내 챙길 일(기한 정렬)·약속·계획(서버 순서)·주체 꼬리표, 잘못된 줄은 뺌', () => {
+  const now = new Date('2026-11-23T03:00:00Z');
+  const v = m.briefView({
+    v: 3, lead: '요지',
+    glance: [{ subject: '○○부 국장', text: '하나' }, { subject: '주체 불명', text: '둘' }, { subject: '우리 조직', text: '셋' }, { subject: 'x', text: '넷' }],
+    todos: [{ subject: '우리 조직', due: '', text: '기한 없음' }, { subject: '나', due: '연내', text: '연내 할 일' }, { subject: '나', due: '11/25', text: '곧' }, { text: '' }, null],
+    promises: [{ subject: '○○부', speaker: '○○부 국장', due: '연내', text: '운영기준에 인력 의무 반영' }, { subject: '주체 불명', speaker: '', due: '', text: '누가인지 모름' }, { text: '' }],
+    orgs: [{ name: '예시 가지부', subject: '○○공단', speaker: '', text: '대상' }],
+    counters: [{ subject: '○○ 의원', speaker: '○○ 의원', claim: '저쪽 주장', reply: '반박' }],
+    quotes: [{ text: '원문', page: 3, speaker: '○○부 국장' }, { text: '발언자 모름', speaker: '' }],
   }, now);
   assert.equal(v.legacy, false);
-  assert.deepEqual(v.glance, ['하나', '둘', '셋']);
-  assert.deepEqual(v.sections.map(s => [s.key, s.title]), [['todos', '챙길 일'], ['orgs', '우리 조직 관련'], ['counters', '대응할 것']]);
-  assert.deepEqual(v.sections[0].items.map(t => [t.text, t.urgent]), [['곧', true], ['급함', true], ['연내 할 일', false], ['기한 없음', false]]);
-  assert.deepEqual(v.sections[1].items, [{ name: '예시 가지부', text: '대상' }]);
-  assert.deepEqual(v.sections[2].items, [{ claim: '저쪽 주장', reply: '반박' }]);
-  assert.deepEqual(m.briefView({ v: 2, lead: '요지', glance: [] }).glance, ['요지']);
+  assert.deepEqual(v.glance, [{ who: '○○부 국장', text: '하나' }, { who: '주체 불명', text: '둘' }, { who: '우리 조직', text: '셋' }]);
+  assert.deepEqual(v.sections.map(s => [s.key, s.title]), [['todos', '내 챙길 일'], ['promises', '약속·계획'], ['orgs', '우리 조직 관련'], ['counters', '대응할 것'], ['quotes', '원문 인용']]);
+  assert.deepEqual(v.sections[0].items.map(t => [t.text, t.who, t.urgent]), [['곧', '나', true], ['연내 할 일', '나', false], ['기한 없음', '우리 조직', false]]);
+  assert.deepEqual(v.sections[1].items, [{ who: '○○부 국장', due: '연내', text: '운영기준에 인력 의무 반영' }, { who: '주체 불명', due: '', text: '누가인지 모름' }]);
+  assert.deepEqual(v.sections[2].items, [{ name: '예시 가지부', who: '○○공단', text: '대상' }]);
+  assert.deepEqual(v.sections[3].items, [{ who: '○○ 의원', claim: '저쪽 주장', reply: '반박' }]);
+  assert.deepEqual(v.sections[4].items.map(q => q.who), ['○○부 국장', '주체 불명']);
+  assert.equal(m.whoTag('○○부', '철도국장'), '○○부 철도국장');
+  assert.equal(m.whoTag('', ''), '주체 불명');
+  assert.equal(m.whoTag('주체 불명', '○○ 의원'), '○○ 의원');
 });
 
 test('dueUrgent·sortTodos·splitShown·moreLabel', () => {

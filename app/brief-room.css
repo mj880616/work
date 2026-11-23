@@ -33,6 +33,11 @@
 #briefView .br-due,#briefView .br-tag{flex:none;max-width:8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px;border-radius:var(--kptu-radius-sm,4px);background:var(--kptu-surface-soft,var(--kptu-primary-soft));color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView .br-due.is-urgent{background:var(--kptu-danger-soft);color:var(--kptu-danger)}
 #briefView .br-tag{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+/* S68-55 주체 꼬리표: 조직 꼬리표(.br-tag, 옅은 파랑)와 구분되는 회색 테두리 작은 칸. 길면 말줄임. */
+#briefView .br-who{flex:none;display:inline-block;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;padding:0 4px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--kptu-radius-sm,4px);color:var(--kptu-muted);font-size:var(--ds-text-meta);line-height:1.4}
+#briefView .br-when{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
+#briefView .br-legacy{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#briefView .br-pg .br-who{margin-right:4px}
 #briefView .br-it-todos .br-task{flex:none;margin-left:auto;white-space:nowrap}
 #briefView .br-it-counters{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:0 6px;max-width:52em}
 #briefView .br-it-counters .br-claim:only-child{grid-column:1/-1}

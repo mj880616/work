@@ -72,12 +72,16 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await expect(list.locator('.br-row').nth(2).locator('.br-st')).toHaveText(/^(\d{2}\.)?10\.05$/);
     await expect(list.locator('.br-row').nth(3)).toContainText('글자를 읽을 수 없는 파일이에요');
     await page.screenshot({ path: `docs/design/screens/s61-45/${label}-list.png`, fullPage: false });
-    // 보기(S68-45): 옛 형식(v1) 브리핑도 새 배치로 — 한눈에(한 줄 요지) → 챙길 일 → 우리 조직 관련 → 대응할 것 → 원문 인용(접힘).
+    // 보기(S68-45·S68-55): 옛 형식(v1) 브리핑도 새 배치로 — 한눈에(한 줄 요지) → 약속·계획(주체 불명) → 우리 조직 관련 → 대응할 것 → 원문 인용(접힘).
+    // 옛 할 일은 누가 하는지 모르므로 '내 챙길 일'로 옮기지 않고, 위에 '예전 방식 브리핑 · [다시 만들기]'.
     await list.locator('.br-row').nth(2).click();
     const detail = page.locator('#briefView [data-br-detail]');
     await expect(detail).toBeVisible();
     await expect(detail.locator('.br-glance li')).toHaveText(['①' + brief.lead]);
-    await expect(detail.locator('.br-sec h3')).toHaveText(['챙길 일 2', '우리 조직 관련 1', '대응할 것 1', '원문 인용 1']);
+    await expect(detail.locator('.br-sec h3')).toHaveText(['약속·계획(주체 불명) 2', '우리 조직 관련 1', '대응할 것 1', '원문 인용 1']);
+    await expect(detail.locator('.br-legacy')).toHaveText('예전 방식 브리핑 · 다시 만들기');
+    await expect(detail.locator('[data-br-task]')).toHaveCount(0);
+    await expect(detail.locator('.br-who')).toHaveCount(0);
     await expect(detail.locator('.br-sec-quotes')).not.toHaveAttribute('open', '');
     await expect(detail.locator('.br-q')).toBeHidden();
     await detail.locator('.br-sec-quotes > summary').click();
@@ -94,35 +98,43 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
   });
 }
 
-// S68-45(명진 11/23 시안 'ㄱㄱ'): 새 형식(v2) — 한눈에 3줄, 챙길 일 기한 꼬리표·급함·[할 일로], 조직 꼬리표, 주장→반박, 3개 넘으면 '+ n개 더 보기', 인용 접힘·원문 그 쪽.
-const brief2 = {
-  v: 2, lead: '인건비 배점 상향과 정원 지표 신설.',
-  glance: ['인건비 배점 5점→8점(31쪽)', '예시 가지부 정원 지표 대상', '11/28까지 의견 제출'],
+// S68-45(명진 11/23 시안 'ㄱㄱ') + S68-55(명진 11/23 "누가 한 발언인지에 따라서 주체를 적어서"): 새 형식(v3) — 한눈에 '누가 무엇' 3줄,
+// 내 챙길 일(기한 꼬리표·급함·주체·[할 일로]), 약속·계획(상대: 주체 · 무엇 · 언제까지, 단추 없음), 조직 꼬리표+주체, 주체+주장→반박, 인용 발언자, 3개 넘으면 '+ n개 더 보기'.
+const brief3 = {
+  v: 3, lead: '인건비 배점 상향과 정원 지표 신설.',
+  glance: [{ subject: '○○부', text: '인건비 배점 5점→8점(31쪽)' }, { subject: '예시 가지부', text: '정원 지표 대상' }, { subject: '우리 조직', text: '11/28까지 의견 제출' }],
   todos: [
-    { due: '', text: '내부 검토 회의', urgent: false },
-    { due: '연내', text: '정원 지표 대응안 마련', urgent: false },
-    { due: '일주일 내', text: '의견서 초안', urgent: true },
-    { due: '종합감사 전', text: '인건비 자료 정리', urgent: false },
-    { due: '12/20', text: '설명회 참석', urgent: false },
+    { subject: '우리 조직', due: '', text: '내부 검토 회의', urgent: false },
+    { subject: '우리 조직', due: '연내', text: '정원 지표 대응안 마련', urgent: false },
+    { subject: '나', due: '일주일 내', text: '의견서 초안', urgent: true },
+    { subject: '예시 가지부', due: '종합감사 전', text: '인건비 자료 정리', urgent: false },
+    { subject: '나', due: '12/20', text: '설명회 참석', urgent: false },
   ],
-  orgs: [{ name: '예시 가지부', text: '정원 관리 지표 대상 기관(12쪽)' }],
-  counters: [{ claim: '총인건비 안에서 인력 재배치', reply: '충원 요구 근거 자료(33쪽)' }],
-  quotes: [{ text: QUOTE, heading: '3. 평가 지표 개편', why: '배점이 오르면 부담이 커짐', page: 31 }],
+  promises: [
+    { subject: '○○부', speaker: '○○부 국장', due: '연내', text: '운영기준에 적정 인력 확보 의무 반영' },
+    { subject: '주체 불명', speaker: '', due: '', text: '후속 실태 조사' },
+  ],
+  orgs: [{ name: '예시 가지부', subject: '○○공단', speaker: '', text: '정원 관리 지표 대상 기관(12쪽)' }],
+  counters: [{ subject: '○○ 의원', speaker: '○○ 의원', claim: '총인건비 안에서 인력 재배치', reply: '충원 요구 근거 자료(33쪽)' }],
+  quotes: [{ text: QUOTE, heading: '3. 평가 지표 개편', why: '배점이 오르면 부담이 커짐', page: 31, speaker: '○○부 국장' }],
 };
-for (const [label, width, height] of [['phone-390', 390, 844], ['fold-760', 760, 900], ['pc-1280', 1280, 860]]) test(`브리핑 보기 새 형식: 한눈에·챙길 일(급함 먼저·더 보기·할 일로)·조직·대응·인용 접기와 이동 (${label})`, async ({ page }) => {
+for (const [label, width, height] of [['phone-390', 390, 844], ['phone-412', 412, 915], ['fold-760', 760, 900], ['pc-1280', 1280, 860]]) test(`브리핑 보기 새 형식: 주체 꼬리표·내 챙길 일(할 일로)·약속·계획(단추 없음)·조직·대응·인용 (${label})`, async ({ page }) => {
   await page.setViewportSize({ width, height });
   await open(page);
   // 나중에 건 route가 먼저 걸린다: 다 된 브리핑(b3)을 새 형식으로 덮는다(화면은 브리핑 룸을 열 때 읽는다).
-  await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: rows().map(x => (x.id === 'b3' ? { ...x, brief: brief2 } : x)) }));
+  await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: rows().map(x => (x.id === 'b3' ? { ...x, brief: brief3 } : x)) }));
   await page.route(SB + '/rest/v1/app_google_task_links**', r => r.fulfill({ json: [] }));
   await goBrief(page);
   await page.locator('#briefView [data-br-list] .br-row').nth(2).click();
   const detail = page.locator('#briefView [data-br-detail]');
-  await expect(detail.locator('.br-glance li')).toHaveText(['①인건비 배점 5점→8점(31쪽)', '②예시 가지부 정원 지표 대상', '③11/28까지 의견 제출']);
-  await expect(detail.locator('.br-sec h3')).toHaveText(['챙길 일 5', '우리 조직 관련 1', '대응할 것 1', '원문 인용 1']);
+  await expect(detail.locator('.br-glance li')).toHaveText(['①○○부인건비 배점 5점→8점(31쪽)', '②예시 가지부정원 지표 대상', '③우리 조직11/28까지 의견 제출']);
+  await expect(detail.locator('.br-glance li .br-who')).toHaveText(['○○부', '예시 가지부', '우리 조직']);
+  await expect(detail.locator('.br-legacy')).toHaveCount(0);
+  await expect(detail.locator('.br-sec h3')).toHaveText(['내 챙길 일 5', '약속·계획 2', '우리 조직 관련 1', '대응할 것 1', '원문 인용 1']);
   const todos = detail.locator('.br-sec-todos');
   // 급한 것 → 기한 있는 것(서버 순서) → 기한 없는 것. 앞 3개만 보이고 나머지는 '+ 2개 더 보기'.
   await expect(todos.locator(':scope > .br-items > li .br-tx')).toHaveText(['의견서 초안', '정원 지표 대응안 마련', '인건비 자료 정리']);
+  await expect(todos.locator(':scope > .br-items > li .br-who')).toHaveText(['나', '우리 조직', '예시 가지부']);
   await expect(todos.locator(':scope > .br-items > li').first().locator('.br-due')).toHaveClass(/is-urgent/);
   await expect(todos.locator(':scope > .br-items > li').nth(1).locator('.br-due')).not.toHaveClass(/is-urgent/);
   const more = todos.locator('.br-more-items');
@@ -131,23 +143,62 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['fold-760', 760,
   await more.locator('summary').focus();
   await page.keyboard.press('Enter');
   await expect(more.locator('li .br-tx')).toHaveText(['설명회 참석', '내부 검토 회의']);
+  // [할 일로]는 내 챙길 일에만. 약속·계획은 '주체 · 무엇 · 언제까지', 단추 없음.
+  await expect(detail.locator('[data-br-task]')).toHaveCount(5);
+  await expect(todos.locator('[data-br-task]')).toHaveCount(5);
+  const promises = detail.locator('.br-sec-promises');
+  await expect(promises.locator('li .br-who')).toHaveText(['○○부 국장', '주체 불명']);
+  await expect(promises.locator('li .br-tx')).toHaveText(['운영기준에 적정 인력 확보 의무 반영', '후속 실태 조사']);
+  await expect(promises.locator('li').first().locator('.br-when')).toHaveText('· 연내');
+  await expect(promises.locator('button')).toHaveCount(0);
   await expect(detail.locator('.br-sec-orgs .br-tag')).toHaveText('예시 가지부');
-  await expect(detail.locator('.br-sec-counters .br-claim')).toHaveText('총인건비 안에서 인력 재배치');
+  await expect(detail.locator('.br-sec-orgs .br-who')).toHaveText('○○공단');
+  await expect(detail.locator('.br-sec-counters .br-claim')).toHaveText('○○ 의원 총인건비 안에서 인력 재배치');
+  await expect(detail.locator('.br-sec-counters .br-claim .br-who')).toHaveText('○○ 의원');
   await expect(detail.locator('.br-sec-counters .br-reply')).toHaveText('충원 요구 근거 자료(33쪽)');
-  // 인용: 기본 접힘, 펼치면 원문 그대로 + 왜, 인용을 누르는 링크는 원문 그 쪽.
+  // 주체 꼬리표는 조직 꼬리표와 다른 모양(배경 없음·테두리).
+  const look = await page.evaluate(() => {
+    const st = s => getComputedStyle(document.querySelector(s));
+    return { tag: st('#briefView .br-sec-orgs .br-tag').backgroundColor, who: st('#briefView .br-sec-orgs .br-who').backgroundColor, border: st('#briefView .br-sec-orgs .br-who').borderTopStyle };
+  });
+  expect(look.who).not.toBe(look.tag);
+  expect(look.border).toBe('solid');
+  // 인용: 기본 접힘, 펼치면 발언자 + 원문 그대로 + 왜, 인용을 누르는 링크는 원문 그 쪽.
   await expect(detail.locator('.br-q')).toBeHidden();
   await detail.locator('.br-sec-quotes > summary').click();
+  await expect(detail.locator('.br-pg .br-who')).toHaveText('○○부 국장');
   await expect(detail.locator('.br-qt')).toHaveText(`“${QUOTE}”`);
   await expect(detail.locator('a.br-qt')).toHaveAttribute('href', 'https://drive.google.com/file/d/FILE_cccccccccc/view#page=31');
   await expect(detail.locator('.br-why')).toHaveText('왜: 배점이 오르면 부담이 커짐');
-  // 가로 넘침 없음(폰·폴드·PC).
+  // 가로 넘침 없음(폰 390/412·폴드·PC).
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: `docs/design/screens/s68-45/${label}-brief.png`, fullPage: false });
+  await page.screenshot({ path: `docs/design/screens/s68-55/${label}-brief.png`, fullPage: false });
   // [할 일로]: 기존 Google 할 일 창이 할 일 글로 채워져 열린다(저장은 그 창이 한다).
   await todos.locator('[data-br-task]').first().click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect(page.locator('#gtEditTitle')).toHaveValue('의견서 초안');
   await expect(page.locator('#gtEditNotes')).toHaveValue(/기한: 일주일 내/);
+});
+
+// S68-55: 옛 방식(v2, 주체 없음) 브리핑 — 할 일은 약속·계획(주체 불명)으로, [다시 만들기]는 [브리핑 받기]와 같은 길(brief-start).
+test('브리핑 보기 옛 형식(v2): 약속·계획(주체 불명), [할 일로] 없음, [다시 만들기]로 새 형식 시작 (phone-390)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const calls = await open(page);
+  const brief2 = { v: 2, lead: '요지.', glance: ['하나'], todos: [{ due: '연내', text: '운영기준에 적정 인력 확보 의무 반영', urgent: false }], orgs: [], counters: [], quotes: [] };
+  await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: rows().map(x => (x.id === 'b3' ? { ...x, brief: brief2 } : x)) }));
+  await goBrief(page);
+  await page.locator('#briefView [data-br-list] .br-row').nth(2).click();
+  const detail = page.locator('#briefView [data-br-detail]');
+  await expect(detail.locator('.br-sec h3')).toHaveText(['약속·계획(주체 불명) 1']);
+  await expect(detail.locator('.br-sec-promises .br-tx')).toHaveText('운영기준에 적정 인력 확보 의무 반영');
+  await expect(detail.locator('.br-sec-promises .br-when')).toHaveText('· 연내');
+  await expect(detail.locator('[data-br-task]')).toHaveCount(0);
+  await expect(detail.locator('.br-legacy')).toHaveText('예전 방식 브리핑 · 다시 만들기');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: 'docs/design/screens/s68-55/phone-390-legacy.png', fullPage: false });
+  expect(calls.filter(c => c.action === 'brief-start')).toHaveLength(0);
+  await detail.locator('[data-br-remake]').click();
+  await expect.poll(() => calls.filter(c => c.action === 'brief-start').map(c => c.document_id)).toEqual([D(3)]);
 });
 
 test('메뉴에 브리핑 룸이 있다(폰 메뉴 창·PC 왼쪽 메뉴)', async ({ page }) => {

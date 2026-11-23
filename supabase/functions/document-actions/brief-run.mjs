@@ -23,28 +23,33 @@ export const BRIEF_MAX_ATTEMPTS = 80;
 export const BRIEF_MAX_DEATHS = 3;               // 같은 단계·같은 위치에서 함수가 죽은 횟수 상한
 export const BRIEF_STALE_MS = 30 * 1000;          // 화면이 '멈춘 작업'으로 보고 이어 달라고 하는 기준(lease가 지난 뒤)
 export const CHUNK_MAX_TOKENS = 1400;
-export const MERGE_MAX_TOKENS = 2000;
+export const MERGE_MAX_TOKENS = 2600;              // S68-55: 줄마다 주체·발언자 칸이 붙어 2000 → 2600
 // 화면·응답에 돌려주는 칸(글 원문·조각 메모는 빼고).
 export const BRIEF_PUBLIC = 'id,document_id,status,stage,step_no,step_total,page_count,brief,error_code,created_at,updated_at,finished_at,lease_until';
 
 const S = { type: 'string' };
 const LINES = { type: 'array', items: S };
+// S68-55: 조각 메모의 할 일·부딪힘은 주체·발언자가 달린 줄. 진행 중이던 작업의 옛 메모(글 줄)는 합칠 때 '주체 불명'으로 읽는다.
+const OBJ = (props) => ({ type: 'object', additionalProperties: false, required: Object.keys(props), properties: props });
+const WHO = { subject: S, speaker: S };
+const WHO_LINES = { type: 'array', items: OBJ({ ...WHO, text: S }) };
 export const CHUNK_SCHEMA = Object.freeze({
   type: 'object', additionalProperties: false, required: ['lead', 'touches', 'todos', 'conflicts', 'quotes'],
   properties: {
-    lead: S, touches: LINES, todos: LINES, conflicts: LINES,
-    quotes: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['text', 'heading', 'why'], properties: { text: S, heading: S, why: S } } },
+    lead: S, touches: LINES, todos: WHO_LINES, conflicts: WHO_LINES,
+    quotes: { type: 'array', items: OBJ({ text: S, heading: S, why: S, speaker: S }) },
   },
 });
-// S68-45: 최종 브리핑 v2(한눈에·챙길 일·우리 조직 관련·대응할 것·원문 인용). 조각 메모(CHUNK_SCHEMA)는 그대로 — 진행 중 작업의 옛 메모도 합칠 수 있게.
-const OBJ = (props) => ({ type: 'object', additionalProperties: false, required: Object.keys(props), properties: props });
+// S68-45 v2 → S68-55 v3: 한눈에·내 챙길 일·약속·계획(상대)·우리 조직 관련·대응할 것·원문 인용, 줄마다 주체.
 export const MERGE_SCHEMA = Object.freeze({
-  type: 'object', additionalProperties: false, required: ['lead', 'glance', 'todos', 'orgs', 'counters', 'quotes'],
+  type: 'object', additionalProperties: false, required: ['lead', 'glance', 'todos', 'promises', 'orgs', 'counters', 'quotes'],
   properties: {
-    lead: S, glance: LINES,
-    todos: { type: 'array', items: OBJ({ due: S, text: S, urgent: { type: 'boolean' } }) },
-    orgs: { type: 'array', items: OBJ({ name: S, text: S }) },
-    counters: { type: 'array', items: OBJ({ claim: S, reply: S }) },
+    lead: S,
+    glance: { type: 'array', items: OBJ({ subject: S, text: S }) },
+    todos: { type: 'array', items: OBJ({ subject: S, due: S, text: S, urgent: { type: 'boolean' } }) },
+    promises: { type: 'array', items: OBJ({ ...WHO, due: S, text: S }) },
+    orgs: { type: 'array', items: OBJ({ name: S, ...WHO, text: S }) },
+    counters: { type: 'array', items: OBJ({ ...WHO, claim: S, reply: S }) },
     quotes: { type: 'array', items: OBJ({ id: S, why: S }) },
   },
 });
