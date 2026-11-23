@@ -214,5 +214,6 @@ test('내부 낱말(material 등)·제목만으로 만든 요약은 저장·표�
   for (const good of ['정부는 철도 분할을 멈춰야 한다고 주장한다.', '노동자들이 원자재(material) 값 인상에 항의했다'.replace('(material)', '')])
     assert.equal(B.isNoContentSummary(good), false, good);
   assert.equal(B.cleanCore({ summary: '다만 material이 비어 있어 확인할 수 없음.', key_sentences: [] }, '', false), null);
-  for (const ins of [B.NOW_DETAIL_INSTRUCTIONS, B.NOW_BASIC_INSTRUCTIONS]) assert.match(ins, /자료 칸 이름.*쓰지 않는다.*summary는 빈 문자열/);
+  assert.match(B.NOW_BASIC_INSTRUCTIONS, /자료 칸 이름.*쓰지 않는다.*summary는 빈 문자열/);
+  assert.match(B.NOW_CONTEXT_INSTRUCTIONS, /자료 칸 이름.*쓰지 않는다/);
 });

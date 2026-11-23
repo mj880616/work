@@ -2,8 +2,9 @@
 // DB: migration 20261102140000_now_detail(app_now_details·app_now_signals·app_now_interests).
 //
 // kind=now_detail {outside_post_id | news_item_id}: 글 하나의 상세(핵심 요약·주요 문장·나와의 연관·시사점·함께 볼 것)를
-//   처음 열 때 한 번 만들어 저장하고, 다시 열면 저장본을 돌려준다(AI 안 부름). 저장본의 관심사 지문(interests_key)이 지금과 다르면
-//   연관·시사점·함께 볼 것만 다시 만든다(context_at).
+//   처음 열 때 한 번 만들어 저장하고, 다시 열면 저장본을 돌려준다(AI 안 부름). S69-01(명진 11/24 "매번 다시 만들지 마"):
+//   다시 만드는 것은 본문 글자가 실제로 바뀌었을 때뿐(본문 지문 body_key 비교 — 본문을 뽑은 시각이 아님). 관심 주제가 바뀌어도 저절로 다시 만들지 않는다.
+//   처음 만들 때는 요약·주요 문장(now_basic)과 연관·시사점·함께 볼 것(now_context)을 두 AI 요청으로 함께 보낸다(빠르게). 하루 한도는 한 번으로 센다.
 //   - 화면은 글 id만 보낸다(주소·본문·작업공간 안 받음). 글은 사용자 로그인(owner RLS)으로 먼저 읽어 내 작업공간 글인지 확인한다.
 //   - 재료 모으기·AI 지시·답 모양 검사·저장 줄 모양은 공용 모듈 _shared/now-detail-build.ts(NEWS-전면개편 P3b)에 있다 —
 //     저장된 본문 블록(app_feed_bodies)이 있으면 그 글자를 먼저 쓰고, 없으면 국내 글 = 문장 표, 외국 글 = 원문 쪽 한 번 읽기,
@@ -23,17 +24,17 @@ import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { sourceByKey } from "../_shared/outside-catalog.ts";
 import type { OpenAiResult } from "../_shared/openai-responses.ts";
 import {
-  aiRequestBody, basicMaterial, basicRow, cleanContext, cleanCore, confirmedTopics, contextMaterial, contextPatch, cut, detailBody,
-  detailMaterial, detailUpsertBody, type DetailDeps, type DetailItem, fallbackRow, fullRow, interestsKey, isNoContentSummary,
-  detailOlderThanBody, itemHasMaterial, len, loadItem, NOW_BASIC_INSTRUCTIONS, NOW_BASIC_OUT, NOW_BASIC_SCHEMA, NOW_CONTEXT_INSTRUCTIONS, NOW_CONTEXT_OUT,
-  NOW_CONTEXT_SCHEMA, NOW_DETAIL_INSTRUCTIONS, NOW_DETAIL_OUT, NOW_DETAIL_SCHEMA, oneLine, parseAnswer, readOptional,
+  aiRequestBody, basicMaterial, basicRow, bodyChanged, bodyKey, cleanContext, cleanCore, confirmedTopics, contextMaterial, cut, detailBody,
+  detailUpsertBody, type DetailDeps, type DetailItem, fallbackRow, fullRow, interestsKey, isNoContentSummary,
+  itemHasMaterial, len, loadItem, NOW_BASIC_INSTRUCTIONS, NOW_BASIC_OUT, NOW_BASIC_SCHEMA, NOW_CONTEXT_INSTRUCTIONS, NOW_CONTEXT_OUT,
+  NOW_CONTEXT_SCHEMA, oneLine, parseAnswer, readOptional,
   readRows, relatedCandidates, squash, workNames, detailConflictColumn, detailTable, NOW_SHARED_DETAIL_FIELDS, sharedDetailUpsertBody,
 } from "../_shared/now-detail-build.ts";
 
 // 예전 이 파일에서 내보내던 이름(시험·화면 모델이 씀) — 공용 모듈의 것을 그대로 다시 내보낸다(복사 아님).
 export {
-  cleanContext, cleanCore, foreignBody, interestsKey, isNoContentSummary, NOW_BASIC_INSTRUCTIONS, NOW_BASIC_SCHEMA, NOW_CONTEXT_INSTRUCTIONS,
-  NOW_CONTEXT_SCHEMA, NOW_DETAIL_INSTRUCTIONS, NOW_DETAIL_SCHEMA, NOW_MATERIAL_CHARS, NOW_OUTSIDE_AGENT, NOW_OUTSIDE_UA, NOW_RELATED_DAYS,
+  bodyKey, cleanContext, cleanCore, foreignBody, interestsKey, isNoContentSummary, NOW_BASIC_INSTRUCTIONS, NOW_BASIC_SCHEMA, NOW_CONTEXT_INSTRUCTIONS,
+  NOW_CONTEXT_SCHEMA, NOW_MATERIAL_CHARS, NOW_OUTSIDE_AGENT, NOW_OUTSIDE_UA, NOW_RELATED_DAYS,
   NOW_RELATED_MAX, relatedCandidates, titleWords,
 } from "../_shared/now-detail-build.ts";
 
@@ -162,8 +163,13 @@ async function todayCount(kit: NowKit, startIso: string): Promise<number> {
   return n;
 }
 
-// AI 한 번(사용량을 부르기 전에 먼저 세고, 끝나면 토큰을 더한다 — 다른 쓰임과 같은 길). 한도에 걸리면 null.
-async function askAi(kit: NowKit, kind: string, name: string, instructions: string, material: string, schema: unknown, maxOut: number): Promise<Record<string, unknown> | null | "limit"> {
+// AI 부르기 묶음(S69-01): 한도·사용량을 한 번 세고(하루 한도 1회), 그 안에서 AI 요청 여럿을 함께 보낼 수 있다. 끝나면 토큰을 한 번에 더한다.
+// 한도에 걸리면 "limit". ask가 실패하면 그 코드로 던진다(사용량은 settle이 그대로 더한다).
+type AiRun = {
+  ask: (name: string, instructions: string, material: string, schema: unknown, maxOut: number) => Promise<Record<string, unknown> | null>;
+  settle: () => Promise<void>;
+};
+async function startAi(kit: NowKit, kind: string): Promise<AiRun | "limit"> {
   const config = kit.aiConfig();
   if (!config) { kit.ctx.log("ai_not_configured"); throw kit.fail(503, "ai_not_configured"); }
   let budget: Budget;
@@ -179,17 +185,36 @@ async function askAi(kit: NowKit, kind: string, name: string, instructions: stri
   } catch {
     throw kit.fail(503, "usage_unavailable");
   }
-  // 몸통 모양(store: false·도구 없음·JSON 모양)은 공용 aiRequestBody.
-  const result = await kit.ai(config.key, aiRequestBody(config.model, name, instructions, material, schema, maxOut));
-  const used = result.ok ? result.usage : result.charged ? { input: len(material) * 2, output: maxOut } : { input: 0, output: 0 };
-  if (used.input || used.output) {
-    try { await kit.usage(budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output); } catch { kit.ctx.log("usage_record_failed"); }
-  }
-  if (!result.ok) {
-    kit.ctx.log(result.code);
-    throw kit.fail(result.code === "ai_timeout" ? 504 : result.code === "ai_busy" || result.code === "ai_not_configured" ? 503 : 502, result.code);
-  }
-  return parseAnswer(result.raw);
+  let input = 0, output = 0;
+  const running: Promise<unknown>[] = [];
+  const ask = (name: string, instructions: string, material: string, schema: unknown, maxOut: number) => {
+    const call = (async () => {
+      // 몸통 모양(store: false·도구 없음·JSON 모양)은 공용 aiRequestBody.
+      const result = await kit.ai(config.key, aiRequestBody(config.model, name, instructions, material, schema, maxOut));
+      const used = result.ok ? result.usage : result.charged ? { input: len(material) * 2, output: maxOut } : { input: 0, output: 0 };
+      input += used.input; output += used.output;
+      if (!result.ok) {
+        kit.ctx.log(result.code);
+        throw kit.fail(result.code === "ai_timeout" ? 504 : result.code === "ai_busy" || result.code === "ai_not_configured" ? 503 : 502, result.code);
+      }
+      return parseAnswer(result.raw);
+    })();
+    running.push(call.catch(() => undefined));
+    return call;
+  };
+  const settle = async () => {
+    await Promise.all(running);
+    if (!input && !output) return;
+    try { await kit.usage(budget.day, budget.requests + 1, budget.input + input, budget.output + output); } catch { kit.ctx.log("usage_record_failed"); }
+  };
+  return { ask, settle };
+}
+
+// AI 한 번(관심 주제 후보·한도 넘은 날의 요약만).
+async function askAi(kit: NowKit, kind: string, name: string, instructions: string, material: string, schema: unknown, maxOut: number): Promise<Record<string, unknown> | null | "limit"> {
+  const run = await startAi(kit, kind);
+  if (run === "limit") return "limit";
+  try { return await run.ask(name, instructions, material, schema, maxOut); } finally { await run.settle(); }
 }
 
 // 저장: 사람별 새 표(이 작업공간 + 공용 글 id). 옮기는 동안 이 작업공간에 같은 글 옛 줄이 있으면 옛 표에도 같은 줄(실패는 로그만).
@@ -197,17 +222,28 @@ async function saveDetail(kit: NowKit, item: DetailItem, row: Record<string, unk
   const saved = await svc(kit, "POST", detailTable(item), `on_conflict=workspace_id,article_id&select=${NOW_SHARED_DETAIL_FIELDS}`,
     sharedDetailUpsertBody(kit.ctx.workspaceId, item, row), "resolution=merge-duplicates,return=representation");
   if (item.oldId) {
+    // 옛 표에는 본문 지문 칸이 없다(새 표에만 — S69-01).
+    const { body_key: _bodyKey, ...oldRow } = row;
     try {
       await svc(kit, "POST", "app_now_details", `on_conflict=${detailConflictColumn(item)}`,
-        detailUpsertBody(kit.ctx.workspaceId, { type: item.type, id: item.oldId }, row), "resolution=merge-duplicates,return=minimal");
+        detailUpsertBody(kit.ctx.workspaceId, { type: item.type, id: item.oldId }, oldRow), "resolution=merge-duplicates,return=minimal");
     } catch { kit.ctx.log("now_old_write_failed"); }
   }
   return saved[0] ?? row;
 }
 
+// 지문 없는 옛 저장본을 그대로 쓸 때 지금 본문 지문을 적어 둔다(다음부터 시각 대신 지문으로 비교). 실패해도 저장본은 그대로 보인다.
+async function keepBodyKey(kit: NowKit, item: DetailItem, key: string) {
+  try {
+    await svc(kit, "PATCH", detailTable(item), `workspace_id=eq.${kit.ctx.workspaceId}&article_id=eq.${item.id}&body_key=is.null`, { body_key: key }, "return=minimal");
+  } catch { kit.ctx.log("now_body_key_failed"); }
+}
+
 export async function runNowDetail(kit: NowKit, input: Extract<NowInput, { kind: "now_detail" }>) {
   const deps = nowDeps(kit);
   const ws = kit.ctx.workspaceId, nowMs = kit.now(), nowIso = new Date(nowMs).toISOString();
+  // 걸린 시간(ms, 숫자만 — 글 내용·제목은 로그에 없다). S69-01 첫 생성 시간 측정용.
+  const t0 = performance.now(), ms = () => Math.round(performance.now() - t0);
   const item = await loadItem(deps, input.item);
   const table = detailTable(item);
   let existing: Record<string, unknown> | null = null;
@@ -218,67 +254,69 @@ export async function runNowDetail(kit: NowKit, input: Extract<NowInput, { kind:
     // 상세 표가 아직 없으면(DB 적용 전) 404 → now_not_ready.
     throw e instanceof Error && e.message === "rest_404" ? kit.fail(409, "now_not_ready") : kit.fail(503, "read_unavailable");
   }
+  const loadMs = ms();
+  const body = await bodyKey(item);
   // 읽은 재료가 하나도 없는 뉴스 기사(제목 읽기 전·본문 읽기 실패)는 AI를 부르지 않는다. 이전에 저장된 '내용 없음' 요약도 버린다.
   if (existing && isNoContentSummary(existing.summary)) existing = null;
   // S68-43: 재료(본문·저장 요약·주요 문장)가 없는 글의 저장본은 제목만으로 만든 것이라 보이지 않는다(본문을 가져오면 그때 만든다).
-  // 저장본이 지금 저장 본문보다 먼저 만들어졌으면(본문 없이·옛 본문으로 만든 요약) 새 본문으로 다시 만든다.
-  if (existing && (!itemHasMaterial(item) || detailOlderThanBody(item, existing))) existing = null;
+  // S69-01: 본문이 바뀌었는지는 본문 지문으로만 본다(같은 본문을 다시 뽑아 시각만 새로워진 것은 그대로 — 매번 다시 만들던 원인).
+  if (existing && (!itemHasMaterial(item) || bodyChanged(item, existing, body))) existing = null;
   if (!existing && !itemHasMaterial(item)) throw kit.fail(422, "no_material");
-  const topics = await confirmedTopics(deps);
-  const key = await interestsKey(topics);
   const { startIso } = seoulDayStart(nowMs);
   const madeToday = (v: unknown) => typeof v === "string" && Date.parse(v) >= Date.parse(startIso);
 
-  if (existing?.level === "full" && existing.interests_key === key) return detailOut(existing);
-  if (existing?.level === "basic" && madeToday(existing.generated_at)) return detailOut(existing);
-  let count: number;
-  try { count = await todayCount(kit, startIso); } catch { throw kit.fail(503, "read_unavailable"); }
-  const overDaily = count >= NOW_DETAIL_DAILY;
-  const work = await workNames(deps);
-
-  // 관심사만 바뀐 full 저장본: 연관·시사점·함께 볼 것만 다시(오늘 한도 안에서만, 아니면 저장본 그대로 + stale).
-  if (existing?.level === "full") {
-    if (overDaily) return detailOut(existing, true);
-    const candidates = await relatedCandidates(deps, item, topics);
-    const material = contextMaterial(item, existing, topics, work, candidates);
-    const answer = await askAi(kit, "now_detail", "now_context", NOW_CONTEXT_INSTRUCTIONS, material, NOW_CONTEXT_SCHEMA, NOW_CONTEXT_OUT);
-    if (answer === "limit") return detailOut(existing, true);
-    if (!answer) { kit.ctx.log("ai_invalid_response"); throw kit.fail(502, "ai_invalid_response"); }
-    const ctx = cleanContext(answer, [...topics, ...work], candidates);
-    const patch = contextPatch(ctx, key, nowIso);
-    const saved = await svc(kit, "PATCH", table, `workspace_id=eq.${ws}&article_id=eq.${item.id}&select=${NOW_SHARED_DETAIL_FIELDS}`, patch);
-    if (item.oldId) {
-      try { await svc(kit, "PATCH", "app_now_details", `workspace_id=eq.${ws}&${detailConflictColumn(item)}=eq.${item.oldId}`, patch, "return=minimal"); }
-      catch { kit.ctx.log("now_old_write_failed"); }
-    }
-    kit.ctx.log("now_detail_context", { related: ctx.related.length });
-    return detailOut(saved[0] ?? { ...existing, ...ctx });
+  // 저장본: full은 그대로(관심 주제가 바뀌어도 다시 만들지 않음 — S69-01), basic(한도 넘은 날)은 그날 것만 — 다음 날 열면 채운다.
+  if (existing && (existing.level === "full" || madeToday(existing.generated_at))) {
+    if (typeof existing.body_key !== "string" || !existing.body_key) await keepBodyKey(kit, item, body);
+    kit.ctx.log("now_detail_timing", { hit: 1, load: loadMs, total: ms() });
+    return detailOut(existing);
   }
 
-  // 새로 만들기(또는 어제 이전의 basic을 채우기).
+  // 새로 만들기(또는 어제 이전의 basic을 채우기). 앞 단계 읽기(오늘 수·관심 주제·업무 이름·본문 재료)는 함께.
   const foreign = item.lang !== "ko";
-  const { body, hay, fetched } = await detailBody(deps, item);
+  const [count, topics, work, material] = await Promise.all([
+    todayCount(kit, startIso).catch(() => Promise.reject(kit.fail(503, "read_unavailable"))),
+    confirmedTopics(deps), workNames(deps), detailBody(deps, item),
+  ]);
+  const { body: text, hay, fetched } = material;
+  const key = await interestsKey(topics);
+  const overDaily = count >= NOW_DETAIL_DAILY;
+  const prepMs = ms();
   const fallback = async () => {
     kit.ctx.log("now_detail_limited");
-    return detailOut(await saveDetail(kit, item, fallbackRow(item, key, nowIso)));
+    return detailOut(await saveDetail(kit, item, fallbackRow(item, key, nowIso, body)));
   };
   if (overDaily) {
-    const answer = await askAi(kit, "now_detail", "now_basic", NOW_BASIC_INSTRUCTIONS, basicMaterial(item, body), NOW_BASIC_SCHEMA, NOW_BASIC_OUT);
+    const answer = await askAi(kit, "now_detail", "now_basic", NOW_BASIC_INSTRUCTIONS, basicMaterial(item, text), NOW_BASIC_SCHEMA, NOW_BASIC_OUT);
     if (answer === "limit") return await fallback();
     const core = answer ? cleanCore(answer, hay, foreign) : null;
     if (!core) { kit.ctx.log("ai_invalid_response"); throw kit.fail(502, "ai_invalid_response"); }
     kit.ctx.log("now_detail_basic", { sentences: core.key_sentences.length });
-    return detailOut(await saveDetail(kit, item, basicRow(core, key, nowIso)));
+    return detailOut(await saveDetail(kit, item, basicRow(core, key, nowIso, body)));
   }
-  const candidates = await relatedCandidates(deps, item, topics);
-  const material = detailMaterial(item, body, topics, work, candidates);
-  const answer = await askAi(kit, "now_detail", "now_detail", NOW_DETAIL_INSTRUCTIONS, material, NOW_DETAIL_SCHEMA, NOW_DETAIL_OUT);
-  if (answer === "limit") return await fallback();
-  const core = answer ? cleanCore(answer, hay, foreign) : null;
-  if (!answer || !core) { kit.ctx.log("ai_invalid_response"); throw kit.fail(502, "ai_invalid_response"); }
-  const ctx = cleanContext(answer, [...topics, ...work], candidates);
+  const run = await startAi(kit, "now_detail");
+  if (run === "limit") return await fallback();
+  let coreAnswer: Record<string, unknown> | null, ctxAnswer: Record<string, unknown> | null;
+  let candidates: Awaited<ReturnType<typeof relatedCandidates>> = [];
+  try {
+    // 요약·주요 문장은 바로, 연관·시사점은 '함께 볼 것' 후보를 모은 뒤 — 두 AI 요청이 함께 돈다.
+    const coreP = run.ask("now_basic", NOW_BASIC_INSTRUCTIONS, basicMaterial(item, text), NOW_BASIC_SCHEMA, NOW_BASIC_OUT);
+    const ctxP = relatedCandidates(deps, item, topics).then(async (c) => {
+      candidates = c;
+      return await run.ask("now_context", NOW_CONTEXT_INSTRUCTIONS, contextMaterial(item, text, topics, work, c), NOW_CONTEXT_SCHEMA, NOW_CONTEXT_OUT);
+    });
+    [coreAnswer, ctxAnswer] = await Promise.all([coreP, ctxP]);
+  } finally {
+    await run.settle();
+  }
+  const aiMs = ms();
+  const core = coreAnswer ? cleanCore(coreAnswer, hay, foreign) : null;
+  if (!core || !ctxAnswer) { kit.ctx.log("ai_invalid_response"); throw kit.fail(502, "ai_invalid_response"); }
+  const ctx = cleanContext(ctxAnswer, [...topics, ...work], candidates);
+  const saved = await saveDetail(kit, item, fullRow(core, ctx, key, nowIso, body));
   kit.ctx.log("now_detail_done", { sentences: core.key_sentences.length, related: ctx.related.length, fetched: fetched ? 1 : 0, stored: item.fromFeed ? 1 : 0 });
-  return detailOut(await saveDetail(kit, item, fullRow(core, ctx, key, nowIso)));
+  kit.ctx.log("now_detail_timing", { hit: 0, load: loadMs, prep: prepMs - loadMs, ai: aiMs - prepMs, save: ms() - aiMs, total: ms() });
+  return detailOut(saved);
 }
 
 // ---- now_interests ---------------------------------------------------------------------------------------------------

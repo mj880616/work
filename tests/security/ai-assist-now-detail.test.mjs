@@ -161,6 +161,9 @@ function defaultAnswer(body){
   if(name==='now_interests')return {candidates:[{topic:'철도 분할',reason:'별표 3건·메모 1건'},{topic:'민영화',reason:'이미 있음'},{topic:'뺀 주제',reason:'다시 만들면 안 됨'}]};
   throw new Error(name);
 }
+// S69-01: 처음 만들 때 AI 요청 둘(now_basic 요약·주요 문장 + now_context 연관·시사점)을 함께 보낸다. 글 재료는 둘 다 같다.
+const sentOf=(calls,name)=>calls.openai.find(o=>o.text.format.name===name);
+const materialOf=o=>{const m=JSON.parse(o.input[1].content);return (m.item??m).material;};
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)}));
 const confirmed=[{id:id(80),workspace_id:WS,topic:'민영화',state:'confirmed',origin:'user',created_at:'2026-10-01T00:00:00Z',updated_at:'2026-10-01T00:00:00Z'}];
 
@@ -196,12 +199,14 @@ test('first open makes and stores the full detail once; second open returns the 
   const kinds=b.detail.related.map(x=>`${x.kind}:${x.id}`);
   assert.deepEqual(kinds.sort(),[`ledger:${id(72)}`,`news:${NEWS_1}`,`outside:${id(6)}`,`update:${id(70)}`].sort());
   assert.ok(!JSON.stringify(b).includes(POST_OTHER));
-  // AI 재료: 저장 본문 문장·이름·제목만.
-  assert.equal(calls.openai.length,1);
-  const sent=calls.openai[0];assert.equal(sent.store,false);assert.equal(sent.text.format.name,'now_detail');
-  const m=JSON.parse(sent.input[1].content);
-  assert.equal(m.item.material,BODY_KO);assert.deepEqual(m.interests,['민영화']);assert.deepEqual(m.work.sort(),['가 지부','공공성 사업']);
-  assert.ok(!sent.input[1].content.includes('남의'),'no other workspace names');
+  // AI 재료: 저장 본문 문장·이름·제목만. 요청 둘(요약·주요 문장 / 연관·시사점)을 함께, 같은 글 재료로.
+  assert.deepEqual(calls.openai.map(o=>o.text.format.name).sort(),['now_basic','now_context']);
+  for(const o of calls.openai){assert.equal(o.store,false);assert.equal(materialOf(o),BODY_KO);assert.ok(!o.input[1].content.includes('남의'),'no other workspace names');}
+  const m=JSON.parse(sentOf(calls,'now_context').input[1].content);
+  assert.deepEqual(m.interests,['민영화']);assert.deepEqual(m.work.sort(),['가 지부','공공성 사업']);
+  assert.equal(JSON.parse(sentOf(calls,'now_basic').input[1].content).interests,undefined,'요약 요청에는 관심 주제·업무 이름 없음');
+  // 하루 한도·사용량은 한 번으로 센다(요청 둘이어도 1회), 토큰은 둘 다 더한다.
+  assert.deepEqual([db.app_ai_daily_usage[0].requests,db.app_ai_daily_usage[0].input_tokens,db.app_ai_daily_usage[0].output_tokens],[1,6000,800]);
   // 저장은 서버 열쇠로 상세 표 한 번, DB 검사 모양 그대로.
   const save=calls.service.filter(s=>s.table==='app_now_details');assert.equal(save.length,1);
   // E3: 사람별 새 표(공용 글 id)에 한 줄 + 옮기는 동안 같은 작업공간 옛 줄에도 같은 줄.
@@ -212,21 +217,19 @@ test('first open makes and stores the full detail once; second open returns the 
   assert.equal(calls.site.length,0,'domestic posts never fetch the site');
   // 다시 열기: AI·저장 없음.
   const again=await (await post(handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
-  assert.deepEqual(again.detail,b.detail);assert.equal(calls.openai.length,1);assert.equal(save.length,calls.service.filter(s=>s.table==='app_now_details').length);
+  assert.deepEqual(again.detail,b.detail);assert.equal(calls.openai.length,2);assert.equal(save.length,calls.service.filter(s=>s.table==='app_now_details').length);
   // 로그에는 단계·건수만.
   assert.ok(!JSON.stringify(calls.logs).includes('민영화'));
 });
 
-test('interests changed → only relevance·implications·related are remade (context_at); unchanged summary',async()=>{
+test('S69-01: interests changed → the stored detail is returned as is (no AI, no write)',async()=>{
   const {handler,calls,db}=harness({interests:confirmed});
-  await post(handler,{kind:'now_detail',outside_post_id:POST_KO});
+  const first=await (await post(handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+  const ai=calls.openai.length,writes=calls.service.length;
   db.app_now_interests.push({id:id(81),workspace_id:WS,topic:'철도',state:'confirmed',origin:'user'});
   const b=await (await post(handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
-  assert.equal(calls.openai.length,2);assert.equal(calls.openai[1].text.format.name,'now_context');
-  const p=calls.service.find(s=>s.method==='PATCH'&&s.table==='app_now_details');
-  assert.ok(p.query.includes(`workspace_id=eq.${WS}`));
-  assert.deepEqual(Object.keys(p.body).sort(),['context_at','implications','interests_key','related','relevance','updated_at']);
-  assert.equal(b.detail.summary,db.app_now_details[0].summary);assert.ok(b.detail.context_at);
+  assert.equal(calls.openai.length,ai,'관심 주제가 바뀌어도 AI 다시 안 부름');assert.equal(calls.service.length,writes,'쓰기 없음');
+  assert.deepEqual(b.detail,first.detail);
 });
 
 test('40 a day: the 41st new detail is basic (summary·sentences only, no relevance)',async()=>{
@@ -256,7 +259,7 @@ test('foreign post: reads robots.txt and the page on the catalog host only, uses
   const {handler,calls,db}=harness({site,openai:(body)=>answer({summary:'영국에서 파업이 번진다.',key_sentences:[{orig:'Unions call for more action.',ko:'노조들은 더 많은 행동을 요구한다.'}],relevance:{topics:[],reason:''},implications:{kptu:'',labor:''},related:[]})});
   const b=await (await post(handler,{kind:'now_detail',outside_post_id:POST_EN})).json();
   assert.deepEqual(calls.site.map(u=>new URL(u).hostname),['www.socialistworker.co.uk','www.socialistworker.co.uk']);
-  assert.ok(JSON.parse(calls.openai[0].input[1].content).item.material.includes('Unions call for more action.'));
+  assert.ok(calls.openai.every(o=>materialOf(o).includes('Unions call for more action.')));
   assert.deepEqual(b.detail.key_sentences,[{orig:'Unions call for more action.',ko:'노조들은 더 많은 행동을 요구한다.'}]);
   assert.equal(b.detail.relevance,null);assert.equal(b.detail.implications,null);
   assert.ok(!JSON.stringify(db.app_now_details).includes('across the public sector'),'page text is material only');
@@ -318,7 +321,7 @@ test('source: the service key is read only in now-detail.ts svc() for three tabl
   assert.doesNotMatch(build,/SERVICE_ROLE|Deno\.env|method:\s*["'](POST|PATCH|DELETE|PUT)/);
   assert.match(nd,/kit\.ai\(config\.key, aiRequestBody\(/);
   assert.equal(N.NOW_DETAIL_DAILY,40);
-  for(const t of [N.NOW_DETAIL_INSTRUCTIONS,N.NOW_BASIC_INSTRUCTIONS,N.NOW_CONTEXT_INSTRUCTIONS])assert.ok(t.includes("말투: 요약·정리 문장은"),'shared tone rule');
+  for(const t of [N.NOW_BASIC_INSTRUCTIONS,N.NOW_CONTEXT_INSTRUCTIONS])assert.ok(t.includes("말투: 요약·정리 문장은"),'shared tone rule');
 });
 
 // S48-66: AI가 재료 없이 쓴 '내용 없음' 문장은 요약이 아니다(저장·표시 안 함).
@@ -334,9 +337,9 @@ test('stored body blocks are the material first: domestic post skips the sentenc
   const {handler,calls}=harness({feed:[{id:id(300),workspace_id:WS,outside_post_id:POST_KO,news_item_id:null,state:'ok',blocks:FEED_KO}]});
   const b=await (await post(handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
   assert.equal(b.detail.level,'full');
-  const m=JSON.parse(calls.openai[0].input[1].content);
-  assert.equal(m.item.material,'공공기관 민영화 저지\n공공기관 민영화 저지 투쟁을 선포한다.\n정부는 철도와 가스의 분할을 멈춰야 한다.');
-  assert.ok(!m.item.material.includes('집회 사진')&&!m.item.material.includes('https://'),'photos and captions are not material');
+  const mat=materialOf(sentOf(calls,'now_basic'));
+  assert.equal(mat,'공공기관 민영화 저지\n공공기관 민영화 저지 투쟁을 선포한다.\n정부는 철도와 가스의 분할을 멈춰야 한다.');
+  assert.ok(!mat.includes('집회 사진')&&!mat.includes('https://'),'photos and captions are not material');
   assert.deepEqual(b.detail.key_sentences,[{orig:'정부는 철도와 가스의 분할을 멈춰야 한다.',ko:null}]);
   assert.ok(!calls.rest.some(c=>c.table==='app_outside_article_sentences'),'no sentence-table read');
   const fb=calls.rest.find(c=>c.table==='app_outside_article_bodies');
@@ -348,7 +351,7 @@ test('stored body blocks for a foreign post: no robots·page read',async()=>{
   const {handler,calls}=harness({feed,openai:()=>answer({summary:'영국에서 파업이 번진다.',key_sentences:[{orig:'Unions call for more action.',ko:'노조들은 더 많은 행동을 요구한다.'}],relevance:{topics:[],reason:''},implications:{kptu:'',labor:''},related:[]})});
   const b=await (await post(handler,{kind:'now_detail',outside_post_id:POST_EN})).json();
   assert.equal(calls.site.length,0,'site never requested');
-  assert.equal(JSON.parse(calls.openai[0].input[1].content).item.material,'Unions call for more action.');
+  assert.equal(materialOf(calls.openai[0]),'Unions call for more action.');
   assert.deepEqual(b.detail.key_sentences,[{orig:'Unions call for more action.',ko:'노조들은 더 많은 행동을 요구한다.'}]);
 });
 
@@ -357,9 +360,9 @@ test('failed·image-only body rows and another workspace\'s row fall back to the
     {id:id(303),workspace_id:OTHER_WS,outside_post_id:POST_KO,news_item_id:null,state:'ok',blocks:[{t:'p',text:'남의 본문'}]}];
   const {handler,calls}=harness({feed});
   await post(handler,{kind:'now_detail',news_item_id:NEWS_1});
-  assert.equal(JSON.parse(calls.openai[0].input[1].content).item.material,'철도 분할 논의가 다시 시작됐다.');
+  assert.equal(materialOf(calls.openai[0]),'철도 분할 논의가 다시 시작됐다.');
   await post(handler,{kind:'now_detail',outside_post_id:POST_KO});
-  assert.equal(JSON.parse(calls.openai[1].input[1].content).item.material,BODY_KO);
+  assert.equal(materialOf(calls.openai[2]),BODY_KO);
   assert.ok(!calls.openai.some(o=>o.input[1].content.includes('남의 본문')));
 });
 
@@ -368,7 +371,7 @@ test('body table not there yet (read fails) → old material, still works',async
   delete db.app_outside_article_bodies;
   const b=await (await post(handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
   assert.equal(b.detail.level,'full');
-  assert.equal(JSON.parse(calls.openai[0].input[1].content).item.material,BODY_KO);
+  assert.equal(materialOf(calls.openai[0]),BODY_KO);
   assert.ok(calls.logs.some(l=>l.code==='now_read_skipped'&&l.detail?.stage==='feed_body'));
 });
 
@@ -401,7 +404,7 @@ test('E3 now_detail 거절: 차단 명단·남의 작업공간 옛 id·없는 id
   const theirs={workspace_id:OTHER_WS,outside_post_id:POST_KO,level:'full',summary:'남의 요약',key_sentences:[],related:[],interests_key:'x',generated_at:'2026-11-02T01:00:00Z'};
   const h=harness({details:[theirs]});
   const b=await (await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
-  assert.notEqual(b.detail.summary,'남의 요약');assert.equal(h.calls.openai.length,1);
+  assert.notEqual(b.detail.summary,'남의 요약');assert.equal(h.calls.openai.length,2);
   assert.equal(h.db.app_outside_now_details.find(d=>d.workspace_id===OTHER_WS).summary,'남의 요약');
   assert.ok(h.calls.service.every(s=>s.method!=='POST'||[].concat(s.body).every(x=>x.workspace_id===WS)),'쓰기는 누른 사람 작업공간만');
 });
@@ -423,11 +426,76 @@ test('S68-43: 저장 본문이 저장된 요약보다 새로우면(본문을 나
   const before={workspace_id:WS,outside_post_id:POST_KO,level:'full',summary:'예전 요약.',key_sentences:[],related:[],relevance:null,implications:null,interests_key:'none',generated_at:'2026-11-02T01:00:00Z'};
   const h=harness({feed,details:[before]});
   const b=await (await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
-  assert.equal(h.calls.openai.length,1,'다시 만듦');
+  assert.equal(h.calls.openai.length,2,'다시 만듦');
   assert.notEqual(b.detail.summary,'예전 요약.');
   // 본문보다 나중에 만든 저장본은 그대로(AI 없음).
   const after={...before,generated_at:'2026-11-02T10:00:00Z'};
   const k=harness({feed,details:[after]});
   const c=await (await post(k.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
   assert.equal(k.calls.openai.length,0);assert.equal(c.detail.summary,'예전 요약.');
+});
+
+// S69-01(명진 11/24 "요약 시사점을 매번 다시 만드는 거 같은데 이러지마"): 다시 만드는 기준은 본문 '내용'(지문)뿐 — 본문을 뽑은 시각이 아니다.
+test('S69-01: 같은 본문을 다시 뽑아 시각만 새로워지면 저장본 그대로(AI 0), 본문 글자가 바뀌면 그때만 다시 만든다',async()=>{
+  const feed=[{id:id(300),workspace_id:WS,outside_post_id:POST_KO,news_item_id:null,state:'ok',blocks:FEED_KO,extracted_at:'2026-11-02T09:00:00Z'}];
+  const h=harness({feed,interests:confirmed});
+  const first=await (await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+  assert.equal(h.calls.openai.length,2);
+  const saved=h.db.app_outside_now_details[0];
+  assert.match(saved.body_key,/^[a-f0-9]{32}$/,'본문 지문을 함께 저장');
+  assert.ok(h.calls.service.filter(s=>s.table==='app_now_details').every(s=>[].concat(s.body).every(x=>!('body_key' in x))),'옛 표에는 지문 칸을 쓰지 않음');
+  // 수집·다시 뽑기가 같은 본문을 새 시각으로 다시 적음(공백만 다른 것도 같은 본문).
+  Object.assign(h.db.app_outside_article_bodies[0],{extracted_at:'2026-11-02T11:00:00Z',blocks:FEED_KO.map(b=>b.text?{...b,text:` ${b.text}  `}:b)});
+  for(let i=0;i<3;i++){
+    const again=await (await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+    assert.deepEqual(again.detail,first.detail);
+  }
+  assert.equal(h.calls.openai.length,2,'세 번 더 열어도 AI 다시 안 부름');
+  // 본문 글자가 실제로 바뀜 → 한 번만 다시 만든다.
+  h.db.app_outside_article_bodies[0].blocks=[{t:'p',text:'공공기관 민영화 저지 투쟁을 선포한다. 12월 2차 총파업을 예고한다.'}];
+  await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO});
+  assert.equal(h.calls.openai.length,4,'바뀐 본문으로 다시 만듦');
+  await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO});
+  assert.equal(h.calls.openai.length,4,'그다음은 다시 저장본');
+});
+
+test('S69-01: 지문 없는 옛 저장본은 그대로 쓰고 지금 본문 지문을 한 번 적는다 — 그 뒤 시각만 새로워져도 다시 안 만듦',async()=>{
+  const feed=[{id:id(300),workspace_id:WS,outside_post_id:POST_KO,news_item_id:null,state:'ok',blocks:FEED_KO,extracted_at:'2026-11-02T00:30:00Z'}];
+  const legacy={workspace_id:WS,outside_post_id:POST_KO,level:'full',summary:'예전 요약.',key_sentences:[],related:[],relevance:null,implications:null,interests_key:'none',generated_at:'2026-11-02T01:00:00Z'};
+  const h=harness({feed,details:[legacy]});
+  const a=await (await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+  assert.equal(a.detail.summary,'예전 요약.');assert.equal(h.calls.openai.length,0);
+  const p=h.calls.service.find(s=>s.method==='PATCH'&&s.table==='app_outside_now_details');
+  assert.ok(p.query.includes(`workspace_id=eq.${WS}`)&&p.query.includes('body_key=is.null'));
+  assert.deepEqual(Object.keys(p.body),['body_key']);
+  assert.match(h.db.app_outside_now_details[0].body_key,/^[a-f0-9]{32}$/);
+  h.db.app_outside_article_bodies[0].extracted_at='2026-11-02T09:30:00Z';
+  const b=await (await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+  assert.equal(b.detail.summary,'예전 요약.');assert.equal(h.calls.openai.length,0,'지문이 같으면 시각이 새로워도 그대로');
+  assert.equal(h.calls.service.filter(s=>s.method==='PATCH').length,1,'지문은 한 번만 적음');
+});
+
+test('S69-01: 걸린 시간 로그는 숫자만(글 내용 없음), 저장본 열기는 단계 숫자 hit=1',async()=>{
+  const {handler,calls}=harness({interests:confirmed});
+  await post(handler,{kind:'now_detail',outside_post_id:POST_KO});
+  await post(handler,{kind:'now_detail',outside_post_id:POST_KO});
+  const t=calls.logs.filter(l=>l.code==='now_detail_timing').map(l=>l.detail);
+  assert.equal(t.length,2);
+  assert.deepEqual(Object.keys(t[0]).sort(),['ai','hit','load','prep','save','total']);assert.equal(t[0].hit,0);
+  assert.deepEqual(Object.keys(t[1]).sort(),['hit','load','total']);assert.equal(t[1].hit,1);
+  for(const d of t)for(const v of Object.values(d))assert.equal(typeof v,'number');
+});
+
+test('S69-01: 두 AI 요청 중 하나가 실패하면 저장하지 않고 오류(사용량은 한 번 기록), 다음 열기에서 다시 만든다',async()=>{
+  let fail=true;
+  const {handler,calls,db}=harness({openai:(body)=>fail&&body.text.format.name==='now_context'?{error:{message:'x'}}:answer(defaultAnswer(body))});
+  // 연관·시사점 요청이 모양 없는 답 → ai_invalid_response(502).
+  const r=await post(handler,{kind:'now_detail',outside_post_id:POST_KO});
+  assert.ok(r.status>=500,'오류');
+  assert.equal(db.app_outside_now_details.length,0,'저장 없음');
+  assert.equal(db.app_ai_daily_usage[0].requests,1);
+  fail=false;
+  const ok=await post(handler,{kind:'now_detail',outside_post_id:POST_KO});
+  assert.equal(ok.status,200);assert.equal(db.app_outside_now_details.length,1);
+  assert.ok(calls.openai.length>=4);
 });

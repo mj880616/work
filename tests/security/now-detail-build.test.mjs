@@ -97,30 +97,49 @@ test('relatedCandidates without rpc (scheduled callers): only shared post/news t
 });
 
 test('AI request body: no storage, no tools, strict JSON schema',()=>{
-  const body=B.aiRequestBody('m','now_detail',B.NOW_DETAIL_INSTRUCTIONS,'{}',B.NOW_DETAIL_SCHEMA,B.NOW_DETAIL_OUT);
-  assert.equal(body.store,false);assert.equal(body.tools,undefined);assert.equal(body.max_output_tokens,1600);
-  assert.deepEqual(body.input.map(i=>i.role),['developer','user']);
-  assert.deepEqual(body.text.format,{type:'json_schema',name:'now_detail',strict:true,schema:B.NOW_DETAIL_SCHEMA});
+  // S69-01: 처음 만들기는 요약·주요 문장(now_basic)과 연관·시사점(now_context) 두 요청.
+  for(const [name,ins,schema,out] of [['now_basic',B.NOW_BASIC_INSTRUCTIONS,B.NOW_BASIC_SCHEMA,B.NOW_BASIC_OUT],['now_context',B.NOW_CONTEXT_INSTRUCTIONS,B.NOW_CONTEXT_SCHEMA,B.NOW_CONTEXT_OUT]]){
+    const body=B.aiRequestBody('m',name,ins,'{}',schema,out);
+    assert.equal(body.store,false);assert.equal(body.tools,undefined);assert.equal(body.max_output_tokens,out);
+    assert.deepEqual(body.input.map(i=>i.role),['developer','user']);
+    assert.deepEqual(body.text.format,{type:'json_schema',name,strict:true,schema});
+  }
+  assert.equal(B.NOW_DETAIL_INSTRUCTIONS,undefined,'예전 한 요청(now_detail)은 없다');
+});
+
+test('S69-01 body fingerprint: content only (whitespace·case ignored), none when empty; changed only by content once stored',async()=>{
+  const k=await B.bodyKey({body:'공공기관 민영화 저지.\n정부는 멈춰야 한다.'});
+  assert.match(k,/^[a-f0-9]{32}$/);
+  assert.equal(await B.bodyKey({body:'  공공기관  민영화 저지.  정부는 멈춰야 한다. '}),k);
+  assert.notEqual(await B.bodyKey({body:'공공기관 민영화 저지.'}),k);
+  assert.equal(await B.bodyKey({body:''}),'none');
+  const item={fromFeed:true,bodyAt:'2026-11-23T00:00:00Z'};
+  const made={generated_at:'2026-11-20T00:00:00Z'};
+  assert.equal(B.bodyChanged(item,{...made,body_key:k},k),false,'본문 시각이 더 새로워도 지문이 같으면 그대로');
+  assert.equal(B.bodyChanged(item,{...made,body_key:'none'},k),true,'본문 없이 만든 저장본 → 본문이 생기면 다시');
+  assert.equal(B.bodyChanged(item,{...made,body_key:null},k),true,'지문 없는 옛 저장본만 시각 비교');
+  assert.equal(B.bodyChanged({...item,bodyAt:'2026-11-19T00:00:00Z'},{...made,body_key:null},k),false);
+  assert.equal(B.bodyChanged(item,null,k),false);
 });
 
 test('stored row shapes match the app_now_details columns',()=>{
   const core={summary:'요약.',key_sentences:[]},ctx={relevance:null,implications:null,related:[]};
   const t='2026-11-06T01:00:00.000Z';
-  assert.deepEqual(Object.keys(B.fullRow(core,ctx,'none',t)).sort(),['context_at','generated_at','implications','interests_key','key_sentences','level','related','relevance','summary','updated_at']);
-  assert.equal(B.basicRow(core,'none',t).level,'basic');
-  assert.deepEqual(Object.keys(B.contextPatch(ctx,'k',t)).sort(),['context_at','implications','interests_key','related','relevance','updated_at']);
+  assert.deepEqual(Object.keys(B.fullRow(core,ctx,'none',t,'abc')).sort(),['body_key','context_at','generated_at','implications','interests_key','key_sentences','level','related','relevance','summary','updated_at']);
+  assert.deepEqual([B.basicRow(core,'none',t,'abc').level,B.basicRow(core,'none',t,'abc').body_key],['basic','abc']);
+  assert.equal(B.contextPatch,undefined,'관심 주제만 바뀐 다시 만들기는 없다(S69-01)');
   assert.deepEqual(B.detailUpsertBody(WS,{type:'news',id:id(3)},{level:'basic'}),{workspace_id:WS,news_item_id:id(3),level:'basic'});
   assert.equal(B.detailConflictColumn({type:'outside'}),'outside_post_id');
   assert.equal(B.detailTable({type:'outside'}),'app_outside_now_details');assert.equal(B.detailTable({type:'news'}),'app_news_now_details');
   assert.deepEqual(B.sharedDetailUpsertBody(WS,{id:id(3)},{level:'basic'}),{workspace_id:WS,article_id:id(3),level:'basic'});
-  const fb=B.fallbackRow({lang:'en',summary:'저장 요약',keySentences:[{orig:'A.',ko:'가.'}]},'none',t);
-  assert.deepEqual([fb.level,fb.summary,fb.key_sentences],['basic','저장 요약',[{orig:'A.',ko:'가.'}]]);
+  const fb=B.fallbackRow({lang:'en',summary:'저장 요약',keySentences:[{orig:'A.',ko:'가.'}]},'none',t,'none');
+  assert.deepEqual([fb.level,fb.summary,fb.key_sentences,fb.body_key],['basic','저장 요약',[{orig:'A.',ko:'가.'}],'none']);
 });
 
 test('ai-assist re-exports the moved names (one source, no copy)',()=>{
-  for(const k of ['cleanCore','cleanContext','interestsKey','isNoContentSummary','titleWords','foreignBody','relatedCandidates','NOW_DETAIL_INSTRUCTIONS','NOW_BASIC_INSTRUCTIONS','NOW_CONTEXT_INSTRUCTIONS','NOW_DETAIL_SCHEMA'])
+  for(const k of ['bodyKey','cleanCore','cleanContext','interestsKey','isNoContentSummary','titleWords','foreignBody','relatedCandidates','NOW_BASIC_INSTRUCTIONS','NOW_CONTEXT_INSTRUCTIONS','NOW_BASIC_SCHEMA','NOW_CONTEXT_SCHEMA'])
     assert.equal(N[k],B[k],k);
   const nd=readFileSync('supabase/functions/ai-assist/now-detail.ts','utf8');
-  for(const k of ['function cleanCore','function cleanContext','function loadItem','function relatedCandidates','NOW_DETAIL_INSTRUCTIONS = ['])
+  for(const k of ['function cleanCore','function cleanContext','function loadItem','function relatedCandidates','function bodyKey','NOW_BASIC_INSTRUCTIONS = ['])
     assert.ok(!nd.includes(k),`${k} lives only in the shared module`);
 });
