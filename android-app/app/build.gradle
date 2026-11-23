@@ -15,12 +15,12 @@ android {
 
     defaultConfig {
         // 옛 앱과 같은 앱 ID(설계 D11). 웹 native-auth-bridge.js의 로그인 복귀가 이 ID를 지정한다.
-        // 판별 값은 아래 productFlavors가 덮어쓴다(github = 이 값 그대로, play = com.nojoplus.app).
+        // 판별 값은 아래 productFlavors가 덮어쓴다(github = 이 값 그대로, play = com.workonplus.app).
         applicationId 'kr.or.kptu.work'
         minSdk 29
         targetSdk 36
-        versionCode 83
-        versionName '0.5.26'
+        versionCode 84
+        versionName '0.5.27'
 
         // APP-폰알림 N4(설계 docs/design/phone-notifications.md 4.3절): Firebase 앱 설정 4개는 빌드 변수로만 받는다.
         // release workflow(phone-app-release.yml)가 environment phone-app-release의 변수(vars.WEB2_FCM_*)를 넘긴다.
@@ -33,7 +33,7 @@ android {
 
     // S62-34 APP-플레이스토어비공개테스트: 같은 코드(namespace 그대로)로 두 판을 만든다. applicationId만 판마다 다르다.
     //   github = 지금까지의 앱(kr.or.kptu.work). GitHub 공개 릴리스 APK, 앱 안 스스로 업데이트, '모든 파일 접근' 그대로.
-    //   play   = 플레이 스토어 판(com.nojoplus.app). 업데이트는 플레이가 한다. 스스로 업데이트·설치 요청·'모든 파일 접근'을 뺀다
+    //   play   = 플레이 스토어 판(com.workonplus.app, S69-10 명진 결정 11/24 — 플레이 콘솔의 옛 초안 앱은 나중 노조+ 앱 몫으로 남긴다). 업데이트는 플레이가 한다. 스스로 업데이트·설치 요청·'모든 파일 접근'을 뺀다
     //            (권한은 src/play/AndroidManifest.xml에서 빼고, 기능은 아래 BuildConfig 값으로 끈다).
     // versionCode·versionName은 defaultConfig 하나를 두 판이 같이 쓴다(올릴 때 둘 다 늘어난다).
     flavorDimensions.add('channel')
@@ -50,11 +50,12 @@ android {
         }
         play {
             dimension = 'channel'
-            applicationId = 'com.nojoplus.app'
+            applicationId = 'com.workonplus.app'
             buildConfigField 'boolean', 'SELF_UPDATE', 'false'
             buildConfigField 'boolean', 'ALL_FILES', 'false'
             buildConfigField 'String', 'LOGIN_RETURN', '"android-play"'
-            buildConfigField 'String', 'UA_MARK', '" KPTUPlay"'
+            // S69-10: 노조 약칭이 든 옛 표시 대신 WorkOnPlay. 웹 login/native-google-return.js가 이 표시를 읽는다.
+            buildConfigField 'String', 'UA_MARK', '" WorkOnPlay"'
         }
     }
 
