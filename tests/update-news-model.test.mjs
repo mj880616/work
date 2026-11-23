@@ -72,3 +72,30 @@ test('S68-14: 기록 줄 [보냄] → 거둘 소식 찾기·같이 묶인 기록
   assert.equal(withdrawNote(2), '같이 보낸 기록 2개도 함께 거둬져요');
   assert.equal(WITHDRAW_TEXT, '이 소식을 거둘까요? 이용자 화면에서 사라져요.');
 });
+
+// S68-46 UPDATE-소식자동(명진 11/23 12:37): 자동 소식은 기록 파일 이름(source_files)으로 맞추고, 기록 줄 버튼은 보내기·보냄·다시 보내기 셋.
+test('자동 소식: 파일 이름으로 맞추고(순번이 밀려도), 손으로 보낸 소식은 버전명으로', async () => {
+  const {newsHasNote, noteState, withdrawPlan, resendPlan, resendNote, RESEND_TEXT} = await import('../app/update-news-model.mjs');
+  const auto = {id: 'a1', auto: true, sources: ['11/23-4'], source_files: ['20261123-1300-d'], withdrawn_at: null};
+  const hand = {id: 'h1', sources: ['11/23-1', '11/23-2'], source_files: [], withdrawn_at: null};
+  // 늦게 들어온 기록 때문에 d의 순번이 11/23-5로 밀려도 d로 맞고, 새로 11/23-4가 된 다른 기록과는 안 맞는다.
+  assert.equal(newsHasNote(auto, {v: '11/23-5', file: '20261123-1300-d'}), true);
+  assert.equal(newsHasNote(auto, {v: '11/23-4', file: '20261123-1230-late'}), false);
+  assert.equal(newsHasNote(auto, '11/23-4'), false, '파일 이름이 있는 소식은 버전명만으로 맞추지 않는다');
+  assert.equal(newsHasNote(hand, {v: '11/23-2', file: '20261123-1100-b'}), true);
+  assert.equal(newsHasNote(hand, '11/23-1'), true);
+  assert.equal(newsHasNote(null, '11/23-1'), false);
+  const items = [auto, hand];
+  assert.equal(noteState(items, {v: '11/23-5', file: '20261123-1300-d'}), 'sent');
+  assert.equal(noteState(items, {v: '11/23-9', file: '20261123-2300-z'}), '');
+  assert.deepEqual(withdrawPlan(items, {v: '11/23-5', file: '20261123-1300-d'}), {ids: ['a1'], others: 0});
+  assert.deepEqual(withdrawPlan(items, {v: '11/23-2', file: '20261123-1100-b'}), {ids: ['h1'], others: 1});
+  const pulled = [{...auto, withdrawn_at: '2026-11-23T05:00:00Z'}, {...auto, id: 'a0', withdrawn_at: '2026-11-23T04:00:00Z'}, hand];
+  assert.equal(noteState(pulled, {v: '11/23-5', file: '20261123-1300-d'}), 'withdrawn');
+  assert.deepEqual(resendPlan(pulled, {v: '11/23-5', file: '20261123-1300-d'}), {ids: ['a1'], others: 0}, '가장 최근에 거둔 것 하나만');
+  assert.deepEqual(resendPlan(pulled, {v: '11/23-2', file: '20261123-1100-b'}), {ids: [], others: 0}, '거두지 않은 것은 다시 보내기 대상 아님');
+  assert.deepEqual(resendPlan(null, '11/23-1'), {ids: [], others: 0});
+  assert.equal(resendNote(0), '');
+  assert.equal(resendNote(1), '같이 보낸 기록 1개도 함께 다시 보여요');
+  assert.match(RESEND_TEXT, /다시 보낼까요/);
+});

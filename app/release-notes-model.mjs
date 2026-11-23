@@ -12,6 +12,7 @@ export const FILE_RE = /^app\/release-notes\/(\d{4})(\d{2})(\d{2})-([01]\d|2[0-3
 export const LINE_MAX = 100, CHANGES_MAX = 3, CHECKS_MAX = 3, PAGE_SIZE = 20;
 const VERSION_RE = /^(1[0-2]|[1-9])\/(3[01]|[12]\d|[1-9])-[1-9]\d{0,2}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+export const NOTE_FILE_RE = /^\d{8}-\d{4}-[a-z0-9][a-z0-9-]{0,59}$/;
 
 // 공개 파일에 들어가면 안 되는 모양(줄 단위). 뜻(업무 내용)은 기계가 못 가리므로 작성 규칙(AGENTS.md §10)에 맡긴다.
 const FORBIDDEN = [
@@ -60,20 +61,23 @@ export function checkNoteFile(path, text) {
 /**
  * 기록 파일들([경로, 내용])을 모아 버전명을 붙인다. 파일 이름(날짜-시각) 순서가 곧 순번이다.
  * 맞지 않는 파일은 빼고 errors에 적는다(빌드는 그래도 진행, 검사·단위 시험이 막는다).
- * 돌려주는 값: {notes: 최신 먼저 [{v,date,changes,checks}], errors}
+ * S68-46 UPDATE-소식자동: 기록마다 파일 이름(file, 확장자 뺀 것)도 붙인다. 순번(v)은 같은 날 기록이 늦게 merge되면 밀리므로,
+ * 서버가 '새로 생긴 기록'을 자동으로 업데이트 소식으로 보낼 때는 이 파일 이름으로 가린다(app_release_notes_put → private.app_update_news_auto).
+ * 돌려주는 값: {notes: 최신 먼저 [{v,file,date,changes,checks}], errors}
  */
 export function collectNotes(entries) {
   const errors = [], ordered = [];
   for (const [path, text] of [...entries].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))) {
     const { note, errors: found } = checkNoteFile(path, text);
     errors.push(...found);
-    if (note) ordered.push(note);
+    if (note) ordered.push({ file: path.slice(NOTE_DIR.length, -'.json'.length), ...note });
   }
   const perDay = new Map(), notes = [];
   for (const note of ordered) {
     const n = (perDay.get(note.date) || 0) + 1; perDay.set(note.date, n);
     const [, mm, dd] = note.date.split('-');
-    notes.push({ v: `${Number(mm)}/${Number(dd)}-${n}`, ...note });
+    const { file, ...rest } = note;
+    notes.push({ v: `${Number(mm)}/${Number(dd)}-${n}`, file, ...rest });
   }
   return { notes: notes.reverse(), errors };
 }
@@ -93,7 +97,7 @@ export function parseReleaseNotes(value) {
   if (!value || typeof value !== 'object' || value.schema !== 1 || !Array.isArray(value.notes)) return null;
   const notes = value.notes.filter(n => n && typeof n === 'object' && typeof n.v === 'string' && VERSION_RE.test(n.v)
     && typeof n.date === 'string' && DATE_RE.test(n.date) && okLines(n.changes, 1, CHANGES_MAX) && okLines(n.checks ?? [], 0, CHECKS_MAX))
-    .map(n => ({ v: n.v, date: n.date, changes: [...n.changes], checks: [...(n.checks ?? [])] }));
+    .map(n => ({ v: n.v, ...(typeof n.file === 'string' && NOTE_FILE_RE.test(n.file) ? { file: n.file } : {}), date: n.date, changes: [...n.changes], checks: [...(n.checks ?? [])] }));
   const current = typeof value.current === 'string' && notes.some(n => n.v === value.current) ? value.current : notes[0]?.v ?? null;
   return { current, notes };
 }

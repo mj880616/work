@@ -7,7 +7,7 @@ import {shortDate,PAGE_SIZE,searchNotes,searchWords} from './release-notes-model
 import {highlightParts} from './global-search-model.mjs';
 import {readReleaseNotes,canReadReleaseNotes} from './release-notes-read.js';
 import {waitHtml,failHtml,emptyHtml} from './wait-state.js';
-import {draftLines,linesFromText,draftProblem,sentVersions,withdrawPlan,withdrawNote,WITHDRAW_TEXT,cutIndex,shortDay,seoulToday,startGapText,sendStartHint} from './update-news-model.mjs';
+import {draftLines,linesFromText,draftProblem,withdrawPlan,withdrawNote,WITHDRAW_TEXT,noteState,resendPlan,resendNote,RESEND_TEXT,cutIndex,shortDay,seoulToday,startGapText,sendStartHint} from './update-news-model.mjs';
 import {newsRow} from './update-news-ui.js';
 import {openFormModal} from './small-form-modal.js';
 import {askConfirm,notify} from './small-notice.js';
@@ -33,8 +33,9 @@ function noteRow(item,current,words){
   // UPDATE-운영자전용기록업데이트소식 PR3: 줄마다 [보내기](이용자에게 업데이트 소식으로). 소식 서버를 못 읽으면 없다.
   // S67-73(명진 11/21 "보내기 버튼이 보냄으로 바뀌어야지"): 이미 보낸 기록은 따로 '보냄' 꼬리표를 달지 않고 같은 버튼이 [보냄]으로 바뀐다.
   // S68-14(명진 11/22 "보낸 후 거둬들일 수가 없음"): [보냄]을 누르면 그 기록이 든 소식을 거둔다(같은 버튼 하나, 새 버튼 없음).
+  // S68-46(명진 11/23 "기본 자동으로 보내고 수동으로는 회수 가능하게"): 새 기록은 서버가 자동으로 보내 처음부터 [보냄]이고, 거둔 기록은 [다시 보내기].
   if(news.admin){
-    const send=el('button','rn-send mini');send.type='button';send.dataset.rnSend=note.v;paintSend(send);
+    const send=el('button','rn-send mini');send.type='button';send.dataset.rnSend=note.v;if(note.file)send.dataset.rnFile=note.file;paintSend(send);
     head.append(send);
   }
   const body=el('div','rn-body');
@@ -55,23 +56,30 @@ function noteRow(item,current,words){
 
 // ── UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 ①②④ + 명진 11/15 13:37): 운영자 쪽 '업데이트 소식' 보내기·고치기·거두기·시작 날짜.
 // 쓰기는 서버(app_update_news_*)가 운영자만 받는다. 새 소식 알림·점·숫자는 없다(이용자는 메뉴 › 업데이트 소식을 눌러야만 본다).
-const news={admin:null,sent:new Set(),notes:[],root:null};
+const news={admin:null,notes:[],root:null};
 const rpc=(name,body={})=>window.KPTURuntime.api('/rest/v1/rpc/'+name,{method:'POST',body,singleFlight:false});
 async function loadAdmin(){
   try{const value=await rpc('app_update_news_admin');news.admin=value&&Array.isArray(value.items)?value:null}catch{news.admin=null}
-  news.sent=sentVersions(news.admin?.items);
   return news.admin;
 }
-// 기록 줄 버튼 하나의 모양: 보낸 기록이면 [보냄](누르면 거두기), 아니면 [보내기]. 처음 그릴 때·보낸 뒤·거둔 뒤 모두 이 함수만 쓴다.
+// 기록 줄 버튼 하나의 모양: 보낸 기록이면 [보냄](누르면 거두기), 거둔 기록이면 [다시 보내기], 아니면 [보내기].
+// 처음 그릴 때·보낸 뒤·거둔 뒤·다시 보낸 뒤 모두 이 함수만 쓴다. 자동 소식은 기록 파일 이름으로 맞춘다(noteState).
+const noteOf=btn=>({v:btn.dataset.rnSend,file:btn.dataset.rnFile||''});
 function paintSend(btn){
-  const v=btn.dataset.rnSend,done=news.sent.has(v);
-  btn.textContent=done?'보냄':'보내기';btn.classList.toggle('rn-sent',done);
-  btn.setAttribute('aria-label',done?`${v} 이용자에게 보냄 · 눌러서 거두기`:`${v} 이용자에게 보내기`);
+  const v=btn.dataset.rnSend,state=noteState(news.admin?.items,noteOf(btn));
+  btn.textContent=state==='sent'?'보냄':state==='withdrawn'?'다시 보내기':'보내기';btn.classList.toggle('rn-sent',state==='sent');
+  btn.setAttribute('aria-label',state==='sent'?`${v} 이용자에게 보냄 · 눌러서 거두기`:state==='withdrawn'?`${v} 거둔 소식 다시 보내기`:`${v} 이용자에게 보내기`);
 }
 // 거두기 하나: 소식 id들을 기존 서버 함수(app_update_news_withdraw, 운영자만)로 거두고 같은 afterWrite로 다시 그린다.
 async function withdrawNews(anchor,ids,note=''){
   if(!ids.length||!await askConfirm(anchor,{text:WITHDRAW_TEXT,note,ok:'거두기',danger:true}))return;
   try{for(const id of ids)await rpc('app_update_news_withdraw',{p_id:id});void afterWrite('거뒀어요')}
+  catch(error){await loadAdmin();refreshMarks();notify(failLine(error),{record:false,error:true})}
+}
+// 다시 보내기 하나: 거둔 소식 id들을 서버 함수(app_update_news_resend, 운영자만)로 다시 보이게 하고 같은 afterWrite로 다시 그린다.
+async function resendNews(anchor,ids,note=''){
+  if(!ids.length||!await askConfirm(anchor,{text:RESEND_TEXT,note,ok:'다시 보내기'}))return;
+  try{for(const id of ids)await rpc('app_update_news_resend',{p_id:id});void afterWrite('다시 보냈어요')}
   catch(error){await loadAdmin();refreshMarks();notify(failLine(error),{record:false,error:true})}
 }
 function refreshMarks(){
@@ -163,14 +171,19 @@ function paintNews(){
   const write=el('button','mini primary','+ 직접 쓰기');write.type='button';write.dataset.unWrite='';
   const bar=el('div','un-bar');bar.append(cut,write);
   const items=admin.items,at=cutIndex(items,admin.start_on);
-  const sent=el('details','un-sent');sent.open=window.matchMedia?.('(min-width:900px)').matches??false;
+  // 거두기·다시 보내기 뒤 다시 그려도 펼친 상태는 그대로(폰에서 목록이 접혀 버리지 않게).
+  const wasOpen=box.querySelector('.un-sent')?.open;
+  const sent=el('details','un-sent');sent.open=wasOpen??window.matchMedia?.('(min-width:900px)').matches??false;
   const summary=el('summary','un-sent-head');summary.append(el('span',null,'보낸 소식 '),el('span','un-date',String(items.filter(i=>!i.withdrawn_at).length)),el('span','un-date',' · 이용자에게 보이는 그대로'));
   const list=el('div','un-list');
   items.forEach((item,i)=>{
     if(i===at&&admin.start_on)list.append(el('div','un-cutline',`여기부터 위만 이용자에게 보임 (시작 날짜 ${shortDay(admin.start_on)})`));
     const extra=[];
-    if(item.withdrawn_at)extra.push(el('span','un-date','거둠'));
-    else{
+    if(item.auto)extra.push(el('span','un-date','자동'));
+    if(item.withdrawn_at){
+      const again=el('button','mini','다시 보내기');again.type='button';again.dataset.unResend=item.id;
+      extra.push(el('span','un-date','거둠'),again);
+    }else{
       extra.push(el('span','un-date',`읽음 ${item.reads??0}/${admin.users??0}`));
       const edit=el('button','mini','수정');edit.type='button';edit.dataset.unEdit=item.id;
       const pull=el('button','mini','거두기');pull.type='button';pull.dataset.unWithdraw=item.id;
@@ -188,14 +201,17 @@ async function onNewsClick(event){
   const send=event.target.closest?.('[data-rn-send]');
   if(send){
     event.preventDefault();event.stopPropagation();
-    const v=send.dataset.rnSend;
-    if(news.sent.has(v)){const plan=withdrawPlan(news.admin?.items,v);await withdrawNews(send,plan.ids,withdrawNote(plan.others));return true}
+    const v=send.dataset.rnSend,note=noteOf(send),state=noteState(news.admin?.items,note);
+    if(state==='sent'){const plan=withdrawPlan(news.admin?.items,note);await withdrawNews(send,plan.ids,withdrawNote(plan.others));return true}
+    if(state==='withdrawn'){const plan=resendPlan(news.admin?.items,note);await resendNews(send,plan.ids,resendNote(plan.others));return true}
     openSend({versions:[v],trigger:send});return true;
   }
   if(event.target.closest?.('[data-un-write]')){openSend({trigger:event.target});return true}
   if(event.target.closest?.('[data-un-start]')){openStart(event.target);return true}
   const edit=event.target.closest?.('[data-un-edit]');
   if(edit){const item=news.admin?.items.find(i=>i.id===edit.dataset.unEdit);if(item)openSend({item,trigger:edit});return true}
+  const again=event.target.closest?.('[data-un-resend]');
+  if(again){await resendNews(again,[again.dataset.unResend]);return true}
   const pull=event.target.closest?.('[data-un-withdraw]');
   if(pull){
     await withdrawNews(pull,[pull.dataset.unWithdraw]);
