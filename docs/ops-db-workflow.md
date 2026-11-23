@@ -48,7 +48,7 @@ dry-run도 운영 DB에 접속해야 하고, 그 열쇠(`SUPABASE_ACCESS_TOKEN`)
 
 엄격 규칙(아래 "2단계 모드와 파일 검사")을 먼저 적용하고, 거절되면 확장 규칙(`scripts/ops/db-migration-expanded.mjs`)으로 다시 본다. 확장 규칙은 정책·표 권한·트리거·함수를 받되 **권한이 넓어질 수 있는 모양은 계속 거절**한다. 거절하면 plan summary에 고정 사유 한 줄만 쓴다(SQL·자료 없음).
 
-허용: 새 public 표(같은 파일에서 RLS 켜기 필수), 인덱스, ALTER TABLE(아래 제외), 새 표에 대한 정책(대상 `authenticated`·`service_role`만), restrictive 정책(좁히기만 함), 새 표·새 함수에 대한 `authenticated`·`service_role` 권한 부여, 모든 REVOKE(좁히기), public·private 함수(언어 sql/plpgsql, 같은 파일에서 PUBLIC·anon 실행권 회수 필수, SECURITY DEFINER는 search_path 고정 필수), 이번 파일의 함수를 쓰는 public 표 트리거, 읽기 전용 DO 확인, WHERE 있는 UPDATE/DELETE, migration 기록 INSERT(마지막 문장, version/name 일치).
+허용: 새 public 표(같은 파일에서 RLS 켜기 필수), 인덱스, ALTER TABLE(아래 제외), 새 표에 대한 정책(대상 `authenticated`·`service_role`만), restrictive 정책(좁히기만 함), 새 표·새 함수에 대한 `authenticated`·`service_role` 권한 부여, 기존 표에서 이번 파일이 더한 칸에 대한 `authenticated` 칸 단위 권한(아래 "기존 표의 새 칸 권한"), 모든 REVOKE(좁히기), public·private 함수(언어 sql/plpgsql, 같은 파일에서 PUBLIC·anon 실행권 회수 필수, SECURITY DEFINER는 search_path 고정 필수), 이번 파일의 함수를 쓰는 public 표 트리거, 읽기 전용 DO 확인, WHERE 있는 UPDATE/DELETE, migration 기록 INSERT(마지막 문장, version/name 일치).
 
 거절 목록(시험: `tests/security/db-migration-expanded.test.mjs`):
 
@@ -57,7 +57,7 @@ dry-run도 운영 DB에 접속해야 하고, 그 열쇠(`SUPABASE_ACCESS_TOKEN`)
 | anon·PUBLIC(또는 authenticated·service_role 밖 역할)에 표·열·함수·스키마 권한 부여 | `grant-anon-public` |
 | 역할 멤버십 부여, 스키마 전체(`all tables in schema`)·schema·sequence 권한 | `grant-bulk` |
 | WITH GRANT OPTION | `grant-option` |
-| 이번 파일에서 만들지 않은 기존 표·함수에 권한 추가 | `grant-existing` |
+| 이번 파일에서 만들지 않은 기존 표·함수에 권한 추가(예외: 아래 "기존 표의 새 칸 권한") | `grant-existing` |
 | RLS 끄기·force 해제 | `rls-disable` |
 | RLS를 켜지 않은 새 public 표(기본 anon 권한 노출) | `table-without-rls` |
 | PUBLIC·anon 실행권 회수 없는 새·교체 함수(SECURITY DEFINER 포함) | `function-revoke-missing` |
@@ -74,6 +74,10 @@ dry-run도 운영 DB에 접속해야 하고, 그 열쇠(`SUPABASE_ACCESS_TOKEN`)
 | drop table/schema·truncate·role·extension·default privileges·copy·call·dblink·파일 읽기·set role | `blocked-command` |
 | CREATE TABLE … AS(자료 복사), WHERE 없는 UPDATE/DELETE, rtw_ 언급, 중간 commit | `create-table-as`, `where-missing`, `rtw`, `transaction-control` |
 | 짝 파일 없음, snapshot이 카탈로그 밖을 읽음 | `pair-missing`, `snapshot-rows` |
+
+### 기존 표의 새 칸 권한 (S68-42)
+
+기존 표라도 **같은 파일이 `alter table public.<표> add column <칸>`으로 먼저 만든 칸에만** `authenticated` 하나에 칸 단위 `select`·`insert`·`update`를 주는 grant는 받는다(그 칸들은 이전에 권한이 없었으므로 기존 칸 권한은 그대로). 기존 칸이 하나라도 섞임·`add column if not exists`·anon·PUBLIC·`service_role`·표 전체 grant·delete/truncate/references/trigger·WITH GRANT OPTION·두 표 이상·같은 파일에서 그 칸 이름을 drop·다시 add·rename·다른 표의 새 칸 이름 빌리기·grant가 add column보다 먼저·같은 파일에서 그 표에 생성 칸(`generated`·`set expression`)·INSERT/UPDATE/DELETE·트리거(기존 칸 값을 새 칸에 복사할 수 있음)면 `grant-existing`(또는 기존 사유)으로 거절하고, RLS 끄기는 `rls-disable`로 거절한다. 승인 뒤 쓰기 전에 운영 `pg_catalog.pg_class`에서 그 표의 RLS가 켜져 있는지 읽기 전용으로 확인하고, 꺼져 있거나 확인할 수 없으면 아무것도 쓰지 않고 멈춘다.
 
 ### 정책 교체 (OPS-DB워크플로정책교체)
 

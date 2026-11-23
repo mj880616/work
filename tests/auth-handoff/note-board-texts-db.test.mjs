@@ -1,7 +1,7 @@
 // Fresh local PostgreSQL only. No Supabase, Google, OpenAI or production credentials. All data synthetic.
 // S68-38c 노트 보드 글 상자·선 곡선 DB(20261123120000_note_board_texts): 글 상자 소유자만, 연결선 끝은 노트 또는 같은 작업공간·같은 보드의 글 상자 정확히 하나,
 // 곡선 지나는 점(두 끝점 기준 상대 위치), 글 상자 삭제 시 선 정리, 되돌리기 뒤 옛 모양 그대로.
-// 이 파일은 기존 표(app_note_board_links)에 칸 권한을 더하므로 승인형 DB workflow 확장 규칙이 grant-existing으로 받지 않는다 → SQL Editor 적용(시험도 그 길로 적용).
+// 기존 표(app_note_board_links)에 이 파일이 더한 칸에만 칸 권한을 주므로 승인형 DB workflow 확장 규칙이 받는다(S68-42). 시험은 파일을 그대로 적용한다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';
@@ -54,9 +54,10 @@ test('note board texts db: precheck, apply, owner-only texts, note|text ends, be
   const insLink="insert into public.app_note_board_links(workspace_id,board_id,from_note,to_note,from_text,to_text,shape,bend_x,bend_y) values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id";
   const link=(ws,board,{fn=null,tn=null,ft=null,tt=null,shape='line',bx=null,by=null})=>[ws,board,fn,tn,ft,tt,shape,bx,by];
 
-  await t.test('files: pair files, summary 3 lines, workflow refuses only for existing-table column grants (SQL Editor path)',()=>{
+  await t.test('files: pair files, summary 3 lines, approved workflow accepts the new-column grants (S68-42)',()=>{
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
-   assert.throws(()=>prepareMigration({mode:'apply',version,runId:'1',root}),/grant-existing/);
+   const plan=prepareMigration({mode:'apply',version,runId:'1',root});
+   assert.equal(plan.rules,'expanded');assert.equal(plan.flow,'full');assert.deepEqual(plan.newColumnGrantTables,['app_note_board_links']);
    const lines=summary.trim().split('\n');
    assert.equal(lines.length,3);['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((p,i)=>assert.ok(lines[i].startsWith(p)));
    const code=migration.replace(/--.*$/gm,'');
