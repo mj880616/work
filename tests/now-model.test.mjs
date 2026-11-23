@@ -371,6 +371,17 @@ test('hand url: addresses inside a paragraph become link pieces; trailing punctu
 
 // S68-49(명진 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 봇 확인(bot_check)·robots 실패도 [원문 다시 가져오기], 두 갈래 같다.
 // 열 때 저절로 다시 읽는 것(reopenBody)은 그대로 — 봇 확인은 누를 때만. 손 본문(manual@1)은 다시 읽지 않는다.
+test('S68-52: canRefetch — 뉴스 글인데 유료벽이 아니고 리드만 남은 글(lead·no_body)도 단추, 유료벽 리드·손 본문·사회운동 글은 아님', async () => {
+  const {canRefetch, reopenBody} = await import('../app/now-model.mjs');
+  assert.equal(canRefetch({state: 'lead', reason: 'no_body'}, 'news'), true);
+  assert.equal(canRefetch({state: 'lead', reason: 'no_body'}, 'outside'), false, '사회운동 reread는 실패 본문만 다시 읽음');
+  assert.equal(canRefetch({state: 'lead', reason: 'no_body'}), false);
+  assert.equal(canRefetch({state: 'lead', reason: 'paywall'}, 'news'), false, '유료벽은 넘지 않음');
+  assert.equal(canRefetch({state: 'lead', reason: null}, 'news'), false);
+  assert.equal(canRefetch({state: 'lead', reason: 'no_body', rule: 'manual@1'}, 'news'), false, '손 본문은 사람 것');
+  assert.equal(canRefetch({state: 'failed', reason: 'bot_check'}, 'outside'), true, '실패 본문은 두 갈래 같음');
+  assert.equal(reopenBody({state: 'lead', reason: 'no_body'}), false, '열 때 저절로 다시 읽지는 않음');
+});
 test('S68-49: canRefetch — bot_check·robots·늦은 답·사이트 오류 실패면 단추, 손 본문·읽힌 본문·없는 글은 아님', async () => {
   const {canRefetch, reopenBody} = await import('../app/now-model.mjs');
   for (const reason of ['bot_check', 'robots', 'timeout', 'http_5xx']) assert.equal(canRefetch({state: 'failed', reason}), true, reason);

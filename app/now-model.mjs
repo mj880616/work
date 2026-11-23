@@ -158,7 +158,11 @@ export const reopenBody = row => row?.state === 'failed' && REOPEN_REASONS.has(r
 // 봇 확인은 열 때마다 저절로 다시 읽지 않고(사이트 부담·같은 결과) 사람이 누를 때만 한 번(서버 길: 뉴스 news-feed open · 사회운동 outside-feed reread).
 // 뉴스·사회운동 두 갈래 같다. 손으로 넣은 본문(manual@1 — 비운 손 본문도 실패 줄)은 사람 것이라 다시 읽지 않는다.
 const REFETCH_REASONS = new Set([...REOPEN_REASONS, 'bot_check']);
-export const canRefetch = row => row?.state === 'failed' && REFETCH_REASONS.has(row?.reason) && row?.rule !== HAND_RULE;
+// S68-52(명진 11/23 14:48 조선일보 글): 유료벽이 아닌데 본문 칸을 못 뽑아 메타 설명(리드)만 남은 글(state lead · reason no_body)도 단추 —
+// 본문 추출기가 페이지 안 공개 구조화 본문(JSON-LD·Arc)을 읽게 되어 다시 읽으면 전문이 올 수 있다. 유료벽 리드(reason paywall)는 그대로 없음(넘지 않음).
+// 뉴스 갈래만(type 'news'): 서버 news-feed open은 전문이 아닌 글을 다시 읽지만, 사회운동 outside-feed reread는 실패 본문만 다시 읽는다(앞부분이면 'stored').
+const leadOnly = row => row?.state === 'lead' && row?.reason === 'no_body';
+export const canRefetch = (row, type = '') => (row?.state === 'failed' && REFETCH_REASONS.has(row?.reason) || type === 'news' && leadOnly(row)) && row?.rule !== HAND_RULE;
 // 요약 서버(ai-assist now_detail)의 '재료 없음'(422 no_material)인가 — 판단은 이 함수 하나(S68-49).
 // 서버 답 {error:'no_material', message:'AI 요청을 처리하지 못했어요.'}: 화면 요청 도구는 message를 오류 글로 쓰고 error 칸은 serverCode에 둔다.
 // 예전 판단(message에 'no_material'이 드는가)은 운영 답에서 늘 거짓이라 요약 칸에 빨간 'HTTP 422'가 보였다(11/23 캡처).

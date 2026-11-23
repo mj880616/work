@@ -63,7 +63,7 @@ export const setArea = (id, areaId) => patchItem(id, {business_area_id: areaId |
 
 // ---- 원문 받아 오기(차례로 하나씩) ----
 // S68-32: News에서 온 줄(원래 글 연결 칸)은 먼저 News 쪽 본문(공용 본문 표 — News 화면과 같은 읽기 길 feed-shared.js readBody·readSentences)을 본다.
-// 이미 채워져 있으면 그 본문을 사본으로 넣고 끝(note-import 하루 횟수를 쓰지 않음). 없거나 못 읽으면 원래 글 주소로 note-import(기존 길).
+// 전문이 채워져 있으면 그 본문을 사본으로 넣고 끝(note-import 하루 횟수를 쓰지 않음). 없거나 못 읽거나 앞부분뿐이면 원래 글 주소로 note-import(기존 길).
 async function newsCopy(row) {
   const link = linkOf(row);
   if (!link) return null;
@@ -88,16 +88,21 @@ export function fetchBody(row) {
     emit({id: row.id, kind: 'fetching'});
     const copy = await newsCopy(row);
     if (me() !== owner) return {state: 'skipped'};
-    if (copy) {
+    const saveCopy = async () => {
       try { const saved = await patchItem(row.id, copy); return {state: 'ok', row: saved}; }
       catch (e) { return {state: 'request', reason: e?.code === 'gone' ? 'gone' : requestFailReason(e)}; }
-    }
+    };
+    // S68-52: News 쪽 본문이 전문이면 그것으로 끝. 앞부분(리드)뿐이면 원래 주소로 한 번 더 읽어 보고, 전문을 못 받으면 그 앞부분을 넣는다
+    // (조선일보처럼 News 수집 때 본문을 못 뽑아 리드만 남은 글 — 예전에는 다시 눌러도 늘 같은 리드만 다시 넣었다).
+    if (copy && copy.body_state === 'ok') return saveCopy();
     let result;
     try { result = await rt().api(FN, {method: 'POST', body: {url: row.url}, singleFlight: false, timeoutMs: REQUEST_TIMEOUT_MS}); }
-    catch (e) { return {state: 'request', reason: requestFailReason(e)}; }
+    catch (e) { return copy ? saveCopy() : {state: 'request', reason: requestFailReason(e)}; }
     if (me() !== owner) return {state: 'skipped'};
+    const patch = keepOwn(row, bodyPatch(result));
+    if (copy && patch.body_state !== 'ok') return saveCopy();
     try {
-      const saved = await patchItem(row.id, keepOwn(row, bodyPatch(result)));
+      const saved = await patchItem(row.id, patch);
       return {state: saved.body_state === 'ok' || saved.body_state === 'paywall' ? 'ok' : 'failed', row: saved};
     } catch (e) { return {state: 'request', reason: e?.code === 'gone' ? 'gone' : requestFailReason(e)}; }
   }).finally(() => { running.delete(row.id); emit({id: row.id, kind: 'fetched'}); });

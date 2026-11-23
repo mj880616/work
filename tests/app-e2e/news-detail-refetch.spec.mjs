@@ -9,8 +9,8 @@ const P1 = 'a1000000-0000-4000-8000-000000000041';
 const POST = { id: P1, source_key: 'kctu', kind: 'statement', lang: 'ko', title: '가상 막힌 글', title_ko: null, url: 'https://nodong.org/statement/41', published_at: '2026-11-19T00:30:00Z', fetched_at: '2026-11-19T00:40:00Z', summary_ko: null, key_sentences: [], has_body: false, author: null };
 const DETAIL = { level: 'full', summary: '가상 본문 요약.', key_sentences: [], relevance: null, implications: { kptu: '가상 시사점.', labor: '' }, related: [], generated_at: '2026-11-23T03:00:00Z', context_at: null };
 
-async function server(page, { rereadStatus = 200 } = {}) {
-  const s = { body: { state: 'failed', reason: 'robots', blocks: [] }, rereads: [], ai: 0 };
+async function server(page, { rereadStatus = 200, body0 = { state: 'failed', reason: 'robots', blocks: [] }, after = null } = {}) {
+  const s = { body: body0, rereads: [], ai: 0 };
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
@@ -18,7 +18,7 @@ async function server(page, { rereadStatus = 200 } = {}) {
       if (u.searchParams.get('action') === 'reread') {
         s.rereads.push(req.postDataJSON?.());
         if (rereadStatus !== 200) return ok({ ok: false, error: 'DAILY_LIMIT' }, rereadStatus);
-        s.body = { state: 'ok', reason: null, blocks: [{ t: 'p', text: '가상 다시 읽은 본문 문단.' }] };
+        s.body = after || { state: 'ok', reason: null, blocks: [{ t: 'p', text: '가상 다시 읽은 본문 문단.' }] };
         return ok({ ok: true, status: 'ok' });
       }
       return ok({ ok: true, sources: [{ key: 'kctu', name: '민주노총', group: 'labor', lang: 'ko' }] });
@@ -102,3 +102,17 @@ test('읽을 거리 상세: 다시 가져오기 하루 한도 → 까닭 한 줄
   await expect(nd(page).locator('[data-nd-prose]')).toHaveCount(0);
   expect(errors.filter(e => !/429/.test(e))).toEqual([]);
 });
+
+// S68-52: 뉴스 기사는 리드만 남은 글(lead·no_body)도 단추(news-lead-refetch.spec). 사회운동 글은 서버 reread가 실패 본문만 다시 읽으므로 앞부분 글에는 단추가 없다.
+for (const reason of ['no_body', 'paywall']) {
+  test(`읽을 거리 상세: 사회운동 글의 앞부분(lead·${reason})에는 단추가 없다`, async ({ page }) => {
+    test.setTimeout(60000);
+    const { s } = await start(page, 1280, { body0: { state: 'lead', reason, blocks: [{ t: 'p', text: `가상 앞부분 ${reason}.` }] } });
+    await open(page);
+    const d = nd(page);
+    await expect(d.locator('[data-nd-prose] p')).toHaveText([`가상 앞부분 ${reason}.`]);
+    await expect(d.locator('[data-nd-body] [data-nd-why]')).toBeVisible();
+    await expect(d.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
+    expect(s.rereads).toEqual([]);
+  });
+}

@@ -18,7 +18,7 @@ export type Extracted = {
   state: BodyState; reason: BodyReason | null; rule: string | null;
   blocks: Block[]; chars: number; images: number; captions: number;
   text: string; // 글자 블록(p·h·quote)을 줄로 이은 것 — 문장 표·뉴스 body·AI 재료
-  scope?: string | null; // 본문 칸을 어디서 골랐나(probe 숫자·코드용, 저장 안 함): own·article·common·body·*_form·fragment·text·page_rule(S51-15 다시 뽑음)
+  scope?: string | null; // 본문 칸을 어디서 골랐나(probe 숫자·코드용, 저장 안 함): own·article·common·body·*_form·fragment·text·page_rule(S51-15 다시 뽑음)·json_ld·json_arc(S68-52 페이지 안 구조화 본문)
   cut?: string | null;   // 본문이 어디서 끝났나(probe 코드용, 저장 안 함): list·prev_next·comment·related·share·copyright·edit·rule, 끝 표시 없으면 null
 };
 
