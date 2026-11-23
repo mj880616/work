@@ -28,9 +28,9 @@ test('WORK ON+ 폰 412: 하단바·[메뉴] 창·머리줄 이름이 그대로�
   await page.setViewportSize({width:412,height:900});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await openHome(page,{menuLayout:null});await settle(page);
-  expect(await texts(page,'#appView .mobile-tabs button[data-view] span, #appView .mobile-tabs button[data-basket-kind-nav] span')).toEqual(['홈','노트','일정','조직 관리','사업 관리']);
+  expect(await texts(page,'#appView .mobile-tabs button[data-view] span, #appView .mobile-tabs button[data-basket-kind-nav] span')).toEqual(['홈','노트','일정','자료실','사진']); // S68-37: 새 계정 하단바
   const sheet=await texts(page,'#mobileMenu nav[aria-label="더 보기"] button span');
-  expect(sheet).toEqual(expect.arrayContaining(['잊지 말기','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진']));
+  expect(sheet).toEqual(expect.arrayContaining(['잊지 말기','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','공유 페이지']));
   for(const [view,name] of [['team','조직 관리'],['meetings','사업 관리']]){
     await page.evaluate(v=>window.KPTURouter.go(v),view);
     await expect(page.locator('[data-mobile-view-name]')).toHaveText(name);

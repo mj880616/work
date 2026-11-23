@@ -3,7 +3,7 @@ import {openHome, OPERATOR_MENU_FEATURES} from './helpers/home-entry.mjs';
 import {accountButton} from './helpers/shell-navigation.mjs';
 // MULTI-처음쓰는사람 ④(docs/design/new-user-start.md 2-1): 메뉴는 서버 운영자 기능 답(app_my_features)에 따라 목록에서 뺀다(숨김이 아니라 빼기).
 // - 새 계정(기능 없음): 통화·텔레그램 소식·아스날·News가 PC 왼쪽 메뉴·폰 [메뉴] 창·메뉴 편집 어디에도 없다.
-// - S62-11 MULTI-구글드라이브사진모두(명진 결정): [파일]은 모두에게 — 새 계정에도 자료실 바로 아래에 있다(각자 자기 드라이브만, 서버가 막음).
+// - S62-11 MULTI-구글드라이브사진모두(명진 결정): [파일]은 모두에게 — 새 계정에도 위 메뉴에 있다(각자 자기 드라이브만, 서버가 막음).
 // - 운영자 계정(명진): 지금 메뉴 그대로(원장만 빠짐).
 // - 원장은 모든 계정 메뉴에서 빠지지만, 화면은 그대로 열린다(다른 화면에서 여는 길).
 // - 답을 못 받으면(서버 오류) 아무것도 빼지 않는다(운영자 메뉴가 잠깐 사라지지 않게).
@@ -23,12 +23,12 @@ for(const width of [1280,760,412]){
   test(`새 계정 (${width}px): 운영자 메뉴·원장은 메뉴 목록에 없고, 메뉴 편집에도 없다`,async({page})=>{
     await page.setViewportSize({width,height:900});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    // MULTI-하단바기본노트: 새 계정은 저장된 메뉴 순서가 없다(menuLayout: null) — 하단바 홈·노트·일정·조직 보고·사업 보고, 잊지 말기는 [메뉴] 창 맨 앞.
+    // MULTI-하단바기본노트: 새 계정은 저장된 메뉴 순서가 없다(menuLayout: null) — 하단바 홈·노트·일정·자료실·사진(S68-37), 잊지 말기는 [메뉴] 창 맨 앞.
     await openHome(page,{features:[],menuLayout:null});await settle(page);
     await expect.poll(async()=>{const p=await placed(page);return [...p.sheet,...p.pc].filter(v=>OP.includes(v)||v==='ledger')}).toEqual([]);
     const p=await placed(page);
-    expect(p.sheet).toEqual(['basket','reading','library','files','brief','hwp','pages','photos']);
-    expect(p.bar).toEqual(['home','note','calendar','team','meetings']);
+    expect(p.sheet).toEqual(['basket','reading','team','meetings','files','brief','hwp','pages']);
+    expect(p.bar).toEqual(['home','note','calendar','library','photos']);
     expect(page.locator('#mobileMenu [data-menu-tail-line]')).toHaveCount(0);
     // 메뉴 편집 창: 뺀 메뉴는 칸에도 미리보기에도 없다.
     await accountButton(page).click();

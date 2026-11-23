@@ -7,8 +7,8 @@ const app=testOrigin+'/app/';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // 8-9e-2: 폰 하단 탭 6칸 중 화면 탭 다섯(메뉴 탭은 메뉴 창을 연다). 할 일은 [일정] 탭의 [할 일] 쪽.
 // MTG-프로젝트합치기 3단계: 사업영역 관리는 [사업 보고] 화면 ⋯ 안에서 연다.
-// MULTI-하단바기본노트: 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·조직 보고·사업 보고. [노트] 칸은 화면 이름이 아니라 노트 쪽 열기(data-basket-kind-nav)라 아래에서 따로 본다.
-const tabs=['home','calendar','team','meetings'];
+// MULTI-하단바기본노트·S68-37: 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·자료실·사진. [노트] 칸은 화면 이름이 아니라 노트 쪽 열기(data-basket-kind-nav)라 아래에서 따로 본다.
+const tabs=['home','calendar','library','photos'];
 async function open(page,url=app+'?view=home',{operator=false}={}){
   const user={id:'home-qa',email:'home-qa@example.org'};
   await page.route(`${SB}/**`,route=>{
@@ -43,7 +43,7 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   await expect(page.locator('#mobileMenuTab')).toBeVisible({visible:mobile});
   await expect(page.locator('#appView>.app-nav')).toBeVisible({visible:!mobile});
   if(mobile){
-    expect(await page.locator('.mobile-tabs > button:not(#mobileMenuTab)').evaluateAll(ns=>ns.map(n=>n.dataset.view||n.dataset.basketKindNav))).toEqual(['home','note','calendar','team','meetings']);
+    expect(await page.locator('.mobile-tabs > button:not(#mobileMenuTab)').evaluateAll(ns=>ns.map(n=>n.dataset.view||n.dataset.basketKindNav))).toEqual(['home','note','calendar','library','photos']);
     const box=await page.locator('.mobile-tabs').boundingBox();expect(box.y+box.height).toBe(844);expect(box.height).toBe(48); // S48-6 하단바 44px → S49-8 UI-하단바위여백: 아이콘 위 4px 더해 48px
     for(const view of tabs){
       const tab=page.locator(`.mobile-tabs [data-view="${view}"]`),r=await tab.boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
@@ -78,8 +78,8 @@ test('drawer consumes history before navigation, theme and logout',async({page})
     if(close==='back')await page.goBack();
     await expect(drawer).toBeHidden();await expect(page.locator('#homeView')).toBeVisible();
   }
-  // 사업 보고는 하단바로 옮겨 메뉴 창에 없으므로 메뉴 창의 자료실로 본다.
-  await trigger.click();await page.locator('#mobileMenu [data-view="library"]').click();await expect(page.locator('#libraryView')).toBeVisible();
+  // S68-37: 자료실은 처음 하단바 칸이라 메뉴 창에 없으므로 메뉴 창의 공유 페이지로 본다.
+  await trigger.click();await page.locator('#mobileMenu [data-view="pages"]').click();await expect(page.locator('#pagesView')).toBeVisible();
   await page.goBack();await expect(page.locator('#homeView')).toBeVisible();await expect(drawer).toBeHidden();
   await expect(trigger).toBeFocused();
   await trigger.click();await page.locator('#mobileMenu [data-theme-open]').click();await expect(page.locator('#themeModal')).toBeVisible();
@@ -131,13 +131,13 @@ test('KST date crosses the day boundary independently of the browser timezone',a
   await page.clock.setFixedTime(new Date('2026-10-05T16:00:00Z'));await open(page);
   await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 6일 화요일');
 });
-test('drawer library item opens once and the account box has no copy-refresh row',async({page})=>{
+test('drawer item (공유 페이지) opens once and the account box has no copy-refresh row',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
-  // The retired 성명·보도자료 item is gone from the drawer; 자료실 opens with one header name.
+  // The retired 성명·보도자료 item is gone from the drawer; a drawer item opens with one header name. S68-37: 자료실은 하단바 칸이라 공유 페이지로 본다.
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-mobile-press]')).toHaveCount(0);
   await expect(page.locator('#mobileMenu [data-view="media"]')).toHaveCount(0);
-  await page.locator('#mobileMenu [data-view="library"]').click();
-  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('자료실');
+  await page.locator('#mobileMenu [data-view="pages"]').click();
+  await expect(page.locator('#pagesView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('공유 페이지');
   await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
   let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:'{}'})});
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-drive-summary-refresh]')).toHaveCount(0);

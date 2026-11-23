@@ -69,9 +69,9 @@ test('지우기는 달 목록에서 빼고 되돌리면 같은 자리로', () =>
   assert.equal(takePhoto(undefined, item), null);
 });
 
-test('메뉴 한 줄·화면 연결: [사진]은 [메뉴] 창 안, 크게 보기·선택 모드·아이콘·[－][＋]는 공용 부품, 기기 저장 없음', () => {
-  assert.ok(ITEMS.some(i => i.id === 'photos' && i.view === 'photos' && i.label === '사진'));
-  assert.ok(defaultLayout().rest.includes('photos') && !defaultLayout().bar.includes('photos'));
+test('메뉴 한 줄·화면 연결: [사진]은 처음 하단바 칸(S68-37), 크게 보기·선택 모드·아이콘·[－][＋]는 공용 부품, 기기 저장 없음', () => {
+  assert.ok(ITEMS.some(i => i.id === 'photos' && i.view === 'photos' && i.label === '사진' && !i.feature));
+  assert.ok(defaultLayout().bar.includes('photos') && !defaultLayout().rest.includes('photos'));
   const screen = read('app/photos.js'), diary = read('app/diary.js'), strip = read('app/photo-strip.js');
   for (const part of ["from './photo-strip.js'", "from './select-mode.js'", "from './od-link.js'", "from './photo-grid-size.js'", "from './small-notice.js'"]) assert.ok(screen.includes(part), part);
   assert.ok(diary.includes("from './photo-strip.js'"), '일기도 같은 크게 보기');
