@@ -61,7 +61,7 @@ for (const [width, height] of WIDTHS) {
       expect(out.tabCurrent).toBe(0);
     }
 
-    // C6 메뉴 창(폰): 메뉴 줄 → 계정(맨 아래), 줄마다 그은 선 없음. 761px~는 서랍 없이 PC 틀(왼쪽 메뉴, UI-폴드PC틀 #1548).
+    // C6 메뉴 창(폰): 계정(맨 위, S68-36) → 메뉴 줄(맨 아래), 줄마다 그은 선 없음. 761px~는 서랍 없이 PC 틀(왼쪽 메뉴, UI-폴드PC틀 #1548).
     if (width <= 760) {
       await page.locator('#mobileMenuTab').click();
       await expect(page.locator('#mobileMenu')).toBeVisible();
@@ -69,11 +69,11 @@ for (const [width, height] of WIDTHS) {
         const btns = [...document.querySelectorAll('#mobileMenu .mobile-menu-panel nav button')].filter(b => b.getClientRects().length);
         const lines = btns.filter(b => parseFloat(getComputedStyle(b).borderTopWidth) > 0).length;
         const nav = document.querySelector('#mobileMenu .mobile-menu-panel nav').getBoundingClientRect(), acc = document.querySelector('#mobileAccountGroup');
-        return {lines, accountBelow: acc.getBoundingClientRect().top >= nav.bottom - 1};
+        return {lines, accountAbove: acc.getBoundingClientRect().bottom <= nav.top + 1};
       });
-      out.menuRowLines = m.lines; out.menuAccountBelow = m.accountBelow;
+      out.menuRowLines = m.lines; out.menuAccountAbove = m.accountAbove;
       expect(m.lines, '메뉴 줄마다 그은 선').toBe(0);
-      expect(m.accountBelow, '계정은 메뉴 줄 아래').toBe(true);
+      expect(m.accountAbove, '계정은 메뉴 줄 위').toBe(true);
       await page.screenshot({path: `${DIR}/c-menu-${width}.png`});
       await page.keyboard.press('Escape');
     }

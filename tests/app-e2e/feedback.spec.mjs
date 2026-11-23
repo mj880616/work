@@ -59,8 +59,8 @@ for(const width of [412,880,1280])test(`이용자: 메뉴 맨 아래 의견 보�
   await expect(panel.locator('[data-feedback-inbox]')).toBeHidden();
   const entry=panel.locator('[data-feedback-open]');
   await expect(entry).toBeVisible();
-  // 맨 아래: 의견 보내기 바로 다음이 로그아웃
-  expect(await entry.evaluate(b=>b.nextElementSibling?.textContent?.trim())).toBe('로그아웃');
+  // 설정 줄 맨 끝(S68-36): 이용자에게는 의견 보내기 다음에 보이는 줄이 로그아웃뿐(운영 줄은 운영자만).
+  expect(await entry.evaluate(b=>{const rows=[...b.closest('.account-panel,#mobileAccountGroup').querySelectorAll('.account-action')].filter(el=>el.getClientRects().length);return rows.slice(rows.indexOf(b)+1).map(el=>el.textContent.trim());})).toEqual(['로그아웃']);
   await entry.click();
   const modal=page.locator('#feedbackModal');
   await expect(modal).toBeVisible();

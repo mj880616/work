@@ -52,10 +52,14 @@ const accounts=logoutButtons.map(logout=>{
   const lockRow=document.createElement('button');lockRow.type='button';lockRow.className='account-action';lockRow.dataset.lockOpen='';lockRow.textContent='잠금';
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
-  logout.before(host);host.append(trigger);panel.append(...[profile,updates,whatsnew,appInstall,appDl,menuEdit,theme,lockRow,signups,inbox,feedback,logout].filter(Boolean));document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(...settingsRows({profile,whatsnew,appInstall,appDl,menuEdit,theme,lockRow,feedback}),...opsRows({updates,signups,inbox}),logout);document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
   return {host,trigger,panel,profile,updates,whatsnew,appInstall,appDl,menuEdit,theme,lockRow,signups,inbox,feedback,nativePopover};
 });
+// S68-36 메뉴 창 정리(명진 11/23 확정): 계정 줄은 두 묶음 — 자주 안 쓰는 설정 링크(내 프로필 · 쓰는 법 · 업데이트 소식 · 메뉴 수정 · 화면 색 · 잠금 · 의견 보내기)
+// 다음에 운영자 줄(업데이트 기록 · 가입자 현황 · 받은 의견 — 보이는 조건은 그대로 서버 기능 확인 결과), 맨 끝 로그아웃. PC 계정 메뉴도 같은 순서.
+function settingsRows(a,help=null){return [a.profile,help,a.whatsnew,a.appInstall,a.appDl,a.menuEdit,a.theme,a.lockRow,a.feedback].filter(Boolean)}
+function opsRows(a){return [a.updates,a.signups,a.inbox]}
 // APP-앱내려받기버튼: 계정 메뉴의 '앱 내려받기' 줄 하나(사이드바·위쪽 계정 메뉴가 같은 모양). 주소는 배포 때 정한 최신 폰 앱 판(app/phone-app.json)을 읽어 채운다.
 // BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 PC 보조 프로그램(WORK ON+ 파일 올리기) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
 function appDownloadRow(){
@@ -115,9 +119,9 @@ const mobileAccount=accounts[0];
 const mobileTab=document.querySelector('#mobileMenuTab');
 const menuButton=()=>mobileTab;
 let mobileOpen=false,mobileClosing=false,mobileOpener=null;
-// S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, PR 1708 질문 4): the sheet reads top to bottom — search, the menu rows, the account line
-// last — and is only as tall as its content. A sheet taller than the screen opens at its top (the search field whole) and scrolls inside.
-const sheetToTop=()=>{if(mobilePanel)mobilePanel.scrollTop=0};
+// S68-36 메뉴 창 정리(명진 11/23 확정, S48-6b 순서를 바꿈): 위에서부터 손잡이 → 설정 링크 묶음 → 운영 줄(+ 로그아웃) → 선 → 전체 검색 → 메뉴 칸.
+// 메뉴 칸이 맨 아래(하단바 바로 위, 엄지 닿는 곳). 판 높이는 내용만큼이고, 화면보다 길면 아래 끝에 맞춰 열려 메뉴 칸이 먼저 보인다(판 안 스크롤).
+const sheetToBottom=()=>{if(mobilePanel)mobilePanel.scrollTop=mobilePanel.scrollHeight};
 
 // One close control: the × in the sheet head, drawn as the sheet's grip on a phone.
 const closeControl=()=>mobilePanel?.querySelector('[data-mobile-menu-close]')||mobilePanel;
@@ -196,12 +200,14 @@ helpRow.addEventListener('click',()=>closeAccount(()=>openHelp()));
 function syncMobile(){
   if(!mobileGroup||!mobileAccount)return;
   if(!menuQuery.matches&&mobileOpen)closeMobile();
-  const target=menuQuery.matches?mobileGroup:mobileAccount.panel;
-  if(mobileAccount.theme.parentElement!==target){
+  const phone=menuQuery.matches,settings=mobileGroup.querySelector('[data-menu-settings]')||mobileGroup,ops=mobileGroup.querySelector('[data-menu-ops]')||mobileGroup;
+  const home=phone?settings:mobileAccount.panel;
+  if(mobileAccount.theme.parentElement!==home){
     if(activeAccount)closeAccount();
-    target.append(...[mobileAccount.profile,mobileAccount.updates,mobileAccount.whatsnew,mobileAccount.appInstall,mobileAccount.appDl,mobileAccount.menuEdit,mobileAccount.theme,mobileAccount.lockRow,mobileAccount.signups,mobileAccount.inbox,mobileAccount.feedback,logoutButtons[0]].filter(Boolean));
+    // 폰: 설정 링크 묶음(내 프로필 바로 다음 '쓰는 법') / 운영 줄 + 로그아웃. PC: 계정 메뉴 한 목록에 같은 순서(쓰는 법은 왼쪽 메뉴 맨 아래에 있어 빼고).
+    if(phone){settings.append(...settingsRows(mobileAccount,helpRow));ops.append(...opsRows(mobileAccount),logoutButtons[0])}
+    else{helpRow.remove();mobileAccount.panel.append(...settingsRows(mobileAccount),...opsRows(mobileAccount),logoutButtons[0])}
   }
-  if(menuQuery.matches){if(helpRow.previousElementSibling!==mobileAccount.profile)mobileAccount.profile.after(helpRow)}else helpRow.remove();
   syncKeyboard();
 }
 // UI-업데이트기록입구 → UPDATE-운영자전용기록업데이트소식 PR1: 계정 메뉴(폰은 메뉴 판)를 처음 열 때 운영자인지 서버에 한 번 묻고,
@@ -234,8 +240,8 @@ function openMobile(trigger){
   if(!menuQuery.matches||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
   fillVersion();
   mobileOpen=true;mobileOpener=trigger;dragEndedAt=0;mobileMenu.hidden=false;trigger.setAttribute('aria-expanded','true');repaintMobileTabs();
-  history.pushState({...history.state,kptuMobileMenu:true},'',location.href);sheetToTop();
-  window.KPTUA11y?.dialog.activate(mobilePanel,{trigger,initialFocus:closeControl(),onRequestClose:closeMobile});
+  history.pushState({...history.state,kptuMobileMenu:true},'',location.href);sheetToBottom();
+  window.KPTUA11y?.dialog.activate(mobilePanel,{trigger,initialFocus:closeControl(),onRequestClose:closeMobile});sheetToBottom();
 }
 mobileTab?.addEventListener('click',()=>openMobile(mobileTab));
 // History is consumed before the existing router/feature/account handler sees the click.
