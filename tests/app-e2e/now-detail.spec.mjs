@@ -48,6 +48,12 @@ async function nowServer(page) {
       s.reading = s.reading.filter(r => r !== was); return ok({ ok: true, on: false, removed: was ? 1 : 0, saved_at: was?.saved_at ?? null });
     }
     if (table === 'app_reading_items') {
+      // S68-45: 줄을 열면 읽음(read_at만 고침) — 내 작업공간 열쇠로만.
+      if (method === 'PATCH') {
+        const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''), r = s.reading.find(x => x.id === id);
+        if (r && u.searchParams.get('workspace_id') === 'eq.w') Object.assign(r, body);
+        return ok(r ? [r] : []);
+      }
       const want = u.searchParams.get('outside_article_id');
       if (want) return ok(s.reading.filter(r => want === 'not.is.null' || r.outside_article_id === want.replace(/^eq\./, '')).map(r => ({ ...r, app_outside_articles: POSTS.find(x => x.id === r.outside_article_id) })));
       if (u.searchParams.get('news_article_id')) return ok([]);
@@ -244,6 +250,44 @@ for (const width of [412, 884, 1280]) {
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     await expect(page.locator('#outsideView')).toBeVisible();
     await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
+    expect(errors).toEqual([]);
+  });
+}
+
+// S68-45(명진 11/23 11:08 "안읽은 글 눌러서 읽었는데 읽음 처리 안됨"): 저장한 글에서 읽을 거리(기사 화면)에서 온 안 읽은 줄을 누르면
+// 기사 원문 보기로 넘어가면서 그 줄도 읽음으로 서버에 저장 → 뒤로 오면 점이 꺼져 있고, 새로고침 뒤에도 그대로.
+for (const width of [412, 1280]) {
+  test(`저장한 글 ${width}: 읽을 거리에서 온 안 읽은 줄을 눌러 열면 읽음 — 뒤로·새로고침 뒤에도 점 꺼짐`, async ({ page }) => {
+    test.setTimeout(90000);
+    const { errors, server } = await start(page, width);
+    server.reading.push({ id: 'r-' + P1, url: POSTS[0].url, title: POSTS[0].title, site: null, saved_at: '2026-10-06T00:50:00Z', read_at: null,
+      body_state: 'ok', body_at: '2026-10-06T00:50:00Z', business_area_id: null, updated_at: '2026-10-06T00:50:00Z', origin: 'outside', news_article_id: null, outside_article_id: P1 });
+    await page.evaluate(() => window.KPTURouter.go('reading'));
+    const rd = page.locator('#readingView');
+    await expect(rd).toBeVisible();
+    const line = rd.locator(`.rd-row[data-rd-open="r-${P1}"]`);
+    await expect(line).toHaveClass(/is-unread/);
+    await line.click();
+    await expect(page.locator('#outsideView')).toBeVisible();
+    await expect(detail(page).locator('.nd-title')).toContainText('가상 철도 민영화 반대');
+    await expect.poll(() => server.calls.filter(c => c.what === 'app_reading_items' && c.method === 'PATCH').length).toBe(1);
+    const patch = server.calls.find(c => c.what === 'app_reading_items' && c.method === 'PATCH');
+    expect(patch.query).toContain(`id=eq.r-${P1}`);
+    expect(Object.keys(patch.body).sort()).toEqual(['read_at', 'updated_at']);
+    expect(patch.body.read_at).toBeTruthy();
+    await page.goBack();
+    await expect(rd).toBeVisible();
+    await rd.locator('.rd-chips [data-filter-value="all"]').click();
+    await expect(line).toBeVisible();
+    await expect(line).not.toHaveClass(/is-unread/);
+    await page.reload();
+    await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
+    await page.evaluate(() => window.KPTURouter.go('reading'));
+    await rd.locator('.rd-chips [data-filter-value="all"]').click();
+    await expect(line).not.toHaveClass(/is-unread/);
+    await expect(rd.locator('.rd-chips [data-filter-value="unread"]')).toHaveText('안 읽음 0');
+    // 이미 읽은 줄은 다시 열어도 또 저장하지 않는다.
+    expect(server.calls.filter(c => c.what === 'app_reading_items' && c.method === 'PATCH').length).toBe(1);
     expect(errors).toEqual([]);
   });
 }

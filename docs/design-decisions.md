@@ -1236,3 +1236,5 @@ PC(1024px~) 담당조직 상세 칸만 바꾼다. 왼쪽 조직 목록과 폰·7
 - 판: 끝없이 넓은 캔버스(두 손가락·Ctrl+휠 확대 0.2~2.5배, 빈 곳 끌기·휠 이동, [－][＋][전체]). 판 위 손짓은 판이 먼저(보기 탭 넘김 없음). 화면 밖 카드·선은 그리지 않는다. 0.5배 미만에서는 손잡이를 숨긴다.
 - 저장: 카드 자리는 노트 metadata(기존), 선은 서버 표 `app_note_board_links`(owner RLS·같은 작업공간 노트만). 기기 저장 없음.
 - 부품: `app/note-board.js`(판 renderer), `note-board-model.mjs`, `note-board-links-model.mjs`, `note-board-links-data.js`. 시험: `tests/note-board-links-model.test.mjs`, E2E `note-board-map`·`note-views`·`note-boards`.
+- S68-38c(명진 11/23 08:32·08:47): 글 상자 = 그 보드에만 있는 짧은 글(노트 아님, 서버 표 `app_note_board_texts`, 1~300자·줄바꿈 허용, 크기는 글에 맞춤·최대 폭 220px). [+ 글 상자]·빈 곳 두 번 누르기(PC 더블클릭)로 만들고, 누르면 그 자리 입력칸(바깥 누르기·Ctrl+Enter 저장, Esc 취소), 끌면 옮기기, 고른 상자에 [삭제]·네 변 손잡이. 선 끝은 노트 또는 글 상자.
+- S68-38c 곡선: 새 선은 직선. 선 위를 누른 채 끌면 그 점을 지나는 2차 곡선(조절점 = 2·지나는 점 − 두 끝 가운데), 직선에서 10px 안으로 되돌리면 직선, 메뉴 [직선으로](옛 [곡선|직선] 칩 대신). 지나는 점은 두 끝점 기준 상대 위치(시작→끝 비율·수직 비율, -5~5)로 저장해 카드·상자를 옮겨도 따라온다. 짧게 누름(움직임이 손 떨림 범위 안) = 선 메뉴, 손 뗄 때 연다. 옛 자동 곡선(shape=curve·점 없음) 선은 그대로 그린다. 시험: E2E `note-board-text-curve`, DB `tests/auth-handoff/note-board-texts-db.test.mjs`.

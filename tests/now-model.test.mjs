@@ -339,7 +339,26 @@ test('hand url: first body line that is only an address moves to the url field; 
   assert.equal(M.bodyFirstUrl([]), '');
   assert.deepEqual(M.movedUrlValues({title: 't', url: 'https://old.example.org/a', body: `${url}\n본문 하나\n둘`}), {title: 't', url, body: '본문 하나\n둘'});
   assert.equal(M.movedUrlValues({body: '본문 하나'}), null);
-  assert.equal(M.movedUrlValues({body: url}), null, 'body would become empty');
+  // S68-44: 주소를 옮기고 남는 본문이 비어도 옮긴다(본문 없이 저장 — 서버가 빈 본문을 받는다).
+  assert.deepEqual(M.movedUrlValues({title: 't', url: '', body: url}), {title: 't', url, body: ''});
+});
+
+// S68-44(명진 11/23 11:07 "본문 글자 없이도 저장되게"): 제목·본문 글자는 필수가 아니다. 모두 빈 것만 막는다.
+test('S68-44 hand request: body may be emptied or photos only; title may be empty; only a fully empty article is refused', () => {
+  const init = M.handInitial({title: '합성 제목', url: 'https://news.example.org/a/1'}, [{t: 'p', text: '본문'}]);
+  // 본문 비우기 → 빈 글자 그대로 보냄(서버 = 본문 없음).
+  assert.equal(M.handRequest('id', {title: '합성 제목', url: init.url, body: '  \n '}, init).body.body, '');
+  // 사진만.
+  assert.equal(M.handRequest('id', {title: '합성 제목', url: init.url, body: 'https://img.example.org/a.jpg'}, init).body.body, 'https://img.example.org/a.jpg');
+  // 제목을 비우면 원문 주소 칸 값을 함께 보낸다(바뀌지 않았어도).
+  const t0 = M.handRequest('id', {title: '', url: init.url, body: init.body}, init).body;
+  assert.equal(t0.title, ''); assert.equal(t0.url, 'https://news.example.org/a/1'); assert.equal('body' in t0, false);
+  // 제목·주소를 비웠지만 본문 칸에 글이 있으면 본문을 함께 보낸다.
+  assert.equal(M.handRequest('id', {title: '', url: '', body: init.body}, init).body.body, '본문');
+  // 모두 비면 보내지 않는다.
+  assert.deepEqual(M.handRequest('id', {title: ' ', url: '', body: ''}, init), {error: M.HAND_EMPTY});
+  assert.deepEqual(M.handRequest('id', {title: '', url: '', body: ''}, {body: '', url: ''}), {error: M.HAND_EMPTY});
+  assert.equal(M.handError(Object.assign(new Error('EMPTY_ARTICLE'), {status: 400})), M.HAND_EMPTY);
 });
 
 test('hand url: addresses inside a paragraph become link pieces; trailing punctuation stays text; unsafe schemes stay text', () => {
