@@ -192,7 +192,7 @@ test('Phone 390: the menu sheet has a search field at the top; it opens a full-s
  await page.locator('#mobileMenuTab').click();
  const entry=page.locator('#mobileMenu .gs-menu-entry');
  await expect(entry).toBeVisible();
- // 메뉴 창 맨 위(타일들보다 위). 창이 올라오는 움직임(.2s)이 끝난 뒤 두 칸의 자리를 한 번에 잰다
+ // 메뉴 창 메뉴 칸 바로 위(S68-36: 계정 묶음 아래, 타일들보다 위). 창이 올라오는 움직임(.2s)이 끝난 뒤 두 칸의 자리를 한 번에 잰다
  // (움직이는 중에 따로 재면 재는 순간이 달라 위·아래가 뒤집혀 보인다).
  await page.waitForFunction(()=>document.querySelector('#mobileMenu .mobile-menu-panel')?.getAnimations().length===0);
  const {e,t}=await page.evaluate(()=>({

@@ -576,8 +576,9 @@
 @media(max-width:760px){ #appView #teamView .so-team-actions{ display:none; } }
 
 /* 4 ☰ 메뉴 판(폰): 하단 탭 바로 위로 올라오는 판. S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 4): 위에서부터
-   손잡이(= 닫기 버튼, 누르거나 아래로 밀면 닫힘) → 전체 검색 → 메뉴 줄 목록(2열, 보이는 줄 36px·누르는 범위 44px) → 선 아래 붙는 메뉴 →
-   맨 아래 계정 한 줄(작은 글자 단추). 판 높이는 내용만큼(화면을 넘으면 위에서부터 열리고 판 안에서 스크롤). PC 사이드바(761px~)는 모양 그대로. */
+   손잡이(= 닫기 버튼, 누르거나 아래로 밀면 닫힘) → [S68-36, 명진 11/23] 설정 링크 묶음 → 운영 줄(+ 로그아웃) → 선 → 전체 검색 →
+   메뉴 줄 목록(2열, 보이는 줄 36px·누르는 범위 44px) → 선 아래 붙는 메뉴(맨 아래, 하단바 바로 위). 판 높이는 내용만큼(화면을 넘으면 아래 끝에 맞춰 열리고
+   판 안에서 스크롤). PC 사이드바(761px~)는 모양 그대로. */
 @media(max-width:760px){ #appView > .app-nav .nav-sub{ display:none; } }
 #appView .mobile-menu-panel nav button svg{ display:none; }
 @media(max-width:760px){
@@ -613,12 +614,30 @@
   #appView #mobileMenu .mobile-menu-panel nav button[aria-current="page"] svg{ color:inherit; }
   #appView #mobileMenu .mobile-menu-panel nav button[aria-current="page"]{ color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); border-color:var(--kptu-primary-soft); font-weight:var(--ds-weight-medium); }
   #appView #mobileMenu .mobile-menu-panel nav button:hover{ background:var(--kptu-surface-subtle); }
-  /* 계정: 맨 아래 한 줄(선 위). 작은 글자 단추(보이는 32px, 줄 사이 12px라 누르는 범위 44px가 위아래로 겹치지 않음), 넘치면 다음 줄. */
-  #appView .mobile-menu-panel #mobileAccountGroup{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 4px; margin-top:10px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
-  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup :is(button,a).account-action{ position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:32px; min-height:32px; padding:0 6px; border:0; border-radius:var(--ds-radius-control); background:transparent; white-space:nowrap; }
+  /* S68-36 메뉴 창 정리(명진 11/23 확정): 계정 묶음이 맨 위(손잡이 바로 아래). ① 설정 링크 — 작은 글씨(13px)·보조 글자색·작은 그림 + 이름, 줄바꿈 흐름.
+     ② 운영 줄 — 더 작은 글씨(12px, 보이는 높이는 같은 32px). 운영자에게만 서버가 보이게 한 줄(업데이트 기록·가입자 현황·받은 의견)과 줄 끝 오른쪽 로그아웃(위험 색). 운영자가 아니면 로그아웃만.
+     보이는 줄 32px, 줄 사이 12px라 누르는 범위 44px(::after)가 위아래로 겹치지 않는다. 그 아래 선 → 전체 검색 → 메뉴 칸(맨 아래, 하단바 바로 위). */
+  #appView .mobile-menu-panel #mobileAccountGroup{ display:flex; flex-direction:column; gap:12px; margin:0; padding:2px 0 0; border:0; }
+  #appView .mobile-menu-panel #mobileAccountGroup > div{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 2px; }
+  #appView .mobile-menu-panel > .mobile-menu-sep{ height:0; margin:12px 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
+  #appView .mobile-menu-panel > .mobile-menu-search{ padding:0 0 4px; }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup :is(button,a).account-action{ position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:32px; min-height:32px; padding:0 6px; border:0; border-radius:var(--ds-radius-control); background:transparent; white-space:nowrap; font-size:var(--ds-text-row); color:var(--kptu-muted); }
   #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup :is(button,a).account-action::after{ content:""; position:absolute; left:0; right:0; top:-6px; bottom:-6px; }
-  /* S49-8 UI-로그아웃자리(2026-11-03 명진): [로그아웃]은 계정 줄 맨 오른쪽 끝(하단바 [메뉴] 칸 바로 위). 줄이 넘치면 다음 줄 오른쪽에 혼자 선다. */
-  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button[data-kptu-logout]{ margin-left:auto; }
+  /* 설정 링크의 작은 그림(14px, 글자색). [화면 색]의 ▾ 자리(::before)도 이 그림이 쓴다. */
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings .account-action::before{ content:""; float:none; order:0; flex:none; width:14px; height:14px; margin:0; color:inherit; background:currentColor; -webkit-mask:var(--mm-ico) center / 14px 14px no-repeat; mask:var(--mm-ico) center / 14px 14px no-repeat; }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings [data-profile-open]{ --mm-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5a7.5 7.5 0 0 1 15 0' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings [data-help-menu]{ --mm-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings [data-whatsnew-open]{ --mm-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings [data-app-install]{ --mm-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 4v11M7 10l5 5 5-5M5 20h14' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings [data-app-download]{ --mm-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 4v11M7 10l5 5 5-5M5 20h14' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings [data-menu-edit-open]{ --mm-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings [data-theme-open]{ --mm-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 3v18M12 7.5h6.5M12 12h9M12 16.5h6.5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings [data-lock-open]{ --mm-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 11h12v10H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-settings [data-feedback-open]{ --mm-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 5h16v11H9l-5 4z' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-ops :is(button,a).account-action{ font-size:var(--ds-text-meta); }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup .mobile-menu-ops .account-action .account-ver{ margin-left:4px; }
+  /* S49-8 UI-로그아웃자리: [로그아웃]은 운영 줄 맨 오른쪽 끝(작게, 위험 색). */
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button[data-kptu-logout]{ margin-left:auto; color:var(--kptu-danger); }
 }
 @media(max-width:760px) and (prefers-reduced-motion:reduce){ #appView .mobile-menu-panel{ animation:none; transition:none; } }
 
