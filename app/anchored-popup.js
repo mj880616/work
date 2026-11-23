@@ -195,8 +195,18 @@ export function pressAnchor({now=Date.now(),maxAge=PRESS_MS}={}){
   const b=lastPress.box;return {getBoundingClientRect:()=>({...b,x:b.left,y:b.top})};
 }
 const PRESSABLE='button,a[href],summary,[role="button"],[role="menuitem"],[role="option"],[role="tab"],input,select,label,[data-row-menu-row],[tabindex]';
-const notePressEvent=e=>{const t=e.target instanceof Element?e.target:null;if(!t)return;const el=t.closest(PRESSABLE)||t;if(usableAnchor(el))notePressAnchor(el)};
+// 펼친 작은 메뉴(aria-controls로 이어진 단추가 aria-expanded="true") 안을 누르면 그 메뉴를 연 단추를 기억한다 — 공용 메뉴가 아닌 화면 메뉴(노트 ⋯ 등)도 같다.
+function openerOf(el){
+  for(let n=el;n&&n.nodeType===1;n=n.parentElement){
+    if(!n.id)continue;
+    const opener=n.ownerDocument.querySelector(`[aria-expanded="true"][aria-controls~="${CSS.escape(n.id)}"]`);
+    if(opener&&!n.contains(opener)&&usableAnchor(opener))return opener;
+  }
+  return null;
+}
+const pressSpot=el=>openerOf(el)||el;
+const notePressEvent=e=>{const t=e.target instanceof Element?e.target:null;if(!t)return;const el=pressSpot(t.closest(PRESSABLE)||t);if(usableAnchor(el))notePressAnchor(el)};
 if(typeof document!=='undefined'&&document.addEventListener){
   document.addEventListener('pointerdown',notePressEvent,true);
-  document.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '||e.key==='Delete'||e.key==='F10'||e.key==='ContextMenu'){const el=document.activeElement;if(usableAnchor(el))notePressAnchor(el)}},true);
+  document.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '||e.key==='Delete'||e.key==='F10'||e.key==='ContextMenu'){const el=document.activeElement&&pressSpot(document.activeElement);if(usableAnchor(el))notePressAnchor(el)}},true);
 }
