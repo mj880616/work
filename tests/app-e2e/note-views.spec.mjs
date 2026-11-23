@@ -96,14 +96,22 @@ for (const width of [412, 884, 1440]) {
 
 test('보드 카드 끌어 놓기: 서버 저장(처음엔 모두), 끈 칸이 맨 위, 다시 그려도 그 자리 (1440)', async ({ page }) => {
   const { writes, errors } = await fixture(page, 1440);
+  // S68-47: 보드를 열면 연결선·글 상자(app_note_board_links·texts)를 따로 읽고, 그 답이 오면 선·글 상자를 다시 그린다.
+  // 그 답이 카드를 끄는 도중에 와도 끌기가 끊기지 않아야 한다(전에는 판 전체를 다시 그려 끌기가 취소되고 카드가 바뀌어 CI에서 두 번 실패).
+  // 사람이 하듯 보드가 뜨자마자 끌기 시작하고, 그 답은 끄는 도중에 오게 붙잡아 둔다.
+  let release, answered = 0; const gate = new Promise(r => { release = r; });
+  await page.route(u => u.origin === SB && /^\/rest\/v1\/app_note_board_(links|texts)$/.test(u.pathname), async r => { await gate; await r.fulfill({ json: [] }); answered++; });
   await view(page, 'board').click();
   const card = page.locator('[data-nb-card="n1"]');
   const z = el => el.evaluate(n => Number(n.style.zIndex));
-  // boundingBox()는 기다리지 않는다: 보드가 다 그려지기 전에 재면 null(S68-44 CI에서 두 번 실패). 카드가 보일 때까지 먼저 기다린다.
-  await expect(card).toBeVisible();
+  await expect(card).toBeVisible(); // boundingBox()는 기다리지 않는다
   const box = await card.boundingBox();
   await page.mouse.move(box.x + 30, box.y + box.height / 2); await page.mouse.down();
-  await page.mouse.move(box.x + 130, box.y + 100, { steps: 6 }); await page.mouse.move(box.x + 230, box.y + 180, { steps: 6 });
+  await page.mouse.move(box.x + 130, box.y + 100, { steps: 6 });
+  release(); await expect.poll(() => answered).toBe(2);
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)))); // 답을 받아 다시 그린 뒤
+  await expect(card).toHaveClass(/nb-dragging/); // 끌기는 그대로 이어진다
+  await page.mouse.move(box.x + 230, box.y + 180, { steps: 6 });
   await page.mouse.up();
   await expect.poll(() => writes.filter(w => w.body?.metadata?.board).length).toBe(3);
   const moved = writes.find(w => w.id === 'n1' && w.body.metadata.board).body.metadata.board;
