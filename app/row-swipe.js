@@ -114,11 +114,15 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
   }
   if (pick) document.addEventListener('keydown', e => { if (e.key === 'Escape' && picking() && root.isConnected) { e.preventDefault(); stopPicking(); } });
 
+  // S68-50(명진 11/23 12:46 "좌우 스와이프 제대로 작동 안함 점검"):
+  // - 칸이 열린 채 다른 곳(다른 줄·⋯ 등 목록 안)을 누르면 닫기만 한다 — 그 누름으로 다른 줄이 열리거나 단추가 눌리지 않게(iOS 메일과 같음).
+  // - 열린 칸 위에서 시작한 좌우 밀기도 그 줄을 민다(오른쪽으로 밀면 닫힘). 민 뒤 따라오는 click은 삼키므로 칸 단추는 직접 누를 때만 실행된다.
   root.addEventListener('pointerdown', e => {
     swallow = false;
-    if (open && (!open.el.isConnected || !open.layer.contains(e.target))) { if (!open.el.contains(e.target)) close(); }
+    const onCell = !!open && open.el.isConnected && open.layer.contains(e.target);
+    if (open && !onCell && !open.el.contains(e.target)) { const shown = open.el.isConnected; close(); swallow = shown; }
     if (e.pointerType !== 'touch' || !phone() || picking() || !enabled()) return;
-    const el = e.target.closest?.(row); if (!el || !root.contains(el) || e.target.closest(SKIP)) return;
+    const el = onCell ? open.el : e.target.closest?.(row); if (!el || !root.contains(el) || (!onCell && e.target.closest(SKIP))) return;
     if (swipeEdge(e.clientX, innerWidth)) return;
     const acts = actions(el), has = sides(acts); if (!has.start && !has.end) return;
     const reuse = open?.el === el ? open : null;
@@ -143,12 +147,15 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
     if (!d.on) return;
     swallow = true; d.el.classList.remove('is-drag');
     if (e.type === 'pointercancel') { if (open === d.state) paint(d.state, openOffset(open.side, d.has.end)); else drop(d.state); return; }
-    const {side, run:now} = rowSettle(d.state.x, d.has, d.el.offsetWidth);
+    const {side, run:now} = rowSettle(d.state.x, d.has, d.el.offsetWidth, d.from);
     if (now) { fire(d.state, side); return; }
     if (!side) { if (open === d.state) open = null; drop(d.state); return; }
     d.state.side = side; open = d.state; paint(d.state, openOffset(side, d.has.end));
   };
   root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
+  // S68-50: 줄을 미는 동안의 터치 움직임은 브라우저 몫이 아니다(pointermove의 preventDefault는 터치 스크롤 손동작을 막지 못한다).
+  // 막지 않으면 브라우저가 가로 휙 밀기를 '튕기기'로 보고, 바로 다음 누름(열린 칸 [읽음]·닫기 누름)을 튕기기 멈춤으로 삼켜 click이 오지 않았다.
+  root.addEventListener('touchmove', e => { if (drag?.on && e.cancelable) e.preventDefault(); }, {passive:false});
   root.addEventListener('click', e => {
     const b = e.target.closest?.('[data-row-swipe-act]');
     if (b && open && open.layer.contains(b)) { e.preventDefault(); e.stopImmediatePropagation(); fire(open, b.dataset.rowSwipeAct, b.dataset.rowSwipeKey); }
