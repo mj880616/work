@@ -9,7 +9,7 @@ import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {canDeleteNews} from './now-marks.js';
 import {requestNewsOpen} from './news-request.mjs';
 import {sourceTag, quoteGone} from './text-highlights-model.mjs';
-import {NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_NAMES, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from './note-news-marks-model.mjs';
+import {visibleMarks, marksNewsOn, NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_NAMES, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from './note-news-marks-model.mjs';
 // NOTE-News밑줄보관보기(명진 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html ①~④):
 // 노트 [폴더] 목록 맨 아래(폴더 없음 밑) 얇은 줄 'News에서' + [밑줄 n]·[보관한 글 n]. 노트가 아니라 News와 같은 서버 자료를 그대로 읽어 보인다 —
 // 밑줄은 text-highlights.js가 들고 있는 같은 목록(News에서 지우거나 메모를 고치면 이 칸도 바로 같게), 보관한 글은 읽을 거리 [News]와 같은 읽기(now-saved.js readSavedRows — S68-24 News [보관] 탭은 없앰).
@@ -36,13 +36,14 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   // (News·텔레그램 밑줄은 누르면 News로 가므로). 모인 밑줄·보관은 지우지 않는다. 답을 모르면(null) 지금처럼 다 보인다(메뉴 myFeaturesOrNull 규칙과 같음).
   let newsOn = true;
   // S68-09: 읽을 거리 밑줄은 모든 사람 것(누르면 읽을 거리 화면으로) — News 기능 키와 상관없이 노트 밑줄과 함께 보인다.
-  const hlNow = () => { const raw = highlightsNow(); const all = raw && raw.filter(h => !(h?.source_type === 'note' && noteHidden(h.source_id))); return all && !newsOn ? all.filter(h => h?.source_type === 'note' || h?.source_type === 'reading') : all; };
+  // S69-04: 저장한 글 [밑줄] 탭과 같은 한 규칙(visibleMarks) — 같은 목록·같은 개수.
+  const hlNow = () => visibleMarks(highlightsNow(), {newsOn, noteHidden});
   async function load() {
     const my = ++seq;
     off = false;
     const features = await myFeaturesOrNull().catch(() => null);
     if (my !== seq) return;
-    newsOn = !Array.isArray(features) || features.includes('outside');
+    newsOn = marksNewsOn(features);
     if (!newsOn) { saved = []; savedFailed = false; }
     const [hl, sv] = await Promise.allSettled([loadHighlights({force: true}), newsOn ? readSavedRows() : Promise.resolve([])]);
     if (my !== seq) return;
