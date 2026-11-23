@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 // S51-14 NEWS-전면개편 P4c 상세(docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
 // 글을 누르면 저장 원문(app_feed_bodies 블록)이 바로 뜨고, 동시에 요약·시사점 만들기(ai-assist now_detail)를 시작한다.
-// AI가 늦어도 원문은 먼저 보이고, 요약·시사점 칸에만 '만드는 중' → 다 되면 그 칸만 채운다. 글자 크기 [가 가 가]는 서버(view_prefs.news_font).
+// AI가 늦어도 원문은 먼저 보이고, 요약·시사점 칸에만 '만드는 중' → 다 되면 그 칸만 채운다. 글자 크기 [−][+]는 서버(view_prefs.news_font, 공용 text-size.js — 읽을 거리와 같은 값).
 // 사진은 https만·리퍼러 안 보냄·늦게 불러오기. 원문이 없는 글은 까닭 한 줄 + [원래 사이트 ↗]. 폰은 뒤로 키 = 목록, 주소에 글 id.
 // 서버는 흉내 낸다(사진 주소도 가짜 — 실제로 불러오지 않게 가로챔). 글은 모두 가상.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -108,15 +108,18 @@ for (const width of [412, 884, 1440]) {
     expect(s.calls.some(c => c.startsWith('app_outside_article_bodies?') && c.includes(`article_id=eq.${P1}`) && !c.includes('workspace_id='))).toBe(true);
     expect(s.calls.some(c => c.includes('action=open'))).toBe(false);
     expect(s.calls.some(c => c.startsWith('app_outside_reads'))).toBe(true);
-    // 글자 크기 세 단계: 기본 보통(16px) → 크게(19px, 서버 저장) → 작게(14px).
+    // 글자 크기 [−][+](S68-33): 기본 보통(16px) → 크게(19px, 서버 저장) → 작게 두 번(14px, 끝이라 [−] 꺼짐).
     const fs = () => prose.evaluate(el => getComputedStyle(el).fontSize);
+    const smaller = d.getByRole('button', { name: '글자 작게' }), bigger = d.getByRole('button', { name: '글자 크게' });
     expect(await fs()).toBe('16px');
-    await expect(d.locator('[data-nd-font="m"]')).toHaveAttribute('aria-pressed', 'true');
-    await d.locator('[data-nd-font="l"]').click();
-    expect(await fs()).toBe('19px');
+    await expect(smaller).toBeEnabled();
+    await bigger.click();
+    await expect.poll(fs).toBe('19px');
     await expect.poll(() => prefs.value?.news_font).toBe('l');
-    await d.locator('[data-nd-font="s"]').click();
-    expect(await fs()).toBe('14px');
+    await smaller.click();
+    await smaller.click();
+    await expect.poll(fs).toBe('14px');
+    await expect(smaller).toBeDisabled();
     await expect.poll(() => prefs.value?.news_font).toBe('s');
     // 단추 줄 끝 [원래 사이트 ↗](새 창, 리퍼러 안 보냄).
     const site = d.locator('[data-nd-acts] .nd-site');
@@ -146,7 +149,7 @@ for (const width of [412, 884, 1440]) {
     await expect(why).toContainText('사이트가 자동 읽기를 막아 둠');
     await expect(why.getByRole('link', { name: /원래 사이트/ })).toHaveAttribute('href', 'https://nodong.org/statement/2');
     await expect(nd(page).locator('[data-nd-prose]')).toHaveCount(0);
-    await expect(nd(page)).toHaveAttribute('data-font', 's');
+    await expect(nd(page)).toHaveAttribute('data-text-size', 's');
     if (width <= 760) { await page.goBack(); await expect(root(page).locator('#nowMain')).toBeVisible(); }
     // 유료벽: 있는 만큼 + '나머지는 원래 사이트 ↗'.
     await open(page, P3);

@@ -161,7 +161,7 @@ test('[전체] 한 줄: 시각 최신 순, 시각 모르는 글은 맨 뒤', () 
 
 // S51-14 NEWS-전면개편 P4c: 상세 원문 전체(app_feed_bodies 한 줄 → 그릴 모양).
 test('저장 원문: 블록은 글자·https 사진만, 상태마다 까닭 한 줄', async () => {
-  const {bodyView, cleanBlocks, httpsUrl, legacyBody, keepNewsFont, NEWS_FONT_STEPS, BODY_REASONS} = await import('../app/now-model.mjs');
+  const {bodyView, cleanBlocks, httpsUrl, legacyBody, BODY_REASONS} = await import('../app/now-model.mjs');
   assert.equal(httpsUrl('https://a.example/x.jpg'), 'https://a.example/x.jpg');
   for (const v of ['http://a.example/x.jpg', 'javascript:alert(1)', 'data:image/png;base64,AA', '//a.example/x', '', null, 'https://' + 'a'.repeat(2000)]) assert.equal(httpsUrl(v), '');
   assert.deepEqual(cleanBlocks([{t: 'p', text: ' 문단 '}, {t: 'p', text: ''}, {t: 'h', text: '소제목'}, {t: 'quote', text: '인용'}, {t: 'img', src: 'https://a.example/1.jpg', cap: '설명', alt: null}, {t: 'img', src: 'http://a.example/2.jpg'}, {t: 'script', text: 'x'}, null, 'p']),
@@ -179,10 +179,7 @@ test('저장 원문: 블록은 글자·https 사진만, 상태마다 까닭 한 
   assert.deepEqual(legacyBody('첫 줄\n\n둘째 줄'), {state: 'ok', blocks: [{t: 'p', text: '첫 줄'}, {t: 'p', text: '둘째 줄'}], reason: ''});
   assert.equal(legacyBody('가', {lead: true}).state, 'lead');
   assert.equal(legacyBody('  ').state, 'failed');
-  const {NEWS_FONTS} = await import('../app/view-prefs.js');
-  assert.deepEqual(NEWS_FONT_STEPS.map(f => f.id), [...NEWS_FONTS]);
-  assert.equal(keepNewsFont('l'), 'l');
-  for (const v of [undefined, '', 'xl', null]) assert.equal(keepNewsFont(v), 'm');
+  // 글자 크기 단계는 공용 text-size-model.mjs(tests/text-size-model.test.mjs).
 });
 
 test('S51-17 P5: 잠깐의 오류(늦은 답·사이트 오류)로 실패한 저장 원문만 누를 때 다시 읽는다(설계 7.1)', async () => {

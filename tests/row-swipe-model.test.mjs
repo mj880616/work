@@ -73,8 +73,12 @@ test('목록마다 공용 부품을 붙이고, 오른쪽 밀기는 [고르기], 
   assert.match(todos, /bindRowSwipe\(host, \{row:'\[data-inbox-todo-row\]'/);
   assert.match(tasks, /bindRowSwipe\(body,\{row:'\.gt-row\[data-google-task\]'/);
   for (const src of [basket, notes, todos, tasks, now]) assert.match(src, /start:PICK|start = attr \? PICK/);
-  // Google 할 일·챙길 것은 되돌릴 길이 없는 삭제를 줄 밀기에 두지 않는다.
-  assert.doesNotMatch(tasks.slice(tasks.indexOf('bindRowSwipe(body'), tasks.indexOf('bindRowSwipe(body') + 600), /'delete'/);
+  // S68-31(명진 11/23 02:24): ⋯에 [삭제]가 있는 할 일은 줄 밀기 맨 끝에도 [삭제] — ⋯와 같은 queueDelete(5초 되돌리기)만 부른다.
+  const taskSwipe = tasks.slice(tasks.indexOf('bindRowSwipe(body'), tasks.indexOf('bindRowSwipe(body') + 700);
+  assert.match(taskSwipe, /\{key:'delete',label:'삭제',tone:'danger'\}\]/);
+  assert.match(taskSwipe, /else if\(key==='delete'\)queueDelete\(t\.id\)/);
+  assert.match(tasks, /else queueDelete\(active\.id\)/); // ⋯ [삭제]와 같은 함수
+  // 챙길 것은 ⋯에 삭제가 없으므로 줄 밀기에도 두지 않는다.
   assert.doesNotMatch(todos.slice(todos.indexOf('bindRowSwipe(host'), todos.indexOf('bindRowSwipe(host') + 600), /'delete'/);
   // 고르기 상태는 화면 메모리만(기기 저장 없음 — 기기 저장 사용은 Browser storage audit workflow가 막는다): 공용 선택 상태 부품을 쓴다.
   assert.match(swipe, /createSelectMode\(/);

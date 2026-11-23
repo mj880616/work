@@ -11,7 +11,8 @@
 //   ① News 기능 키 'outside'가 있는 사람이 그런 줄을 누르면 News 지금 글 보기(원문·News에서 그은 밑줄)를 라우터 openFrom으로 연다(뒤로 한 번 = 읽을 거리).
 //   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
-import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, markKeysOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId} from './reading-model.mjs';
+// - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
+import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, markKeysOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, fetchBody, fetching} from './reading-data.js';
 import {loadHighlights, highlightsNow, sourceHighlights, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark} from './text-highlights.js';
 import {bindSelectZone} from './text-select-bar.js';
@@ -23,6 +24,7 @@ import {notify, askConfirm} from './small-notice.js';
 import {word} from './brand/brand.mjs';
 import {myFeaturesOrNull} from './my-features.js';
 import {bindRowSwipe, claimedSince, PICK} from './row-swipe.js';
+import {textSizeHtml, paintTextSize} from './text-size.js';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
@@ -51,7 +53,7 @@ async function newsAllowed() {
   return Array.isArray(features) && features.includes('outside');
 }
 async function load() {
-  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; }
+  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; autoTried.clear(); }
   const scope = state.scope;
   const news = newsAllowed().then(on => { if (scope !== state.scope) return; state.newsOn = on; }).catch(() => {});
   try { state.rows = await listItems(); state.failed = false; state.loaded = true; }
@@ -193,6 +195,8 @@ function drawDetail() {
   acts.append(btn('mini', marks.length ? `밑줄을 노트로 ${marks.length}` : '밑줄을 노트로', {rdNote: '1'}),
     btn('mini', tag ? word('사업영역 바꾸기') : '사업에 연결', {rdArea: '1'}),
     btn('mini', row.read_at ? '안 읽음으로' : '읽음', {rdRead: row.read_at ? '0' : '1'}));
+  // S68-33 READ-글자크기: 머리 단추줄 끝 [−][+](공용 text-size.js — News 글 상세와 같은 단추·같은 서버 값). 본문 칸만 커지고 작아진다.
+  acts.insertAdjacentHTML('beforeend', textSizeHtml());
   const parts = [bar, meta, acts];
   const busy = fetching(row.id);
   const line = state.lines.get(row.id) || stateLine(row, {busy});
@@ -204,6 +208,7 @@ function drawDetail() {
   }
   const prose = el('div', 'rd-prose');
   prose.dataset.rdProse = '1';
+  prose.dataset.textSizeTarget = '';
   if (state.bodyFor === row.id) {
     for (const para of paragraphs(state.body)) prose.append(el('p', null, para));
     if (!prose.childNodes.length && !line) prose.append(el('p', 'rd-faint', '받아 둔 원문이 없어요. 원래 페이지에서 읽어 주세요.'));
@@ -214,6 +219,7 @@ function drawDetail() {
   if (prose.querySelector('p') && state.bodyFor === row.id) parts.push(el('p', 'rd-faint rd-tip', '글을 선택하고 [밑줄 저장] · 밑줄을 누르면 메모'));
   box.replaceChildren(...parts);
   box.hidden = false;
+  paintTextSize(box);
   if (state.bodyFor === row.id) paintMarks(prose, marks);
 }
 
@@ -230,6 +236,25 @@ async function startFetch(row) {
     try { const full = await getItem(row.id); if (state.open === row.id) { state.body = full?.body || ''; state.bodyFor = row.id; } } catch { /* 다음에 열 때 다시 읽는다 */ }
   }
   draw();
+  return out;
+}
+// S68-32: 화면이 열릴 때 원문이 없거나 실패·robots로 남은 줄을 한 번씩 자동으로 다시 가져온다(기존 startFetch 그대로, 2개씩 묶어 차례로).
+// 한 줄에 한 번: 이 탭에서 해 본 id(메모리)와 서버 칸 body_at(reading-model needsRefetch)으로 판단. 실패하면 [다시] 단추만 남는다.
+// 하루 횟수·로그인·권한 실패면 남은 줄은 그만둔다. 기기 저장 없음.
+const autoTried = new Set();
+let autoRun = null;
+function autoRefetch() {
+  if (autoRun) return autoRun;
+  const scope = state.scope;
+  autoRun = (async () => {
+    for (const batch of refetchBatches(state.rows, {tried: autoTried, busy: fetching})) {
+      if (scope !== state.scope || !here()) return;
+      for (const row of batch) autoTried.add(row.id);
+      const outs = await Promise.all(batch.map(row => startFetch(row).catch(() => null)));
+      if (outs.some(o => o?.state === 'request' && stopsAuto(o.reason))) return;
+    }
+  })().finally(() => { autoRun = null; });
+  return autoRun;
 }
 async function addUrl(text) {
   const got = readingUrl(text);
@@ -371,9 +396,10 @@ function bindSwipe(box) {
   }, {passive: true});
 }
 
-// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로](끝까지 밀면 읽음 바로),
+// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로],
 // 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [읽음][삭제]'. News에서 보낸 줄도 같은 단추(S68-29).
-// 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·releaseSaved·remove). 한 줄 삭제는 줄 밀기에 두지 않는다(⋯ 그대로).
+// 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·removeAny). S68-31(명진 11/23 02:24 "삭제가 필요 가능한 경우 왼쪽으로 밀 때 삭제도"):
+// 왼쪽 밀기 맨 끝에 [삭제] — ⋯ [삭제]와 같은 removeAny(직접 넣은 줄은 묻고 지우기, News에서 보낸 줄은 5초 [되돌리기]). 끝까지 밀어도 칸만 열린다.
 function bindRows(box) {
   const keyOf = el => el?.dataset?.rdPick || '';
   bindRowSwipe(box, {row: '.rd-row[data-rd-pick]', enabled: () => state.loaded && !state.adding,
@@ -382,7 +408,7 @@ function bindRows(box) {
       const row = rowOf(key);
       if (!row) return null;
       const readAct = row.read_at ? {key: 'unread', label: '안 읽음으로', tone: 'muted', icon: 'undo'} : {key: 'read', label: '읽음', tone: 'info', icon: 'done'};
-      return {start: PICK, end: [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, readAct]};
+      return {start: PICK, end: [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, readAct, {key: 'delete', label: '삭제', tone: 'danger'}]};
     },
     run: (key, el) => {
       const id = keyOf(el);
@@ -390,6 +416,7 @@ function bindRows(box) {
       if (!row) return;
       if (key === 'read' || key === 'unread') void toggleRead(id, key === 'read');
       else if (key === 'area') { const at = box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`); if (at) void pickArea(at, id); }
+      else if (key === 'delete') void removeAny(id, box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || el);
     },
     // 고른 줄: [읽음]은 하나씩 차례로(⋯와 같은 길), [삭제]는 removeMany(⋯ 삭제와 같은 규칙, 묻기·알림은 한 번).
     select: {attr: 'data-rd-pick', label: '선택한 읽을 거리', acts: () => [{key: 'read', label: '읽음'}, {key: 'delete', label: '삭제', danger: true}],
@@ -449,6 +476,7 @@ async function refresh() {
   await load();
   draw();
   if (!areaNames) void refreshAreaNames();
+  if (state.loaded && !state.failed) void autoRefetch();
 }
 // 다른 화면(전체 검색·노트 › 밑줄·폰 공유 알림 [열기])에서 이 화면의 한 줄을 열어 달라는 요청(한 번만).
 function takeAsked() {

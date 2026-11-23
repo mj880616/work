@@ -191,14 +191,15 @@ test('공용 셸(폰): 머리줄 15px/500(S67-64), 하단 탭 0.5px 선, ☰ 메
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu')).toBeVisible();
  // Measure after the sheet's slide-up (ds-sheet-up): mid-slide the transformed boxes read 44±0.00006px.
  await page.locator('#appView .mobile-menu-panel').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
- // UI-디자인손질 4·S48-6b(#1708 질문 4): 폰 메뉴 판은 손잡이(제목 대신)·메뉴 줄(13px·400, 보이는 36px·누르는 범위 44px)·맨 아래 계정 한 줄(13px·400, 보이는 32px·누르는 범위 44px). 따로 '계정' 제목은 없다.
+ // UI-디자인손질 4·S48-6b·S68-36: 폰 메뉴 판은 손잡이(제목 대신)·위 계정 묶음(설정 13px·운영 12px, 보이는 32px·누르는 범위 44px)·아래 메뉴 줄(13px·400, 보이는 36px·누르는 범위 44px). 따로 '계정' 제목은 없다.
  await expect(page.locator('.mobile-menu-head b')).toBeHidden();await expect(page.locator('#mobileMenu [data-mobile-menu-close]')).toBeVisible();
  const touch=item=>item.evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return Math.round(r.height-parseFloat(a.top)-parseFloat(a.bottom));});
  for(const item of await page.locator('#mobileMenu nav button:visible').all()){
   const s=await look(item);expect(Math.round(s.height)).toBe(36);expect(await touch(item)).toBe(44);expect(s.fontSize).toBe('13px');expect(['400','500']).toContain(s.fontWeight);
  }
- for(const item of await page.locator('#mobileAccountGroup button:visible').all()){
-  const s=await look(item);expect(Math.round(s.height)).toBe(32);expect(await touch(item)).toBe(44);expect([s.fontSize,s.fontWeight]).toEqual(['13px','400']);
+ // S68-36(명진 11/23): 설정 링크 묶음은 13px, 운영 줄(업데이트 기록·가입자 현황·받은 의견·로그아웃)은 더 작은 12px. 둘 다 보이는 32px·누르는 범위 44px.
+ for(const [group,size] of [['.mobile-menu-settings','13px'],['.mobile-menu-ops','12px']])for(const item of await page.locator(`#mobileAccountGroup ${group} button:visible`).all()){
+  const s=await look(item);expect(Math.round(s.height)).toBe(32);expect(await touch(item)).toBe(44);expect([s.fontSize,s.fontWeight]).toEqual([size,'400']);
  }
  await expect(page.locator('.mobile-menu-panel h2')).toHaveCount(0);await expect(page.locator('#mobileAccountGroup')).toHaveAttribute('aria-label','계정');
  await page.locator('#mobileMenu [data-theme-open]').click();
