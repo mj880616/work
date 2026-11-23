@@ -12,7 +12,7 @@ import {notify, askText} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
@@ -133,8 +133,12 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       return `<figure class="nd-fig"><img class="nd-img" data-nd-img src="${esc(b.src)}" alt="${esc(b.alt || b.cap || '')}" loading="lazy" decoding="async" referrerpolicy="no-referrer"><a class="nd-img-link" data-nd-img-link href="${esc(b.src)}" target="_blank" rel="noopener noreferrer" hidden>사진 ↗</a>${cap}</figure>`;
     }
     if (b.t === 'h') return `<h4 class="nd-bhd">${esc(b.text)}</h4>`;
-    if (b.t === 'quote') return `<blockquote>${esc(b.text)}</blockquote>`;
-    return `<p>${esc(b.text)}</p>`;
+    if (b.t === 'quote') return `<blockquote>${proseText(b.text)}</blockquote>`;
+    return `<p>${proseText(b.text)}</p>`;
+  }
+  // 문단 글자: 본문 안 http·https 주소는 작은 줄바꿈 링크(S68-39 — 긴 주소가 큰 글자 덩어리로 줄줄이 보이지 않게). 나머지는 글자 그대로(esc).
+  function proseText(text) {
+    return textWithUrls(text).map(x => (x.url ? `<a class="nd-url" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.text)}</a>` : esc(x.text))).join('');
   }
   // 원문 칸 머리 줄 [번역]: 외국어 뉴스 기사·사회운동 영어 소식에서 글자 블록이 있을 때만. 누른 상태는 aria-pressed.
   function trHtml(b) {
@@ -172,9 +176,14 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       const hand = canHandFill(cur.item, b) ? ' <button type="button" class="ds-chip nd-hand" data-nd-hand>직접 넣기</button>' : '';
       const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}${hand}</p>` : '';
       const prose = b.blocks.length ? `<div class="nd-prose"${langAttr()} data-nd-prose>${b.blocks.map(blockHtml).join('')}</div>` : '';
-      inner = b.state === 'failed' ? why : prose + why;
+      inner = b.state === 'failed' ? why : moveUrlHtml(b) + prose + why;
     }
     return head + `<div class="nd-ob-body" data-nd-body-inner>${inner}</div>`;
+  }
+  // S68-39: 옛 직접 넣기(주소 칸이 없어 본문 첫 줄에 주소를 붙여 넣은 것) — 내가 넣은 손 기사만 작은 한 줄 + [옮기기](같은 hand_fill 저장 길).
+  function moveUrlHtml(b) {
+    if (cur.item.type !== 'news' || !cur.head?.manual || !cur.head?.mine || !bodyFirstUrl(b.blocks)) return '';
+    return `<p class="nd-faint nd-move-url" data-nd-move-url role="status">본문 첫 줄 주소를 원문 주소로 옮길까요? <button type="button" class="ds-chip" data-nd-move-url-go>옮기기</button></p>`;
   }
   // 본문 칸 아래 작은 미리보기 줄: 본문 칸에 '[사진 n]' 줄이 있는 사진만(차례대로). 올리기 전 사진은 이 기기 메모리의 그림, 저장된 사진은 서버 그림.
   function picsHtml(body) {
@@ -194,7 +203,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (!v) return `<div aria-busy="true">${waitHtml({rows: 3})}</div>`;
     const dis = h.busy ? ' disabled' : '';
     const field = (key, label, attrs = '') => `<label class="nd-hand-f"><span>${label}</span><input type="text" data-nd-hand-in="${key}" value="${esc(v[key])}" maxlength="${HAND_LIMITS[key]}" autocomplete="off"${attrs}${dis}></label>`;
-    return `<form class="nd-hand-form" data-nd-hand-form aria-label="기사 직접 넣기">${field('title', '제목')}<div class="nd-hand-row">${field('publisher', '매체')}${field('author', '기자')}</div>
+    return `<form class="nd-hand-form" data-nd-hand-form aria-label="기사 직접 넣기">${field('title', '제목')}${field('url', '원문 주소', ' inputmode="url" placeholder="https://…" spellcheck="false"')}<div class="nd-hand-row">${field('publisher', '매체')}${field('author', '기자')}</div>
 <label class="nd-hand-f"><span>기사 시각</span><input type="datetime-local" data-nd-hand-in="at" value="${esc(v.at)}"${dis}></label>
 <div class="nd-hand-f nd-hand-body"><div class="nd-hand-bh"><label for="ndHandBody">본문</label><span class="nd-hand-tools"><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-pick title="폰·PC의 사진을 선택해 커서 자리에 넣어요(여러 장). 복사한 사진은 본문 칸에 붙여 넣어도 돼요."${dis}>사진</button><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-photo title="사진 주소를 붙여 넣으면 커서 자리에 한 줄로 들어가요. 주소 바로 다음 줄을 '사진:'으로 시작하면 사진 설명이 돼요."${dis}>사진 주소 넣기</button></span><input type="file" data-nd-hand-file accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden></div><textarea id="ndHandBody" data-nd-hand-in="body" rows="8" maxlength="${HAND_LIMITS.body}"${dis}>${esc(v.body)}</textarea>${picsHtml(v.body)}</div>
 <div class="nd-memo-row">${h.up ? `<span class="nd-faint" data-nd-hand-up role="status">${esc(h.up)}</span>` : h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
@@ -445,7 +454,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (cur === c) { paintBody(); focusTr(); }
   }
   // [직접 넣기]·⋯ [수정]: 기사 줄(서버)의 지금 값 + 지금 원문 글자로 입력 칸을 채운다. 번역해서 보던 중이면 원문으로 돌린다.
-  async function openHand() {
+  // move: [옮기기](S68-39) — 처음 값에서 본문 첫 줄 주소를 원문 주소 칸으로 옮긴 값을 칸에 넣고 바로 같은 저장 길(saveHand)로 보낸다.
+  //   서버가 거절하면 칸은 열린 채 까닭 한 줄(옮긴 값 그대로), 첫 줄이 주소가 아니게 됐으면 칸만 연다.
+  async function openHand(move = false) {
     const c = cur;
     if (!c || c.item.type !== 'news' || c.hand.open) return;
     c.tr.on = false; c.tr.note = '';
@@ -459,7 +470,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     c.hand.init = handInitial(row || {url: c.head.url}, blocks);
     for (const p of c.hand.init.photos || []) c.hand.pics.set(p.n, {src: p.src});
     c.hand.next = (c.hand.init.photos?.length || 0) + 1;
+    const moved = move ? movedUrlValues(c.hand.init) : null;
+    if (moved) c.hand.shown = moved;
     paintBody();
+    if (moved) { const form = part('[data-nd-hand-form]'); if (form) { await saveHand(form); return; } }
     part('[data-nd-hand-in="title"]')?.focus({preventScroll: true});
   }
   function closeHand() {
@@ -634,7 +648,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   }
   function handValues(form) {
     const val = k => form.querySelector(`[data-nd-hand-in="${k}"]`)?.value ?? '';
-    return {title: val('title'), publisher: val('publisher'), author: val('author'), at: val('at'), body: val('body')};
+    return {title: val('title'), url: val('url'), publisher: val('publisher'), author: val('author'), at: val('at'), body: val('body')};
   }
   // 입력 칸 다시 그리기(사람이 넣은 값 shown 그대로, 알림 줄·누름 막기만 바뀜). 알림이 있으면 저장 단추에 초점을 둔다(화면 읽기 프로그램은 role=status로 읽음).
   function paintHand() {
@@ -690,6 +704,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-copy]')) { void copyArticle(b); return; }
     if (b.matches('[data-nd-ob-more]')) { obMenu.open(b); return; }
     if (b.matches('[data-nd-hand]')) { void openHand(); return; }
+    if (b.matches('[data-nd-move-url-go]')) { void openHand(true); return; }
     if (b.matches('[data-nd-hand-cancel]')) { closeHand(); return; }
     if (b.matches('[data-nd-hand-pick]')) { b.closest('[data-nd-hand-form]')?.querySelector('[data-nd-hand-file]')?.click(); return; }
     if (b.matches('[data-nd-hand-photo]')) { void addHandPhoto(b.closest('[data-nd-hand-form]')); return; }
