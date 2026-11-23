@@ -149,10 +149,10 @@ class WidgetRefreshTest {
         // 0.3.7의 실제 실패 모양(클래스 초기화 오류): 내용 만들기가 실패해도 예외가 밖으로 나가지 않고 '실패'로 그린다.
         val r = plan.result(
             WidgetSession.Outcome.Ok(serverReplies(plan)),
-            weekContent = { _, _, _, _, _ -> throw ExceptionInInitializerError(IllegalArgumentException("regex")) },
+            weekContent = { _, _, _, _ -> throw ExceptionInInitializerError(IllegalArgumentException("regex")) },
         )
         assertEquals(WidgetRefresh.Paint.Failed, r.week)
-        val r2 = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)), weekContent = { _, _, _, _, _ -> throw NoClassDefFoundError("x") })
+        val r2 = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)), weekContent = { _, _, _, _ -> throw NoClassDefFoundError("x") })
         assertEquals(WidgetRefresh.Paint.Failed, r2.week)
         assertTrue(plan.result(WidgetSession.Outcome.Ok(serverReplies(plan))).week is WidgetRefresh.Paint.Shown)
 
