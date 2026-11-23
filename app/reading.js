@@ -13,9 +13,14 @@
 //   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
 // - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
-import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, markKeysOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto} from './reading-model.mjs';
+import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, fetchBody, fetching} from './reading-data.js';
-import {loadHighlights, highlightsNow, sourceHighlights, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark} from './text-highlights.js';
+import {loadHighlights, highlightsNow, sourceHighlights, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu} from './text-highlights.js';
+import {highlightRowHtml} from './now-highlights.js';
+import {sourceTag} from './text-highlights-model.mjs';
+import {visibleMarks, marksNewsOn} from './note-news-marks-model.mjs';
+import {requestNewsOpen} from './news-request.mjs';
+import {requestBasketNote} from './basket-note-tasks.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {renderFilterChips} from './filter-chips.js';
 import {createAnchoredMenu} from './anchored-menu.js';
@@ -39,24 +44,24 @@ function install() {
 }
 
 const state = {rows: [], loaded: false, failed: false, filter: 'unread', open: null, body: null, bodyFor: null, adding: false, addError: '', lines: new Map(), scope: '',
-  newsOn: false};
+  newsOn: false, marksNewsOn: true};
 const scopeNow = () => { const c = window.KPTURuntime?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const rowOf = id => state.rows.find(r => r.id === id) || null;
-const markKeys = () => markKeysOf(highlightsNow() || []);
+// S69-04 MARK-밑줄한목록(명진 11/24 "노트 밑줄에 있는 것들 저장한 글 밑줄에 없음 두개 동기화"): [밑줄] 탭은 글 줄 거르기가 아니라
+// 내가 그은 밑줄 전부(저장한 글에 있든 없든) — 노트 › 밑줄과 같은 원본(text-highlights.js 목록)·같은 규칙(visibleMarks)이라 같은 목록·같은 개수.
+// 잠근 노트 폴더가 있고 안 풀렸으면 노트 밑줄은 뺀다(이 화면은 노트 목록을 모른다 — 풀리면 노트 › 밑줄과 같아진다).
+const marksNow = () => visibleMarks(highlightsNow(), {newsOn: state.marksNewsOn, noteHidden: () => !!window.KPTUFeatureLock?.notesHidden?.()});
 const entriesNow = () => entriesOf(state.rows);
 // News에서 열 수 있는 줄의 원래 글({type,id}) — News 기능 키가 있을 때만.
 const newsLinkOf = id => (state.newsOn ? linkOf(rowOf(id)) : null);
 let layer = null;
 
-// News 기능 키가 있다는 답일 때만 true(모르면 false — 그 사람에게 서버가 거절할 수 있는 길을 부르지 않는다).
-async function newsAllowed() {
-  const features = await myFeaturesOrNull().catch(() => null);
-  return Array.isArray(features) && features.includes('outside');
-}
 async function load() {
-  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; autoTried.clear(); }
+  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; state.marksNewsOn = true; autoTried.clear(); }
   const scope = state.scope;
-  const news = newsAllowed().then(on => { if (scope !== state.scope) return; state.newsOn = on; }).catch(() => {});
+  // newsOn: News 기능 키가 있다는 답일 때만 true(모르면 false — 그 사람에게 서버가 거절할 수 있는 길을 부르지 않는다).
+  // marksNewsOn: [밑줄] 탭에 News·텔레그램 밑줄을 넣을지 — 노트 › 밑줄과 같은 규칙(marksNewsOn, 모르면 넣음).
+  const news = myFeaturesOrNull().catch(() => null).then(features => { if (scope !== state.scope) return; state.newsOn = Array.isArray(features) && features.includes('outside'); state.marksNewsOn = marksNewsOn(features); });
   try { state.rows = await listItems(); state.failed = false; state.loaded = true; }
   catch { state.failed = true; }
   await news;
@@ -135,21 +140,43 @@ function drawList() {
     return;
   }
   if (!state.loaded) { box.replaceChildren(...parts); box.insertAdjacentHTML('beforeend', waitHtml({rows: 4})); return; }
-  const keys = markKeys(), entries = entriesNow();
+  const entries = entriesNow(), marks = marksNow();
   // S68-48 READ-보기탭아래(명진 11/23 12:42 "안읽음 전체 밑줄도 다른 버튼 있는 메뉴처럼 하단 가운데 정렬"): [안 읽음 n][전체][밑줄]은
   // 위쪽 칩 줄이 아니라 공용 ⑤ 보기 바꾸기(renderFilterChips seg — .ds-seg) 한 줄. 자리는 노트 보기 탭과 같은 공용 규칙(ui-standard.css 폰 전환 줄):
   // 폰·펼친 폴드(~760px) 하단바 바로 위 가운데, PC 틀(761px~) 제목 줄 오른쪽([+ 추가] 앞). 따로 칩 줄은 없다.
   switchHost ||= el('div', 'rd-switch');
-  renderFilterChips(switchHost, {options: filterOptions(entries, keys), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
+  renderFilterChips(switchHost, {options: filterOptions(entries, marks ? marks.length : null), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
     onChange: v => { state.filter = keepFilter(v); drawList(); }});
   head.insertBefore(switchHost, add);
-  const shown = filterEntries(entries, state.filter, keys, state.open || '');
+  if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks)); box.replaceChildren(...parts); return; }
+  const shown = filterEntries(entries, state.filter, state.open || '');
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
   for (const e of shown) list.append(rowEl(e));
   if (!shown.length) list.append(emptyEl(emptyText(keepFilter(state.filter), entries.length)));
   parts.push(list);
   box.replaceChildren(...parts);
+}
+
+// [밑줄] 탭 목록: 노트 › 밑줄과 같은 줄 부품(highlightRowHtml)·같은 출처 꼬리표(sourceTag). 밑줄 줄 ⋯ = 공용 밑줄 메뉴(지우면 두 화면 모두에서 사라짐).
+function marksEl(marks) {
+  const list = el('div', 'rd-rows rd-marks');
+  list.dataset.rdMarks = '1';
+  if (!marks) list.insertAdjacentHTML('beforeend', waitHtml({rows: 4, h: 56}));
+  else if (!marks.length) list.append(emptyEl(emptyText('marks', 0)));
+  else list.insertAdjacentHTML('beforeend', `<div class="nh-list">${marks.map(h => highlightRowHtml(h, {src: sourceTag(h)})).join('')}</div>`);
+  return list;
+}
+// 밑줄 줄을 누르면 그 글 그 자리로(노트 › 밑줄과 같은 갈 곳): 저장한 글은 이 화면 보기, 노트 밑줄은 그 노트, News·텔레그램 밑줄은 News.
+function openMark(h) {
+  if (!h) return;
+  if (h.source_type === 'reading') {
+    if (rowOf(h.source_id)) void openItem(h.source_id, {highlight: h.id});
+    else notify('원문 글을 찾을 수 없어요 · 저장한 글에서 삭제된 글', {record: false});
+    return;
+  }
+  if (h.source_type === 'note') { requestBasketNote(h.source_id); void window.KPTURouter?.openFrom?.('basket')?.catch?.(() => {}); return; }
+  if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) window.KPTURouter?.go?.('news', {source: 'delegated'});
 }
 
 // ---------- 보기 ----------
@@ -455,6 +482,10 @@ function bind() {
   v.dataset.rdBound = '1';
   v.addEventListener('click', e => {
     const t = e.target;
+    const hm = t.closest?.('[data-rd-marks] [data-nh-more]');
+    if (hm?.dataset.hlId) { openMarkMenu(hm, {onSource: openMark}); return; }
+    const ho = t.closest?.('[data-rd-marks] [data-nh-open]');
+    if (ho) { openMark(highlightById(ho.dataset.nhOpen)); return; }
     const more = t.closest?.('[data-rd-more]');
     if (more) { menu.open(more); return; }
     if (t.closest?.('[data-rd-add]')) { state.adding = !state.adding; state.addError = ''; drawList(); return; }
@@ -490,6 +521,8 @@ function bind() {
   bindMarks(detailBox);
   bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection});
   onHighlights(() => { if (window.KPTURouter?.current === 'reading') draw(); });
+  // 노트 폴더 잠금이 풀리거나 잠기면 [밑줄] 탭의 노트 밑줄이 바뀐다(노트 › 밑줄과 같게).
+  window.addEventListener('kptu:feature-lock-changed', () => { if (window.KPTURouter?.current === 'reading') drawList(); });
   // 원문 받는 중·끝(폰 공유로 넣은 줄 포함)은 이 화면에 있을 때 다시 그린다. 다른 화면에서 넣은 줄은 이 화면에 들어올 때 다시 읽는다(refresh).
   window.addEventListener(CHANGED, e => {
     const k = e.detail?.kind;

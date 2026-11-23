@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {NEWS_HL, NEWS_SAVED, isNewsAt, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from '../app/note-news-marks-model.mjs';
+import {visibleMarks, marksNewsOn, NEWS_HL, NEWS_SAVED, isNewsAt, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from '../app/note-news-marks-model.mjs';
 import {OUTSIDE, RECENT} from '../app/note-tree.mjs';
 // S62-13 NOTE-News밑줄보관보기: 노트 'News에서' 두 줄의 순수 계산 + 구조 약속(복사본·기기 저장·새 읽기 길 없음). 글은 모두 가상.
 const ID = n => `a7000000-0000-4000-8000-00000000000${n}`;
@@ -47,4 +47,30 @@ test('구조: News와 같은 읽기 길·같은 밑줄 목록을 쓰고 따로 �
   assert.doesNotMatch(saver, /starred_at\.not\.is\.null/, '표시 표의 옛 별표 칸을 읽지 않는다');
   const reading = readFileSync(new URL('../app/reading.js', import.meta.url), 'utf8');
   assert.doesNotMatch(reading, /now-saved\.js|readSavedRows/);
+});
+
+// S69-04 MARK-밑줄한목록: 노트 › 밑줄과 저장한 글 [밑줄] 탭이 같은 한 규칙으로 같은 목록·같은 개수.
+test('밑줄 한 규칙: 출처(저장한 글·News·사회운동·텔레그램·노트)와 상관없이 다 — 잠근 노트 밑줄과 News 키 없음만 뺀다', () => {
+  const raw = [
+    {id: ID(5), source_type: 'reading', source_id: ID(1)}, {id: ID(6), source_type: 'news', source_id: ID(2)},
+    {id: ID(7), source_type: 'outside', source_id: ID(3)}, {id: ID(8), source_type: 'telegram', source_id: ID(4)},
+    {id: ID(9), source_type: 'note', source_id: ID(1)},
+  ];
+  assert.equal(visibleMarks(null), null, '아직 못 읽었으면 null');
+  assert.deepEqual(visibleMarks(raw).map(h => h.id), raw.map(h => h.id));
+  assert.deepEqual(visibleMarks(raw, {noteHidden: id => id === ID(1)}).map(h => h.source_type), ['reading', 'news', 'outside', 'telegram']);
+  assert.deepEqual(visibleMarks(raw, {newsOn: false}).map(h => h.source_type), ['reading', 'note']);
+  assert.equal(marksNewsOn(null), true, '모르면 다 보인다');
+  assert.equal(marksNewsOn([]), false);
+  assert.equal(marksNewsOn(['outside']), true);
+});
+test('두 화면이 같은 함수·같은 원본을 쓴다(복사본·따로 거르기 없음)', () => {
+  const nnm = readFileSync(new URL('../app/note-news-marks.js', import.meta.url), 'utf8');
+  const rd = readFileSync(new URL('../app/reading.js', import.meta.url), 'utf8');
+  for (const src of [nnm, rd]) {
+    assert.match(src, /visibleMarks\(highlightsNow\(\)/);
+    assert.match(src, /marksNewsOn\(/);
+  }
+  assert.match(rd, /highlightRowHtml\(h, \{src: sourceTag\(h\)\}\)/, '줄 모양도 같은 부품');
+  assert.doesNotMatch(rd, /markKeysOf|entryMarked/, '옛 글 줄 거르기([밑줄] = 밑줄 그은 저장한 글)는 없앴다');
 });

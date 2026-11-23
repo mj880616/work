@@ -55,27 +55,23 @@ export function linkOf(row) {
   if (isId(row?.outside_article_id)) return {type: 'outside', id: row.outside_article_id};
   return null;
 }
-export const linkKey = link => (link ? `${link.type}:${link.id}` : '');
 export function entriesOf(rows) {
   return (Array.isArray(rows) ? rows : []).filter(r => typeof r?.id === 'string' && r.id).map(row => ({key: row.id, at: row.saved_at || '', row, link: linkOf(row)}))
     .sort((a, b) => String(b.at).localeCompare(String(a.at)) || String(a.key).localeCompare(String(b.key)));
 }
-// 밑줄 표(app_news_highlights) 줄 → '종류:id' 묶음(읽을 거리 'reading:<id>', News 'news:<id>'·'outside:<id>').
-export const markKeysOf = list => new Set((Array.isArray(list) ? list : []).filter(h => h?.source_type && h?.source_id).map(h => `${h.source_type}:${h.source_id}`));
-// 밑줄: 이 줄에 그은 것(reading) 또는 News에서 원래 글에 그은 것(연결 칸으로 찾음 — 밑줄 행은 원래 글을 가리킨 그대로).
-export const entryMarked = (e, keys = new Set()) => keys.has(`reading:${e?.key}`) || (!!e?.link && keys.has(linkKey(e.link)));
 export const entryUnread = e => !!e?.row && !e.row.read_at;
-// 거르기. keep: 지금 열어 둔 줄 key — [안 읽음]에서 열자마자 읽음이 되어도(S68-45) 닫을 때까지 그 자리에 남는다(PC 두 칸 목록이 튀지 않게).
-export function filterEntries(entries, filter, keys = new Set(), keep = '') {
+// 거르기([안 읽음]·[전체] — [밑줄]은 글 줄이 아니라 밑줄 줄 목록이라 reading.js가 visibleMarks로 그린다, S69-04). keep: 지금 열어 둔 줄 key — [안 읽음]에서 열자마자 읽음이 되어도(S68-45) 닫을 때까지 그 자리에 남는다(PC 두 칸 목록이 튀지 않게).
+export function filterEntries(entries, filter, keep = '') {
   const f = keepFilter(filter), list = Array.isArray(entries) ? entries : [];
   if (f === 'unread') return list.filter(e => entryUnread(e) || (!!keep && e.key === keep));
-  if (f === 'marks') return list.filter(e => entryMarked(e, keys));
+  if (f === 'marks') return [];
   return list;
 }
 export const unreadCount = entries => (Array.isArray(entries) ? entries.filter(entryUnread).length : 0);
-export function filterOptions(entries, keys = new Set()) {
+// marks: [밑줄] 탭 숫자 = 노트 › 밑줄과 같은 밑줄 수(visibleMarks 목록 길이, 모르면 null).
+export function filterOptions(entries, marks = null) {
   const list = Array.isArray(entries) ? entries : [];
-  const n = unreadCount(list), m = list.filter(e => entryMarked(e, keys)).length;
+  const n = unreadCount(list), m = Number.isInteger(marks) ? marks : 0;
   return [{value: 'unread', label: `안 읽음 ${n}`}, {value: 'all', label: '전체'}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}];
 }
 // 좌우 밀기: 지금 칩에서 옆 칩으로(끝에서는 그대로).
@@ -85,8 +81,8 @@ export function nextFilter(current, dir) {
 }
 // 빈 목록 한 줄.
 export function emptyText(filter, total) {
+  if (filter === 'marks') return '저장한 밑줄이 없어요 · 글을 선택하고 [밑줄 저장]';
   if (!total) return '저장한 글이 없어요 — [+ 추가]에 주소를 넣거나 폰에서 공유 → WORK ON+ 저장한 글';
-  if (filter === 'marks') return '밑줄을 그은 글이 없어요';
   return '안 읽은 글이 없어요';
 }
 

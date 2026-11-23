@@ -71,7 +71,7 @@ for (const width of [412, 390]) {
     test.setTimeout(150000);
     const { s, errors, list, cdp } = await openReading(page, width);
     const menu = page.locator('#readingView [data-rd-more][aria-expanded="true"]');
-    for (const [v, n] of [['unread', 4], ['all', 7], ['marks', 3]]) {
+    for (const [v, n] of [['unread', 4], ['all', 7]]) {
       await tick(page);
       await tab(list, v).click();
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
@@ -112,6 +112,12 @@ for (const width of [412, 390]) {
       await bar.locator('[data-row-pick-stop]').click();
       await expect(bar).toBeHidden();
     }
+    // S69-04: [밑줄] 탭은 글 줄이 아니라 밑줄 줄(노트 › 밑줄과 같은 부품 .nh-row) — 글 줄 밀기 대상이 아니다.
+    await tick(page);
+    await tab(list, 'marks').click();
+    await expect(tab(list, 'marks')).toHaveAttribute('aria-checked', 'true');
+    await expect(list.locator('[data-rd-marks] .nh-row')).toHaveCount(3);
+    await expect(rows(list)).toHaveCount(0);
     // ⑤ 줄 밖(맨 위 제목 줄)에서 밀면 탭을 넘긴다: 밑줄 → (오른쪽 밀기) 전체 → (왼쪽 밀기) 밑줄.
     const head = list.locator('.rd-head .rd-title');
     await tick(page);
@@ -126,7 +132,7 @@ for (const width of [412, 390]) {
     await expect(page.locator('#readingView .row-swipe-acts')).toHaveCount(0);
     // 왼쪽 가장자리(24px 안)에서 시작한 오른쪽 밀기는 줄 밀기가 아니다(뒤로가기 손동작 몫) — 줄은 그대로.
     await tick(page);
-    const b = await box(rows(list).first());
+    const b = await box(list.locator('[data-rd-marks] .nh-row').first());
     await finger(page, cdp, path(8, b.y + b.height / 2, 160, 0));
     await expect(page.locator('#readingView .row-swipe-pickbar:not([hidden])')).toHaveCount(0);
     await expect(page.locator('#readingView .row-swipe-acts')).toHaveCount(0);

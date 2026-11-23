@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {readingUrl, sharedReading, newRow, lineOf, filterEntries, filterOptions, nextFilter, keepFilter, entriesOf, linkOf, markKeysOf, entryMarked, emptyText, LIST_COLS, bodyText, bodyPatch, keepOwn, stateLine, canRetry,
+import {readingUrl, sharedReading, newRow, lineOf, filterEntries, filterOptions, nextFilter, keepFilter, entriesOf, linkOf, emptyText, LIST_COLS, bodyText, bodyPatch, keepOwn, stateLine, canRetry,
   paragraphs, sourceOf, shortDay, BODY_MAX, FILTERS, needsRefetch, refetchBatches, stopsAuto, copyPatch, REFETCH_SINCE, AUTO_BATCH} from '../app/reading-model.mjs';
 import {ITEMS, DEFAULT_REST, withFeatures, defaultLayout} from '../app/menu-model.mjs';
 import {cleanSource} from '../app/text-highlights-model.mjs';
@@ -35,14 +35,16 @@ test('목록 줄: 안 읽음 점·제목(없으면 사이트)·사이트·날짜
   assert.equal(lineOf(rows[1]).state, 'pending');
   // 직접 저장한 줄만(News 연결 없음).
   const only = entriesOf(rows);
-  const keys = markKeysOf([{source_type: 'reading', source_id: 'b'}]);
   assert.deepEqual(filterEntries(only, 'unread').map(e => e.key), ['a']);
   // S68-45: 열어 둔 줄은 읽음이 되어도 닫을 때까지 [안 읽음]에 남는다.
-  assert.deepEqual(filterEntries(only, 'unread', new Set(), 'b').map(e => e.key), ['a', 'b']);
-  assert.deepEqual(filterEntries(only, 'all', new Set(), 'b').map(e => e.key), ['a', 'b']);
+  assert.deepEqual(filterEntries(only, 'unread', 'b').map(e => e.key), ['a', 'b']);
+  assert.deepEqual(filterEntries(only, 'all', 'b').map(e => e.key), ['a', 'b']);
   assert.deepEqual(filterEntries(only, 'all').map(e => e.key), ['a', 'b']);
-  assert.deepEqual(filterEntries(only, 'marks', keys).map(e => e.key), ['b']);
-  assert.deepEqual(filterOptions(only, keys).map(o => o.label), ['안 읽음 1', '전체', '밑줄 1']);
+  // S69-04: [밑줄]은 글 줄을 거르지 않는다(밑줄 줄 목록은 visibleMarks) — 탭 숫자는 넘겨받은 밑줄 수 그대로.
+  assert.deepEqual(filterEntries(only, 'marks'), []);
+  assert.deepEqual(filterOptions(only, 5).map(o => o.label), ['안 읽음 1', '전체', '밑줄 5']);
+  assert.deepEqual(filterOptions(only, null).map(o => o.label), ['안 읽음 1', '전체', '밑줄']);
+  assert.equal(emptyText('marks', 0), '저장한 밑줄이 없어요 · 글을 선택하고 [밑줄 저장]', '저장한 글이 없어도 밑줄 탭은 밑줄 안내');
   assert.equal(keepFilter('news'), 'unread', 'S68-29: [News] 칩 값은 없다');
   assert.equal(nextFilter('marks', 1), 'marks');
   assert.equal(keepFilter('x'), 'unread');
@@ -67,15 +69,11 @@ test('한 목록(S68-27·S68-29): 읽을 거리 표 하나 — News에서 보낸
   assert.deepEqual(all.map(e => e.key), [R3, R2, R1]);
   assert.deepEqual(all.map(e => e.link), [{type: 'outside', id: N2}, null, {type: 'news', id: N1}]);
   assert.equal(linkOf({news_article_id: 'nope'}), null);
-  // 밑줄: 이 줄에 그은 것(reading) 또는 News에서 원래 글에 그은 것(원래 행 그대로).
-  const keys = markKeysOf([{source_type: 'news', source_id: N1}, {source_type: 'reading', source_id: R2}]);
   // S68-29(명진 11/23 02:23): 칩은 [안 읽음][전체][밑줄] 셋뿐 — News에서 보낸 줄을 따로 거르지 않는다.
-  assert.deepEqual(filterOptions(all, keys).map(o => o.label), ['안 읽음 2', '전체', '밑줄 2']);
-  assert.deepEqual(filterEntries(all, 'news', keys).map(e => e.key), [R3, R1], '옛 칩 값은 처음 칩(안 읽음)으로');
-  assert.deepEqual(filterEntries(all, 'unread', keys).map(e => e.key), [R3, R1], '안 읽음은 줄의 읽음 칸 하나로');
-  assert.deepEqual(filterEntries(all, 'all', keys).map(e => e.key), [R3, R2, R1]);
-  assert.deepEqual(filterEntries(all, 'marks', keys).map(e => e.key), [R2, R1]);
-  assert.equal(entryMarked(all[0], keys), false);
+  assert.deepEqual(filterOptions(all, 2).map(o => o.label), ['안 읽음 2', '전체', '밑줄 2']);
+  assert.deepEqual(filterEntries(all, 'news').map(e => e.key), [R3, R1], '옛 칩 값은 처음 칩(안 읽음)으로');
+  assert.deepEqual(filterEntries(all, 'unread').map(e => e.key), [R3, R1], '안 읽음은 줄의 읽음 칸 하나로');
+  assert.deepEqual(filterEntries(all, 'all').map(e => e.key), [R3, R2, R1]);
   assert.equal(keepFilter('news'), 'unread');
   assert.equal(nextFilter('marks', 1), 'marks');
   assert.doesNotMatch(emptyText('all', 3), /News/);
