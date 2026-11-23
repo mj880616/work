@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- S69-07 시안 B: 할 일 한 줄. 앞에 빈 네모(체크 칸 모양, 누름 없음) + 제목. '할 일' 글자를 줄마다 붙이지 않는다. -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/week_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="18dp"
+    android:gravity="center_vertical"
+    android:singleLine="true"
+    android:ellipsize="end"
+    android:drawableStart="@drawable/widget_task_box"
+    android:drawablePadding="6dp"
+    android:textColor="@color/widget_ink"
+    android:textSize="12sp" />

@@ -250,7 +250,7 @@ class WeekWidget : AppWidgetProvider() {
             cells(context, views, c, small, sel, id, monday)
             val detail = sel?.let { shown?.details?.get(it) }
             if (detail != null && shown != null) {
-                selected(context, views, id, detail, shown)
+                selected(context, views, id, detail)
             } else {
                 views.setViewVisibility(R.id.week_sel, View.GONE)
             }
@@ -329,20 +329,18 @@ class WeekWidget : AppWidgetProvider() {
         }
 
         /**
-         * S68-51: 아래 칸 = 머리 줄('11/23(월) 일정 4 · 할 일 2') + [열기] + 그 날 줄 전부(줄임 없음, 위젯 안에서 스크롤).
-         * 그 뒤에 다가오는 일(D-n)·보고일 줄. 안드로이드 12+는 줄을 그림에 함께 싣고(RemoteCollectionItems, 프로세스가 내려가도 남음),
-         * 11 이하는 WeekListService가 메모리에서 읽는다.
+         * S68-51: 아래 칸 = 머리 줄(S69-07 시안 B: 날짜만 '11/23(월)') + [열기] + 그 날 줄 전부(줄임 없음, 위젯 안에서 스크롤).
+         * S69-07: 일정 줄 → 가는 줄 + '할 일 n' 머리 → 빈 네모 + 할 일 줄(WidgetWeek.dayRows). 다가오는 일(D-n)·보고일 줄은 없다.
+         * 안드로이드 12+는 줄을 그림에 함께 싣고(RemoteCollectionItems, 프로세스가 내려가도 남음), 11 이하는 WeekListService가 메모리에서 읽는다.
          */
-        private fun selected(context: Context, views: RemoteViews, id: Int, d: WidgetWeek.Detail, c: WidgetWeek.Content) {
+        private fun selected(context: Context, views: RemoteViews, id: Int, d: WidgetWeek.Detail) {
             views.setViewVisibility(R.id.week_sel, View.VISIBLE)
             views.setTextViewText(R.id.week_sel_title, WidgetWeek.detailHead(d))
             views.setOnClickPendingIntent(R.id.week_sel_open, day(context, d.day, 11))
-            val rows = WidgetWeek.dayList(d, listOfNotNull(c.big, c.report))
+            val rows = WidgetWeek.dayRows(d)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val b = RemoteViews.RemoteCollectionItems.Builder().setHasStableIds(false).setViewTypeCount(1)
-                rows.forEachIndexed { i, text ->
-                    b.addItem(i.toLong(), RemoteViews(context.packageName, R.layout.week_widget_row).apply { setTextViewText(R.id.week_row, text) })
-                }
+                val b = RemoteViews.RemoteCollectionItems.Builder().setHasStableIds(false).setViewTypeCount(ROW_TYPES)
+                rows.forEachIndexed { i, row -> b.addItem(i.toLong(), rowView(context, row)) }
                 views.setRemoteAdapter(R.id.week_sel_list, b.build())
             } else {
                 WeekListService.put(id, rows)
@@ -350,6 +348,21 @@ class WeekWidget : AppWidgetProvider() {
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
                 @Suppress("DEPRECATION")
                 views.setRemoteAdapter(R.id.week_sel_list, intent)
+            }
+        }
+
+        /** S69-07: 목록 줄 종류마다 레이아웃 하나(일정·빈 날은 같은 줄, 할 일 머리, 할 일). 11 이하 WeekListService도 이것을 쓴다. */
+        const val ROW_TYPES = 3
+
+        fun rowView(context: Context, row: WidgetWeek.Row): RemoteViews {
+            val layout = when (row.kind) {
+                WidgetWeek.Kind.TASK_HEAD -> R.layout.week_widget_task_head
+                WidgetWeek.Kind.TASK -> R.layout.week_widget_task_row
+                WidgetWeek.Kind.EVENT, WidgetWeek.Kind.EMPTY -> R.layout.week_widget_row
+            }
+            return RemoteViews(context.packageName, layout).apply {
+                setTextViewText(R.id.week_row, row.text)
+                if (row.kind == WidgetWeek.Kind.TASK_HEAD) setViewVisibility(R.id.week_row_line, if (row.line) View.VISIBLE else View.GONE)
             }
         }
 
