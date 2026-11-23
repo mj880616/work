@@ -132,7 +132,7 @@
 #appView #outsideView .nd-rel-kind{ flex:none; font-size:11px; color:var(--kptu-muted); }
 #appView #outsideView .nd-faint{ margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #outsideView .nd-acts{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding-top:8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
-#appView #outsideView .nd-act[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+/* 아래 단추 줄([저장]/[저장됨 ✓]·[메모]·[관심 없음]·[삭제]): 모양은 공용 ④ 칩(button.ds-chip)·눌림 색도 공용 — 여기는 자리만(S69-03). */
 #appView #outsideView .nd-memo{ display:flex; flex-direction:column; gap:4px; }
 #appView #outsideView .nd-memo textarea{ width:100%; box-sizing:border-box; font:inherit; font-size:14px; }
 #appView #outsideView .nd-memo-row{ display:flex; justify-content:flex-end; align-items:center; gap:6px; }

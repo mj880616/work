@@ -290,7 +290,7 @@ function openDetail(item, head, opts = {}) {
   if (root) root.dataset.detail = 'open';
   mountSplit();
   // 폰(좁은 화면): 상세가 전체 화면 — 뒤로가기 한 번 = 목록(라우터 겹). PC·폴드 펼침은 오른쪽 칸이라 겹 없음.
-  if (!PC.matches) { detailLayer ||= window.KPTURouter?.layer?.open('now-detail', {reopen: () => openDetail(item, head), close: () => { detailLayer = null; closeDetail({fromLayer: true}); return true; }}) || null; window.scrollTo({top: 0, behavior: 'instant'}); }
+  if (!PC.matches) { detailLayer ||= window.KPTURouter?.layer?.open('now-detail', {reopen: () => openDetail(item, head, {from: opts.from}), close: () => { detailLayer = null; closeDetail({fromLayer: true}); return true; }}) || null; window.scrollTo({top: 0, behavior: 'instant'}); }
   // 주소에 연 글(?item=outside:<id>) — 새로고침해도 같은 글. PC에서 맨 위 글을 저절로 연 것은 남기지 않는다.
   if (!autoOpening) window.KPTURouter?.setPlace?.('outside', {item: itemKey(item)});
   // NAV-PC뒤로직전: on PC·the unfolded Fold a post the person picked in the list is a back step of its own (router pick).
@@ -673,12 +673,12 @@ function restorePlaced() {
     openDetail({type: m[1], id: row.id}, describe(m[1], row));
   }).catch(() => {}).finally(() => { restoring = false; autoOpenTop(); });
 }
-async function openWanted(w, {picked = true} = {}) {
+async function openWanted(w, {picked = true, from = ''} = {}) {
   if (w.highlight) { void openHighlight({id: w.highlight, source_type: w.type, source_id: w.id}); return; }
   let row = null;
   try { row = await fetchItem(w.type, w.id); } catch { row = null; }
   if (!row) { notify('원래 글을 찾지 못했어요', {record: false}); return; }
-  openDetail({type: w.type, id: row.id}, describe(w.type, row), {picked});
+  openDetail({type: w.type, id: row.id}, describe(w.type, row), {picked, from});
 }
 // S68-54 읽을 거리 줄에서 바로 글 보기: 라우터 openFrom의 ready에서 글을 미리 읽어 둔다(prepareItem). 들어올 때(enter)는 그 글이 든 탭만 맞추고
 // 맨 위 글 저절로 열기·주소 글 다시 열기를 쉬며, 같은 순간 openItem이 상세를 연다 — 목록이 한 번도 그려져 보이지 않는다(화면 메모리만).
@@ -941,7 +941,8 @@ window.addEventListener('kptu:view-prefs-ready', () => {
 });
 // sourceName: 사회운동 글 매체 이름(목록을 읽은 뒤에만, 아니면 null — 노트 'News에서 › 보관한 글' 줄이 쓴다).
 // prepareItem: 같은 줄이 openFrom의 ready에서 먼저 불러 글을 읽어 둔다(못 읽으면 false — 화면을 옮기지 않음). openItem은 그 글을 바로 연다.
-// openItem: 읽을 거리 [News] 줄(reading.js)이 라우터 openFrom 안에서 부른다 — 그 글이 든 탭 + 지금 상세(원문·밑줄) 그대로. 폰 상세 겹은 openFrom이 남긴 칸을 쓰고,
+// openItem: 읽을 거리 [News] 줄(reading.js)이 라우터 openFrom 안에서 부른다 — 그 글이 든 탭 + 지금 상세(원문·밑줄) 그대로.
+// 저장한 글에서 연 글이라 상세에 from 'saved'를 넘긴다(아래 줄 [관심 없음] 없음, S69-03). 폰 상세 겹은 openFrom이 남긴 칸을 쓰고,
 // PC는 목록 고름 기록(pick)을 남기지 않아 뒤로 한 번 = 읽을 거리.
 window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); setTab('movement'); }, sourceName: key => catalogOf(key)?.name || null,
   prepareItem: async item => {
@@ -960,11 +961,11 @@ window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); set
       // 미리 읽은 글: 기다림 없이 이 자리에서 연다(라우터가 화면을 옮긴 같은 순간).
       const {type, row} = prepared; prepared = null;
       setTab(openTabFor(type), {save: false});
-      openDetail({type, id: row.id}, describe(type, row), {picked: false});
+      openDetail({type, id: row.id}, describe(type, row), {picked: false, from: 'saved'});
       return !!detail.current();
     }
     prepared = null;
-    setTab(openTabFor(item.type), {save: false}); await openWanted(item, {picked: false}); return !!detail.current();
+    setTab(openTabFor(item.type), {save: false}); await openWanted(item, {picked: false, from: 'saved'}); return !!detail.current();
   }}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
 // [언론] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·줄 그리기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭·찾는 말·고른 매체.
 window.KPTUNow = {
