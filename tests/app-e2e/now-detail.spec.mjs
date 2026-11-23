@@ -173,8 +173,11 @@ for (const width of [412, 884, 1280]) {
     // [☆ 별표]: 보관 = 내 읽을 거리 한 줄(서버 함수 app_reading_keep, S68-27) + 환류 기록 한 줄(글 id·동작만). 표시 표에는 쓰지 않는다.
     // S67-09: 사회운동 글에도 따로 [보관] 단추가 없다(보관 = 별표).
     await expect(nd.locator('[data-nd-act="archive"]')).toHaveCount(0);
+    await expect(nd.locator('[data-nd-act="star"]')).toHaveText('저장');
+    await expect(nd.locator('[data-nd-act="dismiss"]')).toHaveText('관심 없음'); // 읽을 거리에서 연 글은 [관심 없음] 그대로(S69-03)
     await nd.locator('[data-nd-act="star"]').click();
     await expect(nd.locator('[data-nd-act="star"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(nd.locator('[data-nd-act="star"]')).toHaveText('저장됨 ✓'); // S69-03: 눌린 상태 글자
     expect(server.calls.filter(c => c.what === 'rpc/app_reading_keep').at(-1).body).toEqual({ p_workspace: 'w', p_source: 'outside', p_article: P1, p_on: true, p_saved_at: null });
     expect(server.calls.some(c => c.what === 'app_outside_article_marks' && c.method !== 'GET')).toBe(false);
     await expect.poll(() => server.signals).toEqual([{ workspace_id: 'w', article_id: P1, action: 'star' }]);
@@ -288,6 +291,65 @@ for (const width of [412, 1280]) {
     await expect(rd.locator('.rd-switch [data-filter-value="unread"]')).toHaveText('안 읽음 0');
     // 이미 읽은 줄은 다시 열어도 또 저장하지 않는다.
     expect(server.calls.filter(c => c.what === 'app_reading_items' && c.method === 'PATCH').length).toBe(1);
+    expect(errors).toEqual([]);
+  });
+}
+
+// S69-03(명진 11/24 06:43 "삭제 메모 관심 없음 버튼 모양 / 그리고 여긴 저장한 글인데 / 관심없음은 좀 이상", 06:48 "글자도 저장됨v 이런식으로 바뀌면 인정"):
+// 저장한 글에서 연 글 보기 아래 줄 = [저장됨 ✓](눌림) [메모] … [원래 사이트 ↗] — [관심 없음] 없음, 칩 모양 하나(공용 ④ 칩).
+// [저장됨 ✓]을 누르면 저장한 글에서 삭제 + 5초 [되돌리기], 되돌리면 다시 [저장됨 ✓].
+for (const width of [412, 1280]) {
+  test(`저장한 글 ${width}: 연 글 아래 줄 [저장됨 ✓]·칩 한 모양·[관심 없음] 없음 · 누르면 삭제 + [되돌리기]`, async ({ page }) => {
+    test.setTimeout(90000);
+    const { errors, server } = await start(page, width);
+    await page.evaluate(() => window.KPTURouter.go('reading'));
+    const rd = page.locator('#readingView');
+    await expect(rd).toBeVisible();
+    await rd.locator('.rd-switch [data-filter-value="all"]').click();
+    await rd.locator(`.rd-row[data-rd-open="r-${P2}"]`).click();
+    await expect(page.locator('#outsideView')).toBeVisible();
+    const nd = detail(page);
+    await expect(nd.locator('.nd-title')).toHaveText('가상의 외국 글');
+    const acts = nd.locator('[data-nd-acts]');
+    const star = acts.locator('[data-nd-act="star"]');
+    await expect(star).toHaveText('저장됨 ✓');
+    await expect(star).toHaveAttribute('aria-pressed', 'true');
+    await expect(star).toHaveAttribute('aria-label', '저장됨 — 누르면 저장한 글에서 삭제');
+    await expect(acts.locator('[data-nd-act="dismiss"]')).toHaveCount(0);
+    await expect(acts.locator('button')).toHaveText(['저장됨 ✓', '메모']);
+    // 단추 줄 칩은 한 모양: 모두 공용 칩, 높이·둥글기·글자 크기가 같다.
+    const looks = await acts.locator('button').evaluateAll(bs => bs.map(b => { const c = getComputedStyle(b); return { chip: b.classList.contains('ds-chip'), h: b.getBoundingClientRect().height, r: c.borderTopLeftRadius, f: c.fontSize, bw: c.borderTopWidth }; }));
+    expect(looks.every(l => l.chip)).toBe(true);
+    expect(new Set(looks.map(l => JSON.stringify({ h: l.h, r: l.r, f: l.f, bw: l.bw }))).size).toBe(1);
+    await acts.scrollIntoViewIfNeeded();
+    if (process.env.S69_03_SHOTS) await page.screenshot({ path: `${process.env.S69_03_SHOTS}/saved-detail-${width}.png` });
+
+    // 누르면 저장한 글에서 삭제(app_reading_keep 끄기) → [저장], 5초 [되돌리기] → 다시 [저장됨 ✓](원래 저장 시각).
+    await star.click();
+    await expect(star).toHaveText('저장');
+    await expect(star).toHaveAttribute('aria-pressed', 'false');
+    expect(server.calls.filter(c => c.what === 'rpc/app_reading_keep').at(-1).body).toEqual({ p_workspace: 'w', p_source: 'outside', p_article: P2, p_on: false, p_saved_at: null });
+    await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('저장한 글에서 삭제했어요');
+    await page.waitForTimeout(2500);
+    await page.locator('#kptuNotice .kptu-notice-undo').click();
+    await expect(star).toHaveText('저장됨 ✓');
+    await expect(star).toHaveAttribute('aria-pressed', 'true');
+    expect(server.calls.filter(c => c.what === 'rpc/app_reading_keep').at(-1).body).toMatchObject({ p_article: P2, p_on: true, p_saved_at: '2026-10-05T02:00:00Z' });
+    await expect(acts.locator('[data-nd-act="dismiss"]')).toHaveCount(0);
+
+    // 같은 글이라도 읽을 거리 목록에서 열면 [관심 없음]이 있다.
+    if (width <= 760) { // 폰: 뒤로 한 번 = 저장한 글, 그다음 메뉴로 읽을 거리
+      await page.goBack();
+      await expect(rd).toBeVisible();
+      await page.evaluate(() => window.KPTURouter.go('outside'));
+      await expect(page.locator('#outsideView')).toBeVisible();
+    }
+    await root(page).getByRole('tab', { name: '사회운동' }).click();
+    await root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"] .now-open`).first().click();
+    await expect(nd.locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대');
+    await expect(acts.locator('[data-nd-act="dismiss"]')).toHaveText('관심 없음');
+    await expect(acts.locator('button')).toHaveText(['저장', '메모', '관심 없음']);
+    if (process.env.S69_03_SHOTS) await page.screenshot({ path: `${process.env.S69_03_SHOTS}/news-detail-${width}.png` });
     expect(errors).toEqual([]);
   });
 }

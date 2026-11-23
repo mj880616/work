@@ -16,6 +16,10 @@ import {openRowMenu, appMenuPoint} from './row-menu.js';
 //   접근성 이름·되돌리기 기록은 RELEASE_ARIA '저장한 글에서 삭제'. 내가 넣은 기사(canDelete)를 저장까지 해 둔 줄은 [삭제]가 둘이 되므로
 //   기사 자체 삭제 쪽을 '기사 삭제'(DELETE_BOTH_LABEL)로 부른다(docs/design/ui-words.md).
 export const HIDE_LABEL = '숨기기', SAVE_LABEL = '저장', RELEASE_LABEL = '삭제', RELEASE_ARIA = '저장한 글에서 삭제', DELETE_LABEL = '삭제', DELETE_BOTH_LABEL = '기사 삭제';
+// S69-03(명진 11/24 06:48 "저장된 글에서 저장 버튼이 눌린 것 표현한 것이었다면 글자도 저장됨v 이런식으로 바뀌면 인정"): 글 상세 아래 줄의
+//   저장 단추는 켜고 끄는 단추(aria-pressed)라 눌린 상태 글자는 '저장됨 ✓'([관심 없음 ✓]와 같은 꼴). 누르면 저장한 글에서 삭제(5초 [되돌리기]).
+//   줄 밀기·마우스 단추·⋯·우클릭은 하는 일 이름이라 그대로 [삭제].
+export const SAVED_LABEL = '저장됨 ✓', SAVED_ARIA = '저장됨 — 누르면 저장한 글에서 삭제';
 export const SAVED_TEXT = '저장한 글에 넣었어요', RELEASED_TEXT = '저장한 글에서 삭제했어요';
 export const UNDO_MS = 5000; // 보관 빼기·삭제 되돌리기 알림은 5초(명진 11/19)
 

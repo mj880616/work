@@ -1,6 +1,6 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {sendSignal, setMark} from './now-marks.js';
-import {deleteMine, DELETE_LABEL, DELETE_BOTH_LABEL, SAVE_LABEL, RELEASE_LABEL, RELEASE_ARIA} from './now-row-acts.js';
+import {deleteMine, dropSaved, DELETE_LABEL, DELETE_BOTH_LABEL, SAVE_LABEL, SAVED_LABEL, SAVED_ARIA} from './now-row-acts.js';
 import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences} from './feed-shared.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
@@ -224,17 +224,21 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
 <div class="nd-hand-f nd-hand-body"><div class="nd-hand-bh"><label for="ndHandBody">본문</label><span class="nd-hand-tools"><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-pick title="폰·PC의 사진을 선택해 커서 자리에 넣어요(여러 장). 복사한 사진은 본문 칸에 붙여 넣어도 돼요."${dis}>사진</button><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-photo title="사진 주소를 붙여 넣으면 커서 자리에 한 줄로 들어가요. 주소 바로 다음 줄을 '사진:'으로 시작하면 사진 설명이 돼요."${dis}>사진 주소 넣기</button></span><input type="file" data-nd-hand-file accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden></div><textarea id="ndHandBody" data-nd-hand-in="body" rows="8" maxlength="${HAND_LIMITS.body}"${dis}>${esc(v.body)}</textarea>${picsHtml(v.body)}</div>
 <div class="nd-memo-row">${h.up ? `<span class="nd-faint" data-nd-hand-up role="status">${esc(h.up)}</span>` : h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
   }
+  // S69-03(명진 11/24 06:43·06:48): 아래 줄 단추는 모두 공용 ④ 칩(button.ds-chip) 한 모양 — 눌림은 공용 칩의 aria-pressed 색.
+  // 저장 단추는 저장한 글이면 '저장됨 ✓'(눌림), 누르면 저장한 글에서 삭제(5초 [되돌리기], dropSaved). [관심 없음]은 읽을 거리 추천 흐름의 환류라
+  // 저장한 글에서 연 글(open의 from 'saved')에는 그리지 않는다.
   function actsHtml() {
     const m = cur.marks || {};
     const busy = cur.busy ? ' disabled' : '';
-    const one = (attrs, label) => `<button type="button" class="nd-act" ${attrs}${busy}>${esc(label)}</button>`;
+    const one = (attrs, label) => `<button type="button" class="ds-chip" ${attrs}${busy}>${esc(label)}</button>`;
     const btn = (act, on, label, onLabel) => one(`data-nd-act="${act}" aria-pressed="${!!on}"`, on ? onLabel : label);
     const memo = cur.memoOpen ? '' : one('data-nd-act="memo"', cur.memo ? '메모 수정' : '메모');
     // S67-11 NEWS-보관빼기: 내가 넣은 기사(공유·손으로 넣은 것, head.mine)는 [삭제] — 내 목록 어디에도 안 보이게(공용 기사 행은 그대로), 5초 [되돌리기].
-    // S68-34: 저장해 둔 글이면 [삭제](저장한 글에서 빼기)와 겹치지 않게 기사 자체 삭제는 '기사 삭제'.
+    // S68-34: 저장해 둔 글이면 저장 해제와 겹치지 않게 기사 자체 삭제는 '기사 삭제'.
     const del = cur.item.type === 'news' && cur.head?.mine ? one('data-nd-delete', m.star ? DELETE_BOTH_LABEL : DELETE_LABEL) : '';
-    const star = m.star ? one(`data-nd-act="star" aria-pressed="true" aria-label="${RELEASE_ARIA}" title="${RELEASE_ARIA}"`, RELEASE_LABEL) : btn('star', false, SAVE_LABEL, RELEASE_LABEL);
-    return `${star}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
+    const star = m.star ? one(`data-nd-act="star" aria-pressed="true" aria-label="${SAVED_ARIA}" title="${SAVED_ARIA}"`, SAVED_LABEL) : btn('star', false, SAVE_LABEL, SAVED_LABEL);
+    const dismiss = cur.from === 'saved' ? '' : btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓');
+    return `${star}${memo}${dismiss}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
   }
   function memoHtml() {
     if (cur.memoOpen) {
@@ -423,13 +427,15 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (got.pre && !got.pre.ok) { cur.unread = got.pre.why; paintAi(); return; }
     makeDetail(item, my);
   }
-  function open(item, head, {highlight = null} = {}) {
+  // from: 어디서 열었나 — 'saved'면 저장한 글에서 연 글(아래 줄에 [관심 없음] 없음). 같은 글을 다시 열면 새 값으로.
+  function open(item, head, {highlight = null, from = ''} = {}) {
     if (!item || !head) return;
     const same = cur && itemKey(cur.item) === itemKey(item);
     if (!same) dropPics(cur?.hand);
     if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}, hand: idleHand()};
     else cur.head = head;
     cur.reveal = highlight;
+    cur.from = from;
     paint();
     void loadHighlights().catch(() => {});
     box?.querySelector('.nd-title')?.focus({preventScroll: true});
@@ -440,6 +446,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // ---------- 누르기 ----------
   async function toggle(act) {
     if (!cur || cur.busy) return;
+    if (act === 'star' && cur.marks?.star) { unsave(); return; }
     const c = cur, item = c.item, m = c.marks || {}, on = !m[act];
     c.busy = true; c.note = ''; paintActs();
     try {
@@ -450,6 +457,22 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     } catch (e) { c.note = saveFailNote(e); }
     c.busy = false;
     if (cur === c) { paintActs(); box?.querySelector(`[data-nd-act="${act}"]`)?.focus({preventScroll: true}); }
+  }
+  // [저장됨 ✓] 누르기 = 저장한 글에서 삭제. 줄 ★·밀기와 같은 dropSaved(알림 5초 [되돌리기] — 원래 저장 시각·폴더로).
+  async function unsave() {
+    const c = cur;
+    c.busy = true; c.note = ''; paintActs();
+    const mark = on => {
+      c.marks = {...(c.marks || {}), star: on};
+      onChanged?.(c.item, 'star', on);
+      if (cur === c && !c.busy) paintActs();
+    };
+    try {
+      await dropSaved(c.item, {changed: (item, kind, on) => { if (kind === 'save') mark(on); }});
+      onSignal?.();
+    } catch (e) { c.note = saveFailNote(e); }
+    c.busy = false;
+    if (cur === c) { paintActs(); box?.querySelector('[data-nd-act="star"]')?.focus({preventScroll: true}); }
   }
   async function removeCur() {
     if (!cur || cur.busy) return;
