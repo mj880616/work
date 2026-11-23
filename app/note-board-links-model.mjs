@@ -1,35 +1,76 @@
 // S68-38 노트 '보드'(생각 지도, 명진 11/23 08:12·08:23 — Obsidian Canvas 참고): 카드끼리 잇는 연결선 계산(화면 없음, 시험 가능).
-// - 저장: 서버 표 app_note_board_links(migration 20261123090000, owner RLS·양쪽 노트 같은 작업공간). 읽기·쓰기는 note-board-links-data.js 한 곳.
-// - 선 한 줄 = {id, board_id, from_note, to_note, from_side, to_side, shape, dash, ends, label}.
+// - 저장: 서버 표 app_note_board_links(migration 20261123090000·20261123120000, owner RLS·같은 작업공간). 읽기·쓰기는 note-board-links-data.js 한 곳.
+// - 선 한 줄 = {id, board_id, from_note|from_text, to_note|to_text, from_side, to_side, shape, dash, ends, label, bend_x, bend_y}.
+//   S68-38c(명진 11/23 08:47): 끝마다 노트(from_note·to_note) 또는 그 보드의 글 상자(from_text·to_text) 중 정확히 하나(서버 check와 같은 규칙). endId(l, 'from')로 한 번에 읽는다.
 //   from_side·to_side: 카드 네 변(top·right·bottom·left) 중 하나, 비면(null) 두 카드 자리로 서로 마주 보는 변을 고른다(카드를 옮기면 따라 바뀜).
-//   shape: curve(부드러운 곡선, 기본)·line(직선). dash: solid(실선 = 이어지는 생각)·dashed(점선 = 그냥 관련). ends: end(끝에 화살촉)·both(양쪽)·none(없음).
-//   label: 선 위 짧은 글자(1~40자, 없어도 됨). 같은 보드·같은 방향·같은 두 노트는 한 줄(서버 unique와 같은 규칙).
+//   shape: line(직선, S68-38c부터 새 선 기본)·curve(곡선). dash: solid(실선 = 이어지는 생각)·dashed(점선 = 그냥 관련). ends: end(끝에 화살촉)·both(양쪽)·none(없음).
+//   bend_x·bend_y(S68-38c, 명진 11/23 08:32): 선 가운데를 끌어 만든 곡선이 지나는 점. 두 끝점 기준 상대 위치 —
+//   bend_x = 시작→끝 방향 비율, bend_y = 그 수직 방향 비율(선 길이 단위). 카드·상자를 옮겨도 곡선이 따라온다. 둘 다 null = 지나는 점 없음
+//   (shape=curve면 옛 자동 곡선, line이면 직선). 점이 있으면 shape는 curve.
+//   label: 선 위 짧은 글자(1~40자, 없어도 됨). 같은 보드·같은 방향·같은 두 끝은 한 줄(서버 unique와 같은 규칙).
+// - 글 상자(S68-38c, 서버 표 app_note_board_texts): {id, board_id, body, x, y}. 그 보드에만 있는 짧은 글(노트가 아님). 크기는 화면이 글에 맞춘다.
 // - 기기 저장 없음.
 import { CARD_W, CARD_H } from './note-board-model.mjs';
 
 export const SIDES = Object.freeze(['top', 'right', 'bottom', 'left']);
-export const SHAPES = Object.freeze(['curve', 'line']);
+export const SHAPES = Object.freeze(['line', 'curve']);
 export const DASHES = Object.freeze(['solid', 'dashed']);
 export const ENDS = Object.freeze(['end', 'both', 'none']);
 export const LABEL_MAX = 40;
 export const LINK_LIMIT = 1000; // 보드 하나의 선 개수(화면에서만 막음, 수백 개까지 버벅이지 않게 그린다)
+export const TEXT_MAX = 300; // 글 상자 글자 수(서버 check와 같음)
+export const TEXT_LIMIT = 500; // 보드 하나의 글 상자 개수(화면에서만 막음)
+export const BEND_LIMIT = 5; // 곡선 지나는 점 상대 위치 범위(서버 check와 같음, -5~5)
+export const BEND_SNAP = 10; // 지나는 점이 두 끝을 잇는 직선에서 이만큼(판 px) 안이면 직선으로 되돌린다
 const BOARD_RE = /^(all|b[0-9a-z]{6,12})$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const pick = (v, list, fallback) => (list.includes(v) ? v : fallback);
 
-// 서버 줄 → 화면 값(모양이 틀리면 null).
+// 끝 id(노트 또는 글 상자). side: 'from'|'to'.
+export const endId = (l, side) => l[`${side}_note`] || l[`${side}_text`] || null;
+const uuidish = v => typeof v === 'string' && v.length > 0;
+const num = v => (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= BEND_LIMIT ? v : null);
+// 서버 줄 → 화면 값(모양이 틀리면 null). 옛 표 모양(글 상자·곡선 칸 없음)도 받는다.
 export function parseLink(row) {
   if (!row || typeof row !== 'object') return null;
-  const {id, board_id, from_note, to_note} = row;
+  const {id, board_id} = row;
   if (typeof id !== 'string' || !id || typeof board_id !== 'string' || !BOARD_RE.test(board_id)) return null;
-  if (typeof from_note !== 'string' || typeof to_note !== 'string' || !from_note || !to_note || from_note === to_note) return null;
+  const ends = {};
+  for (const side of ['from', 'to']) {
+    const note = uuidish(row[`${side}_note`]) ? row[`${side}_note`] : null, text = uuidish(row[`${side}_text`]) ? row[`${side}_text`] : null;
+    if (!note === !text) return null; // 끝마다 정확히 하나
+    ends[`${side}_note`] = note; ends[`${side}_text`] = text;
+  }
+  if ((ends.from_note || ends.from_text) === (ends.to_note || ends.to_text)) return null;
   const label = typeof row.label === 'string' && row.label.trim() && !CONTROL.test(row.label) ? [...row.label].slice(0, LABEL_MAX).join('') : null;
-  return {id, board_id, from_note, to_note, from_side:pick(row.from_side, SIDES, null), to_side:pick(row.to_side, SIDES, null),
-    shape:pick(row.shape, SHAPES, 'curve'), dash:pick(row.dash, DASHES, 'solid'), ends:pick(row.ends, ENDS, 'end'), label};
+  let bx = num(row.bend_x), by = num(row.bend_y);
+  if (bx === null || by === null) bx = by = null;
+  const shape = bx === null ? pick(row.shape, SHAPES, 'line') : 'curve';
+  return {id, board_id, ...ends, from_side:pick(row.from_side, SIDES, null), to_side:pick(row.to_side, SIDES, null),
+    shape, dash:pick(row.dash, DASHES, 'solid'), ends:pick(row.ends, ENDS, 'end'), label, bend_x:bx, bend_y:by};
 }
-// 이 보드에서 그릴 선: 양쪽 카드가 모두 판에 있는 것만(뺀 노트·지운 노트·잠긴 화면 밖 노트의 선은 그리지 않는다).
-export const linksOnBoard = (links, boardId, onBoard) => links.filter(l => l.board_id === boardId && onBoard(l.from_note) && onBoard(l.to_note));
-export const hasLink = (links, boardId, from, to) => links.some(l => l.board_id === boardId && l.from_note === from && l.to_note === to);
+// 이 보드에서 그릴 선: 양쪽 끝(카드·글 상자)이 모두 판에 있는 것만(뺀 노트·지운 노트·잠긴 화면 밖 노트의 선은 그리지 않는다).
+export const linksOnBoard = (links, boardId, onBoard) => links.filter(l => l.board_id === boardId && onBoard(endId(l, 'from')) && onBoard(endId(l, 'to')));
+export const hasLink = (links, boardId, from, to) => links.some(l => l.board_id === boardId && endId(l, 'from') === from && endId(l, 'to') === to);
+// 새 선의 끝 칸: kind 'note'|'text'.
+export const endFields = (side, kind, id) => (kind === 'text' ? {[`${side}_note`]:null, [`${side}_text`]:id} : {[`${side}_note`]:id, [`${side}_text`]:null});
+
+// 글 상자: 서버 줄 → 화면 값.
+export function parseText(row) {
+  if (!row || typeof row !== 'object') return null;
+  const {id, board_id, body} = row;
+  if (typeof id !== 'string' || !id || typeof board_id !== 'string' || !BOARD_RE.test(board_id) || typeof body !== 'string' || !body.trim()) return null;
+  const at = v => (Number.isFinite(v) ? Math.max(0, Math.min(100000, Math.round(v))) : 0);
+  return {id, board_id, body:[...body].slice(0, TEXT_MAX).join(''), x:at(row.x), y:at(row.y)};
+}
+// 글 상자 글: 앞뒤 빈칸·빈 줄 지움, 줄바꿈은 그대로(다른 제어 문자는 안 됨). 비면 null.
+export function validateText(text) {
+  const raw = typeof text === 'string' ? text.replace(/\r\n?/g, '\n').replace(/^[ \n]+|[ \n]+$/g, '') : '';
+  if (!raw) return null;
+  if (/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/.test(raw)) throw new Error('글에 쓸 수 없는 문자가 있어요.');
+  if ([...raw].length > TEXT_MAX) throw new Error(`글 상자는 ${TEXT_MAX}자까지 쓸 수 있어요.`);
+  return raw;
+}
 
 // 선 위 글자(앞뒤 빈칸 지움). 빈 글자 = null(글자 없음).
 export function validateLabel(text) {
@@ -67,9 +108,32 @@ export function resolveSides(a, b, fromSide = null, toSide = null) {
 const reach = (p, q) => Math.max(24, Math.min(180, Math.hypot(q.x - p.x, q.y - p.y) * 0.45));
 const r1 = v => Math.round(v * 10) / 10;
 // 선 하나의 모양: 시작·끝 점과 변, SVG path d, 글자 놓을 가운데 점. shape는 curve|line.
-export function linkGeometry(a, b, {from_side = null, to_side = null, shape = 'curve'} = {}) {
+// ---- 곡선 지나는 점(두 끝점 기준 상대 위치 ↔ 판 좌표) ----
+// 상대 (u, v) → 점: p + u·(q−p) + v·(q−p를 시계 방향 90° 돌린 것).
+export function bendPoint(p, q, u, v) {
+  const dx = q.x - p.x, dy = q.y - p.y;
+  return {x:p.x + u * dx - v * dy, y:p.y + u * dy + v * dx};
+}
+// 점 → 상대 (u, v). 직선에서 BEND_SNAP 안이거나 두 끝이 거의 붙어 있으면 null(직선).
+export function bendOf(p, q, m) {
+  const dx = q.x - p.x, dy = q.y - p.y, len2 = dx * dx + dy * dy;
+  if (len2 < 16) return null;
+  const rx = m.x - p.x, ry = m.y - p.y, u = (rx * dx + ry * dy) / len2, v = (ry * dx - rx * dy) / len2;
+  if (Math.abs(v) * Math.sqrt(len2) < BEND_SNAP) return null;
+  const clamp = n => Math.max(-BEND_LIMIT, Math.min(BEND_LIMIT, Math.round(n * 10000) / 10000));
+  return {bend_x:clamp(u), bend_y:clamp(v)};
+}
+// 끌기 결과 → 서버에 보낼 칸(직선 복귀 포함).
+export const bendPatch = bend => (bend ? {shape:'curve', ...bend} : {shape:'line', bend_x:null, bend_y:null});
+export const isBent = l => l.bend_x != null && l.bend_y != null;
+export const isStraight = l => !isBent(l) && l.shape !== 'curve';
+export function linkGeometry(a, b, {from_side = null, to_side = null, shape = 'line', bend_x = null, bend_y = null} = {}) {
   const [s1, s2] = resolveSides(a, b, from_side, to_side);
   const p = sidePoint(a, s1), q = sidePoint(b, s2);
+  if (bend_x != null && bend_y != null) { // 지나는 점 m을 t=0.5에서 지나는 2차 곡선: 조절점 = 2m − (p+q)/2
+    const m = bendPoint(p, q, bend_x, bend_y), c = {x:2 * m.x - (p.x + q.x) / 2, y:2 * m.y - (p.y + q.y) / 2};
+    return {from:{...p, side:s1}, to:{...q, side:s2}, d:`M${r1(p.x)} ${r1(p.y)}Q${r1(c.x)} ${r1(c.y)} ${r1(q.x)} ${r1(q.y)}`, mid:m};
+  }
   if (shape === 'line') return {from:{...p, side:s1}, to:{...q, side:s2}, d:`M${r1(p.x)} ${r1(p.y)}L${r1(q.x)} ${r1(q.y)}`, mid:{x:(p.x + q.x) / 2, y:(p.y + q.y) / 2}};
   const k = reach(p, q), n1 = NORMAL[s1], n2 = NORMAL[s2];
   const c1 = {x:p.x + n1.x * k, y:p.y + n1.y * k}, c2 = {x:q.x + n2.x * k, y:q.y + n2.y * k};
@@ -83,14 +147,18 @@ export function dragPath(a, side, point) {
   return `M${r1(p.x)} ${r1(p.y)}C${r1(p.x + n.x * k)} ${r1(p.y + n.y * k)} ${r1(point.x)} ${r1(point.y)} ${r1(point.x)} ${r1(point.y)}`;
 }
 // 선이 차지하는 대략의 칸(화면 밖 선 그리기 생략용): 두 카드와 곡선 손잡이를 다 덮는 사각형.
-export function linkBox(a, b) {
-  const x0 = Math.min(a.x, b.x) - 180, y0 = Math.min(a.y, b.y) - 180, x1 = Math.max(a.x + a.w, b.x + b.w) + 180, y1 = Math.max(a.y + a.h, b.y + b.h) + 180;
+// extra: 곡선 지나는 점(있으면 함께 덮는다).
+export function linkBox(a, b, extra = null) {
+  const xs = [a.x, b.x, a.x + a.w, b.x + b.w, ...(extra ? [extra.x] : [])], ys = [a.y, b.y, a.y + a.h, b.y + b.h, ...(extra ? [extra.y] : [])];
+  const x0 = Math.min(...xs) - 180, y0 = Math.min(...ys) - 180, x1 = Math.max(...xs) + 180, y1 = Math.max(...ys) + 180;
   return {x:x0, y:y0, w:x1 - x0, h:y1 - y0};
 }
 
 // ---- 메뉴 동작(새 값만 돌려줌, 서버에 보낼 칸) ----
 // 방향 뒤집기: 시작·끝(변 포함)을 바꾼다. 양방향·없음이어도 바꾼다(다음에 '끝에만'으로 바꿀 때의 방향).
-export const flipPatch = l => ({from_note:l.to_note, to_note:l.from_note, from_side:l.to_side, to_side:l.from_side});
+// 곡선 지나는 점은 같은 자리에 남게 바꾼다(시작·끝이 바뀌면 u → 1−u, v → −v).
+export const flipPatch = l => ({from_note:l.to_note ?? null, to_note:l.from_note ?? null, from_text:l.to_text ?? null, to_text:l.from_text ?? null, from_side:l.to_side, to_side:l.from_side,
+  ...(isBent(l) ? {bend_x:Math.round((1 - l.bend_x) * 10000) / 10000, bend_y:-l.bend_y} : {})});
 export const SHAPE_NAMES = Object.freeze({curve:'곡선', line:'직선'});
 export const DASH_NAMES = Object.freeze({solid:'실선', dashed:'점선'});
 export const ENDS_NAMES = Object.freeze({end:'한쪽', both:'양쪽', none:'없음'});

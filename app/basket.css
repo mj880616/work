@@ -313,7 +313,23 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nb-card.nb-sel :is(.nb-more,.nb-x) { display:block; }
 .nb:not(.nb-panning,[data-nb-small]) .nb-card.nb-hover .nb-h { display:block; }
 #appView #basketView .nb:not(.nb-panning) .nb-card.nb-hover :is(.nb-more,.nb-x) { display:block; }
-/* 선 메뉴(누른 자리 옆 작은 창, 본문 맨 끝에 붙음): [곡선|직선] [실선|점선] [→|↔|없음] [뒤집기] [글자] [삭제]. 버튼은 공용 칩·글자 버튼. */
+/* S68-38c 글 상자: 그 보드에만 있는 짧은 글. 크기는 글에 맞춤(최대 폭에서 줄바꿈), 노트 카드보다 아래 층. 고른 상자에 [삭제]·손잡이. */
+.nb-texts { position:absolute; left:0; top:0; width:0; height:0; }
+.nb-text { position:absolute; box-sizing:border-box; min-width:28px; max-width:220px; padding:4px 8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:6px; background:var(--kptu-surface); color:var(--kptu-ink); font-size:12.5px; line-height:1.35; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:text; }
+.nb-tx { white-space:pre-wrap; overflow-wrap:anywhere; outline:none; }
+.nb-tx:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:3px; border-radius:2px; }
+.nb-text.nb-sel { border-color:var(--nb-link-on); }
+.nb-text.nb-dragging, .nb-text.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); }
+.nb-text.nb-pending { opacity:.6; }
+.nb-text.nb-editing { width:220px; padding:0; }
+.nb-text.nb-editing .nb-tx { display:none; }
+.nb-tx-edit { display:block; box-sizing:border-box; width:100%; min-height:26px; margin:0; padding:4px 8px; border:0; border-radius:inherit; background:transparent; color:inherit; font:inherit; line-height:inherit; resize:none; overflow:hidden; user-select:text; -webkit-user-select:text; touch-action:auto; outline:2px solid var(--kptu-primary); outline-offset:0; }
+#appView #basketView .nb-text .nb-tx-del { position:absolute; top:-24px; left:calc(100% + 4px); display:none; font-size:11px; } /* 위 손잡이와 겹치지 않게 오른쪽 위 바깥 */
+#appView #basketView .nb-text.nb-sel:not(.nb-editing,.nb-pending) .nb-tx-del { display:block; }
+.nb:not([data-nb-small]) .nb-text.nb-sel:not(.nb-editing,.nb-pending) .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-text:not(.nb-pending) .nb-h { display:block; }
+.nb:not(.nb-panning,[data-nb-small]) .nb-text.nb-hover:not(.nb-editing,.nb-pending) .nb-h { display:block; }
+#appView #basketView .nb-tools .nb-add-text { padding:0 8px; font-size:var(--ds-text-meta,12px); white-space:nowrap; }
+/* 선 메뉴(누른 자리 옆 작은 창, 본문 맨 끝에 붙음): [실선|점선] [직선으로] [→|↔|없음] [뒤집기] [글자] [삭제]. 버튼은 공용 칩·글자 버튼. 선 위를 끌면 곡선(S68-38c). */
 .nb-link-menu { position:fixed; z-index:60; display:flex; flex-direction:column; gap:6px; box-sizing:border-box; max-width:calc(100vw - 16px); padding:8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float,none); }
 .nb-link-menu[hidden] { display:none; }
 .nb-lm-row { display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap,4px); }
