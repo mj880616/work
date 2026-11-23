@@ -87,17 +87,20 @@ test('PC: 새 보드 → 왼쪽 목록에서 끌어 놓기·누르기로 붙이�
   for (const w of writes) expect(w.body.updated_at).toBeUndefined();
   // 옮기기 → metadata.boards[id]만 바뀐다.
   const card = page.locator('[data-nb-card="n2"]'), box = await card.boundingBox(), before = structuredClone(rows[1].metadata.boards[id]);
-  await page.mouse.move(box.x + 40, box.y + 60); await page.mouse.down();
+  await page.mouse.move(box.x + 40, box.y + box.height / 2); await page.mouse.down();
   await page.mouse.move(box.x + 120, box.y + 120, { steps: 6 }); await page.mouse.move(box.x + 200, box.y + 160, { steps: 6 });
   await page.mouse.up();
   await expect.poll(() => rows[1].metadata.boards[id].x).not.toBe(before.x);
   expect(rows[1].metadata.board).toBeUndefined();
   // ×로 빼기: 노트는 남는다.
+  // S68-38: ×·⋯는 고른 카드(PC는 마우스를 올린 카드)에서만 보인다.
+  await page.locator('[data-nb-card="n3"]').hover();
   await page.locator('[data-nb-card="n3"] [data-nb-remove]').click();
   await expect(cards(page)).toHaveCount(2);
   await expect.poll(() => rows[2].metadata.boards?.[id]).toBeUndefined();
   await expect(side.locator('[data-nbb-note="n3"]')).not.toHaveAttribute('aria-disabled', 'true');
   // ⋯ 메뉴 [보드에서 빼기]
+  await page.locator('[data-nb-card="n2"]').hover();
   await page.locator('[data-nb-card="n2"] [data-note-row-more]').click();
   await page.locator('#noteDocMenu [data-nbb-detach]').click();
   await expect(cards(page)).toHaveCount(1);

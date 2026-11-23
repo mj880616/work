@@ -259,33 +259,67 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 :is(.nb-card,.nx-path)[data-tone="6"] { --nb-paper:var(--ds-note-paper-6); } /* 쑥 */
 :is(.nb-card,.nx-path)[data-tone="7"] { --nb-paper:var(--ds-note-paper-7); } /* 회청 */
 #appView #basketView [data-note-list][data-notes-view="list"] .nx-path[data-tone] { padding:1px 6px; border-radius:var(--ds-chip-radius,10px); background:var(--nb-paper); color:var(--ds-note-ink); font-size:11px; }
-/* 보드: 화면보다 넓은 판을 밀어서 이동(브라우저 스크롤), 핀치·[＋][－]는 note-board.js. 칸 위에서는 끌기(touch-action:none), 빈 곳에서는 밀기. */
-/* 목록·포스트잇 보기는 PC에서도 왼쪽 나무 칸 없이 한 칸. */
+/* 보드(S68-38 생각 지도, 옛 이름 포스트잇): 판은 끝없이 넓은 캔버스(note-board.js가 translate·scale로 옮기고 키움 — 브라우저 스크롤 없음).
+   판 위 모든 손짓은 판이 먼저 받는다(touch-action:none — 옆 넘김·당겨서 새로고침·문서 스크롤 없음). 카드는 제목 한 줄 작은 칸(128×34), 선은 SVG. */
+/* 목록·보드 보기는 PC에서도 왼쪽 나무 칸 없이 한 칸. */
 [data-note-list].nx-wide:not([data-notes-view="folder"]) .nx-body { display:block; }
-.nb { position:relative; margin-top:4px; }
+.nb { position:relative; margin-top:4px; --nb-link:var(--kptu-muted); --nb-link-on:var(--kptu-primary); }
 .nb-tools { position:absolute; right:8px; top:8px; z-index:2; display:inline-flex; height:var(--ds-compact-height,32px); box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
-#appView #basketView .nb-tools button { position:relative; width:30px; min-width:0; min-height:0; height:auto; margin:0; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text,13px); line-height:1; cursor:pointer; }
+#appView #basketView .nb-tools button { position:relative; min-width:30px; min-height:0; height:auto; margin:0; padding:0 4px; border:0; border-radius:0; background:transparent; box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text,13px); line-height:1; cursor:pointer; }
 #appView #basketView .nb-tools button + button { border-left:var(--ds-line-width,1px) solid var(--kptu-border); }
 #appView #basketView .nb-tools button::after { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
-#appView #basketView .nb-tools button:disabled { color:var(--kptu-faint,var(--kptu-muted)); cursor:default; }
-.nb-scroll { position:relative; height:calc(100dvh - 210px); min-height:320px; overflow:auto; overscroll-behavior:contain; touch-action:pan-x pan-y; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface-subtle); background-image:radial-gradient(var(--kptu-border) 1px, transparent 1px); background-size:22px 22px; }
+#appView #basketView .nb-tools .nb-fit { font-size:var(--ds-text-meta,12px); }
+.nb-scroll { position:relative; height:calc(100dvh - 210px); min-height:320px; overflow:hidden; overscroll-behavior:none; touch-action:none; user-select:none; -webkit-user-select:none; cursor:grab; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface-subtle); background-image:radial-gradient(var(--kptu-border) 1px, transparent 1px); background-size:22px 22px; }
 @media (min-width:761px) { .nb-scroll { height:calc(100dvh - 150px); } }
-.nb-sizer { position:relative; }
-.nb-board { position:absolute; left:0; top:0; transform-origin:0 0; }
-.nb-card { position:absolute; width:148px; height:148px; box-sizing:border-box; transform:rotate(var(--nb-r,0deg)); background:var(--nb-paper); color:var(--ds-note-ink); border-radius:2px; box-shadow:var(--ds-note-shadow); touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; clip-path:polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%); }
-/* 아래 오른쪽 모서리 접힌 느낌 */
-.nb-card::after { content:""; position:absolute; right:0; bottom:0; width:16px; height:16px; background:linear-gradient(135deg, var(--ds-note-fold) 0 50%, transparent 50%); pointer-events:none; }
-.nb-card.nb-dragging, .nb-card.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); transform:rotate(var(--nb-r,0deg)) scale(1.03); }
-/* 폰에서 포스트잇을 누르고 있는 동안(잡힘·끌기) 문서 당김(당겨서 새로고침·튕김)이 일어나지 않게(note-board.js). */
+.nb.nb-panning .nb-scroll { cursor:grabbing; }
+.nb-board { position:absolute; left:0; top:0; width:0; height:0; transform-origin:0 0; }
+.nb-links { position:absolute; left:0; top:0; overflow:visible; pointer-events:none; }
+.nb-line { fill:none; stroke:var(--nb-link); stroke-width:1.6; stroke-linecap:round; }
+.nb-line.nb-dashed { stroke-dasharray:5 5; }
+.nb-arrow path { fill:var(--nb-link); }
+.nb-arrow-sel path { fill:var(--nb-link-on); }
+.nb-line-sel .nb-line { stroke:var(--nb-link-on); stroke-width:2.2; }
+.nb-pending .nb-line { opacity:.55; }
+/* 누르는 범위: 보이지 않는 굵은 선(폰 손가락으로도 잡힘). */
+.nb-hit { fill:none; stroke:transparent; stroke-width:16; pointer-events:stroke; cursor:pointer; outline:none; }
+.nb-hit:focus-visible { stroke:color-mix(in srgb,var(--nb-link-on) 28%,transparent); }
+.nb-label { font-size:11px; fill:var(--kptu-ink); stroke:var(--kptu-surface-subtle); stroke-width:4px; stroke-linejoin:round; paint-order:stroke; pointer-events:none; }
+.nb-temp[hidden] { display:none; }
+.nb-temp { fill:none; stroke:var(--nb-link-on); stroke-width:1.6; stroke-dasharray:4 4; }
+.nb-cards { position:absolute; left:0; top:0; width:0; height:0; }
+.nb-card { position:absolute; width:128px; height:34px; box-sizing:border-box; background:var(--nb-paper); color:var(--ds-note-ink); border-radius:var(--ds-radius-control,8px); box-shadow:var(--ds-note-shadow); touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+.nb-card.nb-dragging, .nb-card.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); }
+.nb-card.nb-sel { outline:var(--ds-line-width,1px) solid var(--nb-link-on); outline-offset:1px; }
+/* 폰에서 판·카드를 누르고 있는 동안 문서 당김(당겨서 새로고침·튕김)이 일어나지 않게(note-board.js). */
 html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-card.nb-picked { outline:2px solid var(--kptu-primary); outline-offset:2px; }
-#appView #basketView .nb-card .nb-open { display:flex; flex-direction:column; align-items:stretch; gap:4px; width:100%; height:100%; min-height:0; box-sizing:border-box; margin:0; padding:9px 10px 18px; overflow:hidden; text-align:left; border:0; border-radius:0; background:transparent; box-shadow:none; color:inherit; font:inherit; cursor:pointer; }
+#appView #basketView .nb-card .nb-open { display:flex; align-items:center; width:100%; height:100%; min-height:0; box-sizing:border-box; margin:0; padding:0 10px; overflow:hidden; text-align:left; border:0; border-radius:inherit; background:transparent; box-shadow:none; color:inherit; font:inherit; cursor:pointer; }
 #appView #basketView .nb-card .nb-open:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:-2px; }
-.nb-title { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:13px; font-weight:600; line-height:1.3; word-break:break-all; }
-.nb-text { flex:1 1 auto; min-height:0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line; font-size:12px; line-height:1.35; color:var(--ds-note-ink-soft); word-break:break-all; }
-.nb-folder { flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10.5px; color:var(--ds-note-ink-faint); }
-#appView #basketView .nb-card .nb-more { position:absolute; right:2px; top:2px; width:24px; height:22px; min-width:0; min-height:0; margin:0; padding:0; border:0; background:transparent; box-shadow:none; color:var(--ds-note-ink-faint); font-size:14px; line-height:1; opacity:.7; }
-/* NOTE-보드여러개: 포스트잇 보기 위 보드 칸 줄 [전체] [보드…] [+ 새 보드](작고 낮은 칸), PC 왼쪽 170px 폴더·노트 목록, 폰 노트 고르기 창. */
+.nb-title { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12.5px; font-weight:600; line-height:1.2; }
+/* ×·⋯·손잡이: 고른 카드(마우스를 올린 카드도 — nb-hover, note-board.js가 마우스일 때만 붙임)에서만 작게. */
+#appView #basketView .nb-card :is(.nb-more,.nb-x) { position:absolute; top:-20px; display:none; width:20px; height:18px; min-width:0; min-height:0; margin:0; padding:0; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-muted); font-size:12px; line-height:1; cursor:pointer; }
+#appView #basketView .nb-card .nb-more { right:0; }
+#appView #basketView .nb-card .nb-x { right:22px; }
+.nb-h { position:absolute; display:none; width:10px; height:10px; box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--nb-link-on); border-radius:50%; background:var(--kptu-surface); cursor:crosshair; touch-action:none; }
+/* 손잡이 누르는 범위(보이는 점보다 넓게). */
+/* 점은 카드 바깥에 둔다(카드를 누르거나 끄는 손가락이 손잡이에 걸리지 않게). 누르는 범위는 점 둘레 24px. */
+.nb-h::after { content:""; position:absolute; left:-7px; top:-7px; width:24px; height:24px; }
+.nb-h-top { left:calc(50% - 5px); top:-16px; }
+.nb-h-bottom { left:calc(50% - 5px); bottom:-16px; }
+.nb-h-left { left:-16px; top:calc(50% - 5px); }
+.nb-h-right { right:-16px; top:calc(50% - 5px); }
+.nb:not([data-nb-small]) .nb-card.nb-sel .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-card .nb-h { display:block; }
+/* 아주 작게 본 판(0.5배 미만, data-nb-small)에서는 손잡이를 보이지 않는다(카드가 작아 누르기와 겹침) — 키워서 긋는다. */
+#appView #basketView .nb-card.nb-sel :is(.nb-more,.nb-x) { display:block; }
+.nb:not(.nb-panning,[data-nb-small]) .nb-card.nb-hover .nb-h { display:block; }
+#appView #basketView .nb:not(.nb-panning) .nb-card.nb-hover :is(.nb-more,.nb-x) { display:block; }
+/* 선 메뉴(누른 자리 옆 작은 창, 본문 맨 끝에 붙음): [곡선|직선] [실선|점선] [→|↔|없음] [뒤집기] [글자] [삭제]. 버튼은 공용 칩·글자 버튼. */
+.nb-link-menu { position:fixed; z-index:60; display:flex; flex-direction:column; gap:6px; box-sizing:border-box; max-width:calc(100vw - 16px); padding:8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float,none); }
+.nb-link-menu[hidden] { display:none; }
+.nb-lm-row { display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap,4px); }
+.nb-lm-foot { justify-content:space-between; }
+.nb-link-menu .nb-lm-del { color:var(--kptu-danger,var(--kptu-muted)); }
+/* NOTE-보드여러개: 보드 보기 위 보드 칸 줄 [전체] [보드…] [+ 새 보드](작고 낮은 칸), PC 왼쪽 170px 폴더·노트 목록, 폰 노트 고르기 창. */
 .nbb { display:flex; flex-wrap:wrap; gap:var(--ds-chip-row-gap,4px); align-items:center; margin:4px 0; }
 /* LIB-맨위다듬기(S53-18) 같은 종류 전수: 보드 칸도 공용 거르기 칩 모양(알약 26px·12px·옅은 선, 고른 칸만 공용 선택 색). */
 #appView #basketView .nbb button:not(.chip-rows-more) { flex:none; position:relative; min-width:0; min-height:0; height:var(--ds-chip-row-height,26px); margin:0; padding:0 var(--ds-chip-row-pad-x,8px); border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-chip-radius,999px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-meta,12px); line-height:1; white-space:nowrap; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }
@@ -310,8 +344,6 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nbb-check { flex:none; width:14px; color:var(--kptu-primary-text); font-size:12px; }
 .nb-empty { position:absolute; left:0; right:0; top:38%; margin:0; text-align:center; font-size:13px; color:var(--kptu-muted); pointer-events:none; }
 .nb.nb-drop .nb-scroll { outline:2px dashed var(--kptu-primary); outline-offset:-2px; }
-#appView #basketView .nb-card .nb-x { position:absolute; right:24px; top:2px; width:20px; height:22px; min-width:0; min-height:0; margin:0; padding:0; border:0; background:transparent; box-shadow:none; color:var(--ds-note-ink-faint); font-size:14px; line-height:1; opacity:.7; cursor:pointer; }
-#appView #basketView .nb-card .nb-x:hover, #appView #basketView .nb-card .nb-x:focus-visible { opacity:1; }
 .nbb-pick { width:min(420px, calc(100vw - 24px)); max-height:min(76dvh, 640px); box-sizing:border-box; margin:auto auto calc(12px + env(safe-area-inset-bottom, 0px)); padding:8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float,none); }
 .nbb-pick[open] { display:flex; flex-direction:column; gap:6px; }
 .nbb-pick::backdrop { background:color-mix(in srgb,var(--kptu-ink) 46%,transparent); }

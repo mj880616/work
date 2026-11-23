@@ -1,4 +1,5 @@
-// NOTE-보드여러개 (요청함 10/30 05:48, 명진 결정 '위 추천안대로'): 노트 [포스트잇] 보기의 보드 여러 개.
+// NOTE-보드여러개 (요청함 10/30 05:48, 명진 결정 '위 추천안대로'): 노트 [보드] 보기(S68-38 옛 이름 포스트잇)의 보드 여러 개.
+// S68-38: 보드를 지우거나 보드에서 노트를 빼면 그 보드의 연결선(links = note-board-links-data.js 모음)도 함께 정리한다.
 // 이 모듈이 맡는 곳: 보드 칸 줄([전체] [보드…] [+ 새 보드], 폰은 이름 붙은 보드에서 [+ 노트 붙이기]), PC 왼쪽 폴더·노트 목록(끌어다 놓기),
 // 폰 노트 고르기 창, 보드 칸 우클릭(폰 꾹 누르기) 메뉴 [이름 바꾸기] [보드 지우기], 보드에 붙이기·빼기·옮긴 자리 저장.
 // 판 그리기는 note-board.js(그리는 곳 하나), 노트 목록·노트 메뉴·열기는 basket-notes.js가 맡는다.
@@ -22,7 +23,7 @@ import { fitChipRows } from './chip-rows.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 
 // wide: PC 왼쪽 목록을 보일 너비(노트 화면과 같은 761px~). get/set: basket-notes.js의 노트 배열. folderOf·folders·matches: 지금 노트 화면의 값.
-export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}}) {
+export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}}) {
   let boards = parseBoards(viewPrefs.get('note_boards')), current = pickBoard(viewPrefs.get('note_board'), boards), chosen = false;
   let openSet = new Set(), menu = null, picker = null;
   const named = () => current !== ALL && boards.some(b => b.id === current);
@@ -129,11 +130,12 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
     if (!named()) return;
     const id = current; localPlace(nid, id, null); rerender();
     void store([[nid, id, null]], '보드에서 빼지 못했어요. 다시 불러올게요.');
+    void links?.removeBoard(id, nid);
   }
   function move(nid, next) {
     if (!named()) return;
     const id = current; localPlace(nid, id, next);
-    void store([[nid, id, next]], '포스트잇 자리를 저장하지 못했어요. 다시 불러올게요.');
+    void store([[nid, id, next]], '카드 자리를 저장하지 못했어요. 다시 불러올게요.');
   }
 
   // 보드 만들기·이름·지우기(이름은 노트 폴더와 같은 창).
@@ -157,6 +159,7 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
     rerender();
     // 지운 보드의 자리도 노트에서 지운다(남아도 화면은 무시하지만, 노트 metadata를 깨끗이).
     void store(on.map(n => [n.id, id, null]), '삭제한 보드의 노트 자리를 다 정리하지 못했어요. 노트는 그대로예요.');
+    void links?.removeBoard(id);
   }
 
   // 보드 칸 메뉴(노트 메뉴와 같은 모양의 작은 창).

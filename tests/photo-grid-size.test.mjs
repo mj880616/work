@@ -132,7 +132,7 @@ test('두 손가락 지킴이: 핀치를 쓰는 화면이 모두 같은 공용 �
   assert.match(photos, /onMultiTouch\(cancelGestures\)/);
   assert.match(photos, /if \(multiTouchActive\(\)\) return cancelGestures\(\);/);
   assert.match(photos, /!e\.isPrimary \|\| multiTouchActive\(\)\) return;/, '폴더 줄·앨범 꾹 누르기');
-  assert.match(board, /onMultiTouch\(\(\) => \{ cancelDrag\(\); heldUp = null; \}\)/);
+  assert.match(board, /onMultiTouch\(\(\) => \{ cancelDrag\(\); cancelWire\(\); \}\)/, 'S68-38 보드: 카드 끌기·선 긋기를 끈다(판 안 두 손가락은 보드 자체 확대)');
   assert.match(board, /!e\.isPrimary \|\| multiTouchActive\(\)/);
   assert.match(grid, /grid\.addEventListener\('click', eatClick, true\)/, '핀치 영역 안 손 떼기 누르기 먹기');
 });
