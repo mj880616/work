@@ -94,11 +94,12 @@ export const PENDING_STALE_DAYS = 3;
 // 수집 때 본문 읽기(P2b): 매체마다 한 번에 새 기사 MEDIA_BODY_PER_RUN건(사이트마다 한 번 30건 상한 그대로).
 export const MEDIA_BODY_PER_RUN = 30;
 // robots 때문에 원문이 빈 지난 기사 다시 읽기(S68-25, 명진 결정 2026-11-22): 예약 '대기 기사' 단계에서 한 번에 ROBOTS_RETRY_PER_RUN건까지만,
-// 새 것부터(받은 지 ROBOTS_RETRY_DAYS일 안 — 그보다 오래된 기사는 정리 대상). 찾는 범위는 ROBOTS_RETRY_SCAN줄.
+// 새 것부터(받은 지 ROBOTS_RETRY_DAYS일 안). 찾는 범위는 ROBOTS_RETRY_SCAN줄.
+// S68-43(명진 요청 11/23 '옛 보관 글 원문 다시 불러오기'): 3일 → 30일. 정리에서 남은 보관·별표 기사도 S68-25 전에 robots로 막힌 채였다(다시 뽑기 REFILL_DAYS와 같은 창).
 // 재시도 상한 = 기사마다 1번: 다시 읽으면 공용 기사 상태가 robots에서 다른 값(ok·failed·bot_check·paywall…)으로 바뀌어 다시 고르지 않는다
 // (원문 읽기는 이제 robots를 보지 않으므로 robots로 돌아갈 수 없다). 읽을 수 없는 기사(카탈로그 밖·본문 읽기 끈 매체·허용 호스트 밖)는 요청 없이 건너뛴다.
 export const ROBOTS_RETRY_PER_RUN = 10;
-export const ROBOTS_RETRY_DAYS = 3;
+export const ROBOTS_RETRY_DAYS = 30;
 export const ROBOTS_RETRY_SCAN = 50;
 // 다시 뽑기(NEWS-전면개편 P2c, 설계 news-overhaul 4.8 — 예약 입구 action=refill, 몸통 {source}): 최근 REFILL_DAYS일 매체 기사 가운데
 // 블록 줄이 없거나, 까닭이 timeout(사이트가 잠깐 안 닿음·robots를 못 읽음)이거나, state≠ok이고 규칙 판이 지금 카탈로그 판과 다른 것을

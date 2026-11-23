@@ -43,6 +43,9 @@ import {clipboardFiles} from './paste-files.mjs';
 // - 직접 넣기(S67-02 NEWS-직접넣기): 원문을 못 읽은 뉴스 기사는 원문 칸 까닭 줄 끝에 [직접 넣기], 읽은 기사는 원문 ⋯ [수정] — 같은 자리 같은 입력 칸
 //   (제목·매체·기자·기사 시각(달력+시각, 비우면 넣은 시각)·본문). 저장은 서버 news-feed hand_fill(운영자 기능 키 작업공간만, 서버가 길이·모양 검사)뿐.
 //   저장 뒤 기사 줄을 다시 읽어 줄 주인(onRead)이 목록·머리를 고치고, 원문·요약은 새 본문으로 다시 읽는다(요약 저장본은 서버가 지움). 넣은 값은 글자로만 그린다.
+// - [원문 다시 가져오기](S68-43): 원문 칸이 다시 읽을 실패(reopenBody — 늦은 답·사이트 오류·예전 robots)면 까닭 줄 끝에 작은 단추. 누른 사람 요청으로
+//   기존 서버 길(뉴스 news-feed open · 사회운동 outside-feed reread — 로그인·기능 키·하루 한도는 서버)을 한 번 부르고 원문 줄을 다시 읽는다.
+//   본문이 생기면 요약·시사점을 다시 만든다(서버가 본문보다 오래된 저장본을 버림). 재료가 없는 글은 요약을 만들지 않고 요약 칸에 '원문을 가져오면 요약해요 · 까닭' 한 줄만.
 // - 저장은 모두 서버. 기기 저장 없음. 상세·원문은 이 탭 메모리에만 다시 쓰려고 둔다. 바깥 글자는 모두 esc로 그린다. 로그에 제목·본문을 남기지 않는다.
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -91,7 +94,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   const langAttr = () => (cur.head.lang && cur.head.lang !== 'ko' ? ` lang="${esc(cur.head.lang)}"` : '');
   const boxHead = (title, note = '') => `<p class="nd-bh"><b>${title}</b>${note ? `<span class="nd-bh-note" role="status">${esc(note)}</span>` : ''}</p>`;
   function sumHtml() {
-    if (cur.unread) return boxHead('요약') + `<p class="nd-why" data-nd-unread role="status">요약할 재료가 없어요 · ${esc(cur.unread)} <button type="button" class="nd-act" data-nd-retry>다시</button></p>`;
+    if (cur.unread) return boxHead('요약') + `<p class="nd-why" data-nd-unread role="status">원문을 가져오면 요약해요 · ${esc(cur.unread)} <button type="button" class="nd-act" data-nd-retry>다시</button></p>`;
     if (!cur.detail && cur.failed) return boxHead('요약') + failHtml({text: cur.failed, retry: 'data-nd-retry'});
     if (!cur.detail) return boxHead('요약', cur.reading ? '기사 가져오는 중' : '만드는 중') + `<div class="nd-wait" data-nd-wait aria-busy="true">${waitHtml({rows: 2})}</div>`;
     const v = detailView(cur.detail);
@@ -174,7 +177,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     else if (b.failedLoad) inner = failHtml({text: '원문을 불러오지 못함', retry: 'data-nd-body-retry'});
     else {
       const hand = canHandFill(cur.item, b) ? ' <button type="button" class="ds-chip nd-hand" data-nd-hand>직접 넣기</button>' : '';
-      const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}${hand}</p>` : '';
+      const again = (cur.refetching ? ' <span class="nd-faint" data-nd-refetching>원문을 다시 가져오는 중</span>' : b.again ? ' <button type="button" class="ds-chip" data-nd-refetch>원문 다시 가져오기</button>' : '')
+        + (cur.refetchNote && !cur.refetching ? ` <span class="nd-faint" data-nd-refetch-note>${esc(cur.refetchNote)}</span>` : '');
+      const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}${again}${hand}</p>` : '';
       const prose = b.blocks.length ? `<div class="nd-prose"${langAttr()} data-nd-prose>${b.blocks.map(blockHtml).join('')}</div>` : '';
       inner = b.state === 'failed' ? why : moveUrlHtml(b) + prose + why;
     }
@@ -284,7 +289,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (my !== seq) return {stale: true};
     if (row === LOAD_FAILED) { bodies.set(key, {failedLoad: true}); paintBody(); return {hadRow: false}; }
     // 저장 원문 줄이 있으면 그것을 그린다. 뉴스 기사에서 그 줄이 잠깐의 오류(state failed — 늦은 답·사이트 오류)면 아래 '기사 먼저 읽기'로 한 번 다시 읽는다.
-    if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); if (item.type === 'news') void freshenHead(item); return {hadRow: true}; }
+    if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, viewOf(row)); paintBody(); if (item.type === 'news') void freshenHead(item); return {hadRow: true}; }
     let pre = {ok: true};
     if (item.type === 'news') {
       pre = await readFirst(item, my, !!row).catch(() => ({ok: true}));
@@ -292,7 +297,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       row = await readBodyRow(item);
       if (my !== seq) return {stale: true};
       if (row === LOAD_FAILED) { bodies.set(key, {failedLoad: true}); paintBody(); return {hadRow: false, pre}; }
-      if (row) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); return {hadRow: true, pre}; }
+      if (row) { bodies.set(key, viewOf(row)); paintBody(); return {hadRow: true, pre}; }
     }
     let legacy;
     try { legacy = await readLegacyText(item); } catch { legacy = {failedLoad: true}; }
@@ -301,6 +306,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     bodies.set(key, legacy); paintBody();
     return {hadRow: false, pre};
   }
+  // 저장 원문 줄 → 그릴 모양. 다시 읽을 실패(reopenBody)면 [원문 다시 가져오기]를 단다(again).
+  const viewOf = row => { const v = bodyView(row) || legacyBody(''); return reopenBody(row) ? {...v, again: true} : v; };
   // 저장 원문 한 줄: 줄 · null(정말 없음) · LOAD_FAILED(두 번 읽어도 오류).
   async function readBodyRow(item) {
     for (let i = 0; i < 2; i++) { try { return await readFeedBody(item); } catch { /* 한 번 더 */ } }
@@ -321,6 +328,31 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (my !== seq) return {ok: true, stale: true};
     onRead?.(item, row);
     return hasMaterial(row) ? {ok: true} : {ok: false, why: unreadReason(status, row.state)};
+  }
+  // [원문 다시 가져오기](S68-43): 이 글 하나만 서버가 다시 읽게 하고(뉴스 open · 사회운동 reread) 원문 줄을 다시 읽는다. 본문이 생기면 요약·시사점을 새로.
+  async function refetchBody() {
+    const c = cur;
+    if (!c || c.refetching) return;
+    const item = c.item, key = itemKey(item), my = seq;
+    c.refetching = true; c.refetchNote = ''; paintBody();
+    const path = item.type === 'news' ? 'news-feed?action=open' : 'outside-feed?action=reread';
+    let status = '';
+    try { status = (await rt().api(`/functions/v1/${path}`, {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 90000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
+    if (my !== seq || cur !== c) return;
+    const row = await readBodyRow(item);
+    if (my !== seq || cur !== c) return;
+    c.refetching = false;
+    if (row && row !== LOAD_FAILED) bodies.set(key, viewOf(row));
+    const b = bodies.get(key);
+    if (b && b.state !== 'failed') {
+      details.delete(key); c.detail = null; c.failed = ''; c.unread = '';
+      paintBody(); paintAi();
+      if (item.type === 'news') { const nr = await readNewsRow(item).catch(() => null); if (nr && my === seq && cur === c) onRead?.(item, nr); }
+      makeDetail(item, my);
+      return;
+    }
+    c.refetchNote = status === 'daily_limit' || status === 'error' ? unreadReason(status, '') : '다시 읽어도 본문이 없어요';
+    paintBody();
   }
   // S63-11: 본문은 이미 저장돼 있는데 기사 줄이 아직 '읽기 전'(제목 없음)이면 서버 열기(news-feed open)를 한 번 불러 제목을 채운다.
   // 다 되면 onRead로 줄 주인(목록·상세 머리)이 새 제목을 그린다. 원문 칸·AI 칸은 건드리지 않는다. 같은 기사는 이 화면에서 한 번만.
@@ -709,6 +741,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-hand-pick]')) { b.closest('[data-nd-hand-form]')?.querySelector('[data-nd-hand-file]')?.click(); return; }
     if (b.matches('[data-nd-hand-photo]')) { void addHandPhoto(b.closest('[data-nd-hand-form]')); return; }
     if (b.matches('[data-nd-own-retry]')) { const img = b.closest('figure')?.querySelector('img[data-nd-own]'); if (img) fillOwnImg(cur, img, 0); return; }
+    if (b.matches('[data-nd-refetch]')) { void refetchBody(); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
     if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paintActs(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }

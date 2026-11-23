@@ -53,7 +53,7 @@ for (const width of [412, 884, 1280]) {
     await row(page, 'x1').locator('[data-nc-open="x1"]').click();
     const nd = detail(page);
     await expect(nd.locator('[data-nd-why]')).toContainText('사이트가 늦게 답해 읽지 못함');
-    await expect(nd.locator('[data-nd-unread]')).toContainText('요약할 재료가 없어요');
+    await expect(nd.locator('[data-nd-unread]')).toContainText('원문을 가져오면 요약해요');
     await page.screenshot({ path: info.outputPath(`hand-failed-${width}.png`) });
     await nd.locator('[data-nd-hand]').click();
     const form = nd.locator('[data-nd-hand-form]');
