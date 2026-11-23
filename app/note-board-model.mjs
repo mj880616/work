@@ -1,15 +1,17 @@
-// NOTE-보기3가지 (요청함 10/29 15:05, 명진 결정 15:10 '추천대로'): 포스트잇 보기의 자리 계산(화면 없음, 시험 가능).
+// NOTE-보기3가지 (요청함 10/29 15:05, 명진 결정 15:10 '추천대로'): 보드 보기(옛 이름 포스트잇)의 자리 계산(화면 없음, 시험 가능).
+// S68-38(명진 11/23 08:12·08:23): '포스트잇' → '보드'(생각 지도). 카드는 제목 한 줄만인 작은 칸(CARD_W×CARD_H)이고 기울이지 않고 그린다
+//   (저장 모양의 r은 옛 값과 호환되게 그대로 둔다). 판은 끝없이 넓은 캔버스처럼 옮기고(translate) 키운다(scale) — 확대는 ZOOM_MIN~ZOOM_MAX 사이 연속 값.
 // - 저장 모양: 노트 행의 기존 metadata.board = {x, y, r, z}. x·y = 보드 왼쪽 위에서의 자리(확대 1배 px), r = 기울기(도), z = 겹친 순서(클수록 위).
 //   저장·읽기 길은 basket-data.js setNoteBoard(고정·폴더와 같은 metadata 쓰기). 기기 저장 없음.
 // - 처음 배치: 저장된 자리가 하나도 없으면 폴더끼리 모아 흩어 놓는다(같은 노트 목록이면 어느 기기에서나 같은 모양).
 //   하나라도 저장돼 있으면 자리가 없는 노트(새 노트)는 보드 왼쪽 위에서부터 빈 곳에 붙는다.
 //   처음 한 장을 옮기는 순간 아직 저장 안 된 노트들도 지금 보이는 자리로 함께 저장한다(다른 칸이 튀지 않게, basket-notes.js).
-// - 칸 크기는 모두 같다(크기 바꾸기 없음). 색은 폴더마다 다른 연한 색(tone 0~7, 노랑 없음 — 색 값은 basket.css), 폴더 없음은 'none'.
-export const CARD = 148, GAP = 22, SLOT = CARD + GAP, PAD = 24;
+// - 칸 크기는 모두 같다(크기 바꾸기 없음, CARD_W×CARD_H). 색은 폴더마다 다른 연한 색(tone 0~7, 노랑 없음 — 색 값은 basket.css), 폴더 없음은 'none'.
+export const CARD_W = 128, CARD_H = 34, GAP = 22, SLOT_W = CARD_W + GAP, SLOT_H = CARD_H + GAP, PAD = 24;
 export const BOARD_MAX = 20000, Z_MAX = 1e9, TILT_MAX = 6;
 export const MIN_W = 1200, MIN_H = 900, ROOM = 360; // 보드는 화면보다 넓게: 놓인 칸 바깥으로 ROOM만큼 더 둔다
 export const TONES = 8;
-export const ZOOMS = Object.freeze([0.5, 0.65, 0.8, 1, 1.25, 1.5]);
+export const ZOOM_MIN = 0.2, ZOOM_MAX = 2.5, ZOOM_STEP = 1.25;
 export const CLUSTER_WRAP = 1500; // 처음 배치에서 폴더 묶음을 한 줄에 늘어놓는 너비
 
 const hash = value => { let h = 2166136261; for (const ch of String(value)) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -30,8 +32,10 @@ export function placeShape(b) {
 }
 // 저장된 자리(모양이 틀리면 null = 자리 없음으로 보고 다시 놓는다). [전체] 보드.
 export const boardOf = note => placeShape(plain(note?.metadata) ? note.metadata.board : null);
-export const clampPos = v => Math.round(Math.max(0, Math.min(BOARD_MAX - CARD, v)));
-const overlaps = (a, b) => a.x < b.x + CARD && b.x < a.x + CARD && a.y < b.y + CARD && b.y < a.y + CARD;
+// size: 그 축의 칸 크기(가로 CARD_W, 세로 CARD_H) — 칸 전체가 판 안에 들게.
+export const clampPos = (v, size = CARD_W) => Math.round(Math.max(0, Math.min(BOARD_MAX - size, v)));
+const clampX = v => clampPos(v, CARD_W), clampY = v => clampPos(v, CARD_H);
+const overlaps = (a, b) => a.x < b.x + CARD_W && b.x < a.x + CARD_W && a.y < b.y + CARD_H && b.y < a.y + CARD_H;
 const time = v => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : 0; };
 const newestFirst = (a, b) => time(b.updated_at) - time(a.updated_at) || String(b.id).localeCompare(String(a.id));
 
@@ -43,12 +47,12 @@ function clusterPlace(list, folderOf) {
   let x0 = PAD, y0 = PAD, rowH = 0, z = 0;
   for (const notes of groups.values()) {
     const cols = Math.max(1, Math.ceil(Math.sqrt(notes.length))), rows = Math.ceil(notes.length / cols);
-    const w = cols * (CARD - 18) + 18 + GAP * 2, h = rows * (CARD - 24) + 24 + GAP * 2;
+    const w = cols * SLOT_W + GAP, h = rows * SLOT_H + GAP;
     if (x0 > PAD && x0 + w > CLUSTER_WRAP) { x0 = PAD; y0 += rowH; rowH = 0; }
     notes.forEach((note, i) => {
-      // 묶음 안에서는 살짝 겹쳐(포스트잇 뭉치) 흩어 놓는다.
-      const cx = x0 + (i % cols) * (CARD - 18) + jitter(note.id, 'x', 10), cy = y0 + Math.floor(i / cols) * (CARD - 24) + jitter(note.id, 'y', 8);
-      out.set(note.id, {x:clampPos(cx), y:clampPos(cy), r:tiltFor(note.id), z:z++});
+      // 묶음 안에서는 겹치지 않게 살짝 흩어 놓는다(제목이 가려지지 않게, 흔들림은 칸 사이 틈보다 작게).
+      const cx = x0 + (i % cols) * SLOT_W + jitter(note.id, 'x', 6), cy = y0 + Math.floor(i / cols) * SLOT_H + jitter(note.id, 'y', 6);
+      out.set(note.id, {x:clampX(cx), y:clampY(cy), r:tiltFor(note.id), z:z++});
     });
     x0 += w; rowH = Math.max(rowH, h);
   }
@@ -57,13 +61,13 @@ function clusterPlace(list, folderOf) {
 // 저장된 칸들과 겹치지 않는 왼쪽 위 빈 칸부터(가로 cols칸씩 줄을 훑는다). 새 노트가 먼저 좋은 자리를 받는다.
 function freePlace(list, taken, startZ) {
   const out = new Map(), used = [...taken];
-  const cols = Math.max(4, Math.floor(CLUSTER_WRAP / SLOT));
-  const maxSlot = cols * Math.floor((BOARD_MAX - CARD - PAD) / SLOT);
-  const slotAt = s => ({x:PAD + (s % cols) * SLOT, y:PAD + Math.floor(s / cols) * SLOT});
+  const cols = Math.max(4, Math.floor(CLUSTER_WRAP / SLOT_W));
+  const maxSlot = cols * Math.floor((BOARD_MAX - CARD_H - PAD) / SLOT_H);
+  const slotAt = s => ({x:PAD + (s % cols) * SLOT_W, y:PAD + Math.floor(s / cols) * SLOT_H});
   let slot = 0, z = startZ;
   for (const note of [...list].sort(newestFirst)) {
     while (slot < maxSlot && used.some(u => overlaps(u, slotAt(slot)))) slot++;
-    const at = slotAt(Math.min(slot, maxSlot)), p = {x:clampPos(at.x), y:clampPos(at.y), r:tiltFor(note.id), z:z++};
+    const at = slotAt(Math.min(slot, maxSlot)), p = {x:clampX(at.x), y:clampY(at.y), r:tiltFor(note.id), z:z++};
     out.set(note.id, p); used.push(p);
     if (slot < maxSlot) slot++;
   }
@@ -84,15 +88,36 @@ export function topZ(places) { let z = -1; for (const p of places.values()) if (
 // 보드 크기(확대 1배 px): 놓인 칸 바깥으로 여유를 두고, 최소 크기 이상.
 export function boardExtent(places) {
   let w = MIN_W, h = MIN_H;
-  for (const p of places.values()) { w = Math.max(w, p.x + CARD + ROOM); h = Math.max(h, p.y + CARD + ROOM); }
+  for (const p of places.values()) { w = Math.max(w, p.x + CARD_W + ROOM); h = Math.max(h, p.y + CARD_H + ROOM); }
   return {w:Math.min(w, BOARD_MAX), h:Math.min(h, BOARD_MAX)};
 }
 // 끌어 놓은 자리: 옮긴 만큼 더하고 맨 위로.
 export function movedTo(place, dx, dy, top) {
-  return {x:clampPos(place.x + dx), y:clampPos(place.y + dy), r:place.r, z:Math.min(Z_MAX, top + 1)};
+  return {x:clampX(place.x + dx), y:clampY(place.y + dy), r:place.r, z:Math.min(Z_MAX, top + 1)};
 }
-// 확대 단계 한 칸(dir +1 크게, -1 작게). 끝이면 그대로.
-export function stepZoom(zoom, dir) {
-  let at = ZOOMS.indexOf(zoom); if (at < 0) at = ZOOMS.indexOf(1);
-  return ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, at + Math.sign(dir)))];
+
+// ---- 판 보기(view = {x, y, z}: 판 좌표 (0,0)이 화면 칸의 (x, y)에 오고 z배로 키움). 이번 접속 화면 메모리만(저장 값 아님). ----
+export const clampZoom = z => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number.isFinite(z) ? z : 1));
+// 한 단계 크게(+1)·작게(-1). 끝이면 그대로.
+export const stepZoom = (zoom, dir) => clampZoom(Math.round(clampZoom(zoom) * ZOOM_STEP ** Math.sign(dir) * 1000) / 1000);
+// 화면 칸의 점(px, py)을 그대로 둔 채 배율만 바꾼다(두 손가락·휠·[−][+]).
+export function zoomAt(view, next, px, py) {
+  const z = clampZoom(next), bx = (px - view.x) / view.z, by = (py - view.y) / view.z;
+  return {x:px - bx * z, y:py - by * z, z};
 }
+// 화면 칸 좌표 → 판 좌표.
+export const toBoard = (view, px, py) => ({x:(px - view.x) / view.z, y:(py - view.y) / view.z});
+// 칸들이 모두 보이게(전체 보기). rects: [{x, y, w, h}] 판 좌표, width·height: 화면 칸 크기. 칸이 없으면 왼쪽 위 1배.
+export function fitView(rects, width, height, pad = 24, maxZ = 1) {
+  if (!rects.length || width <= 0 || height <= 0) return {x:0, y:0, z:clampZoom(1)};
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const r of rects) { x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y); x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h); }
+  const z = clampZoom(Math.min(maxZ, (width - pad * 2) / Math.max(1, x1 - x0), (height - pad * 2) / Math.max(1, y1 - y0)));
+  return {x:(width - (x1 - x0) * z) / 2 - x0 * z, y:(height - (y1 - y0) * z) / 2 - y0 * z, z};
+}
+// 지금 화면에 보이는 판 영역(판 좌표, margin만큼 넉넉히). 화면 밖 칸·선은 그리지 않는다.
+export function visibleArea(view, width, height, margin = 200) {
+  return {x:-view.x / view.z - margin, y:-view.y / view.z - margin, w:width / view.z + margin * 2, h:height / view.z + margin * 2};
+}
+export const rectsMeet = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+export const cardRect = p => ({x:p.x, y:p.y, w:CARD_W, h:CARD_H});

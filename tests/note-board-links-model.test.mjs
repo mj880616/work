@@ -1,0 +1,131 @@
+// S68-38 노트 '보드'(생각 지도): 연결선 계산(app/note-board-links-model.mjs)과 서버 읽기·쓰기 모음(app/note-board-links-data.js).
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {parseLink, linksOnBoard, hasLink, validateLabel, sidePoint, nearestSide, resolveSides, linkGeometry, dragPath, linkBox, flipPatch, rectOf, LABEL_MAX} from '../app/note-board-links-model.mjs';
+import {createBoardLinks, readBoardLinks} from '../app/note-board-links-data.js';
+import {CARD_W, CARD_H} from '../app/note-board-model.mjs';
+
+const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+const row = (over = {}) => ({id:'l1', board_id:'all', from_note:'a', to_note:'b', from_side:null, to_side:null, shape:'curve', dash:'solid', ends:'end', label:null, ...over});
+
+test('서버 줄 모양 검사: 틀린 보드 id·같은 노트·없는 칸은 버리고, 모르는 값은 기본값', () => {
+  assert.deepEqual(parseLink(row()), row());
+  for (const bad of [{board_id:'ALL'}, {board_id:'b12'}, {from_note:'a', to_note:'a'}, {id:''}, {to_note:null}]) assert.equal(parseLink(row(bad)), null, JSON.stringify(bad));
+  assert.deepEqual(parseLink(row({from_side:'middle', shape:'zigzag', dash:'dotted', ends:'start', label:'  '})), row());
+  assert.equal(parseLink(row({label:'가'.repeat(60)})).label.length, LABEL_MAX);
+  assert.equal(parseLink(null), null);
+});
+test('이 보드에서 그릴 선: 보드가 같고 양쪽 카드가 판에 있을 때만', () => {
+  const links = [row(), row({id:'l2', board_id:'babc12345'}), row({id:'l3', to_note:'gone'})];
+  const on = new Set(['a', 'b']);
+  assert.deepEqual(linksOnBoard(links, 'all', id => on.has(id)).map(l => l.id), ['l1']);
+  assert.equal(hasLink(links, 'all', 'a', 'b'), true); assert.equal(hasLink(links, 'all', 'b', 'a'), false);
+});
+test('선 위 글자: 앞뒤 빈칸 지움, 비우면 없음, 한 줄·40자까지', () => {
+  assert.equal(validateLabel('  이어짐  '), '이어짐'); assert.equal(validateLabel('   '), null); assert.equal(validateLabel(null), null);
+  assert.throws(() => validateLabel('줄\n바꿈'), /한 줄/); assert.throws(() => validateLabel('가'.repeat(41)), /40자/);
+  assert.equal(validateLabel('가'.repeat(40)).length, 40);
+});
+test('변 고르기: 네 변 가운데 점, 가까운 변(넓적한 카드 비율 반영), 정하지 않은 변은 서로 마주 보게', () => {
+  const a = rectOf({x:0, y:0}), b = rectOf({x:400, y:0}), below = rectOf({x:0, y:300});
+  assert.deepEqual(sidePoint(a, 'top'), {x:CARD_W / 2, y:0}); assert.deepEqual(sidePoint(a, 'right'), {x:CARD_W, y:CARD_H / 2});
+  assert.deepEqual(sidePoint(a, 'bottom'), {x:CARD_W / 2, y:CARD_H}); assert.deepEqual(sidePoint(a, 'left'), {x:0, y:CARD_H / 2});
+  assert.equal(nearestSide(a, {x:CARD_W + 50, y:CARD_H / 2}), 'right'); assert.equal(nearestSide(a, {x:-50, y:0}), 'left');
+  assert.equal(nearestSide(a, {x:CARD_W / 2, y:-40}), 'top'); assert.equal(nearestSide(a, {x:CARD_W / 2 + 30, y:CARD_H + 30}), 'bottom');
+  assert.deepEqual(resolveSides(a, b), ['right', 'left']); assert.deepEqual(resolveSides(a, below), ['bottom', 'top']);
+  assert.deepEqual(resolveSides(b, a), ['left', 'right']); assert.deepEqual(resolveSides(below, a), ['top', 'bottom']);
+  // 상하좌우 어디서나: 사용자가 고른 변은 그대로.
+  assert.deepEqual(resolveSides(a, b, 'top', 'bottom'), ['top', 'bottom']);
+  assert.deepEqual(resolveSides(a, below, 'left'), ['left', 'top']);
+});
+test('곡선·직선 경로: 시작·끝은 변 가운데, 곡선 손잡이는 변 바깥쪽, 가운데 점은 글자 자리', () => {
+  const a = rectOf({x:0, y:0}), b = rectOf({x:400, y:200});
+  assert.deepEqual(linkGeometry(a, b).from.side, 'bottom', '아래 오른쪽 멀리 있으면 넓적한 카드는 아래 변');
+  const c = linkGeometry(a, rectOf({x:400, y:60}), {shape:'curve'});
+  assert.match(c.d, /^M128 17C\d/); assert.equal(c.from.side, 'right'); assert.equal(c.to.side, 'left');
+  const [, , , c1x] = c.d.match(/^M([\d.]+) ([\d.]+)C([\d.]+)/).map(Number); assert.ok(c1x > CARD_W, '시작 변(오른쪽) 바깥으로 휜다');
+  assert.ok(c.mid.x > 128 && c.mid.x < 400 && c.mid.y > 17 && c.mid.y < 77);
+  const l = linkGeometry(a, b, {shape:'line', from_side:'bottom', to_side:'top'});
+  assert.equal(l.d, `M${CARD_W / 2} ${CARD_H}L${400 + CARD_W / 2} 200`);
+  assert.deepEqual(l.mid, {x:(CARD_W / 2 + 400 + CARD_W / 2) / 2, y:(CARD_H + 200) / 2});
+  // 왼쪽에서 나가 위로 들어가는 곡선(상하좌우 아무 방향).
+  const up = linkGeometry(b, a, {from_side:'left', to_side:'top'});
+  assert.match(up.d, /^M400 217C/); assert.match(up.d, /64 0$/);
+  assert.match(dragPath(a, 'bottom', {x:300, y:300}), /^M64 34C64 \d+(\.\d)? 300 300 300 300$/);
+  const box = linkBox(a, b); assert.ok(box.x < 0 && box.y < 0 && box.x + box.w > 400 + CARD_W && box.y + box.h > 200 + CARD_H);
+});
+test('뒤집기: 시작·끝과 변을 함께 바꾼다', () => {
+  assert.deepEqual(flipPatch(row({from_side:'right', to_side:'top'})), {from_note:'b', to_note:'a', from_side:'top', to_side:'right'});
+});
+
+// 가짜 서버(rt.api): 표 하나를 흉내 낸다.
+function fakeRt({missing = false, fail = false} = {}) {
+  const calls = [], rows = [];
+  const api = async (url, opts = {}) => {
+    calls.push({url, method:opts.method || 'GET', body:opts.body});
+    if (missing) throw Object.assign(new Error('relation does not exist'), {status:404, code:'PGRST205'});
+    if (fail && opts.method) throw new Error('nope');
+    const q = new URL('https://x' + url).searchParams;
+    if (!opts.method) return rows.map(r => ({...r}));
+    if (opts.method === 'POST') { const r = {id:`s${rows.length + 1}`, ...opts.body}; delete r.workspace_id; rows.push(r); return [{...r}]; }
+    if (opts.method === 'PATCH') { const r = rows.find(x => 'eq.' + x.id === q.get('id')); Object.assign(r, opts.body); return [{...r}]; }
+    if (opts.method === 'DELETE') return [];
+    return [];
+  };
+  return {calls, rows, api, context:{read:() => ({workspace:{id:'w1'}})}};
+}
+test('모음: 읽기·긋기·바꾸기·지우기, 보드 삭제·노트 빼기 정리(작업공간 칸을 늘 붙임)', async () => {
+  const rt = fakeRt(); let changes = 0; const toasts = [];
+  const store = createBoardLinks({rt, scope:() => 'w1', onChange:() => changes++, toast:t => toasts.push(t)});
+  await store.load();
+  assert.equal(store.ready(), true); assert.match(rt.calls[0].url, /^\/rest\/v1\/app_note_board_links\?workspace_id=eq\.w1&select=/);
+  await store.load(); assert.equal(rt.calls.length, 1, '한 작업공간에 한 번만 읽는다');
+  const saved = await store.add({board_id:'all', from_note:'a', to_note:'b', from_side:'right', to_side:'left'});
+  assert.equal(saved.id, 's1'); assert.deepEqual(rt.calls[1].body, {workspace_id:'w1', board_id:'all', from_note:'a', to_note:'b', from_side:'right', to_side:'left', shape:'curve', dash:'solid', ends:'end', label:null});
+  assert.deepEqual(store.forBoard('all').map(l => l.id), ['s1']);
+  await store.update('s1', {shape:'line', dash:'dashed', ends:'both', label:'관련', workspace_id:'other', board_id:'bzzz99999'});
+  assert.deepEqual(rt.calls[2].body, {shape:'line', dash:'dashed', ends:'both', label:'관련'}, '작업공간·보드는 보내지 않는다');
+  assert.match(rt.calls[2].url, /id=eq\.s1&workspace_id=eq\.w1/);
+  assert.equal(store.forBoard('all')[0].shape, 'line');
+  await store.add({board_id:'babc12345', from_note:'a', to_note:'c'});
+  await store.add({board_id:'babc12345', from_note:'c', to_note:'d'});
+  await store.removeBoard('babc12345', 'a');
+  assert.match(rt.calls.at(-1).url, /workspace_id=eq\.w1&board_id=eq\.babc12345&or=\(from_note\.eq\.a,to_note\.eq\.a\)/);
+  assert.deepEqual(store.forBoard('babc12345').map(l => l.to_note), ['d']);
+  await store.removeBoard('babc12345');
+  assert.match(rt.calls.at(-1).url, /workspace_id=eq\.w1&board_id=eq\.babc12345&select=id$/); assert.equal(store.forBoard('babc12345').length, 0);
+  await store.remove('s1'); assert.match(rt.calls.at(-1).url, /id=eq\.s1/); assert.equal(store.all().length, 0);
+  const before = rt.calls.length; await store.removeBoard('bnone0000'); assert.equal(rt.calls.length, before, '선이 없으면 묻지 않는다');
+  assert.ok(changes > 5); assert.deepEqual(toasts, []);
+});
+test('모음: 표가 없으면(DB 적용 전) 카드만 — 긋기는 서버에 보내지 않고 준비 중 알림', async () => {
+  const rt = fakeRt({missing:true}), toasts = [];
+  assert.deepEqual(await readBoardLinks(rt), {ready:false, links:[], missing:true});
+  const store = createBoardLinks({rt, scope:() => 'w1', toast:t => toasts.push(t)});
+  await store.load();
+  assert.equal(await store.add({board_id:'all', from_note:'a', to_note:'b'}), null);
+  assert.match(toasts[0], /준비 중/);
+  assert.equal(rt.calls.filter(c => c.method !== 'GET').length, 0);
+});
+test('모음: 저장 실패는 알리고 서버 값으로 다시 읽는다', async () => {
+  const rt = fakeRt({fail:true}), toasts = [];
+  const store = createBoardLinks({rt, scope:() => 'w1', toast:t => toasts.push(t)});
+  await store.load();
+  assert.equal(await store.add({board_id:'all', from_note:'a', to_note:'b'}), null);
+  assert.match(toasts[0], /저장하지 못했어요/); assert.equal(store.all().length, 0);
+  assert.equal(rt.calls.filter(c => c.method === 'GET').length, 2);
+});
+test('화면 연결: 탭 이름 보드, 저장 길은 서버 표 한 곳, 기기 저장 없음, 판 위 손짓은 판이 먼저', () => {
+  const notes = read('app/basket-notes.js'), board = read('app/note-board.js'), data = read('app/note-board-links-data.js'), css = read('app/basket.css');
+  assert.match(notes, /data-note-view="board" aria-pressed="false">보드<\/button>/);
+  assert.doesNotMatch(notes, />포스트잇</);
+  assert.match(notes, /boardKey:key, links:boardLinks\.forBoard\(key\)/);
+  assert.match(data, /\/rest\/v1\/app_note_board_links/);
+  for (const f of ['app/note-board.js', 'app/note-board-links-data.js', 'app/note-board-links-model.mjs', 'app/note-boards.js'])
+    assert.doesNotMatch(read(f), new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|')), f);
+  assert.match(board, /class="nb-scroll" data-nb-scroll/, '탭 넘김은 data-nb-scroll 안에서 보지 않는다(basket-notes.js)');
+  assert.match(notes, /e\.target\.closest\('\[data-nb-scroll\]/);
+  assert.match(css, /\.nb-scroll \{[^}]*touch-action:none/);
+  assert.match(css, /\.nb-card \{[^}]*width:128px; height:34px/);
+});

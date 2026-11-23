@@ -730,6 +730,8 @@ jobs:
         run: node --test tests/note-board-model.test.mjs
       - name: Check note boards (NOTE-보드여러개)
         run: node --test tests/note-boards-model.test.mjs
+      - name: Check note board links (S68-38 생각 지도)
+        run: node --test tests/note-board-links-model.test.mjs
       - name: Check note hashtags and comments (NOTE-읽생기아이디어)
         run: node --test tests/note-tags-comments.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)

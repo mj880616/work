@@ -67,7 +67,7 @@ for (const width of [412, 884, 1440]) test(`[달력] 보기: 탭 노출·만든 
 
   // 보기 탭: 폴더 · 목록 · 포스트잇 · 태그 · 댓글 · 달력(맨 끝), 한 줄 안에 들어간다.
   const tabs = page.locator('.nv-switch [data-note-view]');
-  await expect(tabs).toHaveText(['폴더', '목록', '포스트잇', '태그', '댓글', '달력']);
+  await expect(tabs).toHaveText(['폴더', '목록', '보드', '태그', '댓글', '달력']);
   const sw = await page.locator('.nv-switch').boundingBox();
   expect(sw.x).toBeGreaterThanOrEqual(0); expect(sw.x + sw.width).toBeLessThanOrEqual(width);
   const tab = page.locator('.nv-switch [data-note-view="calendar"]');
