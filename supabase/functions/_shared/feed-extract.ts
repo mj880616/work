@@ -8,6 +8,7 @@
 import { bodyRange, bodyScopeHtml, cut, decodeEntities, htmlToText, isBodyNoise, isFileLine, oneLine } from "../outside-feed/parse.ts";
 import { decodeText } from "./html-entities.ts";
 import { isMoreLink } from "./outside-tidy.ts";
+import { jsonBody } from "./page-json-body.ts";
 
 // 출처마다 카탈로그 `extract` 칸(모양은 outside-catalog.ts의 ExtractRule). 본문 칸은 지금 카탈로그 `bodyClass`를 그대로 쓴다(ai-assist가 같은 칸을 읽음 — 두 벌 금지).
 import type { ExtractRule } from "./outside-catalog.ts";
@@ -301,6 +302,20 @@ export function typedBlocks(items: TypedItem[], opts: { key: string; rule: Extra
     if (!isMoreLink(it.text)) b.text(it.t, it.text);
   }
   return { ...finish(b, rule, opts.minChars, []), scope: "text" };
+}
+
+// S68-52·S69-06: 페이지 안 공개 구조화 본문(JSON-LD articleBody · Arc globalContent)으로 바꿀지(뉴스·사회운동·저장한 글 공용 — 한 곳).
+// 본문 태그에서 못 뽑았거나 뽑은 글자가 구조화 본문보다 JSON_BODY_RATIO배 넘게 짧으면 구조화 본문. 태그 본문이 충분하면 그대로(사진 유지).
+// 유료벽은 부르는 쪽이 먼저 거른다(page.ts). 구조화 본문도 isAccessibleForFree=false·Arc 유료 표시면 읽지 않는다(page-json-body.ts).
+export const JSON_BODY_RATIO = 1.5;
+export function withPageJson(tagEx: Extracted, html: string, opts: { key: string; rule: ExtractRule | null; minChars: number }): Extracted {
+  const jb = jsonBody(html);
+  if (!jb) return tagEx;
+  // 종류가 붙은 차례(Arc — 문단·소제목·사진)가 있으면 그대로 블록으로, 없으면(JSON-LD) 글자 문단만.
+  const js = jb.items?.length ? typedBlocks(jb.items, opts) : textBlocks(jb.text, opts);
+  if (js.state !== "ok") return tagEx;
+  if (tagEx.state === "ok" && js.chars < tagEx.chars * JSON_BODY_RATIO) return tagEx;
+  return { ...js, scope: `json_${jb.via}`, cut: null };
 }
 
 // probe·로그용 숫자(글자·주소 없음).

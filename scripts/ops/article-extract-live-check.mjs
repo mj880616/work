@@ -48,11 +48,24 @@ function topBlocks(html) {
     if (all < 300) continue;
     out.push({ sel: `${tag}${id ? "#" + id : ""}${cls ? "." + cls : ""}`.slice(0, 80), all, p: pText });
   }
-  // 가장 안쪽(작은) 칸 중 글자가 많은 것: all 큰 순으로 고르되, 자기 안에 거의 같은 글자의 칸이 또 있으면 안쪽을 남긴다.
-  out.sort((a, b) => b.all - a.all);
-  const pick = [];
-  for (const o of out) { if (pick.length >= 4) break; if (!pick.some((p) => p.sel === o.sel)) pick.push(o); }
+  // 가장 안쪽 칸: 문단(<p>) 글자가 가장 많은 칸의 80% 이상을 가진 칸들 가운데 전체 글자가 작은(안쪽) 순 3개.
+  //   <p>가 거의 없는 쪽(<br>로 줄을 나누는 게시판)은 전체 글자로 같은 방식.
+  const maxP = Math.max(0, ...out.map((o) => o.p));
+  const byP = maxP >= 300;
+  const top = byP ? maxP : Math.max(0, ...out.map((o) => o.all));
+  const pick = out.filter((o) => (byP ? o.p : o.all) >= top * 0.8).sort((a, b) => a.all - b.all).slice(0, 3);
   return pick.map((o) => `${o.sel}:${o.all}/${o.p}`).join(" ");
+}
+// 스크립트 자료(글자 없이): 큰 스크립트 3개의 id·type·길이, 본문이 실릴 만한 JSON 열쇠 이름이 있는지.
+function scriptHints(html) {
+  const list = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)].map((m) => {
+    const id = /\bid\s*=\s*["']([^"']*)["']/i.exec(m[1])?.[1] ?? "";
+    const type = /\btype\s*=\s*["']([^"']*)["']/i.exec(m[1])?.[1] ?? "";
+    return { tag: `${id ? "#" + id : ""}${type ? "[" + type + "]" : ""}`.slice(0, 40), len: m[2].length };
+  }).sort((a, b) => b.len - a.len).slice(0, 3);
+  const keys = ["articleBody", "content_elements", "articleContent", "newsContent", "\"content\":", "\"body\":", "\"html\":", "\"text\":", "artcContent", "contentHtml"]
+    .filter((k) => html.includes(k)).map((k) => k.replace(/[":]/g, ""));
+  return `${list.map((x) => `${x.tag || "-"}:${x.len}`).join(",")} keys=${keys.join(",") || "-"}`;
 }
 function pageHints(html) {
   const jb = jsonBody(html);
@@ -86,24 +99,30 @@ async function checkNews(source, nowMs) {
   const urls = [];
   for (const list of source.lists) {
     if (urls.length >= PER_SOURCE) break;
-    const got = await catalog.get(list, ACCEPT_FEED);
-    if (!got.ok) { row.list = got.code; continue; }
+    let got = await catalog.get(list, ACCEPT_FEED);
+    // 점검용만: robots.txt가 이 러너에서 안 열리면(일시 오류·러너 지역 차단 — '막음'이 아님) 글 주소를 얻으려고 피드만 한 번 더 읽는다.
+    //   운영 수집은 그대로 robots를 지킨다. robots가 '막음'(robots·robots_denied)이면 다시 읽지 않는다.
+    if (!got.ok && got.code === "robots_unreachable") {
+      got = await page.get(list, ACCEPT_FEED);
+      row.list = got.ok ? "robots_unreachable(피드만)" : `robots_unreachable/${got.code}`;
+    }
+    if (!got.ok) { if (!row.list.startsWith("robots_unreachable")) row.list = got.code; continue; }
     const xml = N.httpsLinkXml(source, got.text);
     for (const it of parseFeed(N.parseSource(source, xml), xml, nowMs, 20)) {
       const clean = cleanArticleUrl(it.url);
       if (clean && allowedUrl(source, clean) && !urls.includes(clean)) urls.push(clean);
       if (urls.length >= PER_SOURCE) break;
     }
-    row.list = "ok";
+    if (!row.list.startsWith("robots_unreachable")) row.list = "ok";
   }
-  if (!urls.length && row.list === "ok") row.list = "no_items";
+  if (!urls.length && row.list.endsWith("ok")) row.list = "no_items";
   for (const url of urls) {
     const got = await page.get(url, ACCEPT_HTML);
     if (!got.ok) { row.posts.push({ res: `fail:${got.code}` }); continue; }
     const info = readArticlePage(got.text, nowMs, N.mediaRule(source, got.url));
     const ex = info.blocks;
     const res = info.state === "bot_check" ? "fail:bot_check" : info.state === "paywall" ? `lead:paywall(${info.paywall})` : info.body_kind === "full" ? "ok" : cell(ex);
-    row.posts.push({ res, paras: paras(ex), chars: ex.chars, images: ex.images, scope: ex.scope ?? "-", cut: ex.cut ?? "-", ...(DIAG ? { hints: pageHints(got.text), top: topBlocks(got.text) } : {}) });
+    row.posts.push({ res, paras: paras(ex), chars: ex.chars, images: ex.images, scope: ex.scope ?? "-", cut: ex.cut ?? "-", ...(DIAG ? { hints: pageHints(got.text), top: topBlocks(got.text), scripts: scriptHints(got.text) } : {}) });
   }
   return row;
 }
@@ -140,7 +159,7 @@ async function checkOutside(source, nowMs) {
     const ex = O.postBody(source, pageIt, got);
     row.posts.push({ res: cell(ex), paras: paras(ex), chars: ex.chars, images: ex.images, scope: ex.scope ?? "-", cut: ex.cut ?? "-",
       feed: feedEx ? `${cell(feedEx)}:${feedEx.chars}` : "-",
-      ...(DIAG && got.ok ? { hints: pageHints(got.text), top: topBlocks(got.text) } : {}), ...(got.ok ? {} : { code: got.code }) });
+      ...(DIAG && got.ok ? { hints: pageHints(got.text), top: topBlocks(got.text), scripts: scriptHints(got.text) } : {}), ...(got.ok ? {} : { code: got.code }) });
   }
   return row;
 }
@@ -193,11 +212,11 @@ const table = lines.join("\n");
 console.log(table);
 if (DIAG) {
   console.log("\n## 진단(쪽 구조 숫자 — 글 내용 없음)");
-  console.log("키 | 글 | 결과 | 쪽바이트 | 쪽글자 | 구조화본문 | amp | 스크립트자료 | p태그 | 봇 | 글자 많은 칸(선택자:전체/문단)");
+  console.log("키 | 글 | 결과 | 쪽바이트 | 쪽글자 | 구조화본문 | amp | 스크립트자료 | p태그 | 봇 | 글자 많은 칸(선택자:전체/문단) | 스크립트");
   for (const r of rows) r.posts.forEach((p, i) => {
     if (!p.hints) return;
     const h = p.hints;
-    console.log(`${r.key} | ${i + 1} | ${p.res} | ${h.bytes} | ${h.textAll} | ${h.json} | ${h.amp} | ${h.nextData} | ${h.pTags} | ${h.bot} | ${p.top}`);
+    console.log(`${r.key} | ${i + 1} | ${p.res} | ${h.bytes} | ${h.textAll} | ${h.json} | ${h.amp} | ${h.nextData} | ${h.pTags} | ${h.bot} | ${p.top} | ${p.scripts ?? "-"}`);
   });
 }
 const summary = env("GITHUB_STEP_SUMMARY", "");

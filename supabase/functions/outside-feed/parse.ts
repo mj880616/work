@@ -305,9 +305,12 @@ export function parseTelegram(source: OutsideSource, html: string, nowMs: number
 
 // 피드·목록 대신 '사람인지 확인' 스크립트 쪽이 온 경우(무료 호스팅의 자바스크립트 쿠키 확인 등).
 // 이 쪽은 풀지 않는다(우회 금지) — 단체 상태를 bot_check(사이트가 자동 읽기를 막아 둠)로 남길 뿐이다.
+// S69-06: Cloudflare가 보통 쪽에도 넣는 측정 스크립트(`/cdn-cgi/challenge-platform/scripts/jsd/main.js`)는 확인 쪽이 아니다.
+//   예전에는 'challenge-platform' 글자만 보고 노동자연대 글 쪽 전부를 bot_check로 버렸다(본문이 있는데 '원문 없음'). 확인 쪽 자체의 표시
+//   (challenge-platform/h/… 확인 틀, cf-chl-, _cf_chl_opt, 'Just a moment...')만 본다.
 export function looksLikeBotCheck(text: string): boolean {
   if (/<(rss|feed|rdf:RDF)\b/i.test(text)) return false;
-  return /slowAES|\/aes\.js|\/cupid\.js|__test=|challenge-platform|cf-chl-|Just a moment\.\.\./i.test(text);
+  return /slowAES|\/aes\.js|\/cupid\.js|__test=|challenge-platform\/h\/|cf-chl-|_cf_chl_opt|Just a moment\.\.\./i.test(text);
 }
 
 // ---- 목록 HTML -----------------------------------------------------------------------------------------------------
