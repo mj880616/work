@@ -312,8 +312,9 @@ class WidgetWeekTest {
         // 할 일 0개면 머리·줄 모두 없음, 둘 다 0개면 '일정·할 일 없음' 한 줄.
         val wed = c.details.getValue(LocalDate.of(2026, 10, 28))
         assertEquals(listOf(WidgetWeek.Row(WidgetWeek.Kind.EMPTY, "일정·할 일 없음")), WidgetWeek.dayRows(wed))
-        val fri = c.details.getValue(LocalDate.of(2026, 10, 30))
-        assertEquals(listOf(WidgetWeek.Row(WidgetWeek.Kind.EVENT, "종일  출장")), WidgetWeek.dayRows(fri))
+        // 일정만 있고 할 일 0개면 일정 줄만(머리·가는 줄 없음).
+        assertEquals(thu.items.size, WidgetWeek.dayRows(thu.copy(tasks = 0, todos = emptyList())).size)
+        assertTrue(WidgetWeek.dayRows(thu.copy(tasks = 0, todos = emptyList())).all { it.kind == WidgetWeek.Kind.EVENT })
         assertTrue(WidgetWeek.dayRows(thu).none { it.text.startsWith("할 일  ") })
         assertEquals(7, c.details.size)
         // 할 일 연결이 없거나 다시 연결이 필요하면 할 일 수는 '읽지 못함'(null), 일정은 그대로.
