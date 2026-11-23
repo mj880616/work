@@ -123,6 +123,11 @@ async function checkNews(source, nowMs) {
     const rawItems = (xml.match(/<(item|entry)\b/gi) ?? []).length;
     const firstLink = /<(?:item|entry)\b[\s\S]*?<link\b[^>]*?(?:href\s*=\s*["']\s*([a-z]+:\/\/[^/"'\s]+)|>\s*(?:<!\[CDATA\[)?\s*([a-z]+:\/\/[^/\s<\]]+))/i.exec(xml);
     row.feed = `items=${rawItems} link=${firstLink ? (firstLink[1] ?? firstLink[2]) : "-"} type=${(got.contentType ?? "-").split(";")[0]} bytes=${got.text.length}`;
+    // 피드 대신 짧은 HTML이 오면(사람 확인·이동 쪽): 표시만 숫자·코드로.
+    if (!rawItems && got.text.length < 20000) {
+      const t = got.text;
+      row.feed += ` refresh=${/http-equiv\s*=\s*["']?refresh/i.test(t) ? 1 : 0} jsnav=${/location\.(href|replace)|window\.location/.test(t) ? 1 : 0} cookie=${/document\.cookie/.test(t) ? 1 : 0} scripts=${(t.match(/<script\b/gi) ?? []).length} bot=${looksLikeBotCheck(t) ? 1 : 0}`;
+    }
     for (const it of parseFeed(N.parseSource(source, xml), xml, nowMs, 20)) {
       const clean = cleanArticleUrl(it.url);
       if (clean && allowedUrl(source, clean) && !urls.includes(clean)) urls.push(clean);
