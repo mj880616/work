@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
 // S68-44(명진 11/23 11:07 "본문에 글자를 강요함 / 본문 글자 없이도 저장되게 못함?"): 손으로 넣기·고치기에서 본문 글자가 없어도 저장된다.
-// ① 못 읽은 기사에 제목만 → 저장(본문은 보내지 않음), 요약은 '만드는 중'에 머물지 않고 '요약할 재료가 없어요'.
+// ① 못 읽은 기사에 제목만 → 저장(본문은 보내지 않음), 요약은 '만드는 중'에 머물지 않고 '원문을 가져오면 요약해요'(S68-43 문구).
 // ② 읽은 기사 ⋯ [수정]에서 본문을 비워 저장 → 원문 칸은 빈 칸 대신 작은 '본문 없음 · 원래 사이트 ↗', 요약도 '본문 없음'.
 // ③ 사진만 넣어 저장 → 사진이 보이고 '본문 없음'. ④ 제목·원문 주소·본문을 모두 비우면 보내지 않음(한 줄 까닭).
 // 서버는 흉내(서버 규칙과 같게: 빈 제목 = 그대로, 빈 본문 = 블록 failed·no_body, 사진만 = image_only, 둘 다 손 규칙 manual@1). 모두 가짜(example.org).
@@ -71,7 +71,7 @@ for (const width of [412, 1280]) {
     expect(seen.fills).toHaveLength(1);
     expect('body' in seen.fills[0]).toBe(false);
     await expect(nd.locator('.nd-title')).toHaveText('가짜 제목만 넣은 기사');
-    await expect(nd.locator('[data-nd-unread]')).toContainText('요약할 재료가 없어요');
+    await expect(nd.locator('[data-nd-unread]')).toContainText('원문을 가져오면 요약해요');
     await expect(nd.locator('[data-nd-wait]')).toHaveCount(0);
     // ③ 같은 기사에 사진만 넣고 저장 → 사진 블록 + '본문 없음', 요약도 '본문 없음'.
     await nd.locator('[data-nd-hand]').click();
