@@ -67,8 +67,9 @@ async function fixture(page, initial, options = {}) {
   return { state, prefs };
 }
 async function openPhotos(page) {
-  await page.locator('#mobileMenuTab').click();
-  await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click();
+  // S68-37: 저장된 메뉴 순서가 없는 계정은 [사진]이 기본 하단바 칸, 순서를 저장한 계정은 [메뉴] 창 칸이다.
+  if (await page.locator('.mobile-tabs [data-view="photos"]').isVisible()) await page.locator('.mobile-tabs [data-view="photos"]').click();
+  else { await page.locator('#mobileMenuTab').click(); await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click(); }
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));

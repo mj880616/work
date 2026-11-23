@@ -35,8 +35,8 @@ async function drag(page,from,x,y){
   await page.mouse.move(x,y,{steps:8});
   await page.mouse.up();
 }
-// MULTI-하단바기본노트: 새 계정(저장값 없음) PC 위 줄 = 하단바 기본(노트·일정·조직 보고·사업 보고) 뒤 위 메뉴(잊지 말기부터). 다른 시험은 운영자 저장값(OPERATOR_MENU_LAYOUT)으로 연다.
-const DEFAULT_MAIN=['note','calendar','team','meetings','basket','reading','library','files','brief','hwp','pages','photos','outside'];
+// MULTI-하단바기본노트·S68-37: 새 계정(저장값 없음) PC 위 줄 = 하단바 기본(노트·일정·자료실·사진) 뒤 위 메뉴(잊지 말기부터). 다른 시험은 운영자 저장값(OPERATOR_MENU_LAYOUT)으로 연다.
+const DEFAULT_MAIN=['note','calendar','library','photos','basket','reading','team','meetings','files','brief','hwp','pages','outside'];
 const DEFAULT_TAIL=['calls','telegram','arsenal'];
 
 for(const width of [1280,1440]){
@@ -47,8 +47,9 @@ for(const width of [1280,1440]){
     const {prefs}=await openHome(page,{features:OPERATOR_MENU_FEATURES,menuLayout:null});
     expect(await pcOrder(page)).toEqual({main:DEFAULT_MAIN,tail:DEFAULT_TAIL});
 
-    // [사진]을 [자료실] 위쪽 반으로 끌어 놓는다: 위 메뉴 칸 안에서 자료실 앞(잊지 말기 뒤)으로 들어간다. 놓는 동안 놓일 자리 줄이 보인다.
-    const photos=head(page,'photos'),library=head(page,'library');
+    // [HWP 편집]을 [파일] 위쪽 반으로 끌어 놓는다: 위 메뉴 칸 안에서 파일 앞(사업 관리 뒤)으로 들어간다. 놓는 동안 놓일 자리 줄이 보인다.
+    // S68-37: 자료실·사진은 새 계정 하단바 칸이라 위 메뉴 줄끼리(HWP 편집 → 파일) 옮긴다. 변수 이름은 끄는 줄(photos)·놓는 줄(library) 그대로.
+    const photos=head(page,'hwp'),library=head(page,'files');
     const from=await photos.boundingBox(),to=await library.boundingBox(),sx=from.x+from.width/2,sy=from.y+from.height/2;
     await page.mouse.move(sx,sy);await page.mouse.down();
     await page.mouse.move(sx,sy-8,{steps:3});
@@ -66,14 +67,14 @@ for(const width of [1280,1440]){
     await expect(photos).not.toHaveClass(/re-dragging/);
     await expect(nav(page).locator('.re-drop-before,.re-drop-end')).toHaveCount(0);
     // PC 위 줄은 메뉴 편집 창 미리보기와 같은 규칙(하단바 칸 메뉴가 위, 위 메뉴가 그 아래)이다. 위 메뉴 안 순서는 끌어 놓은 대로.
-    const main=['note','calendar','team','meetings','basket','reading','photos','library','files','brief','hwp','pages','outside'];
+    const main=['note','calendar','library','photos','basket','reading','team','meetings','hwp','files','brief','pages','outside'];
     await expect.poll(()=>pcOrder(page)).toEqual({main,tail:DEFAULT_TAIL});
     // 서버 저장 모양은 {bar, rest}뿐(DB 검사가 받는 모양 그대로)이고, 하단바 칸은 그대로다.
-    await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['basket','reading','photos','library','files','brief','hwp','pages','outside','bottom','calls','telegram','arsenal']);
-    expect(prefs.value.menu_layout.bar).toEqual(['home','note','calendar','team','meetings']);
+    await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['basket','reading','team','meetings','hwp','files','brief','pages','outside','bottom','calls','telegram','arsenal']);
+    expect(prefs.value.menu_layout.bar).toEqual(['home','note','calendar','library','photos']);
     expect(Object.keys(prefs.value.menu_layout).sort()).toEqual(['bar','rest']);
     // 폰 [메뉴] 창에도 같은 순서(같은 저장값).
-    await expect.poll(()=>sheetOrder(page)).toEqual(['basket','reading','photos','library','files','brief','hwp','pages','outside','LINE','calls','telegram','arsenal']);
+    await expect.poll(()=>sheetOrder(page)).toEqual(['basket','reading','team','meetings','hwp','files','brief','pages','outside','LINE','calls','telegram','arsenal']);
 
     // 새로고침(다른 기기와 같은 길: 서버에서 다시 읽음)해도 그대로.
     await page.reload();
@@ -94,7 +95,7 @@ for(const width of [1280,1440]){
     const modal=page.locator('#menuEditModal');
     await expect(modal).toBeVisible();
     await expect.poll(()=>modal.locator('[data-reorder-list="rest"] [data-reorder-id]').evaluateAll(rows=>rows.map(row=>row.dataset.reorderId)))
-      .toEqual(['basket','reading','photos','library','files','brief','hwp','pages','outside']);
+      .toEqual(['basket','reading','team','meetings','hwp','files','brief','pages','outside']);
     await modal.locator('[data-menu-edit-reset]').click();
     await expect.poll(()=>prefs.value?.menu_layout??null).toBeNull();
     await modal.locator('[data-close="menuEditModal"]').click();

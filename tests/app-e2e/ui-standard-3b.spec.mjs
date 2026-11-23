@@ -61,20 +61,20 @@ const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('sp
 test('폰 하단 탭 6칸: 탭 아이콘 색, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
  const {errors}=await boot(page,390);
  const tabs=page.locator('.mobile-tabs > button');
- // MULTI-하단바기본노트(명진 11/13 15:24): 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·조직 보고·사업 보고.
- await expect(tabs).toHaveText(['홈','노트','일정','조직 관리','사업 관리','메뉴']);
+ // MULTI-하단바기본노트(명진 11/13 15:24)·S68-37(명진 11/23): 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·자료실·사진.
+ await expect(tabs).toHaveText(['홈','노트','일정','자료실','사진','메뉴']);
  for(const tab of await tabs.all()){const b=await box(tab);expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
  // 8-9e-3(사용자 결정): 바구니 아이콘도 다른 탭과 같다 — 고르지 않으면 회색(흐린 색), 고르면 같은 선택 색. 바구니 종류 색(주황)은 쓰지 않는다.
  const tabColor=view=>page.locator(view==='note'?'.mobile-tabs [data-basket-kind-nav="note"] svg':`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
- expect(await tabColor('note')).toBe(await tabColor('meetings'));expect(await tabColor('note')).toBe(await token(page,'--kptu-muted'));
+ expect(await tabColor('note')).toBe(await tabColor('library'));expect(await tabColor('note')).toBe(await token(page,'--kptu-muted'));
  expect(await tabColor('note')).not.toBe(await token(page,'--ds-kind-basket-ink'));
  await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
- // MULTI-하단바기본노트: 잊지 말기는 [메뉴] 창 맨 앞, 노트는 하단바로.
- await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['잊지 말기','저장한 글','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','읽을 거리','통화','텔레그램 소식','아스날']);
+ // MULTI-하단바기본노트: 잊지 말기는 [메뉴] 창 맨 앞, 노트는 하단바로. S68-37: 조직 관리·사업 관리는 읽을 거리 다음.
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','공유 페이지','읽을 거리','통화','텔레그램 소식','아스날']);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
- await menuTab.click();await page.locator('#mobileMenu [data-view="library"]').click();await loaded(page,'library');await expect(page.locator('#mobileMenu')).toBeHidden();
+ await menuTab.click();await page.locator('#mobileMenu [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#mobileMenu')).toBeHidden();
  await menuTab.click();await page.locator('#mobileMenu [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [aria-current="page"]')).toHaveCount(0);
  await page.locator('.mobile-tabs [data-basket-kind-nav="note"]').click();await expect(page.locator('.mobile-tabs [data-basket-kind-nav="note"]')).toHaveAttribute('aria-current','page');
  expect(errors).toEqual([]);
@@ -110,7 +110,7 @@ test('[일정] 탭: [달력 | 할 일] 전환, 누르면 늘 달력, 옛 ?view=t
  expect(Math.abs((switchBox.left+switchBox.right)/2-195)).toBeLessThanOrEqual(1);
  // UI-밀기탭이동삭제: 탭 이동은 하단 탭 누르기로만 한다. 할 일 쪽에서도 [일정] 자리가 그대로 이어진다.
  const goTab=async view=>{await page.locator('.mobile-tabs [data-view="'+view+'"]').first().click();await loaded(page,view);};
- await goTab('team');await goTab('meetings');await goTab('home'); // MULTI-하단바기본노트: 하단바 화면 칸은 홈·일정·조직 보고·사업 보고(노트는 노트 쪽 열기)
+ await goTab('library');await goTab('photos');await goTab('home'); // MULTI-하단바기본노트·S68-37: 하단바 화면 칸은 홈·일정·자료실·사진(노트는 노트 쪽 열기)
  expect(errors).toEqual([]);
 });
 
@@ -186,7 +186,8 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
 
 test('담당조직: 폰에도 맨 위 [+ 담당조직] 하나, 옛 글자 링크는 없음(MULTI-다른담당자맞춤 ①)',async({page})=>{
  const {errors}=await boot(page,390);
- await page.locator('.mobile-tabs [data-view="team"]').click();await loaded(page,'team');
+ // S68-37: 새 계정 하단바에는 조직 관리 칸이 없어 [메뉴] 창에서 연다.
+ await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-view="team"]').click();await loaded(page,'team');
  await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrgLink,.so-add-link')).toHaveCount(0);
  await expect(page.locator('#soOrganizationList')).toBeVisible();
  expect(errors).toEqual([]);

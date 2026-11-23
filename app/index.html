@@ -54,16 +54,16 @@
     <a class="nav-btn" data-basket-kind-nav="note" href="./?view=basket&amp;pane=note">노트</a>
         <a class="nav-btn" data-view="calendar" data-nav-group="calendar tasks diary" href="./?view=calendar">일정</a>
     <div class="nav-sub" role="group" aria-label="일정"><a class="nav-sub-btn" data-goto="calendar" href="./?view=calendar">달력</a><a class="nav-sub-btn" data-view="tasks" href="./?view=tasks">할 일</a><a class="nav-sub-btn" data-view="diary" href="./?view=diary">하루 기록</a></div>
-    <a class="nav-btn" data-view="team" href="./?view=team">조직 관리</a>
-    <a class="nav-btn" data-view="meetings" data-nav-group="meetings projects" href="./?view=reports">사업 관리</a>
+    <a class="nav-btn" data-view="library" href="./?view=library">자료실</a>
+    <a class="nav-btn" data-view="photos" href="./?view=photos">사진</a>
     <a class="nav-btn" data-view="basket" href="./?view=basket">잊지 말기</a>
     <a class="nav-btn" data-view="reading" href="./?view=reading">저장한 글</a>
-    <a class="nav-btn" data-view="library" href="./?view=library">자료실</a>
+    <a class="nav-btn" data-view="team" href="./?view=team">조직 관리</a>
+    <a class="nav-btn" data-view="meetings" data-nav-group="meetings projects" href="./?view=reports">사업 관리</a>
     <a class="nav-btn" data-view="files" href="./?view=files">파일</a>
     <a class="nav-btn" data-view="brief" href="./?view=brief">브리핑 룸</a>
     <a class="nav-btn" data-view="hwp" href="./?view=hwp">HWP 편집</a>
     <a class="nav-btn" data-view="pages" href="./?view=pages">공유 페이지</a>
-    <a class="nav-btn" data-view="photos" href="./?view=photos">사진</a>
     <a class="nav-btn" data-view="outside" href="./?view=news">읽을 거리</a>
     <div class="sidebar-spacer" aria-hidden="true"></div>
     <a class="nav-btn nav-feed nav-feed-first" data-view="calls" href="./?view=calls">통화</a>
@@ -87,8 +87,8 @@
     <button type="button" data-view="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9"/></svg><span>홈</span></button>
     <button type="button" data-basket-kind-nav="note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19zM14 7l3 3"/></svg><span>노트</span></button>
     <button type="button" data-view="calendar" data-mobile-schedule-tab><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v16H5zM8 3v4m8-4v4M5 10h14"/></svg><span>일정</span></button>
-    <button type="button" data-view="team"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2"/></svg><span>조직 관리</span></button>
-    <button type="button" data-view="meetings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><span>사업 관리</span></button>
+    <button type="button" data-view="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v5H4zM5 9v11h14V9M10 13h4"/></svg><span>자료실</span></button>
+    <button type="button" data-view="photos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01"/></svg><span>사진</span></button>
     <button id="mobileMenuTab" type="button" aria-controls="mobileMenu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>메뉴</span></button>
   </nav>
   <div id="mobileMenu" class="mobile-menu" hidden>
@@ -101,12 +101,12 @@
       <nav aria-label="더 보기">
         <button type="button" data-view="basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3"/></svg><span>잊지 말기</span></button>
         <button type="button" data-view="reading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4zM9 8h6M9 11h4"/></svg><span>저장한 글</span></button>
-        <button type="button" data-view="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v5H4zM5 9v11h14V9M10 13h4"/></svg><span>자료실</span></button>
+        <button type="button" data-view="team"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2"/></svg><span>조직 관리</span></button>
+        <button type="button" data-view="meetings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><span>사업 관리</span></button>
         <button type="button" data-view="files"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v11H3zM3 10h18"/></svg><span>파일</span></button>
         <button type="button" data-view="brief"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h4M16 15l2 2-2 2"/></svg><span>브리핑 룸</span></button>
         <button type="button" data-view="hwp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"/></svg><span>HWP 편집</span></button>
         <button type="button" data-view="pages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 10h16M10 10v10"/></svg><span>공유 페이지</span></button>
-        <button type="button" data-view="photos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01"/></svg><span>사진</span></button>
         <button type="button" data-view="outside"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3"/></svg><span>읽을 거리</span></button>
         <span class="mobile-menu-tail-line" role="separator" data-menu-tail-line></span>
         <button type="button" data-view="calls"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span>통화</span></button>
