@@ -176,7 +176,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       const hand = canHandFill(cur.item, b) ? ' <button type="button" class="ds-chip nd-hand" data-nd-hand>직접 넣기</button>' : '';
       // S68-44: 손으로 넣은 기사인데 본문 글자가 없으면(비움·사진만) 까닭 대신 작은 '본문 없음' 한 줄(주소가 있을 때만 원래 사이트).
       const noText = handNoText(b);
-      const why = noText ? `<p class="nd-why nd-faint" data-nd-why data-nd-no-text role="status">본문 없음${cur.head.url ? ` · ${siteLink('원래 사이트 ↗')}` : ''}${hand}</p>`
+      const why = noText ? `<div class="nd-why nd-no-text" data-nd-why role="status">${emptyHtml('본문 없음', {attrs: 'data-nd-no-text'})}${cur.head.url ? ` · ${siteLink('원래 사이트 ↗')}` : ''}${hand}</div>`
         : b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}${hand}</p>` : '';
       const prose = b.blocks.length ? `<div class="nd-prose"${langAttr()} data-nd-prose>${b.blocks.map(blockHtml).join('')}</div>` : '';
       inner = b.state === 'failed' ? why : moveUrlHtml(b) + prose + why;

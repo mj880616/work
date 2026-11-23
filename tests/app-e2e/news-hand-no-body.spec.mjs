@@ -99,7 +99,7 @@ for (const width of [412, 1280]) {
     expect(seen.fills[2].body).toBe('');
     await expect(nd.locator('[data-nd-prose]')).toHaveCount(0);
     await expect(nd.locator('[data-nd-no-text]')).toContainText('본문 없음');
-    await expect(nd.locator('[data-nd-no-text] a')).toHaveAttribute('href', 'https://example.org/c1');
+    await expect(nd.locator('.nd-no-text a')).toHaveAttribute('href', 'https://example.org/c1');
     await expect(nd.locator('[data-nd-unread]')).toContainText('본문 없음');
     await expect(nd.locator('[data-nd-wait]')).toHaveCount(0);
     await expect(nd.locator('.nd-title')).toHaveText('가짜 채널 기사');
