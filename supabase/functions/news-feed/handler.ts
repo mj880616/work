@@ -220,7 +220,11 @@ export function refsCounts(v: unknown): Record<string, number> | null {
   }
   return out;
 }
-export const ART_SELECT = "id,url,url_key,origin,lane,title,title_key,lang,publisher,published_at,state,fetched_at,summary,body,body_kind,title_ko,body_ko,translated_at,source_key";
+export const ART_SELECT = "id,url,url_key,origin,lane,title,title_key,lang,publisher,published_at,state,fetched_at,summary,body,body_kind,title_ko,body_ko,translated_at,source_key,manual_at";
+// S68-40: 사람이 손으로 본문을 넣은 공용 기사(manual_at + 본문 있음)인가. 그 본문(글·내가 올린 사진)은 사람 것이 먼저 — 원문 다시 읽기·수집·다시 뽑기가 덮지 않는다.
+// 제목만 고친(본문 없음) 못 읽은 기사는 여기에 들지 않아 원문 다시 읽기로 본문을 채울 수 있다.
+export const handOwned = (article: Row | null | undefined) =>
+  !!article && typeof article.manual_at === "string" && !!article.manual_at && article.body_kind === "full";
 // NEWS-운영자만(S63-03, _shared/news-access.ts): News 몫 일은 기능 키 'outside' 작업공간(정확히 한 곳)만. 못 읽으면 null = 아무 곳도 안 함.
 async function newsWs(db: Db): Promise<string | null> {
   try { return newsWorkspaceOf(await db.rpcValue("app_operator_feature_workspace", { p_feature: NEWS_FEATURE })); } catch { return null; }
@@ -265,6 +269,8 @@ export async function mapOldRows(db: Db, log: FeedLog, rows: OldRef[], known?: M
 // 못 읽은 결과(failed)는 블록이 아직 없을 때만 넣는다(이미 읽힌 본문을 일시 실패로 덮지 않음). 실패해도 옛 본문 블록은 그대로.
 async function saveArticleBody(db: Db, log: FeedLog, article: Row | null | undefined, ex: Extracted, nowIso: string) {
   if (!article || typeof article.id !== "string" || !UUID.test(article.id)) return;
+  // S68-40: 손으로 넣은 기사 본문은 읽은 결과로 덮지 않는다(손 본문 고치기는 hand_fill만).
+  if (handOwned(article)) { log("hand_body_kept"); return; }
   if (article.lane === "media" && newsSourceByKey(article.source_key)?.extract === false) return;
   const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...body } = bodyRow(ex, { workspace_id: "" }, nowIso);
   const merge = ex.state !== "failed";
@@ -493,7 +499,8 @@ async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], n
     await db.send("PATCH", `app_news_items?id=eq.${id}&workspace_id=eq.${ws}`, pagePatch(item, page, nowIso, sum), "return=minimal");
     await saveNewsBody(db, ai.log, item, page.blocks, nowIso);
   }
-  if (article) await patchArticle(db, ai.log, article.id, pagePatch(article, page, nowIso, sum));
+  // S68-40: 손으로 넣은 공용 기사는 제목·본문·상태를 읽은 결과로 고치지 않는다(같은 주소 옛 줄만 위에서 고침).
+  if (article && !handOwned(article)) await patchArticle(db, ai.log, article.id, pagePatch(article, page, nowIso, sum));
   await saveArticleBody(db, ai.log, article, page.blocks, nowIso);
   if (article && items.length) await mapOldRows(db, ai.log, items.map(oldRef), new Map([[String(article.url_key), article]]));
   return page.state;
@@ -1560,12 +1567,14 @@ async function handFill(db: Db, reads: UserReads, log: FeedLog, ws: string, b: R
   const art = await ownArticle(reads, v.id);
   const olds = await ownOldRows(db, ws, art);
   const nowIso = new Date(nowMs).toISOString();
-  // 공용 기사가 먼저(실패하면 503 — 화면은 '저장하지 못함'). 옛 줄·자세히 지우기는 따라 적기라 실패해도 로그만.
-  await db.send("PATCH", `app_news_articles?id=eq.${art.id}`, handPatch(art, v, nowIso, true), "return=minimal");
+  // 본문 블록(글·사진)이 먼저, 그다음 공용 기사(어느 쪽이든 실패하면 503 — 화면은 '저장하지 못함'). 옛 줄·자세히 지우기는 따라 적기라 실패해도 로그만.
+  // S68-40: 기사 줄이 '본문 있음(full)·손으로 넣음'으로 바뀐 뒤 블록 저장이 실패하면, 화면은 블록 줄 대신 기사 줄 글자(사진 없음)를 그리고
+  // 다른 길은 읽힌 기사로 보아 다시 넣을 길이 꼬인다. 블록을 먼저 저장해 '기사 줄은 손 본문인데 블록은 옛것'인 때를 만들지 않는다.
   if (v.body) {
     const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...body } = bodyRow(handBody(v), { workspace_id: "" }, nowIso);
     await db.send("POST", "app_news_article_bodies?on_conflict=article_id", { article_id: art.id, ...body, updated_at: nowIso }, "return=minimal,resolution=merge-duplicates");
   }
+  await db.send("PATCH", `app_news_articles?id=eq.${art.id}`, handPatch(art, v, nowIso, true), "return=minimal");
   for (const o of olds) {
     try {
       await db.send("PATCH", `app_news_items?id=eq.${o.id}&workspace_id=eq.${ws}`, handPatch(o, v, nowIso, false), "return=minimal");

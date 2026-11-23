@@ -222,3 +222,21 @@ test('hand_fill photos: at most 20 photos per article', async () => {
   assert.equal(bl.filter(b => b.t === 'img').length, 18);
   assert.equal(bl[0].t, 'img');
 });
+
+// S68-40: 본문 블록(글·사진)을 먼저 저장하고 그다음 공용 기사 줄. 블록 저장이 실패하면 기사 줄은 그대로(손 본문 표시 없이 503) —
+// '기사 줄은 손 본문(full·manual)인데 블록은 옛것'이 되어 화면이 사진 없는 기사 줄 글자를 그리는 때를 만들지 않는다.
+test('S68-40 hand_fill: body blocks are written before the article row; a failed block write leaves the article row untouched', async () => {
+  const w = world();
+  assert.equal((await w.call({...FULL, body: '첫 문단.\nhttps://photo.web2.invalid/fakeDriveFile0001.png'})).status, 200);
+  const order = w.calls.writes.map(c => c.p).filter(p => p === 'app_news_article_bodies' || p === 'app_news_articles');
+  assert.deepEqual(order.slice(0, 2), ['app_news_article_bodies', 'app_news_articles']);
+  assert.deepEqual(w.db.app_news_article_bodies[0].blocks.map(b => b.t), ['p', 'img'], '사진 블록 저장');
+  const f = world();
+  const real = f.db.app_news_article_bodies;
+  Object.defineProperty(f.db, 'app_news_article_bodies', {get: () => { throw new Error('synthetic body store down'); }, configurable: true});
+  const r = await f.call(FULL);
+  assert.notEqual(r.status, 200);
+  assert.equal(f.calls.writes.filter(c => c.p === 'app_news_articles').length, 0, '기사 줄 고치기 없음');
+  assert.equal(f.db.app_news_articles[0].manual_at, undefined);
+  assert.equal(real.length, 0);
+});
