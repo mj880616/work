@@ -4,19 +4,20 @@ import {deleteMine, DELETE_LABEL, SAVE_LABEL, RELEASE_LABEL} from './now-row-act
 import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences} from './feed-shared.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
-import {viewPrefs} from './view-prefs.js';
+import {textSizeHtml, textSize} from './text-size.js';
+import {textScale} from './text-size-model.mjs';
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {copyText} from './copy-text.js';
 import {notify, askText} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
 // - 위에서 아래(S52-12 NEWS-원문먼저번역, 시안 docs/design/mockups/news-detail-translate.html): 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [원문 전체]
-//   (머리 줄 [번역] — 외국어 뉴스 기사만 · 글자 크기 [가 가 가] 세 단계 — 서버 view_prefs.news_font) → [요약] → [시사점](주요 문장·나와의 연관은 이 칸 안 접기)
+//   (머리 줄 [번역] — 외국어 뉴스 기사만 · 글자 크기 [−][+] 다섯 단계 — 공용 text-size.js, 서버 view_prefs.news_font, 읽을 거리 글 보기와 같은 값) → [요약] → [시사점](주요 문장·나와의 연관은 이 칸 안 접기)
 //   → '함께 볼 것'(접기) → [☆ 별표][보관][메모][관심 없음] … [원래 사이트 ↗].
 // - [번역]: 누르면 news-feed translate(뉴스 기사) 또는 outside-feed translate(사회운동 영어 소식, S52-36)(로그인·owner·하루 한도·저장은 서버,
 //   한 번 번역한 글은 저장본을 바로) 뒤 그 글 줄의 body_ko(뉴스는 body도)를 읽어
@@ -61,8 +62,6 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   const bodies = new Map(); // itemKey → bodyView 모양(이 탭 메모리만)
   const translations = new Map(); // itemKey → translatedBlocks 답(이 탭 메모리만 — 원본 저장은 서버 body_ko)
   let seq = 0;
-  let font = null; // 이번 접속에서 고른 값(서버에 쓰는 중에도 바로 보이게). 처음엔 서버 기억 값.
-  const fontNow = () => keepNewsFont(font ?? viewPrefs.get('news_font'));
 
   // ---------- 서버 ----------
   const askDetail = item => rt().api('/functions/v1/ai-assist', {method: 'POST', body: detailBody(item), singleFlight: false, timeoutMs: 120000});
@@ -135,10 +134,6 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.t === 'quote') return `<blockquote>${esc(b.text)}</blockquote>`;
     return `<p>${esc(b.text)}</p>`;
   }
-  function fontHtml() {
-    const f = fontNow();
-    return `<span class="nd-size" role="group" aria-label="글자 크기">${NEWS_FONT_STEPS.map(s => `<button type="button" class="nd-size-btn" data-nd-font="${s.id}" aria-label="${s.label}" aria-pressed="${s.id === f}">가</button>`).join('')}</span>`;
-  }
   // 원문 칸 머리 줄 [번역]: 외국어 뉴스 기사·사회운동 영어 소식에서 글자 블록이 있을 때만. 누른 상태는 aria-pressed.
   function trHtml(b) {
     if (cur.hand.open || !canTranslate(cur.item, cur.head) || !b || b.failedLoad || !b.blocks.some(x => x.t !== 'img')) return '';
@@ -160,7 +155,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const tv = cur.tr.on ? translations.get(key) : null;
     const src = tv ? '한국어 번역' : cur.head.meta?.[0] || '';
     const tr = trHtml(b);
-    const head = `<div class="nd-ob"><b>원문 전체</b>${src ? `<span class="nd-ob-src">${esc(src)}</span>` : ''}<span class="nd-ob-r">${copyHtml(b)}${tr}${fontHtml()}${moreHtmlOb(b)}</span></div>`;
+    const head = `<div class="nd-ob"><b>원문 전체</b>${src ? `<span class="nd-ob-src">${esc(src)}</span>` : ''}<span class="nd-ob-r">${copyHtml(b)}${tr}${textSizeHtml()}${moreHtmlOb(b)}</span></div>`;
     let inner;
     if (cur.hand.open) inner = handHtml();
     else if (!b) inner = `<div aria-busy="true">${cur.reading ? '<p class="nd-faint" data-nd-fetching role="status">원문을 읽어 오는 중</p>' : ''}${waitHtml({rows: 4})}</div>`;
@@ -251,7 +246,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const h = cur.head;
     const hit = interestHit([h.title, h.origTitle], topics());
     const imp = impHtml();
-    box.innerHTML = `<article class="nd" data-nd="${esc(itemKey(cur.item))}" data-font="${fontNow()}" aria-label="글 상세">
+    box.innerHTML = `<article class="nd" data-nd="${esc(itemKey(cur.item))}" data-text-size-target data-text-size="${textSize()}" style="--txs:${textScale(textSize())}" aria-label="글 상세">
 <div class="nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${h.manual ? '<span class="nd-hand-mark" data-nd-manual>직접 넣음</span>' : ''}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p></div>
 <h3 class="nd-title" tabindex="-1"${h.titleLang ? ` lang="${esc(h.titleLang)}"` : ''}>${esc(h.title)}</h3>${h.origTitle ? `<p class="nd-orig" lang="${esc(h.lang || 'en')}">${esc(h.origTitle)}</p>` : ''}
 <section class="nd-box nd-orig-box" data-nd-body aria-label="원문 전체">${bodyHtml()}</section>
@@ -653,22 +648,12 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   bindMarks(box);
   onHighlights(() => marksNow());
   const focusTr = () => box?.querySelector('[data-nd-translate]')?.focus({preventScroll: true});
-  function setFont(id) {
-    const f = keepNewsFont(id);
-    if (f === fontNow()) return;
-    font = f;
-    const art = box?.querySelector('.nd');
-    if (art) art.dataset.font = f;
-    box?.querySelectorAll('[data-nd-font]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ndFont === f)));
-    if (viewPrefs.get('news_font') !== f) { viewPrefs.set('news_font', f, {rejectable: true}); void viewPrefs.flush?.(); }
-  }
   box?.addEventListener('click', event => {
     const a = event.target.closest('a[data-nd-link]');
     if (a && cur) { signal(cur.item, 'open'); return; }
     const b = event.target.closest('button');
     if (!b || !box.contains(b) || !cur) return;
     if (b.matches('[data-nd-close]')) { onClose?.(); return; }
-    if (b.matches('[data-nd-font]')) { setFont(b.dataset.ndFont); return; }
     if (b.matches('[data-nd-translate]')) { toggleTranslate(); return; }
     if (b.matches('[data-nd-copy]')) { void copyArticle(b); return; }
     if (b.matches('[data-nd-ob-more]')) { obMenu.open(b); return; }
@@ -733,7 +718,6 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     saveMemo(event.target.querySelector('[data-nd-memo-input]')?.value);
   });
   // 서버 기억 값이 늦게 오면(첫 로딩) 그 값으로.
-  window.addEventListener('kptu:view-prefs-ready', () => { if (font === null && cur) { const art = box?.querySelector('.nd'); if (art) art.dataset.font = fontNow(); box?.querySelectorAll('[data-nd-font]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ndFont === fontNow()))); } });
   paint();
   return {open, close, paint, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, head: () => (cur ? cur.head : null), current: () => (cur ? cur.item : null), reset: () => { details.clear(); bodies.clear(); translations.clear(); freshened.clear(); for (const f of ownViews.values()) f.then(u => URL.revokeObjectURL(u), () => {}); ownViews.clear(); close(); }};
 }
