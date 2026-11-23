@@ -329,6 +329,20 @@ object ShellRules {
     fun pullBlocked(moving: Boolean, webSaidOn: Boolean, scrollY: Int, internal: Boolean): Boolean =
         moving && !pullReady(webSaidOn, scrollY, internal)
 
+    /**
+     * S68-59(명진 11/23 16:17 "왼쪽으로 스와이프 여전히 안됨"): 손가락 하나의 갈래 — 아직 모름(null) · 옆(true) · 위아래(false).
+     * SwipeRefreshLayout은 가로·세로를 견주지 않고, 맨 위에서 손가락이 아래로 touchSlop만 내려가도 '당기기'로 보고 손가락을 웹에서 빼앗는다
+     * (웹에는 pointercancel). 오른손 엄지로 줄을 왼쪽으로 밀면 손끝이 호를 그리며 아래로 조금 내려가므로(오른쪽으로 밀면 위로) 웹 목록의
+     * 왼쪽 밀기만 늘 끊겼다. 처음으로 slop을 넘은 순간 가로가 세로보다 크면 그 손가락은 옆으로 가는 것으로 정하고, 끝날 때까지 당기기로 보지 않는다.
+     * 같은 크기(대각선)는 위아래 쪽(지금까지처럼 당기기 판정에 맡김).
+     */
+    fun pullAxis(dx: Float, dy: Float, slop: Float): Boolean? {
+        val ax = kotlin.math.abs(dx)
+        val ay = kotlin.math.abs(dy)
+        if (maxOf(ax, ay) <= slop) return null
+        return ax > ay
+    }
+
     /** APP-다시열림: 화면 안 이동에 넘길 질의 글 모양(폰 알림 open과 같은 글자, 200자까지). */
     private val IN_PLACE_QUERY = Regex("^[A-Za-z0-9_=&%.-]{0,200}$")
 

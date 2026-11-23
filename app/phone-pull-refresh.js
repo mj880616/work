@@ -8,6 +8,19 @@ const EDITABLE = /^(INPUT|TEXTAREA|SELECT)$/;
 const NO_PULL = '.nb-board,.nb-scroll,.nb-card,[data-no-pull]';
 const OPEN_LAYER = 'dialog[open],[role="dialog"],[aria-modal="true"],.modal:not(.hidden),#edWindow:not(.hidden)';
 
+// S68-59(명진 11/23 16:17 "왼쪽으로 스와이프 여전히 안됨"): 옆으로 미는 손가락은 당기기가 아니다.
+// 오른손 엄지로 줄을 왼쪽으로 밀면 손끝이 호를 그리며 조금씩 아래로 내려간다(오른쪽으로 밀면 위로 올라간다). 앱 껍데기(SwipeRefreshLayout)는
+// 가로·세로를 견주지 않고 아래로 몇 px만 내려가도 '당기기'로 보고 손가락을 웹에서 빼앗았다(웹에는 pointercancel) — 그래서 맨 위에서
+// 왼쪽 밀기만 늘 끊겼다. 손가락이 SIDE_PX 넘게 움직인 첫 순간 가로가 세로보다 크면 그 손가락은 'pull:off'로 바꿔 앱이 가져가지 않게 한다.
+// (새 앱은 껍데기에서도 같은 판정을 한다 — ShellRules.pullAxis. 이 쪽은 옛 앱에서도 바로 듣게 하는 길.)
+export const SIDE_PX = 6;
+/** 이 손가락이 옆으로 가는 중인지: 아직 모름(null) · 옆(true) · 위아래(false). 처음 SIDE_PX를 넘은 순간 정한다. */
+export function sideways(dx, dy) {
+  const ax = Math.abs(Number(dx) || 0), ay = Math.abs(Number(dy) || 0);
+  if (Math.max(ax, ay) < SIDE_PX) return null;
+  return ax > ay;
+}
+
 const shown = el => !!el && !el.hidden && !el.closest?.('.hidden,[hidden]') && el.getClientRects?.().length > 0;
 
 /** 이 손가락(target)에 당겨서 새로고침을 켜도 되는지. */
@@ -31,10 +44,22 @@ export function startPullRefresh(win = window) {
   if (!bridge || typeof bridge.postMessage !== 'function') return false;
   win.__KPTU_PULL_REFRESH__ = true;
   const doc = win.document;
+  // 지금 손가락: pull:on을 보냈을 때만 시작점을 적고, 갈래(옆·위아래)를 한 번 정한다.
+  let finger = null;
   doc.addEventListener('touchstart', event => {
     let on = false;
     try { on = event.touches?.length === 1 && pullAllowed(event.target, doc, win); } catch { on = false; }
+    const t = event.touches?.[0];
+    finger = on && t ? {x: t.clientX, y: t.clientY} : null;
     try { bridge.postMessage(on ? 'pull:on' : 'pull:off'); } catch { /* 다리가 사라진 화면 */ }
+  }, {capture: true, passive: true});
+  doc.addEventListener('touchmove', event => {
+    const t = event.touches?.[0];
+    if (!finger || !t) return;
+    const side = sideways(t.clientX - finger.x, t.clientY - finger.y);
+    if (side === null) return;
+    finger = null;
+    if (side) { try { bridge.postMessage('pull:off'); } catch { /* 다리가 사라진 화면 */ } }
   }, {capture: true, passive: true});
   win.KPTUPullRefresh = {
     run() {

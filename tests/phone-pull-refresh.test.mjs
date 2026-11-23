@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {pullAllowed, startPullRefresh} from '../app/phone-pull-refresh.js';
+import {pullAllowed, startPullRefresh, sideways, SIDE_PX} from '../app/phone-pull-refresh.js';
 
 function el({tag = 'DIV', scrollTop = 0, matches = [], parent = null} = {}) {
   return {tagName: tag, scrollTop, parentElement: parent, hidden: false, matches: sel => matches.some(m => sel.split(',').includes(m)), closest: () => null, getClientRects: () => [1]};
@@ -75,4 +75,41 @@ test('확인 길은 새 버전 안내와 하나이고 로더는 앱에서만 붙
   assert.match(notice, /reopen:mark:pull'\)\}catch\{\}location\.reload\(\)\}\);\n\s+return false;/);
   const loader = readFileSync(new URL('../app/loader-v2.js', import.meta.url), 'utf8');
   assert.match(loader, /if\(\/KPTUAndroid\/i\.test\(navigator\.userAgent\|\|''\)\)import\('\.\/phone-pull-refresh\.js'\)/);
+});
+
+// S68-59(명진 11/23 16:17 "왼쪽으로 스와이프 여전히 안됨"): 오른손 엄지로 왼쪽으로 밀면 손끝이 아래로 조금 내려간다.
+// 앱 껍데기가 그것을 당기기로 가져가지 않게, 옆으로 가는 손가락은 처음 움직인 순간 pull:off로 바꾼다.
+test('갈래 판정: 처음 6px을 넘은 순간 가로가 크면 옆, 세로가 크거나 같으면 위아래', () => {
+  assert.equal(SIDE_PX, 6);
+  assert.equal(sideways(-3, 2), null, '아직 모름');
+  assert.equal(sideways(-12, 4), true, '왼쪽 + 아래로 조금(엄지 호)');
+  assert.equal(sideways(12, -4), true, '오른쪽 + 위로 조금');
+  assert.equal(sideways(2, 14), false, '아래로 당기기');
+  assert.equal(sideways(8, 8), false, '대각선은 당기기 쪽(앱 기본과 같음)');
+});
+
+test('맨 위에서 옆으로 미는 손가락은 pull:off를 한 번 더 보내고, 아래로 당기는 손가락은 그대로 둔다', () => {
+  const sent = [], doc = docWith();
+  const win = {navigator: {userAgent: 'KPTUAndroid/0.5.26'}, document: doc, scrollY: 0, location: {reload() {}}, KPTUAppShell: {postMessage: m => sent.push(m)}};
+  assert.equal(startPullRefresh(win), true);
+  const target = el({parent: doc.body});
+  const touch = (x, y) => ({touches: [{clientX: x, clientY: y}], target});
+  // 왼쪽 밀기(엄지 호: 왼쪽으로 가며 아래로 내려감)
+  doc.listeners.touchstart(touch(300, 200));
+  doc.listeners.touchmove(touch(297, 201));
+  doc.listeners.touchmove(touch(290, 203));
+  doc.listeners.touchmove(touch(250, 215));
+  doc.listeners.touchmove(touch(200, 230));
+  assert.deepEqual(sent, ['pull:on', 'pull:off'], '옆으로 가는 순간 한 번만 끈다');
+  // 아래로 당기기: 켠 채로 둔다.
+  sent.length = 0;
+  doc.listeners.touchstart(touch(200, 100));
+  doc.listeners.touchmove(touch(203, 120));
+  doc.listeners.touchmove(touch(205, 200));
+  assert.deepEqual(sent, ['pull:on']);
+  // 처음부터 꺼진 손가락(페이지가 내려가 있음)은 움직여도 더 보내지 않는다.
+  sent.length = 0; win.scrollY = 30;
+  doc.listeners.touchstart(touch(300, 200));
+  doc.listeners.touchmove(touch(200, 210));
+  assert.deepEqual(sent, ['pull:off']);
 });
