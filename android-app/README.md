@@ -66,6 +66,7 @@
 ## 당겨서 새로고침 (0.3.7, APP-당겨서새로고침)
 
 - 웹 화면을 `SwipeRefreshLayout`(동그란 표시)이 감싼다. 손가락을 댈 때마다 당기기를 끄고, 웹2 화면(`app/phone-pull-refresh.js`)이 그 손가락에 다리 `pull:on`을 보낼 때만 받는다(`ShellRules.pullReady`). 웹은 화면 맨 위가 아니거나, 포스트잇 판·열린 창(아래에서 올라온 창 포함)·메뉴, 내려가 있는 칸 안 스크롤 목록, 글 쓰는 중이면 `pull:off`.
+- 옆으로 가는 손가락은 당기기가 아니다(S68-59, 0.5.26): 처음 touchSlop을 넘은 순간 가로가 세로보다 크면 그 손가락은 끝날 때까지 가로채지 않는다(`ShellRules.pullAxis`, `PullRefreshLayout.onInterceptTouchEvent`). 전에는 오른손 엄지로 줄을 왼쪽으로 밀 때 손끝이 조금 아래로 내려가는 것을 당기기로 보고 손가락을 웹에서 빼앗아, 맨 위에서 목록 줄 왼쪽 밀기가 끊겼다. 웹도 옆으로 가는 손가락에 `pull:off`를 한 번 더 보낸다(옛 앱 대비).
 - 당기면 앱이 웹에 `KPTUPullRefresh.run()`을 묻는다. 저장 안 한 글이 있으면 웹이 새 버전 안내 [새로고침]과 같은 확인(`KPTUReloadGuard`, `version-notice.js`)으로 먼저 묻고, 같은 주소로 다시 연다. 웹 다리가 없는 웹2 화면은 앱이 같은 주소를 다시 연다. 다리는 기존 허용 Origin 최상위 화면 규칙 그대로.
 
 ## 설치·업데이트 (0.3.8, APP-스스로업데이트)
@@ -123,7 +124,7 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `app/src/main/java/kr/or/kptu/work/MainActivity.kt` | WebView 껍데기 |
-| `app/src/main/java/kr/or/kptu/work/PullRefreshLayout.kt` | 당겨서 새로고침(손가락 움직임만 웹 판정으로 막음, `ShellRules.pullBlocked`) |
+| `app/src/main/java/kr/or/kptu/work/PullRefreshLayout.kt` | 당겨서 새로고침(손가락 움직임만 웹 판정으로 막음 `ShellRules.pullBlocked`, 옆으로 가는 손가락은 가로채지 않음 `ShellRules.pullAxis`) |
 | `app/src/main/java/kr/or/kptu/work/ShellRules.kt` | 주소 판정·로그인 복귀 값·바 색·버전 비교·공유 번호·목록 JSON 규칙(단위 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/ShareIntake.kt` | 공유 받기(메모리 보관·`__share` 가로채기) |
 | `app/src/main/java/kr/or/kptu/work/UpdateCheck.kt` | 공개 릴리스 `phone-app-v*` 최신 버전 확인 |

@@ -1,5 +1,6 @@
 package kr.or.kptu.work
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -51,5 +52,25 @@ class PullRefreshTest {
         assertFalse("옛 방식(대는 순간까지 막음)이 남지 않음", src.contains("{ _, _ -> !ShellRules.pullReady("))
         val layout = File("src/main/java/kr/or/kptu/work/PullRefreshLayout.kt").readText()
         assertTrue(layout.contains("moving = ev.actionMasked == MotionEvent.ACTION_MOVE"))
+    }
+
+    @Test
+    fun sidewaysFingerIsNeverAPull() {
+        // S68-59: 왼쪽 밀기(엄지 호로 아래로 조금 내려감)는 옆 — 당기기로 가로채지 않는다.
+        val slop = 21f
+        assertEquals("아직 slop 안", null, ShellRules.pullAxis(-10f, 4f, slop))
+        assertEquals("왼쪽 + 아래로 조금", true, ShellRules.pullAxis(-30f, 9f, slop))
+        assertEquals("오른쪽 + 위로 조금", true, ShellRules.pullAxis(30f, -9f, slop))
+        assertEquals("아래로 당기기", false, ShellRules.pullAxis(4f, 30f, slop))
+        assertEquals("대각선은 당기기 판정에 맡김", false, ShellRules.pullAxis(22f, 22f, slop))
+    }
+
+    @Test
+    fun layoutSkipsInterceptForSidewaysFinger() {
+        val layout = File("src/main/java/kr/or/kptu/work/PullRefreshLayout.kt").readText()
+        assertTrue(layout.contains("override fun onInterceptTouchEvent(ev: MotionEvent): Boolean"))
+        assertTrue(layout.contains("MotionEvent.ACTION_MOVE -> if (sideways == null) sideways = ShellRules.pullAxis(ev.x - downX, ev.y - downY, slop)"))
+        assertTrue(layout.contains("if (sideways == true) return false\n        return super.onInterceptTouchEvent(ev)"))
+        assertTrue("손가락을 댈 때마다 새로 정함", layout.contains("downY = ev.y\n                sideways = null"))
     }
 }
