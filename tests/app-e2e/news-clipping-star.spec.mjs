@@ -95,7 +95,8 @@ test('기사 메모 = 노트: 상세 [메모](노트 하나, metadata.news_item_
   const nd = page.locator('#nowDetail');
   await nd.locator('[data-nd-act="memo"]').click();
   await nd.locator('[data-nd-memo-input]').fill('가짜 메모 첫 줄');
-  await nd.getByRole('button', { name: '저장' }).click();
+  // S68-34: 글 [저장](저장한 글로) 단추와 이름이 같아 메모 칸 안의 [저장]을 누른다.
+  await nd.locator('[data-nd-memo-form]').getByRole('button', { name: '저장', exact: true }).click();
   await expect(nd.locator('[data-nd-memo-text]')).toContainText('가짜 메모 첫 줄');
   expect(server.calls.find(c => c.what === 'memo-create').body).toMatchObject({ workspace_id: 'w', kind: 'note', raw_text: '가짜 메모 첫 줄', metadata: { news_item_id: UID } });
   // 노트 [기사로 가기]와 같은 길(requestNewsItem → go('news')): 다른 화면에서 와도 [언론] 탭, 그 기사 상세가 열린다.

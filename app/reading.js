@@ -34,7 +34,7 @@ const here = () => window.KPTURouter?.current === 'reading' && !document.hidden;
 
 function install() {
   if (document.getElementById('readingView')) return;
-  document.getElementById('appView')?.insertAdjacentHTML('beforeend', '<section id="readingView" class="view-panel hidden" aria-label="읽을 거리"><div class="rd-wrap"><div class="rd-list" data-rd-list></div><div class="rd-detail" data-rd-detail hidden></div></div></section>');
+  document.getElementById('appView')?.insertAdjacentHTML('beforeend', '<section id="readingView" class="view-panel hidden" aria-label="저장한 글"><div class="rd-wrap"><div class="rd-list" data-rd-list></div><div class="rd-detail" data-rd-detail hidden></div></div></section>');
 }
 
 const state = {rows: [], loaded: false, failed: false, filter: 'unread', open: null, body: null, bodyFor: null, adding: false, addError: '', lines: new Map(), scope: '',
@@ -92,7 +92,7 @@ function rowEl(e) {
   const dot = el('span', 'rd-dot'); dot.setAttribute('aria-hidden', 'true');
   const title = el('span', 'rd-nm', l.title);
   const meta = el('span', 'rd-meta', [l.site, l.day].filter(Boolean).join(' · '));
-  const more = btn('rd-more icon-btn', '⋯', {rdMore: row.id}); more.setAttribute('aria-label', '읽을 거리 메뉴: ' + l.title); more.setAttribute('aria-expanded', 'false');
+  const more = btn('rd-more icon-btn', '⋯', {rdMore: row.id}); more.setAttribute('aria-label', '저장한 글 메뉴: ' + l.title); more.setAttribute('aria-expanded', 'false');
   r.append(dot, title, meta, more);
   const tag = areaText(l.area);
   const line = state.lines.get(row.id) || (fetching(row.id) ? stateLine(row, {busy: true}) : '');
@@ -109,7 +109,7 @@ function drawList() {
   const box = view()?.querySelector('[data-rd-list]');
   if (!box) return;
   const head = el('div', 'rd-head');
-  head.append(el('h2', 'rd-title', '읽을 거리'));
+  head.append(el('h2', 'rd-title', '저장한 글'));
   const add = btn('rd-add mini', '+ 추가', {rdAdd: '1'});
   add.setAttribute('aria-expanded', String(state.adding));
   head.append(add);
@@ -136,7 +136,7 @@ function drawList() {
   if (!state.loaded) { box.replaceChildren(...parts); box.insertAdjacentHTML('beforeend', waitHtml({rows: 4})); return; }
   const keys = markKeys(), entries = entriesNow();
   chipsHost ||= el('div', 'rd-chips');
-  renderFilterChips(chipsHost, {options: filterOptions(entries, keys), value: keepFilter(state.filter), label: '읽을 거리 거르기', small: true,
+  renderFilterChips(chipsHost, {options: filterOptions(entries, keys), value: keepFilter(state.filter), label: '저장한 글 거르기', small: true,
     onChange: v => { state.filter = keepFilter(v); drawList(); }});
   parts.push(chipsHost);
   const shown = filterEntries(entries, state.filter, keys);
@@ -230,7 +230,7 @@ async function startFetch(row) {
   state.lines.delete(row.id);
   draw();
   const out = await fetchBody(row);
-  if (out.state === 'request') state.lines.set(row.id, out.reason === 'gone' ? '이미 삭제한 읽을 거리예요.' : requestLine(out.reason));
+  if (out.state === 'request') state.lines.set(row.id, out.reason === 'gone' ? '이미 삭제한 글이에요.' : requestLine(out.reason));
   if (out.row) Object.assign(rowOf(row.id) || {}, out.row);
   if (state.open === row.id && out.row) {
     try { const full = await getItem(row.id); if (state.open === row.id) { state.body = full?.body || ''; state.bodyFor = row.id; } } catch { /* 다음에 열 때 다시 읽는다 */ }
@@ -266,7 +266,7 @@ async function addUrl(text) {
   state.adding = false;
   if (!out.dup) state.rows = [out.row, ...state.rows.filter(r => r.id !== out.row.id)];
   if (state.filter === 'marks') state.filter = 'all';
-  notify(out.dup ? '이미 읽을 거리에 있어요' : '읽을 거리에 넣었어요', {record: false});
+  notify(out.dup ? '이미 저장한 글에 있어요' : '저장한 글에 넣었어요', {record: false});
   draw();
   if (!out.dup) void startFetch(out.row);
 }
@@ -302,7 +302,7 @@ async function remove(id, anchor) {
   const row = rowOf(id);
   if (!row) return;
   const marks = sourceHighlights('reading', id).length;
-  if (!(await askConfirm(anchor, {text: '이 읽을 거리를 삭제할까요?', note: marks ? `밑줄 ${marks}개는 노트 › 밑줄에 남아요` : '', ok: '삭제'}))) return;
+  if (!(await askConfirm(anchor, {text: '이 글을 삭제할까요?', note: marks ? `밑줄 ${marks}개는 노트 › 밑줄에 남아요` : '', ok: '삭제'}))) return;
   try { await removeItem(id); }
   catch { notify('삭제하지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); return; }
   state.rows = state.rows.filter(r => r.id !== id);
@@ -316,11 +316,11 @@ async function openNews(link) {
   const router = window.KPTURouter;
   if (!link || !router?.openFrom) return;
   const ok = await router.openFrom('outside', () => window.KPTUOutside?.openItem?.({type: link.type, id: link.id}) ?? false).catch(() => false);
-  if (ok === false && window.KPTURouter?.current === 'reading') notify('News에서 열지 못했어요 · 잠시 뒤 다시', {error: true, record: false});
+  if (ok === false && window.KPTURouter?.current === 'reading') notify('읽을 거리에서 열지 못했어요 · 잠시 뒤 다시', {error: true, record: false});
 }
 // News에서 보낸 줄 [삭제]: News 줄 ★·밀기와 같은 dropSaved — 서버 함수가 이 줄을 지우고 News 쪽 표시도 끈다. 5초 [되돌리기]는 원래 저장 시각으로.
 // 알림 글만 '삭제했어요'(사용자에게는 직접 넣은 줄 삭제와 같은 이름). 줄이 빠지고 되돌리면 다시 읽는다.
-const DEL_TEXT = '삭제했어요', DEL_LABEL = '읽을 거리 삭제';
+const DEL_TEXT = '삭제했어요', DEL_LABEL = '저장한 글 삭제';
 const linkChanged = id => (it, kind, on) => {
   if (kind === 'release') { state.rows = state.rows.filter(r => r.id !== id); if (state.open === id) closeDetail(); }
   else if (kind === 'save' && on) void load().then(() => { if (here()) draw(); });
@@ -342,7 +342,7 @@ async function removeMany(ids) {
   if (plain.length) {
     const anchor = document.querySelector('[data-row-pick-act="delete"]');
     const marks = plain.reduce((n, id) => n + sourceHighlights('reading', id).length, 0);
-    if (!(await askConfirm(anchor, {text: `선택한 읽을 거리 ${ids.length}개를 삭제할까요?`, note: marks ? `밑줄 ${marks}개는 노트 › 밑줄에 남아요` : '', ok: '삭제'}))) return;
+    if (!(await askConfirm(anchor, {text: `선택한 글 ${ids.length}개를 삭제할까요?`, note: marks ? `밑줄 ${marks}개는 노트 › 밑줄에 남아요` : '', ok: '삭제'}))) return;
     let gone = 0;
     for (const id of plain) {
       try { await removeItem(id); gone += 1; state.rows = state.rows.filter(r => r.id !== id); if (state.open === id) closeDetail(); }
@@ -361,7 +361,7 @@ async function removeMany(ids) {
   } catch { notify('삭제하지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
 }
 
-const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label: '읽을 거리 메뉴', historyKey: 'kptuReadingRowMenu',
+const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label: '저장한 글 메뉴', historyKey: 'kptuReadingRowMenu',
   key: t => t.dataset.rdMore || '',
   row: t => t.closest('.rd-row'),
   render: id => {
@@ -419,7 +419,7 @@ function bindRows(box) {
       else if (key === 'delete') void removeAny(id, box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || el);
     },
     // 고른 줄: [읽음]은 하나씩 차례로(⋯와 같은 길), [삭제]는 removeMany(⋯ 삭제와 같은 규칙, 묻기·알림은 한 번).
-    select: {attr: 'data-rd-pick', label: '선택한 읽을 거리', acts: () => [{key: 'read', label: '읽음'}, {key: 'delete', label: '삭제', danger: true}],
+    select: {attr: 'data-rd-pick', label: '선택한 글', acts: () => [{key: 'read', label: '읽음'}, {key: 'delete', label: '삭제', danger: true}],
       run: async (key, ids) => {
         if (key === 'delete') { await removeMany(ids); return; }
         for (const id of ids) { const row = rowOf(id); if (row && !row.read_at) await toggleRead(id, true); }

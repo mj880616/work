@@ -76,7 +76,7 @@ test('한 목록(S68-27·S68-29): 읽을 거리 표 하나 — News에서 보낸
   assert.equal(keepFilter('news'), 'unread');
   assert.equal(nextFilter('marks', 1), 'marks');
   assert.doesNotMatch(emptyText('all', 3), /News/);
-  assert.match(emptyText('unread', 0), /^읽을 거리가 없어요/);
+  assert.match(emptyText('unread', 0), /^저장한 글이 없어요/); // S68-34: 화면 이름 '저장한 글'
 });
 
 test('화면 연결(S68-27·S68-29): 이 표 하나만 읽고, News 길은 기능 키가 있다는 답일 때만 — 열기는 라우터 openFrom, News에서 온 줄 삭제는 dropSaved', () => {
@@ -89,10 +89,10 @@ test('화면 연결(S68-27·S68-29): 이 표 하나만 읽고, News 길은 기�
   assert.doesNotMatch(src, /now-saved\.js|readSavedRows|mergeEntries|state\.saved/, '두 곳을 읽어 합치는 길은 없앴다');
   assert.doesNotMatch(src, /\/rest\/v1\//, '서버 길은 reading-data.js·now-row-acts.js');
   // S68-29: News에서 온 줄도 직접 넣은 줄과 같은 모양·단추 — 'News' 꼬리표·[News] 칩·'읽을 거리에서 빼기'·'News에서 열기' 없음.
-  assert.doesNotMatch(src, /rd-src-tag|rd-row-news|newsTag|News에서 보냄|data-rd-act="release"|data-rd-act="news-open"|읽을 거리에서 빼기/);
+  assert.doesNotMatch(src, /rd-src-tag|rd-row-news|newsTag|News에서 보냄|data-rd-act="release"|data-rd-act="news-open"|읽을 거리에서 빼기|이 읽을 거리를/);
   assert.doesNotMatch(read('app/reading.css'), /rd-src-tag|rd-row-news/);
   assert.match(src, /dropSaved\(link, \{saved: true, text: DEL_TEXT, label: DEL_LABEL/);
-  assert.match(src, /const DEL_TEXT = '삭제했어요', DEL_LABEL = '읽을 거리 삭제';/);
+  assert.match(src, /const DEL_TEXT = '삭제했어요', DEL_LABEL = '저장한 글 삭제';/);
   const news = read('app/outside-statements.js');
   assert.doesNotMatch(news, /data-now-panel-saved|createNowSaved/);
   assert.doesNotMatch(news, /data-now-go-saved|보관 ↗/, 'S68-28: News 탭 줄의 보관 길은 없앴다');
@@ -137,9 +137,9 @@ test('밑줄 출처: 종류 reading, 공용 밑줄 부품이 받는 모양', () 
   assert.equal(sourceOf({id: 'x'}), null);
 });
 
-test('메뉴: [읽을 거리]는 모든 사람(기능 키 없음), 처음 자리는 잊지 말기 다음, 화면·모양·폰 공유 칸이 이어져 있다', () => {
+test('메뉴: [저장한 글](옛 이름 읽을 거리, S68-34)은 모든 사람(기능 키 없음), 처음 자리는 잊지 말기 다음, 화면·모양·폰 공유 칸이 이어져 있다', () => {
   const item = ITEMS.find(i => i.id === 'reading');
-  assert.equal(item.label, '읽을 거리');
+  assert.equal(item.label, '저장한 글');
   assert.equal(item.view, 'reading');
   assert.equal(item.feature, undefined);
   assert.deepEqual(DEFAULT_REST.slice(0, 2), ['basket', 'reading']);
@@ -147,11 +147,11 @@ test('메뉴: [읽을 거리]는 모든 사람(기능 키 없음), 처음 자리
   const loader = read('app/view-loader.js');
   assert.match(loader, /async function reading\(\)\{ await module\('\.\/reading\.js'\); return \{ok:true\} \}/);
   assert.match(loader, /reading:\['\.\/feed\.css',[^\]]*'\.\/reading\.css'/);
-  assert.match(read('app/index.html'), /data-view="reading" href="\.\/\?view=reading">읽을 거리</);
+  assert.match(read('app/index.html'), /data-view="reading" href="\.\/\?view=reading">저장한 글</);
   const manifest = read('android-app/app/src/main/AndroidManifest.xml');
   const alias = manifest.match(/<activity-alias\s+android:name="\.ShareToReading"[\s\S]*?<\/activity-alias>/)?.[0] || '';
   assert.match(alias, /android:targetActivity="\.MainActivity"/);
-  assert.match(alias, /android:label="WORK ON\+ 읽을 거리"/);
+  assert.match(alias, /android:label="WORK ON\+ 저장한 글"/);
   assert.match(alias, /android:mimeType="text\/plain"/);
   assert.doesNotMatch(alias, /android:permission=|uses-permission/);
   assert.match(read('android-app/app/src/main/java/kr/or/kptu/work/ShellRules.kt'), /SHARE_TO_READING -> "reading"/);

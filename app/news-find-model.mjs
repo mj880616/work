@@ -34,5 +34,5 @@ export function mergeFound(recent, kept, atOf) {
   return out.sort((a, b) => at(b) - at(a) || String(a.id).localeCompare(String(b.id)));
 }
 // 찾은 결과가 없을 때 한 줄(ui-words: '~이 없어요').
-export const FIND_EMPTY = `최근 ${FIND_DAYS}일·읽을 거리에서 찾은 글이 없어요`;
+export const FIND_EMPTY = `최근 ${FIND_DAYS}일·저장한 글에서 찾은 글이 없어요`;
 export const FIND_SHORT = `${FIND_MIN_CHARS}글자부터 찾아요`;

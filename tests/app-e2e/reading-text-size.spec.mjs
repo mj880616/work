@@ -74,7 +74,7 @@ const fontPx = async loc => {
 };
 const noWideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 async function openReading(page, width) {
-  await go(page, width, '읽을 거리');
+  await go(page, width, '저장한 글');
   await expect(page.locator('#readingView')).toBeVisible();
   await page.locator(`#readingView .rd-row[data-rd-open="${A}"]`).click();
   await expect(prose(page).locator('p')).toHaveCount(3);
@@ -159,7 +159,7 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     await expect(prose(page).locator('mark.hl-mark')).toHaveText(QUOTE);
 
     // News 글 상세도 같은 값(같은 단추). 거기서 한 단계 작게 → 읽을 거리도 따라감.
-    await go(page, width, 'News');
+    await go(page, width, '읽을 거리');
     await expect(page.locator('#outsideView')).toBeVisible();
     await page.locator('#outsideRoot').getByRole('tab', { name: '사회운동' }).click();
     await page.locator(`#outsideRoot [data-os-list] [data-nw-key="outside:${P1}"] .now-open`).click();
@@ -173,7 +173,7 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     await expect.poll(() => fontPx(nd.locator('[data-nd-prose]'))).toBe(19);
     await expect.poll(() => prefs.value?.news_font).toBe('l');
     expect(await noWideScroll(page)).toBe(true);
-    await go(page, width, '읽을 거리');
+    await go(page, width, '저장한 글');
     if (!(await prose(page).locator('p').count())) await page.locator(`#readingView .rd-row[data-rd-open="${A}"]`).click();
     await expect(prose(page)).toHaveAttribute('data-text-size', 'l');
     expect(errors).toEqual([]);

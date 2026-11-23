@@ -141,8 +141,8 @@ async function start(page, width, initialPrefs = null) {
 async function openOutside(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: '읽을 거리' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
 }
@@ -171,7 +171,7 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
     await expect(root(page).locator('[data-os-tabs]')).not.toContainText('보관');
     await expect(tab(page, 'all')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('#osTitle')).toHaveText('News');
+    await expect(page.locator('#osTitle')).toHaveText('읽을 거리');
     // [전체] = 사회운동 글 + 언론 기사를 시각 최신 순으로(날짜 묶음 → 흰 상자).
     const all = rows(page, '[data-nw-all]');
     await expect(all).toHaveCount(POSTS.length + NEWS.length);

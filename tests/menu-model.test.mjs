@@ -165,7 +165,7 @@ test('FILES-클라우드탐색기 ④: 저장된 순서에 없던 [파일]은 �
 
 test('OUTSIDE-글상세·관심환류 ③: 옛 메뉴 id news(뉴스 클리핑)는 Now(outside)로 읽는다 — 저장된 메뉴 순서가 깨지지 않음', () => {
   assert.equal(ITEMS.some(i => i.id === 'news'), false, '뉴스 클리핑 칸은 없다');
-  assert.equal(ITEMS.find(i => i.id === 'outside').label, 'News');
+  assert.equal(ITEMS.find(i => i.id === 'outside').label, '읽을 거리'); // S68-34: 'News' → '읽을 거리'(id·주소는 그대로)
   // 뉴스만 하단바에 두었던 사람: 그 자리에 Now가 선다(위 메뉴에서 다시 나오지 않음).
   const onlyNews = normalizeLayout({bar: ['home', 'basket', 'news', 'meetings'], rest: ['note', 'library', 'photos', TAIL_MARK, 'calls', 'telegram', 'arsenal']});
   assert.deepEqual(onlyNews.bar, ['home', 'basket', 'outside', 'meetings']);

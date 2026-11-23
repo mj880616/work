@@ -98,8 +98,8 @@ async function start(page, width) {
 async function openNow(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: '읽을 거리' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
 }
 const root = page => page.locator('#outsideRoot');
@@ -112,7 +112,7 @@ for (const width of [412, 884, 1280]) {
     const { errors, server, prefs } = await start(page, width);
     await openNow(page, width);
     // 메뉴 'News' 하나(뉴스 클리핑 칸 없음), 탭 [전체][사회운동][언론][밑줄](S68-24 [보관] 탭 없앰), 처음은 [전체] → [사회운동]으로.
-    await expect(page.locator('#osTitle')).toHaveText('News');
+    await expect(page.locator('#osTitle')).toHaveText('읽을 거리');
     await expect(page.locator('.nav-btn[data-view="news"], #mobileMenu [data-view="news"]')).toHaveCount(0);
     await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
     await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
@@ -180,7 +180,7 @@ for (const width of [412, 884, 1280]) {
     // [메모] = 노트 하나(metadata.outside_post_id) + 기록.
     await nd.locator('[data-nd-act="memo"]').click();
     await nd.locator('[data-nd-memo-input]').fill('가상 메모');
-    await nd.getByRole('button', { name: '저장' }).click();
+    await nd.locator('[data-nd-memo-form]').getByRole('button', { name: '저장', exact: true }).click(); // S68-34: 글 [저장] 단추와 같은 이름이라 메모 칸 안
     await expect(nd.locator('[data-nd-memo-text]')).toContainText('가상 메모');
     expect(server.notes[0].body).toMatchObject({ kind: 'note', raw_text: '가상 메모', metadata: { outside_post_id: P1 } });
     await expect.poll(() => server.signals.map(x => x.action)).toEqual(['star', 'open', 'memo']);
@@ -259,8 +259,8 @@ for (const query of ['?view=news', '?view=outside', '?view=now']) {
     await openHome(page, { query });
     await nowServer(page);
     await expect(page.locator('#outsideView')).toBeVisible({ timeout: 20000 });
-    await expect(page.locator('#osTitle')).toHaveText('News');
-    await expect(page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#osTitle')).toHaveText('읽을 거리');
+    await expect(page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     if (query === '?view=now') await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
     expect(errors).toEqual([]);

@@ -1,6 +1,6 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {sendSignal, setMark} from './now-marks.js';
-import {deleteMine, DELETE_LABEL, SAVE_LABEL, RELEASE_LABEL} from './now-row-acts.js';
+import {deleteMine, DELETE_LABEL, DELETE_BOTH_LABEL, SAVE_LABEL, RELEASE_LABEL, RELEASE_ARIA} from './now-row-acts.js';
 import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences} from './feed-shared.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
@@ -204,8 +204,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const btn = (act, on, label, onLabel) => one(`data-nd-act="${act}" aria-pressed="${!!on}"`, on ? onLabel : label);
     const memo = cur.memoOpen ? '' : one('data-nd-act="memo"', cur.memo ? '메모 수정' : '메모');
     // S67-11 NEWS-보관빼기: 내가 넣은 기사(공유·손으로 넣은 것, head.mine)는 [삭제] — 내 목록 어디에도 안 보이게(공용 기사 행은 그대로), 5초 [되돌리기].
-    const del = cur.item.type === 'news' && cur.head?.mine ? one('data-nd-delete', DELETE_LABEL) : '';
-    return `${btn('star', m.star, SAVE_LABEL, RELEASE_LABEL)}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
+    // S68-34: 저장해 둔 글이면 [삭제](저장한 글에서 빼기)와 겹치지 않게 기사 자체 삭제는 '기사 삭제'.
+    const del = cur.item.type === 'news' && cur.head?.mine ? one('data-nd-delete', m.star ? DELETE_BOTH_LABEL : DELETE_LABEL) : '';
+    const star = m.star ? one(`data-nd-act="star" aria-pressed="true" aria-label="${RELEASE_ARIA}" title="${RELEASE_ARIA}"`, RELEASE_LABEL) : btn('star', false, SAVE_LABEL, RELEASE_LABEL);
+    return `${star}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
   }
   function memoHtml() {
     if (cur.memoOpen) {

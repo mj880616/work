@@ -116,8 +116,8 @@ async function start(page, width) {
 async function goNews(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: '읽을 거리' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
 }
 const root = page => page.locator('#outsideRoot');
@@ -129,8 +129,8 @@ const shots = process.env.S68_24_SHOTS;
 async function goReading(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: '읽을 거리' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: '저장한 글' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '저장한 글', exact: true }).click();
   await expect(page.locator('#readingView')).toBeVisible();
 }
 const T_N1 = '가짜 매체 기사 하나', T_R1 = '읽을 거리에 넣은 같은 성명', T_N2 = '내가 공유로 넣은 가짜 기사';
