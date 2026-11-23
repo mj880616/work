@@ -300,7 +300,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (my !== seq) return {stale: true};
     if (row === LOAD_FAILED) { bodies.set(key, {failedLoad: true}); paintBody(); return {hadRow: false}; }
     // 저장 원문 줄이 있으면 그것을 그린다. 뉴스 기사에서 그 줄이 잠깐의 오류(state failed — 늦은 답·사이트 오류)면 아래 '기사 먼저 읽기'로 한 번 다시 읽는다.
-    if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, viewOf(row)); paintBody(); if (item.type === 'news') void freshenHead(item); return {hadRow: true}; }
+    if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, viewOf(row, item.type)); paintBody(); if (item.type === 'news') void freshenHead(item); return {hadRow: true}; }
     let pre = {ok: true};
     if (item.type === 'news') {
       pre = await readFirst(item, my, !!row).catch(() => ({ok: true}));
@@ -308,7 +308,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       row = await readBodyRow(item);
       if (my !== seq) return {stale: true};
       if (row === LOAD_FAILED) { bodies.set(key, {failedLoad: true}); paintBody(); return {hadRow: false, pre}; }
-      if (row) { bodies.set(key, viewOf(row)); paintBody(); return {hadRow: true, pre}; }
+      if (row) { bodies.set(key, viewOf(row, item.type)); paintBody(); return {hadRow: true, pre}; }
     }
     let legacy;
     try { legacy = await readLegacyText(item); } catch { legacy = {failedLoad: true}; }
@@ -319,7 +319,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   }
   // 저장 원문 줄 → 그릴 모양. 다시 읽을 실패(reopenBody)면 [원문 다시 가져오기]를 단다(again).
   // S68-49: 봇 확인도 단추(canRefetch). 열 때 저절로 다시 읽는 것은 여전히 reopenBody(뉴스 — 늦은 답·사이트 오류·예전 robots)뿐.
-  const viewOf = row => { const v = bodyView(row) || legacyBody(''); return canRefetch(row) ? {...v, again: true} : v; };
+  const viewOf = (row, type) => { const v = bodyView(row) || legacyBody(''); return canRefetch(row, type) ? {...v, again: true} : v; };
   // 저장 원문 한 줄: 줄 · null(정말 없음) · LOAD_FAILED(두 번 읽어도 오류).
   async function readBodyRow(item) {
     for (let i = 0; i < 2; i++) { try { return await readFeedBody(item); } catch { /* 한 번 더 */ } }
@@ -354,7 +354,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const row = await readBodyRow(item);
     if (my !== seq || cur !== c) return;
     c.refetching = false;
-    if (row && row !== LOAD_FAILED) bodies.set(key, viewOf(row));
+    if (row && row !== LOAD_FAILED) bodies.set(key, viewOf(row, item.type));
     const b = bodies.get(key);
     // 새 본문이 생겼을 때만(실패 → 본문, 앞부분 → 전문). 앞부분만인 글이 다시 앞부분이면 바뀐 것이 없다(요약을 다시 만들지 않음, S68-52).
     if (b && b.state !== 'failed' && b.state !== before) {

@@ -103,39 +103,16 @@ test('읽을 거리 상세: 다시 가져오기 하루 한도 → 까닭 한 줄
   expect(errors.filter(e => !/429/.test(e))).toEqual([]);
 });
 
-// S68-52: 유료벽이 아닌데 본문 칸을 못 뽑아 리드(메타 설명)만 남은 글(lead·no_body — 조선일보처럼 문단이 페이지 스크립트 데이터에 있는 글)도 단추.
-// 다시 읽어 전문이 오면 본문으로 바꾸고, 또 앞부분이면 단추를 거두고 한 줄(요약을 다시 만들지 않음). 유료벽 리드는 단추 없음.
-const LEAD = { state: 'lead', reason: 'no_body', blocks: [{ t: 'p', text: '가상 공개 리드 한 줄.' }] };
-test('읽을 거리 상세: 앞부분만 남은 글 → [원문 다시 가져오기] → 전문', async ({ page }) => {
-  test.setTimeout(60000);
-  const { errors, s } = await start(page, 412, { body0: LEAD });
-  await open(page);
-  const d = nd(page);
-  await expect(d.locator('[data-nd-prose] p')).toHaveText(['가상 공개 리드 한 줄.']);
-  const btn = d.locator('[data-nd-body] [data-nd-why]').getByRole('button', { name: '원문 다시 가져오기' });
-  await btn.click();
-  await expect.poll(() => s.rereads.length).toBe(1);
-  await expect(d.locator('[data-nd-prose] p')).toHaveText(['가상 다시 읽은 본문 문단.']);
-  await expect(d.locator('[data-nd-body] [data-nd-why]')).toHaveCount(0);
-  expect(errors.filter(e => !/422/.test(e))).toEqual([]);
-});
-test('읽을 거리 상세: 다시 읽어도 앞부분뿐이면 단추를 거두고 한 줄, 유료벽 리드는 단추 없음', async ({ page }) => {
-  test.setTimeout(60000);
-  const { s } = await start(page, 1280, { body0: LEAD, after: LEAD });
-  await open(page);
-  const why = nd(page).locator('[data-nd-body] [data-nd-why]');
-  await why.getByRole('button', { name: '원문 다시 가져오기' }).click();
-  await expect.poll(() => s.rereads.length).toBe(1);
-  await expect(why.locator('[data-nd-refetch-note]')).toHaveText('다시 읽어도 사이트가 본문을 주지 않아요');
-  await expect(why.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
-  await expect(nd(page).locator('[data-nd-prose] p')).toHaveText(['가상 공개 리드 한 줄.']);
-});
-test('읽을 거리 상세: 유료벽 리드(lead·paywall)에는 단추가 없다', async ({ page }) => {
-  test.setTimeout(60000);
-  await start(page, 1280, { body0: { state: 'lead', reason: 'paywall', blocks: [{ t: 'p', text: '가상 유료 앞부분.' }] } });
-  await open(page);
-  const d = nd(page);
-  await expect(d.locator('[data-nd-prose] p')).toHaveText(['가상 유료 앞부분.']);
-  await expect(d.locator('[data-nd-body] [data-nd-why]')).toBeVisible();
-  await expect(d.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
-});
+// S68-52: 뉴스 기사는 리드만 남은 글(lead·no_body)도 단추(news-lead-refetch.spec). 사회운동 글은 서버 reread가 실패 본문만 다시 읽으므로 앞부분 글에는 단추가 없다.
+for (const reason of ['no_body', 'paywall']) {
+  test(`읽을 거리 상세: 사회운동 글의 앞부분(lead·${reason})에는 단추가 없다`, async ({ page }) => {
+    test.setTimeout(60000);
+    const { s } = await start(page, 1280, { body0: { state: 'lead', reason, blocks: [{ t: 'p', text: `가상 앞부분 ${reason}.` }] } });
+    await open(page);
+    const d = nd(page);
+    await expect(d.locator('[data-nd-prose] p')).toHaveText([`가상 앞부분 ${reason}.`]);
+    await expect(d.locator('[data-nd-body] [data-nd-why]')).toBeVisible();
+    await expect(d.getByRole('button', { name: '원문 다시 가져오기' })).toHaveCount(0);
+    expect(s.rereads).toEqual([]);
+  });
+}
