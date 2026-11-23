@@ -1,0 +1,20 @@
+-- SELECT only. 20261123170000_operator_info_three 적용 뒤. 예/아니오 항목은 모두 예, 그 밖의 값은 precheck의 같은 이름 항목과 같은 값이어야 한다.
+-- expect: history row present = 예
+-- expect: three functions definer jsonb = 예
+-- expect: execute roles as before = 예
+-- expect: list gives email dates only = 예
+-- expect: since gives count only = 예
+-- expect: feedback gives email not name = 예
+-- expect: dev_inbox rows = 1
+-- expect: feedback profiles grants policies hash = 기록
+select 'history row present' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261123170000' and name='operator_info_three')=1 then '예' else '아니오' end as value
+union all select 'three functions definer jsonb',case when (select count(*) from pg_proc where oid in(to_regprocedure('public.app_signup_list()'),to_regprocedure('public.app_signup_since(timestamp with time zone)'),to_regprocedure('public.app_feedback_list(text)')) and prosecdef and proconfig=array['search_path=""'] and prorettype='jsonb'::regtype)=3 then '예' else '아니오' end
+union all select 'execute roles as before',case when has_function_privilege('authenticated','public.app_signup_list()','execute') and not has_function_privilege('anon','public.app_signup_list()','execute') and not has_function_privilege('service_role','public.app_signup_list()','execute')
+  and has_function_privilege('service_role','public.app_signup_since(timestamp with time zone)','execute') and not has_function_privilege('anon','public.app_signup_since(timestamp with time zone)','execute') and not has_function_privilege('authenticated','public.app_signup_since(timestamp with time zone)','execute')
+  and has_function_privilege('authenticated','public.app_feedback_list(text)','execute') and not has_function_privilege('anon','public.app_feedback_list(text)','execute') and not has_function_privilege('service_role','public.app_feedback_list(text)','execute') then '예' else '아니오' end
+union all select 'list gives email dates only',case when (select pg_get_functiondef(oid) from pg_proc where oid=to_regprocedure('public.app_signup_list()')) ~ '''email''' and (select pg_get_functiondef(oid) from pg_proc where oid=to_regprocedure('public.app_signup_list()')) ~ 'OPERATOR_FEATURE_REQUIRED' and (select pg_get_functiondef(oid) from pg_proc where oid=to_regprocedure('public.app_signup_list()')) !~ '(union_name|department_name|job_title|display_name|raw_user_meta_data|''name'')' then '예' else '아니오' end
+union all select 'since gives count only',case when (select pg_get_functiondef(oid) from pg_proc where oid=to_regprocedure('public.app_signup_since(timestamp with time zone)')) ~ '''count''' and (select pg_get_functiondef(oid) from pg_proc where oid=to_regprocedure('public.app_signup_since(timestamp with time zone)')) !~ '(''names''|x\.name|t\.name)' then '예' else '아니오' end
+union all select 'feedback gives email not name',case when (select pg_get_functiondef(oid) from pg_proc where oid=to_regprocedure('public.app_feedback_list(text)')) ~ '''email''' and (select pg_get_functiondef(oid) from pg_proc where oid=to_regprocedure('public.app_feedback_list(text)')) ~ 'app_feedback_operator' and (select pg_get_functiondef(oid) from pg_proc where oid=to_regprocedure('public.app_feedback_list(text)')) !~ '(display_name|app_profiles|''name'')' then '예' else '아니오' end
+union all select 'dev_inbox rows',(select count(*) from public.app_operator_features where feature='dev_inbox')::text
+union all select 'feedback profiles grants policies hash',md5(coalesce((select string_agg(c.relname::text||':'||c.relrowsecurity::text||':'||coalesce(c.relacl::text,''),',' order by c.relname) from pg_class c where c.oid in(to_regclass('public.app_profiles'),to_regclass('public.app_feedback'),to_regclass('public.app_feedback_photos'))),'')
+  ||coalesce((select string_agg(p.polname::text||p.polcmd::text||p.polpermissive::text||p.polroles::text||coalesce(pg_get_expr(p.polqual,p.polrelid),'')||coalesce(pg_get_expr(p.polwithcheck,p.polrelid),''),',' order by p.polname) from pg_policy p where p.polrelid in(to_regclass('public.app_profiles'),to_regclass('public.app_feedback'),to_regclass('public.app_feedback_photos'))),''));

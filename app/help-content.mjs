@@ -10,10 +10,11 @@ export const SUMMARY = word('WORK ON+는 내 일정·할 일·조직·사업 기
 export const CONTACT = 'nojoplus.com@gmail.com';
 export const PRIVACY_URL = 'https://work.bokdoong.com/work/about/privacy/';
 export const TERMS_URL = 'https://work.bokdoong.com/work/about/terms/';
-// 2026-11-15 명진 확정 문장(AGENTS.md 3절 '남의 기록 안 보기')을 그대로.
+// 2026-11-23 명진 확정 문장(AGENTS.md 3절 '남의 기록 안 보기')을 그대로. 첫 줄은 '내 기록은 누가 보나' 줄의 한 문장(lead),
+// 나머지 두 줄은 펼친 상자(help.js privacyNodes — 첫 줄을 상자에 또 쓰지 않는다). 처리방침·소개 페이지(about/)도 같은 문장.
 export const PRIVACY_LINES = Object.freeze([
-  '운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않습니다.',
-  word('운영자에게 제공되는 정보: 조직, 부서, 이름, 직책, 이메일주소, 가입일, 마지막 사용 시각.'),
+  '내가 기록한 내용은 운영자가 볼 수 없습니다.', // ui-words-ok 명진 확정 문장 그대로(11/23 15:53, 처리방침·소개와 같은 문장)
+  '운영자에게 제공되는 정보: 이메일주소, 가입일, 마지막 사용 시각.',
   '제공되지 않는 정보: 유저가 기록·업로드한 정보.',
 ]);
 

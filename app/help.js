@@ -37,9 +37,10 @@ function openButton(t) {
   const b = el('button', 'secondary mini hp-open', `${t.label} 열기 ›`); b.type = 'button'; b.dataset.hpGo = t.open;
   return b;
 }
-function privacyNodes() {
+// 첫 문장은 줄의 lead(hp-lead)로 이미 보이므로 상자에는 제공/미제공 두 줄만(같은 문장 두 번 금지).
+function privacyNodes(leadShown) {
   const box = el('div', 'hp-privacy'); box.dataset.hpPrivacy = '';
-  PRIVACY_LINES.forEach(line => box.append(el('p', null, line)));
+  (leadShown ? PRIVACY_LINES.slice(1) : PRIVACY_LINES).forEach(line => box.append(el('p', null, line)));
   const contact = el('p', 'hp-contact');
   const mail = el('a', null, CONTACT); mail.href = `mailto:${CONTACT}`;
   const pv = el('a', null, '처리방침'); pv.href = PRIVACY_URL; pv.target = '_blank'; pv.rel = 'noopener';
@@ -51,7 +52,7 @@ function privacyNodes() {
 function bodyNodes(t, {withLead = true} = {}) {
   const out = [];
   if (withLead) out.push(el('p', 'hp-lead', t.lead));
-  if (t.id === 'privacy') { out.push(...privacyNodes()); return out; }
+  if (t.id === 'privacy') { out.push(...privacyNodes(withLead)); return out; }
   if (t.id === 'appdl') {
     const slot = el('div', 'hp-adg'); out.push(slot);
     void import('./app-download-guide.js').then(m => slot.replaceChildren(m.appGuideEl())).catch(() => { slot.textContent = '안내를 불러오지 못했어요.'; });

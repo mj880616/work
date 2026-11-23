@@ -28,11 +28,13 @@
 // OPS-새가입알림 ②(S62-25, migration 20261115234500_signup_notify): 새로 가입(작업공간 생성)하면 운영자에게만 알린다.
 //   - 받는 사람: 운영자 기능 dev_inbox 작업공간 하나(rpc app_operator_feature_workspace, service_role — 서버 허용 표). 화면 값은 받지 않는다.
 //   - 15분 예약(quarter): 지난 알림 열쇠(su:<가장 새 가입 초>, 보냄·실패·끔·연 것) 뒤 새 가입을 rpc app_signup_since(service_role 전용 —
-//     수·이름 다섯·가장 새 가입 초만)로 세어 "새 가입 n명 — 이름" 한 번. 여럿이면 한 번에 묶는다. 같은 열쇠는 다시 보내지 않는다.
+//     수·가장 새 가입 초만)로 세어 "새 가입 n명" 한 번. 여럿이면 한 번에 묶는다. 같은 열쇠는 다시 보내지 않는다.
+//     S68-58(명진 11/23 15:53, migration 20261123170000_operator_info_three): 운영자에게 가는 정보는 이메일·가입일·마지막 사용 시각뿐 —
+//     알림 글에 이름·조직을 싣지 않는다(서버도 이름을 돌려주지 않음). 누가인지는 눌러서 '가입자 현황'(이메일)으로 본다.
 //     끄기(kinds.signup=false → skipped_off)·조용한 시간(기본 22~07시 → 기록 없이 넘겼다가 끝난 뒤 첫 실행에서 그동안 가입을 묶어 보냄).
 //     기록에는 종류·열쇠·상태만(이름 없음). 메일·작업공간 id·기록 내용은 읽지 않는다.
 //   - 알림 줄(notices): 운영자에게만, 아직 열지 않은 새 가입(마지막으로 연 열쇠 뒤, 최근 7일)을 사용자 로그인으로 rpc app_signup_list
-//     (운영자만 — 서버가 다시 확인)에서 읽어 '새 가입 n명 — 이름' 한 줄. 이 종류만 보일 말(text)을 함께 준다(이름은 기록에 남기지 않으므로).
+//     (운영자만 — 서버가 다시 확인)에서 가입 시각만 읽어 '새 가입 n명' 한 줄. 이 종류만 보일 말(text)을 함께 준다.
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from "../_shared/fcm-send.ts";
@@ -366,13 +368,10 @@ export const SIGNUP_FIRST_LOOKBACK_MS = DAY_MS; // 기록이 하나도 없을 �
 const SIGNUP_REF = /^su:([0-9]{9,11})$/;
 export const signupRef = (sec: number) => `su:${sec}`;
 const refSec = (ref: unknown) => { const m = typeof ref === "string" ? SIGNUP_REF.exec(ref) : null; return m ? Number(m[1]) : null; };
-const cleanNames = (v: unknown) => (Array.isArray(v) ? v : []).filter((n): n is string => typeof n === "string" && n.trim() !== "")
-  .map((n) => n.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, 40));
-// "새 가입 2명 — 가상 사람A, 가상 사람B", 넷 이상이면 이름 셋 + "외 n명".
-export function signupTitle(count: number, names: unknown) {
-  const list = cleanNames(names).slice(0, 3), n = Math.max(0, Math.floor(count));
-  const more = n > list.length ? ` 외 ${n - list.length}명` : "";
-  return list.length ? `새 가입 ${n}명 — ${list.join(", ")}${more}` : `새 가입 ${n}명`;
+// "새 가입 2명" — 수만(이름·조직 없음, S68-58).
+export function signupTitle(count: number) {
+  const n = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+  return `새 가입 ${n}명`;
 }
 
 // 운영자 작업공간(서버 허용 표 dev_inbox가 정확히 한 작업공간일 때만). 아니면 null(아무에게도 보내지 않음).
@@ -416,7 +415,7 @@ async function signupPush(db: Db, nowMs: number, sender: FcmSender | null, log: 
     const devices = (await activeDevices(db, ws)).slice(0, MAX_DEVICES);
     if (!devices.length) { await logPush(db, ws, "signup", ref, day, "failed"); return out; } // 폰이 없으면 알림 줄만(늘 뜸)
     const sent = await sendToDevices(db, sender, devices,
-      { kind: "signup", title: signupTitle(count, r?.names), open: openPath("signup", ref), urgent: false }, new Date(nowMs).toISOString());
+      { kind: "signup", title: signupTitle(count), open: openPath("signup", ref), urgent: false }, new Date(nowMs).toISOString());
     await logPush(db, ws, "signup", ref, day, sent.sent ? "sent" : "failed");
     if (sent.sent) out.sent++;
   } catch (e) {
@@ -433,12 +432,12 @@ async function signupNotice(db: Db, asUserRpc: (fn: string) => Promise<Record<st
     let floor = Math.floor((nowMs - RECENT_DAYS * DAY_MS) / 1000);
     for (const o of opened) { const sec = refSec(o.ref_key); if (sec !== null && sec > floor) floor = sec; }
     const people = (await asUserRpc("app_signup_list"))
-      .map((p) => ({ name: p.name, sec: Math.floor(Date.parse(String(p.signed_up_at ?? "")) / 1000) }))
+      .map((p) => ({ sec: Math.floor(Date.parse(String(p.signed_up_at ?? "")) / 1000) }))
       .filter((p) => Number.isFinite(p.sec) && p.sec > floor && p.sec <= Math.floor(nowMs / 1000) + 300)
       .sort((a, b) => b.sec - a.sec);
     if (!people.length) return null;
     const ref = signupRef(people[0].sec);
-    return { kind: "signup", ref_key: ref, day: kstDay(people[0].sec * 1000), open: openPath("signup", ref), text: signupTitle(people.length, people.map((p) => p.name)) };
+    return { kind: "signup", ref_key: ref, day: kstDay(people[0].sec * 1000), open: openPath("signup", ref), text: signupTitle(people.length) };
   } catch {
     return null; // 못 읽으면 줄이 없을 뿐
   }

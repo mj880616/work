@@ -58,7 +58,7 @@ test('빈 화면 안내 셋은 3단계, 앱 내려받기는 네 기기', () => {
   assert.equal(deviceOf('Mozilla/5.0 (Linux; Android 14; SM-F956N)'), 'android');
   assert.equal(deviceOf('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'), 'mac');
   assert.equal(deviceOf('Mozilla/5.0 (Windows NT 10.0; Win64; x64)'), 'windows');
-  assert.equal(PRIVACY_LINES[0], '운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않습니다.');
+  assert.deepEqual([...PRIVACY_LINES], ['내가 기록한 내용은 운영자가 볼 수 없습니다.', '운영자에게 제공되는 정보: 이메일주소, 가입일, 마지막 사용 시각.', '제공되지 않는 정보: 유저가 기록·업로드한 정보.']);
 });
 
 test('쓰는 법 글에 실제 노조·조직 이름이 없다(예시는 지어낸 이름)', () => {

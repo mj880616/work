@@ -54,11 +54,13 @@ test('저장소 추적 파일에 문의 메일·외부 라이브러리 저작자
   assert.deepEqual(bad, [], `개인 메일 모양 주소(원문 대신 hash): ${bad.join(', ')}`);
 });
 
-test('처리방침·소개에 명진 확정 문장: 운영자는 가입만 보고 기록은 보지 않는다', () => {
+// S68-58(명진 11/23 15:53): 운영자에게 가는 정보는 이메일주소·가입일·마지막 사용 시각 셋뿐(서버 함수도 같이 줄임).
+test('처리방침·소개에 명진 확정 문장: 내 기록은 운영자가 볼 수 없고, 운영자에게는 이메일·가입일·마지막 사용 시각만', () => {
   for (const file of ['about/index.html', 'about/privacy/index.html']) {
     const html = read(file);
-    assert.ok(html.includes('운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않습니다.'), `${file}: 확정 문장 없음`);
-    assert.ok(html.includes('<b>운영자에게 제공되는 정보</b>: 조직, 부서, 이름, 직책, 이메일주소, 가입일, 마지막 사용 시각'), `${file}: 제공되는 정보 없음`);
+    assert.ok(html.includes('내가 기록한 내용은 운영자가 볼 수 없습니다.'), `${file}: 확정 문장 없음`);
+    assert.ok(html.includes('<b>운영자에게 제공되는 정보</b>: 이메일주소, 가입일, 마지막 사용 시각</li>'), `${file}: 제공되는 정보 없음`);
+    assert.doesNotMatch(html, /운영자는 누가 가입했는지만|제공되는 정보<\/b>: 조직/, `${file}: 옛 문장`);
     assert.ok(html.includes('<b>제공되지 않는 정보</b>: 유저가 기록·업로드 한 정보'), `${file}: 제공되지 않는 정보 없음`);
   }
   const privacy = read('about/privacy/index.html');
@@ -89,5 +91,6 @@ test('약관·처리방침에 운영자 열람 안 함과 영장 즉시 통지 �
   assert.ok(terms.includes('영장이 오면 제공해야 할 수 있습니다.'), '약관: 정직한 한계 문장 없음');
   const privacy = read('about/privacy/index.html');
   assert.ok(privacy.includes('법관이 발부한 영장이 있을 때만'), '처리방침: 영장 약속 없음');
-  assert.ok(privacy.includes('운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않습니다.'), '처리방침: 확정 문장 없음');
+  assert.ok(privacy.includes('내가 기록한 내용은 운영자가 볼 수 없습니다.'), '처리방침: 확정 문장 없음');
+  assert.ok(privacy.includes('보낸 사람(이메일주소)'), '처리방침: 의견 보낸 사람은 이메일주소');
 });

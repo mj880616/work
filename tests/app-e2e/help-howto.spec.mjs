@@ -50,6 +50,13 @@ for (const [label, width, height] of WIDTHS) {
       await help(page).locator('[data-hp-topic="calendar"] > summary').click();
       await expect(help(page).locator('[data-hp-topic="team"]')).not.toHaveAttribute('open', '');
       await expect(help(page).locator('[data-hp-topic="calendar"] [data-hp-ex]')).toBeVisible();
+      // S68-58(명진 11/23 폰 캡처): '내 기록은 누가 보나'를 펼치면 첫 문장은 한 번만, 상자에는 제공/미제공 두 줄.
+      await help(page).locator('[data-hp-topic="privacy"] > summary').click();
+      const priv = help(page).locator('[data-hp-topic="privacy"] .hp-body');
+      await expect(priv.locator('.hp-lead')).toHaveText('내가 기록한 내용은 운영자가 볼 수 없습니다.');
+      await expect(priv.locator('[data-hp-privacy] p')).toHaveText(['운영자에게 제공되는 정보: 이메일주소, 가입일, 마지막 사용 시각.', '제공되지 않는 정보: 유저가 기록·업로드한 정보.']);
+      expect((await priv.innerText()).split('내가 기록한 내용은 운영자가 볼 수 없습니다.').length).toBe(2);
+      await help(page).locator('[data-hp-topic="calendar"] > summary').click();
       await help(page).locator('[data-hp-topic="calendar"] [data-hp-go]').click();
     } else {
       const toc = help(page).locator('[data-hp-toc]');
@@ -63,7 +70,10 @@ for (const [label, width, height] of WIDTHS) {
       await expect(page).toHaveURL(/topic=brief/);
       await shot(page, `${label}-1-help-brief`);
       await toc.locator('[data-hp-pick="privacy"]').click();
-      await expect(detail.locator('[data-hp-privacy]')).toContainText('운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않습니다.');
+      // S68-58(명진 11/23): 첫 문장은 한 번만(lead), 상자에는 제공/미제공 두 줄.
+      await expect(detail.locator('.hp-lead')).toHaveText('내가 기록한 내용은 운영자가 볼 수 없습니다.');
+      await expect(detail.locator('[data-hp-privacy] p')).toHaveText(['운영자에게 제공되는 정보: 이메일주소, 가입일, 마지막 사용 시각.', '제공되지 않는 정보: 유저가 기록·업로드한 정보.']);
+      expect((await detail.innerText()).split('내가 기록한 내용은 운영자가 볼 수 없습니다.').length).toBe(2);
       await expect(detail.locator('.hp-contact a').first()).toHaveAttribute('href', /^mailto:/);
       await toc.locator('[data-hp-pick="calendar"]').click();
       await detail.locator('[data-hp-go]').click();
