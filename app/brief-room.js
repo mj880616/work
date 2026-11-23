@@ -11,7 +11,7 @@
 // - BRIEF-자료실에서고르기(S64-10, 명진 11/17 09:31): [자료실에서 고르기] → 공용 고르기 창(library-move-picker.js, 여러 개)으로 내 자료실 자료를 고른다.
 //   파일을 다시 올리지 않고 '브리핑 요청함' 폴더에 연결 줄만 넣는다(app_library_folder_items, owner RLS, 이미 있으면 건너뜀). 받기는 줄의 [브리핑 받기]로만.
 //   자료 하나는 폴더 하나라(표 기본키), 다른 폴더에 든 자료는 옮기지 않고 그대로 두고 이 화면 목록에만 보인다(브리핑을 받으면 계속 남음).
-import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GLANCE_TITLE,RETRY_LABEL,briefView,canRetry,moreLabel,splitShown,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
+import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GLANCE_TITLE,RETRY_LABEL,briefView,canRetry,doneDate,moreLabel,splitShown,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {readLibraryFolders} from './library-folder-data.js';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
@@ -155,7 +155,7 @@ function drawDetail(){
   bar.append(el('h2','br-title br-doc',String(doc.title||doc.file_name||'')));
   const src=sourceUrl(doc);
   if(src){const a=el('a','br-src mini','원문 열기');a.href=src;a.target='_blank';a.rel='noopener';bar.append(a)}
-  const meta=el('p','br-meta',[fileBadge(doc.file_name,doc.mime_type),b.page_count?`${b.page_count}쪽`:'',b.finished_at?`${new Date(b.finished_at).getMonth()+1}/${new Date(b.finished_at).getDate()} 브리핑`:''].filter(Boolean).join(' · '));
+  const meta=el('p','br-meta',[fileBadge(doc.file_name,doc.mime_type),b.page_count?`${b.page_count}쪽`:'',b.finished_at?`${doneDate(b.finished_at)} 브리핑`:''].filter(Boolean).join(' · '));
   const parts=[bar,meta];
   const part=partialLine(b.brief);if(part)parts.push(el('p','br-meta br-partial',part));
   const v=briefView(b.brief);

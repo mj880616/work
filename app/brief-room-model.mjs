@@ -1,5 +1,6 @@
 // BRIEF-브리핑룸 ③ 화면 모델(설계 docs/design/brief-room.md 6절, 시안 docs/design/mockups/brief-room.html). DOM·네트워크 없음.
 // 화면(brief-room.js)은 이 모듈이 돌려준 글자를 textContent로만 넣는다.
+import { shortListDate } from './short-date.mjs';
 import {word} from './brand/brand.mjs';
 export const BRIEF_FOLDER = '브리핑 요청함';
 export const BRIEF_POLL_MS = 4000;
@@ -38,13 +39,15 @@ export function isStalled(row, nowMs) {
   return lease <= nowMs && nowMs - upd >= BRIEF_STALE_MS;
 }
 
-const md = iso => { const d = new Date(Date.parse(iso) + 9 * 3600 * 1000); return Number.isFinite(d.getTime()) ? `${d.getUTCMonth() + 1}/${d.getUTCDate()}` : ''; };
+// S68-44(명진 11/23 11:42·11:45): 다 된 줄의 날짜가 '11/20'이면 '만드는 중 17/22' 진행 칸 수와 같은 자리·같은 모양이라 멈춘 진행으로 읽혔다.
+// 날짜는 노트 목록과 같은 공용 표기(short-date.mjs: 올해 '11.20', 다른 해 '25.11.20', 서울 시간)로 쓴다. 진행 'n/m'은 그대로.
+export const doneDate = (iso, now = new Date()) => (iso ? shortListDate(iso, now) : '');
 
 /**
  * 목록 한 줄의 상태. row = 그 자료의 가장 최근 브리핑 행(없으면 null).
  * @returns {{kind:'start'|'making'|'done'|'failed', text:string, date:string}}
  */
-export function rowState(row) {
+export function rowState(row, now = new Date()) {
   if (!row) return { kind: 'start', text: '', date: '' };
   if (row.status === 'queued' || row.status === 'running') {
     const n = Number(row.step_no) || 0, t = Number(row.step_total) || 0;
@@ -52,7 +55,7 @@ export function rowState(row) {
     const word = row.stage === 'read' ? '파일 읽기' : '만드는 중';
     return { kind: 'making', text: t ? `${word} ${Math.min(n, t)}/${t}` : '만드는 중', date: '' };
   }
-  if (row.status === 'done' && row.brief && typeof row.brief.lead === 'string') return { kind: 'done', text: row.brief.lead, date: md(row.finished_at || row.updated_at) };
+  if (row.status === 'done' && row.brief && typeof row.brief.lead === 'string') return { kind: 'done', text: row.brief.lead, date: doneDate(row.finished_at || row.updated_at, now) };
   return { kind: 'failed', text: errorLine(row.error_code), date: '' };
 }
 

@@ -67,6 +67,9 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await expect(list.locator('.br-row').nth(0).locator('[data-br-start]')).toHaveText('브리핑 받기');
     await expect(list.locator('.br-row').nth(1)).toContainText('만드는 중 7/12');
     await expect(list.locator('.br-row').nth(2)).toContainText('평가 지표 중 인건비 항목 배점이 늘고');
+    // S68-44(명진 11/23): 다 된 줄 날짜는 진행 칸 수 'n/m'과 헷갈리지 않는 노트 목록 표기('10.05', 다른 해 '26.10.05'), 진행 줄은 '만드는 중 7/12' 그대로.
+    await expect(list.locator('.br-row').nth(1).locator('.br-st')).toHaveText('만드는 중 7/12');
+    await expect(list.locator('.br-row').nth(2).locator('.br-st')).toHaveText(/^(\d{2}\.)?10\.05$/);
     await expect(list.locator('.br-row').nth(3)).toContainText('글자를 읽을 수 없는 파일이에요');
     await page.screenshot({ path: `docs/design/screens/s61-45/${label}-list.png`, fullPage: false });
     // 보기(S68-45): 옛 형식(v1) 브리핑도 새 배치로 — 한눈에(한 줄 요지) → 챙길 일 → 우리 조직 관련 → 대응할 것 → 원문 인용(접힘).
@@ -78,6 +81,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await expect(detail.locator('.br-sec-quotes')).not.toHaveAttribute('open', '');
     await expect(detail.locator('.br-q')).toBeHidden();
     await detail.locator('.br-sec-quotes > summary').click();
+    await expect(detail.locator('.br-meta')).toContainText(/(^|· )(\d{2}\.)?10\.05 브리핑$/);
     await expect(detail.locator('.br-q')).toContainText(QUOTE);
     await expect(detail.locator('.br-pg a')).toHaveAttribute('href', 'https://drive.google.com/file/d/FILE_cccccccccc/view#page=31');
     if (width > 760) await expect(list).toBeVisible(); else await expect(list).toBeHidden();

@@ -99,6 +99,8 @@ test('보드 카드 끌어 놓기: 서버 저장(처음엔 모두), 끈 칸이 �
   await view(page, 'board').click();
   const card = page.locator('[data-nb-card="n1"]');
   const z = el => el.evaluate(n => Number(n.style.zIndex));
+  // boundingBox()는 기다리지 않는다: 보드가 다 그려지기 전에 재면 null(S68-44 CI에서 두 번 실패). 카드가 보일 때까지 먼저 기다린다.
+  await expect(card).toBeVisible();
   const box = await card.boundingBox();
   await page.mouse.move(box.x + 30, box.y + box.height / 2); await page.mouse.down();
   await page.mouse.move(box.x + 130, box.y + 100, { steps: 6 }); await page.mouse.move(box.x + 230, box.y + 180, { steps: 6 });
@@ -135,6 +137,7 @@ for (const width of [412, 884]) {
     await press(page, view(page, 'board'), width);
     const cdp = await page.context().newCDPSession(page);
     const card = page.locator('[data-nb-card="n2"]'), zoom = await zoomOf(page);
+    await expect(card).toBeVisible(); // center()의 boundingBox()는 기다리지 않는다
     // 1) 바로 끌기: 누르자마자 움직인다.
     let start = await cardAt(card), from = await center(card);
     await touch(cdp, 'touchStart', [from]); await swipe(cdp, from, 60, 40); await touch(cdp, 'touchEnd', []);

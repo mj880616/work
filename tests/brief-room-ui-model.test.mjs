@@ -7,7 +7,14 @@ test('rowState: start / making n/m / one-line lead / failed lines', () => {
   assert.equal(m.rowState(null).kind, 'start');
   assert.deepEqual(m.rowState({ status: 'running', step_no: 7, step_total: 12 }), { kind: 'making', text: '만드는 중 7/12', date: '' });
   const done = m.rowState({ status: 'done', brief: { lead: '인건비 배점이 늘어남.' }, finished_at: '2026-11-12T03:00:00Z' });
-  assert.equal(done.text, '인건비 배점이 늘어남.'); assert.equal(done.date, '11/12');
+  assert.equal(done.text, '인건비 배점이 늘어남.');
+  // S68-44: 다 된 줄 날짜는 진행 칸 수('만드는 중 17/22')와 헷갈리지 않게 노트 목록과 같은 '11.12'(다른 해 '25.11.12'), 'M/D' 아님.
+  const now = new Date('2026-11-23T03:00:00Z');
+  assert.equal(m.rowState({ status: 'done', brief: { lead: 'x' }, finished_at: '2026-11-12T03:00:00Z' }, now).date, '11.12');
+  assert.equal(m.rowState({ status: 'done', brief: { lead: 'x' }, finished_at: '2026-11-19T16:00:00Z' }, now).date, '11.20'); // 한국 시각
+  assert.equal(m.rowState({ status: 'done', brief: { lead: 'x' }, finished_at: '2025-03-02T01:00:00Z' }, now).date, '25.03.02');
+  assert.equal(m.doneDate('', now), '');
+  assert.doesNotMatch(done.date, /\//);
   assert.equal(m.rowState({ status: 'failed', error_code: 'no_text' }).text, '글자를 읽을 수 없는 파일이에요');
   assert.equal(m.rowState({ status: 'failed', error_code: 'weird' }).text, '브리핑을 만들지 못했어요');
 });

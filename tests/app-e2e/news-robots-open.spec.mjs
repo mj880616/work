@@ -54,7 +54,8 @@ for (const width of [412, 1280]) {
     await row(page, 'r1').locator('[data-nc-open="r1"]').click();
     const nd = detail(page);
     await expect(nd.locator('[data-nd-fetching]')).toHaveText('원문을 읽어 오는 중');
-    expect(opens).toEqual(['r1']);
+    // '읽어 오는 중' 줄은 요청을 보내기 직전에 그려진다 — 요청이 가로채기에 닿을 때까지 기다려 본다(바쁜 러너에서 빈 배열로 보이던 경합, S68-43).
+    await expect.poll(() => opens).toEqual(['r1']);
     if (width === 412) await page.screenshot({ path: info.outputPath('robots-open-fetching-412.png') });
     release();
     await expect(nd.locator('[data-nd-prose] p')).toHaveText(['가짜 원문 첫 문단.', '가짜 원문 둘째 문단.']);

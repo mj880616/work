@@ -25,7 +25,7 @@ import type { OpenAiResult } from "../_shared/openai-responses.ts";
 import {
   aiRequestBody, basicMaterial, basicRow, cleanContext, cleanCore, confirmedTopics, contextMaterial, contextPatch, cut, detailBody,
   detailMaterial, detailUpsertBody, type DetailDeps, type DetailItem, fallbackRow, fullRow, interestsKey, isNoContentSummary,
-  itemHasMaterial, len, loadItem, NOW_BASIC_INSTRUCTIONS, NOW_BASIC_OUT, NOW_BASIC_SCHEMA, NOW_CONTEXT_INSTRUCTIONS, NOW_CONTEXT_OUT,
+  detailOlderThanBody, itemHasMaterial, len, loadItem, NOW_BASIC_INSTRUCTIONS, NOW_BASIC_OUT, NOW_BASIC_SCHEMA, NOW_CONTEXT_INSTRUCTIONS, NOW_CONTEXT_OUT,
   NOW_CONTEXT_SCHEMA, NOW_DETAIL_INSTRUCTIONS, NOW_DETAIL_OUT, NOW_DETAIL_SCHEMA, oneLine, parseAnswer, readOptional,
   readRows, relatedCandidates, squash, workNames, detailConflictColumn, detailTable, NOW_SHARED_DETAIL_FIELDS, sharedDetailUpsertBody,
 } from "../_shared/now-detail-build.ts";
@@ -220,6 +220,9 @@ export async function runNowDetail(kit: NowKit, input: Extract<NowInput, { kind:
   }
   // 읽은 재료가 하나도 없는 뉴스 기사(제목 읽기 전·본문 읽기 실패)는 AI를 부르지 않는다. 이전에 저장된 '내용 없음' 요약도 버린다.
   if (existing && isNoContentSummary(existing.summary)) existing = null;
+  // S68-43: 재료(본문·저장 요약·주요 문장)가 없는 글의 저장본은 제목만으로 만든 것이라 보이지 않는다(본문을 가져오면 그때 만든다).
+  // 저장본이 지금 저장 본문보다 먼저 만들어졌으면(본문 없이·옛 본문으로 만든 요약) 새 본문으로 다시 만든다.
+  if (existing && (!itemHasMaterial(item) || detailOlderThanBody(item, existing))) existing = null;
   if (!existing && !itemHasMaterial(item)) throw kit.fail(422, "no_material");
   const topics = await confirmedTopics(deps);
   const key = await interestsKey(topics);

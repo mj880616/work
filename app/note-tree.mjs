@@ -6,6 +6,7 @@
 import {folderIndent} from './folder-limits.mjs';
 import {folderSiblings, folderSubtree, folderDepth} from './library-tree.js';
 import {plainInline} from './note-preview.mjs';
+import {shortListDate} from './short-date.mjs';
 import {colorOf} from './folder-look-model.mjs';
 
 const plain = v => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -52,13 +53,8 @@ export function noteLineTitle(note) {
   const file = (note?.attachments || [])[0];
   return file ? String(file.name || file.title || '첨부') : '제목 없음';
 }
-// 날짜 칸: 올해면 '10.28', 다른 해면 '25.10.28'(서울 시간).
-export function noteLineDate(value, now = new Date()) {
-  const d = new Date(value); if (Number.isNaN(d.getTime())) return '';
-  const part = date => Object.fromEntries(new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit'}).formatToParts(date).map(p => [p.type, p.value]));
-  const a = part(d), b = part(now);
-  return a.year === b.year ? `${a.month}.${a.day}` : `${a.year.slice(2)}.${a.month}.${a.day}`;
-}
+// 날짜 칸: 올해면 '10.28', 다른 해면 '25.10.28'(서울 시간). 표기는 공용 short-date.mjs 한 곳(S68-44, 브리핑 룸도 같은 것).
+export const noteLineDate = shortListDate;
 
 // 폴더별 노트 수(아래 폴더 포함)와 폴더 → 노트 목록.
 export function placeNotes(notes, folders, folderOf) {

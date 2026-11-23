@@ -225,7 +225,7 @@ for (const width of [412, 1440]) {
     await item(page, 'w1').locator('[data-nc-open="w1"]').click();
     // S51-14 P4c: 요약 칸에 까닭 + [다시], 원문 칸에 까닭 한 줄 + [원래 사이트 ↗].
     const bad = page.locator('[data-nd-unread]');
-    await expect(bad).toContainText('요약할 재료가 없어요');
+    await expect(bad).toContainText('원문을 가져오면 요약해요');
     await expect(bad.getByRole('button', { name: '다시' })).toBeVisible();
     await expect(page.locator('#nowDetail [data-nd-why]')).toContainText('이 사이트가 읽기를 막아 둠');
     await expect(page.locator('#nowDetail [data-nd-why]').getByRole('link', { name: /원래 사이트/ })).toBeVisible();
