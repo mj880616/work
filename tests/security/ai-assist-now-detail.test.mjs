@@ -58,7 +58,7 @@ function harness({openai=null,usage=[],details=[],interests=[],signals=[],site=n
   db.app_news_articles=db.app_news_items.map(({workspace_id,hidden_at,...n})=>({...n,url_key:n.url.replace(/^https:\/\//,'')}));
   db.app_news_items.forEach(n=>{n.url_key=n.url.replace(/^https:\/\//,'');});
   db.app_news_marks=db.app_news_items.filter(n=>n.hidden_at).map(n=>({workspace_id:n.workspace_id,article_id:n.id,hidden_at:n.hidden_at}));
-  db.app_outside_article_bodies=feed.filter(f=>f.workspace_id===WS&&f.outside_post_id).map(f=>({article_id:f.outside_post_id,state:f.state,blocks:f.blocks}));
+  db.app_outside_article_bodies=feed.filter(f=>f.workspace_id===WS&&f.outside_post_id).map(f=>({article_id:f.outside_post_id,state:f.state,blocks:f.blocks,...(f.extracted_at?{extracted_at:f.extracted_at}:{})}));
   db.app_news_article_bodies=feed.filter(f=>f.workspace_id===WS&&f.news_item_id).map(f=>({article_id:f.news_item_id,state:f.state,blocks:f.blocks}));
   db.app_outside_now_details=details.filter(d=>d.outside_post_id).map(d=>toShared(d,'outside_post_id'));
   db.app_news_now_details=details.filter(d=>d.news_item_id).map(d=>toShared(d,'news_item_id'));
@@ -404,4 +404,30 @@ test('E3 now_detail 거절: 차단 명단·남의 작업공간 옛 id·없는 id
   assert.notEqual(b.detail.summary,'남의 요약');assert.equal(h.calls.openai.length,1);
   assert.equal(h.db.app_outside_now_details.find(d=>d.workspace_id===OTHER_WS).summary,'남의 요약');
   assert.ok(h.calls.service.every(s=>s.method!=='POST'||[].concat(s.body).every(x=>x.workspace_id===WS)),'쓰기는 누른 사람 작업공간만');
+});
+
+// S68-43(명진 11/23 캡처 — 본문 없이 제목만으로 만든 요약에 'material이 비어 있어'): 재료 없는 사회운동 글은 AI를 부르지 않고, 제목만으로 만든 옛 저장본도 보이지 않는다.
+test('S68-43: 본문·요약·주요 문장이 없는 사회운동 글은 no_material(AI 없음), 제목만으로 만든 옛 저장본도 버린다',async()=>{
+  const fresh=harness();
+  const r=await post(fresh.handler,{kind:'now_detail',outside_post_id:id(6)});
+  assert.equal(r.status,422);assert.equal((await r.json()).error,'no_material');
+  assert.equal(fresh.calls.openai.length,0);
+  const titleOnly={workspace_id:WS,outside_post_id:id(6),level:'full',summary:'제목상 공동행동을 다룬다. 핵심 요약은 제목만 보고 썼다.',key_sentences:[],related:[],interests_key:'none',generated_at:'2026-11-02T01:00:00Z'};
+  const old=harness({details:[titleOnly]});
+  const r2=await post(old.handler,{kind:'now_detail',outside_post_id:id(6)});
+  assert.equal(r2.status,422,'저장본이 있어도 재료가 없으면 보이지 않는다');
+  assert.equal(old.calls.openai.length,0);
+});
+test('S68-43: 저장 본문이 저장된 요약보다 새로우면(본문을 나중에 가져옴) 새 본문으로 다시 만든다',async()=>{
+  const feed=[{id:id(300),workspace_id:WS,outside_post_id:POST_KO,news_item_id:null,state:'ok',blocks:FEED_KO,extracted_at:'2026-11-02T09:00:00Z'}];
+  const before={workspace_id:WS,outside_post_id:POST_KO,level:'full',summary:'예전 요약.',key_sentences:[],related:[],relevance:null,implications:null,interests_key:'none',generated_at:'2026-11-02T01:00:00Z'};
+  const h=harness({feed,details:[before]});
+  const b=await (await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+  assert.equal(h.calls.openai.length,1,'다시 만듦');
+  assert.notEqual(b.detail.summary,'예전 요약.');
+  // 본문보다 나중에 만든 저장본은 그대로(AI 없음).
+  const after={...before,generated_at:'2026-11-02T10:00:00Z'};
+  const k=harness({feed,details:[after]});
+  const c=await (await post(k.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+  assert.equal(k.calls.openai.length,0);assert.equal(c.detail.summary,'예전 요약.');
 });

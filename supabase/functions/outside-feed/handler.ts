@@ -7,13 +7,14 @@
 //   비밀값이 없거나 짧거나 틀리면 401. 어느 작업공간에 넣을지는 서버가 app_outside_sources.enabled로 정한다(요청 값 안 받음).
 //   `probe`(NEWS-전면개편 P2b, 설계 news-overhaul 4.4절): 단체 키 하나 → 목록 1쪽 + 최신 글 1개를 읽어 본문 추출 결과를 숫자·코드로만 돌려준다
 //   (제목·주소·본문 없음, 저장 없음). 몸통 {}이면 카탈로그 키 목록만.
-// - 화면 입구(`catalog`·`expand`·`read_now`·`translate`): 사용자 로그인(Authorization)을 Auth 서버로 확인 + 그 사람이 작업공간 owner인지 서버에서 확인.
+// - 화면 입구(`catalog`·`expand`·`read_now`·`translate`·`reread`): 사용자 로그인(Authorization)을 Auth 서버로 확인 + 그 사람이 작업공간 owner인지 서버에서 확인.
 //   `read_now`(OUTSIDE-이름·바로읽기): 화면에서 단체를 켜면 그 단체 하나를 그 사람 작업공간에만 바로 한 번 읽는다. 단체 키 하나만 받고
 //   (주소 없음), 그 작업공간에서 켜져 있어야 하며, 마지막으로 읽은 지 READ_NOW_COOLDOWN_MS 안이면 다시 읽지 않고, 사람마다 하루
 //   READ_NOW_DAILY_PER_USER번까지. 읽는 일은 예약 입구와 같은 runSource(허용 호스트·robots·크기 상한 그대로)다.
 //   `translate`(S52-36 NEWS-바깥소식번역): 그 사람 작업공간의 영어 소식 하나(글 id만)의 저장 본문 블록(app_feed_bodies)을 한국어로 옮겨
 //   app_outside_posts.body_ko에 저장한다(줄 수를 맞춘 글자, 한 번 번역하면 저장본). 엔진·규칙은 news-feed translate와 공용(_shared/feed-translate.ts:
 //   Google 번역 → 실패하면 AI). 하루 한도·AI 월 한도는 뉴스 [번역]과 같은 app_news_days(translate_n·토큰, _shared/news-days.ts)로 함께 센다.
+//   `reread`(S68-43): 글 하나(글 id만)의 본문이 실패·없음이면 글 쪽을 한 번 다시 읽어 본문 줄만 고친다(robots.txt 없이, 하루 fetch_n REREAD_DAILY번).
 //   두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401. 열쇠가 하나도 없으면 401.
 // 읽는 주소: _shared/outside-catalog.ts 고정 목록의 허용 호스트만(요청 몸통·화면은 단체 키만 보냄 — SSRF 차단).
 //   리다이렉트도 같은 단체 허용 호스트만, 응답 2MB·10초 상한, GET만. robots.txt를 먼저 읽고 막힌 경로는 건너뛴다(last_error='robots').
@@ -163,10 +164,13 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
 
 // ---- 바깥 사이트 읽기(GET만, 카탈로그 호스트만) ------------------------------------------------------------------
 
-type Got = { ok: true; text: string; url: string } | { ok: false; code: string };
-type Reader = { get: (source: OutsideSource, url: string, wantFeed: boolean) => Promise<Got> };
+export type Got = { ok: true; text: string; url: string } | { ok: false; code: string };
+// opts.skipRobots(S68-43): 이미 받아 둔 글 한 쪽을 다시 읽을 때만(예약 robots 다시 읽기·화면 [원문 다시 가져오기]) robots.txt를 보지 않는다.
+//   S68-25(명진 결정 2026-11-22 '기사 원문 한 쪽은 robots.txt를 보지 않는다')와 같은 선택. 목록·피드·새 글 읽기는 지금처럼 robots를 지킨다(예외 단체 목록 그대로).
+export type ReadOpts = { skipRobots?: boolean };
+export type Reader = { get: (source: OutsideSource, url: string, wantFeed: boolean, opts?: ReadOpts) => Promise<Got> };
 
-function makeReader(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>, log: Log): Reader {
+export function makeReader(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>, log: Log): Reader {
   // origin → robots 글자(없으면 빈 글자). 못 읽으면 text=null + 까닭 code:
   //   robots_denied(401·403: 사이트가 우리 읽기를 거절 — 막힌 것으로 보고 읽지 않음),
   //   robots_unreachable(5xx·429·연결 실패·시간 초과: 일시 오류로 보고 이번 실행은 건너뜀. 기억은 실행 하나 안에서만이라 다음 예약 실행에 다시 읽는다).
@@ -251,10 +255,10 @@ function makeReader(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>,
     return out;
   }
   return {
-    async get(source, rawUrl, wantFeed) {
+    async get(source, rawUrl, wantFeed, opts) {
       const u = allowedUrl(source, rawUrl);
       if (!u) return { ok: false, code: "url_outside" };
-      const exempt = robotsExempt(source);
+      const exempt = robotsExempt(source) || (!wantFeed && opts?.skipRobots === true);
       const rb = exempt ? { text: "", code: "" } : await robotsFor(source, u);
       if (rb.text === null) return { ok: false, code: rb.code };
       if (!robotsAllows(rb.text, ROBOTS_AGENT, u.pathname + u.search)) return { ok: false, code: "robots" };
@@ -662,6 +666,77 @@ async function refillSource(db: Db, reader: Reader, log: Log, source: OutsideSou
   return out;
 }
 
+// ---- robots 때문에 원문이 빈 지난 글 다시 읽기(S68-43) ---------------------------------------------------------------------
+// 명진 요청 11/23 "옛 보관 글 원문 다시 불러오기". S68-25(2026-11-22)로 기사 원문 한 쪽은 robots.txt를 보지 않게 됐지만, 그 전에 robots로 막혀
+// 본문 줄이 '실패 · robots'로 남은 사회운동 글은 다시 읽는 길이 없었다(다시 뽑기는 같은 판의 영구 실패를 고르지 않음).
+// - 예약 수집(run, 단체 하나) 끝에 그 단체의 robots 실패 글을 새 것부터 주소 ROBOTS_RETRY_PER_RUN개까지(받은 지 ROBOTS_RETRY_DAYS일 안, 2년 지난 글 빼고)
+//   글 쪽을 robots.txt 없이 한 번 읽는다. 같은 reader라 요청 사이 GAP_MS·시간 예산·크기 상한·허용 호스트 그대로.
+// - 재시도 상한 = 글마다 1번: 다시 읽은 결과(ok·실패 모두)로 줄을 고치므로 까닭이 robots에서 다른 값이 되어 다시 고르지 않는다(robots를 안 보니 robots로 돌아갈 수 없음).
+// - 읽힌 본문(ok·lead…)은 덮지 않는다: 못 읽은 결과는 '실패' 줄만 고친다. 문장 표·요약은 건드리지 않는다(요약은 상세를 열 때 본문으로 다시 — ai-assist now_detail).
+// - 예외 단체(robots를 원래 안 봄)·텔레그램·extract=false 단체는 하지 않는다.
+export const ROBOTS_RETRY_PER_RUN = 5;
+export const ROBOTS_RETRY_DAYS = 30;
+export const REREAD_DAILY = 60; // 화면 [원문 다시 가져오기]: 하루 횟수(뉴스 '기사 먼저 읽기'와 같은 fetch_n 칸·같은 상한)
+export const isRobotsBody = (body: Record<string, unknown> | null | undefined) => !!body && body.state === "failed" && body.reason === "robots";
+const bodyCells = (ex: Extracted, nowIso: string) => {
+  const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...cells } = bodyRow(ex, { workspace_id: "" }, nowIso);
+  return cells;
+};
+// 공용 본문: 새로 읽힌 결과(실패 아님)는 그것으로 고치고, 못 읽은 결과는 없을 때 넣거나 '실패' 줄만 새 까닭으로(읽힌 본문을 덮지 않음).
+async function replaceFailedSharedBody(db: Db, log: Log, source: OutsideSource, articleId: string, ex: Extracted, nowIso: string) {
+  if (source.extract === false || !UUID.test(articleId)) return;
+  await saveSharedBody(db, log, source, articleId, ex, nowIso, ex.state !== "failed");
+  if (ex.state !== "failed") return;
+  try { await db.send("PATCH", `app_outside_article_bodies?article_id=eq.${articleId}&state=eq.failed`, { ...bodyCells(ex, nowIso), updated_at: nowIso }, "return=minimal"); }
+  catch { log("shared_body_failed", { source: source.key }); }
+}
+// 옛 줄 본문(작업공간마다): 같은 규칙.
+async function replaceFailedOldBody(db: Db, log: Log, source: OutsideSource, ws: string, postId: string, ex: Extracted, nowIso: string) {
+  if (source.extract === false || !UUID.test(ws) || !UUID.test(postId)) return;
+  try {
+    await db.send("POST", "app_feed_bodies?on_conflict=outside_post_id", bodyRow(ex, { workspace_id: ws, outside_post_id: postId }, nowIso),
+      `return=minimal,resolution=${ex.state !== "failed" ? "merge-duplicates" : "ignore-duplicates"}`);
+    if (ex.state === "failed") await db.send("PATCH", `app_feed_bodies?outside_post_id=eq.${postId}&workspace_id=eq.${ws}&state=eq.failed`, bodyCells(ex, nowIso), "return=minimal");
+  } catch { log("body_failed", { source: source.key }); }
+}
+// 글 쪽 한 번(robots.txt 없이) → 본문 결과.
+async function rereadPage(reader: Reader, source: OutsideSource, url: string, title: string): Promise<Extracted> {
+  const page = await reader.get(source, url, false, { skipRobots: true });
+  const it: ListItem = { url, title, kind: "statement", published_at: null, author: null, summary: null, content: null };
+  const ex = postBody(source, it, page);
+  return ex.rule ? ex : { ...ex, rule: ruleId(source.key, ruleOf(source)) };
+}
+export async function retryRobotsBodies(db: Db, reader: Reader, log: Log, source: OutsideSource, nowMs: number, startMs: number, clock: () => number, budget: number) {
+  const out = { done: 0, deferred: 0 };
+  if (source.extract === false || source.mode === "telegram" || robotsExempt(source)) return out;
+  const since = new Date(nowMs - ROBOTS_RETRY_DAYS * 86400000).toISOString();
+  const cutoff = nowMs - OLD_DAYS * 86400000;
+  const rows = await db.get(`app_outside_posts?source_key=eq.${source.key}&fetched_at=gte.${encodeURIComponent(since)}` +
+    `&select=id,workspace_id,url,title,published_at,app_feed_bodies(state,reason,rule)&order=fetched_at.desc&limit=${REFILL_SCAN}`);
+  const byUrl = new Map<string, { id: string; ws: string; title: string }[]>();
+  for (const r of rows) {
+    if (typeof r.url !== "string" || typeof r.id !== "string" || !UUID.test(r.id) || typeof r.workspace_id !== "string" || !UUID.test(r.workspace_id)) continue;
+    if (typeof r.published_at === "string" && Date.parse(r.published_at) < cutoff) continue;
+    if (!isRobotsBody(embedOne(r.app_feed_bodies))) continue;
+    if (!byUrl.has(r.url) && byUrl.size >= ROBOTS_RETRY_PER_RUN) continue;
+    byUrl.set(r.url, [...(byUrl.get(r.url) ?? []), { id: r.id, ws: r.workspace_id, title: typeof r.title === "string" ? r.title : "" }]);
+  }
+  if (!byUrl.size) return out;
+  const nowIso = new Date(nowMs).toISOString();
+  const shared = await sharedByUrl(db, log, [...byUrl.keys()]);
+  for (const [url, list] of byUrl) {
+    if (clock() - startMs > budget) { out.deferred++; continue; }
+    if (!allowedUrl(source, url)) continue; // 저장된 주소라도 카탈로그 허용 주소만
+    const ex = await rereadPage(reader, source, url, list[0].title);
+    const art = shared.get(url);
+    if (art) await replaceFailedSharedBody(db, log, source, String(art.id), ex, nowIso);
+    for (const p of list) await replaceFailedOldBody(db, log, source, p.ws, p.id, ex, nowIso);
+    out.done++;
+  }
+  log("robots_retry", { source: source.key, done: out.done, deferred: out.deferred });
+  return out;
+}
+
 // probe: 목록 1쪽 + 최신 글 1개 → 숫자·코드만(저장 없음). 글 쪽을 읽는 조건은 run과 같다(텔레그램·피드 본문 200자 이상이면 읽지 않음).
 async function probeSource(reader: Reader, source: OutsideSource, nowMs: number) {
   const base = { ok: true, source: source.key, mode: source.mode, extract: source.extract !== false };
@@ -873,6 +948,10 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     }
   }
   try { out.redated = await redateUndated(db, reader, source, workspaces, items, pageTried, nowMs, startMs, budget, clock); } catch { ai.log("redate_failed", { source: source.key }); }
+  // S68-43: 예약 실행이면 robots 때문에 원문이 빈 지난 글을 몇 개 다시 읽는다(화면 바로 읽기에서는 하지 않음).
+  if (!limits.onlyWorkspace) {
+    try { await retryRobotsBodies(db, reader, ai.log, source, nowMs, startMs, clock, budget); } catch { ai.log("robots_retry_failed", { source: source.key }); }
+  }
   await markSources(db, source.key, workspaces, null, nowIso);
   ai.log("source_done", { source: source.key, older: olderRead, listed: out.listed, fresh: out.fresh, inserted: out.inserted, skipped: out.skipped, deferred: out.deferred, refilled: out.refilled });
   return out;
@@ -927,7 +1006,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!m) throw new Fail(401, "UNAUTHORIZED");
       }
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
-      if (cron ? action !== "run_plan" && action !== "run" && action !== "probe" && action !== "refill" : action !== "catalog" && action !== "expand" && action !== "read_now" && action !== "translate") throw new Fail(400, "UNKNOWN_ACTION");
+      if (cron ? action !== "run_plan" && action !== "run" && action !== "probe" && action !== "refill" : action !== "catalog" && action !== "expand" && action !== "read_now" && action !== "translate" && action !== "reread") throw new Fail(400, "UNKNOWN_ACTION");
       if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown = {};
       try { body = await readBoundedJson(req, { maxBytes: MAX_BODY_BYTES }); } catch { throw new Fail(400, "INVALID_BODY"); }
@@ -994,6 +1073,33 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         const out = await runSource(db, reader, { doFetch, sleep, log, env: deps.env }, source, nowMs, now(), now,
           { newsWs, onlyWorkspace: who.workspaceId, budgetMs: READ_NOW_BUDGET_MS, maxNew: READ_NOW_MAX_NEW });
         return json({ ok: true, source: out.source, status: out.status, inserted: out.inserted, deferred: out.deferred });
+      }
+      if (action === "reread") {
+        // [원문 다시 가져오기](S68-43): 글 하나(공용 글 id만 받음 — 주소·작업공간 값 없음). 공용 글은 그 사람 로그인(RLS)으로 읽고,
+        // 그 글의 공용 본문이 '실패'이거나 없을 때만 글 쪽을 한 번 읽는다(robots.txt 없이 — 위 retryRobotsBodies와 같은 선택, 허용 호스트·크기 상한 그대로).
+        // 하루 횟수는 누른 사람 작업공간 fetch_n(REREAD_DAILY). 예외 단체(공공운수노조·노동당)는 예약 때만 읽는다는 결정 그대로.
+        if (!exactKeys(b, ["id"]) || typeof b.id !== "string" || !UUID.test(b.id)) throw new Fail(400, "INVALID_BODY");
+        const ws = who.workspaceId;
+        const reads = makeUserReads(sb, deps.env("SUPABASE_ANON_KEY") ?? "", jwt, doFetch);
+        let art: Record<string, unknown> | null;
+        try { art = await readSharedArticle("outside", reads, b.id, SHARED_SELECT); } catch { throw new Fail(503, "STORE_UNAVAILABLE"); }
+        if (!art || typeof art.url !== "string" || typeof art.id !== "string") throw new Fail(404, "NOT_FOUND");
+        const source = sourceByKey(art.source_key);
+        if (!source || source.extract === false || source.mode === "telegram" || !allowedUrl(source, art.url)) return json({ ok: true, status: "original_only" });
+        if (robotsExempt(source)) return json({ ok: true, status: "scheduled_only" });
+        const artId = String(art.id);
+        const have = (await db.get(`app_outside_article_bodies?article_id=eq.${artId}&select=state&limit=1`))[0];
+        if (have && have.state !== "failed") return json({ ok: true, status: "stored" });
+        if (!await takeDaily(db, ws, "fetch_n", REREAD_DAILY, nowMs)) throw new Fail(429, "DAILY_LIMIT");
+        const nowIso = new Date(nowMs).toISOString();
+        const ex = await rereadPage(makeReader(doFetch, sleep, log), source, art.url, typeof art.title === "string" ? art.title : "");
+        await replaceFailedSharedBody(db, log, source, artId, ex, nowIso);
+        // 옮기는 동안: 누른 사람 작업공간의 같은 주소 옛 줄(있으면)에도 같은 결과. 다른 작업공간 줄은 읽지 않는다(예약 다시 읽기가 맡음).
+        const olds = (await db.get(`app_outside_posts?workspace_id=eq.${ws}&url=eq.${encodeURIComponent(art.url)}&select=id&limit=2`))
+          .filter((p) => typeof p.id === "string" && UUID.test(p.id));
+        for (const o of olds) await replaceFailedOldBody(db, log, source, ws, String(o.id), ex, nowIso);
+        log("reread_done", { source: source.key, state: ex.state, reason: ex.reason ?? "" });
+        return json({ ok: true, status: ex.state === "failed" ? (ex.reason ?? "failed") : "ok" });
       }
       if (action === "translate") {
         // [번역](S52-36): 영어 소식 하나(글 id만 받음, 주소·작업공간 값 없음). 본문 번역이 이미 있으면 저장본(다시 부르지 않음).
