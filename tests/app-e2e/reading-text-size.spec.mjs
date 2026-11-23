@@ -81,7 +81,7 @@ async function openReading(page, width) {
 }
 // S68-45: 연 글은 읽음이 되어 [안 읽음]에서 빠지므로 다시 열 때는 [전체]에서.
 async function openAgain(page) {
-  await page.locator('#readingView .rd-chips [data-filter-value="all"]').click();
+  await page.locator('#readingView .rd-switch [data-filter-value="all"]').click();
   await page.locator(`#readingView .rd-row[data-rd-open="${A}"]`).click();
 }
 const pick = (page, text) => page.evaluate(t => {

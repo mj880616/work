@@ -1,5 +1,5 @@
 // S68-09 READ-읽을거리함 화면(?view=reading, 메뉴 '읽을 거리'). #readingView의 유일한 그리기 주인. 명진 11/22 13:28 "Raindrop 가져올 것 ㄱ", 13:42 "B: 메뉴에 새 칸".
-// - 목록(시안 ②): 줄마다 안 읽음 점 · 제목 · 사이트 · 날짜 한 줄, 사업영역 꼬리표. 위 칩 [안 읽음 n][전체][밑줄](폰은 좌우로 밀어 옆 칩). [+ 추가]는 주소 한 칸.
+// - 목록(시안 ②): 줄마다 안 읽음 점 · 제목 · 사이트 · 날짜 한 줄, 사업영역 꼬리표. 보기 탭 [안 읽음 n][전체][밑줄](공용 ⑤, 폰은 하단바 위 가운데 · 좌우로 밀어 옆 탭 — S68-48). [+ 추가]는 주소 한 칸.
 // - 보기(시안 ③): 받아 둔 원문 사본 + 고른 글 [밑줄 저장]·메모(공용 text-select-bar.js·text-highlights.js, 밑줄 표 app_news_highlights 종류 'reading')
 //   + [밑줄을 노트로](밑줄 문장 + 출처 → 기존 노트 만들기 길) · [사업에 연결](공용 사업영역 고르기 창) · [읽음]. 폰은 목록 대신(뒤로 = 목록), 761px~는 오른쪽 칸.
 // - 원래 페이지 링크는 늘 보인다. 저장·원문 받기 실패는 한 줄 상태로. 원문은 글자로만 그린다(textContent — HTML·스크립트 실행 없음).
@@ -82,7 +82,7 @@ async function refreshAreaNames() {
 const areaText = id => (id && areaNames ? areaNames(id) : '');
 
 // ---------- 목록 ----------
-let chipsHost = null;
+let switchHost = null;
 function rowEl(e) {
   const row = e.row, l = lineOf(row);
   const r = el('div', 'rd-row');
@@ -135,10 +135,13 @@ function drawList() {
   }
   if (!state.loaded) { box.replaceChildren(...parts); box.insertAdjacentHTML('beforeend', waitHtml({rows: 4})); return; }
   const keys = markKeys(), entries = entriesNow();
-  chipsHost ||= el('div', 'rd-chips');
-  renderFilterChips(chipsHost, {options: filterOptions(entries, keys), value: keepFilter(state.filter), label: '저장한 글 거르기', small: true,
+  // S68-48 READ-보기탭아래(명진 11/23 12:42 "안읽음 전체 밑줄도 다른 버튼 있는 메뉴처럼 하단 가운데 정렬"): [안 읽음 n][전체][밑줄]은
+  // 위쪽 칩 줄이 아니라 공용 ⑤ 보기 바꾸기(renderFilterChips seg — .ds-seg) 한 줄. 자리는 노트 보기 탭과 같은 공용 규칙(ui-standard.css 폰 전환 줄):
+  // 폰·펼친 폴드(~760px) 하단바 바로 위 가운데, PC 틀(761px~) 제목 줄 오른쪽([+ 추가] 앞). 따로 칩 줄은 없다.
+  switchHost ||= el('div', 'rd-switch');
+  renderFilterChips(switchHost, {options: filterOptions(entries, keys), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
     onChange: v => { state.filter = keepFilter(v); drawList(); }});
-  parts.push(chipsHost);
+  head.insertBefore(switchHost, add);
   const shown = filterEntries(entries, state.filter, keys, state.open || '');
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
@@ -399,7 +402,7 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
 // UI-줄밀기 Raindrop식(S68-26 2/2): 줄 위에서 시작한 밀기는 줄 밀기가 먼저다(claimedSince) — 그때는 칩을 넘기지 않는다.
 function bindSwipe(box) {
   let x0 = null, y0 = 0, t0 = 0;
-  box.addEventListener('touchstart', e => { if (e.touches.length !== 1 || e.target.closest?.('input,textarea,.rd-chips')) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); }, {passive: true});
+  box.addEventListener('touchstart', e => { if (e.touches.length !== 1 || e.target.closest?.('input,textarea,.rd-switch')) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); }, {passive: true});
   box.addEventListener('touchend', e => {
     if (x0 === null) return;
     const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;

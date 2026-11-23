@@ -77,7 +77,7 @@ async function openReading(page, width) {
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: '저장한 글', exact: true }).click();
   await expect(page.locator('#readingView')).toBeVisible();
   const list = page.locator('#readingView [data-rd-list]');
-  await list.locator('.rd-chips [data-filter-value="all"]').click();
+  await list.locator('.rd-switch [data-filter-value="all"]').click();
   await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(3);
   return { s, errors, list };
 }
@@ -199,7 +199,7 @@ test('읽을 거리 412: 고른 줄 [삭제] — 한 번만 묻고, 취소하면
 test('읽을 거리 412: 줄 위 좌우 밀기는 칩을 넘기지 않고, 줄 밖(머리줄)에서 밀면 옆 칩', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, list } = await openReading(page, 412);
-  const allChip = list.locator('.rd-chips [data-filter-value="all"]');
+  const allChip = list.locator('.rd-switch [data-filter-value="all"]');
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await both(rdRow(list, RA), -120);
   await expect(ends(list)).toHaveCount(3);

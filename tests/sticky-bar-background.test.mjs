@@ -59,7 +59,7 @@ const BOTTOM_WHITE_OK = {
   },
   'ui-standard.css': {
     '#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick]': '폰 빠른 입력 — 아래 탭과 이어지는 판(아래 탭과 같은 흰색)',
-    '#appView :is(.schedule-switch,.nv-switch,.so-team-tabs):not([hidden])': '폰 전환 줄 — 아래 탭 바로 위에 이어지는 판(바탕은 아래 탭과 같은 색, UI-버튼작게 ③)',
+    '#appView :is(.schedule-switch,.nv-switch,.so-team-tabs,.rd-switch):not([hidden])': '폰 전환 줄 — 아래 탭 바로 위에 이어지는 판(바탕은 아래 탭과 같은 색, UI-버튼작게 ③)',
   },
 };
 
