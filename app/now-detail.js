@@ -1,7 +1,7 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {sendSignal, setMark} from './now-marks.js';
 import {deleteMine, DELETE_LABEL, DELETE_BOTH_LABEL, SAVE_LABEL, RELEASE_LABEL, RELEASE_ARIA} from './now-row-acts.js';
-import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences} from './feed-shared.js';
+import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences, readSavedDetail} from './feed-shared.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
 import {textSizeHtml, textSize} from './text-size.js';
@@ -12,7 +12,7 @@ import {notify, askText} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText, canRefetch, isNoMaterial, handBodyRequest, HAND_BODY_MAX} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText, canRefetch, isNoMaterial, handBodyRequest, HAND_BODY_MAX, sameDetail, savedUsable} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
@@ -61,18 +61,21 @@ const HAND_ROW_COLS = 'title,publisher,author,published_at,url,state';
 const idleHand = () => ({open: false, busy: false, note: '', init: null, shown: null, pics: new Map(), next: 1, up: ''});
 function dropPics(h) { for (const p of h?.pics?.values?.() || []) if (p.file && p.view) URL.revokeObjectURL(p.view); }
 const LOAD_FAILED = Symbol('load-failed');
+const DETAIL_TIMEOUT_MS = 75000;
 const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시');
 
 // head: {meta: [글자…], title, origTitle, titleLang, lang, url}. item: {type:'outside'|'news', id}.
 export function createNowDetail({box, topics = () => [], onClose, onChanged, onSignal, onRelated, onRead} = {}) {
   let cur = null; // {item, head, body, detail, failed, unread, making, reading, note, marks, memo, memoOpen, memoBusy, memoNote, busy, tr:{on, busy, note}, hand:{open, busy, note, init, shown}}
   const details = new Map(); // itemKey → 서버 답(이 탭 메모리만)
+  const asking = new Map(); // itemKey → 진행 중인 요약 요청(같은 글 요청이 겹쳐 나가지 않게 — S69-01)
   const bodies = new Map(); // itemKey → bodyView 모양(이 탭 메모리만)
   const translations = new Map(); // itemKey → translatedBlocks 답(이 탭 메모리만 — 원본 저장은 서버 body_ko)
   let seq = 0;
 
   // ---------- 서버 ----------
-  const askDetail = item => rt().api('/functions/v1/ai-assist', {method: 'POST', body: detailBody(item), singleFlight: false, timeoutMs: 120000});
+  // S69-01: 화면 쪽 시간 한도 75초(서버 AI 한 요청 30초·잠깐 막힘 한 번 다시 시도 안쪽). 넘으면 기다림을 멈추고 [다시 만들기].
+  const askDetail = item => rt().api('/functions/v1/ai-assist', {method: 'POST', body: detailBody(item), singleFlight: false, timeoutMs: DETAIL_TIMEOUT_MS});
   // NEWS-모두에게열기 ③: 글 내용·본문 블록·문장·번역은 공용 표, 별표·보관·숨김·메모는 내 것(feed-shared.js 한 길). item.id = 공용 글 id.
   const readMarks = item => readMarkOf(item);
   const readMemo = item => readMemoNote(item, MEMO_COLS);
@@ -100,7 +103,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   const boxHead = (title, note = '') => `<p class="nd-bh"><b>${title}</b>${note ? `<span class="nd-bh-note" role="status">${esc(note)}</span>` : ''}</p>`;
   function sumHtml() {
     if (cur.unread) return boxHead('요약') + `<p class="nd-why" data-nd-unread role="status">원문을 가져오면 요약해요 · ${esc(cur.unread)} <button type="button" class="nd-act" data-nd-retry>다시</button></p>`;
-    if (!cur.detail && cur.failed) return boxHead('요약') + failHtml({text: cur.failed, retry: 'data-nd-retry'});
+    if (!cur.detail && cur.failed) return boxHead('요약') + failHtml({text: cur.failed, retry: 'data-nd-retry', label: '다시 만들기'});
     if (!cur.detail) return boxHead('요약', cur.reading ? '기사 가져오는 중' : '만드는 중') + `<div class="nd-wait" data-nd-wait aria-busy="true">${waitHtml({rows: 2})}</div>`;
     const v = detailView(cur.detail);
     return boxHead('요약') + (v.summary ? `<p class="nd-sum">${esc(v.summary)}</p>` : emptyHtml('요약 없음'));
@@ -358,7 +361,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const b = bodies.get(key);
     // 새 본문이 생겼을 때만(실패 → 본문, 앞부분 → 전문). 앞부분만인 글이 다시 앞부분이면 바뀐 것이 없다(요약을 다시 만들지 않음, S68-52).
     if (b && b.state !== 'failed' && b.state !== before) {
-      details.delete(key); c.detail = null; c.failed = ''; c.unread = '';
+      details.delete(key); asking.delete(key); c.detail = null; c.failed = ''; c.unread = '';
       paintBody(); paintAi();
       if (item.type === 'news') { const nr = await readNewsRow(item).catch(() => null); if (nr && my === seq && cur === c) onRead?.(item, nr); }
       makeDetail(item, my);
@@ -383,33 +386,60 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     try { row = await readNewsRow(item); } catch { return; }
     if (row) onRead?.(item, row);
   }
+  // 요약·시사점 서버 요청: 같은 글에 이미 나간 요청이 있으면 그것을 같이 기다린다(다른 글을 열었다 돌아와도 새로 보내지 않음, S69-01).
+  // 답은 화면이 그 글을 떠났어도 이 탭 메모리에 둔다(다시 열면 바로).
+  function fetchDetail(item) {
+    const key = itemKey(item);
+    let p = asking.get(key);
+    if (!p) {
+      p = askDetail(item).then(r => {
+        if (!r?.detail) throw new Error('shape');
+        if (asking.get(key) === p) details.set(key, r.detail); // 그사이 본문을 다시 가져와 새로 묻는 중이면 옛 답은 넣지 않는다
+        return r.detail;
+      }).finally(() => { if (asking.get(key) === p) asking.delete(key); });
+      asking.set(key, p);
+    }
+    return p;
+  }
   async function makeDetail(item, my) {
     const key = itemKey(item);
     try {
-      const r = await askDetail(item);
+      const d = await fetchDetail(item);
       if (my !== seq) return;
-      if (!r?.detail) throw new Error('shape');
-      details.set(key, r.detail);
-      cur.detail = r.detail; cur.failed = '';
+      // 저장본을 이미 그렸고 서버 답도 같은 것이면 다시 그리지 않는다(깜빡임 없음).
+      const same = sameDetail(cur.detail, d);
+      cur.detail = d; cur.failed = ''; cur.reading = false;
+      if (same) return;
     } catch (e) {
       if (my !== seq) return;
+      cur.reading = false;
       // S68-44: 손으로 넣은 기사에 본문 글자가 없으면(비움·사진만) 요약을 만들지 않는다 — '만드는 중'에 머물지 않고 '본문 없음' 한 줄.
-      if (isNoMaterial(e)) { const b = bodies.get(key); cur.unread = handNoText(b) ? '본문 없음' : b && b.state === 'failed' && b.reason ? b.reason : unreadReason('', 'pending'); }
+      if (isNoMaterial(e)) { cur.detail = null; const b = bodies.get(key); cur.unread = handNoText(b) ? '본문 없음' : b && b.state === 'failed' && b.reason ? b.reason : unreadReason('', 'pending'); }
+      else if (cur.detail) return; // 저장본을 보이는 중: 잠깐의 오류는 저장본 그대로
       else cur.failed = detailError(e);
     }
-    cur.reading = false;
+    paintAi();
+  }
+  // 열자마자: 내 저장본(요약·시사점이 다 있는 것)이 있으면 서버 답을 기다리지 않고 바로 그린다(S69-01). 서버 확인은 뒤에서 이어진다.
+  async function showSaved(item, my) {
+    let row = null;
+    try { row = await readSavedDetail(item); } catch { return; }
+    if (my !== seq || !cur || cur.detail || cur.failed || cur.unread || !savedUsable(row)) return;
+    cur.detail = row;
     paintAi();
   }
   async function load(item) {
     const my = ++seq, key = itemKey(item);
     const have = details.get(key);
-    if (have) cur.detail = have;
+    // S69-01: 이 탭에서 이미 받은 요약은 바로 그린다. 예전에는 넣기만 하고 그리지 않아, 다시 연 글의 요약 칸이 '만드는 중'에 멈춰 있었다(요청도 안 나감 = 무한 기다림).
+    if (have) { cur.detail = have; paintAi(); }
     Promise.allSettled([readMarks(item), readMemo(item)]).then(([marks, memo]) => {
       if (my !== seq) return;
       if (marks.status === 'fulfilled') cur.marks = marks.value;
       if (memo.status === 'fulfilled') cur.memo = memo.value;
       paintActs();
     });
+    if (!have) void showSaved(item, my);
     // 사회운동 글: 원문 읽기와 요약 만들기를 함께 시작. 뉴스 기사: 저장 원문 줄이 있으면 바로, 없는 옛 글만 먼저 읽은 뒤.
     const needBody = !bodies.has(key);
     if (item.type === 'outside' || have) {
@@ -418,7 +448,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       return;
     }
     if (!needBody) { makeDetail(item, my); return; }
-    const got = await loadBody(item, my);
+    let got;
+    try { got = await loadBody(item, my); } catch { got = {}; } // 원문 칸 오류가 요약 칸을 '만드는 중'에 묶지 않게
     if (my !== seq || got.stale) return;
     if (got.pre && !got.pre.ok) { cur.unread = got.pre.why; paintAi(); return; }
     makeDetail(item, my);
