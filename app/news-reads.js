@@ -4,6 +4,7 @@ import {readReads, writeRead} from './feed-shared.js';
 // - 읽기: 목록 주인이 보이는 글 id를 넘기면(ensure) 아직 모르는 것만 한 번 묻는다. 결과가 오면 구독한 목록 주인이 자기 칸을 다시 그린다(onReads).
 // - 넣기: 상세를 열 때(markRead) 한 줄 — 같은 글이 이미 있으면 서버가 그대로 둔다(on_conflict + ignore-duplicates = ON CONFLICT DO NOTHING).
 //   넣는 칸은 workspace_id와 글 id 하나뿐(id·read_at은 서버 기본값). 실패해도 상세는 그대로 열린다.
+//   S68-45: 저장이 실패하면 이 접속의 '읽음'을 거두고(굵기 되돌림) 다음에 열 때 다시 넣는다 — 조용히 읽음으로 보이게 두지 않는다.
 // 기기 저장 없음(이번 접속 메모리만). 로그에 글 제목·주소를 남기지 않는다.
 const rt = () => window.KPTURuntime;
 const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
@@ -58,7 +59,12 @@ export function markRead(item) {
   if (!w || !COL[item?.type] || !item.id) return;
   const k = keyOf(item);
   if (known.get(k) === true) return;
+  const was = known.has(k) ? known.get(k) : undefined, mine = scope;
   known.set(k, true); notify();
   writeRead(item.type, item.id)
-    .catch(() => { /* 못 넣어도 이번 접속에서는 읽음으로 보인다. 다음에 들어오면 서버 값대로 */ });
+    .catch(() => {
+      if (mine !== scope || known.get(k) !== true) return;
+      if (was === undefined) known.delete(k); else known.set(k, was);
+      notify();
+    });
 }

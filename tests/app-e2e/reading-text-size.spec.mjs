@@ -79,6 +79,11 @@ async function openReading(page, width) {
   await page.locator(`#readingView .rd-row[data-rd-open="${A}"]`).click();
   await expect(prose(page).locator('p')).toHaveCount(3);
 }
+// S68-45: 연 글은 읽음이 되어 [안 읽음]에서 빠지므로 다시 열 때는 [전체]에서.
+async function openAgain(page) {
+  await page.locator('#readingView .rd-chips [data-filter-value="all"]').click();
+  await page.locator(`#readingView .rd-row[data-rd-open="${A}"]`).click();
+}
 const pick = (page, text) => page.evaluate(t => {
   const p = [...document.querySelectorAll('#readingView [data-rd-prose] p')].find(x => x.textContent.includes(t));
   const node = [...p.childNodes].find(n => n.nodeType === 3 && n.data.includes(t));
@@ -153,7 +158,7 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     // 새로고침 뒤에도 서버 값 그대로(기기 저장 없음).
     await page.reload();
     await expect(page.locator('#readingView')).toBeVisible();
-    if (!(await prose(page).locator('p').count())) await page.locator(`#readingView .rd-row[data-rd-open="${A}"]`).click();
+    if (!(await prose(page).locator('p').count())) await openAgain(page);
     await expect(prose(page)).toHaveAttribute('data-text-size', 'xl');
     await expect.poll(() => fontPx(prose(page))).toBeCloseTo(base * 1.375, 1);
     await expect(prose(page).locator('mark.hl-mark')).toHaveText(QUOTE);
@@ -174,7 +179,7 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     await expect.poll(() => prefs.value?.news_font).toBe('l');
     expect(await noWideScroll(page)).toBe(true);
     await go(page, width, '저장한 글');
-    if (!(await prose(page).locator('p').count())) await page.locator(`#readingView .rd-row[data-rd-open="${A}"]`).click();
+    if (!(await prose(page).locator('p').count())) await openAgain(page);
     await expect(prose(page)).toHaveAttribute('data-text-size', 'l');
     expect(errors).toEqual([]);
   });

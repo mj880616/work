@@ -65,10 +65,10 @@ export const markKeysOf = list => new Set((Array.isArray(list) ? list : []).filt
 // 밑줄: 이 줄에 그은 것(reading) 또는 News에서 원래 글에 그은 것(연결 칸으로 찾음 — 밑줄 행은 원래 글을 가리킨 그대로).
 export const entryMarked = (e, keys = new Set()) => keys.has(`reading:${e?.key}`) || (!!e?.link && keys.has(linkKey(e.link)));
 export const entryUnread = e => !!e?.row && !e.row.read_at;
-// 거르기.
-export function filterEntries(entries, filter, keys = new Set()) {
+// 거르기. keep: 지금 열어 둔 줄 key — [안 읽음]에서 열자마자 읽음이 되어도(S68-45) 닫을 때까지 그 자리에 남는다(PC 두 칸 목록이 튀지 않게).
+export function filterEntries(entries, filter, keys = new Set(), keep = '') {
   const f = keepFilter(filter), list = Array.isArray(entries) ? entries : [];
-  if (f === 'unread') return list.filter(entryUnread);
+  if (f === 'unread') return list.filter(e => entryUnread(e) || (!!keep && e.key === keep));
   if (f === 'marks') return list.filter(e => entryMarked(e, keys));
   return list;
 }
