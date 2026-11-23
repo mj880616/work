@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { toDryRun, escapeSummary, CHECK_LABEL_RE } from './db-migration-plan.mjs';
-import { meetsExpectation, expectationFor, policyLookupSQL, compareReplacements } from './db-migration-expanded.mjs';
+import { meetsExpectation, expectationFor, policyLookupSQL, compareReplacements, rlsLookupSQL, rlsAllOn } from './db-migration-expanded.mjs';
 import { queryErrorSummary, CheckFormatError } from './db-query.mjs';
 
 export function buildBackup(plan) {
@@ -156,6 +156,14 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
       notes.push('정책 교체 비교 (운영 현재 정의 → 새 정의, 읽기 전용):\n\n| 정책 | 운영 → 새 | 권한 확대 아님 |\n| --- | --- | --- |\n' + lines.join('\n'));
       if (!ok) return stop('정책 교체가 권한을 넓히거나 운영 정의를 확인할 수 없습니다. 아무것도 쓰지 않았습니다.');
       steps.push(`정책 교체 비교: ${plan.policyReplacements.length}개 모두 같거나 좁음`);
+    }
+
+    // New-column grants on existing tables: the table's RLS must already be on in production.
+    if (plan.newColumnGrantTables?.length) {
+      phase = '새 칸 권한 표 RLS 확인(운영 pg_class)';
+      const rows = await query(rlsLookupSQL(plan.newColumnGrantTables), { readOnly: true });
+      if (!rlsAllOn(plan.newColumnGrantTables, rows)) return stop('새 칸 권한을 받는 기존 표의 RLS가 켜져 있지 않거나 확인할 수 없습니다. 아무것도 쓰지 않았습니다.');
+      steps.push(`새 칸 권한 표 RLS 켜짐: ${plan.newColumnGrantTables.length}개 모두 예`);
     }
 
     phase = '사전 확인(precheck)';
