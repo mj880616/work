@@ -53,6 +53,7 @@ const HAND_ROW_COLS = 'title,publisher,author,published_at,url,state';
 // 직접 넣기 입력 칸 상태. pics: '[사진 n]' 번호 → {file(올리기 전 사진, 메모리만), view(미리보기 주소), src(저장된 사진 주소)}.
 const idleHand = () => ({open: false, busy: false, note: '', init: null, shown: null, pics: new Map(), next: 1, up: ''});
 function dropPics(h) { for (const p of h?.pics?.values?.() || []) if (p.file && p.view) URL.revokeObjectURL(p.view); }
+const LOAD_FAILED = Symbol('load-failed');
 const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시');
 
 // head: {meta: [글자…], title, origTitle, titleLang, lang, url}. item: {type:'outside'|'news', id}.
@@ -122,9 +123,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function blockHtml(b) {
     const own = b.t === 'img' ? ownPhotoOf(b.src) : null;
     if (own) {
-      // 내가 올린 사진: 서버(hand_photo)에서 받아 그린다. 받기 전에는 자리만, 못 받으면 사진 칸을 감춘다.
+      // 내가 올린 사진: 서버(hand_photo)에서 받아 그린다. 받기 전에는 자리만. S68-40: 못 받으면 칸을 감추지 않고 '사진을 불러오지 못함 [다시]'
+      // (잠깐의 오류로 사진이 '없어진' 것처럼 보이지 않게 — 사진은 본문에 그대로 있다).
       const cap = b.cap ? `<figcaption>${esc(b.cap)}</figcaption>` : '';
-      return `<figure class="nd-fig" data-nd-own-fig><img class="nd-img" data-nd-own="${esc(own.id)}" alt="${esc(b.alt || b.cap || '')}" hidden>${cap}</figure>`;
+      return `<figure class="nd-fig" data-nd-own-fig><img class="nd-img" data-nd-own="${esc(own.id)}" alt="${esc(b.alt || b.cap || '')}" hidden><p class="nd-faint" data-nd-own-fail role="status" hidden>사진을 불러오지 못함 <button type="button" class="nd-act" data-nd-own-retry>다시</button></p>${cap}</figure>`;
     }
     if (b.t === 'img') {
       const cap = b.cap ? `<figcaption>${esc(b.cap)}</figcaption>` : '';
@@ -264,24 +266,30 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
 <div data-nd-relslot>${relatedHtml()}</div>
 <div class="nd-acts" data-nd-acts role="group" aria-label="이 글 표시">${actsHtml()}</div><div data-nd-memo>${memoHtml()}</div></article>`;
     marksNow();
+    // S68-40: 상세 전체를 다시 그리면(같은 글 다시 열기·머리 고침 setHead·관심 주제 바뀜) 원문 칸도 새로 그려진다. 내가 올린 사진은
+    // 그린 뒤 받아 넣어야 보이므로(받기 전 hidden) 원문 칸만 다시 그릴 때(paintBody)처럼 여기서도 채운다 — 빠지면 사진이 '없어진' 것처럼 보였다.
+    const body = part('[data-nd-body]');
+    if (body) fillOwn(body);
   }
 
   // ---------- 열기 ----------
   // 원문: 저장 원문 → (뉴스 기사에 저장 원문 줄이 없거나 잠깐의 오류로 못 읽은 줄이면 기사 먼저 읽기 뒤 다시) → 예전 저장 글자. 답: {hadRow, pre:{ok,why}}.
   async function loadBody(item, my) {
     const key = itemKey(item);
-    // 저장 원문 읽기가 실패하면 줄이 없는 것과 같은 길로(예전 저장 글자). 그것도 못 읽으면 [다시].
-    let row = null;
-    try { row = await readFeedBody(item); } catch { row = null; }
+    // S68-40: 저장 원문 읽기가 실패(잠깐의 오류)하면 한 번 더 읽고, 그래도 못 읽으면 [다시]. '줄이 없음'과 같은 길(예전 저장 글자)로 가지 않는다 —
+    // 예전 저장 글자는 글만 있어 손으로 넣은 사진 등이 빠진 본문이 '진짜 본문'처럼 보였다. 줄이 정말 없을 때(null)만 예전 저장 글자.
+    let row = await readBodyRow(item);
     if (my !== seq) return {stale: true};
+    if (row === LOAD_FAILED) { bodies.set(key, {failedLoad: true}); paintBody(); return {hadRow: false}; }
     // 저장 원문 줄이 있으면 그것을 그린다. 뉴스 기사에서 그 줄이 잠깐의 오류(state failed — 늦은 답·사이트 오류)면 아래 '기사 먼저 읽기'로 한 번 다시 읽는다.
     if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); if (item.type === 'news') void freshenHead(item); return {hadRow: true}; }
     let pre = {ok: true};
     if (item.type === 'news') {
       pre = await readFirst(item, my, !!row).catch(() => ({ok: true}));
       if (my !== seq || pre.stale) return {stale: true};
-      try { row = await readFeedBody(item); } catch { row = null; }
+      row = await readBodyRow(item);
       if (my !== seq) return {stale: true};
+      if (row === LOAD_FAILED) { bodies.set(key, {failedLoad: true}); paintBody(); return {hadRow: false, pre}; }
       if (row) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); return {hadRow: true, pre}; }
     }
     let legacy;
@@ -290,6 +298,11 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (legacy.state === 'failed' && pre && !pre.ok && pre.why) legacy = {...legacy, reason: pre.why};
     bodies.set(key, legacy); paintBody();
     return {hadRow: false, pre};
+  }
+  // 저장 원문 한 줄: 줄 · null(정말 없음) · LOAD_FAILED(두 번 읽어도 오류).
+  async function readBodyRow(item) {
+    for (let i = 0; i < 2; i++) { try { return await readFeedBody(item); } catch { /* 한 번 더 */ } }
+    return LOAD_FAILED;
   }
   // 저장 원문 줄이 없는 옛 뉴스 기사: 본문·요약이 아직 없으면 그 기사 하나를 먼저 읽는다(news-feed open). 읽지 못하면 AI를 부르지 않는다.
   // again: 저장 원문 줄이 다시 읽을 실패(reopenBody — 늦은 답·사이트 오류·S68-25 robots)라 요약이 있어도 그 한 쪽을 읽는다. 이 글 하나만(목록은 읽지 않음).
@@ -594,7 +607,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       if (typeof r?.session?.ensure === 'function' && !(await r.session.ensure())) throw new Error('session');
       const token = r?.session?.read?.()?.access_token;
       if (!token || !r?.config?.url) throw new Error('session');
-      const res = await fetch(`${r.config.url}/functions/v1/news-feed?action=hand_photo`, {method: 'POST', cache: 'no-store', headers: {apikey: r.config.key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'}, body: JSON.stringify({id: articleId, file: fileId, size: 'large'})});
+      const res = await fetch(`${r.config.url}/functions/v1/news-feed?action=hand_photo`, {method: 'POST', cache: 'no-store', headers: {apikey: r.config.key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'}, body: JSON.stringify({id: articleId, file: fileId, size: 'large'}), signal: AbortSignal.timeout(45000)});
       if (!res.ok || !/^image\//.test(res.headers.get('content-type') || '')) throw new Error('photo');
       return URL.createObjectURL(await res.blob());
     })();
@@ -602,17 +615,34 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     flight.catch(() => { if (ownViews.get(key) === flight) ownViews.delete(key); });
     return flight;
   }
+  // S68-40: 받기가 한 번 실패하면 잠깐 뒤 한 번 더. 그래도 못 받으면 본문 사진 칸은 '사진을 불러오지 못함 [다시]'(감추지 않음).
+  // 입력 칸 미리보기 줄(실패 줄 없음)은 예전처럼 그 그림만 감춘다.
+  const OWN_RETRY_MS = 1500;
   function fillOwn(root) {
     const c = cur;
     if (!c || c.item.type !== 'news') return;
-    for (const img of root.querySelectorAll('img[data-nd-own]')) {
-      const fig = img.closest('figure');
-      ownView(c.item.id, img.dataset.ndOwn).then(url => {
-        if (!img.isConnected) return;
-        img.onerror = () => { if (fig) fig.hidden = true; };
-        img.src = url; img.hidden = false;
-      }, () => { if (img.isConnected && fig) fig.hidden = true; });
-    }
+    for (const img of root.querySelectorAll('img[data-nd-own]')) fillOwnImg(c, img, 1);
+  }
+  function fillOwnImg(c, img, again) {
+    const fig = img.closest('figure'), fail = fig?.querySelector('[data-nd-own-fail]');
+    if (fail) fail.hidden = true;
+    const failed = () => {
+      if (!img.isConnected || cur !== c) return;
+      if (again > 0) { setTimeout(() => { if (img.isConnected && cur === c) fillOwnImg(c, img, again - 1); }, OWN_RETRY_MS); return; }
+      img.hidden = true;
+      if (fail) fail.hidden = false; else if (fig) fig.hidden = true;
+    };
+    ownView(c.item.id, img.dataset.ndOwn).then(url => {
+      if (!img.isConnected) return;
+      img.onerror = () => { forgetOwn(c.item.id, img.dataset.ndOwn, url); failed(); };
+      img.src = url; img.hidden = false;
+    }, failed);
+  }
+  // 받아 둔 그림 주소가 더는 안 열리면(이 탭에서 풀린 주소 등) 기억을 지워 다음 받기가 서버에서 새로 받게 한다.
+  function forgetOwn(articleId, fileId, url) {
+    const key = `${articleId}:${fileId}`, flight = ownViews.get(key);
+    if (!flight) return;
+    flight.then(u => { if (u === url && ownViews.get(key) === flight) { ownViews.delete(key); URL.revokeObjectURL(u); } }, () => {});
   }
   function handValues(form) {
     const val = k => form.querySelector(`[data-nd-hand-in="${k}"]`)?.value ?? '';
@@ -676,6 +706,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-hand-cancel]')) { closeHand(); return; }
     if (b.matches('[data-nd-hand-pick]')) { b.closest('[data-nd-hand-form]')?.querySelector('[data-nd-hand-file]')?.click(); return; }
     if (b.matches('[data-nd-hand-photo]')) { void addHandPhoto(b.closest('[data-nd-hand-form]')); return; }
+    if (b.matches('[data-nd-own-retry]')) { const img = b.closest('figure')?.querySelector('img[data-nd-own]'); if (img) fillOwnImg(cur, img, 0); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
     if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paintActs(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }

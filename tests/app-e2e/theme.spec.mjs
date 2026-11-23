@@ -214,7 +214,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
-   if(width<=760){if(['basket','calendar','tasks','projects','meetings','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',textColor);}else{/* UI-테마선택색: 지금 화면 하나만 계정 색으로 채운다. 하위 묶음의 머리 항목은 채우지 않는다. */
+   if(width<=760){/* S68-37: 저장된 메뉴 순서가 없는 계정의 하단바 화면 칸(일정·자료실)만 칠해진다 */if(['calendar','tasks','library'].includes(view))await matches('.mobile-tabs [aria-current]','color',textColor);}else{/* UI-테마선택색: 지금 화면 하나만 계정 색으로 채운다. 하위 묶음의 머리 항목은 채우지 않는다. */
     // BASKET-PC메뉴: 정리함 쪽에서는 하위 줄([업데이트]·[챙길 것])이 지금 화면이므로 하위 줄도 함께 찾는다.
     const navBtn=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn).active').first();await expect(navBtn).toBeVisible();
     const group=await navBtn.evaluate(el=>el.nextElementSibling?.classList.contains('nav-sub')===true);

@@ -143,9 +143,11 @@ test('찾기 글·오류 한 줄', () => {
 
 test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 열 때만 불러오고, 기기 저장 없음, 쓰기는 Edge 다섯 가지만', () => {
   assert.ok(ITEMS.some(i => i.id === 'files' && i.view === 'files' && i.label === '파일'));
-  const rest = defaultLayout().rest;
-  assert.equal(rest[rest.indexOf('library') + 1], 'files');
-  assert.match(read('app/index.html'), /data-view="library" href="\.\/\?view=library">자료실<\/a>\n\s*<a class="nav-btn" data-view="files" href="\.\/\?view=files">파일<\/a>/);
+  // S68-37: 새 계정은 자료실이 하단바 칸이라 [파일]은 위 메뉴의 조직 관리·사업 관리 다음. 저장값이 있는 사람에게 빠진 [파일]이 자료실 바로 아래로
+  // 들어가는 규칙(F5)은 그대로다(menu-model.test.mjs 'FILES-클라우드탐색기 ④'·'MULTI-하단바기본노트').
+  const {bar, rest} = defaultLayout();
+  assert.ok(bar.includes('library')); assert.equal(rest[rest.indexOf('meetings') + 1], 'files');
+  assert.match(read('app/index.html'), /data-view="meetings" data-nav-group="meetings projects" href="\.\/\?view=reports">사업 관리<\/a>\n\s*<a class="nav-btn" data-view="files" href="\.\/\?view=files">파일<\/a>/);
   assert.match(read('app/view-loader.js'), /files:\['\.\/od-link\.css','\.\/folder-tree\.css','\.\/source-chips\.css','\.\/files\.css'/);
   assert.match(read('app/view-loader.js'), /async function files\(\)\{ await module\('\.\/files\.js'\)/);
   assert.match(read('app/app-router.js'), /files:\['at','shelf'\]/);

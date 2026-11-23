@@ -8,7 +8,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 // 바구니의 회의 연결은 FK 이름을 지정해 읽는다(연결 표에서 회의로 가는 길이 둘이 되어도 목록이 멈추지 않는다). 모든 이름은 합성 값.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
-// MULTI-하단바기본노트: 새 계정(저장된 메뉴 순서 없음) PC 왼쪽 메뉴는 하단바 기본과 같은 순서 — 홈·노트·일정·조직 보고·사업 보고.
+// MULTI-하단바기본노트·S68-37: 새 계정(저장된 메뉴 순서 없음) PC 왼쪽 메뉴는 하단바 기본(홈·노트·일정·자료실·사진) 뒤 위 메뉴 — 조직 관리 바로 다음이 사업 관리.
 test('PC 1280: new account sidebar shows 사업 보고 right under 조직 보고 (no 프로젝트 row); screen title, no lead line, URL',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));

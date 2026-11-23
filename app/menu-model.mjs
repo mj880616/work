@@ -54,9 +54,14 @@ export const BAR_MAX = 5;
 // tail = 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래 선 아래). 어느 메뉴든 세 칸 사이를 옮길 수 있다.
 // MULTI-하단바기본노트(명진 결정 11/13 15:24, 설계 docs/design/new-user-start.md 2-1): 처음 하단바는 홈·노트·일정·조직 보고·사업 보고.
 // 빠진 잊지 말기는 위 메뉴 맨 앞. 저장된 순서(view_prefs.menu_layout)가 있는 사람은 기본값을 쓰지 않으므로 그대로다.
-export const DEFAULT_BAR = Object.freeze(['home', 'note', 'calendar', 'team', 'meetings']);
-export const DEFAULT_REST = Object.freeze(['basket', 'reading', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside']);
+// S68-37(명진 11/23 08:00·08:01 "자료실 사진"): 처음 하단바는 홈·노트·일정·자료실·사진. 빠진 조직 관리·사업 관리(얼굴 단어표 이름)는
+// 위 메뉴 잊지 말기·읽을 거리 다음. 저장된 순서가 있는 사람(운영자 포함)은 그대로다.
+export const DEFAULT_BAR = Object.freeze(['home', 'note', 'calendar', 'library', 'photos']);
+export const DEFAULT_REST = Object.freeze(['basket', 'reading', 'team', 'meetings', 'files', 'brief', 'hwp', 'pages', 'outside']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
+// 저장된 순서에 빠진 항목을 끼워 넣을 자리의 기준(placeMissing). S68-37 전 기본 위 메뉴 순서 그대로 둔다:
+// 처음 구성(DEFAULT_BAR·DEFAULT_REST)이 바뀌어도 저장값이 있는 사람의 메뉴 모양은 한 칸도 달라지지 않게(파일 = 자료실 바로 아래 F5 등).
+const PLACE_ORDER = Object.freeze(['basket', 'reading', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside']);
 // 서버 저장 모양은 그대로 {bar, rest}(DB 검사가 다른 칸 이름을 받지 않는다). 아래 칸은 rest 안 이 표시 뒤에 이어 담는다:
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
 // 지금까지 보이던 모양 그대로 옮겨 담는다. 'bottom'은 메뉴 항목 이름이 아니라서 옛 화면은 그냥 버리고 읽는다.
@@ -115,14 +120,14 @@ export function normalizeLayout(raw) {
     const listed = [...spill, ...rest], missing = ITEMS.map(item => item.id).filter(id => !have.has(id));
     let end = listed.length;
     while (end > 0 && KNOWN.get(listed[end - 1])?.feed) end--;
-    return {bar: [FIXED_ID, ...bar], rest: placeMissing(listed.slice(0, end), missing.filter(id => !DEFAULT_TAIL.includes(id)), DEFAULT_REST), tail: [...listed.slice(end), ...missing.filter(id => DEFAULT_TAIL.includes(id))], hidden};
+    return {bar: [FIXED_ID, ...bar], rest: placeMissing(listed.slice(0, end), missing.filter(id => !DEFAULT_TAIL.includes(id)), PLACE_ORDER), tail: [...listed.slice(end), ...missing.filter(id => DEFAULT_TAIL.includes(id))], hidden};
   }
   const inRest = new Set(rest);
   const tail = unique(known(rawTail)).filter(id => id !== FIXED_ID && !inBar.has(id) && !inRest.has(id) && !hidden.includes(id));
   const have = new Set([FIXED_ID, ...bar, ...spill, ...rest, ...tail, ...hidden]);
   const missing = ITEMS.map(item => item.id).filter(id => !have.has(id));
   // 빠진 항목은 기본에서 하단바 칸이던 것도 위 메뉴에 둔다: 사용자가 고른 하단바를 새 항목이 밀어내지 않게.
-  return {bar: [FIXED_ID, ...bar], rest: placeMissing([...spill, ...rest], missing.filter(id => !DEFAULT_TAIL.includes(id)), DEFAULT_REST), tail: [...tail, ...missing.filter(id => DEFAULT_TAIL.includes(id))], hidden};
+  return {bar: [FIXED_ID, ...bar], rest: placeMissing([...spill, ...rest], missing.filter(id => !DEFAULT_TAIL.includes(id)), PLACE_ORDER), tail: [...tail, ...missing.filter(id => DEFAULT_TAIL.includes(id))], hidden};
 }
 // MULTI-처음쓰는사람 ④: 운영자 기능이 없는 메뉴를 목록에서 뺀 '보이는 순서'. features가 아직 없으면(null: 서버 답 전) 그대로 둔다 —
 // 운영자(명진) 화면이 답을 기다리는 동안 메뉴가 빠졌다 다시 생기지 않게. 뺀 이름은 off에 담는다(저장값에는 손대지 않음).
@@ -179,7 +184,7 @@ export function stepItem(layout, id, dir) {
 }
 
 // PC 왼쪽 메뉴 순서: 하단바 칸 메뉴가 위, 그 아래 위 메뉴, 맨 아래 묶음은 아래 칸.
-// MULTI-하단바기본노트: 한 번도 바꾸지 않은 사람(기본)도 같은 규칙이라 PC 왼쪽 메뉴가 폰 하단바 기본값(홈·노트·일정·조직 보고·사업 보고) 순서로 시작한다.
+// MULTI-하단바기본노트: 한 번도 바꾸지 않은 사람(기본)도 같은 규칙이라 PC 왼쪽 메뉴가 폰 하단바 기본값(S68-37: 홈·노트·일정·자료실·사진) 순서로 시작한다.
 export const pcOrder = layout => { const next = normalizeLayout(layout); return [...next.bar, ...next.rest, ...next.tail, ...next.hidden]; };
 // PC 왼쪽 메뉴의 위 줄(main)과 빈 공간 아래 맨 아래 묶음(tail), 숨긴 메뉴는 여기에 없다. 맨 아래 묶음은 저장된 아래 칸 그대로이고, 비면 묶음도 없다.
 export function pcSplit(layout) {

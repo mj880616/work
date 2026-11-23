@@ -34,8 +34,8 @@ test('PC 1280: [정리함]은 하위 줄 없는 한 줄, [노트]는 [일정] �
  await expect(basketRow).toHaveText('잊지 말기');await expect(nav(page).locator('.nav-sub[aria-label="정리함"]')).toHaveCount(0);
  await expect(nav(page).locator('.nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력','할 일','하루 기록']);
  await expect(noteRow).toBeVisible();await expect(noteRow).toHaveText('노트');
- // 순서(MULTI-하단바기본노트, 하단바 기본과 같음): 노트 / 일정 / 달력…일기 / 조직 보고 / 사업 보고 / 잊지 말기.
- const ys=[];for(const l of [noteRow,nav(page).locator('.nav-btn[data-view="calendar"]'),nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]'),nav(page).locator('.nav-btn[data-view="team"]'),nav(page).locator('.nav-btn[data-view="meetings"]'),basketRow])ys.push((await l.boundingBox()).y);
+ // 순서(MULTI-하단바기본노트·S68-37, 하단바 기본과 같음): 노트 / 일정 / 달력…일기 / 자료실 / 사진 / 잊지 말기 / 읽을 거리 / 조직 관리 / 사업 관리.
+ const ys=[];for(const l of [noteRow,nav(page).locator('.nav-btn[data-view="calendar"]'),nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]'),nav(page).locator('.nav-btn[data-view="library"]'),nav(page).locator('.nav-btn[data-view="photos"]'),basketRow,nav(page).locator('.nav-btn[data-view="reading"]'),nav(page).locator('.nav-btn[data-view="team"]'),nav(page).locator('.nav-btn[data-view="meetings"]')])ys.push((await l.boundingBox()).y);
  expect([...ys].sort((a,b)=>a-b)).toEqual(ys);
  const n=await noteRow.boundingBox(),b=await basketRow.boundingBox();expect(Math.abs(n.x-b.x)).toBeLessThan(2);
  await noteRow.click();

@@ -130,7 +130,8 @@ test('C3 일기 달력은 폰·PC 모두 둥근 상자 대신 격자선 한 겹(
 
 test('C5 폰 하단바: 하단바에 칸이 없는 화면에서는 아무 칸도 칠하지 않는다(메뉴 창이 열려 있을 때만 [메뉴])', async () => {
   const {selectedMobileTab} = await import('../app/mobile-tab-selection.mjs');
-  assert.equal(selectedMobileTab({view: 'library'}), null);
+  // S68-37: 자료실은 처음 하단바 칸이 되어 [메뉴] 창 화면 예로 HWP 편집을 쓴다.
+  assert.equal(selectedMobileTab({view: 'hwp'}), null);
   assert.equal(selectedMobileTab({view: 'ledger'}), null);
-  assert.equal(selectedMobileTab({view: 'library', menuOpen: true}), 'menu');
+  assert.equal(selectedMobileTab({view: 'hwp', menuOpen: true}), 'menu');
 });

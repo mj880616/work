@@ -3,9 +3,10 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { segBox } from './helpers/seg-box.mjs';
 
-// NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 노트 검색 칸 오른쪽 [폴더|목록|포스트잇].
-// 목록 = 모든 노트 최근 고친 순 한 줄(폴더 꼬리표·날짜), 포스트잇 = 넓은 보드 위 같은 크기 칸(제목·앞 줄·폴더 이름), 끌어 놓으면
+// NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 노트 검색 칸 오른쪽 [폴더|목록|보드](S68-38 옛 이름 포스트잇).
+// 목록 = 모든 노트 최근 고친 순 한 줄(폴더 꼬리표·날짜), 보드 = 끝없이 넓은 판 위 제목만 보이는 같은 크기 작은 카드(S68-38), 끌어 놓으면
 // metadata.board로 서버 저장(처음 옮길 때 아직 자리 없는 칸도 보이던 자리로 함께), 끈 칸은 맨 위. 검색은 세 보기 모두. 폰 412·884, PC 1440. 이름은 지어낸 것.
+// 연결선(화살표)·두 손가락 확대·탭 넘김과의 관계는 note-board-map.spec.mjs.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const F = '00000000-0000-4000-8000-000000000001';
@@ -39,7 +40,7 @@ const view = (page, name) => page.locator(`.nv-switch [data-note-view="${name}"]
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
 
 for (const width of [412, 884, 1440]) {
-  test(`세 보기 전환·목록 순서·포스트잇 칸·검색 (${width})`, async ({ page }) => {
+  test(`세 보기 전환·목록 순서·보드 카드·검색 (${width})`, async ({ page }) => {
     const { errors } = await fixture(page, width);
     await expect(view(page, 'folder')).toHaveAttribute('aria-pressed', 'true');
     const head = await page.locator('.note-list-head').boundingBox(), sw = await segBox(page.locator('.nv-switch'));
@@ -55,27 +56,37 @@ for (const width of [412, 884, 1440]) {
     await expect(page.locator('#noteRows .basket-title-text')).toHaveText(['나 노트', '다 노트', '가 노트']);
     await expect(page.locator('#noteRows [data-nx-note="n3"] .nx-path')).toHaveText('회의');
     await expect(page.locator('#noteRows [data-nx-note="n2"] .nx-path')).toHaveCount(0);
-    // 포스트잇: 같은 크기 칸 3장, 제목·앞 줄·폴더 이름.
+    // 보드: 같은 크기 작은 카드 3장, 제목 한 줄만(본문·폴더 줄 없음), 폴더 색.
     await press(page, view(page, 'board'), width);
+    await expect(view(page, 'board')).toHaveText('보드');
     const cards = page.locator('[data-note-board] [data-nb-card]');
     await expect(cards).toHaveCount(3);
     await expect(page.locator('[data-nx-body]')).toBeHidden();
     await expect(page.locator('[data-nb-card="n1"] .nb-title')).toHaveText('가 노트');
-    await expect(page.locator('[data-nb-card="n1"] .nb-text')).toContainText('첫 줄 내용');
-    await expect(page.locator('[data-nb-card="n1"] .nb-folder')).toHaveText('회의');
+    await expect(page.locator('[data-nb-card] .nb-text, [data-nb-card] .nb-folder')).toHaveCount(0);
     const sizes = await cards.evaluateAll(list => list.map(el => [el.offsetWidth, el.offsetHeight]));
-    expect(new Set(sizes.map(s => s.join('x'))).size).toBe(1);
+    expect(new Set(sizes.map(s => s.join('x')))).toEqual(new Set(['128x34']));
     expect(await page.locator('[data-nb-card="n1"]').getAttribute('data-tone')).toBe(await page.locator('[data-nb-card="n3"]').getAttribute('data-tone'));
     expect(await page.locator('[data-nb-card="n2"]').getAttribute('data-tone')).toBe('none');
-    // 검색은 포스트잇에서도.
+    // 처음엔 카드가 모두 판 안에 보인다(전체 보기).
+    const sr = await page.locator('[data-nb-scroll]').boundingBox();
+    for (const b of await cards.evaluateAll(list => list.map(el => { const r = el.getBoundingClientRect(); return {x:r.x, y:r.y, r:r.right, b:r.bottom}; })))
+      expect(b.x >= sr.x && b.y >= sr.y && b.r <= sr.x + sr.width + 1 && b.b <= sr.y + sr.height + 1).toBe(true);
+    // 고르지 않은 카드는 ×·⋯·손잡이가 안 보인다(폰).
+    if (width < 761) { await expect(page.locator('[data-nb-card="n1"] .nb-more')).toBeHidden(); await expect(page.locator('[data-nb-card="n1"] [data-nb-handle]').first()).toBeHidden(); }
+    // 검색은 보드에서도.
     await page.locator('[data-note-search]').fill('다 노트');
     await expect(cards).toHaveCount(1);
     await page.locator('[data-note-search]').fill('');
     await expect(cards).toHaveCount(3);
-    // [＋][－]
-    const before = await page.locator('[data-nb-sizer]').evaluate(el => el.offsetWidth);
+    // [＋][－][전체]
+    const before = await zoomOf(page);
     await press(page, page.locator('[data-nb-zoom="1"]'), width);
-    expect(await page.locator('[data-nb-sizer]').evaluate(el => el.offsetWidth)).toBeGreaterThan(before);
+    expect(await zoomOf(page)).toBeGreaterThan(before);
+    await press(page, page.locator('[data-nb-fit]'), width);
+    expect(await zoomOf(page)).toBeCloseTo(before, 3);
+    // 가로 넘침 없음.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     // 한 번 누르면 노트 열기.
     await press(page, page.locator('[data-nb-card="n2"] .nb-open'), width);
     await expect(page.locator('[data-note-detail]')).toBeVisible();
@@ -83,14 +94,14 @@ for (const width of [412, 884, 1440]) {
   });
 }
 
-test('포스트잇 끌어 놓기: 서버 저장(처음엔 모두), 끈 칸이 맨 위, 다시 그려도 그 자리 (1440)', async ({ page }) => {
+test('보드 카드 끌어 놓기: 서버 저장(처음엔 모두), 끈 칸이 맨 위, 다시 그려도 그 자리 (1440)', async ({ page }) => {
   const { writes, errors } = await fixture(page, 1440);
   await view(page, 'board').click();
   const card = page.locator('[data-nb-card="n1"]');
   const z = el => el.evaluate(n => Number(n.style.zIndex));
   const box = await card.boundingBox();
-  await page.mouse.move(box.x + 40, box.y + 40); await page.mouse.down();
-  await page.mouse.move(box.x + 140, box.y + 120, { steps: 6 }); await page.mouse.move(box.x + 240, box.y + 200, { steps: 6 });
+  await page.mouse.move(box.x + 30, box.y + box.height / 2); await page.mouse.down();
+  await page.mouse.move(box.x + 130, box.y + 100, { steps: 6 }); await page.mouse.move(box.x + 230, box.y + 180, { steps: 6 });
   await page.mouse.up();
   await expect.poll(() => writes.filter(w => w.body?.metadata?.board).length).toBe(3);
   const moved = writes.find(w => w.id === 'n1' && w.body.metadata.board).body.metadata.board;
@@ -98,8 +109,9 @@ test('포스트잇 끌어 놓기: 서버 저장(처음엔 모두), 끈 칸이 �
   for (const w of writes) expect(w.body.updated_at).toBeUndefined(); // 옮기기는 고치기가 아니다
   const others = await Promise.all(['n2', 'n3'].map(id => z(page.locator(`[data-nb-card="${id}"]`))));
   expect(await z(card)).toBeGreaterThan(Math.max(...others));
-  // 끈 뒤에는 열리지 않는다.
+  // 끈 뒤에는 열리지 않고, 끈 카드가 골라진다.
   await expect(page.locator('[data-note-detail]')).toBeHidden();
+  await expect(card).toHaveClass(/nb-sel/);
   // 다른 보기로 갔다 와도(다시 그림) 같은 자리.
   const left = await card.evaluate(n => n.style.left);
   await view(page, 'list').click(); await view(page, 'board').click();
@@ -107,17 +119,18 @@ test('포스트잇 끌어 놓기: 서버 저장(처음엔 모두), 끈 칸이 �
   expect(errors).toEqual([]);
 });
 
-// NOTE-포스트잇끌기 (요청함 10/30 14:09 "둘 다 되게"): 폰·폴드 한 손가락 — 바로 끌기도, 꾹 누른 뒤 끌기도 옮기고 서버 저장,
-// 꾹 눌렀다 움직이지 않고 떼면 노트 메뉴(끌기를 끊지 않음), 판 빈 곳은 판 밀기, 확대 상태에서도 손가락만큼 움직인다(배율 반영).
+// NOTE-포스트잇끌기 (요청함 10/30 14:09 "둘 다 되게") → S68-38: 폰·폴드 한 손가락 — 바로 끌기도, 꾹 누른 뒤 끌기도 옮기고 서버 저장,
+// 꾹 눌렀다 움직이지 않고 떼면 그 카드를 고른다(×·⋯·손잡이가 보임, ⋯로 노트 메뉴). 판 빈 곳은 판 이동, 확대 상태에서도 손가락만큼 움직인다(배율 반영).
 const touch = (cdp, type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
 const cardAt = l => l.evaluate(n => ({ x: parseFloat(n.style.left), y: parseFloat(n.style.top) }));
-async function center(l) { await l.scrollIntoViewIfNeeded(); const b = await l.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 + 10 }; }
+async function center(l) { const b = await l.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }
 async function swipe(cdp, from, dx, dy, steps = 8) { for (let i = 1; i <= steps; i++) await touch(cdp, 'touchMove', [{ x: from.x + dx * i / steps, y: from.y + dy * i / steps }]); }
 const boardWrites = (writes, id) => writes.filter(w => w.id === id && w.body?.metadata?.board);
-const zoomOf = page => page.locator('[data-nb-board]').evaluate(n => Number(/scale\(([\d.]+)\)/.exec(n.style.transform)?.[1]));
+const viewOf = page => page.locator('[data-nb-board]').evaluate(n => { const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\) scale\(([\d.]+)\)/.exec(n.style.transform); return { x: Number(m[1]), y: Number(m[2]), z: Number(m[3]) }; });
+const zoomOf = async page => (await viewOf(page)).z;
 
 for (const width of [412, 884]) {
-  test(`폰 손가락: 바로 끌기·꾹 눌러 끌기 이동·저장, 꾹 눌렀다 떼면 메뉴 (${width})`, async ({ page }) => {
+  test(`폰 손가락: 바로 끌기·꾹 눌러 끌기 이동·저장, 꾹 눌렀다 떼면 고르기 (${width})`, async ({ page }) => {
     const { writes, errors } = await fixture(page, width);
     await press(page, view(page, 'board'), width);
     const cdp = await page.context().newCDPSession(page);
@@ -143,68 +156,84 @@ for (const width of [412, 884]) {
     await expect(card).not.toHaveClass(/nb-held|nb-dragging/);
     await expect(page.locator('#noteDocMenu')).toBeHidden();
     await expect(page.locator('[data-note-detail]')).toBeHidden();
-    // 3) 꾹 눌렀다 움직이지 않고 떼면 노트 메뉴(열리지 않음, 자리 그대로).
-    from = await center(card);
+    // 3) 다른 카드를 꾹 눌렀다 움직이지 않고 떼면 그 카드를 고른다(열리지 않음, 자리 그대로) → ×·⋯·손잡이가 보이고 ⋯는 노트 메뉴.
+    const other = page.locator('[data-nb-card="n3"]'), otherAt = await cardAt(other);
+    from = await center(other);
     await touch(cdp, 'touchStart', [from]); await page.waitForTimeout(700); await touch(cdp, 'touchEnd', []);
-    await expect(page.locator('#noteDocMenu')).toBeVisible();
+    await expect(other).toHaveClass(/nb-sel/); await expect(card).not.toHaveClass(/nb-sel/);
     await expect(page.locator('[data-note-detail]')).toBeHidden();
-    expect(boardWrites(writes, 'n2').length).toBe(2);
-    expect(await cardAt(card)).toEqual(end);
+    await expect(page.locator('#noteDocMenu')).toBeHidden();
+    await expect(other.locator('[data-nb-handle]')).toHaveCount(4);
+    for (const h of await other.locator('[data-nb-handle]').all()) await expect(h).toBeVisible();
+    expect(await cardAt(other)).toEqual(otherAt);
+    await other.locator('.nb-more').tap();
+    await expect(page.locator('#noteDocMenu')).toBeVisible();
     await page.keyboard.press('Escape');
     expect(await page.evaluate(() => document.documentElement.classList.contains('nb-drag-on'))).toBe(false);
     expect(errors).toEqual([]);
   });
 
-  test(`폰 손가락: 판 빈 곳은 판 밀기, 가장 크게(1.5배)·작게(0.5배)도 손가락만큼 이동, 가장자리에서 판 자동 밀림 (${width})`, async ({ page }) => {
+  test(`폰 손가락: 판 빈 곳은 판 이동, 가장 크게·작게도 손가락만큼 이동, 가장자리에서 판 자동 이동 (${width})`, async ({ page }) => {
     const { writes, errors } = await fixture(page, width);
     await press(page, view(page, 'board'), width);
     const cdp = await page.context().newCDPSession(page), scroll = page.locator('[data-nb-scroll]');
-    // 판 빈 곳(칸·크기 단추가 없는 곳)을 왼쪽으로 밀면 판이 오른쪽으로 밀린다. 칸은 그대로.
-    const blank = await scroll.evaluate(el => {
+    const blankOf = () => scroll.evaluate(el => {
       const r = el.getBoundingClientRect();
       for (let y = r.bottom - 30; y > r.top + 60; y -= 20) for (let x = r.right - 60; x > r.left + 60; x -= 20) {
-        const hit = document.elementFromPoint(x, y); if (hit && el.contains(hit) && !hit.closest('[data-nb-card],.nb-tools')) return { x, y };
+        const hit = document.elementFromPoint(x, y); if (hit && el.contains(hit) && !hit.closest('[data-nb-card],.nb-tools,[data-nb-hit]')) return { x, y };
       }
       return null;
     });
+    // 판 빈 곳을 왼쪽으로 밀면 판이 따라 움직인다. 카드 자리(판 좌표)는 그대로, 저장 없음.
+    const blank = await blankOf();
     expect(blank).not.toBeNull();
-    await touch(cdp, 'touchStart', [blank]); await swipe(cdp, blank, -160, 0, 10); await touch(cdp, 'touchEnd', []);
-    await expect.poll(() => scroll.evaluate(el => el.scrollLeft)).toBeGreaterThan(40);
+    const v0 = await viewOf(page), card = page.locator('[data-nb-card="n2"]'), at0 = await cardAt(card);
+    await touch(cdp, 'touchStart', [blank]); await swipe(cdp, blank, -160, -40, 10); await touch(cdp, 'touchEnd', []);
+    const v1 = await viewOf(page);
+    expect(Math.abs(v1.x - v0.x + 160)).toBeLessThanOrEqual(2); expect(Math.abs(v1.y - v0.y + 40)).toBeLessThanOrEqual(2);
+    expect(await cardAt(card)).toEqual(at0);
     expect(writes.filter(w => w.body?.metadata?.board)).toEqual([]);
-    await scroll.evaluate(el => { el.scrollLeft = 0; el.scrollTop = 0; });
-    // 가장 크게: 손가락 90px = 판 위 60칸(1.5배).
+    await expect(view(page, 'board')).toHaveAttribute('aria-pressed', 'true'); // 판 위 옆 밀기는 탭 넘김이 아니다
+    await press(page, page.locator('[data-nb-fit]'), width);
+    // 가장 크게(2.5배): 손가락 90px = 판 위 36칸.
     const plus = page.locator('[data-nb-zoom="1"]'), minus = page.locator('[data-nb-zoom="-1"]');
     while (await plus.isEnabled()) await press(page, plus, width);
-    expect(await zoomOf(page)).toBe(1.5);
-    const card = page.locator('[data-nb-card="n2"]');
+    expect(await zoomOf(page)).toBe(2.5);
+    await press(page, page.locator('[data-nb-fit]'), width); // 카드가 보이게 다시 맞춘 뒤 한 단계씩 키워 확인
+    while (await plus.isEnabled()) { await press(page, plus, width); }
+    await expect(card).toBeAttached();
+    // 카드가 화면 밖이면 판을 옮겨 가운데로.
+    const fitCard = async () => { const c = await center(card), r = await scroll.boundingBox(); const b = await blankOf(); if (c.x > r.x + 40 && c.x < r.x + r.width - 40 && c.y > r.y + 40 && c.y < r.y + r.height - 40) return; await touch(cdp, 'touchStart', [b]); await swipe(cdp, b, r.x + r.width / 2 - c.x, r.y + r.height / 2 - c.y, 10); await touch(cdp, 'touchEnd', []); };
+    await fitCard();
     let start = await cardAt(card), from = await center(card);
     await touch(cdp, 'touchStart', [from]); await swipe(cdp, from, 90, 45); await touch(cdp, 'touchEnd', []);
     await expect.poll(() => boardWrites(writes, 'n2').length).toBe(1);
     let end = await cardAt(card);
-    expect(Math.abs(end.x - start.x - 60)).toBeLessThanOrEqual(2); expect(Math.abs(end.y - start.y - 30)).toBeLessThanOrEqual(2);
-    // 가장 작게: 손가락 50px = 판 위 100칸(0.5배), 꾹 누른 뒤 끌기.
+    expect(Math.abs(end.x - start.x - 36)).toBeLessThanOrEqual(2); expect(Math.abs(end.y - start.y - 18)).toBeLessThanOrEqual(2);
+    // 가장 작게(0.2배): 손가락 40px = 판 위 200칸, 꾹 누른 뒤 끌기.
     while (await minus.isEnabled()) await press(page, minus, width);
-    expect(await zoomOf(page)).toBe(0.5);
+    expect(await zoomOf(page)).toBe(0.2);
+    await fitCard();
     start = end; from = await center(card);
-    await touch(cdp, 'touchStart', [from]); await page.waitForTimeout(700); await swipe(cdp, from, 50, 25); await touch(cdp, 'touchEnd', []);
+    await touch(cdp, 'touchStart', [from]); await page.waitForTimeout(700); await swipe(cdp, from, 40, 20); await touch(cdp, 'touchEnd', []);
     await expect.poll(() => boardWrites(writes, 'n2').length).toBe(2);
     end = await cardAt(card);
-    expect(Math.abs(end.x - start.x - 100)).toBeLessThanOrEqual(3); expect(Math.abs(end.y - start.y - 50)).toBeLessThanOrEqual(3);
-    // 가장자리: 끄는 손가락을 판 오른쪽 끝에 멈춰 두면 판이 저절로 밀리고 칸도 따라간다.
-    await press(page, plus, width); await press(page, plus, width); await press(page, plus, width); // 0.5 → 1
-    await scroll.evaluate(el => { el.scrollLeft = 0; });
+    expect(Math.abs(end.x - start.x - 200)).toBeLessThanOrEqual(6); expect(Math.abs(end.y - start.y - 100)).toBeLessThanOrEqual(6);
+    // 가장자리: 끄는 손가락을 판 오른쪽 끝에 멈춰 두면 판이 저절로 밀리고 카드도 따라간다.
+    await press(page, page.locator('[data-nb-fit]'), width);
+    await fitCard();
     const sr = await scroll.boundingBox();
     start = await cardAt(card); from = await center(card);
-    const scroll0 = await scroll.evaluate(el => el.scrollLeft);
+    const va = await viewOf(page);
     await touch(cdp, 'touchStart', [from]);
-    const edge = { x: sr.x + sr.width - 12, y: from.y };
+    const edge = { x: sr.x + sr.width - 10, y: from.y };
     await swipe(cdp, from, edge.x - from.x, 0, 10);
-    await expect.poll(() => scroll.evaluate(el => el.scrollLeft)).toBeGreaterThan(scroll0 + 60);
+    await expect.poll(async () => (await viewOf(page)).x).toBeLessThan(va.x - 60);
     await touch(cdp, 'touchEnd', []);
     await expect.poll(() => boardWrites(writes, 'n2').length).toBe(3);
-    const scrolled = await scroll.evaluate(el => el.scrollLeft);
+    const vb = await viewOf(page);
     end = await cardAt(card);
-    expect(Math.abs(end.x - start.x - (edge.x - from.x + scrolled - scroll0) / (await zoomOf(page)))).toBeLessThanOrEqual(3);
+    expect(Math.abs(end.x - start.x - (edge.x - from.x + va.x - vb.x) / vb.z)).toBeLessThanOrEqual(4);
     expect(errors).toEqual([]);
   });
 }

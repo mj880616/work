@@ -185,6 +185,8 @@ test('공용 셸(폰): 머리줄 15px/500(S67-64), 하단 탭 0.5px 선, ☰ 메
  const {errors}=await boot(page,390);
  await view(page,'projects');
  const header=await look(page.locator('[data-mobile-view-name]'));expect([header.fontSize,header.fontWeight]).toEqual(['15px','500']); // S67-64 UI-윗줄한줄: D2 제목 글씨
+ // S68-37: 저장된 메뉴 순서가 없는 계정은 사업 관리(사업영역 관리 포함)가 하단바 칸이 아니라, 고른 칸 글씨는 하단바 칸 화면(자료실)에서 잰다.
+ await view(page,'library');
  const current=await look(page.locator('.mobile-tabs [aria-current="page"]'));expect(current.fontWeight).toBe('500');
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu')).toBeVisible();
  // Measure after the sheet's slide-up (ds-sheet-up): mid-slide the transformed boxes read 44±0.00006px.
