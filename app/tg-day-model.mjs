@@ -181,7 +181,7 @@ export const pinsWithoutLine = (rooms, lines) => pinnedRooms(rooms, lines).filte
 export const withRoomState = (lines, rooms) => (lines || []).map(l => { const r = rooms?.get(l.room_key); return r ? {...l, folder_id:r.folder_id || null, archived_at:r.archived_at || null} : l; });
 
 // ---------- 밀기 (폰, 터치만). 가로로 충분히 밀었을 때만 반응한다. 오른쪽으로 밀면 왼쪽에 두 버튼(폴더로·보관, 64px씩 128px),
-// 왼쪽으로 밀면 오른쪽에 한 버튼(삭제 64px). 화면 가장자리 24px 안에서 시작한 밀기는 무시한다(뒤로가기 제스처와 겹침 방지).
+// 왼쪽으로 밀면 오른쪽에 한 버튼(삭제 64px). 화면 왼쪽 가장자리 24px 안에서 시작한 밀기는 무시한다(뒤로가기 제스처와 겹침 방지. 오른쪽 끝은 막지 않음 — S68-53).
 // UI-목록밀기: 손동작 기준(시작 12px·가장자리 24px·버튼 64px)은 다른 목록 밀기와 같은 공용 셈(row-swipe-model.mjs)에서 가져온다.
 export {SWIPE_BTN, SWIPE_START, SWIPE_EDGE, swipeIntent, swipeEdge};
 // allow: 각 쪽 버튼 수 {start, end}(0 = 그쪽 버튼 없음).

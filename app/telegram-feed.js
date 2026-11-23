@@ -1116,7 +1116,7 @@ const femenu = createAnchoredMenu({id:'tgFolderMenu', className:'feed-menu', lab
 tgMenus = [menu, pmenu, rmenu, fmenu, femenu];
 const hold = createFeedHold({menu:rmenu, itemSelector:'[data-tg-rd]', moreSelector:'[data-tg-rdmore]', skipSelector:'[data-tg-act-btn],[data-tg-unarchive],[data-tg-unpin]', busy:() => state.busy, isPhone:() => !pc.matches});
 
-// 줄 밀기(폰, 터치만): 가로로 분명히 밀었을 때만 반응하고 세로 스크롤·화면 가장자리 시작은 건드리지 않는다. 열린 줄은 하나뿐.
+// 줄 밀기(폰, 터치만): 가로로 분명히 밀었을 때만 반응하고 세로 스크롤·화면 왼쪽 가장자리 시작은 건드리지 않는다. 열린 줄은 하나뿐.
 const swipeEl = key => [...view()?.querySelectorAll('[data-tg-swipe]') || []].find(el => el.dataset.tgSwipe === key) || null;
 function syncSwipe(wrap, side) {
   if (side) wrap.dataset.side = side; else delete wrap.dataset.side;
