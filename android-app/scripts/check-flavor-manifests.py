@@ -1,6 +1,6 @@
 """S62-34 APP-플레이스토어비공개테스트: 빌드된 두 판의 매니페스트(병합 결과)를 aapt2로 읽어 본다.
 
-- play 판(com.nojoplus.app): 스스로 업데이트·설치 요청·'모든 파일 접근' 권한이 없어야 한다.
+- play 판(com.workonplus.app): 스스로 업데이트·설치 요청·'모든 파일 접근' 권한이 없어야 한다.
 - github 판(kr.or.kptu.work): 지금과 같다(위 권한이 그대로 있다).
 - 두 판 모두: 플레이에서 신고서 없이는 막히는 권한(통화·SMS·통화 기록·백그라운드 위치·모든 앱 보기·접근성 등)이 라이브러리를 통해서도 들어오지 않았다.
 - FileProvider 이름(authorities)이 판의 앱 ID를 따른다.
@@ -12,7 +12,7 @@ import re
 import subprocess
 import sys
 
-PLAY_ID = 'com.nojoplus.app'
+PLAY_ID = 'com.workonplus.app'
 GITHUB_ID = 'kr.or.kptu.work'
 
 # play 판에서 뺀 권한(android-app/app/src/play/AndroidManifest.xml).

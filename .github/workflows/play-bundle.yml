@@ -1,6 +1,6 @@
 name: Play bundle
 
-# S62-34 APP-플레이스토어비공개테스트: 플레이 스토어 판(com.nojoplus.app, 앱 이름 'WORK ON+', 옛 이름 '노동조합+')의 release AAB를 만든다.
+# S62-34 APP-플레이스토어비공개테스트: 플레이 스토어 판(com.workonplus.app, 앱 이름 'WORK ON+'. S69-10: 플레이 콘솔의 옛 초안 앱은 쓰지 않는다)의 release AAB를 만든다.
 # - 커맨드센터(또는 사람)가 main에서 손으로 실행하고 version(예: 0.5.11)을 넣는다. version은 android-app/app/build.gradle의 versionName과 같아야 한다.
 # - 서명은 phone-app-release.yml과 같은 승인형 environment `phone-app-release`의 비밀값(같은 열쇠)으로 한다. 이 열쇠가 플레이의 '업로드 열쇠'다.
 #   플레이 앱 서명 열쇠는 플레이 콘솔에서 구글이 만든다(Play App Signing). 새 비밀값은 쓰지 않는다.
@@ -151,7 +151,7 @@ jobs:
           umask 077
           printf '%s' "$PHONE_APP_KEYSTORE_B64" | base64 -d > "$ks"
           mkdir -p out
-          out="out/nojoplus-play-$VERSION.aab"
+          out="out/workonplus-play-$VERSION.aab"
           # AAB는 jarsigner로 서명한다(apksigner는 APK 전용). 비밀번호는 환경 변수 이름으로만 넘긴다(명령 인자·로그에 값이 나오지 않음).
           jarsigner -keystore "$ks" -storepass:env PHONE_APP_KEYSTORE_PASSWORD -keypass:env PHONE_APP_KEY_PASSWORD \
             -signedjar "$out" android-app/app/build/outputs/bundle/playRelease/app-play-release.aab "$PHONE_APP_KEY_ALIAS" > /dev/null
@@ -164,15 +164,15 @@ jobs:
           fi
           {
             echo "### 플레이 판 AAB $VERSION"
-            echo "- 앱 ID: com.nojoplus.app"
-            echo "- 파일: nojoplus-play-$VERSION.aab (이 실행의 Artifacts, 7일 보관)"
+            echo "- 앱 ID: com.workonplus.app"
+            echo "- 파일: workonplus-play-$VERSION.aab (이 실행의 Artifacts, 7일 보관)"
             echo "- Upload certificate SHA-256: $digest"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the bundle (workflow artifact only, 7 days)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: nojoplus-play-${{ env.VERSION }}
-          path: out/nojoplus-play-*.aab
+          name: workonplus-play-${{ env.VERSION }}
+          path: out/workonplus-play-*.aab
           if-no-files-found: error
           retention-days: 7

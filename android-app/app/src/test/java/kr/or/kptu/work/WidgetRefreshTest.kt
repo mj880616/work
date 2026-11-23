@@ -80,21 +80,16 @@ class WidgetRefreshTest {
         assertEquals("이번 주 10/26–11/1", wk.title)
         assertEquals(5, wk.total)
         assertEquals(listOf(0, 0, 0, 0, 3, 1, 1), wk.days.map { it.count })
-        assertEquals(WidgetWeek.Pick(java.time.LocalDate.of(2026, 11, 1), "D-2", "일 14:00 교섭"), wk.big)
-        assertEquals(WidgetWeek.Pick(java.time.LocalDate.of(2026, 11, 2), "월", "11/2 상집 보고일"), wk.report)
         // APP-위젯날짜고르기: 금요일을 고르면 그 날 일정(종일 먼저·시각 순) 다음 기한 할 일. 지난 할 일(10/28)은 그 날에.
         val fri = wk.details.getValue(java.time.LocalDate.of(2026, 10, 30))
         assertEquals(3, fri.events)
         assertEquals(1, fri.tasks)
-        assertEquals("10/30(금) 일정 3 · 할 일 1", WidgetWeek.detailHead(fri))
-        // S68-51: 줄임('외 n') 없이 전부, 그 뒤 다가오는 일·보고일 줄. '몰림' 요약은 없다.
-        assertEquals(listOf("종일  창립 기념일", "10:00  운영위 회의", "20:30  평가회의", "할 일  보고서 보내기"), WidgetWeek.dayList(fri))
-        assertEquals(
-            listOf("종일  창립 기념일", "10:00  운영위 회의", "20:30  평가회의", "할 일  보고서 보내기", "D-2  일 14:00 교섭", "월  11/2 상집 보고일"),
-            WidgetWeek.dayList(fri, listOfNotNull(wk.big, wk.report)),
-        )
-        assertEquals(listOf("할 일  지난 일"), WidgetWeek.dayList(wk.details.getValue(java.time.LocalDate.of(2026, 10, 28))))
-        assertEquals(listOf("일정·할 일 없음"), WidgetWeek.dayList(wk.details.getValue(java.time.LocalDate.of(2026, 10, 27))))
+        assertEquals("10/30(금)", WidgetWeek.detailHead(fri))
+        // S68-51: 줄임('외 n') 없이 전부. S69-07: 다가오는 일·보고일 줄 없음, 할 일은 머리 아래 따로.
+        assertEquals(listOf("종일  창립 기념일", "10:00  운영위 회의", "20:30  평가회의", "할 일 1", "보고서 보내기"), WidgetWeek.dayRows(fri).map { it.text })
+        assertEquals(WidgetWeek.Kind.TASK, WidgetWeek.dayRows(fri).last().kind)
+        assertEquals(listOf("할 일 1", "지난 일"), WidgetWeek.dayRows(wk.details.getValue(java.time.LocalDate.of(2026, 10, 28))).map { it.text })
+        assertEquals(listOf("일정·할 일 없음"), WidgetWeek.dayRows(wk.details.getValue(java.time.LocalDate.of(2026, 10, 27))).map { it.text })
     }
 
     @Test
@@ -109,7 +104,8 @@ class WidgetRefreshTest {
         val down = plan.result(WidgetSession.Outcome.Ok(listOf(reply(200, week), reply(500, null), reply(200, features))))
         val fri = (down.week as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content.details.getValue(java.time.LocalDate.of(2026, 10, 30))
         assertNull(fri.tasks)
-        assertEquals("10/30(금) 일정 3 · 할 일 읽지 못함", WidgetWeek.detailHead(fri))
+        assertEquals("10/30(금)", WidgetWeek.detailHead(fri))
+        assertEquals("할 일 읽지 못함", WidgetWeek.dayRows(fri).last().text)
     }
 
     @Test
@@ -138,8 +134,8 @@ class WidgetRefreshTest {
         assertEquals("지난주 10/19–10/25", last.title)
         assertEquals(java.time.LocalDate.of(2026, 10, 19), last.monday)
         // 옮긴 주 하나가 이상해도 이번 주는 그린다(주마다 울타리).
-        val bad = plan.result(WidgetSession.Outcome.Ok(replies), weekContent = { c, t, ms, n, s ->
-            if (s == -1) throw IllegalStateException("x") else WidgetWeek.content(c.status, c.body, ms, tasksStatus = t.status, tasks = t.body, nojoWords = n, shift = s)
+        val bad = plan.result(WidgetSession.Outcome.Ok(replies), weekContent = { c, t, ms, s ->
+            if (s == -1) throw IllegalStateException("x") else WidgetWeek.content(c.status, c.body, ms, tasksStatus = t.status, tasks = t.body, shift = s)
         })
         assertEquals(WidgetRefresh.Paint.Failed, bad.weeks[-1])
         assertTrue(bad.weeks[0] is WidgetRefresh.Paint.Shown)
@@ -153,10 +149,10 @@ class WidgetRefreshTest {
         // 0.3.7의 실제 실패 모양(클래스 초기화 오류): 내용 만들기가 실패해도 예외가 밖으로 나가지 않고 '실패'로 그린다.
         val r = plan.result(
             WidgetSession.Outcome.Ok(serverReplies(plan)),
-            weekContent = { _, _, _, _, _ -> throw ExceptionInInitializerError(IllegalArgumentException("regex")) },
+            weekContent = { _, _, _, _ -> throw ExceptionInInitializerError(IllegalArgumentException("regex")) },
         )
         assertEquals(WidgetRefresh.Paint.Failed, r.week)
-        val r2 = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)), weekContent = { _, _, _, _, _ -> throw NoClassDefFoundError("x") })
+        val r2 = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)), weekContent = { _, _, _, _ -> throw NoClassDefFoundError("x") })
         assertEquals(WidgetRefresh.Paint.Failed, r2.week)
         assertTrue(plan.result(WidgetSession.Outcome.Ok(serverReplies(plan))).week is WidgetRefresh.Paint.Shown)
 
@@ -251,21 +247,20 @@ class WidgetRefreshTest {
     }
 
     @Test
-    fun reportDayLabelFollowsServerFeatures() {
-        // S68-02(11/22 명진 결정): 새 사용자 '주간 보고일', 명진(nojo_words) '상집 보고일', 기능 목록을 못 읽으면 지금 이름.
+    fun nojoWordsFollowsServerFeatures() {
+        // S68-02: 서버 기능 목록(nojo_words)은 앱 사진 폴더 이름에 쓴다. S69-07: 위젯 보고일 줄은 없앴다.
         val plan = WidgetRefresh(nowMs = now)
-        fun label(featureReply: WidgetSession.Reply): Pair<String, Boolean?> {
+        fun label(featureReply: WidgetSession.Reply): Boolean? {
             val r = plan.result(WidgetSession.Outcome.Ok(listOf(reply(200, week), reply(200, tasks), featureReply)))
-            return (r.week as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content.report!!.text to r.nojoWords
+            assertTrue(r.week is WidgetRefresh.Paint.Shown)
+            return r.nojoWords
         }
-        assertEquals("11/2 주간 보고일" to false, label(reply(200, """["calls"]""")))
-        assertEquals("11/2 주간 보고일" to false, label(reply(200, "[]")))
-        assertEquals("11/2 상집 보고일" to true, label(reply(200, """["nojo_words"]""")))
-        assertEquals("11/2 상집 보고일" to null, label(reply(500, null)))
-        assertEquals("11/2 상집 보고일" to null, label(reply(200, """{"nojo_words":true}""")))
+        assertEquals(false, label(reply(200, """["calls"]""")))
+        assertEquals(false, label(reply(200, "[]")))
+        assertEquals(true, label(reply(200, """["nojo_words"]""")))
+        assertNull(label(reply(500, null)))
+        assertNull(label(reply(200, """{"nojo_words":true}""")))
         // 기능 목록이 실패해도 일정 칸은 그린다.
-        assertEquals("주간 보고일", WidgetWeek.reportLabel(false))
-        assertEquals("상집 보고일", WidgetWeek.reportLabel(null))
         // 위젯은 기능 목록을 GET으로만, 다른 rpc 주소·POST는 허용 목록 밖.
         assertTrue(WidgetRules.allowed("GET", WidgetRules.FEATURES))
         assertFalse(WidgetRules.allowed("POST", WidgetRules.FEATURES))

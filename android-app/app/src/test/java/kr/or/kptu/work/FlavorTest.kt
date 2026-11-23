@@ -12,7 +12,7 @@ import java.io.File
  * android-app/scripts/check-flavor-manifests.sh가 빌드된 APK·AAB의 매니페스트로 본다.
  */
 class FlavorTest {
-    private val play = BuildConfig.APPLICATION_ID == "com.nojoplus.app"
+    private val play = BuildConfig.APPLICATION_ID == "com.workonplus.app"
 
     @Test
     fun applicationIdIsOneOfTheTwo() {
@@ -25,7 +25,7 @@ class FlavorTest {
             assertFalse(BuildConfig.SELF_UPDATE)
             assertFalse(BuildConfig.ALL_FILES)
             assertEquals("android-play", BuildConfig.LOGIN_RETURN)
-            assertEquals(" KPTUPlay", BuildConfig.UA_MARK)
+            assertEquals(" WorkOnPlay", BuildConfig.UA_MARK)
         } else {
             // github 판은 지금까지와 같다.
             assertTrue(BuildConfig.SELF_UPDATE)
