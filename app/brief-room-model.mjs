@@ -90,19 +90,70 @@ export function listRows({ docs, folderIds, briefs }) {
 
 // S67-50: 칸 이름은 단어표(app/brand/girok-words.mjs '#brief' 자리)를 거친다. 노동조합+ 얼굴은 지금 글자 그대로.
 export const NO_SCOPE_LINE = '등록한 담당이 없어요';
-/** 브리핑 다섯 칸(빈 칸은 빼지 않고 빈 배열). touches는 등록한 담당이 없을 때(brief.scope==='none') empty 글자를 둔다. */
-export function briefSections(brief) {
-  const arr = v => (Array.isArray(v) ? v.filter(s => typeof s === 'string' && s) : []);
-  const quotes = (Array.isArray(brief?.quotes) ? brief.quotes : [])
+// S68-45(명진 11/23 "직관적으로 문서가 딱 읽히지 않아", 시안 12:19 "ㄱㄱ"): 위에서 아래로 한눈에 3줄 → 챙길 일 → 우리 조직 관련 → 대응할 것 → 원문 인용(접힘).
+// 칸마다 앞 SHOW_N개만 펼치고 나머지는 '+ n개 더 보기'. 빈 칸은 그리지 않는다(등록한 담당이 없을 때의 '우리 조직 관련' 한 줄만 예외 — S67-50).
+export const SHOW_N = 3;
+export const GLANCE_TITLE = '한눈에';
+export const moreLabel = n => `+ ${n}개 더 보기`;
+const strs = v => (Array.isArray(v) ? v.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim()) : []);
+const str = v => (typeof v === 'string' ? v.trim() : '');
+const DAY = 24 * 3600 * 1000;
+/**
+ * 기한 꼬리표가 급한지(옅은 빨강). 서버(AI)가 urgent를 주면 그대로, 아니면 글자로: 오늘·내일·즉시·이번 주·일주일 내,
+ * 또는 날짜(M/D·M월 D일·YYYY-MM-DD)가 오늘부터 7일 안(지난 날짜 포함). now는 시험용.
+ */
+export function dueUrgent(due, urgent = false, now = new Date()) {
+  if (urgent === true) return true;
+  const d = str(due);
+  if (!d) return false;
+  if (/오늘|내일|즉시|당장|이번\s?주|일주일\s?(?:내|안|이내)|7일\s?(?:내|안|이내)/.test(d)) return true;
+  const kst = new Date(now.getTime() + 9 * 3600 * 1000);
+  const y = kst.getUTCFullYear(), today = Date.UTC(y, kst.getUTCMonth(), kst.getUTCDate());
+  let m = d.match(/(\d{4})[-.\/]\s?(\d{1,2})[-.\/]\s?(\d{1,2})/), at = null;
+  if (m) at = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  else if ((m = d.match(/(\d{1,2})\s?(?:\/|월\s?)(\d{1,2})/))) {
+    at = Date.UTC(y, +m[1] - 1, +m[2]);
+    if (at < today - 180 * DAY) at = Date.UTC(y + 1, +m[1] - 1, +m[2]); // 12월에 본 '1/5'는 내년
+  }
+  if (at === null || !Number.isFinite(at)) return false;
+  return at - today <= 7 * DAY;
+}
+/** 챙길 일 정렬: 급한 것 → 기한 있는 것 → 기한 없는 것. 같은 묶음 안은 서버(중요한 순) 순서 그대로. */
+export function sortTodos(list, now = new Date()) {
+  const rank = t => (t.urgent ? 0 : t.due ? 1 : 2);
+  return list.map((t, i) => ({ ...t, urgent: dueUrgent(t.due, t.urgent, now), i })).sort((a, b) => rank(a) - rank(b) || a.i - b.i).map(({ i, ...t }) => t);
+}
+/** 앞 SHOW_N개와 나머지. */
+export const splitShown = (items, n = SHOW_N) => ({ shown: items.slice(0, n), rest: items.slice(n) });
+
+/**
+ * 브리핑 보기 모델. 옛 형식(v1: touches·todos·conflicts 글 줄)도 읽을 때 새 칸으로 옮겨 보인다(저장된 행은 바꾸지 않음).
+ * @returns {{glance: string[], sections: {key:'todos'|'orgs'|'counters'|'quotes', title:string, items:any[], empty?:string}[], legacy: boolean}}
+ */
+export function briefView(brief, now = new Date()) {
+  const b = brief && typeof brief === 'object' ? brief : {};
+  const legacy = b.v !== 2;
+  const glance = (legacy ? [] : strs(b.glance)).slice(0, 3);
+  if (!glance.length && str(b.lead)) glance.push(str(b.lead));
+  const todos = legacy
+    ? strs(b.todos).map(text => ({ due: '', text, urgent: false }))
+    : (Array.isArray(b.todos) ? b.todos : []).filter(t => t && str(t.text)).map(t => ({ due: str(t.due), text: str(t.text), urgent: t.urgent === true }));
+  const orgs = legacy
+    ? strs(b.touches).map(text => ({ name: '', text }))
+    : (Array.isArray(b.orgs) ? b.orgs : []).filter(o => o && str(o.text)).map(o => ({ name: str(o.name), text: str(o.text) }));
+  const counters = legacy
+    ? strs(b.conflicts).map(claim => ({ claim, reply: '' }))
+    : (Array.isArray(b.counters) ? b.counters : []).filter(c => c && str(c.claim)).map(c => ({ claim: str(c.claim), reply: str(c.reply) }));
+  const quotes = (Array.isArray(b.quotes) ? b.quotes : [])
     .filter(q => q && typeof q.text === 'string' && q.text)
-    .map(q => ({ text: q.text, heading: typeof q.heading === 'string' ? q.heading : '', why: typeof q.why === 'string' ? q.why : '', page: Number.isInteger(q.page) && q.page > 0 ? q.page : null }));
-  const touches = arr(brief?.touches);
-  return [
-    { key: 'touches', title: word('내 담당 조직·사업에 닿는 것', 'brief'), lines: touches, empty: !touches.length && brief?.scope === 'none' ? NO_SCOPE_LINE : '' },
-    { key: 'todos', title: '해야 할 일·기한·숫자', lines: arr(brief?.todos), empty: '' },
-    { key: 'conflicts', title: word('우리 쪽 주장과 부딪히는 대목', 'brief'), lines: arr(brief?.conflicts), empty: '' },
-    { key: 'quotes', title: '꼭 직접 읽을 대목', quotes },
-  ];
+    .map(q => ({ text: q.text, heading: str(q.heading), why: str(q.why), page: Number.isInteger(q.page) && q.page > 0 ? q.page : null }));
+  const sections = [];
+  if (todos.length) sections.push({ key: 'todos', title: '챙길 일', items: sortTodos(todos, now) });
+  if (orgs.length) sections.push({ key: 'orgs', title: word('우리 조직 관련', 'brief'), items: orgs });
+  else if (b.scope === 'none') sections.push({ key: 'orgs', title: word('우리 조직 관련', 'brief'), items: [], empty: NO_SCOPE_LINE });
+  if (counters.length) sections.push({ key: 'counters', title: '대응할 것', items: counters });
+  if (quotes.length) sections.push({ key: 'quotes', title: '원문 인용', items: quotes });
+  return { glance, sections, legacy };
 }
 
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
