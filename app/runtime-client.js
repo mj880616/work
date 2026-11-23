@@ -13,13 +13,15 @@
   const getFlights=new Map();
 
   class RuntimeError extends Error{
-    constructor(message,{status=0,code='request_failed',retryable=false,cause=null,retryAfter=null}={}){
+    constructor(message,{status=0,code='request_failed',retryable=false,cause=null,retryAfter=null,serverCode=''}={}){
       super(message);
       this.name='KPTURuntimeError';
       this.status=status;
       this.code=code;
       this.retryable=retryable;
       if(retryAfter!==null)this.retryAfter=retryAfter;
+      // 서버 답의 짧은 오류 이름(error 칸, 예: no_material). 모양이 맞을 때만(글자·숫자·밑줄 64자) — 화면이 오류 글 대신 이름으로 판단한다(S68-49).
+      if(serverCode)this.serverCode=serverCode;
       if(cause)this.cause=cause;
     }
   }
@@ -251,7 +253,8 @@
         status:r.status,
         code:'http_'+r.status,
         retryable:retryableStatus(r.status),
-        retryAfter:Number.isFinite(data?.retry_after)?data.retry_after:null
+        retryAfter:Number.isFinite(data?.retry_after)?data.retry_after:null,
+        serverCode:typeof data?.error==='string'&&/^[A-Za-z0-9_]{1,64}$/.test(data.error)?data.error:''
       });
     }
     // Publish only successful write metadata, never source text or response content.

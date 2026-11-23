@@ -368,3 +368,37 @@ test('hand url: addresses inside a paragraph become link pieces; trailing punctu
   assert.deepEqual(M.textWithUrls('javascript:alert(1) data:text/html,x'), [{text: 'javascript:alert(1) data:text/html,x'}]);
   assert.deepEqual(M.textWithUrls('(https://x.example.org/a)'), [{text: '('}, {url: 'https://x.example.org/a', text: 'https://x.example.org/a'}, {text: ')'}]);
 });
+
+// S68-49(명진 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 봇 확인(bot_check)·robots 실패도 [원문 다시 가져오기], 두 갈래 같다.
+// 열 때 저절로 다시 읽는 것(reopenBody)은 그대로 — 봇 확인은 누를 때만. 손 본문(manual@1)은 다시 읽지 않는다.
+test('S68-49: canRefetch — bot_check·robots·늦은 답·사이트 오류 실패면 단추, 손 본문·읽힌 본문·없는 글은 아님', async () => {
+  const {canRefetch, reopenBody} = await import('../app/now-model.mjs');
+  for (const reason of ['bot_check', 'robots', 'timeout', 'http_5xx']) assert.equal(canRefetch({state: 'failed', reason}), true, reason);
+  for (const reason of ['paywall', 'http_4xx', 'no_body', 'off_host', 'relay', 'too_big', null]) assert.equal(canRefetch({state: 'failed', reason}), false, String(reason));
+  for (const state of ['ok', 'lead', 'image_only']) assert.equal(canRefetch({state, reason: 'bot_check'}), false, state);
+  assert.equal(canRefetch({state: 'failed', reason: 'bot_check', rule: 'manual@1'}), false, '손 본문은 사람 것');
+  assert.equal(canRefetch(null), false);
+  assert.equal(reopenBody({state: 'failed', reason: 'bot_check'}), false, '봇 확인은 열 때 저절로 다시 읽지 않음');
+});
+
+test('S68-49: isNoMaterial — 운영 서버 답 모양(error 칸 no_material, message는 일반 글)으로 판단', async () => {
+  const {isNoMaterial} = await import('../app/now-model.mjs');
+  assert.equal(isNoMaterial({status: 422, serverCode: 'no_material', message: 'AI 요청을 처리하지 못했어요.'}), true, '11/23 캡처의 실제 답');
+  assert.equal(isNoMaterial({status: 422, message: 'no_material'}), true, 'message만 있는 옛 모양');
+  assert.equal(isNoMaterial({status: 422, serverCode: 'other', message: 'AI 요청을 처리하지 못했어요.'}), false);
+  assert.equal(isNoMaterial({status: 500, serverCode: 'no_material'}), false);
+  assert.equal(isNoMaterial(null), false);
+});
+
+test('S68-49: 사회운동 글도 못 읽으면 [본문 붙여 넣기](canHandFill), 요청은 글 id·본문만, 빈 본문·너무 긴 본문은 보내지 않음', async () => {
+  const {canHandFill, handBodyRequest, HAND_BODY_MAX} = await import('../app/now-model.mjs');
+  assert.equal(canHandFill({type: 'outside'}, {state: 'failed', blocks: []}), true);
+  assert.equal(canHandFill({type: 'news'}, {state: 'failed', blocks: []}), true);
+  assert.equal(canHandFill({type: 'outside'}, {state: 'ok', blocks: [{t: 'p', text: 'x'}]}), false);
+  assert.equal(canHandFill({type: 'outside'}, {failedLoad: true}), false);
+  assert.equal(canHandFill({type: 'update'}, {state: 'failed', blocks: []}), false);
+  assert.deepEqual(handBodyRequest(A, '첫 문단\n\n둘째 문단'), {body: {id: A, body: '첫 문단\n\n둘째 문단'}});
+  assert.ok(handBodyRequest(A, '   \n ').error);
+  assert.ok(handBodyRequest(A, 'ㄱ'.repeat(HAND_BODY_MAX + 1)).error);
+  assert.equal(HAND_BODY_MAX, 50000);
+});

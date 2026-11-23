@@ -30,6 +30,7 @@ import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSo
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { BROWSER_ACCEPT_FEED, BROWSER_ACCEPT_HTML, readerHeaders, readerUserAgent } from "../_shared/reader-headers.ts";
 import { newsAllowed, newsWorkspace } from "../_shared/news-access.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { bodyNumbers, bodyRow, extractBlocks, failedBody, readFailReason, ruleId, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
@@ -45,7 +46,8 @@ export const CRON_HEADER = "x-outside-feed-cron-secret";
 export const SECRET_NAME = "OUTSIDE_FEED_CRON_SECRET";
 export const SECRET_MIN_CHARS = 32;
 const FOREIGN_SECRET_HEADERS = ["x-drive-summary-cron-secret", "x-collector-feed-secret", "x-collector-heartbeat-secret"];
-export const USER_AGENT = "Web2OutsideFeed/1.0 (+https://github.com/mj880616/work/blob/main/docs/design/outside-statements.md)";
+// S68-49: 브라우저 호환 꼴(위장 없음 — _shared/reader-headers.ts). 이름(Web2OutsideFeed)은 robots 이름과 같다.
+export const USER_AGENT = readerUserAgent("Web2OutsideFeed", "1.0", "https://github.com/mj880616/work/blob/main/docs/design/outside-statements.md");
 export const ROBOTS_AGENT = "Web2OutsideFeed";
 export const FETCH_MAX_BYTES = 2 * 1024 * 1024;
 export const FETCH_TIMEOUT_MS = 10000;
@@ -184,7 +186,7 @@ export function makeReader(doFetch: typeof fetch, sleep: (ms: number) => Promise
     try {
       const res = await doFetch(url.href, {
         method: "GET", redirect: "manual",
-        headers: { "User-Agent": USER_AGENT, Accept: accept, "Accept-Language": "ko,en;q=0.8" },
+        headers: readerHeaders(USER_AGENT, accept),
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
       return { res };
@@ -262,7 +264,7 @@ export function makeReader(doFetch: typeof fetch, sleep: (ms: number) => Promise
       const rb = exempt ? { text: "", code: "" } : await robotsFor(source, u);
       if (rb.text === null) return { ok: false, code: rb.code };
       if (!robotsAllows(rb.text, ROBOTS_AGENT, u.pathname + u.search)) return { ok: false, code: "robots" };
-      const got = await follow(source, u, wantFeed ? "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9" : "text/html, application/xhtml+xml;q=0.9");
+      const got = await follow(source, u, wantFeed ? BROWSER_ACCEPT_FEED : BROWSER_ACCEPT_HTML);
       if (!got.ok) return got;
       if (!exempt && got.url.href !== u.href && !robotsAllows((await robotsFor(source, got.url)).text ?? "User-agent: *\nDisallow: /", ROBOTS_AGENT, got.url.pathname + got.url.search)) {
         try { await got.res.body?.cancel(); } catch { /* ignore */ }
@@ -410,6 +412,8 @@ async function saveSharedBody(db: Db, log: Log, source: OutsideSource, articleId
   if (source.extract === false) return;
   const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...body } = bodyRow(ex, { workspace_id: "" }, nowIso);
   try {
+    // S68-49: 손으로 넣은 본문(manual@1)은 읽은 결과로 덮지 않는다(손 본문 고치기는 hand_body만).
+    if (merge && isHandRow((await db.get(`app_outside_article_bodies?article_id=eq.${articleId}&select=rule&limit=1`))[0])) { log("hand_body_kept"); return; }
     await db.send("POST", "app_outside_article_bodies?on_conflict=article_id", { article_id: articleId, ...body, updated_at: nowIso },
       `return=minimal,resolution=${merge ? "merge-duplicates" : "ignore-duplicates"}`);
   } catch { log("shared_body_failed", { source: source.key }); }
@@ -677,6 +681,36 @@ async function refillSource(db: Db, reader: Reader, log: Log, source: OutsideSou
 export const ROBOTS_RETRY_PER_RUN = 5;
 export const ROBOTS_RETRY_DAYS = 30;
 export const REREAD_DAILY = 60; // 화면 [원문 다시 가져오기]: 하루 횟수(뉴스 '기사 먼저 읽기'와 같은 fetch_n 칸·같은 상한)
+// S68-49: 같은 글을 너무 자주 다시 읽지 않게 — 공용 본문 '실패' 줄이 이 시간 안에 고쳐졌으면(방금 누군가 다시 읽음·예약 다시 읽기) 사이트를 읽지 않고
+// status 'recent'(하루 횟수도 쓰지 않음). 봇 확인(bot_check)·robots·늦은 답 등 실패 까닭 모두 같다.
+export const REREAD_COOLDOWN_MS = 10 * 60 * 1000;
+export const rereadTooSoon = (have: Record<string, unknown> | null | undefined, nowMs: number) =>
+  !!have && have.state === "failed" && typeof have.updated_at === "string" && Number.isFinite(Date.parse(have.updated_at)) &&
+  nowMs - Date.parse(have.updated_at) >= 0 && nowMs - Date.parse(have.updated_at) < REREAD_COOLDOWN_MS;
+// ---- 손으로 넣은 본문(hand_body, S68-49) ------------------------------------------------------------------------------------
+// 끝내 못 읽는 사회운동 글(봇 확인·막힘 등): 사람이 원래 사이트에서 본문을 복사해 [본문 붙여 넣기]로 넣는다. 뉴스 직접 넣기(news-feed hand_fill)와 같은 규칙:
+// - 몸통 {id, body}. 글자로만 저장(HTML 해석 없음), 빈 줄로 문단(빈 줄이 없으면 줄마다), 제어 글자 빼기, 본문 HAND_BODY_MAX자·블록 400개까지.
+// - 운영자 기능 키(outside) 작업공간만(아래 newsAllowed 문). 글은 누른 사람 로그인(RLS)으로 읽히는 공용 글만(못 읽으면 404).
+// - 공용 본문이 읽힌 본문(ok·lead·image_only, 손 본문 아님)이면 409 ALREADY_READ(읽힌 것을 손으로 덮지 않음). 실패·없음·손 본문이면 넣거나 고친다.
+// - 손으로 넣은 본문(규칙 manual@1)은 이후 다시 읽기·다시 뽑기가 덮지 않는다(saveSharedBody·replaceFailedSharedBody, #2897과 같은 규칙).
+// - 바깥 사이트를 읽지 않고 AI도 부르지 않는다. 요약은 다음 상세 열기 때 새 본문으로 다시 만든다(ai-assist가 본문보다 오래된 저장본을 버림).
+export const HAND_RULE = "manual@1";
+export const HAND_BODY_MAX = 50000;
+export const HAND_MAX_BYTES = 256 * 1024;
+// deno-lint-ignore no-control-regex
+const HAND_CTRL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029\u200b\ufeff]/g;
+export function handBodyOf(raw: unknown): Extracted | null {
+  if (typeof raw !== "string" || [...raw].length > HAND_BODY_MAX) return null;
+  const text = raw.replace(/\r\n?/g, "\n").replace(HAND_CTRL, " ");
+  const parts = (/\n\s*\n/.test(text) ? text.split(/\n\s*\n/) : text.split("\n")).map((t) => t.replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const paras: string[] = [];
+  const per = Math.ceil(parts.length / 400);
+  for (let i = 0; i < parts.length; i += per) paras.push(parts.slice(i, i + per).join(" "));
+  const blocks = paras.map((t) => ({ t: "p" as const, text: t }));
+  return { state: "ok", reason: null, rule: HAND_RULE, blocks, chars: [...paras.join("")].length, images: 0, captions: 0, text: paras.join("\n") } as Extracted;
+}
+const isHandRow = (row: Record<string, unknown> | null | undefined) => !!row && row.rule === HAND_RULE;
 export const isRobotsBody = (body: Record<string, unknown> | null | undefined) => !!body && body.state === "failed" && body.reason === "robots";
 const bodyCells = (ex: Extracted, nowIso: string) => {
   const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...cells } = bodyRow(ex, { workspace_id: "" }, nowIso);
@@ -687,7 +721,8 @@ async function replaceFailedSharedBody(db: Db, log: Log, source: OutsideSource, 
   if (source.extract === false || !UUID.test(articleId)) return;
   await saveSharedBody(db, log, source, articleId, ex, nowIso, ex.state !== "failed");
   if (ex.state !== "failed") return;
-  try { await db.send("PATCH", `app_outside_article_bodies?article_id=eq.${articleId}&state=eq.failed`, { ...bodyCells(ex, nowIso), updated_at: nowIso }, "return=minimal"); }
+  // 손 본문은 덮지 않는다(비운 손 본문도 state failed·rule manual@1 — 규칙이 손이 아닌 줄만).
+  try { await db.send("PATCH", `app_outside_article_bodies?article_id=eq.${articleId}&state=eq.failed&or=(rule.is.null,rule.neq.${HAND_RULE})`, { ...bodyCells(ex, nowIso), updated_at: nowIso }, "return=minimal"); }
   catch { log("shared_body_failed", { source: source.key }); }
 }
 // 옛 줄 본문(작업공간마다): 같은 규칙.
@@ -1006,10 +1041,11 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!m) throw new Fail(401, "UNAUTHORIZED");
       }
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
-      if (cron ? action !== "run_plan" && action !== "run" && action !== "probe" && action !== "refill" : action !== "catalog" && action !== "expand" && action !== "read_now" && action !== "translate" && action !== "reread") throw new Fail(400, "UNKNOWN_ACTION");
-      if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
+      if (cron ? action !== "run_plan" && action !== "run" && action !== "probe" && action !== "refill" : action !== "catalog" && action !== "expand" && action !== "read_now" && action !== "translate" && action !== "reread" && action !== "hand_body") throw new Fail(400, "UNKNOWN_ACTION");
+      const maxBytes = action === "hand_body" ? HAND_MAX_BYTES : MAX_BODY_BYTES;
+      if (Number(req.headers.get("content-length") || 0) > maxBytes) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown = {};
-      try { body = await readBoundedJson(req, { maxBytes: MAX_BODY_BYTES }); } catch { throw new Fail(400, "INVALID_BODY"); }
+      try { body = await readBoundedJson(req, { maxBytes }); } catch { throw new Fail(400, "INVALID_BODY"); }
       if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "INVALID_BODY");
       const b = body as Record<string, unknown>;
       const db = makeDb(sb, key, doFetch);
@@ -1088,8 +1124,10 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!source || source.extract === false || source.mode === "telegram" || !allowedUrl(source, art.url)) return json({ ok: true, status: "original_only" });
         if (robotsExempt(source)) return json({ ok: true, status: "scheduled_only" });
         const artId = String(art.id);
-        const have = (await db.get(`app_outside_article_bodies?article_id=eq.${artId}&select=state&limit=1`))[0];
+        const have = (await db.get(`app_outside_article_bodies?article_id=eq.${artId}&select=state,reason,rule,updated_at&limit=1`))[0];
         if (have && have.state !== "failed") return json({ ok: true, status: "stored" });
+        if (isHandRow(have)) return json({ ok: true, status: "stored" }); // 손으로 비운 본문은 사람 것 — 다시 읽지 않는다
+        if (rereadTooSoon(have, nowMs)) return json({ ok: true, status: "recent", reason: typeof have.reason === "string" ? have.reason : "" });
         if (!await takeDaily(db, ws, "fetch_n", REREAD_DAILY, nowMs)) throw new Fail(429, "DAILY_LIMIT");
         const nowIso = new Date(nowMs).toISOString();
         const ex = await rereadPage(makeReader(doFetch, sleep, log), source, art.url, typeof art.title === "string" ? art.title : "");
@@ -1100,6 +1138,27 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         for (const o of olds) await replaceFailedOldBody(db, log, source, ws, String(o.id), ex, nowIso);
         log("reread_done", { source: source.key, state: ex.state, reason: ex.reason ?? "" });
         return json({ ok: true, status: ex.state === "failed" ? (ex.reason ?? "failed") : "ok" });
+      }
+      if (action === "hand_body") {
+        // [본문 붙여 넣기](S68-49): 위 hand_body 설명. 글 id + 본문 글자만 받는다(주소·작업공간 값 없음).
+        if (!exactKeys(b, ["id", "body"]) || typeof b.id !== "string" || !UUID.test(b.id)) throw new Fail(400, "INVALID_BODY");
+        const ex = handBodyOf(b.body);
+        if (!ex) throw new Fail(400, "INVALID_BODY");
+        const reads = makeUserReads(sb, deps.env("SUPABASE_ANON_KEY") ?? "", jwt, doFetch);
+        let art: Record<string, unknown> | null;
+        try { art = await readSharedArticle("outside", reads, b.id, SHARED_SELECT); } catch { throw new Fail(503, "STORE_UNAVAILABLE"); }
+        if (!art || typeof art.id !== "string" || !UUID.test(art.id)) throw new Fail(404, "NOT_FOUND");
+        const artId = String(art.id);
+        const have = (await db.get(`app_outside_article_bodies?article_id=eq.${artId}&select=state,rule&limit=1`))[0];
+        if (have && have.state !== "failed" && !isHandRow(have)) throw new Fail(409, "ALREADY_READ");
+        const nowIso = new Date(nowMs).toISOString();
+        const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...cells } = bodyRow(ex, { workspace_id: "" }, nowIso);
+        try {
+          await db.send("POST", "app_outside_article_bodies?on_conflict=article_id", { article_id: artId, ...cells, updated_at: nowIso }, "return=minimal,resolution=merge-duplicates");
+        } catch { throw new Fail(503, "STORE_UNAVAILABLE"); }
+        const paras = ex.blocks.length; // 문단 수만(글자·제목·주소는 로그에 남기지 않음)
+        log("hand_body_saved", { paras });
+        return json({ ok: true, status: "filled" });
       }
       if (action === "translate") {
         // [번역](S52-36): 영어 소식 하나(글 id만 받음, 주소·작업공간 값 없음). 본문 번역이 이미 있으면 저장본(다시 부르지 않음).

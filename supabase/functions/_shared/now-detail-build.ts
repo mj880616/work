@@ -12,6 +12,7 @@
 //   '함께 볼 것'은 서버가 뽑은 후보 안에서만 고른다(AI가 id를 지어내지 못함). 로그에는 건수·단계 코드만.
 //   외국 원문 쪽 읽기는 카탈로그 그 단체의 허용 호스트만(주소·리다이렉트·robots 모두), 읽은 글은 재료로만 쓰고 버린다.
 import { ACCEPT_HTML, makeFeedReader } from "./feed-fetch.ts";
+import { readerUserAgent } from "./reader-headers.ts";
 import { allowedUrl, sourceByKey } from "./outside-catalog.ts";
 import { newsSourceByKey } from "./news-catalog.ts";
 import { outputText } from "./openai-responses.ts";
@@ -23,7 +24,8 @@ export const NOW_MATERIAL_CHARS = 6000;
 export const NOW_RELATED_MAX = 8;
 export const NOW_RELATED_DAYS = 90;
 export const NOW_OUTSIDE_AGENT = "Web2OutsideFeed"; // outside-feed와 같은 robots.txt 이름
-export const NOW_OUTSIDE_UA = "Web2OutsideFeed/1.0 (+https://github.com/mj880616/work/blob/main/docs/design/outside-statements.md)";
+// S68-49: outside-feed와 같은 브라우저 호환 꼴(위장 없음 — reader-headers.ts).
+export const NOW_OUTSIDE_UA = readerUserAgent("Web2OutsideFeed", "1.0", "https://github.com/mj880616/work/blob/main/docs/design/outside-statements.md");
 export const NOW_DETAIL_OUT = 1600, NOW_BASIC_OUT = 900, NOW_CONTEXT_OUT = 700;
 // 상세 재료로 쓰는 본문 블록 상태(앞부분만인 lead 포함). image_only·failed는 글자가 없거나 첨부 이름뿐이라 예전 방식으로.
 export const NOW_FEED_STATES = Object.freeze(["ok", "lead"]);
