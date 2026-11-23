@@ -1,6 +1,6 @@
 // FEEDBACK-의견보내기 PR5: 운영자 전용 '받은 의견' 화면(?view=feedback). #feedbackView의 유일한 그리기 주인.
 // 입구는 운영자 계정 메뉴의 '받은 의견 n'(서버 허용 표 dev_inbox일 때만 줄을 그림). 읽기·처리함은 서버 app_feedback_*가 운영자만 받는다(아니면 42501).
-// 보낸 사람 이름·시각·화면·기기·글·사진(누를 때 서버에서 읽음), [처리함] 표시, 거르기 처리 전/처리함/전체. 기기 저장 없음. 글자는 textContent로만.
+// 보낸 사람 이메일주소(S68-58 — 운영자에게 가는 사람 정보는 이메일·가입일·마지막 사용 시각뿐, 이름·조직 없음)·시각·화면·기기·글·사진(누를 때 서버에서 읽음), [처리함] 표시, 거르기 처리 전/처리함/전체. 기기 저장 없음. 글자는 textContent로만.
 // 의견 글을 요청함·발송·공유와 자동으로 잇지 않는다(옮길 때는 사람이 직접).
 import {waitHtml,failHtml,emptyHtml} from './wait-state.js';
 import {DEVICE_LABEL,CLIENT_LABEL} from './feedback-model.mjs';
@@ -15,7 +15,7 @@ const when=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?'':d
 function row(item){
   const box=el('article','fb-item');box.dataset.fbId=item.id;if(item.done_at)box.classList.add('is-done');
   const head=el('div','fb-head');
-  head.append(el('b','fb-name',item.name),el('span','fb-meta',[when(item.created_at),item.screen,DEVICE_LABEL[item.device],CLIENT_LABEL[item.client],item.version?`판 ${item.version}`:''].filter(Boolean).join(' · ')));
+  head.append(el('b','fb-name',item.email||'메일 없음'),el('span','fb-meta',[when(item.created_at),item.screen,DEVICE_LABEL[item.device],CLIENT_LABEL[item.client],item.version?`판 ${item.version}`:''].filter(Boolean).join(' · ')));
   const done=el('button','mini fb-done',item.done_at?'처리 전으로':'처리함');done.type='button';done.dataset.fbDone=item.done_at?'0':'1';
   head.append(done);
   box.append(head,el('p','fb-body',item.body));

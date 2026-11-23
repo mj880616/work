@@ -15,7 +15,7 @@
 #feedbackView .fb-item{min-width:0;padding:6px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row)}
 #feedbackView .fb-item.is-done{opacity:.6}
 #feedbackView .fb-head{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;min-width:0}
-#feedbackView .fb-name{flex:none;font-weight:var(--ds-weight-medium,600)}
+#feedbackView .fb-name{flex:0 1 auto;min-width:0;overflow-wrap:anywhere;font-weight:var(--ds-weight-medium,600)} /* S68-58: 보낸 사람 이메일(긴 메일도 폰 폭 안에서 줄바꿈) */
 #feedbackView .fb-meta{flex:1 1 0;min-width:0;color:var(--kptu-muted);font-size:var(--ds-text-meta);overflow-wrap:anywhere}
 #feedbackView .fb-done{flex:none;margin-left:auto}
 #feedbackView .fb-body{margin:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}

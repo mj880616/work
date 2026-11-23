@@ -1,7 +1,7 @@
 // OPS-가입자현황(S62-29, OPS-새가입알림 ③ S62-25를 넓힘): 운영자 전용 '가입자 현황' 화면(?view=signups). #signupsView의 유일한 그리기 주인.
 // 입구는 운영자 계정 메뉴의 '가입자 현황'(서버 허용 표 dev_inbox일 때만 줄을 그림)과 새 가입 폰 알림·알림 줄. 읽기는 서버 app_signup_list가
-// 운영자만 받는다(아니면 42501 → '운영자만 볼 수 있어요'). 원칙(명진 11/15): 운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않는다 —
-// 이 화면이 그리는 칸은 조직·부서·이름·직책·이메일·가입일·마지막 사용뿐(app/signups-model.mjs COLUMNS). 맨 위 숫자 한 줄은 같은 목록에서 센다.
+// 운영자만 받는다(아니면 42501 → '운영자만 볼 수 있어요'). 원칙(명진 11/23): 내가 기록한 내용은 운영자가 볼 수 없다 —
+// 이 화면이 그리는 칸은 이메일·가입일·마지막 사용뿐(app/signups-model.mjs COLUMNS, S68-58). 맨 위 숫자 한 줄은 같은 목록에서 센다.
 // 차단(가입 막기)은 화면에 없다(AGENTS.md 5절 — 차단 명단은 SQL로만). 기기 저장 없음. 글자는 textContent로만.
 import {waitHtml,failHtml,emptyHtml} from './wait-state.js';
 import {COLUMNS,summarize,summaryText,cells} from './signups-model.mjs';

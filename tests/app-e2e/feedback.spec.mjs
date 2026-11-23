@@ -10,8 +10,8 @@ const origin=appOrigin;
 const SHOTS=process.env.S62_19_SHOTS?'docs/design/screens/s62-19/':'test-results/';
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=','base64');
 const ITEMS=[
-  {id:'f2',name:'가상 이용자',created_at:'2026-11-15T09:10:00Z',screen:'사진',device:'fold',client:'app',version:'abc123',body:'사진 화면에서 별표가 안 눌려요.\n두 번 눌러야 돼요.',photos:1,done_at:null},
-  {id:'f1',name:'다른 이용자',created_at:'2026-11-15T08:00:00Z',screen:'홈',device:'phone',client:'browser',version:'',body:'홈 입력칸 글자가 작아요',photos:0,done_at:null}
+  {id:'f2',email:'user-a@example.test',created_at:'2026-11-15T09:10:00Z',screen:'사진',device:'fold',client:'app',version:'abc123',body:'사진 화면에서 별표가 안 눌려요.\n두 번 눌러야 돼요.',photos:1,done_at:null},
+  {id:'f1',email:'user-b@example.test',created_at:'2026-11-15T08:00:00Z',screen:'홈',device:'phone',client:'browser',version:'',body:'홈 입력칸 글자가 작아요',photos:0,done_at:null}
 ];
 async function boot(page,{operator=false,view='calendar'}={}){
   const calls=[];
@@ -115,7 +115,7 @@ for(const width of [412,880,1280])test(`운영자: 받은 의견 n → 목록·�
   await expect(view.locator('.fb-item')).toHaveCount(2,{timeout:15000});
   await expect(page).toHaveURL(/view=feedback/);
   const first=view.locator('.fb-item').first();
-  await expect(first.locator('.fb-name')).toHaveText('가상 이용자');
+  await expect(first.locator('.fb-name')).toHaveText('user-a@example.test'); // S68-58: 보낸 사람은 이메일주소(이름 없음)
   await expect(first.locator('.fb-meta')).toContainText('사진 · 폴드 · 앱 · 판 abc123');
   await expect(first.locator('.fb-body')).toHaveText('사진 화면에서 별표가 안 눌려요.\n두 번 눌러야 돼요.');
   await first.getByRole('button',{name:'사진 1'}).click();

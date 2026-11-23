@@ -1,10 +1,9 @@
-import {word} from './brand/brand.mjs';
 // OPS-가입자현황(S62-29): 운영자 '가입자 현황' 화면의 숫자 한 줄과 칸 글자. 순수 함수(화면·서버 없음).
-// 서버 app_signup_list(운영자만)가 돌려주는 배열 한 줄 = {union_name, department_name, name, job_title, email, signed_up_at, last_seen_at}
-// (migration 20261116002500_signup_status). 숫자 셋은 이 배열에서 센다: 전체 · 이번 주 새로(한국 시각 월요일 0시부터) · 최근 7일 쓴 사람.
-// 칸은 명진 확정 문장 그대로(11/15 23:17): 조직 · 부서 · 이름 · 직책 · 이메일 · 가입일 · 마지막 사용. 그 밖의 칸은 그리지 않는다.
+// 서버 app_signup_list(운영자만)가 돌려주는 배열 한 줄 = {email, signed_up_at, last_seen_at}
+// (migration 20261123170000_operator_info_three). 숫자 셋은 이 배열에서 센다: 전체 · 이번 주 새로(한국 시각 월요일 0시부터) · 최근 7일 쓴 사람.
+// 칸은 명진 확정 문장 그대로(S68-58, 11/23 15:53 "운영자에게 제공되는 정보: 이메일주소, 가입일, 마지막 사용 시각."): 이메일 · 가입일 · 마지막 사용.
+// 조직·부서·이름·직책은 운영자에게 가지 않는다(서버도 돌려주지 않음). 그 밖의 칸은 그리지 않는다.
 export const COLUMNS = Object.freeze([
-  ['union_name', word('조직','signup')], ['department_name', '부서'], ['name', '이름'], ['job_title', '직책'],
   ['email', '이메일'], ['signed_up_at', '가입일'], ['last_seen_at', '마지막 사용']
 ]);
 const DAY = 86400000, KST = 9 * 3600000;
@@ -38,11 +37,7 @@ export function dayText(value) { const p = parts(value, {year: '2-digit', month:
 export function timeText(value) { const p = parts(value, {year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'}); return p ? `${p.year}.${p.month}.${p.day} ${p.hour}:${p.minute}` : ''; }
 
 const line = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
-// 한 사람 줄의 칸 글자(빈 칸은 ''). 이름이 비면 '이름 없음'.
+// 한 사람 줄의 칸 글자(빈 칸은 ''). COLUMNS 셋만 — 서버가 다른 칸을 보내도 그리지 않는다.
 export function cells(item) {
-  return {
-    union_name: line(item?.union_name, 60), department_name: line(item?.department_name, 60),
-    name: line(item?.name, 40) || '이름 없음', job_title: line(item?.job_title, 60), email: line(item?.email, 254),
-    signed_up_at: dayText(item?.signed_up_at), last_seen_at: timeText(item?.last_seen_at)
-  };
+  return {email: line(item?.email, 254), signed_up_at: dayText(item?.signed_up_at), last_seen_at: timeText(item?.last_seen_at)};
 }

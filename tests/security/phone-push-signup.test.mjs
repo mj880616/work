@@ -1,6 +1,8 @@
 // OPS-새가입알림 ②(S62-25): phone-push가 새 가입을 운영자(dev_inbox 작업공간)에게만 알린다 — 15분 예약 폰 알림 + 알림 줄.
 // 같은 가입 두 번 안 알림, 여럿이면 한 번에 묶음, 조용한 시간엔 모았다가 끝난 뒤, 끄면 skipped_off, 폰이 없으면 알림 줄만.
-// 운영자가 아니면 알림 줄도 목록 읽기도 없다. 기록에는 종류·열쇠·상태만(이름 없음). 네트워크 없음, 모두 지어낸 값(가상 이름).
+// 운영자가 아니면 알림 줄도 목록 읽기도 없다. 기록에는 종류·열쇠·상태만(이름 없음). 네트워크 없음, 모두 지어낸 값(가상 메일).
+// S68-58(명진 11/23 15:53): 운영자에게 가는 정보는 이메일·가입일·마지막 사용 시각뿐 — 알림 글은 '새 가입 n명'(이름·조직 없음).
+//   서버 흉내도 새 모양(since = 수·가장 새 초, list = 이메일·가입·사용)이다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateKeyPairSync} from 'node:crypto';
@@ -34,13 +36,13 @@ function harness({now,people=[],prefs=null,log=[],devices=true,operator=OP_WS}={
       assert.equal(headers.get('authorization'),'Bearer '+SERVICE,'세기 함수는 service_role만');
       state.sinceArgs.push(body.p_since);
       const s=Date.parse(body.p_since)/1000,hit=people.filter(p=>sec(p.at)>s).sort((a,b)=>b.at.localeCompare(a.at));
-      return reply(200,{count:hit.length,names:hit.slice(0,5).map(p=>p.name),newest:hit.length?sec(hit[0].at):null});
+      return reply(200,{count:hit.length,newest:hit.length?sec(hit[0].at):null});
     }
     if(table==='rpc/app_signup_list'){
       // 사용자 로그인 그대로(anon 열쇠 + 그 사람 JWT). 서버 함수가 운영자 아니면 거절(42501 → 403).
       state.listCalls++;assert.equal(method,'GET');assert.equal(headers.get('apikey'),ANON);
       if(headers.get('authorization')!=='Bearer '+JWT_OP)return reply(403,{code:'42501',message:'OPERATOR_FEATURE_REQUIRED'});
-      return reply(200,people.map(p=>({name:p.name,signed_up_at:p.at,last_seen_at:null})));
+      return reply(200,people.map(p=>({email:p.email,signed_up_at:p.at,last_seen_at:null})));
     }
     if(table==='app_push_log'&&method==='DELETE')return reply(200,[]);
     if(table==='app_push_log'&&method==='GET'){
@@ -81,36 +83,39 @@ function harness({now,people=[],prefs=null,log=[],devices=true,operator=OP_WS}={
   const user=(jwt,action='notices',b={})=>handler(new Request(`${FN}?action=${action}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+jwt},body:JSON.stringify(b)}));
   return {cron,user,state};
 }
-const A={name:'가상 사람A',at:'2026-11-15T02:10:00.300Z'},B={name:'가상 사람B',at:'2026-11-15T02:20:00Z'},C={name:'가상 사람C',at:'2026-11-15T05:00:00Z'};
+const A={email:'person-a@example.test',at:'2026-11-15T02:10:00.300Z'},B={email:'person-b@example.test',at:'2026-11-15T02:20:00Z'},C={email:'person-c@example.test',at:'2026-11-15T05:00:00Z'};
 const DAY=Date.parse('2026-11-15T03:00:00Z'); // 12:00 KST
 const NIGHT=Date.parse('2026-11-15T14:00:00Z'); // 23:00 KST
 const MORNING=Date.parse('2026-11-15T22:30:00Z'); // 다음 날 07:30 KST
 const su=out=>out.items.filter(i=>i.kind==='signup'),suLog=h=>h.state.log.filter(l=>l.kind==='signup');
 const titleOf=h=>h.state.fcm.map(f=>f.message.data.title);
 
-test('quarter: 운영자에게만 "새 가입 n명 — 이름" 한 번, 묶음, 기록은 종류·열쇠·상태만, 같은 가입 다시 안 보냄',async()=>{
+test('quarter: 운영자에게만 "새 가입 n명" 한 번(이름·메일 없음), 묶음, 기록은 종류·열쇠·상태만, 같은 가입 다시 안 보냄',async()=>{
   const h=harness({now:DAY,people:[A,B]});
   const out=await (await h.cron()).json();
   assert.deepEqual(out.signup,{sent:1,held:0,off:0,found:2});
-  assert.deepEqual(titleOf(h),['새 가입 2명 — 가상 사람B, 가상 사람A']);
+  assert.deepEqual(titleOf(h),['새 가입 2명']);
+  assert.doesNotMatch(JSON.stringify(h.state.fcm),/example\.test|가상/,'알림에 메일·이름 없음');
   const data=h.state.fcm[0].message.data;
   assert.equal(data.kind,'signup');assert.equal(data.open,`/work/app/?view=signups&notice=signup.${encodeURIComponent('su:'+sec(B.at))}`);
   assert.equal(h.state.fcm[0].message.token,'devTokenAAAA_bbbb:cccc-000111','운영자 폰에만');
   assert.deepEqual(h.state.log.map(l=>[l.workspace_id,l.kind,l.ref_key,l.status]),[[OP_WS,'signup','su:'+sec(B.at),'sent']]);
-  assert.doesNotMatch(JSON.stringify(h.state.log),/가상/);
+  assert.doesNotMatch(JSON.stringify(h.state.log),/가상|example\.test/);
   // 처음(기록 없음)은 하루 전부터 센다.
   assert.equal(h.state.sinceArgs[0],new Date((Math.floor(DAY/1000)-86400)*1000).toISOString());
   await h.cron();assert.equal(h.state.fcm.length,1,'같은 가입은 다시 안 보냄');
   // 열쇠 초 뒤만 센다(0.3초가 붙은 가입도 다시 세지 않음).
   assert.equal(h.state.sinceArgs[1],new Date(sec(B.at)*1000).toISOString());
   const h2=harness({now:DAY+3*3600000,people:[A,B,C],log:h.state.log});
-  await h2.cron();assert.deepEqual(titleOf(h2),['새 가입 1명 — 가상 사람C']);
+  await h2.cron();assert.deepEqual(titleOf(h2),['새 가입 1명']);
 });
 
-test('넷 이상이면 이름 셋 + 외 n명, 이름의 제어 문자는 지움',()=>{
-  assert.equal(H.signupTitle(5,['가','나','다','라','마']),'새 가입 5명 — 가, 나, 다 외 2명');
-  assert.equal(H.signupTitle(1,['가\u0007나']),'새 가입 1명 — 가 나');
-  assert.equal(H.signupTitle(2,[]),'새 가입 2명');
+test('알림 글은 수만: 이름을 넘겨도 싣지 않음, 이상한 수는 0',()=>{
+  assert.equal(H.signupTitle(5),'새 가입 5명');
+  assert.equal(H.signupTitle(5,['가','나']),'새 가입 5명');
+  assert.equal(H.signupTitle(2.7),'새 가입 2명');
+  assert.equal(H.signupTitle(Number.NaN),'새 가입 0명');
+  assert.equal(H.signupTitle(-1),'새 가입 0명');
 });
 
 test('운영자 작업공간이 정해지지 않으면(허용 행 0개·2개) 아무에게도 안 보내고 세지도 않는다',async()=>{
@@ -124,9 +129,9 @@ test('조용한 시간엔 기록 없이 넘기고, 끝난 뒤 첫 실행에서 �
   const night=harness({now:NIGHT,people:[A,B]});
   assert.deepEqual((await (await night.cron()).json()).signup,{sent:0,held:1,off:0,found:2});
   assert.equal(night.state.fcm.length,0);assert.equal(night.state.log.length,0);
-  const late={name:'가상 사람D',at:'2026-11-15T15:00:00Z'};
+  const late={email:'person-d@example.test',at:'2026-11-15T15:00:00Z'};
   const morning=harness({now:MORNING,people:[A,B,late],log:night.state.log});
-  await morning.cron();assert.deepEqual(titleOf(morning),['새 가입 3명 — 가상 사람D, 가상 사람B, 가상 사람A']);
+  await morning.cron();assert.deepEqual(titleOf(morning),['새 가입 3명']);
   await morning.cron();assert.equal(morning.state.fcm.length,1);
   const off=harness({now:DAY,people:[A],prefs:{kinds:{signup:false}}});
   assert.deepEqual((await (await off.cron()).json()).signup,{sent:0,held:0,off:1,found:1});
@@ -142,18 +147,18 @@ test('폰이 없으면 보내지 않고 failed로 남겨 다시 세지 않는다
   await h.cron();assert.equal(h.state.fcm.length,0);assert.deepEqual(h.state.log.map(l=>l.status),['failed']);
 });
 
-test('알림 줄: 운영자만 "새 가입 n명 — 이름"(text), 연 뒤에는 그 뒤 가입만, 다른 이용자는 목록을 읽지도 않는다',async()=>{
+test('알림 줄: 운영자만 "새 가입 n명"(text, 이름·메일 없음), 연 뒤에는 그 뒤 가입만, 다른 이용자는 목록을 읽지도 않는다',async()=>{
   const h=harness({now:DAY,people:[A,B]});
   const out=await (await h.user(JWT_OP)).json();
-  assert.deepEqual(su(out),[{kind:'signup',ref_key:'su:'+sec(B.at),open:`/work/app/?view=signups&notice=signup.${encodeURIComponent('su:'+sec(B.at))}`,text:'새 가입 2명 — 가상 사람B, 가상 사람A'}]);
+  assert.deepEqual(su(out),[{kind:'signup',ref_key:'su:'+sec(B.at),open:`/work/app/?view=signups&notice=signup.${encodeURIComponent('su:'+sec(B.at))}`,text:'새 가입 2명'}]);
   assert.ok(h.state.rest.some(r=>r.table==='rpc/app_signup_list'&&r.auth==='Bearer '+JWT_OP),'목록은 사용자 로그인으로');
   assert.deepEqual(suLog(h).map(l=>[l.kind,l.status]),[['signup','shown']]);
-  assert.doesNotMatch(JSON.stringify(h.state.log),/가상/);
+  assert.doesNotMatch(JSON.stringify(h.state.log),/가상|example\.test/);
   // 누르면(opened) 다음부터 안 뜬다. 새 가입이 오면 그것만.
   assert.equal((await h.user(JWT_OP,'opened',{kind:'signup',ref_key:'su:'+sec(B.at)})).status,200);
   assert.deepEqual(su(await (await h.user(JWT_OP)).json()),[]);
   const h2=harness({now:DAY+3*3600000,people:[A,B,C],log:h.state.log});
-  assert.deepEqual(su(await (await h2.user(JWT_OP)).json()).map(i=>i.text),['새 가입 1명 — 가상 사람C']);
+  assert.deepEqual(su(await (await h2.user(JWT_OP)).json()).map(i=>i.text),['새 가입 1명']);
   // 연 줄은 폰으로도 보내지 않는다(같은 열쇠).
   const h3=harness({now:DAY,people:[A,B],log:h.state.log});await h3.cron();assert.equal(h3.state.fcm.length,0);
   // 운영자 아님: 줄 없음, 목록 함수 호출 없음.
