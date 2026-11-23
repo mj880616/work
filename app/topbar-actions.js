@@ -31,7 +31,7 @@ const accounts=logoutButtons.map(logout=>{
   const profile=document.createElement('button');profile.type='button';profile.className='account-action';profile.dataset.profileOpen='';profile.textContent='내 프로필';
   // UI-업데이트기록입구: [내 프로필] 바로 아래 [업데이트 기록] 줄, 오른쪽에 지금 판 이름을 작게(메뉴를 처음 열 때 기록 파일에서 채움).
   const updates=document.createElement('button');updates.type='button';updates.className='account-action account-updates';updates.dataset.updatesOpen='';
-  updates.innerHTML='<span class="account-action-name">업데이트 기록</span><span class="account-ver" data-account-ver></span>';
+  updates.innerHTML='<span class="account-action-name">업데이트 기록</span>'; // 명진 11/23: 이름 옆 '현재 판' 글자는 빼고 이름만
   // UPDATE-운영자전용기록업데이트소식 PR1: 개발 기록은 운영자만 — 서버 허용 표(app_my_features)에 운영자 개발 키가 있을 때만 줄을 그린다.
   // 읽기 자체는 서버 함수가 운영자만 허용한다(화면에서 줄을 그리는 것은 편의일 뿐 막는 장치가 아님).
   updates.hidden=true;
@@ -219,9 +219,6 @@ function fillVersion(){
     if(!await m.canReadReleaseNotes()){versionFilled=false;return}
     accounts.forEach(account=>{account.updates.hidden=false;account.inbox.hidden=false;account.signups.hidden=false});
     void fillFeedbackCount();
-    const list=await m.readReleaseNotes();
-    if(!list?.current){versionFilled=false;return}
-    accounts.forEach(account=>{const ver=account.updates.querySelector('[data-account-ver]');if(ver)ver.textContent=`현재 ${list.current}`});
   }).catch(()=>{versionFilled=false});
 }
 window.addEventListener('kptu:session-changed',()=>{versionFilled=false;accounts.forEach(account=>{account.updates.hidden=true;account.inbox.hidden=true;account.signups.hidden=true})});
