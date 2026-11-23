@@ -54,7 +54,15 @@ function topBlocks(html) {
   const byP = maxP >= 300;
   const top = byP ? maxP : Math.max(0, ...out.map((o) => o.all));
   const pick = out.filter((o) => (byP ? o.p : o.all) >= top * 0.8).sort((a, b) => a.all - b.all).slice(0, 3);
-  return pick.map((o) => `${o.sel}:${o.all}/${o.p}`).join(" ");
+  // 전체 글자 기준으로도(문단이 <br>로만 나뉜 본문): 가장 큰 칸 글자의 50% 이상인 칸 중 안쪽 3개.
+  const maxAll = Math.max(0, ...out.map((o) => o.all));
+  const pickAll = out.filter((o) => o.all >= maxAll * 0.5).sort((a, b) => a.all - b.all).slice(0, 3);
+  const item = [...html.matchAll(/<([a-z]+)\b[^>]*\bitemprop\s*=\s*["']articleBody["'][^>]*>/gi)].map((m) => {
+    const cls = /\bclass\s*=\s*["']([^"']*)["']/i.exec(m[0])?.[1]?.trim().split(/\s+/).slice(0, 2).join(".") ?? "";
+    const id = /\bid\s*=\s*["']([^"']*)["']/i.exec(m[0])?.[1] ?? "";
+    return `${m[1]}${id ? "#" + id : ""}${cls ? "." + cls : ""}`.slice(0, 60);
+  }).slice(0, 2);
+  return pick.map((o) => `${o.sel}:${o.all}/${o.p}`).join(" ") + ` ‖ ${pickAll.map((o) => `${o.sel}:${o.all}/${o.p}`).join(" ")}` + (item.length ? ` ‖ itemprop=${item.join(",")}` : "");
 }
 // 스크립트 자료(글자 없이): 큰 스크립트 3개의 id·type·길이, 본문이 실릴 만한 JSON 열쇠 이름이 있는지.
 function scriptHints(html) {
@@ -65,7 +73,10 @@ function scriptHints(html) {
   }).sort((a, b) => b.len - a.len).slice(0, 3);
   const keys = ["articleBody", "content_elements", "articleContent", "newsContent", "\"content\":", "\"body\":", "\"html\":", "\"text\":", "artcContent", "contentHtml"]
     .filter((k) => html.includes(k)).map((k) => k.replace(/[":]/g, ""));
-  return `${list.map((x) => `${x.tag || "-"}:${x.len}`).join(",")} keys=${keys.join(",") || "-"}`;
+  // 본문 열쇠 바로 뒤 모양(글자·숫자는 x로 가린다 — 이스케이프·따옴표 모양만): 구조화 본문 읽기 규칙을 맞추는 데 쓴다.
+  const at = html.search(/articleContent|newsContent|artcContent/);
+  const shape = at >= 0 ? html.slice(Math.max(0, at - 12), at + 40).replace(/[\p{L}\p{N}]/gu, "x").replace(/\s+/g, "_") : "";
+  return `${list.map((x) => `${x.tag || "-"}:${x.len}`).join(",")} keys=${keys.join(",") || "-"}${shape ? ` shape=${shape}` : ""}`;
 }
 function pageHints(html) {
   const jb = jsonBody(html);
