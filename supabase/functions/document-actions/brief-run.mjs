@@ -36,11 +36,16 @@ export const CHUNK_SCHEMA = Object.freeze({
     quotes: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['text', 'heading', 'why'], properties: { text: S, heading: S, why: S } } },
   },
 });
+// S68-45: 최종 브리핑 v2(한눈에·챙길 일·우리 조직 관련·대응할 것·원문 인용). 조각 메모(CHUNK_SCHEMA)는 그대로 — 진행 중 작업의 옛 메모도 합칠 수 있게.
+const OBJ = (props) => ({ type: 'object', additionalProperties: false, required: Object.keys(props), properties: props });
 export const MERGE_SCHEMA = Object.freeze({
-  type: 'object', additionalProperties: false, required: ['lead', 'touches', 'todos', 'conflicts', 'quotes'],
+  type: 'object', additionalProperties: false, required: ['lead', 'glance', 'todos', 'orgs', 'counters', 'quotes'],
   properties: {
-    lead: S, touches: LINES, todos: LINES, conflicts: LINES,
-    quotes: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'why'], properties: { id: S, why: S } } },
+    lead: S, glance: LINES,
+    todos: { type: 'array', items: OBJ({ due: S, text: S, urgent: { type: 'boolean' } }) },
+    orgs: { type: 'array', items: OBJ({ name: S, text: S }) },
+    counters: { type: 'array', items: OBJ({ claim: S, reply: S }) },
+    quotes: { type: 'array', items: OBJ({ id: S, why: S }) },
   },
 });
 

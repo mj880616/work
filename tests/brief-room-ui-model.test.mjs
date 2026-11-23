@@ -20,11 +20,54 @@ test('listRows: folder docs and briefed docs only, newest first', () => {
   assert.equal(rows[0].state.kind, 'done');
 });
 
-test('briefSections keeps four sections, drops bad quote fields', () => {
-  const s = m.briefSections({ lead: 'x', touches: ['가', 3], todos: [], conflicts: ['나'], quotes: [{ text: '원문', page: 12, heading: '3.', why: '왜' }, { text: '' }, { text: '쪽 모름', page: 0 }] });
-  assert.deepEqual(s.map(x => x.key), ['touches', 'todos', 'conflicts', 'quotes']);
-  assert.deepEqual(s[0].lines, ['가']);
-  assert.equal(s[3].quotes.length, 2); assert.equal(s[3].quotes[1].page, null);
+// S68-45: 옛 형식(v1) 브리핑은 읽을 때 새 칸으로 옮겨 보인다(저장 행은 그대로). 빈 칸은 그리지 않는다.
+test('briefView 옛 형식(v1): 한 줄 요지가 한눈에, touches→우리 조직 관련, todos→챙길 일, conflicts→대응할 것, 빈 칸 없음', () => {
+  const v = m.briefView({ v: 1, lead: 'x', touches: ['가', 3], todos: [], conflicts: ['나'], quotes: [{ text: '원문', page: 12, heading: '3.', why: '왜' }, { text: '' }, { text: '쪽 모름', page: 0 }] });
+  assert.equal(v.legacy, true);
+  assert.deepEqual(v.glance, ['x']);
+  assert.deepEqual(v.sections.map(x => x.key), ['orgs', 'counters', 'quotes']);
+  assert.deepEqual(v.sections[0].items, [{ name: '', text: '가' }]);
+  assert.deepEqual(v.sections[1].items, [{ claim: '나', reply: '' }]);
+  assert.equal(v.sections[2].items.length, 2); assert.equal(v.sections[2].items[1].page, null);
+  const old = m.briefView({ lead: 'y', todos: ['의견 제출 11/28까지'] });
+  assert.deepEqual(old.sections.map(x => [x.key, x.title]), [['todos', '챙길 일']]);
+  assert.deepEqual(old.sections[0].items, [{ due: '', text: '의견 제출 11/28까지', urgent: false }]);
+});
+
+test('briefView 새 형식(v2): 한눈에 3줄, 칸 순서·이름, 잘못된 줄은 뺌', () => {
+  const now = new Date('2026-11-23T03:00:00Z');
+  const v = m.briefView({
+    v: 2, lead: '요지', glance: ['하나', '둘', '셋', '넷'],
+    todos: [{ due: '', text: '기한 없음' }, { due: '연내', text: '연내 할 일' }, { due: '11/25', text: '곧' }, { due: '일주일 내', text: '급함' }, { text: '' }, null],
+    orgs: [{ name: '예시 가지부', text: '대상' }, { name: 'x', text: '' }],
+    counters: [{ claim: '저쪽 주장', reply: '반박' }, { claim: '', reply: '빈' }],
+    quotes: [],
+  }, now);
+  assert.equal(v.legacy, false);
+  assert.deepEqual(v.glance, ['하나', '둘', '셋']);
+  assert.deepEqual(v.sections.map(s => [s.key, s.title]), [['todos', '챙길 일'], ['orgs', '우리 조직 관련'], ['counters', '대응할 것']]);
+  assert.deepEqual(v.sections[0].items.map(t => [t.text, t.urgent]), [['곧', true], ['급함', true], ['연내 할 일', false], ['기한 없음', false]]);
+  assert.deepEqual(v.sections[1].items, [{ name: '예시 가지부', text: '대상' }]);
+  assert.deepEqual(v.sections[2].items, [{ claim: '저쪽 주장', reply: '반박' }]);
+  assert.deepEqual(m.briefView({ v: 2, lead: '요지', glance: [] }).glance, ['요지']);
+});
+
+test('dueUrgent·sortTodos·splitShown·moreLabel', () => {
+  const now = new Date('2026-11-23T03:00:00Z');
+  assert.equal(m.dueUrgent('11/28', false, now), true);
+  assert.equal(m.dueUrgent('11월 30일', false, now), true);
+  assert.equal(m.dueUrgent('12/15', false, now), false);
+  assert.equal(m.dueUrgent('2026-11-20', false, now), true, '지난 날짜도 급함');
+  assert.equal(m.dueUrgent('연내', false, now), false);
+  assert.equal(m.dueUrgent('종합감사 전', true, now), true, '서버가 급하다고 하면 그대로');
+  assert.equal(m.dueUrgent('', false, now), false);
+  assert.equal(m.dueUrgent('1/5', false, new Date('2026-12-30T03:00:00Z')), true, '해 넘김');
+  assert.equal(m.dueUrgent('1/5', false, new Date('2026-11-23T03:00:00Z')), false);
+  const sorted = m.sortTodos([{ due: '', text: 'a' }, { due: '연내', text: 'b' }, { due: '', text: 'c', urgent: true }], now);
+  assert.deepEqual(sorted.map(t => t.text), ['c', 'b', 'a']);
+  assert.deepEqual(m.splitShown([1, 2, 3, 4, 5]), { shown: [1, 2, 3], rest: [4, 5] });
+  assert.deepEqual(m.splitShown([1, 2]), { shown: [1, 2], rest: [] });
+  assert.equal(m.moreLabel(2), '+ 2개 더 보기');
 });
 
 test('fileBadge / sourceUrl / isStalled', () => {
@@ -87,13 +130,11 @@ test('pickResult: 넣은 수·원래 폴더에 둔 수·못 넣은 수', () => {
   assert.equal(m.pickResult({ failed: 2 }).error, true);
 });
 
-test('S67-50 briefSections: 등록한 담당이 없으면 touches 칸에 "등록한 담당이 없어요", 칸 이름은 단어표를 거침(노동조합+ 얼굴은 그대로)', () => {
-  const none = m.briefSections({ lead: 'x', touches: [], todos: [], conflicts: [], quotes: [], scope: 'none' });
-  assert.equal(none[0].empty, '등록한 담당이 없어요');
-  assert.equal(m.briefSections({ lead: 'x', touches: [], quotes: [] })[0].empty, '');
-  assert.equal(m.briefSections({ lead: 'x', touches: ['가'], quotes: [], scope: 'none' })[0].empty, '');
-  assert.equal(none[0].title, '내 담당 조직·사업에 닿는 것');
-  assert.equal(none[2].title, '우리 쪽 주장과 부딪히는 대목');
+test('S67-50 briefView: 등록한 담당이 없으면 우리 조직 관련 칸에 "등록한 담당이 없어요"만, 칸 이름은 단어표를 거침(노동조합+ 얼굴은 그대로)', () => {
+  const none = m.briefView({ v: 2, lead: 'x', orgs: [], scope: 'none' });
+  assert.deepEqual(none.sections.map(s => [s.key, s.title, s.empty]), [['orgs', '우리 조직 관련', '등록한 담당이 없어요']]);
+  assert.deepEqual(m.briefView({ lead: 'x', touches: [], quotes: [] }).sections, []);
+  assert.equal(m.briefView({ lead: 'x', touches: ['가'], scope: 'none' }).sections[0].empty, undefined);
 });
 
 // S67-41(명진 11/20 18:10 "폴더도 보여야할 것같고 먼가 찾기쉽게"): 형식 꼬리표·이름 한 줄·올린 날짜·[최근]·[폴더].

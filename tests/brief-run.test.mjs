@@ -55,7 +55,7 @@ function aiFake({ invent = false } = {}) {
           quotes: has ? [{ text: QUOTE, heading: '3. 평가 지표 개편', why: '배점이 오르면 기관이 버팀' }, ...(invent ? [{ text: '인력 충원은 전면 금지한다고 정했다.', heading: 'x', why: 'y' }] : [])] : [],
         }) };
       }
-      return { ok: true, model: 'test-model', text: JSON.stringify({ lead: '인건비 배점이 늘어남.', touches: ['예시 가지부 영향(12쪽)'], todos: ['의견 제출 11/28까지'], conflicts: [], quotes: [{ id: 'q1', why: '배점' }, { id: 'q2', why: '지어낸 것' }] }) };
+      return { ok: true, model: 'test-model', text: JSON.stringify({ lead: '인건비 배점이 늘어남.', glance: ['인건비 배점 5점→8점'], todos: [{ due: '11/28', text: '의견 제출', urgent: false }], orgs: [{ name: '예시 가지부', text: '영향(12쪽)' }], counters: [], quotes: [{ id: 'q1', why: '배점' }, { id: 'q2', why: '지어낸 것' }] }) };
     },
   };
 }
@@ -148,7 +148,9 @@ const scoped = (scope, aiOver = {}) => {
       inputs.push(input); instr.push(instructions);
       const touches = aiOver.touches ?? ['철도 사업장 조직에 닿음(12쪽)', '예시 거래처 단가 조정(12쪽)'];
       if (name === 'brief_chunk') return { ok: true, model: 'm', text: JSON.stringify({ lead: '요지', touches, todos: [], conflicts: [], quotes: [{ text: QUOTE }] }) };
-      return { ok: true, model: 'm', text: JSON.stringify({ lead: '요지 한 줄.', touches, todos: [], conflicts: ['부담이 늘어남'], quotes: [{ id: 'q1' }] }) };
+      // S68-45: 합치기 답은 v2 칸(orgs {name,text}). 이름은 AI가 준 글자, 서버가 등록 이름과 대조한다.
+      const orgs = aiOver.orgs ?? [{ name: '철도 사업장', text: '조직에 닿음(12쪽)' }, { name: '예시거래처', text: '단가 조정(12쪽)' }];
+      return { ok: true, model: 'm', text: JSON.stringify({ lead: '요지 한 줄.', glance: [], todos: [], orgs, counters: [{ claim: '부담이 늘어남', reply: '' }], quotes: [{ id: 'q1' }] }) };
     },
   });
   return { f, runner, inputs, instr };
@@ -162,25 +164,28 @@ test('S67-50 scope: 등록한 담당 대상·프로젝트 둘 다 AI 입력에, 
     assert.match(input, /내가 등록한 담당 대상: 예시 거래처/);
     assert.match(input, /내가 등록한 프로젝트: 예시 프로젝트/);
   }
-  assert.deepEqual(f.rows[0].brief.touches, ['예시 거래처 단가 조정(12쪽)'], '목록에 없는 철도 줄은 남지 않음');
+  assert.deepEqual(f.rows[0].brief.orgs, [{ name: '예시 거래처', text: '단가 조정(12쪽)' }], '목록에 없는 철도 줄은 남지 않고, 이름은 등록 이름 그대로');
+  assert.equal(f.rows[0].brief.v, 2);
+  assert.deepEqual(f.rows[0].brief.glance, ['요지 한 줄.'], '한눈에가 비면 한 줄 요지로 채움');
+  assert.deepEqual(f.rows[0].brief.counters, [{ claim: '부담이 늘어남', reply: '' }]);
   assert.equal(f.rows[0].brief.scope, undefined);
 });
 
-test('S67-50 scope: 등록한 담당이 없으면 touches 비우고 scope:none, 입력에 없음이라고 적음', async () => {
+test('S67-50 scope: 등록한 담당이 없으면 orgs 비우고 scope:none, 입력에 없음이라고 적음', async () => {
   const { f, runner, inputs } = scoped(async () => ({ orgs: [], areas: [] }));
   const { row } = await runner.start({ userId: USER, doc });
   assert.equal(await runner.run(row.id, doc), 'done');
   assert.ok(inputs.every(i => i.includes('내가 등록한 담당: 없음')));
-  assert.deepEqual(f.rows[0].brief.touches, []);
+  assert.deepEqual(f.rows[0].brief.orgs, []);
   assert.equal(f.rows[0].brief.scope, 'none');
 });
 
-test('S67-50 scope: 목록을 못 읽으면 touches는 비우되 "없어요" 표시는 하지 않음', async () => {
+test('S67-50 scope: 목록을 못 읽으면 orgs는 비우되 "없어요" 표시는 하지 않음', async () => {
   const { f, runner, inputs } = scoped(async () => { throw new Error('down'); });
   const { row } = await runner.start({ userId: USER, doc });
   assert.equal(await runner.run(row.id, doc), 'done');
   assert.ok(inputs.every(i => i.includes('확인하지 못함')));
-  assert.deepEqual(f.rows[0].brief.touches, []);
+  assert.deepEqual(f.rows[0].brief.orgs, []);
   assert.equal(f.rows[0].brief.scope, undefined);
 });
 

@@ -150,6 +150,9 @@ test('S67-50 브리핑 칸 이름: 기록+ 얼굴은 노조 색 없는 글자, �
   assert.equal(wordIn(girok, '우리 쪽 주장과 부딪히는 대목', 'brief'), '내 입장과 부딪히는 대목');
   assert.equal(wordIn(nojo, '내 담당 조직·사업에 닿는 것', 'brief'), '내 담당 조직·사업에 닿는 것');
   assert.equal(wordIn(nojo, '우리 쪽 주장과 부딪히는 대목', 'brief'), '우리 쪽 주장과 부딪히는 대목');
+  // S68-45 새 칸 이름.
+  assert.equal(wordIn(girok, '우리 조직 관련', 'brief'), '내 거래처·부서 관련');
+  assert.equal(wordIn(nojo, '우리 조직 관련', 'brief'), '우리 조직 관련');
 });
 
 // S68-02(11/22 명진 결정): WORK ON+ 기본 얼굴(girok)에 남은 노조 단어 — 한글 문서 서식 버튼·편집 백업·백업·휴지통 폴더 이름·PC 도우미 글자.

@@ -86,7 +86,7 @@ test('parseChunkNote: unknown pages → page null and page refs stripped', () =>
   assert.deepEqual(n.todos, ['의견 제출']);
 });
 
-test('verifyBrief: quotes only by candidate id, text from candidates, sorted by page', () => {
+test('verifyBrief: quotes only by candidate id, text from candidates, AI가 고른 순서(중요한 순) 그대로', () => {
   const ctx = ctxOf();
   const note = m.parseChunkNote(JSON.stringify({ lead: 'a', quotes: [
     { text: '신규 인력 수요는 기존 총인건비 범위 내에서 재배치를 우선 검토한다.', heading: '3-2', why: '충원' },
@@ -96,13 +96,13 @@ test('verifyBrief: quotes only by candidate id, text from candidates, sorted by 
   assert.equal(candidates.length, 2); // 같은 인용은 한 번
   const b = m.verifyBrief(JSON.stringify({
     lead: '인건비 배점이 늘고 정원 관리 지표가 생김.',
-    touches: ['예시 가지부 영향(2쪽)'], todos: ['의견 제출 11/28(1쪽)'], conflicts: [],
+    glance: [], todos: [], orgs: [], counters: [],
     quotes: [{ id: 'q1', why: '충원 요구를 막는 근거' }, { id: 'q2' }, { id: 'q9' }, { id: 'q1' }, { text: '새로 쓴 인용' }],
   }), { candidates, pageCount: 3 });
   assert.equal(b.quotes.length, 2);
-  assert.deepEqual(b.quotes.map(q => q.page), [2, 3]);
-  assert.equal(b.quotes[1].why, '충원 요구를 막는 근거');
-  assert.equal(b.quotes[0].text, candidates[1].text);
+  assert.deepEqual(b.quotes.map(q => q.page), [3, 2]);
+  assert.equal(b.quotes[0].why, '충원 요구를 막는 근거');
+  assert.equal(b.quotes[1].text, candidates[1].text);
   assert.equal(m.verifyBrief(JSON.stringify({ lead: '' }), { candidates, pageCount: 3 }), null);
   assert.equal(m.verifyBrief(JSON.stringify({ lead: 'x'.repeat(121) }), { candidates, pageCount: 3 }), null);
 });
@@ -116,4 +116,62 @@ test('chunkWithPages marks pages; inputs carry no ids', () => {
   assert.equal(scope, '내가 등록한 담당 대상: 예시 가지부\n내가 등록한 프로젝트: 사업영역 A');
   assert.match(m.chunkInput({ index: 0, total: 2, title: '예시', scope, body }), /조각 1\/2/);
   assert.equal(m.stepTotal(3), 4);
+});
+
+// S68-45(명진 11/23): 최종 브리핑 v2 — 한눈에 3줄·챙길 일{기한,할 일,급함}·우리 조직 관련{이름,내용}·대응할 것{주장,반박}. AI 답은 믿지 않는 입력.
+test('S68-45 verifyBrief v2: 칸 모양·길이·꼬리말·쪽 표시·담당 이름 검사', () => {
+  const b = m.verifyBrief(JSON.stringify({
+    lead: '인건비 배점 상향.',
+    glance: ['인건비 배점 5점→8점(3쪽)', '정원 지표 신설이 논의됨', 'x'.repeat(81), '넷째 줄'],
+    todos: [
+      { due: '11/28', text: '의견 제출(2쪽)', urgent: true },
+      { due: '', text: '내부 검토 계획이 언급됨', urgent: 'yes' },
+      { due: 'x'.repeat(21), text: '기한이 너무 긺', urgent: false },
+      { due: '연내', text: '<b>꺾쇠</b>', urgent: false },
+      '그냥 글',
+      { due: '연내', text: '지표 대응(99쪽)', urgent: false },
+    ],
+    orgs: [{ name: '예시 가지부', text: '정원 지표 대상' }, { name: '다른 곳', text: '무관' }, { name: '', text: '예시 가지부 인원 영향' }],
+    counters: [{ claim: '총인건비 안 재배치', reply: '충원 요구 근거(3쪽)' }, { claim: '', reply: '빈 주장' }, { claim: '반박 없음', reply: '' }],
+    quotes: [],
+  }), { candidates: [], pageCount: 3, names: ['예시 가지부'] });
+  assert.equal(b.v, 2);
+  assert.deepEqual(b.glance, ['인건비 배점 5점→8점(3쪽)', '정원 지표 신설', '넷째 줄']);
+  assert.deepEqual(b.todos, [
+    { due: '11/28', text: '의견 제출(2쪽)', urgent: true },
+    { due: '', text: '내부 검토 계획', urgent: false },
+    { due: '연내', text: '지표 대응', urgent: false },
+  ]);
+  assert.deepEqual(b.orgs, [{ name: '예시 가지부', text: '정원 지표 대상' }, { name: '예시 가지부', text: '예시 가지부 인원 영향' }]);
+  assert.deepEqual(b.counters, [{ claim: '총인건비 안 재배치', reply: '충원 요구 근거(3쪽)' }, { claim: '반박 없음', reply: '' }]);
+  assert.equal(b.touches, undefined, '옛 칸은 새로 만들지 않음');
+  assert.equal(b.scope, undefined);
+  const none = m.verifyBrief(JSON.stringify({ lead: '요지.', orgs: [{ name: '예시', text: '아무' }] }), { candidates: [], pageCount: null, names: [] });
+  assert.deepEqual(none.orgs, []);
+  assert.equal(none.scope, 'none');
+  assert.deepEqual(none.glance, ['요지.']);
+});
+
+test('S68-45 trimTail·matchScopeName', () => {
+  assert.equal(m.trimTail('예산 축소가 논의됨.'), '예산 축소');
+  assert.equal(m.trimTail('하반기 시행 예정임'), '하반기 시행 예정임', '뜻이 있는 꼬리는 남김');
+  assert.equal(m.trimTail('논의됨'), '논의됨', '다 지워지면 그대로');
+  assert.equal(m.matchScopeName('예시거래처', '', ['예시 거래처']), '예시 거래처');
+  assert.equal(m.matchScopeName('', '예시 거래처 단가', ['예시 거래처']), '예시 거래처');
+  assert.equal(m.matchScopeName('다른 곳', '무관', ['예시 거래처']), null);
+  assert.equal(m.matchScopeName('예시 거래처', '', null), null);
+});
+
+test('S68-45 MERGE_INSTRUCTIONS·MERGE_SCHEMA: v2 칸과 문장 규칙', async () => {
+  assert.match(m.MERGE_INSTRUCTIONS, /"glance"/);
+  assert.match(m.MERGE_INSTRUCTIONS, /"counters"/);
+  assert.match(m.MERGE_INSTRUCTIONS, /꼬리말을 붙이지 않는다/);
+  assert.match(m.CHUNK_INSTRUCTIONS, /꼬리말을 붙이지 않는다/);
+  const r = await import('../supabase/functions/document-actions/brief-run.mjs');
+  assert.deepEqual(r.MERGE_SCHEMA.required, ['lead', 'glance', 'todos', 'orgs', 'counters', 'quotes']);
+  assert.deepEqual(r.MERGE_SCHEMA.properties.todos.items.required, ['due', 'text', 'urgent']);
+  assert.equal(r.MERGE_SCHEMA.properties.todos.items.properties.urgent.type, 'boolean');
+  assert.deepEqual(r.MERGE_SCHEMA.properties.orgs.items.required, ['name', 'text']);
+  assert.deepEqual(r.MERGE_SCHEMA.properties.counters.items.required, ['claim', 'reply']);
+  assert.deepEqual(r.CHUNK_SCHEMA.required, ['lead', 'touches', 'todos', 'conflicts', 'quotes'], '조각 메모는 그대로(진행 중 작업 호환)');
 });
