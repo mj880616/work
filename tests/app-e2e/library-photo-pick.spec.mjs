@@ -109,6 +109,8 @@ test.describe('PC 두 칸 보기 1440',()=>{
     const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,items:[],docs:structuredClone(DOCS),group:'폴더',init:{viewPrefs:null}});
     await page.route('**/functions/v1/library-files*',route=>route.fulfill({status:200,contentType:'image/png',body:PNG}));
     await expect(page.locator('#documentList [data-lu-two]')).toBeVisible();
+    // 맨 위 칸: '폴더 밖' 줄을 펼쳐야 폴더 밖 사진 묶음이 보인다(LIB-두칸폴더밖).
+    await page.locator('#documentList [data-lu-pane-i="1"] [data-lu-nav="x:out"]').click();
     const paneFold=page.locator('#documentList [data-lu-two] [data-lu-photos="x:out"]').last();
     await paneFold.click();
     const tile=id=>page.locator(`#documentList [data-lu-two] .photo-fold-tile [data-lu-document="${id}"]`).last();
