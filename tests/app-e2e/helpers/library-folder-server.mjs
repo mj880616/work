@@ -1,4 +1,3 @@
-import {pickFolderIn,pickOutIn} from './move-picker-drill.mjs';
 import {expect} from '@playwright/test';
 import {appOrigin} from './test-origin.mjs';
 import {baseState,mockApp,signIn} from './filter-chip-fixture.mjs';
@@ -133,12 +132,16 @@ export const treeKeys=page=>page.locator('#documentList details[data-lu-node]').
 export const childrenOf=(page,key)=>page.locator(`#documentList details[data-lu-node="${key}"] > .lu-node-body > *`).evaluateAll(xs=>xs.map(x=>x.dataset.luNode||x.dataset.luDocument).filter(Boolean));
 export const menuButton=(page,key)=>page.locator(`#documentList details[data-lu-node="${key}"] > summary [data-lu-node-menu]`);
 export const folderMenuItem=(page,name)=>page.locator('#luFolderMenu').getByRole('button',{name,exact:true});
-// LIB-폴더로옮기기: 자료 ⋯ → [폴더로 옮기기 ›]로 여는 작은 폴더 목록(#luMovePicker). 고를 수 있는 줄 = aria-disabled 아닌 줄.
-export const movePicker=page=>page.locator('#luMovePicker');
-export const moveFolder=(page,id)=>movePicker(page).locator(`[data-lu-move-folder="${id}"]`).last();
-// LIB-폴더창들어가기: 창에서 그 폴더를 선택하고 [여기로 옮기기]까지(하위 폴더가 있는 줄이면 들어가서 '이 폴더로'). path = 먼저 들어갈 줄들.
-export async function moveTo(page,id,width,{path=[]}={}){await pickFolderIn(movePicker(page),moveFolder(page,id),{press:l=>press(page,l,width),path:path.map(p=>movePicker(page).locator(`[data-lu-move-folder="${p}"][data-lu-move-kids]`))})}
-export async function moveOut(page,width){await pickOutIn(movePicker(page),{press:l=>press(page,l,width)})}
-export const moveEnabledNames=page=>movePicker(page).locator('.lu-move-list .lu-move-item:not([aria-disabled="true"]) .lu-move-name').allTextContents();
+// LIB-폴더로옮기기 → S69-62: 자료 ⋯ → [폴더로 옮기기 ›]로 여는 창은 [파일] '옮길 곳' 창과 같은 창(app/folder-dest-sheet.js, dialog[data-fd-sheet]).
+// 줄 누르기 = 고르기 + 펼치기, [여기에 옮기기](data-fx-dest-go)로만 옮긴다. 고를 수 있는 줄 = 맨 위 줄·막힌 줄(.fd-blocked)·지금 여기 줄이 아닌 폴더 줄.
+export const movePicker=page=>page.locator('dialog[data-fd-sheet][open]');
+export const moveFolder=(page,id)=>movePicker(page).locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
+export async function moveEnabledNames(page){
+  const box=movePicker(page);
+  for(let i=0;i<20;i++){const closed=box.locator('.fx-dest-tree [data-fx-dest-twist][aria-expanded="false"]');if(!(await closed.count()))break;await closed.first().click()}
+  return box.locator('.fx-dest-tree .ft-row:not(.fx-root):not(.fd-blocked) [data-fx-dest-pick]:not([aria-current="true"]) .ft-name').allTextContents();
+}
+// 폴더 줄을 고르고 [여기에 옮기기]. 줄이 아직 접힌 위 폴더 안이면 부른 쪽이 위 폴더를 먼저 누른다.
+export async function pickMove(page,id,width){await press(page,moveFolder(page,id),width);await press(page,movePicker(page).locator('[data-fx-dest-go]'),width)}
 export async function openMove(page,docId,width){await press(page,page.locator(`[data-lu-menu="${docId}"]`),width);await press(page,page.locator(`#luMorePanel [data-lu-move-open="${docId}"]`),width);await expect(movePicker(page)).toBeVisible()}
 export async function press(page,locator,width){if(width<761)await locator.tap();else await locator.click()}

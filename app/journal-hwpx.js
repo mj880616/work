@@ -418,6 +418,12 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     else mine.append(el('b', '', '② 내가 수정한 최종본'), ' 한글에서 수정한 파일을 끌어 놓거나 ', pick);
     finalLine.replaceChildren(made, mine);
   }
+  // S69-67 WEEKLY-저장폴더: [확정]·② [올리기]로 자료실에 저장된 주간보고 자료를 사람마다 고른 저장 폴더에(weekly-save-folder.js — 처음 한 번 묻기, 안 고르면 지금처럼).
+  // 저장·내려받기는 기다리지 않는다(폴더 넣기가 안 돼도 저장은 그대로).
+  function toWeeklyFolder(docId) {
+    if (!docId) return;
+    void import('./weekly-save-folder.js').then(m => m.fileWeeklyReport({docId:String(docId), rt})).catch(() => { /* 폴더 밖에 남음 */ });
+  }
   async function upFinal(file) {
     const week = getWeek(), s = state && state.start === week.start ? state : null;
     const c = (s ? s.store?.confirmed : null) ?? week.row?.draft?.confirmed ?? null;
@@ -436,6 +442,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       let result = await drive.replaceWeeklyReport(bytes, {fileName:file.name, documentId:c.document_id}, {rt});
       if (result.kind === 'gone') result = await drive.saveWeeklyReport(bytes, {fileName:file.name, title:fileNameTitle(file.name), documentDate:reportDay(week.start)}, {rt});
       if (result.kind !== 'created' && result.kind !== 'replaced') { say(`자료실에 저장하지 못했어요 — ${result.message}`, 'error'); return; }
+      toWeeklyFolder(result.document?.id || c.document_id);
       const next = {document_id:String(result.document?.id || c.document_id), at:c.at, final:{at:new Date().toISOString(), file_name:String(file.name).slice(0, 200)}};
       const open = state && state.start === week.start ? state : null;
       if (open?.store) { open.store.confirmed = next; open.store.dirty = true; clearTimeout(open.store.timer); await saveDraft(open); }
@@ -1269,6 +1276,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       if (!result || result.kind === 'gone') result = await drive.saveWeeklyReport(f.bytes, {fileName:f.name, title:fileNameTitle(f.name), documentDate:reportDay(s.start)}, {rt});
       if (mine !== run) return;
       const ok = result.kind === 'created' || result.kind === 'replaced';
+      if (ok) toWeeklyFolder(result.document?.id ?? prev);
       download(f.bytes, f.name, f.type);
       state.saved = result;
       say(ok ? `${result.message} "${f.name}"을(를) 내려받았어요.${fellNote(f)}${b.docNote ? ` ${b.docNote}` : ''}` : `자료실에 저장하지 못했어요 — ${result.message} 파일은 내려받았어요.${fellNote(f)}`, ok && !f.fell ? 'ok' : 'error');

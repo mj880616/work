@@ -75,7 +75,13 @@ class WeekWidget : AppWidgetProvider() {
             return
         }
         if (intent.action == ACTION_SHIFT) {
-            shift(context, widgetId(intent), intent.getIntExtra(EXTRA_DELTA, 0), WidgetWeek.parseDay(intent.getStringExtra(EXTRA_SUNDAY)))
+            shift(
+                context,
+                widgetId(intent),
+                intent.getIntExtra(EXTRA_DELTA, 0),
+                WidgetWeek.parseDay(intent.getStringExtra(EXTRA_TO)),
+                WidgetWeek.parseDay(intent.getStringExtra(EXTRA_SUNDAY)),
+            )
             return
         }
         super.onReceive(context, intent)
@@ -90,6 +96,8 @@ class WeekWidget : AppWidgetProvider() {
         private const val EXTRA_DELTA = "delta"
         /** S68-51: 누른 칸·화살표가 그려질 때의 주 일요일(yyyy-mm-dd). 메모리를 잃어도 그 주를 되찾는 데만 쓴다. */
         private const val EXTRA_SUNDAY = "sunday"
+        /** S69-78: ‹ ›가 옮길 대상 주 일요일(yyyy-mm-dd, 절대값). 머리 글자(0)에는 없다. */
+        private const val EXTRA_TO = "to"
         /** 줄을 누르면 MainActivity가 받는 동작. 날짜는 EXTRA_DAY(yyyy-mm-dd, WidgetWeek.parseDay로만 읽음). */
         const val ACTION_DAY = "kr.or.kptu.work.action.WIDGET_DAY"
         const val EXTRA_DAY = "day"
@@ -138,12 +146,12 @@ class WeekWidget : AppWidgetProvider() {
         }
 
         /** ‹ ›·머리 글자: 그 위젯의 주를 옮기고(0이면 이번 주로) 고른 날은 푼다. 받아 둔 주면 바로, 아니면 '불러오는 중' 뒤 읽기. */
-        private fun shift(context: Context, id: Int, delta: Int, sunday: LocalDate?) {
+        private fun shift(context: Context, id: Int, delta: Int, to: LocalDate?, sunday: LocalDate?) {
             if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return
             val now = System.currentTimeMillis()
-            // S68-51: 지금 보이는 주는 누름에 실린 일요일이 기준(메모리를 잃었어도 그 주에서 한 칸).
-            val base = WidgetWeek.shiftOf(sunday, now) ?: shiftOf(id, now)
-            val next = if (delta == 0) 0 else WidgetWeek.move(base, delta)
+            // S69-78: 누름에 실린 대상 주(그릴 때 보이던 주에서 한 칸)가 1순위. 옛 판 누름은 위젯 기억에서 한 칸, 옛 월요일 판은 이번 주.
+            val memory = seen[id]?.let { WidgetWeek.shiftNow(it.shift, it.shiftOn, now) }
+            val next = WidgetWeek.shiftTarget(to, sunday, delta, memory, now)
             seen[id] = Seen(shift = next, shiftOn = WidgetWeek.today(now))
             redraw(context)
         }
@@ -229,10 +237,13 @@ class WeekWidget : AppWidgetProvider() {
             // 4×1은 ‹ ›가 들어갈 칸이 없어 늘 이번 주(S68-12).
             val shift = if (small) 0 else shiftOf(id, now)
             val sunday = WidgetWeek.start(now, shift = shift)
-            views.setOnClickPendingIntent(R.id.week_title, if (shift == 0) day(context, null, 0) else shiftIntent(context, id, 0, sunday))
+            views.setOnClickPendingIntent(R.id.week_title, if (shift == 0) day(context, null, 0) else shiftIntent(context, id, 0, sunday, null))
             views.setOnClickPendingIntent(R.id.week_refresh, refresh(context))
-            arrow(context, views, R.id.week_prev, id, shift, -1, sunday)
-            arrow(context, views, R.id.week_next, id, shift, 1, sunday)
+            // S69-78: 4×1 틀에는 ‹ ›가 없다. 예전에는 4×1도 이번 주로 화살표 누름을 다시 만들어 4×2 누름에 실린 주를 덮었다.
+            if (!small) {
+                arrow(context, views, R.id.week_prev, id, shift, -1, sunday, now)
+                arrow(context, views, R.id.week_next, id, shift, 1, sunday, now)
+            }
             views.setViewVisibility(R.id.week_note, View.GONE)
             views.setTextViewText(R.id.week_title, WidgetWeek.header(now, shift = shift))
             views.setTextViewText(R.id.week_total, "")
@@ -287,10 +298,11 @@ class WeekWidget : AppWidgetProvider() {
         private fun seenOf(id: Int): Seen = seen[id] ?: Seen()
 
         /** 머리 줄 ‹ ›(4×2만). 범위 끝이면 자리만 남기고 숨긴다(머리 글자가 흔들리지 않게). */
-        private fun arrow(context: Context, views: RemoteViews, view: Int, id: Int, shift: Int, delta: Int, sunday: LocalDate) {
-            val can = WidgetWeek.canMove(shift, delta)
-            views.setViewVisibility(view, if (can) View.VISIBLE else View.INVISIBLE)
-            if (can) views.setOnClickPendingIntent(view, shiftIntent(context, id, delta, sunday))
+        private fun arrow(context: Context, views: RemoteViews, view: Int, id: Int, shift: Int, delta: Int, sunday: LocalDate, now: Long) {
+            // S69-78: 그릴 때마다 지금 보이는 주에서 한 칸 옮긴 대상 주(절대값)를 새로 실어 묶는다.
+            val to = WidgetWeek.arrowTo(shift, delta, now)
+            views.setViewVisibility(view, if (to != null) View.VISIBLE else View.INVISIBLE)
+            if (to != null) views.setOnClickPendingIntent(view, shiftIntent(context, id, delta, sunday, to))
         }
 
         /**
@@ -378,15 +390,19 @@ class WeekWidget : AppWidgetProvider() {
          * S68-12: 위젯마다 다른 누름이 되도록 위젯 번호를 data 주소에 넣는다(요청 번호가 같아도 섞이지 않음, 앱 밖으로 나가지 않는 표시일 뿐).
          */
         private fun pickIntent(context: Context, id: Int, day: LocalDate, sunday: LocalDate, i: Int): PendingIntent {
-            val intent = Intent(context, WeekWidget::class.java).setAction(ACTION_PICK).setData(Uri.parse("workon-widget://week/$id/pick/$i"))
+            val intent = Intent(context, WeekWidget::class.java).setAction(ACTION_PICK).setData(Uri.parse("workon-widget://week/$id/pick/$i/$day"))
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id).putExtra(EXTRA_DAY, day.toString()).putExtra(EXTRA_SUNDAY, sunday.toString())
             return PendingIntent.getBroadcast(context, 230 + i, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
 
-        /** S68-12: 주 옮기기(−1·+1, 0 = 이번 주로). 요청 번호 237~239. */
-        private fun shiftIntent(context: Context, id: Int, delta: Int, sunday: LocalDate): PendingIntent {
-            val intent = Intent(context, WeekWidget::class.java).setAction(ACTION_SHIFT).setData(Uri.parse("workon-widget://week/$id/shift/$delta"))
+        /**
+         * S68-12: 주 옮기기(−1·+1, 0 = 이번 주로). 요청 번호 237~239.
+         * S69-78: 대상 주(to)를 data 주소에도 넣어 주마다 다른 누름이 되게 한다(다른 주를 그려도 실린 값이 덮이지 않음).
+         */
+        private fun shiftIntent(context: Context, id: Int, delta: Int, sunday: LocalDate, to: LocalDate?): PendingIntent {
+            val intent = Intent(context, WeekWidget::class.java).setAction(ACTION_SHIFT).setData(Uri.parse(WidgetWeek.shiftData(id, delta, to)))
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id).putExtra(EXTRA_DELTA, delta).putExtra(EXTRA_SUNDAY, sunday.toString())
+            to?.let { intent.putExtra(EXTRA_TO, it.toString()) }
             return PendingIntent.getBroadcast(context, 238 + delta, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
 

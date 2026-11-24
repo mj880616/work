@@ -3,6 +3,7 @@
 // 가족 줄은 같은 창으로 '가족 › 잊지 말기' 노트가 골라진 채 열려 [저장] 한 번이면 끝나고, 고를 수 있는 노트는 가족 노트(AI가 읽지 않는 노트)뿐이다.
 // 서버는 흉내(PATCH는 id·updated_at·ai_export_allowed 조건을 지킴), 글·이름은 모두 지어낸 것(가족 이름·번호·방 이름 없음). 폰 390 · 폴드 884 · PC 1440.
 import {test,expect} from '@playwright/test';
+import {folderSheet,sheetRow,sheetGo,pickInSheet} from './helpers/folder-sheet.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {pressRowAct} from './helpers/nbx-act.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -207,20 +208,26 @@ test('가족 줄: 고르기 창은 가족 노트만(서버 조건), 새 노트�
 });
 
 // S61-46 UI-새폴더넣기안됨: 노트 화면 밖 쓰기 창(업무 줄 [노트]·PC 위 [새 노트]가 같은 note-folder-pick.js)의 [폴더 ▾]에서도
-// [+ 새 폴더 만들어 넣기]가 동작한다 — 이름을 받아 맨 위에 새 폴더(노트 폴더 표 POST 한 번)를 만들고 고른 상태로, [저장]이면 그 폴더에.
-for(const width of [390,1440])test(`쓰기 창 [폴더 ▾] → [+ 새 폴더 만들어 넣기] → 새 폴더에 저장 ${width}`,async({page})=>{
+// [새 폴더]가 동작한다 — 이름을 받아 맨 위에 새 폴더(노트 폴더 표 POST 한 번)를 만들고 고른 상태로, [저장]이면 그 폴더에.
+for(const width of [390,1440])test(`쓰기 창 [폴더 ▾] → [새 폴더] → 새 폴더에 저장 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
   await pressRowAct(page,box(page).locator(`[data-nbx-row="c:${cid(1)}"]`),'note');
   await page.locator("[data-nq-big]").click();
   const folderBtn=win(page).locator('[data-edw-folder]');
   await expect(folderBtn).toHaveText('01. 업무메모 ▾');
   await folderBtn.click();
-  const make=page.locator('#luMovePicker [data-lu-move-new]');
-  await expect(make).toHaveText('+ 새 폴더 만들어 넣기');
-  await expect(make).not.toHaveAttribute('aria-disabled','true');
+  // S69-62: [파일] '옮길 곳' 창과 같은 창. [새 폴더]는 고른 곳 안에 만든다 — 맨 위에 만들려고 맨 위 줄 '노트'를 고른 뒤 [새 폴더],
+  // 만든 폴더가 골라지고 [이 폴더로 정하기]로 정한다.
+  await pickInSheet(page,['노트'],{go:false});
+  const make=folderSheet(page).locator('[data-fx-dest-mkdir]');
+  await expect(make).toHaveText('새 폴더');
+  await expect(make).toBeEnabled();
   await make.click();
   await page.locator('.kptu-ask-field').fill('새 업무 폴더');
   await page.locator('.kptu-ask-actions .primary').click();
+  await expect(sheetRow(page,'새 업무 폴더')).toHaveAttribute('aria-current','true');
+  await sheetGo(page).click();
+  await expect(folderSheet(page)).toHaveCount(0);
   await expect(folderBtn).toHaveText('새 업무 폴더 ▾');
   expect(f.folders.at(-1)).toMatchObject({name:'새 업무 폴더',parent_id:null});
   await win(page).locator('[data-edw-save]').click();

@@ -5,7 +5,7 @@ import {test,expect} from '@playwright/test';
 import {answerAsk,askGap} from './helpers/small-notice.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree,libraryNode,libraryNodeHead,libraryTopMenu,libraryExpandItem} from './helpers/library-tree.mjs';
-import {moveEnabledNames,moveFolder,moveTo,moveOut,openMove as openMoveWith} from './helpers/library-folder-server.mjs';
+import {folderSheet} from './helpers/folder-sheet.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const eq=(url,k)=>String(url.searchParams.get(k)||'').replace(/^eq\./,'');
@@ -55,7 +55,12 @@ async function boot(page,width,{folders=[],items=[],trashMode='ready'}={}){
 const menuOf=(page,key)=>libraryNodeHead(page,key).locator('[data-lu-node-menu]');
 const action=(page,name)=>page.locator('#luFolderMenu').getByRole('button',{name,exact:true});
 async function press(page,locator,width){if(width<761)await locator.tap();else await locator.click()}
-const openMove=(page,docId,width)=>openMoveWith(page,docId,width);
+// S69-62: 폴더 고르기는 [파일] '옮길 곳' 창과 같은 창(app/folder-dest-sheet.js) — 줄 누르기 = 고르기·펼치기, [여기에 옮기기]로만 옮김.
+const sheetRowId=(page,id)=>folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
+const sheetGo=page=>folderSheet(page).locator('[data-fx-dest-go]');
+const sheetAt=page=>folderSheet(page).locator('.fx-dest-at');
+const ROOT_KEY='__root__';
+const openMove=async(page,docId,width)=>{await press(page,page.locator(`[data-lu-menu="${docId}"]`),width);await press(page,page.locator(`#luMorePanel [data-lu-move-open="${docId}"]`),width);await expect(folderSheet(page)).toBeVisible()};
 const body=(page,key)=>page.locator(`#documentList details[data-lu-node="${key}"] > .lu-node-body > *`).evaluateAll(xs=>xs.map(x=>x.dataset.luNode||x.dataset.luDocument).filter(Boolean));
 const noScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
@@ -123,13 +128,17 @@ for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
     const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'00000000-0000-4000-8000-0000000000b1',project_id:'top-a',parent_id:'fb',name:'가상 B-1',sort_order:0},{id:'fn',project_id:null,name:'가상 없음 폴더',sort_order:0}];
     const {s,errors}=await boot(page,width,{folders,items:[{document_id:'a-2',folder_id:'00000000-0000-4000-8000-0000000000b1'}]});
     await libraryTopMenu(page,'expand');
-    // 옮기기: 같은 프로젝트 틀의 폴더만, 자기·자기 아래는 없다. 다른 틀('프로젝트 없음'의 폴더)은 없다.
+    // 옮기기: 같은 프로젝트 틀의 폴더만(다른 틀 '프로젝트 없음'의 폴더는 나무에 없다), 자기는 고르면 까닭과 함께 [여기에 옮기기]가 꺼진다.
     await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'옮기기…'),width);
-    const targets=page.locator('#libraryFolderTargets [data-lu-target]');await expect(targets).toHaveText(['가상 A']);
-    await expect(page.locator('#libraryFolderSave')).toBeDisabled();
-    // 키보드: 화살표로 고르고 Enter로 옮긴다.
-    await targets.first().focus();await page.keyboard.press('ArrowDown');await expect(targets.first()).toHaveAttribute('aria-checked','true');
-    await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
+    await expect(folderSheet(page)).toBeVisible();
+    await expect(folderSheet(page).locator('.fx-dest-tree [data-fx-dest-pick]:not([data-fx-dest-pick="__root__"])')).toHaveText(['가상 A','가상 B']);
+    await expect(sheetRowId(page,ROOT_KEY).locator('.ft-tag')).toHaveText('지금 여기'); // 지금 맨 위에 있다
+    await expect(sheetGo(page)).toBeDisabled(); // 아직 아무것도 고르지 않았다
+    await press(page,sheetRowId(page,'fb'),width);await expect(sheetGo(page)).toBeDisabled();await expect(sheetAt(page)).toContainText('옮기는 폴더예요');
+    // 키보드: 줄에 초점 → Enter로 고르고, [여기에 옮기기]에서 Enter로 옮긴다.
+    await sheetRowId(page,'fa').focus();await page.keyboard.press('Enter');await expect(sheetRowId(page,'fa')).toHaveAttribute('aria-current','true');
+    await expect(sheetGo(page)).toBeEnabled();expect(s.writes.filter(w=>w.method==='PATCH').length).toBe(0);
+    await sheetGo(page).focus();await page.keyboard.press('Enter');await expect(folderSheet(page)).toHaveCount(0);
     expect(s.writes.at(-1)).toMatchObject({table:'folders',method:'PATCH',id:'fb',body:{parent_id:'fa'}});
     await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-2"]')).toBeAttached();
     // LIB-폴더100단: 00000000-0000-4000-8000-0000000000b1은 이제 3단이지만 100단 안이라 메뉴에 '안에 새 폴더'가 있다.
@@ -155,29 +164,34 @@ for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
     await libraryTopMenu(page,'expand');if((await libraryExpandItem(page)).text!=='모두 접기')await libraryTopMenu(page,'expand');
     await press(page,page.locator('[data-lu-menu="a-1"]'),width);
     expect(await page.locator('#luMorePanel button').evaluateAll(xs=>xs.slice(0,4).map(x=>x.textContent.trim()))).toEqual(['선택','이름 바꾸기F2','폴더로 옮기기›','분류 바꾸기›']);
-    await press(page,page.locator('#luMorePanel [data-lu-move-open="a-1"]'),width);await expect(page.locator('#luMovePicker')).toBeVisible();
-    // LIB-폴더창들어가기: 처음엔 맨 위 폴더만, 하위가 있는 폴더는 눌러 들어간다(경로 줄 + ‹ 위로).
-    expect(await moveEnabledNames(page)).toEqual(['가상 A']);
-    await moveTo(page,'00000000-0000-4000-8000-0000000000b1',width,{path:['fa','fb']});await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeHidden();
+    await press(page,page.locator('#luMorePanel [data-lu-move-open="a-1"]'),width);await expect(folderSheet(page)).toBeVisible();await expect(page.locator('#luMorePanel')).toBeHidden();
+    // 다른 틀 폴더('가상 없음 폴더')는 고르면 까닭과 함께 꺼짐. 하위 폴더는 위 폴더를 눌러 펼쳐야 보이고 들여쓴다.
+    await press(page,sheetRowId(page,'fn'),width);await expect(sheetGo(page)).toBeDisabled();await expect(sheetAt(page)).toContainText('사업영역이 달라 넣을 수 없어요');
+    await expect(sheetRowId(page,'00000000-0000-4000-8000-0000000000b1')).toHaveCount(0);
+    await expect(sheetRowId(page,'fb')).toHaveCount(0); // 가상 B는 위에서 가상 A 안으로 옮겼다
+    await press(page,sheetRowId(page,'fa'),width);await press(page,sheetRowId(page,'fb'),width);
+    const b1row=sheetRowId(page,'00000000-0000-4000-8000-0000000000b1');
+    await expect(b1row.locator('xpath=ancestor::div[contains(@class,"ft-row")][1]')).toHaveAttribute('style',/--ft-depth:\s*3/);
+    await press(page,b1row,width);await expect(sheetAt(page)).toContainText('가상 A › 가상 B › 가상 B-1');
+    await press(page,sheetGo(page),width);await expect(folderSheet(page)).toHaveCount(0);
     expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-1',folder_id:'00000000-0000-4000-8000-0000000000b1',workspace_id:'workspace-1'}});
     await expect(page.locator('#documentList details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-1"]')).toBeAttached();
     // 폴더 밖으로: 연결만 지운다(자료는 프로젝트 바로 아래).
     await libraryTopMenu(page,'expand');if((await libraryExpandItem(page)).text!=='모두 접기')await libraryTopMenu(page,'expand');
     await openMove(page,'a-1',width);
-    // 방금 넣은 폴더가 '최근 넣은 폴더' 맨 위에 보이고, 지금 있는 폴더는 고를 수 없다.
-    await expect(page.locator('#luMovePicker .lu-move-sec').first()).toHaveText('최근 넣은 폴더');
-    await expect(page.locator('#luMovePicker .lu-move-item').first()).toHaveText(/가상 A › 가상 B › 가상 B-1/);await expect(page.locator('#luMovePicker .lu-move-item').first()).toHaveAttribute('aria-current','true');
-    await moveOut(page,width);
+    // 방금 넣은 폴더가 위 '최근 넣은 곳' 칩에 보이고, 지금 있는 폴더는 '지금 여기'로 [여기에 옮기기]가 꺼진다. 맨 위 줄 = 폴더 밖.
+    await expect(folderSheet(page).locator('.fx-dest-sub')).toHaveText('최근 넣은 곳');
+    await expect(folderSheet(page).locator('.fx-dest-chip').first()).toHaveText('가상 B-1');
+    await expect(sheetRowId(page,'00000000-0000-4000-8000-0000000000b1')).toHaveAttribute('aria-current','true');await expect(sheetRowId(page,'00000000-0000-4000-8000-0000000000b1').locator('.ft-tag')).toHaveText('지금 여기');await expect(sheetGo(page)).toBeDisabled();
+    await press(page,sheetRowId(page,ROOT_KEY),width);await press(page,sheetGo(page),width);
     await expect.poll(()=>s.writes.at(-1)).toEqual({table:'items',method:'DELETE',id:'a-1',body:null});
     await expect(page.locator('#documentList details[data-lu-node="p:top-a"] > .lu-node-body > [data-lu-document="a-1"]')).toBeAttached();
     // 하위 프로젝트 자료(child-a1)는 top-a 폴더에 넣을 수 없다(다른 틀): 폴더 줄은 흐리고 이유 한 줄이 보이며 눌러도 아무 일도 없다.
     await openMove(page,'a1-1',width);
-    // 흐린 폴더도 하위가 있으면 들어가 볼 수는 있지만(가상 A), '이 폴더로'·안 폴더는 선택할 수 없고 실행 단추는 꺼진 채다.
-    expect(await moveEnabledNames(page)).toEqual(['가상 A']);await expect(page.locator('#luMovePicker .lu-move-note')).toContainText('사업영역이 달라 넣을 수 없어요');
-    const writesBefore=s.writes.length;await press(page,moveFolder(page,'fa'),width);
-    await expect(page.locator('#luMovePicker [data-lu-move-here]')).toHaveAttribute('aria-disabled','true');await expect(page.locator('#luMovePicker [data-lu-move-ok]')).toBeDisabled();
-    expect(s.writes.length).toBe(writesBefore);await expect(page.locator('#luMovePicker')).toBeVisible();
-    await page.keyboard.press('Escape');await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');await expect(page.locator('#luMorePanel')).toBeHidden();
+    const writesBefore=s.writes.length;
+    await press(page,sheetRowId(page,'fa'),width);await expect(sheetGo(page)).toBeDisabled();await expect(sheetAt(page)).toContainText('사업영역이 달라 넣을 수 없어요');
+    await sheetGo(page).click({force:true});expect(s.writes.length).toBe(writesBefore);await expect(folderSheet(page)).toBeVisible();
+    await page.keyboard.press('Escape');await expect(folderSheet(page)).toHaveCount(0);await expect(page.locator('#luMorePanel')).toBeHidden();
     // 자료(app_documents)는 한 번도 쓰지 않았다.
     expect(s.patches).toEqual([]);
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);

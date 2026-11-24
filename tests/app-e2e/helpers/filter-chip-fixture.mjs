@@ -64,6 +64,7 @@ async function mockApp(page,state){
       if(state.receiveFolder&&Array.isArray(state.items)&&(state.folders||[]).some(f=>f.id===state.receiveFolder))state.items.push({workspace_id:'workspace-1',document_id:row.id,folder_id:state.receiveFolder});
       return ok({ok:true,document:row});
     }
+    if(path==='/functions/v1/workspace-drive'&&url.searchParams.get('action')==='drive-mirror')(state.mirrors||(state.mirrors=[])).push(body?.mode); // S69-67: 맞추기 부탁 기록
     if(path==='/functions/v1/workspace-drive'&&String(url.searchParams.get('action')).startsWith('drive-'))return ok({ok:true,place:null}); // S69-20: 저장 위치 한 줄(이 시험들과 무관)
     if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:`${appOrigin}/tests/app-e2e/library-open-fixture.html?download=1`})}
     if(path==='/functions/v1/document-actions'){state.deletes.push(body);state.docs=state.docs.filter(d=>d.id!==body.document_id);return ok({ok:true})}
@@ -86,6 +87,18 @@ async function mockApp(page,state){
       // receiveFolderMissing이면 칸이 아직 없는 서버처럼 그 칸을 고르거나 쓰면 400(42703). 둘 다 없으면(다른 시험) 칸 없는 행을 돌려줘
       // 화면이 '모름'으로 보고 메뉴 줄을 숨긴다(브라우저 오류 줄 없음). receiveFolderFail이면 쓰기 500. 없는 폴더 id면 외래 키 거절(409·23503).
       // ORG-기록자료폴더: 내 프로필 행의 org_files_folder 칸(모으는 부모 폴더). state에 orgFilesFolder 키가 있을 때만 그 칸이 있는 서버(적용 뒤).
+      // S69-67 WEEKLY-저장폴더: 내 프로필 행의 weekly_folder 칸(주간보고 저장 폴더). state에 weeklyFolder 키가 있을 때만 그 칸이 있는 서버(적용 뒤),
+      // weeklyFolderMissing이면 칸이 아직 없는 서버처럼 400(42703). 없는 폴더 id면 외래 키 거절(409·23503). 쓴 값은 state.weeklyPatches에.
+      const weeklyCol=method==='PATCH'?!!body&&'weekly_folder' in body:(url.searchParams.get('select')||'').includes('weekly_folder');
+      if(weeklyCol){
+        if(state.weeklyFolderMissing||!('weeklyFolder' in state))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.weekly_folder does not exist'})});
+        if(method==='PATCH'){
+          (state.weeklyPatches||(state.weeklyPatches=[])).push(body.weekly_folder);
+          if(body.weekly_folder!==null&&!(state.folders||[]).some(f=>f.id===body.weekly_folder))return route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({code:'23503',message:'fk'})});
+          state.weeklyFolder=body.weekly_folder;
+        }
+        return ok([{user_id:state.user.id,weekly_folder:state.weeklyFolder}]);
+      }
       const orgCol=method==='PATCH'?!!body&&'org_files_folder' in body:(url.searchParams.get('select')||'').includes('org_files_folder');
       if(orgCol){
         if(!('orgFilesFolder' in state))return ok([{user_id:state.user.id}]);
@@ -159,9 +172,9 @@ async function mockApp(page,state){
     }
     if(path==='/rest/v1/app_meetings')return ok((state.meetings||[{id:'library-qa-meeting',workspace_id:'workspace-1',title:'회귀 확인 회의',meeting_name:'회귀 확인 회의',round_no:2,meeting_at:'2026-10-06T12:00:00',created_by:state.user.id}]).filter(m=>(!eq(url,'id')||m.id===eq(url,'id'))&&(!eq(url,'workspace_id')||m.workspace_id===eq(url,'workspace_id'))));
     if(path==='/rest/v1/app_documents'){
-      const id=eq(url,'id'),pid=eq(url,'project_id'),mid=eq(url,'meeting_id');
+      const id=eq(url,'id'),pid=eq(url,'project_id'),mid=eq(url,'meeting_id'),catq=url.searchParams.get('category')||'',cats=/^in\./.test(catq)?catq.replace(/^in\.\(|\)$/g,'').split(',').map(x=>x.replace(/^"|"$/g,'')):null;
       // 실제 서버처럼 한 번에 1000줄까지(limit·offset을 따름) — LIB-끌어옮기기저장실패: 자료 1000개 넘는 자료실 시험.
-      if(method==='GET'){const off=Number(url.searchParams.get('offset'))||0,lim=Math.min(Number(url.searchParams.get('limit'))||1000,1000);return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)&&(!mid||x.meeting_id===mid)).slice(off,off+lim))}
+      if(method==='GET'){const off=Number(url.searchParams.get('offset'))||0,lim=Math.min(Number(url.searchParams.get('limit'))||1000,1000);return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)&&(!mid||x.meeting_id===mid)&&(!cats||cats.includes(x.category))).slice(off,off+lim))}
       if(method==='PATCH'){state.patches.push({id,body});const row=state.docs.find(x=>x.id===id);if(row)Object.assign(row,body||{});return ok([])}
     }
     if(path.startsWith('/rest/v1/'))return ok([]);

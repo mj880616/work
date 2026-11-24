@@ -444,13 +444,13 @@ export function videoId(url: string): string | null {
     : /^\/(shorts|live|embed)\/([^/]+)/.exec(u.pathname)?.[2] ?? null;
   return id && /^[A-Za-z0-9_-]{6,20}$/.test(id) ? id : null;
 }
-// shared: 공용 기사 줄이면 true(작업공간 칸이 없어 id로만 고치고, 열기 횟수는 세지 않는다).
+// shared: 공용 기사 줄이면 true(작업공간 칸이 없어 id로만 고친다).
+// 하루 열기 횟수(fetch_n)는 세지 않는다(S69-72): 영상은 사람이 누른 열기(open)에서 읽지 않고('original_only') 수집 때만 여기로 온다.
 async function fillVideo(db: Db, reader: FeedReader, item: Row, vid: string, nowMs: number, shared = false): Promise<Row> {
   const ws = String(item.workspace_id), id = String(item.id);
   const nowIso = new Date(nowMs).toISOString();
   const watch = `https://www.youtube.com/watch?v=${vid}`;
   const got = await reader.get(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watch)}`, "application/json");
-  if (!shared) { try { await addDay(db, ws, kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ } }
   let title: string | null = null, author: string | null = null;
   if (got.ok) {
     try {
@@ -485,6 +485,8 @@ async function saveNewsBody(db: Db, log: FeedLog, item: Row, ex: Extracted, nowI
 
 // article: 같은 주소의 공용 기사 줄(없으면 undefined → 찾아 봄, null → 없음). chargeWs: 옛 줄이 없을 때(공용 기사만) AI·사용량을 셀 작업공간.
 // reuse: 공용 기사가 이미 읽힌 기사(state ok)면 원문을 다시 읽지 않고 그 결과를 옛 줄에 옮겨 적는다(예약 '대기 기사'만 — 사람이 누른 '열기'는 새로 읽음).
+// countFetch(S69-72): true일 때만 하루 열기 횟수(fetch_n)를 센다 — 사람이 누른 열기(open)만 넘긴다. 수집·대기 기사 채우기·robots 다시 읽기는 세지 않는다.
+//   세는 것은 사이트를 실제로 읽어 쪽을 받았을 때 한 번뿐(못 읽음·봇 확인 쪽은 세지 않음). 작업공간은 chargeWs.
 // byPerson: 사람이 연 읽기(open) — 위 saveArticleBody 설명. betterThan(S69-02 ⋯ [원문 다시 가져오기]): 이미 전문이 있는 글을 다시 읽을 때 지금 본문 글자 수.
 // 새로 읽은 본문이 전문(ok)이고 그보다 길 때만 저장한다(짧거나 못 읽었으면 아무것도 고치지 않고 'same').
 // replaceHand(S69): 짧은 손 본문 기사를 사람이 다시 가져오기로 고친다(handShort) — 전문이면 공용 기사 본문을 바꾼다(제목 등 손 값은 그대로).
@@ -515,8 +517,6 @@ async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], n
     return "ok";
   }
   const got = await reader.get(url, ACCEPT_HTML);
-  // 하루 열기 횟수(fetch_n)는 사람이 누른 읽기만 센다(수집 때 읽기는 세지 않음 — 화면 '열기' 한도를 먹지 않게).
-  if (opts.countFetch !== false && chargeWs) { try { await addDay(db, chargeWs, kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ } }
   if (!got.ok && opts.betterThan !== undefined) return "same";
   if (!got.ok) {
     // 못 읽은 줄에도 규칙 이름을 적는다(S51-15): 다시 뽑기가 같은 판의 영구 실패(4xx·robots 등)를 매번 다시 고르지 않게. timeout은 판과 상관없이 다시.
@@ -531,6 +531,9 @@ async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], n
     return storedState(got.code);
   }
   let page = readArticlePage(got.text, nowMs, opts.rule(got.url));
+  // 하루 열기 횟수(fetch_n): 사람이 누른 열기(countFetch true)에서 쪽을 실제로 받았을 때만 1(S69-72 — 전에는 open이 먼저 1, 여기서 또 1을 더해 두 번 셌고,
+  // 수집 때 대기 기사 읽기도 기본값으로 세어 운영자 작업공간 한도를 먹었다).
+  if (opts.countFetch === true && chargeWs && page.state !== "bot_check") { try { await addDay(db, chargeWs, kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ } }
   // S69 READ-첨부본문: 사람이 연 읽기(open)만 — 쪽 본문이 비거나 짧으면 그 쪽의 첨부 PDF·HWP·HWPX 글자를 본문으로(같은 공용 읽기, 수집 때는 안 받음).
   if (opts.byPerson && needsAttachment(page)) page = await withAttachment(page, got.text, got.url, reader, opts.rule(got.url), ai.log);
   if (opts.betterThan !== undefined && !(page.blocks.state === "ok" && page.blocks.chars > opts.betterThan)) return "same";
@@ -1393,9 +1396,13 @@ async function authorizeUser(sb: string, key: string, jwt: string, doFetch: type
   if (members.length !== 1 || typeof members[0].workspace_id !== "string") throw new Fail(403, "FORBIDDEN");
   return { userId: user.id, workspaceId: members[0].workspace_id };
 }
-async function useDaily(db: Db, ws: string, field: DayField, limit: number, nowMs: number) {
+// 하루 한도 넘었으면 429(세지는 않음). 열기(open)는 이것만 보고, 실제로 읽었을 때 fillItems가 센다(S69-72).
+async function checkDaily(db: Db, ws: string, field: DayField, limit: number, nowMs: number) {
   const cur = await dayRow(db, ws, kstDay(nowMs));
   if (num(cur?.[field]) >= limit) throw new Fail(429, "DAILY_LIMIT");
+}
+async function useDaily(db: Db, ws: string, field: DayField, limit: number, nowMs: number) {
+  await checkDaily(db, ws, field, limit, nowMs);
   await addDay(db, ws, kstDay(nowMs), { [field]: 1 }, nowMs);
 }
 // NEWS-모두에게열기 E3: 화면은 공용 기사 id(옮기는 동안 옛 줄 id도)를 보낸다. 공용 기사는 그 사람 로그인(RLS)으로 읽는다(_shared/shared-article.ts —
@@ -1884,10 +1891,10 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           if (!source || !allowedUrl(source, String(art.url))) return json({ ok: true, status: "original_only" });
           reader = readers.page(source, true);
         }
-        await useDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);
+        await checkDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);
         // 원문은 공용 기사 주소로 한 번만 읽는다(같은 주소의 내 옛 줄에만 같은 결과를 함께 적음).
         const same = olds.filter((o) => String(o.url) === String(art.url));
-        const state = await fillItems(db, reader, ai, same, nowMs, { rule: ruleForItem(art) ?? openRule, article: art, chargeWs: who.workspaceId, byPerson: true, betterThan, replaceHand: shortHand });
+        const state = await fillItems(db, reader, ai, same, nowMs, { rule: ruleForItem(art) ?? openRule, article: art, chargeWs: who.workspaceId, countFetch: true, byPerson: true, betterThan, replaceHand: shortHand });
         return json({ ok: true, status: state });
       }
       // translate: 외국어 기사만. 공용 기사에 본문 번역이 이미 있으면(또는 본문 없이 제목 번역이 있으면) 저장본(다시 부르지 않음, 하루 한도도 안 씀).
