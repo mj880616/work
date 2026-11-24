@@ -16,7 +16,6 @@ const WHITE_OK = {
     ':where(.modal-card)>.modal-head': '창 안 제목 줄',
     '.modal-action-footer': '창 안 아래 버튼 줄',
   },
-  'basket.css': { '.nx-select-bar:not([hidden])': '테두리·둥근 모서리가 있는 상자 모양 막대(띠가 아님)' },
   'calendar-ui.css': {
     '.cwv-header': '흰 바탕 주간 표(#calendarWeek) 안 날짜 줄',
     '.cwv-cap': '흰 바탕 주간 표 안 종일 줄',
@@ -109,7 +108,9 @@ test('[파일] PC·폴드 펼침 맨 위 줄·고르기 막대는 화면 바탕(
     return css.slice(i, css.indexOf('}', i));
   };
   assert.match(rule('.fx.fx-split-scroll > .fx-top'), /background:var\(--kptu-bg\)/);
-  assert.match(rule('.fx.fx-split-scroll > .fx-bar:not([hidden])'), /background:var\(--kptu-bg\)/);
+  // UI-고르기막대(S69-85): 고르기 막대 바탕은 공용 .kptu-selbar(옅은 강조색, 불투명)가 정한다 — 파일 쪽 고정 규칙은 흰색을 칠하지 않는다.
+  assert.doesNotMatch(rule('.fx.fx-split-scroll > .fx-bar:not([hidden])'), /background:var\(--kptu-surface\)/);
+  assert.match(readFileSync(new URL('base-ui.css', APP), 'utf8'), /\.kptu-selbar\{[^}]*background:var\(--kptu-primary-soft\)/);
   assert.match(rule('.fx.fx-split-scroll > .fx-cols'), /margin-top:6px/);
   // 띄움 값은 아스날 위쪽 줄(.ars의 gap)과 같다 — 새 값을 만들지 않는다.
   assert.match(readFileSync(new URL('arsenal.css', APP), 'utf8'), /\.ars\{[^}]*gap:6px/);

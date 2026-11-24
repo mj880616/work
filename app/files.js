@@ -35,6 +35,8 @@ import {colorChoiceHtml, createColorMode} from './folder-look.js';
 import {folderShapeHtml} from './folder-look-model.mjs';
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {openRowMenu, appMenuPoint, rowMenuFollower} from './row-menu.js';
+import {sbActHtml, sbCloseHtml} from './select-bar-model.mjs';
+import {fitSelectBar} from './select-bar.js'; // UI-고르기막대(S69-85): 고르기 막대 한 줄 맞추기
 import {treeMenuItems} from './files-tree-menu.mjs';
 import {flashRow} from './goto-folder.mjs'; // LIB-최근폴더로가기(S61-12): '최근' 줄 [폴더로 가기] 뒤 그 줄 강조
 import {lastClean, lastPut, lastStart} from './files-last-model.mjs';
@@ -2071,8 +2073,8 @@ function lookButtonsHtml(p) {
   const rows = pickedRows(p), r = rows[0];
   if (rows.length !== 1 || !r?.is_folder || !SOURCES.includes(r.source)) return '';
   const sib = orderable(p) ? lookSibs(p) : [], i = sib.indexOf(r.item_id);
-  return '<button type="button" class="secondary" data-fx-look="tint" aria-haspopup="true">색</button>'
-    + (i > 0 ? '<button type="button" class="secondary" data-fx-look="up">위로</button>' : '') + (i >= 0 && i < sib.length - 1 ? '<button type="button" class="secondary" data-fx-look="down">아래로</button>' : '');
+  return sbActHtml({attrs: 'data-fx-look="tint" aria-haspopup="true"', icon: 'color', label: '색', rank: 50})
+    + (i > 0 ? sbActHtml({attrs: 'data-fx-look="up"', icon: 'up', label: '위로', rank: 60}) : '') + (i >= 0 && i < sib.length - 1 ? sbActHtml({attrs: 'data-fx-look="down"', icon: 'down', label: '아래로', rank: 60}) : '');
 }
 const lookMode = createColorMode();
 // 색을 바꿀 폴더: 나무 ⋯ 메뉴에서 고른 폴더(state.lookRow), 아니면 고르기 줄의 한 폴더.
@@ -2095,23 +2097,29 @@ function lookDo(act, button) {
   lookSave(() => folderLook.step(rt(), r.source, lookSibs(p), r.item_id, act === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.');
 }
 // 고르기 막대 공용 단추(클라우드·내 PC 줄이 같은 단추): 한 칸 [복사][옮기기], 두 칸 '→ 오른쪽에 복사 / → 옮기기'(PC는 키 이름), 고르기 풀기 ✕.
-const COPY_CUT_HTML = '<button type="button" class="secondary" data-fx-copy>복사</button><button type="button" class="secondary" data-fx-cut>옮기기</button>';
-const UNPICK_HTML = '<button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>';
+// UI-고르기막대(S69-85): 모양은 공용 막대(select-bar-model.mjs sbActHtml · base-ui.css .kptu-selbar) — 왼쪽 [✕] 'N개', 오른쪽 아이콘 + 짧은 글자, 휴지통 맨 끝.
+//   폭이 모자라면 select-bar.js가 아이콘만 → 덜 쓰는 것부터 ⋯로 접는다(rank가 클수록 먼저 접힘: 위로·아래로 > 색 > 이름 > 자료실로 > 별표 > 옮기기 > 복사).
+const COPY_CUT_HTML = sbActHtml({attrs: 'data-fx-copy', icon: 'copy', label: '복사', rank: 5}) + sbActHtml({attrs: 'data-fx-cut', icon: 'move', label: '옮기기', rank: 10});
+const UNPICK_HTML = sbCloseHtml('data-fx-unpick');
+const renameHtml = keys => sbActHtml({attrs: 'data-fx-rename', icon: 'rename', label: `이름${keys ? ' (F2)' : ''}`, rank: 40});
+const starHtml = p => sbActHtml({attrs: 'data-fx-star', icon: 'star', label: starLabel(pickedRows(p)).replace(/^[☆★]\s*/, ''), rank: 20}); // 별 모양은 아이콘이 맡는다
+const countHtml = (text, title = '') => `<span class="fx-bar-t kptu-sb-count"${title ? ` title="${esc(title)}"` : ''}>${esc(text)}</span>`;
 // S53-12 메뉴 모양 통일(⋯ 메뉴와 같은 규칙): 고르기 막대·미리보기 아래 줄의 [휴지통]도 지금 못 보내면(폰에 쓸 수 없음 'ph' · 바구니 PC 앱이 휴지통을 모름 'pc')
 // 숨기지 않고 흐리게(aria-disabled) 두고, 누르면 이유·할 일 한 줄(offText — ⋯ 메뉴의 흐린 [휴지통]과 같은 글). 실제로 막는 것은 지금처럼 앱·바구니 문이다.
 //   흐린 단추는 같은 자리의 켜진 [휴지통] 글을 그대로 쓰고 표시만 더한다(모양을 새로 만들지 않음).
-const PH_TRASH_HTML = '<button type="button" class="danger" data-fx-trash>휴지통</button>';
+const trashHtml = (keys = false) => sbActHtml({attrs: 'data-fx-trash', icon: 'trash', label: `휴지통${keys ? ' (Del)' : ''}`, danger: true});
+const PH_TRASH_HTML = trashHtml();
 const PV_TRASH_HTML = '<button type="button" class="danger" data-fx-trash-one>휴지통</button>';
-const trashOff = (html, code) => html.replace('>휴지통<', ` aria-disabled="true" data-fx-off="${code}">휴지통<`);
-const sendButtonsHtml = (i, off, keys) => ['copy', 'move'].map(m => `<button type="button" class="secondary" data-fx-send="${m}"${off}>${esc(sendLabel(i, m, VERT()))}${keys ? (m === 'copy' ? ' (F5)' : ' (F6)') : ''}</button>`).join('');
-function paintBar() { return keepFxMenus(() => paintBarNow()); }
+const trashOff = (html, code) => html.replace(/data-fx-trash(?:-one)?(?=[\s>])/, m => `${m} aria-disabled="true" data-fx-off="${code}"`);
+const sendButtonsHtml = (i, off, keys) => ['copy', 'move'].map(m => sbActHtml({attrs: `data-fx-send="${m}"${off}`, icon: m === 'copy' ? 'copy' : 'send', label: `${sendLabel(i, m, VERT())}${keys ? (m === 'copy' ? ' (F5)' : ' (F6)') : ''}`, rank: m === 'copy' ? 5 : 10})).join('');
+function paintBar() { return keepFxMenus(() => { paintBarNow(); fitSelectBar($('[data-fx-bar]')); }); }
 function paintBarNow() {
   const bar = $('[data-fx-bar]');
   if (!bar) return;
   const p = P(), n = p.picked.size, clip = state.clip;
   if (state.busy) {
     bar.hidden = false;
-    bar.innerHTML = `<span class="fx-bar-t" role="status">${esc(state.busy)}</span>`;
+    bar.innerHTML = `<span class="fx-bar-t kptu-sb-count" role="status">${esc(state.busy)}</span>`;
     return;
   }
   if (clip) {
@@ -2119,8 +2127,8 @@ function paintBarNow() {
     const copy = clip.mode === 'copy';
     const ok = here && !pcWhy(clip.rows, here) && (copy ? xferPlan(clip.rows, here, 'copy').ok.length > 0 : moveTargetOk(clip.rows, here));
     bar.hidden = false;
-    bar.innerHTML = `<span class="fx-bar-t">${clip.rows.length}개 ${copy ? '복사하는' : '옮기는'} 중 · ${ok ? '이 폴더로' : `${copy ? '복사할' : '옮길'} 폴더를 여세요`}</span>`
-      + `<button type="button" class="secondary" data-fx-paste${ok ? '' : ' disabled'}>${copy ? '여기에 복사' : '여기로 옮기기'}</button><button type="button" class="secondary" data-fx-uncut>취소</button>`;
+    bar.innerHTML = sbCloseHtml('data-fx-uncut', '취소') + countHtml(`${clip.rows.length}개 ${copy ? '복사하는' : '옮기는'} 중 · ${ok ? '이 폴더로' : `${copy ? '복사할' : '옮길'} 폴더를 여세요`}`)
+      + sbActHtml({attrs: `data-fx-paste${ok ? '' : ' disabled'}`, icon: 'paste', label: copy ? '여기에 복사' : '여기로 옮기기'});
     return;
   }
   bar.hidden = !n;
@@ -2129,17 +2137,15 @@ function paintBarNow() {
   //   이름·휴지통은 다음 판(FILES-내PC쓰기)이라 두지 않는다.
   if (hasPc(pickedRows(p))) {
     if (!pcWrite()) {
-      bar.innerHTML = `<span class="fx-bar-t" title="${esc(PC_READONLY_TEXT)}">${n}개 · ${esc(SOURCE_NAME[PC])} · 보기·열기만</span>`
-        + trashOff(PH_TRASH_HTML, 'pc') + '<button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>';
+      bar.innerHTML = UNPICK_HTML + countHtml(`${n}개 · ${SOURCE_NAME[PC]} · 보기·열기만`, PC_READONLY_TEXT) + trashOff(PH_TRASH_HTML, 'pc');
       return;
     }
     const i = state.cur, dest = two() ? oppDest() : null, keys = WIDE.matches;
     const why = two() ? (dest ? pcWhy(pickedRows(p), dest) : `${side(i ^ 1)} 칸에서 받을 ${pcEdit() ? '' : '클라우드 '}폴더를 여세요`) : '';
     const off = why ? ` disabled title="${esc(why)}"` : '';
     // 0.5.0+ 문(FILES-내PC쓰기)이면 클라우드 막대와 같은 [이름][휴지통]도.
-    const edit = pcEdit() ? (n === 1 ? `<button type="button" class="secondary" data-fx-rename>이름${two() && keys ? ' (F2)' : ''}</button>` : '')
-      + `<button type="button" class="danger" data-fx-trash>휴지통${two() && keys ? ' (Del)' : ''}</button>` : trashOff(PH_TRASH_HTML, 'pc');
-    bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PC])}</span>` + (two() ? sendButtonsHtml(i, off, keys) : COPY_CUT_HTML) + TOLIB_BTN + edit + UNPICK_HTML;
+    const edit = pcEdit() ? (n === 1 ? renameHtml(two() && keys) : '') + trashHtml(two() && keys) : trashOff(PH_TRASH_HTML, 'pc');
+    bar.innerHTML = UNPICK_HTML + countHtml(`${n}개 · ${SOURCE_NAME[PC]}`) + (two() ? sendButtonsHtml(i, off, keys) : COPY_CUT_HTML) + TOLIB_BTN + edit;
     return;
   }
   // 폰 파일을 고르면 '클라우드에 복사'(받을 곳 창 / 두 칸이면 반대 칸이 클라우드 폴더일 때). 폰에 쓸 수 있는 앱이면 [옮기기]도(S52-43 ②, 복사 뒤 폰 원본 휴지통).
@@ -2147,32 +2153,26 @@ function paintBarNow() {
   if (hasPhone(pickedRows(p))) {
     const i = state.cur, dest = two() ? oppDest() : null, ok = dest && dest.source !== PC && (dest.source !== PH || phoneWrite());
     const off = ok ? '' : ` disabled title="${esc(side(i ^ 1))} 칸에서 받을 ${phoneWrite() ? '' : '클라우드 '}폴더를 여세요"`;
-    bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PH])}</span>`
-      + (two() ? `<button type="button" class="secondary" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy', VERT()))}</button>`
-        + (phoneWrite() ? `<button type="button" class="secondary" data-fx-send="move"${off}>${esc(sendLabel(i, 'move', VERT()))}</button>` : '')
-        : `<button type="button" class="secondary" data-fx-copy>${phoneWrite() ? '복사' : '클라우드에 복사'}</button>` + (phoneWrite() ? '<button type="button" class="secondary" data-fx-cut>옮기기</button>' : '')) + TOLIB_BTN
-      + (phoneWrite() ? (n === 1 ? '<button type="button" class="secondary" data-fx-rename>이름</button>' : '') + PH_TRASH_HTML : trashOff(PH_TRASH_HTML, 'ph'))
-      + '<button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>';
+    bar.innerHTML = UNPICK_HTML + countHtml(`${n}개 · ${SOURCE_NAME[PH]}`)
+      + (two() ? sbActHtml({attrs: `data-fx-send="copy"${off}`, icon: 'copy', label: sendLabel(i, 'copy', VERT()), rank: 5})
+        + (phoneWrite() ? sbActHtml({attrs: `data-fx-send="move"${off}`, icon: 'send', label: sendLabel(i, 'move', VERT()), rank: 10}) : '')
+        : sbActHtml({attrs: 'data-fx-copy', icon: 'copy', label: phoneWrite() ? '복사' : '클라우드에 복사', rank: 5}) + (phoneWrite() ? sbActHtml({attrs: 'data-fx-cut', icon: 'move', label: '옮기기', rank: 10}) : '')) + TOLIB_BTN
+      + (phoneWrite() ? (n === 1 ? renameHtml(false) : '') + PH_TRASH_HTML : trashOff(PH_TRASH_HTML, 'ph'));
     return;
   }
   if (two()) {
-    // 시안 ⑥⑧: 'N개 (왼쪽) · [→ 오른쪽에 복사] [→ 옮기기] [이름] [휴지통] ✕' — 받을 곳 창 없이 반대 칸으로. PC는 키 이름을 함께.
+    // 시안 ⑥⑧: '✕ N개 (왼쪽) · [→ 오른쪽에 복사] [→ 옮기기] [이름] [휴지통]' — 받을 곳 창 없이 반대 칸으로. PC는 키 이름을 함께.
     const i = state.cur, dest = oppDest(), keys = WIDE.matches;
     // 반대 칸이 내 PC면 바구니 문이 받을 수 있을 때만(0.4.0+ · 드라이브나 폴더를 연 칸).
     const why = dest ? pcWhy(pickedRows(p), dest) : `${side(i ^ 1)} 칸에서 받을 폴더를 여세요`;
     const off = why ? ` disabled title="${esc(why)}"` : '';
-    bar.innerHTML = `<span class="fx-bar-t">${n}개 (${side(i)})</span>` + sendButtonsHtml(i, off, keys)
-      + TOLIB_BTN
-      + (n === 1 ? `<button type="button" class="secondary" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '') + lookButtonsHtml(p)
-      + `<button type="button" class="secondary" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
-      + `<button type="button" class="danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>`;
+    bar.innerHTML = UNPICK_HTML + countHtml(`${n}개 (${side(i)})`) + sendButtonsHtml(i, off, keys)
+      + TOLIB_BTN + (n === 1 ? renameHtml(keys) : '') + lookButtonsHtml(p) + starHtml(p) + trashHtml(keys);
     return;
   }
-  // 시안 ③: 'N개 · [복사] [옮기기] [이름] [휴지통] ✕'(쓰지 않는 ⋯는 두지 않는다).
-  bar.innerHTML = `<span class="fx-bar-t">${n}개</span>` + COPY_CUT_HTML + TOLIB_BTN
-    + (n === 1 ? '<button type="button" class="secondary" data-fx-rename>이름</button>' : '') + lookButtonsHtml(p)
-    + `<button type="button" class="secondary" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
-    + '<button type="button" class="danger" data-fx-trash>휴지통</button><button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>';
+  // 시안 ③: '✕ N개 · [복사] [옮기기] [자료실로] [이름] [별표] [휴지통]'(쓰지 않는 ⋯는 두지 않는다 — ⋯는 폭이 모자랄 때만).
+  bar.innerHTML = UNPICK_HTML + countHtml(`${n}개`) + COPY_CUT_HTML + TOLIB_BTN
+    + (n === 1 ? renameHtml(false) : '') + lookButtonsHtml(p) + starHtml(p) + PH_TRASH_HTML;
 }
 function paintPicks(p = P()) {
   for (const b of paneEl(p)?.querySelectorAll('[data-fx-row]') || []) {
@@ -3246,7 +3246,7 @@ function paintJobs() {
 // S53-8 ②: 폴더째 — 안의 파일(하위 폴더까지)을 모아 같은 길로(이미 있는 것은 건너뜀). 폴더 하나에 50개·합쳐 1GB까지, 넘으면 자르지 않고 한 줄.
 //   내 PC 파일·폴더도(바구니 문 0.4.0+ — 문에서 읽어 사본으로).
 // 새 버튼은 공용 6가지 중 작은 버튼(secondary, UI-버튼6가지)만 쓴다.
-const TOLIB_BTN = '<button type="button" class="secondary" data-fx-tolib>자료실로</button>';
+const TOLIB_BTN = sbActHtml({attrs: 'data-fx-tolib', icon: 'tolib', label: '자료실로', rank: 30});
 const LIBRARY_MAX_BYTES = 100 * 1024 * 1024;
 function openLibraryDoc(id) { if (!id) return; requestLibraryDocument(id); window.KPTURouter?.go?.('library', {source: 'delegated'}); }
 async function libraryReady() {

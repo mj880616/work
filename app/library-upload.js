@@ -75,6 +75,7 @@ import {openLibraryHtmlView} from './library-html-view.js';
 import {readDroppedEntries,readPickedFiles,planFolderUpload,isBigFolder,skippedCount,skippedText,takenRoots,buildFolders,folderIdOf} from './library-folder-upload.mjs'; // S69-23 폴더째 올리기
 import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,resultText as luDropResultText,DROP_HINT} from './library-drop.js';
 import {word} from './brand/brand.mjs';
+import {fitSelectBar} from './select-bar.js'; // UI-고르기막대(S69-85): 선택 막대 한 줄 맞추기
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luCategorySub='',luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
@@ -1863,9 +1864,11 @@ let luDragNow=null,luParkedActs=null;
 function luPaintSelectActs(barEl,dragging){
   const acts=barEl?.querySelector('.lu-select-acts');if(!acts)return;
   if(dragging&&!luParkedActs){luParkedActs=[...acts.children].filter(b=>b.id!=='librarySelectCancel');for(const b of luParkedActs)b.remove()}
-  else if(!dragging&&luParkedActs){const cancel=acts.querySelector('#librarySelectCancel');for(const b of luParkedActs)acts.insertBefore(b,cancel);luParkedActs=null}
+  else if(!dragging&&luParkedActs){acts.append(...luParkedActs);luParkedActs=null}
 }
-function luSyncPicks(){
+// UI-고르기막대(S69-85): 막대를 고친 뒤 한 줄 맞추기(공용 select-bar.js — 좁으면 아이콘만, 그래도 모자라면 ⋯로 접음).
+function luSyncPicks(){luSyncPicksNow();fitSelectBar(document.querySelector('#librarySelectBar'))}
+function luSyncPicksNow(){
   const bar=document.querySelector('#librarySelectBar'),on=!!luPick.items;
   if(bar)bar.hidden=!on;
   // LIB-선택모드(08:29~08:30 ②): 들어갈 때 줄들이 한 번 아주 짧게(0.2초) 살짝 흔들리고 멈춤(계속 흔들지 않음, 움직임 줄이기면 없음),
@@ -1874,13 +1877,11 @@ function luSyncPicks(){
   if(card){const was=card.classList.contains('lu-selecting');card.classList.toggle('lu-selecting',on);
     if(on&&!was){card.classList.remove('lu-sel-enter');void card.offsetWidth;card.classList.add('lu-sel-enter')}else if(!on)card.classList.remove('lu-sel-enter')}
   const barEl=document.querySelector('#librarySelectBar');
-  if(!on){barEl?.querySelector('.filter-chips')?.remove();luPaintSelectActs(barEl,false);return}
+  if(!on){luPaintSelectActs(barEl,false);return}
   // LIB-끄는중막대(S69, 명진 11/24 16:17 "드래그해서 폴더로 드롭해서 옮기는 중에는 이 메뉴들이 없어져야지. 취소야 남겨두더라도"):
   // 끄는 동안·놓은 뒤 옮기는 동안(luDragNow, 폴더 부품이 알림)은 '옮기는 중 N개 · 취소'만 그린다. 끝나면 원래 막대. 그리는 곳은 여기 하나.
   const dragging=!!luDragNow;luPaintSelectActs(barEl,dragging);
-  if(dragging){barEl?.querySelector('.filter-chips')?.remove();const c=document.querySelector('#librarySelectCount');if(c&&!luDragNow.moving)c.textContent=`옮기는 중 ${luDragNow.count}개`;return}
-  // 전체 칩은 거르기 칩과 같은 공용 모양(.filter-chips)이라 선택 모드일 때만 그린다.
-  if(barEl&&!barEl.querySelector('#librarySelectAll')){barEl.insertAdjacentHTML('afterbegin','<div class="filter-chips filter-chips-small quick-mode-group" role="group" aria-label="전체 선택"><button id="librarySelectAll" class="quick-pill-button" type="button" role="checkbox" aria-checked="false" aria-controls="documentList">전체</button></div>')}
+  if(dragging){const c=document.querySelector('#librarySelectCount');if(c&&!luDragNow.moving)c.textContent=`옮기는 중 ${luDragNow.count}개`;return}
   const ids=luVisibleIds(),list=document.querySelector('#documentList');
   for(const c of list?.querySelectorAll('[data-lu-pick]')||[]){const ids=luTwinIds([c.dataset.luPick]);c.checked=ids.every(x=>luPick.items.has(x));c.indeterminate=ids.length>1&&!c.checked&&ids.some(x=>luPick.items.has(x))}
   for(const c of list?.querySelectorAll('[data-lu-pick-node]')||[]){const key=c.dataset.luPickNode,whole=key.startsWith('f:')&&luPick.items.has(folderPick(key.slice(2))),nodeIds=nodeDocumentIds(luTreeNode(key));c.checked=whole||allSelected(luPick.items,nodeIds);c.indeterminate=!c.checked&&someSelected(luPick.items,nodeIds)}

@@ -161,8 +161,9 @@ test('S53-12 사진 한 장 ⋯·고르기 줄·크게 보기·파일 고르기 
   assert.match(bar, /if \(row\?\.why\) ctx\?\.off\?\.\(row\.why\); else ctx\?\.run\(id\);/);
   // [파일] 고르기 막대·미리보기 줄: 폰에 못 씀·바구니 PC 앱이 휴지통을 모름 → 흐린 [휴지통](data-fx-off), 누르면 ⋯ 메뉴와 같은 글(offText).
   const files = read('app/files.js');
-  assert.match(files, /const trashOff = \(html, code\) => html\.replace\('>휴지통<', ` aria-disabled="true" data-fx-off="\$\{code\}">휴지통<`\);/);
-  for (const re of [/trashOff\(PH_TRASH_HTML, 'pc'\) \+ '<button/, /: trashOff\(PH_TRASH_HTML, 'pc'\);/, /\+ PH_TRASH_HTML : trashOff\(PH_TRASH_HTML, 'ph'\)\)/, /: trashOff\(PV_TRASH_HTML, 'pc'\)\)/, /\+ PV_TRASH_HTML : trashOff\(PV_TRASH_HTML, 'ph'\)\)/]) assert.match(files, re);
+  // UI-고르기막대(S69-85): 막대 단추는 아이콘·글자 칸이 있어 표시는 data-fx-trash 바로 뒤에 붙인다(같은 단추·같은 글).
+  assert.match(files, /const trashOff = \(html, code\) => html\.replace\(\/data-fx-trash\(\?:-one\)\?\(\?=\[\\s>\]\)\/, m => `\$\{m\} aria-disabled="true" data-fx-off="\$\{code\}"`\);/);
+  for (const re of [/countHtml\(`\$\{n\}개 · \$\{SOURCE_NAME\[PC\]\} · 보기·열기만`, PC_READONLY_TEXT\) \+ trashOff\(PH_TRASH_HTML, 'pc'\);/, /: trashOff\(PH_TRASH_HTML, 'pc'\);/, /\+ PH_TRASH_HTML : trashOff\(PH_TRASH_HTML, 'ph'\)\)/, /: trashOff\(PV_TRASH_HTML, 'pc'\)\)/, /\+ PV_TRASH_HTML : trashOff\(PV_TRASH_HTML, 'ph'\)\)/]) assert.match(files, re);
   const click = files.indexOf("b.matches('[data-fx-trash],[data-fx-trash-one]') && b.dataset.fxOff");
   assert.ok(click > 0 && click < files.indexOf("if (b.matches('[data-fx-trash]')) { trashRows") && click < files.indexOf("if (b.matches('[data-fx-trash-one]') && p)"));
 });
