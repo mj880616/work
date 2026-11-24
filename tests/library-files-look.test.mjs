@@ -12,11 +12,11 @@ const PLACE = { url: 'https://drive.google.com/drive/folders/libraryFolder0001',
 
 test('주소 줄 하나(살릴 것 7): 폴더 안 위치 줄 끝 [드라이브 ↗]은 그 폴더의 짝 드라이브 폴더, 새 창·noopener', () => {
   const h = pathLinkHtml(PLACE, esc, { folderId: 'fa', trail: ['가상 사업'] });
-  assert.match(h, /^<a class="lu-drive-open lu-path-drive" href="https:\/\/drive\.google\.com\/drive\/folders\/pairFolder000001" target="_blank" rel="noopener noreferrer"/);
+  assert.match(h, /^<a class="lu-drive-open lu-drive-here" href="https:\/\/drive\.google\.com\/drive\/folders\/pairFolder000001" target="_blank" rel="noopener noreferrer"/);
   assert.match(h, />드라이브 ↗<\/a>$/);
   assert.match(h, /aria-label="구글 드라이브에서 가상 앱 › 자료실 › 가상 사업 열기"/);
   // 짝이 없으면 자료실 폴더로, 상태 글은 작게 뒤에.
-  assert.match(pathLinkHtml(PLACE, esc, { folderId: 'none', trail: ['x'] }, '드라이브 정리 대기'), /folders\/libraryFolder0001".*<span class="lu-drive-note lu-path-drive" role="status">드라이브 정리 대기<\/span>$/);
+  assert.match(pathLinkHtml(PLACE, esc, { folderId: 'none', trail: ['x'] }, '드라이브 정리 대기'), /folders\/libraryFolder0001".*<span class="lu-drive-note lu-drive-here" role="status">드라이브 정리 대기<\/span>$/);
   // 저장 위치가 없거나 주소가 드라이브가 아니면 그리지 않는다.
   assert.equal(pathLinkHtml(null, esc, {}), '');
   assert.equal(pathLinkHtml({ ...PLACE, url: 'https://example.org/x' }, esc, {}), '');

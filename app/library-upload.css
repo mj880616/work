@@ -232,8 +232,8 @@
 .lu-drive-open:hover,.lu-drive-open:focus-visible{text-decoration:underline}
 .lu-drive-note{color:var(--kptu-muted);white-space:nowrap}
 /* UI-자료실파일모양(S69-85 ②): 폴더 안이면 위치 줄 끝에 작은 [드라이브 ↗] 하나(주소 줄 하나). */
-#appView #libraryView #libraryPath > .lu-path-drive{flex:none;margin-left:auto;padding:0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4}
-#appView #libraryView #libraryPath > .lu-drive-note.lu-path-drive{margin-left:6px}
+#appView #libraryView #libraryPath > .lu-drive-here{flex:none;margin-left:auto;padding:0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4}
+#appView #libraryView #libraryPath > .lu-drive-note.lu-drive-here{margin-left:6px}
 .lu-drive-note::before{content:"· ";}
 .lu-folder-hint{margin:4px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
 .lu-folder-hint[hidden],.lu-folder-name[hidden],.lu-folder-targets[hidden]{display:none}
