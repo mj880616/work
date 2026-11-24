@@ -8,7 +8,7 @@
 // and nothing is ever permanently deleted or retried after an unknown result.
 import { FOLDER_NAMES, NOJO_WORDS_FEATURE, driveQuoted, folderNameFor, keepOldFromFeatureWorkspace } from "./brand-folders.mjs";
 // S69-22: 편집 백업 폴더는 표식(kptu_app_folder=edit_backup)으로 찾고, 맨 위 또는 맨 위 앱 폴더 바로 아래 어디에 있어도 같은 폴더.
-import { APP_FOLDER_MARK, createParentFor, isDriveId, topParentsClause } from "./app-folders.mjs";
+import { APP_FOLDER_MARK, createParentFor, isDriveId, renameIfOld, topParentsClause } from "./app-folders.mjs";
 type DbRequest = (path: string) => Promise<unknown>;
 type Deps = {
   db: DbRequest;
@@ -379,7 +379,7 @@ export function createHwpEdit(deps: Deps) {
     const mark = `appProperties has { key='${APP_FOLDER_MARK}' and value='edit_backup' }`;
     const params = new URLSearchParams({
       q: `(${mark} or ${order.map((name) => `name = '${driveQuoted(name)}'`).join(" or ")}) and mimeType = 'application/vnd.google-apps.folder' and ${topParentsClause(appRoot)} and 'me' in owners and trashed = false`,
-      fields: "incompleteSearch,files(id,name,ownedByMe,trashed,appProperties)",
+      fields: "incompleteSearch,files(id,name,parents,ownedByMe,trashed,appProperties)",
       orderBy: "createdTime",
       pageSize: "10",
     });
@@ -399,18 +399,22 @@ export function createHwpEdit(deps: Deps) {
     let ownName: string | null = null;
     const nameForMe = async () => ownName ?? (ownName = folderNameFor("edit_backup", await keepOldNames(workspaceId).catch(() => null)));
     if (existing) {
+      const id = existing.id as string;
       const needsMark = !marked(existing);
-      if (existing.name === OLD_BACKUP_FOLDER || needsMark) {
-        // 표식이 없던 옛 폴더는 표식을 적어 둔다(다음부터는 표식으로 찾음). 옛 "Web2 편집 백업"은 이름도 바꾼다. 실패해도 백업은 그 폴더에 그대로 한다.
-        const rename = existing.name === OLD_BACKUP_FOLDER;
-        const patched = await drive(`${DRIVE}/${encodeURIComponent(existing.id)}?fields=id`, {
+      const mark = needsMark ? { [APP_FOLDER_MARK]: "edit_backup" } : null;
+      // S69-42: 옛 이름('노조+ 편집 백업'·'Web2 편집 백업')이면 쓸 때 새 이름으로(같은 자리에 새 이름 폴더가 있으면 그대로). 덤이라 실패해도 백업은 그 폴더에 한다.
+      const authed = (url: string, init: RequestInit = {}) => drive(url, { ...init, headers: { ...(init.headers as Record<string, string> || {}), ...auth(token) } });
+      const renamed = await renameIfOld({ drive: authed, kind: "edit_backup", file: { id, name: existing.name, parents: (existing as { parents?: string[] }).parents }, mark });
+      if (renamed === "renamed") return { id, name: FOLDER_NAMES.edit_backup.now as string };
+      if (needsMark) {
+        // 표식이 없던 옛 폴더는 표식을 적어 둔다(다음부터는 표식으로 찾음). 실패해도 백업은 그 폴더에 그대로 한다.
+        await drive(`${DRIVE}/${encodeURIComponent(id)}?fields=id`, {
           method: "PATCH",
           headers: { ...auth(token), "Content-Type": "application/json" },
-          body: JSON.stringify({ ...(rename ? { name: await nameForMe() } : {}), ...(needsMark ? { appProperties: { [APP_FOLDER_MARK]: "edit_backup" } } : {}) }),
-        }).then((r) => !!r?.ok).catch(() => false);
-        if (rename) return { id: existing.id as string, name: ownName && patched ? ownName : OLD_BACKUP_FOLDER };
+          body: JSON.stringify({ appProperties: mark }),
+        }).catch(() => null);
       }
-      return { id: existing.id as string, name: typeof existing.name === "string" ? existing.name : null };
+      return { id, name: typeof existing.name === "string" ? existing.name : null };
     }
     const created = await drive(`${DRIVE}?fields=id`, {
       method: "POST",

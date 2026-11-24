@@ -5,7 +5,7 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 //   거르기·칸 수는 서버 view_prefs.photo_view(명진 결정 6, 일기 칸 수와 따로). 칸 수는 폰 3~6·PC 5~12.
 // - [사진]: 최신순 격자 120장씩(library cursor) + 날짜 머리줄. 오른쪽 끝 얇은 막대(months)를 끌면 달 말풍선 '2026.09', 놓으면 그 달로.
 // - [달력]: 날마다 대표 사진·장수(days). 칸을 누르면 [사진]의 그날부터.
-// - [휴지통](명진 결정 1): Web2에서 지운 사진('.노조+ 휴지통' 폴더, 옛 이름 '.Web2 휴지통'). 고르면 [되살리기]·[바로 지우기], 위 줄 [모두 비우기].
+// - [휴지통](명진 결정 1): 앱에서 지운 사진('.WORK ON+ 휴지통' 폴더, 옛 이름 '.노조+ 휴지통'·'.Web2 휴지통'은 서버가 쓸 때 바꿈). 고르면 [되살리기]·[바로 지우기], 위 줄 [모두 비우기].
 // - 크게 보기: 일기와 같은 공용 부품 photo-strip.js. 동영상은 ▶로 재생(media-url play, 주소는 메모리에만), [ⓘ] 판 [⤓ 원본 받기](media-url download).
 // - 여러 장 고르기: 길게 누르기(0.5초)로 시작, 고른 뒤 좌우로 끌면 여러 칸(화면 끝 자동 스크롤). 아래 [☆ 별표] [⇪ 공유] [⤓ 받기] [🗑 지우기].
 //   지우기는 묻지 않고 바로 빠지고 [되돌리기] 5초(명진 결정 7), 그 뒤 한 번에(ids ≤ 50) Web2 휴지통으로.
@@ -1490,7 +1490,7 @@ function openViewer(index, own = null) {
     // 못 지우는 까닭 글은 고르기 줄·사진 ⋯와 같은 한 곳(photoOffWhy, S53-12).
     deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : photoOffWhy('delete', 'phone')}
       : item?.kind === 'gdrive' ? {ok:gdUsable() && !busy, title:!gdUsable() ? photoOffWhy('delete', 'gdrive') : busy ? '다른 일을 하는 중이에요. 잠시 뒤 다시 눌러 주세요.' : '구글 드라이브 휴지통으로(확인 한 번)'}
-      : {ok:od.canDelete, title:od.canDelete ? word('노조+ 휴지통으로') : photoOffWhy('delete', 'od')}),
+      : {ok:od.canDelete, title:od.canDelete ? 'WORK ON+ 휴지통으로' : photoOffWhy('delete', 'od')}),
     take:own?.take || takeOne, restore:own?.restore || restoreTaken, commit:own?.commit || commitOne,
     // S48-32: 폰 앱 크게 보기 한 장 [지우기]도 고른 사진 [지우기]와 같은 판단(두 갈래 창). 두 갈래가 아니면 plain(예전 5초 되돌리기).
     choose:own ? (own.choose || null) : (item, anchor, plain) => {

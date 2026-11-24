@@ -1,3 +1,5 @@
+// S69-42: 사진 휴지통 이름(지금·옛)은 서버 공용 표 한 곳.
+import { FOLDER_NAMES } from "../_shared/brand-folders.mjs";
 // Microsoft Graph 도우미. 요청 범위는 Files.ReadWrite + offline_access + User.Read 뿐이다(2026-10-27 결정: 사진 지우기).
 // 전체 범위(.All)·앱 폴더·선택 범위는 요청도 허용도 하지 않는다(scopeAllowed).
 export const SCOPE = "Files.ReadWrite offline_access User.Read";
@@ -30,15 +32,22 @@ export const LIBRARY_SCAN_PAGES = 20;
 export const MOVE_MAX = 50;
 export const STAR_IDS_MAX = 500;
 export const GRAPH_BATCH_MAX = 20;
-// Web2 휴지통(명진 결정 1, 2026-10-28 22:43): 지운 사진은 고른 맨 위 폴더 안 이 폴더로 옮기고, 30일 지나면 원드라이브 휴지통으로 보낸다.
-export const TRASH_NAME = ".노조+ 휴지통";
-// S68-02: 새 사용자(운영자 기능 nojo_words가 아닌 사람)가 처음 만들 때의 이름(_shared/brand-folders.mjs와 같은 값).
-// 이미 있는 ".노조+ 휴지통"은 이름을 바꾸지 않고 계속 쓴다. 휴지통 판별·이름 거절은 세 이름 모두.
-export const WORKON_TRASH_NAME = ".WORK ON+ 휴지통";
-// BRAND-웹2흔적지우기: 예전 이름. 색인·찾기에서 같은 휴지통으로 보고, 쓸 때 이름만 새 이름으로 바꾼다(사진은 그대로).
+// 사진 휴지통(명진 결정 1, 2026-10-28 22:43): 지운 사진은 고른 맨 위 폴더 안 이 폴더로 옮기고, 30일 지나면 원드라이브 휴지통으로 보낸다.
+// S69-42(명진 11/24 15:46 "WORK ON+ 휴지통이어야하지 않은지"): 지금 이름은 누구나 ".WORK ON+ 휴지통"(_shared/brand-folders.mjs photo_trash와 같은 값).
+// 옛 이름 ".노조+ 휴지통"(S68-02 명진)·".Web2 휴지통"(BRAND-웹2흔적지우기 전)은 같은 휴지통으로 알아보고, 서버가 휴지통을 쓸 때 이름만 지금 이름으로 바꾼다
+// (폴더 id·안 사진은 그대로, 같은 자리에 지금 이름 폴더가 이미 있으면 합치지 않고 옛 이름 그대로 쓴다).
+// 이름 글자는 _shared/brand-folders.mjs FOLDER_NAMES.photo_trash 한 곳(지금 이름 now·옛 이름 olds).
+export const TRASH_NAME: string = FOLDER_NAMES.photo_trash.now;
+export const WORKON_TRASH_NAME = TRASH_NAME;
+export const NOJO_TRASH_NAME = ".노조+ 휴지통";
 export const OLD_TRASH_NAME = ".Web2 휴지통";
-/** 휴지통 폴더 이름인가(지금·새·옛 이름). */
-export const isTrashName = (name: string) => [TRASH_NAME, WORKON_TRASH_NAME, OLD_TRASH_NAME].includes(name.normalize("NFC"));
+/** 옛 휴지통 이름(찾기·바꾸기 대상). */
+export const TRASH_OLD_NAMES: readonly string[] = FOLDER_NAMES.photo_trash.olds;
+if (TRASH_NAME !== ".WORK ON+ 휴지통" || !TRASH_OLD_NAMES.includes(NOJO_TRASH_NAME) || !TRASH_OLD_NAMES.includes(OLD_TRASH_NAME)) {
+  throw new Error("photo trash folder names drifted");
+}
+/** 휴지통 폴더 이름인가(지금·옛 이름). */
+export const isTrashName = (name: string) => [TRASH_NAME, ...TRASH_OLD_NAMES].includes(name.normalize("NFC"));
 export const TRASH_DAYS = 30;
 export const TRASH_PURGE_STEP = 20;
 export const TRASH_LIST_MAX = 2000;
@@ -46,13 +55,13 @@ export const TRASH_LIST_MAX = 2000;
 export const MEDIA_URL_TTL_S = 3000;
 
 // 사진 메뉴 ②(폴더 보기, 2026-10-29): 폴더 만들기·이름 바꾸기의 이름 규칙. 원드라이브가 거절하는 글자(" * : < > ? / \ |)·제어 글자,
-// 앞뒤 공백·끝의 점, 1~200자 밖은 받지 않는다. Web2 휴지통 이름은 만들 수 없다(휴지통 폴더와 헷갈림). 맞으면 다듬은 이름, 아니면 null.
+// 앞뒤 공백·끝의 점, 1~200자 밖은 받지 않는다. 휴지통 이름(지금·옛)은 만들 수 없다(휴지통 폴더와 헷갈림). 맞으면 다듬은 이름, 아니면 null.
 export const FOLDER_NAME_MAX = 200;
 export function cleanFolderName(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const name = v.normalize("NFC").trim();
   if (!name || [...name].length > FOLDER_NAME_MAX || /["*:<>?/\\|\u0000-\u001f\u007f]/.test(name) || name.endsWith(".")) return null;
-  if (name === TRASH_NAME || name === WORKON_TRASH_NAME || name === OLD_TRASH_NAME || name === "." || name === "..") return null;
+  if (isTrashName(name) || name === "." || name === "..") return null;
   return name;
 }
 

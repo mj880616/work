@@ -1,4 +1,7 @@
 // S68-02(명진 11/22 08:49 결정): 서버가 사용자 드라이브에 만드는 폴더 이름. 새 사용자는 'WORK ON+ …', 명진 화면(운영자 기능 nojo_words)은 지금 이름 '노조+ …'.
+// S69-42(명진 11/24 15:49 "중단없이 꾸준히 WORK ON+ 등 최신 이름으로 폴더 명도 최신화"): 앱 폴더는 이름이 아니라 저장한 id·표식으로 찾고,
+// 옛 이름(아래 olds)은 계속 알아본다. 기능이 그 폴더를 쓸 때(app-folders.mjs renameIfOld)와 [한곳으로 모으기]를 누를 때 새 이름으로 바꾼다.
+// 바꾸려는 새 이름의 폴더가 같은 자리에 이미 있으면 합치지 않고 그대로 둔다(결과에 '같은 이름 있음'으로 셈).
 // (S69-41로 바뀜: 구글 드라이브 폴더는 새로 만들 때 늘 새 이름, 이미 있는 폴더는 사람이 [한곳으로 모으기]를 누를 때만 표식으로 알아본 앱 폴더의 옛 이름을 바꾼다.)
 // 데이터 안전이 먼저다: 이미 있는 폴더의 이름은 몰래 바꾸지 않는다. 찾을 때는 옛 이름·새 이름을 모두 보고, 옛 이름 폴더가 있으면 그것을 계속 쓴다.
 // 새로 만들 때만 이름을 고른다(folderNameFor). nojo_words인지 모르면(확인 실패) 지금 이름 그대로(옛 이름) — 지금 동작과 같은 쪽.
@@ -37,17 +40,19 @@ export const FOLDER_NAMES = Object.freeze({
   basket: driveKind('Web2 바구니', ' 바구니'),
   // drive-summary 읽기용 사본(표식 kptu_summary=folder)
   copy: driveKind('노조+ 읽기용 사본', ' 읽기용 사본', ['Web2 읽기용 사본']),
-  // onedrive-photos 사진 휴지통(고른 맨 위 폴더 바로 아래, 이름으로 찾음) — 원드라이브라 이번 이름 맞추기 대상이 아니다.
-  photo_trash: Object.freeze({ old: '.노조+ 휴지통', now: '.WORK ON+ 휴지통', olds: Object.freeze(['.노조+ 휴지통']), drive: false }),
+  // onedrive-photos 사진 휴지통(고른 맨 위 폴더 바로 아래, 저장한 id로 찾고 없을 때만 이름). 원드라이브라 [한곳으로 모으기] 대상은 아니고,
+  // S69-42(명진 11/24 15:46 "WORK ON+ 휴지통이어야하지 않은지"): 서버가 휴지통을 쓸 때마다 옛 이름 둘을 '.WORK ON+ 휴지통'으로 바꾼다.
+  photo_trash: Object.freeze({ old: '.노조+ 휴지통', now: `.${DRIVE_BRAND} 휴지통`, olds: without(['.노조+ 휴지통', '.Web2 휴지통', ...pastBrand(' 휴지통').map(n => `.${n}`)], `.${DRIVE_BRAND} 휴지통`), drive: false }),
 });
 
 /** 이 종류 폴더로 알아볼 이름 전부(옛 이름들 + 지금 이름). 표식 없는 옛 폴더 찾기·이름 거절에 쓴다. */
 export const knownFolderNames = kind => Object.freeze([...FOLDER_NAMES[kind].olds, FOLDER_NAMES[kind].now]);
 
-/** 이름 맞추기: 지금 이름이 이 종류의 옛 이름이면 새 이름, 아니면(이미 새 이름·사람이 바꾼 이름) null. */
+/** 이름 맞추기: 지금 이름이 이 종류의 옛 이름이면 새 이름, 아니면(이미 새 이름·사람이 바꾼 이름) null.
+ * S69-42: 원드라이브 사진 휴지통도 같은 규칙(서버가 쓸 때 바꾼다). NFC로 맞춰 본다(원드라이브 이름은 NFD로 올 수 있음). */
 export function renameTo(kind, name) {
   const k = FOLDER_NAMES[kind];
-  return k && k.drive && typeof name === 'string' && k.olds.includes(name.trim()) ? k.now : null;
+  return k && typeof name === 'string' && k.olds.includes(name.normalize('NFC').trim()) ? k.now : null;
 }
 /** 맨 위 앱 폴더 이름 맞추기: 옛 기본 이름이면 새 이름, 아니면 null. */
 export const rootRenameTo = name => typeof name === 'string' && ROOT_OLD_NAMES.includes(name.trim()) ? ROOT_FOLDER_NAME : null;
@@ -55,19 +60,18 @@ export const rootRenameTo = name => typeof name === 'string' && ROOT_OLD_NAMES.i
 // S68-21(명진 11/22 17:04): 서버가 새로 만드는 문서 안에 쓰는 앱 이름(record-backup 읽기용 문서 첫 줄). 폴더 이름과 같은 규칙.
 export const APP_NAMES = Object.freeze({ old: '노조+', now: 'WORK ON+' });
 
-/** 새로 만드는 문서에 쓸 앱 이름. keepOld: false → 'WORK ON+', 그 밖(nojo_words·모름) → '노조+'(지금 동작과 같은 쪽). */
-export const appNameFor = keepOld => keepOld === false ? APP_NAMES.now : APP_NAMES.old;
+/** 새로 만드는 문서에 쓸 앱 이름. S69-42: 누구나 'WORK ON+'(명진 nojo_words여도 — 노조+는 따로 만드는 노조 공간 앱 이름). keepOld는 받기만 한다. */
+export const appNameFor = () => APP_NAMES.now;
 
 /** 이 종류 폴더의 이름 둘(옛·새). 찾기·휴지통 판별·이름 거절에 쓴다. */
 export const folderNames = kind => [FOLDER_NAMES[kind].old, FOLDER_NAMES[kind].now];
 
-/** 새로 만들 때 쓸 이름. 구글 드라이브 폴더는 늘 새 이름(S69-41). 원드라이브 휴지통만 예전 규칙:
- * keepOld: true(nojo_words) → 옛 이름, false → 새 이름, 그 밖(모름) → 옛 이름. */
+/** 새로 만들 때 쓸 이름. 늘 새 이름(구글 드라이브 S69-41, 원드라이브 사진 휴지통 S69-42 — 명진도 WORK ON+).
+ * keepOld는 예전 부르는 쪽과 모양을 맞추려고 받기만 하고 쓰지 않는다. */
 export function folderNameFor(kind, keepOld) {
   const names = FOLDER_NAMES[kind];
   if (!names) throw new Error(`모르는 폴더 종류: ${kind}`);
-  if (names.drive) return names.now;
-  return keepOld === false ? names.now : names.old;
+  return names.now;
 }
 
 /** 로그인 사용자 토큰으로 부른 app_my_features() 답 → 옛 이름을 쓰나(true/false). 답이 목록이 아니면 null(모름). */

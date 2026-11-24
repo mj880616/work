@@ -32,6 +32,9 @@ function world({ connected = true, owner = WS, oldDays = [], features = [], root
     }
     if (url.startsWith('https://www.googleapis.com/drive/v3/files?') && method === 'GET') {
       const qy = new URL(url).searchParams.get('q');
+      // S69-42: 이름 바꾸기 전 '같은 자리에 같은 이름 폴더가 있나'(app-folders.mjs sameNameQuery).
+      const same = /^name = '(.+)' and '([^']+)' in parents and /.exec(qy);
+      if (same) return Response.json({ files: drive.files.filter(f => !f.trashed && f.name === same[1] && f.parents[0] === same[2]).map(f => ({ id: f.id })) });
       // S69-22: 맨 위 백업 폴더는 ('root' in parents or '<맨 위 앱 폴더>' in parents) — 부모 후보를 모두 본다.
       const kind = /value='(\w+)'/.exec(qy)[1], parents = [...qy.matchAll(/'([^']+)' in parents/g)].map(m => m[1]), parent = parents[0];
       const root = drive.files.find(f => f.appProperties.kptu_backup === 'root' && !f.trashed);
@@ -44,8 +47,8 @@ function world({ connected = true, owner = WS, oldDays = [], features = [], root
     if (/\/permissions\?/.test(url)) return Response.json({ permissions: drive.perms[url.split('/files/')[1].split('/')[0]] || [{ type: 'user' }] });
     if (/drive\/v3\/files\/[^/?]+\?/.test(url) && method === 'PATCH') {
       const fid = decodeURIComponent(url.split('/files/')[1].split('?')[0]); const f = drive.files.find(x => x.id === fid); const b = JSON.parse(init.body);
-      if (b.trashed) f.trashed = true; if (b.appProperties) Object.assign(f.appProperties, b.appProperties);
-      return Response.json({ id: fid });
+      if (b.trashed) f.trashed = true; if (b.appProperties) Object.assign(f.appProperties, b.appProperties); if (b.name) f.name = b.name;
+      return Response.json({ id: fid, name: f.name });
     }
     if (url.startsWith('https://www.googleapis.com/upload/drive/v3/files')) {
       const meta = JSON.parse(String(init.body).split('\r\n\r\n')[1].split('\r\n--')[0]);
@@ -167,8 +170,8 @@ test('함수 입구: verify_jwt=true 신규 함수로 표에 등록, 서비스 �
   assert.match(doc, /\| 46 \| `record-backup` \|[^\n]*\| \*\*true\*\* \|/);
 });
 
-// S68-02: 맨 위 폴더 이름 — 새 사용자는 'WORK ON+ 백업', nojo_words·확인 실패는 '노조+ 백업', 이미 있는 폴더는 이름 그대로(바꾸지 않음).
-test('S68-02: 새로 만드는 백업 폴더 이름과 이미 있는 폴더 보존', async () => {
+// S68-02·S69-42: 맨 위 폴더 이름 — 새로 만들 때 'WORK ON+ 백업'. 이미 있는 옛 이름('노조+ 백업') 폴더는 같은 폴더(id)를 쓰고 이름만 새 이름으로.
+test('S68-02·S69-42: 새로 만드는 백업 폴더 이름, 이미 있는 옛 이름 폴더는 같은 폴더를 쓰고 이름만 바꿈', async () => {
   const fresh = world();
   const r = await (await fresh.ask('run', { kinds: ['notes'] })).json();
   const root = fresh.drive.files.find(f => f.appProperties?.kptu_backup === 'root');
@@ -182,15 +185,25 @@ test('S68-02: 새로 만드는 백업 폴더 이름과 이미 있는 폴더 보�
   const kept = world({ rootName: '노조+ 백업' });
   const k = await (await kept.ask('run', { kinds: ['notes'] })).json();
   const roots = kept.drive.files.filter(f => f.appProperties?.kptu_backup === 'root');
-  assert.equal(roots.length, 1); assert.equal(roots[0].name, '노조+ 백업'); assert.equal(k.root_name, '노조+ 백업');
-  assert.ok(!kept.calls.some(c => c.method === 'PATCH' && /"name"/.test(String(c.body))), '이미 있는 폴더 이름을 바꾸지 않는다');
+  assert.equal(roots.length, 1, '새 폴더를 만들지 않는다'); assert.equal(roots[0].name, 'WORK ON+ 백업'); assert.equal(k.root_name, 'WORK ON+ 백업');
+  assert.equal(kept.calls.filter(c => c.method === 'PATCH' && /"name"/.test(String(c.body))).length, 1, '이름 바꾸기는 한 번');
+  assert.ok(kept.drive.files.some(f => f.appProperties?.kptu_backup === 'day' && f.parents[0] === roots[0].id), '백업은 그 폴더(같은 id) 안에');
+  const again = await (await kept.ask('run', { kinds: ['notes'] })).json();
+  assert.equal(again.root_name, 'WORK ON+ 백업');
+  assert.equal(kept.calls.filter(c => c.method === 'PATCH' && /"name"/.test(String(c.body))).length, 1, '새 이름이면 다시 바꾸지 않는다');
   // S68-21: 폴더가 있어도 읽기용 문서 첫 줄의 앱 이름 때문에 기능 확인은 실행마다 한 번(로그인 토큰, 폴더 이름은 그대로).
-  assert.equal(kept.calls.filter(c => c.url.includes('/rpc/app_my_features')).length, 1, '기능 확인은 실행마다 한 번');
+  assert.equal(kept.calls.filter(c => c.url.includes('/rpc/app_my_features')).length, 2, '기능 확인은 실행마다 한 번');
   const s = await (await kept.ask('status')).json();
-  assert.equal(s.folder_name, '노조+ 백업');
+  assert.equal(s.folder_name, 'WORK ON+ 백업');
+  // 같은 자리에 새 이름 폴더가 이미 있으면(사람이 만든 폴더) 합치지 않고 옛 이름 그대로.
+  const dup = world({ rootName: '노조+ 백업' });
+  dup.drive.files.push({ id: 'person-made', name: 'WORK ON+ 백업', parents: ['root'], appProperties: {}, trashed: false });
+  const d = await (await dup.ask('run', { kinds: ['notes'] })).json();
+  assert.equal(d.root_name, '노조+ 백업');
+  assert.ok(!dup.calls.some(c => c.method === 'PATCH' && /"name"/.test(String(c.body))));
 });
 
-// S68-21: 새로 만드는 읽기용 문서 첫 줄의 앱 이름 — 새 사용자 'WORK ON+', nojo_words·확인 실패 '노조+'. 이미 있는 옛 이름 폴더여도 문서는 사람 기준.
+// S68-21·S69-42: 새로 만드는 읽기용 문서 첫 줄의 앱 이름 — 누구나 'WORK ON+'(nojo_words·확인 실패여도).
 test('S68-21: 백업 읽기용 문서 첫 줄 앱 이름', async () => {
   const docOf = w => w.drive.files.find(f => f.name === '노트 (읽기용)').content;
   const fresh = world({ rootName: '노조+ 백업' });
@@ -199,11 +212,11 @@ test('S68-21: 백업 읽기용 문서 첫 줄 앱 이름', async () => {
   assert.ok(!/노조/.test(docOf(fresh)), '새 사용자 문서에 노조 글자 없음');
   const nojo = world({ features: ['nojo_words'] });
   await nojo.ask('run', { kinds: ['notes'] });
-  assert.match(docOf(nojo), /노조\+가 내 드라이브에 만든 백업입니다/);
+  assert.match(docOf(nojo), /WORK ON\+가 내 드라이브에 만든 백업입니다/);
   const failed = world({ features: 'fail' });
   await failed.ask('run', { kinds: ['notes'] });
-  assert.match(docOf(failed), /노조\+가 내 드라이브에 만든 백업입니다/, '확인 실패는 지금 글자');
-  assert.match(M.readableHtml({ label: 'x' }, [], '2026-11-22'), /노조\+가/, '기본값은 지금 글자');
+  assert.match(docOf(failed), /WORK ON\+가 내 드라이브에 만든 백업입니다/);
+  assert.match(M.readableHtml({ label: 'x' }, [], '2026-11-22'), /WORK ON\+가/, '기본값도 새 이름');
   assert.match(M.readableHtml({ label: 'x' }, [], '2026-11-22', 'WORK ON+'), /WORK ON\+가/);
 });
 

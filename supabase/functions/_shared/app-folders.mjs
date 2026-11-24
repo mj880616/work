@@ -13,7 +13,7 @@
 // - S69-41: [한곳으로 모으기]는 표식(또는 저장한 id)으로 알아본 앱 폴더의 옛 이름('Web2 바구니'·'노조+ 백업' 등)만 새 이름으로 바꾼다
 //   (renameQuery·renameTarget). 사람이 직접 바꾼 이름·사람이 만든 폴더는 건드리지 않는다. 이름 글자는 brand-folders.mjs 한 곳.
 // DOM·네트워크 없음(단위 시험 tests/app-folders.test.mjs).
-import { FOLDER_NAMES, knownFolderNames, renameTo } from './brand-folders.mjs';
+import { FOLDER_NAMES, knownFolderNames, renameTo, rootRenameTo } from './brand-folders.mjs';
 
 /** 드라이브 파일 id 모양(쿼리 글자 안에 그대로 넣어도 되는 글자만). 'root' 별칭은 id가 아니다. */
 export const isDriveId = v => typeof v === 'string' && /^[A-Za-z0-9_-]{10,200}$/.test(v);
@@ -123,4 +123,52 @@ export function renameTarget(file) {
   if (!k || !FOLDER_NAMES[k.kind]) return null;
   const name = renameTo(k.kind, file?.name);
   return name ? { kind: k.kind, name, mark: k.marked ? null : markFor(k.kind) } : null;
+}
+
+// ---- 쓸 때 이름 맞추기(S69-42) ------------------------------------------------------------------------------------------
+// 명진 11/24 15:49 "중단없이 꾸준히 … 폴더명을 바꿔서 기능이 고장나면 안되고": 기능(바구니·백업·편집 백업·읽기용 사본)이 앱 폴더를
+// 저장한 id·표식으로 찾은 뒤, 그 폴더 이름이 옛 이름이면 새 이름으로 바꾼다. 이름(name)과 표식만 바꾸고 id·자리·안 파일은 그대로.
+// 같은 자리(부모)에 새 이름 폴더가 이미 있으면 합치지 않고 그대로 둔다('dup'). 이름 바꾸기는 덤이다: 실패해도 부르는 기능은 그대로 간다.
+const DRIVE_FILES = 'https://www.googleapis.com/drive/v3/files';
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+// 드라이브가 준 id(쿼리·주소에 넣어도 되는 글자만). 'root' 별칭도 부모로는 받는다.
+const SAFE_ID = /^[A-Za-z0-9_-]{1,200}$/;
+
+/** 이 폴더(이름)의 새 이름. kind 'root'는 맨 위 앱 폴더(옛 기본 이름일 때만). 옛 이름이 아니면 null. */
+export const renameNameFor = (kind, name) => kind === 'root' ? rootRenameTo(name) : renameTo(kind, name);
+
+/** 같은 자리에 같은 이름 폴더가 있는지 묻는 Drive 검색(q). */
+export const sameNameQuery = (name, parentId) =>
+  `name = '${quoted(name)}' and '${quoted(parentId)}' in parents and mimeType = '${FOLDER_MIME}' and trashed = false`;
+
+/**
+ * drive(url, init) → Response(인증 머리말은 부르는 쪽이 붙인다). file: {id, name, parents?}. mark: 같이 붙일 표식(appProperties)|null.
+ * 인증: drive가 init.headers에 Authorization을 더해 보낸다. dryRun: 바꾸지 않고 바꿀 수 있는지만('renamed'는 '바꿀 수 있음').
+ * 답: 'renamed' | 'dup'(같은 자리에 새 이름이 이미 있음) | 'skip'(옛 이름 아님·id 모양 틀림) | 'failed'(드라이브 실패 — 다음에 쓸 때 다시).
+ */
+export async function renameIfOld({ drive, kind, file, mark = null, dryRun = false }) {
+  const to = renameNameFor(kind, file?.name);
+  if (!to || typeof file?.id !== 'string' || !SAFE_ID.test(file.id)) return 'skip';
+  try {
+    let parents = Array.isArray(file.parents) ? file.parents : null;
+    if (!parents) {
+      const r = await drive(`${DRIVE_FILES}/${encodeURIComponent(file.id)}?fields=id,parents`, {});
+      const d = r?.ok ? await r.json().catch(() => null) : null;
+      parents = d?.id === file.id && Array.isArray(d.parents) ? d.parents : null;
+    }
+    if (!parents || parents.length !== 1 || typeof parents[0] !== 'string' || !SAFE_ID.test(parents[0])) return 'failed';
+    const p = new URLSearchParams({ q: sameNameQuery(to, parents[0]), spaces: 'drive', pageSize: '10', fields: 'incompleteSearch,files(id)' });
+    const listed = await drive(`${DRIVE_FILES}?${p}`, {});
+    const found = listed?.ok ? await listed.json().catch(() => null) : null;
+    if (!found || !Array.isArray(found.files) || found.incompleteSearch === true) return 'failed';
+    if (found.files.some(f => f?.id !== file.id)) return 'dup';
+    if (dryRun) return 'renamed';
+    const r = await drive(`${DRIVE_FILES}/${encodeURIComponent(file.id)}?fields=id,name`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mark ? { name: to, appProperties: mark } : { name: to }),
+    });
+    const d = r?.ok ? await r.json().catch(() => null) : null;
+    return d?.id === file.id && d?.name === to ? 'renamed' : 'failed';
+  } catch {
+    return 'failed';
+  }
 }

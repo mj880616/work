@@ -46,7 +46,7 @@ async function drivePlaceOf(userId:string,auth:string){
   if(place){try{for(const f of await userRest(auth,`app_library_folders?workspace_id=eq.${own}&drive_folder_id=not.is.null&select=id,drive_folder_id`))if(typeof f?.id==='string'&&typeof f?.drive_folder_id==='string')pairs[f.id]=f.drive_folder_id}catch{}}
   return json({ok:true,place:place?{...place,pairs}:null});
 }
-// S69-22: POST ?action=gather-folders {dry_run?} → 세기({root_name,root_url,count,kinds,rename}) 또는 옮기기({root_name,root_url,moved,failed,left,kinds,renamed,rename_failed,rename_left}).
+// S69-22: POST ?action=gather-folders {dry_run?} → 세기({root_name,root_url,count,kinds,rename,rename_dup}) 또는 옮기기({root_name,root_url,moved,failed,left,kinds,renamed,rename_failed,rename_left,rename_dup}) — S69-42 rename_dup = 같은 자리에 새 이름 폴더가 있어 합치지 않고 둔 수.
 // 작업공간은 로그인한 사람의 owner 작업공간(서버가 정함), 맨 위 앱 폴더는 서버가 적어 둔 root_folder_id(없으면 옮기기 때만 새로 만듦).
 async function gatherOf(userId:string,dryRun:boolean){
   const own=await callerOwnerWorkspace(admin,userId);

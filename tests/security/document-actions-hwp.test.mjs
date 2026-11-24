@@ -63,12 +63,15 @@ function harness(o = {}) {
     if (u.hostname === 'www.googleapis.com') {
       if (u.pathname === '/drive/v3/files' && method === 'GET') {
         if (state.folderSearchStatus) return Response.json({}, { status: state.folderSearchStatus });
-        return Response.json({ files: state.folders });
+        // S69-42: 이름 바꾸기 전 '같은 자리에 같은 이름 폴더가 있나'(app-folders.mjs sameNameQuery). 가짜 폴더는 모두 내 드라이브 맨 위.
+        const same = /^name = '(.+)' and 'root' in parents and /.exec(u.searchParams.get('q') || '');
+        if (same) return Response.json({ files: state.folders.filter(f => f.name === same[1]).map(f => ({ id: f.id })) });
+        return Response.json({ files: state.folders.map(f => ({ parents: ['root'], ...f })) });
       }
       if (u.pathname === '/drive/v3/files' && method === 'POST') { state.folders.push({ id: 'new-folder', ownedByMe: true, trashed: false }); return Response.json({ id: 'new-folder' }); }
       // BRAND-웹2흔적지우기: 옛 이름 백업 폴더의 이름만 바꾸기.
       const folderPatch = state.folders.find(f => method === 'PATCH' && u.pathname === `/drive/v3/files/${f.id}`);
-      if (folderPatch) { const b = JSON.parse(init.body); if (b.name) folderPatch.name = b.name; if (b.appProperties) folderPatch.appProperties = { ...folderPatch.appProperties, ...b.appProperties }; return Response.json({ id: folderPatch.id }); }
+      if (folderPatch) { const b = JSON.parse(init.body); if (b.name) folderPatch.name = b.name; if (b.appProperties) folderPatch.appProperties = { ...folderPatch.appProperties, ...b.appProperties }; return Response.json({ id: folderPatch.id, name: folderPatch.name }); }
       if (u.pathname === `/drive/v3/files/${FILE}/copy`) {
         if (state.copyStatus) return Response.json({}, { status: state.copyStatus });
         return Response.json({ id: 'backup-copy', name: JSON.parse(init.body).name, md5Checksum: state.copyMd5 ?? state.drive.md5Checksum });
@@ -206,8 +209,11 @@ test('BRAND-웹2흔적지우기: 옛 이름(Web2 편집 백업) 폴더는 새로
   const rename = driveWrites(h).find(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder');
   assert.deepEqual(JSON.parse(rename.body), { name: 'WORK ON+ 편집 백업' }); // S69-41: 새로 쓰는 이름은 늘 새 이름
   assert.deepEqual(JSON.parse(driveWrites(h).find(c => c.path.endsWith('/copy')).body).parents, ['backup-folder']);
-  // 새 이름 폴더는 이름을 다시 바꾸지 않는다.
-  const again = harness({ folders: [{ id: 'backup-folder', name: '노조+ 편집 백업', ownedByMe: true, trashed: false }] });
+  // S69-42: 옛 '노조+ 편집 백업'도 쓸 때 새 이름으로. 새 이름 폴더는 이름을 다시 바꾸지 않는다.
+  const nojo = harness({ folders: [{ id: 'backup-folder', name: '노조+ 편집 백업', ownedByMe: true, trashed: false }] });
+  assert.equal((await nojo.overwrite({ document_id: DOC, ...base })).status, 200);
+  assert.deepEqual(driveWrites(nojo).filter(c => c.path === '/drive/v3/files/backup-folder').map(c => JSON.parse(c.body)), [{ name: 'WORK ON+ 편집 백업' }]);
+  const again = harness({ folders: [{ id: 'backup-folder', name: 'WORK ON+ 편집 백업', ownedByMe: true, trashed: false }] });
   assert.equal((await again.overwrite({ document_id: DOC, ...base })).status, 200);
   assert.equal(driveWrites(again).some(c => c.path === '/drive/v3/files/backup-folder'), false);
 });
@@ -436,7 +442,7 @@ test('S68-02: 새 사용자 편집 백업 폴더는 WORK ON+, 이미 있는 노�
     // S69-41: 구글 드라이브 폴더는 nojo_words·확인 실패여도 새로 만들 때 새 이름.
     assert.equal(JSON.parse(driveWrites(h).find(c => c.path === '/drive/v3/files').body).name, 'WORK ON+ 편집 백업', JSON.stringify(o));
   }
-  // 두 이름이 다 있으면 노조+ 폴더(이미 쓰던 것)를 쓰고, 어떤 폴더 이름도 바꾸지 않는다.
+  // 두 이름이 다 있으면 노조+ 폴더(이미 쓰던 것)를 쓰고, 같은 자리에 새 이름이 이미 있으니 합치지도 이름을 바꾸지도 않는다(S69-42).
   const both = harness({ featureWs: null, folders: [
     { id: 'new-one', name: 'WORK ON+ 편집 백업', ownedByMe: true, trashed: false },
     { id: 'kept-one', name: '노조+ 편집 백업', ownedByMe: true, trashed: false },
@@ -448,7 +454,7 @@ test('S68-02: 새 사용자 편집 백업 폴더는 WORK ON+, 이미 있는 노�
   assert.equal(driveWrites(both).some(c => c.method === 'PATCH' && c.path.startsWith('/drive/v3/files/') && !c.path.startsWith('/upload')), false);
   assert.equal(driveWrites(both).some(c => c.path === '/drive/v3/files' && c.method === 'POST'), false);
   assert.equal(both.calls.some(c => c.path.endsWith('/app_operator_feature_workspace')), false, '폴더가 있으면 기능 확인을 하지 않는다');
-  // 옛 Web2 폴더는 새 사용자면 WORK ON+ 이름으로만 바꾼다.
+  // 옛 Web2 폴더는 WORK ON+ 이름으로만 바꾼다.
   const web2 = harness({ featureWs: null, folders: [{ id: 'backup-folder', name: 'Web2 편집 백업', ownedByMe: true, trashed: false }] });
   const w = await web2.overwrite({ document_id: DOC, ...base });
   assert.deepEqual(JSON.parse(driveWrites(web2).find(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder').body), { name: 'WORK ON+ 편집 백업' });
@@ -469,13 +475,23 @@ test('S69-22: 맨 위 앱 폴더를 알면 그 아래도 찾고 새 폴더는 �
   assert.deepEqual(JSON.parse(driveWrites(fresh).find(c => c.path === '/drive/v3/files').body).parents, [ROOT]);
 });
 
-test('S69-22: 표식이 없는 옛 편집 백업 폴더는 이름으로 한 번 찾아 표식만 적어 둔다(이름은 그대로)', async () => {
+test('S69-22·S69-42: 표식이 없는 옛 편집 백업 폴더는 이름으로 한 번 찾아 표식을 적고 옛 이름은 새 이름으로(같은 PATCH 한 번)', async () => {
   const h = harness({ folders: [{ id: 'backup-folder', name: '노조+ 편집 백업', ownedByMe: true, trashed: false, unmarked: true }] });
   const r = await h.overwrite({ document_id: DOC, ...base });
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  const patch = driveWrites(h).find(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder');
-  assert.deepEqual(JSON.parse(patch.body), { appProperties: { kptu_app_folder: 'edit_backup' } });
-  assert.equal(r.body.backup.folder, '노조+ 편집 백업');
+  const patches = driveWrites(h).filter(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder');
+  assert.deepEqual(patches.map(c => JSON.parse(c.body)), [{ name: 'WORK ON+ 편집 백업', appProperties: { kptu_app_folder: 'edit_backup' } }]);
+  assert.equal(r.body.backup.folder, 'WORK ON+ 편집 백업');
+  assert.deepEqual(JSON.parse(driveWrites(h).find(c => c.path.endsWith('/copy')).body).parents, ['backup-folder'], '같은 폴더(id)에 백업');
+  // 같은 자리에 새 이름 폴더가 이미 있으면 이름은 그대로, 표식만.
+  const dup = harness({ folders: [
+    { id: 'backup-folder', name: '노조+ 편집 백업', ownedByMe: true, trashed: false, unmarked: true },
+    { id: 'person-made1', name: 'WORK ON+ 편집 백업', ownedByMe: true, trashed: false, unmarked: true },
+  ] });
+  const d = await dup.overwrite({ document_id: DOC, ...base });
+  assert.equal(d.status, 200);
+  assert.deepEqual(driveWrites(dup).filter(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder').map(c => JSON.parse(c.body)), [{ appProperties: { kptu_app_folder: 'edit_backup' } }]);
+  assert.equal(d.body.backup.folder, '노조+ 편집 백업');
   // 표식이 붙은 폴더가 있으면 이름이 같은 다른 폴더보다 먼저 쓴다(옮기거나 이름을 바꿔도 같은 폴더).
   const both = harness({ folders: [
     { id: 'old-name-only', name: '노조+ 편집 백업', ownedByMe: true, trashed: false, unmarked: true },

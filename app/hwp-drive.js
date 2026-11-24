@@ -33,7 +33,8 @@ export const UNION_TEMPLATE_NOJO_CATEGORY='노조 서식';
 export const UNION_TEMPLATE_CATEGORY=word('노조 서식');
 // S68-02: 편집 백업 폴더 이름. 서버(_shared/hwp-edit.ts)가 실제로 쓴 폴더 이름(backup.folder)을 알려 주면 그대로,
 // 모르면(옛 서버) 기본 이름 word('노조+ 편집 백업') — WORK ON+ 기본은 'WORK ON+ 편집 백업', 명진 화면은 그대로.
-export const EDIT_BACKUP_FOLDER=word('노조+ 편집 백업');
+// S69-42: 서버가 편집 백업 폴더를 쓸 때 옛 이름을 새 이름으로 바꾸므로 기본 이름도 누구나 새 이름(서버 _shared/brand-folders.mjs).
+export const EDIT_BACKUP_FOLDER='WORK ON+ 편집 백업';
 export const backupFolderName=name=>typeof name==='string'&&name.trim()&&name.length<=100&&!/["\n]/.test(name)?name.trim():EDIT_BACKUP_FOLDER;
 export const UNION_TEMPLATE_OLD_CATEGORY='양식';
 /** 서식 자료로 찾을 분류 값들(지금 이름이 맨 앞, 겹침 없이). current = 이 사람의 지금 이름(얼굴 단어). */
