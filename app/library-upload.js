@@ -859,8 +859,8 @@ const luPhotoCount=photos=>photos.reduce((n,d)=>n+(isPhotoSet(d)?(d.count|0):1),
 function luPhotoTail(node,photos){
   const key=node?.key||'top',open=luPhotoOpen.has(key),sets=photos.filter(isPhotoSet),singles=photos.filter(d=>!isPhotoSet(d));
   const tiles=open?singles.map(d=>({id:d.id,title:d.title||d.file_name||'사진'})):[];
-  // S69-14(명진 11/24 '사진도 선택해서 옮길 수 있게'): 선택 모드에서도 ⋯를 두고(우클릭·⋯ = 고른 것 모두 메뉴, 문서 줄과 같음) 그림 왼쪽 위에 네모 칸.
-  const pick=t=>luPick.items?`<input type="checkbox" class="lu-pick lu-pick-tile" data-lu-pick="${luEsc(t.id)}" aria-label="선택: ${luEsc(t.title)}"${luPick.items.has(t.id)?' checked':''}>`:'';
+  // S69-14(명진 11/24 '사진도 선택해서 옮길 수 있게'): 선택 모드에서도 ⋯를 두고(우클릭·⋯ = 고른 것 모두 메뉴, 문서 줄과 같음) 그림 왼쪽 위에 고르기 칸(보이는 표시는 공용 동그란 배지, S69-24).
+  const pick=t=>luPick.items?`<input type="checkbox" class="lu-pick lu-pick-tile photo-pick" data-lu-pick="${luEsc(t.id)}" aria-label="선택: ${luEsc(t.title)}"${luPick.items.has(t.id)?' checked':''}><span class="photo-pick-mark" aria-hidden="true"></span>`:'';
   const menu=t=>`<button class="icon-btn lu-more-trigger" type="button" aria-label="자료 관리: ${luEsc(t.title)}" aria-expanded="false" aria-controls="luMorePanel" data-lu-menu="${luEsc(t.id)}"><span class="more-dots" aria-hidden="true">⋯</span></button>`;
   const setRows=open&&sets.length?`<div class="lu-photo-sets">${sets.map(d=>luDragRowHtml(d,node)).join('')}</div>`:'';
   return `<div class="lu-photo-fold" data-lu-photo-fold="${luEsc(key)}">${photoToggleHtml(luPhotoCount(photos),{open,attrs:` data-lu-photos="${luEsc(key)}"`})}${setRows}${open&&tiles.length?photoTilesHtml(tiles,t=>({attrs:` data-lu-document="${luEsc(t.id)}"`,menu:menu(t),lead:pick(t)}),{label:'사진'}):''}</div>`;
