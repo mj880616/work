@@ -96,6 +96,9 @@ import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX,
   colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearLabels, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
 import {word} from './brand/brand.mjs';
+import {installDragEdgeScroll} from './drag-edge-scroll.js';
+// UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
+installDragEdgeScroll();
 
 (() => {
 if (window.KPTUPhotos) return;
@@ -822,7 +825,7 @@ function cell(item, i) {
   b.setAttribute('aria-label', cellLabel(item, on));
   b.append(photoEl(item, 'small', {label:''}));
   const mark = document.createElement('span'); mark.className = 'diary-star-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = '★'; mark.hidden = !on;
-  const pick = document.createElement('span'); pick.className = 'photos-pick'; pick.setAttribute('aria-hidden', 'true');
+  const pick = document.createElement('span'); pick.className = 'photos-pick photo-pick-mark'; pick.setAttribute('aria-hidden', 'true');
   b.append(mark, pick);
   if (item.video) b.append(Object.assign(document.createElement('span'), {className:'photos-dur', textContent:`▶${durationLabel(item.duration_ms) ? ' ' + durationLabel(item.duration_ms) : ''}`}));
   if (item.kept) b.dataset.photosKept = '';
@@ -1570,7 +1573,7 @@ function paintSelect() {
   root.querySelectorAll('[data-photos-open]').forEach(b => {
     const item = list[Number(b.dataset.photosOpen)];
     const picked = on && !!item && select.has(item.id);
-    b.classList.toggle('is-picked', picked);
+    b.classList.toggle('is-picked', picked); b.classList.toggle('photo-picked', picked); // S69-24: 고른 칸 표시는 공용(base-ui.css 'UI-사진고르기표시')
     if (on) b.setAttribute('aria-pressed', String(picked)); else b.removeAttribute('aria-pressed');
   });
   root.querySelectorAll('[data-photos-day-pick]').forEach(b => {

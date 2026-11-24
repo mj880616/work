@@ -6,6 +6,8 @@ import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-m
 // BIZ-보고할일정 PR B: 일정 막대 앞 ✓(보고 씀)·□(보고할 일정) 표시 부품.
 import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
 import {keepMenus} from './anchored-menu.js';
+// CAL-말풍선통일(S69-21): 일정 막대·할 일 줄의 마우스 올림 말풍선은 주 보기와 같은 공용 부품(잘린 제목만, 떠서 칸을 밀지 않음).
+import {addTip} from './calendar-tip.js';
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
@@ -19,7 +21,7 @@ import {keepMenus} from './anchored-menu.js';
   let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
   // tasksSig starts as the signature of the empty list, so the first fetch that finds no tasks does not redraw the grid a second time (S54-11).
-  let tasks=[],tasksSig='[]';
+  let tasks=[],tasksSig='[]',manyLists=false;
   // CAL-끌어옮기기(PC 월간): 끄는 동안 옮겨 갈 날짜 칸 표시도 이 renderer가 그린다. 상태는 calendar-drag.js가 setDrag로 넘긴다(메모리만).
   let drag=null;
   // S46-23: 폰 월 보기의 펼침 상태(메모리만). monthKey가 바뀌면(달 바꾸기) 한 화면 크기로 돌아간다.
@@ -171,11 +173,13 @@ import {keepMenus} from './anchored-menu.js';
   // t.date is the date part of the Google due value (YYYY-MM-DD), used as it is, so no time zone can move it to another day.
   function normalizeTask(t){
     const start=dateOnly(t.date);
-    return {key:'task:'+t.id,id:t.id,source:'task',title:t.title||'(제목 없음)',start,end:new Date(start),allDay:true,done:!!t.done,overdue:!!t.overdue};
+    return {key:'task:'+t.id,id:t.id,source:'task',title:t.title||'(제목 없음)',list:t.list||'',start,end:new Date(start),allDay:true,done:!!t.done,overdue:!!t.overdue};
   }
   function taskLabel(ev){
     return '할 일: '+ev.title+(ev.done?', 완료':ev.overdue?', 기한 지남':'');
   }
+  // 말풍선 글: 잘린 제목 전체 + 목록 이름(할 일 목록이 둘 이상일 때만). 날짜는 칸·창 머리에 이미 보이므로 넣지 않는다. 띄우는 규칙은 calendar-tip.js.
+  const taskTip=ev=>ev.title+(manyLists&&ev.list?' · '+ev.list:'');
   // A task is drawn as an outlined chip with a completion circle, unlike the filled event bars; a completed one is struck and faded.
   function taskButton(ev,className){
     const b=document.createElement('button');
@@ -183,8 +187,7 @@ import {keepMenus} from './anchored-menu.js';
     b.className='cal-event cmv-task '+className+(ev.done?' cmv-task-done':ev.overdue?' cmv-task-overdue':'');
     b.dataset.calendarTask=ev.id;
     b.innerHTML=`<span class="cmv-task-mark" aria-hidden="true">${ev.done?'✓':''}</span><span class="cmv-event-title">${esc(ev.title)}</span>`;
-    const label=taskLabel(ev);
-    b.title=label;b.setAttribute('aria-label',label);
+    b.setAttribute('aria-label',taskLabel(ev));addTip(b,taskTip(ev));
     return b;
   }
   // S48-6c 폰 월 보기(2026-11-02 명진 결정): 기한이 그날인 할 일도 칸 안에 제목 줄로. 일정 막대와 구별되게 바탕색 없이 글자만,
@@ -197,8 +200,7 @@ import {keepMenus} from './anchored-menu.js';
     b.style.gridColumn=`${seg.startCol+1} / span 1`;
     b.style.gridRow=String(seg.lane+1);
     b.innerHTML=`<span class="cmv-cell-task-box" aria-hidden="true"></span><span class="cmv-event-title">${esc(ev.title)}</span>`;
-    const label=taskLabel(ev);
-    b.title=label;b.setAttribute('aria-label',label);
+    b.setAttribute('aria-label',taskLabel(ev));addTip(b,taskTip(ev));
     // S51-16 CAL-할일끌기: PC 마우스로 다른 날짜 칸에 끌어 놓으면 기한이 바뀐다(끌기·저장은 calendar-drag.js). 완료한 할 일은 끌지 않는다.
     if(mqPc.matches&&!ev.done)b.dataset.drag='task';
     return b;
@@ -269,8 +271,7 @@ import {keepMenus} from './anchored-menu.js';
     const showTime=tm&&(!mq760.matches||(zoomed&&zoomMode&&seg.span<=1));
     b.innerHTML=(showTime?`<span class="cmv-event-time">${esc(tm)}</span>`:'')+`<span class="cmv-event-title">${esc(ev.title)}</span>`;
     if(plan)b.prepend(planMarkEl(plan));
-    b.title=label;
-    b.setAttribute('aria-label',label);
+    b.setAttribute('aria-label',label);addTip(b,(tm?tm+' ':'')+ev.title);
     return b;
   }
   function dayEvents(events,date){
@@ -621,9 +622,9 @@ import {keepMenus} from './anchored-menu.js';
   // kept; team.js redraws the calendar when it is shown again.
   function setTasks(list){
     const next=(Array.isArray(list)?list:[]).filter(t=>t&&t.id&&/^\d{4}-\d{2}-\d{2}$/.test(String(t.date||'')));
-    const sig=JSON.stringify(next.map(t=>[t.id,t.title||'',t.date,!!t.done,!!t.overdue]));
+    const sig=JSON.stringify(next.map(t=>[t.id,t.title||'',t.list||'',t.date,!!t.done,!!t.overdue]));
     if(sig===tasksSig)return false;
-    tasks=next;tasksSig=sig;
+    tasks=next;tasksSig=sig;manyLists=new Set(next.map(t=>t.list||'')).size>1;
     if(last&&!document.querySelector('#calendarView')?.classList.contains('hidden'))render(last);
     return true;
   }

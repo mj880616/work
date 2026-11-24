@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { withEdgeShared } from './helpers/edge-shared.mjs';
+import { drivePlace, metaUrl, parsePlaceRequest } from '../../supabase/functions/workspace-drive/drive-place.mjs';
 
 // EDGE-워크스페이스401: workspace-drive (verify_jwt=false, auth in code) answers 401 when the caller is not logged in
 // (no token, malformed, forged, revoked, or expired) so runtime-client.js refreshes the session once and retries.
@@ -28,7 +29,7 @@ function harness() {
   const calls = { db: [], fetch: [] };
   const query = table => {
     const b = {
-      select: () => b, eq: () => b, is: () => b, gt: () => b, insert: async () => ({ error: null }), update: () => b, upsert: async () => ({ error: null }),
+      select: () => b, eq: () => b, is: () => b, gt: () => b, limit: async () => { calls.db.push(table); return { data: [], error: null }; }, insert: async () => ({ error: null }), update: () => b, upsert: async () => ({ error: null }),
       maybeSingle: async () => { calls.db.push(table); return { data: null, error: null }; },
       single: async () => { calls.db.push(table); return { data: null, error: { message: 'unexpected' } }; }
     };
@@ -43,7 +44,7 @@ function harness() {
   const quiet = { log: () => {}, error: () => {}, warn: () => {} };
   const readMultipartForm = async () => new FormData();
   const fetchMock = async url => { calls.fetch.push(String(url)); throw new Error('unexpected fetch ' + url); };
-  new Function('Deno', 'createClient', 'readMultipartForm', 'fetch', 'console', SOURCE)(Deno, () => client, readMultipartForm, fetchMock, quiet);
+  new Function('Deno', 'createClient', 'readMultipartForm', 'fetch', 'console', 'drivePlace', 'metaUrl', 'parsePlaceRequest', SOURCE)(Deno, () => client, readMultipartForm, fetchMock, quiet, drivePlace, metaUrl, parsePlaceRequest);
   return { handler, calls };
 }
 
@@ -130,4 +131,23 @@ test('workspace-drive: the download link without a token keeps 400 and CORS pref
   const foreign = await h.handler(new Request('https://sb.example/functions/v1/workspace-drive', { method: 'OPTIONS', headers: { Origin: 'https://bokdoong.com.evil.example' } }));
   assert.equal(foreign.status, 200);
   assert.equal(foreign.headers.get('Access-Control-Allow-Origin'), null);
+});
+
+// S69-20 ①: 자료실 저장 위치(GET ?action=drive-place)도 같은 로그인 확인 뒤에만, 자기 owner 작업공간만. 남의 것·없는 작업공간은 드라이브를 부르지 않는다.
+test('workspace-drive drive-place: 로그인 없으면 401(DB·드라이브 호출 없음), owner 작업공간이 없으면 403(드라이브 호출 없음), 다른 값이 붙으면 400', async () => {
+  for (const token of [null, '', 'not-a-jwt', 'expired-jwt']) {
+    const h = harness();
+    const r = await send(h, { token, method: 'GET', action: 'drive-place' });
+    assert.equal(r.status, 401, String(token));
+    assert.deepEqual(h.calls, { db: [], fetch: [] });
+  }
+  const h = harness();
+  const r = await send(h, { token: 'token-a', method: 'GET', action: 'drive-place' });
+  assert.equal(r.status, 403, JSON.stringify(r.body));
+  assert.deepEqual(h.calls.fetch, []);
+  const extra = harness();
+  const u = new URL('https://sb.example/functions/v1/workspace-drive?action=drive-place&folder_id=x');
+  const res = await extra.handler(new Request(u, { method: 'GET', headers: { Authorization: 'Bearer token-a', Origin: 'https://desk.bokdoong.com' } }));
+  assert.equal(res.status, 400);
+  assert.deepEqual(extra.calls, { db: [], fetch: [] });
 });

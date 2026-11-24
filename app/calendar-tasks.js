@@ -25,7 +25,7 @@ function forCalendar(list){
   return list.flatMap(t=>{
     const date=g.dueDateKey(t.due);
     if(!date||!g.completedRecently(t,now))return [];
-    return [{id:t.id,title:t.title||'제목 없음',date,done:t.status==='completed',overdue:g.isOverdue(t,now)}];
+    return [{id:t.id,title:t.title||'제목 없음',list:t.taskListTitle||'',date,done:t.status==='completed',overdue:g.isOverdue(t,now)}];
   });
 }
 function publish(list,at){tasks=list;tasksAt=at;window.KPTUCalendarMonthView?.setTasks?.(forCalendar(list));window.KPTUCalendarView?.setTasks?.(forCalendar(list))}
@@ -77,7 +77,7 @@ function paint(b,value){
   b.classList.toggle('cmv-task-done',value);
   const mark=b.querySelector('.cmv-task-mark');if(mark)mark.textContent=value?'✓':'';
   const label=(b.getAttribute('aria-label')||'').replace(/, 완료$/,'')+(value?', 완료':'');
-  b.setAttribute('aria-label',label);b.title=label;
+  b.setAttribute('aria-label',label);
 }
 // A row leaves the date list (deleted, or its due date moved to another day); the empty list says so.
 function dropRow(id){

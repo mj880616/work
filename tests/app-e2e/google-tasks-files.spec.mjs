@@ -170,7 +170,7 @@ test('파일 붙이기: 올리는 중에 더 고르면 거절하지 않고 줄 �
   await context.close();
 });
 
-test('PC: names sit under the card, the menu lists 수정·파일 붙이기·삭제, and an editor save keeps the link line on the server',async({browser})=>{
+test('PC: names sit under the card, the menu lists 수정·기한 바꾸기·파일 붙이기·삭제, and an editor save keeps the link line on the server',async({browser})=>{
   const {context,page,state,google}=await openTasks(browser,{viewport:{width:1280,height:900},files:[{google_task_id:'a',drive_file_id:'old1',file_name:'기존 자료.pdf',size_bytes:9}]});
   await expect(page.locator('#gtTaskSection')).toHaveClass(/gt-pc/);
   const card=row(page,'a');
@@ -179,7 +179,7 @@ test('PC: names sit under the card, the menu lists 수정·파일 붙이기·삭
   expect(name.y).toBeGreaterThanOrEqual(title.y+title.height-8);
   expect(await noSideScroll(page)).toBe(true);
   await openMenu(page,'a');
-  await expect(page.locator('#gtTaskMenu button')).toHaveText(['수정','파일 붙이기','삭제']);
+  await expect(page.locator('#gtTaskMenu button')).toHaveText(['수정','기한 바꾸기','파일 붙이기','삭제']);
   await page.keyboard.press('Escape');
   // The editor sends whatever the notes box holds; the server answer (with the link line kept) is what the list shows.
   await card.locator('.gt-main').click();
