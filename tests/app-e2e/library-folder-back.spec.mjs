@@ -78,7 +78,8 @@ test('PC 1440 한 칸(나무 | 목록): 위치 줄 링크 · Backspace 한 단�
   await menuButton(page,'f:fa').click();await folderMenuItem(page,'이 폴더로 들어가기').click();
   await expect(path.locator('.fp-here')).toHaveText('가상 A');
   // S69-68(명진 11/24 20:09): 오른쪽 폴더 줄은 두 번 눌러도 들어가지 않는다(그 자리 펼치기). 들어가기는 왼쪽 나무.
-  const navGo=id=>page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`).click();
+  // #2994(왼쪽 나무: 누르면 바로 펼치기·접기 + 오른쪽은 늘 그 폴더): 이미 펼쳐 둔 폴더를 다시 누르면 접힐 수 있어, 들어간 뒤 접혀 있으면 그림으로 펼친다(다음 단계 줄이 보이게).
+  const navGo=async id=>{await page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`).click();await expect(path.locator('.fp-here')).toHaveText(new RegExp(`^가상 ${id.slice(1).toUpperCase()}$`));const t=page.locator(`#libraryFolderNav [data-lu-nav-tog="${id}"]`);if(await t.count()&&(await t.getAttribute('aria-expanded'))==='false')await t.click()};
   await head('f:fb').dblclick();
   await expect(path.locator('.fp-here')).toHaveText('가상 A');
   await navGo('fb');
