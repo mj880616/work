@@ -37,7 +37,7 @@ test('[파일] PC 1280: 하위 있는 상위 폴더를 눌러도 오른쪽 = 그
   await expect(voice).toHaveClass(/ft-current/);
   await expect(voice.locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'true');
   await expect(fxTreeRow(page, 'gd:gdWait')).toBeVisible();
-  // 펼친 폴더 이름을 누르면 접기만(명진 11/24 20:22), 또 누르면 들어가며 펼친다.
+  // 이름을 다시 누르면 접히고(명진 11/24 20:26), 또 누르면 펼친다. 오른쪽은 늘 그 폴더.
   await voice.locator('.ft-main').click();
   await expect(voice.locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'false');
   await expect(fxTreeRow(page, 'gd:gdWait')).toHaveCount(0);
