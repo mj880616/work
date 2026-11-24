@@ -631,3 +631,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 @media (min-width:600px){ #appView #basketView [data-note-read] [data-basket-read-text]:not(.md-body):not(:has(>.ed-doc)) { padding-right:max(12px, calc(100% - var(--line-w) - 12px)); } }
 /* S67-25: 잊지 말기 맨 아래 '잠김' 줄은 위 줄들과 같은 안쪽 여백(전에는 카드 가장자리에 붙었다). 끝 [풀기]는 ③ 줄 버튼. */
 
+/* NOTE-게시 ②: 게시 중인 노트 읽기 맨 위 한 줄 '게시 중 · 링크 복사 · 게시 멈춤'(콤팩트 글자 단추, 게시 중일 때만). */
+#appView #basketView .note-pub-line { display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; margin:0 0 8px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #basketView .note-pub-line[hidden] { display:none; }
+#appView #basketView .note-pub-on { color:var(--kptu-ink); font-weight:600; }

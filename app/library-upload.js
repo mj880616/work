@@ -1878,7 +1878,11 @@ function luSyncPicksNow(){
   if(card){const was=card.classList.contains('lu-selecting');card.classList.toggle('lu-selecting',on);
     if(on&&!was){card.classList.remove('lu-sel-enter');void card.offsetWidth;card.classList.add('lu-sel-enter')}else if(!on)card.classList.remove('lu-sel-enter')}
   const barEl=document.querySelector('#librarySelectBar');
+<<<<<<< HEAD
   if(!on){luPaintSelectActs(barEl,false);for(const x of document.querySelectorAll('#documentList :is(.lu-picked,.lu-node-picked)'))x.classList.remove('lu-picked','lu-node-picked');return}
+=======
+  if(!on){luPaintSelectActs(barEl,false);return}
+>>>>>>> origin/main
   // LIB-끄는중막대(S69, 명진 11/24 16:17 "드래그해서 폴더로 드롭해서 옮기는 중에는 이 메뉴들이 없어져야지. 취소야 남겨두더라도"):
   // 끄는 동안·놓은 뒤 옮기는 동안(luDragNow, 폴더 부품이 알림)은 '옮기는 중 N개 · 취소'만 그린다. 끝나면 원래 막대. 그리는 곳은 여기 하나.
   const dragging=!!luDragNow;luPaintSelectActs(barEl,dragging);
