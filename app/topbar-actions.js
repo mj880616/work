@@ -7,6 +7,7 @@ import {mountReorder,dropIndex,dropIndexGrid} from './reorder-drag.js'; // MENU-
 import {openRowMenu,appMenuPoint} from './row-menu.js'; // 왼쪽 메뉴 우클릭: 공용 줄 메뉴(UI-PC우클릭과 같은 모양)
 import './menu-layout.js';
 import {downloadPlan,loadPhoneAppInfo,pcPlan,loadPcAppInfo,PC_HELPER_NAME} from './app-download.mjs';
+import {shellOf} from './app-info-model.mjs'; // S69-34 APP-업데이트확인: 계정 메뉴 '앱 정보' 줄 오른쪽 판(폰 앱·옛 윈도우 앱)
 import {openHelp} from './help-link.js'; // HELP-메뉴안쓰는법: 메뉴 맨 아래 '쓰는 법'
 import {installPlan,isStandalone,runInstall} from './pwa-install.mjs'; // S63-09 PC도우미구분: PC 브라우저 계정 메뉴 [PC에 앱 설치] // APP-앱내려받기버튼: 계정 메뉴 '앱 내려받기'(윈도우 PC는 보조 프로그램)
 import './keyboard-keys.js'; // UI-PC손맛묶음 ②: 전체 검색 단축키·본문으로 가기·목록 ↑↓·Enter
@@ -38,6 +39,10 @@ const accounts=logoutButtons.map(logout=>{
   // UPDATE-운영자전용기록업데이트소식 PR3: 모든 이용자에게 '업데이트 소식'(운영자가 보낸 소식만). 새 소식 점·숫자는 붙이지 않는다(명진 11/15 13:37).
   const whatsnew=document.createElement('button');whatsnew.type='button';whatsnew.className='account-action';whatsnew.dataset.whatsnewOpen='';whatsnew.textContent='업데이트 소식';
   // FEEDBACK-의견보내기 PR5: 맨 아래(로그아웃 위) '의견 보내기'는 모두에게, '받은 의견 n'은 운영자만(서버 허용 표 dev_inbox일 때만 줄을 그림 — 읽기는 서버가 막음).
+  // S69-34 APP-업데이트확인: [업데이트 소식] 아래 '앱 정보'(지금 쓰는 판 모두 + [업데이트 확인] 작은 창, app-info.js). 폰 앱이면 오른쪽에 앱 판.
+  const appInfo=document.createElement('button');appInfo.type='button';appInfo.className='account-action';appInfo.dataset.appInfoOpen='';appInfo.setAttribute('aria-haspopup','dialog');
+  appInfo.innerHTML='<span class="account-action-name">앱 정보</span><span class="account-ver" data-app-info-ver></span>';
+  {const shell=shellOf(navigator.userAgent||'');appInfo.querySelector('[data-app-info-ver]').textContent=shell.kind==='web'?'':shell.version}
   const feedback=document.createElement('button');feedback.type='button';feedback.className='account-action';feedback.dataset.feedbackOpen='';feedback.textContent='의견 보내기';feedback.setAttribute('aria-haspopup','dialog');
   const inbox=document.createElement('button');inbox.type='button';inbox.className='account-action';inbox.dataset.feedbackInbox='';inbox.hidden=true;
   inbox.innerHTML='<span class="account-action-name">받은 의견</span><span class="account-count" data-feedback-count></span>';
@@ -52,13 +57,13 @@ const accounts=logoutButtons.map(logout=>{
   const lockRow=document.createElement('button');lockRow.type='button';lockRow.className='account-action';lockRow.dataset.lockOpen='';lockRow.textContent='잠금';
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
-  logout.before(host);host.append(trigger);panel.append(...settingsRows({profile,whatsnew,appInstall,appDl,menuEdit,theme,lockRow,feedback}),...opsRows({updates,signups,inbox}),logout);document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(...settingsRows({profile,whatsnew,appInfo,appInstall,appDl,menuEdit,theme,lockRow,feedback}),...opsRows({updates,signups,inbox}),logout);document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
-  return {host,trigger,panel,profile,updates,whatsnew,appInstall,appDl,menuEdit,theme,lockRow,signups,inbox,feedback,nativePopover};
+  return {host,trigger,panel,profile,updates,whatsnew,appInfo,appInstall,appDl,menuEdit,theme,lockRow,signups,inbox,feedback,nativePopover};
 });
 // S68-36 메뉴 창 정리(명진 11/23 확정): 계정 줄은 두 묶음 — 자주 안 쓰는 설정 링크(내 프로필 · 쓰는 법 · 업데이트 소식 · 메뉴 수정 · 화면 색 · 잠금 · 의견 보내기)
 // 다음에 운영자 줄(업데이트 기록 · 가입자 현황 · 받은 의견 — 보이는 조건은 그대로 서버 기능 확인 결과), 맨 끝 로그아웃. PC 계정 메뉴도 같은 순서.
-function settingsRows(a,help=null){return [a.profile,help,a.whatsnew,a.appInstall,a.appDl,a.menuEdit,a.theme,a.lockRow,a.feedback].filter(Boolean)}
+function settingsRows(a,help=null){return [a.profile,help,a.whatsnew,a.appInfo,a.appInstall,a.appDl,a.menuEdit,a.theme,a.lockRow,a.feedback].filter(Boolean)}
 function opsRows(a){return [a.updates,a.signups,a.inbox]}
 // APP-앱내려받기버튼: 계정 메뉴의 '앱 내려받기' 줄 하나(사이드바·위쪽 계정 메뉴가 같은 모양). 주소는 배포 때 정한 최신 폰 앱 판(app/phone-app.json)을 읽어 채운다.
 // BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 PC 보조 프로그램(WORK ON+ 파일 올리기) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
@@ -680,6 +685,11 @@ const feedbackStyles=()=>Promise.all(FEEDBACK_CSS.map(path=>new Promise(resolve=
 accounts.forEach(account=>account.feedback.addEventListener('click',()=>{
   const trigger=menuQuery.matches?menuButton():account.trigger;
   closeAccount(()=>{void feedbackStyles().then(()=>import('./feedback.js')).then(m=>m.openFeedback(trigger)).catch(()=>writeToast('의견 창을 열지 못했어요. 다시 시도해 주세요.'))});
+}));
+// S69-34 앱 정보 창: 계정 메뉴를 닫은 뒤 처음 쓸 때 불러 연다(작은 창 모양 파일은 그 부품이 붙인다).
+accounts.forEach(account=>account.appInfo.addEventListener('click',()=>{
+  const trigger=menuQuery.matches?menuButton():account.trigger;
+  closeAccount(()=>{void import('./app-info.js').then(m=>m.openAppInfo(trigger)).catch(()=>writeToast('앱 정보를 열지 못했어요. 다시 시도해 주세요.'))});
 }));
 // [메뉴 편집]: 계정 메뉴를 닫은 뒤 편집 창(menu-edit.js)을 처음 쓸 때 불러 연다.
 accounts.forEach(account=>account.menuEdit.addEventListener('click',()=>closeAccount(()=>{

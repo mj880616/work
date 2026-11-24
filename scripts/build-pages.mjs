@@ -197,10 +197,21 @@ export function readTree(root) {
   }));
 }
 
-export function buildDirectory(inputDir, outputDir, { face } = {}) {
+// S69-34 APP-업데이트확인: 계정 메뉴 '앱 정보'가 읽는 공개 파일. 이 빌드의 app.js 판(index.html이 붙이는 ?v=와 같은 값)과 빌드 시각만 적는다.
+// 시각이 들어가므로 buildPages(같은 입력 → 같은 출력)에는 넣지 않고 폴더 빌드(배포)에서만 쓴다. 자산 목록(asset-manifest)에는 넣지 않는다.
+export const buildInfoPath = 'app/build-info.json';
+export function buildInfoJson(output, at) {
+  const app = output['app/app.js'];
+  if (app === undefined) return null;
+  const v = versionOf(typeof app === 'string' ? Buffer.from(app, 'utf8') : app);
+  return `${JSON.stringify({ v, at })}\n`;
+}
+
+export function buildDirectory(inputDir, outputDir, { face, builtAt = null } = {}) {
   if (existsSync(outputDir) && readdirSync(outputDir).length) throw new Error(`출력 폴더가 비어 있지 않습니다: ${outputDir}`);
   const input = readTree(inputDir);
   const output = buildPages(input, { face });
+  if (builtAt) { const info = buildInfoJson(output, builtAt); if (info) output[buildInfoPath] = info; }
   for (const [file, value] of Object.entries(output)) {
     const target = join(outputDir, file);
     mkdirSync(dirname(target), { recursive: true });
@@ -219,7 +230,7 @@ function main() {
   if (!inputDir || !outputDir || rest.length || faceArgs.length > 1 || (face !== undefined && !FACE_IDS.includes(face))) {
     throw new Error(`사용법: node scripts/build-pages.mjs <입력 폴더> <출력 폴더> [--face=${FACE_IDS.join('|')}]`);
   }
-  const output = buildDirectory(resolve(inputDir), resolve(outputDir), { face });
+  const output = buildDirectory(resolve(inputDir), resolve(outputDir), { face, builtAt: new Date().toISOString() });
   const assets = Object.keys(JSON.parse(output[manifestPath]).assets).length;
   console.log(`Pages 빌드 완료(얼굴 ${face || 'nojo'}): 파일 ${Object.keys(output).length}개, 자산 목록 ${assets}개 → ${outputDir}`);
 }
