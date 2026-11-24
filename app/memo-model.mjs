@@ -3,7 +3,11 @@
 // 메모 하나 = (대상 종류, 대상 id, 글, 시각, 작업공간). 표는 public.app_memos(migration 20261125030000). DOM·네트워크 없는 계산만.
 // 화면: 쓰기·고치기·지우기 칸 memo-thread.js(노트·읽을 거리 글·저장한 글이 같은 부품), 모아 보기 노트 [메모] 보기(basket-notes.js),
 // 원문 열기 memo-open.js(아래 MEMO_OPEN 표대로). 서버 표 읽기·쓰기 memo-data.js, 작업공간 메모 목록 한 곳 memo-store.js.
-// 대상 종류를 더할 때(S69-95: 자료실 파일·회의 기록·담당조직 기록·텔레그램 소식)는 DB 검사(app_memos_target_type_check) 한 줄 + 이 표 한 줄 + 여는 곳 한 곳.
+// 대상 종류를 더할 때는 DB 검사(app_memos_target_type_check) 한 줄 + 이 표 한 줄 + 여는 곳 한 곳.
+// S69-95 NOTE-메모넓히기(명진 11/25 03:17 "메모를 모아두는 화면에서는 메모도 보이지만 그 메모를 남긴 원문 기록으로 연결도 되어야"):
+//  document = 자료실 파일(app_documents.id, 자료 ⋯ [메모] → 자료 창 아래), meeting = 사업 관리 사업 보고(app_meetings.id, 보고 창 맨 아래),
+//  org_record = 조직 관리 담당조직 기록(app_suborganization_updates.id, 기록 ⋯ [메모] → 기록 창 아래), telegram = 텔레그램 소식 한 건(app_feed_items.id, 소식 원문 아래).
+//  메모는 늘 내 작업공간 주인만 본다(공유 기능이 생겨도 공유 읽기 길에 메모 표는 없다 — docs/design/collab-sharing.md 8절).
 
 // 대상 종류 → 출처 꼬리표·거르기 묶음. news·outside는 둘 다 '읽을 거리'(기사·성명 화면) 한 칩.
 // brief(브리핑 룸 자료)는 DB가 받기만 하고 아직 쓰는 화면이 없다(브리핑 [답글]은 지금처럼 노트 한 장 — S69-95에서 옮김).
@@ -13,6 +17,10 @@ export const MEMO_TARGETS = Object.freeze({
   outside: Object.freeze({label: '읽을 거리', group: 'feed'}),
   reading: Object.freeze({label: '저장한 글', group: 'reading'}),
   brief: Object.freeze({label: '브리핑', group: 'brief'}),
+  document: Object.freeze({label: '자료실', group: 'document'}),
+  meeting: Object.freeze({label: '사업 보고', group: 'meeting'}),
+  org_record: Object.freeze({label: '담당조직', group: 'org'}),
+  telegram: Object.freeze({label: '텔레그램', group: 'telegram'}),
 });
 export const MEMO_TYPES = Object.freeze(Object.keys(MEMO_TARGETS));
 // 모아 보기 거르기 칩(전체는 늘, 나머지는 그 묶음 메모가 있을 때만).
@@ -22,19 +30,30 @@ export const MEMO_GROUPS = Object.freeze([
   Object.freeze({key: 'feed', label: '읽을 거리'}),
   Object.freeze({key: 'reading', label: '저장한 글'}),
   Object.freeze({key: 'brief', label: '브리핑'}),
+  Object.freeze({key: 'document', label: '자료실'}),
+  Object.freeze({key: 'meeting', label: '사업 보고'}),
+  Object.freeze({key: 'org', label: '담당조직'}),
+  Object.freeze({key: 'telegram', label: '텔레그램'}),
 ]);
 // 표의 검사와 같은 숫자(app_memos_body_check·target_title_check·quote_check).
 export const MEMO_LIMITS = Object.freeze({body: 4000, title: 300, quote: 1000});
 
 // ★원문 열기 표(한 곳): 대상 종류 → 그 원문을 여는 화면과 요청 모양. memo-open.js가 이 값대로 연다.
-// check = 원문이 아직 있는지 볼 표(노트는 목록이 이미 있어 화면이 안다). null 이면 아직 여는 곳 없음(링크 꺼짐, 메모는 그대로).
+// check = 원문이 아직 있는지 볼 표(노트는 목록이 이미 있어 화면이 안다). own = 그 표에 작업공간 칸이 있어 내 작업공간 것만 묻는다.
+// live = 휴지통에 든 원문을 '없음'으로 볼 조건(사업 보고 삭제 = deleted_at, 텔레그램 소식 삭제 = hidden_at). null 이면 아직 여는 곳 없음(링크 꺼짐, 메모는 그대로).
 export const MEMO_OPEN = Object.freeze({
   note: Object.freeze({view: 'basket', request: 'note', check: null}),
   news: Object.freeze({view: 'news', request: 'news', check: 'app_news_articles'}),
   outside: Object.freeze({view: 'news', request: 'news', check: 'app_outside_articles'}),
-  reading: Object.freeze({view: 'reading', request: 'reading', check: 'app_reading_items'}),
+  reading: Object.freeze({view: 'reading', request: 'reading', check: 'app_reading_items', own: true}),
   brief: null,
+  document: Object.freeze({view: 'library', request: 'document', check: 'app_documents', own: true}),
+  meeting: Object.freeze({view: 'meetings', request: 'meeting', check: 'app_meetings', own: true, live: 'deleted_at=is.null'}),
+  org_record: Object.freeze({view: 'team', request: 'org_record', check: 'app_suborganization_updates'}),
+  telegram: Object.freeze({view: 'telegram', request: 'telegram', check: 'app_feed_items', own: true, live: 'source=eq.telegram&hidden_at=is.null', feature: 'telegram'}),
 });
+// 운영자 기능에 달린 종류(텔레그램): 그 기능이 잠겨 있으면 모아 보기에서 글·제목을 가린다(밑줄 모아 보기와 같은 규칙). DOM 없는 판정은 부르는 쪽이 준다.
+export const memoFeature = memo => MEMO_OPEN[memo?.target_type]?.feature || '';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isMemoTarget = (type, id) => MEMO_TYPES.includes(type) && typeof id === 'string' && UUID.test(id);

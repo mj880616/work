@@ -1,4 +1,5 @@
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
+import {createMemoSlots, memoSlotHtml} from './memo-thread.js'; // S69-95: 소식 원문 아래 메모 칸
 // TG-방날짜묶기 4-가 (docs/design/tg-room-day-group.md 2절, 시안 mockups/tg-room-day-group.html): 텔레그램 소식 화면(?view=telegram, 사이드바 맨 아래).
 // 이 모듈이 #telegramView의 유일한 renderer다. 머리줄 '텔레그램 소식' + "오늘 n개 중 중요한 m개 · 방 k곳" + 방 거르기, 고정 띠, 작은 가운데 날짜,
 // 그 아래 "방 한 줄"(방 머리글자·방 이름·그날 내용 한 줄·소식 n·원문 n). 줄을 누르면 방 상세가 열린다(PC 오른쪽 2/3, 폰 router layer 한 칸):
@@ -409,10 +410,19 @@ function sumeditHtml(se) {
   const orig = se.edited ? `<button type="button" class="feed-text-btn feed-se-orig" data-tg-se-orig${dis}>초안으로 되돌리기</button>` : '';
   return `<div class="feed-se" data-tg-se data-enter-save="[data-tg-se-save]">${head}${area}<div class="feed-se-actions">${orig}<span class="feed-status" role="status">${esc(se.status)}</span><button type="button" class="feed-small" data-tg-se-cancel${dis}>취소</button><button type="button" class="feed-small primary" data-tg-se-save${dis}>저장</button></div></div>`;
 }
+// S69-95 NOTE-메모넓히기: 펼친 소식 한 건의 원문 아래 메모 칸(노트·저장한 글과 같은 부품, memo-thread.js createMemoSlots — 다시 그려도 같은 칸).
+// 원문 제목 사본은 방 이름 · 소식 한 줄. 이 화면은 운영자 기능(서버 허용 표)일 때만 열리고, 메모 표도 넣을 때 같은 검사를 한다(DB 20261125060000).
+const tgMemos = createMemoSlots({cls:'tg-memos'});
+function mountTgMemos(box) {
+  tgMemos.mount(box, key => {
+    const id = key.startsWith('telegram:') ? key.slice(9) : '', r = id ? itemOf(id) : null;
+    return r ? {type:'telegram', id:r.id, title:[oneLineOf(r.room_label) || '텔레그램', sumOf(r) || r.title || ''].filter(Boolean).join(' · ')} : null;
+  });
+}
 function itemHtml(r) {
   if (state.se?.kind === 'item' && state.se.id === r.id) return `<div class="feed-di is-open" data-tg-di="${esc(r.id)}"><div class="feed-di-row"><span class="feed-at">${esc(hhmm(r.occurred_at))}</span><div class="feed-se-wrap">${sumeditHtml(state.se)}</div></div></div>`;
   const on = state.open.has(r.id);
-  const body = on ? `${state.link?.rowId === r.id ? linkBoxHtml(state.link, state.orgs, 'tg') : ''}${rawHtml(r)}` : '';
+  const body = on ? `${state.link?.rowId === r.id ? linkBoxHtml(state.link, state.orgs, 'tg') : ''}${rawHtml(r)}${memoSlotHtml('telegram', r.id, 'tg-memo-slot')}` : '';
   const ask = state.asks?.byItem.get(String(r.id).toLowerCase()) || '';
   return `<div class="feed-di${on ? ' is-open' : ''}${ask ? ' is-ask' : ''}${state.rsel && state.found === r.id ? ' is-found' : ''}" data-tg-di="${esc(r.id)}"><div class="feed-di-row"><span class="feed-at">${esc(hhmm(r.occurred_at))}</span><button type="button" class="feed-dib" data-tg-open="${esc(r.id)}" aria-expanded="${on}"><span class="feed-tx">${esc(sumOf(r) || r.title || '')}</span>${ask ? `<span class="feed-ask" data-tg-ask>${esc(`${ASK_TAG} · ${ask}`)}</span>` : ''}<span class="feed-ft"><span>원문 ${Number(r.raw_count) || 0}</span>${isItemEdited(r, state.edits) ? '<span class="feed-edited">수정됨</span>' : ''}${r.pinned_at ? '<span class="feed-pin">고정</span>' : ''}${r.organization_id ? `<span>${esc(orgName(state.orgs, r.organization_id) || '')}</span>` : ''}</span></button><button type="button" class="feed-more" data-tg-more="${esc(r.id)}" aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button></div>${body}</div>`;
 }
@@ -439,7 +449,7 @@ function paintDetail() {
   const note = state.note ? `<p class="feed-notice" role="status" data-tg-note>${esc(state.note)}</p>` : '';
   roomSeen?.disconnect();
   box.innerHTML = `${head}${nav}${note}<div class="feed-detail" data-tg-detail="${esc(selKey())}">${dayBodyHtml(sel.room, sel.day, d, sum, dedit)}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
-  paintTgMarks(box); fitRawFolds(box); revealTg(box); fitAll(box); // UI-줄입력늘어나기: 목록 한 줄 고치기 칸은 글 전체가 보이게
+  mountTgMemos(box); paintTgMarks(box); fitRawFolds(box); revealTg(box); fitAll(box); // UI-줄입력늘어나기: 목록 한 줄 고치기 칸은 글 전체가 보이게
 }
 // 방·날 하나의 몸통: 요약 상자(고치기·복사) + 그날 소식 줄. 날짜별 상세와 방별 상세가 같이 쓴다. 단추의 값은 그 방·날 열쇠.
 function dayBodyHtml(room, day, d, sum, dedit, {fold = false} = {}) {
@@ -476,6 +486,7 @@ function paintRoomDetail(box) {
   // 다시 그려도(소식·원문이 늦게 와도) 초점은 같은 단추·찾기 칸(글자·커서 그대로)에 남는다.
   const fo = keptFocus(box);
   box.innerHTML = `${head}${findHtml()}${note}<div class="feed-detail feed-rdays" data-tg-roomdetail="${esc(room)}">${body}${more}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
+  mountTgMemos(box); // 다시 그린 자리에 같은 메모 칸을 먼저 끼운다(재기 전에 — 높이가 잠깐 줄어 스크롤이 밀리지 않게)
   fo?.();
   paintTgMarks(box); fitRawFolds(box); revealTg(box); jumpTo(box);
   roomSeen?.disconnect(); roomSeen = null;

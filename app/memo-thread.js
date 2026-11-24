@@ -7,7 +7,7 @@
 //  - 모아 보기에서 이 원문을 열었으면(memo-open.js) 붙을 때 그 메모 줄로 내려가 잠깐 칠한다(reveal).
 // 모아 보기 줄(memoRowHtml): 메모 글 + 출처 꼬리표(노트·읽을 거리·저장한 글) + 원문 제목. 원문이 없으면 '원래 기록이 없어요'(링크만 꺼짐).
 import {partStyles} from './part-styles.js';
-import {MEMO_LIMITS, memoDraft, memosOf, memoSource, memoLink, GONE_LINE} from './memo-model.mjs';
+import {MEMO_LIMITS, memoDraft, memosOf, memoSource, memoLink, memoFeature, GONE_LINE} from './memo-model.mjs';
 import {memosNow, memoState, loadMemos, onMemos, leaveMemo, editMemo, removeMemo, restoreMemo} from './memo-store.js';
 import {takeMemoReveal} from './memo-open.js';
 import {noteLineDate} from './note-tree.mjs';
@@ -22,7 +22,7 @@ let seq = 0;
 // 원문 아래 메모 칸. onChange() = 메모 수가 바뀜(껍데기가 목록 쪽 수만 다시 맞출 때).
 export function createMemoThread({onChange = () => {}} = {}) {
   const uid = `memoText${++seq}`;
-  let box = null, target = null, busy = false, editing = null, editText = '', reveal = null, flashId = null, flashUntil = 0;
+  let box = null, target = null, busy = false, editing = null, editText = '', reveal = null, flashId = null, flashUntil = 0, waitTimer = 0, waitLeft = 180;
   const drafts = new Map(); // 원문 열쇠 → 쓰던 글(화면 메모리만)
   const key = () => (target ? `${target.type}:${target.id}` : '');
   const say = text => { const p = box?.querySelector('[data-cm-status]'); if (p) { p.textContent = text; p.hidden = !text; } };
@@ -56,7 +56,9 @@ export function createMemoThread({onChange = () => {}} = {}) {
     if (!reveal || !box) return;
     const row = box.querySelector(`[data-cm-row="${CSS.escape(reveal)}"]`);
     if (!row) { if (memoState().loaded && !memosNow().some(m => m.id === reveal)) reveal = null; return; }
-    if (!row.getClientRects().length) return;
+    // S69-95: 원문 창이 아직 숨어 있으면(창을 채운 뒤에 띄우는 보고 창·자료 창) 몇 프레임 뒤 다시 본다(약 3초까지).
+    if (!row.getClientRects().length) { if (!waitTimer && waitLeft-- > 0) waitTimer = requestAnimationFrame(() => { waitTimer = 0; showReveal(); }); return; }
+    waitLeft = 180;
     const id = reveal;
     reveal = null; flashId = id; flashUntil = Date.now() + 2400;
     row.classList.add('memo-th-flash');
@@ -127,7 +129,7 @@ export function createMemoThread({onChange = () => {}} = {}) {
       box = nextBox; target = nextTarget ? {...nextTarget} : null;
       if (!box || !target) return;
       const want = takeMemoReveal(target.type, target.id);
-      if (want) reveal = want;
+      if (want) { reveal = want; waitLeft = 180; }
       if (!same) { box.addEventListener('click', onClick); box.addEventListener('input', onInput); }
       if (!memoState().loaded) void loadMemos();
       paint();
@@ -145,6 +147,8 @@ export function createMemoThread({onChange = () => {}} = {}) {
 // 모아 보기 줄 하나. titleOf(memo) = 지금 원문 제목(모르면 사본), exists(memo) = 원문 있나(true·false·undefined), hidden(memo) = 잠긴 노트(글·제목 가림).
 export function memoRowHtml(m, {titleOf = x => x.target_title || '', exists = () => undefined, hidden = () => false} = {}) {
   const locked = hidden(m), link = memoLink(m, exists);
+  // S69-95: 운영자 기능(텔레그램)이 잠겨 가린 줄은 누르면 그 자리 잠금 풀기 창(feature-lock.js data-lock-here — 노트 잠금은 부르는 화면이 묻는다).
+  const lockHere = locked && memoFeature(m) ? ` data-lock-here="${esc(memoFeature(m))}"` : '';
   const title = locked ? '잠김' : [...String(titleOf(m) || m.target_title || '제목 없음')].slice(0, 60).join('');
   const text = locked ? '잠김' : `${m.quote ? `<q>${esc([...m.quote].slice(0, 80).join(''))}</q> ` : ''}${esc([...String(m.body || '')].slice(0, 200).join(''))}`;
   const src = `<span class="memo-src" data-memo-src="${esc(m.target_type)}">${esc(memoSource(m))}</span>`;
@@ -152,8 +156,39 @@ export function memoRowHtml(m, {titleOf = x => x.target_title || '', exists = ()
   const day = `<time class="row-tail" datetime="${esc(m.created_at || '')}">${esc(noteLineDate(m.created_at))}</time>`;
   const inner = `${src}<span class="memo-line-text">${text}</span>${tail}${day}`;
   return link.open
-    ? `<div class="memo-line" data-memo-line="${esc(m.id)}"><button type="button" class="ghost memo-line-open" data-memo-open="${esc(m.id)}">${inner}</button></div>`
-    : `<div class="memo-line memo-line-off" data-memo-line="${esc(m.id)}"><div class="memo-line-open" aria-disabled="true">${inner}</div></div>`;
+    ? `<div class="memo-line" data-memo-line="${esc(m.id)}"${lockHere}><button type="button" class="ghost memo-line-open" data-memo-open="${esc(m.id)}">${inner}</button></div>`
+    : `<div class="memo-line memo-line-off" data-memo-line="${esc(m.id)}"${lockHere}><div class="memo-line-open" aria-disabled="true">${inner}</div></div>`;
 }
 // 모아 보기 칩(출처 묶음) 줄.
 export const memoChipsHtml = (groups, current) => groups.map(g => `<button type="button" class="ds-chip nt-chip" data-memo-group="${esc(g.key)}" aria-pressed="${(current || '') === g.key}">${esc(g.label)}</button>`).join('');
+
+// S69-95 NOTE-메모넓히기: 다시 그려지는 목록 안 원문마다(텔레그램 소식 줄처럼 펼친 것만) 메모 칸을 끼우는 손잡이. 같은 메모 칸 부품(createMemoThread)을
+// 원문마다 하나씩 두고, 칸 요소는 다시 그려도 같은 것을 끼운다(쓰던 글·초점 유지). 목록이 그 자리를 더는 그리지 않으면 그 칸을 버린다.
+// 자리: memoSlotHtml(type, id) — 부르는 화면이 원문 아래에 그린다. 끼우기: mount(root, key → {type, id, title}|null).
+export const memoSlotHtml = (type, id, cls = '') => `<section class="memo-slot${cls ? ` ${esc(cls)}` : ''}" data-memo-slot="${esc(type)}:${esc(id)}" aria-label="메모"></section>`;
+export function createMemoSlots({cls = ''} = {}) {
+  const slots = new Map(); // 'type:id' → {host, thread}
+  return {
+    mount(root, targetOf) {
+      if (!root) return;
+      for (const spot of root.querySelectorAll('[data-memo-slot]')) {
+        const key = spot.dataset.memoSlot, t = targetOf(key);
+        if (!t) { spot.remove(); continue; }
+        let s = slots.get(key);
+        if (!s) {
+          const host = document.createElement('section');
+          host.className = `memo-th${cls ? ` ${cls}` : ''}`; host.dataset.memoHost = key; host.setAttribute('aria-label', '메모');
+          s = {host, thread: createMemoThread()}; slots.set(key, s);
+        }
+        // 칸을 옮기면 브라우저가 초점을 놓는다: 쓰던 칸이면 같은 자리(커서 그대로)로 돌려준다.
+        const a = s.host.contains(document.activeElement) ? document.activeElement : null, at = a && 'selectionStart' in a ? [a.selectionStart, a.selectionEnd] : null;
+        spot.replaceWith(s.host);
+        s.thread.attach(s.host, t);
+        if (a?.isConnected && document.activeElement !== a) { a.focus({preventScroll: true}); if (at) try { a.setSelectionRange(...at); } catch { /* 고를 수 없는 칸 */ } }
+      }
+      for (const [key, s] of slots) if (!s.host.isConnected) { s.thread.destroy(); slots.delete(key); }
+    },
+    has: key => slots.has(key),
+    reset() { for (const s of slots.values()) s.thread.destroy(); slots.clear(); },
+  };
+}

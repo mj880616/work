@@ -187,6 +187,7 @@ public.app_collab_write(p_share uuid, p_op text, p_payload jsonb)  -- 종류별 
 ## 8. 댓글·@멘션·알림 (5·6단계)
 
 - 표 `app_collab_comments`: id, share_id, target_ref(공유 안의 어느 기록인지 — 서버가 그 공유에 속하는지 확인), author_user_id, body(글자 수 상한), created_at, edited_at, deleted_at. 노트 댓글 `app_note_comments`(내 노트 전용)와 섞지 않는다.
+- **개인 메모는 공유되지 않는다**(S69-95 NOTE-메모넓히기, 2026-11-25): 노트·읽을 거리·저장한 글·자료실 자료·사업 보고·담당조직 기록·텔레그램 소식 아래 메모(`app_memos`, migration `20261125030000`·`20261125060000`)는 늘 그 작업공간 주인만 읽고 쓴다(owner RLS 4정책, 넣을 때 원문이 같은 작업공간 것인지 서버가 확인). 공유 읽기 함수(`app_collab_*`)·4단계 읽기 허용 칸 목록에 `app_memos`를 넣지 않는다 — 원문을 공유해도 그 원문에 남긴 내 메모는 받는 사람에게 가지 않고, 받는 사람도 남의 원문에 메모를 남길 수 없다(공유물에 다는 글은 위 `app_collab_comments` 몫). 시험: `tests/auth-handoff/memos-more-targets-db.test.mjs`(원문을 볼 수 있는 다른 작업공간 사람에게도 메모 0줄, 모든 `app_collab_*` 함수 본문에 `app_memos` 없음).
 - 읽기·쓰기: `private.app_collab_can(share,'view')`가 참인 사람(= 현재 멤버)만. **보기만 공유에도 댓글은 달 수 있다**(추천 — 댓글은 기록을 바꾸지 않음, 결정 ③). 내 댓글만 고치기·지우기. 공유한 사람은 자기 공유물의 댓글을 숨길 수 있음.
 - 공유를 끄면 댓글은 숨김 보존, 다시 켜면 보임(결정 ④). 나간 사람 댓글은 '나간 멤버'로 남김(결정 ②).
 - @멘션: `@`를 치면 **그 공유를 볼 수 있는 현재 멤버만** 뜬다(`app_collab_mention_candidates(share_id)`: 이름·직책만). 서버가 본문의 멘션을 다시 확인해 멤버 아닌 대상은 버린다. 표 `app_collab_mentions(comment_id, user_id, read_at)`.

@@ -54,14 +54,15 @@ export async function deleteMemo(id, {legacy = false} = {}, rt = window.KPTURunt
 }
 
 // 원문이 아직 있나(MEMO_OPEN 표의 check 표, id만 읽음 — 기존 RLS 그대로). 돌려줌 Set(있는 id). 읽지 못하면 null(모름 — 링크는 켜 둔다).
+// S69-95: 작업공간 칸이 있는 표(own)는 내 작업공간 것만, 휴지통 조건(live)이 있는 표는 휴지통에 든 원문을 없는 것으로 본다(MEMO_OPEN 표).
 export async function existingTargets(type, ids, rt = window.KPTURuntime) {
-  const table = MEMO_OPEN[type]?.check, want = [...new Set(ids || [])];
+  const how = MEMO_OPEN[type], table = how?.check, want = [...new Set(ids || [])];
   if (!table || !want.length) return null;
   const out = new Set();
   try {
     for (let i = 0; i < want.length; i += 100) {
       const part = want.slice(i, i + 100).map(enc).join(',');
-      const scope = type === 'reading' ? `&workspace_id=eq.${enc(ws(rt))}` : '';
+      const scope = `${how.own ? `&workspace_id=eq.${enc(ws(rt))}` : ''}${how.live ? `&${how.live}` : ''}`;
       const rows = await rt.api(`/rest/v1/${table}?id=in.(${part})${scope}&select=id&limit=100`, {singleFlight: false});
       for (const r of Array.isArray(rows) ? rows : []) if (r?.id) out.add(r.id);
     }
