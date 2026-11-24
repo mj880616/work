@@ -16,13 +16,51 @@ export function holdPick(items, keys) {
   return next;
 }
 
-export function createSelectMode({layer = null, router = () => globalThis.window?.KPTURouter, onBack = null, canLeave = null} = {}) {
-  let items = null, opened = null;
-  const openLayer = () => {
-    if (!layer || opened) return;
-    opened = router()?.layer?.open(layer, {close: () => { if (items && canLeave?.() === false) return false; opened = null; const was = !!items; items = null; self.anchor = null; if (was) onBack?.(); return true; }}) || null;
+// S69-89 UI-고르기모드통일(2026-11-25 명진 "선택 가능 모드에서 폰 뒤로가기 버튼 누르면 선택 가능 모드에서 나오게 선택도 취소되고"):
+// 고르기 모드의 뒤로가기 겹 하나를 여닫는 공용 부품. 고르기 상태를 따로 가진 화면(파일 p.picked)도 이것 하나로 같은 규칙을 쓴다
+// (화면마다 history를 따로 만들지 않는다). 겹은 라우터(app-router.js layer)에 올리므로 열린 메뉴·창이 위에 있으면 그것부터 닫힌다.
+// 추정 원인 대비: 크롬 계열은 누름(사용자 활성) 없이 넣은 기록 칸을 브라우저 뒤로가기에서 건너뛸 수 있다(그러면 뒤로가기가 고르기를 끄지 않고
+// 직전 화면으로 간다). 꾹 누르기(contextmenu·타이머)처럼 누름이 아직 없을 때 켜지면 겹은 손을 떼는(누름이 생기는) 순간 연다.
+// 반환: sync(on) 켜짐에 맞춰 열거나 닫기, close() 닫기(뒤로가기로 이미 빠졌으면 fromBack), get isOpen, settled()(닫은 겹의 뒤로가기 도착).
+const ACTIVATION_EVENTS = ['pointerup', 'touchend', 'mousedown', 'keydown', 'click'];
+function whenActivated(run) {
+  const w = globalThis.window, ua = globalThis.navigator?.userActivation;
+  if (!w || !ua || ua.isActive) { run(); return () => {}; }
+  let done = false;
+  const off = () => { for (const t of ACTIVATION_EVENTS) w.removeEventListener(t, go, true); };
+  const go = () => { if (done) return; done = true; off(); run(); };
+  for (const t of ACTIVATION_EVENTS) w.addEventListener(t, go, true);
+  return () => { if (!done) { done = true; off(); } };
+}
+export function createBackLayer(layer, {router = () => globalThis.window?.KPTURouter, onBack = null, canLeave = null} = {}) {
+  let opened = null, waiting = null;
+  const open = () => {
+    if (!layer || opened || waiting) return;
+    let ran = false;
+    const cancel = whenActivated(() => {
+      ran = true; waiting = null;
+      if (opened) return;
+      opened = router()?.layer?.open(layer, {close: () => { if (canLeave?.() === false) return false; opened = null; onBack?.(); return true; }}) || null;
+    });
+    if (!ran) waiting = cancel;
   };
-  const closeLayer = fromBack => { const l = opened; opened = null; if (!fromBack) l?.close(); };
+  // 반환: 겹의 뒤로가기가 도착하면 풀리는 약속(닫은 뒤 창을 여는 화면이 기다릴 수 있게 — 라우터 layer close와 같음).
+  let last = Promise.resolve();
+  const close = ({fromBack = false} = {}) => { waiting?.(); waiting = null; const l = opened; opened = null; if (!fromBack && l) last = Promise.resolve(l.close()); return last; };
+  return {
+    sync(on) { if (on) open(); else if (opened || waiting) close(); },
+    open, close,
+    get isOpen() { return !!opened; },
+    // 마지막으로 닫은 겹의 뒤로가기가 도착하면 풀린다.
+    settled: () => last,
+  };
+}
+
+export function createSelectMode({layer = null, router = () => globalThis.window?.KPTURouter, onBack = null, canLeave = null} = {}) {
+  let items = null;
+  const back = createBackLayer(layer, {router, canLeave: () => !(items && canLeave?.() === false), onBack: () => { const was = !!items; items = null; self.anchor = null; if (was) onBack?.(); }});
+  const openLayer = () => back.open();
+  const closeLayer = fromBack => back.close({fromBack});
   const self = {
     anchor: null,
     get active() { return !!items; },

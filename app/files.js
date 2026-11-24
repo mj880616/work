@@ -26,7 +26,7 @@ import {bindEdgeBack} from './edge-back-swipe.js';
 import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
-import {holdPick} from './select-mode.js';
+import {holdPick, createBackLayer} from './select-mode.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
 import {twoPaneFrame} from './two-pane.js';
@@ -2112,8 +2112,12 @@ const PH_TRASH_HTML = trashHtml();
 const PV_TRASH_HTML = '<button type="button" class="danger" data-fx-trash-one>휴지통</button>';
 const trashOff = (html, code) => html.replace(/data-fx-trash(?:-one)?(?=[\s>])/, m => `${m} aria-disabled="true" data-fx-off="${code}"`);
 const sendButtonsHtml = (i, off, keys) => ['copy', 'move'].map(m => sbActHtml({attrs: `data-fx-send="${m}"${off}`, icon: m === 'copy' ? 'copy' : 'send', label: `${sendLabel(i, m, VERT())}${keys ? (m === 'copy' ? ' (F5)' : ' (F6)') : ''}`, rank: m === 'copy' ? 5 : 10})).join('');
+// S69-89 UI-고르기모드통일(명진 11/25): 고른 줄이 있으면(= 고르기 모드) 폰·브라우저 뒤로가기 한 번 = 고른 것을 모두 풀고 이 화면에 그대로(공용 select-mode.js createBackLayer).
+// 열린 메뉴·창은 라우터 겹 차례대로 먼저 닫힌다. 옮기는 중(state.busy)에는 풀지 않고 겹으로 돌아간다.
+const pickBack = createBackLayer('files-pick', {canLeave: () => !state.busy, onBack: () => { for (const p of state.panes) { p.picked.clear(); p.anchor = ''; } for (const p of state.panes) paintPicks(p); }});
 function paintBar() { return keepFxMenus(() => { paintBarNow(); fitSelectBar($('[data-fx-bar]')); }); }
 function paintBarNow() {
+  pickBack.sync(state.panes.some(p => p.picked.size));
   const bar = $('[data-fx-bar]');
   if (!bar) return;
   const p = P(), n = p.picked.size, clip = state.clip;
@@ -3295,6 +3299,8 @@ async function sendToLibrary(rows) {
     try { ready = await libraryReady(); } catch { ready = false; }
     if (state.scope !== scope) return;
     if (!ready) { notify('자료실을 열지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false}); return; }
+    // S69-89: 등록 창(기록 한 칸)을 열기 전에 고르기를 끝내고 그 뒤로가기 겹이 빠지기를 기다린다. 창이 뜬 뒤에 겹을 닫으면 그 뒤로가기가 창을 닫는다.
+    if (state.panes.some(p => p.picked.size)) { for (const p of state.panes) { p.picked.clear(); p.anchor = ''; } for (const p of state.panes) paintPicks(p); await pickBack.settled(); if (state.scope !== scope) return; }
     out = window.KPTULibrary.startUploadFromFiles(items) || out;
   }
   const already = [...had.map(r => ({name: r.name, id: r.library_doc_id})), ...(out.already || [])];
@@ -4415,7 +4421,7 @@ async function enter(force = false) {
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'files') return;
   // 다른 화면으로 가면 미리보기를 놓는다(받은 그림·PDF 메모리도). 맞추기 시계는 멈춘다.
-  layer = null; listLayer = null; dropPreview(); dropThumbs(); delete root?.dataset.fxPreview; clearInterval(syncTimer); clearTimeout(jobTimer);
+  layer = null; listLayer = null; pickBack.close({fromBack: true}); dropPreview(); dropThumbs(); delete root?.dataset.fxPreview; clearInterval(syncTimer); clearTimeout(jobTimer);
   state.photoOpen.clear(); // LIB-사진숨김: 다시 들어오면 늘 숨김으로 시작
   if (state.jobsOpen) { jobsLayer = null; state.jobsOpen = false; paintJobs(); }
   if (state.xfer) { destLayer = null; dropDest(); }

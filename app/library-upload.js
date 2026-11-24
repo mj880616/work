@@ -1888,7 +1888,7 @@ function luSyncPicksNow(){
   for(const c of list?.querySelectorAll('[data-lu-pick-node]')||[]){const key=c.dataset.luPickNode,whole=key.startsWith('f:')&&luPick.items.has(folderPick(key.slice(2))),nodeIds=nodeDocumentIds(luTreeNode(key));c.checked=whole||allSelected(luPick.items,nodeIds);c.indeterminate=!c.checked&&someSelected(luPick.items,nodeIds);c.parentElement?.classList.toggle('lu-node-picked',c.checked)}
   // S69-69: 폴더째 고른 폴더 줄(탐색기 칸·두 칸)은 고른 줄 표시(lu-folder-picked + aria-selected).
   // S69-84: 왼쪽 나무(#libraryFolderNav) 폴더 줄도 같은 표시(폴드·PC 꾹 누르기·선택 모드 누르기로 폴더째 고름).
-  for(const el of document.querySelectorAll('#documentList details[data-lu-enter] > summary,#documentList [data-lu-pane-i] .ft-row,#libraryFolderNav .ft-row')){const id=luMqFolderId(el),on=!!id&&luPick.items.has(folderPick(id));el.classList.toggle('lu-folder-picked',on);if(on)el.setAttribute('aria-selected','true');else el.removeAttribute('aria-selected')}
+  for(const el of document.querySelectorAll('#documentList details[data-lu-node] > summary,#documentList [data-lu-pane-i] .ft-row,#libraryFolderNav .ft-row')){const id=luMqFolderId(el),on=!!id&&luPick.items.has(folderPick(id));el.classList.toggle('lu-folder-picked',on);if(on)el.setAttribute('aria-selected','true');else el.removeAttribute('aria-selected')}
   const all=document.querySelector('#librarySelectAll'),count=document.querySelector('#librarySelectCount'),del=document.querySelector('#librarySelectDelete'),cancel=document.querySelector('#librarySelectCancel');
   if(all){all.setAttribute('aria-checked',String(allSelected(luPick.items,ids)));all.disabled=luSelBusy||!ids.length}
   // 빠짐10: 고른 것 중 지금 줄로 보이지 않는 것(접힌 토글·'n건 더'·접힌 같은 글)이 있으면 '— 접힌 n개 포함'.
@@ -2024,8 +2024,11 @@ function luOnPickClick(e){
   const node=t.closest?.('[data-lu-pick-node]');
   if(node){e.stopPropagation();if(!luSelBusy)luPickNode(node.dataset.luPickNode);else luSyncPicks();return}
   // S69: 탐색기 칸의 0단 폴더 줄(data-lu-enter)은 고르는 중에 줄 본문을 눌러도 폴더 칸과 같이 고르기·풀기(펼치기·들어가기 없음 — 들어가기는 왼쪽 나무).
-  const enter=t.closest?.('#documentList details[data-lu-enter] > summary');
-  if(enter&&!t.closest('[data-lu-node-menu],button,a')){e.stopPropagation();e.preventDefault();if(!luSelBusy&&enter.querySelector('[data-lu-pick-node]'))luPickNode(enter.parentElement.dataset.luNode);return}
+  // S69-89 UI-고르기모드통일(명진 11/25 "선택 가능 화면에서는 폴더 이름을 클릭해도 선택 되게 앞 네모 클릭이 아니라 / 파일에서는 되는데"): 폰 나무·거르기 나무의
+  //  모든 폴더 머리 줄도 같다 — 이름·그림·빈 곳 어디를 눌러도 앞 네모와 같은 고르기·풀기, 펼치기·접기 없음(⋯만 예외). 안에 자료가 없는 폴더 줄은 폴더째(왼쪽 나무 줄과 같은 열쇠).
+  const head=t.closest?.('#documentList details[data-lu-node] > summary');
+  if(head&&!t.closest('[data-lu-node-menu],button,a,input:not(.lu-pick)')){e.stopPropagation();e.preventDefault();if(luSelBusy)return;const key=head.parentElement.dataset.luNode;
+    if(head.querySelector('[data-lu-pick-node]'))luPickNode(key);else if(key.startsWith('f:')&&luFolders_.some(f=>f.id===key.slice(2))){luPick.toggle([folderPick(key.slice(2))]);luSyncPicks()}return}
   const pick=t.closest?.('[data-lu-pick]');
   if(pick){e.stopPropagation();if(!luSelBusy)luPickAt(e,pick.dataset.luPick);else luSyncPicks();return}
   const row=t.closest?.('[data-lu-document]');
