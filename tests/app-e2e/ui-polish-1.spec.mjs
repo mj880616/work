@@ -90,7 +90,7 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  for(const b of boxes){expect(Math.round(b.h)).toBe(36);expect(Math.round(b.touch)).toBe(44);}
  // 계정 한 줄: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
  const account=page.locator('#mobileAccountGroup');
- await expect(account.locator('button')).toHaveText(['내 프로필','쓰는 법','업데이트 소식','앱 정보','PC에 앱 설치','앱 내려받기','메뉴 수정','화면 색','잠금','의견 보내기','업데이트 기록','가입자 현황','받은 의견','로그아웃']);
+ await expect(account.locator('button')).toHaveText(['내 프로필','업데이트 소식','앱 정보','쓰는 법','PC에 앱 설치','앱 내려받기','메뉴 수정','화면 색','잠금','의견 보내기','업데이트 기록','가입자 현황','받은 의견','로그아웃']);
  const red=await account.locator('[data-kptu-logout]').evaluate(el=>getComputedStyle(el).color),danger=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(red).toBe(danger);
  await expect(account).toHaveAttribute('aria-label','계정');await expect(page.locator('#mobileMenu h2')).toHaveCount(0);
@@ -157,7 +157,7 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','하루 기록']);
  // BASKET-PC메뉴: [정리함] 아래 하위 줄 없음. MULTI-하단바기본노트·S68-37: 새 계정 PC 왼쪽 메뉴는 하단바 기본(노트·일정·자료실·사진) 뒤 잊지 말기.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"]')).toHaveCount(0);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['노트','일정','자료실','사진','잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','공유 페이지','읽을 거리','통화','텔레그램 소식','아스날',/^자주 가는 링크/,'쓰는 법']);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['노트','일정','자료실','사진','잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','공유 페이지','읽을 거리','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});

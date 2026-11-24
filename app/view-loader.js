@@ -219,7 +219,7 @@ async function signups(){ await module('./signups-view.js'); return {ok:true} }
 async function brief(){ await module('./brief-room.js'); return {ok:true} }
 // S68-09 READ-읽을거리함: [읽을 거리](?view=reading, 위 메뉴 잊지 말기 다음). 열 때만 불러온다(모듈이 #readingView를 만든다).
 async function reading(){ await module('./reading.js'); return {ok:true} }
-// HELP-메뉴안쓰는법: [쓰는 법](?view=help, 메뉴 맨 아래·각 화면 ⋯ 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #helpView를 만든다).
+// HELP-메뉴안쓰는법: [쓰는 법](?view=help, 계정 › 쓰는 법·각 화면 ⋯ 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #helpView를 만든다).
 // SEC-기능PIN잠금 ②: [잠금](?view=lock, 계정 메뉴) — 잠긴 기능을 열 때도 문지기(feature-lock.js)가 이 화면으로 보낸다. 열 때만 불러온다(모듈이 #lockView를 만든다).
 async function lock(){ await module('./lock-ui.js'); return {ok:true} }
 async function help(){ await module('./help.js'); return {ok:true} }

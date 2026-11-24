@@ -8,7 +8,7 @@ import {openRowMenu,appMenuPoint} from './row-menu.js'; // 왼쪽 메뉴 우클�
 import './menu-layout.js';
 import {downloadPlan,loadPhoneAppInfo,pcPlan,loadPcAppInfo,PC_HELPER_NAME} from './app-download.mjs';
 import {shellOf} from './app-info-model.mjs'; // S69-34 APP-업데이트확인: 계정 메뉴 '앱 정보' 줄 오른쪽 판(폰 앱·옛 윈도우 앱)
-import {openHelp} from './help-link.js'; // HELP-메뉴안쓰는법: 메뉴 맨 아래 '쓰는 법'
+import {openHelp} from './help-link.js'; // S69-71: 계정 메뉴 '앱 정보' 아래 '쓰는 법'
 import {installPlan,isStandalone,runInstall} from './pwa-install.mjs'; // S63-09 PC도우미구분: PC 브라우저 계정 메뉴 [PC에 앱 설치] // APP-앱내려받기버튼: 계정 메뉴 '앱 내려받기'(윈도우 PC는 보조 프로그램)
 import './keyboard-keys.js'; // UI-PC손맛묶음 ②: 전체 검색 단축키·본문으로 가기·목록 ↑↓·Enter
 import {isWide,placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
@@ -43,6 +43,8 @@ const accounts=logoutButtons.map(logout=>{
   const appInfo=document.createElement('button');appInfo.type='button';appInfo.className='account-action';appInfo.dataset.appInfoOpen='';appInfo.setAttribute('aria-haspopup','dialog');
   appInfo.innerHTML='<span class="account-action-name">앱 정보</span><span class="account-ver" data-app-info-ver></span>';
   {const shell=shellOf(navigator.userAgent||'');appInfo.querySelector('[data-app-info-ver]').textContent=shell.kind==='web'?'':shell.version}
+  // S69-71(명진 11/24 "쓰는법 계정 안으로 들여보내줘"): '쓰는 법'은 왼쪽 메뉴 맨 아래 줄이 아니라 계정 메뉴 '앱 정보' 바로 아래 한 줄(PC·폰 같은 자리).
+  const help=document.createElement('button');help.type='button';help.className='account-action';help.dataset.helpMenu='';help.textContent='쓰는 법';
   const feedback=document.createElement('button');feedback.type='button';feedback.className='account-action';feedback.dataset.feedbackOpen='';feedback.textContent='의견 보내기';feedback.setAttribute('aria-haspopup','dialog');
   const inbox=document.createElement('button');inbox.type='button';inbox.className='account-action';inbox.dataset.feedbackInbox='';inbox.hidden=true;
   inbox.innerHTML='<span class="account-action-name">받은 의견</span><span class="account-count" data-feedback-count></span>';
@@ -57,13 +59,13 @@ const accounts=logoutButtons.map(logout=>{
   const lockRow=document.createElement('button');lockRow.type='button';lockRow.className='account-action';lockRow.dataset.lockOpen='';lockRow.textContent='잠금';
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
-  logout.before(host);host.append(trigger);panel.append(...settingsRows({profile,whatsnew,appInfo,appInstall,appDl,menuEdit,theme,lockRow,feedback}),...opsRows({updates,signups,inbox}),logout);document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(...settingsRows({profile,whatsnew,appInfo,help,appInstall,appDl,menuEdit,theme,lockRow,feedback}),...opsRows({updates,signups,inbox}),logout);document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
-  return {host,trigger,panel,profile,updates,whatsnew,appInfo,appInstall,appDl,menuEdit,theme,lockRow,signups,inbox,feedback,nativePopover};
+  return {host,trigger,panel,profile,updates,whatsnew,appInfo,help,appInstall,appDl,menuEdit,theme,lockRow,signups,inbox,feedback,nativePopover};
 });
-// S68-36 메뉴 창 정리(명진 11/23 확정): 계정 줄은 두 묶음 — 자주 안 쓰는 설정 링크(내 프로필 · 쓰는 법 · 업데이트 소식 · 메뉴 수정 · 화면 색 · 잠금 · 의견 보내기)
+// S68-36 메뉴 창 정리(명진 11/23 확정): 계정 줄은 두 묶음 — 자주 안 쓰는 설정 링크(내 프로필 · 업데이트 소식 · 앱 정보 · 쓰는 법(S69-71) · 메뉴 수정 · 화면 색 · 잠금 · 의견 보내기)
 // 다음에 운영자 줄(업데이트 기록 · 가입자 현황 · 받은 의견 — 보이는 조건은 그대로 서버 기능 확인 결과), 맨 끝 로그아웃. PC 계정 메뉴도 같은 순서.
-function settingsRows(a,help=null){return [a.profile,help,a.whatsnew,a.appInfo,a.appInstall,a.appDl,a.menuEdit,a.theme,a.lockRow,a.feedback].filter(Boolean)}
+function settingsRows(a){return [a.profile,a.whatsnew,a.appInfo,a.help,a.appInstall,a.appDl,a.menuEdit,a.theme,a.lockRow,a.feedback].filter(Boolean)}
 function opsRows(a){return [a.updates,a.signups,a.inbox]}
 // APP-앱내려받기버튼: 계정 메뉴의 '앱 내려받기' 줄 하나(사이드바·위쪽 계정 메뉴가 같은 모양). 주소는 배포 때 정한 최신 폰 앱 판(app/phone-app.json)을 읽어 채운다.
 // BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 PC 보조 프로그램(WORK ON+ 파일 올리기) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
@@ -147,8 +149,6 @@ const NS='http://www.w3.org/2000/svg';
 const SUB_ICONS={tasks:'M4 6.5 5.5 8 8 5M11 7h9M4 12.5 5.5 14 8 11M11 13h9M11 19h9M4.5 19h3',diary:'M5 5a2 2 0 0 1 2-2h11v15H7a2 2 0 0 0-2 2zM5 20a2 2 0 0 0 2 1h11v-3M9 7h5'};
 const iconRows=[...buttonByKey].map(([key,button])=>[button,itemOf(key)?.icon]);
 appNav?.querySelectorAll('.nav-sub-btn[data-view]').forEach(button=>iconRows.push([button,SUB_ICONS[button.dataset.view]]));
-// HELP-메뉴안쓰는법: 왼쪽 메뉴 맨 아래 '쓰는 법'(물음표 동그라미).
-const helpNav=appNav?.querySelector('.nav-help');if(helpNav)iconRows.push([helpNav,'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01']);
 iconRows.forEach(([button,d])=>{
   if(!d||button.querySelector('.nav-ico'))return;
   const svg=document.createElementNS(NS,'svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('class','nav-ico');
@@ -198,10 +198,6 @@ function closeMobile(then,fromBack=false){
   if(!fromBack&&history.state?.kptuMobileMenu){window.addEventListener('popstate',finish,{once:true});history.back()}else finish();
 }
 window.KPTUMobileMenu={isOpen:()=>mobileOpen,close:closeMobile};
-// HELP-메뉴안쓰는법(시안 ①, 명진 확정 '메뉴 맨 아래 묶음'): 폰 [메뉴] 창 맨 아래 계정 줄의 [내 프로필] 바로 다음 '쓰는 법'.
-// PC·폴드(761px~)는 왼쪽 메뉴 맨 아래 '쓰는 법' 줄(index.html)이 같은 일을 하므로 계정 메뉴에는 넣지 않는다(같은 줄 두 곳 금지).
-const helpRow=document.createElement('button');helpRow.type='button';helpRow.className='account-action';helpRow.dataset.helpMenu='';helpRow.textContent='쓰는 법';
-helpRow.addEventListener('click',()=>closeAccount(()=>openHelp()));
 function syncMobile(){
   if(!mobileGroup||!mobileAccount)return;
   if(!menuQuery.matches&&mobileOpen)closeMobile();
@@ -209,9 +205,9 @@ function syncMobile(){
   const home=phone?settings:mobileAccount.panel;
   if(mobileAccount.theme.parentElement!==home){
     if(activeAccount)closeAccount();
-    // 폰: 설정 링크 묶음(내 프로필 바로 다음 '쓰는 법') / 운영 줄 + 로그아웃. PC: 계정 메뉴 한 목록에 같은 순서(쓰는 법은 왼쪽 메뉴 맨 아래에 있어 빼고).
-    if(phone){settings.append(...settingsRows(mobileAccount,helpRow));ops.append(...opsRows(mobileAccount),logoutButtons[0])}
-    else{helpRow.remove();mobileAccount.panel.append(...settingsRows(mobileAccount),...opsRows(mobileAccount),logoutButtons[0])}
+    // 폰: 설정 링크 묶음 / 운영 줄 + 로그아웃. PC: 계정 메뉴 한 목록에 같은 순서('쓰는 법'은 둘 다 '앱 정보' 바로 아래).
+    if(phone){settings.append(...settingsRows(mobileAccount));ops.append(...opsRows(mobileAccount),logoutButtons[0])}
+    else{mobileAccount.panel.append(...settingsRows(mobileAccount),...opsRows(mobileAccount),logoutButtons[0])}
   }
   syncKeyboard();
 }
@@ -669,6 +665,7 @@ if(addButton){
 accounts.forEach(account=>account.profile.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('profile',{source:'delegated'}))));
 // [업데이트 기록]: 같은 길(메뉴 닫기 → 라우터가 화면을 연다, 폰 뒤로가기 = 이전 화면). 화면 모듈은 처음 열 때 불러온다.
 accounts.forEach(account=>account.updates.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('updates',{source:'delegated'}))));
+accounts.forEach(account=>account.help.addEventListener('click',()=>closeAccount(()=>openHelp())));
 accounts.forEach(account=>account.whatsnew.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('whatsnew',{source:'delegated'}))));
 // SEC-기능PIN잠금 ②: [잠금]도 같은 길(메뉴 닫기 → 라우터). 화면 모듈은 처음 열 때 불러온다.
 accounts.forEach(account=>account.lockRow.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('lock',{source:'delegated'}))));
