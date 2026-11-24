@@ -595,6 +595,7 @@
 #libraryTidyModal .lu-tidy-group .lu-sort-row{border-bottom:0;padding:3px 2px}
 #libraryTidyModal .lu-tidy-wait{margin:8px 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
 #libraryTidyModal .lu-tidy-stay{margin:2px 0 0 28px}
+#libraryTidyModal .lu-tidy-pick-row{margin:0 0 0 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* S69-12: 지난 정돈 되돌리기(접어 둔 한 줄) · 섞인 묶음 표시 */
 #libraryTidyModal .lu-tidy-past{margin:0 0 4px;font-size:var(--ds-text-meta,12px)}
 #libraryTidyModal .lu-tidy-past>summary{padding:4px 2px;color:var(--kptu-muted);cursor:pointer}

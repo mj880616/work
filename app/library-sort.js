@@ -13,7 +13,7 @@ import {ftIconHtml} from './folder-tree-ui.mjs';
 import {waitInlineHtml,emptyHtml} from './wait-state.js';
 import {fileKindOf,folderSiblings,nextSortOrder,canAddChild,folderErrorText} from './library-tree.js';
 import {requestDocumentText} from './document-text-read.js';
-import {receiveUnits,ruleReasons,startRows,aiBatches,mergeAi,settleRows,aiFailWhy,aiShouldStop,WHY_AI_NONE,genericImage,textIdsFor,textsFrom,textReasons,imageHome,imageFallback,aiIdOf,WHY_IMAGES,WHY_IMAGES_AI,WHY_IMAGES_READING,renameGroup,placeGroup,applyPlan,sortSummary,doneText,tidyUnits,tidyGroups,tidyPlan,retargetGroup,tidyAtText,tidySummary} from './library-sort-model.mjs';
+import {receiveUnits,ruleReasons,startRows,aiBatches,mergeAi,settleRows,aiFailWhy,aiShouldStop,WHY_AI_NONE,genericImage,textIdsFor,textsFrom,textReasons,imageHome,imageFallback,aiIdOf,WHY_IMAGES,WHY_IMAGES_AI,WHY_IMAGES_READING,renameGroup,placeGroup,applyPlan,sortSummary,doneText,tidyUnits,tidyGroups,tidyPlan,retargetGroup,tidyAtText,tidySummary,autoMovedIds} from './library-sort-model.mjs';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items',T_LOG='/rest/v1/app_library_move_log',CHUNK=100;
 const enc=encodeURIComponent;
@@ -82,13 +82,19 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
     const r=s().receiveId;if(!r)return;
     trigger=from||document.activeElement;ensure();
     const list=units(),me=++run,ctx={docs:s().docs,items:s().items,folders:s().folders,receiveId:r,categoryOf:s().categoryOf||(c=>c)};
-    const rule=ruleReasons(list,ctx),need=textIdsFor(list.filter(u=>!rule.has(u.key)));
-    // S68-18: 이름이 기본 이름뿐인 그림은 그림 글자를 읽어 본 뒤 정한다(그동안 '⋯').
-    groups=[];rows=startRows(list,rule).map(x=>need.length&&x.nb?{...x,nb:false,why:'',wait:true}:x);progress=null;
+    // 창 먼저(모든 줄 '⋯') — S69-16 옮긴 기록을 읽는 동안에도 누르는 즉시 뜨게.
+    groups=[];rows=startRows(list,new Map()).map(x=>({...x,nb:false,why:'',wait:true}));progress=null;
     say2('');paint();
     root.classList.remove('hidden');root.setAttribute('aria-hidden','false');
     window.KPTUA11y?.dialog?.activate?.(root,{trigger,initialFocus:root.querySelector('[data-sort-close]'),onRequestClose:close});
     if(!window.KPTUA11y?.dialog)root.querySelector('[data-sort-close]')?.focus();
+    // S69-16: 본보기(이미 폴더에 든 내 자료)로 먼저 고른다. 정돈·나누기가 옮겨 두고 손대지 않은 자료는 본보기 무게를 낮춘다(옮긴 기록, 주인 RLS 읽기만).
+    ctx.auto=autoMovedIds(await quickMoveLog(api,s().workspace),s().items);
+    if(me!==run)return;
+    const rule=ruleReasons(list,ctx),need=textIdsFor(list.filter(u=>!rule.has(u.key)));
+    // S68-18: 이름이 기본 이름뿐인 그림은 그림 글자를 읽어 본 뒤 정한다(그동안 '⋯').
+    rows=startRows(list,rule).map(x=>need.length&&x.nb?{...x,nb:false,why:'',wait:true}:x);
+    paint();
     // 그림 글자(서버가 Drive OCR로 읽어 둔 것, 내 작업공간 자료만 owner RLS로 읽음) → ① 글자 규칙 → 못 찾으면 ② AI(서버가 그 글자를 재료로 씀)
     // → 그래도 없으면 그림 모음 폴더. 아직 안 읽은 JPEG·PNG 몇 장은 글자 읽기를 서버에 맡긴다(기다리지 않음, AI 비용 없음 — 다음에 열면 반영).
     const home=imageHome(ctx);
@@ -271,6 +277,8 @@ export function moveBatchText(b){
 async function readMoveLog(api,ws){
   try{const out=await api(T_LOG+`?workspace_id=eq.${enc(ws)}&created_at=gte.${enc(logCutoff())}&select=batch_id,kind,document_id,from_folder_id,to_folder_id,created_at&order=created_at.desc&limit=2000`);return Array.isArray(out)?moveBatches(out):null}catch{return null}
 }
+// S69-16: 제안 계산 전에 읽는 옮긴 기록 — 늦으면(1.5초) 기다리지 않고 기록 없이 계산한다(창이 늦게 뜨지 않게).
+const quickMoveLog=(api,ws)=>Promise.race([readMoveLog(api,ws),new Promise(r=>setTimeout(()=>r(null),1500))]);
 // 묶음 하나 되돌리기: 아직 옮긴 폴더에 있는 자료만 옮기기 전 폴더로(폴더 밖이던 것은 연결을 지움). 옮기기 전 폴더가 지금 없으면(지움·휴지통) 그대로 둔다.
 // 반환 {back, miss}. 끝나면 그 묶음 기록을 지운다.
 async function undoMoveBatch(api,ws,b,alive){
@@ -347,6 +355,7 @@ export function createTidySuggest({api,esc,state,reload,say}){
     return `<section class="lu-tidy-group${move?'':' lu-tidy-keep'}" data-tidy-group="${esc(g.gid)}" aria-label="${esc(g.word)} 묶음"><div class="lu-tidy-head"><b>${esc(g.word)}</b> <small>${g.total}개</small>${g.split?'<span class="lu-tidy-mix">섞여 있음</span>':''}<span class="lu-tidy-seg ds-seg" role="group" aria-label="${esc(g.word)} 묶음 옮기기 여부"><button type="button" class="ds-seg-btn" data-tidy-mode="move" data-tidy-g="${esc(g.gid)}" aria-pressed="${move}">옮기기</button><button type="button" class="ds-seg-btn" data-tidy-mode="keep" data-tidy-g="${esc(g.gid)}" aria-pressed="${!move}">그대로</button></span></div>`
       +`<p class="lu-tidy-at">${esc(tidyAtText(g.at,fromText))}</p>`
       +(move?`<div class="lu-tidy-to">${n?`선택한 ${n}개 → `:'모두 → '}${targetHtml(g)}</div>${g.rows.map(r=>rowHtml(g,r)).join('')}${g.stay?`<p class="lu-sort-why lu-tidy-stay">이미 그 폴더에 있는 ${g.stay}개는 그대로</p>`:''}`
+        :g.pick?`<p class="lu-sort-why">닮은 폴더가 여럿(${esc(g.alt.map(pathName).join(' · '))})이라 그대로 둬요. [옮기기]를 누르고 폴더를 선택하세요.</p>${g.rows.map(r=>`<p class="lu-sort-why lu-tidy-pick-row">${esc(r.title)}</p>`).join('')}`
         :`<p class="lu-sort-why">'그대로'를 선택해 이 묶음은 옮기지 않아요.</p>`)+'</section>';
   }
   function paint(){
@@ -367,10 +376,6 @@ export function createTidySuggest({api,esc,state,reload,say}){
     el.innerHTML=`<details class="lu-tidy-past"${wasOpen?' open':''}><summary>지난 정돈 되돌리기 <small>${past.length}</small></summary>`
       +past.slice(0,5).map(b=>`<div class="lu-tidy-past-row"><span>${esc(moveBatchText(b))}</span><button type="button" class="row-act" data-tidy-undo="${esc(b.batch)}"${busy?' disabled':''} aria-label="${esc(moveBatchText(b))} 되돌리기">되돌리기</button></div>`).join('')
       +'<p class="lu-sort-why">아직 옮긴 폴더에 있는 자료만 옮기기 전 자리로 돌아가요.</p></details>';
-  }
-  async function loadPast(me){
-    const out=await readMoveLog(api,s().workspace);
-    if(me!==run)return;past=out;paintPast();
   }
   async function undoPast(batch){
     const b=past?.find(x=>x.batch===batch);if(!b||busy)return;
@@ -394,10 +399,12 @@ export function createTidySuggest({api,esc,state,reload,say}){
     // 창을 먼저 그린 뒤 계산(자료가 많아도 누르는 즉시 창이 뜨게).
     await new Promise(r=>setTimeout(r,0));
     if(me!==run)return;
+    // S69-16: 옮긴 기록을 먼저 읽어(지난 정돈 목록과 같은 읽기) 정돈이 옮겨 두고 손대지 않은 자료는 본보기 무게를 낮춘다.
+    const log=await quickMoveLog(api,s().workspace);
+    if(me!==run)return;
     const st=s(),units=tidyUnits(st.listDocs,st.items,st.folders,{scopeId:scope}),allUnits=scope?tidyUnits(st.listDocs,st.items,st.folders):units;
-    ({groups,newGroups:made}=tidyGroups(units,{folders:st.folders,receiveId:st.receiveId||null,scopeId:scope,allUnits}));
-    done=true;paint();
-    void loadPast(me);
+    ({groups,newGroups:made}=tidyGroups(units,{folders:st.folders,receiveId:st.receiveId||null,scopeId:scope,allUnits,auto:autoMovedIds(log,st.items)}));
+    done=true;past=log;paint();paintPast();
   }
 
   // ---- 고치기 ----
