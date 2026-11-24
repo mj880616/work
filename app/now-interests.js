@@ -1,7 +1,7 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {cleanTopic, confirmedTopics, candidateRows} from './now-model.mjs';
 import {sortByName} from './name-order.mjs';
-// OUTSIDE-글상세·관심환류 ④(설계 docs/design/outside-statements.md 12.6절): '관심 주제' 칸(Now ⋯ → 관심 주제, 또는 목록 위 '관심 주제 후보 n [보기]').
+// OUTSIDE-글상세·관심환류 ④(설계 docs/design/outside-statements.md 12.6절): '관심 주제' 칸(Now ⋯ → 관심 주제, 또는 후보가 있으면 같은 ⋯ 안 '관심 주제 후보 n' — S69-70에서 목록 위 줄을 메뉴 안으로).
 // 후보(AI가 서버에서 만듦, state='candidate', origin='ai')마다 [ㅇ 확정] [고치기] [빼기], 확정한 주제마다 [고치기] [빼기], 끝에 [+ 더하기].
 // 주간보고 규칙과 같은 후보 → 확정(수용·수정·삭제·추가). 뺀 것은 지우지 않고 'dropped'로 남겨 서버가 같은 후보를 다시 만들지 않게 한다.
 // 저장은 모두 서버 app_now_interests(작업공간 소유자 RLS, 화면 권한: 넣기 workspace_id·topic·state·decided_at / 고치기 topic·state·decided_at·updated_at).

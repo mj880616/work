@@ -51,11 +51,9 @@ for(const width of [1280,1440]){
   const hwp0=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),nav0=await page.locator('#appView>.app-nav').boundingBox();
   const r=await row(page).boundingBox();
   expect(r.y).toBeGreaterThan(hwp0.y+hwp0.height+40);
-  // HELP-메뉴안쓰는법: 이 줄 바로 아래 맨 끝이 '쓰는 법' 한 줄이고, 그 줄이 사이드바 아래 끝에 붙는다.
-  expect(await row(page).evaluate(el=>el.nextElementSibling?.classList.contains('nav-help'))).toBe(true);
-  const help=await page.locator('#appView>.app-nav .nav-help').boundingBox();
-  expect(help.y-(r.y+r.height)).toBeLessThanOrEqual(8);
-  expect(nav0.y+nav0.height-(help.y+help.height)).toBeLessThanOrEqual(20);
+  // S69-71: '쓰는 법'은 계정 메뉴 안으로 옮겨 이 줄이 다시 사이드바 맨 아래 끝에 붙는다.
+  await expect(page.locator('#appView>.app-nav .nav-help')).toHaveCount(0);
+  expect(nav0.y+nav0.height-(r.y+r.height)).toBeLessThanOrEqual(20);
   await expect(row(page)).toHaveAttribute('aria-expanded','false');
   await row(page).click();
   await expect(panel(page)).toBeVisible();await expect(row(page)).toHaveAttribute('aria-expanded','true');
