@@ -13,6 +13,8 @@ namespace BasketDrop.App;
 ///    The same timer re-attaches the tile when Explorer restarts (the desktop window is replaced) and rebuilds it if
 ///    Windows destroyed it. It reads no keys, no clipboard and not the mouse.
 /// The place is kept in settings.json (DesktopTileX/Y); a monitor that is gone falls back to the default place.
+/// S69-35: the size the user drags it to is kept next to it (DesktopTileWidth96/Height96, size at 100% scale), the same
+/// per-PC file, so every monitor shows it at its own scale and it never leaves the screen.
 /// </summary>
 internal sealed class DesktopTile : IDisposable
 {
@@ -101,15 +103,17 @@ internal sealed class DesktopTile : IDisposable
         if (_form is { IsDisposed: false, IsHandleCreated: true }) return;
         Destroy();
         var s = _settings.Load();
-        if (DesktopTileGeometry.Place(s.DesktopTileX, s.DesktopTileY, MonitorList.All()) is not { } placed) return;
+        var at96 = DesktopTileGeometry.ClampAt96(DesktopTileGeometry.Saved(s.DesktopTileWidth96, s.DesktopTileHeight96));
+        if (DesktopTileGeometry.Place(s.DesktopTileX, s.DesktopTileY, MonitorList.All(), at96) is not { } placed) return;
         var form = new DesktopTileForm(_app);
         form.Moved += OnMoved;
-        form.Place(placed.Rect, placed.Monitor.Dpi);
+        form.Resized += OnResized;
+        form.Place(placed.Rect, placed.Monitor.Dpi, at96);
         _form = form;
         var handle = form.Handle; // create the window before it is shown, so the owner is set first
         Attach(handle);
         form.Visible = true; // ShowWithoutActivation: shown without taking focus
-        form.Place(placed.Rect, placed.Monitor.Dpi); // again, in case Windows moved it while it appeared on a monitor with another scale
+        form.Place(placed.Rect, placed.Monitor.Dpi, at96); // again, in case Windows moved it while it appeared on a monitor with another scale
         // Start behind every open window: the tile belongs to the desktop, not in front of the user's work.
         SetWindowPos(handle, HwndBottom, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
     }
@@ -122,6 +126,7 @@ internal sealed class DesktopTile : IDisposable
         _attached = IntPtr.Zero;
         if (form == null) return;
         form.Moved -= OnMoved;
+        form.Resized -= OnResized;
         if (!form.IsDisposed) form.Dispose();
     }
 
@@ -172,11 +177,32 @@ internal sealed class DesktopTile : IDisposable
     {
         var form = _form;
         if (form == null || form.IsDisposed) return;
-        if (DesktopTileGeometry.AfterMove(topLeft, form.Size, MonitorList.All()) is not { } moved) return;
-        form.Place(moved.Rect, moved.Monitor.Dpi);
+        if (DesktopTileGeometry.AfterMove(topLeft, form.Size, MonitorList.All(), form.At96) is not { } moved) return;
+        form.Place(moved.Rect, moved.Monitor.Dpi, form.At96);
+        Save(moved.Rect, null);
+    }
+
+    /// <summary>S69-35: an edge or corner was dragged. Keep the new size (at 100% scale) and keep the whole tile on the screen.</summary>
+    private void OnResized(Rectangle bounds)
+    {
+        var form = _form;
+        if (form == null || form.IsDisposed) return;
+        var at96 = DesktopTileGeometry.ToAt96(bounds.Size, form.Dpi);
+        if (DesktopTileGeometry.AfterMove(bounds.Location, bounds.Size, MonitorList.All(), at96) is not { } placed) return;
+        form.Place(placed.Rect, placed.Monitor.Dpi, at96);
+        Save(placed.Rect, at96);
+    }
+
+    private void Save(Rectangle rect, Size? at96)
+    {
         var s = _settings.Load();
-        s.DesktopTileX = moved.Rect.X;
-        s.DesktopTileY = moved.Rect.Y;
+        s.DesktopTileX = rect.X;
+        s.DesktopTileY = rect.Y;
+        if (at96 is { } size)
+        {
+            s.DesktopTileWidth96 = size.Width;
+            s.DesktopTileHeight96 = size.Height;
+        }
         try { _settings.Save(s); }
         catch (IOException) { _log.Write(LogCode.Error); }
     }
@@ -194,8 +220,9 @@ internal sealed class DesktopTile : IDisposable
         var form = _form;
         if (!_on || form == null || form.IsDisposed) return;
         var s = _settings.Load();
-        if (DesktopTileGeometry.Place(s.DesktopTileX, s.DesktopTileY, MonitorList.All()) is { } placed)
-            form.Place(placed.Rect, placed.Monitor.Dpi);
+        var at96 = DesktopTileGeometry.ClampAt96(DesktopTileGeometry.Saved(s.DesktopTileWidth96, s.DesktopTileHeight96));
+        if (DesktopTileGeometry.Place(s.DesktopTileX, s.DesktopTileY, MonitorList.All(), at96) is { } placed)
+            form.Place(placed.Rect, placed.Monitor.Dpi, at96);
     }
 
     public void Dispose()

@@ -64,13 +64,35 @@ public class SourceRulesTests
     [Fact]
     public void The_removed_send_entrances_leave_no_code_behind()
     {
-        // Clipboard hotkey / paste window, right-click Send to (S54-13). The corner box and desktop tile came back (S69-31).
-        foreach (var gone in new[] { "HotkeyWindow.cs", "PasteForm.cs", "ClipboardReader.cs", "SendToShortcut.cs", "HotkeyChoice.cs", "PasteText.cs" })
+        // Clipboard hotkey, right-click Send to (S54-13). The corner box and desktop tile came back (S69-31).
+        // S69-35 (명진 11/24): an input window opened by a double click on a box came back too; there is still no hotkey.
+        foreach (var gone in new[] { "HotkeyWindow.cs", "ClipboardReader.cs", "SendToShortcut.cs", "HotkeyChoice.cs", "PasteText.cs" })
             Assert.DoesNotContain(gone, Sources().Select(Path.GetFileName));
         var all = string.Join(" ", Sources().Select(File.ReadAllText));
-        Assert.DoesNotMatch(@"RegisterHotKey|ClipboardReader|GetDataObject|OleGetClipboard|\bClipboard\.", all);
+        Assert.DoesNotMatch(@"RegisterHotKey|ClipboardReader|OleGetClipboard|SetWindowsHookEx|AddClipboardFormatListener", all);
         var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
         foreach (var word in new[] { "단축키", "붙여넣기", "[보내기]" }) Assert.DoesNotContain(word, tray);
+    }
+
+    [Fact]
+    public void Only_the_input_window_reads_the_clipboard_and_only_when_the_user_presses_paste_in_it()
+    {
+        // S69-35: the clipboard is read in one place, when Ctrl+V (or Shift+Insert) is pressed in the input window.
+        var readers = Sources().Where(f => System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(f), @"\bClipboard\.|GetDataObject"))
+            .Select(Path.GetFileName).ToList();
+        Assert.Equal(new[] { "PasteForm.cs" }, readers);
+        var paste = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "PasteForm.cs"));
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(paste, @"Clipboard\.GetDataObject\(\)"));
+        Assert.Contains("case Keys.Control | Keys.V:", paste);
+        Assert.Contains("if (PasteSpecial()) return true;", paste);
+        // It sends through the same gate, keeps what was typed in memory only and talks to no server itself.
+        Assert.Contains("DropData.Send(_app,", paste);
+        foreach (var banned in new[] { "HttpClient", "BasketApi", "_auth", "File.Write", "AtomicFile", "SettingsStore", "Registry" })
+            Assert.DoesNotContain(banned, paste);
+        var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
+        Assert.Contains("public void OpenPaste(Rectangle anchor, int dpi)", tray);
+        foreach (var box in new[] { "CornerDropForm.cs", "DesktopTileForm.cs" })
+            Assert.Contains("_app.OpenPaste(", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", box)));
     }
 
     [Fact]
@@ -80,7 +102,8 @@ public class SourceRulesTests
         foreach (var file in new[] { "CornerRules.cs", "DesktopTileRules.cs", "DropService.cs" })
             Assert.Contains(file, Sources().Select(Path.GetFileName));
         var app = Path.Combine(Root(), "src", "BasketDrop");
-        foreach (var file in new[] { "CornerWatcher.cs", "CornerDropForm.cs", "DesktopTile.cs", "DesktopTileForm.cs", "DropData.cs", "MonitorList.cs" })
+        foreach (var file in new[] { "CornerWatcher.cs", "CornerDropForm.cs", "DesktopTile.cs", "DesktopTileForm.cs", "DropData.cs", "MonitorList.cs",
+                     "PasteForm.cs", "TileArt.cs", "LayeredWindow.cs" })
         {
             var text = File.ReadAllText(Path.Combine(app, file));
             Assert.DoesNotContain("HttpClient", text);
