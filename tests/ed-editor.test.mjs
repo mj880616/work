@@ -252,7 +252,8 @@ test('one toolbar model on every width: grouping only moves the same button node
   // NOTE-노션편집 ①(가): PC·폴드·폰 모두 PHONE_ORDER 순서. 넓으면 묶음 앞 버튼(PC_OUT)이 묶음 버튼 바로 앞 줄 위에 서고 나머지는 묶음 목록에.
   assert.match(fn,/for \(const k of PHONE_ORDER\)/);
   assert.match(fn,/row\.push\(\.\.\.items\.slice\(0, n\), buttons\[k\]\)/);
-  assert.match(fn,/panels\[k\]\.replaceChildren\(\.\.\.items\.slice\(n\)\)/);
+  assert.match(fn,/const inside = items\.slice\(n\)/);
+  assert.match(fn,/panels\[k\]\.replaceChildren\(\.\.\.inside\)/);
   assert.doesNotMatch(fn,/btn\(|createElement|cloneNode/);
   // UI-화면정리 C: 폰도 PC와 같은 [· ▾] 한 칸. 따로 떨어진 [·]·[▾] 두 칸(점 넣기 단추·ed-pair)은 다시 생기지 않는다.
   assert.doesNotMatch(edSource,/dotNow|ed-pair/);
