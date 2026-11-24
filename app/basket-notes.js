@@ -575,7 +575,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // PC and phone alike: a small list under the ⋯, kept inside the window) and closes on Esc, outside press, or choosing.
   let menu = null;
   const menuEl = () => host.querySelector('#noteDocMenu');
-  // NOTE-탐색기 ③ (11:01 결정): the row menu starts with [선택] (PC right-click and phone long-press open this same menu). In select
+  // NOTE-탐색기 ③ (11:01 결정): the row menu starts with [선택] (PC right-click opens this same menu; a phone long-press picks the row, S69). In select
   // mode the menu of a picked row is for all picked ones. A folder row has its own menu; the list head ⋯ has [새 폴더]·[선택].
   // UI-모바일노트복사메뉴: on a phone a list row has no [복사] button; [복사] is in its ⋯ menu (PC keeps the button).
   // NOTE-파일붙이기: a file card's ⋯ has [빼기] (the link only; the Drive file stays).
@@ -1492,11 +1492,16 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (plan.kind === 'reorder-note') void reorderNote(plan);
     else if (plan.kind === 'hint') reorderHint();
   }
-  // 폰: 줄을 꾹 눌렀다 움직이지 않고 떼면 우클릭과 같은 메뉴(맨 위 [선택]).
+  // S69 LONGPRESS-선택(2026-11-24 명진): 폰에서 줄을 꾹 눌렀다 움직이지 않고 떼면 선택 모드를 켜고 그 줄을 고른다
+  // (이미 선택 모드면 더하기, 풀지 않음 — 공용 규칙 select-mode.js holdPick). 메뉴는 줄 오른쪽 ⋯로만. 움직이면 끌기(끌 수 있는 보기에서).
+  const holdKey = key => key.startsWith('n:') || key.startsWith('f:');
   function handleHold(row) {
     suppressUntil = Date.now() + 600;
-    const btn = row.querySelector(':scope > .basket-row-more, :scope > .nx-more');
-    if (btn) { const r = row.getBoundingClientRect(); window.KPTUContextMenu?.pinAt?.(btn, r.left + Math.min(r.width / 2, 48), r.top + r.height / 2); rowMenu(btn); }
+    const key = row.dataset.reorderId || '';
+    if (!holdKey(key) || busy) return;
+    if (menu) closeMenu();
+    pick.hold([key]);
+    renderList();
   }
   const pageScroller = {getBoundingClientRect: () => ({top:0, bottom:window.innerHeight}), scrollBy: (x, y) => window.scrollBy(x, y)};
   host.addEventListener('pointerdown', e => { dragPointer = e.pointerType || ''; }, true);
@@ -1509,9 +1514,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     return note ? ghostText(pinLock.noteHidden(note) ? LOCKED : noteLineTitle(note)) : '';
   };
   mountReorder(host, {whole:true, zones:{resolve:resolveOver}, onHover:showHover, onDrop:handleDrop, onHold:handleHold, scroller:() => pageScroller, ghost:(el, key) => dragLabel(key),
-    canDrag:key => (key.startsWith('n:') || key.startsWith('f:')) && canReorder() && !busy});
+    canDrag:key => (key.startsWith('n:') || key.startsWith('f:')) && canReorder() && !busy, canHold:key => holdKey(key) && !busy});
   host.addEventListener('contextmenu', e => { if (Date.now() < suppressUntil) e.preventDefault(); }, true);
-  host.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nx-note],[data-nx-folder]')) { e.preventDefault(); e.stopPropagation(); } }, true);
+  host.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nx-note],[data-nx-folder]') && !e.target.closest('.basket-row-more,.nx-more')) { e.preventDefault(); e.stopPropagation(); } }, true);
   // ---- 순서 쓰기: 폴더(sort_order)·노트(metadata.order). 바꾼 줄만 저장하고, 실패하면 서버에서 다시 읽는다. 알림의 [되돌리기]가 이전 값으로 돌린다. ----
   const folderSibs = parent => folderSiblings(folders, {free:true, parentId:parent || null});
   async function applyFolderOrder(id, parent, changes) {

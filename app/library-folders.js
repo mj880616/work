@@ -25,10 +25,10 @@ import {word} from './brand/brand.mjs';
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,tidy=null,onDragState=()=>{}}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,tidy=null,onDragState=()=>{},onHold=()=>false}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
-  // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 누르기를 켤 화면인지.
+  // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 눌러 끌기를 켤 화면인지. onHold(el): 폰에서 줄을 꾹 눌렀다 움직이지 않고 뗌(고르기).
   // recent: 최근 넣은 폴더 기억(get()=id 목록, push(id)=맨 앞에 두고 서버에 기억). state().treeView: 지금 묶기가 폴더 토글이 보이는 화면(프로젝트·폴더)인지.
   // receive(LIB-받는폴더 S59-11): {ready()=서버 칸이 있어 켜고 끌 수 있나, get()=지금 받는 폴더 id|null, set(id|null)=서버에 저장(성공 true), outside()='폴더 밖' 자료, sortCount()·sort(trigger)=받는 폴더 나누기(S60-18)}.
   // onDragState(v)(LIB-끄는중막대 S69): 자료를 끄는 동안 {count}, 놓은 뒤 옮기는 동안 {count,moving:true}, 끝나면 null — 고르기 막대 주인(library-upload.js)이 그 모양으로 다시 그린다.
@@ -576,22 +576,27 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     area.addEventListener('dragend',()=>{drag=null;clearMarks();stopScroll()});
     bindTouch(list);
   }
-  // ---- 폰: 길게 눌러 잡고 옮기기 ----
-  // 줄·폴더 머리를 LONG_MS 눌러 두면 잡힌다. 잡기 전에 손가락이 움직이면(세로 스크롤) 그대로 스크롤이고, 잡은 뒤에는 스크롤을 막고 손가락을 따라 놓을 곳을 표시한다.
-  // 움직이지 않고 떼면 우클릭과 같은 메뉴(폴더 머리는 폴더 메뉴, 자료 줄은 자료 ⋯ 메뉴), 움직였다 떼면 놓은 곳으로 옮긴다.
+  // ---- 폰: 길게 누르기 = 고르기, 길게 눌러 움직이기 = 옮기기 ----
+  // 줄·폴더 머리를 LONG_MS 눌러 두면(짧게 진동) 잡힌다. 잡기 전에 손가락이 움직이면(세로 스크롤) 그대로 스크롤이고,
+  // 끌 수 있는 화면(touchOk)이면 잡은 뒤에는 스크롤을 막고 손가락을 따라 놓을 곳을 표시한다.
+  // S69 LONGPRESS-선택(2026-11-24 명진): 움직이지 않고 떼면 선택 모드를 켜고 그 줄을 고른다(onHold — 공용 규칙 select-mode.js holdPick).
+  // 메뉴는 줄 오른쪽 ⋯로만 연다. 움직였다 떼면 놓은 곳으로 옮긴다. PC 마우스 우클릭·키보드(⋯·Shift+F10)는 그대로.
   const LONG_MS=450,SLOP=8,MOVED=12;
   function bindTouch(list){
     const cancel=()=>{if(touch?.timer)clearTimeout(touch.timer);touch=null};
     const finish=()=>{clearMarks();stopScroll();touchGhost.hide();drag=null;cancel()};
+    const ROW='.lu-row[data-lu-document],.lu-row[data-lu-photoset],summary.lu-node-head';
     list.addEventListener('pointerdown',e=>{
-      if(e.pointerType!=='touch'||!e.isPrimary||!touchOk())return;
-      const t=e.target;if(!(t instanceof Element)||t.closest('input,textarea,select,[contenteditable],button,a[href],.lu-undo,.lu-more-files,.lu-more-row'))return;
-      const el=t.closest('.lu-row,summary.lu-node-head');if(!el||(el.matches('summary')&&renaming))return;
+      if(e.pointerType!=='touch'||!e.isPrimary)return;
+      const t=e.target;if(!(t instanceof Element)||t.closest('input:not(.lu-pick),textarea,select,[contenteditable],button,a[href],.lu-undo,.lu-more-files,.lu-more-row'))return;
+      const el=t.closest(ROW);if(!el||(el.matches('summary')&&renaming))return;
       cancel();
-      touch={el,x:e.clientX,y:e.clientY,grabbed:false,moved:false,drop:null,at:Date.now(),timer:setTimeout(()=>{
+      const canDrag=touchOk();
+      touch={el,x:e.clientX,y:e.clientY,grabbed:false,moved:false,drop:null,at:Date.now(),canDrag,timer:setTimeout(()=>{
         if(!touch||touch.el!==el)return;
-        touch.grabbed=true;touch.drag=dragFrom(el,true);drag=touch.drag;pokeDrag();
-        el.classList.add('lu-grabbed');markDragging(touch.drag);try{navigator.vibrate?.(12)}catch{}
+        touch.grabbed=true;
+        if(canDrag){touch.drag=dragFrom(el,true);drag=touch.drag;pokeDrag();if(touch.drag){el.classList.add('lu-grabbed');markDragging(touch.drag)}}
+        try{navigator.vibrate?.(12)}catch{}
       },LONG_MS)};
     });
     list.addEventListener('pointermove',e=>{
@@ -615,17 +620,16 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(e.cancelable)e.preventDefault();
       const {el,moved,drop,drag:d}=touch;
       finish();
-      if(moved){suppressUntil=Date.now()+600;commitDrop(d,drop);return}
-      // 움직이지 않고 뗌 = 우클릭과 같은 메뉴.
-      const btn=el.matches('summary')?el.querySelector('[data-lu-node-menu]'):el.querySelector('[data-lu-menu]');
-      suppressUntil=0;
-      if(btn){const r=el.getBoundingClientRect();window.KPTUContextMenu?.pinAt?.(btn,r.left+Math.min(r.width/2,48),r.top+r.height/2);btn.click()}
       suppressUntil=Date.now()+600;
+      if(moved){if(d)commitDrop(d,drop);return}
+      // 움직이지 않고 뗌 = 선택 모드 + 그 줄 선택(메뉴 아님).
+      onHold(el);
     });
     list.addEventListener('touchcancel',()=>{if(touch?.grabbed)finish();else cancel()});
-    // 잡은 직후 따라오는 기본 길게누르기 메뉴·클릭(자료 열기, 토글 접기)은 막는다.
-    list.addEventListener('contextmenu',e=>{if(touch||Date.now()<suppressUntil||(e.pointerType==='touch'&&e.target.closest?.('.lu-row,summary.lu-node-head')&&touchOk()))e.preventDefault()},true);
-    list.addEventListener('click',e=>{if(Date.now()<suppressUntil){e.preventDefault();e.stopPropagation()}},true);
+    // 꾹 누르면 브라우저가 보내는 기본 길게누르기 메뉴와 뗀 직후 따라오는 클릭(자료 열기, 토글 접기)은 막는다.
+    list.addEventListener('contextmenu',e=>{if(touch||Date.now()<suppressUntil||(e.pointerType==='touch'&&e.target.closest?.(ROW)))e.preventDefault()},true);
+    // ⋯ 단추는 따로 누르는 것이라 삼키지 않는다(꾹 눌러 고른 바로 뒤에도 ⋯로 메뉴).
+    list.addEventListener('click',e=>{if(Date.now()<suppressUntil&&!e.target.closest?.('[data-lu-menu],[data-lu-node-menu]')){e.preventDefault();e.stopPropagation()}},true);
   }
   // F2 = 포커스가 있는 폴더 줄의 이름 바꾸기. 빈 곳 우클릭 = 그 자리를 품은 가장 가까운 토글의 ⋯ 메뉴(폴더면 폴더 메뉴, 프로젝트·'폴더 밖'이면 [새 폴더]),
   // 어느 토글도 아니면 맨 위 자리의 [새 폴더]. 카드·줄·입력칸·링크·버튼 위의 우클릭은 공용 우클릭(context-menu.js)이 그대로 맡는다.

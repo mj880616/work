@@ -19,7 +19,7 @@ async function answerText(page, value) {
 // FOLDER-나무새기준(S51-12): 폰 = 첫 화면 나무(폴더를 누르면 그 자리에서 펼침), 두 손가락 벌리기 = 그 폴더만('‹ 노트 › 이름 · 장수', 하위 폴더 줄 먼저),
 // [‹]·오므리기·갤럭시 뒤로가기 = 펼친 자리 그대로 나무.
 // Notes without a folder sit in '🗂 폴더 없음'. A note written before the table keeps its folder by name (top folder of the same name).
-// Row ⋯ / right-click / long-press = one menu with [선택] on top; select mode moves several at once; every move has [되돌리기].
+// Row ⋯ / right-click = one menu with [선택] on top (phone long-press picks the row, S69); select mode moves several at once; every move has [되돌리기].
 // Phone 390 and PC 1280. Names are made up.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -292,20 +292,30 @@ test.describe('PC mouse (no touch)', () => { test.use({ hasTouch: false }); test
   expect(f.errors).toEqual([]);
 }); });
 
-test('phone 390: long-press a note and let go without moving opens its menu; [폴더로 옮기기] moves it', async ({ page }) => {
+// S69 LONGPRESS-선택(명진 11/24): 꾹 눌렀다 움직이지 않고 떼면 메뉴가 아니라 선택 모드 + 그 줄 선택. 메뉴는 줄 ⋯로만.
+test('phone 390: long-press a note and let go without moving picks it (select mode); the row ⋯ opens the menu; [폴더로 옮기기] moves it', async ({ page }) => {
   const f = await fixture(page, 390);
   await showOutside(page, 390);
   const cdp = await page.context().newCDPSession(page);
   const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
-  const from = await page.locator('#noteRows [data-nx-note="n1"] .basket-title-text').evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  const at = sel => page.locator(sel).evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
   await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('data-reorder-id', 'n:n1');
-  await touch('touchStart', [from]); await page.waitForTimeout(700);
+  await touch('touchStart', [await at('#noteRows [data-nx-note="n1"] .basket-title-text')]); await page.waitForTimeout(700);
   await touch('touchEnd', []);
-  await expect(page.locator('#noteDocMenu')).toBeVisible();
-  await expect(page.locator('#noteDocMenu button').first()).toHaveText('선택');
+  await expect(page.locator('#noteDocMenu')).toBeHidden();
+  await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
+  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveClass(/nx-picked/);
   await expect(page.locator('[data-note-detail]')).toBeHidden();
+  // 다시 꾹 눌러도 풀리지 않는다(토글 아님).
+  await touch('touchStart', [await at('#noteRows [data-nx-note="n1"] .basket-title-text')]); await page.waitForTimeout(700);
+  await touch('touchEnd', []);
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   await cdp.detach();
-  await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), 390);
+  // 메뉴는 ⋯로: 고른 줄의 ⋯ = 고른 것 메뉴 → [1개 — 폴더로 옮기기].
+  await press(page, page.locator('#noteRows [data-note-row-more="n1"]'), 390);
+  await expect(page.locator('#noteDocMenu')).toBeVisible();
+  await press(page, page.locator('#noteDocMenu [data-nx-sel-move]'), 390);
   await pickInSheet(page, ['회의']);
   await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata.folder_id).toBe(U(1));
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');

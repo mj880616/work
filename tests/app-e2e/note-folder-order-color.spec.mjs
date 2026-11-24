@@ -253,7 +253,7 @@ test.describe('PC 1440', () => {
 });
 
 test.describe('폰 412', () => {
-  test('꾹 눌러 끌어 폴더 순서 바꾸기, 끌지 않고 떼면 메뉴, ⋯ [위로]·색', async ({ page }) => {
+  test('꾹 눌러 끌어 폴더 순서 바꾸기, 끌지 않고 떼면 선택, ⋯ [위로]·색', async ({ page }) => {
     const f = await fixture(page, 412);
     const cdp = await page.context().newCDPSession(page);
     const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
@@ -269,10 +269,17 @@ test.describe('폰 412', () => {
     await touch('touchEnd', []);
     await expect.poll(order).toEqual([U(3), U(1), U(2)]);
     expect(f.folders.find(x => x.id === U(3)).parent_id).toBe(null);
-    // 끌지 않고 떼면 ⋯ 메뉴.
+    // S69 LONGPRESS-선택(명진 11/24): 끌지 않고 떼면 메뉴가 아니라 선택 모드 + 그 폴더 선택. 메뉴는 ⋯로.
     await tick(page);
     const c = await center(rowSel(2));
     await touch('touchStart', [{ x: c.x, y: c.y }]); await page.waitForTimeout(650); await touch('touchEnd', []);
+    await expect(rootMenu(page)).toBeHidden();
+    await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
+    await expect(page.locator(`#noteRows [data-nx-folder="${U(2)}"]`)).toHaveClass(/ft-picked/);
+    await page.locator('[data-nx-select-bar] [data-nx-sel-close]').tap();
+    await expect(page.locator('[data-nx-select-bar]')).toBeHidden();
+    await page.waitForTimeout(700);
+    await page.locator(`#noteRows [data-nx-folder-more="${U(2)}"]`).tap();
     await expect(rootMenu(page)).toBeVisible();
     // NOTE-폴더메뉴새노트: 맨 위 [새 노트], 그다음 [선택].
     await expect(rootMenu(page).locator('button').first()).toHaveText('새 노트');
