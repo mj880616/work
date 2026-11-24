@@ -52,7 +52,8 @@ test.describe('PC 1280',()=>{
     for(const id of CO)expect(folderOf(s,id)).toBe(COUNCIL);
     for(const id of [...HQ,...ETC])expect(folderOf(s,id)).toBe(EXEC);
     // 옮기기 전 자리가 서버 기록에 남는다(번호만).
-    expect(s.moveLog.map(r=>[r.kind,r.document_id,r.from_folder_id,r.to_folder_id]).sort()).toEqual(CO.map(id=>['tidy',id,EXEC,COUNCIL]).sort());
+    // (기록은 창을 닫은 뒤 적는다 — 적힐 때까지 기다린다. 바쁜 실행에서 바로 보면 아직 비어 있을 수 있음, S69-16에서 발견)
+    await expect.poll(()=>s.moveLog.map(r=>[r.kind,r.document_id,r.from_folder_id,r.to_folder_id]).sort()).toEqual(CO.map(id=>['tidy',id,EXEC,COUNCIL]).sort());
     expect(new Set(s.moveLog.map(r=>r.batch_id)).size).toBe(1);
     expect(Object.keys(s.moveLog[0]).sort()).toEqual(['batch_id','created_at','document_id','from_folder_id','id','kind','to_folder_id','workspace_id']);
     // 창을 닫은 뒤(그 자리 되돌리기 없이) 다시 열면 [지난 정돈 되돌리기].
@@ -80,7 +81,7 @@ test.describe('PC 1280',()=>{
     await openTeam(page);
     await modal(page).locator('[data-tidy-apply]').click();
     await expect(modal(page)).toBeHidden();
-    expect(s.moveLog.length).toBe(3);
+    await expect.poll(()=>s.moveLog.length).toBe(3);
     await page.locator('#libraryFolderStatusLine .lu-undo').click();
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('되돌렸어요 · 3개를 원래 자리로');
     for(const id of CO)expect(folderOf(s,id)).toBe(EXEC);

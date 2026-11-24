@@ -45,7 +45,8 @@ test.describe('PC 1280 한 칸',()=>{
     // 창은 AI를 기다리지 않고 바로 뜬다: 규칙으로 찾은 1개는 바로, 나머지 3개는 기다림.
     await expect(modal(page)).toBeVisible();
     await expect(row(page,R1).locator('.lu-sort-pick')).toContainText('가상 교섭');
-    await expect(row(page,R1).locator('.lu-sort-why')).toHaveText('같은 낱말로 시작하는 자료가 이 폴더에 있어요');
+    // S69-16: 이미 그 폴더에 든 닮은 자료(본보기)를 까닭으로 보여 준다.
+    await expect(row(page,R1).locator('.lu-sort-why')).toHaveText('닮은 자료: 가상협약 요구안');
     await expect(modal(page).locator('#librarySortSub')).toContainText('나머지 3개는 AI가 보고 있어요');
     release();
     // 서버 AI에는 규칙으로 못 찾은 자료 id만(폴더 id·글 없음).
