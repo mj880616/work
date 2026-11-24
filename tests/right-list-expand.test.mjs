@@ -32,7 +32,8 @@ test('자료실 탐색기 칸(flat): 폴더 줄이 펼치는 줄 — 펼침 상�
 test('자료실 탐색기 칸 머리 누르기 = 펼치기만(들어가기 길 없음), 두 번 누르기도 들어가지 않음', () => {
   const s = src('library-upload.js');
   assert.doesNotMatch(s, /data-lu-enter'\)\)\{e\.preventDefault\(\);luPressEnter/);
-  assert.match(s, /if\(head\.parentElement\?\.closest\('\[data-lu-enter\]'\)\)return;/);
+  // S69-76: 탐색기 칸만 빼던 폴더 줄 dblclick 들어가기 처리 자체를 지웠다(모든 폴더 줄 두 번 누르기 = 들어가지 않음).
+  assert.doesNotMatch(s, /addEventListener\('dblclick'/);
 });
 
 test('자료실 두 칸: 칸마다 펼침(own[i]) — 칸 안 누르기·메뉴 펼치기·모두 펴기가 그 칸(들)만 바꾸고, 옮긴 뒤 저절로 펼치지 않음', () => {

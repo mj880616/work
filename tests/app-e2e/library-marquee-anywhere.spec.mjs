@@ -67,7 +67,7 @@ test('PC 1280 한 칸: 카드 아래 빈 바탕에서 끌어 자료 줄 3개를 
   expect(errors).toEqual([]);
 });
 
-test('PC 1280 한 칸: 왼쪽 나무 칸 빈 곳에서 시작해 오른쪽 폴더 줄을 덮으면 그 폴더 안 자료가 골라진다',async({page})=>{
+test('PC 1280 한 칸: 왼쪽 나무 칸 빈 곳에서 시작해 오른쪽 폴더 줄을 덮으면 그 폴더가 폴더째 골라진다',async({page})=>{
   test.setTimeout(60000);
   const {errors}=await boot(page);
   const nav=await box(page,'#libraryFolderNav');
@@ -80,8 +80,9 @@ test('PC 1280 한 칸: 왼쪽 나무 칸 빈 곳에서 시작해 오른쪽 폴�
   expect(await page.evaluate(({x,y})=>{const t=document.elementFromPoint(x,y);return !t.closest('.ft-row,#documentList')},from)).toBe(true);
   // 오른쪽 '가상 묶음 1'·'가상 묶음 2' 줄까지(위로·오른쪽으로) 끈다.
   await marquee(page,from,async()=>{const f1=await box(page,folderRow('f:f1'));return {x:f1.left+60,y:f1.y}});
-  // f1 아래(f2·f3·자료 줄 o1~o3)까지 덮였다: f1(b1)·f2(c1)·f3(e1)·o1~o3.
-  await expect(count(page)).toHaveText('6개 선택됨 — 접힌 3개 포함');
+  // f1 아래(f2·f3·자료 줄 o1~o3)까지 덮였다: 폴더 f1·f2·f3(폴더째 — S69-69 LIB-사각형폴더) + 자료 o1~o3.
+  await expect(count(page)).toHaveText('폴더 3 · 파일 3 선택됨');
+  await expect(page.locator(folderRow('f:f1'))).toHaveClass(/lu-folder-picked/);
   expect(await nodeState(page,'f:f1')).toBe('✓');
   expect(await nodeState(page,'f:f0')).toBe('');
   expect(await checkedDocs(page)).toEqual(OUT);

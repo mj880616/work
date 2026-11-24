@@ -45,3 +45,37 @@ export async function deleteToTrash({kind, id, name, detail = null, remove, afte
   return {status: 'moved', id};
 }
 
+
+// S69-69 LIB-사각형폴더: 여럿을 한 번에 휴지통으로(확인은 부르는 쪽이 한 번 받았다 — 자료실 선택 [삭제]).
+// 하나씩 기존 [삭제] 요청(remove(id)) → 목록 한 번 다시 읽기 → 휴지통 목록으로 확인된 것만 '… · 되돌리기' 한 줄(누르면 모두 되살림).
+// 반환 status: 'moved' | 'partial'(일부 요청 실패) | 'blocked' | 'unconfirmed' | 'failed', moved: 휴지통에서 확인된 id들, error: 첫 실패.
+export async function deleteManyToTrash({kind, ids, remove, afterChange = async () => {}, notify = () => {}, movedText = (n) => `${n}개를 휴지통으로 옮겼어요.`, rt = window.KPTURuntime}) {
+  const first = await readTrashKind(kind, rt);
+  if (first.state !== TRASH_STATE.READY) {
+    notify(otherDeleteBlockedText(kind, first.state));
+    return {status: 'blocked', moved: []};
+  }
+  const sent = [];
+  let error = null;
+  for (const id of ids || []) {
+    try { await remove(id); sent.push(id); } catch (e) { error ??= e; }
+  }
+  try { await afterChange(); } catch { /* 다음 읽기 때 맞춰진다 */ }
+  if (!sent.length) return {status: 'failed', moved: [], error};
+  const after = await readTrashKind(kind, rt);
+  const moved = after.state === TRASH_STATE.READY ? sent.filter((id) => after.rows.some((row) => row.id === id)) : [];
+  if (!moved.length) {
+    notify(TRASH_TEXT.NOT_CONFIRMED);
+    return {status: 'unconfirmed', moved, error};
+  }
+  offerUndoNotice({
+    text: movedText(moved.length),
+    onUndo: async () => {
+      let bad = '';
+      for (const id of moved) { const r = await restoreFromTrashKind(kind, id, rt); if (!r.ok && !bad) bad = r.message || TRASH_TEXT.UNDO_FAILED; }
+      try { await afterChange(); } catch { /* 위와 같음 */ }
+      return bad ? {status: 'failed', message: bad} : {status: 'restored', message: TRASH_TEXT.UNDO_DONE};
+    },
+  });
+  return {status: error ? 'partial' : 'moved', moved, error};
+}

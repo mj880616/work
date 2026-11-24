@@ -35,6 +35,8 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
       // LIB-받는폴더나누기: 상위 폴더로 거른 읽기(parent_id=eq.…, 이번에 만든 폴더가 비었는지 볼 때)도 받는다.
       const pid=eq(url,'parent_id'),list=pid?s.folders.filter(f=>f.parent_id===pid):s.folders;
       // ORG-기록자료폴더: 짝 읽기(organization_id=not.is.null). s.orgOwned가 없으면 칸을 모르는 서버(줄에 칸 없음).
+      // MTG-정기회의자료폴더: 짝 읽기(meeting_key=not.is.null). s.meetingKeys가 없으면 칸을 모르는 서버(PostgREST처럼 400/42703).
+      if(url.searchParams.get('meeting_key')==='not.is.null')return route.fulfill(s.meetingKeys?{json:list.filter(f=>f.meeting_key).map(f=>({id:f.id,meeting_key:f.meeting_key}))}:reject('42703','column app_library_folders.meeting_key does not exist'));
       if(url.searchParams.get('organization_id')==='not.is.null')return route.fulfill({json:s.orgOwned?list.filter(f=>f.organization_id).map(f=>({id:f.id,organization_id:f.organization_id})):list.map(f=>({id:f.id}))});
       return route.fulfill({json:s.colorMissing?list.map(({color,...rest})=>rest):list});
     }
@@ -72,6 +74,13 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
     const f=byId(body.p_id);if(!f||(body.p_org&&!(s.orgOwned||[]).includes(body.p_org)))return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({code:'42501',message:'LIBRARY_FOLDER_ORG_FORBIDDEN'})});
     if(body.p_org)for(const o of s.folders)if(o.organization_id===body.p_org&&o.id!==f.id)o.organization_id=null;
     f.organization_id=body.p_org||null;return route.fulfill({json:{ok:true,id:f.id,organization_id:f.organization_id}});
+  });
+  // MTG-정기회의자료폴더: 폴더 ↔ 회의명 짝(서버 함수 app_library_folder_set_meeting). 같은 열쇠의 다른 폴더 짝은 푼다. 없는 폴더는 서버처럼 거절.
+  await page.route(`${SB}/rest/v1/rpc/app_library_folder_set_meeting`,route=>{
+    const body=route.request().postDataJSON()||{};(s.meetingCalls||(s.meetingCalls=[])).push(body);
+    const f=byId(body.p_id);if(!f)return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({code:'42501',message:'LIBRARY_FOLDER_MEETING_FORBIDDEN'})});
+    if(body.p_key)for(const o of s.folders)if(o.meeting_key===body.p_key&&o.id!==f.id)o.meeting_key=null;
+    f.meeting_key=body.p_key||null;return route.fulfill({json:{ok:true,id:f.id,meeting_key:f.meeting_key}});
   });
   await page.route(`${SB}/rest/v1/rpc/app_library_folder_set_color`,route=>{
     const body=route.request().postDataJSON()||{};(s.colorCalls||(s.colorCalls=[])).push(body);
