@@ -21,9 +21,11 @@ test('real collector-feed graph checks/bundles with functions-only sources',{tim
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  // 채널 기사 주소 규칙(scrap)은 news-feed와 같은 순수 모듈(_shared/news-url.ts)을 쓴다(outside-feed 해석 코드는 따라오지 않음).
+  // 채널 기사 주소 규칙(scrap)은 news-feed와 같은 순수 모듈(_shared/news-url.ts)을 쓴다.
   // 프로젝트·담당조직 목록 규칙은 ai-assist 자료실 채우기와 같은 순수 함수(library-fill.ts)를 쓴다(중복 구현 없음).
-  assert.deepEqual(local.sort(),['_shared/ai-model.ts','_shared/bounded-json.mjs','_shared/library-file-name.mjs','_shared/news-url.ts','_shared/openai-responses.ts','_shared/org-name-match.mjs','_shared/web-cors.ts','ai-assist/library-fill.ts','collector-feed/call-analysis.ts','collector-feed/context.ts','collector-feed/family.ts','collector-feed/handler.ts','collector-feed/index.ts','collector-feed/telegram.ts']);
+  // S69 NEWS-제목늘읽기: 들어온 기사 주소 한 장의 제목 읽기는 news-feed와 같은 읽기(_shared/feed-fetch.ts)·제목 규칙(_shared/page-title.ts)을 쓴다.
+  //   그 읽기가 쓰는 글자 풀기(outside-feed/parse.ts와 그 짝 html-entities·outside-tidy·outside-catalog)가 함께 따라온다(복사 구현 없음).
+  assert.deepEqual(local.sort(),['_shared/ai-model.ts','_shared/bounded-json.mjs','_shared/feed-fetch.ts','_shared/html-entities.ts','_shared/library-file-name.mjs','_shared/news-url.ts','_shared/openai-responses.ts','_shared/org-name-match.mjs','_shared/outside-catalog.ts','_shared/outside-tidy.ts','_shared/page-title.ts','_shared/reader-headers.ts','_shared/web-cors.ts','ai-assist/library-fill.ts','collector-feed/call-analysis.ts','collector-feed/context.ts','collector-feed/family.ts','collector-feed/handler.ts','collector-feed/index.ts','collector-feed/telegram.ts','outside-feed/parse.ts']);
   run(['check','--no-config',entry]);const bundle=join(isolated,'collector-feed.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });
