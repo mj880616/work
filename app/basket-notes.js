@@ -382,11 +382,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       fullHost:() => host.querySelector('[data-note-board-wrap]'), hasSide:() => !host.querySelector('[data-nbb-side]').hidden,
       onMenu:(btn, x, y) => { window.KPTUContextMenu?.pinAt?.(btn, x, y); rowMenu(btn); },
       onBackgroundMenu:(x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(box, x, y); openMenu(box, null, 'board'); },
-      onLinkAdd:link => { void boardLinks.add(link); }, onLinkChange:(id, patch) => { void boardLinks.update(id, patch); }, onLinkRemove:id => { void boardLinks.remove(id); },
+      onLinkAdd:link => boardLinks.add(link), onLinkChange:(id, patch) => { void boardLinks.update(id, patch); }, onLinkRemove:id => { void boardLinks.remove(id); },
       // S68-38c 글 상자 → S69-82 생각 지도 상자(그 보드에만 있는 짧은 글·가지, 서버 표 app_note_board_texts — 노트 목록·검색·폴더·태그와 무관).
       onTextAdd:text => boardLinks.addText(text), onTextChange:(id, patch) => { void boardLinks.updateText(id, patch); }, onTextsChange:list => { void boardLinks.updateTexts(list); },
       onTextRemove:id => { void boardLinks.removeText(id); },
-      canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(), toast:showToast});
+      canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(),
+      // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
+      decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast});
     boards.paint();
     // S69-83: [전체]가 없으므로 보드가 하나도 없으면 판(도구 줄 포함) 대신 빈 안내 한 줄 — 보드 칸 줄의 [+ 새 보드]로 만든다.
     const named = boards.boardView(), none = host.querySelector('[data-nbw-none]');

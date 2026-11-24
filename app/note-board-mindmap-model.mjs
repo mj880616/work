@@ -5,7 +5,9 @@
 // - 꾸미기: 색(기존 노트 색 8가지 0~7, 없으면 기본) · 모양(둥근/네모/알약/글만) · 글자 크기(1~4) · 폭(비면 글 길이만큼).
 // - S69-88(명진 11/25 02:46 "크기 조절 … 높이 폭 모두", "이동도 자유롭고 파워포인트처럼"): 손으로 정한 높이(h, 비면 글 길이만큼 — 글이 더 길면
 //   상자가 글만큼 커진다: 최소 높이), 손으로 옮겨 둔 가지(pinned — 자기 x·y를 쓰고 자동 배치가 덮어쓰지 않음, 그 아래 가지는 그 자리에서 자동, 가지 선은 따라감).
-// - 기기 저장 없음. 서버 check와 같은 범위만 받는다(migration 20261125000000_note_board_mindmap, 20261125020000_note_board_box_size).
+// - S69-91 ①: 종류에 글자(label)·도형(shape) — 늘 혼자 선 칸(가지가 아님, 자기 x·y). 도형 모양 6가지·색 -1(없음)·8·9, 꾸미기 칸은 note-board-decor-model.mjs.
+// - 기기 저장 없음. 서버 check와 같은 범위만 받는다(migration 20261125000000_note_board_mindmap, 20261125020000_note_board_box_size, 20261125040000_note_board_decor).
+import { FREE_KINDS, SHAPE_KINDS, decorShape } from './note-board-decor-model.mjs';
 
 export const NODE_COLORS = Object.freeze([
   {n:0, name:'연두'}, {n:1, name:'하늘'}, {n:2, name:'연보라'}, {n:3, name:'살구'},
@@ -13,7 +15,8 @@ export const NODE_COLORS = Object.freeze([
 ]);
 export const NODE_SHAPES = Object.freeze(['round', 'rect', 'pill', 'plain']);
 export const SHAPE_NAMES = Object.freeze({round:'둥근 상자', rect:'네모 상자', pill:'알약', plain:'글만'});
-export const NODE_KINDS = Object.freeze(['topic', 'sticky']);
+export const NODE_KINDS = Object.freeze(['topic', 'sticky', ...FREE_KINDS]);
+const ALL_SHAPES = Object.freeze([...new Set(['round', 'rect', 'pill', 'plain', ...SHAPE_KINDS])]);
 export const FONT_MIN = 1, FONT_MAX = 4, FONT_DEFAULT = 2, ROOT_FONT = 3;
 export const FONT_PX = Object.freeze({1:12, 2:14, 3:17, 4:21});
 export const FONT_NAMES = Object.freeze({1:'작게', 2:'보통', 3:'크게', 4:'아주 크게'});
@@ -30,15 +33,17 @@ const at = v => (Number.isFinite(v) ? Math.max(0, Math.min(COORD, Math.round(v))
 // 서버 줄(글 상자 기본 칸은 note-board-links-model.mjs parseText가 이미 거름) + 생각 지도 칸. 칸이 없으면(옛 서버) 기본값.
 export function nodeShape(base, row = {}) {
   if (!base) return null;
-  const parent = typeof row.parent_id === 'string' && row.parent_id && row.parent_id !== base.id ? row.parent_id : null;
+  const kind = NODE_KINDS.includes(row.kind) ? row.kind : 'topic', free = FREE_KINDS.includes(kind);
+  const parent = !free && typeof row.parent_id === 'string' && row.parent_id && row.parent_id !== base.id ? row.parent_id : null;
   return {
     ...base,
+    ...decorShape(row),
     parent_id:parent,
     ord:int(row.ord, 0, ORD_MAX) ?? 0,
     side:row.side === -1 || row.side === 1 ? row.side : null,
-    kind:NODE_KINDS.includes(row.kind) ? row.kind : 'topic',
-    color:int(row.color, 0, NODE_COLORS.length - 1),
-    shape:NODE_SHAPES.includes(row.shape) ? row.shape : 'round',
+    kind,
+    color:int(row.color, -1, 9),
+    shape:ALL_SHAPES.includes(row.shape) ? row.shape : kind === 'shape' ? 'rect' : kind === 'label' ? 'plain' : 'round',
     font:int(row.font, FONT_MIN, FONT_MAX) ?? FONT_DEFAULT,
     w:int(row.w, W_MIN, W_MAX),
     h:int(row.h, H_MIN, H_MAX),
@@ -51,7 +56,8 @@ export function nodeShape(base, row = {}) {
 export function buildTree(nodes) {
   const byId = new Map(nodes.map(n => [n.id, n]));
   const parentOf = new Map();
-  for (const n of nodes) if (n.parent_id && byId.has(n.parent_id)) parentOf.set(n.id, n.parent_id);
+  // S69-91: 글자·도형은 가지도 부모도 되지 않는다(늘 혼자 선 칸).
+  for (const n of nodes) if (n.parent_id && byId.has(n.parent_id) && !FREE_KINDS.includes(n.kind) && !FREE_KINDS.includes(byId.get(n.parent_id).kind)) parentOf.set(n.id, n.parent_id);
   // 고리 끊기: 위로 올라가다 자기를 다시 만나면 그 줄을 뿌리로.
   for (const n of nodes) {
     const seen = new Set([n.id]);
