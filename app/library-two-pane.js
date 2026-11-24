@@ -17,6 +17,7 @@ import {twoPaneFrame} from './two-pane.js';
 import {mountSplitResize} from './split-resize.js';
 import {paneSide} from './files-panes-model.mjs';
 import {ftFolderRowHtml} from './folder-tree-ui.mjs';
+import {folderCountOf} from './library-tree.js';
 import {emptyHtml, waitHtml} from './wait-state.js';
 import {collapseSteps, moreStepHtml} from './folder-path.mjs';
 import './folder-path-more.js';
@@ -109,7 +110,8 @@ export function createLibraryTwo(h) {
     if (h.canDrag()) attrs.draggable = 'true';
     // LIB-받는폴더(S59-11): 받는 폴더 줄은 개수 뒤 작은 '받는 폴더'(나무 모델의 rc 표시 — library-tree.js buildTree).
     // 펼친 빈 폴더도 펼친 표시(aria-expanded·열린 그림) — 안에 '빈 폴더' 한 줄(emptyIn).
-    return ftFolderRowHtml({name: n.label, count: n.count, countLabel: `${n.count}건`, depth, open, hasContent: hasContent || open, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder', tag: n.rc ? '받는 폴더' : ''});
+    const cnt = folderCountOf(n);
+    return ftFolderRowHtml({name: n.label, count: cnt.text, countLabel: cnt.label, depth, open, hasContent: hasContent || open, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder', tag: n.rc ? '받는 폴더' : ''});
   }
   // 펼친 빈 폴더 안 한 줄. data-lu-pane-sub(그 폴더 id) — 여기에 놓으면 그 폴더(LIB-펼친폴더안놓기 paneDropAt 그대로).
   const emptyIn = ({node, depth}) => `<div class="lu-pane-sub lu-pane-empty" data-lu-pane-sub="${h.esc(node?.id || '')}" style="--ft-depth:${depth}">${emptyHtml('빈 폴더')}</div>`;

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { pickFolderIn } from './helpers/move-picker-drill.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
@@ -41,7 +42,7 @@ async function toList(page, width) {
 }
 async function pickFolder(page, width) {
   await press(page, q(page, '[data-quick-folder]'), width);
-  await press(page, page.locator('#luMovePicker .lu-move-item', { hasText: '00. 잊지 말기' }), width);
+  await pickFolderIn(page.locator('#luMovePicker'), page.locator('#luMovePicker .lu-move-item', { hasText: '00. 잊지 말기' }), { press: l => press(page, l, width) });
   await expect(page.locator('#luMovePicker')).toBeHidden();
   await expect(q(page, '[data-quick-folder]')).toContainText('00. 잊지');
 }

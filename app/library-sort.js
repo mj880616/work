@@ -162,7 +162,7 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
   function choose(btn){
     const r=rows.find(x=>x.key===btn.dataset.sortPick);if(!r)return;
     const rc=s().receiveId,docs=r.ids.map(id=>({id,project_id:null})),itemFolder=new Map(r.ids.map(id=>[id,rc]));
-    sharedPicker().open({anchor:btn,place:'below',history:false,canNew:true,canOut:false,
+    sharedPicker().open({anchor:btn,place:'below',history:false,okLabel:'선택',canNew:true,canOut:false,
       rows:q=>pickerRows({folders:s().folders,docs,itemFolder,free:true,query:q}),
       onPick:id=>{if(id===rc)return;rows=rows.map(x=>x.key===r.key?{...x,to:{folder:id},checked:true,why:x.to?.folder===id?x.why:'직접 선택한 폴더예요'}:x);paint();focusRow(r.key)},
       onNew:()=>{const g={gid:'n'+(groups.length+1)+'u',name:'새 폴더',parent:null};groups=[...groups,g];rows=rows.map(x=>x.key===r.key?{...x,to:{group:g.gid},checked:true,why:'직접 만든 새 폴더예요'}:x);paint();root.querySelector(`[data-sort-gname="${g.gid}"]`)?.select?.()}});
@@ -170,7 +170,7 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
   // 새 폴더 놓을 자리: 기존 폴더 안(100단 안) 또는 맨 위.
   function choosePlace(btn){
     const g=groupOf(btn.dataset.sortPlace);if(!g)return;
-    sharedPicker().open({anchor:btn,place:'below',history:false,canNew:false,canOut:true,outLabel:'맨 위',
+    sharedPicker().open({anchor:btn,place:'below',history:false,okLabel:'선택',canNew:false,canOut:true,outLabel:'맨 위',
       rows:q=>{const d=pickerRows({folders:s().folders,docs:[],free:true,query:q});const ok=x=>({...x,enabled:x.enabled&&canAddChild(s().folders,x.id)});return {...d,recent:d.recent.map(ok),all:d.all.map(ok)}},
       onPick:id=>{if(!canAddChild(s().folders,id))return;groups=placeGroup(groups,g.gid,id);paint()},
       onOut:()=>{groups=placeGroup(groups,g.gid,null);paint()}});
@@ -429,7 +429,7 @@ export function createTidySuggest({api,esc,state,reload,say}){
   // 묶음의 옮길 폴더 바꾸기: 공용 폴더 고르기 창. [+ 새 폴더 만들어 넣기]는 묶음 낱말 이름의 새 폴더(이름·자리는 바로 고침).
   function choose(btn){
     const g=groupOf(btn.dataset.tidyPick);if(!g)return;
-    sharedPicker().open({anchor:btn,place:'below',history:false,canNew:true,canOut:false,
+    sharedPicker().open({anchor:btn,place:'below',history:false,okLabel:'선택',canNew:true,canOut:false,
       rows:q=>pickerRows({folders:s().folders,docs:[],free:true,query:q}),
       onPick:id=>{setGroup(g.gid,x=>retarget(x,{folder:id}));root.querySelector(`[data-tidy-pick="${CSS.escape(g.gid)}"]`)?.focus({preventScroll:true})},
       onNew:()=>{const n={gid:'t'+(made.length+1)+'u',name:g.word.slice(0,40),parent:scope};made=[...made,n];setGroup(g.gid,x=>retarget(x,{group:n.gid}));root.querySelector(`[data-tidy-gname="${n.gid}"]`)?.select?.()}});
@@ -437,7 +437,7 @@ export function createTidySuggest({api,esc,state,reload,say}){
   const retarget=(g,to)=>retargetGroup(g,to,g.rows);
   function choosePlace(btn){
     const n=newOf(btn.dataset.tidyPlace);if(!n)return;
-    sharedPicker().open({anchor:btn,place:'below',history:false,canNew:false,canOut:true,outLabel:'맨 위',
+    sharedPicker().open({anchor:btn,place:'below',history:false,okLabel:'선택',canNew:false,canOut:true,outLabel:'맨 위',
       rows:q=>{const d=pickerRows({folders:s().folders,docs:[],free:true,query:q});const ok=x=>({...x,enabled:x.enabled&&canAddChild(s().folders,x.id)});return {...d,recent:d.recent.map(ok),all:d.all.map(ok)}},
       onPick:id=>{if(!canAddChild(s().folders,id))return;made=placeGroup(made,n.gid,id);paint()},
       onOut:()=>{made=placeGroup(made,n.gid,null);paint()}});

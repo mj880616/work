@@ -4,6 +4,7 @@
 import {phoneErrorText} from './phone-files-model.mjs';
 import {pcErrorText} from './pc-files-model.mjs';
 import {naturalCompare} from './head-sort.mjs';
+import {folderFileText, countText} from './folder-count.mjs';
 
 export const SOURCES = Object.freeze(['od', 'gd']);
 // 'ph' = 이 폰 저장 공간(S49-51 FILES-통합 3단계, 폰 앱에서만). 클라우드 목록(SOURCES)에는 넣지 않는다 — 서버 색인·맞추기·쓰기는 클라우드 둘만.
@@ -119,11 +120,12 @@ export function sizeText(bytes) {
 // 화면은 옛 줄도 목록에서 뺀다(열어서 읽지 않음). 진짜 파일은 원드라이브가 늘 종류(mime)를 준다.
 export const isLockedItem = r => !!r && r.source === 'od' && !r.is_folder && !r.mime && Number(r.size_bytes) === 0;
 // 폴더 줄 개수: 그 폴더를 실제로 읽어 센 값(counts)이 있을 때만 글을 준다. 모르면 빈 글(색인 장수는 아직 안 읽은 폴더에서 0으로 나와 틀린다).
+// LIB-폴더개수: '폴더 n · 파일 m' 글자는 자료실과 같은 한 곳(folder-count.mjs).
 export function folderCountText(c) {
   if (!c || !Number.isFinite(c.files) || !Number.isFinite(c.folders)) return '';
-  return c.folders > 0 ? (c.files > 0 ? `폴더 ${countText(c.folders)} · 파일 ${countText(c.files)}` : `폴더 ${countText(c.folders)}`) : `${countText(c.files)}개`;
+  return folderFileText(c.folders, c.files, {alone: n => `${countText(n)}개`});
 }
-export const countText = n => Number.isFinite(Number(n)) ? Number(n).toLocaleString('ko-KR') : '';
+export {countText};
 
 const pad = n => String(n).padStart(2, '0');
 const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

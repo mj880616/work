@@ -55,13 +55,14 @@ export function pickerRows({folders=[],docs=[],itemFolder=new Map(),free=false,r
   const byId=new Map(folders.map(f=>[f.id,f]));
   const frames=new Set(docs.map(d=>d.project_id||null));
   const pathOf=id=>{const out=[];let f=byId.get(id),guard=0;while(f&&guard++<6){out.unshift(f.name);f=f.parent_id?byId.get(f.parent_id):null}if(f)out.unshift('…');return out.join(' › ')};// LIB-폴더100단: 가까운 6단만, 더 깊으면 앞을 '…'로
-  const row=f=>{
+  const row=(f,par)=>{
     const frameOk=free||(frames.size===1&&frames.has(f.project_id||null));
     const current=docs.length>0&&docs.every(d=>itemFolder.get(d.id)===f.id);
-    return {id:f.id,name:f.name,color:f.color,label:pathOf(f.id),depth:folderIndent(folderDepth(folders,f.id)-1),enabled:frameOk&&!current,current,reason:frameOk?'':(frames.size>1?MIXED_REASON:FRAME_REASON),recent:false};
+    return {id:f.id,name:f.name,color:f.color,label:pathOf(f.id),depth:folderIndent(folderDepth(folders,f.id)-1),parent:par,enabled:frameOk&&!current,current,reason:frameOk?'':(frames.size>1?MIXED_REASON:FRAME_REASON),recent:false};
   };
   const all=[];
-  const walk=parent=>{for(const f of folderSiblings(folders,{free:true,parentId:parent})){all.push(row(f));walk(f.id)}};
+  // LIB-폴더창들어가기: parent(위 폴더 id, 맨 위면 null) — 고르기 창이 '그 안으로 들어가기'를 이 값으로 그린다(library-move-picker.js drill).
+  const walk=parent=>{for(const f of folderSiblings(folders,{free:true,parentId:parent})){all.push(row(f,parent));walk(f.id)}};
   walk(null);
   const rank=new Map(cleanRecentFolders(recent).map((id,i)=>[id,i]));
   const q=String(query||'').trim().toLowerCase();

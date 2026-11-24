@@ -1,3 +1,4 @@
+import {pickFolderIn,pickOutIn} from './move-picker-drill.mjs';
 import {expect} from '@playwright/test';
 import {appOrigin} from './test-origin.mjs';
 import {baseState,mockApp,signIn} from './filter-chip-fixture.mjs';
@@ -135,6 +136,9 @@ export const folderMenuItem=(page,name)=>page.locator('#luFolderMenu').getByRole
 // LIB-폴더로옮기기: 자료 ⋯ → [폴더로 옮기기 ›]로 여는 작은 폴더 목록(#luMovePicker). 고를 수 있는 줄 = aria-disabled 아닌 줄.
 export const movePicker=page=>page.locator('#luMovePicker');
 export const moveFolder=(page,id)=>movePicker(page).locator(`[data-lu-move-folder="${id}"]`).last();
+// LIB-폴더창들어가기: 창에서 그 폴더를 선택하고 [여기로 옮기기]까지(하위 폴더가 있는 줄이면 들어가서 '이 폴더로'). path = 먼저 들어갈 줄들.
+export async function moveTo(page,id,width,{path=[]}={}){await pickFolderIn(movePicker(page),moveFolder(page,id),{press:l=>press(page,l,width),path:path.map(p=>movePicker(page).locator(`[data-lu-move-folder="${p}"][data-lu-move-kids]`))})}
+export async function moveOut(page,width){await pickOutIn(movePicker(page),{press:l=>press(page,l,width)})}
 export const moveEnabledNames=page=>movePicker(page).locator('.lu-move-list .lu-move-item:not([aria-disabled="true"]) .lu-move-name').allTextContents();
 export async function openMove(page,docId,width){await press(page,page.locator(`[data-lu-menu="${docId}"]`),width);await press(page,page.locator(`#luMorePanel [data-lu-move-open="${docId}"]`),width);await expect(movePicker(page)).toBeVisible()}
 export async function press(page,locator,width){if(width<761)await locator.tap();else await locator.click()}

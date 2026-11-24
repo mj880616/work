@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {pickFolderIn} from './helpers/move-picker-drill.mjs';
 // SEARCH-전체검색 S-3·S-4(2026-10-22 요청함 07:55·07:57·08:01). 상단 줄 검색칸 → 결과 창(종류 칩·띠·들여쓴 줄·형광·N건 모두 보기),
 // ↑↓·엔터·Esc, 결과 누르면 원본 화면, 상단 줄 ←로 돌아오기. 폰(390)은 메뉴 창 맨 위 검색칸 → 화면 전체 검색(왼쪽 위 ←).
 // 서버 검색(app_search_records)은 시험 응답으로 대신한다. 이름은 모두 합성 값.
@@ -301,7 +302,7 @@ test('PC 1280: 자료실 결과 우클릭 [폴더로 옮기기 ›] → 그 자�
   // 지금 든 폴더는 고를 수 없고, 폴더 밖으로 뺄 수 있다.
   await expect(picker.locator('.lu-move-item:not([aria-disabled="true"])')).toHaveText(['교섭 자료']);
   await expect(picker.getByRole('button',{name:'폴더 밖으로'})).toBeVisible();
-  await picker.locator('.lu-move-item',{hasText:'교섭 자료'}).click();
+  await pickFolderIn(picker,picker.locator('.lu-move-item',{hasText:'교섭 자료'}));
   await expect.poll(()=>writes.length).toBe(1);
   expect(writes[0]).toEqual({method:'PATCH',body:{folder_id:F2}});
   // 자료실 화면으로 넘어가지 않는다. 결과 줄 폴더 표시가 바로 바뀐다.
@@ -340,10 +341,10 @@ test('PC 1280: 노트 결과 우클릭 [폴더로 옮기기 ›] → 노트 폴�
   await menu.getByRole('button',{name:'폴더로 옮기기 ›'}).click();
   const picker=page.locator('.lu-move-picker:visible');
   await expect(picker).toBeVisible();
-  // 노트 화면과 같은 나무 줄(하위 폴더는 들여쓰기)과 [폴더 밖으로].
-  await expect(picker.locator('.lu-move-item')).toHaveText(['회의','교섭 기록']);
+  // 노트 화면과 같은 폴더 줄과 [폴더 밖으로]. 하위 폴더가 있는 '회의'를 누르면 그 안으로 들어간다(LIB-폴더창들어가기).
+  await expect(picker.locator('.lu-move-item')).toHaveText(['회의']);
   await expect(picker.getByRole('button',{name:'폴더 밖으로'})).toBeVisible();
-  await picker.locator('.lu-move-item',{hasText:'교섭 기록'}).click();
+  await pickFolderIn(picker,picker.locator('.lu-move-item',{hasText:'교섭 기록'}),{path:[picker.locator('.lu-move-item',{hasText:'회의'})]});
   await expect.poll(()=>patches.length).toBe(1);
   expect(patches[0].metadata).toEqual({folder_id:F2,folder:'교섭 기록'});
   const notice=page.locator('#kptuNotice');

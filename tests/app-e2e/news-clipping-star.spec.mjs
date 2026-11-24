@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { pickFolderIn } from './helpers/move-picker-drill.mjs';
 import { start, openNews } from './helpers/news-server.mjs';
 // NEWS-클리핑 C2 → S51-8: 별표 → ⋯ [별표 폴더] 칸의 폴더 트리(폴더 안 폴더, 노트·자료실과 같은 폴더 고르기 창), 기사 메모 = 노트(상세 [메모], metadata.news_item_id),
 // 노트 화면 [기사로 가기] → News [언론]에서 그 기사 상세. 서버 흉내(helpers/news-server.mjs), 글은 모두 가짜.
@@ -60,7 +61,7 @@ for (const width of [412, 884, 1440]) {
     await expect(root(page).locator('[data-nc-folder-toggle]')).toHaveCount(2);
     expect(server.folders[1].parent_id).toBe(server.folders[0].id);
     await item(page, 'c1').locator('[data-nc-folder]').click();
-    await page.locator('#luMovePicker').getByRole('button', { name: /가짜 안 폴더/ }).click();
+    await pickFolderIn(page.locator('#luMovePicker'), page.locator('#luMovePicker .lu-move-item', { hasText: '가짜 안 폴더' }), { path: [page.locator('#luMovePicker [data-lu-move-kids]', { hasText: '가짜 폴더' })] });
     await expect(item(page, 'c1').locator('[data-nc-folder]')).toHaveText('가짜 폴더 › 가짜 안 폴더');
     await expect(root(page).locator('.nc-tree-item [data-nc-item="c1"]')).toBeVisible();
     // 이름 바꾸기 · 지우기(안 기사는 위 폴더로, 기사는 남음).

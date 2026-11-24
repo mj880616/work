@@ -13,6 +13,7 @@ import {folderShapeHtml, colorOf} from './folder-look-model.mjs';
 import {chevHtml} from './fold-chevron.mjs';
 import {partStyles} from './part-styles.js';
 import {emptyHtml} from './wait-state.js';
+import {folderFileText, countText} from './folder-count.mjs';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('folder-tree-ui');
 
@@ -122,6 +123,7 @@ export function ftFocusTopHtml({back = null, backLabel = '폴더 나무', lead =
     + `<div class="ft-focus-head">${ftFocusBackHtml(back, backLabel)}${icon || ftIconHtml({color, open: true})}<span class="ft-focus-name">${esc(name)}</span>${count ? ` <span class="ft-num">${esc(count)}</span>` : ''}</div>`;
 }
 // 상자 머리 개수: '폴더 1 · 파일 3'(없는 쪽은 뺀다). fileWord: 화면마다 '파일'·'노트'·'사진'.
+// LIB-폴더개수: 글자는 폴더 줄 개수와 같은 한 곳(folder-count.mjs).
 export function ftFocusCount(folders = 0, files = 0, fileWord = '파일') {
-  return [folders > 0 ? `폴더 ${folders}` : '', files > 0 ? `${fileWord} ${files}` : ''].filter(Boolean).join(' · ');
+  return folderFileText(folders, files, {fileWord, alone: n => n > 0 ? `${fileWord} ${countText(n)}` : ''});
 }

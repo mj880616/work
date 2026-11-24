@@ -848,6 +848,8 @@ jobs:
         run: node --test tests/note-tree.test.mjs
       - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자·두 손가락) 시험
         run: node --test tests/folder-tree-ui.test.mjs
+      - name: LIB-폴더개수 폴더 줄 '폴더 N · 파일 M' 글자·고르기 창 위 폴더 시험
+        run: node --test tests/folder-count.test.mjs
       - name: UI-폴더누르기한규칙 폴더 이름 누르기 = 펼침·접힘 공용 부품 시험
         run: node --test tests/folder-tree-press.test.mjs
       - name: UI-폴더이름펼치기 그 자리 펼치는 목록 폴더 누르기 = 펼치기·접기(빈 폴더 한 줄·⋯ 첫 줄 들어가기) 시험

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { pickFolderIn, pickOutIn } from './helpers/move-picker-drill.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectPickerAtButton } from './helpers/picker-anchor.mjs';
 
@@ -78,14 +79,14 @@ for (const width of [1280, 390]) test(`the note input names the folder a new not
   // [폴더 ▾] opens the shared folder list; picking 회의 changes this add only.
   await press(page, folderBtn(page), width);
   await expect(picker(page)).toBeVisible();
-  await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
+  await pickFolderIn(picker(page), picker(page).locator('.lu-move-item', { hasText: '회의' }), { press: l => press(page, l, width) });
   await expect(folderBtn(page)).toHaveText('회의 ▾');
   // The new note goes into 회의 with the folder id and name (one metadata write after the save).
   await addNote(page, width, '새 노트 글');
   await expect.poll(() => f.rows.find(r => r.id === 'n-new')?.metadata).toEqual({ folder_id: U(1), folder: '회의' });
   // [폴더 ▾] → [폴더 밖으로]: the next note goes to 폴더 없음.
   await press(page, folderBtn(page), width);
-  await press(page, picker(page).locator('[data-lu-move-out]'), width);
+  await pickOutIn(picker(page), { press: l => press(page, l, width) });
   await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
   expect(f.errors).toEqual([]);
 });
@@ -131,7 +132,7 @@ for (const width of [390, 884, 1280]) test(`노트 [폴더 ▾] 고르기 창은
   const f = await fixture(page, width);
   await press(page, folderBtn(page), width);
   await expectPickerAtButton(page, picker(page), folderBtn(page));
-  await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
+  await pickFolderIn(picker(page), picker(page).locator('.lu-move-item', { hasText: '회의' }), { press: l => press(page, l, width) });
   await expect(folderBtn(page)).toHaveText('회의 ▾');
   expect(f.errors).toEqual([]);
 });
