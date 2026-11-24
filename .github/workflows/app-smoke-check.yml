@@ -1256,7 +1256,7 @@ jobs:
         run: node --test tests/phone-app-play-flavor.test.mjs
 
       - name: Check list reads skip body columns (APP-낭비줄이기 ①)
-        run: node --test tests/report-list-read.test.mjs
+        run: node --test tests/report-list-read.test.mjs tests/library-folder-items-paging.test.mjs
 
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
