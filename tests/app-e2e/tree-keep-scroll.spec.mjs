@@ -8,7 +8,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 // UI-폴더펼치면위로(S61-7, 요청함 11/13 04:24): 나무를 아래로 내려 아래쪽 폴더를 눌러 펼치고 접어도 나무가 맨 위로 가지 않고,
 // 누른 폴더가 화면에서 같은 높이에 남는다 — 자료실·[파일]·노트·사진, 폰 412·폴드 884·PC 1280. 다시 그려도 자리를 지키는 일은
-// 공용 부품 한 곳(app/folder-tree-press.mjs ftKeepPlace). 화면 사진(S61_7_SHOTS=폴더): 펼치기 전·후. 이름은 모두 지어낸 것이다.
+// 공용 부품 한 곳(app/folder-tree-press.mjs ftKeepPlace). S69-38: PC·폴드 탐색기 나무는 이름 누르기 = 그 폴더 열기라 펼치기·접기는 폴더 그림(.ft-tog)으로 누른다. 화면 사진(S61_7_SHOTS=폴더): 펼치기 전·후. 이름은 모두 지어낸 것이다.
 const SHOTS = process.env.S61_7_SHOTS || '';
 const shot = async (page, name) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/${name}.png` }); } };
 const N = 40;
@@ -100,7 +100,7 @@ for (const width of [1280, 884, 412]) test(`[파일] ${width}: 나무를 내려 
   const { errors, server } = await start(page, width);
   manyFolders(server);
   await openFiles(page, width);
-  const tree = page.locator('#filesRoot [data-fx-tree]'), row = tree.locator('[data-fx-fold="od:OD!122"] > .ft-main'), kid = tree.locator('[data-fx-fold="od:OD!222"]');
+  const tree = page.locator('#filesRoot [data-fx-tree]'), row = tree.locator(`[data-fx-fold="od:OD!122"] > ${width >= 600 ? '.ft-tog' : '.ft-main'}`), kid = tree.locator('[data-fx-fold="od:OD!222"]');
   await expect(row).toBeVisible();
   await pressStays(page, row, { open: () => expect(kid).toBeVisible(), shots: `files-${width}` });
   await pressStays(page, row, { open: () => expect(kid).toHaveCount(0) });
@@ -165,7 +165,7 @@ for (const width of [1280, 884, 412]) test(`노트 ${width}: 나무를 내려 �
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await chooseBasketKind(page, 'note');
-  const row = page.locator(`[data-nx-folder="${U(122)}"] .ft-main:visible`), kid = page.locator(`[data-nx-folder="${U(222)}"]:visible`);
+  const wide = width >= 600, row = wide ? page.locator(`[data-nx-tree] [data-nx-tog="${U(122)}"]`) : page.locator(`[data-nx-folder="${U(122)}"] .ft-main:visible`), kid = page.locator(`${wide ? '[data-nx-tree] ' : ''}[data-nx-folder="${U(222)}"]:visible`);
   await expect(row).toBeVisible();
   await pressStays(page, row, { open: () => expect(kid).toBeVisible() });
   await pressStays(page, row, { open: () => expect(kid).toHaveCount(0) });
@@ -201,7 +201,7 @@ for (const width of [1280, 884, 412]) test(`사진 ${width}: 폴더 나무를 �
   await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
   const root = page.locator('#photosRoot');
   const wide = width >= 1200;
-  const row = wide ? root.locator('[data-photos-fx-tree] [data-photos-fx-open="S22"]') : root.locator('[data-photos-ftog="o:S22"]');
+  const row = wide ? root.locator('[data-photos-fx-tree] [data-photos-fx-tog="S22"]') : root.locator('[data-photos-ftog="o:S22"]');
   const kid = wide ? root.locator('[data-photos-fx-tree] [data-photos-folder="K22"]') : root.locator('[data-photos-ftog="o:K22"]');
   await expect(row).toBeVisible();
   await pressStays(page, row, { open: () => expect(kid).toBeVisible() });

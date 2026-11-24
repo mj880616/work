@@ -45,7 +45,7 @@ import {SPLIT_QUERY,NARROW_QUERY} from './screen-width.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {createLibraryTwo} from './library-two-pane.js';
 import {iconHtml,treeIconHtml} from './tree-icons.js';
-import {ftBindTreeArrows,ftKeepPlace,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
+import {ftBindTreeArrows,ftKeepPlace,ftExplorePress,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
 import {createAnchoredMenu,moveMenuTrigger} from './anchored-menu.js';
@@ -1157,8 +1157,8 @@ document.addEventListener('click',e=>{
   // 펼치기·접기는 줄 앞 폴더 그림(data-lu-nav-tog). 예전 규칙(UI-폴더누르기한규칙: 이름 누르기 = 펼치기만)은 이 나무에서 이 요청으로 바뀌었다.
 const id=b.dataset.luNav||null;
   if(id===OUT_KEY){luTreeBack=null;luShowOut();document.querySelector(`#libraryFolderNav [data-lu-nav="${OUT_KEY}"]`)?.focus({preventScroll:true});return}
-  luTreeBack=null;luEnterFolder(id);
-  document.querySelector(`#libraryFolderNav [data-lu-nav="${CSS.escape(id||'')}"]`)?.focus({preventScroll:true});
+  // S69-38 UI-탐색기나무누르기: 공용 부품 ftExplorePress(오른쪽 = 그 폴더, 접혀 있으면 펼침) — [파일]·노트·사진 나무가 같은 부품.
+  luTreeBack=null;ftExplorePress(b,()=>luEnterFolder(id));
 });
 ftBindTreeArrows();
 LU_SPLIT?.addEventListener?.('change',()=>{if(document.querySelector('#libraryListCard'))luRenderLibrary()});

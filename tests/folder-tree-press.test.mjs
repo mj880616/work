@@ -1,36 +1,46 @@
-// UI-폴더누르기한규칙(S57-5): ftPressToggle — 폴더 이름 누르기 = 아이콘 단추 누르기(펼치기·접기), 들어가지 않음. 화면 없이 가짜 요소로 시험.
+// S69-38 UI-탐색기나무누르기: ftExplorePress — 탐색기 나무 폴더 이름 누르기 = 오른쪽을 그 폴더로(enter) + 접혀 있으면 펼침. 화면 없이 가짜 요소로 시험.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ftPressToggle, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, FOLDER_PRESS_TOGGLE, createLeafWait} from '../app/folder-tree-press.mjs';
+import {ftExplorePress, explorePressPlan, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, FOLDER_PRESS_TOGGLE, createLeafWait} from '../app/folder-tree-press.mjs';
 
-const fakeRow = ({hasTog = true, tog = true, expanded = 'false'} = {}) => {
+const fakeRow = ({tog = true, expanded = 'false'} = {}) => {
   const log = [];
-  const togEl = tog ? {click: () => log.push('tog'), getAttribute: () => expanded} : null;
-  const row = {matches: sel => sel === '.ft-has-tog' && hasTog, querySelector: () => togEl};
-  const main = {classList: {contains: c => c === 'ft-main'}, closest: sel => (sel === '.ft-row' ? row : null), attributes: []};
+  const togEl = tog ? {click: () => log.push('tog'), getAttribute: () => expanded, attributes: []} : null;
+  const row = {querySelector: () => togEl};
+  const main = {classList: {contains: c => c === 'ft-main'}, closest: () => row, attributes: [], isConnected: true, tagName: 'BUTTON', focus: () => log.push('focus')};
   return {main, log};
 };
 
-test('ftPressToggle: 아이콘 단추가 있는 폴더 줄 이름 누르기 = 아이콘 단추를 눌러 처리했다고 알린다', () => {
-  const {main, log} = fakeRow();
-  assert.equal(ftPressToggle(main), true);
-  assert.deepEqual(log, ['tog']);
+test('explorePressPlan: 늘 그 폴더로 들어가고, 접힌 폴더만 펼친다(이름 누르기로 접지 않음)', () => {
+  assert.deepEqual(explorePressPlan({open: false, canOpen: true}), {enter: true, expand: true});
+  assert.deepEqual(explorePressPlan({open: true, canOpen: true}), {enter: true, expand: false});
+  assert.deepEqual(explorePressPlan({open: false, canOpen: false}), {enter: true, expand: false});
 });
 
-test('ftPressToggle: 하위 폴더가 없는 폴더(아이콘 단추 없음)는 한 번 누르면 그 폴더를 연다(OPS-빠진일2차 1, 명진 11/11 14:55 가)', () => {
-  const {main, log} = fakeRow({tog: false});
-  assert.equal(ftPressToggle(main, () => log.push('enter')), true);
+test('ftExplorePress: 하위 폴더가 있는 상위 폴더도 오른쪽을 그 폴더로 바꾸고 접혀 있으면 펼친다', () => {
+  const {main, log} = fakeRow();
+  assert.equal(ftExplorePress(main, () => log.push('enter')), true);
+  assert.deepEqual(log, ['enter', 'tog']);
+});
+
+test('ftExplorePress: 이미 펼친 폴더·하위 폴더가 없는 폴더는 들어가기만(접지 않음)', () => {
+  const open = fakeRow({expanded: 'true'});
+  ftExplorePress(open.main, () => open.log.push('enter'));
+  assert.deepEqual(open.log, ['enter', 'focus']);
+  const leaf = fakeRow({tog: false});
+  ftExplorePress(leaf.main, () => leaf.log.push('enter'));
+  assert.deepEqual(leaf.log, ['enter', 'focus']);
+});
+
+test('ftExplorePress: enter가 서버에서 읽는 동안(Promise)은 끝난 뒤 펼친다 · 여는 길이 없으면 처리하지 않는다', async () => {
+  const {main, log} = fakeRow();
+  let done;
+  ftExplorePress(main, () => { log.push('enter'); return new Promise(r => { done = r; }); });
   assert.deepEqual(log, ['enter']);
-  // 여는 길을 넘기지 않은 곳은 처리만 하고 아무 일도 하지 않는다(펼치지 않음).
-  const other = fakeRow({tog: false});
-  assert.equal(ftPressToggle(other.main), true);
-  assert.deepEqual(other.log, []);
-});
-
-test('ftPressToggle: 아이콘 단추가 있는(하위 폴더가 있거나 아직 모르는) 폴더는 열지 않고 펼치기·접기만', () => {
-  const {main, log} = fakeRow();
-  assert.equal(ftPressToggle(main, () => log.push('enter')), true);
-  assert.deepEqual(log, ['tog']);
+  done(); await new Promise(r => setTimeout(r, 0));
+  assert.deepEqual(log, ['enter', 'tog']);
+  assert.equal(ftExplorePress(main), false);
+  assert.equal(ftExplorePress(null, () => {}), false);
 });
 
 test('folderPressAction: 펼쳐 보일 것이 있으면 펼치기, 없으면 열기, 모르면 펼치며 읽기 — 모든 나무·목록이 같은 판정', () => {
@@ -64,14 +74,6 @@ test('createLeafWait: 읽기 전 폴더를 눌렀다가, 읽어 보니 하위 �
   w.arm('d'); w.clear();
   assert.equal(w.done('d', 0, () => log.push('d')), false); // 그 사이 다른 것을 누름
   assert.deepEqual(log, ['a']);
-});
-
-test('ftPressToggle: toggle 줄이 아니면(자료실 전체·폴더 밖 등) 처리하지 않는다', () => {
-  const {main, log} = fakeRow({hasTog: false});
-  assert.equal(ftPressToggle(main), false);
-  assert.deepEqual(log, []);
-  assert.equal(ftPressToggle(null), false);
-  assert.equal(ftPressToggle({classList: {contains: () => false}, closest: () => null}), false);
 });
 
 test('그 폴더만 보기 메뉴 글자는 화면마다 같다', () => {

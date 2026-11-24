@@ -89,7 +89,7 @@ import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {bindEdgeBack} from './edge-back-swipe.js';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {bindFolderPinch} from './folder-pinch.js';
-import {FOLDER_ENTER_LABEL, ftKeepPlace, ftBindTreeArrows, folderPressAction, FOLDER_PRESS_ENTER, FOLDER_PRESS_TOGGLE, createLeafWait} from './folder-tree-press.mjs';
+import {FOLDER_ENTER_LABEL, ftKeepPlace, ftExplorePress, ftBindTreeArrows, folderPressAction, FOLDER_PRESS_ENTER} from './folder-tree-press.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {originKey} from './diary-list-model.mjs';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, TABS, TAB_TEXT, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
@@ -148,7 +148,6 @@ let sources = parseSources(null), phStarItems = null;
 //   PHOTO-드라이브폴더통일: 위치 줄·나무는 연 층(gdLevels)으로 만든 원드라이브와 같은 나무 모양(gdTree)에서 계산한다.
 let gd = {allowed:false, problem:'', foldersOn:0, checked:false}, gdItems = [], gdEnded = false, gdCursor = null, gdSyncAt = 0, gdSyncing = false, gdPlayUrl = '';
 const gdLevels = new Map(), gdLevelLoading = new Map(), gdLevelFailed = new Map(), gdOpen = new Set();
-const gdLeafWait = createLeafWait(); // OPS-빠진일2차 1: 읽기 전 구글 드라이브 폴더를 눌렀을 때 — 읽어 보니 하위 폴더가 없으면 그 폴더를 연다
 // FILES-폰폴더위로 ⑤: '그 폴더만'에서 하위 폴더를 눌러 한 단계씩 내려온 길(folder-walk.mjs, 파일·노트·자료실과 같은 규칙). 화면 메모리만.
 let fxWalk = [];
 let gdAt = null, gdFFor = null, gdFItems = [], gdFLoading = null, gdFFailed = '';
@@ -2153,6 +2152,12 @@ function folderRowHtml(r, {wide, a = OD_ATTR, cur = r.id === at && pAt === null 
     + (more ? `<button type="button" class="nx-more photos-fx-more" ${x('more')}="${esc(r.id)}" aria-label="${esc(r.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
     + '</div>';
 }
+// S69-38 UI-탐색기나무누르기: PC(1200px~) 오른쪽 칸 — 들어간 원드라이브 폴더 바로 안 하위 폴더 줄(누르면 들어감, 왼쪽 나무가 따라 펼침·강조) 다음에 사진. 맨 위 폴더·하위 없음은 줄 없음.
+function wideKidsHtml() {
+  if (!tree || !at || at === tree.top?.id || pAt !== null || gdAt !== null) return '';
+  const rows = photoSubfolders(tree, at).map(f => ({id:f.id, name:f.name, indent:0, count:f.count, total:f.total, enabled:f.enabled, kids:false, open:false, top:false}));
+  return rows.length ? `<div class="photos-fx-list photos-fx-kids">${rows.map(r => folderRowHtml(r, {wide:false, cur:false})).join('')}</div>` : '';
+}
 const newFolderHtml = () => (od.canDelete ? '<button type="button" class="nx-new-folder photos-fx-new" data-photos-fx-new>+ 새 폴더</button>' : '');
 // ---- [폴더] 폰 묶음(PHOTO-출처모든칩): 사진첩 폴더(relative_path) 목록과 그 폴더 사진. 보기 전용, 서버로 보내거나 기기에 저장하지 않음. ----
 function loadPhoneFolders(force = false) {
@@ -2455,7 +2460,7 @@ function renderFoldersNow() {
   const grid = '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>';
   if (wide) {
     const rows = photoFolderRows(tree, id => openSet.has(id));
-    body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="${many ? '사진 폴더' : '원드라이브 폴더'}">${odHead}${rows.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}${both ? phoneGroupHtml({wide, head:true}) : ''}${gdGroupHtml({wide, head:true})}</div><div class="photos-fx-pane"${gdPane ? ' data-photos-gd-folder' : ''}>${gdPane ? gdPaneHtml({wide}) : (pf ? phonePathHtml(pf) + phoneHeadHtml(pf) : path + head) + grid}</div></div>`;
+    body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="${many ? '사진 폴더' : '원드라이브 폴더'}">${odHead}${rows.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}${both ? phoneGroupHtml({wide, head:true}) : ''}${gdGroupHtml({wide, head:true})}</div><div class="photos-fx-pane"${gdPane ? ' data-photos-gd-folder' : ''}>${gdPane ? gdPaneHtml({wide}) : (pf ? phonePathHtml(pf) + phoneHeadHtml(pf) : path + head + wideKidsHtml()) + grid}</div></div>`;
   } else if (pf) {
     body.innerHTML = `<div class="photos-fx">${phoneFocusHtml(pf, grid)}</div>`;
   } else if (at === tree.top.id && !fxTopFocus) {
@@ -2773,7 +2778,6 @@ function afterMove(ids, target) {
   if (tab === 'folders') renderFolders(); else if (tab === 'albums') renderAlbums(); else render();
 }
 function folderClick(b) {
-  gdLeafWait.clear(); // 다른 것을 누르면 '읽은 뒤 열기'는 잊는다(아래 구글 드라이브 폴더 누르기가 다시 건다)
   // FOLDER-나무새기준 ③: 폰 나무 — 펼치기·접기(줄 어디든), 상자 접기, 'n장 더 보기'(그 폴더만), [‹](나무로), 펼친 폴더의 작은 그림(크게 보기).
   if (b.matches('[data-photos-fx-inline-retry]')) { const k = b.closest('[data-photos-strip]')?.dataset.photosStrip; if (k) { fxInline.delete(k); renderFolders(); } return true; }
   if (b.matches('[data-photos-ftog]')) {
@@ -2788,11 +2792,12 @@ function folderClick(b) {
   if (b.matches('[data-photos-fx-back]')) { fxToTree(); return true; }
   if (b.matches('[data-photos-inline]')) { const list = fxInline.get(b.dataset.photosInlineOf)?.items || []; if (list.length) openViewer(Number(b.dataset.photosInline), {list:() => list}); return true; }
   if (gdFolderClick(b)) return true;
-  // UI-폴더누르기한규칙(S57-5): PC(1200px~) 나무 폴더 이름 누르기 = 그 자리 펼치기·접기(들어가지 않음). 들어가기 = ⋯·우클릭 [이 폴더로 들어가기]·두 손가락. 맨 위 줄은 폴더가 아니라 지금처럼 그 칸으로.
-  // OPS-빠진일2차 1: 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction).
+  // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 모든곳 공통'): PC(1200px~) 나무 폴더 이름 누르기 = 오른쪽을 그 폴더로
+  // (하위 폴더가 있어도), 접혀 있으면 펼침 — 공용 부품 ftExplorePress(자료실·[파일]·노트 나무와 같은 부품). 아이콘([data-photos-fx-tog])은 펼치기·접기만.
+  // 오른쪽 칸의 하위 폴더 줄·폰·폴드는 지금처럼 그 폴더로.
   if (b.matches('[data-photos-fx-open]')) {
     const id = b.dataset.photosFxOpen;
-    if (treeWide() && id !== tree?.top?.id && folderPressAction(photoSubfolders(tree, id).length) === FOLDER_PRESS_TOGGLE) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderFolders(); body.querySelector(`[data-photos-fx-open="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); return true; }
+    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goFolder(id)); return true; }
     goFolder(id); return true;
   }
   if (b.matches('[data-photos-fx-sw]')) { toggleFolder(b.dataset.photosFxSw); return true; }
@@ -2940,10 +2945,16 @@ function gdPaneHtml({wide}) {
   const n = `${folderCountText(f.total)}장`;
   const head = top ? `<p class="photos-fx-here"><span><b>${esc(t.top.name)}</b> · ${n}</span></p>`
     : `<p class="photos-fx-here has-sw"><span><b>${esc(f.name)}</b> · ${n}${f.enabled ? '' : ' · 사진에 안 보임'}</span>${gdSwHtml(f)}</p>`;
-  const kids = wide ? '' : `<div class="photos-fx-list">${gdLevelHtml(gdAt, {wide:false})}</div>`;
+  // S69-38 UI-탐색기나무누르기: PC 오른쪽 칸도 그 폴더 바로 안 하위 폴더 줄(누르면 들어감) 다음에 사진. 하위 폴더가 없거나 아직 못 읽었으면 줄 없음(나무가 읽는다).
+  const kids = wide ? gdWideKidsHtml(gdAt) : `<div class="photos-fx-list">${gdLevelHtml(gdAt, {wide:false})}</div>`;
   const grid = '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>';
   if (!wide) return fxFocusBox({steps:trail.slice(0, -1).map(x => ({attr:'data-photos-gf-at', id:x.id, name:x.name})), head, body:kids + grid});
   return `${path}${head}${kids}${grid}`;
+}
+function gdWideKidsHtml(parent) {
+  if (parent === GDRIVE_TOP || !gdLevels.has(parent)) return '';
+  const rows = photoSubfolders(gdTree(), parent).map(f => ({id:f.id, name:f.name, indent:0, count:f.count, total:f.total, enabled:f.enabled, kids:false, open:false, top:false}));
+  return rows.length ? `<div class="photos-fx-list photos-fx-kids">${rows.map(r => gdRowHtml(r, {wide:false})).join('')}</div>` : '';
 }
 // 폰: 들어간 폴더 하나를 한 화면으로.
 function renderGdFolder() { return keepPhotoMenus(() => renderGdFolderNow()); }
@@ -3072,19 +3083,8 @@ async function gdTrashFolder(anchor, id) {
 function gdFolderClick(b) {
   if (b.matches('[data-photos-gf-open]')) {
     const id = b.dataset.photosGfOpen;
-    // UI-폴더누르기한규칙: PC 나무 폴더 누르기 = 펼치기·접기만(원드라이브와 같음, 들어가지 않음). 맨 위 줄은 늘 펼침이라 지금처럼 그 칸으로.
-    // OPS-빠진일2차 1: 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다. 아직 읽지 않은 층이면 펼치며 읽고, 읽어 보니 없으면 그때 연다(gdLeafWait).
-    if (treeWide() && id !== GDRIVE_TOP) {
-      const known = gdLevels.has(id), act = folderPressAction(known ? photoSubfolders(gdTree(), id).length : null);
-      if (act === FOLDER_PRESS_ENTER) { goGdFolder(id); return true; }
-      const opening = !gdOpen.has(id);
-      gdToggleOpen(id); body.querySelector(`[data-photos-gf-open="${CSS.escape(id)}"]`)?.focus({preventScroll:true});
-      if (!known && opening) {
-        gdLeafWait.arm(id);
-        gdLoadLevel(id).then(lv => { if (lv && tab === 'folders' && gdOpen.has(id) && gdLeafWait.done(id, lv.folders.length, () => { gdOpen.delete(id); goGdFolder(id); })) return; });
-      }
-      return true;
-    }
+    // S69-38 UI-탐색기나무누르기: PC 나무 폴더 이름 누르기 = 오른쪽을 그 폴더로 + 접혀 있으면 펼침(원드라이브와 같은 공용 부품). 펼친 층을 아직 읽지 않았으면 나무가 읽는다(gdTreeHtml).
+    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goGdFolder(id)); return true; }
     goGdFolder(id); return true;
   }
   if (b.matches('[data-photos-gf-tog]')) { gdToggleOpen(b.dataset.photosGfTog); return true; }

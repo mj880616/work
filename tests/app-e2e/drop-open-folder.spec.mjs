@@ -70,13 +70,16 @@ test('자료실 PC 1280 두 칸: 아래 여백 — 두 칸 높이 같음, 마지
 });
 
 // [파일] 목록: a폴더 = 가짜 문서함(안내문·예산표·메모), b폴더 = 가짜 사진함(명단 *, 사진 1장, 하위 폴더).
-for(const width of [1280,884])test(`파일 ${width} 목록: 명진 예 — 사진함 '명단'을 문서함 '메모' 줄 위에 놓으면 문서함 · 묶음 표시 · [사진 n] 위도 그 폴더`,async({page})=>{
+// S69-38 UI-탐색기나무누르기: 한 칸은 탐색기(오른쪽 하위 폴더 누르기 = 들어가기)라 그 자리 펼치기는 두 칸 보기 칸 안 목록에만 남는다 — 이 시험은 두 칸 왼쪽 칸에서.
+for(const width of [1280,884])test(`파일 ${width} 두 칸 목록: 명진 예 — 사진함 '명단'을 문서함 '메모' 줄 위에 놓으면 문서함 · 묶음 표시 · [사진 n] 위도 그 폴더`,async({page})=>{
   test.setTimeout(90000);
   const {errors,server}=await start(page,width);
   server.items.push({source:'od',item_id:'OD!21',parent_id:'OD!2',name:'가짜 행사',is_folder:true,size_bytes:null,mime:null,modified_at:'2026-10-01T01:00:00Z',hash:null,trashed:false,starred:false,library_doc_id:null},
     {source:'od',item_id:'OD!22',parent_id:'OD!2',name:'가짜 명단.pdf',is_folder:false,size_bytes:2000,mime:'application/pdf',modified_at:'2026-10-02T01:00:00Z',hash:null,trashed:false,starred:false,library_doc_id:null});
-  await openFiles(page,width);await treeGo(page,'od');
+  await openFiles(page,width,{two:true});
+  const two=page.locator('#filesRoot [data-fx-two]');if((await two.getAttribute('aria-pressed'))!=='true')await two.click();
   const list=page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list]'),row=key=>list.locator(`[data-fx-row="${key}"]`);
+  await expect(row('od:OD!1')).toBeVisible();
   for(const k of ['od:OD!1','od:OD!2']){await row(k).click();await expect(row(k)).toHaveAttribute('aria-expanded','true')}
   await expect(row('od:OD!13')).toBeVisible();await expect(row('od:OD!22')).toBeVisible();
   const seen=await dragHold(page,row('od:OD!22'),row('od:OD!13'),{name:`files-${width}-drag`,read:()=>page.evaluate(()=>{
