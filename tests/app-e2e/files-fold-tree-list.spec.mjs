@@ -172,9 +172,11 @@ test('파일 1280: 폴더 이름 누르기 = 그 폴더 열기 + 펼침, 아이�
   await expect(crumb).toHaveText(name);
   await expect(tog).toHaveAttribute('aria-expanded', 'true');
   await expect(main).toBeFocused();
-  await main.click(); // 다시 눌러도 접히지 않는다
-  await expect(tog).toHaveAttribute('aria-expanded', 'true');
+  await main.click(); // 이미 들어간 폴더 이름을 다시 누르면 접힌다(명진 11/24 15:42), 또 누르면 펼친다
+  await expect(tog).toHaveAttribute('aria-expanded', 'false');
   await expect(crumb).toHaveText(name);
+  await main.click();
+  await expect(tog).toHaveAttribute('aria-expanded', 'true');
   let open = true;
   const flip = async () => { open = !open; await expect(tog).toHaveAttribute('aria-expanded', String(open)); await expect(crumb).toHaveText(name); };
   await tog.click(); await flip();
