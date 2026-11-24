@@ -13,6 +13,7 @@ import {colorChoiceHtml,colorFromButton} from './folder-look.js';
 import {colorOf,dropZone,folderDropPlan,placeAt,isSamePlace} from './folder-look-model.mjs';
 import {setLibraryFolderColor,createLibraryFolder} from './library-folder-data.js';
 import {paneDropAt} from './library-drop.js';
+import {createEdgeScroll,installDragEdgeScroll} from './drag-edge-scroll.js';
 import {openFolderAt} from './drop-open-folder.mjs';
 import {askConfirm} from './small-notice.js';
 import {RECEIVE_MENU} from './library-receive.js';
@@ -425,17 +426,12 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   function paneGroup(t){for(const el of t?.ok!==false&&t?.kind!=='before'&&t?.kind!=='after'?t?.group||[]:[])el.classList.add('lu-drop-group')}
   const markDragging=d=>{for(const el of d?.els||[])el.classList.add('lu-dragging')};
-  // 화면 가장자리 근처에서 끌면 목록이 저절로 움직인다(끌기가 끝나면 멈춤).
-  let scroller=null,scrollTimer=0,scrollDir=0,scrollSpeed=0;
-  function scrollParent(el){for(let n=el?.parentElement;n&&n!==document.body;n=n.parentElement){const o=getComputedStyle(n).overflowY;if((o==='auto'||o==='scroll')&&n.scrollHeight>n.clientHeight)return n}return null}
-  function edgeScroll(y,list){
-    scroller=scrollParent(list);const box=scroller?scroller.getBoundingClientRect():{top:0,bottom:innerHeight},edge=56;
-    scrollDir=y<box.top+edge?-1:y>box.bottom-edge?1:0;
-    // 10:42: 끝에 가까울수록 빠르게(가장자리 56px 안에서 4~24px씩). 처음엔 천천히 넘어간다.
-    const dist=scrollDir<0?y-box.top:box.bottom-y;scrollSpeed=scrollDir?Math.round(4+20*Math.min(1,Math.max(0,1-dist/edge))):0;
-    if(scrollDir&&!scrollTimer){const step=()=>{if(!scrollDir||(!drag&&!touch?.grabbed)){scrollTimer=0;return}(scroller||window).scrollBy(0,scrollDir*scrollSpeed);scrollTimer=requestAnimationFrame(step)};scrollTimer=requestAnimationFrame(step)}
-  }
-  function stopScroll(){scrollDir=0;if(scrollTimer&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(scrollTimer);scrollTimer=0}
+  // UI-끌기가장자리스크롤(S69-15): 끄는 동안 포인터(손가락) 아래 칸(두 칸 보기의 각 칸 목록·나무·목록 상자·화면)의 위·아래 가장자리면 저절로 굴린다 — 공용 부품 drag-edge-scroll.js.
+  // PC HTML 끌기는 문서 전체 하나(installDragEdgeScroll, drop·dragend로 멈춤), 폰 길게 눌러 끌기는 같은 계산(createEdgeScroll) — 굴린 뒤 손가락 아래 놓을 곳을 다시 본다.
+  // 원인(사실): 전에는 목록 상자의 바깥 칸만 굴려서, 칸마다 따로 굴러가는 두 칸 보기 목록(.lu-pane-list)은 끄는 동안 움직이지 않았다.
+  installDragEdgeScroll();
+  const touchScroll=createEdgeScroll({fallback:()=>document.querySelector('#documentList'),onScroll:(x,y)=>{if(!touch?.grabbed||!touch.moved||!touch.drag)return;touch.drop=dropFor({target:document.elementFromPoint(x,y),clientY:y});showMarks(touch.drop);hoverOpen(touch.drop)}});
+  function stopScroll(){touchScroll.stop()}
   // 자료 여럿(또는 하나)을 폴더로/폴더 밖으로. 이전 자리를 기억해 '되돌리기'가 그 자리로 돌려놓는다(그 사이 또 바뀐 것은 건드리지 않음).
   // all=true(사진 묶음): 하나라도 못 옮기면 이미 옮긴 것을 이전 자리로 되돌려 '모두 옮김 / 모두 그대로' 둘 중 하나로 끝낸다.
   async function moveDocs(docs,folderId,{all=false,open=true}={}){
@@ -559,7 +555,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(d.kind==='file'&&!s().treeView)setTimeout(()=>{if(drag===d)showDropPanel(d)},0);
     });
     area.addEventListener('dragover',e=>{
-      if(!drag)return;const t=dropFor(e);showMarks(t);hoverOpen(t);edgeScroll(e.clientY,list);
+      if(!drag)return;const t=dropFor(e);showMarks(t);hoverOpen(t);
       if(!t)return;
       if(!t.ok){try{e.dataTransfer.dropEffect='none'}catch{}return}
       e.preventDefault();try{e.dataTransfer.dropEffect='move'}catch{}
@@ -600,7 +596,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       const p=e.touches[0];if(!p)return;
       if(Math.hypot(p.clientX-touch.x,p.clientY-touch.y)>MOVED)touch.moved=true;
       if(!touch.moved||!touch.drag)return;
-      touch.drop=dropFor({target:document.elementFromPoint(p.clientX,p.clientY),clientY:p.clientY});showMarks(touch.drop);hoverOpen(touch.drop);edgeScroll(p.clientY,list);
+      touch.drop=dropFor({target:document.elementFromPoint(p.clientX,p.clientY),clientY:p.clientY});showMarks(touch.drop);hoverOpen(touch.drop);touchScroll.update(p.clientX,p.clientY);
     },{passive:false});
     list.addEventListener('touchend',e=>{
       if(!touch)return;
