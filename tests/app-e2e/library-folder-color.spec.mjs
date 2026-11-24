@@ -58,10 +58,12 @@ for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>
     expect(await outline.evaluate(x=>getComputedStyle(x).color)).toBe(RGB.light[4]);
     await expect(libraryNodeHead(page,'f:fb').locator('.ft-ico.lu-fe-closed')).not.toHaveAttribute('data-fc',/./);
     await openMove(page,'a-2',width);
-    const pickIcon=moveFolder(page,'fa').locator('.lu-move-ico');await expect(pickIcon).toHaveAttribute('data-fc','4');
+    // S69-62: 폴더 고르기 창은 [파일] '옮길 곳' 창 — 줄 앞 폴더 그림(.ft-ico)이 같은 색.
+    const rowOf=id=>moveFolder(page,id).locator('xpath=..');
+    const pickIcon=rowOf('fa').locator('.ft-ico');await expect(pickIcon).toHaveAttribute('data-fc','4');
     expect(await pickIcon.locator('svg').evaluate(x=>getComputedStyle(x).color)).toBe(RGB.light[4]);
     // S52-27: 색 안 고른 폴더도 기본 노란 폴더 그림(색 번호 없음).
-    await expect(moveFolder(page,'fb').locator('.lu-move-ico svg')).toHaveCount(1);await expect(moveFolder(page,'fb').locator('.lu-move-ico')).not.toHaveAttribute('data-fc',/./);
+    await expect(rowOf('fb').locator('.ft-ico svg')).toHaveCount(1);await expect(rowOf('fb').locator('.ft-ico')).not.toHaveAttribute('data-fc',/./);
     await page.keyboard.press('Escape');
 
     // [기본]: 기본 노랑 폴더 그림으로 돌아가고 서버에는 null이 간다. 이미 기본이면 저장하지 않는다.

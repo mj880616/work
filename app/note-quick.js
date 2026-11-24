@@ -71,7 +71,7 @@ export async function openNoteQuick({anchor, reanchor = null, text = '', title =
   const place = () => placeAnchored(panel, ref, {maxWidth: 380, maxHeight: 460, minHeight: 190, bottomInset: bottomInset()});
   const outside = e => {
     if (!(e.target instanceof Element) || panel.contains(e.target) || cur.contains(e.target)) return;
-    if (e.target.closest('[data-note-pick], .lu-move-picker, #toast')) return; // 안에서 연 고르기 창
+    if (e.target.closest('[data-note-pick], .lu-move-picker, [data-fd-sheet], #toast')) return; // 안에서 연 고르기 창(S69-62 폴더 고르기 창 포함)
     if (!dirty()) close();
   };
 
@@ -141,7 +141,7 @@ export async function openNoteQuick({anchor, reanchor = null, text = '', title =
   // 글 칸 밖에 초점이 있어도 Esc는 이 작은 창을 닫는다(안에서 연 고르기 창이 떠 있으면 그 창이 먼저 닫힌다).
   function esc(e) {
     if (e.key !== 'Escape' || e.defaultPrevented || busy || panel.contains(e.target)) return;
-    if (document.querySelector('[data-note-pick], .lu-move-picker')) return;
+    if (document.querySelector('[data-note-pick], .lu-move-picker, dialog[data-fd-sheet][open]')) return;
     e.preventDefault(); close();
   }
   document.addEventListener('keydown', esc, true);

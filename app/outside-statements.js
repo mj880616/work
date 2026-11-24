@@ -15,6 +15,8 @@ import {foldRuns, liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {ensureReads, readState, markRead, onReads} from './news-reads.js';
 import {createNowDetail} from './now-detail.js';
 import {createNowHighlights} from './now-highlights.js';
+import {createNowMemos} from './now-memos.js';
+import {shortDay} from './text-highlights-model.mjs';
 import {notify} from './small-notice.js';
 import {openTelegramItem} from './source-open.js';
 import {createNowInterests} from './now-interests.js';
@@ -35,7 +37,7 @@ import {sortByName} from './name-order.mjs';
 //   [사회운동]·[보관]·[밑줄]은 지금 보이는 목록에서 제목 거르기 + Enter = 문장 찾기(app_outside_search·expand — 결과 칸은 outside-search.js)
 //   + [매체: 전체 ▾](자료실 분류 창과 같은 부품 library-move-picker.js, 묶음 → 매체, 화면 메모리만) + ⋯(지금 채우기·단체 켜고 끄기·매체 켜고 끄기·키워드·별표 폴더·관심 주제).
 // - 줄: 날짜 묶음 → 흰 상자 안 줄(news-row.mjs). 매체 색 띠·같은 색 이름·분류 꼬리표·시각·별표(news-colors.mjs). 안 읽은 글 굵게·읽은 글 흐리게(news-reads.js, 상세를 열면 읽음).
-// - 각 탭 칸 안: [전체]·[사회운동] 이 모듈, [언론] news-clipping.js, [밑줄] now-highlights.js(S53-5 — 원문에서 고른 글 모아보기, 마지막 탭으로 기억하지 않음). 상세 칸은 now-detail.js 하나(요약 · 시사점 · 원문 전체, S51-14 P4c — 연 글은 주소 ?item=). 관심 주제 칸은 now-interests.js.
+// - 각 탭 칸 안: [전체]·[사회운동] 이 모듈, [언론] news-clipping.js, [밑줄] now-highlights.js(S53-5 — 원문에서 고른 글 모아보기, 마지막 탭으로 기억하지 않음), [메모] now-memos.js(S69-70 — 메모 있는 글, 기억하지 않음). 상세 칸은 now-detail.js 하나(요약 · 시사점 · 원문 전체, S51-14 P4c — 연 글은 주소 ?item=). 관심 주제 칸은 now-interests.js.
 // - 단체 켜고 끄기 칸: 카탈로그(서버 outside-feed ?action=catalog) 단체마다 켬/끔(서버 표 app_outside_sources) + 마지막으로 읽은 시각·실패 표시. 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 들어오면 본 시각(app_outside_seen, 알림 줄 '새 성명 n건'의 기준)을 지금 시각으로 바꿔 둔다(서버 저장). 줄의 '새' 표시는 읽음 굵기(news-reads.js)로 바뀌었다.
 // - S63-11: [사회운동]은 국내 단체 글 먼저, 국제(외국 매체) 글은 아래 접힌 '국제' 묶음(펼침은 화면 메모리 — 새 서버 기억 칸은 DB 검사 변경이 필요해 이번엔 안 씀).
@@ -49,7 +51,7 @@ const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetched_at,summary_ko,key_sentences,has_body,author';
 const NEWS_COLS = 'id,lane,url,title,lang,publisher,source_key,published_at,scrapped_at,created_at,state,summary,body_kind,title_ko,starred_at,author,manual_at,origin';
 const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
-const PANEL = Object.freeze({all: 'nowPanelAll', movement: 'osPanelNew', media: 'nowPanelNews', marks: 'nowPanelMarks'});
+const PANEL = Object.freeze({all: 'nowPanelAll', movement: 'osPanelNew', media: 'nowPanelNews', marks: 'nowPanelMarks', memos: 'nowPanelMemos'});
 
 const TABS_HTML = NOW_TABS.map((t, i) => `<button type="button" role="tab" class="ds-seg-btn" id="osTab-${t.id}" data-os-tab="${t.id}" aria-selected="${i === 0}" aria-controls="${PANEL[t.id]}"${i ? ' tabindex="-1"' : ''}>${t.label}</button>`).join('');
 // S68-28(명진 11/23 "여기서 보관 자체를 없앴으면"): 탭 줄 끝 보관 길(옛 [보관] 탭 자리)은 없앴다 — 읽을 거리로 보낸 글은 메뉴 '읽을 거리'에서 본다.
@@ -61,7 +63,6 @@ function install() {
 <div class="os-tabs ds-seg" role="tablist" aria-label="읽을 거리 보기" data-os-tabs>${TABS_HTML}</div>
 <div class="now-main" id="nowMain">
 <form class="nw-top" data-nw-top role="search" aria-label="읽을 거리 찾기"><input type="search" class="nw-find" data-nw-find maxlength="100" enterkeyhint="search" placeholder="읽을 거리 찾기 — 제목·문장" aria-label="읽을 거리 찾기 — 제목·문장" autocomplete="off"><button type="button" class="nw-dd" data-nw-media aria-haspopup="dialog" aria-expanded="false"></button><button type="button" class="os-more" data-os-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="읽을 거리 메뉴">${MORE}</button></form>
-<p class="now-cand" data-now-cand hidden></p>
 <div id="osPanelSearch" class="osq" data-os-search aria-label="문장 찾기" hidden></div>
 <div id="nowPanelAll" role="tabpanel" aria-labelledby="osTab-all" data-now-panel-all><div class="os-list" data-nw-all aria-label="새로 온 글"></div></div>
 <div id="osPanelNew" role="tabpanel" aria-labelledby="osTab-movement" data-os-panel-new hidden>
@@ -71,6 +72,7 @@ function install() {
 </div>
 <div id="nowPanelNews" role="tabpanel" aria-labelledby="osTab-media" data-now-panel-news hidden></div>
 <div id="nowPanelMarks" class="now-marks" role="tabpanel" aria-labelledby="osTab-marks" data-now-panel-marks hidden></div>
+<div id="nowPanelMemos" class="now-memos" role="tabpanel" aria-labelledby="osTab-memos" aria-label="메모 있는 글" data-now-panel-memos hidden></div>
 <div class="now-interests" data-now-interests hidden><div class="os-src-head"><button type="button" class="os-back" data-now-interests-back aria-label="목록으로"><span aria-hidden="true">‹</span></button><b>관심 주제</b></div><div data-now-interests-box></div></div>
 </div>
 <div class="now-detail" id="nowDetail" data-now-detail aria-label="글 상세"></div>
@@ -202,15 +204,16 @@ function describe(type, row) {
   return {meta: [nameOf(row?.source_key), kind, dateText(row?.published_at), typeof row?.author === 'string' ? row.author.trim().slice(0, 60) : ''], title: v.title, origTitle: v.origTitle, titleLang: row?.lang === 'en' && !row?.title_ko ? 'en' : '', lang: row?.lang || 'ko', url: v.url, at: row?.published_at || row?.fetched_at || null};
 }
 // 줄 하나(세 목록 공통 모양 news-row.mjs). 사회운동 글·언론 기사 → 그릴 값.
-function rowOf(type, row, {openAttr, rowAttr, acts = '', star = false} = {}) {
+// memo = [메모] 탭 줄의 메모 첫 줄(S69-70, 꼬리 줄 아래 작게). day = 시각 대신 날짜(MM/DD — 날짜 묶음 머리가 없는 [메모] 탭).
+function rowOf(type, row, {openAttr, rowAttr, acts = '', star = false, memo = '', day = false} = {}) {
   const item = {type, id: row.id}, sel = detail.current();
-  const base = {key: itemKey(item), openAttr, openId: row.id, rowAttr, rowId: row.id, read: readState(item), open: !!sel && itemKey(sel) === itemKey(item), acts, star};
+  const base = {key: itemKey(item), openAttr, openId: row.id, rowAttr, rowId: row.id, read: readState(item), open: !!sel && itemKey(sel) === itemKey(item), acts, star, memo};
   if (type === 'news') {
     const v = itemView(row);
-    return rowHtml({...base, title: v.title, titleLang: v.titleLang, src: v.publisher, color: newsColor(row, newsCatalog()), bar: newsBar(row, newsCatalog()), tag: newsTag(row), time: v.time, star: !!row.starred_at, hit: hitOf(type, row)}, esc);
+    return rowHtml({...base, title: v.title, titleLang: v.titleLang, src: v.publisher, color: newsColor(row, newsCatalog()), bar: newsBar(row, newsCatalog()), tag: newsTag(row), time: day ? shortDay(row.published_at || row.created_at) : v.time, star: !!row.starred_at, hit: hitOf(type, row)}, esc);
   }
   const v = postView(row);
-  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), bar: outsideBar(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, star: star || !!state.marks?.get(row.id)?.starred, hit: hitOf(type, row)}, esc);
+  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), bar: outsideBar(row.source_key, state.catalog || []), tag: postTag(row), time: day ? shortDay(row.published_at || row.fetched_at) : v.time, star: star || !!state.marks?.get(row.id)?.starred, hit: hitOf(type, row)}, esc);
 }
 // 확정 관심 주제에 걸린 주제 이름(줄 끝 작은 표시). NEWS-도배막기 C: 같은 값으로 위 칸 '관심 주제'에 올린다(news-fold.mjs liftRelated).
 function hitOf(type, row) {
@@ -248,6 +251,8 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
     // S67-11: [삭제]는 다른 탭에서 해도 [전체] 목록에서 빠져야 하므로 늘 다시 읽는다.
     if (item.type === 'news' && act !== 'memo') { window.KPTUNews?.refresh?.(); if (state.tab === 'all' || act === 'delete') loadNews({keep: true}); }
     if (item.type === 'outside' && act !== 'memo') loadMarks().then(() => { if (state.mode === 'list') paintList(); });
+    // S69-70: [메모] 탭을 보고 있으면 메모·관심 없음이 바뀐 글을 다시 읽는다(다른 탭이면 들어올 때 읽음).
+    if (state.tab === 'memos' && (act === 'memo' || act === 'dismiss' || act === 'delete')) void memos.load();
   },
   onSignal: () => askInterests(),
   onRead: (item, row) => { newsFresh([{...row, id: item.id}]); },
@@ -255,6 +260,10 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
 // [밑줄] 탭: 줄을 누르면 그 글을 읽어 상세를 열고 그 밑줄 자리로. 텔레그램 원문 밑줄은 텔레그램 화면에서 그 방·날·소식 원문을 열고 그 밑줄 자리로
 // (S61-51a, source-open.js openTelegramItem — 뒤로가기 한 번 = [밑줄] 탭).
 const marks = createNowHighlights({box: root?.querySelector('[data-now-panel-marks]'), query: () => state.query, onOpen: h => openHighlight(h)});
+// S69-70 [메모] 탭(메모 있는 글): 글에 [메모]로 남긴 노트를 모아 본다(저장하지 않은 글도). 줄을 누르면 그 글 상세.
+const memos = createNowMemos({box: root?.querySelector('[data-now-panel-memos]'), query: () => state.query,
+  rowOf: (type, row, o) => rowOf(type, row, o), colsOf: type => (type === 'news' ? NEWS_COLS : POST_COLS),
+  onOpen: (item, row) => openDetail(item, describe(item.type, row))});
 async function openHighlight(h) {
   if (h.source_type === 'telegram') {
     let ok = false;
@@ -267,7 +276,7 @@ async function openHighlight(h) {
   if (!row) { notify('원래 글을 찾지 못했어요 · 밑줄은 그대로 있어요', {record: false}); return; }
   openDetail({type: h.source_type, id: row.id}, describe(h.source_type, row), {highlight: h.id});
 }
-const interests = createNowInterests({box: root?.querySelector('[data-now-interests-box]'), onChanged: () => { paintCand(); if (state.mode === 'list') { paintList(); paintNewsTab(); } detail.paint(); }});
+const interests = createNowInterests({box: root?.querySelector('[data-now-interests-box]'), onChanged: () => { if (state.mode === 'list') { paintList(); paintNewsTab(); } detail.paint(); }});
 // 관심 주제가 바뀌면 [언론] 칸도 위 칸·표시를 다시(그 칸 주인 news-clipping.js가 그린다).
 const paintNewsTab = () => { if (state.tab === 'media') window.KPTUNews?.repaint?.(); };
 // 환류 기록이 쌓이면 서버가 후보를 만들지 정한다(10건 또는 저녁 6시 뒤 그날 처음 — 서버 규칙, AI를 안 부르면 한도도 안 씀). 화면은 1분에 한 번만 묻는다.
@@ -452,19 +461,12 @@ function paintTabs() {
   show('[data-now-panel-all]', list && tab === 'all');
   show('[data-now-panel-news]', list && tab === 'media');
   show('[data-now-panel-marks]', list && tab === 'marks');
+  show('[data-now-panel-memos]', list && tab === 'memos');
   show('[data-os-search]', list && state.searching && !!state.query && !findTab(tab));
   show('[data-now-interests]', state.mode === 'interests');
   paintMediaButton();
-  paintCand();
 }
-// 관심 주제 후보가 있으면 목록 위 한 줄 '관심 주제 후보 n [보기]'(12.6).
-function paintCand() {
-  const line = $('[data-now-cand]');
-  if (!line) return;
-  const n = state.mode === 'list' ? interests.candidates() : 0;
-  line.hidden = !n;
-  line.innerHTML = n ? `<span>관심 주제 후보 ${n}</span><button type="button" class="os-text-btn" data-now-interests-open>보기</button>` : '';
-}
+// 관심 주제 후보는 목록 위 줄이 아니라 화면 머리 ⋯ 메뉴 안 '관심 주제 후보 n' 한 줄(S69-70, 명진 11/24 20:45 "줄 차지하는게 보기싫음 / ... 안에 넣어줘"). 0개면 그 줄도 없다.
 // 탭 하나 보이기. save=true면 서버에 마지막 탭으로 기억(view_prefs.news_tab). [언론]·[밑줄]은 처음 보일 때 그 칸 주인이 불러온다.
 function setTab(tab, {focus = false, save = true} = {}) {
   tab = keepNowTab(tab);
@@ -478,6 +480,7 @@ function setTab(tab, {focus = false, save = true} = {}) {
   if (changed || mediaChanged) {
     if (tab === 'media') window.KPTUNews?.enter?.();
     else if (tab === 'marks') { marks.paint(); void marks.load(); }
+    else if (tab === 'memos') { memos.paint(); void memos.load(); }
     else if (tab === 'all') { if (mediaChanged || !state.newsLoaded) loadNews(); if (mediaChanged) loadPosts(); else paint(); }
     else if (mediaChanged) loadPosts(); else paint();
   }
@@ -530,9 +533,10 @@ function fitDetail() {
   if (!fitWanted || restoring) return;
   const c = detail.current(), panel = $(`#${PANEL[state.tab] || ''}`);
   if (!c || detailFrom === state.tab) { fitWanted = false; return; }
-  if (state.tab !== 'marks' && (!panel || !settled(panel))) return;
+  const gather = state.tab === 'marks' || state.tab === 'memos'; // 모아보기 탭은 두 종류 글을 다 담아 열린 글을 그대로 둔다
+  if (!gather && (!panel || !settled(panel))) return;
   fitWanted = false;
-  if (state.tab !== 'marks' && panel.querySelector(`.now-row[data-nw-key="${CSS.escape(itemKey(c))}"]`)) { detailFrom = state.tab; return; }
+  if (!gather && panel.querySelector(`.now-row[data-nw-key="${CSS.escape(itemKey(c))}"]`)) { detailFrom = state.tab; return; }
   clearDetail(panel);
 }
 function clearDetail(panel) {
@@ -563,7 +567,7 @@ function resetIfOwnerChanged() {
   closeLayer();
   state = fresh(); state.scope = scope;
   search.reset(); allFind.reset();
-  detail.reset(); marks.reset(); interests.reset(); folds.clear();
+  detail.reset(); marks.reset(); memos.reset(); interests.reset(); folds.clear();
   detailFrom = ''; fitWanted = false;
   if (root) root.dataset.detail = 'closed';
   const f = $('[data-nw-find]'); if (f) f.value = '';
@@ -809,14 +813,16 @@ function setQuery(raw, {submit = false} = {}) {
   else if (submit && !server) state.searching = true;
   if (state.tab === 'all') allFind.set(query, {now: submit});
   paintTabs();
-  if (changed || (submit && server)) { paintList(); if (state.tab === 'media') window.KPTUNews?.repaint?.({submit}); if (state.tab === 'marks') marks.paint(); }
+  if (changed || (submit && server)) { paintList(); if (state.tab === 'media') window.KPTUNews?.repaint?.({submit}); if (state.tab === 'marks') marks.paint(); if (state.tab === 'memos') memos.paint(); }
   if (submit && query && !server) search.run(query);
   if (!query) search.clear();
 }
 
 // ---------- 누르기 ----------
+// 관심 주제 후보가 있을 때만 ⋯ 메뉴에 '관심 주제 후보 n' 한 줄(누르면 관심 주제 칸 — 옛 목록 위 [보기]와 같은 일).
+const candidatesItem = () => { const n = interests.candidates(); return n ? `<button type="button" data-os-act="interests" data-os-cand>관심 주제 후보 ${n}</button>` : ''; };
 const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: '읽을 거리 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
-  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button><button type="button" data-os-act="news-sources">언론 매체 켜고 끄기</button><button type="button" data-os-act="keywords">키워드 수정</button><button type="button" data-os-act="folders">별표 폴더</button><button type="button" data-os-act="interests">관심 주제</button><button type="button" class="row-act" data-os-act="help">쓰는 법</button>`,
+  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button><button type="button" data-os-act="news-sources">언론 매체 켜고 끄기</button><button type="button" data-os-act="keywords">키워드 수정</button><button type="button" data-os-act="folders">별표 폴더</button><button type="button" data-os-act="interests">관심 주제</button>${candidatesItem()}<button type="button" class="row-act" data-os-act="help">쓰는 법</button>`,
   onAction: button => {
     const a = button.dataset.osAct;
     if (a === 'help') { void import('./help-link.js').then(m => m.openHelp('outside')); return; } // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래
@@ -835,7 +841,6 @@ root?.addEventListener('click', event => {
     return;
   }
   if (b.matches('[data-nw-media]')) { openMediaPicker(b); return; }
-  if (b.matches('[data-now-interests-open]')) { openInterests(); return; }
   if (b.matches('[data-now-interests-back]')) { const l = interestsLayer; interestsLayer = null; l?.close(); backFromInterests(); return; }
   if (b.matches('[data-os-more]')) { menu.open(b); return; }
   if (b.matches('[data-os-open-sources]')) { openSources(); return; }

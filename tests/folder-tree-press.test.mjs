@@ -6,44 +6,44 @@ import * as press from '../app/folder-tree-press.mjs';
 
 const fakeRow = ({tog = true, expanded = 'false', current = true} = {}) => {
   const log = [];
-  const togEl = tog ? {click: () => log.push('tog'), getAttribute: () => expanded, attributes: []} : null;
+  const togEl = tog ? {click: () => { log.push('tog'); expanded = expanded === 'true' ? 'false' : 'true'; }, getAttribute: () => expanded, attributes: []} : null;
   const row = {querySelector: () => togEl, classList: {contains: c => c === 'ft-current' && current}};
   const main = {classList: {contains: c => c === 'ft-main'}, closest: () => row, attributes: [], isConnected: true, tagName: 'BUTTON', focus: () => log.push('focus')};
   return {main, log};
 };
 
-test('explorePressPlan: 늘 그 폴더로 들어가고, 이름 누르기로 펼치기·접기(명진 11/24 15:42)', () => {
+test('explorePressPlan: 늘 들어가기 + 접혀 있으면 펼치기·펼쳐져 있으면 접기(명진 11/24 20:26)', () => {
   assert.deepEqual(explorePressPlan({open: false, canOpen: true}), {enter: true, expand: true, collapse: false});
   assert.deepEqual(explorePressPlan({open: true, canOpen: true}), {enter: true, expand: false, collapse: true});
   assert.deepEqual(explorePressPlan({open: false, canOpen: false}), {enter: true, expand: false, collapse: false});
-  assert.deepEqual(explorePressPlan({open: true, canOpen: true, current: false}), {enter: true, expand: true, collapse: false});
+  assert.deepEqual(explorePressPlan({open: true, canOpen: true, current: false}), {enter: true, expand: false, collapse: true});
 });
 
 test('ftExplorePress: 하위 폴더가 있는 상위 폴더도 오른쪽을 그 폴더로 바꾸고 접혀 있으면 펼친다', () => {
   const {main, log} = fakeRow();
   assert.equal(ftExplorePress(main, () => log.push('enter')), true);
-  assert.deepEqual(log, ['enter', 'tog']);
+  assert.deepEqual(log, ['tog', 'enter', 'focus']); // 펼치기는 누른 그때 바로(명진 11/24 20:25), 들어간 뒤 다시 누르지 않음
 });
 
-test('ftExplorePress: 이미 펼친 폴더는 들어가며 접고, 하위 폴더가 없는 폴더는 들어가기만', () => {
+test('ftExplorePress: 펼친 폴더는 바로 접고 오른쪽은 그 폴더(지금 폴더든 아니든), 하위 폴더가 없는 폴더는 들어가기만', () => {
   const open = fakeRow({expanded: 'true'});
   ftExplorePress(open.main, () => open.log.push('enter'));
-  assert.deepEqual(open.log, ['enter', 'tog']);
-  const other = fakeRow({expanded: 'true', current: false}); // 펼쳐만 둔 다른 폴더 = 들어가기만(접지 않음)
+  assert.deepEqual(open.log, ['tog', 'enter', 'focus']);
+  const other = fakeRow({expanded: 'true', current: false});
   ftExplorePress(other.main, () => other.log.push('enter'));
-  assert.deepEqual(other.log, ['enter', 'focus']);
+  assert.deepEqual(other.log, ['tog', 'enter', 'focus']);
   const leaf = fakeRow({tog: false});
   ftExplorePress(leaf.main, () => leaf.log.push('enter'));
   assert.deepEqual(leaf.log, ['enter', 'focus']);
 });
 
-test('ftExplorePress: enter가 서버에서 읽는 동안(Promise)은 끝난 뒤 펼친다 · 여는 길이 없으면 처리하지 않는다', async () => {
+test('ftExplorePress: enter가 서버에서 읽는 동안(Promise)에도 바로 펼쳐 둔다 · 여는 길이 없으면 처리하지 않는다', async () => {
   const {main, log} = fakeRow();
   let done;
   ftExplorePress(main, () => { log.push('enter'); return new Promise(r => { done = r; }); });
-  assert.deepEqual(log, ['enter']);
+  assert.deepEqual(log, ['tog', 'enter']);
   done(); await new Promise(r => setTimeout(r, 0));
-  assert.deepEqual(log, ['enter', 'tog']);
+  assert.deepEqual(log, ['tog', 'enter', 'focus']);
   assert.equal(ftExplorePress(main), false);
   assert.equal(ftExplorePress(null, () => {}), false);
 });

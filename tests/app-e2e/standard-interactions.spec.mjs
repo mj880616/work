@@ -221,6 +221,53 @@ for (const [name, open] of HEAD_SCREENS) test(`H1 ${name} 폰 390: 머리 줄 �
   expect(s.errors).toEqual([]);
 });
 
+// F1(S69-62, 명진 11/24 18:16·18:18 "파일 옮기는 UI ... 다른 데서도" / "이쪽을 모델로 다 통일"): 폴더 고르기 = [파일] '옮길 곳' 창 하나.
+// 자료실·노트·사진에서 폴더 ⋯ [옮기기]를 누르면 [파일]과 같은 모양의 창(제목 · 폴더 나무 · 아래 경로 + [새 폴더] + [여기에 옮기기])이 열리고,
+// 줄을 누르면 고르기·펼치기만(쓰기 없음), [여기에 옮기기]로만 옮긴다(쓰기 한 번).
+const PICK_SCREENS = [
+  ['자료실', library, async (page, width) => {
+    const menu = page.locator('#documentList details[data-lu-node="f:f0"] > summary [data-lu-node-menu], #libraryFolderNav [data-lu-nav="f0"]').first();
+    if (width >= 761 && await page.locator('#libraryFolderNav [data-lu-nav="f0"]').count()) await page.locator('#libraryFolderNav [data-lu-nav="f0"]').click({ button: 'right' });
+    else await menu.click();
+    await page.locator('#luFolderMenu').getByRole('button', { name: '옮기기…', exact: true }).click();
+  }, req => req.url().includes('/rest/v1/app_library_folders') && req.method() === 'PATCH'],
+  ['노트', notes, async page => {
+    await page.locator(`[data-nx-folder-more="${U(100)}"]`).first().click();
+    await page.locator('#noteDocMenu').getByRole('button', { name: /옮기기/ }).first().click();
+  }, req => req.url().includes('/rest/v1/app_note_folders') && req.method() === 'PATCH'],
+  ['사진', photos, async page => {
+    await page.locator('#photosRoot [data-photos-fx-more="S0"]').first().click();
+    await page.locator('#photosFolderMenu').getByRole('button', { name: '옮기기…' }).click();
+  }, req => req.url().includes('/functions/v1/onedrive-photos') && /folder-move|move/.test(req.postData() || '')],
+];
+for (const [name, open, openMove, isWrite] of PICK_SCREENS) for (const width of [390, 1280]) test(`F1 ${name} ${width}: 폴더 옮기기 = [파일] '옮길 곳' 창 — 누르면 고르기·펼치기만, [여기에 옮기기]로만 옮김`, async ({ page }) => {
+  const { errors } = await open(page, width);
+  const writes = [];
+  page.on('request', req => { if (isWrite(req)) writes.push(req.url()); });
+  await openMove(page, width);
+  const sheet = page.locator('dialog[data-fd-sheet][open]');
+  await expect(sheet).toBeVisible();
+  // [파일] 창과 같은 틀(같은 모양 파일·같은 부분).
+  await expect(sheet).toHaveClass(/fx-dest/);
+  await expect(sheet.locator('.fx-dest-h [data-fx-dest-close]')).toBeVisible();
+  await expect(sheet.locator('.fx-dest-tree [data-fx-dest-pick]').first()).toBeVisible();
+  await expect(sheet.locator('.fx-dest-f [data-fx-dest-go]')).toBeVisible();
+  const target = sheet.locator('.fx-dest-tree [data-fx-dest-name="가상 폴더 2"]');
+  await target.click();
+  await expect(target).toHaveAttribute('aria-current', 'true');
+  await expect(sheet.locator('.fx-dest-at')).toContainText('가상 폴더 2');
+  await page.waitForTimeout(150);
+  expect(writes).toEqual([]);
+  const box = await sheet.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(900);
+  await sheet.locator('[data-fx-dest-go]').click();
+  await expect(sheet).toHaveCount(0);
+  await expect.poll(() => writes.length).toBe(1);
+  expect(errors.filter(e => !/500|failed|Failed/.test(e))).toEqual([]);
+});
+
 // T5(UI-폴더이름펼치기, 명진 11/24 18:09): 그 자리 펼치는 폰 목록의 폴더 이름 누르기 = 펼치기·접기만(빈 폴더도 '빈 폴더' 한 줄, 주소 그대로),
 // 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]. 새 그 자리 펼치는 목록이 생기면 PRESS_SCREENS에 한 줄 더한다.
 const EMPTY_OD = { source: 'od', item_id: 'OD!19', parent_id: 'OD!1', name: '가상 빈 폴더', is_folder: true, mime: null, size_bytes: null, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null };
@@ -271,10 +318,8 @@ for (const [name, open] of PRESS_SCREENS) test(`T5 ${name} 폰 390: 폴더 이�
   expect(s.errors).toEqual([]);
 });
 
-// ---------- S9. 폴더 고르기 창(LIB-폴더창들어가기, 명진 11/24 18:04) ----------
-// 폴더를 눌러도 바로 실행하지 않는다: 하위 폴더가 있으면 들어가고, 다른 폴더는 선택만, 실행 단추에만 실행, [취소]면 그대로.
-// 이 공용 창(app/library-move-picker.js)을 여는 화면이 생기면 PICK_SCREENS에 한 줄 더한다(열기·창·쓰기 기록을 돌려준다).
-// 노트·전체 검색·정돈 제안·받는 폴더 나누기·언론 별표 폴더는 각 화면 시험이 같은 도우미(helpers/move-picker-drill.mjs)로 본다.
+// ---------- S9. 폴더 고르기 창(LIB-폴더창들어가기, 명진 11/24 18:04 → S69-62 [파일] '옮길 곳' 창 하나로) ----------
+// 폴더를 눌러도 바로 실행하지 않는다: 누르면 선택 + 펼치기(하위 폴더가 보임), 실행 단추([여기에 옮기기])에만 실행, ✕(닫기)면 그대로.
 async function libraryPick(page, width) {
   const folders = [libFolder('top', null, { name: '가상 위 폴더', sort_order: 1024 }), libFolder('mid', null, { name: '가상 가운데', parent_id: 'top', sort_order: 1024 }),
     libFolder('leaf', null, { name: '가상 끝', parent_id: 'mid', sort_order: 1024 }), libFolder('side', null, { name: '가상 옆', sort_order: 2048 })];
@@ -283,23 +328,25 @@ async function libraryPick(page, width) {
   await openMove(page, 'd1', width);
   return { errors, panel: movePicker(page), writes: () => s.writes.length, tap: width < 761 };
 }
-const PICK_SCREENS = [['자료실 폴더로 옮기기', libraryPick]];
-for (const [name, open] of PICK_SCREENS) for (const width of [390, 1280]) test.describe(`S9 ${name} ${width}`, () => {
+const S9_SCREENS = [['자료실 폴더로 옮기기', libraryPick]];
+for (const [name, open] of S9_SCREENS) for (const width of [390, 1280]) test.describe(`S9 ${name} ${width}`, () => {
   test.use({ hasTouch: width < 761 });
-  test(`S9 ${name} ${width}: 상위 폴더 누르기 = 들어가기(실행 없음), 선택 뒤 실행 단추에만 실행, 취소면 그대로`, async ({ page }) => {
+  test(`S9 ${name} ${width}: 상위 폴더 누르기 = 선택·펼치기(실행 없음), 실행 단추에만 실행, 닫으면 그대로`, async ({ page }) => {
     const { errors, panel, writes, tap } = await open(page, width);
     const press = l => tap ? l.tap() : l.click();
-    const ok = panel.locator('[data-lu-move-ok]');
-    await expect(ok).toBeDisabled();
-    await press(panel.locator('[data-lu-move-folder="top"]'));
+    const row = id => panel.locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
+    const ok = panel.locator('[data-fx-dest-go]');
+    await expect(row('mid')).toHaveCount(0);
+    await press(row('top'));
     await expect(panel).toBeVisible();
-    await expect(panel.locator('[data-lu-move-here]')).toBeVisible();
-    await press(panel.locator('[data-lu-move-folder="mid"]'));
-    await press(panel.locator('[data-lu-move-folder="leaf"]'));
-    await expect(panel.locator('[data-lu-move-folder="leaf"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(row('mid')).toBeVisible();
+    await press(row('mid'));
+    await press(row('leaf'));
+    await expect(row('leaf')).toHaveAttribute('aria-current', 'true');
+    await expect(ok).toBeEnabled();
     expect(writes()).toBe(0);
-    await press(panel.locator('[data-lu-move-cancel]'));
-    await expect(panel).toBeHidden();
+    await press(panel.locator('[data-fx-dest-close]'));
+    await expect(panel).toHaveCount(0);
     expect(writes()).toBe(0);
     expect(errors).toEqual([]);
   });

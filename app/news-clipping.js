@@ -1,7 +1,6 @@
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
-import {createMovePicker} from './library-move-picker.js';
-import {pickerRows} from './library-move.mjs';
+import {openFolderSheet} from './folder-dest-sheet.js'; // S69-62 폴더 고르기 = [파일] '옮길 곳' 창 하나
 import {folderSiblings, nextSortOrder, cleanFolderName, folderErrorText} from './library-tree.js';
 import {treeRows, folderPath, OUTSIDE, OUTSIDE_NAME} from './note-tree.mjs';
 import {FOLDER_DEPTH_LIMIT} from './folder-limits.mjs';
@@ -22,7 +21,7 @@ import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFi
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩. 탭 줄·좌우 밀기·위 찾기 칸·[매체 ▾]·⋯·상세 칸은 껍데기(outside-statements.js)가 갖는다.
 // - 칸(같은 화면 안, 뒤로가기 한 번 = 목록, KPTURouter.layer): [키워드 고치기](app_news_keywords + 키워드에 걸린 글 모아 보기, S59-1) · [언론 매체 켜고 끄기](app_outside_sources의 news- 키)
-//   · [별표 폴더](별표 기사 + 폴더 트리 note-tree.mjs treeRows, 폴더 고르기 창 library-move-picker.js, 폴더 ⋯: 안에 폴더·이름 바꾸기·지우기).
+//   · [별표 폴더](별표 기사 + 폴더 트리 note-tree.mjs treeRows, 폴더 고르기 창 folder-dest-sheet.js([파일] '옮길 곳' 창과 같은 창), 폴더 ⋯: 안에 폴더·이름 바꾸기·지우기).
 // - [지금 채우기]는 news-feed fill_now. 목록을 열 때 읽기 전 채널 기사가 있으면 10분에 한 번 저절로.
 // - 메모(= 노트, metadata.news_item_id)는 공용 상세(now-detail.js). 노트 [기사로 가기]는 news-request.mjs로 이 칸에서 그 기사 상세를 연다.
 // - 저장은 모두 서버(작업공간 소유자 RLS · Edge는 사용자 로그인 확인). 기기 저장 없음. 하루 횟수는 서버 상수가 정하고 catalog limits로 받는다.
@@ -476,8 +475,6 @@ async function deleteKeyword(word) {
 }
 
 // ---------- 별표·폴더(C2) ----------
-let picker = null;
-const folderPicker = () => (picker ||= createMovePicker({esc}));
 async function toggleStar(id, trigger) {
   const w = workspaceOf(), it = state.items.find(x => x.id === id), scope = state.scope;
   if (!w || !it || state.busy.has('star:' + id)) return;
@@ -531,18 +528,30 @@ async function putInFolder(id, folderId) {
 }
 function pickFolder(id, anchor) {
   if (!anchor) return;
-  folderPicker().open({anchor, place: 'below', history: PHONE.matches, canNew: true, canOut: true,
-    rows: query => pickerRows({folders: state.folders, free: true, query}),
-    onPick: fid => putInFolder(id, fid), onOut: () => putInFolder(id, null),
-    onNew: async () => { const made = await newFolder(null); if (made) await putInFolder(id, made.id); }});
+  const it = state.items.find(x => x.id === id);
+  openFolderSheet({anchor, title: '넣을 폴더', rootName: '별표', folders: () => state.folders, current: it ? it.folder_id || null : undefined, start: it?.folder_id || null,
+    goLabel: '여기에 넣기', mkdir: (parent, name) => newFolderNamed(parent, name), onGo: fid => putInFolder(id, fid)});
 }
 // UI-알림창정리: 폴더 이름은 공용 작은 글 입력창(askText)으로 묻는다(브라우저 기본 prompt 없음).
 const askName = async (text, value = '', anchor = null) => { const typed = await askText(anchor, {text: `${text} (40자까지)`, value, ok: value ? '바꾸기' : '만들기', max: 40}); if (typed === null) return null; const name = cleanFolderName(typed); if (!name) { state.treeNote = '폴더 이름은 1~40자로 써 주세요'; paint(); return null; } return name; };
 async function newFolder(parentId, anchor = null) {
-  const w = workspaceOf(), scope = state.scope;
+  const w = workspaceOf();
   if (!w || !await ensureFolders()) return null;
   if (parentId && folderPath(state.folders, parentId).length >= FOLDER_DEPTH_LIMIT) { state.treeNote = `폴더는 ${FOLDER_DEPTH_LIMIT}단까지`; paint(); return null; }
   const name = await askName('새 폴더 이름', '', anchor); if (!name) return null;
+  return makeFolder(parentId, name);
+}
+// S69-62 고르기 창 [새 폴더]: 이름은 창이 묻는다. 잘못된 이름·실패는 Error(창이 한 줄 알림).
+async function newFolderNamed(parentId, typed) {
+  if (!workspaceOf() || !await ensureFolders()) throw new Error('폴더를 읽지 못했어요.');
+  if (parentId && folderPath(state.folders, parentId).length >= FOLDER_DEPTH_LIMIT) throw new Error(`폴더는 ${FOLDER_DEPTH_LIMIT}단까지`);
+  const name = cleanFolderName(typed); if (!name) throw new Error('폴더 이름은 1~40자로 써 주세요');
+  const row = await makeFolder(parentId, name);
+  if (!row) throw new Error(state.treeNote || '폴더를 만들지 못했어요');
+  return row;
+}
+async function makeFolder(parentId, name) {
+  const w = workspaceOf(), scope = state.scope;
   try {
     const rows = await rt().api(`/rest/v1/app_news_folders?select=${FOLDER_COLS}`, {method: 'POST', body: {workspace_id: w, parent_id: parentId || null, name, sort_order: nextSortOrder(folderSiblings(state.folders, {free: true, parentId: parentId || null}))}, prefer: 'return=representation', singleFlight: false});
     const row = Array.isArray(rows) ? rows[0] : null;

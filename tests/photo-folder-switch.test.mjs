@@ -46,7 +46,9 @@ test('photos [폴더]: one switch per row (role=switch, server toggle), dim off 
   assert.match(src, /is-off/);
   assert.doesNotMatch(src, /스위치 켜짐 = 사진에 보임/, '안내 줄 삭제(명진 11/01 12:58)');
   assert.equal((src.match(/placeHtml\(/g) || []).length >= 3, true, 'od rows, phone rows, head line');
-  assert.match(src, /어느 폴더로 옮길까요\?[\s\S]{0,400}photos-fx-place/);
+  // S69-62: 폴더로 옮기기는 [파일] '옮길 곳' 창과 같은 공용 창(folder-dest-sheet.js) — 작은 메뉴는 앨범 넣기만.
+  assert.match(src, /function openFolderPick\([\s\S]{0,4000}openFolderSheet\(/);
+  assert.doesNotMatch(src, /어느 폴더로 옮길까요\?/);
   const css = readFileSync(new URL('../app/photos.css', import.meta.url), 'utf8');
   assert.match(css, /\.photos-fx-row\.is-off \.nx-main\{ opacity:\.5; \}/);
 });

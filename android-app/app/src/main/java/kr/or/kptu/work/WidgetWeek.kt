@@ -119,6 +119,35 @@ object WidgetWeek {
         return weeks.toInt().takeIf { it in -MAX_SHIFT..MAX_SHIFT }
     }
 
+    /**
+     * S69-78(11/24 명진 "지난주 갔다가 > 누르면 이번주를 건너뛰고 다음주로 감"): 화살표(delta −1·+1)가 옮길 대상 주의 일요일(절대값).
+     * 그릴 때마다 지금 보이는 주(shift)에서 계산해 누름에 싣는다. 범위 끝이라 못 옮기면 null(화살표를 숨김).
+     */
+    fun arrowTo(shift: Int, delta: Int, nowMs: Long, zone: ZoneId = WidgetNow.ZONE): LocalDate? =
+        if (delta == 0 || !canMove(shift, delta)) null else start(nowMs, zone, move(shift, delta))
+
+    /**
+     * 주 옮기기 누름의 주소(data). 대상 주를 주소에 넣어, 다른 주를 그릴 때 같은 PendingIntent의 실린 값이 덮이지 않게 한다.
+     * (원인: 4×2를 그린 뒤 같은 갱신에서 4×1 틀을 이번 주로 그리며 같은 주소·같은 요청 번호의 ‹ › 누름을 FLAG_UPDATE_CURRENT로
+     * 다시 만들어, 누름에 실린 주가 늘 이번 주 일요일로 덮였다.) to가 null이면 머리 글자(이번 주로).
+     */
+    fun shiftData(id: Int, delta: Int, to: LocalDate?): String = "workon-widget://week/$id/shift/$delta/" + (to?.toString() ?: "now")
+
+    /**
+     * 주 옮기기 누름을 받았을 때 새 주(이번 주 기준 옮긴 주 수).
+     * - delta 0(머리 글자) → 이번 주(0).
+     * - 누름에 대상 주(to, 일요일·범위 안)가 실려 있으면 그 주(그릴 때 보이던 주에서 한 칸 = 화면 그대로).
+     * - 대상 주가 없는 옛 판 누름: 실린 '그린 주'가 일요일이 아니면(옛 월요일 판) 이번 주(0)로.
+     *   그 밖에는 위젯 기억(memory) → 실린 일요일 → 0 순으로 기준을 잡고 한 칸.
+     */
+    fun shiftTarget(to: LocalDate?, drawn: LocalDate?, delta: Int, memory: Int?, nowMs: Long, zone: ZoneId = WidgetNow.ZONE): Int {
+        if (delta == 0) return 0
+        shiftOf(to, nowMs, zone)?.let { return it }
+        if (drawn != null && drawn.dayOfWeek != DayOfWeek.SUNDAY) return 0
+        val base = memory ?: shiftOf(drawn, nowMs, zone) ?: 0
+        return move(base, delta)
+    }
+
     /** 누른 날이 그 주(sunday~+6일) 안인지. */
     fun dayInWeek(day: LocalDate?, sunday: LocalDate?): Boolean =
         day != null && sunday != null && !day.isBefore(sunday) && day.isBefore(sunday.plusDays(7))

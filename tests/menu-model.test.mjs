@@ -387,8 +387,9 @@ test('MULTI-하단바기본노트: index.html 처음 모양 = 기본 구성(폰 
   assert.deepEqual(ids(top, /<button type="button" data-[^>]*>/g), d.rest);
   assert.deepEqual(ids(bottom, /<button type="button" data-[^>]*>/g), d.tail);
   const side = html.match(/<nav id="appNav"[\s\S]*?<\/nav>/)[0];
-  // HELP-메뉴안쓰는법: 맨 아래 '쓰는 법'(nav-help)은 메뉴 목록 항목이 아니라 늘 맨 끝에 붙는 줄(자주 가는 링크와 같은 자리)이다.
-  const [main, feed] = side.replace(/<a class="nav-btn nav-help"[^>]*>/, '').split('sidebar-spacer');
+  // S69-71: '쓰는 법'은 왼쪽 메뉴에 없다(계정 메뉴 '앱 정보' 아래).
+  assert.doesNotMatch(side, /nav-help|data-view="help"/);
+  const [main, feed] = side.split('sidebar-spacer');
   assert.deepEqual(ids(main, /<a class="nav-btn[^"]*"[^>]*>/g), pcSplit(d).main);
   assert.deepEqual(ids(feed, /<a class="nav-btn[^"]*"[^>]*>/g), pcSplit(d).tail);
 });
