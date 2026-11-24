@@ -98,7 +98,12 @@ export function ftExplorePress(main, enter) {
     else now.focus?.({preventScroll: true});
   };
   // 펼쳐진 폴더는 접기만 한다(들어가지 않음 — 오른쪽 그대로).
-  if (explorePressPlan({open: wasOpen, canOpen: !!row0?.querySelector(':scope > button.ft-tog[aria-expanded]')}).collapse) { after(); return true; }
+  const tog0 = row0?.querySelector(':scope > button.ft-tog[aria-expanded]') || null;
+  const plan0 = explorePressPlan({open: wasOpen, canOpen: !!tog0});
+  if (plan0.collapse) { after(); return true; }
+  // 명진 11/24 20:25 "오른쪽에 불러오고 나서야 펼쳐져서 그 동안 계속 딜레이": 펼치기는 누른 그때 바로(오른쪽 읽기를 기다리지 않음).
+  //  enter가 다시 그린 뒤 after()는 이미 펼쳐져 있으면 아이콘을 다시 누르지 않는다.
+  if (plan0.expand && tog0) pressKeepFocus(tog0, main);
   const out = enter();
   if (out && typeof out.then === 'function') out.then(after, () => {}); else after();
   return true;
