@@ -20,8 +20,8 @@ function iterator(list) {
 /** 가짜 드라이브: 폴더·파일·바로가기·휴지통. 내용 없이 메타데이터만. */
 function makeWorld() {
   const files = new Map();
-  const calls = { trashed: [], moved: [], shortcuts: [], created: [], batches: [], triggers: [] };
-  const clock = { now: NOW, perTrash: 0, failIds: new Set() };
+  const calls = { trashed: [], moved: [], shortcuts: [], created: [], batches: [], triggers: [], lists: 0, gets: 0, planWrites: 0 };
+  const clock = { now: NOW, perTrash: 0, perList: 0, failIds: new Set(), failOnce: new Set() };
   const triggers = [{ handler: 'transcribeNewRecordings', uid: 'T-transcribe', kind: 'everyMinutes', minutes: 10 }];
   let triggerSeq = 1;
   let seq = 900;
@@ -35,6 +35,9 @@ function makeWorld() {
       getId: () => f.id, getName: () => f.name, getSize: () => f.size, getMimeType: () => f.mimeType,
       getDateCreated: () => new Date(f.createdTime), getLastUpdated: () => new Date(f.modifiedTime),
       setTrashed: (v) => { f.trashed = !!v; calls.trashed.push(f.id); },
+      isTrashed: () => !!f.trashed,
+      getBlob: () => ({ getDataAsString: () => f.text || '' }),
+      setContent: (t) => { f.text = String(t); calls.planWrites++; },
       moveTo: (dest) => { calls.moved.push([f.id, dest.getId()]); f.parent = dest.getId(); },
     };
   };
@@ -45,7 +48,7 @@ function makeWorld() {
     getFilesByName: (name) => iterator(children(id).filter(c => c.name === name).map(c => fileObj(c.id))),
     getFiles: () => iterator(children(id).filter(c => c.mimeType !== 'application/vnd.google-apps.folder').map(c => fileObj(c.id))),
     createFolder: (name) => folderObj(folder('FAKEfold' + (seq++) + 'zzzz', name, id)),
-    createFile: (name, text) => { calls.created.push({ name, text, parent: id }); return fileObj(add({ id: 'FAKElog' + (seq++) + 'zzzzz', name, parent: id, mimeType: 'text/plain', size: text.length, md5: '' })); },
+    createFile: (name, text) => { calls.created.push({ name, text, parent: id }); return fileObj(add({ id: 'FAKElog' + (seq++) + 'zzzzz', name, parent: id, mimeType: 'text/plain', size: text.length, md5: '', text })); },
   });
   const props = new Map();
   const sandbox = {
@@ -68,12 +71,31 @@ function makeWorld() {
     MimeType: { PLAIN_TEXT: 'text/plain' },
     UrlFetchApp: { fetch(url) {
       const q = decodeURIComponent(/[?&]q=([^&]+)/.exec(url)[1]);
+      if (!/ in parents/.test(q)) {
+        // 분석 결과 이름 찾기(이름만 돌려준다).
+        assert.match(q, /name contains '검토__'/);
+        const names = [...files.values()].filter(f => !f.trashed && (f.name.startsWith('검토__') || f.name.includes('__SRC_'))).map(f => ({ name: f.name }));
+        return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ files: names }) };
+      }
+      calls.lists++;
+      clock.now += clock.perList;
       const pid = /'([^']+)' in parents/.exec(q)[1];
       const list = children(pid).map(f => ({ id: f.id, name: f.name, size: String(f.size), md5Checksum: f.md5 || undefined, createdTime: f.createdTime,
         modifiedTime: f.modifiedTime, mimeType: f.mimeType, shortcutDetails: f.targetId ? { targetId: f.targetId } : undefined }));
       return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ files: list }) };
     },
     fetchAll(requests) {
+      if (requests.every(r => r.method === 'get')) {
+        // 보내기 직전 확인 조회(files.get): 있는지·휴지통인지·md5·크기.
+        calls.gets += requests.length;
+        return requests.map(r => {
+          assert.match(r.url, /fields=id,trashed,md5Checksum,size/);
+          const id = decodeURIComponent(/\/drive\/v3\/files\/([^?]+)\?/.exec(r.url)[1]);
+          const f = files.get(id);
+          if (!f) return { getResponseCode: () => 404, getContentText: () => '{}' };
+          return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ id, trashed: !!f.trashed, md5Checksum: f.md5 || undefined, size: String(f.size) }) };
+        });
+      }
       calls.batches.push(requests.length);
       return requests.map(r => {
         assert.equal(r.method, 'patch');
@@ -82,6 +104,7 @@ function makeWorld() {
         const id = decodeURIComponent(/\/drive\/v3\/files\/([^?]+)\?/.exec(r.url)[1]);
         clock.now += clock.perTrash;
         if (clock.failIds.has(id)) return { getResponseCode: () => 429 };
+        if (clock.failOnce.delete(id)) return { getResponseCode: () => 503 };
         const f = files.get(id);
         f.trashed = true;
         calls.trashed.push(id);
@@ -121,6 +144,8 @@ function makeRoot(w, prefix, name = '통화녹음') {
 }
 
 const plain = (o) => JSON.parse(JSON.stringify(o));
+/** 실행 기록 파일만(계획 파일 '중복정리계획.json'은 빼고). */
+const logFiles = (w) => w.calls.created.filter(c => c.name.startsWith('중복정리기록_'));
 
 test('교체본 파일: 폴더 ID·드라이브 번호처럼 긴 글자·전화번호가 없다', () => {
   assert.ok(!/1[A-Za-z0-9_-]{30,}/.test(source), '드라이브 번호처럼 긴 글자가 없어야 한다');
@@ -270,9 +295,9 @@ test('이미 쌓인 중복 정리: 미리 보기는 아무것도 바꾸지 않�
   const shortcutTargets = w.calls.shortcuts.map(([, t]) => t);
   assert.deepEqual(shortcutTargets, [keepSrc]);
   assert.equal(JSON.parse(w.props.get('TRANSCRIBE_FAILURE_' + keepSrc)).status, 'manual');
-  assert.equal(w.calls.created.length, 1, '실행 기록 파일 하나');
-  assert.match(w.calls.created[0].name, /^중복정리기록_\d{8}_\d{4}\.txt$/);
-  assert.equal(w.calls.created[0].text.split('\n').filter(l => l.startsWith('휴지통\t')).length, 28);
+  assert.equal(logFiles(w).length, 1, '실행 기록 파일 하나');
+  assert.match(logFiles(w)[0].name, /^중복정리기록_\d{8}_\d{4}\.txt$/);
+  assert.equal(logFiles(w)[0].text.split('\n').filter(l => l.startsWith('휴지통\t')).length, 28);
   // 다시 돌려도 더 지울 것이 없다(바로가기 대상은 기록이 가리키는 파일로 본다).
   assert.equal(w.G.recordingCleanup_(false), '묶음 0개 · 휴지통 0개 · 줄인 용량 0KB');
 });
@@ -321,8 +346,8 @@ test('시간 지키기: 4분 30초가 지나면 새로 보내지 않고 결과 �
   // 0초·125초에 묶음을 보내고, 250초 뒤 묶음 중간에서 270초를 넘기면 멈춘다(끊기지 않음).
   assert.equal(w.calls.trashed.length, 150, '세 번째 묶음까지 보낸 뒤 멈춘다');
   assert.match(line, /^묶음 10개 · 휴지통 500개 · 줄인 용량 4\.9GB · 이번에 휴지통 150개 · 남음 350개 · 한 번 더 실행\(5분 뒤 자동\) · 시간 한도\(4분 30초\)에서 멈춤$/);
-  assert.equal(w.calls.created.length, 1, '끊기지 않고 실행 기록 파일을 남긴다');
-  assert.equal(w.calls.created[0].text.split('\n').filter(l => l.startsWith('휴지통\t')).length, 150);
+  assert.equal(logFiles(w).length, 1, '끊기지 않고 실행 기록 파일을 남긴다');
+  assert.equal(logFiles(w)[0].text.split('\n').filter(l => l.startsWith('휴지통\t')).length, 150);
   const last = JSON.parse(w.props.get('RECORDING_CLEANUP_LAST'));
   assert.equal(last.remaining, 350);
   assert.equal(last.done, false);
@@ -357,7 +382,7 @@ test('휴지통 실패는 기록하고 다음 실행에서 다시, 하나도 못
   w.clock.failIds.add(bad);
   const line = w.G.cleanupDuplicateRecordings();
   assert.match(line, /이번에 휴지통 5개 · 남음 1개 · 한 번 더 실행\(5분 뒤 자동\) · 실패 1개\(다음 실행에서 다시\)/);
-  assert.ok(w.calls.created[0].text.includes('실패(HTTP 429, 다음 실행에서 다시)\t' + bad));
+  assert.ok(logFiles(w)[0].text.includes('실패(HTTP 429, 다음 실행에서 다시)\t' + bad));
   assert.equal(cleanupTriggers(w).length, 1);
   // 계속 실패하면 같은 일을 되풀이하지 않는다.
   w.G.cleanupDuplicateRecordings({ triggerUid: cleanupTriggers(w)[0].uid });
@@ -376,4 +401,159 @@ test('다른 실행이 잠금을 쥐고 있으면 실제 정리는 멈추지 않
   w.G.cleanupDuplicateRecordings();
   assert.equal(cleanupTriggers(w).length, 1);
   assert.equal(w.calls.trashed.length, 0);
+});
+
+const planOf = (w) => {
+  const id = w.props.get('RECORDING_CLEANUP_PLAN_FILE');
+  return id ? JSON.parse(w.files.get(id).text) : null;
+};
+
+test('계획 저장: 첫 실행이 계획 파일을 남기고, 이어 하기 실행은 폴더 목록을 다시 읽지 않고 남은 것만 보낸다(단계별 시간 기록)', () => {
+  const w = makeWorld();
+  makeManyDuplicates(w, 10, 50); // 휴지통 500개
+  w.clock.perTrash = 2500;
+  const first = w.G.cleanupDuplicateRecordings();
+  assert.match(first, /이번에 휴지통 150개 · 남음 350개/);
+  const planFile = w.calls.created.find(c => c.name === '중복정리계획.json');
+  assert.ok(planFile, '계획 파일을 만든다');
+  assert.equal(planFile.parent, 'FAKEvoicroot00000', '녹음 맨 위 폴더에');
+  const plan = planOf(w);
+  assert.equal(plan.groups.length, 10);
+  assert.equal(plan.groups.reduce((n, g) => n + g.items.length, 0), 500);
+  assert.equal(plan.groups.reduce((n, g) => n + g.items.filter(it => it.s === 't').length, 0), 150);
+  assert.ok(!w.files.get(w.props.get('RECORDING_CLEANUP_PLAN_FILE')).text.includes('가상'), '계획 파일에 녹음 이름을 적지 않는다');
+  const first_ = JSON.parse(w.props.get('RECORDING_CLEANUP_LAST'));
+  assert.equal(first_.timing.mode, 'full');
+  for (const k of ['list', 'protect', 'plan', 'verify', 'send', 'save', 'total', 'batches']) assert.equal(typeof first_.timing[k], 'number', k);
+  assert.ok(first_.timing.send >= 375000, '보내기 시간이 잡힌다');
+  assert.match(logFiles(w)[0].text.split('\n')[1], /^시간\(ms\) 전체 실행 · 목록 읽기 \d+ · 보호 확인 \d+ · 계획 \d+ · 확인 조회 \d+ · 보내기 \d+\(묶음 3개, 묶음당 125000\) · 저장 \d+ · 전체 \d+$/);
+
+  // 트리거가 부른 이어 하기: 목록 읽기 0번, 남은 350개를 한 번에.
+  w.clock.perTrash = 0;
+  const listsBefore = w.calls.lists;
+  w.clock.now += 5 * 60 * 1000;
+  const second = w.G.cleanupDuplicateRecordings({ triggerUid: cleanupTriggers(w)[0].uid });
+  assert.equal(w.calls.lists, listsBefore, '이어 하기는 폴더 목록을 다시 읽지 않는다');
+  assert.equal(second, '묶음 10개 · 휴지통 500개 · 줄인 용량 4.9GB · 계획 이어 하기 · 이번에 휴지통 350개');
+  assert.equal(w.calls.trashed.length, 500);
+  assert.deepEqual(w.calls.batches.slice(3), [50, 50, 50, 50, 50, 50, 50], '50개씩 묶어 보낸다');
+  assert.ok(w.calls.gets >= 500, '보내기 직전 하나하나 확인 조회');
+  const last = JSON.parse(w.props.get('RECORDING_CLEANUP_LAST'));
+  assert.equal(last.timing.mode, 'resume');
+  assert.equal(last.timing.list, 0);
+  assert.equal(last.done, true);
+  assert.equal(cleanupTriggers(w).length, 0);
+  assert.equal(planOf(w).done, true, '다 끝난 계획은 끝 표시');
+  assert.equal(w.calls.created.filter(c => c.name === '중복정리계획.json').length, 1, '계획 파일은 하나를 고쳐 쓴다');
+  // 다음 실행은 다시 전체 실행(목록 읽음), 더 지울 것 없음.
+  assert.equal(w.G.cleanupDuplicateRecordings(), '묶음 0개 · 휴지통 0개 · 줄인 용량 0KB');
+  assert.ok(w.calls.lists > listsBefore);
+});
+
+test('목록 읽기에 시간을 다 써도 계획은 저장하고 이어 간다 + 이어 하기에서 바뀐 파일·남길 파일이 사라진 묶음·이미 없는 파일은 건너뛰고 다음 전체 실행에서 다시 계획', () => {
+  const w = makeWorld();
+  makeManyDuplicates(w, 3, 3); // 묶음 3개 × 휴지통 3개. 번호: 묶음0 1000(원본),1001~1003 / 묶음1 1004,1005~1007 / 묶음2 1008,1009~1011
+  w.clock.perList = 100 * 1000; // 폴더 하나 읽는 데 100초 → 세 폴더면 4분 30초를 넘는다
+  const first = w.G.cleanupDuplicateRecordings();
+  assert.equal(w.calls.trashed.length, 0);
+  assert.match(first, /이번에 휴지통 0개 · 남음 9개 · 한 번 더 실행\(5분 뒤 자동\) · 시간 한도\(4분 30초\)에서 멈춤$/);
+  assert.doesNotMatch(first, /자동 이어 하기 안 함/, '하나도 못 보냈어도 계획이 있으니 이어 한다');
+  assert.equal(cleanupTriggers(w).length, 1);
+  assert.equal(planOf(w).groups.length, 3);
+
+  // 그사이: 묶음0 사본 하나 내용이 바뀜, 묶음1 남길 원본이 사라짐(휴지통), 묶음2 사본 하나는 이미 휴지통.
+  w.files.get(fid(1001)).md5 = 'changed';
+  w.files.get(fid(1004)).trashed = true;
+  w.files.get(fid(1009)).trashed = true;
+  w.clock.perList = 0;
+  const listsBefore = w.calls.lists;
+  w.clock.now += 5 * 60 * 1000;
+  const second = w.G.cleanupDuplicateRecordings({ triggerUid: cleanupTriggers(w)[0].uid });
+  assert.equal(w.calls.lists, listsBefore, '목록을 다시 읽지 않는다');
+  assert.match(second, /계획 이어 하기 · 이번에 휴지통 4개 · 남음 4개 · 한 번 더 실행\(5분 뒤 자동\) · 이미 없음 1개 · 건너뜀 4개\(다음 전체 실행에서 다시 계획\)/);
+  assert.equal(w.files.get(fid(1001)).trashed, false, '내용이 바뀐 파일은 보내지 않는다');
+  for (const n of [1005, 1006, 1007]) assert.equal(w.files.get(fid(n)).trashed, false, '남길 파일이 사라진 묶음은 건너뛴다');
+  for (const n of [1002, 1003, 1010, 1011]) assert.equal(w.files.get(fid(n)).trashed, true);
+  assert.equal(planOf(w).done, true, '남은 게 건너뛴 것뿐이면 계획을 끝내 다음은 전체 실행');
+
+  // 다음(전체 실행): 다시 읽어 새로 계획. 바뀐 파일은 이제 짝이 없고, 원본이 사라진 묶음은 가장 오래된 사본 하나를 남긴다.
+  w.clock.now += 5 * 60 * 1000;
+  const third = w.G.cleanupDuplicateRecordings({ triggerUid: cleanupTriggers(w)[0].uid });
+  assert.ok(w.calls.lists > listsBefore, '전체 실행은 목록을 읽는다');
+  assert.equal(third, '묶음 1개 · 휴지통 2개 · 줄인 용량 20MB · 이름만 같고 내용이 다른 녹음 1묶음(그대로 둠)');
+  assert.equal(w.files.get(fid(1005)).trashed, false, '가장 오래된 사본은 남는다');
+  assert.equal(w.files.get(fid(1006)).trashed, true);
+  assert.equal(w.files.get(fid(1007)).trashed, true);
+  assert.equal(cleanupTriggers(w).length, 0);
+});
+
+test('하루 넘은 계획은 버리고 목록을 다시 읽는다, 이어 하기 중 새로 보호된 파일은 보내지 않는다', () => {
+  const w = makeWorld();
+  makeManyDuplicates(w, 2, 2); // 묶음0 1000,1001,1002 / 묶음1 1003,1004,1005
+  w.clock.perList = 100 * 1000;
+  w.G.cleanupDuplicateRecordings();
+  assert.equal(planOf(w).groups.length, 2);
+  w.clock.perList = 0;
+  // 하루 넘게 지남 → 전체 실행.
+  w.clock.now += w.G.RECORDING_PLAN_MAX_AGE_MS + 1000;
+  const lists = w.calls.lists;
+  w.props.set('RECORDING_KEEP_IDS', fid(1001));
+  w.add({ id: fid(1900), name: '검토__가상__SRC_' + fid(1004) + '.md', size: 10, md5: 'mm', parent: 'root', mimeType: 'text/markdown' });
+  const line = w.G.cleanupDuplicateRecordings({ triggerUid: cleanupTriggers(w)[0].uid });
+  assert.ok(w.calls.lists > lists, '오래된 계획은 쓰지 않는다');
+  assert.equal(line, '묶음 2개 · 휴지통 2개 · 줄인 용량 20MB');
+  assert.equal(w.files.get(fid(1001)).trashed, false);
+  assert.equal(w.files.get(fid(1004)).trashed, false);
+
+  // 이어 하기 중 보호: 계획을 만든 뒤 새 분석 결과가 사본을 가리키면 건너뛴다.
+  const w2 = makeWorld();
+  makeManyDuplicates(w2, 1, 3); // 1000 원본, 1001~1003
+  w2.clock.perList = 100 * 1000;
+  w2.G.cleanupDuplicateRecordings();
+  w2.clock.perList = 0;
+  w2.add({ id: fid(1901), name: '검토__가상__SRC_' + fid(1002) + '.md', size: 10, md5: 'mm', parent: 'root', mimeType: 'text/markdown' });
+  w2.props.set('RECORDING_KEEP_IDS', fid(1003));
+  w2.clock.now += 5 * 60 * 1000;
+  const l2 = w2.G.cleanupDuplicateRecordings({ triggerUid: cleanupTriggers(w2)[0].uid });
+  assert.match(l2, /계획 이어 하기 · 이번에 휴지통 1개 · 남음 2개.* · 건너뜀 2개/);
+  assert.equal(w2.files.get(fid(1002)).trashed, false);
+  assert.equal(w2.files.get(fid(1003)).trashed, false);
+  assert.equal(w2.files.get(fid(1001)).trashed, true);
+  // 다음 전체 실행은 보호된 두 개를 남기고 끝(되풀이하지 않음).
+  w2.clock.now += 5 * 60 * 1000;
+  assert.equal(w2.G.cleanupDuplicateRecordings({ triggerUid: cleanupTriggers(w2)[0].uid }), '묶음 0개 · 휴지통 0개 · 줄인 용량 0KB');
+  assert.equal(cleanupTriggers(w2).length, 0);
+});
+
+test('일시 오류(503 등)는 같은 실행에서 한 번 다시 보낸다', () => {
+  const w = makeWorld();
+  makeManyDuplicates(w, 1, 4);
+  w.clock.failOnce.add(fid(1002));
+  w.clock.failOnce.add(fid(1003));
+  const line = w.G.cleanupDuplicateRecordings();
+  assert.equal(line, '묶음 1개 · 휴지통 4개 · 줄인 용량 40MB');
+  assert.deepEqual(w.calls.batches, [4, 2], '실패한 두 개만 다시');
+  assert.equal(w.calls.trashed.length, 4);
+  assert.equal(w.G.recordingRetryable_(429), true);
+  assert.equal(w.G.recordingRetryable_(404), false);
+  assert.equal(w.G.recordingRetryable_(0), true);
+});
+
+test('작은 판단들: 계획 쓸 수 있는지·확인 조회 판정·남은 수', () => {
+  const { G } = makeWorld();
+  const doc = { v: 1, createdAt: NOW, groups: [{ items: [{ s: 't' }, {}, { s: 'c' }, { s: 'g' }] }], done: false };
+  assert.equal(G.recordingPlanUsable_(doc, NOW + 1000), true);
+  assert.equal(G.recordingPlanUsable_({ ...doc, done: true }, NOW), false);
+  assert.equal(G.recordingPlanUsable_(doc, NOW + G.RECORDING_PLAN_MAX_AGE_MS), false);
+  assert.equal(G.recordingPlanUsable_({ ...doc, v: 0 }, NOW), false);
+  assert.deepEqual(plain(G.recordingPlanCounts_(doc)), { pending: 1, skipped: 1 });
+  const item = { md5: 'a', size: 5 };
+  assert.equal(G.recordingVerifyItem_(item, { code: 200, md5: 'a', size: 5 }), 'send');
+  assert.equal(G.recordingVerifyItem_(item, { code: 200, md5: 'a', size: 5, trashed: true }), 'gone');
+  assert.equal(G.recordingVerifyItem_(item, { code: 404 }), 'gone');
+  assert.equal(G.recordingVerifyItem_(item, { code: 200, md5: 'b', size: 5 }), 'changed');
+  assert.equal(G.recordingVerifyItem_(item, { code: 200, md5: 'a', size: 6 }), 'changed');
+  assert.equal(G.recordingVerifyItem_(item, { code: 500 }), 'error');
+  assert.equal(G.recordingKeeperOk_(item, { code: 200, md5: 'a', size: 5 }), true);
+  assert.equal(G.recordingKeeperOk_(item, { code: 404 }), false);
 });
