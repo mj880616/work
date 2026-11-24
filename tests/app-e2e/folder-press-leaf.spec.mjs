@@ -8,8 +8,8 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { pinch } from './helpers/pinch.mjs';
 // OPS-빠진일2차 1(S59-17, 명진 11/11 14:55 '가'): 폴더 누르기 한 규칙 — 자료실·[파일]·노트·사진의 모든 나무·목록(폰·폴드·PC).
 //  ① [파일] PC·폴드 오른쪽 목록 칸도 왼쪽 나무처럼 폴더 누르기 = 그 자리 펼치기·접기(들어가기는 우클릭 [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기).
-//  ② 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다(전에는 아무 일도 없었음). 판정은 app/folder-tree-press.mjs folderPressAction 한 곳 —
-//     폴더만 보이는 나무(PC·폴드 왼쪽 나무)는 하위 폴더가 없으면 열기, 안 자료까지 들여 보이는 목록·폰 나무는 펼쳐 보일 것(하위 폴더·안 자료)이 없으면 열기.
+//  ② (UI-폴더이름펼치기, 명진 11/24 18:09로 바뀜) 그 자리 펼치는 목록(두 칸 칸 안·폰 나무)의 폴더 이름 누르기 = 늘 펼치기·접기 — 빈 폴더도 펼쳐 안에 '빈 폴더' 한 줄,
+//     주소·위치 그대로. 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기](PC 우클릭도 같은 메뉴)·두 손가락 벌리기만. 전의 '하위 없는 폴더 = 한 번에 열기'는 없앴다.
 // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 모든곳 공통'): 탐색기(왼쪽 나무 | 오른쪽 그 폴더) 나무 이름 누르기 = 그 폴더 열기 + 펼침,
 //  한 칸 오른쪽·폰 '그 폴더만'의 하위 폴더 누르기 = 들어가기. 그 자리 펼치기는 두 칸 칸 안 목록·폰 나무에 남는다(아래 시험이 그 자리를 본다).
 // 화면 사진(S59_17_SHOTS=폴더): PC 1280·폰 412·폴드 884. 이름은 모두 지어낸 것이다.
@@ -28,7 +28,7 @@ async function twoPanes(page, width) {
   const pane = files(page).locator('[data-fx-pane-i="0"]');
   return { list: pane.locator('[data-fx-list]'), crumb: pane.locator('.fx-ptop') }; // 칸 위 줄(위치 길): 맨 위는 저장소 이름만
 }
-for (const width of [884, 1280]) test(`[파일] ${width} 두 칸: 칸 안 목록 폴더 누르기 = 그 자리 펼치기·접기, 하위 폴더 없는 폴더는 한 번에 열기 · 한 칸은 들어가기`, async ({ page }) => {
+for (const width of [884, 1280]) test(`[파일] ${width} 두 칸: 칸 안 목록 폴더 누르기 = 그 자리 펼치기·접기(빈 폴더도), 들어가기는 우클릭 메뉴 · 한 칸은 들어가기`, async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, width);
   server.items.push(EMPTY());
@@ -63,10 +63,18 @@ for (const width of [884, 1280]) test(`[파일] ${width} 두 칸: 칸 안 목록
   await expect(sub).toHaveAttribute('aria-expanded', 'true');
   await expect(list.locator('[data-fx-row="od:OD!14"]')).toBeVisible();
   await expect(crumb).toHaveText(crumb0);
-  // ② 펼친 폴더 안의 빈 폴더(펼쳐 보일 것이 없음) 누르기 = 한 번에 그 폴더로
+  // ② 펼친 폴더 안의 빈 폴더 누르기 = 그 자리 펼침(안에 '빈 폴더' 한 줄, 위치 줄 그대로), 다시 누르면 접힘. 들어가기는 우클릭 [이 폴더로 들어가기].
   await empty.click();
+  await expect(empty).toHaveAttribute('aria-expanded', 'true');
+  await expect(list.locator('.fx-xnote', { hasText: '빈 폴더' })).toBeVisible();
+  await expect(crumb).toHaveText(crumb0);
+  await shot(page, `files-${width}-2-empty-expand`);
+  await empty.click();
+  await expect(empty).toHaveAttribute('aria-expanded', 'false');
+  await expect(list.locator('.fx-xnote', { hasText: '빈 폴더' })).toHaveCount(0);
+  await empty.click({ button: 'right' });
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect(crumb).toContainText('가짜 빈 폴더');
-  await shot(page, `files-${width}-2-leaf-open`);
   // 한 칸으로 돌아오면 탐색기: 오른쪽 하위 폴더 누르기 = 들어가기(그 자리 펼치기 없음).
   await files(page).locator('[data-fx-one]').click();
   await expect(files(page).locator('[data-fx-pane-i="1"]')).toHaveCount(0);
@@ -91,7 +99,7 @@ test('[파일] 폴드 884 두 칸: 펼친 폴더 위 두 손가락 벌리기 = �
   expect(errors).toEqual([]);
 });
 
-test('[파일] 폰 412: 나무 폴더 누르기 — 하위 폴더 있으면 그 자리 펼치기, 없으면 그 폴더만', async ({ page }) => {
+test('[파일] 폰 412: 나무 폴더 누르기 = 늘 그 자리 펼치기(빈 폴더도 빈 폴더 한 줄) · 그 폴더만은 ⋯ [이 폴더로 들어가기]', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 412);
   server.items.push(EMPTY());
@@ -103,10 +111,20 @@ test('[파일] 폰 412: 나무 폴더 누르기 — 하위 폴더 있으면 그 
   await tree.locator('[data-fx-tog="od:OD!10"]').click(); // 파일만 든 폴더 = 그 자리 펼침(파일까지)
   await expect(tree.locator('[data-ft-parent="od:OD!10"] [data-fx-tfile]')).toHaveCount(1);
   await shot(page, 'files-412-1-expand');
-  await tree.locator('[data-fx-tog="od:OD!19"]').click(); // 빈 폴더(펼쳐 보일 것 없음) → 그 폴더만
+  const url0 = page.url();
+  await tree.locator('[data-fx-tog="od:OD!19"]').click(); // 빈 폴더 → 그 자리 펼침(안에 '빈 폴더' 한 줄, 화면·주소 그대로)
+  await expect(tree.locator('[data-fx-tog="od:OD!19"]')).toHaveAttribute('aria-expanded', 'true');
+  await expect(tree.locator('.ft-empty-row[data-ft-parent="od:OD!19"]')).toContainText('빈 폴더');
+  await expect(files(page)).toHaveAttribute('data-fx-pane', 'tree');
+  expect(page.url()).toBe(url0);
+  await shot(page, 'files-412-2-empty-expand');
+  await tree.locator('[data-fx-tog="od:OD!19"]').click(); // 다시 누르면 접힘
+  await expect(tree.locator('.ft-empty-row[data-ft-parent="od:OD!19"]')).toHaveCount(0);
+  await tree.locator('[data-fx-fold="od:OD!19"] [data-fx-tmenu]').click(); // 들어가기는 ⋯ 첫 줄
+  await expect(page.locator('#rowMenu button').first()).toHaveText('이 폴더로 들어가기');
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect(tree).toBeHidden();
   await expect(files(page).locator('[data-fx-list]')).toContainText('빈 폴더');
-  await shot(page, 'files-412-2-leaf-open');
   await page.goBack();
   await expect(tree).toBeVisible();
   // S69-38: '그 폴더만'(폰의 내용 칸) 안 하위 폴더 누르기 = 한 단계 들어가기(나무와 내용 한 칸씩), 뒤로가기 = 한 단계 위.
@@ -154,7 +172,7 @@ test('자료실 PC 1280: 나무 이름·오른쪽 폴더 줄 누르기 = 그 폴
   expect(errors).toEqual([]);
 });
 
-test('자료실 두 칸 884: 칸 안 빈 폴더 누르기 = 그 칸에서 열기, 자료만 든 폴더 = 그 자리 펼침', async ({ page }) => {
+test('자료실 두 칸 884: 칸 안 폴더 누르기 = 늘 그 자리 펼침(빈 폴더도 빈 폴더 한 줄) · 들어가기는 메뉴 첫 줄', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors } = await bootLibrary(page, 884, { folders: FOLDERS, items: ITEMS });
   await pickGroup(page, '폴더');
@@ -170,23 +188,62 @@ test('자료실 두 칸 884: 칸 안 빈 폴더 누르기 = 그 칸에서 열기
   await right.locator('[data-lu-nav="fc"]').click(); // 자료만 든 폴더 = 그 칸 안 펼침(펼친 폴더 안 놓기 그대로)
   await expect(right.locator('[data-lu-pane-sub="fc"]')).toBeVisible();
   await expect(right.locator('.lu-pane-here')).toHaveText('자료실');
-  await right.locator('[data-lu-nav="fn"]').click(); // 빈 폴더 = 그 칸에서 열기
+  await right.locator('[data-lu-nav="fn"]').click(); // 빈 폴더 = 그 칸 안 펼침(안에 '빈 폴더' 한 줄)
+  await expect(right.locator('[data-lu-nav="fn"]')).toHaveAttribute('aria-expanded', 'true');
+  await expect(right.locator('.lu-pane-empty[data-lu-pane-sub="fn"]')).toContainText('빈 폴더');
+  await expect(right.locator('.lu-pane-here')).toHaveText('자료실');
+  await shot(page, 'library-884-two-2-empty-expand');
+  await right.locator('[data-lu-nav="fn"]').click(); // 다시 누르면 접힘
+  await expect(right.locator('.lu-pane-empty[data-lu-pane-sub="fn"]')).toHaveCount(0);
+  await right.locator('[data-lu-nav="fn"]').click({ button: 'right' }); // 들어가기 = 메뉴 첫 줄
+  await expect(page.locator('#luFolderMenu button').first()).toHaveText('이 폴더로 들어가기');
+  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
   await expect(right.locator('.lu-pane-here')).toHaveText('가상 N');
-  await shot(page, 'library-884-two-2-leaf-open');
   expect(s.writes).toEqual([]);
   expect(errors).toEqual([]);
 });
 
-// S69-28: 폰 나무의 폴더 이름 누르기 = 그 폴더 내용 화면(빈 폴더도 같음). 위치 줄 끝에 지금 폴더 이름.
-test('자료실 폰 412: 목록 폴더 이름 누르기 = 그 폴더 내용', async ({ page }) => {
+// UI-폴더이름펼치기(명진 11/24 18:09 '폴더 명칭을 누르면 펼쳐졌으면 / 들어가는 거는 ⋯ 이 폴더 안으로 들어가기를 눌렀을 때만'):
+//  폰 나무 폴더 이름 누르기 = 그 자리 펼치기·접기(하위 없는 폴더는 안 자료 줄, 빈 폴더는 '빈 폴더' 한 줄), 주소·위치 그대로. 들어가기는 ⋯ 첫 줄만.
+for (const width of [390, 412]) test(`자료실 폰 ${width}: 폴더 이름 누르기 = 그 자리 펼치기·접기(주소 그대로) · 들어가기는 ⋯ [이 폴더로 들어가기]만`, async ({ page }) => {
   test.setTimeout(90000);
-  const { errors } = await bootLibrary(page, 412, { folders: FOLDERS, items: ITEMS });
+  const { errors, s } = await bootLibrary(page, width, { folders: FOLDERS, items: ITEMS });
   await pickGroup(page, '폴더');
   await expect.poll(() => tops(page)).toEqual(['x:out', 'f:fa', 'f:fn']);
-  await page.locator('#documentList details[data-lu-node="f:fn"] > summary').click();
-  await expect(page.locator('#libraryPath .lu-focus-here')).toHaveText('가상 N');
-  await expect.poll(() => tops(page)).toEqual([]);
-  await shot(page, 'library-412-leaf-open');
+  const node = id => page.locator(`#documentList details[data-lu-node="f:${id}"]`);
+  // 폴더 이름 자리를 누른다(줄 앞 폴더 그림이 아니라 — 전에는 이름 = 들어가기, 그림 = 펼치기였다).
+  const name = id => ({ click: async () => { const head = node(id).locator(':scope > summary'), nm = head.locator('.lu-node-name'); const [h, n] = [await head.boundingBox(), await nm.boundingBox()]; await head.click({ position: { x: n.x - h.x + Math.min(20, n.width / 2), y: h.height / 2 } }); } });
+  const url0 = page.url();
+  // 하위 폴더 + 자료가 든 폴더: 이름을 누르면 그 자리에 하위 폴더·자료 줄(들어가지 않음)
+  await name('fa').click();
+  await expect(node('fa')).toHaveAttribute('open', '');
+  await expect(node('fc')).toBeVisible();
+  await expect(node('fa').locator('[data-lu-document="n-1"]').first()).toBeVisible();
+  // 하위 폴더 없이 자료만 든 폴더(회의처럼): 누르면 그 자리에 자료 줄이 펼쳐지고, 다시 누르면 접힌다
+  await name('fc').click();
+  await expect(node('fc')).toHaveAttribute('open', '');
+  await expect(node('fc').locator('[data-lu-document="a-1"]').first()).toBeVisible();
+  await expect(page.locator('#libraryPath .lu-focus-here')).toHaveCount(0);
+  expect(page.url()).toBe(url0);
+  await expect.poll(() => tops(page)).toEqual(['x:out', 'f:fa', 'f:fn']);
+  await shot(page, `library-${width}-1-leaf-expand`);
+  await name('fc').click();
+  await expect(node('fc')).not.toHaveAttribute('open', '');
+  await expect(node('fc').locator('[data-lu-document="a-1"]').first()).toBeHidden();
+  // 빈 폴더: 펼치면 '빈 폴더' 한 줄(들어가지 않음)
+  await name('fn').click();
+  await expect(node('fn')).toHaveAttribute('open', '');
+  await expect(node('fn').locator('.lu-node-empty')).toContainText('빈 폴더');
+  expect(page.url()).toBe(url0);
+  await name('fn').click();
+  await expect(node('fn')).not.toHaveAttribute('open', '');
+  // 들어가기 = ⋯ 첫 줄 [이 폴더로 들어가기]
+  await node('fc').locator(':scope > summary [data-lu-node-menu]').click();
+  await expect(page.locator('#luFolderMenu button').first()).toHaveText('이 폴더로 들어가기');
+  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+  await expect(page.locator('#libraryPath .lu-focus-here')).toHaveText('가상 C');
+  await shot(page, `library-${width}-2-menu-enter`);
+  expect(s.writes).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -240,7 +297,7 @@ for (const width of [884, 1280]) test(`노트 ${width}: 나무 폴더 누르기 
   await expect(page.locator('[data-nx-here]')).toHaveText('가상 빈 폴더 · 0');
   expect(errors).toEqual([]);
 });
-test('노트 폰 412: 폴더 누르기 — 펼쳐 보일 것(하위 폴더·노트)이 있으면 그 자리 펼치기, 빈 폴더는 그 폴더만', async ({ page }) => {
+test('노트 폰 412: 폴더 누르기 = 늘 그 자리 펼치기(빈 폴더도 빈 폴더 한 줄) · 그 폴더만은 ⋯ 첫 줄', async ({ page }) => {
   test.setTimeout(90000);
   const { errors } = await notes(page, 412);
   const rows = page.locator('#noteRows');
@@ -250,9 +307,16 @@ test('노트 폰 412: 폴더 누르기 — 펼쳐 보일 것(하위 폴더·노�
   await rows.locator(`[data-nx-folder="${U(2)}"] .ft-main`).click(); // 노트만 든 폴더 = 그 자리 펼침(노트까지)
   await expect(rows.locator(`[data-ft-parent="${U(2)}"] [data-note-row]`)).toHaveCount(1);
   await expect(rows.locator('.ft-focus')).toHaveCount(0);
-  await rows.locator(`[data-nx-folder="${U(4)}"] .ft-main`).click(); // 빈 폴더 = 그 폴더만
+  await rows.locator(`[data-nx-folder="${U(4)}"] .ft-main`).click(); // 빈 폴더 = 그 자리 펼침(안에 '빈 폴더' 한 줄)
+  await expect(rows.locator(`.ft-empty-row[data-ft-parent="${U(4)}"]`)).toContainText('빈 폴더');
+  await expect(rows.locator('.ft-focus')).toHaveCount(0);
+  await shot(page, 'notes-412-empty-expand');
+  await rows.locator(`[data-nx-folder="${U(4)}"] .ft-main`).click(); // 다시 누르면 접힘
+  await expect(rows.locator(`.ft-empty-row[data-ft-parent="${U(4)}"]`)).toHaveCount(0);
+  await rows.locator(`[data-nx-folder-more="${U(4)}"]`).click(); // 들어가기 = ⋯ 첫 줄
+  await expect(page.locator('#noteDocMenu button').first()).toHaveText('이 폴더로 들어가기');
+  await page.locator('#noteDocMenu [data-nx-enter]').click();
   await expect(rows.locator('.ft-focus')).toBeVisible();
-  await shot(page, 'notes-412-leaf-open');
   await page.goBack();
   await expect(rows.locator('.ft-focus')).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -309,7 +373,7 @@ test('사진 PC 1280: 나무 폴더 누르기 = 그 폴더(오른쪽 하위 폴�
   await shot(page, 'photos-1280-leaf-open');
   expect(f.errors).toEqual([]);
 });
-for (const width of [412, 884]) test(`사진 ${width}: 폴더 누르기 — 펼쳐 보일 것(하위 폴더·사진)이 있으면 그 자리 펼치기, 빈 폴더는 그 폴더만`, async ({ page }) => {
+for (const width of [412, 884]) test(`사진 ${width}: 폴더 누르기 = 늘 그 자리 펼치기(빈 폴더도 빈 폴더 한 줄) · 그 폴더만은 ⋯ 첫 줄`, async ({ page }) => {
   test.setTimeout(90000);
   const f = await photos(page, width);
   const box = ph(page).locator('[data-photos-box="onedrive"]');
@@ -320,9 +384,16 @@ for (const width of [412, 884]) test(`사진 ${width}: 폴더 누르기 — 펼�
   await box.locator('[data-photos-ftog="o:S1"]').click(); // 사진만 든 폴더 = 그 자리 펼침(사진 한 줄)
   await expect(ph(page).locator('[data-photos-strip="o:S1"]')).toBeVisible();
   await expect(ph(page).locator('.photos-fx-path')).toHaveCount(0);
-  await box.locator('[data-photos-ftog="o:S3"]').click(); // 빈 폴더 = 그 폴더만
+  await box.locator('[data-photos-ftog="o:S3"]').click(); // 빈 폴더 = 그 자리 펼침(안에 '빈 폴더' 한 줄)
+  await expect(box.locator('.ft-empty-row[data-ft-parent="o:S3"]')).toContainText('빈 폴더');
+  await expect(ph(page).locator('.photos-fx-path')).toHaveCount(0);
+  await shot(page, `photos-${width}-empty-expand`);
+  await box.locator('[data-photos-ftog="o:S3"]').click(); // 다시 누르면 접힘
+  await expect(box.locator('.ft-empty-row[data-ft-parent="o:S3"]')).toHaveCount(0);
+  await box.locator('[data-photos-fx-more="S3"]').click(); // 그 폴더만 = ⋯ 첫 줄
+  await expect(page.locator('#photosFolderMenu button').first()).toHaveText('이 폴더로 들어가기');
+  await page.locator('#photosFolderMenu [data-fm-enter]').click();
   await expect(ph(page).locator('.photos-fx-path')).toBeVisible();
-  await shot(page, `photos-${width}-leaf-open`);
   await page.goBack();
   await expect(ph(page).locator('.photos-fx-path')).toHaveCount(0);
   expect(f.errors).toEqual([]);

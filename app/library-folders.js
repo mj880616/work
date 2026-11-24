@@ -140,15 +140,15 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(!key.startsWith('f:'))return '<button type="button" data-lu-folder-action="create">새 폴더</button>'+(key===OUTSIDE_KEY&&selectNode?.(key)?'<button type="button" data-lu-folder-action="select-all">전체 선택</button>':'');
       const f=folder(key.slice(2));if(!f)return '';
       // LIB-폴더끌어순서(S61-14, 명진 11/12 15:30): 순서는 끌어서 바꾸므로 [위로]·[아래로]는 메뉴에서 뺐다. 키보드는 폴더 줄에서 Alt+↑·Alt+↓(bindKeys).
-      // LIB-폴더100단 ②(10:34): 폴더 보기에서는 펼치기·접기 다음에 [이 폴더로 들어가기] — 그 폴더만 보이고 위에 위치 줄(자료실 › … ). 폴더 줄을 두 번 눌러도 같다.
+      // LIB-폴더100단 ②(10:34): 폴더 보기에서는 [이 폴더로 들어가기](UI-폴더이름펼치기 11/24부터 첫 줄) — 그 폴더만 보이고 위에 위치 줄(자료실 › … ). 폴더 줄을 두 번 눌러도 같다.
       // '폴더 밖'이 비어 그 줄이 없으면(LIB-정리보충) 맨 위 폴더 메뉴 첫 줄이 맨 위 새 폴더 자리.
       // 탐색기(S69-28)는 '폴더 밖' 머리가 늘 없지만 맨 위 ⋯·빈 자리 우클릭 [새 폴더]가 맨 위 자리라 이 줄을 더하지 않는다.
       const top=s().free&&!s().explorer&&!s().inFolder&&!f.parent_id&&!outsideHead()?'<button type="button" data-lu-folder-action="create-top">맨 위에 새 폴더</button>':'';
-      return top+'<button type="button" data-lu-folder-action="rename" aria-keyshortcuts="F2">이름 바꾸기<span class="lu-menu-key" aria-hidden="true">F2</span></button>'
+      // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기는 그 자리 펼치기·접기만이라, 들어가기는 이 메뉴 첫 줄 [이 폴더로 들어가기](와 두 손가락 벌리기)로만.
+      return (enter&&s().free?'<button type="button" data-lu-folder-action="enter">이 폴더로 들어가기</button>':'')+top+'<button type="button" data-lu-folder-action="rename" aria-keyshortcuts="F2">이름 바꾸기<span class="lu-menu-key" aria-hidden="true">F2</span></button>'
         +(canAddChild(s().folders,f.id)?'<button type="button" data-lu-folder-action="create">안에 새 폴더</button>':'')
         // S69-28 LIB-한칸탐색기: 탐색기(한 칸 폴더 보기)의 폴더 줄은 펼치지 않고 들어가므로 [펼치기·접기] 줄이 없다(왼쪽 나무는 줄 앞 폴더 그림).
         +(s().explorer?'':`<button type="button" data-lu-folder-action="toggle">${s().isOpen?.(key)?'접기':'펼치기'}</button>`)
-        +(enter&&s().free?'<button type="button" data-lu-folder-action="enter">이 폴더로 들어가기</button>':'')
         +(folderMoveTargets(s().folders,f.id,!!s().free).length?'<button type="button" data-lu-folder-action="move">옮기기…</button>':'')
         +'<button type="button" data-lu-folder-action="paint">색 선택…</button>'
         +receiveLine(f)+sortLine(f)+(tidy&&s().free?'<button type="button" class="row-act lu-menu-tidy" data-lu-folder-action="tidy">정돈 제안</button>':'')

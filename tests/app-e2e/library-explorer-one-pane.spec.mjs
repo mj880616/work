@@ -129,7 +129,8 @@ test('두 칸 보기 1280: 긴 칸도 카드 밖으로 넘치지 않는다',asyn
   expect(errors).toEqual([]);
 });
 
-test('폰 412 ⑤: 폴더 이름 누르기 = 그 폴더 내용(바로 안만), 뒤로가기 = 나무 · 폴더 그림 누르기 = 펼치기',async({page})=>{
+// UI-폴더이름펼치기(명진 11/24 18:09): 폰 나무 폴더 이름 누르기도 그림 누르기처럼 그 자리 펼치기·접기. 그 폴더 내용 화면은 ⋯ 첫 줄 [이 폴더로 들어가기].
+test('폰 412 ⑤: 폴더 이름·그림 누르기 = 그 자리 펼치기 · ⋯ [이 폴더로 들어가기] = 그 폴더 내용(바로 안만), 뒤로가기 = 나무',async({page})=>{
   const {errors}=await boot(page,412);
   await expect(page.locator('#libraryFolderNav')).toHaveCount(0);
   await expect(page.locator('#libraryOneBtn')).toHaveCount(0);
@@ -138,8 +139,15 @@ test('폰 412 ⑤: 폴더 이름 누르기 = 그 폴더 내용(바로 안만), �
   await page.mouse.click(ico.x+ico.width/2,ico.y+ico.height/2);
   await expect(page.locator('#documentList details[data-lu-node="f:t0"]')).toHaveAttribute('open','');
   await expect(page.locator('#libraryPath')).toHaveCount(0);
-  // 이름 누르기 = 그 폴더 내용 화면.
+  // 이름 누르기도 그 자리 펼치기(들어가지 않음), 다시 누르면 접힘.
   await page.locator('#documentList details[data-lu-node="f:t1"] > summary .lu-node-name').click({force:true});
+  await expect(page.locator('#documentList details[data-lu-node="f:t1"]')).toHaveAttribute('open','');
+  await expect(page.locator('#libraryPath')).toHaveCount(0);
+  await page.locator('#documentList details[data-lu-node="f:t1"] > summary .lu-node-name').click({force:true});
+  await expect(page.locator('#documentList details[data-lu-node="f:t1"]')).not.toHaveAttribute('open','');
+  // 그 폴더 내용 화면 = ⋯ 첫 줄 [이 폴더로 들어가기].
+  await page.locator('#documentList details[data-lu-node="f:t1"] > summary [data-lu-node-menu]').click();
+  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
   await expect(page.locator('#libraryPath')).toContainText('가상 묶음 1');
   await expect(page.locator('#libraryPath .lu-focus-here')).toHaveText('가상 묶음 1');
   expect(await rightKeys(page)).toEqual(Array.from({length:KIDS},(_,j)=>`f:c1_${j}`));
