@@ -2,8 +2,8 @@ namespace BasketDrop.App;
 
 /// <summary>
 /// What older versions of this program left on the PC for the send entrances that no longer exist (right-click Send to,
-/// clipboard hotkey and paste window, screen-corner box, desktop tile). The hotkey, corner box and desktop tile lived only
-/// while the program ran, so on disk only the Send to shortcut and some settings values remain.
+/// clipboard hotkey and paste window; S54-13). The hotkey lived only while the program ran, so on disk only the Send to
+/// shortcut and a settings value remain. (The screen-corner box and desktop tile came back in S69-31.)
 /// Only things this program made are touched, by exact path.
 /// </summary>
 internal static class LegacyEntries
@@ -39,7 +39,7 @@ internal static class LegacyEntries
     /// <summary>
     /// Once per PC (remembered in the settings file): removes the Send to shortcut and, when nothing is waiting in the
     /// queue, the old sent-history file (it only fed the "already sent" question of the removed entrances).
-    /// The old hotkey/corner/tile values drop out of the settings file by themselves on its next save.
+    /// The old hotkey value drops out of the settings file by itself on its next save.
     /// A step that fails is retried at the next start; nothing waiting in the queue is ever deleted.
     /// </summary>
     public static void CleanOnce(SettingsStore settings, QueueStore queue, string historyPath, ILog log)

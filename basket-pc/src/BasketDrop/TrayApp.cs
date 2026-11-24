@@ -3,9 +3,11 @@ using System.Diagnostics;
 namespace BasketDrop.App;
 
 /// <summary>
-/// The program's single owner: tray icon, login, auto start, update, 'WORK ON+에서 이 PC 보기', and the queue pump that
-/// only sends what older versions left waiting. Nothing new is queued any more: the send entrances (clipboard
-/// hotkey and paste window, right-click Send to, screen-corner box, desktop tile) were removed.
+/// The program's single owner: tray icon, login, auto start, update, 'WORK ON+에서 이 PC 보기', the two drop boxes
+/// (screen-corner box and desktop tile, back in S69-31) and the queue pump. Everything dropped goes through
+/// <see cref="Submit"/>, so limits, the program-file question and the duplicate question are asked in one place, and it
+/// is sent by the one existing queue path (<see cref="QueueProcessor"/>). The clipboard hotkey, paste window and
+/// right-click Send to stay removed (S54-13).
 /// </summary>
 internal sealed class TrayApp : ApplicationContext
 {
@@ -13,6 +15,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ILog _log = new FileLog(AppPaths.Log);
     private readonly QueueStore _store = new(AppPaths.Queue);
     private readonly HistoryStore _history = new(AppPaths.History);
+    private readonly DropService _drop;
     private readonly QueueProcessor _processor;
     private readonly HttpBasketApi _api = new();
     private readonly HttpAuthClient _authClient = new();
@@ -27,13 +30,17 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _loginStatusItem = new("로그인 상태") { Enabled = false };
     private readonly ToolStripMenuItem _signInItem = new("구글로 로그인");
     private readonly ToolStripMenuItem _signOutItem = new("로그아웃");
-    private readonly ToolStripMenuItem _statusItem = new("예전에 담아 둔 항목 보기");
+    private readonly ToolStripMenuItem _statusItem = new("대기 중인 항목 보기");
     private readonly ToolStripMenuItem _autoStartItem = new("윈도우를 켤 때 자동 실행");
+    private readonly ToolStripMenuItem _cornerMenu = new("화면 구석 칸");
+    private readonly ToolStripMenuItem _desktopTileItem = new("바탕화면 칸");
     private readonly ToolStripMenuItem _doorItem = new("WORK ON+에서 이 PC 보기");
     private readonly ToolStripMenuItem _restartForUpdateItem = new("새 버전으로 다시 시작") { Visible = false };
     private readonly SettingsStore _settings = new(AppPaths.Settings);
     private readonly AutoStartManager _autoStart;
     private readonly UpdateService _updates;
+    private readonly CornerWatcher _cornerWatcher;
+    private readonly DesktopTile _desktopTile;
     // 'WORK ON+에서 이 PC 보기' (docs/design/files-pc-drive.md): closed unless the menu turned it on and this app is signed in.
     private readonly HttpWebUserVerifier _webUsers = new();
     private readonly CachedWebUserVerifier _webUsersCached;
@@ -56,6 +63,7 @@ internal sealed class TrayApp : ApplicationContext
     public TrayApp()
     {
         _ = _ui.Handle;
+        _drop = new DropService(_store, _history);
         _auth = new SupabaseAuthProvider(_authClient, new CredentialManagerTokenStore(), _api, _log);
         _auth.StateChanged += s => Ui(() => OnAuthStateChanged(s));
         _processor = new QueueProcessor(_store, _history, _api, _auth, _log);
@@ -69,6 +77,18 @@ internal sealed class TrayApp : ApplicationContext
         _tray.ContextMenuStrip = BuildMenu();
         _tray.DoubleClick += (_, _) => HelperForm.ShowOrFocus();
         _helperWait = ThreadPool.RegisterWaitForSingleObject(_helperSignal, (_, _) => Ui(HelperForm.ShowOrFocus), null, Timeout.Infinite, false);
+
+        // S69-31: an update from a version without the boxes shows both once (an older "off" does not carry over).
+        var settings = _settings.Load();
+        if (DropBoxDefaults.RestoreOnce(settings))
+        {
+            try { _settings.Save(settings); }
+            catch (IOException) { _log.Write(LogCode.Error); }
+        }
+        _cornerWatcher = new CornerWatcher(this, CornerChoices.FromId(settings.Corner));
+        RefreshCornerMenu();
+        _desktopTile = new DesktopTile(this, _settings, _log, settings.DesktopTile);
+        _desktopTileItem.Checked = _desktopTile.On;
 
         _autoStart = new AutoStartManager(new RegistryStartup(), _settings, UpdateService.IsInstalled ? Environment.ProcessPath : null);
         SyncAutoStart();
@@ -88,8 +108,8 @@ internal sealed class TrayApp : ApplicationContext
         if (LaunchArgs.StartedByUser()) HelperForm.ShowOrFocus();
         var left = _store.List().Count;
         var stale = _store.Stale(DateTimeOffset.Now).Count;
-        if (stale > 0) Balloon($"7일 넘게 못 보낸 항목이 {stale}건 있어요. 트레이 메뉴의 [예전에 담아 둔 항목 보기]에서 보내거나 버려 주세요.", ToolTipIcon.Info);
-        else if (left > 0) Balloon($"예전 버전에서 담아 둔 항목 {left}건이 남아 있어요. 로그인하면 자동으로 보내요. 트레이 메뉴의 [예전에 담아 둔 항목 보기]에서 확인할 수 있어요.", ToolTipIcon.Info);
+        if (stale > 0) Balloon($"7일 넘게 못 보낸 항목이 {stale}건 있어요. 트레이 메뉴의 [대기 중인 항목 보기]에서 보내거나 버려 주세요.", ToolTipIcon.Info);
+        else if (left > 0) Balloon($"보내지 못한 항목 {left}건이 남아 있어요. 로그인하면 자동으로 보내요. 트레이 메뉴의 [대기 중인 항목 보기]에서 확인할 수 있어요.", ToolTipIcon.Info);
     }
 
     // ---- menu ----
@@ -100,7 +120,7 @@ internal sealed class TrayApp : ApplicationContext
         _openNojoPlusItem.Click += (_, _) => HelperForm.OpenNojoPlus();
         menu.Items.Add(_openNojoPlusItem);
         menu.Items.Add(new ToolStripSeparator());
-        // Shown only while something older versions left in the queue is still waiting.
+        // Shown only while something is still waiting in the queue.
         _statusItem.Visible = false;
         _statusItem.Click += (_, _) => ShowStatus();
         menu.Items.Add(_statusItem);
@@ -110,6 +130,15 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add(_signInItem);
         menu.Items.Add(_signOutItem);
         menu.Items.Add(new ToolStripSeparator());
+        foreach (var corner in new[] { CornerChoice.TopRight, CornerChoice.BottomRight, CornerChoice.Off })
+        {
+            var item = new ToolStripMenuItem(CornerChoices.Label(corner)) { Tag = corner };
+            item.Click += (_, _) => ChangeCorner(corner);
+            _cornerMenu.DropDownItems.Add(item);
+        }
+        menu.Items.Add(_cornerMenu);
+        _desktopTileItem.Click += (_, _) => ToggleDesktopTile();
+        menu.Items.Add(_desktopTileItem);
         _doorItem.Click += (_, _) => ToggleDoor();
         menu.Items.Add(_doorItem);
         _autoStartItem.Click += (_, _) => ToggleAutoStart();
@@ -119,6 +148,42 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("종료", null, (_, _) => Quit());
         return menu;
+    }
+
+    // ---- screen-corner box ----
+
+    private void RefreshCornerMenu()
+    {
+        foreach (ToolStripMenuItem item in _cornerMenu.DropDownItems) item.Checked = Equals(item.Tag, _cornerWatcher.Corner);
+    }
+
+    private void ChangeCorner(CornerChoice corner)
+    {
+        _cornerWatcher.Apply(corner);
+        var s = _settings.Load();
+        s.Corner = corner.ToString();
+        try { _settings.Save(s); }
+        catch (IOException) { _log.Write(LogCode.Error); }
+        RefreshCornerMenu();
+        ToastForm.Show(corner == CornerChoice.Off
+            ? "화면 구석 칸을 껐어요. 트레이 메뉴에서 다시 켤 수 있어요."
+            : $"화면 {CornerChoices.Label(corner)} 구석에 마우스를 잠깐 대면 칸이 나타나요.");
+    }
+
+    // ---- desktop tile ----
+
+    private void ToggleDesktopTile()
+    {
+        var on = !_desktopTile.On;
+        _desktopTile.Apply(on);
+        var s = _settings.Load();
+        s.DesktopTile = on;
+        try { _settings.Save(s); }
+        catch (IOException) { _log.Write(LogCode.Error); }
+        _desktopTileItem.Checked = on;
+        ToastForm.Show(on
+            ? "바탕화면 칸을 켰어요. 눌러서 끌면 위치를 옮길 수 있어요."
+            : "바탕화면 칸을 껐어요. 트레이 메뉴에서 다시 켤 수 있어요.");
     }
 
     // ---- WORK ON+에서 이 PC 보기 ----
@@ -252,6 +317,8 @@ internal sealed class TrayApp : ApplicationContext
     {
         _signInCts?.Cancel();
         _stop.Cancel();
+        _cornerWatcher.Dispose();
+        _desktopTile.Dispose();
         CloseDoor();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
@@ -353,13 +420,72 @@ internal sealed class TrayApp : ApplicationContext
     {
         _signInCts?.Cancel();
         _stop.Cancel();
+        _cornerWatcher.Dispose();
+        _desktopTile.Dispose();
         CloseDoor();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
         ExitThread();
     }
 
-    // ---- waiting items from older versions ----
+    // ---- the drop boxes ----
+
+    /// <summary>A click on a drop box: pick files with the usual Windows window, then the same gate as a drop.</summary>
+    public void PickFiles(IWin32Window? owner)
+    {
+        using var dialog = new OpenFileDialog { Multiselect = true, Title = "WORK ON+로 올릴 파일 고르기", CheckFileExists = true };
+        if (dialog.ShowDialog(owner) != DialogResult.OK || dialog.FileNames.Length == 0) return;
+        if (Submit(dialog.FileNames.Select(DropSource.FromPath).ToList(), "", owner))
+            ShowQueued($"파일 {dialog.FileNames.Length}개");
+    }
+
+    /// <summary>The small notice after a drop: sending now, or waiting for the login.</summary>
+    public void ShowQueued(string what)
+    {
+        if (_auth.State == AuthState.SignedIn) ToastForm.Show($"WORK ON+로 보내는 중 ({what})");
+        else ToastForm.Show($"담아 뒀어요 ({what}). 트레이 메뉴에서 로그인하면 보내요.", true);
+    }
+
+    /// <summary>The one gate both drop boxes use. Returns true when something was queued.</summary>
+    public bool Submit(IReadOnlyList<DropSource> sources, string text, IWin32Window? owner)
+    {
+        var title = TrayStatus.Name;
+        var plan = _drop.Inspect(sources, text);
+        if (plan.Problems.Count > 0)
+        {
+            var lines = string.Join("\n", plan.Problems.Select(Messages.Problem));
+            if (!plan.CanCommit)
+            {
+                MessageBox.Show(owner, lines, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            if (MessageBox.Show(owner, lines + "\n\n나머지만 보낼까요?", title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                return false;
+        }
+        if (plan.Risky.Count > 0 && MessageBox.Show(owner,
+                "프로그램 파일로 보이는 것이 있어요:\n" + string.Join("\n", plan.Risky) + "\n\n그래도 보낼까요?",
+                title, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            return false;
+        if (plan.Duplicates.Count > 0 && MessageBox.Show(owner,
+                "이미 보낸 파일이에요:\n" + string.Join("\n", plan.Duplicates) + "\n\n또 보낼까요?",
+                title, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            return false;
+
+        IReadOnlyList<QueueItem> items;
+        try { items = _drop.Commit(plan); }
+        catch (IOException)
+        {
+            MessageBox.Show(owner, "대기열에 담지 못했어요. 디스크 공간을 확인해 주세요.", title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            _log.Write(LogCode.Error);
+            return false;
+        }
+        _log.Write(LogCode.Enqueued, items.Count);
+        Kick();
+        RefreshTray();
+        return items.Count > 0;
+    }
+
+    // ---- waiting items ----
 
     public void ShowStatus()
     {

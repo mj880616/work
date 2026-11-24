@@ -12,6 +12,8 @@ public enum LogCode
     DoorWrote, DoorTrashed,
     // FILES-내PC쓰기: a rename, new folder, move or copy inside this PC finished. Never a path.
     DoorEdited,
+    // S69-31: something dropped on the corner box or the desktop tile went into the queue (count = memos).
+    Enqueued,
 }
 
 public interface ILog

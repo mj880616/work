@@ -33,7 +33,7 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void A_settings_file_from_an_older_version_loads_and_drops_the_removed_entrance_values_on_save()
+    public void A_settings_file_from_an_older_version_loads_and_drops_the_removed_hotkey_value_on_save()
     {
         Directory.CreateDirectory(_dir);
         File.WriteAllText(PathOf, "{\"Hotkey\":\"CtrlQ\",\"Corner\":\"Off\",\"DesktopTile\":false,\"DesktopTileX\":10,\"DesktopTileY\":20,\"AutoStart\":false,\"AutoStartDecided\":true,\"WebDoor\":true}");
@@ -44,7 +44,10 @@ public class SettingsStoreTests : IDisposable
         Assert.False(s.LegacyEntriesCleaned);
         store.Save(s);
         var text = File.ReadAllText(PathOf);
-        foreach (var gone in new[] { "Hotkey", "Corner", "DesktopTile" }) Assert.DoesNotContain(gone, text);
+        Assert.DoesNotContain("Hotkey", text);
+        // S69-31: the corner box and desktop tile are back, so their values are kept.
+        Assert.Contains("\"Corner\"", text);
+        Assert.Contains("\"DesktopTileX\":10", text);
     }
 
     [Fact]
