@@ -11,6 +11,7 @@
 
 // 대상 종류 → 출처 꼬리표·거르기 묶음. news·outside는 둘 다 '읽을 거리'(기사·성명 화면) 한 칩.
 // brief(브리핑 룸 자료)는 DB가 받기만 하고 아직 쓰는 화면이 없다(브리핑 [답글]은 지금처럼 노트 한 장 — S69-95에서 옮김).
+import {word} from './brand/brand.mjs'; // S69-95: 얼굴(기록+·노조+)과 사람마다 고친 이름을 따르는 메뉴 낱말
 export const MEMO_TARGETS = Object.freeze({
   note: Object.freeze({label: '노트', group: 'note'}),
   news: Object.freeze({label: '읽을 거리', group: 'feed'}),
@@ -18,8 +19,8 @@ export const MEMO_TARGETS = Object.freeze({
   reading: Object.freeze({label: '저장한 글', group: 'reading'}),
   brief: Object.freeze({label: '브리핑', group: 'brief'}),
   document: Object.freeze({label: '자료실', group: 'document'}),
-  meeting: Object.freeze({label: '사업 보고', group: 'meeting'}),
-  org_record: Object.freeze({label: '담당조직', group: 'org'}),
+  meeting: Object.freeze({label: word('사업 보고'), group: 'meeting'}),
+  org_record: Object.freeze({label: word('담당조직'), group: 'org'}),
   telegram: Object.freeze({label: '텔레그램', group: 'telegram'}),
 });
 export const MEMO_TYPES = Object.freeze(Object.keys(MEMO_TARGETS));
@@ -31,8 +32,8 @@ export const MEMO_GROUPS = Object.freeze([
   Object.freeze({key: 'reading', label: '저장한 글'}),
   Object.freeze({key: 'brief', label: '브리핑'}),
   Object.freeze({key: 'document', label: '자료실'}),
-  Object.freeze({key: 'meeting', label: '사업 보고'}),
-  Object.freeze({key: 'org', label: '담당조직'}),
+  Object.freeze({key: 'meeting', label: word('사업 보고')}),
+  Object.freeze({key: 'org', label: word('담당조직')}),
   Object.freeze({key: 'telegram', label: '텔레그램'}),
 ]);
 // 표의 검사와 같은 숫자(app_memos_body_check·target_title_check·quote_check).
