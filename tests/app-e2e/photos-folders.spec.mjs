@@ -174,7 +174,7 @@ for (const width of [412, 884, 1440]) {
       await root(page).locator('[data-photos-fx-more="S2"]').click();
     }
     await expect(fm).toBeVisible();
-    await expect(fm.locator('button')).toHaveText([...(wide ? ['이 폴더로 들어가기'] : []), '새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '위로', '삭제']); // UI-폴더누르기한규칙: PC 나무 ⋯ 메뉴 맨 위 [이 폴더로 들어가기]
+    await expect(fm.locator('button')).toHaveText(['이 폴더로 들어가기', '새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '위로', '삭제']); // UI-폴더누르기한규칙·UI-폴더이름펼치기(11/24): PC·폰 나무 ⋯ 메뉴 맨 위 [이 폴더로 들어가기]
     await page.keyboard.press('Escape');
     await expect(fm).toBeHidden();
     // + 새 폴더: 지금 폴더(PC 2026, 폰 맨 위 카메라) 안에. 이름 줄에 쓰고 Enter.

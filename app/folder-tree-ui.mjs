@@ -12,6 +12,7 @@ import {folderIndent} from './folder-limits.mjs';
 import {folderShapeHtml, colorOf} from './folder-look-model.mjs';
 import {chevHtml} from './fold-chevron.mjs';
 import {partStyles} from './part-styles.js';
+import {emptyHtml} from './wait-state.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('folder-tree-ui');
 
@@ -67,6 +68,11 @@ export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0,
 // hint: 두 손가락 안내를 붙일지(손가락 화면에서만 보임).
 export function ftMoreRowHtml({rest, depth = 1, attrs = {}, hint = true} = {}) {
   return `<button type="button" class="ft-btn ft-row ft-more-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${esc(rest)}개 더 보기${hint ? `<span class="ft-hint"> · ${FT_PINCH_HINT}</span>` : ''}</button>`;
+}
+
+// UI-폴더이름펼치기(명진 11/24 18:09): 그 자리 펼치는 목록에서 빈 폴더를 펼치면 그 아래 '빈 폴더' 한 줄(들어가지 않는다). attrs: 그 화면의 표시(예 data-ft-parent).
+export function ftEmptyRowHtml({depth = 1, attrs = {}} = {}) {
+  return `<div class="ft-row ft-item ft-empty-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${emptyHtml('빈 폴더')}</div>`;
 }
 
 // 휴지통 줄(상자 맨 아래 회색). count 없으면 숫자 없음.

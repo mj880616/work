@@ -85,7 +85,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     await page.keyboard.press('Escape');await expect(page.locator('#documentModal')).toBeHidden();
     // 나무 폴더 줄 우클릭 = 오른쪽 폴더 줄 ⋯와 같은 메뉴, [이름 바꾸기]는 그 나무 줄에서 바로.
     await page.locator(nav('fn')).click({button:'right'});
-    await expect(folderMenu(page)).toBeVisible();await expect(folderMenu(page).locator('button').first()).toContainText('이름 바꾸기');
+    await expect(folderMenu(page)).toBeVisible();await expect(folderMenu(page).locator('button').first()).toContainText('이 폴더로 들어가기');await expect(folderMenu(page).locator('button').nth(1)).toContainText('이름 바꾸기'); // UI-폴더이름펼치기: 첫 줄 = 들어가기
     await expect(areaMenu(page)).toBeHidden();
     await folderMenu(page).getByRole('button',{name:/이름 바꾸기/}).click();
     const input=page.locator('#libraryFolderNav input.lu-fnav-rename');await expect(input).toBeFocused();

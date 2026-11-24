@@ -8,6 +8,7 @@ import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-lim
 // FOLDER-나무새기준(S51-12): 폴더 그림(닫힌/열린)·'n개 더 보기' 줄은 노트·파일·사진과 같은 공용 부품(folder-tree-ui.mjs). 점(●)은 그리지 않는다.
 import {ftIconHtml,ftMoreRowHtml} from './folder-tree-ui.mjs';
 import {treeIconHtml} from './tree-icons.js';
+import {emptyHtml} from './wait-state.js';
 import {word as brandWord} from './brand/brand.mjs';
 export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
 export const GROUP_LABELS=Object.freeze({project:brandWord('사업영역'),organization:brandWord('담당조직'),category:'분류',month:'월별',folder:'폴더'});
@@ -188,7 +189,9 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
     const all=showAll(n.key),files=all?rows:rows.slice(0,FILE_LIMIT),rest=rows.length-files.length;
     return files.map(d=>fileHtml(d,n)).join('')+(rest>0?ftMoreRowHtml({rest,depth:0,attrs:{'data-lu-more':n.key},hint:n.kind==='folder'}).replace('class="ft-btn ft-row ft-more-row"','class="ft-btn ft-row ft-more-row lu-more-row"'):'')+(photos.length&&photoTail?photoTail(n,photos):'');
   };
-  const body=n=>n.children.map(one).join('')+filesOf(n);
+  // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기 = 늘 그 자리 펼치기·접기라, 안이 빈 폴더를 펼치면 안에 '빈 폴더' 한 줄(들어가지 않음).
+  const emptyIn=n=>n.kind==='folder'&&!n.children.length&&!n.files.length?`<div class="lu-node-empty">${emptyHtml('빈 폴더')}</div>`:'';
+  const body=n=>n.children.map(one).join('')+filesOf(n)+emptyIn(n);
   const one=n=>{const rest=folderChain(n);return `<details class="lu-node" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${rest.length?` data-lu-chain="${esc(rest.map(c=>c.key).join(' '))}"`:''} style="--lu-depth:${folderIndent(n.depth)}"${isOpen(n.key)?' open':''}>${head(n)}<div class="lu-node-body">${body(n)}</div></details>`};
   // 탐색기 줄: 외줄 폴더를 '가 › 나'로 줄이지 않고(누르면 그 폴더 하나로 들어가므로) 0단, 닫힌 채, 안쪽은 그리지 않는다.
   const enter=n=>{const m={...n,depth:0,chain:false};return `<details class="lu-node lu-enter" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}" data-lu-enter style="--lu-depth:0">${head(m)}<div class="lu-node-body"></div></details>`};

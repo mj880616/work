@@ -324,9 +324,14 @@ test('phone 390: 나무에서 그 자리 펼치기 → 두 손가락 그 폴더�
   await expect(noteRow(page, 'n2')).toBeVisible();
   await expect(noteRow(page, 'n1')).toHaveCount(0);
   // 폰 '그 폴더만'은 위치를 [‹] 줄 안에 보이고 따로 위치 줄을 두지 않는다.
-  // OPS-빠진일2차 1(S59-17): 그 안 하위 폴더 중 하위 폴더가 없는 폴더(하위)는 누르면 한 번에 그 폴더를 연다(하위 폴더가 있으면 그 자리 펼침).
+  // UI-폴더이름펼치기(명진 11/24 18:09, 전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 열기'를 대신함): 그 안 빈 폴더(하위)도 누르면 그 자리 펼침('빈 폴더' 한 줄),
+  // 한 단계 더 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기].
   await expect(page.locator('[data-nx-where]')).toBeHidden();
   await press(page, page.locator(`#noteRows [data-nx-open="${U(3)}"]`), 390);
+  await expect(page.locator(`#noteRows .ft-empty-row[data-ft-parent="${U(3)}"]`)).toContainText('빈 폴더');
+  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-anc')).toHaveText('노트›');
+  await press(page, page.locator(`#noteRows [data-nx-folder-more="${U(3)}"]`), 390);
+  await page.locator('#noteDocMenu [data-nx-enter]').click();
   await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-anc')).toHaveText('노트›회의›');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   // [‹] = 나무로(펼친 자리 그대로).

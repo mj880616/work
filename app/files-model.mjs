@@ -699,6 +699,8 @@ export function boxRows({source, children = new Map(), files = new Map(), open =
       const o = open.has(key);
       out.push({type: 'folder', source, id: f.item_id, name: f.name, key, parent: folderKey(source, parent), depth, open: o, hasContent: has, known});
       if (o) { walk(f.item_id, depth + 1); fileRows(f.item_id, depth + 1); }
+      // UI-폴더이름펼치기(명진 11/24 18:09): 펼친 빈 폴더는 안에 '빈 폴더' 한 줄(누르면 들어가지 않고 그 자리에서 펼쳐 보인다).
+      if (o && known && !has) out.push({type: 'empty', source, key, parent: key, depth: depth + 1});
     }
   };
   walk(null, 0);

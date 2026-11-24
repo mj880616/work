@@ -219,3 +219,53 @@ for (const [name, open] of HEAD_SCREENS) test(`H1 ${name} 폰 390: 머리 줄 �
   expect(over).toBeLessThanOrEqual(1);
   expect(s.errors).toEqual([]);
 });
+
+// T5(UI-폴더이름펼치기, 명진 11/24 18:09): 그 자리 펼치는 폰 목록의 폴더 이름 누르기 = 펼치기·접기만(빈 폴더도 '빈 폴더' 한 줄, 주소 그대로),
+// 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]. 새 그 자리 펼치는 목록이 생기면 PRESS_SCREENS에 한 줄 더한다.
+const EMPTY_OD = { source: 'od', item_id: 'OD!19', parent_id: 'OD!1', name: '가상 빈 폴더', is_folder: true, mime: null, size_bytes: null, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null };
+async function libraryPress(page, width) {
+  const { errors } = await library(page, width);
+  const d = page.locator('#documentList details[data-lu-node="f:f0"]');
+  return { errors, press: () => d.locator(':scope > summary').click(), open: () => d.evaluate(x => x.open), empty: d.locator('.lu-node-empty'),
+    more: d.locator(':scope > summary [data-lu-node-menu]'), panel: page.locator('#luFolderMenu') };
+}
+async function notesPress(page, width) {
+  const { errors } = await notes(page, width);
+  const row = page.locator(`#noteRows [data-nx-folder="${U(100)}"]`);
+  return { errors, press: () => row.locator('.ft-main').click(), open: async () => (await row.locator('.ft-main').getAttribute('aria-expanded')) === 'true',
+    empty: page.locator(`#noteRows .ft-empty-row[data-ft-parent="${U(100)}"]`), more: page.locator(`#noteRows [data-nx-folder-more="${U(100)}"]`), panel: page.locator('#noteDocMenu') };
+}
+async function photosPress(page, width) {
+  const { errors } = await photos(page, width);
+  const main = page.locator('#photosRoot [data-photos-ftog="o:S0"]');
+  return { errors, press: () => main.click(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+    empty: page.locator('#photosRoot .ft-empty-row[data-ft-parent="o:S0"]'), more: page.locator('#photosRoot [data-photos-fx-more="S0"]'), panel: page.locator('#photosFolderMenu') };
+}
+async function filesPress(page, width) {
+  const { errors, server } = await startFiles(page, width);
+  server.items.push(structuredClone(EMPTY_OD));
+  await openFiles(page, width);
+  const tree = page.locator('#filesRoot [data-fx-tree]');
+  await tree.locator('[data-fx-tog="od:OD!1"]').click();
+  const main = tree.locator('[data-fx-tog="od:OD!19"]');
+  await expect(main).toBeVisible();
+  return { errors, press: () => main.click(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+    empty: tree.locator('.ft-empty-row[data-ft-parent="od:OD!19"]'), more: tree.locator('[data-fx-fold="od:OD!19"] [data-fx-tmenu]'), panel: page.locator('#rowMenu') };
+}
+const PRESS_SCREENS = [['자료실', libraryPress], ['파일', filesPress], ['노트', notesPress], ['사진', photosPress]];
+for (const [name, open] of PRESS_SCREENS) test(`T5 ${name} 폰 390: 폴더 이름 누르기 = 그 자리 펼치기·접기(빈 폴더 한 줄, 주소 그대로), 들어가기는 ⋯ 첫 줄`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page, 390);
+  const url0 = page.url();
+  await s.press();
+  await expect.poll(s.open).toBe(true);
+  await expect(s.empty).toContainText('빈 폴더');
+  expect(page.url()).toBe(url0);
+  await s.press();
+  await expect.poll(s.open).toBe(false);
+  await expect(s.empty).toBeHidden();
+  await s.more.click();
+  await expect(s.panel.locator('button').first()).toHaveText('이 폴더로 들어가기');
+  expect(page.url()).toBe(url0);
+  expect(s.errors).toEqual([]);
+});

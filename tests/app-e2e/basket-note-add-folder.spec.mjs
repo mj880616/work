@@ -97,7 +97,9 @@ for (const width of [1280, 412]) test(`folder ⋯ [새 노트] opens the new not
   const win = page.locator('#edWindow');
   await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
   await press(page, page.locator(`[data-nx-folder-more="${U(2)}"]`).first(), width);
-  await expect(page.locator('#noteDocMenu button').first()).toHaveText('새 노트');
+  // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 ⋯ 첫 줄은 [이 폴더로 들어가기], 그다음 [새 노트].
+  await expect(page.locator('#noteDocMenu button').first()).toHaveText('이 폴더로 들어가기');
+  await expect(page.locator('#noteDocMenu button').nth(1)).toHaveText('새 노트');
   await press(page, page.locator('#noteDocMenu [data-nx-new-note]'), width);
   await expect(page.locator('#noteDocMenu')).toBeHidden();
   await expect(win).toBeVisible();
