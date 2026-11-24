@@ -92,7 +92,8 @@ test('note board mindmap db: precheck, apply, parent same board, cascade, ranges
    await assert.rejects(owner(c=>c.query(ins,node(WS_A,'all','남 아래',{parent:tB}))),{code:'23503'});
    await assert.rejects(owner(c=>c.query(ins,node(WS_B,'all','남의 공간',{parent:tB}))),/row-level security/);
    await assert.rejects(stranger(c=>c.query(ins,node(WS_A,'all','남',{parent:rootId}))),/row-level security/);
-   assert.equal((await stranger(c=>c.query('update public.app_note_board_texts set color=1'))).rowCount,0);
+   // 남(다른 작업공간 주인)은 이 작업공간 상자를 고치지 못한다(자기 작업공간 상자는 별개).
+   assert.equal((await stranger(c=>c.query('update public.app_note_board_texts set color=1 where workspace_id=$1',[WS_A]))).rowCount,0);
    await assert.rejects(as('anon','',c=>c.query('update public.app_note_board_texts set color=1')),/permission denied/);
    await assert.rejects(server(c=>c.query('select parent_id from public.app_note_board_texts')),/permission denied/);
   });
