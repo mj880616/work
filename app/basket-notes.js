@@ -94,7 +94,7 @@ import { tagChipsHtml, createTagPick } from './note-tag-field.js';
 import { memoText, memoRows, memoGroupsPresent, keepMemoGroup } from './memo-model.mjs';
 import { memosNow, memoState, loadMemos, onMemos, memoExists, resetMemos } from './memo-store.js';
 import { createMemoThread, memoRowHtml, memoChipsHtml } from './memo-thread.js';
-import { openMemoSource } from './memo-open.js';
+import { openMemoSource, memoLocked } from './memo-open.js';
 // NOTE-달력보기(S67-42): [달력] 보기 — 사업 관리 [달력]과 같은 달력 부품(report-views-model.mjs + rv-* 칸, month-cal.css), 기준은 만든 날.
 import { noteCalendarHtml, notesByDay, monthNow, navMonth } from './note-calendar.mjs';
 import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기
@@ -605,7 +605,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 원문이 없으면(지운 노트·삭제된 글) 메모는 남고 '원래 기록이 없어요'(링크만 꺼짐). 잠긴 폴더 노트의 메모는 글·제목 대신 '잠김'(누르면 잠금 풀기).
   const noteMemoTitle = m => { const n = notes.find(x => x.id === m.target_id); return n ? noteLineTitle(n) : m.target_title; };
   const noteMemoExists = m => (m.target_type === 'note' ? notes.some(x => x.id === m.target_id) : memoExists(m));
-  const noteMemoHidden = m => m.target_type === 'note' && pinLock.noteHidden(notes.find(x => x.id === m.target_id));
+  // S69-95: 텔레그램 메모는 텔레그램 잠금이 걸려 있으면 가린다(누르면 그 자리 잠금 풀기 창 — memo-thread.js data-lock-here).
+  const noteMemoHidden = m => (m.target_type === 'note' ? pinLock.noteHidden(notes.find(x => x.id === m.target_id)) : memoLocked(m));
   function paintCommentView(chipsBox, rowsBox) {
     chipsBox.setAttribute('aria-label', '메모 출처');
     chipsBox.hidden = false;
@@ -621,6 +622,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // [메모] 줄 누르기: 노트 메모는 이 화면에서 그 노트를 열고 그 메모로, 그 밖은 그 원문 화면으로(memo-open.js).
   function openMemoLine(id) {
     const m = memosNow().find(x => x.id === id); if (!m) return;
+    if (memoLocked(m)) return; // 잠금 풀기 창은 줄의 data-lock-here가 먼저 띄운다
     if (noteMemoHidden(m)) { pinLock.askNotes(); return; }
     openMemoSource(m, {exists:noteMemoExists, inPlace:o => { if (o.type !== 'note') return false; open(o.id); return true; }});
   }
