@@ -7,8 +7,8 @@ import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml, iconSvg } from './tree-icons.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
-import { ftExplorePress, ftBindTreeArrows, folderPressAction, FOLDER_PRESS_ENTER } from './folder-tree-press.mjs';
-import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW } from './folder-tree-ui.mjs';
+import { ftExplorePress, ftBindTreeArrows } from './folder-tree-press.mjs';
+import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, ftEmptyRowHtml, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { riseFromRow, sinkToRow, topOf } from './folder-focus-motion.js';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
 import { fillGestureArea, settleGestureAreas } from './gesture-fill.js';
@@ -264,7 +264,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const key = 'f:' + r.id, current = tree && at === r.id;
     // S51-25 FOLDER-PC나무: PC 왼쪽 나무는 줄 = 그 폴더 열기 + 펼침, 아이콘만 = 접기·펼치기(오른쪽은 그대로).
     // S69-27: PC 나무에도 폴더 바로 아래 노트가 보이므로(폰 나무와 같은 treeRows) 하위 폴더나 노트가 있으면 펼칠 것이 있다.
-    const pcTree = tree && !pick.active, kids = r.hasContent !== false;
+    // UI-폴더이름펼치기(11/24): 폰 그 자리 펼침은 빈 폴더도 펼친 표시(안에 '빈 폴더' 한 줄 — note-tree.mjs treeRows emptyRows).
+    const pcTree = tree && !pick.active, kids = r.hasContent !== false || (!pcTree && !!r.open);
     return ftFolderRowHtml({name:r.name, count:r.count, countLabel:`노트 ${r.count}개`, depth:r.depth || 0, open:pcTree ? !!r.open : r.open || current, hasContent:kids,
       toggle:pcTree ? {attrs:{'data-nx-tog':r.id}, label:`${r.name} ${r.open && kids ? '접기' : '펼치기'}`} : null,
       color:r.color, current, picked:isPicked(key), lead:pick.active ? pickBox(key) : '', tree, className:'nx-folder', tag:pinLock.folderLocked(r.id) && pinLock.notesHidden() ? LOCKED : '',
@@ -299,7 +300,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const shown = tags.slice(0, 2).map(t => `#${esc([...t].slice(0, 12).join(''))}`).join(' ');
     return `<span class="nx-tags" data-nx-tags><span class="a11y-only">태그: </span>${shown}${tags.length > 2 ? ` +${tags.length - 2}` : ''}</span>`;
   }
-  const rowHtml = (r, opts) => r.type === 'folder' ? folderRowHtml(r, opts) : r.type === 'outside' ? outsideRowHtml(r, opts) : r.type === 'more' ? moreRowHtml(r) : noteRowHtml(r);
+  const rowHtml = (r, opts) => r.type === 'folder' ? folderRowHtml(r, opts) : r.type === 'outside' ? outsideRowHtml(r, opts) : r.type === 'more' ? moreRowHtml(r)
+    : r.type === 'empty' ? ftEmptyRowHtml({depth:r.depth, attrs:{'data-ft-parent':r.parent}}) : noteRowHtml(r);
   function paintWhere() {
     const nav = host.querySelector('[data-nx-where]'), path = at ? folderPath(folders, at) : [];
     // NOTE-탐색기 후속 ⑧: 자료실과 같은 위치 줄 부품(folder-path.mjs, 모양 base-ui.css .fp-path). 17:45·17:55: 맨 위 폴더는 '개발 · 7' 한 줄로 충분해
@@ -460,7 +462,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (!m && isPaneAt(at)) rows = [];
       else if (m || !folders.length) rows = paneRows({folders, notes, folderOf, at, matches:m, phone:true, sort:sortList});
       else if (at === OUTSIDE) rows = paneRows({folders, notes, folderOf, at, phone:true, sort:sortList});
-      else rows = treeRows({folders, notes, folderOf, root:at, isOpen:id => openSet.has(id), sort:sortList, limit:at === null ? limit : () => Infinity}).map(r => ({...r, tree:true}));
+      else rows = treeRows({folders, notes, folderOf, root:at, isOpen:id => openSet.has(id), sort:sortList, limit:at === null ? limit : () => Infinity, emptyRows:true}).map(r => ({...r, tree:true}));
       const boxed = !m && folders.length > 0;
       // 얇은 구분 줄은 폴더 목록과 같은 상자 안일 때만(따로 선 상자면 상자 테두리가 이미 나눈다 — 줄 두 겹 없음).
       const news = !m && at === null && !pick.active ? newsMarks.navHtml({sep:boxed}) + noteTrash.navHtml() : '';
@@ -593,8 +595,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const lockItem = lockable ? [pinLock.folderLocked(folderId) ? ['data-nx-lock-folder', '잠금 해제'] : ['data-nx-lock-folder', '잠금']] : [];
       if (pinLock.notesHidden() && pinLock.folderCovered(folderId)) return [['data-nx-lock-open', '열기'], ...(pinLock.folderLocked(folderId) ? lockItem : [])];
       const step = folderStepState(folderId);
-      // NOTE-폴더메뉴새노트(11/07): 맨 위 [새 노트] — 기존 새 노트 창이 이 폴더가 골라진 채로 열린다(newNoteIn).
-      return [['data-nx-new-note', '새 노트'], ['data-nx-select', '선택'], ['data-nx-enter', '이 폴더로 들어가기'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-color', '색 선택…'],
+      // NOTE-폴더메뉴새노트(11/07): [새 노트](11/24부터 [이 폴더로 들어가기] 다음) — 기존 새 노트 창이 이 폴더가 골라진 채로 열린다(newNoteIn).
+      // UI-폴더이름펼치기(명진 11/24 18:09): 폰 폴더 이름 누르기는 그 자리 펼치기·접기만이라, 들어가기는 이 메뉴 첫 줄.
+      return [['data-nx-enter', '이 폴더로 들어가기'], ['data-nx-new-note', '새 노트'], ['data-nx-select', '선택'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-color', '색 선택…'],
         ...(step.up ? [['data-nx-folder-up', '위로']] : []), ...(step.down ? [['data-nx-folder-down', '아래로']] : []),
         ['data-nx-move-folder', '옮기기…'], ...lockItem, ['data-nx-delete-folder', '폴더 삭제', 'basket-menu-danger']] : [])];
     }
@@ -1798,9 +1801,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function pressFolder(id, e) {
     if (isPaneAt(id)) { if (!pick.active) enter(id); return; } // 'News에서' 두 줄·휴지통: 그 칸(폰은 '그 폴더만'처럼 한 겹)
     // FOLDER-나무새기준 ③: 폰 나무(첫 화면·그 폴더만 보기 모두)는 화면을 바꾸지 않고 그 자리에서 펼치기·접기(줄 어디를 눌러도). 그 폴더만 보기는 두 손가락 벌리기.
-    // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 펼쳐 보일 것(하위 폴더·그 폴더 노트)이 없는 폴더는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction, 두 손가락 벌리기와 같은 곳).
-    if (!wideList.matches && id !== RECENT && id !== OUTSIDE && !pick.active && folderById(id) && id !== at
-      && folderPressAction(folderSiblings(folders, {free:true, parentId:id}).length, notes.filter(n => folderOf(n) === id).length) === FOLDER_PRESS_ENTER) { pressEnter(id); return; }
+    // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 자리에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]·두 손가락 벌리기만
+    //  (전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 열기'는 없앴다).
     if (!wideList.matches && id !== RECENT && !(pick.active && id !== OUTSIDE)) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); return; }
     // S69-38: PC·폴드 오른쪽 칸의 하위 폴더 줄 = 그 폴더로 들어가기(왼쪽 나무가 따라 펼침·강조 — enter가 위 폴더들을 연다).
     if (wideList.matches && !pick.active && folderById(id)) { enter(id); return; }
@@ -1808,7 +1810,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (id === RECENT) { enter(null); return; }
     if (pick.active) { togglePick('f:' + id); }
   }
-  // 하위 폴더 없는 폴더 누르기 = 그 폴더 열기: 두 손가락 벌리기와 같은 길(PC·폴드 = 들어가기, 폰 첫 화면 = 돌아올 자리를 기억하고 그 폴더만, 폰 그 폴더만 안 = 그 안으로).
+  // 그 폴더 열기(PC·폴드 나무 이름 누르기 ftExplorePress): 두 손가락 벌리기와 같은 길(PC·폴드 = 들어가기, 폰 첫 화면 = 돌아올 자리를 기억하고 그 폴더만, 폰 그 폴더만 안 = 그 안으로).
   function pressEnter(id) {
     if (!id || !folderById(id)) return;
     if (wideList.matches) enter(id); else if (at === null) focusFolder(id); else enter(id);

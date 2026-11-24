@@ -72,7 +72,8 @@ export function placeNotes(notes, folders, folderOf) {
 // 찾는 중(query)이면 맞는 노트가 든 폴더만 열어 보인다. foldersOnly: PC 왼쪽 나무(노트 없이 폴더만).
 // FOLDER-나무새기준(S51-12): limit(폴더 id, OUTSIDE 포함) → 그 폴더에 처음 보일 노트 수(Infinity = 다). 넘치면 {type:'more'} 줄 하나(n개 더 보기).
 // 폴더 줄의 hasContent = 안에 폴더나 노트가 있나(없으면 늘 닫힌 그림).
-export function treeRows({folders, notes, folderOf, root = null, isOpen = () => false, matches = null, foldersOnly = false, sort = list => list, limit = () => Infinity}) {
+// emptyRows(UI-폴더이름펼치기 11/24): 펼친 빈 폴더 아래 {type:'empty'} 한 줄('빈 폴더') — 폰 그 자리 펼침 목록만 켠다.
+export function treeRows({folders, notes, folderOf, root = null, isOpen = () => false, matches = null, foldersOnly = false, sort = list => list, limit = () => Infinity, emptyRows = false}) {
   const {byFolder, total} = placeNotes(notes, folders, folderOf);
   const hits = matches ? new Map() : null;
   if (matches) {
@@ -87,6 +88,7 @@ export function treeRows({folders, notes, folderOf, root = null, isOpen = () => 
       const hasChildren = folderSiblings(folders, {free: true, parentId: f.id}).length > 0;
       rows.push({type: 'folder', id: f.id, name: f.name, depth, indent: folderIndent(depth), count: total.get(f.id) || 0, color: colorOf(f), open, hasChildren, hasContent: hasChildren || (total.get(f.id) || 0) > 0, parent});
       if (open) walk(f.id, depth + 1);
+      if (open && emptyRows && !foldersOnly && !hasChildren && !(total.get(f.id) || 0)) rows.push({type: 'empty', id: f.id, depth: depth + 1, indent: folderIndent(depth + 1), parent: f.id});
     }
     if (foldersOnly) return;
     if (parent === null && root === null) return; // 맨 위의 '폴더 밖' 노트는 맨 아래 따로

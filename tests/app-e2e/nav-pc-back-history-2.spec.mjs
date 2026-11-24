@@ -136,7 +136,9 @@ test('폰 412 자료실 폴더: 들어간 폴더는 겹 하나 — 뒤로 = 한 
  test.setTimeout(90000);
  const {errors}=await bootLibrary(page,412,{folders:LIB_FOLDERS,items:LIB_ITEMS});
  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
- await page.locator('#documentList details[data-lu-node="f:fn"] > summary').tap();
+ // UI-폴더이름펼치기(명진 11/24 18:09): 폰 폴더 이름 누르기는 그 자리 펼치기라 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기].
+ await page.locator('#documentList details[data-lu-node="f:fn"] > summary [data-lu-node-menu]').tap();
+ await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').tap();
  await expect.poll(()=>libHere(page)).toBe('가상 N');
  expect(await page.evaluate(()=>history.state?.kptuPick||null)).toBe(null);
  await page.goBack();

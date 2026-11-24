@@ -15,8 +15,8 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   starWant, starLabel, applyStars, boxRows, MEDIA_PREVIEW_MAX, HWP_PREVIEW_MAX, HWP_PREVIEW_PAGES, mediaMime, stepFile, pathCopyText, treeAcrossBig, treeAcrossTooBigText, treeBigAsk, treeDoneText, TREE_MOVE_NOTE,
   TREE_DEV_MOVE_NOTE, treeDevKeptText, treeDevDoneText, LIB_TREE_MAX, LIB_TREE_BYTES, libTreeTooBigText, UPLOAD_MAX_BYTES} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
-import {ftKeepPlace, ftBindTreeArrows, ftExplorePress, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, createLeafWait} from './folder-tree-press.mjs';
-import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {ftKeepPlace, ftBindTreeArrows, ftExplorePress, FOLDER_ENTER_LABEL} from './folder-tree-press.mjs';
+import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, ftEmptyRowHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
 import {followPane} from './follow-pane.js';
@@ -1162,7 +1162,7 @@ function treeFileHtml(r, depth, parent) {
 function treeFolderHtml(r) {
   const cnt = countOf(r.source, r.id), full = (state.children.get(r.parent) || []).find(x => x.item_id === r.id);
   if (full) state.treeRows.set(r.key, full);
-  return ftFolderRowHtml({name: r.name, count: cnt || null, depth: r.depth, open: r.open, hasContent: r.hasContent, color: folderLook.color(r.source, r.id),
+  return ftFolderRowHtml({name: r.name, count: cnt || null, depth: r.depth, open: r.open, hasContent: r.hasContent || r.open, color: folderLook.color(r.source, r.id), // 펼친 빈 폴더도 펼친 표시(안에 '빈 폴더' 한 줄)
     rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC && (!pcWrite() || !r.id) ? null : r.key}, mainAttrs: {'data-fx-tog': r.key},
     more: full ? {attrs: {'data-fx-tmenu': r.key, 'data-fx-tin': r.parent}, label: `${r.name} 폴더 메뉴`} : null});
 }
@@ -1199,6 +1199,7 @@ function phoneTreeHtml() {
     const loading = !shut && !state.children.has(folderKey(source, null));
     const body = loading ? waitHtml({rows: 2}) : rows.length ? rows.map(r => r.type === 'folder' ? treeFolderHtml(r) : r.type === 'photos'
       ? `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:${r.depth}" data-ft-parent="${esc(r.parent)}"${r.depth ? dropIn(r.parent) : ''}>${photoToggleHtml(r.rows.length, {open: state.photoOpen.has(r.key), attrs: ` data-fx-photos="${esc(r.key)}"`})}</div>` + fxTreePhotosHtml(r.rows, r.key, r.depth, r.parent)
+      : r.type === 'empty' ? ftEmptyRowHtml({depth: r.depth, attrs: {'data-ft-parent': r.parent, 'data-fx-drop': destOf(r.parent) ? r.parent : null}})
       : r.type === 'more'
       ? ftMoreRowHtml({rest: r.rest, depth: r.depth, attrs: {'data-fx-tmore': r.key, 'data-ft-parent': r.key}}) : treeFileHtml(r.row, r.depth, r.parent)).join('') : emptyHtml('빈 폴더');
     html += ftBoxHtml({head: `${treeIconHtml(source, {className: 'ft-box-ico'})}<span>${esc(SOURCE_NAME[source])}</span>`, collapsible: true, open: !shut, tail,
@@ -1595,7 +1596,7 @@ function paintFocus(p, list, drawn = '') {
 }
 // ---------- OPS-빠진일2차 1(명진 11/11 14:55 '가'): 목록 칸 폴더 누르기 = 그 자리 펼치기·접기(왼쪽 나무와 같은 규칙) ----------
 // UI-폴더누르기한규칙 "오른쪽도 왼쪽처럼"이 [파일] 목록 칸만 빠졌던 것(PR 2348 '남김'). 폴더 한 번 누르기 = 그 자리에서 하위 폴더·파일을 들여 보이기, 다시 누르기 = 접기.
-// 펼쳐 보일 것(하위 폴더·파일)이 없는 폴더는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction). 그 폴더만 보기(들어가기)는 우클릭 [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기.
+// UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 펼쳐 '빈 폴더' 한 줄(전의 '하위 없는 폴더는 한 번에 열기'는 없앰). 그 폴더만 보기(들어가기)는 ⋯·우클릭 [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기.
 // 펼친 폴더 안은 나무와 같은 읽기(state.children·state.files — loadChildren·fillFolder)를 쓰고, 그 칸 정렬 그대로 하위 폴더 → 파일 순서. 펼침은 칸마다 화면 메모리(p.xopen).
 // 찾기 결과·묶음(별표·큰 파일)은 여러 위치가 섞인 목록이라 지금처럼 누르면 들어간다.
 const xable = p => orderable(p) && two(); // S69-38: 그 자리 펼치기는 두 칸 보기 칸 안만
@@ -1686,30 +1687,11 @@ function xToggle(p, r) {
 // 목록 칸 폴더 줄 하나 누르기(마우스·손가락·Enter 같은 길).
 // S69-38 UI-탐색기나무누르기: 한 칸(PC·폴드 탐색기 오른쪽, 폰 '그 폴더만')은 하위 폴더를 누르면 그 폴더로 들어가고 왼쪽 나무가 따라 펼침·강조(goFolder → 위치 줄 폴더 펼침).
 // 오른쪽에 나무를 다시 그리지 않는다(그 자리 펼치기는 두 칸 보기 칸 안 목록만 — 지금 그대로).
+// UI-폴더이름펼치기(명진 11/24 18:09): 그 자리 펼치는 목록(두 칸 칸 안)의 폴더 이름 누르기 = 늘 펼치기·접기(빈 폴더도 펼쳐 '빈 폴더' 한 줄, 하위 폴더 수를 몰라도 펼치며 읽기).
+// 들어가기는 ⋯ [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기만(folder-tree-press.mjs 머리 설명).
 function pressListFolder(p, r) {
-  const enter = () => goFolder(r.source, r.item_id, p, {down: focusBox(p)});
-  if (!xable(p)) { enter(); return; }
-  const btn = inPane(p, `[data-fx-row="${CSS.escape(rowKey(r))}"]`);
-  pressFolder(r.source, r.item_id, {open: p.xopen.has(folderKey(r.source, r.item_id)), toggle: () => xToggle(p, r), enter, busy: btn, withFiles: true});
-}
-// [파일]의 폴더 누르기 판정 한 곳(PC·폴드 나무, 폰 나무, 목록 칸 — 한 칸·두 칸·폰 '그 폴더만').
-// 열려 있으면 접기. 하위 폴더 수를 알면 공용 판정(folderPressAction)대로 바로, 모르면 색인에서 먼저 읽고(나무 펼치기와 같은 loadChildren) 정한다 —
-// 하위 폴더가 없는 폴더가 펼쳐졌다가 들어가는 깜빡임 없이 한 번에 연다. 읽는 사이 다른 것을 누르면 이 누르기는 잊는다(pressWait).
-const pressWait = createLeafWait();
-// withFiles: 펼침에 파일까지 들여 보이는 곳(목록 칸·폰 나무)이면 파일도 '펼쳐 보일 것'으로 센다(폴더만 보이는 PC·폴드 나무는 하위 폴더만).
-function pressFolder(source, id, {open = false, toggle, enter, busy = null, withFiles = false}) {
-  pressWait.clear();
-  if (open) { toggle(); return; }
-  const fk = folderKey(source, id), shown = () => (withFiles ? (state.files.get(fk) || []).length : 0);
-  if (state.children.has(fk)) { if (folderPressAction((state.children.get(fk) || []).length, shown()) === FOLDER_PRESS_ENTER) enter(); else toggle(); return; }
-  pressWait.arm(fk);
-  busy?.setAttribute('aria-busy', 'true');
-  const scope = state.scope;
-  void loadChildren(source, id).then(() => {
-    busy?.removeAttribute('aria-busy');
-    if (pressWait.key !== fk || state.scope !== scope) return;
-    if (!pressWait.done(fk, (state.children.get(fk) || []).length, enter, shown())) toggle();
-  });
+  if (!xable(p)) { goFolder(r.source, r.item_id, p, {down: focusBox(p)}); return; }
+  xToggle(p, r);
 }
 // ---------- 미리보기 ----------
 const rowByKey = (key, p = P()) => (p.query ? p.found || [] : p.rows).find(r => rowKey(r) === key) || p.inline?.get(key) || null;
@@ -3952,7 +3934,7 @@ function toggle(key, box) {
 function activate(key) {
   const r = rowByKey(key);
   if (!r) return;
-  // OPS-빠진일2차 1: 목록 칸 폴더 누르기 = 그 자리 펼치기·접기, 하위 폴더가 없으면 그 폴더 열기(공용 판정). 파일은 지금처럼 고르기·미리보기.
+  // 목록 칸 폴더 누르기 = 두 칸 칸 안은 그 자리 펼치기·접기(UI-폴더이름펼치기), 한 칸 탐색기는 들어가기. 파일은 지금처럼 고르기·미리보기.
   if (r.is_folder) pressListFolder(P(), r); else selectRow(key);
 }
 const paneOfEl = el => frame.paneOf(el);
@@ -3973,7 +3955,6 @@ root?.addEventListener('click', event => {
   // 칸 머리 출처 목록: 목록 밖을 누르면 닫는다(목록 안 단추는 아래에서 처리).
   if (!event.target.closest('.fx-psrc-wrap')) paneSrcClose();
   if (!b || !root.contains(b)) return;
-  pressWait.clear(); // 폴더를 읽는 사이 다른 것을 누르면 그 폴더 누르기는 잊는다(아래 폴더 누르기가 다시 건다)
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   if (b.matches('[data-fx-row]')) {
     const key = b.dataset.fxRow, p = P();
@@ -4031,11 +4012,12 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-paste]')) { const d = hereDest(); if (state.clip && d) pasteClip(d, b); return; }
   if (b.matches('[data-fx-uncut]')) { uncut(); return; }
   // FOLDER-나무새기준 ②: 폰 나무(공용 줄) — 펼치기·접기, 상자 접기, n개 더 보기, 최근 더보기, 파일 미리보기, ⋯ 그 자리 메뉴(S51-22).
-  // OPS-빠진일2차 1: 폰 나무 폴더 누르기 = 그 자리 펼치기·접기(하위 폴더·파일까지), 펼쳐 보일 것이 없으면 그 폴더만(두 손가락 벌리기와 같은 곳) — 공용 판정.
+  // UI-폴더이름펼치기(명진 11/24 18:09): 폰 나무 폴더 누르기 = 늘 그 자리 펼치기·접기(하위 폴더·파일까지, 빈 폴더는 '빈 폴더' 한 줄).
+  //  그 폴더만 보기(들어가기)는 ⋯ [이 폴더로 들어가기]·두 손가락 벌리기만.
   if (b.matches('[data-fx-tog]')) {
-    const key = b.dataset.fxTog, box = b.closest('.nx-tree'), [source, ...rest] = key.split(':');
-    pressFolder(source, rest.join(':') || null, {open: state.open.has(key), busy: b, withFiles: true,
-      toggle: () => { toggle(key, box); root?.querySelector(`[data-fx-tog="${CSS.escape(key)}"]`)?.focus({preventScroll: true}); }, enter: () => focusTreeFolder(key)});
+    const key = b.dataset.fxTog;
+    toggle(key, b.closest('.nx-tree'));
+    root?.querySelector(`[data-fx-tog="${CSS.escape(key)}"]`)?.focus({preventScroll: true});
     return;
   }
   if (b.matches('[data-fx-box-tog]')) { toggleBoxShut('files', b.dataset.fxBoxTog); paintTree(); return; } // S52-14: 상자 접힘은 서버 view_prefs.box_shut(기기 종류별, box-fold.js)
@@ -4050,7 +4032,7 @@ root?.addEventListener('click', event => {
   // 접혀 있으면 펼침 — 공용 부품 ftExplorePress(자료실·노트·사진 나무와 같은 부품). 펼침 아이콘([data-fx-twist])은 펼치기·접기만.
   if (b.matches('[data-fx-go]')) {
     const source = b.dataset.fxGo, id = b.dataset.fxId || null;
-    if (!b.closest('[data-fx-ptree]') && b.matches('.ft-main') && b.closest('[data-fx-tree] .ft-row[data-fx-fold]')) { pressWait.clear(); ftExplorePress(b, () => goFolder(source, id)); return; }
+    if (!b.closest('[data-fx-ptree]') && b.matches('.ft-main') && b.closest('[data-fx-tree] .ft-row[data-fx-fold]')) { ftExplorePress(b, () => goFolder(source, id)); return; }
     goFolder(source, id); return;
   }
   if (b.matches('[data-fx-shelf]')) { goShelf(b.dataset.fxShelf); return; }
