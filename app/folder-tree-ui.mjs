@@ -70,9 +70,10 @@ export function ftMoreRowHtml({rest, depth = 1, attrs = {}, hint = true} = {}) {
 }
 
 // 휴지통 줄(상자 맨 아래 회색). count 없으면 숫자 없음.
-export function ftTrashRowHtml({count = null, attrs = {}, label = '휴지통'} = {}) {
+// S69-27: current = 지금 고른 줄(PC 나무 표시), tree = 나무 안 줄(role treeitem), countLabel = 숫자 읽는 말. 다른 사용처는 기본값 그대로.
+export function ftTrashRowHtml({count = null, attrs = {}, label = '휴지통', current = false, tree = false, countLabel = ''} = {}) {
   const icon = '<span class="ft-ico ft-ico-trash" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span>';
-  return `<div class="ft-row ft-trash ft-top"><button type="button" class="ft-btn ft-main"${attrsHtml(attrs)}>${icon}<span class="ft-name">${esc(label)}</span>${count === null || count === undefined ? '' : `<span class="ft-num">${esc(count)}</span>`}</button></div>`;
+  return `<div class="ft-row ft-trash ft-top${current ? ' ft-current' : ''}"${tree ? ' role="treeitem"' : ''}><button type="button" class="ft-btn ft-main"${attrsHtml(attrs)}${current ? ' aria-current="true"' : ''}>${icon}<span class="ft-name">${esc(label)}</span>${count === null || count === undefined || count === '' ? '' : `<span class="ft-num"${countLabel ? ` aria-label="${esc(countLabel)}"` : ''}>${esc(count)}</span>`}</button></div>`;
 }
 
 // 둥근 상자. head: 머리줄 HTML(없으면 머리 없음), body: 안 줄들. collapsible이면 머리가 접기 단추(toggleAttrs로 누름을 받는다).
