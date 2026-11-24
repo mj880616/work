@@ -108,7 +108,9 @@ test.describe('PC 1440', () => {
     await expect(child).toBeVisible(); await expect(tog).toHaveAttribute('aria-expanded', 'true');
     await expect.poll(noteRows).toEqual(['n1', 'n2', 'n3']);
     await expect(main).toBeFocused();
-    await main.click(); // 다시 눌러도 접히지 않는다
+    await main.click(); // 이미 들어간 폴더 이름을 다시 누르면 접힌다(명진 11/24 15:42)
+    await expect(child).toHaveCount(0); await expect(tog).toHaveAttribute('aria-expanded', 'false');
+    await main.click();
     await expect(child).toBeVisible();
     await tog.click();
     await expect(child).toHaveCount(0); await expect(tog).toHaveAttribute('aria-expanded', 'false');
