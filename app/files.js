@@ -17,7 +17,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
 import {ftKeepPlace, ftBindTreeArrows, ftExplorePress, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, createLeafWait} from './folder-tree-press.mjs';
 import {destSheetHtml} from './folder-dest-sheet.mjs'; // S69-62 폴더 고르기 창 하나(모양 공용)
-import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, ftTrashRowHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
 import {followPane} from './follow-pane.js';
@@ -1097,6 +1097,17 @@ function pcFolderRowHtml(r, curKey) {
     toggle: {attrs: {'data-fx-twist': r.key}, label: `${r.name} ${r.open && r.hasKids ? '접기' : '펼치기'}`},
     more: full ? {attrs: {'data-fx-tmenu': r.key, 'data-fx-tin': folderKey(r.source, r.parentId)}, label: `${r.name} 폴더 메뉴`} : null});
 }
+// S69-62 휴지통 보기: 구글 드라이브·원드라이브 상자 맨 아래 회색 '휴지통' 줄(공용 ftTrashRowHtml). 누르면 그 클라우드 휴지통 창(files-trash.js).
+const trashRowHtml = source => (SOURCES.includes(source) ? ftTrashRowHtml({attrs: {'data-fx-cloud-trash': source, 'aria-haspopup': 'dialog'}, label: '휴지통'}) : '');
+async function openTrash(source, anchor) {
+  let mod;
+  try { mod = await import('./files-trash.js'); } catch { notify('휴지통을 열지 못했어요. 다시 해 주세요.', {error: true, record: false}); return; }
+  const top = (state.children.get(folderKey('od', null)) || []).find(r => r.is_folder && r.name === mod.OD_PHOTO_TRASH);
+  mod.openCloudTrash({source, anchor, errorText: e => errorText(codeOf(e)), odPhotoTrash: source === 'od' ? top?.item_id || null : null,
+    openFolder: id => goFolder('od', id),
+    // 되살린 파일은 원래 폴더로 돌아온다: 그 폴더(읽어 둔 곳만)와 지금 보는 목록을 다시 그린다.
+    onRestored: d => applyWrite(d, [...new Set((d?.changed || []).map(x => folderKey(x.source, x.parent_id || null)))])});
+}
 function treeHtml(p) {
   state.treeRows = new Map();
   const w = p.where, curKey = !p.query && w ? (w.shelf ? 'shelf:' + w.shelf : folderKey(w.source, w.parent)) : '';
@@ -1115,7 +1126,7 @@ function treeHtml(p) {
     const shut = boxShut('files', source);
     const mine = shut ? [] : rows.filter(r => r.type === 'folder' && r.source === source).map(r => { parents[r.depth] = r.id; return {...r, parentId: r.depth > 1 ? parents[r.depth - 1] : null}; });
     const loading = !shut && !state.children.has(folderKey(source, null));
-    const body = loading ? waitHtml({rows: 2}) : mine.length ? mine.map(r => pcFolderRowHtml(r, curKey)).join('') : emptyHtml('빈 폴더');
+    const body = (loading ? waitHtml({rows: 2}) : mine.length ? mine.map(r => pcFolderRowHtml(r, curKey)).join('') : emptyHtml('빈 폴더')) + (shut || loading ? '' : trashRowHtml(source));
     const here = curKey === folderKey(source, null);
     html += ftBoxHtml({head: `${treeIconHtml(source, {className: 'ft-box-ico'})}<span>${esc(SOURCE_NAME[source])}</span>`, collapsible: true, open: !shut,
       tail: `<button type="button" class="ft-btn ft-box-more fx-box-top${here ? ' fx-here' : ''}" data-fx-go="${esc(source)}" data-fx-id=""${here ? ' aria-current="true"' : ''} aria-label="${esc(SOURCE_NAME[source])} 맨 위 열기">맨 위</button>`,
@@ -1197,10 +1208,11 @@ function phoneTreeHtml() {
     const rows = shut ? [] : boxRows({source, children: state.children, files: state.files, open: state.open, more: state.more, order: lookOrder, limit: FT_PREVIEW, isPhoto: isFxPhoto});
     const tail = !syncPut && SOURCES.includes(source) && sync ? (syncPut = true, sync) : '';
     const loading = !shut && !state.children.has(folderKey(source, null));
-    const body = loading ? waitHtml({rows: 2}) : rows.length ? rows.map(r => r.type === 'folder' ? treeFolderHtml(r) : r.type === 'photos'
+    const body = (loading ? waitHtml({rows: 2}) : rows.length ? rows.map(r => r.type === 'folder' ? treeFolderHtml(r) : r.type === 'photos'
       ? `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:${r.depth}" data-ft-parent="${esc(r.parent)}"${r.depth ? dropIn(r.parent) : ''}>${photoToggleHtml(r.rows.length, {open: state.photoOpen.has(r.key), attrs: ` data-fx-photos="${esc(r.key)}"`})}</div>` + fxTreePhotosHtml(r.rows, r.key, r.depth, r.parent)
       : r.type === 'more'
-      ? ftMoreRowHtml({rest: r.rest, depth: r.depth, attrs: {'data-fx-tmore': r.key, 'data-ft-parent': r.key}}) : treeFileHtml(r.row, r.depth, r.parent)).join('') : emptyHtml('빈 폴더');
+      ? ftMoreRowHtml({rest: r.rest, depth: r.depth, attrs: {'data-fx-tmore': r.key, 'data-ft-parent': r.key}}) : treeFileHtml(r.row, r.depth, r.parent)).join('') : emptyHtml('빈 폴더'))
+      + (shut || loading ? '' : trashRowHtml(source));
     html += ftBoxHtml({head: `${treeIconHtml(source, {className: 'ft-box-ico'})}<span>${esc(SOURCE_NAME[source])}</span>`, collapsible: true, open: !shut, tail,
       toggleAttrs: {'data-fx-box-tog': source}, attrs: {'data-fx-box': source}, label: SOURCE_NAME[source], body});
   }
@@ -4029,6 +4041,7 @@ root?.addEventListener('click', event => {
       toggle: () => { toggle(key, box); root?.querySelector(`[data-fx-tog="${CSS.escape(key)}"]`)?.focus({preventScroll: true}); }, enter: () => focusTreeFolder(key)});
     return;
   }
+  if (b.matches('[data-fx-cloud-trash]')) { void openTrash(b.dataset.fxCloudTrash, b); return; } // S69-62 휴지통 보기
   if (b.matches('[data-fx-box-tog]')) { toggleBoxShut('files', b.dataset.fxBoxTog); paintTree(); return; } // S52-14: 상자 접힘은 서버 view_prefs.box_shut(기기 종류별, box-fold.js)
   if (b.matches('[data-fx-tmore]')) { state.more.add(b.dataset.fxTmore); paintTree(); return; }
   if (b.matches('[data-fx-recent-more]')) { state.recentAll = !state.recentAll; paintTree(); return; }

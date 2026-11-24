@@ -35,7 +35,7 @@ function world({gdConn={[WS]:'synthetic-gd-refresh'},gdScope=FULL,odScope='Files
   next:[],gone410:false};
  const calls=[],writes=[],uploads={},ticks=[],pending=[];let jobN=0;
  const odItem=id=>od.pages[0].find(x=>x.id===id);
- const gdFile=id=>gd.pages.flat().find(x=>x.id===id);
+ const gdFile=id=>[...gd.pages.flat(),...(gd.trash||[])].find(x=>x.id===id);
  const hashOf=(alg,bytes)=>createHash(alg).update(bytes).digest('hex');
  const ok=(v,status=200,headers={})=>new Response(v===null?null:JSON.stringify(v),{status,headers:{'content-type':'application/json',...headers}});
  const T={app_cloud_items:'items',app_cloud_sync:'sync',app_cloud_stars:'stars',app_onedrive_connections:'conn',app_cloud_jobs:'jobs',app_cloud_job_uploads:'jobup'};
@@ -126,9 +126,12 @@ function world({gdConn={[WS]:'synthetic-gd-refresh'},gdScope=FULL,odScope='Files
     gd.cp=(gd.cp||0)+1;const f={...src,id:'GCP'+gd.cp,name:b.name,parents:b.parents,trashed:false};(gd.made||=[]).push(f);return ok(f);}
    const wm=/^\/files\/([A-Za-z0-9_-]+)$/.exec(P);
    if(wm&&method==='PATCH'){const f=gdFile(wm[1]);assert.ok(f,'patch known file');const b=JSON.parse(init.body);
-    if(b.name)f.name=b.name;if(b.trashed===true)f.trashed=true;
+    if(b.name)f.name=b.name;if(b.trashed===true)f.trashed=true;if(b.trashed===false)f.trashed=false;
     if(u.searchParams.get('addParents')){assert.deepEqual(u.searchParams.get('removeParents').split(','),f.parents);f.parents=[u.searchParams.get('addParents')];}
     return ok({...f});}
+   if(wm&&method==='GET'&&u.searchParams.get('fields')==='id,trashed,ownedByMe'){const f=gdFile(wm[1]);if(!f)return ok({error:{}},404);return ok({id:f.id,trashed:f.trashed===true,ownedByMe:f.ownedByMe});}
+   if(P==='/files'&&u.searchParams.get('q')==="'me' in owners and trashed=true"){gd.trashLists=(gd.trashLists||0)+1;assert.equal(u.searchParams.get('pageSize'),'100');const tok=u.searchParams.get('pageToken');const all=(gd.trash||[]).filter(f=>f.trashed===true);const i=tok?Number(tok):0;
+    return ok({files:all.slice(i,i+2),...(i+2<all.length?{nextPageToken:String(i+2)}:{})});}
    if(wm&&u.searchParams.get('fields')==='parents,ownedByMe'){const f=gdFile(wm[1]);return ok({parents:f.parents,ownedByMe:f.ownedByMe});}
    if(P==='/files'&&/ in parents/.test(u.searchParams.get('q')||'')){const m=/^'([^']+)' in parents and 'me' in owners and trashed=false$/.exec(u.searchParams.get('q'));assert.ok(m,'children q');
     return ok({files:(gd.children||[]).filter(f=>f.parents[0]===m[1])});}
@@ -361,7 +364,7 @@ test('static: no permanent delete, trash emptying, sharing links, permission or 
  assert.match(code,/od_trash", token, `\$\{GRAPH\}\/me\/drive\/items\/\$\{encodeURIComponent\(id\)\}`, "DELETE"\)/);
  assert.match(code,/gd_trash", token, `\$\{DRIVE\}\/files\/[^`]+`, "PATCH", \{ trashed: true \}\)/);
  // 모든 쓰기 action은 confirm:true를 먼저 본다.
- for(const a of ['rename','mkdir','move','trash','across','copy','job_add','job_pause','job_resume'])assert.match(code,new RegExp(`async ${a}\\(\\{[^}]*\\}\\) \\{\\n\\s*mustConfirm\\(b\\);`),a);
+ for(const a of ['rename','mkdir','move','trash','untrash','across','copy','job_add','job_pause','job_resume'])assert.match(code,new RegExp(`async ${a}\\(\\{[^}]*\\}\\) \\{\\n\\s*mustConfirm\\(b\\);`),a);
  // S62-11: 운영자 기능 키·단 하나 작업공간 판정 없음. 구글 갱신 토큰은 작업공간별 연결 행에서만.
  assert.doesNotMatch(code,/app_my_features|app_operator_feature_workspace|DRIVE_WORKSPACE_SLUG|kptu-work|feature_required"\)/);
  assert.doesNotMatch(code,/public_policy_drive_config[^"`]*google_refresh_token/);
@@ -1156,4 +1159,44 @@ test('S54-16: access tokens kept per source+workspace+refresh fingerprint; gate 
  // 연결을 끊으면(갱신 토큰 행 없음) 기억한 토큰이 있어도 거절한다.
  w.db.conn.length=0;
  assert.equal((await w.post({action:'media',source:'od',id:'OH!4'})).status,424);
+});
+
+// S69-62 휴지통 보기: 구글 휴지통 목록(읽기만, 내 파일·직접 지운 것만, 쪽 이어 받기) · 되살리기(confirm:true, 휴지통에 있는 내 파일만, 색인에 넣음) ·
+// 원드라이브는 목록 길이 없어 unsupported + 웹 휴지통 주소. 남의 작업공간 연결로 넘어가지 않는다. 영구 삭제·휴지통 비우기 길은 여전히 없다.
+test('trash: Google trash list (mine, explicitly trashed, paged), untrash only my trashed files with confirm, OneDrive = web link only',async()=>{
+ const w=world();
+ w.gd.trash=[
+  {id:'GT1',name:'지운 초안.pdf',mimeType:'application/pdf',parents:['GF1'],size:'34',trashed:true,explicitlyTrashed:true,trashedTime:'2026-11-20T01:00:00Z',ownedByMe:true},
+  {id:'GT2',name:'지운 폴더',mimeType:'application/vnd.google-apps.folder',parents:['ROOTG'],trashed:true,explicitlyTrashed:true,trashedTime:'2026-11-21T01:00:00Z',ownedByMe:true},
+  {id:'GT3',name:'폴더째 지운 안쪽',mimeType:'application/pdf',parents:['GT2'],size:'5',trashed:true,explicitlyTrashed:false,ownedByMe:true},
+  {id:'GT4',name:'남의 것',mimeType:'application/pdf',parents:['X'],trashed:true,explicitlyTrashed:true,ownedByMe:false},
+ ];
+ await w.post({action:'sync'});
+ const p1=await j(await w.post({action:'trash_list',source:'gd'}));
+ assert.equal(p1.status,200);
+ assert.deepEqual(p1.body.items,[{id:'GT1',name:'지운 초안.pdf',is_folder:false,size_bytes:34,trashed_at:'2026-11-20T01:00:00.000Z'},{id:'GT2',name:'지운 폴더',is_folder:true,size_bytes:null,trashed_at:'2026-11-21T01:00:00.000Z'}]);
+ assert.equal(p1.body.next,'2');
+ const p2=await j(await w.post({action:'trash_list',source:'gd',page:p1.body.next}));
+ assert.deepEqual(p2.body.items,[],'안쪽 파일·남의 파일은 목록에 없다');
+ assert.equal(p2.body.next,null);
+ assert.equal((await w.post({action:'trash_list',source:'gd',page:'bad page!'})).status,400);
+ assert.equal((await w.post({action:'trash_list',source:'xx'})).status,400);
+ assert.equal((await w.post({action:'trash_list',source:'gd'},'nope')).status,401);
+ // 다른 작업공간(구글 연결 없음)은 자기 연결이 없다는 오류 — 이 작업공간 휴지통을 보지 않는다.
+ const other=await j(await w.post({action:'trash_list',source:'gd'},JWT2));
+ assert.notEqual(other.status,200);
+ const od=await j(await w.post({action:'trash_list',source:'od'}));
+ assert.deepEqual(od.body,{ok:true,source:'od',unsupported:true,items:[],web:'https://onedrive.live.com/?v=recyclebin'});
+ // 되살리기: confirm 없으면 거절, 원드라이브 거절, 남의 파일·휴지통에 없는 파일은 실패로.
+ assert.deepEqual(await j(await w.post({action:'untrash',source:'gd',ids:['GT1']})),{status:400,body:{ok:false,error:'confirm_required'}});
+ assert.equal((await w.post({action:'untrash',source:'od',ids:['OX!3'],confirm:true})).status,400);
+ const n=w.writes.length;
+ const r=await j(await w.post({action:'untrash',source:'gd',ids:['GT1','GT4','GA'],confirm:true}));
+ assert.equal(r.status,200);
+ assert.deepEqual(r.body.changed.map(x=>x.item_id),['GT1']);
+ assert.deepEqual(r.body.failed.map(x=>[x.id,x.error]).sort(),[['GA','not_in_trash'],['GT4','not_in_trash']]);
+ const sent=w.writes.slice(n).filter(x=>x.host==='www.googleapis.com');
+ assert.deepEqual(sent.map(x=>[x.method,x.path,x.body]),[['PATCH','/drive/v3/files/GT1',{trashed:false}]]);
+ assert.equal(w.gd.trash[0].trashed,false);
+ assert.ok(w.db.items.some(x=>x.workspace_id===WS&&x.source==='gd'&&x.item_id==='GT1'&&x.parent_id==='GF1'&&x.trashed===false),'되살린 줄은 색인에 들어간다');
 });
