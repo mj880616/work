@@ -7,6 +7,8 @@
 // revision is kept in the "노조+ 편집 백업" folder (새 사용자는 "WORK ON+ 편집 백업", 옛 이름 "Web2 편집 백업"). Backups are never removed here,
 // and nothing is ever permanently deleted or retried after an unknown result.
 import { FOLDER_NAMES, NOJO_WORDS_FEATURE, driveQuoted, folderNameFor, keepOldFromFeatureWorkspace } from "./brand-folders.mjs";
+// S69-22: 편집 백업 폴더는 표식(kptu_app_folder=edit_backup)으로 찾고, 맨 위 또는 맨 위 앱 폴더 바로 아래 어디에 있어도 같은 폴더.
+import { APP_FOLDER_MARK, createParentFor, isDriveId, topParentsClause } from "./app-folders.mjs";
 type DbRequest = (path: string) => Promise<unknown>;
 type Deps = {
   db: DbRequest;
@@ -361,11 +363,23 @@ export function createHwpEdit(deps: Deps) {
   // 새 폴더를 더 만들지 않고, 안의 파일은 옮기거나 지우지 않는다.
   const keepOldNames = deps.keepOldNames ?? (async (workspaceId: string) =>
     keepOldFromFeatureWorkspace(await deps.db(`rpc/app_operator_feature_workspace?p_feature=${NOJO_WORDS_FEATURE}`), workspaceId));
+  // S69-22: 맨 위 앱 폴더 id(app_drive_settings.root_folder_id, 서버 키로 읽음). 못 읽으면 null(→ 내 드라이브 맨 위만, 지금 동작).
+  async function appRootOf(workspaceId: string): Promise<string | null> {
+    try {
+      const rows = await deps.db(`app_drive_settings?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=root_folder_id&limit=1`);
+      const id = Array.isArray(rows) ? rows[0]?.root_folder_id : null;
+      return isDriveId(id) ? id : null;
+    } catch {
+      return null;
+    }
+  }
   async function backupFolder(token: string, workspaceId: string) {
     const order = [BACKUP_FOLDER, WORKON_BACKUP_FOLDER, OLD_BACKUP_FOLDER];
+    const appRoot = await appRootOf(workspaceId);
+    const mark = `appProperties has { key='${APP_FOLDER_MARK}' and value='edit_backup' }`;
     const params = new URLSearchParams({
-      q: `(${order.map((name) => `name = '${driveQuoted(name)}'`).join(" or ")}) and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false`,
-      fields: "incompleteSearch,files(id,name,ownedByMe,trashed)",
+      q: `(${mark} or ${order.map((name) => `name = '${driveQuoted(name)}'`).join(" or ")}) and mimeType = 'application/vnd.google-apps.folder' and ${topParentsClause(appRoot)} and 'me' in owners and trashed = false`,
+      fields: "incompleteSearch,files(id,name,ownedByMe,trashed,appProperties)",
       orderBy: "createdTime",
       pageSize: "10",
     });
@@ -378,17 +392,23 @@ export function createHwpEdit(deps: Deps) {
       DRIVE_ID.test(String(f?.id ?? "")) && f.ownedByMe === true &&
       f.trashed === false
     );
-    const existing = order.map((name) => usable.find((f: DriveFile) => f.name === name)).find(Boolean) ?? usable[0];
+    const marked = (f: DriveFile) => (f as { appProperties?: Record<string, string> }).appProperties?.[APP_FOLDER_MARK] === "edit_backup";
+    // 표식이 붙은 폴더가 먼저(옮겨도·이름을 바꿔도 같은 폴더). 없으면 옛 이름 차례(노조+ → WORK ON+ → Web2).
+    const pool = usable.some(marked) ? usable.filter(marked) : usable;
+    const existing = order.map((name) => pool.find((f: DriveFile) => f.name === name)).find(Boolean) ?? pool[0];
     let ownName: string | null = null;
     const nameForMe = async () => ownName ?? (ownName = folderNameFor("edit_backup", await keepOldNames(workspaceId).catch(() => null)));
     if (existing) {
-      if (existing.name === OLD_BACKUP_FOLDER) {
-        const renamed = await drive(`${DRIVE}/${encodeURIComponent(existing.id)}?fields=id`, {
+      const needsMark = !marked(existing);
+      if (existing.name === OLD_BACKUP_FOLDER || needsMark) {
+        // 표식이 없던 옛 폴더는 표식을 적어 둔다(다음부터는 표식으로 찾음). 옛 "Web2 편집 백업"은 이름도 바꾼다. 실패해도 백업은 그 폴더에 그대로 한다.
+        const rename = existing.name === OLD_BACKUP_FOLDER;
+        const patched = await drive(`${DRIVE}/${encodeURIComponent(existing.id)}?fields=id`, {
           method: "PATCH",
           headers: { ...auth(token), "Content-Type": "application/json" },
-          body: JSON.stringify({ name: await nameForMe() }),
-        }).then((r) => r?.ok ? ownName : null).catch(() => null);
-        return { id: existing.id as string, name: ownName && renamed ? ownName : OLD_BACKUP_FOLDER };
+          body: JSON.stringify({ ...(rename ? { name: await nameForMe() } : {}), ...(needsMark ? { appProperties: { [APP_FOLDER_MARK]: "edit_backup" } } : {}) }),
+        }).then((r) => !!r?.ok).catch(() => false);
+        if (rename) return { id: existing.id as string, name: ownName && patched ? ownName : OLD_BACKUP_FOLDER };
       }
       return { id: existing.id as string, name: typeof existing.name === "string" ? existing.name : null };
     }
@@ -398,7 +418,8 @@ export function createHwpEdit(deps: Deps) {
       body: JSON.stringify({
         name: await nameForMe(),
         mimeType: "application/vnd.google-apps.folder",
-        parents: ["root"],
+        parents: [createParentFor(appRoot)],
+        appProperties: { [APP_FOLDER_MARK]: "edit_backup" },
       }),
     });
     const folder = created?.ok ? await created.json().catch(() => null) : null;

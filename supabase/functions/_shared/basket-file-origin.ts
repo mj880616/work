@@ -1,3 +1,5 @@
+// S69-22: 바구니 폴더는 내 드라이브 맨 위 또는 맨 위 앱 폴더(root_folder_id) 바로 아래([앱 폴더 한곳에 모으기] 뒤)에 있어도 보호한다.
+import { isDriveId, topParentsClause } from "./app-folders.mjs";
 // Read-only deletion guard. Never calls ensurePrivateRootFolder: that can create
 // folders/settings. Remote facts here are checked by this supported Edge path.
 type OriginDependencies = {
@@ -97,9 +99,10 @@ function verifyFolder(value: unknown) {
 async function privateRootFolders(
   deps: OriginDependencies,
   token: string,
+  appRoots: string[],
 ): Promise<Map<string, Folder>> {
   const params = new URLSearchParams({
-    q: "name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false",
+    q: `name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and ${topParentsClause(appRoots)} and 'me' in owners and trashed = false`,
     fields: `nextPageToken,incompleteSearch,files(${folderFields})`,
     pageSize: "100",
     orderBy: "createdTime",
@@ -205,28 +208,36 @@ export async function inspectBasketOriginal(
       file.id !== input.fileId || typeof file.trashed !== "boolean" ||
       !Array.isArray(file.parents) || !file.parents.every(validId)
     ) throw unknownOrigin();
-    const roots = await privateRootFolders(deps, token);
+    const storedIds: unknown[] = [], appRoots: string[] = [];
     for (const member of members) {
       const settings = await allRows(
         deps,
         "app_drive_settings",
         { workspace_id: `eq.${member.workspace_id}` },
-        "basket_folder_id",
+        "basket_folder_id,root_folder_id",
         "workspace_id.asc",
         (r) => r.basket_folder_id === null ? "none" : r.basket_folder_id,
       );
       if (settings.length > 1) throw unknownOrigin();
-      const id = settings[0]?.basket_folder_id;
+      storedIds.push(settings[0]?.basket_folder_id);
+      const appRoot = settings[0]?.root_folder_id;
+      if (appRoot !== undefined && appRoot !== null) {
+        if (typeof appRoot !== "string" || !isDriveId(appRoot)) throw unknownOrigin();
+        appRoots.push(appRoot);
+      }
+    }
+    const roots = await privateRootFolders(deps, token, appRoots);
+    for (const id of storedIds) {
       if (id === undefined || id === null) continue;
       if (!validId(id) || !roots.has(id)) throw unknownOrigin();
-      const stored = await deps.fetch(
+      const storedRes = await deps.fetch(
         `https://www.googleapis.com/drive/v3/files/${
           encodeURIComponent(id)
         }?fields=${folderFields}`,
         { headers: { Authorization: `Bearer ${token}` }, redirect: "error" },
       );
-      if (!stored.ok) throw unknownOrigin();
-      const folder = await stored.json();
+      if (!storedRes.ok) throw unknownOrigin();
+      const folder = await storedRes.json();
       if (
         verifyFolder(folder) !== id ||
         JSON.stringify(folder.parents) !==

@@ -340,7 +340,10 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
   // S7-d: kind 'ledger_backup' is a folder, 'ledger_json' a JSON file; the others are Google documents.
   const mimeOf = kind => kind === 'folder' || kind === 'ledger_backup' ? FOLDER_MIME : kind === 'ledger_json' ? 'application/json' : DOC_MIME;
   async function listFiles(token, kind, parent) {
-    const q = `trashed = false and 'me' in owners and mimeType = '${mimeOf(kind)}' and appProperties has { key='kptu_summary' and value='${kind}' } and appProperties has { key='kptu_workspace' and value='${WORKSPACE}' } and '${driveQuote(parent || 'root')}' in parents`;
+    // S69-22: 맨 위 사본 폴더('folder')는 표식만으로 찾는다(자리 조건 없음) — [앱 폴더 한곳에 모으기]로 맨 위 앱 폴더 아래로 옮겨도 같은 폴더.
+    // 표식이 둘 이상이면 아래 findFile이 그대로 실패한다(자동 선택 없음). 안의 문서·백업은 지금처럼 그 폴더 바로 아래로 좁힌다.
+    const where = parent ? ` and '${driveQuote(parent)}' in parents` : kind === 'folder' ? '' : ` and 'root' in parents`;
+    const q = `trashed = false and 'me' in owners and mimeType = '${mimeOf(kind)}' and appProperties has { key='kptu_summary' and value='${kind}' } and appProperties has { key='kptu_workspace' and value='${WORKSPACE}' }${where}`;
     const files = []; let pageToken = '';
     do {
       const params = new URLSearchParams({ q, spaces: 'drive', pageSize: '100', fields: 'files(id,name,appProperties),nextPageToken,incompleteSearch' });

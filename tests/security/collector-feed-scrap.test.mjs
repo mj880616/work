@@ -14,18 +14,27 @@ const WS='a0000000-0000-4000-8000-000000000001';
 const NOW=Date.parse('2026-11-01T03:00:00Z');
 const SECRET='synthetic-collector-feed-secret-0123456789';
 const A='https://news.example.com/article/1001';
+const ID_SHARED='b0000000-0000-4000-8000-0000000000aa';
 
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-function harness({ws=JSON.stringify(WS),existing=[],insertStatus=201,shared=[],sharedStatus=201,takenIds=[]}={}){
-  const calls={feature:[],inserts:[],articles:[],maps:[],other:[],outside:0,logs:[]};
+// 들어올 때 제목 읽기(S69 NEWS-제목늘읽기): 받은 기사 주소 한 장(지어낸 example 쪽)만 읽는다. page(url) → Response, 기본은 og:title이 있는 쪽.
+const PAGE=u=>new Response(`<html><head><meta property="og:title" content="합성 제목 ${u.pathname}"><meta property="og:site_name" content="합성일보"><title>다른 제목</title></head><body></body></html>`,{status:200,headers:{'Content-Type':'text/html; charset=utf-8'}});
+function harness({ws=JSON.stringify(WS),existing=[],insertStatus=201,shared=[],sharedStatus=201,takenIds=[],page=PAGE}={}){
+  const calls={feature:[],inserts:[],articles:[],maps:[],other:[],outside:0,peeks:[],patches:[],logs:[]};
   const keys=new Set(existing);
   const ids=new Set(takenIds);
   // 공용 기사(app_news_articles): url_key 전체 유일. shared = 이미 있는 [url_key, id].
   const art=new Map(shared);
   const doFetch=async(input,init={})=>{
     const url=new URL(String(input));
-    if(url.origin!==SB){calls.outside++;throw new Error('바깥 호출 없음');}
+    if(url.origin!==SB){
+      calls.outside++;
+      // 바깥은 받은 기사 주소의 GET 한 번만(robots.txt·다른 쪽 없음). 지어낸 example 호스트만 답한다.
+      if((init.method||'GET')!=='GET'||!/(^|\.)example\.com$/.test(url.hostname))throw new Error('바깥 호출 없음');
+      calls.peeks.push(url.href);return page(url);
+    }
+    if(init.method==='PATCH'){calls.patches.push({path:decodeURIComponent(url.pathname.replace('/rest/v1/','')+url.search),body:JSON.parse(init.body)});return respond([{}]);}
     const path=url.pathname.replace('/rest/v1/','');
     if(path==='rpc/app_operator_feature_workspace'){calls.feature.push(JSON.parse(init.body));return respond(ws);}
     if(path==='app_news_articles'&&init.method==='POST'){
@@ -78,8 +87,47 @@ test('정상: 운영자 기능(telegram)으로 작업공간을 정하고, 채널
   assert.deepEqual(h.calls.inserts,[{id,workspace_id:WS,...want}]);
   assert.deepEqual(h.calls.maps,[{old_id:id,workspace_id:WS,article_id:id}],'지도 1줄(옛 id = 기사 id)');
   assert.deepEqual(h.calls.other,[]);
-  assert.equal(h.calls.outside,0);
+  // 들어올 때 제목 읽기: 받은 그 주소 한 장만(robots.txt·다른 쪽 없음), 제목이 빈 줄의 제목·열쇠·매체만 적는다(상태는 대기 그대로).
+  assert.equal(h.calls.outside,1);
+  assert.deepEqual(h.calls.peeks,[A+'?id=7']);
+  assert.equal(h.calls.patches.length,2);
+  const [pa,pi]=h.calls.patches;
+  assert.equal(pa.path,`app_news_articles?id=eq.${id}&title=is.null`);
+  assert.equal(pi.path,`app_news_items?workspace_id=eq.${WS}&url_key=eq.news.example.com/article/1001?id=7&title=is.null`);
+  for(const p of [pa,pi]){
+    assert.deepEqual(Object.keys(p.body).sort(),['publisher','title','title_key','updated_at']);
+    assert.equal(p.body.title,'합성 제목 /article/1001');assert.equal(p.body.publisher,'합성일보');assert.ok(p.body.title_key);
+  }
   assert.ok(!h.calls.logs.join('\n').includes('example'),'로그에 주소 없음');
+  assert.ok(!h.calls.logs.join('\n').includes('합성 제목'),'로그에 제목 없음');
+});
+
+test('제목 읽기: 못 읽으면(404·봇 확인·제목 없음·주소뿐인 제목) 아무것도 고치지 않는다 — 줄은 대기 그대로 남아 다음 원문 읽기가 다시 읽는다',async()=>{
+  const pages=[
+    ()=>new Response('없음',{status:404,headers:{'Content-Type':'text/html'}}),
+    ()=>new Response('<html><script src="/aes.js"></script>Just a moment...</html>',{status:200,headers:{'Content-Type':'text/html'}}),
+    ()=>new Response('<html><head></head><body>글</body></html>',{status:200,headers:{'Content-Type':'text/html'}}),
+    ()=>new Response('<html><head><title>news.example.com</title></head></html>',{status:200,headers:{'Content-Type':'text/html'}}),
+  ];
+  for(const page of pages){
+    const h=harness({page});
+    const r=await h.send({items:[{url:A}]});
+    assert.equal(r.status,200);
+    assert.equal((await r.json()).inserted,1);
+    assert.equal(h.calls.peeks.length,1);
+    assert.deepEqual(h.calls.patches,[],'제목을 못 얻으면 쓰지 않음');
+    assert.equal(h.calls.inserts[0].state,'pending');
+  }
+});
+
+test('제목 읽기: 한 번 요청에 처음 들어온 주소 TITLE_PEEK_MAX건까지만, 이미 있던 공용 기사는 읽지 않는다',async()=>{
+  const {TITLE_PEEK_MAX}=await import('../../supabase/functions/collector-feed/handler.ts');
+  const h=harness({shared:[['news.example.com/article/1',ID_SHARED]]});
+  const items=Array.from({length:TITLE_PEEK_MAX+3},(_,i)=>({url:`https://news.example.com/article/${i+1}`}));
+  const r=await h.send({items});
+  assert.equal(r.status,200);
+  assert.equal(h.calls.peeks.length,TITLE_PEEK_MAX);
+  assert.ok(!h.calls.peeks.includes('https://news.example.com/article/1'),'이미 있던 공용 기사 주소는 읽지 않음');
 });
 
 test('겹침: 같은 요청 안·이미 있는 주소(www·추적 값·끝 / 차이)는 무시하고 개수만 센다',async()=>{

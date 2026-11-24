@@ -33,6 +33,8 @@ function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요�
     else if (op === 'in') ok = JSON.parse(`[${val.slice(1, -1).split(',').map(x => x.startsWith('"') ? x : JSON.stringify(x)).join(',')}]`).includes(String(cell));
     else if (op === 'gte') ok = String(cell ?? '') >= val;
     else if (op === 'lt') ok = String(cell ?? '') < val;
+    else if (op === 'lte') ok = cell != null && String(cell) <= val;
+    else if (op === 'gt') ok = cell != null && String(cell) > val;
     else if (op === 'like') ok = new RegExp('^' + val.replace(/\*/g, '.*') + '$').test(String(cell));
     else throw new Error('filter ' + k + '=' + v);
     return neg ? !ok : ok;
@@ -430,6 +432,27 @@ test('S68-25 대기 단계: robots로 비어 있던 지난 기사는 한 번에 
   const st = Object.fromEntries(w.db.app_news_articles.map(a => [a.url, a.state]));
   assert.equal(st[arts[n - 1].url], 'failed'); assert.equal(st[arts[0].url], 'ok'); assert.equal(st[old.url], 'robots');
   for (const u of arts.map(a => a.url)) assert.equal(w.calls.site.filter(x => x === u).length, 1, '기사마다 1번');
+});
+
+// ---- S69 NEWS-제목늘읽기(명진 11/24 "제목은 읽어놔야 누르든 말든하지"): 원문 읽기에 실패해 제목 없이 남은 기사는 한 시간 뒤 대기 단계에서
+// 그 주소 한 장만 다시 읽어 제목만 적는다(기사마다 한 번, 본문·상태는 그대로). 매체 기사·제목 있는 줄·띠 밖(막 실패·오래전 실패)은 고르지 않는다.
+test('S69 제목 다시 읽기: 실패한 지 한 시간쯤 된 제목 없는 기사만 한 번, 그 주소 한 장만 읽어 제목만 적는다', async () => {
+  const at = m => new Date(NOW - m * 60000).toISOString();
+  const TPAGE = '<html><head><meta property="og:title" content="합성 다시 읽은 제목"></head><body>짧은 글</body></html>';
+  const mk = (n, o) => ({id: id(900 + n), origin: 'tg_scrap', lane: 'channel', url: `https://news.example.org/t/${n}`, url_key: `news.example.org/t/${n}`, state: 'failed', title: null, created_at: at(200), ...o});
+  const arts = [mk(1, {fetched_at: at(70)}), mk(2, {fetched_at: at(70)}), mk(3, {fetched_at: at(10)}), mk(4, {fetched_at: at(300)}),
+    mk(5, {fetched_at: at(70), title: '있는 제목'}), mk(6, {fetched_at: at(70), lane: 'media', origin: 'site', source_key: 'news-labortoday'})];
+  const w = world({tables: {app_news_articles: arts, app_news_items: [{id: id(901), workspace_id: OP, lane: 'channel', url: arts[0].url, url_key: arts[0].url_key, state: 'failed', title: null, created_at: at(200)}]},
+    sites: {'https://news.example.org/t/1': TPAGE}}); // t/2는 없는 글(404)
+  const out = await w.cron({step: 'pending'});
+  assert.deepEqual([out.head_retry, out.head_read], [2, 1]);
+  assert.deepEqual(w.calls.site.filter(u => u.includes('/t/')).sort(), ['https://news.example.org/t/1', 'https://news.example.org/t/2'], '띠 안 제목 없는 채널 기사만, 한 장씩');
+  assert.equal(w.calls.site.filter(u => u.endsWith('/robots.txt')).length, 0);
+  const a = Object.fromEntries(w.db.app_news_articles.map(r => [r.url.split('/').pop(), r]));
+  assert.equal(a[1].title, '합성 다시 읽은 제목'); assert.ok(a[1].title_key); assert.equal(a[1].state, 'failed', '상태·본문은 그대로');
+  assert.equal(w.db.app_news_items[0].title, '합성 다시 읽은 제목', '같은 주소 옛 줄도');
+  assert.equal(a[2].title, null); assert.equal(a[2].fetched_at, at(70), '못 읽으면 아무것도 바꾸지 않음');
+  assert.equal(a[5].title, '있는 제목');
 });
 
 test('S68-25 open: robots로 비어 있던 기사를 열면 그 한 쪽만 읽어 저장 → 다시 열면 저장본(원문 0)', async () => {

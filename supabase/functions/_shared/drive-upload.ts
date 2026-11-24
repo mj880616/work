@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { WorkspaceDriveError, workspaceDriveToken } from "./workspace-drive-token.ts";
+// S69-22: 바구니 폴더는 내 드라이브 맨 위 또는 맨 위 앱 폴더(root_folder_id) 바로 아래 어디에 있어도 같은 폴더(옮긴 뒤 새로 안 만듦).
+import { APP_FOLDER_MARK, createParentFor, topParentsClause } from "./app-folders.mjs";
 
 export type UploadAdmin = Pick<SupabaseClient, "auth" | "from">;
 export type UploadLog = (code: string) => void;
@@ -63,6 +65,7 @@ export function createDriveUpload(
     name: string,
     parent: string,
     token: string,
+    appProperties?: Record<string, string>,
   ): Promise<string> {
     const r = await driveFetch(
       "drive_folder",
@@ -74,6 +77,7 @@ export function createDriveUpload(
           name,
           mimeType: "application/vnd.google-apps.folder",
           parents: [parent],
+          ...(appProperties ? { appProperties } : {}),
         }),
       },
     );
@@ -208,9 +212,10 @@ export function createDriveUpload(
     options: { existingOnly?: boolean } = {},
   ): Promise<string> {
     const { data: setting, error } = await admin.from("app_drive_settings")
-      .select("basket_folder_id")
+      .select("basket_folder_id,root_folder_id")
       .eq("workspace_id", workspaceId).maybeSingle();
     if (error) throw unavailable("drive_settings");
+    const appRoot = typeof setting?.root_folder_id === "string" ? setting.root_folder_id : null;
     const verify = (f: FolderMeta, atRoot: boolean) => {
       if (f.permissions === undefined) {
         throw new UploadError(
@@ -229,10 +234,11 @@ export function createDriveUpload(
       return f.id as string;
     };
     // Root membership comes from the query, never GET /files/root (404 with drive.file).
-    // Search own My Drive root only; never create permissions or adopt a shared folder.
+    // Search own My Drive root or directly inside the stored app root folder (S69-22, [앱 폴더 한곳에 모으기]);
+    // never create permissions or adopt a shared folder (privateOwnedFolder: a folder under a shared parent inherits its permissions).
     const rootFolders = () =>
       listFolders(
-        "name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false",
+        `name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and ${topParentsClause(appRoot)} and 'me' in owners and trashed = false`,
         token,
       );
     async function verifyStoredFolder(id: string) {
@@ -249,8 +255,8 @@ export function createDriveUpload(
     const found = await rootFolders();
     const id = found.length
       ? verify(found[0], true)
-      : await createFolder("Web2 바구니", "root", token);
-    // The POST with parents:['root'] returned this ID; verify its full metadata with explicit permissions.
+      : await createFolder("Web2 바구니", createParentFor(appRoot), token, { [APP_FOLDER_MARK]: "basket" });
+    // The POST with parents:[app root or 'root'] returned this ID; verify its full metadata with explicit permissions.
     // Never compare parents to a root metadata ID or overwrite root/library settings.
     if (!found.length) {
       const created = await folderInfo(id, token);
