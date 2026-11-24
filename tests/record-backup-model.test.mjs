@@ -25,7 +25,7 @@ test('첫 안내는 가입 직후(14일 안)에만', () => {
   for (const v of [undefined, null, '', 'x', '2026-12-01T00:00:00Z']) assert.equal(C.justJoined(v, now), false, String(v));
 });
 test('알림 글·오류 글', () => {
-  assert.equal(C.doneText({date: '2026-11-15', count: 741}), '내 드라이브 › 노조+ 백업 › 2026-11-15 에 741건을 받았어요.');
+  assert.equal(C.doneText({date: '2026-11-15', count: 741}), '내 드라이브 › WORK ON+ 백업 › 2026-11-15 에 741건을 받았어요.');
   assert.match(C.errorText('DRIVE_NOT_CONNECTED'), /드라이브를 연결/);
   assert.match(C.errorText('무엇이든'), /잠시 뒤/);
 });

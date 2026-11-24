@@ -1,24 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readAllPages} from '../app/rest-pages.mjs';
 import {writeMoves, undoMoves, MOVE_CHUNK} from '../app/library-move-write.mjs';
-// LIB-끌어옮기기저장실패(S69): 1000줄 넘는 표 읽기 + 여러 개 옮기기 쓰기. 서버는 가짜(폴더 연결 표 하나), 이름은 지어낸 것.
-
-test('쪽 읽기: 1000줄씩 끝까지 읽고, 덜 찬 쪽에서 멈춘다 · 순서 없는 경로는 거절', async () => {
-  const all = Array.from({length: 2363}, (_, i) => ({id: 'd' + i}));
-  const calls = [];
-  const api = async path => { calls.push(path); const u = new URL('http://x' + path); const lim = +u.searchParams.get('limit'), off = +u.searchParams.get('offset'); return all.slice(off, off + Math.min(lim, 1000)); };
-  const rows = await readAllPages(api, '/rest/v1/t?workspace_id=eq.w&order=id.asc');
-  assert.equal(rows.length, 2363);
-  assert.equal(calls.length, 3);
-  assert.match(calls[2], /limit=1000&offset=2000$/);
-  // 1000줄 안쪽이면 한 번만(지금과 같은 요청 수).
-  const small = [];
-  await readAllPages(async p => { small.push(p); return [{id: 1}]; }, '/rest/v1/t?order=id.asc');
-  assert.equal(small.length, 1);
-  await assert.rejects(readAllPages(api, '/rest/v1/t?workspace_id=eq.w'), /order/);
-  await assert.rejects(readAllPages(async () => null, '/rest/v1/t?order=id.asc'), /읽지 못했어요/);
-});
+// LIB-끌어옮기기저장실패(S69): 여러 개 옮기기 쓰기(1000줄 이어 읽기는 #2979 tests/library-folder-items-paging.test.mjs). 서버는 가짜(폴더 연결 표 하나), 이름은 지어낸 것.
 
 // 가짜 서버: 연결 표(document_id 하나에 한 줄). POST 배열은 전부 또는 전무(겹치면 409·23505).
 function fakeServer(items, {failPatchIn = false} = {}) {

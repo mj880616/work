@@ -15,6 +15,7 @@ import {setLibraryFolderColor,createLibraryFolder,putDocumentInFolder} from './l
 import {paneDropAt} from './library-drop.js';
 import {writeMoves,undoMoves} from './library-move-write.mjs';
 import {createEdgeScroll,installDragEdgeScroll} from './drag-edge-scroll.js';
+import {createDragGhost,setDragGhostImage} from './drag-ghost.js'; // S69-29 끄는 동안 따라오는 반투명 조각(노트 폴더 보기와 같은 공용 부품)
 import {openFolderAt} from './drop-open-folder.mjs';
 import {askConfirm} from './small-notice.js';
 import {RECEIVE_MENU} from './library-receive.js';
@@ -327,6 +328,9 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     }
     return null;
   }
+  // S69-29 LIB-끄는모습: 끄는 동안 따라오는 조각 글자 — 폴더면 폴더 이름, 자료 여럿이면 '자료 n개', 하나면 그 제목.
+  const ghostLabel=d=>!d?'':d.kind==='folder'?String(folder(d.id)?.name||'폴더'):d.docs.length>1?`자료 ${d.docs.length}개`:String(d.docs[0]?.title||d.docs[0]?.file_name||'자료');
+  const touchGhost=createDragGhost();
   function dropFor(e){
     if(!drag)return null;
     // S55-08 ⓐ·ⓓ: 왼쪽 나무 줄에 놓기. '자료실 전체'는 오른쪽 '폴더 밖' 머리와 같은 맨 위(폴더 밖으로), 폴더 줄은 그 안으로.
@@ -545,6 +549,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     area.addEventListener('dragstart',e=>{
       const d=dragFrom(e.target);if(!d)return;drag=d;markDragging(d);pokeDrag();
       try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',d.id)}catch{}
+      setDragGhostImage(e.dataTransfer,ghostLabel(d));
       // 폴더 토글이 없는 묶기에서는 왼쪽에 놓을 곳 목록을 띄운다. 끌기 시작 중에 DOM을 바꾸면 브라우저가 끌기를 취소하므로 한 박자 뒤에.
       if(d.kind==='file'&&!s().treeView)setTimeout(()=>{if(drag===d)showDropPanel(d)},0);
     });
@@ -566,7 +571,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const LONG_MS=450,SLOP=8,MOVED=12;
   function bindTouch(list){
     const cancel=()=>{if(touch?.timer)clearTimeout(touch.timer);touch=null};
-    const finish=()=>{clearMarks();stopScroll();drag=null;cancel()};
+    const finish=()=>{clearMarks();stopScroll();touchGhost.hide();drag=null;cancel()};
     list.addEventListener('pointerdown',e=>{
       if(e.pointerType!=='touch'||!e.isPrimary||!touchOk())return;
       const t=e.target;if(!(t instanceof Element)||t.closest('input,textarea,select,[contenteditable],button,a[href],.lu-undo,.lu-more-files,.lu-more-row'))return;
@@ -590,6 +595,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       const p=e.touches[0];if(!p)return;
       if(Math.hypot(p.clientX-touch.x,p.clientY-touch.y)>MOVED)touch.moved=true;
       if(!touch.moved||!touch.drag)return;
+      if(!touchGhost.shown)touchGhost.show(ghostLabel(touch.drag),p.clientX,p.clientY);else touchGhost.move(p.clientX,p.clientY);
       touch.drop=dropFor({target:document.elementFromPoint(p.clientX,p.clientY),clientY:p.clientY});showMarks(touch.drop);hoverOpen(touch.drop);touchScroll.update(p.clientX,p.clientY);
     },{passive:false});
     list.addEventListener('touchend',e=>{

@@ -339,7 +339,7 @@ function loadLibraryFolders(){
     readLibraryFolders(api,ws()),
     // 폴더 순서는 자료실 나무와 같은 규칙(library-tree.js folderSiblings). 나무 묶음은 [폴더]를 누를 때만 받는다.
     import('./library-tree.js').then(m=>{siblingsOf=m.folderSiblings}),
-    api(`/rest/v1/app_library_folder_items?workspace_id=eq.${enc(ws())}&select=document_id,folder_id&limit=${LIB_ITEM_CAP}`)
+    import('./library-folder-data.js').then(m=>m.readLibraryFolderItems(api,ws(),{max:LIB_ITEM_CAP}))
   ]).then(([folders,,items])=>{
     libFolders=Array.isArray(folders)?folders:[];
     libItems=new Map((Array.isArray(items)?items:[]).map(r=>[r.document_id,r.folder_id]));

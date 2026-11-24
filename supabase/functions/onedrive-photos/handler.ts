@@ -1,10 +1,9 @@
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
-import { NOJO_WORDS_FEATURE, folderNameFor, keepOldFromFeatureWorkspace } from "../_shared/brand-folders.mjs";
 import {
   AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, cleanFolderName, DELTA_SELECT, folderPathOf, GRAPH, GRAPH_BATCH_MAX, GRAPH_BATCH_PHOTOS, graphNextLink, insideFolder,
   isMediaMime, LIBRARY_DEFAULT, LIBRARY_MAX, LIBRARY_SCAN_PAGES, MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, MEDIA_URL_TTL_S, mediaFields,
   MOVE_MAX, PHOTO_URLS_MAX, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed, seoulDay, SIZES, STAR_IDS_MAX,
-  SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, TAKEN_FIX_AT, takenOf, TRASH_DAYS, TRASH_LIST_MAX, TRASH_NAME, OLD_TRASH_NAME, WORKON_TRASH_NAME, isTrashName, TRASH_PURGE_STEP, validItemId,
+  SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, TAKEN_FIX_AT, takenOf, TRASH_DAYS, TRASH_LIST_MAX, TRASH_NAME, TRASH_OLD_NAMES, isTrashName, TRASH_PURGE_STEP, validItemId,
   SORTS, VIDEO_MIME,
 } from "./graph.ts";
 import type { OneDriveItem, Sort } from "./graph.ts";
@@ -113,7 +112,7 @@ export type OneDriveAdmin = {
   // deno-lint-ignore no-explicit-any
   auth: { getUser(token: string): Promise<any> };
   from(table: string): Query;
-  // S68-02: 서버 허용 표 확인(app_operator_feature_workspace, service role). 없으면(시험) 지금 이름 그대로.
+  // S68-02: 서버 허용 표 확인(app_operator_feature_workspace, service role). S69-42부터 휴지통 이름은 누구나 같아 지금은 부르지 않는다(모양만 남김).
   // deno-lint-ignore no-explicit-any
   rpc?(fn: string, args: Record<string, unknown>): PromiseLike<{ data: any; error: any }>;
 };
@@ -1595,35 +1594,23 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     return done;
   }
 
-  // S68-02: 이 작업공간이 새로 만드는 휴지통 이름. 운영자 기능 nojo_words(서버 허용 표, service role rpc)·확인 실패는 지금 이름 ".노조+ 휴지통",
-  // 그 밖은 ".WORK ON+ 휴지통". 이미 있는 휴지통은 이름 그대로 쓴다(옛 ".Web2 휴지통"만 아래처럼 이 이름으로 바꾼다).
-  async function trashNameFor(workspaceId: string): Promise<string> {
-    let keepOld: boolean | null = null;
-    try {
-      const { data, error } = admin.rpc ? await admin.rpc("app_operator_feature_workspace", { p_feature: NOJO_WORDS_FEATURE }) : { data: undefined, error: true };
-      keepOld = error ? null : keepOldFromFeatureWorkspace(data ?? null, workspaceId);
-    } catch {
-      keepOld = null;
-    }
-    return folderNameFor("photo_trash", keepOld);
-  }
-
-  // BRAND-웹2흔적지우기: 휴지통 폴더 이름이 옛 이름(".Web2 휴지통")이면 이 작업공간의 이름으로만 바꾼다(덤 — 실패하거나 같은 이름이 이미 있으면 그대로 쓴다).
-  // S68-02: ".노조+ 휴지통"·".WORK ON+ 휴지통"은 바꾸지 않는다(이미 쓰는 폴더 이름 그대로).
+  // S69-42: 휴지통 폴더 이름이 옛 이름(".노조+ 휴지통"·".Web2 휴지통")이면 지금 이름(".WORK ON+ 휴지통")으로 바꾼다 — 누구나(nojo_words여도).
+  // 덤이다: 실패하거나 같은 자리에 지금 이름 폴더가 이미 있으면(conflictBehavior=fail → 409) 합치지 않고 옛 이름 그대로 쓴다(다음에 쓸 때 다시).
+  // 이름(name)만 바꾼다. 폴더 id·안 사진·색인의 휴지통 표시(role)는 그대로.
   async function renameTrash(token: string, workspaceId: string, item: { id: string; name?: string }) {
-    if (typeof item.name !== "string" || item.name.normalize("NFC") !== OLD_TRASH_NAME) return;
-    const name = await trashNameFor(workspaceId);
+    if (typeof item.name !== "string" || !TRASH_OLD_NAMES.includes(item.name.normalize("NFC"))) return;
     const r = await call("onedrive_trash_rename", `${GRAPH}/me/drive/items/${encodeURIComponent(item.id)}?@microsoft.graph.conflictBehavior=fail`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name: TRASH_NAME }),
     }).catch(() => null);
+    if (r?.status === 409) { log("onedrive_trash_rename_taken"); return; }
     if (!r?.ok) return;
-    const { error } = await admin.from(FOLDERS).update({ name }).eq("workspace_id", workspaceId).eq("item_id", item.id);
+    const { error } = await admin.from(FOLDERS).update({ name: TRASH_NAME }).eq("workspace_id", workspaceId).eq("item_id", item.id);
     if (error) log("onedrive_trash_rename_save_failed");
   }
 
-  // 휴지통 폴더(맨 위 폴더 바로 아래 .노조+ 휴지통, 새 사용자 .WORK ON+ 휴지통, 옛 이름 .Web2 휴지통)를 찾거나 만든다. 색인에 있으면 원드라이브에 아직 있는지 확인하고,
+  // 휴지통 폴더(맨 위 폴더 바로 아래 .WORK ON+ 휴지통, 옛 이름 .노조+ 휴지통·.Web2 휴지통)를 찾거나 만든다. 색인에 있으면 원드라이브에 아직 있는지 확인하고,
   // 없으면(지워짐·밖으로 옮겨짐) 표시를 떼고 새로 만든다. 같은 이름이 이미 있으면(다른 기기에서 먼저 만듦) 그 폴더를 쓴다. 폴더는 꺼짐(일기·사진에 안 보임).
   async function ensureTrash(token: string, workspaceId: string, folder: { id: string }) {
     const known = await readTrashId(workspaceId);
@@ -1640,8 +1627,8 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const { error } = await admin.from(FOLDERS).update({ role: null }).eq("workspace_id", workspaceId).eq("item_id", known);
       if (error) dbFail("onedrive_trash_save_failed:reset", error);
     }
-    // 색인에 없어도 이미 있는 휴지통(.노조+ → .WORK ON+ → 옛 .Web2 차례)이 있으면 그것을 쓴다(휴지통을 하나 더 만들지 않는다).
-    for (const existingName of [TRASH_NAME, WORKON_TRASH_NAME, OLD_TRASH_NAME]) {
+    // 색인에 없어도 이미 있는 휴지통(.WORK ON+ → 옛 .노조+ → 옛 .Web2 차례)이 있으면 그것을 쓴다(휴지통을 하나 더 만들지 않는다).
+    for (const existingName of [TRASH_NAME, ...TRASH_OLD_NAMES]) {
       const old = await graph("onedrive_trash_find", token,
         `/me/drive/items/${encodeURIComponent(folder.id)}:/${encodeURIComponent(existingName)}:?$select=id,name,folder,parentReference`);
       if (old.status === 404) continue;
@@ -1656,7 +1643,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         return item.id;
       }
     }
-    const trashName = await trashNameFor(workspaceId);
+    const trashName = TRASH_NAME;
     const r = await call("onedrive_trash_create", `${GRAPH}/me/drive/items/${encodeURIComponent(folder.id)}/children`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

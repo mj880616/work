@@ -7,18 +7,19 @@ import { WORD_BASE_FEATURES } from '../app/brand/custom-words-model.mjs';
 const WS = '10000000-0000-4000-8000-00000000000a';
 globalThis.window ??= {addEventListener() {}, dispatchEvent() {}};
 
-test('폴더 이름: 구글 드라이브 폴더는 새로 만들 때 늘 새 이름(S69-41), 원드라이브 휴지통만 예전 규칙', () => {
+test('폴더 이름: 새로 만들 때 늘 새 이름(구글 드라이브 S69-41, 원드라이브 사진 휴지통 S69-42 — nojo_words여도)', () => {
   assert.deepEqual(folderNames('record_backup'), ['노조+ 백업', 'WORK ON+ 백업']);
   assert.deepEqual(folderNames('edit_backup'), ['노조+ 편집 백업', 'WORK ON+ 편집 백업']);
   assert.deepEqual(folderNames('photo_trash'), ['.노조+ 휴지통', '.WORK ON+ 휴지통']);
   for (const kind of Object.keys(FOLDER_NAMES)) {
     assert.equal(folderNameFor(kind, false), FOLDER_NAMES[kind].now);
-    const keep = FOLDER_NAMES[kind].drive ? FOLDER_NAMES[kind].now : FOLDER_NAMES[kind].old;
+    const keep = FOLDER_NAMES[kind].now;
     assert.equal(folderNameFor(kind, true), keep, kind);
     assert.equal(folderNameFor(kind, null), keep, kind);
     assert.equal(folderNameFor(kind, undefined), keep, kind);
   }
-  assert.equal(FOLDER_NAMES.photo_trash.drive, false, '원드라이브 휴지통은 이번 이름 맞추기 대상이 아님');
+  assert.equal(FOLDER_NAMES.photo_trash.drive, false, '원드라이브 휴지통은 [한곳으로 모으기] 대상이 아님(쓸 때 바꿈)');
+  assert.deepEqual([...FOLDER_NAMES.photo_trash.olds], ['.노조+ 휴지통', '.Web2 휴지통'], '옛 이름 둘 다 알아봄');
   assert.throws(() => folderNameFor('nope', false));
 });
 
@@ -38,7 +39,11 @@ test('S69-41: 앱 이름 글자는 DRIVE_BRAND 한 곳, 옛 이름 → 새 이�
   assert.equal(renameTo('copy', 'Web2 읽기용 사본'), 'WORK ON+ 읽기용 사본');
   assert.equal(renameTo('basket', 'WORK ON+ 바구니'), null, '이미 새 이름');
   assert.equal(renameTo('basket', '내 바구니'), null, '사람이 바꾼 이름');
-  assert.equal(renameTo('photo_trash', '.노조+ 휴지통'), null, '원드라이브는 대상 아님');
+  // S69-42: 원드라이브 사진 휴지통 옛 이름 둘 → '.WORK ON+ 휴지통'(NFD로 와도).
+  assert.equal(renameTo('photo_trash', '.노조+ 휴지통'), '.WORK ON+ 휴지통');
+  assert.equal(renameTo('photo_trash', '.Web2 휴지통'), '.WORK ON+ 휴지통');
+  assert.equal(renameTo('photo_trash', '.노조+ 휴지통'.normalize('NFD')), '.WORK ON+ 휴지통');
+  assert.equal(renameTo('photo_trash', '.WORK ON+ 휴지통'), null);
   for (const n of ['웹2', 'Web2', '공공기관사업팀 Workspace', '노조+', '노동조합+']) assert.equal(rootRenameTo(n), 'WORK ON+', n);
   for (const n of ['WORK ON+', '내 업무', '웹2 자료']) assert.equal(rootRenameTo(n), null, n);
 });
@@ -67,16 +72,16 @@ test("Drive 검색 쿼리: '+'·공백은 그대로, URL에서는 %2B로 간다"
 
 test('화면: 백업 폴더 이름은 서버가 알려 준 실제 이름, 모를 때만 얼굴 기본 이름', async () => {
   const { doneText, folderName, DEFAULT_FOLDER, errorText } = await import('../app/record-backup.js');
-  assert.equal(DEFAULT_FOLDER, '노조+ 백업', '저장소 얼굴(nojo)은 지금 글자');
+  assert.equal(DEFAULT_FOLDER, 'WORK ON+ 백업', 'S69-42: 누구나 새 이름(서버가 쓸 때 옛 이름을 바꿈)');
   assert.equal(folderName('WORK ON+ 백업'), 'WORK ON+ 백업');
   assert.equal(folderName(''), DEFAULT_FOLDER);
   assert.equal(folderName(5), DEFAULT_FOLDER);
   assert.equal(doneText({ date: '2026-11-22', count: 3, root_name: 'WORK ON+ 백업' }), '내 드라이브 › WORK ON+ 백업 › 2026-11-22 에 3건을 받았어요.');
-  assert.equal(doneText({ date: '2026-11-22', count: 3 }), '내 드라이브 › 노조+ 백업 › 2026-11-22 에 3건을 받았어요.');
+  assert.equal(doneText({ date: '2026-11-22', count: 3 }), '내 드라이브 › WORK ON+ 백업 › 2026-11-22 에 3건을 받았어요.');
   assert.match(errorText('DRIVE_PUBLIC_SHARING_FOUND', 'WORK ON+ 백업'), /^'WORK ON\+ 백업' 폴더가 공유돼/);
-  assert.match(errorText('DRIVE_PUBLIC_SHARING_FOUND'), /^'노조\+ 백업' 폴더가 공유돼/);
+  assert.match(errorText('DRIVE_PUBLIC_SHARING_FOUND'), /^'WORK ON\+ 백업' 폴더가 공유돼/);
   const { backupFolderName, EDIT_BACKUP_FOLDER } = await import('../app/hwp-drive.js');
-  assert.equal(EDIT_BACKUP_FOLDER, '노조+ 편집 백업');
+  assert.equal(EDIT_BACKUP_FOLDER, 'WORK ON+ 편집 백업');
   assert.equal(backupFolderName('WORK ON+ 편집 백업'), 'WORK ON+ 편집 백업');
   assert.equal(backupFolderName('a"b'), EDIT_BACKUP_FOLDER);
   assert.equal(backupFolderName(undefined), EDIT_BACKUP_FOLDER);
@@ -86,7 +91,8 @@ test('화면: 백업 폴더 이름은 서버가 알려 준 실제 이름, 모를
 test('S68-21: appNameFor', () => {
   assert.deepEqual({...APP_NAMES}, {old: '노조+', now: 'WORK ON+'});
   assert.equal(appNameFor(false), 'WORK ON+');
-  assert.equal(appNameFor(true), '노조+');
-  assert.equal(appNameFor(null), '노조+');
-  assert.equal(appNameFor(undefined), '노조+');
+  // S69-42: 누구나 WORK ON+.
+  assert.equal(appNameFor(true), 'WORK ON+');
+  assert.equal(appNameFor(null), 'WORK ON+');
+  assert.equal(appNameFor(undefined), 'WORK ON+');
 });

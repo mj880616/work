@@ -1,6 +1,5 @@
 import {mountLibraryDriveLine} from './library-drive-line.js'; // S69-20 ①: 자료실 저장 위치 한 줄(구글 드라이브 폴더 열기)
 import {readDocuments} from './report-list-read.js'; // APP-낭비줄이기 ①: 자료 목록은 쓰는 열만(글자 본문 열 제외)
-import {readAllPages} from './rest-pages.mjs'; // LIB-끌어옮기기저장실패: 1000줄 넘는 표 읽기
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderFilterChips} from './filter-chips.js';
 import {uploadTimeoutMs} from './upload-budget.mjs';
@@ -34,7 +33,7 @@ import {reportPhotosHtml,mountReportPhotos} from './report-photos.js';
 import {OUTSIDE_KEY as OUT_KEY,GROUP_BY,GROUP_LABELS,fileKindOf,buildTree,treeHtml,folderSuggestions,keys as luTreeKeys,walk as luTreeWalk,matchedKeys,pathTo,documentsInTrashedFolders,nextSortOrder,folderDepth,FOLDER_DEPTH} from './library-tree.js';
 import {mountLibraryFolders} from './library-folders.js';
 import {createReceiveSort,sortButtonHtml,createTidySuggest,TIDY_LABEL} from './library-sort.js'; // LIB-받는폴더나누기(S60-18)·LIB-정돈제안(S61-13)
-import {readLibraryFolders,createLibraryFolder} from './library-folder-data.js';
+import {readLibraryFolders,readLibraryFolderItems,createLibraryFolder} from './library-folder-data.js';
 import {createSelectMode} from './select-mode.js';
 import {bindMarquee} from './marquee-select.js';
 import {bindRowSwipe,PICK} from './row-swipe.js';
@@ -44,6 +43,7 @@ import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea,settleGestureAreas} from './gesture-fill.js';
 import {SPLIT_QUERY,NARROW_QUERY} from './screen-width.mjs';
 import {viewPrefs} from './view-prefs.js';
+import {mountLibraryCardSize} from './library-pane-size.js'; // S69-29 한 칸 탐색기: 나무 폭·카드 높이 끌기
 import {createLibraryTwo} from './library-two-pane.js';
 import {iconHtml,treeIconHtml} from './tree-icons.js';
 import {ftBindTreeArrows,ftKeepPlace,ftExplorePress,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
@@ -933,7 +933,7 @@ let luGroupBy='project',luSessionFolder=false,luFolders_=[],luFolderItems=[],luO
 const luOpened=new Set(),luFilterOpen=new Map(),luShowAll=new Set();
 function luResetTree(){luOpened.clear();luFilterOpen.clear();luShowAll.clear();luFilterSignature=''}
 // 폴더 표(app_library_folders·_items, 소유자 RLS)는 읽기만 한다. 표가 없거나 읽기에 실패하면 폴더 없이 그대로 그린다.
-async function luLoadFolders(){if(!luWorkspace)return;const w=encodeURIComponent(luWorkspace);try{const [folders,items]=await Promise.all([readLibraryFolders(luApi,luWorkspace),readAllPages(luApi,'/rest/v1/app_library_folder_items?workspace_id=eq.'+w+'&select=document_id,folder_id&order=document_id.asc')]);/* LIB-끌어옮기기저장실패: 연결이 1000줄을 넘어도 모두(rest-pages.mjs) */luFolders_=Array.isArray(folders)?folders:[];luFolderItems=Array.isArray(items)?items:[];luFoldersReady=true;if(window.KPTURouter?.current==='library')luDrive().changed(luDriveSign())}catch{luFolders_=[];luFolderItems=[];luFoldersReady=false}}
+async function luLoadFolders(){if(!luWorkspace)return;const w=encodeURIComponent(luWorkspace);try{const [folders,items]=await Promise.all([readLibraryFolders(luApi,luWorkspace),readLibraryFolderItems(luApi,luWorkspace)]);luFolders_=Array.isArray(folders)?folders:[];luFolderItems=Array.isArray(items)?items:[];luFoldersReady=true;if(window.KPTURouter?.current==='library')luDrive().changed(luDriveSign())}catch{luFolders_=[];luFolderItems=[];luFoldersReady=false}}
 // BRIEF-브리핑룸 ④: 다 된 브리핑의 한 줄 요지(자료 줄 이름 밑). 표 app_document_briefs를 owner RLS로 읽기만, 자료마다 가장 최근 것 하나.
 // 표가 아직 없거나(DB 적용 전) 읽지 못하면 요지 없이 그대로 그린다(자료실 동작에 영향 없음).
 let luBriefLeads=new Map();
@@ -1132,7 +1132,8 @@ function luRenderFolderNav(tree){
   const card=document.querySelector('#libraryListCard');if(!card)return;
   const on=!!LU_SPLIT?.matches&&luGroupBy==='folder'&&luFoldersReady&&!luTwoActive(); // LIB-두칸보기: 두 칸이면 왼쪽 나무 자리에 왼쪽 칸
   let nav=card.querySelector(':scope > #libraryFolderNav');
-  if(!on){if(nav)nav.remove();delete card.dataset.luSplit;return}
+  const size=()=>mountLibraryCardSize(card,{split:()=>!!LU_SPLIT?.matches&&luGroupBy==='folder'&&luFoldersReady&&!luTwoActive()});
+  if(!on){if(nav)nav.remove();delete card.dataset.luSplit;size();return}
   if(!nav){nav=document.createElement('nav');nav.id='libraryFolderNav';nav.className='lu-fnav';nav.setAttribute('aria-label','자료실 폴더');card.prepend(nav)}
   card.dataset.luSplit='1';
   const path=luNavPath(),rows=[];
@@ -1149,6 +1150,7 @@ function luRenderFolderNav(tree){
   let inner=nav.querySelector(':scope > .lu-fnav-in');
   if(!inner){nav.innerHTML='<div class="lu-fnav-in" role="tree" aria-label="자료실 폴더 나무"></div>';inner=nav.firstElementChild}
   inner.innerHTML=`${top}${out}${rows.join('')}`;
+  size();
 }
 // S51-25 FOLDER-PC나무 → UI-폴더누르기한규칙(S57-5): 줄(이름·아이콘) 누르기 = 오른쪽은 그대로 두고 그 자리에서 펼치기·접기만(세모 없음). 들어가기 = 우클릭 [이 폴더로 들어가기]·두 손가락 벌리기.
 document.addEventListener('click',e=>{

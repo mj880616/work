@@ -5,13 +5,12 @@
 // 조직 ↔ 폴더 짝 = 폴더 줄 organization_id(서버 함수 app_library_folder_set_org, 내 작업공간 폴더·조직만). 기기 저장 없음.
 // 드라이브 사본은 따로 옮기지 않는다: 자료실 폴더 = 드라이브 폴더 맞추기(S69-20/40, workspace-drive drive-mirror auto)가 폴더 연결이 바뀌면 그 폴더의 드라이브 폴더로 옮긴다.
 // 남의 기록 안 보기(AGENTS.md 3절): 내 로그인·내 작업공간만. 남의 작업공간 조직(공유로 보이는 조직)은 내 조직 표에 없으므로 넣지 않는다(서버 함수도 거절).
-import {readLibraryFolders, createLibraryFolder, putDocumentInFolder, readFolderOrgLinks, setFolderOrganization} from './library-folder-data.js';
+import {readLibraryFolders, readLibraryFolderItems, createLibraryFolder, putDocumentInFolder, readFolderOrgLinks, setFolderOrganization} from './library-folder-data.js';
 import {folderSiblings, nextSortOrder} from './library-tree.js';
 import {profileUrl} from './library-view-pref.js';
 import {notify} from './small-notice.js';
 import {word} from './brand/brand.mjs';
 import {isFolderId, guessParentFolder, liveParent, planOrgFolder, gatherPlan, ASK_TEXT, gatherLine} from './org-files-folder-model.mjs';
-import {readAllPages} from './rest-pages.mjs';
 
 const enc = encodeURIComponent;
 const ctxOf = rt => { const c = rt?.context?.read?.(); return {ws: c?.workspace?.id || '', user: c?.user?.id || ''}; };
@@ -148,9 +147,9 @@ export async function gatherPastOrgFiles({rt = window.KPTURuntime, anchor = null
     }
     const [orgs, docs, items, receive] = await Promise.all([
       myOrgs(rt, st.ws),
-      // LIB-끌어옮기기저장실패(S69): 서버가 한 번에 1000줄에서 자르므로 쪽으로 끝까지(rest-pages.mjs). 잘리면 폴더에 든 자료를 '폴더 밖'으로 잘못 본다.
-      readAllPages(p => rt.api(p), `/rest/v1/app_documents?workspace_id=eq.${enc(st.ws)}&organization_id=not.is.null&select=id,organization_id&order=id.asc`),
-      readAllPages(p => rt.api(p), `/rest/v1/app_library_folder_items?workspace_id=eq.${enc(st.ws)}&select=document_id,folder_id&order=document_id.asc`),
+      rt.api(`/rest/v1/app_documents?workspace_id=eq.${enc(st.ws)}&organization_id=not.is.null&select=id,organization_id&order=id.asc&limit=5000`),
+      // S69: 연결 줄은 1000줄 넘어도 모두(library-folder-data.js readLibraryFolderItems, 자료실과 같은 이어 읽기). 잘리면 폴더에 든 자료를 '폴더 밖'으로 잘못 본다.
+      readLibraryFolderItems(p => rt.api(p), st.ws),
       import('./library-receive.js').then(m => m.readReceiveFolder(rt)).catch(() => ({status: 'error'})),
     ]);
     const byOrg = gatherPlan({docs, items, visibleIds: new Set(st.folders.map(f => f.id)), receiveId: receive?.status === 'ok' ? receive.id : null, orgIds: orgs.map(o => o.id)});
