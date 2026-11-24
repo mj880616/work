@@ -13,6 +13,8 @@
 //   파일마다 그 폴더 안(하위 포함)인지 부모를 따라 올라가 확인한다(화면이 보낸 id를 믿지 않음). 마지막에 고른 폴더는 화면이 view_prefs.drive_import_folder에 기억.
 // 순수 규칙 + 주입받은 입출력(admin·fetch)만. 시험: tests/security/library-files-drive-import.test.mjs.
 import { folderNames, knownFolderNames } from '../_shared/brand-folders.mjs';
+// S69-45: 드라이브 id가 달라도 내용(md5 + 크기)이 자료실 자료와 같으면 목록에 '이미 있음(같은 내용)'(기본 선택에서 뺌). 규칙 한 곳은 same-content.mjs.
+import { fileKey, folderInfo, hashable, lookupKeys, markSame } from './same-content.mjs';
 
 export const FOLDER_MIME = 'application/vnd.google-apps.folder';
 // 링크형으로 넣는 구글 형식(내려받기 대신 드라이브에서 열기).
@@ -42,6 +44,7 @@ export const ADD_MAX = 50;        // 가져오기 한 번에(화면이 나눠 �
 export const FOLDERS_MAX = 3000;  // 고른 폴더 아래 하위 폴더 최대(넘으면 partial)
 export const PARENTS_PER_QUERY = 40; // 한 번 묻는 부모 폴더 수(q 글자 길이 제한 안쪽)
 export const ANCESTOR_MAX = 30;   // 가져오기 때 위로 따라 올라가는 단계 최대
+export const SAME_LOOKUP_MAX = 600; // S69-45: 같은 내용 확인으로 드라이브에 묻는 기존 자료 수(넘으면 same_partial)
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
 export const isDriveId = v => typeof v === 'string' && DRIVE_ID.test(v);
 
@@ -189,7 +192,7 @@ export function pickableFolders(list, { appFolderIds }) {
 const SCOPE_FULL = 'https://www.googleapis.com/auth/drive';
 export const scopeCanList = scope => typeof scope === 'string' && scope.split(/\s+/).includes(SCOPE_FULL);
 
-// 입출력 묶음. deps: {admin, fetch, token, workspaceId, userId, titleFor(name), classify(text), log(code)}
+// 입출력 묶음. deps: {admin, fetch, token, workspaceId, userId, titleFor(name), classify(text), log(code), db?(로그인한 사람 토큰 — 같은 내용 자료의 폴더 이름)}
 export function createDriveImport(deps) {
   const { admin, token, workspaceId, userId } = deps;
   const request = deps.fetch ?? globalThis.fetch;
@@ -218,15 +221,47 @@ export function createDriveImport(deps) {
     try { d = await r.json(); } catch { d = {}; }
     return scopeCanList(d?.scope);
   }
+  let docRows = [];
   async function readRegistered() {
     const rows = [];
     for (let from = 0; from < 200000; from += 1000) {
-      const { data, error } = await admin.from('app_documents').select('file_id,previous_files').eq('workspace_id', workspaceId).range(from, from + 999);
+      const { data, error } = await admin.from('app_documents').select('id,title,file_name,file_id,file_size,mime_type,previous_files').eq('workspace_id', workspaceId).range(from, from + 999);
       if (error) { log('registered_read'); throw new ImportFail('db_read'); }
       rows.push(...(data || []));
       if (!data || data.length < 1000) break;
     }
+    docRows = rows;
     return registeredIds(rows);
+  }
+  // S69-45: 목록 파일과 내용이 같은 자료 찾기. 목록에 나온 파일 크기와 같은(또는 크기를 모르는) 자료만 드라이브에 묻는다(내용 열지 않음).
+  //   자료 경로(폴더 이름)는 로그인한 사람 토큰(db, owner RLS)으로 읽는다 — 없으면 '자료실'.
+  async function sameIndex(items, files) {
+    const listed = new Map(files.map(f => [f.id, fileKey(f)]));
+    const sizes = new Set(items.filter(it => it.kind === 'file').map(it => Number(it.size)));
+    if (!sizes.size) return { docIndex: new Map(), listed, partial: false };
+    const want = docRows.filter(d => hashable(d) && !listed.has(d.file_id) && (!(Number(d.file_size) > 0) || sizes.has(Number(d.file_size))));
+    const { keys, partial } = await lookupKeys(want.map(d => d.file_id), { fetch: request, token, log, max: SAME_LOOKUP_MAX });
+    for (const [k, v] of listed) if (!keys.has(k)) keys.set(k, v);
+    let info = null, itemOf = new Map();
+    if (deps.db) {
+      try {
+        const [{ data: folders }, { data: items2 }] = await Promise.all([
+          deps.db.from('app_library_folders').select('id,parent_id,name').eq('workspace_id', workspaceId).limit(5000),
+          deps.db.from('app_library_folder_items').select('document_id,folder_id').eq('workspace_id', workspaceId).limit(50000),
+        ]);
+        info = folderInfo(folders || []);
+        itemOf = new Map((items2 || []).map(r => [r.document_id, r.folder_id]));
+      } catch { info = null; }
+    }
+    const docIndex = new Map();
+    for (const d of docRows) {
+      const k = hashable(d) ? keys.get(d.file_id) : null;
+      if (!k || docIndex.has(k)) continue;
+      const fid = itemOf.get(d.id) || null;
+      const path = !info ? '자료실' : fid && !info.visible.has(fid) ? '자료실 휴지통' : '자료실 › ' + info.pathOf(fid);
+      docIndex.set(k, { title: String(d.title || d.file_name || '자료'), path });
+    }
+    return { docIndex, listed, partial };
   }
   async function readAppFolders() {
     const { data, error } = await admin.from('app_drive_settings').select('*').eq('workspace_id', workspaceId).maybeSingle();
@@ -279,7 +314,7 @@ export function createDriveImport(deps) {
         // id는 isDriveId로 이미 걸렀다(따옴표·공백 없음).
         const p = new URLSearchParams({
           q: `(${batch.map(x => `'${x}' in parents`).join(' or ')}) and trashed = false`, spaces: 'drive', corpora: 'user', pageSize: String(LIST_PAGE_SIZE),
-          fields: 'nextPageToken,incompleteSearch,files(id,name,mimeType,size,modifiedTime,parents,appProperties,ownedByMe)',
+          fields: 'nextPageToken,incompleteSearch,files(id,name,mimeType,size,md5Checksum,modifiedTime,parents,appProperties,ownedByMe)',
         });
         if (pageToken) p.set('pageToken', pageToken);
         const d = await driveJson('list', `${DRIVE}?${p}`);
@@ -297,7 +332,9 @@ export function createDriveImport(deps) {
       }
     }
     const plan = planImport({ files, registered, appFolderIds, rootId: top.id, rootName: String(top.name || '고른 폴더') });
-    return { ok: true, folder: { id: top.id, name: String(top.name || '고른 폴더') }, ...plan, partial };
+    const idx = await sameIndex(plan.items, files);
+    const marked = markSame(plan.items, idx.listed, idx.docIndex);
+    return { ok: true, folder: { id: top.id, name: String(top.name || '고른 폴더') }, ...plan, items: marked.items, same: marked.same, same_partial: idx.partial, partial };
   }
 
   async function add(folderId, ids) {

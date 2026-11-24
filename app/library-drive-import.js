@@ -6,8 +6,9 @@
 // S69-25b(명진 11/24 09:43 "드라이브 전체가 아니라 드라이브 안에서 공공운수노조 폴더 안에 있는 것만"): 창 맨 위에서 드라이브 폴더 하나를 고르면
 //   그 폴더 안(하위 포함)만 훑는다(서버 drive-import-folders로 '내 드라이브' 바로 아래 내 폴더 목록, list·add에 folder_id — 서버가 다시 확인).
 //   마지막에 고른 폴더는 서버 화면 기억(view_prefs.drive_import_folder)에 둔다. 폴더 이름은 코드에 박지 않는다.
+// S69-45: 드라이브 id가 달라도 자료실에 같은 내용(md5 + 크기)이 있는 파일은 '이미 있음(같은 내용: 자료 이름·폴더)'으로 표시하고 기본 선택에서 뺀다(서버가 판정).
 // 기기 저장 없음(상태는 이 창 메모리·서버 화면 기억에만).
-import {defaultPicked,groupByPath,batches,sizeText,addTotals,resultLine,headLine,skippedLine,pickFolder} from './library-drive-import-model.mjs';
+import {defaultPicked,groupByPath,batches,sizeText,addTotals,resultLine,headLine,skippedLine,pickFolder,sameNote} from './library-drive-import-model.mjs';
 import {waitHtml,emptyHtml} from './wait-state.js';
 import {viewPrefs} from './view-prefs.js';
 
@@ -44,12 +45,12 @@ export function createDriveImport({api,esc,receiveName,onDone,reconnect}){
     if(!data)return;
     const items=left(),n=[...picked].filter(id=>!done.has(id)).length;
     const extra=[skippedLine(data.skipped),receiveName?.()?'':'받는 폴더가 꺼져 있어 폴더 밖에 들어가요'].filter(Boolean).join(' · ');
-    $('#libraryDriveImportSub').textContent=headLine({total:Math.max(0,(data.total||0)-done.size),shown:items.length,picked:n,more:data.more,partial:data.partial})+(extra?' · '+extra:'');
+    $('#libraryDriveImportSub').textContent=headLine({total:Math.max(0,(data.total||0)-done.size),shown:items.length,picked:n,more:data.more,partial:data.partial,same:items.filter(it=>it.same).length,samePartial:!!data.same_partial})+(extra?' · '+extra:'');
     applyLabel();
   }
   function rowHtml(it){
     const meta=[it.kind==='link'?'구글 문서(링크)':sizeText(it.size),it.modified||''].filter(Boolean).join(' · ');
-    return `<label class="lu-di-row"><input type="checkbox" data-di-pick="${esc(it.id)}"${picked.has(it.id)?' checked':''}><span class="lu-di-name">${esc(it.name)}</span>${it.personal?'<span class="lu-di-note">개인 서류로 보여 뺐어요</span>':''}<span class="lu-di-meta">${esc(meta)}</span></label>`;
+    return `<label class="lu-di-row"><input type="checkbox" data-di-pick="${esc(it.id)}"${picked.has(it.id)?' checked':''}><span class="lu-di-name">${esc(it.name)}</span>${it.personal?'<span class="lu-di-note">개인 서류로 보여 뺐어요</span>':''}${it.same?`<span class="lu-di-note" data-di-same>${esc(sameNote(it))}</span>`:''}<span class="lu-di-meta">${esc(meta)}</span></label>`;
   }
   function paint(){
     const list=$('#libraryDriveImportList'),items=left();
