@@ -74,10 +74,12 @@ function harness(options = {}) {
     if (url.searchParams.has('q')) {
       const q = url.searchParams.get('q');
       const kind = /value='([a-z_]+)' }/.exec(q)[1];
-      const parent = /'([^']+)' in parents/.exec(q)[1];
+      // S69-22: 맨 위 사본 폴더('folder')는 자리 조건 없이 표식만으로 찾는다(맨 위 앱 폴더 아래로 옮겨도 같은 폴더).
+      const parent = /'([^']+)' in parents/.exec(q)?.[1] ?? null;
+      if (kind === 'folder') assert.doesNotMatch(q, /in parents/);
       assert.match(q, /trashed = false/);
       assert.match(q, /kptu_workspace/);
-      return reply({ files: [...files.values()].filter(f => !f.trashed && f.appProperties?.kptu_summary === kind && (f.parents || []).includes(parent)).map(f => ({ id: f.id, appProperties: f.appProperties })) });
+      return reply({ files: [...files.values()].filter(f => !f.trashed && f.appProperties?.kptu_summary === kind && (parent === null || (f.parents || []).includes(parent))).map(f => ({ id: f.id, appProperties: f.appProperties })) });
     }
     if (url.pathname.startsWith('/upload/')) {
       if (options.uploadFail) return reply({ error: { message: 'RAW_UPSTREAM_TEXT' } }, 503);

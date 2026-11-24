@@ -1,5 +1,6 @@
 import {AI_CAP_TEXT, isAiCap} from './ai-cap.mjs';
 import {sortByName} from './name-order.mjs';
+import {urlTitle} from './url-title.mjs';
 // NEWS-클리핑 화면 계산(설계 docs/design/news-clipping.md, 명진 11/01 22:34): 그리기 없는 순수 함수만. app/news-clipping.js가 쓴다.
 // - 한 목록: 채널 기사(lane=channel) + 서버가 찾은 기사(lane=keyword·media) = 하나의 스크랩. 어디서 왔는지(채널/자동) 칩·꼬리표는 화면에 없다(11/04 명진: 굳이 구분 안 해도 됨). lane 값·수집 방식은 그대로.
 // - 한 문장 요약은 늘 보이고 본문은 접는다. 외국어 기사 제목은 서버가 수집 때 한국어로 미리 번역해 두고(한국어 제목 + 원제 작게),
@@ -62,7 +63,10 @@ const STATE_NOTE = {
 };
 export const stateNote = state => STATE_NOTE[state] || '';
 // 제목을 못 읽은 줄의 제목 자리(S67-10 NEWS-네이버공유읽기): '제목 없음' 대신 까닭 한마디 · 도메인. 자세한 까닭과 [직접 넣기]는 상세 원문 칸(now-detail.js).
-const NO_TITLE = {pending: '제목 읽기 전', robots: '제목 읽기 전', bot_check: '읽기 막힌 기사', failed: '못 읽은 기사', too_big: '못 읽은 기사', blocked: '읽지 않는 주소'};
+// S69 NEWS-제목늘읽기(명진 11/24 "제목 읽기 전 -> 제목은 읽어놔야 누르든 말든하지"): 서버가 들어올 때 그 주소 한 장의 제목을 읽는다(collector-feed·news-feed).
+//   그래도 제목이 없으면 '제목 읽기 전'으로 두지 않는다 — 주소 경로의 읽을 만한 조각(url-title.mjs), 그것도 없으면 '못 읽은 기사 · 도메인'.
+const NO_TITLE = {bot_check: '읽기 막힌 기사', blocked: '읽지 않는 주소'};
+const NO_TITLE_ELSE = '못 읽은 기사';
 
 // 시각: 24시간 HH:MM(UI-화면정리 B). 날짜 묶음 머리가 날짜를 보이므로 줄에는 시각만.
 const KST = 9 * 3600000;
@@ -106,7 +110,7 @@ export function itemView(item, {showKo = false} = {}) {
   const rawTitle = plainText(item.title).replace(/\s+/g, ' ').trim();
   const own = rawTitle && !isAddressTitle(rawTitle) ? rawTitle : '';
   const host = domainOf(item.url);
-  const title = koTitle || own || `${NO_TITLE[item.state] || '제목 없음'}${host ? ` · ${host}` : ''}`;
+  const title = koTitle || own || urlTitle(item.url) || `${NO_TITLE[item.state] || NO_TITLE_ELSE}${host ? ` · ${host}` : ''}`;
   return {
     publisher: item.publisher || domainOf(item.url),
     time: t === null ? '' : hhmm(t),
@@ -175,7 +179,7 @@ export const keywordGroupLabel = g => `${g.word} · ${g.more ? `최근 ${g.items
 export function normalizeCatalog(data) {
   const list = Array.isArray(data?.sources) ? data.sources : [];
   return list.filter(s => s && /^news-[a-z0-9-]{1,34}$/.test(String(s.key)) && typeof s.name === 'string')
-    .map(s => ({key: s.key, name: s.name.slice(0, 60), region: s.region === 'foreign' ? 'foreign' : 'domestic', lang: typeof s.lang === 'string' ? s.lang : 'ko', on: s.on === true}));
+    .map(s => ({key: s.key, name: s.name.slice(0, 60), region: s.region === 'foreign' || s.region === 'opinion' ? s.region : 'domestic', lang: typeof s.lang === 'string' ? s.lang : 'ko', on: s.on === true}));
 }
 // 켬 여부: 그 매체 줄이 있으면 줄 값, 없으면 카탈로그 기본 켬(on, S53-6 — 서버 news-feed도 같은 규칙으로 읽는다).
 export function sourceOn(source, row) {
@@ -192,7 +196,8 @@ export function normalizeLimits(data) {
 // 이번 달 AI 한도(서버 catalog 응답 ai.month_capped, NEWS-다받기 ④): 닿으면 수집 때 요약·외국어 제목 번역이 멈춘다. 예/아니오만 받는다.
 export const AI_CAP_NOTE = '이번 달 AI 한도에 닿아 요약·제목 번역이 멈춤 · 다음 달 1일 다시';
 export const aiCapped = data => data?.ai?.month_capped === true;
-export const REGIONS = Object.freeze([{key: 'domestic', label: '국내'}, {key: 'foreign', label: '해외'}]);
+// S69 NEWS-사설칼럼: 신문 사설·칼럼 피드는 '사설·칼럼' 묶음 하나(서버 카탈로그 region 'opinion').
+export const REGIONS = Object.freeze([{key: 'domestic', label: '국내'}, {key: 'opinion', label: '사설·칼럼'}, {key: 'foreign', label: '해외'}]);
 export function sourceNote(row) {
   if (!row?.enabled) return '';
   // S63-10: 사이트 robots.txt가 막은 매체는 켜도 소용없다고 알린다(서버 수집 결과 코드만 보고 글자를 고른다 — 거르기 규칙은 서버 한 곳).

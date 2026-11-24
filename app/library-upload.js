@@ -35,9 +35,10 @@ import {mountLibraryFolders} from './library-folders.js';
 import {createReceiveSort,sortButtonHtml,createTidySuggest,TIDY_LABEL} from './library-sort.js'; // LIB-받는폴더나누기(S60-18)·LIB-정돈제안(S61-13)
 import {readLibraryFolders} from './library-folder-data.js';
 import {createSelectMode} from './select-mode.js';
+import {bindMarquee} from './marquee-select.js';
 import {bindRowSwipe,PICK} from './row-swipe.js';
 import {announceUploaded,openInLibrary} from './upload-done.js';
-import {folderTrail,folderPathHtml} from './folder-path.mjs';
+import {folderTrail,folderPathHtml,collapseSteps,moreStepHtml} from './folder-path.mjs';import './folder-path-more.js';
 import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea,settleGestureAreas} from './gesture-fill.js';
 import {SPLIT_QUERY,NARROW_QUERY} from './screen-width.mjs';
@@ -989,6 +990,8 @@ function luFocusUp(){if(!luInFolder)return;const step=LU_PHONE?.matches?walkUp(l
   luLeaveFocus()}
 function luLeaveFocus(){if(!luInFolder)return;const back=luTreeBack;luTreeBack=null;luEnterFolder(null);luRestoreTree(back)}
 document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [data-lu-path-back]');if(!b)return;e.preventDefault();luFocusUp()});
+// S69-19: 폰 위치 줄(지금 폴더 위 단계들)도 길면 가운데를 '…' 하나로(누르면 가려진 단계 목록, folder-path-more.js).
+function luPhoneAncHtml(steps){const sep='<span class="ft-focus-sep" aria-hidden="true">›</span>',one=f=>`<button type="button" class="ft-btn ft-focus-step" data-lu-path="${luEsc(f.id)}">${luEsc(f.name)}</button>`;const c=collapseSteps(steps,{max:3,tail:1});return(c.hidden.length?[one(c.head[0]),moreStepHtml(c.hidden,{cls:'ft-btn ft-focus-step',attr:'data-lu-path',esc:luEsc,sep:''}),...c.tail.map(one)]:steps.map(one)).map(x=>x+sep).join('')}
 function luRenderPath(box){
   luDrive().render(); // S69-20: 저장 위치 줄도 지금 자리(폴더 안·밖)에 맞춘다
   let nav=document.querySelector('#libraryPath');
@@ -1000,7 +1003,7 @@ function luRenderPath(box){
   // 바로 아래 그 폴더 줄(열린 폴더 그림 + 굵은 이름 + 개수)이 상자 머리. 맨 앞 '자료실'은 [‹]처럼 펼친 자리 그대로 나무로. 넓은 화면은 지금 위치 줄 그대로.
   const phone=!!LU_PHONE?.matches,trail=folderTrail(luFolders_,luInFolder);
   nav.className=phone?'ft-focus-anc lu-focus-anc':'fp-path';
-  nav.innerHTML=phone?`<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="${walkUpLabel(luWalk)}" title="${walkUpLabel(luWalk)}">‹</button>`+[{id:'',name:'자료실'},...trail.slice(0,-1)].map(f=>`<button type="button" class="ft-btn ft-focus-step" data-lu-path="${luEsc(f.id)}">${luEsc(f.name)}</button><span class="ft-focus-sep" aria-hidden="true">›</span>`).join('')
+  nav.innerHTML=phone?`<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="${walkUpLabel(luWalk)}" title="${walkUpLabel(luWalk)}">‹</button>`+luPhoneAncHtml([{id:'',name:'자료실'},...trail.slice(0,-1)])
       // S69-28: 탐색기 칸에는 지금 폴더 줄(상자 머리)이 없으므로 위치 줄 끝에 지금 폴더 이름(굵게) — 한 번만 보인다.
       +(luExplorerNow&&trail.length?`<b class="lu-focus-here" aria-current="location">${luEsc(trail.at(-1).name)}</b>`:'')
     :`<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="${luExplorerNow&&LU_SPLIT?.matches?'위 폴더로':'폴더 나무로'}">‹</button>`+folderPathHtml({rootLabel:'자료실',trail:folderTrail(luFolders_,luInFolder),attr:'data-lu-path',esc:luEsc});
@@ -1130,10 +1133,24 @@ function luEnterFolder(id,{picked=true}={}){
   const head=luInFolder?[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode==='f:'+luInFolder):null;
   (head||document.querySelector('#libraryPath [data-lu-path]'))?.focus?.({preventScroll:true});
 }
+// S69-19(명진 11/24): 폴더 안에서 Backspace = 한 단계 위 폴더(두 칸이면 지금 칸). 글 쓰는 칸·창·메뉴가 열려 있을 때는 그대로 둔다.
+// Alt+←·폰 뒤로 키는 이미 있는 뒤로 규칙(넓은 화면 = 직전 폴더, 폰 = 한 단계 위)이 맡는다.
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Backspace'||e.defaultPrevented||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||e.isComposing)return;
+  if(window.KPTURouter?.current!=='library'||luGroupBy!=='folder')return;
+  const t=e.target;if(t instanceof Element&&t.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),dialog,.modal:not(.hidden),[role="dialog"],[popover]'))return;
+  if([...document.querySelectorAll('.modal:not(.hidden),[role="dialog"],dialog[open]')].some(el=>el.checkVisibility?.()??el.getClientRects().length>0))return;
+  if(luTwoActive()){const i=luTwo.cur,here=i===1?luInFolder:luTwo.left;if(!here)return;e.preventDefault();luTwo.up(document.querySelector(`#documentList [data-lu-pane-i="${i}"]`));return}
+  if(!luInFolder)return;e.preventDefault();
+  if(luPhone()){luFocusUp();return}
+  const up=luFolders_.find(f=>f.id===luInFolder)?.parent_id||null;
+  if(!up&&luTreeBack)luLeaveFocus();else luEnterFolder(up);
+});
 document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [data-lu-path]');if(!b)return;e.preventDefault();if(!b.dataset.luPath&&luTreeBack)luLeaveFocus();else luEnterFolder(b.dataset.luPath||null)});
 // 폴더 줄을 두 번 누르면(PC 더블클릭, 폰 두 번 탭) 그 폴더로 들어간다. 첫 번째 누름의 펼치기·접기는 그대로 일어나고, 들어간 폴더는 열린 채로 보인다.
 document.addEventListener('dblclick',e=>{
   const head=e.target.closest?.('#documentList summary.lu-node-head');if(!head||luGroupBy!=='folder'||e.target.closest('input,button,a'))return;
+  if(head.parentElement?.hasAttribute('data-lu-enter'))return; // S69-28: 탐색기 칸 폴더 줄은 한 번 누르기로 이미 들어갔다
   const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:')||key==='f:'+luInFolder)return;
   e.preventDefault();window.getSelection?.()?.removeAllRanges?.();luEnterFolder(key.slice(2));
 });
@@ -1378,6 +1395,8 @@ function luOnFolderIcon(head,e){const ico=head.querySelector(':scope > .lu-folde
 function luOnHeadClick(e){const head=e.target.closest('summary.lu-node-head');if(!head||e.defaultPrevented||e.target.closest('button,input'))return;const d=head.parentElement;if(!(d instanceof HTMLDetailsElement)||!d.dataset.luNode)return;const key=d.dataset.luNode,next=!d.open;
   // S69-28 LIB-한칸탐색기: 탐색기 칸의 하위 폴더 줄(data-lu-enter)은 펼치지 않고 그 폴더로 들어간다(왼쪽 나무도 그 폴더까지 펼침·강조 — 같은 luInFolder).
   // 폰 맨 위 나무는 폴더 이름 누르기 = 그 폴더 내용 화면(뒤로가기 = 나무), 폴더 그림 누르기 = 지금처럼 펼치기·접기.
+  // 두 번 누르기(탐색기 습관)의 두 번째 누름은 첫 누름으로 바뀐 화면의 같은 자리 줄에 떨어지므로 무시한다(한 단계만 들어감).
+  if(d.hasAttribute('data-lu-enter')&&e.detail>1){e.preventDefault();return}
   if(key.startsWith('f:')&&!head.querySelector('input')&&(d.hasAttribute('data-lu-enter')||(luGroupBy==='folder'&&!LU_SPLIT?.matches&&!luInFolder&&!luOutOnly&&luFilterSignature==='-'&&!luPick.items&&!luOnFolderIcon(head,e)))){e.preventDefault();luPressEnter(key.slice(2));return}
   // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 폴더 묶기의 폴더 줄 — 펼쳐 보일 것(하위 폴더·자료)이 없으면 한 번에 그 폴더를 연다(공용 판정 folderPressAction, 두 손가락 벌리기와 같은 곳).
   // 지금 들어가 있는 폴더 자신·고르는 중·이름 바꾸는 중(줄 안 입력칸)은 지금처럼 펼치기·접기만.
@@ -1956,11 +1975,45 @@ function luBindRowSwipe(list){
       else if(key==='move'&&luFoldersReady){const at=el.querySelector('[data-lu-menu]')||el;luFolders().openMove(luMoveDocs(id),at,{place:'below',trigger:at})}},
     select:{attr:'data-lu-document',open:el=>luSelStartWith(el.dataset.luDocument)}});
 }
+// S69-17 UI-끌어고르기(명진 11/24 08:30 "자료실에서 선택 말고 드래그해서 파일 선택 가능하게"): PC 마우스로 목록 빈 곳(목록·칸 아래 빈 곳, 폴더 사이, 들여 쓴 줄의 왼쪽 여백, 사진 사이)에서 끌면
+// 반투명 사각형이 그려지고 닿은 자료 줄·사진이 골라진다(윈도우 탐색기처럼). 사각형·닿은 줄 계산은 공용 부품(marquee-select.js), 고른 상태 주인은 선택 모드 luPick 하나.
+// 자료 줄 위(이름·빈칸·날짜·⋯·사진)에서 시작한 끌기는 지금처럼 폴더로 끌어 옮기기, 폴더 줄·폴더 나무·글자 칸·두 칸 위 줄은 건드리지 않는다. Ctrl·Shift와 끌면 더하기.
+const LU_MQ_SKIP='input,textarea,select,button,a,label,[contenteditable],summary,.ft-row,[data-lu-nav],[data-lu-photoset],.lu-pane-head,#libraryFolderNav,.lu-renaming,.lu-two-bar';
+function luMqBlank(t,x){
+  const list=document.querySelector('#documentList'),card=document.querySelector('#libraryListCard');
+  if(!list||!(list.contains(t)||t===card))return false;
+  if(t.closest(LU_MQ_SKIP))return false;
+  const row=t.closest('[data-lu-document]');if(!row)return true;
+  // 자료 줄 위는 어디든(가운데 빈칸 포함) 지금처럼 '잡아 폴더로 옮기기'다(줄 가운데를 잡아 끄는 사람이 많고 그 동작을 지킨다).
+  // 다만 폴더 안으로 들여 쓴 줄의 왼쪽 들여쓰기 여백(첫 칸보다 왼쪽)은 빈 곳으로 본다. 사진 칸은 늘 줄 위.
+  if(t!==row||!row.matches('.lu-row'))return false;
+  const first=[...row.children].find(c=>c.getClientRects().length&&!c.matches('.lu-pick'));
+  return !!first&&x<first.getBoundingClientRect().left-4&&x>row.getBoundingClientRect().left+2;
+}
+// 고르는 동안 선택 모드가 켜지면 목록이 다시 그려진다: 누른 요소가 문서에서 빠져도 그 칸 번호(두 칸)로 지금 칸을 다시 찾는다.
+const luMqPane=el=>{const i=el?.closest?.('[data-lu-pane-i]')?.dataset.luPaneI;return i==null?null:document.querySelector(`#documentList [data-lu-pane-i="${i}"]`)};
+function luMqItems(start){const root=luMqPane(start)||document.querySelector('#documentList');return root?root.querySelectorAll('[data-lu-document]'):[]}
+function luMqLive(old){if(old.matches?.('.lu-pane-list'))return luMqPane(old)?.querySelector('.lu-pane-list')||null;if(old.id)return document.getElementById(old.id);return null}
+function luMqApply(set){
+  const ids=luTwinIds([...set]);
+  if(!luPick.items){if(!ids.length)return;luPick.start(ids);luRenderLibrary();return}
+  luPick.items=new Set(ids);luSyncPicks();
+}
+function luBindMarquee(){
+  const card=document.querySelector('#libraryListCard');if(!card)return;
+  bindMarquee(card,{
+    enabled:()=>!!LU_FINE?.matches&&window.KPTURouter?.current==='library'&&!luSelBusy&&!luRenameBusy&&!luRename&&!luActiveMenu&&!luFolderUi?.busy&&!luFolderUi?.moveOpen,
+    blank:luMqBlank,items:luMqItems,live:luMqLive,anchor:()=>document.querySelector('#documentList'),keyOf:el=>el.dataset.luDocument,
+    begin:additive=>additive&&luPick.items?[...luPick.items]:[],
+    onChange:set=>{if(!luSelBusy)luMqApply(set)},
+  });
+}
 function luBindSelect(){
   const list=document.querySelector('#documentList');
   if(!list||list.dataset.luSelBound)return;list.dataset.luSelBound='1';
   list.addEventListener('click',luOnPickClick,true);list.addEventListener('keydown',luOnPickKey,true);
   luBindRowSwipe(list);
+  luBindMarquee();
   document.querySelector('#libraryTopMenuBtn')?.addEventListener('click',e=>luTopMenuOpen(e.currentTarget));
   document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{if(e.target.closest('#librarySelectAll'))luSelAll()});
   document.querySelector('#librarySelectDelete')?.addEventListener('click',luSelDelete);

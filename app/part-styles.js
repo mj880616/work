@@ -33,6 +33,7 @@ export const PART_STYLES = Object.freeze({
   'weekly-summary-table': ['./biz-summary.css'],
   'text-highlights': ['./news-mark-rows.css'],
   'photo-strip': ['./diary.css'],
+  'marquee-select': ['./marquee-select.css'],
 });
 
 const browser = () => typeof window !== 'undefined' && typeof document !== 'undefined' && !!document.head

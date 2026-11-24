@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {FIXED_OUTSIDE, FIXED_NEWS, FAMILIES, SHADES, colorVar, outsideColor, outsideBar, newsColor, newsBar, postTag, newsTag, tagLabel, tagStyle, shadeOf} from '../app/news-colors.mjs';
+import {FIXED_OUTSIDE, FIXED_NEWS, FAMILIES, SHADES, colorVar, outsideColor, outsideBar, newsColor, newsBar, postTag, newsTag, tagLabel, tagStyle, shadeOf, baseKey} from '../app/news-colors.mjs';
 import {rowHtml, dayHtml} from '../app/news-row.mjs';
 // S51-8 NEWS-전면개편 P4b: News 목록 색·꼬리표는 news-colors.mjs 하나, 값은 theme-tokens.css 토큰(밝은·어두운 화면 둘 다).
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -101,9 +101,10 @@ test('고정 색 표의 키는 모두 지금 카탈로그에 있다(이름이 �
 // S58-5 반대 방향 전수: 카탈로그에 매체를 더했는데 고유색(FIXED_* 키 + 토큰 두 개)을 빼먹으면 이 시험이 매체 키를 알려 준다. 빠진 키는 묶음 돌려쓰기 칸으로 그려져 다른 매체와 색이 겹쳐 보인다.
 // 일부러 표에 없는 키만 아래에 까닭과 함께 적는다. 까닭 없이 키를 여기에 더해 시험을 넘기지 않는다(새 매체는 표·토큰을 더하는 것이 기본).
 // S59-1: 구글 뉴스 키워드 찾기 길(news-google)은 카탈로그에서 없앴다(robots 금지) — 지금은 일부러 뺀 언론 키가 없다.
-const NO_FIXED_COLOR_NEWS = {};
+// S69 사설·칼럼 피드 키('news-<신문>-opinion')는 그 신문 고유색을 함께 쓴다(baseKey) — 고유색 표에 있는 신문이면 따로 적지 않는다.
+const NO_FIXED_COLOR_NEWS = {'news-segye-opinion': '세계일보는 사설·칼럼만 받는 신문이라 고유색 없이 언론 묶음 돌려쓰기 칸(S69 NEWS-사설칼럼)'};
 const NO_FIXED_COLOR_OUTSIDE = {};
-const missingFixed = (catalog, fixed, skip) => catalog.filter(k => !fixed.includes(k) && !(k in skip));
+const missingFixed = (catalog, fixed, skip) => catalog.filter(k => !fixed.includes(baseKey(k)) && !(k in skip));
 
 test('카탈로그의 모든 키는 고정 색 표에 있다 — 고유색을 빼먹은 새 매체를 시험이 알려 준다(일부러 뺀 키는 까닭과 함께)', () => {
   const outside = catalogKeys('outside-catalog.ts'), news = catalogKeys('news-catalog.ts');
@@ -200,4 +201,12 @@ test('줄: 막대 색이 글자 색과 다를 때만 --nw-bar를 따로 쓴다',
   assert.match(rowHtml({...base, color: 'var(--ds-news-id-kptu)', bar: 'var(--ds-news-id-kptu-bar)'}, esc), /style="--nw-c:var\(--ds-news-id-kptu\);--nw-bar:var\(--ds-news-id-kptu-bar\)"/);
   assert.match(rowHtml({...base, color: 'var(--ds-news-labor-1)', bar: 'var(--ds-news-labor-1)'}, esc), /style="--nw-c:var\(--ds-news-labor-1\)"/);
   assert.match(readFileSync(new URL('../app/now.css', import.meta.url), 'utf8'), /\.nw-bar\{[^}]*background:var\(--nw-bar,var\(--nw-c\)\)/);
+});
+
+test('S69 사설·칼럼 피드는 같은 신문 고유색(글자·막대), 고유색 없는 신문은 돌려쓰기', () => {
+  assert.equal(baseKey('news-khan-opinion'), 'news-khan');
+  assert.equal(newsColor({source_key: 'news-khan-opinion'}), newsColor({source_key: 'news-khan'}));
+  assert.equal(newsBar({source_key: 'news-hani-opinion'}), newsBar({source_key: 'news-hani'}));
+  assert.equal(baseKey('news-segye-opinion'), 'news-segye-opinion');
+  assert.match(newsColor({source_key: 'news-segye-opinion'}, [{key: 'news-segye-opinion'}]), /^var\(--ds-news-press-[1-4]\)$/);
 });

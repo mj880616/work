@@ -31,7 +31,7 @@ const NEWS = [
 ];
 const SENTENCES = { p1: [{ idx: 0, text: '가상 본문 첫 문장이다.' }, { idx: 1, text: '가상 본문 둘째 문장이다.' }] };
 
-async function outsideServer(page) {
+async function outsideServer(page, { newsCatalog = NEWS_CATALOG, news = NEWS } = {}) {
   const server = {
     sources: new Map([['kctu', true], ['laborparty', true], ['kgreens', true], ['jacobin', true]].map(([k, on]) => [k, { source_key: k, enabled: on, last_ok_at: '2026-10-05T09:07:00Z', last_error: null }])),
     // 같은 표의 뉴스 클리핑 매체 줄(news- 키): 사회운동 Now 계산에 섞이면 안 된다(흉내 서버는 조건을 무시하고 함께 돌려준다).
@@ -62,7 +62,7 @@ async function outsideServer(page) {
     // S51-8 News: 언론 카탈로그·기사(가짜 둘), 읽음 표(p2만 읽음 → 넣으면 기억).
     if (p === '/functions/v1/news-feed') {
       const action = u.searchParams.get('action');
-      if (action === 'catalog') return ok({ ok: true, sources: NEWS_CATALOG, limits: { fill: 10, translate: 20, keywords: 30 } });
+      if (action === 'catalog') return ok({ ok: true, sources: newsCatalog, limits: { fill: 10, translate: 20, keywords: 30 } });
       if (action === 'fill_now') return ok({ ok: true, done: 0, status: 'nothing' });
       return ok({ ok: false }, 400);
     }
@@ -72,7 +72,7 @@ async function outsideServer(page) {
       server.calls.push({ what: 'app_news_articles', method, query: decodeURIComponent(u.search) });
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
       // S68-27: 보관(★) = 그 기사를 가리키는 내 읽을 거리 줄(app_reading_items embed). 가짜 줄의 starred_at = 그 줄의 저장 시각.
-      return ok(NEWS.filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('or'), 'summary')).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: [], app_reading_items: starred_at ? [{ saved_at: starred_at }] : [] })));
+      return ok(news.filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('or'), 'summary')).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: [], app_reading_items: starred_at ? [{ saved_at: starred_at }] : [] })));
     }
     if (p === '/rest/v1/app_news_reads' || p === '/rest/v1/app_outside_reads') {
       const body = req.postDataJSON?.() ?? null;
@@ -127,14 +127,14 @@ function likeOk(row, param, sumCol) {
   const re = new RegExp(pat.split('*').filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*'), 'i');
   return ['title', 'title_ko', sumCol].some(k => re.test(String(row[k] ?? '')));
 }
-async function start(page, width, initialPrefs = null) {
+async function start(page, width, initialPrefs = null, serverOpts = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
   if (initialPrefs) await installViewPrefsServer(page, initialPrefs);
   const home = await openHome(page);
-  const server = await outsideServer(page);
+  const server = await outsideServer(page, serverOpts);
   server.prefs = home.prefs;
   return { errors, server };
 }
@@ -331,5 +331,33 @@ for (const width of [390, 884, 1280]) test(`News 매체 고르기 창은 누른 
   await pick.locator('[data-lu-move-folder="g:party"]').click();
   await expect(pick).toBeHidden();
   await expect(dd).toHaveText('매체: 정당 ▾');
+  expect(errors).toEqual([]);
+});
+
+// S69 NEWS-제목늘읽기·NEWS-사설칼럼(명진 11/24): 제목 없는 줄은 '제목 읽기 전'으로 남지 않고(대기·robots 모의), [매체 ▾]에 '사설·칼럼' 묶음 하나 — 고르면 사설·칼럼만.
+test('S69 News: 제목 없는 대기·robots 줄은 주소 조각 또는 못 읽은 기사 · 도메인, [매체 ▾] 사설·칼럼 묶음으로 거르기', async ({ page }) => {
+  test.setTimeout(90000);
+  const newsCatalog = [...NEWS_CATALOG, { key: 'news-fake-a-opinion', name: '가짜일보 사설·칼럼', region: 'opinion', lang: 'ko' }];
+  const base = { lane: 'channel', lang: 'ko', publisher: null, source_key: null, published_at: null, summary: null, body_kind: null, title_ko: null, starred_at: null, title: null };
+  const news = [...NEWS,
+    { ...base, id: 't1', url: 'https://www.donga.com/news/Politics/article/all/20261124/132845001/1', scrapped_at: '2026-10-06T01:58:00Z', created_at: '2026-10-06T01:58:00Z', state: 'pending' },
+    { ...base, id: 't2', url: 'https://news.example.org/2026/10/06/workers-win-wage-deal', scrapped_at: '2026-10-06T01:57:00Z', created_at: '2026-10-06T01:57:00Z', state: 'robots' },
+    { ...base, id: 'o1', lane: 'media', url: 'https://example.org/o1', title: '[사설] 가짜 사설 하나', publisher: '가짜일보 사설·칼럼', source_key: 'news-fake-a-opinion', published_at: '2026-10-06T01:00:00Z', created_at: '2026-10-06T01:05:00Z', state: 'ok' },
+  ];
+  const { errors, server } = await start(page, 412, null, { newsCatalog, news });
+  server.newsRows.push({ source_key: 'news-fake-a-opinion', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null });
+  await openOutside(page, 412);
+  await expect(row(page, 'news:t1')).toContainText('못 읽은 기사 · donga.com');
+  await expect(row(page, 'news:t2')).toContainText('workers win wage deal');
+  await expect(root(page)).not.toContainText('제목 읽기 전');
+  const dd = root(page).locator('[data-nw-media]');
+  await dd.click();
+  const pick = page.locator('#nwMediaPicker');
+  await expect(pick.locator('.lu-move-item')).toContainText(['언론 국내', '가짜일보', '사설·칼럼', '가짜일보 사설·칼럼', '언론 국제']);
+  await pick.locator('[data-lu-move-folder="r:opinion"]').click();
+  await expect(dd).toHaveText('매체: 사설·칼럼 ▾');
+  await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
+  await expect(row(page, 'news:o1')).toBeVisible();
+  expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-a-opinion)');
   expect(errors).toEqual([]);
 });

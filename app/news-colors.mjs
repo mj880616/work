@@ -35,6 +35,8 @@ export const FIXED_NEWS = Object.freeze([
   //   (미디어오늘·부산일보·뉴스1·이데일리·국제신문·경기일보·경인일보·영남일보)은 이 표와 토큰에서도 뺐다 — 값은 docs/design/news-identity-colors.md 표에 남긴다.
   'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt',
 ]);
+// S69 NEWS-사설칼럼: 신문 사설·칼럼 피드 키('news-<신문>-opinion')는 그 신문 고유색을 함께 쓴다(표에 키를 따로 두지 않음). 고유색이 없는 신문은 묶음 돌려쓰기.
+export const baseKey = key => (typeof key === 'string' && key.endsWith('-opinion') && FIXED_NEWS.includes(key.slice(0, -8)) ? key.slice(0, -8) : key);
 const fixedInk = key => `var(--ds-news-id-${key})`;
 const fixedBar = key => `var(--ds-news-id-${key}-bar)`;
 
@@ -51,11 +53,12 @@ export function outsideColor(key, catalog = []) {
 export const outsideBar = (key, catalog = []) => (FIXED_OUTSIDE.includes(key) ? fixedBar(key) : outsideColor(key, catalog));
 // 언론 매체 색: 고정 표 → 아니면 뉴스 카탈로그 [{key}] 안 순서. 카탈로그에 없으면(키워드 기사) 매체 이름으로 칸을 고른다.
 export function newsColor(item, catalog = []) {
-  if (FIXED_NEWS.includes(item?.source_key)) return fixedInk(item.source_key);
+  const k = baseKey(item?.source_key);
+  if (FIXED_NEWS.includes(k)) return fixedInk(k);
   const i = (catalog || []).findIndex(s => s?.key && s.key === item?.source_key);
   return colorVar('press', i >= 0 ? i : shadeOf(item?.publisher || item?.source_key || ''));
 }
-export const newsBar = (item, catalog = []) => (FIXED_NEWS.includes(item?.source_key) ? fixedBar(item.source_key) : newsColor(item, catalog));
+export const newsBar = (item, catalog = []) => (FIXED_NEWS.includes(baseKey(item?.source_key)) ? fixedBar(baseKey(item.source_key)) : newsColor(item, catalog));
 
 export const TAGS = Object.freeze({
   labor: {label: '노동'},

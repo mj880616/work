@@ -28,8 +28,10 @@ export const OPEN_ARTICLE_KEY = "open";
 // beat: "labor" = 노동 전문지·해외 노동 매체 — 거르지 않고 전부 받는다(등급 1, S63-10 news-rank.ts).
 // sections: lists와 같은 차례로 그 피드의 섹션(society·politics·economy·mixed). 없으면 섞인 피드. mixedAs: 섞인 피드에서 섹션을 못 알아볼 때 볼 섹션(없으면 society).
 //   종합지·방송사·통신사의 거르기·등급 규칙은 news-rank.ts 한 곳(S63-10 NEWS-언론거르기, 11/16 명진 결정).
-export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true;
-  beat?: "labor"; sections?: readonly ("society" | "politics" | "economy" | "mixed")[]; mixedAs?: "society" | "politics" | "economy" };
+// region "opinion"(S69 NEWS-사설칼럼, 명진 11/24 "주요 신문 사설 칼럼도 추가해줘요"): 신문의 사설·칼럼(오피니언) 피드. 화면 매체 고르기에서 '사설·칼럼' 묶음 하나로 모인다.
+//   켬·끔은 다른 매체처럼 사람마다(app_outside_sources), 기본 켬(on). 새 저장 구조 없음.
+export type NewsSource = OutsideSource & { region: "domestic" | "foreign" | "opinion"; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true;
+  beat?: "labor"; sections?: readonly ("society" | "politics" | "economy" | "mixed" | "opinion")[]; mixedAs?: "society" | "politics" | "economy" };
 
 const article = () => "article" as const;
 
@@ -213,6 +215,35 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     // 수집기는 허용 호스트(https) 안의 넘김만 따라가고, 따라간 끝이 404면 robots.txt가 없는 것(전부 허용)으로 본다(feed-fetch readRobots, 표준 RFC 9309). 하루 글이 많다(약 560건).
     extract: false,
     lists: ["https://rss.mt.co.kr/mt_news.xml"], hosts: ["rss.mt.co.kr", "www.mt.co.kr", "mt.co.kr"], kindOf: article },
+  // ---- 사설·칼럼(S69 NEWS-사설칼럼 — 맨 끝에 둔다: 앞선 매체의 키 순서·돌려쓰기 색 칸이 그대로, 명진 11/24 "주요 신문 사설 칼럼도 추가해줘요"). region "opinion" — 화면 '사설·칼럼' 묶음.
+  //   규칙은 종합지와 같다: take 'all'·기본 켬·extract:false(수집 때 글 쪽은 읽지 않음 — 제목·소개·날짜·링크만, 사람이 열 때 읽기는 다른 매체와 같다).
+  //   거르기(news-rank.ts): 섹션 "opinion"은 사회 섹션과 같은 등급 2(노동 낱말이 있으면 1, 부고·운세 같은 꼬리표는 그대로 뺀다).
+  //   주소는 매체 공식 RSS 안내 쪽 또는 지금 카탈로그의 같은 매체 피드 꼴에서 찾았고, 실제로 열리는지는 실측 점검(article-extract-live-check, GitHub 러너,
+  //   11/24 [사실])으로 확인한 것만 남겼다: 경향·한겨레·조선·세계·한국경제 — 피드 ok, 글 3건씩 전문.
+  //   뺀 것(같은 점검): 중앙(rss.joins.com)·한국일보(rss.hankooki.com) 옛 주소는 접속 안 됨, 국민일보(kmibColRss.xml)·매일경제(/rss/30500041/)는 빈 응답(0건),
+  //   동아(rss.donga.com/editorials.xml)는 러너에서 확인 불가(지금 쓰는 동아 피드도 같은 러너에서 시간 초과 — 사이트가 러너 접속을 막는 것으로 보임 [추정]).
+  //   서울신문·문화일보는 공식 사설 피드 주소를 찾지 못함. 새 주소를 찾으면 한 줄 더하는 작은 PR로.
+  //   키는 '신문 키-opinion' — 화면 색은 같은 신문 고유색을 함께 쓴다(app/news-colors.mjs baseKey).
+  { key: "news-khan-opinion", name: "경향신문 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 안내 쪽 khan.co.kr/help/help_rss.html '오피니언' [사실, 11/24 웹 확인].
+    extract: false,
+    lists: ["https://www.khan.co.kr/rss/rssdata/opinion_news.xml"], hosts: ["www.khan.co.kr", "khan.co.kr"], kindOf: article },
+  { key: "news-hani-opinion", name: "한겨레 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 같은 매체 피드 꼴 www.hani.co.kr/rss/<섹션>/ 의 '사설·칼럼'(opinion).
+    extract: false,
+    lists: ["https://www.hani.co.kr/rss/opinion/"], hosts: ["www.hani.co.kr", "hani.co.kr"], kindOf: article },
+  { key: "news-chosun-opinion", name: "조선일보 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 같은 매체 피드 꼴(arc outboundfeeds category)의 opinion.
+    extract: false,
+    lists: ["https://www.chosun.com/arc/outboundfeeds/rss/category/opinion/?outputType=xml"], hosts: ["www.chosun.com", "chosun.com"], kindOf: article },
+  { key: "news-segye-opinion", name: "세계일보 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 안내 쪽 segye.com/rssInfo '오피니언' [사실, 11/24 웹 확인].
+    extract: false,
+    lists: ["https://www.segye.com/Articles/RSSList/segye_opinion.xml"], hosts: ["www.segye.com", "segye.com"], kindOf: article },
+  { key: "news-hankyung-opinion", name: "한국경제 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 같은 매체 피드 꼴 hankyung.com/feed/<섹션>의 opinion.
+    extract: false,
+    lists: ["https://www.hankyung.com/feed/opinion"], hosts: ["www.hankyung.com", "hankyung.com"], kindOf: article },
 ] as NewsSource[]);
 
 export const NEWS_SOURCE_KEYS: readonly string[] = Object.freeze(NEWS_CATALOG.map((s) => s.key));
