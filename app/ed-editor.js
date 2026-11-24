@@ -228,16 +228,6 @@ export const SHORTCUTS = {
   strong: 'Ctrl+B', em: 'Ctrl+I', underline: 'Ctrl+U', link: 'Ctrl+K', clear: 'Ctrl+\\',
   indent: 'Tab', outdent: 'Shift+Tab', plainPaste: 'Ctrl+Shift+V', undo: 'Ctrl+Z', redo: 'Ctrl+Y',
 };
-// The order of the whole row read through: the row's own buttons, each group button followed by its list (every width the same).
-export function flatOrder(keys = null) {
-  const has = k => !keys || keys.includes(k);
-  const out = [];
-  for (const k of PHONE_ORDER) {
-    const g = GROUPS.find(x => x[0] === k);
-    if (g) out.push(...g[3].filter(has)); else if (has(k)) out.push(k);
-  }
-  return out;
-}
 
 // A button's text. A label that ends in " ▾" gets a small caret of its own (hidden from screen readers).
 function setLabel(b, text) {

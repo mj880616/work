@@ -375,3 +375,23 @@ test('narrow PC width: buttons that do not fit go back into their group, no side
   await expect.poll(() => row.locator('button:visible').count()).toBe(onRowWide);
   expect(await edFlatOrder(page)).toEqual(wide);
 });
+
+// NOTE-노션편집 ①(가): the PC row and the phone row are the same groups in the same order (the row read left to right, each group
+// button followed by its list), with every button in it once; only how many of a group's first buttons stand on the row differs.
+test('PC 1280 and phone 390: the same groups and order (list compare), every button once', async ({page}) => {
+  await page.setViewportSize({width: 1280, height: 800});
+  await page.goto(url);
+  await expect(page.locator('body')).toHaveAttribute('data-ready', '1');
+  const pc = await edFlatOrder(page);
+  const groupsPc = await page.locator('.ed-tools [data-ed-cmd^="g"]:not([data-ed-cmd="gText"])').count();
+  await page.setViewportSize({width: 390, height: 844});
+  await expect(page.locator('.ed-editor.ed-grouped')).toHaveCount(1);
+  const phone = await edFlatOrder(page);
+  expect(pc).toEqual(phone);
+  expect(new Set(phone).size).toBe(phone.length);
+  expect(phone).toEqual(['style', 'strong', 'symDot', 'em', 'underline', 'strike', 'color', 'highlight', 'clear',
+    'align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule', 'table', 'link', 'nowStamp', 'plainPaste',
+    'symNote', 'symArrow', 'symCircled', 'symBracket', 'undo', 'redo']);
+  expect(groupsPc).toBe(3);
+  await expect(page.locator('.ed-tools').getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '· ▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
+});
