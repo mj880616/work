@@ -19,6 +19,8 @@ import {paneSide} from './files-panes-model.mjs';
 import {ftFolderRowHtml} from './folder-tree-ui.mjs';
 import {emptyHtml, waitHtml} from './wait-state.js';
 import {folderPressAction, FOLDER_PRESS_ENTER} from './folder-tree-press.mjs';
+import {collapseSteps, moreStepHtml} from './folder-path.mjs';
+import './folder-path-more.js';
 
 const OUT_KEY = 'x:out';
 const SORTS = Object.freeze([['date', '날짜순'], ['name', '이름순']]);
@@ -61,6 +63,8 @@ export function paneTrail(folders, folderId) {
   for (let f = by.get(folderId), n = 0; f && n < 120; f = f.parent_id ? by.get(f.parent_id) : null, n++) out.unshift({id: f.id, name: String(f.name || '폴더')});
   return [{id: '', name: '자료실'}, ...out];
 }
+// S69-19: 빈 폴더 한 줄 — '빈 폴더' 옆 작은 [위 폴더로](칸 머리 ‹와 같은 동작, data-lu-pane-up). 안내 글은 더하지 않는다.
+export const emptyUpHtml = () => `<div class="lu-empty-up">${emptyHtml('빈 폴더')}<button type="button" class="row-act" data-lu-pane-up>위 폴더로</button></div>`;
 // 옮기기 막대 글자(시안 ④): 지금 칸이 왼쪽이면 '→ 오른쪽 폴더로 옮기기'.
 export const sendText = cur => `${cur === 1 ? '←' : '→'} ${paneSide(cur === 1 ? 0 : 1)} 폴더로 옮기기`;
 
@@ -108,16 +112,21 @@ export function createLibraryTwo(h) {
     if (!known(where(i))) { if (i === 0) left = null; }
     const id = where(i), side = paneSide(i), c = paneContent(tree, id);
     const trail = paneTrail(h.folders(), id);
-    const steps = trail.map((t, k) => (k === trail.length - 1
-      ? `<b class="lu-pane-here" aria-current="location">${h.esc(t.name)}</b>`
-      : `<button type="button" class="row-act lu-pane-step" data-lu-pane-go="${h.esc(t.id)}">${h.esc(t.name)}</button><span class="lu-pane-sep" aria-hidden="true">›</span>`)).join('');
-    const up = id ? `<button type="button" class="icon-btn lu-pane-up" data-lu-pane-up aria-label="${side} 칸 위 폴더로">‹</button>` : '';
+    // S69-19: 앞 칸은 링크 모양(눌러 그 단계로), 길면 가운데를 '…' 하나로(누르면 가려진 단계 목록 — folder-path.mjs·folder-path-more.js 공용).
+    const sep = '<span class="lu-pane-sep" aria-hidden="true">›</span>';
+    const stepBtn = t => `<button type="button" class="row-act lu-pane-step" data-lu-pane-go="${h.esc(t.id)}">${h.esc(t.name)}</button>`;
+    const one = (t, k) => (k === trail.length - 1 ? `<b class="lu-pane-here" aria-current="location">${h.esc(t.name)}</b>` : stepBtn(t));
+    const cut = collapseSteps(trail);
+    const steps = (cut.hidden.length
+      ? [one(cut.head[0], 0), moreStepHtml(cut.hidden, {cls: 'row-act lu-pane-step', attr: 'data-lu-pane-go', esc: h.esc, sep: ''}), ...cut.tail.map((t, k) => one(t, trail.length - cut.tail.length + k))]
+      : trail.map(one)).join(sep);
+    const up = id ? `<button type="button" class="icon-btn lu-pane-up" data-lu-pane-up aria-label="${side} 칸 위 폴더로" title="위 폴더로 (Backspace)">‹</button>` : '';
     const sort = `<select class="lu-pane-sort" data-lu-pane-sort aria-label="${side} 칸 정렬">${SORTS.map(([v, l]) => `<option value="${v}"${v === sorts[i] ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
     const node = c.node || {key: id ? 'f:' + id : OUT_KEY};
     const rows = paneRows({...c, node}, isOpen, sorts[i]).map(r => (r.kind === 'folder' ? folderRow(r) : filesHtml(r))).join('');
     return `<section class="lu-pane" data-lu-pane-i="${i}" data-lu-pane-folder="${h.esc(id || '')}" aria-label="${side} 칸">`
       + `<div class="lu-pane-head">${up}<nav class="lu-pane-path" aria-label="${side} 칸 위치">${steps}</nav>${h.sortBtn?.(id) || ''}${sort}</div>`
-      + `<div class="lu-pane-list" role="list">${rows || (h.ready() ? emptyHtml(c.found ? '빈 폴더' : '없음') : waitHtml({rows: 3}))}</div></section>`;
+      + `<div class="lu-pane-list" role="list">${rows || (h.ready() ? (c.found && id ? emptyUpHtml() : emptyHtml(c.found ? '빈 폴더' : '없음')) : waitHtml({rows: 3}))}</div></section>`;
   }
   // #documentList 안에 넣을 두 칸 HTML. tree = 거르기까지 한 폴더 묶기 나무(폴더 밖 묶음 포함, 들어가기 전 전체).
   function html(tree) {
