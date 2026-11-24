@@ -115,7 +115,7 @@ for(const width of [412])test(`파일 ${width}: '최근' 줄 ⋯ 맨 위 [폴더
   // 뒤로 = 앞 화면('최근' 상자가 있는 나무).
   await page.goBack();
   await expect(box.locator(`[data-fx-tfile="${key}"]`)).toBeVisible();
-  // 꾹 누르기(브라우저 contextmenu)도 같은 메뉴.
+  // 우클릭(마우스 contextmenu)도 같은 메뉴. 손가락 꾹 누르기는 선택 모드(S69-75 LONGPRESS-폰나무, standard-interactions.spec.mjs P4).
   await box.locator(`[data-fx-tfile="${key}"]`).evaluate(x=>{const r=x.getBoundingClientRect();x.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+20,clientY:r.top+r.height/2}))});
   await expect(menu).toBeVisible();await expect(menu.locator('button').first()).toHaveText('폴더로 가기');
   expect(errors).toEqual([]);

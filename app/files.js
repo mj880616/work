@@ -1157,6 +1157,7 @@ function paintMainTreeBody(tree) {
   if (treePane() && !state.status) { tree.innerHTML = state.statusFailed ? failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed), reason: state.statusWhy}) : waitHtml({rows: 4}); return; }
   if (nothingOn() && treePane()) { tree.innerHTML = emptyHtml(SOURCES_OFF_TEXT); return; }
   tree.innerHTML = treePane() ? phoneTreeHtml() : treeHtml(P());
+  if (treePane()) paintTreePicks(); // S69-75: 다시 그린 나무에도 고름 표시
   if (state.photoOpen.size) mountThumbs(tree); // LIB-사진숨김: 펼친 [사진 n]의 작은 그림
 }
 // ---------- FOLDER-나무새기준 ②(S51-12): 폰 나무 = '최근' 상자 + 묶음(별표·큰 파일) + 저장소마다 상자 ----------
@@ -1711,7 +1712,16 @@ function pressListFolder(p, r) {
   xToggle(p, r);
 }
 // ---------- 미리보기 ----------
-const rowByKey = (key, p = P()) => (p.query ? p.found || [] : p.rows).find(r => rowKey(r) === key) || p.inline?.get(key) || null;
+const rowByKey = (key, p = P()) => (p.query ? p.found || [] : p.rows).find(r => rowKey(r) === key) || p.inline?.get(key) || (p === state.panes[0] && treePane() ? state.treeRows.get(key) : null) || null;
+// S69-75 LONGPRESS-폰나무(2026-11-24 21:15 명진 "파일 목록에 보이는 파일 폴더 꾹 눌러도 선택 안되는데?"): 폰 한 칸 나무(원드라이브·구글·이 폰·내 PC 상자, '최근' 상자)의
+// 폴더 줄(data-fx-tog)·파일 줄(data-fx-tfile)도 목록 줄과 같은 고르기 — 꾹 누르기 = 선택 모드 + 그 줄(holdPickRow), 선택 모드에서 줄 누르기 = 더하기/빼기, 메뉴는 ⋯로만.
+// 고른 것은 칸 0의 picked(목록과 같은 Set·같은 고르기 막대). 줄 열쇠 = rowKey(폴더 줄의 folderKey와 같은 모양). 맨 위(저장소 뿌리)처럼 줄 정보가 없는 줄은 고르지 않는다.
+const treePickKey = el => {
+  if (!treePane()) return '';
+  const b = el?.closest?.('[data-fx-tree] [data-fx-tog], [data-fx-tree] [data-fx-tfile]');
+  const key = b && root?.contains(b) ? b.dataset.fxTog || b.dataset.fxTfile || '' : '';
+  return key && state.treeRows.has(key) ? key : '';
+};
 // 미리보기가 덮는 칸인가: PC 한 칸만 오른쪽 칸, 폴드·두 칸은 덮는 칸(뒤로가기 한 번 = 닫힘).
 const overlayPreview = () => !WIDE.matches || two();
 function dropPreview() {
@@ -2166,7 +2176,17 @@ function paintPicks(p = P()) {
     b.classList.toggle('fx-picked', on);
     b.setAttribute('aria-selected', String(on || b.dataset.fxRow === p.sel));
   }
+  if (p === state.panes[0]) paintTreePicks();
   paintBar();
+}
+// S69-75: 폰 나무 줄의 고름 표시(목록 줄과 같은 fx-picked·aria-selected). 나무를 다시 그릴 때도 칠한다(paintMainTreeBody).
+function paintTreePicks() {
+  const tree = $('[data-fx-tree]'), picked = treePane() ? state.panes[0].picked : null;
+  for (const b of tree?.querySelectorAll('[data-fx-tog], [data-fx-tfile]') || []) {
+    const key = b.dataset.fxTog || b.dataset.fxTfile, on = !!picked?.has(key);
+    b.classList.toggle('fx-picked', on);
+    if (on) b.setAttribute('aria-selected', 'true'); else b.removeAttribute('aria-selected');
+  }
 }
 function togglePick(key) {
   const p = P();
@@ -4028,6 +4048,8 @@ root?.addEventListener('click', event => {
   // FOLDER-나무새기준 ②: 폰 나무(공용 줄) — 펼치기·접기, 상자 접기, n개 더 보기, 최근 더보기, 파일 미리보기, ⋯ 그 자리 메뉴(S51-22).
   // UI-폴더이름펼치기(명진 11/24 18:09): 폰 나무 폴더 누르기 = 늘 그 자리 펼치기·접기(하위 폴더·파일까지, 빈 폴더는 '빈 폴더' 한 줄).
   //  그 폴더만 보기(들어가기)는 ⋯ [이 폴더로 들어가기]·두 손가락 벌리기만.
+  // S69-75: 폰 나무에서 고른 것이 있으면(선택 모드) 폴더·파일 줄 누르기 = 더하기/빼기(펼치기·미리보기 아님). ⋯는 그대로 메뉴.
+  if (b.matches('[data-fx-tog],[data-fx-tfile]') && P().picked.size && treePickKey(b)) { togglePick(treePickKey(b)); return; }
   if (b.matches('[data-fx-tog]')) {
     const key = b.dataset.fxTog;
     toggle(key, b.closest('.nx-tree'));
@@ -4183,10 +4205,17 @@ root?.addEventListener('keydown', event => {
 // S51-27 UI-PC우클릭: PC 마우스 우클릭(Shift+F10·메뉴 키)은 그 줄 하나의 메뉴를 누른 자리에 연다 — 나무 줄 ⋯와 같은 항목(files-tree-menu.mjs)·
 // 같은 실행(treeAct). 폴더의 '이 폴더로 들어가기'는 목록에서는 [열기](줄을 누른 것과 같은 폴더 들어가기). 고르기는 Ctrl·Shift 누름·폰 꾹 누르기 그대로.
 root?.addEventListener('contextmenu', event => {
-  // LIB-최근폴더로가기(S61-12): 폰 '최근' 상자 파일 줄 꾹 누르기 = 그 줄 ⋯ 메뉴(맨 위 [폴더로 가기]) — 자료실 '최근 올린 파일'과 같다.
-  const recentFile = !state.busy && event.target.closest?.('[data-fx-box="recent"] [data-fx-tfile]');
-  const recentMore = recentFile && recentFile.closest('.ft-row')?.querySelector('[data-fx-tmenu]');
-  if (recentMore) { event.preventDefault(); window.KPTUContextMenu?.pinAt?.(recentMore, event.clientX, event.clientY); treeMenu(recentMore); return; }
+  // S69-75: 폰 나무 줄(폴더·파일, '최근' 상자 포함). 손가락 꾹 누르기 = 선택 모드 + 그 줄(누르고 있는 중이면 끌기 부품이 맡고 떼면 고르기),
+  // 마우스 우클릭·메뉴 키 = 그 줄 ⋯ 메뉴를 누른 자리에(LIB-최근폴더로가기 S61-12의 '최근' 줄 메뉴 맨 위 [폴더로 가기] 그대로).
+  const tkey = !state.busy && treePickKey(event.target);
+  if (tkey) {
+    event.preventDefault();
+    if (touchDrag?.holding()) { touchDrag.armNow(); return; }
+    if (event.pointerType === 'touch') { holdPickRow(tkey); return; }
+    const more = event.target.closest('.ft-row')?.querySelector('[data-fx-tmenu]');
+    if (more) { window.KPTUContextMenu?.pinAt?.(more, event.clientX, event.clientY); treeMenu(more); }
+    return;
+  }
   const b = event.target.closest('[data-fx-row]');
   if (!b || state.busy) return;
   if (!touchDrag?.holding() && listMenu(b, event)) { event.preventDefault(); return; }
@@ -4308,6 +4337,13 @@ root?.addEventListener('dragend', () => { drag = null; dropOff(null); });
 const touchDrag = bindTouchDrag(root, {
   enabled: () => !state.busy && !state.xfer && !state.ask && !state.run,
   pick: target => {
+    // S69-75: 폰 나무 줄도 꾹 눌러 끌기(놓을 곳 = 나무 폴더 줄 data-fx-drop) · 떼면 고르기. 칸 번호 -1 = 나무(PC 나무 끌기와 같음).
+    const tkey = treePickKey(target);
+    if (tkey) {
+      const p = state.panes[0], rows = (p.picked.has(tkey) ? [...p.picked] : [tkey]).map(k => rowByKey(k, p)).filter(Boolean);
+      if (!rows.length || (hasPc(rows) && !pcWrite())) return null;
+      return {key: tkey, pane: -1, rows, label: rows.length > 1 ? `${rows.length}개` : rows[0].name};
+    }
     const b = target?.closest?.('[data-fx-row]'), i = paneOfEl(b);
     if (!b || i < 0) return null;
     setCur(i);

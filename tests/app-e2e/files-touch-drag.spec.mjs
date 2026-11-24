@@ -100,3 +100,62 @@ test('폴드 884 한 칸(손가락 기기): 격자에서 꾹 눌러 폴더 칸�
   expect(errors).toEqual([]);
   await context.close();
 });
+
+// S69-75 LONGPRESS-폰나무(2026-11-24 21:15 명진 "파일 목록에 보이는 파일 폴더 꾹 눌러도 선택 안되는데?"): 폰 첫 화면 나무(저장소 상자)의
+// 폴더 줄·파일 줄도 목록 줄과 같다 — 꾹 누르기 = 선택 모드 + 그 줄, 선택 모드에서 누르기 = 더하기/빼기(펼치기·미리보기 아님), 고르기 막대, 꾹 눌러 끌기.
+const tree = page => root(page).locator('[data-fx-tree]');
+const tfold = (page, key) => tree(page).locator(`[data-fx-tog="${key}"]`);
+const tfile = (page, key) => tree(page).locator(`[data-fx-box]:not([data-fx-box="recent"]) [data-fx-tfile="${key}"]`);
+const barText = page => root(page).locator('[data-fx-bar] .fx-bar-t');
+
+test('폰 412 나무: 파일 줄 꾹 누르기 = 선택, 선택 모드에서 폴더 누르기 = 더하기(펼치지 않음)·다시 누르면 빼기, 막대 [자료실로][휴지통]', async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors } = await start(page, 412);
+  await openFiles(page, 412);
+  await tfold(page, 'od:OD!1').click();
+  await expect(tfile(page, 'od:OD!11')).toBeVisible();
+  await touchDrag(page, tfile(page, 'od:OD!11'));
+  await expect(tfile(page, 'od:OD!11')).toHaveClass(/fx-picked/);
+  await expect(barText(page)).toHaveText('1개');
+  await expect(root(page).locator('[data-fx-prev]')).toBeHidden();
+  await expect(page.locator('#rowMenu')).toBeHidden();
+  const bar = root(page).locator('[data-fx-bar]');
+  await expect(bar.locator('[data-fx-tolib]')).toBeVisible();
+  await expect(bar.locator('[data-fx-trash]')).toBeVisible();
+  await expect(bar.locator('[data-fx-cut]')).toBeVisible();
+  // 선택 모드에서 폴더 줄 누르기 = 더하기(펼치기·접기 아님).
+  const expanded = await tfold(page, 'od:OD!2').getAttribute('aria-expanded');
+  await tfold(page, 'od:OD!2').click();
+  await expect(barText(page)).toHaveText('2개');
+  await expect(tfold(page, 'od:OD!2')).toHaveClass(/fx-picked/);
+  expect(await tfold(page, 'od:OD!2').getAttribute('aria-expanded')).toBe(expanded);
+  // 다시 누르면 빼기, 마지막 하나를 빼면 막대가 사라진다.
+  await tfold(page, 'od:OD!2').click();
+  await expect(barText(page)).toHaveText('1개');
+  await tfile(page, 'od:OD!11').click();
+  await expect(bar).toBeHidden();
+  // 고르지 않은 상태의 파일 줄 누르기는 그대로 미리보기.
+  await tfile(page, 'od:OD!13').click();
+  await expect(root(page).locator('[data-fx-prev]')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('폰 412 나무: 폴더 줄 꾹 눌러 다른 폴더 줄로 끌면 [복사][옮기기] → 옮기기 · 꾹 누르기 전에 움직이면 스크롤(고르지 않음)', async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors, server } = await start(page, 412);
+  await openFiles(page, 412);
+  const from = tfold(page, 'od:OD!2'), to = tree(page).locator('[data-fx-fold="od:OD!1"]');
+  await expect(from).toBeVisible();
+  // 짧게(꾹 누르기 전에) 움직이면 고르지도 끌지도 않는다.
+  await touchDrag(page, from, { x: 60, y: 60 }, { hold: 60, steps: 4 });
+  await expect(root(page).locator('[data-fx-bar]')).toBeHidden();
+  await expect(ask(page)).toBeHidden();
+  let dashed = false;
+  await touchDrag(page, from, to, { before: async () => { dashed = await to.evaluate(e => e.classList.contains('fx-drop-on')); await expect(page.locator('.td-ghost')).toHaveText('가짜 사진함'); } });
+  expect(dashed).toBe(true);
+  await expect(ask(page)).toBeVisible();
+  await ask(page).locator('[data-fx-drop-go="move"]').click();
+  await expect.poll(() => edgeCalls(server, 'move').length).toBe(1);
+  expect(edgeCalls(server, 'move')[0].body).toMatchObject({ source: 'od', ids: ['OD!2'], to: 'OD!1' });
+  expect(errors).toEqual([]);
+});
