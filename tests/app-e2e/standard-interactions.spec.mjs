@@ -790,3 +790,81 @@ test('S4 자료실 두 칸 PC 1440: 사각형으로 고른 폴더 줄 [삭제]�
   await expect.poll(() => s.rpc.filter(r => r.fn === 'app_trash_restore').map(r => r.id).sort()).toEqual(['k1', 'k2', 'k3']);
   expect(errors).toEqual([]);
 });
+
+// S10(S69-89 UI-고르기모드통일, 2026-11-25 명진 "선택 가능 화면에서는 폴더 이름을 클릭해도 선택 되게 앞 네모 클릭이 아니라 / 파일에서는 되는데"):
+// 고르기 중에는 폴더 줄 이름·그림·빈 곳 어디를 눌러도 그 폴더 고르기·풀기. 펼치기·접기·들어가기는 하지 않는다(⋯만 예외). 고르기가 아닐 때는 T5 그대로.
+// 화면마다 돌려줄 것: first·second(폴더 줄), tap(줄), isPicked(줄)·notPicked(줄), opened(줄)(펼쳐졌나), afterHold(꾹 누른 뒤 시계).
+async function libraryFolderTap(page, width) {
+  const folders = [libFolder('fa', null, { name: '가상 A', sort_order: 1024 }), libFolder('fb', null, { name: '가상 B', sort_order: 2048 })];
+  const r = await bootLibrary(page, width, { folders, items: [{ document_id: 'a-1', folder_id: 'fa' }, { document_id: 'a-2', folder_id: 'fb' }], group: '폴더' });
+  await page.evaluate(() => window.__KPTU_LIBRARY_UPLOAD_READY__);
+  const head = id => page.locator(`#documentList details[data-lu-node="f:${id}"] > summary`).first();
+  await expect(head('fb')).toBeVisible();
+  return { errors: r.errors, first: head('fa'), second: head('fb'), tap: l => l.tap({ position: { x: 120, y: 12 } }),
+    isPicked: l => expect(l).toHaveClass(/lu-(node|folder)-picked/), notPicked: l => expect(l).not.toHaveClass(/lu-(node|folder)-picked/),
+    opened: l => l.evaluate(x => x.parentElement.open) };
+}
+async function notesFolderTap(page, width) {
+  const { errors } = await notes(page, width);
+  const row = id => page.locator(`#noteRows [data-nx-folder="${id}"]`);
+  await expect(row(U(101))).toBeVisible();
+  return { errors, first: row(U(100)).locator('.ft-main'), second: row(U(101)).locator('.ft-main'), tap: l => l.tap(),
+    afterHold: async () => page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000)),
+    isPicked: l => expect(l.locator('xpath=..')).toHaveClass(/ft-picked/), notPicked: l => expect(l.locator('xpath=..')).not.toHaveClass(/ft-picked/),
+    opened: async l => (await l.getAttribute('aria-expanded')) === 'true' };
+}
+async function filesFolderTap(page, width) {
+  const s = await filesTreeRows(page, width);
+  return { errors: s.errors, first: s.first, second: s.second, tap: l => l.tap(), isPicked: s.isPicked, notPicked: l => expect(l).not.toHaveClass(/fx-picked/),
+    opened: async l => (await l.getAttribute('aria-expanded')) === 'true' };
+}
+const FOLDER_TAP_SCREENS = [['자료실', libraryFolderTap, [390, 880, 1280]], ['노트', notesFolderTap, [390]], ['파일', filesFolderTap, [390]]];
+test.describe('S10 고르기 중 폴더 줄 누르기', () => {
+  test.use({ hasTouch: true });
+  for (const [name, open, widths] of FOLDER_TAP_SCREENS) for (const width of widths) test(`S10 ${name} ${width}: 고르기 중 폴더 이름 누르기 = 고르기·다시 누르면 풀기, 펼치지 않음`, async ({ page }) => {
+    const s = await open(page, width);
+    const url = page.url();
+    await holdAt(page, s.first);
+    await s.afterHold?.();
+    await s.isPicked(s.first);
+    const was = await s.opened(s.second);
+    await s.tap(s.second);
+    await s.isPicked(s.second);
+    expect(await s.opened(s.second)).toBe(was);
+    await s.tap(s.second);
+    await s.notPicked(s.second);
+    expect(await s.opened(s.second)).toBe(was);
+    await s.isPicked(s.first);
+    expect(page.url()).toBe(url);
+    expect(s.errors).toEqual([]);
+  });
+});
+
+// S11(S69-89, 명진 11/25 "선택 가능 모드에서 폰 뒤로가기 버튼 누르면 선택 가능 모드에서 나오게 선택도 취소되고 (지금은 직전 페이지로 가는 듯)"):
+// 고르기 중 뒤로가기 한 번 = 고르기 끝 + 고른 것 0개, 주소·화면 그대로(공용 select-mode.js createBackLayer). 고르기가 아닐 때 뒤로가기는 지금처럼 이전 화면.
+// 화면 표는 P4의 HOLD_SCREENS(폰 390·폴드 880·PC 1280 손가락)를 그대로 쓴다 — 새 고르기 화면은 거기에 더하면 이 시험도 함께 돈다.
+test.describe('S11 고르기 중 뒤로가기', () => {
+  test.use({ hasTouch: true });
+  for (const [name, open, widths] of HOLD_SCREENS) for (const width of widths) test(`S11 ${name} ${width}: 뒤로가기 한 번 = 고르기 끝·고른 것 0개·화면 그대로, 고르기 아닐 때는 이전 화면`, async ({ page }) => {
+    const s = await open(page, width);
+    const hold = async l => { await holdAt(page, l); await s.afterHold?.(); };
+    const here = () => page.evaluate(() => [location.href, window.KPTURouter?.current]);
+    const at = await here();
+    await hold(s.first);
+    await s.tap(s.second);
+    await s.countIs(2);
+    await page.goBack();
+    await expect(s.bar).toBeHidden();
+    expect(await here()).toEqual(at);
+    // 다시 고르면 처음부터(앞에 고른 것이 남지 않음).
+    await hold(s.first);
+    await s.countIs(1);
+    await page.goBack();
+    await expect(s.bar).toBeHidden();
+    expect(await here()).toEqual(at);
+    // 고르기가 아닐 때 뒤로가기는 이 화면을 떠난다(앞 기록이 없으면 앱 밖).
+    await page.goBack();
+    await expect.poll(async () => JSON.stringify(await here().catch(() => null))).not.toBe(JSON.stringify(at));
+    expect(s.errors).toEqual([]);
+  });
+});
