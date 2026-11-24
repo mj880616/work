@@ -27,7 +27,6 @@ const WHITE_OK = {
   },
   'ed-doc.css': {
     '.ed-stick': '흰 편집 칸(테두리 상자) 안 [제목 칸·서식 버튼 줄] 띠(NOTE-제목서식줄고정)',
-    '.ed-tools .ed-more': '흰 서식 버튼 줄 안 [⋯]',
   },
   'google-tasks.css': { '#gtDetailPane #gtTaskModal.gt-docked .modal-head': '흰 상세 칸 안 제목 줄' },
   'meeting-ui.css': {

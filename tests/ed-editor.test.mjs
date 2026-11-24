@@ -247,17 +247,34 @@ test('phone toolbar: one grouped row in the requested order, every button still 
   assert.equal(new Set(placed).size,placed.length,'no button twice');
   assert.deepEqual([...new Set(existing)].filter(k=>!placed.includes(k)),[],'no button lost on a phone');
 });
-test('phone toolbar: grouping only moves the same button nodes (no copies, so each runs its old command)',()=>{
-  const fn=/function setGrouped\(on\)[\s\S]*?\n  \}\n/.exec(edSource)[0];
-  assert.match(fn,/tools\.replaceChildren\(\.\.\.PHONE_ORDER\.map\(k => buttons\[k\]\)/);
+test('one toolbar model on every width: grouping only moves the same button nodes (no copies, so each runs its old command)',()=>{
+  const fn=/function placeTools\(\)[\s\S]*?\n  \}\n/.exec(edSource)[0];
+  // NOTE-노션편집 ①(가): PC·폴드·폰 모두 PHONE_ORDER 순서. 넓으면 묶음 앞 버튼(PC_OUT)이 묶음 버튼 바로 앞 줄 위에 서고 나머지는 묶음 목록에.
+  assert.match(fn,/for \(const k of PHONE_ORDER\)/);
+  assert.match(fn,/row\.push\(\.\.\.items\.slice\(0, n\), buttons\[k\]\)/);
+  assert.match(fn,/panels\[k\]\.replaceChildren\(\.\.\.items\.slice\(n\)\)/);
+  assert.doesNotMatch(fn,/btn\(|createElement|cloneNode/);
   // UI-화면정리 C: 폰도 PC와 같은 [· ▾] 한 칸. 따로 떨어진 [·]·[▾] 두 칸(점 넣기 단추·ed-pair)은 다시 생기지 않는다.
   assert.doesNotMatch(edSource,/dotNow|ed-pair/);
   assert.doesNotMatch(readFileSync('app/ed-doc.css','utf8'),/ed-pair/);
-  assert.match(fn,/panels\[key\]\.replaceChildren\(\.\.\.items\.map\(k => buttons\[k\]\)/);
-  assert.doesNotMatch(fn,/btn\(|createElement|cloneNode/);
-  assert.match(fn,/tools\.replaceChildren\(\.\.\.homeTools, more\)/);
-  assert.match(fn,/panels\.more\.replaceChildren\(\.\.\.homeMore\)/);
+  // 옛 PC [⌄] 줄은 없다(묶음이 모든 폭에서 같다).
+  assert.doesNotMatch(edSource,/edMore|panels\.more|homeTools|homeMore/);
+  assert.doesNotMatch(readFileSync('app/ed-doc.css','utf8'),/\.ed-more\b/);
   // The group buttons open through the same panel switch.
   assert.match(edSource,/gText: 'gText', gPara: 'gPara', gInsert: 'gInsert', gSym: 'gSym'/);
   assert.match(edSource,/matchMedia\('\(max-width: 760px\)'\)/);
+});
+test('PC row pulls out a prefix of each group (so the order read through is the phone order), shortcuts in tooltips',async()=>{
+  const groups=tableOf('GROUPS');
+  const pcOut=Function(`return (${/export const PC_OUT = (\{[\s\S]*?\n\});/.exec(edSource)[1]})`)();
+  for(const [k,,,items] of groups){
+    const out=pcOut[k]||[];
+    assert.deepEqual(items.slice(0,out.length),out,`${k}: PC_OUT is the group's first buttons in order`);
+    assert.ok(out.length<items.length,`${k}: something stays in the group list`);
+  }
+  const shortcuts=Function(`return (${/export const SHORTCUTS = (\{[\s\S]*?\n\});/.exec(edSource)[1]})`)();
+  assert.deepEqual([shortcuts.strong,shortcuts.em,shortcuts.underline,shortcuts.undo],['Ctrl+B','Ctrl+I','Ctrl+U','Ctrl+Z']);
+  // Every shortcut shown is a real key in the keymap.
+  for(const k of ['Mod-b','Mod-i','Mod-u','Mod-k','Mod-\\\\','Mod-z','Mod-y']) assert.ok(edSource.includes(`'${k}'`),k);
+  assert.match(edSource,/b\.title = `\$\{name\} \(\$\{keyText\(SHORTCUTS\[key\]\)\}\)`/);
 });

@@ -99,19 +99,9 @@
 .ed-bar [data-ed-cmd="strike"]{text-decoration:line-through}
 /* 묶음 사이 간격(묶음 첫 버튼에 ed-gap) */
 .ed-tools .ed-gap{margin-left:6px}
-/* SHARE-전체편집: 폰보다 넓으면 넘치는 버튼은 줄 끝 [⋯] 아래 줄로(가로 스크롤 막대 없음). 폰은 손가락으로 가로 밀기(막대 숨김). */
-.ed-bar .ed-more[hidden]{display:none}
-.ed-tools .ed-more{margin-left:auto}
-/* ED-서식줄펼침: [⌄]([⌃]) 상자 없이 같은 작은 크기, 열려 있는 동안만 옅은 바탕 */
-.ed-bar .ed-more,.ed-bar .ed-more:hover,.ed-bar .ed-more[aria-expanded="true"]{border-color:transparent}
-.ed-bar .ed-more[aria-expanded="true"]{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
-.ed-more .ed-chevron{display:block;margin:0 auto;transition:transform .12s}
-.ed-more[aria-expanded="true"] .ed-chevron{transform:rotate(180deg)}
+/* NOTE-노션편집 ①(가): 모든 폭이 폰 묶음 줄(글자·문단·넣기·기호 ▾). 폰보다 넓으면 묶음 앞 버튼 몇 개가 줄 위에 나와 있고, 줄이 모자라면 오른쪽 묶음부터 다시 묶음 안으로(가로 막대 없음). */
+.ed-wide .ed-tools{overflow-x:hidden}
 .ed-caret{font-size:.85em;opacity:.7}
-/* 폰: [⋯]는 가로로 미는 줄의 오른쪽 끝에 붙어 늘 보인다 */
-@media(max-width:760px){.ed-tools .ed-more{position:sticky;right:0;background:var(--kptu-surface);box-shadow:-6px 0 6px -4px var(--kptu-surface)}}
-.ed-more-menu{flex-wrap:wrap;overflow:visible;padding-top:4px;padding-bottom:4px}
-.ed-more-menu .ed-gap{margin-left:0}
 .ed-note{display:flex;align-items:center;padding:0 8px;min-height:32px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .ed-note[hidden]{display:none}
 /* 펼침 상자(popover): 누른 버튼 바로 아래에 본문 위로 뜬다(본문은 밀리지 않음). 위치·화면 안 맞춤은 ed-editor.js placePop이 한다. */

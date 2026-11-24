@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
+import { edCmd } from './helpers/ed-tools.mjs';
 // ED③ 노트: 사진 넣기 in a note (the same [사진] button as share pages). The picture goes up as one of the note's attachments through the
 // note's own basket-files upload (Drive "노트 첨부", owner only), is put in the text as drive:<file id>, and is shown through the owner-only
 // photo view (basket-files?action=photo). No other address is used; the saved form keeps only the id. 합성 데이터, 390·1280.
@@ -48,12 +49,9 @@ for(const width of [390,1280]){
   const box=page.locator('[data-note-detail] [data-note-body-field]'),field=box.locator('.ProseMirror');
   await expect(field).toBeVisible();
   await field.click();await page.keyboard.press('Control+End');
-  // The [사진] button: on a phone it is in the [넣기 ▾] group.
-  if(width<761)await box.locator('[data-ed-cmd="gInsert"]').click();
-  // S69-27: PC [폴더] 보기는 노트가 오른쪽 칸에 열려 서식 줄이 좁으면 안 들어가는 단추가 [⌄] 줄로 간다(ed-editor.js fitTools).
-  else if(!(await box.locator('[data-ed-cmd="photo"]').isVisible()))await box.locator('.ed-tools .ed-more').click();
+  // The [사진] button: in the [넣기 ▾] group on a phone, and on a PC when the note's pane is too narrow for it (NOTE-노션편집 ①(가)).
   const chooser=page.waitForEvent('filechooser');
-  await box.locator('[data-ed-cmd="photo"]').click();
+  await edCmd(box,'photo');
   await (await chooser).setFiles([{name:'현장.png',mimeType:'image/png',buffer:PNG}]);
   await expect(field.locator('img.ed-photo-img')).toHaveCount(1);
   expect(f.uploads).toEqual([{noteId:'n-text',name:'현장.png'}]);

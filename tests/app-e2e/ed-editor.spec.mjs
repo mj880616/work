@@ -3,6 +3,7 @@
 // undo, markdown paste converted by itself (+ whole-text [서식으로 바꾸기]), no format while typing, composition safety, and reading the saved form back.
 import {test, expect} from '@playwright/test';
 import {appOrigin} from './helpers/test-origin.mjs';
+import {edPress, edFlatOrder} from './helpers/ed-tools.mjs';
 
 const url = `${appOrigin}/tests/app-e2e/ed-editor-fixture.html`;
 const open = async (page, doc) => {
@@ -14,13 +15,8 @@ const open = async (page, doc) => {
 };
 const value = page => page.evaluate(() => window.ed.getValue());
 const tool = (page, name) => page.locator('.ed-tools').getByRole('button', {name, exact: true});
-// ED-기본기보강: less used buttons are under [⋯] (취소선·인용·구분선…); signs open a row to pick from.
-async function press(page, name) {
-  const onRow = tool(page, name);
-  if (await onRow.count() && await onRow.isVisible()) return onRow.click();
-  if ((await page.locator('.ed-more').getAttribute('aria-expanded')) !== 'true') await page.locator('.ed-more').click();
-  await page.getByRole('group', {name: '서식 더 보기', exact: true}).getByRole('button', {name, exact: true}).click();
-}
+// NOTE-노션편집 ①(가): less used buttons are in their group list (취소선·인용·구분선…); signs open a row to pick from.
+const press = (page, name) => edPress(page, name);
 const pick = async (page, opener, group, sign) => {
   await tool(page, opener).click();
   await page.getByRole('group', {name: group, exact: true}).getByRole('button', {name: `${sign} 넣기`, exact: true}).click();
@@ -330,8 +326,7 @@ test('phone width: the grouped row fits one line at 390, 360 and 344, page itsel
   expect(tops).toBe(1);
   // No scroll bar; [⌄] is gone on a phone (its buttons sit in the group popovers); nothing is moved under it.
   expect(await row.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
-  await expect(row.locator('.ed-more')).toBeHidden();
-  await expect(page.locator('.ed-more-menu [data-ed-moved]')).toHaveCount(0);
+  await expect(page.locator('.ed-more')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({path: 'test-results/ed-editor-390.png'});
 });
@@ -352,29 +347,31 @@ test('PC width: the row fits and the document reads as it is drawn for readers',
   await page.screenshot({path: 'test-results/ed-editor-1280.png'});
 });
 
-// SHARE-전체편집: wider than a phone the row never scrolls sideways; what does not fit goes under [⋯] and still works.
-test('narrow PC width: buttons that do not fit go under [⋯], no sideways scroll bar, and they still work', async ({page}) => {
-  await page.setViewportSize({width: 800, height: 700});
+// SHARE-전체편집 → NOTE-노션편집 ①(가): wider than a phone the row never scrolls sideways; what does not fit goes back into its own group
+// (from the right end), so the order read through the row and the group lists stays the phone's, and the moved buttons still work.
+test('narrow PC width: buttons that do not fit go back into their group, no sideways scroll bar, the same order, and they still work', async ({page}) => {
+  await page.setViewportSize({width: 1280, height: 700});
   await page.goto(url);
   await expect(page.locator('body')).toHaveAttribute('data-ready', '1');
+  const row = page.locator('.ed-tools');
+  const wide = await edFlatOrder(page);
+  const onRowWide = await row.locator('button:visible').count();
+  await page.setViewportSize({width: 800, height: 700});
   await page.evaluate(() => { document.querySelector('.ed-editor').parentElement.style.width = '520px'; });
-  const row = page.locator('.ed-tools'), more = row.locator('.ed-more');
-  await expect(more).toBeVisible();
   await expect.poll(() => row.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+  await expect.poll(() => row.locator('button:visible').count()).toBeLessThan(onRowWide);
+  expect(await edFlatOrder(page)).toEqual(wide);
   const box = page.getByRole('textbox', {name: '본문'});
   await box.click();
   await page.keyboard.type('가나다');
-  await more.click();
-  await expect(more).toHaveAttribute('aria-expanded', 'true');
-  const menu = page.getByRole('group', {name: '서식 더 보기'});
-  await menu.getByRole('button', {name: '되돌리기', exact: true}).click();
+  await edPress(page, '취소선');
+  await page.keyboard.type('라');
+  expect(JSON.stringify((await value(page)).doc.content[0].content)).toContain('strike');
+  await row.getByRole('button', {name: '되돌리기', exact: true}).click();
   await expect(box).toBeFocused();
-  expect((await value(page)).doc.content[0].content).toBeUndefined();
-  // S48-21: the [⌄] row stays open after one of its buttons (only [⌃] closes it; remembered on the server).
-  await expect(menu).toBeVisible();
-  // Wide again: every row button back on the row ([⋯] keeps only its own buttons).
+  // Wide again: the pulled-out buttons are back on the row.
   await page.evaluate(() => { document.querySelector('.ed-editor').parentElement.style.width = ''; });
   await page.setViewportSize({width: 1280, height: 700});
-  await expect(page.locator('.ed-more-menu [data-ed-moved]')).toHaveCount(0);
-  await expect(row.getByRole('button', {name: '되돌리기', exact: true})).toBeVisible();
+  await expect.poll(() => row.locator('button:visible').count()).toBe(onRowWide);
+  expect(await edFlatOrder(page)).toEqual(wide);
 });

@@ -6,7 +6,7 @@ import { expectStickyBand } from './helpers/ed-stick.mjs';
 
 // NOTE-제목서식줄고정(S61-16 ②, 요청함 11/12 15:03): 노트를 고칠 때 제목 칸 + 서식 줄이 한 묶음(.ed-stick)으로 화면 위(PC는 맨 위 줄 바로
 // 아래 --kptu-stick-top, 폰은 맨 위)에 붙고 본문만 넘어간다. 원인: 서식 줄이 top:0에 붙어 PC 고정 맨 위 줄 뒤로 들어가 가려졌다(제목은 붙는 규칙 없음).
-// 큰 쓰기 창은 창 안 스크롤 맨 위, 폰 키보드가 올라와(화면 높이가 줄어도) 띠가 보인다. [⌄] 펼친 줄·떠 있는 메뉴도 가리지 않는다.
+// 큰 쓰기 창은 창 안 스크롤 맨 위, 폰 키보드가 올라와(화면 높이가 줄어도) 띠가 보인다. 떠 있는 메뉴도 가리지 않는다.
 test.use({hasTouch: true});
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const long = Array.from({length: 90}, (_, i) => '줄 ' + (i + 1)).join('\n\n');
@@ -44,16 +44,7 @@ for (const width of [1280, 412]) test(`노트 고치기: 제목 칸과 서식 �
   if (width >= 761) expect(stick).toBeGreaterThan(30); else expect(stick).toBe(0);
   // 붙은 채로 제목을 고칠 수 있다.
   await press(title); await expect(title).toBeFocused();
-  // [⌄] 펼친 아래 줄과 떠 있는 메뉴(글자색)가 띠에 가리지 않는다.
-  const more = field.locator('.ed-bar .ed-more');
-  if (await more.isVisible()) {
-    await press(more);
-    const menu = field.locator('.ed-bar .ed-more-menu');
-    await expect(menu).toBeVisible();
-    const m = await menu.boundingBox(); const hit = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('.ed-more-menu'), [m.x + 10, m.y + m.height / 2]);
-    expect(hit).toBe(true);
-    await press(more);
-  }
+  // 떠 있는 메뉴가 띠에 가리지 않는다(NOTE-노션편집 ①(가): [⌄] 펼친 줄은 없어짐).
   const pick = field.locator('.ed-bar button[aria-haspopup]').first();
   await press(pick);
   const pop = page.locator('.ed-pop:not([hidden])').first();

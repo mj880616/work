@@ -1,4 +1,4 @@
-// S48-21 (요청함 10/23 11:08 ③, 10/22 19:27 ②, 10/22 09:33): 편집기 서식 줄 [⌄] 펼침 상태를 서버 화면 설정(view_prefs ed_more)에 기억,
+// S48-21 (요청함 10/23 11:08 ③, 10/22 19:27 ②, 10/22 09:33): (편집기 서식 줄 [⌄] 펼침 기억은 NOTE-노션편집 ①(가)로 줄째 없어짐)
 // [파일](본문 안 작은 파일 칸), 사진 나란히(여러 장 한꺼번에 → 묻지 않고 바로 나란히, S52-05 A·4장씩 줄 나눔, 고른 사진 [따로 놓기]/[옆 사진과 나란히], 폰은 두 장씩 줄바꿈).
 // 편집기만 띄우는 시험 화면(ed-editor-fixture.html)에서 본다. 서버는 그 화면 안의 가짜(view_prefs 읽기·PATCH만)다.
 import {test, expect} from '@playwright/test';
@@ -23,34 +23,15 @@ async function pick(page, trigger, files) {
 test.describe('PC 1280', () => {
   test.use({viewport: {width: 1280, height: 800}});
 
-  test('[⌄] 줄은 바깥 누르기·Esc로 닫히지 않고 [⌄]로만 접히며, 서버 설정에 기억되고 다음 편집기도 같은 상태로 열린다', async ({page}) => {
-    const box = await open(page, 'prefs=null');
-    const first = page.locator('#host'), more = first.locator('.ed-tools .ed-more'), band = first.getByRole('group', {name: '서식 더 보기', exact: true});
-    await expect(more).toHaveAttribute('aria-expanded', 'false');
-    await expect(band).toBeHidden();
-    await more.click();
-    await expect(band).toBeVisible();
-    await expect(more).toHaveAttribute('aria-expanded', 'true');
-    // 글 안을 누르고 Esc를 눌러도, 줄 안 버튼을 눌러도 그대로.
-    await box.click();
-    await page.keyboard.press('Escape');
-    await band.getByRole('button', {name: '취소선', exact: true}).click();
-    await expect(band).toBeVisible();
-    await expect.poll(() => page.evaluate(() => window.prefPatches.at(-1)?.ed_more)).toBe(true);
-    // 같은 방문의 다음 편집기도 펼친 채.
-    await page.evaluate(() => window.makeSecond());
-    await expect(page.locator('#host2 .ed-more')).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator('#host2 .ed-more-menu')).toBeVisible();
-    // [⌃]로 접으면 그 값도 기억.
-    await more.click();
-    await expect(band).toBeHidden();
-    await expect.poll(() => page.evaluate(() => window.prefPatches.at(-1)?.ed_more)).toBe(false);
-  });
-
-  test('서버에 펼침이 기억돼 있으면 처음부터 펼친 채 열린다', async ({page}) => {
-    await open(page, `prefs=${encodeURIComponent(JSON.stringify({ed_more: true}))}`);
-    await expect(page.locator('.ed-tools .ed-more')).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByRole('group', {name: '서식 더 보기', exact: true})).toBeVisible();
+  // NOTE-노션편집 ①(가): [⌄] 줄은 없어졌다(PC도 폰과 같은 묶음 줄). 옛 서버 기억(ed_more: true)이 있어도 줄은 그대로 묶음이고, 더는 쓰지 않는다.
+  test('[⌄] 줄 없음: 옛 펼침 기억이 있어도 묶음 줄로 열리고, 버튼을 눌러도 ed_more를 쓰지 않는다', async ({page}) => {
+    const box = await open(page, `prefs=${encodeURIComponent(JSON.stringify({ed_more: true}))}`);
+    await expect(page.locator('.ed-more, .ed-more-menu')).toHaveCount(0);
+    await page.locator('.ed-tools').getByRole('button', {name: '글자 서식 선택', exact: true}).click();
+    await page.getByRole('group', {name: '글자 서식', exact: true}).getByRole('button', {name: '서식 삭제', exact: true}).click();
+    await expect(box).toBeFocused();
+    await page.waitForTimeout(600);
+    expect(await page.evaluate(() => (window.prefPatches || []).some(p => 'ed_more' in p))).toBe(false);
   });
 
   test('[파일]: 작은 아이콘 버튼, 선택한 파일은 이름·크기 칸으로 들어가고 [열기]가 연다. 읽기 화면은 Drive로 가는 링크', async ({page}) => {
