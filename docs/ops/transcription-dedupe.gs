@@ -22,7 +22,11 @@
  *************************************************/
 
 const RECORDING_SETTLE_MS = 10 * 60 * 1000;
-const RECORDING_CLEANUP_LIMIT = 200;
+const RECORDING_CLEANUP_LIMIT = 400;                       // 한 번 실행에 휴지통 후보로 잡는 최대 수(시간 지키기가 먼저 멈출 수 있음).
+const RECORDING_TRASH_BATCH = 50;                          // 휴지통 요청을 한꺼번에 보내는 묶음 크기(UrlFetchApp.fetchAll).
+const RECORDING_CLEANUP_TIME_MS = 4.5 * 60 * 1000;         // 앱 스크립트 한도 6분 전에 멈추고 결과를 남긴다.
+const RECORDING_CLEANUP_RETRY_MS = 5 * 60 * 1000;          // 남은 게 있으면 5분 뒤 자동으로 이어 한다.
+const RECORDING_CLEANUP_HANDLER = 'cleanupDuplicateRecordings';
 const RECORDING_KEEP_IDS_KEY = 'RECORDING_KEEP_IDS';         // 지우면 안 되는 파일 번호(쉼표). 커맨드센터가 웹2 확인 뒤 넣는다.
 const RECORDING_EXTRA_ROOTS_KEY = 'RECORDING_CLEANUP_ROOTS';  // 정리할 녹음 맨 위 폴더 번호(쉼표, 없어도 됨).
 const RECORDING_CLEANUP_LAST_KEY = 'RECORDING_CLEANUP_LAST';
@@ -404,13 +408,17 @@ function transcribeNewRecordings() {
  * 추가 ④ 이미 쌓인 중복 정리
  *   previewDuplicateRecordings(): 미리 보기(아무것도 바꾸지 않음). 결과 한 줄 + 휴지통 후보 번호를 로그에 적는다.
  *   cleanupDuplicateRecordings(): 실제 정리. 휴지통(30일 되돌리기)만, 영구 삭제 없음. 실행 기록 파일을 남긴다.
+ *     - 휴지통 요청은 Drive API(files.update trashed=true)를 50개씩 묶어 한꺼번에 보낸다(한 개씩 보내면 6분에 끊겼다).
+ *     - 4분 30초가 지나면 새로 보내지 않고 결과 한 줄·실행 기록 파일을 남긴 뒤 끝낸다.
+ *     - 남은 게 있으면 5분 뒤 한 번 도는 트리거를 하나만 걸고, 다 끝나면 지운다. 진행: 스크립트 속성 RECORDING_CLEANUP_LAST.
  *************************************************/
 function previewDuplicateRecordings() {
   return recordingCleanup_(true);
 }
 
-function cleanupDuplicateRecordings() {
-  return recordingCleanup_(false);
+/** 사람이 한 번 누르면 끝까지: 4분 30초마다 끊어 결과를 남기고, 남은 게 있으면 5분 뒤 스스로 이어 한다. */
+function cleanupDuplicateRecordings(e) {
+  return recordingCleanup_(false, e);
 }
 
 /** 정리할 녹음 맨 위 폴더들: PIPELINES + 스크립트 속성 RECORDING_CLEANUP_ROOTS + 내 드라이브 맨 위 '음성 녹음 백업'(하나뿐일 때). */
@@ -438,16 +446,27 @@ function recordingProtectedIds_(allFiles) {
   return out;
 }
 
-function recordingCleanup_(dryRun) {
+function recordingCleanup_(dryRun, event) {
+  const started = Date.now();
+  const props = PropertiesService.getScriptProperties();
+  if (!dryRun) recordingDropFiredTrigger_(event);
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(30 * 1000)) throw new Error('다른 실행이 진행 중입니다. 잠시 후 다시 실행하십시오.');
+  if (!lock.tryLock(30 * 1000)) {
+    if (dryRun) throw new Error('다른 실행이 진행 중입니다. 잠시 후 다시 실행하십시오.');
+    // 실제 정리는 끊지 않고 5분 뒤 다시 시도한다(트리거는 하나만).
+    const scheduled = recordingScheduleContinue_(true);
+    const busyLine = '다른 실행이 진행 중이라 이번에는 건너뜀' + (scheduled ? ' · 5분 뒤 자동으로 다시' : '');
+    Logger.log(busyLine);
+    props.setProperty(RECORDING_CLEANUP_LAST_KEY, JSON.stringify({ at: new Date().toISOString(), dryRun: false, line: busyLine, remaining: null, done: false }));
+    return busyLine;
+  }
   try {
-    const props = PropertiesService.getScriptProperties();
     const states = props.getProperties();
     const active = recordingActiveIds_(states);
     const all = [];
     const manualFolderByRoot = {};
-    recordingCleanupRoots_().forEach(rootId => {
+    const roots = recordingCleanupRoots_();
+    roots.forEach(rootId => {
       const root = DriveApp.getFolderById(rootId);
       Object.keys(RECORDING_SUBFOLDERS).forEach(name => {
         const it = root.getFoldersByName(name);
@@ -470,48 +489,180 @@ function recordingCleanup_(dryRun) {
       plans.push(plan);
     }));
 
-    let budget = RECORDING_CLEANUP_LIMIT;
     const rows = [];
+    const queue = [];
+    let candidates = 0;
     plans.forEach(plan => {
       if (plan.skip) { rows.push('건너뜀(전사 중)\t' + plan.key); return; }
       plan.trashFiles.forEach(f => {
-        if (budget <= 0) return;
-        budget--;
-        rows.push((dryRun ? '휴지통 후보' : '휴지통') + '\t' + f.id + '\t' + f.folder + '\t' + f.size + '\t' + f.md5 + '\t남김 ' + plan.keeper.id);
-        if (dryRun) return;
-        DriveApp.getFileById(f.id).setTrashed(true);
-        recordingMoveFailureState_(props, states, f.id, plan.keeper);
+        candidates++;
+        if (queue.length < RECORDING_CLEANUP_LIMIT) queue.push({ plan, file: f });
       });
-      if (!dryRun && plan.needShortcut && manualFolderByRoot[plan.rootId] && plan.keeper.folder !== 'manual') {
-        const manual = manualFolderByRoot[plan.rootId];
-        const existing = all.filter(x => x.folderId === manual.getId());
-        const shortcutId = recordingEnsureShortcut_(plan.keeper.id, manual, existing);
-        existing.push({ id: shortcutId, shortcut: true, targetId: plan.keeper.id, folderId: manual.getId() });
-        const key = 'TRANSCRIBE_FAILURE_' + plan.keeper.id;
-        const raw = props.getProperty(key);
-        const failure = raw ? JSON.parse(raw) : { count: 0, errorCode: 'OVERSIZE', retryable: false };
-        failure.status = 'manual';
-        failure.shortcutId = shortcutId;
-        failure.size = plan.keeper.size;
-        props.setProperty(key, JSON.stringify(failure));
-      }
     });
+
+    let trashedNow = 0;
+    let failedNow = 0;
+    let stoppedForTime = false;
+    if (dryRun) {
+      queue.forEach(item => rows.push('휴지통 후보\t' + item.file.id + '\t' + item.file.folder + '\t' + item.file.size + '\t' + item.file.md5 + '\t남김 ' + item.plan.keeper.id));
+    } else {
+      const shortcutReady = new Set();
+      const shortcutFailed = new Set();
+      const batches = recordingChunks_(queue, RECORDING_TRASH_BATCH);
+      for (let b = 0; b < batches.length && !stoppedForTime; b++) {
+        const send = [];
+        for (let i = 0; i < batches[b].length; i++) {
+          // 시간 지키기: 4분 30초가 지나면 새로 보내지 않고 결과·기록을 남긴 뒤 끝낸다.
+          if (recordingTimeUp_(started, Date.now())) { stoppedForTime = true; break; }
+          const item = batches[b][i];
+          const plan = item.plan;
+          if (shortcutFailed.has(plan)) continue;
+          // 대기 목록이 비지 않게: 수동전사대기 사본을 지우기 전에 남긴 녹음의 바로가기를 먼저 만든다.
+          if (plan.needShortcut && !shortcutReady.has(plan) && manualFolderByRoot[plan.rootId] && plan.keeper.folder !== 'manual') {
+            try {
+              recordingCleanupShortcut_(plan, manualFolderByRoot[plan.rootId], all, props, states);
+              shortcutReady.add(plan);
+            } catch (err) {
+              shortcutFailed.add(plan);
+              rows.push('건너뜀(바로가기 실패)\t' + plan.key);
+              console.error('바로가기 만들기 실패: ' + plan.keeper.id, err);
+              continue;
+            }
+          }
+          send.push(item);
+        }
+        if (!send.length) continue;
+        const codes = recordingTrashMany_(send.map(item => item.file.id));
+        let limited = false;
+        send.forEach((item, i) => {
+          const f = item.file;
+          const code = codes[i];
+          if (code === 200) {
+            trashedNow++;
+            rows.push('휴지통\t' + f.id + '\t' + f.folder + '\t' + f.size + '\t' + f.md5 + '\t남김 ' + item.plan.keeper.id);
+            recordingMoveFailureState_(props, states, f.id, item.plan.keeper);
+          } else {
+            failedNow++;
+            if (code === 403 || code === 429) limited = true;
+            rows.push('실패(HTTP ' + code + ', 다음 실행에서 다시)\t' + f.id + '\t' + f.folder + '\t' + f.size + '\t' + f.md5 + '\t남김 ' + item.plan.keeper.id);
+          }
+        });
+        // 요청 한도에 걸리면 잠깐 쉬고 다음 묶음.
+        if (limited && typeof Utilities.sleep === 'function') Utilities.sleep(2000);
+      }
+    }
+
+    const remaining = dryRun ? candidates : candidates - trashedNow;
+    // 이번에 하나도 못 보냈으면(목록 읽기에 시간이 다 걸렸거나 모두 실패) 같은 일을 되풀이하지 않게 자동 이어 하기를 걸지 않는다.
+    const stuck = !dryRun && remaining > 0 && trashedNow === 0;
+    const scheduled = !dryRun && recordingScheduleContinue_(remaining > 0 && !stuck);
     const sameNameOtherContent = recordingSameNameOtherContent_(all);
     const line = recordingSummaryLine_(plans) + (dryRun ? ' (미리 보기)' : '') +
-      (budget <= 0 ? ' · 한 번 한도(' + RECORDING_CLEANUP_LIMIT + '개)라 한 번 더 실행' : '') +
+      (dryRun && candidates > RECORDING_CLEANUP_LIMIT ? ' · 후보 줄은 앞 ' + RECORDING_CLEANUP_LIMIT + '개만 적음' : '') +
+      (!dryRun && remaining > 0 ? ' · 이번에 휴지통 ' + trashedNow + '개 · 남음 ' + remaining + '개 · 한 번 더 실행' + (scheduled ? '(5분 뒤 자동)' : '') : '') +
+      (failedNow ? ' · 실패 ' + failedNow + '개(다음 실행에서 다시)' : '') +
+      (stoppedForTime ? ' · 시간 한도(4분 30초)에서 멈춤' : '') +
+      (stuck ? ' · 이번에 하나도 못 보내 자동 이어 하기 안 함(확인 필요)' : '') +
       (sameNameOtherContent ? ' · 이름만 같고 내용이 다른 녹음 ' + sameNameOtherContent + '묶음(그대로 둠)' : '');
     Logger.log(line);
     rows.forEach(r => Logger.log(r));
-    props.setProperty(RECORDING_CLEANUP_LAST_KEY, JSON.stringify({ at: new Date().toISOString(), dryRun: !!dryRun, line }));
+    props.setProperty(RECORDING_CLEANUP_LAST_KEY, JSON.stringify({
+      at: new Date().toISOString(), dryRun: !!dryRun, line, trashed: trashedNow, failed: failedNow, remaining, done: !dryRun && remaining === 0, scheduled: !!scheduled,
+    }));
     if (!dryRun && rows.length) {
-      const first = recordingCleanupRoots_()[0];
-      const stamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmm');
-      DriveApp.getFolderById(first).createFile('중복정리기록_' + stamp + '.txt', [line, '', '종류\t파일 번호\t폴더\t크기\tmd5\t남긴 파일', ...rows].join('\n'), MimeType.PLAIN_TEXT);
+      try {
+        const stamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmm');
+        DriveApp.getFolderById(roots[0]).createFile('중복정리기록_' + stamp + '.txt', [line, '', '종류\t파일 번호\t폴더\t크기\tmd5\t남긴 파일', ...rows].join('\n'), MimeType.PLAIN_TEXT);
+      } catch (err) {
+        console.error('실행 기록 파일 만들기 실패(결과 한 줄은 RECORDING_CLEANUP_LAST에 있음)', err);
+      }
     }
     return line;
   } finally {
     lock.releaseLock();
   }
+}
+
+/** 남긴 녹음의 바로가기를 수동전사대기에 만들고 실패 기록(status=manual)을 남긴 녹음에 둔다. */
+function recordingCleanupShortcut_(plan, manual, all, props, states) {
+  const existing = all.filter(x => x.folderId === manual.getId());
+  const shortcutId = recordingEnsureShortcut_(plan.keeper.id, manual, existing);
+  all.push({ id: shortcutId, shortcut: true, targetId: plan.keeper.id, folderId: manual.getId(), folder: 'manual', rootId: plan.rootId });
+  const key = 'TRANSCRIBE_FAILURE_' + plan.keeper.id;
+  // 남긴 녹음에 기록이 없으면 지울 사본의 기록을 이어받는다.
+  let raw = states[key] || null;
+  if (!raw) plan.trashFiles.some(f => (raw = states['TRANSCRIBE_FAILURE_' + f.id] || null));
+  let failure = null;
+  try { failure = raw ? JSON.parse(raw) : null; } catch (e) { failure = null; }
+  failure = failure || { count: 0, errorCode: 'OVERSIZE', retryable: false };
+  failure.status = 'manual';
+  failure.shortcutId = shortcutId;
+  failure.size = plan.keeper.size;
+  props.setProperty(key, JSON.stringify(failure));
+  states[key] = JSON.stringify(failure);
+}
+
+/** 휴지통 보내기(trashed=true)를 묶어서 한꺼번에. 파일 번호 순서대로 HTTP 상태 번호를 돌려준다(요청 자체가 실패하면 0). */
+function recordingTrashMany_(ids) {
+  if (!ids.length) return [];
+  const requests = recordingTrashRequests_(ids, ScriptApp.getOAuthToken());
+  try {
+    return UrlFetchApp.fetchAll(requests).map(res => res.getResponseCode());
+  } catch (err) {
+    console.error('휴지통 묶음 요청 실패', err);
+    return ids.map(() => 0);
+  }
+}
+
+/** 순수: Drive API v3 files.update(trashed=true) 요청 모양. 휴지통까지만(30일 되돌리기), 영구 삭제 없음. */
+function recordingTrashRequests_(ids, token) {
+  return ids.map(id => ({
+    url: 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) + '?fields=id,trashed&supportsAllDrives=false',
+    method: 'patch',
+    contentType: 'application/json',
+    payload: JSON.stringify({ trashed: true }),
+    headers: { Authorization: 'Bearer ' + token },
+    muteHttpExceptions: true,
+  }));
+}
+
+/** 순수: 목록을 n개씩. */
+function recordingChunks_(list, n) {
+  const out = [];
+  for (let i = 0; i < list.length; i += n) out.push(list.slice(i, i + n));
+  return out;
+}
+
+/** 순수: 시작 뒤 4분 30초가 지났는지. */
+function recordingTimeUp_(startedMs, nowMs) {
+  return nowMs - startedMs >= RECORDING_CLEANUP_TIME_MS;
+}
+
+function recordingCleanupTriggers_() {
+  return ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === RECORDING_CLEANUP_HANDLER);
+}
+
+/** 이 실행을 부른 이어 하기 트리거(한 번 쓰고 끝)는 지운다. 사람이 누른 실행이면 아무것도 안 한다. */
+function recordingDropFiredTrigger_(event) {
+  const uid = event && event.triggerUid;
+  if (!uid) return;
+  recordingCleanupTriggers_().forEach(t => { if (String(t.getUniqueId()) === String(uid)) ScriptApp.deleteTrigger(t); });
+}
+
+/**
+ * 남은 게 있으면 5분 뒤 한 번 도는 트리거를 하나만 건다(같은 이름 트리거가 이미 있으면 새로 안 건다).
+ * 다 끝나면 이 이름 트리거를 모두 지운다. 다른 트리거(transcribeNewRecordings 10분)는 건드리지 않는다.
+ * 돌려주는 값: 이어 하기 트리거가 걸려 있는지.
+ */
+function recordingScheduleContinue_(needed) {
+  const existing = recordingCleanupTriggers_();
+  if (!needed) {
+    existing.forEach(t => ScriptApp.deleteTrigger(t));
+    return false;
+  }
+  if (existing.length) return true;
+  ScriptApp.newTrigger(RECORDING_CLEANUP_HANDLER).timeBased().after(RECORDING_CLEANUP_RETRY_MS).create();
+  return true;
 }
 
 /** 같은 폴더 종류 안에서 이름은 같은데 내용(md5)이 다른 녹음 묶음 수(덜 쓰인 통화 녹음 등). 지우지 않고 세기만 한다. */
@@ -530,6 +681,8 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     RECORDING_SETTLE_MS, recordingGroupDuplicates_, recordingPlanGroup_, recordingSummaryLine_, recordingIsSettled_, recordingSrcIdsFromNames_,
     recordingIdList_, recordingFailureOutdated_, recordingBytesText_, recordingSameNameOtherContent_,
-    transcriptionMoveManualCandidates_, recordingTidySource_, recordingCleanup_,
+    transcriptionMoveManualCandidates_, recordingTidySource_, recordingCleanup_, cleanupDuplicateRecordings,
+    recordingTrashRequests_, recordingChunks_, recordingTimeUp_, recordingScheduleContinue_,
+    RECORDING_CLEANUP_LIMIT, RECORDING_TRASH_BATCH, RECORDING_CLEANUP_TIME_MS,
   };
 }
