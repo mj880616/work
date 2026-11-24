@@ -34,8 +34,10 @@ for(const width of [700,884,1280])test.describe(`자료실 ${width} 나무`,()=>
   await expect(nav(page).locator('[data-lu-nav=""]')).toHaveAttribute('aria-current','true');
   await expect.poll(()=>tops(page)).toEqual(['f:fa','f:fn']); // 오른쪽 목록·주소 그대로
   expect(new URL(page.url()).searchParams.get('folder')).toBeNull();
-  await nav(page).locator('[data-lu-nav="fa"]').click(); // 이름 = 그 폴더 열기
+  await nav(page).locator('[data-lu-nav="fa"]').click(); // 이름 = 그 폴더 열기 + 펼친 폴더면 바로 접기(명진 11/24 20:26)
   await expect(nav(page).locator('[data-lu-nav="fa"]')).toHaveAttribute('aria-current','true');
+  await expect(nav(page).locator('[data-lu-nav="fc"]')).toHaveCount(0);
+  await nav(page).locator('[data-lu-nav="fa"]').click(); // 다시 누르면 펼침(오른쪽은 그 폴더 그대로)
   await expect(nav(page).locator('[data-lu-nav="fc"]')).toBeVisible();
   await expect.poll(()=>tops(page)).toEqual(['f:fc']);expect(await rows(page)).toEqual(['n-1']);
   await expect(page.locator('#libraryPath')).toBeVisible();
