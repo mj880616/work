@@ -460,8 +460,16 @@
    안쪽만 화면 높이까지(max-height 100dvh) 키워서, 오른쪽 목록이 짧으면 안쪽이 카드 아래 테두리를 뚫고 밖으로 그려졌다.)
    폭은 카드 왼쪽 여백(padding)과 나무 칸 폭이 같은 값이어야 해서 %(둘의 기준 폭이 다름) 대신 화면 폭(vw)으로 정한다. 가운데 세로 선은 카드 높이 전체(::before). */
 @media(min-width:600px){
-  #appView #libraryListCard[data-lu-split]{display:flow-root;position:relative;padding-left:calc(var(--lu-fnav-w) + 12px);min-height:320px;--lu-fnav-w:clamp(180px,24vw,300px)}
-  #appView #libraryListCard[data-lu-split]::before{content:"";position:absolute;top:0;bottom:0;left:var(--lu-fnav-w);border-left:.5px solid var(--kptu-border);pointer-events:none}
+  #appView #libraryListCard[data-lu-split]{display:flow-root;position:relative;padding-left:calc(var(--lu-fnav-w) + 12px);min-height:320px;--lu-fnav-w:clamp(180px,24vw,300px);column-gap:12px}
+  /* S69-29 LIB-한칸크기끌기: 가운데 세로 선은 두 칸 사이(12px) 한가운데 — 칸 폭 손잡이(split-resize.js, column-gap 12px로 같은 자리)가 이 선 위에 놓인다.
+     끌어 정한 폭은 library-pane-size.js가 --lu-fnav-w(px)로 넣는다(없으면 위 clamp 기본값). */
+  #appView #libraryListCard[data-lu-split]::before{content:"";position:absolute;top:0;bottom:0;left:calc(var(--lu-fnav-w) + 6px);border-left:.5px solid var(--kptu-border);pointer-events:none}
+  /* S69-29: 카드 아래 테두리를 끌어 높이를 정하면(height-resize.js, data-lu-fixed-h) 카드는 그 높이이고 왼쪽 나무·오른쪽 목록이 각 칸 안에서 굴러간다.
+     짧으면 빈 곳(목록 칸이 남은 높이를 채워 사각형 고르기·파일 놓기를 받는다). 정하지 않았으면 위 규칙(내용만큼 늘어남) 그대로. */
+  #appView #libraryListCard[data-lu-split][data-lu-fixed-h]{display:flex;flex-direction:column;box-sizing:border-box;height:var(--lu-card-h);min-height:0}
+  #appView #libraryListCard[data-lu-split][data-lu-fixed-h] > *{flex:none}
+  #appView #libraryListCard[data-lu-split][data-lu-fixed-h] > #documentList{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;align-content:start}
+  #appView #libraryListCard[data-lu-split][data-lu-fixed-h] > #libraryFolderNav{position:absolute;float:none;margin:0;left:0;top:var(--lu-pad-t,0px);bottom:var(--lu-pad-b,0px);overflow:auto;overscroll-behavior:contain}
   #libraryFolderNav{float:left;box-sizing:border-box;width:var(--lu-fnav-w);margin-left:calc(-1 * var(--lu-fnav-w) - 12px)}
   #libraryFolderNav .lu-fnav-in{padding:0 6px 4px 0}
   #libraryFolderNav .ft-row .ft-main{min-height:30px;font-size:12.5px}

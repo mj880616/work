@@ -119,6 +119,11 @@ html.split-resizing,html.split-resizing *{cursor:col-resize!important;user-selec
  * @param {string} [o.controls] id of the left column, for aria-controls (two columns)
  * @param {string} [o.query] media query from which the screen shows its columns (default PC width, '(min-width:761px)'); a narrower
  *   rule (the unfolded Fold) also shows the boundaries below PC width
+ * @param {{width:() => number, left:() => number, apply:(shares:number[], width:number) => void}} [o.layout] S69-29: a screen whose
+ *   columns are not grid columns (the 자료실 한 칸 tree is a float beside the list) gives the shared width in px, the page x where the
+ *   first column starts, and draws the shares itself; without it the grid variables above are set.
+ * @param {{read:() => number|null, write:(ratio:number|null) => void}} [o.store] S69-29: two columns kept somewhere other than
+ *   split_ratio.<name> (a px width in col_widths): read gives the left share (null = default), write gets it (null = default).
  */
 export function mountSplitResize(o){
   const {container}=o;if(!container)return null;
@@ -150,18 +155,21 @@ export function mountSplitResize(o){
     container.append(handle);handles.push(handle);
   }
   if(getComputedStyle(container).position==='static')container.style.position='relative';
-  let shares=readShares(o.name,n,defaults,o.inherit)??defaults.slice(),drag=null,frame=0;
+  const lay=o.layout||null,store=n===2?o.store||null:null;
+  const read=()=>{if(!store)return readShares(o.name,n,defaults,o.inherit);const v=store.read();return v>0&&v<1?[v,1-v]:null};
+  const write=s=>{if(store)store.write(s==null?null:Math.round(s[0]*10000)/10000);else writeShares(o.name,n,s)};
+  let shares=read()??defaults.slice(),drag=null,frame=0;
 
   const gap=()=>{const v=parseFloat(getComputedStyle(container).columnGap);return Number.isFinite(v)?v:0};
   // Width the columns share: the content box minus the gaps between them.
-  const width=()=>{const s=getComputedStyle(container);return container.clientWidth-(parseFloat(s.paddingLeft)||0)-(parseFloat(s.paddingRight)||0)-gap()*(n-1)};
+  const width=()=>{if(lay)return lay.width();const s=getComputedStyle(container);return container.clientWidth-(parseFloat(s.paddingLeft)||0)-(parseFloat(s.paddingRight)||0)-gap()*(n-1)};
   const mins=w=>cols.map(c=>px(container,c.minVar,c.minFallback??0)/w);
   // Shares as drawn at the current width; the minimum widths win over the stored shares.
   const fitted=()=>{const w=width();return w>0?fitShares(shares,mins(w)):shares.slice()};
   function apply(){
     const s=fitted();
-    // fr values that add up to 100 (a sum below 1 would leave part of the row empty).
-    cols.forEach((c,k)=>container.style.setProperty(c.varName,`${(s[k]*100).toFixed(2)}fr`));
+    // fr values that add up to 100 (a sum below 1 would leave part of the row empty); a screen with its own layout draws them itself.
+    if(lay)lay.apply(s,width());else cols.forEach((c,k)=>container.style.setProperty(c.varName,`${(s[k]*100).toFixed(2)}fr`));
     handles.forEach((h,i)=>{const pct=Math.round(sum(s,0,i+1)*100);h.setAttribute('aria-valuenow',String(pct));h.setAttribute('aria-valuetext',`왼쪽 ${pct}%`)});
   }
   function position(){
@@ -188,18 +196,18 @@ export function mountSplitResize(o){
     const pair=shares[i]+shares[i+1],si=Math.min(pair-0.0005,Math.max(0.0005,sum(defaults,0,i+1)-sum(shares,0,i))),next=shares.slice();
     next[i]=si;next[i+1]=pair-si;shares=next;update();
   }
-  const persist=()=>writeShares(o.name,n,shares.every((v,k)=>Math.abs(v-defaults[k])<1e-6)?null:shares);
+  const persist=()=>write(shares.every((v,k)=>Math.abs(v-defaults[k])<1e-6)?null:shares);
   function set(r,{save=true}={}){
     if(n===2){const w=width(),m=w>0?mins(w):[0,0];shares=r==null?defaults.slice():fitShares([r,1-r],m)}
     else if(r==null)shares=defaults.slice();
-    update();if(save)writeShares(o.name,n,r==null?null:shares);
+    update();if(save)write(r==null?null:shares);
   }
 
   handles.forEach((handle,i)=>{
     handle.addEventListener('pointerdown',e=>{
       if(e.button!==0||handle.hidden)return;e.preventDefault();
       const box=container.getBoundingClientRect(),s=getComputedStyle(container);
-      drag={id:e.pointerId,left:box.left+(parseFloat(s.paddingLeft)||0),moved:false};
+      drag={id:e.pointerId,left:lay?lay.left():box.left+(parseFloat(s.paddingLeft)||0),moved:false};
       try{handle.setPointerCapture(e.pointerId)}catch{}
       handle.classList.add('is-dragging');document.documentElement.classList.add('split-resizing');handle.focus({preventScroll:true});
     });
