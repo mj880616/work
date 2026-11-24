@@ -22,10 +22,14 @@ export const FETCH_TIMEOUT_MS = 10000;
 // 두 번뿐이고(20초×2 + 간격 2초 — 화면 기다림 90초 안), 수집처럼 여러 기사를 잇달아 읽지 않으므로 시간 예산(RUN_BUDGET_MS)을 밀지 않는다.
 export const PERSON_FETCH_TIMEOUT_MS = 20000;
 export const MAX_REDIRECTS = 3;
+// S69 READ-첨부본문: 첨부 파일 받기(getBytes)만의 크기 상한. 부르는 쪽이 더 작은 값을 줄 수 있고, 이보다 큰 값은 이 값으로 줄인다.
+export const FILE_MAX_BYTES = 15 * 1024 * 1024;
 
 export type FeedLog = (code: string, detail?: Record<string, unknown>) => void;
 export type Got = { ok: true; text: string; url: string; contentType: string | null } | { ok: false; code: string };
-export type FeedReader = { get: (rawUrl: string, accept: string) => Promise<Got> };
+export type GotBytes = { ok: true; bytes: Uint8Array; url: string; contentType: string | null } | { ok: false; code: string };
+// getBytes(S69 READ-첨부본문): get과 같은 길(주소 검사·robots·리다이렉트·시간·간격)로 받되 글자로 풀지 않고 바이트 그대로(첨부 PDF·HWP용).
+export type FeedReader = { get: (rawUrl: string, accept: string) => Promise<Got>; getBytes?: (rawUrl: string, accept: string, maxBytes?: number) => Promise<GotBytes> };
 export type ReaderOptions = {
   doFetch: typeof fetch;
   sleep: (ms: number) => Promise<void>;
@@ -66,9 +70,9 @@ export function makeFeedReader(o: ReaderOptions): FeedReader {
       return { res: null, code: name === "TimeoutError" || name === "AbortError" ? "timeout" : "network" };
     }
   }
-  async function readCapped(res: Response): Promise<Uint8Array | null> {
+  async function readCapped(res: Response, max = FETCH_MAX_BYTES): Promise<Uint8Array | null> {
     const declared = Number(res.headers.get("content-length") || 0);
-    if (declared > FETCH_MAX_BYTES) { try { await res.body?.cancel(); } catch { /* ignore */ } return null; }
+    if (declared > max) { try { await res.body?.cancel(); } catch { /* ignore */ } return null; }
     if (!res.body) return new Uint8Array();
     const reader = res.body.getReader();
     const parts: Uint8Array[] = [];
@@ -78,7 +82,7 @@ export function makeFeedReader(o: ReaderOptions): FeedReader {
         const { done, value } = await reader.read();
         if (done) break;
         n += value.byteLength;
-        if (n > FETCH_MAX_BYTES) { try { await reader.cancel(); } catch { /* ignore */ } return null; }
+        if (n > max) { try { await reader.cancel(); } catch { /* ignore */ } return null; }
         parts.push(value);
       }
     } catch {
@@ -133,32 +137,45 @@ export function makeFeedReader(o: ReaderOptions): FeedReader {
     }
     return { text, code };
   }
+  async function open(rawUrl: string, accept: string): Promise<{ ok: true; res: Response; url: URL } | { ok: false; code: string }> {
+    const u = o.allow(rawUrl);
+    if (!u) return { ok: false, code: "url_outside" };
+    if (checkRobots) {
+      const rb = await robotsFor(u);
+      if (rb.text === null) return { ok: false, code: rb.code };
+      if (!robotsAllows(rb.text, o.robotsAgent, u.pathname + u.search)) return { ok: false, code: "robots" };
+    }
+    const got = await follow(u, accept);
+    if (!got.ok) return got;
+    if (checkRobots && got.url.href !== u.href) {
+      const rb2 = await robotsFor(got.url);
+      if (!robotsAllows(rb2.text ?? "User-agent: *\nDisallow: /", o.robotsAgent, got.url.pathname + got.url.search)) {
+        try { await got.res.body?.cancel(); } catch { /* ignore */ }
+        return { ok: false, code: "robots" };
+      }
+    }
+    if (!got.res.ok) {
+      try { await got.res.body?.cancel(); } catch { /* ignore */ }
+      return { ok: false, code: `http_${got.res.status}` };
+    }
+    return got;
+  }
   return {
     async get(rawUrl, accept) {
-      const u = o.allow(rawUrl);
-      if (!u) return { ok: false, code: "url_outside" };
-      if (checkRobots) {
-        const rb = await robotsFor(u);
-        if (rb.text === null) return { ok: false, code: rb.code };
-        if (!robotsAllows(rb.text, o.robotsAgent, u.pathname + u.search)) return { ok: false, code: "robots" };
-      }
-      const got = await follow(u, accept);
+      const got = await open(rawUrl, accept);
       if (!got.ok) return got;
-      if (checkRobots && got.url.href !== u.href) {
-        const rb2 = await robotsFor(got.url);
-        if (!robotsAllows(rb2.text ?? "User-agent: *\nDisallow: /", o.robotsAgent, got.url.pathname + got.url.search)) {
-          try { await got.res.body?.cancel(); } catch { /* ignore */ }
-          return { ok: false, code: "robots" };
-        }
-      }
-      if (!got.res.ok) {
-        try { await got.res.body?.cancel(); } catch { /* ignore */ }
-        return { ok: false, code: `http_${got.res.status}` };
-      }
       const bytes = await readCapped(got.res);
       if (!bytes) return { ok: false, code: "too_large" };
       const ct = got.res.headers.get("content-type");
       return { ok: true, text: decodeBody(bytes, ct), url: got.url.href, contentType: ct };
+    },
+    async getBytes(rawUrl, accept, maxBytes = FILE_MAX_BYTES) {
+      const got = await open(rawUrl, accept);
+      if (!got.ok) return got;
+      const max = Math.max(1, Math.min(Number.isFinite(maxBytes) ? maxBytes : FILE_MAX_BYTES, FILE_MAX_BYTES));
+      const bytes = await readCapped(got.res, max);
+      if (!bytes) return { ok: false, code: "too_large" };
+      return { ok: true, bytes, url: got.url.href, contentType: got.res.headers.get("content-type") };
     },
   };
 }

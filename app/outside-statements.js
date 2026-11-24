@@ -955,17 +955,21 @@ window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); set
     return true;
   },
   dropItem: () => { prepared = null; },
-  openItem: async item => {
+  // edit(S69 저장한 글 ⋯ [수정]): 연 뒤 그 글 보기의 ⋯ [수정] 창을 바로 연다(같은 부품 now-detail edit — 뉴스 기사만).
+  openItem: async (item, {edit = false} = {}) => {
     if (!item || !['news', 'outside'].includes(item.type) || !isUuid(item.id)) { prepared = null; return false; }
     if (preparedFor(item)) {
       // 미리 읽은 글: 기다림 없이 이 자리에서 연다(라우터가 화면을 옮긴 같은 순간).
       const {type, row} = prepared; prepared = null;
       setTab(openTabFor(type), {save: false});
       openDetail({type, id: row.id}, describe(type, row), {picked: false, from: 'saved'});
+      if (edit && detail.current()) void detail.edit();
       return !!detail.current();
     }
     prepared = null;
-    setTab(openTabFor(item.type), {save: false}); await openWanted(item, {picked: false, from: 'saved'}); return !!detail.current();
+    setTab(openTabFor(item.type), {save: false}); await openWanted(item, {picked: false, from: 'saved'});
+    if (edit && detail.current()) void detail.edit();
+    return !!detail.current();
   }}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
 // [언론] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·줄 그리기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭·찾는 말·고른 매체.
 window.KPTUNow = {

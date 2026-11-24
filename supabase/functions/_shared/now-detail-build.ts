@@ -176,7 +176,13 @@ export async function loadItem(deps: DetailDeps, it: DetailItemRef): Promise<Det
 // 재료가 하나도 없는 글(제목 읽기 전·본문 읽기 실패)은 AI를 부르지 않는다.
 // S68-43: 사회운동 글도 같다 — 본문·저장 요약·주요 문장이 모두 없으면(robots로 글 쪽을 못 읽은 국내 글 등) 제목만으로 요약하지 않는다
 // (예전에는 제목만 보내 'material이 비어 있어…' 같은 답이 요약 칸에 보였다). 외국 글은 수집 때 만든 한국어 요약·주요 문장이 재료다.
-export const itemHasMaterial = (item: DetailItem) => !!(item.body || item.summary || (item.type === "outside" && item.keySentences.length));
+// S69 READ-첨부본문(명진 11/24 "제공된 글 내용은 마침표 하나뿐이며…"가 요약 칸에 보였다): 본문은 글자(띄어쓰기·문장부호·기호 빼고)가
+// MATERIAL_MIN_CHARS 이상일 때만 재료다. 그보다 짧은 본문(마침표 하나·사진 설명 한 줄 등)만 있는 글은 요약·시사점을 만들지 않는다(422 no_material —
+// 화면 '본문이 짧아 요약하지 않았어요'). 본문을 다시 가져와 길어지면 본문 지문이 바뀌어 그때 만든다.
+export const MATERIAL_MIN_CHARS = 20;
+export const materialChars = (t: unknown) => [...String(t ?? "").replace(/[\s\p{P}\p{S}]/gu, "")].length;
+export const bodyIsMaterial = (body: unknown) => materialChars(body) >= MATERIAL_MIN_CHARS;
+export const itemHasMaterial = (item: DetailItem) => !!(bodyIsMaterial(item.body) || item.summary || (item.type === "outside" && item.keySentences.length));
 // 본문 지문(S69-01): 저장된 상세를 만든 본문과 지금 본문이 같은지 '내용'으로 비교한다. 공백·대소문자만 다른 것은 같은 본문.
 // 수집·다시 뽑기가 같은 본문을 새 시각(extracted_at)으로 다시 적어도 지문은 그대로라 요약을 다시 만들지 않는다. 본문이 없으면 'none'.
 export async function bodyKey(item: Pick<DetailItem, "body">): Promise<string> {

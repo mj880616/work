@@ -44,3 +44,9 @@
 /* S69-BM: PC 크롬 저장 버튼 줄(넓은 화면·마우스에서만 그려짐) — 한 줄 작은 글자. */
 #readingView .rd-bm{display:flex;align-items:center;gap:6px;white-space:nowrap}
 #readingView .rd-bm-link{color:var(--kptu-link);cursor:grab}
+/* S69 [수정](직접 넣은 줄): 글 보기 머리 아래 제목·매체 두 칸 + [취소][저장]. 공용 입력 모양(.rd-url) 그대로, 한 줄씩. */
+#readingView .rd-edit{flex-direction:column;align-items:stretch;gap:4px;margin:2px 0 6px}
+#readingView .rd-edit-f{display:flex;align-items:center;gap:6px;min-width:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+#readingView .rd-edit-f > span{flex:none;width:3em}
+#readingView .rd-edit-end{display:flex;justify-content:flex-end;align-items:center;gap:4px}
+#readingView .rd-edit-end .rd-faint{margin-right:auto}

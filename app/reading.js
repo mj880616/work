@@ -14,7 +14,7 @@
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
 // - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
 import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto} from './reading-model.mjs';
-import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, fetchBody, fetching} from './reading-data.js';
+import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, setTitle, fixLinkedTitles, fetchBody, fetching} from './reading-data.js';
 import {loadHighlights, highlightsNow, sourceHighlights, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu} from './text-highlights.js';
 import {highlightRowHtml} from './now-highlights.js';
 import {sourceTag} from './text-highlights-model.mjs';
@@ -50,7 +50,7 @@ function install() {
 }
 
 const state = {rows: [], loaded: false, failed: false, filter: 'unread', open: null, body: null, bodyFor: null, adding: false, addError: '', lines: new Map(), scope: '',
-  newsOn: false, marksNewsOn: true};
+  newsOn: false, marksNewsOn: true, editing: null, editBusy: false, editNote: ''};
 const scopeNow = () => { const c = window.KPTURuntime?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const rowOf = id => state.rows.find(r => r.id === id) || null;
 // S69-04 MARK-밑줄한목록(명진 11/24 "노트 밑줄에 있는 것들 저장한 글 밑줄에 없음 두개 동기화"): [밑줄] 탭은 글 줄 거르기가 아니라
@@ -60,6 +60,11 @@ const marksNow = () => visibleMarks(highlightsNow(), {newsOn: state.marksNewsOn,
 const entriesNow = () => entriesOf(state.rows);
 // News에서 열 수 있는 줄의 원래 글({type,id}) — News 기능 키가 있을 때만.
 const newsLinkOf = id => (state.newsOn ? linkOf(rowOf(id)) : null);
+// S69 [수정](명진 11/24 "목록에서 ... 안에 수정 버튼도 있어야"): 어느 창으로 고치나 — 한 곳만.
+// 'news': News에서 온 뉴스 기사(키가 있을 때) — 그 글 보기의 ⋯ [수정] 창(now-detail, 제목의 주인이 공용 기사라 거기서 고친다).
+// 'own': 직접 넣은 줄·키가 없을 때 — 이 화면 글 보기 안의 제목·매체 칸(이 표가 제목의 주인).
+// null: News에서 온 사회운동 글(키가 있을 때) — 제목은 수집한 그대로이고 News 글 보기에도 제목 수정이 없다.
+const editKind = id => { const l = newsLinkOf(id); return !l ? 'own' : l.type === 'news' ? 'news' : null; };
 let layer = null;
 
 async function load() {
@@ -71,7 +76,18 @@ async function load() {
   try { state.rows = await listItems(); state.failed = false; state.loaded = true; }
   catch { state.failed = true; }
   await news;
+  if (state.newsOn && state.loaded) void fixTitles(scope);
   void loadHighlights().then(() => draw()).catch(() => {});
+}
+
+// S69 READ-제목하나(명진 11/24 "목록에서 이상한 제목이 보임"): News에서 온 줄 중 사람이 글 보기에서 제목을 고친 기사(손으로 넣은 기사)는
+// 그 제목이 주인이다. 목록을 읽을 때 사본이 다르면 사본을 고쳐(서버 저장) 목록·글 보기·검색·홈이 같은 제목을 보이게 한다.
+async function fixTitles(scope) {
+  let fixed = [];
+  try { fixed = await fixLinkedTitles(state.rows); } catch { return; }
+  if (scope !== state.scope || !fixed.length) return;
+  for (const f of fixed) Object.assign(rowOf(f.id) || {}, f.row || {title: f.title});
+  if (window.KPTURouter?.current === 'reading') draw();
 }
 
 // ---------- 사업영역 꼬리표 ----------
@@ -197,7 +213,7 @@ function openMark(h) {
 // ---------- 보기 ----------
 let detailBox = null;
 function closeDetail({fromBack = false} = {}) {
-  state.open = null; state.body = null; state.bodyFor = null;
+  state.open = null; state.body = null; state.bodyFor = null; state.editing = null; state.editNote = ''; state.editBusy = false;
   if (!fromBack && layer) { const l = layer; layer = null; void l.close(); }
   layer = null;
   draw();
@@ -208,6 +224,7 @@ function openLayer(id) {
 }
 async function openItem(id, {highlight = null} = {}) {
   if (!isId(id)) return;
+  if (state.editing !== id) { state.editing = null; state.editNote = ''; state.editBusy = false; }
   state.open = id; state.body = null; state.bodyFor = null;
   openLayer(id);
   draw();
@@ -228,9 +245,11 @@ function drawDetail() {
   view()?.classList.add('rd-reading');
   if (listBox) listBox.hidden = !wide();
   const l = lineOf(row);
+  const parts0 = [];
   const bar = el('div', 'rd-head');
   if (!wide()) { const back = btn('rd-back icon-btn', '‹', {rdBack: '1'}); back.setAttribute('aria-label', '목록으로'); bar.append(back); }
   bar.append(el('h2', 'rd-title rd-doc', l.title));
+  if (state.editing === row.id) parts0.push(editForm(row));
   const src = el('a', 'rd-src mini', '원래 페이지');
   src.href = row.url; src.target = '_blank'; src.rel = 'noopener noreferrer';
   bar.append(src);
@@ -239,12 +258,13 @@ function drawDetail() {
   if (tag) meta.append(' · ', el('span', 'rd-tag', tag));
   const acts = el('div', 'rd-acts');
   const marks = sourceHighlights('reading', row.id);
+  if (editKind(row.id) === 'own' && state.editing !== row.id) acts.append(btn('mini', '수정', {rdEdit: row.id}));
   acts.append(btn('mini', marks.length ? `밑줄을 노트로 ${marks.length}` : '밑줄을 노트로', {rdNote: '1'}),
     btn('mini', tag ? word('사업영역 바꾸기') : '사업에 연결', {rdArea: '1'}),
     btn('mini', row.read_at ? '안 읽음으로' : '읽음', {rdRead: row.read_at ? '0' : '1'}));
   // S68-33 READ-글자크기: 머리 단추줄 끝 [−][+](공용 text-size.js — News 글 상세와 같은 단추·같은 서버 값). 본문 칸만 커지고 작아진다.
   acts.insertAdjacentHTML('beforeend', textSizeHtml());
-  const parts = [bar, meta, acts];
+  const parts = [bar, ...parts0, meta, acts];
   const busy = fetching(row.id);
   const line = state.lines.get(row.id) || stateLine(row, {busy});
   if (line) {
@@ -268,6 +288,33 @@ function drawDetail() {
   box.hidden = false;
   paintTextSize(box);
   if (state.bodyFor === row.id) paintMarks(prose, marks);
+}
+
+// 직접 넣은 줄 [수정] 칸: 제목·매체(사이트) 두 칸 + [취소][저장]. 칸 글자는 다시 그려도 그대로(쓰던 값·초점 유지).
+function editForm(row) {
+  const was = detailBox?.querySelector('[data-rd-edit-form]');
+  const form = el('form', 'rd-form rd-edit');
+  form.dataset.rdEditForm = row.id;
+  form.setAttribute('aria-label', '저장한 글 수정');
+  const field = (name, label, value, max) => {
+    const box = el('label', 'rd-edit-f');
+    const input = el('input', 'rd-url');
+    input.type = 'text'; input.name = name; input.maxLength = max; input.autocomplete = 'off'; input.disabled = state.editBusy;
+    const old = was?.querySelector(`input[name="${name}"]`);
+    input.value = old ? old.value : value;
+    if (old && document.activeElement === old) queueMicrotask(() => { if (input.isConnected) input.focus({preventScroll: true}); });
+    box.append(el('span', null, label), input);
+    return box;
+  };
+  form.append(field('title', '제목', row.title || '', 500), field('site', '매체', row.site || '', 120));
+  const end = el('div', 'rd-edit-end');
+  if (state.editNote) { const n = el('span', 'rd-faint', state.editNote); n.setAttribute('role', 'status'); end.append(n); }
+  const save = btn('mini primary', '저장'); save.type = 'submit'; save.disabled = state.editBusy;
+  const cancel = btn('mini', '취소', {rdEditCancel: '1'}); cancel.disabled = state.editBusy;
+  end.append(cancel, save);
+  form.append(end);
+  if (!was) queueMicrotask(() => form.querySelector('input')?.focus({preventScroll: true}));
+  return form;
 }
 
 function draw() { drawList(); drawDetail(); }
@@ -354,6 +401,28 @@ async function pickArea(button, id) {
       draw();
     }});
 }
+// [수정]: 'news'면 News 글 보기의 ⋯ [수정] 창을 바로(openNews edit), 'own'이면 이 화면 글 보기를 열고 제목·매체 칸.
+async function startEdit(id) {
+  const kind = editKind(id);
+  if (kind === 'news') { const link = newsLinkOf(id); void markOpened(id); await openNews(link, {edit: true}); return; }
+  if (kind !== 'own') return;
+  state.editNote = ''; state.editBusy = false;
+  if (state.open !== id) await openItem(id);
+  if (state.open !== id) return;
+  state.editing = id;
+  drawDetail();
+}
+async function saveEdit(form) {
+  const id = form.dataset.rdEditForm, row = rowOf(id);
+  if (!row || state.editBusy) return;
+  const title = form.querySelector('input[name="title"]')?.value ?? '', site = form.querySelector('input[name="site"]')?.value ?? '';
+  state.editBusy = true; state.editNote = ''; drawDetail();
+  try { Object.assign(row, await setTitle(id, title, site)); }
+  catch { state.editBusy = false; state.editNote = '저장하지 못했어요 · 잠시 뒤 다시'; drawDetail(); return; }
+  state.editBusy = false; state.editing = null;
+  notify('저장했어요', {record: false});
+  draw();
+}
 async function marksToNote(id) {
   const marks = sourceHighlights('reading', id);
   if (!marks.length) { notify('밑줄이 없어요 · 글을 선택하고 [밑줄 저장]을 먼저 눌러 주세요', {record: false}); return; }
@@ -374,11 +443,11 @@ async function remove(id, anchor) {
 
 // News에서 보낸 줄 열기: 라우터 openFrom(화면을 다 불러온 뒤 기록 1칸, News 상세가 같은 칸을 씀) → 뒤로가기 한 번 = 읽을 거리. 새 보기 없이 News 지금 글 보기 그대로.
 // S68-54: 글은 화면을 옮기기 전에(ready) 읽어 두고, 옮기는 순간 바로 글 보기를 그린다 — 읽을 거리 목록이 먼저 보였다 바뀌지 않는다.
-async function openNews(link) {
+async function openNews(link, {edit = false} = {}) {
   const router = window.KPTURouter;
   if (!link || !router?.openFrom) return;
   const item = {type: link.type, id: link.id};
-  const ok = await router.openFrom('outside', () => window.KPTUOutside?.openItem?.(item) ?? false,
+  const ok = await router.openFrom('outside', () => window.KPTUOutside?.openItem?.(item, {edit}) ?? false,
     {ready: () => window.KPTUOutside?.prepareItem?.(item) ?? false}).catch(() => false);
   if (ok === false) window.KPTUOutside?.dropItem?.();
   if (ok === false && window.KPTURouter?.current === 'reading') notify('읽을 거리에서 열지 못했어요 · 잠시 뒤 다시', {error: true, record: false});
@@ -433,13 +502,15 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     const row = rowOf(id);
     if (!row) return '';
     // S68-29: News에서 보낸 줄도 같은 단추. 'News에서 열기'는 두지 않는다 — 줄을 누르면 이미 News 원문 보기로 열린다(키가 있을 때).
-    return `<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">사업에 연결</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
+    // S69: 맨 앞 [수정](다른 화면 ⋯과 같은 순서 — 수정 … 삭제). 고칠 수 없는 줄(News에서 온 사회운동 글)은 없음.
+    return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">사업에 연결</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
   },
   onAction: (button, active) => {
     const id = active.id, act = button.dataset.rdAct, at = view()?.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || null;
     const row = rowOf(id);
     if (!row) return;
-    if (act === 'read') void toggleRead(id, !row.read_at);
+    if (act === 'edit') void startEdit(id);
+    else if (act === 'read') void toggleRead(id, !row.read_at);
     else if (act === 'area' && at) void pickArea(at, id);
     else if (act === 'fetch') void startFetch(row);
     else if (act === 'delete') void removeAny(id, at);
@@ -513,6 +584,9 @@ function bind() {
     if (f) { const row = rowOf(f.dataset.rdFetch); if (row) void startFetch(row); return; }
     const re = t.closest?.('[data-rd-reopen]');
     if (re) { void openItem(re.dataset.rdReopen); return; }
+    const ed = t.closest?.('[data-rd-edit]');
+    if (ed) { void startEdit(ed.dataset.rdEdit); return; }
+    if (t.closest?.('[data-rd-edit-cancel]')) { if (!state.editBusy) { state.editing = null; state.editNote = ''; drawDetail(); } return; }
     if (t.closest?.('[data-rd-note]') && state.open) { void marksToNote(state.open); return; }
     const area = t.closest?.('[data-rd-area]');
     if (area && state.open) { void pickArea(area, state.open); return; }
@@ -527,6 +601,8 @@ function bind() {
   });
   v.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-rd-open][role=button]')) { e.preventDefault(); e.target.click(); } });
   v.addEventListener('submit', e => {
+    const edit = e.target.closest?.('[data-rd-edit-form]');
+    if (edit) { e.preventDefault(); void saveEdit(edit); return; }
     const form = e.target.closest?.('[data-rd-form]');
     if (!form) return;
     e.preventDefault();
