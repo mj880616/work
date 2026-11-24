@@ -12,7 +12,7 @@
 //   폴더 이름을 코드에 박지 않는다. 고른 폴더는 서버가 다시 확인하고(내 소유·폴더·휴지통 아님·앱 폴더 아님), 가져오기 때도
 //   파일마다 그 폴더 안(하위 포함)인지 부모를 따라 올라가 확인한다(화면이 보낸 id를 믿지 않음). 마지막에 고른 폴더는 화면이 view_prefs.drive_import_folder에 기억.
 // 순수 규칙 + 주입받은 입출력(admin·fetch)만. 시험: tests/security/library-files-drive-import.test.mjs.
-import { folderNames } from '../_shared/brand-folders.mjs';
+import { folderNames, knownFolderNames } from '../_shared/brand-folders.mjs';
 
 export const FOLDER_MIME = 'application/vnd.google-apps.folder';
 // 링크형으로 넣는 구글 형식(내려받기 대신 드라이브에서 열기).
@@ -23,10 +23,10 @@ export const LINK_MIMES = Object.freeze({
 });
 // 앱이 만드는 폴더 이름(이 이름의 폴더 안은 통째로 뺀다). 앱 표식(appProperties kptu_*)이 없는 옛 폴더도 이름으로 잡는다.
 export const APP_FOLDER_NAMES = Object.freeze([
-  'Web2 바구니',
-  'Web2 읽기용 사본', '노조+ 읽기용 사본', 'WORK ON+ 읽기용 사본',
+  // S69-41: 이름 글자는 brand-folders.mjs 한 곳(옛 이름 + 새 이름 'WORK ON+ …')
+  ...knownFolderNames('basket'), ...knownFolderNames('copy'),
   '원장 백업',
-  ...folderNames('record_backup'), ...folderNames('edit_backup'), ...folderNames('photo_trash'),
+  ...knownFolderNames('record_backup'), ...knownFolderNames('edit_backup'), ...folderNames('photo_trash'),
 ]);
 // 앱 설정(app_drive_settings)의 *_folder_id 중 '사람 자료'가 드는 자리라 빼지 않는 것.
 //   library_folder_id = 웹2 자료실 폴더(여기 있는데 자료실에 없는 파일은 가져올 대상), root_folder_id = 그 위 폴더(프로젝트 폴더 등 사람 자료).

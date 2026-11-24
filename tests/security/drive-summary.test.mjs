@@ -114,7 +114,7 @@ function harness(options = {}) {
     }
     if (method === 'POST') {
       const meta = JSON.parse(init.body);
-      assert.equal(meta.name, '노조+ 읽기용 사본');
+      assert.equal(meta.name, 'WORK ON+ 읽기용 사본', 'S69-41: 새로 만드는 폴더는 새 이름');
       files.set('folder', { id: 'folder', ...meta });
       return reply(files.get('folder'));
     }
@@ -179,12 +179,18 @@ function harness(options = {}) {
     const h = harness({ existing: true, folderName: 'Web2 읽기용 사본' }), response = await h.request({ Authorization: 'Bearer valid-owner' });
     assert.equal(response.status, 200);
     assert.equal(h.calls.filter(c => c.method === 'POST' && c.url.pathname === '/drive/v3/files').length, 0);
-    assert.deepEqual(h.patches.filter(p => 'name' in p), [{ name: '노조+ 읽기용 사본' }]);
-    assert.equal(h.files.get('folder').name, '노조+ 읽기용 사본');
+    assert.deepEqual(h.patches.filter(p => 'name' in p), [{ name: 'WORK ON+ 읽기용 사본' }]);
+    assert.equal(h.files.get('folder').name, 'WORK ON+ 읽기용 사본');
     assert.equal(h.uploads.length, 2); assert.ok(h.uploads.every(u => u.method === 'PATCH'));
-    const again = harness({ existing: true, folderName: '노조+ 읽기용 사본' });
-    assert.equal((await again.request({ Authorization: 'Bearer valid-owner' })).status, 200);
-    assert.equal(again.patches.filter(p => 'name' in p).length, 0);
+    // S69-41: '노조+ 읽기용 사본'도 옛 이름 → 새 이름. 새 이름·사람이 바꾼 이름은 그대로 둔다.
+    const nojo = harness({ existing: true, folderName: '노조+ 읽기용 사본' });
+    assert.equal((await nojo.request({ Authorization: 'Bearer valid-owner' })).status, 200);
+    assert.deepEqual(nojo.patches.filter(p => 'name' in p), [{ name: 'WORK ON+ 읽기용 사본' }]);
+    for (const name of ['WORK ON+ 읽기용 사본', '내가 바꾼 사본 폴더']) {
+      const again = harness({ existing: true, folderName: name });
+      assert.equal((await again.request({ Authorization: 'Bearer valid-owner' })).status, 200);
+      assert.equal(again.patches.filter(p => 'name' in p).length, 0, name);
+    }
   });
   test('copy rebuild does not roll back ledger export or heartbeat keys written while it ran', async () => {
     const h = harness({ existing: true });

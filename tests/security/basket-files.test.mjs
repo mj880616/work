@@ -37,7 +37,7 @@ async function harness(options={}) {
       const q=url.searchParams.get('q')||'';
       const folders=[state.folder,...(options.extraFolders||[])].filter(f=>f &&
         (!options.driveFile || appFiles.has(f.id)) &&
-        (!q.includes("name = 'Web2 바구니'") || f.name==='Web2 바구니') &&
+        (!q.includes("name = 'Web2 바구니'") || ['Web2 바구니','WORK ON+ 바구니'].includes(f.name) || f.appProperties?.kptu_app_folder==='basket') &&
         (!q.includes("mimeType = 'application/vnd.google-apps.folder'") || f.mimeType==='application/vnd.google-apps.folder') &&
         (!q.includes("'root' in parents") || f.parents?.includes('synthetic-root')) &&
         (!q.includes("'me' in owners") || f.ownedByMe===true) &&
@@ -53,8 +53,8 @@ async function harness(options={}) {
       return send(accessible?metadata(folder,url):{error:'notFound'},accessible?200:404);
     }
     if(url.pathname==='/drive/v3/files' && req.method==='POST'){
-      const meta=JSON.parse(bytes); assert.equal(meta.name,'Web2 바구니');assert.deepEqual(meta.parents,['root']);
-      state.folder={...defaultFolder(),...options.createdFolder};appFiles.add(state.folder.id);return send(metadata(state.folder,url));
+      const meta=JSON.parse(bytes); assert.equal(meta.name,'WORK ON+ 바구니','S69-41: 새 바구니 폴더는 새 이름');assert.deepEqual(meta.parents,['root']);
+      state.folder={...defaultFolder(),name:meta.name,...options.createdFolder};appFiles.add(state.folder.id);return send(metadata(state.folder,url));
     }
     if(url.pathname==='/upload/drive/v3/files'){
       return send({},200,{location:options.badLocation||`https://www.googleapis.com/upload-session/${++uploads}`});

@@ -227,7 +227,6 @@
 .lu-drive-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);line-height:1.4}
 .lu-drive-line[hidden]{display:none}
 /* S69-22: 같은 줄 끝 작은 글자 버튼 [앱 폴더 모으기] — 모양은 공용 row-act(글자 버튼), 여기서는 줄 글자 크기만 맞춘다 */
-.lu-drive-line .lu-drive-gather{font-size:inherit}
 .lu-drive-where{min-width:0;overflow-wrap:anywhere}
 .lu-drive-open{white-space:nowrap;color:var(--kptu-link);text-decoration:none}
 .lu-drive-open:hover,.lu-drive-open:focus-visible{text-decoration:underline}

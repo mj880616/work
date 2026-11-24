@@ -10,7 +10,8 @@ import { ROOT_FOLDER_NAME } from '../_shared/brand-folders.mjs';
 // S69-20 ①: 자료실 저장 위치 한 줄(드라이브 폴더 이름 경로·열기 주소). 폴더 이름만 읽고 파일 내용은 열지 않는다.
 import { drivePlace, metaUrl, parsePlaceRequest } from './drive-place.mjs';
 // S69-22: [앱 폴더 한곳에 모으기] — 명진이 누를 때만. 내 드라이브 맨 위의 앱 폴더를 맨 위 앱 폴더 아래로(부모만 바꿈, 지우지 않음).
-import { gatherCandidates, gatherFolders, GatherError, parseGatherRequest } from './gather-folders.mjs';
+// S69-41: 같은 누름에서 표식으로 알아본 앱 폴더의 옛 이름도 새 이름으로(이름·표식만, 사람이 바꾼 이름은 그대로).
+import { gatherCandidates, gatherFolders, GatherError, parseGatherRequest, renameCandidates } from './gather-folders.mjs';
 // S69-20 ③④⑤: 자료실 앱 폴더 = 드라이브 폴더(앞으로 같게 'auto', [드라이브 폴더 맞추기] 'align'). 규칙은 library-mirror.mjs 한 곳.
 import { DriveFail, MIRROR_BUDGET_MS, mirrorLibrary, parseMirrorBody } from '../_shared/library-mirror.mjs';
 const SB=Deno.env.get('SUPABASE_URL')!;const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;const admin=createClient(SB,SERVICE,{auth:{persistSession:false}});
@@ -45,7 +46,7 @@ async function drivePlaceOf(userId:string,auth:string){
   if(place){try{for(const f of await userRest(auth,`app_library_folders?workspace_id=eq.${own}&drive_folder_id=not.is.null&select=id,drive_folder_id`))if(typeof f?.id==='string'&&typeof f?.drive_folder_id==='string')pairs[f.id]=f.drive_folder_id}catch{}}
   return json({ok:true,place:place?{...place,pairs}:null});
 }
-// S69-22: POST ?action=gather-folders {dry_run?} → 세기({root_name,count,kinds}) 또는 옮기기({root_name,moved,failed,left,kinds}).
+// S69-22: POST ?action=gather-folders {dry_run?} → 세기({root_name,root_url,count,kinds,rename}) 또는 옮기기({root_name,root_url,moved,failed,left,kinds,renamed,rename_failed,rename_left}).
 // 작업공간은 로그인한 사람의 owner 작업공간(서버가 정함), 맨 위 앱 폴더는 서버가 적어 둔 root_folder_id(없으면 옮기기 때만 새로 만듦).
 async function gatherOf(userId:string,dryRun:boolean){
   const own=await callerOwnerWorkspace(admin,userId);
@@ -57,7 +58,7 @@ async function gatherOf(userId:string,dryRun:boolean){
   const drive=(url:string,init:RequestInit)=>fetch(url,{...init,headers:{...(init.headers||{}),Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)});
   try{
     let root=s?.root_folder_id as string|undefined;
-    if(!root&&dryRun){const list=await gatherCandidates(drive,'');const kinds:Record<string,number>={};for(const c of list)kinds[c.kind]=(kinds[c.kind]||0)+1;return json({ok:true,root_name:ROOT_FOLDER_NAME,root_new:true,count:list.length,kinds})}
+    if(!root&&dryRun){const list=await gatherCandidates(drive,'');const kinds:Record<string,number>={};for(const c of list)kinds[c.kind]=(kinds[c.kind]||0)+1;const rename=(await renameCandidates(drive,'')).length;return json({ok:true,root_name:ROOT_FOLDER_NAME,root_new:true,root_url:null,count:list.length,kinds,rename})}
     if(!root)root=await ensureRoot(own,token);
     return json({ok:true,...await gatherFolders({drive,rootId:root,dryRun})});
   }catch(e){
