@@ -65,10 +65,19 @@ const DEFAULT_ON = ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'n
   'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun',
   'news-newsis', 'news-sedaily', 'news-imaeil',
   'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt'];
+// S69 NEWS-사설칼럼: 신문 사설·칼럼 피드(실측 점검으로 열리는 것만). 기본 켬·다 받기·본문 안 읽음은 같고 묶음만 'opinion'.
+const OPINION_ON = ['news-khan-opinion', 'news-hani-opinion', 'news-chosun-opinion', 'news-segye-opinion', 'news-hankyung-opinion'];
 
 test('카탈로그: 종합지는 기본 켬·다 받기(NEWS-다받기 11/09)·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
   // 기본 켬 매체는 이 목록과 정확히 같아야 한다(카탈로그에 줄을 더하면 여기도 고친다).
-  assert.deepEqual(C.NEWS_CATALOG.filter(x => x.on === true).map(x => x.key).sort(), [...DEFAULT_ON].sort());
+  assert.deepEqual(C.NEWS_CATALOG.filter(x => x.on === true).map(x => x.key).sort(), [...DEFAULT_ON, ...OPINION_ON].sort());
+  for (const key of OPINION_ON) {
+    const s = C.newsSourceByKey(key);
+    assert.deepEqual([s.on, s.take, s.extract, s.region, s.lang, s.sections], [true, 'all', false, 'opinion', 'ko', ['opinion']], key);
+    assert.equal(s.lists.length, 1, key);
+    for (const l of s.lists) { const u = new URL(l); assert.equal(u.protocol, 'https:'); assert.ok(s.hosts.includes(u.hostname), l); assert.ok(O.allowedUrl(s, l), l); }
+    assert.equal(C.publicNewsCatalog().find(x => x.key === key).region, 'opinion', '화면 목록은 사설·칼럼 묶음');
+  }
   for (const key of DEFAULT_ON) {
     const s = C.newsSourceByKey(key);
     assert.ok(s, key);
@@ -132,7 +141,7 @@ test('run_plan: 기본 켬 매체는 뉴스 쓰는 작업공간이 있을 때만
     return (await h(new Request(`${FN}?action=run_plan`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: '{}'}))).json();
   };
   const on = await plan([], [{workspace_id: WS1, word: '철도'}]);
-  assert.deepEqual(on.media.sort(), [...DEFAULT_ON].sort());
+  assert.deepEqual(on.media.sort(), [...DEFAULT_ON, ...OPINION_ON].sort());
   const off = await plan([], []);
   assert.deepEqual(off.media, [], '뉴스를 안 쓰는 작업공간뿐이면 읽지 않음');
 });
@@ -215,7 +224,7 @@ test('카탈로그(S59-1): 길이 있는 6곳은 자기 RSS 줄(기본 켬·다 
   // 남은 6곳은 예전 자리 그대로(키 순서): 앞선 매체의 순서가 그대로다.
   assert.deepEqual([...C.NEWS_SOURCE_KEYS], ['news-labortoday', 'news-beminor', 'news-pressian', 'news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain',
     'news-newstapa', 'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun', 'news-newsis', 'news-sedaily', 'news-imaeil',
-    'news-psi', 'news-itf', 'news-labourstart', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt']);
+    'news-psi', 'news-itf', 'news-labourstart', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt', ...OPINION_ON]);
   // 키는 카탈로그 파일에 줄마다 글자 그대로(`{ key: "news-…"`) 적혀 있다 — 색 표 시험(tests/news-colors.test.mjs)이 파일을 글자로 읽어 키를 찾는다.
   const {readFileSync} = await import('node:fs');
   const written = [...readFileSync(new URL('../supabase/functions/_shared/news-catalog.ts', import.meta.url), 'utf8').matchAll(/^\s*\{?\s*key: "([a-z-]+)"/gm)].map(m => m[1]);
