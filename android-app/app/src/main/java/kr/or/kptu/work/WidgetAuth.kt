@@ -422,8 +422,12 @@ class WidgetSession(
                 is Outcome.Failed -> return Photo.Failed(QuickPhotoRules.NETWORK, true)
             }
             val headers = mapOf("Authorization" to "Bearer $token", "apikey" to WidgetRules.PUBLIC_KEY)
+            // 녹음 중복 정리(S69): 다 보낸 뒤 답을 못 받으면 서버가 이미 사진을 붙였을 수 있다. 다시 보내면 드라이브·정리함에 같은 사진이 또 생기므로
+            // '결과 모름'으로 멈춘다(뒤에서 올리기 uploadLibrary와 같은 규칙). once: HTTP 도구가 같은 본문을 저절로 다시 보내지 않게.
             val res = try {
-                send(WidgetRequest("POST", WidgetRules.BASKET_FILES, headers, null, parts))
+                send(WidgetRequest("POST", WidgetRules.BASKET_FILES, headers, null, parts, once = true))
+            } catch (_: WidgetSentException) {
+                return Photo.Failed(QuickPhotoRules.UNKNOWN, false)
             } catch (_: IOException) {
                 return Photo.Failed(QuickPhotoRules.NETWORK, true)
             }
