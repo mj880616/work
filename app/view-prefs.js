@@ -72,6 +72,7 @@ const filesDestOk = d => !!d && typeof d === 'object' && !Array.isArray(d) && Ob
   && (d.source === 'od' || d.source === 'gd') && typeof d.id === 'string' && /^[A-Za-z0-9!_.-]{0,120}$/.test(d.id)
   && typeof d.name === 'string' && d.name.length > 0 && [...d.name].length <= 40 && !/[\p{Cc}]/u.test(d.name);
 export const FILES_SOURCE_NAMES = Object.freeze(['od', 'gd']);
+export const FILES_SORT_KEYS = Object.freeze(['name', 'modified', 'size', 'kind']); // files_sort.key (DB 검사와 같음)
 export const FILES_SOURCE_DEVICES = Object.freeze(['app', 'phone', 'pc']);
 const filesFlagsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_SOURCE_NAMES.includes(name) && typeof v[name] === 'boolean');
 // FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2): files_two = [파일] 위 줄 [두 칸] 켬을 기기 종류별(app·phone·pc, files_sources와 같은 모양)로,
@@ -175,7 +176,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -206,6 +207,10 @@ export function validValue(key, value) {
     // S69-25b LIB-드라이브에서가져오기: drive_import_folder = 자료실 [드라이브에서 가져오기]에서 마지막에 고른 구글 드라이브 폴더 id 글자(DB 검사와 같은 모양).
     // migration 20261124110000. 적용 전에는 쓰기가 400이라 rejectable로 보내 기억만 건너뛴다(다음에 열면 다시 고름). 서버가 쓸 때마다 그 폴더를 다시 확인한다.
     case 'drive_import_folder': return typeof value === 'string' && DRIVE_FOLDER_RE.test(value);
+    // UI-머리눌러정렬: files_sort = [파일] 목록 정렬 {key: 이름·바뀐 날·크기·종류, dir: 오름·내림}(모든 기기 같음, 두 칸도 같은 값으로 시작). 뜻은 head-sort.mjs·files-model.mjs SORTS.
+    // migration 20261124170000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다. 기본(이름 오름)은 지운다(null).
+    case 'files_sort': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 2
+      && FILES_SORT_KEYS.includes(value.key) && (value.dir === 'asc' || value.dir === 'desc');
     case 'photo_cols': return PHOTO_COLS.includes(value);
     case 'photo_cols_wide': return PHOTO_COLS_WIDE.includes(value);
     case 'diary_view': return DIARY_VIEWS.includes(value);
@@ -533,6 +538,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     // LIB-두칸보기: 자료실 [▥ 두 칸] 켬(없으면 켬 — PC·펼친 폴드 기본 두 칸, 폰은 화면이 늘 한 칸). 적용 전에는 쓰기가 400이라 rejectable로 이번 접속만.
     getLibraryTwo: () => prefs.library_two !== false,
     setLibraryTwo: on => set('library_two', !!on, {rejectable: true}),
+    getFilesSort: () => prefs.files_sort ?? null,
+    setFilesSort: value => set('files_sort', value && !(value.key === 'name' && value.dir === 'asc') ? {key: value.key, dir: value.dir} : null, {rejectable: true}),
     getOrgRowOrder: () => (prefs.org_row_order === 'desc' ? 'desc' : 'asc'),
     setOrgRowOrder: value => set('org_row_order', value === 'desc' ? 'desc' : null, {rejectable: true}),
     flush,

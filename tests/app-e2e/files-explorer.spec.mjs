@@ -108,7 +108,7 @@ for (const width of [884, 1440]) {
     await expect(root(page).locator(':is(.fx-crumb-step, .ft-focus-step)')).toHaveText(['원드라이브']);
     expect(server.calls.find(c => c.what === 'app_cloud_trail').body).toEqual({ p_source: 'od', p_item_id: 'OD!1' });
     // 정렬: 크기(큰 것부터), 폴더는 늘 위.
-    await root(page).locator('[data-fx-sort]').selectOption('size');
+    await root(page).locator('[data-fx-sort]').selectOption('size:desc'); // UI-머리눌러정렬: 칸과 방향을 함께 고른다
     await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 안내문.pdf', '가짜 예산표.xlsx', '가짜 메모.txt']);
     // 오피스(F4): 서버가 PDF로 바꾼 것(preview)을 그린다.
     await row(page, 'od:OD!12').click();
