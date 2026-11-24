@@ -247,6 +247,8 @@ export function install(d) {
   document.addEventListener('pointerup', onUp);
   document.addEventListener('pointercancel', onCancel);
   document.addEventListener('keydown', onKey, true);
+  // STD-기본동작 D4: 끄는 중 Esc = 취소(제자리, 저장 없음).
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && drag) { e.preventDefault(); e.stopPropagation(); onCancel(); } }, true);
   document.addEventListener('click', e => {
     const more = e.target.closest?.('#soOrganizationList [data-so-group-more]');
     if (more) { e.preventDefault(); e.stopPropagation(); void openGroupMenu(more).catch(err => console.error('group menu', err)); return; }

@@ -27,6 +27,14 @@ public sealed class AppSettings
     public int? DesktopTileY { get; set; }
 
     /// <summary>
+    /// S69-35: the tile's size at 100% scale after the user dragged its edges (null = never resized: the default size).
+    /// Kept next to the place, so every monitor shows the same size for its own scale.
+    /// </summary>
+    public int? DesktopTileWidth96 { get; set; }
+
+    public int? DesktopTileHeight96 { get; set; }
+
+    /// <summary>
     /// S69-31: true once this PC has turned the corner box and the desktop tile on after they came back (명진 11/24).
     /// They were removed in 0.6 (S54-13); a value saved before that ("Off", false) must not keep them hidden. See <see cref="DropBoxDefaults"/>.
     /// </summary>
