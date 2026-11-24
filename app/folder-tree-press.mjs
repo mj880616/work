@@ -62,7 +62,8 @@ export function createLeafWait() {
 // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 이거는 모든곳 공통 노트 자료 파일'):
 //  왼쪽 나무 | 오른쪽 그 폴더 내용인 탐색기 화면(자료실·[파일]·노트 [폴더] 보기·사진 [폴더] — PC·펼친 폴드)의 나무 폴더 이름 누르기 한 곳.
 //  ① 어느 폴더를 누르든(하위 폴더가 있는 상위 폴더 포함) enter()로 오른쪽을 그 폴더로 바꾼다(하위 폴더 줄 → 파일·자료·노트 — 그리기는 그 화면 렌더러 하나).
-//  ② 그 폴더가 접혀 있으면 펼친다(같은 줄의 아이콘 단추를 눌러 — 그 화면 상태 주인이 바꾼다). 이미 펼쳐져 있으면 그대로(이름 누르기로 접지 않는다).
+//  ② 이름 누르기도 펼치기·접기를 함께 한다(같은 줄의 아이콘 단추를 눌러 — 그 화면 상태 주인이 바꾼다): 접혀 있으면 펼치고, 이미 들어가 있는 펼친 폴더면 접는다
+//    (명진 11/24 15:42 '폴더명을 클릭해도 펼쳐지고 접혀지게'). 오른쪽은 늘 그 폴더.
 //  ③ 펼침 아이콘(.ft-tog) 누르기는 지금처럼 펼치기·접기만, ←/→도 그대로(ftTreeArrow).
 //  enter()가 Promise를 돌려주면(서버에서 목록 읽기) 끝난 뒤 다시 그려진 줄에서 ②를 한다. 처리했으면 true(호출한 쪽은 더 하지 않는다).
 //  이 규칙은 탐색기 나무에만 쓴다. 폰 나무(그 자리에서 안까지 들여 보이는 나무)와 두 칸 보기 칸 안 목록은 UI-폴더누르기한규칙 그대로.
@@ -73,18 +74,25 @@ function rowMainSelector(main) {
   const cls = main.classList.contains('ft-main') ? '.ft-main' : main.classList.contains('nx-main') ? '.nx-main' : '';
   return ROW_SEL.split(', ').map(r => `${r} > ${main.tagName.toLowerCase()}${cls}${parts.join('')}`).join(', ');
 }
-export function explorePressPlan({open = false, canOpen = true} = {}) {
-  return {enter: true, expand: !!canOpen && !open};
+export function explorePressPlan({open = false, canOpen = true, current = true} = {}) {
+  return {enter: true, expand: !!canOpen && (!open || !current), collapse: !!canOpen && !!open && !!current};
 }
 export function ftExplorePress(main, enter) {
   if (!main || typeof enter !== 'function') return false;
   const sel = rowMainSelector(main);
+  // 누르기 전의 펼침 상태로 판단한다(enter가 다시 그리며 펼침을 바꿔도 누른 그때 기준).
+  const row0 = main.closest(ROW_SEL);
+  const wasOpen = row0?.querySelector(':scope > button.ft-tog[aria-expanded]')?.getAttribute('aria-expanded') === 'true';
+  // 이미 들어가 있는(오른쪽이 이미 그 폴더인) 펼친 폴더만 접는다. 다른 폴더의 이름을 누르면 들어가며 펼친다.
+  const wasCurrent = !!(row0?.classList?.contains?.('ft-current') || main.getAttribute?.('aria-current') === 'true');
   const after = () => {
     const now = (sel && document.querySelector(sel)) || (main.isConnected ? main : null);
     if (!now) return;
     const row = now.closest(ROW_SEL), tog = row?.querySelector(':scope > button.ft-tog[aria-expanded]') || null;
-    const plan = explorePressPlan({open: tog?.getAttribute('aria-expanded') === 'true', canOpen: !!tog});
-    if (plan.expand) pressKeepFocus(tog, now);
+    const plan = explorePressPlan({open: wasOpen, canOpen: !!tog, current: wasCurrent});
+    // 목표 = 누르기 전과 반대. enter가 다시 그리며 이미 그렇게 됐으면 아이콘을 누르지 않는다.
+    const isOpen = tog?.getAttribute('aria-expanded') === 'true';
+    if ((plan.expand && !isOpen) || (plan.collapse && isOpen)) pressKeepFocus(tog, now);
     else now.focus?.({preventScroll: true});
   };
   const out = enter();
