@@ -2,6 +2,9 @@
 // S68-38: 보드를 지우거나 보드에서 노트를 빼면 그 보드의 연결선(links = note-board-links-data.js 모음)도 함께 정리한다.
 // 이 모듈이 맡는 곳: 보드 칸 줄([전체] [보드…] [+ 새 보드], 폰은 이름 붙은 보드에서 [+ 노트 붙이기]), PC 왼쪽 폴더·노트 목록(끌어다 놓기),
 // 폰 노트 고르기 창, 보드 칸 우클릭(폰 꾹 누르기) 메뉴 [이름 바꾸기] [보드 지우기], 보드에 붙이기·빼기·옮긴 자리 저장.
+// S69 보드목록폴더놓기(요청함 '여기서 노트를 드래그해서 폴더로 못넣음'): 왼쪽 목록의 노트를 폴더 줄에 놓으면 그 폴더로 옮긴다.
+// 옮기기는 노트 목록과 같은 길(basket-notes.js moveItems → setNoteFolderRef, 되돌리기 알림 포함)이고, 목록은 그 뒤 rerender 한 곳에서 다시 그린다.
+// PC 마우스는 브라우저 끌어 놓기(판 놓기와 같은 끌기), 손가락은 공용 reorder-drag.js 꾹 눌러 끌기(노트 목록 폴더 나무와 같은 방식).
 // 판 그리기는 note-board.js(그리는 곳 하나), 노트 목록·노트 메뉴·열기는 basket-notes.js가 맡는다.
 // 저장(기기 저장 없음):
 // - 보드 목록·마지막에 연 보드: 서버 화면 기억 view_prefs.note_boards·note_board(migration 20261030091000). DB 적용 전에는 서버가 거절해
@@ -16,14 +19,19 @@ import { treeRows, noteLineTitle, OUTSIDE, OUTSIDE_NAME } from './note-tree.mjs'
 import { setNoteBoardPlace } from './basket-data.js';
 import { NOTE_DRAG } from './note-board.js';
 import { noteTreeRowHtml } from './note-tree-row.js';
-import { LONG_MS, SLOP } from './reorder-drag.js';
+import { LONG_MS, SLOP, mountReorder } from './reorder-drag.js';
 import { askConfirm, askText } from './small-notice.js';
 import { emptyHtml } from './wait-state.js';
 import { fitChipRows } from './chip-rows.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
+import {installDragEdgeScroll} from './drag-edge-scroll.js';
+// UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
+installDragEdgeScroll();
 
 // wide: PC 왼쪽 목록을 보일 너비(노트 화면과 같은 761px~). get/set: basket-notes.js의 노트 배열. folderOf·folders·matches: 지금 노트 화면의 값.
-export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}}) {
+const FOLDER_DRAG = 'application/x-kptu-note-folder';
+
+export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}, moveToFolder = null}) {
   let boards = parseBoards(viewPrefs.get('note_boards')), current = pickBoard(viewPrefs.get('note_board'), boards), chosen = false;
   let openSet = new Set(), menu = null, picker = null;
   const named = () => current !== ALL && boards.some(b => b.id === current);
@@ -73,10 +81,12 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const html = rows.map(r => {
       if (r.type === 'folder' || r.type === 'outside') {
         const name = r.type === 'outside' ? OUTSIDE_NAME : r.name;
-        return `<button type="button" class="nbb-folder" data-nbb-folder="${esc(r.id)}" aria-expanded="${!!r.open}" style="--nx-indent:${r.indent}">${treeIconHtml(r.type === 'outside' ? 'outside' : 'folder', {row: r, open: !!r.open, className: 'nbb-caret'})}<span class="nbb-name">${esc(name)}</span><span class="nbb-num">${r.count}</span></button>`;
+        return `<button type="button" class="nbb-folder" data-nbb-folder="${esc(r.id)}" data-reorder-id="f:${esc(r.id)}" aria-expanded="${!!r.open}" style="--nx-indent:${r.indent}">${treeIconHtml(r.type === 'outside' ? 'outside' : 'folder', {row: r, open: !!r.open, className: 'nbb-caret'})}<span class="nbb-name">${esc(name)}</span><span class="nbb-num">${r.count}</span></button>`;
       }
       const on = onBoard(r.note, current), title = [...noteLineTitle(r.note)].slice(0, 60).join('');
-      return `<button type="button" class="nbb-note${on ? ' nbb-on' : ''}" data-nbb-note="${esc(r.note.id)}" draggable="${on ? 'false' : 'true'}" style="--nx-indent:${r.indent}"${on ? ' aria-disabled="true" title="이미 붙어 있음"' : ' title="끌어다 놓거나 누르면 보드에 붙어요"'}><span class="nbb-name">${esc(title)}</span></button>`;
+      // 이미 붙은 노트도 폴더로는 끌 수 있다(판에는 놓이지 않는다 — dragstart가 판 끌기 형식을 싣지 않음).
+      const drag = on ? !!moveToFolder : true, tip = on ? (moveToFolder ? '이미 붙어 있음 · 폴더 줄에 끌어 놓으면 그 폴더로 옮겨요' : '이미 붙어 있음') : (moveToFolder ? '끌어다 보드에 놓거나 누르면 보드에 붙어요 · 폴더 줄에 놓으면 그 폴더로 옮겨요' : '끌어다 놓거나 누르면 보드에 붙어요');
+      return `<button type="button" class="nbb-note${on ? ' nbb-on' : ''}" data-nbb-note="${esc(r.note.id)}" data-reorder-id="n:${esc(r.note.id)}" draggable="${drag}" style="--nx-indent:${r.indent}"${on ? ' aria-disabled="true"' : ''} title="${esc(tip)}"><span class="nbb-name">${esc(title)}</span></button>`;
     }).join('');
     side.innerHTML = `<div class="nbb-side-head" aria-hidden="true">노트 목록</div><div class="nbb-side-list" role="group" aria-label="붙일 노트">${html || emptyHtml('노트 없음')}</div>`;
   }
@@ -231,11 +241,53 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     if (n) openNoteMenu(n, n.dataset.nbbNote, e.clientX, e.clientY);
     else openFolderMenu(f, f.dataset.nbbFolder === OUTSIDE ? null : f.dataset.nbbFolder, e.clientX, e.clientY);
   });
+  // 폴더 줄에 놓기: 놓을 수 있는 폴더 줄은 끄는 동안 바탕을 칠한다(노트 목록 폴더 나무와 같은 .nx-drop 표시). 지금 그 노트가 든 폴더는 놓을 곳이 아니다.
+  const folderKey = row => (row.dataset.nbbFolder === OUTSIDE ? null : row.dataset.nbbFolder);
+  const sameFolder = (nid, row) => { const n = notes.get().find(x => x.id === nid); return !n || (folderOf(n) ?? null) === folderKey(row); };
+  const markDrop = row => {
+    side.querySelectorAll('.nbb-folder.nx-drop').forEach(el => { if (el !== row) el.classList.remove('nx-drop'); });
+    row?.classList.add('nx-drop');
+  };
+  const dropInto = (nid, row) => { markDrop(null); if (moveToFolder && nid && row && !sameFolder(nid, row)) void moveToFolder(nid, folderKey(row)); };
+  const folderDrag = e => !!moveToFolder && [...(e.dataTransfer?.types || [])].includes(FOLDER_DRAG);
+  let dragNote = '';
   side.addEventListener('dragstart', e => {
-    const n = e.target.closest?.('[data-nbb-note]');
-    if (!n || n.getAttribute('aria-disabled') === 'true') { e.preventDefault(); return; }
-    e.dataTransfer.setData(NOTE_DRAG, n.dataset.nbbNote); e.dataTransfer.effectAllowed = 'copy';
+    const n = e.target.closest?.('[data-nbb-note]'), on = n?.getAttribute('aria-disabled') === 'true';
+    // 손가락으로 이미 잡은 끌기(아래 reorder-drag)가 있으면 브라우저 끌기는 시작하지 않는다(둘이 겹치지 않게).
+    if (!n || (on && !moveToFolder) || side.classList.contains('re-active')) { e.preventDefault(); return; }
+    // 판 놓기 형식(NOTE_DRAG)은 아직 안 붙은 노트만 싣는다. 폴더 놓기 형식은 언제나.
+    if (!on) e.dataTransfer.setData(NOTE_DRAG, n.dataset.nbbNote);
+    if (moveToFolder) { e.dataTransfer.setData(FOLDER_DRAG, n.dataset.nbbNote); dragNote = n.dataset.nbbNote; }
+    e.dataTransfer.effectAllowed = moveToFolder ? 'copyMove' : 'copy';
   });
+  side.addEventListener('dragend', () => { dragNote = ''; markDrop(null); });
+  side.addEventListener('dragover', e => {
+    if (!folderDrag(e)) return;
+    const row = e.target.closest?.('[data-nbb-folder]');
+    if (!row || (dragNote && sameFolder(dragNote, row))) { markDrop(null); return; }
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move'; markDrop(row);
+  });
+  side.addEventListener('dragleave', e => { if (!side.contains(e.relatedTarget)) markDrop(null); });
+  side.addEventListener('drop', e => {
+    const row = e.target.closest?.('[data-nbb-folder]');
+    if (!folderDrag(e) || !row) { markDrop(null); return; }
+    e.preventDefault(); const nid = e.dataTransfer.getData(FOLDER_DRAG); dragNote = ''; dropInto(nid, row);
+  });
+  // 손가락(Fold 펼친 화면 등 넓은 터치 화면): 노트 줄을 꾹 눌러 잡고 폴더 줄에 놓는다(노트 목록 폴더 나무와 같은 공용 꾹 눌러 끌기).
+  // 마우스는 위 브라우저 끌기 그대로라 여기서는 잡지 않는다. 짧게 누르기는 지금처럼 보드에 붙이기.
+  if (moveToFolder) {
+    let lastPointer = '';
+    side.addEventListener('pointerdown', e => { lastPointer = e.pointerType || ''; }, true);
+    const rowOf = key => (key ? side.querySelector(`.nbb-folder[data-reorder-id="${CSS.escape(key)}"]`) : null);
+    mountReorder(side, {listSelector:'.nbb-side-list', whole:true, scroller:() => side,
+      canDrag:key => lastPointer === 'touch' && key.startsWith('n:'),
+      zones:{resolve:(dragKey, overKey) => {
+        const row = overKey.startsWith('f:') ? rowOf(overKey) : null;
+        return row && !sameFolder(dragKey.slice(2), row) ? {ok:true, canInside:true} : {ok:false};
+      }},
+      onHover:info => markDrop(info ? rowOf(info.over) : null),
+      onDrop:({id, over}) => dropInto(id.slice(2), rowOf(over))});
+  }
 
   // 폰 노트 고르기 창: 폴더 나무 + 검색, 여러 개 골라 [붙이기]. 뒤로가기는 창 닫기(라우터 한 겹).
   function openPicker(trigger) {

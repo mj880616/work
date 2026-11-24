@@ -33,7 +33,7 @@ import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { BROWSER_ACCEPT_FEED, BROWSER_ACCEPT_HTML, readerHeaders, readerUserAgent } from "../_shared/reader-headers.ts";
 import { newsAllowed, newsWorkspace } from "../_shared/news-access.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
-import { bodyNumbers, bodyRow, extractBlocks, failedBody, readFailReason, ruleId, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
+import { bodyNumbers, bodyRow, extractBlocks, failedBody, readFailReason, ruleId, textBlocks, withPageJson, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 import { makeUserReads, readSharedArticle } from "../_shared/shared-article.ts";
 import { blocksText, googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
 import { addDay, aiMonthStop, kstDay, takeDaily } from "../_shared/news-days.ts";
@@ -558,7 +558,9 @@ export function postBody(source: OutsideSource, it: ListItem, page: { ok: true; 
   if (!page.ok) return failedBody(readFailReason(page.code), null);
   if (looksLikeBotCheck(page.text)) return failedBody("bot_check", null);
   const title = betterTitle(it.title, pageTitleFrom(page.text), source.name) ?? it.title;
-  return extractBlocks({ html: page.text, base: page.url, title, key: source.key, rule, body: source.bodyClass, minChars: MIN_BODY_CHARS });
+  // S69-06: 본문 태그에서 못 뽑거나 짧으면 페이지 안 공개 구조화 본문(뉴스와 같은 공용 판정 withPageJson).
+  const tagEx = extractBlocks({ html: page.text, base: page.url, title, key: source.key, rule, body: source.bodyClass, minChars: MIN_BODY_CHARS });
+  return withPageJson(tagEx, page.text, { key: source.key, rule, minChars: MIN_BODY_CHARS });
 }
 
 // 블록 한 줄 넣기(서비스 역할, 칸별 insert grant 안). 카탈로그 extract=false인 단체·2년 지난 글은 넣지 않는다.
