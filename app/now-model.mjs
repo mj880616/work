@@ -13,6 +13,8 @@ export const NOW_TABS = Object.freeze([
   {id: 'media', label: '언론'},
   // S53-5 NEWS-밑줄모으기: [밑줄](app_news_highlights 모아보기). 마지막 탭 기억(news_tab)의 DB 검사 값에는 아직 없어 이 탭은 기억하지 않는다(SAVED_TAB_IDS).
   {id: 'marks', label: '밑줄'},
+  // S69-70(명진 11/24 20:43): [메모] = 메모 있는 글(글에 [메모]로 남긴 노트 모아보기, now-memos.js). [밑줄]처럼 마지막 탭으로 기억하지 않는다(DB 검사 값 그대로).
+  {id: 'memos', label: '메모'},
 ]);
 export const NOW_TAB_IDS = Object.freeze(NOW_TABS.map(t => t.id));
 export const SAVED_TAB_IDS = Object.freeze(['all', 'movement', 'media']);
@@ -355,7 +357,7 @@ export function mergeFeed(posts = [], news = []) {
 // [사회운동]에서 뉴스 기사면 [언론], [언론]에서 사회운동 글이면 [사회운동].
 export function tabForItem(type, tab) {
   const t = keepNowTab(tab);
-  if (t === 'all' || t === 'marks') return t;
+  if (t === 'all' || t === 'marks' || t === 'memos') return t;
   if (type === 'news') return 'media';
   if (type === 'outside') return 'movement';
   return t;

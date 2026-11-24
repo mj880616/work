@@ -33,8 +33,8 @@ import { colorOf, sortNotesManual, placeAt, stepPlan, noteOrderOf, isSamePlace, 
 import { noteFolderId, noteFolderIdLegacy, foldersFromNames, noteLineTitle, noteLineDate, treeRows, paneRows, paneHead, folderPath, canMoveFolder, noteFolderErrorText, OUTSIDE, OUTSIDE_NAME, RECENT, RECENT_NAME, recentRows } from './note-tree.mjs';
 import { FOLDER_DEPTH_LIMIT } from './folder-limits.mjs';
 import { folderSiblings, nextSortOrder, cleanFolderName } from './library-tree.js';
-import { pickerRows } from './library-move.mjs';
-import { createMovePicker } from './library-move-picker.js';
+import { openFolderSheet, closeFolderSheet, folderSheetOpen } from './folder-dest-sheet.js'; // S69-62 폴더 고르기 = [파일] '옮길 곳' 창 하나
+import { sheetTitle } from './folder-dest-sheet.mjs';
 import { folderPathHtml } from './folder-path.mjs';
 import { createSelectMode } from './select-mode.js';
 import { notify, askConfirm, askText } from './small-notice.js';
@@ -1249,30 +1249,33 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const id = addPick ? addPick.folder : at;
     return id && folderById(id) ? id : null;
   };
-  const picker = createMovePicker({esc});
-  // The shared folder list (library-move-picker.js; rows from library-move.mjs pickerRows, the same tree order and 100-level path).
-  function pickRows(items, query) {
-    const itemFolder = new Map(items.notes.map(n => [n.id, folderOf(n)]));
-    const data = pickerRows({folders, docs:items.notes.map(n => ({id:n.id, project_id:null})), itemFolder, free:true, query});
-    if (!items.folders.length) return data;
-    const ok = r => items.folders.every(id => canMoveFolder(folders, id, r.id, FOLDER_DEPTH_LIMIT) && folderById(id)?.parent_id !== r.id);
-    const mark = r => ok(r) ? {...r, current:false, enabled:true} : {...r, enabled:false, current:false, reason:'자기 안이나 지금 자리로는 옮길 수 없어요'};
-    return {...data, recent:data.recent.map(mark), all:data.all.map(mark)};
+  // S69-62: 폴더 고르기는 [파일] '옮길 곳' 창과 같은 창(folder-dest-sheet.js) — 나무 누르면 펼침·선택, [새 폴더](고른 폴더 안), [여기에 옮기기]로만 옮김.
+  // 맨 위 줄 '노트' = 폴더 밖(OUTSIDE_NAME). 새 폴더는 노트 화면 newFolder와 같은 서버 길(createNoteFolder).
+  async function newFolderIn(parentId, typed) {
+    if (!canEditFolders()) throw new Error('폴더 목록을 읽지 못했어요. 다시 불러온 뒤 해 주세요.');
+    if (parentId && folderPath(folders, parentId).length >= FOLDER_DEPTH_LIMIT) throw new Error(`폴더는 ${FOLDER_DEPTH_LIMIT}단까지만 만들 수 있어요.`);
+    const name = cleanFolderName(typed); if (!name) throw new Error('폴더 이름은 1~40자로 써 주세요.');
+    try {
+      const row = await createNoteFolder({name, parent_id:parentId || null, sort_order:nextSortOrder(folderSiblings(folders, {free:true, parentId:parentId || null}))}, rt);
+      folders = [...folders, row]; if (parentId) openSet.add(parentId); folderSay(''); renderList();
+      return row;
+    } catch (error) { throw new Error(noteFolderErrorText(error)); }
   }
-  function openMovePicker(anchor, items, {place = 'below'} = {}) {
+  const sheet = ({anchor, title, current, blocked = null, choose = false, onGo}) => openFolderSheet({anchor, title, rootName:'노트', folders:() => folders,
+    current:choose ? undefined : current, start:current, blocked, goLabel:choose ? '이 폴더로 정하기' : '여기에 옮기기',
+    mkdir:canEditFolders() ? newFolderIn : null, onGo});
+  function openMovePicker(anchor, items) {
     if (!canEditFolders()) { notReady(); return; }
-    picker.open({anchor, place, history:!isWide(), canNew:true, canOut:true, rows:q => pickRows(items, q),
-      onPick:id => moveItems(items, id), onOut:() => moveItems(items, null),
-      onNew:async () => { const made = await newFolder(folderAt(), {quiet:true, anchor}); if (made) await moveItems(items, made.id); }});
+    const places = new Set(items.notes.map(n => folderOf(n) || null)), here = !items.folders.length && places.size === 1 ? [...places][0] : undefined;
+    const ok = id => items.folders.every(f => canMoveFolder(folders, f, id, FOLDER_DEPTH_LIMIT) && folderById(f)?.parent_id !== id);
+    sheet({anchor, title:sheetTitle(items.notes.length + items.folders.length, '옮길 곳'), current:here,
+      blocked:items.folders.length ? id => ok(id) ? '' : '자기 안이나 지금 자리로는 옮길 수 없어요' : null,
+      onGo:id => moveItems(items, id)});
   }
-  // S61-46 UI-새폴더넣기안됨: 입력 줄·크게 쓰기 창의 [폴더 ▾]에서도 [+ 새 폴더 만들어 넣기]가 동작한다 — 폴더 줄 옮기기와 같은 newFolder 서버 길로
-  // 지금 들어온 폴더 안에(폴더 밖·최근이면 맨 위) 만들고, 만든 폴더를 고른 상태로 둔다. 새 저장 길 없음.
+  // 입력 줄·크게 쓰기 창의 [폴더 ▾]: 새 노트가 들어갈 폴더를 정한다(옮기지 않음).
   function openAddPicker(trigger) {
     if (!foldersReady) { addPick = null; quick.setFolder(null); notReady(); return; }
-    const choose = id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); };
-    picker.open({anchor:trigger, place:'below', history:!isWide(), okLabel:'선택', canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
-      onPick:choose, onNew:async () => { const made = await newFolder(folderAt(), {quiet:true, anchor:trigger}); if (made) choose(made.id); },
-      onOut:() => { addPick = {at, folder:null}; quick.setFolder(null); bigWriter?.paint?.(); }});
+    sheet({anchor:trigger, title:'노트를 넣을 폴더', current:addTarget(), choose:true, onGo:id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); }});
   }
   // NOTE-폴더메뉴새노트: 폴더 ⋯ [새 노트] = 입력 줄 [폴더 ▾]에서 그 폴더를 고른 것과 같게 한 뒤, 입력 줄의 [크게]로 기존 새 노트 창을 연다
   // (쓰던 글·파일도 그대로 넘어감). 저장은 noteAdded → addTarget 그대로 — 새 저장 길 없음.
@@ -1281,14 +1284,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.();
     host.querySelector('[data-note-list] [data-quick-big]')?.click();
   }
-  // The big edit window's [폴더 ▾]: the same folder list; the window writes the change after its text save (moveFromWindow).
+  // The big edit window's [폴더 ▾]: the same folder sheet; the window writes the change after its text save (moveFromWindow).
   function windowFolderPick(initial) {
     let value = initial, watchers = [];
-    return {get:() => value, label:() => folderName(value) || OUTSIDE_NAME, watch:fn => watchers.push(fn), close:() => { void picker.close(); },
+    return {get:() => value, label:() => folderName(value) || OUTSIDE_NAME, watch:fn => watchers.push(fn), close:() => { if (folderSheetOpen()) closeFolderSheet(); },
       open:trigger => { if (!canEditFolders()) { notReady(); return; }
-        const choose = id => { value = id; watchers.forEach(fn => fn()); };
-        picker.open({anchor:trigger, place:'below', history:!isWide(), okLabel:'선택', canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
-          onPick:choose, onOut:() => choose(null), onNew:async () => { const made = await newFolder(folderAt(), {quiet:true, anchor:trigger}); if (made) choose(made.id); }}); }};
+        sheet({anchor:trigger, title:'노트를 넣을 폴더', current:value || null, choose:true, onGo:id => { value = id; watchers.forEach(fn => fn()); }}); }};
   }
   // Notes written before the folder table (no metadata.folder_id) sit in the top folder of the same name. Before that folder is
   // renamed, moved or deleted they get its id, so they stay with it.
@@ -1939,7 +1940,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     reload() { if (loaded && !selected && !busy) void refresh(); },
     show({openId = null, folder = null} = {}) { void preloadMarkdown(); pendingOpen = openId; pendingFolder = folder; if (!folder && at) window.KPTURouter?.setPlace?.('basket', {folder:at}); if (!selected) void refresh(); },
     close,
-    reset() { closeMenu(); boards.reset(); boardLinks.reset(); board?.closeMenu(); newsMarks.reset(); void picker.close(); addPick = null; endSelect(); at = null; openSet = new Set(); moreSet = new Set(); recentAll = false; treeScroll = null; { const l = folderLayer; folderLayer = null; l?.close(); } folders = []; foldersReady = false; folderSay(''); const openedLayer = layer; layer = null; openedLayer?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); noteComments.reset(); comments = []; commentsReady = false; commentsMissing = false; tagSel = []; tagTouched = false; readPick = null; editPick = null; cmKind = null; calMonth = monthNow(); calDay = ''; notes = []; links = []; loaded = false; query = ''; noteTrash.reset(); detail.replaceChildren(); placeDetail(); host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { closeMenu(); boards.reset(); boardLinks.reset(); board?.closeMenu(); newsMarks.reset(); if (folderSheetOpen()) closeFolderSheet(); addPick = null; endSelect(); at = null; openSet = new Set(); moreSet = new Set(); recentAll = false; treeScroll = null; { const l = folderLayer; folderLayer = null; l?.close(); } folders = []; foldersReady = false; folderSay(''); const openedLayer = layer; layer = null; openedLayer?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); noteComments.reset(); comments = []; commentsReady = false; commentsMissing = false; tagSel = []; tagTouched = false; readPick = null; editPick = null; cmKind = null; calMonth = monthNow(); calDay = ''; notes = []; links = []; loaded = false; query = ''; noteTrash.reset(); detail.replaceChildren(); placeDetail(); host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     isUploading: () => fileQueue.any(), // 뒤에서 노트 첨부를 올리는 중(최신화 전에 막는 데 쓴다)
     hasDraft: () => textDirty() || (!!selected && (manual.hasDraft() || noteComments.hasDraft())),

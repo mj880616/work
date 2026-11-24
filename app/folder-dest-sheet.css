@@ -1,0 +1,40 @@
+/* S69-62 폴더 고르기 창 하나: [파일] '옮길 곳' 창의 모양(전에는 files.css에 있던 .fx-dim·.fx-dest 묶음)을 여기 한 곳으로.
+   [파일](files.js, section)과 자료실·노트·사진 등(folder-dest-sheet.js, dialog)이 같이 쓴다. 폰은 하단바 위로 올라오는 창, PC는 가운데 아래 창. */
+.fx-dim { position:fixed; inset:0 0 calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px)); z-index:54; background:color-mix(in srgb,var(--kptu-ink) 28%,transparent); }
+.fx-dim[hidden], .fx-dest[hidden] { display:none; }
+.fx-dest { position:fixed; z-index:55; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px));
+  max-height:min(72dvh, 600px); display:flex; flex-direction:column; background:var(--kptu-surface); color:var(--kptu-ink); border-radius:12px 12px 0 0; box-shadow:var(--kptu-shadow-float); font-size:13px; }
+@media (min-width:761px) { .fx-dest { left:50%; right:auto; width:min(520px, calc(100vw - 32px)); transform:translateX(-50%); bottom:calc(var(--kptu-mobile-tab-height,0px) + 16px); border-radius:12px; } }
+.fx-dest-h { display:flex; align-items:center; gap:6px; padding:10px 8px 6px 12px; font-size:14px; font-weight:600; }
+.fx-dest-h span { flex:1; min-width:0; }
+.fx-dest-sub { padding:0 12px 6px; font-size:12px; color:var(--kptu-muted); }
+.fx-dest-note { margin:0; padding:0 12px 6px; font-size:12px; color:var(--kptu-muted); }
+.fx-dest-recent { display:flex; gap:6px; flex-wrap:wrap; padding:0 12px 8px; }
+.fx-dest-chip { display:inline-flex; align-items:center; gap:4px; height:26px; max-width:100%; padding:0 10px; border:.5px solid var(--kptu-border); border-radius:999px; background:none; color:var(--kptu-muted); font:inherit; font-size:12px; cursor:pointer; white-space:nowrap; overflow:hidden; }
+.fx-dest-chip span { overflow:hidden; text-overflow:ellipsis; }
+.fx-dest-chip.on { background:var(--kptu-primary-soft); border-color:var(--kptu-border-strong); color:var(--kptu-primary-text); }
+.fx-dest-chip .fd-chip-ico svg { width:13px; height:13px; }
+.fx-dest-tree { flex:1 1 auto; min-height:120px; overflow:auto; border-top:.5px solid var(--kptu-border); padding:4px 4px 4px 0; }
+.fx-dest-tree.nx-tree:not([hidden]) { position:static; align-self:stretch; border-right:0; padding-right:4px; }
+.fx-dest-f { display:flex; align-items:center; gap:6px; padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)); border-top:.5px solid var(--kptu-border); }
+.fx-dest-at { flex:1; min-width:0; font-size:12px; color:var(--kptu-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* 창 단추(파일 화면 밖에서도 같은 모양): [파일]의 .fx-btn·.fx-pri와 같은 값 */
+.fx-dest .fx-btn { height:32px; padding:0 12px; border:.5px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-sm); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:13px; cursor:pointer; }
+.fx-dest .fx-btn:hover:not(:disabled) { background:var(--kptu-surface-subtle); }
+.fx-dest .fx-btn:disabled { opacity:.5; cursor:default; }
+.fx-dest .fx-pri { background:var(--kptu-primary); border-color:var(--kptu-primary); color:var(--kptu-on-primary); }
+.fx-dest .fx-pri:hover:not(:disabled) { background:var(--kptu-primary); filter:brightness(1.05); }
+/* 다른 화면에서 여는 창(dialog showModal): 브라우저 기본 dialog 자리·테두리를 지우고 위 .fx-dest 자리를 쓴다. 바탕은 ::backdrop. */
+dialog.fd-sheet { margin:0; padding:0; border:0; inset:auto 0 calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px)) 0; max-width:none; width:auto; overflow:hidden; }
+dialog.fd-sheet:not([open]) { display:none; }
+dialog.fd-sheet::backdrop { background:color-mix(in srgb,var(--kptu-ink) 28%,transparent); }
+@media (min-width:761px) { dialog.fd-sheet { inset:auto auto calc(var(--kptu-mobile-tab-height,0px) + 16px) 50%; width:min(520px, calc(100vw - 32px)); } }
+.fd-sheet .fd-blocked .ft-main { opacity:.55; }
+/* S69-62 [파일] 휴지통 창(files-trash.js): 같은 아래 시트, 줄은 선택 칸 + 이름 + 지운 날·크기 */
+.fx-trash-list { padding:4px 0; }
+.fx-trash-row { display:flex; align-items:center; gap:8px; min-height:34px; padding:2px 12px; cursor:pointer; }
+.fx-trash-row input { flex:none; margin:0; }
+.fx-trash-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fx-trash-meta { flex:none; font-size:12px; color:var(--kptu-muted); }
+.fx-trash-od { justify-content:flex-end; }
+.fx-dest a.fx-btn { display:inline-flex; align-items:center; text-decoration:none; }

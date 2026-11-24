@@ -33,7 +33,10 @@ test('[파일] 칸 모양 CSS는 같은 600px 경계(창 자리 규칙만 앱 �
   const css = read('app/files.css');
   assert.doesNotMatch(css, /max-width:760px/);
   const wideRules = [...css.matchAll(/@media \(min-width:761px\) \{ \.fx-(\w+)/g)].map(m => m[1]).sort();
-  assert.deepEqual(wideRules, ['askbox', 'dest', 'jobs'], '761px은 하단바 위 창 자리(앱 틀)만');
+  assert.deepEqual(wideRules, ['askbox', 'jobs'], '761px은 하단바 위 창 자리(앱 틀)만');
+  // S69-62: '옮길 곳' 창(.fx-dest) 자리는 공용 folder-dest-sheet.css로 옮김 — 같은 앱 틀 761px 경계.
+  assert.match(read('app/folder-dest-sheet.css'), /@media \(min-width:761px\) \{ \.fx-dest \{/);
+  assert.doesNotMatch(read('app/folder-dest-sheet.css'), /max-width:760px/);
   assert.match(css, /@media \(min-width:600px\) \{\n  \.fx-cols/);
 });
 

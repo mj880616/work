@@ -456,12 +456,103 @@ class WidgetWeekTest {
         }
         val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
         assertTrue(src.contains("val shift = if (small) 0 else shiftOf(id, now)"))
-        assertTrue(src.contains("arrow(context, views, R.id.week_prev, id, shift, -1, sunday)"))
-        assertTrue(src.contains("arrow(context, views, R.id.week_next, id, shift, 1, sunday)"))
+        assertTrue(src.contains("arrow(context, views, R.id.week_prev, id, shift, -1, sunday, now)"))
+        assertTrue(src.contains("arrow(context, views, R.id.week_next, id, shift, 1, sunday, now)"))
         // 옮긴 주에서 머리 글자를 누르면 이번 주로(앱을 열지 않음), 이번 주에서는 지금처럼 앱 달력.
-        assertTrue(src.contains("if (shift == 0) day(context, null, 0) else shiftIntent(context, id, 0, sunday)"))
+        assertTrue(src.contains("if (shift == 0) day(context, null, 0) else shiftIntent(context, id, 0, sunday, null)"))
         // 위젯마다(번호) 따로, 메모리에만. 옮기면 같은 일정 주소를 범위만 바꿔 읽는다.
         assertTrue(src.contains("putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)"))
         assertTrue(src.contains("manager.updateAppWidget(id, rv)"))
+    }
+
+    /**
+     * S69-78(11/24 명진 "지난주 갔다가 > 누르면 이번주를 건너뛰고 다음주로 감"): ‹ ›는 지금 보이는 주에서 한 칸.
+     * 위젯 한 번 그리기 = 4×2 틀과 4×1 틀을 모두 그린다(HomeWidgets.sized). 누름 보관함은 PendingIntent처럼 data 주소가 열쇠이고
+     * 같은 주소로 다시 만들면 실린 값이 덮인다(FLAG_UPDATE_CURRENT).
+     */
+    private class Launcher(val now: Long, val id: Int = 7) {
+        var memory: Int? = null
+        val store = HashMap<String, Pair<Int, LocalDate?>>() // data → (delta, to)
+        val bound = HashMap<Int, String>() // 화살표(delta) → 지금 그림에 묶인 data
+
+        fun draw() {
+            val shift = memory ?: 0
+            // 4×2 틀
+            for (delta in listOf(-1, 1)) {
+                val to = WidgetWeek.arrowTo(shift, delta, now)
+                if (to == null) bound.remove(delta) else {
+                    val data = WidgetWeek.shiftData(id, delta, to)
+                    store[data] = delta to to
+                    bound[delta] = data
+                }
+            }
+            // 4×1 틀: 화살표 누름을 만들지 않는다(이번 주로 덮던 원인).
+        }
+
+        fun press(delta: Int) {
+            val (d, to) = store.getValue(bound.getValue(delta))
+            memory = WidgetWeek.shiftTarget(to, WidgetWeek.start(now, shift = memory ?: 0), d, memory, now)
+            draw()
+        }
+
+        fun title() {
+            memory = WidgetWeek.shiftTarget(null, WidgetWeek.start(now, shift = memory ?: 0), 0, memory, now)
+            draw()
+        }
+    }
+
+    @Test
+    fun arrowsMoveOneWeekFromShownWeek() {
+        fun run(vararg steps: Int): Int? = Launcher(now).apply { draw(); steps.forEach { press(it) } }.memory
+        assertEquals(0, run(-1, 1))
+        assertEquals(0, run(1, -1))
+        assertEquals(-1, run(-1, -1, 1))
+        assertEquals(2, run(1, 1))
+        assertEquals(1, run(-1, 1, 1))
+        // 머리 글자 = 이번 주
+        val l = Launcher(now).apply { draw(); press(-1); press(-1) }
+        l.title()
+        assertEquals(0, l.memory)
+        // 범위 끝에서는 화살표를 숨긴다
+        val far = Launcher(now).apply { draw(); repeat(WidgetWeek.MAX_SHIFT) { press(1) } }
+        assertEquals(WidgetWeek.MAX_SHIFT, far.memory)
+        assertNull(far.bound[1])
+
+        // 다시 그릴 때마다 화살표에 지금 주 ± 1이 실린다.
+        val w = Launcher(now).apply { draw(); press(-1) }
+        assertEquals(LocalDate.of(2026, 10, 25), w.store.getValue(w.bound.getValue(1)).second) // 지난주에서 › = 이번 주
+        assertEquals(LocalDate.of(2026, 10, 11), w.store.getValue(w.bound.getValue(-1)).second)
+        // 주가 다르면 누름 주소도 달라 서로 덮지 않는다.
+        assertTrue(WidgetWeek.shiftData(7, 1, LocalDate.of(2026, 10, 25)) != WidgetWeek.shiftData(7, 1, LocalDate.of(2026, 11, 1)))
+    }
+
+    @Test
+    fun arrowPressSurvivesMemoryLossAndOldVersions() {
+        // 메모리를 잃어도(프로세스 내려감) 누름에 실린 대상 주로 옮긴다.
+        val l = Launcher(now).apply { draw(); press(-1) }
+        l.memory = null
+        val (d, to) = l.store.getValue(l.bound.getValue(1))
+        assertEquals(0, WidgetWeek.shiftTarget(to, LocalDate.of(2026, 10, 18), d, null, now))
+        // 옛 판 누름(대상 주 없음): 위젯 기억에서 한 칸, 기억이 없으면 실린 일요일에서 한 칸.
+        assertEquals(0, WidgetWeek.shiftTarget(null, LocalDate.of(2026, 10, 25), 1, -1, now))
+        assertEquals(0, WidgetWeek.shiftTarget(null, LocalDate.of(2026, 10, 18), 1, null, now))
+        assertEquals(1, WidgetWeek.shiftTarget(null, null, 1, null, now))
+        // 옛 월요일 판 누름은 이번 주로.
+        assertEquals(0, WidgetWeek.shiftTarget(null, LocalDate.of(2026, 10, 26), 1, null, now))
+        assertEquals(0, WidgetWeek.shiftTarget(null, LocalDate.of(2026, 10, 19), -1, -1, now))
+        // 범위 밖 대상 주는 버리고 기억에서.
+        assertEquals(-1, WidgetWeek.shiftTarget(LocalDate.of(2026, 10, 25).plusWeeks(20), LocalDate.of(2026, 10, 25), -1, 0, now))
+        // 첫 화면은 이번 주 + 오늘 칸.
+        val first = Launcher(now).apply { draw() }
+        assertNull(first.memory)
+        val c = WidgetWeek.content(200, body(), now, shift = first.memory ?: 0)
+        assertEquals(LocalDate.of(2026, 10, 25), c.sunday)
+        assertEquals(LocalDate.of(2026, 10, 30), WidgetWeek.shownDay(null, WidgetWeek.today(now), c.days))
+        // 소스: 4×1 틀은 화살표를 만들지 않고, 누름에 대상 주를 싣는다.
+        val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
+        assertTrue(src.contains("if (!small) {\n                arrow(context, views, R.id.week_prev"))
+        assertTrue(src.contains("to?.let { intent.putExtra(EXTRA_TO, it.toString()) }"))
+        assertTrue(src.contains("Uri.parse(WidgetWeek.shiftData(id, delta, to))"))
+        assertTrue(src.contains("WidgetWeek.shiftTarget(to, sunday, delta, memory, now)"))
     }
 }
