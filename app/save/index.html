@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="../origin-redirect.js"></script><!-- SEC-github.io넘기기: github.io로 열리면 bokdoong.com으로 넘김(가장 먼저) -->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>WORK ON+ 저장</title>
+<link rel="icon" href="../app-icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../theme-tokens.css">
+<link rel="stylesheet" href="./save.css">
+</head>
+<body>
+<!-- S69-BM 저장 창(PC 즐겨찾기 막대 버튼이 여는 작은 창). 그리기 주인은 save.js 하나. 기기 저장 없음(로그인 세션은 기존 runtime 한 곳). -->
+<main class="sv" aria-live="polite">
+  <p class="sv-app" data-sv-app>WORK ON+</p>
+  <p class="sv-msg" data-sv-msg role="status">저장하는 중…</p>
+  <p class="sv-title" data-sv-title></p>
+  <p class="sv-acts" data-sv-acts hidden></p>
+</main>
+<script src="../runtime-client.js" defer></script>
+<script src="../auth-bootstrap.js" defer></script>
+<script src="../auth-service.js" defer></script>
+<script type="module" src="./save.js"></script>
+</body>
+</html>
