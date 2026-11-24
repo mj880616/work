@@ -1,7 +1,8 @@
 -- SELECT only. Save before apply. System catalogs and the migration history only (no app table rows).
+-- 4천 자가 넘는 검사 정의(app_profiles_view_prefs_check 등)는 snapshot 한 값 상한(8192자) 때문에 해시·길이로 기록한다. 이 migration은 그 검사를 바꾸지 않는다.
 select 'column' as kind,c.relname||'.'||a.attname::text as name,format_type(a.atttypid,a.atttypmod)||':'||a.attnotnull::text||':'||coalesce(a.attacl::text,'none') as definition
   from pg_attribute a join pg_class c on c.oid=a.attrelid where a.attrelid in (to_regclass('public.app_library_folders'),to_regclass('public.app_profiles')) and a.attnum>0 and not a.attisdropped
-union all select 'constraint',conrelid::regclass::text||'.'||conname::text,pg_get_constraintdef(oid) from pg_constraint where conrelid in (to_regclass('public.app_library_folders'),to_regclass('public.app_profiles'))
+union all select 'constraint',conrelid::regclass::text||'.'||conname::text,case when length(pg_get_constraintdef(oid))>4000 then 'md5:'||md5(pg_get_constraintdef(oid))||':length='||length(pg_get_constraintdef(oid)) else pg_get_constraintdef(oid) end from pg_constraint where conrelid in (to_regclass('public.app_library_folders'),to_regclass('public.app_profiles'))
 union all select 'function',p.oid::regprocedure::text,p.prosecdef::text||':'||coalesce(p.proconfig::text,'none')||':'||coalesce(p.proacl::text,'none')||':'||md5(p.prosrc)
   from pg_proc p where p.oid=to_regprocedure('public.app_library_folder_set_org(uuid,uuid)')
 union all select 'table',c.relname::text,c.relrowsecurity::text||':'||coalesce(c.relacl::text,'none') from pg_class c where c.oid in (to_regclass('public.app_library_folders'),to_regclass('public.app_profiles'))
