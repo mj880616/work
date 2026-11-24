@@ -7,8 +7,7 @@
 // 되돌리기 한 번: 이번에 옮긴 것 중 아직 그 폴더에 있는 것만 받는 폴더로, 이번에 만든 폴더는 비어 있으면 지운다(휴지통을 거쳐 영구 삭제).
 // 저절로 뜨는 알림 없음, 기기 저장 없음.
 import {callAiAssist} from './basket-ai-summary.js';
-import {createMovePicker} from './library-move-picker.js';
-import {pickerRows} from './library-move.mjs';
+import {openFolderSheet,closeFolderSheet,folderSheetOpen} from './folder-dest-sheet.js'; // S69-62 폴더 고르기 = [파일] '옮길 곳' 창 하나
 import {ftIconHtml} from './folder-tree-ui.mjs';
 import {waitInlineHtml,emptyHtml} from './wait-state.js';
 import {fileKindOf,folderSiblings,nextSortOrder,canAddChild,folderErrorText} from './library-tree.js';
@@ -30,7 +29,6 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
   const pathName=id=>{const out=[];let f=folderOf(id),g=0;while(f&&g++<102){out.unshift(f.name);f=f.parent_id?folderOf(f.parent_id):null}return out.join(' › ')};
   const groupOf=gid=>groups.find(g=>g.gid===gid);
   const groupPath=g=>(g.parent?pathName(g.parent)+' › ':'')+g.name;
-  const sharedPicker=()=>(picker||=createMovePicker({esc,id:'luSortPicker',label:'폴더 선택'}));
 
   function ensure(){
     if(root)return root;
@@ -44,7 +42,7 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
   }
   const isOpen=()=>!!root&&!root.classList.contains('hidden');
   function close(){
-    if(!isOpen())return;run++;picker?.close?.();
+    if(!isOpen())return;run++;if(folderSheetOpen())closeFolderSheet();
     root.classList.add('hidden');root.setAttribute('aria-hidden','true');
     if(window.KPTUA11y?.dialog?.deactivate)window.KPTUA11y.dialog.deactivate(root);else if(trigger?.isConnected)trigger.focus({preventScroll:true});
   }
@@ -161,19 +159,17 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
   // 줄의 폴더 바꾸기: 지금 폴더 고르기 창(공용 부품). 받는 폴더 자신은 '지금 여기'로 흐리게. [+ 새 폴더 만들어 넣기]는 새 폴더 제안(이름은 바로 고침).
   function choose(btn){
     const r=rows.find(x=>x.key===btn.dataset.sortPick);if(!r)return;
-    const rc=s().receiveId,docs=r.ids.map(id=>({id,project_id:null})),itemFolder=new Map(r.ids.map(id=>[id,rc]));
-    sharedPicker().open({anchor:btn,place:'below',history:false,okLabel:'선택',canNew:true,canOut:false,
-      rows:q=>pickerRows({folders:s().folders,docs,itemFolder,free:true,query:q}),
-      onPick:id=>{if(id===rc)return;rows=rows.map(x=>x.key===r.key?{...x,to:{folder:id},checked:true,why:x.to?.folder===id?x.why:'직접 선택한 폴더예요'}:x);paint();focusRow(r.key)},
-      onNew:()=>{const g={gid:'n'+(groups.length+1)+'u',name:'새 폴더',parent:null};groups=[...groups,g];rows=rows.map(x=>x.key===r.key?{...x,to:{group:g.gid},checked:true,why:'직접 만든 새 폴더예요'}:x);paint();root.querySelector(`[data-sort-gname="${g.gid}"]`)?.select?.()}});
+    const rc=s().receiveId;
+    openFolderSheet({anchor:btn,title:'넣을 폴더',rootName:'자료실',folders:()=>s().folders,current:rc||undefined,start:r.to?.folder,allowRoot:false,rootReason:'폴더를 하나 선택해 주세요',goLabel:'이 폴더로 정하기',
+      onGo:id=>{if(!id||id===rc)return;rows=rows.map(x=>x.key===r.key?{...x,to:{folder:id},checked:true,why:x.to?.folder===id?x.why:'직접 선택한 폴더예요'}:x);paint();focusRow(r.key)},
+      extra:{label:'새 폴더 제안',run:()=>{const g={gid:'n'+(groups.length+1)+'u',name:'새 폴더',parent:null};groups=[...groups,g];rows=rows.map(x=>x.key===r.key?{...x,to:{group:g.gid},checked:true,why:'직접 만든 새 폴더예요'}:x);paint();root.querySelector(`[data-sort-gname="${g.gid}"]`)?.select?.()}}});
   }
   // 새 폴더 놓을 자리: 기존 폴더 안(100단 안) 또는 맨 위.
   function choosePlace(btn){
     const g=groupOf(btn.dataset.sortPlace);if(!g)return;
-    sharedPicker().open({anchor:btn,place:'below',history:false,okLabel:'선택',canNew:false,canOut:true,outLabel:'맨 위',
-      rows:q=>{const d=pickerRows({folders:s().folders,docs:[],free:true,query:q});const ok=x=>({...x,enabled:x.enabled&&canAddChild(s().folders,x.id)});return {...d,recent:d.recent.map(ok),all:d.all.map(ok)}},
-      onPick:id=>{if(!canAddChild(s().folders,id))return;groups=placeGroup(groups,g.gid,id);paint()},
-      onOut:()=>{groups=placeGroup(groups,g.gid,null);paint()}});
+    openFolderSheet({anchor:btn,title:'새 폴더 놓을 곳',rootName:'자료실',folders:()=>s().folders,start:g.parent??null,goLabel:'여기에 두기',
+      blocked:id=>id&&!canAddChild(s().folders,id)?'이 폴더 안에는 더 만들 수 없어요':'',
+      onGo:id=>{if(id&&!canAddChild(s().folders,id))return;groups=placeGroup(groups,g.gid,id||null);paint()}});
   }
   function focusRow(key){root?.querySelector(`[data-sort-pick="${CSS.escape(key)}"]`)?.focus({preventScroll:true})}
 
@@ -318,7 +314,6 @@ export function createTidySuggest({api,esc,state,reload,say}){
   const shortName=id=>folderOf(id)?.name||'폴더';
   const newOf=gid=>made.find(g=>g.gid===gid);
   const groupOf=gid=>groups.find(g=>g.gid===gid);
-  const sharedPicker=()=>(picker||=createMovePicker({esc,id:'luTidyPicker',label:'폴더 선택'}));
   const icon=id=>ftIconHtml({color:Number.isInteger(folderOf(id)?.color)?folderOf(id).color:null,open:false,className:'ft-ico lu-sort-ico'});
 
   function ensure(){
@@ -333,7 +328,7 @@ export function createTidySuggest({api,esc,state,reload,say}){
   }
   const isOpen=()=>!!root&&!root.classList.contains('hidden');
   function close(){
-    if(!isOpen())return;run++;picker?.close?.();
+    if(!isOpen())return;run++;if(folderSheetOpen())closeFolderSheet();
     root.classList.add('hidden');root.setAttribute('aria-hidden','true');
     if(window.KPTUA11y?.dialog?.deactivate)window.KPTUA11y.dialog.deactivate(root);else if(trigger?.isConnected)trigger.focus({preventScroll:true});
   }
@@ -429,18 +424,16 @@ export function createTidySuggest({api,esc,state,reload,say}){
   // 묶음의 옮길 폴더 바꾸기: 공용 폴더 고르기 창. [+ 새 폴더 만들어 넣기]는 묶음 낱말 이름의 새 폴더(이름·자리는 바로 고침).
   function choose(btn){
     const g=groupOf(btn.dataset.tidyPick);if(!g)return;
-    sharedPicker().open({anchor:btn,place:'below',history:false,okLabel:'선택',canNew:true,canOut:false,
-      rows:q=>pickerRows({folders:s().folders,docs:[],free:true,query:q}),
-      onPick:id=>{setGroup(g.gid,x=>retarget(x,{folder:id}));root.querySelector(`[data-tidy-pick="${CSS.escape(g.gid)}"]`)?.focus({preventScroll:true})},
-      onNew:()=>{const n={gid:'t'+(made.length+1)+'u',name:g.word.slice(0,40),parent:scope};made=[...made,n];setGroup(g.gid,x=>retarget(x,{group:n.gid}));root.querySelector(`[data-tidy-gname="${n.gid}"]`)?.select?.()}});
+    openFolderSheet({anchor:btn,title:'옮길 폴더',rootName:'자료실',folders:()=>s().folders,start:g.to?.folder,allowRoot:false,rootReason:'폴더를 하나 선택해 주세요',goLabel:'이 폴더로 정하기',
+      onGo:id=>{if(!id)return;setGroup(g.gid,x=>retarget(x,{folder:id}));root.querySelector(`[data-tidy-pick="${CSS.escape(g.gid)}"]`)?.focus({preventScroll:true})},
+      extra:{label:'새 폴더 제안',run:()=>{const n={gid:'t'+(made.length+1)+'u',name:g.word.slice(0,40),parent:scope};made=[...made,n];setGroup(g.gid,x=>retarget(x,{group:n.gid}));root.querySelector(`[data-tidy-gname="${n.gid}"]`)?.select?.()}}});
   }
   const retarget=(g,to)=>retargetGroup(g,to,g.rows);
   function choosePlace(btn){
     const n=newOf(btn.dataset.tidyPlace);if(!n)return;
-    sharedPicker().open({anchor:btn,place:'below',history:false,okLabel:'선택',canNew:false,canOut:true,outLabel:'맨 위',
-      rows:q=>{const d=pickerRows({folders:s().folders,docs:[],free:true,query:q});const ok=x=>({...x,enabled:x.enabled&&canAddChild(s().folders,x.id)});return {...d,recent:d.recent.map(ok),all:d.all.map(ok)}},
-      onPick:id=>{if(!canAddChild(s().folders,id))return;made=placeGroup(made,n.gid,id);paint()},
-      onOut:()=>{made=placeGroup(made,n.gid,null);paint()}});
+    openFolderSheet({anchor:btn,title:'새 폴더 놓을 곳',rootName:'자료실',folders:()=>s().folders,start:n.parent??null,goLabel:'여기에 두기',
+      blocked:id=>id&&!canAddChild(s().folders,id)?'이 폴더 안에는 더 만들 수 없어요':'',
+      onGo:id=>{if(id&&!canAddChild(s().folders,id))return;made=placeGroup(made,n.gid,id||null);paint()}});
   }
 
   // ---- 옮기기 ----
