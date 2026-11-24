@@ -11,6 +11,7 @@ import {profileUrl} from './library-view-pref.js';
 import {notify} from './small-notice.js';
 import {word} from './brand/brand.mjs';
 import {isFolderId, guessParentFolder, liveParent, planOrgFolder, gatherPlan, ASK_TEXT, gatherLine} from './org-files-folder-model.mjs';
+import {readAllPages} from './rest-pages.mjs';
 
 const enc = encodeURIComponent;
 const ctxOf = rt => { const c = rt?.context?.read?.(); return {ws: c?.workspace?.id || '', user: c?.user?.id || ''}; };
@@ -147,8 +148,9 @@ export async function gatherPastOrgFiles({rt = window.KPTURuntime, anchor = null
     }
     const [orgs, docs, items, receive] = await Promise.all([
       myOrgs(rt, st.ws),
-      rt.api(`/rest/v1/app_documents?workspace_id=eq.${enc(st.ws)}&organization_id=not.is.null&select=id,organization_id&order=id.asc&limit=5000`),
-      rt.api(`/rest/v1/app_library_folder_items?workspace_id=eq.${enc(st.ws)}&select=document_id,folder_id`),
+      // LIB-끌어옮기기저장실패(S69): 서버가 한 번에 1000줄에서 자르므로 쪽으로 끝까지(rest-pages.mjs). 잘리면 폴더에 든 자료를 '폴더 밖'으로 잘못 본다.
+      readAllPages(p => rt.api(p), `/rest/v1/app_documents?workspace_id=eq.${enc(st.ws)}&organization_id=not.is.null&select=id,organization_id&order=id.asc`),
+      readAllPages(p => rt.api(p), `/rest/v1/app_library_folder_items?workspace_id=eq.${enc(st.ws)}&select=document_id,folder_id&order=document_id.asc`),
       import('./library-receive.js').then(m => m.readReceiveFolder(rt)).catch(() => ({status: 'error'})),
     ]);
     const byOrg = gatherPlan({docs, items, visibleIds: new Set(st.folders.map(f => f.id)), receiveId: receive?.status === 'ok' ? receive.id : null, orgIds: orgs.map(o => o.id)});

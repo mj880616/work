@@ -63,6 +63,11 @@ export function placeDropTarget(el,{step=true,inFolder=null,folderOf=()=>null}={
 export function paneDropAt(el){
   const pane=el?.closest?.('#documentList [data-lu-pane-i]');if(!pane)return null;
   const sub=el.closest('[data-lu-pane-sub]'),id=sub&&pane.contains(sub)?sub.dataset.luPaneSub||'':'';
+  // LIB-두칸폴더밖(S69): 맨 위 '폴더 밖' 줄을 펼친 묶음(data-lu-pane-sub="" 바로 아래가 그 줄)이면 폴더 밖 — 표시는 '폴더 밖' 줄 + 묶음.
+  if(!id&&sub&&pane.contains(sub)&&!pane.dataset.luPaneFolder){
+    const out=pane.querySelector(`[data-lu-nav="${NAV_OUT}"]`)?.closest('.ft-row')||null;
+    return {id:'',place:out||sub,sub:true,out:true,group:[out,sub].filter(Boolean)};
+  }
   if(!id)return {id:pane.dataset.luPaneFolder||'',place:pane,sub:false};
   const row=[...pane.querySelectorAll('[data-lu-nav]')].find(b=>b.dataset.luNav===id),head=row?row.closest('.ft-row')||row:null;
   // UI-펼친폴더안놓기전체(S60-13): group = 놓일 묶음 전체(그 폴더 줄 + 안의 자료 묶음) — 옅은 바탕 표시.

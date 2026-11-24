@@ -109,6 +109,8 @@ test('PC 1440 두 칸: 오른쪽 칸에서도 빈 곳을 끌면 그 칸 줄만 �
   const {errors}=await bootLibrary(page,1440,{folders:FOLDERS,items:ITEMS,docs:[...docs,...OUT.map((id,i)=>libDoc(id,null,{title:'가상 바깥 '+(i+1)}))],group:'폴더',init:{viewPrefs:null}});
   await page.locator(`${pane(0)} [data-lu-nav="src"]`).click({button:'right'});
   await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+  // 오른쪽 칸 맨 위: '폴더 밖' 줄을 펼쳐야 폴더 밖 자료가 보인다(LIB-두칸폴더밖).
+  await page.locator(`${pane(1)} [data-lu-nav="x:out"]`).click();
   const rows=`${pane(1)} .lu-row[data-lu-document]`;
   await expect(page.locator(rows)).toHaveCount(3);
   const ids=await page.locator(rows).evaluateAll(xs=>xs.map(x=>x.dataset.luDocument));

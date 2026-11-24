@@ -160,7 +160,8 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_meetings')return ok((state.meetings||[{id:'library-qa-meeting',workspace_id:'workspace-1',title:'회귀 확인 회의',meeting_name:'회귀 확인 회의',round_no:2,meeting_at:'2026-10-06T12:00:00',created_by:state.user.id}]).filter(m=>(!eq(url,'id')||m.id===eq(url,'id'))&&(!eq(url,'workspace_id')||m.workspace_id===eq(url,'workspace_id'))));
     if(path==='/rest/v1/app_documents'){
       const id=eq(url,'id'),pid=eq(url,'project_id'),mid=eq(url,'meeting_id');
-      if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)&&(!mid||x.meeting_id===mid)));
+      // 실제 서버처럼 한 번에 1000줄까지(limit·offset을 따름) — LIB-끌어옮기기저장실패: 자료 1000개 넘는 자료실 시험.
+      if(method==='GET'){const off=Number(url.searchParams.get('offset'))||0,lim=Math.min(Number(url.searchParams.get('limit'))||1000,1000);return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)&&(!mid||x.meeting_id===mid)).slice(off,off+lim))}
       if(method==='PATCH'){state.patches.push({id,body});const row=state.docs.find(x=>x.id===id);if(row)Object.assign(row,body||{});return ok([])}
     }
     if(path.startsWith('/rest/v1/'))return ok([]);

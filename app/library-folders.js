@@ -13,6 +13,7 @@ import {colorChoiceHtml,colorFromButton} from './folder-look.js';
 import {colorOf,dropZone,folderDropPlan,placeAt,isSamePlace} from './folder-look-model.mjs';
 import {setLibraryFolderColor,createLibraryFolder,putDocumentInFolder} from './library-folder-data.js';
 import {paneDropAt} from './library-drop.js';
+import {writeMoves,undoMoves} from './library-move-write.mjs';
 import {createEdgeScroll,installDragEdgeScroll} from './drag-edge-scroll.js';
 import {openFolderAt} from './drop-open-folder.mjs';
 import {askConfirm} from './small-notice.js';
@@ -22,12 +23,13 @@ import {word} from './brand/brand.mjs';
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,tidy=null}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,tidy=null,onDragState=()=>{}}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
   // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 누르기를 켤 화면인지.
   // recent: 최근 넣은 폴더 기억(get()=id 목록, push(id)=맨 앞에 두고 서버에 기억). state().treeView: 지금 묶기가 폴더 토글이 보이는 화면(프로젝트·폴더)인지.
   // receive(LIB-받는폴더 S59-11): {ready()=서버 칸이 있어 켜고 끌 수 있나, get()=지금 받는 폴더 id|null, set(id|null)=서버에 저장(성공 true), outside()='폴더 밖' 자료, sortCount()·sort(trigger)=받는 폴더 나누기(S60-18)}.
+  // onDragState(v)(LIB-끄는중막대 S69): 자료를 끄는 동안 {count}, 놓은 뒤 옮기는 동안 {count,moving:true}, 끝나면 null — 고르기 막대 주인(library-upload.js)이 그 모양으로 다시 그린다.
   // tidy(LIB-정돈제안 S61-13): {open(trigger, folderId)} — 폴더 메뉴 [정돈 제안]은 그 폴더 안만(창·묶음·옮기기는 library-sort.js createTidySuggest).
   let busy=false,dialog=null;
   const s=()=>state();
@@ -294,7 +296,9 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // LIB-폴더끌어순서(S61-14): 다른 단의 폴더 줄 위·아래 끝에 놓아도 그 단으로 옮기며 그 자리에 끼운다. 왼쪽 나무·두 칸 칸의 폴더 줄도 같다.
   // 놓은 뒤에는 '옮겼어요 · 되돌리기' 한 줄. 바깥 파일을 올리는 끌어놓기(library-drop.js)는 dataTransfer에 'Files'가 있을 때만 반응하고,
   // 여기는 안에서 시작한 끌기(drag)만 보므로 서로 부딪치지 않는다.
-  let drag=null;
+  let drag=null,moving=0,dragTick=0;
+  // LIB-끄는중막대: 끌기 시작·끝, 옮기기 시작·끝마다 부른다. 끌기 시작 중에 화면을 바꾸면 브라우저가 끌기를 취소하므로 한 박자 뒤에, 그때의 상태로 한 번만 알린다.
+  function pokeDrag(){if(dragTick)return;dragTick=setTimeout(()=>{dragTick=0;const v=moving?{count:moving,moving:true}:drag?.kind==='file'?{count:drag.docs.length}:null;try{onDragState(v)}catch{}},0)}
   const frameKeyOf=key=>key==='p:none'?null:key.slice(2);
   const docById=id=>s().docs.find(d=>d.id===id);
   const rowOf=id=>[...document.querySelectorAll('#documentList .lu-row')].find(x=>x.dataset.luDocument===id);
@@ -413,7 +417,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   // 표시는 오른쪽 목록과 왼쪽 나무 두 곳에 붙는다(S55-08).
   const marked=list=>document.querySelectorAll(list.split(',').flatMap(c=>['#documentList '+c,'#libraryFolderNav '+c]).join(','));
-  function clearMarks(){clearTimeout(hoverTimer);hoverKey='';hideDropPanel();marked('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no,.lu-dragging,.lu-grabbed,.lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
+  function clearMarks(){pokeDrag();clearTimeout(hoverTimer);hoverKey='';hideDropPanel();marked('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no,.lu-dragging,.lu-grabbed,.lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
   function showMarks(t){
     if(!t)document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-group'));
     marked('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no').forEach(el=>{if(el!==t?.head)el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no')});
@@ -438,39 +442,28 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   async function moveDocs(docs,folderId,{all=false,open=true}={}){
     const todo=docs.filter(d=>folderId?docFolder(d)?.id!==folderId:!!rawItem(d));if(!todo.length)return false;
     const prev=todo.map(d=>({id:d.id,had:!!rawItem(d),folder:rawItem(d)?.folder_id||null})),w=id=>`?document_id=eq.${enc(id)}&workspace_id=eq.${enc(s().workspace)}`;
-    // LIB-후속1 ③: 하나씩 옮기며 'n/전체'를 알리고, 일부가 실패해도 옮긴 것은 그대로 둔다(실패한 것만 onMoved로 돌려 고른 채 남김).
-    const done=[],failed=[];let firstError=null;
-    const ok=await run(async()=>{for(let i=0;i<prev.length;i++){const p=prev[i];
-      try{
-        if(folderId===null)await api(T_ITEMS+w(p.id),{method:'DELETE',prefer:'return=minimal'});
-        else if(p.had)await api(T_ITEMS+w(p.id),{method:'PATCH',prefer:'return=minimal',body:{folder_id:folderId}});
-        else await api(T_ITEMS,{method:'POST',prefer:'return=minimal',body:{document_id:p.id,folder_id:folderId,workspace_id:s().workspace}});
-        done.push(p.id);
-      }catch(e){firstError??=e;failed.push(p.id)}
-      try{onMoveProgress({index:i+1,total:prev.length})}catch{}
-      if(all&&failed.length){failed.push(...prev.slice(i+1).map(x=>x.id));break}
-    }
+    // LIB-후속1 ③: 'n/전체'를 알리고, 일부가 실패해도 옮긴 것은 그대로 둔다(실패한 것만 onMoved로 돌려 고른 채 남김).
+    // LIB-끌어옮기기저장실패(S69): 100개씩 한 요청 + 거절된 묶음만 하나씩, 화면이 몰랐던 연결 줄(겹침 409)은 지금 폴더를 읽고 옮긴다(library-move-write.mjs).
+    let done=[],failed=[],lastMoveError=null;moving=prev.length;pokeDrag();
+    const ok=await run(async()=>{const r=await writeMoves({api,ws:s().workspace,prev,folderId,all,chunk:all?1:undefined/* 사진 묶음은 한 장씩(하나라도 막히면 되돌림) */,onProgress:p=>{try{onMoveProgress(p)}catch{}}});done=r.done;failed=r.failed;lastMoveError=r.firstError;
     if(all&&failed.length&&done.length){
       // 되돌리기(보상): 옮긴 것을 이전 자리로. 이것도 실패하면 그 사실을 알린다(남은 것은 목록 다시 읽기가 보여 줌).
       const back=[];for(const id of done){const p=prev.find(x=>x.id===id);try{
         if(!p.had)await api(T_ITEMS+w(p.id),{method:'DELETE',prefer:'return=minimal'});
         else await api(T_ITEMS+w(p.id),{method:'PATCH',prefer:'return=minimal',body:{folder_id:p.folder}});
         back.push(id)}catch{}}
-      failed.push(...back);const stuck=done.filter(id=>!back.includes(id));done.length=0;done.push(...stuck);
+      failed.push(...back);const stuck=done.filter(id=>!back.includes(id));done=stuck;
       throw Object.assign(new Error('LIB_PHOTOSET_PARTIAL'),{partial:stuck.length});
     }
-    if(!done.length)throw firstError||new Error('move failed')});
+    if(!done.length)throw r.firstError||new Error('move failed')}).finally(()=>{moving=0;pokeDrag()});
     try{onMoved({done:ok?done:[],failed:ok?failed:prev.map(p=>p.id),folderId})}catch{}
     if(!ok)return false;
     // LIB-추천넣기안열기(S60-27): 점선 추천으로 넣을 때(open:false)는 받는 폴더를 펼치지 않고 화면 자리를 그대로 둔다.
     if(folderId&&open)reveal(chain(todo[0].project_id||null,folderId));
     const moved=prev.filter(p=>done.includes(p.id)),where_=folderId?`${folder(folderId)?.name||''} 폴더`:'폴더 밖';
-    say(`옮겼어요 ${moved.length}개 → ${where_}${failed.length?` · ${failed.length}개는 옮기지 못했어요(선택한 채로 남김)`:''} ·`,{error:failed.length>0,undo:()=>run(async()=>{for(const p of moved){
-      const cur=s().items.find(x=>x.document_id===p.id);if((cur?.folder_id||null)!==folderId)continue;
-      const back=p.had?p.folder:null;
-      if(back===null)await api(T_ITEMS+w(p.id),{method:'DELETE',prefer:'return=minimal'});
-      else await api(T_ITEMS+w(p.id),{method:'PATCH',prefer:'return=minimal',body:{folder_id:back}});
-    }},'되돌렸어요.')});
+    // 못 옮긴 것이 있으면 개수와 이유 한 줄(이유 = 첫 거절의 일상어 문구).
+    const why=failed.length?folderErrorText(lastMoveError):'';
+    say(`옮겼어요 ${moved.length}개 → ${where_}${failed.length?` · ${failed.length}개는 옮기지 못했어요(선택한 채로 남김) — ${why}`:''} ·`,{error:failed.length>0,undo:()=>run(()=>undoMoves({api,ws:s().workspace,moved,folderId}),'되돌렸어요.')});
     return true;
   }
   async function dragMoveFolder(id,parentId){
@@ -550,7 +543,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     // S55-08: 끌기·놓기는 목록 상자 전체(#libraryListCard = 왼쪽 나무 + 오른쪽 목록)에서 받는다. 폰 길게 누르기는 지금처럼 목록만.
     const area=list.closest?.('#libraryListCard')||list;
     area.addEventListener('dragstart',e=>{
-      const d=dragFrom(e.target);if(!d)return;drag=d;markDragging(d);
+      const d=dragFrom(e.target);if(!d)return;drag=d;markDragging(d);pokeDrag();
       try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',d.id)}catch{}
       // 폴더 토글이 없는 묶기에서는 왼쪽에 놓을 곳 목록을 띄운다. 끌기 시작 중에 DOM을 바꾸면 브라우저가 끌기를 취소하므로 한 박자 뒤에.
       if(d.kind==='file'&&!s().treeView)setTimeout(()=>{if(drag===d)showDropPanel(d)},0);
@@ -581,7 +574,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       cancel();
       touch={el,x:e.clientX,y:e.clientY,grabbed:false,moved:false,drop:null,at:Date.now(),timer:setTimeout(()=>{
         if(!touch||touch.el!==el)return;
-        touch.grabbed=true;touch.drag=dragFrom(el,true);drag=touch.drag;
+        touch.grabbed=true;touch.drag=dragFrom(el,true);drag=touch.drag;pokeDrag();
         el.classList.add('lu-grabbed');markDragging(touch.drag);try{navigator.vibrate?.(12)}catch{}
       },LONG_MS)};
     });

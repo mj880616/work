@@ -6,11 +6,13 @@
 //  - 자료 글자(extracted_text)는 서버(검색·AI)만 읽는다.
 // 열이 서버에 없어 읽기가 거절되면(칸이 늘어나기 전 서버) 예전처럼 select=*로 한 번 더 읽는다.
 import {storedTimeIsSet} from './meeting-when.js';
+import {readAllPages} from './rest-pages.mjs';
 
 export const MEETING_LIST_FIELDS='id,workspace_id,title,series_name,round_no,meeting_at,activity_kind,project_id,business_area_id,business_area_none,location,attendees,next_plan,result_status,finalized_at,created_by,created_at,updated_at';
 export const DOCUMENT_LIST_FIELDS='id,workspace_id,project_id,meeting_id,organization_id,title,category,source,document_date,description,tags,drive_url,file_id,file_name,mime_type,file_size,auto_classified,classification_note,field_origin,previous_files,reclassify_needed,extraction_status,created_at,updated_at';
 const MEETING_ORDER='order=meeting_at.desc';
-const DOCUMENT_ORDER='order=document_date.desc.nullslast,created_at.desc';
+// 자료는 쪽으로 끝까지 읽으므로(rest-pages.mjs) 같은 날·같은 시각 자료가 쪽 사이에서 빠지거나 겹치지 않게 끝에 id.
+const DOCUMENT_ORDER='order=document_date.desc.nullslast,created_at.desc,id.asc';
 const TEXT_CHUNK=40;
 
 export const isColumnRefused=error=>{
@@ -18,13 +20,14 @@ export const isColumnRefused=error=>{
   return /column|schema cache|PGRST204|42703/i.test(String(error?.message||error?.code||''));
 };
 
-async function readWithFallback(api,base,fields,order){
-  try{return await api(`${base}&select=${fields}&${order}`)}
-  catch(error){if(!isColumnRefused(error))throw error;return api(`${base}&select=*&${order}`)}
+async function readWithFallback(api,base,fields,order,read=(a,path)=>a(path)){
+  try{return await read(api,`${base}&select=${fields}&${order}`)}
+  catch(error){if(!isColumnRefused(error))throw error;return read(api,`${base}&select=*&${order}`)}
 }
 
+// LIB-끌어옮기기저장실패: 자료가 1000개를 넘어도 모두(서버가 한 번에 자르는 줄 수만큼씩 쪽으로). 자료실·사업 보고 목록이 같이 쓴다.
 export function readDocuments(api,workspaceId){
-  return readWithFallback(api,'/rest/v1/app_documents?workspace_id=eq.'+workspaceId,DOCUMENT_LIST_FIELDS,DOCUMENT_ORDER);
+  return readWithFallback(api,'/rest/v1/app_documents?workspace_id=eq.'+workspaceId,DOCUMENT_LIST_FIELDS,DOCUMENT_ORDER,readAllPages);
 }
 
 // 직접 고른 시각이 없는 줄(0시·초가 있는 값)만 전문이 필요하다. 그 줄의 번호만 모아 transcript_text를 더 받아 붙인다.

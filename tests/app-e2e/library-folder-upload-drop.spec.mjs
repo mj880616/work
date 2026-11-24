@@ -98,10 +98,11 @@ for(const width of [1440,884])test.describe(`${width} 두 칸 PC 파일을 펼�
     expect(r.hint).toBe('놓으면 ‘가상 A’ 폴더로 올려요');
     await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 A에 1개 올렸어요');
     expect(s.items.find(x=>x.document_id==='upload-4')?.folder_id).toBe('fa');
-    // 칸 바로 아래(펼친 폴더 밖) 자료 줄은 지금처럼 그 칸의 지금 폴더 — 맨 위라 폴더 밖, 표시는 칸 상자.
+    // 맨 위 칸 '폴더 밖' 줄(LIB-두칸폴더밖)을 펼친 묶음 안 자료 줄 = 폴더 밖. 표시는 '폴더 밖' 줄.
     const before=s.items.length;
-    r=await dropFilesAt(page,`${pane(1)} [data-lu-document="a-2"]`,['e-보도자료.pdf']);
-    expect(r.hint).toBe('놓으면 바로 올려요');expect(r.paneCls).toContain('lu-drop-place');
+    await page.locator(navIn(1,'x:out')).click();
+    r=await dropFilesAt(page,`${pane(1)} [data-lu-document="a-2"]`,['e-보도자료.pdf'],{rows:{out:navIn(1,'x:out')}});
+    expect(r.hint).toBe('놓으면 바로 올려요');expect(r.marks.out).toContain('lu-drop-place');
     await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
     expect(s.uploads.length).toBe(5);expect(s.items.length).toBe(before);
     expect(errors).toEqual([]);

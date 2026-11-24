@@ -17,6 +17,9 @@ const folderIn=(i,id)=>`${pane(i)} [data-lu-nav="${id}"]`;
 // S56-40 LIB-두칸폴더펼치기: 폴더 줄 누르기 = 그 칸 안 펼치기·접기. 그 폴더로 들어가기는 우클릭 [이 폴더로 들어가기].
 const enterIn=async(page,i,id)=>{await page.locator(folderIn(i,id)).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()};
 const docIn=(i,id)=>`${pane(i)} [data-lu-document="${id}"]`;
+// LIB-두칸폴더밖(S69, 명진 11/24 16:12): 맨 위 칸의 '폴더 밖' 줄(개수). 폴더 밖 자료는 그 줄을 펼쳐야 보인다(펼침은 두 칸이 같이 기억).
+const outRow=i=>`${pane(i)} [data-lu-nav="x:out"]`;
+const openOut=async(page,i=0)=>{await page.locator(outRow(i)).click();await expect(page.locator(outRow(i))).toHaveAttribute('aria-expanded','true')};
 const line=page=>page.locator('#libraryFolderStatusLine');
 const folderOf=(s,doc)=>s.items.find(x=>x.document_id===doc)?.folder_id||null;
 const parentOf=(s,id)=>s.folders.find(f=>f.id===id)?.parent_id||null;
@@ -31,10 +34,20 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸`,()=>{
     await expect(page.locator('#libraryTwoBtn')).toHaveAttribute('aria-pressed','true');
     for(const i of [0,1]){
       for(const id of ['fa','fn','fz'])await expect(page.locator(folderIn(i,id))).toBeVisible();
-      // LIB-나무폴더밖 흡수: 맨 위 칸에 폴더 밖 자료가 바로 보인다.
-      for(const id of ['a-2','a1-1'])await expect(page.locator(docIn(i,id))).toBeVisible();
+      // LIB-두칸폴더밖: 맨 위 줄은 '폴더 밖'(개수), 폴더 밖 자료는 폴더 줄 아래 섞이지 않고 그 줄을 펼쳐야 보인다.
+      await expect(page.locator(`${pane(i)} [data-lu-prow]`).first()).toHaveAttribute('data-lu-prow','x:out');
+      await expect(page.locator(outRow(i))).toContainText('폴더 밖');
+      await expect(page.locator(`${outRow(i)} .ft-num`)).toHaveText(/^\d+$/);
+      for(const id of ['a-2','a1-1'])await expect(page.locator(docIn(i,id))).toHaveCount(0);
       await expect(page.locator(`${pane(i)} .lu-pane-here`)).toHaveText('자료실');
     }
+    await openOut(page,0);
+    for(const i of [0,1])for(const id of ['a-2','a1-1'])await expect(page.locator(`${pane(i)} [data-lu-pane-sub=""] [data-lu-document="${id}"]`)).toBeVisible();
+    // 폴더 밖 자료 줄은 '폴더 밖' 줄 바로 아래, 폴더 줄(가상 A)보다 위.
+    const order=await page.locator(`${pane(0)} [data-lu-prow]`).evaluateAll(xs=>xs.map(x=>x.dataset.luProw));
+    expect(order.indexOf('d:a-2')).toBeGreaterThan(order.indexOf('x:out'));expect(order.indexOf('d:a-2')).toBeLessThan(order.indexOf('f:fa'));
+    await page.locator(outRow(0)).click();
+    await expect(page.locator(docIn(0,'a-2'))).toHaveCount(0);
     // 오른쪽 칸에서 가상 A로 들어간다 → 왼쪽은 그대로.
     await enterIn(page,1,'fa');
     await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('가상 A');
@@ -52,9 +65,9 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸`,()=>{
     await expect(page.locator(`${pane(0)} .lu-pane-here`)).toHaveText('가상 A');
     await page.locator(`${pane(0)} [data-lu-pane-go=""]`).click();
     await expect(page.locator(`${pane(0)} .lu-pane-here`)).toHaveText('자료실');
-    // 정렬: 이름순이면 가상 A·N·Z 폴더 다음 자료 이름순.
+    // 정렬: 이름순이면 '폴더 밖' 줄 다음 가상 A·N·Z 폴더.
     await page.locator(`${pane(0)} [data-lu-pane-sort]`).selectOption('name');
-    await expect(page.locator(`${pane(0)} [data-lu-prow]`).first()).toHaveAttribute('data-lu-prow','f:fa');
+    await expect(page.locator(`${pane(0)} [data-lu-prow]`).nth(1)).toHaveAttribute('data-lu-prow','f:fa');
     expect(errors).toEqual([]);
   });
 
@@ -64,6 +77,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸`,()=>{
     await enterIn(page,1,'fa');
     await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('가상 A');
     // 왼쪽(맨 위) 자료 → 오른쪽 칸 빈 자리 = 가상 A.
+    await openOut(page,0);
     await page.locator(docIn(0,'a-2')).dragTo(page.locator(`${pane(1)} .lu-pane-head`));
     await expect.poll(()=>folderOf(s,'a-2')).toBe('fa');
     await expect(line(page)).toContainText('가상 A 폴더');await expect(line(page).locator('.lu-undo')).toHaveText('되돌리기');
@@ -114,6 +128,7 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 왼쪽 자료를
   test.setTimeout(90000);
   const {s,errors}=await boot(page,width);
   // 오른쪽 칸(맨 위)에서 가상 A를 펼친다 — 위치는 그대로 '자료실'.
+  await openOut(page,0);
   await page.locator(folderIn(1,'fa')).click();
   await expect(page.locator(subDoc(1,'fa','n-1'))).toBeVisible();
   await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('자료실');
@@ -137,6 +152,7 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 왼쪽 자료를
 test('PC 1440 두 칸: 여러 겹(안쪽 폴더 자료 줄 = 안쪽 폴더) · 묶음 안 빈 틈 · 이미 든 폴더는 놓을 수 없음 · 칸 바로 아래 자료 줄은 그 칸의 지금 폴더',async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootMore(page,1440);
+  await openOut(page,0);
   await page.locator(folderIn(1,'fa')).click();await page.locator(folderIn(1,'fc')).click();
   await expect(page.locator(subDoc(1,'fc','a-1'))).toBeVisible();await expect(page.locator(subDoc(1,'fa','n-1'))).toBeVisible();
   // 안쪽 가상 C 안 자료 줄 → 가상 C(바깥 가상 A가 아님). 표시는 가상 C 줄에만.
@@ -155,9 +171,9 @@ test('PC 1440 두 칸: 여러 겹(안쪽 폴더 자료 줄 = 안쪽 폴더) · �
   r=await dropInside(page,subDoc(1,'fa','n-2'),subDoc(1,'fa','n-1'),{rows:{fa:folderIn(1,'fa')}});
   expect(r.allowed).toBe(false);expect(r.marks.fa).toContain('lu-drop-no');
   await page.waitForLoadState('networkidle');expect(s.writes.length).toBe(n);
-  // 칸 바로 아래(펼친 폴더 밖) 자료 줄은 지금처럼 그 칸의 지금 폴더 — 맨 위면 폴더 밖. 표시는 칸 상자.
-  r=await dropInside(page,subDoc(1,'fa','n-1'),docIn(0,'a-2'));
-  expect(r.hit).toBeNull();expect(r.allowed).toBe(true);expect(r.paneCls).toContain('lu-drop-into');
+  // 맨 위 칸 '폴더 밖' 묶음 안 자료 줄 = 폴더 밖. 표시는 '폴더 밖' 줄(LIB-두칸폴더밖).
+  r=await dropInside(page,subDoc(1,'fa','n-1'),docIn(0,'a-2'),{rows:{out:outRow(0)}});
+  expect(r.hit).toBe('');expect(r.allowed).toBe(true);expect(r.marks.out).toContain('lu-drop-into');expect(r.paneCls).not.toMatch(/lu-drop-/);
   await expect.poll(()=>folderOf(s,'n-1')).toBeNull();
   await expect(line(page)).toContainText('→ 폴더 밖');
   expect(errors).toEqual([]);
@@ -166,6 +182,7 @@ test('PC 1440 두 칸: 여러 겹(안쪽 폴더 자료 줄 = 안쪽 폴더) · �
 test('PC 1440 두 칸: 여러 개 골라 끌기·폴더 끌기도 펼친 폴더 안 자료 줄 = 그 폴더',async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootMore(page,1440);
+  await openOut(page,0);
   await page.locator(folderIn(1,'fa')).click();
   await expect(page.locator(subDoc(1,'fa','n-1'))).toBeVisible();
   // 고른 두 자료를 한꺼번에 → 가상 A.
@@ -194,6 +211,7 @@ test.describe('펼친 폴드 884 손가락 두 칸 길게 눌러 끌기',()=>{
   const touch=(cdp,type,pts)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:pts.map((p,i)=>({x:p.x,y:p.y,id:i}))});
   test('왼쪽 자료를 길게 눌러 오른쪽 칸 펼친 폴더 안 자료 줄에 놓으면 그 폴더',async({page})=>{
     const {s,errors}=await boot(page,884);
+    await openOut(page,0);
     await page.locator(folderIn(1,'fa')).click();
     await expect(page.locator(subDoc(1,'fa','n-1'))).toBeVisible();
     const cdp=await page.context().newCDPSession(page);
@@ -225,7 +243,7 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 폴더 누르기
   await expect(page.locator(`${pane(0)} [data-lu-pane-sub="fa"] [data-lu-document="n-1"]`)).toBeVisible();
   const x=async sel=>(await page.locator(sel).boundingBox()).x;
   expect(await x(`${folderIn(0,'fc')} .ft-name`)).toBeGreaterThan(await x(`${folderIn(0,'fa')} .ft-name`)+10);
-  expect(await x(`${pane(0)} [data-lu-pane-sub="fa"] [data-lu-document="n-1"]`)).toBeGreaterThan(await x(docIn(0,'a-2'))+10);
+  expect(await x(`${pane(0)} [data-lu-pane-sub="fa"] [data-lu-document="n-1"]`)).toBeGreaterThan(await x(folderIn(0,'fa'))+10);
   await expect(fa).toBeFocused();
   // 한 단 더: 가상 C를 펼치면 그 안 자료.
   await page.locator(folderIn(0,'fc')).click();
@@ -280,6 +298,7 @@ test('PC 1440: Tab 칸 바꾸기 · F6 = 포커스 자료를 반대 칸 폴더�
   const {s,errors}=await boot(page,1440);
   await enterIn(page,1,'fz');
   await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('가상 Z');
+  await openOut(page,0);
   await page.locator(docIn(0,'a-2')).focus();
   await expect(page.locator(pane(0))).toHaveClass(/lu-pane-cur/);
   await page.keyboard.press('F6');

@@ -62,7 +62,8 @@ test('자료실 PC 1280 두 칸: 아래 여백 — 두 칸 높이 같음, 마지
   const gap=await pane(1).locator('.lu-pane-list').evaluate(l=>{const last=[...l.children].pop().getBoundingClientRect();return l.getBoundingClientRect().bottom-last.bottom});
   expect(gap).toBeGreaterThanOrEqual(56);
   await shot(page,'pc-1280-library-two-bottom');
-  // 오른쪽 칸(가상 A) 아래 빈 자리에 왼쪽 맨 위 자료(폴더 밖 o1)를 놓으면 가상 A.
+  // 오른쪽 칸(가상 A) 아래 빈 자리에 왼쪽 맨 위 자료(폴더 밖 o1 — '폴더 밖' 줄을 펼쳐서)를 놓으면 가상 A.
+  await page.locator('#documentList [data-lu-pane-i="0"] [data-lu-nav="x:out"]').click();
   const list=pane(1).locator('.lu-pane-list'),b=await list.boundingBox();
   await page.locator('#documentList [data-lu-pane-i="0"] [data-lu-document="o1"]').dragTo(list,{targetPosition:{x:b.width/2,y:b.height-20}});
   await expect.poll(()=>folderOf(s,'o1')).toBe('fa');
