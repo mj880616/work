@@ -107,13 +107,26 @@ export function zoomAt(view, next, px, py) {
 }
 // 화면 칸 좌표 → 판 좌표.
 export const toBoard = (view, px, py) => ({x:(px - view.x) / view.z, y:(py - view.y) / view.z});
-// 칸들이 모두 보이게(전체 보기). rects: [{x, y, w, h}] 판 좌표, width·height: 화면 칸 크기. 칸이 없으면 왼쪽 위 1배.
-export function fitView(rects, width, height, pad = 24, maxZ = 1) {
+// 칸들이 모두 보이게([맞추기]). rects: [{x, y, w, h}] 판 좌표, width·height: 화면 칸 크기. 칸이 없으면 왼쪽 위 1배.
+// S69-33(명진 11/24: [전체]를 누르니 한 줄에 아주 작은 카드 10개): minZ(읽을 수 있는 가장 작은 배율)보다 작게는 줄이지 않는다.
+//   그만큼 줄여야 다 들어가는 판이면 그 축은 카드 묶음의 왼쪽·위 끝에 맞춰(pad만큼 띄워) 보인다 — 저장된 자리는 바꾸지 않는다(보기만).
+export const FIT_MIN = 0.6;
+export function fitView(rects, width, height, pad = 24, maxZ = 1, minZ = ZOOM_MIN) {
   if (!rects.length || width <= 0 || height <= 0) return {x:0, y:0, z:clampZoom(1)};
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const r of rects) { x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y); x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h); }
-  const z = clampZoom(Math.min(maxZ, (width - pad * 2) / Math.max(1, x1 - x0), (height - pad * 2) / Math.max(1, y1 - y0)));
-  return {x:(width - (x1 - x0) * z) / 2 - x0 * z, y:(height - (y1 - y0) * z) / 2 - y0 * z, z};
+  const z = clampZoom(Math.max(Math.min(minZ, maxZ), Math.min(maxZ, (width - pad * 2) / Math.max(1, x1 - x0), (height - pad * 2) / Math.max(1, y1 - y0))));
+  const cw = (x1 - x0) * z, ch = (y1 - y0) * z;
+  return {x:cw <= width - pad * 2 + 0.5 ? (width - cw) / 2 - x0 * z : pad - x0 * z, y:ch <= height - pad * 2 + 0.5 ? (height - ch) / 2 - y0 * z : pad - y0 * z, z};
+}
+// 카드 하나가 화면 가운데 오게(왼쪽 목록에서 이미 붙은 노트를 누름 → 그 카드로). 배율은 그대로, 너무 작으면 1배.
+export function centerOn(view, rect, width, height, minZ = FIT_MIN) {
+  const z = view.z < minZ ? 1 : view.z;
+  return {x:width / 2 - (rect.x + rect.w / 2) * z, y:height / 2 - (rect.y + rect.h / 2) * z, z};
+}
+// 화면 가운데 근처에서 여러 장을 놓을 자리(폰 고르기 창 [붙이기]). point = 첫 장 가운데(판 좌표). 4장씩 한 줄.
+export function spreadFrom(point, count, cols = 4) {
+  return Array.from({length:count}, (_, i) => ({x:point.x + (i % cols) * SLOT_W, y:point.y + Math.floor(i / cols) * SLOT_H}));
 }
 // 지금 화면에 보이는 판 영역(판 좌표, margin만큼 넉넉히). 화면 밖 칸·선은 그리지 않는다.
 export function visibleArea(view, width, height, margin = 200) {
