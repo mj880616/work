@@ -64,7 +64,7 @@ async function mockApp(page,state){
       if(state.receiveFolder&&Array.isArray(state.items)&&(state.folders||[]).some(f=>f.id===state.receiveFolder))state.items.push({workspace_id:'workspace-1',document_id:row.id,folder_id:state.receiveFolder});
       return ok({ok:true,document:row});
     }
-    if(path==='/functions/v1/workspace-drive'&&url.searchParams.get('action')==='drive-place')return ok({ok:true,place:null}); // S69-20: 저장 위치 한 줄(이 시험들과 무관)
+    if(path==='/functions/v1/workspace-drive'&&String(url.searchParams.get('action')).startsWith('drive-'))return ok({ok:true,place:null}); // S69-20: 저장 위치 한 줄(이 시험들과 무관)
     if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:`${appOrigin}/tests/app-e2e/library-open-fixture.html?download=1`})}
     if(path==='/functions/v1/document-actions'){state.deletes.push(body);state.docs=state.docs.filter(d=>d.id!==body.document_id);return ok({ok:true})}
     if(path.startsWith('/functions/v1/'))return ok({});

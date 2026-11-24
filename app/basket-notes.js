@@ -217,7 +217,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     rerender:() => { if (loaded && !selected && view === 'board') renderList(); }, toast:showToast, refresh:() => refresh(), scope:() => scope(),
     // UI-우클릭전수(2026-11-03): 포스트잇 왼쪽 노트 목록 우클릭 = 폴더·목록 보기와 같은 노트·폴더 메뉴(보드 메뉴 항목 포함).
     openNoteMenu:(anchor, id, x, y) => { const n = notes.find(row => row.id === id); if (busy || selected || !n) return; window.KPTUContextMenu?.pinAt?.(anchor, x, y); openMenu(anchor, n, 'list'); },
-    openFolderMenu:(anchor, id, x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(anchor, x, y); if (id) openMenu(anchor, null, 'folder', null, id); else openMenu(anchor, null, 'head'); }});
+    openFolderMenu:(anchor, id, x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(anchor, x, y); if (id) openMenu(anchor, null, 'folder', null, id); else openMenu(anchor, null, 'head'); },
+    // S69 보드목록폴더놓기: 왼쪽 노트 목록의 노트를 폴더 줄에 놓으면 노트 목록 끌어 놓기와 같은 옮기기(moveItems: 저장·되돌리기 알림·목록 다시 그리기).
+    moveToFolder:(id, folderId) => moveItems({notes:[id], folders:[]}, folderId)});
   // NOTE-읽생기아이디어 ①: 열린 노트의 댓글 칸(note-comments-ui.js가 그 칸의 유일한 renderer). 저장·지우기 뒤 목록 쪽 수만 다시 맞춘다.
   const noteComments = createNoteComments({esc, rt, list:{get:() => comments, set:fn => { comments = fn(comments); }},
     state:() => ({ready:commentsReady, missing:commentsMissing}), scope:() => scope()});
