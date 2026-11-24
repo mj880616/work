@@ -588,7 +588,7 @@ function pagesHtml(d){
     if(shown.has(page.id))return '';
     shown.add(page.id);
     const child=depth>0;
-    return `<div class="ps3-row ps3-page-row${child?' ps3-page-child':''}"><div class="ps3-row-main"><b>${child?'↳ ':''}${esc(page.title)}</b><p>${esc(page.summary||'')}</p><small>${esc(page.status||'')} · ${fmt(page.updated_at)}</small></div><div class="ps3-page-actions"><a class="mini" data-ps3-page-view href="./?view=pages&amp;page=${encodeURIComponent(page.id)}">내부 보기</a></div></div>${(children.get(page.id)||[]).map(x=>row(x,depth+1)).join('')}`;
+    return `<div class="ps3-row ps3-page-row${child?' ps3-page-child':''}"><div class="ps3-row-main"><b>${child?'↳ ':''}${esc(page.title)}</b><p>${esc(page.summary||'')}</p><small>${esc(page.status||'')} · ${fmt(page.updated_at)}</small></div></div>${(children.get(page.id)||[]).map(x=>row(x,depth+1)).join('')}`;
   };
   const content=roots.map(x=>row(x)).join('')+activePages.filter(x=>!shown.has(x.id)).map(x=>row(x)).join('');
   return `<section class="ps3-section" id="ps3-pages"><div class="ps3-section-head"><div><h3>기존 연결 게시글</h3></div></div><div class="ps3-list">${content||empty()}</div></section>`;

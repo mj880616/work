@@ -21,14 +21,14 @@ const routeModules = {
   },
   projects: { 'project-system-v3.js': '__KPTU_PROJECT_V3_READY__' },
   library: { 'library-upload.js': '__KPTU_LIBRARY_UPLOAD_READY__' },
-  pages: { 'share-pages.js': null },
+  basket: { 'basket.js': null },
   tasks: { 'google-tasks.js': null },
   projectCatalog: { 'project-catalog.js': null },
 };
 const routeStyles = {
   calendar: 'calendar-ui.css', tasks: 'task-layout.css', projects: 'project-system-v3.css',
   library: 'library-upload.css', meetings: 'meeting-ui.css',
-  pages: 'share-pages.css', team: 'suborganizations.css',
+  basket: 'basket.css', team: 'suborganizations.css',
 };
 const requiredCss = ['topbar-actions.css', 'team.css', 'task-layout.css', 'google-tasks.css',
   'library-upload.css', 'meeting-ui.css', 'calendar-ui.css', 'project-system-v3.css'];

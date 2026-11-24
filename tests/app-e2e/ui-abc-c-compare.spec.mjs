@@ -54,9 +54,9 @@ for (const [width, height] of WIDTHS) {
     expect(diary.gap).toBe('0px'); expect(diary.radius).toBe('0px');
     await page.screenshot({path: `${DIR}/c-diary-${width}.png`});
 
-    // C5 폰 하단바: 하단바에 칸이 없는 화면(공유 페이지 — S68-37부터 자료실은 새 계정 하단바 칸)에서는 아무 칸도 칠하지 않는다.
+    // C5 폰 하단바: 하단바에 칸이 없는 화면(파일 — S68-37부터 자료실은 새 계정 하단바 칸, 공유 페이지 메뉴는 NOTE-게시 ③에서 없앰)에서는 아무 칸도 칠하지 않는다.
     if (width <= 760) {
-      await go(page, 'pages');
+      await go(page, 'files');
       out.tabCurrent = await page.locator('.mobile-tabs button[aria-current="page"]').count();
       expect(out.tabCurrent).toBe(0);
     }

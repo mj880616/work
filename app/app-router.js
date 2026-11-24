@@ -10,7 +10,9 @@
   // HOME-업무일지홈: 업무일지 화면이 홈이다(#homeView, 라우터 이름 home). 옛 ?view=journal·go('journal')은 홈을 연다(날짜 주소 day는 그대로).
   // OUTSIDE-글상세·관심환류 ③ → S51-17 NEWS P5: News 화면(#outsideView, 라우터 이름 outside)의 주소는 ?view=news다(아래 URL_NAME).
   // 옛 ?view=outside·?view=now와 go('news')도 같은 화면을 연다(주소는 ?view=news로 고쳐 쓴다). 탭은 화면이 정한다(마지막 탭).
-  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home'};
+  // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages, go('pages'))은 없앴다 — 노트(정리함의 노트 쪽, ALIAS_SUB)를 연다. 주소는 ?view=basket&pane=note로 고쳐 쓴다.
+  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
+  const ALIAS_SUB={pages:'note'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
   const ALIAS_ENTRY={media:{view:'library',category:'성명·보도자료'}};
@@ -671,6 +673,7 @@
 
   function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null,areas=false,hold=false}={}){
     if(view==='projects')areas=true;
+    if(!sub&&ALIAS_SUB[view])sub=ALIAS_SUB[view];
     view=viewName(view);sub=subName(view,sub);
     if(!view||!authenticatedShellReady()||returningTo)return false;
     // SEC-기능PIN잠금 ②: 잠긴 기능은 화면 프로그램을 받기 전(아래 lazy 불러오기보다 앞)에 잠금 화면(?view=lock)으로 보낸다.
@@ -746,9 +749,9 @@
     const view=viewFromUrl();
     if(!view)return false;
     const written=new URLSearchParams(location.search).get(VIEW_PARAM);
-    if(written!==null&&written!==view&&written!==urlName(view))syncUrl(view,{replace:true,sub:subFromUrl(view),keepPlace:true});
+    const sub=subFromUrl(view)||subName(view,ALIAS_SUB[written]);
+    if(written!==null&&written!==view&&written!==urlName(view))syncUrl(view,{replace:true,sub,keepPlace:true});
     const target=document.getElementById(view+'View');
-    const sub=subFromUrl(view);
     if(api.current===view&&target&&!target.classList.contains('hidden')){
       // A back/forward step inside one screen can only change its side (?pane=): the screen is told, the rest stays.
       if((api.sub||null)!==sub){api.sub=sub;window.dispatchEvent(new CustomEvent('kptu:sub-changed',{detail:{view,sub}}));}

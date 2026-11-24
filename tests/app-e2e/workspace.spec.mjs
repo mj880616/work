@@ -217,10 +217,8 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#teamView')).toBeVisible();
   await expect(page.locator('#soOrganizationList')).toBeVisible();
 
-  await clickView(page,'pages');
-  await expect(page.locator('#pagesView')).toBeVisible();
-  await expect(page.locator('#sharePagesRoot')).toBeVisible();
-  await expect(page.locator('#pagesView .w1b-card,#web1BoardLegacy')).toHaveCount(0);
+  // NOTE-게시 ③: 공유 페이지 화면은 없다.
+  await expect(page.locator('#pagesView,#sharePagesRoot,.w1b-card,#web1BoardLegacy')).toHaveCount(0);
 
   await clickView(page,'projects');
   await page.locator('#newProjectBtn').click();

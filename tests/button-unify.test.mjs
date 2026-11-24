@@ -31,10 +31,6 @@ test('공용 버튼 줄 .btn-row는 ui-standard.css 한 곳에 있고 작은 버
   for (const f of cssFiles) if (f !== 'ui-standard.css') assert.doesNotMatch(noComments(read(f)), /\.btn-row\s*[>{ ,]/, f + '에서 .btn-row를 따로 정하지 않는다');
 });
 
-test('주 버튼과 보조 버튼이 한 줄에 놓이는 공유 페이지 머리줄은 .btn-row를 쓴다', () => {
-  assert.match(read('share-pages.js'), /class:'sp-head-actions btn-row'/);
-});
-
 // 버튼 클래스(.primary·.secondary·.ghost·.danger·.mini)에 굵기 600 이상이나 14px 초과 글자를 새로 정하지 않는다.
 // 이 작업 전부터 있던 예외는 아래에 이유와 함께 적고, 새로 늘리지 않는다.
 const GRANDFATHERED = new Set([]);

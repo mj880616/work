@@ -2,7 +2,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {pubStates, pageTitleFor, liveLink, pubMenu, PUB_LABELS, PUB_ON, PUB_OFF, PUB_NONE} from '../app/note-publish-model.mjs';
+import {pubStates, pageTitleFor, liveLink, pubMenu, PUB_LABELS, PUB_ON, PUB_OFF, PUB_NONE, photoKey, mirrorBlocks, readMirror, notePhotoSrcs, MIRROR_MAX} from '../app/note-publish-model.mjs';
+import {noteMirror, photoKey as serverKey} from '../supabase/functions/share-page-read/handler.ts';
+import {usedPhotoIds} from '../supabase/functions/share-page-media/handler.ts';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -60,13 +62,60 @@ test('화면 코드 경계: 링크 값은 들고 있지 않고, 서버 쓰기는
   assert.match(src, /select=id,expires_at,disabled_at,created_at/);
 });
 
-test('공유 페이지 목록·보관함은 노트 짝이 있는 줄을 뺀다', () => {
-  const src = read('app/share-pages.js');
-  assert.match(src, /app_note_share_pages\?workspace_id=eq\.\$\{ws\}&select=page_id/);
-  assert.match(src, /pages = rows\.filter\(p => !noteOwned\.has\(p\.id\)\); box = kept\.filter\(p => !noteOwned\.has\(p\.id\)\)/);
+const PAGE = '40000000-0000-4000-8000-000000000001';
+const SID = n => `51000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+test('NOTE-게시 ③ 사진 거울: 지문은 화면·서버가 같은 셈이고 Drive 파일 번호를 담지 않는다', async () => {
+  const k = await photoKey(PAGE, 'drive:ABC_123');
+  assert.match(k, /^[0-9a-f]{64}$/);
+  assert.equal(k, await serverKey(PAGE, 'drive:ABC_123'));
+  assert.notEqual(k, await photoKey('40000000-0000-4000-8000-000000000002', 'drive:ABC_123'), '페이지마다 다른 지문');
+  const blocks = mirrorBlocks([{key:k, id:SID(1)}]);
+  assert.doesNotMatch(JSON.stringify(blocks), /ABC_123|drive:/);
+  // 공유 페이지 블록 검사(doc 블록 바깥 모양)·서버 거울 읽기·사진 정리(prune)가 모두 같은 줄로 읽는다.
+  assert.deepEqual(Object.keys(blocks[0]).sort(), ['doc', 'type']);
+  assert.deepEqual(Object.keys(blocks[0].doc).sort(), ['doc', 'v']);
+  assert.deepEqual([...readMirror(blocks)], [[k, SID(1)]]);
+  assert.deepEqual([...noteMirror(blocks)], [[k, SID(1)]]);
+  assert.deepEqual([...usedPhotoIds(blocks)], [SID(1)], '정리는 거울의 사진을 쓰는 사진으로 본다');
+  assert.deepEqual(mirrorBlocks([]), []);
+  assert.deepEqual([...noteMirror([])], []);
+  // 모양이 틀린 줄은 빼거나(화면) 거울로 보지 않는다(서버).
+  assert.deepEqual(mirrorBlocks([{key:'x', id:SID(1)}, {key:k, id:'not-a-uuid'}]), []);
+  assert.equal(noteMirror([{type:'summary', text:'옛 블록'}]), null);
+  assert.equal(noteMirror([{type:'doc', doc:{v:'ed1', doc:{type:'doc', content:[{type:'paragraph'}]}}}]), null, '글이 든 옛 페이지는 거울이 아니다');
+  assert.equal(readMirror([{type:'summary'}]).size, 0);
+  assert.equal(mirrorBlocks(Array.from({length:30}, (_, i) => ({key:k, id:SID(i + 1)})))[0].doc.doc.content.length, MIRROR_MAX);
 });
 
-test('노트 화면: 메뉴 칸은 잠근 폴더 판정을 거치고, 받는 화면은 사진 자리 안내 한 줄', () => {
+test('NOTE-게시 ③ 올릴 사진: 글 안 사진 칸 중 이 노트 첨부만(파일 칸·다른 노트 파일·겹친 것 빼고 차례대로)', () => {
+  const doc = {v:'ed1', doc:{type:'doc', content:[
+    {type:'image', attrs:{src:'drive:own1'}},
+    {type:'photo_row', content:[{type:'image', attrs:{src:'drive:own2'}}, {type:'image', attrs:{src:'drive:own1'}}]},
+    {type:'image', attrs:{src:'drive:other'}},
+    {type:'file', attrs:{src:'drive:own3', name:'첨부.pdf'}},
+    {type:'image', attrs:{src:'share:' + SID(1)}},
+  ]}};
+  const note = {doc, attachments:[{drive_file_id:'own1'}, {drive_file_id:'own2'}, {drive_file_id:'own3'}]};
+  assert.deepEqual(notePhotoSrcs(note), ['drive:own1', 'drive:own2']);
+  assert.deepEqual(notePhotoSrcs({doc:null, attachments:[{drive_file_id:'own1'}]}), []);
+  assert.deepEqual(notePhotoSrcs({doc, attachments:[]}), []);
+});
+
+test('NOTE-게시 ③ 화면 코드: 사진은 주인 로그인으로만(basket-files 사진 → share-page-media), 게시 멈춤은 거울을 비우고 정리', () => {
+  const src = read('app/note-publish.js').replace(/^\s*\/\/.*$/gm, '');
+  assert.match(src, /import \{createSharePhotos, shareIdOf\} from '\.\/share-photos\.js';/);
+  assert.match(src, /diaryPhotoUrl\(note\.id, src\.slice\(6\), 'large', \{rt\}\)/);
+  assert.match(src, /setStatus\(cur\.pageId, 'draft', null, \{blocks:\[\]\}\)/);
+  assert.match(src, /prune\(\(\) => \[\]\)/);
+  assert.doesNotMatch(src, /functions\/v1\//, '서버 함수는 기존 모듈(share-photos·diary-data)로만 부른다');
+  const photos = read('app/share-photos.js');
+  assert.match(photos, /shrink\(file, \{edge: SHARE_PHOTO_EDGE, quality: 0\.86, redraw: true\}\)/, '다시 그려 위치 정보가 빠진 JPEG');
+  const notes = read('app/basket-notes.js');
+  assert.match(notes, /pubPhotos\(note\);/);
+  assert.match(notes, /renderList\(\); paintMeta\(\); pubPhotos\(note\);/);
+});
+
+test('노트 화면: 메뉴 칸은 잠근 폴더 판정을 거치고, 받는 화면은 못 올린 사진 자리에 안내 한 줄', () => {
   const notes = read('app/basket-notes.js');
   assert.match(notes, /pubMenu\(notePub\.stateOf\(note\.id\), \{locked:pinLock\.noteInLockedFolder\(note\)\}\)/);
   assert.match(notes, /if \(kind !== 'stop' && pinLock\.noteInLockedFolder\(note\)\) return;/);

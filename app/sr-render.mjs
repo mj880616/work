@@ -1,5 +1,5 @@
 // SHARE-보이는편집: the one drawing of share page blocks (class names sr-*, look in sr-blocks.css), used by the Web1 reader
-// (share/share.js) and by the Web2 editor's "as it will look" view (share-pages.js), so both always show the same thing.
+// (share/share.js). The Web2 editor screen that drew with it too (share-pages.js) was removed with the menu (NOTE-게시 ③).
 // Everything is drawn with textContent; links open only http(s) addresses (safeUrl).
 // The Web1 reader imports this file, so it keeps to syntax older Samsung Internet parses: no ?. ?? replaceChildren or
 // structuredClone (BUG-공유페이지삼성). Class and id names never contain "share" (ad blockers' social lists hide those).

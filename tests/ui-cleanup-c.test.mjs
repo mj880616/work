@@ -56,7 +56,6 @@ const SQUARE = [
   // BIZ-위쪽정돈(B안, 11/09): 사업 보고 [+]도 마찬가지(별도 시험 biz-top-tidy.spec.mjs).
   ['#diaryView #newDiaryBtn', 'diary.js', /id="newDiaryBtn"/],
   ['#ledgerView button.lb-add', 'ledger-browse.js', /class="lb-add\$\{isPhone\(\) \? ' icon-btn' : ''\}"/],
-  ['#pagesView .sp-root button.sp-add', 'share-pages.js', /class:'icon-btn sp-add'[^\n]*dataset:\{spAdd:''\}/],
 ];
 test('⑥ 폰 추가 버튼은 위쪽 줄 안 네모 작은 + 한 규칙에 들고, 떠 있는 동그란 [+]는 없다', () => {
   const css = read('ui-standard.css');
@@ -73,13 +72,9 @@ test('⑥ 폰 추가 버튼은 위쪽 줄 안 네모 작은 + 한 규칙에 들�
   assert.doesNotMatch(css, /button\.primary\[data-sp-new\]|--ds-fab-size|--ds-fab-gap/);
   assert.doesNotMatch(read('theme-tokens.css'), /--ds-fab-size|--ds-fab-gap/);
   // 목록 끝 여백: 떠 있는 [+] 몫 없이 전환 줄 몫+16px만.
-  assert.match(css, /#appView :is\(#projectsView,#meetingsView,#ledgerView,#pagesView\)\.view-panel\{ padding-bottom:calc\(var\(--kptu-switch-dock,0px\) \+ 16px/);
+  assert.match(css, /#appView :is\(#projectsView,#meetingsView,#ledgerView\)\.view-panel\{ padding-bottom:calc\(var\(--kptu-switch-dock,0px\) \+ 16px/);
   // 원장 [+ 기록하기]는 PC에서도 다른 화면처럼 주 색으로 채운 작은 버튼(흰 테두리 버튼 아님).
   assert.match(read('ledger-import.css'), /#appView #ledgerView \.lb-add\{[^}]*background:var\(--kptu-primary\); color:var\(--kptu-on-primary\);/);
-  // 공유 페이지: 폰은 + 하나와 작은 메뉴, PC는 글자 버튼 둘(같은 창을 연다).
-  const sp = read('share-pages.js');
-  assert.match(sp, /phoneQuery\.matches\s*\?[\s\S]*?dataset:\{spAdd:''\}[\s\S]*?:\s*el\('div', \{class:'sp-head-actions btn-row'\}[\s\S]*?dataset:\{spNewHtml:''\}, text:'\+ HTML'[\s\S]*?dataset:\{spNew:''\}, text:'\+ 새 공유 페이지'/);
-  assert.match(sp, /class="row-act" data-sp-add-action="page">새 공유 페이지<\/button><button type="button" class="row-act" data-sp-add-action="html">HTML 올리기</);
 });
 
 test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트 뒤로 가기, 폰 업무일지 날짜 한 번', () => {

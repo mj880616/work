@@ -90,15 +90,13 @@ test('task grouping, month controls, and destructive task actions expose clear n
   await expect(page.locator('.calendar-toolbar')).toHaveAttribute('aria-labelledby','monthTitle');
 });
 
-test('library toolbar and share pages expose accessible navigation',async({page})=>{
+test('library toolbar exposes accessible navigation; the share page screen is gone',async({page})=>{
   await boot(page,{width:1024,height:768});
   await clickView(page,'library');
   await expect(page.locator('label[for="documentSearch"]')).toHaveCount(1);
   await expect(page.locator('#documentProject')).toHaveAttribute('aria-label','사업영역 필터');
-  await clickView(page,'pages');
-  await expect(page.locator('#sharePagesRoot')).toBeVisible();
-  // DOMAIN-④ E2: 옛 Web1 카드는 화면째 지웠다.
-  await expect(page.locator('#pagesView .w1b-card,#web1BoardLegacy,#web1BoardDetailModal')).toHaveCount(0);
+  // NOTE-게시 ③: 공유 페이지 화면은 화면째 지웠다(옛 Web1 카드도 DOMAIN-④ E2에서 없음).
+  await expect(page.locator('#pagesView,#sharePagesRoot,.w1b-card,#web1BoardLegacy,#web1BoardDetailModal')).toHaveCount(0);
 });
 
 test('project creation dialog exposes semantics, keyboard close, and trigger restore',async({page})=>{
@@ -324,7 +322,7 @@ for(const viewport of [
 ]){
   test(`core views do not overflow at ${viewport.width}`,async({page})=>{
     await boot(page,viewport);
-    for(const view of ['calendar','tasks','projects','library','meetings','pages','team']){
+    for(const view of ['calendar','tasks','projects','library','meetings','team']){
       await clickView(page,view);
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
       expect(overflow,view).toBeLessThanOrEqual(1);

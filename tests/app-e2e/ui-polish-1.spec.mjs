@@ -80,11 +80,11 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  const tops=await page.evaluate(()=>['.mobile-menu-settings','.mobile-menu-ops','.gs-menu-entry','nav[aria-label="더 보기"]'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
  expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);expect(tops[2]).toBeLessThan(tops[3]);
  { const nav=await rect(page.locator('#mobileMenu nav')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-nav.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-nav.bottom).toBeLessThanOrEqual(24); }
- // 메뉴 줄 2열(MULTI-하단바기본노트: 노트는 하단바, 잊지 말기가 맨 앞. S68-37: 자료실·사진은 하단바, 조직 관리·사업 관리는 읽을 거리 다음): 잊지 말기·읽을 거리 / 조직 관리·사업 관리 / 파일·브리핑 룸 / HWP 편집·공유 페이지 / News(원장 메뉴 빠짐, MULTI-처음쓰는사람 ④), 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail) = 6줄(BRIEF-브리핑룸 ③).
+ // 메뉴 줄 2열(MULTI-하단바기본노트: 노트는 하단바, 잊지 말기가 맨 앞. S68-37: 자료실·사진은 하단바, 조직 관리·사업 관리는 읽을 거리 다음): 잊지 말기·읽을 거리 / 조직 관리·사업 관리 / 파일·브리핑 룸 / HWP 편집·News(원장 메뉴 빠짐, MULTI-처음쓰는사람 ④), 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail) = 6줄(BRIEF-브리핑룸 ③).
  const tiles=page.locator('#mobileMenu nav button:visible');
- await expect(tiles).toHaveText(['잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','공유 페이지','읽을 거리','통화','텔레그램 소식','아스날']);
+ await expect(tiles).toHaveText(['잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','읽을 거리','통화','텔레그램 소식','아스날']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {x:Math.round(r.left),y:Math.round(r.top),h:r.height,touch:r.height-parseFloat(a.top)-parseFloat(a.bottom)};}));
- expect(new Set(boxes.map(b=>b.y)).size).toBe(7); // S68-09: 위 메뉴에 읽을 거리가 더해져 9칸(5줄) + 아래 칸 3(2줄)
+ expect(new Set(boxes.map(b=>b.y)).size).toBe(6); // 위 메뉴 8칸(4줄, NOTE-게시 ③) + 아래 칸 3(2줄)
  expect(new Set(boxes.map(b=>b.x)).size).toBe(2);
  // 보이는 줄 36px, 누르는 범위 44px(줄 사이 8px라 이웃 줄과 겹치지 않음).
  for(const b of boxes){expect(Math.round(b.h)).toBe(36);expect(Math.round(b.touch)).toBe(44);}
@@ -114,14 +114,14 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  await expect(menu).toBeHidden();
  // A tap right after a page load still works (the clock is small then; only the click that ends a pull is swallowed).
  await page.evaluate(()=>{performance.now=()=>120;});
- // A tile opens its screen; 공유 페이지 shows that one name on top(S68-37: 자료실은 하단바 칸이라 메뉴 창 칸인 공유 페이지로 본다).
- await tab.click();await page.locator('#mobileMenu [data-view="pages"]').click();
- await expect(page.locator('#pagesView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('공유 페이지');
- // UI-화면정리 C5(S48-30): 하단바에 칸이 없는 화면은 아무 칸도 칠하지 않는다(위쪽 제목 '공유 페이지'가 지금 메뉴).
+ // A tile opens its screen; 파일 shows that one name on top(S68-37: 자료실은 하단바 칸이라 메뉴 창 칸인 파일로 본다).
+ await tab.click();await page.locator('#mobileMenu [data-view="files"]').click();
+ await expect(page.locator('#filesView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('파일');
+ // UI-화면정리 C5(S48-30): 하단바에 칸이 없는 화면은 아무 칸도 칠하지 않는다(위쪽 제목 '파일'이 지금 메뉴).
  await expect(marks).toHaveCount(0);await expect(tab).not.toHaveAttribute('aria-current','page');
  // 메뉴 안 화면에서 창을 다시 열면 [메뉴] 하나, 뒤로가기로 창을 닫으면 다시 칠하지 않음.
  await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
- await page.goBack();await expect(menu).toBeHidden();await expect(page.locator('#pagesView')).toBeVisible();await expect(marks).toHaveCount(0);await expect(tab).not.toHaveAttribute('aria-current','page');
+ await page.goBack();await expect(menu).toBeHidden();await expect(page.locator('#filesView')).toBeVisible();await expect(marks).toHaveCount(0);await expect(tab).not.toHaveAttribute('aria-current','page');
  // 하단바의 다른 칸으로 가면 그 칸 하나만.
  await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(marks).toContainText('홈');
  await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');await page.goBack();await expect(menu).toBeHidden();await expect(marks).toContainText('홈');await expect(marks).toHaveCount(1);
@@ -152,19 +152,19 @@ test('메뉴 판(폰): 화면이 낮아 판이 길면 아래 끝(메뉴 칸)에 
 test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰기] 항목이 없고 빠른 추가의 업데이트는 쓰기 창을 연다',async({page})=>{
  await boot(page,1280);
  await expect(page.locator('[data-menu-write]')).toHaveCount(0);
- // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
+ // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김).
  // UI-PC일정묶음: 할 일·일기는 [일정] 아래 하위 메뉴(달력·할 일·일기)로. HOME-업무일지홈: 업무일지는 홈이라 이 줄에 없다.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','하루 기록']);
  // BASKET-PC메뉴: [정리함] 아래 하위 줄 없음. MULTI-하단바기본노트·S68-37: 새 계정 PC 왼쪽 메뉴는 하단바 기본(노트·일정·자료실·사진) 뒤 잊지 말기.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"]')).toHaveCount(0);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['노트','일정','자료실','사진','잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','공유 페이지','읽을 거리','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['노트','일정','자료실','사진','잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','읽을 거리','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
  await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});
  await page.locator('#mobileMenuTab').click();
- await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','공유 페이지','읽을 거리','통화','텔레그램 소식','아스날']);
+ await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','읽을 거리','통화','텔레그램 소식','아스날']);
  await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
 });
 

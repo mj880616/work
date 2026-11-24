@@ -39,7 +39,6 @@ const WHITE_OK = {
     '.ps3-modal-head': '프로젝트 상세 창 안 제목 줄',
     '#appView #projectsView #projectGrid>.ps3-plist>.add-list-head': '흰 목록 카드(.ps3-plist) 안 머리 줄',
   },
-  'share-pages.css': { '#appView #pagesView .sp-topline': '흰 편집 판(.sp-editor.is-full) 안 맨 위 줄' },
   'ui-standard.css': {
     '#appView .mobile-menu-panel .mobile-menu-head': '폰 메뉴 판 안 손잡이 줄',
   },

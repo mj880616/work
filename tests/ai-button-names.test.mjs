@@ -17,10 +17,6 @@ test('새 이름이 그 단추 자리에 있다(회의 보고 창 2곳·파일 �
   for (const rel of screenFiles()) assert.doesNotMatch(read(rel), />녹음 요약하기<|'녹음 요약하기'/, rel);
   assert.match(read('app/file-rename.js'), /data-fr-ai>이름 추천 받기<\/button>/);
   assert.match(read('app/business-area-fields.js'), /data-biz-area-ai>사업영역 추천<\/button>/);
-  const share = read('app/share-pages.js');
-  assert.match(share, /dataset:\{spAiDraft:''\}, text:'글 초안 만들기'/);
-  assert.match(share, /'aria-label':(?:word\()?'사업영역·링크·글 초안 만들기'/);
-  assert.match(read('app/share-ai-draft.js'), /<h2 id="shareAiDraftTitle">공유 페이지 글 초안<\/h2>/);
   assert.match(read('app/journal-hwpx.js'), /\{text:'초안 다시 쓰기', data:\{hwpxAiAgain:''\}/); // WEEKLY-주간정리다듬기 ④: 확정 버튼 옆 ⋯ 안
 });
 
