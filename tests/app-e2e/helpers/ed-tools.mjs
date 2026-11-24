@@ -6,7 +6,7 @@ export async function edPress(scope, name, {tap = false} = {}) {
   const b = bar.getByRole('button', {name, exact: true, includeHidden: true}).first();
   const group = await b.evaluate(el => el.closest('[data-ed-panel]')?.dataset.edPanel || null);
   const hit = l => (tap ? l.tap() : l.click());
-  if (group && !(await b.isVisible())) await hit(bar.locator(`.ed-tools [data-ed-cmd="${group}"]`));
+  if (group && !(await b.isVisible())) { const g = bar.locator(`.ed-tools [data-ed-cmd="${group}"]`); await g.scrollIntoViewIfNeeded(); await hit(g); }
   await hit(b);
 }
 // 줄을 왼쪽부터 읽고, 묶음 버튼 자리에서 그 묶음 목록을 이어 읽은 순서(data-ed-cmd). 폭과 관계없이 같아야 한다.
@@ -23,6 +23,6 @@ export async function edCmd(scope, cmd, {tap = false} = {}) {
   const b = scope.locator(`.ed-bar [data-ed-cmd="${cmd}"]`).first();
   const group = await b.evaluate(el => el.closest('[data-ed-panel]')?.dataset.edPanel || null);
   const hit = l => (tap ? l.tap() : l.click());
-  if (group && !(await b.isVisible())) await hit(scope.locator(`.ed-bar .ed-tools [data-ed-cmd="${group}"]`).first());
+  if (group && !(await b.isVisible())) { const g = scope.locator(`.ed-bar .ed-tools [data-ed-cmd="${group}"]`).first(); await g.scrollIntoViewIfNeeded(); await hit(g); }
   await hit(b);
 }
