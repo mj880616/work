@@ -557,6 +557,9 @@
 /* LIB-사진숨김(S60-10): 묶음 안 사진은 줄에서 빼고 맨 아래 [사진 n](photo-fold.js). 펼치면 그 자리에 작은 그림 칸. */
 .lu-photo-fold{padding:2px 2px 6px}
 :is(#documentList,#libraryRecent) .lu-photo-fold .photo-fold-tile .lu-thumb{width:100%;height:100%}
+/* S69-14: 선택 모드의 사진 작은 그림 — 왼쪽 위 네모 칸(문서 줄 네모 칸과 같은 부품), 고르면 강조색 테두리. */
+#appView #libraryView #documentList .photo-fold-tile>.lu-pick.lu-pick-tile{z-index:1;left:4px;top:4px;margin:0}
+#documentList .photo-fold-tile:has(>.lu-pick-tile:checked)>.photo-fold-thumb{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 /* LIB-사진숨김나머지(S61-1): 묶음의 사업 보고 사진 묶음 줄은 [사진 n]을 펼쳤을 때 그 아래에 그대로, 최근 올린 파일의 [사진 n]은 목록 맨 아래. */
 .lu-photo-sets{display:grid;gap:2px;padding:2px 0}
 .lu-recent-photos{list-style:none;padding:2px 2px 4px}
