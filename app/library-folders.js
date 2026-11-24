@@ -145,7 +145,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const frameFromKey=key=>key==='p:none'||key===OUTSIDE_KEY?null:key.slice(2);
   const sep='<hr class="lu-menu-sep" role="separator">';
   // S55-08 LIB-우클릭메뉴 ②: 왼쪽 나무 폴더 줄(data-lu-nav=폴더 id)도 같은 폴더 메뉴의 주인이 될 수 있다(우클릭 = 오른쪽 폴더 줄 ⋯와 같은 메뉴·같은 실행).
-  const menu=createAnchoredMenu({id:'luFolderMenu',className:'lu-folder-menu',label:'폴더 관리',historyKey:'kptuLibraryFolderMenu',key:t=>t.dataset.luNodeMenu||(t.dataset.luNav?'f:'+t.dataset.luNav:''),
+  const menu=createAnchoredMenu({id:'luFolderMenu',className:'lu-folder-menu',label:'폴더 관리',historyKey:'kptuLibraryFolderMenu',key:t=>t.dataset.luNodeMenu||(t.dataset.luNav?'f:'+t.dataset.luNav:'')||(t.dataset.luNavMore?'f:'+t.dataset.luNavMore:''),
     render:key=>{
       // FOLDER-순서·색 ③: [색 고르기…]를 누르면 같은 자리에 동그라미 8개 + [기본]을 다시 연다(고르면 바로 저장).
       if(colorFor===key&&key.startsWith('f:')){const f0=folder(key.slice(2));return f0?colorChoiceHtml(colorOf(f0)):''}
@@ -362,7 +362,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const openAt=el=>openFolderAt(el,{group:'details.lu-node',keyOf:g=>g.dataset.luNode||'',within:'#documentList',skip:'summary.lu-node-head'});
   const openHead=el=>{const g=openAt(el);return g?g.el.querySelector(':scope > summary.lu-node-head'):null};
   function dragFrom(el,touch=false){
-    const nav=!touch&&el?.closest?.('#libraryListCard [data-lu-nav][draggable="true"]');
+    // S69-84: 손가락 끌기는 왼쪽 나무·두 칸 칸의 폴더 줄(.ft-row)째 잡는다(draggable은 마우스 HTML 끌기 표시라 보지 않음).
+    const nav=touch?(el?.matches?.('.ft-row')?el.querySelector('[data-lu-nav]'):null):el?.closest?.('#libraryListCard [data-lu-nav][draggable="true"]');
     if(nav){const f=folder(nav.dataset.luNav);return f?{kind:'folder',id:f.id,frame:f.project_id||null,els:[nav.closest('.ft-row')||nav]}:null}
     const head=el.closest?.(touch?'summary.lu-node-head':'summary.lu-node-head[draggable="true"]'),row=el.closest?.(touch?'.lu-row[data-lu-document],.lu-row[data-lu-photoset]':'.lu-row[draggable="true"]');
     if(head){const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:'))return null;const f=folder(key.slice(2));if(!f)return null;return {kind:'folder',id:f.id,frame:f.project_id||null,els:[head.parentElement]}}
@@ -621,14 +622,21 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // S69 LONGPRESS-선택(2026-11-24 명진): 움직이지 않고 떼면 선택 모드를 켜고 그 줄을 고른다(onHold — 공용 규칙 select-mode.js holdPick).
   // 메뉴는 줄 오른쪽 ⋯로만 연다. 움직였다 떼면 놓은 곳으로 옮긴다. PC 마우스 우클릭·키보드(⋯·Shift+F10)는 그대로.
   const LONG_MS=450,SLOP=8,MOVED=12;
+  // S69-84 목록 엔진 통일 ①(명진 11/24 23:57 "폴드 펼침 화면에서도 꾹 눌러 선택 등 움직임 통일"): 받는 곳 = 목록 상자 전체(왼쪽 나무 + 오른쪽 목록).
+  // 원인(사실): 목록(#documentList)에만 걸려 폴드·PC 왼쪽 나무 폴더 줄은 꾹 눌러도 아무 일이 없었다. 기기 폭이 아니라 손가락(pointerType)으로만 가른다.
+  // 폴더 줄(.ft-row, 이름 단추 [data-lu-nav])은 단추지만 줄째 잡는다. ⋯·펼침 아이콘은 그대로 단추.
+  const NAV_ROW='#libraryFolderNav .ft-row,[data-lu-pane-i] .ft-row';
   function bindTouch(list){
+    const area=list.closest?.('#libraryListCard')||list;
     const cancel=()=>{if(touch?.timer)clearTimeout(touch.timer);touch=null};
     const finish=()=>{clearMarks();stopScroll();touchGhost.hide();drag=null;cancel()};
-    const ROW='.lu-row[data-lu-document],.lu-row[data-lu-photoset],summary.lu-node-head';
-    list.addEventListener('pointerdown',e=>{
+    const ROW='.lu-row[data-lu-document],.lu-row[data-lu-photoset],summary.lu-node-head,'+NAV_ROW;
+    area.addEventListener('pointerdown',e=>{
       if(e.pointerType!=='touch'||!e.isPrimary)return;
-      const t=e.target;if(!(t instanceof Element)||t.closest('input:not(.lu-pick),textarea,select,[contenteditable],button,a[href],.lu-undo,.lu-more-files,.lu-more-row'))return;
-      const el=t.closest(ROW);if(!el||(el.matches('summary')&&renaming))return;
+      const t=e.target;if(!(t instanceof Element))return;
+      const navMain=t.closest('.ft-row > [data-lu-nav]')&&!t.closest('[data-lu-nav="'+OUTSIDE_KEY+'"]');
+      if(!navMain&&t.closest('input:not(.lu-pick),textarea,select,[contenteditable],button,a[href],.lu-undo,.lu-more-files,.lu-more-row'))return;
+      const el=t.closest(ROW);if(!el||(el.matches('summary')&&renaming)||(el.matches('.ft-row')&&!folder(el.querySelector('[data-lu-nav]')?.dataset.luNav||'')))return;
       cancel();
       const canDrag=touchOk();
       touch={el,x:e.clientX,y:e.clientY,grabbed:false,moved:false,drop:null,at:Date.now(),canDrag,timer:setTimeout(()=>{
@@ -638,13 +646,13 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         try{navigator.vibrate?.(12)}catch{}
       },LONG_MS)};
     });
-    list.addEventListener('pointermove',e=>{
+    area.addEventListener('pointermove',e=>{
       if(!touch||touch.grabbed||e.pointerType!=='touch')return;
       if(Math.hypot(e.clientX-touch.x,e.clientY-touch.y)>SLOP)cancel();
     });
-    list.addEventListener('pointercancel',e=>{if(e.pointerType==='touch'&&touch&&!touch.grabbed)cancel()});
+    area.addEventListener('pointercancel',e=>{if(e.pointerType==='touch'&&touch&&!touch.grabbed)cancel()});
     // 잡은 뒤의 움직임은 touch 이벤트로 받는다(passive:false라야 스크롤을 막을 수 있다).
-    list.addEventListener('touchmove',e=>{
+    area.addEventListener('touchmove',e=>{
       if(!touch?.grabbed)return;
       if(e.cancelable)e.preventDefault();
       const p=e.touches[0];if(!p)return;
@@ -653,7 +661,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(!touchGhost.shown)touchGhost.show(ghostLabel(touch.drag),p.clientX,p.clientY);else touchGhost.move(p.clientX,p.clientY);
       touch.drop=dropFor({target:document.elementFromPoint(p.clientX,p.clientY),clientY:p.clientY});showMarks(touch.drop);hoverOpen(touch.drop);touchScroll.update(p.clientX,p.clientY);
     },{passive:false});
-    list.addEventListener('touchend',e=>{
+    area.addEventListener('touchend',e=>{
       if(!touch)return;
       if(!touch.grabbed){cancel();return}
       if(e.cancelable)e.preventDefault();
@@ -664,11 +672,11 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       // 움직이지 않고 뗌 = 선택 모드 + 그 줄 선택(메뉴 아님).
       onHold(el);
     });
-    list.addEventListener('touchcancel',()=>{if(touch?.grabbed)finish();else cancel()});
+    area.addEventListener('touchcancel',()=>{if(touch?.grabbed)finish();else cancel()});
     // 꾹 누르면 브라우저가 보내는 기본 길게누르기 메뉴와 뗀 직후 따라오는 클릭(자료 열기, 토글 접기)은 막는다.
-    list.addEventListener('contextmenu',e=>{if(touch||Date.now()<suppressUntil||(e.pointerType==='touch'&&e.target.closest?.(ROW)))e.preventDefault()},true);
+    area.addEventListener('contextmenu',e=>{if(touch||Date.now()<suppressUntil||(e.pointerType==='touch'&&e.target.closest?.(ROW)))e.preventDefault()},true);
     // ⋯ 단추는 따로 누르는 것이라 삼키지 않는다(꾹 눌러 고른 바로 뒤에도 ⋯로 메뉴).
-    list.addEventListener('click',e=>{if(Date.now()<suppressUntil&&!e.target.closest?.('[data-lu-menu],[data-lu-node-menu]')){e.preventDefault();e.stopPropagation()}},true);
+    area.addEventListener('click',e=>{if(Date.now()<suppressUntil&&!e.target.closest?.('[data-lu-menu],[data-lu-node-menu]')){e.preventDefault();e.stopPropagation()}},true);
   }
   // F2 = 포커스가 있는 폴더 줄의 이름 바꾸기. 빈 곳 우클릭 = 그 자리를 품은 가장 가까운 토글의 ⋯ 메뉴(폴더면 폴더 메뉴, 프로젝트·'폴더 밖'이면 [새 폴더]),
   // 어느 토글도 아니면 맨 위 자리의 [새 폴더]. 카드·줄·입력칸·링크·버튼 위의 우클릭은 공용 우클릭(context-menu.js)이 그대로 맡는다.

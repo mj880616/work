@@ -2003,7 +2003,17 @@ body.addEventListener('pointerdown', e => {
   const item = itemOf(b); if (!item) return;
   // [폴더] PC: 고른 사진을 잡으면 끌어 놓기(옮기기)이고 여러 칸 고르기 끌기가 아니다(dragstart가 맡음).
   if (select.active && tab === 'folders' && treeWide() && b.draggable && select.has(item.id)) return;
-  if (select.active) { drag = {anchor:item.id, x:e.clientX, y:e.clientY, base:new Set(select.items), add:!select.has(item.id), on:false, id:e.pointerId}; return; }
+  if (select.active) {
+    drag = {anchor:item.id, x:e.clientX, y:e.clientY, base:new Set(select.items), add:!select.has(item.id), on:false, id:e.pointerId};
+    // S69-84 목록 엔진 통일 ①: 이미 선택 모드여도 손가락 꾹 누르기 = 그 칸을 더하기(토글 아님 — 공용 규칙 select-mode.js holdPick, 자료실·노트·파일과 같음).
+    // 원인(사실): 선택 모드에서는 꾹 누르기 타이머가 없어 떼면 보통 누르기(고름 ↔ 풂)가 되어, 고른 사진을 다시 꾹 누르면 풀렸다. 그대로 끌면 이어 고르기(더하기).
+    if (e.pointerType !== 'mouse') hold = {b, x:e.clientX, y:e.clientY, timer:setTimeout(() => {
+      hold = null; if (!drag || drag.on || drag.anchor !== item.id) return;
+      ateClick = true; navigator.vibrate?.(15); select.hold([item.id]); paintSelect();
+      drag.base = new Set(select.items); drag.add = true; drag.held = true;
+    }, HOLD_MS)};
+    return;
+  }
   const pid = e.pointerId;
   hold = {b, x:e.clientX, y:e.clientY, timer:setTimeout(() => {
     const was = hold; hold = null; ateClick = true; navigator.vibrate?.(15); startSelect(item);
