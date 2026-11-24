@@ -30,6 +30,8 @@ export function luDeleteSuccessMessage(data){
   if(!modernFields.every(key=>hasField(data,key)))return null;
   if(data.drive_result==='preserved'&&data.drive_preserved===true&&['note_reference','private_basket_original'].includes(data.reason))return '자료 등록을 삭제했습니다. 잊지 말기 원본 파일은 Drive에 보존했습니다.';
   // CAL-일정첨부 6번(S59-23): '자료실 › 일정 첨부' 폴더 원본은 자료 행만 지우고 Drive 원본은 둔다(일정 첨부가 계속 열림 — 서버 document-actions delete).
+  // S70 LIB-묶음삭제 ③: [드라이브에서 가져오기]로 연결만 한 드라이브 원본은 자료실 목록에서만 빼고 드라이브 파일은 그대로 둔다(서버 document-actions).
+  if(data.drive_result==='preserved'&&data.drive_preserved===true&&data.reason==='linked_original')return '자료실 목록에서 뺐어요. 드라이브 원본은 그대로 뒀어요.';
   if(data.drive_result==='preserved'&&data.drive_preserved===true&&data.reason==='event_attachment')return '자료 등록을 삭제했습니다. 일정에 붙인 원본 파일은 Drive에 그대로 두었습니다.';
   if(data.drive_preserved!==false||data.reason!=='ordinary_library')return null;
   switch(data.drive_result){
