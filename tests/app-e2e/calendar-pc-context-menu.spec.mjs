@@ -5,7 +5,7 @@ import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 
 // S51-27 UI-PC우클릭: PC(1280) 월간 달력에서 우클릭하면 크롬 기본 메뉴 대신 누른 자리에 공용 줄 메뉴(#rowMenu, row-menu.js).
 // 날짜 칸(일정으로 꽉 찬 날도 칸 어디든) → [이날 일정 등록][이날 할 일][이날 하루 보기], 일정 → [수정]…[삭제], 할 일 막대 → 그 할 일 ⋯ 메뉴.
-// 칸에 마우스를 올리면 날짜 숫자 옆 [+] → 그날 일정 등록 창. 글자 칸 우클릭은 기본 메뉴 그대로. Shift+F10(키보드)도 같은 메뉴.
+// 칸에 마우스를 올리면 칸 오른쪽 위 모서리 [+](명진 11/24) → 그날 일정 등록 창. 글자 칸 우클릭은 기본 메뉴 그대로. Shift+F10(키보드)도 같은 메뉴.
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({timezoneId:'Asia/Seoul',viewport:{width:1280,height:844}});
@@ -105,17 +105,48 @@ test('1280 월간: 일정 우클릭 → [수정][보고할 일정][담당조직 
   expect(await page.evaluate(()=>window.__kept)).toEqual([false,false]);
 });
 
-test('1280 월간: 칸에 마우스를 올리면 날짜 옆 [+] → 그날 일정 등록 창(꽉 찬 날도)',async({page})=>{
+test('1280 월간: 칸에 마우스를 올리면 칸 오른쪽 위 [+] → 그날 일정 등록 창(꽉 찬 날도)',async({page})=>{
   await open(page);
   const plus=cell(page,FULL).locator('.cmv-date-plus');
   await expect(plus).toHaveCSS('opacity','0');
   await cell(page,FULL).locator('.cmv-date-list').hover();
   await expect(plus).toHaveCSS('opacity','1');
-  const p=await plus.boundingBox(),num=await cell(page,FULL).locator('.cal-day').boundingBox();
-  expect(p.x).toBeGreaterThan(num.x+num.width-1);expect(p.x-(num.x+num.width)).toBeLessThan(30);
+  // 명진 11/24: 날짜 숫자 바로 옆이 아니라 그 칸의 오른쪽 위 모서리(날짜 숫자와 같은 줄), 일정 줄과 겹치지 않음.
+  const p=await plus.boundingBox(),num=await cell(page,FULL).locator('.cal-day').boundingBox(),c=await cell(page,FULL).boundingBox();
+  expect(c.x+c.width-(p.x+p.width)).toBeGreaterThanOrEqual(0);expect(c.x+c.width-(p.x+p.width)).toBeLessThanOrEqual(8);
+  expect(p.y-c.y).toBeGreaterThanOrEqual(0);expect(p.y-c.y).toBeLessThanOrEqual(8);
+  expect(p.x-(num.x+num.width)).toBeGreaterThan(40);
+  expect(Math.abs((p.y+p.height/2)-(num.y+num.height/2))).toBeLessThanOrEqual(6);
+  for(const bar of await page.locator(`#calendarGrid .cmv-week[data-week-start] [data-google-event]`).all()){
+    const b=await bar.boundingBox();if(!b||b.x>p.x+p.width||b.x+b.width<p.x)continue;
+    expect(b.y>=p.y+p.height||b.y+b.height<=p.y).toBe(true);
+  }
   await plus.click();
   await expect(page.locator('#eventModal')).toBeVisible();
   await expect(page.locator('#eventStartDate')).toHaveValue(FULL);
+});
+
+test('1280 월간: 일정 줄에 마우스를 올려도 칸·줄 바탕은 그대로(놓을 칸 표시·끄는 조각 없음), 손 뗌을 놓친 끌기도 버튼 없이 움직이면 취소',async({page})=>{
+  await open(page);
+  const bar=page.locator('#calendarGrid [data-google-event="e0"]').first();
+  const look=()=>page.evaluate(d=>{const c=document.querySelector(`#calendarGrid .cal-cell[data-date="${d}"]`),e=document.querySelector('#calendarGrid [data-google-event="e0"]');return [getComputedStyle(c).backgroundColor,getComputedStyle(e).backgroundColor]},FULL);
+  const before=await look();
+  await bar.hover();
+  expect(await look()).toEqual(before);
+  await expect(page.locator('#calendarGrid .cmv-drop')).toHaveCount(0);
+  // 명진 11/24 증상: 창 밖에서 손을 떼 pointerup을 못 받은 끌기 준비가 남으면, 그냥 마우스를 올려 움직여도 놓을 칸 바탕·끄는 조각이 그려졌다.
+  const b=await bar.boundingBox(),x=b.x+20,y=b.y+b.height/2;
+  await page.evaluate(([x,y])=>document.elementFromPoint(x,y).dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,composed:true,pointerId:1,pointerType:'mouse',button:0,buttons:1,clientX:x,clientY:y,isPrimary:true})),[x,y]);
+  await page.mouse.move(x+200,y-150,{steps:8});
+  await expect(page.locator('#calendarGrid .cmv-drop')).toHaveCount(0);
+  await expect(page.locator('.cal-drag-ghost')).toHaveCount(0);
+  const cells=await page.evaluate(()=>[...new Set([...document.querySelectorAll('#calendarGrid .cal-cell:not(.other)')].map(c=>getComputedStyle(c).backgroundColor))]);
+  expect(cells).toHaveLength(1);
+  // 그 뒤 진짜 끌기(버튼 누른 채)는 그대로 된다.
+  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+200,y-150,{steps:8});
+  await expect(page.locator('#calendarGrid .cmv-drop').first()).toBeVisible();
+  await page.keyboard.press('Escape');await page.mouse.up();
+  await expect(page.locator('#calendarGrid .cmv-drop')).toHaveCount(0);
 });
 
 test('1280: 글자 칸 우클릭은 브라우저 기본 메뉴 그대로, Shift+F10은 포커스 받은 날짜 칸 메뉴',async({page})=>{
