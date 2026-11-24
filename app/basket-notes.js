@@ -530,6 +530,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     line.hidden = !on;
     line.innerHTML = on ? `<span class="note-pub-on">게시 중</span>${locked ? '' : `${dot}<button type="button" class="row-act note-pub-act" data-pub-line="copy">링크 복사</button>`}${dot}<button type="button" class="row-act note-pub-act" data-pub-line="stop">게시 멈춤</button>` : '';
   }
+  // NOTE-게시 ③: 게시할 때·게시 중 노트를 저장한 뒤 사진을 받는 사람 쪽에도 맞춘다(뒤에서, 화면을 막지 않음). 못 올린 사진만 한 줄로 알린다.
+  function pubPhotos(note) {
+    if (!note?.id || !notePub.isOn(note.id)) return;
+    const owner = scope();
+    notePub.syncPhotos(note).then(r => {
+      if (owner === scope() && r?.failed) notify(`사진 ${r.failed}장은 링크에서 보이지 않아요. 노트를 다시 저장하면 다시 올려요.`, {error:true, record:false});
+    }, () => { if (owner === scope()) notify('게시한 노트 사진을 맞추지 못했어요. 노트를 다시 저장해 주세요.', {error:true, record:false}); });
+  }
   let pubBusy = false;
   async function pubAct(kind, note, anchor) {
     if (pubBusy || !note) return;
@@ -542,6 +550,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
         await notePub.publish(note);
         const copied = await notePub.copy(note).catch(() => false);
         notify(copied ? '게시했어요 · 링크를 복사했어요' : '게시했어요 · [링크 복사]로 보내세요', {record:false});
+        pubPhotos(note);
       } else if (kind === 'copy') {
         const copied = await notePub.copy(note);
         if (copied && anchor?.isConnected) flashDone(anchor);
@@ -818,7 +827,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (!prep.ok) { say(prep.message); return {ok:false, message:prep.message}; }
       const saved = await saveNoteDoc(id, {title:next.title, raw_text:prep.text, doc:prep.value, version:note.updated_at}, rt);
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
-      notes = notes.map(n => n.id === id ? saved : n); renderList();
+      notes = notes.map(n => n.id === id ? saved : n); renderList(); pubPhotos(saved);
       if (selected?.id === id) { selected = saved; paintRead(); paintMeta(); }
       say(''); readPick?.refresh();
       return {ok:true};
@@ -1116,7 +1125,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (fileQueue.going(id)) { say('첨부가 다 올라가면 이어서 저장해요…'); await fileQueue.settled(id); if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'}; changes.version = fieldBase; }
       const note = await saveNoteDoc(id, changes, rt);
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
-      notes = notes.map(n => n.id === id ? note : n); selected = note; fieldBase = note.updated_at; field.markSaved(); renderList(); paintMeta();
+      notes = notes.map(n => n.id === id ? note : n); selected = note; fieldBase = note.updated_at; field.markSaved(); renderList(); paintMeta(); pubPhotos(note);
       if (stay && files) { lock(false); return await saveFiles({textSaved:true}); }
       if (stay) { say(''); return {ok:true, message:'저장했어요'}; }
       finishEdit({force:true}); say(''); showToast('노트를 저장했습니다.');

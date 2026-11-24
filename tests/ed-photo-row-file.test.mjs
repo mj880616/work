@@ -83,9 +83,6 @@ test('[파일] and [사진] appear only where the opener gives them; notes give 
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
   assert.match(notes, /mountEditField\(host, selected, \{photos:photosFor\(id\), files:filesFor\(id\), lead:f\.title\.closest\('label'\)\}\)/); // NOTE-제목서식줄고정: 제목 칸은 lead
   assert.match(notes, /const filesFor = id => noteFiles\(\{getNote:\(\) => selected\?\.id === id \? selected : null, upload:noteUpload\(id\)\}\)/);
-  // Share pages get no [파일] yet (their files would need the page's own private storage).
-  const share = readFileSync(new URL('../app/share-pages.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(share, /files:|onFiles/);
   // A new note: [사진]·[파일] wait in the window until the save (note-pending-media.mjs), never a throwing stand-in.
   const win = readFileSync(new URL('../app/note-window.js', import.meta.url), 'utf8');
   // FORGET-노트고르기: 가족 줄 창(target.family)만 사진·파일이 없다(옛 가족 작은 창과 같음).

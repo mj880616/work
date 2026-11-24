@@ -39,7 +39,7 @@ test('PC: the top line sits above every screen in order, the account moved there
  // Small buttons (UI-버튼기준): 32px visible height.
  for(const sel of ['[data-nav-toggle]','[data-history-step="back"]','[data-quick-add]'])expect(Math.round((await page.locator(sel).boundingBox()).height)).toBe(32);
  // HOME-업무일지홈: 업무일지는 홈(#homeView)이다.
- for(const view of ['basket','calendar','tasks','home','diary','projects','library','meetings','pages','team','hwp']){
+ for(const view of ['basket','calendar','tasks','home','diary','projects','library','meetings','team','hwp']){
   await show(page,view);await expect(line(page)).toBeVisible();
   const [l,v]=await Promise.all([line(page).boundingBox(),page.locator(`#${view}View`).boundingBox()]);
   expect(l.y+l.height).toBeLessThanOrEqual(v.y+1);
@@ -178,7 +178,7 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  await openHome(page);
  const add=page.locator('[data-quick-add]'),menu=page.locator('#toplineAddMenu');
  await add.click();await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['잊지 말기','할 일','노트','일정','하루 기록','공유 페이지','사업 보고']);
+ await expect(menu.locator('button')).toHaveText(['잊지 말기','할 일','노트','일정','하루 기록','사업 보고']);
  await expect(menu.locator('button').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(add).toBeFocused();
  // 업데이트 (ED③ 업데이트): the update's new big window (기록할 곳 line with 바구니(미분류), new editor, no [업데이트|노트] switch).

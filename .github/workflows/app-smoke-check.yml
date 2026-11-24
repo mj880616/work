@@ -1257,7 +1257,7 @@ jobs:
         run: node --test tests/notice-sweep.test.mjs
 
       - name: Check library, project, share and upload units (STAB-단위시험등록)
-        run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/note-publish-model.test.mjs tests/share-photos.test.mjs tests/share-ai-draft-model.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
+        run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/note-publish-model.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
 
       - name: Check business report area tag and next plan (MTG-프로젝트합치기 2단계)
         run: node --test tests/business-area-model.test.mjs
@@ -1731,7 +1731,7 @@ jobs:
           test ! -e app/forum-flow-polish.js
           test ! -e app/forum-flow-polish.css
           test ! -e app/legacy/editable-page.js
-          if grep -REq "web1-board|web1BoardLegacy|web1BoardDetailModal|KPTUWeb1Board|public-page-editor|web1-admin-auth|web1-page-capabilities|forum-flow-polish" app/index.html app/loader-v2.js app/view-loader.js app/styles.css app/team.js app/share-pages.js; then echo 'Web2 returned to a Web1 borrowing path'; exit 1; fi
+          if grep -REq "web1-board|web1BoardLegacy|web1BoardDetailModal|KPTUWeb1Board|public-page-editor|web1-admin-auth|web1-page-capabilities|forum-flow-polish" app/index.html app/loader-v2.js app/view-loader.js app/styles.css app/team.js; then echo 'Web2 returned to a Web1 borrowing path'; exit 1; fi
           if grep -Eq "page-list-controller.js|page-save-controller.js|page-builder.js|page-shortcut.js|page-management.js|page-inline-viewer-v2.js" app/loader-v2.js app/view-loader.js; then echo 'retired page management returned to authenticated loader'; exit 1; fi
       - name: Check Web1 pages stay removed (WEB1-페이지삭제 C1-b)
         run: |

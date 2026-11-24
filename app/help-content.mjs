@@ -22,7 +22,7 @@ export const PRIVACY_LINES = Object.freeze([
 export const GROUPS = Object.freeze([
   {id: 'main', label: '많이 쓰는 곳', topics: ['team', 'meetings', 'brief']},
   {id: 'daily', label: '매일', topics: ['home', 'basket', 'calendar', 'note', 'reading']},
-  {id: 'docs', label: '자료', topics: ['library', 'files', 'photos', 'pages', 'hwp', 'outside']},
+  {id: 'docs', label: '자료', topics: ['library', 'files', 'photos', 'hwp', 'outside']},
   {id: 'operator', label: '운영자', topics: ['calls', 'telegram', 'arsenal']},
   {id: 'account', label: '계정', topics: ['profile', 'appdl', 'privacy']},
 ]);
@@ -95,7 +95,7 @@ const TOPICS = {
   note: {
     short: '길게 쓰는 글, 폴더·밑줄·태그',
     lead: '회의 메모·초안처럼 길게 쓰는 글을 모아 두는 곳이에요.',
-    steps: ['[+ 노트]로 새 글을 써요. 쓰는 동안 저절로 저장돼요.', '폴더로 묶고, 위에 고정해 두면 찾기 쉬워요.', '글자를 선택해 밑줄을 그어 두면 나중에 모아 볼 수 있어요.'],
+    steps: ['[+ 노트]로 새 글을 써요. 쓰는 동안 저절로 저장돼요.', '폴더로 묶고, 위에 고정해 두면 찾기 쉬워요.', '글자를 선택해 밑줄을 그어 두면 나중에 모아 볼 수 있어요.', '노트 ⋯ [공유 링크 만들기]로 밖의 사람에게 링크로 보여 줘요. 넣은 사진도 함께 보여요.'],
     ex: {title: '노트', rows: [word('교섭 준비 메모(예시)'), '교육 자료 초안(예시)', '회의 메모 11/12(예시)']},
     open: 'note',
   },
@@ -119,13 +119,6 @@ const TOPICS = {
     steps: ['폰 앱에서는 폰 사진, 브라우저에서는 구글 드라이브 사진이 보여요.', '사진을 길게 눌러 여러 장을 선택해요.', '사진 ⋯에서 하루 기록이나 잊지 말기로 보내요.'],
     ex: {title: '사진', rows: ['11월 16일 · 4장(예시)', '11월 14일 · 2장(예시)', '앨범 · 현장 순회(예시)']},
     open: 'photos',
-  },
-  pages: {
-    short: '바깥에 보여 줄 페이지를 링크로',
-    lead: word('WORK ON+ 밖의 사람에게 보여 줄 페이지를 만들고 링크로 나누는 곳이에요.'),
-    steps: ['[새 공유 페이지]로 새 페이지를 만들어요.', '요약·일정·링크 같은 칸을 더해 내용을 채워요.', '[링크 복사]로 보내요. [링크 끄기]를 하면 더는 열리지 않아요.'],
-    ex: {title: '공유 페이지', rows: ['예시 교육 안내 · 링크 켜짐', '예시 설문 결과 · 링크 꺼짐']},
-    open: 'pages',
   },
   hwp: {
     short: '한글 파일을 열어 수정·저장',

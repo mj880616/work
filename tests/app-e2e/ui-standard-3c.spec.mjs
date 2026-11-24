@@ -111,7 +111,7 @@ test('다크 모드: 기기 설정이 어두우면 Web2 전체·창이 어둡고
  test.setTimeout(180000);
  const {errors}=await boot(page,390,{dark:true});
  const dark='rgb(22, 22, 19)',surface='rgb(31, 31, 27)';
- for(const name of ['home','basket','calendar','tasks','projects','team','library','meetings','pages','hwp']){
+ for(const name of ['home','basket','calendar','tasks','projects','team','library','meetings','hwp']){
   await view(page,name);
   expect(await page.evaluate(()=>getComputedStyle(document.documentElement).colorScheme),name).toContain('dark');
   expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),name).toBe(dark);

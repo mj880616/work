@@ -1,4 +1,5 @@
-// SHARE-페이지삭제: the request shapes for keeping (보관) and deleting (삭제) a share page (share-pages.js draws and sends them).
+// SHARE-페이지삭제: the request shapes for keeping (보관) and deleting (삭제) a share page. NOTE-게시 ③: the share pages screen is gone;
+// the trash screen (project-system-v3.js purgePage) still uses the delete shape.
 // 보관 keeps the record: status goes to 'archived' (DB check app_share_pages_status_check, migration 20261023160000). The list and
 // the weekly journal leave archived pages out, and share-page-read shows only 'published', so a kept page's link stops by itself.
 // Links, photo records and photo files are not touched. The 보관함 (bottom of the list) shows the kept pages again.

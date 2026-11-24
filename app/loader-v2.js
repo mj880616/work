@@ -233,7 +233,7 @@
   }
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
-  const staticShellViews=new Set(['home','basket','calendar','tasks','diary','library','meetings','pages','team']);
+  const staticShellViews=new Set(['home','basket','calendar','tasks','diary','library','meetings','team']);
   await viewLoader.prepare(requested);
   window.KPTURouter?.noteAlias?.(rawRequested);
   if(staticShellViews.has(requested)){

@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// SHARE-페이지삭제: deleting a share page keeps the record (status 'archived'); the screen, the DB check and the public reader agree.
+// SHARE-페이지삭제: deleting a share page keeps the record (status 'archived'); the DB check and the public reader agree.
+// NOTE-게시 ③: the share page list screen is gone; the request shapes stay for the trash (purgePage) and the reader.
 const archive = await import('../../app/share-pages-archive.mjs');
-const screen = readFileSync('app/share-pages.js', 'utf8');
 const migration = readFileSync('supabase/migrations/20261023160000_share_pages_archived_status.sql', 'utf8');
 const reader = readFileSync('supabase/functions/share-page-read/handler.ts', 'utf8');
 
@@ -27,18 +27,6 @@ test('archive and undo are conditional PATCH requests on this workspace, never a
   assert.deepEqual(archive.undoPatch.body('published', 'U'), {status:'published', updated_at:'U'});
   assert.deepEqual(archive.undoPatch.body('anything-else', null), {status:'draft'});
   assert.equal(archive.archiveFilter, 'status=neq.archived');
-  // 보관 and 되살리기 never send a DELETE and never call the photo clean-up (photo files stay).
-  const body = screen.slice(screen.indexOf('async function archivePage'), screen.indexOf('// 삭제 = 휴지통'));
-  assert.doesNotMatch(body, /method:\s*'DELETE'/);
-  assert.doesNotMatch(body, /prune|createSharePhotos|app_share_page_links|share-page-media|purgePage/);
-  // TRASH-다른삭제: 삭제 goes to the 휴지통 through the shared flow (the DB turns the DELETE into 'in the trash'); the list screen never permanently deletes.
-  const trash = screen.slice(screen.indexOf('async function trashPage'), screen.indexOf('// ── editor ──'));
-  assert.match(trash, /deleteToTrash\(\{kind:'share_page'/);
-  assert.doesNotMatch(trash, /purgePage|share-page-media|app_trash_purge/);
-  assert.doesNotMatch(screen, /data-sp-row-action="purge"|완전히 삭제/);
-  assert.match(screen, /data-sp-row-action="trash">삭제<\/button>',\n  box:.*data-sp-row-action="restore">되살리기<\/button><button type="button" class="task-inline-danger" data-sp-row-action="trash">삭제<\/button>/);
-  assert.match(screen, /app_share_pages\?workspace_id=eq\.\$\{ws\}&select=id,title,updated_at&\$\{boxFilter\}/);
-  assert.match(screen, /app_share_pages\?workspace_id=eq\.\$\{ws\}&select=id,title,status,project_id,updated_at&\$\{archiveFilter\}/);
 });
 
 test('the confirmations: 보관 says the link stops only for a published page; 영구 삭제 (휴지통) says everything goes for good', () => {

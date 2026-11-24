@@ -101,7 +101,7 @@ test('requested route is resolved before view-specific feature loading', async (
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).not.toContain("defer(()=>loadFeatures()");
   // HOME-업무일지홈: 홈 = 업무일지(home 불러오기가 journal.js), 옛 journal 이름은 별칭.
-  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock}");
+  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock}");
   expect(viewLoader).toContain("async function home(){ await module('./journal.js'); return {ok:true} }");
   expect(viewLoader).not.toContain("home-read.js");
 });
@@ -154,13 +154,11 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   expect(health).toContain("window.__KPTU_GOOGLE_STATE__");
   expect(health).toContain("cached&&typeof cached.connected==='boolean'?cached");
 
-  const pagesStart=views.indexOf('async function pages()');
-  const organizationsStart=views.indexOf('async function organizations()');
-  const pagesBlock=views.slice(pagesStart,organizationsStart);
-  expect(pagesBlock).toContain("module('./share-pages.js')");
-  expect(pagesBlock).not.toContain('web1-board');
-  expect(pagesBlock).not.toContain("team('pages')");
-  expect(pagesBlock).not.toContain('page-design-core');
+  // NOTE-게시 ③: 공유 페이지 화면(async function pages)은 없다. 옛 Web1 부품도 돌아오지 않는다.
+  expect(views).not.toContain('async function pages()');
+  expect(views).not.toContain("module('./share-pages.js')");
+  expect(views).not.toContain('web1-board');
+  expect(views).not.toContain('page-design-core');
 
   expect(team).toContain('window.KPTUTeamData={');
   expect(library).toContain('window.KPTUProjectCatalog');

@@ -82,7 +82,7 @@ async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
 // UI-디자인기준 3/3 3부(8-9e-3, 마지막): 성명·게시판도 새 기준으로 옮겼다. 옛 main 비교에서 뺀 화면은 이제 모두
 // 새 기준과 비교한다(2/3 원장 ② 되돌림): 보이는 글자의 굵기는 400·500 두 가지, 버튼 모양 컨트롤은 높이 하나(46px)·13px(UI-버튼크기부터 필터 칩·보조 버튼은 32px).
 // 일정 월간·주간 칸(#calendarGrid·#calendarWeek)과 글 본문(.md-body)은 내용 표시라 뺀다.
-const DS_VIEWS=new Set(['projects','tasks','calendar','team','library','meetings','pages']);
+const DS_VIEWS=new Set(['projects','tasks','calendar','team','library','meetings']);
 const newStandard=p=>p.evaluate(()=>{
  const view=document.querySelector('.view-panel:not(.hidden)'),bad=[];
  for(const e of view.querySelectorAll('*')){
@@ -106,7 +106,7 @@ const newStandard=p=>p.evaluate(()=>{
 for(const width of [390,1440])test('D-3e modal roles and excluded list computed styles '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original,'b9dbcaee0b8e92bd8d80334bf97999f561deef94');await boot(original);
- for(const name of ['projects','meetings','pages','team','tasks','calendar','library']){
+ for(const name of ['projects','meetings','team','tasks','calendar','library']){
   for(const p of [page,original])await view(p,name);
   // Empty headings disappear; retained headings keep the established style.
   // The changed task region gets explicit D-할일화면정리 roles below.
@@ -240,7 +240,7 @@ async function audit(page,id){
 const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','gtScopeModal','themeModal','warDraftModal','polManageModal'];
 for(const width of [390,1440])test('D-3e installed dialog templates use role sizes '+width,async({page},testInfo)=>{
  await page.setViewportSize({width,height:900});await boot(page);
- for(const name of ['projects','meetings','team','library','tasks','calendar','pages'])await view(page,name);
+ for(const name of ['projects','meetings','team','library','tasks','calendar'])await view(page,name);
  await view(page,'tasks');await page.locator('[data-gt-info]').click();await page.locator('[data-gt-scope-close]').click();
  const inventory=await page.evaluate(ids=>{
   const result={present:[],notInstalled:[],counts:{},violations:[]};
@@ -308,7 +308,7 @@ const d6bRetired=['#documentModal .library-dropzone strong','#meetingModal .meet
 
 async function d6bPrepare(page,source){
  await boot(page);
- for(const name of ['projects','meetings','team','library','tasks','calendar','pages'])await view(page,name);
+ for(const name of ['projects','meetings','team','library','tasks','calendar'])await view(page,name);
  await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();
  await page.locator('[data-ps3-project="type-project"]').first().click();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();

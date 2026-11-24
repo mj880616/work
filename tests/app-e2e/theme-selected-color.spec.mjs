@@ -53,9 +53,9 @@ test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화�
  const soft=await rgb(page,'var(--ds-select-bg)');
  const filledNames=()=>nav(page).locator('button,a').evaluateAll((els,p)=>els.filter(e=>e.getClientRects().length&&getComputedStyle(e).backgroundColor===p).map(e=>e.textContent.trim()),soft);
  const seen=async name=>{await expect.poll(filledNames).toEqual([name]);await expect(nav(page).locator('.active:visible, [aria-current]:visible')).not.toHaveCount(0)};
- // 자료실 → 공유 페이지: 포인터가 이전 항목(자료실) 위에 남아 있어도 표시는 한 곳.
+ // 자료실 → 파일: 포인터가 이전 항목(자료실) 위에 남아 있어도 표시는 한 곳.
  await nav(page).locator('.nav-btn[data-view="library"]').click();await expect(page.locator('#libraryView')).toBeVisible();await seen('자료실');
- await page.evaluate(()=>window.KPTURouter.go('pages'));await expect(page.locator('#pagesView')).toBeVisible();await seen('공유 페이지');
+ await page.evaluate(()=>window.KPTURouter.go('files'));await expect(page.locator('#filesView')).toBeVisible();await seen('파일');
  await expect(nav(page).locator('[aria-current]')).toHaveCount(1);
  // 일정 → 사업 보고: [일정] 머리와 [달력]이 둘 다 채워지지 않는다(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다).
  await nav(page).locator('.nav-btn[data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();await seen('달력');
@@ -81,7 +81,7 @@ for(const theme of ['olive','sky','lemon']){
   expect(await bg(cur.locator('svg'))).toBe(soft);expect(await fg(cur.locator('svg'))).toBe(text);expect(await fg(cur)).toBe(text);
   expect(await bg(tabs.locator('button:not([aria-current]) svg').first())).toBe('rgba(0, 0, 0, 0)');
   // 메뉴로 닿는 화면: 하단바에 칸이 없으니 아무 칸도 칠하지 않는다(UI-화면정리 C5, S48-30 — 위쪽 제목이 지금 메뉴).
-  for(const view of ['library','hwp','pages']){
+  for(const view of ['library','hwp','files']){
    await page.evaluate(v=>window.KPTURouter.go(v),view);await expect(page.locator(`#${view}View`)).toBeVisible();
    await expect(tabs.locator('[aria-current="page"]')).toHaveCount(0);await expect(tabs.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');
    expect(await bg(tabs.locator('#mobileMenuTab svg'))).toBe('rgba(0, 0, 0, 0)');
@@ -98,7 +98,7 @@ for(const theme of ['olive','sky','lemon']){
 test('폰 390: 메뉴 판 타일 열이 같은 모양이고 낮다(FILES-클라우드탐색기 ④: 파일 추가, OUTSIDE-바깥성명 ④: 바깥 성명 추가, CALL·TG: 통화·텔레그램 소식 추가, PRESS-자료실편입: 성명·보도자료 삭제, PHOTO-사진메뉴: 사진 추가, MTG-프로젝트합치기 3단계: 사업 보고는 하단바로)',async({page})=>{
  const errors=await open(page,390);
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu .mobile-menu-panel')).toBeVisible();
- const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(12); // S68-09 READ-읽을거리함: 읽을 거리 추가(12). S48-27: 뉴스 클리핑은 Now 탭으로(한 칸 줄어 11), BRIEF-브리핑룸 ③: 브리핑 룸 추가(12), MULTI-처음쓰는사람 ④: 원장 메뉴 빠짐(11)
+ const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(11); // NOTE-게시 ③: 공유 페이지 빠짐(11). S68-09 READ-읽을거리함: 읽을 거리 추가(12). S48-27: 뉴스 클리핑은 Now 탭으로(한 칸 줄어 11), BRIEF-브리핑룸 ③: 브리핑 룸 추가(12), MULTI-처음쓰는사람 ④: 원장 메뉴 빠짐(11)
  // S48-6b(#1708 질문 4): 메뉴 줄은 보이는 36px, 누르는 범위(::after) 44px.
  const look=await tiles.evaluateAll(els=>els.map(e=>{const s=getComputedStyle(e),a=getComputedStyle(e,'::after'),h=e.getBoundingClientRect().height;return {bg:s.backgroundColor,color:s.color,border:s.borderTopColor,h:Math.round(h),touch:Math.round(h-parseFloat(a.top)-parseFloat(a.bottom))}}));
  for(const t of look){expect(t).toEqual(look[0]);expect(t.h).toBeLessThanOrEqual(60);expect(t.h).toBe(36);expect(t.touch).toBe(44)}

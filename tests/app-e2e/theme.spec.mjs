@@ -297,7 +297,7 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
 
 for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacent controls '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
- for(const view of ['calendar','tasks','projects','meetings','library','pages','team']){
+ for(const view of ['calendar','tasks','projects','meetings','library','team']){
   await clickView(page,view);await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
   const overlaps=await page.evaluate(()=>{
    const visible=el=>el.checkVisibility({checkVisibilityCSS:true});

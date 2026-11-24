@@ -39,7 +39,7 @@ async function checkLabels(page,width){
   // Retired controls stay absent, including on the Web1-backed board.
   for(const id of ['newPageBtn','inviteBtn','newGroupBtn'])await expect(page.locator('#'+id)).toHaveCount(0);
 }
-for(const width of [390,760,761,1280])for(const view of ['library','meetings','pages','projects'])test(`labels depend only on width ${width}, direct/refresh/calendar/home -> ${view}`,async({page})=>{
+for(const width of [390,760,761,1280])for(const view of ['library','meetings','projects'])test(`labels depend only on width ${width}, direct/refresh/calendar/home -> ${view}`,async({page})=>{
   await page.setViewportSize({width,height:900});
   await boot(page,view);await checkLabels(page,width);
   await page.reload();await ready(page,view);await checkLabels(page,width);

@@ -78,8 +78,8 @@ test('drawer consumes history before navigation, theme and logout',async({page})
     if(close==='back')await page.goBack();
     await expect(drawer).toBeHidden();await expect(page.locator('#homeView')).toBeVisible();
   }
-  // S68-37: 자료실은 처음 하단바 칸이라 메뉴 창에 없으므로 메뉴 창의 공유 페이지로 본다.
-  await trigger.click();await page.locator('#mobileMenu [data-view="pages"]').click();await expect(page.locator('#pagesView')).toBeVisible();
+  // S68-37: 자료실은 처음 하단바 칸이라 메뉴 창에 없으므로 메뉴 창의 조직 관리로 본다(공유 페이지 메뉴는 NOTE-게시 ③에서 없앰).
+  await trigger.click();await page.locator('#mobileMenu [data-view="team"]').click();await expect(page.locator('#teamView')).toBeVisible();
   await page.goBack();await expect(page.locator('#homeView')).toBeVisible();await expect(drawer).toBeHidden();
   await expect(trigger).toBeFocused();
   await trigger.click();await page.locator('#mobileMenu [data-theme-open]').click();await expect(page.locator('#themeModal')).toBeVisible();
@@ -131,13 +131,13 @@ test('KST date crosses the day boundary independently of the browser timezone',a
   await page.clock.setFixedTime(new Date('2026-10-05T16:00:00Z'));await open(page);
   await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 6일 화요일');
 });
-test('drawer item (공유 페이지) opens once and the account box has no copy-refresh row',async({page})=>{
+test('drawer item (조직 관리) opens once and the account box has no copy-refresh row',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
-  // The retired 성명·보도자료 item is gone from the drawer; a drawer item opens with one header name. S68-37: 자료실은 하단바 칸이라 공유 페이지로 본다.
+  // The retired 성명·보도자료 item is gone from the drawer; a drawer item opens with one header name. S68-37: 자료실은 하단바 칸이라 조직 관리로 본다.
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-mobile-press]')).toHaveCount(0);
   await expect(page.locator('#mobileMenu [data-view="media"]')).toHaveCount(0);
-  await page.locator('#mobileMenu [data-view="pages"]').click();
-  await expect(page.locator('#pagesView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('공유 페이지');
+  await page.locator('#mobileMenu [data-view="team"]').click();
+  await expect(page.locator('#teamView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('조직 관리');
   await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
   let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:'{}'})});
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-drive-summary-refresh]')).toHaveCount(0);

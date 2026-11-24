@@ -97,3 +97,62 @@ test('the migration goes through the expanded one-approval plan; the reader read
  assert.match(sql,/grant select \(page_id, note_id\) on table public\.app_note_share_pages to service_role;/);
  assert.doesNotMatch(sql,/to anon|to public\b/i);
 });
+
+// NOTE-게시 ③: 주인 화면이 게시하며 올린 사진(짝 페이지 사진 거울)만, 그 페이지 소속 사진 기록으로 짧게 서명해 보인다.
+// 받는 사람 요청 때 서버는 Drive를 읽지 않는다(이 읽기 함수에는 Drive 틈새가 없다). 첨부 파일 칸은 이름만.
+const {photoKey,noteMirror}=await import('../../supabase/functions/share-page-read/handler.ts');
+const PH={mine:'52000000-0000-4000-8000-000000000001',other:'52000000-0000-4000-8000-000000000002',gone:'52000000-0000-4000-8000-000000000003'};
+async function photoHarness({pairFail=false,mediaFail=false,pair=true}={}){
+ const page=P.note,note=N.a;
+ const mirror=[{type:'doc',doc:{v:'ed1',doc:{type:'doc',content:[
+  {type:'image',attrs:{src:'share:'+PH.mine,key:await photoKey(page,'drive:PHOTO_A')}},
+  {type:'image',attrs:{src:'share:'+PH.other,key:await photoKey(page,'drive:PHOTO_B')}},
+  {type:'image',attrs:{src:'share:'+PH.gone,key:await photoKey(page,'drive:PHOTO_C')}},
+ ]}}}];
+ const media=[{id:PH.mine,page_id:page,storage_path:`${page}/${PH.mine}.jpg`},{id:PH.other,page_id:P.old,storage_path:`${P.old}/${PH.other}.jpg`}];
+ const calls={media:[],sign:[]};
+ const handler=createShareReadHandler({
+  async linkByHash(x){return x===h(tok.note)?{page_id:page,token_hash:x,expires_at:null,disabled_at:null}:null;},
+  async pageById(id){return id===page?{id,title:'사본',blocks:mirror,status:'published'}:null;},
+  async noteForPage(){if(pairFail)throw new Error('down');return pair?{note_id:note}:null;},
+  async noteById(id){return id===note?{id,kind:'note',title:'사진 노트',raw_text:'',deleted_at:null,archived_at:null,doc:doc([
+   {type:'image',attrs:{src:'drive:PHOTO_A',alt:'현장'}},{type:'image',attrs:{src:'drive:PHOTO_B'}},{type:'image',attrs:{src:'drive:PHOTO_C'}},
+   {type:'image',attrs:{src:'drive:PHOTO_D'}},{type:'file',attrs:{src:'drive:FILE_E',name:'회의.pdf',size:2048}}])}:null;},
+  async mediaForPage(pid,ids){calls.media.push([pid,ids]);if(mediaFail)throw new Error('down');return media.filter(r=>r.page_id===pid&&ids.includes(r.id));},
+  async signMedia(path,sec){calls.sign.push([path,sec]);return 'https://example.supabase.co/storage/v1/object/sign/share-page-media/'+path+'?token=s';},
+ },{log:()=>{}});
+ return {handler,calls};
+}
+test('③ a mirrored note photo is shown only through this page\'s photo record, signed for 5 minutes; Drive and file ids never go out',async()=>{
+ const {handler,calls}=await photoHarness();
+ const r=await post(handler,{token:tok.note});
+ assert.equal(r.status,200);
+ const body=await r.json();
+ const out=body.page.blocks[0].doc.doc.content;
+ assert.deepEqual(out[0],{type:'image',attrs:{src:'share:'+PH.mine,alt:'현장'}});
+ assert.deepEqual(out.slice(1,4),[{type:'image',attrs:{}},{type:'image',attrs:{}},{type:'image',attrs:{}}],'another page\'s record, a missing record and an unmirrored photo stay places');
+ assert.deepEqual(out[4],{type:'file',attrs:{name:'회의.pdf',size:2048}},'an attachment card keeps only its name and size');
+ assert.deepEqual(Object.keys(body.media),[PH.mine]);
+ assert.doesNotMatch(JSON.stringify(body),/PHOTO_|FILE_E|drive:|"key"/);
+ assert.deepEqual(calls.media.map(c=>c[0]),[P.note],'records are asked only for this page');
+ assert.deepEqual(calls.sign,[[`${P.note}/${PH.mine}.jpg`,300]]);
+});
+test('③ the mirror alone is never shown: a failing pair lookup is 503, a page without its pair is 404, a failing photo lookup keeps the text',async()=>{
+ const failing=await photoHarness({pairFail:true});
+ assert.equal((await post(failing.handler,{token:tok.note})).status,503);
+ const orphan=await photoHarness({pair:false});
+ await notFound(await post(orphan.handler,{token:tok.note}));
+ assert.deepEqual(orphan.calls.media,[]);
+ const noMedia=await photoHarness({mediaFail:true});
+ const body=await (await post(noMedia.handler,{token:tok.note})).json();
+ assert.equal(body.page.title,'사진 노트');
+ assert.equal(body.media,undefined);
+ assert.doesNotMatch(JSON.stringify(body),/share:/);
+});
+test('③ noteMirror reads only the mirror shape (one doc block of keyed share photos); old pages are not mirrors',async()=>{
+ assert.equal(noteMirror([{type:'summary',text:'x'}]),null);
+ assert.equal(noteMirror([{type:'doc',doc:{v:'ed1',doc:{type:'doc',content:[{type:'image',attrs:{src:'share:'+PH.mine}}]}}}]),null,'a photo without a key is an ordinary share page photo');
+ assert.equal(noteMirror([{type:'doc',doc:{v:'ed1',doc:{type:'doc',content:[{type:'image',attrs:{src:'drive:X',key:'a'.repeat(64)}}]}}}]),null);
+ assert.equal(noteMirror([]).size,0);
+ assert.notEqual(await photoKey(P.note,'drive:A'),await photoKey(P.old,'drive:A'));
+});

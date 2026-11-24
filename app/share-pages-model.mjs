@@ -1,5 +1,5 @@
-// SHARE-현장공유 PR 2: block shapes and checks for share pages (app_share_pages.blocks), shared by the Web2 editor
-// (share-pages.js) and its tests. The database keeps the outer limits (6 types, 60 blocks, 256KB as jsonb text);
+// SHARE-현장공유 PR 2: block shapes and checks for share pages (app_share_pages.blocks), shared by the Web1 reader and the
+// note publishing path (note-publish*.{js,mjs}: shareUrl·linkState). The Web2 editor screen (share-pages.js) was removed (NOTE-게시 ③). The database keeps the outer limits (6 types, 60 blocks, 256KB as jsonb text);
 // the shape inside a block is decided here. The Web1 reader (share/share.js) reads the same shapes and draws text only.
 // Because that reader imports this file, it keeps to syntax older Samsung Internet parses (no ?. or ??; BUG-공유페이지삼성).
 //   summary  {type, text}                                 한 줄 현황
