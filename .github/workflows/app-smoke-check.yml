@@ -657,6 +657,9 @@ jobs:
       - name: Check library marquee picks folder rows (S69-69 LIB-사각형폴더)
         run: node --test tests/library-pick-folders.test.mjs
 
+      - name: Check shared select bar stays one line (S69-85 UI-고르기막대)
+        run: node --test tests/select-bar-model.test.mjs
+
       - name: Check schedule window photos and files (CAL-일정첨부)
         run: node --test tests/event-files.test.mjs
 

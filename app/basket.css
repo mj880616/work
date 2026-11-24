@@ -155,9 +155,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-count { flex:none; font-size:12px; color:var(--kptu-muted); white-space:nowrap; }
 #appView #basketView .note-list-head > button.note-folder-more { flex:none; font-size:20px; line-height:1; }
 .note-folder-status { margin:0 0 6px; color:var(--kptu-muted); font-size:13px; }
-.nx-select-bar:not([hidden]) { position:sticky; top:var(--kptu-stick-top,0px); z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:2px 0 4px; padding:4px 6px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); font-size:13px; }
-.nx-select-bar button { min-height:30px; padding:0 8px; font-size:13px; }
-.nx-select-bar .nx-sel-close { margin-left:auto; }
+/* UI-고르기막대(S69-85): 모양은 공용 .kptu-selbar(base-ui.css). 여기서는 위에 붙는 자리만. */
+.nx-select-bar:not([hidden]) { position:sticky; top:var(--kptu-stick-top,0px); z-index:3; }
 .nx-body { display:block; }
 /* UI-칸폭끌기전수: 나무 | 노트 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 30:70). */
 [data-note-list].nx-wide .nx-body { --ds-split-list:30fr; --ds-split-detail:70fr; --ds-split-list-min:180px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:10px; align-items:start; }

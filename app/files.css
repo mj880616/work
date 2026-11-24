@@ -102,9 +102,8 @@
 .fx-btn { height:26px; padding:0 8px; border:.5px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-sm); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:12px; cursor:pointer; }
 .fx-btn:hover { background:var(--kptu-surface-subtle); }
 /* S48-45 쓰기: 고른 것 한 줄 막대 · 고른 줄 · 옮기는 중인 줄(흐리게) · 끌어 놓을 폴더 · 휴지통 버튼 */
-.fx-bar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:32px; padding:3px 0; border-bottom:.5px solid var(--kptu-border); font-size:12px; }
+/* UI-고르기막대(S69-85): 고르기 막대 모양은 공용 .kptu-selbar(base-ui.css) 하나 — 여기서는 자리만 정한다. */
 .fx-bar[hidden] { display:none; }
-.fx-bar-t { color:var(--kptu-muted); margin-right:auto; }
 .fx-row.fx-picked { background:var(--kptu-primary-soft); box-shadow:inset 2px 0 0 var(--kptu-primary); }
 .fx-row.fx-cut { opacity:.55; }
 /* S51-24 폰 '그 폴더만'(나무와 같은 줄): 고름·잘라 둠은 누르는 단추에. */
@@ -163,8 +162,6 @@
 
 /* FILES-통합 2-① 복사(S49-27, 시안 files-unified-mockup.html ③④⑤). 고르기 막대는 옅은 강조 바탕(시안 ③), 받을 곳 창은 하단바 위로 열리는 창(④),
    전송 줄은 하단바 바로 위 얇은 줄(⑤ 아래 줄). 위치는 공용 하단바 높이 변수(--kptu-mobile-tab-height·--kptu-switch-dock)로만 띄운다. */
-.fx-bar:has(> [data-fx-copy]) { background:var(--kptu-primary-soft); border-bottom-color:var(--kptu-border-strong); padding:3px 4px 3px 10px; }
-.fx-bar:has(> [data-fx-copy]) .fx-bar-t { color:var(--kptu-primary-text); font-weight:600; font-size:13px; }
 .fx-pri { background:var(--kptu-primary); border-color:var(--kptu-primary); color:var(--kptu-on-primary); }
 .fx-pri:hover:not(:disabled) { background:var(--kptu-primary); filter:brightness(1.05); }
 .fx-askbox[hidden], .fx-xfer[hidden] { display:none; }
@@ -254,8 +251,6 @@
 .fx-drop-ask { position:fixed; z-index:58; display:flex; align-items:center; gap:6px; padding:6px 6px 6px 10px; border:1px dashed var(--kptu-primary); background:var(--kptu-surface); color:var(--kptu-ink); border-radius:8px; box-shadow:var(--kptu-shadow-float); font-size:12px; max-width:calc(100vw - 16px); }
 .fx-drop-t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-muted); }
 .fx-drop-t b { color:var(--kptu-primary-text); }
-.fx-bar:has(> [data-fx-send]) { background:var(--kptu-primary-soft); border-bottom-color:var(--kptu-border-strong); padding:3px 4px 3px 10px; }
-.fx-bar:has(> [data-fx-send]) .fx-bar-t { color:var(--kptu-primary-text); font-weight:600; font-size:13px; }
 .fx-ptop .fx-sort { background:var(--kptu-surface); border-color:var(--kptu-border); }
 /* S52-07 FILES-칸출처고르기(시안 morning-1107/4 1-A): 칸 머리 '원드라이브 ⌄' → 출처 네 줄. 목록은 칸 머리 아래 한 줄을 통째로 쓴다(칸이 짧아도 잘리지 않고 하단바에 가리지 않게).
    단추는 공용 글자 버튼(row-act)이고 여기서는 칸 머리 안 자리·굵기만 정한다. 꺾쇠는 고르기 표시(폴더 펼침 세모 아님). */
@@ -331,7 +326,7 @@
 /* UI-위쪽줄흰띠·여백(S55-19, 명진 11/10): 고정한 두 줄의 바탕은 화면 바탕(--kptu-bg) — 아스날(.ars-bar)·사진(.photos-bar)·전체 검색(.gs-view-bar)과 같이.
    흰색(--kptu-surface)으로 칠하면 화면 바탕 위에 흰 띠로 떠 보인다. 맨 위 줄 아래 선은 빼고(같은 바탕이라 칸 테두리와 겹선), 아래 칸과는 아스날 위쪽 줄과 같은 6px을 띄운다. */
 .fx.fx-split-scroll > .fx-top { position:sticky; top:var(--kptu-stick-top,0px); z-index:6; background:var(--kptu-bg); border-bottom:0; }
-.fx.fx-split-scroll > .fx-bar:not([hidden]) { position:sticky; top:calc(var(--kptu-stick-top,0px) + var(--fx-top-h,40px)); z-index:6; background:var(--kptu-bg); }
+.fx.fx-split-scroll > .fx-bar:not([hidden]) { position:sticky; top:calc(var(--kptu-stick-top,0px) + var(--fx-top-h,40px)); z-index:6; }
 .fx.fx-split-scroll > .fx-cols { margin-top:6px; }
 .fx.fx-split-scroll .fx-listcol.kptu-follow-pane { position:sticky; overflow-y:auto; overscroll-behavior:contain; }
 .fx.fx-split-scroll .fx-listcol.kptu-follow-pane > .fx-ptop { position:sticky; top:0; z-index:2; }

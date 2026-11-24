@@ -371,23 +371,37 @@ test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유
   expect(errors).toEqual([]);
 });
 
-// UI-고르기줄(S48-54, 요청함 11/03 07:44 ③): 노트 고르기 줄도 공용 부품(.kptu-actbar-text) — S69(11/24 '왼쪽 정렬')부터 왼쪽부터 촘촘히·같은 간격·글자 잘림 없음.
-for (const width of [412, 768, 1280]) test(`UI-선택줄: 노트 선택 줄 왼쪽부터 촘촘히·같은 간격 ${width}`, async ({ page }) => {
-  const { measureActBar, checkTextBar, textBarRows } = await import('./helpers/act-bar-measure.mjs');
+// UI-고르기막대(S69-85, 명진 11/25 "두줄로 삐져나오지 않게"): 노트 고르기 막대도 파일·자료실과 같은 공용 막대 — 늘 한 줄(높이 = 목록 줄 하나 이하),
+// 왼쪽 [✕] 'N개 선택됨', 오른쪽 테두리 없는 [전체 선택][폴더로 옮기기][삭제](삭제는 맨 끝·글자색만 경고색), 좁으면 아이콘만 → ⋯.
+for (const width of [390, 768, 1280]) test(`UI-고르기막대: 노트 선택 막대 한 줄 ${width}`, async ({ page }) => {
   const { mkdirSync } = await import('node:fs');
-  const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
+  const DIR = 'test-results/select-bar'; mkdirSync(DIR, { recursive: true });
   const f = await fixture(page, width);
   await showOutside(page, width);
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
   await press(page, page.locator('#noteDocMenu [data-nx-select]'), width);
-  await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
-  const m = await measureActBar(page, '[data-nx-select-bar] .nx-sel-acts');
-  checkTextBar(m, await textBarRows(page, '[data-nx-select-bar] .nx-sel-acts'), (a, e, l) => expect(a, l).toEqual(e), `노트 선택 줄 ${width}`);
-  expect(m.n).toBe(3);
-  expect(m.dangerText, '삭제 글자도 다른 버튼과 같은 색').toBe(await page.locator('[data-nx-sel-move]').evaluate(b => getComputedStyle(b).color));
-  for (const b of await page.locator('[data-nx-select-bar] .kptu-act').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(26);
-  await page.screenshot({ path: `${DIR}/s48-54-notes-select-${width}.png` });
-  process.stdout.write(`::notice title=s48-54 notes ${width}::${JSON.stringify({n: m.n, widths: m.widths, rows: m.rows, bar: m.barWidth})}\n`);
+  const bar = page.locator('[data-nx-select-bar]');
+  await expect(bar).toBeVisible();
+  const m = await bar.evaluate(el => {
+    const b = el.getBoundingClientRect();
+    const kids = [...el.querySelectorAll('.kptu-sb-count, button.kptu-sb-act')].filter(x => x.getClientRects().length && getComputedStyle(x).visibility !== 'hidden');
+    const mids = kids.map(x => { const r = x.getBoundingClientRect(); return r.top + r.height / 2; });
+    const buttons = kids.filter(x => x.matches('button'));
+    return { height: b.height, spread: Math.max(...mids) - Math.min(...mids), outside: kids.filter(x => x.getBoundingClientRect().right > b.right + 1).length,
+      first: buttons[0]?.getAttribute('aria-label'), last: buttons.at(-1)?.matches('[data-nx-sel-delete]'),
+      danger: getComputedStyle(el.querySelector('[data-nx-sel-delete]')).color, ink: getComputedStyle(el.querySelector('[data-nx-sel-all]')).color,
+      borders: buttons.map(x => getComputedStyle(x).borderTopWidth) };
+  });
+  expect(m.height, '한 줄 높이').toBeLessThanOrEqual(40);
+  expect(m.spread, '칸이 모두 한 줄').toBeLessThanOrEqual(2);
+  expect(m.outside).toBe(0);
+  expect(m.first).toBe('선택 끝내기');
+  expect(m.last, '삭제는 맨 끝').toBe(true);
+  expect(m.danger, '삭제만 경고색').not.toBe(m.ink);
+  expect(m.borders.every(w => w === '0px')).toBe(true);
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('0개 선택됨');
+  await page.screenshot({ path: `${DIR}/notes-${width}.png` });
+  process.stdout.write(`::notice title=select-bar notes ${width}::${JSON.stringify(m)}\n`);
   await page.keyboard.press('Escape');
   expect(f.errors).toEqual([]);
 });

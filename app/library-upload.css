@@ -255,19 +255,14 @@
 #appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}
 
 /* LIB-여러개삭제: [선택] 모드. 버튼은 UI-버튼기준(글자 버튼·28px, 누르는 범위 44px), 전체 칩은 거르기 칩과 같은 모양. */
-/* UI-고르기줄(S48-54): 버튼 배치(왼쪽부터 촘촘히·같은 간격)·글자 모양·누르는 범위 44px는 공용 부품(base-ui.css .kptu-actbar-text, 노트 고르기 줄과 같음). */
-#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger)}
+/* UI-고르기막대(S69-85): 선택 막대 모양(한 줄·✕ N개·아이콘 단추·⋯·빨간 글자 삭제)은 공용 부품(base-ui.css .kptu-selbar, app/select-bar.js) 하나. 여기서는 자리만. */
 #libraryView .lu-head-actions > [hidden]{display:none}
-.lu-select-bar{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;min-width:0;flex:1}
+.lu-select-bar{flex:1 1 auto}
 :is(.lu-bulk-menu) button{padding-left:calc(var(--kptu-space-3,12px) + var(--lu-depth,0) * 12px)}
 :is(.lu-bulk-menu) button[aria-current="true"] .lu-menu-key{display:inline;color:var(--kptu-primary-ink);font-weight:700}
 :is(.lu-bulk-menu) button:disabled{opacity:.55;cursor:default}
-#libraryListCard .lu-select-bar > *{flex:none;margin:0}
-#libraryListCard .lu-select-bar > .lu-select-acts{flex:1 1 auto;min-width:0}
 .lu-select-bar[hidden]{display:none}
-.lu-select-bar .filter-chips{flex:none;margin-right:4px;padding-top:0;padding-bottom:0;min-height:0}
-.lu-select-count{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap;margin-right:4px}
-.lu-select-row{display:flex;align-items:center;justify-content:flex-end;min-height:var(--ds-compact-height-sm,28px);margin:0 0 4px}
+.lu-select-row{display:flex;align-items:center;min-width:0;margin:0 0 4px}
 /* 빠짐9: 평소에는 선택 줄이 비어 있으니(⋯ 메뉴로 합침) 자리를 차지하지 않는다. */
 #libraryListCard:not(.lu-selecting) .lu-select-row{display:none}
 #appView #libraryView #documentList .lu-row.lu-row-picking{position:relative;padding-left:28px}
@@ -436,8 +431,6 @@
 /* LIB-선택모드(08:29~08:30 ②): 선택 모드는 평소와 다르다는 느낌만 작게 — 위 줄은 강조색 띠('n개 골랐음'), 목록 칸 테두리는 연한 강조색,
    들어갈 때 줄들이 한 번 0.2초 살짝 흔들리고 멈춤(계속 흔들지 않음). 움직임 줄이기 설정이면 흔들림 없이 색만. 나올 때는 그냥 원래대로. */
 #libraryListCard.lu-selecting{border-color:color-mix(in srgb,var(--kptu-primary-ink) 40%,var(--kptu-border))}
-#libraryListCard.lu-selecting .lu-select-row{padding:0 4px;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-primary-soft)}
-#libraryListCard.lu-selecting .lu-select-count{color:var(--kptu-primary-ink);font-weight:700}
 @keyframes lu-sel-nudge{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}50%{transform:translateX(2px)}75%{transform:translateX(-1px)}}
 #libraryListCard.lu-sel-enter #documentList .lu-row{animation:lu-sel-nudge .2s ease-out 1}
 @media(prefers-reduced-motion:reduce){#libraryListCard.lu-sel-enter #documentList .lu-row{animation:none}}

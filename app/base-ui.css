@@ -316,6 +316,31 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-actbar-text{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:0 var(--kptu-act-gap,8px);flex:1 1 auto;min-width:0}
 #appView .kptu-actbar-text>button.kptu-act{display:inline-flex;align-items:center;flex:0 1 auto;width:auto;max-width:100%;height:auto;min-height:var(--ds-compact-height-sm,28px);padding:2px;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1.25}
 @media(min-width:761px){#appView .kptu-actbar-icon>button.kptu-act{flex-direction:row;gap:4px;min-height:var(--ds-compact-height,32px);padding:0 4px;font-size:var(--ds-compact-text,13px)}}
+/* UI-고르기막대 (S69-85, 명진 11/25 00:37~00:42 "두줄로 삐져나오지 않게 … 좀더 세련되게"): 위쪽 고르기 막대 공용 모양(파일·자료실·노트·줄 고르기·사진 위 줄).
+   막대는 늘 한 줄·목록 줄 하나 높이(36px): 왼쪽 [✕] + 'N개', 오른쪽 테두리 없는 가벼운 단추(선 아이콘 16px + 짧은 글자), 휴지통은 맨 끝 — 바탕 없이 글자·아이콘만 경고색.
+   폭이 모자라면 select-bar.js가 ① 글자를 빼고 아이콘만(.kptu-sb-icons, 글자는 화면 읽기에 남음) ② 덜 쓰는 동작부터 ⋯ 하나로 접는다(.kptu-sb-folded = 보이지 않게 오른쪽 끝에 남김).
+   바탕은 옅은 강조색(--kptu-primary-soft, 불투명 — 위에 붙어도 뒤 글이 비치지 않고 흰 띠도 아님). 모든 색은 테마 변수. 막대의 자리(위 붙기 sticky 등)는 화면 CSS가 맡는다. */
+.kptu-selbar{position:relative;display:flex;flex-wrap:nowrap;align-items:center;gap:2px;box-sizing:border-box;min-width:0;height:var(--kptu-selbar-h,36px);min-height:0;margin:0 0 2px;padding:0 4px 0 2px;overflow:hidden;border:0;border-bottom:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:0;background:var(--kptu-primary-soft);color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1.2}
+.kptu-selbar[hidden]{display:none}
+.kptu-selbar .kptu-sb-count{flex:0 1 auto;min-width:0;margin:0 auto 0 2px;padding:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--kptu-primary-text);font-size:var(--ds-compact-text,13px);font-weight:600}
+.kptu-selbar.kptu-sb-measure .kptu-sb-count{flex-shrink:0;max-width:55%}
+.kptu-selbar .kptu-sb-note{margin-left:4px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
+.kptu-selbar .kptu-actbar,.kptu-selbar .kptu-sb-acts{display:flex;flex:none;flex-wrap:nowrap;justify-content:flex-end;align-items:center;gap:2px;min-width:0;margin:0}
+#appView .kptu-selbar button.kptu-sb-act{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;width:auto;min-width:30px;max-width:none;height:30px;min-height:0;margin:0;padding:0 6px;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;box-shadow:none;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:400;line-height:1;white-space:nowrap;word-break:normal;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#appView .kptu-selbar button.kptu-sb-act::after{content:none}
+#appView .kptu-selbar button.kptu-sb-act[hidden]{display:none}
+#appView .kptu-selbar button.kptu-sb-act:hover:not(:disabled){background:color-mix(in srgb,var(--kptu-ink) 8%,transparent)}
+#appView .kptu-selbar button.kptu-sb-act:focus-visible{outline:2px solid var(--kptu-focus,currentColor);outline-offset:-2px}
+#appView .kptu-selbar button.kptu-sb-act:is(:disabled,[aria-disabled="true"]){opacity:.4;cursor:default}
+#appView .kptu-selbar button.kptu-sb-danger{color:var(--kptu-danger)}
+#appView .kptu-selbar button.kptu-sb-close{color:var(--kptu-muted);padding:0;width:30px}
+#appView .kptu-selbar button.kptu-sb-more{padding:0;width:30px;color:var(--kptu-muted)}
+#appView .kptu-selbar .kptu-act-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--kptu-muted)}
+#appView .kptu-selbar .kptu-sb-danger .kptu-act-ic{color:inherit}
+#appView .kptu-selbar button.kptu-sb-act svg{display:block;width:16px;height:16px}
+#appView .kptu-selbar.kptu-sb-icons button.kptu-sb-act:has(>.kptu-act-ic){padding:0 7px}
+#appView .kptu-selbar.kptu-sb-icons button.kptu-sb-act:has(>.kptu-act-ic)>.kptu-act-tx{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+#appView .kptu-selbar button.kptu-sb-act.kptu-sb-folded{position:absolute;top:0;right:0;visibility:hidden;pointer-events:none}
 .kptu-notice-note{flex:1 0 100%;order:5;font-size:11px;opacity:.75}
 /* SHARE-바로넣기: 알림 안 한 줄 입력칸([메모 달기]). 알림 글처럼 촘촘하게, 눌러서 쓸 수 있게(바탕 알림은 누르기를 통과시킴). */
 .kptu-notice input.kptu-notice-input{pointer-events:auto;flex:1 1 160px;min-width:0;height:28px;box-sizing:border-box;margin:0;padding:0 8px;font:inherit;font-size:13px;color:var(--kptu-ink);background:var(--kptu-surface);border:0;border-radius:var(--kptu-radius-sm,6px)}
