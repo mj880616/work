@@ -7,6 +7,8 @@ export async function expandLibraryTree(page){
   await expect(page.locator('#libraryTopMenuBtn')).toBeVisible();
   await expect(page.locator('#documentList > *').first()).toBeAttached();
   const now=await libraryExpandItem(page);
+  // S69-28 LIB-한칸탐색기: 넓은 화면 폴더 묶기 한 칸은 탐색기(왼쪽 나무 | 오른쪽 그 폴더 내용)라 펼칠 묶음이 없고 [모두 펴기]도 없다 — 지금 자리 그대로.
+  if(now.missing)return;
   if(!now.disabled&&now.text==='모두 펴기')await libraryTopMenu(page,'expand');
   await expect.poll(()=>page.locator('#documentList details[data-lu-node]:not([open])').count()).toBe(0);
 }
@@ -46,9 +48,9 @@ export async function libraryTopMenu(page,act,{tap=false}={}){
 // 메뉴의 [모두 펴기·접기] 줄 글자와 눌림 여부를 읽고 메뉴를 닫는다(Esc).
 export async function libraryExpandItem(page){
   await page.locator('#libraryTopMenuBtn').click();
+  await expect(page.locator('#luTopMenu')).toBeVisible();
   const item=page.locator('#luTopMenu [data-lu-top="expand"]');
-  await expect(item).toBeVisible();
-  const out={text:(await item.textContent()).trim(),disabled:await item.isDisabled()};
+  const out=await item.count()?{text:(await item.textContent()).trim(),disabled:await item.isDisabled()}:{text:'',disabled:true,missing:true};
   await page.keyboard.press('Escape');
   await expect(page.locator('#luTopMenu')).toBeHidden();
   return out;

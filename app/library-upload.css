@@ -454,12 +454,16 @@
 /* SEARCH-선택옮기기 ⑤: 검색칸 오른쪽 작은 [결과 n개 모두 선택](자리는 아래 'LIB-위쪽한줄' 절). */
 #appView #libraryView .library-filter-toolbar .lu-search-row > .lu-search-pick-all{flex:none;min-height:30px;padding:2px 10px;font-size:12px;white-space:nowrap}
 @media (max-width:760px){#appView #libraryView .library-filter-toolbar .lu-search-row > .lu-search-pick-all{padding:2px 8px}}
-/* FILES-폴드나무목록 ⑦(S51-20 ④): 펼친 폴드·PC(600px~) 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 목록. 나무 칸은 카드 왼쪽에 붙고(목록과 함께 내려감),
-   안쪽은 화면 위에 붙어 따로 굴러간다. 줄 모양은 공용 폴더 줄(folder-tree.css ft-). 폰은 그대로(이 칸 없음). */
+/* FILES-폴드나무목록 ⑦(S51-20 ④): 펼친 폴드·PC(600px~) 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 목록. 줄 모양은 공용 폴더 줄(folder-tree.css ft-). 폰은 그대로(이 칸 없음).
+   S69-28 LIB-한칸탐색기(명진 11/24 '화면 깨짐'·'펼치면 창이 같이 늘어나야'): 나무 칸은 카드 안 흐름(float)이라 카드(흰 상자)가 나무·목록 중 긴 쪽만큼 늘어난다.
+   칸 안 스크롤·화면 높이 자르기는 없다 — 화면 스크롤 하나. (원인: 예전에는 나무 칸을 카드 높이에 묶어 두고(position:absolute;top:0;bottom:0)
+   안쪽만 화면 높이까지(max-height 100dvh) 키워서, 오른쪽 목록이 짧으면 안쪽이 카드 아래 테두리를 뚫고 밖으로 그려졌다.)
+   폭은 카드 왼쪽 여백(padding)과 나무 칸 폭이 같은 값이어야 해서 %(둘의 기준 폭이 다름) 대신 화면 폭(vw)으로 정한다. 가운데 세로 선은 카드 높이 전체(::before). */
 @media(min-width:600px){
-  #appView #libraryListCard[data-lu-split]{position:relative;padding-left:calc(var(--lu-fnav-w) + 12px);min-height:320px;--lu-fnav-w:clamp(180px,28%,300px)}
-  #libraryFolderNav{position:absolute;left:0;top:0;bottom:0;width:var(--lu-fnav-w);border-right:.5px solid var(--kptu-border)}
-  #libraryFolderNav .lu-fnav-in{position:sticky;top:var(--follow-top,8px);max-height:calc(100dvh - var(--follow-top,8px) - 24px);overflow:auto;padding:4px 6px 8px 0}
+  #appView #libraryListCard[data-lu-split]{display:flow-root;position:relative;padding-left:calc(var(--lu-fnav-w) + 12px);min-height:320px;--lu-fnav-w:clamp(180px,24vw,300px)}
+  #appView #libraryListCard[data-lu-split]::before{content:"";position:absolute;top:0;bottom:0;left:var(--lu-fnav-w);border-left:.5px solid var(--kptu-border);pointer-events:none}
+  #libraryFolderNav{float:left;box-sizing:border-box;width:var(--lu-fnav-w);margin-left:calc(-1 * var(--lu-fnav-w) - 12px)}
+  #libraryFolderNav .lu-fnav-in{padding:0 6px 4px 0}
   #libraryFolderNav .ft-row .ft-main{min-height:30px;font-size:12.5px}
   #libraryFolderNav .ft-current>.ft-main{background:var(--kptu-primary-soft);color:var(--kptu-primary-text);border-radius:var(--kptu-radius-sm,6px)}
 }
@@ -550,8 +554,9 @@
 #documentList .lu-pane.lu-drop-place{border-style:dashed;border-color:var(--kptu-primary)}
 #documentList .lu-two-bar{display:flex;align-items:center;gap:6px;margin-top:6px;padding:4px 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,8px);background:var(--kptu-surface);font-size:12px}
 #documentList .lu-two-bar[hidden]{display:none}
-#libraryView .lu-two-toggle{flex:none;min-height:30px;padding:2px 10px;font-size:12px;white-space:nowrap}
-#libraryView .lu-two-toggle[aria-pressed="true"]{border-color:var(--kptu-primary);background:var(--kptu-primary-soft)}
+/* S69-28 LIB-보기두칸: [한 칸 | 두 칸]은 공용 ⑤ 보기 바꾸기(ds-seg) 모양 그대로(높이·글자·칸 모양은 ui-standard.css 한 곳). 여기는 자리만. */
+#libraryView .lu-view-seg{flex:none;white-space:nowrap}
+#libraryView .lu-view-seg .lu-view-ic{flex:none}
 #documentList [data-lu-pane-i] .ft-row.lu-drop-into>.ft-main,#documentList [data-lu-pane-i] .ft-row.lu-drop-place>.ft-main{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}
 #documentList [data-lu-pane-i] .ft-row.lu-drop-no>.ft-main{opacity:.55}
 /* UI-펼친폴더안놓기전체(S60-13): 칸 안 펼친 폴더 묶음 위로 끌면 그 폴더 줄 + 안의 자료 묶음 전체를 옅은 바탕 하나로, 폴더 줄에 '여기에 놓기'(한 칸 목록과 같은 표시). */
@@ -616,3 +621,8 @@
 .lu-row.lu-row-has-brief,#appView #libraryView #documentList .lu-row.lu-row-has-brief{flex-wrap:wrap;row-gap:0}
 .lu-row-brief{flex:1 0 100%;order:9;min-width:0;margin-top:-2px;padding-left:2px;line-height:1.35;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #appView #libraryView #documentList .lu-row .lu-row-brief{grid-column:1/-1}
+
+/* S69-28 LIB-한칸탐색기: 탐색기 칸(목록)의 하위 폴더 줄은 펼치지 않고 들어가는 줄 — 펼침 표시 없이 닫힌 폴더 그림만, 줄 모양은 폴더 줄 그대로.
+   폰 '그 폴더만' 위치 줄 끝의 지금 폴더 이름(상자 머리 대신 한 번). */
+#documentList details.lu-enter > summary.lu-node-head{cursor:pointer}
+#libraryPath .lu-focus-here{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--kptu-ink);font-weight:700}

@@ -8,6 +8,11 @@ const ITEMS=[{document_id:'a-1',folder_id:'fc'},{document_id:'n-1',folder_id:'fa
 const head=key=>`#documentList details[data-lu-node="${key}"] > summary`;
 const row=id=>`[data-lu-document="${id}"]`;
 const line=page=>page.locator('#libraryFolderStatusLine');
+// S69-28 LIB-한칸탐색기: PC 한 칸 폴더 보기는 탐색기(왼쪽 나무 | 오른쪽 지금 자리 내용). 맨 위 자리는 왼쪽 나무 '자료실 전체' 줄, 폴더는 나무 줄로도 놓는다.
+const nav=id=>`#libraryFolderNav [data-lu-nav="${id}"]`;
+const go=async(page,id)=>{await page.locator(nav(id)).click();await expect(page.locator(nav(id))).toHaveAttribute('aria-current','true')};
+// 찾는 글자가 있으면 한 칸 목록은 예전 나무 목록(찾은 것을 펼쳐 보임) — 펼친 폴더 안 줄에 놓기·머물면 열림 규칙은 거기서 본다.
+const treeList=async page=>{await page.locator('#documentSearch').fill('자료');await expect(page.locator('#documentList details[data-lu-node="x:out"]')).toBeAttached()};
 async function dragTo(page,from,to,{edge='middle'}={}){
   await page.evaluate(({from,to,edge})=>{
     const src=document.querySelector(from),dst=document.querySelector(to),dt=new DataTransfer(),r=dst.getBoundingClientRect();
@@ -33,15 +38,15 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     expect(s.docs.find(d=>d.id==='a1-1').project_id).toBe('child-a1');
     await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');// 서버 쪽 반영만이 아니라 화면의 되돌리기 끝(다시 불러오기까지)을 기다린다. 끝나기 전 다음 끌기는 처리 중이라 무시된다.
     await expect.poll(()=>s.items.some(x=>x.document_id==='a1-1')).toBe(false);
-    // 이미 들어 있는 폴더에는 놓을 수 없다. 폴더 안 자료를 '폴더 밖' 머리에 놓으면 폴더에서 나온다.
-    await expandLibraryTree(page);
-    r=await dragTo(page,row('n-1'),head('f:fa'));expect(r.allowed).toBe(false);expect(r.cls).toContain('lu-drop-no');
-    r=await dragTo(page,row('n-1'),head('x:out'));expect(r.allowed).toBe(true);
+    // 이미 들어 있는 폴더(나무 줄)에는 놓을 수 없다. 폴더 안 자료를 나무 '자료실 전체'(맨 위)에 놓으면 폴더에서 나온다.
+    await go(page,'fa');
+    r=await dragTo(page,row('n-1'),nav('fa'));expect(r.allowed).toBe(false);
+    r=await dragTo(page,row('n-1'),nav(''));expect(r.allowed).toBe(true);
     await expect.poll(()=>s.items.some(x=>x.document_id==='n-1')).toBe(false);
     await expect(line(page)).toContainText('옮겼어요');
-    // 폴더 밖 자료는 '폴더 밖' 머리에 놓을 수 없다.
-    await expandLibraryTree(page);
-    r=await dragTo(page,row('a-2'),head('x:out'));expect(r.allowed).toBe(false);
+    // 폴더 밖 자료는 맨 위('자료실 전체')에 놓을 수 없다.
+    await go(page,'');
+    r=await dragTo(page,row('a-2'),nav(''));expect(r.allowed).toBe(false);
     expect(errors).toEqual([]);
   });
 
@@ -54,15 +59,16 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     await expect(line(page)).toContainText('폴더를 옮겼어요');
     await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');// 서버 쪽 반영만이 아니라 화면의 되돌리기 끝(다시 불러오기까지)을 기다린다. 끝나기 전 다음 끌기는 처리 중이라 무시된다.
     await expect.poll(()=>s.folders.find(f=>f.id==='fn').parent_id).toBeNull();
-    await expandLibraryTree(page);
-    // 자기 아래(가상 C는 가상 A 안)로 A를 넣을 수는 없다.
-    const n=s.writes.length;r=await dragTo(page,head('f:fa'),head('f:fc'));expect(r.allowed).toBe(false);expect(r.cls).toContain('lu-drop-no');expect(s.writes.length).toBe(n);
-    // 안에 있는 가상 C를 맨 위('폴더 밖' 머리)로.
-    r=await dragTo(page,head('f:fc'),head('x:out'));expect(r.allowed).toBe(true);
+    // 자기 아래(가상 C는 가상 A 안)로 A를 넣을 수는 없다(나무에서 A를 펼쳐 C 줄에).
+    await page.locator('#libraryFolderNav [data-lu-nav-tog="fa"]').click();
+    const n=s.writes.length;r=await dragTo(page,head('f:fa'),nav('fc'));expect(r.allowed).toBe(false);expect(s.writes.length).toBe(n);
+    // 안에 있는 가상 C를 맨 위(나무 '자료실 전체')로.
+    await go(page,'fa');
+    r=await dragTo(page,head('f:fc'),nav(''));expect(r.allowed).toBe(true);
     await expect.poll(()=>s.folders.find(f=>f.id==='fc').parent_id).toBeNull();
     await expect(line(page)).toContainText('폴더를 옮겼어요');// 서버 반영 뒤에도 앱은 다시 불러오는 중(처리 중)이라 다음 끌기를 무시한다. 끝 신호 = 상태 줄 글.
     // 같은 상위(맨 위) 안에서 N을 A 앞(위 끝)으로.
-    await expandLibraryTree(page);
+    await go(page,'');
     r=await dragTo(page,head('f:fn'),head('f:fa'),{edge:'top'});expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-before');
     await expect.poll(()=>s.folders.filter(f=>!f.parent_id).sort((a,b)=>a.sort_order-b.sort_order)[0].id).toBe('fn');
     await expect(line(page)).toContainText('순서를 바꿨어요');
@@ -157,7 +163,7 @@ test.describe('폰 390 길게 누르기',()=>{
 test.describe('PC 1280 자료 줄 위에 놓기·머물면 열림',()=>{
   test('열린 폴더 안 자료 줄 위에 놓으면 그 폴더로, 폴더 밖 줄이면 폴더 밖으로',async({page})=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
-    await expandLibraryTree(page);
+    await treeList(page);await expandLibraryTree(page);
     const over=await page.evaluate(({from,to})=>{
       const src=document.querySelector(from),dst=document.querySelector(to),dt=new DataTransfer(),r=dst.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
       src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
@@ -170,41 +176,53 @@ test.describe('PC 1280 자료 줄 위에 놓기·머물면 열림',()=>{
     await expect.poll(()=>s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fa');
     await expect(line(page)).toContainText('옮겼어요');
     // 폴더 밖 자료 줄(a1-1) 위에 폴더 안 자료(a-1)를 놓으면 폴더 밖으로.
-    await expandLibraryTree(page);
+    await treeList(page);await expandLibraryTree(page);
     const r=await dragTo(page,row('a-1'),row('a1-1'));expect(r.allowed).toBe(true);
     await expect.poll(()=>s.items.some(x=>x.document_id==='a-1')).toBe(false);
     // 같은 폴더 안 다른 줄 위(이미 그 폴더)는 놓을 수 없다.
-    await expandLibraryTree(page);
+    await treeList(page);await expandLibraryTree(page);
     const same=await dragTo(page,row('n-1'),row('a-2'));expect(same.allowed).toBe(false);
     expect(errors).toEqual([]);
   });
   // S59-9 LIB-펼친폴더안놓기: 두 칸 보기에 같은 규칙을 넓히면서 한 칸 목록은 그대로인지 — 여러 겹 열린 폴더면 가장 가까운(안쪽) 폴더, 표시는 그 폴더 머리.
   test('한 칸 목록 그대로: 여러 겹 열린 폴더 안 자료 줄 위에 놓으면 안쪽 폴더로, 이미 든 폴더는 놓을 수 없음',async({page})=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
-    await expandLibraryTree(page);
+    await treeList(page);await expandLibraryTree(page);
     await expect(page.locator('#documentList [data-lu-two]')).toHaveCount(0);
     const r=await dragTo(page,row('a1-1'),row('a-1'));expect(r.allowed).toBe(true);
     await expect.poll(()=>s.items.find(x=>x.document_id==='a1-1')?.folder_id).toBe('fc');
     await expect(line(page)).toContainText('옮겼어요 1개 → 가상 C 폴더');
-    await expandLibraryTree(page);
+    await treeList(page);await expandLibraryTree(page);
     const same=await dragTo(page,row('a1-1'),row('a-1'));expect(same.allowed).toBe(false);
     expect(errors).toEqual([]);
   });
   test('끄는 채 닫힌 폴더 위에 1초 머물면 열리고, 바로 지나가면 열리지 않는다',async({page})=>{
     const {errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
-    await libraryNodeHead(page,'x:out').click();await expect(page.locator(row('a-2'))).toBeVisible();
-    const result=await page.evaluate(async({from,fa,fn})=>{
+    // 찾기 목록(나무)에서는 머물면 열린다. 탐색기 칸의 폴더 줄은 펼치지 않는 줄이라 열리지 않는다(아래 끝).
+    await treeList(page);await libraryNodeHead(page,'f:fa').click();
+    await expect.poll(()=>page.locator('#documentList details[data-lu-node="f:fa"]').evaluate(d=>d.open)).toBe(false);await expect(page.locator(row('a-2'))).toBeVisible();
+    const result=await page.evaluate(async({from,fa,out})=>{
       const src=document.querySelector(from),dt=new DataTransfer(),at=sel=>{const el=document.querySelector(sel),r=el.getBoundingClientRect();return {el,x:r.left+r.width/2,y:r.top+r.height/2}};
       const over=({el,x,y})=>el.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:x,clientY:y}));
+      const isOpen=()=>document.querySelector('#documentList details[data-lu-node="f:fa"]').open;
       src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
-      // 폴더 N 위를 잠깐 지나 폴더 A로: N은 열리지 않는다.
-      over(at(fn));await new Promise(r=>setTimeout(r,300));over(at(fa));
-      // 1초 머무름 타이머가 돌 시간을 고정으로 두지 않고, 열릴 때까지(최대 8초) 본다. 느린 CI에서도 같다.
-      for(let i=0;i<160&&!document.querySelector('#documentList details[data-lu-node="f:fa"]').open;i++)await new Promise(r=>setTimeout(r,50));
-      const out={fa:document.querySelector('#documentList details[data-lu-node="f:fa"]').open,fn:document.querySelector('#documentList details[data-lu-node="f:fn"]').open};
-      src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));return out;
-    },{from:row('a-2'),fa:head('f:fa'),fn:head('f:fn')});
+      // 폴더 A 위를 잠깐 지나 '폴더 밖' 머리로: A는 열리지 않는다.
+      over(at(fa));await new Promise(r=>setTimeout(r,300));over(at(out));await new Promise(r=>setTimeout(r,1300));
+      const passed=isOpen();
+      // 다시 A 위에 머물면 열린다. 1초 머무름 타이머가 돌 시간을 고정으로 두지 않고, 열릴 때까지(최대 8초) 본다. 느린 CI에서도 같다.
+      over(at(fa));
+      for(let i=0;i<160&&!isOpen();i++)await new Promise(r=>setTimeout(r,50));
+      const out2={fa:isOpen(),fn:passed};
+      src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));return out2;
+    },{from:row('a-2'),fa:head('f:fa'),out:head('x:out')});
     expect(result).toEqual({fa:true,fn:false});
+    // 탐색기 칸(찾는 글자 없음): 폴더 줄 위에 오래 머물러도 열리지 않는다(놓으면 그 폴더 안).
+    await page.locator('#documentSearch').fill('');await expect(page.locator('#libraryFolderNav')).toBeVisible();await expect(page.locator('#documentList details[data-lu-node="f:fa"][data-lu-enter]')).toBeAttached();
+    const stay=await page.evaluate(async({from,fa})=>{const src=document.querySelector(from),dt=new DataTransfer(),el=document.querySelector(fa),r=el.getBoundingClientRect();
+      src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
+      for(let i=0;i<30;i++){el.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:r.left+r.width/2,clientY:r.top+r.height/2}));await new Promise(res=>setTimeout(res,60))}
+      const open=document.querySelector('#documentList details[data-lu-node="f:fa"]').open;src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));return open},{from:row('a-2'),fa:head('f:fa')});
+    expect(stay).toBe(false);
     expect(errors).toEqual([]);
   });
 });
