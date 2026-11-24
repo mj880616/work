@@ -17,7 +17,7 @@ import { readTaskFiles, fileLinksHtml, mountTaskAttach, applyTaskAttachPlan, tas
 import { paintFreshness } from './data-freshness.js';
 import { mountSplitResize } from './split-resize.js';
 import { followPane } from './follow-pane.js';
-import { createTaskInline, moreButtonHtml } from './task-inline.js';
+import { createTaskInline, moreButtonHtml, openTaskDue, closeTaskDue, shortName, toast as inlineToast } from './task-inline.js';
 import { connectNoteFor, connectText } from './connect-note.mjs'; // S62-16 TASK-구글할일연결문구: 처음 = '연결', 권한 빠짐 = '다시 연결'(글 한 줄 → 아래 버튼 공용 부품)
 import { noteChecked, noteUnchecked, checkPopAttr } from './check-motion.js'; // UI-누름움직임: 방금 끝낸 할 일의 체크 움직임(모든 목록 공용)
 import { bindRowSwipe, PICK } from './row-swipe.js';
@@ -74,8 +74,9 @@ function section(){
   sec.querySelector('[data-gt-info]').onclick=openScope;
   if(!taskMenu)taskMenu=createAnchoredMenu({id:'gtTaskMenu',className:'gt-task-menu',label:'할 일 관리',historyKey:'kptuTaskMenu',key:trigger=>trigger.dataset.gtMenu,onClose:()=>{if(taskRenderPending){taskRenderPending=false;renderTasks(lastTasks)}},
     // TASK-파일붙이기: "파일 붙이기" only once the server and table answered action=files for this owner.
-    render:()=>'<button type="button" data-gt-menu-action="edit">수정</button>'+(filesSupported()?'<button type="button" data-gt-menu-action="files">파일 붙이기</button>':'')+'<button type="button" class="gt-menu-danger" data-gt-menu-action="delete">삭제</button>',
-    onAction:(button,active)=>{active.trigger.focus({preventScroll:true});const action=button.dataset.gtMenuAction,task=lastTasks.find(t=>t.id===active.id);if(action==='edit'){if(task)openEditor(task,{docked:true,picked:true})}else if(action==='files'){if(task)openFiles(task)}else queueDelete(active.id)}
+    // S69-18(명진 11/24): [수정] 바로 아래 [기한 바꾸기] — 메뉴 자리에 작은 기한 고르기(task-inline.js 날짜 칸), 고르면 바로 저장·5초 [되돌리기]. 끝낸 할 일에는 없다.
+    render:id=>'<button type="button" data-gt-menu-action="edit">수정</button>'+(lastTasks.find(t=>t.id===id)?.status==='completed'?'':'<button type="button" data-gt-menu-action="due">기한 바꾸기</button>')+(filesSupported()?'<button type="button" data-gt-menu-action="files">파일 붙이기</button>':'')+'<button type="button" class="gt-menu-danger" data-gt-menu-action="delete">삭제</button>',
+    onAction:(button,active)=>{active.trigger.focus({preventScroll:true});const action=button.dataset.gtMenuAction,task=lastTasks.find(t=>t.id===active.id);if(action==='edit'){if(task)openEditor(task,{docked:true,picked:true})}else if(action==='due'){chooseTaskDue(active.id,active.trigger)}else if(action==='files'){if(task)openFiles(task)}else queueDelete(active.id)}
   });
   return sec;
 }
@@ -318,6 +319,21 @@ function announceQuickDue(task,{day,prev}){
     try{const next=await moveTaskToDay(task,prev);if(owner===currentOwner()){taskSaved(next)}return {status:'restored',message:'기한을 되돌려 놨어요.'}}
     catch{return {status:'failed',message:'기한을 되돌리지 못했어요.'}}
   }});
+}
+// S69-18 TASK-메뉴기한: 할 일 화면 ⋯·우클릭 [기한 바꾸기]. 날짜 칸은 다른 할 일 줄과 같은 task-inline.js 것([오늘][내일][모레][다음주][기한 없음] + 달력),
+// 저장은 수정 창의 빠른 기한과 같은 google-tasks action=update(task-due.mjs moveTaskToDay), 알림은 수정 창과 같은 announceQuickDue('… [되돌리기]').
+// 그 할 일이 PC 상세 칸에 열려 있으면 칸의 빠른 기한(dockQuick)으로 넘겨 칸에서 고치던 내용과 한 번에 저장한다.
+const dueMoving=new Set();
+function chooseTaskDue(id,anchor){const task=lastTasks.find(t=>t.id===id);if(!task||task.status==='completed'||!anchor?.isConnected)return;openTaskDue(anchor,{name:shortName(task.title),value:dueDay(task),onPick:day=>void pickTaskDue(id,day)})}
+async function pickTaskDue(id,day){
+  const task=lastTasks.find(t=>t.id===id);if(!task||pendingDeletes.has(id)||dueMoving.has(id))return;
+  const prev=dueDay(task);if(day===prev)return;
+  const m=document.querySelector('#gtTaskModal');
+  if(editing?.id===id&&m&&!m.classList.contains('hidden')){if(isDocked()&&editorReady){dockQuick(day);return}inlineToast('할 일을 저장하는 중이에요. 잠시 뒤 다시 눌러 주세요.');return}
+  const owner=currentOwner();dueMoving.add(id);
+  try{const next=await moveTaskToDay(task,day,rt);if(owner!==currentOwner())return;taskSaved(next);announceQuickDue(next,{day,prev})}
+  catch(error){if(owner===currentOwner())inlineToast(error?.message&&!error.status?error.message:'기한을 바꾸지 못했어요. 다시 시도해 주세요.')}
+  finally{dueMoving.delete(id)}
 }
 async function saveEditor(opt){
   const quick=opt&&typeof opt==='object'&&opt.quick&&typeof opt.quick==='object'?opt.quick:null;
@@ -564,8 +580,9 @@ function renderTasks(tasks){
   // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 할 일 줄 — 왼쪽으로 밀기 [완료]/[완료 취소](✓와 같은 길, 다시 밀면 되돌아감).
   // S68-31(명진 11/23 02:24): 맨 끝에 [삭제] — ⋯ [삭제]와 같은 queueDelete(5초 '삭제 대기 [되돌리기]' 뒤에 지움). 삭제가 맨 끝이라 끝까지 밀어도 칸만 열린다.
   // 오른쪽으로 밀기 [선택] → 'n개 선택됨 · [완료]'(할 일에는 여러 개 삭제 길이 없어 [삭제]는 두지 않는다).
-  bindRowSwipe(body,{row:'.gt-row[data-google-task]',actions:el=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);return t?{start:PICK,end:[{key:'toggle',label:t.status==='completed'?'완료 취소':'완료',tone:'info'},{key:'delete',label:'삭제',tone:'danger'}]}:null},
-    run:(key,el)=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);if(!t)return;if(key==='toggle')toggleTask(t);else if(key==='delete')queueDelete(t.id)},
+  bindRowSwipe(body,{row:'.gt-row[data-google-task]',actions:el=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);return t?{start:PICK,end:[{key:'toggle',label:t.status==='completed'?'완료 취소':'완료',tone:'info'},...(t.status==='completed'?[]:[{key:'due',label:'기한',tone:'warning',icon:'clock'}]),{key:'delete',label:'삭제',tone:'danger'}]}:null},
+    // S69-18: 가운데 [기한](칸 3개 — 4개를 넘지 않음) = ⋯ [기한 바꾸기]와 같은 날짜 칸, 그 줄 ⋯ 자리에 연다.
+    run:(key,el)=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);if(!t)return;if(key==='toggle')toggleTask(t);else if(key==='due')chooseTaskDue(t.id,el.querySelector('[data-gt-menu]'));else if(key==='delete')queueDelete(t.id)},
     select:{attr:'data-google-task',label:'선택한 할 일',acts:()=>[{key:'done',label:'완료'}],run:async(key,ids)=>{if(key!=='done')return;for(const id of ids){const t=lastTasks.find(x=>x.id===id);if(t&&t.status!=='completed')toggleTask(t)}}}});
   body.querySelectorAll('[data-gt-edit]').forEach(b=>b.onclick=()=>{const task=lastTasks.find(t=>t.id===b.dataset.gtEdit);if(task)openEditor(task,{docked:pc,picked:pc})});
   body.querySelectorAll('[data-gt-menu]').forEach(b=>b.onclick=()=>taskMenu.open(b));

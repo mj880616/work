@@ -271,17 +271,16 @@
 .cwv-items .clv-event[data-cwv-lines="0"] .clv-title{display:block;white-space:nowrap;line-height:16px;min-width:0;flex:1 1 auto}
 .cwv-now{position:absolute;z-index:2;left:0;right:0;height:2px;margin-top:-1px;background:var(--kptu-danger);pointer-events:none}
 .cwv-now::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--kptu-danger)}
-.cwv-tip{display:none;position:absolute;z-index:20;top:100%;left:0;box-sizing:border-box;width:max-content;max-width:220px;padding:6px 8px;border-radius:var(--kptu-radius-sm);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:16px;font-weight:400;white-space:normal;overflow-wrap:anywhere;pointer-events:none;box-shadow:var(--kptu-shadow-float)}
-.cwv-day:nth-of-type(n+5) .cwv-tip{left:auto;right:0}
-.cwv-items .clv-event.cwv-clipped:hover .cwv-tip,.cwv-items .clv-event.cwv-clipped:focus-visible .cwv-tip{display:block}
+/* CAL-말풍선통일(S69-21): 달력 말풍선 하나(calendar-tip.js). 줄 안 마디지만 화면 기준으로 떠서 칸 흐름·칸 잘림과 상관없다.
+   자리(top·left)는 부품이 줄 아래(모자라면 위)·화면 가장자리 안으로 정한다. 제목이 잘린 줄에만, 마우스·키보드 초점일 때만 만든다. */
+.cwv-tip{display:none;position:fixed;z-index:20;top:0;left:0;box-sizing:border-box;width:max-content;max-width:min(260px,calc(100vw - 16px));padding:6px 8px;border-radius:var(--kptu-radius-sm);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:16px;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere;pointer-events:none;box-shadow:var(--kptu-shadow-float)}
+.cwv-tip-open>.cwv-tip{display:block}
 .cwv-items .clv-color{display:none}
 .cwv-create{position:absolute;inset:44px 0 0;width:100%;min-width:44px;min-height:44px;border:0;background:transparent;border-radius:var(--kptu-radius-sm);cursor:pointer}
 .cwv-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 .cwv-bands{grid-column:2 / -1;grid-row:1;align-self:start;position:sticky;top:var(--cwv-head);z-index:6;box-sizing:border-box;height:var(--cwv-band-height,0px);margin-top:var(--cwv-head);display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:44px;gap:4px 0;padding:2px 0;pointer-events:none}
 .cwv-bands[hidden]{display:none}
 #calendarWeek .cwv-bands .cal-event.cmv-event{position:relative;overflow:visible}
-.cwv-bands .cwv-tip-end>.cwv-tip{left:auto;right:0}
-.cwv-bands .cmv-event.cwv-clipped:hover>.cwv-tip,.cwv-bands .cmv-event.cwv-clipped:focus-visible>.cwv-tip{display:block}
 #calendarWeek .cal-event.cmv-event{box-sizing:border-box;height:44px;min-height:44px;line-height:16px;font-size:12px;padding:0 6px;margin:0 2px}
 #calendarWeek .cmv-event-time{font-size:12px}
 /* CAL-끌어옮기기(PC 마우스): 끌 수 있는 일정은 잡기 커서, 아래·오른쪽 끝 6px는 길이 손잡이. 끄는 동안 원래 카드는 흐리게, 옮겨 갈 자리에
@@ -292,7 +291,6 @@
   .cwv-band-resize{position:absolute;top:0;bottom:0;right:0;width:6px;cursor:ew-resize}
 }
 #calendarWeek.cwv-dragging,#calendarGrid.cmv-dragging{cursor:grabbing;user-select:none}
-#calendarWeek.cwv-dragging .cwv-tip{display:none!important}
 .cwv-drag-source,.cmv-drag-source{opacity:.4}
 .cwv-drag-preview{position:absolute;z-index:4;left:1px;right:1px;box-sizing:border-box;padding:1px 4px;border:2px dashed var(--kptu-primary);border-radius:var(--kptu-radius-sm);background:color-mix(in srgb,var(--kptu-primary-soft) 80%,transparent);color:var(--kptu-primary-ink);font-size:12px;line-height:15px;font-weight:700;pointer-events:none;overflow:hidden;white-space:nowrap}
 .cwv-bands .cwv-drag-preview{position:relative;left:auto;right:auto;height:44px;margin:0 2px;display:flex;align-items:center}
