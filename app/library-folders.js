@@ -437,7 +437,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function hoverOpen(t){
     if(t?.nav)t=null;
     const node=t?.head?.parentElement,key=node?.dataset?.luNode||'';
-    // S69-28: 탐색기 칸의 하위 폴더 줄(data-lu-enter)은 펼치지 않는 줄이라 머물러도 열지 않는다(놓으면 그 폴더 안).
+    // S69-28·S69-68: 탐색기 칸의 0단 폴더 줄(data-lu-enter)은 끄는 중 머물러도 열지 않는다(놓으면 그 폴더 안 — 끄는 동안 칸 모양이 바뀌지 않게).
     const want=node&&!node.open&&!node.hasAttribute?.('data-lu-enter')&&t.kind!=='before'&&t.kind!=='after'?key:'';
     if(want===hoverKey)return;
     clearTimeout(hoverTimer);hoverKey=want;

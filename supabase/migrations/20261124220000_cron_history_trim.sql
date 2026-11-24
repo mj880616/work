@@ -1,3 +1,4 @@
+begin;
 -- S69-80 OPS-DB용량: pg_cron 실행 기록(cron.job_run_details)이 다시 쌓이지 않게 하루 한 번 3일 지난 줄을 지운다.
 -- 배경: web2_feed_tick(1분마다)의 실행 기록이 쌓여 DB가 무료 한도 500MB를 넘었다(2026-11-24 CC가 손으로 비움).
 -- 하는 것: 예약 1개 'web2_cron_history_trim'(UTC '43 18 * * *' = 서울 03:43, web2_feed_* 의 7·22분과 겹치지 않음)
@@ -13,7 +14,6 @@
 -- 겹침: docs/ops/retention-daily.apply.sql(S67-24, 아직 적용 대기)의 web2_retention_daily도 같은 표를 7일 기준으로 지운다.
 --   둘 다 있어도 해가 없다(이 예약이 3일로 먼저 지우면 그쪽은 지울 줄이 없음). 함께 돌지 않게 시각을 1시간 띄웠다(그쪽 17:43 UTC).
 -- 짝: docs/20261124220000_cron_history_trim.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
-begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 do $$

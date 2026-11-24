@@ -3,7 +3,7 @@ import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs'
 // S69-28 LIB-한칸탐색기 · LIB-보기두칸 · 깨짐 고치기(명진 11/24): 자료실 폴더 묶기 한 칸 = 윈도우 탐색기처럼 왼쪽 폴더 나무 | 오른쪽 그 폴더 내용.
 // ① 나무를 길게 펼치면 흰 카드가 같이 늘어나고(나무 칸 안 스크롤 없음) 접으면 다시 줄어든다.
 // ② 왼쪽 폴더 → 오른쪽은 그 폴더 바로 안의 하위 폴더 줄 + 자료 줄만(나무를 다시 그리지 않음, 지금 폴더 제목 줄 없음).
-// ③ 오른쪽 하위 폴더 → 그 폴더로 들어가고 왼쪽 나무가 따라 펼침·강조. [‹] = 위 폴더.
+// ③ (S69-68, 명진 11/24 20:09) 오른쪽 하위 폴더 누르기 = 그 자리 펼치기·접기(왼쪽 나무 그대로). 들어가기는 왼쪽 나무 — 들어가면 나무가 따라 펼침·강조. [‹] = 위 폴더.
 // ④ [한 칸 | 두 칸] 붙은 단추(눌린 표시·서버 기억). ⑤ 폰: 폴더 이름 누르기 = 내용 화면, 뒤로가기 = 나무. ⑥ 왼쪽 나무 폴더에 자료 끌어 놓기.
 // 이름은 모두 지어낸 것이다.
 const TOPS=5,KIDS=9;
@@ -15,7 +15,8 @@ const ITEMS=[{document_id:'d1',folder_id:'c1_2'},{document_id:'d2',folder_id:'c1
 const nav=id=>`#libraryFolderNav [data-lu-nav="${id}"]`;
 const navTog=id=>`#libraryFolderNav [data-lu-nav-tog="${id}"]`;
 const rightKeys=page=>page.locator('#documentList > details.lu-node').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));
-const rightDocs=page=>page.locator('#documentList > [data-lu-document], #documentList > .lu-row, #documentList [data-lu-document]').evaluateAll(xs=>[...new Set(xs.map(x=>x.dataset.luDocument||x.querySelector('[data-lu-document]')?.dataset.luDocument).filter(Boolean))]);
+// 보이는 자료 줄만(S69-68: 오른쪽 폴더 줄도 펼치는 줄이라 접힌 폴더 안 줄도 그려 둔다).
+const rightDocs=page=>page.locator('#documentList > [data-lu-document], #documentList > .lu-row, #documentList [data-lu-document]').evaluateAll(xs=>[...new Set(xs.filter(x=>x.checkVisibility()).map(x=>x.dataset.luDocument||x.querySelector('[data-lu-document]')?.dataset.luDocument).filter(Boolean))]);
 const card=page=>page.locator('#libraryListCard');
 const bottom=loc=>loc.evaluate(e=>e.getBoundingClientRect().bottom);
 async function boot(page,width,opt={}){
@@ -49,7 +50,7 @@ test.describe('PC 1280 한 칸 탐색기',()=>{
     expect(errors).toEqual([]);
   });
 
-  test('② 왼쪽 폴더 → 오른쪽은 바로 안 하위 폴더·자료만 / ③ 오른쪽 하위 폴더 → 들어가고 왼쪽 나무 따라 펼침·강조',async({page})=>{
+  test('② 왼쪽 폴더 → 오른쪽은 바로 안 하위 폴더·자료만 / ③ 오른쪽 하위 폴더 → 그 자리 펼치기, 왼쪽 나무로 들어가면 따라 펼침·강조',async({page})=>{
     const {errors,s}=await boot(page,1280);
     // 맨 위(자료실 전체): 맨 위 폴더들 + 폴더 밖 자료.
     expect(await rightKeys(page)).toEqual(['f:t0','f:t1','f:t2','f:t3','f:t4']);
@@ -63,8 +64,18 @@ test.describe('PC 1280 한 칸 탐색기',()=>{
     await expect(page.locator('#documentList details[open]')).toHaveCount(0); // 오른쪽에 나무를 다시 그리지 않음
     await expect(page.locator('#documentList [data-lu-node="f:t1"]')).toHaveCount(0); // 지금 폴더 제목 줄 없음(위치 줄과 겹침)
     await expect(page.locator(nav('t1')).locator('xpath=..')).toHaveClass(/ft-current/);
-    // ③ 오른쪽 '가상 칸 1-2' 누르기 = 들어가기. 왼쪽 나무는 그 폴더까지 펼치고 강조.
-    await page.locator('#documentList details[data-lu-node="f:c1_2"] > summary').click();
+    // ③ 오른쪽 '가상 칸 1-2' 누르기 = 그 자리 펼치기(안의 손주 폴더·자료가 들여 보임), 왼쪽 나무·위치 줄 그대로. 다시 누르면 접힘.
+    const c12=page.locator('#documentList details[data-lu-node="f:c1_2"]');
+    await c12.locator(':scope > summary').click();
+    await expect(c12).toHaveAttribute('open','');
+    await expect(c12.locator('details[data-lu-node="f:g1"]')).toBeVisible();
+    expect((await rightDocs(page)).sort()).toEqual(['d1','d2','d4']);
+    await expect(page.locator(nav('t1')).locator('xpath=..')).toHaveClass(/ft-current/);
+    await expect(page.locator('#libraryPath')).not.toContainText('가상 칸 1-2');
+    await c12.locator(':scope > summary').click();
+    await expect(c12).not.toHaveAttribute('open','');
+    // 들어가기는 왼쪽 나무. 왼쪽 나무는 그 폴더까지 펼치고 강조.
+    await page.locator(nav('c1_2')).click();
     await expect(page.locator('#libraryPath')).toContainText('가상 칸 1-2');
     expect(await rightKeys(page)).toEqual(['f:g1']);
     expect((await rightDocs(page)).sort()).toEqual(['d1','d2']);
@@ -111,7 +122,7 @@ test.describe('PC 1280 한 칸 탐색기',()=>{
     const {errors,s}=await boot(page,1280);
     await page.locator('#documentList [data-lu-document="d3"]').dragTo(page.locator(nav('t2')));
     await expect.poll(()=>s.items.find(x=>x.document_id==='d3')?.folder_id||null).toBe('t2');
-    await expect(page.locator('#documentList [data-lu-document="d3"]')).toHaveCount(0);
+    await expect(page.locator('#documentList [data-lu-document="d3"]')).toBeHidden(); // 옮긴 자료는 접힌 '가상 묶음 2' 안(보이지 않음)
     await page.locator(nav('t2')).click();
     await page.locator('#documentList [data-lu-document="d3"]').dragTo(page.locator('#documentList details[data-lu-node="f:c2_4"] > summary'));
     await expect.poll(()=>s.items.find(x=>x.document_id==='d3')?.folder_id||null).toBe('c2_4');
@@ -152,8 +163,12 @@ test('폰 412 ⑤: 폴더 이름·그림 누르기 = 그 자리 펼치기 · ⋯
   await expect(page.locator('#libraryPath .lu-focus-here')).toHaveText('가상 묶음 1');
   expect(await rightKeys(page)).toEqual(Array.from({length:KIDS},(_,j)=>`f:c1_${j}`));
   expect(await rightDocs(page)).toEqual(['d4']);
-  // 안의 하위 폴더 → 한 단계 더, 뒤로가기 = 한 단계 위, 또 뒤로가기 = 나무.
+  // 안의 하위 폴더 누르기 = 그 자리 펼치기(S69-68), 한 단계 더는 ⋯ [이 폴더로 들어가기]. 뒤로가기 = 한 단계 위, 또 뒤로가기 = 나무.
   await page.locator('#documentList details[data-lu-node="f:c1_2"] > summary').click();
+  await expect(page.locator('#documentList details[data-lu-node="f:c1_2"]')).toHaveAttribute('open','');
+  await expect(page.locator('#libraryPath .lu-focus-here')).toHaveText('가상 묶음 1');
+  await page.locator('#documentList details[data-lu-node="f:c1_2"] > summary [data-lu-node-menu]').click();
+  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
   await expect(page.locator('#libraryPath .lu-focus-here')).toHaveText('가상 칸 1-2');
   await page.goBack();
   await expect(page.locator('#libraryPath .lu-focus-here')).toHaveText('가상 묶음 1');

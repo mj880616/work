@@ -874,6 +874,8 @@ jobs:
         run: node --test tests/folder-tree-press.test.mjs
       - name: UI-폴더이름펼치기 그 자리 펼치는 목록 폴더 누르기 = 펼치기·접기(빈 폴더 한 줄·⋯ 첫 줄 들어가기) 시험
         run: node --test tests/folder-press-in-place.test.mjs
+      - name: S69-68 오른쪽 목록 폴더 누르기 = 그 자리 펼치기·두 칸 칸마다 펼침 시험
+        run: node --test tests/right-list-expand.test.mjs
       - name: S51-24 UI-빈칸손짓 손짓 칸 높이 계산·'그 폴더만' 상자 시험
         run: node --test tests/gesture-fill.test.mjs
       - name: FILES-폰폴더위로 '그 폴더만' 한 단계 위 길·왼쪽 끝 밀기 판정 시험
@@ -892,6 +894,8 @@ jobs:
         run: node --test tests/select-mode-folder-path.test.mjs
       - name: S69 폰 꾹 누르기 = 선택 모드 + 그 줄 선택(공용 규칙) 시험
         run: node --test tests/longpress-select.test.mjs
+      - name: S69-75 파일 폰 나무 줄 꾹 누르기 = 선택 모드 + 그 줄(공용 규칙) 시험
+        run: node --test tests/files-tree-hold.test.mjs
       - name: S51-22 '최근' 상자 접기(서버 기억·머리 줄 ▴▾) 시험
         run: node --test tests/recent-fold.test.mjs
       - name: S51-23 파일 '최근'에서 Web2 자동 생성 파일 빼기(시스템 폴더 규칙) 시험

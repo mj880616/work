@@ -4,7 +4,9 @@
 // LIB-두칸폴더펼치기(S56-40, 명진 11/10 18:25): 폴더 줄을 누르면 들어가지 않고 그 칸 안에서 나무처럼 펼치기·접기(하위 폴더·자료가 들여 보임).
 // 그 폴더만 보기(들어가기)는 PC = 우클릭 [이 폴더로 들어가기](library-folders.js), 손가락 화면 = 펼친 폴더 위 두 손가락 벌리기(folder-pinch.js).
 // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 칸 안에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯·우클릭 첫 줄 [이 폴더로 들어가기]·두 손가락만.
-// 펼침 상태는 한 칸 목록과 같은 곳(library-upload.js luOpened·luFilterOpen — h.isOpen/h.toggle)에 적는다.
+// S69-68 UI-두칸따로(명진 11/24 20:14 '우측에서의 폴더조작이 왼쪽에 영향 안미치게 반대로도. 원래 따로 조작하는게 의도임'):
+//  펼침은 칸마다 따로 적는다(own[i] — 화면 메모리, 기기 저장 없음). 칸에서 펼치거나 접은 적 없는 폴더만 한 칸 목록 펼침(luOpened·거르기 펼침 — isOpen)을 따른다.
+//  지금 폴더도 칸마다 따로(왼쪽 = left, 오른쪽 = luInFolder) — 한 칸에서 펼치기·접기·들어가기를 해도 다른 칸은 그대로.
 // 폰(600px 미만)·다른 묶기는 지금 한 칸 목록 그대로. 두 칸을 끄면 지금 한 칸(나무 | 목록).
 // - 틀(칸 찾기·지금 칸 표시·Tab·F6)은 [파일]과 같은 공용 부품 two-pane.js, 경계 폭은 split-resize.js(split_ratio.library, 서버 저장).
 // - 칸 위치: 오른쪽 칸 = 지금 자료실 위치(luInFolder — 주소·뒤로가기 그대로), 왼쪽 칸 = 이 부품의 화면 메모리. 정렬도 화면 메모리(기기 저장 없음).
@@ -86,6 +88,9 @@ export const sendText = cur => `${cur === 1 ? '←' : '→'} ${paneSide(cur === 
  */
 export function createLibraryTwo(h) {
   let left = null, cur = 0, lastTree = [], isOpen = () => false;
+  // 칸마다 펼침(key → true/false). 없으면 isOpen(한 칸 목록 펼침)을 따른다.
+  const own = [new Map(), new Map()];
+  const paneOpen = i => k => (own[i].has(k) ? own[i].get(k) : !!isOpen(k));
   const sorts = ['date', 'date'];
   const root = () => document.querySelector('#documentList');
   const where = i => (i === 1 ? h.rightFolder() || null : left);
@@ -142,7 +147,7 @@ export function createLibraryTwo(h) {
     const up = id ? `<button type="button" class="icon-btn lu-pane-up" data-lu-pane-up aria-label="${side} 칸 위 폴더로" title="위 폴더로 (Backspace)">‹</button>` : '';
     const sort = `<select class="lu-pane-sort" data-lu-pane-sort aria-label="${side} 칸 정렬">${SORTS.map(([v, l]) => `<option value="${v}"${v === sorts[i] ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
     const node = c.node || {key: id ? 'f:' + id : OUT_KEY};
-    const rows = paneRows({...c, node}, isOpen, sorts[i]).map(r => (r.kind === 'folder' ? folderRow(r) : r.kind === 'out' ? outRow(r) : r.kind === 'empty' ? emptyIn(r) : filesHtml(r))).join('');
+    const rows = paneRows({...c, node}, paneOpen(i), sorts[i]).map(r => (r.kind === 'folder' ? folderRow(r) : r.kind === 'out' ? outRow(r) : r.kind === 'empty' ? emptyIn(r) : filesHtml(r))).join('');
     return `<section class="lu-pane" data-lu-pane-i="${i}" data-lu-pane-folder="${h.esc(id || '')}" aria-label="${side} 칸">`
       + `<div class="lu-pane-head">${up}<nav class="lu-pane-path" aria-label="${side} 칸 위치">${steps}</nav>${h.sortBtn?.(id) || ''}${sort}</div>`
       + `<div class="lu-pane-list" role="list">${rows || (h.ready() ? (c.found && id ? emptyUpHtml(emptyHtml('빈 폴더')) : emptyHtml(c.found ? '빈 폴더' : '없음')) : waitHtml({rows: 3}))}</div></section>`;
@@ -154,7 +159,7 @@ export function createLibraryTwo(h) {
   }
   // 이번 그리기에서 두 칸에 보이는 나무 조각(같은 글 원본 묶기·전체 고르기 계산용).
   // 펼친 폴더 안 자료도 그 폴더 묶음으로 넣는다. open: 이번 그리기의 펼침 판정(한 칸 목록과 같은 규칙).
-  const shownNodes = (tree, open = isOpen) => { isOpen = open; return [0, 1].flatMap(i => paneRows(paneContent(tree, where(i)), isOpen, sorts[i]).filter(r => r.kind === 'files').map((r, k) => ({kind: 'folder', key: `pane:${i}:${k}`, files: r.files, children: []}))); };
+  const shownNodes = (tree, open = isOpen) => { isOpen = open; return [0, 1].flatMap(i => paneRows(paneContent(tree, where(i)), paneOpen(i), sorts[i]).filter(r => r.kind === 'files').map((r, k) => ({kind: 'folder', key: `pane:${i}:${k}`, files: r.files, children: []}))); };
   function paintBar() {
     const bar = root()?.querySelector('[data-lu-two-bar]');
     if (!bar) return;
@@ -213,12 +218,12 @@ export function createLibraryTwo(h) {
         if (!fid) return;
         if (fid === OUT_KEY) { // '폴더 밖' 줄 = 그 칸 안에서 펼치기·접기(들어가기 없음)
           if (!(paneContent(lastTree, null).files.length)) return;
-          h.toggle(OUT_KEY, nav.getAttribute('aria-expanded') !== 'true');
+          toggleIn(i, OUT_KEY, nav.getAttribute('aria-expanded') !== 'true');
           root()?.querySelector(`[data-lu-pane-i="${i}"] [data-lu-nav="${OUT_KEY}"]`)?.focus({preventScroll: true});
           return;
         }
         if (!paneContent(lastTree, fid).found) return;
-        h.toggle('f:' + fid, nav.getAttribute('aria-expanded') !== 'true');
+        toggleIn(i, 'f:' + fid, nav.getAttribute('aria-expanded') !== 'true');
         root()?.querySelector(`[data-lu-pane-i="${i}"] [data-lu-nav="${CSS.escape(fid)}"]`)?.focus({preventScroll: true});
       }
     });
@@ -234,6 +239,19 @@ export function createLibraryTwo(h) {
     // 두 칸 키(Tab 칸 바꾸기 · F6 반대 칸 폴더로 옮기기). F5는 복사가 없어 가로채지 않음.
     document.addEventListener('keydown', e => { if (h.on()) frame.key(e); });
   }
+  // 칸 i 안에서만 펼치기·접기(다른 칸은 그대로). 다시 그리기는 자료실 그리기 하나(h.render — 공용 ftKeepPlace가 두 칸 스크롤을 지킨다).
+  function toggleIn(i, key, next) { own[i].set(key, !!next); h.render(); }
+  // 폴더 ⋯ 메뉴 [접기·펼치기]: 메뉴를 연 칸(지금 칸)에서만.
+  const openNow = key => paneOpen(cur)(key);
+  const toggle = key => toggleIn(cur, key, !openNow(key));
+  // 자료실에 새로 들어올 때·묶기를 바꿀 때 칸 펼침도 처음으로(한 칸 목록 luResetTree와 같이).
+  const reset = () => { own[0].clear(); own[1].clear(); };
+  // 맨 위 ⋯ [모두 펴기·접기]: 두 칸 모두(칸 안 스크롤은 공용 ftKeepPlace가 지킨다).
+  const setAll = (keys, open) => { for (const m of own) for (const k of keys) m.set(k, !!open); h.render(); };
+  // 최근 칸 줄 → 그 자료: 지금 칸에서만 위 단까지 펼친다(다른 칸은 그대로).
+  const reveal = keys => { openIn(cur, keys); h.render(); };
+  // [폴더로 가기]·최근 줄: 그 자료가 보이도록 칸 i에서만 위 단까지 펼침(다시 그리기는 부르는 쪽).
+  const openIn = (i, keys) => { for (const k of keys) own[i === 1 ? 1 : 0].set(k, true); };
   // 그 폴더만 보기(들어가기): 우클릭 [이 폴더로 들어가기]·두 손가락 벌리기. el이 있는 칸(없으면 지금 칸)에서 들어간다.
   function enter(id, el = null) {
     const p = el ? frame.paneOf(el) : -1, i = p >= 0 ? p : cur;
@@ -253,5 +271,5 @@ export function createLibraryTwo(h) {
   }
   // 칸 i의 지금 폴더(우클릭 [새 폴더]·바깥 파일 놓기·[자료 등록]이 쓰는 곳). el이 칸 밖이면 지금 칸.
   const folderAt = el => { const i = frame.paneOf(el); return where(i >= 0 ? i : cur); };
-  return {html, after, bind, shownNodes, folderAt, enter, up, paneOf: el => frame.paneOf(el), get cur() { return cur; }, get left() { return left; }};
+  return {html, after, bind, shownNodes, folderAt, enter, up, toggle, openNow, reset, setAll, reveal, openIn, paneOf: el => frame.paneOf(el), get cur() { return cur; }, get left() { return left; }};
 }

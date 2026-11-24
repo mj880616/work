@@ -5,7 +5,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // S69-38 UI-탐색기나무누르기(명진 11/24 "상위폴더를 눌러도 오른쪽에 내용이 보이게 / 이거는 모든곳 공통 노트 자료 파일"):
 // 탐색기 화면(왼쪽 나무 | 오른쪽 그 폴더 내용)의 나무에서 어느 폴더를 누르든(하위 폴더가 있는 상위 폴더 포함) 오른쪽이 그 폴더 — 하위 폴더 줄 다음에 파일·자료·노트.
-// 누르면 접혀 있던 그 폴더가 펼쳐지고(펼침 아이콘은 펼치기·접기만), 오른쪽 하위 폴더를 누르면 들어가고 왼쪽 나무가 따라 펼침·강조. 공용 부품 하나(folder-tree-press.mjs ftExplorePress).
+// 누르면 접혀 있던 그 폴더가 펼쳐지고(펼침 아이콘은 펼치기·접기만). S69-68: 오른쪽 하위 폴더를 누르면 그 자리 펼치기·접기(들어가기는 왼쪽 나무·⋯). 공용 부품 하나(folder-tree-press.mjs ftExplorePress).
 // 같은 시험을 화면마다 되풀이한다: [파일] · 자료실 · 노트. 이름·id는 모두 지어낸 것이다.
 
 // ---------- [파일] ----------
@@ -49,12 +49,25 @@ test('[파일] PC 1280: 하위 있는 상위 폴더를 눌러도 오른쪽 = 그
   // 원드라이브 'Documents' → 오른쪽 PowerShell(폴더) 다음 파일.
   await fxTreeRow(page, 'od:OD!D').locator('.ft-main').click();
   await expect.poll(() => listNames(page)).toEqual(['PowerShell', '가짜 목록.txt']);
-  // 오른쪽 하위 폴더 누르기 = 들어가기(그 자리 펼치기 아님), 왼쪽 나무가 따라 펼침·강조.
-  await fx(page).locator('[data-fx-pane-i="0"] [data-fx-row="od:OD!PS"]').click();
+  // S69-68(명진 11/24 20:09): 오른쪽 하위 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음). 왼쪽 나무·주소는 그대로.
+  const psRow = fx(page).locator('[data-fx-pane-i="0"] [data-fx-row="od:OD!PS"]');
+  const url0 = page.url();
+  await psRow.click();
+  await expect(psRow).toHaveAttribute('aria-expanded', 'true');
+  await expect.poll(() => listNames(page)).toEqual(['PowerShell', 'Modules', '가짜 목록.txt']);
+  await expect(fxTreeRow(page, 'od:OD!D')).toHaveClass(/ft-current/);
+  await expect(fxTreeRow(page, 'od:OD!PS')).not.toHaveClass(/ft-current/);
+  await expect(fxTreeRow(page, 'od:OD!PSM')).toHaveCount(0); // 왼쪽 나무는 따라 펼치지 않음
+  expect(page.url()).toBe(url0);
+  await psRow.click();
+  await expect(psRow).toHaveAttribute('aria-expanded', 'false');
+  await expect.poll(() => listNames(page)).toEqual(['PowerShell', '가짜 목록.txt']);
+  // 들어가기는 왼쪽 나무 또는 우클릭 [이 폴더로 들어가기] — 왼쪽 나무가 따라 펼침·강조.
+  await psRow.click({ button: 'right' });
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect.poll(() => listNames(page)).toEqual(['Modules']);
   await expect(fxTreeRow(page, 'od:OD!PS')).toHaveClass(/ft-current/);
   await expect(fxTreeRow(page, 'od:OD!PSM')).toBeVisible();
-  await expect(fx(page).locator('[data-fx-pane-i="0"] [data-fx-list] [aria-expanded="true"]')).toHaveCount(0); // 오른쪽에 나무를 다시 그리지 않음
   // Backspace = 위 폴더(Documents) — 위치 줄·나무 강조가 같은 상태.
   await fx(page).locator('[data-fx-pane-i="0"] [data-fx-row="od:OD!PSM"]').focus();
   await page.keyboard.press('Backspace');
@@ -72,7 +85,7 @@ test('[파일] PC 1280: 하위 있는 상위 폴더를 눌러도 오른쪽 = 그
   expect(errors).toEqual([]);
 });
 
-test('[파일] 폰 412: 나무와 내용 한 칸씩 — 그 폴더 안 하위 폴더 누르기 = 들어가기, 뒤로가기 = 한 단계 위 → 나무', async ({ page }) => {
+test('[파일] 폰 412: 나무와 내용 한 칸씩 — 그 폴더 안 하위 폴더 누르기 = 그 자리 펼치기(S69-68), 들어가기는 ⋯, 뒤로가기 = 한 단계 위 → 나무', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 412);
   addFiles(server);
@@ -80,7 +93,15 @@ test('[파일] 폰 412: 나무와 내용 한 칸씩 — 그 폴더 안 하위 �
   const { phoneFolder } = await import('./helpers/files-server.mjs');
   await phoneFolder(page, 'gd', 'gdVoice');
   await expect.poll(() => listNames(page)).toEqual(['수동전사대기', '원본', '전사']);
-  await fx(page).locator('[data-fx-row="gd:gdWait"]').click();
+  const wait = fx(page).locator('[data-fx-row="gd:gdWait"]');
+  await wait.click();
+  await expect(wait).toHaveAttribute('aria-expanded', 'true');
+  await expect(fx(page).locator('.ft-focus-name')).toHaveText('음성 녹음 백업');
+  await expect.poll(() => listNames(page)).toEqual(['수동전사대기', '가짜 녹음 1.m4a', '원본', '전사']);
+  await wait.click();
+  await expect(wait).toHaveAttribute('aria-expanded', 'false');
+  await fx(page).locator('[data-fx-focus] [data-fx-tmenu="gd:gdWait"]').click();
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect(fx(page).locator('.ft-focus-name')).toHaveText('수동전사대기');
   await expect.poll(() => listNames(page)).toEqual(['가짜 녹음 1.m4a']);
   await page.goBack();
@@ -111,7 +132,15 @@ test('자료실 PC 1280: 하위 있는 \'06. 선전\'을 누르면 오른쪽 = �
   await expect(page.locator('#documentList [data-lu-document="dA"]')).toBeVisible();
   await expect(page.locator(luNav('s06')).locator('xpath=..')).toHaveClass(/ft-current/);
   await expect(page.locator('#libraryFolderNav [data-lu-nav-tog="s06"]')).toHaveAttribute('aria-expanded', 'true');
+  // S69-68(명진 11/24 20:09): 오른쪽 하위 폴더 줄 누르기 = 그 자리 펼치기·접기(들어가지 않음, 왼쪽 나무 그대로). 들어가기는 왼쪽 나무.
   await page.locator('#documentList details[data-lu-node="f:s06b"] > summary').click();
+  await expect(page.locator('#documentList details[data-lu-node="f:s06b"]')).toHaveAttribute('open', '');
+  await expect(page.locator('#documentList [data-lu-document="dB"]')).toBeVisible();
+  await expect(page.locator(luNav('s06')).locator('xpath=..')).toHaveClass(/ft-current/);
+  await expect.poll(() => luRight(page)).toEqual(['f:s06a', 'f:s06b', 'f:s06c']);
+  await page.locator('#documentList details[data-lu-node="f:s06b"] > summary').click();
+  await expect(page.locator('#documentList [data-lu-document="dB"]')).toBeHidden();
+  await page.locator(luNav('s06b')).click();
   await expect(page.locator('#documentList [data-lu-document="dB"]')).toBeVisible();
   await expect(page.locator(luNav('s06b')).locator('xpath=..')).toHaveClass(/ft-current/);
   await page.keyboard.press('Backspace');
@@ -151,7 +180,7 @@ async function notes(page, width) {
   return { errors };
 }
 
-test('노트 PC 1280: 하위 있는 폴더를 누르면 오른쪽 = 하위 폴더 줄 + 그 폴더 노트 · 나무 펼침 · 오른쪽 하위 → 들어가고 왼쪽 따라 강조', async ({ page }) => {
+test('노트 PC 1280: 하위 있는 폴더를 누르면 오른쪽 = 하위 폴더 줄 + 그 폴더 노트 · 나무 펼침 · 오른쪽 하위 → 그 자리 펼치기(S69-68)', async ({ page }) => {
   const { errors } = await notes(page, 1280);
   const tree = page.locator('[data-nx-tree]'), right = page.locator('#noteRows');
   await tree.locator(`[data-nx-open="${U(1)}"]`).click();
@@ -161,8 +190,16 @@ test('노트 PC 1280: 하위 있는 폴더를 누르면 오른쪽 = 하위 폴�
   await expect(tree.locator(`[data-nx-folder="${U(1)}"]`)).toHaveClass(/ft-current/);
   await expect(tree.locator(`[data-nx-tog="${U(1)}"]`)).toHaveAttribute('aria-expanded', 'true');
   await expect(tree.locator(`[data-nx-folder="${U(2)}"]`)).toBeVisible();
-  // 오른쪽 하위 폴더 누르기 = 들어가기, 왼쪽 나무가 따라 강조.
+  // S69-68: 오른쪽 하위 폴더 누르기 = 그 자리 펼치기·접기(왼쪽 나무·지금 폴더 그대로).
   await right.locator(`[data-nx-open="${U(2)}"]`).click();
+  await expect(right.locator('[data-note-row="n2"]')).toBeVisible();
+  await expect(right.locator(`[data-nx-open="${U(2)}"]`)).toHaveAttribute('aria-expanded', 'true');
+  await expect(tree.locator(`[data-nx-folder="${U(1)}"]`)).toHaveClass(/ft-current/);
+  await expect(tree.locator(`[data-nx-folder="${U(2)}"]`)).not.toHaveClass(/ft-current/);
+  await right.locator(`[data-nx-open="${U(2)}"]`).click();
+  await expect(right.locator('[data-note-row="n2"]')).toHaveCount(0);
+  // 들어가기는 왼쪽 나무 — 왼쪽이 강조.
+  await tree.locator(`[data-nx-open="${U(2)}"]`).click();
   await expect(right.locator('[data-note-row="n2"]')).toBeVisible();
   await expect(tree.locator(`[data-nx-folder="${U(2)}"]`)).toHaveClass(/ft-current/);
   // 뒤로가기 = 앞 폴더.
