@@ -48,9 +48,9 @@ test.describe('점선 추천으로 넣기 PC 1280',()=>{
   test.use({hasTouch:false});
   test('폴더 밖 자료 3개를 차례로 \'잡동사니?\'로 넣어도 잡동사니는 닫힌 채·화면 자리 그대로, 되돌리기·Ctrl+Z',async({page},info)=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더',init:{viewPrefs:{library_two:false}}});
-    const out=page.locator('#documentList details[data-lu-node="x:out"]');
-    await revealLibraryRow(page,O1);
-    await expect(out).toHaveJSProperty('open',true);
+    // S69-28 LIB-한칸탐색기: PC 한 칸 맨 위 = 폴더 줄 + 폴더 밖 자료 줄(묶음 머리 없음). 자리 재기는 목록 상자.
+    const out=page.locator('#documentList');
+    await expect(page.locator(`#documentList > [data-lu-document="${O1}"]`)).toBeVisible();
     expect(await recvOpen(page)).toBe(false);
     const tip=id=>page.locator(`[data-lu-document="${id}"] [data-lu-suggest]`);
     await expect(tip(O1)).toHaveText('잡동사니?');
@@ -62,7 +62,7 @@ test.describe('점선 추천으로 넣기 PC 1280',()=>{
       await tip(id).click();
       await expect.poll(()=>folderOf(s,id)).toBe(RECV);
       await freshUndo(page);
-      await expect(page.locator(`#documentList details[data-lu-node="x:out"] [data-lu-document="${id}"]`)).toHaveCount(0);
+      await expect(page.locator(`#documentList > [data-lu-document="${id}"]`)).toHaveCount(0);
       await expect(page.locator('#libraryFolderStatusLine')).toContainText('잡동사니');
       expect(await recvOpen(page)).toBe(false);
       expect(await page.evaluate(()=>scrollY)).toBe(y);
@@ -73,7 +73,7 @@ test.describe('점선 추천으로 넣기 PC 1280',()=>{
     }
     await shot(page,'suggest-after-1280.png',info);
     // 남은 폴더 밖 자료(다른 자료)는 그대로 바로 누를 수 있다.
-    await expect(page.locator(`#documentList details[data-lu-node="x:out"] [data-lu-document="${O4}"]`)).toBeVisible();
+    await expect(page.locator(`#documentList > [data-lu-document="${O4}"]`)).toBeVisible();
     // 되돌리기(줄) — 마지막에 넣은 O3이 폴더 밖으로.
     await page.locator('#libraryFolderStatusLine .lu-undo').click();
     await expect.poll(()=>folderOf(s,O3)).toBe(null);
@@ -88,15 +88,18 @@ test.describe('점선 추천으로 넣기 PC 1280',()=>{
     expect(await recvOpen(page)).toBe(false);
     expect(errors).toEqual([]);
   });
-  test('다른 옮기기(⋯ [옮기기…])는 지금처럼 받는 폴더를 펼친다',async({page})=>{
+  // S69-28 LIB-한칸탐색기: 탐색기 칸은 옮겨도 그 자리 그대로(받는 폴더로 가거나 펼치지 않음, 탐색기처럼) — 옮긴 줄은 빠지고 알림 줄에 받은 폴더.
+  test('다른 옮기기(⋯ [옮기기…])도 탐색기 칸은 그 자리 그대로, 알림 줄에 받은 폴더',async({page})=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더',init:{viewPrefs:{library_two:false}}});
-    await revealLibraryRow(page,O4);
+    await expect(page.locator(`#documentList > [data-lu-document="${O4}"]`)).toBeVisible();
     expect(await recvOpen(page)).toBe(false);
     await page.locator(`[data-lu-menu="${O4}"]`).click();
     await page.locator(`#luMorePanel [data-lu-move-open="${O4}"]`).click();
     await page.locator('#luMovePicker').locator(`[data-lu-move-folder="${RECV}"]`).last().click();
     await expect.poll(()=>folderOf(s,O4)).toBe(RECV);
-    await expect.poll(()=>recvOpen(page)).toBe(true);
+    await expect(page.locator(`#documentList > [data-lu-document="${O4}"]`)).toHaveCount(0);
+    await expect(page.locator('#libraryFolderStatusLine')).toContainText('잡동사니');
+    expect(await recvOpen(page)).toBe(false);await expect(page.locator('#libraryPath')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 });

@@ -133,18 +133,19 @@ test('자료실 폰 390: 하위 폴더로 들어간 뒤 [‹]·뒤로 키 = 한 
   const head = key => page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
   const path = page.locator('#libraryPath');
   const back = path.locator('[data-lu-path-back]');
+  // S69-28 LIB-한칸탐색기: 폰 '그 폴더만'은 탐색기 칸 — 위치 줄 끝에 지금 폴더 이름, 안의 폴더 줄 누르기 = 한 단계 더.
   await pinch(page, head('f:fa'), 'out');
-  await expect(path).toHaveText('‹자료실›');
+  await expect(path).toHaveText('‹자료실›가상 A');
   await expect(back).toHaveAttribute('aria-label', '폴더 나무');
-  await head('f:fc').dblclick();
-  await expect(path).toHaveText('‹자료실›가상 A›');
+  await head('f:fc').click();
+  await expect(path).toHaveText('‹자료실›가상 A›가상 C');
   await expect(back).toHaveAttribute('aria-label', '위 폴더');
   await back.tap();
-  await expect(path).toHaveText('‹자료실›');
-  await head('f:fc').dblclick();
-  await expect(path).toHaveText('‹자료실›가상 A›');
+  await expect(path).toHaveText('‹자료실›가상 A');
+  await head('f:fc').click();
+  await expect(path).toHaveText('‹자료실›가상 A›가상 C');
   await page.goBack();
-  await expect(path).toHaveText('‹자료실›');
+  await expect(path).toHaveText('‹자료실›가상 A');
   await expect(page.locator('#libraryView')).toBeVisible();
   const b = await page.locator('#documentList').boundingBox();
   await swipeAt(page, 4, b.y + 20, 140);

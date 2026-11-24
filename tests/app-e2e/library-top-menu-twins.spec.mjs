@@ -16,11 +16,13 @@ for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글
     await expect(page.locator('#libraryListCard .lu-select-row')).toBeHidden();
     // 메뉴 항목과 차례.
     await press(page,page.locator('#libraryTopMenuBtn'),width);
-    await expect(page.locator('#luTopMenu button')).toHaveText(['새 폴더','정돈 제안','여러 개 선택','모두 펴기','쓰는 법']); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래
+    // S69-28 LIB-한칸탐색기: 넓은 화면 폴더 보기 한 칸(탐색기)은 펼칠 묶음이 없어 [모두 펴기]가 없다.
+    const wide=width>=600;
+    await expect(page.locator('#luTopMenu button')).toHaveText(['새 폴더','정돈 제안','여러 개 선택',...(wide?[]:['모두 펴기']),'쓰는 법']); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래
     await page.keyboard.press('Escape');await expect(page.locator('#luTopMenu')).toBeHidden();
     // 모두 펴기 ↔ 모두 접기.
-    await libraryTopMenu(page,'expand',{tap:width<761});await expect(page.locator('#documentList details[data-lu-node]:not([open])')).toHaveCount(0);
-    expect((await libraryExpandItem(page)).text).toBe('모두 접기');
+    if(!wide){await libraryTopMenu(page,'expand',{tap:width<761});await expect(page.locator('#documentList details[data-lu-node]:not([open])')).toHaveCount(0);
+    expect((await libraryExpandItem(page)).text).toBe('모두 접기')}
     // 새 폴더: 폴더 밖(맨 위)에 만든다.
     await libraryTopMenu(page,'folder',{tap:width<761});
     await page.locator('#libraryFolderName').fill('가상 새 폴더');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
@@ -35,7 +37,7 @@ for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글
 
   test(`같은 글 원본 두 줄은 한 줄 + [원본 2], 펼치면 둘 다, 접힌 줄을 선택하면 둘 다 ${width}`,async({page})=>{
     const {errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
-    await expandLibraryTree(page);
+    if(width>=600)await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();else await expandLibraryTree(page); // 넓은 화면 한 칸 = 탐색기(그 폴더를 연다)
     // 대표는 PDF 줄, 웹 줄은 접혀 있다(자료 행은 그대로).
     await expect(page.locator(rowSel('p-1'))).toBeVisible();await expect(page.locator(rowSel('w-1'))).toHaveCount(0);
     const twin=page.locator('#documentList [data-lu-twin="p-1"]');
@@ -59,9 +61,10 @@ for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글
 test('PC 1280: 접힌 같은 글 줄을 끌어 다른 폴더로 옮기면 둘 다 함께 옮겨진다',async({page})=>{
   const folders=[...FOLDERS,libFolder('fb',null,{name:'가상 다른 폴더',sort_order:2048})];
   const {s,errors}=await bootLibrary(page,1280,{folders,items:ITEMS,docs:DOCS,group:'폴더'});
-  await expandLibraryTree(page);
+  // S69-28 LIB-한칸탐색기: 가상 성명을 열고, 접힌 같은 글 줄을 왼쪽 나무의 다른 폴더 줄에 놓는다.
+  await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();await expect(page.locator('#documentList [data-lu-document="p-1"]')).toBeVisible();
   await page.evaluate(()=>{
-    const src=document.querySelector('#documentList [data-lu-document="p-1"]'),dst=document.querySelector('#documentList details[data-lu-node="f:fb"] > summary'),dt=new DataTransfer(),r=dst.getBoundingClientRect();
+    const src=document.querySelector('#documentList [data-lu-document="p-1"]'),dst=document.querySelector('#libraryFolderNav [data-lu-nav="fb"]'),dt=new DataTransfer(),r=dst.getBoundingClientRect();
     const x=r.left+r.width/2,y=r.top+r.height/2;
     src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
     dst.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:x,clientY:y}));

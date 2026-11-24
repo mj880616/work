@@ -15,7 +15,8 @@ const nav=id=>`#libraryFolderNav [data-lu-nav="${id}"]`;
 const row=id=>`#documentList [data-lu-document="${id}"]`;
 const head=key=>`#documentList details[data-lu-node="${key}"] > summary`;
 const line=page=>page.locator('#libraryFolderStatusLine');
-const openNode=(page,key)=>page.locator(`#documentList details[data-lu-node="${key}"]`).evaluate(d=>{d.open=true});
+// S69-28 LIB-한칸탐색기: 넓은 화면 한 칸은 탐색기 — 묶음을 펼치는 대신 그 자리(폴더 밖 = 나무 '자료실 전체', 폴더 = 나무 그 줄)로 간다. 두 칸·폰은 그 자리 펼치기.
+const openNode=async(page,key)=>{if(await page.locator('#libraryFolderNav').count()){const id=key==='x:out'?'':key.slice(2);await page.locator(nav(id)).click();await expect(page.locator(nav(id))).toHaveAttribute('aria-current','true');return}await page.locator(`#documentList details[data-lu-node="${key}"]`).evaluate(d=>{d.open=true})};
 const folderOf=(s,doc)=>s.items.find(x=>x.document_id===doc)?.folder_id||null;
 const parentOf=(s,id)=>s.folders.find(f=>f.id===id)?.parent_id||null;
 
