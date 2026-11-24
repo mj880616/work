@@ -82,7 +82,8 @@ test('existing structures untouched; rollback drops only what this file made', (
   assert.doesNotMatch(code, /alter table public\.app_(workspaces|workspace_members|profiles)\b|(insert into|update|delete from) public\.app_workspace_members|function private\.app_is_workspace_owner|rtw_|create extension/i);
   // 뒤 단계 노트 폴더 잠금(20261119233000_note_folder_lock)은 이 표·함수를 고치지 않고 부르기만 한다(그 파일의 시험이 본다).
   // S69-08 앱 전체 잠금(20261124080000_app_lock_whole_app)은 features 검사와 목록 도우미 두 곳만 고친다(tests/security/app-lock-whole-app-migration.test.mjs가 본다).
-  const later = new Set(['20261119233000_note_folder_lock.sql', '20261124080000_app_lock_whole_app.sql']);
+  // S69 STORE-계정삭제(20261124130000_account_delete)는 본인 줄만 지운다(user_id = 부른 사람, tests/security/account-delete-migration.test.mjs가 본다).
+  const later = new Set(['20261119233000_note_folder_lock.sql', '20261124080000_app_lock_whole_app.sql', '20261124130000_account_delete.sql']);
   const others = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && f !== `${version}_${name}.sql` && !later.has(f)
     && /function (public|private)\.app_lock_|app_feature_locks/.test(readFileSync(`supabase/migrations/${f}`, 'utf8')));
   assert.deepEqual(others, []);

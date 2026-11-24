@@ -79,9 +79,9 @@ test('정적: 사용자 확인(/auth/v1/user·auth.getUser)을 하는 모든 Web
   const problems = rows.filter(r => r.problem);
   assert.deepEqual(problems, [], '빠진 함수: 사용자 확인 직후 isDelegatedToken(같은 열쇠)로 401을 돌려주게 하세요(_shared/delegated-token-guard.mjs)');
   const guarded = rows.filter(r => r.authSites > 0).map(r => r.name).sort();
-  // 2026-11-18 main 기준 28개(설계 4.3절 27개 + record-backup). 새 함수가 늘면 이 목록과 PR 배포 표를 함께 고친다.
+  // 2026-11-18 main 기준 28개(설계 4.3절 27개 + record-backup) + account-delete(S69 계정 삭제). 새 함수가 늘면 이 목록과 PR 배포 표를 함께 고친다.
   assert.deepEqual(guarded, [
-    'ai-assist', 'auth-handoff', 'basket-files', 'cloud-files', 'document-actions', 'document-ai-index', 'drive-summary',
+    'account-delete', 'ai-assist', 'auth-handoff', 'basket-files', 'cloud-files', 'document-actions', 'document-ai-index', 'drive-summary',
     'event-media', 'gdrive-photos', 'google-calendar', 'google-tasks', 'library-files', 'meeting-ai-draft', 'meeting-ai-ingest',
     'meeting-files', 'meeting-transcribe', 'news-feed', 'note-import', 'onedrive-photos', 'outside-feed', 'page-ai-draft',
     'pc0921-board', 'phone-push', 'public-page-edit', 'public-policy-drive', 'record-backup', 'share-page-media', 'workspace-drive',
@@ -112,6 +112,7 @@ function fakeFetch() {
 const req = (token, url, body = {}) => new Request(url, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Origin: 'https://desk.bokdoong.com' }, body: JSON.stringify(body) });
 
 const HANDLERS = [
+  ['account-delete', async f => (await import('../../supabase/functions/account-delete/handler.ts')).createAccountDeleteHandler({ env, fetch: f, log: () => {} }), { action: 'check' }],
   ['ai-assist', async f => (await import('../../supabase/functions/ai-assist/handler.ts')).createAiAssistHandler({ env, fetch: f, log: () => {} }), { kind: 'todo_radar' }],
   ['phone-push', async f => (await import('../../supabase/functions/phone-push/handler.ts')).createPhonePushHandler({ env, fetch: f, log: () => {} }), {}, '?action=devices'],
   ['gdrive-photos', async f => (await import('../../supabase/functions/gdrive-photos/handler.ts')).createGdriveHandler({ env, fetch: f }), { action: 'list' }],

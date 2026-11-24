@@ -10,13 +10,13 @@ export {calendarHtml,photoViewHtml,mountPhotoView,mountStrips} from './report-vi
 export {PC_QUERY,NONE_KEY,sortRecentFirst,MEETING_DOCS_LABEL,meetingColumns,columnsHtml,listHtml,pickMeeting,assignMeetingColors,meetingPaletteColor,nameHash,MEETING_HUES,roundLabel,hasRound,meetingShortName} from './meeting-columns.js';
 export {formatMeetingWhen} from './meeting-when.js';
 export {readSorts as readNameSorts,peekSorts as peekNameSorts} from './meeting-name-sorts.js'; // S56-36 MTG-회의목록조직묶기: 회의명 조직 묶음(고르기 창과 같은 값·같은 함수)
-export {orgSections} from './meeting-name-sorts.mjs';
+export {orgSections,placeOf as namePlaceOf} from './meeting-name-sorts.mjs';
 export {pickReportKind} from './report-kind-sheet.js';
 export {reportWords,isMeetingKind} from './report-words.mjs';
 export {createFieldRows} from './report-entry-rows.js';
 export {mountSplitResize} from './split-resize.js';
 export {followPane,stickTop} from './follow-pane.js';
-export {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
+export {targetList,targetsLabel,firstProjectId,withFirstProject} from './report-links-model.mjs';
 export {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,attendeesAvailable,noteAttendeesFromMeetings,noteAreaFromMeetings,noteAreaNoneFromMeetings,LEGACY_NOTE} from './report-links.js';
 export {mountAreaFields} from './business-area-fields.js';
 export {mountBigWrite} from './record-text-write.js';

@@ -99,8 +99,17 @@
    직접 골라야 하는 줄은 주황 테두리, 결과가 없는 줄은 빨간 글자 "결과를 더해 주세요". 줄을 누르면 고칠 칸과 파일이 펼쳐진다. */
 #meetingModal .meeting-create-modes{margin-bottom:var(--kptu-space-3)} /* UI-PC손맛묶음 ⑧: 모양은 공용 ⑤ 보기 바꾸기(.ds-seg), 여기는 아래 간격만 */
 /* MTG-사업보고말바꾸기: [회의] 칸이 아니면 회의명 고르기(목록)를 숨기고 제목 한 칸만 둔다. [파일·글로 만들기]는 회의를 만드는 길이라 [회의] 칸에서만 보인다. */
-#meetingModal:not([data-report-kind="meeting"]) :is(#meetingNameSelect,#meetingNameSort,#meetingNameMatch,.meeting-create-modes){display:none}
-#meetingRoundDetailModal:not([data-report-kind="meeting"]) :is(#mrdEditNameSelect,#mrdEditNameSort,#mrdEditNameMatch){display:none}
+#meetingModal:not([data-report-kind="meeting"]) :is(#meetingNameSelect,#meetingNameMode,#meetingNameAdhoc,#meetingNameMatch,.meeting-create-modes){display:none}
+#meetingRoundDetailModal:not([data-report-kind="meeting"]) :is(#mrdEditNameSelect,#mrdEditNameMode,#mrdEditNameAdhoc,#mrdEditNameMatch){display:none}
+/* MTG-비정기회의바로쓰기(A안): 회의명 자리 맨 위 [정기 회의 | 비정기 회의](모양은 공용 ⑤ .ds-seg, 여기는 자리만) + 비정기 한 줄 [조직 ▾]·[관련 사업 ▾] + 작은 안내. */
+.mnp-mode{margin-bottom:var(--kptu-space-2,6px)}
+.mnp-adhoc[hidden]{display:none}
+.mnp-adhoc{margin-top:calc(var(--kptu-space-2,6px) * -1)}
+.mnp-adhoc-row{display:flex;flex-wrap:wrap;gap:4px 8px}
+.mnp-adhoc-row label{flex:1 1 140px;min-width:0;margin:0}
+.mnp-adhoc-row label[hidden]{display:none}
+.mnp-adhoc-row select{width:100%;min-width:0}
+.mnp-adhoc-note{margin:2px 0 0;color:var(--kptu-muted);font-size:12px}
 #meetingModal:not([data-create-mode="files"]) #mffPanel,
 #meetingModal[data-create-mode="files"] .modal-card>:is(fieldset.meeting-entry-section,.modal-action-footer){display:none}
 #mffPanel .mtg-group{margin-bottom:var(--kptu-space-2)}
