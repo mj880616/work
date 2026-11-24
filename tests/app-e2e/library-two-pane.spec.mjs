@@ -17,7 +17,7 @@ const folderIn=(i,id)=>`${pane(i)} [data-lu-nav="${id}"]`;
 // S56-40 LIB-두칸폴더펼치기: 폴더 줄 누르기 = 그 칸 안 펼치기·접기. 그 폴더로 들어가기는 우클릭 [이 폴더로 들어가기].
 const enterIn=async(page,i,id)=>{await page.locator(folderIn(i,id)).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()};
 const docIn=(i,id)=>`${pane(i)} [data-lu-document="${id}"]`;
-// LIB-두칸폴더밖(S69, 명진 11/24 16:12): 맨 위 칸의 '폴더 밖' 줄(개수). 폴더 밖 자료는 그 줄을 펼쳐야 보인다(펼침은 두 칸이 같이 기억).
+// LIB-두칸폴더밖(S69, 명진 11/24 16:12): 맨 위 칸의 '폴더 밖' 줄(개수). 폴더 밖 자료는 그 줄을 펼쳐야 보인다(S69-68: 펼침은 칸마다 따로).
 const outRow=i=>`${pane(i)} [data-lu-nav="x:out"]`;
 const openOut=async(page,i=0)=>{await page.locator(outRow(i)).click();await expect(page.locator(outRow(i))).toHaveAttribute('aria-expanded','true')};
 const line=page=>page.locator('#libraryFolderStatusLine');
@@ -42,7 +42,10 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸`,()=>{
       await expect(page.locator(`${pane(i)} .lu-pane-here`)).toHaveText('자료실');
     }
     await openOut(page,0);
-    for(const i of [0,1])for(const id of ['a-2','a1-1'])await expect(page.locator(`${pane(i)} [data-lu-pane-sub=""] [data-lu-document="${id}"]`)).toBeVisible();
+    // S69-68 UI-두칸따로(명진 11/24 20:14 '우측에서의 폴더조작이 왼쪽에 영향 안미치게 반대로도'): 펼침은 칸마다 — 왼쪽 칸에서 펼쳐도 오른쪽 칸은 접힌 채.
+    for(const id of ['a-2','a1-1'])await expect(page.locator(`${pane(0)} [data-lu-pane-sub=""] [data-lu-document="${id}"]`)).toBeVisible();
+    for(const id of ['a-2','a1-1'])await expect(page.locator(docIn(1,id))).toHaveCount(0);
+    await expect(page.locator(outRow(1))).toHaveAttribute('aria-expanded','false');
     // 폴더 밖 자료 줄은 '폴더 밖' 줄 바로 아래, 폴더 줄(가상 A)보다 위.
     const order=await page.locator(`${pane(0)} [data-lu-prow]`).evaluateAll(xs=>xs.map(x=>x.dataset.luProw));
     expect(order.indexOf('d:a-2')).toBeGreaterThan(order.indexOf('x:out'));expect(order.indexOf('d:a-2')).toBeLessThan(order.indexOf('f:fa'));
