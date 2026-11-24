@@ -1154,7 +1154,7 @@ function luRenderFolderNav(tree){
   card.dataset.luSplit='1';
   const path=luNavPath(),rows=[];
   const walk=(list,depth)=>{for(const n of list||[]){if(n.kind!=='folder')continue;const kids=(n.children||[]).filter(c=>c.kind==='folder'),open=kids.length>0&&!luNavShut.has(n.id)&&(path.has(n.id)||luNavOpen.has(n.id));
-    const cnt=folderCountOf(n);rows.push(ftFolderRowHtml({name:n.label,count:cnt.text,countLabel:cnt.label,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,tag:n.rc?RECEIVE_MARK:'',mainAttrs:luCanDrag()?{'data-lu-nav':n.id,draggable:'true'}:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
+    const cnt=folderCountOf(n);rows.push(ftFolderRowHtml({name:n.label,count:cnt.text,countLabel:cnt.label,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,tag:n.rc?RECEIVE_MARK:'',mainAttrs:luCanDrag()?{'data-lu-nav':n.id,draggable:'true'}:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`},more:{attrs:{'data-lu-nav-more':n.id},label:`${n.label} 폴더 메뉴`}}));
     if(open)walk(kids,depth+1)}};
   walk(tree,0);
   const all=!luInFolder&&!luOutOnly;
@@ -1493,7 +1493,7 @@ function luCloseMenu(then,fromBack=false){
 // LIB-다시그리기메뉴닫힘: 목록을 다시 그려도(저장 뒤 다시 읽기·AI 빈 칸 채우기 끝·폴더 바뀜 등) 사용자가 연 ⋯ 메뉴는 그대로 둔다.
 // 그리기 주인(luRenderLibrary)이 그리기 전에 메뉴를 연 칸의 자리를 적고, 그린 뒤 같은 자리의 새 칸에 메뉴를 옮겨 붙인다.
 // 그 줄이 사라졌거나(지워짐·걸러짐) 접힌 토글 안이라 안 보이면 그때만 닫는다. 자료 줄 메뉴(luActiveMenu)와 폴더 메뉴(library-folders.js) 둘 다.
-const LU_MENU_ROOTS='#documentList,#libraryFolderNav,#libraryRecent',LU_MENU_KEYS=[['luRecent','data-lu-recent'],['luNodeMenu','data-lu-node-menu'],['luNav','data-lu-nav'],['luMenu','data-lu-menu']];
+const LU_MENU_ROOTS='#documentList,#libraryFolderNav,#libraryRecent',LU_MENU_KEYS=[['luRecent','data-lu-recent'],['luNodeMenu','data-lu-node-menu'],['luNavMore','data-lu-nav-more'],['luNav','data-lu-nav'],['luMenu','data-lu-menu']];
 function luMenuSpot(trigger){
   if(!trigger?.isConnected)return null;const root=trigger.closest(LU_MENU_ROOTS),hit=LU_MENU_KEYS.find(([k])=>trigger.dataset[k]!==undefined);if(!root||!hit)return null;
   return {trigger,root:root.id,key:hit[0],attr:hit[1],value:trigger.dataset[hit[0]],pane:trigger.closest('[data-lu-pane-i]')?.dataset.luPaneI??'',node:trigger.parentElement?.closest('[data-lu-node]')?.dataset.luNode??''};
@@ -1885,7 +1885,8 @@ function luSyncPicks(){
   for(const c of list?.querySelectorAll('[data-lu-pick]')||[]){const ids=luTwinIds([c.dataset.luPick]);c.checked=ids.every(x=>luPick.items.has(x));c.indeterminate=ids.length>1&&!c.checked&&ids.some(x=>luPick.items.has(x))}
   for(const c of list?.querySelectorAll('[data-lu-pick-node]')||[]){const key=c.dataset.luPickNode,whole=key.startsWith('f:')&&luPick.items.has(folderPick(key.slice(2))),nodeIds=nodeDocumentIds(luTreeNode(key));c.checked=whole||allSelected(luPick.items,nodeIds);c.indeterminate=!c.checked&&someSelected(luPick.items,nodeIds)}
   // S69-69: 폴더째 고른 폴더 줄(탐색기 칸·두 칸)은 고른 줄 표시(lu-folder-picked + aria-selected).
-  for(const el of list?.querySelectorAll('details[data-lu-enter] > summary,[data-lu-pane-i] .ft-row')||[]){const id=luMqFolderId(el),on=!!id&&luPick.items.has(folderPick(id));el.classList.toggle('lu-folder-picked',on);if(on)el.setAttribute('aria-selected','true');else el.removeAttribute('aria-selected')}
+  // S69-84: 왼쪽 나무(#libraryFolderNav) 폴더 줄도 같은 표시(폴드·PC 꾹 누르기·선택 모드 누르기로 폴더째 고름).
+  for(const el of document.querySelectorAll('#documentList details[data-lu-enter] > summary,#documentList [data-lu-pane-i] .ft-row,#libraryFolderNav .ft-row')){const id=luMqFolderId(el),on=!!id&&luPick.items.has(folderPick(id));el.classList.toggle('lu-folder-picked',on);if(on)el.setAttribute('aria-selected','true');else el.removeAttribute('aria-selected')}
   const all=document.querySelector('#librarySelectAll'),count=document.querySelector('#librarySelectCount'),del=document.querySelector('#librarySelectDelete'),cancel=document.querySelector('#librarySelectCancel');
   if(all){all.setAttribute('aria-checked',String(allSelected(luPick.items,ids)));all.disabled=luSelBusy||!ids.length}
   // 빠짐10: 고른 것 중 지금 줄로 보이지 않는 것(접힌 토글·'n건 더'·접힌 같은 글)이 있으면 '— 접힌 n개 포함'.
@@ -1995,6 +1996,18 @@ function luPickAt(e,id){
   }
   const ids=luTwinIds([id]);if(ids.length>1){luPick.toggle(ids,{anchor:false});luPick.anchor=id}else luPick.toggle([id]);luSyncPicks();
 }
+// S69-84: 왼쪽 나무·두 칸 칸의 폴더 줄 ⋯ = 그 폴더 메뉴(PC 우클릭과 같은 메뉴·같은 실행). 손가락 기기는 꾹 누르기가 고르기라 메뉴는 ⋯로만(P4).
+function luOnNavMore(e){const b=e.target.closest?.('[data-lu-nav-more]');if(!b)return;e.preventDefault();e.stopPropagation();luCloseMenu(()=>luFolders().open(b))}
+// S69-84: 선택 모드에서 손가락으로 왼쪽 나무·두 칸 칸의 폴더 줄 누르기 = 그 폴더째 더하기/빼기(들어가기·펼치기 없음 — 폰 나무와 같은 규칙).
+// 마우스 누르기는 그대로 들어가기·펼치기(마우스 고르기는 Ctrl·Shift·사각형). ⋯·펼침 아이콘은 그대로. 목록 상자(나무 + 목록) 캡처 단계에서 먼저 받는다.
+function luOnNavPickClick(e){
+  if(!luPick.items||(e.pointerType!=='touch'&&e.pointerType!=='pen'))return;
+  const t=e.target,navRow=t.closest?.('#libraryFolderNav .ft-row,#documentList [data-lu-pane-i] .ft-row');
+  if(!navRow||t.closest('[data-lu-node-menu],[data-lu-nav-more],[data-lu-nav-tog],.ft-dots,.ft-tog,input'))return;
+  const id=luMqFolderId(navRow);if(!id)return;
+  e.stopPropagation();e.preventDefault();if(luSelBusy)return;
+  luPick.toggle([folderPick(id)]);if(!luPick.size)luPick.stop();luRenderLibrary();
+}
 // 목록 안 클릭·키보드: 선택 모드에서는 줄을 눌러도 자료를 열지 않고 고르기만 한다(캡처 단계에서 먼저 처리).
 function luOnPickClick(e){
   if(e.target.closest?.('[data-lu-twin]'))return; // 빠짐10: [원본 n]은 펼치기만(고르기·열기 없음)
@@ -2026,6 +2039,9 @@ function luHoldIds(ids){
   return true;
 }
 function luRowHold(el){
+  // S69-84 목록 엔진 통일 ①(명진 11/24 23:57 "폴드 펼침 화면에서도 꾹 눌러 선택 등 움직임 통일"): 왼쪽 나무·두 칸 칸의 폴더 줄(.ft-row)은
+  // 폴더째 고른다(열쇠 'F:폴더 id' — 사각형 고르기 luMqKey와 같음). '자료실 전체'·'폴더 밖' 줄은 폴더가 아니라 고르지 않는다.
+  if(el.matches?.('.ft-row')){const id=luMqFolderId(el);return id?luHoldIds([folderPick(id)]):false}
   if(el.matches?.('summary')){const key=el.parentElement?.dataset.luNode;if(!key)return false;return luHoldIds(nodeDocumentIds(luTreeNode(key)))}
   const set=el.dataset?.luPhotoset;if(set)return luHoldIds(luPhotoSetMembers(set).map(d=>d.id));
   const id=el.dataset?.luDocument;if(!id||!luDocuments.some(d=>d.id===id))return false;
@@ -2203,7 +2219,7 @@ function luBindMarquee(){
 function luBindSelect(){
   const list=document.querySelector('#documentList');
   if(!list||list.dataset.luSelBound)return;list.dataset.luSelBound='1';
-  list.addEventListener('click',luOnPickClick,true);list.addEventListener('keydown',luOnPickKey,true);
+  list.addEventListener('click',luOnPickClick,true);(list.closest('#libraryListCard')||list).addEventListener('click',luOnNavPickClick,true);(list.closest('#libraryListCard')||list).addEventListener('click',luOnNavMore);list.addEventListener('keydown',luOnPickKey,true);
   luBindRowSwipe(list);
   luBindMarquee();
   document.querySelector('#libraryTopMenuBtn')?.addEventListener('click',e=>luTopMenuOpen(e.currentTarget));

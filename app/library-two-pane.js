@@ -116,7 +116,9 @@ export function createLibraryTwo(h) {
     // LIB-받는폴더(S59-11): 받는 폴더 줄은 개수 뒤 작은 '받는 폴더'(나무 모델의 rc 표시 — library-tree.js buildTree).
     // 펼친 빈 폴더도 펼친 표시(aria-expanded·열린 그림) — 안에 '빈 폴더' 한 줄(emptyIn).
     const cnt = folderCountOf(n);
-    return ftFolderRowHtml({name: n.label, count: cnt.text, countLabel: cnt.label, depth, open, hasContent: hasContent || open, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder', tag: n.rc ? '받는 폴더' : ''});
+    // S69-84: 줄 오른쪽 ⋯ = 그 폴더 메뉴(손가락 기기는 꾹 누르기가 고르기라 메뉴는 ⋯로만, 왼쪽 나무 줄과 같은 data-lu-nav-more).
+    return ftFolderRowHtml({name: n.label, count: cnt.text, countLabel: cnt.label, depth, open, hasContent: hasContent || open, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder', tag: n.rc ? '받는 폴더' : '',
+      more: {attrs: {'data-lu-nav-more': n.id}, label: `${n.label} 폴더 메뉴`}});
   }
   // 펼친 빈 폴더 안 한 줄. data-lu-pane-sub(그 폴더 id) — 여기에 놓으면 그 폴더(LIB-펼친폴더안놓기 paneDropAt 그대로).
   const emptyIn = ({node, depth}) => `<div class="lu-pane-sub lu-pane-empty" data-lu-pane-sub="${h.esc(node?.id || '')}" style="--ft-depth:${depth}">${emptyHtml('빈 폴더')}</div>`;
