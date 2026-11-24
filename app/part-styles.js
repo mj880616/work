@@ -36,6 +36,7 @@ export const PART_STYLES = Object.freeze({
   'marquee-select': ['./marquee-select.css'],
   'folder-dest-sheet': ['./folder-tree.css', './folder-dest-sheet.css'],
   'memo-thread': ['./memo-thread.css'],
+  'lock-pad': ['./lock.css'],
 });
 
 const browser = () => typeof window !== 'undefined' && typeof document !== 'undefined' && !!document.head

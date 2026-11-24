@@ -12,5 +12,5 @@ union all select 'owner RLS grants',relname,relowner::text||':'||relrowsecurity:
 union all select 'new table','app_memos',case when to_regclass('public.app_memos') is null then 'absent' else 'present' end
 union all select 'owner check function',p.oid::regprocedure::text,p.prosecdef::text||':'||coalesce(p.proconfig::text,'none')||':'||coalesce(p.proacl::text,'none')||':'||md5(p.prosrc)
   from pg_proc p where p.pronamespace='private'::regnamespace and p.proname='app_is_workspace_owner'
-union all select 'history',version,name from supabase_migrations.schema_migrations where version in ('20261102203000','20261125020000')
+union all select 'history',version,name from supabase_migrations.schema_migrations where version in ('20261102203000','20261125030000')
 order by 1,2;

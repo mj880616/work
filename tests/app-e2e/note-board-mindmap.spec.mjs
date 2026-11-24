@@ -12,8 +12,8 @@ test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 // S69-83: [전체](모든 노트 판)는 없앴다 — 이름 붙은 보드 하나(BID)에서 시험한다.
 const BID = 'bmind001';
-const MAP = ['parent_id', 'ord', 'side', 'kind', 'color', 'shape', 'font', 'w', 'collapsed'];
-const DEF = { parent_id: null, ord: 0, side: null, kind: 'topic', color: null, shape: 'round', font: 2, w: null, collapsed: false };
+const MAP = ['parent_id', 'ord', 'side', 'kind', 'color', 'shape', 'font', 'w', 'collapsed', 'h', 'pinned'];
+const DEF = { parent_id: null, ord: 0, side: null, kind: 'topic', color: null, shape: 'round', font: 2, w: null, collapsed: false, h: null, pinned: false };
 async function fixture(page, width, { legacy = false, seed = [] } = {}) {
   await page.setViewportSize({ width, height: 860 });
   const errors = [], linkCalls = [], linkRows = [], textCalls = [], textRows = seed.map(t => ({ ...DEF, ...t }));
@@ -145,21 +145,28 @@ test('PC: 주제 → Tab 하위·Enter 형제, 가로 글·자동 배치(양쪽�
   await expect(node(page, '더 아래')).toHaveCount(1);
   // 가지째 끌기: '가지 둘'을 끄는 동안 '더 아래'도 같이 움직이고, '가지 하나' 가운데에 놓으면 그 아래로.
   const g2 = node(page, '가지 둘'), low = node(page, '더 아래'), g1 = node(page, '가지 하나');
-  const lowBefore = await box(low), from = await center(g2), to = await center(g1);
+  const lowBefore = await box(low), g2Before = await box(g2), from = await center(g2), to = await center(g1);
   await page.mouse.move(from.x, from.y); await page.mouse.down();
   await page.mouse.move(from.x + 30, from.y + 30, { steps: 4 });
-  const lowMid = await box(low);
-  expect(Math.round(lowMid.x - lowBefore.x)).toBe(30); expect(Math.round(lowMid.y - lowBefore.y)).toBe(30);
+  const lowMid = await box(low), g2Mid = await box(g2);
+  // S69-88: 끄는 동안 맞춤선에 살짝 붙을 수 있다(6px 안) — 아래 가지는 끄는 상자와 똑같이 움직인다.
+  expect(Math.abs(g2Mid.x - g2Before.x - 30)).toBeLessThanOrEqual(6); expect(Math.abs(g2Mid.y - g2Before.y - 30)).toBeLessThanOrEqual(6);
+  expect(Math.round(lowMid.x - lowBefore.x)).toBe(Math.round(g2Mid.x - g2Before.x)); expect(Math.round(lowMid.y - lowBefore.y)).toBe(Math.round(g2Mid.y - g2Before.y));
   await page.mouse.move(to.x, to.y, { steps: 8 });
   await expect(g1).toHaveClass(/nb-drop-in/);
   await page.mouse.up();
   await expect.poll(() => rowBy(textRows, '가지 둘').parent_id).toBe(ids['가지 하나']);
   expect(rowBy(textRows, '더 아래').parent_id).toBe(ids['가지 둘']); // 아래 가지는 그대로 따라감
-  // 가지를 멀리 빈 곳에 놓으면 떼어 혼자 선 상자(자리 저장).
+  // S69-88: 가지를 빈 곳에 놓으면 그 자리에 선다(손으로 둔 가지 — 가지는 그대로, 자동 배치가 덮어쓰지 않음). [⋯] [가지 떼기] = 혼자 선 상자.
   const blank = await blankPoint(page, 'top');
   await drag(page, await center(node(page, '가지 둘')), blank);
-  await expect.poll(() => rowBy(textRows, '가지 둘').parent_id).toBe(null);
+  await expect.poll(() => rowBy(textRows, '가지 둘').pinned).toBe(true);
+  expect(rowBy(textRows, '가지 둘').parent_id).toBe(ids['가지 하나']);
   expect(rowBy(textRows, '가지 둘').x).toBeGreaterThan(0);
+  await expect(bar(page)).toBeVisible(); // 끈 상자는 고른 채로 남는다
+  await bar(page).locator('[data-nb-bar-open="more"]').click();
+  await bar(page).locator('[data-nb-detach]').click();
+  await expect.poll(() => rowBy(textRows, '가지 둘').parent_id).toBe(null);
   await expect(node(page, '가지 둘')).toHaveClass(/nb-root/);
   expect(await noOverflow(page)).toBe(true);
   expect(errors).toEqual([]);

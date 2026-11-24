@@ -3,7 +3,9 @@
 // - 상자(주제) = 보드에만 있는 글 상자 한 줄. parent_id가 있으면 그 상자의 가지(하위), 없으면 혼자 선 상자(뿌리 — 옛 글 상자는 모두 뿌리로 읽힌다).
 // - 뿌리만 자기 자리(x·y)를 쓰고, 가지 자리는 늘 자동 배치(나무 모양, 뿌리의 가지는 왼·오른 양쪽, 그 아래는 같은 쪽으로).
 // - 꾸미기: 색(기존 노트 색 8가지 0~7, 없으면 기본) · 모양(둥근/네모/알약/글만) · 글자 크기(1~4) · 폭(비면 글 길이만큼).
-// - 기기 저장 없음. 서버 check와 같은 범위만 받는다(migration 20261125000000_note_board_mindmap).
+// - S69-88(명진 11/25 02:46 "크기 조절 … 높이 폭 모두", "이동도 자유롭고 파워포인트처럼"): 손으로 정한 높이(h, 비면 글 길이만큼 — 글이 더 길면
+//   상자가 글만큼 커진다: 최소 높이), 손으로 옮겨 둔 가지(pinned — 자기 x·y를 쓰고 자동 배치가 덮어쓰지 않음, 그 아래 가지는 그 자리에서 자동, 가지 선은 따라감).
+// - 기기 저장 없음. 서버 check와 같은 범위만 받는다(migration 20261125000000_note_board_mindmap, 20261125020000_note_board_box_size).
 
 export const NODE_COLORS = Object.freeze([
   {n:0, name:'연두'}, {n:1, name:'하늘'}, {n:2, name:'연보라'}, {n:3, name:'살구'},
@@ -16,6 +18,7 @@ export const FONT_MIN = 1, FONT_MAX = 4, FONT_DEFAULT = 2, ROOT_FONT = 3;
 export const FONT_PX = Object.freeze({1:12, 2:14, 3:17, 4:21});
 export const FONT_NAMES = Object.freeze({1:'작게', 2:'보통', 3:'크게', 4:'아주 크게'});
 export const W_MIN = 60, W_MAX = 600; // 손으로 정한 폭(서버 check와 같음). 비면 글 길이만큼(AUTO_MAX에서 줄바꿈)
+export const H_MIN = 30, H_MAX = 1200; // 손으로 정한 높이(서버 check와 같음). 비면 글 길이만큼
 export const AUTO_MAX = 260;
 export const ORD_MAX = 1000000, ORD_STEP = 1024;
 export const HGAP = 44, VGAP = 12;
@@ -38,7 +41,9 @@ export function nodeShape(base, row = {}) {
     shape:NODE_SHAPES.includes(row.shape) ? row.shape : 'round',
     font:int(row.font, FONT_MIN, FONT_MAX) ?? FONT_DEFAULT,
     w:int(row.w, W_MIN, W_MAX),
+    h:int(row.h, H_MIN, H_MAX),
     collapsed:row.collapsed === true,
+    pinned:row.pinned === true && !!parent, // 뿌리는 늘 자기 자리이므로 손으로 둔 표시는 가지에만 뜻이 있다
   };
 }
 
@@ -77,6 +82,7 @@ export const canAttach = (tree, id, target) => !!target && id !== target && tree
 function rootSides(tree, rootId, heightOf) {
   const sides = new Map(); let right = 0, left = 0;
   for (const k of childrenOf(tree, rootId)) {
+    if (k.pinned) continue; // 손으로 둔 가지는 쪽 무게에 넣지 않는다
     const s = k.side ?? (right <= left ? 1 : -1);
     sides.set(k.id, s);
     if (s === 1) right += heightOf(k.id) + VGAP; else left += heightOf(k.id) + VGAP;
@@ -95,7 +101,7 @@ function subtreeHeights(tree, sizeOf) {
   const memo = new Map();
   const of = id => {
     if (memo.has(id)) return memo.get(id);
-    const n = tree.byId.get(id), own = sizeOf(id).h, ks = n?.collapsed ? [] : childrenOf(tree, id);
+    const n = tree.byId.get(id), own = sizeOf(id).h, ks = n?.collapsed ? [] : childrenOf(tree, id).filter(k => !k.pinned);
     const sum = ks.reduce((s, k) => s + of(k.id), 0) + Math.max(0, ks.length - 1) * VGAP;
     const v = Math.max(own, sum); memo.set(id, v); return v;
   };
@@ -103,31 +109,43 @@ function subtreeHeights(tree, sizeOf) {
   return memo;
 }
 
-// 자동 배치: 보이는 상자마다 판 좌표 칸 {x, y, w, h, side, depth, root}. 접힌 가지 아래는 넣지 않는다(hidden에 모음).
+// 자동 배치: 보이는 상자마다 판 좌표 칸 {x, y, w, h, side, depth, root, pinned}. 접힌 가지 아래는 넣지 않는다(hidden에 모음).
 // sizeOf(id) → {w, h}(그린 크기). 뿌리는 자기 x·y(왼쪽 위). 가지는 부모 옆(HGAP)·형제는 위아래(VGAP)로 겹치지 않게, 부모 가운데 높이에 맞춘다.
-export function layoutMindmap(tree, sizeOf, {hgap = HGAP, vgap = VGAP} = {}) {
+// 손으로 둔 가지(pinned)는 형제 줄에서 빠져 자기 x·y에 서고(쪽은 부모 가운데보다 왼쪽이면 왼쪽), 그 아래 가지는 그 자리에서 자동.
+// posOf(id) → {x, y} 또는 null: 끄는 중·크기를 바꾸는 중인 뿌리·손으로 둔 가지의 잠깐 자리(저장 전).
+export function layoutMindmap(tree, sizeOf, {hgap = HGAP, vgap = VGAP, posOf = () => null} = {}) {
   const heights = subtreeHeights(tree, sizeOf), out = new Map(), hidden = new Set();
+  const own = n => posOf(n.id) || {x:n.x, y:n.y};
+  const fold = id => { for (const d of descendants(tree, id)) hidden.add(d); };
+  // 그 상자 아래 가지 놓기: 자동 가지는 옆에 쌓고, 손으로 둔 가지는 제자리.
+  const branch = (id, r, side, depth, root) => {
+    const n = tree.byId.get(id), ks = childrenOf(tree, id);
+    if (n.collapsed) { fold(id); return; }
+    const auto = ks.filter(k => !k.pinned).map(k => k.id);
+    if (side === 0) {
+      const sides = rootSides(tree, id, k => heights.get(k));
+      stack(auto.filter(k => sides.get(k) === 1), r.x + r.w + hgap, r.y + r.h / 2, 1, depth + 1, root);
+      stack(auto.filter(k => sides.get(k) === -1), r.x - hgap, r.y + r.h / 2, -1, depth + 1, root);
+    } else stack(auto, side === -1 ? r.x - hgap : r.x + r.w + hgap, r.y + r.h / 2, side, depth + 1, root);
+    for (const k of ks) if (k.pinned) pin(k, r, depth + 1, root);
+  };
+  const pin = (k, parent, depth, root) => {
+    const {w, h} = sizeOf(k.id), p = own(k), side = p.x + w / 2 < parent.x + parent.w / 2 ? -1 : 1;
+    const r = {x:p.x, y:p.y, w, h, side, depth, root, pinned:true};
+    out.set(k.id, r); branch(k.id, r, side, depth, root);
+  };
   const place = (id, x, cy, side, depth, root) => {
-    const {w, h} = sizeOf(id), n = tree.byId.get(id), left = side === -1 ? x - w : x;
-    out.set(id, {x:left, y:cy - h / 2, w, h, side, depth, root});
-    const ks = childrenOf(tree, id);
-    if (n.collapsed) { for (const d of descendants(tree, id)) hidden.add(d); return; }
-    stack(ks.map(k => k.id), side === -1 ? left - hgap : left + w + hgap, cy, side, depth + 1, root);
+    const {w, h} = sizeOf(id), left = side === -1 ? x - w : x, r = {x:left, y:cy - h / 2, w, h, side, depth, root};
+    out.set(id, r); branch(id, r, side, depth, root);
   };
   const stack = (ids, x, cy, side, depth, root) => {
     const total = ids.reduce((s, id) => s + heights.get(id), 0) + Math.max(0, ids.length - 1) * vgap;
     let top = cy - total / 2;
     for (const id of ids) { const hh = heights.get(id); place(id, x, top + hh / 2, side, depth, root); top += hh + vgap; }
   };
-  for (const r of tree.roots) {
-    const {w, h} = sizeOf(r.id), cy = r.y + h / 2;
-    out.set(r.id, {x:r.x, y:r.y, w, h, side:0, depth:0, root:r.id});
-    if (r.collapsed) { for (const d of descendants(tree, r.id)) hidden.add(d); continue; }
-    const sides = rootSides(tree, r.id, id => heights.get(id));
-    const right = childrenOf(tree, r.id).filter(k => sides.get(k.id) === 1).map(k => k.id);
-    const left = childrenOf(tree, r.id).filter(k => sides.get(k.id) === -1).map(k => k.id);
-    stack(right, r.x + w + hgap, cy, 1, 1, r.id);
-    stack(left, r.x - hgap, cy, -1, 1, r.id);
+  for (const n of tree.roots) {
+    const {w, h} = sizeOf(n.id), p = own(n), r = {x:p.x, y:p.y, w, h, side:0, depth:0, root:n.id};
+    out.set(n.id, r); branch(n.id, r, 0, 0, n.id);
   }
   return {rects:out, hidden};
 }

@@ -135,7 +135,9 @@ test('폰 412: 꾹 눌러 선택 → [복사] → 하단바 위 받을 곳 창, 
   await row(page, 'od:OD!11').click();
   await row(page, 'od:OD!12').click();
   await expect(bar(page).locator('.fx-bar-t')).toHaveText('3개');
-  await expect(bar(page).locator('button')).toHaveText(['복사', '옮기기', '자료실로', '☆ 별표', '휴지통', '✕']);
+  // UI-고르기막대(S69-85): 왼쪽 [✕](선택 풀기) + 오른쪽 단추, 휴지통은 맨 끝(별 모양은 아이콘).
+  await expect(bar(page).locator('button:visible').first()).toHaveAttribute('aria-label', '선택 풀기');
+  await expect(bar(page).locator('button.kptu-sb-act:not(.kptu-sb-close):visible')).toHaveText(['복사', '옮기기', '자료실로', '별표', '휴지통']);
   await shot(page, 'files-copy-bar-412');
   await bar(page).locator('[data-fx-copy]').click();
   await expect(sheet(page)).toBeVisible();

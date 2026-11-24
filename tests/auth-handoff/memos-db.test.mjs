@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google, OpenAI or production credentials. All data synthetic.
-// S69-94 NOTE-메모통일 DB(20261125020000_memos): 메모 표(소유자만, 대상 종류 검사, 노트 메모는 같은 작업공간 노트만, 고치기는 글만)와
+// S69-94 NOTE-메모통일 DB(20261125030000_memos): 메모 표(소유자만, 대상 종류 검사, 노트 메모는 같은 작업공간 노트만, 고치기는 글만)와
 // 옛 노트 댓글(app_note_comments) 복사(옛 표는 그대로), 원문을 지워도 메모는 남음, 되돌리기.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261125020000',name='memos',stem=version+'_'+name;
+const version='20261125030000',name='memos',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];

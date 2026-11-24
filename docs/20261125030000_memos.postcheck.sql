@@ -4,7 +4,7 @@
 -- After apply also: RLS on the new table, four authenticated owner policies, no anon/PUBLIC/service_role privilege, update on body·updated_at only,
 -- every old note comment copied (same id, note, workspace and text).
 with history as (
-  select count(*) as n,count(*) filter(where name='memos') as named from supabase_migrations.schema_migrations where version='20261125020000'
+  select count(*) as n,count(*) filter(where name='memos') as named from supabase_migrations.schema_migrations where version='20261125030000'
 )
 select 'new table and history agree' as item,case when (history.n=0 and to_regclass('public.app_memos') is null)
   or (history.n=1 and history.named=1 and to_regclass('public.app_memos') is not null) then '예' else '아니오' end as value

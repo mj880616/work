@@ -231,6 +231,9 @@
 .lu-drive-open{white-space:nowrap;color:var(--kptu-link);text-decoration:none}
 .lu-drive-open:hover,.lu-drive-open:focus-visible{text-decoration:underline}
 .lu-drive-note{color:var(--kptu-muted);white-space:nowrap}
+/* UI-자료실파일모양(S69-85 ②): 폴더 안이면 위치 줄 끝에 작은 [드라이브 ↗] 하나(주소 줄 하나). */
+#appView #libraryView #libraryPath > .lu-drive-here{flex:none;margin-left:auto;padding:0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4}
+#appView #libraryView #libraryPath > .lu-drive-note.lu-drive-here{margin-left:6px}
 .lu-drive-note::before{content:"· ";}
 .lu-folder-hint{margin:4px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
 .lu-folder-hint[hidden],.lu-folder-name[hidden],.lu-folder-targets[hidden]{display:none}
@@ -255,24 +258,26 @@
 #appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}
 
 /* LIB-여러개삭제: [선택] 모드. 버튼은 UI-버튼기준(글자 버튼·28px, 누르는 범위 44px), 전체 칩은 거르기 칩과 같은 모양. */
-/* UI-고르기줄(S48-54): 버튼 배치(왼쪽부터 촘촘히·같은 간격)·글자 모양·누르는 범위 44px는 공용 부품(base-ui.css .kptu-actbar-text, 노트 고르기 줄과 같음). */
-#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger)}
+/* UI-고르기막대(S69-85): 선택 막대 모양(한 줄·✕ N개·아이콘 단추·⋯·빨간 글자 삭제)은 공용 부품(base-ui.css .kptu-selbar, app/select-bar.js) 하나. 여기서는 자리만. */
 #libraryView .lu-head-actions > [hidden]{display:none}
-.lu-select-bar{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;min-width:0;flex:1}
+.lu-select-bar{flex:1 1 auto}
 :is(.lu-bulk-menu) button{padding-left:calc(var(--kptu-space-3,12px) + var(--lu-depth,0) * 12px)}
 :is(.lu-bulk-menu) button[aria-current="true"] .lu-menu-key{display:inline;color:var(--kptu-primary-ink);font-weight:700}
 :is(.lu-bulk-menu) button:disabled{opacity:.55;cursor:default}
-#libraryListCard .lu-select-bar > *{flex:none;margin:0}
-#libraryListCard .lu-select-bar > .lu-select-acts{flex:1 1 auto;min-width:0}
 .lu-select-bar[hidden]{display:none}
-.lu-select-bar .filter-chips{flex:none;margin-right:4px;padding-top:0;padding-bottom:0;min-height:0}
-.lu-select-count{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap;margin-right:4px}
-.lu-select-row{display:flex;align-items:center;justify-content:flex-end;min-height:var(--ds-compact-height-sm,28px);margin:0 0 4px}
+.lu-select-row{display:flex;align-items:center;min-width:0;margin:0 0 4px}
 /* 빠짐9: 평소에는 선택 줄이 비어 있으니(⋯ 메뉴로 합침) 자리를 차지하지 않는다. */
 #libraryListCard:not(.lu-selecting) .lu-select-row{display:none}
-#appView #libraryView #documentList .lu-row.lu-row-picking{position:relative;padding-left:28px}
-#appView #libraryView #documentList .lu-pick:not(.photo-pick){position:absolute;left:4px;top:50%;width:16px;height:16px;min-height:0;margin:-8px 0 0;padding:0;accent-color:var(--kptu-primary-ink)}
-#appView #libraryView #documentList .lu-pick.lu-pick-node{position:relative;z-index:1;top:auto;left:auto;flex:none;margin:0 2px 0 0}
+/* UI-자료실파일모양(S69-85 ②, 명진 11/25 "파일 인터페이스로 자료실도 바꿔", 버릴 것: 큰 체크칸): 파일 목록처럼 네모 칸 없이 고른 줄은
+   옅은 강조 바탕 + 왼쪽 진한 세로줄(.lu-picked·.lu-node-picked·.lu-folder-picked, 파일 .fx-picked와 같은 색 변수). 네모 칸은 줄 위에 보이지 않게
+   남아 있어(누르기·키보드·화면 읽기 그대로) 줄 어디를 눌러도 고르기·풀기. 폴더 묶음 칸은 줄 왼쪽 폴더 그림 자리(32px)만 — 이름 누르기는 그 자리 펼치기 그대로. */
+#appView #libraryView #documentList .lu-row.lu-row-picking{position:relative}
+#appView #libraryView #documentList .lu-pick:not(.photo-pick){position:absolute;inset:0;z-index:1;box-sizing:border-box;width:auto;height:auto;min-width:0;min-height:0;margin:0;padding:0;border:0;opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none}
+#appView #libraryView #documentList .lu-row.lu-row-picking :is(.lu-more-trigger,.lu-expand){position:relative;z-index:2}
+#appView #libraryView #documentList .lu-pick.lu-pick-node{inset:0 auto 0 0;width:32px}
+#appView #libraryView #documentList :has(> .lu-pick-node){position:relative}
+#appView #libraryView #documentList .lu-row:has(> .lu-pick:focus-visible),#appView #libraryView #documentList :has(> .lu-pick-node:focus-visible){outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+#appView #libraryView #documentList :is(.lu-row.lu-picked,.lu-node-picked){background:var(--kptu-primary-soft);box-shadow:var(--kptu-shadow-select)}
 
 /* PRESS-자료실편입 2단계: 자료실 .html 보기 창(칸막이는 html-frame.js). 안내 한 줄·[Drive에서 열기]는 작은 글자 버튼. */
 .lu-html-card .modal-head{margin-bottom:var(--kptu-space-2)}
@@ -436,8 +441,6 @@
 /* LIB-선택모드(08:29~08:30 ②): 선택 모드는 평소와 다르다는 느낌만 작게 — 위 줄은 강조색 띠('n개 골랐음'), 목록 칸 테두리는 연한 강조색,
    들어갈 때 줄들이 한 번 0.2초 살짝 흔들리고 멈춤(계속 흔들지 않음). 움직임 줄이기 설정이면 흔들림 없이 색만. 나올 때는 그냥 원래대로. */
 #libraryListCard.lu-selecting{border-color:color-mix(in srgb,var(--kptu-primary-ink) 40%,var(--kptu-border))}
-#libraryListCard.lu-selecting .lu-select-row{padding:0 4px;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-primary-soft)}
-#libraryListCard.lu-selecting .lu-select-count{color:var(--kptu-primary-ink);font-weight:700}
 @keyframes lu-sel-nudge{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}50%{transform:translateX(2px)}75%{transform:translateX(-1px)}}
 #libraryListCard.lu-sel-enter #documentList .lu-row{animation:lu-sel-nudge .2s ease-out 1}
 @media(prefers-reduced-motion:reduce){#libraryListCard.lu-sel-enter #documentList .lu-row{animation:none}}
@@ -677,4 +680,4 @@
 #documentList details.lu-enter > summary.lu-node-head{cursor:pointer}
 #libraryPath .lu-focus-here{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--kptu-ink);font-weight:700}
 /* S69-69 LIB-사각형폴더: 사각형으로 폴더째 고른 폴더 줄(탐색기 칸 하위 폴더 줄·두 칸 칸 폴더 줄). */
-#appView #libraryView #documentList .lu-folder-picked{background:var(--kptu-primary-soft)}
+#appView #libraryView #documentList .lu-folder-picked{background:var(--kptu-primary-soft);box-shadow:var(--kptu-shadow-select)}

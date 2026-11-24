@@ -659,6 +659,12 @@ jobs:
       - name: Check library marquee picks folder rows (S69-69 LIB-사각형폴더)
         run: node --test tests/library-pick-folders.test.mjs
 
+      - name: Check shared select bar stays one line (S69-85 UI-고르기막대)
+        run: node --test tests/select-bar-model.test.mjs
+
+      - name: Check library list looks like the files list (S69-85 UI-자료실파일모양)
+        run: node --test tests/library-files-look.test.mjs
+
       - name: Check schedule window photos and files (CAL-일정첨부)
         run: node --test tests/event-files.test.mjs
 
@@ -782,6 +788,8 @@ jobs:
         run: node --test tests/note-board-links-model.test.mjs
       - name: Check note board mindmap (S69-82 브레인스토밍·마인드맵)
         run: node --test tests/note-board-mindmap-model.test.mjs
+      - name: Check note board box frame (S69-88 크기 손잡이·자유 이동·카드 별명)
+        run: node --test tests/note-board-frame-model.test.mjs
       - name: Check note hashtags and comments (NOTE-읽생기아이디어)
         run: node --test tests/note-tags-comments.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)
@@ -1252,7 +1260,7 @@ jobs:
         run: node --test tests/notice-sweep.test.mjs
 
       - name: Check library, project, share and upload units (STAB-단위시험등록)
-        run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/share-ai-draft-model.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
+        run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/note-publish-model.test.mjs tests/share-photos.test.mjs tests/share-ai-draft-model.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
 
       - name: Check business report area tag and next plan (MTG-프로젝트합치기 2단계)
         run: node --test tests/business-area-model.test.mjs

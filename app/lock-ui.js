@@ -5,7 +5,7 @@
 import * as lock from './feature-lock.js';
 import {waitHtml, failHtml} from './wait-state.js';
 import {myFeaturesOrNull} from './my-features.js';
-import {padBox, padTyped, tap, shake as padShake, wrongMsg} from './lock-pad.js';
+import {padBox, padTyped, tap, shake as padShake, wrongMsg, onPadKeys, keyOfClick} from './lock-pad.js';
 
 const rpc = (name, body) => window.KPTURuntime.api('/rest/v1/rpc/' + name, {method: 'POST', body, singleFlight: false});
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; };
@@ -254,13 +254,13 @@ async function enter() {
 }
 
 install();
+onPadKeys(document.querySelector('#lockView'), press);
 document.querySelector('#lockView')?.addEventListener('click', event => {
+  const key = keyOfClick(event); if (key != null) { if (key) press(key); return; }
   const t = event.target.closest?.('button,[data-lk-retry]'); if (!t) return;
   if (t.matches('[data-lk-retry]')) { void lock.refresh().then(enter); return; }
   if (t.matches('[data-lk-close]')) { leave(); return; }
   if (t.matches('[data-lk-logout]')) { t.disabled = true; void window.KPTUTeamAuth?.logout?.(); return; }
-  if (t.dataset.lkKey) { press(t.dataset.lkKey); return; }
-  if (t.matches('[data-lk-back]')) { press('back'); return; }
   if (t.matches('[data-lk-forgot]')) {
     if (recentLogin()) { reset({mode: 'pad', purpose: 'renew', target: ui.target}); draw(); return; }
     reset({mode: 'forgot', target: ui.target}); draw(); return;

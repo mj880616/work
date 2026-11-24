@@ -17,7 +17,7 @@ test('종류 표: 노트·읽을 거리(news·outside)·저장한 글·브리핑
   assert.equal(memoSource({target_type: 'reading'}), '저장한 글');
   assert.equal(memoSource({target_type: 'x'}), '기록');
   // DB 검사(app_memos_target_type_check)와 종류 표가 같다 — 종류를 더하면 둘 다 고친다.
-  const sql = readFileSync(new URL('../supabase/migrations/20261125020000_memos.sql', import.meta.url), 'utf8');
+  const sql = readFileSync(new URL('../supabase/migrations/20261125030000_memos.sql', import.meta.url), 'utf8');
   const check = sql.match(/target_type in \(([^)]*)\)/)[1].match(/'([a-z]+)'/g).map(v => v.slice(1, -1));
   assert.deepEqual(check, MEMO_TYPES);
   assert.equal(MEMO_LIMITS.body, 4000);

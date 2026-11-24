@@ -99,6 +99,8 @@ for (const width of [412, 884, 1440]) {
   });
 }
 
+// S69-88: 끄는 카드는 다른 칸 가장자리·가운데에 화면 6px 안이면 살짝 붙는다(맞춤선) — 그만큼 더 받는다.
+const snapSlack = zoom => 2 + 6 / zoom;
 test('보드 카드 끌어 놓기: 그 보드 자리만 서버 저장, 끈 칸이 맨 위, 다시 그려도 그 자리 (1440)', async ({ page }) => {
   const { writes, errors } = await fixture(page, 1440);
   // S68-47: 보드를 열면 연결선·글 상자(app_note_board_links·texts)를 따로 읽고, 그 답이 오면 선·글 상자를 다시 그린다.
@@ -157,7 +159,7 @@ for (const width of [412, 884]) {
     await touch(cdp, 'touchStart', [from]); await swipe(cdp, from, 60, 40); await touch(cdp, 'touchEnd', []);
     await expect.poll(() => boardWrites(writes, 'n2').length).toBe(1);
     let end = await cardAt(card);
-    expect(Math.abs(end.x - start.x - 60 / zoom)).toBeLessThanOrEqual(2); expect(Math.abs(end.y - start.y - 40 / zoom)).toBeLessThanOrEqual(2);
+    expect(Math.abs(end.x - start.x - 60 / zoom)).toBeLessThanOrEqual(snapSlack(zoom)); expect(Math.abs(end.y - start.y - 40 / zoom)).toBeLessThanOrEqual(snapSlack(zoom));
     expect(boardWrites(writes, 'n2')[0].body.metadata.boards[BID].x).toBe(end.x);
     await expect(page.locator('[data-note-detail]')).toBeHidden();
     await expect(page.locator('#noteDocMenu')).toBeHidden();
@@ -169,7 +171,7 @@ for (const width of [412, 884]) {
     await swipe(cdp, from, -50, 30); await touch(cdp, 'touchEnd', []);
     await expect.poll(() => boardWrites(writes, 'n2').length).toBe(2);
     end = await cardAt(card);
-    expect(Math.abs(end.x - start.x + 50 / zoom)).toBeLessThanOrEqual(2); expect(Math.abs(end.y - start.y - 30 / zoom)).toBeLessThanOrEqual(2);
+    expect(Math.abs(end.x - start.x + 50 / zoom)).toBeLessThanOrEqual(snapSlack(zoom)); expect(Math.abs(end.y - start.y - 30 / zoom)).toBeLessThanOrEqual(snapSlack(zoom));
     await expect(card).not.toHaveClass(/nb-held|nb-dragging/);
     await expect(page.locator('#noteDocMenu')).toBeHidden();
     await expect(page.locator('[data-note-detail]')).toBeHidden();
@@ -226,7 +228,7 @@ for (const width of [412, 884]) {
     await touch(cdp, 'touchStart', [from]); await swipe(cdp, from, 90, 45); await touch(cdp, 'touchEnd', []);
     await expect.poll(() => boardWrites(writes, 'n2').length).toBe(1);
     let end = await cardAt(card);
-    expect(Math.abs(end.x - start.x - 36)).toBeLessThanOrEqual(2); expect(Math.abs(end.y - start.y - 18)).toBeLessThanOrEqual(2);
+    expect(Math.abs(end.x - start.x - 36)).toBeLessThanOrEqual(snapSlack(2.5)); expect(Math.abs(end.y - start.y - 18)).toBeLessThanOrEqual(snapSlack(2.5));
     // 가장 작게(0.2배): 손가락 40px = 판 위 200칸, 꾹 누른 뒤 끌기.
     while (await minus.isEnabled()) await press(page, minus, width);
     expect(await zoomOf(page)).toBe(0.2);

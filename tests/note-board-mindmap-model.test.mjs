@@ -10,12 +10,12 @@ const n = (id, parent = null, ord = 0, extra = {}) => nodeShape(base(id, extra.x
 const size = () => ({w:80, h:24});
 
 test('옛 글 상자(새 칸 없음)는 혼자 선 기본 주제 상자로 읽힌다, 범위 밖 값은 기본값', () => {
-  assert.deepEqual(nodeShape(base('a', 5, 6)), {id:'a', board_id:'all', body:'a', x:5, y:6, parent_id:null, ord:0, side:null, kind:'topic', color:null, shape:'round', font:2, w:null, collapsed:false});
+  assert.deepEqual(nodeShape(base('a', 5, 6)), {id:'a', board_id:'all', body:'a', x:5, y:6, parent_id:null, ord:0, side:null, kind:'topic', color:null, shape:'round', font:2, w:null, h:null, collapsed:false, pinned:false});
   const odd = nodeShape(base('a'), {parent_id:'a', ord:-3, side:0, kind:'x', color:9, shape:'star', font:7, w:20, collapsed:'yes'});
   assert.equal(odd.parent_id, null); assert.equal(odd.ord, 0); assert.equal(odd.side, null); assert.equal(odd.kind, 'topic');
   assert.equal(odd.color, null); assert.equal(odd.shape, 'round'); assert.equal(odd.font, 2); assert.equal(odd.w, null); assert.equal(odd.collapsed, false);
   assert.deepEqual(nodeShape(base('a'), {parent_id:'p', ord:5, side:-1, kind:'sticky', color:7, shape:'pill', font:4, w:300, collapsed:true}),
-    {...base('a'), parent_id:'p', ord:5, side:-1, kind:'sticky', color:7, shape:'pill', font:4, w:300, collapsed:true});
+    {...base('a'), parent_id:'p', ord:5, side:-1, kind:'sticky', color:7, shape:'pill', font:4, w:300, h:null, collapsed:true, pinned:false});
   assert.equal(nodeShape(null), null);
   assert.equal(NODE_COLORS.length, 8);
 });

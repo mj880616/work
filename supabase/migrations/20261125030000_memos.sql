@@ -10,14 +10,14 @@ begin;
 --  - quote·kind는 옛 댓글의 인용 글·종류(생각·질문·인용)를 잃지 않게 보존하는 칸이다. 화면은 종류를 쓰지 않는다.
 -- 권한: owner만(private.app_is_workspace_owner). 노트에 다는 메모는 넣을 때 같은 작업공간의 노트(kind=note)여야 한다.
 --   authenticated: 읽기·지우기, 넣기는 필요한 칸만, 고치기는 글(body)·고친 시각(updated_at)만. anon·PUBLIC·service_role 권한 없음.
--- 짝: docs/20261125020000_memos.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261125030000_memos.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125020000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125030000')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261102203000' and name = 'note_comments') <> 1
      or to_regclass('public.app_memos') is not null
      or to_regclass('public.app_workspaces') is null
@@ -121,5 +121,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261125020000', 'memos', array['NOTE-메모통일: app_memos (target type+id, owner RLS 4 policies, note in same workspace on insert, update body only), copy app_note_comments rows (old table kept)']);
+values ('20261125030000', 'memos', array['NOTE-메모통일: app_memos (target type+id, owner RLS 4 policies, note in same workspace on insert, update body only), copy app_note_comments rows (old table kept)']);
 commit;

@@ -132,7 +132,7 @@ for (const width of [412, 884]) {
     expect(server.jobs.map(j => j.origin)).toEqual(['device', 'device']);
     // 별표: 고르기(Ctrl+누름 — S51-27부터 PC 우클릭은 줄 메뉴) → 막대 [☆ 별표] → 서버에 기억, ★ 표시.
     await row(page, 'od:OD!11').click({ modifiers: ['Control'] });
-    await expect(bar(page).locator('[data-fx-star]')).toHaveText('☆ 별표');
+    await expect(bar(page).locator('[data-fx-star]')).toHaveText('별표'); // UI-고르기막대(S69-85): 별 모양은 아이콘
     await shot(page, `files-star-bar-${width}`);
     await bar(page).locator('[data-fx-star]').click();
     await expect.poll(() => edgeCalls(server, 'star').at(-1)?.body).toEqual({ action: 'star', confirm: true, source: 'od', ids: ['OD!11'], on: true });

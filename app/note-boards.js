@@ -20,7 +20,7 @@ import { viewPrefs } from './view-prefs.js';
 import { treeIconHtml, iconHtml } from './tree-icons.js';
 import { mountSplitResize } from './split-resize.js';
 import { BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace } from './note-boards-model.mjs';
-import { layoutBoard, spreadFrom, topZ } from './note-board-model.mjs';
+import { layoutBoard, spreadFrom, topZ, placeFields, validateCardLabel, CARD_LABEL_MAX } from './note-board-model.mjs';
 import { treeRows, noteLineTitle, OUTSIDE, OUTSIDE_NAME } from './note-tree.mjs';
 import { setNoteBoardPlace } from './basket-data.js';
 import { NOTE_DRAG } from './note-board.js';
@@ -124,7 +124,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     if (n.id !== nid) return n;
     const meta = n.metadata && typeof n.metadata === 'object' ? {...n.metadata} : {};
     const all = meta.boards && typeof meta.boards === 'object' && !Array.isArray(meta.boards) ? {...meta.boards} : {};
-    if (place) all[boardId] = {x:place.x, y:place.y, r:place.r, z:place.z}; else delete all[boardId];
+    if (place) all[boardId] = placeFields(place); else delete all[boardId];
     if (Object.keys(all).length) meta.boards = all; else delete meta.boards;
     return {...n, metadata:meta};
   }));
@@ -172,6 +172,29 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     if (!named()) return;
     const id = current; localPlace(nid, id, next);
     void store([[nid, id, next]], '카드 자리를 저장하지 못했어요. 다시 불러올게요.');
+  }
+
+  // S69-88: 이 보드에서만 카드에 보일 글자(별명, 카드 자리 정보의 label). 노트 제목·내용·연결은 그대로(누르면 그 노트가 열림). 비우면 노트 제목.
+  const placeHere = nid => { const n = notes.get().find(k => k.id === nid); return n && named() ? boardPlaceOf(n, current) : null; };
+  async function relabel(note, anchor) {
+    if (!named()) return;
+    const id = current, place = placeHere(note.id); if (!place) return;
+    const title = [...noteLineTitle(note)].slice(0, 40).join('');
+    const typed = await askText(anchor || bar, {text:`보드에 보일 글자 (${CARD_LABEL_MAX}자까지, 비우면 노트 제목 '${title}')`, value:place.label || '', max:CARD_LABEL_MAX});
+    if (typed === null || current !== id) return;
+    let label; try { label = validateCardLabel(typed); } catch (e) { toast(e.message); return; }
+    const now = placeHere(note.id); if (!now || (now.label || null) === label) return;
+    const next = {...placeFields(now), label}; if (!label) delete next.label;
+    localPlace(note.id, id, next); rerender();
+    void store([[note.id, id, next]], '보드에 보일 글자를 저장하지 못했어요. 다시 불러올게요.');
+  }
+  // 손으로 정한 카드 크기 → 처음 크기로.
+  const isSized = note => { const p = named() ? boardPlaceOf(note, current) : null; return !!(p && (p.w || p.h)); };
+  function autosize(nid) {
+    const now = placeHere(nid); if (!now || !(now.w || now.h)) return;
+    const next = placeFields(now); delete next.w; delete next.h;
+    localPlace(nid, current, next); rerender();
+    void store([[nid, current, next]], '카드 크기를 저장하지 못했어요. 다시 불러올게요.');
   }
 
   // 보드 만들기·이름·지우기(이름은 노트 폴더와 같은 창).
@@ -361,7 +384,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   }
 
   return {
-    paint, boardView, attach, detach, move,
+    paint, boardView, attach, detach, move, relabel, autosize, isSized,
     current:() => current, isNamed:named, name:boardName,
     reset() { closeMenu(); picker?.close(); openSet = new Set(); chosen = false; boards = parseBoards(viewPrefs.get('note_boards')); current = pickBoard(viewPrefs.get('note_board'), boards); },
   };

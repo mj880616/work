@@ -1,4 +1,4 @@
-// S69-94 NOTE-메모통일: 메모 표(public.app_memos, migration 20261125020000) 읽기·쓰기. 기존 owner-RLS REST 길(rt.api)만 쓴다. 기기 저장 없음.
+// S69-94 NOTE-메모통일: 메모 표(public.app_memos, migration 20261125030000) 읽기·쓰기. 기존 owner-RLS REST 길(rt.api)만 쓴다. 기기 저장 없음.
 // 새 표가 아직 없으면(DB 적용 전, PostgREST 404/PGRST205) 옛 노트 댓글 표(app_note_comments)를 메모 모양으로 읽는다 — legacy:true.
 // 그때는 노트 메모만 남기기·지우기가 되고(옛 표 그대로), 고치기와 노트 밖 메모는 '준비 중'(화면이 legacy를 보고 정한다). 적용하면 옛 댓글은 새 표로 옮겨져 있다.
 import {fromNoteComment, MEMO_OPEN} from './memo-model.mjs';
