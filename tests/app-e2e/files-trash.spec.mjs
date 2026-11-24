@@ -24,7 +24,7 @@ for (const width of [390, 1280]) {
     const box = sheet(page);
     await expect(box).toBeVisible();
     await expect(box.locator('#fxTrashTitle')).toHaveText('구글 드라이브 휴지통');
-    await expect(box.locator('.fx-dest-note')).toContainText('내 드라이브에서 직접 지운 것만');
+    await expect(box.locator('.fx-dest-note')).toContainText('내 드라이브에서 직접 삭제한 것만');
     await expect(box.locator('.fx-trash-name')).toHaveText(['가짜 지운 초안.pdf', '가짜 지운 폴더']);
     await expect(box.locator('.fx-trash-meta').first()).toContainText('삭제');
     await expect(box.locator('.fx-trash-meta').nth(1)).toContainText('폴더');

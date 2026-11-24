@@ -219,3 +219,50 @@ for (const [name, open] of HEAD_SCREENS) test(`H1 ${name} 폰 390: 머리 줄 �
   expect(over).toBeLessThanOrEqual(1);
   expect(s.errors).toEqual([]);
 });
+
+// F1(S69-62, 명진 11/24 18:16·18:18 "파일 옮기는 UI ... 다른 데서도" / "이쪽을 모델로 다 통일"): 폴더 고르기 = [파일] '옮길 곳' 창 하나.
+// 자료실·노트·사진에서 폴더 ⋯ [옮기기]를 누르면 [파일]과 같은 모양의 창(제목 · 폴더 나무 · 아래 경로 + [새 폴더] + [여기에 옮기기])이 열리고,
+// 줄을 누르면 고르기·펼치기만(쓰기 없음), [여기에 옮기기]로만 옮긴다(쓰기 한 번).
+const PICK_SCREENS = [
+  ['자료실', library, async (page, width) => {
+    const menu = page.locator('#documentList details[data-lu-node="f:f0"] > summary [data-lu-node-menu], #libraryFolderNav [data-lu-nav="f0"]').first();
+    if (width >= 761 && await page.locator('#libraryFolderNav [data-lu-nav="f0"]').count()) await page.locator('#libraryFolderNav [data-lu-nav="f0"]').click({ button: 'right' });
+    else await menu.click();
+    await page.locator('#luFolderMenu').getByRole('button', { name: '옮기기…', exact: true }).click();
+  }, req => req.url().includes('/rest/v1/app_library_folders') && req.method() === 'PATCH'],
+  ['노트', notes, async page => {
+    await page.locator(`[data-nx-folder-more="${U(100)}"]`).first().click();
+    await page.locator('#noteDocMenu').getByRole('button', { name: /옮기기/ }).first().click();
+  }, req => req.url().includes('/rest/v1/app_note_folders') && req.method() === 'PATCH'],
+  ['사진', photos, async page => {
+    await page.locator('#photosRoot [data-photos-fx-more="S0"]').first().click();
+    await page.locator('#photosFolderMenu').getByRole('button', { name: '옮기기…' }).click();
+  }, req => req.url().includes('/functions/v1/onedrive-photos') && /folder-move|move/.test(req.postData() || '')],
+];
+for (const [name, open, openMove, isWrite] of PICK_SCREENS) for (const width of [390, 1280]) test(`F1 ${name} ${width}: 폴더 옮기기 = [파일] '옮길 곳' 창 — 누르면 고르기·펼치기만, [여기에 옮기기]로만 옮김`, async ({ page }) => {
+  const { errors } = await open(page, width);
+  const writes = [];
+  page.on('request', req => { if (isWrite(req)) writes.push(req.url()); });
+  await openMove(page, width);
+  const sheet = page.locator('dialog[data-fd-sheet][open]');
+  await expect(sheet).toBeVisible();
+  // [파일] 창과 같은 틀(같은 모양 파일·같은 부분).
+  await expect(sheet).toHaveClass(/fx-dest/);
+  await expect(sheet.locator('.fx-dest-h [data-fx-dest-close]')).toBeVisible();
+  await expect(sheet.locator('.fx-dest-tree [data-fx-dest-pick]').first()).toBeVisible();
+  await expect(sheet.locator('.fx-dest-f [data-fx-dest-go]')).toBeVisible();
+  const target = sheet.locator('.fx-dest-tree [data-fx-dest-name="가상 폴더 2"]');
+  await target.click();
+  await expect(target).toHaveAttribute('aria-current', 'true');
+  await expect(sheet.locator('.fx-dest-at')).toContainText('가상 폴더 2');
+  await page.waitForTimeout(150);
+  expect(writes).toEqual([]);
+  const box = await sheet.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(900);
+  await sheet.locator('[data-fx-dest-go]').click();
+  await expect(sheet).toHaveCount(0);
+  await expect.poll(() => writes.length).toBe(1);
+  expect(errors.filter(e => !/500|failed|Failed/.test(e))).toEqual([]);
+});

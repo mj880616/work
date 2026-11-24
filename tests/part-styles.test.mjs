@@ -92,6 +92,7 @@ const KNOWN = {
   'folder-dest-sheet.css': {
     'files.js': {routes: ['files'], why: "S69-62 [파일] '옮길 곳' 창(그리기는 files.js 상태 주인, 모양은 공용 folder-dest-sheet.css)"},
     'folder-dest-sheet.mjs': {why: 'folder-dest-sheet.js(부품)와 files.js가 부르는 창 HTML 한 곳(순수 함수)'},
+    'files-trash.js': {routes: ['files'], why: '[파일] 휴지통 창(S69-62) — [파일]에서만 열고, 열 때 partStyles(folder-dest-sheet)로 모양을 스스로 붙인다'},
   },
   'area-org-picker.css': {'choice-sheet.js': {why: 'area-org-picker.js가 넘긴 줄을 그림(그 부품이 모양을 붙임)'}},
   'markdown-view.css': {'markdown-render.mjs': {why: 'markdown-view.js·편집기가 쓰는 글자 바꾸기(그 부품이 모양을 붙임)'}},

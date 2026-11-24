@@ -14,7 +14,7 @@ await partStyles('folder-dest-sheet');
 const FN = '/functions/v1/cloud-files';
 const NAME = {gd: '구글 드라이브', od: '원드라이브'};
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-export const GD_TRASH_NOTE = '내 드라이브에서 직접 지운 것만 보여요. 폴더째 지운 파일은 그 폴더 줄 하나로 보여요.';
+export const GD_TRASH_NOTE = '내 드라이브에서 직접 삭제한 것만 보여요. 폴더째 삭제한 파일은 그 폴더 줄 하나로 보여요.';
 export const OD_TRASH_NOTE = '원드라이브 휴지통 목록은 원드라이브 웹에서만 볼 수 있어요.';
 export const OD_PHOTO_TRASH = '.WORK ON+ 휴지통';
 
@@ -60,7 +60,7 @@ function paint() {
   const head = `<div class="fx-dest-h"><span id="fxTrashTitle">${esc(NAME[st.source])} 휴지통</span><button type="button" class="mini" data-fx-trash-close aria-label="닫기">✕</button></div>`;
   if (st.source === 'od') {
     const photo = st.odPhotoTrash ? `<button type="button" class="fx-btn" data-fx-trash-odfolder>${esc(OD_PHOTO_TRASH)} 폴더 열기</button>` : '';
-    box.innerHTML = head + `<p class="fx-dest-note">${esc(OD_TRASH_NOTE)}${st.odPhotoTrash ? ` 사진에서 지운 사진은 '${esc(OD_PHOTO_TRASH)}' 폴더에 있어요.` : ''}</p>`
+    box.innerHTML = head + `<p class="fx-dest-note">${esc(OD_TRASH_NOTE)}${st.odPhotoTrash ? ` 사진에서 삭제한 사진은 '${esc(OD_PHOTO_TRASH)}' 폴더에 있어요.` : ''}</p>`
       + `<div class="fx-dest-f fx-trash-od">${photo}<a class="fx-btn fx-pri" href="${esc(st.web || 'https://onedrive.live.com/?v=recyclebin')}" target="_blank" rel="noopener noreferrer" data-fx-trash-web>원드라이브 휴지통 열기</a></div>`;
     return;
   }
