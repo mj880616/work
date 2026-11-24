@@ -11,7 +11,7 @@ import {folderIndent} from './folder-limits.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {colorChoiceHtml,colorFromButton} from './folder-look.js';
 import {colorOf,dropZone,folderDropPlan,placeAt,isSamePlace} from './folder-look-model.mjs';
-import {setLibraryFolderColor,createLibraryFolder} from './library-folder-data.js';
+import {setLibraryFolderColor,createLibraryFolder,putDocumentInFolder} from './library-folder-data.js';
 import {paneDropAt} from './library-drop.js';
 import {createEdgeScroll,installDragEdgeScroll} from './drag-edge-scroll.js';
 import {openFolderAt} from './drop-open-folder.mjs';
@@ -409,10 +409,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // LIB-받는폴더: 받는 폴더가 켜져 있으면 서버가 막 만든 자료를 이미 받는 폴더에 넣어 두었다(연결 줄이 있어 넣기가 겹침 거절 409) → 연 폴더로 고친다.
   async function putUploaded(docId,folderId){
     if(!docId||!folder(folderId))return false;
-    try{await api(T_ITEMS,{method:'POST',prefer:'return=minimal',body:{document_id:docId,folder_id:folderId,workspace_id:s().workspace}});return true}
-    catch(e){if(!(Number(e?.status)===409||/23505|duplicate/i.test(`${e?.code||''} ${e?.message||''}`)))return false}
-    try{await api(T_ITEMS+`?document_id=eq.${enc(docId)}&workspace_id=eq.${enc(s().workspace)}`,{method:'PATCH',prefer:'return=minimal',body:{folder_id:folderId}});return true}
-    catch{return false}
+    return putDocumentInFolder(api,{workspace:s().workspace,documentId:docId,folderId}); // 조직 기록 자료 폴더(org-files-folder.js)와 같은 쓰기
   }
   // 표시는 오른쪽 목록과 왼쪽 나무 두 곳에 붙는다(S55-08).
   const marked=list=>document.querySelectorAll(list.split(',').flatMap(c=>['#documentList '+c,'#libraryFolderNav '+c]).join(','));
