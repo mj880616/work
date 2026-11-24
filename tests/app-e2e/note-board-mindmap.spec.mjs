@@ -250,7 +250,7 @@ test('폰: [+ 주제]·막대 [+ 하위]·[+ 형제], 누르면 고르기·다�
   await page.locator('[data-nb-add-text]').tap();
   await expect(editor(page)).toBeFocused();
   await page.keyboard.type('폰 주제');
-  let blank = await blankPoint(page);
+  let blank = await blankPoint(page, 'top');
   await page.touchscreen.tap(blank.x, blank.y);
   await expect.poll(() => textRows.map(t => t.body)).toEqual(['폰 주제']);
   // 누르면 고르기 + 막대.
@@ -263,14 +263,14 @@ test('폰: [+ 주제]·막대 [+ 하위]·[+ 형제], 누르면 고르기·다�
   await bar(page).locator('[data-nb-bar-child]').tap();
   await expect(editor(page)).toBeFocused();
   await page.keyboard.type('폰 가지');
-  blank = await blankPoint(page);
+  blank = await blankPoint(page, 'top');
   await page.touchscreen.tap(blank.x, blank.y);
   await expect.poll(() => rowBy(textRows, '폰 가지')?.parent_id).toBe(rowBy(textRows, '폰 주제').id);
   await node(page, '폰 가지').locator('.nb-tx').tap();
   await bar(page).locator('[data-nb-bar-sibling]').tap();
   await expect(editor(page)).toBeFocused();
   await page.keyboard.type('폰 형제');
-  blank = await blankPoint(page);
+  blank = await blankPoint(page, 'top');
   await page.touchscreen.tap(blank.x, blank.y);
   await expect.poll(() => rowBy(textRows, '폰 형제')?.parent_id).toBe(rowBy(textRows, '폰 주제').id);
   expect(rowBy(textRows, '폰 형제').ord).toBeGreaterThan(rowBy(textRows, '폰 가지').ord);

@@ -5,7 +5,8 @@
 export const QUOTE_MAX = 4000, EDGE = 60, MEMO_MAX = 2000;
 // note: 노트 본문에서 고른 밑줄(S62-17 NOTE-노트에서도밑줄, DB 20261115194000 — source_id = app_notes.id, 노트 원문은 서버 app_notes 그대로).
 // reading: 읽을 거리 원문 사본에서 고른 밑줄(S68-09 READ-읽을거리함, DB 20261122100000 — source_id = app_reading_items.id).
-export const HL_TYPES = Object.freeze(['news', 'outside', 'telegram', 'note', 'reading']);
+// brief: 브리핑 룸 자료 보기에서 고른 밑줄(S69-86 BRIEF-밑줄노트, DB 20261125010000 — source_id = app_documents.id, 출처 사본은 자료 이름·브리핑 날짜).
+export const HL_TYPES = Object.freeze(['news', 'outside', 'telegram', 'note', 'reading', 'brief']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const oneLine = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
 const httpUrl = v => (typeof v === 'string' && /^https?:\/\/\S+$/.test(v.trim()) && v.trim().length <= 2000 ? v.trim() : '');
@@ -39,7 +40,7 @@ export function highlightBody(workspaceId, src, quote, {prefix = '', suffix = ''
     memo: cleanMemo(memo), source_title: s.title, source_media: s.media, source_date: s.date, source_url: s.url};
 }
 // 출처 꼬리표(노트 › 밑줄 목록 줄 앞): 노트 · 텔레그램 · News(뉴스 기사·사회운동 글).
-export const sourceTag = h => (h?.source_type === 'note' ? '노트' : h?.source_type === 'telegram' ? '텔레그램' : h?.source_type === 'reading' ? '저장한 글' : '읽을 거리');
+export const sourceTag = h => (h?.source_type === 'note' ? '노트' : h?.source_type === 'telegram' ? '텔레그램' : h?.source_type === 'reading' ? '저장한 글' : h?.source_type === 'brief' ? '브리핑' : '읽을 거리');
 // 노트 밑줄의 원문 글이 바뀌어 고른 글이 노트에 없는가(노트 › 밑줄 줄의 '원문이 바뀌었어요' 작은 표시). text = 노트 글자(raw_text),
 // 노트가 없으면(null) 바뀐 것으로 본다. 빈칸·줄바꿈과 마크다운 기호(* _ # > ` ~ | [ ] ( ) \ -)는 빼고 비교한다(읽기 화면은 기호 없이 그려지므로).
 const loose = v => String(v ?? '').replace(/[\s*_#>`~|[\]()\\-]+/g, '');
@@ -97,6 +98,14 @@ export function noteOf(list) {
   const first = rows[0].source_title && String(rows[0].source_title).trim();
   const title = (rows.length > 1 ? `밑줄 ${rows.length}개 · ` : '밑줄 · ') + (first || '모음');
   return {title: title.slice(0, 80), raw_text: parts.join('\n\n---\n\n')};
+}
+// [답글](S69-86): 고른 글 + 내 메모 + 출처를 노트 한 장으로(밑줄은 저장하지 않음). 메모가 없으면 null. 노트 제목은 '답글 · 출처 제목'.
+export function replyNoteOf(draft, memo) {
+  const m = cleanMemo(memo), q = typeof draft?.quote === 'string' ? draft.quote.trim() : '';
+  if (!m || !q) return null;
+  const n = noteOf([{...draft, memo: m}]);
+  const first = draft.source_title && String(draft.source_title).trim();
+  return {title: `답글 · ${first || '선택한 글'}`.slice(0, 80), raw_text: n.raw_text};
 }
 // [복사]·[공유]: 고른 글 + 출처 한 줄 + 주소.
 export function copyOf(h) {
