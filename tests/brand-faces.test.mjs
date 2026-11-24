@@ -193,8 +193,9 @@ test('S68-02: 화면 글자가 word()를 거친다 — HWP 스타일 묶음 이�
   assert.match(frame, /iframe\.src=studioFrameSrc\(studioUrl\);/);
   assert.match(styles, /group\.setAttribute\('aria-label',groupLabel\(\)\);/);
   assert.doesNotMatch(styles, /'노조 양식 스타일'/);
-  assert.match(read('app/hwp-drive.js'), /export const EDIT_BACKUP_FOLDER=word\('노조\+ 편집 백업'\);/);
-  assert.match(read('app/record-backup.js'), /export const DEFAULT_FOLDER = word\('노조\+ 백업'\);/);
+  // S69-42: 앱 폴더 기본 이름은 누구나 새 이름(서버가 쓸 때 옛 이름을 바꿈) — word()를 거치지 않는 고정 글자.
+  assert.match(read('app/hwp-drive.js'), /export const EDIT_BACKUP_FOLDER='WORK ON\+ 편집 백업';/);
+  assert.match(read('app/record-backup.js'), /export const DEFAULT_FOLDER = 'WORK ON\+ 백업';/);
   for (const file of ['app/pc-files-model.mjs', 'app/files.js', 'app/help-content.mjs', 'app/app-download.mjs']) {
     const src = read(file);
     assert.doesNotMatch(src, /도우미을|도우미이 /, `${file}: 조사`);

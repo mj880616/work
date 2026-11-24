@@ -5,7 +5,7 @@ import {createServer} from 'node:http';
 const WS='10000000-0000-4000-8000-000000000001';
 const NOTE='20000000-0000-4000-8000-000000000001';
 const attachment=id=>({drive_file_id:id,file_name:'old.txt',mime_type:'text/plain',size_bytes:3});
-const defaultFolder=()=>({id:'synthetic-folder',name:'Web2 바구니',mimeType:'application/vnd.google-apps.folder',
+const defaultFolder=()=>({id:'synthetic-folder',name:'WORK ON+ 바구니',mimeType:'application/vnd.google-apps.folder',
   ownedByMe:true,trashed:false,parents:['synthetic-root'],permissions:[{type:'user',role:'owner'}]});
 
 // Real handler + shared Drive code; only Supabase SDK boundary is modeled.

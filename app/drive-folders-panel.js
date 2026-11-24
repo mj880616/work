@@ -30,13 +30,15 @@ export function gatherAskText(plan) {
 }
 
 /** 끝난 숫자 → 결과 한 줄 {text, error}. */
-export function gatherResultText({moved = 0, failed = 0, left = 0, renamed = 0, renameFailed = 0, renameLeft = 0, where = ''} = {}) {
+// S69-42: 이름 맞추기 결과는 '이름 바꿈 N'. 같은 자리에 새 이름 폴더가 이미 있어 그대로 둔 것은 '같은 이름 있어 그대로 N'(합치지 않음).
+export function gatherResultText({moved = 0, failed = 0, left = 0, renamed = 0, renameFailed = 0, renameLeft = 0, renameDup = 0, where = ''} = {}) {
   const done = [];
   if (moved) done.push(`앱 폴더 ${moved}개를 '${rootName(where)}' 아래로 모았어요`);
-  if (renamed) done.push(`이름 ${renamed}개를 새 이름으로 바꿨어요`);
+  if (renamed) done.push(`이름 바꿈 ${renamed}`);
+  const dup = renameDup ? ` · 같은 이름 있어 그대로 ${renameDup}` : '';
   const miss = failed + left + renameFailed + renameLeft;
-  if (!done.length) return {text: miss ? '드라이브 폴더를 바꾸지 못했어요. 잠시 뒤 다시 눌러 주세요.' : '모을 폴더도, 바꿀 이름도 없어요.', error: !!miss};
-  return {text: done.join(' · ') + (miss ? ` · ${miss}개는 하지 못했어요 — 다시 눌러 주세요.` : '.'), error: !!miss};
+  if (!done.length) return {text: miss ? '드라이브 폴더를 바꾸지 못했어요. 잠시 뒤 다시 눌러 주세요.' : renameDup ? `같은 이름 있어 그대로 ${renameDup} — 드라이브에서 둘 중 하나를 정리해 주세요.` : '모을 폴더도, 바꿀 이름도 없어요.', error: !!miss};
+  return {text: done.join(' · ') + dup + (miss ? ` · ${miss}개는 하지 못했어요 — 다시 눌러 주세요.` : ''), error: !!miss};
 }
 
 /** [한곳으로 모으기] 한 번: 세기 → 확인 → 옮기기·이름 맞추기(남으면 이어서). 답: 숫자 묶음 또는 null(취소·없음·실패). */
@@ -48,13 +50,13 @@ export async function gatherAppFolders({api, anchor = null, ask = askConfirm, sa
   const q = gatherAskText(plan);
   if (!q) { say('모을 폴더도, 바꿀 이름도 없어요. 이미 모아 뒀어요.'); return null; }
   if (!(await ask(anchor, {text: q.text, note: q.note, ok: '모으기'}))) return null;
-  const sum = {moved: 0, failed: 0, left: 0, renamed: 0, renameFailed: 0, renameLeft: 0, where: plan.root_name};
+  const sum = {moved: 0, failed: 0, left: 0, renamed: 0, renameFailed: 0, renameLeft: 0, renameDup: 0, where: plan.root_name};
   for (let round = 0; round < GATHER_ROUNDS; round++) {
     let r;
     try { r = await api(GATHER, {method: 'POST', body: {}}); }
     catch { sum.failed += Math.max(0, num(plan.count) - sum.moved - sum.failed); break; }
     sum.moved += num(r?.moved); sum.failed += num(r?.failed); sum.left = num(r?.left);
-    sum.renamed += num(r?.renamed); sum.renameFailed = num(r?.rename_failed); sum.renameLeft = num(r?.rename_left);
+    sum.renamed += num(r?.renamed); sum.renameFailed = num(r?.rename_failed); sum.renameLeft = num(r?.rename_left); sum.renameDup = num(r?.rename_dup);
     sum.where = r?.root_name || sum.where;
     // 이름 맞추기 실패는 다음 부름에서 또 후보로 잡히므로 마지막 부름의 실패 수만 남긴다(부풀리지 않음).
     const progressed = num(r?.moved) > 0 || num(r?.renamed) > 0;
@@ -69,7 +71,7 @@ export async function gatherAppFolders({api, anchor = null, ask = askConfirm, sa
 export function cleanPlan(plan) {
   if (!plan || typeof plan !== 'object' || plan.ok !== true) return null; // 서버 답 모양(ok:true)일 때만 그린다
   const url = typeof plan.root_url === 'string' && DRIVE_FOLDER_URL.test(plan.root_url) ? plan.root_url : null;
-  return {name: rootName(plan.root_name), url, isNew: plan.root_new === true, count: num(plan.count), rename: num(plan.rename), raw: plan};
+  return {name: rootName(plan.root_name), url, isNew: plan.root_new === true, count: num(plan.count), rename: num(plan.rename), dup: num(plan.rename_dup), raw: plan};
 }
 
 /** 칸 HTML. result: 결과 한 줄 {text, error} 또는 null. */
@@ -81,8 +83,9 @@ export function driveFoldersHtml(p, {busy = false, result = null} = {}) {
   const act = todo
     ? `<button type="button" class="row-act dfp-gather" data-dfp-gather${busy ? ' disabled aria-busy="true"' : ''} title="앱이 쓰는 드라이브 폴더를 한곳으로 모으고 옛 이름을 새 이름으로">${busy ? '모으는 중…' : '한곳으로 모으기'}</button>`
     : '<span class="dfp-done">모아 둠</span>';
+  const dup = p.dup ? `<span class="dfp-dup" title="같은 자리에 새 이름 폴더가 이미 있어 합치지 않고 그대로 둔 앱 폴더">같은 이름 있어 그대로 ${p.dup}</span>` : '';
   const line = result ? `<p class="dfp-result${result.error ? ' dfp-error' : ''}" role="status">${esc(result.text)}</p>` : '';
-  return `<h3>구글 드라이브</h3><div class="dfp-line"><span class="dfp-label">앱이 쓰는 드라이브 폴더:</span><span class="dfp-where">${where}</span>${open}${act}</div>${line}`;
+  return `<h3>구글 드라이브</h3><div class="dfp-line"><span class="dfp-label">앱이 쓰는 드라이브 폴더:</span><span class="dfp-where">${where}</span>${open}${act}${dup}</div>${line}`;
 }
 
 /** 내 프로필 '구글 드라이브' 칸. 드라이브 연결이 없거나 읽기가 실패하면 칸을 감춘다(안내문을 따로 두지 않음). */
