@@ -59,7 +59,7 @@ test('skipRobots를 넘기는 함수는 note-import·news-feed 원문 reader·ou
     }
   };
   walk(root);
-  assert.deepEqual(hits.sort(), ['supabase/functions/_shared/feed-fetch.ts', 'supabase/functions/news-feed/handler.ts', 'supabase/functions/note-import/handler.ts', 'supabase/functions/outside-feed/handler.ts']);
+  assert.deepEqual(hits.sort(), ['supabase/functions/_shared/feed-fetch.ts', 'supabase/functions/collector-feed/handler.ts', 'supabase/functions/news-feed/handler.ts', 'supabase/functions/note-import/handler.ts', 'supabase/functions/outside-feed/handler.ts']);
   const handler = readFileSync('supabase/functions/note-import/handler.ts', 'utf8');
   assert.match(handler, /skipRobots: SKIP_ROBOTS,/);
   // S68-25(명진 결정 2026-11-22): News 원문 reader 두 개(page·open)만 건너뛴다. 매체 피드 reader(catalog)는 robots 확인 그대로.
@@ -67,6 +67,10 @@ test('skipRobots를 넘기는 함수는 note-import·news-feed 원문 reader·ou
   assert.equal((news.match(/skipRobots: ARTICLE_SKIP_ROBOTS/g) || []).length, 2);
   assert.match(news, /catalog: \(s, person = false\) => makeFeedReader\(\{ \.\.\.base, allow: \(raw\) => allowedUrl\(s, raw\), \.\.\.t\(person\) \}\)/);
   assert.match(readFileSync('supabase/functions/_shared/now-detail-build.ts', 'utf8'), /makeFeedReader\(/);
+  // S69 NEWS-제목늘읽기: collector-feed는 새로 들어온 기사 주소 한 장의 제목 읽기 reader 한 곳만(열린 주소 규칙, 기사 한 쪽 — news-feed 원문 reader와 같은 규칙).
+  const collector = readFileSync('supabase/functions/collector-feed/handler.ts', 'utf8');
+  assert.equal((collector.match(/skipRobots: true/g) || []).length, 1);
+  assert.match(collector, /allow: openArticleUrl, now, skipRobots: true \}\);/);
   // S68-43: outside-feed는 이미 받아 둔 글 한 쪽 다시 읽기(rereadPage — 예약 robots 다시 읽기·[원문 다시 가져오기]) 한 곳만 넘기고, 피드(wantFeed) 읽기는 무시한다.
   const outside = readFileSync('supabase/functions/outside-feed/handler.ts', 'utf8');
   assert.equal((outside.match(/\{ skipRobots: true \}/g) || []).length, 1);

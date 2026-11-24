@@ -3,6 +3,7 @@
 // 밑줄은 기존 표 app_news_highlights(종류 'reading')와 공용 부품 text-highlights.js. 여기서는 주소 다듬기·줄 값·거르기·원문 글자·상태 한 줄만 만든다.
 import {readImportUrl, hostOf, resultOutcome, failInfo} from './note-import-model.mjs';
 import {shareArticleUrl, shareArticleTitle} from './share-intake-model.mjs';
+import {urlTitle} from './url-title.mjs';
 
 export const TITLE_MAX = 500, SITE_MAX = 120, BODY_MAX = 200000, URL_MAX = 2000, LIST_LIMIT = 500;
 export const LIST_COLS = 'id,url,title,site,saved_at,read_at,body_state,body_at,business_area_id,updated_at,origin,news_article_id,outside_article_id';
@@ -39,10 +40,10 @@ export function shortDay(iso) {
   const d = new Date(t + 9 * 3600000);
   return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}`;
 }
-// 목록 한 줄 값: 안 읽음 점 · 제목 · 사이트 · 날짜. 제목이 없으면 사이트(그것도 없으면 주소).
+// 목록 한 줄 값: 안 읽음 점 · 제목 · 사이트 · 날짜. 제목이 없으면 주소 경로의 읽을 만한 조각(S69 NEWS-제목늘읽기, url-title.mjs), 그다음 사이트(그것도 없으면 주소).
 export function lineOf(row) {
   const site = oneLine(row?.site, SITE_MAX) || hostOf(row?.url) || '';
-  return {id: row?.id, url: row?.url || '', title: oneLine(row?.title, TITLE_MAX) || site || row?.url || '제목 없음', site,
+  return {id: row?.id, url: row?.url || '', title: oneLine(row?.title, TITLE_MAX) || urlTitle(row?.url) || site || row?.url || '제목 없음', site,
     day: shortDay(row?.saved_at), unread: !row?.read_at, area: row?.business_area_id || null, state: BODY_STATES.includes(row?.body_state) ? row.body_state : 'pending'};
 }
 

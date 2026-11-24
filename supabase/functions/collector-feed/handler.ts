@@ -69,6 +69,9 @@
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·주소·오류 원문은 넣지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "../_shared/news-url.ts";
+import { makeFeedReader } from "../_shared/feed-fetch.ts";
+import { peekTitle, titleKey } from "../_shared/page-title.ts";
+import { readerUserAgent } from "../_shared/reader-headers.ts";
 import { aiConfigFrom, callOpenAi, estimateKrw, isIncomplete, outputText, tokenCount } from "../_shared/openai-responses.ts";
 import { organizationOptions, projectOptions } from "../ai-assist/library-fill.ts";
 import {
@@ -629,7 +632,7 @@ async function runCallSkip(db: Db, ws: string, input: SkipInput, nowMs: number) 
 
 // ---- 텔레그램 ------------------------------------------------------------------------------------------------------
 
-type AiDeps = { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log; env: Env };
+type AiDeps = { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log; env: Env; peek?: Peeker };
 
 // Promise.allSettled 결과에서 값을 꺼낸다. 실패면 그 오류를 그대로 던진다(순서대로 꺼내면 원래 순서의 첫 실패가 나간다).
 function settledValue<T>(r: PromiseSettledResult<T>): T {
@@ -788,7 +791,7 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const dup = await db.get(`app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&source_ref=like.${encodeURIComponent(prefix)}*&select=source_ref&limit=1`);
   if (dup.length) return callResult({ duplicate: true });
   // 뉴스방(명진이 정한 방)이면 글 속 기사 주소만 공용 기사로. 실패해도 소식 처리는 그대로(던지지 않음).
-  try { await takeNewsRoom(db, ws, input, deps.log); } catch { deps.log("news_room_failed", { stage: "INTERNAL" }); }
+  try { await takeNewsRoom(db, ws, input, deps.log, deps.peek); } catch { deps.log("news_room_failed", { stage: "INTERNAL" }); }
   // 글 있는 메시지가 없으면 AI에 보내지 않고 개수만 더한다(설계 3.2절).
   if (!input.messages.length) {
     await addDay(db, ws, input.day, "telegram", counts(0), nowMs);
@@ -1086,10 +1089,50 @@ export function scrapAt(value: unknown, nowMs: number): string | null {
   return new Date(t).toISOString();
 }
 
+// ---- 들어올 때 제목 읽기(S69 NEWS-제목늘읽기, 명진 11/24 "제목은 읽어놔야 누르든 말든하지") ------------------------------------
+// 채널 스크랩·뉴스방으로 새로 들어온 기사 줄은 제목 없이 '대기'로 들어가고, 원문 읽기(news-feed 대기 기사 단계)는 한 시간마다라
+// 그사이 화면에 제목이 비어 있었다. 메신저 링크 미리보기처럼 새로 들어온 그 주소 한 장만 읽어 제목(og:title → <title>)만 적는다.
+// - 읽는 곳: 이번에 받은 주소뿐(열린 주소 규칙 openArticleUrl·리다이렉트·크기·시간 상한 — _shared/feed-fetch.ts). 다른 쪽은 읽지 않는다.
+//   기사 한 쪽 읽기라 robots.txt는 보지 않는다(news-feed 원문 읽기와 같은 규칙, S68-25 명진 결정). 쿠키·로그인 없음, 봇 확인은 넘지 않는다.
+// - 적는 칸: 제목이 빈 줄(title is null)의 제목·제목 열쇠·매체 이름뿐. 상태(대기)·본문은 그대로 — 원문 읽기는 news-feed가 하던 대로 한다.
+// - 한 번 요청에 TITLE_PEEK_MAX건, TITLE_PEEK_BUDGET_MS 안에서만(텔레그램 처리를 오래 붙잡지 않게). 못 읽은 줄은 그대로 두어 다음 원문 읽기가 다시 읽는다.
+// - 로그에는 건수만(주소·제목 없음).
+export const TITLE_PEEK_MAX = 5;
+export const TITLE_PEEK_BUDGET_MS = 15000;
+const PEEK_GAP_MS = 2000;
+const PEEK_UA = readerUserAgent("Web2NewsFeed", "1.0", "https://github.com/mj880616/work/blob/main/docs/design/news-clipping.md");
+type PeekRow = { article_id: string | null; url: string; url_key: string };
+type Peeker = (db: Db, ws: string, rows: PeekRow[]) => Promise<void>;
+function makePeeker(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>, log: Log, now: () => number): Peeker {
+  return async (db, ws, rows) => {
+    const list = rows.filter((r) => openArticleUrl(r.url)).slice(0, TITLE_PEEK_MAX);
+    if (!list.length) return;
+    const reader = makeFeedReader({ doFetch, sleep, log: () => {}, userAgent: PEEK_UA, robotsAgent: "Web2NewsFeed", gapMs: PEEK_GAP_MS,
+      allow: openArticleUrl, now, skipRobots: true });
+    const start = now();
+    let read = 0, missed = 0, late = 0;
+    for (const r of list) {
+      if (now() - start > TITLE_PEEK_BUDGET_MS) { late++; continue; }
+      let got = null;
+      try { got = await peekTitle(reader, r.url); } catch { got = null; }
+      if (!got) { missed++; continue; }
+      const patch: Record<string, unknown> = { title: got.title, title_key: titleKey(got.title), updated_at: new Date(now()).toISOString() };
+      if (got.publisher) patch.publisher = got.publisher;
+      try {
+        if (r.article_id && UUID_RE.test(r.article_id)) await db.patch(`app_news_articles?id=eq.${r.article_id}&title=is.null`, patch);
+        await db.patch(`app_news_items?workspace_id=eq.${ws}&url_key=eq.${encodeURIComponent(r.url_key)}&title=is.null`, patch);
+        read++;
+      } catch { missed++; }
+    }
+    log("title_peek", { read, missed, late });
+  };
+}
+
 // NEWS-모두에게열기 ②(설계 news-for-all.md 2-3·4절 E1): 옮기는 동안 채널 스크랩은 공용 기사(app_news_articles, origin 'tg_scrap' —
 // 공용 읽기 정책에서 빠져 운영자만 봄)와 운영자 옛 표(app_news_items) 둘 다에 넣는다. 옛 줄 id는 공용 기사 id와 같게(D2 '옛 id = 새 id').
 // 공용 기사에 같은 주소가 이미 있으면(사이트·뉴스방 수집분 포함) 공용 쪽은 그대로 두고 그 id로 옛 줄만 넣는다.
-async function runScrap(db: Db, ws: string, items: ScrapItem[], nowMs: number, log: Log) {
+async function runScrap(db: Db, ws: string, items: ScrapItem[], nowMs: number, log: Log, peek?: Peeker) {
+  const fresh: PeekRow[] = [];
   let inserted = 0, duplicate = 0, rejected = 0, shared = 0, sharedFailed = 0;
   const seen = new Set<string>();
   for (const it of items) {
@@ -1100,11 +1143,14 @@ async function runScrap(db: Db, ws: string, items: ScrapItem[], nowMs: number, l
     // 넣는 칸은 대기 줄 칸뿐(제목·본문·요약·번역·별표 없음).
     const id = await sharedArticleId(db, { origin: "tg_scrap", url: u.url, url_key: u.url_key, scrapped_at: at }, log);
     if (id === null) sharedFailed++; else if (id.fresh) shared++;
+    // 처음 들어온 주소만 제목을 읽는다(이미 있던 공용 기사는 제목이 있거나 원문 읽기 차례가 이미 잡혀 있다).
+    if (id?.fresh || id === null) fresh.push({ article_id: id?.id ?? null, url: u.url, url_key: u.url_key });
     // 같은 작업공간·같은 url_key는 유일 제약이 409로 막는다.
     const r = await mirrorOldItem(db, ws, id?.id ?? null, u.url, u.url_key, at, log);
     if (r === "ok") inserted++; else duplicate++;
   }
   log("scrap_saved", { received: items.length, inserted, duplicate, rejected, shared, shared_failed: sharedFailed });
+  if (peek && fresh.length) { try { await peek(db, ws, fresh); } catch { log("title_peek_failed"); } }
   return { ok: true, received: items.length, inserted, duplicate, rejected };
 }
 
@@ -1172,7 +1218,8 @@ export function newsRoomItems(messages: { text: string }[]): { url: string; url_
   }
   return out;
 }
-async function takeNewsRoom(db: Db, ws: string, input: TelegramInput, log: Log) {
+async function takeNewsRoom(db: Db, ws: string, input: TelegramInput, log: Log, peek?: Peeker) {
+  const fresh: PeekRow[] = [];
   if (input.chat_kind !== "group" && input.chat_kind !== "channel") return;
   const items = newsRoomItems(input.messages);
   if (!items.length) return;
@@ -1187,16 +1234,18 @@ async function takeNewsRoom(db: Db, ws: string, input: TelegramInput, log: Log) 
     if (num(r.value.taken) + num(r.value.widened) > 0) {
       try {
         const keys = part.map((p) => `"${p.url_key.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",");
-        const rows = await db.get(`app_news_articles?origin=eq.tg_room&url_key=in.(${encodeURIComponent(keys)})&select=id,url,url_key,scrapped_at&limit=${NEWS_ROOM_CHUNK}`);
+        const rows = await db.get(`app_news_articles?origin=eq.tg_room&url_key=in.(${encodeURIComponent(keys)})&select=id,url,url_key,scrapped_at,title&limit=${NEWS_ROOM_CHUNK}`);
         for (const a of rows) {
           if (typeof a.id !== "string" || !UUID_RE.test(a.id) || typeof a.url !== "string" || typeof a.url_key !== "string") continue;
           const at = typeof a.scrapped_at === "string" ? a.scrapped_at : new Date().toISOString();
           if (await mirrorOldItem(db, ws, a.id, a.url, a.url_key, at, log) === "ok") mirrored++;
+          if (a.title == null) fresh.push({ article_id: a.id, url: a.url, url_key: a.url_key });
         }
       } catch { log("news_room_mirror_failed"); }
     }
   }
   log("news_room_taken", { found: items.length, taken, dup, widened, refused, mirrored });
+  if (peek && fresh.length) { try { await peek(db, ws, fresh); } catch { log("title_peek_failed"); } }
 }
 
 // ---- 입구 ----------------------------------------------------------------------------------------------------------
@@ -1206,6 +1255,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
   const now = deps.now ?? Date.now;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const log: Log = deps.log ?? ((code, detail) => console.error(JSON.stringify({ fn: "collector-feed", code, ...(detail ?? {}) })));
+  const peek = makePeeker(doFetch, sleep, log, now);
   const contextUse = { day: "", n: 0 };
   const sendersUse = { day: "", n: 0 };
   const scrapUse = { day: "", n: 0 };
@@ -1262,7 +1312,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
         if (scrapUse.n >= SCRAP_DAILY_REQUESTS) throw new Fail(429, "DAILY_LIMIT");
         scrapUse.n++;
         const ndb = makeDb(sb, key, doFetch);
-        return json(await runScrap(ndb, await workspaceId(ndb, "telegram"), items, nowMs, log));
+        return json(await runScrap(ndb, await workspaceId(ndb, "telegram"), items, nowMs, log, peek));
       }
       const familyDeps: FamilyDeps = { doFetch, sleep, log, env: deps.env, use: familyUse };
       if (action === "family_tg") {
@@ -1276,7 +1326,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
       const ws = await workspaceId(db, action === "telegram" ? "telegram" : "calls");
       const out = action === "call" ? await runCall(db, ws, input as CallInput, nowMs, familyDeps)
         : action === "call_skip" ? await runCallSkip(db, ws, input as SkipInput, nowMs)
-        : await runTelegram(db, ws, input as TelegramInput, nowMs, { doFetch, sleep, log, env: deps.env });
+        : await runTelegram(db, ws, input as TelegramInput, nowMs, { doFetch, sleep, log, env: deps.env, peek });
       return json(out);
     } catch (e) {
       if (e instanceof Fail) {

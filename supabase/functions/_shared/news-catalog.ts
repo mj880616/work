@@ -28,8 +28,10 @@ export const OPEN_ARTICLE_KEY = "open";
 // beat: "labor" = 노동 전문지·해외 노동 매체 — 거르지 않고 전부 받는다(등급 1, S63-10 news-rank.ts).
 // sections: lists와 같은 차례로 그 피드의 섹션(society·politics·economy·mixed). 없으면 섞인 피드. mixedAs: 섞인 피드에서 섹션을 못 알아볼 때 볼 섹션(없으면 society).
 //   종합지·방송사·통신사의 거르기·등급 규칙은 news-rank.ts 한 곳(S63-10 NEWS-언론거르기, 11/16 명진 결정).
-export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true;
-  beat?: "labor"; sections?: readonly ("society" | "politics" | "economy" | "mixed")[]; mixedAs?: "society" | "politics" | "economy" };
+// region "opinion"(S69 NEWS-사설칼럼, 명진 11/24 "주요 신문 사설 칼럼도 추가해줘요"): 신문의 사설·칼럼(오피니언) 피드. 화면 매체 고르기에서 '사설·칼럼' 묶음 하나로 모인다.
+//   켬·끔은 다른 매체처럼 사람마다(app_outside_sources), 기본 켬(on). 새 저장 구조 없음.
+export type NewsSource = OutsideSource & { region: "domestic" | "foreign" | "opinion"; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true;
+  beat?: "labor"; sections?: readonly ("society" | "politics" | "economy" | "mixed" | "opinion")[]; mixedAs?: "society" | "politics" | "economy" };
 
 const article = () => "article" as const;
 
@@ -166,6 +168,48 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     extract: false,
     lists: ["https://www.imaeil.com/rss?cate=society", "https://www.imaeil.com/rss?cate=economy", "https://www.imaeil.com/rss?cate=politics"],
     hosts: ["www.imaeil.com", "imaeil.com"], kindOf: article },
+  // ---- 사설·칼럼(S69 NEWS-사설칼럼, 명진 11/24 "주요 신문 사설 칼럼도 추가해줘요"). region "opinion" — 화면 '사설·칼럼' 묶음.
+  //   규칙은 종합지와 같다: take 'all'·기본 켬·extract:false(수집 때 글 쪽은 읽지 않음 — 제목·소개·날짜·링크만, 사람이 열 때 읽기는 다른 매체와 같다).
+  //   거르기(news-rank.ts): 섹션 "opinion"은 사회 섹션과 같은 등급 2(노동 낱말이 있으면 1, 부고·운세 같은 꼬리표는 그대로 뺀다).
+  //   주소는 매체 공식 RSS 안내 쪽 또는 지금 카탈로그의 같은 매체 피드 꼴에서 찾았고, 실제로 열리는지는 PR의 실측 점검(article-extract-live-check, GitHub 러너)으로 확인한 것만 남긴다.
+  //   키는 '신문 키-opinion' — 화면 색은 같은 신문 고유색을 함께 쓴다(app/news-colors.mjs baseKey).
+  { key: "news-khan-opinion", name: "경향신문 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 안내 쪽 khan.co.kr/help/help_rss.html '오피니언' [사실, 11/24 웹 확인].
+    extract: false,
+    lists: ["https://www.khan.co.kr/rss/rssdata/opinion_news.xml"], hosts: ["www.khan.co.kr", "khan.co.kr"], kindOf: article },
+  { key: "news-hani-opinion", name: "한겨레 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 같은 매체 피드 꼴 www.hani.co.kr/rss/<섹션>/ 의 '사설·칼럼'(opinion).
+    extract: false,
+    lists: ["https://www.hani.co.kr/rss/opinion/"], hosts: ["www.hani.co.kr", "hani.co.kr"], kindOf: article },
+  { key: "news-chosun-opinion", name: "조선일보 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 같은 매체 피드 꼴(arc outboundfeeds category)의 opinion.
+    extract: false,
+    lists: ["https://www.chosun.com/arc/outboundfeeds/rss/category/opinion/?outputType=xml"], hosts: ["www.chosun.com", "chosun.com"], kindOf: article },
+  { key: "news-donga-opinion", name: "동아일보 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 안내 쪽 rss.donga.com의 '사설칼럼'(editorials).
+    extract: false,
+    lists: ["https://rss.donga.com/editorials.xml"], hosts: ["rss.donga.com", "www.donga.com", "donga.com"], kindOf: article },
+  { key: "news-joongang-opinion", name: "중앙일보 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    extract: false,
+    lists: ["https://rss.joins.com/joins_opinion_list.xml"], hosts: ["rss.joins.com", "www.joongang.co.kr", "joongang.co.kr"], kindOf: article },
+  { key: "news-hankookilbo-opinion", name: "한국일보 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    extract: false,
+    lists: ["https://rss.hankooki.com/news/hk_opinion.xml"], hosts: ["rss.hankooki.com", "www.hankookilbo.com", "hankookilbo.com"], kindOf: article },
+  { key: "news-kmib-opinion", name: "국민일보 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    extract: false,
+    lists: ["https://www.kmib.co.kr/rss/data/kmibColRss.xml"], hosts: ["www.kmib.co.kr", "kmib.co.kr"], kindOf: article },
+  { key: "news-segye-opinion", name: "세계일보 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 안내 쪽 segye.com/rssInfo '오피니언' [사실, 11/24 웹 확인].
+    extract: false,
+    lists: ["https://www.segye.com/Articles/RSSList/segye_opinion.xml"], hosts: ["www.segye.com", "segye.com"], kindOf: article },
+  { key: "news-hankyung-opinion", name: "한국경제 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 같은 매체 피드 꼴 hankyung.com/feed/<섹션>의 opinion.
+    extract: false,
+    lists: ["https://www.hankyung.com/feed/opinion"], hosts: ["www.hankyung.com", "hankyung.com"], kindOf: article },
+  { key: "news-mk-opinion", name: "매일경제 사설·칼럼", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"],
+    // 같은 매체 피드 꼴 mk.co.kr/rss/<번호>/ — 오피니언 30500041.
+    extract: false,
+    lists: ["https://www.mk.co.kr/rss/30500041/"], hosts: ["www.mk.co.kr", "mk.co.kr"], kindOf: article },
   { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss", beat: "labor",
     extract: { version: 1 },
     lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
