@@ -137,6 +137,15 @@ export function noteHidden(note) {
   if (meta.folder_id !== undefined && meta.folder_id !== null) return state.notes.covered.has(meta.folder_id);
   return typeof meta.folder === 'string' && state.notes.topNames.has(meta.folder.trim());
 }
+// NOTE-게시 ②: 노트가 잠근 폴더(하위 폴더 포함) 안에 있나 — 지금 풀려 있어도 참(게시 메뉴를 내지 않는 데 쓴다). 잠근 폴더 목록을 아직 모르면
+// PIN이 있는 동안은 안에 있다고 본다(모르는 채 게시를 열지 않는다).
+export function noteInLockedFolder(note) {
+  if (!note) return false;
+  if (!state.notes) return state.settings ? !!state.settings.has_pin : !!state.failed;
+  const meta = note.metadata && typeof note.metadata === 'object' ? note.metadata : {};
+  if (meta.folder_id !== undefined && meta.folder_id !== null) return state.notes.covered.has(meta.folder_id);
+  return typeof meta.folder === 'string' && state.notes.topNames.has(meta.folder.trim());
+}
 // 서버가 잠그기·풀기를 받은 뒤(app_lock_note_folder_set 결과): 목록을 바꾸고, 방금 PIN을 넣었으니 풀린 채.
 export function applyNoteFolders(result) {
   const next = cleanNotes(result); if (next) state.notes = next;
