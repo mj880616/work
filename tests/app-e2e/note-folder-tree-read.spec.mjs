@@ -118,6 +118,12 @@ for (const width of [1280, 390]) test(`노트 삭제 → '휴지통 1' → 지�
   const line = box.locator('[data-nxt-row="n2"]');
   await expect(line).toContainText('나 노트');
   await expect(line.locator('time')).toContainText('2026');
+  if (width >= 761) { // PC 줄 우클릭 = 그 줄 ⋯([영구 삭제]) — 공용 우클릭 메뉴
+    await line.locator('.nxt-name').click({ button: 'right' });
+    await expect(line.locator('[data-nxt-purge]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(line.locator('[data-nxt-purge]')).toBeHidden();
+  }
   await press(line.locator('[data-nxt-restore]'));
   await expect(line).toHaveCount(0);
   await expect(box.locator('[data-nxt-empty]')).toBeVisible();

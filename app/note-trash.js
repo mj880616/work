@@ -39,7 +39,7 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
   }
   function rowHtml(r) {
     const name = r.name || '제목 없음', when = deletedDay(r.deleted_at);
-    return `<div class="nxt-row" data-nxt-row="${esc(r.id)}"><span class="nxt-main"><span class="nxt-name">${esc(name)}</span>${when ? `<time class="nxt-day" datetime="${esc(r.deleted_at || '')}"><span class="a11y-only">지운 날 </span>${esc(when)}</time>` : ''}</span>`
+    return `<div class="nxt-row" role="listitem" data-nxt-row="${esc(r.id)}"><span class="nxt-main"><span class="nxt-name">${esc(name)}</span>${when ? `<time class="nxt-day" datetime="${esc(r.deleted_at || '')}"><span class="a11y-only">지운 날 </span>${esc(when)}</time>` : ''}</span>`
       + `<button type="button" class="secondary nxt-restore" data-nxt-restore="${esc(r.id)}"${busy ? ' disabled' : ''}>되돌리기</button>`
       + `<details class="nxt-more"><summary class="icon-btn" aria-label="휴지통 관리: ${esc(name)}">${MORE}</summary><div class="nxt-more-panel" role="group" aria-label="휴지통 관리"><button type="button" class="danger nxt-purge" data-nxt-purge="${esc(r.id)}"${busy ? ' disabled' : ''}>영구 삭제</button></div></details></div>`;
   }
@@ -57,7 +57,7 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
     box.hidden = false;
     const n = count(), num = n === null ? '' : String(n);
     if (phone) { box.innerHTML = ftFocusHtml({back:{'data-nx-back':''}, trail:[{label:'노트', attrs:{'data-nx-at':''}}], name:NOTE_TRASH_NAME, icon:ICON, count:num, body:listHtml(), attrs:{'data-nxt-focus':''}}); return; }
-    box.innerHTML = `<div class="nnm-head nxt-head">${ICON}<b>${NOTE_TRASH_NAME}</b>${num ? `<span class="nnm-n">${num}</span>` : ''}</div>${listHtml()}`;
+    box.innerHTML = `<div class="nxt-head">${ICON}<b>${NOTE_TRASH_NAME}</b>${num ? `<span class="nxt-n">${num}</span>` : ''}</div>${listHtml()}`;
   }
   const rowOf = id => (rows || []).find(r => r.id === id) || null;
   async function restore(id, anchor) {
@@ -99,7 +99,7 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
     if (b.matches('[data-nxt-restore]')) { void restore(b.dataset.nxtRestore, b); return; }
     if (b.matches('[data-nxt-purge]')) { b.closest('details')?.removeAttribute('open'); void purge(b.dataset.nxtPurge, b.closest('.nxt-row')?.querySelector('summary') || b); }
   });
-  // ⋯ 판은 하나만 열린다. 바깥을 누르거나 Esc면 닫힌다.
+  // 줄 우클릭(PC)은 공용 context-menu.js가 그 줄의 ⋯(summary)을 연다(role listitem 줄). ⋯ 판은 하나만 열린다. 바깥을 누르거나 Esc면 닫힌다.
   box?.addEventListener('toggle', e => { const d = e.target; if (d?.matches?.('details.nxt-more') && d.open) box.querySelectorAll('details.nxt-more[open]').forEach(x => { if (x !== d) x.open = false; }); }, true);
   globalThis.document?.addEventListener('click', e => { if (box && !e.target.closest?.('details.nxt-more')) box.querySelectorAll('details.nxt-more[open]').forEach(x => { x.open = false; }); });
   box?.addEventListener('keydown', e => { if (e.key !== 'Escape') return; const d = e.target.closest?.('details.nxt-more[open]'); if (!d) return; e.preventDefault(); e.stopPropagation(); d.open = false; d.querySelector('summary')?.focus(); });

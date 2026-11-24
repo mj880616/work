@@ -1580,7 +1580,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // A row's ⋯ (pressed, right-clicked or long-pressed): in select mode a picked row's menu is for all picked ones.
   function rowMenu(b) {
-    if (busy || (selected && (!splitOpen() || editing))) return; // 두 칸에서 노트를 읽는 중에는 왼쪽 나무 줄 메뉴도 열린다(고치는 중은 아님)
+    if (busy || (selected && (!splitOpen() || editing))) return; // 두 칸에서 노트를 읽을 때도 왼쪽 나무 줄 메뉴가 열린다(고칠 때는 아님)
     const noteId = b.dataset.noteRowMore, folderId = b.dataset.nxFolderMore;
     const key = noteId ? 'n:' + noteId : 'f:' + folderId;
     if (pick.active) { if (!pick.has(key)) { pick.add(key); renderList(); b = host.querySelector(noteId ? `[data-note-row-more="${CSS.escape(noteId)}"]` : `[data-nx-folder-more="${CSS.escape(folderId)}"]`) || b; } openMenu(b, null, 'picked'); return; }

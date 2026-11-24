@@ -238,6 +238,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView [data-note-list] .nx-tree .nx-note.nx-current { background:var(--kptu-primary-soft); border-radius:var(--ds-radius-control,8px); }
 /* S69-27 노트 휴지통(note-trash.js): 지운 노트 한 줄씩 — 제목 · 지운 날 · [되돌리기] · ⋯([영구 삭제]). 작고 낮게. */
 .nxt:not([hidden]) { display:block; }
+.nxt-head { display:flex; align-items:center; gap:6px; min-height:28px; font-size:14px; }
+.nxt-n { font-size:12px; color:var(--kptu-muted); }
 .nxt-list { display:flex; flex-direction:column; }
 .nxt-row { display:flex; align-items:center; gap:6px; min-height:36px; padding:0 2px 0 6px; border-top:1px solid var(--kptu-border); }
 .nxt-row:first-child { border-top:0; }
