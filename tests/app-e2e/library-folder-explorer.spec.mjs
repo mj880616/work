@@ -183,7 +183,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     // 목록 바탕(어느 토글도 아님): 포인터 자리에서 [새 폴더][자료 등록](S55-08 LIB-우클릭메뉴, 2026-11-09 명진 결정 — 옛 [새 폴더][전체 선택]은 '폴더 밖' ⋯에 그대로).
     await page.evaluate(()=>document.querySelector('#documentList').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:420,clientY:360})));
-    await expect(page.locator('#luAreaMenu')).toBeVisible();await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','정돈 제안']);
+    await expect(page.locator('#luAreaMenu')).toBeVisible();await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안']);
     const box=await page.locator('#luAreaMenu').boundingBox();expect(Math.abs(box.x-420)).toBeLessThan(40);expect(Math.abs(box.y-360)).toBeLessThan(40);
     await page.keyboard.press('Escape');await expect(page.locator('#luAreaMenu')).toBeHidden();
     // 열린 폴더 본문의 빈 곳 = 그 폴더 메뉴.
