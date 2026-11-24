@@ -1810,15 +1810,13 @@ function luAfterRender(){
   luPick.prune(luVisibleIds());
   luSyncPicks();
 }
-// LIB-끄는중막대: 고르기 막대 단추 줄. 평소 = index.html과 같은 여섯 단추, 끄는 중 = [취소] 하나(다른 단추는 화면에 없음 — 숨김 아님).
-// 단추 누르기는 막대 하나에 건 위임 듣기(luBindSelect)라 다시 그려도 그대로 동작한다.
-let luDragNow=null;
-const LU_SELECT_ACTS_FULL='<button id="librarySelectProject" class="lu-select-act kptu-act" type="button" data-lu-bulk="project" aria-haspopup="true" aria-expanded="false" disabled>사업영역 바꾸기</button><button id="librarySelectOrganization" class="lu-select-act kptu-act" type="button" data-lu-bulk="organization" aria-haspopup="true" aria-expanded="false" disabled>담당조직 바꾸기</button><button id="librarySelectCategory" class="lu-select-act kptu-act" type="button" data-lu-bulk="category" aria-haspopup="true" aria-expanded="false" disabled>분류 바꾸기</button><button id="librarySelectFolder" class="lu-select-act kptu-act" type="button" disabled>폴더로 옮기기</button><button id="librarySelectDelete" class="lu-select-act kptu-act kptu-act-danger" type="button" disabled>삭제</button><button id="librarySelectCancel" class="lu-select-act kptu-act" type="button">취소</button>';
-const LU_SELECT_ACTS_DRAG='<button id="librarySelectCancel" class="lu-select-act kptu-act" type="button">취소</button>';
+// LIB-끄는중막대: 고르기 막대 단추 줄. 평소 = index.html의 여섯 단추, 끄는 중 = [취소] 하나 — 다른 단추는 막대에서 떼어 두었다가(숨김 아님) 끝나면 제자리에 다시 붙인다.
+// 단추 누르기는 막대 하나에 건 위임 듣기라 떼었다 붙여도 그대로 동작한다.
+let luDragNow=null,luParkedActs=null;
 function luPaintSelectActs(barEl,dragging){
   const acts=barEl?.querySelector('.lu-select-acts');if(!acts)return;
-  const want=dragging?'drag':'full';if((acts.dataset.luActs||'full')===want)return;
-  acts.dataset.luActs=want;acts.innerHTML=dragging?LU_SELECT_ACTS_DRAG:LU_SELECT_ACTS_FULL;
+  if(dragging&&!luParkedActs){luParkedActs=[...acts.children].filter(b=>b.id!=='librarySelectCancel');for(const b of luParkedActs)b.remove()}
+  else if(!dragging&&luParkedActs){const cancel=acts.querySelector('#librarySelectCancel');for(const b of luParkedActs)acts.insertBefore(b,cancel);luParkedActs=null}
 }
 function luSyncPicks(){
   const bar=document.querySelector('#librarySelectBar'),on=!!luPick.items;
