@@ -35,6 +35,7 @@ import {mountLibraryFolders} from './library-folders.js';
 import {createReceiveSort,sortButtonHtml,createTidySuggest,TIDY_LABEL} from './library-sort.js'; // LIB-받는폴더나누기(S60-18)·LIB-정돈제안(S61-13)
 import {readLibraryFolders} from './library-folder-data.js';
 import {createSelectMode} from './select-mode.js';
+import {bindMarquee} from './marquee-select.js';
 import {bindRowSwipe,PICK} from './row-swipe.js';
 import {announceUploaded,openInLibrary} from './upload-done.js';
 import {folderTrail,folderPathHtml} from './folder-path.mjs';
@@ -1917,11 +1918,45 @@ function luBindRowSwipe(list){
       else if(key==='move'&&luFoldersReady){const at=el.querySelector('[data-lu-menu]')||el;luFolders().openMove(luMoveDocs(id),at,{place:'below',trigger:at})}},
     select:{attr:'data-lu-document',open:el=>luSelStartWith(el.dataset.luDocument)}});
 }
+// S69-17 UI-끌어고르기(명진 11/24 08:30 "자료실에서 선택 말고 드래그해서 파일 선택 가능하게"): PC 마우스로 목록 빈 곳(목록·칸 아래 빈 곳, 폴더 사이, 들여 쓴 줄의 왼쪽 여백, 사진 사이)에서 끌면
+// 반투명 사각형이 그려지고 닿은 자료 줄·사진이 골라진다(윈도우 탐색기처럼). 사각형·닿은 줄 계산은 공용 부품(marquee-select.js), 고른 상태 주인은 선택 모드 luPick 하나.
+// 자료 줄 위(이름·빈칸·날짜·⋯·사진)에서 시작한 끌기는 지금처럼 폴더로 끌어 옮기기, 폴더 줄·폴더 나무·글자 칸·두 칸 위 줄은 건드리지 않는다. Ctrl·Shift와 끌면 더하기.
+const LU_MQ_SKIP='input,textarea,select,button,a,label,[contenteditable],summary,.ft-row,[data-lu-nav],[data-lu-photoset],.lu-pane-head,#libraryFolderNav,.lu-renaming,.lu-two-bar';
+function luMqBlank(t,x){
+  const list=document.querySelector('#documentList'),card=document.querySelector('#libraryListCard');
+  if(!list||!(list.contains(t)||t===card))return false;
+  if(t.closest(LU_MQ_SKIP))return false;
+  const row=t.closest('[data-lu-document]');if(!row)return true;
+  // 자료 줄 위는 어디든(가운데 빈칸 포함) 지금처럼 '잡아 폴더로 옮기기'다(줄 가운데를 잡아 끄는 사람이 많고 그 동작을 지킨다).
+  // 다만 폴더 안으로 들여 쓴 줄의 왼쪽 들여쓰기 여백(첫 칸보다 왼쪽)은 빈 곳으로 본다. 사진 칸은 늘 줄 위.
+  if(t!==row||!row.matches('.lu-row'))return false;
+  const first=[...row.children].find(c=>c.getClientRects().length&&!c.matches('.lu-pick'));
+  return !!first&&x<first.getBoundingClientRect().left-4&&x>row.getBoundingClientRect().left+2;
+}
+// 고르는 동안 선택 모드가 켜지면 목록이 다시 그려진다: 누른 요소가 문서에서 빠져도 그 칸 번호(두 칸)로 지금 칸을 다시 찾는다.
+const luMqPane=el=>{const i=el?.closest?.('[data-lu-pane-i]')?.dataset.luPaneI;return i==null?null:document.querySelector(`#documentList [data-lu-pane-i="${i}"]`)};
+function luMqItems(start){const root=luMqPane(start)||document.querySelector('#documentList');return root?root.querySelectorAll('[data-lu-document]'):[]}
+function luMqLive(old){if(old.matches?.('.lu-pane-list'))return luMqPane(old)?.querySelector('.lu-pane-list')||null;if(old.id)return document.getElementById(old.id);return null}
+function luMqApply(set){
+  const ids=luTwinIds([...set]);
+  if(!luPick.items){if(!ids.length)return;luPick.start(ids);luRenderLibrary();return}
+  luPick.items=new Set(ids);luSyncPicks();
+}
+function luBindMarquee(){
+  const card=document.querySelector('#libraryListCard');if(!card)return;
+  bindMarquee(card,{
+    enabled:()=>!!LU_FINE?.matches&&window.KPTURouter?.current==='library'&&!luSelBusy&&!luRenameBusy&&!luRename&&!luActiveMenu&&!luFolderUi?.busy&&!luFolderUi?.moveOpen,
+    blank:luMqBlank,items:luMqItems,live:luMqLive,anchor:()=>document.querySelector('#documentList'),keyOf:el=>el.dataset.luDocument,
+    begin:additive=>additive&&luPick.items?[...luPick.items]:[],
+    onChange:set=>{if(!luSelBusy)luMqApply(set)},
+  });
+}
 function luBindSelect(){
   const list=document.querySelector('#documentList');
   if(!list||list.dataset.luSelBound)return;list.dataset.luSelBound='1';
   list.addEventListener('click',luOnPickClick,true);list.addEventListener('keydown',luOnPickKey,true);
   luBindRowSwipe(list);
+  luBindMarquee();
   document.querySelector('#libraryTopMenuBtn')?.addEventListener('click',e=>luTopMenuOpen(e.currentTarget));
   document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{if(e.target.closest('#librarySelectAll'))luSelAll()});
   document.querySelector('#librarySelectDelete')?.addEventListener('click',luSelDelete);

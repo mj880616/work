@@ -1,0 +1,32 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {rectOf, overlaps, hitKeys, mergePick, passed, THRESHOLD} from '../app/marquee-select.js';
+// S69-17 UI-끌어고르기: 빈 곳 끌기 사각형 계산(화면 없이). 고른 상태 주인은 부르는 화면의 선택 모드.
+test('두 점 → 사각형(어느 쪽으로 끌어도 같은 사각형)', () => {
+  assert.deepEqual(rectOf({x: 10, y: 50}, {x: 30, y: 20}), {left: 10, top: 20, right: 30, bottom: 50});
+  assert.deepEqual(rectOf({x: 30, y: 20}, {x: 10, y: 50}), rectOf({x: 10, y: 50}, {x: 30, y: 20}));
+});
+test('넓이 있게 겹칠 때만 닿음 · 크기 0인 숨은 줄은 아님', () => {
+  const r = {left: 0, top: 0, right: 100, bottom: 100};
+  assert.equal(overlaps(r, {left: 50, top: 50, right: 150, bottom: 150}), true);
+  assert.equal(overlaps(r, {left: 100, top: 0, right: 200, bottom: 100}), false);
+  assert.equal(overlaps(r, {left: 0, top: 0, right: 0, bottom: 0}), false);
+  assert.equal(overlaps(r, null), false);
+});
+test('닿은 열쇠는 차례대로 겹침 없이', () => {
+  const r = {left: 0, top: 15, right: 10, bottom: 45};
+  const rows = [0, 1, 2, 3, 4].map(i => ({key: 'd' + i, box: {left: 0, right: 500, top: i * 20, bottom: i * 20 + 20}}));
+  assert.deepEqual(hitKeys(r, rows), ['d0', 'd1', 'd2']);
+  assert.deepEqual(hitKeys(r, [...rows, rows[1]]), ['d0', 'd1', 'd2']);
+  assert.deepEqual(hitKeys(r, []), []);
+});
+test('Ctrl·Shift면 처음 고른 것에 더하기, 아니면 닿은 것만', () => {
+  assert.deepEqual([...mergePick(['a', 'b'], ['c'], true)], ['a', 'b', 'c']);
+  assert.deepEqual([...mergePick(['a', 'b'], ['c'], false)], ['c']);
+  assert.deepEqual([...mergePick(['a'], ['a', 'c'], true)], ['a', 'c']);
+});
+test('문턱을 넘어야 사각형이 시작된다(그 전에 떼면 보통 클릭)', () => {
+  assert.equal(THRESHOLD, 4);
+  assert.equal(passed({x: 0, y: 0}, {x: 3, y: 4}), false);
+  assert.equal(passed({x: 0, y: 0}, {x: 0, y: 5}), true);
+});
