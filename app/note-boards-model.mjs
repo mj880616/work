@@ -6,7 +6,7 @@
 //   보드에서 빼기 = 그 키만 지우기(노트는 그대로). 같은 노트를 여러 보드에 붙일 수 있다.
 //   보드를 지워도 노트는 그대로이고, 목록에 없는 보드 id의 자리는 읽을 때 무시한다(지운 보드의 자리는 화면이 따로 지운다).
 // - 기기 저장 없음.
-import { placeShape, clampPos, tiltFor, topZ, CARD_W, CARD_H, Z_MAX } from './note-board-model.mjs';
+import { placeShape, placeFields, clampPos, tiltFor, topZ, CARD_W, CARD_H, Z_MAX } from './note-board-model.mjs';
 
 export const BOARD_LIMITS = Object.freeze({count:12, name:20});
 export const BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
@@ -74,8 +74,8 @@ export function withBoardPlace(metadata, boardId, place) {
   const boards = plain(meta.boards) ? {...meta.boards} : {};
   const old = Object.hasOwn(boards, boardId) ? placeShape(boards[boardId]) : null;
   if (place) {
-    const p = {x:place.x, y:place.y, r:place.r, z:place.z};
-    if (old && old.x === p.x && old.y === p.y && old.r === p.r && old.z === p.z) return null;
+    const p = placeFields(place); // S69-88: 크기(w·h)·보드에 보일 글자(label)도 함께
+    if (old && ['x', 'y', 'r', 'z', 'w', 'h', 'label'].every(k => old[k] === p[k])) return null;
     boards[boardId] = p;
   } else {
     if (!Object.hasOwn(boards, boardId)) return null;

@@ -369,7 +369,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // S68-38c 글 상자 → S69-82 생각 지도 상자(그 보드에만 있는 짧은 글·가지, 서버 표 app_note_board_texts — 노트 목록·검색·폴더·태그와 무관).
       onTextAdd:text => boardLinks.addText(text), onTextChange:(id, patch) => { void boardLinks.updateText(id, patch); }, onTextsChange:list => { void boardLinks.updateTexts(list); },
       onTextRemove:id => { void boardLinks.removeText(id); },
-      canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), toast:showToast});
+      canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(), toast:showToast});
     boards.paint();
     // S69-83: [전체]가 없으므로 보드가 하나도 없으면 판(도구 줄 포함) 대신 빈 안내 한 줄 — 보드 칸 줄의 [+ 새 보드]로 만든다.
     const named = boards.boardView(), none = host.querySelector('[data-nbw-none]');
@@ -613,6 +613,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'list' && noteStepState(note).up ? [['data-note-up', '위로']] : []), ...(from === 'list' && noteStepState(note).down ? [['data-note-down', '아래로']] : []),
       // NOTE-보드여러개 ③: 이름 붙은 보드의 칸 메뉴 맨 위 [보드에서 빼기](노트는 그대로).
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-detach', '보드에서 빼기']] : []),
+      // S69-88(명진 11/25 02:48 "노트 내용, 링크는 유지하더라도 텍스트는 다르게"): 이 보드에서만 카드에 보일 글자(별명) · 손으로 정한 카드 크기 되돌리기.
+      ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-label', '보드에 보일 글자']] : []),
+      ...(from === 'list' && view === 'board' && boards.isNamed() && boards.isSized(note) ? [['data-nbb-autosize', '카드 크기 자동']] : []),
       ...(from === 'list' && view === 'board' && boards.isNamed() && !onBoard(note, boards.current()) ? [['data-nbb-attach', '보드에 붙이기']] : []),
       ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
       // NOTE-링크원문: 본문(또는 원문 정보)에 https 링크가 있으면 [원문 가져오기] — 이미 쓴 글은 덮지 않고 아래에 붙인다(다시 가져오기도 이것 하나).
@@ -1710,6 +1713,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
     else if (b.hasAttribute('data-note-file-delete')) void deleteFile(note, from.fileId);
     else if (b.hasAttribute('data-nbb-detach')) boards.detach(note.id);
+    else if (b.hasAttribute('data-nbb-label')) void boards.relabel(note, from.trigger);
+    else if (b.hasAttribute('data-nbb-autosize')) boards.autosize(note.id);
     else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);
     else if (b.hasAttribute('data-note-copy')) void telegram(note, from.trigger); // UI-눌림느낌: the menu is closed, so the row's ⋯ shows the ✓
     else if (b.hasAttribute('data-note-up')) void stepNote(note.id, -1);

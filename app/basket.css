@@ -362,17 +362,18 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-lock-ico { display:inline-flex; }
 :is(#appView #basketView .nbb-side, .nbb-pick) .nbb-folder.nbb-locked .ui-ico { flex:none; display:inline-flex; color:var(--kptu-muted); }
 /* ×·⋯·손잡이: 고른 카드(마우스를 올린 카드도 — nb-hover, note-board.js가 마우스일 때만 붙임)에서만 작게. */
-#appView #basketView .nb-card :is(.nb-more,.nb-x) { position:absolute; top:-20px; display:none; width:20px; height:18px; min-width:0; min-height:0; margin:0; padding:0; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-muted); font-size:12px; line-height:1; cursor:pointer; }
+#appView #basketView .nb-card :is(.nb-more,.nb-x) { position:absolute; top:-36px; display:none; width:20px; height:18px; min-width:0; min-height:0; margin:0; padding:0; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-muted); font-size:12px; line-height:1; cursor:pointer; }
 #appView #basketView .nb-card .nb-more { right:0; }
 #appView #basketView .nb-card .nb-x { right:22px; }
 .nb-h { position:absolute; display:none; width:10px; height:10px; box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--nb-link-on); border-radius:50%; background:var(--kptu-surface); cursor:crosshair; touch-action:none; }
 /* 손잡이 누르는 범위(보이는 점보다 넓게). */
 /* 점은 카드 바깥에 둔다(카드를 누르거나 끄는 손가락이 손잡이에 걸리지 않게). 누르는 범위는 점 둘레 24px. */
 .nb-h::after { content:""; position:absolute; left:-7px; top:-7px; width:24px; height:24px; }
-.nb-h-top { left:calc(50% - 5px); top:-16px; }
-.nb-h-bottom { left:calc(50% - 5px); bottom:-16px; }
-.nb-h-left { left:-16px; top:calc(50% - 5px); }
-.nb-h-right { right:-16px; top:calc(50% - 5px); }
+/* S69-88: 잇기 동그라미는 변에서 더 떨어뜨린다 — 변 위의 크기 손잡이(.nb-rz, 누르는 범위 변 ±12px)와 누르는 범위가 겹치지 않게(동그라미 범위는 변 바깥 14~38px). */
+.nb-h-top { left:calc(50% - 5px); top:-31px; }
+.nb-h-bottom { left:calc(50% - 5px); bottom:-31px; }
+.nb-h-left { left:-31px; top:calc(50% - 5px); }
+.nb-h-right { right:-31px; top:calc(50% - 5px); }
 .nb:not([data-nb-small]) .nb-card.nb-sel .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-card .nb-h { display:block; }
 /* 아주 작게 본 판(0.5배 미만, data-nb-small)에서는 손잡이를 보이지 않는다(카드가 작아 누르기와 겹침) — 키워서 긋는다. */
 #appView #basketView .nb-card.nb-sel :is(.nb-more,.nb-x) { display:block; }
@@ -413,17 +414,43 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* 글 고치기: 상자 안 글(.nb-tx)은 보이지 않게 폭·높이만 잡고, 입력칸이 그 위에 겹친다(상자가 글 길이만큼 늘고 줄어듦). */
 .nb-text.nb-editing { cursor:text; }
 .nb-text.nb-editing .nb-tx { visibility:hidden; min-width:4em; }
-.nb-text.nb-draft { min-width:72px; }
+.nb-text.nb-draft { min-width:168px; } /* S69-88: 새 상자는 가로가 넉넉한 한 줄 모양으로 시작 */
 .nb-tx-edit { position:absolute; inset:0; box-sizing:border-box; width:100%; height:100%; margin:0; padding:var(--nb-pad); border:0; border-radius:inherit; background:transparent; color:inherit; font:inherit; line-height:inherit; white-space:pre-wrap; overflow-wrap:break-word; resize:none; overflow:hidden; user-select:text; -webkit-user-select:text; touch-action:auto; outline:2px solid var(--kptu-primary); outline-offset:0; }
+/* S69-88 원인: 노트 화면의 넓은 글 칸 규칙(#basketView textarea — 높이 240px·안쪽 12px·테두리·크기 손잡이)이 위 입력칸 규칙을 이겨서
+   상자가 좁고 긴 세로 칸으로 열리고 브라우저 크기 손잡이(//)가 보였다. 상자 입력칸은 상자와 같은 크기·모양만(손잡이는 상자 틀의 8개). */
+#appView #basketView .nb-text .nb-tx-edit { min-height:0; max-height:none; width:100%; height:100%; margin:0; padding:var(--nb-pad); border:0; border-radius:inherit; background:transparent; box-shadow:none; color:inherit; font:inherit; line-height:inherit; resize:none; white-space:pre-wrap; }
+/* 글 쓰는 중: 상자 둘레 8px 띠를 끌면 옮기기(입력칸 안은 글자). */
+.nb-text.nb-editing::before { content:""; position:absolute; inset:-8px; cursor:move; }
 /* 접기·펼치기 동그라미: 가지가 나가는 쪽 변 바깥 가운데(공용 icon-btn 안의 작은 동그라미). 접히면 숨은 가지 수. */
 #appView #basketView .nb-text .nb-fold { position:absolute; top:calc(50% - 11px); left:calc(100% + 1px); width:22px; min-width:0; padding:0; z-index:1; }
 #appView #basketView .nb-text[data-side="-1"] .nb-fold { left:auto; right:calc(100% + 1px); }
 .nb-fold-dot { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:16px; height:16px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:50%; background:var(--kptu-surface); color:var(--kptu-muted); font-size:10px; line-height:1; }
-.nb-text:has(.nb-fold) .nb-h-right { right:-30px; }
-.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-right { right:-16px; }
-.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-left { left:-30px; }
+.nb-text:has(.nb-fold) .nb-h-right { right:-45px; }
+.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-right { right:-31px; }
+.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-left { left:-45px; }
 .nb:not([data-nb-small]) .nb-text.nb-sel:not(.nb-editing,.nb-pending) .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-text:not(.nb-pending,.nb-draft) .nb-h { display:block; }
 .nb:not(.nb-panning,[data-nb-small]) .nb-text.nb-hover:not(.nb-editing,.nb-pending) .nb-h { display:block; }
+/* S69-88 크기 손잡이 8개(파워포인트 글 상자처럼): 고른 상자·카드(글 쓰는 중에도)의 네 모서리·네 변 가운데 작은 네모. 누르는 범위는 손가락 크기(24px).
+   모서리 = 폭·높이 함께, 변 = 그 방향만. 잇는 중·아주 작게 본 판·여러 개 고른 중에는 숨긴다. */
+.nb-rz { position:absolute; display:none; z-index:2; width:8px; height:8px; box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--nb-link-on); border-radius:1px; background:var(--kptu-surface); touch-action:none; }
+.nb-rz::after { content:""; position:absolute; left:-8px; top:-8px; width:24px; height:24px; }
+.nb-rz-nw { left:-4px; top:-4px; cursor:nwse-resize; }
+.nb-rz-n { left:calc(50% - 4px); top:-4px; cursor:ns-resize; }
+.nb-rz-ne { right:-4px; top:-4px; cursor:nesw-resize; }
+.nb-rz-e { right:-4px; top:calc(50% - 4px); cursor:ew-resize; }
+.nb-rz-se { right:-4px; bottom:-4px; cursor:nwse-resize; }
+.nb-rz-s { left:calc(50% - 4px); bottom:-4px; cursor:ns-resize; }
+.nb-rz-sw { left:-4px; bottom:-4px; cursor:nesw-resize; }
+.nb-rz-w { left:-4px; top:calc(50% - 4px); cursor:ew-resize; }
+.nb:not(.nb-wiring,[data-nb-small]) :is(.nb-text,.nb-card).nb-sel:not(.nb-pending,.nb-multi) .nb-rz, .nb :is(.nb-text,.nb-card).nb-resizing .nb-rz { display:block; }
+.nb.nb-sizing, .nb.nb-sizing * { user-select:none; -webkit-user-select:none; }
+.nb-text.nb-multi { outline:2px solid var(--kptu-primary); outline-offset:2px; }
+/* 맞춤선(끄는 동안 다른 칸 가장자리·가운데와 맞으면). */
+.nb-guide { stroke:var(--nb-link-on); stroke-width:1; stroke-dasharray:3 3; vector-effect:non-scaling-stroke; pointer-events:none; }
+/* 손으로 크기를 정한 노트 카드: 제목이 여러 줄로 감긴다. 보드에 보일 글자(별명)가 있는 카드는 왼쪽 위 작은 표시(마우스를 올리면 원래 노트 제목). */
+.nb-card[data-nb-sized] .nb-title { white-space:normal; overflow-wrap:anywhere; max-height:100%; }
+#appView #basketView .nb-card[data-nb-sized] .nb-open { padding:4px 10px; }
+.nb-card[data-nb-alias]::before { content:""; position:absolute; left:3px; top:3px; width:5px; height:5px; border-radius:50%; background:var(--nb-link-on); opacity:.7; pointer-events:none; }
 /* 가지 선: 부모 옆 → 가지, 뿌리 가지 순서대로 노트 색(진하게 섞음). */
 .nb-branch { fill:none; stroke:color-mix(in srgb,var(--kptu-muted) 70%,transparent); stroke-width:2; stroke-linecap:round; }
 .nb-branch[data-tone="0"] { stroke:color-mix(in srgb,var(--ds-note-paper-0) 50%,var(--kptu-muted)); }
