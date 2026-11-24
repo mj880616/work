@@ -30,8 +30,8 @@ class WidgetRefreshTest {
     private val e2 = ev("e2", "창립 기념일", "2026-10-30", "2026-10-31", true)
     private val e4 = ev("e4", "평가회의", "2026-10-30T20:30:00+09:00", "2026-10-30T21:30:00+09:00", false)
     private val e5 = ev("e5", "주말 당직", "2026-10-31", "2026-11-01", true)
-    private val e3 = ev("e3", "교섭", "2026-11-01T14:00:00+09:00", "2026-11-01T16:00:00+09:00", false)
-    // 서버가 timeMin~timeMax로 거른 답: '이번 주'는 월~다음 월.
+    private val e3 = ev("e3", "교섭", "2026-10-25T14:00:00+09:00", "2026-10-25T16:00:00+09:00", false)
+    // 서버가 timeMin~timeMax로 거른 답: '이번 주'는 일~다음 일(S69-위젯일요일).
     private val week = """{"events":[$e1,$e2,$e4,$e5,$e3],"colors":{},"eventColors":{}}"""
     private val tasks = """{"connected":true,"authorized":true,"needs_reconnect":false,"email":null,"tasks":[
         {"id":"t1","title":"보고서 보내기","notes":"","due":"2026-10-30T00:00:00.000Z","status":"needsAction","completed":null,"updated":null,"taskListId":"@default","taskListTitle":"내 할 일","position":null,"webViewLink":null,"source":"google-task"},
@@ -77,9 +77,9 @@ class WidgetRefreshTest {
         val r = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)))
 
         val wk = (r.week as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content
-        assertEquals("이번 주 10/26–11/1", wk.title)
+        assertEquals("이번 주 10/25–10/31", wk.title)
         assertEquals(5, wk.total)
-        assertEquals(listOf(0, 0, 0, 0, 3, 1, 1), wk.days.map { it.count })
+        assertEquals(listOf(1, 0, 0, 0, 0, 3, 1), wk.days.map { it.count })
         // APP-위젯날짜고르기: 금요일을 고르면 그 날 일정(종일 먼저·시각 순) 다음 기한 할 일. 지난 할 일(10/28)은 그 날에.
         val fri = wk.details.getValue(java.time.LocalDate.of(2026, 10, 30))
         assertEquals(3, fri.events)
@@ -131,8 +131,8 @@ class WidgetRefreshTest {
         val r = plan.result(WidgetSession.Outcome.Ok(replies))
         assertEquals(r.week, r.weeks[0])
         val last = (r.weeks.getValue(-1) as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content
-        assertEquals("지난주 10/19–10/25", last.title)
-        assertEquals(java.time.LocalDate.of(2026, 10, 19), last.monday)
+        assertEquals("지난주 10/18–10/24", last.title)
+        assertEquals(java.time.LocalDate.of(2026, 10, 18), last.sunday)
         // 옮긴 주 하나가 이상해도 이번 주는 그린다(주마다 울타리).
         val bad = plan.result(WidgetSession.Outcome.Ok(replies), weekContent = { c, t, ms, s ->
             if (s == -1) throw IllegalStateException("x") else WidgetWeek.content(c.status, c.body, ms, tasksStatus = t.status, tasks = t.body, shift = s)

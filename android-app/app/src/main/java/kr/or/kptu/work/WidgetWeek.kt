@@ -9,11 +9,12 @@ import java.time.temporal.ChronoUnit
 
 /**
  * APP-위젯다시 ③: '이번 주' 위젯(4×2·4×1)에 그릴 것. 안드로이드 API를 쓰지 않아 JVM 시험 대상이다.
- * 범위: 보이는 주 월요일 0시 ~ 다음 월요일 0시(서울). 기본은 늘 오늘이 든 주(APP-이번주위젯 S68-12, 토·일도 이번 주).
+ * 범위: 보이는 주 일요일 0시 ~ 다음 일요일 0시(서울). 기본은 늘 오늘이 든 주(APP-이번주위젯 S68-12).
+ * S69-위젯일요일(11/24 명진 "위젯이 일월화수목금토여야 돼"): 주 시작을 앱 달력(월 보기 일~토)과 같은 일요일로, 칸 순서 일 월 … 토.
  * 4×2는 머리 줄 ‹ ›로 앞뒤 MAX_SHIFT주까지 옮기고(위젯마다 메모리에만), 날이 바뀌면 이번 주로 돌아온다(shiftNow).
  * 읽기는 '지금' 위젯과 같은 google-calendar action=events(허용 주소 그대로).
  * - 요일 칸 7개: 일정 수. 4×2는 그 아래 그날 첫 일정 제목 앞부분 한 줄(APP-위젯먹색 S68-06, 아래 칸 목록과 같은 차례의 첫 줄).
- * - 아래 목록(4×2만, S68-51): 고른 날(안 고르면 오늘, 다른 주는 월요일)의 일정·할 일을 전부(dayRows, 위젯 안에서 스크롤).
+ * - 아래 목록(4×2만, S68-51): 고른 날(안 고르면 오늘, 다른 주는 일요일)의 일정·할 일을 전부(dayRows, 위젯 안에서 스크롤).
  *   S68-51(11/23 명진 "일정 그냥 다 보여줘 뭘 또 4개 몰림이야"): '일정 n개 몰림' 요약 줄과 '외 n' 줄임을 없앴다.
  *   S69-07(11/24 명진 "디마이너스 1 디마이너스 2 뭐 이런 건 안 해도 돼 / 일정이랑 할 일을 시각적으로 구분이 안가", 시안 B):
  *   목록 끝의 '가장 큰 일 D-n'·'월 보고일' 줄을 없앴다. 일정 묶음(시각 + 제목) 아래 가는 줄 + 작은 회색 머리 '할 일 n',
@@ -24,7 +25,8 @@ import java.time.temporal.ChronoUnit
  */
 object WidgetWeek {
     private val HHMM = DateTimeFormatter.ofPattern("HH:mm")
-    private val DAYS = arrayOf("월", "화", "수", "목", "금", "토", "일")
+    /** 칸 차례(일요일 시작). 앱 달력 월 보기 머리(일 월 화 수 목 금 토)와 같다. */
+    private val DAYS = arrayOf("일", "월", "화", "수", "목", "금", "토")
     private val DAY = Regex("^\\d{4}-\\d{2}-\\d{2}$")
 
     /** first: 그날 첫 일정 제목(종일 먼저·시각 순, 고른 날 아래 칸 첫 일정과 같음). 일정이 없으면 null. */
@@ -83,8 +85,8 @@ object WidgetWeek {
         val note: String?,
         val details: Map<LocalDate, Detail> = emptyMap(),
     ) {
-        /** 이 내용이 보이는 주의 월요일(위젯이 옮긴 주의 내용을 찾을 때 열쇠). */
-        val monday: LocalDate get() = days.first().day
+        /** 이 내용이 보이는 주의 일요일(위젯이 옮긴 주의 내용을 찾을 때 열쇠). */
+        val sunday: LocalDate get() = days.first().day
     }
 
     /**
@@ -101,25 +103,25 @@ object WidgetWeek {
     fun detailHead(d: Detail): String = "${d.day.monthValue}/${d.day.dayOfMonth}(${weekday(d.day)})"
 
     /**
-     * S68-51: 아래 목록이 보일 날. 고른 날(active) → 보이는 주에 오늘이 있으면 오늘 → 그 주 월요일.
+     * S68-51: 아래 목록이 보일 날. 고른 날(active) → 보이는 주에 오늘이 있으면 오늘 → 그 주 일요일.
      * 주간 요약 줄을 없앴으니 아래 칸은 늘 어느 하루의 목록이다. 같은 날을 다시 눌러도 그 날 그대로.
      */
     fun shownDay(active: LocalDate?, today: LocalDate, days: List<Day>): LocalDate? =
         active ?: days.firstOrNull { it.day == today }?.day ?: days.firstOrNull()?.day
 
     /**
-     * S68-51: 요일 칸·‹ ›가 그려질 때의 주(월요일, 누름에 실어 보냄) → 지금 기준 옮긴 주 수.
-     * 앱 프로세스가 내려가 메모리(옮긴 주)를 잃어도 누른 칸이 속한 주를 되찾는다. 월요일이 아니거나 ±MAX_SHIFT 밖이면 null.
+     * S68-51: 요일 칸·‹ ›가 그려질 때의 주(일요일, 누름에 실어 보냄) → 지금 기준 옮긴 주 수.
+     * 앱 프로세스가 내려가 메모리(옮긴 주)를 잃어도 누른 칸이 속한 주를 되찾는다. 일요일이 아니거나 ±MAX_SHIFT 밖이면 null.
      */
-    fun shiftOf(monday: LocalDate?, nowMs: Long, zone: ZoneId = WidgetNow.ZONE): Int? {
-        if (monday == null || monday.dayOfWeek != DayOfWeek.MONDAY) return null
-        val weeks = ChronoUnit.WEEKS.between(start(nowMs, zone), monday)
+    fun shiftOf(sunday: LocalDate?, nowMs: Long, zone: ZoneId = WidgetNow.ZONE): Int? {
+        if (sunday == null || sunday.dayOfWeek != DayOfWeek.SUNDAY) return null
+        val weeks = ChronoUnit.WEEKS.between(start(nowMs, zone), sunday)
         return weeks.toInt().takeIf { it in -MAX_SHIFT..MAX_SHIFT }
     }
 
-    /** 누른 날이 그 주(monday~+6일) 안인지. */
-    fun dayInWeek(day: LocalDate?, monday: LocalDate?): Boolean =
-        day != null && monday != null && !day.isBefore(monday) && day.isBefore(monday.plusDays(7))
+    /** 누른 날이 그 주(sunday~+6일) 안인지. */
+    fun dayInWeek(day: LocalDate?, sunday: LocalDate?): Boolean =
+        day != null && sunday != null && !day.isBefore(sunday) && day.isBefore(sunday.plusDays(7))
 
     /**
      * S69-07 시안 B: 아래 목록 줄 전부(줄임 없음). 그날 일정(종일 먼저·시각 순, '10:30  제목')
@@ -161,17 +163,23 @@ object WidgetWeek {
         return o["connected"] != false && o["needs_reconnect"] != true && MiniJson.list(o["tasks"]) != null
     }
 
-    fun weekday(d: LocalDate): String = DAYS[d.dayOfWeek.value - 1]
+    /** DayOfWeek.value는 월=1 … 일=7이라 7로 나눈 나머지가 일=0 … 토=6(칸 차례). */
+    fun col(d: LocalDate): Int = d.dayOfWeek.value % 7
+
+    fun weekday(d: LocalDate): String = DAYS[col(d)]
+
+    /** 일요일 칸만 앱 달력과 같은 일요일 색(웹 .cal-head.sunday = kptu-danger). */
+    fun isSunday(d: LocalDate): Boolean = d.dayOfWeek == DayOfWeek.SUNDAY
 
     /** S68-12: 앞뒤로 옮길 수 있는 주 수(이번 주에서 ±). */
     const val MAX_SHIFT = 8
 
     fun today(nowMs: Long, zone: ZoneId = WidgetNow.ZONE): LocalDate = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
 
-    /** 보이는 주의 월요일: 오늘이 든 주(월요일 시작, 일요일이면 그 주 월~일) + shift주. */
+    /** 보이는 주의 일요일: 오늘이 든 주(일요일 시작, 토요일이면 그 주 일~토) + shift주. */
     fun start(nowMs: Long, zone: ZoneId = WidgetNow.ZONE, shift: Int = 0): LocalDate {
         val d = today(nowMs, zone)
-        return d.minusDays((d.dayOfWeek.value - DayOfWeek.MONDAY.value).toLong()).plusWeeks(clamp(shift).toLong())
+        return d.minusDays(col(d).toLong()).plusWeeks(clamp(shift).toLong())
     }
 
     fun clamp(shift: Int): Int = shift.coerceIn(-MAX_SHIFT, MAX_SHIFT)
@@ -193,7 +201,7 @@ object WidgetWeek {
         else -> null
     }
 
-    /** 보이는 주 월요일 0시와 다음 월요일 0시(서울)를 UTC 글(…Z)로. */
+    /** 보이는 주 일요일 0시와 다음 일요일 0시(서울)를 UTC 글(…Z)로. */
     fun range(nowMs: Long, zone: ZoneId = WidgetNow.ZONE, shift: Int = 0): Pair<String, String> {
         val m = start(nowMs, zone, shift)
         return m.atStartOfDay(zone).toInstant().toString() to m.plusDays(7).atStartOfDay(zone).toInstant().toString()
@@ -222,15 +230,15 @@ object WidgetWeek {
         }
     }
 
-    /** 보이는 주 안의 일정(시작 날 기준, 전 주에 시작해 이어지는 것은 월요일에). */
-    private fun inWeek(evs: List<WidgetNow.Ev>, monday: LocalDate, zone: ZoneId): List<WidgetNow.Ev> {
-        val end = monday.plusDays(7)
-        val from = monday.atStartOfDay(zone).toInstant().toEpochMilli()
+    /** 보이는 주 안의 일정(시작 날 기준, 전 주에 시작해 이어지는 것은 일요일에). */
+    private fun inWeek(evs: List<WidgetNow.Ev>, sunday: LocalDate, zone: ZoneId): List<WidgetNow.Ev> {
+        val end = sunday.plusDays(7)
+        val from = sunday.atStartOfDay(zone).toInstant().toEpochMilli()
         return evs.mapNotNull { e ->
             when {
                 !e.day.isBefore(end) -> null
-                !e.day.isBefore(monday) -> e
-                e.endMs > from -> e.copy(day = monday)
+                !e.day.isBefore(sunday) -> e
+                e.endMs > from -> e.copy(day = sunday)
                 else -> null
             }
         }
@@ -251,11 +259,11 @@ object WidgetWeek {
         shift: Int = 0,
     ): Content {
         val title = header(nowMs, zone, shift)
-        val monday = start(nowMs, zone, shift)
+        val sunday = start(nowMs, zone, shift)
         val today = today(nowMs, zone)
-        val empty = (0 until 7).map { i -> monday.plusDays(i.toLong()).let { Day(it, weekday(it), it.dayOfMonth, 0) } }
+        val empty = (0 until 7).map { i -> sunday.plusDays(i.toLong()).let { Day(it, weekday(it), it.dayOfMonth, 0) } }
         if (status != 200) return Content(title, 0, empty, "일정 연결을 확인해 주세요")
-        val evs = inWeek(WidgetNow.events(body, zone), monday, zone)
+        val evs = inWeek(WidgetNow.events(body, zone), sunday, zone)
         val counts = evs.groupingBy { it.day }.eachCount()
         val days = empty.map { d ->
             val n = counts[d.day] ?: 0
