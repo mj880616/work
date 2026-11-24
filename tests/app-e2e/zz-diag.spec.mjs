@@ -1,0 +1,108 @@
+// UI-화면폭넘침: 긴 제목·긴 주소가 있어도, 칸·탭·필터를 눌러도 화면 폭이 폰 폭 그대로다(가로로 넘침 없음).
+// 폰 접은 화면(344·412)과 펼친 화면(882)에서 주요 화면을 열고, 화면 안의 칸·탭(radio·tab)을 하나씩 눌러 본 뒤마다
+// document.documentElement.scrollWidth <= innerWidth 를 확인한다. 넘치면 어느 화면·어느 칸에서 어떤 요소가 삐져나갔는지 이름을 보고한다. 모든 이름은 합성 값.
+import {test,expect} from '@playwright/test';
+import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
+import {testOrigin} from './helpers/test-origin.mjs';
+import {openReportBoxes} from './helpers/report-boxes.mjs';
+
+test.use({timezoneId:'Asia/Seoul'});
+const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const LONG='10.26. 메트로9호선노조 조합원 결의대회, 서울시청 앞 광장 전국철도노동조합 합동 집회 개화차량기지.';
+const URLISH='https://example.org/'+'abcdefghij'.repeat(14);
+const KINDS=['meeting','policy','negotiation','press','assembly','struggle','education','other'];
+// HOME-업무일지홈: 업무일지는 홈(home)이라 따로 열지 않는다.
+const VIEWS=['home','basket','calendar','tasks','projects','meetings','library','pages','team','calls','telegram','ledger','diary'];
+
+function wideState(){
+  const s=baseState();s.meetingWrites=[];
+  s.meetings=KINDS.flatMap((k,i)=>[
+    {id:'m-'+k+'-a',workspace_id:'workspace-1',title:LONG,series_name:LONG,round_no:i+1,meeting_at:`2026-10-${String(20+(i%6)).padStart(2,'0')}T01:00:00Z`,activity_kind:k,transcript_text:LONG,created_by:'user-1'},
+    {id:'m-'+k+'-b',workspace_id:'workspace-1',title:URLISH,series_name:URLISH,round_no:null,meeting_at:`2026-10-${String(10+(i%6)).padStart(2,'0')}T01:00:00Z`,activity_kind:k,transcript_text:'합성',created_by:'user-1'}
+  ]);
+  s.spaces=s.spaces.map((x,i)=>i%2?{...x,name:LONG+' '+x.name}:{...x,name:URLISH});
+  s.docs=s.docs.map((d,i)=>({...d,title:i%2?LONG:URLISH,source:URLISH,file_name:URLISH+'.pdf',mime_type:'application/pdf',file_id:'f'+i,document_date:'2026-10-2'+i}));
+  return s;
+}
+async function extraRoutes(page){
+  const ok=(route,data)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+  await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>ok(route,['a','b','c'].map((x,i)=>({id:'org-'+x,workspace_id:'workspace-1',name:i%2?LONG:URLISH,active:true,created_by:'user-1'}))));
+  await page.route(`${SB}/rest/v1/app_notes**`,route=>{const q=new URL(route.request().url()).searchParams;if(q.get('metadata'))return ok(route,[]);return ok(route,[{id:'10000000-0000-4000-8000-000000000001',workspace_id:'workspace-1',occurred_at:'2026-10-20T01:00:00Z',updated_at:'2026-10-20T01:00:00Z',created_at:'2026-10-20T01:00:00Z',raw_text:LONG+' '+URLISH,ai_export_allowed:true,archived_at:null,attachments:[],metadata:{}}])});
+}
+// 넘침 보고: 오른쪽 끝이 화면 폭을 넘는 요소 몇 개의 이름.
+const overflow=page=>page.evaluate(()=>{
+  const w=innerWidth,root=document.documentElement;
+  if(root.scrollWidth<=w)return null;
+  const name=e=>e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(/\s+/).slice(0,2).join('.'):'');
+  const wide=[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>w+1&&getComputedStyle(e).position!=='fixed'}).slice(0,4).map(name);
+  return `scrollWidth ${root.scrollWidth} > ${w}; ${wide.join(', ')}`;
+});
+async function openView(page,view){globalThis.__note?.('OPEN '+view);
+  const opened=await page.evaluate(async v=>{try{await window.KPTUViewLoader?.load?.(v);window.KPTURouter.go(v);return true}catch{return false}},view);
+  if(!opened)return false;
+  const box=page.locator(`#${view}View`).first();
+  if(await box.count())await box.waitFor({state:'visible',timeout:8000}).catch(()=>{});
+  await page.waitForTimeout(300);
+  return true;
+}
+
+for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그대로 ${width}`,async({page})=>{
+  test.setTimeout(240000);
+  const errors=[];page.on('pageerror',e=>errors.push(String(e.stack||e.message).split('\n').slice(0,4).join(' / ')));
+  const s=wideState();
+  const ring=[];const note=t=>{ring.push(Date.now()%100000+' '+t);if(ring.length>40)ring.shift()};let armed=false;
+  await page.addInitScript(()=>{for(const k of ['back','go','forward','pushState','replaceState']){const o=History.prototype[k];History.prototype[k]=function(...a){try{console.log('HIST',k,k.endsWith('State')?String(a[2]||''):JSON.stringify(a),'idx='+navigation.currentEntry.index,'len='+history.length,new Error().stack.split('\n').slice(2,7).map(x=>x.trim().replace(/https?:\/\/[^/]+\/app\//,'')).join(' < '))}catch{}return o.apply(this,a)}}
+    for(const k of ['reload','replace','assign']){try{const o=Location.prototype[k];}catch{}}
+    addEventListener('beforeunload',()=>console.log('UNLOAD',location.href,new Error().stack.split('\n').slice(1,4).join(' < ')));
+    addEventListener('pagehide',e=>console.log('PAGEHIDE',location.href,e.persisted));
+    navigation?.addEventListener?.('navigate',e=>console.log('NAVIGATE',e.navigationType,e.destination.url,'same='+e.destination.sameDocument,'idx='+e.destination.index,new Error().stack.split('\n').slice(1,6).map(x=>x.trim().replace(/https?:\/\/[^/]+\/app\//,'')).join(' < ')));});
+  page.on('console',m=>{const t=m.text();if(/^(HIST|UNLOAD|PAGEHIDE|NAVIGATE)/.test(t))note(t);else if(m.type()==='error'||m.type()==='warning')note('CONSOLE '+m.type()+' '+t.slice(0,200))});
+  page.on('domcontentloaded',()=>{note('DCL '+page.url());if(armed){console.log('=== CROSS-DOC NAV ===\n'+ring.join('\n'))}});
+  await page.setViewportSize({width,height:width<761?844:900});
+  await mockApp(page,s);await extraRoutes(page);
+  await signIn(page,testOrigin+'/app/?view=reports');
+  await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  const bad=[],checked=[],clicks={};armed=true;globalThis.__note=note;page.on('close',()=>{if(test.info().status!=='passed')console.log('=== RING AT CLOSE ===\n'+ring.join('\n'))});
+  const check=async label=>{note('CHECK '+label);const o=await overflow(page);checked.push(label);if(o)bad.push(`${label}: ${o}`)};
+  for(const view of VIEWS){
+    if(!await openView(page,view)){checked.push(view+' (열 수 없어 건너뜀)');continue}
+    await check(`${view} 처음`);
+    const sel=`#${view}View :is([role=radio],[role=tab],[aria-pressed],[data-filter-value],.quick-pill-button,.filter-chips button,.feed-chiprow button,[data-tg-folder],[data-tg-shelf]):not([data-diary-day]):visible`;
+    const total=Math.min(await page.locator(sel).count(),40);
+    clicks[view]=total;
+    for(let i=0;i<total;i++){
+      const item=page.locator(sel).nth(i);
+      if(!await item.count())break;
+      const text=((await item.textContent())||'').trim().slice(0,12);
+      await item.click({timeout:3000,force:true}).catch(()=>{});
+      await page.waitForTimeout(120);
+      await check(`${view} 칸 ${i+1}(${text})`);
+      await page.keyboard.press('Escape');
+    }
+    // S52-22 TEAM-맨위한줄: 사업 보고 1200px 아래는 종류·사업영역·기간이 공용 고르기 상자다. 상자의 줄을 하나씩 골라 보며 같은 넘침 검사를 한다.
+    if(view==='meetings')for(const id of ['reportKindSelect','reportAreaSelect','reportNameSelect']){
+      // S67-75 UI-걸러보기칩하나: 폰 폭이면 상자는 칩이 여는 창 안 — 숨김(hidden)이 아닌 상자를 칩 창을 열어 고른다.
+      const box=page.locator('#'+id);if(!await box.count()||await box.evaluate(e=>e.hidden))continue;
+      // MTG-기본종류전체(11/15 명진): 사업 보고는 [종류 전체]로 열린다. 회의명 묶음 줄까지 보려면 [회의]부터 고른다(전에는 처음이 [회의]).
+      if(id==='reportKindSelect'){await openReportBoxes(page);await box.selectOption('kind:meeting',{timeout:3000}).catch(()=>{});await page.waitForTimeout(120)}
+      const values=(await box.locator('option:not([hidden])').evaluateAll(els=>els.map(e=>e.value))).slice(0,20);
+      for(const v of values){await openReportBoxes(page);await box.selectOption(v,{timeout:3000}).catch(()=>{});await page.waitForTimeout(120);clicks.meetings++;await check(`meetings ${id} ${v.slice(0,12)}`)}
+    }
+    // LIB-위쪽한줄(11/09): 자료실 묶기는 위 줄 고르기 상자 [폴더 ▾](#libraryGroupBy)다. 줄을 하나씩 골라 보며 같은 넘침 검사를 하고, [분류 ▾] 창도 열어 본다.
+    if(view==='library'){
+      const box=page.locator('#libraryGroupBy');
+      if(await box.isVisible().catch(()=>false)){
+        for(const v of await box.locator('option').evaluateAll(els=>els.map(e=>e.value))){await box.selectOption(v,{timeout:3000}).catch(()=>{});await page.waitForTimeout(120);clicks.library++;await check(`library 묶기 ${v}`)}
+        await page.locator('#libraryCategoryPick').click({timeout:3000}).catch(()=>{});await page.waitForTimeout(120);clicks.library++;await check('library 분류 창');await page.keyboard.press('Escape');
+      }
+    }
+  }
+  console.log('RING-END '+test.info().title+'\n'+ring.slice(-6).join('\n'));
+  test.info().annotations.push({type:'checked',description:checked.join(' | ')});
+  expect(bad,bad.join('\n')).toEqual([]);
+  // 시험이 빈손으로 지나가지 않게: 사업 보고(칸 9·보기 3 등)·자료실·프로젝트 화면은 반드시 열려 칸을 눌러 봤어야 한다.
+  expect(clicks.meetings,JSON.stringify(clicks)).toBeGreaterThanOrEqual(10);
+  expect(clicks.library,JSON.stringify(clicks)).toBeGreaterThanOrEqual(3);
+  expect(checked.filter(x=>x.includes('건너뜀')).length,checked.join(' | ')).toBeLessThanOrEqual(6);
+  expect(errors).toEqual([]);
+});
