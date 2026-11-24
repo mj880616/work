@@ -452,6 +452,22 @@ textarea[data-autogrow][data-enter-field]{line-height:1.4}
 .photo-fold-tile .photo-fold-thumb{display:block;box-sizing:border-box;width:100%;height:100%;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-primary-soft);overflow:hidden;cursor:zoom-in;box-shadow:none}
 .photo-fold-tile .photo-fold-thumb img{display:block;width:100%;height:100%;object-fit:cover}
 .photo-fold-thumb:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
+/* UI-사진고르기표시(S69-24, 명진 11/24 '사진 선택했을 때 선택됐다는 티가 안 남'): 사진을 고르는 모든 칸(자료실 작은 그림 칸·사진 화면 칸)의 공용 표시.
+   갤러리 앱 방식 — 고른 칸은 바탕이 공용 선택 색(--ds-select-bg)·3px 선택 선(--ds-select-line)으로 바뀌고 사진이 조금 줄어들며 옅은 덮개가 씌워지고,
+   왼쪽 위(사진 화면은 오른쪽 위) 동그란 배지가 공용 선택 바탕(--ds-select-bg)에 선택 선 색(--ds-select-line) ✓로 채워진다(주 색으로 꽉 칠하지 않는 선택 표시 규칙). 안 고른 칸은 선택 모드에서만 빈 동그라미. 배지는 흰 테두리 + 옅은 어둠 바탕이라
+   밝은 사진·어두운 사진 위 모두 보인다(그림자 없음). 선은 사진 밖(줄어든 사진 둘레 바탕) 위에 그려져 사진 색과 겹치지 않는다.
+   자료실의 고르기 칸(input)은 그대로 두고 눈에 안 보이게 배지 자리(32px)의 누르기 칸으로만 쓰며, 보이는 표시는 배지(.photo-pick-mark)가 맡는다(키보드 포커스는 배지 둘레 선).
+   선택 모드에서는 칸 전체(72px)를 눌러도 고르고 풀리므로 폰 누르기 자리는 44px 이상이다. 가운데·꾹 누르기·우클릭은 그대로 작은 그림이 받는다. */
+.photo-fold-tile>.photo-pick{position:absolute;left:0;top:0;z-index:3;box-sizing:border-box;width:32px;height:32px;min-width:0;min-height:0;margin:0;padding:0;opacity:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.photo-pick-mark{position:absolute;left:5px;top:5px;z-index:2;display:grid;place-items:center;box-sizing:border-box;width:22px;height:22px;border:2px solid var(--ds-photo-ink);border-radius:50%;background:color-mix(in srgb,var(--ds-photo-scrim) 50%,transparent);font-size:13px;font-weight:800;line-height:1;pointer-events:none;box-shadow:none}
+.photo-fold-tile>.photo-pick:focus-visible+.photo-pick-mark{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
+:is(.photo-picked,.photo-fold-tile:has(>.photo-pick:checked)){background:var(--ds-select-bg);border-radius:var(--kptu-radius-sm,6px);outline:3px solid var(--ds-select-line);outline-offset:-3px}
+:is(.photo-picked,.photo-fold-tile:has(>.photo-pick:checked))>:is(.photo-fold-thumb,.diary-photo){transform:scale(.8);border-radius:var(--kptu-radius-sm,6px)}
+:is(.photo-picked,.photo-fold-tile:has(>.photo-pick:checked))>:is(.photo-fold-thumb,.diary-photo)::after{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--ds-select-bg) 30%,transparent);pointer-events:none}
+.photo-fold-tile:has(>.photo-pick)>.photo-fold-thumb{position:relative}
+:is(.photo-picked .photo-pick-mark,.photo-fold-tile>.photo-pick:checked+.photo-pick-mark){background:var(--ds-select-bg);color:var(--ds-select-line)}
+:is(.photo-picked .photo-pick-mark,.photo-fold-tile>.photo-pick:checked+.photo-pick-mark)::before{content:"✓"}
+@media(prefers-reduced-motion:no-preference){:is(.photo-fold-tile:has(>.photo-pick),.photo-picked,.is-selecting .diary-grid-item)>:is(.photo-fold-thumb,.diary-photo){transition:transform .12s ease-out}}
 /* 칸 안 ⋯ 는 오른쪽 위에 작게(누르기 칸은 칸 전체 높이의 절반). 메뉴 판은 그 자료 줄 ⋯ 와 같은 것이다.
    줄 ⋯ 크기는 그리는 화면 이름(#ps3DetailModal .ps3-line-more>summary 44px, .ft-dots 36px·오른쪽 여백 2px …)으로 정해져 있어,
    사진 칸을 그리는 네 곳(프로젝트 상세·조직 상세·자료실 목록·파일)의 이름으로 같은 무게를 맞춘다(우선순위 강제 표시 없이 — D-6b). */

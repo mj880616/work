@@ -18,9 +18,9 @@ const inFolder=(s,fid)=>s.items.filter(x=>x.folder_id===fid).map(x=>x.document_i
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
 const shot=(page,name)=>page.screenshot({path:test.info().outputPath(name+'.png')});
 
-async function boot(page,width){
+async function boot(page,width,body=PNG){
   const r=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:structuredClone(DOCS),group:'폴더'});
-  await page.route('**/functions/v1/library-files*',route=>route.fulfill({status:200,contentType:'image/png',body:PNG}));
+  await page.route('**/functions/v1/library-files*',route=>route.fulfill({status:200,contentType:'image/png',body}));
   await expandLibraryTree(page);
   await expect(fold(page)).toHaveText(/사진 3/);
   await press(page,fold(page),width);
@@ -125,6 +125,55 @@ test.describe('PC 두 칸 보기 1440',()=>{
     await expect(line(page)).toContainText('옮겼어요 2개');
     await line(page).locator('.lu-undo').click();
     await expect.poll(()=>inFolder(s,'fn')).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
+
+// S69-24(명진 11/24 09:11 '사진 선택했을 때 선택됐다는 티가 안나서 뭐가 선택됐는지를 모름'): 고른 사진 칸은 공용 사진 고르기 표시
+// (채운 동그란 ✓ 배지·3px 선택 선·줄어든 사진), 안 고른 칸은 빈 동그라미. 밝은 사진·어두운 사진 둘 다에서 같은 표시.
+const LIGHT=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP49esHAAXeAu1bZGBTAAAAAElFTkSuQmCC','base64');
+const DARK=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPg4eEDAABOACcIJqNdAAAAAElFTkSuQmCC','base64');
+for(const width of [412,1440])for(const tone of ['밝은','어두운'])test.describe(`고른 사진 표시 ${width} ${tone}`,()=>{
+  test.use({hasTouch:width<761});
+  test(`고른 사진 2장은 배지·테두리로 한눈에 보인다 ${width} ${tone}`,async({page})=>{
+    const {errors}=await boot(page,width,tone==='밝은'?LIGHT:DARK);
+    await libraryTopMenu(page,'select',{tap:width<761});
+    await press(page,thumb(page,P1),width);
+    await press(page,thumb(page,P2),width);
+    await expect(page.locator('#librarySelectCount')).toHaveText('2개 선택됨');
+    const look=id=>page.locator(`#documentList .photo-fold-tile[data-photo-tile="${id}"]`).evaluate(tile=>{
+      const mark=tile.querySelector('.photo-pick-mark'),box=tile.querySelector('.photo-pick'),th=tile.querySelector('.photo-fold-thumb');
+      const m=getComputedStyle(mark),t=getComputedStyle(tile),b=box.getBoundingClientRect();
+      return {mark:m.backgroundColor,check:getComputedStyle(mark,'::before').content,ring:m.borderTopColor,ringW:m.borderTopWidth,size:mark.getBoundingClientRect().width,
+        line:t.outlineStyle+' '+t.outlineWidth,shrink:getComputedStyle(th).transform,hitW:b.width,hitH:b.height,shadow:m.boxShadow};
+    });
+    const [a,b,c]=[await look(P1),await look(P2),await look(P3)];
+    for(const on of [a,b]){
+      expect(on.check).toBe('"✓"');
+      expect(on.line).toBe('solid 3px');
+      expect(on.shrink).not.toBe('none');
+      expect(on.ring).toBe('rgb(255, 255, 255)');
+      expect(on.size).toBeGreaterThanOrEqual(20);
+      expect(on.shadow).toBe('none');
+    }
+    // 안 고른 칸: 빈 동그라미(흰 테두리)뿐, 선·줄어듦 없음 — 고른 칸과 배지 색이 다르다.
+    expect(c.check).toBe('none');
+    expect(c.ring).toBe('rgb(255, 255, 255)');
+    expect(c.line.startsWith('none')).toBe(true);
+    expect(c.shrink).toBe('none');
+    expect(c.mark).not.toBe(a.mark);
+    // 고르기 칸(input)은 그대로(배지 자리), 선택 모드의 누르기 자리는 칸 전체(작은 그림 44px 이상).
+    expect(a.hitW).toBeGreaterThanOrEqual(28);expect(a.hitH).toBeGreaterThanOrEqual(28);
+    const tb=await thumb(page,P3).boundingBox();expect(Math.min(tb.width,tb.height)).toBeGreaterThanOrEqual(44);
+    await expect(page.locator(`[data-lu-pick="${P1}"]`)).toBeChecked();
+    await expect(page.locator(`[data-lu-pick="${P3}"]`)).not.toBeChecked();
+    // 배지 자리(왼쪽 위)를 눌러도 고르기·풀기.
+    await press(page,page.locator(`[data-lu-pick="${P3}"]`),width);
+    await expect(page.locator('#librarySelectCount')).toHaveText('3개 선택됨');
+    await press(page,page.locator(`[data-lu-pick="${P3}"]`),width);
+    await expect(page.locator('#librarySelectCount')).toHaveText('2개 선택됨');
+    await page.locator('#documentList .photo-fold-tiles').first().screenshot({path:test.info().outputPath(`photo-picked-${width}-${tone==='밝은'?'light':'dark'}.png`)});
+    await shot(page,`photo-picked-page-${width}-${tone==='밝은'?'light':'dark'}`);
     expect(errors).toEqual([]);
   });
 });
