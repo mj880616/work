@@ -14,7 +14,11 @@ export function sweepQuery(nowMs, afterMs = SWEEP_AFTER_MS) {
   return `appProperties has { key='${TEXT_TEMP_KEY}' and value='1' } and trashed = false and createdTime < '${before}'`;
 }
 
-/** 오래된 표식 사본을 휴지통으로. 답: 보낸 수. 실패해도 throw하지 않는다(글자 읽기를 막지 않음). */
+/**
+ * 오래된 표식 사본을 휴지통으로. 답: 보낸 수. 실패해도 throw하지 않는다(글자 읽기를 막지 않음).
+ * @param {{fetch?: typeof globalThis.fetch, token?: string, now?: () => number, max?: number, timeoutMs?: number}} [opts]
+ * @returns {Promise<number>}
+ */
 export async function sweepTextTemps({ fetch: doFetch = globalThis.fetch, token, now = Date.now, max = SWEEP_MAX, timeoutMs = 8000 } = {}) {
   if (!token) return 0;
   const auth = { Authorization: `Bearer ${token}` };
