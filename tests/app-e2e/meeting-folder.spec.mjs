@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,SB} from './helpers/library-folder-server.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {addReport} from './helpers/report-add.mjs';
+import {folderSheet,sheetRow,sheetGo} from './helpers/folder-sheet.mjs';
 // MTG-정기회의자료폴더(명진 11/24 21:03 "자료실 폴더 이름 중 회의 폴더 이름이 정기 회의 폴더 이름과 같고 매칭이 되어서.
 //   저기에 회의자료 등을 올리면 저 폴더로 자동으로 가게"):
 // 사업 보고(회의)에 올린 회의자료는 그 회의명과 짝지은 자료실 폴더에, 짝이 없으면 이름이 같은 폴더(띄어쓰기·가운뎃점만 맞춤) 하나에 들어간다.
@@ -108,7 +109,7 @@ const panel=page=>page.locator('#kptuNamePanel');
 for(const [label,size,touch] of [['폰 412',{width:412,height:915},true],['PC 1280',{width:1280,height:900},false]]){
   test.describe(label,()=>{
     test.use({hasTouch:touch,isMobile:touch});
-    test(`${label}: 회의명 줄 ⋯ [자료실 폴더 정하기] → 폴더 고르기 창 → [선택] = 서버에 짝, 한 줄 알림`,async({page})=>{
+    test(`${label}: 회의명 줄 ⋯ [자료실 폴더 정하기] → 폴더 고르기 창 → [이 폴더로 정하기] = 서버에 짝, 한 줄 알림`,async({page})=>{
       const errors=[];page.on('pageerror',e=>errors.push(e.message));
       await page.setViewportSize(size);
       const state={calls:[],folders:[
@@ -130,11 +131,11 @@ for(const [label,size,touch] of [['폰 412',{width:412,height:915},true],['PC 12
       await expect(panel(page).locator('[data-mnp-act="folder"]')).toHaveText('자료실 폴더 정하기');
       await panel(page).locator('[data-mnp-act="folder"]').click();
       await expect(panel(page)).toBeHidden();
-      const picker=page.locator('#luMovePicker');
-      await expect(picker).toBeVisible();
-      await picker.locator('[data-lu-move-folder="f-b"]').last().click();
-      await expect(picker.locator('[data-lu-move-ok]')).toHaveText('선택');
-      await picker.locator('[data-lu-move-ok]').click();
+      // S69-62 공용 폴더 고르기 창('옮길 곳' 창 하나): 줄 누르기 = 고르기, [이 폴더로 정하기]로만 정한다.
+      await expect(folderSheet(page)).toBeVisible();
+      await sheetRow(page,'예시 폴더 B').click();
+      await expect(sheetGo(page)).toHaveText('이 폴더로 정하기');
+      await sheetGo(page).click();
       await expect.poll(()=>state.calls).toEqual([{p_id:'f-b',p_key:'예시회의1'}]);
       await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('‘예시 회의 1’ 자료는 ‘예시 폴더 B’ 폴더에 넣어요.');
       // 사업 보고 입력 창은 그대로 열려 있다(폴더만 정함).

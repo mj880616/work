@@ -62,7 +62,7 @@ export async function chooseMeetingFolder({anchor, name, rt = window.KPTURuntime
   if (st.links === null) { notify('아직 준비 중인 기능이에요.', {error: true}); return; }
   const now = linkedFolder({folders: st.folders, links: st.links, name});
   const {openLibraryFolderPicker} = await import('./library-folder-pick.js');
-  openLibraryFolderPicker({anchor, folders: st.folders, okLabel: '선택', onPick: async f => {
+  openLibraryFolderPicker({anchor, folders: st.folders, choose: true, title: '회의자료 넣을 폴더 선택', ...(now ? {start: now.id} : {}), onPick: async f => {
     if (!f?.id || f.id === now?.id) return;
     const ok = await setFolderMeeting(st.api, f.id, key).catch(() => false);
     notify(ok ? `‘${String(name).trim()}’ 자료는 ‘${f.name}’ 폴더에 넣어요.` : '폴더를 정하지 못했어요. 다시 해 주세요.', {error: !ok});
