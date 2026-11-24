@@ -17,6 +17,13 @@
 // - 드라이브 실패는 앱 동작을 막지 않는다: 셀 수 있는 숫자(pending·cant)만 돌려주고 다음 부름에서 다시 한다.
 //   cant = 드라이브가 이 앱에 그 파일 권한을 주지 않음(403·404: 앱이 만들지 않은 파일 등) — 다시 해도 안 되므로 대기로 세지 않는다.
 // - 다루는 값은 폴더 이름·파일 id·폴더 id뿐(파일 내용은 열지 않음). 로그에도 이름을 남기지 않는다.
+// S69-52 ①(명진 11/24 "파일 안에서 자료실에 해당하는 구글 드라이브 폴더를 클릭하면 자료실과 사실상 내용이 동일"): 폴더 구조의 원본은 드라이브 폴더,
+//   자료실은 id로 대응한다. 짝 드라이브 폴더마다 '마지막으로 맞춘 모양' 표식(appProperties won_n = 이름 지문, won_p = 부모 드라이브 id)을 붙여 두고,
+//   다음 읽기 때 어느 쪽이 바뀌었는지 본다(decideFolder):
+//     드라이브만 바뀜(이름·부모) → 자료실이 따라간다(앱 폴더 이름·부모를 고침, 내 토큰·owner RLS·나무 검사 그대로).
+//     자료실만 바뀜 → 드라이브를 고친다(지금까지와 같음). 표식이 아직 없는 옛 짝 → 지금까지와 같이 자료실 기준(legacy).
+//     둘 다 바뀜·따라갈 수 없음(드라이브에서 자료실 밖·짝 없는 폴더로 옮김, 이름이 자료실 규칙(1~40자)에 안 맞음) → 아무것도 바꾸지 않고
+//     conflicts로 센다([드라이브와 맞는지 보기] 목록에 뜸, library-drive-check.mjs).
 
 export const MIRROR_MARK = 'won_mirror';
 export const MIRROR_BUDGET_MS = 10000;
@@ -28,6 +35,61 @@ export class DriveFail extends Error {
   constructor(status) { super('drive ' + status); this.status = Number(status) || 0; }
 }
 const cantFail = e => e instanceof DriveFail && (e.status === 403 || e.status === 404);
+export const isDriveId = v => typeof v === 'string' && DRIVE_ID.test(v);
+
+// S69-52: 마지막으로 맞춘 모양 표식. 이름은 지문(8자리)만 — 드라이브 표식 한 칸은 124바이트까지라 긴 한글 이름은 못 담는다.
+export const SYNC_NAME = 'won_n';
+export const SYNC_PARENT = 'won_p';
+// 되돌리기 뒤 '양쪽 다 바뀜'으로 붙들어 두는 값(어떤 지문과도 같지 않음 — 다음 읽기가 어느 쪽도 덮어쓰지 않고 목록에 띄운다).
+export const SYNC_HOLD = '0';
+/** 이름 지문: NFC로 맞춘 이름의 FNV-1a 32비트(16진 8자리). */
+export function nameSig(name) {
+  const s = String(name ?? '').normalize('NFC');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0');
+}
+/** 자료실 폴더 이름 규칙(DB 검사 app_library_folders_name_check와 같음): 1~40자, 앞뒤 공백 없음, 제어 문자 없음. */
+export const appNameOk = name => typeof name === 'string' && name.length >= 1 && [...name].length <= 40 && name === name.trim() && !/[\u0000-\u001f\u007f]/.test(name);
+
+/**
+ * 짝 폴더 하나의 이름·부모를 어느 쪽에 맞출지. 답 {name, parent}: 'same' | 'drive'(드라이브를 자료실처럼) | 'app'(자료실을 드라이브처럼)
+ *   | 'legacy'(표식 없음 — 부르는 쪽이 정함: 맞추기는 자료실 기준, 점검은 '어느 쪽인지 모름') | 'conflict'(둘 다 바뀜·따라갈 수 없음).
+ * app: {name, parentDrive(앱 부모의 짝 드라이브 id 또는 자료실 폴더 id)}, drive: {name, parents, appProperties},
+ * appParentOf(driveId) → 앱 부모 id(자료실 폴더면 null) | undefined(자료실이 모르는 폴더).
+ */
+export function decideFolder(app, drive, appParentOf = () => undefined) {
+  const props = drive?.appProperties && typeof drive.appProperties === 'object' ? drive.appProperties : {};
+  const out = { name: 'same', parent: 'same' };
+  if (drive.name !== app.name) {
+    const base = props[SYNC_NAME];
+    if (!base) out.name = 'legacy';
+    else {
+      const dCh = nameSig(drive.name) !== base, aCh = nameSig(app.name) !== base;
+      out.name = dCh && !aCh ? (appNameOk(drive.name) ? 'app' : 'conflict') : aCh && !dCh ? 'drive' : dCh && aCh ? 'conflict' : 'drive';
+    }
+  }
+  const ps = Array.isArray(drive.parents) ? drive.parents : [];
+  if (app.parentDrive && (!ps.includes(app.parentDrive) || ps.length !== 1)) {
+    const base = props[SYNC_PARENT], cur = ps.length === 1 ? ps[0] : null;
+    if (!base) out.parent = 'legacy';
+    else if (!cur) out.parent = 'drive';
+    else {
+      const dCh = cur !== base, aCh = app.parentDrive !== base;
+      if (dCh && !aCh) out.parent = appParentOf(cur) === undefined ? 'conflict' : 'app';
+      else out.parent = aCh && !dCh ? 'drive' : dCh && aCh ? 'conflict' : 'drive';
+    }
+  }
+  return out;
+}
+/** 맞춘 뒤 붙일 표식(이미 같으면 빈 객체). */
+export function stampFor(drive, name, parent) {
+  const props = drive?.appProperties && typeof drive.appProperties === 'object' ? drive.appProperties : {};
+  const out = {};
+  if (name != null && props[SYNC_NAME] !== nameSig(name)) out[SYNC_NAME] = nameSig(name);
+  if (parent != null && props[SYNC_PARENT] !== parent && String(parent).length <= 110) out[SYNC_PARENT] = parent;
+  return out;
+}
 
 export function parseMirrorBody(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).join(',') !== 'mode') return null;
@@ -61,12 +123,14 @@ export function topDown(folders) {
  *  db.setDrive(id, drive, expect) → {ok, taken?}
  *  drive.get(id) → meta|null, drive.children(parentId) → [{id,name,mimeType,parents}], drive.createFolder(name,parent) → id,
  *  drive.list?(parentIds[]) → 그 부모들 바로 아래 전부(한 번에 묻기, 없으면 children을 하나씩),
- *  drive.patch(id, {name?, addParents?, removeParents?, appProperties?}) — 실패는 DriveFail(status) throw.
+ *  drive.patch(id, {name?, addParents?, removeParents?, appProperties?, trashed?}) — 실패는 DriveFail(status) throw.
+ *  db.renameFolder?(id, name), db.moveFolder?(id, parentId|null) — S69-52 드라이브에서 바뀐 것을 자료실이 따라갈 때(없으면 따라가지 않고 conflicts로 셈).
+ *  drive.createFolder(name, parent, appProperties?) — S69-52 새 짝 폴더에 처음부터 표식.
  *  now() → ms
  */
 export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now, budgetMs = MIRROR_BUDGET_MS }) {
   const started = now();
-  const out = { ok: true, state: 'not_aligned', folders_made: 0, folders_fixed: 0, files_moved: 0, cant: 0, pending: 0, left: 0, more: false, stopped: false, stage: null };
+  const out = { ok: true, state: 'not_aligned', folders_made: 0, folders_fixed: 0, files_moved: 0, cant: 0, pending: 0, left: 0, more: false, stopped: false, stage: null, app_renamed: 0, app_moved: 0, conflicts: 0, stamped: 0 };
   if (typeof libraryId !== 'string' || !DRIVE_ID.test(libraryId)) return { ...out, state: 'none' };
   let lib;
   try { lib = await drive.get(libraryId); } catch (e) { return { ...out, ok: false, code: 'drive_unavailable', stage: 'library', pending: 1 }; }
@@ -96,8 +160,11 @@ export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now
   const childrenOf = p => kids.get(p) || [];
 
   const folders = topDown(await db.folders());
-  const pair = new Map(), used = new Set();
-  for (const f of folders) if (typeof f.drive_folder_id === 'string' && DRIVE_ID.test(f.drive_folder_id)) used.add(f.drive_folder_id);
+  const pair = new Map(), used = new Set(), appOfDrive = new Map(), metaOf = new Map();
+  for (const f of folders) if (isDriveId(f.drive_folder_id)) { used.add(f.drive_folder_id); appOfDrive.set(f.drive_folder_id, f.id); }
+  // 드라이브 폴더 id → 앱 부모(자료실 폴더면 null, 모르는 폴더면 undefined). S69-52 드라이브에서 옮긴 폴더를 따라갈 때.
+  const appParentOf = d => d === libraryId ? null : appOfDrive.get(d);
+  const canFollow = typeof db.renameFolder === 'function' && typeof db.moveFolder === 'function';
 
   // 1) 폴더: 한 층씩(그 층의 부모들을 한 번에 읽고) 위에서 아래로.
   const byParent = new Map();
@@ -113,25 +180,46 @@ export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now
       const parent = f.parent_id ? pair.get(f.parent_id) : libraryId;
       if (!parent) { out.pending++; continue; }
       try {
-        let id = typeof f.drive_folder_id === 'string' && DRIVE_ID.test(f.drive_folder_id) ? f.drive_folder_id : null;
+        let id = isDriveId(f.drive_folder_id) ? f.drive_folder_id : null;
         let meta = id ? childrenOf(parent).find(c => c.id === id) || null : null;
         if (id && !meta) meta = await drive.get(id); // 다른 곳으로 옮겨졌거나 지워짐
         if (meta && (meta.trashed === true || (meta.mimeType && meta.mimeType !== FOLDER_MIME))) meta = null;
         if (!meta) {
           const reuse = childrenOf(parent).find(c => c.mimeType === FOLDER_MIME && c.name === f.name && !used.has(c.id));
-          const made = reuse ? reuse.id : await drive.createFolder(f.name, parent);
-          if (!reuse) { out.folders_made++; if (kids.has(parent)) kids.get(parent).push({ id: made, name: f.name, mimeType: FOLDER_MIME, parents: [parent] }); kids.set(made, []); }
+          const made = reuse ? reuse.id : await drive.createFolder(f.name, parent, { [SYNC_NAME]: nameSig(f.name), [SYNC_PARENT]: parent });
+          if (!reuse) { out.folders_made++; if (kids.has(parent)) kids.get(parent).push({ id: made, name: f.name, mimeType: FOLDER_MIME, parents: [parent], appProperties: { [SYNC_NAME]: nameSig(f.name), [SYNC_PARENT]: parent } }); kids.set(made, []); }
           const saved = await db.setDrive(f.id, made, id);
           if (!saved?.ok) { out.pending++; continue; }
-          if (id) used.delete(id);
-          used.add(made); pair.set(f.id, made); next.push(...(byParent.get(f.id) || []));
+          if (id) { used.delete(id); appOfDrive.delete(id); }
+          used.add(made); appOfDrive.set(made, f.id); pair.set(f.id, made); next.push(...(byParent.get(f.id) || []));
+          metaOf.set(f.id, reuse ? { ...reuse, appProperties: reuse.appProperties || {} } : { id: made, name: f.name, parents: [parent], appProperties: { [SYNC_NAME]: nameSig(f.name), [SYNC_PARENT]: parent } });
           continue;
         }
+        // S69-52: 어느 쪽이 바뀌었는지 보고 맞춘다(표식 없는 옛 짝은 지금까지와 같이 자료실 기준).
+        const d = decideFolder({ name: f.name, parentDrive: parent }, meta, appParentOf);
+        const nameAct = d.name === 'legacy' ? 'drive' : d.name, parentAct = d.parent === 'legacy' ? 'drive' : d.parent;
         const patch = {};
-        if (meta.name !== f.name) patch.name = f.name;
+        let agreedName = f.name, agreedParent = parent, conflict = false;
+        if (nameAct === 'drive') patch.name = f.name;
+        else if (nameAct === 'app') {
+          if (canFollow) { await db.renameFolder(f.id, meta.name); f.name = meta.name; agreedName = meta.name; out.app_renamed++; }
+          else { conflict = true; agreedName = null; }
+        } else if (nameAct === 'conflict') { conflict = true; agreedName = null; }
         const ps = Array.isArray(meta.parents) ? meta.parents : [];
-        if (!ps.includes(parent) || ps.length !== 1) { patch.addParents = parent; const rm = ps.filter(p => p !== parent); if (rm.length) patch.removeParents = rm.join(','); }
-        if (Object.keys(patch).length) { await drive.patch(id, patch); out.folders_fixed++; }
+        if (parentAct === 'drive') { patch.addParents = parent; const rm = ps.filter(p => p !== parent); if (rm.length) patch.removeParents = rm.join(','); }
+        else if (parentAct === 'app') {
+          const to = appParentOf(ps[0]);
+          if (canFollow && to !== undefined) { await db.moveFolder(f.id, to); f.parent_id = to; agreedParent = ps[0]; out.app_moved++; }
+          else { conflict = true; agreedParent = null; }
+        } else if (parentAct === 'conflict') { conflict = true; agreedParent = null; }
+        if (conflict) out.conflicts++;
+        const stamp = stampFor(meta, agreedName, agreedParent);
+        if (Object.keys(patch).length) {
+          if (Object.keys(stamp).length) patch.appProperties = stamp;
+          await drive.patch(id, patch); out.folders_fixed++;
+          meta = { ...meta, appProperties: { ...(meta.appProperties || {}), ...stamp } };
+        }
+        metaOf.set(f.id, meta);
         pair.set(f.id, id); next.push(...(byParent.get(f.id) || []));
       } catch (e) { failed(e, 'folders'); }
     }
@@ -164,6 +252,21 @@ export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now
         try { await drive.patch(file, { addParents: target, removeParents: cur }); out.files_moved++; out.left--; where.set(file, target); }
         catch (e) { if (cantFail(e)) { out.cant++; out.left--; } else failed(e, 'files'); }
       }
+    }
+  }
+
+  // S69-52: 표식이 없는(또는 낡은) 짝 폴더에 '지금 맞춘 모양' 표식을 남은 시간 안에서 붙인다(한 번 붙으면 다시 하지 않음 — 다음 부름에 이어서).
+  // 이름·부모가 이미 같은 것만(다른 것은 위에서 고치며 붙였다). 실패는 대기로 세지 않는다(맞추기에는 영향 없음).
+  if (!out.stopped && !out.more) {
+    for (const f of folders) {
+      if (late()) break;
+      const id = pair.get(f.id), meta = metaOf.get(f.id);
+      if (!id || !meta) continue;
+      const parent = f.parent_id ? pair.get(f.parent_id) : libraryId;
+      if (meta.name !== f.name || !parent || !(Array.isArray(meta.parents) && meta.parents.length === 1 && meta.parents[0] === parent)) continue;
+      const stamp = stampFor(meta, f.name, parent);
+      if (!Object.keys(stamp).length) continue;
+      try { await drive.patch(id, { appProperties: stamp }); out.stamped++; } catch { /* 다음에 다시 */ }
     }
   }
 

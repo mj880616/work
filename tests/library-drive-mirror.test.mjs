@@ -15,8 +15,8 @@ function fakeDrive(init = {}, { fail = () => null } = {}) {
   return {
     items, calls,
     async get(id) { calls.push(['get', id]); check('get', id); const m = items.get(id); return m ? { id, ...m } : null; },
-    async children(parent) { calls.push(['children', parent]); check('children', parent); return [...items].filter(([, m]) => !m.trashed && m.parents?.includes(parent)).map(([id, m]) => ({ id, name: m.name, mimeType: m.mimeType, parents: m.parents })); },
-    async createFolder(name, parent) { calls.push(['create', name, parent]); check('create', parent); const id = nid('newFolder'); items.set(id, { name, parents: [parent], mimeType: FOLDER_MIME }); return id; },
+    async children(parent) { calls.push(['children', parent]); check('children', parent); return [...items].filter(([, m]) => !m.trashed && m.parents?.includes(parent)).map(([id, m]) => ({ id, name: m.name, mimeType: m.mimeType, parents: m.parents, appProperties: m.appProperties })); },
+    async createFolder(name, parent, appProperties) { calls.push(['create', name, parent]); check('create', parent); const id = nid('newFolder'); items.set(id, { name, parents: [parent], mimeType: FOLDER_MIME, ...(appProperties ? { appProperties: { ...appProperties } } : {}) }); return id; },
     async patch(id, p) {
       calls.push(['patch', id, p]); check('patch', id);
       const m = items.get(id); if (!m) throw new DriveFail(404);

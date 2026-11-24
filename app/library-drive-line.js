@@ -61,8 +61,10 @@ export function mirrorNote(r) {
   return (Number(r.pending) > 0 || r.more === true) ? '드라이브 정리 대기' : '';
 }
 
-export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () => {}, el = () => document.querySelector('#libraryDriveLine'), wait = AUTO_WAIT_MS}) {
-  let place = null, owner = 0, note = '', aligning = false, autoTimer = null, autoRunning = false, lastSign = null, again = false, waiting;
+// S69-52 ①: 드라이브에서 직접 바꾼 폴더 이름·자리는 자료실에 들어올 때(entered) 한 번 서버에 '앞으로 같게'를 부탁해 자료실이 따라간다.
+// 서버가 자료실 폴더를 고쳤으면(app_renamed·app_moved) onAppChanged()로 화면이 폴더를 다시 읽는다.
+export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () => {}, el = () => document.querySelector('#libraryDriveLine'), wait = AUTO_WAIT_MS, onAppChanged = () => {}}) {
+  let place = null, owner = 0, note = '', aligning = false, autoTimer = null, autoRunning = false, lastSign = null, again = false, waiting, follow = false;
   function render() {
     const box = el();
     if (!box) return;
@@ -76,7 +78,7 @@ export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () =>
     return api('/functions/v1/workspace-drive?action=drive-place', {method: 'GET'})
       .then(d => { if (mine === owner) place = cleanPlace(d?.place); })
       .catch(() => { if (mine === owner) place = null; })
-      .finally(() => { if (mine !== owner) return; render(); if (place && waiting !== undefined) { const sign = waiting; waiting = undefined; changed(sign); } });
+      .finally(() => { if (mine !== owner) return; render(); if (place && waiting !== undefined) { const sign = waiting; waiting = undefined; changed(sign); } else if (place && follow) { follow = false; schedule(); } });
   }
   const mirror = mode => api('/functions/v1/workspace-drive?action=drive-mirror', {method: 'POST', body: {mode}});
   const mirrorAlign = () => api('/functions/v1/workspace-drive?action=drive-mirror', {method: 'POST', body: {mode: 'align'}, timeoutMs: ALIGN_WAIT_MS});
@@ -86,9 +88,11 @@ export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () =>
     if (aligning) return;
     if (sign === lastSign && !note) return;
     lastSign = sign;
-    clearTimeout(autoTimer);
-    autoTimer = setTimeout(runAuto, wait);
+    schedule();
   }
+  function schedule() { if (aligning) return; clearTimeout(autoTimer); autoTimer = setTimeout(runAuto, wait); }
+  // 자료실에 들어올 때 한 번(바뀐 것이 없어도) — 드라이브 쪽 바뀜을 따라가게. 저장 위치를 아직 모르면 위치를 읽은 뒤.
+  function entered() { if (place) schedule(); else follow = true; }
   async function runAuto() {
     if (autoRunning) { again = true; return; }
     autoRunning = true;
@@ -96,6 +100,7 @@ export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () =>
       const r = await mirror('auto');
       note = mirrorNote(r);
       if (r?.files_moved || r?.folders_made) await refresh(); // 새 짝 폴더 주소
+      if (Number(r?.app_renamed) || Number(r?.app_moved)) { try { await onAppChanged(); } catch { /* 다음 읽기에 */ } }
     } catch { note = '드라이브 정리 대기'; }
     finally { autoRunning = false; render(); if (again) { again = false; autoTimer = setTimeout(runAuto, wait); } }
   }
@@ -124,5 +129,5 @@ export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () =>
     notify(alignMessage(done, sum, last, why), {error: !done});
     return {done, ...sum};
   }
-  return {refresh, render, changed, align, place: () => place, busy: () => aligning};
+  return {refresh, render, changed, entered, align, place: () => place, busy: () => aligning};
 }
