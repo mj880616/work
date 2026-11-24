@@ -228,7 +228,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     // 들어간 폴더의 빈 곳도 같은 메뉴(그 폴더 자리).
     await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
     await ctx(700,600);
-    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','정돈 제안','전체 선택']);await page.keyboard.press('Escape');
+    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안','전체 선택']);await page.keyboard.press('Escape');
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
 
