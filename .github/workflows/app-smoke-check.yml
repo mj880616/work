@@ -229,6 +229,8 @@ on:
       - 'docs/ops/collector-feed.gs'
       - 'tests/tg-feed-hourly.test.mjs'
       - 'supabase/functions/ai-assist/**'
+      - 'supabase/functions/news-feed/**'
+      - 'tests/news-limit-count.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -517,6 +519,8 @@ on:
       - 'docs/ops/collector-feed.gs'
       - 'tests/tg-feed-hourly.test.mjs'
       - 'supabase/functions/ai-assist/**'
+      - 'supabase/functions/news-feed/**'
+      - 'tests/news-limit-count.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -788,6 +792,8 @@ jobs:
         run: node --test tests/ci-e2e-shard.test.mjs
       - name: Check files top row two-pane icon button (UI-파일검색줄)
         run: node --test tests/files-search-row.test.mjs
+      - name: Check news daily limits count only what a person used (S69-72 등록)
+        run: node --test tests/news-limit-count.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
         run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/now-memos-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)

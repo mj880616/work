@@ -9,7 +9,7 @@
 //   - 재료 모으기·AI 지시·답 모양 검사·저장 줄 모양은 공용 모듈 _shared/now-detail-build.ts(NEWS-전면개편 P3b)에 있다 —
 //     저장된 본문 블록(app_feed_bodies)이 있으면 그 글자를 먼저 쓰고, 없으면 국내 글 = 문장 표, 외국 글 = 원문 쪽 한 번 읽기,
 //     뉴스 = 저장 본문·요약·제목. 이 파일은 순서·하루 한도·AI 부르기(한도·사용량)·저장만 맡는다.
-//   - 하루 상세 만들기 사람마다 NOW_DETAIL_DAILY번(그날 generated_at·context_at 수, 따로 표 없음). 넘으면 요약·주요 문장만(level='basic').
+//   - 하루 상세 만들기 사람마다 NOW_DETAIL_DAILY번(그날 AI로 만든 full 줄 수 — generated_at·context_at, 따로 표 없음). 넘으면 요약·주요 문장만(level='basic').
 //     한 달·하루 전체 AI 한도에 걸리면 AI 없이 저장된 요약만으로 basic을 저장해 두고 다음 날 열 때 채운다.
 // kind=now_interests {}: 환류 기록(별표·보관·메모·관심 없음·원문 열기)이 10건 쌓였거나 저녁 6시(서울) 뒤 그날 처음이면,
 //   최근 60일 기록이 붙은 글의 제목·종류·단체와 지금 관심 주제 목록만 보고 '요즘 관심 주제' 후보 3~5개를 만든다(state=candidate, origin=ai).
@@ -154,11 +154,14 @@ function detailOut(row: Record<string, unknown>, stale = false) {
 }
 
 // 오늘 만든 상세 수: 사람별 새 표 둘(뉴스·사회운동)을 더한다(옛 표는 옮기는 동안 같은 줄을 한 번 더 적을 뿐이라 세지 않음).
+// S69-72: 오늘 AI로 새로 만든 상세(level full)만 센다. AI 한도에 걸려 AI 없이 저장한 요약만 줄(fallbackRow, basic)은 세지 않는다 —
+//   전에는 그 줄도 그날 generated_at이라 하루 한도를 먹었다. 한도를 넘은 뒤 만든 basic 줄은 이미 한도 밖이라 셀 필요가 없다.
+//   저장본 다시 보기는 줄을 고치지 않으므로 늘지 않고, 같은 글을 그날 다시 만들어도 한 줄(작업공간·글마다 한 줄)이라 한 번이다.
 async function todayCount(kit: NowKit, startIso: string): Promise<number> {
   const when = encodeURIComponent(`(generated_at.gte.${startIso},context_at.gte.${startIso})`);
   let n = 0;
   for (const t of ["app_news_now_details", "app_outside_now_details"]) {
-    n += (await readRows(kit, `${t}?workspace_id=eq.${kit.ctx.workspaceId}&or=${when}&select=article_id&limit=${NOW_DETAIL_DAILY + 1}`)).length;
+    n += (await readRows(kit, `${t}?workspace_id=eq.${kit.ctx.workspaceId}&level=eq.full&or=${when}&select=article_id&limit=${NOW_DETAIL_DAILY + 1}`)).length;
   }
   return n;
 }
