@@ -98,10 +98,14 @@ test('note-import buildResult: Arc 페이지가 앞부분만(lead_only)이 아�
  assert.equal(r.author,'예시 기자');
 });
 
-test('상한·연결: 파싱 길이 상한이 있고 page.ts가 공용 부품을 부른다',()=>{
+test('상한·연결: 파싱 길이 상한이 있고 공용 판정(feed-extract withPageJson)이 공용 부품을 부르며 page.ts·outside-feed가 그 판정을 쓴다(S69-06)',()=>{
  assert.equal(J.objectAfter('x={"a":"'+'가'.repeat(50)+'"}',/x=/,20),null);
  const page=readFileSync(new URL('../../supabase/functions/news-feed/page.ts',import.meta.url),'utf8');
- assert.match(page,/import \{ jsonBody \} from "\.\.\/_shared\/page-json-body\.ts";/);
+ assert.match(page,/withPageJson\(/);
+ const fx=readFileSync(new URL('../../supabase/functions/_shared/feed-extract.ts',import.meta.url),'utf8');
+ assert.match(fx,/import \{ jsonBody \} from "\.\/page-json-body\.ts";/);
+ const out=readFileSync(new URL('../../supabase/functions/outside-feed/handler.ts',import.meta.url),'utf8');
+ assert.match(out,/return withPageJson\(tagEx, page\.text,/);
  const src=readFileSync(new URL('../../supabase/functions/_shared/page-json-body.ts',import.meta.url),'utf8');
  assert.ok(!/fetch\(|cookie|authorization/i.test(src.replace(/^\s*\/\/.*$/gm,'')));
 });

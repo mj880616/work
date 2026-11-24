@@ -108,7 +108,7 @@ jobs:
       - name: Build play release bundle (unsigned, check only)
         run: gradle -p android-app :app:bundlePlayRelease --stacktrace
 
-      # S62-34: 병합된 매니페스트 확인. play 판은 스스로 업데이트·설치 요청·'모든 파일 접근' 권한이 없고 앱 ID가 com.nojoplus.app,
+      # S62-34: 병합된 매니페스트 확인. play 판은 스스로 업데이트·설치 요청·'모든 파일 접근' 권한이 없고 앱 ID가 com.workonplus.app,
       # github 판은 지금과 같다(kr.or.kptu.work, 권한 그대로).
       - name: Check flavor manifests
         run: |

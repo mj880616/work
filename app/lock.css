@@ -50,3 +50,4 @@ dialog.lk-here::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transp
 #lockView[data-lk-full] .lk-key.lk-word{font-size:var(--ds-text-row)}
 #lockView .lk-close{position:absolute;top:calc(env(safe-area-inset-top,0px) + 6px);left:calc(env(safe-area-inset-left,0px) + 6px);width:36px;height:36px;padding:0;border:0;border-radius:var(--ds-radius-control,8px);background:none;color:var(--kptu-muted);font:inherit;font-size:18px;line-height:1;touch-action:manipulation}
 #lockView .lk-close:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
+#lockView[data-lk-full] .lk-logout{display:block;margin:14px auto 0} /* S69-08: 앱 전체가 잠긴 동안 [✕] 대신 맨 아래 [로그아웃] */

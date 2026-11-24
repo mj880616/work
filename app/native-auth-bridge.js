@@ -3,10 +3,10 @@ const native=q.get('native');
 const p=new URLSearchParams(location.hash.replace(/^#/,''));
 const isLoginCallback=location.pathname.endsWith('/native-callback.html')||
   ['access_token','refresh_token'].some(name=>p.has(name)||q.has(name));
-// S62-34: 'android-play' = 플레이 스토어 판(com.nojoplus.app). 돌아갈 앱 패키지는 아래 두 값만 쓴다(주소에서 패키지를 받지 않는다).
+// S62-34: 'android-play' = 플레이 스토어 판(com.workonplus.app). 돌아갈 앱 패키지는 아래 두 값만 쓴다(주소에서 패키지를 받지 않는다).
 // V67: 로그인 창은 폰 기본 브라우저(사용자마다 다름, 옛 판일 수 있음)에서 열린다. Object.hasOwn(크롬 93+)·?.는 옛 브라우저에서
 // 문법·실행 오류로 이 파일 전체를 멈춰 '돌아가는 중' 글만 남겼다 — 옛 브라우저도 읽는 문법만 쓴다.
-const androidPackage={android:'kr.or.kptu.work','android-play':'com.nojoplus.app'};
+const androidPackage={android:'kr.or.kptu.work','android-play':'com.workonplus.app'};
 const knownAndroid=typeof native==='string'&&Object.prototype.hasOwnProperty.call(androidPackage,native);
 if((knownAndroid||native==='windows')&&isLoginCallback){
   window.__KPTU_NATIVE_BRIDGE__=true;
