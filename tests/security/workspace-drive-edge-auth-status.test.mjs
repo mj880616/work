@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { withEdgeShared } from './helpers/edge-shared.mjs';
 import { drivePlace, metaUrl, parsePlaceRequest } from '../../supabase/functions/workspace-drive/drive-place.mjs';
+import { gatherCandidates, gatherFolders, GatherError, parseGatherRequest } from '../../supabase/functions/workspace-drive/gather-folders.mjs';
 
 // EDGE-워크스페이스401: workspace-drive (verify_jwt=false, auth in code) answers 401 when the caller is not logged in
 // (no token, malformed, forged, revoked, or expired) so runtime-client.js refreshes the session once and retries.
@@ -44,7 +45,7 @@ function harness() {
   const quiet = { log: () => {}, error: () => {}, warn: () => {} };
   const readMultipartForm = async () => new FormData();
   const fetchMock = async url => { calls.fetch.push(String(url)); throw new Error('unexpected fetch ' + url); };
-  new Function('Deno', 'createClient', 'readMultipartForm', 'fetch', 'console', 'drivePlace', 'metaUrl', 'parsePlaceRequest', SOURCE)(Deno, () => client, readMultipartForm, fetchMock, quiet, drivePlace, metaUrl, parsePlaceRequest);
+  new Function('Deno', 'createClient', 'readMultipartForm', 'fetch', 'console', 'drivePlace', 'metaUrl', 'parsePlaceRequest', 'gatherCandidates', 'gatherFolders', 'GatherError', 'parseGatherRequest', SOURCE)(Deno, () => client, readMultipartForm, fetchMock, quiet, drivePlace, metaUrl, parsePlaceRequest, gatherCandidates, gatherFolders, GatherError, parseGatherRequest);
   return { handler, calls };
 }
 
@@ -150,4 +151,27 @@ test('workspace-drive drive-place: 로그인 없으면 401(DB·드라이브 호�
   const res = await extra.handler(new Request(u, { method: 'GET', headers: { Authorization: 'Bearer token-a', Origin: 'https://desk.bokdoong.com' } }));
   assert.equal(res.status, 400);
   assert.deepEqual(extra.calls, { db: [], fetch: [] });
+});
+
+// S69-22: [앱 폴더 모으기](POST ?action=gather-folders)도 같은 로그인 확인 뒤에만, 자기 owner 작업공간만. 폴더 id 같은 다른 값은 400.
+test('workspace-drive gather-folders: 로그인 없으면 401(DB·드라이브 호출 없음), owner 작업공간이 없으면 403(드라이브 호출 없음), 다른 값은 400', async () => {
+  for (const token of [null, '', 'not-a-jwt', 'expired-jwt']) {
+    const h = harness();
+    const r = await send(h, { token, action: 'gather-folders', body: { dry_run: true } });
+    assert.equal(r.status, 401, String(token));
+    assert.deepEqual(h.calls, { db: [], fetch: [] });
+  }
+  const h = harness();
+  const r = await send(h, { token: 'token-a', action: 'gather-folders', body: {} });
+  assert.equal(r.status, 403, JSON.stringify(r.body));
+  assert.deepEqual(h.calls.fetch, []);
+  for (const body of [{ root_id: 'someone-else-folder' }, { dry_run: 'yes' }, []]) {
+    const x = harness();
+    const res = await send(x, { token: 'token-a', action: 'gather-folders', body });
+    assert.equal(res.status, 400, JSON.stringify(body));
+    assert.deepEqual(x.calls, { db: [], fetch: [] });
+  }
+  const getAsk = harness();
+  assert.notEqual((await send(getAsk, { token: 'token-a', method: 'GET', action: 'gather-folders' })).status, 200, 'GET으로는 옮기지 않는다');
+  assert.deepEqual(getAsk.calls.fetch, []);
 });

@@ -13,11 +13,11 @@ const SB = 'https://synthetic.supabase.test', ANON = 'anon-synthetic', SERVICE =
 const USER = '20000000-0000-4000-8000-000000000001', WS = '10000000-0000-4000-8000-00000000000a', OTHER_WS = '10000000-0000-4000-8000-00000000000b';
 const SECRET = '가짜 비밀 노트 본문';
 
-function world({ connected = true, owner = WS, oldDays = [], features = [], rootName = null } = {}) {
+function world({ connected = true, owner = WS, oldDays = [], features = [], rootName = null, appRoot = undefined, rootParent = 'root' } = {}) {
   const calls = [], logs = [], drive = { files: [], perms: {} };
   let n = 0;
   const id = () => `f${++n}`;
-  if (rootName) drive.files.push({ id: id(), name: rootName, parents: ['root'], appProperties: { kptu_backup: 'root' }, trashed: false });
+  if (rootName) drive.files.push({ id: id(), name: rootName, parents: [rootParent], appProperties: { kptu_backup: 'root' }, trashed: false });
   for (const d of oldDays) drive.files.push({ id: id(), name: d, parents: ['ROOT?'], appProperties: { kptu_backup: 'day', kptu_backup_date: d }, trashed: false });
   const rows = { app_notes: [{ id: 'n1', workspace_id: WS, title: '가짜 노트', body: SECRET }], app_profiles: [{ user_id: USER, display_name: '가짜 이름' }], app_suborganization_updates: [{ id: 'u1', raw_text: '가짜 보고', o: { workspace_id: WS } }] };
   async function fetch(url, init = {}) {
@@ -32,9 +32,10 @@ function world({ connected = true, owner = WS, oldDays = [], features = [], root
     }
     if (url.startsWith('https://www.googleapis.com/drive/v3/files?') && method === 'GET') {
       const qy = new URL(url).searchParams.get('q');
-      const kind = /value='(\w+)'/.exec(qy)[1], parent = /'([^']+)' in parents/.exec(qy)[1];
+      // S69-22: 맨 위 백업 폴더는 ('root' in parents or '<맨 위 앱 폴더>' in parents) — 부모 후보를 모두 본다.
+      const kind = /value='(\w+)'/.exec(qy)[1], parents = [...qy.matchAll(/'([^']+)' in parents/g)].map(m => m[1]), parent = parents[0];
       const root = drive.files.find(f => f.appProperties.kptu_backup === 'root' && !f.trashed);
-      const files = drive.files.filter(f => !f.trashed && f.appProperties.kptu_backup === kind && (f.parents[0] === parent || (f.parents[0] === 'ROOT?' && root && parent === root.id)));
+      const files = drive.files.filter(f => !f.trashed && f.appProperties.kptu_backup === kind && (parents.includes(f.parents[0]) || (f.parents[0] === 'ROOT?' && root && parent === root.id)));
       return Response.json({ files });
     }
     if (url.startsWith('https://www.googleapis.com/drive/v3/files?') && method === 'POST') {
@@ -57,6 +58,7 @@ function world({ connected = true, owner = WS, oldDays = [], features = [], root
     ownerWorkspace: async u => u === USER ? owner : null,
     driveToken: async w => { if (w !== WS) throw Object.assign(new Error('x'), { code: 'drive_failed' }); if (!connected) throw Object.assign(new Error('x'), { code: 'drive_not_connected' }); return 'drive-token-A'; },
     fetch, now: () => Date.parse('2026-11-18T01:00:00Z'), log: c => logs.push(c),
+    ...(appRoot === undefined ? {} : { appRootId: async w => { assert.equal(w, WS); if (appRoot === 'fail') throw new Error('db'); return appRoot; } }),
   });
   const ask = (action, body, auth = 'Bearer good', method = action === 'status' ? 'GET' : 'POST') => handler(new Request(`${SB}/functions/v1/record-backup?action=${action}`, { method, headers: { Authorization: auth, 'Content-Type': 'application/json' }, body: method === 'POST' && body !== undefined ? JSON.stringify(body) : undefined }));
   return { ask, calls, logs, drive };
@@ -203,4 +205,23 @@ test('S68-21: 백업 읽기용 문서 첫 줄 앱 이름', async () => {
   assert.match(docOf(failed), /노조\+가 내 드라이브에 만든 백업입니다/, '확인 실패는 지금 글자');
   assert.match(M.readableHtml({ label: 'x' }, [], '2026-11-22'), /노조\+가/, '기본값은 지금 글자');
   assert.match(M.readableHtml({ label: 'x' }, [], '2026-11-22', 'WORK ON+'), /WORK ON\+가/);
+});
+
+// S69-22: 백업 맨 위 폴더는 표식으로 찾고, 맨 위 앱 폴더 아래로 옮겨도 같은 폴더(새로 만들지 않음). 새로 만들 때는 맨 위 앱 폴더 아래.
+test('S69-22: 맨 위 앱 폴더 아래로 옮겨진 백업 폴더를 그대로 쓰고, 없으면 맨 위 앱 폴더 아래에 만든다', async () => {
+  const ROOT = 'app-root-folder-1';
+  const moved = world({ appRoot: ROOT, rootName: '노조+ 백업', rootParent: ROOT });
+  assert.equal((await moved.ask('run', { kinds: ['notes'] })).status, 200);
+  assert.equal(moved.drive.files.filter(f => f.appProperties?.kptu_backup === 'root').length, 1, '새 맨 위 백업 폴더를 또 만들지 않는다');
+  const q = moved.calls.find(c => c.url.startsWith('https://www.googleapis.com/drive/v3/files?') && c.method === 'GET');
+  assert.match(new URL(q.url).searchParams.get('q'), /\('root' in parents or 'app-root-folder-1' in parents\)/);
+  const fresh = world({ appRoot: ROOT });
+  assert.equal((await fresh.ask('run', { kinds: ['notes'] })).status, 200);
+  assert.deepEqual(fresh.drive.files.find(f => f.appProperties?.kptu_backup === 'root').parents, [ROOT]);
+  // 맨 위 앱 폴더를 모르거나 못 읽으면 지금처럼 내 드라이브 맨 위.
+  for (const appRoot of [null, 'fail', 'bad id']) {
+    const w = world({ appRoot });
+    assert.equal((await w.ask('run', { kinds: ['notes'] })).status, 200);
+    assert.deepEqual(w.drive.files.find(f => f.appProperties?.kptu_backup === 'root').parents, ['root'], String(appRoot));
+  }
 });
