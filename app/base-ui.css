@@ -495,3 +495,7 @@ textarea[data-autogrow][data-enter-field]{line-height:1.4}
 .report-add-menu[role="group"] button.row-act{display:block;width:100%;height:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);padding:0 12px;text-align:left;border:0;border-radius:var(--ds-radius-control,8px);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta,13px);font-weight:400}
 .report-add-menu[role="group"] button.row-act::after{content:none}
 .report-add-menu[role="group"] button.row-act:hover{background:var(--kptu-surface-subtle)}
+/* UI-스크롤막대(명진 11/24 15:58 '세로스크롤 … 너무 디자인적으로 튀고 존재감이 큼'): 앱 전체 스크롤 막대를 가늘고 연하게, 화살표 없이.
+   표준 속성만 쓴다(크롬 121+·삼성 인터넷은 표준 속성이 있으면 ::-webkit-scrollbar를 무시). 마우스를 올린 칸만 조금 진하게. 막대를 숨긴 곳(scrollbar-width:none)은 그대로. */
+:where(html, body, *){scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--kptu-muted) 28%,transparent) transparent}
+:where(*):hover{scrollbar-color:color-mix(in srgb,var(--kptu-muted) 55%,transparent) transparent}
