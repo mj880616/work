@@ -868,6 +868,8 @@ jobs:
         run: node --test tests/report-plan-model.test.mjs tests/report-plan-cover.test.mjs tests/report-plan-data.test.mjs tests/report-plan-mark.test.mjs
       - name: NOTE-탐색기 후속 선택 상태·위치 줄 공용 부품 시험
         run: node --test tests/select-mode-folder-path.test.mjs
+      - name: S69 폰 꾹 누르기 = 선택 모드 + 그 줄 선택(공용 규칙) 시험
+        run: node --test tests/longpress-select.test.mjs
       - name: S51-22 '최근' 상자 접기(서버 기억·머리 줄 ▴▾) 시험
         run: node --test tests/recent-fold.test.mjs
       - name: S51-23 파일 '최근'에서 Web2 자동 생성 파일 빼기(시스템 폴더 규칙) 시험
