@@ -53,6 +53,7 @@ import { CHUNK_SECONDS, SPLIT_MAX_BYTES, chunkRanges, halveRange, openAudio, rea
 import { withWebCors } from "../_shared/web-cors.ts";
 import { WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog } from "../_shared/safe-error.ts";
+import { ROOT_FOLDER_NAME } from '../_shared/brand-folders.mjs'; // S69-20: 새 사용자 맨 위 드라이브 폴더 이름
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
 import { outputText } from '../_shared/openai-responses.ts';
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig } from '../_shared/fcm-send.ts';
@@ -155,7 +156,7 @@ async function createFolder(token: string, name: string, parent?: string) {
   if (!r.ok || !d?.id) throw new Fail('drive_failed');
   return d.id as string;
 }
-// '웹2/회의자료' 폴더(meeting-files의 ensureMeetingsRoot와 같은 규칙·같은 설정 칸) 아래 '회의 녹음' 폴더.
+// '맨 위 앱 폴더/회의자료' 폴더(새 사용자 맨 위는 'WORK ON+', S69-20)(meeting-files의 ensureMeetingsRoot와 같은 규칙·같은 설정 칸) 아래 '회의 녹음' 폴더.
 async function recordingFolder(workspaceId: string, token: string, create: boolean): Promise<string | null> {
   const { data: s } = await admin.from('app_drive_settings').select('root_folder_id,meetings_folder_id').eq('workspace_id', workspaceId).maybeSingle();
   let meetings = s?.meetings_folder_id as string | undefined;
@@ -163,7 +164,7 @@ async function recordingFolder(workspaceId: string, token: string, create: boole
     if (!create) return null;
     let root = s?.root_folder_id as string | undefined;
     if (!root) {
-      root = await createFolder(token, '웹2');
+      root = await createFolder(token, ROOT_FOLDER_NAME);
       await admin.from('app_drive_settings').upsert({ workspace_id: workspaceId, root_folder_id: root, updated_at: new Date().toISOString() });
     }
     meetings = await createFolder(token, '회의자료', root);

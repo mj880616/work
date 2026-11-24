@@ -5,6 +5,11 @@
 // DOM·네트워크 없음(단위 시험 tests/brand-folders.test.mjs).
 export const NOJO_WORDS_FEATURE = 'nojo_words';
 
+// S69-20(명진 11/24 08:48 'ㄱ'): 서버가 새 사용자 드라이브 맨 위에 만드는 앱 폴더 이름(자료실·회의자료·회의 녹음이 이 아래).
+// 이미 있는 사람은 app_drive_settings.root_folder_id(폴더 id)로 찾으므로 이름을 바꾸지 않는다(명진은 '웹2' 그대로 — 드라이브에서 바꾼 이름 존중).
+// 옛 기본 이름: library-files·workspace-drive '공공기관사업팀 Workspace', meeting-files·meeting-transcribe '웹2'.
+export const ROOT_FOLDER_NAME = 'WORK ON+';
+
 export const FOLDER_NAMES = Object.freeze({
   // record-backup '내 기록 백업' 맨 위 폴더(찾기는 이름이 아니라 appProperties 표식 kptu_backup=root)
   record_backup: Object.freeze({ old: '노조+ 백업', now: 'WORK ON+ 백업' }),

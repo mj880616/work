@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { askGap } from './helpers/small-notice.mjs';
 // S48-52 PHOTO-지우기멈춤(요청함 11/03 07:41 ★급★): 폰 앱에서 고른 사진 [지우기]가 반응 없거나 '확인하는 중…'에서 멈추던 것.
 // - 폰 사진 5000장 + 원드라이브 5000장, 원드라이브 응답은 한 번에 0.8초(느림 흉내) — 예전처럼 전체를 다시 읽으면 25번 × 0.8초 = 20초.
 //   고른 사진의 찍은 시각 근처만 읽으므로 3초 안에 두 갈래 고르기 창이 뜬다.
@@ -192,6 +193,21 @@ test.describe('폰 앱 412 · 사진 5000장 · 느린 원드라이브', () => {
     state.hang = false;
     await root(page).locator('[data-photos-act-delete]').click();
     await expect(choice(page)).toBeVisible({ timeout: 5000 });
+    expect(state.errors).toEqual([]);
+  });
+
+  // S69-13 UI-확인창누른자리: 사진 [삭제]의 고르기·확인 창은 누른 [삭제] 바로 옆, 하단바 위에 뜬다.
+  test('[삭제] 고르기 창은 누른 [삭제] 옆(하단바 위)에 뜬다', async ({ page }, info) => {
+    test.setTimeout(90000);
+    const state = await fixture(page);
+    await pickPhoneOne(page);
+    const del = root(page).locator('[data-photos-act-delete]');
+    await del.click();
+    await expect(choice(page)).toBeVisible({ timeout: 5000 });
+    const { gap, aboveBar } = await askGap(page, del);
+    await page.screenshot({ path: info.outputPath('photo-delete-ask-412.png') });
+    expect(gap).toBeLessThanOrEqual(12); expect(aboveBar).toBe(true);
+    await page.keyboard.press('Escape'); await expect(choice(page)).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
 });

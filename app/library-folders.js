@@ -73,12 +73,13 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // TRASH-다른삭제 3단계: [폴더 지우기]는 휴지통으로 보낸다(공용 흐름 trash-actions.js). 요청은 그대로 폴더 하나의 DELETE이고(설계 3.4),
   // 서버의 가로채기 트리거가 그 폴더와 아래 폴더 전부를 휴지통 표시로 바꾼다(자료 연결은 그대로, 자료실 목록에서만 함께 숨음).
   // 휴지통 함수가 이 종류를 모르면(DB 적용 전) '준비 중'을 알리고 삭제 요청을 보내지 않는다. 영구 삭제만 안의 것을 한 단 위로 올린다.
-  async function trashFolder(f){
+  async function trashFolder(f,trigger=null){
     if(busy)return false;busy=true;status('');
     try{
       const {deleteToTrash}=await import('./trash-actions.js');
       const r=await deleteToTrash({kind:'library_folder',id:f.id,name:f.name,detail:folderTrashCounts(s().folders,s().items,f.id),
-        remove:()=>api(T_FOLDERS+where(f.id),{method:'DELETE',prefer:'return=minimal'}),afterChange:reload,notify:text=>status(text,true)});
+        remove:()=>api(T_FOLDERS+where(f.id),{method:'DELETE',prefer:'return=minimal'}),afterChange:reload,notify:text=>status(text,true),
+        ...(trigger?.isConnected?{anchor:trigger}:{})}); // S69-13: 확인창은 메뉴를 연 ⋯ 단추 옆(없으면 공용 부품이 방금 누른 자리)
       if(r.status==='failed')status(folderErrorText(r.error),true);
       return r.status==='moved';
     }catch(e){status(folderErrorText(e),true);try{await reload()}catch{}return false}
@@ -161,7 +162,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='receive')void toggleReceive(f,trigger);
     else if(action==='sort')void receive?.sort?.(trigger);
     else if(action==='tidy')void tidy?.open?.(trigger,id);
-    else if(action==='delete')void trashFolder(f);
+    else if(action==='delete')void trashFolder(f,trigger);
   }
   // ---- LIB-받는폴더(S59-11, 시안 ①③): 폴더 우클릭(폰 ⋯) 메뉴 한 줄 [폴더 안 정한 자료 받기] — 켜면 ✓, 다시 누르면 끔. 받는 폴더는 하나뿐(다른 폴더에서 켜면 그쪽으로).
   // 저장은 내 프로필 칸 하나(서버, library-receive.js), 자료를 그 폴더에 넣는 일은 서버 트리거가 한다. 서버 칸이 아직 없으면(DB 적용 전) 줄을 보이지 않는다.

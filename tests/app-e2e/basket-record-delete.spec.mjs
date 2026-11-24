@@ -4,7 +4,7 @@ import {noteAction,showBasketRow} from './helpers/basket-more.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {linkAction} from './helpers/basket-link-menu.mjs';
 import {noteTrash} from './helpers/note-trash.mjs';
-import {answerAsk} from './helpers/small-notice.mjs';
+import {answerAsk,askGap} from './helpers/small-notice.mjs';
 import { pickBasketView } from './helpers/forget-view.mjs';
 test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -181,4 +181,12 @@ test('basket delete failure keeps the note open with a plain error',async({page}
  await noteAction(page,'[data-basket-delete]');await answerAsk(page,true);
  await expect(detail.locator('[data-basket-status]')).toHaveText('업데이트를 삭제하지 못했어요. 다시 시도해 주세요.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();await expect(detail.locator('[data-basket-delete]')).toBeEnabled();
  expect(f.notes.some(n=>n.id==='n')).toBe(true);expect(f.posts).toEqual([]);expect(f.trash.trash).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+// S69-13 UI-확인창누른자리: 노트 ⋯ 메뉴 [삭제]의 확인창도 그 ⋯ 옆(폰은 하단바 위)에 뜬다.
+for(const width of [412,1440])test(`basket delete confirm opens beside the note's [⋯] ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:900});const f=await basket(page);await openNote(page,width);const detail=page.locator('[data-basket-detail]');
+ await noteAction(page,'[data-basket-delete]',{press:l=>tap(page,l,width)});
+ const {gap,aboveBar}=await askGap(page,detail.locator('[data-basket-note-more]'));expect(gap).toBeLessThanOrEqual(12);expect(aboveBar).toBe(true);
+ await answerAsk(page,false);expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
