@@ -30,7 +30,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
       await expect(page.locator('#libraryFolderNav [data-lu-nav="x:out"] .ft-name')).toHaveText('폴더 밖');
       await expect(page.locator('#libraryFolderNav [data-lu-nav="x:out"] .tree-ico-outside svg path[stroke-dasharray]')).toHaveCount(1);
       await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
-      await expect(count(page,'f:fa')).toHaveText('2');await expect(count(page,'f:fn')).toHaveText('0');
+      await expect(count(page,'f:fa')).toHaveText('폴더 1 · 파일 1');await expect(count(page,'f:fn')).toHaveText('0');
       await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
       expect(await tops(page)).toEqual(['f:fc']);expect(await rowsHere(page)).toEqual(['n-1']);
       await page.locator('#documentList details[data-lu-node="f:fc"] > summary').click();
@@ -48,7 +48,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toHaveAttribute('data-ft-shape','closed');await expect(libraryNodeHead(page,'f:fa').locator('.lu-fe-open')).toBeHidden();
     // 들어올 때는 모두 접힘(결정 D13). 폴더 안 폴더는 프로젝트가 달라도 parent_id를 따른다. 건수는 그 안 전체.
     await expect(page.locator('#documentList details[open]')).toHaveCount(0);
-    await expect(count(page,'x:out')).toHaveText('2');await expect(count(page,'f:fa')).toHaveText('2');await expect(count(page,'f:fn')).toHaveText('0');
+    await expect(count(page,'x:out')).toHaveText('2');await expect(count(page,'f:fa')).toHaveText('폴더 1 · 파일 1');await expect(count(page,'f:fn')).toHaveText('0');
     await expandLibraryTree(page);
     expect(await childrenOf(page,'x:out')).toEqual(['a-2','a1-1']);
     expect(await childrenOf(page,'f:fa')).toEqual(['f:fc','n-1']);expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
