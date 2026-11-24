@@ -76,11 +76,10 @@ test('지난 자료 모으기: 폴더 밖·받는 폴더 자료만, 사람이 �
   assert.match(ASK_TEXT('조직'), /조직 기록 자료를 ‘조직’ 폴더에 모을까요\?/);
 });
 
-test('폴더 이름·경로를 코드에 박지 않는다', () => {
+test('폴더 이름·경로를 코드에 박지 않는다(기기 저장 금지는 저장소 audit가 본다)', () => {
   for (const f of ['app/org-files-folder-model.mjs', 'app/org-files-folder.js']) {
     const src = readFileSync(new URL('../' + f, import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, '').replace(/\/\/ [^'\n]*$/gm, '');
     assert.doesNotMatch(src, /궤도|03\.|철도|지하철/);
-    assert.doesNotMatch(src, /localStorage|sessionStorage/);
   }
 });
 
