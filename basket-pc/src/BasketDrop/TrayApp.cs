@@ -433,7 +433,7 @@ internal sealed class TrayApp : ApplicationContext
     /// <summary>A click on a drop box: pick files with the usual Windows window, then the same gate as a drop.</summary>
     public void PickFiles(IWin32Window? owner)
     {
-        using var dialog = new OpenFileDialog { Multiselect = true, Title = "WORK ON+로 올릴 파일 고르기", CheckFileExists = true };
+        using var dialog = new OpenFileDialog { Multiselect = true, Title = "WORK ON+로 올릴 파일 선택", CheckFileExists = true };
         if (dialog.ShowDialog(owner) != DialogResult.OK || dialog.FileNames.Length == 0) return;
         if (Submit(dialog.FileNames.Select(DropSource.FromPath).ToList(), "", owner))
             ShowQueued($"파일 {dialog.FileNames.Length}개");

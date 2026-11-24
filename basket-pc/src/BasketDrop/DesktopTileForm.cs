@@ -49,7 +49,7 @@ internal sealed class DesktopTileForm : Form
         Cursor = Cursors.Hand;
         Text = "WORK ON+ 바탕화면 칸";
         AccessibleName = "WORK ON+로";
-        AccessibleDescription = "파일·글·사진을 끌어다 놓으면 WORK ON+로 보냅니다. 누르면 파일을 고르는 창이 열립니다. 눌러서 끌면 칸이 옮겨집니다.";
+        AccessibleDescription = "파일·글·사진을 끌어다 놓으면 WORK ON+로 보냅니다. 누르면 파일 선택 창이 열립니다. 눌러서 끌면 칸이 옮겨집니다.";
     }
 
     public int Dpi => _dpi;

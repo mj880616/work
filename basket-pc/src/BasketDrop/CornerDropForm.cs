@@ -43,7 +43,7 @@ internal sealed class CornerDropForm : Form
         Cursor = Cursors.Hand;
         Text = "WORK ON+ 화면 구석 칸";
         AccessibleName = "WORK ON+로";
-        AccessibleDescription = "파일·글·사진을 여기에 끌어다 놓으면 WORK ON+로 보냅니다. 누르면 파일을 고르는 창이 열립니다.";
+        AccessibleDescription = "파일·글·사진을 여기에 끌어다 놓으면 WORK ON+로 보냅니다. 누르면 파일 선택 창이 열립니다.";
     }
 
     protected override bool ShowWithoutActivation => true;
