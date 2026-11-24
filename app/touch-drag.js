@@ -4,15 +4,10 @@
 //   손가락 아래 요소를 over(item, el)로 알려 받는 화면이 점선 표시를 하고, 떼면 drop(item, el, x, y). 무엇을 집고 어디에 놓을지는 화면(상태 주인)이 정한다.
 // - 브라우저의 길게 누르기 메뉴(contextmenu)는 화면이 holding()으로 물어 막는다(누르고 있는 동안은 이 부품이 맡음, armNow()로 바로 집어 듦).
 // - 마우스·펜은 건드리지 않는다(PC는 HTML 끌어 놓기 그대로). 기기 저장 없음.
-export const HOLD_MS = 380, SLOP = 10, EDGE = 56, EDGE_MAX = 16;
-// 끝에 가까울수록 빠르게(1~EDGE_MAX px/프레임). 위쪽은 음수, 아래쪽은 양수, 그 밖은 0. 화면 없이 시험한다.
-export function edgeSpeed(y, top, bottom, edge = EDGE, max = EDGE_MAX) {
-  const Y = Number(y), T = Number(top), B = Number(bottom);
-  if (![Y, T, B].every(Number.isFinite) || B - T < edge * 2) return 0;
-  if (Y < T + edge) return -Math.max(1, Math.round(max * Math.min(1, (T + edge - Y) / edge)));
-  if (Y > B - edge) return Math.max(1, Math.round(max * Math.min(1, (Y - (B - edge)) / edge)));
-  return 0;
-}
+import {createEdgeScroll, edgeSpeed, EDGE, EDGE_MAX} from './drag-edge-scroll.js';
+// 저절로 굴리기 계산은 모든 끌기 공용(drag-edge-scroll.js — 손가락 아래 가장 안쪽 굴러가는 칸, 끝까지 구르면 바깥 칸). 예전 이름 그대로 내보낸다.
+export {edgeSpeed, EDGE, EDGE_MAX};
+export const HOLD_MS = 380, SLOP = 10;
 export const moved = (x0, y0, x, y, slop = SLOP) => Math.hypot(x - x0, y - y0) > slop;
 
 // el: 손짓을 받을 칸. pick(target) → 집을 것({label, ...}) 또는 null. hold(item): 움직이지 않고 뗌. over(item, el|null): 끄는 동안 손가락 아래.
@@ -31,15 +26,9 @@ export function bindTouchDrag(el, {pick = () => null, hold = () => {}, over = ()
     try { win.navigator?.vibrate?.(12); } catch { /* 떨림 없음 */ }
   };
   const place = () => { if (s?.ghost) s.ghost.style.transform = `translate(${Math.round(s.x + 12)}px, ${Math.round(s.y - 28)}px)`; };
-  const tick = () => {
-    if (!s?.drag) return;
-    const t = under(), box = scroller(t);
-    const r = box ? box.getBoundingClientRect() : {top: 0, bottom: win.innerHeight};
-    const v = edgeSpeed(s.y, r.top, r.bottom);
-    if (v) { (box || win).scrollBy(0, v); over(s.item, under()); }
-    s.raf = win.requestAnimationFrame(tick);
-  };
-  const clear = () => { if (!s) return; clearTimeout(s.timer); if (s.raf) win.cancelAnimationFrame(s.raf); s.ghost?.remove(); };
+  // scroller(el): 먼저 굴릴 칸(화면이 정함, 없으면 손가락 아래 가장 안쪽 굴러가는 칸). 굴린 뒤 손가락 아래를 다시 알린다.
+  const edge = createEdgeScroll({win, prefer: t => scroller(t), onScroll: () => { if (s?.drag) over(s.item, under()); }});
+  const clear = () => { if (!s) return; clearTimeout(s.timer); edge.stop(); s.ghost?.remove(); };
   const start = e => {
     if (s) { const was = s; clear(); s = null; if (was.drag) cancel(was.item); }
     if (e.touches.length !== 1 || !enabled()) return;
@@ -59,10 +48,11 @@ export function bindTouchDrag(el, {pick = () => null, hold = () => {}, over = ()
       const g = doc.createElement('div');
       g.className = 'td-ghost'; g.setAttribute('aria-hidden', 'true'); g.textContent = s.item.label || '';
       doc.body.append(g); s.ghost = g;
-      s.raf = win.requestAnimationFrame(tick);
     }
     place();
-    over(s.item, under());
+    const el = under();
+    over(s.item, el);
+    edge.update(s.x, s.y, el);
   };
   const end = e => {
     if (!s) return;

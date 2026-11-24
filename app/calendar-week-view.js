@@ -2,6 +2,7 @@ import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js';
 import {weekTimeline,dayMinute,eventMinutes,MIN_HEIGHT} from './calendar-week-timeline.js';
 import {canDrag,dayDiff} from './calendar-drag-model.js';
 import {dayKey} from './home-read-model.js';
+import {addTip} from './calendar-tip.js';
 import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus,weekBands} from './calendar-day-items.js';
 let focusKey=null,clipWatch=null,nowTimer=null;
 // CAL-끌어옮기기: 끄는 동안의 미리보기도 이 renderer가 그린다. 상태는 calendar-drag.js가 setWeekDrag로 넘기고(메모리만),
@@ -35,12 +36,9 @@ let pendingTop=true,shownKey=null,startTop=0,boxHeight=0;
 export function resetWeekScroll(){pendingTop=true}
 const laidOut=box=>box.clientHeight>0;
 function applyStart(box){if(!pendingTop||!laidOut(box))return;box.scrollTop=startTop;pendingTop=false}
-// 주간 칸: 제목이 2줄을 넘어 잘린 일정만 말풍선(시간+전체 제목)을 보이게 표시한다. 화면 읽기는 본문 전체 제목을 그대로 읽으므로 말풍선은 가린다.
+// 주간 칸: 제목이 2줄을 넘어 잘린 일정만 말풍선(시간+전체 제목). 말풍선은 달력 공용 부품(calendar-tip.js)이 열 때 만든다.
 function addTips(rows){
-  for(const row of rows.querySelectorAll('.clv-event')){
-    const tip=document.createElement('span');tip.className='cwv-tip';tip.setAttribute('aria-hidden','true');
-    tip.textContent=`${row.querySelector('.clv-time')?.textContent||''} ${row.querySelector('.clv-title')?.textContent||''}`.trim();row.append(tip);
-  }
+  for(const row of rows.querySelectorAll('.clv-event'))addTip(row,`${row.querySelector('.clv-time')?.textContent||''} ${row.querySelector('.clv-title')?.textContent||''}`);
 }
 function markClipped(box){
   for(const row of box.querySelectorAll('.cwv-items .clv-event')){const title=row.querySelector('.clv-title');row.classList.toggle('cwv-clipped',!!title&&(title.scrollHeight>title.clientHeight+1||title.scrollWidth>title.clientWidth+1))}
@@ -116,10 +114,7 @@ export function renderWeek(options,{start,tasks}){
   for(const seg of week.segments){
     const button=window.KPTUCalendarMonthView.eventButton(seg);
     const date=addSeoulDays(start,seg.startCol);button.dataset.date=calendarDateKey(date);
-    button.removeAttribute('title');if(seg.startCol>=4)button.classList.add('cwv-tip-end');
     if(canDrag(seg.ev.calendarId,state)){button.dataset.drag='band';if(!seg.continuesRight){const grip=document.createElement('span');grip.className='cwv-band-resize';grip.dataset.dragResize='';grip.setAttribute('aria-hidden','true');button.append(grip)}}
-    const tip=document.createElement('span');tip.className='cwv-tip';tip.setAttribute('aria-hidden','true');
-    tip.textContent=`${button.querySelector('.cmv-event-time')?.textContent||''} ${button.querySelector('.cmv-event-title')?.textContent||''}`.trim();button.append(tip);
     bands.append(button);
   }
   bands.hidden=!week.segments.length;

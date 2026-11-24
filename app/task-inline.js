@@ -88,6 +88,8 @@ function openDue(anchor, {name, value, onPick}) {
   panel.querySelector('[data-task-due-quick]')?.focus({preventScroll:true});
 }
 window.addEventListener('kptu:session-changed', () => closeDue({focus:false}));
+// S69-18: 할 일 화면 ⋯ [기한 바꾸기](google-tasks.js)도 이 날짜 칸 하나를 쓴다(새로 만들지 않음).
+export {openDue as openTaskDue, closeDue as closeTaskDue};
 
 // One screen's line handling. Options:
 //   menuId, historyKey, parent  the anchored menu (one per screen; by default it sits in the open dialog the line is in, else the page)

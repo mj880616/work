@@ -41,6 +41,7 @@ async function mock(page, state) {
       return route.fulfill({status: 200, contentType: 'image/png', body: PNG});
     }
     if (path === '/functions/v1/google-calendar') return ok({connected: false, enabled: false, selected: [], calendars: [], events: [], eventColors: {}});
+    if (path === '/functions/v1/workspace-drive' && String(url.searchParams.get('action')).startsWith('drive-')) return ok({ok: true, place: null}); // S69-20: 저장 위치 한 줄(이 시험과 무관)
     if (path === '/functions/v1/workspace-drive') { state.tokenCalls = (state.tokenCalls || 0) + 1; return ok({url: `${appOrigin}/tests/app-e2e/library-open-fixture.html?download=1`}); }
     if (path.startsWith('/functions/v1/')) return ok({});
     if (path.startsWith('/rest/v1/rpc/')) return ok(null);
