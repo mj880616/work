@@ -7,7 +7,9 @@
 // - 처음 배치: 저장된 자리가 하나도 없으면 폴더끼리 모아 흩어 놓는다(같은 노트 목록이면 어느 기기에서나 같은 모양).
 //   하나라도 저장돼 있으면 자리가 없는 노트(새 노트)는 보드 왼쪽 위에서부터 빈 곳에 붙는다.
 //   처음 한 장을 옮기는 순간 아직 저장 안 된 노트들도 지금 보이는 자리로 함께 저장한다(다른 칸이 튀지 않게, basket-notes.js).
-// - 칸 크기는 모두 같다(크기 바꾸기 없음, CARD_W×CARD_H). 색은 폴더마다 다른 연한 색(tone 0~7, 노랑 없음 — 색 값은 basket.css), 폴더 없음은 'none'.
+// - S69-88(명진 11/25 02:46~02:48 "크기 조절 … 높이 폭 모두", "노트 내용, 링크는 유지하더라도 텍스트는 다르게"): 카드 자리 값에 손으로 정한 크기(w·h, 비면 CARD_W×CARD_H)와
+//   그 보드에서만 보일 글자(label, 비면 노트 제목)를 함께 둔다 — {x, y, r, z, w?, h?, label?}. 노트 제목·내용·연결은 그대로(누르면 그 노트가 열림).
+// - 칸 기본 크기는 모두 같다(CARD_W×CARD_H). 색은 폴더마다 다른 연한 색(tone 0~7, 노랑 없음 — 색 값은 basket.css), 폴더 없음은 'none'.
 export const CARD_W = 128, CARD_H = 34, GAP = 22, SLOT_W = CARD_W + GAP, SLOT_H = CARD_H + GAP, PAD = 24;
 export const BOARD_MAX = 20000, Z_MAX = 1e9, TILT_MAX = 6;
 export const MIN_W = 1200, MIN_H = 900, ROOM = 360; // 보드는 화면보다 넓게: 놓인 칸 바깥으로 ROOM만큼 더 둔다
@@ -15,6 +17,7 @@ export const TONES = 8;
 export const ZOOM_MIN = 0.2, ZOOM_MAX = 2.5, ZOOM_STEP = 1.25;
 export const CLUSTER_WRAP = 1500; // 처음 배치에서 폴더 묶음을 한 줄에 늘어놓는 너비
 
+export const CARD_W_MIN = 60, CARD_W_MAX = 600, CARD_H_MIN = 30, CARD_H_MAX = 1200, CARD_LABEL_MAX = 100;
 const hash = value => { let h = 2166136261; for (const ch of String(value)) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const num = v => typeof v === 'number' && Number.isFinite(v);
 const plain = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -29,7 +32,34 @@ const jitter = (id, salt, span) => (hash(salt + id) % (span * 2 + 1)) - span;
 export function placeShape(b) {
   if (!plain(b) || !num(b.x) || !num(b.y) || !num(b.r) || !Number.isInteger(b.z)) return null;
   if (b.x < 0 || b.y < 0 || b.x > BOARD_MAX || b.y > BOARD_MAX || Math.abs(b.r) > TILT_MAX || b.z < 0 || b.z > Z_MAX) return null;
-  return {x:b.x, y:b.y, r:b.r, z:b.z};
+  const out = {x:b.x, y:b.y, r:b.r, z:b.z};
+  if (Number.isInteger(b.w) && b.w >= CARD_W_MIN && b.w <= CARD_W_MAX) out.w = b.w;
+  if (Number.isInteger(b.h) && b.h >= CARD_H_MIN && b.h <= CARD_H_MAX) out.h = b.h;
+  const label = cardLabelOf(b.label); if (label) out.label = label;
+  return out;
+}
+// 보드에 보일 글자(별명) 모양 검사: 한 줄·앞뒤 빈칸 없음·CARD_LABEL_MAX자까지. 틀리면 null(= 노트 제목).
+function cardLabelOf(v) {
+  if (typeof v !== 'string' || !v || v !== v.trim() || /[\u0000-\u001f\u007f-\u009f]/.test(v) || [...v].length > CARD_LABEL_MAX) return null;
+  return v;
+}
+// 입력한 별명 → 저장할 값(비면 null = 노트 제목으로 돌아감). 줄바꿈은 빈칸 하나로.
+export function validateCardLabel(text) {
+  const raw = typeof text === 'string' ? text.replace(/[\r\n\t]+/g, ' ').replace(/ {2,}/g, ' ').trim() : '';
+  if (!raw) return null;
+  if (/[\u0000-\u001f\u007f-\u009f]/.test(raw)) throw new Error('보드에 보일 글자에 쓸 수 없는 문자가 있어요.');
+  if ([...raw].length > CARD_LABEL_MAX) throw new Error(`보드에 보일 글자는 ${CARD_LABEL_MAX}자까지 쓸 수 있어요.`);
+  return raw;
+}
+// 카드에 보일 글자: 별명이 있으면 별명, 없으면 노트 제목.
+export const cardLabel = (place, title) => place?.label || title;
+// 저장할 자리 값만(계산용 saved 등은 뺀다). 크기·별명은 있을 때만.
+export function placeFields(p) {
+  const out = {x:p.x, y:p.y, r:p.r, z:p.z};
+  if (p.w != null) out.w = p.w;
+  if (p.h != null) out.h = p.h;
+  if (p.label) out.label = p.label;
+  return out;
 }
 // 저장된 자리(모양이 틀리면 null = 자리 없음으로 보고 다시 놓는다). [전체] 보드.
 export const boardOf = note => placeShape(plain(note?.metadata) ? note.metadata.board : null);
@@ -93,8 +123,9 @@ export function boardExtent(places) {
   return {w:Math.min(w, BOARD_MAX), h:Math.min(h, BOARD_MAX)};
 }
 // 끌어 놓은 자리: 옮긴 만큼 더하고 맨 위로.
+// 크기·별명은 그대로 가져간다.
 export function movedTo(place, dx, dy, top) {
-  return {x:clampX(place.x + dx), y:clampY(place.y + dy), r:place.r, z:Math.min(Z_MAX, top + 1)};
+  return {...placeFields(place), x:clampPos(place.x + dx, place.w || CARD_W), y:clampPos(place.y + dy, place.h || CARD_H), z:Math.min(Z_MAX, top + 1)};
 }
 
 // ---- 판 보기(view = {x, y, z}: 판 좌표 (0,0)이 화면 칸의 (x, y)에 오고 z배로 키움). 이번 접속 화면 메모리만(저장 값 아님). ----
@@ -134,4 +165,4 @@ export function visibleArea(view, width, height, margin = 200) {
   return {x:-view.x / view.z - margin, y:-view.y / view.z - margin, w:width / view.z + margin * 2, h:height / view.z + margin * 2};
 }
 export const rectsMeet = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-export const cardRect = p => ({x:p.x, y:p.y, w:CARD_W, h:CARD_H});
+export const cardRect = p => ({x:p.x, y:p.y, w:p.w || CARD_W, h:p.h || CARD_H});
