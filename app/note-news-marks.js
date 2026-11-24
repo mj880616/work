@@ -25,12 +25,14 @@ import {visibleMarks, marksNewsOn, NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_NAMES, SA
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 const HL_ICON = '<span class="ft-ico nnm-hlico" aria-hidden="true"></span>';
+const MEMO_ICON = '<span class="ft-ico nnm-memoico" aria-hidden="true">✎</span>';
 const nameOf = key => window.KPTUOutside?.sourceName?.(key) || null;
 
 // onChange(): 자료가 새로 왔다(껍데기가 목록을 다시 그린다 — 줄 수·찾은 수가 바뀜).
 // openNote(noteId, highlightId): 노트 밑줄을 그 노트 그 자리로 연다. noteText(noteId): 노트 글자(raw_text), 노트가 없으면 null, 아직 모르면 undefined.
 // noteHidden(noteId): 그 노트가 잠근 노트 폴더에 있어 가려졌나(SEC-기능PIN잠금 S67-14) — 그 노트 밑줄은 '밑줄' 목록에 두지 않는다.
-export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = null, noteText = () => undefined, noteHidden = () => false} = {}) {
+// memoCount(): 노트 [메모] 보기의 메모 수(모르면 null — 껍데기가 memo-store.js에서 센다).
+export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = null, noteText = () => undefined, noteHidden = () => false, memoCount = () => null} = {}) {
   let saved = null, savedFailed = false, hlFailed = false, kind = 'all', seq = 0, off = false;
   // NEWS-운영자만(S63-03): News는 운영자 기능 키 'outside'가 있는 계정만. 키가 없다는 답이면 '보관한 글' 줄을 빼고(읽지도 않음) 밑줄은 노트 밑줄만 보인다
   // (News·텔레그램 밑줄은 누르면 News로 가므로). 모인 밑줄·보관은 지우지 않는다. 답을 모르면(null) 지금처럼 다 보인다(메뉴 myFeaturesOrNull 규칙과 같음).
@@ -70,6 +72,9 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
       current: tree && at === id, tree, className: 'nx-news-item', icon, rowAttrs: {'data-nx-news-item': id}, mainAttrs: {'data-nx-open': id}});
     return (sep ? '<div class="nnm-sep" role="presentation" aria-hidden="true"></div>' : '')
       + row(NEWS_HL, HL_ICON, hlCount())
+      // S69-94 NOTE-메모통일: 밑줄 바로 아래 '메모' 한 줄 — 누르면 노트 [메모] 보기(모든 메모 모아 보기, 껍데기가 보기를 바꾼다).
+      + ftFolderRowHtml({name: '메모', count: memoCount() ?? '', countLabel: memoCount() === null ? '' : `메모 ${memoCount()}개`, depth: 0, hasContent: false,
+        current: false, tree, className: 'nx-news-item nx-memo-item', icon: MEMO_ICON, rowAttrs: {'data-nx-memo-item': ''}, mainAttrs: {'data-nx-memos': ''}})
       + (newsOn ? row(NEWS_SAVED, treeIconHtml('starred', {className: 'ft-ico'}), svCount()) : '');
   }
 

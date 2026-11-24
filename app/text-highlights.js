@@ -136,10 +136,10 @@ export async function replyFromSelection(info) {
   const draft = draftOf(info?.source, info?.quote);
   if (!draft.quote) return null;
   const anchor = info?.anchor?.isConnected && !info.anchor.closest('[hidden]') ? info.anchor : null;
-  const memo = await askText(anchor, {text: '답글 달기', placeholder: '생각을 한 줄', max: MEMO_MAX, ok: '노트에 저장'});
+  const memo = await askText(anchor, {text: '메모 남기기', placeholder: '생각을 한 줄', max: MEMO_MAX, ok: '노트에 저장'});
   const n = replyNoteOf(draft, memo);
   if (!n) return null;
-  try { const row = await createNoteDoc(n, rt()); notify('답글을 노트에 저장했어요', {record: false}); return row; }
+  try { const row = await createNoteDoc(n, rt()); notify('메모를 노트에 저장했어요', {record: false}); return row; }
   catch (e) { notify(e?.message && !e?.status ? e.message : '노트에 저장하지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); return null; }
 }
 

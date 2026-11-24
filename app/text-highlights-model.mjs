@@ -105,7 +105,7 @@ export function replyNoteOf(draft, memo) {
   if (!m || !q) return null;
   const n = noteOf([{...draft, memo: m}]);
   const first = draft.source_title && String(draft.source_title).trim();
-  return {title: `답글 · ${first || '선택한 글'}`.slice(0, 80), raw_text: n.raw_text};
+  return {title: `메모 · ${first || '선택한 글'}`.slice(0, 80), raw_text: n.raw_text};
 }
 // [복사]·[공유]: 고른 글 + 출처 한 줄 + 주소.
 export function copyOf(h) {

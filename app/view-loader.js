@@ -26,7 +26,7 @@ function style(path){
 // (part-styles.js) 여기 적으면 화면 프로그램과 함께 미리 받아 첫 화면이 모양 받기를 따로 기다리지 않는다. 빠지면 tests/part-styles.test.mjs가 잡는다.
 // 예외: 일정의 할 일 창 모양(google-tasks.css)은 전처럼 ui-standard.css 뒤에 붙어야 PC 할 일 칸 빠른 기한 단추가 작은 크기로 이긴다(시험의 LATE 표).
 const routeStyles={
-  basket:['./basket.css','./month-cal.css','./news-mark-rows.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./area-org-picker.css','./filter-chips.css','./od-link.css','./marquee-select.css','./folder-dest-sheet.css','./ui-standard.css'],
+  basket:['./basket.css','./month-cal.css','./news-mark-rows.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./area-org-picker.css','./filter-chips.css','./od-link.css','./marquee-select.css','./folder-dest-sheet.css','./memo-thread.css','./ui-standard.css'],
   home:['./journal.css','./weekly-org-lines.css','./biz-summary.css','./home-quick.css','./library-upload.css','./row-swipe.css','./od-link.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./area-org-picker.css','./folder-look.css','./todo-radar.css','./folder-tree.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./area-org-picker.css','./od-link.css','./calendar-ui.css','./basket-picker.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./ui-standard.css'],
   tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./area-org-picker.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./choice-sheet.css','./folder-tree.css','./ui-standard.css'],
@@ -46,7 +46,7 @@ const routeStyles={
   photos:['./diary.css','./od-link.css','./source-chips.css','./photos.css','./folder-tree.css','./folder-look.css','./basket-picker.css','./folder-dest-sheet.css','./ui-standard.css'],
   arsenal:['./arsenal.css','./ui-standard.css'],
   // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
-  outside:['./od-link.css','./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./folder-dest-sheet.css','./ui-standard.css'],
+  outside:['./od-link.css','./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./folder-dest-sheet.css','./memo-thread.css','./ui-standard.css'],
   files:['./od-link.css','./folder-tree.css','./source-chips.css','./folder-dest-sheet.css','./files.css','./folder-look.css','./ui-standard.css'],
   updates:['./release-notes.css','./update-news.css','./small-form-modal.css','./ui-standard.css'],
   whatsnew:['./update-news.css','./ui-standard.css'],
@@ -56,7 +56,7 @@ const routeStyles={
   lock:['./lock.css','./ui-standard.css'],
   brief:['./feed.css','./news-mark-rows.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./ui-standard.css'],
   // S68-09 READ-읽을거리함: 읽을 거리 목록·글 보기(줄 메뉴는 feed.css 공용 작은 메뉴).
-  reading:['./feed.css','./choice-sheet.css','./area-org-picker.css','./filter-chips.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./reading.css','./ui-standard.css'],
+  reading:['./feed.css','./choice-sheet.css','./area-org-picker.css','./filter-chips.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./reading.css','./memo-thread.css','./ui-standard.css'],
   // HELP-메뉴안쓰는법: 쓰는 법 화면. 앱 내려받기 탭·단계는 빈 화면 안내와 같은 모양(first-use.css).
   help:['./help.css','./first-use.css','./ui-standard.css']
 };

@@ -567,12 +567,6 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView .nt-cal-count { display:block; padding:0 4px; font-size:11px; line-height:1.3; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
 #basketView .nt-cal-count::before { content:''; display:inline-block; width:5px; height:5px; margin:0 3px 1px 0; border-radius:var(--kptu-radius-pill); background:var(--kptu-faint); vertical-align:middle; }
 #basketView .nt-cal-num { font-size:11px; font-weight:var(--ds-weight-regular,400); color:var(--kptu-muted); }
-#appView #basketView .nt-cm-open { position:relative; display:flex; align-items:baseline; gap:6px; width:100%; min-height:0; height:auto; margin:0; padding:6px 4px; border:0; border-bottom:var(--ds-line-width,1px) solid var(--ds-line); border-radius:0; background:transparent; box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-read,14px); text-align:left; cursor:pointer; }
-#basketView .nt-cm-text { flex:1 1 auto; text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#basketView .nt-cm-text q, #basketView .note-cm-quote, #basketView .note-cm-quote-pick q { color:var(--kptu-muted); }
-#basketView .nt-cm-open time, #basketView .note-cm-row time { flex:none; font-size:12px; color:var(--kptu-muted); }
-#basketView .note-cm-kind { flex:none; display:inline-block; padding:1px 6px; border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-chip-radius,999px); font-size:11px; line-height:1.5; color:var(--kptu-muted); }
-#basketView .note-cm-kind[data-kind="question"] { color:var(--ds-kind-other-ink,var(--kptu-ink)); }
 #basketView .basket-note-meta .note-meta-tags { display:inline-flex; flex-wrap:wrap; gap:4px; }
 #appView #basketView .basket-note-meta .note-meta-tag { position:relative; min-height:0; height:auto; margin:0; padding:0; border:0; background:transparent; box-shadow:none; font:inherit; font-size:12px; color:var(--kptu-primary-ink,var(--kptu-primary)); cursor:pointer; }
 #appView #basketView .basket-note-meta .note-meta-tag::after { content:""; position:absolute; inset:-14px -3px; }
@@ -598,24 +592,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView .ntf-none, #basketView .ntf-msg { font-size:12px; color:var(--kptu-muted); margin:0; }
 #basketView .ntf-msg:empty { display:none; }
 #basketView .nx-tags { flex:0 1 auto; min-width:0; max-width:38%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:var(--kptu-muted); }
-#basketView .note-cm { margin:10px 0 0; padding:8px 0 0; border-top:var(--ds-line-width,1px) solid var(--ds-line); }
-#basketView .note-cm-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 4px; font-size:12px; color:var(--kptu-muted); }
-#basketView .note-cm-wait { margin:0; font-size:12px; color:var(--kptu-muted); }
-#basketView .note-cm-list { margin:0 0 6px; padding:0; list-style:none; }
-#basketView .note-cm-row { display:flex; align-items:baseline; gap:6px; padding:4px 0; border-bottom:var(--ds-line-width,1px) solid var(--ds-line); font-size:var(--ds-text-read,14px); }
-#basketView .note-cm-text { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
-#basketView .note-cm-text p { margin:0; white-space:pre-wrap; }
-#basketView .note-cm-quote { display:block; margin:0 0 2px; font-size:12px; }
-#appView #basketView .note-cm-del { position:relative; flex:none; min-height:0; height:auto; margin:0; padding:0 2px; border:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:12px; cursor:pointer; }
-#appView #basketView .note-cm-del::after { content:""; position:absolute; inset:-12px -8px; }
-#basketView .note-cm-write textarea { display:block; box-sizing:border-box; width:100%; min-height:56px; margin:0 0 6px; padding:6px 8px; font:inherit; font-size:var(--ds-text-read,14px); border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-ink); resize:vertical; }
-#basketView .note-cm-quote-pick:not([hidden]) { display:flex; align-items:baseline; gap:6px; margin:0 0 4px; font-size:12px; }
-#basketView .note-cm-quote-pick q { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#basketView .note-cm-status:not([hidden]) { margin:4px 0 0; font-size:12px; color:var(--kptu-danger); }
 /* 폴드 접은 폭(~380px)에서는 보기 단추 다섯 개가 검색 칸을 밀어내지 않게 둘째 줄로. */
 @media (max-width:380px) { #basketView .note-list-head { flex-wrap:wrap; } #basketView .note-list-head > .nv-switch { order:3; } }
-#appView #basketView .note-cm button.note-cm-del { width:auto; min-width:0; height:auto; min-height:0; padding:0 2px; border:0; background:transparent; box-shadow:none; }
-#appView #basketView [data-note-list] button.nt-cm-open { justify-content:flex-start; width:100%; height:auto; min-height:0; padding:6px 4px; border:0; border-bottom:var(--ds-line-width,1px) solid var(--ds-line); border-radius:0; background:transparent; box-shadow:none; font-weight:400; }
 /* NOTE-주소로 가져오기 2단계(시안 docs/design/mockups/note-import-by-url.html): 열린 노트 맨 위 원문 칸(그리는 곳 note-import-view.js 한 곳).
    원문 링크는 작은 한 줄, 가져오는 중·실패 안내도 색 상자 없이 작은 글 한 줄(UI-기다림표시통일). 버튼 모양은 공용 6가지 그대로(자리만 정한다). */
 #basketView .ni { display:grid; gap:4px; margin:8px 0 0; min-width:0; }

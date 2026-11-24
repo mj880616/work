@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { folderSheet, sheetRow, sheetGo, pickInSheet } from './helpers/folder-sheet.mjs';
 import { start, openNews } from './helpers/news-server.mjs';
+import { routeMemos } from './helpers/memo-server.mjs';
 // NEWS-클리핑 C2 → S51-8: 별표 → ⋯ [별표 폴더] 칸의 폴더 트리(폴더 안 폴더, 노트·자료실과 같은 폴더 고르기 창), 기사 메모 = 노트(상세 [메모], metadata.news_item_id),
 // 노트 화면 [기사로 가기] → News [언론]에서 그 기사 상세. 서버 흉내(helpers/news-server.mjs), 글은 모두 가짜.
 const root = page => page.locator('#newsRoot');
@@ -92,19 +93,21 @@ for (const width of [412, 884, 1440]) {
   });
 }
 
-test('기사 메모 = 노트: 상세 [메모](노트 하나, metadata.news_item_id) → 노트 [기사로 가기]는 News [언론]에서 그 기사 상세', async ({ page }) => {
+test('기사 메모(S69-94): 상세 아래 메모 칸에 남김(app_memos, 대상 news·그 기사) → 노트 [기사로 가기]는 News [언론]에서 그 기사 상세', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 1440);
+  const memos = await routeMemos(page);
   server.items.unshift(extra);
   await openNews(page, 1440);
   await item(page, UID).locator('.now-open').click();
   const nd = page.locator('#nowDetail');
-  await nd.locator('[data-nd-act="memo"]').click();
-  await nd.locator('[data-nd-memo-input]').fill('가짜 메모 첫 줄');
-  // S68-34: 글 [저장](저장한 글로) 단추와 이름이 같아 메모 칸 안의 [저장]을 누른다.
-  await nd.locator('[data-nd-memo-form]').getByRole('button', { name: '저장', exact: true }).click();
-  await expect(nd.locator('[data-nd-memo-text]')).toContainText('가짜 메모 첫 줄');
-  expect(server.calls.find(c => c.what === 'memo-create').body).toMatchObject({ workspace_id: 'w', kind: 'note', raw_text: '가짜 메모 첫 줄', metadata: { news_item_id: UID } });
+  await nd.locator('[data-nd-memo-go]').click();
+  await nd.locator('[data-nd-memos] [data-cm-text]').fill('가짜 메모 첫 줄');
+  await nd.locator('[data-nd-memos]').getByRole('button', { name: '메모 남기기', exact: true }).click();
+  await expect(nd.locator('[data-nd-memos] .memo-th-row')).toContainText('가짜 메모 첫 줄');
+  expect(memos.posts).toHaveLength(1);
+  expect(memos.posts[0]).toMatchObject({ workspace_id: 'w', target_type: 'news', target_id: UID, body: '가짜 메모 첫 줄' });
+  expect(server.calls.some(c => c.what === 'memo-create')).toBe(false);
   // 노트 [기사로 가기]와 같은 길(requestNewsItem → go('news')): 다른 화면에서 와도 [언론] 탭, 그 기사 상세가 열린다.
   await page.evaluate(() => window.KPTURouter.go('home'));
   await page.evaluate(async id => { const m = await import('./news-request.mjs'); m.requestNewsItem(id); window.KPTURouter.go('news', { source: 'delegated' }); }, UID);

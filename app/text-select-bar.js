@@ -25,7 +25,7 @@ function ensureBar() {
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-label', '선택한 글');
   bar.hidden = true;
-  bar.innerHTML = '<span class="hl-bar-label">선택한 글</span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="reply">답글</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="선택 끝내기">✕</button>';
+  bar.innerHTML = '<span class="hl-bar-label">선택한 글</span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="reply">메모</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="선택 끝내기">✕</button>';
   // 줄을 누를 때 PC는 고른 글이 풀리지 않게(폰은 풀려도 받아 둔 글로 실행).
   const keep = e => { pressAt = Date.now(); if (e.target.closest('button')) e.preventDefault(); };
   bar.addEventListener('pointerdown', keep);

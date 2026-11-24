@@ -86,9 +86,10 @@ for (const width of [412, 880, 1280]) {
     await expect(navRow(page, 'news-hl', width)).toContainText('밑줄');
     await expect(navRow(page, 'news-hl', width).locator('.ft-num')).toHaveText('2');
     await expect(navRow(page, 'news-saved', width).locator('.ft-num')).toHaveText('3');
-    // 구분 줄과 두 줄은 '폴더 없음' 아래, [+ 새 폴더] 위.
-    const order = await list.evaluate(el => [...el.querySelectorAll('.nx-outside, .nnm-sep, .nx-news-item, .nx-new-folder')].map(x => x.className.includes('nx-outside') ? 'out' : x.className.includes('nnm-sep') ? 'sep' : x.className.includes('nx-new-folder') ? 'new' : x.dataset.nxNewsItem));
-    expect(order.filter(x => x !== 'new')).toEqual(['out', 'sep', 'news-hl', 'news-saved']);
+    // 구분 줄과 줄들(밑줄·메모·저장한 글)은 '폴더 없음' 아래, [+ 새 폴더] 위.
+    const order = await list.evaluate(el => [...el.querySelectorAll('.nx-outside, .nnm-sep, .nx-news-item, .nx-new-folder')].map(x => x.className.includes('nx-outside') ? 'out' : x.className.includes('nnm-sep') ? 'sep' : x.className.includes('nx-new-folder') ? 'new' : x.dataset.nxMemoItem !== undefined ? 'memo' : x.dataset.nxNewsItem));
+    // S69-94: 밑줄 바로 아래 '메모' 한 줄(노트 [메모] 보기로 감).
+    expect(order.filter(x => x !== 'new')).toEqual(['out', 'sep', 'news-hl', 'memo', 'news-saved']);
     if (SHOTS && width === 412) await page.screenshot({ path: SHOTS + '412-1-folder-list.png' });
     if (SHOTS24) await page.screenshot({ path: SHOTS24 + `note-folder-list-${width}.png` });
     // 읽기는 내 작업공간 것만(서버 RLS 그대로 + 작업공간 조건): 밑줄·보관 읽기가 모두 workspace_id=eq.<내 것>.

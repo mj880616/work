@@ -27,13 +27,13 @@ test('브리핑 밑줄 출처: 종류 brief, 자료 id, 이름·날짜 글자만
   assert.equal(briefSource({id: DOC.id, file_name: '파일.pdf'}, null).title, '파일.pdf');
 });
 
-test('답글 노트: 고른 글 + 메모 + 출처, 메모 없으면 만들지 않음', () => {
+test('[메모](옛 답글) 노트: 고른 글 + 메모 + 출처, 메모 없으면 만들지 않음', () => {
   const draft = draftOf(briefSource(DOC, ROW), '예시 줄');
   assert.equal(replyNoteOf(draft, '  '), null);
   assert.equal(replyNoteOf(draft, null), null);
   assert.equal(replyNoteOf({...draft, quote: ''}, '메모'), null);
   const n = replyNoteOf(draft, '내 생각');
-  assert.equal(n.title, '답글 · 예시 도시철도 통합 연구');
+  assert.equal(n.title, '메모 · 예시 도시철도 통합 연구'); // S69-94: 이름은 '메모'(노트 한 장으로 남기는 것은 그대로)
   assert.match(n.raw_text, /^> 예시 줄\n\n메모: 내 생각\n\n출처: 브리핑 · 2026-11-24 · 예시 도시철도 통합 연구$/);
   assert.ok(!n.raw_text.includes(DOC.id));
 });
