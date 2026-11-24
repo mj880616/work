@@ -599,6 +599,8 @@
 /* S69-25 LIB-드라이브에서가져오기: 받는 폴더 나누기와 같은 창 모양 + 드라이브 폴더 경로 묶음·파일 한 줄(촘촘하게) */
 #libraryDriveImportModal .lu-di-card{max-width:600px;width:calc(100vw - 24px);display:flex;flex-direction:column;max-height:min(86vh,760px)}
 #libraryDriveImportModal .lu-di-sub{margin:2px 0 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#libraryDriveImportModal .lu-di-from{display:flex;align-items:center;gap:8px;padding:4px 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#libraryDriveImportModal .lu-di-from select{flex:1 1 auto;min-width:0;max-width:340px}
 #libraryDriveImportModal .lu-di-list{overflow:auto;min-height:60px;flex:1 1 auto;border-top:1px solid var(--kptu-border)}
 #libraryDriveImportModal .lu-di-group>summary{display:flex;align-items:center;gap:6px;padding:5px 2px;border-bottom:1px solid var(--kptu-border);cursor:pointer;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 #libraryDriveImportModal .lu-di-group>summary input,#libraryDriveImportModal .lu-di-row input{flex:none;width:16px;height:16px;margin:0}

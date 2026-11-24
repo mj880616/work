@@ -18,12 +18,15 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S61-16 NOTE-내용확대축소: DB(20261113110000, DB 앞 PR) note_zoom을 화면 허용 목록에도 더했다(적용 전에는 화면이 이번 접속만 기억). DB에만 있는 칸은 없다.
 // S66-01 PRIVACY-백업안내: DB(20261118100000, DB 앞 PR) record_backup을 화면 허용 목록에도 더했다(적용 전에는 이번 접속만 기억). DB에만 있는 칸은 없다.
 // S67-52 HOME-칸끄기: DB(20261120230000, 같은 PR) home_off를 화면 허용 목록에도 더했다(적용 전에는 이번 접속만 기억). DB에만 있는 칸은 없다.
+// S69-25b LIB-드라이브에서가져오기: DB(20261124110000, 같은 PR) drive_import_folder를 화면 허용 목록에도 더했다(적용 전에는 기억만 건너뜀). DB에만 있는 칸은 없다.
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, HOME-칸끄기 home_off 판 위에 READ-글자크기 news_font 다섯 단계)와 같다', () => {
-  const sql = read('supabase/migrations/20261123010000_profile_view_prefs_news_font5.sql');
+test('허용 칸이 DB 검사(마지막 migration, READ-글자크기 news_font 다섯 단계 판 위에 LIB-드라이브에서가져오기 drive_import_folder)와 같다', () => {
+  const sql = read('supabase/migrations/20261124110000_profile_view_prefs_drive_import.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 57);
+  assert.equal(KEYS.length, 58);
+  for (const v of ['1FakeDriveFolder_Id-01', 'a'.repeat(10), 'Z'.repeat(200)]) assert.equal(validValue('drive_import_folder', v), true, v);
+  for (const v of [null, '', 'short', 'a'.repeat(201), "1Fake'Folder01", '1Fake Folder 01', '../../folderId', 1234567890, ['1FakeDriveFolder_Id-01']]) assert.equal(validValue('drive_import_folder', v), false, JSON.stringify(v));
   // news_font 허용 값(S68-33): DB 검사 목록과 화면 목록이 같다.
   const fonts = [...sql.match(/view_prefs ->> 'news_font' in \(([^)]*)\)/)[1].matchAll(/'([a-z]+)'/g)].map(m => m[1]);
   assert.deepEqual(fonts, ['s', 'm', 'l', 'xl', 'xxl']);

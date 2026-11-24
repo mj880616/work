@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultPicked, groupByPath, batches, sizeText, addTotals, resultLine, headLine, skippedLine } from '../app/library-drive-import-model.mjs';
+import { defaultPicked, groupByPath, batches, sizeText, addTotals, resultLine, headLine, skippedLine, pickFolder } from '../app/library-drive-import-model.mjs';
 
 // S69-25 LIB-드라이브에서가져오기: 화면 규칙(묶기·기본 체크·나눠 보내기·결과 줄).
 test('기본 체크: 개인 서류·사진은 빼고 나머지는 모두', () => {
@@ -25,4 +25,13 @@ test('결과 줄', () => {
   assert.equal(skippedLine({ registered: 3, app: 2, not_file: 0, empty: 1 }), '목록에서 뺀 것: 이미 자료실에 있음 3 · 앱이 쓰는 폴더 2 · 빈 파일 1');
   assert.equal(sizeText(2048), '2KB');
   assert.equal(sizeText(null), '');
+});
+
+test('S69-25b 고른 폴더 기억: 목록에 아직 있으면 그 폴더, 없으면 비움(이름으로 짐작하지 않음)', () => {
+  const list = [{ id: 'folderAAAA01', name: '가' }, { id: 'folderAAAA02', name: '나' }];
+  assert.equal(pickFolder(list, 'folderAAAA02'), 'folderAAAA02');
+  assert.equal(pickFolder(list, 'folderGONE01'), '');
+  assert.equal(pickFolder(list, undefined), '');
+  assert.equal(pickFolder([], 'folderAAAA01'), '');
+  assert.equal(skippedLine({ others: 2 }), '목록에서 뺀 것: 다른 사람이 올린 파일 2');
 });

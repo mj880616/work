@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  planImport, checkAddable, parseImportRequest, registeredIds, appFolderIdsFrom, createDriveImport, isPersonalName, scopeCanList, ADD_MAX,
+  planImport, checkAddable, checkFolder, pickableFolders, parseImportRequest, registeredIds, appFolderIdsFrom, createDriveImport, isPersonalName, scopeCanList, ADD_MAX,
 } from '../../supabase/functions/library-files/drive-import.mjs';
 
 // S69-25 LIB-드라이브에서가져오기: 내 드라이브에만 있고 자료실에 없는 파일만 목록으로, 등록은 복사 없이 같은 드라이브 id로. 네트워크 없음.
@@ -72,15 +72,57 @@ test('checkAddable: 화면이 보낸 id를 믿지 않고 다시 확인', () => {
   assert.equal(checkAddable(null, ctx), 'unreadable');
 });
 
-test('parseImportRequest: 모양이 정확할 때만', () => {
-  assert.deepEqual(parseImportRequest({ action: 'drive-import-list' }), { action: 'list' });
-  assert.equal(parseImportRequest({ action: 'drive-import-list', workspace_id: 'x' }), null);
-  assert.deepEqual(parseImportRequest({ action: 'drive-import-add', file_ids: [id('a')] }), { action: 'add', ids: [id('a')] });
-  assert.equal(parseImportRequest({ action: 'drive-import-add', file_ids: [] }), null);
-  assert.equal(parseImportRequest({ action: 'drive-import-add', file_ids: [id('a'), id('a')] }), null);
-  assert.equal(parseImportRequest({ action: 'drive-import-add', file_ids: ['../x'] }), null);
-  assert.equal(parseImportRequest({ action: 'drive-import-add', file_ids: Array.from({ length: ADD_MAX + 1 }, (_, i) => id('f' + i)) }), null);
-  assert.equal(parseImportRequest({ action: 'drive-import-add', file_ids: [id('a')], workspace_id: 'w' }), null);
+test('parseImportRequest: 모양이 정확할 때만(S69-25b: 목록·가져오기는 고른 폴더 id가 꼭 있어야)', () => {
+  const D = id('pick');
+  assert.deepEqual(parseImportRequest({ action: 'drive-import-folders' }), { action: 'folders' });
+  assert.equal(parseImportRequest({ action: 'drive-import-folders', parent: 'root' }), null);
+  assert.deepEqual(parseImportRequest({ action: 'drive-import-list', folder_id: D }), { action: 'list', folderId: D });
+  assert.equal(parseImportRequest({ action: 'drive-import-list' }), null, '드라이브 전체 목록은 더 없음');
+  assert.equal(parseImportRequest({ action: 'drive-import-list', folder_id: 'root' }), null);
+  assert.equal(parseImportRequest({ action: 'drive-import-list', folder_id: "x' or 'a' in parents" }), null);
+  assert.equal(parseImportRequest({ action: 'drive-import-list', folder_id: D, workspace_id: 'x' }), null);
+  assert.deepEqual(parseImportRequest({ action: 'drive-import-add', folder_id: D, file_ids: [id('a')] }), { action: 'add', folderId: D, ids: [id('a')] });
+  assert.equal(parseImportRequest({ action: 'drive-import-add', file_ids: [id('a')] }), null);
+  assert.equal(parseImportRequest({ action: 'drive-import-add', folder_id: D, file_ids: [] }), null);
+  assert.equal(parseImportRequest({ action: 'drive-import-add', folder_id: D, file_ids: [id('a'), id('a')] }), null);
+  assert.equal(parseImportRequest({ action: 'drive-import-add', folder_id: D, file_ids: ['../x'] }), null);
+  assert.equal(parseImportRequest({ action: 'drive-import-add', folder_id: D, file_ids: Array.from({ length: ADD_MAX + 1 }, (_, i) => id('f' + i)) }), null);
+  assert.equal(parseImportRequest({ action: 'drive-import-add', folder_id: D, file_ids: [id('a')], workspace_id: 'w' }), null);
+});
+
+test('S69-25b planImport(고른 폴더): 그 폴더 아래(하위 포함)만, 경로 머리는 그 폴더 이름, 남이 올린 파일은 뺀다', () => {
+  const P = id('pick');
+  const files = [
+    folder('weekly', '주간보고', P), folder('w11', '11월', id('weekly')),
+    file('in.pdf', { parents: [P], ownedByMe: true }),
+    file('deep.hwp', { parents: [id('w11')], ownedByMe: true }),
+    file('others.pdf', { parents: [id('weekly')], ownedByMe: false }),
+    file('outside.pdf', { parents: [id('root')], ownedByMe: true }),        // 고른 폴더 밖(같은 응답에 섞여도)
+    folder('elsewhere', '다른 폴더'), file('far.pdf', { parents: [id('elsewhere')], ownedByMe: true }),
+    file('two.pdf', { parents: [id('elsewhere'), id('weekly')], ownedByMe: true }), // 부모 둘 중 하나가 안쪽
+  ];
+  const r = planImport({ files, rootId: P, rootName: '가상 노조 폴더' });
+  assert.deepEqual(r.items.map(x => x.name).sort(), ['deep.hwp', 'in.pdf', 'two.pdf']);
+  assert.equal(r.items.find(x => x.name === 'in.pdf').path, '가상 노조 폴더');
+  assert.equal(r.items.find(x => x.name === 'deep.hwp').path, '가상 노조 폴더 › 주간보고 › 11월');
+  assert.equal(r.items.find(x => x.name === 'two.pdf').path, '가상 노조 폴더 › 주간보고');
+  assert.equal(r.skipped.others, 1);
+});
+
+test('S69-25b checkFolder·pickableFolders: 내 소유 폴더만, 앱 폴더·휴지통·남의 폴더는 고를 수 없음', () => {
+  const ctx = { appFolderIds: new Set([id('meet')]) };
+  const ok = { id: id('pick'), name: '가상 노조 폴더', mimeType: F, ownedByMe: true, trashed: false };
+  assert.equal(checkFolder(ok, ctx), 'ok');
+  assert.equal(checkFolder({ ...ok, mimeType: 'application/pdf' }, ctx), 'invalid');
+  assert.equal(checkFolder({ ...ok, ownedByMe: false }, ctx), 'invalid');
+  assert.equal(checkFolder({ ...ok, trashed: true }, ctx), 'invalid');
+  assert.equal(checkFolder({ ...ok, id: id('meet') }, ctx), 'invalid');
+  assert.equal(checkFolder({ ...ok, name: 'Web2 바구니' }, ctx), 'invalid');
+  assert.equal(checkFolder({ ...ok, appProperties: { kptu_backup: 'root' } }, ctx), 'invalid');
+  assert.equal(checkFolder(null, ctx), 'invalid');
+  const list = pickableFolders([{ ...ok, id: id('z'), name: '하' }, ok, { ...ok, id: id('bk'), name: '원장 백업' }, { ...ok, id: id('mine2'), name: '가' }], ctx);
+  assert.deepEqual(list.map(f => f.name), ['가', '가상 노조 폴더', '하']);
+  assert.deepEqual(Object.keys(list[0]).sort(), ['id', 'name']);
 });
 
 test('scopeCanList: drive 전체 권한만(drive.file은 앱이 만든 파일만 보여 안 됨)', () => {
@@ -111,7 +153,12 @@ function harness({ scope = 'https://www.googleapis.com/auth/drive', driveFiles =
     calls.fetch.push({ url: u, method: init.method || 'GET' });
     if (u.startsWith('https://oauth2.googleapis.com/tokeninfo')) return json({ scope });
     if (u.endsWith('/files/root?fields=id')) return json({ id: id('root') });
-    if (u.startsWith('https://www.googleapis.com/drive/v3/files?')) return json({ files: driveFiles });
+    if (u.startsWith('https://www.googleapis.com/drive/v3/files?')) {
+      const q = new URL(u).searchParams.get('q') || '';
+      if (q.startsWith("'root' in parents")) return json({ files: driveFiles.filter(f => f.mimeType === F && (f.parents || []).includes(id('root'))) });
+      const parents = [...q.matchAll(/'([A-Za-z0-9_-]+)' in parents/g)].map(m => m[1]);
+      return json({ files: driveFiles.filter(f => (f.parents || []).some(p => parents.includes(p))) });
+    }
     const m = u.match(/\/files\/([^?]+)\?fields=/);
     if (m) { const f = (getFile || (x => driveFiles.find(y => y.id === x)))(decodeURIComponent(m[1])); return f ? json(f) : json({}, 404); }
     throw new Error('unexpected ' + u);
@@ -120,33 +167,68 @@ function harness({ scope = 'https://www.googleapis.com/auth/drive', driveFiles =
   return { imp, calls, docs };
 }
 
-test('list: 권한(drive.file뿐)이 없으면 scope_missing, 드라이브 목록을 부르지 않음', async () => {
+const P = id('pick');
+const pickFolder = folder('pick', '가상 노조 폴더', id('root'), { ownedByMe: true, trashed: false });
+
+test('list·folders: 권한(drive.file뿐)이 없으면 scope_missing, 드라이브 목록을 부르지 않음', async () => {
   const h = harness({ scope: 'https://www.googleapis.com/auth/drive.file' });
-  assert.deepEqual(await h.imp.list(), { ok: false, code: 'scope_missing' });
+  assert.deepEqual(await h.imp.list(P), { ok: false, code: 'scope_missing' });
+  assert.deepEqual(await h.imp.folders(), { ok: false, code: 'scope_missing' });
   assert.equal(h.calls.fetch.some(c => c.url.includes('/drive/v3/files')), false);
 });
 
-test('list: 내 작업공간 자료와 비교해 없는 것만, 목록은 내 소유·휴지통 아님 조건으로 부름', async () => {
-  const h = harness({ driveFiles: [file('new.pdf'), file('old.pdf', { id: id('old') })], docs: [{ workspace_id: 'w1', file_id: id('old'), previous_files: [] }, { workspace_id: 'w2', file_id: id('newxpdf') }] });
-  const r = await h.imp.list();
+test('folders: 내 드라이브 바로 아래 내 폴더만(앱 폴더 빼고), id·이름만', async () => {
+  const h = harness({ driveFiles: [pickFolder, folder('basket', 'Web2 바구니', id('root'), { ownedByMe: true }), folder('meet', '회의 녹음', id('root'), { ownedByMe: true }), folder('sub', '하위', P, { ownedByMe: true })], settings: { meetings_folder_id: id('meet') } });
+  const r = await h.imp.folders();
+  assert.deepEqual(r, { ok: true, folders: [{ id: P, name: '가상 노조 폴더' }] });
+  const q = new URL(h.calls.fetch.find(c => c.url.startsWith('https://www.googleapis.com/drive/v3/files?')).url).searchParams.get('q');
+  assert.equal(q, "'root' in parents and mimeType = 'application/vnd.google-apps.folder' and 'me' in owners and trashed = false");
+});
+
+test('list(S69-25b): 고른 폴더 아래(하위 포함)만 묻고, 그 밖 파일은 목록에 없음 — 서버 단위', async () => {
+  const driveFiles = [
+    pickFolder, folder('weekly', '주간보고', P), folder('w11', '11월', id('weekly')),
+    file('new.pdf', { parents: [P], ownedByMe: true }), file('deep.hwp', { parents: [id('w11')], ownedByMe: true }),
+    file('old.pdf', { id: id('old'), parents: [P], ownedByMe: true }),
+    file('outside.pdf', { parents: [id('root')], ownedByMe: true }),
+    folder('else', '다른 폴더'), file('far.pdf', { parents: [id('else')], ownedByMe: true }),
+  ];
+  const h = harness({ driveFiles, docs: [{ workspace_id: 'w1', file_id: id('old'), previous_files: [] }, { workspace_id: 'w2', file_id: id('newxpdf') }] });
+  const r = await h.imp.list(P);
   assert.equal(r.ok, true);
-  assert.deepEqual(r.items.map(x => x.name), ['new.pdf']); // 남의 작업공간 행은 비교에 쓰지 않음
-  const listCall = h.calls.fetch.find(c => c.url.startsWith('https://www.googleapis.com/drive/v3/files?'));
-  const q = new URL(listCall.url).searchParams.get('q');
-  assert.equal(q, "'me' in owners and trashed = false");
+  assert.deepEqual(r.folder, { id: P, name: '가상 노조 폴더' });
+  assert.deepEqual(r.items.map(x => [x.name, x.path]), [['new.pdf', '가상 노조 폴더'], ['deep.hwp', '가상 노조 폴더 › 주간보고 › 11월']]); // 남의 작업공간 행은 비교에 쓰지 않음
+  const qs = h.calls.fetch.filter(c => c.url.startsWith('https://www.googleapis.com/drive/v3/files?')).map(c => new URL(c.url).searchParams.get('q'));
+  assert.deepEqual(qs, [`('${P}' in parents) and trashed = false`, `('${id('weekly')}' in parents) and trashed = false`, `('${id('w11')}' in parents) and trashed = false`]);
+  assert.equal(qs.some(q => q.includes("'me' in owners and trashed = false") && !q.includes('in parents')), false, '드라이브 전체를 묻지 않음');
   // 쓰기·내용 받기 없음
   assert.equal(h.calls.fetch.some(c => c.method !== 'GET' && !c.url.includes('tokeninfo')), false);
   assert.equal(h.calls.fetch.some(c => c.url.includes('alt=media') || c.url.includes('/export')), false);
 });
 
-test('add: 복사·업로드 없이 같은 드라이브 id로 자료 행만, 이미 있음·못 읽음은 건너뜀', async () => {
-  const a = file('a.pdf', { ownedByMe: true, trashed: false, webViewLink: 'https://drive.google.com/file/d/A/view' });
-  const g = file('memo', { mimeType: 'application/vnd.google-apps.document', size: undefined, ownedByMe: true, trashed: false, webViewLink: 'https://docs.google.com/document/d/G/edit' });
-  const other = file('other.pdf', { ownedByMe: false });
-  const h = harness({ driveFiles: [a, g, other], docs: [{ workspace_id: 'w1', file_id: id('old'), previous_files: [] }] });
-  const r = await h.imp.add([a.id, g.id, other.id, id('old'), id('missing')]);
-  assert.deepEqual(r, { ok: true, added: 2, exists: 1, unreadable: 2, failed: 0 });
+test('list·add: 고를 수 없는 폴더(남의 폴더·앱 폴더·파일·없는 id)는 folder_invalid로 거절, 아무것도 넣지 않음', async () => {
+  const notMine = folder('nm', '남의 폴더', id('root'), { ownedByMe: false });
+  const basket = folder('basket', 'Web2 바구니', id('root'), { ownedByMe: true });
+  const pdf = file('a.pdf', { ownedByMe: true });
+  const h = harness({ driveFiles: [notMine, basket, pdf] });
+  for (const fid of [notMine.id, basket.id, pdf.id, id('missing')]) {
+    await assert.rejects(h.imp.list(fid), e => e.code === 'folder_invalid' && e.status === 400, fid);
+    await assert.rejects(h.imp.add(fid, [pdf.id]), e => e.code === 'folder_invalid', fid);
+  }
+  assert.equal(h.calls.inserts.length, 0);
+});
+
+test('add: 복사·업로드 없이 같은 드라이브 id로 자료 행만, 이미 있음·못 읽음·고른 폴더 밖은 건너뜀', async () => {
+  const sub = folder('weekly', '주간보고', P, { ownedByMe: true });
+  const a = file('a.pdf', { parents: [id('weekly')], ownedByMe: true, trashed: false, webViewLink: 'https://drive.google.com/file/d/A/view' });
+  const g = file('memo', { parents: [P], mimeType: 'application/vnd.google-apps.document', size: undefined, ownedByMe: true, trashed: false, webViewLink: 'https://docs.google.com/document/d/G/edit' });
+  const other = file('other.pdf', { parents: [P], ownedByMe: false });
+  const outside = file('outside.pdf', { parents: [id('root')], ownedByMe: true, trashed: false });
+  const h = harness({ driveFiles: [pickFolder, sub, a, g, other, outside, { id: id('root'), name: '내 드라이브', mimeType: F, parents: [] }], docs: [{ workspace_id: 'w1', file_id: id('old'), previous_files: [] }] });
+  const r = await h.imp.add(P, [a.id, g.id, other.id, outside.id, id('old'), id('missing')]);
+  assert.deepEqual(r, { ok: true, added: 2, exists: 1, unreadable: 3, failed: 0 });
   assert.equal(h.calls.inserts.length, 2);
+  assert.equal(h.calls.inserts.some(x => x.file_id === outside.id), false, '고른 폴더 밖 파일은 넣지 않음');
   const ra = h.calls.inserts.find(x => x.file_id === a.id);
   assert.equal(ra.workspace_id, 'w1'); assert.equal(ra.uploaded_by, 'u1'); assert.equal(ra.visibility, 'private');
   assert.equal(ra.drive_url, a.webViewLink); assert.equal(ra.file_size, 100); assert.equal(ra.title, 'a'); assert.equal(ra.project_id, null);
@@ -156,19 +238,21 @@ test('add: 복사·업로드 없이 같은 드라이브 id로 자료 행만, 이
 });
 
 test('add: 같은 요청을 다시 보내면 모두 이미 있음(두 번 등록 안 함)', async () => {
-  const a = file('a.pdf', { ownedByMe: true, trashed: false });
-  const h = harness({ driveFiles: [a] });
-  assert.equal((await h.imp.add([a.id])).added, 1);
-  assert.deepEqual(await h.imp.add([a.id]), { ok: true, added: 0, exists: 1, unreadable: 0, failed: 0 });
+  const a = file('a.pdf', { parents: [P], ownedByMe: true, trashed: false });
+  const h = harness({ driveFiles: [pickFolder, a] });
+  assert.equal((await h.imp.add(P, [a.id])).added, 1);
+  assert.deepEqual(await h.imp.add(P, [a.id]), { ok: true, added: 0, exists: 1, unreadable: 0, failed: 0 });
 });
 
 test('index.ts: 가져오기 갈래는 로그인 → 내 owner 작업공간 → 내 구글 연결 순서이고 화면 값(작업공간)을 받지 않는다', () => {
   const src = readFileSync(new URL('../../supabase/functions/library-files/index.ts', import.meta.url), 'utf8');
-  const at = src.indexOf("input?.action==='drive-import-list'");
+  const at = src.indexOf("input?.action==='drive-import-folders'");
   assert.ok(at > 0);
   const part = src.slice(at, at + 900);
   assert.match(part, /parseImportRequest\(input\)/);
   assert.match(part, /workspaceFor\(user\.id\)/);
   assert.match(part, /driveToken\(wmImport\.workspace_id\)/);
-  assert.doesNotMatch(part, /input\.workspace_id|input\.user_id/);
+  assert.doesNotMatch(part, /input\.workspace_id|input\.user_id|input\.folder_id/);
+  assert.match(part, /imp\.list\(req2\.folderId\)/);
+  assert.match(part, /imp\.add\(req2\.folderId,req2\.ids\)/);
 });

@@ -7,6 +7,10 @@
 //   - 제목·분류는 파일 이름으로만(AI 없음 — 많은 파일을 한꺼번에 넣으므로 비용 0, 내용도 읽지 않음).
 //   - 빼는 것: 폴더 자체, 앱이 쓰는 폴더 안 파일(설정에 저장된 앱 폴더 id·앱 표식 kptu_*·앱 폴더 이름 표), 파일이 아닌 구글 형식
 //     (바로가기·Apps Script·양식·사이트 등), 0바이트. 구글 문서·시트·슬라이드는 링크형 자료(크기 없음)로 넣는다.
+// S69-25b(명진 11/24 09:43 "드라이브 전체가 아니라 드라이브 안에서 공공운수노조 폴더 안에 있는 것만"): 드라이브 전체가 아니라
+//   화면에서 고른 드라이브 폴더 하나(하위 폴더 포함) 안만 훑는다. 고르는 목록은 '내 드라이브' 바로 아래 내 폴더(앱 폴더 빼고).
+//   폴더 이름을 코드에 박지 않는다. 고른 폴더는 서버가 다시 확인하고(내 소유·폴더·휴지통 아님·앱 폴더 아님), 가져오기 때도
+//   파일마다 그 폴더 안(하위 포함)인지 부모를 따라 올라가 확인한다(화면이 보낸 id를 믿지 않음). 마지막에 고른 폴더는 화면이 view_prefs.drive_import_folder에 기억.
 // 순수 규칙 + 주입받은 입출력(admin·fetch)만. 시험: tests/security/library-files-drive-import.test.mjs.
 import { folderNames } from '../_shared/brand-folders.mjs';
 
@@ -35,6 +39,9 @@ export const LIST_PAGE_SIZE = 1000;
 export const LIST_MAX_PAGES = 30; // 최대 3만 개(넘으면 partial)
 export const ITEMS_MAX = 5000;    // 한 번에 돌려주는 목록 최대(넘으면 more)
 export const ADD_MAX = 50;        // 가져오기 한 번에(화면이 나눠 보냄)
+export const FOLDERS_MAX = 3000;  // 고른 폴더 아래 하위 폴더 최대(넘으면 partial)
+export const PARENTS_PER_QUERY = 40; // 한 번 묻는 부모 폴더 수(q 글자 길이 제한 안쪽)
+export const ANCESTOR_MAX = 30;   // 가져오기 때 위로 따라 올라가는 단계 최대
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
 export const isDriveId = v => typeof v === 'string' && DRIVE_ID.test(v);
 
@@ -70,7 +77,10 @@ export function appFolderIdsFrom(settings) {
 }
 
 // 드라이브 목록(폴더 포함) → 자료실에 없는 파일 목록. files: Drive files.list 결과(id,name,mimeType,size,modifiedTime,parents,appProperties).
-export function planImport({ files, registered = new Set(), appFolderIds = new Set(), rootId = null }) {
+// S69-25b: rootName이 있으면 rootId 폴더(고른 폴더) 아래만 — 경로 머리는 그 폴더 이름이고, 위로 따라가 rootId에 닿지 않는 파일은 뺀다(outside).
+//   ownedByMe가 거짓인 파일(남이 내 폴더에 올린 것)은 뺀다(others) — 가져오기 때 다시 확인(checkAddable)과 같은 기준.
+export function planImport({ files, registered = new Set(), appFolderIds = new Set(), rootId = null, rootName = null }) {
+  const scoped = typeof rootName === 'string' && !!rootId;
   const all = Array.isArray(files) ? files.filter(f => isDriveId(f?.id)) : [];
   const folders = new Map(all.filter(f => f.mimeType === FOLDER_MIME).map(f => [f.id, f]));
   const appNames = new Set(APP_FOLDER_NAMES);
@@ -93,10 +103,11 @@ export function planImport({ files, registered = new Set(), appFolderIds = new S
   };
   // 폴더 경로 글자(내 드라이브 › 가 › 나). 남의 폴더 안(목록에 없는 부모)은 '다른 사람 폴더'.
   const pathOf = id => {
-    if (!id || id === rootId) return '내 드라이브';
+    const top = scoped ? rootName : '내 드라이브';
+    if (!id || id === rootId) return top;
     if (pathMemo.has(id)) return pathMemo.get(id);
     const names = [];
-    let cur = id, head = '내 드라이브';
+    let cur = id, head = top;
     for (let depth = 0; cur && depth < 60; depth++) {
       if (cur === rootId) break;
       const f = folders.get(cur);
@@ -109,17 +120,35 @@ export function planImport({ files, registered = new Set(), appFolderIds = new S
     pathMemo.set(id, p);
     return p;
   };
-  const skipped = { registered: 0, app: 0, not_file: 0, empty: 0 };
+  // 고른 폴더 아래인가(부모를 따라 올라가 rootId에 닿는가).
+  const underMemo = new Map();
+  const under = id => {
+    const seen = [];
+    let cur = id, hit = false;
+    for (let depth = 0; cur && depth < 60; depth++) {
+      if (cur === rootId) { hit = true; break; }
+      if (underMemo.has(cur)) { hit = underMemo.get(cur); break; }
+      seen.push(cur);
+      const f = folders.get(cur);
+      if (!f) break;
+      cur = parentOf(f);
+    }
+    for (const s of seen) underMemo.set(s, hit);
+    return hit;
+  };
+  const skipped = scoped ? { registered: 0, app: 0, not_file: 0, empty: 0, others: 0 } : { registered: 0, app: 0, not_file: 0, empty: 0 };
   const items = [];
   for (const f of all) {
     const k = fileKind(f);
-    if (!k.kind) { if (k.skip !== 'folder') skipped[k.skip]++; continue; }
-    if (registered.has(f.id)) { skipped.registered++; continue; }
     const parent = parentOf(f);
+    if (scoped && !(Array.isArray(f.parents) && f.parents.some(p => isDriveId(p) && under(p)))) continue; // 고른 폴더 밖은 목록에 없음
+    if (!k.kind) { if (k.skip !== 'folder') skipped[k.skip]++; continue; }
+    if (scoped && f.ownedByMe === false) { skipped.others++; continue; }
+    if (registered.has(f.id)) { skipped.registered++; continue; }
     if (appMarked(f) || (parent && appFolder(parent))) { skipped.app++; continue; }
     const name = String(f.name || '이름 없음');
     items.push({
-      id: f.id, name, path: pathOf(parent), kind: k.kind,
+      id: f.id, name, path: pathOf(scoped ? f.parents.find(p => isDriveId(p) && under(p)) : parent), kind: k.kind,
       size: k.kind === 'file' ? Number(f.size) : null,
       modified: typeof f.modifiedTime === 'string' ? f.modifiedTime.slice(0, 10) : null,
       personal: isPersonalName(name), media: MEDIA_RE.test(String(f.mimeType || '')),
@@ -140,6 +169,19 @@ export function checkAddable(f, { registered, appFolderIds }) {
   const parent = Array.isArray(f.parents) ? f.parents[0] : null;
   if (appMarked(f) || (parent && appFolderIds.has(parent))) return 'unreadable';
   return 'ok';
+}
+
+// S69-25b: 고를 수 있는 폴더인가(내 소유·폴더·휴지통 아님·앱 폴더 아님). 'ok' | 'invalid'.
+export function checkFolder(f, { appFolderIds }) {
+  if (!f || !isDriveId(f.id) || f.mimeType !== FOLDER_MIME || f.trashed === true || f.ownedByMe !== true) return 'invalid';
+  if (appMarked(f) || appFolderIds.has(f.id) || APP_FOLDER_NAMES.includes(String(f.name || '').trim())) return 'invalid';
+  return 'ok';
+}
+// 고르는 목록: '내 드라이브' 바로 아래 내 폴더(앱 폴더 빼고), 이름 순.
+export function pickableFolders(list, { appFolderIds }) {
+  const out = [];
+  for (const f of Array.isArray(list) ? list : []) if (checkFolder(f, { appFolderIds }) === 'ok') out.push({ id: f.id, name: String(f.name || '이름 없음') });
+  return out.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }
 
 // 드라이브 전체 권한(연결 때 drive.file과 함께 묻는 그 권한)만. drive.file뿐이면 앱이 만든 파일만 보여 목록을 못 만든다 → scope_missing.
@@ -192,37 +234,98 @@ export function createDriveImport(deps) {
     return appFolderIdsFrom(data);
   }
 
-  async function list() {
+  const FOLDER_FIELDS = 'id,name,mimeType,trashed,ownedByMe,appProperties';
+  // 고른 폴더 다시 확인(화면이 보낸 id를 믿지 않음). 아니면 ImportFail('folder_invalid', 400).
+  async function chosenFolder(folderId, appFolderIds) {
+    const f = await driveJson('folder', `${DRIVE}/${encodeURIComponent(folderId)}?fields=${FOLDER_FIELDS}`);
+    if (checkFolder(f, { appFolderIds }) !== 'ok') throw new ImportFail('folder_invalid', 400);
+    return f;
+  }
+
+  // S69-25b: 고르는 목록 — '내 드라이브' 바로 아래 내 폴더(앱 폴더 빼고).
+  async function folders() {
     if (!(await scopeOk())) return { ok: false, code: 'scope_missing' };
-    const [registered, appFolderIds, root] = await Promise.all([readRegistered(), readAppFolders(), driveJson('root', `${DRIVE}/root?fields=id`)]);
-    const files = [];
-    let pageToken = '', partial = false;
-    for (let page = 0; ; page++) {
-      if (page >= LIST_MAX_PAGES) { partial = true; break; }
+    const appFolderIds = await readAppFolders();
+    const list = [];
+    let pageToken = '';
+    for (let page = 0; page < 5; page++) {
       const p = new URLSearchParams({
-        q: "'me' in owners and trashed = false", spaces: 'drive', corpora: 'user', pageSize: String(LIST_PAGE_SIZE),
-        fields: 'nextPageToken,incompleteSearch,files(id,name,mimeType,size,modifiedTime,parents,appProperties)',
+        q: `'root' in parents and mimeType = '${FOLDER_MIME}' and 'me' in owners and trashed = false`, spaces: 'drive', corpora: 'user', pageSize: String(LIST_PAGE_SIZE),
+        fields: `nextPageToken,files(${FOLDER_FIELDS})`,
       });
       if (pageToken) p.set('pageToken', pageToken);
-      const d = await driveJson('list', `${DRIVE}?${p}`);
-      if (Array.isArray(d?.files)) files.push(...d.files);
-      if (d?.incompleteSearch) partial = true;
+      const d = await driveJson('folders', `${DRIVE}?${p}`);
+      if (Array.isArray(d?.files)) list.push(...d.files);
       pageToken = typeof d?.nextPageToken === 'string' ? d.nextPageToken : '';
       if (!pageToken) break;
     }
-    const plan = planImport({ files, registered, appFolderIds, rootId: isDriveId(root?.id) ? root.id : null });
-    return { ok: true, ...plan, partial };
+    return { ok: true, folders: pickableFolders(list, { appFolderIds }) };
   }
 
-  async function add(ids) {
+  // 고른 폴더 아래(하위 포함)만 훑는다: 부모 폴더 몇십 개씩 묶어 그 바로 아래를 묻고, 나온 폴더를 다음 차례에 묻는다.
+  async function list(folderId) {
+    if (!(await scopeOk())) return { ok: false, code: 'scope_missing' };
     const [registered, appFolderIds] = await Promise.all([readRegistered(), readAppFolders()]);
+    const top = await chosenFolder(folderId, appFolderIds);
+    const files = [], seen = new Set([top.id]);
+    let queue = [top.id], partial = false, pages = 0;
+    while (queue.length) {
+      const batch = queue.slice(0, PARENTS_PER_QUERY);
+      queue = queue.slice(PARENTS_PER_QUERY);
+      let pageToken = '';
+      for (;;) {
+        if (pages >= LIST_MAX_PAGES) { partial = true; queue = []; break; }
+        pages++;
+        // id는 isDriveId로 이미 걸렀다(따옴표·공백 없음).
+        const p = new URLSearchParams({
+          q: `(${batch.map(x => `'${x}' in parents`).join(' or ')}) and trashed = false`, spaces: 'drive', corpora: 'user', pageSize: String(LIST_PAGE_SIZE),
+          fields: 'nextPageToken,incompleteSearch,files(id,name,mimeType,size,modifiedTime,parents,appProperties,ownedByMe)',
+        });
+        if (pageToken) p.set('pageToken', pageToken);
+        const d = await driveJson('list', `${DRIVE}?${p}`);
+        for (const f of Array.isArray(d?.files) ? d.files : []) {
+          if (!isDriveId(f?.id)) continue;
+          files.push(f);
+          if (f.mimeType === FOLDER_MIME && !seen.has(f.id)) {
+            if (seen.size >= FOLDERS_MAX) { partial = true; continue; }
+            seen.add(f.id); queue.push(f.id);
+          }
+        }
+        if (d?.incompleteSearch) partial = true;
+        pageToken = typeof d?.nextPageToken === 'string' ? d.nextPageToken : '';
+        if (!pageToken) break;
+      }
+    }
+    const plan = planImport({ files, registered, appFolderIds, rootId: top.id, rootName: String(top.name || '고른 폴더') });
+    return { ok: true, folder: { id: top.id, name: String(top.name || '고른 폴더') }, ...plan, partial };
+  }
+
+  async function add(folderId, ids) {
+    const [registered, appFolderIds] = await Promise.all([readRegistered(), readAppFolders()]);
+    const top = await chosenFolder(folderId, appFolderIds);
     const result = { added: 0, exists: 0, unreadable: 0, failed: 0 };
+    // 폴더 id → 고른 폴더 아래인가(앱 폴더면 거짓). 같은 요청 안에서 기억.
+    const underMemo = new Map([[top.id, Promise.resolve(true)]]);
+    const under = (fid, depth = 0) => {
+      if (!isDriveId(fid) || depth > ANCESTOR_MAX) return Promise.resolve(false);
+      if (!underMemo.has(fid)) underMemo.set(fid, (async () => {
+        if (appFolderIds.has(fid)) return false;
+        const f = await driveJson('parent', `${DRIVE}/${encodeURIComponent(fid)}?fields=id,name,mimeType,parents,appProperties`);
+        if (!f || f.mimeType !== FOLDER_MIME || appMarked(f) || APP_FOLDER_NAMES.includes(String(f.name || '').trim())) return false;
+        for (const p of Array.isArray(f.parents) ? f.parents : []) if (await under(p, depth + 1)) return true;
+        return false;
+      })());
+      return underMemo.get(fid);
+    };
     const queue = [...ids];
     const one = async id => {
       if (registered.has(id)) { result.exists++; return; }
       const f = await driveJson('get', `${DRIVE}/${encodeURIComponent(id)}?fields=id,name,mimeType,size,modifiedTime,parents,appProperties,trashed,ownedByMe,webViewLink`);
       const why = checkAddable(f, { registered, appFolderIds });
       if (why !== 'ok') { result[why]++; return; }
+      let inside = false;
+      for (const p of Array.isArray(f.parents) ? f.parents : []) if (await under(p)) { inside = true; break; }
+      if (!inside) { result.unreadable++; return; } // 고른 폴더 밖
       const name = String(f.name || '이름 없음'), link = !!LINK_MIMES[f.mimeType];
       const title = deps.titleFor(name);
       const auto = deps.classify(title + ' ' + name);
@@ -241,18 +344,20 @@ export function createDriveImport(deps) {
     await Promise.all(workers);
     return { ok: true, ...result };
   }
-  return { list, add, ImportFail };
+  return { folders, list, add, ImportFail };
 }
 
-// 요청 모양: {action:'drive-import-list'} | {action:'drive-import-add', file_ids:[id 1~50, 겹침 없음]}. 아니면 null.
+// 요청 모양(S69-25b: 목록·가져오기는 고른 폴더 id가 꼭 있어야 함):
+//   {action:'drive-import-folders'} | {action:'drive-import-list', folder_id} | {action:'drive-import-add', folder_id, file_ids:[id 1~50, 겹침 없음]}. 아니면 null.
 export function parseImportRequest(input) {
   if (!input || typeof input !== 'object') return null;
   const keys = Object.keys(input).sort().join(',');
-  if (input.action === 'drive-import-list') return keys === 'action' ? { action: 'list' } : null;
+  if (input.action === 'drive-import-folders') return keys === 'action' ? { action: 'folders' } : null;
+  if (input.action === 'drive-import-list') return keys === 'action,folder_id' && isDriveId(input.folder_id) ? { action: 'list', folderId: input.folder_id } : null;
   if (input.action === 'drive-import-add') {
     const ids = input.file_ids;
-    if (keys !== 'action,file_ids' || !Array.isArray(ids) || !ids.length || ids.length > ADD_MAX || !ids.every(isDriveId) || new Set(ids).size !== ids.length) return null;
-    return { action: 'add', ids };
+    if (keys !== 'action,file_ids,folder_id' || !isDriveId(input.folder_id) || !Array.isArray(ids) || !ids.length || ids.length > ADD_MAX || !ids.every(isDriveId) || new Set(ids).size !== ids.length) return null;
+    return { action: 'add', folderId: input.folder_id, ids };
   }
   return null;
 }

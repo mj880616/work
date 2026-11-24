@@ -62,5 +62,12 @@ export function skippedLine(sk) {
   if (sk?.app) parts.push(`앱이 쓰는 폴더 ${sk.app}`);
   if (sk?.not_file) parts.push(`바로가기·스크립트 등 ${sk.not_file}`);
   if (sk?.empty) parts.push(`빈 파일 ${sk.empty}`);
+  if (sk?.others) parts.push(`다른 사람이 올린 파일 ${sk.others}`); // S69-25b: 고른 폴더 안이라도 내 소유가 아닌 것
   return parts.length ? '목록에서 뺀 것: ' + parts.join(' · ') : '';
+}
+
+// S69-25b: 고를 폴더 목록 [{id,name}]에서 기억한 폴더 id가 아직 있으면 그 id, 없으면 ''(고르기 비움 — 이름으로 짐작하지 않음).
+export function pickFolder(folders, remembered) {
+  const list = Array.isArray(folders) ? folders : [];
+  return typeof remembered === 'string' && list.some(f => f?.id === remembered) ? remembered : '';
 }
