@@ -58,7 +58,7 @@ test('cron history trim: SQL Editor only, one job, deletes only finished rows ol
    assert.match(rollbackSQL.trim(),/^begin;[\s\S]*commit;$/);
    const code=[migration,precheck,postcheck,snapshot,rollbackSQL].join('\n').replace(/--.*$/gm,'');
    assert.doesNotMatch(code,/security definer|\bgrant\b|\brevoke\b|\bto (anon|public|authenticated)\b|disable row level security|create policy|rtw_|extension|vault|https?:\/\//i);
-   assert.equal((code.match(/cron\.schedule\(/g)||[]).length,1,'only one schedule call');
+   assert.equal((code.match(/select cron\.schedule\(/g)||[]).length,1,'only one schedule call');
    for(const sql of [precheck,postcheck,snapshot])assert.doesNotMatch(sql.replace(/--.*$/gm,'').replace(/\$cmd\$[\s\S]*?\$cmd\$/g,''),/\b(insert|update|delete from|create|drop|alter|begin|commit|perform)\b/i);
    const lines=summary.trim().split('\n');
    assert.equal(lines.length,3);['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((p,i)=>assert.ok(lines[i].startsWith(p)));

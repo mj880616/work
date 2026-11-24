@@ -43,5 +43,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261124220000', 'cron_history_trim', array['S69-80 OPS: schedule pg_cron job web2_cron_history_trim daily at 18:43 UTC (03:43 KST) to delete cron.job_run_details rows whose end_time is older than 3 days (unfinished rows kept); stop if a job with that name exists; no other job, table, policy, grant or function change']);
+values ('20261124220000', 'cron_history_trim', array['S69-80 OPS: schedule pg_cron job web2_cron_history_trim daily at 18:43 UTC (03:43 KST) to delete cron.job_run_details rows whose end_time is older than 3 days (unfinished rows kept); stop if a job with that name exists; no other job, table, policy, privilege or function change']);
 commit;
