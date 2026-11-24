@@ -39,7 +39,7 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
   }
   function rowHtml(r) {
     const name = r.name || '제목 없음', when = deletedDay(r.deleted_at);
-    return `<div class="nxt-row" role="listitem" data-nxt-row="${esc(r.id)}"><span class="nxt-main"><span class="nxt-name">${esc(name)}</span>${when ? `<time class="nxt-day" datetime="${esc(r.deleted_at || '')}"><span class="a11y-only">지운 날 </span>${esc(when)}</time>` : ''}</span>`
+    return `<div class="nxt-row" role="listitem" data-nxt-row="${esc(r.id)}"><span class="nxt-main"><span class="nxt-name">${esc(name)}</span>${when ? `<time class="nxt-day" datetime="${esc(r.deleted_at || '')}"><span class="a11y-only">삭제한 날 </span>${esc(when)}</time>` : ''}</span>`
       + `<button type="button" class="secondary nxt-restore" data-nxt-restore="${esc(r.id)}"${busy ? ' disabled' : ''}>되돌리기</button>`
       + `<details class="nxt-more"><summary class="icon-btn" aria-label="휴지통 관리: ${esc(name)}">${MORE}</summary><div class="nxt-more-panel" role="group" aria-label="휴지통 관리"><button type="button" class="danger nxt-purge" data-nxt-purge="${esc(r.id)}"${busy ? ' disabled' : ''}>영구 삭제</button></div></details></div>`;
   }
