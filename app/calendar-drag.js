@@ -77,6 +77,8 @@ function downTask(e,el){
 }
 function down(e){
   swallowUp=false;
+  // 손 뗌(pointerup)을 못 받고 남은 끌기 준비(창 밖에서 손을 뗀 경우 등)는 새로 누를 때 버린다. 저장 중인 끌기는 그대로 둔다.
+  if(g&&!g.saving&&!g.started)g=null;
   if(g||e.button!==0||e.pointerType!=='mouse'||!PC.matches||e.ctrlKey||e.metaKey||e.shiftKey)return;
   const task=e.target.closest?.('[data-drag="task"][data-calendar-task]');if(task)return downTask(e,task);
   const el=e.target.closest?.('[data-drag][data-google-event]');if(!el)return;
@@ -89,6 +91,9 @@ function down(e){
 }
 function move(e){
   if(!g||g.saving||e.pointerId!==g.pointer)return;
+  // 명진 11/24 "일정에 마우스를 올려두면 배경이 생김": 손 뗌을 못 받은 채 남은 끌기가 버튼을 누르지 않은 마우스 움직임(그냥 올려 두기)에
+  // 놓을 칸 표시·끄는 조각을 그렸다. 끌기는 왼쪽 버튼을 누르고 있는 동안만 — 버튼이 떨어져 있으면 그 끌기를 취소한다.
+  if(!(e.buttons&1)){cancel();return}
   if(!g.started){if(Math.hypot(e.clientX-g.x0,e.clientY-g.y1)<SLOP)return;g.started=true;try{g.el.setPointerCapture(e.pointerId)}catch{};getSelection?.()?.removeAllRanges?.();ghostStart(e)}
   e.preventDefault();ghostMove(e);autoscroll(e);
   const r=compute(e);g.next=r.next;g.blocked=r.blocked||!r.next;paint();
