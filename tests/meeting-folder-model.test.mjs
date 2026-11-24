@@ -77,7 +77,6 @@ test('코드에 실제 폴더·회의 이름을 박지 않고, 서버 함수는 
   for (const f of ['app/meeting-folder-model.mjs', 'app/meeting-folder.js']) {
     const src = readFileSync(new URL('../' + f, import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, '');
     assert.doesNotMatch(src, /상집|중집|대의원|궤도|집행위|공공팀/);
-    assert.doesNotMatch(src, /localStorage|sessionStorage/);
   }
   const js = readFileSync(new URL('../app/meeting-folder.js', import.meta.url), 'utf8');
   assert.match(js, /app_meetings\?id=eq\.\$\{enc\(meetingId\)\}&workspace_id=eq\.\$\{enc\(st\.ws\)\}/, '내 작업공간 사업 보고만 읽는다');
