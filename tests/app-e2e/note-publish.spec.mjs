@@ -1,11 +1,10 @@
 // NOTE-게시 ②·③(docs/design/note-publish.md): 노트 ⋯ [공유 링크 만들기] → [링크 복사]·[게시 멈춤], 노트 머리 한 줄 '게시 중 · 링크 복사 · 게시 멈춤',
 // [목록] '게시 중' 거르기, 잠근 폴더 노트엔 게시 메뉴 없음, 로그인 없는 share 화면에 그 노트만. ③: 노트 사진이 받는 화면에도 보이고(주인 화면이 짝 페이지
 // 사진으로 올림) 게시 멈춤 뒤 그 사진 주소는 404, 다른 노트 사진은 안 보임. 메뉴·메뉴 편집에 '공유 페이지' 없음, 옛 주소 ?view=pages는 노트로.
-// REST 세 표·사진 저장소는 page.route로 흉내 내고, 읽기(share-page-read)·사진 올리기·정리(share-page-media)는 실제 Edge 처리 코드를 메모리 저장소 위에서 돌린다. 값은 모두 합성.
+// REST 세 표·사진 저장소·share-page-read·share-page-media는 page.route로 흉내 낸다(서버 쪽 실제 처리 코드 검사는 tests/security/share-page-read-note.test.mjs·
+// tests/note-publish-model.test.mjs — 시험 실행기가 .ts를 불러오지 않게 여기엔 같은 규칙만 짧게 둔다). 값은 모두 합성.
 import { test, expect } from '@playwright/test';
-import { createHash } from 'node:crypto';
-import { createShareReadHandler } from '../../supabase/functions/share-page-read/handler.ts';
-import { createShareMediaHandler } from '../../supabase/functions/share-page-media/handler.ts';
+import { createHash, randomUUID } from 'node:crypto';
 import { accountButton } from './helpers/shell-navigation.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
@@ -46,21 +45,29 @@ function pubServer({ photos = false } = {}) {
   }
   const json = (route, v, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(v) });
   const eqv = (u, k) => (u.searchParams.get(k) || '').replace(/^eq\./, '');
-  // 사진 저장소(비공개 버킷 흉내)와 share-page-media 실제 처리 코드: 소유 확인은 이 흉내에선 '내 페이지가 있는가'(실제는 owner RLS).
-  const mediaHandler = createShareMediaHandler({
-    async userId() { return 'u'; },
-    async pageWorkspace(_t, id) { return s.pages.some(p => p.id === id) ? 'w' : null; },
-    async insertRow(_t, row) { s.media.push(row); return true; },
-    async rowsFor(_t, pageId, ids) { return s.media.filter(r => r.page_id === pageId && ids.includes(r.id)); },
-    async rowById(_t, id) { return s.media.find(r => r.id === id) || null; },
-    async deleteRow(_t, id) { s.media = s.media.filter(r => r.id !== id); return true; },
-    async pageBlocks(_t, id) { return s.pages.find(p => p.id === id)?.blocks ?? null; },
-    async rowsForPage(_t, pageId, limit) { return s.media.filter(r => r.page_id === pageId).slice(0, limit); },
-    async putFile(path, bytes) { s.files.set(path, Buffer.from(bytes)); return true; },
-    async removeFile(path) { s.files.delete(path); return true; },
-    async signFile(path) { return SIGNED + path + '?token=sig'; },
-    async listFiles() { return []; }, async trashedPage() { return false; }, async deletePage() { return 0; },
-  }, { log: () => {} });
+  // 사진 저장소(비공개 버킷 흉내)와 share-page-media 흉내: 내 페이지에만 JPEG 올리기(EXIF 구간 거절), 정리 = 저장된 블록에 없는 이 페이지 사진 지우기.
+  const used = blocks => new Set(JSON.stringify(blocks || []).match(/share:[0-9a-f-]{36}/g)?.map(x => x.slice(6)) || []);
+  const mediaHandler = async req => {
+    const type = (req.headers.get('content-type') || '').split(';')[0];
+    if (type === 'multipart/form-data') {
+      const form = await req.formData(), pageId = String(form.get('page_id')), bytes = Buffer.from(await form.get('image').arrayBuffer());
+      if (!s.pages.some(p => p.id === pageId)) return new Response('{"error":"not_found"}', { status: 404 });
+      if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes.includes(Buffer.from('Exif'))) return new Response('{"error":"bad_image"}', { status: 422 });
+      const id = randomUUID(), path = `${pageId}/${id}.jpg`;
+      s.files.set(path, bytes); s.media.push({ id, page_id: pageId, storage_path: path });
+      return new Response(JSON.stringify({ ok: true, id, src: 'share:' + id }), { status: 200 });
+    }
+    const body = await req.json();
+    if (body.action === 'prune') {
+      const keep = used(s.pages.find(p => p.id === body.page_id)?.blocks); for (const k of body.keep || []) keep.add(k);
+      const gone = s.media.filter(r => r.page_id === body.page_id && !keep.has(r.id));
+      for (const r of gone) s.files.delete(r.storage_path);
+      s.media = s.media.filter(r => !gone.includes(r));
+      return new Response(JSON.stringify({ ok: true, removed: gone.length, failed: 0 }), { status: 200 });
+    }
+    if (body.action === 'sign') return new Response(JSON.stringify({ ok: true, urls: {} }), { status: 200 });
+    return new Response('{"error":"bad_request"}', { status: 400 });
+  };
   s.install = async page => {
     await page.route(u => u.origin === SB && u.pathname === '/functions/v1/basket-files', async route => {
       const u = new URL(route.request().url());
@@ -131,16 +138,30 @@ function pubServer({ photos = false } = {}) {
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.request().method() === 'GET' ? r.fulfill({ json: structuredClone(folders) }) : r.fulfill({ status: 500, json: {} }));
     await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   };
-  // 로그인 없는 읽기: share-page-read 실제 처리 코드 + 이 흉내 저장소(링크 지문 → 게시 중 페이지 → 짝 노트, 사진은 그 페이지 소속 기록만 서명).
-  const hashOf = t => createHash('sha256').update(Buffer.from(t, 'hex')).digest('hex');
-  s.readHandler = createShareReadHandler({
-    async linkByHash(h) { const l = s.links.find(x => hashOf(x.token) === h); return l ? { page_id: l.page_id, token_hash: h, expires_at: l.expires_at ?? null, disabled_at: l.disabled_at ?? null } : null; },
-    async pageById(id) { const p = s.pages.find(x => x.id === id); return p ? { id: p.id, title: p.title, blocks: p.blocks, status: p.status } : null; },
-    async noteForPage(id) { const p = s.pairs.find(x => x.page_id === id); return p ? { note_id: p.note_id } : null; },
-    async noteById(id) { const n = s.notes.find(x => x.id === id); return n ? { id: n.id, kind: n.kind, title: n.title, raw_text: n.raw_text, doc: n.doc ?? null, deleted_at: n.deleted_at, archived_at: n.archived_at } : null; },
-    async mediaForPage(pageId, ids) { return s.media.filter(r => r.page_id === pageId && ids.includes(r.id)).map(r => ({ id: r.id, storage_path: r.storage_path })); },
-    async signMedia(path) { return SIGNED + path + '?token=sig'; },
-  }, { log: () => {} });
+  // 로그인 없는 읽기(share-page-read 흉내): 링크 → 게시 중 페이지 → 짝 노트의 지금 제목·글. 사진은 짝 페이지 거울(지문 sha256("페이지:src") → 사진 id)에 있고
+  // 그 페이지 소속 기록이 있는 것만 서명 주소, 그 밖은 자리. 파일 칸은 이름·크기만.
+  const keyOf = (pageId, src) => createHash('sha256').update(`${pageId}:${src}`).digest('hex');
+  s.readHandler = async req => {
+    const { token } = await req.json();
+    const link = s.links.find(l => l.token === token && !l.disabled_at), page = link && s.pages.find(p => p.id === link.page_id);
+    const notFound = () => new Response('{"error":"not_found"}', { status: 404 });
+    if (!page || page.status !== 'published') return notFound();
+    const pair = s.pairs.find(p => p.page_id === page.id), note = pair && s.notes.find(n => n.id === pair.note_id && !n.deleted_at && !n.archived_at);
+    const mirror = new Map((page.blocks?.[0]?.doc?.doc?.content || []).filter(n => n.attrs?.key).map(n => [n.attrs.key, n.attrs.src.slice(6)]));
+    if (!note) return notFound();
+    const media = {};
+    const strip = n => {
+      if (n.type === 'image') {
+        const id = mirror.get(keyOf(page.id, n.attrs.src)), row = id && s.media.find(r => r.id === id && r.page_id === page.id);
+        if (row) media[id] = SIGNED + row.storage_path + '?token=sig';
+        return { type: 'image', attrs: { ...(row ? { src: 'share:' + id } : {}), ...(n.attrs.alt ? { alt: n.attrs.alt } : {}) } };
+      }
+      if (n.type === 'file') return { type: 'file', attrs: { name: n.attrs.name, ...(n.attrs.size ? { size: n.attrs.size } : {}) } };
+      return n.content ? { ...n, content: n.content.map(strip) } : n;
+    };
+    const blocks = [{ type: 'doc', doc: { v: 'ed1', doc: strip(note.doc.doc) } }];
+    return new Response(JSON.stringify({ ok: true, page: { title: note.title, blocks }, ...(Object.keys(media).length ? { media } : {}) }), { status: 200 });
+  };
   return s;
 }
 const go = (page, view) => page.evaluate(v => window.KPTURouter.go(v, { source: 'delegated' }), view);
@@ -326,18 +347,6 @@ for (const width of [390, 1280]) test(`③ 사진 넣은 노트 게시 → 비�
   expect(server.links.length).toBe(1);
   await reader.close();
   expect(errors).toEqual([]);
-});
-
-test('③ 짝을 못 읽거나 짝이 없는 노트 게시 페이지의 사진 거울은 받는 화면에 따로 보이지 않는다', async () => {
-  const server = pubServer();
-  const mirror = [{ type: 'doc', doc: { v: 'ed1', doc: { type: 'doc', content: [{ type: 'image', attrs: { src: 'share:' + U(9), key: 'a'.repeat(64) } }] } } }];
-  server.pages = [{ id: PG(1), title: '옛 짝 페이지', status: 'published', blocks: mirror }];
-  server.links = [{ id: 'ln-1', page_id: PG(1), token: TOKEN, expires_at: null, disabled_at: null }];
-  server.media = [{ id: U(9), page_id: PG(1), storage_path: PG(1) + '/' + U(9) + '.jpg' }];
-  const ask = () => server.readHandler(new Request(SB + '/functions/v1/share-page-read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: TOKEN }) }));
-  const r = await ask();
-  expect(r.status).toBe(404); // 짝 없음(예: 휴지통에서 되살린 옛 짝 페이지)
-  expect(await r.text()).not.toContain('sign');
 });
 
 async function openMenuEdit(page, width) {
