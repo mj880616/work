@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { folderSheet } from './helpers/folder-sheet.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { setup as librarySetup, openLibrary } from './helpers/library-multi-delete-scenario.mjs';
 import { loginEntry } from './helpers/login-entry.mjs';
@@ -251,8 +252,9 @@ test('자료실 390: 왼쪽 밀기 [옮기기]·[삭제] 칸 — 끝까지 밀�
   await tick(page);
   await swipe(luRow(page, 'a1'), -60);
   await touchTap(cell(list, 'move'));
-  await expect(page.locator('#luMovePicker')).toBeVisible();
+  await expect(folderSheet(page)).toBeVisible(); // S69-62: [파일] '옮길 곳' 창과 같은 창
   await page.keyboard.press('Escape');
+  await expect(folderSheet(page)).toHaveCount(0);
   await page.waitForTimeout(7000);
   expect(state.deletes).toEqual([]);
   expect(state.errors).toEqual([]);

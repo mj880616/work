@@ -45,8 +45,11 @@ function rowMainSelector(main) {
   const cls = main.classList.contains('ft-main') ? '.ft-main' : main.classList.contains('nx-main') ? '.nx-main' : '';
   return ROW_SEL.split(', ').map(r => `${r} > ${main.tagName.toLowerCase()}${cls}${parts.join('')}`).join(', ');
 }
-export function explorePressPlan({open = false, canOpen = true, current = true} = {}) {
-  return {enter: true, expand: !!canOpen && (!open || !current), collapse: !!canOpen && !!open && !!current};
+// S69 명진 11/24 20:26 확정: 왼쪽 나무 폴더 이름 누르기 = 늘 오른쪽에 그 폴더 내용(들어가기) + 그 자리 펼치기·접기를 누른 그때 바로.
+//  접혀 있으면 펼치고, 펼쳐져 있으면 접는다(지금 폴더든 아니든). 펼칠 것이 없는 폴더(아이콘 없음)도 오른쪽에 내용이 보인다.
+//  펼치기·접기는 오른쪽 읽기를 기다리지 않는다("불러오는 동안 계속 딜레이", 20:25). current는 옛 호출과 맞추려고 받기만 한다.
+export function explorePressPlan({open = false, canOpen = true} = {}) {
+  return {enter: true, expand: !!canOpen && !open, collapse: !!canOpen && !!open};
 }
 export function ftExplorePress(main, enter) {
   if (!main || typeof enter !== 'function') return false;
@@ -54,18 +57,20 @@ export function ftExplorePress(main, enter) {
   // 누르기 전의 펼침 상태로 판단한다(enter가 다시 그리며 펼침을 바꿔도 누른 그때 기준).
   const row0 = main.closest(ROW_SEL);
   const wasOpen = row0?.querySelector(':scope > button.ft-tog[aria-expanded]')?.getAttribute('aria-expanded') === 'true';
-  // 이미 들어가 있는(오른쪽이 이미 그 폴더인) 펼친 폴더만 접는다. 다른 폴더의 이름을 누르면 들어가며 펼친다.
-  const wasCurrent = !!(row0?.classList?.contains?.('ft-current') || main.getAttribute?.('aria-current') === 'true');
   const after = () => {
     const now = (sel && document.querySelector(sel)) || (main.isConnected ? main : null);
     if (!now) return;
     const row = now.closest(ROW_SEL), tog = row?.querySelector(':scope > button.ft-tog[aria-expanded]') || null;
-    const plan = explorePressPlan({open: wasOpen, canOpen: !!tog, current: wasCurrent});
+    const plan = explorePressPlan({open: wasOpen, canOpen: !!tog});
     // 목표 = 누르기 전과 반대. enter가 다시 그리며 이미 그렇게 됐으면 아이콘을 누르지 않는다.
     const isOpen = tog?.getAttribute('aria-expanded') === 'true';
     if ((plan.expand && !isOpen) || (plan.collapse && isOpen)) pressKeepFocus(tog, now);
     else now.focus?.({preventScroll: true});
   };
+  // 펼치기·접기는 누른 그때 바로(오른쪽 읽기를 기다리지 않음). enter가 다시 그린 뒤 after()는 이미 그렇게 돼 있으면 다시 누르지 않는다.
+  const tog0 = row0?.querySelector(':scope > button.ft-tog[aria-expanded]') || null;
+  const plan0 = explorePressPlan({open: wasOpen, canOpen: !!tog0});
+  if ((plan0.expand || plan0.collapse) && tog0) pressKeepFocus(tog0, main);
   const out = enter();
   if (out && typeof out.then === 'function') out.then(after, () => {}); else after();
   return true;
