@@ -1066,6 +1066,9 @@ function luSort(){if(!luSortUi)luSortUi=createReceiveSort({api:luApi,esc:luEsc,s
 // LIB-정돈제안(S61-13): 자료실 전체(또는 고른 폴더 안)의 흩어진 같은 종류 자료 묶음 — 같은 창 부품·옮기기 길(library-sort.js createTidySuggest).
 // 단추 자리: 자료실 맨 위 ⋯(폴더 보기, 들어간 폴더가 있으면 그 안)·PC 빈 자리 우클릭(그 칸의 지금 폴더)·폴더 메뉴(그 폴더 안).
 let luTidyUi=null;
+// S69-25 LIB-드라이브에서가져오기: 내 드라이브에만 있고 자료실에 없는 파일을 받는 폴더(잡동사니)로 등록하는 창(library-drive-import.js, 누를 때만 불러옴).
+let luDriveImportUi=null;
+async function luDriveImportOpen(trigger){try{if(!luDriveImportUi){const m=await import('./library-drive-import.js');luDriveImportUi=m.createDriveImport({api:luApi,esc:luEsc,receiveName:()=>luReceiveFolder()?.name||null,onDone:async()=>{await luLoadAll();luRenderLibrary()},reconnect:()=>luReconnectDrive()})}await luDriveImportUi.open(trigger)}catch(e){console.error('drive import open failed',e);notify('드라이브에서 가져오기를 열지 못했어요.',{error:true})}}
 function luTidy(){if(!luTidyUi)luTidyUi=createTidySuggest({api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,listDocs:luListDocs(),receiveId:luReceiveFolder()?.id||null}),reload:async()=>{await luLoadFolders();luRenderLibrary()},say:luRenameNotice});return luTidyUi}
 const luSortReady=id=>!!id&&luFoldersReady&&luReceiveFolder()?.id===id&&luSort().count()>0;
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-lu-sort]');if(!b)return;e.preventDefault();void luSort().open(b)});
@@ -1850,6 +1853,7 @@ function luTopMenuHtml(){
   return (folder?luMenuRow('data-lu-top="folder"',luInFolder?'이 폴더 안에 새 폴더':'새 폴더'):'')
     +(folder&&luCanPickFolder()?luMenuRow('data-lu-top="folder-upload"','폴더 올리기'):'') // S69-23: 탐색기 폴더째 올리기
     +(folder?luMenuRow('data-lu-top="tidy"',TIDY_LABEL):'')
+    +luMenuRow('data-lu-top="drive-import"','드라이브에서 가져오기') // S69-25 LIB-드라이브에서가져오기
     +(luPick.active?luMenuRow('data-lu-top="select-stop"','선택 끝내기'):luMenuRow('data-lu-top="select"','여러 개 선택'))
     +(luExplorerNow?'':luMenuRow(`data-lu-top="expand"${luExpandNow.count?'':' disabled'}`,luExpandNow.open?'모두 접기':'모두 펴기')) // S69-28: 탐색기 칸은 펼칠 묶음이 없다
     +(luDrive().place()?luMenuRow(`data-lu-top="drive-align"${luDrive().busy()?' disabled':''}`,'드라이브 폴더 맞추기'):'') // S69-20 ④: 누를 때만 기존 자료까지 드라이브 폴더로 정리
@@ -1857,7 +1861,7 @@ function luTopMenuHtml(){
 }
 function luTopMenuOpen(trigger){
   luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-folder-menu lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
-    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-align')void luDrive().align().then(()=>luLoadFolders()).then(()=>luRenderLibrary()).catch(()=>{});else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
+    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-import')void luDriveImportOpen(active.trigger);else if(act==='drive-align')void luDrive().align().then(()=>luLoadFolders()).then(()=>luRenderLibrary()).catch(()=>{});else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
   luTopMenu.open(trigger);
 }
 // S55-08 LIB-우클릭메뉴 (2026-11-09 명진 결정): PC(761px~) 폴더 보기에서 빈 자리(왼쪽 나무 빈 곳·'자료실 전체'·'폴더 밖' 줄, 오른쪽 목록의 어느 폴더도 아닌 바탕,
