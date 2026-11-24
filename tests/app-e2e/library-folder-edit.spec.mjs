@@ -5,7 +5,7 @@ import {test,expect} from '@playwright/test';
 import {answerAsk,askGap} from './helpers/small-notice.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree,libraryNode,libraryNodeHead,libraryTopMenu,libraryExpandItem} from './helpers/library-tree.mjs';
-import {moveEnabledNames,moveFolder,openMove as openMoveWith} from './helpers/library-folder-server.mjs';
+import {moveEnabledNames,moveFolder,moveTo,moveOut,openMove as openMoveWith} from './helpers/library-folder-server.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const eq=(url,k)=>String(url.searchParams.get(k)||'').replace(/^eq\./,'');
@@ -156,9 +156,9 @@ for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
     await press(page,page.locator('[data-lu-menu="a-1"]'),width);
     expect(await page.locator('#luMorePanel button').evaluateAll(xs=>xs.slice(0,4).map(x=>x.textContent.trim()))).toEqual(['선택','이름 바꾸기F2','폴더로 옮기기›','분류 바꾸기›']);
     await press(page,page.locator('#luMorePanel [data-lu-move-open="a-1"]'),width);await expect(page.locator('#luMovePicker')).toBeVisible();
-    expect(await moveEnabledNames(page)).toEqual(['가상 A','가상 B','가상 B-1']);
-    await expect(page.locator('#luMovePicker [data-lu-move-folder="00000000-0000-4000-8000-0000000000b1"]').last()).toHaveAttribute('style',/--lu-depth:\s*2/);
-    await press(page,moveFolder(page,'00000000-0000-4000-8000-0000000000b1'),width);await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeHidden();
+    // LIB-폴더창들어가기: 처음엔 맨 위 폴더만, 하위가 있는 폴더는 눌러 들어간다(경로 줄 + ‹ 위로).
+    expect(await moveEnabledNames(page)).toEqual(['가상 A']);
+    await moveTo(page,'00000000-0000-4000-8000-0000000000b1',width,{path:['fa','fb']});await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeHidden();
     expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-1',folder_id:'00000000-0000-4000-8000-0000000000b1',workspace_id:'workspace-1'}});
     await expect(page.locator('#documentList details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-1"]')).toBeAttached();
     // 폴더 밖으로: 연결만 지운다(자료는 프로젝트 바로 아래).
@@ -167,13 +167,16 @@ for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
     // 방금 넣은 폴더가 '최근 넣은 폴더' 맨 위에 보이고, 지금 있는 폴더는 고를 수 없다.
     await expect(page.locator('#luMovePicker .lu-move-sec').first()).toHaveText('최근 넣은 폴더');
     await expect(page.locator('#luMovePicker .lu-move-item').first()).toHaveText(/가상 A › 가상 B › 가상 B-1/);await expect(page.locator('#luMovePicker .lu-move-item').first()).toHaveAttribute('aria-current','true');
-    await press(page,page.locator('#luMovePicker [data-lu-move-out]'),width);
+    await moveOut(page,width);
     await expect.poll(()=>s.writes.at(-1)).toEqual({table:'items',method:'DELETE',id:'a-1',body:null});
     await expect(page.locator('#documentList details[data-lu-node="p:top-a"] > .lu-node-body > [data-lu-document="a-1"]')).toBeAttached();
     // 하위 프로젝트 자료(child-a1)는 top-a 폴더에 넣을 수 없다(다른 틀): 폴더 줄은 흐리고 이유 한 줄이 보이며 눌러도 아무 일도 없다.
     await openMove(page,'a1-1',width);
-    expect(await moveEnabledNames(page)).toEqual([]);await expect(page.locator('#luMovePicker .lu-move-note')).toContainText('사업영역이 달라 넣을 수 없어요');
-    const writesBefore=s.writes.length;await moveFolder(page,'fa').click({force:true});expect(s.writes.length).toBe(writesBefore);await expect(page.locator('#luMovePicker')).toBeVisible();
+    // 흐린 폴더도 하위가 있으면 들어가 볼 수는 있지만(가상 A), '이 폴더로'·안 폴더는 선택할 수 없고 실행 단추는 꺼진 채다.
+    expect(await moveEnabledNames(page)).toEqual(['가상 A']);await expect(page.locator('#luMovePicker .lu-move-note')).toContainText('사업영역이 달라 넣을 수 없어요');
+    const writesBefore=s.writes.length;await press(page,moveFolder(page,'fa'),width);
+    await expect(page.locator('#luMovePicker [data-lu-move-here]')).toHaveAttribute('aria-disabled','true');await expect(page.locator('#luMovePicker [data-lu-move-ok]')).toBeDisabled();
+    expect(s.writes.length).toBe(writesBefore);await expect(page.locator('#luMovePicker')).toBeVisible();
     await page.keyboard.press('Escape');await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');await expect(page.locator('#luMorePanel')).toBeHidden();
     // 자료(app_documents)는 한 번도 쓰지 않았다.
     expect(s.patches).toEqual([]);

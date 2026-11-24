@@ -1,7 +1,7 @@
 import {toggleLibraryCategory,readLibraryCategories} from './helpers/library-categories.mjs';
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
-import {bootLibrary,libFolder,libDoc,childrenOf,menuButton,folderMenuItem,press,openMove,moveFolder,moveEnabledNames,movePicker} from './helpers/library-folder-server.mjs';
+import {bootLibrary,libFolder,libDoc,childrenOf,menuButton,folderMenuItem,press,openMove,moveFolder,moveTo,moveEnabledNames,movePicker} from './helpers/library-folder-server.mjs';
 // LIB-폴더탐색기 화면 ①(docs/design/library-tree.md 12절): 묶기 '폴더'(프로젝트와 상관없는 폴더 나무), 폴더 메뉴(이름 바꾸기 F2·안에 새 폴더·접기/펼치기·폴더 지우기),
 // 줄 안 이름 바꾸기, 빈 곳 우클릭 [새 폴더], 틀을 넘는 옮기기(DB 적용 전에는 '준비 중' 안내).
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -25,12 +25,12 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     await pickGroup(page,'폴더');await expect(groupNow(page)).toHaveText('폴더');
     expect(await tops(page)).toEqual(TOP(width));
     if(wideOf(width)){
-      // 탐색기: 맨 위 = 맨 위 폴더 줄 + 폴더 밖 자료 줄. '폴더 밖'은 왼쪽 나무 줄(회색 점선 폴더). 폴더 줄은 닫힌 폴더 그림, 건수는 그 안 전체.
+      // 탐색기: 맨 위 = 맨 위 폴더 줄 + 폴더 밖 자료 줄. '폴더 밖'은 왼쪽 나무 줄(회색 점선 폴더). 폴더 줄은 닫힌 폴더 그림, 건수는 '폴더 n · 파일 m'(LIB-폴더개수).
       expect((await rowsHere(page)).sort()).toEqual(['a-2','a1-1']);
       await expect(page.locator('#libraryFolderNav [data-lu-nav="x:out"] .ft-name')).toHaveText('폴더 밖');
       await expect(page.locator('#libraryFolderNav [data-lu-nav="x:out"] .tree-ico-outside svg path[stroke-dasharray]')).toHaveCount(1);
       await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
-      await expect(count(page,'f:fa')).toHaveText('2');await expect(count(page,'f:fn')).toHaveText('0');
+      await expect(count(page,'f:fa')).toHaveText('폴더 1 · 파일 1');await expect(count(page,'f:fn')).toHaveText('0');
       await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
       expect(await tops(page)).toEqual(['f:fc']);expect(await rowsHere(page)).toEqual(['n-1']);
       await page.locator('#documentList details[data-lu-node="f:fc"] > summary').click();
@@ -46,9 +46,9 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     // FOLDER-나무새기준: 폴더 묶기의 폴더 줄은 ▸ 대신 공용 닫힌/열린 폴더 그림, '폴더 밖'은 회색 점선 폴더 그림(S51-25).
     await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-emoji .tree-ico-outside svg path[stroke-dasharray]')).toHaveCount(1);await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-emoji')).toHaveText('');await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
     await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toHaveAttribute('data-ft-shape','closed');await expect(libraryNodeHead(page,'f:fa').locator('.lu-fe-open')).toBeHidden();
-    // 들어올 때는 모두 접힘(결정 D13). 폴더 안 폴더는 프로젝트가 달라도 parent_id를 따른다. 건수는 그 안 전체.
+    // 들어올 때는 모두 접힘(결정 D13). 폴더 안 폴더는 프로젝트가 달라도 parent_id를 따른다. 건수는 하위 폴더 수 · 바로 안 자료 수(LIB-폴더개수).
     await expect(page.locator('#documentList details[open]')).toHaveCount(0);
-    await expect(count(page,'x:out')).toHaveText('2');await expect(count(page,'f:fa')).toHaveText('2');await expect(count(page,'f:fn')).toHaveText('0');
+    await expect(count(page,'x:out')).toHaveText('2');await expect(count(page,'f:fa')).toHaveText('폴더 1 · 파일 1');await expect(count(page,'f:fn')).toHaveText('0');
     await expandLibraryTree(page);
     expect(await childrenOf(page,'x:out')).toEqual(['a-2','a1-1']);
     expect(await childrenOf(page,'f:fa')).toEqual(['f:fc','n-1']);expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
@@ -172,8 +172,8 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더',dbFree:true});
     await expandLibraryTree(page);
     await openMove(page,'a-2',width);
-    expect(await moveEnabledNames(page)).toEqual(['가상 A','가상 C','가상 N']);
-    await press(page,moveFolder(page,'fn'),width);await expect(movePicker(page)).toBeHidden();
+    expect(await moveEnabledNames(page)).toEqual(['가상 A','가상 N']);
+    await moveTo(page,'fn',width);await expect(movePicker(page)).toBeHidden();
     expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-2',folder_id:'fn',workspace_id:'workspace-1'}});
     if(wideOf(width)){await expect(page.locator('#documentList > [data-lu-document="a-2"]')).toHaveCount(0);await page.locator('#libraryFolderNav [data-lu-nav="fn"]').click();await expect(page.locator('#documentList > [data-lu-document="a-2"]')).toBeAttached();await page.locator('#libraryFolderNav [data-lu-nav=""]').click()}
     else await expect(page.locator('#documentList details[data-lu-node="f:fn"] [data-lu-document="a-2"]')).toBeAttached();
@@ -190,14 +190,14 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더',dbFree:false});
     await expandLibraryTree(page);
     await openMove(page,'a-2',width);
-    await press(page,moveFolder(page,'fn'),width);
+    await moveTo(page,'fn',width);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('아직 준비 중이에요');await expect(page.locator('#libraryFolderStatusLine')).toHaveClass(/error/);
     await expect(movePicker(page)).toBeHidden();
     expect(s.items.map(x=>x.document_id).sort()).toEqual(['a-1','n-1']);
     await expect(page.locator(wideOf(width)?'#documentList > [data-lu-document="a-2"]':'#documentList details[data-lu-node="x:out"] [data-lu-document="a-2"]')).toBeAttached();
     // 같은 틀(top-a) 안: a-2 → fa 는 된다.
     await openMove(page,'a-2',width);
-    await press(page,moveFolder(page,'fa'),width);await expect(movePicker(page)).toBeHidden();
+    await moveTo(page,'fa',width);await expect(movePicker(page)).toBeHidden();
     await expect.poll(()=>s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fa');
     // 폴더를 다른 틀 폴더 아래로 옮기려는 시도(fn → fa)도 같은 안내.
     await press(page,menuButton(page,'f:fn'),width);await press(page,folderMenuItem(page,'옮기기…'),width);await press(page,page.locator('#libraryFolderTargets [data-lu-target="fa"]'),width);await press(page,page.locator('#libraryFolderSave'),width);

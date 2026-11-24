@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {bootLibrary,libDoc,libFolder,press} from './helpers/library-folder-server.mjs';
+import {pickFolderIn,pickOutIn} from './helpers/move-picker-drill.mjs';
 // S61-13 LIB-정돈제안(시안 docs/design/mockups/lib-tidy-suggest.html, 명진 11/13 04:31·04:36):
 // 자료실 맨 위 ⋯·빈 자리 우클릭·폴더 메뉴 [정돈 제안] → 창이 바로 뜨고 묶음은 뒤에서 채움 → 같은 종류인데 폴더가 갈라진 자료를 묶음으로
 // ('지금: … 3 · … 1') → 묶음마다 [옮기기|그대로]·체크·옮길 폴더 ▾ → [옮기기]를 눌러야 옮김 → 되돌리기 한 번으로 전부 원래 자리, 새 빈 폴더도 지움.
@@ -65,11 +66,11 @@ test.describe('PC 1280',()=>{
     await group(page,'가상 합의서').locator('[data-tidy-pick]').click();
     const picker=page.locator('#luTidyPicker');
     await expect(picker).toBeVisible();
-    await picker.locator(`[data-lu-move-folder="${PR}"]`).last().click();
+    await pickFolderIn(picker,picker.locator(`[data-lu-move-folder="${PR}"]`).last());
     await expect(group(page,'가상 합의서').locator('[data-tidy-row]')).toHaveCount(4);
     await expect(group(page,'가상 합의서').locator('.lu-tidy-stay')).toHaveText('이미 그 폴더에 있는 1개는 그대로');
     await group(page,'가상 합의서').locator('[data-tidy-pick]').click();
-    await picker.locator(`[data-lu-move-folder="${IM}"]`).last().click();
+    await pickFolderIn(picker,picker.locator(`[data-lu-move-folder="${IM}"]`).last());
     await expect(group(page,'가상 합의서').locator('[data-tidy-row]')).toHaveCount(2);
     await modal(page).locator('[data-tidy-apply]').click();
     await expect(modal(page)).toBeHidden();

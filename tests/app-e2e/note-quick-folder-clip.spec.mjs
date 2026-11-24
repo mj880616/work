@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { pickFolderIn } from './helpers/move-picker-drill.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectPickerAtButton } from './helpers/picker-anchor.mjs';
@@ -76,7 +77,7 @@ for (const width of [360, 412, 1280]) test(`노트 입력 줄 [폴더 ▾]: 긴 
   // 같은 칸의 [폴더 ▾] 고르기 창에서 긴 이름 폴더를 고른다.
   await (width < 761 ? btn.tap() : btn.click());
   const pick = page.locator('#luMovePicker .lu-move-item', { hasText: '노동조합 교섭 자료함' });
-  await (width < 761 ? pick.tap() : pick.click());
+  await pickFolderIn(page.locator('#luMovePicker'), pick, { press: l => width < 761 ? l.tap() : l.click() });
   await expect(btn).toHaveText('노동조합 교섭 … ▾');
   const m = await measure(btn);
   expect(m).toEqual({ arrowInside: true, nameInside: true, nameCut: width < 761, inScreen: true });

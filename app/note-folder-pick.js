@@ -40,8 +40,8 @@ export async function makeNoteFolder(folders, {rt = window.KPTURuntime, anchor =
 
 // 고르기 창 하나 열기(노트 화면 밖 공용). onPick(folder|null): null = 폴더 밖.
 // newFolder:true면 [+ 새 폴더 만들어 넣기]로 새 폴더를 만들어 곧바로 onPick(새 폴더) — 없으면 그 단추를 그리지 않는다.
-export function openNoteFolderPicker({anchor, folders, onPick, onClosed = null, newFolder = true, rt = window.KPTURuntime}) {
-  sharedPicker().open({anchor, place: 'below', history: !wide(), canNew: !!newFolder, canOut: true,
+export function openNoteFolderPicker({anchor, folders, onPick, onClosed = null, newFolder = true, rt = window.KPTURuntime, okLabel = '여기로 옮기기'}) {
+  sharedPicker().open({anchor, place: 'below', history: !wide(), okLabel, canNew: !!newFolder, canOut: true,
     rows: q => pickerRows({folders, free: true, query: q}),
     onPick: id => onPick(folders.find(f => f.id === id) || null), onOut: () => onPick(null), onClosed,
     onNew: newFolder ? async () => { const made = await makeNoteFolder(folders, {rt, anchor}); if (made) await onPick(made); } : null});
@@ -106,7 +106,7 @@ export function createNoteFolderPick({rt = window.KPTURuntime, initial = null, t
     async open(trigger) {
       await load();
       if (!alive()) return;
-      openNoteFolderPicker({anchor: trigger, folders, rt, onPick: folder => { value = folder?.id || null; tell(); }});
+      openNoteFolderPicker({anchor: trigger, folders, rt, okLabel: '선택', onPick: folder => { value = folder?.id || null; tell(); }});
     },
     // 새 노트를 저장한 뒤 고른 폴더에 넣는다(폴더 밖이면 쓰지 않음). 반환: 넣은 폴더 이름 또는 null.
     async put(note) {

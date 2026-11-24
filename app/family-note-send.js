@@ -173,7 +173,7 @@ export async function openFamilyNoteWindow({rt = window.KPTURuntime, line, body,
     get: () => s.folder?.id || null,
     label: () => s.folder?.name || (s.create ? FAMILY_FOLDER : '폴더 없음'),
     watch: fn => { watchers.push(fn); },
-    open: trigger => openNoteFolderPicker({anchor: trigger, folders: s.folders, onPick: f => { s.folder = f; s.create = false; tell(); }}),
+    open: trigger => openNoteFolderPicker({anchor: trigger, folders: s.folders, okLabel: '선택', onPick: f => { s.folder = f; s.create = false; tell(); }}),
     close: () => {},
   };
   const listNote = () => listNoteIn(s.lists, s.folder?.id || null, s.folders);

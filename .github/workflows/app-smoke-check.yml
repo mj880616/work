@@ -851,6 +851,8 @@ jobs:
         run: node --test tests/note-tree.test.mjs
       - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자·두 손가락) 시험
         run: node --test tests/folder-tree-ui.test.mjs
+      - name: LIB-폴더개수 폴더 줄 '폴더 N · 파일 M' 글자·고르기 창 위 폴더 시험
+        run: node --test tests/folder-count.test.mjs
       - name: UI-폴더누르기한규칙 폴더 이름 누르기 = 펼침·접힘 공용 부품 시험
         run: node --test tests/folder-tree-press.test.mjs
       - name: S51-24 UI-빈칸손짓 손짓 칸 높이 계산·'그 폴더만' 상자 시험

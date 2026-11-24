@@ -8,6 +8,7 @@ import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-lim
 // FOLDER-나무새기준(S51-12): 폴더 그림(닫힌/열린)·'n개 더 보기' 줄은 노트·파일·사진과 같은 공용 부품(folder-tree-ui.mjs). 점(●)은 그리지 않는다.
 import {ftIconHtml,ftMoreRowHtml} from './folder-tree-ui.mjs';
 import {treeIconHtml} from './tree-icons.js';
+import {folderFileText,folderFileLabel} from './folder-count.mjs';
 import {word as brandWord} from './brand/brand.mjs';
 export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
 export const GROUP_LABELS=Object.freeze({project:brandWord('사업영역'),organization:brandWord('담당조직'),category:'분류',month:'월별',folder:'폴더'});
@@ -148,6 +149,13 @@ export function buildTree(o){
   if(o.receiveId)walk(list,n=>{if(n.kind==='folder'&&n.id===o.receiveId)n.rc=true});
   return list;
 }
+// LIB-폴더개수(명진 11/24 18:04): 폴더 줄 회색 개수 — 하위 폴더가 있으면 '폴더 N · 파일 M'(M = 바로 안 자료, 0이면 '폴더 N'), 없으면 숫자.
+// 폴더가 아닌 묶음(사업영역·분류·월·'폴더 밖')은 지금처럼 안의 자료 모두(숫자). 한 칸 목록·탐색기·PC 나무·두 칸이 이 하나를 쓴다.
+export function folderCountOf(n){
+  if(n?.kind!=='folder')return {text:String(n?.count??0),label:`자료 ${n?.count??0}건`};
+  const subs=(n.children||[]).filter(c=>c.kind==='folder').length,files=(n.files||[]).length;
+  return {text:folderFileText(subs,files),label:folderFileLabel(subs,files,{fileWord:'자료',unit:'건'})};
+}
 export function walk(list,fn,parents=[]){for(const n of list){fn(n,parents);walk(n.children,fn,[...parents,n])}}
 export function keys(list){const out=[];walk(list,n=>out.push(n.key));return out}
 // 거르는 중 펼칠 토글: 맞는 파일이 든 모든 토글(위 단까지).
@@ -181,7 +189,8 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
     const mark=face&&n.key==='x:out'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${treeIconHtml('outside',{className:'ft-ico'})}</span>`:`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`;
     const more=menu?.(n);
     const rest=n.chain===false?[]:folderChain(n);
-    return `<summary class="lu-node-head lu-node-emoji${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${receiveTag(n)}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
+    const cnt=folderCountOf(rest.length?rest.at(-1):n); // 외줄로 접힌 줄 '가 › 나'는 맨 끝 폴더(나)의 개수
+    return `<summary class="lu-node-head lu-node-emoji${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="${esc(cnt.label)}">${esc(cnt.text)}</span>${receiveTag(n)}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
   };
   const filesOf=n=>{
     const rows=isPhoto?n.files.filter(d=>!isPhoto(d)):n.files,photos=isPhoto?n.files.filter(isPhoto):[];

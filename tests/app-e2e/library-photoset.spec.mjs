@@ -1,4 +1,5 @@
 import { appOrigin } from './helpers/test-origin.mjs';
+import { pickFolderIn } from './helpers/move-picker-drill.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
@@ -208,7 +209,7 @@ test('photo set row menu moves the whole set into a folder', async ({page}) => {
   await page.locator(`[data-lu-photoset="${M1}"] [data-lu-menu]`).click();
   await expect(page.locator('#luMorePanel button')).toHaveText(['폴더로 옮기기›']);
   await page.locator(`#luMorePanel [data-lu-move-open="photoset:${M1}"]`).click();
-  await page.locator(`#luMovePicker [data-lu-move-folder="${ID(700)}"]`).last().click();
+  await pickFolderIn(page.locator('#luMovePicker'), page.locator(`#luMovePicker [data-lu-move-folder="${ID(700)}"]`).last());
   const photos = [11, 12, 13, 14, 15].map(ID);
   await expect.poll(() => photos.every(id => state.items.some(x => x.document_id === id && x.folder_id === ID(700)))).toBe(true);
   expect(state.items.map(x => x.document_id).sort()).toEqual([...photos].sort());

@@ -54,9 +54,10 @@ export async function makeLibraryFolder(loaded, {rt = window.KPTURuntime, anchor
 }
 
 // 고르기 창 하나 열기. onPick(folder|null): null = 폴더 밖. onNew()가 있으면 [+ 새 폴더 만들어 넣기]를 그린다(없으면 단추 없음).
-export function openLibraryFolderPicker({anchor, folders, itemFolder = new Map(), docs = [], onPick, onNew = null, onClosed = null}) {
+// okLabel: 실행 단추 글자(옮기는 곳은 기본 '여기로 옮기기', 정하기만 하는 곳은 '선택').
+export function openLibraryFolderPicker({anchor, folders, itemFolder = new Map(), docs = [], onPick, onNew = null, onClosed = null, okLabel = '여기로 옮기기'}) {
   const docsOk = docs.map(id => ({id, project_id: null}));
-  sharedPicker().open({anchor, place: 'below', history: !wide(), canNew: typeof onNew === 'function', canOut: docs.some(id => itemFolder.has(id)),
+  sharedPicker().open({anchor, place: 'below', history: !wide(), okLabel, canNew: typeof onNew === 'function', canOut: docs.some(id => itemFolder.has(id)),
     rows: q => pickerRows({folders, docs: docsOk, itemFolder, free: true, query: q}),
     onPick: id => onPick(folders.find(f => f.id === id) || null), onOut: () => onPick(null), onNew, onClosed});
 }
