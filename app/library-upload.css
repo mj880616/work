@@ -376,9 +376,11 @@
 .lu-move-item[aria-pressed="true"]::before{content:"✓";display:grid;place-items:center;border-color:var(--kptu-primary-ink);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);line-height:1}
 .lu-move-foot .lu-move-done{justify-content:center;font-weight:var(--ds-weight-medium,500)}
 .lu-move-foot .lu-move-done:disabled{opacity:.5;cursor:default}
-/* LIB-폴더창들어가기: 들어가기 + 선택 + 실행 단추. 선택한 줄은 왼쪽 선 + 굵은 글자 + '선택됨'(네모 칸 없음 — 여러 개 고르기와 구별). 아래 [취소]·[여기로 옮기기](공용 secondary·primary). */
+/* LIB-폴더창들어가기: 들어가기 + 선택 + 실행 단추. 선택한 줄은 굵은 글자 + '선택됨'(네모 칸 없음 — 여러 개 고르기와 구별). 아래 [취소]·[여기로 옮기기](공용 secondary·primary). */
 .lu-move-drill .lu-move-item[aria-pressed]::before,.lu-move-drill .lu-move-foot-btn[aria-pressed]::before{content:none}
-.lu-move-picker.lu-move-drill button[aria-pressed="true"]{box-shadow:inset 3px 0 0 var(--ds-select-line,var(--kptu-primary-ink));color:var(--ds-select-ink,var(--kptu-ink));font-weight:var(--ds-weight-medium,500)}
+.lu-move-drill [aria-pressed="true"]{color:var(--ds-select-ink,var(--kptu-ink));font-weight:var(--ds-weight-medium,500)}
+.lu-move-drill [aria-pressed="true"] .lu-move-tag,.lu-move-drill .lu-move-foot-btn[aria-pressed="true"]::after{color:var(--ds-select-ink,var(--kptu-primary-ink))}
+.lu-move-drill .lu-move-foot-btn[aria-pressed="true"]::after{content:"선택됨";margin-left:auto;font-size:var(--ds-text-meta,12px)}
 .lu-move-into::before{content:"›"}
 .lu-move-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lu-move-chosen{margin:4px 8px 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
