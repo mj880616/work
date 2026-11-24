@@ -141,7 +141,7 @@ export function mountOrgQuiet(el, {rt = window.KPTURuntime} = {}) {
     const name = r => `<button type="button" class="oq-org" data-oq-org="${esc(r.id)}" data-ps-workplace-org="${esc(r.id)}">${esc(r.name)}</button>`;
     const head = open
       ? `<span class="oq-text">${weeks}주째 연락 없음 ${rows.length}곳</span>`
-      : `<span class="oq-text">${weeks}주째 연락 없음: ${shown.map(r => `${name(r)} <span class="oq-d">${esc(daysText(r))}</span>`).join(' · ')}${more ? ` 외 ${more}곳` : ''}</span>`;
+      : `<span class="oq-text">${weeks}주째 연락 없음: ${shown.map(r => `<span class="oq-item">${name(r)} <span class="oq-d">${esc(daysText(r))}</span></span>`).join(' · ')}${more ? ` 외 ${more}곳` : ''}</span>`;
     el.hidden = false;
     el.classList.toggle('is-open', open);
     el.innerHTML = word`<h3 id="orgQuietTitle" class="a11y-only">연락 없는 조직</h3><div class="oq-line">${head}<button type="button" class="oq-toggle" data-oq-toggle aria-expanded="${open}" aria-controls="orgQuietList" aria-label="${open ? word('연락 없는 조직 접기') : word('연락 없는 조직 펼치기')}">${open ? '⌄' : '›'}</button></div>`

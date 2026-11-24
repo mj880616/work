@@ -206,7 +206,9 @@
 #soOrganizationList .so-quiet[hidden] { display:none; }
 #soOrganizationList .so-quiet .oq-line { display:flex; align-items:center; gap:6px; min-height:30px; padding:2px 4px 2px 10px; border-radius:var(--kptu-radius-md); background:var(--kptu-warning-soft,var(--kptu-surface)); color:var(--kptu-warning); font-size:var(--ds-text-meta,12px); line-height:1.4; }
 #soOrganizationList .so-quiet.is-open .oq-line { border-radius:var(--kptu-radius-md) var(--kptu-radius-md) 0 0; }
-#soOrganizationList .so-quiet .oq-text { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* 목록 칸이 좁으면(PC 목록 칸·폴드) 이름이 말줄임으로 잘려 누를 수 없게 되지 않도록, 조직 하나(이름+날 수)는 붙여 두고 사이에서만 줄을 바꾼다. */
+#soOrganizationList .so-quiet .oq-text { flex:1; min-width:0; white-space:normal; overflow-wrap:anywhere; }
+#soOrganizationList .so-quiet .oq-item { white-space:nowrap; }
 #soOrganizationList .so-quiet .oq-org { display:inline; min-height:0; margin:0; padding:0; border:0; background:transparent; color:var(--kptu-ink); font:inherit; cursor:pointer; text-decoration:none; }
 #soOrganizationList .so-quiet .oq-org:hover, #soOrganizationList .so-quiet .oq-org:focus-visible { text-decoration:underline; }
 #soOrganizationList .so-quiet .oq-d { color:var(--kptu-faint); }

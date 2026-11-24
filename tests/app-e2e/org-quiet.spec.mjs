@@ -105,7 +105,15 @@ for (const [width, phone] of [[412, true], [884, false], [1440, false]]) {
     await expect(q).not.toContainText('라지부');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const box = await q.locator('.oq-line').boundingBox();
-    expect(box.height).toBeLessThanOrEqual(36);
+    if (width !== 884) expect(box.height).toBeLessThanOrEqual(36);
+    // 좁은 목록 칸(PC 884)에서도 접힌 줄의 이름이 잘려 숨지 않는다(모두 줄 안에 보이고 누를 수 있다).
+    await q.locator('[data-oq-toggle]').click();
+    for (const b of await q.locator('.oq-text .oq-org').all()) {
+      const r = await b.boundingBox();
+      expect(r.x).toBeGreaterThanOrEqual(qb.x - 1);
+      expect(r.x + r.width).toBeLessThanOrEqual(qb.x + qb.width + 1);
+    }
+    await q.locator('[data-oq-toggle]').click();
     if (process.env.KPTU_SHOTS) await page.screenshot({path: `docs/design/screens/org-quiet-team-${width}.png`});
     // 키보드로 접기
     await q.locator('[data-oq-toggle]').focus();
