@@ -1,15 +1,16 @@
 import {emptyHtml} from './wait-state.js';
 // LIB-토글트리 ③(docs/design/library-tree.md 6절): 자료실 전용 폴더 편집 — ⋯ 메뉴·작은 창·저장.
-// 목록 그리기는 library-upload.js의 luRenderLibrary 하나다. 이 모듈은 폴더 메뉴(⋯), 이름·옮길 곳을 고르는 작은 창,
+// 목록 그리기는 library-upload.js의 luRenderLibrary 하나다. 이 모듈은 폴더 메뉴(⋯), 이름을 묻는 작은 창(옮길 곳 고르기는 S69-62부터 공용 folder-dest-sheet.js),
 // 저장(기존 소유자 RLS REST: app_library_folders·app_library_folder_items)만 맡고, 저장 뒤 reload()로 다시 그리게 한다.
 // 순환·100단(folder-limits.mjs)·같은 프로젝트 틀은 DB 트리거가 지키고(거절 SQLSTATE 23514 + LIB_FOLDER_*), 화면은 같은 규칙으로 고를 수 있는 곳만 보인다.
 // 폴더·자료 연결만 바꾼다. 자료(app_documents)·프로젝트·Drive 파일은 건드리지 않는다.
 import {createAnchoredMenu} from './anchored-menu.js';
 import {FOLDER_DEPTH,OUTSIDE_KEY,canAddChild,cleanFolderName,folderTrashCounts,folderDepth,folderErrorText,folderMoveTargets,folderSiblings,nextSortOrder,SORT_GAP} from './library-tree.js';
 import {folderMoveOk} from './library-pick-folders.mjs';
-import {pickerRows} from './library-move.mjs';
+import {pickerRows,FRAME_REASON,MIXED_REASON} from './library-move.mjs';
 import {folderIndent} from './folder-limits.mjs';
-import {createMovePicker} from './library-move-picker.js';
+import {openFolderSheet,closeFolderSheet,folderSheetOpen,folderSheetContains} from './folder-dest-sheet.js'; // S69-62 폴더 고르기 = [파일] '옮길 곳' 창 하나
+import {sheetTitle} from './folder-dest-sheet.mjs';
 import {colorChoiceHtml,colorFromButton} from './folder-look.js';
 import {colorOf,dropZone,folderDropPlan,placeAt,isSamePlace} from './folder-look-model.mjs';
 import {setLibraryFolderColor,createLibraryFolder,putDocumentInFolder} from './library-folder-data.js';
@@ -99,32 +100,43 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // ---- 작은 창(이름 입력·옮길 곳 고르기) ----
   function ensureDialog(){
     if(dialog)return dialog;
-    document.body.insertAdjacentHTML('beforeend',`<div id="libraryFolderModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="libraryFolderTitle"><div class="modal-card small-card lu-folder-card"><div class="modal-head"><div><h2 id="libraryFolderTitle"></h2><p id="libraryFolderHint" class="lu-folder-hint"></p></div><button id="libraryFolderClose" class="icon-btn" type="button" aria-label="닫기">×</button></div><form id="libraryFolderForm" data-enter-save novalidate><label id="libraryFolderNameField" class="lu-folder-name">폴더 이름<input id="libraryFolderName" type="text" maxlength="40" autocomplete="off"></label><div id="libraryFolderTargets" class="lu-folder-targets" role="radiogroup" aria-labelledby="libraryFolderTitle"></div><p id="libraryFolderStatus" class="status" role="status"></p><div class="modal-action-footer"><button id="libraryFolderCancel" class="secondary" type="button">취소</button><button id="libraryFolderSave" class="primary" type="submit" data-enter-save-submit>저장</button></div></form></div></div>`);
+    document.body.insertAdjacentHTML('beforeend',`<div id="libraryFolderModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="libraryFolderTitle"><div class="modal-card small-card lu-folder-card"><div class="modal-head"><div><h2 id="libraryFolderTitle"></h2><p id="libraryFolderHint" class="lu-folder-hint"></p></div><button id="libraryFolderClose" class="icon-btn" type="button" aria-label="닫기">×</button></div><form id="libraryFolderForm" data-enter-save novalidate><label id="libraryFolderNameField" class="lu-folder-name">폴더 이름<input id="libraryFolderName" type="text" maxlength="40" autocomplete="off"></label><p id="libraryFolderStatus" class="status" role="status"></p><div class="modal-action-footer"><button id="libraryFolderCancel" class="secondary" type="button">취소</button><button id="libraryFolderSave" class="primary" type="submit" data-enter-save-submit>저장</button></div></form></div></div>`);
     const root=document.querySelector('#libraryFolderModal');
-    dialog={root,title:root.querySelector('#libraryFolderTitle'),hint:root.querySelector('#libraryFolderHint'),nameField:root.querySelector('#libraryFolderNameField'),name:root.querySelector('#libraryFolderName'),targets:root.querySelector('#libraryFolderTargets'),status:root.querySelector('#libraryFolderStatus'),save:root.querySelector('#libraryFolderSave'),submit:null,trigger:null};
+    dialog={root,title:root.querySelector('#libraryFolderTitle'),hint:root.querySelector('#libraryFolderHint'),nameField:root.querySelector('#libraryFolderNameField'),name:root.querySelector('#libraryFolderName'),status:root.querySelector('#libraryFolderStatus'),save:root.querySelector('#libraryFolderSave'),submit:null,trigger:null};
     const close=()=>closeDialog();
     root.querySelector('#libraryFolderClose').addEventListener('click',close);root.querySelector('#libraryFolderCancel').addEventListener('click',close);
     root.querySelector('#libraryFolderForm').addEventListener('submit',async e=>{e.preventDefault();if(!dialog.submit||dialog.save.disabled)return;dialog.save.disabled=true;dialog.save.setAttribute('aria-busy','true');try{const ok=await dialog.submit();if(ok!==false)closeDialog();else if(lastError)fail(lastError)}finally{dialog.save.disabled=false;dialog.save.removeAttribute('aria-busy')}});
-    // 옮길 곳: 하나만 고르는 줄 목록(라디오 모양 버튼, 화살표로 옮김).
-    dialog.targets.addEventListener('click',e=>{const b=e.target.closest('[data-lu-target]');if(b)pickTarget(b)});
-    dialog.targets.addEventListener('keydown',e=>{const list=[...dialog.targets.querySelectorAll('[data-lu-target]')],i=list.indexOf(document.activeElement);if(i<0)return;const j=e.key==='ArrowDown'?i+1:e.key==='ArrowUp'?i-1:-9;if(j===-9)return;e.preventDefault();const b=list[(j+list.length)%list.length];b.focus();pickTarget(b)});
     return dialog;
   }
-  function pickTarget(b){for(const x of dialog.targets.querySelectorAll('[data-lu-target]')){const on=x===b;x.setAttribute('aria-checked',String(on));x.tabIndex=on?0:-1}dialog.save.disabled=false}
-  const picked=()=>dialog.targets.querySelector('[aria-checked="true"]')?.dataset.luTarget;
-  function openDialog({title,hint='',name=null,targets=null,save='저장',submit,trigger}){
+  function openDialog({title,hint='',name=null,save='저장',submit,trigger}){
     const d=ensureDialog();d.trigger=trigger||document.activeElement;d.title.textContent=title;d.hint.textContent=hint;d.hint.hidden=!hint;d.status.textContent='';d.status.className='status';
     d.nameField.hidden=name===null;d.name.value=name??'';
-    d.targets.hidden=!targets;d.targets.innerHTML=(targets||[]).map((t,i)=>`<button type="button" role="radio" class="lu-folder-target" data-lu-target="${esc(t.value)}" aria-checked="false" tabindex="${i?-1:0}" style="--lu-target-depth:${folderIndent(t.depth)}">${esc(t.label)}</button>`).join('');
-    d.save.textContent=save;d.save.disabled=!!targets;d.submit=submit;
+    d.save.textContent=save;d.save.disabled=false;d.submit=submit;
     d.root.classList.remove('hidden');d.root.setAttribute('aria-hidden','false');
-    window.KPTUA11y?.dialog?.activate?.(d.root,{trigger:d.trigger,initialFocus:name!==null?d.name:d.targets.querySelector('[data-lu-target]'),onRequestClose:closeDialog});
-    if(!window.KPTUA11y?.dialog)(name!==null?d.name:d.targets.querySelector('[data-lu-target]'))?.focus();
+    window.KPTUA11y?.dialog?.activate?.(d.root,{trigger:d.trigger,initialFocus:d.name,onRequestClose:closeDialog});
+    if(!window.KPTUA11y?.dialog)d.name.focus();
   }
   function closeDialog(){if(!dialog||dialog.root.classList.contains('hidden'))return;dialog.root.classList.add('hidden');dialog.root.setAttribute('aria-hidden','true');dialog.submit=null;if(window.KPTUA11y?.dialog?.deactivate)window.KPTUA11y.dialog.deactivate(dialog.root);else if(dialog.trigger?.isConnected)dialog.trigger.focus({preventScroll:true})}
   const fail=text=>{dialog.status.textContent=text;dialog.status.className='status error';return false};
   const askName=({title,hint,name='',trigger,then})=>openDialog({title,hint,name,trigger,submit:async()=>{const clean=cleanFolderName(dialog.name.value);if(!clean)return fail('폴더 이름은 1~40자로 써 주세요.');if(clean===name)return true;return await then(clean)}});
-  const askTarget=({title,hint,targets,trigger,then})=>{if(!targets.length){status('옮길 수 있는 곳이 없어요.',true);return}openDialog({title,hint,targets,save:'옮기기',trigger,submit:async()=>{const v=picked();if(v===undefined)return fail('옮길 곳을 선택해 주세요.');return await then(v==='__top__'?null:v)}})};
+  // 폴더 옮기기(⋯ [옮기기…]): [파일] '옮길 곳' 창과 같은 창(S69-62). 갈 수 있는 곳(folderMoveTargets)만 고를 수 있고, 자기·자기 아래·다른 사업영역은 흐리게 + 까닭.
+  function moveFolderSheet(f,trigger){
+    const allowed=new Set(folderMoveTargets(s().folders,f.id,!!s().free));
+    if(!allowed.size){status('옮길 수 있는 곳이 없어요.',true);return}
+    const free=!!s().free,pid=f.project_id||null;
+    openFolderSheet({anchor:trigger,title:`'${f.name}' 옮길 곳`,rootName:free?'자료실':frameName(pid),folders:()=>s().folders.filter(x=>free||(x.project_id||null)===pid),current:f.parent_id||null,
+      allowRoot:allowed.has(null),rootReason:'맨 위로는 옮길 수 없어요',blocked:id=>id===f.id?'옮기는 폴더예요':allowed.has(id)?'':word('그 안으로는 옮길 수 없어요'),
+      mkdir:(parent,name)=>makeFolderIn(pid,parent,name),onGo:parent=>moveFolder(f.id,parent)});
+  }
+  // 고르기 창 [새 폴더]: 고른 폴더 안(맨 위 줄이면 맨 위)에 만들고 다시 읽은 뒤 그 폴더를 돌려준다(창이 그 폴더를 고른다).
+  async function makeFolderIn(projectId,parentId,typed){
+    const name=cleanFolderName(typed);if(!name)throw new Error('폴더 이름은 1~40자로 써 주세요.');
+    if(parentId&&!canAddChild(s().folders,parentId))throw new Error('이 폴더 안에는 더 만들 수 없어요.');
+    let row=null;
+    const ok=await run(async()=>{row=await createLibraryFolder(api,{workspace:s().workspace,project_id:projectId||null,parent_id:parentId||null,name,sort_order:nextSortOrder(sibs(projectId,parentId))})},'폴더를 만들었어요.');
+    if(!ok||!row?.id)throw new Error(lastError||'폴더를 만들지 못했어요.');
+    return folder(row.id)||row;
+  }
 
   // ---- 메뉴 ----
   // key: 'p:<project id>' | 'p:none' | 'f:<folder id>'
@@ -163,7 +175,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='enter')enter?.(id,trigger); // LIB-두칸폴더펼치기: 두 칸이면 메뉴를 연 칸에서 들어간다
     else if(action==='rename')startRename(id,trigger);
     else if(action==='toggle')toggleNode('f:'+id);
-    else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 선택하세요.`:word`${f.name}을(를) 옮길 곳을 선택하세요. 같은 사업영역 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
+    else if(action==='move')moveFolderSheet(f,trigger);
     else if(action==='paint'){colorFor='f:'+id;colorReopen=true;queueMicrotask(()=>{colorReopen=false;if(trigger?.isConnected)menu.open(trigger)})}
     else if(action==='receive')void toggleReceive(f,trigger);
     else if(action==='sort')void receive?.sort?.(trigger);
@@ -263,37 +275,35 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // 자료 ⋯·우클릭 메뉴의 [폴더로 옮기기 ›], 선택 모드의 [폴더로 옮기기], 끌어 놓기가 모두 이 아래 moveDocs 하나(app_library_folder_items 쓰기,
   // LIB-폴더탐색기와 같은 길)로 옮긴다. 어느 묶기 화면에서나 같다. 프로젝트 묶기·종류·담당조직·월별에서는 자료의 프로젝트 틀과 같은 폴더에만 넣을 수 있고
   // (프로젝트 묶기는 틀이 다른 연결을 보이지 않으므로) 나머지 폴더는 흐리게 + 이유 한 줄, 묶기 '폴더'에서는 틀과 무관하게 모든 폴더에 넣는다.
-  const picker=createMovePicker({esc});
   const itemFolders=()=>new Map(s().items.map(x=>[x.document_id,x.folder_id]));
+  // 끌기 중 놓을 곳 목록(폴더 토글이 없는 묶기, 아래 showDropPanel)은 같은 줄 규칙(pickerRows)을 그대로 쓴다.
   const rowsFor=(docs,query='')=>pickerRows({folders:s().folders,docs,itemFolder:itemFolders(),free:!!s().free,recent:recent.get(),query});
-  const moveMenuHtml=(doc,count=1)=>`<button type="button" data-lu-move-open="${esc(doc.id)}" aria-haspopup="true" aria-expanded="false">${count>1?`선택한 ${count}개 폴더로 옮기기`:'폴더로 옮기기'}<span class="lu-menu-key" aria-hidden="true">›</span></button>`;
-  // 옮기고 나면 그 폴더를 '최근 넣은 폴더' 맨 앞에 둔다(서버 기억).
+  const moveMenuHtml=(doc,count=1)=>`<button type="button" data-lu-move-open="${esc(doc.id)}" aria-haspopup="dialog">${count>1?`선택한 ${count}개 폴더로 옮기기`:'폴더로 옮기기'}<span class="lu-menu-key" aria-hidden="true">›</span></button>`;
+  // 옮기고 나면 그 폴더를 '최근 넣은 곳' 맨 앞에 둔다(서버 기억).
   async function putDocs(docs,folderId,opt={}){const ok=await moveDocs(docs,folderId,opt);if(ok&&folderId)recent.push(folderId);return ok}
-  // [+ 새 폴더 만들어 넣기]: 이름을 받아 맨 위 폴더 하나를 만들고(프로젝트 묶기 계열은 자료의 프로젝트 틀, 폴더 묶기는 폴더 밖) 곧바로 그 안에 넣는다.
-  function newFolderAndPut(docs,trigger,opt={}){
-    const free=!!s().free,frame=free?null:(docs[0]?.project_id||null);
-    askName({title:'새 폴더 만들어 넣기',hint:word`${docs.length>1?`선택한 ${docs.length}개를`:'이 자료를'} 넣을 폴더예요. ${free?'폴더 밖(맨 위)에':frameName(frame)+' 안에'} 만들고, 자료의 사업영역은 바뀌지 않아요.`,trigger,then:async name=>{
-      let created=null;
-      const ok=await run(async()=>{created=(await createLibraryFolder(api,{workspace:s().workspace,project_id:frame,parent_id:null,name,sort_order:nextSortOrder(sibs(frame,null))}))?.id||null});
-      if(!ok)return false;
-      if(!created){status('폴더는 만들었지만 자료는 옮기지 못했어요. 목록에서 [폴더로 옮기기]를 다시 눌러 주세요.',true);return false}
-      return await putDocs(docs,created,opt);
-    }});
-  }
-  // 목록을 연다. anchor = 누른 버튼, closeOuter = 이 목록을 연 바깥 메뉴(자료 ⋯)를 닫는 함수(고른 뒤 먼저 닫는다), place = 'side'(메뉴 옆)·'below'(도구줄 버튼 아래).
+  // S69-62 폴더 고르기 = [파일] '옮길 곳' 창 하나: 위 '최근 넣은 곳' 칩, 폴더 나무(누르면 펼침·선택), 아래 '자료실 › 가 › 나' + [새 폴더] + [여기에 옮기기].
+  // 고르기만으로는 옮기지 않고 [여기에 옮기기]로만 옮긴다. 폴더 묶기가 아니면(사업영역 묶기) 자료의 사업영역과 다른 폴더는 흐리게 + 까닭.
+  // anchor·trigger = 누른 단추(창을 닫으면 초점이 돌아갈 곳), closeOuter = 이 창을 연 바깥 메뉴(자료 ⋯)를 닫는 함수 — 창은 화면을 덮으므로 열 때 먼저 닫는다.
   // all=true(사진 묶음 메뉴): 묶음 안 사진은 모두 옮기거나 모두 그대로(끌어 놓기와 같은 moveDocs all 모드).
   // S69-69 LIB-사각형폴더: folders(고른 폴더 id들, 위 폴더를 함께 고른 아래 폴더는 부르는 쪽이 뺐다)가 있으면 폴더째 함께 옮긴다.
-  // 옮길 수 있는 곳은 고른 폴더·그 아래가 아니고 폴더 단 제한 안(folderMoveOk). [새 폴더 만들어 넣기]는 자료만 고른 때만.
-  function openMove(docs,anchor,{place='below',history=false,closeOuter=null,trigger=anchor,onClosed=null,all=false,folders=[],done=null}={}){
+  // 옮길 수 있는 곳은 고른 폴더·그 아래가 아니고 폴더 단 제한 안(folderMoveOk). [새 폴더]는 자료만 고른 때만.
+  function openMove(docs,anchor,{closeOuter=null,trigger=anchor,onClosed=null,all=false,folders=[],done=null}={}){
     const list=(docs||[]).filter(Boolean),fids=(folders||[]).filter(id=>folder(id));if((!list.length&&!fids.length)||!anchor)return false;
-    const after=work=>async(...a)=>{if(closeOuter)await closeOuter();return work(...a)};
     const fin=ok=>{try{done?.(ok)}catch{}return ok}; // 폴더째 옮긴 뒤 부른 쪽이 선택을 끝낸다
     const fm=fids.length?folderMoveOk(s().folders,fids,{maxDepth:FOLDER_DEPTH,free:!!s().free}):null;
-    const fix=x=>{const ok=fm.ok(x.id);return {...x,current:false,enabled:ok&&(!list.length||!x.reason),reason:ok&&list.length?x.reason:''}};
-    const rows=q=>{const r=rowsFor(list,q);return fm?{...r,recent:r.recent.map(fix),all:r.all.map(fix)}:r};
-    picker.open({anchor,place,history,onClosed,canOut:list.some(d=>rawItem(d))||!!fm?.top,canNew:!fids.length&&(!!s().free||new Set(list.map(d=>d.project_id||null)).size===1),
-      rows,
-      onPick:after(id=>fids.length?movePicked(list,fids,id).then(fin):putDocs(list,id,{all})),onOut:after(()=>fids.length?movePicked(list,fids,null).then(fin):moveDocs(list,null,{all})),onNew:after(()=>newFolderAndPut(list,trigger,{all}))});
+    const free=!!s().free,frames=new Set([...list.map(d=>d.project_id||null),...fids.map(id=>folder(id)?.project_id||null)]),frame=frames.size===1?[...frames][0]:undefined;
+    const places=new Set(list.map(d=>docFolder(d)?.id||null));
+    const current=fm?undefined:places.size===1?[...places][0]:undefined;
+    const back=trigger?.isConnected&&!trigger.closest?.('.lu-folder-menu,.lu-more-panel,[role="menu"]')?trigger:null;
+    const rootOk=(free||frame!==undefined)&&(!fm||fm.top||list.length>0);
+    // 바깥 메뉴를 닫는 뒤로가기가 다 끝난 뒤에 연다(먼저 열면 그 뒤로가기가 새 창의 뒤로가기 칸까지 닫는다).
+    const openIt=()=>openFolderSheet({anchor:back?.isConnected?back:document.activeElement,title:sheetTitle(list.length+fids.length,'옮길 곳'),rootName:free?'자료실':frame===undefined?word('사업영역 바로 아래'):frameName(frame),
+      folders:()=>s().folders,recent:recent.get(),current,start:current,
+      allowRoot:rootOk,rootReason:fm&&(free||frame!==undefined)?'이미 맨 위에 있어요':MIXED_REASON,
+      blocked:id=>{if(id===null)return '';if(fm&&!fm.ok(id))return '고른 폴더 안이나 너무 깊은 곳에는 옮길 수 없어요';if(free||!list.length)return '';const f=folder(id);return frame!==undefined&&(f?.project_id||null)===frame?'':(frame===undefined?MIXED_REASON:FRAME_REASON)},
+      mkdir:!fids.length&&(free||frame!==undefined)?(parent,name)=>makeFolderIn(free?null:frame,parent,name):null,
+      onGo:id=>fids.length?movePicked(list,fids,id||null).then(fin):id?putDocs(list,id,{all}):moveDocs(list,null,{all}),onClosed});
+    if(closeOuter)Promise.resolve(closeOuter()).then(openIt,openIt);else openIt();
     return true;
   }
   // 고른 폴더를 target(없으면 맨 위) 안으로: 폴더마다 위 폴더·순서만 바꾼다(소유자 RLS REST, 순환·단 제한·틀은 DB 트리거가 지킨다). 이미 그 안이면 그대로.
@@ -708,5 +718,5 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 ⋯의 [새 폴더]. 폴더 묶기에서만 — 들어간 폴더가 있으면 그 안, 없으면 맨 위(폴더 밖 자리).
   const createIn=(parentId,trigger)=>{const p=parentId?folder(parentId):null;if(parentId&&!p)return;if(p&&!canAddChild(s().folders,p.id)){status('여기에는 폴더를 더 만들 수 없어요.',true);return}
     askName({title:p?'안에 폴더 만들기':'폴더 만들기',hint:p?pathName(p.id)+' 안에 만들어요.':'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(p?.project_id||null,p?.id||null,name)})};
-  return {openAt:(trigger,x,y)=>menu.open(trigger,{at:{x,y}}),createIn,moveFolderTo:(id,parentId)=>dragMoveFolder(id,parentId||null),moveDocsTo:(ids,folderId,opt={})=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null,{open:opt.open!==false}):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),follow:find=>menu.follow(find),get menuTrigger(){return menu.active?.trigger||null},moveMenuHtml,openMove,trashFolders,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
+  return {openAt:(trigger,x,y)=>menu.open(trigger,{at:{x,y}}),createIn,moveFolderTo:(id,parentId)=>dragMoveFolder(id,parentId||null),moveDocsTo:(ids,folderId,opt={})=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null,{open:opt.open!==false}):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),follow:find=>menu.follow(find),get menuTrigger(){return menu.active?.trigger||null},get menuClosing(){return menu.closing},moveMenuHtml,openMove,trashFolders,closeMove:()=>{if(folderSheetOpen())closeFolderSheet()},moveContains:n=>folderSheetContains(n),get moveOpen(){return folderSheetOpen()},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
 }

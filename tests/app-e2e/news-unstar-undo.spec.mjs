@@ -141,8 +141,8 @@ for (const width of [412, 884, 1280]) {
   test(`News ${width}: 탭 줄에 '보관' 없음 · 읽을 거리에 [News] 칩·꼬리표 없음 · ⋯ [삭제] + 5초 [되돌리기](원래 자리), 5초 뒤 서버 줄 지워짐`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, s } = await start(page, width);
-    // ② News 탭 줄: [전체][사회운동][언론][밑줄]만 — '보관' 탭도 '보관 ↗' 길도 없다(S68-28). 읽을 거리는 메뉴로.
-    await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
+    // ② News 탭 줄: [전체][사회운동][언론][밑줄][메모](S69-70)만 — '보관' 탭도 '보관 ↗' 길도 없다(S68-28). 읽을 거리는 메뉴로.
+    await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄', '메모']);
     await expect(root(page).locator('[data-now-panel-saved]')).toHaveCount(0);
     await page.evaluate(() => window.KPTURouter.go('reading'));
     await expect(page.locator('#readingView')).toBeVisible();

@@ -10,9 +10,12 @@ const LONG = 'https://www.example.org/portal/bbs/P0000559/view.do?nttId=10093517
 const FAILED = { id: 'x1', lane: 'channel', url: 'https://www.example.org/x1', title: null, lang: 'ko', publisher: null, source_key: null, keywords: [], published_at: null, scrapped_at: '2026-10-06T00:40:00Z', created_at: '2026-10-06T00:41:00Z', state: 'failed', summary: null, body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null, author: null, manual_at: null };
 const MANUAL = { ...FAILED, id: 'm1', url: 'https://www.example.org/share-m1', title: '가짜 손으로 넣은 기사', publisher: '가짜은행', origin: 'user', state: 'ok', body_kind: 'full', _body: `${LONG}\n가짜 본문 첫 문단.`, manual_at: '2026-10-06T00:50:00Z' };
 
-async function setup(page, width) {
+// prep(server): 목록을 읽기 전에 가짜 서버 줄을 고친다. 목록이 읽힌 뒤에 고치면 화면은 이미 읽은 옛 줄(직접 넣음·내 기사)로
+// 상세 머리를 만들어, 고친 값이 반영될지가 목록 읽기와의 경주가 된다(S69-74 — CI·로컬에서 간헐 실패).
+async function setup(page, width, prep = null) {
   const { errors, server } = await start(page, width);
   server.items.unshift({ ...FAILED }, { ...MANUAL });
+  prep?.(server);
   const bodies = {
     x1: { state: 'failed', reason: 'timeout', blocks: [] },
     m1: { state: 'ok', reason: null, rule: 'manual@1', blocks: [{ t: 'p', text: LONG }, { t: 'p', text: `가짜 본문 첫 문단. 참고 ${LONG} 끝.` }] },
@@ -123,9 +126,7 @@ for (const width of [390, 1280]) {
 
 test('옮기기 줄은 손으로 넣은 내 기사에만: 수집 기사 본문 첫 줄이 주소여도 보이지 않음', async ({ page }) => {
   test.setTimeout(60000);
-  const { errors, server } = await setup(page, 1280);
-  const m = server.items.find(i => i.id === 'm1');
-  Object.assign(m, { origin: 'tg_room', manual_at: null });
+  const { errors } = await setup(page, 1280, server => Object.assign(server.items.find(i => i.id === 'm1'), { origin: 'tg_room', manual_at: null }));
   await row(page, 'm1').locator('[data-nc-open="m1"]').click();
   const nd = detail(page);
   await expect(nd.locator('[data-nd-prose] a.nd-url')).toHaveCount(2);

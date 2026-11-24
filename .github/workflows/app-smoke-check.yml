@@ -71,6 +71,8 @@ on:
       - 'tests/library-same-content-model.test.mjs'
       - 'tests/library-move-write.test.mjs'
       - 'tests/org-files-folder-model.test.mjs'
+      - 'tests/weekly-save-folder-model.test.mjs'
+      - 'supabase/migrations/20261124203000_profile_weekly_folder.sql'
       - 'supabase/migrations/20261124160000_library_org_folder.sql'
       - 'tests/library-photoset.test.mjs'
       - 'tests/photo-fold-model.test.mjs'
@@ -227,6 +229,8 @@ on:
       - 'docs/ops/collector-feed.gs'
       - 'tests/tg-feed-hourly.test.mjs'
       - 'supabase/functions/ai-assist/**'
+      - 'supabase/functions/news-feed/**'
+      - 'tests/news-limit-count.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -251,6 +255,7 @@ on:
       - 'tests/news-feed-keep-hours.test.mjs'
       - 'tests/news-feed-default-on.test.mjs'
       - 'tests/now-model.test.mjs'
+      - 'tests/now-memos-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/reading-model.test.mjs'
       - 'tests/save-bookmarklet-model.test.mjs'
@@ -261,6 +266,8 @@ on:
       - 'tests/news-fold.test.mjs'
       - 'tests/news-find-model.test.mjs'
       - 'tests/files-model.test.mjs'
+      - 'tests/folder-dest-sheet.test.mjs'
+      - 'tests/files-trash.test.mjs'
       - 'tests/head-sort.test.mjs'
       - 'app/head-sort.mjs'
       - 'tests/files-sources-model.test.mjs'
@@ -512,6 +519,8 @@ on:
       - 'docs/ops/collector-feed.gs'
       - 'tests/tg-feed-hourly.test.mjs'
       - 'supabase/functions/ai-assist/**'
+      - 'supabase/functions/news-feed/**'
+      - 'tests/news-limit-count.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -536,6 +545,7 @@ on:
       - 'tests/news-feed-keep-hours.test.mjs'
       - 'tests/news-feed-default-on.test.mjs'
       - 'tests/now-model.test.mjs'
+      - 'tests/now-memos-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/reading-model.test.mjs'
       - 'tests/save-bookmarklet-model.test.mjs'
@@ -546,6 +556,8 @@ on:
       - 'tests/news-fold.test.mjs'
       - 'tests/news-find-model.test.mjs'
       - 'tests/files-model.test.mjs'
+      - 'tests/folder-dest-sheet.test.mjs'
+      - 'tests/files-trash.test.mjs'
       - 'tests/head-sort.test.mjs'
       - 'app/head-sort.mjs'
       - 'tests/files-sources-model.test.mjs'
@@ -783,10 +795,12 @@ jobs:
         run: node --test tests/ci-e2e-shard.test.mjs
       - name: Check files top row two-pane icon button (UI-파일검색줄)
         run: node --test tests/files-search-row.test.mjs
+      - name: Check news daily limits count only what a person used (S69-72 등록)
+        run: node --test tests/news-limit-count.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/now-memos-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
-        run: node --test tests/files-model.test.mjs tests/head-sort.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/drag-edge-scroll.test.mjs tests/marquee-select.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
+        run: node --test tests/files-model.test.mjs tests/folder-dest-sheet.test.mjs tests/files-trash.test.mjs tests/head-sort.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/drag-edge-scroll.test.mjs tests/marquee-select.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
@@ -890,7 +904,7 @@ jobs:
         run: node --test tests/origin-redirect.test.mjs
 
       - name: Check library toggle tree model
-        run: node --test tests/library-tree.test.mjs tests/library-receive.test.mjs tests/org-files-folder-model.test.mjs tests/library-sort-model.test.mjs tests/library-drive-import-model.test.mjs tests/library-same-content-model.test.mjs tests/library-move-write.test.mjs tests/library-tidy-model.test.mjs tests/library-learn-model.test.mjs tests/library-category-pick.test.mjs tests/list-edit.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/photo-fold-model.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
+        run: node --test tests/library-tree.test.mjs tests/library-receive.test.mjs tests/org-files-folder-model.test.mjs tests/weekly-save-folder-model.test.mjs tests/library-sort-model.test.mjs tests/library-drive-import-model.test.mjs tests/library-same-content-model.test.mjs tests/library-move-write.test.mjs tests/library-tidy-model.test.mjs tests/library-learn-model.test.mjs tests/library-category-pick.test.mjs tests/list-edit.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/photo-fold-model.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
 
       - name: Check split-resize column math
         run: node --test tests/split-resize-math.test.mjs tests/height-resize-model.test.mjs

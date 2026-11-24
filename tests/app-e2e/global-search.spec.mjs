@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
+import {folderSheet,sheetRow,sheetGo,pickInSheet} from './helpers/folder-sheet.mjs';
 import {openHome} from './helpers/home-entry.mjs';
-import {pickFolderIn} from './helpers/move-picker-drill.mjs';
 // SEARCH-전체검색 S-3·S-4(2026-10-22 요청함 07:55·07:57·08:01). 상단 줄 검색칸 → 결과 창(종류 칩·띠·들여쓴 줄·형광·N건 모두 보기),
 // ↑↓·엔터·Esc, 결과 누르면 원본 화면, 상단 줄 ←로 돌아오기. 폰(390)은 메뉴 창 맨 위 검색칸 → 화면 전체 검색(왼쪽 위 ←).
 // 서버 검색(app_search_records)은 시험 응답으로 대신한다. 이름은 모두 합성 값.
@@ -297,12 +297,17 @@ test('PC 1280: 자료실 결과 우클릭 [폴더로 옮기기 ›] → 그 자�
   await row.click({button:'right'});
   const menu=page.locator('#gsRowMenu');
   await menu.getByRole('button',{name:'폴더로 옮기기 ›'}).click();
-  const picker=page.locator('.lu-move-picker:visible');
-  await expect(picker).toBeVisible();
-  // 지금 든 폴더는 고를 수 없고, 폴더 밖으로 뺄 수 있다.
-  await expect(picker.locator('.lu-move-item:not([aria-disabled="true"])')).toHaveText(['교섭 자료']);
-  await expect(picker.getByRole('button',{name:'폴더 밖으로'})).toBeVisible();
-  await pickFolderIn(picker,picker.locator('.lu-move-item',{hasText:'교섭 자료'}));
+  // S69-62: [파일] '옮길 곳' 창과 같은 창. 지금 든 폴더는 '지금 여기'로 [여기에 옮기기]가 꺼져 있고, 맨 위 줄 '자료실' = 폴더 밖.
+  const sheet=folderSheet(page);
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('#fdSheetTitle')).toHaveText('1개 옮길 곳');
+  await expect(sheetRow(page,'회의자료')).toHaveAttribute('aria-current','true');
+  await expect(sheetGo(page)).toBeDisabled();
+  await expect(sheetRow(page,'자료실')).toBeVisible();
+  await pickInSheet(page,['교섭 자료'],{go:false});
+  expect(writes).toEqual([]); // 고르기만으로는 옮기지 않는다
+  await expect(sheet.locator('.fx-dest-at')).toHaveText('자료실 › 교섭 자료');
+  await sheetGo(page).click();
   await expect.poll(()=>writes.length).toBe(1);
   expect(writes[0]).toEqual({method:'PATCH',body:{folder_id:F2}});
   // 자료실 화면으로 넘어가지 않는다. 결과 줄 폴더 표시가 바로 바뀐다.
@@ -339,12 +344,11 @@ test('PC 1280: 노트 결과 우클릭 [폴더로 옮기기 ›] → 노트 폴�
   await expect(menu).toBeVisible();
   await expect(menu.getByRole('button')).toHaveText(['폴더로 옮기기 ›','자료실 결과 1개 모두 선택','열기']);
   await menu.getByRole('button',{name:'폴더로 옮기기 ›'}).click();
-  const picker=page.locator('.lu-move-picker:visible');
-  await expect(picker).toBeVisible();
-  // 노트 화면과 같은 폴더 줄과 [폴더 밖으로]. 하위 폴더가 있는 '회의'를 누르면 그 안으로 들어간다(LIB-폴더창들어가기).
-  await expect(picker.locator('.lu-move-item')).toHaveText(['회의']);
-  await expect(picker.getByRole('button',{name:'폴더 밖으로'})).toBeVisible();
-  await pickFolderIn(picker,picker.locator('.lu-move-item',{hasText:'교섭 기록'}),{path:[picker.locator('.lu-move-item',{hasText:'회의'})]});
+  // S69-62: [파일] '옮길 곳' 창과 같은 창 — 맨 위 줄 '노트'(= 폴더 밖), 하위 폴더는 위 폴더를 눌러 펼쳐야 보인다.
+  const sheet=folderSheet(page);
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('.fx-dest-tree [data-fx-dest-pick]')).toHaveText(['노트','회의']);
+  await pickInSheet(page,['회의','교섭 기록']);
   await expect.poll(()=>patches.length).toBe(1);
   expect(patches[0].metadata).toEqual({folder_id:F2,folder:'교섭 기록'});
   const notice=page.locator('#kptuNotice');
@@ -376,14 +380,18 @@ test('PC 1280: 노트 결과 [폴더로 옮기기 ›] → [+ 새 폴더 만들�
   await top(page).click();await top(page).fill('교섭');
   await panel(page).locator('[data-gs-group="note"] .gs-row').first().click({button:'right'});
   await page.locator('#gsRowMenu').getByRole('button',{name:'폴더로 옮기기 ›'}).click();
-  const picker=page.locator('.lu-move-picker:visible');
-  const make=picker.getByRole('button',{name:'+ 새 폴더 만들어 넣기'});
-  await expect(make).not.toHaveAttribute('aria-disabled','true');
+  // S69-62: [새 폴더]는 고른 곳(맨 위 줄 '노트') 안에 만들고 그 폴더를 고른다 — 옮기기는 [여기에 옮기기]로.
+  await pickInSheet(page,['노트'],{go:false});
+  const make=folderSheet(page).locator('[data-fx-dest-mkdir]');
+  await expect(make).toBeEnabled();
   await make.click();
   await page.locator('.kptu-ask-field').fill('새 교섭');
   await page.locator('.kptu-ask-actions .primary').click();
   await expect.poll(()=>made.length).toBe(1);
   expect(made[0]).toMatchObject({name:'새 교섭',parent_id:null,sort_order:2048});
+  await expect(sheetRow(page,'새 교섭')).toHaveAttribute('aria-current','true');
+  expect(patches).toEqual([]);
+  await sheetGo(page).click();
   await expect.poll(()=>patches.length).toBe(1);
   expect(patches[0].metadata).toEqual({folder_id:NEW,folder:'새 교섭'});
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 노트 1개 → 새 교섭 폴더');
@@ -412,14 +420,15 @@ test('PC 1280: 자료실 결과 [폴더로 옮기기 ›] → [+ 새 폴더 만�
   const row=panel(page).locator('[data-gs-group="document"] .gs-row').first();
   await row.click({button:'right'});
   await page.locator('#gsRowMenu').getByRole('button',{name:'폴더로 옮기기 ›'}).click();
-  const picker=page.locator('.lu-move-picker:visible');
-  // 폴더에 들지 않은 자료라 [폴더 밖으로]는 없고, [+ 새 폴더 만들어 넣기]는 누를 수 있다.
-  await expect(picker.getByRole('button',{name:'폴더 밖으로'})).toHaveCount(0);
-  await picker.getByRole('button',{name:'+ 새 폴더 만들어 넣기'}).click();
+  // S69-62: 폴더에 들지 않은 자료라 맨 위 줄 '자료실'이 '지금 여기'. [새 폴더]는 고른 곳 안에 만들고 그 폴더를 고른다.
+  await expect(sheetRow(page,'자료실')).toHaveAttribute('aria-current','true');
+  await folderSheet(page).locator('[data-fx-dest-mkdir]').click();
   await page.locator('.kptu-ask-field').fill('교섭 새 폴더');
   await page.locator('.kptu-ask-actions .primary').click();
   await expect.poll(()=>made.length).toBe(1);
   expect(made[0]).toMatchObject({name:'교섭 새 폴더',project_id:null,parent_id:null,sort_order:2048});
+  await expect(folderSheet(page).locator('.fx-dest-at')).toHaveText('자료실 › 교섭 새 폴더');
+  await sheetGo(page).click();
   await expect.poll(()=>writes.length).toBe(1);
   expect(writes[0]).toMatchObject({method:'POST',body:{document_id:D,folder_id:NEW}});
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개 → 교섭 새 폴더 폴더');

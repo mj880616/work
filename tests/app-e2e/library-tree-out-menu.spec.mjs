@@ -50,7 +50,8 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('폴더 밖');
     // 폴더 밖 자료를 모두 폴더로 옮기면(0개) 그 나무 줄도 없다.
     await page.locator(nav('')).click();
-    for(const id of ['a-2','a1-1','n-1']){await page.locator(row(id)).dragTo(page.locator(nav('fn')));await expect.poll(()=>s.items.find(x=>x.document_id===id)?.folder_id).toBe('fn')}
+    // 옮긴 뒤 목록을 다시 그리기를 마친 것(그 줄이 빠짐)을 본 다음 다음 줄을 끈다 — 다시 그리는 중에 시작한 끌기는 브라우저가 취소해 놓이지 않는다(바쁜 CI에서 간헐 실패).
+    for(const id of ['a-2','a1-1','n-1']){await page.locator(row(id)).dragTo(page.locator(nav('fn')));await expect.poll(()=>s.items.find(x=>x.document_id===id)?.folder_id).toBe('fn');await expect(page.locator(row(id))).toHaveCount(0)}
     await expect(page.locator('#documentList > [data-lu-document]')).toHaveCount(0);
     await expect(page.locator(nav('x:out'))).toHaveCount(0);
     expect(errors).toEqual([]);
