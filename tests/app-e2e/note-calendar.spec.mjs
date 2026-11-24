@@ -65,9 +65,9 @@ for (const width of [412, 884, 1440]) test(`[달력] 보기: 탭 노출·만든 
   await chooseBasketKind(page, 'note');
   await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3');
 
-  // 보기 탭: 폴더 · 목록 · 포스트잇 · 태그 · 댓글 · 달력(맨 끝), 한 줄 안에 들어간다.
+  // 보기 탭: 폴더 · 목록 · 보드 · 태그 · 메모(S69-94, 옛 댓글) · 달력(맨 끝), 한 줄 안에 들어간다.
   const tabs = page.locator('.nv-switch [data-note-view]');
-  await expect(tabs).toHaveText(['폴더', '목록', '보드', '태그', '댓글', '달력']);
+  await expect(tabs).toHaveText(['폴더', '목록', '보드', '태그', '메모', '달력']);
   const sw = await page.locator('.nv-switch').boundingBox();
   expect(sw.x).toBeGreaterThanOrEqual(0); expect(sw.x + sw.width).toBeLessThanOrEqual(width);
   const tab = page.locator('.nv-switch [data-note-view="calendar"]');
@@ -130,8 +130,8 @@ for (const width of [412, 884, 1440]) test(`[달력] 보기: 탭 노출·만든 
   expect(errors).toEqual([]);
 });
 
-// 폰: 좌우로 밀어 보기 이동 — [댓글]에서 왼쪽으로 밀면 [달력].
-test('[달력] 폰 밀기: 댓글 → 달력 → 댓글 (412)', async ({ page }) => {
+// 폰: 좌우로 밀어 보기 이동 — [메모]에서 왼쪽으로 밀면 [달력].
+test('[달력] 폰 밀기: 메모 → 달력 → 메모 (412)', async ({ page }) => {
   const s = server();
   await page.setViewportSize({ width: 412, height: 915 });
   await openHome(page, { beforeLoad: () => s.install(page) });

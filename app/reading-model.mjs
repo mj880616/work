@@ -10,7 +10,8 @@ export const LIST_COLS = 'id,url,title,site,saved_at,read_at,body_state,body_at,
 export const BODY_STATES = Object.freeze(['pending', 'ok', 'paywall', 'bot_check', 'robots', 'too_big', 'blocked', 'failed']);
 // 거르기 칩: [안 읽음 n] [전체] [밑줄]. 처음은 안 읽음.
 // S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 글을 따로 거르는 칩은 없다 — 평범한 읽을 거리 줄.
-export const FILTERS = Object.freeze(['unread', 'all', 'marks']);
+// S69-94 NOTE-메모통일: [메모] = 이 화면 글에 남긴 메모만 모아 보기(노트 [메모]와 같은 메모 목록·같은 줄).
+export const FILTERS = Object.freeze(['unread', 'all', 'marks', 'memos']);
 export const keepFilter = v => (FILTERS.includes(v) ? v : 'unread');
 
 const oneLine = (v, max) => (typeof v === 'string' ? [...v.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, max).join('').trim() : '');
@@ -65,15 +66,15 @@ export const entryUnread = e => !!e?.row && !e.row.read_at;
 export function filterEntries(entries, filter, keep = '') {
   const f = keepFilter(filter), list = Array.isArray(entries) ? entries : [];
   if (f === 'unread') return list.filter(e => entryUnread(e) || (!!keep && e.key === keep));
-  if (f === 'marks') return [];
+  if (f === 'marks' || f === 'memos') return [];
   return list;
 }
 export const unreadCount = entries => (Array.isArray(entries) ? entries.filter(entryUnread).length : 0);
 // marks: [밑줄] 탭 숫자 = 노트 › 밑줄과 같은 밑줄 수(visibleMarks 목록 길이, 모르면 null).
-export function filterOptions(entries, marks = null) {
+export function filterOptions(entries, marks = null, memos = null) {
   const list = Array.isArray(entries) ? entries : [];
-  const n = unreadCount(list), m = Number.isInteger(marks) ? marks : 0;
-  return [{value: 'unread', label: `안 읽음 ${n}`}, {value: 'all', label: '전체'}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}];
+  const n = unreadCount(list), m = Number.isInteger(marks) ? marks : 0, c = Number.isInteger(memos) ? memos : 0;
+  return [{value: 'unread', label: `안 읽음 ${n}`}, {value: 'all', label: '전체'}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}, {value: 'memos', label: c ? `메모 ${c}` : '메모'}];
 }
 // 좌우 밀기: 지금 칩에서 옆 칩으로(끝에서는 그대로).
 export function nextFilter(current, dir) {
@@ -83,6 +84,7 @@ export function nextFilter(current, dir) {
 // 빈 목록 한 줄.
 export function emptyText(filter, total) {
   if (filter === 'marks') return '저장한 밑줄이 없어요 · 글을 선택하고 [밑줄 저장]';
+  if (filter === 'memos') return '남긴 메모가 없어요 · 글 아래 [메모 남기기]';
   if (!total) return '저장한 글이 없어요 — [+ 추가]에 주소를 넣거나 폰에서 공유 → WORK ON+ 저장한 글';
   return '안 읽은 글이 없어요';
 }

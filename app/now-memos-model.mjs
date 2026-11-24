@@ -54,6 +54,29 @@ const squash = v => String(v ?? '').replace(/\s+/g, '').toLowerCase();
 export function memoHit(entry, query) {
   const needle = squash(query);
   if (!needle) return true;
-  const r = entry?.row || {}, n = entry?.note || {};
-  return [r.title, r.title_ko, n.raw_text, n.title].some(t => squash(t).includes(needle));
+  const r = entry?.row || {}, n = entry?.note || {}, m = entry?.memo || {};
+  return [r.title, r.title_ko, n.raw_text, n.title, m.body, m.target_title].some(t => squash(t).includes(needle));
 }
+
+// S69-94 NOTE-메모통일: 새 메모 표(app_memos)의 글 메모(news·outside) → 같은 줄 모양. 같은 글에 메모가 여럿이면 가장 최근 것이 그 줄을 대표한다.
+// articleOf(type, id) = 글 줄(없으면 null — 그 글은 '메모만' 줄). 돌려줌 [{key, memo, type, id, row|null, at}].
+export function tableEntries(memos, {articleOf = () => null} = {}) {
+  const by = new Map();
+  for (const m of memos || []) {
+    if (!m || !MEMO_KEY[m.target_type] || typeof m.target_id !== 'string') continue;
+    const key = `${m.target_type}:${m.target_id}`, was = by.get(key);
+    if (!was || String(m.created_at || '') > String(was.created_at || '')) by.set(key, m);
+  }
+  return [...by.entries()].map(([key, m]) => ({key, memo: m, type: m.target_type, id: m.target_id, row: articleOf(m.target_type, m.target_id) || null, at: m.created_at || null}));
+}
+// 옛 노트 메모 줄 + 새 메모 줄 → 글마다 한 줄(더 최근 것), 최근 먼저. 옛 노트 메모는 지우지 않으므로 같은 글이면 둘 중 최근 것이 보인다.
+export function mergeEntries(oldEntries, newEntries) {
+  const by = new Map();
+  for (const e of [...(oldEntries || []), ...(newEntries || [])]) {
+    const was = by.get(e.key);
+    if (!was || String(e.at || '') > String(was.at || '')) by.set(e.key, was && !e.row && was.row ? {...e, row: was.row} : e);
+  }
+  return [...by.values()].sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')) || String(a.key).localeCompare(String(b.key)));
+}
+// 줄 아래 메모 첫 줄: 새 메모면 그 글, 옛 노트 메모면 노트 글.
+export const entryLine = e => (e?.memo ? memoLine({raw_text: e.memo.body}) : memoLine(e?.note));

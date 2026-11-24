@@ -56,7 +56,7 @@ for (const width of [390, 412, 700]) {
     const { errors, list } = await openReading(page, width);
     const sw = list.locator('.rd-switch');
     await expect(sw).toHaveClass(/(^|\s)ds-seg(\s|$)/);
-    await expect(sw.locator('button.ds-seg-btn[data-filter-value]')).toHaveText(['안 읽음 24', '전체', '밑줄']);
+    await expect(sw.locator('button.ds-seg-btn[data-filter-value]')).toHaveText(['안 읽음 24', '전체', '밑줄', '메모']);
     await expect(sw).toHaveAttribute('aria-label', '저장한 글 보기');
     await expect(list.locator('.rd-chips, .filter-chips')).toHaveCount(0);
     expect(await sw.evaluate(e => getComputedStyle(e).position)).toBe('fixed');

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { routeMemos } from './helpers/memo-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S48-27 OUTSIDE-글상세·관심환류 ③④(docs/design/outside-statements.md 12절, 요청함 11/01 23:12, 명진 결정 23:14·23:16):
@@ -99,6 +100,7 @@ async function start(page, width) {
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
   const { prefs } = await openHome(page);
   const server = await nowServer(page);
+  server.memoTable = await routeMemos(page);
   return { errors, server, prefs };
 }
 async function openNow(page, width) {
@@ -190,12 +192,15 @@ for (const width of [412, 884, 1280]) {
     await link.click();
     await expect.poll(() => server.signals.map(x => x.action)).toEqual(['star', 'open']);
 
-    // [메모] = 노트 하나(metadata.outside_post_id) + 기록.
-    await nd.locator('[data-nd-act="memo"]').click();
-    await nd.locator('[data-nd-memo-input]').fill('가상 메모');
-    await nd.locator('[data-nd-memo-form]').getByRole('button', { name: '저장', exact: true }).click(); // S68-34: 글 [저장] 단추와 같은 이름이라 메모 칸 안
-    await expect(nd.locator('[data-nd-memo-text]')).toContainText('가상 메모');
-    expect(server.notes[0].body).toMatchObject({ kind: 'note', raw_text: '가상 메모', metadata: { outside_post_id: P1 } });
+    // S69-94 메모 = 글 아래 메모 칸(app_memos 한 줄: 대상 outside·이 글·제목 사본) + 기록. [메모] 칩은 그 칸 쓰기 칸으로.
+    await nd.locator('[data-nd-memo-go]').click();
+    await expect(nd.locator('[data-nd-memos] [data-cm-text]')).toBeFocused();
+    await nd.locator('[data-nd-memos] [data-cm-text]').fill('가상 메모');
+    await nd.locator('[data-nd-memos] [data-cm-save]').click();
+    await expect(nd.locator('[data-nd-memos] .memo-th-row')).toContainText('가상 메모');
+    await expect(nd.locator('[data-nd-memo-go]')).toHaveText('메모 1');
+    expect(server.memoTable.posts).toEqual([{ workspace_id: 'w', target_type: 'outside', target_id: P1, target_title: '[성명] 가상 철도 민영화 반대', body: '가상 메모' }]);
+    expect(server.notes).toEqual([]);
     await expect.poll(() => server.signals.map(x => x.action)).toEqual(['star', 'open', 'memo']);
 
     // 시사점 칸 안 접기(주요 문장·나와의 연관), 함께 볼 것은 원문 아래 접기(S51-14 P4c).
