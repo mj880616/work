@@ -36,7 +36,8 @@ export function dropIndexGrid(rects, x, y) {
 //  whole: true  → 마우스도 줄 어디를 잡아도 끌린다(손잡이 없이). 줄 안 입력칸·링크·onlyHandleExcept 선택자(기본 ⋯ 단추)는 제외.
 //  zones: {resolve(dragId, overId, zone) -> {ok, canInside}} → 줄 위에서 위 25%·가운데 50%·아래 25%(dropZone)를 재서 onHover({id, over, zone})로 알리고,
 //         onDrop({id, list, index, over, zone})에 넘긴다. 자리 표시는 화면(onHover)이 그린다. 줄 사이 = 순서, 가운데 = 넣기.
-//  onHold(item): 폰에서 줄을 꾹 눌렀다 움직이지 않고 뗐을 때(끌기 아님) 알린다(우클릭과 같은 메뉴를 열 때).
+//  onHold(item): 폰에서 줄을 꾹 눌렀다 움직이지 않고 뗐을 때(끌기 아님) 알린다(S69 LONGPRESS-선택: 선택 모드 + 그 줄 선택).
+//  canHold(id): 끌 수 없는 줄(canDrag false)도 꾹 누르기(onHold)는 받을지. 기본 없음(끌 수 있는 줄만).
 // MENU-왼쪽메뉴바로끌기 확장 — 칸 상자가 따로 없이 한 줄로 이어진 목록(PC 왼쪽 메뉴·폰 [메뉴] 창, 칸 사이에 빈 공간·선만 있음). 다른 사용처는 기본값 그대로:
 //  resolve(x, y, dragEl) -> {listId, index, before?, after?} | null : 놓을 자리를 부르는 쪽이 정한다(칸 상자·가운데 위치 계산 대신).
 //         before = 놓을 자리 바로 뒤 요소(.re-drop-before), after = 바로 앞 요소(.re-drop-end, before가 없을 때). onDrop({id, list: listId, index})는 그대로.
@@ -45,7 +46,7 @@ export function dropIndexGrid(rects, x, y) {
 //         문서 단계 위임 클릭(loader-v2의 [data-view] 화면 열기)이 root보다 먼저 받으면 끌었다 놓은 줄의 화면이 열려 버리기 때문이다. 부품이 다시 붙는 곳은 destroy로 그 창 쪽 귀를 뗀다.
 // S69-27 끄는 모습 보이기 — 다른 사용처는 기본값 그대로(조각 없음):
 //  ghost(el, id) -> 글자 | null : 잡은 동안 마우스·손가락을 따라오는 반투명 조각(공용 drag-ghost.js)에 쓸 글자. 놓거나 취소하면 사라진다.
-export function mountReorder(root, {ghost = null, listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false, early = false} = {}) {
+export function mountReorder(root, {ghost = null, listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, canHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false, early = false} = {}) {
   let drag = null, touch = null, marker = null;
   const floater = ghost ? createDragGhost(root.ownerDocument || document) : null;
   const idOf = el => el?.dataset?.reorderId || '';
@@ -144,7 +145,8 @@ export function mountReorder(root, {ghost = null, listSelector = '[data-reorder-
   });
   let swallow = false;
   // whole 모드: 줄이 아닌 곳(메뉴·창)의 누르기는 막지 않는다. early면 창 단계에서 받아 문서 단계 위임 클릭보다 먼저 막는다.
-  const clickGuard = event => { if (swallow && (!early || root.contains(event.target)) && (!whole || event.target.closest?.(itemSelector))) { event.preventDefault(); event.stopPropagation(); } };
+  // whole 모드의 ⋯ 단추(wholeExcept)는 따로 누르는 것이라 삼키지 않는다(꾹 눌러 고른 바로 뒤에도 ⋯로 메뉴).
+  const clickGuard = event => { if (swallow && (!early || root.contains(event.target)) && (!whole || (event.target.closest?.(itemSelector) && !event.target.closest(wholeExcept)))) { event.preventDefault(); event.stopPropagation(); } };
   (early ? window : root).addEventListener('click', clickGuard, true);
 
   // 폰: 줄을 LONG_MS 눌러 두면 잡힌다.
@@ -152,11 +154,13 @@ export function mountReorder(root, {ghost = null, listSelector = '[data-reorder-
   root.addEventListener('pointerdown', event => {
     if (event.pointerType !== 'touch' || !event.isPrimary) return;
     const item = event.target.closest?.(itemSelector);
-    if (!item || !canDrag(idOf(item)) || event.target.closest(whole ? 'input,textarea,select,' + (links ? '' : 'a[href],') + wholeExcept : 'input,textarea,select,a[href],button:not([data-reorder-handle])')) return;
+    if (!item || event.target.closest(whole ? 'input,textarea,select,' + (links ? '' : 'a[href],') + wholeExcept : 'input,textarea,select,a[href],button:not([data-reorder-handle])')) return;
+    const draggable = canDrag(idOf(item));
+    if (!draggable && !(onHold && canHold?.(idOf(item)))) return;
     cancelTouch();
     touch = {el: item, x: event.clientX, y: event.clientY, grabbed: false, moved: false, timer: setTimeout(() => {
       if (!touch || touch.el !== item) return;
-      touch.grabbed = true; begin(item, touch.x, touch.y); item.classList.add('re-grabbed'); try { navigator.vibrate?.(12); } catch { /* 진동 없는 기기 */ }
+      touch.grabbed = true; if (draggable) begin(item, touch.x, touch.y); item.classList.add('re-grabbed'); try { navigator.vibrate?.(12); } catch { /* 진동 없는 기기 */ }
     }, LONG_MS)};
   });
   root.addEventListener('pointermove', event => {
