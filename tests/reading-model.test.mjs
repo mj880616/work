@@ -100,7 +100,7 @@ test('화면 연결(S68-27·S68-29): 이 표 하나만 읽고, News 길은 기�
   const news = read('app/outside-statements.js');
   assert.doesNotMatch(news, /data-now-panel-saved|createNowSaved/);
   assert.doesNotMatch(news, /data-now-go-saved|보관 ↗/, 'S68-28: News 탭 줄의 보관 길은 없앴다');
-  assert.match(news, /openItem: async item =>/);
+  assert.match(news, /openItem: async \(item, \{edit = false\} = \{\}\) =>/); // S69: [수정]으로 열 때 edit
 });
 
 test('원문 사본: note-import 글자 블록만 글자로(사진·다른 블록 빼고, 제어 문자 빼고), 상태는 표 검사와 같은 이름', () => {
@@ -219,4 +219,38 @@ test('화면 연결: 열릴 때 자동 다시 가져오기(기존 startFetch, 2�
   assert.match(view, /if \(state\.loaded && !state\.failed\) void autoRefetch\(\);/);
   assert.match(data, /import\('\.\/feed-shared\.js'\)/);
   assert.match(data, /const copy = await newsCopy\(row\);/);
+});
+
+// S69 READ-제목하나(명진 11/24 "목록에서 이상한 제목이 보임"): News에서 온 줄의 제목 주인은 사람이 고친 기사 제목(손으로 넣은 기사).
+test('titleFixes: 손으로 넣은 기사 제목이 사본과 다를 때만 고칠 줄, 수집 기사·빈 제목·같은 제목은 그대로', async () => {
+  const {titleFixes, ownTitle} = await import('../app/reading-model.mjs');
+  const R = n => `a6900000-0000-4000-8000-00000000000${n}`, A = n => `c6900000-0000-4000-8000-00000000000${n}`;
+  const rows = [
+    {id: R(1), title: '[제2026-27호] 원래 쪽 제목', news_article_id: A(1)},
+    {id: R(2), title: '수집 기사 제목', news_article_id: A(2)},
+    {id: R(3), title: '같은 제목', news_article_id: A(3)},
+    {id: R(4), title: '직접 넣은 줄', news_article_id: null},
+    {id: R(5), title: '빈 제목 기사', news_article_id: A(5)},
+  ];
+  const arts = [
+    {id: A(1).toUpperCase(), title: '  점점 힘들어지는 중소 입사 -> 대기업 이직 테크 ', manual_at: '2026-11-23T00:21:00Z'},
+    {id: A(2), title: '다른 수집 제목', manual_at: null},
+    {id: A(3), title: '같은 제목', manual_at: '2026-11-23T00:21:00Z'},
+    {id: A(5), title: '', manual_at: '2026-11-23T00:21:00Z'},
+  ];
+  assert.deepEqual(titleFixes(rows, arts), [{id: R(1), title: '점점 힘들어지는 중소 입사 -> 대기업 이직 테크'}]);
+  assert.deepEqual(titleFixes(null, arts), []);
+  assert.equal(ownTitle('  한 줄\n제목 '), '한 줄 제목');
+  assert.equal(ownTitle('   '), null);
+});
+
+test('저장한 글 [수정]: ⋯ 맨 앞 [수정](다른 화면과 같은 순서), News 뉴스 기사는 그 글 보기 ⋯ [수정] 창, 직접 넣은 줄은 이 화면 칸 — 새 창 부품 없음', () => {
+  const js = readFileSync('app/reading.js', 'utf8'), out = readFileSync('app/outside-statements.js', 'utf8'), nd = readFileSync('app/now-detail.js', 'utf8');
+  assert.match(js, /\$\{editKind\(id\) \? '<button type="button" class="row-act" data-rd-act="edit">수정<\/button>' : ''\}<button type="button" class="row-act" data-rd-act="read">/);
+  assert.match(js, /openNews\(link, \{edit: true\}\)/);
+  assert.match(out, /openItem: async \(item, \{edit = false\} = \{\}\) =>/);
+  assert.match(out, /if \(edit && detail\.current\(\)\) void detail\.edit\(\);/);
+  assert.match(nd, /async function edit\(\) \{[\s\S]*?await openHand\(\);/);
+  // 제목 고친 뒤 이어진 저장한 글 줄의 사본도 같은 제목으로.
+  assert.match(nd, /m\.syncNewsTitle\(c\.item\.id, row\.title\)/);
 });

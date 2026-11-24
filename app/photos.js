@@ -89,7 +89,7 @@ import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {bindEdgeBack} from './edge-back-swipe.js';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {bindFolderPinch} from './folder-pinch.js';
-import {FOLDER_ENTER_LABEL, ftKeepPlace, ftExplorePress, folderPressAction, FOLDER_PRESS_ENTER} from './folder-tree-press.mjs';
+import {FOLDER_ENTER_LABEL, ftKeepPlace, ftExplorePress, ftBindTreeArrows, folderPressAction, FOLDER_PRESS_ENTER} from './folder-tree-press.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {originKey} from './diary-list-model.mjs';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, TABS, TAB_TEXT, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
@@ -3676,6 +3676,7 @@ root.addEventListener('change', event => {
   if (event.target.matches('[data-photos-view]')) { setTab(event.target.value); event.target.value = tab; return; }
   if (event.target.matches('[data-photos-filter]')) setFilter(event.target.value);
 });
+ftBindTreeArrows(); // STD-기본동작 K4: 왼쪽 폴더 나무(role=tree) ↑↓ 줄 이동(공용 folder-tree-press.mjs)
 root.addEventListener('keydown', event => {
   if (event.key === 'Escape' && select.active && !photoStripOpen()) { event.preventDefault(); select.stop(); paintSelect(); }
 });

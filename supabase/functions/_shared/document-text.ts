@@ -18,6 +18,7 @@
 // 원본 Drive 파일은 읽기만 한다(이름·위치·내용 변경 없음, ⑦). 실패는 던지지 않고 {text:'', reason}으로 돌려준다.
 
 import { createDriveOcr, OCR_MAX_BYTES, OcrError, ocrMarkers } from "./drive-ocr.ts";
+import { sweepTextTemps } from "./text-temp-sweep.mjs";
 import { HWP_SLICE_IN, HWP_SLICE_OUT, HwpTextError, hwpPreview, hwpRead, hwpxRead, sliceTotal } from "./hwp-text.mjs";
 
 // 사진 OCR 임시 문서 표시의 note·workspace 칸 값(바구니 기록 ID와 겹치지 않아 바구니 되찾기가 이 문서를 잡지 않는다).
@@ -279,6 +280,9 @@ export function createDocumentText(deps: Deps) {
       } catch {
         log("document_text_temp_delete_failed");
       }
+      // S69-40: 앞서 도중에 끊겨 남은 표식 사본(15분 지난 것)을 휴지통으로(text-temp-sweep.mjs). 실패해도 글자 읽기는 그대로.
+      const swept = await sweepTextTemps({ fetch: doFetch, token });
+      if (swept) log("document_text_temp_swept");
     }
   }
 

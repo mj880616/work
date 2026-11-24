@@ -446,3 +446,22 @@ test('S69-01 savedUsable·sameDetail', async () => {
   assert.equal(sameDetail(full, {...full, summary: '새 요약.'}), false);
   assert.equal(sameDetail(null, full), false);
 });
+
+// S69 READ-첨부본문: 짧은 본문(마침표 하나 등)은 요약하지 않고 '본문이 짧아 요약하지 않았어요', 손 본문이 짧으면 [원문 다시 가져오기].
+test('bodyShort·handShort·noMaterialLine: 글자(띄어쓰기·문장부호 빼고) 20자 미만이면 짧은 본문', async () => {
+  const M = await import('../app/now-model.mjs');
+  const hand = blocks => ({state: 'ok', hand: true, blocks});
+  const dot = hand([{t: 'img', src: 'https://img.example.org/g.png'}, {t: 'p', text: '.'}]);
+  assert.equal(M.BODY_SHORT_CHARS, 20);
+  assert.equal(M.bodyShort(dot), true);
+  assert.equal(M.handShort(dot), true);
+  assert.equal(M.handNoText(dot), false);
+  assert.equal(M.noMaterialLine(dot, '기다림'), '본문이 짧아 요약하지 않았어요');
+  assert.equal(M.noMaterialLine(hand([{t: 'img', src: 'https://img.example.org/g.png'}]), '기다림'), '본문 없음');
+  assert.equal(M.noMaterialLine({state: 'failed', blocks: [], reason: '사이트가 늦게 답해 읽지 못함'}, '기다림'), '사이트가 늦게 답해 읽지 못함');
+  const long = {state: 'ok', blocks: [{t: 'p', text: '노동자들이 오늘 광장에 모여 임금 인상과 인력 충원을 요구했다.'}]};
+  assert.equal(M.bodyShort(long), false);
+  assert.equal(M.handShort({...long, hand: true}), false);
+  assert.equal(M.noMaterialLine(long, '기다림'), '기다림');
+  assert.equal(M.handShort({state: 'ok', blocks: [{t: 'p', text: '.'}]}), false, '손 본문이 아니면 아님');
+});
