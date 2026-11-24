@@ -83,7 +83,7 @@ export function validateLabel(text) {
 
 // ---- 자리 계산(판 좌표) ----
 const center = r => ({x:r.x + r.w / 2, y:r.y + r.h / 2});
-export const rectOf = p => ({x:p.x, y:p.y, w:CARD_W, h:CARD_H});
+export const rectOf = p => ({x:p.x, y:p.y, w:p.w || CARD_W, h:p.h || CARD_H}); // S69-88: 손으로 정한 카드 크기
 // 변의 가운데 점.
 export function sidePoint(r, side) {
   if (side === 'top') return {x:r.x + r.w / 2, y:r.y};

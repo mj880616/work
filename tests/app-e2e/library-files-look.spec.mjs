@@ -50,7 +50,7 @@ test('자료실 PC 1280: 폴더 안에서는 주소 줄이 하나 — 위치 줄
   await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
   const path = page.locator('#libraryPath');
   await expect(path).toBeVisible();
-  const open = path.locator('a.lu-path-drive');
+  const open = path.locator('a.lu-drive-here');
   await expect(open).toHaveText('드라이브 ↗');
   await expect(open).toHaveAttribute('href', `https://drive.google.com/drive/folders/${PAIR}`);
   await expect(open).toHaveAttribute('rel', /noopener/);
