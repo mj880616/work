@@ -36,4 +36,6 @@
     <!-- APP-이번주위젯 S68-12(11/22): 고른 날 음영(먹색 톤, 바탕과 또렷이 구분)·테두리. 오늘을 고르면 오늘 칸 둘레에 같은 음영. -->
     <color name="widget_pick_bg">#D6D3CB</color>
     <color name="widget_pick_line">#8F8C85</color>
+    <!-- S69-위젯일요일(11/24): 이번 주 위젯 일요일 칸 글자(앱 달력 .cal-head.sunday = 웹 kptu-danger와 같은 값). -->
+    <color name="widget_sun_ink">#B42318</color>
 </resources>

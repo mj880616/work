@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNodeHead,libraryTopMenu} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,childrenOf} from './helpers/library-folder-server.mjs';
 // LIB-폴더탐색기 화면 ②(docs/design/library-tree.md 12절): 끌어 옮기기(폴더 보기는 프로젝트 틀과 무관), 놓을 곳 점선 표시,
-// '옮겼어요 · 되돌리기', 여러 자료 한꺼번에 끌기, 화면 가장자리 자동 스크롤, 폰 길게 누르기(잡아 옮기기·떼면 메뉴·세로 스크롤과 구분).
+// '옮겼어요 · 되돌리기', 여러 자료 한꺼번에 끌기, 화면 가장자리 자동 스크롤, 폰 길게 누르기(잡아 옮기기·떼면 고르기·세로 스크롤과 구분).
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
 const ITEMS=[{document_id:'a-1',folder_id:'fc'},{document_id:'n-1',folder_id:'fa'}];
 const head=key=>`#documentList details[data-lu-node="${key}"] > summary`;
@@ -120,7 +120,7 @@ test.describe('폰 390 길게 누르기',()=>{
   // 줄 위에 '최근 올린 파일' 칸이 생겨 목록이 화면 밖으로 밀릴 수 있으므로, 길게 누르기 전에 그 줄을 화면 안으로 가져온다.
   const centerView=async(page,sel)=>{await page.locator(sel).scrollIntoViewIfNeeded();return center(page,sel)};
   const touch=async(cdp,type,pts)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:pts.map((p,i)=>({x:p.x,y:p.y,id:i}))});
-  test('누른 채 움직이면 놓은 폴더로 옮기고, 움직이지 않고 떼면 같은 메뉴가 열리고, 짧게 움직이면 스크롤로 본다',async({page})=>{
+  test('누른 채 움직이면 놓은 폴더로 옮기고, 움직이지 않고 떼면 선택 모드 + 그 줄 선택(메뉴는 ⋯), 짧게 움직이면 스크롤로 본다',async({page})=>{
     const {s,errors}=await bootLibrary(page,390,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     await expandLibraryTree(page);
     const cdp=await page.context().newCDPSession(page);
@@ -135,19 +135,30 @@ test.describe('폰 390 길게 누르기',()=>{
     await touch(cdp,'touchEnd',[]);
     await expect.poll(()=>s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fa');
     await expect(line(page)).toContainText('옮겼어요');
-    // 2) 폴더 머리를 길게 눌렀다가 그대로 떼면 폴더 메뉴.
+    // 2) S69 LONGPRESS-선택(명진 11/24): 폴더 머리를 길게 눌렀다가 그대로 떼면 메뉴가 아니라 선택 모드 + 그 폴더 안 자료 모두 선택.
     await expandLibraryTree(page);
-    from=await centerView(page,head('f:fn')+' .lu-node-name');
+    from=await centerView(page,head('f:fa')+' .lu-node-name');
     await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);await touch(cdp,'touchEnd',[]);
-    await expect(page.locator('#luFolderMenu')).toBeVisible();await expect(page.locator('#luFolderMenu').getByRole('button',{name:'폴더 삭제',exact:true})).toBeVisible();
-    await page.keyboard.press('Escape');
-    // 3) 자료 줄을 길게 눌렀다가 그대로 떼면 자료 ⋯ 메뉴(자료는 열리지 않는다).
+    await expect(page.locator('#librarySelectBar')).toBeVisible();
+    await expect(page.locator('#librarySelectCount')).toHaveText(/[1-9]\d*개 선택됨/);
+    await expect(page.locator('#luFolderMenu')).toBeHidden();
+    await expect(page.locator(head('f:fa')+' [data-lu-pick-node]')).toBeChecked();
+    // 3) 선택 모드에서 자료 줄을 길게 눌렀다가 그대로 떼면 그 줄을 더한다(메뉴 없음, 자료는 열리지 않는다). 다시 길게 눌러도 풀리지 않는다.
     await expandLibraryTree(page);
     from=await centerView(page,row('a1-1')+' .lu-row-title');
     await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);await touch(cdp,'touchEnd',[]);
-    await expect(page.locator('#luMorePanel')).toBeVisible();
+    await expect(page.locator(row('a1-1')+' [data-lu-pick]')).toBeChecked();
+    from=await centerView(page,row('a1-1')+' .lu-row-title');
+    await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);await touch(cdp,'touchEnd',[]);
+    await expect(page.locator(row('a1-1')+' [data-lu-pick]')).toBeChecked();
+    await expect(page.locator('#luMorePanel')).toBeHidden();
     await expect(page.locator('#documentModal')).toBeHidden();
+    // 메뉴는 줄 오른쪽 ⋯로 연다.
+    await page.locator(row('a1-1')+' [data-lu-menu]').click();
+    await expect(page.locator('#luMorePanel')).toBeVisible();
     await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#librarySelectBar')).toBeHidden();
     // 4) 누르자마자 세로로 움직이면(스크롤) 잡히지 않는다.
     from=await centerView(page,row('a1-1')+' .lu-row-title');
     await touch(cdp,'touchStart',[from]);await touch(cdp,'touchMove',[{x:from.x,y:from.y-40}]);await page.waitForTimeout(700);

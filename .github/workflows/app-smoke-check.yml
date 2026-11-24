@@ -240,7 +240,6 @@ on:
       - 'tests/files-search-row.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/outside-search-model.test.mjs'
-      - 'tests/notice-outside-model.test.mjs'
       - 'tests/feed-shared-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
       - 'tests/news-feed-script.test.mjs'
@@ -526,7 +525,6 @@ on:
       - 'tests/files-search-row.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/outside-search-model.test.mjs'
-      - 'tests/notice-outside-model.test.mjs'
       - 'tests/feed-shared-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
       - 'tests/news-feed-script.test.mjs'
@@ -638,6 +636,9 @@ jobs:
 
       - name: Check attachment delete and undo (FILE-첨부삭제)
         run: node --test tests/file-trash.test.mjs
+
+      - name: Check library many delete in server batches (S70 LIB-묶음삭제)
+        run: node --test tests/library-delete-many.test.mjs
 
       - name: Check schedule window photos and files (CAL-일정첨부)
         run: node --test tests/event-files.test.mjs
@@ -780,7 +781,7 @@ jobs:
       - name: Check files top row two-pane icon button (UI-파일검색줄)
         run: node --test tests/files-search-row.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
         run: node --test tests/files-model.test.mjs tests/head-sort.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/drag-edge-scroll.test.mjs tests/marquee-select.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
 
@@ -870,6 +871,8 @@ jobs:
         run: node --test tests/report-plan-model.test.mjs tests/report-plan-cover.test.mjs tests/report-plan-data.test.mjs tests/report-plan-mark.test.mjs
       - name: NOTE-탐색기 후속 선택 상태·위치 줄 공용 부품 시험
         run: node --test tests/select-mode-folder-path.test.mjs
+      - name: S69 폰 꾹 누르기 = 선택 모드 + 그 줄 선택(공용 규칙) 시험
+        run: node --test tests/longpress-select.test.mjs
       - name: S51-22 '최근' 상자 접기(서버 기억·머리 줄 ▴▾) 시험
         run: node --test tests/recent-fold.test.mjs
       - name: S51-23 파일 '최근'에서 Web2 자동 생성 파일 빼기(시스템 폴더 규칙) 시험
