@@ -20,8 +20,10 @@ const modal=page=>page.locator('#libraryTidyModal');
 const group=(page,gid)=>modal(page).locator(`[data-tidy-group="${gid}"]`);
 const folderOf=(s,id)=>s.items.find(x=>x.document_id===id)?.folder_id;
 async function openTop(page,width){
-  await press(page,page.locator('#libraryTopMenuBtn'),width);
-  await press(page,page.locator('#luTopMenu [data-lu-top="tidy"]'),width);
+  // 다시 읽은 직후에는 맨 위 ⋯가 아직 일을 받기 전일 수 있다 — 메뉴 항목이 보일 때까지 ⋯를 다시 누른다(창은 한 번만 연다).
+  const item=page.locator('#luTopMenu [data-lu-top="tidy"]');
+  await expect(async()=>{if(!await item.isVisible())await press(page,page.locator('#libraryTopMenuBtn'),width);await expect(item).toBeVisible({timeout:1500})}).toPass({timeout:15000});
+  await press(page,item,width);
   await expect(modal(page)).toBeVisible();
 }
 
@@ -57,6 +59,7 @@ for(const [label,width,touch] of [['PC 1280',1280,false],['폰 412',412,true]]){
       s.docs.push(libDoc(u(204),null,{title:'가상궤도협의회 제8차 대표자회의자료'}));s.items.push({workspace_id:'workspace-1',document_id:u(204),folder_id:RCV});
       await page.reload();
       await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
+      await expect(page.locator('#documentList details[data-lu-node]').first()).toBeAttached();
       await expect(page.locator('.lu-receive-mark,#libraryFolderNav .ft-tag,#documentList [data-lu-two] .ft-tag').first()).toBeAttached();
       await openTop(page,width);
       await expect(modal(page).locator(`[data-tidy-row="${u(204)}"]`)).toHaveCount(1);
