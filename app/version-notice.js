@@ -2,6 +2,8 @@ import {newSince,noticeText} from './release-notes-model.mjs';
 import {readReleaseNotes,canReadReleaseNotes} from './release-notes-read.js';
 import {putNotice,removeNotice} from './notice-bar.js';
 import {askConfirm} from './small-notice.js';
+// S69-34: 계정 메뉴 '앱 정보'(app-info.js)가 같은 판 정보·같은 확인·같은 다시 읽기를 쓴다(따로 만들지 않음). 확인은 누를 때만(60초 간격 없음).
+export const appVersionNow={current:null,check:async()=>null,reload:async()=>false};
 // Open tabs compare the deployed entry point with the app script they actually loaded.
 // Any deployed ?v= other than the running one is new (the Pages build makes it a content hash;
 // a rollback is a new deployment too). A dismissed value is not offered again in this tab.
@@ -10,6 +12,7 @@ export function startVersionNotice(scriptUrl){
   const version=raw=>/^[A-Za-z0-9._-]{1,64}$/.test(raw||'')?raw:null;
   const current=version(script.searchParams.get('v'));
   if(current===null)return;
+  appVersionNow.current=current;
   // UI-업데이트안내 → UPDATE-운영자전용기록업데이트소식(명진 11/15 13:37): 새 판 안내 줄은 운영자에게만 띄운다(이용자에게는 창·줄 없음,
   // 새 판은 다음에 열 때 조용히 반영). 운영자 판정은 서버 허용 표(app_my_features)이고, 바뀐 것 세기는 서버 기록(app_release_notes_read, 운영자만)에서 한다.
   // 이 화면이 열릴 때 마지막 기록 버전명(known)을 한 번 기억하고(메모리만), 새 판이 뜨면 서버 기록에서 known 뒤로 생긴 것만 센다. 못 읽으면 지금 문구 그대로.
@@ -103,6 +106,9 @@ export function startVersionNotice(scriptUrl){
     }
     return matches.length===1?matches[0]:null;
   }
+  // 지금 배포된 판(index.html이 부르는 app.js의 ?v=). 못 읽으면 null(던지지 않음).
+  appVersionNow.check=async()=>{try{const res=await fetch(entry.href,{cache:'no-store'});return res.ok?deployedVersion(await res.text()):null}catch{return null}};
+  appVersionNow.reload=async anchor=>{if(!await reloadAllowed(anchor))return false;try{window.KPTUAppShell?.postMessage?.('reopen:mark:version')}catch{}location.reload();return true};
   function check(){
     if(stopped||!visible()||navigator.onLine===false)return;
     if(flight)return flight;

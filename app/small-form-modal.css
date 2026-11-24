@@ -8,3 +8,14 @@
 .sfm .sfm-status:empty{display:none}
 .sfm .sfm-foot{display:flex;justify-content:flex-end;gap:8px}
 @media(max-width:760px){.sfm .sfm-body input[type=text],.sfm .sfm-body textarea{font-size:16px}}
+/* S69-34 앱 정보 창(app-info.js): 판 목록 두 칸(이름 | 판) + [업데이트 확인] + 결과 줄. 콤팩트. */
+.sfm .apinfo-list{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;margin:0;font-size:var(--ds-text-row,13px)}
+.sfm .apinfo-row{display:contents}
+.sfm .apinfo-row[hidden]{display:none}
+.sfm .apinfo-k{color:var(--kptu-muted);white-space:nowrap}
+.sfm .apinfo-v{margin:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.sfm .apinfo-bar{display:flex;justify-content:flex-start;margin-top:4px}
+.sfm .apinfo-results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:var(--ds-text-row,13px)}
+.sfm .apinfo-results:empty{display:none}
+.sfm .apinfo-result{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.sfm .apinfo-say{flex:1 1 auto;min-width:0}
