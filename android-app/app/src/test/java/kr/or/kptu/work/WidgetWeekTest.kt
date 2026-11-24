@@ -21,41 +21,68 @@ class WidgetWeekTest {
     private fun allDay(title: String, start: String, end: String) = """{"title":"$title","start":"$start","end":"$end","allDay":true}"""
 
     @Test
-    fun weekRangeIsMondayToNextMondayAndWeekendStaysThisWeek() {
-        assertEquals("2026-10-25T15:00:00Z" to "2026-11-01T15:00:00Z", WidgetWeek.range(now))
-        assertEquals("이번 주 10/26–11/1", WidgetWeek.header(now))
-        // APP-이번주위젯 S68-12: 토·일에도 오늘이 든 이번 주(10/26–11/1). 다음 주로 넘기지 않는다.
-        val saturday = at(2026, 10, 31)
-        val sunday = at(2026, 11, 1, 23, 59)
-        assertEquals("2026-10-25T15:00:00Z" to "2026-11-01T15:00:00Z", WidgetWeek.range(saturday))
-        assertEquals(WidgetWeek.range(saturday), WidgetWeek.range(sunday))
-        assertEquals("이번 주 10/26–11/1", WidgetWeek.header(sunday))
-        assertEquals(LocalDate.of(2026, 10, 26), WidgetWeek.start(sunday))
-        // 명진 11/22(일) 캡처 그날: 이번 주 11/16–11/22, 오늘(22일)이 칸 안에 있고 오늘 칸이다.
-        val s1122 = at(2026, 11, 22, 14, 15)
-        assertEquals("이번 주 11/16–11/22", WidgetWeek.header(s1122))
-        val days = WidgetWeek.content(200, body(), s1122).days
-        assertEquals(LocalDate.of(2026, 11, 22), days.last().day)
-        assertEquals(WidgetWeek.Cell.TODAY, WidgetWeek.cell(days.last(), LocalDate.of(2026, 11, 22), null))
-        // 월요일 0시는 그 주.
-        assertEquals("이번 주 11/2–11/8", WidgetWeek.header(at(2026, 11, 2, 0)))
-        assertEquals(LocalDate.of(2026, 11, 2), WidgetWeek.start(at(2026, 11, 2, 0)))
+    fun weekRangeIsSundayToNextSundayLikeAppCalendar() {
+        // S69-위젯일요일(11/24 명진 "위젯이 일월화수목금토여야 돼"): 앱 달력 월 보기처럼 일요일 시작, 칸 순서 일 월 … 토.
+        assertEquals("2026-10-24T15:00:00Z" to "2026-10-31T15:00:00Z", WidgetWeek.range(now))
+        assertEquals("이번 주 10/25–10/31", WidgetWeek.header(now))
+        assertEquals(LocalDate.of(2026, 10, 25), WidgetWeek.start(now))
+        // 명진 요청 그날: 2026-11-24(화) → 이번 주 11/22–11/28.
+        val tue1124 = at(2026, 11, 24, 18, 54)
+        assertEquals("이번 주 11/22–11/28", WidgetWeek.header(tue1124))
+        assertEquals("2026-11-21T15:00:00Z" to "2026-11-28T15:00:00Z", WidgetWeek.range(tue1124))
+        val days = WidgetWeek.content(200, body(), tue1124).days
+        assertEquals(listOf("일", "월", "화", "수", "목", "금", "토"), days.map { it.week })
+        assertEquals(listOf(22, 23, 24, 25, 26, 27, 28), days.map { it.date })
+        assertEquals(WidgetWeek.Cell.TODAY, WidgetWeek.cell(days[2], LocalDate.of(2026, 11, 24), null))
+        // 경계: 일요일 당일(0시·밤)은 그 주 첫 칸, 토요일 당일(밤 23:59)은 그 주 마지막 칸.
+        val sun0 = at(2026, 11, 22, 0, 0)
+        val sat = at(2026, 11, 28, 23, 59)
+        assertEquals(WidgetWeek.range(tue1124), WidgetWeek.range(sun0))
+        assertEquals(WidgetWeek.range(tue1124), WidgetWeek.range(sat))
+        assertEquals(LocalDate.of(2026, 11, 22), WidgetWeek.start(sun0))
+        assertEquals(LocalDate.of(2026, 11, 22), WidgetWeek.start(sat))
+        assertEquals(LocalDate.of(2026, 11, 22), WidgetWeek.content(200, body(), sun0).days.first().day)
+        assertEquals(LocalDate.of(2026, 11, 28), WidgetWeek.content(200, body(), sat).days.last().day)
+        assertEquals(WidgetWeek.Cell.TODAY, WidgetWeek.cell(WidgetWeek.content(200, body(), sat).days.last(), LocalDate.of(2026, 11, 28), null))
+        // 토요일 밤이 지나 일요일 0시가 되면 다음 주로.
+        assertEquals("이번 주 11/29–12/5", WidgetWeek.header(at(2026, 11, 29, 0, 0)))
+        assertEquals(LocalDate.of(2026, 11, 29), WidgetWeek.start(at(2026, 11, 29, 0, 0)))
+        // 일요일만 일요일 색(앱 달력 .cal-head.sunday와 같은 규칙).
+        assertEquals(listOf(true, false, false, false, false, false, false), days.map { WidgetWeek.isSunday(it.day) })
         // 같은 허용 주소 모양(google-calendar action=events)이다.
         val (a, b) = WidgetWeek.range(now)
         assertTrue(WidgetRules.allowed("GET", WidgetRules.calendarUrl(a, b)))
     }
 
     @Test
+    fun sundayCellUsesAppCalendarSundayColor() {
+        val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
+        assertTrue(src.contains("R.color.widget_sun_ink"))
+        // 웹 앱 달력 일요일 색(kptu-danger)과 같은 값, 밝은·어두운 모드 모두.
+        val want = mapOf("values" to "#B42318", "values-night" to "#F0918A")
+        for ((dir, hex) in want) {
+            val colors = java.io.File("src/main/res/$dir/colors.xml").readText()
+            assertEquals(dir, hex, Regex("<color name=\"widget_sun_ink\">(#[0-9A-Fa-f]+)</color>").find(colors)!!.groupValues[1].uppercase())
+        }
+        val tokens = java.io.File("../../app/theme-tokens.css").readText()
+        assertTrue(tokens.contains("--kptu-danger:#b42318") && tokens.contains("--kptu-danger:#f0918a"))
+        val css = java.io.File("../../app/calendar-ui.css").readText()
+        assertTrue(css.contains(".cal-head.sunday{color:var(--kptu-danger)}"))
+        // 앱 달력 월 보기 머리도 일요일 시작.
+        assertTrue(java.io.File("../../app/calendar-month-view.js").readText().contains("['일','월','화','수','목','금','토']"))
+    }
+
+    @Test
     fun shiftWeeksBackAndForthWithinLimit() {
         // ‹ ›: 지난주·다음 주, 그 밖은 날짜만. 범위는 ±MAX_SHIFT(8)주.
-        assertEquals("지난주 10/19–10/25", WidgetWeek.header(now, shift = -1))
-        assertEquals("다음 주 11/2–11/8", WidgetWeek.header(now, shift = 1))
-        assertEquals("11/9–11/15", WidgetWeek.header(now, shift = 2))
-        assertEquals("10/12–10/18", WidgetWeek.header(now, shift = -2))
-        assertEquals("2026-11-01T15:00:00Z" to "2026-11-08T15:00:00Z", WidgetWeek.range(now, shift = 1))
-        assertEquals("2026-10-18T15:00:00Z" to "2026-10-25T15:00:00Z", WidgetWeek.range(now, shift = -1))
-        // 일요일에서 다음 주로 옮기면 다음 월요일부터.
-        assertEquals(LocalDate.of(2026, 11, 2), WidgetWeek.start(at(2026, 11, 1, 23, 59), shift = 1))
+        assertEquals("지난주 10/18–10/24", WidgetWeek.header(now, shift = -1))
+        assertEquals("다음 주 11/1–11/7", WidgetWeek.header(now, shift = 1))
+        assertEquals("11/8–11/14", WidgetWeek.header(now, shift = 2))
+        assertEquals("10/11–10/17", WidgetWeek.header(now, shift = -2))
+        assertEquals("2026-10-31T15:00:00Z" to "2026-11-07T15:00:00Z", WidgetWeek.range(now, shift = 1))
+        assertEquals("2026-10-17T15:00:00Z" to "2026-10-24T15:00:00Z", WidgetWeek.range(now, shift = -1))
+        // 토요일에서 다음 주로 옮기면 다음 일요일부터.
+        assertEquals(LocalDate.of(2026, 11, 1), WidgetWeek.start(at(2026, 10, 31, 23, 59), shift = 1))
         assertEquals(1, WidgetWeek.move(0, 1))
         assertEquals(-1, WidgetWeek.move(0, -1))
         assertEquals(0, WidgetWeek.move(1, -1))
@@ -88,21 +115,21 @@ class WidgetWeekTest {
             now,
             shift = 1,
         )
-        assertEquals("다음 주 11/2–11/8", next.title)
-        assertEquals(LocalDate.of(2026, 11, 2), next.monday)
-        assertEquals(listOf(0, 1, 0, 0, 0, 0, 0), next.days.map { it.count })
+        assertEquals("다음 주 11/1–11/7", next.title)
+        assertEquals(LocalDate.of(2026, 11, 1), next.sunday)
+        assertEquals(listOf(0, 0, 1, 0, 0, 0, 0), next.days.map { it.count })
         assertEquals(1, next.total)
         val today = LocalDate.of(2026, 10, 30)
         // 다른 주로 옮기면 오늘 칸은 없다. 고른 날 음영은 옮긴 주에서도.
         assertTrue(next.days.none { WidgetWeek.cell(it, today, null) == WidgetWeek.Cell.TODAY })
-        val tue = next.days[1]
+        val tue = next.days[2]
         assertEquals(WidgetWeek.Cell.PICKED, WidgetWeek.cell(tue, today, tue.day))
         assertEquals(tue.day, WidgetWeek.active(tue.day, today, now, next.days))
         assertNull(WidgetWeek.active(tue.day, today, now, WidgetWeek.content(200, body(), now).days))
         // 지난주.
         val last = WidgetWeek.content(200, body(timed("교섭", "2026-10-20T14:00:00+09:00", "2026-10-20T17:00:00+09:00")), now, shift = -1)
-        assertEquals("지난주 10/19–10/25", last.title)
-        assertEquals(listOf(0, 1, 0, 0, 0, 0, 0), last.days.map { it.count })
+        assertEquals("지난주 10/18–10/24", last.title)
+        assertEquals(listOf(0, 0, 1, 0, 0, 0, 0), last.days.map { it.count })
         // 서버 할 일 요약 범위(오늘~6일 뒤) 밖 날은 0개로 보이지 않게 '할 일은 앱에서'. 범위 안 날은 그대로.
         val tasks = MiniJson.parse("""{"connected":true,"tasks":[{"title":"보고","due":"2026-11-05T00:00:00.000Z","status":"needsAction"}]}""")
         val withTasks = WidgetWeek.content(200, body(), now, tasksStatus = 200, tasks = tasks, shift = 1)
@@ -119,8 +146,8 @@ class WidgetWeekTest {
         assertTrue(WidgetWeek.content(200, body(), now, tasksStatus = 200, tasks = tasks).details.values.none { it.beyond })
         // 실패해도 옮긴 주의 빈 칸·머리 줄.
         val down = WidgetWeek.content(0, null, now, shift = 2)
-        assertEquals("11/9–11/15", down.title)
-        assertEquals(LocalDate.of(2026, 11, 9), down.monday)
+        assertEquals("11/8–11/14", down.title)
+        assertEquals(LocalDate.of(2026, 11, 8), down.sunday)
     }
 
     @Test
@@ -128,23 +155,23 @@ class WidgetWeekTest {
         val c = WidgetWeek.content(
             200,
             body(
-                timed("지난주 밤샘", "2026-10-25T22:00:00+09:00", "2026-10-26T02:00:00+09:00"),
+                timed("지난주 밤샘", "2026-10-24T22:00:00+09:00", "2026-10-25T02:00:00+09:00"),
                 timed("아주 지난 회의", "2026-10-20T10:00:00+09:00", "2026-10-20T11:00:00+09:00"),
                 allDay("출장", "2026-10-29", "2026-10-31"),
                 timed("회의 1", "2026-10-29T09:00:00+09:00", "2026-10-29T10:00:00+09:00"),
                 timed("회의 2", "2026-10-29T13:00:00+09:00", "2026-10-29T14:00:00+09:00"),
-                timed("다음 주 일", "2026-11-02T09:00:00+09:00", "2026-11-02T10:00:00+09:00"),
+                timed("다음 주 일", "2026-11-01T09:00:00+09:00", "2026-11-01T10:00:00+09:00"),
             ),
             now,
         )
-        assertEquals(listOf("월", "화", "수", "목", "금", "토", "일"), c.days.map { it.week })
-        assertEquals(listOf(26, 27, 28, 29, 30, 31, 1), c.days.map { it.date })
-        assertEquals(listOf(1, 0, 0, 3, 0, 0, 0), c.days.map { it.count })
+        assertEquals(listOf("일", "월", "화", "수", "목", "금", "토"), c.days.map { it.week })
+        assertEquals(listOf(25, 26, 27, 28, 29, 30, 31), c.days.map { it.date })
+        assertEquals(listOf(1, 0, 0, 0, 3, 0, 0), c.days.map { it.count })
         assertEquals(4, c.total)
-        // APP-위젯먹색 S68-06: 그날 첫 일정 제목(종일 먼저·시각 순 = 고른 날 아래 칸 첫 일정). 지난주에서 이어진 일정은 월요일 첫 일정.
-        assertEquals(listOf("지난주 밤샘", null, null, "출장", null, null, null), c.days.map { it.first })
-        assertEquals("출장", WidgetWeek.firstLine(c.days[3], small = false))
-        assertNull(WidgetWeek.firstLine(c.days[3], small = true)) // 4×1은 지금처럼 수만
+        // APP-위젯먹색 S68-06: 그날 첫 일정 제목(종일 먼저·시각 순 = 고른 날 아래 칸 첫 일정). 지난주(토)에서 이어진 일정은 일요일 첫 일정.
+        assertEquals(listOf("지난주 밤샘", null, null, null, "출장", null, null), c.days.map { it.first })
+        assertEquals("출장", WidgetWeek.firstLine(c.days[4], small = false))
+        assertNull(WidgetWeek.firstLine(c.days[4], small = true)) // 4×1은 지금처럼 수만
         assertNull(WidgetWeek.firstLine(c.days[1], small = false)) // 일정 없는 날은 줄을 숨김
         assertNull(c.note)
     }
@@ -196,13 +223,13 @@ class WidgetWeekTest {
         val tue = LocalDate.of(2026, 10, 27)
         val today = LocalDate.of(2026, 10, 30)
         assertEquals(fri, WidgetWeek.active(fri, today, now, c.days))
-        // S68-51: 아래 목록은 늘 하루. 고른 날 → 오늘 → (다른 주) 월요일. 같은 날을 다시 눌러도 그대로(풀리지 않음).
+        // S68-51: 아래 목록은 늘 하루. 고른 날 → 오늘 → (다른 주) 일요일. 같은 날을 다시 눌러도 그대로(풀리지 않음).
         assertEquals(tue, WidgetWeek.shownDay(WidgetWeek.active(tue, today, now, c.days), today, c.days))
         assertEquals(today, WidgetWeek.shownDay(null, today, c.days))
         val next = WidgetWeek.content(200, body(), now, shift = 1)
-        assertEquals(LocalDate.of(2026, 11, 2), WidgetWeek.shownDay(null, today, next.days))
-        assertEquals(WidgetWeek.Cell.PICKED, WidgetWeek.cell(c.days[1], today, tue))
-        assertEquals(WidgetWeek.Cell.TODAY, WidgetWeek.cell(c.days[4], today, tue)) // 오늘 표시는 그대로
+        assertEquals(LocalDate.of(2026, 11, 1), WidgetWeek.shownDay(null, today, next.days))
+        assertEquals(WidgetWeek.Cell.PICKED, WidgetWeek.cell(c.days[2], today, tue))
+        assertEquals(WidgetWeek.Cell.TODAY, WidgetWeek.cell(c.days[5], today, tue)) // 오늘 표시는 그대로
         // 날이 바뀌면(고른 날짜가 오늘이 아님) 기본 날(오늘)로.
         assertNull(WidgetWeek.active(fri, today, at(2026, 10, 31, 0, 1), c.days))
         // 보이는 주 밖의 날은 무시.
@@ -212,19 +239,19 @@ class WidgetWeekTest {
 
     @Test
     fun tapCarriesItsWeekSoPickWorksAfterMemoryLoss() {
-        // S68-51 원인: 받은 내용(메모리)이 없으면 누름을 버렸다. 이제 누름에 실린 월요일로 주를 되찾고 그 날을 고른다.
-        assertEquals(0, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 26), now))
-        assertEquals(1, WidgetWeek.shiftOf(LocalDate.of(2026, 11, 2), now))
-        assertEquals(-2, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 12), now))
-        assertEquals(WidgetWeek.MAX_SHIFT, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 26).plusWeeks(8), now))
-        assertNull(WidgetWeek.shiftOf(LocalDate.of(2026, 10, 26).plusWeeks(9), now)) // 범위 밖
-        assertNull(WidgetWeek.shiftOf(LocalDate.of(2026, 10, 27), now)) // 월요일 아님
+        // S68-51 원인: 받은 내용(메모리)이 없으면 누름을 버렸다. 이제 누름에 실린 일요일로 주를 되찾고 그 날을 고른다.
+        assertEquals(0, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 25), now))
+        assertEquals(1, WidgetWeek.shiftOf(LocalDate.of(2026, 11, 1), now))
+        assertEquals(-2, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 11), now))
+        assertEquals(WidgetWeek.MAX_SHIFT, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 25).plusWeeks(8), now))
+        assertNull(WidgetWeek.shiftOf(LocalDate.of(2026, 10, 25).plusWeeks(9), now)) // 범위 밖
+        assertNull(WidgetWeek.shiftOf(LocalDate.of(2026, 10, 26), now)) // 일요일 아님(옛 판이 실은 월요일도 버리고 메모리의 주로)
         assertNull(WidgetWeek.shiftOf(null, now))
         // 어제 그려진 칸을 오늘 눌러도(주가 바뀜) 그 주 안의 날이면 그대로 고른다.
-        assertEquals(-1, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 26), at(2026, 11, 2, 0, 5)))
-        assertTrue(WidgetWeek.dayInWeek(LocalDate.of(2026, 11, 8), LocalDate.of(2026, 11, 2)))
-        assertFalse(WidgetWeek.dayInWeek(LocalDate.of(2026, 11, 9), LocalDate.of(2026, 11, 2)))
-        assertFalse(WidgetWeek.dayInWeek(null, LocalDate.of(2026, 11, 2)))
+        assertEquals(-1, WidgetWeek.shiftOf(LocalDate.of(2026, 10, 25), at(2026, 11, 1, 0, 5)))
+        assertTrue(WidgetWeek.dayInWeek(LocalDate.of(2026, 11, 7), LocalDate.of(2026, 11, 1)))
+        assertFalse(WidgetWeek.dayInWeek(LocalDate.of(2026, 11, 8), LocalDate.of(2026, 11, 1)))
+        assertFalse(WidgetWeek.dayInWeek(null, LocalDate.of(2026, 11, 1)))
         // ‹ ›로 옮긴 주의 날 누름: 그 주 내용에서 고른 날이 살아 있고 목록이 그 날이다.
         val next = WidgetWeek.content(200, body(timed("다음 주 일", "2026-11-04T09:00:00+09:00", "2026-11-04T10:00:00+09:00")), now, shift = 1)
         val wed = LocalDate.of(2026, 11, 4)
@@ -240,9 +267,9 @@ class WidgetWeekTest {
         assertTrue(pick, pick.contains("picked = day") && pick.contains("redraw(context)"))
         val redraw = src.substringAfter("private fun redraw(").substringBefore("\n        }\n")
         assertTrue(redraw, redraw.contains("State.Loading") && redraw.contains("WidgetJobs.refreshNow(context)"))
-        // 요일 칸·화살표 누름에 그 주 월요일을 싣는다.
-        assertTrue(src.contains(".putExtra(EXTRA_DAY, day.toString()).putExtra(EXTRA_MONDAY, monday.toString())"))
-        assertTrue(src.contains(".putExtra(EXTRA_DELTA, delta).putExtra(EXTRA_MONDAY, monday.toString())"))
+        // 요일 칸·화살표 누름에 그 주 일요일을 싣는다.
+        assertTrue(src.contains(".putExtra(EXTRA_DAY, day.toString()).putExtra(EXTRA_SUNDAY, sunday.toString())"))
+        assertTrue(src.contains(".putExtra(EXTRA_DELTA, delta).putExtra(EXTRA_SUNDAY, sunday.toString())"))
         // 불러오는 중(받은 내용 없음)에는 고른 날을 풀지 않는다.
         assertTrue(src.contains("if (!small && shown != null && active == null && v.picked != null)"))
     }
@@ -329,7 +356,7 @@ class WidgetWeekTest {
     fun bigWidgetPicksInsideWidgetSmallOpensApp() {
         val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
         // 4×2 요일 칸은 이 위젯에만 가는 방송(앱을 열지 않음), 4×1은 지금처럼 앱 그 날. [열기]만 앱 그 날.
-        assertTrue(src.contains("if (small) day(context, d.day, i + 1) else pickIntent(context, id, d.day, monday, i)"))
+        assertTrue(src.contains("if (small) day(context, d.day, i + 1) else pickIntent(context, id, d.day, sunday, i)"))
         assertTrue(src.contains("Intent(context, WeekWidget::class.java).setAction(ACTION_PICK)"))
         assertTrue(src.contains("views.setOnClickPendingIntent(R.id.week_sel_open, day(context, d.day, 11))"))
         // 고른 날짜는 메모리에만(폰 저장 없음, W-D2).
@@ -429,10 +456,10 @@ class WidgetWeekTest {
         }
         val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
         assertTrue(src.contains("val shift = if (small) 0 else shiftOf(id, now)"))
-        assertTrue(src.contains("arrow(context, views, R.id.week_prev, id, shift, -1, monday)"))
-        assertTrue(src.contains("arrow(context, views, R.id.week_next, id, shift, 1, monday)"))
+        assertTrue(src.contains("arrow(context, views, R.id.week_prev, id, shift, -1, sunday)"))
+        assertTrue(src.contains("arrow(context, views, R.id.week_next, id, shift, 1, sunday)"))
         // 옮긴 주에서 머리 글자를 누르면 이번 주로(앱을 열지 않음), 이번 주에서는 지금처럼 앱 달력.
-        assertTrue(src.contains("if (shift == 0) day(context, null, 0) else shiftIntent(context, id, 0, monday)"))
+        assertTrue(src.contains("if (shift == 0) day(context, null, 0) else shiftIntent(context, id, 0, sunday)"))
         // 위젯마다(번호) 따로, 메모리에만. 옮기면 같은 일정 주소를 범위만 바꿔 읽는다.
         assertTrue(src.contains("putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)"))
         assertTrue(src.contains("manager.updateAppWidget(id, rv)"))

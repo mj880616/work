@@ -25,6 +25,7 @@ import {bindEdgeBack} from './edge-back-swipe.js';
 import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
+import {holdPick} from './select-mode.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
 import {twoPaneFrame} from './two-pane.js';
@@ -2155,6 +2156,12 @@ function togglePick(key) {
   if (p.picked.has(key)) p.picked.delete(key); else p.picked.add(key);
   p.anchor = key; paintPicks(p);
 }
+// S69 LONGPRESS-선택(2026-11-24 명진): 폰 꾹 누르기는 그 줄을 고르기만 한다(이미 골랐으면 그대로 — 공용 규칙 select-mode.js holdPick). 풀기는 줄 누르기·네모 칸.
+function holdPickRow(key) {
+  const p = P();
+  p.picked = holdPick(p.picked, [key]);
+  p.anchor = key; paintPicks(p);
+}
 function rangePick(key) {
   const p = P(), keys = [...(paneEl(p)?.querySelectorAll('[data-fx-row]') || [])].map(b => b.dataset.fxRow);
   for (const k of pickRange(keys, p.anchor || p.sel, key)) p.picked.add(k);
@@ -4157,7 +4164,7 @@ root?.addEventListener('keydown', event => {
   } else if (event.key === 'Backspace' && !p.query) { event.preventDefault(); goUp(); }
   else if (event.key === '/') { event.preventDefault(); $('[data-fx-search]')?.focus(); }
 });
-// 폰: 꾹 누르면 고르기(길게 누르면 브라우저가 contextmenu를 보낸다).
+// 폰: 꾹 누르면 고르기(길게 누르면 브라우저가 contextmenu를 보낸다). 고르기만 하고 풀지 않는다(holdPickRow). 메뉴는 줄 ⋯.
 // S51-27 UI-PC우클릭: PC 마우스 우클릭(Shift+F10·메뉴 키)은 그 줄 하나의 메뉴를 누른 자리에 연다 — 나무 줄 ⋯와 같은 항목(files-tree-menu.mjs)·
 // 같은 실행(treeAct). 폴더의 '이 폴더로 들어가기'는 목록에서는 [열기](줄을 누른 것과 같은 폴더 들어가기). 고르기는 Ctrl·Shift 누름·폰 꾹 누르기 그대로.
 root?.addEventListener('contextmenu', event => {
@@ -4172,7 +4179,7 @@ root?.addEventListener('contextmenu', event => {
   // 손가락으로 누르고 있는 중이면 꾹 눌러 끌기 부품이 맡는다(떼면 고르기, 움직이면 끌기).
   if (touchDrag?.holding()) { touchDrag.armNow(); return; }
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
-  togglePick(b.dataset.fxRow);
+  if (event.pointerType === 'mouse') togglePick(b.dataset.fxRow); else holdPickRow(b.dataset.fxRow);
 });
 function listMenu(b, event) {
   const at = appMenuPoint(event, b); if (!at) return false;
@@ -4293,7 +4300,7 @@ const touchDrag = bindTouchDrag(root, {
     if (!rows.length || (hasPc(rows) && !pcWrite())) return null;
     return {key, pane: i, rows, label: rows.length > 1 ? `${rows.length}개` : rows[0].name};
   },
-  hold: item => togglePick(item.key),
+  hold: item => holdPickRow(item.key),
   over: (item, el) => { drag = {pane: item.pane, rows: item.rows}; markHit(dropAt(el, {any: true})); },
   drop: (item, el, x, y) => {
     drag = {pane: item.pane, rows: item.rows};

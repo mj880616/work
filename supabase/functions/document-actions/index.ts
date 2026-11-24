@@ -115,13 +115,22 @@ async function assertDeleteAccess(userId: string, doc: any) {
   }
 }
 
-async function deleteDocument(userId: string, documentId: string) {
+// S70 LIB-묶음삭제 ③: [드라이브에서 가져오기]·'드라이브 정리 대기'에서 등록한 자료는 앱이 만든 파일이 아니라 명진 드라이브 원본을 '연결만' 한 것이다.
+// 그 자료를 지우면 자료실 목록에서만 빼고 드라이브 파일은 건드리지 않는다(drive_result 'preserved', reason 'linked_original').
+// 표식은 등록할 때 남기는 classification_note 앞머리(library-files drive-import.mjs·top-files.mjs). 화면 쪽 같은 목록: app/library-delete-many.mjs LINKED_NOTES.
+const LINKED_NOTES = ['드라이브에서 가져옴', '드라이브 정리 대기에서 등록'];
+const isLinkedOriginal = (doc: any) => LINKED_NOTES.some(p => String(doc?.classification_note || '').startsWith(p));
+
+type DeleteCtx = { workspace?: string; tokens?: Map<string, () => Promise<string>>; tokenError?: unknown };
+async function deleteDocument(userId: string, documentId: string, ctx: DeleteCtx = {}) {
   const rows = await db(`app_documents?id=eq.${encodeURIComponent(documentId)}&select=*&limit=1`);
   const doc = rows?.[0];
   if (!doc) throw new Error('파일을 찾을 수 없습니다.');
   if (doc.id !== documentId || typeof doc.workspace_id !== 'string' || (doc.file_id != null && typeof doc.file_id !== 'string')) {
     throw Object.assign(new Error('자료의 원본 연결을 확인하지 못했습니다. 삭제하지 않고 다시 확인해 주세요.'), { code: 'DOCUMENT_CHANGED' });
   }
+  // 묶음 삭제: 부른 사람 owner 작업공간(서버가 auth.uid()로 찾은 값)의 자료만.
+  if (ctx.workspace !== undefined && doc.workspace_id !== ctx.workspace) throw Object.assign(new Error('워크스페이스 소유자 권한이 필요합니다.'), { code: 'FORBIDDEN' });
   await assertDeleteAccess(userId, doc);
 
   // Fix the server-read source; a late request must not delete a replacement.
@@ -139,8 +148,21 @@ async function deleteDocument(userId: string, documentId: string) {
     }
   };
   let token: string | undefined;
-  const getToken = async () => token ?? (token = await driveTokenFor(userId, sourceWorkspace)());
-  const origin = sourceFile ? await inspectBasketOriginal({ userId, workspaceId: sourceWorkspace, fileId: sourceFile }, {
+  // 묶음 삭제는 한 요청 안에서 Drive 토큰을 한 번만 받는다(작업공간별 하나, driveTokenFor가 owner 확인).
+  const tokenGetter = () => {
+    if (!ctx.tokens) return driveTokenFor(userId, sourceWorkspace);
+    let g = ctx.tokens.get(sourceWorkspace);
+    if (!g) {
+      // 토큰을 못 받은 까닭은 원본 판정(inspectBasketOriginal)이 다른 오류로 감싸므로 따로 적어 둔다(묶음 삭제가 멈출지 정함).
+      const inner = driveTokenFor(userId, sourceWorkspace);
+      g = () => inner().catch(e => { ctx.tokenError ??= e; throw e; });
+      ctx.tokens.set(sourceWorkspace, g);
+    }
+    return g;
+  };
+  const getToken = async () => token ?? (token = await tokenGetter()());
+  const linked = !!sourceFile && isLinkedOriginal(doc);
+  const origin = linked ? { preserveDrive: true, reason: 'linked_original', missing: false, trashed: false } : sourceFile ? await inspectBasketOriginal({ userId, workspaceId: sourceWorkspace, fileId: sourceFile }, {
     readPage: (path, start, end) => db(path, { prefer: 'count=exact', range: [start, end] }),
     driveToken: getToken, fetch,
   }) : { preserveDrive: false, reason: 'ordinary_library', missing: false, trashed: false };
@@ -188,6 +210,44 @@ async function deleteDocument(userId: string, documentId: string) {
     throw Object.assign(new Error('자료 등록 삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 목록을 새로 확인해 주세요.'), { code: 'RESULT_UNKNOWN', drive_result: driveResult, token_delete_result: tokenDeleteResult, document_delete_result: documentDeleteResult });
   }
   return { ok: true, drive_result: driveResult, drive_preserved: origin.preserveDrive || eventOriginal, reason: eventOriginal ? 'event_attachment' : origin.reason };
+}
+
+// S70 LIB-묶음삭제 ②(명진 11/24 18:07 "2300개 다 삭제했는데 왜 삭제가 안 되지?"): 여러 자료를 한 요청으로 지운다.
+// 자료마다 하나씩 지우기(deleteDocument)와 같은 검사·같은 순서(owner 확인 → 원본 판정 → Drive → 토큰 → 자료 행)를 그대로 쓰고,
+// 한 요청에 DELETE_MANY_MAX개까지, 동시에 DELETE_MANY_PARALLEL개씩. 부른 사람의 owner 작업공간은 서버가 auth 사용자로 찾는다(화면이 보낸 작업공간 값은 받지 않음).
+// Drive 연결 문제(토큰 갱신 실패·연결 없음)면 남은 것은 손대지 않고 SKIPPED로 돌려준다(stopped). 결과는 자료마다 {id, ok, ...}.
+const DELETE_MANY_MAX = 50, DELETE_MANY_PARALLEL = 6;
+const driveAuthFailure = (e: any) => e?.code === 'DRIVE_NOT_CONNECTED' || /Google Drive 토큰 갱신/.test(String(e?.message || ''));
+async function deleteMany(userId: string, body: any) {
+  const raw = body?.document_ids;
+  if (!Array.isArray(raw) || !raw.length || raw.length > DELETE_MANY_MAX || raw.some(v => typeof v !== 'string' || !UUID.test(v)) || new Set(raw).size !== raw.length) {
+    throw fail('지울 자료 목록을 확인하지 못했습니다.', 'INVALID_REQUEST');
+  }
+  const own = await callerOwnerWorkspace({ rest: (path: string) => db(path) }, userId);
+  if (!own) throw fail('워크스페이스 소유자 권한이 필요합니다.', 'FORBIDDEN');
+  const ctx: DeleteCtx = { workspace: own, tokens: new Map() };
+  const ids: string[] = raw;
+  const results: Record<string, unknown>[] = new Array(ids.length);
+  let next = 0, stopped = false;
+  const work = async () => {
+    while (next < ids.length) {
+      const i = next++, id = ids[i];
+      if (stopped) { results[i] = { id, ok: false, code: 'SKIPPED' }; continue; }
+      try {
+        const r = await deleteDocument(userId, id, ctx);
+        results[i] = { id, ok: true, drive_result: r.drive_result, drive_preserved: r.drive_preserved, reason: r.reason };
+      } catch (e) {
+        const auth = driveAuthFailure(e) || driveAuthFailure(ctx.tokenError);
+        if (auth) stopped = true;
+        const code = auth ? 'DRIVE_AUTH' : typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'FAILED';
+        const drive = (e as { drive_result?: unknown })?.drive_result;
+        results[i] = { id, ok: false, code, ...(typeof drive === 'string' ? { drive_result: drive } : {}) };
+        console.error('document-actions delete-many item failed', { code });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(DELETE_MANY_PARALLEL, ids.length) }, work));
+  return { ok: true, stopped, results };
 }
 
 // BASKET-4b-1 B: register a basket note attachment in the library as a second
@@ -555,6 +615,15 @@ Deno.serve(withWebCors(async (req: Request) => {
         const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : undefined;
         console.error('document-actions register failed', safeErrorLog(e));
         return json({ error: safeErrorMessage(e), ...(code ? { code } : {}) }, code === 'RESULT_UNKNOWN' ? 503 : 400);
+      }
+    }
+    if (action === 'delete-many') {
+      try {
+        return json(await deleteMany(user.id, body));
+      } catch (e) {
+        const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'RESULT_UNKNOWN';
+        console.error('document-actions delete-many failed', safeErrorLog(e));
+        return json({ error: safeErrorMessage(e), code }, code === 'INVALID_REQUEST' || code === 'FORBIDDEN' ? 400 : 503);
       }
     }
     const documentId = String(body?.document_id || '');

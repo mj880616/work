@@ -304,3 +304,52 @@ for (const [name, open] of PICK_SCREENS) for (const width of [390, 1280]) test.d
     expect(errors).toEqual([]);
   });
 });
+
+// ---------- P4. 폰 길게 누르기 = 선택 모드 + 그 줄 선택, 메뉴는 ⋯ (S69 LONGPRESS-선택, 명진 11/24 18:06) ----------
+// "이 상태에서 꾹 누르면 선택이 활성화되는 거야. … 이거는 선택한 상태가 되는 거야. 우클릭 메뉴는 옆에 점점점으로 활성화"
+// 공용 규칙: app/select-mode.js holdPick(꺼져 있으면 켜고 그 줄을 고름, 켜져 있으면 더함 — 토글 아님). 끌기는 움직였을 때만(library-folder-drag.spec.mjs).
+// 새 목록 화면이 생기면 HOLD_SCREENS에 한 줄 더한다. 노트는 basket-note-folder.spec.mjs, 파일은 files-touch-drag.spec.mjs, 사진 작은 그림은 library-photo-pick.spec.mjs.
+const P4_FOLDERS = [libFolder('fa', 'top-a', { name: '가상 A', sort_order: 1024 }), libFolder('fc', 'child-a1', { name: '가상 C', parent_id: 'fa', sort_order: 0 })];
+async function libraryRows(page) {
+  const r = await bootLibrary(page, 390, { folders: P4_FOLDERS, items: [{ document_id: 'a-1', folder_id: 'fc' }], group: '폴더' });
+  await expandLibraryTree(page);
+  const row = id => page.locator(`#documentList [data-lu-document="${id}"]`);
+  return {
+    errors: r.errors, first: row('a-2'), second: row('a1-1'),
+    bar: page.locator('#librarySelectBar'), count: page.locator('#librarySelectCount'),
+    picked: l => l.locator('[data-lu-pick]'), more: l => l.locator('[data-lu-menu]'), menu: page.locator('#luMorePanel'),
+  };
+}
+const HOLD_SCREENS = [['자료실', libraryRows]];
+const centerOf = l => l.evaluate(el => { el.scrollIntoView({ block: 'center', behavior: 'instant' }); const t = el.querySelector('h3,.lu-row-title') || el; const r = t.getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 60), y: r.top + r.height / 2 }; });
+async function hold(page, l) {
+  const p = await centerOf(l), cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p.x, y: p.y, id: 0 }] });
+  await page.waitForTimeout(700);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
+test.describe('P4 폰 390 터치', () => {
+  test.use({ hasTouch: true });
+  for (const [name, open] of HOLD_SCREENS) test(`P4 ${name} 폰 390: 줄 길게 누르기 = 선택 모드 + 그 줄 선택(메뉴 없음), 다른 줄 누르면 2개, ⋯ = 메뉴`, async ({ page }) => {
+    const s = await open(page);
+    await expect(s.bar).toBeHidden();
+    await hold(page, s.first);
+    await expect(s.bar).toBeVisible();
+    await expect(s.count).toHaveText('1개 선택됨');
+    await expect(s.picked(s.first)).toBeChecked();
+    await expect(s.menu).toBeHidden();
+    // 다시 길게 눌러도 풀리지 않는다(토글 아님).
+    await hold(page, s.first);
+    await expect(s.count).toHaveText('1개 선택됨');
+    await expect(s.menu).toBeHidden();
+    // 선택 모드에서 다른 줄을 한 번 누르면 더한다.
+    await s.second.locator('h3,.lu-row-title').first().tap();
+    await expect(s.count).toHaveText('2개 선택됨');
+    await expect(s.picked(s.second)).toBeChecked();
+    // 메뉴는 줄 오른쪽 ⋯로(꾹 누른 바로 뒤에도 ⋯는 삼키지 않는다).
+    await s.more(s.second).tap();
+    await expect(s.menu).toBeVisible();
+    expect(s.errors).toEqual([]);
+  });
+});

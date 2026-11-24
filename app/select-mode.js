@@ -6,6 +6,16 @@
 import {toggleAll, pruneSelected} from './library-select.js';
 import {rangeIds} from './library-bulk.js';
 
+// 폰 길게 누르기 공용 규칙(S69 LONGPRESS-선택, 2026-11-24 명진 "꾹 누르면 선택이 활성화 … 우클릭 메뉴는 옆에 점점점으로"):
+// 줄을 움직이지 않고 꾹 누르면 선택 모드를 켜고 그 줄을 고른다. 이미 선택 모드면 그 줄을 더한다(토글 아님 — 다시 꾹 눌러도 풀리지 않는다).
+// 메뉴는 줄 오른쪽 ⋯로만 연다. 길게 눌러 잡고 움직이면 끌기(각 화면의 끌기 부품). PC 마우스 우클릭 메뉴·키보드 길은 그대로.
+// items: 지금 고른 Set(없으면 null), keys: 꾹 누른 줄의 열쇠들. 반환: 새 Set(넘겨받은 Set은 바꾸지 않는다).
+export function holdPick(items, keys) {
+  const next = new Set(items || []);
+  for (const k of keys || []) next.add(k);
+  return next;
+}
+
 export function createSelectMode({layer = null, router = () => globalThis.window?.KPTURouter, onBack = null, canLeave = null} = {}) {
   let items = null, opened = null;
   const openLayer = () => {
@@ -32,6 +42,8 @@ export function createSelectMode({layer = null, router = () => globalThis.window
     toggle(keys, {anchor = true} = {}) { if (!items) return self; items = toggleAll(items, keys); if (anchor && keys.length === 1) self.anchor = keys[0]; return self; },
     // Shift: anchor부터 key까지(order 차례) 더하기. anchor가 없으면 key 하나만 토글.
     range(order, key) { if (!items) return self; if (self.anchor == null) return self.toggle([key]); items = new Set([...items, ...rangeIds(order, self.anchor, key)]); return self; },
+    // 폰 꾹 누르기(holdPick 규칙): 꺼져 있으면 켜고, keys를 더한다(풀지 않음). 하나면 anchor도 그 줄.
+    hold(keys) { const list = [...(keys || [])]; self.items = holdPick(items, list); if (list.length === 1) self.anchor = list[0]; return self; },
     add(key) { items?.add(key); return self; },
     remove(key) { items?.delete(key); return self; },
     // 화면에서 사라진 것은 고른 목록에서 뺀다. 반환: 바뀌었는지.
