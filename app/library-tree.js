@@ -268,6 +268,33 @@ function titleTokens(t){
   return out;
 }
 const compact=t=>cleanTitle(t).replace(/\s+/g,'').toLowerCase();
+// S69-12(명진 11/24 08:09 '본부 집행위가 아닌 다른 단체 회의 자료를 집행위 폴더로 옮겨 버림'): 제목의 '임자'(단체·회의체) 낱말.
+// 종류 낱말(kinds: 회의자료·합의서 …)을 떼고 날짜·회차('43차')·숫자·흔한 말을 건너뛴 첫 낱말이다 — 이름 목록을 코드에 두지 않고 제목에서만 뽑는다.
+// '43차 본부집행위원회 회의자료' → '본부집행위원회', '다른협의회 6차대표자회의자료' → '다른협의회'. 없으면 ''.
+export function titleSubject(t,kinds=[]){
+  let s=cleanTitle(t);
+  for(const k of [...kinds].sort((a,b)=>b.length-a.length))if(k)s=s.split(k).join(' ');
+  return titleTokens(s)[0]?.w||'';
+}
+// 같은 임자인지: '위원회'와 줄임 '위'는 같게 보고('본부집행위원회' = '본부집행위'), 한쪽이 다른 쪽의 앞부분이면 같게 본다('본부' ⊂ '본부집행위').
+export const subjectKey=s=>String(s||'').toLowerCase().replace(/\s+/g,'').replace(/위원회$/,'위');
+export function sameSubject(a,b){
+  const x=subjectKey(a),y=subjectKey(b);if(!x||!y)return false;
+  return x===y||([...x].length>=2&&[...y].length>=2&&(x.startsWith(y)||y.startsWith(x)));
+}
+// 폴더 이름이 임자 안에 들어 있는지('집행위' ⊂ '본부집행위원회'). 두 글자 이상 이름만.
+export function subjectHasName(subject,name){
+  const s=String(subject||'').toLowerCase(),k=subjectKey(subject),n=String(name||'').toLowerCase().replace(/\s+/g,'');
+  return [...n].length>=2&&!!s&&(s.includes(n)||k.includes(subjectKey(n)));
+}
+// 폴더의 '주인 임자': 그 폴더 자료 임자 중 가장 많은 것(2개 이상이고 다음 것보다 많을 때만). [{folder, subject}] → Map(폴더 → 임자).
+export function folderHomes(entries){
+  const by=new Map();
+  for(const e of entries){if(!e?.folder||!e.subject)continue;const k=subjectKey(e.subject);if(!by.has(e.folder))by.set(e.folder,new Map());const m=by.get(e.folder),c=m.get(k)||{raw:e.subject,n:0};c.n++;m.set(k,c)}
+  const out=new Map();
+  for(const [f,m] of by){const top=[...m.values()].sort((a,b)=>b.n-a.n);if(top[0].n>=2&&(!top[1]||top[0].n>top[1].n))out.set(f,top[0].raw)}
+  return out;
+}
 // 폴더 이름 조각: 이름 전체(띄어쓰기 없앰)와 '·, /' 등으로 나눈 조각. 흔한 말·숫자·날짜뿐인 이름·한 글자는 뺀다.
 function folderNameParts(name){
   const all=String(name||'').toLowerCase(),out=new Set();
@@ -278,22 +305,29 @@ const WHY_NAME=name=>`제목에 폴더 이름 '${String(name).slice(0,20)}' 포�
 export const WHY_FIRST='같은 낱말로 시작하는 자료가 이 폴더에 있어요';
 export const WHY_LIKE='비슷한 제목의 자료가 이 폴더에 있어요';
 // 반환 Map(자료 id → {folder, why}). folderSuggestions는 폴더 id만.
-export function folderSuggestionReasons(outside,{docs=[],items=[],folders=[],categoryOf=c=>c}={}){
+export function folderSuggestionReasons(outside,{docs=[],items=[],folders=[],categoryOf=c=>c,kinds=[]}={}){
   const alive=new Set(folders.map(f=>f.id)),where=new Map(items.filter(x=>alive.has(x.folder_id)).map(x=>[x.document_id,x.folder_id]));
   const parentOf=new Map(folders.map(f=>[f.id,f.parent_id||null]));
   const isAncestor=(a,b)=>{let c=parentOf.get(b),g=0;while(c&&g++<FOLDER_DEPTH+2){if(c===a)return true;c=parentOf.get(c)}return false};
   const named=folders.filter(f=>f?.id).map(f=>({id:f.id,name:f.name,parts:folderNameParts(f.name)})).filter(f=>f.parts.length);
   const inside=docs.filter(d=>!d?.photoset&&where.has(d.id)).map(d=>{const t=d.title||d.file_name,tk=titleTokens(t);return {folder:where.get(d.id),first:tk[0]?.w||'',words:new Set(tk.map(x=>x.w)),series:new Set(tk.filter(x=>x.series).map(x=>x.w)),category:categoryOf(d.category),project:d.project_id||null}});
+  // S69-12: 폴더 이름이 제목에 들었어도 그 폴더 자료의 임자(단체·회의체)가 이 자료와 다르면 그 폴더로 보내지 않는다
+  // ('다른협의회 3차집행위원회회의자료'는 '본부집행위원회' 자료가 든 '집행위' 폴더가 아니다). 임자가 같거나 폴더 이름이 임자 안에 있으면 그대로.
+  const homes=folderHomes(docs.filter(d=>!d?.photoset&&where.has(d.id)).map(d=>({folder:where.get(d.id),subject:titleSubject(d.title||d.file_name,kinds)})));
   const out=new Map();
   for(const d of outside){
     if(!d||d.photoset||where.has(d.id))continue;
-    const t=d.title||d.file_name,tk=titleTokens(t),c=compact(t);
+    const t=d.title||d.file_name,tk=titleTokens(t),c=compact(t),subj=titleSubject(t,kinds);
     // ㉡ 폴더 이름이 제목 안에: 가장 긴 이름이 이긴다. 같은 길이면 더 안쪽(하위) 폴더, 그래도 둘 이상이면 아래 ㉢이 가린다.
     // 제목 낱말과 통째로 같은 이름 조각은 반 점 더(낱말 안에 우연히 든 '국가철도공단' ⊃ '철도'보다 따로 쓴 '교섭'이 이긴다).
     const whole=new Set(tk.map(x=>x.w));let hits=[];
     for(const f of named){const len=Math.max(0,...f.parts.filter(p=>c.includes(p)).map(p=>[...p].length+(whole.has(p)?0.5:0)));if(len)hits.push({id:f.id,name:f.name,len})}
     if(hits.length){const top=Math.max(...hits.map(h=>h.len));hits=hits.filter(h=>h.len===top);hits=hits.filter(h=>!hits.some(o=>o!==h&&isAncestor(h.id,o.id)))}
-    if(hits.length===1){out.set(d.id,{folder:hits[0].id,why:WHY_NAME(hits[0].name)});continue}
+    if(hits.length===1){
+      const home=homes.get(hits[0].id);
+      if(!(subj&&home&&!sameSubject(subj,home)&&!subjectHasName(subj,hits[0].name))){out.set(d.id,{folder:hits[0].id,why:WHY_NAME(hits[0].name)});continue}
+      hits=[];
+    }
     // ㉢ 비슷한 자료가 든 폴더.
     if(!tk.length)continue;
     const first=tk[0].w,words=new Set(tk.map(x=>x.w)),series=tk.filter(x=>x.series).map(x=>x.w),category=categoryOf(d.category),project=d.project_id||null,best=new Map();

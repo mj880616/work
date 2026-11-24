@@ -168,3 +168,45 @@ export function followAnchor(panel,anchor,{place,lost}){
   window.addEventListener('scroll',queue,{capture:true,passive:true});
   return ()=>{if(frame)cancelAnimationFrame(frame);frame=0;stopView();window.removeEventListener('scroll',queue,{capture:true});};
 }
+
+// S69-13 UI-확인창누른자리: 작은 확인창(small-notice askPanel)이 기준으로 받은 칸이 쓸 수 없을 때(⋯ 메뉴 항목을 누르면 메뉴가 닫히며
+// 그 항목이 숨고 초점이 body로 가서, 기준이 body·숨은 칸·떨어진 칸이 된다) 화면 오른쪽 위 구석에 뜨던 것을 고친다.
+// 사람이 마지막으로 누른 칸(누를 때 잰 자리)을 기억했다가 그 옆에 띄운다. ⋯ 메뉴 항목이면 그 메뉴를 연 ⋯ 단추(우클릭이면 누른 점)를 기억한다(anchored-menu.js).
+// 화면 상태만(저장 없음). 오래된 누름(PRESS_MS 뒤)은 쓰지 않는다 — 사람이 누르지 않고 뜬 물음은 그대로 화면 가운데 아래.
+export const PRESS_MS=15000;
+let lastPress=null;
+const boxOf=el=>{if(!el?.getBoundingClientRect||!el.getClientRects?.().length)return null;const r=el.getBoundingClientRect();return r.width||r.height?{left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}:null};
+// 기준으로 쓸 수 있는 칸: 화면에 붙어 있고, 보이고, body·html이 아닌 것.
+export function usableAnchor(el){
+  if(!el||typeof Element==='undefined'||!(el instanceof Element)||!el.isConnected)return false;
+  if(el===el.ownerDocument.body||el===el.ownerDocument.documentElement)return false;
+  return !!boxOf(el);
+}
+// el: 누른 칸, at: 누른 점({x,y}, PC 우클릭 메뉴). 자리는 지금 잰다(곧 숨거나 다시 그려져도 남게).
+export function notePressAnchor(el,{at=null}={}){
+  const point=at&&Number.isFinite(at.x)&&Number.isFinite(at.y)?{left:at.x,top:at.y,right:at.x,bottom:at.y,width:0,height:0}:null;
+  const box=point||boxOf(el);if(!box)return;
+  lastPress={el:point?null:el,box,time:Date.now()};
+}
+// 지금 쓸 기준: 기억한 칸이 아직 보이면 그 칸(화면이 움직여도 따라감), 아니면 누를 때 잰 자리. 없거나 오래됐으면 null.
+export function pressAnchor({now=Date.now(),maxAge=PRESS_MS}={}){
+  if(!lastPress||now-lastPress.time>maxAge)return null;
+  if(usableAnchor(lastPress.el))return lastPress.el;
+  const b=lastPress.box;return {getBoundingClientRect:()=>({...b,x:b.left,y:b.top})};
+}
+const PRESSABLE='button,a[href],summary,[role="button"],[role="menuitem"],[role="option"],[role="tab"],input,select,label,[data-row-menu-row],[tabindex]';
+// 펼친 작은 메뉴(aria-controls로 이어진 단추가 aria-expanded="true") 안을 누르면 그 메뉴를 연 단추를 기억한다 — 공용 메뉴가 아닌 화면 메뉴(노트 ⋯ 등)도 같다.
+function openerOf(el){
+  for(let n=el;n&&n.nodeType===1;n=n.parentElement){
+    if(!n.id)continue;
+    const opener=n.ownerDocument.querySelector(`[aria-expanded="true"][aria-controls~="${CSS.escape(n.id)}"]`);
+    if(opener&&!n.contains(opener)&&usableAnchor(opener))return opener;
+  }
+  return null;
+}
+const pressSpot=el=>openerOf(el)||el;
+const notePressEvent=e=>{const t=e.target instanceof Element?e.target:null;if(!t)return;const el=pressSpot(t.closest(PRESSABLE)||t);if(usableAnchor(el))notePressAnchor(el)};
+if(typeof document!=='undefined'&&document.addEventListener){
+  document.addEventListener('pointerdown',notePressEvent,true);
+  document.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '||e.key==='Delete'||e.key==='F10'||e.key==='ContextMenu'){const el=document.activeElement&&pressSpot(document.activeElement);if(usableAnchor(el))notePressAnchor(el)}},true);
+}

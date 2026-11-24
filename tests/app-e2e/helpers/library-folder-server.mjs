@@ -98,6 +98,17 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
     if(m==='PATCH'){if(!it||!byId(body.folder_id)||!frameOk(it.document_id,body.folder_id))return route.fulfill(rls);Object.assign(it,body);return route.fulfill({status:204,body:''})}
     if(m==='DELETE'){s.items=s.items.filter(x=>x!==it);return route.fulfill({status:204,body:''})}
   });
+  // S69-12 옮긴 기록(app_library_move_log): s.moveLog에 쌓는다. s.moveLogMissing이면 표가 아직 없음(404). 쓰기는 s.writes가 아닌 s.moveLogWrites에.
+  s.moveLog||=[];s.moveLogWrites||=[];
+  await page.route(`${SB}/rest/v1/app_library_move_log*`,route=>{
+    const req=route.request(),url=new URL(req.url()),m=req.method(),body=bodyOf(req);
+    if(s.moveLogMissing)return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST205',message:'Could not find the table'})});
+    if(m!=='GET')s.moveLogWrites.push({method:m,query:url.search,body});
+    if(m==='GET')return route.fulfill({json:[...s.moveLog].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))});
+    if(m==='POST'){const rows=Array.isArray(body)?body:[body];s.moveLog.push(...rows.map((r,i)=>({id:'log-'+s.moveLog.length+'-'+i,created_at:new Date().toISOString(),...r})));return route.fulfill({status:201,body:''})}
+    if(m==='DELETE'){const b=eq(url,'batch_id'),lt=(url.searchParams.get('created_at')||'').replace(/^lt\./,'');s.moveLog=s.moveLog.filter(r=>!(b?r.batch_id===b:(lt&&String(r.created_at)<lt)));return route.fulfill({status:204,body:''})}
+    return route.fulfill({status:405,body:''});
+  });
   await signIn(page,`${appOrigin}/app/?view=library`);
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
   await expect(page.locator('#documentList details[data-lu-node]').first()).toBeAttached();

@@ -1,5 +1,5 @@
 // D-3e anchored menu: shared history, focus, outside-click replay and positioning.
-import {markScrollMore,bottomInset} from './anchored-popup.js';
+import {markScrollMore,bottomInset,notePressAnchor} from './anchored-popup.js';
 // actDetached: 메뉴가 열린 동안 화면이 다시 그려져 누른 칸이 바뀌어도 고른 항목을 실행한다(부르는 쪽이 새 칸을 찾는다).
 // open(trigger,{at:{x,y}}): 누른 자리(PC 우클릭·Shift+F10) 바로 옆에 둔다. 이때 trigger(날짜 칸·일정 줄)는 메뉴 주인일 뿐이라 그 안을 다시 눌러도 바깥 누름으로 닫힌다(S51-27).
 // S51-31 UI-⋯작은메뉴: 폰·폴드·PC 모두 같은 작은 상자. 화면 아래를 덮는 판(옛 sheet)은 없앴다.
@@ -18,7 +18,8 @@ export function createAnchoredMenu({id,className,label,historyKey,parent=documen
   // parent may be a function of the trigger (TASK-바로처리통일: a list inside an open dialog keeps its menu inside that dialog).
   const host=trigger=>typeof parent==='function'?parent(trigger)||document.body:parent;
   if(popover)panel.setAttribute('popover','manual');(typeof parent==='function'?document.body:parent).append(panel);
-  panel.addEventListener('click',e=>{const button=e.target.closest('button'),previous=active;if(!button||!previous)return;close(()=>{if(actDetached||previous.trigger.isConnected)onAction(button,previous)});});
+  // S69-13: 고른 항목이 확인창을 띄우면(예: [삭제]) 메뉴를 연 ⋯ 단추(우클릭이면 누른 점) 옆에 뜨도록 그 자리를 기억한다.
+  panel.addEventListener('click',e=>{const button=e.target.closest('button'),previous=active;if(!button||!previous)return;notePressAnchor(previous.trigger,{at:previous.at});close(()=>{if(actDetached||previous.trigger.isConnected)onAction(button,previous)});});
 function close(then,fromBack=false){
   const previous=active;if(!previous){if(then){if(closing)closing.then(then);else then()}return closing||Promise.resolve()}
   active=null;openMenus.delete(panel);if(popover)panel.hidePopover();panel.hidden=true;previous.trigger.setAttribute('aria-expanded','false');

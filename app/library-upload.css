@@ -271,7 +271,7 @@
 /* 빠짐9: 평소에는 선택 줄이 비어 있으니(⋯ 메뉴로 합침) 자리를 차지하지 않는다. */
 #libraryListCard:not(.lu-selecting) .lu-select-row{display:none}
 #appView #libraryView #documentList .lu-row.lu-row-picking{position:relative;padding-left:28px}
-#appView #libraryView #documentList .lu-pick{position:absolute;left:4px;top:50%;width:16px;height:16px;min-height:0;margin:-8px 0 0;padding:0;accent-color:var(--kptu-primary-ink)}
+#appView #libraryView #documentList .lu-pick:not(.photo-pick){position:absolute;left:4px;top:50%;width:16px;height:16px;min-height:0;margin:-8px 0 0;padding:0;accent-color:var(--kptu-primary-ink)}
 #appView #libraryView #documentList .lu-pick.lu-pick-node{position:relative;z-index:1;top:auto;left:auto;flex:none;margin:0 2px 0 0}
 
 /* PRESS-자료실편입 2단계: 자료실 .html 보기 창(칸막이는 html-frame.js). 안내 한 줄·[Drive에서 열기]는 작은 글자 버튼. */
@@ -562,9 +562,8 @@
 /* LIB-사진숨김(S60-10): 묶음 안 사진은 줄에서 빼고 맨 아래 [사진 n](photo-fold.js). 펼치면 그 자리에 작은 그림 칸. */
 .lu-photo-fold{padding:2px 2px 6px}
 :is(#documentList,#libraryRecent) .lu-photo-fold .photo-fold-tile .lu-thumb{width:100%;height:100%}
-/* S69-14: 선택 모드의 사진 작은 그림 — 왼쪽 위 네모 칸(문서 줄 네모 칸과 같은 부품), 고르면 강조색 테두리. */
-#appView #libraryView #documentList .photo-fold-tile>.lu-pick.lu-pick-tile{z-index:1;left:4px;top:4px;margin:0}
-#documentList .photo-fold-tile:has(>.lu-pick-tile:checked)>.photo-fold-thumb{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+/* S69-14·S69-24: 선택 모드의 사진 작은 그림 — 고르기 칸은 공용 사진 고르기 표시(base-ui.css 'UI-사진고르기표시': 왼쪽 위 동그란 배지·고른 칸 테두리·줄어든 사진)를 쓴다.
+   문서 줄 네모 칸(.lu-pick) 위치·크기 규칙은 사진 칸(.photo-pick)에는 걸지 않는다. */
 /* LIB-사진숨김나머지(S61-1): 묶음의 사업 보고 사진 묶음 줄은 [사진 n]을 펼쳤을 때 그 아래에 그대로, 최근 올린 파일의 [사진 n]은 목록 맨 아래. */
 .lu-photo-sets{display:grid;gap:2px;padding:2px 0}
 .lu-recent-photos{list-style:none;padding:2px 2px 4px}
@@ -601,6 +600,13 @@
 #libraryTidyModal .lu-tidy-group .lu-sort-row{border-bottom:0;padding:3px 2px}
 #libraryTidyModal .lu-tidy-wait{margin:8px 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
 #libraryTidyModal .lu-tidy-stay{margin:2px 0 0 28px}
+/* S69-12: 지난 정돈 되돌리기(접어 둔 한 줄) · 섞인 묶음 표시 */
+#libraryTidyModal .lu-tidy-past{margin:0 0 4px;font-size:var(--ds-text-meta,12px)}
+#libraryTidyModal .lu-tidy-past>summary{padding:4px 2px;color:var(--kptu-muted);cursor:pointer}
+#libraryTidyModal .lu-tidy-past-row{display:flex;align-items:center;gap:6px;padding:2px 2px 2px 14px}
+#libraryTidyModal .lu-tidy-past-row>span{flex:1;min-width:0;overflow-wrap:anywhere}
+#libraryTidyModal .lu-tidy-past>p{margin:2px 0 0 14px}
+#libraryTidyModal .lu-tidy-mix{padding:0 6px;border:1px solid var(--kptu-border);border-radius:999px;color:var(--kptu-muted);font-size:11px}
 /* LIB-폴더끌어순서(S61-14): 왼쪽 나무·두 칸 칸의 폴더 줄 위·아래 끝에 놓을 때 가는 선(한 칸 목록 머리 lu-drop-before·after와 같은 선. 이 파일은 그림자 대신 선을 쓴다 — smoke 검사). */
 #libraryFolderNav .ft-row.lu-drop-before,#documentList [data-lu-pane-i] .ft-row.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
 #libraryFolderNav .ft-row.lu-drop-after,#documentList [data-lu-pane-i] .ft-row.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}

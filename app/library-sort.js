@@ -15,7 +15,7 @@ import {fileKindOf,folderSiblings,nextSortOrder,canAddChild,folderErrorText} fro
 import {requestDocumentText} from './document-text-read.js';
 import {receiveUnits,ruleReasons,startRows,aiBatches,mergeAi,settleRows,aiFailWhy,aiShouldStop,WHY_AI_NONE,genericImage,textIdsFor,textsFrom,textReasons,imageHome,imageFallback,aiIdOf,WHY_IMAGES,WHY_IMAGES_AI,WHY_IMAGES_READING,renameGroup,placeGroup,applyPlan,sortSummary,doneText,tidyUnits,tidyGroups,tidyPlan,retargetGroup,tidyAtText,tidySummary} from './library-sort-model.mjs';
 
-const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items',CHUNK=100;
+const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items',T_LOG='/rest/v1/app_library_move_log',CHUNK=100;
 const enc=encodeURIComponent;
 export const SORT_LABEL='폴더로 나누기';
 export const sortButtonHtml=(extra='')=>`<button type="button" class="row-act lu-sort-btn${extra?' '+extra:''}" data-lu-sort>${SORT_LABEL}</button>`;
@@ -207,16 +207,18 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
     try{await reload()}catch{}
     close();
     if(!count&&!madeIds.length){say('옮기지 못했어요. 목록을 확인해 주세요.',{error:true});return}
-    say(doneText(count,madeIds.length,failed),{error:failed>0,undo:()=>undo(moved,madeIds,rc,ws)});
+    const batch=newBatch();await writeMoveLog(api,ws,'sort',batch,moved.map(m=>({...m,from:rc})));
+    say(doneText(count,madeIds.length,failed),{error:failed>0,undo:()=>undo(moved,madeIds,rc,ws,batch)});
   }
   // 되돌리기: 이번에 옮긴 것 중 아직 그 폴더에 있는 것만 받는 폴더로. 이번에 만든 폴더는 비어 있으면(자료·하위 폴더 없음) 지운다.
-  async function undo(moved,madeIds,rc,ws){
+  async function undo(moved,madeIds,rc,ws,batch){
     let back=0,miss=0;
     for(const m of moved)for(let i=0;i<m.ids.length;i+=CHUNK){
       const part=m.ids.slice(i,i+CHUNK);
       try{const out=await api(T_ITEMS+`?workspace_id=eq.${enc(ws)}&folder_id=eq.${enc(m.to)}&document_id=in.(${part.map(enc).join(',')})&select=document_id`,{method:'PATCH',prefer:'return=representation',body:{folder_id:rc},singleFlight:false});const n=Array.isArray(out)?out.length:0;back+=n;miss+=part.length-n}
       catch{miss+=part.length}
     }
+    if(batch)await dropMoveLog(api,ws,batch);
     const kept=await removeEmpty(madeIds,ws);
     try{await reload()}catch{}
     say(`되돌렸어요 · ${back}개를 받는 폴더로${kept?` · 자료가 남은 새 폴더 ${kept}개는 두었어요`:''}${miss?` · ${miss}개는 그 사이 옮겨져 그대로 두었어요`:''}`,{error:miss>0});
@@ -240,17 +242,68 @@ async function removeEmptyFolders(api,ids,ws){
   return kept;
 }
 
+// ---- S69-12 옮긴 기록(app_library_move_log, 주인 RLS, 번호만) — 나중에도 [지난 정돈 되돌리기] ----
+// 옮긴 뒤 '옮기기 전 폴더'를 묶음 번호로 적는다. 표가 아직 없거나(적용 전) 적기에 실패해도 옮기기는 그대로(기록만 없음).
+// 30일 지난 기록은 새로 적을 때 주인 권한으로 지우고, 목록은 30일 안 것만 읽는다(창을 열기만 하면 아무것도 쓰지 않음).
+export const MOVE_LOG_DAYS=30;
+const logCutoff=(now=Date.now())=>new Date(now-MOVE_LOG_DAYS*864e5).toISOString();
+const newBatch=()=>globalThis.crypto?.randomUUID?.()||'00000000-0000-4000-8000-'+String(Date.now()).slice(-12).padStart(12,'0');
+async function writeMoveLog(api,ws,kind,batch,moved){
+  const rows=moved.flatMap(m=>m.ids.map(id=>({workspace_id:ws,batch_id:batch,kind,document_id:id,from_folder_id:m.from||null,to_folder_id:m.to})));
+  if(!rows.length)return false;
+  try{
+    for(let i=0;i<rows.length;i+=CHUNK)await api(T_LOG,{method:'POST',prefer:'return=minimal',body:rows.slice(i,i+CHUNK),singleFlight:false});
+  }catch{return false}
+  try{await api(T_LOG+`?workspace_id=eq.${enc(ws)}&created_at=lt.${enc(logCutoff())}`,{method:'DELETE',prefer:'return=minimal',singleFlight:false})}catch{}
+  return true;
+}
+const dropMoveLog=async(api,ws,batch)=>{try{await api(T_LOG+`?workspace_id=eq.${enc(ws)}&batch_id=eq.${enc(batch)}`,{method:'DELETE',prefer:'return=minimal',singleFlight:false})}catch{}};
+// 지난 묶음 목록(최근 것부터). 표가 없거나 읽기에 실패하면 null(화면은 그 줄을 그리지 않음).
+export function moveBatches(rows){
+  const by=new Map();
+  for(const r of Array.isArray(rows)?rows:[]){if(!r?.batch_id||!r.document_id||!r.to_folder_id)continue;if(!by.has(r.batch_id))by.set(r.batch_id,{batch:r.batch_id,kind:r.kind,at:r.created_at,rows:[]});const b=by.get(r.batch_id);b.rows.push({document_id:r.document_id,from:r.from_folder_id||null,to:r.to_folder_id});if(String(r.created_at)>String(b.at))b.at=r.created_at}
+  return [...by.values()].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+}
+export function moveBatchText(b){
+  const d=new Date(b.at),ok=!Number.isNaN(d.getTime()),p=n=>String(n).padStart(2,'0');
+  return `${ok?`${d.getMonth()+1}월 ${d.getDate()}일 ${p(d.getHours())}:${p(d.getMinutes())} · `:''}${b.kind==='sort'?'폴더로 나누기':'정돈 제안'} ${b.rows.length}개`;
+}
+async function readMoveLog(api,ws){
+  try{const out=await api(T_LOG+`?workspace_id=eq.${enc(ws)}&created_at=gte.${enc(logCutoff())}&select=batch_id,kind,document_id,from_folder_id,to_folder_id,created_at&order=created_at.desc&limit=2000`);return Array.isArray(out)?moveBatches(out):null}catch{return null}
+}
+// 묶음 하나 되돌리기: 아직 옮긴 폴더에 있는 자료만 옮기기 전 폴더로(폴더 밖이던 것은 연결을 지움). 옮기기 전 폴더가 지금 없으면(지움·휴지통) 그대로 둔다.
+// 반환 {back, miss}. 끝나면 그 묶음 기록을 지운다.
+async function undoMoveBatch(api,ws,b,alive){
+  let back=0,miss=0;const pairs=new Map();
+  for(const r of b.rows){const k=(r.from||'-')+'>'+r.to;if(!pairs.has(k))pairs.set(k,{from:r.from,to:r.to,ids:[]});pairs.get(k).ids.push(r.document_id)}
+  for(const m of pairs.values()){
+    if(m.from&&!alive.has(m.from)){miss+=m.ids.length;continue}
+    for(let i=0;i<m.ids.length;i+=CHUNK){
+      const part=m.ids.slice(i,i+CHUNK),q=`?workspace_id=eq.${enc(ws)}&folder_id=eq.${enc(m.to)}&document_id=in.(${part.map(enc).join(',')})&select=document_id`;
+      try{
+        const out=m.from?await api(T_ITEMS+q,{method:'PATCH',prefer:'return=representation',body:{folder_id:m.from},singleFlight:false})
+          :await api(T_ITEMS+q,{method:'DELETE',prefer:'return=representation',singleFlight:false});
+        const n=Array.isArray(out)?out.length:part.length;back+=n;miss+=part.length-n;
+      }catch{miss+=part.length}
+    }
+  }
+  await dropMoveLog(api,ws,b.batch);
+  return {back,miss};
+}
+
 // ---- LIB-정돈제안(S61-13, 시안 docs/design/mockups/lib-tidy-suggest.html, 명진 11/13 04:31·04:36 ㅇ) ----
 // (기다림 표시는 공용 waitInlineHtml — 따로 쓴 기다림 글자 없음.)
 // 자료실 맨 위 ⋯·빈 자리 우클릭·폴더 메뉴의 [정돈 제안] → 같은 종류인데 폴더가 둘 이상으로 갈라진 자료를 묶음으로 보여 준다(폴더 메뉴에서 열면 그 폴더 안만).
 // 받는 폴더 나누기와 같은 부품: 같은 창 모양(lu-sort-*)·같은 폴더 고르기 창(createMovePicker)·같은 옮기기 길(소유자 RLS 표 두 개)·같은 되돌리기(빈 새 폴더 지우기).
 // 묶음 찾기는 1차로 규칙만(library-sort-model.mjs tidyGroups — AI 없음). 녹음('회의 녹음' 폴더·소리 파일)은 묶음에서 뺀다.
+// S69-12: 묶음은 '임자(단체·회의체) + 종류'로 만들고(다른 단체 자료를 한 폴더로 묶지 않음), 폴더 안 정돈이면 섞여 든 다른 임자 자료를 임자별로 보여 준다.
+// [옮기기]마다 옮기기 전 자리를 서버 기록(app_library_move_log)에 남겨, 창을 닫은 뒤에도 30일 동안 [지난 정돈 되돌리기]로 되돌린다.
 // [옮기기]를 눌러야 옮긴다. 옮기기는 '지금 그 폴더에 든 연결'만 바꾸고(folder_id=원래 폴더 조건), 폴더 밖 자료는 연결을 새로 넣는다.
 // 되돌리기 한 번: 이번에 옮긴 것 중 아직 옮긴 폴더에 있는 것만 원래 자리로(폴더 밖이던 것은 연결을 지움), 이번에 만든 폴더는 비어 있으면 지운다.
 // Drive 원본 파일은 그대로, 자료실 폴더 연결만 바뀐다. 저절로 돌지 않음, 기기 저장 없음.
 export const TIDY_LABEL='정돈 제안';
 export function createTidySuggest({api,esc,state,reload,say}){
-  let root=null,groups=[],made=[],busy=false,run=0,trigger=null,picker=null,scope=null,done=false;
+  let root=null,groups=[],made=[],busy=false,run=0,trigger=null,picker=null,scope=null,done=false,past=null;
   const s=()=>state();
   const folderOf=id=>s().folders.find(f=>f.id===id);
   const pathName=id=>{const out=[];let f=folderOf(id),g=0;while(f&&g++<102){out.unshift(f.name);f=f.parent_id?folderOf(f.parent_id):null}return out.join(' › ')};
@@ -262,7 +315,7 @@ export function createTidySuggest({api,esc,state,reload,say}){
 
   function ensure(){
     if(root)return root;
-    document.body.insertAdjacentHTML('beforeend',`<div id="libraryTidyModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="libraryTidyTitle"><div class="modal-card small-card lu-sort-card lu-tidy-card"><div class="modal-head"><div><h2 id="libraryTidyTitle">정돈 제안</h2><p id="libraryTidySub" class="lu-sort-sub" aria-live="polite"></p></div><button class="icon-btn" type="button" data-tidy-close aria-label="닫기">×</button></div><div class="lu-sort-list" id="libraryTidyList"></div><p class="status" id="libraryTidyStatus" role="status"></p><div class="modal-action-footer"><button class="secondary" type="button" data-tidy-close>닫기</button><button class="primary" type="button" data-tidy-apply>옮기기</button></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend',`<div id="libraryTidyModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="libraryTidyTitle"><div class="modal-card small-card lu-sort-card lu-tidy-card"><div class="modal-head"><div><h2 id="libraryTidyTitle">정돈 제안</h2><p id="libraryTidySub" class="lu-sort-sub" aria-live="polite"></p></div><button class="icon-btn" type="button" data-tidy-close aria-label="닫기">×</button></div><div id="libraryTidyPast"></div><div class="lu-sort-list" id="libraryTidyList"></div><p class="status" id="libraryTidyStatus" role="status"></p><div class="modal-action-footer"><button class="secondary" type="button" data-tidy-close>닫기</button><button class="primary" type="button" data-tidy-apply>옮기기</button></div></div></div>`);
     root=document.querySelector('#libraryTidyModal');
     root.addEventListener('click',onClick);
     root.addEventListener('change',onChange);
@@ -291,7 +344,7 @@ export function createTidySuggest({api,esc,state,reload,say}){
   }
   function groupHtml(g){
     const move=g.mode==='move',n=g.rows.filter(r=>r.checked).length;
-    return `<section class="lu-tidy-group${move?'':' lu-tidy-keep'}" data-tidy-group="${esc(g.gid)}" aria-label="${esc(g.word)} 묶음"><div class="lu-tidy-head"><b>${esc(g.word)}</b> <small>${g.total}개</small><span class="lu-tidy-seg ds-seg" role="group" aria-label="${esc(g.word)} 묶음 옮기기 여부"><button type="button" class="ds-seg-btn" data-tidy-mode="move" data-tidy-g="${esc(g.gid)}" aria-pressed="${move}">옮기기</button><button type="button" class="ds-seg-btn" data-tidy-mode="keep" data-tidy-g="${esc(g.gid)}" aria-pressed="${!move}">그대로</button></span></div>`
+    return `<section class="lu-tidy-group${move?'':' lu-tidy-keep'}" data-tidy-group="${esc(g.gid)}" aria-label="${esc(g.word)} 묶음"><div class="lu-tidy-head"><b>${esc(g.word)}</b> <small>${g.total}개</small>${g.split?'<span class="lu-tidy-mix">섞여 있음</span>':''}<span class="lu-tidy-seg ds-seg" role="group" aria-label="${esc(g.word)} 묶음 옮기기 여부"><button type="button" class="ds-seg-btn" data-tidy-mode="move" data-tidy-g="${esc(g.gid)}" aria-pressed="${move}">옮기기</button><button type="button" class="ds-seg-btn" data-tidy-mode="keep" data-tidy-g="${esc(g.gid)}" aria-pressed="${!move}">그대로</button></span></div>`
       +`<p class="lu-tidy-at">${esc(tidyAtText(g.at,fromText))}</p>`
       +(move?`<div class="lu-tidy-to">${n?`선택한 ${n}개 → `:'모두 → '}${targetHtml(g)}</div>${g.rows.map(r=>rowHtml(g,r)).join('')}${g.stay?`<p class="lu-sort-why lu-tidy-stay">이미 그 폴더에 있는 ${g.stay}개는 그대로</p>`:''}`
         :`<p class="lu-sort-why">'그대로'를 선택해 이 묶음은 옮기지 않아요.</p>`)+'</section>';
@@ -304,13 +357,36 @@ export function createTidySuggest({api,esc,state,reload,say}){
     root.querySelector('#libraryTidySub').textContent=(scope?pathName(scope)+' 안 · ':'')+tidySummary(groups,{done});
     const n=tidyPlan(groups,made).count,b=root.querySelector('[data-tidy-apply]');
     b.textContent=`선택한 ${n}개 옮기기`;b.disabled=!n||busy||!done;
+    paintPast();
+  }
+  // 지난 정돈 되돌리기: 30일 안에 [옮기기]로 옮긴 묶음(최근 5개). 접어 두고, 펼치면 묶음마다 [되돌리기].
+  function paintPast(){
+    const el=root?.querySelector('#libraryTidyPast');if(!el)return;
+    if(!past?.length){el.innerHTML='';return}
+    const wasOpen=!!el.querySelector('details')?.open;
+    el.innerHTML=`<details class="lu-tidy-past"${wasOpen?' open':''}><summary>지난 정돈 되돌리기 <small>${past.length}</small></summary>`
+      +past.slice(0,5).map(b=>`<div class="lu-tidy-past-row"><span>${esc(moveBatchText(b))}</span><button type="button" class="row-act" data-tidy-undo="${esc(b.batch)}"${busy?' disabled':''} aria-label="${esc(moveBatchText(b))} 되돌리기">되돌리기</button></div>`).join('')
+      +'<p class="lu-sort-why">아직 옮긴 폴더에 있는 자료만 옮기기 전 자리로 돌아가요.</p></details>';
+  }
+  async function loadPast(me){
+    const out=await readMoveLog(api,s().workspace);
+    if(me!==run)return;past=out;paintPast();
+  }
+  async function undoPast(batch){
+    const b=past?.find(x=>x.batch===batch);if(!b||busy)return;
+    busy=true;paint();say2('되돌리는 중…');
+    const {back,miss}=await undoMoveBatch(api,s().workspace,b,new Set(s().folders.map(f=>f.id)));
+    busy=false;
+    try{await reload()}catch{}
+    close();
+    say(`되돌렸어요 · ${back}개를 옮기기 전 자리로${miss?` · ${miss}개는 그 사이 옮겨졌거나 원래 폴더가 없어 그대로 두었어요`:''}`,{error:miss>0});
   }
   const say2=(text,error=false)=>{if(!root)return;const el=root.querySelector('#libraryTidyStatus');el.textContent=text;el.className=error?'status error':'status'};
 
   // ---- 열기: 창 먼저, 묶음은 뒤에서 ----
   async function open(from,scopeId=null){
     trigger=from||document.activeElement;ensure();
-    const me=++run;scope=scopeId&&folderOf(scopeId)?scopeId:null;groups=[];made=[];done=false;busy=false;
+    const me=++run;scope=scopeId&&folderOf(scopeId)?scopeId:null;groups=[];made=[];done=false;busy=false;past=null;
     say2('');paint();
     root.classList.remove('hidden');root.setAttribute('aria-hidden','false');
     window.KPTUA11y?.dialog?.activate?.(root,{trigger,initialFocus:root.querySelector('[data-tidy-close]'),onRequestClose:close});
@@ -318,9 +394,10 @@ export function createTidySuggest({api,esc,state,reload,say}){
     // 창을 먼저 그린 뒤 계산(자료가 많아도 누르는 즉시 창이 뜨게).
     await new Promise(r=>setTimeout(r,0));
     if(me!==run)return;
-    const st=s(),units=tidyUnits(st.listDocs,st.items,st.folders,{scopeId:scope});
-    ({groups,newGroups:made}=tidyGroups(units,{folders:st.folders,receiveId:st.receiveId||null,scopeId:scope}));
+    const st=s(),units=tidyUnits(st.listDocs,st.items,st.folders,{scopeId:scope}),allUnits=scope?tidyUnits(st.listDocs,st.items,st.folders):units;
+    ({groups,newGroups:made}=tidyGroups(units,{folders:st.folders,receiveId:st.receiveId||null,scopeId:scope,allUnits}));
     done=true;paint();
+    void loadPast(me);
   }
 
   // ---- 고치기 ----
@@ -337,6 +414,7 @@ export function createTidySuggest({api,esc,state,reload,say}){
   function onClick(e){
     if(e.target.closest('[data-tidy-close]')){close();return}
     if(e.target.closest('[data-tidy-apply]')){void apply();return}
+    const u=e.target.closest('[data-tidy-undo]');if(u){void undoPast(u.dataset.tidyUndo);return}
     const m=e.target.closest('[data-tidy-mode]');if(m){const gid=m.dataset.tidyG;setGroup(gid,g=>({...g,mode:m.dataset.tidyMode}));root.querySelector(`[data-tidy-g="${CSS.escape(gid)}"][data-tidy-mode="${m.dataset.tidyMode}"]`)?.focus({preventScroll:true});return}
     const pick=e.target.closest('[data-tidy-pick]');if(pick){choose(pick);return}
     const place=e.target.closest('[data-tidy-place]');if(place)choosePlace(place);
@@ -399,9 +477,10 @@ export function createTidySuggest({api,esc,state,reload,say}){
     try{await reload()}catch{}
     close();
     if(!count&&!madeIds.length){say('옮기지 못했어요. 목록을 확인해 주세요.',{error:true});return}
-    say(doneText(count,madeIds.length,failed),{error:failed>0,undo:()=>undo(moved,madeIds,ws)});
+    const batch=newBatch();await writeMoveLog(api,ws,'tidy',batch,moved);
+    say(doneText(count,madeIds.length,failed),{error:failed>0,undo:()=>undo(moved,madeIds,ws,batch)});
   }
-  async function undo(moved,madeIds,ws){
+  async function undo(moved,madeIds,ws,batch){
     let back=0,miss=0;
     for(const m of moved)for(let i=0;i<m.ids.length;i+=CHUNK){
       const part=m.ids.slice(i,i+CHUNK),q=`?workspace_id=eq.${enc(ws)}&folder_id=eq.${enc(m.to)}&document_id=in.(${part.map(enc).join(',')})&select=document_id`;
@@ -411,6 +490,7 @@ export function createTidySuggest({api,esc,state,reload,say}){
         const n=Array.isArray(out)?out.length:part.length;back+=n;miss+=part.length-n;
       }catch{miss+=part.length}
     }
+    if(batch)await dropMoveLog(api,ws,batch);
     const kept=await removeEmptyFolders(api,madeIds,ws);
     try{await reload()}catch{}
     say(`되돌렸어요 · ${back}개를 원래 자리로${kept?` · 자료가 남은 새 폴더 ${kept}개는 두었어요`:''}${miss?` · ${miss}개는 그 사이 옮겨져 그대로 두었어요`:''}`,{error:miss>0});
