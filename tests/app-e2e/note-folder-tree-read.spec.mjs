@@ -75,8 +75,8 @@ test('PC 1280: 폴더를 펼치면 하위 폴더 다음에 그 폴더 노트 줄
   await treeNote(page, 'n2').locator('[data-note-row]').click();
   await expect(detail(page).locator('[data-basket-read-text]')).toContainText('나 노트 본문 글');
   await expect(treeNote(page, 'n2')).toHaveClass(/nx-current/);
-  // 접으면 숨는다(열린 노트는 그대로).
-  await tree(page).locator(`[data-nx-folder="${F}"] .ft-main`).click();
+  // 접으면 숨는다(열린 노트는 그대로). S69-38: 접기는 폴더 그림(이름 누르기 = 그 폴더 열기).
+  await tree(page).locator(`[data-nx-tog="${F}"]`).click();
   await expect(treeNote(page, 'n1')).toHaveCount(0);
   await expect(detail(page)).toBeVisible();
   await page.keyboard.press('Escape');

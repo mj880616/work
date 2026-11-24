@@ -83,8 +83,8 @@ test('AI title shows over an auto-filled title, never over an own title', async 
 });
 
 // 10/28 17:45(PC)·17:55(폰 한 화면씩) 화면 정리.
-test('PC 오른쪽은 고른 폴더 노트만(폴더 줄 없음), 폰은 첫 화면 폴더 목록 → 폴더 화면(하위 폴더 먼저)', () => {
-  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:U(1)}).map(r => r.id), [], 'PC: 폴더 줄은 왼쪽 나무에만');
+test('PC 오른쪽은 고른 폴더 바로 안 하위 폴더 줄 → 노트(S69-38 탐색기), 폰은 첫 화면 폴더 목록 → 폴더 화면(하위 폴더 먼저)', () => {
+  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:U(1)}).map(r => `${r.type}:${r.id}`), [`folder:${U(2)}`], 'PC: 상위 폴더를 눌러도 오른쪽에 하위 폴더 줄');
   assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:U(2)}).map(r => r.id), ['a']);
   assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:null}).map(r => r.id), ['c', 'd'], 'PC 맨 위 = 폴더 없음');
   assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:OUTSIDE}).map(r => r.id), ['c', 'd']);

@@ -27,20 +27,18 @@ for (const width of [700, 768, 884, 1280]) test(`파일 ${width}: 왼쪽 나무 
   // 저장소마다 둥근 상자(S51-25, 자료실 모양) — 상자 사이가 한눈에 갈린다.
   const rootBox = tree.locator('[data-fx-box="od"]');
   expect(await rootBox.evaluate(e => parseFloat(getComputedStyle(e).borderTopLeftRadius))).toBeGreaterThan(0);
-  // UI-폴더누르기한규칙(S57-5): 나무에서 폴더 이름을 누르면 들어가지 않고 그 자리 펼침(위치 줄·목록 그대로), 들어가기는 ⋯·우클릭 [이 폴더로 들어가기] — 두 번 옮겨 다녀도 나무가 그대로.
+  // S69-38 UI-탐색기나무누르기(명진 11/24): 나무에서 폴더 이름을 누르면(하위 폴더가 있어도) 오른쪽이 그 폴더 + 나무에서 펼침 — 두 번 옮겨 다녀도 나무가 그대로.
+  // ⋯·우클릭 [이 폴더로 들어가기]도 같은 곳.
   const go = tree.locator('[data-fx-go][data-fx-id]:not([data-fx-id=""])');
   const crumb = root(page).locator('[data-fx-crumb] .fx-crumb-now');
   const enterVia = async btn => { await btn.locator('xpath=..').locator('[data-fx-tmenu]').click(); await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click(); };
-  const crumb0 = await crumb.textContent();
   const name0 = await go.first().locator('.ft-name').textContent();
   await go.first().click();
   await expect(tree).toBeVisible();
-  await expect(crumb).toHaveText(crumb0);
-  await enterVia(go.first());
-  await expect(tree).toBeVisible();
   await expect(crumb).toHaveText(name0);
+  await expect(go.first().locator('xpath=..')).toHaveClass(/ft-current/);
+  await expect(go.first().locator('xpath=..').locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'true');
   const name1 = await go.nth(1).locator('.ft-name').textContent();
-  // OPS-빠진일2차 1(S59-17): 하위 폴더가 없는 폴더는 이름을 한 번 누르면 그 폴더가 열린다(펼칠 것이 없으므로). 나무는 그대로.
   await go.nth(1).click();
   await expect(crumb).toHaveText(name1);
   await expect(tree).toBeVisible();
@@ -156,8 +154,9 @@ test('노트 보기 전환 줄 자리: 폴드(폰 틀)·폰 아래 가운데 · 
   }
 });
 
-// UI-폴더누르기한규칙(S57-5, LIB-나무접기 후속): 폴더 이름 누르기 = 펼침, 다시 누르기 = 접힘(들어가지 않음 — 위치 줄·목록 그대로), ←/→ 같은 규칙. 들어가기 = ⋯ [이 폴더로 들어가기].
-test('파일 1280: 폴더 이름 누르기 = 펼침·접힘(들어가지 않음), ←/→도 같은 규칙, 들어가기는 ⋯ 메뉴', async ({ page }) => {
+// S69-38 UI-탐색기나무누르기(명진 11/24, UI-폴더누르기한규칙을 탐색기 나무에서 바꿈): 폴더 이름 누르기 = 오른쪽이 그 폴더 + 펼침(다시 눌러도 접지 않음),
+// 펼침 아이콘·←/→ = 펼치기·접기만(오른쪽 그대로). ⋯ [이 폴더로 들어가기]도 같은 곳.
+test('파일 1280: 폴더 이름 누르기 = 그 폴더 열기 + 펼침, 아이콘·←/→ = 펼침·접힘만, ⋯ 메뉴로도 들어가기', async ({ page }) => {
   test.setTimeout(90000);
   const { errors } = await start(page, 1280);
   await openFiles(page, 1280);
@@ -169,12 +168,17 @@ test('파일 1280: 폴더 이름 누르기 = 펼침·접힘(들어가지 않음)
   const main = tree.locator(`[data-fx-go][data-fx-id="${id}"]`), tog = tree.locator(`.ft-row:has([data-fx-id="${id}"]) > button.ft-tog`);
   const name = await main.locator('.ft-name').textContent();
   const crumb = root(page).locator('[data-fx-crumb] .fx-crumb-now');
-  const crumb0 = await crumb.textContent();
-  let open = await tog.getAttribute('aria-expanded') === 'true';
-  const flip = async () => { open = !open; await expect(tog).toHaveAttribute('aria-expanded', String(open)); await expect(crumb).toHaveText(crumb0); await expect(main).toBeFocused(); };
-  await main.click(); await flip();
-  await main.click(); await flip();
-  await main.click(); await flip();
+  await main.click();
+  await expect(crumb).toHaveText(name);
+  await expect(tog).toHaveAttribute('aria-expanded', 'true');
+  await expect(main).toBeFocused();
+  await main.click(); // 다시 눌러도 접히지 않는다
+  await expect(tog).toHaveAttribute('aria-expanded', 'true');
+  await expect(crumb).toHaveText(name);
+  let open = true;
+  const flip = async () => { open = !open; await expect(tog).toHaveAttribute('aria-expanded', String(open)); await expect(crumb).toHaveText(name); };
+  await tog.click(); await flip();
+  await tog.click(); await flip();
   await main.focus(); await page.keyboard.press(open ? 'ArrowLeft' : 'ArrowRight'); await flip();
   await page.keyboard.press(open ? 'ArrowLeft' : 'ArrowRight'); await flip();
   if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/files-pc-1280-1-press.png` });

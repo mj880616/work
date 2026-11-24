@@ -108,10 +108,10 @@ for (const width of [412, 884, 1440]) {
       await expect(tree.locator('[data-photos-fx-new]')).toHaveText('+ 새 폴더');
       await tree.locator('[data-photos-fx-tog="S2"]').click();
       await expect(tree.locator('.nx-name')).toHaveText(['카메라', '2026', '여행', '제주']);
-      // UI-폴더누르기한규칙: 이름 누르기 = 펼침만(들어가지 않음), 들어가기 = 우클릭 [이 폴더로 들어가기]
-      // OPS-빠진일2차 1(S59-17): 하위 폴더가 없는 폴더(2026)는 이름을 한 번 누르면 그 폴더를 연다. 하위 폴더가 있는 여행은 펼침만.
+      // S69-38 UI-탐색기나무누르기: 이름 누르기 = 그 폴더 열기 + 펼침(하위 폴더가 있는 여행도), 오른쪽에 하위 폴더 줄(제주). 우클릭 [이 폴더로 들어가기]도 같은 곳.
       await tree.locator('[data-photos-fx-open="S2"]').click();
-      await expect(tree.locator('[data-photos-folder="S2"]')).not.toHaveClass(/nx-current/);
+      await expect(tree.locator('[data-photos-folder="S2"]')).toHaveClass(/nx-current/);
+      await expect(root(page).locator('.photos-fx-pane [data-photos-fx-open="S21"]')).toBeVisible();
       await tree.locator('[data-photos-fx-open="S1"]').click();
       await expect(tree.locator('[data-photos-folder="S1"]')).toHaveClass(/nx-current/);
       await path(page).locator('[data-photos-fx-at]').first().click();
@@ -183,7 +183,7 @@ for (const width of [412, 884, 1440]) {
     await root(page).locator('[data-photos-name-input]').fill('가을');
     await root(page).locator('[data-photos-name-input]').press('Enter');
     await expect.poll(() => f.edge.find(b => b.action === 'folder-create')).toMatchObject({ parent_id: wide ? 'S1' : 'T', name: '가을' });
-    await expect(root(page).locator(`[data-photos-folder="N3"] ${wide ? '.nx-name' : '.ft-name'}`)).toHaveText('가을');
+    await expect(root(page).locator(`${wide ? "[data-photos-fx-tree] " : ""}[data-photos-folder="N3"] ${wide ? ".nx-name" : ".ft-name"}`)).toHaveText("가을"); // S69-38: PC는 오른쪽 칸에도 하위 폴더 줄이 있어 나무 쪽을 본다
     expect(f.errors).toEqual([]);
   });
 }

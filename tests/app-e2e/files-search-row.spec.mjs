@@ -4,7 +4,7 @@ import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S62-40 UI-파일검색줄(명진 11/16 07:57 "검색창 폭을 줄여 가지고 두 칸 보기를 위로 올리면은 한 줄 아낄 수 있는데?",
 // 시안 #2691 B안, 08:37 선택): [파일] 맨 위 줄 = [찾기][원드라이브][구글 드라이브][이 폰 — 있을 때][두 칸 보기 아이콘] 한 줄.
-// [두 칸 보기]는 공용 ⑥ 아이콘 단추(button.icon-btn), 이름은 늘 '두 칸 보기', 켜짐은 aria-pressed. 이름·id는 모두 가짜.
+// S69-38 FILES-보기두칸(명진 11/24): [두 칸 보기] 아이콘 하나 → 자료실과 같은 붙은 [한 칸 | 두 칸](공용 ⑤ ds-seg). 지금 보기 쪽이 aria-pressed, 폰은 그림만. 이름·id는 모두 가짜.
 const root = page => page.locator('#filesRoot');
 const SHOTS = process.env.FILES_SEARCH_ROW_SHOTS || '';
 const shot = async (page, name) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/${name}.png` }); } };
@@ -16,19 +16,20 @@ async function topRow(page) {
   return page.evaluate(() => {
     const r = el => el.getBoundingClientRect();
     const top = document.querySelector('#filesRoot .fx-top');
-    const search = r(top.querySelector('[data-fx-search]')), two = top.querySelector('[data-fx-two]'), t = r(two);
+    const search = r(top.querySelector('[data-fx-search]')), seg = top.querySelector('[data-fx-view-seg]'), t = r(seg), two = seg.querySelector('[data-fx-two]'), one = seg.querySelector('[data-fx-one]');
     const chips = [...top.querySelectorAll('[data-fx-srcs] [data-src-chip]')].filter(b => !b.hidden && b.offsetParent).map(r);
     const same = b => b.top < search.bottom && search.top < b.bottom;
     return {
       chips: chips.length, sameLine: same(t) && chips.every(same), twoLast: chips.every(c => c.right <= t.left),
       searchW: Math.round(search.width), twoW: Math.round(t.width), twoH: Math.round(t.height),
-      label: two.getAttribute('aria-label'), text: two.textContent.trim(), icon: !!two.querySelector('svg'), cls: two.className,
+      label: two.getAttribute('aria-label'), oneLabel: one.getAttribute('aria-label'), text: [...seg.querySelectorAll('.fx-seg-t')].filter(x => x.offsetParent).map(x => x.textContent.trim()).join('|'),
+      icon: !!two.querySelector('svg') && !!one.querySelector('svg'), cls: seg.className, joined: Math.abs(r(one).right - r(two).left) <= 3 && Math.abs(r(one).top - r(two).top) < 2,
       inRow: t.right <= r(top).right + 0.5, overflow: document.documentElement.scrollWidth - innerWidth,
     };
   });
 }
 
-test('폰 412: [찾기][원드라이브][구글 드라이브][두 칸 보기] 한 줄 · 아이콘 단추 · 켜면 aria-pressed · 키보드로도', async ({ page }) => {
+test('폰 412: [찾기][원드라이브][구글 드라이브][한 칸|두 칸] 한 줄 · 붙은 그림 단추 · 켜면 aria-pressed · 키보드로도', async ({ page }) => {
   test.setTimeout(90000);
   const { errors } = await start(page, 412);
   await openFiles(page, 412);
@@ -41,10 +42,12 @@ test('폰 412: [찾기][원드라이브][구글 드라이브][두 칸 보기] �
   expect(m.twoLast).toBe(true);
   expect(m.inRow).toBe(true);
   expect(m.label).toBe('두 칸 보기');
-  expect(m.text).toBe('');
+  expect(m.oneLabel).toBe('한 칸 보기');
+  expect(m.text).toBe(''); // 폰은 그림만
   expect(m.icon).toBe(true);
-  expect(m.cls).toContain('icon-btn');
-  expect([m.twoW, m.twoH]).toEqual([28, 28]);
+  expect(m.cls).toContain('ds-seg');
+  expect(m.joined).toBe(true);
+  expect(m.twoH).toBeLessThanOrEqual(44);
   expect(m.searchW).toBeGreaterThanOrEqual(200);
   expect(m.overflow).toBeLessThanOrEqual(0);
   await shot(page, 'phone-412');
@@ -60,11 +63,16 @@ test('폰 412: [찾기][원드라이브][구글 드라이브][두 칸 보기] �
   await expect(two).toHaveAttribute('aria-label', '두 칸 보기');
   expect((await topRow(page)).sameLine).toBe(true);
   await shot(page, 'phone-412-two');
-  // 키보드: 초점을 옮겨 Enter로 끈다.
-  await two.focus();
+  await expect(root(page).locator('[data-fx-one]')).toHaveAttribute('aria-pressed', 'false');
+  // 눌린 [두 칸]을 다시 눌러도 그대로(붙은 단추는 고르기만).
+  await two.click();
+  await expect(root(page).locator('[data-fx-pane-i="1"]')).toHaveCount(1);
+  // 키보드: [한 칸]에 초점을 옮겨 Enter로 끈다.
+  await root(page).locator('[data-fx-one]').focus();
   await page.keyboard.press('Enter');
   await expect(root(page).locator('[data-fx-pane-i="1"]')).toHaveCount(0);
   await expect(two).toHaveAttribute('aria-pressed', 'false');
+  await expect(root(page).locator('[data-fx-one]')).toHaveAttribute('aria-pressed', 'true');
   expect(errors).toEqual([]);
 });
 
@@ -97,7 +105,7 @@ test.describe('폰 앱 412(이 폰 단추가 있을 때)', () => {
   });
 });
 
-test('PC 1280: 맨 위 줄 한 줄 그대로 · [두 칸 보기] 아이콘 켜고 끄기(aria-pressed)', async ({ page }) => {
+test('PC 1280: 맨 위 줄 한 줄 그대로 · 붙은 [한 칸 | 두 칸] 켜고 끄기(aria-pressed)', async ({ page }) => {
   test.setTimeout(90000);
   const { errors } = await start(page, 1280);
   await openFiles(page, 1280);
@@ -107,6 +115,8 @@ test('PC 1280: 맨 위 줄 한 줄 그대로 · [두 칸 보기] 아이콘 켜�
   expect(m.sameLine).toBe(true);
   expect(m.label).toBe('두 칸 보기');
   expect(m.icon).toBe(true);
+  expect(m.text).toBe('한 칸|두 칸'); // PC는 자료실처럼 그림 + 글자
+  expect(m.joined).toBe(true);
   expect(m.overflow).toBeLessThanOrEqual(0);
   await shot(page, 'pc-1280');
   await two.click();
@@ -114,7 +124,7 @@ test('PC 1280: 맨 위 줄 한 줄 그대로 · [두 칸 보기] 아이콘 켜�
   await expect(two).toHaveAttribute('aria-pressed', 'true');
   expect((await topRow(page)).sameLine).toBe(true);
   await shot(page, 'pc-1280-two');
-  await two.click();
+  await root(page).locator('[data-fx-one]').click();
   await expect(two).toHaveAttribute('aria-pressed', 'false');
   expect(errors).toEqual([]);
 });
