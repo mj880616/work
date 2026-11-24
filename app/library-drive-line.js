@@ -54,6 +54,15 @@ export function driveLineHtml(place, esc, at = {}, note = '') {
     + (note ? `<span class="lu-drive-note" role="status">${esc(note)}</span>` : '');
 }
 
+/** UI-자료실파일모양(S69-85 ②): 폴더 안 위치 줄 끝에 붙는 작은 [드라이브 ↗] 하나(주소 줄을 두 줄로 겹치지 않게). */
+export function pathLinkHtml(place, esc, at = {}, note = '') {
+  const p = placeAt(place, at);
+  if (!p) return '';
+  const where = p.path.map(esc).join(' › ');
+  return `<a class="lu-drive-open lu-path-drive" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="구글 드라이브에서 ${where} 열기" title="구글 드라이브 · ${where}">드라이브 ↗</a>`
+    + (note ? `<span class="lu-drive-note lu-path-drive" role="status">${esc(note)}</span>` : '');
+}
+
 /** 서버 답(숫자만) → 줄 끝 글. */
 export function mirrorNote(r) {
   if (!r || typeof r !== 'object') return '';
@@ -63,12 +72,18 @@ export function mirrorNote(r) {
 
 // S69-52 ①: 드라이브에서 직접 바꾼 폴더 이름·자리는 자료실에 들어올 때(entered) 한 번 서버에 '앞으로 같게'를 부탁해 자료실이 따라간다.
 // 서버가 자료실 폴더를 고쳤으면(app_renamed·app_moved) onAppChanged()로 화면이 폴더를 다시 읽는다.
-export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () => {}, el = () => document.querySelector('#libraryDriveLine'), wait = AUTO_WAIT_MS, onAppChanged = () => {}}) {
+// path: 폴더 안 위치 줄(있으면 저장 위치 줄 대신 그 끝에 [드라이브 ↗]). 위치 줄은 화면이 그리고, 그 끝 링크·저장 위치 줄의 주인은 여기 하나.
+export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () => {}, el = () => document.querySelector('#libraryDriveLine'), path = () => document.querySelector('#libraryPath:not([hidden])'), wait = AUTO_WAIT_MS, onAppChanged = () => {}}) {
   let place = null, owner = 0, note = '', aligning = false, autoTimer = null, autoRunning = false, lastSign = null, again = false, waiting, follow = false;
   function render() {
-    const box = el();
+    const box = el(), nav = path(), here = at();
+    for (const old of document.querySelectorAll('.lu-path-drive')) if (!nav || old.parentElement !== nav) old.remove();
+    if (nav) {
+      const link = pathLinkHtml(place, esc, here, note), now = [...nav.querySelectorAll(':scope > .lu-path-drive')].map(x => x.outerHTML).join('');
+      if (now !== link) { nav.querySelectorAll(':scope > .lu-path-drive').forEach(x => x.remove()); if (link) nav.insertAdjacentHTML('beforeend', link); }
+    }
     if (!box) return;
-    const html = driveLineHtml(place, esc, at(), note);
+    const html = nav ? '' : driveLineHtml(place, esc, here, note);
     if (box.innerHTML !== html) box.innerHTML = html;
     box.hidden = !html;
   }

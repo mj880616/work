@@ -16,7 +16,8 @@ if (window.__KPTU_CONTEXT_MENU__) return;
 window.__KPTU_CONTEXT_MENU__ = true;
 
 const WIDE = window.matchMedia('(min-width:761px)');
-const EDITABLE = 'input,textarea,select,[contenteditable=""],[contenteditable="true"],[contenteditable="plaintext-only"]';
+// UI-자료실파일모양(S69-85 ②): 자료실 고르기 네모 칸(.lu-pick)은 줄 위에 보이지 않게 덮여 있어 줄의 일부다 — 우클릭은 그 줄 메뉴.
+const EDITABLE = 'input:not(.lu-pick),textarea,select,[contenteditable=""],[contenteditable="true"],[contenteditable="plaintext-only"]';
 // A card is the smallest block around the pressed spot that holds exactly one ⋯; the climb never passes a screen, a dialog or
 // the page, and gives up once the block holds more than one ⋯ (a list of cards, not a card) unless one of them is area-marked.
 const STOP = '.view-panel,.modal,[role="dialog"],main,body,html';
