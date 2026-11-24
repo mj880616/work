@@ -190,12 +190,13 @@
 #appView #libraryView #documentList .lu-node > summary.lu-node-head{min-height:calc(var(--ds-compact-height,32px) + 4px);padding-top:8px;padding-bottom:8px;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400)}
 #appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{font-weight:700}
 /* UI-폴더목록한모양(S69-90, 명진 11/25 "파일쪽이 더 멋지고 이쪽으로 통일 … 모든 폴더 쓰는 ui를 통일"): 자료실 폴더 줄 높이·글자·⋯ 자리를 [파일] 폴더 줄(공용 .ft-main, folder-tree.css)과 같게.
-   폰(~760px) 맨 위 단 44px·하위 40px·14px, 넓은 화면 36px·32px·13px. 왼쪽 나무·두 칸 칸(.ft-row)은 공용 값 그대로(전의 30px·12.5px 덮어쓰기를 지움). */
-#appView #libraryView #documentList .lu-node > summary.lu-node-head{min-height:40px;padding-top:0;padding-bottom:0;font-size:14px}
+   폰(~760px) 맨 위 단 44px·하위 40px, 넓은 화면 36px. 왼쪽 나무·두 칸 칸(.ft-row)은 공용 값 그대로(전의 30px·12.5px 덮어쓰기를 지움).
+   글자 크기는 LIB-목록간격 ②(2026-10-23 확정: 폴더 줄 글자 = 자료 줄 이름 크기)를 지켜 자료 줄과 같은 --ds-text-row 그대로 — 폰 [파일](14px)과는 자료 줄 모양을 정할 때(S69-85 남은 일) 함께 맞춘다. */
+#appView #libraryView #documentList .lu-node > summary.lu-node-head{min-height:40px;padding-top:0;padding-bottom:0}
 #appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{min-height:44px}
+/* 넓은 화면은 LIB-목록간격 ②(2026-10-23 확정: 폴더 줄 간격 36px)대로 하위 단도 36px([파일] 맨 위 단 값). */
 @media (min-width:761px){
-  #appView #libraryView #documentList .lu-node > summary.lu-node-head{min-height:32px;font-size:var(--ds-compact-text,13px)}
-  #appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{min-height:36px}
+  #appView #libraryView #documentList .lu-node > summary.lu-node-head,#appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{min-height:36px}
 }
 #appView #libraryView .lu-node-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #appView #libraryView .lu-node-count{flex:none;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);color:var(--kptu-muted);font-variant-numeric:tabular-nums}

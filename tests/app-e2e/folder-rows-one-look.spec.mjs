@@ -123,7 +123,9 @@ for (const width of [390, 880, 1280]) for (const [name, slug, open] of SCREENS) 
     const got = await look(o);
     await page.screenshot({ path: `${SHOTS}/s69-90-${slug}-${width}.png` });
     expect(got.old, `${name}: 옛 줄 모양(.nx-row)이 없다`).toBe(false);
-    for (const k of ['height', 'font', 'icon', 'dotsW', 'dotsH', 'dotsRight', 'numFont']) expect(got[k], `${name} ${width} ${k}`).toBe(base[k]);
+    // 자료실 폰 목록 폴더 줄 글자는 LIB-목록간격 ②(폴더 줄 글자 = 자료 줄 이름 크기)를 지킨다 — 자료 줄 모양을 정할 때 함께 맞춘다(S69-85 남은 일).
+    const keys = ['height', 'font', 'icon', 'dotsW', 'dotsH', 'dotsRight', 'numFont'].filter(k => !(k === 'font' && name === '자료실' && width < 761));
+    for (const k of keys) expect(got[k], `${name} ${width} ${k}`).toBe(base[k]);
     expect(o.errors).toEqual([]);
   });
 }
