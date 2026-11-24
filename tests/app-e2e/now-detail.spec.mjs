@@ -120,7 +120,7 @@ for (const width of [412, 884, 1280]) {
     // 메뉴 'News' 하나(뉴스 클리핑 칸 없음), 탭 [전체][사회운동][언론][밑줄](S68-24 [보관] 탭 없앰), 처음은 [전체] → [사회운동]으로.
     await expect(page.locator('#osTitle')).toHaveText('읽을 거리');
     await expect(page.locator('.nav-btn[data-view="news"], #mobileMenu [data-view="news"]')).toHaveCount(0);
-    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
+    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '밑줄', '메모']);
     await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     if (width > 760) await expect(detail(page).locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대'); // [전체]에서 맨 위 글을 한 번 연 뒤 탭을 옮긴다
     await root(page).getByRole('tab', { name: '사회운동' }).click();
@@ -128,8 +128,12 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator('[data-os-list] [data-nw-key]')).toHaveCount(1);
     await expect(root(page).locator('[data-os-list] details[data-os-intl] summary')).toHaveText(/^국제 · 1건/);
 
-    // 관심 주제 후보가 있으면 목록 위 한 줄. 서버에 후보를 만들지 묻는다(규칙은 서버).
-    await expect(root(page).locator('[data-now-cand]')).toContainText('관심 주제 후보 1');
+    // 관심 주제 후보가 있으면 화면 머리 ⋯ 메뉴 안 한 줄(S69-70 — 목록 위 줄은 없음). 서버에 후보를 만들지 묻는다(규칙은 서버).
+    await expect(root(page).locator('[data-now-cand]')).toHaveCount(0);
+    await root(page).locator('[data-os-more]').click();
+    await expect(page.locator('#osMenu [data-os-cand]')).toHaveText('관심 주제 후보 1');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#osMenu')).toBeHidden();
     await expect.poll(() => server.calls.some(c => c.what === 'ai' && c.body?.kind === 'now_interests')).toBe(true);
     expect(server.calls.find(c => c.body?.kind === 'now_interests').body).toEqual({ kind: 'now_interests' });
 
@@ -214,7 +218,8 @@ for (const width of [412, 884, 1280]) {
     }
 
     // 관심 주제 후보 → [ㅇ 확정](state·decided_at·updated_at만 고침) → 목록 줄에 작은 표시.
-    await root(page).locator('[data-now-interests-open]').click();
+    await root(page).locator('[data-os-more]').click();
+    await page.locator('#osMenu [data-os-cand]').click();
     const box = root(page).locator('[data-now-interests-box]');
     await expect(box.locator('[data-ni-row="i1"]')).toContainText('철도 민영화');
     await box.locator('[data-ni-confirm="i1"]').click();
@@ -230,10 +235,13 @@ for (const width of [412, 884, 1280]) {
     await page.goBack();
     await expect(root(page).locator('[data-now-interests]')).toBeHidden();
     await expect(root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"] .now-hit`)).toHaveText('철도 민영화');
-    await expect(root(page).locator('[data-now-cand]')).toBeHidden();
+    await root(page).locator('[data-os-more]').click();
+    await expect(page.locator('#osMenu')).toBeVisible();
+    await expect(page.locator('#osMenu [data-os-cand]')).toHaveCount(0); // 후보 0개면 메뉴 줄도 없음
+    await page.keyboard.press('Escape');
 
     // 읽을 거리로 보낸 글(S68-24·S68-27·S68-28·S68-29): News 탭 줄에는 '보관' 길이 없고, 메뉴 '읽을 거리' [전체]에 방금 보낸 사회운동 글(P1) + 옮겨 온 글(P2) — 평범한 줄([News] 칩·꼬리표 없음).
-    await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
+    await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄', '메모']);
     await page.evaluate(() => window.KPTURouter.go('reading'));
     const rd = page.locator('#readingView');
     await expect(rd).toBeVisible();

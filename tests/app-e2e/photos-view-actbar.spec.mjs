@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { folderSheet, sheetGo } from './helpers/folder-sheet.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S49-23 PHOTO-크게보기메뉴통일 (요청함 11/04 07:36): 사진 크게 보기 아래 줄 = 사진 고르기 아래 줄과 같은 부품·같은 목록.
@@ -167,8 +168,11 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
       await expect(page.locator('#photosPickMenu')).toBeHidden();
       // 폴더로 옮기기: 폴더를 고르면 지금 보는 사진 1장(O1)만 그 폴더로
       await pickItem(page, more, '폴더로 옮기기');
-      await expect(page.locator('#photosPickMenu')).toBeVisible();
-      await page.locator('#photosPickMenu [data-pick-folder="F1"]').click();
+      // S69-62: [파일] '옮길 곳' 창과 같은 창(사진 위에 뜸) — 줄을 고르고 [여기에 옮기기]로만 옮긴다.
+      await expect(folderSheet(page)).toBeVisible();
+      await folderSheet(page).locator('.fx-dest-tree [data-fx-dest-pick="F1"]').click();
+      expect(state.moves).toEqual([]);
+      await sheetGo(page).click();
       await expect.poll(() => state.moves).toEqual([{ ids: ['O1'], to: 'F1' }]);
       await expect(page.locator('#kptuNotice')).toContainText('옮겼어요');
       // 지우기: 다음 사진으로 넘어간다(2장 → 1장)
@@ -190,7 +194,8 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
       try {
         const b = bar(page);
         await pickItem(page, b.locator('[data-strip-act="more"]'), '폴더로 옮기기');
-        await page.locator('#photosPickMenu [data-pick-folder="F1"]').click();
+        await folderSheet(page).locator('.fx-dest-tree [data-fx-dest-pick="F1"]').click();
+        await sheetGo(page).click();
         await expect.poll(() => state.moves).toEqual([{ ids: ['O1'], to: 'F1' }]);
         await expect(page.locator('#kptuNotice')).toContainText('옮겼어요');
         await expect(viewer(page).locator('[data-diary-viewer-count]')).toHaveText(/\/ 2/);

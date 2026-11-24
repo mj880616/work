@@ -1,6 +1,11 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryTopMenu} from './helpers/library-tree.mjs';
-import {bootLibrary,libFolder,libDoc,press,movePicker,moveFolder,moveTo} from './helpers/library-folder-server.mjs';
+import {bootLibrary,libFolder,libDoc,press} from './helpers/library-folder-server.mjs';
+import {folderSheet} from './helpers/folder-sheet.mjs';
+// S69-62: 폴더로 옮기기는 [파일] '옮길 곳' 창과 같은 창 — 줄을 눌러 고르고 [여기에 옮기기]로 옮긴다.
+const movePicker=page=>folderSheet(page);
+const moveFolder=(page,id)=>folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
+const goMove=async(page,id,width)=>{await press(page,moveFolder(page,id),width);await press(page,folderSheet(page).locator('[data-fx-dest-go]'),width)};
 // S69-14(명진 11/24 08:15 '사진도 선택해서 옮길 수 있게', 08:16 '사진 우클릭하면 브라우저 메뉴'): 자료실 폴더 안 [사진 n]을 펼친 작은 그림도
 // 문서 줄과 같은 선택 모드(네모 칸·위 막대 'n개 선택됨 · … · 폴더로 옮기기 · 삭제 · 취소')로 고르고, 같은 폴더 고르기 창으로 옮기고, '옮겼어요 · 되돌리기'.
 // 폰은 작은 그림 꾹 누르기 = 그 사진이 골라진 채로 선택 모드. PC 우클릭은 브라우저 메뉴가 아니라 그 사진의 ⋯ 메뉴(선택 모드에서도).
@@ -53,8 +58,8 @@ for(const width of [412,1440])test.describe(`자료실 사진 고르기 ${width}
     await shot(page,`photo-pick-${width}`);
     await press(page,bar(page).getByRole('button',{name:'폴더로 옮기기',exact:true}),width);
     await expect(movePicker(page)).toBeVisible();
-    await moveTo(page,'fn',width);
-    await expect(movePicker(page)).toBeHidden();
+    await goMove(page,'fn',width);
+    await expect(movePicker(page)).toHaveCount(0);
     await expect.poll(()=>inFolder(s,'fn')).toEqual([P1,P2].sort());
     expect(inFolder(s,'fa')).toEqual(['d-1',P3].sort());
     await expect(line(page)).toContainText('옮겼어요 2개 → 가상 N 폴더');
@@ -74,7 +79,7 @@ for(const width of [412,1440])test.describe(`자료실 사진 고르기 ${width}
     await page.locator(`[data-lu-pick="${P3}"]`).check();
     await expect(page.locator('#librarySelectCount')).toHaveText('2개 선택됨');
     await press(page,bar(page).getByRole('button',{name:'폴더로 옮기기',exact:true}),width);
-    await moveTo(page,'fn',width);
+    await goMove(page,'fn',width);
     await expect.poll(()=>inFolder(s,'fn')).toEqual(['d-1',P3].sort());
     expect(errors).toEqual([]);
   });
@@ -123,7 +128,7 @@ test.describe('PC 두 칸 보기 1440',()=>{
     await expect(page.locator('#librarySelectCount')).toHaveText('2개 선택됨');
     await shot(page,'photo-pick-two-pane-1440');
     await bar(page).getByRole('button',{name:'폴더로 옮기기',exact:true}).click();
-    await moveTo(page,'fn',1440);
+    await goMove(page,'fn',1440);
     await expect.poll(()=>inFolder(s,'fn')).toEqual([P1,P2].sort());
     await expect(line(page)).toContainText('옮겼어요 2개');
     await line(page).locator('.lu-undo').click();

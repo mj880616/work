@@ -34,6 +34,7 @@ export const PART_STYLES = Object.freeze({
   'text-highlights': ['./news-mark-rows.css'],
   'photo-strip': ['./diary.css'],
   'marquee-select': ['./marquee-select.css'],
+  'folder-dest-sheet': ['./folder-tree.css', './folder-dest-sheet.css'],
 });
 
 const browser = () => typeof window !== 'undefined' && typeof document !== 'undefined' && !!document.head

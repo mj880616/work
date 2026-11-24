@@ -95,6 +95,20 @@ export async function filesServer(page, { connected = { od: true, gd: true }, pr
         return route.fulfill({ status: 200, contentType: 'application/pdf', body: fakePdf() });
       }
       if (a === 'open-url') return ok({ ok: true, url: 'https://example.org/fake-open' });
+      // S69-62 휴지통 보기: server.gdTrash(구글 휴지통 흉내, 2개씩 쪽 나눔) · 원드라이브는 목록 없이 웹 휴지통 주소만 · 되살리기는 confirm:true만.
+      if (a === 'trash_list') {
+        if (body.source === 'od') return ok({ ok: true, source: 'od', unsupported: true, items: [], web: 'https://onedrive.live.com/?v=recyclebin' });
+        const all = server.gdTrash || [], i = body.page ? Number(body.page) : 0;
+        return ok({ ok: true, source: 'gd', items: all.slice(i, i + 2), next: i + 2 < all.length ? String(i + 2) : null });
+      }
+      if (a === 'untrash') {
+        if (body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
+        const back = (server.gdTrash || []).filter(t => body.ids.includes(t.id));
+        server.gdTrash = (server.gdTrash || []).filter(t => !body.ids.includes(t.id));
+        const rows = back.map(t => item({ source: 'gd', item_id: t.id, parent_id: t.parent_id ?? null, name: t.name, is_folder: !!t.is_folder, mime: t.is_folder ? null : 'application/pdf', size_bytes: t.size_bytes ?? null }));
+        server.items.push(...rows);
+        return ok({ ok: true, changed: rows.map(view), removed: [], failed: [], left: [] });
+      }
       if (['job_add', 'job_list', 'job_pause', 'job_resume'].includes(a)) {
         if (a !== 'job_list' && body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
         const find = (src, id) => server.items.find(i => i.source === src && i.item_id === id && !i.trashed);

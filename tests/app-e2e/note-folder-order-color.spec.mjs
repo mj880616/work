@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { folderSheet } from './helpers/folder-sheet.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -184,13 +185,15 @@ test.describe('PC 1440', () => {
     await page.locator('[data-note-view="list"]').click();
     await page.locator('[data-note-row-more="n1"]').click();
     await page.locator('#noteDocMenu [data-note-folder-move]').click();
-    const item = page.locator('#luMovePicker .lu-move-item', { hasText: '을 폴더' });
-    await expect(item.locator('.lu-move-ico')).toHaveAttribute('data-fc', '4');
+    // S69-62: [파일] '옮길 곳' 창과 같은 창 — 줄 앞 폴더 그림(.ft-ico)이 같은 색(data-fc).
+    const row = name => folderSheet(page).locator('.ft-row', { has: page.locator(`[data-fx-dest-name="${name}"]`) });
+    const item = row('을 폴더');
+    await expect(item.locator('.ft-ico')).toHaveAttribute('data-fc', '4');
     // S52-27(11/07 21:13): 색 안 고른 폴더도 기본 노란 폴더 그림(색 번호 없음), 이름은 그림 바로 옆 왼쪽.
-    const plain = page.locator('#luMovePicker .lu-move-item', { hasText: '갑 폴더' });
-    await expect(plain.locator('.lu-move-ico svg')).toHaveCount(1);
-    await expect(plain.locator('.lu-move-ico')).not.toHaveAttribute('data-fc', /./);
-    const gap = await plain.evaluate(b => b.querySelector('.lu-move-name').getBoundingClientRect().left - b.querySelector('.lu-move-ico').getBoundingClientRect().right);
+    const plain = row('갑 폴더');
+    await expect(plain.locator('.ft-ico svg')).toHaveCount(1);
+    await expect(plain.locator('.ft-ico')).not.toHaveAttribute('data-fc', /./);
+    const gap = await plain.evaluate(b => b.querySelector('.ft-name').getBoundingClientRect().left - b.querySelector('.ft-ico').getBoundingClientRect().right);
     expect(gap).toBeLessThan(20);
     expect(f.errors).toEqual([]);
   });

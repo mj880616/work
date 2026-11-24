@@ -232,6 +232,26 @@ export async function writeSignal(item, action) {
   const id = await articleIdOf(item.type, item.id);
   await rt().api(`/rest/v1/${t.signal}`, {method: 'POST', body: {workspace_id: w, article_id: id, action}, prefer: 'return=minimal', singleFlight: false});
 }
+// S69-70 [메모] 탭(메모 있는 글): 한 종류의 글 메모 노트 한 쪽(최근 고친 것 먼저, 보관한 노트 빼고). 내 작업공간 노트만(소유자 RLS 그대로).
+export function readMemoNotes(type, cols, {limit, offset = 0}) {
+  const t = T[type];
+  if (!t) return Promise.resolve([]);
+  return rt().api(`/rest/v1/app_notes?workspace_id=eq.${q(workspaceOf())}&kind=eq.note&archived_at=is.null&metadata->>${t.memo}=not.is.null&select=${cols}&order=updated_at.desc,id.desc&limit=${limit}&offset=${offset}`, {singleFlight: false});
+}
+// 공용 글 id 여럿 → Map(id → 줄). 목록에서 빠진 글(관심 없음·숨김·오래됨)도 id로 다시 읽는다. 뉴스는 내 표시·보관을 붙인 옛 줄 모양(readNewsOne과 같음).
+export async function readArticlesByIds(type, ids, cols) {
+  const t = T[type], out = new Map(), want = [...new Set((ids || []).filter(hasId))];
+  if (!t) return out;
+  const w = workspaceOf();
+  for (let i = 0; i < want.length; i += 100) {
+    const part = want.slice(i, i + 100).map(q).join(',');
+    const rows = type === 'news'
+      ? await rt().api(`/rest/v1/${t.art}?id=in.(${part})&select=${articleCols(cols)},${mine(w)}&limit=100`, {singleFlight: false})
+      : await rt().api(`/rest/v1/${t.art}?id=in.(${part})&select=${cols}&limit=100`, {singleFlight: false});
+    for (const r of Array.isArray(rows) ? rows : []) { const row = type === 'news' ? flatNews(r) : r; if (row && hasId(row.id)) out.set(row.id, row); }
+  }
+  return out;
+}
 // 글 메모 노트(metadata.news_item_id|outside_post_id). 옛 노트는 옛 id를 적었으므로 메모 노트들의 id를 지도로 바꿔 이 글 것을 찾는다(최근 고친 것 하나).
 export async function readMemoNote(item, cols) {
   const t = T[item?.type];

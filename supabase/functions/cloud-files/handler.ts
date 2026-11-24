@@ -1,10 +1,11 @@
 // S48-12b 파일 탐색기 ③ Edge(FILES-클라우드탐색기, 명진 결정 F1~F9 11/02). 설계: docs/design/files-explorer.md 3·4·5절, 7절 ③.
 // 읽기: status(맞춘 상태) · sync(바뀐 것만 색인에 반영) · thumb(썸네일 중계) · media(원본 중계, Range) · preview(오피스·구글 문서 → PDF)
-//   · open-url(클라우드 보기 주소).
+//   · open-url(클라우드 보기 주소) · trash_list(S69-62 구글 휴지통 목록, 원드라이브는 웹 휴지통 주소만).
 // 쓰기(S48-45 ⑤·⑦, 모두 confirm:true + 색인 안 항목만): rename(이름) · mkdir(새 폴더) · move(같은 클라우드 안, 한 번에 200개까지)
 //   · trash(그 클라우드 휴지통으로, F1: 원드라이브는 원드라이브 자체 휴지통) · across(원드라이브↔구글, F8: 한 번에 1개·200MB까지,
 //   받는 대로 보내며 크기·해시를 맞춘 뒤에만 원본을 휴지통으로). 쓰기 결과는 같은 요청 안에서 색인에 반영하고 바뀐 줄을 돌려준다.
 //   copy(FILES-통합 2-①: 1개씩, 같은 클라우드는 파일·폴더째, 클라우드 사이는 파일만 across와 같은 길, 원본은 그대로).
+//   untrash(S69-62: 구글 휴지통의 내 파일을 되살리기 trashed:false, confirm:true).
 //   같은 이름은 덮어쓰지 않고 번호를 붙인다(H-3: copy·across는 늘, move는 numbered:true일 때). 자동·예약 쓰기는 없다(사람이 누른 요청만).
 // 문(모두 서버에서, 매 요청): ① 로그인(Auth) ② 그 사람이 작업공간 owner(owner 행 정확히 1개)
 //   ③ (구글) 그 작업공간의 Drive 연결(app_drive_connections 그 행)의 갱신 토큰만 ④ (원드라이브) 그 작업공간의 app_onedrive_connections 행.
@@ -34,6 +35,8 @@ export type CloudFilesOptions = { fetch?: typeof fetch; env: Env; now?: () => nu
 export type Source = "od" | "gd";
 
 const DRIVE = "https://www.googleapis.com/drive/v3";
+// S69-62: 원드라이브 웹 휴지통(개인 계정). 화면이 [원드라이브 휴지통 열기]로 새 창에 연다.
+export const OD_TRASH_URL = "https://onedrive.live.com/?v=recyclebin";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const MAX_BODY = 16 * 1024;
 const MAX_IMAGE = 8 * 1024 * 1024;
@@ -1788,6 +1791,53 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       });
       const removed = done.length ? await deleteTree(ws, source, done) : [];
       return json({ ok: true, changed: [], removed: removed.map((id) => ({ source, id })), failed, left });
+    },
+    // S69-62 휴지통 보기(명진 11/24 18:17 "휴지통을 볼 수 있어야 돼. 지운파일 복구하려면"): 구글 드라이브 휴지통 목록(읽기만).
+    //   내 파일('me' in owners)이고 사람이 직접 휴지통에 넣은 것(explicitlyTrashed)만 — 폴더째 지운 안쪽 파일은 그 폴더 줄 하나로 보인다.
+    //   한 번에 100개, page(구글이 준 다음 쪽 표시)로 이어 받는다. 이름·크기·지운 시각만 돌려주고 색인에는 쓰지 않는다.
+    //   원드라이브는 개인 계정 휴지통 목록을 주는 Graph API가 없어(2026-11 기준) unsupported:true + 원드라이브 웹 휴지통 주소만.
+    async trash_list({ workspaceId: ws, body: b }) {
+      if (!isSource(b.source)) throw new Fail(400, "source_invalid");
+      if (b.source === "od") {
+        await odToken(ws); // 연결 확인(연결 안 됨·다시 연결은 같은 오류 코드)
+        return json({ ok: true, source: "od", unsupported: true, items: [], web: OD_TRASH_URL });
+      }
+      if (b.page !== undefined && (typeof b.page !== "string" || !/^[A-Za-z0-9_~.-]{1,400}$/.test(b.page))) throw new Fail(400, "page_invalid");
+      const token = await gdToken(ws);
+      const u = new URL(`${DRIVE}/files`);
+      u.searchParams.set("q", "'me' in owners and trashed=true");
+      u.searchParams.set("fields", "nextPageToken,files(id,name,mimeType,size,trashedTime,modifiedTime,explicitlyTrashed,ownedByMe)");
+      u.searchParams.set("pageSize", "100");
+      u.searchParams.set("spaces", "drive");
+      if (b.page) u.searchParams.set("pageToken", b.page);
+      const d = await cloudJson("gd_trash_list", token, u.href);
+      const items = (Array.isArray(d.files) ? d.files : []).filter((f: Record<string, unknown>) => isGdId(f?.id) && f.ownedByMe === true && f.explicitlyTrashed !== false)
+        .map((f: Record<string, unknown>) => ({
+          id: f.id, name: nameOrNull(f.name) ?? "", is_folder: f.mimeType === FOLDER_MIME,
+          size_bytes: f.mimeType === FOLDER_MIME ? null : sizeOrNull(f.size), trashed_at: isoOrNull(f.trashedTime) ?? isoOrNull(f.modifiedTime),
+        }));
+      const next = typeof d.nextPageToken === "string" && /^[A-Za-z0-9_~.-]{1,400}$/.test(d.nextPageToken) ? d.nextPageToken : null;
+      return json({ ok: true, source: "gd", items, next });
+    },
+    // S69-62 되살리기: 구글 드라이브 휴지통의 내 파일을 원래 자리로(trashed:false, 1~200개). 휴지통에 있는 내 파일인지 먼저 본다.
+    //   되살린 줄은 같은 요청 안에서 색인에 넣고 돌려준다. 원드라이브는 되살리기 길이 없다(화면은 원드라이브 웹 휴지통으로 안내).
+    async untrash({ workspaceId: ws, body: b }) {
+      mustConfirm(b);
+      if (b.source !== "gd") throw new Fail(400, "source_invalid");
+      const ids = idList(b.ids, "gd");
+      if (!ids) throw new Fail(400, "ids_invalid");
+      const token = await gdToken(ws);
+      const root = await rootId("gd", token);
+      const changed: Record<string, unknown>[] = [];
+      const { failed, left } = await eachLimited(ids, async (id) => {
+        const f = await cloudJson("gd_untrash_pick", token, `${DRIVE}/files/${encodeURIComponent(id)}?fields=id,trashed,ownedByMe`);
+        if (f.ownedByMe !== true || f.trashed !== true) throw new Fail(404, "not_in_trash");
+        const d = await cloudWrite("gd_untrash", token, `${DRIVE}/files/${encodeURIComponent(id)}?fields=${GD_FIELDS}`, "PATCH", { trashed: false });
+        const row = gdRow(ws, root, d, at());
+        if (row) changed.push(row);
+      });
+      if (changed.length) await upsertRows("untrash_upsert", changed);
+      return json({ ok: true, changed: changed.map(pickRow), removed: [], failed, left });
     },
     // 클라우드 사이 옮기기(⑦, F8): 파일 1개, 200MB까지. 구글 문서류(받을 수 없는 것)·폴더는 안 됨.
     //   원본을 받는 대로 새 곳에 조각으로 보내고, 보낸 크기 = 원본 크기 = 새 파일 크기, 해시(원본 색인·새 파일이 주는 것)가 맞을 때만
