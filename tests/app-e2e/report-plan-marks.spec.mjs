@@ -131,7 +131,8 @@ test('1280 주 보기: 시간표 칸·종일 띠에 ✓·□, 말풍선 글자�
   await noMark(page,'week','off1');
   await noMark(page,'week','none1');
   await expect(row(page,'week','done1').locator('.clv-title')).toHaveText('주간 점검 회의');
-  await expect(row(page,'week','done1').locator('.cwv-tip')).toHaveText('10:00 주간 점검 회의');
+  // 말풍선 마디는 마우스를 올렸을 때 공용 부품(calendar-tip.js)이 만든다 — 글은 줄의 data-cal-tip에 있다(S69-21).
+  await expect(row(page,'week','done1')).toHaveAttribute('data-cal-tip','10:00 주간 점검 회의');
   await mark(page,'week','done1').click();
   await expect(detail(page)).toBeVisible();
   await expect(detail(page)).toContainText('주간 점검 회의');
