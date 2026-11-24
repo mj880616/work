@@ -356,6 +356,9 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 :is(#appView #basketView .nbb-side, .nbb-pick) :is(.nbb-folder,.nbb-note):hover { background:var(--kptu-surface-subtle); }
 :is(#appView #basketView .nbb-side, .nbb-pick) .nbb-folder { color:var(--kptu-muted); }
 #appView #basketView .nbb-side .nbb-note[draggable="true"] { cursor:grab; }
+/* S69 보드목록폴더놓기: 노트를 끌어 놓을 수 있는 폴더 줄(노트 목록 폴더 나무와 같은 옅은 바탕). */
+#appView #basketView .nbb-side .nbb-folder.nx-drop { background:var(--kptu-primary-soft); color:var(--kptu-ink); }
+#appView #basketView .nbb-side .nbb-note.re-dragging { opacity:.55; }
 :is(#appView #basketView .nbb-side, .nbb-pick) .nbb-note.nbb-on { opacity:.45; cursor:default; }
 .nbb-name { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .nbb-num { flex:none; font-size:11px; color:var(--kptu-faint,var(--kptu-muted)); }
