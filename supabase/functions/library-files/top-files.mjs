@@ -162,7 +162,8 @@ export function createTopFiles(deps) {
       pages((a, b) => db.from('app_library_folders').select('id,parent_id,name,drive_folder_id').eq('workspace_id', workspaceId).order('id').range(a, b)),
       pages((a, b) => db.from('app_library_folder_items').select('document_id,folder_id').eq('workspace_id', workspaceId).order('document_id').range(a, b)),
       pages((a, b) => db.from('app_task_attachments').select('drive_file_id').eq('workspace_id', workspaceId).order('drive_file_id').range(a, b)),
-      pages((a, b) => db.from('app_notes').select('id,attachments').eq('workspace_id', workspaceId).not('attachments', 'is', null).order('id').range(a, b)),
+      // 노트 첨부는 서버 키로 휴지통 노트까지 본다(되살릴 수 있는 노트의 첨부도 지키기 — basket-files/photo-prune.ts와 같은 까닭). 첨부 id만 쓴다.
+      pages((a, b) => admin.from('app_notes').select('id,attachments').eq('workspace_id', workspaceId).not('attachments', 'is', null).order('id').range(a, b)),
     ]);
     const itemOf = new Map(items.map(i => [i.document_id, i.folder_id]));
     const refs = { docs: new Map(), old: new Set(), task: new Set(), note: new Set(), pairOf: new Map(), visible: new Set(), folders };

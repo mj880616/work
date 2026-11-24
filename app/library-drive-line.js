@@ -15,7 +15,7 @@ export const ALIGN_WAIT_MS = 45000;
 const ALIGN_IDLE_ROUNDS = 3;
 const STAGE_WORDS = {
   timeout: '서버 답이 늦어 멈췄어요', library: '드라이브의 자료실 폴더를 찾지 못했어요', token: 'Google Drive를 다시 연결해 주세요',
-  db: '앱 폴더 목록을 읽지 못했어요', folders: '드라이브 폴더를 만들거나 고치지 못했어요', list: '드라이브 목록을 읽지 못했어요',
+  db: '앱 폴더 목록을 읽지 못했어요', folders: '드라이브 폴더를 만들거나 수정하지 못했어요', list: '드라이브 목록을 읽지 못했어요',
   files: '자료를 옮기다 드라이브가 거절했어요', mark: '마무리 표시를 붙이지 못했어요', idle: '더 나아가지 않아 멈췄어요', rounds: '아직 남았어요',
 };
 /** [드라이브 폴더 맞추기] 끝 알림 한 줄. sum: 합친 숫자, last: 마지막 서버 답, why: 멈춘 까닭 키. */

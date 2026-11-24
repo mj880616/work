@@ -11,7 +11,7 @@ const DOC='e0000000-0000-4000-8000-000000000001';
 const FOLDER='libraryFolder0001';
 const PLACE={folder_id:FOLDER,url:`https://drive.google.com/drive/folders/${FOLDER}`,path:['웹2','자료실']};
 
-async function boot(page,{width,place,mirror=[],gather=null}){
+async function boot(page,{width,place,mirror=[],gather=null,topFiles=null}){
   await page.setViewportSize({width,height:900});
   const state={user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},asks:[],mirror,mirrorAsks:[]};
   await page.route(`${SB}/**`,async route=>{
@@ -23,6 +23,7 @@ async function boot(page,{width,place,mirror=[],gather=null}){
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
     if(path==='/functions/v1/workspace-drive'&&url.searchParams.get('action')==='drive-mirror'){const b=(()=>{try{return req.postDataJSON()}catch{return null}})();state.mirrorAsks.push(b);return ok(state.mirror.length?state.mirror.shift():{ok:true,state:'aligned',folders_made:0,folders_fixed:0,files_moved:0,cant:0,pending:0,more:false,stopped:false})}
     if(path==='/functions/v1/workspace-drive'){state.asks.push({method:req.method(),query:url.search,body:req.postData()});if(gather&&req.method()==='POST'&&url.searchParams.get('action')==='gather-folders')return ok(gather(JSON.parse(req.postData()||'{}')));return ok(url.searchParams.get('action')==='drive-place'?{ok:true,place}:{error:'Unknown action'},url.searchParams.get('action')==='drive-place'?200:400)}
+    if(path==='/functions/v1/library-files'&&topFiles&&req.method()==='POST'){const b=req.postDataJSON();state.topAsks=(state.topAsks||[]);state.topAsks.push(b);return ok(topFiles(b))}
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
@@ -137,3 +138,45 @@ test('저장 위치가 없으면 ⋯에 [드라이브 폴더 맞추기]도 없�
   await expect(page.locator('#luTopMenu [data-lu-top="drive-align"]')).toHaveCount(0);
   expect(state.mirrorAsks).toEqual([]);
 });
+
+// S69-40 [맨 위 파일 정리]: 열면 숫자만 묻고(바꾸지 않음) → [정리하기]는 이어서 부르며 같은 정리 번호 → 결과 한 줄·[되돌리기] → 정리 대기 줄은 제안 폴더가 골라져 있고 [보내기]. 지어낸 이름만.
+for(const width of [390,1280]){
+  test(`자료실 ⋯ [맨 위 파일 정리]: 판정 숫자 → 정리 → 정리 대기 보내기 (${width})`,async({page})=>{
+    const F6='a6000000-0000-4000-8000-000000000006',FM='a6000000-0000-4000-8000-000000000009';
+    let tidied=0;
+    const scanBefore={ok:true,total:9,counts:{library:2,library_top:1,attach:1,old:1,temp:2,junk:1,dup:0,none:1},need_align:0,wait:[],folders:[{id:F6,name:'06. 선전'},{id:FM,name:'잡동사니'}],partial:false};
+    const scanAfter={ok:true,total:1,counts:{library:0,library_top:1,attach:0,old:0,temp:0,junk:0,dup:0,none:0},need_align:0,wait:[{id:'waitFile00000001',name:'가상 속보.pdf',mime:'application/pdf',size:2048,suggest:F6},{id:'waitFile00000002',name:'가상 메모.txt',mime:'text/plain',size:10,suggest:null}],folders:scanBefore.folders,partial:false};
+    const state=await boot(page,{width,place:PLACE,topFiles:b=>{
+      if(b.action==='top-files-scan')return tidied?scanAfter:scanBefore;
+      if(b.action==='top-files-tidy'){tidied++;return tidied===1?{ok:true,batch:'batch0001',moved:2,attached:1,trashed:2,waiting:0,cant:0,failed:0,left:3}:{ok:true,batch:'batch0001',moved:0,attached:0,trashed:1,waiting:2,cant:0,failed:0,left:0}}
+      if(b.action==='top-files-wait')return {ok:true,document_id:'d1',moved:true};
+      return {ok:false};
+    }});
+    await expect(page.locator('#libraryDriveLine .lu-drive-where')).toBeVisible();
+    await page.locator('#libraryTopMenuBtn').click();
+    await page.locator('#luTopMenu [data-lu-top="top-files"]').click();
+    const m=page.locator('#libraryTopFilesModal');
+    await expect(m).toBeVisible();
+    await expect(m.locator('#libraryTopFilesSub')).toHaveText('드라이브 자료실 맨 위 파일 9개');
+    await expect(m.locator('.lu-di-hint')).toContainText('제 폴더로 2 · 첨부 폴더로 1 · 휴지통 3(앱 임시 2·찌꺼기 1) · 정리 대기 2(바꿔 끼운 옛 원본 1·앱 기록 없음 1)');
+    expect(state.topAsks).toEqual([{action:'top-files-scan'}]);
+    await m.locator('[data-tf-apply]').click();
+    await expect(m.locator('#libraryTopFilesStatus')).toHaveText('옮김 2 · 첨부로 1 · 휴지통 3 · 정리 대기 2');
+    expect(state.topAsks.filter(a=>a.action==='top-files-tidy')).toEqual([{action:'top-files-tidy'},{action:'top-files-tidy',batch:'batch0001'}]);
+    await expect(m.locator('[data-tf-undo]')).toBeVisible();
+    const rows=m.locator('[data-tf-file]');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('[data-tf-to]')).toHaveValue(F6);
+    await expect(rows.nth(1).locator('[data-tf-to]')).toHaveValue('');
+    if(process.env.TF_SHOTS)await page.screenshot({path:`${process.env.TF_SHOTS}/tf-${width}.png`});
+    await rows.nth(0).locator('[data-tf-send]').click();
+    await expect(m.locator('[data-tf-file]')).toHaveCount(1);
+    expect(state.topAsks.at(-1)).toEqual({action:'top-files-wait',file_id:'waitFile00000001',to:F6});
+    await m.locator('[data-tf-file] [data-tf-to]').selectOption('trash');
+    await m.locator('[data-tf-file] [data-tf-send]').click();
+    await expect(m.locator('[data-tf-file]')).toHaveCount(0);
+    expect(state.topAsks.at(-1)).toEqual({action:'top-files-wait',file_id:'waitFile00000002',to:'trash'});
+    const box=await m.locator('.modal-card').boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width+1);
+  });
+}

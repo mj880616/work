@@ -1010,6 +1010,8 @@ function luSort(){if(!luSortUi)luSortUi=createReceiveSort({api:luApi,esc:luEsc,s
 // 단추 자리: 자료실 맨 위 ⋯(폴더 보기, 들어간 폴더가 있으면 그 안)·PC 빈 자리 우클릭(그 칸의 지금 폴더)·폴더 메뉴(그 폴더 안).
 let luTidyUi=null;
 // S69-25 LIB-드라이브에서가져오기: 내 드라이브에만 있고 자료실에 없는 파일을 받는 폴더(잡동사니)로 등록하는 창(library-drive-import.js, 누를 때만 불러옴).
+let luTopFilesUi=null; // S69-40 [맨 위 파일 정리] 창(library-top-files.js) — 누를 때만 불러온다
+async function luTopFilesOpen(trigger){try{if(!luTopFilesUi){const m=await import('./library-top-files.js');luTopFilesUi=m.createTopFiles({api:luApi,esc:luEsc,onDone:async()=>{await luLoadAll();luRenderLibrary()},reconnect:()=>luReconnectDrive()})}await luTopFilesUi.open(trigger)}catch(e){console.error('top files open failed',e);notify('맨 위 파일 정리를 열지 못했어요.',{error:true})}}
 let luDriveImportUi=null;
 async function luDriveImportOpen(trigger){try{if(!luDriveImportUi){const m=await import('./library-drive-import.js');luDriveImportUi=m.createDriveImport({api:luApi,esc:luEsc,receiveName:()=>luReceiveFolder()?.name||null,onDone:async()=>{await luLoadAll();luRenderLibrary()},reconnect:()=>luReconnectDrive()})}await luDriveImportUi.open(trigger)}catch(e){console.error('drive import open failed',e);notify('드라이브에서 가져오기를 열지 못했어요.',{error:true})}}
 function luTidy(){if(!luTidyUi)luTidyUi=createTidySuggest({api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,listDocs:luListDocs(),receiveId:luReceiveFolder()?.id||null}),reload:async()=>{await luLoadFolders();luRenderLibrary()},say:luRenameNotice});return luTidyUi}
@@ -1766,11 +1768,12 @@ function luTopMenuHtml(){
     +(luPick.active?luMenuRow('data-lu-top="select-stop"','선택 끝내기'):luMenuRow('data-lu-top="select"','여러 개 선택'))
     +luMenuRow(`data-lu-top="expand"${luExpandNow.count?'':' disabled'}`,luExpandNow.open?'모두 접기':'모두 펴기')
     +(luDrive().place()?luMenuRow(`data-lu-top="drive-align"${luDrive().busy()?' disabled':''}`,'드라이브 폴더 맞추기'):'') // S69-20 ④: 누를 때만 기존 자료까지 드라이브 폴더로 정리
+    +(luDrive().place()?luMenuRow('data-lu-top="top-files"','맨 위 파일 정리'):'') // S69-40: 드라이브 자료실 맨 위에 쌓인 파일 판정·정리(누를 때만)
     +luMenuRow('data-lu-top="help"','쓰는 법'); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'
 }
 function luTopMenuOpen(trigger){
   luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-folder-menu lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
-    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-import')void luDriveImportOpen(active.trigger);else if(act==='drive-align')void luDrive().align().then(()=>luLoadFolders()).then(()=>luRenderLibrary()).catch(()=>{});else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
+    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-import')void luDriveImportOpen(active.trigger);else if(act==='top-files')void luTopFilesOpen(active.trigger);else if(act==='drive-align')void luDrive().align().then(()=>luLoadFolders()).then(()=>luRenderLibrary()).catch(()=>{});else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
   luTopMenu.open(trigger);
 }
 // S55-08 LIB-우클릭메뉴 (2026-11-09 명진 결정): PC(761px~) 폴더 보기에서 빈 자리(왼쪽 나무 빈 곳·'자료실 전체'·'폴더 밖' 줄, 오른쪽 목록의 어느 폴더도 아닌 바탕,
