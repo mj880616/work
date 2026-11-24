@@ -28,13 +28,13 @@ test('주소 줄 하나(살릴 것 7): 폴더 안 위치 줄 끝 [드라이브 �
 
 test('고르기 표시: 큰 네모 칸 없이 파일과 같은 고른 줄(옅은 강조 바탕 + 왼쪽 세로줄), 네모 칸은 보이지 않게 줄 위에', () => {
   const css = noComments(read('library-upload.css')), files = noComments(read('files.css'));
-  const squash = t => t.replace(/\s/g, '').replace(/;$/, '');
-  const fx = squash(files.match(/\.fx-row\.fx-picked \{([^}]*)\}/)[1]);
+  // 왼쪽 세로줄은 앱 공용 선택 표시 값(--kptu-shadow-select, 자료실 CSS는 그림자 값을 바로 쓰지 않는 규칙) — 바탕은 [파일]과 같은 옅은 강조색.
   const lu = css.match(/:is\(\.lu-row\.lu-picked,\.lu-node-picked\)\{([^}]*)\}/)[1];
-  assert.equal(squash(lu), fx, '파일 고른 줄과 같은 바탕·세로줄');
+  assert.equal(lu, 'background:var(--kptu-primary-soft);box-shadow:var(--kptu-shadow-select)');
+  assert.match(files, /\.fx-row\.fx-picked \{ background:var\(--kptu-primary-soft\);/);
   assert.match(css, /#documentList \.lu-pick:not\(\.photo-pick\)\{position:absolute;inset:0;[^}]*opacity:0;/);
   assert.doesNotMatch(css, /\.lu-row\.lu-row-picking\{[^}]*padding-left:28px/, '네모 칸 자리 여백 없음');
-  assert.match(css, /\.lu-folder-picked\{background:var\(--kptu-primary-soft\);box-shadow:inset 2px 0 0 var\(--kptu-primary\)\}/);
+  assert.match(css, /\.lu-folder-picked\{background:var\(--kptu-primary-soft\);box-shadow:var\(--kptu-shadow-select\)\}/);
   const js = read('library-upload.js');
   assert.match(js, /c\.closest\('\.lu-row'\)\?\.classList\.toggle\('lu-picked',c\.checked\)/);
   assert.match(js, /c\.parentElement\?\.classList\.toggle\('lu-node-picked',c\.checked\)/);

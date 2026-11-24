@@ -277,7 +277,7 @@
 #appView #libraryView #documentList .lu-pick.lu-pick-node{inset:0 auto 0 0;width:32px}
 #appView #libraryView #documentList :has(> .lu-pick-node){position:relative}
 #appView #libraryView #documentList .lu-row:has(> .lu-pick:focus-visible),#appView #libraryView #documentList :has(> .lu-pick-node:focus-visible){outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-#appView #libraryView #documentList :is(.lu-row.lu-picked,.lu-node-picked){background:var(--kptu-primary-soft);box-shadow:inset 2px 0 0 var(--kptu-primary)}
+#appView #libraryView #documentList :is(.lu-row.lu-picked,.lu-node-picked){background:var(--kptu-primary-soft);box-shadow:var(--kptu-shadow-select)}
 
 /* PRESS-자료실편입 2단계: 자료실 .html 보기 창(칸막이는 html-frame.js). 안내 한 줄·[Drive에서 열기]는 작은 글자 버튼. */
 .lu-html-card .modal-head{margin-bottom:var(--kptu-space-2)}
@@ -680,4 +680,4 @@
 #documentList details.lu-enter > summary.lu-node-head{cursor:pointer}
 #libraryPath .lu-focus-here{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--kptu-ink);font-weight:700}
 /* S69-69 LIB-사각형폴더: 사각형으로 폴더째 고른 폴더 줄(탐색기 칸 하위 폴더 줄·두 칸 칸 폴더 줄). */
-#appView #libraryView #documentList .lu-folder-picked{background:var(--kptu-primary-soft);box-shadow:inset 2px 0 0 var(--kptu-primary)}
+#appView #libraryView #documentList .lu-folder-picked{background:var(--kptu-primary-soft);box-shadow:var(--kptu-shadow-select)}
