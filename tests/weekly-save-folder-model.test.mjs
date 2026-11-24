@@ -52,8 +52,7 @@ test('붙는 곳: [확정] 저장과 ② [올리기] 저장 두 곳 모두 저�
   assert.match(src, /import\('\.\/weekly-save-folder\.js'\)\.then\(m => m\.fileWeeklyReport\(/);
   for (const f of ['../app/weekly-save-folder.js', '../app/weekly-save-folder-model.mjs']) {
     const s = readFileSync(new URL(f, import.meta.url), 'utf8').split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
-    assert.doesNotMatch(s, /공공팀/);
-    assert.doesNotMatch(s, /localStorage|sessionStorage/);
+    assert.doesNotMatch(s, /공공팀/); // 기기 저장 금지는 Browser storage audit 작업이 본다
   }
   // 드라이브는 기존 맞추기(drive-mirror auto)만 부탁한다 — 새 옮기기 코드 없음.
   const mod = readFileSync(new URL('../app/weekly-save-folder.js', import.meta.url), 'utf8');
