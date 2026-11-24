@@ -207,6 +207,7 @@ function openMark(h) {
     return;
   }
   if (h.source_type === 'note') { requestBasketNote(h.source_id); void window.KPTURouter?.openFrom?.('basket')?.catch?.(() => {}); return; }
+  if (h.source_type === 'brief') { window.KPTUBriefOpen = {id: h.source_id, highlight: h.id}; window.KPTURouter?.go?.('brief', {source: 'delegated'}); return; }
   if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) window.KPTURouter?.go?.('news', {source: 'delegated'});
 }
 

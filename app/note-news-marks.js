@@ -130,6 +130,8 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
     if (!h) return;
     if (h.source_type === 'note') { openNote?.(h.source_id, h.id); return; }
     if (h.source_type === 'reading') { window.KPTUReadingOpen = {id: h.source_id, highlight: h.id}; window.KPTURouter?.go?.('reading', {source: 'delegated'}); return; }
+    // S69-86: 브리핑 밑줄은 브리핑 룸 그 자료·그 밑줄로(브리핑이 사라졌으면 브리핑 룸이 알림 한 줄 — 밑줄은 그대로).
+    if (h.source_type === 'brief') { window.KPTUBriefOpen = {id: h.source_id, highlight: h.id}; window.KPTURouter?.go?.('brief', {source: 'delegated'}); return; }
     if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) goNews();
   };
   box?.addEventListener('click', e => {
