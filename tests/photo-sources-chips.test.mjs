@@ -81,7 +81,9 @@ test('사진 메뉴: [폴더]·[휴지통]·[앨범]이 출처 켜기를 따른�
   assert.doesNotMatch(row, /data-photos-fx-more|draggable/);
   // UI-폴더누르기한규칙(S57-5): PC 나무(wide)의 폰 폴더 줄은 앱이 옛 판이어도 ⋯가 있다(메뉴는 [이 폴더로 들어가기] 하나). 폰 나무는 그대로 phoneOps만.
   assert.match(row, /phoneOps\(\) \|\| wide \? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more=/);
-  assert.match(s, /const enter = treeWide\(\) && f \? menuBtn\('data-pfm-enter', FOLDER_ENTER_LABEL\) : '';[^\n]*\n\s*if \(!phoneOps\(\)\) return enter;/);
+  // UI-폴더이름펼치기(명진 11/24 18:09): 폰 나무 이름 누르기도 펼치기·접기만이라 폰 저장소 폴더 ⋯도 늘 있고 첫 줄이 [이 폴더로 들어가기](옛 판이면 + 켜기·끄기).
+  assert.match(s, /const enter = f \? menuBtn\('data-pfm-enter', FOLDER_ENTER_LABEL\) : '';\n\s*if \(!phoneOps\(\)\) return enter \+ sw;/);
+  assert.match(s, /const key = fxKey\('p', f\.id\), open = fxOpen\.has\(key\), more = true;/);
   const grid = s.slice(s.indexOf('function paintPhoneFolderGrid()'), s.indexOf('function goPhoneFolder'));
   assert.doesNotMatch(grid, /draggable/);
   // [앨범]: 켜진 출처로 줄인 카드.

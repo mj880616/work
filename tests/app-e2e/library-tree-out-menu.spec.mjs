@@ -50,7 +50,8 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('폴더 밖');
     // 폴더 밖 자료를 모두 폴더로 옮기면(0개) 그 나무 줄도 없다.
     await page.locator(nav('')).click();
-    for(const id of ['a-2','a1-1','n-1']){await page.locator(row(id)).dragTo(page.locator(nav('fn')));await expect.poll(()=>s.items.find(x=>x.document_id===id)?.folder_id).toBe('fn')}
+    // 옮긴 뒤 목록을 다시 그리기를 마친 것(그 줄이 빠짐)을 본 다음 다음 줄을 끈다 — 다시 그리는 중에 시작한 끌기는 브라우저가 취소해 놓이지 않는다(바쁜 CI에서 간헐 실패).
+    for(const id of ['a-2','a1-1','n-1']){await page.locator(row(id)).dragTo(page.locator(nav('fn')));await expect.poll(()=>s.items.find(x=>x.document_id===id)?.folder_id).toBe('fn');await expect(page.locator(row(id))).toHaveCount(0)}
     await expect(page.locator('#documentList > [data-lu-document]')).toHaveCount(0);
     await expect(page.locator(nav('x:out'))).toHaveCount(0);
     expect(errors).toEqual([]);
@@ -85,7 +86,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     await page.keyboard.press('Escape');await expect(page.locator('#documentModal')).toBeHidden();
     // 나무 폴더 줄 우클릭 = 오른쪽 폴더 줄 ⋯와 같은 메뉴, [이름 바꾸기]는 그 나무 줄에서 바로.
     await page.locator(nav('fn')).click({button:'right'});
-    await expect(folderMenu(page)).toBeVisible();await expect(folderMenu(page).locator('button').first()).toContainText('이름 바꾸기');
+    await expect(folderMenu(page)).toBeVisible();await expect(folderMenu(page).locator('button').first()).toContainText('이 폴더로 들어가기');await expect(folderMenu(page).locator('button').nth(1)).toContainText('이름 바꾸기'); // UI-폴더이름펼치기: 첫 줄 = 들어가기
     await expect(areaMenu(page)).toBeHidden();
     await folderMenu(page).getByRole('button',{name:/이름 바꾸기/}).click();
     const input=page.locator('#libraryFolderNav input.lu-fnav-rename');await expect(input).toBeFocused();

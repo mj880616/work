@@ -113,7 +113,8 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     await press(page,menuButton(page,'f:fa'),width);
     // S69-28: 탐색기(넓은 화면 한 칸)의 폴더 줄은 펼치지 않고 들어가므로 [펼치기·접기] 줄이 없다.
-    await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더',...(wideOf(width)?[]:['펼치기']),'이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
+    // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기는 펼치기·접기만이라 [이 폴더로 들어가기]가 첫 줄.
+    await expect(page.locator('#luFolderMenu button')).toHaveText(['이 폴더로 들어가기','이름 바꾸기F2','안에 새 폴더',...(wideOf(width)?[]:['펼치기']),'옮기기…','색 선택…','정돈 제안','폴더 삭제']);
     await expect(page.locator('#luFolderMenu hr[role="separator"]')).toHaveCount(1);
     // 구분선은 [폴더 지우기] 바로 앞.
     await expect(page.locator('#luFolderMenu > :nth-last-child(2)')).toHaveAttribute('role','separator');
@@ -226,7 +227,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     await expect(page.locator('#luAreaMenu')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');
     // 폴더 줄 우클릭 = 그 줄의 ⋯ 메뉴(공용 우클릭 규칙).
     await libraryNodeHead(page,'f:fn').click({button:'right',position:{x:40,y:8}});
-    await expect(page.locator('#luFolderMenu button').first()).toContainText('이름 바꾸기');await page.keyboard.press('Escape');
+    await expect(page.locator('#luFolderMenu button').first()).toContainText('이 폴더로 들어가기');await expect(page.locator('#luFolderMenu button').nth(1)).toContainText('이름 바꾸기');await page.keyboard.press('Escape'); // UI-폴더이름펼치기: 첫 줄 = 들어가기
     // 들어간 폴더의 빈 곳도 같은 메뉴(그 폴더 자리).
     await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
     await ctx(700,600);
@@ -285,15 +286,15 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
 
-  // LIB-정리보충(10:34): '폴더 밖'이 비면 그 줄은 없고, 맨 위 새 폴더는 맨 위 폴더 메뉴 첫 줄 [맨 위에 새 폴더].
+  // LIB-정리보충(10:34): '폴더 밖'이 비면 그 줄은 없고, 맨 위 새 폴더는 맨 위 폴더 메뉴 [맨 위에 새 폴더](UI-폴더이름펼치기 11/24부터 첫 줄 [이 폴더로 들어가기] 다음).
   test(`폴더 밖이 비면 그 줄 없음·맨 위에 새 폴더 ${width}`,async({page})=>{
     const items=[...ITEMS,{document_id:'a-2',folder_id:'fn'},{document_id:'a1-1',folder_id:'fa'}];
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items,group:'폴더'});
     expect(await tops(page)).toEqual(['f:fa','f:fn']);
     await press(page,menuButton(page,'f:fa'),width);
     // 넓은 화면 탐색기는 '폴더 밖' 머리가 늘 없고 맨 위 ⋯·빈 자리 우클릭 [새 폴더]가 맨 위 자리라 폴더 메뉴에 [맨 위에 새 폴더]가 없다(S69-28).
-    if(wideOf(width)){await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);await page.keyboard.press('Escape');await press(page,page.locator('#libraryTopMenuBtn'),width);await press(page,page.locator('#luTopMenu [data-lu-top="folder"]'),width)}
-    else{await expect(page.locator('#luFolderMenu button')).toHaveText(['맨 위에 새 폴더','이름 바꾸기F2','안에 새 폴더','펼치기','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
+    if(wideOf(width)){await expect(page.locator('#luFolderMenu button')).toHaveText(['이 폴더로 들어가기','이름 바꾸기F2','안에 새 폴더','옮기기…','색 선택…','정돈 제안','폴더 삭제']);await page.keyboard.press('Escape');await press(page,page.locator('#libraryTopMenuBtn'),width);await press(page,page.locator('#luTopMenu [data-lu-top="folder"]'),width)}
+    else{await expect(page.locator('#luFolderMenu button')).toHaveText(['이 폴더로 들어가기','맨 위에 새 폴더','이름 바꾸기F2','안에 새 폴더','펼치기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
     await press(page,folderMenuItem(page,'맨 위에 새 폴더'),width)}
     await expect(page.locator('#libraryFolderHint')).toContainText('폴더 밖(맨 위)에 만들어요');
     await page.locator('#libraryFolderName').fill('가상 새것');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();

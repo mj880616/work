@@ -38,21 +38,23 @@ test('옮기기 막대: 왼쪽 칸이면 → 오른쪽, 오른쪽 칸이면 ← 
   assert.equal(sendText(1), '← 왼쪽 폴더로 옮기기');
 });
 
-// S56-40 LIB-두칸폴더펼치기: 칸 안 나무 줄 — 펼친 폴더 아래 하위 폴더·자료가 한 단 들여, 접으면 안쪽 없음, 빈 폴더는 펼칠 것 없음.
-test('칸 안 나무 줄: 펼친 폴더만 안쪽이 한 단 들여 보이고, 빈 폴더는 펼치지 않는다', () => {
+// S56-40 LIB-두칸폴더펼치기: 칸 안 나무 줄 — 펼친 폴더 아래 하위 폴더·자료가 한 단 들여, 접으면 안쪽 없음.
+// UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 펼친다 — 펼치면 안에 '빈 폴더' 한 줄({kind:'empty'}, 들어가지 않음).
+test('칸 안 나무 줄: 펼친 폴더만 안쪽이 한 단 들여 보이고, 펼친 빈 폴더는 안에 빈 폴더 한 줄', () => {
   const top = paneContent(tree, null);
-  const flat = rows => rows.map(r => r.kind === 'folder' ? `${r.depth}${r.open ? '▾' : '▸'}${r.node.id}` : r.kind === 'out' ? `${r.depth}${r.open ? '▾' : '▸'}폴더밖` : `${r.depth}:${r.files.map(d => d.id).join(',')}`);
+  const flat = rows => rows.map(r => r.kind === 'folder' ? `${r.depth}${r.open ? '▾' : '▸'}${r.node.id}` : r.kind === 'out' ? `${r.depth}${r.open ? '▾' : '▸'}폴더밖` : r.kind === 'empty' ? `${r.depth}(빈 ${r.node.id})` : `${r.depth}:${r.files.map(d => d.id).join(',')}`);
   // LIB-두칸폴더밖(S69): 맨 위는 '폴더 밖' 줄이 맨 앞, 폴더 밖 자료는 그 줄을 펼쳤을 때 그 안에만(폴더 줄 아래 섞이지 않음).
   assert.deepEqual(flat(paneRows(top)), ['0▸폴더밖', '0▸a', '0▸b']);
   assert.deepEqual(flat(paneRows(top, k => k === 'f:a')), ['0▸폴더밖', '0▾a', '1▸c', '1:a1', '0▸b']);
   assert.deepEqual(flat(paneRows(top, k => k === 'x:out')), ['0▾폴더밖', '1:o1,o2', '0▸a', '0▸b']);
-  // 빈 폴더(바다·가람)는 기억에 펼침으로 있어도 펼칠 것이 없다.
+  // 빈 폴더(바다·가람)도 펼치면 그 자리에 '빈 폴더' 한 줄(펼친 표시 그대로, hasContent는 거짓).
   const all = paneRows(top, () => true);
-  assert.deepEqual(flat(all), ['0▾폴더밖', '1:o1,o2', '0▾a', '1▸c', '1:a1', '0▸b']);
+  assert.deepEqual(flat(all), ['0▾폴더밖', '1:o1,o2', '0▾a', '1▾c', '2(빈 c)', '1:a1', '0▾b', '1(빈 b)']);
   assert.equal(all.find(r => r.node?.id === 'b').hasContent, false);
   assert.equal(all[0].node.key, 'x:out');
   // 이름순은 단마다(폴더 밖 안 자료도).
   assert.deepEqual(flat(paneRows(top, k => k === 'f:a' || k === 'x:out', 'name')), ['0▾폴더밖', '1:o2,o1', '0▸b', '0▾a', '1▸c', '1:a1']);
+  assert.deepEqual(flat(paneRows(top, k => k === 'f:b')), ['0▸폴더밖', '0▸a', '0▾b', '1(빈 b)']);
   // 들어간 칸(하늘)에서도 같은 규칙 — 자료 묶음의 node는 그 칸의 폴더.
   const inA = paneRows({...paneContent(tree, 'a')}, () => false);
   assert.deepEqual(flat(inA), ['0▸c', '0:a1']);

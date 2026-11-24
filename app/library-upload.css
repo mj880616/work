@@ -406,6 +406,9 @@
 #appView #libraryView .lu-folder-shape .lu-fe-open,#appView #libraryView .lu-node[open] > .lu-node-head .lu-folder-shape .lu-fe-closed:not(.lu-fe-only){display:none}
 #appView #libraryView .lu-node[open] > .lu-node-head .lu-folder-shape .lu-fe-open{display:inline-flex}
 #appView #libraryView .lu-node-body > .ft-more-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px + 8px)}
+/* UI-폴더이름펼치기(11/24): 펼친 빈 폴더 안 '빈 폴더' 한 줄 — 안 줄과 같은 들여쓰기. */
+#appView #libraryView .lu-node-body > .lu-node-empty{padding:2px 0 2px calc((var(--lu-depth,0) + 1) * 16px + 8px)}
+#appView #libraryView .lu-node-empty > .wait-empty{margin:0}
 #appView #libraryView .lu-node-out .lu-node-name{color:var(--kptu-muted)}
 /* SEARCH-선택옮기기 ⑦: 외줄 폴더는 접힌 줄에서만 '공공팀 › 회의 › 집행위'(뒤 경로는 엷게), 펼치면 맨 위 이름만 — 아래 단은 자기 줄로 보인다. */
 #appView #libraryView .lu-chain-rest{color:var(--kptu-muted)}
@@ -565,6 +568,8 @@
 #documentList .lu-pane-list .ft-row .ft-main{min-height:30px;font-size:12.5px}
 /* LIB-두칸폴더펼치기(S56-40): 칸 안에서 펼친 폴더의 자료는 그 폴더의 하위 줄과 같은 단만큼 들여 보인다(공용 나무 들여쓰기 22px 한 단). */
 #documentList .lu-pane-sub{padding-left:calc(var(--ft-depth,0) * 22px)}
+#documentList .lu-pane-empty{padding-left:calc(var(--ft-depth,0) * 22px + 8px)} /* UI-폴더이름펼치기: 펼친 빈 폴더 안 '빈 폴더' 한 줄 */
+#documentList .lu-pane-empty > .wait-empty{margin:2px 0}
 #documentList .lu-pane.lu-drop-into{border-color:var(--kptu-primary);background:var(--kptu-primary-soft)}
 #documentList .lu-pane.lu-drop-no{border-style:dashed}
 #documentList .lu-pane.lu-drop-place{border-style:dashed;border-color:var(--kptu-primary)}

@@ -1,7 +1,8 @@
 // S69-38 UI-탐색기나무누르기: ftExplorePress — 탐색기 나무 폴더 이름 누르기 = 오른쪽을 그 폴더로(enter) + 접혀 있으면 펼침. 화면 없이 가짜 요소로 시험.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ftExplorePress, explorePressPlan, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, FOLDER_PRESS_TOGGLE, createLeafWait} from '../app/folder-tree-press.mjs';
+import {ftExplorePress, explorePressPlan, FOLDER_ENTER_LABEL} from '../app/folder-tree-press.mjs';
+import * as press from '../app/folder-tree-press.mjs';
 
 const fakeRow = ({tog = true, expanded = 'false', current = true} = {}) => {
   const log = [];
@@ -47,37 +48,10 @@ test('ftExplorePress: enter가 서버에서 읽는 동안(Promise)은 끝난 뒤
   assert.equal(ftExplorePress(null, () => {}), false);
 });
 
-test('folderPressAction: 펼쳐 보일 것이 있으면 펼치기, 없으면 열기, 모르면 펼치며 읽기 — 모든 나무·목록이 같은 판정', () => {
-  // 폴더만 보이는 나무(PC·폴드 왼쪽 나무): 하위 폴더가 없는 폴더 = 열기
-  assert.equal(folderPressAction(3), FOLDER_PRESS_TOGGLE);
-  assert.equal(folderPressAction(1), FOLDER_PRESS_TOGGLE);
-  assert.equal(folderPressAction(true), FOLDER_PRESS_TOGGLE);
-  assert.equal(folderPressAction(0), FOLDER_PRESS_ENTER);
-  assert.equal(folderPressAction(false), FOLDER_PRESS_ENTER);
-  assert.equal(folderPressAction(null), FOLDER_PRESS_TOGGLE);
-  assert.equal(folderPressAction(undefined), FOLDER_PRESS_TOGGLE);
-  // 안 자료까지 들여 보이는 목록·폰 나무: 하위 폴더가 없어도 안 자료가 있으면 그 자리 펼치기(처음 5개 + n개 더 보기, 펼친 폴더 안 놓기 그대로), 빈 폴더만 열기
-  assert.equal(folderPressAction(0, 4), FOLDER_PRESS_TOGGLE);
-  assert.equal(folderPressAction(0, 0), FOLDER_PRESS_ENTER);
-  assert.equal(folderPressAction(2, 0), FOLDER_PRESS_TOGGLE);
-  assert.equal(folderPressAction(0, null), FOLDER_PRESS_TOGGLE); // 장수를 모르면 있다고 본다
-});
-
-test('createLeafWait: 읽기 전 폴더를 눌렀다가, 읽어 보니 하위 폴더가 없으면 그때 연다 — 다른 것을 누르면 잊는다', () => {
-  const w = createLeafWait(), log = [];
-  w.arm('a');
-  assert.equal(w.key, 'a');
-  assert.equal(w.done('b', 0, () => log.push('b')), false); // 다른 폴더의 읽기는 상관없음
-  assert.equal(w.done('a', 0, () => log.push('a')), true);
-  assert.deepEqual(log, ['a']);
-  assert.equal(w.key, null);
-  w.arm('c');
-  assert.equal(w.done('c', 2, () => log.push('c')), false); // 하위 폴더가 있으면 열지 않음(펼친 채)
-  w.arm('e');
-  assert.equal(w.done('e', 0, () => log.push('e'), 3), false); // 안 자료가 있으면 열지 않음(펼친 채)
-  w.arm('d'); w.clear();
-  assert.equal(w.done('d', 0, () => log.push('d')), false); // 그 사이 다른 것을 누름
-  assert.deepEqual(log, ['a']);
+test('UI-폴더이름펼치기(명진 11/24 18:09): 하위 없는 폴더 = 한 번에 열기 판정(folderPressAction·createLeafWait)은 없앴다 — 그 자리 펼치는 목록은 늘 펼치기·접기', () => {
+  assert.equal(press.folderPressAction, undefined);
+  assert.equal(press.createLeafWait, undefined);
+  assert.equal(press.FOLDER_PRESS_ENTER, undefined);
 });
 
 test('그 폴더만 보기 메뉴 글자는 화면마다 같다', () => {
