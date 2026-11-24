@@ -792,6 +792,8 @@ jobs:
         run: node --test tests/note-board-mindmap-model.test.mjs
       - name: Check note board box frame (S69-88 크기 손잡이·자유 이동·카드 별명)
         run: node --test tests/note-board-frame-model.test.mjs
+      - name: Check note board labels, shapes and free lines (S69-91 ①)
+        run: node --test tests/note-board-decor-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
         run: node --test tests/note-tags-comments.test.mjs tests/memo-model.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)
