@@ -2,7 +2,8 @@
 -- The existing-table count/hash items must equal the precheck values of the same name (columns, constraints, policies, grants and
 -- triggers of app_notes and app_note_comments unchanged; no note comment row added or removed — the old table is kept as it is).
 -- After apply also: RLS on the new table, four authenticated owner policies, no anon/PUBLIC/service_role privilege, update on body·updated_at only,
--- every old note comment copied (same id, note, workspace and text).
+-- (Every old note comment being copied is checked inside the migration itself before commit; this SELECT cannot name the new table,
+-- because the same file also runs after rollback/dry-run when the table does not exist.)
 with history as (
   select count(*) as n,count(*) filter(where name='memos') as named from supabase_migrations.schema_migrations where version='20261125030000'
 )
@@ -23,9 +24,6 @@ union all select 'authenticated updates text only',case when to_regclass('public
   and not has_column_privilege('authenticated','public.app_memos','target_id','update')
   and not has_column_privilege('authenticated','public.app_memos','workspace_id','update')
   and not has_column_privilege('authenticated','public.app_memos','target_title','update')) then '예' else '아니오' end
-union all select 'old comments all copied',case when to_regclass('public.app_memos') is null
-  or not exists(select 1 from public.app_note_comments c where not exists(select 1 from public.app_memos m
-    where m.id=c.id and m.target_type='note' and m.target_id=c.note_id and m.workspace_id=c.workspace_id and m.body=c.body)) then '예' else '아니오' end
 union all select 'note comments rows',count(*)::text from public.app_note_comments
 union all select 'existing tables columns hash',md5(coalesce(string_agg(attrelid::regclass::text||'.'||attname||':'||format_type(atttypid,atttypmod),',' order by attrelid::regclass::text,attname),''))
   from pg_attribute where attrelid in (to_regclass('public.app_notes'),to_regclass('public.app_note_comments')) and attnum>0 and not attisdropped

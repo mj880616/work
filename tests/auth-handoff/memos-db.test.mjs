@@ -124,9 +124,11 @@ test('memos db: plan, dry-run, apply copies old comments, owner boundary, target
    await assert.rejects(owner(c=>c.query(ins,[WS_B,'news',A1,null,'가상'])),/row-level security/);
    await assert.rejects(owner(c=>c.query(ins,[WS_A,'note',basketA,null,'가상'])),/row-level security/);
    await assert.rejects(stranger(c=>c.query(ins,[WS_A,'news',A1,null,'가상'])),/row-level security/);
-   assert.deepEqual((await stranger(c=>c.query('select 1 from public.app_memos'))).rows,[]);
-   assert.equal((await stranger(c=>c.query("update public.app_memos set body='남이 고침'"))).rowCount,0);
-   assert.equal((await stranger(c=>c.query('delete from public.app_memos'))).rowCount,0);
+   // STRANGER는 WS_B의 주인 — 자기 작업공간 메모만 보이고, WS_A 메모는 보지도 고치지도 지우지도 못한다.
+   assert.deepEqual((await stranger(c=>c.query('select 1 from public.app_memos where workspace_id=$1',[WS_A]))).rows,[]);
+   assert.deepEqual((await stranger(c=>c.query('select distinct workspace_id from public.app_memos'))).rows.map(r=>r.workspace_id),[WS_B]);
+   assert.equal((await stranger(c=>c.query("update public.app_memos set body='남이 고침' where workspace_id=$1",[WS_A]))).rowCount,0);
+   assert.equal((await stranger(c=>c.query('delete from public.app_memos where workspace_id=$1',[WS_A]))).rowCount,0);
    await assert.rejects(as('anon','',c=>c.query('select 1 from public.app_memos')),/permission denied/);
    await assert.rejects(as('anon','',c=>c.query(ins,[WS_A,'news',A1,null,'가상'])),/permission denied/);
    await assert.rejects(server(c=>c.query('select 1 from public.app_memos')),/permission denied/);
