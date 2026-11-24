@@ -381,9 +381,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       onMenu:(btn, x, y) => { window.KPTUContextMenu?.pinAt?.(btn, x, y); rowMenu(btn); },
       onBackgroundMenu:(x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(box, x, y); openMenu(box, null, 'board'); },
       onLinkAdd:link => { void boardLinks.add(link); }, onLinkChange:(id, patch) => { void boardLinks.update(id, patch); }, onLinkRemove:id => { void boardLinks.remove(id); },
-      // S68-38c 글 상자(그 보드에만 있는 짧은 글, 서버 표 app_note_board_texts — 노트 목록·검색·폴더·태그와 무관).
-      onTextAdd:text => { void boardLinks.addText(text); }, onTextChange:(id, patch) => { void boardLinks.updateText(id, patch); }, onTextRemove:id => { void boardLinks.removeText(id); },
-      canText:() => boardLinks.checkTexts(), toast:showToast});
+      // S68-38c 글 상자 → S69-82 생각 지도 상자(그 보드에만 있는 짧은 글·가지, 서버 표 app_note_board_texts — 노트 목록·검색·폴더·태그와 무관).
+      onTextAdd:text => boardLinks.addText(text), onTextChange:(id, patch) => { void boardLinks.updateText(id, patch); }, onTextsChange:list => { void boardLinks.updateTexts(list); },
+      onTextRemove:id => { void boardLinks.removeText(id); },
+      canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), toast:showToast});
     boards.paint();
     void boardLinks.load(); // 처음 한 번(작업공간이 바뀌면 다시) — 다 읽으면 onChange로 다시 그린다
     const named = boards.boardView(), shown = named ? named.notes : notes, key = boards.current();

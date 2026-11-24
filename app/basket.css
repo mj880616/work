@@ -10,8 +10,9 @@
 /* UI-화면정리 C(B④ 편집 도구줄 하나로): 이 화면의 기본 버튼 모양은 글 편집 칸(.ed-editor, 노트 편집기) 안에는 쓰지 않는다.
    편집 도구줄은 어디서나(노트·일기·창 편집·공유 페이지) ed-doc.css 한 곳의 모양(테두리 없는 작은 글자 버튼)이다.
    ORG-기록첨부이름반영(S60-14): 첨부 이름 끝 ✎(.fr-edit)도 공용 모양(file-rename.css, 테두리 없는 흐린 연필) 그대로 — 이 규칙이 테두리 단추로 덮어썼다.
-   NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로. */
-#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .up-rows *, .ds-seg-btn, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+   NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로.
+   S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로. */
+#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .up-rows *, .ds-seg-btn, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -377,21 +378,69 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nb-card.nb-sel :is(.nb-more,.nb-x) { display:block; }
 .nb:not(.nb-panning,[data-nb-small]) .nb-card.nb-hover .nb-h { display:block; }
 #appView #basketView .nb:not(.nb-panning) .nb-card.nb-hover :is(.nb-more,.nb-x) { display:block; }
-/* S68-38c 글 상자: 그 보드에만 있는 짧은 글. 크기는 글에 맞춤(최대 폭에서 줄바꿈), 노트 카드보다 아래 층. 고른 상자에 [삭제]·손잡이. */
+/* S69-82 생각 지도 상자(옛 S68-38c 글 상자): 글 길이만큼 가로로 늘고(width:max-content — 폭 0인 판 칸 안에서도 한 글자씩 세로로 쌓이지 않게),
+   최대 폭(또는 손으로 정한 폭)에서만 줄바꿈. 모양(둥근/네모/알약/글만)·글자 크기(1~4)·색(노트 색 8가지)은 data-* 하나로. 노트 카드보다 아래 층. */
 .nb-texts { position:absolute; left:0; top:0; width:0; height:0; }
-.nb-text { position:absolute; box-sizing:border-box; min-width:28px; max-width:220px; padding:4px 8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:6px; background:var(--kptu-surface); color:var(--kptu-ink); font-size:12.5px; line-height:1.35; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:text; }
-.nb-tx { white-space:pre-wrap; overflow-wrap:anywhere; outline:none; }
-.nb-tx:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:3px; border-radius:2px; }
-.nb-text.nb-sel { border-color:var(--nb-link-on); }
-.nb-text.nb-dragging, .nb-text.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); }
+.nb-text { --nb-pad:5px 10px; --nb-paper:var(--kptu-surface); position:absolute; box-sizing:border-box; width:max-content; min-width:36px; max-width:260px; padding:var(--nb-pad); border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:8px; background:var(--nb-paper); color:var(--kptu-ink); font-size:14px; line-height:1.35; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:default; }
+.nb-text[style*="width"] { max-width:none; }
+.nb-text[data-font="1"] { font-size:12px; --nb-pad:3px 8px; }
+.nb-text[data-font="3"] { font-size:17px; font-weight:600; --nb-pad:7px 14px; }
+.nb-text[data-font="4"] { font-size:21px; font-weight:700; --nb-pad:9px 18px; }
+.nb-text[data-shape="rect"] { border-radius:2px; }
+.nb-text[data-shape="pill"] { border-radius:999px; --nb-pad:5px 16px; }
+.nb-text[data-shape="plain"] { border-color:transparent; background:transparent; }
+.nb-text[data-kind="sticky"] { box-shadow:var(--ds-note-shadow); border-color:transparent; }
+.nb-text.nb-root:not([data-shape="plain"]) { border-width:calc(var(--ds-line-width,1px) * 2); }
+.nb-text[data-tone]:not([data-shape="plain"]) { border-color:color-mix(in srgb,var(--nb-paper) 55%,var(--kptu-ink) 18%); color:var(--ds-note-ink, var(--kptu-ink)); }
+.nb-text[data-tone="0"] { --nb-paper:var(--ds-note-paper-0); }
+.nb-text[data-tone="1"] { --nb-paper:var(--ds-note-paper-1); }
+.nb-text[data-tone="2"] { --nb-paper:var(--ds-note-paper-2); }
+.nb-text[data-tone="3"] { --nb-paper:var(--ds-note-paper-3); }
+.nb-text[data-tone="4"] { --nb-paper:var(--ds-note-paper-4); }
+.nb-text[data-tone="5"] { --nb-paper:var(--ds-note-paper-5); }
+.nb-text[data-tone="6"] { --nb-paper:var(--ds-note-paper-6); }
+.nb-text[data-tone="7"] { --nb-paper:var(--ds-note-paper-7); }
+.nb-text[data-tone][data-shape="plain"] { color:color-mix(in srgb,var(--nb-paper) 35%,var(--kptu-ink)); }
+.nb-tx { white-space:pre-wrap; overflow-wrap:break-word; outline:none; }
+.nb-tx:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:4px; border-radius:2px; }
+.nb-text.nb-sel { outline:2px solid var(--nb-link-on); outline-offset:2px; }
+.nb-text.nb-dragging, .nb-text.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); opacity:.85; }
 .nb-text.nb-pending { opacity:.6; }
-.nb-text.nb-editing { width:220px; padding:0; }
-.nb-text.nb-editing .nb-tx { display:none; }
-.nb-tx-edit { display:block; box-sizing:border-box; width:100%; min-height:26px; margin:0; padding:4px 8px; border:0; border-radius:inherit; background:transparent; color:inherit; font:inherit; line-height:inherit; resize:none; overflow:hidden; user-select:text; -webkit-user-select:text; touch-action:auto; outline:2px solid var(--kptu-primary); outline-offset:0; }
-#appView #basketView .nb-text .nb-tx-del { position:absolute; top:-24px; left:calc(100% + 4px); display:none; font-size:11px; } /* 위 손잡이와 겹치지 않게 오른쪽 위 바깥 */
-#appView #basketView .nb-text.nb-sel:not(.nb-editing,.nb-pending) .nb-tx-del { display:block; }
-.nb:not([data-nb-small]) .nb-text.nb-sel:not(.nb-editing,.nb-pending) .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-text:not(.nb-pending) .nb-h { display:block; }
+/* 놓을 곳 강조: 가운데 = 그 아래 가지로, 위·아래 끝 = 앞·뒤 형제로. 잇는 중 놓을 끝(nb-target)은 노트 카드도 같이. */
+.nb-text.nb-drop-in, :is(.nb-text,.nb-card).nb-target { outline:2px dashed var(--nb-link-on); outline-offset:3px; }
+.nb-text.nb-drop-before { box-shadow:0 -3px 0 0 var(--nb-link-on); }
+.nb-text.nb-drop-after { box-shadow:0 3px 0 0 var(--nb-link-on); }
+/* 글 고치기: 상자 안 글(.nb-tx)은 보이지 않게 폭·높이만 잡고, 입력칸이 그 위에 겹친다(상자가 글 길이만큼 늘고 줄어듦). */
+.nb-text.nb-editing { cursor:text; }
+.nb-text.nb-editing .nb-tx { visibility:hidden; min-width:4em; }
+.nb-text.nb-draft { min-width:72px; }
+.nb-tx-edit { position:absolute; inset:0; box-sizing:border-box; width:100%; height:100%; margin:0; padding:var(--nb-pad); border:0; border-radius:inherit; background:transparent; color:inherit; font:inherit; line-height:inherit; white-space:pre-wrap; overflow-wrap:break-word; resize:none; overflow:hidden; user-select:text; -webkit-user-select:text; touch-action:auto; outline:2px solid var(--kptu-primary); outline-offset:0; }
+/* 접기·펼치기 동그라미: 가지가 나가는 쪽 변 바깥 가운데(공용 icon-btn 안의 작은 동그라미). 접히면 숨은 가지 수. */
+#appView #basketView .nb-text .nb-fold { position:absolute; top:calc(50% - 11px); left:calc(100% + 1px); width:22px; min-width:0; padding:0; z-index:1; }
+#appView #basketView .nb-text[data-side="-1"] .nb-fold { left:auto; right:calc(100% + 1px); }
+.nb-fold-dot { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:16px; height:16px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:50%; background:var(--kptu-surface); color:var(--kptu-muted); font-size:10px; line-height:1; }
+.nb-text:has(.nb-fold) .nb-h-right { right:-30px; }
+.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-right { right:-16px; }
+.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-left { left:-30px; }
+.nb:not([data-nb-small]) .nb-text.nb-sel:not(.nb-editing,.nb-pending) .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-text:not(.nb-pending,.nb-draft) .nb-h { display:block; }
 .nb:not(.nb-panning,[data-nb-small]) .nb-text.nb-hover:not(.nb-editing,.nb-pending) .nb-h { display:block; }
+/* 가지 선: 부모 옆 → 가지, 뿌리 가지 순서대로 노트 색(진하게 섞음). */
+.nb-branch { fill:none; stroke:color-mix(in srgb,var(--kptu-muted) 70%,transparent); stroke-width:2; stroke-linecap:round; }
+.nb-branch[data-tone="0"] { stroke:color-mix(in srgb,var(--ds-note-paper-0) 50%,var(--kptu-muted)); }
+.nb-branch[data-tone="1"] { stroke:color-mix(in srgb,var(--ds-note-paper-1) 50%,var(--kptu-muted)); }
+.nb-branch[data-tone="2"] { stroke:color-mix(in srgb,var(--ds-note-paper-2) 50%,var(--kptu-muted)); }
+.nb-branch[data-tone="3"] { stroke:color-mix(in srgb,var(--ds-note-paper-3) 50%,var(--kptu-muted)); }
+.nb-branch[data-tone="4"] { stroke:color-mix(in srgb,var(--ds-note-paper-4) 50%,var(--kptu-muted)); }
+.nb-branch[data-tone="5"] { stroke:color-mix(in srgb,var(--ds-note-paper-5) 50%,var(--kptu-muted)); }
+.nb-branch[data-tone="6"] { stroke:color-mix(in srgb,var(--ds-note-paper-6) 50%,var(--kptu-muted)); }
+.nb-branch[data-tone="7"] { stroke:color-mix(in srgb,var(--ds-note-paper-7) 50%,var(--kptu-muted)); }
+.nb-branch-draft { stroke-dasharray:4 4; }
+/* 선택한 상자 위 작은 막대(판 화면 좌표, 확대와 무관한 크기). 단추는 공용 icon-btn·ds-chip, 색 칸은 공용 ui-swatch. [색]·[모양]은 아래 한 줄로 펼침. */
+.nb-node-bar { position:absolute; z-index:4; display:flex; flex-direction:column; gap:4px; box-sizing:border-box; max-width:calc(100% - 8px); padding:3px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); touch-action:manipulation; }
+.nb-node-bar[hidden] { display:none; }
+.nb-bar-main, .nb-bar-row { display:flex; flex-wrap:wrap; align-items:center; gap:2px; }
+.nb-bar-row[hidden] { display:none; }
+#appView #basketView .nb-node-bar .nb-bar-btn { width:auto; padding:0 7px; font-size:var(--ds-text-meta,12px); white-space:nowrap; }
 #appView #basketView .nb-tools .nb-add-text { padding:0 8px; font-size:var(--ds-text-meta,12px); }
 /* 선 메뉴(누른 자리 옆 작은 창, 본문 맨 끝에 붙음): [실선|점선] [직선으로] [→|↔|없음] [뒤집기] [글자] [삭제]. 버튼은 공용 칩·글자 버튼. 선 위를 끌면 곡선(S68-38c). */
 .nb-link-menu { position:fixed; z-index:60; display:flex; flex-direction:column; gap:6px; box-sizing:border-box; max-width:calc(100vw - 16px); padding:8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float,none); }
