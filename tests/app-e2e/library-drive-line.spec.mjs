@@ -11,9 +11,9 @@ const DOC='e0000000-0000-4000-8000-000000000001';
 const FOLDER='libraryFolder0001';
 const PLACE={folder_id:FOLDER,url:`https://drive.google.com/drive/folders/${FOLDER}`,path:['웹2','자료실']};
 
-async function boot(page,{width,place}){
+async function boot(page,{width,place,mirror=[]}){
   await page.setViewportSize({width,height:900});
-  const state={user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},asks:[]};
+  const state={user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},asks:[],mirror,mirrorAsks:[]};
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname;
     const ok=(data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data??null)});
@@ -21,6 +21,7 @@ async function boot(page,{width,place}){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/workspace-drive'&&url.searchParams.get('action')==='drive-mirror'){const b=(()=>{try{return req.postDataJSON()}catch{return null}})();state.mirrorAsks.push(b);return ok(state.mirror.length?state.mirror.shift():{ok:true,state:'aligned',folders_made:0,folders_fixed:0,files_moved:0,cant:0,pending:0,more:false,stopped:false})}
     if(path==='/functions/v1/workspace-drive'){state.asks.push({method:req.method(),query:url.search});return ok(url.searchParams.get('action')==='drive-place'?{ok:true,place}:{error:'Unknown action'},url.searchParams.get('action')==='drive-place'?200:400)}
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -51,7 +52,7 @@ for(const width of [390,1280]){
     await expect(open).toHaveAttribute('target','_blank');
     await expect(open).toHaveAttribute('rel',/noopener/);
     // 서버에는 모양이 정해진 요청 하나만(폴더 id·이름은 서버가 정함).
-    expect(state.asks.length).toBeGreaterThan(0);
+    expect(state.asks.length).toBeGreaterThan(0); // drive-place 읽기(맞추기 요청은 따로 센다)
     expect(state.asks.every(a=>a.method==='GET'&&a.query==='?action=drive-place')).toBe(true);
     // 콤팩트: 한 줄 높이(글자 12px 안팎) — 큰 카드·안내문 없음.
     const box=await line.boundingBox();
@@ -71,4 +72,33 @@ test('저장 위치가 없으면(자료를 올린 적 없음·연결 없음) 줄
 test('서버 답 주소가 드라이브 폴더 주소가 아니면 그리지 않는다',async({page})=>{
   await boot(page,{width:1280,place:{folder_id:FOLDER,url:'https://example.org/x',path:['웹2','자료실']}});
   await expect(page.locator('#libraryDriveLine')).toBeHidden();
+});
+
+test('④ 자료실 ⋯ [드라이브 폴더 맞추기]: 이어서 맞추고 옮긴 수를 알린다. 실패하면 줄 끝에 정리 대기',async({page})=>{
+  const state=await boot(page,{width:1280,place:PLACE,mirror:[
+    {ok:true,state:'aligned',pending:0,more:false},
+    {ok:true,state:'not_aligned',folders_made:2,folders_fixed:0,files_moved:5,cant:0,pending:0,more:true,stopped:false},
+    {ok:true,state:'aligned',folders_made:0,folders_fixed:0,files_moved:3,cant:1,pending:0,more:false,stopped:false},
+    {ok:true,state:'not_aligned',folders_made:0,folders_fixed:0,files_moved:1,cant:0,pending:1,more:false,stopped:true}]});
+  await expect(page.locator('#libraryDriveLine .lu-drive-where')).toBeVisible();
+  await expect.poll(()=>state.mirrorAsks.length).toBe(1); // 처음 들어오면 '앞으로 같게' 한 번
+  expect(state.mirrorAsks[0]).toEqual({mode:'auto'});
+  await page.locator('#libraryTopMenuBtn').click();
+  await page.locator('#luTopMenu [data-lu-top="drive-align"]').click();
+  await expect(page.locator('#libraryFolderStatusLine')).toHaveText('드라이브 폴더를 맞췄어요 · 폴더 2개 만들고 자료 8개 옮겼어요 · 옮길 수 없는 자료 1개는 그대로');
+  expect(state.mirrorAsks.slice(1)).toEqual([{mode:'align'},{mode:'align'}]);
+  await expect(page.locator('#libraryDriveLine .lu-drive-note')).toHaveCount(0);
+  await page.locator('#libraryTopMenuBtn').click();
+  await page.locator('#luTopMenu [data-lu-top="drive-align"]').click();
+  await expect(page.locator('#libraryDriveLine .lu-drive-note')).toHaveText('드라이브 정리 대기');
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('다 맞추지 못했어요');
+  expect(state.mirrorAsks.length).toBe(4);
+});
+
+test('저장 위치가 없으면 ⋯에 [드라이브 폴더 맞추기]도 없다',async({page})=>{
+  const state=await boot(page,{width:390,place:null});
+  await page.locator('#libraryTopMenuBtn').click();
+  await expect(page.locator('#luTopMenu')).toBeVisible();
+  await expect(page.locator('#luTopMenu [data-lu-top="drive-align"]')).toHaveCount(0);
+  expect(state.mirrorAsks).toEqual([]);
 });

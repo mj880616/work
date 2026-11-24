@@ -66,7 +66,7 @@ test('화면 한 줄(app/library-drive-line.js): 드라이브 폴더 주소만, 
   const { cleanPlace, driveLineHtml, mountLibraryDriveLine } = await import('../app/library-drive-line.js');
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const url = 'https://drive.google.com/drive/folders/libraryFolder0001';
-  assert.deepEqual(cleanPlace({ url, path: [' 웹2 ', '자료실', ''] }), { url, path: ['웹2', '자료실'] });
+  assert.deepEqual(cleanPlace({ url, path: [' 웹2 ', '자료실', ''] }), { url, path: ['웹2', '자료실'], pairs: {} });
   assert.equal(cleanPlace({ url: 'https://evil.example/drive/folders/x', path: ['a'] }), null);
   assert.equal(cleanPlace({ url: 'javascript:alert(1)', path: ['a'] }), null);
   assert.equal(cleanPlace({ url, path: [] }), null);
@@ -87,4 +87,46 @@ test('화면 한 줄(app/library-drive-line.js): 드라이브 폴더 주소만, 
   await first;
   assert.equal(box.hidden, false);
   assert.match(box.innerHTML, /웹2 › 자료실/);
+});
+
+test('③ 폴더 안이면 짝 드라이브 폴더로 열고, 줄 끝에 정리 대기, [드라이브 폴더 맞추기]는 이어서 하고 실패하면 멈춤', async () => {
+  const { placeAt, mirrorNote, mountLibraryDriveLine } = await import('../app/library-drive-line.js');
+  const esc = s => String(s);
+  const url = 'https://drive.google.com/drive/folders/libraryFolder0001';
+  const place = { url, path: ['웹2', '자료실'], pairs: { F1: 'pairFolder000001', F2: 'bad id' } };
+  assert.deepEqual(placeAt(place, { folderId: 'F1', trail: ['교섭', '2026'] }), { path: ['웹2', '자료실', '교섭', '2026'], url: 'https://drive.google.com/drive/folders/pairFolder000001' });
+  assert.deepEqual(placeAt(place, { folderId: 'F2', trail: ['다른'] }), { path: ['웹2', '자료실'], url }, '짝이 없거나 모양이 틀리면 자료실 폴더로');
+  assert.deepEqual(placeAt(place, {}), { path: ['웹2', '자료실'], url });
+  assert.equal(mirrorNote({ ok: true, pending: 2 }), '드라이브 정리 대기');
+  assert.equal(mirrorNote({ ok: true, more: true }), '드라이브 정리 대기');
+  assert.equal(mirrorNote({ ok: true, pending: 0, cant: 3 }), '', '옮길 수 없는 파일은 대기가 아님');
+  assert.equal(mirrorNote({ ok: false, code: 'not_ready' }), '', 'DB 적용 전에는 조용히');
+  assert.equal(mirrorNote({ ok: false, code: 'mirror_failed' }), '드라이브 정리 대기');
+
+  const box = { innerHTML: '', hidden: true }, said = [], asks = [];
+  let answers = [];
+  const api = async (path, opt) => { asks.push([path, opt?.body?.mode || null]); if (path.includes('drive-place')) return { ok: true, place }; return answers.shift(); };
+  const line = mountLibraryDriveLine({ api, esc, el: () => box, notify: (t, o) => said.push([t, !!o?.error]), wait: 1 });
+  line.changed('sign-0'); // 아직 저장 위치를 모름 → 기억해 두었다가
+  await line.refresh();
+  answers = [{ ok: true, state: 'aligned', pending: 1, more: false }];
+  await new Promise(r => setTimeout(r, 20));
+  assert.deepEqual(asks.filter(a => a[0].includes('mirror')).map(a => a[1]), ['auto'], '저장 위치를 안 뒤 한 번 부탁');
+  assert.match(box.innerHTML, /드라이브 정리 대기/);
+  // 맞추기: more → 이어서, 끝나면 알림·대기 글 지움
+  asks.length = 0;
+  answers = [{ ok: true, state: 'not_aligned', more: true, files_moved: 3, folders_made: 2 }, { ok: true, state: 'aligned', more: false, files_moved: 4, cant: 1, pending: 0 }];
+  const r = await line.align();
+  assert.deepEqual(asks.filter(a => a[0].includes('mirror')).map(a => a[1]), ['align', 'align']);
+  assert.deepEqual(r, { done: true, folders_made: 2, folders_fixed: 0, files_moved: 7, cant: 1 });
+  assert.deepEqual(said.at(-1), ['드라이브 폴더를 맞췄어요 · 폴더 2개 만들고 자료 7개 옮겼어요 · 옮길 수 없는 자료 1개는 그대로', false]);
+  assert.doesNotMatch(box.innerHTML, /대기/);
+  // 실패하면 멈춤
+  asks.length = 0;
+  answers = [{ ok: true, state: 'not_aligned', more: false, stopped: true, files_moved: 1, pending: 1 }, { ok: true, more: false }];
+  const r2 = await line.align();
+  assert.equal(r2.done, false);
+  assert.equal(asks.filter(a => a[0].includes('mirror')).length, 1, '멈춘 뒤 더 부르지 않음');
+  assert.equal(said.at(-1)[1], true);
+  assert.match(box.innerHTML, /드라이브 정리 대기/);
 });
