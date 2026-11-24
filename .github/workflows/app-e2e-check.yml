@@ -29,4 +29,4 @@ jobs:
       - name: Run diag
         run: npx playwright test tests/app-e2e/zz-diag.spec.mjs tests/app-e2e/journal.spec.mjs --browser=chromium --workers=2 --fully-parallel --repeat-each=1 --reporter=line --grep "칸·탭|journal" || true
       - name: Run diag repeat
-        run: npx playwright test tests/app-e2e/zz-diag.spec.mjs --browser=chromium --workers=2 --repeat-each=4 --reporter=line || true
+        run: npx playwright test tests/app-e2e/zz-diag.spec.mjs --browser=chromium --workers=2 --repeat-each=3 --reporter=line || true
