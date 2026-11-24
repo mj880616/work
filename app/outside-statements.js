@@ -944,7 +944,7 @@ window.addEventListener('kptu:view-prefs-ready', () => {
 // openItem: 읽을 거리 [News] 줄(reading.js)이 라우터 openFrom 안에서 부른다 — 그 글이 든 탭 + 지금 상세(원문·밑줄) 그대로.
 // 저장한 글에서 연 글이라 상세에 from 'saved'를 넘긴다(아래 줄 [관심 없음] 없음, S69-03). 폰 상세 겹은 openFrom이 남긴 칸을 쓰고,
 // PC는 목록 고름 기록(pick)을 남기지 않아 뒤로 한 번 = 읽을 거리.
-window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); setTab('movement'); }, sourceName: key => catalogOf(key)?.name || null,
+window.KPTUOutside = {refresh: () => load(), sourceName: key => catalogOf(key)?.name || null,
   prepareItem: async item => {
     prepared = null;
     if (!item || !['news', 'outside'].includes(item.type) || !isUuid(item.id)) return false;
@@ -970,7 +970,7 @@ window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); set
     setTab(openTabFor(item.type), {save: false}); await openWanted(item, {picked: false, from: 'saved'});
     if (edit && detail.current()) void detail.edit();
     return !!detail.current();
-  }}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
+  }};
 // [언론] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·줄 그리기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭·찾는 말·고른 매체.
 window.KPTUNow = {
   open: (item, head) => openDetail(item, head), listed: () => autoOpenTop(), describe, rowOf, topics: () => interests.topics(), hitOf, foldedHtml, selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
