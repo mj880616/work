@@ -161,14 +161,14 @@ async function swipeOn(locator, dx) {
 }
 
 for (const width of [412, 884, 1280]) {
-  test(`News 목록 ${width}: 탭 넷 자리·[전체] 한 줄·색 띠·꼬리표·읽음 굵기·찾기·매체 선택·탭 서버 저장·단체 켜고 끄기`, async ({ page }) => {
+  test(`News 목록 ${width}: 탭 다섯 자리·[전체] 한 줄·색 띠·꼬리표·읽음 굵기·찾기·매체 선택·탭 서버 저장·단체 켜고 끄기`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, server } = await start(page, width);
     await openOutside(page, width);
-    // 탭 넷, 처음은 [전체](news_tab·옛 now_tab 둘 다 없음 → 저장 안 함).
-    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
-    // S68-28: 탭 줄에는 탭 넷만 — 옛 '보관 ↗' 길도 없다(읽을 거리로 보낸 글은 메뉴 '읽을 거리').
-    await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
+    // 탭 다섯(S69-70 [메모] 더함), 처음은 [전체](news_tab·옛 now_tab 둘 다 없음 → 저장 안 함).
+    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '밑줄', '메모']);
+    // S68-28: 탭 줄에는 탭 다섯만 — 옛 '보관 ↗' 길도 없다(읽을 거리로 보낸 글은 메뉴 '읽을 거리').
+    await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄', '메모']);
     await expect(root(page).locator('[data-os-tabs]')).not.toContainText('보관');
     await expect(tab(page, 'all')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#osTitle')).toHaveText('읽을 거리');
