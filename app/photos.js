@@ -2153,17 +2153,20 @@ const switchHtml = (id, name, on) => `<button type="button" role="switch" class=
 // a = 줄 속성 이름 묶음(출처마다 누른 것을 알아보는 이름만 다름). 장수를 모르면 '—', 0이면 흐리게.
 const OD_ATTR = {row:'folder', open:'fx-open', tog:'fx-tog', sw:'fx-sw', more:'fx-more'};
 const GD_ATTR = {row:'gf', open:'gf-open', tog:'gf-tog', sw:'gf-sw', more:'gf-more'};
-const countHtml = n => `<span class="nx-num${n === 0 || n === null || n === undefined ? ' is-zero' : ''}" aria-label="${Number.isInteger(n) ? `사진 ${n}장` : '사진 장수 모름'}">${folderCountText(n)}</span>`;
+const countLabel = n => (Number.isInteger(n) ? `사진 ${n}장` : '사진 장수 모름');
+// UI-폴더목록한모양(S69-90, 명진 11/25 "모든 폴더 쓰는 ui를 통일 … 노트 사진 등 모두"): 사진 폴더 줄도 [파일]·노트·자료실과 같은 공용 줄(folder-tree-ui.mjs ftFolderRowHtml)
+// — 줄 높이·글자·폴더 그림·⋯ 자리·개수 모양이 한 곳. 사진만의 칸('사진에 보이기' 스위치·자리 글자)은 after·nameTail로 붙인다. 옛 줄(.nx-row)은 없앴다.
+// 맨 위 단계 모양(굵은 이름)은 PC 나무 맨 위 줄('카메라'·'구글 드라이브')과 그 바로 아래 한 단계(indent ≤ 1, 옛 .nx-top과 같음).
 function folderRowHtml(r, {wide, a = OD_ATTR, cur = r.id === at && pAt === null && gdAt === null, sw = !!tree?.whole, more = true}) {
   const tog = wide && r.kids && !r.top, on = r.enabled !== false, now = cur && wide, x = k => `data-photos-${a[k]}`;
   // S51-25 FOLDER-PC나무: PC 나무는 세모 없이 폴더 아이콘이 접기·펼치기 단추(열린 그림 = 펼침). 이름을 누르면 지금처럼 그 폴더로.
-  const ico = folderIconHtml({color: r.top ? null : folderLook.color(a === GD_ATTR ? 'gd' : 'od', r.id)}, {open: wide ? !!(r.open && r.kids) : (r.open && r.kids) || now});
-  return `<div class="nx-row nx-folder photos-fx-row ${r.indent >= 2 ? 'nx-sub' : 'nx-top'}${now ? ' nx-current' : ''}${sw && !on ? ' is-off' : ''}" ${x('row')}="${esc(r.id)}" style="--nx-indent:${r.indent}"${wide ? ' role="treeitem"' : ''}${wide && r.kids ? ` aria-expanded="${r.open}"` : ''}>`
-    + (wide ? (tog ? `<button type="button" class="ft-tog photos-fx-tog" ${x('tog')}="${esc(r.id)}" aria-expanded="${!!r.open}" aria-label="${esc(r.name)} ${r.open ? '접기' : '펼치기'}">${ico}</button>` : `<span class="ft-tog ft-tog-none photos-fx-tog">${ico}</span>`) : '')
-    + `<button type="button" class="nx-main" ${x('open')}="${esc(r.id)}"${now ? ' aria-current="true"' : ''}>${wide ? '' : ico}<span class="nx-name">${esc(r.name)}${placeHtml(r.id)}</span>${countHtml(r.total)}</button>`
-    + (sw ? switchHtml(r.id, r.name, on).replace('data-photos-fx-sw=', `${x('sw')}=`) : '')
-    + (more ? `<button type="button" class="nx-more photos-fx-more" ${x('more')}="${esc(r.id)}" aria-label="${esc(r.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
-    + '</div>';
+  const icon = ftIconHtml({color: r.top ? null : folderLook.color(a === GD_ATTR ? 'gd' : 'od', r.id), open: wide ? !!(r.open && r.kids) : (r.open && r.kids) || now});
+  return ftFolderRowHtml({name:r.name, nameTail:placeHtml(r.id), count:folderCountText(r.total), countLabel:countLabel(r.total), depth:r.indent, top:r.indent < 2,
+    open:!!r.open, hasContent:tog, icon, current:now, tree:wide,
+    toggle:wide ? {attrs:{[x('tog')]:r.id}, label:`${r.name} ${r.open ? '접기' : '펼치기'}`} : null,
+    className:`photos-fx-row${sw && !on ? ' is-off' : ''}`, rowAttrs:{[x('row')]:r.id}, mainAttrs:{[x('open')]:r.id},
+    after:sw ? switchHtml(r.id, r.name, on).replace('data-photos-fx-sw=', `${x('sw')}=`) : '',
+    more:more ? {attrs:{[x('more')]:r.id}, label:`${r.name} 폴더 메뉴`, className:'nx-more photos-fx-more'} : null});
 }
 // S69-38 UI-탐색기나무누르기: PC(1200px~) 오른쪽 칸 — 들어간 원드라이브 폴더 바로 안 하위 폴더 줄(누르면 들어감, 왼쪽 나무가 따라 펼침·강조) 다음에 사진. 맨 위 폴더·하위 없음은 줄 없음.
 function wideKidsHtml() {
@@ -2210,12 +2213,12 @@ const phoneFolderOf = id => phoneFolderList().find(f => f.id === id) || null;
 const phoneSwHtml = f => switchHtml('ph:' + f.id, f.name, !phoneOff.has(f.id)).replace('data-photos-fx-sw=', 'data-photos-pf-sw=');
 function phoneFolderRowHtml(f, {wide}) {
   const cur = wide && pAt === f.id, sw = phoneSw() && !f.pending, off = sw && phoneOff.has(f.id);
-  return `<div class="nx-row nx-folder photos-fx-row nx-top${cur ? ' nx-current' : ''}${off ? ' is-off' : ''}" data-photos-pf="${esc(f.id)}" style="--nx-indent:0"${wide ? ' role="treeitem"' : ''}>`
-    + (wide ? `<span class="ft-tog ft-tog-none photos-fx-tog">${treeIconHtml('folder')}</span>` : '')
-    + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}>${wide ? '' : treeIconHtml('folder', {open: cur})}<span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${tidy.unbackedIds().has(f.id) ? '<span class="photos-fx-place photos-unbacked"> · 백업 안 됨</span>' : ''}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span>${countHtml(f.count)}</button>`
-    + (sw ? phoneSwHtml(f) : '')
-    + (phoneOps() || wide ? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more="${esc(f.id)}" aria-label="${esc(f.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
-    + '</div>';
+  const tail = placeHtml('ph:' + f.id) + (tidy.unbackedIds().has(f.id) ? '<span class="photos-fx-place photos-unbacked"> · 백업 안 됨</span>' : '') + (f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : '');
+  return ftFolderRowHtml({name:f.name, nameTail:tail, count:folderCountText(f.count), countLabel:countLabel(f.count), depth:0, hasContent:false,
+    icon:ftIconHtml({open:cur}), current:cur, tree:wide, toggle:wide ? {attrs:{}} : null,
+    className:`photos-fx-row${off ? ' is-off' : ''}`, rowAttrs:{'data-photos-pf':f.id}, mainAttrs:{'data-photos-pf-open':f.id},
+    after:sw ? phoneSwHtml(f) : '',
+    more:phoneOps() || wide ? {attrs:{'data-photos-pf-more':f.id}, label:`${f.name} 폴더 메뉴`, className:'nx-more photos-fx-more'} : null});
 }
 const phoneNewHtml = () => (phoneOps() ? '<button type="button" class="nx-new-folder photos-fx-new" data-photos-pf-new>+ 새 폴더</button>' : '');
 // 폰 묶음 줄들. 옛 앱(folders 읽기 없음)이면 비운다(폰 폴더 묶음만 안 보임).
@@ -2231,6 +2234,13 @@ function phoneGroupHtml({wide, head}) {
   return title + (list.length ? list.map(f => phoneFolderRowHtml(f, {wide})).join('') : emptyHtml('폰 폴더 없음')) + phoneNewHtml();
 }
 // 위치 줄 '사진 › 폰 › Camera'. 앞 두 칸은 폴더 목록으로(data-photos-pf-at).
+// UI-폴더목록한모양(S69-90): 넓은 화면 오른쪽 칸 주소 줄은 하나 — 위치 줄(사진 › … › 지금 폴더)이 '이름 · n장 · 스위치' 줄의 이름 자리에 들어간다
+// (전에는 위치 줄 아래에 같은 이름이 한 번 더 보였다). 위치 줄 끝이 지금 폴더(.fp-here)가 아닐 때(맨 위 등)는 이름을 그대로 두고 위치 줄만 앞에.
+// <nav>는 <p> 안에 들 수 없어 이 줄은 <div>로 바꿔 그린다(모양 규칙은 같은 .photos-fx-here).
+const hereLineHtml = (path, head) => {
+  const line = head.replace(/^<p /, '<div ').replace(/<\/p>$/, '</div>');
+  return /class="fp-here"/.test(path) ? line.replace(/<b>[\s\S]*?<\/b>/, path) : line.replace(/^(<div class="photos-fx-here[^"]*">)/, `$1${path}`);
+};
 const phonePathHtml = f => `<nav class="fp-path photos-fx-path" aria-label="지금 위치">${fxBackBtn()}${folderPathHtml({rootLabel:'사진', trail:[{id:'phone', name:'폰'}, {id:f.id, name:f.name}], attr:'data-photos-pf-at', esc})}</nav>`;
 const phoneHeadHtml = f => (phoneSw() && !f.pending
   ? `<p class="photos-fx-here has-sw"><span><b>${esc(f.name)}</b> · ${f.count}장 · 폰${phoneOff.has(f.id) ? ' · 사진에 안 보임' : ''}</span>${phoneSwHtml(f)}</p>`
@@ -2446,7 +2456,7 @@ function renderFoldersNow() {
     const gdPane = wide && gdAt !== null;
     // 폰·구글 드라이브 묶음(둘 다 켜졌으면 묶음 이름을 붙인다).
     const groups = (u.phone ? phoneGroupHtml({wide, head:u.gdrive}) : '') + gdGroupHtml({wide, head:u.phone});
-    if (wide) body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="${u.phone && !u.gdrive ? '폰 폴더' : '사진 폴더'}">${groups}</div><div class="photos-fx-pane"${gdPane ? ' data-photos-gd-folder' : ''}>${gdPane ? gdPaneHtml({wide}) : f ? `${phonePathHtml(f)}${phoneHeadHtml(f)}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>` : ''}</div></div>`;
+    if (wide) body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="${u.phone && !u.gdrive ? '폰 폴더' : '사진 폴더'}">${groups}</div><div class="photos-fx-pane"${gdPane ? ' data-photos-gd-folder' : ''}>${gdPane ? gdPaneHtml({wide}) : f ? `${hereLineHtml(phonePathHtml(f), phoneHeadHtml(f))}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>` : ''}</div></div>`;
     else body.innerHTML = f ? `<div class="photos-fx">${phoneFocusHtml(f, '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>')}</div>`
       : `${top}<div class="photos-fx photos-fx-boxes${cardWide() ? ' is-cards' : ''}">${fxBoxesHtml(u)}</div>`;
     if (!wide && !f) { fxFillStrips(); fxFillCovers(); }
@@ -2470,7 +2480,7 @@ function renderFoldersNow() {
   const grid = '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>';
   if (wide) {
     const rows = photoFolderRows(tree, id => openSet.has(id));
-    body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="${many ? '사진 폴더' : '원드라이브 폴더'}">${odHead}${rows.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}${both ? phoneGroupHtml({wide, head:true}) : ''}${gdGroupHtml({wide, head:true})}</div><div class="photos-fx-pane"${gdPane ? ' data-photos-gd-folder' : ''}>${gdPane ? gdPaneHtml({wide}) : (pf ? phonePathHtml(pf) + phoneHeadHtml(pf) : path + head + wideKidsHtml()) + grid}</div></div>`;
+    body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="${many ? '사진 폴더' : '원드라이브 폴더'}">${odHead}${rows.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}${both ? phoneGroupHtml({wide, head:true}) : ''}${gdGroupHtml({wide, head:true})}</div><div class="photos-fx-pane"${gdPane ? ' data-photos-gd-folder' : ''}>${gdPane ? gdPaneHtml({wide}) : (pf ? hereLineHtml(phonePathHtml(pf), phoneHeadHtml(pf)) : hereLineHtml(path, head) + wideKidsHtml()) + grid}</div></div>`;
   } else if (pf) {
     body.innerHTML = `<div class="photos-fx">${phoneFocusHtml(pf, grid)}</div>`;
   } else if (at === tree.top.id && !fxTopFocus) {
@@ -2959,7 +2969,7 @@ function gdPaneHtml({wide}) {
   const kids = wide ? gdWideKidsHtml(gdAt) : `<div class="photos-fx-list">${gdLevelHtml(gdAt, {wide:false})}</div>`;
   const grid = '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>';
   if (!wide) return fxFocusBox({steps:trail.slice(0, -1).map(x => ({attr:'data-photos-gf-at', id:x.id, name:x.name})), head, body:kids + grid});
-  return `${path}${head}${kids}${grid}`;
+  return `${hereLineHtml(path, head)}${kids}${grid}`;
 }
 function gdWideKidsHtml(parent) {
   if (parent === GDRIVE_TOP || !gdLevels.has(parent)) return '';

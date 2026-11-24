@@ -94,7 +94,7 @@ import { tagChipsHtml, createTagPick } from './note-tag-field.js';
 import { memoText, memoRows, memoGroupsPresent, keepMemoGroup } from './memo-model.mjs';
 import { memosNow, memoState, loadMemos, onMemos, memoExists, resetMemos } from './memo-store.js';
 import { createMemoThread, memoRowHtml, memoChipsHtml } from './memo-thread.js';
-import { openMemoSource } from './memo-open.js';
+import { openMemoSource, memoLocked } from './memo-open.js';
 // NOTE-달력보기(S67-42): [달력] 보기 — 사업 관리 [달력]과 같은 달력 부품(report-views-model.mjs + rv-* 칸, month-cal.css), 기준은 만든 날.
 import { noteCalendarHtml, notesByDay, monthNow, navMonth } from './note-calendar.mjs';
 import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기
@@ -281,7 +281,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const wideList = window.matchMedia(SPLIT_QUERY);
   const sortList = list => (noteSort === 'manual' ? sortNotesManual(list, notePinnedAt) : sortNotes(list));
   const isPicked = key => !!pick.has(key);
-  const pickBox = key => `<span class="nx-pick" aria-hidden="true">${isPicked(key) ? '✓' : ''}</span>`;
+  // UI-폴더목록한모양(S69-90, 명진 11/25 "모든 폴더 쓰는 ui를 통일"): 고른 줄은 [파일]처럼 바탕 + 왼쪽 세로줄만(줄 앞 체크칸 없음).
+  // 고르기 중 줄 어디를 눌러도 고르기·풀기(S10), 화면 읽기는 줄 단추의 aria-pressed로 안다.
   // FOLDER-나무새기준(S51-12): 폴더 줄은 공용 줄(folder-tree-ui.mjs) — 폰 나무·PC 왼쪽 나무·그 폴더만 보기가 같은 모양
   // (맨 위 단계만 구분선·굵은 이름, 하위는 들여쓰기, 이름 + 회색 개수, 오른쪽 ⋯, 펼침은 폴더 그림 열린/닫힌 모양).
   function folderRowHtml(r, {tree = false} = {}) {
@@ -292,8 +293,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const pcTree = tree && !pick.active, kids = r.hasContent !== false || (!pcTree && !!r.open);
     return ftFolderRowHtml({name:r.name, count:r.count, countLabel:`노트 ${r.count}개`, depth:r.depth || 0, open:pcTree ? !!r.open : r.open || current, hasContent:kids,
       toggle:pcTree ? {attrs:{'data-nx-tog':r.id}, label:`${r.name} ${r.open && kids ? '접기' : '펼치기'}`} : null,
-      color:r.color, current, picked:isPicked(key), lead:pick.active ? pickBox(key) : '', tree, className:'nx-folder', tag:pinLock.folderLocked(r.id) && pinLock.notesHidden() ? LOCKED : '',
-      rowAttrs:{'data-nx-folder':r.id, 'data-reorder-id':key}, mainAttrs:{'data-nx-open':r.id},
+      color:r.color, current, picked:isPicked(key), tree, className:'nx-folder', tag:pinLock.folderLocked(r.id) && pinLock.notesHidden() ? LOCKED : '',
+      rowAttrs:{'data-nx-folder':r.id, 'data-reorder-id':key}, mainAttrs:{'data-nx-open':r.id, 'aria-pressed':pick.active ? String(isPicked(key)) : undefined},
       more:{attrs:{'data-nx-folder-more':r.id, 'aria-controls':'noteDocMenu'}, label:`${r.name} 폴더 메뉴`, className:'nx-more'}});
   }
   // '폴더 없음'(17:45 ④, 옛 '폴더 밖'): 나무·폴더 목록 맨 아래, 바로 밑에 [+ 새 폴더](폴더 표가 있을 때).
@@ -316,7 +317,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const note = r.note, hidden = pinLock.noteHidden(note), importing = !hidden && isImporting(note.id), title = hidden ? LOCKED : importing ? busyTitle(noteSource(note)) : noteLineTitle(note), name = [...title].slice(0, 40).join(''), key = 'n:' + note.id;
     // S69-27 PC·폴드 왼쪽 나무 안 노트 줄(side): 좁은 칸이라 제목(+ 고정·첨부 표시)만, 태그·폴더·날짜는 오른쪽 노트 안에서 본다. 지금 연 노트는 표시.
     const side = !!r.side, now = side && selected?.id === note.id;
-    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${side ? ' nx-side' : ''}${now ? ' nx-current' : ''}${isPicked(key) ? ' nx-picked' : ''}"${importing ? ' data-ni-busy' : ''} data-nx-note="${esc(note.id)}"${hidden ? ' data-nx-locked' : ''} data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''}${side ? ' role="treeitem"' : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${now ? ' aria-current="true"' : ''}${side ? ` title="${esc([...title].slice(0, 80).join(''))}"` : ''}${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}>${pick.active ? pickBox(key) : ''}<b class="basket-title">${notePinnedAt(note) && !hidden ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${hidden || importing || side ? '' : rowTagsHtml(note)}${r.path && !side ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length && !hidden ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}</span>` : ''}${side ? '' : `<time datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time>`}</button></div>`;
+    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${side ? ' nx-side' : ''}${now ? ' nx-current' : ''}${isPicked(key) ? ' nx-picked' : ''}"${importing ? ' data-ni-busy' : ''} data-nx-note="${esc(note.id)}"${hidden ? ' data-nx-locked' : ''} data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''}${side ? ' role="treeitem"' : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${now ? ' aria-current="true"' : ''}${side ? ` title="${esc([...title].slice(0, 80).join(''))}"` : ''}${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}><b class="basket-title">${notePinnedAt(note) && !hidden ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${hidden || importing || side ? '' : rowTagsHtml(note)}${r.path && !side ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length && !hidden ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}</span>` : ''}${side ? '' : `<time datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time>`}</button></div>`;
   }
   // S67-48: 노트 줄 오른쪽에 그 노트 태그를 작게(앞 두 개 + 남은 수). 줄 단추 안의 글자일 뿐이다(누르면 노트가 열림). 잠긴 노트는 그리지 않는다.
   function rowTagsHtml(note) {
@@ -332,8 +333,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // 위치 줄은 폴더 안 폴더(2단 이상)일 때만 보인다.
     // FOLDER-나무새기준: 폰 '그 폴더만' 보기는 위치를 [‹] 줄 안에 함께 보인다(따로 위치 줄 없음).
     const phoneFocus = !wideList.matches && at !== null;
-    nav.hidden = path.length < 2 || !!query || phoneFocus;
-    nav.innerHTML = path.length >= 2 && !phoneFocus ? folderPathHtml({rootLabel:'노트', trail:path, attr:'data-nx-at', esc}) : '';
+    // UI-폴더목록한모양(S69-90): 주소 줄은 하나. 넓은 폴더 보기에서는 아래 '이름 · 개수' 줄이 위치 줄을 품는다(이름이 두 번 보이지 않게).
+    const deep = path.length >= 2 && !query && !phoneFocus, merged = deep && view === 'folder' && wideList.matches && !isPaneAt(at);
+    nav.hidden = !deep || merged;
+    nav.innerHTML = deep && !merged ? folderPathHtml({rootLabel:'노트', trail:path, attr:'data-nx-at', esc}) : '';
     // 위에 작게 '개발 · 7'(PC), 폰 폴더 화면은 '← 개발 · 7'. 폰 첫 화면(폴더 목록)·찾는 중에는 없음.
     // S51-24: 폰 '그 폴더만'은 위치·이름·개수가 상자 안(focusBoxHtml)이라 이 줄은 넓은 화면에서만.
     const here = host.querySelector('[data-nx-here]'), wide = wideList.matches, show = view === 'folder' && !query && wide;
@@ -341,7 +344,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!show) { here.replaceChildren(); return; }
     const h = isPaneAt(at) ? null : wide && at === null && showRecent() ? {name:RECENT_NAME, count:recentRows({folders, notes, folderOf}).length} : paneHead({folders, notes, folderOf, at});
     if (!h) { here.hidden = true; here.replaceChildren(); return; } // 'News에서'·휴지통 칸은 자기 머리 줄(note-news-marks.js·note-trash.js)
-    here.innerHTML = `<span class="nx-here-name">${esc(h.name)}</span><span class="nx-here-num"> · ${h.count}</span>`;
+    here.innerHTML = merged
+      ? `<nav class="fp-path nx-here-path" aria-label="지금 위치">${folderPathHtml({rootLabel:'노트', trail:path, attr:'data-nx-at', esc})}</nav><span class="nx-here-num"> · ${h.count}</span>`
+      : `<span class="nx-here-name">${esc(h.name)}</span><span class="nx-here-num"> · ${h.count}</span>`;
   }
   // S51-24 FOLDER-그폴더만같은모양: 폰 '그 폴더만' = 나무와 같은 상자(folder-tree-ui.mjs ftFocusHtml). 맨 위 작은 회색 위치 줄([‹] 노트 › 위 폴더 ›,
   // 누르면 그 단계 — '노트'는 나무로), 머리 = 열린 폴더 그림 + 굵은 이름 + '폴더 n · 노트 m'. 돌아가기 글자는 없다.
@@ -600,7 +605,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 원문이 없으면(지운 노트·삭제된 글) 메모는 남고 '원래 기록이 없어요'(링크만 꺼짐). 잠긴 폴더 노트의 메모는 글·제목 대신 '잠김'(누르면 잠금 풀기).
   const noteMemoTitle = m => { const n = notes.find(x => x.id === m.target_id); return n ? noteLineTitle(n) : m.target_title; };
   const noteMemoExists = m => (m.target_type === 'note' ? notes.some(x => x.id === m.target_id) : memoExists(m));
-  const noteMemoHidden = m => m.target_type === 'note' && pinLock.noteHidden(notes.find(x => x.id === m.target_id));
+  // S69-95: 텔레그램 메모는 텔레그램 잠금이 걸려 있으면 가린다(누르면 그 자리 잠금 풀기 창 — memo-thread.js data-lock-here).
+  const noteMemoHidden = m => (m.target_type === 'note' ? pinLock.noteHidden(notes.find(x => x.id === m.target_id)) : memoLocked(m));
   function paintCommentView(chipsBox, rowsBox) {
     chipsBox.setAttribute('aria-label', '메모 출처');
     chipsBox.hidden = false;
@@ -616,6 +622,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // [메모] 줄 누르기: 노트 메모는 이 화면에서 그 노트를 열고 그 메모로, 그 밖은 그 원문 화면으로(memo-open.js).
   function openMemoLine(id) {
     const m = memosNow().find(x => x.id === id); if (!m) return;
+    if (memoLocked(m)) return; // 잠금 풀기 창은 줄의 data-lock-here가 먼저 띄운다
     if (noteMemoHidden(m)) { pinLock.askNotes(); return; }
     openMemoSource(m, {exists:noteMemoExists, inPlace:o => { if (o.type !== 'note') return false; open(o.id); return true; }});
   }

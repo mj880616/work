@@ -21,7 +21,7 @@ for(const [label,width] of [['pc',1280],['phone',390]]){
   await expect(row.locator('[data-wd-up-del],.wd-danger')).toHaveCount(0);
   const more=row.locator('[data-wd-up-menu]');await expect(more).toHaveAccessibleName('기록 메뉴');
   const mb=await more.boundingBox(),rb=await row.boundingBox();expect(mb.height).toBeLessThanOrEqual(48);expect(mb.x+mb.width).toBeGreaterThan(rb.x+rb.width-60);expect(mb.y).toBeLessThan(rb.y+30);
-  await more.click();await expect(menu(page).locator('button')).toHaveText(['수정','날짜 수정','삭제']);await shot(page,`org-record-menu-${label}`);
+  await more.click();await expect(menu(page).locator('button')).toHaveText(['수정','날짜 수정','메모','삭제']);await shot(page,`org-record-menu-${label}`);
   await menu(page).getByRole('button',{name:'수정',exact:true}).click();
   const input=row.locator('[data-wd-up-input]');await expect(input).toBeFocused();await expect(input).toHaveValue('기존 조직 기록');
   await input.press('End');await input.press('Enter');await input.pressSequentially('둘째 줄');

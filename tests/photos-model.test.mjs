@@ -243,10 +243,9 @@ test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(
   assert.deepEqual(TABS.map(t => TAB_TEXT[t]), ['사진', '달력', '폴더', '앨범', '휴지통']);
   assert.match(js, /from '\.\/folder-path\.mjs'/);
   assert.match(js, /from '\.\/anchored-menu\.js'/);
-  assert.match(js, /class="nx-row nx-folder/);
+  assert.match(js, /className:`photos-fx-row\$\{/); // UI-폴더목록한모양(S69-90): 사진 폴더 줄도 공용 줄(ftFolderRowHtml)
   assert.match(loader, /photos:\[[^\]]*'\.\/folder-tree\.css'/);
   assert.match(loader, /basket:\[[^\]]*'\.\/folder-tree\.css'/);
-  assert.match(read('app/folder-tree.css'), /\.nx-row \{/);
   assert.doesNotMatch(read('app/basket.css'), /^\.nx-main \{/m);
   const stores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|'));
   for (const f of ['app/photos.js', 'app/photo-tags.js']) assert.doesNotMatch(read(f), stores, f);

@@ -58,7 +58,7 @@ async function photos(page, width) {
   });
   await clickView(page, 'photos');
   await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
-  return { errors, tree: page.locator('#photosRoot [data-photos-fx-tree][role="tree"]'), main: '.nx-row .nx-main' };
+  return { errors, tree: page.locator('#photosRoot [data-photos-fx-tree][role="tree"]'), main: '.ft-row .ft-main' };
 }
 const SCREENS = [['자료실', library], ['노트', notes], ['사진', photos]];
 

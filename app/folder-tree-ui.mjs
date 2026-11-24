@@ -50,9 +50,13 @@ export function ftMoreButtonHtml({attrs = {}, label = '메뉴', className = ''} 
 //    {attrs: 아이콘 단추 data 이름과 값, label: 읽기 프로그램 이름}. 주면 폴더 아이콘이 줄 앞 따로인 단추가 되고(세모 없음),
 //    펼칠 것이 없는 폴더(hasContent false)는 단추 없이 닫힌 아이콘만 같은 자리에 둔다.
 //  tag(LIB-받는폴더 S59-11): 개수 뒤 작은 표시 글자(예: '받는 폴더'). 없으면 아무것도 붙지 않는다.
+//  top(S69-90): 맨 위 단계 모양(구분선·굵은 이름)을 depth와 따로 정할 때(사진 PC 나무는 맨 위 줄 아래 한 단계까지 굵게). 없으면 depth === 0.
+//  nameTail(S69-90): 이름 뒤 같은 칸에 붙일 작은 글자 HTML(사진 ' · 자리'·'백업 안 됨'). 부르는 쪽이 이미 이스케이프한 HTML만 넘긴다.
+//  after(UI-폴더목록한모양 S69-90): 줄 단추와 ⋯ 사이에 둘 그 화면만의 칸(사진 '사진에 보이기' 스위치 등). 없으면 없음.
+//  고른 줄(picked)은 [파일]과 같은 표시 — 옅은 강조 바탕 + 왼쪽 진한 세로줄(folder-tree.css .ft-picked). 줄 앞 체크칸은 두지 않는다.
 export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0, open = false, hasContent = true, color = null, off = false,
-  current = false, picked = false, lead = '', rowAttrs = {}, mainAttrs = {}, more = null, tree = false, className = '', mainClass = '', icon = null, toggle = null, tag = ''}) {
-  const top = depth === 0, shown = !!open && !!hasContent;
+  current = false, picked = false, lead = '', rowAttrs = {}, mainAttrs = {}, more = null, tree = false, className = '', mainClass = '', icon = null, toggle = null, tag = '', after = '', top: topLook = null, nameTail = ''}) {
+  const top = topLook ?? depth === 0, shown = !!open && !!hasContent;
   const cls = ['ft-row', 'ft-folder', top ? 'ft-top' : 'ft-sub', shown ? 'ft-open' : '', off ? 'ft-off' : '', current ? 'ft-current' : '', picked ? 'ft-picked' : '', toggle ? 'ft-has-tog' : '', className].filter(Boolean).join(' ');
   const num = count === null || count === undefined || count === '' ? '' : `<span class="ft-num"${countLabel ? ` aria-label="${esc(countLabel)}"` : ''}>${esc(count)}</span>`;
   const expand = tree || hasContent ? ` aria-expanded="${shown}"` : '';
@@ -61,8 +65,8 @@ export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0,
     ? `<button type="button" class="ft-btn ft-tog"${attrsHtml(toggle.attrs)} aria-expanded="${shown}" aria-label="${esc(toggle.label || `${name} ${shown ? '접기' : '펼치기'}`)}">${ico}</button>`
     : `<span class="ft-tog ft-tog-none">${ico}</span>`;
   return `<div class="${cls}"${attrsHtml(rowAttrs)} style="--ft-depth:${ftDepth(depth)}"${tree ? ' role="treeitem"' : ''}>${tog}`
-    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name">${esc(name)}</span>${num}${tag ? `<span class="ft-tag">${esc(tag)}</span>` : ''}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
-    + `${more ? ftMoreButtonHtml(more) : ''}</div>`;
+    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name">${esc(name)}${nameTail}</span>${num}${tag ? `<span class="ft-tag">${esc(tag)}</span>` : ''}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
+    + `${after}${more ? ftMoreButtonHtml(more) : ''}</div>`;
 }
 
 // 'n개 더 보기' 줄(펼친 폴더 안 파일이 FT_PREVIEW개를 넘을 때). attrs: 누르면 그 폴더를 다 보이게 하는 data 이름과 값.

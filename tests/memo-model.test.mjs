@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {MEMO_TARGETS, MEMO_TYPES, MEMO_OPEN, MEMO_GROUPS, MEMO_LIMITS, memoDraft, titleCopy, memosOf, memoText, memoRows, memoGroupsPresent, keepMemoGroup,
+import {MEMO_TARGETS, MEMO_TYPES, MEMO_OPEN, MEMO_GROUPS, MEMO_LIMITS, memoFeature, memoDraft, titleCopy, memosOf, memoText, memoRows, memoGroupsPresent, keepMemoGroup,
   memoLink, memoSource, GONE_LINE, fromNoteComment, latestByTarget, isMemoTarget} from '../app/memo-model.mjs';
 import {tableEntries, mergeEntries, entryLine, memoHit} from '../app/now-memos-model.mjs';
 
@@ -10,15 +10,16 @@ const N1 = '11111111-1111-4111-8111-111111111111', A1 = '22222222-2222-4222-8222
 const M = (id, type, target, body, created_at, extra = {}) => ({id, target_type: type, target_id: target, target_title: null, body, created_at, updated_at: created_at, ...extra});
 const MID = n => `aaaaaaaa-aaaa-4aaa-8aaa-${String(n).padStart(12, '0')}`;
 
-test('종류 표: 노트·읽을 거리(news·outside)·저장한 글·브리핑, DB 검사와 같은 종류', () => {
-  assert.deepEqual(MEMO_TYPES, ['note', 'news', 'outside', 'reading', 'brief']);
+test('종류 표: 노트·읽을 거리(news·outside)·저장한 글·브리핑 + 자료실·사업 보고·담당조직 기록·텔레그램(S69-95), DB 검사와 같은 종류', () => {
+  assert.deepEqual(MEMO_TYPES, ['note', 'news', 'outside', 'reading', 'brief', 'document', 'meeting', 'org_record', 'telegram']);
+  assert.deepEqual(['document', 'meeting', 'org_record', 'telegram'].map(t => memoSource({target_type: t})), ['자료실', '사업 보고', '담당조직', '텔레그램']);
   assert.equal(MEMO_TARGETS.news.label, '읽을 거리');
   assert.equal(MEMO_TARGETS.outside.group, MEMO_TARGETS.news.group, '기사·성명은 한 칩');
   assert.equal(memoSource({target_type: 'reading'}), '저장한 글');
   assert.equal(memoSource({target_type: 'x'}), '기록');
   // DB 검사(app_memos_target_type_check)와 종류 표가 같다 — 종류를 더하면 둘 다 고친다.
-  const sql = readFileSync(new URL('../supabase/migrations/20261125030000_memos.sql', import.meta.url), 'utf8');
-  const check = sql.match(/target_type in \(([^)]*)\)/)[1].match(/'([a-z]+)'/g).map(v => v.slice(1, -1));
+  const sql = readFileSync(new URL('../supabase/migrations/20261125060000_memos_more_targets.sql', import.meta.url), 'utf8');
+  const check = sql.match(/check \(target_type in \(([^)]*)\)/)[1].match(/'([a-z_]+)'/g).map(v => v.slice(1, -1));
   assert.deepEqual(check, MEMO_TYPES);
   assert.equal(MEMO_LIMITS.body, 4000);
   assert.ok(MEMO_GROUPS.every(g => !g.key || Object.values(MEMO_TARGETS).some(t => t.group === g.key)));
@@ -28,12 +29,19 @@ test('열기 표 한 곳: 종류마다 여는 화면·요청·있는지 볼 표,
   assert.deepEqual({...MEMO_OPEN.note}, {view: 'basket', request: 'note', check: null});
   assert.deepEqual({...MEMO_OPEN.news}, {view: 'news', request: 'news', check: 'app_news_articles'});
   assert.deepEqual({...MEMO_OPEN.outside}, {view: 'news', request: 'news', check: 'app_outside_articles'});
-  assert.deepEqual({...MEMO_OPEN.reading}, {view: 'reading', request: 'reading', check: 'app_reading_items'});
+  assert.deepEqual({...MEMO_OPEN.reading}, {view: 'reading', request: 'reading', check: 'app_reading_items', own: true});
   assert.equal(MEMO_OPEN.brief, null);
+  // S69-95: 새 넷은 내 작업공간 것만(own) 묻고, 휴지통에 든 사업 보고·텔레그램 소식은 없는 것으로 본다(live). 담당조직 기록 표는 작업공간 칸이 없어 소유자 RLS만.
+  assert.deepEqual({...MEMO_OPEN.document}, {view: 'library', request: 'document', check: 'app_documents', own: true});
+  assert.deepEqual({...MEMO_OPEN.meeting}, {view: 'meetings', request: 'meeting', check: 'app_meetings', own: true, live: 'deleted_at=is.null'});
+  assert.deepEqual({...MEMO_OPEN.org_record}, {view: 'team', request: 'org_record', check: 'app_suborganization_updates'});
+  assert.deepEqual({...MEMO_OPEN.telegram}, {view: 'telegram', request: 'telegram', check: 'app_feed_items', own: true, live: 'source=eq.telegram&hidden_at=is.null', feature: 'telegram'});
+  assert.equal(memoFeature({target_type: 'telegram'}), 'telegram');
+  assert.equal(memoFeature({target_type: 'document'}), '');
   for (const t of MEMO_TYPES) assert.ok(t in MEMO_OPEN, t);
   // 원문 열기 일(memo-open.js)이 표의 request 이름마다 하나씩 있다.
   const opener = readFileSync(new URL('../app/memo-open.js', import.meta.url), 'utf8');
-  for (const how of Object.values(MEMO_OPEN).filter(Boolean)) assert.match(opener, new RegExp(`\\n\\s+${how.request}: o =>`), how.request);
+  for (const how of Object.values(MEMO_OPEN).filter(Boolean)) assert.match(opener, new RegExp(`\\n\\s+${how.request}: (async )?o =>`), how.request);
 });
 
 test('원문 연결: 있으면 그 화면·그 메모, 없어졌으면 링크만 꺼짐(메모는 그대로), 모르면 켜 둠', () => {
