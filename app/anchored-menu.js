@@ -65,7 +65,8 @@ function open(trigger,{at=null}={}){
     if(!next||!next.isConnected||!next.getClientRects().length){close();return}
     moveMenuTrigger(active.trigger,next);active.trigger=next;if(!active.at)active.row=row(next)||null;position();
   }
-  return {open,close,follow,get active(){return active}};
+  // closing: 닫으며 부른 history.back()이 아직 오지 않았으면 그 약속(없으면 null). 메뉴 다음에 뒤로가기 겹을 닫는 쪽이 기다린다.
+  return {open,close,follow,get active(){return active},get closing(){return closing}};
 }
 // 열린 메뉴의 주인을 다시 그려진 새 칸으로 옮긴다: 펼침 표시를 옮기고, PC 우클릭으로 연 메뉴(context-menu.js가 누른 자리에 고정)면 새 칸도 같은 자리에 고정한다.
 export function moveMenuTrigger(old,next){
