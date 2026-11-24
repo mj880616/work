@@ -37,7 +37,8 @@ function recentLogin() {
 async function shownFeatures() {
   const got = await myFeaturesOrNull().catch(() => null);
   const on = lock.settings()?.features || [];
-  return Object.keys(lock.FEATURE_NAMES).filter(f => f === 'diary' || f === 'photos' || on.includes(f) || !Array.isArray(got) || got.includes(f));
+  // '앱 전체'(S69-08)는 맨 위, 누구에게나.
+  return Object.keys(lock.FEATURE_NAMES).filter(f => f === 'app' || f === 'diary' || f === 'photos' || on.includes(f) || !Array.isArray(got) || got.includes(f));
 }
 
 // ── 그리기 ────────────────────────────────────────────────────────────────────────────────────
@@ -60,6 +61,8 @@ function leave() {
   if (below && (below === target || lock.locked(below))) { window.KPTURouter?.go?.('home', {source: 'api', replaceUrl: true}); return; }
   window.KPTURouter?.back?.();
 }
+// 앱 전체가 잠긴 동안(S69-08)은 나갈 화면이 없으므로 [✕] 대신 맨 아래 [로그아웃](다른 계정으로 쓰거나 기기를 넘길 때 갇히지 않게).
+const appGate = () => lock.appLocked();
 function draw() {
   const host = root(); if (!host) return;
   const full = fullMode();
@@ -67,7 +70,9 @@ function draw() {
   if (ui.mode === 'wait') host.innerHTML = waitHtml({rows: 2});
   else if (ui.mode === 'fail') host.innerHTML = failHtml({retry: 'data-lk-retry', text: '잠금 설정을 읽지 못했어요'});
   else host.replaceChildren(ui.mode === 'pad' ? pad() : ui.mode === 'forgot' ? forgot() : list());
-  if (full) host.prepend(closeButton());
+  const gate = full && appGate();
+  if (full && !gate) host.prepend(closeButton());
+  if (gate && ui.mode !== 'wait') host.append(button('secondary mini lk-logout', '로그아웃', {lkLogout: ''}));
 }
 
 function list() {
@@ -100,7 +105,7 @@ function list() {
 }
 
 const TITLES = {
-  gate: () => ui.task?.notes ? '노트 잠김' : `${lock.FEATURE_NAMES[lock.featureOf(ui.target)] || ''} 잠김`,
+  gate: () => ui.task?.notes ? '노트 잠김' : lock.appLocked() ? '앱 잠김' : `${lock.FEATURE_NAMES[lock.featureOf(ui.target)] || ''} 잠김`,
   folder: () => ui.step ? '한 번 더 입력' : ui.task?.folder?.locked ? `${folderWord(ui.task.folder.name)} 잠그기` : `${folderWord(ui.task?.folder?.name)} 잠금 해제`,
   setup: () => ui.step ? '한 번 더 입력' : 'PIN 정하기',
   confirm: () => 'PIN 확인',
@@ -152,7 +157,13 @@ async function entered() {
     }
     if (p === 'gate') {
       const res = await send('app_lock_check', {p_pin: pin});
-      if (res?.ok) { reset({mode: 'list', task: null}); lock.markOpen(); return; }
+      if (res?.ok) {
+        // 문지기가 보낸 일(pending)은 markOpen이 그 화면으로 보낸다(시작 문지기면 시작 순서가). 새로고침한 ?view=lock&for=…이면 여기서 돌려보낸다.
+        const back = lock.pending() ? null : ui.target;
+        reset({mode: 'list', task: null}); lock.markOpen();
+        if (back && window.KPTURouter?.current === 'lock') window.KPTURouter?.go?.(back, {source: 'api', replaceUrl: true});
+        return;
+      }
       ui.msg = resultMsg(res); draw(); shake(); return;
     }
     if (p === 'confirm') {
@@ -173,9 +184,12 @@ async function entered() {
       await send('app_lock_pin_renew', {p_new_pin: pin});
       await lock.refresh();
       const target = ui.target;
+      // 앱을 열 때 시작 문지기가 연 잠금 화면이면, 풀린 뒤 첫 화면은 시작 순서가 연다(여기서 옮기지 않음).
+      const startup = !!lock.pending()?.startup;
       reset({mode: 'list', msg: 'PIN을 새로 정했어요'});
       lock.applySaved(null);
-      if (target && lock.isLockable(target)) { lock.markOpen({thenGo: false}); window.KPTURouter?.go?.(target, {source: 'api', replaceUrl: true}); return; }
+      if (startup) return;
+      if (target && lock.canReturnTo(target)) { lock.markOpen({thenGo: false}); window.KPTURouter?.go?.(target, {source: 'api', replaceUrl: true}); return; }
       window.KPTURouter?.setPlace?.('lock', {renew: null, for: null});
       draw(); return;
     }
@@ -213,23 +227,26 @@ async function enter() {
   install();
   const place = window.KPTURouter?.place?.('lock') || {};
   const task = lock.pending()?.notes || lock.pending()?.folder ? {notes: !!lock.pending().notes, folder: lock.pending().folder || null} : null;
-  const target = lock.pending()?.view || (lock.isLockable(place.for) ? place.for : null);
+  // 앱 전체가 잠겼는데 보낼 화면이 없으면(잠금 화면을 바로 연 때) 풀린 뒤 홈으로.
+  const target = lock.pending()?.view || (lock.canReturnTo(place.for) ? place.for : null) || (lock.appLocked() && !task ? 'home' : null);
   reset({mode: 'wait', target, task});
   draw();
   await lock.ready();
   if (window.KPTURouter?.current !== 'lock') return;
   if (lock.readFailed()) { ui.mode = 'fail'; draw(); return; }
-  if (target && !task) window.KPTURouter?.setPlace?.('lock', {for: target});
+  // 시작 문지기가 연 때(주소는 원래 화면 그대로)는 주소를 고치지 않는다.
+  const startup = !!lock.pending()?.startup;
+  if (target && !task && !startup) window.KPTURouter?.setPlace?.('lock', {for: target});
   if (task) {
     if (!lock.pendingNeedsPin()) { lock.markOpen(); return; }
     if (task.folder) { reset({mode: 'pad', purpose: 'folder', target, task, change: lock.settings()?.has_pin ? null : {setup: true}}); draw(); return; }
     reset({mode: 'pad', purpose: 'gate', target, task}); draw(); return;
   }
-  if (place.renew === '1' && lock.settings()?.has_pin) {
+  if ((place.renew === '1' || lock.pending()?.renew) && lock.settings()?.has_pin) {
     reset({mode: recentLogin() ? 'pad' : 'forgot', purpose: recentLogin() ? 'renew' : '', target}); draw(); return;
   }
   if (target) {
-    if (!lock.locked(target)) { const hold = !!lock.pending()?.hold; lock.clearPending(); window.KPTURouter?.go?.(target, {source: 'api', replaceUrl: true, ...(hold ? {hold: true} : {})}); return; }
+    if (!lock.locked(target)) { if (startup) return; const hold = !!lock.pending()?.hold; lock.clearPending(); window.KPTURouter?.go?.(target, {source: 'api', replaceUrl: true, ...(hold ? {hold: true} : {})}); return; }
     reset({mode: 'pad', purpose: 'gate', target}); draw(); return;
   }
   ui.features = await shownFeatures();
@@ -241,6 +258,7 @@ document.querySelector('#lockView')?.addEventListener('click', event => {
   const t = event.target.closest?.('button,[data-lk-retry]'); if (!t) return;
   if (t.matches('[data-lk-retry]')) { void lock.refresh().then(enter); return; }
   if (t.matches('[data-lk-close]')) { leave(); return; }
+  if (t.matches('[data-lk-logout]')) { t.disabled = true; void window.KPTUTeamAuth?.logout?.(); return; }
   if (t.dataset.lkKey) { press(t.dataset.lkKey); return; }
   if (t.matches('[data-lk-back]')) { press('back'); return; }
   if (t.matches('[data-lk-forgot]')) {
@@ -283,4 +301,6 @@ document.addEventListener('keydown', event => {
   else if (event.key === 'Backspace') { event.preventDefault(); press('back'); }
 });
 window.KPTURouter?.on?.('lock', () => { void enter(); });
+// 앱 전체(S69-08): 잠금 설정 목록을 보던 중 앱 전체가 다시 잠기면(앱을 떠났다 돌아옴) 목록 대신 숫자 판.
+window.addEventListener('kptu:feature-lock-changed', () => { if (window.KPTURouter?.current === 'lock' && ui.mode === 'list' && lock.appLocked()) void enter(); });
 if (window.KPTURouter?.current === 'lock') void enter();
