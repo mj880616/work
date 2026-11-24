@@ -3,7 +3,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {copyText} from './copy-text.js';
 import {articleOf, knownArticleId} from './feed-shared.js';
 import {notify, askText, askConfirm} from './small-notice.js';
-import {highlightBody, edgesOf, markRanges, noteOf, copyOf, cleanMemo, draftOf, MEMO_MAX} from './text-highlights-model.mjs';
+import {highlightBody, edgesOf, markRanges, noteOf, copyOf, cleanMemo, draftOf, replyNoteOf, MEMO_MAX} from './text-highlights-model.mjs';
 import {partStyles} from './part-styles.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('text-highlights');
@@ -131,6 +131,17 @@ export async function saveFromSelection(info) {
 }
 // 고른 글 줄의 [노트로]: 저장하지 않고 고른 글 + 출처만 노트로.
 export const noteFromSelection = info => noteWithNotice([draftOf(info?.source, info?.quote)]);
+// S69-86 BRIEF-밑줄노트: 고른 글 줄의 [답글] — 한 줄 입력창에 메모를 쓰면 고른 글 + 메모 + 출처로 새 노트 하나(밑줄은 저장하지 않음, 글은 복사해 넣는다).
+export async function replyFromSelection(info) {
+  const draft = draftOf(info?.source, info?.quote);
+  if (!draft.quote) return null;
+  const anchor = info?.anchor?.isConnected && !info.anchor.closest('[hidden]') ? info.anchor : null;
+  const memo = await askText(anchor, {text: '답글 달기', placeholder: '생각을 한 줄', max: MEMO_MAX, ok: '노트에 저장'});
+  const n = replyNoteOf(draft, memo);
+  if (!n) return null;
+  try { const row = await createNoteDoc(n, rt()); notify('답글을 노트에 저장했어요', {record: false}); return row; }
+  catch (e) { notify(e?.message && !e?.status ? e.message : '노트에 저장하지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); return null; }
+}
 
 // ---------- 글 칸 위에 칠하기 ----------
 const SKIP = 'button,textarea,input,select,[contenteditable]';

@@ -62,7 +62,7 @@ test('note, copy and search text carry quote, memo and source', () => {
 // S62-17 NOTE-노트에서도밑줄: 노트도 밑줄 출처(DB 20261115194000), 출처 꼬리표, 노트 글이 바뀌어 고른 글이 없는지.
 test('note is a highlight source; source tag; quote gone when the note text changed', () => {
   // S68-09 READ-읽을거리함: 읽을 거리도 밑줄 출처(DB 20261122100000).
-  assert.deepEqual(HL_TYPES, ['news', 'outside', 'telegram', 'note', 'reading']);
+  assert.deepEqual(HL_TYPES, ['news', 'outside', 'telegram', 'note', 'reading', 'brief']);
   assert.equal(highlightBody('w', {type: 'reading', id: '32000000-0000-4000-8000-000000000003', url: 'https://ex.com/a'}, '고른 글').source_type, 'reading');
   assert.equal(sourceTag({source_type: 'reading'}), '저장한 글'); // S68-34: 옛 '읽을 거리' 화면 이름이 '저장한 글'
   const id = '32000000-0000-4000-8000-000000000002';
