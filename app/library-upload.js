@@ -1940,7 +1940,11 @@ function luOnCardContext(e){
   // LIB-두칸보기: 두 칸이면 [새 폴더]는 누른 칸의 지금 폴더 안.
   luAreaMenuOpen(t.closest('[data-lu-pane-i]')||t.closest('#libraryFolderNav')||t.closest('#documentList')||t.closest('#libraryListCard'),e.clientX,e.clientY,luTwoActive()?luTwo.folderAt(t):luInFolder);
 }
-function luSelStop(){if(!luPick.active||luSelBusy)return;luPick.stop();luRenderLibrary()}
+// S69-74: 자료실 메뉴(줄 ⋯·폴더·맨 위·빈 자리·일괄)는 닫을 때 제 기록 한 칸을 history.back()으로 뺀다. 그 뒤로가기가 오기 전에
+// 선택 모드 겹을 닫으면(⋯ Esc 바로 뒤 Esc·[취소]) 라우터는 아직 메뉴 칸에 서 있다고 보고 두 칸을 더 물러나, 둘이 겹쳐 자료실 밖(앞 화면)까지 갔다.
+// 그래서 메뉴의 뒤로가기가 도착한 뒤에 선택 모드를 끈다(기다릴 것이 없으면 바로).
+function luMenuBackPending(){return [luMenuClosing,luFolderUi?.menuClosing,luTopMenu?.closing,luAreaMenu?.closing,luBulkUi?.closing].filter(Boolean)}
+function luSelStop(){if(!luPick.active||luSelBusy)return;const wait=luMenuBackPending();if(wait.length){Promise.all(wait).then(luSelStop);return}luPick.stop();luRenderLibrary()}
 // 메뉴 맨 위 [선택]: 선택 모드를 켜고 그 자료를 고른 채로(최근 올린 파일 칸에서 눌러도 아래 목록과 한 선택 모드).
 function luSelStartWith(id){if(luSelBusy||!luDocuments.some(d=>d.id===id))return;luPick.start([id],id);luRenderLibrary()}
 // Esc = 선택 모드 풀기(열린 메뉴·창이 Esc를 먼저 가져가면 그쪽이 닫힌다).

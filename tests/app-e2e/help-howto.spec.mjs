@@ -1,10 +1,11 @@
 // HELP-메뉴안쓰는법 · HELP-처음쓰는사람안내(시안 docs/design/mockups/help-howto.html · help-first-use.html, 명진 확정 11/16).
-// ① 메뉴 맨 아래 '쓰는 법'(폰 [메뉴] 창 [내 프로필] 다음 · 폴드/PC 왼쪽 메뉴 맨 아래) → 쓰는 법 화면(폰: 줄을 누르면 펼침, 넓은 화면: 목차 | 내용)
+// ① 계정 › 쓰는 법('앱 정보' 바로 아래 — 폰 [메뉴] 창 계정 줄 · 폴드/PC [계정 ▾] 메뉴, S69-71. 왼쪽 메뉴에는 없음) → 쓰는 법 화면(폰: 줄을 누르면 펼침, 넓은 화면: 목차 | 내용)
 // ② 각 화면 ⋯ 맨 아래 '쓰는 법' → 그 메뉴 줄이 펼쳐진(고른) 채로 ③ 운영자 기능 메뉴 줄은 서버 기능 목록에 있을 때만
 // ④ 조직 관리·사업 관리·브리핑 룸이 비어 있을 때 따라하기 3단계 ⑤ 앱 내려받기 기기별 탭(지금 기기 탭 먼저).
 // 화면 사진: SHOT_DIR=docs/design/screens/s64-02 로 돌릴 때만(지어낸 이름만 보임).
 import {test, expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {accountButton} from './helpers/shell-navigation.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const WIDTHS = [['phone-412', 412, 915], ['fold-880', 880, 900], ['pc-1440', 1440, 900]];
@@ -14,15 +15,14 @@ const shot = async (page, name) => { if (process.env.SHOT_DIR) { await page.wait
 const help = page => page.locator('#helpView');
 
 async function openHelpFromMenu(page) {
-  if ((page.viewportSize()?.width || 0) <= 760) {
-    await page.locator('#mobileMenuTab').click();
-    const names = await page.locator('#mobileAccountGroup .account-action').evaluateAll(list => list.map(el => (el.querySelector('.account-action-name') || el).textContent.trim()));
-    expect(names.slice(0, 2)).toEqual(['내 프로필', '쓰는 법']);
-    await page.locator('#mobileAccountGroup [data-help-menu]').click();
-  } else {
-    await expect(page.locator('#appNav .nav-help')).toBeVisible();
-    await page.locator('#appNav .nav-help').click();
-  }
+  // S69-71(명진 11/24 "쓰는법 계정 안으로 들여보내줘"): 왼쪽 메뉴 맨 아래 줄은 없고, 계정 메뉴 '앱 정보' 바로 아래 한 줄.
+  await expect(page.locator('#appNav .nav-help, #appNav [data-view="help"]')).toHaveCount(0);
+  const phone = (page.viewportSize()?.width || 0) <= 760;
+  await accountButton(page).click();
+  const rows = page.locator(phone ? '#mobileAccountGroup .account-action' : '#sidebarAccountPanel .account-action');
+  const names = await rows.evaluateAll(list => list.filter(el => el.getClientRects().length).map(el => (el.querySelector('.account-action-name') || el).textContent.trim()));
+  expect(names.indexOf('쓰는 법')).toBe(names.indexOf('앱 정보') + 1);
+  await page.locator(phone ? '#mobileAccountGroup [data-help-menu]' : '#sidebarAccountPanel [data-help-menu]').click();
   await expect(help(page)).toBeVisible();
 }
 

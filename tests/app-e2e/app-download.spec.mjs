@@ -73,9 +73,9 @@ test.describe('안드로이드 폰 브라우저',()=>{
     await expect(row).toHaveAttribute('href',APK);
     await expect(row).toContainText('앱 내려받기');
     await expect(row.locator('[data-app-download-ver]')).toHaveText('0.5.10');
-    // 계정 줄 순서(S68-36): 설정 링크 — 내 프로필 · 쓰는 법(HELP-메뉴안쓰는법) · 업데이트 소식 · 앱 내려받기 · 메뉴 수정 … / 운영 줄 — 업데이트 기록 … 로그아웃
+    // 계정 줄 순서(S68-36): 설정 링크 — 내 프로필 · 업데이트 소식 · 앱 정보 · 쓰는 법(S69-71) · 앱 내려받기 · 메뉴 수정 … / 운영 줄 — 업데이트 기록 … 로그아웃
     const names=await page.locator('#mobileAccountGroup .account-action').evaluateAll(list=>list.map(el=>(el.querySelector('.account-action-name')||el).textContent.trim()));
-    expect(names.slice(0,6)).toEqual(['내 프로필','쓰는 법','업데이트 소식','앱 정보','앱 내려받기','메뉴 수정']);
+    expect(names.slice(0,6)).toEqual(['내 프로필','업데이트 소식','앱 정보','쓰는 법','앱 내려받기','메뉴 수정']);
     await page.waitForTimeout(400);
     await shot(page,'412-2-menu');
     await row.click();

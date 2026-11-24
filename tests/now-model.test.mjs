@@ -6,18 +6,21 @@ import {NEWS_TABS} from '../app/view-prefs.js';
 
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 
-test('탭은 [전체][사회운동][언론][밑줄]([보관] 탭 없앰, S68-24), 기억 값은 news_tab DB 검사 값 안, 모르는 값은 전체, 밀기는 끝에서 멈춘다', () => {
-  assert.deepEqual(NOW_TAB_IDS, ['all', 'movement', 'media', 'marks']);
+test('탭은 [전체][사회운동][언론][밑줄][메모]([보관] 탭 없앰 S68-24, [메모] S69-70), 기억 값은 news_tab DB 검사 값 안, 모르는 값은 전체, 밀기는 끝에서 멈춘다', () => {
+  assert.deepEqual(NOW_TAB_IDS, ['all', 'movement', 'media', 'marks', 'memos']);
   // DB 검사 값('archive' 포함)은 그대로 두고(DB 바꾸지 않음), 기억하는 탭은 그 안에서 [밑줄]·옛 [보관]을 뺀 셋.
   assert.deepEqual([...NEWS_TABS], [...SAVED_TAB_IDS, 'archive'], 'S53-5: [밑줄]은 news_tab DB 검사 값에 없어 기억하지 않는다');
   assert.deepEqual(SAVED_TAB_IDS, NOW_TAB_IDS.slice(0, 3));
-  assert.deepEqual(NOW_TABS.map(t => t.label), ['전체', '사회운동', '언론', '밑줄']);
+  assert.deepEqual(NOW_TABS.map(t => t.label), ['전체', '사회운동', '언론', '밑줄', '메모']);
+  assert.equal(keepNowTab('memos'), 'memos');
+  assert.ok(!SAVED_TAB_IDS.includes('memos'), 'S69-70: [메모]도 news_tab DB 검사 값에 없어 기억하지 않는다');
   assert.equal(keepNowTab('marks'), 'marks');
   assert.equal(keepNowTab('media'), 'media');
   for (const v of [undefined, '', 'news', 'outside', null, 'archive']) assert.equal(keepNowTab(v), 'all');
   assert.equal(nowTabAt('all', 1), 'movement');
   assert.equal(nowTabAt('media', 1), 'marks');
-  assert.equal(nowTabAt('marks', 1), null);
+  assert.equal(nowTabAt('marks', 1), 'memos');
+  assert.equal(nowTabAt('memos', 1), null);
   assert.equal(nowTabAt('all', -1), null);
   assert.equal(nowTabAt('marks', -1), 'media');
 });
