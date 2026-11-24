@@ -285,8 +285,13 @@ test.describe('폰 412', () => {
     await expect.poll(() => bodyEl.locator('[data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId))).toEqual(['gd:G1', 'gd:G2', 'gd:G3']);
     await bodyEl.locator('[data-photos-gf-open="GF11"]').click();
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('2026 · —장 · 사진에 안 보임');
+    // 폴더 겹은 하나라 뒤로가기 한 번은 '한 단계 위'를 그린 뒤 라우터가 겹 칸으로 되돌아간다(history.go(+1), 비동기).
+    // 그 되돌아가기가 끝나기 전에 다음 뒤로가기를 보내면 한 칸 아래(사진 탭 첫 화면)로 두 단계가 한꺼번에 빠진다 — 실제 손으로는 못 누르는 틈.
+    // 그래서 겹 칸에 다시 선 것(주소 칸 번호)을 확인한 뒤 다음 뒤로가기를 누른다.
+    const deep = await page.evaluate(() => navigation.currentEntry.index);
     await page.goBack();
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('카메라 백업');
+    await expect.poll(() => page.evaluate(() => navigation.currentEntry.index)).toBe(deep);
     await page.goBack();
     await expect(bodyEl.locator('[data-photos-box="gdrive"]')).toBeVisible();
     await expect(page.locator('#photosView')).toBeVisible();
