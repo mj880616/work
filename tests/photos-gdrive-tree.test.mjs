@@ -42,12 +42,14 @@ test('장수 글자: 모르면 —', () => {
 
 test('화면: 원드라이브·구글 드라이브 폴더 줄은 같은 함수 하나, 장수는 폴더 목록 응답에서만(새 Edge 동작 없음)', () => {
   const s = read('app/photos.js');
-  assert.equal((s.match(/class="nx-row nx-folder photos-fx-row/g) || []).length, 2, '원드라이브·구글 드라이브 공용 줄 1 + 폰 줄 1');
+  // UI-폴더목록한모양(S69-90): 두 함수 모두 공용 줄(ftFolderRowHtml)로 그린다. 옛 줄(.nx-row)은 없다.
+  assert.equal((s.match(/className:`photos-fx-row\$\{/g) || []).length, 2, '원드라이브·구글 드라이브 공용 줄 1 + 폰 줄 1');
+  assert.doesNotMatch(s, /class="nx-row/);
   assert.match(s, /const gdRowHtml = \(r, \{wide\}\) => folderRowHtml\(r, \{wide, a:GD_ATTR/);
   assert.match(s, /const rows = photoFolderRows\(tree, id => openSet\.has\(id\)\);/);
   assert.match(s, /rows = photoFolderRows\(gdTree\(\), id => gdOpen\.has\(id\)\)/);
-  // 장수 표시는 원드라이브·폰·구글 드라이브 모두 countHtml(0·모름은 흐림).
-  assert.equal((s.match(/countHtml\(/g) || []).length, 2);
+  // 장수 표시는 원드라이브·폰·구글 드라이브 모두 같은 글자(folderCountText)·읽는 말(countLabel) — 공용 줄 개수 칸(.ft-num, 작은 흐린 글씨).
+  assert.equal((s.match(/countLabel:countLabel\(/g) || []).length, 2);
   // 구글 드라이브 함수 길은 그대로(folders만 장수를 더 줌).
   const g = read('app/gdrive-photos.js');
   assert.doesNotMatch(g, /action:'(count|counts|folder-count)'/);

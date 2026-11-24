@@ -50,5 +50,5 @@ test('photos [폴더]: one switch per row (role=switch, server toggle), dim off 
   assert.match(src, /function openFolderPick\([\s\S]{0,4000}openFolderSheet\(/);
   assert.doesNotMatch(src, /어느 폴더로 옮길까요\?/);
   const css = readFileSync(new URL('../app/photos.css', import.meta.url), 'utf8');
-  assert.match(css, /\.photos-fx-row\.is-off \.nx-main\{ opacity:\.5; \}/);
+  assert.match(css, /\.photos-fx-row\.is-off > \.ft-main\{ opacity:\.5; \}/);
 });

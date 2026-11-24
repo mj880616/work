@@ -120,13 +120,11 @@
 #appView #photosView .photos-fx-tree{ top:var(--follow-top,calc(var(--kptu-touch-target,44px) + 8px)); } /* 따라오는 자리는 photos.js followPane(top 52) */
 #appView #photosView .photos-fx-here{ display:flex; align-items:center; gap:6px; margin:2px 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #photosView .photos-fx-here b{ font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); }
-/* 줄 높이·글자·굵기는 공용 folder-tree.css(.nx-main·.nx-top·.nx-sub, UI-폴더나무촘촘 A안). 여기는 공용 버튼 꾸밈을 지우는 것만. */
-#appView #photosView .photos-fx-row .nx-main{ height:auto; margin:0; box-shadow:none; font-weight:var(--ds-weight-regular,400); }
-/* S51-25 FOLDER-PC나무: PC 나무 줄 앞 폴더 아이콘 단추(공용 .ft-tog 모양, folder-tree.css). 세모 없음. */
-#appView #photosView .photos-fx-row .photos-fx-tog{ width:28px; min-width:0; height:28px; min-height:0; margin:0 2px 0 0; padding:0; border:1px solid transparent; background:none; box-shadow:none; font-size:15px; }
-#appView #photosView .photos-fx-row button.photos-fx-tog:hover{ border-color:color-mix(in srgb, var(--kptu-primary) 40%, transparent); background:color-mix(in srgb, var(--kptu-primary) 7%, transparent); }
-#appView #photosView .photos-fx-row .nx-more,#appView #photosView .photos-album-more{ position:relative; flex:none; width:32px; min-width:0; height:32px; min-height:0; margin:0; padding:0; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:16px; line-height:1; }
-@media (hover:hover){ #appView #photosView .photos-fx-row > .nx-more{ opacity:0; } #appView #photosView .photos-fx-row:is(:hover,:focus-within) > .nx-more,#appView #photosView .photos-fx-row > .nx-more[aria-expanded="true"]{ opacity:1; } }
+/* UI-폴더목록한모양(S69-90): 넓은 화면은 위치 줄이 이 줄 안(이름 자리)에 들어가 주소 줄이 하나. */
+#appView #photosView .photos-fx-here > span{ display:inline-flex; align-items:center; min-width:0; white-space:nowrap; }
+#appView #photosView .photos-fx-here .photos-fx-path{ flex:0 1 auto; min-width:0; margin:0; }
+/* UI-폴더목록한모양(S69-90): 사진 폴더 줄(나무·목록·그 폴더만)은 공용 줄(.ft-row, folder-tree.css) — 높이·글자·폴더 그림·⋯ 자리·개수를 [파일]과 같게. 여기는 사진만의 칸(스위치·자리 글자)뿐. */
+#appView #photosView .photos-album-more{ position:relative; flex:none; width:32px; min-width:0; height:32px; min-height:0; margin:0; padding:0; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:16px; line-height:1; }
 #appView #photosView button.photos-fx-new{ display:flex; min-height:28px; height:auto; margin:2px 0 0; padding:0 6px; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:13px; font-weight:400; justify-content:flex-start; }
 #appView #photosView button.photos-fx-new:hover{ color:var(--kptu-ink); background:var(--kptu-surface-subtle); }
 #appView #photosView .photos-fx-list{ display:flex; flex-direction:column; }
@@ -177,8 +175,8 @@
 #appView #photosView .photos-src-mark:is([data-src="onedrive"],[data-src="gdrive"]){ background:var(--kptu-surface); }
 #appView #photosView .has-src .photos-dur{ right:20px; }
 /* PHOTO-폴더스위치(10/31): 폴더 줄 오른쪽 작은 스위치(일기 설정 창과 같은 .diary-od-switch), 꺼진 줄은 흐림, 같은 이름 폴더는 위치 이름을 흐리게. */
-#appView #photosView .photos-fx-row .photos-fx-sw,#appView #photosView .photos-fx-here .photos-fx-sw{ height:32px; }
-#appView #photosView .photos-fx-row.is-off .nx-main{ opacity:.5; }
+#appView #photosView .photos-fx-row > .photos-fx-sw,#appView #photosView .photos-fx-here .photos-fx-sw{ height:32px; }
+#appView #photosView .photos-fx-row.is-off > .ft-main{ opacity:.5; }
 #appView #photosView .photos-fx-place{ color:var(--kptu-muted); font-size:12px; font-weight:var(--ds-weight-regular,400); }
 #appView #photosView .photos-fx-hint{ margin:2px 0 4px; color:var(--kptu-muted); font-size:12px; }
 #appView #photosView .photos-fx-here.has-sw{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -238,8 +236,7 @@
 /* PHOTO-빈곳핀치(요청함 11/01 21:40): 본문 어디서든 두 손가락 = 보기 크기(photos.js bodyPinch). 목록이 짧아도 화면 아래까지 손가락을 받도록
    손가락 화면에서만 본문 칸을 화면 아래까지 채운다(위쪽 두 줄·하단바 몫은 뺌 — 스크롤이 생기지 않는 높이). 위치 줄처럼 가로로 넘기는 칸은 제 스크롤을 그대로 쓴다. */
 #appView #photosView .photos-body[data-photos-pinch]{ touch-action:pan-y; }
-/* PHOTO-드라이브폴더통일: 폴더 줄 장수는 0·모름('—')이면 흐리게(원드라이브·구글 드라이브 같음). 폰 묶음 이름 옆 전체 장수. */
-#appView #photosView .photos-fx-row .nx-num.is-zero{ opacity:.55; }
+/* 폰 묶음 이름 옆 전체 장수. */
 #appView #photosView .photos-fx-n{ margin-left:4px; font-variant-numeric:tabular-nums; }
 /* S48-60 PHOTO-정보고치기: 사진 ⋯ [정보 고치기…] 창(촘촘하게, 표는 창 안에서만 내림, 폰 하단바에 가리지 않게 위쪽에). */
 .photo-info-dialog{width:min(560px,calc(100vw - 16px));max-height:calc(100dvh - var(--kptu-mobile-tab-height,56px) - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink);display:none;flex-direction:column}
