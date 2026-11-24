@@ -76,6 +76,9 @@
 /* NOTE-제목서식줄고정(S61-16 ②): 위에 붙는 것은 서식 줄 하나가 아니라 [제목 칸(lead)·서식 줄·창 제목 줄(head)] 띠 하나(.ed-stick).
    붙는 자리는 공용 값 --kptu-stick-top(PC = 맨 위 줄 아래, 폰 = 0; desktop-ui.css). 큰 쓰기 창은 #appView 밖이라 값이 없어 0 = 창 안 스크롤 맨 위.
    예전에는 서식 줄이 top:0에 붙어 PC 맨 위 줄(고정) 뒤로 들어가 가려졌다(원인). */
+/* NOTE-노션편집 ①(나): 띠 안 펼침 상자(묶음·글자색 등, position:fixed)는 이 띠의 쌓임 안에 그려진다. 짧은 글에서 상자가 아래 저장 줄(.save-row-sticky, z 6)까지
+   내려오면 그 줄 밑에 깔려 눌리지 않았다(원인). 펼침 상자가 열려 있는 동안만 띠를 저장 줄보다 한 칸 위(7)에 둔다(평소에는 그대로 2). */
+.ed-stick:has(.ed-pop:not([hidden])){z-index:7}
 .ed-stick{position:sticky;top:var(--kptu-stick-top,0px);z-index:2;background:var(--kptu-surface);border-top-left-radius:inherit;border-top-right-radius:inherit}
 .ed-bar{background:var(--kptu-surface);border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-top-left-radius:inherit;border-top-right-radius:inherit}
 .ed-stick>.ed-bar:not(:first-child){border-top-left-radius:0;border-top-right-radius:0}
@@ -244,3 +247,34 @@
 .ed-video .ed-video-mark::before{content:"\25B6"}
 .ed-video .ed-video-frame{display:block;width:100%;height:100%;border:0}
 @media(min-width:600px){.ed-video{width:min(100%,400px)}}
+/* NOTE-노션편집 ①(나) 할 일 체크: 'check' 목록은 글머리 대신 네모 칸(☐/☑). 편집 중에는 네모를 눌러 체크한다(읽기 화면은 보이기만). */
+.ed-doc ul.ed-ul-check{list-style:none;padding-left:1.5em}
+.ed-doc ul.ed-ul-check>li{position:relative}
+.ed-doc ul.ed-ul-check>li::before{content:"\2610";position:absolute;left:-1.35em;top:0;width:1.2em;text-align:center;color:var(--kptu-muted)}
+.ed-doc ul.ed-ul-check>li[data-checked="true"]::before{content:"\2611";color:var(--kptu-primary-ink,var(--kptu-ink))}
+.ed-doc ul.ed-ul-check>li[data-checked="true"]>.ed-p{color:var(--kptu-muted);text-decoration:line-through}
+.ed-input ul.ed-ul-check>li::before{cursor:pointer}
+/* NOTE-노션편집 ①(나) 접기: 첫 줄 + 펼치면 안쪽 블록. 표시는 사이트 공용 꺾쇠(UI-접기꺾쇠 .kptu-chev — 닫힘 ⌄, 펼침 ⌃, 모양은 ui-standard.css 한 곳).
+   읽기 화면·게시 받는 화면은 <details>(누르면 열고 닫음, 스크립트 없음), 편집기는 [꺾쇠] 단추. */
+.ed-doc .ed-toggle{position:relative;margin:0 0 .4em;padding-left:1.4em}
+.ed-doc details.ed-toggle>summary{display:block;list-style:none;cursor:pointer;margin:0 0 .15em}
+.ed-doc details.ed-toggle>summary::-webkit-details-marker{display:none}
+.ed-doc details.ed-toggle>summary>.kptu-chev{position:absolute;left:.2em;top:.3em}
+.ed-doc .ed-toggle-body>.ed-p:first-child{margin-bottom:.15em}
+.ed-input .ed-toggle-btn{position:absolute;left:0;top:.1em;display:inline-flex;align-items:center;justify-content:center;width:1.2em;height:1.4em;min-height:0;padding:0;border:0;background:none;color:var(--kptu-muted);font:inherit;cursor:pointer}
+.ed-input .ed-toggle.is-closed>.ed-toggle-body>:not(:first-child){display:none}
+/* NOTE-노션편집 ①(나) 블록 편집: 켜면 글 왼쪽에 손잡이 ⋮⋮ 자리(조금 넓은 왼쪽 여백)만 생기고, 끄면 지금 글쓰기 화면 그대로(테두리·여백 표시 없음). */
+.ed-has-blocks .ed-box{position:relative}
+.ed-blocks-on .ed-input{padding-left:34px}
+.ed-grip{position:absolute;z-index:5;display:inline-flex;align-items:center;justify-content:center;width:22px;height:24px;min-height:0;padding:0;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;color:var(--kptu-muted);cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.ed-grip::after{content:"";position:absolute;inset:-10px -6px}
+.ed-grip:hover,.ed-grip[aria-expanded="true"]{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.ed-grip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.ed-grip[hidden],.ed-drop-line[hidden]{display:none}
+.ed-dragging,.ed-dragging *{cursor:grabbing}
+.ed-dragging .ed-input{-webkit-user-select:none;user-select:none}
+.ed-drop-line{position:absolute;z-index:4;height:2px;border-radius:1px;background:var(--kptu-primary);pointer-events:none}
+.ed-block-menu .ed-block-sep{padding:4px 8px 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));margin-top:2px}
+.ed-slash .is-active{outline:2px solid var(--kptu-primary-soft);outline-offset:-2px}
+.ed-drag-ghost{position:fixed;z-index:45;max-height:96px;overflow:hidden;opacity:.55;pointer-events:none;padding:2px 6px;border-radius:var(--ds-radius-control,6px);background:var(--kptu-surface);box-shadow:var(--kptu-shadow-float)}
+.ed-drag-ghost>*{margin:0}
