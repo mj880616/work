@@ -5,6 +5,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
+import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
 // 이름은 모두 지어낸 것이다. 서버 쓰기는 없다(가짜 서버).
@@ -113,4 +114,108 @@ test('D4 조직 1280: 조직을 끄는 중 Esc를 누르면 놓아도 옮겨지�
   expect(await prefs()).toBe(saved);
   await expect(heads).toHaveText(before);
   expect(errors).toEqual([]);
+});
+
+// ---------- H. 머리 줄이 있는 목록(UI-머리눌러정렬, 명진 11/24 15:47) ----------
+// H1: 머리 칸(이름·바뀐 날·크기·종류)을 누르면 그 칸 오름차순 → 다시 누르면 내림차순. 지금 칸에 ▲/▼·aria-sort, Enter·Space로도.
+// 폴더는 늘 위. 너비 손잡이를 눌러도 정렬되지 않는다. 정렬 고르기(오른쪽 위)와 같은 값. 서버(view_prefs.files_sort)에 기억해 다시 열어도 그대로.
+// 폰(600 미만)은 머리 줄이 없는 두 줄 목록이라(예전 결정) 같은 값을 정렬 고르기로 바꾼다.
+// 새 머리 줄 목록이 생기면 HEAD_SCREENS에 한 줄 더한다(전수 조사: docs/design/standard-interactions.md 9절).
+async function filesList(page, width) {
+  const prefs = await installViewPrefsServer(page);
+  const { errors } = await startFiles(page, width);
+  const open = async () => {
+    await openFiles(page, width);
+    const inside = page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!11"]');
+    // 다시 열 때는 마지막에 연 폴더(files_last)로 바로 열릴 수 있다.
+    await page.waitForTimeout(400);
+    if (!(await inside.isVisible())) {
+      await treeGo(page, 'od');
+      await enterRow(page, page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!1"]'));
+    }
+    await expect(inside).toBeVisible();
+  };
+  await open();
+  const list = page.locator('#filesRoot [data-fx-list]');
+  return { errors, prefs, open, saved: () => prefs.value?.files_sort ?? null,
+    names: () => list.locator('[data-fx-row] :is(.fx-name, .ft-name)').allTextContents(),
+    head: key => list.locator(`.fx-head [data-head-sort="${key}"]`),
+    select: page.locator('#filesRoot .fx-top [data-fx-sort]'),
+    // 가짜 문서함: 폴더 '가짜 2026' + 메모(3KB, 9/20)·안내문(1.2MB, 10/5)·예산표(62KB, 10/6)
+    order: { name: ['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx'], size: ['가짜 2026', '가짜 메모.txt', '가짜 예산표.xlsx', '가짜 안내문.pdf'],
+      modified: ['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx'] } };
+}
+const HEAD_SCREENS = [['파일', filesList]];
+const flip = list => [list[0], ...list.slice(1).reverse()];
+
+for (const [name, open] of HEAD_SCREENS) test(`H1 ${name} PC 1280: 머리 칸 누르기 = 오름 → 다시 = 내림, 키보드·손잡이·정렬 고르기·다시 열어도 기억`, async ({ page }) => {
+  test.setTimeout(120000);
+  const s = await open(page, 1280);
+  await expect.poll(s.names).toEqual(s.order.name);
+  await expect(s.head('name').locator('xpath=..')).toHaveAttribute('aria-sort', 'ascending');
+  for (const key of ['size', 'modified', 'name']) {
+    const cell = s.head(key).locator('xpath=..');
+    await s.head(key).click();
+    await expect.poll(s.names).toEqual(s.order[key]);
+    await expect(cell).toHaveAttribute('aria-sort', 'ascending');
+    await expect(s.head(key)).toContainText('▲');
+    await expect(s.select).toHaveValue(key + ':asc');
+    await s.head(key).click();
+    await expect.poll(s.names).toEqual(flip(s.order[key]));
+    await expect(cell).toHaveAttribute('aria-sort', 'descending');
+    await expect(s.head(key)).toContainText('▼');
+    await expect(s.select).toHaveValue(key + ':desc');
+    await expect(page.locator('#filesRoot [data-fx-list] .fx-head [aria-sort="none"]')).toHaveCount(3);
+  }
+  // 키보드: 머리 칸에 초점 → Enter = 그 칸 오름, Space = 반대. 다시 그린 뒤에도 초점은 그 칸.
+  await s.head('size').focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(s.names).toEqual(s.order.size);
+  expect(await s.head('size').evaluate(el => el === document.activeElement)).toBe(true);
+  await page.keyboard.press('Space');
+  await expect.poll(s.names).toEqual(flip(s.order.size));
+  // 너비 손잡이를 눌러도(움직이지 않고) 정렬은 그대로.
+  const grip = page.locator('#filesRoot [data-fx-list] .fx-head [data-col-grip="day"]');
+  const g = await grip.boundingBox();
+  await page.mouse.click(g.x + g.width / 2, g.y + g.height / 2);
+  await page.waitForTimeout(200);
+  expect(await s.names()).toEqual(flip(s.order.size));
+  // 정렬 고르기로 바꾸면 머리 칸도 같은 값(상태 주인 하나).
+  await s.select.selectOption('modified:desc');
+  await expect.poll(s.names).toEqual(flip(s.order.modified));
+  await expect(s.head('modified').locator('xpath=..')).toHaveAttribute('aria-sort', 'descending');
+  await expect.poll(s.saved).toEqual({ key: 'modified', dir: 'desc' });
+  // 새로 열어도 기억(서버 값).
+  await page.reload();
+  await s.open();
+  await expect.poll(s.names).toEqual(flip(s.order.modified));
+  await expect(s.head('modified').locator('xpath=..')).toHaveAttribute('aria-sort', 'descending');
+  await expect(s.select).toHaveValue('modified:desc');
+  // 종류 칸도 누를 수 있다(크기 칸과 따로).
+  await s.head('kind').click();
+  await expect(s.head('kind').locator('xpath=..')).toHaveAttribute('aria-sort', 'ascending');
+  await expect(s.head('size').locator('xpath=..')).toHaveAttribute('aria-sort', 'none');
+  expect(s.errors).toEqual([]);
+});
+
+for (const [name, open] of HEAD_SCREENS) test(`H1 ${name} 폰 390: 머리 줄 없는 목록은 정렬 고르기로 오름·내림, 다시 열어도 기억`, async ({ page }) => {
+  test.setTimeout(120000);
+  const s = await open(page, 390);
+  await expect(page.locator('#filesRoot .fx-head:visible')).toHaveCount(0);
+  await expect.poll(s.names).toEqual(s.order.name);
+  for (const key of ['size', 'modified', 'name']) {
+    await s.select.selectOption(key + ':asc');
+    await expect.poll(s.names).toEqual(s.order[key]);
+    await s.select.selectOption(key + ':desc');
+    await expect.poll(s.names).toEqual(flip(s.order[key]));
+  }
+  await s.select.selectOption('size:desc');
+  await expect.poll(s.saved).toEqual({ key: 'size', dir: 'desc' });
+  await page.reload();
+  await s.open();
+  await expect.poll(s.names).toEqual(flip(s.order.size));
+  await expect(s.select).toHaveValue('size:desc');
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(over).toBeLessThanOrEqual(1);
+  expect(s.errors).toEqual([]);
 });
