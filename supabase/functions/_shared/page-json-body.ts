@@ -14,7 +14,7 @@ import { decodeText } from "./html-entities.ts";
 export const JSON_BODY_LIMITS = Object.freeze({ ldScripts: 12, ldChars: 1_000_000, arcChars: 3_000_000, elements: 2000, depth: 6 });
 // items: 종류가 붙은 차례(문단·소제목·사진) — Arc처럼 페이지 데이터가 종류를 줄 때만(S69-02). JSON-LD는 글자뿐이라 없음.
 export type JsonItem = { t: "p" | "h" | "quote"; text: string } | { t: "img"; src: string; cap?: string | null; alt?: string | null };
-export type JsonBody = { text: string; via: "ld" | "arc"; items?: JsonItem[] };
+export type JsonBody = { text: string; via: "ld" | "arc" | "next"; items?: JsonItem[] };
 
 const ARTICLE_TYPE = /^(?:Article|NewsArticle|ReportageNewsArticle|AnalysisNewsArticle|OpinionNewsArticle|BackgroundNewsArticle|ReviewNewsArticle|BlogPosting|Report|TechArticle|ScholarlyArticle|SocialMediaPosting|LiveBlogPosting)$/;
 const PAID_CODE = /premium|subscri|paid|member|metered|locked|plus/i;
@@ -127,10 +127,47 @@ export function arcBody(html: string): string | null {
   return lines.length ? lines.join("\n") : null;
 }
 
-// 둘 다 있으면 더 긴 쪽(어느 한쪽이 요약만 싣는 매체가 있다). 없으면 null.
+// 3) S69-06(JTBC 실측): Next.js(App Router) 페이지는 기사 자료를 `self.__next_f.push([1,"…"])` 조각(RSC 자료)으로 싣고 화면은 스크립트가 그린다.
+//   본문 칸(articleContent·articleBody·newsContent) 값이 글자이거나, '$<번호>' 참조면 같은 자료 안 `<번호>:T<바이트 수 16진>,` 뒤 글자 조각이다.
+//   같은 열쇠가 여러 번(관련 기사 등) 나오면 가장 긴 것. 조각 수·길이 상한이 있다. 다른 요청 없음.
+const NEXT_KEY = /"(?:articleContent|articleBody|newsContent)"\s*:\s*"((?:[^"\\]|\\.){1,2000000}?)"/g;
+export function nextFlightBody(html: string): string | null {
+  if (typeof html !== "string" || !html.includes("__next_f")) return null;
+  let flight = "", n = 0;
+  for (const m of html.matchAll(/self\.__next_f\.push\(\[\s*1\s*,\s*("(?:[^"\\]|\\.)*")\s*\]\)/g)) {
+    if (++n > 600 || flight.length > JSON_BODY_LIMITS.arcChars) break;
+    try { flight += JSON.parse(m[1]); } catch { /* 모양이 다른 조각은 건너뜀 */ }
+  }
+  if (!flight) return null;
+  let best: string[] = [];
+  let seen = 0;
+  for (const k of flight.matchAll(NEXT_KEY)) {
+    if (++seen > 20) break;
+    let v: string;
+    try { v = JSON.parse(`"${k[1]}"`); } catch { continue; }
+    const ref = /^\$([0-9a-f]{1,8})$/i.exec(v)?.[1];
+    if (ref) v = nextChunk(flight, ref) ?? "";
+    const lines = paraLines(v);
+    if (lines.join("").length > best.join("").length) best = lines;
+  }
+  return best.length ? best.join("\n") : null;
+}
+function nextChunk(flight: string, id: string): string | null {
+  const m = new RegExp(`(?:^|\\n)${id}:T([0-9a-f]{1,8}),`, "i").exec(flight);
+  if (!m) return null;
+  const bytes = parseInt(m[1], 16);
+  if (!Number.isFinite(bytes) || bytes <= 0 || bytes > JSON_BODY_LIMITS.arcChars) return null;
+  const start = m.index + m[0].length;
+  const raw = new TextEncoder().encode(flight.slice(start, start + bytes));
+  return new TextDecoder().decode(raw.slice(0, bytes));
+}
+
+// 셋 가운데 가장 긴 쪽(어느 한쪽이 요약만 싣는 매체가 있다). 없으면 null.
 export function jsonBody(html: string): JsonBody | null {
-  const ld = ldArticleBody(html), arc = arcBody(html);
-  if (ld && (!arc || ld.length >= arc.length)) return { text: ld, via: "ld" };
-  if (arc) return { text: arc, via: "arc", items: arcItems(html) ?? undefined };
+  const ld = ldArticleBody(html), arc = arcBody(html), next = nextFlightBody(html);
+  const len = (t: string | null) => (t ? t.length : 0);
+  if (ld && len(ld) >= len(arc) && len(ld) >= len(next)) return { text: ld, via: "ld" };
+  if (arc && len(arc) >= len(next)) return { text: arc, via: "arc", items: arcItems(html) ?? undefined };
+  if (next) return { text: next, via: "next" };
   return null;
 }

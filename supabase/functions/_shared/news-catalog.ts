@@ -89,6 +89,8 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   { key: "news-sisain", name: "시사IN", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", mixedAs: "society", on: true,
     // 홈 머리 공식 RSS 링크(cdn.sisain.co.kr/rss/…) [사실, 11/08 CC 크롬 확인]: 전체 피드 열림(item 50·description 있음), AI 문구 없음.
     extract: false,
+    // S69-06(실측 GitHub 러너): 엔디소프트 기사 쪽. 본문 칸 `#article-view-content-div`를 고정하지 않으면 앞의 짧은 <article>(머리)에서 멈춰 앞부분만 남았다.
+    bodyClass: /^article-view-content-div$/,
     lists: ["https://cdn.sisain.co.kr/rss/gns_allArticle.xml"],
     hosts: ["cdn.sisain.co.kr", "www.sisain.co.kr", "sisain.co.kr"], kindOf: article },
   { key: "news-newstapa", name: "뉴스타파", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", mixedAs: "society", on: true,
@@ -109,6 +111,8 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     // 안내 쪽 www.yna.co.kr/rss/index(비상업·개인) [사실, 11/08 CC 크롬 확인: 섹션마다 item 120]. 기사 호스트 www.yna.co.kr는 [추정] — 이 세션은 피드를 열지 못함, 배포 뒤 probe로 확인.
     // AI 문구 있음(피드 copyright 'AI 학습 및 활용 금지'), 명진 결정으로 넣음(개인 용도).
     extract: false,
+    // S69-06(실측): 기사 본문 칸 `div.story-news`(앞의 <article>은 머리·사진 칸이라 앞부분만 남았다).
+    bodyClass: /^story-news$/,
     lists: ["https://www.yna.co.kr/rss/society.xml", "https://www.yna.co.kr/rss/economy.xml", "https://www.yna.co.kr/rss/politics.xml"],
     hosts: ["www.yna.co.kr", "yna.co.kr", "m.yna.co.kr"], kindOf: article },
   { key: "news-donga", name: "동아일보", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
@@ -152,6 +156,8 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     // 안내 쪽 www.sedaily.com/rss [사실, 11/10]: '개인 이용자의 비상업적 사용에만 허용', AI 학습 금지 [사실] → 명진 결정(11/08, 개인 용도)으로 넣음.
     // 사회 피드 열림(RSS 2.0·item 50·description 없음·기사 링크 https://www.sedaily.com/article/…) [사실].
     extract: false,
+    // S69-06(실측): 기사 본문 칸 `#article-body`(흔한 본문 칸 `article-content`는 머리·요약 줄을 먼저 담아 앞부분만 남았다).
+    bodyClass: /^article-body$/,
     lists: ["https://www.sedaily.com/rss/society", "https://www.sedaily.com/rss/economy", "https://www.sedaily.com/rss/politics"],
     hosts: ["www.sedaily.com", "sedaily.com"], kindOf: article },
   { key: "news-imaeil", name: "매일신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
@@ -193,10 +199,14 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   { key: "news-laborplus", name: "참여와혁신", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all", on: true,
     // 홈 하단 공식 RSS 링크(rssIndex.html) [사실]. robots `/admin/`만 [사실]. 전체 피드 50건·글 링크 https://www.laborplus.co.kr/… [사실].
     extract: false,
+    // S69-06(실측 GitHub 러너): 엔디소프트 기사 쪽. 본문 칸 `#article-view-content-div`를 고정하지 않으면 앞의 짧은 <article>(머리)에서 멈춰 앞부분만 남았다.
+    bodyClass: /^article-view-content-div$/,
     lists: ["https://www.laborplus.co.kr/rss/allArticle.xml"], hosts: ["www.laborplus.co.kr", "laborplus.co.kr"], kindOf: article },
   { key: "news-redian", name: "레디앙", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all", on: true,
     // robots `/admin/`만 [사실]. 전체 피드 50건·글 링크 https [사실].
     extract: false,
+    // S69-06(실측 GitHub 러너): 엔디소프트 기사 쪽. 본문 칸 `#article-view-content-div`를 고정하지 않으면 앞의 짧은 <article>(머리)에서 멈춰 앞부분만 남았다.
+    bodyClass: /^article-view-content-div$/,
     lists: ["https://www.redian.org/rss/allArticle.xml"], hosts: ["www.redian.org", "redian.org"], kindOf: article },
   { key: "news-mt", name: "머니투데이", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", mixedAs: "economy", on: true,
     // 피드 https://rss.mt.co.kr/mt_news.xml 살아 있음, 글 링크 https://www.mt.co.kr/… [사실]. rss.mt.co.kr/robots.txt는 www.mt.co.kr의 없는 쪽(404)으로 넘긴다 [사실]:
