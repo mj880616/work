@@ -1518,10 +1518,14 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (pop.getBoundingClientRect().width > view0.w - side * 2) pop.style.maxWidth = `${Math.max(120, view0.w - side * 2)}px`;
     pop.style.left = '0px'; pop.style.top = '0px';
     const t = trigger.getBoundingClientRect(), size = pop.getBoundingClientRect();
-    const below = view0.t + view0.h - bottomRoom - t.bottom - gap, above = t.top - view0.t - side - gap;
+    // NOTE-노션편집 ①(가): the screen's own top line (PC: the fixed top bar, --kptu-stick-top) is not room — a box opened upward
+    // under it could not be pressed. (0 on a phone and in the big window.)
+    const topLine = parseFloat(getComputedStyle(root).getPropertyValue('--kptu-stick-top')) || 0;
+    const ceiling = Math.max(view0.t + side, topLine + side);
+    const below = view0.t + view0.h - bottomRoom - t.bottom - gap, above = t.top - ceiling - gap;
     const underneath = size.height <= below || below >= above, room = Math.max(80, Math.floor(underneath ? below : above));
     // (A button inside a scrolled group popover can sit above the screen's top: the popover stays on the screen.)
-    const top = Math.max(view0.t + side, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
+    const top = Math.max(ceiling, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
     pop.style.maxHeight = `${room}px`;
     // (The left floor is the screen's side margin, or the button's own left when the button sits closer to the edge, so a popover
     // under the first button of a tight phone row still starts on that button.)
