@@ -399,7 +399,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-lm-row { display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap,4px); }
 .nb-lm-foot { justify-content:space-between; }
 .nb-link-menu .nb-lm-del { color:var(--kptu-danger,var(--kptu-muted)); }
-/* NOTE-보드여러개: 보드 보기 위 보드 칸 줄 [전체] [보드…] [+ 새 보드](작고 낮은 칸), PC 왼쪽 170px 폴더·노트 목록, 폰 노트 고르기 창. */
+/* NOTE-보드여러개: 보드 보기 위 보드 칸 줄 [보드…] [+ 새 보드](S69-83 [전체] 없앰)(작고 낮은 칸), PC 왼쪽 170px 폴더·노트 목록, 폰 노트 고르기 창. */
 .nbb { display:flex; flex-wrap:wrap; gap:var(--ds-chip-row-gap,4px); align-items:center; margin:4px 0; }
 /* LIB-맨위다듬기(S53-18) 같은 종류 전수: 보드 칸도 공용 거르기 칩 모양(알약 26px·12px·옅은 선, 고른 칸만 공용 선택 색). */
 #appView #basketView .nbb button:not(.chip-rows-more) { flex:none; position:relative; min-width:0; min-height:0; height:var(--ds-chip-row-height,26px); margin:0; padding:0 var(--ds-chip-row-pad-x,8px); border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-chip-radius,999px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-meta,12px); line-height:1; white-space:nowrap; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }

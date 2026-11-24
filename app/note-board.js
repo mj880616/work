@@ -163,7 +163,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     for (const id of [...textSize.keys()]) if (!textEls.has(id)) textSize.delete(id);
   }
   // notes: 이 판의 노트(자리 계산은 전체로), visible: 그릴 노트 id(찾는 중이면 맞는 것만). folderOf(note) → 폴더 id 또는 null.
-  // boardKey: 'all' 또는 보드 id(보던 자리를 보드마다 기억), links: 이 보드의 선(parseLink 모양).
+  // boardKey: 보드 id(보던 자리를 보드마다 기억), links: 이 보드의 선(parseLink 모양).
   function paint({notes, folderOf, colorOfFolder = () => null, visible = null, pickActive = false, isPicked = () => false, placeOf = undefined, removable = false, emptyText = '', boardKey = 'all', links:list = [], texts:textList = []}) {
     if (drag) cancelDrag();
     if (wire) cancelWire();

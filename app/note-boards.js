@@ -1,6 +1,6 @@
 // NOTE-보드여러개 (요청함 10/30 05:48, 명진 결정 '위 추천안대로'): 노트 [보드] 보기(S68-38 옛 이름 포스트잇)의 보드 여러 개.
 // S68-38: 보드를 지우거나 보드에서 노트를 빼면 그 보드의 연결선(links = note-board-links-data.js 모음)도 함께 정리한다.
-// 이 모듈이 맡는 곳: 보드 칸 줄([전체] [보드…] [+ 새 보드], 폰은 이름 붙은 보드에서 [+ 노트 붙이기]), PC 왼쪽 폴더·노트 목록(끌어다 놓기),
+// 이 모듈이 맡는 곳: 보드 칸 줄([보드…] [+ 새 보드], 폰은 이름 붙은 보드에서 [+ 노트 붙이기]), PC 왼쪽 폴더·노트 목록(끌어다 놓기),
 // 폰 노트 고르기 창, 보드 칸 우클릭(폰 꾹 누르기) 메뉴 [이름 바꾸기] [보드 지우기], 보드에 붙이기·빼기·옮긴 자리 저장.
 // S69 보드목록폴더놓기(요청함 '여기서 노트를 드래그해서 폴더로 못넣음'): 왼쪽 목록의 노트를 폴더 줄에 놓으면 그 폴더로 옮긴다.
 // 옮기기는 노트 목록과 같은 길(basket-notes.js moveItems → setNoteFolderRef, 되돌리기 알림 포함)이고, 목록은 그 뒤 rerender 한 곳에서 다시 그린다.
@@ -12,11 +12,14 @@
 // 저장(기기 저장 없음):
 // - 보드 목록·마지막에 연 보드: 서버 화면 기억 view_prefs.note_boards·note_board(migration 20261030091000). DB 적용 전에는 서버가 거절해
 //   되돌리고 알린다(rejectable). 늦게 온 서버 값은 이번 접속에서 고른 뒤에는 덮지 않는다.
-// - 노트가 붙은 보드와 자리: 노트 metadata.boards[보드 id](basket-data.js setNoteBoardPlace). [전체]는 지금 그대로 metadata.board.
+// - 노트가 붙은 보드와 자리: 노트 metadata.boards[보드 id](basket-data.js setNoteBoardPlace).
+// S69-83(명진 11/24 23:55 "전체는 불필요함 걍 없애"): 모든 노트를 한 판에 늘어놓던 [전체]는 없앴다. 보드 칸 줄은 내가 만든 보드와 [+ 새 보드]뿐,
+//   처음엔 마지막에 연 보드(없으면 가장 최근에 만든 보드), 보드가 하나도 없으면 current = null(판 대신 빈 안내, basket-notes.js paintBoard).
+//   서버 화면 기억에 옛 값 'all'이 남아 있어도 pickBoard가 무시한다. 노트의 옛 metadata.board 값은 지우지 않는다.
 import { viewPrefs } from './view-prefs.js';
 import { treeIconHtml, iconHtml } from './tree-icons.js';
 import { mountSplitResize } from './split-resize.js';
-import { ALL, BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace } from './note-boards-model.mjs';
+import { BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace } from './note-boards-model.mjs';
 import { layoutBoard, spreadFrom, topZ } from './note-board-model.mjs';
 import { treeRows, noteLineTitle, OUTSIDE, OUTSIDE_NAME } from './note-tree.mjs';
 import { setNoteBoardPlace } from './basket-data.js';
@@ -48,7 +51,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   const coarse = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)') : {matches:false};
   let boards = parseBoards(viewPrefs.get('note_boards')), current = pickBoard(viewPrefs.get('note_board'), boards), chosen = false;
   let openSet = new Set(), menu = null, picker = null;
-  const named = () => current !== ALL && boards.some(b => b.id === current);
+  const named = () => !!current && boards.some(b => b.id === current);
   const boardName = id => boards.find(b => b.id === id)?.name || '';
   window.addEventListener('kptu:view-prefs-ready', () => {
     if (chosen) return;
@@ -62,7 +65,8 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   });
   const saveBoards = () => { viewPrefs.set('note_boards', boardsToPrefs(boards), {rejectable:true}); void viewPrefs.flush?.(); };
   function select(id) {
-    const next = id === ALL || boards.some(b => b.id === id) ? id : ALL;
+    if (!boards.some(b => b.id === id)) return;
+    const next = id;
     chosen = true; closeMenu();
     if (next === current) return;
     current = next; viewPrefs.set('note_board', current, {rejectable:true});
@@ -72,9 +76,9 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   // 보드 칸 줄. 고른 보드는 aria-pressed. 이름 붙은 보드 칸은 우클릭·꾹 누르기로 메뉴(보드 칸 자체가 메뉴를 연다, ⋯ 없음).
   function paintBar() {
     const phoneAdd = named() && (!wide.matches || coarse.matches);
-    bar.innerHTML = `<button type="button" class="nbb-chip" data-nbb-board="${ALL}" aria-pressed="${current === ALL}">전체</button>${boards.map(b => `<button type="button" class="nbb-chip" data-nbb-board="${esc(b.id)}" aria-pressed="${current === b.id}" aria-haspopup="true" title="우클릭(폰은 꾹 누르기): 이름 바꾸기·삭제">${esc(b.name)}</button>`).join('')}${boards.length < BOARD_LIMITS.count ? '<button type="button" class="nbb-new" data-nbb-new>+ 새 보드</button>' : ''}${phoneAdd ? '<button type="button" class="nbb-new nbb-attach" data-nbb-pick>+ 노트 붙이기</button>' : ''}`;
-    // UI-칩줄두줄: 보드 칸 줄도 두 줄 + [더보기 ▾](공용 chip-rows.js). 접히는 것은 고르지 않은 보드 칸뿐, [전체]·[+ 새 보드]·[+ 노트 붙이기]는 늘 보인다.
-    fitChipRows(bar, { key: 'noteboards', keep: el => el.dataset.nbbBoard === undefined || el.dataset.nbbBoard === ALL || el.getAttribute('aria-pressed') === 'true' });
+    bar.innerHTML = `${boards.map(b => `<button type="button" class="nbb-chip" data-nbb-board="${esc(b.id)}" aria-pressed="${current === b.id}" aria-haspopup="true" title="우클릭(폰은 꾹 누르기): 이름 바꾸기·삭제">${esc(b.name)}</button>`).join('')}${boards.length < BOARD_LIMITS.count ? '<button type="button" class="nbb-new" data-nbb-new>+ 새 보드</button>' : ''}${phoneAdd ? '<button type="button" class="nbb-new nbb-attach" data-nbb-pick>+ 노트 붙이기</button>' : ''}`;
+    // UI-칩줄두줄: 보드 칸 줄도 두 줄 + [더보기 ▾](공용 chip-rows.js). 접히는 것은 고르지 않은 보드 칸뿐, [+ 새 보드]·[+ 노트 붙이기]는 늘 보인다.
+    fitChipRows(bar, { key: 'noteboards', keep: el => el.dataset.nbbBoard === undefined || el.getAttribute('aria-pressed') === 'true' });
   }
   // PC 왼쪽 목록: 노트 화면과 같은 폴더 나무(note-tree.mjs treeRows) + 그 안 노트. 이미 붙은 노트는 작은 '보드에 있음' 점(판에는 다시 놓이지 않음).
   function paintSide() {
@@ -82,7 +86,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const body = side.parentElement;
     side.hidden = !show; body?.classList.toggle('nbw-split', show);
     // UI-칸폭끌기전수(요청함 10/30 10:29): PC 이름 붙은 보드는 왼쪽 노트 목록 | 보드 사이 경계를 끌어 폭을 바꾼다(공용 split-resize.js,
-    // 기본 16:84·목록 최소 150px). 폭은 서버(view_prefs.split_ratio.noteboard)에 기억한다. 목록이 없으면(전체 보드·폰) 경계가 숨는다.
+    // 기본 16:84·목록 최소 150px). 폭은 서버(view_prefs.split_ratio.noteboard)에 기억한다. 목록이 없으면(보드 없음·폰) 경계가 숨는다.
     if (body) mountSplitResize({container:body, name:'noteboard', label:'노트 목록과 보드 칸 폭 조절', columns:[
       {el:() => side, varName:'--ds-split-list', minVar:'--ds-split-list-min', minFallback:150, share:16},
       {el:() => body.querySelector(':scope>[data-note-board]'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:84}],
@@ -186,7 +190,8 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const name = boardName(id), on = notesOnBoard(notes.get(), id);
     if (!await askConfirm(trigger || bar, {text:`'${name}' 보드를 삭제할까요?`, note:`붙은 노트 ${on.length}개는 삭제하지 않아요(보드에서만 빠져요).`, ok:'삭제', danger:true})) return;
     boards = removeBoard(boards, id); saveBoards();
-    if (current === id) { current = ALL; viewPrefs.set('note_board', ALL, {rejectable:true}); }
+    // 보던 보드를 지우면 남은 보드 중 가장 최근에 만든 보드로(없으면 빈 안내). 남은 보드가 없으면 화면 기억은 그대로 두고 읽을 때 무시한다.
+    if (current === id) { current = pickBoard(null, boards); if (current) viewPrefs.set('note_board', current, {rejectable:true}); }
     for (const n of on) localPlace(n.id, id, null);
     rerender();
     // 지운 보드의 자리도 노트에서 지운다(남아도 화면은 무시하지만, 노트 metadata를 깨끗이).
@@ -201,7 +206,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     return el;
   }
   function openMenu(chip) {
-    const id = chip.dataset.nbbBoard; if (!id || id === ALL) return;
+    const id = chip.dataset.nbbBoard; if (!id) return;
     closeMenu();
     const el = menuEl();
     el.innerHTML = '<button type="button" data-nbb-rename>이름 바꾸기</button><button type="button" class="basket-menu-danger" data-nbb-delete>보드 삭제</button>';
@@ -233,14 +238,14 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     if (e.key === 'Escape' && menu) { e.preventDefault(); e.stopPropagation(); closeMenu({focus:true}); return; }
     const chip = e.target.closest?.('[data-nbb-board]');
     if (chip && (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))) { e.preventDefault(); openMenu(chip); }
-    if (chip && e.key === 'F2' && chip.dataset.nbbBoard !== ALL) { e.preventDefault(); void rename(chip.dataset.nbbBoard, chip); }
+    if (chip && e.key === 'F2') { e.preventDefault(); void rename(chip.dataset.nbbBoard, chip); }
   });
   // PC 우클릭: 이 칸의 메뉴(공용 context-menu.js보다 먼저, 브라우저 메뉴 대신).
-  bar.addEventListener('contextmenu', e => { const chip = e.target.closest('[data-nbb-board]'); if (!chip || chip.dataset.nbbBoard === ALL) return; e.preventDefault(); e.stopPropagation(); openMenu(chip); });
+  bar.addEventListener('contextmenu', e => { const chip = e.target.closest('[data-nbb-board]'); if (!chip) return; e.preventDefault(); e.stopPropagation(); openMenu(chip); });
   // 폰 꾹 누르기.
   let press = null, suppress = 0;
   bar.addEventListener('pointerdown', e => {
-    const chip = e.target.closest('[data-nbb-board]'); if (!chip || e.pointerType === 'mouse' || chip.dataset.nbbBoard === ALL) return;
+    const chip = e.target.closest('[data-nbb-board]'); if (!chip || e.pointerType === 'mouse') return;
     press = {chip, x:e.clientX, y:e.clientY, timer:setTimeout(() => { press = null; suppress = Date.now() + 600; try { navigator.vibrate?.(12); } catch { /* 진동 없음 */ } openMenu(chip); }, LONG_MS)};
   });
   const endPress = () => { if (press) { clearTimeout(press.timer); press = null; } };

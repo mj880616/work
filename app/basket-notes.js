@@ -23,7 +23,7 @@ import { formatSeoulTime, seoulDateKey } from './meeting-time.js';
 // note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, setNoteBoard } from './basket-data.js';
+import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder } from './basket-data.js';
 // NOTE-탐색기(2026-10-28 09:24·10:34·11:01): 폴더 안 폴더(app_note_folders, 100단), 한 줄 노트, 끌어 옮기기·선택 모드·되돌리기.
 import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder, setNoteFolderColor } from './note-folders-data.js';
 // FOLDER-순서·색 ②(S49-38): 폴더 색·끌기 순서 공용 부품(folder-look-model.mjs 계산, folder-look.js 그림, reorder-drag.js 끌기).
@@ -75,9 +75,9 @@ import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
 import { bindRowSwipe, claimedSince, PICK } from './row-swipe.js';
 import { notePreview, noteCopyPayload } from './note-preview.mjs';
-// NOTE-보기3가지(요청함 10/29 15:05): [폴더|목록|보드](S68-38 옛 이름 포스트잇) 보기. 고른 보기는 서버(view_prefs.note_view, 값 'board' 그대로), 카드 자리는 노트 metadata.board.
+// NOTE-보기3가지(요청함 10/29 15:05): [폴더|목록|보드](S68-38 옛 이름 포스트잇) 보기. 고른 보기는 서버(view_prefs.note_view, 값 'board' 그대로), 카드 자리는 노트 metadata.boards[보드 id](S69-83: 옛 [전체]의 metadata.board는 읽지 않음).
 import { mountNoteBoard } from './note-board.js';
-// NOTE-보드여러개(요청함 10/30 05:48): 보드 보기의 [전체] [보드…] [+ 새 보드]. 보드 칸 줄·PC 왼쪽 목록·폰 고르기 창은 note-boards.js.
+// NOTE-보드여러개(요청함 10/30 05:48): 보드 보기의 [보드…] [+ 새 보드](S69-83 [전체] 없앰). 보드 칸 줄·PC 왼쪽 목록·폰 고르기 창은 note-boards.js.
 import { createNoteBoards } from './note-boards.js';
 // S68-38 노트 '보드'(생각 지도): 보드 위 노트 → 노트 연결선(서버 표 app_note_board_links). 읽기·쓰기·화면 모음은 note-board-links-data.js 한 곳.
 import { createBoardLinks } from './note-board-links-data.js';
@@ -162,7 +162,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
   // 오른쪽 칸을 따로 그리는 자리: 'News에서' 두 줄(note-news-marks.js)·휴지통(note-trash.js). 폴더가 아니고 끌어 놓을 곳도 아니다.
   const isPaneAt = v => isNewsAt(v) || isTrashAt(v);
-  host.innerHTML = `<div data-note-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><span class="nv-switch ds-seg" role="group" aria-label="노트 보기"><button type="button" class="ds-seg-btn" data-note-view="folder" aria-pressed="true">폴더</button><button type="button" class="ds-seg-btn" data-note-view="list" aria-pressed="false">목록</button><button type="button" class="ds-seg-btn" data-note-view="board" aria-pressed="false">보드</button><button type="button" class="ds-seg-btn" data-note-view="tag" aria-pressed="false">태그</button><button type="button" class="ds-seg-btn" data-note-view="comment" aria-pressed="false">댓글</button><button type="button" class="ds-seg-btn" data-note-view="calendar" aria-pressed="false">달력</button></span><span class="a11y-only" data-nx-count aria-live="polite"></span><button type="button" class="basket-icon-button note-folder-more" data-note-folder-more data-ctx="screen" aria-label="노트 목록 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div><div class="nx-select-bar" data-nx-select-bar role="toolbar" aria-label="선택한 노트" hidden><span data-nx-select-count></span><span class="kptu-actbar kptu-actbar-text nx-sel-acts"><button type="button" class="kptu-act" data-nx-sel-move>폴더로 옮기기</button><button type="button" class="kptu-act kptu-act-danger" data-nx-sel-delete>삭제</button><button type="button" class="kptu-act" data-nx-sel-all>전체 선택</button></span><button type="button" class="nx-sel-close" data-nx-sel-close aria-label="선택 끝내기">✕</button></div><nav class="fp-path nx-where" data-nx-where aria-label="지금 위치" hidden></nav><p class="note-folder-status" data-note-folder-status role="status" hidden></p><div data-note-list-status role="status"></div><button type="button" data-note-retry hidden>다시 시도</button><div class="nx-body" data-nx-body><div class="nx-tree" data-nx-tree data-reorder-list="tree" role="tree" aria-label="노트 폴더" hidden></div><div class="nx-pane"><div class="filter-chips nt-chips" data-nt-chips role="group" hidden></div><div class="nx-here" data-nx-here hidden></div><div class="nx-recent" data-nx-recent data-reorder-list="recent" role="group" aria-label="최근 노트" hidden></div><div class="nnm-found-head" data-nnm-head role="status" hidden></div><div data-note-rows id="noteRows" data-reorder-list="rows" class="nx-rows"></div><div class="nnm" data-nnm hidden></div><div class="nxt" data-nx-trash hidden></div></div></div><div class="nbw" data-note-board-wrap hidden><div class="nbb" data-nbb role="toolbar" aria-label="보드"></div><div class="nbw-body"><div class="nbb-side" data-nbb-side hidden></div><div class="nb" data-note-board></div></div></div></div><div data-note-detail hidden></div><div id="noteDocMenu" class="basket-more-menu note-pop-menu" role="group" aria-label="노트 메뉴" hidden></div>`;
+  host.innerHTML = `<div data-note-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><span class="nv-switch ds-seg" role="group" aria-label="노트 보기"><button type="button" class="ds-seg-btn" data-note-view="folder" aria-pressed="true">폴더</button><button type="button" class="ds-seg-btn" data-note-view="list" aria-pressed="false">목록</button><button type="button" class="ds-seg-btn" data-note-view="board" aria-pressed="false">보드</button><button type="button" class="ds-seg-btn" data-note-view="tag" aria-pressed="false">태그</button><button type="button" class="ds-seg-btn" data-note-view="comment" aria-pressed="false">댓글</button><button type="button" class="ds-seg-btn" data-note-view="calendar" aria-pressed="false">달력</button></span><span class="a11y-only" data-nx-count aria-live="polite"></span><button type="button" class="basket-icon-button note-folder-more" data-note-folder-more data-ctx="screen" aria-label="노트 목록 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div><div class="nx-select-bar" data-nx-select-bar role="toolbar" aria-label="선택한 노트" hidden><span data-nx-select-count></span><span class="kptu-actbar kptu-actbar-text nx-sel-acts"><button type="button" class="kptu-act" data-nx-sel-move>폴더로 옮기기</button><button type="button" class="kptu-act kptu-act-danger" data-nx-sel-delete>삭제</button><button type="button" class="kptu-act" data-nx-sel-all>전체 선택</button></span><button type="button" class="nx-sel-close" data-nx-sel-close aria-label="선택 끝내기">✕</button></div><nav class="fp-path nx-where" data-nx-where aria-label="지금 위치" hidden></nav><p class="note-folder-status" data-note-folder-status role="status" hidden></p><div data-note-list-status role="status"></div><button type="button" data-note-retry hidden>다시 시도</button><div class="nx-body" data-nx-body><div class="nx-tree" data-nx-tree data-reorder-list="tree" role="tree" aria-label="노트 폴더" hidden></div><div class="nx-pane"><div class="filter-chips nt-chips" data-nt-chips role="group" hidden></div><div class="nx-here" data-nx-here hidden></div><div class="nx-recent" data-nx-recent data-reorder-list="recent" role="group" aria-label="최근 노트" hidden></div><div class="nnm-found-head" data-nnm-head role="status" hidden></div><div data-note-rows id="noteRows" data-reorder-list="rows" class="nx-rows"></div><div class="nnm" data-nnm hidden></div><div class="nxt" data-nx-trash hidden></div></div></div><div class="nbw" data-note-board-wrap hidden><div class="nbb" data-nbb role="toolbar" aria-label="보드"></div><div class="nbw-body"><div class="nbb-side" data-nbb-side hidden></div><div class="nb" data-note-board></div><p class="wait-empty" data-wait-empty data-nbw-none hidden>보드가 없어요. [+ 새 보드]로 만들어 보세요.</p></div></div></div><div data-note-detail hidden></div><div id="noteDocMenu" class="basket-more-menu note-pop-menu" role="group" aria-label="노트 메뉴" hidden></div>`;
   // BASKET-노트입력창 (2026-10-22 사용자 결정): notes are added like updates — the same input box at the top of the list on a PC
   // and docked above the tabs on a phone — instead of the old [+ 노트] (phone: floating ⊕).
   const quick = mountQuick({root:host.querySelector('[data-note-list]'), esc, noteOnly:true, view:'basket', idPrefix:'basketNote',
@@ -222,6 +222,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const boardLinks = createBoardLinks({rt, scope:() => scope(), toast:showToast, onChange:() => {
     if (!loaded || selected || view !== 'board') return;
     if (!board) { renderList(); return; }
+    if (!boards.isNamed()) return;
     const key = boards.current(); board.relink({links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key)});
   }});
   const boards = createNoteBoards({esc, rt, links:boardLinks, wide:window.matchMedia('(min-width:761px)'), bar:host.querySelector('[data-nbb]'), side:host.querySelector('[data-nbb-side]'),
@@ -354,28 +355,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (pinLock.noteHidden(note)) return {title:LOCKED, locked:true};
     return {title:[...noteLineTitle(note)].slice(0, 60).join('')};
   }
-  // 보드 카드 자리 저장: 옮긴 칸, 그리고 처음 옮길 때 아직 저장 안 된 칸들도 지금 보이던 자리 그대로(다른 칸이 튀지 않게). 실패하면 다시 그려 서버 자리로.
-  const boardSaving = new Set();
-  async function saveBoard(id, next, before) {
-    const owner = scope(), jobs = [[id, next]];
-    for (const [nid, p] of before) if (nid !== id && !p.saved && !boardSaving.has(nid)) jobs.push([nid, {x:p.x, y:p.y, r:p.r, z:p.z}]);
-    const local = (nid, b) => { notes = notes.map(n => n.id === nid ? {...n, metadata:{...(n.metadata && typeof n.metadata === 'object' ? n.metadata : {}), board:b}} : n); };
-    for (const [nid, b] of jobs) local(nid, b); // 화면은 바로 그 자리(서버 답을 기다리지 않음)
-    let failed = 0;
-    const work = jobs.map(([nid, b]) => async () => {
-      const note = notes.find(n => n.id === nid); if (!note) return;
-      boardSaving.add(nid);
-      try { const saved = await setNoteBoard(note, b, rt); if (owner === scope() && saved?.metadata) notes = notes.map(n => n.id === nid ? {...n, metadata:saved.metadata} : n); }
-      catch { failed++; } finally { boardSaving.delete(nid); }
-    });
-    for (let i = 0; i < work.length; i += 4) await Promise.all(work.slice(i, i + 4).map(run => run())); // 한 번에 넷씩
-    if (owner !== scope()) return;
-    if (failed) { showToast('카드 자리를 저장하지 못했어요. 다시 불러올게요.'); await refresh(); }
-  }
   function paintBoard(m) {
     const box = host.querySelector('[data-note-board]');
     board ??= mountNoteBoard(box, {esc, cardText:boardText, moreIcon:MORE_ICON,
-      onMove:(id, next, before) => { if (boards.isNamed()) boards.move(id, next); else void saveBoard(id, next, before); },
+      onMove:(id, next) => boards.move(id, next),
       onDrop:(id, point, places) => boards.attach([id], point, places),
       // S69-33: 고른 카드 함께 빼기(이름 붙은 보드), 전체 화면으로 키울 칸 = 보드 칸 전체(보드 칸 줄·왼쪽 목록 포함), 왼쪽 목록이 있나.
       onRemove:ids => { if (!pick.active) boards.detach(ids); },
@@ -387,10 +370,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       onTextAdd:text => { void boardLinks.addText(text); }, onTextChange:(id, patch) => { void boardLinks.updateText(id, patch); }, onTextRemove:id => { void boardLinks.removeText(id); },
       canText:() => boardLinks.checkTexts(), toast:showToast});
     boards.paint();
+    // S69-83: [전체]가 없으므로 보드가 하나도 없으면 판(도구 줄 포함) 대신 빈 안내 한 줄 — 보드 칸 줄의 [+ 새 보드]로 만든다.
+    const named = boards.boardView(), none = host.querySelector('[data-nbw-none]');
+    box.hidden = !named; none.hidden = !!named;
+    if (!named) return;
     void boardLinks.load(); // 처음 한 번(작업공간이 바뀌면 다시) — 다 읽으면 onChange로 다시 그린다
-    const named = boards.boardView(), shown = named ? named.notes : notes, key = boards.current();
+    const shown = named.notes, key = boards.current();
     board.paint({notes:shown, folderOf, colorOfFolder:id => colorOf(folderById(id)), visible:m ? new Set(shown.filter(m).map(n => n.id)) : null, pickActive:!!pick.active, isPicked:id => isPicked('n:' + id),
-      boardKey:key, links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key), ...(named ? {placeOf:named.placeOf, removable:true, emptyText:named.emptyText} : {})});
+      boardKey:key, links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key), placeOf:named.placeOf, removable:true, emptyText:named.emptyText});
   }
   function paintViewSwitch() {
     host.querySelectorAll('[data-note-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.noteView === view)));

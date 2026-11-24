@@ -347,16 +347,6 @@ export async function saveImportedNote(id, {title, raw_text, doc, source, check 
   if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
   return saved[0];
 }
-// NOTE-보기3가지: 포스트잇 보기의 자리·기울기·겹친 순서는 노트 행의 기존 metadata jsonb(metadata.board = {x, y, r, z}; 새 칸·DB 변경 없음,
-// 고정·폴더와 같은 읽고-지키며-쓰기). 옮기기는 고치기가 아니라 updated_at(고친 날·목록 순서)을 건드리지 않는다. 값의 모양은 note-board-model.mjs가 정한다.
-export function setNoteBoard(note, board, rt = window.KPTURuntime) {
-  return patchNoteMetadata(note, metadata => {
-    const old = plainObject(metadata.board) ? metadata.board : null;
-    if (old && old.x === board.x && old.y === board.y && old.r === board.r && old.z === board.z) return null;
-    metadata.board = {x:board.x, y:board.y, r:board.r, z:board.z};
-    return metadata;
-  }, rt);
-}
 // FAMILY-기억알림: 가족 '잊지 말기' 노트의 줄을 언제 보여 줬는지(metadata.remind = {day, picks, seen}, 모양은 family-remind-model.mjs readRemind).
 // 고치기가 아니라 updated_at(고친 날·목록 순서)은 그대로, 다른 metadata 칸도 그대로(고정·폴더·포스트잇 자리와 같은 읽고-지키며-쓰기).
 export function setNoteRemind(note, remind, rt = window.KPTURuntime) {

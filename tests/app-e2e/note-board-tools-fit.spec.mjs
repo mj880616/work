@@ -5,7 +5,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { mkdirSync } from 'node:fs';
 
 // S69-09 (명진 11/24 07:46 "노트보드 쪽에 글상자랑 더하기버튼 버튼 전체 여기 뭔가 겹쳐져 있고 잘려져 있는 느낌"):
-// 보드 판 오른쪽 위 단추 묶음 [+ 글 상자][－][＋][전체]. 원인: 공용 .icon-btn 고정 폭(32px)이 그대로 남아 [+ 글 상자](글자 약 56px)가
+// 보드 판 오른쪽 위 단추 묶음 [+ 글 상자][－][＋][전체](S69-33부터 [맞추기]). 원인: 공용 .icon-btn 고정 폭(32px)이 그대로 남아 [+ 글 상자](글자 약 56px)가
 // 32px 칸을 넘쳐 옆 [－]를 덮고, [－]의 왼쪽 구분선이 '글'과 '상자' 사이를 가로질렀다. 단추 폭을 글자에 맞추고(줄바꿈 없음),
 // 누르는 자리(높이 44px)는 이웃 단추끼리 겹치지 않게 했다. 폰 390·412, 폴드 펼침 884, PC 1280에서 잰다. 이름은 지어낸 것.
 test.use({ hasTouch: true });
@@ -16,7 +16,8 @@ async function openEmptyBoard(page, width) {
   await page.setViewportSize({ width, height: 860 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  await installViewPrefsServer(page, { note_view: 'board' });
+  // S69-83: [전체]가 없으므로 보드가 없으면 판·도구 줄 대신 빈 안내 — 빈 보드 하나를 열어 잰다.
+  await installViewPrefsServer(page, { note_view: 'board', note_boards: [{ id: 'btools01', name: '빈 보드' }], note_board: 'btools01' });
   await openHome(page);
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 500, json: {} }));
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.fulfill({ json: [] }));
