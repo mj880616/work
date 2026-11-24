@@ -57,3 +57,17 @@ export async function setFolderOrganization(api, id, organizationId) {
   const result = await api('/rest/v1/rpc/app_library_folder_set_org', {method: 'POST', body: {p_id: id, p_org: organizationId || null}, singleFlight: false});
   return !!result && result.ok === true;
 }
+// MTG-정기회의자료폴더: 정기 회의명과 짝지은 폴더들(meeting_key 칸, migration 20261124213000). 칸이 아직 없는 서버는 400 → null(짝 없이, 이름이 같은 폴더만).
+export async function readFolderMeetingLinks(api, workspaceId) {
+  try {
+    const rows = await api(`/rest/v1/app_library_folders?workspace_id=eq.${enc(workspaceId)}&meeting_key=not.is.null&select=id,meeting_key`);
+    if (!Array.isArray(rows)) return [];
+    if (rows.some(r => !r || !('meeting_key' in r))) return null; // 칸을 모르는 서버(돌려준 줄에 칸이 없음)
+    return rows.filter(r => r.meeting_key);
+  } catch (error) { if (Number(error?.status) === 400) return null; throw error; }
+}
+// 폴더 하나를 회의명 열쇠 하나와 짝짓는다(서버 함수 app_library_folder_set_meeting — 내 작업공간 폴더만, 같은 열쇠의 다른 폴더 짝은 서버가 푼다). null = 짝 풀기.
+export async function setFolderMeeting(api, id, meetingKey) {
+  const result = await api('/rest/v1/rpc/app_library_folder_set_meeting', {method: 'POST', body: {p_id: id, p_key: meetingKey || null}, singleFlight: false});
+  return !!result && result.ok === true;
+}

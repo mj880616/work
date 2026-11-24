@@ -140,23 +140,23 @@ for (const [label, size] of [SIZES[0], SIZES[2]]) {
     await panel(page).locator('[data-mnp-back]').click();
     await expect(panel(page).locator('.mnp-org')).toHaveText(['예시 조직 A', '기타']);
     await expect(picks(page)).toHaveText(['예시 회의 3', '예시 회의 1', '예시 회의 9', '예시 회의 10', '예시 회의 2', '예시 회의 4']);
-    // 미리 넣은 줄 ⋯: 조직 바꾸기 · 이름 바꾸기 · 위로 · 아래로 · 목록에서 빼기(비정기로 두기·삭제는 없음).
+    // 미리 넣은 줄 ⋯: 조직 바꾸기 · 자료실 폴더 정하기 · 이름 바꾸기 · 위로 · 아래로 · 목록에서 빼기(비정기로 두기·삭제는 없음).
     await menuOf(page, '예시 회의 9');
-    await expect(acts(page)).toHaveText(['조직 바꾸기 (예시 조직 A)', '이름 바꾸기', '위로', '아래로', '목록에서 빼기']);
+    await expect(acts(page)).toHaveText(['조직 바꾸기 (예시 조직 A)', '자료실 폴더 정하기', '이름 바꾸기', '위로', '아래로', '목록에서 빼기']);
     // [위로] 두 번: 메뉴에 머물고, 맨 위에서는 [위로]가 없다.
     await panel(page).locator('[data-mnp-act="up"]').click();
     await expect.poll(() => state.writes.at(-1).order).toEqual(['예시 회의 3', '예시 회의 9', '예시 회의 1', '예시 회의 10'].map(key));
-    await expect(acts(page)).toHaveText(['조직 바꾸기 (예시 조직 A)', '이름 바꾸기', '위로', '아래로', '목록에서 빼기']);
+    await expect(acts(page)).toHaveText(['조직 바꾸기 (예시 조직 A)', '자료실 폴더 정하기', '이름 바꾸기', '위로', '아래로', '목록에서 빼기']);
     await panel(page).locator('[data-mnp-act="up"]').click();
     await expect.poll(() => state.writes.at(-1).order).toEqual(['예시 회의 9', '예시 회의 3', '예시 회의 1', '예시 회의 10'].map(key));
-    await expect(acts(page)).toHaveText(['조직 바꾸기 (예시 조직 A)', '이름 바꾸기', '아래로', '목록에서 빼기']);
+    await expect(acts(page)).toHaveText(['조직 바꾸기 (예시 조직 A)', '자료실 폴더 정하기', '이름 바꾸기', '아래로', '목록에서 빼기']);
     await panel(page).locator('[data-mnp-act="down"]').click();
     await expect.poll(() => state.writes.at(-1).order).toEqual(['예시 회의 3', '예시 회의 9', '예시 회의 1', '예시 회의 10'].map(key));
     await panel(page).locator('[data-mnp-back]').click();
     await expect(picks(page)).toHaveText(['예시 회의 3', '예시 회의 9', '예시 회의 1', '예시 회의 10', '예시 회의 2', '예시 회의 4']);
     // 보고가 있는 줄 ⋯도 위로·아래로가 있고 기존 항목은 그대로(끝 줄은 그쪽 항목이 없음).
     await menuOf(page, '예시 회의 3');
-    await expect(acts(page)).toHaveText(['비정기로 두기', '조직 바꾸기 (예시 조직 A)', '이름 바꾸기', '아래로', '삭제']);
+    await expect(acts(page)).toHaveText(['비정기로 두기', '조직 바꾸기 (예시 조직 A)', '자료실 폴더 정하기', '이름 바꾸기', '아래로', '삭제']);
     await panel(page).locator('[data-mnp-back]').click();
     // 기존 줄 ⋯ 조직 바꾸기 → 그 조직 맨 아래에 붙는다.
     await menuOf(page, '예시 회의 4');
