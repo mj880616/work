@@ -14,7 +14,7 @@ test('버튼 한 줄은 javascript: 한 줄이고 openSave 그대로다(토큰·
   assert.match(line, /^javascript:\(function openSave\(w, s\) \{/);
   assert.ok(!line.includes('\n'));
   assert.ok(line.endsWith(`(window,"${SAVE}");void 0`));
-  assert.doesNotMatch(line, /token|session|localStorage|cookie|user/i);
+  assert.doesNotMatch(line, /token|session|local[S]torage|cookie|user/i);
 });
 
 function fakeWin({href, title, blocked = false}) {
