@@ -9,6 +9,7 @@ import {readLibraryFolders, createLibraryFolder, putDocumentInFolder, readFolder
 import {folderSiblings, nextSortOrder} from './library-tree.js';
 import {profileUrl} from './library-view-pref.js';
 import {notify} from './small-notice.js';
+import {word} from './brand/brand.mjs';
 import {isFolderId, guessParentFolder, liveParent, planOrgFolder, gatherPlan, ASK_TEXT, gatherLine} from './org-files-folder-model.mjs';
 
 const enc = encodeURIComponent;
@@ -85,7 +86,7 @@ function askParent(st, rt, then) {
     const {openLibraryFolderPicker} = await import('./library-folder-pick.js');
     openLibraryFolderPicker({anchor: box, folders: st.folders, onPick: f => void choose(f, close), onClosed: () => {}});
   };
-  const text = guess ? ASK_TEXT(guess.name) : '조직 기록 자료를 모을 폴더를 선택할까요?';
+  const text = guess ? ASK_TEXT(guess.name) : word('조직 기록 자료를 모을 폴더를 선택할까요?');
   notify(text, {record: false, ms: 20000, actions: guess
     ? [{label: '예', run: ({close}) => void choose(guess, close)}, {label: '다른 폴더', run: a => void pickOther(a)}]
     : [{label: '폴더 선택', run: a => void pickOther(a)}]});
@@ -129,7 +130,7 @@ export async function chooseOrgFilesParent(anchor, rt = window.KPTURuntime) {
   const {openLibraryFolderPicker} = await import('./library-folder-pick.js');
   openLibraryFolderPicker({anchor, folders: st.folders, onPick: async f => {
     if (!f?.id) return;
-    notify((await saveOrgFilesParent(f.id, rt)) ? `조직 기록 자료를 ‘${f.name}’ 폴더에 모아요.` : '모으는 폴더를 저장하지 못했어요.', {error: false});
+    notify((await saveOrgFilesParent(f.id, rt)) ? word`조직 기록 자료를 ‘${f.name}’ 폴더에 모아요.` : '모으는 폴더를 저장하지 못했어요.', {error: false});
   }});
 }
 
@@ -172,7 +173,7 @@ export async function gatherPastOrgFiles({rt = window.KPTURuntime, anchor = null
       window.dispatchEvent(new CustomEvent('kptu:library-folders-changed', {detail: {}}));
       return back > 0;
     } : null;
-    notify(gatherLine(moved.length, failed), {error: failed > 0, ...(undo ? {undo, label: `조직 폴더로 모으기 ${moved.length}개`} : {})});
+    notify(gatherLine(moved.length, failed), {error: failed > 0, ...(undo ? {undo, label: word`조직 폴더로 모으기 ${moved.length}개`} : {})});
     return {status: 'done', moved: moved.length, failed};
   });
 }

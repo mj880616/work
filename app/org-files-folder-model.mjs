@@ -4,6 +4,7 @@
 // 조직 ↔ 폴더 짝은 이름이 아니라 폴더 id로 서버에 저장(app_library_folders.organization_id) — 조직·폴더 이름을 바꿔도 짝은 그대로다.
 // 시험: tests/org-files-folder-model.test.mjs
 import {orgKey} from './org-name-match.mjs';
+import {word} from './brand/brand.mjs';
 
 // 줄 id 모양(서버 uuid). 값 자체는 서버가 외래 키·소유자 검사로 다시 확인한다.
 const ROW_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -71,6 +72,6 @@ export function gatherPlan({docs, items, visibleIds, receiveId = null, orgIds}) 
   return out;
 }
 
-export const ASK_TEXT = name => `조직 기록 자료를 ‘${name}’ 폴더에 모을까요?`;
-export const GATHER_LABEL = '지난 조직 기록 자료도 조직 폴더로 모으기';
+export const ASK_TEXT = name => word`조직 기록 자료를 ‘${name}’ 폴더에 모을까요?`;
+export const GATHER_LABEL = word('지난 조직 기록 자료도 조직 폴더로 모으기');
 export const gatherLine = (moved, failed = 0) => `옮김 ${moved}` + (failed ? ` · 못 옮김 ${failed}` : '');
