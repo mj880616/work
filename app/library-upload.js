@@ -30,7 +30,7 @@ import {GOTO_FOLDER_LABEL,flashRow} from './goto-folder.mjs'; // LIB-최근폴�
 import {foldPhotoSets,isPhotoSet,photoMeetingChunks} from './library-photoset.mjs';
 import {twinPlan,withTwins,pickCountText} from './library-twins.mjs';
 import {reportPhotosHtml,mountReportPhotos} from './report-photos.js';
-import {OUTSIDE_KEY as OUT_KEY,GROUP_BY,GROUP_LABELS,fileKindOf,buildTree,treeHtml,folderSuggestions,keys as luTreeKeys,walk as luTreeWalk,matchedKeys,pathTo,documentsInTrashedFolders,nextSortOrder,folderDepth,FOLDER_DEPTH} from './library-tree.js';
+import {OUTSIDE_KEY as OUT_KEY,GROUP_BY,GROUP_LABELS,fileKindOf,buildTree,treeHtml,folderCountOf,folderSuggestions,keys as luTreeKeys,walk as luTreeWalk,matchedKeys,pathTo,documentsInTrashedFolders,nextSortOrder,folderDepth,FOLDER_DEPTH} from './library-tree.js';
 import {mountLibraryFolders} from './library-folders.js';
 import {createReceiveSort,sortButtonHtml,createTidySuggest,TIDY_LABEL} from './library-sort.js'; // LIB-받는폴더나누기(S60-18)·LIB-정돈제안(S61-13)
 import {readLibraryFolders,readLibraryFolderItems,createLibraryFolder} from './library-folder-data.js';
@@ -1140,7 +1140,7 @@ function luRenderFolderNav(tree){
   card.dataset.luSplit='1';
   const path=luNavPath(),rows=[];
   const walk=(list,depth)=>{for(const n of list||[]){if(n.kind!=='folder')continue;const kids=(n.children||[]).filter(c=>c.kind==='folder'),open=kids.length>0&&!luNavShut.has(n.id)&&(path.has(n.id)||luNavOpen.has(n.id));
-    rows.push(ftFolderRowHtml({name:n.label,count:n.count,countLabel:`${n.count}건`,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,tag:n.rc?RECEIVE_MARK:'',mainAttrs:luCanDrag()?{'data-lu-nav':n.id,draggable:'true'}:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
+    const cnt=folderCountOf(n);rows.push(ftFolderRowHtml({name:n.label,count:cnt.text,countLabel:cnt.label,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,tag:n.rc?RECEIVE_MARK:'',mainAttrs:luCanDrag()?{'data-lu-nav':n.id,draggable:'true'}:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
     if(open)walk(kids,depth+1)}};
   walk(tree,0);
   const all=!luInFolder&&!luOutOnly;

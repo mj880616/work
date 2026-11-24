@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {bootLibrary,libDoc,libFolder,menuButton,press,movePicker} from './helpers/library-folder-server.mjs';
+import {pickFolderIn,pickOutIn} from './helpers/move-picker-drill.mjs';
 // S60-18 LIB-받는폴더나누기(시안 docs/design/mockups/lib-receive-sort.html, 명진 11/12 09:52~09:53):
 // 받는 폴더(잡동사니)를 연 화면 위 줄·두 칸 칸 머리·폴더 메뉴의 [폴더로 나누기] → 창이 바로 뜨고 제안이 채워짐
 // (① 규칙 ② 서버 AI가 기존 폴더 ③ 새 폴더 제안) → 체크·폴더 바꾸기·새 폴더 이름 고치기 → [옮기기]를 눌러야 새 폴더를 만들고 옮김
@@ -67,7 +68,7 @@ test.describe('PC 1280 한 칸',()=>{
     await expect(movePicker(page).or(page.locator('#luSortPicker'))).toBeVisible();
     const picker=page.locator('#luSortPicker');
     await expect(picker.locator(`[data-lu-move-folder="${RECV}"]`)).toHaveAttribute('aria-disabled','true');
-    await picker.locator(`[data-lu-move-folder="${HOE}"]`).last().click();
+    await pickFolderIn(picker,picker.locator(`[data-lu-move-folder="${HOE}"]`).last(),{path:[picker.locator(`[data-lu-move-folder="${GYO}"]`).last()]});
     await expect(row(page,R1).locator('.lu-sort-pick')).toContainText('가상 교섭 › 가상 회의');
     // 새 폴더 이름 고치기(같은 묶음 두 줄 모두 바뀜).
     await modal(page).locator('[data-sort-gname]').fill('산별 전환');
@@ -115,7 +116,7 @@ test.describe('PC 1280 한 칸',()=>{
     // 그대로 둬요 줄도 직접 폴더를 고르면 체크되어 옮길 수 있다(접힌 묶음을 펼쳐서).
     await modal(page).locator('.lu-sort-stay summary').click();
     await row(page,R4).locator('[data-sort-pick]').click();
-    await page.locator('#luSortPicker').locator(`[data-lu-move-folder="${GYO}"]`).last().click();
+    await pickFolderIn(page.locator('#luSortPicker'),page.locator('#luSortPicker').locator(`[data-lu-move-folder="${GYO}"]`).last());
     await expect(row(page,R4).locator('[data-sort-check]')).toBeChecked();
     await expect(modal(page).locator('[data-sort-apply]')).toHaveText('선택한 2개 옮기기');
     await modal(page).locator('[data-sort-apply]').click();
@@ -124,7 +125,7 @@ test.describe('PC 1280 한 칸',()=>{
     expect(s.writes.filter(w=>w.table==='folders')).toEqual([]);
     // 남은 자료를 모두 옮기면 단추가 없어진다.
     await page.locator('#libraryPath [data-lu-sort]').click();
-    for(const id of [R2,R3]){await row(page,id).locator('[data-sort-pick]').click();await page.locator('#luSortPicker').locator(`[data-lu-move-folder="${GYO}"]`).last().click()}
+    for(const id of [R2,R3]){await row(page,id).locator('[data-sort-pick]').click();await pickFolderIn(page.locator('#luSortPicker'),page.locator('#luSortPicker').locator(`[data-lu-move-folder="${GYO}"]`).last())}
     await modal(page).locator('[data-sort-apply]').click();
     await expect(modal(page)).toBeHidden();
     await expect(page.locator('#libraryPath [data-lu-sort]')).toHaveCount(0);
@@ -297,7 +298,7 @@ test.describe('폰 412',()=>{
     // S61-46: 놓을 자리 고르기는 폴더를 만드는 곳이 아니라 [+ 새 폴더 만들어 넣기]를 그리지 않는다(흐린 채 안 되는 단추 없음).
     await expect(page.locator('#luSortPicker [data-lu-move-out]')).toBeVisible();
     await expect(page.locator('#luSortPicker [data-lu-move-new]')).toHaveCount(0);
-    await press(page,page.locator('#luSortPicker [data-lu-move-out]'),412);
+    await pickOutIn(page.locator('#luSortPicker'),{press:l=>press(page,l,412)});
     await expect(modal(page).locator('[data-sort-place]')).toHaveText('놓을 자리: 맨 위 ▾');
     await expect(row(page,R2).locator('.lu-sort-pick').first()).toContainText('산별전환');
     await press(page,modal(page).locator('[data-sort-apply]'),412);

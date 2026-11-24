@@ -17,6 +17,7 @@ import {twoPaneFrame} from './two-pane.js';
 import {mountSplitResize} from './split-resize.js';
 import {paneSide} from './files-panes-model.mjs';
 import {ftFolderRowHtml} from './folder-tree-ui.mjs';
+import {folderCountOf} from './library-tree.js';
 import {emptyHtml, waitHtml} from './wait-state.js';
 import {folderPressAction, FOLDER_PRESS_ENTER} from './folder-tree-press.mjs';
 import {collapseSteps, moreStepHtml} from './folder-path.mjs';
@@ -107,7 +108,8 @@ export function createLibraryTwo(h) {
     const attrs = {'data-lu-nav': n.id, 'data-lu-prow': 'f:' + n.id};
     if (h.canDrag()) attrs.draggable = 'true';
     // LIB-받는폴더(S59-11): 받는 폴더 줄은 개수 뒤 작은 '받는 폴더'(나무 모델의 rc 표시 — library-tree.js buildTree).
-    return ftFolderRowHtml({name: n.label, count: n.count, countLabel: `${n.count}건`, depth, open, hasContent, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder', tag: n.rc ? '받는 폴더' : ''});
+    const cnt = folderCountOf(n);
+    return ftFolderRowHtml({name: n.label, count: cnt.text, countLabel: cnt.label, depth, open, hasContent, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder', tag: n.rc ? '받는 폴더' : ''});
   }
   // 맨 위 '폴더 밖' 줄: 한 칸 나무의 '폴더 밖' 줄과 같은 모양·같은 표시(data-lu-nav="x:out" — 놓으면 폴더 밖으로, library-folders.js dropFor).
   function outRow({node: n, open, hasContent}) {

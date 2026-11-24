@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { pickFolderIn } from './helpers/move-picker-drill.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // S52-27 UI-창스크롤(요청함 11/07 21:08·21:13·21:24): 노트 [폴더로 옮기기] 창(app/library-move-picker.js, 자료실·노트·News 공용).
@@ -74,7 +75,7 @@ for (const [name, width, height] of [['폰', 390, 800], ['폴드 접힘', 344, 8
   const last = picker(page).locator('.lu-move-item', { hasText: `시험 폴더 ${N}` });
   const lb = await last.boundingBox(), list = await picker(page).locator('.lu-move-list').boundingBox();
   expect(lb.y + lb.height).toBeLessThanOrEqual(list.y + list.height + 1);
-  await last.tap();
+  await pickFolderIn(picker(page), last, { press: l => l.tap() });
   await expect(picker(page)).toBeHidden();
   await expect.poll(() => f.writes.length).toBe(1);
   expect(f.writes[0].metadata.folder_id).toBe(U(N));

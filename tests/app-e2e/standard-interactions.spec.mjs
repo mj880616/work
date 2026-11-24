@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { appOrigin } from './helpers/test-origin.mjs';
-import { bootLibrary, libFolder } from './helpers/library-folder-server.mjs';
+import { bootLibrary, libFolder, libDoc, openMove, movePicker } from './helpers/library-folder-server.mjs';
+import { expandLibraryTree } from './helpers/library-tree.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
@@ -218,4 +219,38 @@ for (const [name, open] of HEAD_SCREENS) test(`H1 ${name} 폰 390: 머리 줄 �
   const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(over).toBeLessThanOrEqual(1);
   expect(s.errors).toEqual([]);
+});
+
+// ---------- S9. 폴더 고르기 창(LIB-폴더창들어가기, 명진 11/24 18:04) ----------
+// 폴더를 눌러도 바로 실행하지 않는다: 하위 폴더가 있으면 들어가고, 다른 폴더는 선택만, 실행 단추에만 실행, [취소]면 그대로.
+// 이 공용 창(app/library-move-picker.js)을 여는 화면이 생기면 PICK_SCREENS에 한 줄 더한다(열기·창·쓰기 기록을 돌려준다).
+// 노트·전체 검색·정돈 제안·받는 폴더 나누기·언론 별표 폴더는 각 화면 시험이 같은 도우미(helpers/move-picker-drill.mjs)로 본다.
+async function libraryPick(page, width) {
+  const folders = [libFolder('top', null, { name: '가상 위 폴더', sort_order: 1024 }), libFolder('mid', null, { name: '가상 가운데', parent_id: 'top', sort_order: 1024 }),
+    libFolder('leaf', null, { name: '가상 끝', parent_id: 'mid', sort_order: 1024 }), libFolder('side', null, { name: '가상 옆', sort_order: 2048 })];
+  const { s, errors } = await bootLibrary(page, width, { folders, items: [], docs: [libDoc('d1', null)], group: '폴더' });
+  await expandLibraryTree(page);
+  await openMove(page, 'd1', width);
+  return { errors, panel: movePicker(page), writes: () => s.writes.length, tap: width < 761 };
+}
+const PICK_SCREENS = [['자료실 폴더로 옮기기', libraryPick]];
+for (const [name, open] of PICK_SCREENS) for (const width of [390, 1280]) test.describe(`S9 ${name} ${width}`, () => {
+  test.use({ hasTouch: width < 761 });
+  test(`S9 ${name} ${width}: 상위 폴더 누르기 = 들어가기(실행 없음), 선택 뒤 실행 단추에만 실행, 취소면 그대로`, async ({ page }) => {
+    const { errors, panel, writes, tap } = await open(page, width);
+    const press = l => tap ? l.tap() : l.click();
+    const ok = panel.locator('[data-lu-move-ok]');
+    await expect(ok).toBeDisabled();
+    await press(panel.locator('[data-lu-move-folder="top"]'));
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('[data-lu-move-here]')).toBeVisible();
+    await press(panel.locator('[data-lu-move-folder="mid"]'));
+    await press(panel.locator('[data-lu-move-folder="leaf"]'));
+    await expect(panel.locator('[data-lu-move-folder="leaf"]')).toHaveAttribute('aria-pressed', 'true');
+    expect(writes()).toBe(0);
+    await press(panel.locator('[data-lu-move-cancel]'));
+    await expect(panel).toBeHidden();
+    expect(writes()).toBe(0);
+    expect(errors).toEqual([]);
+  });
 });

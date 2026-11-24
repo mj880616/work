@@ -1267,7 +1267,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function openAddPicker(trigger) {
     if (!foldersReady) { addPick = null; quick.setFolder(null); notReady(); return; }
     const choose = id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); };
-    picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
+    picker.open({anchor:trigger, place:'below', history:!isWide(), okLabel:'선택', canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
       onPick:choose, onNew:async () => { const made = await newFolder(folderAt(), {quiet:true, anchor:trigger}); if (made) choose(made.id); },
       onOut:() => { addPick = {at, folder:null}; quick.setFolder(null); bigWriter?.paint?.(); }});
   }
@@ -1284,7 +1284,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     return {get:() => value, label:() => folderName(value) || OUTSIDE_NAME, watch:fn => watchers.push(fn), close:() => { void picker.close(); },
       open:trigger => { if (!canEditFolders()) { notReady(); return; }
         const choose = id => { value = id; watchers.forEach(fn => fn()); };
-        picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
+        picker.open({anchor:trigger, place:'below', history:!isWide(), okLabel:'선택', canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
           onPick:choose, onOut:() => choose(null), onNew:async () => { const made = await newFolder(folderAt(), {quiet:true, anchor:trigger}); if (made) choose(made.id); }}); }};
   }
   // Notes written before the folder table (no metadata.folder_id) sit in the top folder of the same name. Before that folder is

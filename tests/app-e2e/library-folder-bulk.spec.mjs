@@ -1,7 +1,7 @@
 import {SHEET,pressName} from './helpers/area-org-picker.mjs';
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryTopMenu} from './helpers/library-tree.mjs';
-import {bootLibrary,libFolder,libDoc,SB,press,movePicker,moveFolder} from './helpers/library-folder-server.mjs';
+import {bootLibrary,libFolder,libDoc,SB,press,movePicker,moveFolder,moveTo} from './helpers/library-folder-server.mjs';
 import {expectPickerAtButton} from './helpers/picker-anchor.mjs';
 // LIB-폴더탐색기 화면 ③(docs/design/library-tree.md 12절): 선택 모드 일괄 수정 줄([프로젝트|담당조직|종류 바꾸기][폴더로 옮기기][삭제]),
 // 바꾼 칸은 칸별 기록 'user', '… 바꿨어요 · 되돌리기', 일부 실패, PC Ctrl/Shift+클릭 선택.
@@ -124,7 +124,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     await pick(page,['a-2','a1-1'],width);
     await press(page,bar(page).getByRole('button',{name:'폴더로 옮기기',exact:true}),width);
     await expect(page.locator('#luMovePicker')).toBeVisible();
-    await press(page,page.locator('#luMovePicker [data-lu-move-folder="fn"]').last(),width);
+    await moveTo(page,'fn',width);
     await expect(page.locator('#luMovePicker')).toBeHidden();
     await expect.poll(()=>s.items.filter(x=>x.folder_id==='fn').map(x=>x.document_id).sort()).toEqual(['a-2','a1-1']);
     expect(s.docs.find(d=>d.id==='a1-1').project_id).toBe('child-a1');
@@ -257,7 +257,7 @@ for(const width of [390,884,1280])test.describe(`폴더로 옮기기 창 자리 
     const btn=page.locator('#librarySelectFolder');
     await press(page,btn,width);
     await expectPickerAtButton(page,movePicker(page),btn);
-    await press(page,moveFolder(page,'fn'),width);
+    await moveTo(page,'fn',width);
     await expect(movePicker(page)).toBeHidden();
     expect(errors).toEqual([]);
   });

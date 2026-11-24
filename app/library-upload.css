@@ -348,9 +348,9 @@
 .lu-move-find{flex:none;box-sizing:border-box;width:100%;height:var(--ds-compact-height,32px);margin:0 0 4px;padding:0 8px;font:inherit;font-size:var(--ds-compact-text,13px)}
 .lu-move-list{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
 .lu-move-sec{margin:6px 8px 2px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-.lu-move-picker button{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;min-height:32px;margin:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
+.lu-move-picker button:not(.lu-move-ok,.lu-move-cancel){display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;min-height:32px;margin:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
 .lu-move-item{padding:0 8px 0 calc(8px + var(--lu-depth,0) * 14px)}
-.lu-move-picker button:is(:hover,:focus-visible):not([aria-disabled="true"]){background:var(--kptu-primary-soft)}
+.lu-move-picker button:is(:hover,:focus-visible):not([aria-disabled="true"],.lu-move-ok,.lu-move-cancel){background:var(--kptu-primary-soft)}
 .lu-move-picker button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .lu-move-picker button[aria-disabled="true"]{opacity:.5;cursor:default}
 .lu-move-item[aria-current="true"]{opacity:.6;cursor:default}
@@ -370,12 +370,20 @@
 .lu-move-back .lu-move-chev{margin-left:0}
 .lu-move-nav .lu-move-name{font-weight:var(--ds-weight-medium,500)}
 .lu-move-foot{flex:none;margin-top:4px;padding-top:4px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
-.lu-move-foot button{padding:0 8px;color:var(--kptu-primary-ink)}
+.lu-move-foot button:not(.lu-move-ok,.lu-move-cancel){padding:0 8px;color:var(--kptu-primary-ink)}
 /* BRIEF-자료실에서고르기: 여러 개 고르기 창 — 고른 줄 앞 작은 네모(✓), 아래 [넣기 n개]는 가운데 글자. */
 .lu-move-item[aria-pressed]::before{content:"";flex:none;box-sizing:border-box;width:14px;height:14px;border:var(--ds-line-width,1px) solid var(--kptu-muted);border-radius:var(--kptu-radius-sm,4px)}
 .lu-move-item[aria-pressed="true"]::before{content:"✓";display:grid;place-items:center;border-color:var(--kptu-primary-ink);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);line-height:1}
 .lu-move-foot .lu-move-done{justify-content:center;font-weight:var(--ds-weight-medium,500)}
 .lu-move-foot .lu-move-done:disabled{opacity:.5;cursor:default}
+/* LIB-폴더창들어가기: 들어가기 + 선택 + 실행 단추. 선택한 줄은 왼쪽 선 + 굵은 글자 + '선택됨'(네모 칸 없음 — 여러 개 고르기와 구별). 아래 [취소]·[여기로 옮기기](공용 secondary·primary). */
+.lu-move-drill .lu-move-item[aria-pressed]::before,.lu-move-drill .lu-move-foot-btn[aria-pressed]::before{content:none}
+.lu-move-picker.lu-move-drill button[aria-pressed="true"]{box-shadow:inset 3px 0 0 var(--ds-select-line,var(--kptu-primary-ink));color:var(--ds-select-ink,var(--kptu-ink));font-weight:var(--ds-weight-medium,500)}
+.lu-move-into::before{content:"›"}
+.lu-move-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lu-move-chosen{margin:4px 8px 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lu-move-acts{display:flex;gap:6px;margin-top:4px}
+.lu-move-picker .lu-move-acts button{flex:1 1 0}
 @media(max-width:760px){.lu-move-picker button{min-height:40px}.lu-move-find{height:40px}}
 
 /* LIB-폴더로옮기기 ③: 종류·담당조직·월별로 묶은 화면에서 파일을 끌기 시작하면 왼쪽에 뜨는 작은 폴더 목록(놓을 곳). */
