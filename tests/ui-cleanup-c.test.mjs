@@ -87,7 +87,7 @@ test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트
   assert.match(notes, /<div class="basket-detail-head">\$\{basketBackHtml\(selected\?\.id, NOTE_BACK, rt\)\}<div class="note-head-main"/);
   // S48-28: 쓰던 글이 있으면 공용 작은 확인창으로 묻고 닫는다(askClose → close).
   assert.match(notes, /hasAttribute\('data-note-back'\)\) void askClose\(b\);/);
-  assert.match(basket, /@media\(min-width:761px\)\{\s*#appView #basketView button\.note-back\{ display:none; \}\s*#appView #basketView > \[data-note-host\] > \[data-note-detail\] > \.basket-detail-head:not\(:has\(> \[data-basket-return\]\)\):has\(> \.note-head-main\[hidden\]\)\{ display:none; \}/);
+  assert.match(basket, /@media\(min-width:761px\)\{\s*#appView #basketView button\.note-back\{ display:none; \}\s*#appView #basketView > \[data-note-host\] \[data-note-detail\] > \.basket-detail-head:not\(:has\(> \[data-basket-return\]\)\):has\(> \.note-head-main\[hidden\]\)\{ display:none; \}/);
   assert.match(read('feed.css'), /#appView \.feed-view \.feed-pane > \.feed-detail-head:first-child,\s*#appView \.feed-view \.feed-list > \.feed-head:first-child:has\(> \.back-text\)\{ margin:0 0 12px;/);
   // UI-머리줄겹침: 음수 여백으로 위 머리줄 자리에 끌어올리지 않고, 빈 위 머리줄을 접는다(위에 다른 칸이 있어도 포개지지 않음).
   for (const f of ['feed.css', 'basket.css', 'ui-standard.css', 'reference-bundles.css']) assert.doesNotMatch(read(f), /margin:calc\(-1 \* \(var\(--kptu-touch-target/, f);

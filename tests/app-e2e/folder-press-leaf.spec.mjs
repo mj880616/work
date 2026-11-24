@@ -230,12 +230,16 @@ for (const width of [884, 1280]) test(`노트 ${width}: 나무 폴더 누르기 
   await tree.locator(`[data-nx-folder="${U(1)}"] .ft-main`).click();
   await expect(tree.locator(`[data-nx-folder="${U(3)}"]`)).toBeVisible();
   await expect(tree.locator(`[data-nx-folder="${U(1)}"]`)).not.toHaveClass(/ft-current/);
+  // S69-27: 나무에 폴더 바로 아래 노트 줄도 보이므로 하위 폴더 없이 노트만 든 폴더도 그 자리에서 펼친다(폰 나무와 같은 규칙: 펼쳐 보일 것이 있으면 펼치기).
   await tree.locator(`[data-nx-folder="${U(2)}"] .ft-main`).click();
-  await expect(page.locator('[data-nx-here]')).toHaveText('가상 개발 · 1');
-  await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(1);
+  await expect(tree.locator('[data-nx-note="b1"]')).toBeVisible();
+  await expect(page.locator('[data-nx-here]')).toHaveText('최근 · 3');
   await shot(page, `notes-${width}-leaf-open`);
   await tree.locator(`[data-nx-folder="${U(3)}"] .ft-main`).click();
-  await expect(page.locator('[data-nx-here]')).toHaveText('가상 회의 · 1');
+  await expect(tree.locator('[data-nx-note="c1"]')).toBeVisible();
+  // 빈 폴더(펼쳐 보일 것 없음)는 지금처럼 한 번 누르면 그 폴더(OPS-빠진일2차 1).
+  await tree.locator(`[data-nx-folder="${U(4)}"] .ft-main`).click();
+  await expect(page.locator('[data-nx-here]')).toHaveText('가상 빈 폴더 · 0');
   expect(errors).toEqual([]);
 });
 test('노트 폰 412: 폴더 누르기 — 펼쳐 보일 것(하위 폴더·노트)이 있으면 그 자리 펼치기, 빈 폴더는 그 폴더만', async ({ page }) => {

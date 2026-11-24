@@ -21,6 +21,7 @@ import { NOTE_DRAG } from './note-board.js';
 import * as pinLock from './feature-lock.js';
 import { noteTreeRowHtml } from './note-tree-row.js';
 import { LONG_MS, SLOP, mountReorder } from './reorder-drag.js';
+import { setDragGhostImage } from './drag-ghost.js'; // S69-27 끄는 모습 보이기
 import { askConfirm, askText } from './small-notice.js';
 import { emptyHtml } from './wait-state.js';
 import { fitChipRows } from './chip-rows.js';
@@ -269,6 +270,8 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     if (!on) e.dataTransfer.setData(NOTE_DRAG, n.dataset.nbbNote);
     if (moveToFolder) { e.dataTransfer.setData(FOLDER_DRAG, n.dataset.nbbNote); dragNote = n.dataset.nbbNote; }
     e.dataTransfer.effectAllowed = moveToFolder ? 'copyMove' : 'copy';
+    // S69-27 끄는 모습 보이기: 노트 폴더 보기와 같은 반투명 조각(제목 한 줄)이 마우스를 따라온다(공용 drag-ghost.js).
+    setDragGhostImage(e.dataTransfer, n.querySelector('.nbb-name')?.textContent || '');
   });
   side.addEventListener('dragend', () => { dragNote = ''; markDrop(null); });
   side.addEventListener('dragover', e => {
@@ -289,7 +292,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     let lastPointer = '';
     side.addEventListener('pointerdown', e => { lastPointer = e.pointerType || ''; }, true);
     const rowOf = key => (key ? side.querySelector(`.nbb-folder[data-reorder-id="${CSS.escape(key)}"]`) : null);
-    mountReorder(side, {listSelector:'.nbb-side-list', whole:true, scroller:() => side,
+    mountReorder(side, {listSelector:'.nbb-side-list', whole:true, scroller:() => side, ghost:el => el.querySelector('.nbb-name')?.textContent || '',
       canDrag:key => lastPointer === 'touch' && key.startsWith('n:'),
       zones:{resolve:(dragKey, overKey) => {
         const row = overKey.startsWith('f:') ? rowOf(overKey) : null;
