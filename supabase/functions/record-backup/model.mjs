@@ -24,7 +24,8 @@ export const CATEGORIES = Object.freeze([
   { key: 'notes', label: '노트', tables: [
     { name: 'app_notes', label: '노트', ...ws },
     { name: 'app_note_folders', label: '노트 폴더', ...ws },
-    { name: 'app_note_comments', label: '노트 댓글', ...ws },
+    { name: 'app_note_comments', label: '옛 노트 메모', ...ws },
+    { name: 'app_memos', label: '메모', ...ws }, // S69-94 NOTE-메모통일: 노트·읽을 거리·저장한 글 메모(표가 아직 없으면 handler가 건너뜀)
   ] },
   { key: 'reports', label: '조직 보고 · 사업 보고', tables: [
     { name: 'app_suborganizations', label: '담당조직', ...ws },

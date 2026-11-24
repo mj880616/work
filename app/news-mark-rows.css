@@ -20,6 +20,7 @@
 /* NOTE-News에서글자빼기: 구분 줄은 글자 없이 얇은 선 하나(폴더 목록과 밑줄·보관한 글 두 줄을 나눔). */
 #basketView .nnm-sep{ margin:6px 10px 2px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
 #basketView .nnm-hlico{ display:inline-block; flex:0 0 auto; width:14px; height:6px; margin:0 1px; background:var(--kptu-warning-soft); border-bottom:2px solid var(--kptu-warning); }
+#basketView .nnm-memoico{ display:inline-block; flex:0 0 auto; width:16px; font-size:12px; line-height:1; text-align:center; color:var(--kptu-muted); }
 #basketView .nnm:not([hidden]){ display:flex; flex-direction:column; gap:6px; min-width:0; }
 #basketView .nnm-head{ display:flex; align-items:center; gap:6px; min-height:28px; font-size:14px; }
 #basketView .nnm-head .nnm-n, #basketView .nnm-found-head .nnm-n{ font-size:12px; color:var(--kptu-muted); }

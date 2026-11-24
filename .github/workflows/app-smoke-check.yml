@@ -42,6 +42,7 @@ on:
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-tags-comments.test.mjs'
+      - 'tests/memo-model.test.mjs'
       - 'tests/note-tags-edit.test.mjs'
       - 'tests/note-secret-server.test.mjs'
       - 'tests/origin-redirect.test.mjs'
@@ -342,6 +343,7 @@ on:
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-tags-comments.test.mjs'
+      - 'tests/memo-model.test.mjs'
       - 'tests/note-tags-edit.test.mjs'
       - 'tests/note-secret-server.test.mjs'
       - 'tests/origin-redirect.test.mjs'
@@ -790,8 +792,8 @@ jobs:
         run: node --test tests/note-board-mindmap-model.test.mjs
       - name: Check note board box frame (S69-88 크기 손잡이·자유 이동·카드 별명)
         run: node --test tests/note-board-frame-model.test.mjs
-      - name: Check note hashtags and comments (NOTE-읽생기아이디어)
-        run: node --test tests/note-tags-comments.test.mjs
+      - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
+        run: node --test tests/note-tags-comments.test.mjs tests/memo-model.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)
         run: node --test tests/note-tags-edit.test.mjs
       - name: Check small popup width and title drag (UI-창잘림·끌어옮기기)

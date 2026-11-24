@@ -96,10 +96,10 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     await expect(head.locator('[data-text-size-ctl]')).toBeVisible();
     await expect(head.locator('[data-br-archive]')).toHaveText('노트로 보관');
 
-    // ① 밑줄 저장: 공용 선택 줄에 [밑줄 저장][답글][노트로][복사].
+    // ① 밑줄 저장: 공용 선택 줄에 [밑줄 저장][메모](S69-94 옛 [답글])[노트로][복사].
     expect(await pick(page, LINE1)).toBe(true);
     await expect(bar(page)).toBeVisible();
-    for (const name of ['밑줄 저장', '답글', '노트로', '복사']) await expect(bar(page).getByRole('button', { name, exact: true })).toBeVisible();
+    for (const name of ['밑줄 저장', '메모', '노트로', '복사']) await expect(bar(page).getByRole('button', { name, exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `docs/design/screens/s69-86/${label}-select.png`, fullPage: false });
     await bar(page).getByRole('button', { name: '밑줄 저장', exact: true }).click();
@@ -107,15 +107,15 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     expect(s.hlPosts[0]).toMatchObject({ source_type: 'brief', source_id: D(3), quote: LINE1, source_title: NAME, source_media: '브리핑', source_url: null });
     await expect(body(page).locator('mark.hl-mark')).toHaveText(LINE1);
 
-    // ② 답글: 고른 글 + 메모 → 새 노트(밑줄은 더 저장하지 않음).
+    // ② [메모](옛 답글): 고른 글 + 메모 → 새 노트(밑줄은 더 저장하지 않음).
     expect(await pick(page, LINE2)).toBe(true);
-    await bar(page).getByRole('button', { name: '답글', exact: true }).click();
+    await bar(page).getByRole('button', { name: '메모', exact: true }).click();
     const ask = page.locator('.kptu-ask-input');
-    await expect(ask.locator('.kptu-ask-text')).toHaveText('답글 달기');
+    await expect(ask.locator('.kptu-ask-text')).toHaveText('메모 남기기');
     await ask.locator('input').fill('다음 회의 전에 인원 확인');
     await ask.getByRole('button', { name: '노트에 저장' }).click();
     await expect.poll(() => s.notes.length).toBe(1);
-    expect(s.notes[0].title).toBe(`답글 · ${NAME}`);
+    expect(s.notes[0].title).toBe(`메모 · ${NAME}`);
     expect(s.notes[0].raw_text).toContain(`> ${LINE2}`);
     expect(s.notes[0].raw_text).toContain('메모: 다음 회의 전에 인원 확인');
     expect(s.notes[0].raw_text).toMatch(/출처: 브리핑 · 2026-11-24 · 예시 도시철도 통합 연구/);

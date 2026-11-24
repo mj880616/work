@@ -596,8 +596,8 @@
 | 노트 | note-boards.js | 붙이기 | `nbb-pick-ok` | ② 작은 버튼 |
 | 노트 | note-boards.js | data-nbb-pf | `nbb-folder` | ② 작은 버튼 |
 | 노트 | note-boards.js | data-nbb-pn | `nbb-note…` | ④ 칩 |
-| 노트 | note-comments-ui.js | 댓글 지우기 | `note-cm-del` | ⑥ 아이콘 |
-| 노트 | note-comments-ui.js | 인용 빼기 | `note-cm-del` | ⑥ 아이콘 |
+| 노트·읽을 거리·저장한 글 | memo-thread.js | 메모 삭제(S69-94, 옛 댓글 지우기) | `icon-btn memo-th-btn` | ⑥ 아이콘 |
+| 노트·읽을 거리·저장한 글 | memo-thread.js | 메모 수정(S69-94) | `row-act memo-th-btn` | ③ 글자 버튼 |
 | 그 밖 | notice-done.js | 열기 | `kptu-notice-line-action` | ③ 글자 버튼 |
 | 그 밖 | notice-done.js | 닫기 | `kptu-notice-line-close` | ⑥ 아이콘 |
 | 그 밖 | notice-lines.js | data-notice-act | `kptu-notice-line-action` | ② 작은 버튼 |

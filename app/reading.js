@@ -34,6 +34,10 @@ import {textSizeHtml, paintTextSize} from './text-size.js';
 import {copyText} from './copy-text.js';
 import {isPhoneApp} from './phone-push-model.mjs';
 import {bookmarkletLine, saveAddress} from './save-bookmarklet-model.mjs';
+import {createMemoThread, memoRowHtml} from './memo-thread.js';
+import {memoRows} from './memo-model.mjs';
+import {memosNow, memoState, loadMemos, onMemos, memoExists} from './memo-store.js';
+import {openMemoSource} from './memo-open.js';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
@@ -78,6 +82,7 @@ async function load() {
   await news;
   if (state.newsOn && state.loaded) void fixTitles(scope);
   void loadHighlights().then(() => draw()).catch(() => {});
+  void loadMemos({force: true}); // S69-94: [메모 n]·[메모] 탭·글 아래 메모 칸(다 읽으면 onMemos가 다시 그린다)
 }
 
 // S69 READ-제목하나(명진 11/24 "목록에서 이상한 제목이 보임"): News에서 온 줄 중 사람이 글 보기에서 제목을 고친 기사(손으로 넣은 기사)는
@@ -176,10 +181,11 @@ function drawList() {
   // 위쪽 칩 줄이 아니라 공용 ⑤ 보기 바꾸기(renderFilterChips seg — .ds-seg) 한 줄. 자리는 노트 보기 탭과 같은 공용 규칙(ui-standard.css 폰 전환 줄):
   // 폰·펼친 폴드(~760px) 하단바 바로 위 가운데, PC 틀(761px~) 제목 줄 오른쪽([+ 추가] 앞). 따로 칩 줄은 없다.
   switchHost ||= el('div', 'rd-switch');
-  renderFilterChips(switchHost, {options: filterOptions(entries, marks ? marks.length : null), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
+  renderFilterChips(switchHost, {options: filterOptions(entries, marks ? marks.length : null, memoState().ready ? myMemos().length : null), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
     onChange: v => { state.filter = keepFilter(v); drawList(); }});
   head.insertBefore(switchHost, add);
   if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks)); box.replaceChildren(...parts); return; }
+  if (keepFilter(state.filter) === 'memos') { parts.push(memosEl()); box.replaceChildren(...parts); return; }
   const shown = filterEntries(entries, state.filter, state.open || '');
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
@@ -197,6 +203,33 @@ function marksEl(marks) {
   else if (!marks.length) list.append(emptyEl(emptyText('marks', 0)));
   else list.insertAdjacentHTML('beforeend', `<div class="nh-list">${marks.map(h => highlightRowHtml(h, {src: sourceTag(h)})).join('')}</div>`);
   return list;
+}
+// S69-94 NOTE-메모통일 [메모] 탭: 이 화면 글(저장한 글)에 남긴 메모 + 읽을 거리에서 저장한 글(연결된 기사·성명)에 남긴 메모. 노트 [메모]와 같은 줄 부품(memoRowHtml).
+// 줄을 누르면 그 글을 열고 그 메모로 내려가 칠한다. 글이 이 목록에서 삭제됐으면 '원래 기록이 없어요'(메모는 그대로).
+const linkedKeys = () => new Set(state.rows.map(linkOf).filter(Boolean).map(l => `${l.type}:${l.id}`));
+function myMemos() {
+  const linked = linkedKeys();
+  return memoRows(memosNow().filter(m => m.target_type === 'reading' || linked.has(`${m.target_type}:${m.target_id}`)));
+}
+const readingMemoExists = m => (m.target_type === 'reading' ? (state.loaded ? !!rowOf(m.target_id) : undefined) : memoExists(m));
+const readingMemoTitle = m => (m.target_type === 'reading' && rowOf(m.target_id) ? lineOf(rowOf(m.target_id)).title : m.target_title);
+const memoThread = createMemoThread();
+let memoHost = null;
+onMemos(() => { if (window.KPTURouter?.current === 'reading') drawList(); });
+function memosEl() {
+  const list = el('div', 'rd-rows rd-memos-list');
+  list.dataset.rdMemoList = '1';
+  const st = memoState();
+  if (!st.loaded) { void loadMemos(); list.insertAdjacentHTML('beforeend', waitHtml({rows: 3, h: 40})); return list; }
+  if (!st.ready) { list.append(emptyEl(st.missing ? '메모는 준비 중이에요.' : '메모를 읽지 못했어요.')); return list; }
+  const rows = myMemos();
+  if (!rows.length) list.append(emptyEl(emptyText('memos', 0)));
+  else list.insertAdjacentHTML('beforeend', `<div class="memo-lines">${rows.map(m => memoRowHtml(m, {titleOf: readingMemoTitle, exists: readingMemoExists})).join('')}</div>`);
+  return list;
+}
+function openMemoLine(id) {
+  const m = memosNow().find(x => x.id === id);
+  if (m) openMemoSource(m, {exists: readingMemoExists, inPlace: o => { if (o.type !== 'reading') return false; void openItem(o.id); return true; }});
 }
 // 밑줄 줄을 누르면 그 글 그 자리로(노트 › 밑줄과 같은 갈 곳): 저장한 글은 이 화면 보기, 노트 밑줄은 그 노트, News·텔레그램 밑줄은 News.
 function openMark(h) {
@@ -242,7 +275,7 @@ function drawDetail() {
   const box = detailBox, listBox = view()?.querySelector('[data-rd-list]');
   if (!box) return;
   const row = state.open ? rowOf(state.open) : null;
-  if (!row) { box.hidden = true; box.replaceChildren(); if (listBox) listBox.hidden = false; view()?.classList.remove('rd-reading'); return; }
+  if (!row) { box.hidden = true; box.replaceChildren(); memoThread.detach(); if (listBox) listBox.hidden = false; view()?.classList.remove('rd-reading'); return; }
   view()?.classList.add('rd-reading');
   if (listBox) listBox.hidden = !wide();
   const l = lineOf(row);
@@ -284,8 +317,12 @@ function drawDetail() {
     prose.append(el('p', 'rd-faint', '원문을 읽지 못했어요.'), btn('row-act', '다시', {rdReopen: row.id}));
   } else prose.insertAdjacentHTML('beforeend', waitHtml({rows: 3}));
   parts.push(prose);
-  if (prose.querySelector('p') && state.bodyFor === row.id) parts.push(el('p', 'rd-faint rd-tip', '글을 선택하고 [밑줄 저장] · 밑줄을 누르면 메모'));
+  if (prose.querySelector('p') && state.bodyFor === row.id) parts.push(el('p', 'rd-faint rd-tip', '글을 선택하고 [밑줄 저장] · 밑줄을 누르면 밑줄 메모'));
+  // S69-94: 글 아래 메모 칸(노트·읽을 거리와 같은 부품). 칸은 한 번 만들어 다시 그려도 그대로 붙인다(쓰던 글·초점 유지).
+  if (!memoHost) { memoHost = el('section', 'memo-th rd-memos'); memoHost.dataset.rdMemos = '1'; memoHost.setAttribute('aria-label', '메모'); }
+  parts.push(memoHost);
   box.replaceChildren(...parts);
+  memoThread.attach(memoHost, {type: 'reading', id: row.id, title: l.title});
   box.hidden = false;
   paintTextSize(box);
   if (state.bodyFor === row.id) paintMarks(prose, marks);
@@ -573,6 +610,8 @@ function bind() {
     if (hm?.dataset.hlId) { openMarkMenu(hm, {onSource: openMark}); return; }
     const ho = t.closest?.('[data-rd-marks] [data-nh-open]');
     if (ho) { openMark(highlightById(ho.dataset.nhOpen)); return; }
+    const mo = t.closest?.('[data-rd-memo-list] [data-memo-open]');
+    if (mo) { openMemoLine(mo.dataset.memoOpen); return; }
     const more = t.closest?.('[data-rd-more]');
     if (more) { menu.open(more); return; }
     if (t.closest?.('[data-rd-add]')) { state.adding = !state.adding; state.addError = ''; drawList(); return; }

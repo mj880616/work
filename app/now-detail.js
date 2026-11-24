@@ -2,7 +2,10 @@ import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {sendSignal, setMark} from './now-marks.js';
 import {deleteMine, dropSaved, DELETE_LABEL, DELETE_BOTH_LABEL, SAVE_LABEL, SAVED_LABEL, SAVED_ARIA} from './now-row-acts.js';
 import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences, readSavedDetail} from './feed-shared.js';
-import {createNoteDoc, saveNoteDoc} from './basket-data.js';
+import {createMemoThread} from './memo-thread.js';
+import {memosOf} from './memo-model.mjs';
+import {memosNow, onMemos} from './memo-store.js';
+import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {plainText} from './news-clipping-model.mjs';
 import {textSizeHtml, textSize} from './text-size.js';
 import {textScale} from './text-size-model.mjs';
@@ -66,7 +69,7 @@ const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}`
 
 // head: {meta: [글자…], title, origTitle, titleLang, lang, url}. item: {type:'outside'|'news', id}.
 export function createNowDetail({box, topics = () => [], onClose, onChanged, onSignal, onRelated, onRead} = {}) {
-  let cur = null; // {item, head, body, detail, failed, unread, making, reading, note, marks, memo, memoOpen, memoBusy, memoNote, busy, tr:{on, busy, note}, hand:{open, busy, note, init, shown}}
+  let cur = null; // {item, head, body, detail, failed, unread, making, reading, note, marks, memo(옛 노트 메모), busy, tr:{on, busy, note}, hand:{open, busy, note, init, shown}}
   const details = new Map(); // itemKey → 서버 답(이 탭 메모리만)
   const asking = new Map(); // itemKey → 진행 중인 요약 요청(같은 글 요청이 겹쳐 나가지 않게 — S69-01)
   const bodies = new Map(); // itemKey → bodyView 모양(이 탭 메모리만)
@@ -246,7 +249,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const busy = cur.busy ? ' disabled' : '';
     const one = (attrs, label) => `<button type="button" class="ds-chip" ${attrs}${busy}>${esc(label)}</button>`;
     const btn = (act, on, label, onLabel) => one(`data-nd-act="${act}" aria-pressed="${!!on}"`, on ? onLabel : label);
-    const memo = cur.memoOpen ? '' : one('data-nd-act="memo"', cur.memo ? '메모 수정' : '메모');
+    // S69-94 NOTE-메모통일: 메모는 글 아래 메모 칸(memo-thread.js, 노트와 같은 부품). 이 칩은 그 칸으로 내려가 쓰기 칸에 초점(메모 수).
+    const n = memosOf(memosNow(), cur.item.type, cur.item.id).length;
+    const memo = one('data-nd-memo-go', n ? `메모 ${n}` : '메모');
     // S67-11 NEWS-보관빼기: 내가 넣은 기사(공유·손으로 넣은 것, head.mine)는 [삭제] — 내 목록 어디에도 안 보이게(공용 기사 행은 그대로), 5초 [되돌리기].
     // S68-34: 저장해 둔 글이면 저장 해제와 겹치지 않게 기사 자체 삭제는 '기사 삭제'.
     const del = cur.item.type === 'news' && cur.head?.mine ? one('data-nd-delete', m.star ? DELETE_BOTH_LABEL : DELETE_LABEL) : '';
@@ -254,15 +259,17 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const dismiss = cur.from === 'saved' ? '' : btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓');
     return `${star}${memo}${dismiss}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
   }
-  function memoHtml() {
-    // S69 보드잠금가림 전수: 메모 노트를 잠근 노트 폴더로 옮겼고 아직 안 풀었으면 메모 글 대신 '잠김'(보기·고치기 칸 없음). 판정은 feature-lock.js 한 곳.
-    if (cur.memo && window.KPTUFeatureLock?.noteHidden?.(cur.memo)) return `<p class="nd-memo-text" data-nd-memo-locked data-lock-here="notes"><span class="nd-memo-label">메모</span>잠김 <button type="button" class="row-act lk-open">풀기</button></p>`;
-    if (cur.memoOpen) {
-      if (cur.memo?.doc_type) return `<div class="nd-memo"><p class="nd-memo-text">${esc(cur.memo.raw_text || '')}</p><p class="nd-faint">서식이 있는 메모는 노트에서 수정해요</p><button type="button" class="secondary" data-nd-memo-cancel>닫기</button></div>`;
-      return `<form class="nd-memo" data-nd-memo-form><textarea data-nd-memo-input rows="3" aria-label="내 메모"${cur.memoBusy ? ' disabled' : ''}>${esc(cur.memo?.raw_text || '')}</textarea><div class="nd-memo-row">${cur.memoNote ? `<span class="nd-faint" role="status">${esc(cur.memoNote)}</span>` : ''}<button type="button" class="secondary" data-nd-memo-cancel>취소</button><button type="submit" class="secondary"${cur.memoBusy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
-    }
-    return cur.memo?.raw_text ? `<p class="nd-memo-text" data-nd-memo-text><span class="nd-memo-label">메모</span>${esc(cur.memo.raw_text)}</p>` : '';
+  // S69-94: 예전에 [메모]로 남긴 메모(노트 한 장, metadata.news_item_id|outside_post_id)는 지우지 않고 메모 칸 위에 한 줄로 보인다(고치기는 그 노트에서).
+  function oldMemoHtml() {
+    if (!cur.memo) return '';
+    // S69 보드잠금가림 전수: 메모 노트를 잠근 노트 폴더로 옮겼고 아직 안 풀었으면 메모 글 대신 '잠김'. 판정은 feature-lock.js 한 곳.
+    if (window.KPTUFeatureLock?.noteHidden?.(cur.memo)) return `<p class="nd-memo-text" data-nd-memo-locked data-lock-here="notes"><span class="nd-memo-label">노트 메모</span>잠김 <button type="button" class="row-act lk-open">풀기</button></p>`;
+    return cur.memo.raw_text ? `<p class="nd-memo-text" data-nd-memo-text><span class="nd-memo-label">노트 메모</span>${esc(cur.memo.raw_text)} <button type="button" class="row-act" data-nd-oldmemo-open>노트에서 보기</button></p>` : '';
   }
+  // 글 아래 메모 칸(이 칸의 그리기 주인은 memo-thread.js). 메모를 남기거나 지우면 아래 줄의 [메모 n]과 [메모] 탭(껍데기)을 맞춘다.
+  const memoThread = createMemoThread({onChange: () => { if (!cur) return; signal(cur.item, 'memo'); onChanged?.(cur.item, 'memo', true); paintActs(); }});
+  onMemos(() => { if (cur && box?.isConnected) { const a = part('[data-nd-acts]'); if (a) a.innerHTML = actsHtml(); } });
+  const attachMemos = () => { if (cur) memoThread.attach(part('[data-nd-memos]'), {type: cur.item.type, id: cur.item.id, title: cur.head?.title || ''}); };
   const part = sel => box?.querySelector(`[data-nd="${CSS.escape(itemKey(cur.item))}"] ${sel}`);
   function paintAi() {
     if (!cur) return;
@@ -286,7 +293,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (!cur) return;
     const a = part('[data-nd-acts]'), m = part('[data-nd-memo]');
     if (a) a.innerHTML = actsHtml();
-    if (m) m.innerHTML = memoHtml();
+    if (m) m.innerHTML = oldMemoHtml();
+    attachMemos();
   }
   function paint() { keepOb(paintNow); }
   window.addEventListener('kptu:feature-lock-changed', () => paintActs()); // 메모 노트 잠금이 풀리거나 다시 잠기면 메모 칸만 다시
@@ -303,8 +311,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
 <section class="nd-box" data-nd-summary aria-label="요약">${sumHtml()}</section>
 <section class="nd-box" data-nd-implications aria-label="시사점"${imp ? '' : ' hidden'}>${imp}</section>
 <div data-nd-relslot>${relatedHtml()}</div>
-<div class="nd-acts" data-nd-acts role="group" aria-label="이 글 표시">${actsHtml()}</div><div data-nd-memo>${memoHtml()}</div></article>`;
+<div class="nd-acts" data-nd-acts role="group" aria-label="이 글 표시">${actsHtml()}</div><div data-nd-memo>${oldMemoHtml()}</div><section class="memo-th nd-memos" data-nd-memos aria-label="메모"></section></article>`;
     marksNow();
+    attachMemos();
     // S68-40: 상세 전체를 다시 그리면(같은 글 다시 열기·머리 고침 setHead·관심 주제 바뀜) 원문 칸도 새로 그려진다. 내가 올린 사진은
     // 그린 뒤 받아 넣어야 보이므로(받기 전 hidden) 원문 칸만 다시 그릴 때(paintBody)처럼 여기서도 채운다 — 빠지면 사진이 '없어진' 것처럼 보였다.
     const body = part('[data-nd-body]');
@@ -489,7 +498,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (!item || !head) return;
     const same = cur && itemKey(cur.item) === itemKey(item);
     if (!same) dropPics(cur?.hand);
-    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}, hand: idleHand()};
+    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, busy: false, tr: {on: false, busy: false, note: ''}, hand: idleHand()};
     else cur.head = head;
     cur.reveal = highlight;
     cur.from = from;
@@ -543,24 +552,6 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     } catch (e) { c.note = saveFailNote(e); }
     c.busy = false;
     if (cur === c) paintActs();
-  }
-  async function saveMemo(text) {
-    const c = cur;
-    if (!c || c.memoBusy) return;
-    const value = String(text ?? '');
-    if (!c.memo && !value.trim()) { c.memoOpen = false; paintActs(); return; }
-    c.memoBusy = true; c.memoNote = ''; paintActs();
-    try {
-      const title = String(c.head.title || '메모').slice(0, 80);
-      const link = c.item.type === 'news' ? {news_item_id: c.item.id} : {outside_post_id: c.item.id};
-      const saved = c.memo ? await saveNoteDoc(c.memo.id, {title: c.memo.title || title, raw_text: value}, rt()) : await createNoteDoc({title, raw_text: value, ...link}, rt());
-      c.memo = {...c.memo, ...saved, doc_type: c.memo?.doc_type || null};
-      c.memoOpen = false;
-      signal(c.item, 'memo');
-      onChanged?.(c.item, 'memo', true);
-    } catch (e) { c.memoNote = e?.message && !e?.status ? e.message : saveFailNote(e); }
-    c.memoBusy = false;
-    if (cur === c) { paintActs(); box?.querySelector(c.memoOpen ? '[data-nd-memo-input]' : '[data-nd-act="memo"]')?.focus({preventScroll: true}); }
   }
   // [번역]: 번역본이 있으면 켜고 끄기만. 없으면 서버 translate(저장본이면 바로 stored) → 줄 읽기 → 블록에 넣기.
   async function toggleTranslate() {
@@ -878,10 +869,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-refetch-hand]')) { void refetchBody(true); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
-    if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paintActs(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }
+    if (b.matches('[data-nd-memo-go]')) { const t = part('[data-nd-memos] [data-cm-text]'); part('[data-nd-memos]')?.scrollIntoView({block: 'nearest', behavior: 'smooth'}); t?.focus({preventScroll: true}); return; }
+    if (b.matches('[data-nd-oldmemo-open]')) { if (cur?.memo?.id) { requestNoteDocOpen(cur.memo.id); window.KPTURouter?.go?.('basket', {source: 'delegated'}); } return; }
     if (b.matches('[data-nd-delete]')) { removeCur(); return; }
     if (b.matches('[data-nd-act]')) { toggle(b.dataset.ndAct); return; }
-    if (b.matches('[data-nd-memo-cancel]')) { cur.memoOpen = false; cur.memoNote = ''; paintActs(); return; }
     if (b.matches('[data-nd-related]')) { const r = detailView(cur.detail).related[Number(b.dataset.ndRelated)]; if (r) onRelated?.(r); }
   });
   // 사진이 안 뜨면(사이트가 막음·사라짐) 그 자리에 '사진 ↗' 링크만.
@@ -927,10 +918,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (strip) strip.hidden = !on.size;
   });
   box?.addEventListener('submit', event => {
-    if (event.target.matches('[data-nd-hand-form]')) { event.preventDefault(); void saveHand(event.target); return; }
-    if (!event.target.matches('[data-nd-memo-form]')) return;
-    event.preventDefault();
-    saveMemo(event.target.querySelector('[data-nd-memo-input]')?.value);
+    if (event.target.matches('[data-nd-hand-form]')) { event.preventDefault(); void saveHand(event.target); }
   });
   // 서버 기억 값이 늦게 오면(첫 로딩) 그 값으로.
   paint();
