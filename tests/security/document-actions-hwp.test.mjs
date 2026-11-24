@@ -194,7 +194,7 @@ test('the backup folder is created once in My Drive root when missing', async ()
   const r = await h.overwrite({ note_id: NOTE, drive_file_id: FILE, ...base });
   assert.equal(r.status, 200);
   const created = driveWrites(h).find(c => c.path === '/drive/v3/files');
-  assert.deepEqual(JSON.parse(created.body), { name: '노조+ 편집 백업', mimeType: 'application/vnd.google-apps.folder', parents: ['root'], appProperties: { kptu_app_folder: 'edit_backup' } });
+  assert.deepEqual(JSON.parse(created.body), { name: 'WORK ON+ 편집 백업', mimeType: 'application/vnd.google-apps.folder', parents: ['root'], appProperties: { kptu_app_folder: 'edit_backup' } });
   assert.deepEqual(JSON.parse(driveWrites(h).find(c => c.path.endsWith('/copy')).body).parents, ['new-folder']);
 });
 
@@ -204,7 +204,7 @@ test('BRAND-웹2흔적지우기: 옛 이름(Web2 편집 백업) 폴더는 새로
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(driveWrites(h).filter(c => c.path === '/drive/v3/files' && c.method === 'POST').length, 0);
   const rename = driveWrites(h).find(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder');
-  assert.deepEqual(JSON.parse(rename.body), { name: '노조+ 편집 백업' });
+  assert.deepEqual(JSON.parse(rename.body), { name: 'WORK ON+ 편집 백업' }); // S69-41: 새로 쓰는 이름은 늘 새 이름
   assert.deepEqual(JSON.parse(driveWrites(h).find(c => c.path.endsWith('/copy')).body).parents, ['backup-folder']);
   // 새 이름 폴더는 이름을 다시 바꾸지 않는다.
   const again = harness({ folders: [{ id: 'backup-folder', name: '노조+ 편집 백업', ownedByMe: true, trashed: false }] });
@@ -433,7 +433,8 @@ test('S68-02: 새 사용자 편집 백업 폴더는 WORK ON+, 이미 있는 노�
   for (const o of [{ featureWs: 'ws-1' }, { featureStatus: 500 }]) {
     const h = harness({ folders: [], ...o });
     assert.equal((await h.overwrite({ document_id: DOC, ...base })).status, 200);
-    assert.equal(JSON.parse(driveWrites(h).find(c => c.path === '/drive/v3/files').body).name, '노조+ 편집 백업', JSON.stringify(o));
+    // S69-41: 구글 드라이브 폴더는 nojo_words·확인 실패여도 새로 만들 때 새 이름.
+    assert.equal(JSON.parse(driveWrites(h).find(c => c.path === '/drive/v3/files').body).name, 'WORK ON+ 편집 백업', JSON.stringify(o));
   }
   // 두 이름이 다 있으면 노조+ 폴더(이미 쓰던 것)를 쓰고, 어떤 폴더 이름도 바꾸지 않는다.
   const both = harness({ featureWs: null, folders: [

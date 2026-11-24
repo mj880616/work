@@ -106,6 +106,7 @@ async function load(){
   void loadCollab();
   void loadPush();
   void loadBackup();
+  void loadDriveFolders();
   void loadMcpRead();
   void loadHomeOff();
   void loadCustomWords();
@@ -143,6 +144,17 @@ async function loadBackup(){
     if(!backupPanel||backupPanel.host!==host){const ready=import('./record-backup.js').then(m=>m.mountRecordBackup(host,{rt}));backupPanel={host,ready};ready.catch(()=>{if(backupPanel?.ready===ready)backupPanel=null})}
     await (await backupPanel.ready).load();
   }catch(e){console.error('record backup',e?.name||'Error')}
+}
+// S69-41: '구글 드라이브' 칸(drive-folders-panel.js가 그린다) — 앱이 쓰는 드라이브 폴더 한 줄 + [한곳으로 모으기](자료실 위 줄에서 옮겨 옴).
+// 자리는 '내 기록 백업' 칸 바로 다음, 한 번만 붙인다. 드라이브 연결이 없거나 읽기가 실패하면 칸이 감춰진다.
+let driveFoldersPanel=null;
+async function loadDriveFolders(){
+  try{
+    let host=$('#psDriveFoldersPanel');
+    if(!host){const after=$('#psBackupPanel');const before=$('#profileView .ps-account-panel');if(!after&&!before)return;(after||before).insertAdjacentHTML(after?'afterend':'beforebegin','<article class="panel ps-panel ps-drive-folders" id="psDriveFoldersPanel" aria-label="구글 드라이브" hidden></article>');host=$('#psDriveFoldersPanel')}
+    if(!driveFoldersPanel||driveFoldersPanel.host!==host){const ready=import('./drive-folders-panel.js').then(m=>m.mountDriveFolders(host,{rt}));driveFoldersPanel={host,ready};ready.catch(()=>{if(driveFoldersPanel?.ready===ready)driveFoldersPanel=null})}
+    await (await driveFoldersPanel.ready).load();
+  }catch(e){console.error('drive folders',e?.name||'Error')}
 }
 // MCP-Claude읽기 M-5: 'Claude 읽기 연결' 칸(mcp-read-settings.js가 그린다). 설정 행이 있는 작업공간에서만 보인다(행은 SQL로만, 설계 7.6). 자리는 '내 기록 백업' 칸 다음('계정' 칸 앞), 한 번만 붙인다.
 let mcpReadPanel=null;

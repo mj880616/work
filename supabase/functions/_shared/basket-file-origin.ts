@@ -1,5 +1,5 @@
 // S69-22: 바구니 폴더는 내 드라이브 맨 위 또는 맨 위 앱 폴더(root_folder_id) 바로 아래([앱 폴더 한곳에 모으기] 뒤)에 있어도 보호한다.
-import { isDriveId, topParentsClause } from "./app-folders.mjs";
+import { basketFolderClause, isBasketFolder, isDriveId, topParentsClause } from "./app-folders.mjs";
 // Read-only deletion guard. Never calls ensurePrivateRootFolder: that can create
 // folders/settings. Remote facts here are checked by this supported Edge path.
 type OriginDependencies = {
@@ -36,8 +36,9 @@ const unknownOrigin = () =>
     ),
     { code: "BASKET_ORIGIN_UNKNOWN" },
   );
+// S69-41: 바구니 폴더는 표식(kptu_app_folder=basket) 또는 알려진 이름(옛·새)으로 알아본다(이름을 바꿔도 같은 폴더).
 const folderFields =
-  "id,name,mimeType,ownedByMe,trashed,parents,permissions(type,role)";
+  "id,name,mimeType,ownedByMe,trashed,parents,appProperties,permissions(type,role)";
 
 async function allRows(
   deps: OriginDependencies,
@@ -86,7 +87,7 @@ async function allRows(
 function verifyFolder(value: unknown) {
   const f = value as Partial<Folder>;
   if (
-    !f || !validId(f.id) || f.name !== "Web2 바구니" ||
+    !f || !validId(f.id) || !isBasketFolder(f) ||
     f.mimeType !== "application/vnd.google-apps.folder" ||
     f.ownedByMe !== true || f.trashed !== false || !Array.isArray(f.parents) ||
     f.parents.length !== 1 || !validId(f.parents[0]) ||
@@ -102,7 +103,7 @@ async function privateRootFolders(
   appRoots: string[],
 ): Promise<Map<string, Folder>> {
   const params = new URLSearchParams({
-    q: `name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and ${topParentsClause(appRoots)} and 'me' in owners and trashed = false`,
+    q: `${basketFolderClause()} and mimeType = 'application/vnd.google-apps.folder' and ${topParentsClause(appRoots)} and 'me' in owners and trashed = false`,
     fields: `nextPageToken,incompleteSearch,files(${folderFields})`,
     pageSize: "100",
     orderBy: "createdTime",
