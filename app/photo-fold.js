@@ -19,24 +19,26 @@ export function photoToggleHtml(count, {open = false, attrs = '', controls = '',
   return `<button type="button" class="ds-chip photo-fold-toggle${cls ? ' ' + cls : ''}" aria-expanded="${open ? 'true' : 'false'}"${controls ? ` aria-controls="${esc(controls)}"` : ''}${attrs}>${esc(pictureCountLabel(count))}${chevHtml(open)}</button>`;
 }
 
-// 작은 그림 칸들. tile(doc) → {main: 누르는 그림 요소의 여는 태그 속성, menu: 그 자료 ⋯ 메뉴 HTML}. 그림 칸은 .lu-thumb[data-lu-thumb](자료실 작은 그림 길).
+// 작은 그림 칸들. tile(doc) → {attrs: 누르는 그림 요소의 여는 태그 속성, menu: 그 자료 ⋯ 메뉴 HTML, lead: 그림 앞에 둘 HTML(선택 모드 네모 칸)}. 그림 칸은 .lu-thumb[data-lu-thumb](자료실 작은 그림 길).
 export function photoTilesHtml(docs, tile, {id = '', label = '사진'} = {}) {
   const cells = (docs || []).map(doc => {
     const t = tile(doc) || {}, name = doc.title || doc.file_name || '사진';
-    return `<div class="photo-fold-tile" data-photo-tile="${esc(doc.id)}"><button type="button" class="icon-btn photo-fold-thumb lu-thumb" data-lu-thumb="${esc(doc.id)}" aria-label="${esc(name)} 크게 보기" title="${esc(name)}"${t.attrs || ''}></button>${t.menu || ''}</div>`;
+    return `<div class="photo-fold-tile" data-photo-tile="${esc(doc.id)}">${t.lead || ''}<button type="button" class="icon-btn photo-fold-thumb lu-thumb" data-lu-thumb="${esc(doc.id)}" aria-label="${esc(name)} 크게 보기" title="${esc(name)}"${t.attrs || ''}></button>${t.menu || ''}</div>`;
   }).join('');
   return `<div class="photo-fold-tiles"${id ? ` id="${esc(id)}"` : ''} role="group" aria-label="${esc(label)}">${cells}</div>`;
 }
 
 // 폰 꾹 누르기(contextmenu, 761px 아래): 그 칸의 ⋯를 누른다. PC 넓은 화면은 공용 우클릭(context-menu.js)이 맡는다.
+// longPress(tile, event)가 true를 돌려주면 그 화면이 꾹 누르기를 맡은 것(자료실: 사진 고르기, S69-14) — ⋯는 누르지 않는다.
 const bound = new WeakSet();
 const WIDE = typeof matchMedia === 'function' ? matchMedia('(min-width:761px)') : null;
-export function bindPhotoTileMenus(host) {
+export function bindPhotoTileMenus(host, {longPress = null} = {}) {
   if (!host || bound.has(host)) return;
   bound.add(host);
   host.addEventListener('contextmenu', e => {
     const tile = e.target.closest?.('[data-photo-tile]');
     if (!tile || !host.contains(tile) || WIDE?.matches) return;
+    if (longPress?.(tile, e)) { e.preventDefault(); return; }
     const more = tile.querySelector('details > summary, [data-lu-menu], [data-fx-tmenu]');
     if (!more) return;
     e.preventDefault();

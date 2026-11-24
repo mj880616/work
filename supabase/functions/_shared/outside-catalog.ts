@@ -283,7 +283,9 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // (사회운동포커스 2026-09-23, 계간 사회진보연대 2026.09.12, 자료실 2026.05.21 …). 글 게시판을 모두 읽고(PSSP_BOARDS), 지난 쪽도 차례로 읽는다(older).
     // 공지·성명 밖 게시판 글은 종류 칸 '기사'(article — 머리말이 [성명]·[논평]이면 그 종류).
     key: "pssp", name: "사회진보연대", group: "movement", lang: "ko", mode: "html",
-    extract: { version: 1 },
+    // @2(S69-06 실측): 글 본문 칸 `#post-content-board`. 문단이 <p>가 아닌 글은 흔한 본문 칸에서 앞 몇 줄만 남았다.
+    extract: { version: 2 },
+    bodyClass: /^post-content-board$/,
     lists: PSSP_BOARDS.map((b) => `${PSSP_LIST}${b}`), hosts: ["pssp.org", "www.pssp.org"],
     older: PSSP_OLDER,
     sameBoard: "board",
@@ -304,7 +306,8 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 나머지는 기사(article: 종류 칸 비움). 공지·안내·모집 등 머리말 글은 다른 단체처럼 뺀다(byPrefix).
     // 하루 수십 건이어도 한 번 실행에 단체마다 새 글 MAX_NEW_PER_RUN(8)건, 나머지는 다음 실행으로 넘긴다(handler.ts).
     key: "ws", name: "노동자연대", group: "movement", lang: "ko", mode: "rss",
-    extract: { version: 1, drop: /^(sharedaddy|sd-sharing-enabled|jp-relatedposts|addtoany_share_save_container|post-tags|author-box|wp-block-buttons)$/, caption: /^(wp-caption-text|wp-element-caption)$/ },
+    // @2(S69-06 실측): 글 쪽 전부가 봇 확인으로 잘못 걸러졌다(Cloudflare 측정 스크립트 — parse.ts looksLikeBotCheck 고침). 구조화 본문(JSON-LD articleBody)도 공용 판정으로 읽는다.
+    extract: { version: 2, drop: /^(sharedaddy|sd-sharing-enabled|jp-relatedposts|addtoany_share_save_container|post-tags|author-box|wp-block-buttons)$/, caption: /^(wp-caption-text|wp-element-caption)$/ },
     lists: ["https://ws.or.kr/feed"], hosts: ["ws.or.kr", "www.ws.or.kr"],
     canon: plain,
     kindOf: (title) => (WS_BARE_STATEMENT.test(title) ? "statement" : byPrefix("article")(title)),
@@ -377,7 +380,9 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   },
   {
     key: "labornotes", name: "Labor Notes", group: "foreign", lang: "en", mode: "rss",
-    extract: { version: 1, caption: /^(caption|image-caption|field-name-field-caption)$/ },
+    // @2(S69-06 실측): 글 쪽 본문 칸은 Drupal `field-name-body`. 예전에는 흔한 본문 칸에서 앞 몇 줄(400자 안팎)만 남아 [원문 다시 가져오기]가 피드 본문보다 짧았다.
+    extract: { version: 2, caption: /^(caption|image-caption|field-name-field-caption)$/ },
+    bodyClass: /^field-name-body$/,
     lists: ["https://labornotes.org/feed"], hosts: ["labornotes.org", "www.labornotes.org"], canon: plain, kindOf: () => "article",
   },
   {

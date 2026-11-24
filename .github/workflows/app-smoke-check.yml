@@ -271,6 +271,8 @@ on:
       - 'tests/about-privacy-public.test.mjs'
       - 'android-app/app/src/main/AndroidManifest.xml'
       - 'tests/about-contact-mail.test.mjs'
+      - 'tests/store-workonplus.test.mjs'
+      - 'docs/store/**'
       - 'scripts/personal-data-allowlist.json'
       - 'scripts/check-personal-data.mjs'
       - 'supabase/functions/google-calendar/index.ts'
@@ -547,6 +549,8 @@ on:
       - 'tests/about-privacy-public.test.mjs'
       - 'android-app/app/src/main/AndroidManifest.xml'
       - 'tests/about-contact-mail.test.mjs'
+      - 'tests/store-workonplus.test.mjs'
+      - 'docs/store/**'
       - 'scripts/personal-data-allowlist.json'
       - 'scripts/check-personal-data.mjs'
       - 'supabase/functions/google-calendar/index.ts'
@@ -580,6 +584,9 @@ jobs:
 
       - name: Check public contact mail is the service mail and no personal mail is in the repository (ABOUT-문의메일안내문고침)
         run: node --test tests/about-contact-mail.test.mjs
+
+      - name: Check Play store listing text, images, and account deletion page (STORE-플레이등록자료)
+        run: node --test tests/store-workonplus.test.mjs
 
       - name: Check same-name same-size file notice (UX-이미있는파일알림)
         run: node --test tests/same-file.test.mjs

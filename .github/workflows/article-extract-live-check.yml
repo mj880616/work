@@ -1,0 +1,65 @@
+name: Article extract live check
+
+# S69-06: 실제 사이트에서 원문(본문)을 제대로 가져오는지 점검한다(읽기만, 저장 없음).
+# 뉴스 카탈로그·사회운동 Now 카탈로그의 매체마다 최신 글 몇 개를 운영 Edge 함수와 같은 추출 코드로 읽어,
+# 결과를 숫자·까닭 코드로만 Job summary·로그에 쓴다(글 내용은 쓰지 않음). scripts/ops/article-extract-live-check.mjs.
+# 필수 검사가 아니다(사이트 사정으로 결과가 흔들린다). 비밀값·Supabase·운영 DB를 쓰지 않는다.
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/_shared/feed-extract.ts"
+      - "supabase/functions/_shared/feed-fetch.ts"
+      - "supabase/functions/_shared/page-json-body.ts"
+      - "supabase/functions/_shared/outside-tidy.ts"
+      - "supabase/functions/_shared/news-catalog.ts"
+      - "supabase/functions/_shared/outside-catalog.ts"
+      - "supabase/functions/_shared/reader-headers.ts"
+      - "supabase/functions/_shared/html-entities.ts"
+      - "supabase/functions/news-feed/page.ts"
+      - "supabase/functions/outside-feed/parse.ts"
+      - "supabase/functions/note-import/**"
+      - "scripts/ops/article-extract-live-check.mjs"
+      - ".github/workflows/article-extract-live-check.yml"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "매체 키만(쉼표로 여러 개, 비우면 전부)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: article-extract-live-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: github.repository == 'mj880616/work'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Restore Deno executable cache
+        id: deno-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.tool_cache }}/deno
+          key: deno-bin-${{ runner.os }}-${{ runner.arch }}-v2.9.6
+
+      - name: Install Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.9.6
+
+      - name: Read live article pages
+        env:
+          ONLY: ${{ inputs.only }}
+          PER_SOURCE: "3"
+          PARALLEL: "6"
+          DIAG: "1"
+        run: deno run --no-prompt --allow-net --allow-read --allow-env --allow-write="$GITHUB_STEP_SUMMARY" scripts/ops/article-extract-live-check.mjs

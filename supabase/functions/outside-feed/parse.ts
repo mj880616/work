@@ -305,9 +305,12 @@ export function parseTelegram(source: OutsideSource, html: string, nowMs: number
 
 // 피드·목록 대신 '사람인지 확인' 스크립트 쪽이 온 경우(무료 호스팅의 자바스크립트 쿠키 확인 등).
 // 이 쪽은 풀지 않는다(우회 금지) — 단체 상태를 bot_check(사이트가 자동 읽기를 막아 둠)로 남길 뿐이다.
+// S69-06: Cloudflare가 보통 쪽에도 넣는 측정 스크립트(`/cdn-cgi/challenge-platform/scripts/jsd/main.js`)는 확인 쪽이 아니다.
+//   예전에는 'challenge-platform' 글자만 보고 노동자연대 글 쪽 전부를 bot_check로 버렸다(본문이 있는데 '원문 없음'). 확인 쪽 자체의 표시
+//   (challenge-platform/h/… 확인 틀, cf-chl-, _cf_chl_opt, 'Just a moment...')만 본다.
 export function looksLikeBotCheck(text: string): boolean {
   if (/<(rss|feed|rdf:RDF)\b/i.test(text)) return false;
-  return /slowAES|\/aes\.js|\/cupid\.js|__test=|challenge-platform|cf-chl-|Just a moment\.\.\./i.test(text);
+  return /slowAES|\/aes\.js|\/cupid\.js|__test=|challenge-platform\/h\/|cf-chl-|_cf_chl_opt|Just a moment\.\.\./i.test(text);
 }
 
 // ---- 목록 HTML -----------------------------------------------------------------------------------------------------
@@ -452,15 +455,24 @@ const FILE_LINE = /\.(hwpx?|pdf|docx?|xlsx?|pptx?|jpe?g|png|gif|zip)$/i;
 
 // 단체 규칙 bodyClass(class 이름 또는 id 하나가 맞는 칸)의 안쪽 HTML을 모두(같은 이름 칸이 여럿이면 차례로 이어서). 짝 맞는 닫는 태그까지만.
 export function bodyBlocks(html: string, re: RegExp): string {
+  return blocksWhere(html, (attrs) => {
+    const cls = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+    const id = /\bid\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+    const names = [...(cls?.[1] ?? cls?.[2] ?? "").split(/\s+/), id?.[1] ?? id?.[2] ?? ""].filter(Boolean);
+    return names.some((n) => re.test(n));
+  });
+}
+// S69-06: schema.org 본문 표시(itemprop="articleBody")가 붙은 칸 — 매체가 스스로 '여기가 기사 본문'이라고 밝힌 칸(매일경제·한국경제·서울경제·엔디소프트 매체 등 실측).
+const ITEMPROP_BODY = /\bitemprop\s*=\s*["']?articleBody\b/i;
+export function itempropBlocks(html: string): string {
+  return ITEMPROP_BODY.test(html) ? blocksWhere(html, (attrs) => ITEMPROP_BODY.test(attrs)) : "";
+}
+function blocksWhere(html: string, hit: (attrs: string) => boolean): string {
   const parts: string[] = [];
   const open = /<([a-z][a-z0-9]{0,9})\b([^>]*)>/gi;
   let m: RegExpExecArray | null;
   while ((m = open.exec(html))) {
-    const attrs = m[2];
-    const cls = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
-    const id = /\bid\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
-    const names = [...(cls?.[1] ?? cls?.[2] ?? "").split(/\s+/), id?.[1] ?? id?.[2] ?? ""].filter(Boolean);
-    if (!names.some((n) => re.test(n))) continue;
+    if (!hit(m[2])) continue;
     const tag = m[1].toLowerCase();
     const start = m.index + m[0].length;
     const step = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi");
@@ -481,7 +493,7 @@ export function bodyBlocks(html: string, re: RegExp): string {
 // 글 페이지에서 본문 글자만: 단체 규칙 bodyClass 칸 → <article>(또는 흔한 본문 칸) → 페이지 전체 순서. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
 // 본문 칸 줄들(필터 전): 단체 본문 칸 → <article> → 흔한 본문 칸 → 페이지 전체 순서. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
 // 본문 칸 HTML(필터 전)과 그것이 단체 본문 칸(bodyClass)인지. 공용 추출기(_shared/feed-extract.ts)가 같은 칸을 쓴다(한 번 뽑아 세 곳).
-export type BodyScopeVia = "own" | "article" | "common" | "body" | "article_form" | "common_form" | "body_form";
+export type BodyScopeVia = "own" | "itemprop" | "article" | "common" | "body" | "article_form" | "common_form" | "body_form";
 // 본문 칸 고르기(S51-9): 단체 본문 칸(bodyClass)이 있으면 그 칸. 없으면 <article>(앞에서 5개) → 흔한 본문 칸 → 페이지 전체 순서로,
 // 메뉴·머리·꼬리·옆 칸·폼을 뺀 뒤 '글자 SCOPE_MIN_TEXT자 이상 또는 그림이 있는' 첫 칸을 쓴다(예전: 처음 찾은 칸이 비어 있어도 그 칸 — 학비노조 0블록·서비스연맹 93자).
 // 폼을 빼면 비는 칸(게시판 쪽 전체가 <form> 안인 사이트)은 폼 꼬리표만 벗기고 안쪽은 남긴다(입력 칸·선택 칸은 글자 바꾸기에서 빠진다).
@@ -496,6 +508,9 @@ function scopeMeaningful(h: string): boolean {
 export function bodyScopeHtml(html: string, bodyClass?: RegExp): { html: string; own: boolean; via: BodyScopeVia } {
   const own = bodyClass ? bodyBlocks(html, bodyClass) : "";
   if (own.trim()) return { html: own.replace(CHROME, " "), own: true, via: "own" };
+  // S69-06: 단체 본문 칸 규칙이 없거나 못 찾으면 매체가 밝힌 본문 칸(itemprop="articleBody")을 <article>보다 먼저. 그 칸이 비면(화면 스크립트가 채우는 쪽) 예전 차례로.
+  const marked = itempropBlocks(html);
+  if (marked.trim()) { const h = marked.replace(CHROME, " "); if (scopeMeaningful(h)) return { html: h, own: true, via: "itemprop" }; }
   const cands: [string, "article" | "common" | "body"][] = [];
   for (const m of html.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article\s*>/gi)) { cands.push([m[1], "article"]); if (cands.length >= 5) break; }
   const common = /<(?:div|section)\b[^>]*\b(?:class|id)\s*=\s*["'][^"']*\b(?:entry-content|post-content|article-body|article_body|view_content|view-content|board_view|bbs_view|xe_content|rd_body|content_view|viewContent|bo_v_con|kboard-content)\b[^"']*["'][^>]*>([\s\S]*)/i.exec(html)?.[1];
@@ -529,6 +544,7 @@ const BUTTON_LINE = /^(목록|목록으로|수정|삭제|답변|답글|글쓰기
 // '페이지 정보'·'본문' 칸 제목. 본문이 나오기 전에만 건너뛴다('댓글목록' 같은 댓글 칸 제목은 예전처럼 끝).
 const HEAD_LINE = /^((댓글|덧글|comments?)\s*[:：]?\s*\d+\s*(건|개)?|페이지\s?정보|본문)$/i;
 const IMG_LINE = /\ue000\d+\ue000/;
+const CREDIT_LINE = /^(ⓒ|©)\s?\S.{0,40}$/;
 function endCode(mark: string): string {
   if (/^(목록)/.test(mark)) return "list";
   if (/^(이전|다음|윗|아랫)/.test(mark)) return "prev_next";
@@ -547,7 +563,7 @@ export function bodyRange(lines: string[], title: string, own: boolean, key: (l:
     if (i >= 0) { start = i + 1; if (opts.info) opts.info.start = "rule"; }
   }
   const out: string[] = [];
-  let started = false;
+  let started = false, texted = false;
   for (let n = start; n < lines.length; n++) {
     const l = lines[n], k = keys[n].trim();
     if (opts.end && opts.end.test(k)) { if (opts.info) opts.info.end = "rule"; break; }
@@ -555,11 +571,15 @@ export function bodyRange(lines: string[], title: string, own: boolean, key: (l:
     const m = END_MARK.exec(k);
     if (m) {
       if (!started && SHARE_LINE.test(k)) continue;
+      // S69-06(시사IN 실측): 본문 칸 안에서 본문 글자보다 앞에 오는 짧은 사진 저작권 줄('ⓒ매체 기자')은 본문 끝이 아니다.
+      //   사진만 나온 뒤(글자 문단 전)도 같다 — 사진 바로 밑 저작권 줄.
+      if (!texted && own && CREDIT_LINE.test(k)) continue;
       if (opts.info) opts.info.end = endCode(m[0]);
       break;
     }
     out.push(l);
-    if (!started && (IMG_LINE.test(l) || (k.length >= SHARE_SKIP_MIN && !isBodyNoise(k)))) started = true;
+    if (!texted && k.length >= SHARE_SKIP_MIN && !isBodyNoise(k)) texted = true;
+    if (!started && (IMG_LINE.test(l) || texted)) started = true;
   }
   return out;
 }

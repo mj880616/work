@@ -189,7 +189,9 @@
     // MTG-프로젝트합치기 ①: 창 그릇의 popstate·kptu:view-changed가 화면 프로그램·첫 화면 이동보다 먼저 붙는다.
     import('./area-window.js'),
     // ORG-사본자동갱신: 저장 뒤 Drive 읽기용 사본 자동 갱신(화면 표시 없음).
-    import('./drive-summary.js').catch(err=>console.warn('drive summary refresh load failed',err?.name||'Error'))
+    import('./drive-summary.js').catch(err=>console.warn('drive summary refresh load failed',err?.name||'Error')),
+    // S69-08: 잠금 설정 읽기를 보기 설정과 함께 시작한다(아래 앱 잠금 확인이 기다리는 시간을 줄임). 기다리지는 않는다.
+    import('./feature-lock.js').then(m=>{void m.refresh()})
   ]);
   const savedTheme=viewPrefs?.get('theme');
   if(savedTheme){document.documentElement.setAttribute('data-theme',savedTheme);window.dispatchEvent(new CustomEvent('kptu:theme-applied'))}
@@ -206,17 +208,34 @@
     box.firstElementChild?.removeAttribute('role');
   };
 
+  const app=document.querySelector('#appView');
   const viewLoader=window.KPTUViewLoader;
-  const {params,rawRequested,areasAtStart,requested}=startRoute(viewLoader);
-  // SEC-기능PIN잠금 ②: 잠금 문지기를 첫 화면 이동보다 먼저 붙인다. 잠글 수 있는 화면으로 시작하면 설정(서버)을 읽은 뒤 연다(못 읽으면 잠긴 채).
+  let {params,rawRequested,areasAtStart,requested}=startRoute(viewLoader);
+  // SEC-기능PIN잠금 ②: 잠금 문지기를 첫 화면 이동보다 먼저 붙인다. 설정(서버)을 먼저 읽는다(못 읽으면 잠긴 채).
+  // S69-08 앱 전체 잠금: 시작 순서는 세션 확인 → 로그인 → 앱 잠금 확인 → 화면. 앱 전체가 잠겼으면 첫 화면 프로그램·자료를 받기 전에
+  // 잠금 화면만 열고(feature-lock.js startGate, 그리기는 lock-ui.js 하나) 풀릴 때까지 여기서 기다린다. 풀리면 아래 원래 순서대로 첫 화면을 연다.
+  // 설정 읽기가 늦으면(4초) 기다리지 않고 연다 — 늦게 온 설정이 앱 전체 잠금이면 feature-lock.js가 그때 잠금 화면으로 옮긴다.
   const featureLock=await import('./feature-lock.js');
-  if(featureLock.isLockable(requested))await featureLock.ready();else void featureLock.refresh();
+  await Promise.race([featureLock.ready(),new Promise(resolve=>setTimeout(resolve,4000))]);
+  if(featureLock.appLocked()){
+    let renew=false;
+    if(requested==='lock'){
+      // 잠금 화면 주소(?view=lock, PIN 잊음에서 다시 로그인하고 돌아온 &renew=1&for=…)로 시작했으면, 풀린 뒤 열 화면 주소로 바꿔 둔다(새 PIN 정하기는 메모리로).
+      renew=params.get('renew')==='1';
+      const back=viewLoader.normalize(params.get('for')||'home'),url=new URL(location.href);
+      url.searchParams.delete('renew');url.searchParams.delete('for');url.searchParams.set('view',back==='lock'?'home':back);
+      history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+      ({params,rawRequested,areasAtStart,requested}=startRoute(viewLoader));
+    }
+    app?.classList.add('kptu-shell-ready');
+    startup?.mark('appLockGate',{view:requested});
+    await featureLock.startGate(requested,{renew});
+  }
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
   const staticShellViews=new Set(['home','basket','calendar','tasks','diary','library','meetings','pages','team']);
   await viewLoader.prepare(requested);
   window.KPTURouter?.noteAlias?.(rawRequested);
-  const app=document.querySelector('#appView');
   if(staticShellViews.has(requested)){
     app?.classList.add('kptu-shell-ready');
     window.KPTURouter?.go?.(requested,{scroll:false,source:'startup',updateUrl:false,allowUnloaded:true});

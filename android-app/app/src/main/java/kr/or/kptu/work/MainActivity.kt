@@ -327,7 +327,7 @@ class MainActivity : ComponentActivity() {
             setSupportMultipleWindows(false)
             cacheMode = WebSettings.LOAD_DEFAULT
             // 웹은 이 표시로 앱인지 안다(native-google-return.js, native-back-guard.js, google-tasks.js).
-            // S62-34: 플레이 판은 뒤에 " KPTUPlay"를 붙인다(native-google-return.js가 로그인 복귀를 플레이 판으로 돌린다). github 판은 그대로.
+            // S62-34: 플레이 판은 뒤에 " WorkOnPlay"를 붙인다(native-google-return.js가 로그인 복귀를 플레이 판으로 돌린다). github 판은 그대로.
             userAgentString = "$userAgentString KPTUAndroid/${BuildConfig.VERSION_NAME}${BuildConfig.UA_MARK}"
         }
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
