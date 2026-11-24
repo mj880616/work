@@ -13,7 +13,13 @@
 // - BRIEF-자료실에서고르기(S64-10, 명진 11/17 09:31): [자료실에서 고르기] → 공용 고르기 창(library-move-picker.js, 여러 개)으로 내 자료실 자료를 고른다.
 //   파일을 다시 올리지 않고 '브리핑 요청함' 폴더에 연결 줄만 넣는다(app_library_folder_items, owner RLS, 이미 있으면 건너뜀). 받기는 줄의 [브리핑 받기]로만.
 //   자료 하나는 폴더 하나라(표 기본키), 다른 폴더에 든 자료는 옮기지 않고 그대로 두고 이 화면 목록에만 보인다(브리핑을 받으면 계속 남음).
-import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GIST_TITLE,LEGACY_LINE,OURS_TAG,QUOTES_TITLE,RETRY_LABEL,SHOW_N,briefView,canRetry,doneDate,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
+// - S69-86 BRIEF-밑줄노트(명진 11/25 00:50·00:53): 보기 본문(요지·소제목 줄·원문 인용, [data-br-zone])에서 글을 선택하면 읽을 거리와 같은 공용 줄
+//   (text-select-bar.js) [밑줄 저장][답글][노트로][복사][공유]. 밑줄은 공용 text-highlights.js(표 app_news_highlights, 종류 brief, source_id = 자료 id)로
+//   저장·칠하기·메뉴(메모·노트로·복사·삭제). [답글] = 고른 글 + 메모 → 새 노트. 머리 [노트로 보관] = 브리핑 한 장 + 이 자료 밑줄 → 새 노트(마크다운).
+//   셋 다 글을 복사해 넣고 브리핑·자료를 가리키는 연결(외래 키)을 두지 않아, 브리핑만 삭제·자료까지 삭제 뒤에도 남는다(출처는 이름·날짜 글자).
+//   글자 크기 [−][+]는 공용 text-size.js(읽을 거리·News 글 보기와 같은 다섯 단계·같은 서버 값 view_prefs.news_font — 읽는 글자 크기 하나를 함께 쓴다).
+//   보기는 머리 줄 [원문 열기] 옆, 목록만 보일 때(폰 목록·보기를 열지 않은 PC)는 목록 머리 줄 끝. 본문·목록 줄 글자만 커지고 머리·단추는 그대로.
+import {ARCHIVE_LABEL,BRIEF_GONE,archiveNote,briefSource,BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GIST_TITLE,LEGACY_LINE,OURS_TAG,QUOTES_TITLE,RETRY_LABEL,SHOW_N,briefView,canRetry,doneDate,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {readLibraryFolders} from './library-folder-data.js';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
@@ -23,6 +29,10 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {createFeedHold} from './feed-hold.js';
 import {createSelectMode} from './select-mode.js';
 import {deleteSequentially} from './library-select.js';
+import {loadHighlights,sourceHighlights,onHighlights,paintMarks,bindMarks,saveFromSelection,noteFromSelection,replyFromSelection,revealMark} from './text-highlights.js';
+import {bindSelectZone} from './text-select-bar.js';
+import {textSizeHtml,paintTextSize} from './text-size.js';
+import {createNoteDoc} from './basket-data.js';
 
 const rt=()=>window.KPTURuntime;
 const ws=()=>rt()?.context?.read?.()?.workspace?.id||'';
@@ -92,13 +102,15 @@ function drawList(){
   // 같은 단추 하나를 다시 붙인다: 진행 중 다시 그리기(4초마다)에도 고르기 창이 단추를 잃고 닫히지 않게.
   const fromLib=libButton??=(()=>{const b=btn('br-pick-lib mini','자료실에서 선택',{brPickLib:'1'});b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-expanded','false');return b})();
   head.append(el('h2','br-title','브리핑 룸'),fromLib,btn('br-add mini','자료 넣기',{brAdd:'1'}));
+  // 글자 크기: 목록만 보일 때 머리 줄 끝(보기가 열려 있으면 보기 머리 줄에 하나만).
+  if(!detailShown())head.insertAdjacentHTML('beforeend',textSizeHtml());
   const rowsNow=roomRows();
   if(pick.prune(rowsNow.map(r=>r.doc.id))&&!pick.size)pick.stop();
   if(pick.active)head.replaceChildren(...pickBar(rowsNow));
   const drop=el('p','br-drop',`여기에 파일을 놓아도 돼요 · 자료실 '${BRIEF_FOLDER}' 폴더에 함께 저장돼요`);drop.dataset.brDrop='1';
   if(state.failed&&!state.docs.length){box.replaceChildren(head,drop);box.insertAdjacentHTML('beforeend',failHtml({retry:'data-br-retry'}));return}
   const rows=rowsNow;
-  const list=el('div','br-rows');if(pick.active)list.classList.add('br-picking');
+  const list=el('div','br-rows');if(pick.active)list.classList.add('br-picking');list.dataset.textSizeTarget='';
   for(const row of rows){
     const r=el('div','br-row');r.dataset.brOpen=row.doc.id;r.tabIndex=row.state.kind==='done'?0:-1;r.setAttribute('role',row.state.kind==='done'?'button':'group');
     if(state.open===row.doc.id)r.classList.add('is-open');
@@ -115,6 +127,7 @@ function drawList(){
   if(!rows.length&&state.loaded&&!pick.active){box.replaceChildren(head,firstUseEl('brief'));return}
   if(!rows.length)list.append(emptyEl('넣은 자료 없음 — [자료 넣기]로 긴 자료를 넣고 [브리핑 받기]'));
   box.replaceChildren(head,drop,list);
+  paintTextSize(box);
 }
 
 // 쪽 링크(쪽을 아는 PDF는 원문 그 쪽, 원문 주소가 없으면 글자만).
@@ -145,6 +158,8 @@ function quoteNode(it,doc){
   return li;
 }
 
+// 보기가 그려질 자료인가(다 된 브리핑을 연 상태). 목록 머리 글자 크기 단추를 둘지 정한다.
+function detailShown(){const b=state.open?state.briefs.get(state.open):null;return !!(b?.status==='done'&&b.brief&&state.docs.some(d=>d.id===state.open))}
 function drawDetail(){
   const box=view()?.querySelector('[data-br-detail]'),listBox=view()?.querySelector('[data-br-list]');if(!box)return;
   const doc=state.docs.find(d=>d.id===state.open),b=doc?state.briefs.get(doc.id):null;
@@ -156,12 +171,16 @@ function drawDetail(){
   bar.append(el('h2','br-title br-doc',String(doc.title||doc.file_name||'')));
   const src=sourceUrl(doc);
   if(src){const a=el('a','br-src mini','원문 열기');a.href=src;a.target='_blank';a.rel='noopener';bar.append(a)}
+  bar.insertAdjacentHTML('beforeend',textSizeHtml());
+  bar.append(btn('br-archive mini',ARCHIVE_LABEL,{brArchive:doc.id}));
   const meta=el('p','br-meta',[fileBadge(doc.file_name,doc.mime_type),b.page_count?`${b.page_count}쪽`:'',b.finished_at?`${doneDate(b.finished_at)} 브리핑`:''].filter(Boolean).join(' · '));
-  const parts=[bar,meta];
-  const part=partialLine(b.brief);if(part)parts.push(el('p','br-meta br-partial',part));
+  const head=[bar,meta];
+  const part=partialLine(b.brief);if(part)head.push(el('p','br-meta br-partial',part));
   const v=briefView(b.brief);
   // 옛 형식: 작은 줄 하나 + [다시 만들기](목록 [브리핑 받기]와 같은 길 brief-start로 새로 만든다).
-  if(v.legacy){const p=el('p','br-meta br-legacy',`${LEGACY_LINE} · `);p.append(btn('br-redo row-act',RETRY_LABEL,{brRedo:doc.id}));parts.push(p)}
+  if(v.legacy){const p=el('p','br-meta br-legacy',`${LEGACY_LINE} · `);p.append(btn('br-redo row-act',RETRY_LABEL,{brRedo:doc.id}));head.push(p)}
+  // 본문 = 글 선택·밑줄 칸(data-br-zone)이자 글자 크기 대상. 머리·단추는 밖에 둔다.
+  const parts=[];
   if(v.gist.length){
     const g=el('section','br-gist');g.setAttribute('aria-label',GIST_TITLE);
     for(const line of v.gist)g.append(el('p',null,line));
@@ -188,10 +207,23 @@ function drawDetail(){
     for(const p of parts)if(p.matches?.('details[data-br-key]')&&was.has(p.dataset.brKey))p.open=was.get(p.dataset.brKey);
   }
   box.dataset.brDoc=doc.id;
-  box.replaceChildren(...parts);box.hidden=false;
+  const body=el('div','br-body');body.dataset.brZone=doc.id;body.dataset.textSizeTarget='';body.append(...parts);
+  box.replaceChildren(...head,body);box.hidden=false;
+  paintTextSize(box);
+  paintMarks(body,sourceHighlights('brief',doc.id));
 }
 
 function draw(){drawList();drawDetail();schedule()}
+// [노트로 보관]: 브리핑 한 장 + 이 자료에서 저장한 밑줄을 새 노트 한 장(노트 기본 폴더)으로. 글을 복사해 넣으므로 브리핑을 지워도 노트는 남는다.
+async function archive(id,button){
+  const doc=state.docs.find(d=>d.id===id),row=state.briefs.get(id);
+  const n=archiveNote({doc,row,marks:sourceHighlights('brief',id)});
+  if(!n){toast('보관할 브리핑이 없어요',true);return}
+  if(button)button.disabled=true;
+  try{await createNoteDoc({...n,markdown:true},rt());toast('노트로 보관했어요')}
+  catch(e){toast(e?.message&&!e?.status?e.message:'노트로 보관하지 못했어요 · 잠시 뒤 다시',true)}
+  finally{if(button?.isConnected)button.disabled=false}
+}
 // 다 됐다·못 했다 알림은 공용 작은 알림(위쪽, 브리핑 룸 화면에 있을 때만 — 폰 알림 없음).
 function toast(text,error=false){notify(text,{error,record:false})}
 
@@ -242,6 +274,7 @@ function bind(){
     if(t.closest?.('[data-br-pick-stop]')){pick.stop();drawList();return}
     const kill=t.closest?.('[data-br-del-many]');if(kill){void removeMany([...(pick.items||[])],kill.dataset.brDelMany,kill);return}
     if(pick.active){const pr=t.closest?.('[data-br-open]');if(pr){if(!t.matches?.('[data-br-pick]'))e.preventDefault();pick.toggle([pr.dataset.brOpen]);drawList();return}}
+    const keep=t.closest?.('[data-br-archive]');if(keep){e.stopPropagation();void archive(keep.dataset.brArchive,keep);return}
     const redo=t.closest?.('[data-br-redo]');if(redo){e.stopPropagation();void start(redo.dataset.brRedo,redo);return}
     const s=t.closest?.('[data-br-start]');if(s){e.stopPropagation();void start(s.dataset.brStart,s);return}
     const lib=t.closest?.('[data-br-pick-lib]');if(lib){void openLibraryPick(lib);return}
@@ -253,6 +286,10 @@ function bind(){
   v.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-br-open][role=button]')){e.preventDefault();e.target.click()}});
   v.addEventListener('keydown',e=>{if(e.key==='Escape'&&pick.active&&!state.busy){e.preventDefault();pick.stop();drawList()}});
   hold.bind(v);
+  // 밑줄: 칠한 밑줄을 누르면 공용 밑줄 메뉴, 본문에서 글을 선택하면 공용 선택 줄. 출처는 지금 연 자료(이름·브리핑 날짜만, 주소 없음).
+  bindMarks(v);
+  bindSelectZone(v,{zone:'[data-br-zone]',source:zone=>{const id=zone?.dataset?.brZone;return briefSource(state.docs.find(d=>d.id===id),state.briefs.get(id))},onSave:saveFromSelection,onNote:noteFromSelection,onReply:replyFromSelection});
+  onHighlights(()=>{if(window.KPTURouter?.current==='brief')drawDetail()});
   // 파일 놓기: 화면 아무 곳에나 놓으면 자료 등록 창(브리핑 요청함 폴더)에 담는다.
   v.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files')){e.preventDefault();v.classList.add('br-dropping')}});
   v.addEventListener('dragleave',e=>{if(e.target===v)v.classList.remove('br-dropping')});
@@ -412,6 +449,8 @@ async function putPicked(ids){
 async function refresh(){
   const list=view()?.querySelector('[data-br-list]');
   if(list&&!state.docs.length)list.innerHTML=waitHtml({rows:3});
+  // 밑줄은 브리핑 목록과 따로 읽는다(못 읽어도 보기는 그려지고, 읽히면 다시 칠한다).
+  void loadHighlights().then(()=>{if(window.KPTURouter?.current==='brief')drawDetail()}).catch(()=>{});
   await load();draw();
 }
 
@@ -420,6 +459,15 @@ install();bind();
 async function takeAsked(){
   const ask=window.KPTUBriefOpen;window.KPTUBriefOpen=null;
   if(!ask||typeof ask.id!=='string')return;
+  // 노트 › 밑줄 [원문에서 보기](종류 brief): 그 자료를 열고 그 밑줄로. 브리핑이 사라졌으면 그 길만 꺼진다(밑줄·노트는 그대로).
+  if(typeof ask.highlight==='string'){
+    const b=state.briefs.get(ask.id);
+    if(b?.status!=='done'||!b.brief||!state.docs.some(d=>d.id===ask.id)){toast(BRIEF_GONE,true);return}
+    state.open=ask.id;draw();
+    await loadHighlights().catch(()=>{});drawDetail();
+    revealMark(view()?.querySelector('[data-br-zone]'),ask.highlight);
+    return;
+  }
   state.open=ask.id;
   const b=state.briefs.get(ask.id);
   if(ask.start&&(!b||b.status==='failed'))await start(ask.id,null);

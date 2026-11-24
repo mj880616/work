@@ -209,7 +209,7 @@ test('모음: 새 칸이 아직 없으면(글 상자 DB 적용 전) 옛 칸으�
   await store.load();
   assert.equal(store.ready(), true); assert.equal(store.canBend(), false); assert.equal(store.textsReady(), false);
   assert.deepEqual(store.forBoard('all').map(l => l.id), ['o1']);
-  assert.equal(store.checkTexts(), false); assert.match(toasts.at(-1), /글 상자는 아직/);
+  assert.equal(store.checkTexts(), false); assert.match(toasts.at(-1), /^상자는 아직/);
   await store.update('o1', {shape:'curve', bend_x:0.5, bend_y:0.2}); assert.match(toasts.at(-1), /준비 중/);
   await store.update('o1', {shape:'line', bend_x:null, bend_y:null});
   assert.deepEqual(calls.at(-1).body, {shape:'line'}, '옛 표에는 새 칸을 보내지 않는다'); assert.doesNotMatch(calls.at(-1).url, /from_text/);

@@ -2,7 +2,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {ALL, BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, validateBoardName, newBoardId, addBoard, renameBoard, removeBoard,
+import * as boardsModel from '../app/note-boards-model.mjs';
+import {BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, validateBoardName, newBoardId, addBoard, renameBoard, removeBoard,
   boardPlaceOf, onBoard, notesOnBoard, boardsOfNote, withBoardPlace, dropPlace} from '../app/note-boards-model.mjs';
 import {layoutBoard, boardOf, CARD_W, CARD_H, tiltFor} from '../app/note-board-model.mjs';
 import {validValue} from '../app/view-prefs.js';
@@ -19,17 +20,20 @@ test('보드 목록: 서버 값의 틀린 칸·겹친 id는 버리고 12개까�
   assert.equal(parseBoards(many).length, BOARD_LIMITS.count);
   assert.ok(validValue('note_boards', boardsToPrefs(parseBoards(many))));
 });
-test('마지막에 연 보드: 목록에 있으면 그 보드, 없으면 [전체]', () => {
-  const boards = [{id:'b1a2b3c4', name:'가'}];
+test('처음 열 보드(S69-83 [전체] 없앰): 마지막에 연 보드, 없으면 가장 최근에 만든 보드, 보드가 없으면 null', () => {
+  const boards = [{id:'b1a2b3c4', name:'가'}, {id:'bq0q0q0q', name:'나'}];
   assert.equal(pickBoard('b1a2b3c4', boards), 'b1a2b3c4');
-  for (const v of ['b0000000', null, undefined, 1, ALL]) assert.equal(pickBoard(v, boards), ALL);
+  for (const v of ['b0000000', null, undefined, 1, 'all']) assert.equal(pickBoard(v, boards), 'bq0q0q0q', String(v));
+  for (const v of ['all', 'b1a2b3c4', null]) assert.equal(pickBoard(v, []), null, String(v));
+  assert.equal('ALL' in boardsModel, false, '[전체] 값은 없다');
 });
 test('만들기·이름 바꾸기·지우기', () => {
   let seq = 0; const random = () => ((seq++ * 7) % 36) / 36;
   let {boards, board} = addBoard([], '  국회   대응 ', random);
   assert.equal(board.name, '국회 대응'); assert.match(board.id, /^b[0-9a-z]{8}$/); assert.ok(validValue('note_board', board.id));
   assert.throws(() => addBoard(boards, '국회 대응', random), /같은 이름/);
-  for (const bad of ['', '   ', '전체', '가'.repeat(21), '줄\n바꿈']) assert.throws(() => validateBoardName(bad, boards), Error, JSON.stringify(bad));
+  for (const bad of ['', '   ', '가'.repeat(21), '줄\n바꿈']) assert.throws(() => validateBoardName(bad, boards), Error, JSON.stringify(bad));
+  assert.equal(validateBoardName('전체', boards), '전체', '[전체]가 없으니 막지 않는다(S69-83)');
   assert.equal(validateBoardName('가'.repeat(20), boards), '가'.repeat(20));
   const two = addBoard(boards, '교섭', random); boards = two.boards;
   assert.notEqual(two.board.id, board.id);
@@ -42,13 +46,13 @@ test('만들기·이름 바꾸기·지우기', () => {
   assert.throws(() => addBoard(full, '새', random), /12개까지/);
   assert.throws(() => newBoardId([{id:'bzzzzzzzz'}], () => 0.999999), /만들지 못했어요/);
 });
-test('노트 자리: 보드마다 metadata.boards[id], [전체] metadata.board와 따로. 같은 노트를 여러 보드에', () => {
+test('노트 자리: 보드마다 metadata.boards[id], 옛 [전체] metadata.board와 따로(지우지 않음). 같은 노트를 여러 보드에', () => {
   const n = note('n1', {board:P(10, 10), folder_id:'f', boards:{b1a2b3c4:P(40, 50, 3), bq0q0q0q:P(5, 6), bbad0000:{x:'1'}}});
   assert.deepEqual(boardPlaceOf(n, 'b1a2b3c4'), P(40, 50, 3));
   assert.equal(boardPlaceOf(n, 'bbad0000'), null, '모양이 틀린 자리는 없음');
   assert.equal(boardPlaceOf(n, 'bzzzzzzz'), null);
   assert.equal(boardPlaceOf(note('x', {boards:[1]}), 'b1a2b3c4'), null);
-  assert.deepEqual(boardOf(n), P(10, 10), '[전체] 자리는 그대로');
+  assert.deepEqual(boardOf(n), P(10, 10), '옛 [전체] 자리 값은 지우지 않고 그대로');
   assert.deepEqual(boardsOfNote(n, [{id:'b1a2b3c4', name:'a'}, {id:'bq0q0q0q', name:'b'}, {id:'bnone000', name:'c'}]), ['b1a2b3c4', 'bq0q0q0q']);
   assert.deepEqual(notesOnBoard([n, note('n2'), note('n3', {boards:{b1a2b3c4:P(0, 0)}})], 'b1a2b3c4').map(x => x.id), ['n1', 'n3']);
   assert.equal(onBoard(note('n2'), 'b1a2b3c4'), false);
@@ -86,7 +90,10 @@ test('화면 연결: 보드 칸 줄·PC 끌어 놓기·폰 고르기·서버 저
   assert.match(js, /viewPrefs\.set\('note_board', current, \{rejectable:true\}\)/);
   assert.match(js, /setNoteBoardPlace\(note, boardId, place, rt\)/);
   assert.match(data, /export function setNoteBoardPlace\(note, boardId, place, rt = window\.KPTURuntime\) \{\n  return patchNoteMetadata\(note, metadata => withBoardPlace\(metadata, boardId, place\), rt\);/);
-  assert.match(js, /data-nbb-new>\+ 새 보드</); assert.match(js, /data-nbb-pick>\+ 노트 붙이기</); assert.match(js, />전체</);
+  assert.match(js, /data-nbb-new>\+ 새 보드</); assert.match(js, /data-nbb-pick>\+ 노트 붙이기</);
+  // S69-83: [전체] 칸·모든 노트 판은 없다(보드가 없으면 판 대신 빈 안내 한 줄).
+  assert.doesNotMatch(js, />전체</); assert.doesNotMatch(js, /\bALL\b/);
+  assert.match(notes, /data-nbw-none hidden>보드가 없어요\. \[\+ 새 보드\]로 만들어 보세요\.</); assert.match(notes, /box\.hidden = !named; none\.hidden = !!named;/);
   assert.match(js, /왼쪽 노트를 끌어다 놓으세요/);
   assert.match(js, /treeRows\(\{folders:shownFolders\(folders\(\)\), notes:shownNotes\(all\)/, 'PC 왼쪽 목록은 노트 화면의 같은 폴더 나무(잠근 폴더 가림은 feature-lock.js 판정)');
   assert.match(js, /import \* as pinLock from '\.\/feature-lock\.js'/, '보드 왼쪽 목록·고르기 창도 노트 폴더 잠금 판정 한 곳을 쓴다');

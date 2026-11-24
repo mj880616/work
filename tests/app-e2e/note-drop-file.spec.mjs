@@ -149,7 +149,9 @@ test('포스트잇 보기에서도 목록 칸에 놓으면 새 노트 창 (1280)
   await page.locator('[data-note-view="board"]').click();
   const wrap = page.locator('[data-note-board-wrap]'); await expect(wrap).toBeVisible();
   const dt = await files(page, [['보고서.pdf', 'application/pdf']]);
-  const [x, y] = await center(page.locator('[data-note-board]'));
+  // S69-83: 보드가 없으면 판 대신 빈 안내 한 줄([전체] 없음) — 그 자리에 놓아도 같은 새 노트 창.
+  await expect(page.locator('[data-nbw-none]')).toBeVisible();
+  const [x, y] = await center(page.locator('[data-nbw-none]'));
   await dragTo(page, dt, x, y, {drop: false});
   await expect(wrap).toHaveClass(/nx-file-over/);
   await dragTo(page, dt, x, y);

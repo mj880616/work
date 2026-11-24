@@ -73,8 +73,9 @@ test('화면 연결: 세 보기 전환·서버 기억·자리 저장 길(기기 
   const js = read('app/basket-notes.js'), board = read('app/note-board.js'), data = read('app/basket-data.js');
   for (const v of ['folder', 'list', 'board']) assert.match(js, new RegExp(`data-note-view="${v}"`));
   assert.match(js, /viewPrefs\.set\('note_view', view, \{rejectable:true\}\)/);
-  assert.match(js, /setNoteBoard\(note, b, rt\)/);
-  assert.match(data, /export function setNoteBoard\(note, board, rt = window\.KPTURuntime\) \{\n  return patchNoteMetadata\(/);
+  // S69-83: [전체](metadata.board 저장)는 없앴다 — 저장 길은 보드별 setNoteBoardPlace 하나.
+  assert.doesNotMatch(js, /setNoteBoard\b(?!Place)/); assert.doesNotMatch(data, /export function setNoteBoard\(/);
+  assert.match(data, /export function setNoteBoardPlace\(/);
   assert.match(board, /import \{ multiTouchActive, onMultiTouch \} from '\.\/photo-grid-size\.js'/, '판 밖 두 손가락 지킴이는 사진 격자 공용 부품(판 안 두 손가락은 연속 확대)');
   // 기기 저장 이름은 조각으로 만든다(저장소 감사 workflow가 시험 파일의 낱말도 세므로).
   const deviceStore = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|'));

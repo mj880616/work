@@ -217,6 +217,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
+      - 'tests/brief-marks-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
       - 'tests/report-library-pick-model.test.mjs'
       - 'tests/helpers/hwp-synth.mjs'
@@ -507,6 +508,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
+      - 'tests/brief-marks-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
       - 'tests/report-library-pick-model.test.mjs'
       - 'tests/helpers/hwp-synth.mjs'
@@ -781,6 +783,8 @@ jobs:
         run: node --test tests/note-boards-model.test.mjs tests/note-lock-record-lines.test.mjs
       - name: Check note board links (S68-38 생각 지도)
         run: node --test tests/note-board-links-model.test.mjs
+      - name: Check note board mindmap (S69-82 브레인스토밍·마인드맵)
+        run: node --test tests/note-board-mindmap-model.test.mjs
       - name: Check note hashtags and comments (NOTE-읽생기아이디어)
         run: node --test tests/note-tags-comments.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)
@@ -850,7 +854,7 @@ jobs:
         run: node --test tests/s59-20-small-fixes.test.mjs
 
       - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
-        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-read-slices.test.mjs
+        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs
 
       - name: S67-39 사업 보고·조직 보고 자료실에서 선택·빼기 규칙
         run: node --test tests/report-library-pick-model.test.mjs

@@ -252,3 +252,45 @@ export function pickResult({ added = 0, kept = 0, failed = 0 } = {}) {
   if (failed) parts.push(`${failed}개는 넣지 못했어요`);
   return { text: parts.join(' · '), error: failed > 0 };
 }
+
+// S69-86 BRIEF-밑줄노트(명진 11/25 00:50 "브리핑 밑줄 저장, 답글 달기(노트에 메모로 저장), 보관(노트로 보관) … 브리핑룸에서 없애도 파생 저장은 남기게").
+// 밑줄·답글·보관 노트는 모두 글을 복사해 넣는다(브리핑·자료를 가리키는 연결 없음 — 지워도 남는다). 출처는 '브리핑 · 날짜 · 자료 이름' 글자로만.
+// 원래 주소(Drive)는 넣지 않는다: 자료까지 삭제하면 Drive 파일이 휴지통으로 가 주소가 죽기 때문. 다시 찾아가는 길은 노트 › 밑줄 [원문에서 보기]뿐이고,
+// 브리핑이 사라졌으면 그 길만 꺼진다(알림 한 줄).
+export const BRIEF_MEDIA = '브리핑';
+export const ARCHIVE_LABEL = '노트로 보관';
+export const BRIEF_GONE = '원래 브리핑이 없어요 · 밑줄은 그대로 남아 있어요';
+/** 밑줄 출처(text-highlights cleanSource 모양). source_id = 자료(app_documents.id) — 브리핑을 다시 만들어도 같은 자료면 같은 밑줄을 찾는다. */
+export function briefSource(doc, row) {
+  if (!doc?.id) return null;
+  return { type: 'brief', id: doc.id, title: String(doc.title || doc.file_name || '이름 없는 자료'), media: BRIEF_MEDIA, date: row?.finished_at || row?.updated_at || null, url: null };
+}
+const kstDay = iso => { const t = Date.parse(iso || ''); if (!Number.isFinite(t)) return ''; const d = new Date(t + 9 * 3600e3); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`; };
+const quoteLines = text => String(text).trim().split('\n').map(l => `> ${l}`).join('\n');
+/**
+ * [노트로 보관]: 브리핑 한 장(요지·소제목별 줄·원문 인용) + 이 자료에서 저장한 밑줄(메모 포함)을 노트 한 장(마크다운)으로.
+ * @param {{doc:object, row:object, marks?:object[]}} a  row = app_document_briefs 줄(brief·finished_at·page_count), marks = 이 자료 밑줄(새 것이 위)
+ * @returns {{title:string, raw_text:string}|null}
+ */
+export function archiveNote({ doc, row, marks = [] } = {}) {
+  if (!doc?.id || !row?.brief) return null;
+  const name = String(doc.title || doc.file_name || '이름 없는 자료').trim();
+  const v = briefView(row.brief);
+  const out = [`출처: ${[BRIEF_MEDIA, kstDay(row.finished_at || row.updated_at), name].filter(Boolean).join(' · ')}`];
+  const meta = [fileBadge(doc.file_name, doc.mime_type), row.page_count ? `${row.page_count}쪽` : ''].filter(Boolean).join(' · ');
+  if (meta) out[0] += ` (${meta})`;
+  if (v.gist.length) out.push(`## ${GIST_TITLE}\n\n${v.gist.join('\n\n')}`);
+  for (const sec of v.sections) {
+    const lines = sec.items.map(it => `- ${it.text}${it.ours ? ` (${OURS_TAG})` : ''}${it.page ? ` · ${it.page}쪽` : ''}`).join('\n');
+    out.push(sec.title ? `## ${sec.title}\n\n${lines}` : lines);
+  }
+  if (v.quotes.length) {
+    out.push(`## ${QUOTES_TITLE}\n\n${v.quotes.map(q => {
+      const tail = [q.speaker, q.page ? `${q.page}쪽` : '', q.heading].filter(Boolean).join(' · ');
+      return `${quoteLines(`“${q.text}”`)}${tail ? `\n\n— ${tail}` : ''}`;
+    }).join('\n\n')}`);
+  }
+  const hl = (Array.isArray(marks) ? marks : []).filter(h => h && typeof h.quote === 'string' && h.quote.trim()).slice().reverse();
+  if (hl.length) out.push(`## 밑줄 ${hl.length}\n\n${hl.map(h => `${quoteLines(h.quote)}${h.memo ? `\n\n메모: ${String(h.memo).trim()}` : ''}`).join('\n\n')}`);
+  return { title: `${BRIEF_MEDIA} · ${name}`.slice(0, 80), raw_text: out.join('\n\n') };
+}

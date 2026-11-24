@@ -15,14 +15,16 @@ async function fixture(page, width, { child = false } = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], writes = [], rpc = [];
   page.on('pageerror', e => errors.push(e.message));
-  const server = await installViewPrefsServer(page);
+  // S69-83: [전체](모든 노트 판)는 없앴다 — 포스트잇 색 확인은 네 노트를 붙인 이름 붙은 보드 하나로.
+  const BID = 'bcolor01', on = (x, y) => ({ boards: { [BID]: { x, y, r: 1, z: 0 } } });
+  const server = await installViewPrefsServer(page, { note_boards: [{ id: BID, name: '모음' }], note_board: BID });
   await openHome(page);
   const row = (id, title, updated_at, metadata = {}) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + ' 본문', occurred_at: updated_at, created_at: updated_at, updated_at, archived_at: null, ai_export_allowed: true, attachments: [], metadata });
   const rows = [
-    row('n1', '가 노트', '2026-10-16T01:00:00Z', { folder_id: U(1), folder: '갑 폴더' }),
-    row('n2', '나 노트', '2026-10-15T01:00:00Z', { folder_id: U(1), folder: '갑 폴더' }),
-    row('n3', '다 노트', '2026-10-14T01:00:00Z', { folder_id: U(1), folder: '갑 폴더' }),
-    row('n4', '라 노트', '2026-10-10T01:00:00Z', { folder_id: U(2), folder: '을 폴더' }),
+    row('n1', '가 노트', '2026-10-16T01:00:00Z', { folder_id: U(1), folder: '갑 폴더', ...on(24, 24) }),
+    row('n2', '나 노트', '2026-10-15T01:00:00Z', { folder_id: U(1), folder: '갑 폴더', ...on(200, 24) }),
+    row('n3', '다 노트', '2026-10-14T01:00:00Z', { folder_id: U(1), folder: '갑 폴더', ...on(24, 90) }),
+    row('n4', '라 노트', '2026-10-10T01:00:00Z', { folder_id: U(2), folder: '을 폴더', ...on(200, 90) }),
   ];
   const mk = (n, name, order) => ({ id: U(n), workspace_id: 'w', parent_id: null, name, sort_order: order, created_at: `2026-10-0${n}T00:00:00Z`, color: null });
   const folders = [mk(1, '갑 폴더', 1024), mk(2, '을 폴더', 2048), mk(3, '병 폴더', 3072)];
