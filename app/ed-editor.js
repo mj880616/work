@@ -1766,7 +1766,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       if (!GROUP_KEYS.includes(k)) { if (buttons[k]) row.push(buttons[k]); continue; }
       const items = groupItems(k), n = outCount[k] || 0;
       row.push(...items.slice(0, n), buttons[k]);
-      panels[k].replaceChildren(...items.slice(n));
+      const inside = items.slice(n);
+      // (The same nodes in the same order are left where they are: no detaching, so focus and an open popover's anchor stay.)
+      if (panels[k].childElementCount !== inside.length || inside.some((b, i) => panels[k].children[i] !== b)) panels[k].replaceChildren(...inside);
       buttons[k].hidden = n >= items.length;
     }
     // A small gap before each part: [단계] | 굵게 · | each group | ↶ ↷.
@@ -1774,7 +1776,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     for (const k of GROUP_KEYS) starts.add(groupItems(k).slice(0, outCount[k] || 0)[0] || buttons[k]);
     for (const b of Object.values(buttons)) b.classList.remove('ed-gap');
     for (const b of row) if (starts.has(b)) b.classList.add('ed-gap');
-    tools.replaceChildren(...row);
+    if (tools.childElementCount !== row.length || row.some((b, i) => tools.children[i] !== b)) tools.replaceChildren(...row);
   }
   function fitTools() {
     if (grouped) return;
@@ -1787,8 +1789,20 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     }
     paint();
   }
+  // Refit only when the row overflows now or became clearly wider (more buttons may fit). A small width change that still fits (a page
+  // scroll bar coming and going) changes nothing — no layout loop, and an open popover stays open. When the layout changes, popovers close.
   let fitFrame = 0, lastWidth = -1;
-  const queueFit = () => { if (!fitFrame) fitFrame = requestAnimationFrame(() => { fitFrame = 0; if (tools.clientWidth === lastWidth) return; lastWidth = tools.clientWidth; closePanels(); fitTools(); }); };
+  const layoutKey = () => GROUP_KEYS.map(k => outCount[k] || 0).join();
+  const queueFit = () => { if (!fitFrame) fitFrame = requestAnimationFrame(() => {
+    fitFrame = 0;
+    const w = tools.clientWidth;
+    if (grouped || !w || w === lastWidth) return;
+    if (lastWidth >= 0 && tools.scrollWidth <= w && w < lastWidth + 24) return;
+    lastWidth = w;
+    const was = layoutKey();
+    fitTools();
+    if (layoutKey() !== was) closePanels();
+  }); };
   const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(queueFit) : null;
   resize?.observe(tools);
   let laidOut = false;
@@ -1799,7 +1813,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     grouped = on;
     root.classList.toggle('ed-grouped', on);
     root.classList.toggle('ed-wide', !on);
-    if (on) { for (const k of GROUP_KEYS) outCount[k] = 0; placeTools(); paint(); } else { lastWidth = -1; fitTools(); }
+    if (on) { for (const k of GROUP_KEYS) outCount[k] = 0; placeTools(); paint(); } else { fitTools(); lastWidth = tools.clientWidth || -1; }
   }
   const syncLayout = () => setGrouped(!!phone?.matches);
   phone?.addEventListener?.('change', syncLayout);
