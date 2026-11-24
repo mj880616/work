@@ -85,7 +85,7 @@ test('convert path (PDF/HWP): temporary Google Doc copy is exported then deleted
   const reader = dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 'tok' });
   const r = await reader.extract({ fileId: 'orig-1', name: '보고서.pdf', mime: 'application/pdf', size: 1000 });
   assert.deepEqual(r, { text: '표지 제목\n국토교통부', source: 'content', reason: 'ok', cut: false });
-  assert.deepEqual(d.calls.map(c => c.method + ' ' + c.path.split('?')[0]), ['POST /drive/v3/files/orig-1/copy', 'GET /drive/v3/files/temp-1/export', 'DELETE /drive/v3/files/temp-1']);
+  assert.deepEqual(d.calls.map(c => c.method + ' ' + c.path.split('?')[0]), ['POST /drive/v3/files/orig-1/copy', 'GET /drive/v3/files/temp-1/export', 'DELETE /drive/v3/files/temp-1', 'GET /drive/v3/files'], 'S69-40: 끝에 남은 표식 사본 찾기(목록) 한 번');
   const copy = JSON.parse(d.calls[0].body);
   assert.equal(copy.mimeType, 'application/vnd.google-apps.document');
   // No write (PATCH/PUT/DELETE) to the original file id, so its name and place never change.
@@ -171,7 +171,7 @@ test('SEARCH ②: PPTX and XLSX become a temporary Google Slides / Sheets copy, 
     assert.equal(r.text, '합성 표 1행,가짜 값', name);
     assert.equal(JSON.parse(d.calls[0].body).mimeType, target, name);
     assert.equal(new URL('https://x' + d.calls[1].path).searchParams.get('mimeType'), exportMime, name);
-    assert.deepEqual(d.calls.map(c => c.method), ['POST', 'GET', 'DELETE'], name);
+    assert.deepEqual(d.calls.map(c => c.method), ['POST', 'GET', 'DELETE', 'GET'], name); // S69-40: 끝에 남은 표식 사본 찾기
     assert.ok(!d.calls.some(c => c.path.includes('orig-2') && c.method !== 'POST'), name);
   }
   // Drive returns another type (conversion refused): no text, the copy is still deleted.
@@ -202,7 +202,7 @@ test('scanned PDF: only the PDF copy request carries ocrLanguage=ko; DOCX·PPTX�
     assert.equal(copy.pathname, '/drive/v3/files/orig-1/copy', name);
     assert.equal(copy.searchParams.get('ocrLanguage'), ocr ? 'ko' : null, name);
     assert.equal(copy.searchParams.get('fields'), 'id,mimeType', name);
-    assert.deepEqual(d.calls.map(c => c.method), ['POST', 'GET', 'DELETE'], name);
+    assert.deepEqual(d.calls.map(c => c.method), ['POST', 'GET', 'DELETE', 'GET'], name); // S69-40: 끝에 남은 표식 사본 찾기
   }
 });
 

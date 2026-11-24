@@ -130,3 +130,26 @@ test('③ 폴더 안이면 짝 드라이브 폴더로 열고, 줄 끝에 정리 
   assert.equal(said.at(-1)[1], true);
   assert.match(box.innerHTML, /드라이브 정리 대기/);
 });
+
+// S69-40: 맞추기 부름은 45초까지 기다리고(서버는 10초마다 돌려줌), 답을 못 받거나 멈추면 어느 단계인지 일상어로, 나아가지 않으면 3번 뒤 멈춤.
+test('S69-40 [드라이브 폴더 맞추기]: 긴 기다림·멈춘 까닭·남은 수·헛돌기 멈춤', async () => {
+  const { mountLibraryDriveLine, alignMessage, ALIGN_WAIT_MS } = await import('../app/library-drive-line.js');
+  assert.ok(ALIGN_WAIT_MS >= 30000);
+  const place = { url: 'https://drive.google.com/drive/folders/libraryFolder0001', path: ['자료실'], pairs: {} };
+  const opts = [], said = [];
+  let answers = [];
+  const api = async (path, opt) => { if (path.includes('drive-place')) return { ok: true, place }; opts.push(opt); const a = answers.shift(); if (a instanceof Error) throw a; return a; };
+  const line = mountLibraryDriveLine({ api, esc: String, el: () => ({ innerHTML: '', hidden: true }), notify: (t, o) => said.push([t, !!o?.error]), wait: 100000 });
+  await line.refresh();
+  answers = [{ ok: true, more: true, files_moved: 30, left: 270 }, new Error('timeout')];
+  const r = await line.align();
+  assert.equal(opts[0].timeoutMs, ALIGN_WAIT_MS, '맞추기만 길게 기다림');
+  assert.equal(r.files_moved, 30);
+  assert.equal(said.at(-1)[0], '드라이브 폴더를 다 맞추지 못했어요 — 서버 답이 늦어 멈췄어요(폴더 0개 만들고 자료 30개 옮겼어요 · 남은 자료 270개). 다시 누르면 이어서 해요.');
+  answers = [{ ok: true, more: true }, { ok: true, more: true }, { ok: true, more: true }, { ok: true, more: true }];
+  opts.length = 0;
+  await line.align();
+  assert.equal(opts.length, 3, '나아가지 않는 부름 3번이면 멈춤');
+  assert.match(said.at(-1)[0], /더 나아가지 않아 멈췄어요/);
+  assert.match(alignMessage(false, { folders_made: 0, files_moved: 0, cant: 0 }, { ok: false, stage: 'token' }, 'token'), /Google Drive를 다시 연결해 주세요/);
+});

@@ -8,7 +8,23 @@
 const DRIVE_FOLDER_URL = /^https:\/\/drive\.google\.com\/drive\/folders\/[A-Za-z0-9_-]{10,200}$/;
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
 export const AUTO_WAIT_MS = 2500;
-export const ALIGN_ROUNDS = 40;
+export const ALIGN_ROUNDS = 80;
+// S69-40: 서버는 한 번에 10초까지만 하고 돌려준다(library-mirror MIRROR_BUDGET_MS). 화면 기본 기다림(15초)으로는 서버가 늦을 때 답을 못 받고
+// '0개'로 끝났으므로, 맞추기 부름만 45초까지 기다린다. 아무것도 나아가지 않는 부름이 3번 이어지면 멈춘다.
+export const ALIGN_WAIT_MS = 45000;
+const ALIGN_IDLE_ROUNDS = 3;
+const STAGE_WORDS = {
+  timeout: '서버 답이 늦어 멈췄어요', library: '드라이브의 자료실 폴더를 찾지 못했어요', token: 'Google Drive를 다시 연결해 주세요',
+  db: '앱 폴더 목록을 읽지 못했어요', folders: '드라이브 폴더를 만들거나 수정하지 못했어요', list: '드라이브 목록을 읽지 못했어요',
+  files: '자료를 옮기다 드라이브가 거절했어요', mark: '마무리 표시를 붙이지 못했어요', idle: '더 나아가지 않아 멈췄어요', rounds: '아직 남았어요',
+};
+/** [드라이브 폴더 맞추기] 끝 알림 한 줄. sum: 합친 숫자, last: 마지막 서버 답, why: 멈춘 까닭 키. */
+export function alignMessage(done, sum, last, why) {
+  const counts = `폴더 ${sum.folders_made}개 만들고 자료 ${sum.files_moved}개 옮겼어요` + (sum.cant ? ` · 옮길 수 없는 자료 ${sum.cant}개는 그대로` : '');
+  if (done) return `드라이브 폴더를 맞췄어요 · ${counts}`;
+  const left = Number(last?.left) > 0 ? ` · 남은 자료 ${Number(last.left)}개` : '';
+  return `드라이브 폴더를 다 맞추지 못했어요 — ${STAGE_WORDS[why] || STAGE_WORDS[last?.stage] || STAGE_WORDS.rounds}(${counts}${left}). 다시 누르면 이어서 해요.`;
+}
 // S69-22(명진 11/24 08:54 "앱과 자동 수집이 쓰고 있는것좀 한 폴더에 몰아두면 안되니"): 같은 줄 끝 [앱 폴더 모으기].
 // 누르면 서버(workspace-drive POST ?action=gather-folders)에 먼저 세기(dry_run)만 묻고 → 확인창 → 옮기기. 옮기는 폴더는 서버가 고른다(화면은 id를 보내지 않음).
 // 부모만 바꾼다(삭제 없음, 링크 그대로). 한 번에 다 못 옮기면 이어서 다시 부른다. 자동으로는 돌지 않는다(사람이 누를 때만).
@@ -114,6 +130,7 @@ export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () =>
       .finally(() => { if (mine !== owner) return; render(); if (place && waiting !== undefined) { const sign = waiting; waiting = undefined; changed(sign); } });
   }
   const mirror = mode => api('/functions/v1/workspace-drive?action=drive-mirror', {method: 'POST', body: {mode}});
+  const mirrorAlign = () => api('/functions/v1/workspace-drive?action=drive-mirror', {method: 'POST', body: {mode: 'align'}, timeoutMs: ALIGN_WAIT_MS});
   // 앱 폴더·자료 연결이 바뀌었을 때(sign = 폴더·연결 모양) 잠시 뒤 한 번만 부탁한다. 대기가 남아 있으면 다음 바뀜·들어옴 때 다시.
   function changed(sign) {
     if (!place) { waiting = sign; return; }
@@ -138,21 +155,24 @@ export function mountLibraryDriveLine({api, esc, at = () => ({}), notify = () =>
     if (aligning || !place) return null;
     aligning = true; clearTimeout(autoTimer);
     const sum = {folders_made: 0, folders_fixed: 0, files_moved: 0, cant: 0};
-    let last = null;
+    let last = null, why = null, idle = 0;
     try {
       for (let i = 0; i < ALIGN_ROUNDS; i++) {
-        note = `드라이브 맞추는 중 · ${sum.files_moved}개 옮김`; render();
-        last = await mirror('align');
-        for (const k of Object.keys(sum)) sum[k] += Number(last?.[k]) || 0;
-        if (!last?.ok || !last.more || last.stopped) break;
+        note = `드라이브 맞추는 중 · ${sum.files_moved}개 옮김` + (Number(last?.left) > 0 ? ` · 남은 ${Number(last.left)}개` : ''); render();
+        try { last = await mirrorAlign(); }
+        catch { why = 'timeout'; last = {ok: false, left: last?.left}; break; }
+        let step = 0;
+        for (const k of Object.keys(sum)) { const n = Number(last?.[k]) || 0; sum[k] += n; step += n; }
+        if (!last?.ok || !last.more || last.stopped) { if (last?.ok === false || last?.stopped) why = last?.stage || null; break; }
+        idle = step ? 0 : idle + 1;
+        if (idle >= ALIGN_IDLE_ROUNDS) { why = 'idle'; break; }
+        if (i === ALIGN_ROUNDS - 1) why = 'rounds';
       }
-    } catch { last = {ok: false}; }
-    finally { aligning = false; }
+    } finally { aligning = false; }
     const done = last?.ok && last.state === 'aligned' && !last.more && !last.stopped && !last.pending;
     note = done ? '' : '드라이브 정리 대기';
     await refresh();
-    const counts = `폴더 ${sum.folders_made}개 만들고 자료 ${sum.files_moved}개 옮겼어요` + (sum.cant ? ` · 옮길 수 없는 자료 ${sum.cant}개는 그대로` : '');
-    notify(done ? `드라이브 폴더를 맞췄어요 · ${counts}` : `드라이브 폴더를 다 맞추지 못했어요(${counts}). 잠시 뒤 다시 눌러 주세요.`, {error: !done});
+    notify(alignMessage(done, sum, last, why), {error: !done});
     return {done, ...sum};
   }
   return {refresh, render, changed, align, place: () => place, busy: () => aligning, gathering: () => gathering};
