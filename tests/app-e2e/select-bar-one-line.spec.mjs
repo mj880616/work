@@ -8,7 +8,7 @@ import { libraryTopMenu } from './helpers/library-tree.mjs';
 // 휴지통·삭제는 맨 끝·바탕 없이 글자색만 경고색. 폭이 모자라면 아이콘만 → 덜 쓰는 것부터 ⋯ 하나로 접고, ⋯ 메뉴 항목은 그 단추와 같은 일을 한다.
 // 이름은 모두 지어낸 것이다(가짜 서버).
 const BASE = process.env.APP_E2E_ORIGIN || 'http://127.0.0.1:8123';
-const DIR = 'test-results/select-bar';
+const DIR = 'test-results/ui-audit'; // CI가 화면 사진을 내려받을 수 있게 남긴다(app-e2e-check.yml)
 const WIDTHS = [390, 720, 1280];
 
 // 막대 실측: 높이·보이는 칸이 한 줄인지·막대 밖으로 나간 칸·맨 끝 단추·경고색.
@@ -62,7 +62,7 @@ for (const width of WIDTHS) test(`UI-고르기막대 파일 ${width}px: 3개 고
   if (m.dangerColor) { expect(m.dangerColor).not.toBe(m.ink); expect(m.dangerBg, '휴지통 바탕은 비움').toBe('rgba(0, 0, 0, 0)'); }
   // 글자가 화면에서 빠져도 단추 이름은 그대로(화면 읽기·시험).
   await expect(bar.getByRole('button', { name: '복사', exact: true })).toHaveCount(1);
-  await page.screenshot({ path: `${DIR}/files-${width}.png` });
+  await page.screenshot({ path: `${DIR}/s69-85-files-${width}.png` });
   process.stdout.write(`::notice title=select-bar files ${width}::${JSON.stringify(m)}\n`);
   // ✕ = 고르기 풀기.
   await bar.locator('[data-fx-unpick]').click();
@@ -85,7 +85,7 @@ for (const width of WIDTHS) test(`UI-고르기막대 자료실 ${width}px: '✕ 
   expect(m.more, '⋯가 보인다(한꺼번에 바꾸기 셋)').toBe(true);
   expect(m.lastIsDanger, '삭제는 맨 끝').toBe(true);
   expect(m.dangerColor).not.toBe(m.ink);
-  await page.screenshot({ path: `${DIR}/library-${width}.png` });
+  await page.screenshot({ path: `${DIR}/s69-85-library-${width}.png` });
   process.stdout.write(`::notice title=select-bar library ${width}::${JSON.stringify(m)}\n`);
   // ⋯ → [분류 바꾸기] = 예전 막대의 [분류 바꾸기]와 같은 창.
   await bar.locator('.kptu-sb-more').click();

@@ -375,7 +375,7 @@ test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유
 // 왼쪽 [✕] 'N개 선택됨', 오른쪽 테두리 없는 [전체 선택][폴더로 옮기기][삭제](삭제는 맨 끝·글자색만 경고색), 좁으면 아이콘만 → ⋯.
 for (const width of [390, 768, 1280]) test(`UI-고르기막대: 노트 선택 막대 한 줄 ${width}`, async ({ page }) => {
   const { mkdirSync } = await import('node:fs');
-  const DIR = 'test-results/select-bar'; mkdirSync(DIR, { recursive: true });
+  const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
   const f = await fixture(page, width);
   await showOutside(page, width);
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
@@ -400,7 +400,7 @@ for (const width of [390, 768, 1280]) test(`UI-고르기막대: 노트 선택 �
   expect(m.danger, '삭제만 경고색').not.toBe(m.ink);
   expect(m.borders.every(w => w === '0px')).toBe(true);
   await expect(page.locator('[data-nx-select-count]')).toHaveText('0개 선택됨');
-  await page.screenshot({ path: `${DIR}/notes-${width}.png` });
+  await page.screenshot({ path: `${DIR}/s69-85-notes-${width}.png` });
   process.stdout.write(`::notice title=select-bar notes ${width}::${JSON.stringify(m)}\n`);
   await page.keyboard.press('Escape');
   expect(f.errors).toEqual([]);
