@@ -46,8 +46,9 @@ public class SettingsStoreTests : IDisposable
         var text = File.ReadAllText(PathOf);
         Assert.DoesNotContain("Hotkey", text);
         // S69-31: the corner box and desktop tile are back, so their values are kept.
-        Assert.Contains("\"Corner\"", text);
-        Assert.Contains("\"DesktopTileX\":10", text);
+        var again = store.Load();
+        Assert.Equal("Off", again.Corner);
+        Assert.Equal(10, again.DesktopTileX);
     }
 
     [Fact]
