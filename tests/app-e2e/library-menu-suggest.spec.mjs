@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {revealLibraryRow} from './helpers/library-tree.mjs';
 import {bootLibrary,libDoc,libFolder,menuButton,press} from './helpers/library-folder-server.mjs';
+import {folderSheet} from './helpers/folder-sheet.mjs';
 // S60-27 LIB-나누기메뉴모양: 받는 폴더 메뉴의 [폴더로 나누기](③ 글자 버튼 row-act)가 다른 메뉴 줄과 같은 모양(메뉴 안 row-act는 메뉴 줄 공용 모양).
 // S60-27 LIB-추천넣기안열기: 폴더 밖 자료의 점선 추천 '📁 ○○?'으로 넣을 때 받는 폴더를 펼치지 않고 화면 자리를 그대로 둔다
 // (되돌리기·Ctrl+Z는 그대로). 가짜 서버·지어낸 이름만. MENU_SHOTS에 폴더를 주면 PR 사진을 남긴다.
@@ -95,7 +96,9 @@ test.describe('점선 추천으로 넣기 PC 1280',()=>{
     expect(await recvOpen(page)).toBe(false);
     await page.locator(`[data-lu-menu="${O4}"]`).click();
     await page.locator(`#luMorePanel [data-lu-move-open="${O4}"]`).click();
-    await page.locator('#luMovePicker').locator(`[data-lu-move-folder="${RECV}"]`).last().click();
+    // S69-62: [파일] '옮길 곳' 창과 같은 창 — 고르고 [여기에 옮기기].
+    await folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${RECV}"]`).click();
+    await folderSheet(page).locator('[data-fx-dest-go]').click();
     await expect.poll(()=>folderOf(s,O4)).toBe(RECV);
     await expect(page.locator(`#documentList > [data-lu-document="${O4}"]`)).toHaveCount(0);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('잡동사니');

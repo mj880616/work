@@ -60,7 +60,7 @@ function paintNow() {
     const blocked = !r.root && !!s.blocked?.(r.id);
     return ftFolderRowHtml({name: r.name, depth: r.depth, open: r.open, hasContent: r.hasKids, current: r.key === cur, off: false,
       className: [r.root ? 'fx-root' : '', blocked ? 'fd-blocked' : ''].filter(Boolean).join(' '), color: r.root ? null : r.color,
-      icon: r.root ? (s.rootIcon || ftIconHtml({open: r.open && r.hasKids})) : null, tag: here ? '지금 여기' : '',
+      icon: r.root ? (s.rootIcon || ftIconHtml({open: r.open && r.hasKids})) : null, tag: [here ? '지금 여기' : '', r.root ? '' : String(s.tag?.(r.id) || '')].filter(Boolean).join(' · '),
       mainAttrs: {'data-fx-dest-pick': r.key, 'data-fx-dest-name': r.name},
       toggle: {attrs: {'data-fx-dest-twist': r.key}, label: `${r.name} ${r.open && r.hasKids ? '접기' : '펼치기'}`}});
   }).join('');
@@ -134,6 +134,7 @@ function onClick(e) {
 // 창 열기. opts:
 //  title('1개 옮길 곳'), rootName('자료실'), rootIcon(HTML, 없으면 폴더 그림), folders(납작한 목록 또는 그 목록을 돌려주는 함수:
 //  id·name·parent_id·sort_order·color), recent(최근 폴더 id 배열), current(지금 든 곳: id, null = 맨 위, undefined = 모름),
+//  tag(id) → 줄 끝 작은 글(같은 이름 폴더의 위치·'꺼짐' 등, 없으면 빈 글),
 //  start(처음 고른 곳: id·null(맨 위)·undefined(고르지 않음)), blocked(id → 까닭 글, 옮길 수 없는 폴더), allowRoot(기본 true), rootReason,
 //  goLabel(기본 '여기에 옮기기'), note(나무 위 한 줄), mkdir(parentId|null, name) → 만든 폴더 {id,name,...}(없으면 [새 폴더] 없음), rootMk(false = 맨 위에 못 만듦),
 //  load(parentId) → Promise(한 층씩 읽는 나무), maybeKids(id) → 아직 안 읽은 층이면 true, onGo(id|null, folder) — 고른 뒤 창을 닫고 부른다,

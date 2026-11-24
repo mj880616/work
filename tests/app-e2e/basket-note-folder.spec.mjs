@@ -4,6 +4,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
 import { pinch } from './helpers/pinch.mjs';
+import { folderSheet, pickInSheet } from './helpers/folder-sheet.mjs';
 // S48-28: 폴더 이름은 공용 작은 글 입력창(.kptu-ask, app/small-notice.js askText)으로 묻는다. 글을 넣고 [확인]을 누른다.
 async function answerText(page, value) {
   const ask = page.locator('.kptu-ask');
@@ -60,7 +61,8 @@ async function fixture(page, width, {table = true, more = [], longRow = false} =
   return { rows, folders, writes, errors };
 }
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
-const picker = page => page.locator('#luMovePicker');
+// S69-62: 폴더 고르기 = [파일] '옮길 곳' 창과 같은 창(줄 누르기 = 고르기·펼치기, [여기에 옮기기]로만 옮김).
+const picker = page => folderSheet(page);
 const noteRow = (page, id) => page.locator(`#noteRows [data-note-row="${id}"]`);
 // Shows the notes of folder id: phone spreads two fingers on that folder in the tree (그 폴더만), PC enters it from the left tree row's ⋯ menu.
 async function showFolder(page, width, id) {
@@ -119,8 +121,8 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', '하루 기록으로 보내기', '삭제']);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await expect(picker(page)).toBeVisible();
-  await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
-  await expect(picker(page)).toBeHidden();
+  await pickInSheet(page, ['회의']);
+  await expect(picker(page)).toHaveCount(0);
   await expect.poll(() => f.writes.filter(x => x.table === 'notes').length).toBe(1);
   const w = f.writes.filter(x => x.table === 'notes');
   expect(w[0].body).toEqual({ metadata: { tasks: [{ task_id: 't1' }], folder_id: U(1), folder: '회의' } });
@@ -152,7 +154,7 @@ for (const width of [390, 1280]) test(`select mode: [선택] → pick rows → m
   await press(page, noteRow(page, 'n3'), width);
   await expect(page.locator('[data-nx-select-count]')).toHaveText('2개 선택됨');
   await press(page, page.locator('[data-nx-select-bar] [data-nx-sel-move]'), width);
-  await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
+  await pickInSheet(page, ['회의']);
   await expect(page.locator('[data-nx-select-bar]')).toBeHidden();
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 2개');
   expect(f.rows.filter(r => r.metadata.folder_id === U(1)).map(r => r.id).sort()).toEqual(['n1', 'n3']);
@@ -182,7 +184,7 @@ for (const width of [390, 1280]) test(`new folder inside a folder, delete moves 
   // S69-27: PC 왼쪽 나무에도 펼친 폴더의 노트 줄이 있어 오른쪽 목록 줄을 고른다.
   await press(page, page.locator('#noteRows [data-note-row-more="n2"]'), width);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
-  await press(page, picker(page).locator('.lu-move-item', { hasText: '하위' }), width);
+  await pickInSheet(page, ['회의', '하위']);
   await expect.poll(() => f.rows.find(r => r.id === 'n2').metadata).toEqual({ folder_id: sub.id, folder: '하위' });
   // Delete the sub folder: its note goes up to 회의 (not deleted); [되돌리기] makes the folder again with the same id.
   await press(page, page.locator(`[data-nx-folder-more="${sub.id}"]`).first(), width);
@@ -213,7 +215,7 @@ for (const width of [390, 1280]) test(`entered folder head ⋯ [이 폴더 삭�
   // S69-27: PC 왼쪽 나무에도 펼친 폴더의 노트 줄이 있어 오른쪽 목록 줄을 고른다.
   await press(page, page.locator('#noteRows [data-note-row-more="n2"]'), width);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
-  await press(page, picker(page).locator('.lu-move-item', { hasText: '하위' }), width);
+  await pickInSheet(page, ['회의', '하위']);
   await expect.poll(() => f.rows.find(r => r.id === 'n2').metadata.folder_id).toBe(sub.id);
   // 하위로 들어간다.
   if (width >= 761) { await press(page, page.locator(`[data-nx-tree] [data-nx-folder-more="${sub.id}"]`), width); await page.locator('#noteDocMenu [data-nx-enter]').click(); }
@@ -304,7 +306,7 @@ test('phone 390: long-press a note and let go without moving opens its menu; [�
   await expect(page.locator('[data-note-detail]')).toBeHidden();
   await cdp.detach();
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), 390);
-  await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), 390);
+  await pickInSheet(page, ['회의']);
   await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata.folder_id).toBe(U(1));
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
   expect(f.errors).toEqual([]);

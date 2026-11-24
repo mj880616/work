@@ -53,10 +53,11 @@ const BOTTOM_WHITE_OK = {
   'base-ui.css': { '.hl-bar': '둥근 모서리·그림자로 떠 있는 원문 고른 글 줄(화면 폭 띠가 아님)' },
   'files.css': {
     '.fx-prev': '폰 미리보기 창(화면 전체를 덮는 흰 창)',
-    '.fx-dest': '받을 곳 고르기 아래 시트(둥근 위 모서리·그림자)',
     '.fx-askbox': '묻기 칸(그림자로 떠 있는 작은 창)',
     '.fx-jobs': '전송 목록 아래 시트(둥근 모서리·그림자)',
   },
+  // S69-62: [파일] '옮길 곳' 창 모양이 공용 파일로 옮김(자료실·노트·사진 폴더 고르기 창도 같은 창).
+  'folder-dest-sheet.css': { '.fx-dest': '폴더 고르기 아래 시트(둥근 위 모서리·그림자)' },
   'ui-standard.css': {
     '#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick]': '폰 빠른 입력 — 아래 탭과 이어지는 판(아래 탭과 같은 흰색)',
     '#appView :is(.schedule-switch,.nv-switch,.so-team-tabs,.rd-switch):not([hidden])': '폰 전환 줄 — 아래 탭 바로 위에 이어지는 판(바탕은 아래 탭과 같은 색, UI-버튼작게 ③)',

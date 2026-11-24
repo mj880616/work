@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { expandLibraryTree, openLibraryPhotoFolds } from './helpers/library-tree.mjs';
+import { folderSheet } from './helpers/folder-sheet.mjs';
 
 // ACT-사진 4단계(결정 A): 자료실에서 사업 보고에 붙은 사진은 사업 보고마다 한 줄('사진 n · 제목' + 작은 그림 3장).
 // 자료실에 직접 올린 그림은 한 장 한 줄, 휴지통 사업 보고의 사진은 보이지 않고, 사업 보고를 읽지 못하면 묶지 않는다. 모든 이름·번호는 합성 값.
@@ -208,7 +209,10 @@ test('photo set row menu moves the whole set into a folder', async ({page}) => {
   await page.locator(`[data-lu-photoset="${M1}"] [data-lu-menu]`).click();
   await expect(page.locator('#luMorePanel button')).toHaveText(['폴더로 옮기기›']);
   await page.locator(`#luMorePanel [data-lu-move-open="photoset:${M1}"]`).click();
-  await page.locator(`#luMovePicker [data-lu-move-folder="${ID(700)}"]`).last().click();
+  // S69-62: [파일] '옮길 곳' 창과 같은 창 — 고르고 [여기에 옮기기].
+  await expect(folderSheet(page).locator('#fdSheetTitle')).toHaveText('5개 옮길 곳');
+  await folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${ID(700)}"]`).click();
+  await folderSheet(page).locator('[data-fx-dest-go]').click();
   const photos = [11, 12, 13, 14, 15].map(ID);
   await expect.poll(() => photos.every(id => state.items.some(x => x.document_id === id && x.folder_id === ID(700)))).toBe(true);
   expect(state.items.map(x => x.document_id).sort()).toEqual([...photos].sort());

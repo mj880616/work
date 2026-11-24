@@ -74,7 +74,7 @@ import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴�
 import {applyAlbumLook} from './folder-prefs-data.js';
 import {folderIconHtml, colorChoiceHtml, createColorMode} from './folder-look.js';
 import {albumStepPlan, albumOrderOf} from './folder-look-model.mjs';
-import {setFolderOrderLook, photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, photoMoveTargets, cleanPhotoFolderName, moveUndoGroups, folderErrorText,
+import {setFolderOrderLook, photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, photoFolderSubtree, photoMoveTargets, cleanPhotoFolderName, moveUndoGroups, folderErrorText,
   cleanTagName, sameTag, albumCards, albumForSources, folderPlaceLabels, odFolderPlace, phoneFolderPlace,
   validAlbumView, stepAlbumView, albumPeriod, ALBUM_VIEW_TEXT, gdriveFolderTree, folderCountText, GDRIVE_TOP} from './photos-model.mjs';
 import {notify, askConfirm, askChoice} from './small-notice.js';
@@ -3482,7 +3482,7 @@ const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-men
 // S69-62 폴더로 옮기기 = [파일] '옮길 곳' 창 하나(folder-dest-sheet.js): 나무 누르면 펼침·선택, [새 폴더](고른 폴더 안), [여기에 옮기기]로만 옮김.
 // 대상 나무만 다르다 — 원드라이브 사진 폴더(tree), 구글 드라이브(한 층씩 읽는 gdLevels, 펼칠 때 읽음), 폰 폴더(앱이 준 경로).
 // 쓰는 길은 그대로(movePhotos·moveFolder·gdMovePicked·movePhonePhotos·movePhoneFolder, 새 폴더는 odFolderCreate·gdFolderCreate).
-const sheetFolders = (t, src) => photoFolderRows(t, () => true).map((r, i) => {
+const sheetFolders = (t, src) => photoFolderRows(t, () => true).filter(r => !r.top).map((r, i) => {
   const f = photoFolderById(t, r.id);
   return {id:r.id, name:r.name, parent_id:f?.parent_id === t.top.id ? null : f?.parent_id ?? null, sort_order:i, color:folderLook.color(src, r.id), more:f?.more === true};
 });
@@ -3492,7 +3492,7 @@ function openFolderPick(trigger, p) {
   const title = p.kind === 'folder' || p.kind === 'phfolder' ? '폴더 옮길 곳' : sheetTitle(n, '옮길 곳');
   if (p.kind === 'gdphotos') {
     const here = tab === 'folders' ? gdAt : undefined;
-    return openFolderSheet({anchor, title, rootName:'구글 드라이브', rootIcon:treeIconHtml('gd', {className:'ft-ico'}),
+    return openFolderSheet({anchor, title, rootName:'구글 드라이브', rootIcon:treeIconHtml('gd', {className:'ft-ico'}), tag:id => (id && gdFolderInfo(id)?.enabled === false ? '꺼짐' : ''),
       folders:() => sheetFolders(gdTree(), 'gd'), current:here === undefined ? undefined : sheetKey(gdTree(), here), maybeKids:id => { const f = photoFolderById(gdTree(), id ?? GDRIVE_TOP); return !gdLevels.has(id ?? GDRIVE_TOP) || f?.more === true; },
       load:parent => gdLoadLevel(parent ?? GDRIVE_TOP),
       mkdir:gdUsable() ? async (parent, raw) => { const name = gdName(raw); if (!name) throw new Error('폴더 이름을 확인해 주세요(1~200자).'); const f = await gdFolderCreate(rt, parent ?? GDRIVE_TOP, name); await gdLoadLevel(parent ?? GDRIVE_TOP, true); return {id:f?.id || f?.gdId || '', name:f?.name || name}; } : null,
@@ -3502,14 +3502,15 @@ function openFolderPick(trigger, p) {
     const rows = phonePickRows(phoneFolderList(), p.kind === 'phfolder' ? {moving:p.id} : {here:tab === 'folders' ? pAt : null});
     const ids = rows.map(r => r.id), parentOf = id => ids.filter(x => x !== id && id.startsWith(x)).sort((a, b) => b.length - a.length)[0] ?? null;
     const off = new Set(rows.filter(r => r.current).map(r => r.id));
-    return openFolderSheet({anchor, title, rootName:'이 폰', rootIcon:treeIconHtml('ph', {className:'ft-ico'}), allowRoot:false, rootReason:'폴더를 하나 골라 주세요',
+    return openFolderSheet({anchor, title, rootName:'이 폰', rootIcon:treeIconHtml('ph', {className:'ft-ico'}), allowRoot:false, rootReason:'폴더를 하나 선택해 주세요', tag:id => places.get('ph:' + id) || '',
       folders:rows.map((r, i) => ({id:r.id, name:r.name, parent_id:parentOf(r.id), sort_order:i})),
       blocked:id => (off.has(id) ? (p.kind === 'phfolder' ? '그곳으로는 옮길 수 없어요' : '지금 있는 곳이에요') : ''),
       onGo:id => (p.kind === 'phfolder' ? movePhoneFolder(p.anchor || trigger, p.id, id) : movePhonePhotos(p.anchor || trigger, p.items, id))});
   }
   const moving = p.kind === 'folder' ? p.id : null, skip = moving ? photoFolderSubtree(tree, moving) : new Set();
   const here = moving ? sheetKey(tree, photoFolderById(tree, moving)?.parent_id) : tab === 'folders' && at ? sheetKey(tree, at) : undefined;
-  return openFolderSheet({anchor, title, rootName:tree.top.name || '원드라이브', rootIcon:treeIconHtml('od', {className:'ft-ico'}),
+  const placeOf = folderPlaceLabels([tree.top, ...tree.folders], f => odFolderPlace(tree, f));
+  return openFolderSheet({anchor, title, rootName:tree.top.name || '원드라이브', rootIcon:treeIconHtml('od', {className:'ft-ico'}), tag:id => [placeOf.get(id), photoFolderById(tree, id)?.enabled === false ? '꺼짐' : ''].filter(Boolean).join(' · '),
     folders:() => sheetFolders(tree, 'od'), current:here, blocked:id => (id && skip.has(id) ? '옮기는 폴더예요' : ''),
     mkdir:od.canDelete ? async (parent, raw) => { const name = cleanPhotoFolderName(raw || ''); if (!name) throw new Error('폴더 이름을 확인해 주세요(1~200자, " * : < > ? / \\ | 없이).'); const f = await odFolderCreate(rt, parent ?? tree.top.id, name); await loadTree(true); return {id:f?.id || '', name:f?.name || name}; } : null,
     onGo:id => (moving ? moveFolder(moving, id ?? tree.top.id) : movePhotos(p.ids, id ?? tree.top.id))});

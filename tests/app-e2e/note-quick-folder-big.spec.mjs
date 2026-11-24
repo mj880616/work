@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { pickInSheet } from './helpers/folder-sheet.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
@@ -41,8 +42,8 @@ async function toList(page, width) {
 }
 async function pickFolder(page, width) {
   await press(page, q(page, '[data-quick-folder]'), width);
-  await press(page, page.locator('#luMovePicker .lu-move-item', { hasText: '00. 잊지 말기' }), width);
-  await expect(page.locator('#luMovePicker')).toBeHidden();
+  // S69-62: [파일] '옮길 곳' 창과 같은 창 — 줄 누르기 = 고르기, [이 폴더로 정하기]로 정한다.
+  await pickInSheet(page, ['00. 잊지 말기']);
   await expect(q(page, '[data-quick-folder]')).toContainText('00. 잊지');
 }
 

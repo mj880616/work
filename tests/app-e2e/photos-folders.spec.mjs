@@ -4,6 +4,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
 import { pinch } from './helpers/pinch.mjs';
+import { folderSheet, sheetRow, sheetGo, pickInSheet } from './helpers/folder-sheet.mjs';
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더](원드라이브 폴더 나무·폴더 안 사진·여러 장 옮기기·끌어 놓기·되돌리기·우클릭/⋯ 메뉴·새 폴더)와
 // [앨범](#태그: 새 앨범에 넣기·앨범 카드·앨범 사진·앨범에서 빼기). 지어낸 Supabase: onedrive-photos(Edge)·app_photo_tags·app_photo_tag_items·app_diary_stars.
 // 폭: 폰 412(한 화면씩)·폴드 펼침 884(한 화면씩)·PC 1440(왼쪽 나무 + 오른쪽 격자).
@@ -147,11 +148,18 @@ for (const width of [412, 884, 1440]) {
     await items(page).nth(1).click();
     await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 선택됨');
     await root(page).locator('[data-photos-act-move]').click();
-    const pick = page.locator('#photosPickMenu');
-    await expect(pick).toBeVisible();
-    await expect(pick.locator('[data-pick-folder]')).toHaveText(['카메라', '2026', '여행', '제주']);
-    await expect(pick.locator('[data-pick-folder="S1"]')).toBeDisabled();
-    await pick.locator('[data-pick-folder="S2"]').click();
+    // S69-62: [파일] '옮길 곳' 창과 같은 창 — 맨 위 줄 '카메라'(원드라이브 사진 맨 위), 하위는 눌러 펼친다. 지금 폴더는 '지금 여기'(고르면 [여기에 옮기기] 꺼짐).
+    const sheet = folderSheet(page);
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator('.fx-dest-tree [data-fx-dest-pick] .ft-name')).toHaveText(['카메라', '2026', '여행']);
+    await expect(sheetRow(page, '2026').locator('.ft-tag')).toHaveText('지금 여기');
+    await sheetRow(page, '2026').click();
+    await expect(sheetGo(page)).toBeDisabled();
+    await sheetRow(page, '여행').click();
+    await expect(sheet.locator('.fx-dest-tree [data-fx-dest-pick] .ft-name')).toHaveText(['카메라', '2026', '여행', '제주']);
+    expect(f.edge.filter(b => b.action === 'photos-move')).toHaveLength(0);
+    await sheetGo(page).click();
+    await expect(sheet).toHaveCount(0);
     await expect.poll(() => ids(page)).toEqual(['B3']);
     const move = f.edge.filter(b => b.action === 'photos-move');
     expect(move).toHaveLength(1);
@@ -247,7 +255,7 @@ test('사진 [폴더] PC 1280: 사진 옮긴 뒤 Ctrl+Z → 원래 폴더로, �
   // 폴더 옮기기(⋯ → 옮기기… → 여행) → Ctrl+Z = 원래 부모(카메라)로.
   await tree.locator('[data-photos-folder="S1"] .nx-name').click({ button: 'right' });
   await page.locator('#photosFolderMenu').getByRole('button', { name: '옮기기…' }).click();
-  await page.locator('#photosPickMenu [data-pick-folder="S2"]').click();
+  await pickInSheet(page, ['여행']);
   await expect.poll(() => f.edge.filter(b => b.action === 'folder-move').length).toBe(1);
   expect(f.edge.find(b => b.action === 'folder-move')).toMatchObject({ folder_id: 'S1', parent_id: 'S2' });
   await expect(notice).toContainText("'2026' 폴더를 옮겼어요");

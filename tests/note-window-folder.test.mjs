@@ -52,9 +52,9 @@ test('all three big-window entrances pass a folder; the source wires the shared 
   assert.match(notes, /setNoteFolderRef\(note, target, rt\)/);
   const pick = readFileSync('app/note-folder-pick.js', 'utf8');
   assert.match(pick, /viewPrefs\.get\('note_folder'\)/);
-  // NOTE-탐색기 후속 ⑤: the top bar [새 노트] uses the same folder tree picker and the folder-id write as the note screen.
-  assert.match(pick, /createMovePicker/);
-  assert.match(pick, /pickerRows\(\{folders, free: true, query: q\}\)/);
+  // NOTE-탐색기 후속 ⑤ → S69-62: the top bar [새 노트] uses the same folder sheet as the note screen ([파일] '옮길 곳' 창 하나) and the folder-id write.
+  assert.match(pick, /openFolderSheet\(\{anchor, title: title \|\| \(choose \? '노트를 넣을 폴더'/);
+  assert.match(notes, /openFolderSheet\(\{anchor, title, rootName:'노트', folders:\(\) => folders/);
   assert.match(pick, /setNoteFolderRef\(\{id: note\.id\}, folder, rt\)/);
   assert.doesNotMatch(pick, /createChoiceSheet/);
 });

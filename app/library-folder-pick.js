@@ -54,7 +54,7 @@ export function openLibraryFolderPicker({anchor, folders, itemFolder = new Map()
   const places = new Set(docs.map(id => itemFolder.get(id) || null));
   const current = docs.length && places.size === 1 ? [...places][0] : undefined;
   return openFolderSheet({anchor, title: title || sheetTitle(docs.length || 0, '옮길 곳'), rootName: '자료실', folders, recent, current,
-    start: start !== undefined && folders.some(f => f.id === start) ? start : current, allowRoot: !choose, rootReason: '폴더를 하나 골라 주세요',
+    start: start !== undefined && folders.some(f => f.id === start) ? start : current, allowRoot: !choose, rootReason: '폴더를 하나 선택해 주세요',
     goLabel: goLabel || (choose ? '이 폴더로 정하기' : '여기에 옮기기'),
     mkdir: loaded?.workspace ? (parent, name) => makeLibraryFolderIn(loaded, parent, name) : null,
     onGo: id => onPick(id ? folders.find(f => f.id === id) || null : null), onClosed});

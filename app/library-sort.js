@@ -160,7 +160,7 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
   function choose(btn){
     const r=rows.find(x=>x.key===btn.dataset.sortPick);if(!r)return;
     const rc=s().receiveId;
-    openFolderSheet({anchor:btn,title:'넣을 폴더',rootName:'자료실',folders:()=>s().folders,current:rc||undefined,start:r.to?.folder,allowRoot:false,rootReason:'폴더를 하나 골라 주세요',goLabel:'이 폴더로 정하기',
+    openFolderSheet({anchor:btn,title:'넣을 폴더',rootName:'자료실',folders:()=>s().folders,current:rc||undefined,start:r.to?.folder,allowRoot:false,rootReason:'폴더를 하나 선택해 주세요',goLabel:'이 폴더로 정하기',
       onGo:id=>{if(!id||id===rc)return;rows=rows.map(x=>x.key===r.key?{...x,to:{folder:id},checked:true,why:x.to?.folder===id?x.why:'직접 선택한 폴더예요'}:x);paint();focusRow(r.key)},
       extra:{label:'새 폴더 제안',run:()=>{const g={gid:'n'+(groups.length+1)+'u',name:'새 폴더',parent:null};groups=[...groups,g];rows=rows.map(x=>x.key===r.key?{...x,to:{group:g.gid},checked:true,why:'직접 만든 새 폴더예요'}:x);paint();root.querySelector(`[data-sort-gname="${g.gid}"]`)?.select?.()}}});
   }
@@ -424,7 +424,7 @@ export function createTidySuggest({api,esc,state,reload,say}){
   // 묶음의 옮길 폴더 바꾸기: 공용 폴더 고르기 창. [+ 새 폴더 만들어 넣기]는 묶음 낱말 이름의 새 폴더(이름·자리는 바로 고침).
   function choose(btn){
     const g=groupOf(btn.dataset.tidyPick);if(!g)return;
-    openFolderSheet({anchor:btn,title:'옮길 폴더',rootName:'자료실',folders:()=>s().folders,start:g.to?.folder,allowRoot:false,rootReason:'폴더를 하나 골라 주세요',goLabel:'이 폴더로 정하기',
+    openFolderSheet({anchor:btn,title:'옮길 폴더',rootName:'자료실',folders:()=>s().folders,start:g.to?.folder,allowRoot:false,rootReason:'폴더를 하나 선택해 주세요',goLabel:'이 폴더로 정하기',
       onGo:id=>{if(!id)return;setGroup(g.gid,x=>retarget(x,{folder:id}));root.querySelector(`[data-tidy-pick="${CSS.escape(g.gid)}"]`)?.focus({preventScroll:true})},
       extra:{label:'새 폴더 제안',run:()=>{const n={gid:'t'+(made.length+1)+'u',name:g.word.slice(0,40),parent:scope};made=[...made,n];setGroup(g.gid,x=>retarget(x,{group:n.gid}));root.querySelector(`[data-tidy-gname="${n.gid}"]`)?.select?.()}}});
   }

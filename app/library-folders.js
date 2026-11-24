@@ -290,13 +290,14 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const places=new Set(list.map(d=>docFolder(d)?.id||null));
     const current=places.size===1?[...places][0]:undefined;
     const back=trigger?.isConnected&&!trigger.closest?.('.lu-folder-menu,.lu-more-panel,[role="menu"]')?trigger:null;
-    if(closeOuter)void closeOuter();
-    openFolderSheet({anchor:back||document.activeElement,title:sheetTitle(list.length,'옮길 곳'),rootName:free?'자료실':frame===undefined?word('사업영역 바로 아래'):frameName(frame),
+    // 바깥 메뉴를 닫는 뒤로가기가 다 끝난 뒤에 연다(먼저 열면 그 뒤로가기가 새 창의 뒤로가기 칸까지 닫는다).
+    const openIt=()=>openFolderSheet({anchor:back?.isConnected?back:document.activeElement,title:sheetTitle(list.length,'옮길 곳'),rootName:free?'자료실':frame===undefined?word('사업영역 바로 아래'):frameName(frame),
       folders:()=>s().folders,recent:recent.get(),current,start:current,
       allowRoot:free||frame!==undefined,rootReason:MIXED_REASON,
       blocked:id=>{if(free||id===null)return '';const f=folder(id);return frame!==undefined&&(f?.project_id||null)===frame?'':(frame===undefined?MIXED_REASON:FRAME_REASON)},
       mkdir:free||frame!==undefined?(parent,name)=>makeFolderIn(free?null:frame,parent,name):null,
       onGo:id=>id?putDocs(list,id,{all}):moveDocs(list,null,{all}),onClosed});
+    if(closeOuter)Promise.resolve(closeOuter()).then(openIt,openIt);else openIt();
     return true;
   }
   // ---- 끌어 놓기(LIB-토글트리 ④ + LIB-폴더탐색기, 설계 6·12절) ----

@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
-// S52-27 UI-창스크롤(요청함 11/07 21:08·21:13·21:24): 노트 [폴더로 옮기기] 창(app/library-move-picker.js, 자료실·노트·News 공용).
+import { folderSheet } from './helpers/folder-sheet.mjs';
+// S52-27 UI-창스크롤(요청함 11/07 21:08·21:13·21:24): 노트 [폴더로 옮기기] 창. S69-62부터 이 창은 [파일] '옮길 곳' 창과 같은 창
+// (app/folder-dest-sheet.js, 자료실·노트·사진·News 공용) — 나무(.fx-dest-tree)가 밀리고, 줄 누르기 = 고르기, [여기에 옮기기]로 옮긴다.
 // 원인: 창이 바깥 화면 scroll을 받아 자리를 다시 맞추는 처리(keep)가 창 안 목록 scroll까지 받아, 폰 시트의 높이 한도를 지웠다 다시 써서
 // 목록 스크롤이 매번 0으로 돌아갔다. 시험: 폰·폴드에서 손가락으로 밀어 맨 아래 폴더까지 닿고 고를 수 있는지, 바깥 화면은 같이 밀리지 않는지,
 // 창이 아래 바를 가리지 않는지, 폰은 찾기 칸에 저절로 초점(자판)을 주지 않는지(PC는 그대로 찾기 칸), 색 없는 폴더도 같은 폴더 그림·이름은 왼쪽.
@@ -29,7 +31,9 @@ async function fixture(page, width, height) {
   await chooseBasketKind(page, 'note');
   return { errors, writes };
 }
-const picker = page => page.locator('#luMovePicker');
+const picker = page => folderSheet(page);
+const tree = page => picker(page).locator('.fx-dest-tree');
+const rowNamed = (page, name) => tree(page).locator(`[data-fx-dest-pick][data-fx-dest-name="${name}"]`);
 async function openPicker(page, phone) {
   const more = page.locator('[data-note-row-more="n1"]').first();
   if (phone) await more.tap(); else await more.click();
@@ -45,22 +49,21 @@ async function swipeUp(page, x, y, dy) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
 }
-const listState = page => page.evaluate(() => { const l = document.querySelector('#luMovePicker .lu-move-list'); return { top: l.scrollTop, max: l.scrollHeight - l.clientHeight }; });
+const listState = page => page.evaluate(() => { const l = document.querySelector('dialog[data-fd-sheet][open] .fx-dest-tree'); return { top: l.scrollTop, max: l.scrollHeight - l.clientHeight }; });
 
 for (const [name, width, height] of [['폰', 390, 800], ['폴드 접힘', 344, 882], ['폴드 펼침', 720, 840]]) test(`폴더로 옮기기 창: 손가락으로 맨 아래 폴더까지 (${name} ${width}×${height})`, async ({ page }) => {
   const f = await fixture(page, width, height);
   await openPicker(page, true);
-  // 폰: 찾기 칸에 저절로 초점이 가지 않는다(자판이 뜨지 않음). 창 자체가 초점을 받는다.
-  await expect(picker(page).locator('.lu-move-find')).not.toBeFocused();
-  await expect(picker(page)).toBeFocused();
-  // 창은 아래 바를 가리지 않는다. S54-04 UI-고르기창버튼아래(11/08 명진 결정 B)로 이 창(노트 ⋯ [폴더로 옮기기], place 'below')은
-  // 아래 시트가 아니라 누른 ⋯ 버튼 아래 작은 창으로 바뀌었다 — 아래 바 위에서 끝나는 기준은 그대로라 이 검사도 그대로 둔다.
-  const geo = await page.evaluate(() => ({ p: document.querySelector('#luMovePicker').getBoundingClientRect().bottom, bar: document.querySelector('nav.mobile-tabs')?.getBoundingClientRect().top ?? innerHeight }));
+  // 폰: 자판이 저절로 뜨지 않는다 — 새 창에는 찾기 칸이 없고(S69-62, [파일] '옮길 곳' 창과 같음) 초점은 창 안 ✕ 단추에 간다(글 입력칸 아님).
+  await expect(picker(page).locator('input')).toHaveCount(0);
+  expect(await page.evaluate(() => { const a = document.activeElement; return !!a?.closest('dialog[data-fd-sheet]') && !a.matches('input,textarea,[contenteditable]'); })).toBe(true);
+  // 창은 아래 바를 가리지 않는다(하단바 위로 올라오는 아래 창).
+  const geo = await page.evaluate(() => ({ p: document.querySelector('dialog[data-fd-sheet][open]').getBoundingClientRect().bottom, bar: document.querySelector('nav.mobile-tabs')?.getBoundingClientRect().top ?? innerHeight }));
   expect(geo.p).toBeLessThanOrEqual(geo.bar);
   // 처음엔 목록이 넘친다(맨 아래 폴더는 안 보임).
   expect((await listState(page)).max).toBeGreaterThan(0);
   const docBefore = await page.evaluate(() => scrollY);
-  const box = await picker(page).locator('.lu-move-list').boundingBox();
+  const box = await tree(page).boundingBox();
   for (let i = 0; i < 12 && (await listState(page)).top < (await listState(page)).max - 1; i++) {
     const before = (await listState(page)).top;
     await swipeUp(page, Math.round(box.x + box.width / 2), Math.round(box.y + box.height - 16), Math.min(250, box.height - 40));
@@ -71,44 +74,45 @@ for (const [name, width, height] of [['폰', 390, 800], ['폴드 접힘', 344, 8
   expect(s.top).toBeGreaterThanOrEqual(s.max - 1);
   expect(await page.evaluate(() => scrollY)).toBe(docBefore); // 바깥 화면은 같이 밀리지 않는다
   // 맨 아래 폴더가 목록 칸 안에 보이고, 눌러서 고를 수 있다.
-  const last = picker(page).locator('.lu-move-item', { hasText: `시험 폴더 ${N}` });
-  const lb = await last.boundingBox(), list = await picker(page).locator('.lu-move-list').boundingBox();
+  const last = rowNamed(page, `시험 폴더 ${N}`);
+  const lb = await last.boundingBox(), list = await tree(page).boundingBox();
   expect(lb.y + lb.height).toBeLessThanOrEqual(list.y + list.height + 1);
   await last.tap();
-  await expect(picker(page)).toBeHidden();
+  expect(f.writes).toEqual([]); // 고르기만으로는 옮기지 않는다
+  await picker(page).locator('[data-fx-dest-go]').tap();
+  await expect(picker(page)).toHaveCount(0);
   await expect.poll(() => f.writes.length).toBe(1);
   expect(f.writes[0].metadata.folder_id).toBe(U(N));
   expect(f.errors).toEqual([]);
 });
 
-test('폴더로 옮기기 창: 폰에서 찾기 칸을 누르면 그때 초점 · 색 없는 폴더도 폴더 그림 · 이름은 왼쪽 (390)', async ({ page }) => {
+// S69-62: 옛 창의 '찾기 칸을 누르면 그때 초점' 검사는 새 창에 찾기 칸이 없어 뺐다([파일] '옮길 곳' 창과 같이 나무만). 그림·이름 자리 검사는 그대로.
+test('폴더로 옮기기 창: 색 없는 폴더도 폴더 그림 · 이름은 왼쪽 (390)', async ({ page }) => {
   const f = await fixture(page, 390, 800);
   await openPicker(page, true);
-  const find = picker(page).locator('.lu-move-find');
-  await find.tap();
-  await expect(find).toBeFocused();
-  // 모든 줄 앞에 폴더 그림(색 고른 폴더는 색 번호, 안 고른 폴더는 기본 노랑 = 색 번호 없음), 이름은 그림 바로 옆.
-  const items = picker(page).locator('.lu-move-list .lu-move-item');
-  await expect(items).toHaveCount(N);
-  await expect(picker(page).locator('.lu-move-list .lu-move-item .lu-move-ico svg')).toHaveCount(N);
-  await expect(items.nth(0).locator('.lu-move-ico')).toHaveAttribute('data-fc', '4');
-  await expect(items.nth(1).locator('.lu-move-ico')).not.toHaveAttribute('data-fc', /./);
-  const gaps = await items.evaluateAll(bs => bs.slice(0, 3).map(b => b.querySelector('.lu-move-name').getBoundingClientRect().left - b.querySelector('.lu-move-ico').getBoundingClientRect().right));
+  // 모든 폴더 줄 앞에 폴더 그림(색 고른 폴더는 색 번호, 안 고른 폴더는 기본 노랑 = 색 번호 없음), 이름은 그림 바로 옆. 맨 위 줄 '노트' 아래 30개.
+  const rows = tree(page).locator('.ft-row:not(.fx-root)');
+  await expect(rows).toHaveCount(N);
+  await expect(rows.locator('.ft-ico svg')).toHaveCount(N);
+  await expect(rows.nth(0).locator('.ft-ico')).toHaveAttribute('data-fc', '4');
+  await expect(rows.nth(1).locator('.ft-ico')).not.toHaveAttribute('data-fc', /./);
+  const gaps = await rows.evaluateAll(bs => bs.slice(0, 3).map(b => b.querySelector('.ft-name').getBoundingClientRect().left - b.querySelector('.ft-ico').getBoundingClientRect().right));
   for (const g of gaps) expect(g).toBeLessThan(20);
   expect(f.errors).toEqual([]);
 });
 
 test.describe('PC(마우스)', () => {
   test.use({ hasTouch: false });
-  test('폴더로 옮기기 창: PC는 찾기 칸에 바로 초점, 바퀴로 맨 아래까지 (1280)', async ({ page }) => {
+  // S69-62: 옛 'PC는 찾기 칸에 바로 초점' 검사는 새 창에 찾기 칸이 없어 뺐다(초점은 창 안 ✕ 단추).
+  test('폴더로 옮기기 창: PC는 바퀴로 맨 아래까지 (1280)', async ({ page }) => {
   const f = await fixture(page, 1280, 800);
   await openPicker(page, false);
-  await expect(picker(page).locator('.lu-move-find')).toBeFocused();
-  const box = await picker(page).locator('.lu-move-list').boundingBox();
+  await expect(picker(page).locator('[data-fx-dest-close]')).toBeFocused();
+  const box = await tree(page).boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   for (let i = 0; i < 10; i++) await page.mouse.wheel(0, 300);
   await expect.poll(async () => { const s = await listState(page); return s.top >= s.max - 1; }).toBe(true);
-  await expect(picker(page).locator('.lu-move-item', { hasText: `시험 폴더 ${N}` })).toBeInViewport();
+  await expect(rowNamed(page, `시험 폴더 ${N}`)).toBeInViewport();
   expect(f.errors).toEqual([]);
 });
 });

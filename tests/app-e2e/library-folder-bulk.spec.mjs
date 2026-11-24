@@ -1,8 +1,11 @@
 import {SHEET,pressName} from './helpers/area-org-picker.mjs';
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryTopMenu} from './helpers/library-tree.mjs';
-import {bootLibrary,libFolder,libDoc,SB,press,movePicker,moveFolder} from './helpers/library-folder-server.mjs';
-import {expectPickerAtButton} from './helpers/picker-anchor.mjs';
+import {bootLibrary,libFolder,libDoc,SB,press} from './helpers/library-folder-server.mjs';
+import {folderSheet} from './helpers/folder-sheet.mjs';
+// S69-62: 폴더로 옮기기는 [파일] '옮길 곳' 창과 같은 창(app/folder-dest-sheet.js). 줄을 누르면 고르기만, [여기에 옮기기]로 옮긴다.
+const sheetRowId=(page,id)=>folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
+const sheetGoBtn=page=>folderSheet(page).locator('[data-fx-dest-go]');
 // LIB-폴더탐색기 화면 ③(docs/design/library-tree.md 12절): 선택 모드 일괄 수정 줄([프로젝트|담당조직|종류 바꾸기][폴더로 옮기기][삭제]),
 // 바꾼 칸은 칸별 기록 'user', '… 바꿨어요 · 되돌리기', 일부 실패, PC Ctrl/Shift+클릭 선택.
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -123,9 +126,12 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     const {s,errors}=await boot(page,width);
     await pick(page,['a-2','a1-1'],width);
     await press(page,bar(page).getByRole('button',{name:'폴더로 옮기기',exact:true}),width);
-    await expect(page.locator('#luMovePicker')).toBeVisible();
-    await press(page,page.locator('#luMovePicker [data-lu-move-folder="fn"]').last(),width);
-    await expect(page.locator('#luMovePicker')).toBeHidden();
+    await expect(folderSheet(page)).toBeVisible();
+    await press(page,sheetRowId(page,'fn'),width);
+    await expect(folderSheet(page)).toBeVisible(); // 고르기만으로는 옮기지 않는다
+    expect(s.items.length).toBe(0);
+    await press(page,sheetGoBtn(page),width);
+    await expect(folderSheet(page)).toHaveCount(0);
     await expect.poll(()=>s.items.filter(x=>x.folder_id==='fn').map(x=>x.document_id).sort()).toEqual(['a-2','a1-1']);
     expect(s.docs.find(d=>d.id==='a1-1').project_id).toBe('child-a1');
     await expect(line(page)).toContainText('옮겼어요 2개 → 가상 N 폴더');await expect(bar(page)).toBeHidden();
@@ -248,17 +254,34 @@ test('분류 묶기에서 끌어 분류 바꾸기, 놓일 묶음 전체 칠함, 
   expect(errors).toEqual([]);
 });
 
-// S54-04 UI-고르기창버튼아래(11/08 명진 결정 B): 선택 도구줄 [폴더로 옮기기] 창은 폰·폴드·PC 모두 누른 버튼에 붙은 작은 창(아래, 자리가 모자라면 위).
+// S69-62(옛 S54-04 '버튼 아래 작은 창'을 바꿈): 선택 도구줄 [폴더로 옮기기] 창은 [파일] '옮길 곳' 창과 같은 창 —
+// 폰·폴드는 하단바 위로 올라오는 아래 창(화면 폭), PC는 가운데 아래 창(520px까지). 어느 쪽이든 화면 안, 하단바 위, 나무 첫 줄이 보인다.
 for(const width of [390,884,1280])test.describe(`폴더로 옮기기 창 자리 ${width}`,()=>{
   test.use({hasTouch:width<761});
-  test(`선택 도구줄 [폴더로 옮기기] 창은 누른 버튼에 붙어 열린다 ${width}`,async({page})=>{
+  test(`선택 도구줄 [폴더로 옮기기] 창은 하단바 위 아래 창(PC는 가운데 아래)으로 열린다 ${width}`,async({page})=>{
     const {errors,s}=await boot(page,width);
     await pick(page,['a-2'],width);
     const btn=page.locator('#librarySelectFolder');
     await press(page,btn,width);
-    await expectPickerAtButton(page,movePicker(page),btn);
-    await press(page,moveFolder(page,'fn'),width);
-    await expect(movePicker(page)).toBeHidden();
+    const box=folderSheet(page);
+    await expect(box).toBeVisible();
+    await page.waitForTimeout(80);
+    const g=await box.evaluate(p=>{
+      const r=p.getBoundingClientRect(),tree=p.querySelector('.fx-dest-tree').getBoundingClientRect(),first=p.querySelector('.fx-dest-tree [data-fx-dest-pick]').getBoundingClientRect();
+      const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0;
+      const tabs=document.querySelector('nav.mobile-tabs'),tr=tabs&&getComputedStyle(tabs).display!=='none'?tabs.getBoundingClientRect():null;
+      const floor=Math.min(innerHeight-v('--kptu-mobile-tab-height')-v('--kptu-switch-dock'),tr&&tr.height?tr.top:innerHeight);
+      return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,vw:document.documentElement.clientWidth,floor,treeTop:tree.top,firstTop:first.top,firstBottom:first.bottom,scroll:p.querySelector('.fx-dest-tree').scrollTop};
+    });
+    expect(g.left).toBeGreaterThanOrEqual(-0.5);expect(g.right).toBeLessThanOrEqual(g.vw+0.5);expect(g.top).toBeGreaterThanOrEqual(0);
+    expect(g.bottom).toBeLessThanOrEqual(g.floor+1); // 하단바와 겹치지 않는다
+    expect(g.floor-g.bottom).toBeLessThanOrEqual(width<761?1:24); // 아래에 붙어 있다(폰은 하단바 바로 위)
+    if(width<761)expect(g.width).toBeGreaterThanOrEqual(g.vw-1);else expect(g.width).toBeLessThanOrEqual(521);
+    expect(g.scroll).toBe(0);expect(g.firstTop).toBeGreaterThanOrEqual(g.treeTop-0.5);expect(g.firstBottom).toBeLessThanOrEqual(g.bottom+0.5);
+    await press(page,sheetRowId(page,'fn'),width);
+    await press(page,sheetGoBtn(page),width);
+    await expect(box).toHaveCount(0);
+    await expect.poll(()=>s.items.filter(x=>x.folder_id==='fn').length).toBe(1);
     expect(errors).toEqual([]);
   });
 });
