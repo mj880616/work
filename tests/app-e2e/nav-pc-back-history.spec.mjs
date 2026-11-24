@@ -155,13 +155,13 @@ test('PC 1280 노트: 회의 → 교육 → 폴더 없음 에서 ‹ = 교육, �
  await enterFolder(page,'교육');await expect(page).toHaveURL(new RegExp(`[?&]folder=${U(2)}(?:&|$)`));
  await page.locator('[data-nx-tree] [data-nx-outside]').first().click();await expect(page).toHaveURL(/[?&]folder=out(?:&|$)/);
  await topBack(page).click();await expect(page).toHaveURL(new RegExp(`[?&]folder=${U(2)}(?:&|$)`));
- await expect(page.locator('[data-note-host] [data-note-row="n3"]')).toBeVisible();
+ await expect(page.locator('[data-note-host] #noteRows [data-note-row="n3"]')).toBeVisible();
  await page.goBack();await expect(page).toHaveURL(new RegExp(`[?&]folder=${U(1)}(?:&|$)`));
- await expect(page.locator('[data-note-host] [data-note-row="n2"]')).toBeVisible();
+ await expect(page.locator('[data-note-host] #noteRows [data-note-row="n2"]')).toBeVisible();
  await topBack(page).click();await expect(page).not.toHaveURL(/[?&]folder=/);await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
  await topBack(page).click();await expect(page.locator('#calendarView')).toBeVisible();
  await topForward(page).click();await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');await expect(page).not.toHaveURL(/[?&]folder=/);
  await topForward(page).click();await expect(page).toHaveURL(new RegExp(`[?&]folder=${U(1)}(?:&|$)`));
- await expect(page.locator('[data-note-host] [data-note-row="n2"]')).toBeVisible();
+ await expect(page.locator('[data-note-host] #noteRows [data-note-row="n2"]')).toBeVisible();
  expect(errors).toEqual([]);
 });
