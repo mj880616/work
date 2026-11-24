@@ -86,7 +86,9 @@ test('PC 1440 한 칸(나무 | 목록): 위치 줄 링크 · Backspace 한 단�
   await page.locator('#documentList [data-lu-document]').first().focus();
   await page.keyboard.press('Backspace');
   await expect(path.locator('.fp-here')).toHaveText('가상 A');
-  await navGo('fb');await navGo('fc');await navGo('fd');
+  // S69-76: 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]로(왼쪽 나무에서 이미 펼친 폴더를 다시 누르면 접히므로 — #2994).
+  const enterMenu=async key=>{await menuButton(page,key).click();await folderMenuItem(page,'이 폴더로 들어가기').click()};
+  await enterMenu('f:fb');await enterMenu('f:fc');await enterMenu('f:fd');
   await expect(path.locator('.fp-here')).toHaveText('가상 D');
   expect(await shown(path.locator('> *:not(.fp-sep)'))).toEqual(['‹','자료실','…','가상 C','가상 D']);
   await page.screenshot({path:'test-results/s69-19-pc-one-deep.png'});
