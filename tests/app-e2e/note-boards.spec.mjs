@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
+import { touchDrag } from './helpers/touch-drag.mjs';
 // S48-28: 보드 이름은 공용 작은 글 입력창(.kptu-ask, app/small-notice.js askText)으로 묻는다. 글을 넣고 [확인]을 누른다.
 async function answerText(page, value) {
   const ask = page.locator('.kptu-ask');
@@ -17,7 +18,7 @@ async function answerText(page, value) {
 // 폰: [+ 노트 붙이기] 고르기 창, 보드 칸 꾹 누르기 메뉴 [이름 바꾸기] [보드 지우기]. 보드 목록·마지막 보드는 서버 화면 기억(view_prefs). 이름은 지어낸 것.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-const F = '00000000-0000-4000-8000-000000000001';
+const F = '00000000-0000-4000-8000-000000000001', G = '00000000-0000-4000-8000-000000000002';
 async function fixture(page, width, prefs = {note_view:'board'}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], writes = [];
@@ -30,7 +31,9 @@ async function fixture(page, width, prefs = {note_view:'board'}) {
     row('n2', '나 노트', '2026-10-16T01:00:00Z'),
     row('n3', '다 노트', '2026-10-12T01:00:00Z', { folder_id: F }),
   ];
-  const folders = [{ id: F, workspace_id: 'w', parent_id: null, name: '회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }];
+  // G: '회의' 아래 하위 폴더(노트 없음) — 왼쪽 목록에서 하위 폴더로 끌어 넣기 시험용.
+  const folders = [{ id: F, workspace_id: 'w', parent_id: null, name: '회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' },
+    { id: G, workspace_id: 'w', parent_id: F, name: '궤도', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }];
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
     const req = r.request(), q = new URL(req.url()).searchParams;
     const pick = x => (!q.get('kind') || 'eq.' + x.kind === q.get('kind')) && (!q.get('id') || 'eq.' + x.id === q.get('id')) && (!q.get('updated_at') || 'eq.' + x.updated_at === q.get('updated_at'));
@@ -160,6 +163,72 @@ test('PC: 왼쪽 노트 목록·빈 보드 우클릭은 브라우저 메뉴 대�
   await page.keyboard.press('Escape');
   await page.locator('[data-note-board]').click({ button: 'right', position: { x: 600, y: 400 } });
   await expect(menu.locator('[data-nbb-newnote]')).toHaveText('새 노트 쓰기');
+  expect(errors).toEqual([]);
+});
+
+// S69 보드목록폴더놓기(요청함 '여기서 노트를 드래그해서 폴더로 못넣음'): 왼쪽 목록의 노트를 폴더 줄에 놓으면 그 폴더로 옮긴다.
+// 끄는 동안 놓을 폴더 줄은 옅은 바탕, 개수는 바로 바뀌고, 판에 끌어 놓기는 그대로. 이미 붙은 노트도 폴더로는 옮길 수 있다.
+test('PC: 보드 왼쪽 목록에서 노트를 하위 폴더·폴더 없음에 끌어 넣기, 판 놓기는 그대로 (1440)', async ({ page }) => {
+  const id = 'b1a2b3c4';
+  const { rows, errors } = await fixture(page, 1440, { note_view: 'board', note_boards: [{ id, name: '교섭' }], note_board: id });
+  const side = page.locator('[data-nbb-side]'), folderRow = name => side.locator('[data-nbb-folder]', { hasText: name });
+  await folderRow('회의').click();
+  await folderRow('폴더 없음').click();
+  await expect(folderRow('궤도')).toBeVisible();
+  await expect(folderRow('궤도').locator('.nbb-num')).toHaveText('0');
+  // 끄는 동안: 놓을 폴더 줄 강조, 지금 든 폴더(폴더 없음)는 강조하지 않음.
+  // 마우스로 브라우저 끌기: 누른 채 조금 움직여 시작 → 폴더 줄로(자리 알림은 다음 움직임에서 따라오므로 끝에서 한 번 더 움직임).
+  const dragOver = async (from, to) => {
+    const a = await from.boundingBox(), b = await to.boundingBox();
+    await page.mouse.move(a.x + 20, a.y + a.height / 2); await page.mouse.down();
+    await page.mouse.move(a.x + 24, a.y + a.height / 2 - 6, { steps: 3 });
+    await page.mouse.move(b.x + 30, b.y + b.height / 2, { steps: 6 });
+    await page.mouse.move(b.x + 34, b.y + b.height / 2, { steps: 2 });
+  };
+  await dragOver(side.locator('[data-nbb-note="n2"]'), folderRow('궤도'));
+  await expect(folderRow('궤도')).toHaveClass(/nx-drop/);
+  await expect(side.locator('.nbb-folder.nx-drop')).toHaveCount(1);
+  await page.mouse.up();
+  await expect(side.locator('.nbb-folder.nx-drop')).toHaveCount(0);
+  await expect.poll(() => rows[1].metadata.folder_id).toBe(G);
+  expect(rows[1].metadata.folder).toBe('궤도');
+  await expect(folderRow('궤도').locator('.nbb-num')).toHaveText('1');
+  await expect(cards(page)).toHaveCount(0); // 폴더로 옮기기는 판에 붙이지 않는다
+  // 판 놓기는 그대로.
+  await side.locator('[data-nbb-note="n1"]').dragTo(page.locator('[data-nb-scroll]'), { targetPosition: { x: 400, y: 300 } });
+  await expect(cards(page)).toHaveCount(1);
+  await expect.poll(() => rows[0].metadata.boards?.[id]).toBeTruthy();
+  // 이미 붙은 노트(n1, '회의')도 하위 폴더로 옮길 수 있고, 보드 자리는 그대로. 지금 든 폴더('회의')는 강조하지 않는다.
+  // ('폴더 없음' 줄은 그 안 노트가 없어져 목록에서 사라진다.)
+  await expect(folderRow('폴더 없음')).toHaveCount(0);
+  await expect(side.locator('[data-nbb-note="n1"]')).toHaveAttribute('aria-disabled', 'true');
+  await dragOver(side.locator('[data-nbb-note="n1"]'), side.locator('[data-nbb-folder]', { hasText: /^회의/ }));
+  await expect(side.locator('.nbb-folder.nx-drop')).toHaveCount(0);
+  const sub = await folderRow('궤도').boundingBox(); // 같은 끌기로 이어서 하위 폴더로
+  await page.mouse.move(sub.x + 30, sub.y + sub.height / 2, { steps: 4 }); await page.mouse.move(sub.x + 34, sub.y + sub.height / 2, { steps: 2 });
+  await expect(folderRow('궤도')).toHaveClass(/nx-drop/);
+  await page.mouse.up();
+  await expect.poll(() => rows[0].metadata.folder_id).toBe(G);
+  await expect(folderRow('궤도').locator('.nbb-num')).toHaveText('2');
+  expect(rows[0].metadata.boards?.[id]).toBeTruthy();
+  await expect(cards(page)).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('넓은 터치 화면: 보드 왼쪽 목록 노트를 꾹 눌러 끌어 하위 폴더에 넣기, 짧게 누르기는 붙이기 (1024)', async ({ page }) => {
+  const id = 'b1a2b3c4';
+  const { rows, errors } = await fixture(page, 1024, { note_view: 'board', note_boards: [{ id, name: '교섭' }], note_board: id });
+  const side = page.locator('[data-nbb-side]'), folderRow = name => side.locator('[data-nbb-folder]', { hasText: name });
+  await expect(side).toBeVisible();
+  await folderRow('회의').click();
+  await folderRow('폴더 없음').click();
+  await touchDrag(page, side.locator('[data-nbb-note="n3"]'), folderRow('궤도'), { before: async () => { await expect(folderRow('궤도')).toHaveClass(/nx-drop/); } });
+  await expect.poll(() => rows[2].metadata.folder_id).toBe(G);
+  await expect(folderRow('궤도').locator('.nbb-num')).toHaveText('1');
+  await expect(cards(page)).toHaveCount(0);
+  await page.waitForTimeout(700); // 끌기 뒤 따라오는 누르기 삼킴이 끝난 뒤
+  await side.locator('[data-nbb-note="n2"]').tap();
+  await expect(cards(page)).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 

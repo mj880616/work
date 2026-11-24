@@ -3,7 +3,9 @@
 // 잡은 뒤에는 스크롤을 막고 손가락을 따라 놓을 자리를 선으로 보인다. 키보드는 손잡이에서 위·아래 화살표(onStep).
 // 칸(list)이 여럿이어도 된다(하단바 칸 ↔ [메뉴] 칸). 어디에 놓을지는 dropIndex(가운데 세로 위치 목록, y)로 정한다.
 import {dropZone} from './folder-look-model.mjs';
-export const LONG_MS = 450, SLOP = 8, MOVED = 12, EDGE = 56;
+import {createEdgeScroll, EDGE} from './drag-edge-scroll.js';
+export const LONG_MS = 450, SLOP = 8, MOVED = 12;
+export {EDGE};
 export function dropIndex(centers, y) {
   let at = 0;
   for (const center of centers) { if (y > center) at++; else break; }
@@ -41,7 +43,7 @@ export function dropIndexGrid(rects, x, y) {
 //  early: true  → 끌기 뒤 따라오는 클릭 한 번을 창(window) 단계에서 먼저 삼킨다. 마우스로 끌면 포인터를 잡아 둔 줄이 그 클릭을 받는데(자리가 안 바뀌어 줄이 그대로면 클릭이 생긴다),
 //         문서 단계 위임 클릭(loader-v2의 [data-view] 화면 열기)이 root보다 먼저 받으면 끌었다 놓은 줄의 화면이 열려 버리기 때문이다. 부품이 다시 붙는 곳은 destroy로 그 창 쪽 귀를 뗀다.
 export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false, early = false} = {}) {
-  let drag = null, touch = null, marker = null, scrollDir = 0, scrollTimer = 0;
+  let drag = null, touch = null, marker = null;
   const idOf = el => el?.dataset?.reorderId || '';
   const lists = () => [...root.querySelectorAll(listSelector)];
   const clearMarks = () => {
@@ -90,21 +92,13 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     const before = t.items[t.index];
     (before || t.list).classList.add(before ? 're-drop-before' : 're-drop-end');
   }
-  function edgeScroll(y) {
-    const box = scroller();
-    if (!box) return;
-    const r = box.getBoundingClientRect();
-    scrollDir = y < r.top + EDGE ? -1 : y > r.bottom - EDGE ? 1 : 0;
-    if (scrollDir && !scrollTimer) {
-      const step = () => { if (!scrollDir || !drag) { scrollTimer = 0; return; } box.scrollBy(0, scrollDir * 12); scrollTimer = requestAnimationFrame(step); };
-      scrollTimer = requestAnimationFrame(step);
-    }
-  }
-  const stopScroll = () => { scrollDir = 0; if (scrollTimer) cancelAnimationFrame(scrollTimer); scrollTimer = 0; };
+  // 끄는 동안 저절로 굴리기: 공용 부품(drag-edge-scroll.js). scroller()가 준 칸을 먼저, 없으면 포인터 아래 가장 안쪽 굴러가는 칸(끝은 화면). 굴린 뒤 놓을 자리를 다시 본다.
+  const edge = createEdgeScroll({prefer: () => scroller(), onScroll: (x, y) => { if (!drag) return; drag.drop = target(x, y); showMark(drag.drop); if (zones) onHover?.(drag.drop ? {id: drag.id, over: drag.drop.over, zone: drag.drop.zone} : null); }});
+  const stopScroll = () => edge.stop();
   function begin(el) { drag = {el, id: idOf(el), drop: null}; el.classList.add('re-dragging'); root.classList.add('re-active'); }
   function move(x, y) {
     if (!drag) return;
-    drag.drop = target(x, y); showMark(drag.drop); edgeScroll(y);
+    drag.drop = target(x, y); showMark(drag.drop); edge.update(x, y);
     if (zones) onHover?.(drag.drop ? {id: drag.id, over: drag.drop.over, zone: drag.drop.zone} : null);
   }
   function finish(commit) {

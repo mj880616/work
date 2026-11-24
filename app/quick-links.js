@@ -13,6 +13,9 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 import {placeAnchored,clearAnchored,followAnchor,dragByTitle} from './anchored-popup.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {word} from './brand/brand.mjs';
+import {installDragEdgeScroll} from './drag-edge-scroll.js';
+// UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
+installDragEdgeScroll();
 
 // 분류 id는 영문 소문자·숫자 1~12자(표의 CHECK와 같은 규칙).
 // SEC-자주가는링크기본값유출(11/15 ★급★): 새 계정은 빈 목록에서 시작한다. 코드에 특정 단체·내부 시스템 주소를 기본값으로 두지 않는다

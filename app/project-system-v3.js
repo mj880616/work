@@ -35,6 +35,9 @@ import {hasDoc,sameRecord,recordPatch} from './record-doc.mjs';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn,basketNoteHref} from './basket-note-tasks.js';
 import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기
 import {word} from './brand/brand.mjs';
+import {installDragEdgeScroll} from './drag-edge-scroll.js';
+// UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
+installDragEdgeScroll();
 (()=>{
 'use strict';
 const rt=window.KPTURuntime,catalog=window.KPTUProjectCatalog;if(!rt||!catalog)return;
