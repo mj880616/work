@@ -2,7 +2,7 @@
 // 쓰는 곳: 회의명을 고르는 상자 전부(사업 보고 입력 창 #meetingNameSelect — 회의 녹음·파일로 만들기도 이 창 — 과 보고 고치기 #mrdEditNameSelect).
 // - 평소: 맨 위 '회의 찾기' 칸 · 정기 회의 줄 · 상위 아래 '└ ○○ 비정기 회의 n ›' 접힌 줄(누르면 그 아래만 날짜와 함께 펼침) · 기타(직접 입력).
 // - 찾기: 정기·비정기 모두에서 찾고 비정기 줄은 '비정기 · 상위' 꼬리표.
-// - 줄 ⋯: 비정기로 두기 · 정기 목록에 두기 · 조직 바꾸기 · 이름 바꾸기 · 삭제(목록에서만 — 지난 보고는 그대로).
+// - 줄 ⋯: 비정기로 두기 · 정기 목록에 두기 · 조직 바꾸기 · 자료실 폴더 정하기(MTG-정기회의자료폴더) · 이름 바꾸기 · 삭제(목록에서만 — 지난 보고는 그대로).
 // S56-1 MTG-회의명조직묶기(시안 docs/design/mockups/meeting-name-groups.html): 정기 회의에 조직이 붙어 있으면 조직 머리글(고를 수 없는 작은 회색 글자)
 //   아래에 그 조직 회의 · 맨 아래 '└ 비정기 회의 n ›'. 어느 조직에도 안 넣은 회의는 맨 아래 '기타'. 찾기 줄에는 '· 조직' 꼬리표.
 //   '상위 목록 수정' → '조직 목록 수정'(비정기 상위 목록과 같은 목록 하나).
@@ -123,8 +123,8 @@ function menuHtml() {
   const spot = s && p.kind === REGULAR ? orderSpot(entriesOf(ui.select), s, b.name, {keep: currentName(ui.select)}) : null;
   const moves = spot ? [...(spot.index > 0 ? [['up', '위로']] : []), ...(spot.index < spot.count - 1 ? [['down', '아래로']] : [])] : [];
   const acts = b.preset
-    ? [['org', word`조직 바꾸기 (${parentLabel(s, org)})`], ['rename', '이름 바꾸기'], ...moves, ['unpreset', '목록에서 빼기']]
-    : [p.kind === REGULAR ? ['irregular', '비정기로 두기'] : ['regular', '정기 목록에 두기'], ['org', word`조직 바꾸기 (${parentLabel(s, org)})`], ['rename', '이름 바꾸기'], ...moves, ['del', '삭제']];
+    ? [['org', word`조직 바꾸기 (${parentLabel(s, org)})`], ['folder', '자료실 폴더 정하기'], ['rename', '이름 바꾸기'], ...moves, ['unpreset', '목록에서 빼기']]
+    : [p.kind === REGULAR ? ['irregular', '비정기로 두기'] : ['regular', '정기 목록에 두기'], ['org', word`조직 바꾸기 (${parentLabel(s, org)})`], ['folder', '자료실 폴더 정하기'], ['rename', '이름 바꾸기'], ...moves, ['del', '삭제']];
   return head + `<div class="mnp-rows" role="menu" aria-label="${esc(b.name)}">${acts.map(([k, l]) => `<div class="mnp-act" role="menuitem" tabindex="0" data-mnp-act="${k}">${esc(l)}</div>`).join('')}</div>`;
 }
 function paint({focus = ''} = {}) {
@@ -227,9 +227,11 @@ panel.addEventListener('click', async e => {
   }
   if ((b = t('[data-mnp-act]'))) {
     const act = b.dataset.mnpAct, target = ui.target;
-    if (sorts() == null && act !== 'rename') { ui.msg = failText('unknown'); paint(); return; }
+    if (sorts() == null && act !== 'rename' && act !== 'folder') { ui.msg = failText('unknown'); paint(); return; }
     if (act === 'irregular') { void save(s => setIrregular(s, target.names), `비정기로 두었어요(${parentLabel(sorts(), orgOf(sorts(), target.name))} 아래). 지난 보고는 그대로예요.`); return; }
     if (act === 'org') { ui.mode = 'org'; ui.msg = ''; paint({focus: '[data-mnp-org-pick]'}); return; }
+    // MTG-정기회의자료폴더: 이 회의명의 회의자료를 넣을 자료실 폴더(공용 폴더 고르기 창). 짝은 서버 폴더 줄에(meeting-folder.js).
+    if (act === 'folder') { const select = ui.select; const [m] = await Promise.all([import('./meeting-folder.js'), close({focus: false})]); void m.chooseMeetingFolder({anchor: select, name: target.name}); return; }
     if (act === 'regular') { void save(s => setPlace(s, target.names, REGULAR), '정기 목록에 두었어요.'); return; }
     if (act === 'rename') { ui.mode = 'rename'; ui.draft = target.name; ui.msg = ''; paint({focus: '[data-mnp-rename]'}); return; }
     if (act === 'up' || act === 'down') { const ents = entriesOf(ui.select), opts = {keep: currentName(ui.select)}; void save(s => stepOrder(ents, s, target.name, act === 'up' ? -1 : 1, opts), '', {stay: act}); return; }
@@ -246,6 +248,8 @@ panel.addEventListener('click', async e => {
     }
   }
 });
+// MTG-정기회의자료폴더: 이름을 바꾸면 자료실 폴더 짝도 새 이름으로(짝이 없으면 아무것도 안 함).
+const followFolder = (from, to) => { void import('./meeting-folder.js').then(m => m.followMeetingRename(from, to)).catch(() => {}); };
 panel.addEventListener('submit', async e => {
   if (!ui || !e.target.matches('[data-mnp-rename-form]')) return;
   e.preventDefault();
@@ -262,6 +266,7 @@ panel.addEventListener('submit', async e => {
     const r = await changeSorts(x => moveName(x, target.name, next));
     if (!ui || ui.select !== select) return;
     if (!r.ok) { ui.msg = failText(r.reason); paint(); return; }
+    followFolder(target.name, next);
     renameInSelect(select, target.name, next);
     return;
   }
@@ -272,6 +277,7 @@ panel.addEventListener('submit', async e => {
   if (!ui || ui.select !== select) return;
   if (!r?.ok) { ui.msg = r?.message || '이름을 바꾸지 못했어요. 다시 해 주세요.'; paint(); return; }
   if (hasMark(sorts(), target.name)) await changeSorts(s => moveName(s, target.name, next));
+  followFolder(target.name, next);
   renameInSelect(select, target.name, next);
 });
 // S57-14 '회의 미리 넣기' [추가]: 넣은 뒤에도 이 칸에 머문다(이어서 넣기). 조직은 고른 그대로.

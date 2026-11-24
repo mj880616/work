@@ -674,3 +674,5 @@
    폰 '그 폴더만' 위치 줄 끝의 지금 폴더 이름(상자 머리 대신 한 번). */
 #documentList details.lu-enter > summary.lu-node-head{cursor:pointer}
 #libraryPath .lu-focus-here{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--kptu-ink);font-weight:700}
+/* S69-69 LIB-사각형폴더: 사각형으로 폴더째 고른 폴더 줄(탐색기 칸 하위 폴더 줄·두 칸 칸 폴더 줄). */
+#appView #libraryView #documentList .lu-folder-picked{background:var(--kptu-primary-soft)}

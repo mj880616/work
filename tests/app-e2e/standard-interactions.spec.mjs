@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { appOrigin } from './helpers/test-origin.mjs';
-import { bootLibrary, libFolder, libDoc, openMove, movePicker } from './helpers/library-folder-server.mjs';
+import { bootLibrary, libFolder, libDoc, openMove, movePicker, pickMove } from './helpers/library-folder-server.mjs';
 import { expandLibraryTree } from './helpers/library-tree.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
@@ -274,19 +274,19 @@ const EMPTY_OD = { source: 'od', item_id: 'OD!19', parent_id: 'OD!1', name: '가
 async function libraryPress(page, width) {
   const { errors } = await library(page, width);
   const d = page.locator('#documentList details[data-lu-node="f:f0"]');
-  return { errors, press: () => d.locator(':scope > summary').click(), open: () => d.evaluate(x => x.open), empty: d.locator('.lu-node-empty'),
+  return { errors, press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), open: () => d.evaluate(x => x.open), empty: d.locator('.lu-node-empty'),
     more: d.locator(':scope > summary [data-lu-node-menu]'), panel: page.locator('#luFolderMenu') };
 }
 async function notesPress(page, width) {
   const { errors } = await notes(page, width);
   const row = page.locator(`#noteRows [data-nx-folder="${U(100)}"]`);
-  return { errors, press: () => row.locator('.ft-main').click(), open: async () => (await row.locator('.ft-main').getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => row.locator('.ft-main').click(), dbl: () => row.locator('.ft-main').dblclick(), open: async () => (await row.locator('.ft-main').getAttribute('aria-expanded')) === 'true',
     empty: page.locator(`#noteRows .ft-empty-row[data-ft-parent="${U(100)}"]`), more: page.locator(`#noteRows [data-nx-folder-more="${U(100)}"]`), panel: page.locator('#noteDocMenu') };
 }
 async function photosPress(page, width) {
   const { errors } = await photos(page, width);
   const main = page.locator('#photosRoot [data-photos-ftog="o:S0"]');
-  return { errors, press: () => main.click(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => main.click(), dbl: () => main.dblclick(), where: () => page.locator('#photosRoot [data-photos-fx-back]').count(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     empty: page.locator('#photosRoot .ft-empty-row[data-ft-parent="o:S0"]'), more: page.locator('#photosRoot [data-photos-fx-more="S0"]'), panel: page.locator('#photosFolderMenu') };
 }
 async function filesPress(page, width) {
@@ -297,7 +297,7 @@ async function filesPress(page, width) {
   await tree.locator('[data-fx-tog="od:OD!1"]').click();
   const main = tree.locator('[data-fx-tog="od:OD!19"]');
   await expect(main).toBeVisible();
-  return { errors, press: () => main.click(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => main.click(), dbl: () => main.dblclick(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     empty: tree.locator('.ft-empty-row[data-ft-parent="od:OD!19"]'), more: tree.locator('[data-fx-fold="od:OD!19"] [data-fx-tmenu]'), panel: page.locator('#rowMenu') };
 }
 const PRESS_SCREENS = [['자료실', libraryPress], ['파일', filesPress], ['노트', notesPress], ['사진', photosPress]];
@@ -327,7 +327,7 @@ async function filesRight(page) {
   await page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main').click();
   const row = page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!10"]');
   await expect(row).toBeVisible();
-  return { errors, press: () => row.click(), open: async () => (await row.getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => row.click(), dbl: () => row.dblclick(), menu: () => row.click({ button: 'right' }), panel: page.locator('#rowMenu'), open: async () => (await row.getAttribute('aria-expanded')) === 'true',
     inner: page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!14"]'), here: () => page.locator('#filesRoot [data-fx-crumb] .fx-crumb-now').textContent(),
     treeSub: page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!14"], #filesRoot [data-fx-tree] .ft-row.ft-current [data-fx-go][data-fx-id="OD!10"]') };
 }
@@ -337,7 +337,7 @@ async function libraryRight(page) {
   await page.locator('#libraryFolderNav [data-lu-nav="ra"]').click();
   const d = page.locator('#documentList details[data-lu-node="f:rb"]');
   await expect(d).toBeVisible();
-  return { errors, press: () => d.locator(':scope > summary').click(), open: () => d.evaluate(x => x.open),
+  return { errors, press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), menu: () => d.locator(':scope > summary').click({ button: 'right' }), panel: page.locator('#luFolderMenu'), open: () => d.evaluate(x => x.open),
     inner: d.locator('[data-lu-document="d1"]'), here: () => page.locator('#libraryPath').textContent(),
     treeSub: page.locator('#libraryFolderNav [data-lu-nav="rc"], #libraryFolderNav .ft-current [data-lu-nav="rb"]') };
 }
@@ -358,7 +358,7 @@ async function notesRight(page) {
   await page.locator(`[data-nx-tree] [data-nx-open="${U(301)}"]`).click();
   const main = page.locator(`#noteRows [data-nx-open="${U(302)}"]`);
   await expect(main).toBeVisible();
-  return { errors, press: () => main.click(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => main.click(), dbl: () => main.dblclick(), menu: () => main.click({ button: 'right' }), panel: page.locator('#noteDocMenu'), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     inner: page.locator('#noteRows [data-note-row="rn1"]'), here: async () => (await page.locator(`[data-nx-tree] .ft-current [data-nx-open]`).getAttribute('data-nx-open')),
     treeSub: page.locator(`[data-nx-tree] [data-nx-open="${U(303)}"], [data-nx-tree] .ft-current [data-nx-open="${U(302)}"]`) };
 }
@@ -377,6 +377,43 @@ for (const [name, open] of RIGHT_SCREENS) test(`T5 ${name} PC 1280: 오른쪽 �
   await expect.poll(s.open).toBe(false);
   await expect(s.inner).toBeHidden();
   expect(page.url()).toBe(url0);
+  expect(s.errors).toEqual([]);
+});
+
+// T8(S69-76 UI-두번누르기없앰, 명진 11/24 21:30 "폴더 두번 누르면 들어가지는데 너무 민감 더블클릭 없애고 그 폴더에 들어가는 건 ... 해서 들어가기로만"):
+// 폴더 줄 두 번 누르기(PC 더블클릭·폰 두 번 탭) = 한 번 누르기 두 번(펼치기 → 접기)과 같다 — 주소·위치 그대로, 들어가지 않는다.
+// 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기](PC는 우클릭도 같은 메뉴)로만. 폰 그 자리 펼치는 목록(PRESS_SCREENS)·PC 오른쪽 목록(RIGHT_SCREENS) 모두.
+for (const [name, open] of PRESS_SCREENS) test(`T8 ${name} 폰 390: 폴더 두 번 누르기 = 들어가지 않음(펼치기·접기 두 번), ⋯ 첫 줄로만 들어감`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page, 390);
+  const where = s.where || (async () => page.url()); // 들어갔는지: 주소(사진은 주소가 같아 '폴더 나무로' ‹ 단추가 생겼는지)
+  const url0 = page.url(), at0 = await where();
+  await s.dbl();
+  await page.waitForTimeout(400);
+  await expect.poll(s.open).toBe(false);
+  expect(page.url()).toBe(url0);
+  expect(await where()).toBe(at0);
+  await s.more.click();
+  const enter = s.panel.locator('button').first();
+  await expect(enter).toHaveText('이 폴더로 들어가기');
+  await enter.click();
+  await expect.poll(where).not.toBe(at0);
+  expect(s.errors).toEqual([]);
+});
+for (const [name, open] of RIGHT_SCREENS) test(`T8 ${name} PC 1280: 오른쪽 목록 폴더 두 번 누르기 = 들어가지 않음, 우클릭(⋯ 같은 메뉴) 첫 줄로만 들어감`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page);
+  const url0 = page.url(), here0 = await s.here();
+  await s.dbl();
+  await page.waitForTimeout(400);
+  await expect.poll(s.open).toBe(false);
+  expect(page.url()).toBe(url0);
+  expect(await s.here()).toBe(here0);
+  await s.menu();
+  const enter = s.panel.locator('button').first();
+  await expect(enter).toHaveText('이 폴더로 들어가기');
+  await enter.click();
+  await expect.poll(s.here).not.toBe(here0);
   expect(s.errors).toEqual([]);
 });
 
@@ -574,4 +611,62 @@ test.describe('P4 폰 390 터치', () => {
     await expect(s.menu).toBeVisible();
     expect(s.errors).toEqual([]);
   });
+});
+
+// ---------- S4 폴더 줄: 사각형으로 폴더 줄 고르기(S69-69 LIB-사각형폴더, 명진 11/24 20:18 "이렇게 드래그하면 다 선택이 돼야하는데") ----------
+// 두 칸 보기 오른쪽 칸에서 빈 폴더 줄 여럿을 사각형으로 덮으면 폴더째 골라지고(위 막대 '폴더 N 선택됨'), [폴더로 옮기기]는 폴더째 옮기고, [삭제]는 폴더째 휴지통으로.
+// 한 칸 탐색기 폴더 줄도 같은 규칙(tests/app-e2e/library-marquee-anywhere.spec.mjs). 이름은 지어낸 것, 가짜 서버.
+async function libraryFolderRows(page) {
+  const folders = [libFolder('top', null, { name: '가상 위원회', sort_order: 1024 }), libFolder('dst', null, { name: '가상 보관', sort_order: 2048 }),
+    ...[0, 1, 2, 3].map(i => libFolder('k' + i, null, { name: `가상 ${i + 1}차`, parent_id: 'top', sort_order: 1024 * (i + 1) }))];
+  const r = await bootLibrary(page, 1440, { folders, items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: null } });
+  const pane = '#documentList [data-lu-pane-i="1"]';
+  await page.locator(`${pane} [data-lu-nav="top"]`).click({ button: 'right' });
+  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+  for (let i = 0; i < 4; i++) await expect(page.locator(`${pane} [data-lu-nav="k${i}"]`)).toBeVisible();
+  return { ...r, pane };
+}
+// 오른쪽 칸 마지막 폴더 줄 아래 빈 곳에서 k1 줄 가운데까지 위로 끈다(처음 고르면 위 막대가 나타나 줄이 내려가므로 그 뒤 화면에서 끝점을 다시 잰다).
+async function marqueeFolders(page, pane) {
+  const from = await page.locator(`${pane} .lu-pane-list`).evaluate(list => { const rows = [...list.querySelectorAll('.ft-row')], last = rows[rows.length - 1].getBoundingClientRect(), b = list.getBoundingClientRect(); return { x: last.left + last.width / 2, y: Math.min(b.bottom - 10, last.bottom + 40) }; });
+  const mid = () => page.locator(`${pane} [data-lu-nav="k1"]`).evaluate(el => { const b = el.closest('.ft-row').getBoundingClientRect(); return b.top + b.height / 2; });
+  await page.mouse.move(from.x, from.y); await page.mouse.down();
+  await page.mouse.move(from.x + 6, from.y - 8, { steps: 3 });
+  await expect(page.locator('.marquee-box')).toBeVisible();
+  await page.mouse.move(from.x + 20, await mid(), { steps: 6 });
+  await page.waitForTimeout(80);
+  await page.mouse.move(from.x + 24, await mid(), { steps: 3 });
+  await page.mouse.up();
+  await expect(page.locator('.marquee-box')).toHaveCount(0);
+}
+test('S4 자료실 두 칸 PC 1440: 사각형으로 폴더 줄 고르기 — 폴더째 골라지고 [폴더로 옮기기]는 폴더째 옮긴다', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, pane } = await libraryFolderRows(page);
+  await marqueeFolders(page, pane);
+  await expect(page.locator('#librarySelectBar')).toBeVisible();
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 3 선택됨');
+  await expect(page.locator(`${pane} .ft-row.lu-folder-picked`)).toHaveCount(3);
+  await expect(page.locator(`${pane} .ft-row:has([data-lu-nav="k0"])`)).not.toHaveClass(/lu-folder-picked/);
+  await page.locator('#librarySelectFolder').click();
+  await expect(movePicker(page)).toBeVisible();
+  await pickMove(page, 'dst', 1440);
+  await expect.poll(() => ['k1', 'k2', 'k3'].map(id => s.folders.find(f => f.id === id)?.parent_id)).toEqual(['dst', 'dst', 'dst']);
+  expect(s.folders.find(f => f.id === 'k0').parent_id).toBe('top');
+  await expect(page.locator('#librarySelectBar')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+test('S4 자료실 두 칸 PC 1440: 사각형으로 고른 폴더 줄 [삭제]는 한 번 묻고 폴더째 휴지통으로, 되돌리기 한 번에 모두', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, pane } = await libraryFolderRows(page);
+  await marqueeFolders(page, pane);
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 3 선택됨');
+  await page.locator('#librarySelectDelete').click();
+  await expect(page.locator('.kptu-ask-text')).toHaveText('폴더 3개를 삭제할까요?');
+  await page.locator('.kptu-ask button', { hasText: '삭제' }).click();
+  await expect.poll(() => s.trash.map(t => t.root).sort()).toEqual(['k1', 'k2', 'k3']);
+  await expect(page.locator(`${pane} [data-lu-nav="k1"]`)).toHaveCount(0);
+  await expect(page.locator('#librarySelectBar')).toBeHidden();
+  await page.locator('.kptu-undo-notice [data-undo-action]').click();
+  await expect.poll(() => s.rpc.filter(r => r.fn === 'app_trash_restore').map(r => r.id).sort()).toEqual(['k1', 'k2', 'k3']);
+  expect(errors).toEqual([]);
 });
