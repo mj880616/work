@@ -9,7 +9,7 @@
 // S57-14 MTG-회의명처음배치(시안 docs/design/mockups/meeting-name-groups-phone.html): 맨 아래 '회의 미리 넣기'(아직 보고가 없는 회의명 + 조직) —
 //   미리 넣은 회의는 정기 줄처럼 보이고 고를 수 있다. 줄 ⋯에 [위로]·[아래로](같은 조직 안 순서)와, 미리 넣은 줄은 [목록에서 빼기].
 //   조직에 넣거나 미리 넣으면 그 조직 맨 아래에 붙는다(넣은 순서 = 보이는 순서).
-// - 새 회의명('기타(직접 입력)')을 쓸 때는 입력 칸 옆 [정기 회의 ▾] 상자로 처음부터 정기/비정기·상위를 고른다(저장할 때 같이 기억).
+// - 새 회의명: 정기는 '기타(직접 입력)', 비정기는 회의명 자리 맨 위 [비정기 회의](team.js — 조직·관련 사업 한 줄). 저장할 때 commitNewSort가 기억한다.
 // 값은 그대로 <select> 한 곳에 있다(이 창은 값만 고르고 input·change를 보냄 — select-menu.js와 같은 약속). 누름·키 가로채기는 select-menu.js addOpener.
 // 목록 나누기·묶기 규칙은 meeting-name-sorts.mjs, 서버 읽기·쓰기는 meeting-name-sorts.js. 이 창은 기기에 아무것도 저장하지 않는다.
 import {followAnchor} from './anchored-popup.js';
@@ -317,30 +317,33 @@ window.addEventListener('popstate', e => { if (ui && e.state?.[KEY] !== ui.id) c
 window.addEventListener('kptu:meeting-name-sorts', () => { for (const s of document.querySelectorAll('select[data-name-panel]')) paintOptions(s); if (ui && ui.mode === 'list') paint({focus: document.activeElement?.matches?.('[data-mnp-find]') ? '[data-mnp-find]' : ''}); });
 new MutationObserver(() => { if (ui && !ui.select.isConnected) close({focus: false}); }).observe(document.documentElement, {childList: true, subtree: true});
 
-// ---- 새 회의명 종류(기타(직접 입력)일 때 입력 칸 옆) ----
-// 처음부터 정기/비정기·상위를 고른다. 보이는 것은 새 이름일 때만(이미 있는 회의명이면 그 회의명 ⋯에서 바꿈). 저장(commitNewSort)할 때 기억한다.
-function sortSelect(prefix) { return document.querySelector(`#${prefix}NameSort`); }
-export function paintNewSort(prefix, {custom, name, known}) {
-  const sel = sortSelect(prefix); if (!sel) return;
-  const s = sorts(), isNew = custom && !!nameKey(name) && !known;
-  sel.hidden = !isNew || !s;
-  if (sel.hidden) return;
-  // S56-1: 조직마다 정기·비정기(값 'r:조직 id' = 그 조직 정기, 조직 id = 그 조직 비정기). '정기 회의'·'비정기 · 기타'는 기타 조직.
-  const keep = sel.value || REGULAR, opts = [[REGULAR, '정기 회의'], ...s.parents.flatMap(p => [['r:' + p.id, `정기 · ${p.name}`], [p.id, `비정기 · ${p.name}`]]), [ETC, '비정기 · 기타']];
+// ---- [비정기 회의](MTG-비정기회의바로쓰기 A안, team.js installMeetingNamePicker) ----
+// [조직 ▾]은 이 창의 조직 목록(meeting_name_sorts parents) + 기타. 정리는 [비정기 회의]를 누를 때 처음 읽는다(입력 창을 여는 것만으로는 묻지 않음).
+export async function paintAdhocOrgs(prefix) {
+  const sel = document.querySelector(`#${prefix}NameOrg`); if (!sel) return;
+  if (peekSorts()?.status !== 'ok') await readSorts();
+  const s = sorts(), keep = sel.value || ETC, opts = [...(s?.parents || []).map(p => [p.id, p.name]), [ETC, '기타']];
   const sig = JSON.stringify(opts);
   if (sel._sig !== sig) { sel.innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join(''); sel._sig = sig; }
-  sel.value = opts.some(([v]) => v === keep) ? keep : REGULAR;
+  sel.value = opts.some(([v]) => v === keep) ? keep : ETC;
+  sel.disabled = !s;
+  const note = document.querySelector(`#${prefix}NameAdhocNote`);
+  if (note && !s) note.textContent = failText('unknown');
 }
-export async function commitNewSort(prefix, name) {
-  const sel = sortSelect(prefix), value = sel && !sel.hidden ? sel.value : REGULAR;
-  if (sel) sel.value = REGULAR;
-  if (!value || value === REGULAR || !nameKey(name)) {
-    // 지웠던 이름을 다시 쓰면 목록에 돌아온다.
-    if (sorts() && placeOf(sorts(), name).kind === DEL) await changeSorts(s => setPlace(s, name, REGULAR));
+// 저장할 때(team.js commitSort): mode = {adhoc, org, known} — 부르는 쪽이 저장 순간에 읽은 값.
+// - [비정기 회의]로 쓴 새 회의명: 그 조직 아래 비정기(정기 목록·다음에 고르는 목록에 안 뜨고 찾기로만). 이미 있는 회의명은 바꾸지 않는다(⋯에서 바꿈).
+// - [정기 회의]: 지웠던 이름을 다시 쓰면 목록에 돌아온다.
+export async function commitNewSort(prefix, name, mode = {}) {
+  if (!nameKey(name)) return;
+  const sel = document.querySelector(`#${prefix}NameOrg`);
+  if (sel) sel.value = ETC;
+  if (mode.adhoc) {
+    if (mode.known) return;
+    const org = mode.org || ETC;
+    await changeSorts(s => setPlace(s, name, org === ETC || s.parents.some(p => p.id === org) ? org : ETC));
     return;
   }
-  if (value.startsWith('r:')) { await changeSorts(s => setOrg(setPlace(s, name, REGULAR) || s, name, value.slice(2))); return; }
-  await changeSorts(s => setPlace(s, name, value));
+  if (sorts() && placeOf(sorts(), name).kind === DEL) await changeSorts(s => setPlace(s, name, REGULAR));
 }
 
 // ---- 붙이기 ----

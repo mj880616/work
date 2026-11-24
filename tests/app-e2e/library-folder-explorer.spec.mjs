@@ -213,7 +213,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     const ctx=(x,y)=>page.evaluate(([x,y])=>document.querySelector('#documentList').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:x,clientY:y})),[x,y]);
     await ctx(420,360);
-    await expect(page.locator('#luAreaMenu')).toBeVisible();await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','정돈 제안','전체 선택']);
+    await expect(page.locator('#luAreaMenu')).toBeVisible();await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안','전체 선택']);
     const box=await page.locator('#luAreaMenu').boundingBox();expect(Math.abs(box.x-420)).toBeLessThan(40);expect(Math.abs(box.y-360)).toBeLessThan(40);
     // [전체 선택] = 지금 자리(맨 위 = 폴더 밖) 자료 모두 고른 선택 모드.
     await page.locator('#luAreaMenu').getByRole('button',{name:'전체 선택',exact:true}).click();

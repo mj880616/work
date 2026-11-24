@@ -11,13 +11,14 @@
 //   되돌리고 알린다(rejectable). 늦게 온 서버 값은 이번 접속에서 고른 뒤에는 덮지 않는다.
 // - 노트가 붙은 보드와 자리: 노트 metadata.boards[보드 id](basket-data.js setNoteBoardPlace). [전체]는 지금 그대로 metadata.board.
 import { viewPrefs } from './view-prefs.js';
-import { treeIconHtml } from './tree-icons.js';
+import { treeIconHtml, iconHtml } from './tree-icons.js';
 import { mountSplitResize } from './split-resize.js';
 import { ALL, BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace } from './note-boards-model.mjs';
 import { layoutBoard } from './note-board-model.mjs';
 import { treeRows, noteLineTitle, OUTSIDE, OUTSIDE_NAME } from './note-tree.mjs';
 import { setNoteBoardPlace } from './basket-data.js';
 import { NOTE_DRAG } from './note-board.js';
+import * as pinLock from './feature-lock.js';
 import { noteTreeRowHtml } from './note-tree-row.js';
 import { LONG_MS, SLOP, mountReorder } from './reorder-drag.js';
 import { askConfirm, askText } from './small-notice.js';
@@ -30,6 +31,14 @@ installDragEdgeScroll();
 
 // wide: PC 왼쪽 목록을 보일 너비(노트 화면과 같은 761px~). get/set: basket-notes.js의 노트 배열. folderOf·folders·matches: 지금 노트 화면의 값.
 const FOLDER_DRAG = 'application/x-kptu-note-folder';
+// S69 보드잠금가림(요청함 '보드 화면에서 잠금 노트 제목이 보이는 문제'): 왼쪽 목록·폰 고르기 창도 노트 화면과 같은 판정(feature-lock.js 한 곳)을 쓴다.
+// 잠겨 가려진 동안: 잠근 폴더는 줄 하나 '이름 · 잠김'(펼치기·개수·끌어 놓기 없음, 누르면 PIN 창), 그 아래 하위 폴더 줄과 가려진 노트는 그리지 않는다.
+// 판정은 feature-lock.js가 이미 가진 값(서버 app_lock_note_folders의 잠근 폴더·덮인 하위 폴더)만 쓴다 — 화면 가림이고 자료 권한은 서버 owner 경계 그대로.
+const lockedRow = id => pinLock.notesHidden() && pinLock.folderLocked(id);
+const shownFolders = list => pinLock.notesHidden() ? list.filter(f => !pinLock.folderCovered(f.id) || pinLock.folderLocked(f.id)) : list;
+const shownNotes = list => pinLock.notesHidden() ? list.filter(n => !pinLock.noteHidden(n)) : list;
+// 줄을 누르면(또는 [풀기]) 다른 화면의 '잠김' 줄과 같은 그 자리 PIN 창(feature-lock.js data-lock-here 한 곳). 풀리면 kptu:feature-lock-changed로 다시 그린다.
+export const lockedFolderRowHtml = (r, esc, attr) => `<div class="nbb-folder nbb-locked" data-${attr}="${esc(r.id)}" data-lock-here="notes" style="--nx-indent:${r.indent}">${iconHtml('lock', {className:'nbb-caret'})}<span class="nbb-name">${esc(r.name)}</span><span class="nbb-num"><span aria-hidden="true">· </span>잠김</span><button type="button" class="row-act lk-open">풀기</button></div>`;
 
 export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}, moveToFolder = null}) {
   let boards = parseBoards(viewPrefs.get('note_boards')), current = pickBoard(viewPrefs.get('note_board'), boards), chosen = false;
@@ -77,8 +86,9 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const all = notes.get(), m = matches();
     // 폴더가 하나도 없으면 노트가 바로 한 목록(폴더 없음 묶음도 펼쳐 둔다).
     if (!folders().length) openSet.add(OUTSIDE);
-    const rows = treeRows({folders:folders(), notes:all, folderOf, root:null, isOpen:id => openSet.has(id), matches:m});
+    const rows = treeRows({folders:shownFolders(folders()), notes:shownNotes(all), folderOf, root:null, isOpen:id => openSet.has(id) && !lockedRow(id), matches:m});
     const html = rows.map(r => {
+      if (r.type === 'folder' && lockedRow(r.id)) return lockedFolderRowHtml(r, esc, 'nbb-locked');
       if (r.type === 'folder' || r.type === 'outside') {
         const name = r.type === 'outside' ? OUTSIDE_NAME : r.name;
         return `<button type="button" class="nbb-folder" data-nbb-folder="${esc(r.id)}" data-reorder-id="f:${esc(r.id)}" aria-expanded="${!!r.open}" style="--nx-indent:${r.indent}">${treeIconHtml(r.type === 'outside' ? 'outside' : 'folder', {row: r, open: !!r.open, className: 'nbb-caret'})}<span class="nbb-name">${esc(name)}</span><span class="nbb-num">${r.count}</span></button>`;
@@ -300,9 +310,10 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const list = dlg.querySelector('[data-nbb-pick-list]'), ok = dlg.querySelector('[data-nbb-pick-ok]');
     const paintPick = () => {
       const q = state.q, m = q ? n => `${n.title || ''}\n${n.raw_text || ''}`.toLowerCase().includes(q) : null;
-      const rows = treeRows({folders:folders(), notes:notes.get(), folderOf, root:null, isOpen:id => state.open.has(id), matches:m});
+      const rows = treeRows({folders:shownFolders(folders()), notes:shownNotes(notes.get()), folderOf, root:null, isOpen:id => state.open.has(id) && !lockedRow(id), matches:m});
       // 줄은 잊지 말기 [노트] 창의 노트 고르기(note-pick.js)와 같은 부품(note-tree-row.js).
       list.innerHTML = rows.map(r => {
+        if (r.type === 'folder' && lockedRow(r.id)) return lockedFolderRowHtml(r, esc, 'nbb-pl');
         const on = r.type === 'note' && onBoard(r.note, current), sel = r.type === 'note' && state.picked.has(r.note.id);
         return noteTreeRowHtml(r, {esc, folderAttr:'nbb-pf', noteAttr:'nbb-pn', check:true, pressed:on || sel, off:on});
       }).join('') || emptyHtml('맞는 노트 없음');
@@ -321,6 +332,9 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     });
     dlg.addEventListener('input', e => { if (e.target.matches('[data-nbb-pick-find]')) { state.q = e.target.value.trim().toLowerCase(); paintPick(); } });
     dlg.addEventListener('cancel', e => { e.preventDefault(); finish(); });
+    // 잠긴 폴더 줄에서 그 자리 PIN으로 풀거나 다시 잠기면 고르기 창도 다시 그린다(창이 닫히면 듣기를 그만둔다).
+    const relock = () => { if (picker && dlg.isConnected) paintPick(); else window.removeEventListener('kptu:feature-lock-changed', relock); };
+    window.addEventListener('kptu:feature-lock-changed', relock);
     paintPick();
     dlg.showModal();
     layer = window.KPTURouter?.layer?.open('note-board-pick', {close:() => { layer = null; finish(); return true; }}) || null;

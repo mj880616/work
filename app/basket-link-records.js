@@ -48,7 +48,7 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
   const kinds=noteKinds.filter(k=>['basket','note'].includes(k));if(!kinds.length)return [];const withNotes=kinds.includes('note');
   const owner=scope(rt),encode=encodeURIComponent,bundle=kind==='bundle',target=kind==='organization'?'organization_id':bundle?'bundle_id':'project_id';
   const columns=`organization_id,project_id${bundle?',bundle_id':''}`;
-  const fields=dateOnly?`id,workspace_id,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at)`:`id,workspace_id,summary,origin,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text${withNotes?',kind,title':''}${withFiles?',attachments':''})`;
+  const fields=dateOnly?`id,workspace_id,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at)`:`id,workspace_id,summary,origin,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text${withNotes?',kind,title,metadata':''}${withFiles?',attachments':''})`;
   const places=bundle?'bundle_id=not.is.null':'or=(organization_id.not.is.null,project_id.not.is.null)';
   const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&note.kind=${kinds.length===1?'eq.'+kinds[0]:'in.('+kinds.join(',')+')'}&status=eq.confirmed&note_id=not.is.null&${places}&select=${fields}&order=id.asc`;
   const batches=targetIds?Array.from({length:Math.ceil(targetIds.length/PAGE_SIZE)},(_,i)=>targetIds.slice(i*PAGE_SIZE,(i+1)*PAGE_SIZE)):[null];
@@ -64,13 +64,22 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
       if(linkId&&row.id!==linkId||kind&&!row[target]||targetIds&&!targetIds.includes(row[target]))continue;
       if(weekStart&&Date.parse(note.occurred_at)<Date.parse(weekStart)||weekEnd&&Date.parse(note.occurred_at)>=Date.parse(weekEnd))continue;
       const noteKind=withNotes&&note.kind==='note'?'note':'basket';if(!kinds.includes(noteKind))continue;
-      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,origin:row.origin??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,...(bundle?{bundle_id:row.bundle_id}:{}),occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null}:{}),...(withFiles&&!dateOnly?{attachments:Array.isArray(note.attachments)?note.attachments:[]}:{})});
+      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,origin:row.origin??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,...(bundle?{bundle_id:row.bundle_id}:{}),occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null,note_folder:folderMeta(note.metadata)}:{}),...(withFiles&&!dateOnly?{attachments:Array.isArray(note.attachments)?note.attachments:[]}:{})});
     }
   }
   // ORG-기록첨부 옛줄바꾸기(S67-13): withFiles 줄 가운데 [옛 사진 기록 채우기]로 바꾼 줄에 line_revert(⋯ [이전 줄로 되돌리기]).
   if(withFiles&&!dateOnly){await markLineRevert(rows,rt);if(owner!==scope(rt))throw changed();}
   return rows;
 }
+// S69 보드잠금가림 전수: a note line keeps only the note's folder place (metadata.folder_id / old name metadata.folder) so the lock check
+// (feature-lock.js noteHidden, the one judgement) can hide it. Nothing else from metadata is kept on the row.
+const folderMeta=meta=>{if(!meta||typeof meta!=='object'||Array.isArray(meta))return null;const out={};if(meta.folder_id!=null)out.folder_id=meta.folder_id;if(typeof meta.folder==='string')out.folder=meta.folder;return Object.keys(out).length?out:null;};
+// A note line whose note sits in a PIN-locked folder (while locked) shows only '잠김': no summary (written from the note), title, text or files.
+// Screen hiding only, like every note-folder lock — the server owner boundary stays as it is.
+export const LOCKED_RECORD_TEXT='잠김';
+export const recordLocked=row=>isNoteRecord(row)&&!!row?.note_folder&&!!(typeof window!=='undefined'&&window.KPTUFeatureLock?.noteHidden?.({metadata:row.note_folder}));
+// Copy of a row for any screen that draws a record's own fields (sheet, bundle line, file strip): locked note lines lose every note-derived field.
+export const shownRecord=row=>recordLocked(row)?{...row,summary:LOCKED_RECORD_TEXT,title:LOCKED_RECORD_TEXT,raw_text:'',attachments:[],locked:true}:row;
 // UI-연결요약수정: clearing a saved summary back to NULL is not possible yet (app_basket_update_link_summary needs 1+ characters).
 export const SUMMARY_BLANK_TEXT='요약을 비워 저장하는 기능은 아직 준비 중이에요. 글을 남기거나 [취소]를 눌러 주세요.';
 // UI-연결요약수정: in a multi-line box Enter is a new line and Ctrl+Enter (Cmd+Enter on a Mac) saves. An Enter that only ends a
@@ -107,13 +116,13 @@ export const recordMenuLabel=row=>isDirectRecord(row)?'기록 메뉴':'잊지 �
 export function recordMark(row,className='record-mark'){const note=isNoteRecord(row);return `<span class="${className}" data-record-mark="${note?'note':'update'}" role="img" aria-label="${note?'노트':'잊지 말기 업데이트'}">${note?NOTE_ICON:UPDATE_ICON}</span>`;}
 // A note record shows the summary written when it was linked, else the note's title, else its opening text.
 // BUG-미리보기기호: every line is shown as plain letters (no #·|·** marks, no &#x20; entities); the stored text is unchanged.
-export const recordText=row=>row.summary!=null?previewText(row.summary):(isNoteRecord(row)&&String(row.title||'').trim()?previewText(row.title):noteExcerpt(row.raw_text));
+export const recordText=row=>recordLocked(row)?LOCKED_RECORD_TEXT:row.summary!=null?previewText(row.summary):(isNoteRecord(row)&&String(row.title||'').trim()?previewText(row.title):noteExcerpt(row.raw_text));
 // ORG-기록첨부표시이름(S61-2): 목록 줄에 보이는 글. 요약·글이 없고 사진·파일만 있는 기록은 '사진 3장'·'파일 2개'(readLinkRecords withFiles의 attachments), 그것도 없으면 '요약 없음'.
 export const recordShownText=row=>recordText(row)||attachmentsLabel(row?.attachments)||'요약 없음';
 // BUG-바구니연결해제: the whole line opens the original note; the ⋯ at its end holds
 // [메모 열기]·[연결 해제]·[요약 수정]·[원문 삭제] (a note line too since ORG-연결노트삭제).
 // BUG-미리보기기호: the written text a record's [더보기] opens as headings and tables (only when it carries marks the line removed).
-const recordSourceText=row=>row.summary!=null?row.summary:(isNoteRecord(row)&&String(row.title||'').trim()?row.title:row.raw_text);
+const recordSourceText=row=>recordLocked(row)?LOCKED_RECORD_TEXT:row.summary!=null?row.summary:(isNoteRecord(row)&&String(row.title||'').trim()?row.title:row.raw_text);
 export const recordMarkdownSource=row=>markdownSource(recordSourceText(row));
 // EDIT-번호모양보존: a text with no markdown marks that was written over several lines opens as written ("1)" "(1)" indentation and blank lines stay).
 export const recordWrittenSource=row=>{const text=recordSourceText(row);return !markdownSource(text)&&/\n/.test(String(text??'').trim())?writtenText(text):'';};
@@ -157,7 +166,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
   function clear(){epoch++;states.clear();host.querySelectorAll('[data-link-summary-form]').forEach(form=>form.remove());host.querySelectorAll('.basket-link-record [data-basket-link-menu]').forEach(button=>button.disabled=false);host.querySelectorAll('[data-link-action-status]').forEach(status=>{status.textContent='';status.hidden=true;});}
   function formFor(id){return [...host.querySelectorAll('[data-link-summary-form]')].find(form=>form.dataset.linkSummaryForm===id);}
   function open(id){
-    if(!isCurrent())return;const record=getRecord(id);if(!record)return;
+    if(!isCurrent())return;const record=getRecord(id);if(!record||recordLocked(record))return; // 잠긴 폴더 노트: 원문·요약 수정 칸을 열지 않는다
     const existing=formFor(id);if(existing){existing.querySelector('textarea')?.focus();return;}
     const row=[...host.querySelectorAll('[data-basket-link]')].find(row=>row.dataset.basketLink===id);if(!row)return;
     const state={id,expected:record.summary??null,busy:false,needsReview:false,latest:null,ai:newAiState(),aiTarget:null};states.set(id,state);

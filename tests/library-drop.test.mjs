@@ -91,7 +91,7 @@ test('library-upload.js wires the drop: no storage of its own, no hard-coded col
   assert.match(target,/placeDropTarget\(el,\{\.\.\.opt,step:true\}\)[\s\S]*luFolders\(\)\.fileTarget\(e\)[\s\S]*placeDropTarget\(el,\{\.\.\.opt,step:false\}\)/);
   assert.match(src,/luFolders\(\)\.putUploaded\(doc\?\.id,f\.id\)/);
   // 담당조직 연결을 끝낸 뒤 AI 채우기(사람이 놓은 값을 AI가 덮지 않게).
-  assert.match(src,/async function luUploadDropped[\s\S]*?luUploadRequest\(fd,file\)[\s\S]*?linkUploadedDocument\([\s\S]*?luAiFill\(d\.document\.id,fd,file\.name\)/);
+  assert.match(src,/async function luUploadDropped[\s\S]*?luUploadRequest\(fd,file(?:,\{label\})?\)[\s\S]*?linkUploadedDocument\([\s\S]*?luAiFill\(d\.document\.id,fd,file\.name\)/);
   const drop=readFileSync(new URL('../app/library-drop.js',import.meta.url),'utf8');
   for(const word of ['local','session'])assert.ok(!drop.includes(word+'Storage'));
   assert.ok(!drop.includes('indexed'+'DB'));

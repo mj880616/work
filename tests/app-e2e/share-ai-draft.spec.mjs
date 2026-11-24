@@ -100,7 +100,9 @@ for (const width of [412, 1440]) test('share AI draft: pick records, preview by 
   await expect(d.locator('[data-sa-pick]')).toHaveCount(5);
   await expect(d.locator(`[data-sa-pick="note:${N_OFF}"]`)).toHaveCount(1);
   await expect(d.locator(`[data-sa-pick="note:${N_SECRET}"]`)).toHaveCount(1);
-  expect(state.reads.some(r => r.startsWith('notes') && /ai_export_allowed=is\.true/.test(r) && /metadata/.test(r))).toBe(false);
+  // 노트 metadata는 읽지 않는다(옛 AI 제외 표시로 거르지 않음). 잠근 노트 폴더를 빼려고 폴더 자리 두 칸만 읽는다(S69 보드잠금가림 전수).
+  const noFolder = r => decodeURIComponent(r).replace(/folder_id:metadata->>folder_id|folder:metadata->>folder/g, '');
+  expect(state.reads.some(r => r.startsWith('notes') && /ai_export_allowed=is\.true/.test(r) && /metadata/.test(noFolder(r)))).toBe(false);
   expect(state.reads.some(r => r.startsWith('notes') && /archived_at=is\.null/.test(r) && /ai_export_allowed=is\.true/.test(r))).toBe(true);
   await expect(d.locator(`label:has([data-sa-pick="note:${U1}"])`)).toContainText('10.22 대책회의에서 기자회견 하기로 함');
   await expect(d.locator('[data-sa-make]')).toBeDisabled();

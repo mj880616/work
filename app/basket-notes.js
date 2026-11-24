@@ -322,7 +322,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const listViewRows = m => notes.filter(n => !m || m(n)).sort(byChange).map(listRowOf);
   // ④ 보드 카드 글(S68-38): 제목 한 줄만(길면 화면이 말줄임). 본문·폴더 줄은 카드에 없다(누르면 노트 열기).
   function boardText(note) {
-    if (pinLock.noteHidden(note)) return {title:LOCKED};
+    // S69 보드잠금가림: 잠긴 동안 카드는 자물쇠 모양만(제목·내용 없음, 누르면 PIN 창 — open()이 막는다).
+    if (pinLock.noteHidden(note)) return {title:LOCKED, locked:true};
     return {title:[...noteLineTitle(note)].slice(0, 60).join('')};
   }
   // 보드 카드 자리 저장: 옮긴 칸, 그리고 처음 옮길 때 아직 저장 안 된 칸들도 지금 보이던 자리 그대로(다른 칸이 튀지 않게). 실패하면 다시 그려 서버 자리로.

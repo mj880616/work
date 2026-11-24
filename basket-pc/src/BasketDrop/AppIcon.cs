@@ -25,6 +25,13 @@ internal static class AppIcon
         return new Icon(stream, SystemInformation.SmallIconSize);
     }
 
+    /// <summary>The program icon at about <paramref name="pixels"/> square (the desktop tile draws it at the monitor's scale).</summary>
+    public static Icon ForSize(int pixels)
+    {
+        using var stream = Open(ResourceName);
+        return new Icon(stream, pixels, pixels);
+    }
+
     public static string ResourceFor(TrayPicture picture) => picture switch
     {
         TrayPicture.Pending => "BasketDrop.tray-pending.ico",

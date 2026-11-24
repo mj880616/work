@@ -68,13 +68,14 @@ function tick() {
 // done({back})으로 그 자료를 여는 곳으로 바꿀 수 있다).
 // waiting: 뒤 줄에서 차례를 기다리는 파일('대기' — start()나 첫 progress()에서 보내는 중이 된다). group: 한 묶음이 함께 쓰는 물건({sent} — 다 올린 양).
 // ownEnd: 끝·실패를 부른 곳이 스스로 알린다(UX-알림하나로 — ③ 한 줄의 'n개 올림'을 그 위에 또 띄우지 않는다. 진행은 그대로 ③ 한 줄).
-export function trackUpload({file = null, name = '', size = 0, back = null, waiting = false, group = null, ownEnd = false} = {}) {
+// label(S69-23 폴더째 올리기): 한 묶음 이름과 차례('교섭 · 3/12'). 살아 있는 올리기가 모두 같은 label이면 합계 줄·하단 한 줄이 'n개' 대신 이 글을 쓴다.
+export function trackUpload({file = null, name = '', size = 0, back = null, waiting = false, group = null, ownEnd = false, label = ''} = {}) {
   const router = globalThis.window?.KPTURouter;
   const from = router?.current ? {view: router.current, sub: router.sub || null} : null;
   const controller = new AbortController();
   const job = {
     id: 'up' + (++seq), file, name: String(name || file?.name || '파일'), size: Number(size || file?.size) || 0,
-    loaded: 0, total: Number(size || file?.size) || 0, phase: waiting ? 'waiting' : 'sending', group, ownEnd: !!ownEnd, message: '', retry: null, slow: false,
+    loaded: 0, total: Number(size || file?.size) || 0, phase: waiting ? 'waiting' : 'sending', group, ownEnd: !!ownEnd, label: String(label || ''), message: '', retry: null, slow: false,
     startAt: now(), lastMove: now(), finishAt: 0, waitSending: SLOW_SENDING_MS, waitFinish: SLOW_FINISH_MS,
     signal: controller.signal,
     back: back || (from ? () => router.go(from.view, {sub: from.sub, source: 'upload'}) : null), ownBack: typeof back === 'function',
@@ -202,14 +203,15 @@ function paintRow(row, job) {
   }
   row.title = job.phase === 'failed' && job.message ? job.message : '';
 }
+const sameLabel = list => { const first = list[0]?.label || ''; return first && list.every(job => job.label === first) ? first : ''; };
 // 합계 줄: 보내는 중·마무리 중·차례를 기다리는 것만 센다(그 칸에 남은 것의 양 — 묶음 전체의 %는 하단 한 줄이 맡는다).
 export function summaryText(list) {
   const open = list.filter(live);
   // 화면이 보내는 것이 없고 앱이 맡은 것만 남았으면 그 수를 알린다(멈춘 것이 있으면 멈춤).
   if (!open.length) { const app = list.filter(job => job.phase === 'handed'); return app.length ? `${app.every(job => job.handing) ? '앱에 넘기는 중' : app.some(job => job.stopped) ? '앱이 멈춤' : '앱이 뒤에서 올리는 중'} ${app.length}개` : ''; }
   const total = open.reduce((sum, job) => sum + (job.total || 0), 0), loaded = open.reduce((sum, job) => sum + (job.phase === 'finishing' ? job.total : job.loaded), 0);
-  const all = open.every(job => job.phase === 'finishing');
-  return `올리는 중 ${open.length}개 · ${amount(loaded)} / ${amount(total)} · ${all ? '마무리 중…' : percent(loaded, total) + '%'}`;
+  const all = open.every(job => job.phase === 'finishing'), label = sameLabel(open);
+  return `${label ? `${label} 올리는 중` : `올리는 중 ${open.length}개`} · ${amount(loaded)} / ${amount(total)} · ${all ? '마무리 중…' : percent(loaded, total) + '%'}`;
 }
 
 const hosts = new Set();
@@ -228,7 +230,7 @@ export function mountUploadRows(host, {has = () => true, preview = null, summary
     // 아래 한 줄의 끝 알림이 맡은 끝·실패는 그리지 않는다(told — 알림 하나).
     const all = uploadJobs().filter(job => { try { return has(job) && !told(job); } catch { return false; } });
     const mine = compact ? all.filter(job => (failed && job.phase === 'failed') || job.slow) : all;
-    const text = summary && (compact ? all.length : all.length > 1) ? summaryText(all) : '';
+    const text = summary && (compact ? all.length : all.length > 1 || all.some(job => job.label && live(job))) ? summaryText(all) : '';
     sum.textContent = text; sum.hidden = !text;
     const seen = new Set();
     for (const job of mine) {
@@ -394,7 +396,8 @@ function paintDock() {
     const {total, loaded} = sums(open);
     const finishing = open.every(job => job.phase === 'finishing'), slow = open.some(job => job.slow);
     node.dataset.state = 'live'; node.classList.remove('is-error'); node.setAttribute('role', 'status');
-    node.querySelector('.up-dock-text').textContent = `${open.some(job => !/^image\//.test(job.file?.type || '')) ? '파일' : '사진'} ${open.length}개 올리는 중${slow ? ' · 느려요' : ''}`;
+    const label = sameLabel(open);
+    node.querySelector('.up-dock-text').textContent = `${label || `${open.some(job => !/^image\//.test(job.file?.type || '')) ? '파일' : '사진'} ${open.length}개`} 올리는 중${slow ? ' · 느려요' : ''}`;
     node.querySelector('.up-dock-pc').textContent = finishing ? '마무리 중…' : percent(loaded, total) + '%';
     const line = node.querySelector('.up-bar'); line.hidden = false; line.firstChild.style.width = (finishing ? 100 : percent(loaded, total)) + '%';
     node.querySelector('.up-dock-acts')?.remove(); node.querySelector('.up-dock-note')?.remove();

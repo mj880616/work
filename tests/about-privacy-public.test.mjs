@@ -72,5 +72,7 @@ test('코드가 부르는 AI 처리 업체가 처리방침에 모두 적혀 있�
   }
   assert.match(page, /만 14세 미만은 가입 대상이 아닙니다/);
   assert.match(page, /쿠키를 만들지 않습니다/);
-  assert.match(page, /탈퇴\(계정 삭제\) 버튼은 아직 없습니다/);
+  // S69 STORE-계정삭제: 앱 안 [계정 삭제]가 생겼다(옛 문구 '아직 없습니다'는 없어야 한다).
+  assert.match(page, /내 프로필 › 계정 › \[계정 삭제\]/);
+  assert.doesNotMatch(page, /버튼은 아직 없습니다/);
 });
