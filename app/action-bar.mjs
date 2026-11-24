@@ -1,6 +1,6 @@
 // UI-고르기줄(S48-54, 요청함 11/03 07:43·07:44): 여러 개 고르기 줄·크게 보기 아래 줄의 공용 부품. 모양 규칙은 base-ui.css '.kptu-actbar' 한 곳.
 // - 줄: class="kptu-actbar kptu-actbar-icon"(아이콘 + 글자, 사진 고르기·크게 보기) 또는 "kptu-actbar kptu-actbar-text"(글자만, 노트·자료실 위쪽 고르기 줄).
-// - 버튼: class="kptu-act"(지우기는 + kptu-act-danger 표시만, 색은 다른 버튼과 같다 — 빨강은 되돌릴 수 없는 마지막 확인 버튼에만). 버튼은 줄 폭을 같은 너비 칸으로 나눠 쓰고(칸 최대 120px), 칸 사이는 같은 간격.
+// - 버튼: class="kptu-act"(지우기는 + kptu-act-danger 표시만, 색은 다른 버튼과 같다 — 빨강은 되돌릴 수 없는 마지막 확인 버튼에만). 아이콘 줄은 줄 폭을 같은 너비 칸으로 나눠 쓰고(칸 최대 120px), 글자 줄은 왼쪽부터 글자 폭대로 촘촘히 붙인다(S69, 양쪽으로 퍼뜨리지 않음). 칸 사이는 같은 간격.
 // - 아이콘은 글자 모양(☆ ⇪ ⤓ # …)이거나 아래 선 아이콘(색 그림 이모지 대신, 글자와 같은 색·같은 굵기). 아이콘 칸은 화면 읽기에서 뺀다(aria-hidden).
 
 const svg = body => `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;

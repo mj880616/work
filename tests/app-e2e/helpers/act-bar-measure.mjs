@@ -38,3 +38,24 @@ export function checkActBar(m, check, label) {
   check(m.overflow, false, `${label}: 가로 넘침`);
   check(m.emoji, false, `${label}: 색 그림 이모지(📁·🗑) 없음`);
 }
+
+// S69(명진 11/24 "양쪽 정렬이라 이상함. 왼쪽 정렬"): 글자 줄(.kptu-actbar-text)은 왼쪽부터 촘촘히 — 첫 칸이 줄 왼쪽 끝에 붙고,
+// 칸 사이 간격이 같고 작다(12px 이하, 줄 폭에 퍼뜨리지 않음). 잘림·가로 넘침 없음. 줄바꿈된 다음 줄도 왼쪽 끝부터.
+export async function textBarRows(page, selector) {
+  return page.evaluate(sel => {
+    const bar = document.querySelector(sel); if (!bar) return [];
+    const left = bar.getBoundingClientRect().left + parseFloat(getComputedStyle(bar).paddingLeft);
+    const rows = {};
+    for (const b of bar.querySelectorAll(':scope > .kptu-act')) { if (!b.getClientRects().length) continue; const r = b.getBoundingClientRect(); (rows[Math.round(r.top + r.height / 2)] ||= []).push(r); }
+    return Object.values(rows).map(r => r.sort((a, b) => a.left - b.left)).map(r => ({lead: r[0].left - left, gaps: r.slice(1).map((c, i) => c.left - r[i].right)}));
+  }, selector);
+}
+export function checkTextBar(m, rows, check, label) {
+  check(m && m.n > 0, true, `${label}: 보이는 버튼`);
+  check(m.clipped, [], `${label}: 글자 잘림`);
+  check(m.overflow, false, `${label}: 가로 넘침`);
+  check(m.emoji, false, `${label}: 색 그림 이모지(📁·🗑) 없음`);
+  check(m.gapSpread <= 1.5, true, `${label}: 칸 사이 간격 같음`);
+  check(rows.every(r => r.lead <= 1), true, `${label}: 줄마다 왼쪽 끝부터 ${JSON.stringify(rows)}`);
+  check(rows.every(r => r.gaps.every(g => g <= 12)), true, `${label}: 칸 사이 작은 간격(퍼뜨리지 않음) ${JSON.stringify(rows)}`);
+}
