@@ -15,9 +15,9 @@ for(const width of [1280,884]){
   test(`${width}: 맨 위 줄은 화면을 끝까지 내려도 맨 위에 붙어 있고, 짧은 화면은 문서가 내려가지 않는다`,async({page})=>{
     test.setTimeout(90000);
     await page.setViewportSize({width,height:800});await openHome(page);
-    for(const [nav,view] of [['library','library'],['pages','pages'],['basket','basket'],['home','home'],['meetings','meetings']]){
+    for(const [nav,view] of [['library','library'],['basket','basket'],['home','home'],['meetings','meetings']]){
       await clickView(page,nav);await expect(page.locator(`#${view}View`)).toBeVisible();await settle(page);
-      if(nav==='library'||nav==='pages')expect(await page.evaluate(()=>document.documentElement.scrollHeight-innerHeight),`${nav}: 빈 높이로 문서가 내려가지 않음`).toBeLessThanOrEqual(0);
+      if(nav==='library')expect(await page.evaluate(()=>document.documentElement.scrollHeight-innerHeight),`${nav}: 빈 높이로 문서가 내려가지 않음`).toBeLessThanOrEqual(0);
       await lengthen(page,view);await settle(page);
       await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));await settle(page);
       expect(await page.evaluate(()=>scrollY),nav).toBeGreaterThan(1000);

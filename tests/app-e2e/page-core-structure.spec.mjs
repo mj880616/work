@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const read=path=>readFileSync(path,'utf8');
 
-test('share pages menu loads no Web1 board and no retired page management modules',async()=>{
+test('no Web1 board, no retired page management modules and no share page screen (NOTE-게시 ③)',async()=>{
   const loader=read('app/loader-v2.js');
   const views=read('app/view-loader.js');
   const team=read('app/team.js');
@@ -13,7 +13,8 @@ test('share pages menu loads no Web1 board and no retired page management module
   expect(existsSync('app/web1-board.js')).toBe(false);
   expect(existsSync('app/web1-board.css')).toBe(false);
   expect(views).not.toContain('web1-board');
-  expect(views).toContain("module('./share-pages.js'");
+  expect(views).not.toContain('share-pages.js');
+  expect(existsSync('app/share-pages.js')).toBe(false);
   for(const retired of [
     'page-list-controller.js',
     'page-save-controller.js',
@@ -30,7 +31,8 @@ test('share pages menu loads no Web1 board and no retired page management module
   expect(team).not.toContain('KPTUWeb1Board');
   expect(index).not.toContain('id="web1BoardActive"');
   expect(index).not.toContain('id="web1BoardDetailModal"');
-  expect(index).toContain('id="sharePagesRoot"');
+  expect(index).not.toContain('id="sharePagesRoot"');
+  expect(index).not.toContain('id="pagesView"');
   expect(index).not.toContain('id="newPageBtn"');
   expect(index).not.toContain('id="pageSearch"');
   expect(index).not.toContain('id="pageFilter"');

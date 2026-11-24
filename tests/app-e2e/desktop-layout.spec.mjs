@@ -142,9 +142,6 @@ test('selected view survives refresh and page cards open inside the 게시판 ta
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
   await expect(page.locator('.app-nav [data-view="calendar"]')).toHaveClass(/active/);
 
-  await clickView(page,'pages');
-  await expect(page.locator('#sharePagesRoot')).toBeVisible();
-  await expect(page.locator('#pagesView .w1b-card,#web1BoardDetailModal')).toHaveCount(0);
-  await expect(page.locator('#pagesView')).toBeVisible();
-  await expect(page).toHaveURL(/view=pages/);
+  // NOTE-게시 ③: 공유 페이지 화면은 없다(옛 Web1 카드도 없음).
+  await expect(page.locator('#pagesView,#sharePagesRoot,.w1b-card,#web1BoardDetailModal')).toHaveCount(0);
 });

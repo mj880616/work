@@ -11,14 +11,14 @@ const PLACE = { folder_id: DRIVE, url: `https://drive.google.com/drive/folders/$
 for (const width of [390, 1280]) test(`자료실 ${width}: 고르기 중 네모 칸이 보이지 않고 고른 줄은 파일처럼 바탕 + 왼쪽 세로줄`, async ({ page }) => {
   const folders = [libFolder('fa', null, { name: '가상 사업', sort_order: 1024 })];
   const r = await bootLibrary(page, width, { folders, items: [], docs: [libDoc('d-1', null), libDoc('d-2', null)], group: '폴더' });
+  const row = page.locator('#documentList .lu-row[data-lu-document="d-1"]');
+  // 폰은 '폴더 밖'이 접혀 있다 — 고르기 전에 이름 자리를 눌러 그 자리에서 펼친다(S69-89: 고르기 중 폴더 줄 누르기는 펼치기가 아니라 고르기 — 기준표 S10).
+  if (!(await row.isVisible())) { const head = page.locator('#documentList summary', { hasText: '폴더 밖' }).first(); const b = await head.boundingBox(); await page.mouse.click(b.x + 90, b.y + b.height / 2); }
+  await expect(row).toBeVisible();
   await libraryTopMenu(page, 'select', { tap: false });
   const box = page.locator('[data-lu-pick="d-1"]');
   await expect(box).toHaveCount(1);
   expect(await box.evaluate(el => getComputedStyle(el).opacity)).toBe('0');
-  const row = page.locator('#documentList .lu-row[data-lu-document="d-1"]');
-  // 폰은 '폴더 밖'이 접혀 있다 — 이름 자리를 누르면 그 자리에서 펼친다(고르기 중에도, 폴더 그림 자리만 폴더째 고르기).
-  if (!(await row.isVisible())) { const head = page.locator('#documentList summary', { hasText: '폴더 밖' }).first(); const b = await head.boundingBox(); await page.mouse.click(b.x + 90, b.y + b.height / 2); }
-  await expect(row).toBeVisible();
   // 사람이 줄 이름 자리를 누른 것처럼(그 자리 맨 위 요소가 받는다 — 보이지 않는 네모 칸).
   const tapTitle = async () => { const b = await row.locator('.lu-row-title').boundingBox(); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); };
   await tapTitle();

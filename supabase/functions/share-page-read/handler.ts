@@ -54,9 +54,11 @@ export function noteTitle(note: NoteRow, fallback: string): string {
   const t = typeof note.title === "string" ? note.title.trim() : "";
   return t ? [...t].slice(0, 200).join("") : fallback;
 }
-// 노트 글 → 공유 페이지 글 블록 하나({type:'doc', doc:{v:'ed1', doc}}). 사진 칸은 주소·번호(drive:<id> 등)를 지우고 자리만 남긴다
-// (노트 사진은 본인 Drive에 있어 밖에 보이지 않는다. 파일 번호도 밖에 내보내지 않음). 서식이 없는 옛 노트는 줄마다 문단 하나.
-export function noteBlocks(note: NoteRow): unknown[] {
+// 노트 글 → 공유 페이지 글 블록 하나({type:'doc', doc:{v:'ed1', doc}}). 서식이 없는 옛 노트는 줄마다 문단 하나.
+// 사진 칸: 주소·번호(drive:<id> 등)는 지운다. NOTE-게시 ③: 주인이 게시하며 짝 페이지 사진으로 올려 둔 사진(photos: 노트 src → 짝 페이지 사진 id)만
+// src "share:<id>"로 바꿔 넣는다(주소는 아래에서 그 페이지 소속 기록만 짧게 서명). 그 밖의 사진은 자리만 남는다.
+// 파일 칸(노트 첨부): 이름·크기만 남기고 src(Drive 파일 번호)는 지운다 — 첨부 파일은 공개하지 않는다.
+export function noteBlocks(note: NoteRow, photos: Map<string, string> = new Map()): unknown[] {
   const strip = (node: unknown, depth: number): unknown => {
     if (!node || typeof node !== "object" || Array.isArray(node) || depth > MAX_NOTE_DEPTH) return null;
     const o = node as Record<string, unknown>;
@@ -66,7 +68,17 @@ export function noteBlocks(note: NoteRow): unknown[] {
         if (Array.isArray(v)) out.content = v.map((n) => strip(n, depth + 1)).filter((n) => n !== null);
       } else if (k === "attrs" && o.type === "image") {
         const a = v && typeof v === "object" ? v as Record<string, unknown> : {};
-        out.attrs = typeof a.alt === "string" ? { alt: [...a.alt].slice(0, 200).join("") } : {};
+        const attrs: Record<string, unknown> = {};
+        const shared = typeof a.src === "string" ? photos.get(a.src) : undefined;
+        if (shared && UUID.test(shared)) attrs.src = `share:${shared}`;
+        if (typeof a.alt === "string") attrs.alt = [...a.alt].slice(0, 200).join("");
+        out.attrs = attrs;
+      } else if (k === "attrs" && o.type === "file") {
+        const a = v && typeof v === "object" ? v as Record<string, unknown> : {};
+        const attrs: Record<string, unknown> = {};
+        if (typeof a.name === "string") attrs.name = [...a.name].slice(0, 200).join("");
+        if (typeof a.size === "number") attrs.size = a.size;
+        out.attrs = attrs;
       } else out[k] = v;
     }
     return out;
@@ -80,6 +92,49 @@ export function noteBlocks(note: NoteRow): unknown[] {
   const lines = String(note.raw_text ?? "").split(/\r?\n/);
   const content = lines.map((line) => line ? { type: "paragraph", content: [{ type: "text", text: line }] } : { type: "paragraph" });
   return [{ type: "doc", doc: { v: "ed1", doc: { type: "doc", content } } }];
+}
+
+// NOTE-게시 ③ 사진 거울: 노트를 게시한 짝 페이지의 블록은 비어 있거나, 주인 화면이 올린 사진 줄 하나뿐인 글 블록이다
+// ([{type:'doc', doc:{v:'ed1', doc:{type:'doc', content:[{type:'image', attrs:{src:'share:<id>', key:'<64자>'}}…]}}}]).
+// key = sha256("<페이지 id>:<노트 사진 src>") — Drive 파일 번호는 짝 페이지에도 남기지 않는다(app/note-publish-model.mjs photoKey와 같은 셈).
+const KEY = /^[0-9a-f]{64}$/;
+const DRIVE_SRC = /^drive:[A-Za-z0-9_-]{1,200}$/;
+export function noteMirror(blocks: unknown): Map<string, string> | null {
+  if (!Array.isArray(blocks)) return null;
+  if (!blocks.length) return new Map();
+  if (blocks.length !== 1) return null;
+  const b = blocks[0] as Record<string, unknown> | null;
+  const d = b && b.type === "doc" && b.doc && typeof b.doc === "object" ? b.doc as Record<string, unknown> : null;
+  const inner = d && d.v === "ed1" && d.doc && typeof d.doc === "object" ? d.doc as Record<string, unknown> : null;
+  if (!inner || !Array.isArray(inner.content) || !inner.content.length || inner.content.length > MAX_MEDIA) return null;
+  const out = new Map<string, string>();
+  for (const n of inner.content) {
+    const o = n && typeof n === "object" ? n as Record<string, unknown> : null;
+    const a = o && o.type === "image" && o.attrs && typeof o.attrs === "object" ? o.attrs as Record<string, unknown> : null;
+    if (!a || typeof a.key !== "string" || !KEY.test(a.key) || typeof a.src !== "string" || !a.src.startsWith("share:") || !UUID.test(a.src.slice(6))) return null;
+    out.set(a.key, a.src.slice(6));
+  }
+  return out;
+}
+export async function photoKey(pageId: string, src: string): Promise<string> {
+  return hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${pageId}:${src}`)));
+}
+// 노트 글 안 사진 칸의 drive: src(중복 없이, 60개까지).
+export function noteDriveSrcs(note: NoteRow): string[] {
+  const found = new Set<string>();
+  const walk = (node: unknown, depth: number) => {
+    if (!node || typeof node !== "object" || depth > MAX_NOTE_DEPTH || found.size >= MAX_MEDIA) return;
+    if (Array.isArray(node)) { for (const n of node) walk(n, depth + 1); return; }
+    const o = node as Record<string, unknown>;
+    if (o.type === "image" && o.attrs && typeof o.attrs === "object") {
+      const src = (o.attrs as Record<string, unknown>).src;
+      if (typeof src === "string" && DRIVE_SRC.test(src)) found.add(src);
+    }
+    if (Array.isArray(o.content)) walk(o.content, depth + 1);
+  };
+  const d = note.doc && typeof note.doc === "object" ? note.doc as Record<string, unknown> : null;
+  if (d && d.v === "ed1") walk(d.doc, 0);
+  return [...found];
 }
 export const SIGN_SECONDS = 300;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -247,15 +302,40 @@ export function createShareReadHandler(
         let pair: NotePairRow | null = null, unavailable = false;
         try { pair = await reader.noteForPage(link.page_id); }
         catch { log("share_page_note_unavailable"); unavailable = true; }
-        if (unavailable && !page.blocks.length) return reply({ error: "unavailable" }, 503);
+        // 노트 짝 페이지의 사진 거울(위 noteMirror)은 짝을 못 읽으면 그대로 보이지 않게 503(사진만 있는 글이 따로 보이지 않게).
+        const mirror = noteMirror(page.blocks);
+        if (unavailable && (!page.blocks.length || (mirror && mirror.size))) return reply({ error: "unavailable" }, 503);
         if (pair) {
           if (typeof pair.note_id !== "string" || !UUID.test(pair.note_id)) return notFound();
           const note = await reader.noteById(pair.note_id);
           if (!noteShowable(note, pair.note_id)) return notFound();
           const title = noteTitle(note!, page.title);
           if (head) return reply({ ok: true, page: { title } }, 200);
-          return reply({ ok: true, page: { title, blocks: noteBlocks(note!) } }, 200);
+          // NOTE-게시 ③: 거울에 있는 사진만 이 페이지 소속 사진 기록으로 짧게 서명한다. 사진 쪽 문제는 글 읽기를 막지 않는다(자리만 남음).
+          const photos = new Map<string, string>(), media: Record<string, string> = {};
+          if (mirror && mirror.size && reader.mediaForPage && reader.signMedia) {
+            try {
+              const wanted = new Map<string, string>();
+              for (const src of noteDriveSrcs(note!)) {
+                const id = mirror.get(await photoKey(link.page_id, src));
+                if (id) wanted.set(src, id);
+              }
+              const ids = [...new Set(wanted.values())];
+              const signed = new Map<string, string>();
+              if (ids.length) {
+                for (const row of await reader.mediaForPage(link.page_id, ids)) {
+                  if (!ids.includes(row.id)) continue;
+                  const url = await reader.signMedia(row.storage_path, SIGN_SECONDS);
+                  if (url) signed.set(row.id, url);
+                }
+              }
+              for (const [src, id] of wanted) if (signed.has(id)) { photos.set(src, id); media[id] = signed.get(id)!; }
+            } catch { log("share_page_media_unavailable"); photos.clear(); for (const k of Object.keys(media)) delete media[k]; }
+          }
+          return reply({ ok: true, page: { title, blocks: noteBlocks(note!, photos) }, ...(photos.size ? { media } : {}) }, 200);
         }
+        // 짝이 없어진 노트 짝 페이지(예: 휴지통에서 되살린 옛 짝 페이지)의 사진 거울은 보여 주지 않는다.
+        if (mirror && mirror.size) return notFound();
       }
       if (head) return reply({ ok: true, page: { title: page.title } }, 200);
       // HTML 판: 있으면 그 판만(블록·사진 없음). 판 질의가 실패하면 블록이 있는 페이지는 블록을 그대로 보여 준다

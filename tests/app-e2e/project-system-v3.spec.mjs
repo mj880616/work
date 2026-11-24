@@ -1343,25 +1343,6 @@ test('V3 project detail stays separate from the Web1-backed board',async({page})
   await expect(page.locator('#ps3-pages')).toHaveCount(0);
   await expect(page.locator('#ps3Body')).not.toContainText('독립 현장 공지');
   await closeProjectDetail(page);
-  await clickView(page,'pages');
-  await expect(page.locator('#sharePagesRoot')).toBeVisible();
-  await expect(page.locator('#pagesView')).not.toContainText('독립 현장 공지');
-});
-
-test('share pages menu has no old Web1 cards and fits every width',async({page})=>{
-  const state=baseState();
-  await mockApp(page,state);
-  await page.setViewportSize({width:1440,height:900});
-  await page.goto(testOrigin+'/app/');await signIn(page);
-  await clickView(page,'pages');
-  await expect(page.locator('#sharePagesRoot')).toBeVisible();
-  // DOMAIN-④ E2: 옛 Web1 카드 5개(사업 게시판)는 화면째 지웠다.
-  await expect(page.locator('#pagesView .w1b-card,#web1BoardLegacy,#web1BoardDetailModal')).toHaveCount(0);
-  for(const width of [1440,768,390,360]){
-    await page.setViewportSize({width,height:900});
-    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
-  }
 });
 
 test('V3 completion changes status without deleting the project',async({page})=>{

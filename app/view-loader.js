@@ -34,7 +34,6 @@ const routeStyles={
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./basket-picker.css','./choice-sheet.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./ui-standard.css'],
   library:['./filter-chips.css','./choice-sheet.css','./library-upload.css','./folder-tree.css','./compact-list.css','./markdown-view.css','./folder-look.css','./list-edit.css','./area-org-picker.css','./row-swipe.css','./marquee-select.css','./od-link.css','./folder-dest-sheet.css','./record-sheet.css','./ui-standard.css'],
   meetings:['./first-use.css','./filter-chips.css','./weekly-org-lines.css','./biz-summary.css','./choice-sheet.css','./od-link.css','./month-cal.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./todo-radar.css','./basket-picker.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./memo-thread.css','./ui-standard.css'],
-  pages:['./sr-blocks.css','./ed-doc.css','./share-pages.css','./area-org-picker.css','./basket-picker.css','./choice-sheet.css','./ui-standard.css'],
   team:['./first-use.css','./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./list-edit.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./home-quick.css','./ui-standard.css'],
@@ -156,12 +155,6 @@ async function meetings(){
   await module('./meeting-from-files.js');
   return {ok:true}
 }
-async function pages(){
-  // SHARE-현장공유 PR 2: my share pages (editor). DOMAIN-④ E2: the old Web1 cards below it are removed.
-  await projectCatalog();
-  await module('./share-pages.js');
-  return {ok:true}
-}
 async function organizations(){
   await organizationOrder();
   // The organization detail (workplace-detail.js, with its linked Google tasks — TASK-조직상세) is loaded by suborganizations.js
@@ -223,9 +216,10 @@ async function reading(){ await module('./reading.js'); return {ok:true} }
 // SEC-기능PIN잠금 ②: [잠금](?view=lock, 계정 메뉴) — 잠긴 기능을 열 때도 문지기(feature-lock.js)가 이 화면으로 보낸다. 열 때만 불러온다(모듈이 #lockView를 만든다).
 async function lock(){ await module('./lock-ui.js'); return {ok:true} }
 async function help(){ await module('./help.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
-const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home'};
+// NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages)은 없앴다 — 노트(정리함 노트 쪽, 라우터 ALIAS_SUB)를 연다.
+const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home',pages:'basket'};
 function normalize(view){
   view=VIEW_ALIAS[view]||view;
   return loaders[view]?view:'home'
@@ -248,7 +242,7 @@ function load(view){
   return flight
 }
 async function loadAll(){
-  for(const view of ['home','basket','calendar','tasks','projects','library','meetings','pages','team'])await load(view);
+  for(const view of ['home','basket','calendar','tasks','projects','library','meetings','team'])await load(view);
   // PERF-첫로딩 P5: 'team'은 목록만 기다리므로, 전부 받기에서는 조직 상세 묶음도 받아 둔다.
   await window.KPTUWorkplace?.load?.();
   return true
@@ -268,7 +262,6 @@ const warmModules={
   projects:/*static-chain*/['./project-system-v3.js'],
   library:/*static-chain*/['./library-upload.js'],
   meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js','./meeting-from-files.js'],
-  pages:/*static-chain*/['./share-pages.js'],
   team:/*static-chain*/['./suborganizations.js','./workplace-detail.js'],
   ledger:/*static-chain*/['./ledger-browse.js','./ledger-fix.js','./ledger-merge.js','./ledger-export.js'],
   reference:/*static-chain*/['./reference-bundles.js'],

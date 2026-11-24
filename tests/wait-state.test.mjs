@@ -138,7 +138,7 @@ test('옮긴 화면은 공용 부품을 쓴다', () => {
     // 2차
     'data-freshness.js', 'global-search.js', 'calendar-list-view.js', 'calendar-interactions-v2.js', 'calendar-plus.js', 'project-system-v3.js',
     'basket-manual-link.js', 'business-area-fields.js', 'home-quick.js', 'meeting-todo-candidates.js', 'workflow-ai-v3.js',
-    'ledger-merge.js', 'journal-hwpx.js', 'journal-weekly.js', 'photo-share.js', 'telegram-feed.js', 'share-pages.js', 'diary.js']) {
+    'ledger-merge.js', 'journal-hwpx.js', 'journal-weekly.js', 'photo-share.js', 'telegram-feed.js', 'diary.js']) {
     assert.match(read(rel), /from '\.\/wait-state\.js';/, rel);
   }
   // 옛 모양 파일(즉시 실행 함수·선언 시험 대상)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
@@ -215,7 +215,7 @@ test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
     'workplace-detail.js', 'google-tasks.js', 'team.js', 'meeting-columns.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js',
     'library-folders.js', 'library-move-picker.js', 'calendar-day-overflow.js', 'calendar-tasks.js', 'calendar-day-items.js', 'choice-sheet.js',
     'pick-fold.mjs', 'journal-hwpx.js', 'od-settings.js', 'record-sheet.js',
-    'weekly-summary-table.js', 'task-files.js', 'task-workflow.js', 'basket-notes.js', 'global-search.js', 'inbox-todos.js', 'share-pages.js']) {
+    'weekly-summary-table.js', 'task-files.js', 'task-workflow.js', 'basket-notes.js', 'global-search.js', 'inbox-todos.js']) {
     assert.match(read(rel), /import \{[^}]*\bempty(Html|El)\b[^}]*\} from '\.\/wait-state\.js';/, rel);
   }
   // 옛 모양 파일(즉시 실행 함수)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.

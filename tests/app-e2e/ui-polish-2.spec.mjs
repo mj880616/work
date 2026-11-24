@@ -57,15 +57,15 @@ test('PC 1280: 사업 보고 칸·고른 보고가 주소에 적히고 새로고
   expect(errors).toEqual([]);
 });
 
-test('폰 390: 하단바에 칸이 없는 화면(사업 관리·공유 페이지)에서는 아무 칸도 칠하지 않는다(UI-화면정리 C5)',async({page})=>{
+test('폰 390: 하단바에 칸이 없는 화면(사업 관리·파일)에서는 아무 칸도 칠하지 않는다(UI-화면정리 C5)',async({page})=>{
   const errors=await open(page,390);
   const tabs=page.locator('#appView>.mobile-tabs');
   // S68-37: 저장된 메뉴 순서가 없는 계정은 사업 관리가 [메뉴] 창 화면이라 아무 칸도 칠하지 않는다. 하단바 칸 화면(자료실)은 그 칸 하나.
   await expect(tabs.locator('[aria-current="page"]')).toHaveCount(0);
   await page.evaluate(()=>window.KPTURouter.go('library'));await expect(page.locator('#libraryView')).toBeVisible();
   await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('[aria-current="page"]')).toContainText('자료실');
-  await page.evaluate(()=>window.KPTURouter.go('pages'));await expect(page.locator('#pagesView')).toBeVisible();
+  await page.evaluate(()=>window.KPTURouter.go('files'));await expect(page.locator('#filesView')).toBeVisible();
   await expect(tabs.locator('[aria-current="page"]')).toHaveCount(0);
-  await expect(page.locator('[data-mobile-view-name]')).toHaveText('공유 페이지');
+  await expect(page.locator('[data-mobile-view-name]')).toHaveText('파일');
   expect(errors).toEqual([]);
 });

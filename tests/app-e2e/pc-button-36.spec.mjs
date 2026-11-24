@@ -100,29 +100,6 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  expect(errors).toEqual([]);
 });
 
-test('PC 1280: 공유 페이지 채운 버튼은 36px, 보조 버튼([다시 불러오기]·[링크 만들기] 등)은 32px(UI-버튼전수조사)',async({page})=>{
- const errors=[];page.on('pageerror',e=>errors.push(e.message));
- let listFails=true;
- const row={id:'sp-fixture',title:'Fixture share',status:'draft',project_id:null,blocks:[{type:'summary',text:'fixture'}],updated_at:'2026-10-20T01:00:00.000Z'};
- await boot(page,1280);
- await page.route(`${SB}/rest/v1/app_share_pages**`,route=>{
-  if(route.request().method()!=='GET')return route.fallback();
-  const id=new URL(route.request().url()).searchParams.get('id');
-  if(new URL(route.request().url()).searchParams.get('status')==='eq.archived')return route.fulfill({status:200,contentType:'application/json',body:'[]'});
-  if(!id&&listFails)return route.fulfill({status:500,contentType:'application/json',body:'{"message":"fixture"}'});
-  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([row])});
- });
- await open(page,'pages');
- const root=page.locator('#sharePagesRoot');
- await pcButton(root.locator('[data-sp-new]'),'새 공유 페이지',32);/* UI-버튼크기전수: [+ HTML]과 같은 줄이라 같은 32px */await pcButton(root.locator('[data-sp-reload]'),'목록 다시 불러오기',32);
- listFails=false;await root.locator('[data-sp-reload]').click();
- await root.locator('[data-sp-open="sp-fixture"]').click();
- await pcButton(root.locator('[data-sp-save]'),'공유 페이지 저장',await root.locator('[data-sp-save]').evaluate(el=>el.matches('.primary')?36:32));await pcButton(root.locator('[data-sp-link-create]'),'링크 만들기',await root.locator('[data-sp-link-create]').evaluate(el=>el.matches('.primary')?36:32));
- expect((await measure(root.locator('[data-sp-add-block]').first())).height).toBe(32);
- expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
- expect(errors).toEqual([]);
-});
-
 test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버튼줄이기)',async({page})=>{
  await boot(page,390);
  // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작은 [+](32px)라 둥근 [+] 묶음에서 뺀다.

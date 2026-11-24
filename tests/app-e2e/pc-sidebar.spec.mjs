@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // UI-PC사이드바 + UI-PC메모노트(BASKET-업데이트통합 PR 3): PC 사이드바 맨 위 아이콘+"홈" 줄이 홈 메뉴(고른 표시도 그 줄),
-// 아래 따로 있던 [홈]은 PC 사이드바에서 없음. [바구니] 아래 하위 메뉴 [업데이트]·[노트](항상 펼침). "게시판" → "공유 페이지"(주소 그대로).
+// 아래 따로 있던 [홈]은 PC 사이드바에서 없음. [바구니] 아래 하위 메뉴 [업데이트]·[노트](항상 펼침). 옛 "게시판"(공유 페이지) 메뉴는 NOTE-게시 ③에서 없앴다.
 // 폰 하단 탭 [홈]은 그대로. 761~1023px(UI-폴드PC틀)는 좁은 그림 메뉴이고 맨 위 줄이 홈.
 const nav=page=>page.locator('#appView>.app-nav');
 async function open(page,width){
@@ -70,14 +70,14 @@ test('PC 1280: 정리함 한 화면 — 맨 위 [처리 전 ▾]와 [다시 찾�
  expect(errors).toEqual([]);
 });
 
-test('"게시판" 이름은 "공유 페이지"(사이드바·폰 메뉴·화면 제목), 주소는 그대로',async({page})=>{
+test('NOTE-게시 ③: 사이드바·폰 메뉴에 "공유 페이지"(옛 "게시판") 메뉴가 없다',async({page})=>{
  const errors=await open(page,1280);
- await expect(nav(page).locator('.nav-btn[data-view="pages"]')).toHaveText('공유 페이지');
- await nav(page).locator('.nav-btn[data-view="pages"]').click();await expect(page.locator('#pagesView')).toBeVisible();await expect(page).toHaveURL(/view=pages/);
- await expect(page.locator('#sharePagesRoot').getByRole('heading', {name:'공유 페이지', exact:true})).toHaveCount(1);
+ await expect(nav(page).locator('.nav-btn[data-view="pages"]')).toHaveCount(0);
+ await expect(nav(page)).not.toContainText('공유 페이지');
  await page.setViewportSize({width:390,height:844});
- await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-view="pages"]')).toHaveText('공유 페이지');
- await page.locator('#mobileMenu [data-view="pages"]').click();await expect(page.locator('[data-mobile-view-name]')).toHaveText('공유 페이지');
+ await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu')).toBeVisible();
+ await expect(page.locator('#mobileMenu [data-view="pages"]')).toHaveCount(0);
+ await expect(page.locator('#mobileMenu')).not.toContainText('공유 페이지');
  await expect(page.locator('body')).not.toContainText('게시판');
  expect(errors).toEqual([]);
 });
@@ -169,7 +169,7 @@ test('업무일지 = 홈: 옛 ?view=journal은 홈, 사이드바·폰 전환 줄
  await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','잊지 말기','일정','사업 관리','조직 관리','메뉴']);
  await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current','page');
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','읽을 거리','저장한 글','통화','텔레그램 소식','아스날']);
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','파일','브리핑 룸','HWP 편집','사진','읽을 거리','저장한 글','통화','텔레그램 소식','아스날']);
  await expect(nav(page)).toBeHidden();
  expect(errors).toEqual([]);
 });

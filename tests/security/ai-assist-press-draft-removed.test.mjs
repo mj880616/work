@@ -14,13 +14,11 @@ test('ai-assist has no press_draft route and no press draft modules', () => {
   }
 });
 
-test('no screen entry opens a press draft; shared page AI draft keeps its own style file', () => {
+test('no screen entry opens a press draft; the share page AI draft window is gone', () => {
   for (const f of ['app/meeting-round-detail.js', 'app/basket-notes.js', 'app/outside-search.js']) {
     const s = read(f);
     assert.doesNotMatch(s, /press-draft|press-quotes|data-mrd-more="press"|성명 초안 만들기'|'성명·보도자료 초안'|초안에 쓰기'/, f);
   }
-  const share = read('app/share-ai-draft.js');
-  assert.match(share, /share-ai-draft\.css/);
-  assert.doesNotMatch(share, /press-draft/);
-  assert.match(read('app/share-ai-draft.css'), /^\.share-ai-draft\{/m);
+  // NOTE-게시 ③: 공유 페이지 화면과 그 AI 초안 창은 화면째 지웠다.
+  assert.ok(!existsSync(new URL('../../app/share-ai-draft.js', import.meta.url)));
 });

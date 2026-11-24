@@ -46,6 +46,4 @@ test('the note screen uses the new editor and window; the [마크다운] box is 
   assert.match(body,/shortcuts: true/);assert.match(body,/toTelegram as docTelegram/);
   const win=readFileSync('app/note-window.js','utf8');
   assert.match(win,/shortcuts: true/);assert.match(win,/markdown: false, doc:/);
-  // The share page editor keeps "no format while typing" (결정 2 가): it does not pass shortcuts.
-  assert.doesNotMatch(readFileSync('app/share-pages.js','utf8'),/shortcuts\s*:/);
 });

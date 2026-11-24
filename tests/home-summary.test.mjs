@@ -33,9 +33,9 @@ test('메뉴: [일정] 묶음에 업무일지가 없고, 옛 journal 주소·이
   const cal = menu.itemOf('calendar');
   assert.deepEqual(cal.group, ['calendar', 'tasks', 'diary']);
   assert.deepEqual(cal.pc, ['tasks', 'diary']);
-  assert.match(read('app-router.js'), /VIEW_ALIAS=\{[^}]*journal:'home'\}/);
+  assert.match(read('app-router.js'), /VIEW_ALIAS=\{[^}]*journal:'home'[,}]/);
   assert.match(read('app-router.js'), /home:\['day','mode'\]/);
-  assert.match(read('view-loader.js'), /VIEW_ALIAS=\{[^}]*journal:'home'\}/);
+  assert.match(read('view-loader.js'), /VIEW_ALIAS=\{[^}]*journal:'home'[,}]/);
   assert.match(read('view-loader.js'), /async function home\(\)\{ await module\('\.\/journal\.js'\)/);
 });
 
