@@ -4,6 +4,7 @@
 // SHARE-보관함·HTML공유(docs/design/share-html-pages.md): 링크 값 대신 짧은 주소 {slug}(이름-무작위 8글자)도 받는다.
 // 짧은 주소 → sha256 → 짧은 주소 행의 링크 지문 → 위와 같은 링크 확인(같은 링크라 끄기·기한이 같이 걸림).
 // HTML 파일 판이 있는 페이지는 가장 최근 판 하나를 {kind:'html', title, html}로 돌려준다(블록 대신).
+// NOTE-게시(docs/design/note-publish.md): 노트를 게시한 페이지(app_note_share_pages 짝)는 그 노트의 지금 제목·글을 글 블록 하나로 돌려준다.
 // head:true면 제목만 돌려준다(Worker의 링크 미리보기 제목용, 5MB HTML을 보내지 않음).
 
 export type ShareLinkRow = {
@@ -28,7 +29,58 @@ export type ShareReader = {
   // SHARE-보관함·HTML공유: 짧은 주소 지문 → 그 짧은 주소가 붙은 링크의 지문. 페이지의 가장 최근 HTML 판(없으면 null).
   slugByHash?(hash: string): Promise<{ token_hash: string; slug_hash: string } | null>;
   latestHtml?(pageId: string): Promise<string | null>;
+  // NOTE-게시: 페이지 id → 짝 표(app_note_share_pages)의 note_id(짝 없음 = null 행 없음, 노트를 완전히 지웠으면 note_id null).
+  // 노트 id → 그 노트의 보여 줄 칸만(제목·글·종류·휴지통·보관). 작업공간·첨부·메타는 읽지 않는다.
+  noteForPage?(pageId: string): Promise<NotePairRow | null>;
+  noteById?(id: string): Promise<NoteRow | null>;
 };
+export type NotePairRow = { note_id: string | null };
+export type NoteRow = {
+  id: string;
+  kind: string;
+  title: string | null;
+  raw_text: string | null;
+  doc: unknown;
+  deleted_at: string | null;
+  archived_at: string | null;
+};
+const MAX_NOTE_DEPTH = 40;
+
+// 게시할 수 있는 노트: 짝이 가리킨 그 노트이고, kind 'note'이며 휴지통·보관이 아니다.
+export function noteShowable(note: NoteRow | null, id: string): boolean {
+  return !!note && note.id === id && note.kind === "note" && note.deleted_at === null && note.archived_at === null;
+}
+export function noteTitle(note: NoteRow, fallback: string): string {
+  const t = typeof note.title === "string" ? note.title.trim() : "";
+  return t ? [...t].slice(0, 200).join("") : fallback;
+}
+// 노트 글 → 공유 페이지 글 블록 하나({type:'doc', doc:{v:'ed1', doc}}). 사진 칸은 주소·번호(drive:<id> 등)를 지우고 자리만 남긴다
+// (노트 사진은 본인 Drive에 있어 밖에 보이지 않는다. 파일 번호도 밖에 내보내지 않음). 서식이 없는 옛 노트는 줄마다 문단 하나.
+export function noteBlocks(note: NoteRow): unknown[] {
+  const strip = (node: unknown, depth: number): unknown => {
+    if (!node || typeof node !== "object" || Array.isArray(node) || depth > MAX_NOTE_DEPTH) return null;
+    const o = node as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(o)) {
+      if (k === "content") {
+        if (Array.isArray(v)) out.content = v.map((n) => strip(n, depth + 1)).filter((n) => n !== null);
+      } else if (k === "attrs" && o.type === "image") {
+        const a = v && typeof v === "object" ? v as Record<string, unknown> : {};
+        out.attrs = typeof a.alt === "string" ? { alt: [...a.alt].slice(0, 200).join("") } : {};
+      } else out[k] = v;
+    }
+    return out;
+  };
+  const d = note.doc && typeof note.doc === "object" ? note.doc as Record<string, unknown> : null;
+  const inner = d && d.v === "ed1" && d.doc && typeof d.doc === "object" ? d.doc as Record<string, unknown> : null;
+  if (inner && Array.isArray(inner.content)) {
+    const doc = strip({ ...inner, type: "doc" }, 0);
+    if (doc) return [{ type: "doc", doc: { v: "ed1", doc } }];
+  }
+  const lines = String(note.raw_text ?? "").split(/\r?\n/);
+  const content = lines.map((line) => line ? { type: "paragraph", content: [{ type: "text", text: line }] } : { type: "paragraph" });
+  return [{ type: "doc", doc: { v: "ed1", doc: { type: "doc", content } } }];
+}
 export const SIGN_SECONDS = 300;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_MEDIA = 60;
@@ -189,6 +241,22 @@ export function createShareReadHandler(
       const page = await reader.pageById(link.page_id);
       if (!page || page.id !== link.page_id || page.status !== "published") return notFound();
       if (typeof page.title !== "string" || !Array.isArray(page.blocks)) return notFound();
+      // NOTE-게시: 노트를 게시한 페이지면(짝 표에 그 페이지 줄이 있으면) 그 노트의 지금 제목·글만 보여 준다(HTML·사진·첨부 없음).
+      // 짝 질의가 실패하면(새 표 적용 전 배포·일시 오류) 블록이 있는 옛 페이지는 그대로 보여 주고, 블록이 없으면 503.
+      if (reader.noteForPage && reader.noteById) {
+        let pair: NotePairRow | null = null, unavailable = false;
+        try { pair = await reader.noteForPage(link.page_id); }
+        catch { log("share_page_note_unavailable"); unavailable = true; }
+        if (unavailable && !page.blocks.length) return reply({ error: "unavailable" }, 503);
+        if (pair) {
+          if (typeof pair.note_id !== "string" || !UUID.test(pair.note_id)) return notFound();
+          const note = await reader.noteById(pair.note_id);
+          if (!noteShowable(note, pair.note_id)) return notFound();
+          const title = noteTitle(note!, page.title);
+          if (head) return reply({ ok: true, page: { title } }, 200);
+          return reply({ ok: true, page: { title, blocks: noteBlocks(note!) } }, 200);
+        }
+      }
       if (head) return reply({ ok: true, page: { title: page.title } }, 200);
       // HTML 판: 있으면 그 판만(블록·사진 없음). 판 질의가 실패하면 블록이 있는 페이지는 블록을 그대로 보여 준다
       // (새 표 적용 전 배포·일시 오류에도 기존 링크가 열리게). 블록도 없으면 503.
