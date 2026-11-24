@@ -42,13 +42,14 @@ test.describe('PC 1440 폴더째 올리기',()=>{
   test('같은 이름 폴더가 있으면 한 번 묻고 [합치기]는 있는 폴더 안에, [새로 만들기]는 ‘교섭 (2)’',async({page})=>{
     const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,group:'폴더'});
     const tree=[{name:'교섭',kids:[{name:'2026',kids:[{name:'a.pdf'}]},{name:'새',kids:[{name:'b.pdf'}]}]}];
-    await dropTree(page,head('x:out'),tree);
+    // S69-28 LIB-한칸탐색기: PC 한 칸 맨 위는 '폴더 밖' 묶음 머리가 없다 — 목록 빈 곳(맨 위 = 폴더 밖)에 놓는다.
+    await dropTree(page,'#documentList',tree);
     const ask=page.locator('.kptu-ask-text');
     await expect(ask).toHaveText('같은 이름 폴더가 이미 있어요 · ‘교섭’');
     await page.locator('[data-ask-action="merge"]').click();
     await expect(page.locator(`${dock} .up-dock-text`)).toHaveText('교섭에 2개 올렸어요 · 폴더 1개 만들었어요');
     expect(folderOf(s,'upload-1')).toBe('fk6');expect(folderOf(s,'upload-2')).toBe(named(s,'새','fk').id);
-    await dropTree(page,head('x:out'),tree);
+    await dropTree(page,'#documentList',tree);
     await page.locator('[data-ask-action="new"]').click();
     await expect(page.locator(`${dock} .up-dock-text`)).toHaveText('교섭 (2)에 2개 올렸어요 · 폴더 3개 만들었어요');
     const k2=named(s,'교섭 (2)',null);expect(!!k2).toBe(true);

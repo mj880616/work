@@ -27,7 +27,11 @@ for(const two of [false,true])test(`자료실 PC 1280 ${two?'두 칸':'한 칸'}
   const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더',init:{viewPrefs:two?null:{library_two:false}}});
   const root=two?'#documentList [data-lu-pane-i="0"]':'#documentList';
   if(two){for(const k of ['fa','fb'])await page.locator(`${root} [data-lu-nav="${k}"]`).click()}
-  else for(const k of ['fa','fb']){const n=page.locator(`#documentList details[data-lu-node="f:${k}"]`);if(!(await n.evaluate(e=>e.open)))await n.locator(':scope > summary').click()}
+  else{
+    // S69-28 LIB-한칸탐색기: PC 한 칸은 탐색기(지금 폴더 하나만)라 두 폴더 묶음을 한꺼번에 펼친 목록은 찾는 중(나무 목록)에만 있다 — 같은 규칙을 거기서 본다.
+    await page.locator('#documentSearch').fill('.');await expect(page.locator('#documentList details[data-lu-node="f:fa"]')).toBeAttached();
+    for(const k of ['fa','fb']){const n=page.locator(`#documentList details[data-lu-node="f:${k}"]`);if(!(await n.evaluate(e=>e.open)))await n.locator(':scope > summary').click()}
+  }
   const doc=id=>page.locator(`${root} [data-lu-document="${id}"]`).first();
   await expect(doc('a3')).toBeVisible();await expect(doc('b1')).toBeVisible();
   const seen=await dragHold(page,doc('b1'),doc('a3'),{name:two?'pc-1280-library-two-drag':'pc-1280-library-one-drag',read:()=>page.evaluate(({two})=>{
@@ -97,7 +101,8 @@ test.describe('폰 412 손가락',()=>{
   test('자료실 폰 412: b폴더 \'파일 *\'를 길게 눌러 a폴더 \'파일 a\' 줄 위에 놓으면 a폴더 · 묶음 표시',async({page})=>{
     test.setTimeout(60000);
     const {s,errors}=await bootLibrary(page,412,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더',init:{viewPrefs:null}});
-    for(const k of ['fa','fb']){const n=page.locator(`#documentList details[data-lu-node="f:${k}"]`);if(!(await n.evaluate(e=>e.open)))await n.locator(':scope > summary').click()}
+    // S69-28: 폰 나무는 폴더 그림 누르기 = 그 자리 펼치기(이름 누르기는 그 폴더 내용 화면).
+    for(const k of ['fa','fb']){const n=page.locator(`#documentList details[data-lu-node="f:${k}"]`);if(!(await n.evaluate(e=>e.open))){const h=n.locator(':scope > summary'),r=await h.boundingBox(),i=await h.locator('.lu-folder-emoji').boundingBox();await h.click({position:{x:i.x-r.x+i.width/2,y:r.height/2}})}}
     await expect(page.locator('#documentList [data-lu-document="b1"]')).toBeVisible();
     await page.locator('#documentList [data-lu-document="b1"]').scrollIntoViewIfNeeded();
     const cdp=await page.context().newCDPSession(page);

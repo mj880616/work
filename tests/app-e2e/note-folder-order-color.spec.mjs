@@ -212,7 +212,7 @@ test.describe('PC 1440', () => {
     expect(f.rows.find(r => r.id === 'n3').updated_at).toBe('2026-10-14T01:00:00Z');
     // ⋯ [아래로](끌기 직후 누름 삼킴 시간이 지난 뒤).
     await tick(page);
-    await page.locator('[data-note-row-more="n3"]').click();
+    await page.locator('#noteRows [data-note-row-more="n3"]').click(); // S69-27: 왼쪽 나무에도 같은 노트 줄이 있어 오른쪽 목록 줄
     await expect(page.locator('#noteDocMenu [data-note-up]')).toHaveCount(0);
     await page.locator('#noteDocMenu [data-note-down]').click();
     await expect.poll(() => noteOrder(page)).toEqual(['n1', 'n3', 'n2']);

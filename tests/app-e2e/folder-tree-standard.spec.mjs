@@ -144,7 +144,8 @@ test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 
   expect(await visibleShape('f:fa')).toBe('closed');
   await expect(head('f:fa').locator('.ft-ico:visible')).toHaveAttribute('data-fc', '4');
   await expect(head('f:fe').locator('.ft-ico')).toHaveCount(1);
-  await head('f:fa').tap();
+  // S69-28: 폰 나무는 폴더 그림 누르기 = 그 자리 펼치기(이름 누르기 = 그 폴더 내용 화면). 그림은 누르기를 줄에 넘기므로 그 자리를 누른다.
+  { const r = await head('f:fa').boundingBox(), i = await head('f:fa').locator('.lu-folder-emoji').boundingBox(); await head('f:fa').tap({ position: { x: i.x - r.x + i.width / 2, y: r.height / 2 } }); }
   expect(await visibleShape('f:fa')).toBe('open');
   await expect(page.locator('#documentList details[data-lu-node="f:fc"]')).toBeVisible();
   await noDots(page, '#documentList');
@@ -153,10 +154,10 @@ test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 
   await pinch(page, head('f:fa'), 'out');
   const path = page.locator('#libraryPath');
   await expect(path).toBeVisible();
-  // S51-24: 폰 '그 폴더만' = 목록 상자 맨 위 위치 줄(위 단계만) + 바로 아래 그 폴더 줄(열린 폴더 그림·굵은 이름)이 머리.
-  await expect(path).toHaveText('‹자료실›');
+  // S51-24 → S69-28 LIB-한칸탐색기: 폰 '그 폴더만' = 목록 상자 맨 위 위치 줄(끝에 지금 폴더 이름 굵게 한 번) + 그 폴더 바로 안 폴더 줄·자료 줄.
+  await expect(path).toHaveText('‹자료실›가상 A');
   await expect(path).toHaveClass(/ft-focus-anc/);
-  expect(await visibleShape('f:fa')).toBe('open');
+  await expect(page.locator('#documentList details[data-lu-node="f:fc"][data-lu-enter]')).toBeVisible();
   await expect(path.locator('[data-lu-path-back]')).toHaveText('‹');
   await pinch(page, page.locator('#documentList'), 'in');
   await expect(path).toBeHidden();

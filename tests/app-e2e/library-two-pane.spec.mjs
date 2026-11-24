@@ -292,11 +292,14 @@ test('PC 1440: Tab 칸 바꾸기 · F6 = 포커스 자료를 반대 칸 폴더�
   expect(errors).toEqual([]);
 });
 
-test('PC 1440: [▥ 두 칸] 끄면 지금 한 칸(나무 | 목록), 서버에 기억 · 다시 켜기',async({page})=>{
+// S69-28 LIB-보기두칸: 보기 단추는 붙은 [한 칸 | 두 칸](ds-seg) — 지금 보기 쪽이 눌린 표시.
+test('PC 1440: [한 칸] 누르면 한 칸(나무 | 목록), 서버에 기억 · [두 칸] 다시 켜기',async({page})=>{
   const {s,errors}=await boot(page,1440);
   await expect(page.locator('#documentList [data-lu-two]')).toBeVisible();
-  await page.locator('#libraryTwoBtn').click();
+  await expect(page.locator('#libraryTwoBtn')).toHaveAttribute('aria-pressed','true');
+  await page.locator('#libraryOneBtn').click();
   await expect(page.locator('#libraryTwoBtn')).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('#libraryOneBtn')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('#documentList [data-lu-two]')).toHaveCount(0);
   await expect(page.locator('#libraryFolderNav')).toBeVisible();
   await expect.poll(()=>s.viewPrefs?.library_two).toBe(false);
@@ -325,10 +328,10 @@ test('PC 1440: 폭을 기억한 서버면 다시 열어도 그 폭(다른 PC에�
   expect(errors).toEqual([]);
 });
 
-test('폰 390: 두 칸 없음 · [▥ 두 칸] 단추 없음(지금 한 칸 목록)',async({page})=>{
+test('폰 390: 두 칸 없음 · [한 칸 | 두 칸] 단추 없음(지금 한 칸 목록)',async({page})=>{
   const {errors}=await boot(page,390);
   await expect(page.locator('#documentList summary.lu-node-head').first()).toBeVisible();
   await expect(page.locator('#documentList [data-lu-two]')).toHaveCount(0);
-  await expect(page.locator('#libraryTwoBtn')).toHaveCount(0);
+  await expect(page.locator('#libraryTwoBtn')).toHaveCount(0);await expect(page.locator('#libraryViewSeg')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

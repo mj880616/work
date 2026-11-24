@@ -14,7 +14,7 @@ async function answerText(page, value) {
 }
 
 // NOTE-보드여러개 (요청함 10/30 05:48, 명진 결정 '위 추천안대로'): 포스트잇 보기 위 [전체] [보드…] [+ 새 보드].
-// PC: 왼쪽 폴더·노트 목록에서 끌어 놓기(또는 누르기)로 붙이기, 이미 붙은 노트는 흐리게, ×로 빼도 노트는 남음, 옮긴 자리는 metadata.boards[보드 id].
+// PC: 왼쪽 폴더·노트 목록에서 끌어 놓기로만 붙이기(S69-33: 누르기로는 붙지 않음), 이미 붙은 노트는 작은 '보드에 있음' 점, ×로 빼도 노트는 남음, 옮긴 자리는 metadata.boards[보드 id].
 // 폰: [+ 노트 붙이기] 고르기 창, 보드 칸 꾹 누르기 메뉴 [이름 바꾸기] [보드 지우기]. 보드 목록·마지막 보드는 서버 화면 기억(view_prefs). 이름은 지어낸 것.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -52,7 +52,7 @@ const chip = (page, name) => page.locator('[data-nbb] .nbb-chip', { hasText: nam
 const cards = page => page.locator('[data-note-board] [data-nb-card]');
 const boardId = server => server.value?.note_boards?.[0]?.id;
 
-test('PC: 새 보드 → 왼쪽 목록에서 끌어 놓기·누르기로 붙이기 → 옮기기 → ×로 빼기, [전체]는 그대로 (1440)', async ({ page }) => {
+test('PC: 새 보드 → 왼쪽 목록에서 끌어 놓기로 붙이기 → 옮기기 → ×로 빼기, [전체]는 그대로 (1440)', async ({ page }) => {
   const { rows, writes, errors, server } = await fixture(page, 1440);
   await expect(chip(page, '전체')).toHaveAttribute('aria-pressed', 'true');
   await expect(cards(page)).toHaveCount(3);
@@ -81,11 +81,16 @@ test('PC: 새 보드 → 왼쪽 목록에서 끌어 놓기·누르기로 붙이�
   await expect(cards(page)).toHaveCount(1);
   await expect.poll(() => rows[0].metadata.boards?.[id]).toBeTruthy();
   expect(rows[0].metadata.board).toEqual({ x: 24, y: 24, r: 1, z: 0 }); // [전체] 자리는 그대로
-  await expect(side.locator('[data-nbb-note="n1"]')).toHaveAttribute('aria-disabled', 'true');
-  // 누르기: 빈 곳에 붙는다.
-  await side.locator('[data-nbb-note="n2"]').click();
-  await side.locator('[data-nbb-note="n3"]').click();
-  await expect(cards(page)).toHaveCount(3 - 0);
+  // S69-33: 이미 붙은 줄은 흐리게가 아니라 보통 진하기 + 작은 점('보드에 있음').
+  const onRow = side.locator('[data-nbb-note="n1"]');
+  await expect(onRow).toHaveAttribute('data-nbb-on', '');
+  await expect(onRow.locator('.nbb-dot')).toBeVisible();
+  expect(await onRow.evaluate(el => getComputedStyle(el).opacity)).toBe('1');
+  await expect(onRow).toHaveAttribute('title', /보드에 있음 · 누르면 그 자리로/);
+  // 끌어 놓기로만 붙는다(놓은 자리마다).
+  await side.locator('[data-nbb-note="n2"]').dragTo(page.locator('[data-nb-scroll]'), { targetPosition: { x: 600, y: 300 } });
+  await side.locator('[data-nbb-note="n3"]').dragTo(page.locator('[data-nb-scroll]'), { targetPosition: { x: 400, y: 460 } });
+  await expect(cards(page)).toHaveCount(3);
   await expect.poll(() => rows.filter(r => r.metadata.boards?.[id]).length).toBe(3);
   for (const w of writes) expect(w.body.updated_at).toBeUndefined();
   // 옮기기 → metadata.boards[id]만 바뀐다.
@@ -101,7 +106,7 @@ test('PC: 새 보드 → 왼쪽 목록에서 끌어 놓기·누르기로 붙이�
   await page.locator('[data-nb-card="n3"] [data-nb-remove]').click();
   await expect(cards(page)).toHaveCount(2);
   await expect.poll(() => rows[2].metadata.boards?.[id]).toBeUndefined();
-  await expect(side.locator('[data-nbb-note="n3"]')).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(side.locator('[data-nbb-note="n3"]')).not.toHaveAttribute('data-nbb-on');
   // ⋯ 메뉴 [보드에서 빼기]
   await page.locator('[data-nb-card="n2"]').hover();
   await page.locator('[data-nb-card="n2"] [data-note-row-more]').click();
@@ -127,7 +132,7 @@ test('PC: 서버에 기억한 마지막 보드로 열리고, 보드 칸 우클�
   await expect(chip(page, '교섭')).toHaveAttribute('aria-pressed', 'true');
   await expect(cards(page)).toHaveCount(0);
   await page.locator('[data-nbb-side] [data-nbb-folder]', { hasText: '폴더 없음' }).click();
-  await page.locator('[data-nbb-side] [data-nbb-note="n2"]').click();
+  await page.locator('[data-nbb-side] [data-nbb-note="n2"]').dragTo(page.locator('[data-nb-scroll]'), { targetPosition: { x: 400, y: 300 } });
   await expect(cards(page)).toHaveCount(1);
   await expect.poll(() => rows[1].metadata.boards?.[id]).toBeTruthy();
   await chip(page, '교섭').click({ button: 'right' });
@@ -201,7 +206,7 @@ test('PC: 보드 왼쪽 목록에서 노트를 하위 폴더·폴더 없음에 �
   // 이미 붙은 노트(n1, '회의')도 하위 폴더로 옮길 수 있고, 보드 자리는 그대로. 지금 든 폴더('회의')는 강조하지 않는다.
   // ('폴더 없음' 줄은 그 안 노트가 없어져 목록에서 사라진다.)
   await expect(folderRow('폴더 없음')).toHaveCount(0);
-  await expect(side.locator('[data-nbb-note="n1"]')).toHaveAttribute('aria-disabled', 'true');
+  await expect(side.locator('[data-nbb-note="n1"]')).toHaveAttribute('data-nbb-on', '');
   await dragOver(side.locator('[data-nbb-note="n1"]'), side.locator('[data-nbb-folder]', { hasText: /^회의/ }));
   await expect(side.locator('.nbb-folder.nx-drop')).toHaveCount(0);
   const sub = await folderRow('궤도').boundingBox(); // 같은 끌기로 이어서 하위 폴더로
@@ -215,7 +220,7 @@ test('PC: 보드 왼쪽 목록에서 노트를 하위 폴더·폴더 없음에 �
   expect(errors).toEqual([]);
 });
 
-test('넓은 터치 화면: 보드 왼쪽 목록 노트를 꾹 눌러 끌어 하위 폴더에 넣기, 짧게 누르기는 붙이기 (1024)', async ({ page }) => {
+test('넓은 터치 화면: 보드 왼쪽 목록 노트를 꾹 눌러 끌어 하위 폴더에 넣기, 짧게 누르기는 붙이지 않고 노트 열기 (1024)', async ({ page }) => {
   const id = 'b1a2b3c4';
   const { rows, errors } = await fixture(page, 1024, { note_view: 'board', note_boards: [{ id, name: '교섭' }], note_board: id });
   const side = page.locator('[data-nbb-side]'), folderRow = name => side.locator('[data-nbb-folder]', { hasText: name });
@@ -227,8 +232,10 @@ test('넓은 터치 화면: 보드 왼쪽 목록 노트를 꾹 눌러 끌어 하
   await expect(folderRow('궤도').locator('.nbb-num')).toHaveText('1');
   await expect(cards(page)).toHaveCount(0);
   await page.waitForTimeout(700); // 끌기 뒤 따라오는 누르기 삼킴이 끝난 뒤
+  // S69-33: 짧게 누르기는 붙이지 않는다(붙이기는 끌어 놓기·[+ 노트 붙이기]만) — 아직 안 붙은 노트는 노트 열기.
   await side.locator('[data-nbb-note="n2"]').tap();
-  await expect(cards(page)).toHaveCount(1);
+  await expect(page.locator('[data-note-detail]')).toBeVisible();
+  expect(rows[1].metadata.boards).toBeUndefined();
   expect(errors).toEqual([]);
 });
 

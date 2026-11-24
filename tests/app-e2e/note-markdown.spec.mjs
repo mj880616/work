@@ -192,6 +192,8 @@ for(const width of [390,1280]){
   await expect(field.locator('.ed-c-red')).toHaveText('빨간 글');
   await page.keyboard.press('End');await page.keyboard.press('Enter');
   if(width<761){await tools.locator('[data-ed-cmd="gInsert"]').click();}
+  // S69-27: PC [폴더] 보기는 노트가 오른쪽 칸에 열려 서식 줄이 좁으면 안 들어가는 단추가 [⌄] 줄로 간다(ed-editor.js fitTools).
+  else if(!(await detail.locator('[data-note-body-field] [data-ed-cmd="table"]').isVisible()))await tools.locator('.ed-more').click();
   await detail.locator('[data-note-body-field] [data-ed-cmd="table"]').click();
   await detail.locator('[data-note-body-field] [data-ed-grid-r="2"][data-ed-grid-c="2"]').click();
   await expect(field.locator('table')).toHaveCount(1);
