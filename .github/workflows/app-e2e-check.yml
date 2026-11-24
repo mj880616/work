@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -27,6 +27,4 @@ jobs:
           python3 tests/app-e2e/helpers/static-server.py 8123 >/tmp/kptu-e2e-http.log 2>&1 &
           for i in $(seq 1 20); do curl --fail --silent http://127.0.0.1:8123/app/ >/dev/null && exit 0; sleep 0.5; done; exit 1
       - name: Run diag
-        run: |
-          DEBUG=pw:protocol npx playwright test tests/app-e2e/zz-diag.spec.mjs tests/app-e2e/journal.spec.mjs --browser=chromium --workers=2 --fully-parallel --repeat-each=1 --reporter=line --grep "칸·탭|journal" 2>/tmp/proto.log || true
-          grep -E '"error":' /tmp/proto.log | grep -vE 'No node with given id|Could not find node|No resource with given' | cut -c1-400 | tail -60 || true
+        run: npx playwright test tests/app-e2e/zz-diag.spec.mjs tests/app-e2e/journal.spec.mjs --browser=chromium --workers=2 --fully-parallel --reporter=line --grep "칸·탭|journal" 2>&1 | grep -E "zz-diag|passed|failed|Error" | tail -40

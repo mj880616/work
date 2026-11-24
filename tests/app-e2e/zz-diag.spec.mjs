@@ -37,9 +37,17 @@ const overflow=page=>page.evaluate(()=>{
   const wide=[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>w+1&&getComputedStyle(e).position!=='fixed'}).slice(0,4).map(name);
   return `scrollWidth ${root.scrollWidth} > ${w}; ${wide.join(', ')}`;
 });
-async function openView(page,view){globalThis.__note?.('OPEN '+view);
-  let opened;try{opened=await page.evaluate(async v=>{try{await window.KPTUViewLoader?.load?.(v);window.KPTURouter.go(v);return true}catch{return false}},view);}catch(e){globalThis.__note?.('EVAL FAIL '+e.message.slice(0,80));await page.waitForTimeout(2500);globalThis.__note?.('URL NOW '+page.url()+' '+await page.evaluate(()=>JSON.stringify({len:history.length,idx:navigation.currentEntry.index,nav:performance.getEntriesByType('navigation')[0]?.type,cur:window.KPTURouter?.current,boot:document.body.className.slice(0,80)})).catch(x=>'eval2 '+x.message.slice(0,60)));throw e}
-  if(!opened)return false;
+// STAB-화면폭시험(S69-25): 화면 바꾸기는 페이지 안에서 시작만 하고(evaluate는 곧바로 돌아옴) 끝났는지는 waitForFunction으로 본다.
+// 전에는 화면 프로그램 받기(KPTUViewLoader.load)를 기다리는 evaluate 하나를 앱이 막 켜진 직후 수백 ms 붙들고 있다가, 화면 이동이 없었는데도
+// (주소·기록·문서 그대로, 화면은 이미 home) 그 evaluate의 답이 'Execution context was destroyed'로 끊겨 가끔 실패했다(CI에서만, 첫 화면 home).
+// waitForFunction은 답이 끊기면 다시 물어 끝을 확인한다. 기다리는 시간·재시도 횟수는 늘리지 않았다(시험 시간 한도 그대로).
+async function openView(page,view){
+  await page.evaluate(v=>{
+    const run={view:v,state:'loading'};window.__kptuWidthOpen=run;
+    Promise.resolve().then(()=>window.KPTUViewLoader?.load?.(v)).then(()=>{window.KPTURouter.go(v);run.state='ok'}).catch(()=>{run.state='fail'});
+  },view);
+  const state=await page.waitForFunction(v=>{const run=window.__kptuWidthOpen;return run?.view===v&&run.state!=='loading'&&run.state},view).then(h=>h.jsonValue());
+  if(state!=='ok')return false;
   const box=page.locator(`#${view}View`).first();
   if(await box.count())await box.waitFor({state:'visible',timeout:8000}).catch(()=>{});
   await page.waitForTimeout(300);
@@ -50,31 +58,12 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
   test.setTimeout(240000);
   const errors=[];page.on('pageerror',e=>errors.push(String(e.stack||e.message).split('\n').slice(0,4).join(' / ')));
   const s=wideState();
-  const ring=[];const note=t=>{ring.push(Date.now()%100000+' '+t);if(ring.length>90)ring.shift()};let armed=false;
-  await page.addInitScript(()=>{for(const k of ['back','go','forward','pushState','replaceState']){const o=History.prototype[k];History.prototype[k]=function(...a){try{console.log('HIST',k,k.endsWith('State')?String(a[2]||''):JSON.stringify(a),'idx='+navigation.currentEntry.index,'len='+history.length,new Error().stack.split('\n').slice(2,7).map(x=>x.trim().replace(/https?:\/\/[^/]+\/app\//,'')).join(' < '))}catch{}return o.apply(this,a)}}
-    for(const k of ['reload','replace','assign']){try{const o=Location.prototype[k];}catch{}}
-    addEventListener('beforeunload',()=>console.log('UNLOAD',location.href,new Error().stack.split('\n').slice(1,4).join(' < ')));
-    addEventListener('pagehide',e=>console.log('PAGEHIDE',location.href,e.persisted));
-    navigation?.addEventListener?.('navigate',e=>console.log('NAVIGATE',e.navigationType,e.destination.url,'same='+e.destination.sameDocument,'idx='+e.destination.index,new Error().stack.split('\n').slice(1,6).map(x=>x.trim().replace(/https?:\/\/[^/]+\/app\//,'')).join(' < ')));});
-  const cdp=await page.context().newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Page.enable');await cdp.send('Runtime.enable');
-  const fr=f=>(f.stack?.callFrames||[]).slice(0,5).map(c=>c.functionName+'@'+c.url.split('/').pop()+':'+c.lineNumber).join(' < ');
-  cdp.on('Network.requestWillBeSent',e=>{if(e.type==='Document')note('CDP-DOCREQ '+e.request.url+' '+e.initiator?.type+' '+fr(e.initiator||{}))});
-  cdp.on('Page.frameRequestedNavigation',e=>note('CDP-REQNAV '+e.reason+' '+e.disposition+' '+e.url));
-  cdp.on('Page.frameStartedNavigating',e=>note('CDP-STARTNAV '+e.navigationType+' '+e.url));
-  cdp.on('Page.frameNavigated',e=>note('CDP-NAVIGATED '+e.type+' '+e.frame.url+' parent='+(e.frame.parentId||'-')));
-  cdp.on('Page.navigatedWithinDocument',e=>note('CDP-WITHIN '+e.url));
-  cdp.on('Page.documentOpened',e=>note('CDP-DOCOPENED '+e.frame.url));
-  cdp.on('Runtime.executionContextDestroyed',e=>note('CDP-CTXDESTROYED '+e.executionContextId));
-  cdp.on('Runtime.executionContextCreated',e=>note('CDP-CTXCREATED '+e.context.id+' '+e.context.origin+' '+JSON.stringify(e.context.auxData||{}).slice(0,80)));
-  cdp.on('Runtime.executionContextsCleared',()=>note('CDP-CTXCLEARED'));
-  page.on('console',m=>{const t=m.text();if(/^(HIST|UNLOAD|PAGEHIDE|NAVIGATE)/.test(t))note(t);else if(m.type()==='error'||m.type()==='warning')note('CONSOLE '+m.type()+' '+t.slice(0,200))});
-  page.on('domcontentloaded',()=>{note('DCL '+page.url());if(armed){console.log('=== CROSS-DOC NAV ===\n'+ring.join('\n'))}});
   await page.setViewportSize({width,height:width<761?844:900});
   await mockApp(page,s);await extraRoutes(page);
   await signIn(page,testOrigin+'/app/?view=reports');
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-  const bad=[],checked=[],clicks={};armed=true;globalThis.__note=note;page.on('close',()=>{if(test.info().status!=='passed')console.log('=== RING AT CLOSE ===\n'+ring.join('\n'))});
-  const check=async label=>{note('CHECK '+label);const o=await overflow(page);checked.push(label);if(o)bad.push(`${label}: ${o}`)};
+  const bad=[],checked=[],clicks={};
+  const check=async label=>{const o=await overflow(page);checked.push(label);if(o)bad.push(`${label}: ${o}`)};
   for(const view of VIEWS){
     if(!await openView(page,view)){checked.push(view+' (열 수 없어 건너뜀)');continue}
     await check(`${view} 처음`);
@@ -108,7 +97,6 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
       }
     }
   }
-  console.log('RING-END '+test.info().title+'\n'+ring.slice(-6).join('\n'));
   test.info().annotations.push({type:'checked',description:checked.join(' | ')});
   expect(bad,bad.join('\n')).toEqual([]);
   // 시험이 빈손으로 지나가지 않게: 사업 보고(칸 9·보기 3 등)·자료실·프로젝트 화면은 반드시 열려 칸을 눌러 봤어야 한다.
