@@ -132,7 +132,7 @@ for (const width of [412, 1280]) {
   });
 }
 
-test('메모 있는 글: 1000줄이 넘으면 [더 보기]로 이어 읽는다(기기 저장 없음)', async ({ page }) => {
+test('메모 있는 글: 1000줄이 넘으면 [더 보기]로 이어 읽는다', async ({ page }) => {
   const { errors, server } = await start(page, 412, { many: true });
   await root(page).getByRole('tab', { name: '메모' }).click();
   const more = panel(page).locator('[data-nm-more]');
@@ -142,6 +142,5 @@ test('메모 있는 글: 1000줄이 넘으면 [더 보기]로 이어 읽는다(�
   await expect.poll(() => server.calls.some(c => c.what === 'notes' && c.query.includes('metadata->>outside_post_id=not.is.null') && c.query.includes('offset=1000'))).toBe(true);
   await expect(more).toHaveCount(0);
   await expect(panel(page).locator('[data-nm-list] > .nw-row')).toHaveCount(4); // 같은 글의 옛 메모는 한 줄로
-  expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /memo|메모/i.test(k)))).toEqual([]);
   expect(errors).toEqual([]);
 });

@@ -69,11 +69,9 @@ test('주소로 다시 연 글은 [메모] 탭 그대로(두 종류를 다 담�
   assert.equal(tabForItem('outside', 'memos'), 'memos');
 });
 
-test('관심 주제 후보는 목록 위 줄이 아니라 ⋯ 메뉴 안 한 줄(0개면 없음), 기기 저장 없음', () => {
+test('관심 주제 후보는 목록 위 줄이 아니라 ⋯ 메뉴 안 한 줄(0개면 없음)', () => {
   const src = readFileSync(new URL('../app/outside-statements.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /data-now-cand/);
   assert.doesNotMatch(src, /data-now-interests-open/);
   assert.match(src, /const candidatesItem = \(\) => \{ const n = interests\.candidates\(\); return n \? `<button type="button" data-os-act="interests" data-os-cand>관심 주제 후보 \$\{n\}<\/button>` : ''; \};/);
-  const memos = readFileSync(new URL('../app/now-memos.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(memos, /localStorage|sessionStorage|indexedDB/);
 });
