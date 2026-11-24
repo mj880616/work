@@ -39,7 +39,7 @@ test('자료실 두 칸: 칸마다 펼침(own[i]) — 칸 안 누르기·메뉴 
   assert.match(two, /toggleIn\(i, 'f:' \+ fid,/);
   assert.doesNotMatch(two, /h\.toggle\(/);
   const up = src('library-upload.js');
-  assert.match(up, /function luRevealKeys\(keys\)\{if\(luTwoActive\(\)\)\{luRenderLibrary\(\);return\}/);
+  assert.match(up, /function luRevealKeys\(keys\)\{if\(luTwoActive\(\)\|\|\(luExplorerNow&&LU_SPLIT\?\.matches\)\)\{luRenderLibrary\(\);return\}/);
   assert.match(up, /function luToggleNode\(key\)\{if\(luTwoActive\(\)\)\{luTwo\.toggle\(key\);return\}/);
 });
 

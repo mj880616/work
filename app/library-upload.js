@@ -1292,7 +1292,8 @@ function luGoFolder(id){
 // 들어간 자리에서 그 자료를 보이게(묶음 펴기·'더 보기'·사진이면 [사진 n] 펼치기) 하고 잠깐 강조.
 function luFlashDoc(id){
   const path=pathTo(luLastTree,id),doc=luDocuments.find(d=>d.id===id);
-  for(const k of path){if(luFilterSignature!=='-')luFilterOpen.set(k,true);else luOpened.add(k)}
+  // S69-68 UI-두칸따로: 두 칸이면 그 자료가 보일 오른쪽 칸(luInFolder 칸)만 펼친다.
+  if(luTwoActive())luTwo.openIn(1,path);else for(const k of path){if(luFilterSignature!=='-')luFilterOpen.set(k,true);else luOpened.add(k)}
   if(path.length)luShowAll.add(path.at(-1));
   if(doc&&isPictureDoc(doc))luPhotoOpen.add(path.at(-1)||'top');
   luRenderLibrary();
@@ -1448,8 +1449,8 @@ const luNodeEl=key=>[...document.querySelectorAll('#documentList details[data-lu
 const luNodeOpen=key=>luTwoActive()?!!luTwo.openNow(key):!!luNodeEl(key)?.open;
 function luToggleNode(key){if(luTwoActive()){luTwo.toggle(key);return}const d=luNodeEl(key);if(!d)return;const next=!d.open;if(luFilterSignature!=='-')luFilterOpen.set(key,next);else if(next)luOpened.add(key);else luOpened.delete(key);d.open=next}
 // 토글 몇 개를 위 단부터 연다(폴더를 만들거나 옮긴 뒤 그 자리가 보이게). 프로젝트 토글의 위 단(1·2단)도 함께.
-// S69-68(명진 11/24 20:15 '왼쪽에서 오른쪽으로 드래그를 하거나 조작을 하면 그 조작하기 직전 화면에 멈춰져있어야'): 두 칸에서는 옮긴 뒤에도 칸 펼침을 바꾸지 않는다(다시 그리기만).
-function luRevealKeys(keys){if(luTwoActive()){luRenderLibrary();return}const all=new Set(luTreeKeys(luLastTree)),out=[];for(const k of keys){const path=k.startsWith('p:')&&k!=='p:none'?luProjectPath(k.slice(2)):[k];for(const x of path)if(all.has(x))out.push(x)}for(const k of out){if(luFilterSignature!=='-')luFilterOpen.set(k,true);else luOpened.add(k)}luRenderLibrary()}
+// S69-68(명진 11/24 20:15 '왼쪽에서 오른쪽으로 드래그를 하거나 조작을 하면 그 조작하기 직전 화면에 멈춰져있어야'): 두 칸·PC 탐색기 칸에서는 옮긴 뒤에도 펼침을 바꾸지 않는다(다시 그리기만).
+function luRevealKeys(keys){if(luTwoActive()||(luExplorerNow&&LU_SPLIT?.matches)){luRenderLibrary();return}const all=new Set(luTreeKeys(luLastTree)),out=[];for(const k of keys){const path=k.startsWith('p:')&&k!=='p:none'?luProjectPath(k.slice(2)):[k];for(const x of path)if(all.has(x))out.push(x)}for(const k of out){if(luFilterSignature!=='-')luFilterOpen.set(k,true);else luOpened.add(k)}luRenderLibrary()}
 function luProjectPath(id){const rows=luCatalog()?.projects||[],out=[];let p=rows.find(x=>x.id===id),guard=0;while(p&&guard++<5){out.unshift('p:'+p.id);p=p.parent_id?rows.find(x=>x.id===p.parent_id):null}return out.length?out:['p:'+id]}
 // 토글 머리를 누르면(마우스·터치·키보드 Enter/Space 모두 click) 바뀔 상태를 바로 적는다. toggle 이벤트는 늦게 와서, 그 사이 다시 그리면 잃을 수 있다.
 function luOnHeadClick(e){const head=e.target.closest('summary.lu-node-head');if(!head||e.defaultPrevented||e.target.closest('button,input'))return;const d=head.parentElement;if(!(d instanceof HTMLDetailsElement)||!d.dataset.luNode)return;const key=d.dataset.luNode,next=!d.open;

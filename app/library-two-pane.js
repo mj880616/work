@@ -249,7 +249,9 @@ export function createLibraryTwo(h) {
   // 맨 위 ⋯ [모두 펴기·접기]: 두 칸 모두(칸 안 스크롤은 공용 ftKeepPlace가 지킨다).
   const setAll = (keys, open) => { for (const m of own) for (const k of keys) m.set(k, !!open); h.render(); };
   // 최근 칸 줄 → 그 자료: 지금 칸에서만 위 단까지 펼친다(다른 칸은 그대로).
-  const reveal = keys => { for (const k of keys) own[cur].set(k, true); h.render(); };
+  const reveal = keys => { openIn(cur, keys); h.render(); };
+  // [폴더로 가기]·최근 줄: 그 자료가 보이도록 칸 i에서만 위 단까지 펼침(다시 그리기는 부르는 쪽).
+  const openIn = (i, keys) => { for (const k of keys) own[i === 1 ? 1 : 0].set(k, true); };
   // 그 폴더만 보기(들어가기): 우클릭 [이 폴더로 들어가기]·두 손가락 벌리기. el이 있는 칸(없으면 지금 칸)에서 들어간다.
   function enter(id, el = null) {
     const p = el ? frame.paneOf(el) : -1, i = p >= 0 ? p : cur;
@@ -269,5 +271,5 @@ export function createLibraryTwo(h) {
   }
   // 칸 i의 지금 폴더(우클릭 [새 폴더]·바깥 파일 놓기·[자료 등록]이 쓰는 곳). el이 칸 밖이면 지금 칸.
   const folderAt = el => { const i = frame.paneOf(el); return where(i >= 0 ? i : cur); };
-  return {html, after, bind, shownNodes, folderAt, enter, up, toggle, openNow, reset, setAll, reveal, paneOf: el => frame.paneOf(el), get cur() { return cur; }, get left() { return left; }};
+  return {html, after, bind, shownNodes, folderAt, enter, up, toggle, openNow, reset, setAll, reveal, openIn, paneOf: el => frame.paneOf(el), get cur() { return cur; }, get left() { return left; }};
 }
