@@ -20,8 +20,11 @@ test('자료실 탐색기 칸(flat): 폴더 줄이 펼치는 줄 — 펼침 상�
   // 펼친 폴더 안: 하위 폴더 줄(1단) + 자료 줄. 하위 폴더 줄은 맨 위 줄 표시가 없다.
   assert.match(html, /<details class="lu-node" data-lu-node="f:k" data-lu-node-kind="folder" style="--lu-depth:1"/);
   assert.match(html, /data-doc="d1"/);
-  // 빈 폴더는 펼치면 '빈 폴더' 한 줄(접힌 채로도 안쪽은 그려 둔다 — 누르면 바로 펼침).
-  assert.match(html, /data-lu-node="f:b"[^]*lu-node-empty[^]*빈 폴더/);
+  // 접힌 폴더는 안쪽을 그려 두지 않는다(보이는 줄만). 빈 폴더를 펼치면 '빈 폴더' 한 줄.
+  assert.match(html, /data-lu-node="f:b"[^>]*><summary[^]*?<\/summary><div class="lu-node-body"><\/div><\/details>/);
+  const openB = treeHtml(list, {...opts(['f:b']), flat: {node: null}});
+  assert.match(openB, /data-lu-node="f:b"[^]*lu-node-empty[^]*빈 폴더/);
+  assert.doesNotMatch(openB, /data-doc="d1"/); // 접힌 a 안 자료는 그리지 않음
   // 지금 폴더 자료 줄은 폴더 줄 다음에 감싸지 않고.
   assert.ok(html.indexOf('data-doc="d0"') > html.lastIndexOf('</details>'));
 });
