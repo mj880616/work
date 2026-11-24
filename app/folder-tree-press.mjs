@@ -74,8 +74,12 @@ function rowMainSelector(main) {
   const cls = main.classList.contains('ft-main') ? '.ft-main' : main.classList.contains('nx-main') ? '.nx-main' : '';
   return ROW_SEL.split(', ').map(r => `${r} > ${main.tagName.toLowerCase()}${cls}${parts.join('')}`).join(', ');
 }
-export function explorePressPlan({open = false, canOpen = true, current = true} = {}) {
-  return {enter: true, expand: !!canOpen && (!open || !current), collapse: !!canOpen && !!open && !!current};
+// S69 명진 11/24 20:22 "펼쳐진 상태에서 누르면 일단 그 폴더 내용이 오른쪽에 보인 다음 한 번 더 누르면 접히거든 — 반대로:
+//  누르면 바로 접히고 한 번 더 누르면 펼쳐지면서 내용이 보이는": 펼쳐진 폴더 이름 누르기 = 접기만(오른쪽 그대로, 들어가지 않음),
+//  접힌 폴더 이름 누르기 = 들어가기 + 펼치기. 펼칠 것이 없는 폴더(아이콘 없음)는 늘 들어가기. current는 더 보지 않는다(옛 호출과 맞추려고 받기만 함).
+export function explorePressPlan({open = false, canOpen = true} = {}) {
+  if (canOpen && open) return {enter: false, expand: false, collapse: true};
+  return {enter: true, expand: !!canOpen, collapse: false};
 }
 export function ftExplorePress(main, enter) {
   if (!main || typeof enter !== 'function') return false;
@@ -83,18 +87,18 @@ export function ftExplorePress(main, enter) {
   // 누르기 전의 펼침 상태로 판단한다(enter가 다시 그리며 펼침을 바꿔도 누른 그때 기준).
   const row0 = main.closest(ROW_SEL);
   const wasOpen = row0?.querySelector(':scope > button.ft-tog[aria-expanded]')?.getAttribute('aria-expanded') === 'true';
-  // 이미 들어가 있는(오른쪽이 이미 그 폴더인) 펼친 폴더만 접는다. 다른 폴더의 이름을 누르면 들어가며 펼친다.
-  const wasCurrent = !!(row0?.classList?.contains?.('ft-current') || main.getAttribute?.('aria-current') === 'true');
   const after = () => {
     const now = (sel && document.querySelector(sel)) || (main.isConnected ? main : null);
     if (!now) return;
     const row = now.closest(ROW_SEL), tog = row?.querySelector(':scope > button.ft-tog[aria-expanded]') || null;
-    const plan = explorePressPlan({open: wasOpen, canOpen: !!tog, current: wasCurrent});
+    const plan = explorePressPlan({open: wasOpen, canOpen: !!tog});
     // 목표 = 누르기 전과 반대. enter가 다시 그리며 이미 그렇게 됐으면 아이콘을 누르지 않는다.
     const isOpen = tog?.getAttribute('aria-expanded') === 'true';
     if ((plan.expand && !isOpen) || (plan.collapse && isOpen)) pressKeepFocus(tog, now);
     else now.focus?.({preventScroll: true});
   };
+  // 펼쳐진 폴더는 접기만 한다(들어가지 않음 — 오른쪽 그대로).
+  if (explorePressPlan({open: wasOpen, canOpen: !!row0?.querySelector(':scope > button.ft-tog[aria-expanded]')}).collapse) { after(); return true; }
   const out = enter();
   if (out && typeof out.then === 'function') out.then(after, () => {}); else after();
   return true;

@@ -11,11 +11,11 @@ const fakeRow = ({tog = true, expanded = 'false', current = true} = {}) => {
   return {main, log};
 };
 
-test('explorePressPlan: 늘 그 폴더로 들어가고, 이름 누르기로 펼치기·접기(명진 11/24 15:42)', () => {
+test('explorePressPlan: 펼친 폴더 누르기 = 접기만(들어가지 않음), 접힌 폴더 = 들어가기 + 펼치기(명진 11/24 20:22)', () => {
   assert.deepEqual(explorePressPlan({open: false, canOpen: true}), {enter: true, expand: true, collapse: false});
-  assert.deepEqual(explorePressPlan({open: true, canOpen: true}), {enter: true, expand: false, collapse: true});
+  assert.deepEqual(explorePressPlan({open: true, canOpen: true}), {enter: false, expand: false, collapse: true});
   assert.deepEqual(explorePressPlan({open: false, canOpen: false}), {enter: true, expand: false, collapse: false});
-  assert.deepEqual(explorePressPlan({open: true, canOpen: true, current: false}), {enter: true, expand: true, collapse: false});
+  assert.deepEqual(explorePressPlan({open: true, canOpen: true, current: false}), {enter: false, expand: false, collapse: true});
 });
 
 test('ftExplorePress: 하위 폴더가 있는 상위 폴더도 오른쪽을 그 폴더로 바꾸고 접혀 있으면 펼친다', () => {
@@ -24,13 +24,13 @@ test('ftExplorePress: 하위 폴더가 있는 상위 폴더도 오른쪽을 그 
   assert.deepEqual(log, ['enter', 'tog']);
 });
 
-test('ftExplorePress: 이미 펼친 폴더는 들어가며 접고, 하위 폴더가 없는 폴더는 들어가기만', () => {
+test('ftExplorePress: 펼친 폴더는 들어가지 않고 접기만(지금 폴더든 아니든), 하위 폴더가 없는 폴더는 들어가기만', () => {
   const open = fakeRow({expanded: 'true'});
   ftExplorePress(open.main, () => open.log.push('enter'));
-  assert.deepEqual(open.log, ['enter', 'tog']);
-  const other = fakeRow({expanded: 'true', current: false}); // 펼쳐만 둔 다른 폴더 = 들어가기만(접지 않음)
+  assert.deepEqual(open.log, ['tog']);
+  const other = fakeRow({expanded: 'true', current: false});
   ftExplorePress(other.main, () => other.log.push('enter'));
-  assert.deepEqual(other.log, ['enter', 'focus']);
+  assert.deepEqual(other.log, ['tog']);
   const leaf = fakeRow({tog: false});
   ftExplorePress(leaf.main, () => leaf.log.push('enter'));
   assert.deepEqual(leaf.log, ['enter', 'focus']);
