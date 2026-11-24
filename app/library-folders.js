@@ -300,7 +300,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const openIt=()=>openFolderSheet({anchor:back?.isConnected?back:document.activeElement,title:sheetTitle(list.length+fids.length,'옮길 곳'),rootName:free?'자료실':frame===undefined?word('사업영역 바로 아래'):frameName(frame),
       folders:()=>s().folders,recent:recent.get(),current,start:current,
       allowRoot:rootOk,rootReason:fm&&(free||frame!==undefined)?'이미 맨 위에 있어요':MIXED_REASON,
-      blocked:id=>{if(id===null)return '';if(fm&&!fm.ok(id))return '고른 폴더 안이나 너무 깊은 곳에는 옮길 수 없어요';if(free||!list.length)return '';const f=folder(id);return frame!==undefined&&(f?.project_id||null)===frame?'':(frame===undefined?MIXED_REASON:FRAME_REASON)},
+      blocked:id=>{if(id===null)return '';if(fm&&!fm.ok(id))return '선택한 폴더 안이나 너무 깊은 곳에는 옮길 수 없어요';if(free||!list.length)return '';const f=folder(id);return frame!==undefined&&(f?.project_id||null)===frame?'':(frame===undefined?MIXED_REASON:FRAME_REASON)},
       mkdir:!fids.length&&(free||frame!==undefined)?(parent,name)=>makeFolderIn(free?null:frame,parent,name):null,
       onGo:id=>fids.length?movePicked(list,fids,id||null).then(fin):id?putDocs(list,id,{all}):moveDocs(list,null,{all}),onClosed});
     if(closeOuter)Promise.resolve(closeOuter()).then(openIt,openIt);else openIt();
