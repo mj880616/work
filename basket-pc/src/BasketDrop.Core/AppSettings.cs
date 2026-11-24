@@ -17,6 +17,9 @@ public sealed class AppSettings
 
     /// <summary>'Web2에서 이 PC 보기': the 127.0.0.1 door for the Web2 [파일] screen. Off by default (decision D1); only the tray menu turns it on.</summary>
     public bool WebDoor { get; set; }
+
+    /// <summary>The program picture revision whose shortcut pictures this PC has refreshed (0 = never). See <see cref="IconRefresh"/>.</summary>
+    public int IconRevision { get; set; }
 }
 
 public sealed class SettingsStore

@@ -11,7 +11,7 @@ const DOC='e0000000-0000-4000-8000-000000000001';
 const FOLDER='libraryFolder0001';
 const PLACE={folder_id:FOLDER,url:`https://drive.google.com/drive/folders/${FOLDER}`,path:['웹2','자료실']};
 
-async function boot(page,{width,place,mirror=[]}){
+async function boot(page,{width,place,mirror=[],gather=null}){
   await page.setViewportSize({width,height:900});
   const state={user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},asks:[],mirror,mirrorAsks:[]};
   await page.route(`${SB}/**`,async route=>{
@@ -22,7 +22,7 @@ async function boot(page,{width,place,mirror=[]}){
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
     if(path==='/functions/v1/workspace-drive'&&url.searchParams.get('action')==='drive-mirror'){const b=(()=>{try{return req.postDataJSON()}catch{return null}})();state.mirrorAsks.push(b);return ok(state.mirror.length?state.mirror.shift():{ok:true,state:'aligned',folders_made:0,folders_fixed:0,files_moved:0,cant:0,pending:0,more:false,stopped:false})}
-    if(path==='/functions/v1/workspace-drive'){state.asks.push({method:req.method(),query:url.search});return ok(url.searchParams.get('action')==='drive-place'?{ok:true,place}:{error:'Unknown action'},url.searchParams.get('action')==='drive-place'?200:400)}
+    if(path==='/functions/v1/workspace-drive'){state.asks.push({method:req.method(),query:url.search,body:req.postData()});if(gather&&req.method()==='POST'&&url.searchParams.get('action')==='gather-folders')return ok(gather(JSON.parse(req.postData()||'{}')));return ok(url.searchParams.get('action')==='drive-place'?{ok:true,place}:{error:'Unknown action'},url.searchParams.get('action')==='drive-place'?200:400)}
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
@@ -54,6 +54,8 @@ for(const width of [390,1280]){
     // 서버에는 모양이 정해진 요청 하나만(폴더 id·이름은 서버가 정함).
     expect(state.asks.length).toBeGreaterThan(0); // drive-place 읽기(맞추기 요청은 따로 센다)
     expect(state.asks.every(a=>a.method==='GET'&&a.query==='?action=drive-place')).toBe(true);
+    // S69-22: 같은 줄 끝 작은 글자 버튼 [앱 폴더 모으기] — 누르기 전에는 서버에 묻지 않는다.
+    await expect(line.locator('button.lu-drive-gather')).toHaveText('앱 폴더 모으기');
     // 콤팩트: 한 줄 높이(글자 12px 안팎) — 큰 카드·안내문 없음.
     const box=await line.boundingBox();
     expect(box.height).toBeLessThan(width<500?44:24);
@@ -72,6 +74,39 @@ test('저장 위치가 없으면(자료를 올린 적 없음·연결 없음) 줄
 test('서버 답 주소가 드라이브 폴더 주소가 아니면 그리지 않는다',async({page})=>{
   await boot(page,{width:1280,place:{folder_id:FOLDER,url:'https://example.org/x',path:['웹2','자료실']}});
   await expect(page.locator('#libraryDriveLine')).toBeHidden();
+});
+
+// S69-22: [앱 폴더 모으기] — 세기 → 확인창 → 옮기기(남으면 이어서) → 결과 한 줄. 화면은 폴더 id를 보내지 않는다.
+for(const width of [390,1280]){
+  test(`[앱 폴더 모으기]를 누르면 몇 개인지 묻고 옮긴 뒤 결과를 알린다 (${width})`,async({page})=>{
+    const bodies=[];let left=12;
+    const state=await boot(page,{width,place:PLACE,gather:b=>{bodies.push(b);if(b.dry_run)return{ok:true,root_name:'웹2',count:12,kinds:{basket:1,edit_backup:1,record_backup:1,copy:9}};const moved=Math.min(10,left);left-=moved;return{ok:true,root_name:'웹2',moved,failed:0,left,kinds:{}}}});
+    const btn=page.locator('#libraryDriveLine button.lu-drive-gather');
+    await btn.click();
+    const ask=page.locator('.kptu-ask-text');
+    await expect(ask).toHaveText("앱 폴더 12개를 '웹2' 아래로 모을까요?");
+    await expect(page.locator('.kptu-ask-note')).toContainText('삭제하지 않고 자리만 옮겨요');
+    expect(bodies).toEqual([{dry_run:true}]);
+    await page.locator('.kptu-ask-actions button.primary').click();
+    await expect(page.getByText("앱 폴더 12개를 '웹2' 아래로 모았어요.")).toBeVisible();
+    expect(bodies).toEqual([{dry_run:true},{},{}]);
+    expect(state.asks.filter(a=>a.method==='POST').every(a=>a.query==='?action=gather-folders')).toBe(true);
+  });
+}
+
+test('[앱 폴더 모으기]: 모을 것이 없으면 확인창 없이 한 줄, 취소하면 옮기지 않는다',async({page})=>{
+  const bodies=[];let count=0;
+  await boot(page,{width:390,place:PLACE,gather:b=>{bodies.push(b);return{ok:true,root_name:'웹2',count,kinds:{}}}});
+  const btn=page.locator('#libraryDriveLine button.lu-drive-gather');
+  await btn.click();
+  await expect(page.getByText('모을 앱 폴더가 없어요. 이미 한곳에 있어요.')).toBeVisible();
+  await expect(page.locator('.kptu-ask-text')).toHaveCount(0);
+  count=2;
+  await btn.click();
+  await expect(page.locator('.kptu-ask-text')).toHaveText("앱 폴더 2개를 '웹2' 아래로 모을까요?");
+  await page.locator('.kptu-ask-actions button.secondary').click();
+  await expect(page.locator('.kptu-ask-text')).toHaveCount(0);
+  expect(bodies).toEqual([{dry_run:true},{dry_run:true}]);
 });
 
 test('④ 자료실 ⋯ [드라이브 폴더 맞추기]: 이어서 맞추고 옮긴 수를 알린다. 실패하면 줄 끝에 정리 대기',async({page})=>{

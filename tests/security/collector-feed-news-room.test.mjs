@@ -17,10 +17,12 @@ const RAW='가상원문표식',LABEL='가상 업무방 이름표식';
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
 // take: app_news_room_take 응답을 정하는 함수(인자 → {status, body}). 기본은 '뉴스방 아님'.
-function harness({take=()=>({status:200,body:{ok:true,news:false,taken:0,dup:0,widened:0,refused:0}}),articles=[],family=false}={}){
-  const calls={take:[],oldInserts:[],articleGets:[],maps:[],sharedWrites:[],logs:[],openai:0,family:0};
+function harness({take=()=>({status:200,body:{ok:true,news:false,taken:0,dup:0,widened:0,refused:0}}),articles=[],family=false,page=null}={}){
+  const calls={take:[],oldInserts:[],articleGets:[],maps:[],sharedWrites:[],logs:[],openai:0,family:0,peeks:[],patches:[]};
   const doFetch=async(input,init={})=>{
     const url=new URL(String(input)),method=init.method||'GET';
+    // 들어올 때 제목 읽기(S69): 지어낸 example 기사 쪽 GET은 page로 답한다(없으면 다른 바깥 호출처럼 500).
+    if(url.origin!==SB&&page&&method==='GET'&&/(^|\.)example\.com$/.test(url.hostname)){calls.peeks.push(url.href);return page(url);}
     if(url.origin!==SB){calls.openai++;return respond({},500);}
     const path=url.pathname.replace('/rest/v1/','');
     if(path==='rpc/app_operator_feature_workspace')return respond(JSON.stringify(WS));
@@ -31,6 +33,7 @@ function harness({take=()=>({status:200,body:{ok:true,news:false,taken:0,dup:0,w
     if(path==='app_news_items'&&method==='POST'){calls.oldInserts.push(JSON.parse(init.body));return respond('',201);}
     if(path==='app_news_id_map'&&method==='POST'){calls.maps.push(JSON.parse(init.body));return respond('',201);}
     // 공용 쪽 표(기사·본문·표시·사람별 새 표)에 직접 쓰는 호출은 모두 기록(거절 시험: 뉴스방이 아니면 0).
+    if(method==='PATCH'){calls.patches.push(decodeURIComponent(url.pathname.replace('/rest/v1/','')+url.search));return respond([{}]);}
     if(/^app_news_(articles|article_bodies|marks|reads|now_details|now_signals)$/.test(path)&&method!=='GET'){calls.sharedWrites.push(path);return respond('',201);}
     if(method==='GET')return respond([]);
     return respond('',201);
@@ -138,4 +141,18 @@ test('소스: 뉴스방 처리는 주소만 넘기고, 공용 표 직접 쓰기�
   assert.ok(!/app_news_articles", \{[^}]*(text|room|sender|label)/.test(src),'공용 표 넣기에 원문·방 칸 없음');
   assert.match(src,/db\.insert\("app_news_id_map", \{ old_id: oldId, workspace_id: ws, article_id: articleId \}\)/,'지도 넣기는 id 세 칸뿐');
   assert.ok(!/app_news_(article_bodies|reads|now_details|now_signals)/.test(src.replace(/\/\/.*$/gm,'')),'수집기는 공용 본문·사람별 새 표에 직접 쓰지 않음');
+});
+
+test('제목 읽기(S69): 뉴스방으로 새로 들어온 제목 없는 기사는 그 주소 한 장만 읽어 제목을 적는다(제목 있는 줄은 읽지 않음)',async()=>{
+  const ID='c0000000-0000-4000-8000-000000000001',ID2='c0000000-0000-4000-8000-000000000002';
+  const page=()=>new Response('<html><head><meta property="og:title" content="합성 뉴스방 제목"></head></html>',{status:200,headers:{'Content-Type':'text/html'}});
+  const h=harness({page,take:()=>({status:200,body:{ok:true,news:true,taken:2,dup:0,widened:0,refused:0}}),
+    articles:[{id:ID,url:'https://news.example.com/a/1',url_key:'news.example.com/a/1',scrapped_at:'2026-10-24T03:00:00.000Z',title:null},
+      {id:ID2,url:'https://news.example.com/a/9',url_key:'news.example.com/a/9',scrapped_at:'2026-10-24T03:00:00.000Z',title:'이미 있는 제목'}]});
+  await h.send(body());
+  assert.match(h.calls.articleGets[0],/select=id,url,url_key,scrapped_at,title/);
+  assert.deepEqual(h.calls.peeks,['https://news.example.com/a/1']);
+  assert.ok(h.calls.patches.includes(`app_news_articles?id=eq.${ID}&title=is.null`));
+  assert.ok(h.calls.patches.every(p=>!p.includes(ID2)),'제목 있는 줄은 고치지 않음');
+  assert.ok(!h.calls.logs.join('\n').includes('합성 뉴스방 제목'),'로그에 제목 없음');
 });

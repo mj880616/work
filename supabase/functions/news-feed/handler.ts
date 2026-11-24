@@ -51,6 +51,7 @@ const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: fals
 import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, titleKey, type PageRule } from "./page.ts";
+import { peekTitle } from "../_shared/page-title.ts";
 import { createHandPhotos, HAND_PHOTO_REQ_MAX, HandPhotoFail, photoSizeOf } from "./hand-photo.ts";
 import { BODY_LIMITS, bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
 import { googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_MAX_CHARS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
@@ -103,6 +104,12 @@ export const MEDIA_BODY_PER_RUN = 30;
 export const ROBOTS_RETRY_PER_RUN = 10;
 export const ROBOTS_RETRY_DAYS = 30;
 export const ROBOTS_RETRY_SCAN = 50;
+// 제목 다시 읽기(S69 NEWS-제목늘읽기, 명진 11/24 "제목은 읽어놔야 누르든 말든하지"): 원문 읽기에 실패해 제목도 없이 남은 기사(state failed, 매체 기사 밖)를
+// 예약 '대기 기사' 단계마다 TITLE_RETRY_PER_RUN건까지, 그 주소 한 장만 읽어 제목(og:title → <title>)만 적는다(본문·상태는 그대로 — 본문 규칙은 바꾸지 않음).
+// 기사마다 한 번만: 원문 읽기에 실패한 시각(fetched_at)이 TITLE_RETRY_AFTER_MIN분 ~ +60분 전인 줄만 고른다(대기 단계는 한 시간마다라 그 띠에 한 번 든다).
+// 다시 읽기는 fetched_at을 바꾸지 않으므로 다음 실행에는 띠 밖이다(무한 재시도 없음). 화면 '열기' 하루 한도는 세지 않는다.
+export const TITLE_RETRY_PER_RUN = 10;
+export const TITLE_RETRY_AFTER_MIN = 50;
 // 다시 뽑기(NEWS-전면개편 P2c, 설계 news-overhaul 4.8 — 예약 입구 action=refill, 몸통 {source}): 최근 REFILL_DAYS일 매체 기사 가운데
 // 블록 줄이 없거나, 까닭이 timeout(사이트가 잠깐 안 닿음·robots를 못 읽음)이거나, state≠ok이고 규칙 판이 지금 카탈로그 판과 다른 것을
 // 새 것부터 주소 REFILL_PER_SOURCE개까지 다시 읽는다(같은 reader라 요청 사이 GAP_MS, 시간 예산 RUN_BUDGET_MS). 찾는 범위는 REFILL_SCAN줄.
@@ -1088,6 +1095,7 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
   const pages = new Map<string, FeedReader>();
   const pageOf = (s: NewsSource) => { let r = pages.get(s.key); if (!r) { r = readers.page(s); pages.set(s.key, r); } return r; };
   let retry = { done: 0, deferred: 0 };
+  let heads = { tried: 0, read: 0 };
   if (!onlyWs) {
     try {
       const on = await enabledMedia(db);
@@ -1099,9 +1107,33 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
       }
     } catch { log("bodies_failed"); }
     try { retry = await runRobotsRetry(db, reader, pageOf, ai, nowMs, startMs, clock, chargeWs); } catch { log("robots_retry_failed"); }
+    try { heads = await runTitleRetry(db, reader, nowMs, startMs, clock); } catch { log("title_retry_failed"); }
   }
-  log("pending_done", { done, deferred, remaining, stale, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, ...states });
-  return { ok: true, step: "pending", done, deferred, remaining, stale, states, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred };
+  log("pending_done", { done, deferred, remaining, stale, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, head_retry: heads.tried, head_read: heads.read, ...states });
+  return { ok: true, step: "pending", done, deferred, remaining, stale, states, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, head_retry: heads.tried, head_read: heads.read };
+}
+
+// 제목 다시 읽기(위 TITLE_RETRY_PER_RUN 설명). 공용 기사 줄과 같은 주소의 옛 줄 가운데 제목이 빈 것만 고친다. 건수만 돌려준다.
+export async function runTitleRetry(db: Db, reader: FeedReader, nowMs: number, startMs: number, clock: () => number) {
+  const upTo = new Date(nowMs - TITLE_RETRY_AFTER_MIN * 60000).toISOString(), from = new Date(nowMs - (TITLE_RETRY_AFTER_MIN + 60) * 60000).toISOString();
+  const arts = await db.get(`app_news_articles?title=is.null&state=eq.failed&lane=neq.media&fetched_at=lte.${encodeURIComponent(upTo)}&fetched_at=gt.${encodeURIComponent(from)}` +
+    `&select=id,url,url_key&order=fetched_at.desc&limit=${TITLE_RETRY_PER_RUN}`);
+  let tried = 0, read = 0;
+  for (const a of arts) {
+    if (clock() - startMs > RUN_BUDGET_MS) break;
+    if (typeof a.id !== "string" || !UUID.test(a.id) || typeof a.url !== "string" || typeof a.url_key !== "string" || !a.url_key) continue;
+    tried++;
+    const iso = new Date(clock()).toISOString();
+    let got = null;
+    try { got = await peekTitle(reader, a.url); } catch { got = null; }
+    if (!got) continue; // 못 읽으면 그대로(화면은 '못 읽은 기사 · 도메인', [직접 넣기]·열기는 그대로)
+    const title = newsTitle(got.title);
+    const patch: Row = { title, title_key: titleKey(title), updated_at: iso };
+    await db.send("PATCH", `app_news_articles?id=eq.${a.id}&title=is.null`, patch, "return=minimal");
+    read++;
+    await db.send("PATCH", `app_news_items?url_key=eq.${encodeURIComponent(a.url_key)}&title=is.null`, patch, "return=minimal");
+  }
+  return { tried, read };
 }
 
 // robots 때문에 원문이 빈 지난 기사 다시 읽기(S68-25). 공용 기사(state robots)를 새 것부터 ROBOTS_RETRY_PER_RUN건까지, 같은 주소의 내 옛 줄과 함께 한 번 읽는다.

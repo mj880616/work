@@ -21,7 +21,7 @@
 둥근 바탕은 16·32·48·192·512(any)에만 쓴다. 180(apple-touch-icon)과 maskable은 모서리까지 꽉 찬 네모다
 (iOS·안드로이드가 직접 모양을 깎는다). maskable은 그림 전체를 가운데 쪽으로 0.9배 줄여 안전 영역(가운데 80% 원) 안에 둔다
 (+ 끝까지 포함해 가운데에서 64칸의 약 38%).
-바구니 PC(노조+ 파일 올리기 도우미) 아이콘 basket-pc/icon/basket-icon.svg는 그 프로그램 새 판과 함께 바꾼다(지금은 옛 그림 그대로).
+PC 파일 올리기 도우미(WORK ON+ 파일 올리기) 아이콘 basket-pc/icon/basket-icon.svg도 같은 그림·같은 수치다(S69, 0.8.1부터). 이 표장을 바꾸면 그 SVG도 고치고 basket-pc/tools/make-icon.py를 돌린다.
 옛 노동조합+ 아이콘(J10)은 나중 노조 공간 앱(노조+)을 위해 scripts/app-icon/nojoplus-j10.svg에 남겨 둔다.
 """
 import math

@@ -76,7 +76,11 @@ internal sealed class TrayApp : ApplicationContext
         _ = Task.Run(UpdateLoopAsync);
 
         LegacyEntries.CleanOnce(_settings, _store, AppPaths.History, _log);
-        if (UpdateService.IsInstalled) LegacyEntries.RemoveRenamedShortcuts(_log);
+        if (UpdateService.IsInstalled)
+        {
+            LegacyEntries.RemoveRenamedShortcuts(_log);
+            ShellIcons.RefreshOnce(_settings, _log);
+        }
         _log.Write(LogCode.Started);
         _ = Task.Run(PumpAsync);
         _wake.Release();

@@ -3,8 +3,9 @@
 // - 유료·로그인 기사(유료벽 표시가 보이면): 본문을 읽지 않고 공개 리드·메타 설명만(body_kind='lead', state='paywall'). 유료벽을 넘지 않는다.
 // - 봇 확인 쪽: 아무것도 저장하지 않음(state='bot_check').
 // NEWS-전면개편 P2b: 본문은 공용 추출기(_shared/feed-extract.ts) 한 번으로 뽑아 블록(화면 '원문 전체' 저장용)과 body 글자(AI·번역 재료)에 함께 쓴다.
-import { bodyScopeHtml, cut, htmlToText, looksLikeBotCheck, oneLine, stripTags } from "../outside-feed/parse.ts";
-import { decodeEntitiesDeep, decodeText } from "../_shared/html-entities.ts";
+import { bodyScopeHtml, cut, htmlToText, looksLikeBotCheck, oneLine } from "../outside-feed/parse.ts";
+import { decodeText } from "../_shared/html-entities.ts";
+import { pageTitle, titleKey } from "../_shared/page-title.ts";
 import { extractBlocks, failedBody, JSON_BODY_RATIO, textBlocks, withPageJson, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 
 export const BODY_MAX = 100000;      // DB 검사와 같음
@@ -84,8 +85,8 @@ function isoDate(raw: string | null, nowMs: number): string | null {
 }
 
 export function readArticlePage(html: string, nowMs: number, rule?: PageRule): PageInfo {
-  const titleRaw = meta(html, ["og:title", "twitter:title"]) ?? /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html)?.[1] ?? "";
-  const title = cut(oneLine(decodeText(stripTags(decodeEntitiesDeep(titleRaw)))), 500) || null;
+  // 제목 규칙은 _shared/page-title.ts 한 곳(가볍게 제목만 읽는 peekTitle과 같음).
+  const title = pageTitle(html);
   const publisher = cut(meta(html, ["og:site_name", "application-name"]) ?? "", 120) || null;
   // 날짜: 메타 → 구조화 데이터(JSON-LD "datePublished") → 첫 <time datetime>. 못 읽으면 null('날짜 모름' 묶음, 화면에서 맨 아래).
   const published_at = isoDate(meta(html, ["article:published_time", "og:article:published_time", "datePublished", "pubdate", "date"]), nowMs)
@@ -116,8 +117,4 @@ export { JSON_BODY_RATIO };
 const withJsonBody = (tagEx: Extracted, html: string, r: PageRule) => withPageJson(tagEx, html, { key: r.key, rule: r.rule, minChars: FULL_MIN_CHARS });
 
 // 겹침 판정용 제목: 끝 꼬리 ' - 매체'(옛 키워드 기사·채널 기사 제목), 머리말([단독] 등), 공백·문장부호 떼기.
-export function titleKey(title: string): string | null {
-  const t = title.replace(/\s+[-–—|]\s+[^-–—|]{1,40}$/, "").replace(/^\s*[\[(【<〈][^\])】>〉]{1,12}[\])】>〉]\s*/, "")
-    .toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
-  return t ? t.slice(0, 500) : null;
-}
+export { titleKey };

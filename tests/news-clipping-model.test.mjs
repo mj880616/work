@@ -42,15 +42,22 @@ test('줄 보임: 요약 늘 보임, 외국어 제목은 미리 번역한 한국
   assert.equal(media.summary, '');
   const pend = {id: '4', lane: 'channel', lang: 'ko', title: null, state: 'pending', url: 'https://www.example.org/x'};
   const pending = M.itemView(pend);
-  assert.equal(pending.title, '제목 읽기 전 · example.org', '도메인을 제목으로 보이지 않음'); assert.equal(pending.note, '아직 안 읽음'); assert.equal(pending.canOpen, false);
-  assert.equal(M.itemView({...pend, title: 'naver.me/xAbC12'}).title, '제목 읽기 전 · example.org', '주소뿐인 제목도 제목으로 쓰지 않음');
+  // S69 NEWS-제목늘읽기(명진 11/24): '제목 읽기 전'은 없다 — 제목이 없으면 주소 경로 조각, 그것도 없으면 '못 읽은 기사 · 도메인'.
+  assert.equal(pending.title, '못 읽은 기사 · example.org', '도메인을 제목으로 보이지 않음'); assert.equal(pending.note, '아직 안 읽음'); assert.equal(pending.canOpen, false);
+  assert.equal(M.itemView({...pend, title: 'naver.me/xAbC12'}).title, '못 읽은 기사 · example.org', '주소뿐인 제목도 제목으로 쓰지 않음');
   assert.equal(M.itemView({...pend, state: 'failed', title: 'https://example.org/x'}).title, '못 읽은 기사 · example.org');
   // S67-10 NEWS-네이버공유읽기: 제목을 못 읽은 줄은 '제목 없음' 대신 까닭 한마디.
-  assert.equal(M.itemView({...pend, state: 'robots', url: 'https://n.news.naver.com/mnews/article/000/1'}).title, '제목 읽기 전 · n.news.naver.com', 'S68-25: 예전 robots 줄은 열면 읽어 옴');
+  assert.equal(M.itemView({...pend, state: 'robots', url: 'https://n.news.naver.com/mnews/article/000/1'}).title, '못 읽은 기사 · n.news.naver.com', 'S68-25 예전 robots 줄도 제목 읽기 전으로 두지 않음');
   assert.equal(M.itemView({...pend, state: 'bot_check'}).title, '읽기 막힌 기사 · example.org');
   assert.equal(M.itemView({...pend, state: 'too_big'}).title, '못 읽은 기사 · example.org');
   assert.equal(M.itemView({...pend, state: 'blocked'}).title, '읽지 않는 주소 · example.org');
-  assert.equal(M.itemView({...pend, state: 'ok'}).title, '제목 없음 · example.org');
+  assert.equal(M.itemView({...pend, state: 'ok'}).title, '못 읽은 기사 · example.org');
+  for (const state of ['pending', 'robots', 'failed', 'too_big', 'ok', undefined]) assert.ok(!M.itemView({...pend, state}).title.includes('읽기 전'), `${state}: '제목 읽기 전'이 없음`);
+  // 주소 경로에 읽을 만한 조각이 있으면 그것(한글 두 자 이상 또는 숫자 없는 영어 낱말 세 개 이상). 기사 번호뿐인 주소(동아 꼴)는 '못 읽은 기사'.
+  assert.equal(M.itemView({...pend, url: 'https://news.example.org/2026/11/24/minimum-wage-talks-stall.html'}).title, 'minimum wage talks stall');
+  assert.equal(M.itemView({...pend, url: 'https://news.example.org/news/%EC%9E%84%EA%B8%88-%ED%98%91%EC%83%81'}).title, '임금 협상');
+  assert.equal(M.itemView({...pend, url: 'https://www.donga.com/news/Politics/article/all/20261124/132845001/1'}).title, '못 읽은 기사 · donga.com');
+  assert.equal(M.itemView({...pend, url: 'https://news.example.org/view.php?id=7'}).title, '못 읽은 기사 · news.example.org');
   assert.equal(M.itemView({...pend, state: 'robots', title: '공유한 제목'}).title, '공유한 제목', '공유 창 제목이 있으면 그 제목');
   assert.equal(M.itemView({...pend, title: '진짜 기사 제목'}).title, '진짜 기사 제목');
   assert.equal(M.itemView({id: '5', url: 'javascript:alert(1)', state: 'ok'}).url, '', '이상한 주소는 링크로 쓰지 않음');
@@ -81,6 +88,10 @@ test('키워드·매체·한도', () => {
   assert.equal(M.cleanWord('가짜', ['가짜']).reason, '이미 있음');
   const cat = M.normalizeCatalog({sources: [{key: 'news-a', name: '가짜일보', region: 'domestic', lang: 'ko'}, {key: 'kctu', name: '아님'}, {key: 'news-b', name: 'Fake', region: 'foreign', lang: 'en'}]});
   assert.deepEqual(cat.map(s => s.key), ['news-a', 'news-b']);
+  // S69 사설·칼럼: region 'opinion'은 그대로, 모르는 값은 국내.
+  const op = M.normalizeCatalog({sources: [{key: 'news-a-opinion', name: '가짜일보 사설·칼럼', region: 'opinion'}, {key: 'news-z', name: '가짜', region: 'mars'}]});
+  assert.deepEqual(op.map(s => s.region), ['opinion', 'domestic']);
+  assert.deepEqual(M.REGIONS.map(g => g.label), ['국내', '사설·칼럼', '해외']);
   assert.deepEqual(M.normalizeLimits({limits: {fill: 10, translate: 20, keywords: 30}}), {fill: 10, translate: 20, keywords: 30});
   // S59-1: 키워드 기사 하루 상한(keyword_items)은 없어졌다 — 옛 서버가 보내도 받지 않는다.
   assert.equal(M.normalizeLimits({limits: {keyword_items: 30}}).keyword_items, undefined);

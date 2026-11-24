@@ -9,10 +9,11 @@
 //      주식·코인 낱말이 제목에 있으면 노동 낱말이 함께 있을 때만 남긴다.
 //   ③ 노동 낱말(LABOR_WORDS)이 제목·소개에 있으면 섹션과 상관없이 1.
 //   ④ 사회 섹션 → 2.
+//   ④' 사설·칼럼 섹션(opinion, S69 NEWS-사설칼럼) → 2(사회와 같음 — 신문의 논설은 섹션 거르기 없이 받는다).
 //   ⑤ 정치·경제 섹션 → 공공 낱말(PUBLIC_WORDS)·내 키워드·확정한 관심 주제 가운데 하나라도 맞으면 3, 아니면 null.
 import type { NewsSource } from "./news-catalog.ts";
 
-export type NewsSection = "society" | "politics" | "economy" | "mixed";
+export type NewsSection = "society" | "politics" | "economy" | "mixed" | "opinion";
 export type NewsRank = 1 | 2 | 3;
 export const RANK_LABOR = 1, RANK_SOCIETY = 2, RANK_RELATED = 3;
 
@@ -67,7 +68,7 @@ export function listSection(source: Pick<NewsSource, "sections" | "lists">, list
 }
 
 // 섞인 피드 글의 섹션: 카테고리 칸 → 기사 주소 → 매체 기본값(mixedAs, 없으면 사회).
-function guessSection(category: string, path: string, fallback: Exclude<NewsSection, "mixed">): Exclude<NewsSection, "mixed"> {
+function guessSection(category: string, path: string, fallback: Exclude<NewsSection, "mixed" | "opinion">): Exclude<NewsSection, "mixed" | "opinion"> {
   for (const s of [category, path]) {
     if (!s) continue;
     if (SOCIETY_HINT.test(s)) return "society";
@@ -89,6 +90,6 @@ export function newsRank(input: RankInput): NewsRank | null {
   if (labor) return RANK_LABOR;
   let section = listSection(input.source, input.list);
   if (section === "mixed") section = guessSection(category, path, input.source.mixedAs ?? "society");
-  if (section === "society") return RANK_SOCIETY;
+  if (section === "society" || section === "opinion") return RANK_SOCIETY;
   return has(text, PUBLIC_WORDS) || has(text, input.words ?? []) ? RANK_RELATED : null;
 }
