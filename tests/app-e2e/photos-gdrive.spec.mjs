@@ -183,16 +183,16 @@ test.describe('PC 1440', () => {
     const tree = bodyEl.locator('[data-photos-fx-tree]');
     // 처음엔 맨 위를 고른 채: 오른쪽 칸 '구글 드라이브 · n장'.
     await expect(tree.locator('[data-photos-gf="root"]')).toHaveClass(/ft-current/);
-    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toHaveText('구글 드라이브 · 0장');
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toHaveText('사진›구글 드라이브 · 0장'); // S69-90: 주소 줄 하나(위치 줄이 이 줄 안)
     await expect(tree.locator('[data-photos-gf="GF1"]')).toHaveClass(/is-off/);
-    await expect(tree.locator('[data-photos-gf="GF1"] .ft-num')).toHaveText('0'); // S69-90: 개수는 공용 줄 개수 칸(작은 흐린 글씨, [파일]과 같음)
+    await expect(tree.locator('[data-photos-gf="GF1"] .ft-num')).toHaveText('—'); // S69-90: 개수는 공용 줄 개수 칸(작은 흐린 글씨, [파일]과 같음)
     expect(state.gd.filter(b => b.action === 'folders').map(b => b.parent)).toEqual(['root']);
     // ▸ 펼치기 = 그 층만 읽고 들여쓴 하위 폴더(장수 0, 흐림). 다시 누르면 접힘.
     await tree.locator('[data-photos-gf-tog="GF1"]').click();
     await expect(tree.locator('[data-photos-gf="GF11"]')).toBeVisible();
-    await expect(tree.locator('[data-photos-gf="GF11"]')).toHaveAttribute('style', /--nx-indent:2/);
+    await expect(tree.locator('[data-photos-gf="GF11"]')).toHaveAttribute('style', /--ft-depth:2/);
     await expect(tree.locator('[data-photos-gf="GF11"] .ft-num')).toHaveText('0');
-    await expect(tree.locator('[data-photos-gf="GF1"]')).toHaveAttribute('aria-expanded', 'true');
+    await expect(tree.locator('[data-photos-gf-tog="GF1"]')).toHaveAttribute('aria-expanded', 'true'); // S69-90: 공용 줄은 폴더 그림 단추가 펼침 상태를 가진다([파일]·노트 나무와 같음)
     expect(state.gd.filter(b => b.action === 'folders').map(b => b.parent)).toEqual(['root', 'GF1']);
     // 하위 폴더(켜짐, 사진 없음) → '이 폴더에 바로 든 사진이 없어요.'
     await tree.locator('[data-photos-gf="GF11"] .ft-name').click({ button: 'right' });
