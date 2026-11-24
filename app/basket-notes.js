@@ -99,6 +99,9 @@ import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 �
 // NOTE-주소로 가져오기 2단계: 가져오는 중인 노트 줄('○○에서 가져오는 중…')과 열린 노트 맨 위 원문 칸(그리는 곳은 note-import-view.js 한 곳).
 import { NOTE_IMPORT_EVENT, isImporting, importIntoNote } from './note-import.js';
 import { noteLinkUrl } from './note-import-model.mjs';
+// NOTE-게시 ②(docs/design/note-publish.md): 노트 ⋯ [공유 링크 만들기]·[링크 복사]·[게시 멈춤], 읽기 머리 한 줄, [목록] '게시 중' 거르기.
+import { createNotePublish } from './note-publish.js';
+import { pubMenu, PUB_LABELS, PUB_ON } from './note-publish-model.mjs';
 import { paintNoteSource } from './note-import-view.js';
 import { busyTitle, noteSource } from './note-import-model.mjs';
 import {word} from './brand/brand.mjs';
@@ -135,6 +138,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   let comments = [], commentsReady = false, commentsMissing = false, tagSel = [], tagTouched = false, cmKind = null;
   // NOTE-달력보기: [달력] 보기에서 보는 달·고른 날(''= 오늘 또는 이 달 마지막 노트 날). 화면 메모리만.
   let calMonth = monthNow(), calDay = '';
+  // NOTE-게시 ②: 게시 상태(서버 짝 표·페이지 상태, 링크 값은 들고 있지 않음)와 [목록] '게시 중' 거르기(화면 메모리만).
+  const notePub = createNotePublish({rt});
+  let pubOnly = false;
   // NOTE-탐색기 후속 ⑦: 선택 상태 코드는 자료실과 같은 공용 부품(select-mode.js). 한 겹(basket-note-select)을 열어 폰 뒤로가기가 선택 모드를 끈다.
   const pick = createSelectMode({layer:'basket-note-select', onBack:() => renderList()});
   // NOTE-보기3가지: 지금 보기. 처음은 서버에 기억한 값(없으면 폴더). 이번 접속에서 고른 뒤에는 늦게 온 서버 값으로 덮지 않는다.
@@ -420,13 +426,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     list.classList.toggle('nx-wide', wide);
     paintViewSwitch();
     const chipsBox = host.querySelector('[data-nt-chips]');
-    chipsBox.hidden = view !== 'tag' && view !== 'comment'; if (chipsBox.hidden) chipsBox.replaceChildren();
+    chipsBox.hidden = view !== 'tag' && view !== 'comment' && !(view === 'list' && pubChip()); if (chipsBox.hidden) chipsBox.replaceChildren();
     if (view === 'tag' || view === 'comment' || view === 'calendar') {
       tree.hidden = true; tree.replaceChildren(); recentBox.hidden = true; recentBox.replaceChildren();
       if (view === 'tag') paintTagView(chipsBox, rowsBox, m); else if (view === 'comment') paintCommentView(chipsBox, rowsBox); else paintCalendarView(rowsBox, m);
     } else if (view !== 'folder') {
       tree.hidden = true; tree.replaceChildren(); recentBox.hidden = true; recentBox.replaceChildren();
-      if (view === 'list') rowsBox.innerHTML = listViewRows(m).map(r => rowHtml(r)).join('');
+      if (view === 'list') paintListView(chipsBox, rowsBox, m);
       else { rowsBox.replaceChildren(); paintBoard(m); }
     } else if (wide) {
       tree.hidden = false;
@@ -492,6 +498,54 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // NOTE-읽생기아이디어 ② [태그]: 위에 태그 칩(노트 수 많은 순), 아래 고른 태그의 노트(목록 보기와 같은 한 줄). 처음은 가장 많은 태그.
   // S67-48: 칩은 눌러 켜고 끈다 — 여러 개를 켜면 그 태그가 모두 붙은 노트만(그리고). 다 끄면 태그가 하나라도 있는 노트 전부. 폴더와 상관없이 모은다.
   // 잠긴 폴더 노트는 풀기 전에는 칩 수에도 줄에도 넣지 않는다.
+  // NOTE-게시 ② [목록] 거르기: 게시 중인 노트가 있으면 칩 하나 '게시 중'(누르면 그 노트만, 다시 누르면 전체). 잠겨 가려진 노트는 세지 않는다.
+  const pubNotes = () => notes.filter(n => notePub.isOn(n.id) && !pinLock.noteHidden(n));
+  const pubChip = () => pubNotes().length > 0;
+  function paintListView(chipsBox, rowsBox, m) {
+    const on = pubNotes().length;
+    if (!on) pubOnly = false;
+    if (on) {
+      chipsBox.setAttribute('aria-label', '거르기');
+      chipsBox.innerHTML = `<button type="button" class="ds-chip nt-chip" data-nt-pub aria-pressed="${pubOnly}">게시 중<span class="nt-num" aria-label="노트 ${on}개">${on}</span></button>`;
+    }
+    const rows = listViewRows(pubOnly ? n => (!m || m(n)) && notePub.isOn(n.id) && !pinLock.noteHidden(n) : m);
+    rowsBox.innerHTML = rows.map(r => rowHtml(r)).join('') || (pubOnly ? emptyHtml('맞는 노트 없음') : '');
+  }
+  // NOTE-게시 ② 읽기 머리 한 줄: 게시 중일 때만 '게시 중 · 링크 복사 · 게시 멈춤'(잠근 폴더 노트는 [링크 복사] 없이).
+  function paintPub() {
+    const line = detail.querySelector('[data-note-pub-line]'); if (!line || !selected) return;
+    const on = notePub.isOn(selected.id), locked = pinLock.noteInLockedFolder(selected);
+    const dot = '<span class="note-pub-dot" aria-hidden="true">·</span>';
+    line.hidden = !on;
+    line.innerHTML = on ? `<span class="note-pub-on">게시 중</span>${locked ? '' : `${dot}<button type="button" class="row-act note-pub-act" data-pub-line="copy">링크 복사</button>`}${dot}<button type="button" class="row-act note-pub-act" data-pub-line="stop">게시 멈춤</button>` : '';
+  }
+  let pubBusy = false;
+  async function pubAct(kind, note, anchor) {
+    if (pubBusy || !note) return;
+    if (kind !== 'stop' && pinLock.noteInLockedFolder(note)) return;
+    if (kind === 'stop' && !await askConfirm(anchor, {text:'게시를 멈출까요?', note:'링크를 받은 사람도 더 이상 볼 수 없어요. 다시 게시하면 같은 링크가 다시 열려요.', ok:'게시 멈춤', danger:true})) return;
+    pubBusy = true;
+    const owner = scope(), fail = (e, text) => notify(e?.status === 401 || e?.code === 'session_required' ? '로그인이 끝났어요. 다시 로그인해 주세요.' : text, {error:true, record:false});
+    try {
+      if (kind === 'make') {
+        await notePub.publish(note);
+        const copied = await notePub.copy(note).catch(() => false);
+        notify(copied ? '게시했어요 · 링크를 복사했어요' : '게시했어요 · [링크 복사]로 보내세요', {record:false});
+      } else if (kind === 'copy') {
+        const copied = await notePub.copy(note);
+        if (copied && anchor?.isConnected) flashDone(anchor);
+        notify(copied ? '링크를 복사했어요 · 메신저에 붙여 넣어 보내세요' : '복사하지 못했어요. 다시 눌러 주세요.', {error:!copied, record:false});
+      } else {
+        await notePub.stop(note);
+        notify('게시를 멈췄어요', {record:false});
+      }
+    } catch (e) {
+      fail(e, kind === 'make' ? '게시하지 못했어요. 다시 시도해 주세요.' : kind === 'copy' ? '링크를 복사하지 못했어요.' : '게시를 멈추지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      pubBusy = false;
+      if (kind !== 'copy' && owner === scope()) { if (selected) paintPub(); if (!selected || splitOpen()) renderList(); }
+    }
+  }
   function paintTagView(chipsBox, rowsBox, m) {
     const groups = tagGroups(notes.filter(n => (!m || m(n)) && !pinLock.noteHidden(n)));
     if (!tagTouched && !tagSel.some(k => groups.some(g => g.key === k))) tagSel = groups[0] ? [groups[0].key] : [];
@@ -535,7 +589,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     marksRun = run;
     try {
       // S69-27: 휴지통 수도 같이 기다려 한 번만 그린다(늦게 와서 다시 그리면 막 잡은 줄이 떨어져 나간다 — STAB-노트폴더끌기시험과 같은 까닭).
-      const [result, fold, cm] = await Promise.all([readNoteDocs(rt), readNoteFolders(rt), readNoteComments(rt), newsMarks.load(), pinLock.ready(), noteTrash.load().catch(() => {})]);
+      const [result, fold, cm] = await Promise.all([readNoteDocs(rt), readNoteFolders(rt), readNoteComments(rt), newsMarks.load(), pinLock.ready(), noteTrash.load().catch(() => {}), notePub.load().catch(() => {})]);
       if (marksRun === run) marksRun = 0;
       if (run !== epoch || owner !== scope()) return;
       notes = result.notes; links = result.links; loaded = true;
@@ -620,6 +674,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '잊지 말기로 돌리기']] : []),
       // FAMILY-기억알림: 가족 '잊지 말기' 노트만 [줄 정리] — 줄을 고르면 홈 '가족 · 기억할 것' 줄 ⋯와 같은 메뉴(family-remind-menu.js, [과거 기록으로]).
       ...(from === 'detail' && note?.metadata?.family_list === true ? [['data-note-remind-lines', '줄 정리']] : []),
+      // NOTE-게시 ②: 잠근 폴더의 노트는 게시를 새로 열지 않는다(이미 게시 중이면 [게시 멈춤]만). 게시 상태를 못 읽었으면 칸을 내지 않는다.
+      ...(notePub.isReady() ? pubMenu(notePub.stateOf(note.id), {locked:pinLock.noteInLockedFolder(note)}).map(k => [`data-note-pub-${k}`, PUB_LABELS[k]]) : []),
       ['data-note-to-diary', '하루 기록으로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
       ['data-note-delete', '삭제', 'basket-menu-danger']];
   };
@@ -772,7 +828,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   toplineWide.addEventListener?.('change', syncHeadTitle);
   function paintRead() {
-    syncHeadTitle();
+    syncHeadTitle(); paintPub();
     const title = detail.querySelector('[data-note-read-title]'), text = detail.querySelector('[data-basket-read-text]'), raw = selected.raw_text || '';
     if (title) title.textContent = selected.title || '노트';
     sendWhere(selected.title || '제목 없음');
@@ -824,7 +880,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     ++epoch; dropField(); editing = false; linkOpen = false; placeDetail(); onOpenChange(true);
     // UI-엔터저장: title Enter / body Ctrl+Enter (PC) save through the shared rule (enter-save.js).
     detail.dataset.enterSave = '[data-note-save]';
-    detail.innerHTML = `<div class="basket-detail-head">${basketBackHtml(selected?.id, NOTE_BACK, rt)}<div class="note-head-main" data-note-head-main><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more data-ctx="area" aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="ni" data-note-source hidden></div><div class="basket-read-text line-w" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p><div data-note-tag-pick hidden></div><section class="note-cm" data-note-comments aria-label="댓글"></section></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<textarea rows="1" data-note-title-input data-autogrow data-enter-field="single" autocomplete="off" enterkeyhint="done"></textarea></label><div class="note-body-field" data-note-body-field role="group" aria-label="본문"></div><div class="note-edit-tags" data-note-edit-tags role="group" aria-label="태그"><span class="note-meta-tags" data-note-edit-tag-chips></span><div data-note-edit-tag-pick hidden></div></div></div><div data-note-attachments class="note-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><button type="button" data-note-reload hidden>노트 최신화</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions save-row save-row-sticky" data-note-edit-actions hidden><button type="button" class="secondary save-row-start" data-note-big-write>큰 창에서 수정</button><button type="button" class="secondary" data-note-cancel>취소</button><button type="button" class="primary" data-note-save>저장</button></div><p data-basket-status role="status"></p>`;
+    detail.innerHTML = `<div class="basket-detail-head">${basketBackHtml(selected?.id, NOTE_BACK, rt)}<div class="note-head-main" data-note-head-main><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more data-ctx="area" aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><p class="note-pub-line" data-note-pub-line hidden></p><div class="ni" data-note-source hidden></div><div class="basket-read-text line-w" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p><div data-note-tag-pick hidden></div><section class="note-cm" data-note-comments aria-label="댓글"></section></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<textarea rows="1" data-note-title-input data-autogrow data-enter-field="single" autocomplete="off" enterkeyhint="done"></textarea></label><div class="note-body-field" data-note-body-field role="group" aria-label="본문"></div><div class="note-edit-tags" data-note-edit-tags role="group" aria-label="태그"><span class="note-meta-tags" data-note-edit-tag-chips></span><div data-note-edit-tag-pick hidden></div></div></div><div data-note-attachments class="note-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><button type="button" data-note-reload hidden>노트 최신화</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions save-row save-row-sticky" data-note-edit-actions hidden><button type="button" class="secondary save-row-start" data-note-big-write>큰 창에서 수정</button><button type="button" class="secondary" data-note-cancel>취소</button><button type="button" class="primary" data-note-save>저장</button></div><p data-basket-status role="status"></p>`;
     manual.attach(detail.querySelector('[data-basket-manual]'));
     makeTagPicks();
     // NOTE-내용확대축소(S61-16 ③): 읽기 머리 줄 [−] 100% [+] — 노트 글(--note-zoom)과 HTML 첨부(html-frame.js가 다시 그림)만 바뀐다.
@@ -1715,6 +1771,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-up')) void stepNote(note.id, -1);
     else if (b.hasAttribute('data-note-down')) void stepNote(note.id, 1);
     else if (b.hasAttribute('data-note-pin')) void pin(note);
+    else if (b.hasAttribute('data-note-pub-make')) void pubAct('make', note, from.trigger);
+    else if (b.hasAttribute('data-note-pub-copy')) void pubAct('copy', note, from.trigger);
+    else if (b.hasAttribute('data-note-pub-stop')) void pubAct('stop', note, from.trigger);
     else if (b.hasAttribute('data-nx-goto-folder')) gotoFolder(note);
     else if (b.hasAttribute('data-nx-select')) startSelect('n:' + note.id);
     else if (b.hasAttribute('data-note-folder-move')) openMovePicker(from.trigger, {notes:[note.id], folders:[]});
@@ -1786,6 +1845,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-tag-remove')) { const key = b.dataset.tagRemove; void changeTags({remove:key}).then(r => { if (!r.ok && r.message) say(r.message); (detail.querySelector(editing ? '[data-note-edit-tag-chips] [data-tag-add]' : '[data-note-meta-tags] [data-tag-add]'))?.focus({preventScroll:true}); }); }
     else if (b.hasAttribute('data-nt-tag')) { const key = b.dataset.ntTag; tagSel = tagSel.includes(key) ? tagSel.filter(k => k !== key) : [...tagSel, key]; tagTouched = true; renderList(); }
     else if (b.hasAttribute('data-nt-clear')) { tagSel = []; tagTouched = true; renderList(); }
+    else if (b.hasAttribute('data-nt-pub')) { pubOnly = !pubOnly; renderList(); host.querySelector('[data-nt-pub]')?.focus({preventScroll:true}); }
+    else if (b.dataset.pubLine && selected) void pubAct(b.dataset.pubLine, selected, b);
     else if (b.hasAttribute('data-nt-kind')) { cmKind = b.dataset.ntKind || null; renderList(); }
     else if (b.hasAttribute('data-nt-cm-open')) open(b.dataset.ntCmOpen);
     else if (b.hasAttribute('data-nt-cal-nav')) { const next = navMonth(calMonth, b.dataset.ntCalNav); calMonth = next.month; calDay = next.day; renderList(); }

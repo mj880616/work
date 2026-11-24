@@ -163,12 +163,15 @@ async function loadList({force = false} = {}) {
   listState = 'loading'; renderList();
   try {
     const ws = q(workspaceId());
-    const [rows, kept] = await Promise.all([
+    // NOTE-게시 ②: 노트를 게시한 페이지(app_note_share_pages 짝이 있는 줄)는 노트 쪽에서만 보인다 — 목록·보관함에서 뺀다.
+    const [rows, kept, pairs] = await Promise.all([
       rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${ws}&select=id,title,status,project_id,updated_at&${archiveFilter}&order=updated_at.desc`, {singleFlight:false}),
-      rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${ws}&select=id,title,updated_at&${boxFilter}&order=updated_at.desc`, {singleFlight:false})]);
+      rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${ws}&select=id,title,updated_at&${boxFilter}&order=updated_at.desc`, {singleFlight:false}),
+      rt.api(`/rest/v1/app_note_share_pages?workspace_id=eq.${ws}&select=page_id`, {singleFlight:false})]);
     if (run !== epoch || owner !== scope) return;
-    if (!Array.isArray(rows) || !Array.isArray(kept)) throw new Error('bad list');
-    pages = rows; box = kept; listState = 'ready';
+    if (!Array.isArray(rows) || !Array.isArray(kept) || !Array.isArray(pairs)) throw new Error('bad list');
+    const noteOwned = new Set(pairs.map(p => p && p.page_id));
+    pages = rows.filter(p => !noteOwned.has(p.id)); box = kept.filter(p => !noteOwned.has(p.id)); listState = 'ready';
     // HTML file pages and their link states. Before the DB step these tables are missing: every page is then a block page.
     const [versions, links] = await Promise.all([
       rt.api(`/rest/v1/app_share_page_html?workspace_id=eq.${ws}&select=page_id`, {singleFlight:false}).catch(() => []),

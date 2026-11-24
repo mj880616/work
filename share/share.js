@@ -103,6 +103,8 @@ async function start() {
   }
   // Drawing is outside the try above: a drawing problem is not a closed link (renderPage keeps each block apart).
   show(renderPage(page, media), page.title);
+  // NOTE-게시 ②(설계 4절): 노트 사진은 그 사람의 Drive에 있어 링크로는 보이지 않는다 — 사진 자리가 있으면 안내 한 줄.
+  if (main.querySelector('.ed-photo.is-place')) main.appendChild(el('p', 'sr-photo-note', '사진은 이 링크에서 보이지 않아요.'));
 }
 if (main) {
   moveSearchTokenToHash();
