@@ -84,7 +84,7 @@ const KNOWN = {
   'library-upload.css': {
     'library-drop.js': {routes: ['library']}, 'library-html-view.js': {routes: ['library']},
     'library-tree.js': {routes: ['library'], why: '자료실 나무 줄 그리기(다른 화면은 이 파일의 계산 함수만 씀)'},
-    'library-two-pane.js': {routes: ['library']},
+    'library-two-pane.js': {routes: ['library']}, 'library-drive-import.js': {routes: ['library'], why: '자료실 ⋯ [드라이브에서 가져오기] 창(S69-25) — 자료실 화면에서만 열림'},
   },
   'area-org-picker.css': {'choice-sheet.js': {why: 'area-org-picker.js가 넘긴 줄을 그림(그 부품이 모양을 붙임)'}},
   'markdown-view.css': {'markdown-render.mjs': {why: 'markdown-view.js·편집기가 쓰는 글자 바꾸기(그 부품이 모양을 붙임)'}},
