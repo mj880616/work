@@ -20,6 +20,19 @@ export async function createLibraryFolder(api, {workspace, project_id = null, pa
   const rows = await api('/rest/v1/app_library_folders', {method: 'POST', prefer: 'return=representation', body: {workspace_id: workspace, project_id, parent_id, name, sort_order}});
   return Array.isArray(rows) ? rows[0] || null : null;
 }
+// LIB-연결줄다읽기(명진 11/24 16:09·16:32 '폴더로 안 옮겨짐'): 자료 ↔ 폴더 연결 줄 전부. 서버는 한 번에 1000줄까지만 돌려주므로
+// (Supabase max rows) 1000줄씩 이어 읽는다. 1000줄에서 잘리면 나머지 자료가 '폴더 밖'으로 보이고, 옮기기가 이미 있는 줄과 겹쳐(409) 전부 실패했다.
+export const LIB_ITEM_PAGE = 1000;
+export async function readLibraryFolderItems(api, workspaceId, {page = LIB_ITEM_PAGE, max = 200000} = {}) {
+  const out = [];
+  for (let from = 0; from < max; from += page) {
+    const rows = await api(`/rest/v1/app_library_folder_items?workspace_id=eq.${enc(workspaceId)}&select=document_id,folder_id&order=document_id.asc&limit=${page}&offset=${from}`);
+    const list = Array.isArray(rows) ? rows : [];
+    out.push(...list);
+    if (list.length < page) break;
+  }
+  return out;
+}
 // ORG-기록자료폴더: 막 올린(또는 모으는) 자료 하나를 폴더 하나에 넣는다(자료 연결 표 한 줄, 소유자 RLS). 자료실 화면 putUploaded와 조직 기록 자료 폴더가 같은 쓰기.
 // 받는 폴더 트리거가 이미 연결 줄을 넣었으면(겹침 409) 그 줄을 이 폴더로 고친다. 반환: true(넣음) | false.
 export async function putDocumentInFolder(api, {workspace, documentId, folderId}) {
