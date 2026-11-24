@@ -20,3 +20,27 @@ export async function createLibraryFolder(api, {workspace, project_id = null, pa
   const rows = await api('/rest/v1/app_library_folders', {method: 'POST', prefer: 'return=representation', body: {workspace_id: workspace, project_id, parent_id, name, sort_order}});
   return Array.isArray(rows) ? rows[0] || null : null;
 }
+// ORG-기록자료폴더: 막 올린(또는 모으는) 자료 하나를 폴더 하나에 넣는다(자료 연결 표 한 줄, 소유자 RLS). 자료실 화면 putUploaded와 조직 기록 자료 폴더가 같은 쓰기.
+// 받는 폴더 트리거가 이미 연결 줄을 넣었으면(겹침 409) 그 줄을 이 폴더로 고친다. 반환: true(넣음) | false.
+export async function putDocumentInFolder(api, {workspace, documentId, folderId}) {
+  if (!workspace || !documentId || !folderId) return false;
+  const T = '/rest/v1/app_library_folder_items';
+  try { await api(T, {method: 'POST', prefer: 'return=minimal', body: {document_id: documentId, folder_id: folderId, workspace_id: workspace}}); return true; }
+  catch (e) { if (!(Number(e?.status) === 409 || /23505|duplicate/i.test(`${e?.code || ''} ${e?.message || ''}`))) return false; }
+  try { await api(T + `?document_id=eq.${enc(documentId)}&workspace_id=eq.${enc(workspace)}`, {method: 'PATCH', prefer: 'return=minimal', body: {folder_id: folderId}}); return true; }
+  catch { return false; }
+}
+// ORG-기록자료폴더: 담당조직과 짝지은 폴더들(organization_id 칸, migration 20261124160000). 칸이 아직 없는 서버는 400 → null(기능 꺼짐, 지금처럼).
+export async function readFolderOrgLinks(api, workspaceId) {
+  try {
+    const rows = await api(`/rest/v1/app_library_folders?workspace_id=eq.${enc(workspaceId)}&organization_id=not.is.null&select=id,organization_id`);
+    if (!Array.isArray(rows)) return [];
+    if (rows.some(r => !r || !('organization_id' in r))) return null; // 칸을 모르는 서버(돌려준 줄에 칸이 없음)
+    return rows.filter(r => r.organization_id);
+  } catch (error) { if (Number(error?.status) === 400) return null; throw error; }
+}
+// 폴더 하나를 담당조직 하나와 짝짓는다(서버 함수 app_library_folder_set_org — 내 작업공간 폴더·조직만, 같은 조직의 다른 폴더 짝은 서버가 푼다). null = 짝 풀기.
+export async function setFolderOrganization(api, id, organizationId) {
+  const result = await api('/rest/v1/rpc/app_library_folder_set_org', {method: 'POST', body: {p_id: id, p_org: organizationId || null}, singleFlight: false});
+  return !!result && result.ok === true;
+}
