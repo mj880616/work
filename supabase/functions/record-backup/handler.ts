@@ -14,6 +14,8 @@
 // 로그·응답: 코드와 숫자만. 기록 내용·제목·파일 ID를 로그에 싣지 않는다.
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { appNameFor, folderNameFor, keepOldFromMyFeatures } from "../_shared/brand-folders.mjs";
+// S69-22: 백업 맨 위 폴더는 내 드라이브 맨 위 또는 맨 위 앱 폴더 바로 아래 어디에 있어도 같은 폴더(표식 kptu_backup=root).
+import { createParentFor, isDriveId, topParentsClause } from "../_shared/app-folders.mjs";
 import { CATEGORIES, DOC_BYTES, KEEP_WEEKS, ROWS_PER_TABLE, cleanRow, foldersToTrash, kstDate, parseKinds, readableHtml, tableQuery, toCsv } from "./model.mjs";
 
 export type Env = (name: string) => string | undefined;
@@ -21,6 +23,8 @@ export type BackupDeps = {
   env: Env;
   ownerWorkspace: (userId: string) => Promise<string | null>;
   driveToken: (workspaceId: string) => Promise<string>; // 연결 없음: Error code 'drive_not_connected' / 만료 'drive_auth_expired'
+  // S69-22: 맨 위 앱 폴더 id(app_drive_settings.root_folder_id, 서버 키). 없거나 못 읽으면 null(→ 내 드라이브 맨 위만).
+  appRootId?: (workspaceId: string) => Promise<string | null>;
   fetch?: typeof fetch;
   now?: () => number;
   log?: (code: string) => void;
@@ -129,6 +133,12 @@ export function createRecordBackupHandler(deps: BackupDeps) {
   }
   const mine = (kind: string, parent: string) =>
     `trashed = false and 'me' in owners and mimeType = '${FOLDER_MIME}' and appProperties has { key='kptu_backup' and value='${kind}' } and '${q(parent)}' in parents`;
+  const mineAtTop = (appRoot: string | null) =>
+    `trashed = false and 'me' in owners and mimeType = '${FOLDER_MIME}' and appProperties has { key='kptu_backup' and value='root' } and ${topParentsClause(appRoot)}`;
+  async function appRootOf(workspaceId: string): Promise<string | null> {
+    if (!deps.appRootId) return null;
+    try { const id = await deps.appRootId(workspaceId); return isDriveId(id) ? id : null; } catch { return null; }
+  }
   // S68-02: 맨 위 폴더는 이름이 아니라 표식(kptu_backup=root)으로 찾으므로 이미 있는 폴더('노조+ 백업' 등)는 이름 그대로 계속 쓴다.
   // 없을 때만 만든다: 운영자 기능 nojo_words(명진 화면, 로그인 토큰으로 부른 app_my_features 답)·확인 실패는 '노조+ 백업', 그 밖은 'WORK ON+ 백업'.
   // S68-21: 같은 답으로 새로 만드는 읽기용 문서 첫 줄의 앱 이름도 정한다(run에서 한 번 확인).
@@ -139,11 +149,12 @@ export function createRecordBackupHandler(deps: BackupDeps) {
       return keepOldFromMyFeatures(await res.json().catch(() => null));
     } catch { return null; }
   }
-  async function rootFolder(t: string, create: boolean, keepOld: boolean | null = null): Promise<Row | null> {
-    const found = await list(t, mine("root", "root"));
+  async function rootFolder(t: string, workspaceId: string, create: boolean, keepOld: boolean | null = null): Promise<Row | null> {
+    const appRoot = await appRootOf(workspaceId);
+    const found = await list(t, mineAtTop(appRoot));
     if (found.length > 1) throw new Fail(409, "DRIVE_DUPLICATE_FOLDERS");
     if (found[0] || !create) return found[0] || null;
-    return await makeFolder(t, folderNameFor("record_backup", keepOld), "root", { kptu_backup: "root" });
+    return await makeFolder(t, folderNameFor("record_backup", keepOld), createParentFor(appRoot), { kptu_backup: "root" });
   }
   async function makeFolder(t: string, name: string, parent: string, props: Record<string, string>): Promise<Row> {
     const body = JSON.stringify({ name, mimeType: FOLDER_MIME, parents: [parent], appProperties: props });
@@ -191,7 +202,7 @@ export function createRecordBackupHandler(deps: BackupDeps) {
     }
     let last_at = null, last_count = null, folder_url = null, folder_name = null;
     if (t) {
-      const root = await rootFolder(t, false);
+      const root = await rootFolder(t, w.workspaceId, false);
       const props = (root?.appProperties || {}) as Record<string, string>;
       if (root) folder_url = folderUrl(String(root.id));
       if (root && typeof root.name === "string") folder_name = root.name;
@@ -227,7 +238,7 @@ export function createRecordBackupHandler(deps: BackupDeps) {
     const at = now(), date = kstDate(at);
     // S68-21: 이번 실행에서 한 번만 확인한다 — 새로 만드는 맨 위 폴더 이름과 새로 만드는 읽기용 문서 첫 줄의 앱 이름이 같은 답을 쓴다.
     const keepOld = await keepOldNames(w.auth), appName = appNameFor(keepOld);
-    const root = await rootFolder(t, true, keepOld) as Row;
+    const root = await rootFolder(t, w.workspaceId, true, keepOld) as Row;
     await assertPrivate(t, String(root.id));
     for (const old of await list(t, mine("day", String(root.id)))) {
       if ((old.appProperties as Record<string, string>)?.kptu_backup_date === date) await trash(t, String(old.id));

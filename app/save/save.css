@@ -1,0 +1,12 @@
+/* S69-BM 저장 창: 작은 창(약 420x300) 한 칸. 콤팩트·톤다운, 크고 굵은 버튼 없음. */
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;font-size:14px}
+.sv{padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-height:100vh}
+.sv p{margin:0}
+.sv-app{font-size:12px;color:var(--kptu-muted)}
+.sv-msg{font-size:15px}
+.sv-msg.is-bad{color:var(--kptu-danger)}
+.sv-title{color:var(--kptu-muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.sv-acts{display:flex;gap:6px}
+.sv-acts[hidden]{display:none}
+.sv-acts button{appearance:none;border:1px solid var(--kptu-border-strong);background:var(--kptu-surface);color:var(--kptu-ink);border-radius:6px;padding:3px 10px;font:inherit;font-size:13px;cursor:pointer}

@@ -27,16 +27,22 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {openAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText} from './area-org-picker.js';
 import {waitHtml, failHtml, emptyEl} from './wait-state.js';
 import {notify, askConfirm} from './small-notice.js';
-import {word} from './brand/brand.mjs';
+import {word, APP_NAME} from './brand/brand.mjs';
 import {myFeaturesOrNull} from './my-features.js';
 import {bindRowSwipe, claimedSince, PICK} from './row-swipe.js';
 import {textSizeHtml, paintTextSize} from './text-size.js';
+import {copyText} from './copy-text.js';
+import {isPhoneApp} from './phone-push-model.mjs';
+import {bookmarkletLine, saveAddress} from './save-bookmarklet-model.mjs';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
 const view = () => document.getElementById('readingView');
 const wide = () => window.matchMedia?.('(min-width: 761px)').matches;
 const here = () => window.KPTURouter?.current === 'reading' && !document.hidden;
+// S69-BM: PC 크롬 즐겨찾기 막대용 저장 버튼(북마클릿) 줄은 마우스로 쓰는 넓은 화면에서만 그린다(폰·펼친 폴드·폰 앱에서는 만들지 않음).
+const pcBrowser = () => wide() && !!window.matchMedia?.('(pointer: fine)').matches && !isPhoneApp(navigator.userAgent);
+const bookmarklet = () => bookmarkletLine(saveAddress(window.KPTUAuth?.APP_ROOT || new URL('./', location.href).href));
 
 function install() {
   if (document.getElementById('readingView')) return;
@@ -132,6 +138,15 @@ function drawList() {
     form.append(input, save, btn('mini', '닫기', {rdAddClose: '1'}));
     parts.push(form);
     if (state.addError) parts.push(el('p', 'rd-line rd-bad', state.addError));
+    if (pcBrowser()) {
+      // 끌어 놓기용 링크 + [한 줄 복사]. 이 화면에서 링크를 누르면 실행하지 않는다(click에서 막음).
+      const bm = el('p', 'rd-line rd-bm');
+      bm.dataset.rdBm = '1';
+      const a = el('a', 'rd-bm-link', `${APP_NAME} 저장`);
+      a.href = bookmarklet(); a.dataset.rdBmLink = '1'; a.title = '즐겨찾기 막대로 끌어 놓기';
+      bm.append('크롬 버튼: ', a, ' ', btn('mini', '한 줄 복사', {rdBmCopy: '1'}));
+      parts.push(bm);
+    }
     queueMicrotask(() => { if (input.isConnected && !input.value) input.focus({preventScroll: true}); });
   }
   if (state.failed && !state.rows.length) {
@@ -490,6 +505,8 @@ function bind() {
     if (more) { menu.open(more); return; }
     if (t.closest?.('[data-rd-add]')) { state.adding = !state.adding; state.addError = ''; drawList(); return; }
     if (t.closest?.('[data-rd-add-close]')) { state.adding = false; state.addError = ''; drawList(); return; }
+    if (t.closest?.('[data-rd-bm-link]')) { e.preventDefault(); notify('즐겨찾기 막대로 끌어 놓아 쓰세요', {record: false}); return; }
+    if (t.closest?.('[data-rd-bm-copy]')) { void copyText(bookmarklet()).then(ok => notify(ok ? '한 줄 복사했어요 · 즐겨찾기 막대 오른쪽 클릭 → 페이지 추가 → URL에 붙여 넣기' : '복사하지 못했어요', {record: false, error: !ok})); return; }
     if (t.closest?.('[data-rd-retry]')) { void refresh(); return; }
     if (t.closest?.('[data-rd-back]')) { closeDetail(); return; }
     const f = t.closest?.('[data-rd-fetch]');

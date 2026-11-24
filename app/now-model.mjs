@@ -282,9 +282,9 @@ export function dateText(iso) {
 // 입력: oc = 사회운동 카탈로그 [{key,name,group}], on = 켠 단체 키, nc = 뉴스 카탈로그 [{key,name,region}], non = 켠 news- 키.
 export const MEDIA_ALL = 'all';
 export const OUTSIDE_GROUP_LABEL = Object.freeze({labor: '노동', party: '정당', movement: '사회운동', foreign: '국제'});
-export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', foreign: '언론 국제'}); // '외국' → '국제'(11/15 NEWS-출처목록가나다)
+export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', opinion: '사설·칼럼', foreign: '언론 국제'}); // '외국' → '국제'(11/15 NEWS-출처목록가나다)
 const OUTSIDE_GROUPS = Object.freeze(['labor', 'party', 'movement', 'foreign']);
-const PRESS_REGIONS = Object.freeze(['domestic', 'foreign']);
+const PRESS_REGIONS = Object.freeze(['domestic', 'opinion', 'foreign']); // S69 NEWS-사설칼럼: 신문 사설·칼럼 묶음(서버 카탈로그 region 'opinion')
 const side = pick => (pick === MEDIA_ALL ? 'all' : /^[gs]:/.test(pick || '') ? 'outside' : /^[rn]:/.test(pick || '') ? 'news' : '');
 // 이 탭에서 쓸 수 있는 고른 값인가. [보관]은 거르지 않는다.
 export function mediaFits(tab, pick) {

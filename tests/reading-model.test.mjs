@@ -32,6 +32,9 @@ test('목록 줄: 안 읽음 점·제목(없으면 사이트)·사이트·날짜
   ];
   assert.deepEqual(lineOf(rows[0]), {id: 'a', url: 'https://ex.com/1', title: '첫 글', site: 'ex.com', day: '11/22', unread: true, area: null, state: 'ok'});
   assert.equal(lineOf(rows[1]).title, 'ex.org');
+  // S69 NEWS-제목늘읽기: 제목이 없으면 주소 경로의 읽을 만한 조각을 먼저(기사 번호뿐이면 사이트).
+  assert.equal(lineOf({id: 'c', url: 'https://ex.org/2026/11/24/workers-win-wage-deal', title: null}).title, 'workers win wage deal');
+  assert.equal(lineOf({id: 'd', url: 'https://ex.org/news/article/all/20261124/132845001/1', title: null, site: 'ex.org'}).title, 'ex.org');
   assert.equal(lineOf(rows[1]).state, 'pending');
   // 직접 저장한 줄만(News 연결 없음).
   const only = entriesOf(rows);
