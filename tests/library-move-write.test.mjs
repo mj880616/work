@@ -73,3 +73,21 @@ test('all(사진 묶음): 하나라도 막히면 나머지는 시도하지 않�
   assert.equal(r.done.length, 0);
   assert.deepEqual(r.failed.sort(), ['p1', 'p2']);
 });
+
+test('겹침인데 읽은 줄에 그 묶음 자료가 없으면 같은 묶음을 되풀이하지 않고 하나씩', async () => {
+  const srv = fakeServer([{document_id: 'x0', folder_id: 'junk'}]);
+  const base = srv.api;
+  let posts = 0;
+  srv.api = async (path, o = {}) => {
+    if ((o.method || 'GET') === 'GET') return [{document_id: 'other', folder_id: 'junk'}]; // 엉뚱한 줄만 돌려주는 서버
+    if (o.method === 'POST') posts++;
+    return base(path, o);
+  };
+  const prev = ['x0', 'x1', 'x2'].map(id => ({id, had: false}));
+  const r = await writeMoves({api: srv.api, ws: 'w', prev, folderId: 'f'});
+  assert.ok(posts < 10);
+  // 하나씩: x1·x2는 넣고, 겹친 x0는 한 줄 읽기 뒤 옮긴다.
+  assert.deepEqual(r.done.sort(), ['x0', 'x1', 'x2']);
+  assert.deepEqual(r.failed, []);
+  assert.equal(srv.items.get('x0'), 'f');
+});

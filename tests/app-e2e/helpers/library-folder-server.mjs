@@ -85,7 +85,7 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
     const req=route.request(),url=new URL(req.url()),m=req.method(),body=bodyOf(req);
     if(m!=='GET')s.writes.push({table:'items',method:m,id:eq(url,'document_id')||null,body});
     // 실제 서버처럼 한 번에 1000줄까지(limit·offset을 따름) — LIB-끌어옮기기저장실패. document_id=eq.(한 줄 읽기)도 받는다.
-    if(m==='GET'){const fid=eq(url,'folder_id'),did=/^eq\./.test(url.searchParams.get('document_id')||'')?eq(url,'document_id'):'',off=Number(url.searchParams.get('offset'))||0,lim=Math.min(Number(url.searchParams.get('limit'))||1000,1000);const list=s.items.filter(x=>(!fid||x.folder_id===fid)&&(!did||x.document_id===did));return route.fulfill({json:list.slice(off,off+lim)})}
+    if(m==='GET'){const fid=eq(url,'folder_id'),dq=url.searchParams.get('document_id')||'',dids=/^in\./.test(dq)?dq.replace(/^in\.\(|\)$/g,'').split(','):null,did=/^eq\./.test(dq)?eq(url,'document_id'):'',off=Number(url.searchParams.get('offset'))||0,lim=Math.min(Number(url.searchParams.get('limit'))||1000,1000);const list=s.items.filter(x=>(!fid||x.folder_id===fid)&&(!did||x.document_id===did)&&(!dids||dids.includes(x.document_id)));return route.fulfill({json:list.slice(off,off+lim)})}
     // LIB-받는폴더나누기: 여러 자료를 한 요청으로 옮기기(document_id=in.(…)&folder_id=eq.지금 폴더, return=representation). 지금 폴더에 든 줄만 바뀐다.
     if(m==='PATCH'&&/^in\./.test(url.searchParams.get('document_id')||'')){
       const ids=String(url.searchParams.get('document_id')).replace(/^in\.\(|\)$/g,'').split(','),fid=eq(url,'folder_id');

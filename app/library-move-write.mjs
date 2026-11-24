@@ -67,7 +67,9 @@ export async function writeMoves({api, ws, prev, folderId, all = false, chunk = 
       let rows;
       try { rows = await api(T_ITEMS + `?workspace_id=eq.${enc(ws)}&${inList(part.map(p => p.id))}&select=document_id,folder_id`, {singleFlight: false}); }
       catch { await oneByOne(part); return; }
-      const had = new Map((Array.isArray(rows) ? rows : []).map(r => [r.document_id, r.folder_id || null]));
+      const ids = new Set(part.map(p => p.id));
+      const had = new Map((Array.isArray(rows) ? rows : []).filter(r => ids.has(r?.document_id)).map(r => [r.document_id, r.folder_id || null]));
+      // 겹친 줄을 찾지 못하면(그 사이 바뀜) 다시 묶지 않고 하나씩 — 같은 묶음을 되풀이하지 않는다.
       if (!had.size) { await oneByOne(part); return; }
       for (const p of part) if (had.has(p.id)) { p.had = true; p.folder = had.get(p.id); }
       await runPart(part.filter(p => p.had), 'patch');

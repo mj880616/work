@@ -44,11 +44,12 @@ test('PC 1440 한 칸: 자료 1140개 — 폴더 밖 개수가 맞고, 폴더 �
   // 화면이 읽은 뒤에 연결 줄이 하나 생긴 자료(o0 → 잡동사니, 다른 기기에서 넣은 것처럼): 넣기가 겹쳐도 그 자료의 지금 폴더를 읽고 옮긴다.
   s.items.push({workspace_id:'workspace-1',document_id:'o0',folder_id:'junk'});
   await page.locator(nav('x:out')).click();
-  await expect(page.locator('#documentList [data-lu-document="o1"]')).toBeVisible();
+  // 가장 최근 자료(o8, 10.09)가 맨 위에 보인다.
+  await expect(page.locator('#documentList [data-lu-document="o8"]')).toBeVisible();
   await libraryTopMenu(page,'select');
   await page.locator('#librarySelectAll').click();
   await expect(page.locator('#librarySelectCount')).toContainText(String(N_OUT));
-  const r=await dragWithBar(page,'#documentList [data-lu-document="o1"]',nav('fb'));
+  const r=await dragWithBar(page,'#documentList [data-lu-document="o8"]',nav('fb'));
   // ③ 끄기 전 막대 = 여섯 단추, 끄는 동안 = '옮기는 중 40개' + [취소]만(다른 단추는 화면에 없음), 전체 칩도 없음.
   expect(r.before.acts).toEqual(expect.arrayContaining(['사업영역 바꾸기','폴더로 옮기기','삭제','취소']));
   expect(r.allowed).toBe(true);
@@ -81,12 +82,17 @@ test('PC 1440 두 칸: 각 칸 맨 위 \'폴더 밖\' 줄(개수) · 폴더 밖 
   for(const i of [0,1]){
     await expect(page.locator(`${pane(i)} [data-lu-prow]`).first()).toHaveAttribute('data-lu-prow','x:out');
     await expect(page.locator(`${out(i)} .ft-num`)).toHaveText(String(N_OUT));
-    await expect(page.locator(`${pane(i)} [data-lu-document="o1"]`)).toHaveCount(0);
+    await expect(page.locator(`${pane(i)} [data-lu-document="o8"]`)).toHaveCount(0);
   }
   await page.locator(out(0)).click();
-  await expect(page.locator(`${pane(0)} [data-lu-pane-sub=""] [data-lu-document="o1"]`)).toBeVisible();
-  await page.locator(`${pane(0)} [data-lu-document="o1"]`).dragTo(page.locator(`${pane(1)} [data-lu-nav="fb"]`));
-  await expect.poll(()=>folderOf(s,'o1')).toBe('fb');
+  await expect(page.locator(`${pane(0)} [data-lu-pane-sub=""] [data-lu-document="o8"]`)).toBeVisible();
+  // 오른쪽 칸 '가상 받을곳' 줄(폴더 밖 묶음 아래, 화면 밖일 수 있음)에 놓기 — 끌기 이벤트를 그 줄에 직접.
+  await page.evaluate(({from,to})=>{const src=document.querySelector(from),dst=document.querySelector(to),dt=new DataTransfer();
+    src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
+    const r=dst.getBoundingClientRect(),o={bubbles:true,cancelable:true,dataTransfer:dt,clientX:r.left+r.width/2,clientY:r.top+r.height/2};
+    dst.dispatchEvent(new DragEvent('dragover',o));dst.dispatchEvent(new DragEvent('drop',o));src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}))},
+    {from:`${pane(0)} [data-lu-document="o8"]`,to:`${pane(1)} [data-lu-nav="fb"]`});
+  await expect.poll(()=>folderOf(s,'o8')).toBe('fb');
   await expect(line(page)).toContainText('옮겼어요 1개 → 가상 받을곳 폴더');
   await expect(page.locator(`${out(0)} .ft-num`)).toHaveText(String(N_OUT-1));
   expect(errors).toEqual([]);
