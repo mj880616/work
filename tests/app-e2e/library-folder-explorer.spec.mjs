@@ -33,8 +33,13 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
       await expect(count(page,'f:fa')).toHaveText('폴더 1 · 파일 1');await expect(count(page,'f:fn')).toHaveText('0');
       await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
       expect(await tops(page)).toEqual(['f:fc']);expect(await rowsHere(page)).toEqual(['n-1']);
+      // S69-68(명진 11/24 20:09): 오른쪽 폴더 줄 누르기 = 그 자리 펼치기(들어가지 않음). 들어가기는 왼쪽 나무.
       await page.locator('#documentList details[data-lu-node="f:fc"] > summary').click();
-      expect(await tops(page)).toEqual([]);expect(await rowsHere(page)).toEqual(['a-1']);
+      await expect(page.locator('#documentList details[data-lu-node="f:fc"]')).toHaveAttribute('open','');
+      await expect(page.locator('#documentList details[data-lu-node="f:fc"] [data-lu-document="a-1"]')).toBeVisible();
+      expect(await tops(page)).toEqual(['f:fc']);
+      await page.locator('#libraryFolderNav [data-lu-nav="fc"]').click();
+      await expect.poll(()=>tops(page)).toEqual([]);expect(await rowsHere(page)).toEqual(['a-1']);
       await pickGroup(page,'사업영역');await expandLibraryTree(page);
       expect(await childrenOf(page,'p:none')).toContain('n-1');expect(await childrenOf(page,'f:fa')).toEqual([]);
       expect(await page.locator('#libraryView').evaluate(v=>{const c=v.cloneNode(true);c.querySelectorAll('.lu-node-name,[data-lu-document]').forEach(x=>x.remove());return c.innerText})).not.toContain('프로젝트');
@@ -252,8 +257,11 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     await expect(libraryNode(page,'f:fc')).toHaveAttribute('style',/--lu-depth:\s*0/);
     const here=(...n)=>['‹자료실',...n].join('›');
     await expect(path).toBeVisible();await expect(path).toHaveText(here('가상 A'));await expect(path.locator('[aria-current="location"]')).toHaveText('가상 A');
-    // 안의 폴더 줄 누르기 = 한 단계 더.
+    // S69-68: 안의 폴더 줄 누르기 = 그 자리 펼치기(위치 줄 그대로). 한 단계 더는 ⋯ [이 폴더로 들어가기].
     await press(page,libraryNodeHead(page,'f:fc'),width);
+    await expect(libraryNode(page,'f:fc')).toHaveAttribute('open','');
+    await expect(path).toHaveText(here('가상 A'));
+    await press(page,menuButton(page,'f:fc'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
     await expect.poll(()=>tops(page)).toEqual([]);expect(await rowsHere(page)).toEqual(['a-1']);
     await expect(path).toHaveText(here('가상 A','가상 C'));
     // 위치 줄의 '가상 A'를 누르면 그 단계로.

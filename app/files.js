@@ -17,7 +17,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
 import {ftKeepPlace, ftBindTreeArrows, ftExplorePress, FOLDER_ENTER_LABEL} from './folder-tree-press.mjs';
 import {destSheetHtml} from './folder-dest-sheet.mjs'; // S69-62 폴더 고르기 창 하나(모양 공용)
-import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, ftEmptyRowHtml, ftTrashRowHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, ftTrashRowHtml, ftEmptyRowHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
 import {followPane} from './follow-pane.js';
@@ -1313,7 +1313,8 @@ async function treeAct(id, r, inKey, anchor) {
   if (id === 'open') { openPreview(r); return; }
   if (id === 'goto') { await gotoFolder(r); return; }
   // '그 폴더만'(S51-24) 안 하위 폴더의 ⋯ '이 폴더만' = 한 단계 더 안으로(같은 상자 모양).
-  if (id === 'only') { if (treePane()) focusTreeFolder(key); else goFolder(r.source, r.item_id); return; }
+  // S69-68: 줄 누르기가 그 자리 펼치기가 되어 '그 폴더만' 안 한 단계 들어가기는 이 메뉴 길 — 뒤로가기·[‹]가 한 단계 위로 오도록 내려온 길(down)에 적는다.
+  if (id === 'only') { if (treePane()) focusTreeFolder(key); else goFolder(r.source, r.item_id, P(), {down: focusBox(P())}); return; }
   if (id === 'mkdir') { await makeFolder(anchor, here); return; }
   if (id === 'upload') { const inp = $('[data-fx-file]'); if (inp) { state.upTo = here; inp.value = ''; inp.click(); } return; }
   if (id === 'tolib') { await sendToLibrary([r]); return; }
@@ -1575,7 +1576,7 @@ function focusFolderHtml(p, r, parent, depth = 0) {
   state.treeRows.set(key, r);
   // 고름·잘라 둠 표시는 누르는 단추(data-fx-row)에 둔다(paintPicks가 그 단추만 바꾼다).
   const mark = [p.picked.has(key) ? 'fx-picked' : '', state.clip?.keys.includes(key) ? 'fx-cut' : ''].filter(Boolean).join(' ');
-  // OPS-빠진일2차 1: '그 폴더만' 안 하위 폴더도 누르면 그 자리 펼치기·접기(하위 폴더가 없으면 한 단계 들어가기 — 공용 판정).
+  // S69-68: '그 폴더만' 안 하위 폴더도 누르면 그 자리 펼치기·접기(빈 폴더도 펼쳐 '빈 폴더' 한 줄). 들어가기는 ⋯·두 손가락 벌리기.
   return ftFolderRowHtml({name: r.name, count: countOf(r.source, r.item_id) || null, depth, open, hasContent: true, color: folderLook.color(r.source, r.item_id),
     mainClass: mark,
     rowAttrs: {'data-ft-parent': parent, 'data-fx-xof': depth ? parent : null, 'data-fx-xkey': open ? fk : null}, mainAttrs: {'data-fx-row': key, 'data-fx-drop': local ? null : fk, 'aria-selected': String(p.sel === key || p.picked.has(key))},
@@ -1612,7 +1613,10 @@ function paintFocus(p, list, drawn = '') {
 // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 펼쳐 '빈 폴더' 한 줄(전의 '하위 없는 폴더는 한 번에 열기'는 없앰). 그 폴더만 보기(들어가기)는 ⋯·우클릭 [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기.
 // 펼친 폴더 안은 나무와 같은 읽기(state.children·state.files — loadChildren·fillFolder)를 쓰고, 그 칸 정렬 그대로 하위 폴더 → 파일 순서. 펼침은 칸마다 화면 메모리(p.xopen).
 // 찾기 결과·묶음(별표·큰 파일)은 여러 위치가 섞인 목록이라 지금처럼 누르면 들어간다.
-const xable = p => orderable(p) && two(); // S69-38: 그 자리 펼치기는 두 칸 보기 칸 안만
+// S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09 '노조를 클릭하면 노조가 펼쳐지는거야 거기로 들어가는게 아니고 들어가는건 무조건 왼쪽에서 클릭했을 때'):
+//  그 자리 펼치기는 두 칸 칸 안뿐 아니라 한 칸 탐색기 오른쪽 목록·폰 '그 폴더만' 안 하위 폴더 줄도 같다(전의 S69-38 '오른쪽 하위 폴더 = 들어가기'를 대신함).
+//  들어가기는 왼쪽 나무 누르기(ftExplorePress)·⋯·우클릭 [이 폴더로 들어가기]·두 손가락 벌리기만.
+const xable = p => orderable(p);
 // 폴더 줄의 펼침 표시(aria-expanded·data-fx-xkey)와 펼친 폴더 안 줄 표시(data-fx-xof = 그 폴더 열쇠 — 두 손가락 벌리기가 그 폴더로 들어간다).
 const xAttrs = (r, open, xof) => (open === null ? '' : ` aria-expanded="${open}"`) + (open ? ` data-fx-xkey="${esc(folderKey(r.source, r.item_id))}"` : '') + (xof ? ` data-fx-xof="${esc(xof)}"` : '');
 // 펼친 폴더 안 줄(아직 못 읽었으면 null). 정렬은 그 칸 정렬, 폴더는 정한 순서로 앞에(shown과 같은 규칙).
@@ -1698,11 +1702,11 @@ function xToggle(p, r) {
   inPane(p, `[data-fx-row="${CSS.escape(rowKey(r))}"]`)?.focus({preventScroll: true});
 }
 // 목록 칸 폴더 줄 하나 누르기(마우스·손가락·Enter 같은 길).
-// S69-38 UI-탐색기나무누르기: 한 칸(PC·폴드 탐색기 오른쪽, 폰 '그 폴더만')은 하위 폴더를 누르면 그 폴더로 들어가고 왼쪽 나무가 따라 펼침·강조(goFolder → 위치 줄 폴더 펼침).
-// 오른쪽에 나무를 다시 그리지 않는다(그 자리 펼치기는 두 칸 보기 칸 안 목록만 — 지금 그대로).
-// UI-폴더이름펼치기(명진 11/24 18:09): 그 자리 펼치는 목록(두 칸 칸 안)의 폴더 이름 누르기 = 늘 펼치기·접기(빈 폴더도 펼쳐 '빈 폴더' 한 줄, 하위 폴더 수를 몰라도 펼치며 읽기).
+// S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09): 목록 칸(한 칸 탐색기 오른쪽·두 칸 칸 안·폰 '그 폴더만')의 폴더 이름 누르기 = 늘 그 자리 펼치기·접기
+// (빈 폴더도 펼쳐 '빈 폴더' 한 줄, 하위 폴더 수를 몰라도 펼치며 읽기). 왼쪽 나무는 따라 바뀌지 않는다(목록 펼침 p.xopen과 나무 펼침 state.open은 따로).
 // 들어가기는 ⋯ [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기만(folder-tree-press.mjs 머리 설명).
 function pressListFolder(p, r) {
+  // 찾기 결과·묶음(여러 위치가 섞인 목록)만 지금처럼 그 폴더로 들어간다(펼칠 자리가 없는 목록).
   if (!xable(p)) { goFolder(r.source, r.item_id, p, {down: focusBox(p)}); return; }
   xToggle(p, r);
 }
@@ -3944,7 +3948,7 @@ function toggle(key, box) {
 function activate(key) {
   const r = rowByKey(key);
   if (!r) return;
-  // 목록 칸 폴더 누르기 = 두 칸 칸 안은 그 자리 펼치기·접기(UI-폴더이름펼치기), 한 칸 탐색기는 들어가기. 파일은 지금처럼 고르기·미리보기.
+  // 목록 칸 폴더 누르기 = 그 자리 펼치기·접기(UI-폴더이름펼치기·S69-68 — 한 칸·두 칸·폰 '그 폴더만' 모두). 파일은 지금처럼 고르기·미리보기.
   if (r.is_folder) pressListFolder(P(), r); else selectRow(key);
 }
 const paneOfEl = el => frame.paneOf(el);
@@ -4201,7 +4205,7 @@ function listMenu(b, event) {
   const p = P(), many = p.picked.has(key) && p.picked.size > 1 ? pickedRows(p) : [];
   const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), pinned: pinState(r), zip: many.some(x => !x.is_folder)}).map(it => (it.id === 'only' ? {...it, id: 'go', label: FOLDER_ENTER_LABEL} : it));
   return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '',
-    run: id => { if (offStop(items, id)) return; if (id === 'go') goFolder(r.source, r.item_id); else if (id === 'zip') void zipDownload(many); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
+    run: id => { if (offStop(items, id)) return; if (id === 'go') goFolder(r.source, r.item_id, P(), {down: focusBox(P())}); else if (id === 'zip') void zipDownload(many); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
 }
 // PC: 줄을 폴더(목록의 폴더 줄·나무의 폴더)로 끌어 놓아 옮기기. 끈 줄이 고른 것 안이면 고른 것 모두.
 // 두 칸: 반대 칸(그 칸의 지금 폴더 또는 그 칸의 폴더 줄)에 놓으면 '복사 · 옮기기' 작은 고르기.

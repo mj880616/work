@@ -58,9 +58,14 @@ test('그 자리 펼치는 목록의 폴더 누르기는 들어가지 않는다(
   for (const f of ['library-upload.js', 'library-two-pane.js', 'files.js', 'basket-notes.js', 'photos.js']) {
     assert.doesNotMatch(src(f), /folderPressAction|FOLDER_PRESS_ENTER|createLeafWait/, f);
   }
-  // 자료실 폰 맨 위 나무: 이름 누르기 = 들어가기였던 길(폴더 그림 자리 재기)을 없앴다. 탐색기 칸 줄(data-lu-enter)만 들어간다.
+  // 자료실 폰 맨 위 나무: 이름 누르기 = 들어가기였던 길(폴더 그림 자리 재기)을 없앴다.
+  // S69-68(명진 11/24 20:09): 탐색기 칸 줄(data-lu-enter)도 누르면 그 자리 펼치기 — 머리 누르기에서 들어가는 길이 남아 있지 않다.
   assert.doesNotMatch(src('library-upload.js'), /luOnFolderIcon/);
-  assert.match(src('library-upload.js'), /d\.hasAttribute\('data-lu-enter'\)\)\{e\.preventDefault\(\);luPressEnter/);
+  assert.doesNotMatch(src('library-upload.js'), /hasAttribute\('data-lu-enter'\)\)\{e\.preventDefault\(\);luPressEnter/);
+  // [파일] 목록 칸 그 자리 펼치기는 한 칸·두 칸·폰 '그 폴더만' 모두(두 칸만이 아님).
+  assert.match(src('files.js'), /const xable = p => orderable\(p\);/);
+  // 노트 PC 오른쪽 칸 폴더 줄 = 그 자리 펼치기(왼쪽 나무 openSet과 따로 paneOpen).
+  assert.match(src('basket-notes.js'), /if \(paneOpen\.has\(id\)\) paneOpen\.delete\(id\); else paneOpen\.add\(id\);/);
 });
 
 test('⋯ 메뉴 첫 줄 = [이 폴더로 들어가기] — 자료실·[파일]·노트·사진', () => {
