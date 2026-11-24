@@ -51,6 +51,7 @@ const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: fals
 import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, titleKey, type PageRule } from "./page.ts";
+import { needsAttachment, withAttachment } from "./attach.ts";
 import { peekTitle } from "../_shared/page-title.ts";
 import { createHandPhotos, HAND_PHOTO_REQ_MAX, HandPhotoFail, photoSizeOf } from "./hand-photo.ts";
 import { BODY_LIMITS, bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
@@ -239,6 +240,12 @@ export const ART_SELECT = "id,url,url_key,origin,lane,title,title_key,lang,publi
 export const handOwned = (article: Row | null | undefined) =>
   !!article && typeof article.manual_at === "string" && !!article.manual_at &&
   (article.body_kind === "full" || (article.state === "ok" && article.body == null));
+// S69 READ-첨부본문(명진 11/24, 손으로 넣은 기사 본문이 '[사진 1] .'뿐): 손 본문의 글자(띄어쓰기·문장부호·기호 빼고)가 HAND_SHORT_CHARS 미만인 손 기사.
+// 이런 기사만 사람이 글 보기 ⋯·까닭 줄 [원문 다시 가져오기](open again)를 누를 때 원래 주소를 다시 읽어 본문을 채울 수 있다(자동 수집·다시 뽑기는 그대로 덮지 않음).
+// 읽은 결과가 전문(ok)일 때만 바꾸고, 손으로 넣은 사진은 앞에 그대로 둔다(saveArticleBody). 제목·매체·기자는 손 값 그대로(pagePatch는 빈 칸만 채움).
+export const HAND_SHORT_CHARS = 20; // 화면 now-model BODY_SHORT_CHARS·ai-assist MATERIAL_MIN_CHARS와 같은 값
+export const meaningfulChars = (t: unknown) => [...String(t ?? "").replace(/[\s\p{P}\p{S}]/gu, "")].length;
+export const handShort = (article: Row | null | undefined) => handOwned(article) && meaningfulChars(article?.body) < HAND_SHORT_CHARS;
 // NEWS-운영자만(S63-03, _shared/news-access.ts): News 몫 일은 기능 키 'outside' 작업공간(정확히 한 곳)만. 못 읽으면 null = 아무 곳도 안 함.
 async function newsWs(db: Db): Promise<string | null> {
   try { return newsWorkspaceOf(await db.rpcValue("app_operator_feature_workspace", { p_feature: NEWS_FEATURE })); } catch { return null; }
@@ -284,10 +291,12 @@ export async function mapOldRows(db: Db, log: FeedLog, rows: OldRef[], known?: M
 // byPerson(S69-02): 사람이 글 보기에서 연 읽기(news-feed open). 수집 때 글 쪽을 읽지 않는 매체(카탈로그 extract:false — 조선일보 등 국내 종합지)도
 // 사람이 열어 읽은 결과는 본문 블록으로 저장한다(설계 news-clipping.md 3.1b "사람이 [본문]을 누를 때 열기는 다른 매체와 같다").
 // 예전에는 이 경우도 저장을 건너뛰어 화면이 피드 소개(리드)만 보였고 [원문 다시 가져오기] 단추도 없었다.
-async function saveArticleBody(db: Db, log: FeedLog, article: Row | null | undefined, ex: Extracted, nowIso: string, byPerson = false) {
+async function saveArticleBody(db: Db, log: FeedLog, article: Row | null | undefined, ex: Extracted, nowIso: string, byPerson = false, replaceHand = false) {
   if (!article || typeof article.id !== "string" || !UUID.test(article.id)) return;
   // S68-40: 손으로 넣은 기사 본문은 읽은 결과로 덮지 않는다(손 본문 고치기는 hand_fill만).
-  if (handOwned(article)) { log("hand_body_kept"); return; }
+  // S69: 짧은 손 본문(handShort)을 사람이 다시 가져오기로 고를 때만(replaceHand) 전문으로 바꾸고, 손으로 넣은 사진은 앞에 둔다.
+  if (handOwned(article) && !(replaceHand && ex.state === "ok")) { log("hand_body_kept"); return; }
+  if (handOwned(article)) ex = await withHandPhotos(db, log, String(article.id), ex);
   if (!byPerson && article.lane === "media" && newsSourceByKey(article.source_key)?.extract === false) return;
   const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...body } = bodyRow(ex, { workspace_id: "" }, nowIso);
   const merge = ex.state !== "failed";
@@ -299,6 +308,20 @@ async function saveArticleBody(db: Db, log: FeedLog, article: Row | null | undef
       await db.send("PATCH", `app_news_article_bodies?article_id=eq.${article.id}&state=eq.failed&reason=eq.robots`, { ...body, updated_at: nowIso }, "return=minimal");
     }
   } catch { log("shared_body_failed", { lane: String(article.lane ?? "") }); }
+}
+
+// 짧은 손 본문을 읽은 전문으로 바꿀 때: 지금 손 본문 블록의 사진(img)을 새 블록 앞에 둔다(같은 주소 사진은 한 번). 못 읽으면 새 블록 그대로.
+async function withHandPhotos(db: Db, log: FeedLog, articleId: string, ex: Extracted): Promise<Extracted> {
+  try {
+    const row = (await db.get(`app_news_article_bodies?article_id=eq.${articleId}&select=blocks&limit=1`))[0];
+    const old = Array.isArray(row?.blocks) ? (row!.blocks as Record<string, unknown>[]).filter((b) => b?.t === "img" && typeof b.src === "string") : [];
+    const have = new Set(ex.blocks.flatMap((b) => (b.t === "img" ? [b.src] : [])));
+    const keep = old.filter((b) => !have.has(String(b.src))).slice(0, Math.max(0, BODY_LIMITS.images - ex.images))
+      .map((b) => ({ t: "img" as const, src: String(b.src), cap: typeof b.cap === "string" ? b.cap : null, alt: null }));
+    if (!keep.length) return ex;
+    const blocks = [...keep, ...ex.blocks].slice(0, BODY_LIMITS.blocks);
+    return { ...ex, blocks, images: ex.images + keep.length, captions: ex.captions + keep.filter((b) => b.cap).length };
+  } catch { log("hand_photos_keep_failed"); return ex; }
 }
 
 // ---- AI ------------------------------------------------------------------------------------------------------------
@@ -464,7 +487,8 @@ async function saveNewsBody(db: Db, log: FeedLog, item: Row, ex: Extracted, nowI
 // reuse: 공용 기사가 이미 읽힌 기사(state ok)면 원문을 다시 읽지 않고 그 결과를 옛 줄에 옮겨 적는다(예약 '대기 기사'만 — 사람이 누른 '열기'는 새로 읽음).
 // byPerson: 사람이 연 읽기(open) — 위 saveArticleBody 설명. betterThan(S69-02 ⋯ [원문 다시 가져오기]): 이미 전문이 있는 글을 다시 읽을 때 지금 본문 글자 수.
 // 새로 읽은 본문이 전문(ok)이고 그보다 길 때만 저장한다(짧거나 못 읽었으면 아무것도 고치지 않고 'same').
-type FillOpts = { rule: RuleFor; summarize?: boolean; countFetch?: boolean; article?: Row | null; chargeWs?: string | null; reuse?: boolean; byPerson?: boolean; betterThan?: number };
+// replaceHand(S69): 짧은 손 본문 기사를 사람이 다시 가져오기로 고친다(handShort) — 전문이면 공용 기사 본문을 바꾼다(제목 등 손 값은 그대로).
+type FillOpts = { rule: RuleFor; summarize?: boolean; countFetch?: boolean; article?: Row | null; chargeWs?: string | null; reuse?: boolean; byPerson?: boolean; betterThan?: number; replaceHand?: boolean };
 // 원문 한 번 읽기 → 같은 주소의 기사 줄들(items, 수집 때는 같은 기사를 켠 작업공간마다 한 줄)과 공용 기사 한 줄에 같은 결과를 쓴다.
 // 요약(AI)은 주소마다 한 번: 공용 기사에 요약이 있으면 그것을 쓰고, 없을 때만 한 번 만들어 모두에 적는다.
 async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], nowMs: number, opts: FillOpts): Promise<string> {
@@ -506,7 +530,9 @@ async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], n
     await saveArticleBody(db, ai.log, article, failedBody(readFailReason(got.code), ruleId(r.key, r.rule)), nowIso, opts.byPerson);
     return storedState(got.code);
   }
-  const page = readArticlePage(got.text, nowMs, opts.rule(got.url));
+  let page = readArticlePage(got.text, nowMs, opts.rule(got.url));
+  // S69 READ-첨부본문: 사람이 연 읽기(open)만 — 쪽 본문이 비거나 짧으면 그 쪽의 첨부 PDF·HWP·HWPX 글자를 본문으로(같은 공용 읽기, 수집 때는 안 받음).
+  if (opts.byPerson && needsAttachment(page)) page = await withAttachment(page, got.text, got.url, reader, opts.rule(got.url), ai.log);
   if (opts.betterThan !== undefined && !(page.blocks.state === "ok" && page.blocks.chars > opts.betterThan)) return "same";
   const targets = article ? [...items, article] : items;
   let sum: string | null = article && typeof article.summary === "string" && article.summary ? article.summary : null;
@@ -521,8 +547,8 @@ async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], n
     await saveNewsBody(db, ai.log, item, page.blocks, nowIso, opts.byPerson);
   }
   // S68-40: 손으로 넣은 공용 기사는 제목·본문·상태를 읽은 결과로 고치지 않는다(같은 주소 옛 줄만 위에서 고침).
-  if (article && !handOwned(article)) await patchArticle(db, ai.log, article.id, pagePatch(article, page, nowIso, sum));
-  await saveArticleBody(db, ai.log, article, page.blocks, nowIso, opts.byPerson);
+  if (article && (!handOwned(article) || (opts.replaceHand && page.blocks.state === "ok"))) await patchArticle(db, ai.log, article.id, pagePatch(article, page, nowIso, sum));
+  await saveArticleBody(db, ai.log, article, page.blocks, nowIso, opts.byPerson, opts.replaceHand);
   if (article && items.length) await mapOldRows(db, ai.log, items.map(oldRef), new Map([[String(article.url_key), article]]));
   return page.state;
 }
@@ -1824,7 +1850,12 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         const art = await ownArticle(reads, b.id);
         const olds = await ownOldRows(db, who.workspaceId, art);
         let betterThan: number | undefined;
-        if (art.body_kind === "full" && b.again === true && !handOwned(art)) {
+        const shortHand = b.again === true && handShort(art);
+        if (shortHand) {
+          // S69: 짧은 손 본문 — 쿨다운·손 규칙 검사 없이 한 번 더 읽되, 전문(ok)이 나왔을 때만 바꾼다(betterThan 0).
+          if (videoId(String(art.url))) return json({ ok: true, status: "original_only" });
+          betterThan = 0;
+        } else if (art.body_kind === "full" && b.again === true && !handOwned(art)) {
           if (videoId(String(art.url))) return json({ ok: true, status: "original_only" });
           // 같은 글을 잦게 다시 읽지 않는다: 마지막 읽기(fetched_at)가 REOPEN_COOLDOWN_MS 안이면 사이트를 읽지 않고 'recent'(하루 횟수도 쓰지 않음).
           const last = typeof art.fetched_at === "string" ? Date.parse(art.fetched_at) : NaN;
@@ -1842,7 +1873,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           return json({ ok: true, status: head ? "titled" : "stored" });
         }
         // S68-44: 사진만·비운 손 본문은 사람 것 — 원문을 다시 읽지 않는다.
-        if (handOwned(art)) return json({ ok: true, status: "stored" });
+        if (handOwned(art) && !shortHand) return json({ ok: true, status: "stored" });
         if (videoId(String(art.url))) return json({ ok: true, status: "original_only" }); // 영상: 본문이 없다 — 원문(영상)에서 보기
         let reader: FeedReader;
         if (art.lane === "channel") reader = readers.open(true);
@@ -1856,7 +1887,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         await useDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);
         // 원문은 공용 기사 주소로 한 번만 읽는다(같은 주소의 내 옛 줄에만 같은 결과를 함께 적음).
         const same = olds.filter((o) => String(o.url) === String(art.url));
-        const state = await fillItems(db, reader, ai, same, nowMs, { rule: ruleForItem(art) ?? openRule, article: art, chargeWs: who.workspaceId, byPerson: true, betterThan });
+        const state = await fillItems(db, reader, ai, same, nowMs, { rule: ruleForItem(art) ?? openRule, article: art, chargeWs: who.workspaceId, byPerson: true, betterThan, replaceHand: shortHand });
         return json({ ok: true, status: state });
       }
       // translate: 외국어 기사만. 공용 기사에 본문 번역이 이미 있으면(또는 본문 없이 제목 번역이 있으면) 저장본(다시 부르지 않음, 하루 한도도 안 씀).

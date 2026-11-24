@@ -3,7 +3,7 @@
 // - 원문 받아 오기(News에서 온 줄은 News 쪽 본문이 있으면 그것 먼저 — S68-32): 기존 Edge note-import(노트 '주소로 가져오기'와 같은 입구, 읽기 전용·로그인 owner만·내부 주소 차단·크기/시간/리다이렉트/robots 검사)에
 //   주소 하나만 보낸다. 답의 글자 블록을 글자로만 원문 사본 칸에 넣는다(HTML 없음). AI·발송·공유로 잇지 않는다.
 // - 한 번에 하나씩 차례로 받는다(같은 줄은 한 번). 바뀌면 'kptu:reading-changed'. 기기에 아무것도 저장하지 않는다(메모리뿐).
-import {LIST_COLS, LIST_LIMIT, newRow, bodyPatch, keepOwn, isId, linkOf, copyPatch} from './reading-model.mjs';
+import {LIST_COLS, LIST_LIMIT, newRow, bodyPatch, keepOwn, isId, linkOf, copyPatch, titleFixes, ownTitle} from './reading-model.mjs';
 import {requestFailReason} from './note-import-model.mjs';
 
 export const CHANGED = 'kptu:reading-changed';
@@ -60,6 +60,39 @@ export async function removeItem(id) {
 }
 export const setRead = (id, read) => patchItem(id, {read_at: read ? new Date().toISOString() : null});
 export const setArea = (id, areaId) => patchItem(id, {business_area_id: areaId || null});
+
+// 제목 고치기(S69 [수정] 창 — 직접 넣은 줄·News 기능 키가 없을 때). 사이트 칸은 비우면 주소의 사이트 이름으로.
+export const setTitle = (id, title, site) => patchItem(id, {title: ownTitle(title), ...(site === undefined ? {} : {site: ownTitle(site)})});
+
+// ---- 제목 주인 하나(S69 READ-제목하나) ----
+// News에서 온 줄 중 손으로 넣은 기사(manual_at)의 제목이 사본과 다르면 사본을 그 제목으로(reading-model titleFixes). 내 로그인으로 읽고(공용 기사 읽기 권한 그대로),
+// 내 줄만 고친다(owner RLS). 고친 줄 [{id,title,row}]를 돌려준다. 못 읽으면 [](다음에 열 때 다시).
+export async function fixLinkedTitles(rows) {
+  const ids = [...new Set((Array.isArray(rows) ? rows : []).map(r => r?.news_article_id).filter(isId).map(v => v.toLowerCase()))];
+  if (!ids.length || !ws()) return [];
+  const arts = [];
+  for (let i = 0; i < ids.length; i += 80) {
+    const got = await api(`/rest/v1/app_news_articles?id=in.(${ids.slice(i, i + 80).join(',')})&manual_at=not.is.null&select=id,title,manual_at`);
+    if (Array.isArray(got)) arts.push(...got);
+  }
+  const out = [];
+  for (const f of titleFixes(rows, arts)) {
+    try { out.push({...f, row: await patchItem(f.id, {title: f.title})}); } catch { /* 다음에 열 때 다시 */ }
+  }
+  return out;
+}
+// 글 보기 [직접 넣기]·⋯ [수정]으로 기사 제목을 저장한 직후(now-detail.js): 그 기사에 이어진 내 줄의 제목 사본을 같은 제목으로. 줄이 없으면 아무것도 안 함.
+export async function syncNewsTitle(articleId, title) {
+  const t = ownTitle(title);
+  if (!isId(articleId) || !t || !ws()) return 0;
+  const rows = await api(`${T}?workspace_id=eq.${enc(ws())}&news_article_id=eq.${enc(articleId.toLowerCase())}&select=${LIST_COLS}&limit=5`);
+  let n = 0;
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (r?.title === t) continue;
+    try { await patchItem(r.id, {title: t}); n += 1; } catch { /* 목록을 열 때 fixLinkedTitles가 다시 맞춘다 */ }
+  }
+  return n;
+}
 
 // ---- 원문 받아 오기(차례로 하나씩) ----
 // S68-32: News에서 온 줄(원래 글 연결 칸)은 먼저 News 쪽 본문(공용 본문 표 — News 화면과 같은 읽기 길 feed-shared.js readBody·readSentences)을 본다.
