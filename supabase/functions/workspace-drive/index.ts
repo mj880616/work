@@ -9,6 +9,8 @@ import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
 import { ROOT_FOLDER_NAME } from '../_shared/brand-folders.mjs';
 // S69-20 ①: 자료실 저장 위치 한 줄(드라이브 폴더 이름 경로·열기 주소). 폴더 이름만 읽고 파일 내용은 열지 않는다.
 import { drivePlace, metaUrl, parsePlaceRequest } from './drive-place.mjs';
+// S69-20 ③④⑤: 자료실 앱 폴더 = 드라이브 폴더(앞으로 같게 'auto', [드라이브 폴더 맞추기] 'align'). 규칙은 library-mirror.mjs 한 곳.
+import { DriveFail, MIRROR_BUDGET_MS, mirrorLibrary, parseMirrorBody } from '../_shared/library-mirror.mjs';
 const SB=Deno.env.get('SUPABASE_URL')!;const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;const admin=createClient(SB,SERVICE,{auth:{persistSession:false}});
 const cors={'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};const json=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
 // SEC-정리묶음: Google·AI 쪽 오류 원문은 서버 로그에만 남기고, 응답에는 우리 글(단계)만 싣는다.
@@ -27,7 +29,7 @@ async function createDownloadToken(userId:string,documentId:string){const raw=cr
 async function checkDocumentAccess(userId:string,documentId:string){const {data:doc,error}=await admin.from('app_documents').select('*').eq('id',documentId).maybeSingle();if(error||!doc)throw new Error('파일을 찾을 수 없습니다.');const {data:wm}=await admin.from('app_workspace_members').select('role').eq('workspace_id',doc.workspace_id).eq('user_id',userId).maybeSingle();if(wm?.role!=='owner')throw new Error('워크스페이스 소유자 권한이 필요합니다.');return doc}
 // S69-20 ①: GET ?action=drive-place → {ok:true, place:{folder_id,url,path}|null}. 작업공간은 로그인한 사람의 owner 작업공간(서버가 정함),
 // 폴더는 서버가 적어 둔 자료실 폴더 id로만, 이름은 드라이브의 지금 이름. 드라이브 연결이 없거나 읽기가 실패해도 오류 대신 place:null(화면은 줄을 안 그림).
-async function drivePlaceOf(userId:string){
+async function drivePlaceOf(userId:string,auth:string){
   const own=await callerOwnerWorkspace(admin,userId);
   if(!own)return json({error:'워크스페이스 소유자 권한이 필요합니다.'},403);
   const {data:s,error}=await admin.from('app_drive_settings').select('library_folder_id').eq('workspace_id',own).maybeSingle();
@@ -36,6 +38,54 @@ async function drivePlaceOf(userId:string){
   let token='';
   try{token=await workspaceDriveToken(admin,own,{fetch})}catch{return json({ok:true,place:null})}
   const place=await drivePlace(s.library_folder_id,async(id:string)=>{const r=await fetch(metaUrl(id),{headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(10000)});if(!r.ok)return null;return await r.json().catch(()=>null)});
-  return json({ok:true,place});
+  // S69-20 ③: 폴더 안에 들어가면 그 앱 폴더의 짝 드라이브 폴더로 열도록 짝 id 목록(로그인한 본인 권한으로 읽음 — owner RLS·휴지통 숨김). 칸이 없으면(DB 적용 전) 빈 목록.
+  const pairs:Record<string,string>={};
+  if(place){try{for(const f of await userRest(auth,`app_library_folders?workspace_id=eq.${own}&drive_folder_id=not.is.null&select=id,drive_folder_id`))if(typeof f?.id==='string'&&typeof f?.drive_folder_id==='string')pairs[f.id]=f.drive_folder_id}catch{}}
+  return json({ok:true,place:place?{...place,pairs}:null});
 }
-Deno.serve(withWebCors(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:cors});const u=new URL(req.url);const action=u.searchParams.get('action')||'';try{if(req.method==='GET'&&action==='download'){const raw=u.searchParams.get('t');if(!raw)return new Response('Invalid download token',{status:400});const hash=await sha256(raw);const {data:tok}=await admin.from('app_drive_download_tokens').select('*').eq('token_hash',hash).is('used_at',null).gt('expires_at',new Date().toISOString()).maybeSingle();if(!tok)return new Response('Download link expired',{status:410});const doc=await checkDocumentAccess(tok.user_id,tok.document_id);if(!doc?.file_id)return new Response('File not found',{status:404});const token=await driveAccessToken(tok.user_id,doc.workspace_id);const dr=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(doc.file_id)}?alt=media`,{headers:{Authorization:`Bearer ${token}`}});if(!dr.ok)return new Response('Drive download failed',{status:502});await admin.from('app_drive_download_tokens').update({used_at:new Date().toISOString()}).eq('id',tok.id);const h=new Headers();h.set('Content-Type',doc.mime_type||dr.headers.get('Content-Type')||'application/octet-stream');h.set('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(doc.file_name||doc.title||'download')}`);h.set('Cache-Control','no-store');return new Response(dr.body,{status:200,headers:h})}const user=await getUser(req);if(req.method==='GET'&&action==='drive-place'){if(!parsePlaceRequest(u))return json({error:'Unknown action'},400);return await drivePlaceOf(user.id)}if(req.method==='POST'&&action==='upload'){const form=await readMultipartForm(req);const projectId=String(form.get('project_id')||'');const file=form.get('file');if(!projectId||!(file instanceof File))return json({error:'프로젝트와 파일이 필요합니다.'},400);if(file.size<=0)return json({error:'빈 파일은 업로드할 수 없습니다.'},400);if(file.size>100*1024*1024)return json({error:'현재 프로젝트 파일은 100MB까지 지원합니다.'},413);const {project}=await projectAccess(user.id,projectId,true);const token=await driveAccessToken(user.id,project.workspace_id);const folder=await ensureProjectFolder(project,token);const df=await uploadDrive(file,folder,token);const a=classify(file.name);const explicitTitle=String(form.get('title')||'').trim();const {data:doc,error}=await admin.from('app_documents').insert({workspace_id:project.workspace_id,project_id:project.id,title:explicitTitle||a.title,category:a.category,source:a.source,document_date:a.date,description:null,tags:a.tags,drive_url:df.webViewLink||`https://drive.google.com/file/d/${df.id}/view`,file_id:df.id,file_name:file.name,mime_type:file.type||df.mimeType||'application/octet-stream',file_size:file.size,visibility:'private',uploaded_by:user.id,auto_classified:true,classification_note:'프로젝트 파일 자동분류'}).select('*').single();if(error)throw error;return json({ok:true,document:doc})}if(req.method==='POST'&&action==='download-token'){const body=await req.json().catch(()=>({}));const id=String(body.document_id||'');if(!id)return json({error:'document_id가 필요합니다.'},400);await checkDocumentAccess(user.id,id);const url=await createDownloadToken(user.id,id);return json({url,expires_in:300})}return json({error:'Unknown action'},400)}catch(e){console.error('workspace-drive failed',safeErrorLog(e));return json({error:safeErrorMessage(e),...((e as any)?.stage?{stage:(e as any).stage}:{})},(e as any)?.authRequired===true?401:400)}}));
+// S69-20 ③④⑤: 앱 표는 로그인한 본인 토큰(owner RLS)으로만 읽고 쓴다 — service_role에는 자료실 폴더 표 권한이 없다(넓히지 않음).
+const ANON=Deno.env.get('SUPABASE_ANON_KEY')||'';
+async function userRest(auth:string,path:string,init:RequestInit={}){
+  if(!ANON)throw new Error('config');
+  const r=await fetch(`${SB}/rest/v1/${path}`,{...init,headers:{apikey:ANON,Authorization:auth,'Content-Type':'application/json',...(init.headers||{})},signal:AbortSignal.timeout(15000)});
+  if(!r.ok)throw Object.assign(new Error('rest '+r.status),{status:r.status});
+  return await r.json();
+}
+const GD='https://www.googleapis.com/drive/v3/files';
+function mirrorDrive(token:string){
+  const call=async(url:string,init:RequestInit={})=>{let r:Response;try{r=await fetch(url,{...init,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(init.headers||{})},signal:AbortSignal.timeout(15000)})}catch{throw new DriveFail(0)}if(!r.ok)throw new DriveFail(r.status);return await r.json().catch(()=>({}))};
+  return {
+    get:async(id:string)=>{try{return await call(`${GD}/${encodeURIComponent(id)}?fields=id,name,parents,trashed,mimeType,appProperties&supportsAllDrives=true`)}catch(e){if(e instanceof DriveFail&&e.status===404)return null;throw e}},
+    children:async(parent:string)=>{const out:any[]=[];let page='';for(let i=0;i<20;i++){const q=new URLSearchParams({q:`'${parent}' in parents and trashed=false`,fields:'nextPageToken,files(id,name,mimeType,parents)',pageSize:'1000',supportsAllDrives:'true',includeItemsFromAllDrives:'true'});if(page)q.set('pageToken',page);const d=await call(`${GD}?${q}`);for(const f of Array.isArray(d.files)?d.files:[])out.push(f);page=d.nextPageToken||'';if(!page)break}return out},
+    createFolder:async(name:string,parent:string)=>{const d=await call(`${GD}?fields=id&supportsAllDrives=true`,{method:'POST',body:JSON.stringify({name,mimeType:'application/vnd.google-apps.folder',parents:[parent]})});if(typeof d.id!=='string')throw new DriveFail(0);return d.id},
+    patch:async(id:string,p:{name?:string,addParents?:string,removeParents?:string,appProperties?:Record<string,string>})=>{const q=new URLSearchParams({fields:'id',supportsAllDrives:'true'});if(p.addParents)q.set('addParents',p.addParents);if(p.removeParents)q.set('removeParents',p.removeParents);const body:Record<string,unknown>={};if(p.name)body.name=p.name;if(p.appProperties)body.appProperties=p.appProperties;await call(`${GD}/${encodeURIComponent(id)}?${q}`,{method:'PATCH',body:JSON.stringify(body)})},
+  };
+}
+// POST ?action=drive-mirror {mode:'auto'|'align'} → 숫자만 {ok,state,folders_made,folders_fixed,files_moved,cant,pending,more,stopped}.
+// 작업공간은 로그인 owner 작업공간, 드라이브 연결도 그 작업공간 것만. 연결이 없거나 DB 칸이 아직 없으면(적용 전) ok:false + code(화면은 조용히 넘어감).
+async function driveMirrorOf(userId:string,auth:string,mode:'auto'|'align'){
+  const own=await callerOwnerWorkspace(admin,userId);
+  if(!own)return json({error:'워크스페이스 소유자 권한이 필요합니다.'},403);
+  const {data:s,error}=await admin.from('app_drive_settings').select('library_folder_id').eq('workspace_id',own).maybeSingle();
+  if(error)return json({ok:false,code:'settings_unavailable'});
+  if(!s?.library_folder_id)return json({ok:true,state:'none'});
+  let token='';
+  try{token=await workspaceDriveToken(admin,own,{fetch})}catch{return json({ok:false,code:'drive_not_connected'})}
+  const w=`workspace_id=eq.${own}`;
+  const db={
+    folders:()=>userRest(auth,`app_library_folders?${w}&select=id,parent_id,name,sort_order,drive_folder_id&limit=5000`),
+    items:()=>userRest(auth,`app_library_folder_items?${w}&select=document_id,folder_id&limit=20000`),
+    documents:()=>userRest(auth,`app_documents?${w}&file_id=not.is.null&select=id,file_id&limit=20000`),
+    setDrive:(id:string,drive:string,expect:string|null)=>userRest(auth,'rpc/app_library_folder_set_drive',{method:'POST',body:JSON.stringify({p_id:id,p_drive:drive,p_expect:expect})}),
+  };
+  try{
+    const r=await mirrorLibrary({libraryId:s.library_folder_id,mode,db,drive:mirrorDrive(token),budgetMs:MIRROR_BUDGET_MS});
+    if(r.pending||r.cant||r.stopped)console.log('workspace-drive mirror',{mode,pending:r.pending,cant:r.cant,stopped:r.stopped,more:r.more});
+    return json(r);
+  }catch(e){
+    const status=Number((e as any)?.status)||0;
+    console.error('workspace-drive mirror failed',{status});
+    return json({ok:false,code:status===400||status===404?'not_ready':'mirror_failed'});
+  }
+}
+Deno.serve(withWebCors(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:cors});const u=new URL(req.url);const action=u.searchParams.get('action')||'';try{if(req.method==='GET'&&action==='download'){const raw=u.searchParams.get('t');if(!raw)return new Response('Invalid download token',{status:400});const hash=await sha256(raw);const {data:tok}=await admin.from('app_drive_download_tokens').select('*').eq('token_hash',hash).is('used_at',null).gt('expires_at',new Date().toISOString()).maybeSingle();if(!tok)return new Response('Download link expired',{status:410});const doc=await checkDocumentAccess(tok.user_id,tok.document_id);if(!doc?.file_id)return new Response('File not found',{status:404});const token=await driveAccessToken(tok.user_id,doc.workspace_id);const dr=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(doc.file_id)}?alt=media`,{headers:{Authorization:`Bearer ${token}`}});if(!dr.ok)return new Response('Drive download failed',{status:502});await admin.from('app_drive_download_tokens').update({used_at:new Date().toISOString()}).eq('id',tok.id);const h=new Headers();h.set('Content-Type',doc.mime_type||dr.headers.get('Content-Type')||'application/octet-stream');h.set('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(doc.file_name||doc.title||'download')}`);h.set('Cache-Control','no-store');return new Response(dr.body,{status:200,headers:h})}const user=await getUser(req);if(req.method==='GET'&&action==='drive-place'){if(!parsePlaceRequest(u))return json({error:'Unknown action'},400);return await drivePlaceOf(user.id,req.headers.get('Authorization')||'')}if(req.method==='POST'&&action==='drive-mirror'){if([...u.searchParams.keys()].length!==1)return json({error:'Unknown action'},400);const mode=parseMirrorBody(await req.json().catch(()=>null));if(!mode)return json({error:'Unknown action'},400);return await driveMirrorOf(user.id,req.headers.get('Authorization')||'',mode)}if(req.method==='POST'&&action==='upload'){const form=await readMultipartForm(req);const projectId=String(form.get('project_id')||'');const file=form.get('file');if(!projectId||!(file instanceof File))return json({error:'프로젝트와 파일이 필요합니다.'},400);if(file.size<=0)return json({error:'빈 파일은 업로드할 수 없습니다.'},400);if(file.size>100*1024*1024)return json({error:'현재 프로젝트 파일은 100MB까지 지원합니다.'},413);const {project}=await projectAccess(user.id,projectId,true);const token=await driveAccessToken(user.id,project.workspace_id);const folder=await ensureProjectFolder(project,token);const df=await uploadDrive(file,folder,token);const a=classify(file.name);const explicitTitle=String(form.get('title')||'').trim();const {data:doc,error}=await admin.from('app_documents').insert({workspace_id:project.workspace_id,project_id:project.id,title:explicitTitle||a.title,category:a.category,source:a.source,document_date:a.date,description:null,tags:a.tags,drive_url:df.webViewLink||`https://drive.google.com/file/d/${df.id}/view`,file_id:df.id,file_name:file.name,mime_type:file.type||df.mimeType||'application/octet-stream',file_size:file.size,visibility:'private',uploaded_by:user.id,auto_classified:true,classification_note:'프로젝트 파일 자동분류'}).select('*').single();if(error)throw error;return json({ok:true,document:doc})}if(req.method==='POST'&&action==='download-token'){const body=await req.json().catch(()=>({}));const id=String(body.document_id||'');if(!id)return json({error:'document_id가 필요합니다.'},400);await checkDocumentAccess(user.id,id);const url=await createDownloadToken(user.id,id);return json({url,expires_in:300})}return json({error:'Unknown action'},400)}catch(e){console.error('workspace-drive failed',safeErrorLog(e));return json({error:safeErrorMessage(e),...((e as any)?.stage?{stage:(e as any).stage}:{})},(e as any)?.authRequired===true?401:400)}}));

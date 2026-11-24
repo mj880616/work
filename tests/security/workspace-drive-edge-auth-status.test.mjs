@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { withEdgeShared } from './helpers/edge-shared.mjs';
 import { drivePlace, metaUrl, parsePlaceRequest } from '../../supabase/functions/workspace-drive/drive-place.mjs';
+import { DriveFail, MIRROR_BUDGET_MS, mirrorLibrary, parseMirrorBody } from '../../supabase/functions/_shared/library-mirror.mjs';
 
 // EDGE-워크스페이스401: workspace-drive (verify_jwt=false, auth in code) answers 401 when the caller is not logged in
 // (no token, malformed, forged, revoked, or expired) so runtime-client.js refreshes the session once and retries.
@@ -44,7 +45,7 @@ function harness() {
   const quiet = { log: () => {}, error: () => {}, warn: () => {} };
   const readMultipartForm = async () => new FormData();
   const fetchMock = async url => { calls.fetch.push(String(url)); throw new Error('unexpected fetch ' + url); };
-  new Function('Deno', 'createClient', 'readMultipartForm', 'fetch', 'console', 'drivePlace', 'metaUrl', 'parsePlaceRequest', SOURCE)(Deno, () => client, readMultipartForm, fetchMock, quiet, drivePlace, metaUrl, parsePlaceRequest);
+  new Function('Deno', 'createClient', 'readMultipartForm', 'fetch', 'console', 'drivePlace', 'metaUrl', 'parsePlaceRequest', 'DriveFail', 'MIRROR_BUDGET_MS', 'mirrorLibrary', 'parseMirrorBody', SOURCE)(Deno, () => client, readMultipartForm, fetchMock, quiet, drivePlace, metaUrl, parsePlaceRequest, DriveFail, MIRROR_BUDGET_MS, mirrorLibrary, parseMirrorBody);
   return { handler, calls };
 }
 
@@ -150,4 +151,24 @@ test('workspace-drive drive-place: 로그인 없으면 401(DB·드라이브 호�
   const res = await extra.handler(new Request(u, { method: 'GET', headers: { Authorization: 'Bearer token-a', Origin: 'https://desk.bokdoong.com' } }));
   assert.equal(res.status, 400);
   assert.deepEqual(extra.calls, { db: [], fetch: [] });
+});
+
+// S69-20 ③④⑤: 드라이브 폴더 맞추기(POST ?action=drive-mirror)도 로그인 확인 뒤, 자기 owner 작업공간만, 정해진 모양만.
+test('workspace-drive drive-mirror: 로그인 없으면 401, owner 작업공간이 없으면 403(드라이브 호출 없음), 모양이 틀리면 400', async () => {
+  for (const token of [null, '', 'not-a-jwt']) {
+    const h = harness();
+    const r = await send(h, { token, action: 'drive-mirror', body: { mode: 'auto' } });
+    assert.equal(r.status, 401, String(token));
+    assert.deepEqual(h.calls, { db: [], fetch: [] });
+  }
+  const h = harness();
+  const r = await send(h, { token: 'token-a', action: 'drive-mirror', body: { mode: 'align' } });
+  assert.equal(r.status, 403);
+  assert.deepEqual(h.calls.fetch, []);
+  for (const body of [{}, { mode: 'all' }, { mode: 'auto', workspace_id: 'x' }, null]) {
+    const b = harness();
+    const bad = await send(b, { token: 'token-a', action: 'drive-mirror', body });
+    assert.equal(bad.status, 400, JSON.stringify(body));
+    assert.deepEqual(b.calls, { db: [], fetch: [] });
+  }
 });
