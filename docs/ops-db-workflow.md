@@ -268,4 +268,6 @@ drop table ops_backup."<version>_<table>_<run_id>";
 commit;
 ```
 
+자동 정리: DB 안 예약 `web2_cron_history_trim`(매일 03:43 KST, `20261124220000_cron_history_trim`, SQL Editor 전용)이 예약 실행 기록 `cron.job_run_details`에서 끝난 지 3일 지난 줄을 지운다. `ops_backup` 백업 표는 아직 자동으로 지우지 않는다(정리 규칙 제안: `docs/design/db-retention.md`의 14일 규칙).
+
 응답 유실·강제 종료 때도 자동 재실행하지 않는다. 백업은 남았을 수 있고 적용도 완료되었을 수 있다. plan의 예상 백업 이름·main SHA, run의 마지막 확인 단계로 커맨드센터가 상태를 확인한다.
