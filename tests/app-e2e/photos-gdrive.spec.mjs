@@ -132,21 +132,21 @@ test.describe('PC 1440', () => {
     // [폴더]: 원드라이브와 같은 나무 — 맨 위 줄 '구글 드라이브 n', 맨 위 층 폴더(처음엔 꺼짐, 장수 '—') → 스위치 켜기.
     await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
-    await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-name')).toHaveText('구글 드라이브');
-    await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-num')).toHaveText('0');
-    await expect(bodyEl.locator('[data-photos-gf]:not([data-photos-gf="root"]) .nx-name')).toHaveText(['업무', '카메라 백업']); // 원드라이브와 같은 가나다순
-    await expect(bodyEl.locator('[data-photos-gf]:not([data-photos-gf="root"]) .nx-num')).toHaveText(['—', '—']);
+    await expect(bodyEl.locator('[data-photos-gf-open="root"] .ft-name')).toHaveText('구글 드라이브');
+    await expect(bodyEl.locator('[data-photos-gf-open="root"] .ft-num')).toHaveText('0');
+    await expect(bodyEl.locator('[data-photos-gf]:not([data-photos-gf="root"]) .ft-name')).toHaveText(['업무', '카메라 백업']); // 원드라이브와 같은 가나다순
+    await expect(bodyEl.locator('[data-photos-gf]:not([data-photos-gf="root"]) .ft-num')).toHaveText(['—', '—']);
     const sw = bodyEl.locator('[data-photos-gf-sw="GF1"]');
     await expect(sw).toHaveAttribute('aria-checked', 'false');
     await sw.click();
     await expect(bodyEl.locator('[data-photos-gf-sw="GF1"]')).toHaveAttribute('aria-checked', 'true');
     expect(state.gd.find(b => b.action === 'folder-toggle')).toEqual({ action: 'folder-toggle', id: 'GF1', enabled: true });
-    await expect(bodyEl.locator('[data-photos-gf="GF1"] .nx-num')).toHaveText('3');
-    await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-num')).toHaveText('3');
+    await expect(bodyEl.locator('[data-photos-gf="GF1"] .ft-num')).toHaveText('3');
+    await expect(bodyEl.locator('[data-photos-gf-open="root"] .ft-num')).toHaveText('3');
     // 폴더를 누르면 나무는 그대로, 오른쪽 칸에 위치 줄·장수·그 폴더 사진, 나무에서 하위 폴더가 펼쳐짐.
     // S69-38 UI-탐색기나무누르기: 이름 누르기 = 그 폴더 열기 + 펼침(우클릭 [이 폴더로 들어가기]와 같은 곳), 오른쪽에 하위 폴더 줄.
     await bodyEl.locator('[data-photos-fx-tree] [data-photos-gf-open="GF1"]').click();
-    await expect(bodyEl.locator('[data-photos-fx-tree] [data-photos-gf="GF1"]')).toHaveClass(/nx-current/);
+    await expect(bodyEl.locator('[data-photos-fx-tree] [data-photos-gf="GF1"]')).toHaveClass(/ft-current/);
     await expect(bodyEl.locator('[data-photos-gd-folder] [data-photos-gf-open="GF11"]')).toBeVisible();
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toContainText('구글 드라이브');
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('카메라 백업 · 3장');
@@ -182,26 +182,26 @@ test.describe('PC 1440', () => {
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
     const tree = bodyEl.locator('[data-photos-fx-tree]');
     // 처음엔 맨 위를 고른 채: 오른쪽 칸 '구글 드라이브 · n장'.
-    await expect(tree.locator('[data-photos-gf="root"]')).toHaveClass(/nx-current/);
-    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toHaveText('구글 드라이브 · 0장');
+    await expect(tree.locator('[data-photos-gf="root"]')).toHaveClass(/ft-current/);
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toHaveText('사진›구글 드라이브 · 0장'); // S69-90: 주소 줄 하나(위치 줄이 이 줄 안)
     await expect(tree.locator('[data-photos-gf="GF1"]')).toHaveClass(/is-off/);
-    await expect(tree.locator('[data-photos-gf="GF1"] .nx-num')).toHaveClass(/is-zero/);
+    await expect(tree.locator('[data-photos-gf="GF1"] .ft-num')).toHaveText('—'); // S69-90: 개수는 공용 줄 개수 칸(작은 흐린 글씨, [파일]과 같음)
     expect(state.gd.filter(b => b.action === 'folders').map(b => b.parent)).toEqual(['root']);
     // ▸ 펼치기 = 그 층만 읽고 들여쓴 하위 폴더(장수 0, 흐림). 다시 누르면 접힘.
     await tree.locator('[data-photos-gf-tog="GF1"]').click();
     await expect(tree.locator('[data-photos-gf="GF11"]')).toBeVisible();
-    await expect(tree.locator('[data-photos-gf="GF11"]')).toHaveAttribute('style', /--nx-indent:2/);
-    await expect(tree.locator('[data-photos-gf="GF11"] .nx-num')).toHaveText('0');
-    await expect(tree.locator('[data-photos-gf="GF1"]')).toHaveAttribute('aria-expanded', 'true');
+    await expect(tree.locator('[data-photos-gf="GF11"]')).toHaveAttribute('style', /--ft-depth:2/);
+    await expect(tree.locator('[data-photos-gf="GF11"] .ft-num')).toHaveText('0');
+    await expect(tree.locator('[data-photos-gf-tog="GF1"]')).toHaveAttribute('aria-expanded', 'true'); // S69-90: 공용 줄은 폴더 그림 단추가 펼침 상태를 가진다([파일]·노트 나무와 같음)
     expect(state.gd.filter(b => b.action === 'folders').map(b => b.parent)).toEqual(['root', 'GF1']);
     // 하위 폴더(켜짐, 사진 없음) → '이 폴더에 바로 든 사진이 없어요.'
-    await tree.locator('[data-photos-gf="GF11"] .nx-name').click({ button: 'right' });
+    await tree.locator('[data-photos-gf="GF11"] .ft-name').click({ button: 'right' });
     await page.locator('#photosGdFolderMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toHaveText(/사진›구글 드라이브›카메라 백업›2026/);
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('2026 · 0장');
     await expect(bodyEl.locator('[data-photos-fx-foot]')).toHaveText('이 폴더에 바로 든 사진이 없어요.');
     // 꺼진 폴더 → '사진에 안 보임', 사진 칸 없음(색인이 없어 부르지 않음).
-    await tree.locator('[data-photos-gf="GF2"] .nx-name').click({ button: 'right' });
+    await tree.locator('[data-photos-gf="GF2"] .ft-name').click({ button: 'right' });
     await page.locator('#photosGdFolderMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('업무 · —장 · 사진에 안 보임');
     await expect(bodyEl.locator('[data-photos-gd-folder] [data-photos-open]')).toHaveCount(0);
@@ -217,8 +217,8 @@ test.describe('PC 1440', () => {
     await openPhotos(page, 1440);
     await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
     const tree = page.locator('#photosRoot [data-photos-fx-tree]');
-    await expect(tree.locator('[data-photos-gf="GF1"] .nx-num')).toHaveText('—');
-    await expect(tree.locator('[data-photos-gf="root"] .nx-num')).toHaveText('—');
+    await expect(tree.locator('[data-photos-gf="GF1"] .ft-num')).toHaveText('—');
+    await expect(tree.locator('[data-photos-gf="root"] .ft-num')).toHaveText('—');
     expect(state.gd.map(b => b.action).filter(a => !['status', 'folders', 'sync', 'list', 'thumb'].includes(a))).toEqual([]);
     expect(state.errors).toEqual([]);
   });
@@ -274,7 +274,7 @@ test.describe('폰 412', () => {
     // FOLDER-나무새기준 ③: 폰은 출처마다 상자(머리 = 이름, 오른쪽 전체 장수).
     await expect(bodyEl.locator('[data-photos-box="gdrive"] .ft-box-toggle')).toHaveText('구글 드라이브');
     await expect(bodyEl.locator('[data-photos-box="gdrive"] .ft-box-tail')).toHaveText('3');
-    await expect(bodyEl.locator('[data-photos-gf] .nx-num')).toHaveText(['—', '3']); // 업무(꺼짐) · 카메라 백업(켬), 가나다순
+    await expect(bodyEl.locator('[data-photos-gf] .ft-num')).toHaveText(['—', '3']); // 업무(꺼짐) · 카메라 백업(켬), 가나다순
     await bodyEl.locator('[data-photos-gf-open="GF1"]').click();
     // S51-24: 폰 '그 폴더만' = 상자 맨 위 위치 줄(위 단계만) + 그 폴더 줄(머리).
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toHaveText('사진›구글 드라이브›');

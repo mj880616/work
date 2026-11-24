@@ -168,9 +168,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-path { font-size:12px; color:var(--kptu-muted); } /* 늘 온전히 보이는 꼬리표 규칙은 공용 .row-tail(ui-standard.css) */
 .nx-clip { flex:none; font-size:12px; }
 #appView #basketView .nx-note .note-row time { flex:none; font-size:12px; color:var(--kptu-muted); }
-.nx-pick { flex:none; display:inline-grid; place-items:center; width:16px; height:16px; border:1px solid var(--kptu-border-strong); border-radius:4px; font-size:11px; line-height:1; color:var(--kptu-on-primary); }
-.nx-picked .nx-pick { background:var(--kptu-primary); border-color:var(--kptu-primary); }
-.nx-picked { background:var(--kptu-primary-soft); }
+/* UI-폴더목록한모양(S69-90): 고른 노트 줄은 [파일]·폴더 줄과 같은 표시(옅은 강조 바탕 + 왼쪽 진한 세로줄), 체크칸 없음. */
+.nx-picked { background:var(--kptu-primary-soft); box-shadow:var(--kptu-shadow-select); }
 [data-note-list].nx-selecting .nx-row { animation:nx-wiggle .32s ease-in-out 1; }
 @keyframes nx-wiggle { 25% { transform:translateX(-1px); } 75% { transform:translateX(1px); } }
 @media (prefers-reduced-motion:reduce) { [data-note-list].nx-selecting .nx-row { animation:none; } }
@@ -255,6 +254,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-here:not([hidden]) { display:flex; align-items:center; gap:2px; min-height:28px; margin:0 0 2px; font-size:12px; color:var(--kptu-muted); }
 .nx-here-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-ink); font-weight:500; }
 .nx-here-num { flex:none; }
+/* UI-폴더목록한모양(S69-90): 폴더 안 폴더에서는 이 한 줄이 위치 줄(노트 › 위 폴더 › 지금 폴더) + 개수 — 위치 줄을 따로 두지 않는다. */
+.nx-here > .nx-here-path { flex:0 1 auto; min-width:0; margin:0; }
 #appView #basketView [data-note-list] .nx-here button.nx-back { min-width:32px; justify-content:center; font-size:15px; color:var(--kptu-ink); }
 /* NOTE-최근5개 → FOLDER-나무새기준 ①: 폰 첫 화면 맨 위 '최근' 상자(공용 .ft-box, 자료실 '최근 올린 파일'과 같은 상자). */
 .nx-recent:not([hidden]) { display:block; }
@@ -531,6 +532,13 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nbb-name { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .nbb-num { flex:none; font-size:11px; color:var(--kptu-faint,var(--kptu-muted)); }
 .nbb-caret { flex:none; width:16px; font-size:15px; } /* S51-25: 세모 대신 폴더 그림(열림/닫힘) */
+/* UI-폴더목록한모양(S69-90): 보드 옆 노트 목록·노트 고르기 창의 폴더 줄도 [파일] 폴더 줄과 같은 폴더 그림(20px)·이름 글자색·개수(작은 흐린 글씨)·들여쓰기 단(22px).
+   줄 높이는 옆 칸 작은 목록이라 32px(넓은 화면 [파일] 하위 줄과 같은 값). */
+:is(#appView #basketView .nbb-side, .nbb-pick) :is(.nbb-folder,.nbb-note) { height:32px; gap:9px; padding-left:calc(6px + var(--nx-indent, 0) * 22px); font-size:var(--ds-compact-text,13px); }
+:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-folder { color:var(--kptu-ink); }
+:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-caret { width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center; }
+:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-caret svg { width:19px; height:19px; }
+:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-num { font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
 .nbb-check { flex:none; width:14px; color:var(--kptu-primary-text); font-size:12px; }
 .nb-empty { position:absolute; left:0; right:0; top:38%; margin:0; text-align:center; font-size:13px; color:var(--kptu-muted); pointer-events:none; }
 .nb.nb-drop .nb-scroll { outline:2px dashed var(--kptu-primary); outline-offset:-2px; }
@@ -629,7 +637,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* 닫기 ✕: 머리 줄 오른쪽 끝(⋯ 다음). 모양은 이 상세의 다른 아이콘([원문]·[복사])과 같은 .basket-icon-button(ui-standard.css) 그대로, 여기는 자리만. */
 #appView #basketView .basket-close-x{ order:3; flex:none; margin:0; font-size:16px; }
 /* 오른쪽 칸에 연 줄: 할 일의 고른 줄과 같은 표시. */
-#appView #basketView [data-basket-selected]{ background:var(--ds-select-bg); box-shadow:var(--kptu-shadow-select); }
+#appView #basketView [data-basket-selected]{ background:var(--kptu-primary-soft); box-shadow:var(--kptu-shadow-select); }
 /* 폰 틀(600~760px): 상세가 열려도 목록이 보이므로 앱 머리(화면 이름)를 그대로 둔다(접은 폰은 ui-standard.css 규칙대로 숨김). */
 @media(min-width:600px) and (max-width:760px){
   html:has(#basketView.basket-split:not(.hidden)) body #appView > .mobile-shell-header:not([hidden]){ display:flex; }

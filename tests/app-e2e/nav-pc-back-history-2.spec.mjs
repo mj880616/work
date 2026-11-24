@@ -170,7 +170,7 @@ async function photosFixture(page,width){
  });
 }
 const photoTree=page=>page.locator('#photosRoot [data-photos-fx-tree]');
-const photoAt=(page,id)=>expect(photoTree(page).locator(`[data-photos-folder="${id}"]`)).toHaveClass(/nx-current/);
+const photoAt=(page,id)=>expect(photoTree(page).locator(`[data-photos-folder="${id}"]`)).toHaveClass(/ft-current/);
 
 test('PC 1280 사진 폴더: 2026 → 제주 에서 ‹ = 2026, ‹ = [사진], › = 2026 → 제주 (폴더 밖으로 한 번에 나가지 않는다)',async({page})=>{
  const errors=watchErrors(page);
@@ -178,7 +178,7 @@ test('PC 1280 사진 폴더: 2026 → 제주 에서 ‹ = 2026, ‹ = [사진], 
  await clickView(page,'photos');await expect(page.locator('#photosView')).toBeVisible();
  const chip=page.locator('#photosRoot [data-photos-view]');
  await chip.selectOption('folders');await expect(chip).toHaveValue('folders');
- await expect(photoTree(page).locator('.nx-name')).toHaveText(['카메라','2026','여행']);
+ await expect(photoTree(page).locator('.ft-name')).toHaveText(['카메라','2026','여행']);
  await photoTree(page).locator('[data-photos-fx-open="S1"]').click();await photoAt(page,'S1');
  await photoTree(page).locator('[data-photos-fx-tog="S2"]').click();
  await photoTree(page).locator('[data-photos-fx-open="S21"]').click();await photoAt(page,'S21');

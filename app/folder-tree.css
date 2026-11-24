@@ -73,7 +73,9 @@
 .ft-dots:hover { background:var(--kptu-surface-subtle); }
 .ft-dots:focus-visible { outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
 .ft-current > .ft-main { background:var(--kptu-primary-soft); }
-.ft-picked > .ft-main { background:var(--kptu-primary-soft); }
+/* UI-폴더목록한모양(S69-90): 고른 줄은 [파일]과 같은 표시 하나 — 옅은 강조 바탕 + 왼쪽 진한 세로줄(체크칸 없음).
+   [파일](.fx-picked)·자료실(.lu-picked 등)·노트 폴더·노트 줄(.nx-picked)이 같은 값 --kptu-primary-soft·--kptu-shadow-select(theme-tokens.css)를 쓴다. */
+.ft-picked > .ft-main { background:var(--kptu-primary-soft); box-shadow:var(--kptu-shadow-select); }
 /* ⑦ 꺼 둔 폴더: 흐리게 + '끔'(켜기·끄기는 ⋯ 안). */
 .ft-off > .ft-main { opacity:.45; }
 .ft-off > .ft-main .ft-name { font-weight:400; }

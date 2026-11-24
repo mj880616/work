@@ -104,10 +104,10 @@
 /* S48-45 쓰기: 고른 것 한 줄 막대 · 고른 줄 · 옮기는 중인 줄(흐리게) · 끌어 놓을 폴더 · 휴지통 버튼 */
 /* UI-고르기막대(S69-85): 고르기 막대 모양은 공용 .kptu-selbar(base-ui.css) 하나 — 여기서는 자리만 정한다. */
 .fx-bar[hidden] { display:none; }
-.fx-row.fx-picked { background:var(--kptu-primary-soft); box-shadow:inset 2px 0 0 var(--kptu-primary); }
+.fx-row.fx-picked { background:var(--kptu-primary-soft); box-shadow:var(--kptu-shadow-select); } /* 노트·자료실·사진 고른 줄과 같은 색 이름(UI-폴더목록한모양) */
 .fx-row.fx-cut { opacity:.55; }
 /* S51-24 폰 '그 폴더만'(나무와 같은 줄): 고름·잘라 둠은 누르는 단추에. */
-.ft-main.fx-picked { background:var(--kptu-primary-soft); box-shadow:inset 2px 0 0 var(--kptu-primary); }
+.ft-main.fx-picked { background:var(--kptu-primary-soft); box-shadow:var(--kptu-shadow-select); }
 .ft-main.fx-cut { opacity:.55; }
 .fx-drop-on, .fx-row.fx-drop-on { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
 /* UI-펼친폴더안놓기전체(S60-13): 펼친 폴더 묶음 위로 끌면 묶음 전체 옅은 바탕, 폴더 줄에 '여기에 놓기'(자료실·노트와 같은 표시). */
