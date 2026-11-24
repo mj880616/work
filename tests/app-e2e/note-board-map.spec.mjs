@@ -1,18 +1,22 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // S68-38 노트 '보드'(생각 지도, 명진 11/23 08:12·08:23 — Obsidian Canvas 참고): 카드 네 변의 손잡이를 끌어 다른 카드에 놓으면 연결선(화살표).
 // 선을 누르면 작은 메뉴 [실선|점선] [직선으로] [→|↔|없음] [뒤집기] [글자] [삭제](S68-38c: 새 선은 직선, 곡선은 선 끌기 — note-board-text-curve.spec.mjs). 카드를 옮기면 선이 따라오고, 새로고침해도 서버 값으로 남는다.
 // 판: 두 손가락 확대·축소, 판 위 옆 밀기는 보기 탭 넘김이 아니다. 서버(표 app_note_board_links)가 거절하면 알리고 선을 거둔다. 이름은 지어낸 것.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+// S69-83: [전체](모든 노트 판)는 없앴다 — 이름 붙은 보드 하나(BID)에 노트를 붙여 둔 채로 시험한다.
+const BID = 'bmap0001';
 async function fixture(page, width, { reject = null } = {}) {
   await page.setViewportSize({ width, height: 860 });
   const errors = [], linkCalls = [], linkRows = [];
   page.on('pageerror', e => errors.push(e.message));
+  await installViewPrefsServer(page, { note_boards: [{ id: BID, name: '생각 지도' }], note_board: BID });
   await openHome(page);
-  const row = (id, title, board) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + '\n본문', occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-10T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: { board } });
+  const row = (id, title, board) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + '\n본문', occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-10T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: { boards: { [BID]: board } } });
   const rows = [row('n1', '가 생각', { x: 40, y: 40, r: 1, z: 0 }), row('n2', '나 생각', { x: 420, y: 60, r: 1, z: 1 }), row('n3', '다 생각', { x: 60, y: 320, r: 1, z: 2 })];
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
     const req = r.request(), q = new URL(req.url()).searchParams;
@@ -78,7 +82,7 @@ test('PC: 손잡이 끌어 잇기 → 카드 옮기면 선이 따라옴 → 메�
   await expect(lines(page)).toHaveCount(1);
   await expect.poll(() => linkCalls.some(c => c.method === 'POST')).toBe(true);
   const post = linkCalls.find(c => c.method === 'POST');
-  expect(post.body).toEqual({ workspace_id: expect.any(String), board_id: 'all', from_note: 'n1', to_note: 'n2', from_text: null, to_text: null, from_side: 'right', to_side: 'left', shape: 'line', dash: 'solid', ends: 'end', label: null, bend_x: null, bend_y: null });
+  expect(post.body).toEqual({ workspace_id: expect.any(String), board_id: BID, from_note: 'n1', to_note: 'n2', from_text: null, to_text: null, from_side: 'right', to_side: 'left', shape: 'line', dash: 'solid', ends: 'end', label: null, bend_x: null, bend_y: null });
   await expect(page.locator('[data-note-detail]')).toBeHidden(); // 선 긋기는 노트 열기가 아니다
   const line = page.locator('[data-nb-line] .nb-line');
   await expect(line).toHaveAttribute('d', /^M[\d.]+ [\d.]+L/); // 새 선은 직선
@@ -151,7 +155,7 @@ for (const width of [390, 412, 884]) {
     const from = await center(h), to = await center(card(page, 'n3'));
     await touch(cdp, 'touchStart', [from]); await swipe(cdp, from, to); await touch(cdp, 'touchEnd', []);
     await expect(lines(page)).toHaveCount(1);
-    await expect.poll(() => linkCalls.find(c => c.method === 'POST')?.body).toMatchObject({ from_note: 'n1', to_note: 'n3', from_side: 'bottom', board_id: 'all' });
+    await expect.poll(() => linkCalls.find(c => c.method === 'POST')?.body).toMatchObject({ from_note: 'n1', to_note: 'n3', from_side: 'bottom', board_id: BID });
     await expect(page.locator('[data-nb-line].nb-pending')).toHaveCount(0); // 서버 답을 받은 뒤에 메뉴
     await expect(page.locator('[data-note-detail]')).toBeHidden();
     // 선 누르기 → 메뉴, 아래 탭에 가리지 않음, 가로 넘침 없음.

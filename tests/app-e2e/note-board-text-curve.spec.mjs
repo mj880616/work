@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // S68-38c 노트 보드 글 상자·선 곡선(명진 11/23 08:32·08:47). S69-82: 글 상자는 생각 지도 상자가 됨(note-board-mindmap.spec.mjs가 가지·꾸미기를 본다).
 // - 상자: [+ 주제]·빈 곳 두 번 누르기(PC 더블클릭)로 그 보드에만 있는 짧은 글. 누르면 고르기, 다시 누르면 고치기, 끌면 옮기기, 고른 상자 위 막대에 [삭제].
@@ -9,12 +10,15 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 //   거의 일직선으로 되돌리면 직선, 선 메뉴 [직선으로]. 이름·글은 지어낸 것.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+// S69-83: [전체](모든 노트 판)는 없앴다 — 이름 붙은 보드 하나(BID)에 노트를 붙여 둔 채로 시험한다.
+const BID = 'bmap0001';
 async function fixture(page, width) {
   await page.setViewportSize({ width, height: 860 });
   const errors = [], linkCalls = [], linkRows = [], textCalls = [], textRows = [], hold = { linkPatch: null };
   page.on('pageerror', e => errors.push(e.message));
+  await installViewPrefsServer(page, { note_boards: [{ id: BID, name: '생각 지도' }], note_board: BID });
   await openHome(page);
-  const row = (id, title, board) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + '\n본문', occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-10T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: { board } });
+  const row = (id, title, board) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + '\n본문', occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-10T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: { boards: { [BID]: board } } });
   const rows = [row('n1', '가 생각', { x: 40, y: 40, r: 1, z: 0 }), row('n2', '나 생각', { x: 420, y: 60, r: 1, z: 1 }), row('n3', '다 생각', { x: 60, y: 320, r: 1, z: 2 })];
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
     const req = r.request(), q = new URL(req.url()).searchParams;
@@ -98,7 +102,7 @@ test('PC: 상자 만들기·수정·옮기기, 노트↔글 상자 선, 선 끌�
   await page.mouse.click(blank.x, blank.y);
   await expect(texts(page)).toHaveCount(1);
   await expect.poll(() => textCalls.filter(c => c.method === 'POST').length).toBe(1);
-  expect(textCalls.find(c => c.method === 'POST').body).toMatchObject({ workspace_id: expect.any(String), board_id: 'all', body: '중간 생각', x: expect.any(Number), y: expect.any(Number), parent_id: null });
+  expect(textCalls.find(c => c.method === 'POST').body).toMatchObject({ workspace_id: expect.any(String), board_id: BID, body: '중간 생각', x: expect.any(Number), y: expect.any(Number), parent_id: null });
   await expect(texts(page).first().locator('.nb-tx')).toHaveText('중간 생각');
   // 빈 곳 더블클릭 → 그 자리에 새 글 상자, Ctrl+Enter = 저장(줄바꿈 글도).
   const blank2 = await blankPoint(page, 'top');

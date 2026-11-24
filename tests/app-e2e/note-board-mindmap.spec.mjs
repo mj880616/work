@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // S69-82 노트 › 보드 → 브레인스토밍·마인드맵(명진 11/24 23:51 "전체를 브레인 스토밍 마인드맵 하게. 제대로 개선", docs/design/note-board-mindmap.md).
 // - 상자(보드에만 있는 글, 서버 표 app_note_board_texts): 가로 글(글 길이만큼 폭), 고른 채 Tab = 하위 가지, Enter = 형제 가지, Delete = 지우기(아래가 있으면 확인).
@@ -9,14 +10,17 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // - 생각 지도 칸이 아직 없는 서버(적용 전)는 옛 상자를 혼자 선 상자로 보이고 가지·꾸미기만 '준비 중'. 이름·글은 지어낸 것.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+// S69-83: [전체](모든 노트 판)는 없앴다 — 이름 붙은 보드 하나(BID)에서 시험한다.
+const BID = 'bmind001';
 const MAP = ['parent_id', 'ord', 'side', 'kind', 'color', 'shape', 'font', 'w', 'collapsed'];
 const DEF = { parent_id: null, ord: 0, side: null, kind: 'topic', color: null, shape: 'round', font: 2, w: null, collapsed: false };
 async function fixture(page, width, { legacy = false, seed = [] } = {}) {
   await page.setViewportSize({ width, height: 860 });
   const errors = [], linkCalls = [], linkRows = [], textCalls = [], textRows = seed.map(t => ({ ...DEF, ...t }));
   page.on('pageerror', e => errors.push(e.message));
+  await installViewPrefsServer(page, { note_boards: [{ id: BID, name: '생각 지도' }], note_board: BID });
   await openHome(page);
-  const row = (id, title, board) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + '\n본문', occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-10T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: { board } });
+  const row = (id, title, board) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + '\n본문', occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-10T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: { boards: { [BID]: board } } });
   const rows = [row('n1', '가 노트', { x: 40, y: 600, r: 1, z: 0 })];
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
     const req = r.request(), q = new URL(req.url()).searchParams;
@@ -99,7 +103,7 @@ test('PC: 주제 → Tab 하위·Enter 형제, 가로 글·자동 배치(양쪽�
   await page.keyboard.type('가운데 주제');
   await page.keyboard.press('Enter');
   await expect.poll(() => textRows.length).toBe(1);
-  expect(textCalls.find(c => c.method === 'POST').body).toMatchObject({ board_id: 'all', body: '가운데 주제', parent_id: null, font: 3 });
+  expect(textCalls.find(c => c.method === 'POST').body).toMatchObject({ board_id: BID, body: '가운데 주제', parent_id: null, font: 3 });
   const root = node(page, '가운데 주제');
   await expect(root.locator('.nb-tx')).toBeFocused();
   // Tab = 하위 가지 → 쓰고 Enter. 고른 채 Enter = 형제 가지.
@@ -162,8 +166,8 @@ test('PC: 주제 → Tab 하위·Enter 형제, 가로 글·자동 배치(양쪽�
 });
 
 test('PC: 선택한 상자 막대로 색·모양·글자 크기, 다시 눌러 수정(가로로 늘어남), 손잡이 잇기(가까이 놓아도 붙음·빈 곳 = 새 상자 + 선), 새로고침 뒤 유지, 아래 가지 있는 상자 삭제 확인 (1440)', async ({ page }) => {
-  const { errors, linkRows, textCalls, textRows } = await fixture(page, 1440, { seed: [{ id: 'r', board_id: 'all', body: '가운데 주제', x: 600, y: 520, font: 3 }, { id: 'g1', board_id: 'all', body: '가지 하나', parent_id: 'r', ord: 0, side: 1 },
-    { id: 'lg', board_id: 'all', body: '긴 가지', parent_id: 'r', ord: 1, side: -1 }, { id: 'g2', board_id: 'all', body: '가지 둘', x: 300, y: 900 }, { id: 'low', board_id: 'all', body: '더 아래', parent_id: 'g2', ord: 0 }] });
+  const { errors, linkRows, textCalls, textRows } = await fixture(page, 1440, { seed: [{ id: 'r', board_id: BID, body: '가운데 주제', x: 600, y: 520, font: 3 }, { id: 'g1', board_id: BID, body: '가지 하나', parent_id: 'r', ord: 0, side: 1 },
+    { id: 'lg', board_id: BID, body: '긴 가지', parent_id: 'r', ord: 1, side: -1 }, { id: 'g2', board_id: BID, body: '가지 둘', x: 300, y: 900 }, { id: 'low', board_id: BID, body: '더 아래', parent_id: 'g2', ord: 0 }] });
   await expect(nodes(page)).toHaveCount(5);
   // 막대: 고른 상자 위 → 색·모양·글자 크기 저장.
   await node(page, '가지 하나').locator('.nb-tx').click();
@@ -286,7 +290,7 @@ test('폰: [+ 주제]·막대 [+ 하위]·[+ 형제], 누르면 고르기·다�
 });
 
 test('옛 보드(생각 지도 칸 적용 전 서버): 옛 글 상자는 혼자 선 상자로 보이고, 가지·꾸미기는 준비 중 알림, 옮기기·고치기는 된다 (1280)', async ({ page }) => {
-  const { errors, textCalls, textRows } = await fixture(page, 1280, { legacy: true, seed: [{ id: 'old1', board_id: 'all', body: '옛 글 상자', x: 300, y: 400 }] });
+  const { errors, textCalls, textRows } = await fixture(page, 1280, { legacy: true, seed: [{ id: 'old1', board_id: BID, body: '옛 글 상자', x: 300, y: 400 }] });
   const old = node(page, '옛 글 상자');
   await expect(old).toHaveCount(1);
   const b = await box(old);

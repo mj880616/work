@@ -2,7 +2,8 @@
 // S68-38(명진 11/23 08:12·08:23): '포스트잇' → '보드'(생각 지도). 카드는 제목 한 줄만인 작은 칸(CARD_W×CARD_H)이고 기울이지 않고 그린다
 //   (저장 모양의 r은 옛 값과 호환되게 그대로 둔다). 판은 끝없이 넓은 캔버스처럼 옮기고(translate) 키운다(scale) — 확대는 ZOOM_MIN~ZOOM_MAX 사이 연속 값.
 // - 저장 모양: 노트 행의 기존 metadata.board = {x, y, r, z}. x·y = 보드 왼쪽 위에서의 자리(확대 1배 px), r = 기울기(도), z = 겹친 순서(클수록 위).
-//   저장·읽기 길은 basket-data.js setNoteBoard(고정·폴더와 같은 metadata 쓰기). 기기 저장 없음.
+//   S69-83: 모든 노트를 늘어놓던 [전체](metadata.board 저장)는 없앴다. 지금 저장은 보드별 metadata.boards[id](note-boards-model.mjs, basket-data.js setNoteBoardPlace).
+//   layoutBoard의 기본 placeOf(boardOf)는 자리 계산 시험용으로만 남는다(화면은 늘 보드별 placeOf를 넘긴다). 기기 저장 없음.
 // - 처음 배치: 저장된 자리가 하나도 없으면 폴더끼리 모아 흩어 놓는다(같은 노트 목록이면 어느 기기에서나 같은 모양).
 //   하나라도 저장돼 있으면 자리가 없는 노트(새 노트)는 보드 왼쪽 위에서부터 빈 곳에 붙는다.
 //   처음 한 장을 옮기는 순간 아직 저장 안 된 노트들도 지금 보이는 자리로 함께 저장한다(다른 칸이 튀지 않게, basket-notes.js).
