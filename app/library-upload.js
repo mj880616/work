@@ -1059,8 +1059,9 @@ function luLeaveFocus(){if(!luInFolder)return;const back=luTreeBack;luTreeBack=n
 document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [data-lu-path-back]');if(!b)return;e.preventDefault();luFocusUp()});
 // S69-19: 폰 위치 줄(지금 폴더 위 단계들)도 길면 가운데를 '…' 하나로(누르면 가려진 단계 목록, folder-path-more.js).
 function luPhoneAncHtml(steps){const sep='<span class="ft-focus-sep" aria-hidden="true">›</span>',one=f=>`<button type="button" class="ft-btn ft-focus-step" data-lu-path="${luEsc(f.id)}">${luEsc(f.name)}</button>`;const c=collapseSteps(steps,{max:3,tail:1});return(c.hidden.length?[one(c.head[0]),moreStepHtml(c.hidden,{cls:'ft-btn ft-focus-step',attr:'data-lu-path',esc:luEsc,sep:''}),...c.tail.map(one)]:steps.map(one)).map(x=>x+sep).join('')}
-function luRenderPath(box){
-  luDrive().render(); // S69-20: 저장 위치 줄도 지금 자리(폴더 안·밖)에 맞춘다
+// UI-자료실파일모양(S69-85 ②, 살릴 것 7): 주소 줄은 하나 — 폴더 안이면 위치 줄 끝에 작은 [드라이브 ↗]만 두고 저장 위치 줄(#libraryDriveLine)은 숨긴다(library-drive-line.js render).
+function luRenderPath(box){luRenderPathNow(box);luDrive().render()} // S69-20: 저장 위치 줄도 지금 자리(폴더 안·밖)에 맞춘다
+function luRenderPathNow(box){
   let nav=document.querySelector('#libraryPath');
   if(luTwoActive()){nav?.remove();return} // LIB-두칸보기: 두 칸은 칸마다 위치 줄
   if(!luInFolder){nav?.remove();return}
@@ -1877,21 +1878,23 @@ function luSyncPicksNow(){
   if(card){const was=card.classList.contains('lu-selecting');card.classList.toggle('lu-selecting',on);
     if(on&&!was){card.classList.remove('lu-sel-enter');void card.offsetWidth;card.classList.add('lu-sel-enter')}else if(!on)card.classList.remove('lu-sel-enter')}
   const barEl=document.querySelector('#librarySelectBar');
-  if(!on){luPaintSelectActs(barEl,false);return}
+  if(!on){luPaintSelectActs(barEl,false);for(const x of document.querySelectorAll('#documentList :is(.lu-picked,.lu-node-picked)'))x.classList.remove('lu-picked','lu-node-picked');return}
   // LIB-끄는중막대(S69, 명진 11/24 16:17 "드래그해서 폴더로 드롭해서 옮기는 중에는 이 메뉴들이 없어져야지. 취소야 남겨두더라도"):
   // 끄는 동안·놓은 뒤 옮기는 동안(luDragNow, 폴더 부품이 알림)은 '옮기는 중 N개 · 취소'만 그린다. 끝나면 원래 막대. 그리는 곳은 여기 하나.
   const dragging=!!luDragNow;luPaintSelectActs(barEl,dragging);
   if(dragging){const c=document.querySelector('#librarySelectCount');if(c&&!luDragNow.moving)c.textContent=`옮기는 중 ${luDragNow.count}개`;return}
   const ids=luVisibleIds(),list=document.querySelector('#documentList');
-  for(const c of list?.querySelectorAll('[data-lu-pick]')||[]){const ids=luTwinIds([c.dataset.luPick]);c.checked=ids.every(x=>luPick.items.has(x));c.indeterminate=ids.length>1&&!c.checked&&ids.some(x=>luPick.items.has(x))}
-  for(const c of list?.querySelectorAll('[data-lu-pick-node]')||[]){const key=c.dataset.luPickNode,whole=key.startsWith('f:')&&luPick.items.has(folderPick(key.slice(2))),nodeIds=nodeDocumentIds(luTreeNode(key));c.checked=whole||allSelected(luPick.items,nodeIds);c.indeterminate=!c.checked&&someSelected(luPick.items,nodeIds)}
+  for(const c of list?.querySelectorAll('[data-lu-pick]')||[]){const ids=luTwinIds([c.dataset.luPick]);c.checked=ids.every(x=>luPick.items.has(x));c.indeterminate=ids.length>1&&!c.checked&&ids.some(x=>luPick.items.has(x));c.closest('.lu-row')?.classList.toggle('lu-picked',c.checked)}
+  for(const c of list?.querySelectorAll('[data-lu-pick-node]')||[]){const key=c.dataset.luPickNode,whole=key.startsWith('f:')&&luPick.items.has(folderPick(key.slice(2))),nodeIds=nodeDocumentIds(luTreeNode(key));c.checked=whole||allSelected(luPick.items,nodeIds);c.indeterminate=!c.checked&&someSelected(luPick.items,nodeIds);c.parentElement?.classList.toggle('lu-node-picked',c.checked)}
   // S69-69: 폴더째 고른 폴더 줄(탐색기 칸·두 칸)은 고른 줄 표시(lu-folder-picked + aria-selected).
   // S69-84: 왼쪽 나무(#libraryFolderNav) 폴더 줄도 같은 표시(폴드·PC 꾹 누르기·선택 모드 누르기로 폴더째 고름).
   for(const el of document.querySelectorAll('#documentList details[data-lu-enter] > summary,#documentList [data-lu-pane-i] .ft-row,#libraryFolderNav .ft-row')){const id=luMqFolderId(el),on=!!id&&luPick.items.has(folderPick(id));el.classList.toggle('lu-folder-picked',on);if(on)el.setAttribute('aria-selected','true');else el.removeAttribute('aria-selected')}
   const all=document.querySelector('#librarySelectAll'),count=document.querySelector('#librarySelectCount'),del=document.querySelector('#librarySelectDelete'),cancel=document.querySelector('#librarySelectCancel');
   if(all){all.setAttribute('aria-checked',String(allSelected(luPick.items,ids)));all.disabled=luSelBusy||!ids.length}
   // 빠짐10: 고른 것 중 지금 줄로 보이지 않는 것(접힌 토글·'n건 더'·접힌 같은 글)이 있으면 '— 접힌 n개 포함'.
-  if(count&&!luSelBusy){const seen=new Set([...(list?.querySelectorAll('[data-lu-document]')||[])].filter(x=>x.checkVisibility?.()!==false).map(x=>x.dataset.luDocument));const pk=splitPicks(luPick.items);let hidden=0;for(const id of pk.docs)if(!seen.has(id))hidden++;count.textContent=pickCountLabel(pk.folders.length,pk.docs.length,hidden)}
+  if(count&&!luSelBusy){const seen=new Set([...(list?.querySelectorAll('[data-lu-document]')||[])].filter(x=>x.checkVisibility?.()!==false).map(x=>x.dataset.luDocument));const pk=splitPicks(luPick.items);let hidden=0;for(const id of pk.docs)if(!seen.has(id))hidden++;
+    // UI-자료실파일모양(S69-85 ②, 살릴 것 5): '— 접힌 n개 포함' 같은 덧말은 개수 옆 작은 흐린 글씨(글은 그대로).
+    const [head,...rest]=pickCountLabel(pk.folders.length,pk.docs.length,hidden).split(' — ');count.innerHTML=luEsc(head)+(rest.length?`<small class="kptu-sb-note"> — ${luEsc(rest.join(' — '))}</small>`:'')}
   if(del)del.disabled=luSelBusy||!luPick.items.size;
   for(const b of barEl.querySelectorAll('[data-lu-bulk],#librarySelectFolder'))b.disabled=luSelBusy||!luPick.items.size;
   const fb=barEl.querySelector('#librarySelectFolder');if(fb)fb.hidden=!luFoldersReady;

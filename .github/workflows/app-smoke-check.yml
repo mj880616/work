@@ -662,6 +662,9 @@ jobs:
       - name: Check shared select bar stays one line (S69-85 UI-고르기막대)
         run: node --test tests/select-bar-model.test.mjs
 
+      - name: Check library list looks like the files list (S69-85 UI-자료실파일모양)
+        run: node --test tests/library-files-look.test.mjs
+
       - name: Check schedule window photos and files (CAL-일정첨부)
         run: node --test tests/event-files.test.mjs
 
