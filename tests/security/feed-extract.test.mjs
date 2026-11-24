@@ -174,6 +174,12 @@ const SAMPLES={
  'news-laborplus':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-redian':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-mt':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ // S69 사설·칼럼(extract:false — 종합지와 같다).
+ 'news-khan-opinion':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-hani-opinion':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-chosun-opinion':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-segye-opinion':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-hankyung-opinion':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-psi':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-itf':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-labourstart':l=>wrap(`<article>${body(l)}${FIG()}</article>`),

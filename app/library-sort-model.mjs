@@ -2,6 +2,7 @@
 // 화면·저장·네트워크에 닿지 않는다(node --test). 창은 library-sort.js, 쓰기는 기존 소유자 RLS 표(app_library_folders·app_library_folder_items).
 // 제안 차례: ① 지금 규칙(library-tree.js folderSuggestions, AI 없음) ② 못 찾은 것만 서버 AI(ai-assist kind=library_sort)가 기존 폴더 중 고름
 // ③ 기존 폴더로 담기 어려우면 새 폴더(이름 + 놓을 자리) 제안 — 같은 이름·같은 자리 새 폴더는 하나로 묶는다. AI는 제안까지, 옮기기·만들기는 [옮기기]를 눌러야.
+import {learnModel,nearestFolder,learnWhy,pickWhy,folderPath} from './library-learn-model.mjs';
 import {folderSuggestionReasons,cleanFolderName,canAddChild,titleWord,fileKindOf,cleanTitle,titleSubject,subjectKey,sameSubject,subjectHasName,folderHomes} from './library-tree.js';
 
 // S68-16: 40개 한 묶음은 답이 올 때까지(최대 75초) 모든 줄이 '⋯'였다. 10개씩 차례로 보내 묶음마다 줄이 바로 채워지게 한다
@@ -34,14 +35,50 @@ export const targetFolders=(folders,receiveId)=>(Array.isArray(folders)?folders:
 // ① 규칙 제안. 받는 폴더 연결을 '폴더 밖'으로 보고 folderSuggestions를 그대로 쓴다(받는 폴더 자신은 후보에서 빠짐).
 // 반환 Map(unit.key → 폴더 id).
 // 반환 Map(unit.key → 폴더 id). 까닭 글까지 필요하면 ruleReasons(unit.key → {folder, why}).
-export function ruleReasons(units,{docs=[],items=[],folders=[],receiveId,categoryOf=c=>c}={}){
+// S69-16: 먼저 본보기(library-learn-model.mjs — 이미 폴더에 든 내 자료와 가장 닮은 폴더). 닮은 폴더가 하나면 {folder, why:'닮은 자료: …', learn:true},
+// 비슷한 폴더가 여럿이면 {folder:null, pick:true, why}(고르기 — AI에도 보내지 않음), 닮음이 약하면 아래 옛 규칙(낱말·이름) → 그다음 AI.
+// auto: 정돈·나누기가 옮겨 두고 사람이 손대지 않은 자료 id(본보기 무게를 낮춤).
+export function ruleReasons(units,{docs=[],items=[],folders=[],receiveId,categoryOf=c=>c,auto=null}={}){
   const open=targetFolders(folders,receiveId),rest=(Array.isArray(items)?items:[]).filter(x=>x?.folder_id!==receiveId);
-  const loose=units.filter(u=>!u.photoset).map(u=>u.doc);
+  const learned=learnReasons(units,{docs,items:rest,folders,targets:open.filter(f=>String(f.name||'').trim()!==TIDY_SKIP_FOLDER).map(f=>f.id),auto});
+  const loose=units.filter(u=>!u.photoset&&!learned.has(u.key)).map(u=>u.doc);
   const hit=folderSuggestionReasons(loose,{docs,items:rest,folders:open,categoryOf,kinds:TIDY_KIND_WORDS});
-  const out=new Map();for(const u of units){const f=!u.photoset&&hit.get(u.doc.id);if(f)out.set(u.key,f)}
+  const out=new Map();for(const u of units){const l=learned.get(u.key);if(l){out.set(u.key,l);continue}const f=!u.photoset&&hit.get(u.doc.id);if(f)out.set(u.key,f)}
   return out;
 }
-export function ruleSuggestions(units,opts={}){return new Map([...ruleReasons(units,opts)].map(([k,v])=>[k,v.folder]))}
+export function ruleSuggestions(units,opts={}){return new Map([...ruleReasons(units,opts)].filter(([,v])=>v.folder).map(([k,v])=>[k,v.folder]))}
+
+// S69-16: 정돈·나누기가 옮겨 두고 사람이 아직 손대지 않은 자료 id — 옮긴 기록(S69-12 app_library_move_log, 30일)의 '옮긴 폴더'에 지금도 있는 자료.
+// 사람이 그 뒤 손으로 다른 폴더로 옮겼으면 빠진다(그 자리는 사람이 고른 자리라 본보기 무게 그대로). batches: library-sort.js moveBatches 결과.
+export function autoMovedIds(batches,items){
+  const at=new Map((Array.isArray(items)?items:[]).map(x=>[x?.document_id,x?.folder_id])),out=new Set();
+  for(const b of Array.isArray(batches)?batches:[])for(const r of b?.rows||[])if(r?.document_id&&r.to&&at.get(r.document_id)===r.to)out.add(r.document_id);
+  return out;
+}
+// 본보기 판정(받는 폴더 나누기·정돈 제안 공용). items: 본보기로 쓸 연결(받는 폴더 연결은 부르는 쪽이 뺌). 반환 Map(unit.key → 판정 글).
+const pathTail=(folders,id)=>folderPath(folders,id).slice(-2).join(' › ');
+export function learnReasons(units,{docs=[],items=[],folders=[],targets=null,auto=null}={}){
+  const byDoc=new Map((Array.isArray(docs)?docs:[]).map(d=>[d?.id,d])),alive=new Set((Array.isArray(folders)?folders:[]).map(f=>f?.id));
+  const examples=(Array.isArray(items)?items:[]).filter(x=>alive.has(x?.folder_id)&&byDoc.has(x.document_id)).map(x=>{const d=byDoc.get(x.document_id);return {key:x.document_id,title:d.title||d.file_name,folder:x.folder_id,category:d.category||null,auto:!!auto?.has?.(x.document_id)}});
+  const out=new Map();
+  // 폴더에 든 자료가 하나도 없으면(처음 쓰는 사람) 본보기 없음 — 옛 규칙(폴더 이름 포함 찾기)에 맡긴다.
+  if(!examples.length)return out;
+  const model=learnModel(examples,folders,{targets});
+  // S69-12와 같은 막이: 제목 앞 임자(단체·회의체)가 그 폴더 주인 임자와 다르면 그 폴더는 고르지 않는다('회의자료'처럼 흔한 말만 닮은 경우).
+  const homes=folderHomes(examples.map(e=>({folder:e.folder,subject:tidySubject(e.title)})));
+  const nameOf=id=>String((folders||[]).find(f=>f?.id===id)?.name||'');
+  // 막이를 조금 푸는 경우: 이 임자가 주인인 폴더가 하나도 없으면(예: 사람이 그 자료들을 손으로 다른 폴더에 옮겨 섞어 둠) 같은 임자 자료가 든 폴더는 막지 않는다.
+  const bySubj=new Map();for(const e of examples){const t=tidySubject(e.title);if(!t)continue;if(!bySubj.has(e.folder))bySubj.set(e.folder,[]);bySubj.get(e.folder).push({key:e.key,s:t})}
+  for(const u of Array.isArray(units)?units:[]){
+    const subject=tidySubject(u.title),self=new Set(u.ids||[u.key]);
+    const strict=!!subject&&[...homes.values()].some(h=>sameSubject(h,subject));
+    const veto=subject?id=>{const h=homes.get(id);if(!h||sameSubject(h,subject)||subjectHasName(subject,nameOf(id)))return false;return strict||!(bySubj.get(id)||[]).some(x=>!self.has(x.key)&&sameSubject(x.s,subject))}:null;
+    const r=nearestFolder(model,{title:u.title,category:u.doc?.category||u.category||null},{exclude:new Set(u.ids||[u.key]),veto});
+    if(r.state==='move')out.set(u.key,{folder:r.folder,why:learnWhy(r.why),learn:true,like:r.why});
+    else if(r.state==='pick')out.set(u.key,{folder:null,pick:true,alt:r.alt,why:pickWhy(r.alt,id=>pathTail(folders,id)),learn:true});
+  }
+  return out;
+}
 
 // 근거 없는 자료: 그림(사진 묶음 포함)인데 이름이 '붙여넣은 그림 11-13 03:38'·'IMG_1234'·'스크린샷'처럼 기본 이름뿐인 것.
 // S68-18(명진 11/22 15:32): 이름에 주제가 없어도 그림 속 글자(서버가 Drive OCR로 읽어 둔 app_documents.extracted_text, AI 비용 없음)가 있으면
@@ -133,7 +170,9 @@ export function startRows(units,rule,{texts=new Map(),aiIds=new Map()}={}){
   return units.map(u=>{
     const v=rule.get(u.key),f=typeof v==='string'?v:v?.folder||null,why=typeof v==='object'&&v?.why?v.why:'같은 낱말로 시작하는 자료가 이 폴더에 있어요';
     const base={key:u.key,ids:u.ids,title:u.title,photoset:u.photoset,image:isImageUnit(u),...(aiIds.has(u.key)?{aiId:aiIds.get(u.key)}:{})};
-    if(f)return {...base,checked:true,to:{folder:f},why,wait:false,from:'rule'};
+    if(f)return {...base,checked:true,to:{folder:f},why,wait:false,from:v?.learn?'learn':'rule'};
+    // S69-16 비슷한 폴더가 여럿: 고르기(체크 없음, AI에도 보내지 않음).
+    if(v?.pick)return {...base,checked:false,to:null,why,wait:false,from:'learn',pick:true};
     const nb=noBasis(u,texts.get(u.key));
     return {...base,checked:false,to:null,why:nb?WHY_NO_BASIS:'',wait:!nb,from:null,...(nb?{nb:true}:{})};
   });
@@ -277,7 +316,9 @@ export function tidyLabel(subject,kind){return [subject,kind].filter(Boolean).jo
 // ② 섞인 묶음(폴더 안 정돈일 때만): 폴더 주인 임자와 다른 임자의 자료를 임자별로. 같은 임자 자료가 모인 다른 폴더(또는 이름에 그 임자가 든 폴더)가 있으면 '옮기기',
 //    없으면 그 폴더 옆 새 폴더(임자 이름) 제안이되 기본은 '그대로'(애매하면 옮기지 않음 — 명진이 골라 옮김).
 // receiveId(받는 폴더)·폴더 밖(null)은 옮길 곳 후보가 아니다(잡동사니에서 꺼내는 것이 목적). allUnits: 주인 임자를 셀 때 쓰는 자료실 전체 단위(없으면 units).
-export function tidyGroups(units,{folders=[],receiveId=null,scopeId=null,allUnits=null}={}){
+// S69-16: ⓪ 본보기 먼저 — 폴더 밖·받는 폴더 자료는 이미 폴더에 든 내 자료와 가장 닮은 폴더로(묶음 'e:폴더', 줄마다 '닮은 자료: …').
+//    비슷한 폴더가 여럿이면 '고르기' 묶음('p:…', 기본 '그대로'), 닮음이 약하면 아래 ①②의 옛 규칙으로 넘긴다. auto: learnReasons와 같음.
+export function tidyGroups(units,{folders=[],receiveId=null,scopeId=null,allUnits=null,auto=null}={}){
   const fs=Array.isArray(folders)?folders:[],byId=new Map(fs.map(f=>[f.id,f])),order=new Map(fs.map((f,i)=>[f.id,i]));
   const subj=new Map(),every=[...(allUnits||units)];for(const u of [...units,...every])if(!subj.has(u.key))subj.set(u.key,tidySubject(u.title));
   const homes=folderHomes(every.filter(u=>u.from).map(u=>({folder:u.from,subject:subj.get(u.key)})));
@@ -285,15 +326,42 @@ export function tidyGroups(units,{folders=[],receiveId=null,scopeId=null,allUnit
   const usable=id=>id&&id!==receiveId&&byId.has(id)&&nameOf(id)!==TIDY_SKIP_FOLDER;
   // 그 폴더가 이 임자의 자리인지: 주인 임자가 같거나, 주인 임자가 없고(섞였거나 적음) 폴더 이름이 임자 안에 있거나 임자가 없는 묶음.
   const agrees=(id,s)=>{const h=homes.get(id);if(!s)return true;if(h)return sameSubject(h,s);return subjectHasName(s,nameOf(id))};
+  const out=[],newGroups=[],taken=new Set();
+  const examples=every.filter(u=>u.from&&usable(u.from));
+  const lctx={docs:examples.map(u=>({id:u.key,title:u.title,category:u.doc?.category||null})),items:examples.map(u=>({document_id:u.key,folder_id:u.from})),folders:fs,targets:fs.filter(f=>usable(f.id)).map(f=>f.id),auto:auto?new Set(examples.filter(u=>u.ids.some(id=>auto.has(id))).map(u=>u.key)):null};
+  {
+    const loose=units.filter(u=>!u.from||u.from===receiveId);
+    const learned=loose.length&&examples.length?learnReasons(loose,lctx):new Map();
+    const lg=new Map();
+    for(const u of loose){
+      const l=learned.get(u.key);if(!l)continue;
+      const gid=l.pick?'p:'+l.alt.join(','):'e:'+l.folder;
+      if(!lg.has(gid))lg.set(gid,{gid,word:l.pick?'비슷한 폴더 여럿':nameOf(l.folder),pick:!!l.pick,alt:l.alt||[],to:{folder:l.pick?l.alt[0]:l.folder},all:[]});
+      lg.get(gid).all.push({key:u.key,ids:u.ids,title:u.title,from:u.from,photoset:u.photoset,checked:!l.pick,note:l.why});
+      taken.add(u.key);
+    }
+    for(const x of lg.values()){
+      const count=new Map();for(const r of x.all)count.set(r.from,(count.get(r.from)||0)+1);
+      const at=[...count].map(([folder,n])=>({folder,n}));
+      const g=retargetGroup({gid:x.gid,word:x.word,total:x.all.length,at,all:x.all,learn:true,...(x.pick?{pick:true,alt:x.alt}:{})},x.to);
+      if(g.rows.length)out.push({...g,mode:x.pick?'keep':'move'});
+    }
+  }
   const buckets=new Map();
   for(const u of units){
+    if(taken.has(u.key))continue;
     const s=subj.get(u.key),k=lastKind(u.title),sk=subjectKey(s);if(!sk&&!k)continue;
     const key=sk+'|'+k;if(!buckets.has(key))buckets.set(key,{kind:k,raw:new Map(),list:[]});
     const b=buckets.get(key);b.list.push(u);if(s)b.raw.set(s,(b.raw.get(s)||0)+1);
   }
-  const out=[],newGroups=[],taken=new Set();
   // 같은 자리에 같은 이름 폴더가 있으면 그 폴더('임자 종류' 이름, 또는 종류·임자 이름만인 폴더 — 그 폴더 주인 임자가 다르지 않을 때).
   const newFolder=(label,parent,alts=[],s='')=>{const here=fs.filter(f=>(f.parent_id||null)===parent);const same=here.find(f=>String(f.name).trim()===label)||alts.filter(Boolean).map(a=>here.find(f=>String(f.name).trim()===a&&usable(f.id)&&(!s||!homes.get(f.id)||sameSubject(homes.get(f.id),s)))).find(Boolean);if(same)return {folder:same.id};const g={gid:'t'+(newGroups.length+1),name:label,parent};newGroups.push(g);return {group:g.gid}};
+  // S69-16: 사람이 이미 폴더에 넣어 둔 자료가 그 폴더 본보기와 가장 닮았으면(자기 자신은 빼고 계산) 그 자리는 사람이 고른 자리 — 흩어진 묶음에서 체크를 풀어 둔다.
+  const placed=[...buckets.values()].flatMap(b=>b.list.length>=TIDY_MIN?b.list.filter(u=>u.from&&usable(u.from)):[]);
+  const here=placed.length?learnReasons(placed,lctx):new Map();
+  const fitsHere=u=>{const l=here.get(u.key);return !!l&&(l.folder===u.from||!!l.alt?.includes(u.from))};
+  // 사람이 넣어 둔 자료: 새 폴더로 가는 묶음에서는 체크하지 않고(폴더 밖·받는 폴더 자료만), 본보기가 옮길 폴더 아닌 다른 폴더를 가리켜도 체크하지 않는다.
+  const pointsTo=(u,to)=>{if(!u.from||u.from===receiveId||!usable(u.from))return true;if(!to.folder)return false;const l=here.get(u.key);return !(l?.folder&&l.folder!==to.folder)};
   for(const [key,b] of buckets){
     const list=b.list;if(list.length<TIDY_MIN)continue;
     const count=new Map();for(const u of list)count.set(u.from,(count.get(u.from)||0)+1);
@@ -305,7 +373,7 @@ export function tidyGroups(units,{folders=[],receiveId=null,scopeId=null,allUnit
     const all=list.map(u=>{
       const other=kindWords(u.title).find(k=>k!==b.kind),fromName=nameOf(u.from);
       const fits=u.from&&u.from!==receiveId&&((b.kind&&fromName.includes(b.kind))||(subject&&subjectHasName(subject,fromName)&&agrees(u.from,subject)));
-      const note=other?`이름에 '${other}' — 체크 풀어 둠`:fits?'지금 폴더 이름과 맞아 체크 풀어 둠':'';
+      const note=other?`이름에 '${other}' — 체크 풀어 둠`:fits?'지금 폴더 이름과 맞아 체크 풀어 둠':fitsHere(u)?'지금 폴더의 자료와 닮아 체크 풀어 둠':!pointsTo(u,to)?'닮은 자료가 옮길 곳에 없어 체크 풀어 둠':'';
       return {key:u.key,ids:u.ids,title:u.title,from:u.from,photoset:u.photoset,checked:!note,note};
     });
     const g=retargetGroup({gid:'g:'+word,word,total:list.length,at,all},to);
@@ -339,7 +407,14 @@ export function tidyGroups(units,{folders=[],receiveId=null,scopeId=null,allUnit
       }
     }
   }
-  out.sort((a,b)=>(a.split?1:0)-(b.split?1:0)||b.total-a.total||a.word.localeCompare(b.word,'ko'));
+  // 본보기 묶음과 흩어진 묶음이 같은 폴더로 가면 한 묶음으로(같은 폴더 이름이 두 번 나오지 않게) — 흩어진 묶음 이름·체크는 그대로, 본보기 줄은 '닮은 자료' 글.
+  for(const g of out.filter(x=>x.learn&&!x.pick)){
+    const h=out.find(x=>!x.learn&&!x.split&&x.to.folder&&x.to.folder===g.to.folder);if(!h)continue;
+    const at=new Map(h.at.map(x=>[x.folder,x.n]));for(const x of g.at)at.set(x.folder,(at.get(x.folder)||0)+x.n);
+    Object.assign(h,{total:h.total+g.total,all:[...h.all,...g.all],rows:[...h.rows,...g.rows],at:[...at].map(([folder,n])=>({folder,n})).sort((a,b)=>b.n-a.n||(order.get(a.folder)??1e9)-(order.get(b.folder)??1e9)),mode:'move'});
+    out.splice(out.indexOf(g),1);
+  }
+  out.sort((a,b)=>(a.pick?1:0)-(b.pick?1:0)||(a.split?1:0)-(b.split?1:0)||b.total-a.total||a.word.localeCompare(b.word,'ko'));
   return {groups:out,newGroups:newGroups.filter(g=>out.some(x=>x.to.group===g.gid))};
 }
 
@@ -368,7 +443,7 @@ export function tidyPlan(groups,newGroups){
 export const tidyAtText=(at,nameOf)=>'지금: '+at.map(x=>`${x.folder?nameOf(x.folder):'폴더 밖'} ${x.n}`).join(' · ');
 export function tidySummary(groups,{done=true}={}){
   if(!groups.length)return done?'흩어지거나 섞인 자료를 찾지 못했어요.':'';
-  const n=groups.reduce((s,g)=>s+g.rows.length,0),mix=groups.filter(g=>g.split).length,spread=groups.length-mix;
-  const parts=[spread?`흩어진 같은 자료 ${spread}묶음`:'',mix?`다른 이름이 섞인 자료 ${mix}묶음`:''].filter(Boolean).join(' · ');
+  const n=groups.reduce((s,g)=>s+g.rows.length,0),mix=groups.filter(g=>g.split).length,learn=groups.filter(g=>g.learn&&!g.pick).length,pick=groups.filter(g=>g.pick).length,spread=groups.length-mix-learn-pick;
+  const parts=[learn?`닮은 폴더가 있는 자료 ${learn}묶음`:'',spread?`흩어진 같은 자료 ${spread}묶음`:'',mix?`다른 이름이 섞인 자료 ${mix}묶음`:'',pick?`선택할 자료 ${pick}묶음`:''].filter(Boolean).join(' · ');
   return `${parts}(${n}개)을 찾았어요. 묶음마다 선택하세요.`;
 }

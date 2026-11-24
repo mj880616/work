@@ -27,6 +27,8 @@ function harness(o = {}) {
     folders: [{ id: 'backup-folder', ownedByMe: true, trashed: false }],
     ...o,
   };
+  // S69-22: 폴더는 기본으로 표식(kptu_app_folder=edit_backup)이 붙은 것. 옛 폴더(표식 없음)는 unmarked:true.
+  state.folders = state.folders.map(f => f.appProperties || f.unmarked ? f : { ...f, appProperties: { kptu_app_folder: 'edit_backup' } });
   const calls = [];
   let handler, metaReads = 0;
   const fetchMock = async (url, init = {}) => {
@@ -44,6 +46,8 @@ function harness(o = {}) {
       if (state.featureStatus) return Response.json({}, { status: state.featureStatus });
       return Response.json(state.featureWs === undefined ? 'ws-1' : state.featureWs);
     }
+    // S69-22: 맨 위 앱 폴더 id(service role). 기본은 없음.
+    if (table === 'app_drive_settings') return Response.json(state.appRoot ? [{ root_folder_id: state.appRoot }] : []);
     if (table === 'app_documents') {
       if (u.searchParams.get('id')) return Response.json(state.document && u.searchParams.get('id') === 'eq.' + state.document.id ? [state.document] : []);
       return Response.json(state.libraryRefs);
@@ -64,7 +68,7 @@ function harness(o = {}) {
       if (u.pathname === '/drive/v3/files' && method === 'POST') { state.folders.push({ id: 'new-folder', ownedByMe: true, trashed: false }); return Response.json({ id: 'new-folder' }); }
       // BRAND-웹2흔적지우기: 옛 이름 백업 폴더의 이름만 바꾸기.
       const folderPatch = state.folders.find(f => method === 'PATCH' && u.pathname === `/drive/v3/files/${f.id}`);
-      if (folderPatch) { folderPatch.name = JSON.parse(init.body).name; return Response.json({ id: folderPatch.id }); }
+      if (folderPatch) { const b = JSON.parse(init.body); if (b.name) folderPatch.name = b.name; if (b.appProperties) folderPatch.appProperties = { ...folderPatch.appProperties, ...b.appProperties }; return Response.json({ id: folderPatch.id }); }
       if (u.pathname === `/drive/v3/files/${FILE}/copy`) {
         if (state.copyStatus) return Response.json({}, { status: state.copyStatus });
         return Response.json({ id: 'backup-copy', name: JSON.parse(init.body).name, md5Checksum: state.copyMd5 ?? state.drive.md5Checksum });
@@ -178,7 +182,7 @@ test('overwrite keeps a dated backup copy of the opened revision first, then wri
   const copy = driveWrites(h)[0];
   assert.deepEqual(JSON.parse(copy.body).parents, ['backup-folder']);
   const search = drive(h).find(c => c.path === '/drive/v3/files' && c.method === 'GET');
-  assert.match(search.search.get('q'), /\(name = '노조\+ 편집 백업' or name = 'WORK ON\+ 편집 백업' or name = 'Web2 편집 백업'\).*'root' in parents and 'me' in owners and trashed = false/);
+  assert.match(search.search.get('q'), /^\(appProperties has \{ key='kptu_app_folder' and value='edit_backup' \} or name = '노조\+ 편집 백업' or name = 'WORK ON\+ 편집 백업' or name = 'Web2 편집 백업'\).*\('root' in parents\) and 'me' in owners and trashed = false/);
   // Drive revision checked before the copy and again right before the write.
   const order = drive(h).map(c => c.method + (c.path.endsWith('/copy') ? ' copy' : c.path.startsWith('/upload') ? ' upload' : c.path === '/drive/v3/files' ? ' folder' : ' meta'));
   assert.deepEqual(order, ['GET meta', 'GET folder', 'POST copy', 'GET meta', 'PATCH upload']);
@@ -190,7 +194,7 @@ test('the backup folder is created once in My Drive root when missing', async ()
   const r = await h.overwrite({ note_id: NOTE, drive_file_id: FILE, ...base });
   assert.equal(r.status, 200);
   const created = driveWrites(h).find(c => c.path === '/drive/v3/files');
-  assert.deepEqual(JSON.parse(created.body), { name: '노조+ 편집 백업', mimeType: 'application/vnd.google-apps.folder', parents: ['root'] });
+  assert.deepEqual(JSON.parse(created.body), { name: '노조+ 편집 백업', mimeType: 'application/vnd.google-apps.folder', parents: ['root'], appProperties: { kptu_app_folder: 'edit_backup' } });
   assert.deepEqual(JSON.parse(driveWrites(h).find(c => c.path.endsWith('/copy')).body).parents, ['new-folder']);
 });
 
@@ -448,4 +452,34 @@ test('S68-02: 새 사용자 편집 백업 폴더는 WORK ON+, 이미 있는 노�
   const w = await web2.overwrite({ document_id: DOC, ...base });
   assert.deepEqual(JSON.parse(driveWrites(web2).find(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder').body), { name: 'WORK ON+ 편집 백업' });
   assert.equal(w.body.backup.folder, 'WORK ON+ 편집 백업');
+});
+
+// S69-22: 편집 백업 폴더는 표식으로 찾고, 맨 위 또는 맨 위 앱 폴더 바로 아래 어디에 있어도 같은 폴더. 새로 만들 때는 맨 위 앱 폴더 아래.
+test('S69-22: 맨 위 앱 폴더를 알면 그 아래도 찾고 새 폴더는 그 아래에 만든다 — 옮긴 뒤 새 폴더를 또 만들지 않는다', async () => {
+  const ROOT = 'app-root-folder-1';
+  const moved = harness({ appRoot: ROOT });
+  assert.equal((await moved.overwrite({ document_id: DOC, ...base })).status, 200);
+  const q = drive(moved).find(c => c.path === '/drive/v3/files' && c.method === 'GET').search.get('q');
+  assert.match(q, /\('root' in parents or 'app-root-folder-1' in parents\)/);
+  assert.equal(driveWrites(moved).some(c => c.path === '/drive/v3/files' && c.method === 'POST'), false, '옮겨진 폴더를 그대로 쓴다');
+  assert.equal(driveWrites(moved).some(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder'), false, '표식 있는 폴더는 고치지 않는다');
+  const fresh = harness({ appRoot: ROOT, folders: [] });
+  assert.equal((await fresh.overwrite({ document_id: DOC, ...base })).status, 200);
+  assert.deepEqual(JSON.parse(driveWrites(fresh).find(c => c.path === '/drive/v3/files').body).parents, [ROOT]);
+});
+
+test('S69-22: 표식이 없는 옛 편집 백업 폴더는 이름으로 한 번 찾아 표식만 적어 둔다(이름은 그대로)', async () => {
+  const h = harness({ folders: [{ id: 'backup-folder', name: '노조+ 편집 백업', ownedByMe: true, trashed: false, unmarked: true }] });
+  const r = await h.overwrite({ document_id: DOC, ...base });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const patch = driveWrites(h).find(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder');
+  assert.deepEqual(JSON.parse(patch.body), { appProperties: { kptu_app_folder: 'edit_backup' } });
+  assert.equal(r.body.backup.folder, '노조+ 편집 백업');
+  // 표식이 붙은 폴더가 있으면 이름이 같은 다른 폴더보다 먼저 쓴다(옮기거나 이름을 바꿔도 같은 폴더).
+  const both = harness({ folders: [
+    { id: 'old-name-only', name: '노조+ 편집 백업', ownedByMe: true, trashed: false, unmarked: true },
+    { id: 'marked-one', name: '내 백업', ownedByMe: true, trashed: false },
+  ] });
+  assert.equal((await both.overwrite({ document_id: DOC, ...base })).status, 200);
+  assert.deepEqual(JSON.parse(driveWrites(both).find(c => c.path.endsWith('/copy')).body).parents, ['marked-one']);
 });

@@ -38,7 +38,7 @@ import {createSelectMode} from './select-mode.js';
 import {bindMarquee} from './marquee-select.js';
 import {bindRowSwipe,PICK} from './row-swipe.js';
 import {announceUploaded,openInLibrary} from './upload-done.js';
-import {folderTrail,folderPathHtml} from './folder-path.mjs';
+import {folderTrail,folderPathHtml,collapseSteps,moreStepHtml} from './folder-path.mjs';import './folder-path-more.js';
 import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea,settleGestureAreas} from './gesture-fill.js';
 import {SPLIT_QUERY,NARROW_QUERY} from './screen-width.mjs';
@@ -1033,6 +1033,8 @@ function luRestoreTree(back){if(!back)return;settleGestureAreas();window.scrollT
 function luFocusUp(){if(!luInFolder)return;const step=LU_PHONE?.matches?walkUp(luWalk).to:null;if(step){luEnterFolder(step);return}luLeaveFocus()}
 function luLeaveFocus(){if(!luInFolder)return;const back=luTreeBack;luTreeBack=null;luEnterFolder(null);luRestoreTree(back)}
 document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [data-lu-path-back]');if(!b)return;e.preventDefault();luFocusUp()});
+// S69-19: 폰 위치 줄(지금 폴더 위 단계들)도 길면 가운데를 '…' 하나로(누르면 가려진 단계 목록, folder-path-more.js).
+function luPhoneAncHtml(steps){const sep='<span class="ft-focus-sep" aria-hidden="true">›</span>',one=f=>`<button type="button" class="ft-btn ft-focus-step" data-lu-path="${luEsc(f.id)}">${luEsc(f.name)}</button>`;const c=collapseSteps(steps,{max:3,tail:1});return(c.hidden.length?[one(c.head[0]),moreStepHtml(c.hidden,{cls:'ft-btn ft-focus-step',attr:'data-lu-path',esc:luEsc,sep:''}),...c.tail.map(one)]:steps.map(one)).map(x=>x+sep).join('')}
 function luRenderPath(box){
   luDrive().render(); // S69-20: 저장 위치 줄도 지금 자리(폴더 안·밖)에 맞춘다
   let nav=document.querySelector('#libraryPath');
@@ -1044,7 +1046,7 @@ function luRenderPath(box){
   // 바로 아래 그 폴더 줄(열린 폴더 그림 + 굵은 이름 + 개수)이 상자 머리. 맨 앞 '자료실'은 [‹]처럼 펼친 자리 그대로 나무로. 넓은 화면은 지금 위치 줄 그대로.
   const phone=!!LU_PHONE?.matches,trail=folderTrail(luFolders_,luInFolder);
   nav.className=phone?'ft-focus-anc lu-focus-anc':'fp-path';
-  nav.innerHTML=phone?`<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="${walkUpLabel(luWalk)}" title="${walkUpLabel(luWalk)}">‹</button>`+[{id:'',name:'자료실'},...trail.slice(0,-1)].map(f=>`<button type="button" class="ft-btn ft-focus-step" data-lu-path="${luEsc(f.id)}">${luEsc(f.name)}</button><span class="ft-focus-sep" aria-hidden="true">›</span>`).join('')
+  nav.innerHTML=phone?`<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="${walkUpLabel(luWalk)}" title="${walkUpLabel(luWalk)}">‹</button>`+luPhoneAncHtml([{id:'',name:'자료실'},...trail.slice(0,-1)])
     :'<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="폴더 나무로">‹</button>'+folderPathHtml({rootLabel:'자료실',trail:folderTrail(luFolders_,luInFolder),attr:'data-lu-path',esc:luEsc});
   // LIB-받는폴더나누기(S60-18, 시안 ①): 받는 폴더를 연 화면이고 그 안에 자료가 있으면 위치 줄 끝에 작은 [폴더로 나누기].
   if(luSortReady(luInFolder))nav.insertAdjacentHTML('beforeend',sortButtonHtml());
@@ -1150,6 +1152,19 @@ function luEnterFolder(id,{picked=true}={}){
   const head=luInFolder?[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode==='f:'+luInFolder):null;
   (head||document.querySelector('#libraryPath [data-lu-path]'))?.focus?.({preventScroll:true});
 }
+// S69-19(명진 11/24): 폴더 안에서 Backspace = 한 단계 위 폴더(두 칸이면 지금 칸). 글 쓰는 칸·창·메뉴가 열려 있을 때는 그대로 둔다.
+// Alt+←·폰 뒤로 키는 이미 있는 뒤로 규칙(넓은 화면 = 직전 폴더, 폰 = 한 단계 위)이 맡는다.
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Backspace'||e.defaultPrevented||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||e.isComposing)return;
+  if(window.KPTURouter?.current!=='library'||luGroupBy!=='folder')return;
+  const t=e.target;if(t instanceof Element&&t.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),dialog,.modal:not(.hidden),[role="dialog"],[popover]'))return;
+  if([...document.querySelectorAll('.modal:not(.hidden),[role="dialog"],dialog[open]')].some(el=>el.checkVisibility?.()??el.getClientRects().length>0))return;
+  if(luTwoActive()){const i=luTwo.cur,here=i===1?luInFolder:luTwo.left;if(!here)return;e.preventDefault();luTwo.up(document.querySelector(`#documentList [data-lu-pane-i="${i}"]`));return}
+  if(!luInFolder)return;e.preventDefault();
+  if(luPhone()){luFocusUp();return}
+  const up=luFolders_.find(f=>f.id===luInFolder)?.parent_id||null;
+  if(!up&&luTreeBack)luLeaveFocus();else luEnterFolder(up);
+});
 document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [data-lu-path]');if(!b)return;e.preventDefault();if(!b.dataset.luPath&&luTreeBack)luLeaveFocus();else luEnterFolder(b.dataset.luPath||null)});
 // 폴더 줄을 두 번 누르면(PC 더블클릭, 폰 두 번 탭) 그 폴더로 들어간다. 첫 번째 누름의 펼치기·접기는 그대로 일어나고, 들어간 폴더는 열린 채로 보인다.
 document.addEventListener('dblclick',e=>{

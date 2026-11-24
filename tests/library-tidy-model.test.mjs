@@ -44,22 +44,26 @@ test('단위: 녹음 폴더(와 하위)·소리 파일은 빼고, 폴더 밖은 
 
 test('묶음: 폴더가 둘 이상으로 갈라진 같은 종류만, 가장 많이 든 폴더로, 다른 종류 낱말이 섞인 자료는 체크를 풀어 둠',()=>{
   const {groups,newGroups}=tidyGroups(tidyUnits(docs,items,folders),{folders,receiveId:RC});
-  assert.deepEqual(groups.map(g=>g.word),['가상 합의서','교육 명단']);
+  // S69-16: 받는 폴더·폴더 밖 자료는 본보기(이미 폴더에 든 자료·폴더 이름)로 먼저 — '교육 명단' 2개는 '교육' 폴더로,
+  // '가상 합의서 3쪽'은 임금협약과 그 안 초안이 비슷하게 닮아 '고르기'(기본 그대로).
+  assert.deepEqual(groups.map(g=>g.word),['가상 합의서','교육','비슷한 폴더 여럿']);
   const h=groups[0];
-  assert.equal(h.total,5);
+  assert.equal(h.total,4);
   assert.deepEqual(h.to,{folder:IM});
   assert.equal(h.stay,2);
-  assert.deepEqual(h.rows.map(r=>[r.key,r.checked]),[[id(101),true],[id(104),true],[id(105),true]]);
-  assert.equal(tidyAtText(h.at,f=>f?folders.find(x=>x.id===f).name:'폴더 밖'),'지금: 임금협약 2 · 성명·보도자료 1 · 잡동사니 1 · 초안 1');
+  assert.deepEqual(h.rows.map(r=>[r.key,r.checked,r.note]),[[id(101),true,''],[id(105),true,'']]);
+  assert.equal(tidyAtText(h.at,f=>f?folders.find(x=>x.id===f).name:'폴더 밖'),'지금: 임금협약 2 · 성명·보도자료 1 · 초안 1');
+  const p=groups[2];
+  assert.deepEqual([p.mode,p.pick,p.alt,p.rows.map(r=>[r.key,r.checked])],['keep',true,[IM,SUB],[[id(104),false]]]);
   // '가상 합의서 이행 촉구 보도자료'는 보도자료 묶음(1개뿐이라 묶음 아님).
   assert.ok(!groups.some(g=>g.rows.some(r=>r.key===id(106))));
-  // 교육 명단: 잡동사니 1 · 폴더 밖 1 — 많이 든 폴더가 없고, 같은 자리에 임자 이름 폴더 '교육'이 있어 그리로(새 폴더 없음).
-  assert.deepEqual(groups[1].to,{folder:EDU});
+  // 교육 명단: 잡동사니 1 · 폴더 밖 1 — 이름이 닮은 '교육' 폴더로(새 폴더 없음).
+  assert.deepEqual([groups[1].to,groups[1].learn,groups[1].rows.map(r=>r.note)],[{folder:EDU},true,['폴더 이름과 닮았어요','폴더 이름과 닮았어요']]);
   assert.deepEqual(newGroups,[]);
   // '교육' 폴더가 없으면 새 폴더 '교육 명단'(맨 위).
   const noEdu=folders.filter(f=>f.id!==EDU),r2=tidyGroups(tidyUnits(docs,items,noEdu),{folders:noEdu,receiveId:RC});
   assert.deepEqual(r2.newGroups,[{gid:r2.newGroups[0].gid,name:'교육 명단',parent:null}]);
-  assert.equal(tidySummary(groups),'흩어진 같은 자료 2묶음(5개)을 찾았어요. 묶음마다 선택하세요.');
+  assert.equal(tidySummary(groups),'닮은 폴더가 있는 자료 1묶음 · 흩어진 같은 자료 1묶음 · 선택할 자료 1묶음(5개)을 찾았어요. 묶음마다 선택하세요.');
   assert.equal(tidySummary([]),'흩어지거나 섞인 자료를 찾지 못했어요.');
 });
 
@@ -72,8 +76,9 @@ test('섞인 종류·이미 이름이 맞는 폴더는 체크 풀어 둠, 같은
   const h=groups.find(g=>g.word==='가상 합의서');
   assert.deepEqual(h.rows.map(r=>[r.key,r.checked,r.note]),[[id(103),false,"이름에 '보도자료' — 체크 풀어 둠"],[id(104),false,'지금 폴더 이름과 맞아 체크 풀어 둠']]);
   assert.equal(h.mode,'keep');
-  const m=groups.find(g=>g.word==='교육 명단');
-  assert.deepEqual(m.to,{folder:id(8)});assert.deepEqual(newGroups,[]);
+  // S69-16: '교육 명단'은 '교육'·'명단' 두 폴더 이름이 다 닮아 고르기(옮기지 않음, 새 폴더도 없음).
+  const m=groups.find(g=>g.pick);
+  assert.deepEqual([m.mode,m.alt],['keep',[EDU,id(8)]]);assert.deepEqual(newGroups,[]);
 });
 
 test('옮길 곳 바꾸기·계획: 그대로 묶음은 빼고, 원래 자리별로 나눠 옮김, 새 폴더는 쓰일 때만',()=>{
@@ -81,14 +86,17 @@ test('옮길 곳 바꾸기·계획: 그대로 묶음은 빼고, 원래 자리별
   let [h,m]=groups;
   // 합의서를 '성명·보도자료'로 바꾸면 그 안 1개는 그대로, 임금협약 2개가 줄로.
   const h2=retargetGroup(h,{folder:PR},h.rows);
-  assert.deepEqual(h2.rows.map(r=>r.key).sort(),[id(102),id(103),id(104),id(105)].sort());
+  assert.deepEqual(h2.rows.map(r=>r.key).sort(),[id(102),id(103),id(105)].sort());
   assert.equal(h2.stay,1);
-  const plan=tidyPlan([h,m],newGroups);
-  assert.equal(plan.count,5);
+  // '고르기' 묶음(groups[2])은 기본 그대로라 계획에 들지 않는다.
+  const plan=tidyPlan(groups,newGroups);
+  assert.equal(plan.count,4);
   assert.deepEqual(plan.create,[]);
-  assert.deepEqual(plan.moves.map(x=>[x.from,x.folder||x.group,x.ids.length]),[[PR,IM,1],[RC,IM,1],[SUB,IM,1],[RC,EDU,1],[null,EDU,1]]);
+  assert.deepEqual(plan.moves.map(x=>[x.from,x.folder||x.group,x.ids.length]),[[PR,IM,1],[SUB,IM,1],[RC,EDU,1],[null,EDU,1]]);
   const keep=tidyPlan([h,{...m,mode:'keep'}],newGroups);
-  assert.equal(keep.count,3);assert.deepEqual(keep.create,[]);
+  assert.equal(keep.count,2);assert.deepEqual(keep.create,[]);
+  // 고르기 묶음을 [옮기기]로 바꾸면 첫 후보(임금협약)로.
+  assert.deepEqual(tidyPlan([{...groups[2],mode:'move',rows:groups[2].rows.map(r=>({...r,checked:true}))}],[]).moves,[{from:RC,folder:IM,ids:[id(104)]}]);
 });
 
 // S69-12(명진 11/24 08:09): '회의자료' 낱말 하나로 묶어 다른 단체 회의 자료까지 '집행위' 폴더로 옮겼다. 이름은 비슷하게 지어낸 것.
@@ -113,8 +121,10 @@ test('흩어진 묶음: 같은 종류여도 단체가 다르면 한 묶음이 �
     {document_id:mid(4),folder_id:RCV},{document_id:mid(5),folder_id:RCV},{document_id:mid(7),folder_id:RCV},{document_id:mid(9),folder_id:RCV}];
   const ds=mdocs.map((d,i)=>({...d,id:mid(i)}));
   const {groups,newGroups}=tidyGroups(tidyUnits(ds,it,mfolders),{folders:mfolders,receiveId:RCV});
-  const exec=groups.find(g=>g.word==='본부집행위원회 회의자료');
-  assert.deepEqual(exec.to,{folder:EXEC});assert.deepEqual(exec.rows.map(r=>r.key),[mid(3)]);
+  // S69-16: 받는 폴더의 본부 집행위 자료는 본보기(집행위 안 같은 회의 자료 3개)로 집행위에.
+  const exec=groups.find(g=>g.to.folder===EXEC);
+  assert.deepEqual([exec.word,exec.learn],['집행위',true]);assert.deepEqual(exec.rows.map(r=>r.key),[mid(3)]);
+  assert.match(exec.rows[0].note,/^닮은 자료: .*본부집행위원회 회의자료/);
   const council=groups.find(g=>g.word==='가상협의회 회의자료');
   // 가상협의회 3개(받는 폴더 2 · 폴더 밖 1)는 집행위가 아니라 새 폴더 '가상협의회 회의자료'로.
   assert.deepEqual(council.rows.map(r=>r.key).sort(),[mid(4),mid(5),mid(6)].sort());
@@ -126,8 +136,9 @@ test('흩어진 묶음: 같은 종류여도 단체가 다르면 한 묶음이 �
   // 같은 단체 자료가 모인 폴더가 있으면 그리로.
   const fs2=[...mfolders,{id:COUNCIL,name:'협의회 자료',parent_id:MEETING}];
   const it2=[...it.filter(x=>x.document_id!==mid(4)&&x.document_id!==mid(5)),{document_id:mid(4),folder_id:COUNCIL},{document_id:mid(5),folder_id:COUNCIL}];
-  const g2=tidyGroups(tidyUnits(ds,it2,fs2),{folders:fs2,receiveId:RCV}).groups.find(g=>g.word==='가상협의회 회의자료');
-  assert.deepEqual(g2.to,{folder:COUNCIL});assert.deepEqual(g2.rows.map(r=>r.key),[mid(6)]);
+  // (S69-16: 그 폴더 자료가 본보기가 되어 '닮은 자료' 묶음으로)
+  const g2=tidyGroups(tidyUnits(ds,it2,fs2),{folders:fs2,receiveId:RCV}).groups.find(g=>g.to.folder===COUNCIL);
+  assert.deepEqual([g2.learn,g2.rows.map(r=>r.key)],[true,[mid(6)]]);
 });
 
 test('섞인 묶음: 이미 한 폴더에 섞여 든 다른 단체 자료를 그 폴더 정돈에서 단체별로 나눠 제자리 후보를 낸다(기본은 그대로)',()=>{

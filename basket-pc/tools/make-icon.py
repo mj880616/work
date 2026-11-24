@@ -2,15 +2,18 @@
 
 Run from anywhere:  python3 basket-pc/tools/make-icon.py      (needs only Pillow)
 
-The SVG is the source. It keeps the basket picture ("노조", "+" and the up arrow) in the same colours as the
-WORK ON+ icon app/app-icon.svg (ink square #22262B, cream drawing #F3F1EA); the only extra colour is the orange dot. It has two drawings:
-  class="full"  for 32 px and up (letters at weight 800)
-  class="small" for 16, 20 and 24 px (same place and colours, letters at weight 900 so they stay readable)
+The SVG is the source. Since S69 it is the WORK ON+ mark itself, the same drawing as the web app icon app/app-icon.svg
+(scripts/app-icon/build-app-icons.py): ink square #22262B, cream ring #F3F1EA with the ink "W", and the "+" on the ring's
+upper right (cream outside the ring, ink inside it, drawn twice with the ring as clip-path). The only extra colour is the
+orange dot. It has two drawings:
+  class="full"  for 40 px and up (W 5, + 3.1, as the web app icon)
+  class="small" for 16, 20, 24 and 32 px (same place and colours, lines a little thicker: W 6, + 3.7, as the web tab icon)
 and a hidden class="badge" (the small orange dot) inside each drawing for "something is waiting to be sent".
 
-This script reads that SVG (rect, circle, polygon, polyline, filled glyph paths and the butt-capped "+" path)
-and draws each size directly with Pillow (8x supersampled, then reduced), so no SVG library is needed.
-Paths are flattened by scripts/app-icon/svgpath.py, shared with the web app icon builder.
+This script reads that SVG (rect, circle, polygon, polyline, filled glyph paths, the butt-capped "+" path, round-capped
+stroked paths and a clip-path made of one circle) and draws each size directly with Pillow (8x supersampled, then reduced),
+so no SVG library is needed. Paths are flattened by scripts/app-icon/svgpath.py, shared with the web app icon builder.
+When the web app icon changes, copy its numbers into basket-icon.svg, bump AppIcon.Revision and run this script.
 
 Writes (commit all of them):
   src/BasketDrop/app.ico                     program: exe, installer, Start menu, title bars, tray when all is well
@@ -28,7 +31,7 @@ import struct
 import sys
 import xml.etree.ElementTree as ET
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent.parent / "scripts" / "app-icon"))
 import svgpath  # noqa: E402  shared with the web app icon builder
@@ -37,7 +40,7 @@ BASE = pathlib.Path(__file__).resolve().parent.parent  # basket-pc/
 SVG = BASE / "icon" / "basket-icon.svg"
 APP_SIZES = [16, 20, 24, 32, 40, 48, 64, 256]
 TRAY_SIZES = [16, 20, 24, 32, 40, 48]  # notification area: 100% .. 300% scaling
-SMALL_MAX = 24  # same rule as the SVG media query
+SMALL_MAX = 32  # same rule as the SVG media query (and the web tab icon)
 SS = 8  # supersampling factor
 
 # "login needed": the whole picture turns dim grey; the orange dot keeps its colour.
@@ -66,6 +69,9 @@ def draw(px, badge=False, dim=False):
     k = n / 64
     im = Image.new("RGBA", (n, n), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
+    clips = {}  # clipPath id -> list of circles (cx, cy, r)
+    for cp in root.iter(NS + "clipPath"):
+        clips[cp.get("id")] = [(float(c.get("cx")), float(c.get("cy")), float(c.get("r"))) for c in cp if c.tag == NS + "circle"]
 
     def color(value):
         if not value or value == "none":
@@ -84,7 +90,28 @@ def draw(px, badge=False, dim=False):
             d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=fill)
 
     def element(el, style):
+        nonlocal d
         tag = el.tag.replace(NS, "")
+        clip = el.get("clip-path")
+        if clip:
+            # draw the element alone on a layer, keep only what lies inside the clip circles, lay it on the picture
+            m = re.fullmatch(r"url\(#([^)]+)\)", clip)
+            if not m or not clips.get(m.group(1)):
+                raise ValueError("only clip-path=url(#id) of circles is supported")
+            layer = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+            keep, d = d, ImageDraw.Draw(layer)
+            try:
+                bare = ET.Element(el.tag, {key: v for key, v in el.attrib.items() if key != "clip-path"})
+                element(bare, style)
+            finally:
+                d = keep
+            mask = Image.new("L", (n, n), 0)
+            md = ImageDraw.Draw(mask)
+            for cx, cy, r in clips[m.group(1)]:
+                md.ellipse([(cx - r) * k, (cy - r) * k, (cx + r) * k, (cy + r) * k], fill=255)
+            layer.putalpha(ImageChops.multiply(layer.getchannel("A"), mask))
+            im.alpha_composite(layer)
+            return
         st = dict(style)
         for key in ("fill", "stroke", "stroke-width"):
             if el.get(key) is not None:
@@ -126,11 +153,16 @@ def draw(px, badge=False, dim=False):
                 for c in svgpath.contours(el.get("d")):
                     d.polygon([(x * k, y * k) for x, y in c], fill=fill)
             if stroke and sw:
-                if st.get("stroke-linecap", el.get("stroke-linecap")) != "butt":
-                    raise ValueError("only butt-capped stroked paths are supported")
-                for c in svgpath.stroke_rects(el.get("d"), sw):
-                    d.polygon([(x * k, y * k) for x, y in c], fill=stroke)
-        elif tag in ("style",):
+                cap = el.get("stroke-linecap", st.get("stroke-linecap"))
+                if cap == "butt":
+                    for c in svgpath.stroke_rects(el.get("d"), sw):
+                        d.polygon([(x * k, y * k) for x, y in c], fill=stroke)
+                elif cap == "round":  # round caps and joins (the W and the WORK ON+ "+")
+                    for c in svgpath.contours(el.get("d")):
+                        round_line(c, stroke, sw)
+                else:
+                    raise ValueError("stroked paths need stroke-linecap butt or round")
+        elif tag in ("style", "defs"):
             return
         else:
             raise ValueError("unsupported SVG element: " + tag)
