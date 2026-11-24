@@ -21,7 +21,7 @@
   #appView #outsideView .osq-filters > .osq-row + .osq-row{ margin-left:8px; padding-left:8px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
 }
 @media(max-width:760px){ #appView #outsideView .os.now[data-detail="open"] > .os-tabs{ display:none; } }
-#appView #outsideView :is([data-now-panel-all],[data-now-panel-news],.now-interests,.now-cand,.nw-top,.nw-dd)[hidden]{ display:none; }
+#appView #outsideView :is([data-now-panel-all],[data-now-panel-news],.now-interests,.nw-top,.nw-dd)[hidden]{ display:none; }
 /* [언론] 칸 안 키워드·매체 켜고 끄기·별표 폴더 칸(news-clipping.js data-mode)에서는 위 찾기 줄을 감춘다(그 칸 머리 ‹ 가 맨 위). */
 #appView #outsideView .os.now[data-tab="media"]:has(#newsRoot:not([data-mode="list"])) .nw-top{ display:none; }
 
@@ -82,7 +82,6 @@
 #nwMediaPicker .lu-move-item .lu-move-tag{ margin-left:auto; }
 #nwMediaPicker .lu-move-item[aria-current="true"]{ opacity:1; cursor:pointer; font-weight:var(--ds-weight-medium,500); }
 #nwMediaPicker .lu-move-dot{ background:var(--lu-dot); } /* 크기·모양은 공용 .ui-color-dot */
-#appView #outsideView .now-cand{ display:flex; align-items:center; gap:8px; margin:2px 0 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 
 /* 글 줄 전체가 눌린다: 제목 단추의 ::after가 줄을 덮고, 줄 안 다른 단추·접기·칩은 그 위에 둔다(키보드는 제목 단추 하나에 Enter). */
 #appView #outsideView .now-row{ position:relative; }
@@ -207,5 +206,14 @@
 /* S53-5 NEWS-밑줄모으기 [밑줄] 탭(now-highlights.js, 시안 news-highlights.html ③): 고른 글(노란 띠) · 메모 · 매체·날짜·제목 · ⋯. 촘촘하게. */
 #appView #outsideView .now-marks{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 #appView #outsideView .now-marks[hidden]{ display:none; }
+/* S69-70 [메모] 탭(메모 있는 글): 글 줄 아래 메모 첫 줄을 작게, 글을 못 찾은 메모는 메모만 한 줄. */
+#appView #outsideView .now-memos{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+#appView #outsideView .now-memos[hidden]{ display:none; }
+#appView #outsideView .nw-memo{ margin:2px 0 0; font-size:12px; color:var(--kptu-ink); opacity:.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#appView #outsideView :is(.nw-memo,.nm-note) .nm-k{ margin-right:4px; font-size:11px; color:var(--kptu-muted); }
+#appView #outsideView .nm-alone{ position:relative; }
+#appView #outsideView .nm-alone .nm-note{ font-weight:400; text-align:left; }
+#appView #outsideView .nm-memo-locked{ color:var(--kptu-muted); }
+#appView #outsideView .nm-more-line{ margin:4px 0 0; text-align:center; }
 #appView #outsideView .nh-head{ display:flex; justify-content:flex-end; }
 /* 밑줄 줄 모양(.nh-row …)·밑줄 메뉴는 news-mark-rows.css 한 곳(노트 'News에서 › 밑줄'도 같은 줄, NOTE-News밑줄보관보기). */
