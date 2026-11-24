@@ -42,13 +42,14 @@ for(const width of [1440,700])test.describe(`자료실 ${width} 끌어놓기`,()
   await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 N에 2개 올렸어요');
   expect(inFolder(s,'fn')).toEqual(['upload-2','upload-3']);
   // 나무에서 폴더로 들어간 뒤: 오른쪽 목록 빈 곳(목록 상자 아래쪽·자료실 화면 아래 빈 곳) = 그 폴더(들어간 폴더 머리 줄 표시).
+  // S69-28 LIB-한칸탐색기: 오른쪽은 그 폴더 내용(바로 안 폴더 줄 + 자료 줄), 놓을 곳 표시는 왼쪽 나무의 그 폴더 줄.
   await enterNav(page,'fa',width);
-  await expect.poll(()=>tops(page)).toEqual(['f:fa']);
+  await expect.poll(()=>tops(page)).toEqual(['f:fc']);
   r=await dropAt(page,'#documentList',['d.pdf']);
-  expect(r).toMatchObject({allowed:true,shown:true,hint:'놓으면 ‘가상 A’ 폴더로 올려요',into:['f:fa'],after:false});
+  expect(r).toMatchObject({allowed:true,shown:true,hint:'놓으면 ‘가상 A’ 폴더로 올려요',place:['fa'],into:[],after:false});
   await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 A에 1개 올렸어요');
   expect(inFolder(s,'fa')).toEqual(['n-1','upload-4']);
-  await expect(page.locator('#documentList details[data-lu-node="f:fa"] [data-lu-document="upload-4"]')).toHaveCount(1);
+  await expect(page.locator('#documentList > [data-lu-document="upload-4"]')).toHaveCount(1);
   r=await dropAt(page,'#libraryListCard',['e.pdf'],{point:[width>=1000?600:400,(await page.locator('#libraryListCard').boundingBox()).height-6]});
   expect(r.hint).toBe('놓으면 ‘가상 A’ 폴더로 올려요');
   await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 A에 1개 올렸어요');

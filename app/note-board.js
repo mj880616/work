@@ -17,23 +17,42 @@
 //   저장은 부르는 쪽(onTextAdd·onTextChange·onTextRemove → note-board-links-data.js, 서버 표 app_note_board_texts).
 // - 화면 밖 카드·선은 그리지 않는다(판을 옮기거나 키울 때 보이는 것만 붙이고 뗌) — 카드·선 수백 개도 가볍게.
 // - PC 왼쪽 노트 목록에서 끌어 온 노트(드래그 자료 형식 NOTE_DRAG)를 판에 놓으면 onDrop(id, 판 좌표, places).
+// S69-33(명진 11/24 "보드에서 드래그 해서 노트 선택 가능하게" · "+ - 누르면 현재 몇 %" · "보드 전체 화면 보기"):
+// - 여러 장 고르기: PC 마우스로 빈 곳을 끌면 사각형(공용 marquee-select.js) — 닿은 카드를 고른다(Ctrl·Shift와 함께면 더하기).
+//   Shift·Ctrl(맥 ⌘)+클릭 = 한 장 더하기·빼기. 폰은 카드를 꾹 눌러 하나 고른 뒤 다른 카드를 꾹 누르면 함께 고르기, 그 뒤 짧게 누르기 = 더하기·빼기.
+//   고른 카드는 테두리 강조, 하나를 끌면 함께 옮기고, Delete·위 [보드에서 빼기](이름 붙은 보드)로 함께 빼며, Esc·빈 곳 누르기·[✕]로 푼다.
+//   고른 상태는 이 판 화면 메모리 하나(multi)만(저장 없음).
+// - 판 이동: PC 마우스는 빈 곳 끌기가 고르기가 되었으므로 Space를 누른 채 끌기·가운데 단추 끌기·휠(그대로)로 옮긴다. 손가락은 한 손가락 끌기 그대로.
+// - 확대 비율: 도구 줄 [－] [100% ▾] [＋] — 가운데 글자는 지금 배율(정수 %, 늘 갱신), 누르면 80~120% 목록(공용 zoom-pct.js).
+//   [맞추기](옛 이름 [전체]) = 카드가 모두 보이게, 단 FIT_MIN보다 작게는 줄이지 않는다(note-board-model.mjs fitView).
+// - 전체 화면: 도구 줄 끝 [전체 화면] = 보드 칸(부르는 쪽이 준 fullHost)만 창 가득(앱 메뉴·머리 줄·보기 탭·보드 칸 줄은 덮임). PC는 브라우저 전체 화면도 함께(되는 곳만).
+//   [전체 화면 끝내기]·Esc·뒤로가기로 원래대로. 왼쪽 노트 목록이 있는 보드는 [노트 목록]으로 옆에 펼친다. 상태는 저장하지 않는다.
 import { multiTouchActive, onMultiTouch } from './photo-grid-size.js';
 import { LONG_MS, SLOP } from './reorder-drag.js';
 import { askText } from './small-notice.js';
+import { iconSvg } from './tree-icons.js';
 import { bottomInset, keepInside } from './anchored-popup.js';
-import { layoutBoard, topZ, movedTo, stepZoom, zoomAt, toBoard, fitView, visibleArea, rectsMeet, cardRect, folderTone, clampZoom, CARD_W, CARD_H } from './note-board-model.mjs';
+import { layoutBoard, topZ, movedTo, stepZoom, zoomAt, toBoard, fitView, visibleArea, rectsMeet, cardRect, folderTone, clampZoom, centerOn, FIT_MIN, CARD_W, CARD_H } from './note-board-model.mjs';
+import { bindMarquee } from './marquee-select.js';
+import { bindZoomPct } from './zoom-pct.js';
 import { linkGeometry, dragPath, linkBox, nearestSide, rectOf, flipPatch, validateLabel, hasLink, endId, endFields, bendOf, bendPatch, isBent, isStraight, validateText,
   LABEL_MAX, LINK_LIMIT, TEXT_MAX, TEXT_LIMIT, SIDES, ENDS_NAMES } from './note-board-links-model.mjs';
 
+// 잠긴 폴더 노트 카드(S69 보드잠금가림): 제목·내용 대신 자물쇠 모양만(글자는 화면 읽기용 '잠김').
+const LOCK_ICON = `<span class="nb-lock-ico" aria-hidden="true">${iconSvg('lock', {size: 16})}</span>`;
 const EDGE = 36, KEY_STEP = 10, EDGE_STEP = 14;
 export const NOTE_DRAG = 'application/x-kptu-note';
 let uid = 0;
 
 // moreIcon: 노트 줄과 같은 ⋯ 그림(basket-notes.js의 것을 받아 같은 메뉴 단추 모양을 쓴다).
-export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onBackgroundMenu = null, onMove = () => {}, onDrop = null,
+export const BOARD_ZOOMS = Object.freeze([80, 90, 100, 110, 120]);
+const FULL_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const FULL_OFF_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// fullHost(): 전체 화면으로 키울 칸(없으면 판 칸 자신). hasSide(): 지금 왼쪽 노트 목록이 있나(전체 화면 안 [노트 목록] 단추). onRemove(ids): 고른 카드 함께 빼기(이름 붙은 보드).
+export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onBackgroundMenu = null, onMove = () => {}, onDrop = null, onRemove = null, fullHost = () => null, hasSide = () => false,
   onLinkAdd = () => {}, onLinkChange = () => {}, onLinkRemove = () => {}, onTextAdd = () => {}, onTextChange = () => {}, onTextRemove = () => {}, canText = () => true, toast = () => {}}) {
   const mark = `nb${++uid}`;
-  box.innerHTML = `<div class="nb-tools" role="group" aria-label="보드 도구"><button type="button" class="icon-btn nb-add-text" data-nb-add-text title="글 상자 더하기 (빈 곳 두 번 누르기)">+ 글 상자</button><button type="button" class="icon-btn" data-nb-zoom="-1" aria-label="작게">－</button><button type="button" class="icon-btn" data-nb-zoom="1" aria-label="크게">＋</button><button type="button" class="icon-btn nb-fit" data-nb-fit aria-label="전체 보기" title="전체 보기">전체</button></div><div class="nb-scroll" data-nb-scroll><div class="nb-board" data-nb-board role="group" aria-label="노트 보드"><svg class="nb-links" data-nb-links width="${20000}" height="${20000}" focusable="false"><defs><marker id="${mark}-a" class="nb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker><marker id="${mark}-s" class="nb-arrow nb-arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g data-nb-lines></g><path class="nb-temp" data-nb-temp d="" hidden/></svg><div class="nb-texts" data-nb-texts></div><div class="nb-cards" data-nb-cards></div></div><p class="nb-empty" data-nb-empty hidden></p></div>`;
+  box.innerHTML = `<div class="nb-selbar" data-nb-selbar role="toolbar" aria-label="선택한 카드" hidden><span data-nb-sel-count></span><button type="button" class="icon-btn" data-nb-sel-remove>보드에서 빼기</button><button type="button" class="icon-btn nb-sel-x" data-nb-sel-clear aria-label="선택 해제" title="선택 해제 (Esc)">✕</button></div><div class="nb-tools" role="group" aria-label="보드 도구"><button type="button" class="icon-btn nb-side-btn" data-nb-side-toggle aria-pressed="false" hidden>노트 목록</button><button type="button" class="icon-btn nb-add-text" data-nb-add-text title="글 상자 더하기 (빈 곳 두 번 누르기)">+ 글 상자</button><button type="button" class="icon-btn" data-nb-zoom="-1" aria-label="작게">－</button><button type="button" class="icon-btn nb-pct" data-nb-zoom-pct data-zoom-pct-key="board">100%</button><button type="button" class="icon-btn" data-nb-zoom="1" aria-label="크게">＋</button><button type="button" class="icon-btn nb-fit" data-nb-fit aria-label="맞추기 — 카드가 모두 보이게" title="맞추기 — 카드가 모두 보이게">맞추기</button><button type="button" class="icon-btn nb-full-btn" data-nb-full aria-pressed="false" aria-label="전체 화면" title="전체 화면">${FULL_ICON}</button></div><div class="nb-scroll" data-nb-scroll><div class="nb-board" data-nb-board role="group" aria-label="노트 보드"><svg class="nb-links" data-nb-links width="${20000}" height="${20000}" focusable="false"><defs><marker id="${mark}-a" class="nb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker><marker id="${mark}-s" class="nb-arrow nb-arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g data-nb-lines></g><path class="nb-temp" data-nb-temp d="" hidden/></svg><div class="nb-texts" data-nb-texts></div><div class="nb-cards" data-nb-cards></div></div><p class="nb-empty" data-nb-empty hidden></p></div>`;
   const empty = box.querySelector('[data-nb-empty]'), scroll = box.querySelector('[data-nb-scroll]'), board = box.querySelector('[data-nb-board]');
   const cardsBox = box.querySelector('[data-nb-cards]'), textsBox = box.querySelector('[data-nb-texts]'), linesBox = box.querySelector('[data-nb-lines]'), temp = box.querySelector('[data-nb-temp]');
   const views = new Map(); // 보드마다 보던 자리(이번 접속만)
@@ -43,13 +62,14 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   let texts = [], textById = new Map(), tdrag = null, textSel = null, editing = null, bend = null, lastTap = null, afterClick = null, bendEnded = false;
   let drag = null, pan = null, pinch = null, wire = null, selected = null, lineSel = null, menu = null, suppressUntil = 0, linesQuietUntil = 0, keyTimer = null, opts = {};
   const touches = new Map();
+  let multi = new Set(), spaceDown = false, blankDown = null, full = null; // 여러 장 고르기(이번 화면만)·Space 누름·마우스 빈 곳 누름·전체 화면
   const size = () => ({w:scroll.clientWidth, h:scroll.clientHeight});
 
   // ---- 판 보기 ----
   function paintView() {
     board.style.transform = `translate(${Math.round(view.x * 100) / 100}px,${Math.round(view.y * 100) / 100}px) scale(${view.z})`;
     box.querySelectorAll('[data-nb-zoom]').forEach(b => { b.disabled = stepZoom(view.z, Number(b.dataset.nbZoom)) === view.z; });
-    box.querySelector('[data-nb-fit]').title = `전체 보기 (${Math.round(view.z * 100)}%)`;
+    pct.paint();
     box.dataset.nbZoomNow = String(Math.round(view.z * 1000) / 1000);
     box.toggleAttribute('data-nb-small', view.z < 0.5);
     if (key) views.set(key, view);
@@ -59,8 +79,11 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   function fitBoard() {
     const {w, h} = size(), rects = [...shown.filter(n => isShown(n.id)).map(n => cardRect(places.get(n.id))), ...texts.map(t => textRect(t.id))];
     needFit = !w || !h; // 아직 화면에 안 보이면(크기 0) 보일 때 맞춘다
-    setView(fitView(rects, w, h, 24, 1));
+    setView(fitView(rects, w, h, 24, 1, FIT_MIN));
   }
+  // 비율 글자(가운데) → 80~120% 목록. 고르면 화면 가운데를 그대로 둔 채 그 배율.
+  const zoomTo = z => { const {w, h} = size(); setView(zoomAt(view, z, w / 2, h / 2)); };
+  const pct = bindZoomPct(box.querySelector('[data-nb-zoom-pct]'), {levels:BOARD_ZOOMS, now:() => view.z * 100, choose:v => zoomTo(v / 100), label:'보드 비율'});
   function zoomBy(dir, at = null) {
     const {w, h} = size(), p = at || {x:w / 2, y:h / 2};
     setView(zoomAt(view, stepZoom(view.z, dir), p.x, p.y));
@@ -70,7 +93,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   const isShown = id => !opts.visible || opts.visible.has(id);
   const cardHtml = (note, p, info) => {
     const sel = selected === note.id;
-    return `<div class="nb-card${info.picked ? ' nb-picked' : ''}${sel ? ' nb-sel' : ''}" data-nb-card="${esc(note.id)}" data-tone="${folderTone(info.folderId)}"${info.color ? ` data-fc="${info.color}"` : ''} style="left:${p.x}px;top:${p.y}px;z-index:${p.z + 1}"><button type="button" class="nb-open" data-note-row="${esc(note.id)}"${opts.pickActive ? ` aria-pressed="${!!info.picked}"` : ''} aria-roledescription="노트 카드" title="${esc(info.title)}"><span class="nb-title">${esc(info.title)}</span></button>${opts.removable ? `<button type="button" class="nb-x" data-nb-remove="${esc(note.id)}" aria-label="${esc(info.title)} 보드에서 빼기" title="보드에서 빼기">×</button>` : ''}<button type="button" class="basket-row-more nb-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(info.title)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${moreIcon}</button>${opts.pickActive ? '' : SIDES.map(s => `<span class="nb-h nb-h-${s}" data-nb-handle="${s}" aria-hidden="true"></span>`).join('')}</div>`;
+    return `<div class="nb-card${info.picked ? ' nb-picked' : ''}${sel ? ' nb-sel' : ''}${multi.has(note.id) ? ' nb-multi' : ''}${info.locked ? ' nb-locked' : ''}"${info.locked ? ' data-nb-locked' : ''} data-nb-card="${esc(note.id)}" data-tone="${folderTone(info.folderId)}"${info.color ? ` data-fc="${info.color}"` : ''} style="left:${p.x}px;top:${p.y}px;z-index:${p.z + 1}"><button type="button" class="nb-open" data-note-row="${esc(note.id)}"${opts.pickActive ? ` aria-pressed="${!!info.picked}"` : ''} aria-roledescription="노트 카드" title="${esc(info.title)}">${info.locked ? `<span class="nb-title nb-lock">${LOCK_ICON}<span class="a11y-only">${esc(info.title)}</span></span>` : `<span class="nb-title">${esc(info.title)}</span>`}</button>${opts.removable ? `<button type="button" class="nb-x" data-nb-remove="${esc(note.id)}" aria-label="${esc(info.title)} 보드에서 빼기" title="보드에서 빼기">×</button>` : ''}<button type="button" class="basket-row-more nb-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(info.title)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${moreIcon}</button>${opts.pickActive ? '' : SIDES.map(s => `<span class="nb-h nb-h-${s}" data-nb-handle="${s}" aria-hidden="true"></span>`).join('')}</div>`;
   };
   function addCard(id) {
     const note = byId.get(id), p = places.get(id), info = infoOf.get(id); if (!note || !p || !info) return;
@@ -154,6 +177,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     infoOf = new Map(notes.map(n => { const fid = folderOf(n); return [n.id, {...cardText(n, fid), folderId:fid, color:fid ? colorOfFolder(fid) : null, picked:isPicked(n.id)}]; }));
     links = list; linkOn = new Set(list.filter(l => hasEnd(endId(l, 'from')) && hasEnd(endId(l, 'to'))).map(l => l.id));
     if (selected && (!places.has(selected) || pickActive)) selected = null;
+    if (key !== boardKey || pickActive) multi = new Set(); else multi = new Set([...multi].filter(id => places.has(id) && isShown(id)));
     if (lineSel && !linkOn.has(lineSel)) closeLineMenu();
     empty.textContent = emptyText; empty.hidden = !emptyText || notes.length > 0;
     const focused = document.activeElement?.closest?.('[data-nb-card]')?.dataset.nbCard, focusLine = document.activeElement?.closest?.('[data-nb-hit]')?.dataset.nbHit;
@@ -164,6 +188,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     renderTexts();
     if (first) { const saved = views.get(boardKey); if (saved) { view = saved; paintView(); sync(); } else { paintView(); fitBoard(); sync(); } }
     else { paintView(); sync(); }
+    paintSel(); paintFullTools();
     if (focused) cardEls.get(focused)?.querySelector('.nb-open')?.focus({preventScroll:true});
     else if (focusLine) lineEls.get(focusLine)?.querySelector('.nb-hit')?.focus({preventScroll:true});
     else if (focusText) textEls.get(focusText)?.querySelector('.nb-tx')?.focus({preventScroll:true});
@@ -210,32 +235,91 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     selected = id;
     if (id) { if (!cardEls.has(id)) addCard(id); cardEls.get(id)?.classList.add('nb-sel'); }
   }
+  // ---- 여러 장 고르기(S69-33) ----
+  const selBar = box.querySelector('[data-nb-selbar]');
+  function paintSel() {
+    for (const [id, el] of cardEls) el.classList.toggle('nb-multi', multi.has(id));
+    selBar.hidden = !multi.size;
+    if (multi.size) selBar.querySelector('[data-nb-sel-count]').textContent = `${multi.size}개 선택`;
+    selBar.querySelector('[data-nb-sel-remove]').hidden = !opts.removable || !onRemove;
+  }
+  function setMulti(next) {
+    multi = new Set([...next].filter(id => places.has(id) && isShown(id)));
+    if (multi.size > 1 && selected && !multi.has(selected)) select(null);
+    paintSel();
+  }
+  const toggleMulti = id => { const next = new Set(multi); if (!next.size && selected && selected !== id) next.add(selected); if (next.has(id)) next.delete(id); else next.add(id); setMulti(next); };
+  const clearMulti = () => { if (multi.size) setMulti(new Set()); };
+  function removeMulti() {
+    if (!multi.size || !opts.removable || !onRemove) return;
+    const ids = [...multi]; multi = new Set(); select(null); paintSel(); onRemove(ids);
+  }
+  // 왼쪽 목록에서 이미 붙은 노트를 누름 → 그 카드가 가운데 오게 옮기고 잠깐 강조(고르기).
+  function focusCard(id) {
+    const p = places.get(id); if (!p) return false;
+    const {w, h} = size(); setView(centerOn(view, cardRect(p), w, h)); sync();
+    clearMulti(); select(id);
+    const el = cardEls.get(id); if (!el) return true;
+    el.classList.remove('nb-flash'); void el.offsetWidth; el.classList.add('nb-flash');
+    setTimeout(() => el.classList.remove('nb-flash'), 1400);
+    el.querySelector('.nb-open')?.focus({preventScroll:true});
+    return true;
+  }
+  // 지금 보이는 판 가운데(판 좌표) — 폰 고르기 창으로 붙일 때 첫 장 자리.
+  const centerPoint = () => { const {w, h} = size(); return toBoard(view, w / 2, h / 2); };
+  // PC 마우스 빈 곳 끌기 = 사각형 고르기(공용 marquee-select.js). 고른 상태 주인은 위 multi 하나.
+  const BLANK_SKIP = '[data-nb-card],[data-nb-text],[data-nb-hit],[data-nb-handle],.nb-tools,.nb-selbar,input,textarea,[contenteditable]';
+  const marquee = bindMarquee(scroll, {
+    enabled:() => !opts.pickActive && !spaceDown && !drag && !tdrag && !wire && !pinch && !editing && !(pan && pan.moved),
+    blank:t => !t.closest(BLANK_SKIP),
+    items:() => [...cardEls.values()].filter(el => el.isConnected),
+    keyOf:el => el.dataset.nbCard,
+    begin:additive => { closeLineMenu(); if (!additive) select(null); return additive ? [...multi, ...(selected ? [selected] : [])] : []; },
+    onChange:set => setMulti(set),
+  });
 
   // ---- 카드 끌기(폰: 바로 끌기·꾹 누른 뒤 끌기 둘 다, 꾹 누르고 떼면 고르기만) ----
   function cancelDrag() {
     if (!drag) return;
     clearTimeout(drag.timer); stopEdge();
-    const {card, place, id} = drag; drag = null; dragOn(false);
+    const {card, place, id, group = []} = drag; drag = null; dragOn(false);
     card.classList.remove('nb-dragging', 'nb-held'); card.style.left = `${place.x}px`; card.style.top = `${place.y}px`; raise(card, place.z);
     repaintLinesOf(id);
+    for (const g of group) { const el = cardEls.get(g.id); if (el) { el.classList.remove('nb-dragging'); el.style.left = `${g.place.x}px`; el.style.top = `${g.place.y}px`; } repaintLinesOf(g.id); }
   }
   function follow() {
     const p = pointOf(drag.last), nx = Math.max(0, drag.place.x + p.x - drag.start.x), ny = Math.max(0, drag.place.y + p.y - drag.start.y);
     drag.now = {...drag.place, x:nx, y:ny};
     drag.card.style.left = `${nx}px`; drag.card.style.top = `${ny}px`;
     repaintLinesOf(drag.id);
+    for (const g of drag.group || []) {
+      const gx = Math.max(0, g.place.x + nx - drag.place.x), gy = Math.max(0, g.place.y + ny - drag.place.y), el = cardEls.get(g.id);
+      g.now = {x:gx, y:gy}; if (el) { el.style.left = `${gx}px`; el.style.top = `${gy}px`; el.classList.add('nb-dragging'); }
+      repaintLinesOf(g.id);
+    }
   }
   function finishDrag(e) {
     const d = drag; stopEdge(); drag = null; clearTimeout(d.timer); dragOn(false);
     d.card.classList.remove('nb-dragging', 'nb-held');
-    if (!d.moving) { if (d.held) suppressUntil = Date.now() + 600; return; } // 짧게 누르고 뗌 = 열기(click이 맡는다)
+    for (const g of d.group || []) cardEls.get(g.id)?.classList.remove('nb-dragging');
+    if (!d.moving) {
+      if (d.held) suppressUntil = Date.now() + 600;
+      // 폰: 여러 장 고르는 중이면 짧게 누르기 = 더하기·빼기(열지 않음).
+      else if (d.touch && multi.size && e.type !== 'pointercancel') { suppressUntil = Date.now() + 600; toggleMulti(d.id); }
+      return; // 짧게 누르고 뗌 = 열기(click이 맡는다)
+    }
     suppressUntil = Date.now() + 400;
-    const p = pointOf(e), next = movedTo(d.place, p.x - d.start.x, p.y - d.start.y, topZ(places));
+    const p = pointOf(e), dx = p.x - d.start.x, dy = p.y - d.start.y, top = topZ(places), next = movedTo(d.place, dx, dy, top);
     const before = new Map(places); // 옮기기 전 자리(아직 저장 안 된 칸은 이 자리로 함께 저장)
     places.set(d.id, {...next, saved:true});
     d.card.style.left = `${next.x}px`; d.card.style.top = `${next.y}px`; raise(d.card, next.z);
     repaintLinesOf(d.id);
+    // 함께 옮긴 카드들: 같은 만큼, 순서는 그 위로. 먼저 저장하는 한 번(before)에 함께 옮긴 카드의 새 자리를 넣어 옛 자리로 덮어쓰지 않게 한다.
+    const moved = (d.group || []).map((g, i) => [g.id, movedTo(g.place, dx, dy, next.z + i)]);
+    for (const [gid, gp] of moved) { places.set(gid, {...gp, saved:true}); const el = cardEls.get(gid); if (el) { el.style.left = `${gp.x}px`; el.style.top = `${gp.y}px`; raise(el, gp.z); } repaintLinesOf(gid); }
+    for (const [gid, gp] of moved) before.set(gid, {...gp, saved:true});
     onMove(d.id, next, before);
+    for (const [gid, gp] of moved) onMove(gid, gp, new Map());
   }
 
   // ---- 연결선 끌기(손잡이 → 다른 카드) ----
@@ -390,8 +474,12 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       if (touches.size > 2) return;
     }
     if (!e.isPrimary || multiTouchActive() || pinch) return; // 판 밖 두 번째 손가락(공용 지킴이)·판 안 두 손가락 중에는 끌기·긋기를 시작하지 않는다
+    const startPan = () => { pan = {pointerId:e.pointerId, x:e.clientX, y:e.clientY, view:{...view}, moved:false}; try { scroll.setPointerCapture(e.pointerId); } catch { /* 잡기 실패해도 움직임은 받는다 */ } };
+    // S69-33: PC 마우스 판 이동 = 가운데 단추 끌기·Space를 누른 채 끌기(카드 위에서도). 빈 곳 왼쪽 끌기는 사각형 고르기.
+    if (e.pointerType === 'mouse' && (e.button === 1 || (e.button === 0 && spaceDown)) && !e.target.closest?.('.nb-tools,.nb-selbar,[data-nb-text-edit]')) { e.preventDefault(); startPan(); return; }
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (e.target.closest?.('[data-nb-text-edit],[data-nb-text-del]')) return; // 입력칸 안·삭제 단추는 그대로
+    if (e.target.closest?.('.nb-tools,.nb-selbar')) return; // 도구 줄·고른 카드 줄 단추는 그대로(click이 맡는다)
     const handle = e.target.closest?.('[data-nb-handle]');
     if (handle) { // 손잡이 → 연결선 긋기(노트 카드·글 상자)
       const card = handle.closest('[data-nb-card]'), textEl = card ? null : handle.closest('[data-nb-text]');
@@ -408,12 +496,18 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       if (e.target.closest('.nb-more,.nb-x')) return;
       const id = card.dataset.nbCard, place = places.get(id); if (!place) return;
       if (drag) cancelDrag();
-      drag = {id, card, place, start:pointOf(e), x:e.clientX, y:e.clientY, last:{clientX:e.clientX, clientY:e.clientY}, moving:false, held:false, touch:e.pointerType !== 'mouse', pointerId:e.pointerId, timer:null};
+      // S69-33: Shift·Ctrl(맥 ⌘)+클릭 = 여러 장 고르기에 더하기·빼기(열지 않음).
+      if (e.pointerType === 'mouse' && (e.shiftKey || e.ctrlKey || e.metaKey) && !opts.pickActive) { e.preventDefault(); suppressUntil = Date.now() + 400; toggleMulti(id); return; }
+      // 고른 카드 하나를 끌면 고른 카드들이 함께 움직인다(각자 끌기 전 자리에서 같은 만큼).
+      const group = multi.has(id) && multi.size > 1 ? [...multi].filter(g => g !== id && places.has(g)).map(g => ({id:g, place:places.get(g)})) : [];
+      drag = {id, card, place, group, start:pointOf(e), x:e.clientX, y:e.clientY, last:{clientX:e.clientX, clientY:e.clientY}, moving:false, held:false, touch:e.pointerType !== 'mouse', pointerId:e.pointerId, timer:null};
       if (drag.touch) {
         dragOn(true);
-        drag.timer = setTimeout(() => { // 폰: 움직이지 않고 꾹 누르면 그 카드를 고른다(손잡이·×·⋯가 보임)
+        drag.timer = setTimeout(() => { // 폰: 움직이지 않고 꾹 누르면 그 카드를 고른다(손잡이·×·⋯가 보임). 이미 다른 카드를 골라 두었으면 함께 고르기.
           if (!drag || drag.card !== card || drag.moving) return;
-          drag.held = true; card.classList.add('nb-held'); select(id); raise(card, topZ(places) + 1);
+          drag.held = true; card.classList.add('nb-held'); raise(card, topZ(places) + 1);
+          if (!opts.pickActive && (multi.size || (selected && selected !== id))) { const next = new Set(multi); if (selected) next.add(selected); next.add(id); setMulti(next); }
+          else select(id);
           try { navigator.vibrate?.(12); } catch { /* 진동 없음 */ }
         }, LONG_MS);
       }
@@ -440,9 +534,9 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       if (l && !l.pending) bend = {id:l.id, pointerId:e.pointerId, x:e.clientX, y:e.clientY, touch:e.pointerType !== 'mouse', moved:false, now:null};
       return;
     }
-    // 빈 곳 = 판 이동
-    pan = {pointerId:e.pointerId, x:e.clientX, y:e.clientY, view:{...view}, moved:false};
-    try { scroll.setPointerCapture(e.pointerId); } catch { /* 잡기 실패해도 움직임은 받는다 */ }
+    // 빈 곳: 손가락 = 판 이동, 마우스 = 사각형 고르기(marquee-select가 mousedown에서 맡는다) — 끌지 않고 떼면 고르기 풀기.
+    if (e.pointerType === 'mouse') { blankDown = {pointerId:e.pointerId}; return; }
+    startPan();
   });
   scroll.addEventListener('pointermove', e => {
     if (e.pointerType === 'touch' && touches.has(e.pointerId)) { touches.set(e.pointerId, local(e)); if (pinch) { e.preventDefault(); movePinch(); return; } }
@@ -497,12 +591,17 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (pan && e.pointerId === pan.pointerId) {
       const p = pan; pan = null; dragOn(false); box.classList.remove('nb-panning');
       if (!p.moved && e.type !== 'pointercancel') { // 빈 곳 누름 = 고르기 풀기, 폰에서 빠르게 두 번 = 글 상자
-        select(null); closeLineMenu();
+        select(null); clearMulti(); closeLineMenu();
         const now = Date.now(), here = {x:e.clientX, y:e.clientY};
         if (e.pointerType !== 'mouse' && lastTap && now - lastTap.t < 350 && Math.hypot(here.x - lastTap.x, here.y - lastTap.y) < 24) { lastTap = null; const at = pointOf(e); afterClick = {run:() => newText(at)}; }
         else lastTap = e.pointerType === 'mouse' ? null : {t:now, ...here};
       }
       else suppressUntil = linesQuietUntil = Date.now() + 300;
+      return;
+    }
+    if (blankDown && e.pointerId === blankDown.pointerId) { // 마우스 빈 곳: 사각형을 그리지 않고 떼면 고르기 풀기
+      blankDown = null;
+      if (!marquee.active && e.type !== 'pointercancel') { select(null); clearMulti(); closeLineMenu(); }
       return;
     }
     if (!drag || e.pointerId !== drag.pointerId) return;
@@ -543,6 +642,10 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (afterClick) { const run = afterClick.run; afterClick = null; run(); return; }
     const z = e.target.closest?.('[data-nb-zoom]'); if (z && !z.disabled) { zoomBy(Number(z.dataset.nbZoom)); return; }
     if (e.target.closest?.('[data-nb-fit]')) { fitBoard(); return; }
+    if (e.target.closest?.('[data-nb-full]')) { if (full) exitFull(); else enterFull(); return; }
+    if (e.target.closest?.('[data-nb-side-toggle]')) { toggleSide(); return; }
+    if (e.target.closest?.('[data-nb-sel-remove]')) { removeMulti(); return; }
+    if (e.target.closest?.('[data-nb-sel-clear]')) { clearMulti(); select(null); return; }
     if (e.target.closest?.('[data-nb-add-text]')) { const {w, h} = size(), p = toBoard(view, w / 2 - 40, h / 2 - 14); newText(p); return; }
     const del = e.target.closest?.('[data-nb-text-del]');
     if (del) { const id = del.closest('[data-nb-text]')?.dataset.nbText; if (id && textById.has(id) && !textById.get(id).pending) { if (textSel === id) textSel = null; onTextRemove(id); } return; }
@@ -589,6 +692,62 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   // 두 번째 손가락이 판 밖에서 닿아도(공용 지킴이) 카드 끌기·선 긋기를 끈다(판 안 두 손가락은 위 확대·축소).
   onMultiTouch(() => { cancelDrag(); cancelWire(); cancelTextDrag(); cancelBend(); });
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (needFit && scroll.clientWidth && scroll.clientHeight) fitBoard(); else queue(); }).observe(scroll);
+
+  // Space를 누른 채 끌기 = 판 이동(PC). 글자 칸 안에서는 그대로 글자.
+  const typing = t => !!t?.closest?.('input,textarea,select,[contenteditable]');
+  document.addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat && !typing(e.target) && box.isConnected && box.getClientRects().length && (scroll.matches(':hover') || box.contains(document.activeElement))) { spaceDown = true; box.classList.add('nb-space'); if (!e.target.closest?.('button,a,summary')) e.preventDefault(); } });
+  const spaceUp = () => { spaceDown = false; box.classList.remove('nb-space'); };
+  document.addEventListener('keyup', e => { if (e.code === 'Space') spaceUp(); });
+  window.addEventListener('blur', spaceUp);
+  // 가운데 단추: 브라우저 자동 스크롤 대신 판 이동.
+  scroll.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
+
+  // ---- 전체 화면(S69-33) ----
+  // 보드 칸(fullHost)에 nbw-full을 붙여 창 가득(CSS가 앱 머리 줄·메뉴·하단 탭 위로 덮는다). PC는 되는 곳에서 브라우저 전체 화면도 함께
+  // (문서 전체를 전체 화면으로 — 메뉴·확인 창이 그대로 보이게). 뒤로가기는 라우터 한 겹, Esc·[전체 화면 끝내기]도 같은 길. 저장하지 않는다.
+  const hostEl = () => fullHost() || box;
+  const fullBtn = box.querySelector('[data-nb-full]'), sideBtn = box.querySelector('[data-nb-side-toggle]');
+  function paintFullTools() {
+    fullBtn.innerHTML = full ? FULL_OFF_ICON : FULL_ICON;
+    fullBtn.setAttribute('aria-pressed', String(!!full));
+    const label = full ? '전체 화면 끝내기 (Esc)' : '전체 화면'; fullBtn.setAttribute('aria-label', label); fullBtn.title = label;
+    const side = !!full && hasSide();
+    sideBtn.hidden = !side;
+    if (!side && full) full.host.classList.remove('nbw-side-open');
+    sideBtn.setAttribute('aria-pressed', String(!!full && full.host.classList.contains('nbw-side-open')));
+  }
+  function toggleSide() { if (!full) return; full.host.classList.toggle('nbw-side-open'); paintFullTools(); queue(); }
+  const canApi = () => typeof document.documentElement.requestFullscreen === 'function' && document.fullscreenEnabled !== false
+    && !window.matchMedia?.('(display-mode: standalone)')?.matches && window.matchMedia?.('(pointer: fine)')?.matches;
+  function enterFull() {
+    if (full) return;
+    const host = hostEl(), center = (() => { const {w, h} = size(); return toBoard(view, w / 2, h / 2); })();
+    full = {host, api:false, layer:null, center};
+    host.classList.add('nbw-full'); document.documentElement.classList.add('nb-full-on');
+    full.layer = window.KPTURouter?.layer?.open('note-board-full', {close:() => { if (full) full.layer = null; exitFull(); return true; }}) || null;
+    if (canApi()) { try { const r = document.documentElement.requestFullscreen({navigationUI:'hide'}); full.api = true; r?.catch?.(() => { if (full) full.api = false; }); } catch { full.api = false; } }
+    paintFullTools(); keepCenter(center);
+    fullBtn.focus({preventScroll:true});
+  }
+  function exitFull() {
+    if (!full) return;
+    const f = full, center = (() => { const {w, h} = size(); return toBoard(view, w / 2, h / 2); })(); full = null;
+    f.host.classList.remove('nbw-full', 'nbw-side-open'); document.documentElement.classList.remove('nb-full-on');
+    if (f.api && document.fullscreenElement) { try { void document.exitFullscreen()?.catch?.(() => {}); } catch { /* 이미 끝남 */ } }
+    const layer = f.layer; f.layer = null; layer?.close?.();
+    paintFullTools(); keepCenter(center);
+    if (box.isConnected) fullBtn.focus({preventScroll:true});
+  }
+  // 칸 크기가 바뀌어도 보던 가운데가 그대로 가운데에 오게.
+  function keepCenter(c) { requestAnimationFrame(() => { const {w, h} = size(); if (!w || !h) return; setView({x:w / 2 - c.x * view.z, y:h / 2 - c.y * view.z, z:view.z}); }); }
+  document.addEventListener('fullscreenchange', () => { if (full?.api && !document.fullscreenElement) exitFull(); });
+  // 키(판이 보이는 동안, 글자 칸 밖): 열린 메뉴·창이 먼저(그쪽이 막는다).
+  // Esc = 여러 장 고른 중이면 고르기 풀기, 아니면 전체 화면 끝내기. Delete(맥 Backspace) = 고른 카드 함께 보드에서 빼기(이름 붙은 보드).
+  document.addEventListener('keydown', e => {
+    if (e.defaultPrevented || typing(e.target) || !box.isConnected || !box.getClientRects().length || document.querySelector('dialog[open]')) return;
+    if (e.key === 'Escape' && (multi.size || full)) { e.preventDefault(); if (multi.size) clearMulti(); else exitFull(); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && multi.size && opts.removable && onRemove && !e.target.closest?.('[data-nb-text]')) { e.preventDefault(); removeMulti(); }
+  });
 
   // ---- 선 메뉴(작은 창, 누른 자리 옆) ----
   function menuEl() {
@@ -665,6 +824,10 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     isDragging: () => !!(drag?.moving || tdrag?.moving || bend?.moved || wire || pan?.moved || pinch),
     places: () => new Map(places),
     view: () => ({...view}),
+    focusCard, centerPoint,
+    selected: () => [...multi],
+    isFull: () => !!full,
+    exitFull: () => exitFull(),
     closeMenu: () => closeLineMenu(),
     cardSize: {w:CARD_W, h:CARD_H},
   };

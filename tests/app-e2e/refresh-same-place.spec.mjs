@@ -130,8 +130,8 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
     await press(page, menuButton(page, 'f:fa'), width); await press(page, folderMenuItem(page, '이 폴더로 들어가기'), width);
     const path = page.locator('#libraryPath');
-    // S51-24: 폰은 상자 맨 위 위치 줄(위 단계만), 넓은 화면은 지금 위치 줄.
-    const here = width < 761 ? '‹자료실›' : '‹자료실›가상 A';
+    // S69-28 LIB-한칸탐색기: 폰 '그 폴더만'도 위치 줄 끝에 지금 폴더 이름(머리 줄 대신 한 번) — 넓은 화면과 같은 글자.
+    const here = '‹자료실›가상 A';
     await expect(path).toHaveText(here); await expect(page).toHaveURL(/[?&]folder=fa(?:&|$)/);
     await reload(page);
     await expect(path).toHaveText(here);

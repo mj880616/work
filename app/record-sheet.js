@@ -6,7 +6,7 @@ import {emptyHtml} from './wait-state.js';
 // [바구니에서 열기]/[노트 열기] closes the sheet and then hands over to the screen's existing full open (the PC behaviour).
 // It only shows what the detail already read (readLinkRecords: summary, original text, date); it reads and writes nothing.
 import {formatSeoulTime} from './meeting-time.js';
-import {recordMark,recordText,isNoteRecord,isDirectRecord} from './basket-link-records.js';
+import {recordMark,recordText,isNoteRecord,isDirectRecord,shownRecord} from './basket-link-records.js';
 import {markdownSource} from './note-preview.mjs';
 import {partStyles} from './part-styles.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
@@ -43,6 +43,7 @@ function install(){
 // RECORD-한줄: title·meta·summaryLabel = 조직 기록 [원문 보기](record-raw-view.js)처럼 잊지 말기 연결이 아닌 기록을 같은 창으로 볼 때(표시 아이콘 없음).
 export function openRecordSheet({row,place='',trigger=null,onOpenFull=null,title:ownTitle=null,meta=null,summaryLabel='기록 요약'}={}){
   if(!row)return false;
+  row=shownRecord(row); // S69 보드잠금가림 전수: 잠긴 폴더 노트면 제목·요약·원문 대신 '잠김'만
   const sheet=install();if(state)close({focus:false,immediate:true});
   const note=isNoteRecord(row),direct=isDirectRecord(row),summary=recordText(row)||'',raw=String(row.raw_text??''),title=note&&String(row.title||'').trim()?row.title:(note?'노트':direct?'기록':'잊지 말기 업데이트');
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';

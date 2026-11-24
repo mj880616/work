@@ -174,7 +174,8 @@ for (const width of [390, 1280]) test(`new folder inside a folder, delete moves 
   await showFolder(page, width, U(1));
   // Phone: the sub folder row comes first in 회의's screen, before its notes.
   if (width<761) await expect(page.locator('#noteRows .ft-box-body > *').first()).toHaveAttribute('data-nx-folder', sub.id);
-  await press(page, page.locator('[data-note-row-more="n2"]'), width);
+  // S69-27: PC 왼쪽 나무에도 펼친 폴더의 노트 줄이 있어 오른쪽 목록 줄을 고른다.
+  await press(page, page.locator('#noteRows [data-note-row-more="n2"]'), width);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await press(page, picker(page).locator('.lu-move-item', { hasText: '하위' }), width);
   await expect.poll(() => f.rows.find(r => r.id === 'n2').metadata).toEqual({ folder_id: sub.id, folder: '하위' });
@@ -204,7 +205,8 @@ for (const width of [390, 1280]) test(`entered folder head ⋯ [이 폴더 삭�
   await expect(page.locator('#noteDocMenu')).toBeHidden();
   // 나 노트를 하위로 옮겨 둔다(폴더 ⋯ 경로와 같은 picker).
   await showFolder(page, width, U(1));
-  await press(page, page.locator('[data-note-row-more="n2"]'), width);
+  // S69-27: PC 왼쪽 나무에도 펼친 폴더의 노트 줄이 있어 오른쪽 목록 줄을 고른다.
+  await press(page, page.locator('#noteRows [data-note-row-more="n2"]'), width);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await press(page, picker(page).locator('.lu-move-item', { hasText: '하위' }), width);
   await expect.poll(() => f.rows.find(r => r.id === 'n2').metadata.folder_id).toBe(sub.id);

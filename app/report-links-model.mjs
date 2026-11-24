@@ -58,6 +58,10 @@ export function summariesChanged(targets,summaries,saved){
   return targetList(targets).some(t=>{const v=String(summaries.get(targetKey(t))||'').trim();return !!v&&v!==String(saved?.get?.(targetKey(t))||'').trim()});
 }
 export const firstProjectId=targets=>targetList(targets).find(t=>t.kind===KIND_PROJECT)?.id||null;
+// MTG-비정기회의바로쓰기: 회의명 [비정기 회의]의 [관련 사업 ▾]는 연결의 첫 사업영역만 바꾼다(다른 연결은 그대로, 같은 연결 표). id가 비면 첫 사업영역을 뺀다.
+export function withFirstProject(targets,id){const prev=firstProjectId(targets),next=typeof id==='string'&&id?id:'';
+  const rest=targetList(targets).filter(t=>!(t.kind===KIND_PROJECT&&(t.id===prev||t.id===next)));
+  return targetList(next?[{kind:KIND_PROJECT,id:next},...rest]:rest)}
 export const validId=value=>typeof value==='string'&&UUID.test(value);
 
 export const SET_LINKS_ERROR=Object.freeze({

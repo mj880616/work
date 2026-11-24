@@ -121,7 +121,10 @@ for (const width of [700, 884]) test(`노트 폴드 ${width}: 왼쪽 폴더 나�
   // UI-폴더누르기한규칙(S57-5): 나무 폴더 누르기 = 펼침만(오른쪽 노트 그대로), 들어가기 = ⋯ [이 폴더로 들어가기].
   // OPS-빠진일2차 1(S59-17): 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다(펼칠 것이 없으므로).
   const enterNote = async id => { await tree.locator(`[data-nx-folder-more="${id}"]`).click(); await page.locator('#noteDocMenu [data-nx-enter]').click(); };
+  // S69-27: 나무에 폴더 바로 아래 노트 줄도 보이므로 노트가 든 폴더는 누르면 그 자리에서 펼친다(폰 나무와 같은 규칙). 오른쪽은 ⋯ [이 폴더로 들어가기].
   await tree.locator(`[data-nx-folder="${U(1)}"] .ft-main`).click();
+  await expect(tree.locator('[data-nx-note="a1"]')).toBeVisible(); await expect(tree.locator('[data-nx-note="a2"]')).toBeVisible();
+  await enterNote(U(1));
   await expect(page.locator('[data-nx-here]')).toHaveText('가상 메모 · 2');
   if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/notes-${width}-2-entered.png` });
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(2);

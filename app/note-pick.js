@@ -137,8 +137,10 @@ export function createNoteTarget({rt = window.KPTURuntime, family = false, start
   const info = document.createElement('span'); info.className = 'edw-target-info'; info.dataset.edwTargetInfo = '';
   const tail = document.createElement('div'); tail.className = 'edw-target-tail'; tail.dataset.edwTargetTail = '';
   function paint() {
-    const kind = value.kind, note = kind === 'note' ? value.note : kind === 'list' ? listNote() : null;
-    const name = kind === 'new' ? '새 노트' : kind === 'list' ? listTitle : noteLineTitle(value.note);
+    // S69 보드잠금가림 전수: 고른 노트가 그 뒤 잠긴 폴더에 들면(다시 잠김) 이름·마지막 두 줄 대신 '잠김'. 풀리면 다시 그린다.
+    const hidden = value.kind === 'note' && lock.noteHidden(value.note);
+    const kind = value.kind, note = kind === 'note' && !hidden ? value.note : kind === 'list' ? listNote() : null;
+    const name = kind === 'new' ? '새 노트' : kind === 'list' ? listTitle : hidden ? '잠긴 노트' : noteLineTitle(value.note);
     button.textContent = shortFolder(name) + ' ▾';
     button.title = kind === 'new' ? '넣을 곳: 새 노트' : `넣을 곳: '${name}' 노트 끝`;
     button.setAttribute('aria-label', kind === 'new' ? '넣을 곳: 새 노트, 바꾸기' : `넣을 곳: ${name} 노트 끝에 더함, 바꾸기`);
@@ -147,13 +149,16 @@ export function createNoteTarget({rt = window.KPTURuntime, family = false, start
     if (kind === 'note') info.replaceChildren(iconNode('folder'), ` ${value.folderName || OUTSIDE_NAME} · 끝에 더함`);
     else info.textContent = '끝에 더함';
     const {lines, more} = tailLines(note);
-    tail.hidden = kind === 'new' || !lines.length;
+    tail.hidden = kind === 'new' || hidden || !lines.length;
     tail.replaceChildren(...lines.map((line, i) => { const d = document.createElement('div'); d.textContent = (i === 0 && more ? '… ' : '') + line; return d; }));
   }
   button.addEventListener('click', () => {
     openNotePick({anchor: button, rt, family, current: value, onPick: next => { value = next; paint(); watchers.forEach(fn => fn(value)); }});
   });
   paint();
+  let shown = false; // 화면에 붙은 뒤 떨어지면(창 닫힘) 듣기를 그만둔다
+  const relock = () => { if (button.isConnected) { shown = true; paint(); } else if (shown) window.removeEventListener('kptu:feature-lock-changed', relock); };
+  window.addEventListener('kptu:feature-lock-changed', relock);
   return {
     button, info, tail, family,
     get: () => value,
@@ -163,6 +168,7 @@ export function createNoteTarget({rt = window.KPTURuntime, family = false, start
     async save(input) {
       if (save) return save(value, input);
       if (value.kind !== 'note' || !value.note?.id) throw new Error('넣을 노트를 다시 선택해 주세요.');
+      if (lock.noteHidden(value.note)) throw new Error('노트가 잠겼어요. 풀거나 다른 노트를 선택해 주세요.');
       const {appendToNote} = await import('./note-append.js');
       await appendToNote(rt, value.note.id, {doc: input.value, familyOnly: family});
       return {noteId: value.note.id, folderName: value.folderName || '', message: `'${[...noteLineTitle(value.note)].slice(0, 20).join('')}' 노트 끝에 더했어요.`};

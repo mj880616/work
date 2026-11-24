@@ -31,6 +31,8 @@ const REVIEWED = {
   'public.app_call_edit': OWNER,
   'public.app_call_context_people': /workspace_id\s*=\s*p_workspace/i, // service_role만 실행, 작업공간은 서버(운영자 기능 확인)가 정함
   'private.app_trash_org_before_delete': /returns\s+trigger/i, // 트리거: 부른 사람에게 행을 돌려주지 않음
+  // S69 STORE-계정삭제 트리거: 조직 이름을 읽어 돌려주지 않고, 부른 사람 owner 작업공간(v_ws, auth.uid()로 서버가 정함)의 조직 줄만 지운다.
+  'private.app_account_delete_run': /delete from public\.app_suborganizations t where t\.workspace_id = v_ws;/i,
 };
 
 test('조직 표를 읽는 SECURITY DEFINER 함수는 검토한 목록뿐이고, 모두 작업공간 조건으로 묶인다', () => {

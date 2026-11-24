@@ -247,6 +247,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     return `${star}${memo}${dismiss}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
   }
   function memoHtml() {
+    // S69 보드잠금가림 전수: 메모 노트를 잠근 노트 폴더로 옮겼고 아직 안 풀었으면 메모 글 대신 '잠김'(보기·고치기 칸 없음). 판정은 feature-lock.js 한 곳.
+    if (cur.memo && window.KPTUFeatureLock?.noteHidden?.(cur.memo)) return `<p class="nd-memo-text" data-nd-memo-locked data-lock-here="notes"><span class="nd-memo-label">메모</span>잠김 <button type="button" class="row-act lk-open">풀기</button></p>`;
     if (cur.memoOpen) {
       if (cur.memo?.doc_type) return `<div class="nd-memo"><p class="nd-memo-text">${esc(cur.memo.raw_text || '')}</p><p class="nd-faint">서식이 있는 메모는 노트에서 수정해요</p><button type="button" class="secondary" data-nd-memo-cancel>닫기</button></div>`;
       return `<form class="nd-memo" data-nd-memo-form><textarea data-nd-memo-input rows="3" aria-label="내 메모"${cur.memoBusy ? ' disabled' : ''}>${esc(cur.memo?.raw_text || '')}</textarea><div class="nd-memo-row">${cur.memoNote ? `<span class="nd-faint" role="status">${esc(cur.memoNote)}</span>` : ''}<button type="button" class="secondary" data-nd-memo-cancel>취소</button><button type="submit" class="secondary"${cur.memoBusy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
@@ -279,6 +281,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (m) m.innerHTML = memoHtml();
   }
   function paint() { keepOb(paintNow); }
+  window.addEventListener('kptu:feature-lock-changed', () => paintActs()); // 메모 노트 잠금이 풀리거나 다시 잠기면 메모 칸만 다시
   function paintNow() {
     if (!box) return;
     if (!cur) { box.innerHTML = '<p class="nd-empty" data-nd-empty>왼쪽 목록에서 글을 선택하세요</p>'; return; }
