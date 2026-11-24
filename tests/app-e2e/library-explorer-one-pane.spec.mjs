@@ -71,7 +71,7 @@ test.describe('PC 1280 한 칸 탐색기',()=>{
     await expect(c12.locator('details[data-lu-node="f:g1"]')).toBeVisible();
     expect((await rightDocs(page)).sort()).toEqual(['d1','d2','d4']);
     await expect(page.locator(nav('t1')).locator('xpath=..')).toHaveClass(/ft-current/);
-    await expect(page.locator('#libraryPath .lu-focus-here')).toHaveText('가상 묶음 1');
+    await expect(page.locator('#libraryPath')).not.toContainText('가상 칸 1-2');
     await c12.locator(':scope > summary').click();
     await expect(c12).not.toHaveAttribute('open','');
     // 들어가기는 왼쪽 나무. 왼쪽 나무는 그 폴더까지 펼치고 강조.

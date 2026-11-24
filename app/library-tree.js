@@ -200,13 +200,14 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
   };
   // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기 = 늘 그 자리 펼치기·접기라, 안이 빈 폴더를 펼치면 안에 '빈 폴더' 한 줄(들어가지 않음).
   const emptyIn=n=>n.kind==='folder'&&!n.children.length&&!n.files.length?`<div class="lu-node-empty">${emptyHtml('빈 폴더')}</div>`:'';
-  const body=n=>n.children.map(c=>one(c)).join('')+filesOf(n)+emptyIn(n);
-  const one=(n,top='')=>{const rest=folderChain(n);return `<details class="lu-node${top?' lu-enter':''}" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${top}${rest.length?` data-lu-chain="${esc(rest.map(c=>c.key).join(' '))}"`:''} style="--lu-depth:${folderIndent(n.depth)}"${isOpen(n.key)?' open':''}>${head(n)}<div class="lu-node-body">${body(n)}</div></details>`};
+  // lazy(탐색기 칸): 접힌 폴더는 안쪽을 그리지 않는다(보이는 줄만 화면에 — 고르기 수·사각형 고르기가 지금처럼). 펼치면 다시 그린다(library-upload.js luOnHeadClick).
+  const body=(n,lazy=false)=>n.children.map(c=>one(c,'',lazy)).join('')+filesOf(n)+emptyIn(n);
+  const one=(n,top='',lazy=false)=>{const rest=folderChain(n),open=isOpen(n.key);return `<details class="lu-node${top?' lu-enter':''}" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${top}${rest.length?` data-lu-chain="${esc(rest.map(c=>c.key).join(' '))}"`:''} style="--lu-depth:${folderIndent(n.depth)}"${open?' open':''}>${head(n)}<div class="lu-node-body">${lazy&&!open?'':body(n,lazy)}</div></details>`};
   // S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09 '노조를 클릭하면 노조가 펼쳐지는거야 거기로 들어가는게 아니고 들어가는건 무조건 왼쪽에서'):
   //  탐색기 오른쪽 칸 폴더 줄도 그 자리에서 펼치기·접기(한 칸 나무와 같은 줄 — 안의 하위 폴더·자료가 들여 보임). 들어가기는 왼쪽 나무·⋯ 첫 줄 [이 폴더로 들어가기]만.
   //  단(depth)은 이 칸 기준 0부터 다시 센다(지금 폴더 줄 자신은 그리지 않으므로). data-lu-enter는 '탐색기 칸 0단 폴더 줄' 표시(고르기·사각형 고르기가 읽음 — 이름은 옛 그대로).
   const shift=(n,d)=>({...n,depth:d,children:(n.children||[]).map(c=>shift(c,d+1))});
-  if(flat)return list.map(n=>one(shift(n,0),' data-lu-enter')).join('')+(flat.node?filesOf(flat.node):'');
+  if(flat)return list.map(n=>one(shift(n,0),' data-lu-enter',true)).join('')+(flat.node?filesOf(flat.node):'');
   return list.map(n=>one(n)).join('');
 }
 
