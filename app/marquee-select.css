@@ -1,0 +1,3 @@
+/* S69-17 UI-끌어고르기: 빈 곳에서 끄는 동안의 반투명 사각형(공용 부품 marquee-select.js가 스스로 부른다 — part-styles.js). 끄는 동안은 글자가 골라지지 않는다. */
+.marquee-box{position:fixed;z-index:60;pointer-events:none;box-sizing:border-box;border:1px solid var(--kptu-primary-ink);background:var(--kptu-primary-soft);opacity:.55;border-radius:2px}
+html.marquee-on,html.marquee-on *{user-select:none;-webkit-user-select:none}
