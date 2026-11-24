@@ -5,7 +5,8 @@ import {emptyHtml} from './wait-state.js';
 // 순환·100단(folder-limits.mjs)·같은 프로젝트 틀은 DB 트리거가 지키고(거절 SQLSTATE 23514 + LIB_FOLDER_*), 화면은 같은 규칙으로 고를 수 있는 곳만 보인다.
 // 폴더·자료 연결만 바꾼다. 자료(app_documents)·프로젝트·Drive 파일은 건드리지 않는다.
 import {createAnchoredMenu} from './anchored-menu.js';
-import {FOLDER_DEPTH,OUTSIDE_KEY,canAddChild,cleanFolderName,folderTrashCounts,folderDepth,folderErrorText,folderMoveTargets,folderSiblings,nextSortOrder} from './library-tree.js';
+import {FOLDER_DEPTH,OUTSIDE_KEY,canAddChild,cleanFolderName,folderTrashCounts,folderDepth,folderErrorText,folderMoveTargets,folderSiblings,nextSortOrder,SORT_GAP} from './library-tree.js';
+import {folderMoveOk} from './library-pick-folders.mjs';
 import {pickerRows} from './library-move.mjs';
 import {folderIndent} from './folder-limits.mjs';
 import {createMovePicker} from './library-move-picker.js';
@@ -281,13 +282,49 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   // 목록을 연다. anchor = 누른 버튼, closeOuter = 이 목록을 연 바깥 메뉴(자료 ⋯)를 닫는 함수(고른 뒤 먼저 닫는다), place = 'side'(메뉴 옆)·'below'(도구줄 버튼 아래).
   // all=true(사진 묶음 메뉴): 묶음 안 사진은 모두 옮기거나 모두 그대로(끌어 놓기와 같은 moveDocs all 모드).
-  function openMove(docs,anchor,{place='below',history=false,closeOuter=null,trigger=anchor,onClosed=null,all=false}={}){
-    const list=(docs||[]).filter(Boolean);if(!list.length||!anchor)return false;
+  // S69-69 LIB-사각형폴더: folders(고른 폴더 id들, 위 폴더를 함께 고른 아래 폴더는 부르는 쪽이 뺐다)가 있으면 폴더째 함께 옮긴다.
+  // 옮길 수 있는 곳은 고른 폴더·그 아래가 아니고 폴더 단 제한 안(folderMoveOk). [새 폴더 만들어 넣기]는 자료만 고른 때만.
+  function openMove(docs,anchor,{place='below',history=false,closeOuter=null,trigger=anchor,onClosed=null,all=false,folders=[],done=null}={}){
+    const list=(docs||[]).filter(Boolean),fids=(folders||[]).filter(id=>folder(id));if((!list.length&&!fids.length)||!anchor)return false;
     const after=work=>async(...a)=>{if(closeOuter)await closeOuter();return work(...a)};
-    picker.open({anchor,place,history,onClosed,canOut:list.some(d=>rawItem(d)),canNew:!!s().free||new Set(list.map(d=>d.project_id||null)).size===1,
-      rows:q=>rowsFor(list,q),
-      onPick:after(id=>putDocs(list,id,{all})),onOut:after(()=>moveDocs(list,null,{all})),onNew:after(()=>newFolderAndPut(list,trigger,{all}))});
+    const fin=ok=>{try{done?.(ok)}catch{}return ok}; // 폴더째 옮긴 뒤 부른 쪽이 선택을 끝낸다
+    const fm=fids.length?folderMoveOk(s().folders,fids,{maxDepth:FOLDER_DEPTH,free:!!s().free}):null;
+    const fix=x=>{const ok=fm.ok(x.id);return {...x,current:false,enabled:ok&&(!list.length||!x.reason),reason:ok&&list.length?x.reason:''}};
+    const rows=q=>{const r=rowsFor(list,q);return fm?{...r,recent:r.recent.map(fix),all:r.all.map(fix)}:r};
+    picker.open({anchor,place,history,onClosed,canOut:list.some(d=>rawItem(d))||!!fm?.top,canNew:!fids.length&&(!!s().free||new Set(list.map(d=>d.project_id||null)).size===1),
+      rows,
+      onPick:after(id=>fids.length?movePicked(list,fids,id).then(fin):putDocs(list,id,{all})),onOut:after(()=>fids.length?movePicked(list,fids,null).then(fin):moveDocs(list,null,{all})),onNew:after(()=>newFolderAndPut(list,trigger,{all}))});
     return true;
+  }
+  // 고른 폴더를 target(없으면 맨 위) 안으로: 폴더마다 위 폴더·순서만 바꾼다(소유자 RLS REST, 순환·단 제한·틀은 DB 트리거가 지킨다). 이미 그 안이면 그대로.
+  async function moveFoldersTo(ids,target){
+    const list=ids.map(folder).filter(f=>f&&(f.parent_id||null)!==(target||null));if(!list.length)return {ok:true,moved:[],prev:[]};
+    const prev=list.map(f=>({id:f.id,parent_id:f.parent_id||null,sort_order:f.sort_order})),moved=[];
+    const ok=await run(async()=>{let order=nextSortOrder(sibs(list[0].project_id||null,target||null));for(const f of list){await api(T_FOLDERS+where(f.id),{method:'PATCH',prefer:'return=minimal',body:{parent_id:target||null,sort_order:order}});moved.push(f.id);order+=SORT_GAP}},'');
+    return {ok,moved,prev:prev.filter(p=>moved.includes(p.id))};
+  }
+  // 폴더째 + 자료를 함께 옮긴다. 알림은 한 줄 '옮겼어요 폴더 n개 · 자료 m개 → 곳 · 되돌리기'(되돌리기 = 둘 다, 그 사이 또 옮겨진 폴더는 그대로).
+  async function movePicked(docs,folderIds,target){
+    const r=await moveFoldersTo(folderIds,target);
+    const where_=target?`${folder(target)?.name||''} 폴더`:'맨 위';
+    const undoFolders=async()=>{const back=r.prev.filter(p=>(folder(p.id)?.parent_id||null)===(target||null));if(!back.length)return true;return run(async()=>{for(const p of back)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:{parent_id:p.parent_id,sort_order:p.sort_order}})},'되돌렸어요.')};
+    if(r.moved.length){if(target)reveal(chain(folder(target)?.project_id||null,target));say(`옮겼어요 폴더 ${r.moved.length}개 → ${where_} ·`,{undo:undoFolders})}
+    if(!r.ok)return false;
+    if(!docs.length)return true;
+    const also=r.moved.length?{count:r.moved.length,undo:undoFolders}:null;
+    return target?putDocs(docs,target,{also}):moveDocs(docs,null,{also});
+  }
+  // 고른 폴더 여럿을 한 번에 휴지통으로(확인은 부르는 쪽이 한 번 받았다). 폴더 하나 [폴더 삭제]와 같은 요청·같은 휴지통, 되돌리기 한 번에 모두.
+  async function trashFolders(ids){
+    const list=(ids||[]).map(folder).filter(Boolean);if(!list.length||busy)return {status:'failed',moved:[]};
+    busy=true;status('');
+    try{
+      const {deleteManyToTrash}=await import('./trash-actions.js');
+      const r=await deleteManyToTrash({kind:'library_folder',ids:list.map(f=>f.id),remove:id=>api(T_FOLDERS+where(id),{method:'DELETE',prefer:'return=minimal'}),afterChange:reload,notify:text=>status(text,true),movedText:n=>`폴더 ${n}개를 휴지통으로 옮겼어요.`});
+      if(r.error)status(folderErrorText(r.error),true);
+      return r;
+    }catch(e){status(folderErrorText(e),true);try{await reload()}catch{}return {status:'failed',moved:[]}}
+    finally{busy=false}
   }
   // ---- 끌어 놓기(LIB-토글트리 ④ + LIB-폴더탐색기, 설계 6·12절) ----
   // 끌 수 있는 것: 폴더 머리, 파일 줄(고른 줄이 여럿이면 고른 것 모두). 놓을 곳:
@@ -443,7 +480,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function stopScroll(){touchScroll.stop()}
   // 자료 여럿(또는 하나)을 폴더로/폴더 밖으로. 이전 자리를 기억해 '되돌리기'가 그 자리로 돌려놓는다(그 사이 또 바뀐 것은 건드리지 않음).
   // all=true(사진 묶음): 하나라도 못 옮기면 이미 옮긴 것을 이전 자리로 되돌려 '모두 옮김 / 모두 그대로' 둘 중 하나로 끝낸다.
-  async function moveDocs(docs,folderId,{all=false,open=true}={}){
+  async function moveDocs(docs,folderId,{all=false,open=true,also=null}={}){
     const todo=docs.filter(d=>folderId?docFolder(d)?.id!==folderId:!!rawItem(d));if(!todo.length)return false;
     const prev=todo.map(d=>({id:d.id,had:!!rawItem(d),folder:rawItem(d)?.folder_id||null})),w=id=>`?document_id=eq.${enc(id)}&workspace_id=eq.${enc(s().workspace)}`;
     // LIB-후속1 ③: 'n/전체'를 알리고, 일부가 실패해도 옮긴 것은 그대로 둔다(실패한 것만 onMoved로 돌려 고른 채 남김).
@@ -467,7 +504,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const moved=prev.filter(p=>done.includes(p.id)),where_=folderId?`${folder(folderId)?.name||''} 폴더`:'폴더 밖';
     // 못 옮긴 것이 있으면 개수와 이유 한 줄(이유 = 첫 거절의 일상어 문구).
     const why=failed.length?folderErrorText(lastMoveError):'';
-    say(`옮겼어요 ${moved.length}개 → ${where_}${failed.length?` · ${failed.length}개는 옮기지 못했어요(선택한 채로 남김) — ${why}`:''} ·`,{error:failed.length>0,undo:()=>run(()=>undoMoves({api,ws:s().workspace,moved,folderId}),'되돌렸어요.')});
+    // S69-69: 고른 폴더를 함께 옮겼으면(also) 한 줄에 '폴더 n개 · 자료 m개', 되돌리기도 둘 다.
+    const what=also?`폴더 ${also.count}개 · 자료 ${moved.length}개`:`${moved.length}개`;
+    const undoDocs=()=>run(()=>undoMoves({api,ws:s().workspace,moved,folderId}),'되돌렸어요.');
+    say(`옮겼어요 ${what} → ${where_}${failed.length?` · ${failed.length}개는 옮기지 못했어요(선택한 채로 남김) — ${why}`:''} ·`,{error:failed.length>0,undo:also?async()=>{await undoDocs();return also.undo()}:undoDocs});
     return true;
   }
   async function dragMoveFolder(id,parentId){
@@ -668,5 +708,5 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 ⋯의 [새 폴더]. 폴더 묶기에서만 — 들어간 폴더가 있으면 그 안, 없으면 맨 위(폴더 밖 자리).
   const createIn=(parentId,trigger)=>{const p=parentId?folder(parentId):null;if(parentId&&!p)return;if(p&&!canAddChild(s().folders,p.id)){status('여기에는 폴더를 더 만들 수 없어요.',true);return}
     askName({title:p?'안에 폴더 만들기':'폴더 만들기',hint:p?pathName(p.id)+' 안에 만들어요.':'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(p?.project_id||null,p?.id||null,name)})};
-  return {openAt:(trigger,x,y)=>menu.open(trigger,{at:{x,y}}),createIn,moveFolderTo:(id,parentId)=>dragMoveFolder(id,parentId||null),moveDocsTo:(ids,folderId,opt={})=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null,{open:opt.open!==false}):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),follow:find=>menu.follow(find),get menuTrigger(){return menu.active?.trigger||null},moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
+  return {openAt:(trigger,x,y)=>menu.open(trigger,{at:{x,y}}),createIn,moveFolderTo:(id,parentId)=>dragMoveFolder(id,parentId||null),moveDocsTo:(ids,folderId,opt={})=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null,{open:opt.open!==false}):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),follow:find=>menu.follow(find),get menuTrigger(){return menu.active?.trigger||null},moveMenuHtml,openMove,trashFolders,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
 }

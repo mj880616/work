@@ -640,6 +640,9 @@ jobs:
       - name: Check library many delete in server batches (S70 LIB-묶음삭제)
         run: node --test tests/library-delete-many.test.mjs
 
+      - name: Check library marquee picks folder rows (S69-69 LIB-사각형폴더)
+        run: node --test tests/library-pick-folders.test.mjs
+
       - name: Check schedule window photos and files (CAL-일정첨부)
         run: node --test tests/event-files.test.mjs
 
