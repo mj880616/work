@@ -23,6 +23,7 @@ import {createChoiceSheet} from './choice-sheet.js';
 import {openAreaOrgPicker,usedKeysNow,catalogAreas,orderedOrgGroups,areaTree,areaChipText} from './area-org-picker.js';
 import {pickedFrom,offFrom,togglePick,isPicked,pickLabel,pickCount} from './library-category-pick.mjs';
 import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteSequentially} from './library-select.js';
+import {deleteInChunks,confirmNote as luDeleteNote,progressText as luDeleteProgress,resultLine as luDeleteResult,preservedNote as luPreservedNote,isLinkedOriginal} from './library-delete-many.mjs';
 import {isLibraryPhoto,hydrateLibraryThumbs} from './library-photo.js';
 import {isPictureDoc,recentSplit} from './photo-fold-model.mjs'; // LIB-사진숨김: 묶음 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {photoToggleHtml,photoTilesHtml,bindPhotoTileMenus} from './photo-fold.js';
@@ -1535,7 +1536,7 @@ function luManyMenuHtml(doc){
 function luBindMenu(){
   luMenuPanel=document.createElement('div');luMenuPanel.id='luMorePanel';luMenuPanel.className='lu-more-panel';luMenuPanel.hidden=true;luMenuPanel.setAttribute('role','group');luMenuPanel.setAttribute('aria-label','자료 관리');
   luMenuPopover=typeof luMenuPanel.showPopover==='function'&&typeof luMenuPanel.hidePopover==='function'&&'popover' in luMenuPanel;if(luMenuPopover)luMenuPanel.setAttribute('popover','manual');document.body.append(luMenuPanel);
-  luMenuPanel.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.luMoveOpen){e.stopPropagation();luToggleMove(b);return}const anchor=luActiveMenu?.trigger;luCloseMenu(()=>{if(b.dataset.luGotoFolder)luGoFolder(b.dataset.luGotoFolder);else if(b.dataset.luPickStart)luSelStartWith(b.dataset.luPickStart);else if(b.dataset.luPickStop)luSelStop();else if(b.dataset.luDeleteMany)void luSelDelete();else if(b.dataset.luCatOpen)luOpenCategoryFor(b.dataset.luCatOpen,anchor);else if(b.dataset.luRename)luStartRename(b.dataset.luRename);else if(b.dataset.luHwpEdit)luHwpEdit(b.dataset.luHwpEdit);else if(b.dataset.luDriveOpen)luDriveOpen(b.dataset.luDriveOpen);else if(b.dataset.luBrief)luOpenBrief(b.dataset.luBrief);else if(b.dataset.luDownload)luDownload(b.dataset.luDownload);else if(b.dataset.luEdit)luOpenEditById(b.dataset.luEdit);else if(b.dataset.luDelete)luDeleteDocument(b.dataset.luDelete)})});
+  luMenuPanel.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.luMoveOpen){e.stopPropagation();luToggleMove(b);return}const anchor=luActiveMenu?.trigger;luCloseMenu(()=>{if(b.dataset.luGotoFolder)luGoFolder(b.dataset.luGotoFolder);else if(b.dataset.luPickStart)luSelStartWith(b.dataset.luPickStart);else if(b.dataset.luPickStop)luSelStop();else if(b.dataset.luDeleteMany)void luSelDelete(anchor);else if(b.dataset.luCatOpen)luOpenCategoryFor(b.dataset.luCatOpen,anchor);else if(b.dataset.luRename)luStartRename(b.dataset.luRename);else if(b.dataset.luHwpEdit)luHwpEdit(b.dataset.luHwpEdit);else if(b.dataset.luDriveOpen)luDriveOpen(b.dataset.luDriveOpen);else if(b.dataset.luBrief)luOpenBrief(b.dataset.luBrief);else if(b.dataset.luDownload)luDownload(b.dataset.luDownload);else if(b.dataset.luEdit)luOpenEditById(b.dataset.luEdit);else if(b.dataset.luDelete)luDeleteDocument(b.dataset.luDelete)})});
   luMenuPanel.addEventListener('keydown',e=>{if(e.key==='ArrowRight'&&e.target.matches?.('[data-lu-move-open]')){e.preventDefault();luToggleMove(e.target,true)}});
   document.addEventListener('click',e=>{if((!luActiveMenu&&!luMenuClosing)||luMenuPanel.contains(e.target)||luActiveMenu?.trigger.contains(e.target)||luFolderUi?.moveContains(e.target))return;const target=e.target,forward=new MouseEvent('click',e);e.preventDefault();e.stopImmediatePropagation();luCloseMenu(()=>{if(target.isConnected)target.dispatchEvent(forward)})},true);
   // 폴더 목록(자료 ⋯의 [폴더로 옮기기 ›])에서 Esc는 목록만 닫고 메뉴로 돌아간다(library-move-picker.js). 한 번 더 누르면 메뉴가 닫힌다.
@@ -1754,7 +1755,9 @@ function luQueueDelete(ids){
     if(!luSameScope(batch.scope))return {status:'stale'};
     luRestoreRows(rows);return true;
   };
-  notify(rows.length>1?`${rows.length}개를 삭제했어요`:'삭제했어요',{undo,label:rows.length>1?`삭제 ${rows.length}개`:'삭제',ms:LU_DELETE_WAIT_MS});
+  // S70: 드라이브에서 가져온(연결만 한) 원본은 드라이브에 그대로 둔다는 한 줄.
+  const keep=rows.filter(isLinkedOriginal).length;
+  notify(rows.length>1?`${rows.length}개를 삭제했어요`:'삭제했어요',{undo,label:rows.length>1?`삭제 ${rows.length}개`:'삭제',ms:LU_DELETE_WAIT_MS,note:keep?(keep===rows.length?'드라이브 원본은 그대로 둬요.':`드라이브에서 가져온 ${keep}개는 드라이브 원본을 그대로 둬요.`):''});
   batch.timer=setTimeout(()=>void luSendDelete(batch),LU_DELETE_WAIT_MS);
   return true;
 }
@@ -1766,6 +1769,7 @@ async function luSendDelete(batch){
   luSentBatches.add(batch);
   try{
     if(!isCurrent()){release(rows);return}
+    if(rows.length>1){await luSendDeleteMany(batch,release);return}
     let helper;try{helper=await import('./document-delete.js')}catch{release(rows);if(isCurrent()){luRestoreRows(rows);notify('자료를 삭제하지 못했어요. 다시 시도해 주세요.',{error:true})}return}
     let stopped=null;
     const result=await deleteSequentially(rows.map(d=>d.id),async id=>{
@@ -1785,6 +1789,29 @@ async function luSendDelete(batch){
     if(stopped&&luIsDriveAuthError(stopped)&&here())await luMaybeReconnectDrive(stopped,{isCurrent:here,expectedSessionEpoch:scope.epoch});
   }finally{luSentBatches.delete(batch)}
 }
+// S70 LIB-묶음삭제 ②(명진 11/24 18:07): 여러 개는 서버 'delete-many'로 DELETE_CHUNK개씩 묶어 보낸다(서버 안에서 같은 검사·같은 순서로 여러 개 함께).
+// 진행은 작은 알림 '삭제하는 중 n/전체'(다른 화면에서도 보임 — 자료실을 떠나도 이 차례는 끝까지 간다). 끝나면 'N개를 삭제했어요'(+ 드라이브 원본을 둔 수).
+// 답을 못 받은 묶음은 서버가 지웠을 수 있어 되살리지 않고 목록을 다시 읽는다. 못 지운 것만 목록에 되살린다. Drive 연결 문제면 남은 것은 보내지 않고 되살린다.
+async function luSendDeleteMany(batch,release){
+  const {rows,scope}=batch,isCurrent=()=>luBatchCurrent(batch),ids=rows.map(d=>d.id);
+  let stopError=null;
+  const progress=({index,total})=>{if(isCurrent()&&index<total)notify(luDeleteProgress({index,total}),{ms:120000,record:false})};
+  progress({index:0,total:ids.length});
+  const r=await deleteInChunks(ids,async part=>{
+    try{return await luApi('/functions/v1/document-actions',{method:'POST',body:{action:'delete-many',document_ids:part},refreshSession:false,expectedSessionEpoch:scope.epoch,singleFlight:false,timeoutMs:120000})}
+    catch(e){if(luIsDriveAuthError(e)||e?.status===401){stopError=e;return {ok:true,stopped:true,results:part.map(id=>({id,ok:false,code:'SKIPPED'}))}}throw e}
+  },{isCurrent,onProgress:progress});
+  release(rows);
+  if(!isCurrent())return;
+  const done=new Set(r.done),unknown=new Set(r.unknown),back=rows.filter(d=>!done.has(d.id)&&!unknown.has(d.id));
+  if(back.length)luRestoreRows(back);
+  if(unknown.size){try{await luLoadDocuments();await luLoadFolders()}catch{}if(isCurrent())luRenderLibrary()}
+  if(done.size||unknown.size)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
+  const bad=back.length>0||unknown.size>0;
+  notify(luDeleteResult(r),{error:bad,note:back.length?'로그인·Google Drive 연결을 확인한 뒤 다시 삭제해 주세요.':luPreservedNote(r.preserved),record:false});
+  const routeSeq=luDeleteRouteSeq,here=()=>isCurrent()&&window.KPTURouter?.current==='library'&&routeSeq===luDeleteRouteSeq;
+  if(r.stopped&&here()){const e=stopError||Object.assign(new Error('Google Drive 토큰 갱신'),{status:424});if(luIsDriveAuthError(e))await luMaybeReconnectDrive(e,{isCurrent:here,expectedSessionEpoch:scope.epoch})}
+}
 function luFlushDeletes(){for(const b of [...luGoneBatches])void luSendDelete(b)}
 window.addEventListener('kptu:view-changed',e=>{if(!(e.detail?.view==='library'&&e.detail?.source==='session'))luDeleteRouteSeq++;if(e.detail?.view!=='library')luFlushDeletes()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushDeletes()});
@@ -1801,7 +1828,7 @@ window.addEventListener('kptu:session-changed',event=>{
 });
 function luDeleteDocument(id){if(typeof id!=='string'||!id.trim())return;luQueueDelete([id])}
 // LIB-여러개삭제: [선택] → 자료 줄 왼쪽 네모 칸 → 위쪽 줄 '[전체] n개 골랐음 [삭제] [취소]'. 상태 주인은 luPick.items(null이면 선택 모드 아님, 화면 기억만).
-// 지우기는 하나씩 삭제와 같은 document-delete.js·서버 경로를 한 번에 하나씩 차례로 부른다. 되돌리기는 없고, 지우기 전 확인은 한 번.
+// 삭제는 하나면 document-delete.js(서버 'delete'), 여럿이면 서버 'delete-many' 묶음(S70 luSendDeleteMany). 여럿은 삭제 전 확인 한 번, 보내기 전 6초 [되돌리기].
 // NOTE-탐색기 후속 ⑦: 선택 상태 코드는 노트와 같은 공용 부품(select-mode.js). luPick.items(null = 선택 모드 아님)·luPick.anchor(Shift 시작 줄).
 // 폰 뒤로가기(갤럭시 뒤로) = 선택 풀기(노트와 같은 규칙, 요청 2026-10-28). 옮기거나 지우는 중에는 풀지 않고 그대로 둔다.
 const luPick=createSelectMode({layer:'library-select',onBack:()=>luRenderLibrary(),canLeave:()=>!luSelBusy});let luSelBusy=false;
@@ -2050,10 +2077,18 @@ function luAfterBulk(ids,failed,fromSelection=true){
   for(const row of document.querySelectorAll('#documentList .lu-row[data-lu-document]'))if(ok.has(row.dataset.luDocument)){row.classList.remove('lu-flash');void row.offsetWidth;row.classList.add('lu-flash')}
 }
 function luSelAll(){if(!luPick.items||luSelBusy)return;luPickToggle(luVisibleIds())}
-function luSelDelete(){
+// S70 LIB-묶음삭제: 여러 개 삭제는 한 번 확인한다('N개를 삭제할까요?' + 드라이브에서 가져온 원본은 그대로 둔다는 한 줄). 하나 삭제는 지금처럼 바로.
+async function luSelDelete(anchor=document.querySelector('#librarySelectDelete')){
   if(!luPick.items||luSelBusy||!luPick.items.size)return;
-  const shown=luVisibleIds(),ids=[...luPick.items].filter(id=>luDocuments.some(d=>d.id===id)).sort((a,b)=>shown.indexOf(a)-shown.indexOf(b));// 화면에 보이는 차례로
-  if(ids.length)luQueueDelete(ids);
+  const shown=luVisibleIds(),at=new Map(shown.map((id,i)=>[id,i])),have=new Map(luDocuments.map(d=>[d.id,d]));
+  const ids=[...luPick.items].filter(id=>have.has(id)).sort((a,b)=>(at.get(a)??1e9)-(at.get(b)??1e9));// 화면에 보이는 차례로
+  if(!ids.length)return;
+  if(ids.length>1){
+    const docs=ids.map(id=>have.get(id));
+    const ok=await askConfirm(anchor?.isConnected?anchor:null,{text:`${ids.length}개를 삭제할까요?`,note:luDeleteNote(docs),ok:'삭제',danger:true});
+    if(!ok||!luPick.items||luSelBusy)return;
+  }
+  luQueueDelete(ids);
 }
 // UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 자료실 자료 줄 — 왼쪽으로 밀면 [옮기기](⋯ [폴더로 옮기기]와 같은 폴더 고르기, 폴더 표를 읽었을 때만)·[삭제]
 // (⋯ [삭제]와 같은 길: 줄이 바로 빠지고 '삭제했어요 [되돌리기]', 끝까지 밀어도 바로 지우지 않고 칸만 열림). 오른쪽으로 밀면 [선택] → 자료실에 이미 있는 선택 모드(luPick)가 그 줄이 골라진 채로 열린다.
@@ -2118,7 +2153,7 @@ function luBindSelect(){
   luBindMarquee();
   document.querySelector('#libraryTopMenuBtn')?.addEventListener('click',e=>luTopMenuOpen(e.currentTarget));
   document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{if(e.target.closest('#librarySelectAll'))luSelAll()});
-  document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{if(e.target.closest('#librarySelectDelete'))luSelDelete()}); // LIB-끄는중막대: 단추 줄을 다시 그려도 되게 막대에 위임
+  document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{{const b=e.target.closest('#librarySelectDelete');if(b)void luSelDelete(b)}}); // LIB-끄는중막대: 단추 줄을 다시 그려도 되게 막대에 위임
   document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{
     const bulk=e.target.closest('[data-lu-bulk]');
     if(bulk){if(luPick.items&&!luSelBusy&&luPick.items.size)void luOpenBulkMenu(bulk);return}

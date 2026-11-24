@@ -4,10 +4,13 @@ import {signInWithSession} from './session-login.mjs';
 import {libraryTopMenu,libraryExpandItem} from './library-tree.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const project={id:'p1',workspace_id:'ws',owner_id:'owner',name:'교섭 준비',status:'active',sort_order:1,metadata:{project_system:'v2'}};
-const doc=(id,project_id,i)=>({id,workspace_id:'ws',project_id,file_name:id+'.pdf',title:id+'.pdf',category:'교섭',tags:[],mime_type:'application/pdf',created_at:`2026-10-0${i+1}T00:00:00Z`,document_date:`2026-10-0${i+1}`});
-export async function setup(page,width,{failIds=[]}={}){
+const pad=n=>String(n).padStart(2,'0');
+// S70: n으로 시작하는 자료는 [드라이브에서 가져오기]로 연결만 한 드라이브 원본(classification_note 표식).
+const doc=(id,project_id,i)=>({id,workspace_id:'ws',project_id,file_name:id+'.pdf',title:id+'.pdf',category:'교섭',tags:[],mime_type:'application/pdf',file_id:'f-'+id,classification_note:id.startsWith('n')?'드라이브에서 가져옴 · 파일명 기반 자동분류':'파일명 기반 자동분류',created_at:`2026-10-${pad(i%28+1)}T00:00:${pad(i%60)}Z`,document_date:`2026-10-${pad(i%28+1)}`});
+export const manyDocs=n=>Array.from({length:n},(_,i)=>doc((i%2?'n':'b')+i,'p1',i));
+export async function setup(page,width,{failIds=[],docs=null}={}){
   await page.setViewportSize({width,height:900});
-  const state={docs:[doc('a1','p1',0),doc('a2','p1',1),doc('a3','p1',2),doc('n1',null,3),doc('n2',null,4)],deletes:[],inflight:0,peak:0,failIds,errors:[]};
+  const state={docs:docs||[doc('a1','p1',0),doc('a2','p1',1),doc('a3','p1',2),doc('n1',null,3),doc('n2',null,4)],deletes:[],inflight:0,peak:0,failIds,errors:[]};
   page.on('pageerror',e=>state.errors.push(e.message));
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname,ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
@@ -20,6 +23,12 @@ export async function setup(page,width,{failIds=[]}={}){
     if(path==='/functions/v1/document-actions'){
       const body=req.postDataJSON();state.deletes.push(body);state.inflight++;state.peak=Math.max(state.peak,state.inflight);
       await new Promise(r=>setTimeout(r,60));state.inflight--;
+      // S70 LIB-묶음삭제: 여러 개는 'delete-many' 한 요청(자료마다 결과). 연결 원본은 드라이브를 두었다고 답한다(실제 Drive 판단은 서버 시험이 본다).
+      if(body.action==='delete-many'){
+        const results=body.document_ids.map(id=>state.failIds.includes(id)?{id,ok:false,code:'FAILED'}:{id,ok:true,...(id.startsWith('n')?{drive_result:'preserved',drive_preserved:true,reason:'linked_original'}:{drive_result:'trashed',drive_preserved:false,reason:'ordinary_library'})});
+        const gone=new Set(results.filter(x=>x.ok).map(x=>x.id));state.docs=state.docs.filter(d=>!gone.has(d.id));
+        return ok({ok:true,stopped:false,results});
+      }
       if(state.failIds.includes(body.document_id))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'denied'})});
       state.docs=state.docs.filter(d=>d.id!==body.document_id);
       return ok({ok:true,drive_result:'trashed',drive_preserved:false,reason:'ordinary_library'});
@@ -71,10 +80,18 @@ export async function run(page,base,width,check,{shot=null}={}){
   if(shot)await page.screenshot({path:shot,fullPage:false});
   await page.locator('#librarySelectAll').click();
   check(await count(page),'0개 선택됨','all off');
-  // LIB-바로지우기: 묻지 않고 바로 목록에서 빠지고 작은 알림 '5개를 지웠어요 · 되돌리기'. 서버 요청은 알림이 사라진 뒤에 보낸다.
+  // S70 LIB-묶음삭제: 여러 개는 한 번 묻는다('5개를 삭제할까요?' + 드라이브에서 가져온 원본은 그대로 둔다는 한 줄). [취소]면 아무것도 안 한다.
+  // 그 뒤는 LIB-바로지우기 그대로: 바로 목록에서 빠지고 작은 알림 '5개를 삭제했어요 · 되돌리기'. 서버 요청은 알림이 사라진 뒤에 보낸다.
   await page.locator('#librarySelectAll').click();
   const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.type());await d.dismiss()});
   await page.locator('#librarySelectDelete').click();
+  check(await page.locator('.kptu-ask .kptu-ask-text').textContent(),'5개를 삭제할까요?','confirm many');
+  check(await page.locator('.kptu-ask .kptu-ask-note').textContent(),'드라이브에서 가져온 2개는 드라이브 원본을 그대로 둬요. 나머지 3개는 드라이브 휴지통으로 가요.','confirm says Drive originals stay');
+  await page.locator('.kptu-ask .secondary').click();
+  check(await rows(),5,'cancel keeps rows');
+  check(await count(page),'5개 선택됨','cancel keeps selection');
+  await page.locator('#librarySelectDelete').click();
+  await page.locator('.kptu-ask .danger').click();
   check(await rows(),0,'rows leave at once');
   check(await page.locator('#kptuNotice .kptu-notice-text').textContent(),'5개를 삭제했어요','small notice');
   check(state.deletes.length,0,'nothing sent before undo window ends');
@@ -87,17 +104,43 @@ export async function run(page,base,width,check,{shot=null}={}){
   await libraryTopMenu(page,'select');
   await page.locator('#librarySelectAll').click();
   await page.locator('#librarySelectDelete').click();
+  await page.locator('.kptu-ask .danger').click();
   check(await rows(),0,'rows leave again');
   await page.waitForFunction(()=>document.querySelectorAll('#documentList [data-lu-document]').length===1,null,{timeout:20000});
-  check(state.deletes.map(x=>x.document_id),['a3','a2','a1','n2','n1'],'same server path, one by one in screen order');
-  check(state.deletes.every(x=>x.action==='delete'),true,'action delete');
-  check(state.peak,1,'one request at a time');
+  check(state.deletes.length,1,'one server request for all');
+  check(state.deletes[0].action,'delete-many','bulk action');
+  check(state.deletes[0].document_ids,['a3','a2','a1','n2','n1'],'all picked ids in screen order');
   check(await page.locator('[data-lu-document="a2"]').count(),1,'failed row comes back');
-  check(/^4개를 삭제했고 1개는 삭제하지 못해 되살렸어요/.test(await page.locator('#kptuNotice .kptu-notice-text').textContent()),true,'partial failure notice');
+  check(await page.locator('#kptuNotice .kptu-notice-text').textContent(),'4개를 삭제했고 1개는 삭제하지 못했어요.','partial failure notice');
   check(dialogs,[],'no browser dialogs');
   check(await page.locator('#documentList .lu-pick').count(),0,'select mode ends after delete');
   check(await page.locator('#librarySelectBar').isVisible(),false,'bar hidden');
   check(await page.locator('#libraryTopMenuBtn').isVisible(),true,'top menu still there');
+  check(state.errors,[],'no page errors');
+  return state;
+}
+
+// S70 LIB-묶음삭제(명진 11/24 "2300개 다 삭제했는데 왜 삭제가 안 되지"): 한 묶음에 320개 — [전체]가 접힌 것까지 모두 고르고 정확한 수를 보이며,
+// [삭제] 한 번에 모두 지워진다(서버 'delete-many' 40개씩, 빠짐·겹침 없음). 진행 'n/전체', 끝 알림 'N개를 삭제했어요' + 드라이브 원본을 둔 수.
+export async function runMany(page,base,width,check,n=320){
+  const state=await setup(page,width,{docs:manyDocs(n)});
+  await openLibrary(page,base);
+  await libraryTopMenu(page,'select');
+  await page.locator('#librarySelectAll').click();
+  check(/^320개 선택됨/.test(await count(page)),true,'all picks every document in the group, folded ones too');
+  await page.locator('#librarySelectDelete').click();
+  check(await page.locator('.kptu-ask .kptu-ask-text').textContent(),`${n}개를 삭제할까요?`,'confirm count');
+  await page.locator('.kptu-ask .danger').click();
+  check(await page.locator('#documentList [data-lu-document]').count(),0,'rows leave at once');
+  await page.waitForFunction(()=>/^삭제하는 중 \d+\/320$/.test(document.querySelector('#kptuNotice .kptu-notice-text')?.textContent||''),null,{timeout:15000});
+  await page.waitForFunction(()=>(document.querySelector('#kptuNotice .kptu-notice-text')?.textContent||'')==='320개를 삭제했어요.',null,{timeout:30000});
+  const sent=state.deletes.flatMap(x=>x.document_ids||[]);
+  check(state.deletes.every(x=>x.action==='delete-many'&&x.document_ids.length<=50),true,'bulk requests of at most 50');
+  check(sent.length,n,'every id sent once');
+  check(new Set(sent).size,n,'no id twice');
+  check(state.docs.length,0,'server list empty');
+  check(await page.locator('#kptuNotice .kptu-notice-note').textContent(),`드라이브에서 가져온 ${n/2}개는 드라이브 원본을 그대로 뒀어요.`,'preserved note');
+  check(await page.locator('#documentList [data-lu-document]').count(),0,'nothing comes back');
   check(state.errors,[],'no page errors');
   return state;
 }

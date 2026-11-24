@@ -79,6 +79,13 @@ export function harness(options = {}) {
         return Response.json(conns[ws] ? [{ workspace_id: ws, google_refresh_token: conns[ws] }] : []);
       }
       if (table === "app_documents") {
+        // S70 묶음 삭제 시험: docsById를 주면 id로 찾아 돌려주고, 지우기도 그 id 줄을 돌려준다.
+        const byId = o.docsById && (u.searchParams.get("id") || "").replace(/^eq\./, "");
+        if (byId) {
+          if (method === "GET") return Response.json(o.docsById[byId] ? [o.docsById[byId]] : []);
+          if (o.docDeleteStatus) return Response.json({ message: "delete unavailable" }, { status: o.docDeleteStatus });
+          return Response.json(o.docsById[byId] ? [{ id: byId }] : []);
+        }
         if (method === "GET") {
           const d =
             o.documents?.[Math.min(docReads++, o.documents.length - 1)] ??
@@ -156,7 +163,7 @@ export function harness(options = {}) {
       if (method === "PATCH") {
         return Response.json({ trashed: true }, { status: o.patchStatus });
       }
-      if (id === "file-1") {
+      if (id === "file-1" || o.fileIds?.includes(id)) {
         return Response.json(
           o.fileBody ||
             {
