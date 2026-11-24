@@ -42,8 +42,9 @@ test.describe('PC 1280 자료실 폴더 끌어 순서',()=>{
     await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');
     await expect.poll(()=>topOrder(s)).toEqual(['pub','pol','box']);
     // 다른 단: 정책 자료 안의 '하위'를 공공팀 아래쪽 끝에 → 맨 위 단으로 옮기며 공공팀 바로 뒤.
-    await expandLibraryTree(page);
-    r=await dragTo(page,head('f:sub'),head('f:pub'),{edge:'bottom'});expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-after');
+    // S69-28 LIB-한칸탐색기: '하위'는 정책 자료 안(오른쪽은 그 폴더에 들어가야 보임), 공공팀은 왼쪽 나무 줄.
+    await page.locator(navRow('pol')).click();await expect(page.locator(head('f:sub'))).toBeVisible();
+    r=await dragTo(page,head('f:sub'),navRow('pub'),{edge:'bottom',rect:'.ft-row'});expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-after');
     await expect.poll(()=>s.folders.find(f=>f.id==='sub').parent_id).toBeNull();
     await expect.poll(()=>topOrder(s)).toEqual(['pub','sub','pol','box']);
     await expect(line(page)).toContainText('폴더를 옮겼어요 → 맨 위');
@@ -54,13 +55,13 @@ test.describe('PC 1280 자료실 폴더 끌어 순서',()=>{
     // 끝 신호 = 상태 줄 '되돌렸어요'(저장 여러 개 → 다시 읽기까지 끝남). 서버 값만 보고 다음 끌기를 하면 아직 일하는 중(busy)이라 놓기가 무시된다.
     await expect(line(page)).toContainText('되돌렸어요');
     // 가운데 = 그 안으로(지금 그대로).
-    await expandLibraryTree(page);
+    await page.locator(navRow('')).click();await expect(page.locator(head('f:box'))).toBeVisible();
     r=await dragTo(page,head('f:box'),head('f:pol'));expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-into');
     await expect.poll(()=>s.folders.find(f=>f.id==='box').parent_id).toBe('pol');
     await expect(line(page)).toContainText('폴더를 옮겼어요');
-    // 자기 아래 폴더 줄의 끝에는 놓을 수 없다(정책 자료를 자기 안 '하위' 앞으로).
-    await expandLibraryTree(page);
-    const n1=s.writes.length;r=await dragTo(page,head('f:pol'),head('f:sub'),{edge:'top'});expect(r.allowed).toBe(false);expect(r.cls).toContain('lu-drop-no');expect(s.writes.length).toBe(n1);
+    // 자기 아래 폴더 줄의 끝에는 놓을 수 없다(정책 자료를 자기 안 '하위'(나무 줄) 앞으로).
+    await expect(page.locator(navRow('sub'))).toBeVisible();
+    const n1=s.writes.length;r=await dragTo(page,head('f:pol'),navRow('sub'),{edge:'top',rect:'.ft-row'});expect(r.allowed).toBe(false);expect(r.cls).toContain('lu-drop-no');expect(s.writes.length).toBe(n1);
     expect(errors).toEqual([]);
   });
 

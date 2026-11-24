@@ -112,20 +112,22 @@ const LIB_FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),lib
 const LIB_ITEMS=[{document_id:'a-1',folder_id:'fc'},{document_id:'n-1',folder_id:'fa'}];
 const libTops=page=>page.locator('#documentList > details').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));
 const libNav=page=>page.locator('#libraryFolderNav');
+// S69-28 LIB-한칸탐색기: 들어간 폴더는 탐색기 칸(그 폴더 줄 머리 없음) — 지금 자리는 위치 줄의 지금 폴더 이름, 맨 위면 ''.
+const libHere=async page=>{const c=page.locator('#libraryPath [aria-current="location"]');return await c.count()?(await c.textContent()).trim():''};
 
 test('PC 1280 자료실 폴더: C → N 에서 ‹ = C, ‹ = 자료실(맨 위), › = C → N (폴더 밖으로 한 번에 나가지 않는다)',async({page})=>{
  test.setTimeout(90000);
  const {s,errors}=await bootLibrary(page,1280,{folders:LIB_FOLDERS,items:LIB_ITEMS});
  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
- await libNav(page).locator('[data-lu-nav="fa"]').click();await expect(libNav(page).locator('[data-lu-nav="fc"]')).toBeVisible();
- await libNav(page).locator('[data-lu-nav="fc"]').click();await expect.poll(()=>libTops(page)).toEqual(['f:fc']);
- await libNav(page).locator('[data-lu-nav="fn"]').click();await expect.poll(()=>libTops(page)).toEqual(['f:fn']);
+ await libNav(page).locator('[data-lu-nav-tog="fa"]').click();await expect(libNav(page).locator('[data-lu-nav="fc"]')).toBeVisible(); // 그림 = 펼치기만(들어가지 않음)
+ await libNav(page).locator('[data-lu-nav="fc"]').click();await expect.poll(()=>libHere(page)).toBe('가상 C');
+ await libNav(page).locator('[data-lu-nav="fn"]').click();await expect.poll(()=>libHere(page)).toBe('가상 N');
  await expect(page).toHaveURL(/[?&]folder=fn(?:&|$)/);
- await topBack(page).click();await expect.poll(()=>libTops(page)).toEqual(['f:fc']);await shot(page,'3-library-folder-back-C');await expect(page).toHaveURL(/[?&]folder=fc(?:&|$)/);
- await page.goBack();await expect.poll(()=>libTops(page)).toEqual(['x:out','f:fa','f:fn']);await expect(page).not.toHaveURL(/[?&]folder=/);
+ await topBack(page).click();await expect.poll(()=>libHere(page)).toBe('가상 C');await shot(page,'3-library-folder-back-C');await expect(page).toHaveURL(/[?&]folder=fc(?:&|$)/);
+ await page.goBack();await expect.poll(()=>libHere(page)).toBe('');await expect.poll(()=>libTops(page)).toEqual(['f:fa','f:fn']);await expect(page).not.toHaveURL(/[?&]folder=/);
  await expect(page.locator('#libraryView')).toBeVisible();
- await topForward(page).click();await expect.poll(()=>libTops(page)).toEqual(['f:fc']);
- await topForward(page).click();await expect.poll(()=>libTops(page)).toEqual(['f:fn']);
+ await topForward(page).click();await expect.poll(()=>libHere(page)).toBe('가상 C');
+ await topForward(page).click();await expect.poll(()=>libHere(page)).toBe('가상 N');
  expect(s.writes).toEqual([]);expect(errors).toEqual([]);
 });
 
@@ -135,7 +137,7 @@ test('폰 412 자료실 폴더: 들어간 폴더는 겹 하나 — 뒤로 = 한 
  const {errors}=await bootLibrary(page,412,{folders:LIB_FOLDERS,items:LIB_ITEMS});
  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
  await page.locator('#documentList details[data-lu-node="f:fn"] > summary').tap();
- await expect.poll(()=>libTops(page)).toEqual(['f:fn']);
+ await expect.poll(()=>libHere(page)).toBe('가상 N');
  expect(await page.evaluate(()=>history.state?.kptuPick||null)).toBe(null);
  await page.goBack();
  await expect.poll(()=>libTops(page)).toEqual(['x:out','f:fa','f:fn']);await expect(page.locator('#libraryView')).toBeVisible();

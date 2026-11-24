@@ -165,7 +165,10 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 // 펼칠 때 이어진 폴더들도 함께 펼친다(library-upload.js luOnHeadClick). 메뉴·끌어 놓기는 지금처럼 맨 위 폴더 기준.
 export function folderChain(n){const out=[];let c=n,guard=0;while(c?.kind==='folder'&&!c.files.length&&c.children.length===1&&c.children[0].kind==='folder'&&guard++<FOLDER_DEPTH){c=c.children[0];out.push(c)}return out}
 // LIB-사진숨김(S60-10): isPhoto를 주면 묶음 안 사진은 줄에서 빼고(줄 수·[더 보기]도 사진 뺀 줄 기준) 줄 끝에 photoTail(묶음, 사진들) 하나.
-export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=null,pick=null,emoji=false,isPhoto=null,photoTail=null}){
+// S69-28 LIB-한칸탐색기(명진 11/24 '윈도우 탐색기처럼'): flat={node}이면 탐색기 오른쪽 칸 — list(그 자리 바로 안 폴더)는 펼치지 않는 줄(data-lu-enter,
+// 누르면 그 폴더로 들어감 — library-upload.js luOnHeadClick)로 0단에 두고, 이어서 node(지금 폴더·맨 위면 '폴더 밖' 묶음)의 자료 줄을 감싸지 않고 그린다.
+// 지금 폴더 줄 자신(위치 줄과 겹치는 제목)은 그리지 않는다. 자료 줄 모양·'n개 더 보기'·[사진 n]은 펼친 폴더 안과 같다.
+export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=null,pick=null,emoji=false,isPhoto=null,photoTail=null,flat=null}){
   // LIB-받는폴더: 받는 폴더 줄에 작은 '받는 폴더' 표시(시안 ①③). 외줄 경로로 접힌 아래 폴더면 펼쳤을 때 그 줄에 보인다(두 번 보이지 않게).
   const receiveTag=n=>n.rc?'<span class="lu-receive-mark">받는 폴더</span>':'';
   const head=n=>{
@@ -177,15 +180,19 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
     // S51-25 FOLDER-세모0: 폴더가 아닌 묶음(사업영역·하위 프로젝트·담당조직·분류·소분류·종류·월)도 펼치는 나무라 세모 대신 같은 열린/닫힌 폴더 그림.
     const mark=face&&n.key==='x:out'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${treeIconHtml('outside',{className:'ft-ico'})}</span>`:`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`;
     const more=menu?.(n);
-    const rest=folderChain(n);
+    const rest=n.chain===false?[]:folderChain(n);
     return `<summary class="lu-node-head lu-node-emoji${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${receiveTag(n)}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
   };
-  const body=n=>{
+  const filesOf=n=>{
     const rows=isPhoto?n.files.filter(d=>!isPhoto(d)):n.files,photos=isPhoto?n.files.filter(isPhoto):[];
     const all=showAll(n.key),files=all?rows:rows.slice(0,FILE_LIMIT),rest=rows.length-files.length;
-    return n.children.map(one).join('')+files.map(d=>fileHtml(d,n)).join('')+(rest>0?ftMoreRowHtml({rest,depth:0,attrs:{'data-lu-more':n.key},hint:n.kind==='folder'}).replace('class="ft-btn ft-row ft-more-row"','class="ft-btn ft-row ft-more-row lu-more-row"'):'')+(photos.length&&photoTail?photoTail(n,photos):'');
+    return files.map(d=>fileHtml(d,n)).join('')+(rest>0?ftMoreRowHtml({rest,depth:0,attrs:{'data-lu-more':n.key},hint:n.kind==='folder'}).replace('class="ft-btn ft-row ft-more-row"','class="ft-btn ft-row ft-more-row lu-more-row"'):'')+(photos.length&&photoTail?photoTail(n,photos):'');
   };
+  const body=n=>n.children.map(one).join('')+filesOf(n);
   const one=n=>{const rest=folderChain(n);return `<details class="lu-node" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${rest.length?` data-lu-chain="${esc(rest.map(c=>c.key).join(' '))}"`:''} style="--lu-depth:${folderIndent(n.depth)}"${isOpen(n.key)?' open':''}>${head(n)}<div class="lu-node-body">${body(n)}</div></details>`};
+  // 탐색기 줄: 외줄 폴더를 '가 › 나'로 줄이지 않고(누르면 그 폴더 하나로 들어가므로) 0단, 닫힌 채, 안쪽은 그리지 않는다.
+  const enter=n=>{const m={...n,depth:0,chain:false};return `<details class="lu-node lu-enter" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}" data-lu-enter style="--lu-depth:0">${head(m)}<div class="lu-node-body"></div></details>`};
+  if(flat)return list.map(enter).join('')+(flat.node?filesOf(flat.node):'');
   return list.map(one).join('');
 }
 

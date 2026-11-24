@@ -35,8 +35,10 @@ for(const {width,two,name} of CASES)test(`자료실 ${name}: 최근 줄 메뉴 �
   else await expect(page.locator('#documentList [data-lu-two]')).toHaveCount(0);
   const scope=two?P1:'#documentList ';
   const shown=id=>page.locator(`${scope}.lu-row[data-lu-document="${id}"]`);
-  // 지금 보이는 곳: 한 칸 = 맨 위 묶음 열쇠들, 두 칸 = 오른쪽 칸 위치 이름.
-  const here=()=>two?page.locator(`${P1}.lu-pane-here`).textContent():tops(page).then(x=>x.join(','));
+  // 지금 보이는 곳: 두 칸 = 오른쪽 칸 위치 이름. 한 칸: 폴더 안 = 위치 줄의 지금 폴더 이름(S69-28 탐색기 칸 — 그 폴더 줄 머리가 없음),
+  // 폴더 밖만 = 'x:out'(위치 줄 없음·폴더 줄 없음), 맨 위 = 맨 위 묶음 열쇠들.
+  const here=async()=>{if(two)return page.locator(`${P1}.lu-pane-here`).textContent();const cur=page.locator('#libraryPath [aria-current="location"]');if(await cur.count())return (await cur.textContent()).trim();const t=await tops(page);return t.length?t.join(','):'x:out'};
+  const IN_FC='가상 임금',IN_FN='가상 성명';
   await expect(page.locator(recentRow('agree'))).toBeVisible();
   const before=await here();
   // 1. 최근 줄 우클릭(폰 꾹 누르기) → 맨 위 [폴더로 가기].
@@ -45,7 +47,7 @@ for(const {width,two,name} of CASES)test(`자료실 ${name}: 최근 줄 메뉴 �
   await shot(page,`library-recent-menu-${width}${two?'-two':''}`);
   await panel(page).locator('button').first().click();
   // 그 폴더(가상 임금)만 보이는 화면, 그 줄 강조.
-  await expect.poll(here).toBe(two?'가상 임금':'f:fc');
+  await expect.poll(here).toBe(IN_FC);
   const row=shown('agree');
   await expect(row).toBeVisible();await expect(row).toHaveClass(/lu-flash/);
   await shot(page,`library-goto-${width}${two?'-two':''}`);
@@ -68,11 +70,11 @@ for(const {width,two,name} of CASES)test(`자료실 ${name}: 최근 줄 메뉴 �
   await page.locator('#libraryRecent [data-lu-recent-photos]').click();
   await page.locator('#libraryRecent [data-photo-tile="pic"] [data-lu-menu]').click();
   await panel(page).getByRole('button',{name:'폴더로 가기'}).click();
-  await expect.poll(here).toBe(two?'가상 임금':'f:fc');
+  await expect.poll(here).toBe(IN_FC);
   await expect(page.locator(`${scope}[data-photo-tile="pic"]`)).toHaveClass(/lu-flash/);
   await page.goBack();await expect.poll(here).toBe(before);
-  // 4. 줄 그냥 누르기는 지금 그대로(나무에서 그 자리, 폴더 안으로 들어가지 않음).
-  if(!two){await page.locator(recentRow('press')).click();await expect.poll(here).toBe(before);await expect(page.locator('#documentList .lu-row[data-lu-document="press"]')).toHaveClass(/lu-flash/)}
+  // 4. 줄 그냥 누르기: 폰 나무는 그대로(나무에서 그 자리, 폴더 안으로 들어가지 않음). PC 한 칸 탐색기는 펼칠 나무가 없어 그 폴더를 연다(S69-28).
+  if(!two){await page.locator(recentRow('press')).click();await expect.poll(here).toBe(width>=600?IN_FN:before);await expect(page.locator('#documentList .lu-row[data-lu-document="press"]')).toHaveClass(/lu-flash/);if(width>=600)await page.goBack()}
   // 5. 검색 결과 줄 ⋯에도 [폴더로 가기].
   if(width<761)await page.locator('#librarySearchOpen').click();
   await page.locator('#documentSearch').fill('보도자료');
@@ -82,7 +84,8 @@ for(const {width,two,name} of CASES)test(`자료실 ${name}: 최근 줄 메뉴 �
   await hit.locator('[data-lu-menu]').click();
   await expect(panel(page).locator('button').first()).toHaveText('폴더로 가기');
   await panel(page).locator('button').first().click();
-  await expect.poll(here).toBe(two?'가상 성명':'f:fn');
+  // 찾는 중이면 한 칸은 예전 나무 목록(폰 '그 폴더만'은 그 폴더 줄이 머리).
+  await expect.poll(here).toBe(two||width>=600?IN_FN:'f:fn');
   await expect(shown('press')).toHaveClass(/lu-flash/);
   await shot(page,`library-search-goto-${width}${two?'-two':''}`);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth<=1)).toBe(true);

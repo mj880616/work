@@ -34,7 +34,7 @@ const measure = page => page.evaluate(() => {
   const box = document.querySelector('[data-note-board]');
   const tools = box.querySelector('.nb-tools'), scroll = box.querySelector('[data-nb-scroll]');
   const rect = el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height }; };
-  const buttons = [...tools.querySelectorAll('button')].map(btn => {
+  const buttons = [...tools.querySelectorAll('button')].filter(btn => !btn.hidden).map(btn => {
     const range = document.createRange(); range.selectNodeContents(btn);
     const text = range.getBoundingClientRect(), own = rect(btn), after = getComputedStyle(btn, '::after');
     const left = own.l + parseFloat(after.left), right = own.r - parseFloat(after.right);
@@ -47,10 +47,11 @@ const measure = page => page.evaluate(() => {
 });
 
 for (const width of [390, 412, 884, 1280]) {
-  test(`보드 단추 묶음: 겹침·잘림 없이 네 단추가 다 보이고 판 안쪽에 있다 (${width})`, async ({ page }) => {
+  test(`보드 단추 묶음: 겹침·잘림 없이 여섯 단추가 다 보이고 판 안쪽에 있다 (${width})`, async ({ page }) => {
     const errors = await openEmptyBoard(page, width);
     const m = await measure(page);
-    expect(m.buttons.map(b => b.label)).toEqual(['+ 글 상자', '작게', '크게', '전체 보기']);
+    // S69-33: [－] [100% ▾] [＋] 가운데 비율 글자, [전체] → [맞추기], 끝에 [전체 화면]. [노트 목록]은 전체 화면 안에서만 보인다.
+    expect(m.buttons.map(b => b.label)).toEqual(['+ 글 상자', '작게', '보드 비율 100% · 누르면 비율 선택', '크게', '맞추기 — 카드가 모두 보이게', '전체 화면']);
     // 묶음은 판 테두리 안쪽 여백(4px 이상)을 지킨다.
     expect(m.tools.l - m.scroll.l).toBeGreaterThanOrEqual(4);
     expect(m.scroll.r - m.tools.r).toBeGreaterThanOrEqual(4);

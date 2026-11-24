@@ -180,3 +180,20 @@
 #psCustomWordsPanel .cw-state{margin-right:auto;font-size:var(--ds-compact-text,12px);color:var(--kptu-muted)}
 #psCustomWordsPanel .cw-state.cw-error{color:var(--kptu-danger)}
 @media (max-width:760px){#psCustomWordsPanel .cw-row{grid-template-columns:3.4em minmax(4em,6.5em) minmax(0,1fr) auto}#profileView #psCustomWordsPanel .cw-reset{width:auto}}
+/* S69 STORE-계정삭제: [계정 삭제] 확인 창(account-delete.js). 몸 끝에 붙는 창이라 #profileView 밖 선택자. 버튼 모양은 공용 6가지 그대로. */
+.account-delete-dialog{width:min(480px,calc(100vw - 16px));max-height:calc(100dvh - var(--kptu-mobile-tab-height,56px) - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink);display:none;flex-direction:column}
+.account-delete-dialog[open]{display:flex}
+.account-delete-dialog::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
+.account-delete-dialog .acd-head,.account-delete-dialog .acd-foot{display:flex;align-items:center;gap:8px;padding:6px 12px}
+.account-delete-dialog .acd-head h2{margin:0;font-size:15px;flex:1}
+.account-delete-dialog .acd-body{display:flex;flex-direction:column;gap:6px;padding:0 12px 8px;min-height:0;overflow:auto;font-size:13px;line-height:1.5}
+.account-delete-dialog .acd-lead{margin:0}
+.account-delete-dialog .acd-more summary{cursor:pointer;color:var(--kptu-muted)}
+.account-delete-dialog .acd-more ul{margin:2px 0 4px;padding-left:18px}
+.account-delete-dialog .acd-sub{margin:4px 0 0;font-weight:600}
+.account-delete-dialog .acd-confirm{display:flex;flex-wrap:wrap;align-items:center;gap:6px;text-align:left}
+.account-delete-dialog .acd-confirm label{display:inline;margin:0;font-size:13px;font-weight:400}
+.account-delete-dialog .acd-confirm input{width:7em;font-size:13px;padding:2px 6px;min-height:28px}
+.account-delete-dialog .acd-foot{border-top:1px solid var(--kptu-border)}
+.account-delete-dialog .acd-foot .status{margin:0;font-size:12px;flex:1;min-width:0}
+.account-delete-dialog .acd-foot .status.error{color:var(--kptu-danger)}

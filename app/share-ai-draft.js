@@ -52,13 +52,15 @@ async function loadRecords() {
   const {reportKindOf, reportKindLabel} = await import('./report-kinds.mjs');
   const kind = m => reportKindLabel(reportKindOf(m));
   const w = encodeURIComponent(ws());
-  const noteRead = kind => rt().api(`/rest/v1/app_notes?workspace_id=eq.${w}&kind=eq.${kind}&archived_at=is.null&ai_export_allowed=is.true&select=id,kind,title,raw_text,occurred_at,updated_at&order=updated_at.desc,id.asc&limit=${PICK_ROWS}`, {singleFlight:false});
+  const noteRead = kind => rt().api(`/rest/v1/app_notes?workspace_id=eq.${w}&kind=eq.${kind}&archived_at=is.null&ai_export_allowed=is.true&select=id,kind,title,raw_text,occurred_at,updated_at,folder_id:metadata->>folder_id,folder:metadata->>folder&order=updated_at.desc,id.asc&limit=${PICK_ROWS}`, {singleFlight:false});
   const [meetings, plain, updates] = await Promise.all([
     rt().api(`/rest/v1/app_meetings?workspace_id=eq.${w}&select=id,title,series_name,round_no,meeting_at,activity_kind&order=meeting_at.desc.nullslast,id.asc&limit=${PICK_ROWS}`, {singleFlight:false}),
-    noteRead('note'), noteRead('basket'),
+    noteRead('note'), noteRead('basket'), window.KPTUFeatureLock?.ready?.(),
   ]);
+  // S69 보드잠금가림 전수: 잠근 노트 폴더(아직 안 풀림)의 노트는 재료 목록에 넣지 않는다(note-pick.js와 같음, 판정은 feature-lock.js 한 곳).
+  const open = n => !window.KPTUFeatureLock?.noteHidden?.({metadata:{...(n?.folder_id ? {folder_id:n.folder_id} : {}), ...(n?.folder ? {folder:n.folder} : {})}});
   const at = n => Date.parse(n?.updated_at || '') || 0;
-  const notes = [...(Array.isArray(plain) ? plain : []), ...(Array.isArray(updates) ? updates : [])].sort((a, b) => at(b) - at(a)).slice(0, PICK_ROWS);
+  const notes = [...(Array.isArray(plain) ? plain : []), ...(Array.isArray(updates) ? updates : [])].filter(open).sort((a, b) => at(b) - at(a)).slice(0, PICK_ROWS);
   return {
     meetings:(Array.isArray(meetings) ? meetings : []).map(m => meetingLine(m, kind)).filter(r => splitKey(r.key)),
     // 비밀 모양 노트도 목록에 둔다. AI로 보낼 때 서버가 그 부분만 가린다(NOTE-AI제외정리).

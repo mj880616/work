@@ -21,7 +21,8 @@ const shot=(page,name)=>page.screenshot({path:test.info().outputPath(name+'.png'
 async function boot(page,width,body=PNG){
   const r=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:structuredClone(DOCS),group:'폴더'});
   await page.route('**/functions/v1/library-files*',route=>route.fulfill({status:200,contentType:'image/png',body}));
-  await expandLibraryTree(page);
+  // S69-28 LIB-한칸탐색기: 넓은 화면 한 칸은 왼쪽 나무에서 가상 A를 열면 오른쪽에 그 폴더 자료·[사진 n].
+  if(width>=600)await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();else await expandLibraryTree(page);
   await expect(fold(page)).toHaveText(/사진 3/);
   await press(page,fold(page),width);
   await expect(thumb(page,P1)).toBeVisible();

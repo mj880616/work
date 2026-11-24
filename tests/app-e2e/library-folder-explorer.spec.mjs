@@ -12,13 +12,36 @@ const count=(page,key)=>libraryNodeHead(page,key).locator('.lu-node-count');
 // LIB-위쪽한줄: 묶기는 고르기 상자 [폴더 ▾](#libraryGroupBy, select) 하나.
 const pickGroup=(page,label)=>page.locator('#libraryGroupBy').selectOption({label});
 const groupNow=page=>page.locator('#libraryGroupBy option:checked');
+// S69-28 LIB-한칸탐색기: 넓은 화면(600px~) 폴더 보기 한 칸은 탐색기 — 목록은 지금 자리 바로 안 폴더 줄 + 자료 줄('폴더 밖' 묶음 머리 없음, 폴더 밖 자료는 맨 위에 바로).
+// 폰은 맨 위 = 나무(폴더 밖 묶음 + 폴더), 폴더 안 = 탐색기 칸. TOP(width) = 맨 위 목록의 묶음 열쇠.
+const wideOf=width=>width>=600;
+const TOP=width=>wideOf(width)?['f:fa','f:fn']:['x:out','f:fa','f:fn'];
+const rowsHere=page=>page.locator('#documentList > [data-lu-document]').evaluateAll(xs=>xs.map(x=>x.dataset.luDocument));
 
 for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
   test.use({hasTouch:width<761});
   test(`묶기 '폴더': 프로젝트와 무관한 나무, 맨 위 '폴더 밖', 건수·들여쓰기 ${width}`,async({page},info)=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
     await pickGroup(page,'폴더');await expect(groupNow(page)).toHaveText('폴더');
-    expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
+    expect(await tops(page)).toEqual(TOP(width));
+    if(wideOf(width)){
+      // 탐색기: 맨 위 = 맨 위 폴더 줄 + 폴더 밖 자료 줄. '폴더 밖'은 왼쪽 나무 줄(회색 점선 폴더). 폴더 줄은 닫힌 폴더 그림, 건수는 그 안 전체.
+      expect((await rowsHere(page)).sort()).toEqual(['a-2','a1-1']);
+      await expect(page.locator('#libraryFolderNav [data-lu-nav="x:out"] .ft-name')).toHaveText('폴더 밖');
+      await expect(page.locator('#libraryFolderNav [data-lu-nav="x:out"] .tree-ico-outside svg path[stroke-dasharray]')).toHaveCount(1);
+      await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
+      await expect(count(page,'f:fa')).toHaveText('2');await expect(count(page,'f:fn')).toHaveText('0');
+      await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
+      expect(await tops(page)).toEqual(['f:fc']);expect(await rowsHere(page)).toEqual(['n-1']);
+      await page.locator('#documentList details[data-lu-node="f:fc"] > summary').click();
+      expect(await tops(page)).toEqual([]);expect(await rowsHere(page)).toEqual(['a-1']);
+      await pickGroup(page,'사업영역');await expandLibraryTree(page);
+      expect(await childrenOf(page,'p:none')).toContain('n-1');expect(await childrenOf(page,'f:fa')).toEqual([]);
+      expect(await page.locator('#libraryView').evaluate(v=>{const c=v.cloneNode(true);c.querySelectorAll('.lu-node-name,[data-lu-document]').forEach(x=>x.remove());return c.innerText})).not.toContain('프로젝트');
+      await pickGroup(page,'폴더');
+      expect(s.writes).toEqual([]);expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
+      return;
+    }
     await expect(libraryNodeHead(page,'x:out').locator('.lu-node-name')).toHaveText('폴더 밖');
     // FOLDER-나무새기준: 폴더 묶기의 폴더 줄은 ▸ 대신 공용 닫힌/열린 폴더 그림, '폴더 밖'은 회색 점선 폴더 그림(S51-25).
     await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-emoji .tree-ico-outside svg path[stroke-dasharray]')).toHaveCount(1);await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-emoji')).toHaveText('');await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
@@ -52,7 +75,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     try{
       const o=await bootLibrary(other,width,{state:s});
       await expect(groupNow(other)).toHaveText('폴더');
-      expect(await tops(other)).toEqual(['x:out','f:fa','f:fn']);
+      expect(await tops(other)).toEqual(TOP(width));
       // 다른 묶기로 바꾸면 그 값으로 바뀐다(폴더도 다른 값과 똑같이 덮어쓴다).
       await pickGroup(other,'사업영역');
       await expect.poll(()=>s.libraryView?.group_by,{timeout:5000}).toBe('project');
@@ -75,7 +98,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     // 첫 요청은 검사에 거절되고(400), 폴더만 빼고 앞서 기억한 묶기 그대로 다시 보낸다.
     expect(s.profilePatches[0]).toEqual({library_view:{group_by:'folder'}});expect(s.profilePatches[1]).toEqual({library_view:{group_by:'month'}});
     expect(s.libraryView).toEqual({group_by:'month'});
-    await expect(groupNow(page)).toHaveText('폴더');expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
+    await expect(groupNow(page)).toHaveText('폴더');expect(await tops(page)).toEqual(TOP(width));
     // 폴더 보기에서 분류를 바꿔도 기억은 저장된다(폴더 때문에 막히지 않음).
     const st=await readLibraryCategories(page),name=st.names[0];// LIB-위쪽한줄: 분류는 [분류 ▾] 창
     const before=st.all||st.on.includes(name);
@@ -89,10 +112,12 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
   test(`폴더 메뉴: 이름 바꾸기 F2·안에 새 폴더·접기/펼치기·구분선·폴더 삭제, 폴더 밖 ⋯는 새 폴더만 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     await press(page,menuButton(page,'f:fa'),width);
-    await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
+    // S69-28: 탐색기(넓은 화면 한 칸)의 폴더 줄은 펼치지 않고 들어가므로 [펼치기·접기] 줄이 없다.
+    await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더',...(wideOf(width)?[]:['펼치기']),'이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
     await expect(page.locator('#luFolderMenu hr[role="separator"]')).toHaveCount(1);
     // 구분선은 [폴더 지우기] 바로 앞.
     await expect(page.locator('#luFolderMenu > :nth-last-child(2)')).toHaveAttribute('role','separator');
+    if(wideOf(width)){await page.keyboard.press('Escape');expect(s.writes).toEqual([]);expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);return}
     await press(page,folderMenuItem(page,'펼치기'),width);await expect(libraryNode(page,'f:fa')).toHaveAttribute('open','');
     await press(page,menuButton(page,'f:fa'),width);await expect(folderMenuItem(page,'접기')).toBeVisible();
     await press(page,folderMenuItem(page,'접기'),width);await expect(libraryNode(page,'f:fa')).not.toHaveAttribute('open','');
@@ -103,15 +128,18 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
 
   test(`새 폴더: 폴더 밖에서는 맨 위(프로젝트 틀 없음), 폴더 안에서는 그 폴더 아래(상위와 같은 틀) ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
-    await press(page,menuButton(page,'x:out'),width);await press(page,folderMenuItem(page,'새 폴더'),width);
+    // 넓은 화면 탐색기는 '폴더 밖' 묶음 머리가 없으므로 맨 위 ⋯ [새 폴더](맨 위에서 = 폴더 밖).
+    if(wideOf(width)){await press(page,page.locator('#libraryTopMenuBtn'),width);await press(page,page.locator('#luTopMenu [data-lu-top="folder"]'),width)}
+    else{await press(page,menuButton(page,'x:out'),width);await press(page,folderMenuItem(page,'새 폴더'),width)}
     await expect(page.locator('#libraryFolderHint')).toContainText('폴더 밖(맨 위)에 만들어요');await expect(page.locator('#libraryFolderHint')).toContainText('Drive 폴더는 바뀌지 않아요');
     await page.locator('#libraryFolderName').fill('가상 새것');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.writes.at(-1)).toEqual({table:'folders',method:'POST',id:null,body:{workspace_id:'workspace-1',project_id:null,parent_id:null,name:'가상 새것',sort_order:3072}});
-    const made=s.folders.at(-1).id;await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn','f:'+made]);
+    const made=s.folders.at(-1).id;await expect.poll(()=>tops(page)).toEqual([...TOP(width),'f:'+made]);
     await press(page,menuButton(page,'f:fn'),width);await press(page,folderMenuItem(page,'안에 새 폴더'),width);
     await page.locator('#libraryFolderName').fill('가상 안');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.writes.at(-1).body).toMatchObject({project_id:null,parent_id:'fn',name:'가상 안'});
-    await expect(libraryNode(page,'f:fn')).toHaveAttribute('open','');
+    if(wideOf(width))await expect(page.locator('#libraryFolderNav [data-lu-nav-tog="fn"]')).toHaveAttribute('aria-expanded','false'); // 왼쪽 나무의 그 폴더에 펼치기 그림이 생긴다(들어가지 않음)
+    else await expect(libraryNode(page,'f:fn')).toHaveAttribute('open','');
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });
 
@@ -147,7 +175,8 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     expect(await moveEnabledNames(page)).toEqual(['가상 A','가상 C','가상 N']);
     await press(page,moveFolder(page,'fn'),width);await expect(movePicker(page)).toBeHidden();
     expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-2',folder_id:'fn',workspace_id:'workspace-1'}});
-    await expect(page.locator('#documentList details[data-lu-node="f:fn"] [data-lu-document="a-2"]')).toBeAttached();
+    if(wideOf(width)){await expect(page.locator('#documentList > [data-lu-document="a-2"]')).toHaveCount(0);await page.locator('#libraryFolderNav [data-lu-nav="fn"]').click();await expect(page.locator('#documentList > [data-lu-document="a-2"]')).toBeAttached();await page.locator('#libraryFolderNav [data-lu-nav=""]').click()}
+    else await expect(page.locator('#documentList details[data-lu-node="f:fn"] [data-lu-document="a-2"]')).toBeAttached();
     expect(s.docs.find(d=>d.id==='a-2').project_id).toBe('top-a');expect(s.patches).toEqual([]);
     // 폴더를 다른 틀의 폴더 안으로(맨 위 폴더 fn → fc 아래): 3단 안이라 허용.
     await press(page,menuButton(page,'f:fn'),width);await press(page,folderMenuItem(page,'옮기기…'),width);
@@ -165,7 +194,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('아직 준비 중이에요');await expect(page.locator('#libraryFolderStatusLine')).toHaveClass(/error/);
     await expect(movePicker(page)).toBeHidden();
     expect(s.items.map(x=>x.document_id).sort()).toEqual(['a-1','n-1']);
-    await expect(page.locator('#documentList details[data-lu-node="x:out"] [data-lu-document="a-2"]')).toBeAttached();
+    await expect(page.locator(wideOf(width)?'#documentList > [data-lu-document="a-2"]':'#documentList details[data-lu-node="x:out"] [data-lu-document="a-2"]')).toBeAttached();
     // 같은 틀(top-a) 안: a-2 → fa 는 된다.
     await openMove(page,'a-2',width);
     await press(page,moveFolder(page,'fa'),width);await expect(movePicker(page)).toBeHidden();
@@ -179,25 +208,27 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
 
 test.describe('빈 곳 우클릭(PC)',()=>{
   test.use({hasTouch:false});
-  test('빈 곳 = 가장 가까운 토글의 메뉴: 목록 바탕은 [새 폴더][자료 등록], 폴더 안 빈 곳은 그 폴더 메뉴, 폴더 줄 우클릭은 공용 우클릭이 연다',async({page})=>{
+  // S69-28 LIB-한칸탐색기: 탐색기 칸의 빈 곳 = 지금 자리(맨 위·들어간 폴더)의 빈 자리 메뉴 — 지금 자리 자료가 있으면 [전체 선택]도(옛 '폴더 밖' ⋯ [전체 선택] 자리).
+  test('빈 곳 = 지금 자리 메뉴: 목록 바탕은 [새 폴더][자료 등록][정돈 제안][전체 선택], 자료 줄·폴더 줄 우클릭은 그 줄 메뉴',async({page})=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
-    // 목록 바탕(어느 토글도 아님): 포인터 자리에서 [새 폴더][자료 등록](S55-08 LIB-우클릭메뉴, 2026-11-09 명진 결정 — 옛 [새 폴더][전체 선택]은 '폴더 밖' ⋯에 그대로).
-    await page.evaluate(()=>document.querySelector('#documentList').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:420,clientY:360})));
-    await expect(page.locator('#luAreaMenu')).toBeVisible();await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','정돈 제안']);
+    const ctx=(x,y)=>page.evaluate(([x,y])=>document.querySelector('#documentList').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:x,clientY:y})),[x,y]);
+    await ctx(420,360);
+    await expect(page.locator('#luAreaMenu')).toBeVisible();await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안','전체 선택']);
     const box=await page.locator('#luAreaMenu').boundingBox();expect(Math.abs(box.x-420)).toBeLessThan(40);expect(Math.abs(box.y-360)).toBeLessThan(40);
-    await page.keyboard.press('Escape');await expect(page.locator('#luAreaMenu')).toBeHidden();
-    // 열린 폴더 본문의 빈 곳 = 그 폴더 메뉴.
-    await libraryNodeHead(page,'f:fa').click();await expect(libraryNode(page,'f:fa')).toHaveAttribute('open','');
-    await page.evaluate(()=>document.querySelector('#documentList details[data-lu-node="f:fa"] > .lu-node-body').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:500,clientY:300})));
-    await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','접기','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
-    await page.keyboard.press('Escape');
+    // [전체 선택] = 지금 자리(맨 위 = 폴더 밖) 자료 모두 고른 선택 모드.
+    await page.locator('#luAreaMenu').getByRole('button',{name:'전체 선택',exact:true}).click();
+    await expect(page.locator('#documentList .lu-row input.lu-pick:checked')).toHaveCount(2);
+    await page.locator('#librarySelectCancel').click();
     // 파일 줄 위 우클릭은 [새 폴더]를 열지 않는다(파일 ⋯ 메뉴).
-    await page.locator('#documentList [data-lu-document="n-1"]').click({button:'right'});
-    await expect(page.locator('#luFolderMenu')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');
-    // 폴더 줄 우클릭 = 그 줄의 ⋯ 메뉴(공용 우클릭 규칙). 열린 위쪽 폴더의 고정 머리가 아래 줄을 가리지 않게 먼저 접는다.
-    await libraryNodeHead(page,'f:fa').click();await expect(libraryNode(page,'f:fa')).not.toHaveAttribute('open','');
+    await page.locator('#documentList [data-lu-document="a-2"]').click({button:'right'});
+    await expect(page.locator('#luAreaMenu')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');
+    // 폴더 줄 우클릭 = 그 줄의 ⋯ 메뉴(공용 우클릭 규칙).
     await libraryNodeHead(page,'f:fn').click({button:'right',position:{x:40,y:8}});
     await expect(page.locator('#luFolderMenu button').first()).toContainText('이름 바꾸기');await page.keyboard.press('Escape');
+    // 들어간 폴더의 빈 곳도 같은 메뉴(그 폴더 자리).
+    await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
+    await ctx(700,600);
+    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안','전체 선택']);await page.keyboard.press('Escape');
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
 
@@ -213,23 +244,22 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     const path=page.locator('#libraryPath');
     await expect(path).toHaveCount(0);
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
-    expect(await tops(page)).toEqual(['f:fa']);await expect(libraryNode(page,'f:fa')).toHaveAttribute('open','');
-    await expect(libraryNode(page,'f:fa')).toHaveAttribute('style',/--lu-depth:\s*0/);
-    // S51-24: 폰 '그 폴더만'은 상자 맨 위 위치 줄(위 단계만, 지금 폴더 이름은 바로 아래 폴더 줄이 머리), 넓은 화면은 지금 위치 줄 그대로.
-    const here=(...n)=>width<761?['‹자료실',...n.slice(0,-1)].join('›')+'›':['‹자료실',...n].join('›');
-    await expect(path).toBeVisible();await expect(path).toHaveText(here('가상 A'));if(width>=761)await expect(path.locator('[aria-current="location"]')).toHaveText('가상 A');
-    // 안의 폴더로 한 단계 더(폰은 메뉴, PC는 두 번 누르기).
-    if(width<761){await press(page,menuButton(page,'f:fc'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width)}
-    else await libraryNodeHead(page,'f:fc').locator('.lu-node-name').dispatchEvent('dblclick');// PC 두 번 누르기(더블클릭 이벤트). 실제 두 번 누름의 펼침·접힘은 이 시험의 관심 밖.
-    expect(await tops(page)).toEqual(['f:fc']);await expect(libraryNode(page,'f:fc')).toHaveAttribute('style',/--lu-depth:\s*0/);
-    await expect(path).toHaveText(here('가상 A','가상 C'));expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
+    // S69-28 LIB-한칸탐색기: 들어간 폴더는 탐색기 칸 — 그 폴더 바로 안 폴더 줄(0단) + 자료 줄. 지금 폴더 줄(제목)은 없고 위치 줄 끝이 지금 폴더(폰도 굵게 한 번).
+    await expect.poll(()=>tops(page)).toEqual(['f:fc']);expect(await rowsHere(page)).toEqual(['n-1']);
+    await expect(libraryNode(page,'f:fc')).toHaveAttribute('style',/--lu-depth:\s*0/);
+    const here=(...n)=>['‹자료실',...n].join('›');
+    await expect(path).toBeVisible();await expect(path).toHaveText(here('가상 A'));await expect(path.locator('[aria-current="location"]')).toHaveText('가상 A');
+    // 안의 폴더 줄 누르기 = 한 단계 더.
+    await press(page,libraryNodeHead(page,'f:fc'),width);
+    await expect.poll(()=>tops(page)).toEqual([]);expect(await rowsHere(page)).toEqual(['a-1']);
+    await expect(path).toHaveText(here('가상 A','가상 C'));
     // 위치 줄의 '가상 A'를 누르면 그 단계로.
-    await path.getByRole('button',{name:'가상 A'}).click();expect(await tops(page)).toEqual(['f:fa']);await expect(path).toHaveText(here('가상 A'));
+    await path.getByRole('button',{name:'가상 A'}).click();await expect.poll(()=>tops(page)).toEqual(['f:fc']);await expect(path).toHaveText(here('가상 A'));
     // '자료실'을 누르면 처음 목록.
-    await path.getByRole('button',{name:'자료실'}).click();expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);await expect(path).toBeHidden();
+    await path.getByRole('button',{name:'자료실'}).click();await expect.poll(()=>tops(page)).toEqual(TOP(width));await expect(path).toBeHidden();
     // 들어간 채 묶기를 바꾸면 처음으로 돌아오고 위치 줄은 사라진다.
-    await press(page,menuButton(page,'f:fn'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);expect(await tops(page)).toEqual(['f:fn']);
-    await pickGroup(page,'사업영역');await expect(path).toBeHidden();await pickGroup(page,'폴더');expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
+    await press(page,menuButton(page,'f:fn'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);await expect(path).toHaveText(here('가상 N'));expect(await tops(page)).toEqual([]);
+    await pickGroup(page,'사업영역');await expect(path).toBeHidden();await pickGroup(page,'폴더');expect(await tops(page)).toEqual(TOP(width));
     // 프로젝트 묶기의 폴더 메뉴에는 [이 폴더로 들어가기]가 없다(폴더 보기 전용).
     expect(s.writes).toEqual([]);expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });
@@ -240,15 +270,15 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     await pickGroup(page,'폴더');
     const path=page.locator('#libraryPath');
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
-    const here=(...n)=>width<761?['‹자료실',...n.slice(0,-1)].join('›')+'›':['‹자료실',...n].join('›');
+    const here=(...n)=>['‹자료실',...n].join('›');
     await expect(path).toHaveText(here('가상 A'));
     await press(page,menuButton(page,'f:fc'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
     await expect(path).toHaveText(here('가상 A','가상 C'));
     await page.goBack();
-    await expect(path).toHaveText(here('가상 A'));expect(await tops(page)).toEqual(['f:fa']);
+    await expect(path).toHaveText(here('가상 A'));expect(await tops(page)).toEqual(['f:fc']);
     await expect(page).toHaveURL(/[?&]folder=fa(?:&|$)/);
     await page.goBack();
-    await expect(path).toBeHidden();await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']);
+    await expect(path).toBeHidden();await expect.poll(()=>tops(page)).toEqual(TOP(width));
     await expect(page).not.toHaveURL(/[?&]folder=/);await expect(page.locator('#libraryView')).toBeVisible();
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
@@ -259,8 +289,10 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items,group:'폴더'});
     expect(await tops(page)).toEqual(['f:fa','f:fn']);
     await press(page,menuButton(page,'f:fa'),width);
-    await expect(page.locator('#luFolderMenu button')).toHaveText(['맨 위에 새 폴더','이름 바꾸기F2','안에 새 폴더','펼치기','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
-    await press(page,folderMenuItem(page,'맨 위에 새 폴더'),width);
+    // 넓은 화면 탐색기는 '폴더 밖' 머리가 늘 없고 맨 위 ⋯·빈 자리 우클릭 [새 폴더]가 맨 위 자리라 폴더 메뉴에 [맨 위에 새 폴더]가 없다(S69-28).
+    if(wideOf(width)){await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);await page.keyboard.press('Escape');await press(page,page.locator('#libraryTopMenuBtn'),width);await press(page,page.locator('#luTopMenu [data-lu-top="folder"]'),width)}
+    else{await expect(page.locator('#luFolderMenu button')).toHaveText(['맨 위에 새 폴더','이름 바꾸기F2','안에 새 폴더','펼치기','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
+    await press(page,folderMenuItem(page,'맨 위에 새 폴더'),width)}
     await expect(page.locator('#libraryFolderHint')).toContainText('폴더 밖(맨 위)에 만들어요');
     await page.locator('#libraryFolderName').fill('가상 새것');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.writes.at(-1)).toMatchObject({table:'folders',method:'POST',body:{project_id:null,parent_id:null,name:'가상 새것'}});
@@ -283,7 +315,9 @@ for(const width of [390,1280])test.describe(`폴더 밖 정리 ${width}`,()=>{te
   await expect.poll(()=>s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fc');
   await expect(page).toHaveURL(/view=library/);
   // ⋯ [전체 고르기] → 폴더 밖에 남은 자료(a1-1) 모두 골라진 선택 모드.
-  await press(page,menuButton(page,'x:out'),width);await press(page,folderMenuItem(page,'전체 선택'),width);
+  // 넓은 화면 탐색기: '폴더 밖' 묶음 머리 대신 빈 자리 우클릭 [전체 선택](맨 위 = 폴더 밖 자료).
+  if(wideOf(width)){await page.evaluate(()=>document.querySelector('#documentList').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:600,clientY:500})));await page.locator('#luAreaMenu').getByRole('button',{name:'전체 선택',exact:true}).click()}
+  else{await press(page,menuButton(page,'x:out'),width);await press(page,folderMenuItem(page,'전체 선택'),width)}
   await expect(page.locator('#documentList .lu-row input.lu-pick:checked')).toHaveCount(1);
   await expect(page.locator('[data-lu-document="a1-1"] input.lu-pick')).toBeChecked();
   expect(errors).toEqual([]);

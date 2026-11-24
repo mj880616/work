@@ -28,7 +28,7 @@ test.describe('PC 1440 두 칸',()=>{
     await page.locator(`${pane(1)} [data-lu-nav="fa"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
     await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('가상 A');
     await rightClick(page,pane(1));
-    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','정돈 제안']);
+    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안']);
     await page.locator('#luAreaMenu').getByRole('button',{name:'자료 등록',exact:true}).click();
     await expect(page.locator('#documentModal')).toBeVisible();
     await expect(folderLabel(page)).toHaveText('‘가상 A’ 폴더에 넣어요');
@@ -73,8 +73,9 @@ test.describe('폰 390',()=>{
     await page.locator('#documentModal [data-close],#documentModal .modal-close').first().tap();
     await expect(page.locator('#documentModal')).toBeHidden();
     await press(page,menuButton(page,'f:fa'),390);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),390);
-    await expect(page.locator('#libraryPath')).toHaveText('‹자료실›'); // 폰 위치 줄은 위 단계만(지금 폴더는 바로 아래 머리 줄)
-    await expect(page.locator('#documentList details[data-lu-node]').first()).toHaveAttribute('data-lu-node','f:fa');
+    // S69-28 LIB-한칸탐색기: 폰 '그 폴더만'도 탐색기 칸 — 위치 줄 끝에 지금 폴더 이름(머리 줄 대신 한 번), 목록은 그 폴더 바로 안 폴더 줄 + 자료 줄.
+    await expect(page.locator('#libraryPath')).toHaveText('‹자료실›가상 A');
+    await expect(page.locator('#documentList details[data-lu-node="f:fa"]')).toHaveCount(0);
     await press(page,page.locator('#newDocumentBtn'),390);
     await expect(folderLabel(page)).toHaveText('‘가상 A’ 폴더에 넣어요');
     await page.locator('#libraryFileInput').setInputFiles({name:'폰.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF synthetic')});

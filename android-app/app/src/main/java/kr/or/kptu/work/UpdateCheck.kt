@@ -13,6 +13,9 @@ object UpdateCheck {
     private var lastAt = 0L
     private var running = false
 
+    /** S69-34: 목록을 읽었는지(failed)와 새 판(없으면 null). 계정 메뉴 [업데이트 확인]이 '최신'과 '못 읽음'을 나눠 말한다. */
+    data class Result(val failed: Boolean, val release: UpdateRules.Release?)
+
     /** 지금 확인을 시작해도 되면 true를 돌려주고 '확인 중'으로 표시한다(판단은 UpdateRules.shouldCheck). */
     @Synchronized
     fun begin(now: Long, force: Boolean): Boolean {
@@ -29,7 +32,10 @@ object UpdateCheck {
     }
 
     /** 백그라운드 스레드에서 부른다. 실패하면 조용히 null. */
-    fun fetch(current: String): UpdateRules.Release? {
+    fun fetch(current: String): UpdateRules.Release? = ask(current).release
+
+    /** 백그라운드 스레드에서 부른다. 던지지 않는다. */
+    fun ask(current: String): Result {
         var conn: HttpsURLConnection? = null
         return try {
             conn = URL(UpdateRules.RELEASES_URL).openConnection() as HttpsURLConnection
@@ -37,11 +43,12 @@ object UpdateCheck {
             conn.readTimeout = 8000
             conn.setRequestProperty("Accept", "application/vnd.github+json")
             conn.setRequestProperty("User-Agent", "KPTUAndroid/$current")
-            if (conn.responseCode != 200) return null
+            if (conn.responseCode != 200) return Result(true, null)
             val body = conn.inputStream.bufferedReader().use { it.readText() }
-            UpdateRules.pick(body, current)
+            if (MiniJson.list(MiniJson.parse(body)) == null) return Result(true, null)
+            Result(false, UpdateRules.pick(body, current))
         } catch (_: Exception) {
-            null
+            Result(true, null)
         } finally {
             conn?.disconnect()
         }

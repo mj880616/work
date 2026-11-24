@@ -137,28 +137,27 @@ const nav = page => page.locator('#libraryFolderNav');
 const tops = page => page.locator('#documentList > details').evaluateAll(xs => xs.map(x => x.dataset.luNode));
 const pickGroup = (page, label) => page.locator('#libraryGroupBy').selectOption({ label });
 
-test('자료실 PC 1280: 나무는 하위 폴더 없는 폴더, 목록은 빈 폴더를 한 번에 열기 — 그 밖은 그 자리 펼치기', async ({ page }) => {
+// S69-28 LIB-한칸탐색기(명진 11/24 '윈도우 탐색기처럼'): 한 칸 PC는 나무 이름·오른쪽 폴더 줄 누르기 = 그 폴더 열기(하위가 있든 없든). 펼치기·접기는 나무의 폴더 그림.
+test('자료실 PC 1280: 나무 이름·오른쪽 폴더 줄 누르기 = 그 폴더 열기, 나무 그림 = 그 자리 펼치기', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors } = await bootLibrary(page, 1280, { folders: FOLDERS, items: ITEMS });
   await pickGroup(page, '폴더');
-  // 왼쪽 나무: 가상 A(하위 있음) = 펼침, 가상 C(하위 없음) = 한 번에 열기
-  await nav(page).locator('[data-lu-nav="fa"]').click();
+  await nav(page).locator('[data-lu-nav-tog="fa"]').click();
   await expect(nav(page).locator('[data-lu-nav="fc"]')).toBeVisible();
-  await expect.poll(() => tops(page)).toEqual(['x:out', 'f:fa', 'f:fn']);
+  await expect.poll(() => tops(page)).toEqual(['f:fa', 'f:fn']);
   await nav(page).locator('[data-lu-nav="fc"]').click();
-  await expect.poll(() => tops(page)).toEqual(['f:fc']);
   await expect(nav(page).locator('[data-lu-nav="fc"]')).toHaveAttribute('aria-current', 'true');
+  await expect.poll(() => tops(page)).toEqual([]);
   await shot(page, 'library-1280-1-tree-leaf');
-  // 오른쪽 목록: 맨 위로 돌아와 가상 N(하위 없음) 머리 누르기 = 그 폴더 열기, 가상 A 머리 = 지금처럼 펼치기·접기
   await nav(page).locator('[data-lu-nav=""]').click();
-  await expect.poll(() => tops(page)).toEqual(['x:out', 'f:fa', 'f:fn']);
+  await expect.poll(() => tops(page)).toEqual(['f:fa', 'f:fn']);
   const head = id => page.locator(`#documentList details[data-lu-node="f:${id}"] > summary`);
-  const openA = await page.locator('#documentList details[data-lu-node="f:fa"]').evaluate(d => d.open);
-  await head('fa').click();
-  await expect.poll(() => page.locator('#documentList details[data-lu-node="f:fa"]').evaluate(d => d.open)).toBe(!openA);
-  await expect.poll(() => tops(page)).toEqual(['x:out', 'f:fa', 'f:fn']);
+  await head('fa').click(); // 하위가 있어도 = 그 폴더 열기(오른쪽에서 펼치지 않음)
+  await expect(nav(page).locator('[data-lu-nav="fa"]')).toHaveAttribute('aria-current', 'true');
+  await expect.poll(() => tops(page)).toEqual(['f:fc']);
+  await nav(page).locator('[data-lu-nav=""]').click();
   await head('fn').click();
-  await expect.poll(() => tops(page)).toEqual(['f:fn']);
+  await expect(nav(page).locator('[data-lu-nav="fn"]')).toHaveAttribute('aria-current', 'true');
   expect(s.writes).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -169,7 +168,7 @@ test('자료실 두 칸 884: 칸 안 빈 폴더 누르기 = 그 칸에서 열기
   await pickGroup(page, '폴더');
   const btn = page.locator('#libraryTwoBtn');
   await expect(btn).toBeVisible();
-  if (await btn.getAttribute('aria-pressed') !== 'true') await btn.click();
+  await btn.click(); await expect(btn).toHaveAttribute('aria-pressed', 'true');
   const right = page.locator('[data-lu-pane-i="1"]');
   await expect(right.locator('[data-lu-nav="fa"]')).toBeVisible();
   await right.locator('[data-lu-nav="fa"]').click(); // 하위 있음 = 그 칸 안 펼치기
@@ -186,13 +185,15 @@ test('자료실 두 칸 884: 칸 안 빈 폴더 누르기 = 그 칸에서 열기
   expect(errors).toEqual([]);
 });
 
-test('자료실 폰 412: 목록 폴더 머리 — 빈 폴더는 한 번에 그 폴더', async ({ page }) => {
+// S69-28: 폰 나무의 폴더 이름 누르기 = 그 폴더 내용 화면(빈 폴더도 같음). 위치 줄 끝에 지금 폴더 이름.
+test('자료실 폰 412: 목록 폴더 이름 누르기 = 그 폴더 내용', async ({ page }) => {
   test.setTimeout(90000);
   const { errors } = await bootLibrary(page, 412, { folders: FOLDERS, items: ITEMS });
   await pickGroup(page, '폴더');
   await expect.poll(() => tops(page)).toEqual(['x:out', 'f:fa', 'f:fn']);
   await page.locator('#documentList details[data-lu-node="f:fn"] > summary').click();
-  await expect.poll(() => tops(page)).toEqual(['f:fn']);
+  await expect(page.locator('#libraryPath .lu-focus-here')).toHaveText('가상 N');
+  await expect.poll(() => tops(page)).toEqual([]);
   await shot(page, 'library-412-leaf-open');
   expect(errors).toEqual([]);
 });
@@ -229,12 +230,16 @@ for (const width of [884, 1280]) test(`노트 ${width}: 나무 폴더 누르기 
   await tree.locator(`[data-nx-folder="${U(1)}"] .ft-main`).click();
   await expect(tree.locator(`[data-nx-folder="${U(3)}"]`)).toBeVisible();
   await expect(tree.locator(`[data-nx-folder="${U(1)}"]`)).not.toHaveClass(/ft-current/);
+  // S69-27: 나무에 폴더 바로 아래 노트 줄도 보이므로 하위 폴더 없이 노트만 든 폴더도 그 자리에서 펼친다(폰 나무와 같은 규칙: 펼쳐 보일 것이 있으면 펼치기).
   await tree.locator(`[data-nx-folder="${U(2)}"] .ft-main`).click();
-  await expect(page.locator('[data-nx-here]')).toHaveText('가상 개발 · 1');
-  await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(1);
+  await expect(tree.locator('[data-nx-note="b1"]')).toBeVisible();
+  await expect(page.locator('[data-nx-here]')).toHaveText('최근 · 3');
   await shot(page, `notes-${width}-leaf-open`);
   await tree.locator(`[data-nx-folder="${U(3)}"] .ft-main`).click();
-  await expect(page.locator('[data-nx-here]')).toHaveText('가상 회의 · 1');
+  await expect(tree.locator('[data-nx-note="c1"]')).toBeVisible();
+  // 빈 폴더(펼쳐 보일 것 없음)는 지금처럼 한 번 누르면 그 폴더(OPS-빠진일2차 1).
+  await tree.locator(`[data-nx-folder="${U(4)}"] .ft-main`).click();
+  await expect(page.locator('[data-nx-here]')).toHaveText('가상 빈 폴더 · 0');
   expect(errors).toEqual([]);
 });
 test('노트 폰 412: 폴더 누르기 — 펼쳐 보일 것(하위 폴더·노트)이 있으면 그 자리 펼치기, 빈 폴더는 그 폴더만', async ({ page }) => {

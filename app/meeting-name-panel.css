@@ -38,6 +38,3 @@
 .mnp-link:hover,.mnp-link:focus-visible{color:var(--kptu-ink);text-decoration:underline}
 .mnp-rename{display:flex;gap:4px;align-items:center}
 .mnp-rename .mnp-find{margin:0}
-/* 새 회의명 종류 상자(기타(직접 입력) 옆) */
-select.mnp-new-sort{margin-top:4px;max-width:100%}
-select.mnp-new-sort[hidden]{display:none}

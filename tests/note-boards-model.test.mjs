@@ -88,7 +88,8 @@ test('화면 연결: 보드 칸 줄·PC 끌어 놓기·폰 고르기·서버 저
   assert.match(data, /export function setNoteBoardPlace\(note, boardId, place, rt = window\.KPTURuntime\) \{\n  return patchNoteMetadata\(note, metadata => withBoardPlace\(metadata, boardId, place\), rt\);/);
   assert.match(js, /data-nbb-new>\+ 새 보드</); assert.match(js, /data-nbb-pick>\+ 노트 붙이기</); assert.match(js, />전체</);
   assert.match(js, /왼쪽 노트를 끌어다 놓으세요/);
-  assert.match(js, /treeRows\(\{folders:folders\(\), notes:all/, 'PC 왼쪽 목록은 노트 화면의 같은 폴더 나무');
+  assert.match(js, /treeRows\(\{folders:shownFolders\(folders\(\)\), notes:shownNotes\(all\)/, 'PC 왼쪽 목록은 노트 화면의 같은 폴더 나무(잠근 폴더 가림은 feature-lock.js 판정)');
+  assert.match(js, /import \* as pinLock from '\.\/feature-lock\.js'/, '보드 왼쪽 목록·고르기 창도 노트 폴더 잠금 판정 한 곳을 쓴다');
   assert.match(js, /e\.dataTransfer\.setData\(NOTE_DRAG/); assert.match(board, /scroll\.addEventListener\('drop'/);
   assert.match(js, /bar\.addEventListener\('contextmenu'/); assert.match(js, /LONG_MS/);
   assert.match(js, /data-nbb-rename>이름 바꾸기</); assert.match(js, /data-nbb-delete>보드 삭제</);

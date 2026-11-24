@@ -181,18 +181,19 @@ for (const fail of [false, true]) test(`photo set row drags into a folder as one
     await expect.poll(() => photos.every(id => state.items.some(x => x.document_id === id && x.folder_id === ID(700)))).toBe(true);
     // 결과 보고(PDF)·다른 사업 보고 사진은 그대로. 사업 보고 연결은 바꾸지 않는다(자료 행 쓰기 없음).
     expect(state.items.map(x => x.document_id).sort()).toEqual([...photos].sort());
-    await expandLibraryTree(page);
+    // S69-28 LIB-한칸탐색기: PC 한 칸은 왼쪽 나무에서 그 폴더를 열면 오른쪽에 묶음 줄.
+    await page.locator(`#libraryFolderNav [data-lu-nav="${ID(700)}"]`).click();
     await openPhotoFolds(page);
-    await expect(page.locator(`#documentList details[data-lu-node="f:${ID(700)}"] [data-lu-photoset="${M1}"]`)).toHaveCount(1);
+    await expect(page.locator(`#documentList [data-lu-photoset="${M1}"]`)).toHaveCount(1);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 5개');
   } else {
     // 셋째 사진에서 실패 → 앞의 두 장을 되돌려 하나도 들어가지 않은 상태로 끝난다. 묶음 줄은 폴더 밖에 그대로.
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('사진 묶음을 옮기지 못해 그대로 두었어요');
     expect(state.items).toEqual([]);
     expect(state.itemWrites.filter(m => m === 'DELETE')).toHaveLength(2);
-    await expandLibraryTree(page);
     await openPhotoFolds(page);
-    await expect(page.locator(`#documentList details[data-lu-node="x:out"] [data-lu-photoset="${M1}"]`)).toHaveCount(1);
+    await expect(page.locator(`#documentList [data-lu-photoset="${M1}"]`)).toHaveCount(1); // 맨 위(폴더 밖) 그대로 — 폴더 줄 안이 아님
+    await expect(page.locator(`#documentList details [data-lu-photoset="${M1}"]`)).toHaveCount(0);
   }
 });
 

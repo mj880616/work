@@ -68,5 +68,5 @@
 /* NOTE-내용확대축소(S61-16 ③): [−] 100% [+] 작은 묶음(노트 읽기 머리 줄·HTML 칸 머리 줄 공용). 노트 안 HTML은 머리 줄 묶음을 쓰고, [크게 보기]에서만 칸 머리 줄에 보인다. */
 .nz-zoom { display:inline-flex; align-items:center; flex:0 0 auto; }
 .nz-zoom .ds-seg-btn { min-width:28px; font-variant-numeric:tabular-nums; }
-.nz-zoom [data-note-zoom-reset] { min-width:44px; }
+.nz-zoom [data-note-zoom-reset] { min-width:52px; display:inline-flex; flex-direction:row; align-items:center; justify-content:center; white-space:nowrap; } /* S69-33: 비율 글자 + 작은 세모(누르면 단계 목록) */
 [data-note-read] .html-frame:not(.html-frame-full) .html-frame-zoom { display:none; }

@@ -64,15 +64,41 @@ public class SourceRulesTests
     [Fact]
     public void The_removed_send_entrances_leave_no_code_behind()
     {
-        // Clipboard hotkey / paste window, right-click Send to, screen-corner box, desktop tile (S54-13).
-        foreach (var gone in new[] { "HotkeyWindow.cs", "PasteForm.cs", "ClipboardReader.cs", "SendToShortcut.cs", "CornerWatcher.cs",
-                     "CornerDropForm.cs", "DesktopTile.cs", "DesktopTileForm.cs", "DropData.cs", "MonitorList.cs",
-                     "HotkeyChoice.cs", "CornerRules.cs", "DesktopTileRules.cs", "PasteText.cs", "DropService.cs" })
+        // Clipboard hotkey / paste window, right-click Send to (S54-13). The corner box and desktop tile came back (S69-31).
+        foreach (var gone in new[] { "HotkeyWindow.cs", "PasteForm.cs", "ClipboardReader.cs", "SendToShortcut.cs", "HotkeyChoice.cs", "PasteText.cs" })
             Assert.DoesNotContain(gone, Sources().Select(Path.GetFileName));
         var all = string.Join(" ", Sources().Select(File.ReadAllText));
-        Assert.DoesNotMatch(@"RegisterHotKey|ClipboardReader|GetDataObject|OleGetClipboard|\bClipboard\.|GetAsyncKeyState|DropService|\.Submit\(", all);
+        Assert.DoesNotMatch(@"RegisterHotKey|ClipboardReader|GetDataObject|OleGetClipboard|\bClipboard\.", all);
         var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
-        foreach (var word in new[] { "단축키", "구석", "바탕화면", "붙여넣기", "[보내기]" }) Assert.DoesNotContain(word, tray);
+        foreach (var word in new[] { "단축키", "붙여넣기", "[보내기]" }) Assert.DoesNotContain(word, tray);
+    }
+
+    [Fact]
+    public void The_corner_box_and_desktop_tile_send_only_through_the_one_queue_gate()
+    {
+        // S69-31 (명진 11/24): both boxes are back; they add no new server path, only TrayApp.Submit → queue → QueueProcessor.
+        foreach (var file in new[] { "CornerRules.cs", "DesktopTileRules.cs", "DropService.cs" })
+            Assert.Contains(file, Sources().Select(Path.GetFileName));
+        var app = Path.Combine(Root(), "src", "BasketDrop");
+        foreach (var file in new[] { "CornerWatcher.cs", "CornerDropForm.cs", "DesktopTile.cs", "DesktopTileForm.cs", "DropData.cs", "MonitorList.cs" })
+        {
+            var text = File.ReadAllText(Path.Combine(app, file));
+            Assert.DoesNotContain("HttpClient", text);
+            Assert.DoesNotContain("BasketApi", text);
+            Assert.DoesNotContain("_auth", text);
+        }
+        var drop = File.ReadAllText(Path.Combine(app, "DropData.cs"));
+        Assert.Contains("app.Submit(", drop);
+        var submits = Sources().Where(f => File.ReadAllText(f).Contains(".Submit(")).Select(Path.GetFileName).OrderBy(n => n).ToList();
+        Assert.Equal(new[] { "DropData.cs" }, submits);
+        // The corner watcher reads only mouse buttons, never keys.
+        var watcher = File.ReadAllText(Path.Combine(app, "CornerWatcher.cs"));
+        Assert.Contains("VkLButton = 0x01, VkRButton = 0x02", watcher);
+        Assert.Equal(new[] { "CornerWatcher.cs" }, Sources().Where(f => File.ReadAllText(f).Contains("GetAsyncKeyState")).Select(Path.GetFileName));
+        var tray = File.ReadAllText(Path.Combine(app, "TrayApp.cs"));
+        Assert.Contains("new(\"화면 구석 칸\")", tray);
+        Assert.Contains("new(\"바탕화면 칸\")", tray);
+        Assert.Contains("DropBoxDefaults.RestoreOnce(settings)", tray);
     }
 
     [Fact]

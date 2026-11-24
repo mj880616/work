@@ -108,7 +108,13 @@ export async function runDropUpload(files,{upload,classify,preflight=()=>null,on
 // pick(e): 지금 손 아래의 폴더({name,...})·값 묶음({name,hint,field,value}) 또는 null. mark(t): 그 폴더 줄 표시(null이면 지움). 놓으면 onFiles(files,t) — t가 없으면 지금처럼.
 // active()가 거짓이면(자료실이 아니거나, 창이 열려 있거나, 모바일) 아무것도 하지 않아 기존 동작(등록 창의 놓기 칸 등)이 그대로다.
 // 파일이 아닌 끌기(자료를 폴더로 옮기기 등)는 건드리지 않는다.
-export function bindLibraryDrop({doc=document,overlay,active,onFiles,place=()=>{},pick=()=>null,mark=()=>{}}){
+// S69-23 LIB-폴더째올리기: 놓은 것 중 폴더가 있으면(webkitGetAsEntry) onFolders(entries,t)로 넘긴다 — 폴더 구조 읽기는 놓은 순간에만 되므로
+// 항목(entry)을 여기서 받아 둔다. onFolders가 없거나 폴더가 없으면 지금처럼 onFiles.
+export function droppedEntries(dataTransfer){
+  const items=[...(dataTransfer?.items||[])].filter(i=>i?.kind==='file');
+  return items.map(i=>{try{return i.webkitGetAsEntry?.()||null}catch{return null}}).filter(Boolean);
+}
+export function bindLibraryDrop({doc=document,overlay,active,onFiles,onFolders=null,place=()=>{},pick=()=>null,mark=()=>{}}){
   if(!overlay||doc.__luDropBound)return ()=>{};
   doc.__luDropBound=true;
   let depth=0,hint='',last=null;
@@ -123,6 +129,7 @@ export function bindLibraryDrop({doc=document,overlay,active,onFiles,place=()=>{
     // 놓은 자리가 폴더면 그 폴더, 아니면 마지막으로 표시해 보여 준 곳(사람이 본 표시 그대로).
     e.preventDefault();const t=pick(e)||last;reset();
     if(t?.ok===false)return; // 놓을 수 없는 줄(모르는 폴더)에 놓았으면 올리지 않는다.
+    if(onFolders){const entries=droppedEntries(e.dataTransfer);if(entries.some(x=>x.isDirectory)){onFolders(entries,t||null);return}}
     const files=Array.from(e.dataTransfer?.files||[]);
     if(files.length)onFiles(files,t||null);
   };

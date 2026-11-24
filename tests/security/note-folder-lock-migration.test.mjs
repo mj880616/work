@@ -76,7 +76,8 @@ test('no user or workspace id from the client; folder owner checked before the P
 test('earlier steps untouched; rollback drops only what this file made', () => {
   assert.doesNotMatch(code, /(create or replace|alter|drop) (function|table) (public|private)\.app_(lock_(read|setup|check|save|pin_change|pin_renew|try|pin_shape|clean_features)|feature_locks|note_folders)\b/i);
   assert.doesNotMatch(code, /alter table public\.app_(workspaces|workspace_members|profiles|note_folders|feature_locks)\b|(insert into|update|delete from) public\.app_(workspace_members|feature_locks|note_folders)\b|function private\.app_is_workspace_owner|rtw_|create extension/i);
-  const others = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && f !== `${version}_${name}.sql`
+  // S69 STORE-계정삭제(20261124130000_account_delete)는 본인 줄만 지운다(user_id = 부른 사람, tests/security/account-delete-migration.test.mjs가 본다).
+  const others = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && f !== `${version}_${name}.sql` && f !== '20261124130000_account_delete.sql'
     && /app_note_folder_locks|function (public|private)\.app_lock_note_folder/.test(readFileSync(`supabase/migrations/${f}`, 'utf8')));
   assert.deepEqual(others, []);
   const rollback = readFileSync(`docs/${version}_${name}.rollback.sql`, 'utf8').replace(/--.*$/gm, '');
