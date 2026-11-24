@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {expectRenameButtonsOneLook} from './helpers/rename-buttons.mjs';
 // ORG-기록첨부이름반영(S60-14): 조직 기록 줄 아래 사진·파일에서 바로 이름 고치기(공용 file-rename.js), 고치면 자동 줄 글('그림 1장 · 이름')도
 // 요약 쓰기 한 길(app_basket_update_link_summary, 같은지 확인 뒤 씀)로 새 이름 — 창을 다시 열지 않아도 그 자리에서 바뀐다.
 // 사람이 쓴 줄 글은 그대로. ✎는 이름과 떨어진 테두리 없는 흐린 연필. 자료는 모두 가짜.
@@ -95,5 +96,21 @@ test('PC 우클릭·폰 꾹 누르기로 사진 칸 ⋯ 메뉴([이름 수정])�
  await row.locator('[data-photo-tile="drvP"] details').evaluate(d=>d.removeAttribute('open'));
  await thumb.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+10,clientY:r.y+10}))});
  await expect(row.locator('[data-photo-tile="drvP"] .record-photo-panel [data-fr-menu-edit]')).toBeVisible();
+ expect(f.errors).toEqual([]);
+});
+
+// UI-이름고치기단추(S69-100, 요청함 11/25 '조직 기록 파일명 이름 수정 저장 버튼 미세하게 디자인이 다른'): 조직 기록 사진의 이름 고치는 칸
+// [이름 추천 받기][저장][취소]는 공용 ② 작은 버튼 한 모양. S69_100_SHOTS=1이면 docs/design/screens/s69-100/에 사진을 남긴다(가짜 자료만).
+for(const width of [390,884,1280])test(`이름 고치는 칸 세 단추는 한 모양 ${width}`,async({page})=>{
+ const f=await fixture(page,width),row=f.row(1);
+ await row.locator('[data-record-photos] > summary').click();
+ const tile=row.locator('[data-photo-tile="drvP"]');
+ await tile.locator('.record-photo-more > summary').click();
+ await tile.locator('[data-fr-menu-edit]').click();
+ await expect(row.locator('.fr-input')).toBeFocused();
+ await row.locator('.fr-input').fill('합성노조 소식지 잠정합의');
+ await expectRenameButtonsOneLook(row);
+ if(process.env.S69_100_SHOTS){await page.waitForTimeout(200);await row.screenshot({path:`docs/design/screens/s69-100/after-${width}.png`})}
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });

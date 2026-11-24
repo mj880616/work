@@ -4,6 +4,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { revealLibraryRow } from './helpers/library-tree.mjs';
+import {expectRenameButtonsOneLook} from './helpers/rename-buttons.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -166,6 +167,7 @@ for(const width of [1280,412])test(`파일 이름 수정 칸 단추 이름: [이
   await expect(ai).toBeVisible();
   await expect(ai).toHaveText('이름 추천 받기');
   await expect(row(page,2).getByRole('button',{name:'AI 이름',exact:true})).toHaveCount(0);
+  await expectRenameButtonsOneLook(row(page,2)); // UI-이름고치기단추(S69-100): 세 단추 한 모양
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await shot22(page,`${width===1280?'pc-1280':'phone-412'}-file-rename-suggest-button`);
 });

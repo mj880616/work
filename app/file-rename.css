@@ -1,15 +1,14 @@
 /* ATT-이름고치기: 첨부 파일 이름 그 자리에서 고치기(app/file-rename.js 공용 부품, 이 부품을 쓰는 모든 화면 같은 모양).
-   UI-버튼기준: 줄 안의 보조 버튼이라 보이는 높이 --ds-compact-height-sm(28px)·글자 --ds-text-meta, 누르는 범위는 ::after로 --kptu-touch-target. 값은 theme-tokens.css만 쓴다. */
-.fr-edit,.fr-acts button{position:relative;display:inline-flex;align-items:center;justify-content:center;height:var(--ds-compact-height-sm);min-height:var(--ds-compact-height-sm);padding:0 8px;border:var(--ds-line-width) solid transparent;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);line-height:1;cursor:pointer;flex:none;vertical-align:middle}
+   [이름 추천 받기][저장][취소]는 공용 ② 작은 버튼(button.secondary, app/ui-standard.css 'UI-버튼6가지') 한 모양이라 여기서 모양을 정하지 않는다
+   (UI-이름고치기단추 S69-100, 요청함 11/25 '저장 버튼만 미세하게 디자인이 다른': [저장]만 테두리·글자 색을 따로 받던 규칙을 지움). 여기는 자리(.fr-acts 간격)만.
+   ✎(.fr-edit) — UI-버튼기준: 줄 안의 보조 버튼이라 보이는 높이 --ds-compact-height-sm(28px)·글자 --ds-text-meta, 누르는 범위는 ::after로 --kptu-touch-target. 값은 theme-tokens.css만 쓴다. */
+.fr-edit{position:relative;display:inline-flex;align-items:center;justify-content:center;height:var(--ds-compact-height-sm);min-height:var(--ds-compact-height-sm);padding:0 8px;border:var(--ds-line-width) solid transparent;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);line-height:1;cursor:pointer;flex:none;vertical-align:middle}
 /* ORG-기록첨부이름반영(S60-14, 요청함 11/12 "연필 단추가 파일명이랑 여백이 없어 거슬림"): ✎는 이름과 반 글자쯤 띄우고, 테두리·바탕 없는(위 공용 규칙 그대로) 흐린 연필로.
    마우스를 올리거나 키보드로 오면 진하게. 이 부품을 쓰는 모든 자리가 이 한 곳을 따른다(정리함의 넓은 단추 규칙은 basket.css에서 ✎를 뺀다). */
 .fr-edit{min-width:var(--ds-compact-height-sm);padding:0 4px;margin-left:.5em;opacity:.6}
 .fr-edit:hover,.fr-edit:focus-visible{opacity:1}
-.fr-edit::after,.fr-acts button::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,var(--kptu-touch-target));height:var(--kptu-touch-target);transform:translate(-50%,-50%)}
-.fr-edit:hover,.fr-edit:focus-visible,.fr-acts button:hover:not(:disabled){background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
-.fr-acts button{border-color:var(--ds-line);color:var(--kptu-ink)}
-.fr-acts .fr-save{color:var(--kptu-primary-ink);border-color:var(--kptu-primary-soft)}
-.fr-acts button:disabled{opacity:.55;cursor:default}
+.fr-edit::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,var(--kptu-touch-target));height:var(--kptu-touch-target);transform:translate(-50%,-50%)}
+.fr-edit:hover,.fr-edit:focus-visible{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
 [data-fr-host]{-webkit-touch-callout:none}
 /* S55-08 LIB-폴더이름칸닫힘 같은 종류: 이름 칸을 여는 줄에 누름 칸(::after 덮개)이 있어도 칸이 그 위에 와서 누름·끌어 고르기를 받는다. */
 .fr-box{position:relative;z-index:1;display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 6px;min-width:0;max-width:100%;vertical-align:middle}
@@ -18,6 +17,8 @@
 .fr-input:focus{outline:2px solid var(--kptu-primary-soft);outline-offset:0;border-color:var(--kptu-primary)}
 .fr-ext{color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
 .fr-acts{display:inline-flex;gap:4px;flex:none}
+/* 일정 첨부는 [이름 추천 받기]를 hidden으로 뺀다(file-rename.js). 공용 .secondary의 display가 hidden을 이기지 않게. */
+.fr-acts button[hidden]{display:none}
 .fr-err{flex-basis:100%;font-size:var(--ds-text-meta);color:var(--kptu-danger)}
 .fr-err.fr-note{color:var(--kptu-muted)}
 /* 폰: 입력 글자 16px(누를 때 화면이 확대되지 않게). */
