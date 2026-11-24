@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { appOrigin } from './helpers/test-origin.mjs';
-import { bootLibrary, libFolder, libDoc, openMove, movePicker } from './helpers/library-folder-server.mjs';
+import { bootLibrary, libFolder, libDoc, openMove, movePicker, pickMove } from './helpers/library-folder-server.mjs';
 import { expandLibraryTree } from './helpers/library-tree.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
@@ -611,4 +611,62 @@ test.describe('P4 폰 390 터치', () => {
     await expect(s.menu).toBeVisible();
     expect(s.errors).toEqual([]);
   });
+});
+
+// ---------- S4 폴더 줄: 사각형으로 폴더 줄 고르기(S69-69 LIB-사각형폴더, 명진 11/24 20:18 "이렇게 드래그하면 다 선택이 돼야하는데") ----------
+// 두 칸 보기 오른쪽 칸에서 빈 폴더 줄 여럿을 사각형으로 덮으면 폴더째 골라지고(위 막대 '폴더 N 선택됨'), [폴더로 옮기기]는 폴더째 옮기고, [삭제]는 폴더째 휴지통으로.
+// 한 칸 탐색기 폴더 줄도 같은 규칙(tests/app-e2e/library-marquee-anywhere.spec.mjs). 이름은 지어낸 것, 가짜 서버.
+async function libraryFolderRows(page) {
+  const folders = [libFolder('top', null, { name: '가상 위원회', sort_order: 1024 }), libFolder('dst', null, { name: '가상 보관', sort_order: 2048 }),
+    ...[0, 1, 2, 3].map(i => libFolder('k' + i, null, { name: `가상 ${i + 1}차`, parent_id: 'top', sort_order: 1024 * (i + 1) }))];
+  const r = await bootLibrary(page, 1440, { folders, items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: null } });
+  const pane = '#documentList [data-lu-pane-i="1"]';
+  await page.locator(`${pane} [data-lu-nav="top"]`).click({ button: 'right' });
+  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+  for (let i = 0; i < 4; i++) await expect(page.locator(`${pane} [data-lu-nav="k${i}"]`)).toBeVisible();
+  return { ...r, pane };
+}
+// 오른쪽 칸 마지막 폴더 줄 아래 빈 곳에서 k1 줄 가운데까지 위로 끈다(처음 고르면 위 막대가 나타나 줄이 내려가므로 그 뒤 화면에서 끝점을 다시 잰다).
+async function marqueeFolders(page, pane) {
+  const from = await page.locator(`${pane} .lu-pane-list`).evaluate(list => { const rows = [...list.querySelectorAll('.ft-row')], last = rows[rows.length - 1].getBoundingClientRect(), b = list.getBoundingClientRect(); return { x: last.left + last.width / 2, y: Math.min(b.bottom - 10, last.bottom + 40) }; });
+  const mid = () => page.locator(`${pane} [data-lu-nav="k1"]`).evaluate(el => { const b = el.closest('.ft-row').getBoundingClientRect(); return b.top + b.height / 2; });
+  await page.mouse.move(from.x, from.y); await page.mouse.down();
+  await page.mouse.move(from.x + 6, from.y - 8, { steps: 3 });
+  await expect(page.locator('.marquee-box')).toBeVisible();
+  await page.mouse.move(from.x + 20, await mid(), { steps: 6 });
+  await page.waitForTimeout(80);
+  await page.mouse.move(from.x + 24, await mid(), { steps: 3 });
+  await page.mouse.up();
+  await expect(page.locator('.marquee-box')).toHaveCount(0);
+}
+test('S4 자료실 두 칸 PC 1440: 사각형으로 폴더 줄 고르기 — 폴더째 골라지고 [폴더로 옮기기]는 폴더째 옮긴다', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, pane } = await libraryFolderRows(page);
+  await marqueeFolders(page, pane);
+  await expect(page.locator('#librarySelectBar')).toBeVisible();
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 3 선택됨');
+  await expect(page.locator(`${pane} .ft-row.lu-folder-picked`)).toHaveCount(3);
+  await expect(page.locator(`${pane} .ft-row:has([data-lu-nav="k0"])`)).not.toHaveClass(/lu-folder-picked/);
+  await page.locator('#librarySelectFolder').click();
+  await expect(movePicker(page)).toBeVisible();
+  await pickMove(page, 'dst', 1440);
+  await expect.poll(() => ['k1', 'k2', 'k3'].map(id => s.folders.find(f => f.id === id)?.parent_id)).toEqual(['dst', 'dst', 'dst']);
+  expect(s.folders.find(f => f.id === 'k0').parent_id).toBe('top');
+  await expect(page.locator('#librarySelectBar')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+test('S4 자료실 두 칸 PC 1440: 사각형으로 고른 폴더 줄 [삭제]는 한 번 묻고 폴더째 휴지통으로, 되돌리기 한 번에 모두', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, pane } = await libraryFolderRows(page);
+  await marqueeFolders(page, pane);
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 3 선택됨');
+  await page.locator('#librarySelectDelete').click();
+  await expect(page.locator('.kptu-ask-text')).toHaveText('폴더 3개를 삭제할까요?');
+  await page.locator('.kptu-ask button', { hasText: '삭제' }).click();
+  await expect.poll(() => s.trash.map(t => t.root).sort()).toEqual(['k1', 'k2', 'k3']);
+  await expect(page.locator(`${pane} [data-lu-nav="k1"]`)).toHaveCount(0);
+  await expect(page.locator('#librarySelectBar')).toBeHidden();
+  await page.locator('.kptu-undo-notice [data-undo-action]').click();
+  await expect.poll(() => s.rpc.filter(r => r.fn === 'app_trash_restore').map(r => r.id).sort()).toEqual(['k1', 'k2', 'k3']);
+  expect(errors).toEqual([]);
 });
