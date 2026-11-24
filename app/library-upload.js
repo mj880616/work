@@ -719,6 +719,8 @@ if(succeeded||unknown){try{await (folder?.receive?luLoadAll():luLoadDocuments())
 if(succeeded)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:lastProjectId,...(org?{organization_id:org.id}:{}),...(meeting?{meeting_id:meeting.id}:{})}}));
 // ORG-기록자료폴더: 담당조직 자료로 올렸고 폴더를 따로 고르지 않았으면(받는 폴더 포함) 모으는 폴더 › 그 조직 폴더로(org-files-folder.js, 첫 사용 때 한 줄로 묻는다).
 if(succeeded&&org&&(!folder||folder.receive)&&okDocIds.length)void import('./org-files-folder.js').then(m=>m.fileIntoOrgFolder({docIds:okDocIds,org})).catch(()=>{});
+// MTG-정기회의자료폴더: 사업 보고 자료로 올렸고 폴더를 따로 고르지 않았으면 그 회의명과 짝인(없으면 이름이 같은) 자료실 폴더로(meeting-folder.js). 없으면 지금처럼.
+else if(succeeded&&meeting&&(!folder||folder.receive)&&okDocIds.length)void import('./meeting-folder.js').then(m=>m.fileIntoMeetingFolder({docIds:okDocIds,meetingId:meeting.id})).catch(()=>{});
 // 올라갔지만 폴더·담당조직에 못 넣은 것: 끝 알림이 이 한 줄을 덮지 않게 끝 알림 자리에 같이 싣는다(성공뿐이면 이 글이 끝 알림).
 const warn=[unfiled?`자료 ${unfiled}개는 올라갔지만 ‘${folder.name}’ 폴더에 넣지 못해 폴더 밖에 있어요. 그 자료를 폴더로 옮겨 주세요.`:'',linkFailed?word`자료 ${linkFailed}개는 올라갔지만 담당조직에 붙이지 못했어요. 그 자료의 [정보 수정]에서 담당조직을 선택해 주세요.`:''].filter(Boolean).join(' ');
 // 끝 알림(UX-알림하나로 S59-21: 하단바 위 한 줄 하나, upload-done.js). 다 올렸으면 '○○ 올렸어요 · [열기]'. 못 올린 것이 있으면
@@ -800,8 +802,18 @@ const luMeetingSend=createMeetingSend({
   fields:(file,target)=>photoUploadFields(file,normalizeUploadMeeting(target)||{},documentCategories()),
   confirmUnknown:count=>askConfirm(null,{text:`올렸는지 확인하지 못한 파일이 ${count}개 있어요.`,note:word('이미 사업 보고에 붙었다면 다시 올릴 때 같은 자료가 두 번 붙어요. 사업 보고를 열어 없는 것을 확인했다면 [다시 올리기]를 눌러 주세요.'),ok:'다시 올리기'}),
   report:luMeetingSendReport});
+// MTG-정기회의자료폴더: 사업 보고에 올라간 회의자료(사진 제외)를 그 회의명과 짝인(없으면 이름이 같은) 자료실 폴더로(meeting-folder.js). 없으면 지금처럼.
+// 묶음이 [다시 올리기]로 또 끝나도 이미 넣은 자료는 다시 넣지 않는다(묶음마다 넣은 자료 id를 메모리에만 둔다).
+const luMeetingFiled=new WeakMap();
+function luFileMeetingDocs(batch){
+  const seen=luMeetingFiled.get(batch)||new Set(),ids=batch.entries.filter(e=>e.state==='done'&&!e.photo&&e.doc?.id&&!seen.has(e.doc.id)).map(e=>e.doc.id);
+  if(!ids.length||!batch.target?.id||luBackGone(batch.scope))return;
+  for(const id of ids)seen.add(id);luMeetingFiled.set(batch,seen);
+  void import('./meeting-folder.js').then(m=>m.fileIntoMeetingFolder({docIds:ids,meetingId:batch.target.id})).catch(()=>{});
+}
 function luMeetingSendReport(ev){
   const {batch}=ev,t=batch.target,back=()=>luShowReport(t.id),retry=()=>{void luMeetingSend.retry(batch)};
+  if(ev.type==='done')luFileMeetingDocs(batch);
   // 올라간 파일 하나: 그 보고를 보고 있으면 사진·회의자료 칸이 바로 채워지게 가볍게 알린다(목록 전체를 다시 읽는 kptu:documents-changed는 묶음이 끝날 때 한 번).
   // 앱이 올린 자료(사진 아님)는 화면이 그 파일을 아직 들고 있을 때 여기서 저절로 채운다(화면 안 올리기는 올린 자리에서 이미 한다).
   // 돌아와 보니 서버에 이미 붙어 있던 자료(found)도 같다(올린 자리에서 채우지 못했다).
