@@ -2,7 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 // LIB-토글트리 ③(docs/design/library-tree.md 6절): 자료실 전용 폴더 편집 — ⋯ 메뉴, 만들기·이름·위로/아래로·옮기기·지우기, 자료 폴더로/밖으로.
 // 저장은 소유자 RLS 표(app_library_folders·_items) REST뿐. 아래 가짜 서버는 DB 트리거와 같은 규칙(100단, 같은 틀)과 휴지통(TRASH-다른삭제 3단계: 지우면 그 폴더와 아래 폴더가 함께 휴지통으로, 자료 연결은 그대로)을 흉내 낸다.
 import {test,expect} from '@playwright/test';
-import {answerAsk} from './helpers/small-notice.mjs';
+import {answerAsk,askGap} from './helpers/small-notice.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree,libraryNode,libraryNodeHead,libraryTopMenu,libraryExpandItem} from './helpers/library-tree.mjs';
 import {moveEnabledNames,moveFolder,openMove as openMoveWith} from './helpers/library-folder-server.mjs';
@@ -283,5 +283,23 @@ test.describe('폰 390 끌기 없음',()=>{
     await touch('touchEnd',[]);
     await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:fb','f:fa','a-1','a-2']);
     expect(s.writes.every(w=>w.table==='folders'&&w.method==='PATCH')).toBe(true);expect(errors).toEqual([]);
+  });
+});
+
+// S69-13 UI-확인창누른자리(요청 11/24): ⋯ 메뉴 [폴더 삭제]의 '휴지통으로 옮길까요?' 확인창은 메뉴를 연 ⋯ 단추 바로 옆에 뜬다
+// (옛: 메뉴가 닫히며 초점이 body로 가서 화면 오른쪽 위 구석에 떴다). 폰은 하단바 위, 취소하면 초점은 그 ⋯로 돌아간다.
+for(const width of [412,1440])test.describe(`폴더 삭제 확인창 자리 ${width}`,()=>{
+  test.use({hasTouch:width<761});
+  test(`⋯ 메뉴 [폴더 삭제] 확인창이 ⋯ 단추 옆에 뜬다 ${width}`,async({page},info)=>{
+    const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048}];
+    const {s,errors}=await boot(page,width,{folders});
+    await libraryTopMenu(page,'expand');
+    const more=menuOf(page,'f:fb');await more.scrollIntoViewIfNeeded();
+    await press(page,more,width);await press(page,action(page,'폴더 삭제'),width);
+    const {gap,aboveBar}=await askGap(page,more);
+    if(width===412)await page.screenshot({path:info.outputPath('folder-delete-ask-412.png')});else await page.screenshot({path:info.outputPath('folder-delete-ask-1440.png')});
+    expect(gap).toBeLessThanOrEqual(12);expect(aboveBar).toBe(true);
+    await page.keyboard.press('Escape');await expect(page.locator('.kptu-ask')).toHaveCount(0);await expect(more).toBeFocused();
+    expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
 });

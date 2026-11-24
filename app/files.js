@@ -68,6 +68,9 @@ import {NARROW_QUERY, SPLIT_QUERY} from './screen-width.mjs';
 import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, DROP_ASK_TEXT, FILES_PANES_KEY, panesValue, paneStart, paneChoices, paneSourceLabel} from './files-panes-model.mjs';
 import {within, isLoadTimeout} from './load-deadline.js';
 import {word} from './brand/brand.mjs';
+import {installDragEdgeScroll} from './drag-edge-scroll.js';
+// UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
+installDragEdgeScroll();
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
 // - 갱신(F2): 들어올 때 + 2분마다 + 창으로 돌아올 때 Edge cloud-files sync(서버가 2분 안이면 클라우드를 부르지 않음). 응답의 바뀐 줄만
