@@ -84,7 +84,7 @@ function askParent(st, rt, then) {
   };
   const pickOther = async ({box, close}) => {
     const {openLibraryFolderPicker} = await import('./library-folder-pick.js');
-    openLibraryFolderPicker({anchor: box, folders: st.folders, onPick: f => void choose(f, close), onClosed: () => {}});
+    openLibraryFolderPicker({anchor: box, folders: st.folders, choose: true, title: '모으는 폴더 고르기', onPick: f => void choose(f, close), onClosed: () => {}});
   };
   const text = guess ? ASK_TEXT(guess.name) : word('조직 기록 자료를 모을 폴더를 선택할까요?');
   notify(text, {record: false, ms: 20000, actions: guess
@@ -128,7 +128,7 @@ export async function chooseOrgFilesParent(anchor, rt = window.KPTURuntime) {
   const st = await loadState(rt).catch(() => null);
   if (!st || st.off) { notify('아직 준비 중인 기능이에요.', {error: true}); return; }
   const {openLibraryFolderPicker} = await import('./library-folder-pick.js');
-  openLibraryFolderPicker({anchor, folders: st.folders, onPick: async f => {
+  openLibraryFolderPicker({anchor, folders: st.folders, choose: true, title: '모으는 폴더 고르기', start: st.parentId, onPick: async f => {
     if (!f?.id) return;
     notify((await saveOrgFilesParent(f.id, rt)) ? word`조직 기록 자료를 ‘${f.name}’ 폴더에 모아요.` : '모으는 폴더를 저장하지 못했어요.', {error: false});
   }});

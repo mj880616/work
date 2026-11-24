@@ -16,6 +16,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   TREE_DEV_MOVE_NOTE, treeDevKeptText, treeDevDoneText, LIB_TREE_MAX, LIB_TREE_BYTES, libTreeTooBigText, UPLOAD_MAX_BYTES} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
 import {ftKeepPlace, ftBindTreeArrows, ftExplorePress, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, createLeafWait} from './folder-tree-press.mjs';
+import {destSheetHtml} from './folder-dest-sheet.mjs'; // S69-62 폴더 고르기 창 하나(모양 공용)
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
@@ -2510,9 +2511,8 @@ function paintDestNow(box) {
   if (!x) { box.hidden = true; box.innerHTML = ''; if (dim) dim.hidden = true; root.classList.remove('fx-dest-open'); return; }
   box.hidden = false; if (dim) dim.hidden = false; root.classList.add('fx-dest-open');
   const on = destSources(x.rows), cur = destKey(x.dest);
-  const chips = recentDests().map(recentDestOf).filter(d => d && on.includes(d.source));
-  const recent = chips.length ? `<div class="fx-dest-sub">최근 보낸 곳</div><div class="fx-dest-recent">${recentDests().filter(d => on.includes(d.source)).map(d =>
-    `<button type="button" class="fx-dest-chip${destKey(recentDestOf(d)) === cur ? ' on' : ''}" data-fx-dest-pick="${esc(destKey(recentDestOf(d)))}" data-fx-dest-name="${esc(d.name)}">${d.source === 'gd' ? brandIconSvg('gdrive', {size: 12}) : brandIconSvg('onedrive', {size: 12})}<span>${esc(d.name)}</span></button>`).join('')}</div>` : '';
+  const chips = recentDests().filter(d => on.includes(d.source) && recentDestOf(d)).map(d => ({key: destKey(recentDestOf(d)), name: d.name, on: destKey(recentDestOf(d)) === cur,
+    icon: d.source === 'gd' ? brandIconSvg('gdrive', {size: 12}) : brandIconSvg('onedrive', {size: 12})}));
   const rows = treeRows({sources: on, children: state.children, open: x.open, order: lookOrder}).filter(r => r.type !== 'shelf');
   const tree = rows.map(r => {
     const key = r.key, sel = key === cur;
@@ -2524,11 +2524,9 @@ function paintDestNow(box) {
   }).join('');
   // '내 PC' 맨 위(드라이브 목록)는 받을 곳이 아니다(드라이브나 폴더를 골라야 함).
   const can = !!x.dest && !state.ask && !(x.dest.source === PC && !x.dest.parent);
-  box.innerHTML = `<div class="fx-dest-h"><span id="fxDestTitle">${esc(destTitle(x.rows.length, x.mode))}</span><button type="button" class="mini" data-fx-dest-close aria-label="닫기">✕</button></div>`
-    + recent + `<nav class="fx-dest-tree nx-tree" aria-label="받을 곳 폴더">${tree || waitHtml({rows: 3})}</nav>`
-    + (state.ask ? askHtml(state.ask) : '')
-    + `<div class="fx-dest-f"><span class="fx-dest-at">${x.dest ? esc(SOURCE_NAME[x.dest.source] + (x.dest.parent ? ' › ' + destNameOf(x.dest) : '')) : '받을 폴더를 선택하세요'}</span>`
-    + `<button type="button" class="fx-btn" data-fx-dest-mkdir${can ? '' : ' disabled'}>새 폴더</button><button type="button" class="fx-btn fx-pri" data-fx-dest-go${can ? '' : ' disabled'}>${esc(destButton(x.mode))}</button></div>`;
+  // S69-62: 창 모양은 공용 부품 하나(folder-dest-sheet.mjs) — 자료실·노트·사진의 폴더 고르기도 같은 HTML을 쓴다.
+  box.innerHTML = destSheetHtml({title: destTitle(x.rows.length, x.mode), chips, tree, wait: waitHtml({rows: 3}), slot: state.ask ? askHtml(state.ask) : '',
+    at: x.dest ? SOURCE_NAME[x.dest.source] + (x.dest.parent ? ' › ' + destNameOf(x.dest) : '') : '', canMk: can, canGo: can, goLabel: destButton(x.mode)});
 }
 function pickDest(key, name) {
   const x = state.xfer, d = destOf(key);

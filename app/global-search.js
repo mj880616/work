@@ -603,7 +603,7 @@ document.addEventListener('pointerdown', e => {
   if (panel.contains(e.target) || slotInput?.wrap.contains(e.target)) return;
   // 노트 [폴더로 옮기기 ›]의 폴더 고르기 창과, 그 창 [+ 새 폴더 만들어 넣기]의 이름 묻는 작은 창(S61-46) — 결과 창은 그대로 둔다
   // (작은 창은 자기 기록 칸을 따로 걷어 내므로, 여기서 결과 창까지 닫으면 뒤로가기가 두 번 겹친다).
-  if (e.target.closest?.('.lu-move-picker, .kptu-ask, .lk-here')) return; // S67-25: 그 자리 PIN 창도
+  if (e.target.closest?.('.lu-move-picker, [data-fd-sheet], .kptu-ask, .lk-here')) return; // S67-25: 그 자리 PIN 창도 · S69-62 폴더 고르기 창(folder-dest-sheet.js)
   void closePanel();
 }, true);
 PC.addEventListener('change', () => { if (!PC.matches && panelOpen) void closePanel(); paintAll(); });
@@ -621,7 +621,7 @@ function paintAllNow() {
 // 맨 위 [선택], 자료실 결과가 여럿이면 [자료실 결과 n개 모두 고르기], [열기]. 고르면 자료실 화면의 같은 선택 모드(같은 메뉴·폴더로 옮기기·분류 바꾸기·지우기)로
 // 넘어가 그 자료들이 고른 채로 열린다(선택·옮기기 부품을 따로 만들지 않음).
 // NOTE-탐색기 후속 ⑥(10:44 ②): 노트 결과 줄도 같은 메뉴를 연다. 노트는 노트 폴더, 자료실 자료는 자료실 폴더라 종류별로 나눠 묻는다 —
-// 노트는 [폴더로 옮기기 ›]·[노트 결과 n개 폴더로 옮기기 ›]가 노트 화면과 같은 폴더 나무 고르기 창(note-folder-pick.js → library-move-picker.js)을 열어
+// 노트는 [폴더로 옮기기 ›]·[노트 결과 n개 폴더로 옮기기 ›]가 노트 화면과 같은 폴더 나무 고르기 창(note-folder-pick.js → folder-dest-sheet.js, [파일] '옮길 곳' 창과 같은 창)을 열어
 // 그 자리에서 옮기고('옮겼어요 노트 n개 → 📁 이름 · 되돌리기'), 자료실 자료는 [자료실 결과 n개 모두 고르기](노트 줄 메뉴에도 있음)로 자료실 선택 모드에
 // 넘겨 자료실 폴더를 고른다. 자료실 줄 메뉴는 그대로([선택]·[모두 고르기]·[열기]).
 // 할 일·일정 등 폴더 없는 종류의 결과는 메뉴가 없다(고를 수 없음).
@@ -669,7 +669,7 @@ async function moveNoteResults(anchor, ids) {
   const {ready, folders} = await loadNoteFolders(rt).catch(() => ({ready: false, folders: []}));
   if (owner !== rt?.session?.read?.()?.user?.id || !anchor.isConnected) return;
   if (!ready) { notify('노트 폴더를 읽지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true}); return; }
-  openNoteFolderPicker({anchor, folders, onPick: async folder => {
+  openNoteFolderPicker({anchor, folders, count: ids.length, onPick: async folder => {
     const result = await moveNotesToFolder(ids, folder, {rt, folders});
     if (owner !== rt?.session?.read?.()?.user?.id) return;
     const n = result.done.length;
@@ -683,12 +683,12 @@ async function moveNoteResults(anchor, ids) {
 async function moveDocResults(anchor, ids) {
   if (!ids.length) return;
   const rt = window.KPTURuntime, owner = rt?.session?.read?.()?.user?.id;
-  const {loadLibraryFolders, openLibraryFolderPicker, moveLibraryDocsToFolder, makeLibraryFolder} = await import('./library-folder-pick.js');
+  const {loadLibraryFolders, openLibraryFolderPicker, moveLibraryDocsToFolder} = await import('./library-folder-pick.js');
   const loaded = await loadLibraryFolders(ids, rt);
   if (owner !== rt?.session?.read?.()?.user?.id || !anchor.isConnected) return;
   if (!loaded.ready) { notify('자료실 폴더를 읽지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true}); return; }
   const changed = () => { window.dispatchEvent(new CustomEvent('kptu:library-folders-changed')); window.dispatchEvent(new CustomEvent('kptu:documents-changed')); };
-  // S61-46: [+ 새 폴더 만들어 넣기] = 맨 위에 새 자료실 폴더를 만든 뒤 고른 것과 같게 옮긴다.
+  // S69-62: 고르기 창은 [파일] '옮길 곳' 창과 같은 창 — [새 폴더]는 고른 폴더 안에 만들고 그 폴더를 고른다(옮기기는 [여기에 옮기기]로만).
   const put = async folder => {
     const result = await moveLibraryDocsToFolder(ids, folder, {rt, loaded});
     if (owner !== rt?.session?.read?.()?.user?.id) return;
@@ -699,8 +699,7 @@ async function moveDocResults(anchor, ids) {
     notify(`옮겼어요 ${n}개 → ${result.place}${result.failed.length ? ` · ${result.failed.length}개는 못 옮김` : ''}`, {label: `자료 폴더 옮기기 ${n}개`,
       undo: result.undo ? async () => { const ok = await result.undo(); changed(); return ok; } : null});
   };
-  openLibraryFolderPicker({anchor, folders: loaded.folders, itemFolder: loaded.itemFolder, docs: ids, onPick: put,
-    onNew: async () => { const made = await makeLibraryFolder(loaded, {rt, anchor}); if (made && owner === rt?.session?.read?.()?.user?.id) { changed(); await put(made); } }});
+  openLibraryFolderPicker({anchor, folders: loaded.folders, itemFolder: loaded.itemFolder, docs: ids, loaded, onPick: put});
 }
 async function selectInLibrary(ids) {
   if (!ids.length) return;

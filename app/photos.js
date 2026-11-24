@@ -83,6 +83,8 @@ import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
 // FOLDER-나무새기준 ③(S51-12): 폰 [폴더]는 노트·파일·자료실과 같은 공용 상자·줄, 두 손가락 그 폴더만.
+import {openFolderSheet} from './folder-dest-sheet.js'; // S69-62 폴더 고르기 = [파일] '옮길 곳' 창 하나
+import {sheetTitle} from './folder-dest-sheet.mjs';
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, ftIconHtml, ftFocusBackHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {SPLIT_QUERY} from './screen-width.mjs';
 import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
@@ -3466,36 +3468,52 @@ function setSort(v) {
   if (aItems.length) aItems = aItems.slice().sort(sortCompare(sort));
   render(); window.scrollTo?.(0, 0);
 }
-// 고르기 판: 옮길 폴더(나무 순서, 들여쓰기) 또는 넣을 앨범. 무엇을 할지는 pickFor에 둔다.
+// 고르기 판: 넣을 앨범. 무엇을 할지는 pickFor에 둔다.
 let pickFor = null;
-// FOLDER-순서·색 ③-2: 폴더 고르기 창 줄 앞 그림도 같은 색(안 고른 폴더는 기본 노랑 같은 그림, S51-25 그림 문자 없음).
-const pickFolderIcon = (src, id) => (folderLook.color(src, id) ? folderIconHtml({color:folderLook.color(src, id)}, {className:'lu-move-ico'}) : folderIconHtml({}, {className:'lu-move-ico'}));
+// S69-62: 폴더로 옮기기는 아래 openFolderPick([파일] '옮길 곳' 창과 같은 창)이 맡고, 이 작은 메뉴는 넣을 앨범 고르기만 한다.
 const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-menu photos-pick-menu', label:'선택', historyKey:'kptuPhotosPickMenu',
   key:() => pickFor?.kind || '',
-  render:kind => {
-    if (kind === 'gdphotos') {
-      const here = tab === 'folders' ? gdAt : null;
-      return '<p class="od-link-status">어느 구글 드라이브 폴더로 옮길까요?</p>' + gdTargets().map(r => `<button type="button" data-pick-gd="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.id === here ? ' disabled aria-disabled="true"' : ''}>${pickFolderIcon('gd', r.id)} ${esc(r.name)}${r.id !== 'root' && !r.enabled ? '<span class="photos-fx-place"> · 꺼짐</span>' : ''}</button>`).join('');
-    }
-    if (kind === 'phfolder' || kind === 'phphotos') {
-      const rows = phonePickRows(phoneFolderList(), kind === 'phfolder' ? {moving:pickFor.id} : {here:tab === 'folders' ? pAt : null});
-      return '<p class="od-link-status">어느 폰 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-phone="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}>${folderIconHtml({}, {className:'lu-move-ico'})}${esc(r.name)}${places.has('ph:' + r.id) ? `<span class="photos-fx-place"> · ${esc(places.get('ph:' + r.id))}</span>` : ''}</button>`).join('');
-    }
-    if (kind === 'tag') return cards().map(c => menuBtn(`data-pick-tag="${esc(c.id)}"`, `#${esc(c.name)} <span class="photos-pick-n">${c.count}</span>`)).join('') + menuBtn('data-pick-newtag', '+ 새 앨범…');
-    if (!tree) return '<p class="od-link-status">폴더를 읽지 못했어요</p>';
-    const rows = photoMoveTargets(tree, kind === 'folder' ? {moving:pickFor.id} : {here:tab === 'folders' ? at : null});
-    // 같은 이름 폴더는 위치 이름(폴더 줄과 같은 규칙).
-    const here = folderPlaceLabels([tree.top, ...tree.folders], f => odFolderPlace(tree, f));
-    return '<p class="od-link-status">어느 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-folder="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}>${pickFolderIcon('od', r.id)} ${esc(r.name)}${here.has(r.id) ? `<span class="photos-fx-place"> · ${esc(here.get(r.id))}</span>` : ''}</button>`).join('');
-  },
+  render:kind => (kind === 'tag' ? cards().map(c => menuBtn(`data-pick-tag="${esc(c.id)}"`, `#${esc(c.name)} <span class="photos-pick-n">${c.count}</span>`)).join('') + menuBtn('data-pick-newtag', '+ 새 앨범…') : ''),
   onAction:b => {
     const p = pickFor; pickFor = null; if (!p) return;
-    if (b.dataset.pickGd) return gdMovePicked(p.items, b.dataset.pickGd);
-    if (b.dataset.pickPhone) return p.kind === 'phfolder' ? movePhoneFolder(p.anchor, p.id, b.dataset.pickPhone) : movePhonePhotos(p.anchor, p.items, b.dataset.pickPhone);
-    if (b.dataset.pickFolder) return p.kind === 'folder' ? moveFolder(p.id, b.dataset.pickFolder) : movePhotos(p.ids, b.dataset.pickFolder);
     if (b.dataset.pickTag) { const t = (tags || []).find(x => x.id === b.dataset.pickTag); if (t) tagItems(t, p.items); return; }
     if (b.matches('[data-pick-newtag]')) return newAlbum(p.items);
   }});
+// S69-62 폴더로 옮기기 = [파일] '옮길 곳' 창 하나(folder-dest-sheet.js): 나무 누르면 펼침·선택, [새 폴더](고른 폴더 안), [여기에 옮기기]로만 옮김.
+// 대상 나무만 다르다 — 원드라이브 사진 폴더(tree), 구글 드라이브(한 층씩 읽는 gdLevels, 펼칠 때 읽음), 폰 폴더(앱이 준 경로).
+// 쓰는 길은 그대로(movePhotos·moveFolder·gdMovePicked·movePhonePhotos·movePhoneFolder, 새 폴더는 odFolderCreate·gdFolderCreate).
+const sheetFolders = (t, src) => photoFolderRows(t, () => true).map((r, i) => {
+  const f = photoFolderById(t, r.id);
+  return {id:r.id, name:r.name, parent_id:f?.parent_id === t.top.id ? null : f?.parent_id ?? null, sort_order:i, color:folderLook.color(src, r.id), more:f?.more === true};
+});
+const sheetKey = (t, id) => (id && id !== t?.top?.id ? id : null);
+function openFolderPick(trigger, p) {
+  const anchor = trigger?.isConnected ? trigger : null, n = p.kind === 'folder' || p.kind === 'phfolder' ? 0 : (p.items || p.ids || []).length;
+  const title = p.kind === 'folder' || p.kind === 'phfolder' ? '폴더 옮길 곳' : sheetTitle(n, '옮길 곳');
+  if (p.kind === 'gdphotos') {
+    const here = tab === 'folders' ? gdAt : undefined;
+    return openFolderSheet({anchor, title, rootName:'구글 드라이브', rootIcon:treeIconHtml('gd', {className:'ft-ico'}),
+      folders:() => sheetFolders(gdTree(), 'gd'), current:here === undefined ? undefined : sheetKey(gdTree(), here), maybeKids:id => { const f = photoFolderById(gdTree(), id ?? GDRIVE_TOP); return !gdLevels.has(id ?? GDRIVE_TOP) || f?.more === true; },
+      load:parent => gdLoadLevel(parent ?? GDRIVE_TOP),
+      mkdir:gdUsable() ? async (parent, raw) => { const name = gdName(raw); if (!name) throw new Error('폴더 이름을 확인해 주세요(1~200자).'); const f = await gdFolderCreate(rt, parent ?? GDRIVE_TOP, name); await gdLoadLevel(parent ?? GDRIVE_TOP, true); return {id:f?.id || f?.gdId || '', name:f?.name || name}; } : null,
+      onGo:id => gdMovePicked(p.items, id ?? GDRIVE_TOP)});
+  }
+  if (p.kind === 'phfolder' || p.kind === 'phphotos') {
+    const rows = phonePickRows(phoneFolderList(), p.kind === 'phfolder' ? {moving:p.id} : {here:tab === 'folders' ? pAt : null});
+    const ids = rows.map(r => r.id), parentOf = id => ids.filter(x => x !== id && id.startsWith(x)).sort((a, b) => b.length - a.length)[0] ?? null;
+    const off = new Set(rows.filter(r => r.current).map(r => r.id));
+    return openFolderSheet({anchor, title, rootName:'이 폰', rootIcon:treeIconHtml('ph', {className:'ft-ico'}), allowRoot:false, rootReason:'폴더를 하나 골라 주세요',
+      folders:rows.map((r, i) => ({id:r.id, name:r.name, parent_id:parentOf(r.id), sort_order:i})),
+      blocked:id => (off.has(id) ? (p.kind === 'phfolder' ? '그곳으로는 옮길 수 없어요' : '지금 있는 곳이에요') : ''),
+      onGo:id => (p.kind === 'phfolder' ? movePhoneFolder(p.anchor || trigger, p.id, id) : movePhonePhotos(p.anchor || trigger, p.items, id))});
+  }
+  const moving = p.kind === 'folder' ? p.id : null, skip = moving ? photoFolderSubtree(tree, moving) : new Set();
+  const here = moving ? sheetKey(tree, photoFolderById(tree, moving)?.parent_id) : tab === 'folders' && at ? sheetKey(tree, at) : undefined;
+  return openFolderSheet({anchor, title, rootName:tree.top.name || '원드라이브', rootIcon:treeIconHtml('od', {className:'ft-ico'}),
+    folders:() => sheetFolders(tree, 'od'), current:here, blocked:id => (id && skip.has(id) ? '옮기는 폴더예요' : ''),
+    mkdir:od.canDelete ? async (parent, raw) => { const name = cleanPhotoFolderName(raw || ''); if (!name) throw new Error('폴더 이름을 확인해 주세요(1~200자, " * : < > ? / \\ | 없이).'); const f = await odFolderCreate(rt, parent ?? tree.top.id, name); await loadTree(true); return {id:f?.id || '', name:f?.name || name}; } : null,
+    onGo:id => (moving ? moveFolder(moving, id ?? tree.top.id) : movePhotos(p.ids, id ?? tree.top.id))});
+}
 async function openPick(trigger, what) {
   if (busy) return;
   // PHOTO-폴더스위치 ③: 폰 사진만 고르면 폰 폴더로(앱 0.4.1+), 원드라이브 사진만이면 원드라이브 폴더로. 섞이면 원드라이브 사진만(다른 출처 사이 옮기기는 없음).
@@ -3508,7 +3526,7 @@ async function openPick(trigger, what) {
       const byId = new Map([...shownList(), ...gdItems, ...gdFItems].map(x => [x.id, x]));
       const list = gdIds.map(id => byId.get(id)).filter(Boolean);
       if (!list.length || !trigger.isConnected) return;
-      pickFor = {kind:'gdphotos', items:list, anchor:trigger}; pickMenu.open(trigger); return;
+      openFolderPick(trigger, {kind:'gdphotos', items:list, anchor:trigger}); return;
     }
     if (gdIds.length) { notify('구글 드라이브 사진은 따로 선택해 옮겨 주세요.'); what = {...what, ids:what.ids.filter(id => !String(id).startsWith('gd:'))}; }
     const ph = what.ids.filter(id => String(id).startsWith('ph:')), odIds = what.ids.filter(id => !String(id).startsWith('ph:'));
@@ -3518,12 +3536,12 @@ async function openPick(trigger, what) {
       const byId = new Map([...shownList(), ...pItems, ...aItems].map(x => [x.id, x]));
       what = {kind:'phphotos', items:ph.map(id => byId.get(id)).filter(Boolean)};
       if (!what.items.length || !trigger.isConnected) return;
-      pickFor = {...what, anchor:trigger}; pickMenu.open(trigger); return;
+      openFolderPick(trigger, {...what, anchor:trigger}); return;
     }
     if (ph.length) notify('폰 사진은 따로 선택해 옮겨 주세요(원드라이브 사진만 옮겨요).');
     what = {...what, ids:odIds};
   }
-  if (what.kind === 'phfolder') { await loadPhoneFolders(); if (!trigger.isConnected) return; pickFor = {...what, anchor:trigger}; pickMenu.open(trigger); return; }
+  if (what.kind === 'phfolder') { await loadPhoneFolders(); if (!trigger.isConnected) return; openFolderPick(trigger, {...what, anchor:trigger}); return; }
   if (what.kind === 'tag') {
     const ok = what.items.filter(x => x.kind !== 'gdrive');
     if (ok.length < what.items.length) notify('구글 드라이브 사진은 아직 앨범에 못 넣어요.');
@@ -3534,6 +3552,7 @@ async function openPick(trigger, what) {
   if (what.kind === 'tag' && !tags) return notify('앨범을 읽지 못했어요.', {error:true});
   if (what.kind !== 'tag' && !tree) return notify(`폴더를 읽지 못했어요: ${treeFailed}`, {error:true});
   if (!trigger.isConnected) return;
+  if (what.kind !== 'tag') { openFolderPick(trigger, what); return; }
   pickFor = what; pickMenu.open(trigger);
 }
 

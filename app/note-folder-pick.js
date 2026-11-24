@@ -1,21 +1,16 @@
 // 노트를 넣을 폴더 고르기(노트 화면 밖에서 여는 곳: 상단 PC [새 노트]의 [폴더 ▾], 전체 검색 결과의 노트 [폴더로 옮기기 ›]).
-// NOTE-탐색기 후속 ⑤(2026-10-28): 노트 화면과 같은 폴더 나무 고르기 창(library-move-picker.js, 줄은 library-move.mjs pickerRows — 찾기·100단 경로·
-// [폴더 밖으로])을 쓴다. 폴더 목록은 노트 폴더 표(note-folders-data.js, 기존 owner-RLS 읽기 길), 노트에 쓰는 일은 basket-data.js setNoteFolderRef
+// S69-62: [파일] '옮길 곳' 창과 같은 폴더 고르기 창(folder-dest-sheet.js — 나무 누르면 펼침·선택, [새 폴더], [여기에 옮기기]/[이 폴더로 정하기],
+// 맨 위 줄 '노트' = 폴더 없음)을 쓴다. 폴더 목록은 노트 폴더 표(note-folders-data.js, 기존 owner-RLS 읽기 길), 노트에 쓰는 일은 basket-data.js setNoteFolderRef
 // (폴더 id+이름, 노트 화면과 같은 서버 길) 하나다. 기기 저장은 쓰지 않는다(처음 고른 폴더는 서버 화면 설정 note_folder의 이름에서만 읽음).
-import {createMovePicker} from './library-move-picker.js';
-import {pickerRows} from './library-move.mjs';
+import {openFolderSheet, folderSheetOpen, closeFolderSheet} from './folder-dest-sheet.js';
+import {sheetTitle} from './folder-dest-sheet.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {readNoteFolders, createNoteFolder} from './note-folders-data.js';
 import {folderSiblings, nextSortOrder, cleanFolderName} from './library-tree.js';
 import {noteFolderErrorText} from './note-tree.mjs';
-import {askText, notify} from './small-notice.js';
 import {setNoteFolderRef} from './basket-data.js';
 import {folderFromView, folderIdFromName, noteFolderPlace} from './note-folder-pick.mjs';
 
-const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
-const wide = () => typeof matchMedia === 'function' && matchMedia('(min-width:761px)').matches;
-let picker = null;
-const sharedPicker = () => (picker ||= createMovePicker({esc}));
 
 // 폴더 표를 한 번 읽는다. 표가 없거나 읽지 못하면 {ready:false, folders:[]} — 고르기 창은 [폴더 밖으로]만 보인다.
 export async function loadNoteFolders(rt = window.KPTURuntime) {
@@ -23,28 +18,27 @@ export async function loadNoteFolders(rt = window.KPTURuntime) {
   return {ready: !!result.ready, folders: result.ready ? result.folders : []};
 }
 
-// S61-46 UI-새폴더넣기안됨: [+ 새 폴더 만들어 넣기] — 이름을 공용 작은 글 입력창으로 받아 맨 위에 노트 폴더 하나를 만든다
-// (노트 화면 newFolder와 같은 서버 길 createNoteFolder, 기존 owner-RLS). 만든 폴더는 folders 배열 끝에 더한다. 취소·실패 = null(실패는 한 줄 알림).
-export async function makeNoteFolder(folders, {rt = window.KPTURuntime, anchor = null} = {}) {
-  const typed = await askText(anchor?.isConnected && anchor.getClientRects().length ? anchor : document.activeElement, {text: '새 폴더 이름 (40자까지)', ok: '만들기', max: 40});
-  if (typed === null) return null;
+// S69-62: 고르기 창 [새 폴더] — 고른 폴더 안(맨 위 줄이면 맨 위)에 노트 폴더 하나를 만든다(노트 화면 newFolder와 같은 서버 길 createNoteFolder, 기존 owner-RLS).
+// 이름은 창이 묻고 여기로 넘긴다. 만든 폴더는 folders 배열 끝에 더한다. 잘못된 이름·실패는 Error(창이 한 줄 알림).
+export async function makeNoteFolderIn(folders, parentId, typed, {rt = window.KPTURuntime} = {}) {
   const name = cleanFolderName(typed);
-  if (!name) { notify('폴더 이름은 1~40자로 써 주세요.', {error: true}); return null; }
+  if (!name) throw new Error('폴더 이름은 1~40자로 써 주세요.');
   try {
-    const row = await createNoteFolder({name, parent_id: null, sort_order: nextSortOrder(folderSiblings(folders, {free: true, parentId: null}))}, rt);
+    const row = await createNoteFolder({name, parent_id: parentId || null, sort_order: nextSortOrder(folderSiblings(folders, {free: true, parentId: parentId || null}))}, rt);
     folders.push(row);
     window.dispatchEvent(new CustomEvent('kptu:basket-notes-restored'));
     return row;
-  } catch (error) { notify(noteFolderErrorText(error), {error: true}); return null; }
+  } catch (error) { throw new Error(noteFolderErrorText(error)); }
 }
 
-// 고르기 창 하나 열기(노트 화면 밖 공용). onPick(folder|null): null = 폴더 밖.
-// newFolder:true면 [+ 새 폴더 만들어 넣기]로 새 폴더를 만들어 곧바로 onPick(새 폴더) — 없으면 그 단추를 그리지 않는다.
-export function openNoteFolderPicker({anchor, folders, onPick, onClosed = null, newFolder = true, rt = window.KPTURuntime}) {
-  sharedPicker().open({anchor, place: 'below', history: !wide(), canNew: !!newFolder, canOut: true,
-    rows: q => pickerRows({folders, free: true, query: q}),
-    onPick: id => onPick(folders.find(f => f.id === id) || null), onOut: () => onPick(null), onClosed,
-    onNew: newFolder ? async () => { const made = await makeNoteFolder(folders, {rt, anchor}); if (made) await onPick(made); } : null});
+// 고르기 창 하나 열기(노트 화면 밖 공용, S69-62 [파일] '옮길 곳' 창과 같은 창). onPick(folder|null): null = 폴더 없음(맨 위 줄 '노트').
+// newFolder:true면 [새 폴더](고른 폴더 안에 만들고 그 폴더를 고름) — 없으면 그 단추를 그리지 않는다.
+// current: 지금 든 폴더 id(null = 폴더 없음, undefined = 모름). choose:true면 '정하기'(새 노트 폴더 고르기), 아니면 '옮기기'.
+export function openNoteFolderPicker({anchor, folders, onPick, onClosed = null, newFolder = true, rt = window.KPTURuntime, current, count = 0, choose = false, title = ''}) {
+  return openFolderSheet({anchor, title: title || (choose ? '노트를 넣을 폴더' : sheetTitle(count, '옮길 곳')), rootName: '노트', folders,
+    current: choose ? undefined : current, start: current === undefined ? undefined : current, goLabel: choose ? '이 폴더로 정하기' : '여기에 옮기기',
+    mkdir: newFolder ? (parent, name) => makeNoteFolderIn(folders, parent, name, {rt}) : null,
+    onGo: id => onPick(id ? folders.find(f => f.id === id) || null : null), onClosed});
 }
 
 // 노트들이 지금 든 폴더(되돌리기용): 기존 owner-RLS 읽기 길로 metadata만 읽어 폴더 표의 폴더(없으면 null = 폴더 밖)로 바꾼다.
@@ -106,7 +100,7 @@ export function createNoteFolderPick({rt = window.KPTURuntime, initial = null, t
     async open(trigger) {
       await load();
       if (!alive()) return;
-      openNoteFolderPicker({anchor: trigger, folders, rt, onPick: folder => { value = folder?.id || null; tell(); }});
+      openNoteFolderPicker({anchor: trigger, folders, rt, choose: true, current: value, title, onPick: folder => { value = folder?.id || null; tell(); }});
     },
     // 새 노트를 저장한 뒤 고른 폴더에 넣는다(폴더 밖이면 쓰지 않음). 반환: 넣은 폴더 이름 또는 null.
     async put(note) {
@@ -115,7 +109,7 @@ export function createNoteFolderPick({rt = window.KPTURuntime, initial = null, t
       try { await setNoteFolderRef({id: note.id}, folder, rt); } catch (error) { failed = true; throw error; }
       return folder.name;
     },
-    close() { closed = true; if (picker?.isOpen) void picker.close(); },
+    close() { closed = true; if (folderSheetOpen()) closeFolderSheet(); },
     failed: () => failed,
   };
 }
