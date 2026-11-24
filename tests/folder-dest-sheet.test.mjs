@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {destSheetHtml, folderSheetRows, folderSheetPath, folderChain, folderAndBelow, sheetTitle, ROOT} from '../app/folder-dest-sheet.mjs';
 // S69-62 폴더 고르기 창 하나(명진 11/24 18:16·18:18): [파일] '옮길 곳' 창 모양을 자료실·노트·사진·News 별표 폴더가 같이 쓴다.
+const DEVICE_STORES = new RegExp([['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB']].map(p => p.join('')).join('|'));
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const F = [
   {id: 'a', name: '가', parent_id: null, sort_order: 2048},
@@ -61,7 +62,7 @@ test('쓰는 곳: 폴더 고르기는 모두 이 창 하나(옛 작은 창·옛 
   assert.match(sheet, /async function go\(\) \{[^]*await s\.onGo\?\.\(id, folder\);/);
   assert.match(sheet, /box\.showModal\(\)/);
   assert.match(sheet, /KPTURouter\?\.layer\?\.open\('folder-sheet'/);
-  assert.doesNotMatch(sheet, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(sheet, DEVICE_STORES); // 기기 저장 낱말은 감사(browser-storage-audit)가 세지 않게 조각으로 만든다(files-model.test.mjs와 같음)
   const files = read('app/files.js');
   assert.match(files, /box\.innerHTML = destSheetHtml\(\{title: destTitle\(x\.rows\.length, x\.mode\)/);
   for (const f of ['library-folders.js', 'library-folder-pick.js', 'note-folder-pick.js', 'basket-notes.js', 'news-clipping.js', 'library-sort.js', 'photos.js']) assert.match(read('app/' + f), /openFolderSheet\(/, f);

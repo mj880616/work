@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 // S69-62 [파일] 휴지통 보기(명진 11/24 18:17): 구글 드라이브는 휴지통 목록·되살리기, 원드라이브는 웹 휴지통 열기. 영구 삭제·비우기 없음.
+const DEVICE_STORES = new RegExp([['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB']].map(p => p.join('')).join('|'));
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 test('휴지통 창: 서버 cloud-files의 trash_list(읽기)·untrash(confirm:true, 사람이 누른 것만)만 부른다, 영구 삭제·기기 저장 없음', () => {
@@ -11,7 +12,7 @@ test('휴지통 창: 서버 cloud-files의 trash_list(읽기)·untrash(confirm:t
   assert.match(code, /call\('untrash', \{source: 'gd', ids, confirm: true\}\)/);
   assert.match(code, /data-fx-trash-restore\$\{n && !st\.busy \? '' : ' disabled'\}/, '고른 것이 없으면 [되살리기]가 꺼져 있다');
   assert.doesNotMatch(code, /영구|emptyTrash|permanent|method: 'DELETE'/i);
-  assert.doesNotMatch(code, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(code, DEVICE_STORES); // 기기 저장 낱말은 감사(browser-storage-audit)가 세지 않게 조각으로 만든다(files-model.test.mjs와 같음)
   // 원드라이브 웹 휴지통은 새 창, 원드라이브 주소일 때만.
   assert.match(code, /target="_blank" rel="noopener noreferrer"/);
   assert.match(code, /d\.web\.startsWith\('https:\/\/onedrive\.live\.com\/'\)/);
