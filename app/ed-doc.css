@@ -76,6 +76,9 @@
 /* NOTE-제목서식줄고정(S61-16 ②): 위에 붙는 것은 서식 줄 하나가 아니라 [제목 칸(lead)·서식 줄·창 제목 줄(head)] 띠 하나(.ed-stick).
    붙는 자리는 공용 값 --kptu-stick-top(PC = 맨 위 줄 아래, 폰 = 0; desktop-ui.css). 큰 쓰기 창은 #appView 밖이라 값이 없어 0 = 창 안 스크롤 맨 위.
    예전에는 서식 줄이 top:0에 붙어 PC 맨 위 줄(고정) 뒤로 들어가 가려졌다(원인). */
+/* NOTE-노션편집 ①(가): 띠 안 펼침 상자(묶음·글자색 등, position:fixed)는 이 띠의 쌓임 안에 그려진다. 짧은 글에서 상자가 아래 저장 줄(.save-row-sticky, z 6)까지
+   내려오면 그 줄 밑에 깔려 눌리지 않았다(원인 — PC도 묶음 상자를 쓰게 되며 드러남). 펼침 상자가 열려 있는 동안만 띠를 저장 줄보다 한 칸 위(7)에 둔다(평소에는 그대로 2). */
+.ed-stick:has(.ed-pop:not([hidden])){z-index:7}
 .ed-stick{position:sticky;top:var(--kptu-stick-top,0px);z-index:2;background:var(--kptu-surface);border-top-left-radius:inherit;border-top-right-radius:inherit}
 .ed-bar{background:var(--kptu-surface);border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-top-left-radius:inherit;border-top-right-radius:inherit}
 .ed-stick>.ed-bar:not(:first-child){border-top-left-radius:0;border-top-right-radius:0}
