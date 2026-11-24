@@ -9,7 +9,7 @@
 import {partStyles} from './part-styles.js';
 import {MEMO_LIMITS, memoDraft, memosOf, memoSource, memoLink, memoFeature, GONE_LINE} from './memo-model.mjs';
 import {memosNow, memoState, loadMemos, onMemos, leaveMemo, editMemo, removeMemo, restoreMemo} from './memo-store.js';
-import {takeMemoReveal} from './memo-open.js';
+import {takeMemoReveal} from './memo-reveal.js';
 import {noteLineDate} from './note-tree.mjs';
 import {notify} from './small-notice.js';
 import {waitInlineHtml} from './wait-state.js';

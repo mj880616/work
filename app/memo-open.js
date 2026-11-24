@@ -8,15 +8,8 @@ import {requestLibraryDocument} from './basket-library-send.js';
 import {noteExists} from './memo-store.js';
 import {notify} from './small-notice.js';
 
-let pending = null; // {key: 'type:id', memo: id}
-export function requestMemoReveal(type, id, memo) { pending = memo ? {key: memoKey(type, id), memo} : null; }
-// 원문 메모 칸이 붙을 때: 그 원문에 남긴 요청이면 메모 id를 꺼낸다(한 번).
-export function takeMemoReveal(type, id) {
-  if (!pending || pending.key !== memoKey(type, id)) return null;
-  const v = pending.memo; pending = null; return v;
-}
-// 원문 화면이 메모 칸을 펼쳐야 하는지(기록 ⋯ [메모]처럼 메모 칸이 늘 보이지 않는 곳): 그 종류의 요청이면 대상 id(꺼내지 않음).
-export const pendingMemoTarget = type => (pending && pending.key.startsWith(`${type}:`) ? pending.key.slice(type.length + 1) : null);
+export {requestMemoReveal, takeMemoReveal, pendingMemoTarget} from './memo-reveal.js';
+import {requestMemoReveal} from './memo-reveal.js';
 // S69-95: 운영자 기능에 달린 메모(텔레그램)는 그 기능이 잠겨 있으면 모아 보기에서 글·제목을 가린다(밑줄 모아 보기와 같은 판정, feature-lock.js).
 export function memoLocked(memo) {
   const f = memoFeature(memo), lock = window.KPTUFeatureLock;
