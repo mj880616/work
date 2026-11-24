@@ -25,7 +25,7 @@ function ensureBar() {
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-label', '선택한 글');
   bar.hidden = true;
-  bar.innerHTML = '<span class="hl-bar-label">선택한 글</span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="선택 끝내기">✕</button>';
+  bar.innerHTML = '<span class="hl-bar-label">선택한 글</span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="reply">답글</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="선택 끝내기">✕</button>';
   // 줄을 누를 때 PC는 고른 글이 풀리지 않게(폰은 풀려도 받아 둔 글로 실행).
   const keep = e => { pressAt = Date.now(); if (e.target.closest('button')) e.preventDefault(); };
   bar.addEventListener('pointerdown', keep);
@@ -38,6 +38,7 @@ function paint() {
   const b = ensureBar(), z = picked?.z;
   b.querySelector('[data-hl-bar="save"]').hidden = !z?.onSave;
   b.querySelector('[data-hl-bar="note"]').hidden = !z?.onNote;
+  b.querySelector('[data-hl-bar="reply"]').hidden = !z?.onReply;
   b.querySelector('[data-hl-bar="share"]').hidden = !canShare();
   b.hidden = !picked;
   if (picked) place(); else unfollow();
@@ -117,7 +118,7 @@ async function act(kind, button) {
   const p = picked;
   if (kind === 'close') { window.getSelection?.()?.removeAllRanges(); hide(); return; }
   if (!p) return;
-  if (tooLong(p.text) && (kind === 'save' || kind === 'note')) { notify('선택한 글이 너무 길어요 · 4000자까지', {error: true, record: false}); return; }
+  if (tooLong(p.text) && (kind === 'save' || kind === 'note' || kind === 'reply')) { notify('선택한 글이 너무 길어요 · 4000자까지', {error: true, record: false}); return; }
   const src = p.z.source?.(p.zoneEl) || null;
   const draft = draftOf(src, p.text);
   if (!draft.quote && kind !== 'copy' && kind !== 'share') return;
@@ -135,7 +136,7 @@ async function act(kind, button) {
     catch (e) { if (e?.name !== 'AbortError') notify('공유 창을 열지 못했어요', {error: true, record: false}); }
     return;
   }
-  const run = kind === 'save' ? p.z.onSave : p.z.onNote;
+  const run = kind === 'save' ? p.z.onSave : kind === 'reply' ? p.z.onReply : p.z.onNote;
   if (!run) return;
   window.getSelection?.()?.removeAllRanges();
   hide();
@@ -144,10 +145,11 @@ async function act(kind, button) {
 
 let bound = false;
 // container: 글 칸이 들어 있는 화면 칸(상세 칸 등). zone: 글 칸 선택자. source(zoneEl) → {type, id, title, media, date, url}.
-// onSave·onNote(info): 없으면 그 버튼을 감춘다. info = {zoneEl, source, quote, start, end, anchor}.
-export function bindSelectZone(container, {zone, source, onSave = null, onNote = null} = {}) {
+// onSave·onNote·onReply(info): 없으면 그 버튼을 감춘다. info = {zoneEl, source, quote, start, end, anchor}.
+// onReply(S69-86 BRIEF-밑줄노트): [답글] — 고른 글에 메모를 달아 노트로(지금은 브리핑 룸만 켠다).
+export function bindSelectZone(container, {zone, source, onSave = null, onNote = null, onReply = null} = {}) {
   if (!container || !zone) return;
-  zones.push({container, zone, source, onSave, onNote});
+  zones.push({container, zone, source, onSave, onNote, onReply});
   if (!bound) {
     bound = true;
     document.addEventListener('selectionchange', onSelection);

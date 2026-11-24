@@ -4,26 +4,37 @@
 // - 표가 아직 없으면(DB 적용 전, PostgREST 404/PGRST205) ready=false·missing=true: 보드는 카드만 그리고, 선을 그으려 하면 '준비 중'으로 알린다.
 // - S68-38c 칸(글 상자 끝·곡선 지나는 점)이 아직 없으면(20261123120000 적용 전) 옛 칸으로 다시 읽어 선은 그대로 쓰고(v2=false),
 //   글 상자·글 상자 잇기·곡선만 '준비 중'으로 알린다.
+// - S69-82 생각 지도 칸(가지 관계·순서·쪽·종류·색·모양·글자 크기·폭·접힘, migration 20261125000000)이 아직 없으면 글 상자를 옛 칸으로 다시 읽어
+//   혼자 선 상자로 쓰고(mindmap=false), 가지 만들기·꾸미기만 '준비 중'으로 알린다. 읽은 줄은 note-board-mindmap-model.mjs nodeShape 모양.
 // - 화면은 바로 바뀌고(서버 답을 기다리지 않음) 실패하면 알리고 서버 값으로 다시 불러온다.
 import { parseLink, parseText, endId } from './note-board-links-model.mjs';
+import { nodeShape } from './note-board-mindmap-model.mjs';
 
 const ws = rt => { const id = rt.context.read()?.workspace?.id; if (!id) throw new Error('작업공간을 확인하지 못했어요.'); return id; };
 const FIELDS_V1 = 'id,board_id,from_note,to_note,from_side,to_side,shape,dash,ends,label';
 const FIELDS = FIELDS_V1 + ',from_text,to_text,bend_x,bend_y';
-const TEXT_FIELDS = 'id,board_id,body,x,y';
+const TEXT_FIELDS_V2 = 'id,board_id,body,x,y';
+const MAP_KEYS = ['parent_id', 'ord', 'side', 'kind', 'color', 'shape', 'font', 'w', 'collapsed'];
+const TEXT_FIELDS = `${TEXT_FIELDS_V2},${MAP_KEYS.join(',')}`;
 const TABLE = '/rest/v1/app_note_board_links', TEXTS = '/rest/v1/app_note_board_texts';
 const V2_KEYS = ['from_text', 'to_text', 'bend_x', 'bend_y'];
 const enc = encodeURIComponent;
 const errText = error => `${error?.status || ''} ${error?.code || ''} ${error?.message || ''}`;
 const missingTable = (error, name = 'app_note_board_links') => new RegExp(`404|PGRST205|42P01|${name}`).test(errText(error));
 const missingColumn = error => /42703|PGRST204|from_text|to_text|bend_x|bend_y/.test(errText(error));
+const missingMapColumn = error => /42703|PGRST204|parent_id|collapsed|column .* does not exist/.test(errText(error)) && !/404|PGRST205|42P01/.test(errText(error));
+const toNode = row => nodeShape(parseText(row), row);
 
 // 읽기: 새 칸으로 읽고, 칸이 없으면 옛 칸으로. 글 상자 표는 같이(동시에) 묻고, 없으면 글 상자만 준비 안 됨.
 export async function readBoardLinks(rt = window.KPTURuntime) {
   const where = `workspace_id=eq.${enc(ws(rt))}`;
   const get = fields => rt.api(`${TABLE}?${where}&select=${fields}&order=created_at.asc,id.asc&limit=10000`);
   const linksAsk = get(FIELDS);
-  const textsAsk = rt.api(`${TEXTS}?${where}&select=${TEXT_FIELDS}&order=created_at.asc,id.asc&limit=10000`).then(got => ({ok:true, got}), () => ({ok:false}));
+  const getTexts = fields => rt.api(`${TEXTS}?${where}&select=${fields}&order=created_at.asc,id.asc&limit=10000`);
+  const textsAsk = getTexts(TEXT_FIELDS).then(got => ({ok:true, got, mindmap:true}), async error => {
+    if (!missingMapColumn(error)) return {ok:false};
+    try { return {ok:true, got:await getTexts(TEXT_FIELDS_V2), mindmap:false}; } catch { return {ok:false}; }
+  });
   let rows, v2 = true;
   try { rows = await linksAsk; }
   catch (error) {
@@ -31,8 +42,8 @@ export async function readBoardLinks(rt = window.KPTURuntime) {
     try { rows = await get(FIELDS_V1); v2 = false; } catch (again) { await textsAsk; return {ready:false, links:[], missing:missingTable(again), texts:[], textsReady:false}; }
   }
   const t = await textsAsk, textsReady = v2 && t.ok;
-  const texts = textsReady ? (Array.isArray(t.got) ? t.got : []).map(parseText).filter(Boolean) : [];
-  return {ready:true, v2, links:(Array.isArray(rows) ? rows : []).map(parseLink).filter(Boolean), texts, textsReady};
+  const texts = textsReady ? (Array.isArray(t.got) ? t.got : []).map(toNode).filter(Boolean) : [];
+  return {ready:true, v2, links:(Array.isArray(rows) ? rows : []).map(parseLink).filter(Boolean), texts, textsReady, mindmap:textsReady && !!t.mindmap};
 }
 const v2Body = body => Object.fromEntries(Object.entries(body).filter(([k, v]) => !V2_KEYS.includes(k) || v != null));
 export async function addBoardLink({board_id, from_note = null, to_note = null, from_text = null, to_text = null, from_side = null, to_side = null, shape = 'line', dash = 'solid', ends = 'end', label = null, bend_x = null, bend_y = null}, rt = window.KPTURuntime, {v2 = true} = {}) {
@@ -61,27 +72,30 @@ export async function deleteBoardLinks(filter, rt = window.KPTURuntime) {
   } else throw new Error('삭제할 연결선을 확인하지 못했어요.');
   await rt.api(`${TABLE}?${q.join('&')}&select=id`, {method:'DELETE', prefer:'return=representation'});
 }
-// 글 상자 넣기·고치기(글·자리)·지우기({id} 하나 · {board_id} 그 보드 전부). 지우면 서버가 그 상자에 붙은 선도 지운다(cascade).
-export async function addBoardText({board_id, body, x, y}, rt = window.KPTURuntime) {
-  const rows = await rt.api(`${TEXTS}?select=${TEXT_FIELDS}`, {method:'POST', prefer:'return=representation', body:{workspace_id:ws(rt), board_id, body, x:Math.round(x), y:Math.round(y)}});
-  const text = Array.isArray(rows) && rows.length === 1 ? parseText(rows[0]) : null;
-  if (!text) throw new Error('글 상자를 저장하지 못했어요.');
+// 글 상자 넣기·고치기(글·자리·생각 지도 칸)·지우기({id} 하나 · {board_id} 그 보드 전부). 지우면 서버가 그 상자에 붙은 선과 그 아래 가지도 지운다(cascade).
+// mindmap=false(새 칸 적용 전)면 옛 칸만 보내고 옛 칸으로 받는다.
+const mapBody = patch => Object.fromEntries(MAP_KEYS.filter(k => Object.hasOwn(patch, k)).map(k => [k, patch[k]]));
+export async function addBoardText({board_id, body, x, y, ...rest}, rt = window.KPTURuntime, {mindmap = true} = {}) {
+  const sent = {workspace_id:ws(rt), board_id, body, x:Math.round(x), y:Math.round(y), ...(mindmap ? mapBody(rest) : {})};
+  const rows = await rt.api(`${TEXTS}?select=${mindmap ? TEXT_FIELDS : TEXT_FIELDS_V2}`, {method:'POST', prefer:'return=representation', body:sent});
+  const text = Array.isArray(rows) && rows.length === 1 ? toNode(rows[0]) : null;
+  if (!text) throw new Error('상자를 저장하지 못했어요.');
   return text;
 }
-export async function updateBoardText(id, patch, rt = window.KPTURuntime) {
-  const body = {};
+export async function updateBoardText(id, patch, rt = window.KPTURuntime, {mindmap = true} = {}) {
+  const body = mindmap ? mapBody(patch) : {};
   if (typeof patch.body === 'string') body.body = patch.body;
   for (const k of ['x', 'y']) if (Number.isFinite(patch[k])) body[k] = Math.round(patch[k]);
-  const rows = await rt.api(`${TEXTS}?id=eq.${enc(id)}&workspace_id=eq.${enc(ws(rt))}&select=${TEXT_FIELDS}`, {method:'PATCH', prefer:'return=representation', body});
-  const text = Array.isArray(rows) && rows.length === 1 ? parseText(rows[0]) : null;
-  if (!text) throw new Error('글 상자를 바꾸지 못했어요.');
+  const rows = await rt.api(`${TEXTS}?id=eq.${enc(id)}&workspace_id=eq.${enc(ws(rt))}&select=${mindmap ? TEXT_FIELDS : TEXT_FIELDS_V2}`, {method:'PATCH', prefer:'return=representation', body});
+  const text = Array.isArray(rows) && rows.length === 1 ? toNode(rows[0]) : null;
+  if (!text) throw new Error('상자를 바꾸지 못했어요.');
   return text;
 }
 export async function deleteBoardTexts(filter, rt = window.KPTURuntime) {
   const q = [`workspace_id=eq.${enc(ws(rt))}`];
   if (filter.id) q.push(`id=eq.${enc(filter.id)}`);
   else if (filter.board_id) q.push(`board_id=eq.${enc(filter.board_id)}`);
-  else throw new Error('삭제할 글 상자를 확인하지 못했어요.');
+  else throw new Error('삭제할 상자를 확인하지 못했어요.');
   await rt.api(`${TEXTS}?${q.join('&')}&select=id`, {method:'DELETE', prefer:'return=representation'});
 }
 
@@ -91,7 +105,7 @@ const needsV2 = body => V2_KEYS.some(k => body[k] != null);
 
 // 노트 화면 하나가 쓰는 연결선·글 상자 모음(한 작업공간). scope(): 지금 작업공간 표시(바뀌면 늦은 답은 버림). onChange: 다시 그리기. toast: 알림 한 줄.
 export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, onChange = () => {}, toast = () => {}} = {}) {
-  let links = [], texts = [], ready = false, v2 = false, textsReady = false, missing = false, loading = null, loadedFor;
+  let links = [], texts = [], ready = false, v2 = false, textsReady = false, mindmap = false, missing = false, loading = null, loadedFor;
   async function load(force = false) {
     const owner = scope();
     if (!force && loadedFor === owner) return loading; // 한 작업공간에 한 번(실패해도 다시 그릴 때마다 묻지 않음 — 선을 그으려 하면 알림)
@@ -99,27 +113,40 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
     const run = (async () => {
       const r = await readBoardLinks(rt);
       if (owner !== scope()) return;
-      links = r.links; ready = r.ready; v2 = !!r.v2; texts = r.texts || []; textsReady = !!r.textsReady; missing = !!r.missing; onChange();
+      links = r.links; ready = r.ready; v2 = !!r.v2; texts = r.texts || []; textsReady = !!r.textsReady; mindmap = !!r.mindmap; missing = !!r.missing; onChange();
     })();
     loading = run; try { await run; } finally { if (loading === run) loading = null; }
   }
   const failed = async text => { toast(text); await load(true); };
   const blocked = (body = null) => {
     if (ready && (!body || v2 || !needsV2(body))) return false;
-    if (ready) { toast('글 상자 잇기·곡선은 아직 서버에 저장할 수 없어요(준비 중).'); return true; }
+    if (ready) { toast('상자 잇기·곡선은 아직 서버에 저장할 수 없어요(준비 중).'); return true; }
     toast(missing ? '연결선은 아직 서버에 저장할 수 없어요(준비 중).' : '연결선을 불러오지 못했어요. 잠시 뒤 다시 해 주세요.');
     if (!missing && !loading) void load(true); // 잠깐 끊긴 것이면 다시 읽어 둔다
     return true;
   };
   const textBlocked = () => {
     if (textsReady) return false;
-    toast(ready && !v2 || missing ? '글 상자는 아직 서버에 저장할 수 없어요(준비 중).' : '글 상자를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.');
+    toast(ready && !v2 || missing ? '상자는 아직 서버에 저장할 수 없어요(준비 중).' : '상자를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.');
     if (!missing && !loading && (v2 || !ready)) void load(true);
     return true;
   };
+  // 가지·꾸미기(생각 지도 칸)를 쓸 수 있나 — 못 쓰면 알림 한 줄.
+  const mapBlocked = () => {
+    if (textBlocked()) return true;
+    if (mindmap) return false;
+    toast('가지 만들기·꾸미기는 아직 서버에 저장할 수 없어요(준비 중).');
+    return true;
+  };
+  const MAP_DEFAULTS = {parent_id:null, ord:0, side:null, kind:'topic', color:null, shape:'round', font:2, w:null, collapsed:false};
+  const needsMap = patch => MAP_KEYS.some(k => Object.hasOwn(patch, k) && patch[k] !== MAP_DEFAULTS[k]);
+  // 지운 상자 아래 가지 id(서버 cascade와 같게 화면에서도 함께 뺀다).
+  const branchOf = id => { const out = new Set([id]); let grew = true; while (grew) { grew = false; for (const t of texts) if (t.parent_id && out.has(t.parent_id) && !out.has(t.id)) { out.add(t.id); grew = true; } } return out; };
   return {
     load,
-    reset() { links = []; texts = []; ready = false; v2 = false; textsReady = false; missing = false; loadedFor = undefined; },
+    reset() { links = []; texts = []; ready = false; v2 = false; textsReady = false; mindmap = false; missing = false; loadedFor = undefined; },
+    mindmapReady:() => mindmap,
+    checkMindmap:() => !mapBlocked(),
     ready:() => ready,
     canBend:() => ready && v2,
     textsReady:() => textsReady,
@@ -160,31 +187,45 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
       try {
         if (textsReady && hitTexts.length) await deleteBoardTexts({board_id:boardId}, rt); // 글 상자 끝 선은 서버가 함께 지운다
         if (ready && hit.length) await deleteBoardLinks(note ? {board_id:boardId, note} : {board_id:boardId}, rt);
-      } catch { if (owner === scope()) await failed('연결선·글 상자를 다 정리하지 못했어요. 다시 불러올게요.'); }
+      } catch { if (owner === scope()) await failed('연결선·상자를 다 정리하지 못했어요. 다시 불러올게요.'); }
     },
     // ---- 글 상자 ----
     async addText(text) {
-      if (textBlocked()) return null;
-      const temp = {id:tempId('t'), ...text, pending:true};
+      if (needsMap(text) ? mapBlocked() : textBlocked()) return null;
+      const temp = {...nodeShape({id:tempId('t'), board_id:text.board_id, body:text.body, x:text.x, y:text.y}, text), pending:true};
       texts = [...texts, temp]; onChange();
       const owner = scope();
-      try { const saved = await addBoardText(text, rt); if (owner !== scope()) return null; texts = texts.map(t => (t.id === temp.id ? saved : t)); onChange(); return saved; }
-      catch { if (owner === scope()) await failed('글 상자를 저장하지 못했어요. 다시 불러올게요.'); return null; }
+      try { const saved = await addBoardText(text, rt, {mindmap}); if (owner !== scope()) return null; texts = texts.map(t => (t.id === temp.id ? saved : t)); onChange(); return saved; }
+      catch { if (owner === scope()) await failed('상자를 저장하지 못했어요. 다시 불러올게요.'); return null; }
     },
     async updateText(id, patch) {
-      if (textBlocked()) { onChange(); return; }
+      if (needsMap(patch) ? mapBlocked() : textBlocked()) { onChange(); return; }
       const old = texts.find(t => t.id === id); if (!old || old.pending) return;
       texts = texts.map(t => (t.id === id ? {...t, ...patch} : t)); onChange();
       const owner = scope();
-      try { const saved = await updateBoardText(id, patch, rt); if (owner === scope()) { texts = texts.map(t => (t.id === id ? saved : t)); onChange(); } }
-      catch { if (owner === scope()) await failed('글 상자를 바꾸지 못했어요. 다시 불러올게요.'); }
+      try { const saved = await updateBoardText(id, patch, rt, {mindmap}); if (owner === scope()) { texts = texts.map(t => (t.id === id ? saved : t)); onChange(); } }
+      catch { if (owner === scope()) await failed('상자를 바꾸지 못했어요. 다시 불러올게요.'); }
+    },
+    // 여러 상자를 한 번에(형제 순서 다시 매기기·가지 옮겨 붙이기): 화면은 한 번에 바꾸고 서버에는 줄마다 보낸다.
+    async updateTexts(list) {
+      const items = list.filter(({id}) => texts.some(t => t.id === id && !t.pending));
+      if (!items.length) return;
+      if (items.some(({patch}) => needsMap(patch)) ? mapBlocked() : textBlocked()) { onChange(); return; }
+      const by = new Map(items.map(({id, patch}) => [id, patch]));
+      texts = texts.map(t => (by.has(t.id) ? {...t, ...by.get(t.id)} : t)); onChange();
+      const owner = scope();
+      try {
+        const saved = await Promise.all(items.map(({id, patch}) => updateBoardText(id, patch, rt, {mindmap})));
+        if (owner === scope()) { const got = new Map(saved.map(t => [t.id, t])); texts = texts.map(t => got.get(t.id) || t); onChange(); }
+      } catch { if (owner === scope()) await failed('상자를 바꾸지 못했어요. 다시 불러올게요.'); }
     },
     async removeText(id) {
       if (textBlocked()) return;
       if (!texts.some(t => t.id === id && !t.pending)) return;
-      texts = texts.filter(t => t.id !== id); links = links.filter(l => !touches(l, id)); onChange();
+      const gone = branchOf(id);
+      texts = texts.filter(t => !gone.has(t.id)); links = links.filter(l => ![...gone].some(g => touches(l, g))); onChange();
       const owner = scope();
-      try { await deleteBoardTexts({id}, rt); } catch { if (owner === scope()) await failed('글 상자를 삭제하지 못했어요. 다시 불러올게요.'); }
+      try { await deleteBoardTexts({id}, rt); } catch { if (owner === scope()) await failed('상자를 삭제하지 못했어요. 다시 불러올게요.'); }
     },
   };
 }

@@ -1,13 +1,13 @@
 // NOTE-보드여러개 (요청함 10/30 05:48, 명진 결정 '위 추천안대로'): 보드 보기(옛 이름 포스트잇)의 보드 여러 개(화면 없음, 시험 가능).
 // - 보드 목록: 서버 화면 기억 view_prefs.note_boards = [{id, name}] (12개까지, 순서 = 보드 칸 순서). 마지막에 연 보드는
-//   view_prefs.note_board = 'all' | 보드 id. 모양 검사는 DB 검사(migration 20261030091000)와 같다(view-prefs.js validValue).
+//   view_prefs.note_board = 보드 id(DB 검사는 옛 값 'all'도 받지만 화면은 무시한다 — S69-83). 모양 검사는 DB 검사(migration 20261030091000)와 같다(view-prefs.js validValue).
 // - 보드에 붙인 노트와 그 자리: 노트 행의 기존 metadata.boards = {보드 id: {x, y, r, z}} (note-board-model.mjs placeShape와 같은 모양).
-//   [전체]는 지금 그대로 모든 노트 + metadata.board. 보드에서 빼기 = 그 키만 지우기(노트는 그대로). 같은 노트를 여러 보드에 붙일 수 있다.
+//   S69-83(명진 11/24 23:55 "전체는 불필요함 걍 없애"): 모든 노트를 늘어놓던 [전체]는 없앴다(옛 metadata.board 값은 지우지 않고 읽지도 않는다).
+//   보드에서 빼기 = 그 키만 지우기(노트는 그대로). 같은 노트를 여러 보드에 붙일 수 있다.
 //   보드를 지워도 노트는 그대로이고, 목록에 없는 보드 id의 자리는 읽을 때 무시한다(지운 보드의 자리는 화면이 따로 지운다).
 // - 기기 저장 없음.
 import { placeShape, clampPos, tiltFor, topZ, CARD_W, CARD_H, Z_MAX } from './note-board-model.mjs';
 
-export const ALL = 'all';
 export const BOARD_LIMITS = Object.freeze({count:12, name:20});
 export const BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
@@ -28,8 +28,8 @@ export function parseBoards(value) {
 }
 // 서버에 보낼 모양(그대로 DB 검사를 지난다).
 export const boardsToPrefs = boards => boards.map(b => ({id:b.id, name:b.name}));
-// 마지막에 연 보드: 목록에 있는 보드면 그 id, 아니면 [전체].
-export const pickBoard = (value, boards) => (typeof value === 'string' && boards.some(b => b.id === value) ? value : ALL);
+// 처음 열 보드: 마지막에 연 보드가 목록에 있으면 그 id, 아니면(옛 값 'all'·지운 보드) 가장 최근에 만든 보드(목록 끝), 보드가 없으면 null.
+export const pickBoard = (value, boards) => (typeof value === 'string' && boards.some(b => b.id === value) ? value : boards.at(-1)?.id ?? null);
 
 // 보드 이름(앞뒤 빈칸은 지움). 다른 보드와 같은 이름은 받지 않는다(보드 칸에서 구별이 안 되므로).
 export function validateBoardName(name, boards = [], exceptId = null) {
@@ -38,7 +38,6 @@ export function validateBoardName(name, boards = [], exceptId = null) {
   if (CONTROL.test(raw)) throw new Error('보드 이름은 한 줄로 써 주세요.');
   const value = raw.replace(/ {2,}/g, ' ');
   if ([...value].length > BOARD_LIMITS.name) throw new Error(`보드 이름은 ${BOARD_LIMITS.name}자까지 쓸 수 있어요.`);
-  if (value === '전체') throw new Error("'전체'는 보드 이름으로 쓸 수 없어요.");
   if (boards.some(b => b.id !== exceptId && b.name === value)) throw new Error('같은 이름의 보드가 있어요.');
   return value;
 }

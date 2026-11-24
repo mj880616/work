@@ -2,24 +2,29 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { segBox } from './helpers/seg-box.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 노트 검색 칸 오른쪽 [폴더|목록|보드](S68-38 옛 이름 포스트잇).
 // 목록 = 모든 노트 최근 고친 순 한 줄(폴더 꼬리표·날짜), 보드 = 끝없이 넓은 판 위 제목만 보이는 같은 크기 작은 카드(S68-38), 끌어 놓으면
-// metadata.board로 서버 저장(처음 옮길 때 아직 자리 없는 칸도 보이던 자리로 함께), 끈 칸은 맨 위. 검색은 세 보기 모두. 폰 412·884, PC 1440. 이름은 지어낸 것.
+// 그 보드의 metadata.boards[보드 id]로 서버 저장(S69-83: 모든 노트를 늘어놓던 [전체]는 없앴다 — 이름 붙은 보드 BID에 세 노트를 붙여 둔 채 시험), 끈 칸은 맨 위. 검색은 세 보기 모두. 폰 412·884, PC 1440. 이름은 지어낸 것.
 // 연결선(화살표)·두 손가락 확대·탭 넘김과의 관계는 note-board-map.spec.mjs.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const F = '00000000-0000-4000-8000-000000000001';
+const BID = 'bview001';
+const at = (x, y, z) => ({ boards: { [BID]: { x, y, r: 1, z } } });
 async function fixture(page, width) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], writes = [];
   page.on('pageerror', e => errors.push(e.message));
+  await installViewPrefsServer(page, { note_boards: [{ id: BID, name: '생각' }], note_board: BID });
   await openHome(page);
   const row = (id, title, updated_at, metadata = {}) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + '\n첫 줄 내용\n둘째 줄', occurred_at: updated_at, created_at: updated_at, updated_at, archived_at: null, ai_export_allowed: true, attachments: [], metadata });
   const rows = [
-    row('n1', '가 노트', '2026-10-10T01:00:00Z', { folder_id: F }),
-    row('n2', '나 노트', '2026-10-16T01:00:00Z'),
-    row('n3', '다 노트', '2026-10-12T01:00:00Z', { folder_id: F }),
+    // 자리는 옛 처음 배치(폴더끼리 모아 한 줄)와 같은 곳: 나(폴더 없음) → 다·가(회의).
+    row('n1', '가 노트', '2026-10-10T01:00:00Z', { folder_id: F, ...at(346, 24, 2) }),
+    row('n2', '나 노트', '2026-10-16T01:00:00Z', at(24, 24, 0)),
+    row('n3', '다 노트', '2026-10-12T01:00:00Z', { folder_id: F, ...at(196, 24, 1) }),
   ];
   const folders = [{ id: F, workspace_id: 'w', parent_id: null, name: '회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }];
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
@@ -68,7 +73,7 @@ for (const width of [412, 884, 1440]) {
     expect(new Set(sizes.map(s => s.join('x')))).toEqual(new Set(['128x34']));
     expect(await page.locator('[data-nb-card="n1"]').getAttribute('data-tone')).toBe(await page.locator('[data-nb-card="n3"]').getAttribute('data-tone'));
     expect(await page.locator('[data-nb-card="n2"]').getAttribute('data-tone')).toBe('none');
-    // 처음엔 카드가 모두 판 안에 보인다(전체 보기).
+    // 처음엔 카드가 모두 판 안에 보인다(맞추기).
     const sr = await page.locator('[data-nb-scroll]').boundingBox();
     for (const b of await cards.evaluateAll(list => list.map(el => { const r = el.getBoundingClientRect(); return {x:r.x, y:r.y, r:r.right, b:r.bottom}; })))
       expect(b.x >= sr.x && b.y >= sr.y && b.r <= sr.x + sr.width + 1 && b.b <= sr.y + sr.height + 1).toBe(true);
@@ -79,7 +84,7 @@ for (const width of [412, 884, 1440]) {
     await expect(cards).toHaveCount(1);
     await page.locator('[data-note-search]').fill('');
     await expect(cards).toHaveCount(3);
-    // [＋][－][전체]
+    // [＋][－][맞추기]
     const before = await zoomOf(page);
     await press(page, page.locator('[data-nb-zoom="1"]'), width);
     expect(await zoomOf(page)).toBeGreaterThan(before);
@@ -94,7 +99,7 @@ for (const width of [412, 884, 1440]) {
   });
 }
 
-test('보드 카드 끌어 놓기: 서버 저장(처음엔 모두), 끈 칸이 맨 위, 다시 그려도 그 자리 (1440)', async ({ page }) => {
+test('보드 카드 끌어 놓기: 그 보드 자리만 서버 저장, 끈 칸이 맨 위, 다시 그려도 그 자리 (1440)', async ({ page }) => {
   const { writes, errors } = await fixture(page, 1440);
   // S68-47: 보드를 열면 연결선·글 상자(app_note_board_links·texts)를 따로 읽고, 그 답이 오면 선·글 상자를 다시 그린다.
   // 그 답이 카드를 끄는 도중에 와도 끌기가 끊기지 않아야 한다(전에는 판 전체를 다시 그려 끌기가 취소되고 카드가 바뀌어 CI에서 두 번 실패).
@@ -113,8 +118,9 @@ test('보드 카드 끌어 놓기: 서버 저장(처음엔 모두), 끈 칸이 �
   await expect(card).toHaveClass(/nb-dragging/); // 끌기는 그대로 이어진다
   await page.mouse.move(box.x + 230, box.y + 180, { steps: 6 });
   await page.mouse.up();
-  await expect.poll(() => writes.filter(w => w.body?.metadata?.board).length).toBe(3);
-  const moved = writes.find(w => w.id === 'n1' && w.body.metadata.board).body.metadata.board;
+  await expect.poll(() => writes.filter(w => w.body?.metadata?.boards?.[BID]).length).toBe(1);
+  const moved = writes.find(w => w.id === 'n1' && w.body.metadata.boards?.[BID]).body.metadata.boards[BID];
+  expect(writes.every(w => w.body.metadata.board === undefined)).toBe(true); // 옛 [전체] 자리(metadata.board)는 쓰지 않는다
   expect(Object.keys(moved).sort()).toEqual(['r', 'x', 'y', 'z']);
   for (const w of writes) expect(w.body.updated_at).toBeUndefined(); // 옮기기는 고치기가 아니다
   const others = await Promise.all(['n2', 'n3'].map(id => z(page.locator(`[data-nb-card="${id}"]`))));
@@ -135,7 +141,7 @@ const touch = (cdp, type, pts) => cdp.send('Input.dispatchTouchEvent', { type, t
 const cardAt = l => l.evaluate(n => ({ x: parseFloat(n.style.left), y: parseFloat(n.style.top) }));
 async function center(l) { const b = await l.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }
 async function swipe(cdp, from, dx, dy, steps = 8) { for (let i = 1; i <= steps; i++) await touch(cdp, 'touchMove', [{ x: from.x + dx * i / steps, y: from.y + dy * i / steps }]); }
-const boardWrites = (writes, id) => writes.filter(w => w.id === id && w.body?.metadata?.board);
+const boardWrites = (writes, id) => writes.filter(w => w.id === id && w.body?.metadata?.boards?.[BID]);
 const viewOf = page => page.locator('[data-nb-board]').evaluate(n => { const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\) scale\(([\d.]+)\)/.exec(n.style.transform); return { x: Number(m[1]), y: Number(m[2]), z: Number(m[3]) }; });
 const zoomOf = async page => (await viewOf(page)).z;
 
@@ -152,7 +158,7 @@ for (const width of [412, 884]) {
     await expect.poll(() => boardWrites(writes, 'n2').length).toBe(1);
     let end = await cardAt(card);
     expect(Math.abs(end.x - start.x - 60 / zoom)).toBeLessThanOrEqual(2); expect(Math.abs(end.y - start.y - 40 / zoom)).toBeLessThanOrEqual(2);
-    expect(boardWrites(writes, 'n2')[0].body.metadata.board.x).toBe(end.x);
+    expect(boardWrites(writes, 'n2')[0].body.metadata.boards[BID].x).toBe(end.x);
     await expect(page.locator('[data-note-detail]')).toBeHidden();
     await expect(page.locator('#noteDocMenu')).toBeHidden();
     // 2) 꾹 누른 뒤 끌기: 떠오른 표시가 생기고 메뉴는 뜨지 않은 채 옮겨진다.
@@ -203,7 +209,7 @@ for (const width of [412, 884]) {
     const v1 = await viewOf(page);
     expect(Math.abs(v1.x - v0.x + 160)).toBeLessThanOrEqual(2); expect(Math.abs(v1.y - v0.y + 40)).toBeLessThanOrEqual(2);
     expect(await cardAt(card)).toEqual(at0);
-    expect(writes.filter(w => w.body?.metadata?.board)).toEqual([]);
+    expect(writes.filter(w => w.body?.metadata?.boards)).toEqual([]);
     await expect(view(page, 'board')).toHaveAttribute('aria-pressed', 'true'); // 판 위 옆 밀기는 탭 넘김이 아니다
     await press(page, page.locator('[data-nb-fit]'), width);
     // 가장 크게(2.5배): 손가락 90px = 판 위 36칸.

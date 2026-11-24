@@ -61,3 +61,11 @@
 #briefView .br-head{flex-wrap:wrap}
 #briefView .br-head .br-count{margin-right:auto;color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
 #briefView .br-menu-n{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+/* S69-86 BRIEF-밑줄노트: 글자 크기 [−][+](공용 text-size.js·모양 공용 ⑤ .ds-seg)와 [노트로 보관]은 머리 줄 끝. 본문·목록 줄 글자 = 기본 × --txs(단추가 칠함), 머리·단추는 그대로.
+   본문 글 선택·밑줄은 공용(text-select-bar.js 줄, news-mark-rows.css .hl-mark) — 여기서 모양을 정하지 않는다. */
+#briefView .br-head .txs,#briefView .br-head .br-archive{flex:none}
+#briefView .br-doc+.txs{margin-left:auto}
+#briefView .br-body .br-gist,#briefView .br-body .br-items,#briefView .br-body .br-q,#briefView .br-body .br-sec h3{font-size:calc(var(--ds-text-row) * var(--txs,1))}
+#briefView .br-body .br-ours,#briefView .br-body .br-ref,#briefView .br-body .br-pg,#briefView .br-body .br-sec h3 small{font-size:calc(var(--ds-text-meta) * var(--txs,1))}
+#briefView .br-rows .br-row{font-size:calc(var(--ds-text-row) * var(--txs,1))}
+#briefView .br-rows .br-one,#briefView .br-rows .br-st,#briefView .br-rows .br-k{font-size:calc(var(--ds-text-meta) * var(--txs,1))}
