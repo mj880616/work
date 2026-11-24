@@ -58,7 +58,7 @@ export function driveLineHtml(place, esc) {
   const p = cleanPlace(place);
   if (!p) return '';
   const where = p.path.map(esc).join(' › ');
-  return `<span class="lu-drive-where">구글 드라이브 · ${where}</span><a class="lu-drive-open" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="구글 드라이브에서 ${where} 열기">열기 ↗</a><button class="lu-drive-gather" type="button" title="앱이 쓰는 드라이브 폴더를 맨 위 앱 폴더 한곳 아래로">앱 폴더 모으기</button>`;
+  return `<span class="lu-drive-where">구글 드라이브 · ${where}</span><a class="lu-drive-open" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="구글 드라이브에서 ${where} 열기">열기 ↗</a><button class="row-act lu-drive-gather" type="button" title="앱이 쓰는 드라이브 폴더를 맨 위 앱 폴더 한곳 아래로">앱 폴더 모으기</button>`;
 }
 
 export function mountLibraryDriveLine({api, esc, el = () => document.querySelector('#libraryDriveLine'), ask = askConfirm, say = notify}) {

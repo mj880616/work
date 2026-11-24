@@ -226,10 +226,8 @@
 /* S69-20 ①: 자료실 저장 위치 한 줄(구글 드라이브 · 웹2 › 자료실  열기 ↗) — 작은 회색 글자, 열기만 링크 색 */
 .lu-drive-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);line-height:1.4}
 .lu-drive-line[hidden]{display:none}
-/* S69-22: 같은 줄 끝 작은 글자 버튼 [앱 폴더 모으기](크고 굵은 버튼 아님) */
-.lu-drive-gather{border:0;background:none;padding:0;font:inherit;color:var(--kptu-muted);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-.lu-drive-gather:hover,.lu-drive-gather:focus-visible{color:var(--kptu-text,inherit)}
-.lu-drive-gather:disabled{opacity:.5;cursor:default}
+/* S69-22: 같은 줄 끝 작은 글자 버튼 [앱 폴더 모으기] — 모양은 공용 row-act(글자 버튼), 여기서는 줄 글자 크기만 맞춘다 */
+.lu-drive-line .lu-drive-gather{font-size:inherit}
 .lu-drive-where{min-width:0;overflow-wrap:anywhere}
 .lu-drive-open{white-space:nowrap;color:var(--kptu-link);text-decoration:none}
 .lu-drive-open:hover,.lu-drive-open:focus-visible{text-decoration:underline}
