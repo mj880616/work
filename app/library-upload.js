@@ -1209,13 +1209,9 @@ document.addEventListener('keydown',e=>{
   if(!up&&luTreeBack)luLeaveFocus();else luEnterFolder(up);
 });
 document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [data-lu-path]');if(!b)return;e.preventDefault();if(!b.dataset.luPath&&luTreeBack)luLeaveFocus();else luEnterFolder(b.dataset.luPath||null)});
-// 폴더 줄을 두 번 누르면(PC 더블클릭, 폰 두 번 탭) 그 폴더로 들어간다. 첫 번째 누름의 펼치기·접기는 그대로 일어나고, 들어간 폴더는 열린 채로 보인다.
-document.addEventListener('dblclick',e=>{
-  const head=e.target.closest?.('#documentList summary.lu-node-head');if(!head||luGroupBy!=='folder'||e.target.closest('input,button,a'))return;
-  if(head.parentElement?.closest('[data-lu-enter]'))return; // S69-68: 탐색기 칸(오른쪽) 폴더 줄은 두 번 눌러도 들어가지 않는다 — 들어가기는 왼쪽 나무·⋯만
-  const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:')||key==='f:'+luInFolder)return;
-  e.preventDefault();window.getSelection?.()?.removeAllRanges?.();luEnterFolder(key.slice(2));
-});
+// S69-76 UI-두번누르기없앰(명진 11/24 21:30 '폴더 두번 누르면 들어가지는데 너무 민감 더블클릭 없애고 그 폴더에 들어가는 건 ... 해서 들어가기로만'):
+// 폴더 줄 두 번 누르기(PC 더블클릭·폰 두 번 탭)로 들어가던 처리를 지웠다 — 두 번 누르면 한 번 누르기 두 번(펼치기·접기)과 같다.
+// 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기](PC 우클릭 같은 메뉴)·두 손가락 벌리기만. 자료 줄 누르기·두 번 누르기는 그대로.
 // UI-폴더펼치면위로(S61-7): 다시 그리는 앞뒤를 공용 부품(ftKeepPlace)으로 감싼다 — 왼쪽 나무·두 칸 칸 안을 내려 둔 자리가 그대로 남는다.
 function luRenderLibrary(){const card=document.querySelector('#libraryListCard');return card?ftKeepPlace(card,luRenderLibraryNow):luRenderLibraryNow()}
 function luRenderLibraryNow(){const box=document.querySelector('#documentList');if(!box)return;luRenderTwoToggle();const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';const menuSpots=[luMenuSpot(luActiveMenu?.trigger),luMenuSpot(luFolderUi?.menuTrigger)];luApplyPlaceFolder();luRenderGroupBy();luSyncFind();luRenderProjectFilter();luRenderOrganizationFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
