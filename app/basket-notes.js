@@ -219,7 +219,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     openNoteMenu:(anchor, id, x, y) => { const n = notes.find(row => row.id === id); if (busy || selected || !n) return; window.KPTUContextMenu?.pinAt?.(anchor, x, y); openMenu(anchor, n, 'list'); },
     openFolderMenu:(anchor, id, x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(anchor, x, y); if (id) openMenu(anchor, null, 'folder', null, id); else openMenu(anchor, null, 'head'); },
     // S69 보드목록폴더놓기: 왼쪽 노트 목록의 노트를 폴더 줄에 놓으면 노트 목록 끌어 놓기와 같은 옮기기(moveItems: 저장·되돌리기 알림·목록 다시 그리기).
-    moveToFolder:(id, folderId) => moveItems({notes:[id], folders:[]}, folderId)});
+    moveToFolder:(id, folderId) => moveItems({notes:[id], folders:[]}, folderId),
+    // S69-33: 왼쪽 목록 노트 누르기 = 붙이지 않음. 이미 붙은 노트는 판에서 그 카드로, 아니면 노트 열기(노트 줄 누르기와 같은 길).
+    focusCard:id => !!board?.focusCard(id), centerPoint:() => board?.centerPoint() || null,
+    openNote:id => { if (busy || !notes.some(n => n.id === id)) return; open(id); }});
   // NOTE-읽생기아이디어 ①: 열린 노트의 댓글 칸(note-comments-ui.js가 그 칸의 유일한 renderer). 저장·지우기 뒤 목록 쪽 수만 다시 맞춘다.
   const noteComments = createNoteComments({esc, rt, list:{get:() => comments, set:fn => { comments = fn(comments); }},
     state:() => ({ready:commentsReady, missing:commentsMissing}), scope:() => scope()});
@@ -349,6 +352,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     board ??= mountNoteBoard(box, {esc, cardText:boardText, moreIcon:MORE_ICON,
       onMove:(id, next, before) => { if (boards.isNamed()) boards.move(id, next); else void saveBoard(id, next, before); },
       onDrop:(id, point, places) => boards.attach([id], point, places),
+      // S69-33: 고른 카드 함께 빼기(이름 붙은 보드), 전체 화면으로 키울 칸 = 보드 칸 전체(보드 칸 줄·왼쪽 목록 포함), 왼쪽 목록이 있나.
+      onRemove:ids => { if (!pick.active) boards.detach(ids); },
+      fullHost:() => host.querySelector('[data-note-board-wrap]'), hasSide:() => !host.querySelector('[data-nbb-side]').hidden,
       onMenu:(btn, x, y) => { window.KPTUContextMenu?.pinAt?.(btn, x, y); rowMenu(btn); },
       onBackgroundMenu:(x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(box, x, y); openMenu(box, null, 'board'); },
       onLinkAdd:link => { void boardLinks.add(link); }, onLinkChange:(id, patch) => { void boardLinks.update(id, patch); }, onLinkRemove:id => { void boardLinks.remove(id); },

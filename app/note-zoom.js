@@ -2,10 +2,11 @@
 // 화면 틀(메뉴·목록·머리 줄)은 그대로다 — 앱 창 전체 확대(브라우저 100%·110%)와 다르다.
 // - 배율은 서버 화면 기억 view_prefs.note_zoom 하나(모든 기기·모든 노트 같음, 기기 저장 없음). 없으면 100.
 //   DB 적용 전(쓰기 400)이면 view-prefs가 서버 값으로 되돌리므로 이번 접속에서 고른 값을 화면 메모리에만 들고 있는다(box-fold.js와 같은 방식).
-// - 단계: 80·90·100·110·125·150(%). [−]·[+]는 한 단계, 가운데 숫자는 100%로.
+// - 단계: 80·90·100·110·125·150(%). [−]·[+]는 한 단계, 가운데 숫자를 누르면 그 자리에 단계 목록(공용 zoom-pct.js, S69-33 — 보드 확대와 같은 모양).
 // - 바뀌면 'kptu:note-zoom' 하나를 알린다. 노트 글은 CSS 값(--note-zoom)으로, HTML 칸막이는 html-frame.js가 칸막이 안 문서에
 //   배율을 넣어 다시 그린다(칸막이의 sandbox·CSP는 그대로 — 바깥에서 안을 만지지 않는다).
 import {viewPrefs, NOTE_ZOOMS} from './view-prefs.js';
+import {bindZoomPct} from './zoom-pct.js';
 
 export {NOTE_ZOOMS};
 export const NOTE_ZOOM_EVENT = 'kptu:note-zoom';
@@ -39,16 +40,16 @@ export function zoomControl() {
   const node = document.createElement('span');
   node.className = 'nz-zoom ds-seg'; node.dataset.noteZoom = ''; node.setAttribute('role', 'group'); node.setAttribute('aria-label', '내용 크기');
   const make = (key, text, label) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'ds-seg-btn'; b.dataset[key] = ''; b.textContent = text; b.setAttribute('aria-label', label); b.title = label; return b; };
-  const out = make('noteZoomOut', '−', '내용 작게'), reset = make('noteZoomReset', '100%', '내용 크기 100%로'), into = make('noteZoomIn', '+', '내용 크게');
+  const out = make('noteZoomOut', '−', '내용 작게'), reset = make('noteZoomReset', '100%', '내용 크기'), into = make('noteZoomIn', '+', '내용 크게');
   node.append(out, reset, into);
+  const pct = bindZoomPct(reset, {levels: NOTE_ZOOMS, now: noteZoom, choose: setNoteZoom, label: '내용 크기'});
   const paint = () => {
     const z = noteZoom();
-    reset.textContent = z + '%';
+    pct.paint();
     out.disabled = z === NOTE_ZOOMS[0]; into.disabled = z === NOTE_ZOOMS[NOTE_ZOOMS.length - 1];
   };
   out.addEventListener('click', () => stepNoteZoom(-1));
   into.addEventListener('click', () => stepNoteZoom(1));
-  reset.addEventListener('click', () => stepNoteZoom(0));
   globalThis.addEventListener(NOTE_ZOOM_EVENT, paint);
   paint();
   return {node, paint, destroy: () => globalThis.removeEventListener(NOTE_ZOOM_EVENT, paint)};
@@ -72,7 +73,8 @@ export function zoomFoldControl() {
   const set = open => { wrap.classList.toggle('nz-open', open); btn.setAttribute('aria-expanded', String(open)); };
   const isOpen = () => wrap.classList.contains('nz-open');
   btn.addEventListener('click', () => set(!isOpen()));
-  const outside = e => { if (isOpen() && !wrap.contains(e.target)) set(false); };
+  // 가운데 비율 목록(공용 줄 메뉴 #rowMenu, 본문에 붙음) 안을 누르는 것은 바깥 누르기가 아니다.
+  const outside = e => { if (isOpen() && !wrap.contains(e.target) && !e.target.closest?.('#rowMenu')) set(false); };
   // 펼친 묶음만 접는다 — 같은 Esc가 노트 닫기(뒤로)까지 가지 않게 여기서 멈춘다.
   const esc = e => { if (e.key === 'Escape' && isOpen()) { e.preventDefault(); e.stopPropagation(); set(false); btn.focus({preventScroll: true}); } };
   document.addEventListener('pointerdown', outside, true);

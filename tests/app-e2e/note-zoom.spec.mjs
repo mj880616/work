@@ -76,8 +76,14 @@ for (const width of [1280, 412]) test(`[+]·[−]·숫자: 노트 글과 HTML �
   await expect(z.locator('[data-note-zoom-reset]')).toHaveText('150%');
   await expect(z.locator('[data-note-zoom-in]')).toBeDisabled();
   await expect.poll(() => server.value?.note_zoom).toBe(150);
-  // 가운데 숫자 = 100%: 서버 값은 지운다(기본), 칸막이 문서에 배율 없음.
+  // S69-33: 가운데 숫자를 누르면 그 자리에 단계 목록(지금 값에 체크) → 100%를 고르면 서버 값은 지운다(기본), 칸막이 문서에 배율 없음.
   await press(page, z.locator('[data-note-zoom-reset]'), width);
+  const pick = page.locator('#rowMenu');
+  await expect(pick).toBeVisible();
+  await expect(pick.locator('[data-row-item]')).toHaveText(['80%', '90%', '100%', '110%', '125%', '150%']);
+  await expect(pick.locator('[data-row-item="150"] path')).toHaveCount(1); // 지금 값에 체크
+  await press(page, pick.locator('[data-row-item="100"]'), width);
+  await expect(pick).toBeHidden();
   await expect(z.locator('[data-note-zoom-reset]')).toHaveText('100%');
   expect(await textZoom(d)).toBe('1');
   await expect.poll(() => frameZoom(d)).toBe('1');
