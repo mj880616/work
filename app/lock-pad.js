@@ -6,6 +6,10 @@
 // 문지기(feature-lock.js)는 이 모듈을 필요할 때 부르므로 여기서는 정적으로 부르지 않는다(Pages 빌드는 순환 참조를 받지 않음) — 늘 먼저 실린 window.KPTUFeatureLock을 쓴다.
 const lock = () => window.KPTUFeatureLock || {};
 import {hhmm} from './feed-model.mjs';
+import {partStyles} from './part-styles.js';
+// S69-87(명진 11/25 "꾸밈 적용 전 화면이 잠깐 떴다 꾸밈 화면으로 바뀜"): 판을 그리기 전에 모양 파일(lock.css)이 다 붙어 있게 한다.
+// 이 모듈이 열리기 전에(맨 위) 기다리므로 작은 PIN 창(unlockHere)도 잠금 화면(lock-ui.js)도 꾸밈 없는 판을 한 번도 보이지 않는다.
+await partStyles('lock-pad');
 
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; };
 const button = (className, text, data = {}) => { const b = el('button', className, text); b.type = 'button'; Object.assign(b.dataset, data); return b; };
@@ -37,6 +41,26 @@ export function padTyped(host, {digits = 0, msg = ''} = {}) {
   const note = host.querySelector('[data-lk-msg]'); if (note && note.textContent !== msg) note.textContent = msg;
   return true;
 }
+// S69-87(명진 11/25 "숫자를 빠르게 터치하면 씹힘"): 숫자·지우기 칸은 손가락을 대는 순간(pointerdown) 받는다.
+// 'click'은 뗄 때 같은 칸 위여야 생기는데, 눌림 모양으로 칸이 작아지거나·두 손가락이 겹치거나·판이 다시 그려지면 빠져 버렸다.
+// 손가락마다 따로 받으므로 두 손가락 번갈아·같은 숫자 연타도 한 번씩. 그 뒤 따라오는 click은 keyOfClick이 버린다
+// (키보드 Enter·Space로 누른 click은 detail 0이라 그대로 받는다).
+const KEY = 'button[data-lk-key],button[data-lk-back]';
+const keyOf = button => button.dataset.lkKey || 'back';
+export function onPadKeys(host, press) {
+  host?.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const b = event.target.closest?.(KEY);
+    if (!b || b.disabled || !host.contains(b)) return;
+    press(keyOf(b));
+  });
+}
+// 숫자·지우기 칸의 click: 손가락·마우스로 누른 것(detail > 0)은 이미 pointerdown에서 받았으므로 '' (무시), 키보드로 누른 것은 그 칸.
+// 숫자 칸이 아니면 null(다른 단추로 처리).
+export function keyOfClick(event) {
+  const b = event.target.closest?.(KEY); if (!b) return null;
+  return event.detail > 0 ? '' : keyOf(b);
+}
 export function tap() { try { navigator.vibrate?.(8); } catch {} }
 export function shake(host) {
   const dots = host?.querySelector('[data-lk-dots]'); if (!dots) return;
@@ -51,14 +75,13 @@ export function wrongMsg(res) {
 
 // ── 그 자리 풀기(작은 창) ────────────────────────────────────────────────────────────────────
 let here = null; // {dialog, title, from, digits, msg, busy, layer}
-function ensureStyle() {
-  const have = [...document.querySelectorAll('link[rel="stylesheet"]')].some(l => (l.getAttribute('href') || '').split('?')[0].split('/').at(-1) === 'lock.css');
-  if (have) return;
-  const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = './lock.css'; link.dataset.kptuViewStyle = '1'; document.head.append(link);
-}
 function draw() {
   if (!here) return;
-  here.dialog.replaceChildren(padBox({title: here.title, digits: here.digits.length, msg: here.msg, busy: here.busy, cancel: true}));
+  const dialog = here.dialog, active = document.activeElement;
+  const kept = !active || active === document.body || dialog.contains(active);
+  dialog.replaceChildren(padBox({title: here.title, digits: here.digits.length, msg: here.msg, busy: here.busy, cancel: true}));
+  // S69-87: 다시 그리면 누르던 칸이 사라져 초점이 창 밖으로 빠진다 — 창이 받게 해 키보드 숫자가 다음 시도에도 바로 들어가게.
+  if (kept && !dialog.contains(document.activeElement)) dialog.focus({preventScroll: true});
 }
 function finish({focus = true} = {}) {
   const h = here; if (!h) return;
@@ -94,21 +117,20 @@ function press(key) {
 }
 // title: 판 맨 위 한 줄(예: '통화·텔레그램 잠김'). from: 누른 줄(취소로 닫을 때 초점을 돌려줌).
 export function unlockHere({title = '잠김', from = null} = {}) {
-  ensureStyle();
   if (here) finish({focus: false});
   const dialog = document.createElement('dialog');
-  dialog.className = 'lk-here'; dialog.setAttribute('aria-label', title);
+  dialog.className = 'lk-here'; dialog.setAttribute('aria-label', title); dialog.tabIndex = -1;
   document.body.append(dialog);
   here = {dialog, title, from, digits: '', msg: '', busy: false, layer: null};
   const blocked = lock().settings?.()?.blocked_until;
   if (blocked && Date.parse(blocked) > Date.now()) here.msg = `여러 번 틀려 막혔어요 · ${hhmm(blocked)}에 다시 할 수 있어요`;
   dialog.addEventListener('click', event => {
     if (event.target === dialog) { finish(); return; } // 바깥(어두운 곳) 누르기
+    const key = keyOfClick(event); if (key != null) { if (key) press(key); return; }
     const t = event.target.closest?.('button'); if (!t) return;
-    if (t.dataset.lkKey) press(t.dataset.lkKey);
-    else if (t.hasAttribute('data-lk-back')) press('back');
-    else if (t.hasAttribute('data-lk-cancel')) finish();
+    if (t.hasAttribute('data-lk-cancel')) finish();
   });
+  onPadKeys(dialog, press);
   dialog.addEventListener('cancel', event => { event.preventDefault(); finish(); });
   dialog.addEventListener('keydown', event => {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
