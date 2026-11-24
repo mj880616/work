@@ -43,6 +43,7 @@ import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea,settleGestureAreas} from './gesture-fill.js';
 import {SPLIT_QUERY,NARROW_QUERY} from './screen-width.mjs';
 import {viewPrefs} from './view-prefs.js';
+import {mountLibraryCardSize} from './library-pane-size.js'; // S69-29 한 칸 탐색기: 나무 폭·카드 높이 끌기
 import {createLibraryTwo} from './library-two-pane.js';
 import {iconHtml,treeIconHtml} from './tree-icons.js';
 import {ftBindTreeArrows,ftKeepPlace,ftExplorePress,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
@@ -1129,7 +1130,8 @@ function luRenderFolderNav(tree){
   const card=document.querySelector('#libraryListCard');if(!card)return;
   const on=!!LU_SPLIT?.matches&&luGroupBy==='folder'&&luFoldersReady&&!luTwoActive(); // LIB-두칸보기: 두 칸이면 왼쪽 나무 자리에 왼쪽 칸
   let nav=card.querySelector(':scope > #libraryFolderNav');
-  if(!on){if(nav)nav.remove();delete card.dataset.luSplit;return}
+  const size=()=>mountLibraryCardSize(card,{split:()=>!!LU_SPLIT?.matches&&luGroupBy==='folder'&&luFoldersReady&&!luTwoActive()});
+  if(!on){if(nav)nav.remove();delete card.dataset.luSplit;size();return}
   if(!nav){nav=document.createElement('nav');nav.id='libraryFolderNav';nav.className='lu-fnav';nav.setAttribute('aria-label','자료실 폴더');card.prepend(nav)}
   card.dataset.luSplit='1';
   const path=luNavPath(),rows=[];
@@ -1146,6 +1148,7 @@ function luRenderFolderNav(tree){
   let inner=nav.querySelector(':scope > .lu-fnav-in');
   if(!inner){nav.innerHTML='<div class="lu-fnav-in" role="tree" aria-label="자료실 폴더 나무"></div>';inner=nav.firstElementChild}
   inner.innerHTML=`${top}${out}${rows.join('')}`;
+  size();
 }
 // S51-25 FOLDER-PC나무 → UI-폴더누르기한규칙(S57-5): 줄(이름·아이콘) 누르기 = 오른쪽은 그대로 두고 그 자리에서 펼치기·접기만(세모 없음). 들어가기 = 우클릭 [이 폴더로 들어가기]·두 손가락 벌리기.
 document.addEventListener('click',e=>{
