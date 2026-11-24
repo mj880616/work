@@ -10,14 +10,14 @@ begin;
 --   - RLS 켬. authenticated: owner 정책 하나(읽기·더하기·지우기). 고치기 권한 없음(짝을 다른 노트·페이지로 옮기지 못함).
 --     더할 때 노트가 같은 작업공간의 kind 'note'이고 페이지도 같은 작업공간이어야 한다. 노트 하나·페이지 하나에 짝 하나.
 --   - anon·PUBLIC 권한 없음. service_role(share-page-read)은 page_id·note_id 두 칸만 읽는다. 노트 표 권한·정책은 바꾸지 않는다.
--- 짝: docs/20261124220000_note_share_pages.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261124230000_note_share_pages.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261124220000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261124230000')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261020005000' and name = 'share_pages_links') <> 1
      or to_regclass('public.app_note_share_pages') is not null
      or to_regclass('public.app_share_pages') is null
@@ -80,5 +80,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261124220000', 'note_share_pages', array['NOTE-게시 ①: app_note_share_pages (share page row ↔ one note), owner RLS, no anon, service_role page_id·note_id SELECT only']);
+values ('20261124230000', 'note_share_pages', array['NOTE-게시 ①: app_note_share_pages (share page row ↔ one note), owner RLS, no anon, service_role page_id·note_id SELECT only']);
 commit;

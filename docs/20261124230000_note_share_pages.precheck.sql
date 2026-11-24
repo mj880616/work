@@ -16,7 +16,7 @@
 -- expect: existing tables grants hash = 기록
 -- expect: existing tables triggers hash = 기록
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261020005000' and name='share_pages_links')=1 then '예' else '아니오' end as value
-union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261124220000') then '예' else '아니오' end
+union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261124230000') then '예' else '아니오' end
 union all select 'new table absent',case when to_regclass('public.app_note_share_pages') is null then '예' else '아니오' end
 union all select 'note columns present',case when (select count(*) from pg_attribute where attrelid=to_regclass('public.app_notes') and attnum>0 and not attisdropped
   and attname in ('id','workspace_id','kind','title','doc','raw_text','deleted_at','archived_at'))=8 then '예' else '아니오' end

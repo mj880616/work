@@ -3,7 +3,7 @@
 -- triggers of app_share_pages, app_share_page_links and app_notes unchanged; no share page or link row added or removed).
 -- After apply also: RLS on the new table, one authenticated owner policy, no anon/PUBLIC privilege, service_role reads page_id·note_id only.
 with history as (
-  select count(*) as n,count(*) filter(where name='note_share_pages') as named from supabase_migrations.schema_migrations where version='20261124220000'
+  select count(*) as n,count(*) filter(where name='note_share_pages') as named from supabase_migrations.schema_migrations where version='20261124230000'
 )
 select 'new table and history agree' as item,case when (history.n=0 and to_regclass('public.app_note_share_pages') is null)
   or (history.n=1 and history.named=1 and to_regclass('public.app_note_share_pages') is not null) then '예' else '아니오' end as value

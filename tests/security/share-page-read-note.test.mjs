@@ -89,11 +89,11 @@ test('noteShowable needs the same id, kind note and no trash or keep; noteBlocks
 });
 
 test('the migration goes through the expanded one-approval plan; the reader reads two pair columns and seven note columns',()=>{
- assert.equal(prepareMigration({mode:'apply',version:'20261124220000',runId:'1',root:process.cwd()}).rules,'expanded');
+ assert.equal(prepareMigration({mode:'apply',version:'20261124230000',runId:'1',root:process.cwd()}).rules,'expanded');
  const index=readFileSync(new URL('../../supabase/functions/share-page-read/index.ts',import.meta.url),'utf8');
  assert.match(index,/from\("app_note_share_pages"\)\s*\.select\("note_id"\)\s*\.eq\("page_id", pageId\)/);
  assert.match(index,/from\("app_notes"\)\s*\.select\("id,kind,title,raw_text,doc,deleted_at,archived_at"\)\s*\.eq\("id", id\)\s*\.is\("deleted_at", null\)/);
- const sql=readFileSync(new URL('../../supabase/migrations/20261124220000_note_share_pages.sql',import.meta.url),'utf8');
+ const sql=readFileSync(new URL('../../supabase/migrations/20261124230000_note_share_pages.sql',import.meta.url),'utf8');
  assert.match(sql,/grant select \(page_id, note_id\) on table public\.app_note_share_pages to service_role;/);
  assert.doesNotMatch(sql,/to anon|to public\b/i);
 });

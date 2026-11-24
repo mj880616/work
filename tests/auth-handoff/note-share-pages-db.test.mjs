@@ -13,7 +13,7 @@ import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
 import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
-const base='20261020005000_share_pages_links',version='20261124220000',name='note_share_pages',stem=version+'_'+name;
+const base='20261020005000_share_pages_links',version='20261124230000',name='note_share_pages',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
 // The note table as far as this migration reads it (columns, owner RLS, authenticated table grants; no anon).
