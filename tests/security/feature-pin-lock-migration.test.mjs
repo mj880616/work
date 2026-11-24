@@ -81,7 +81,9 @@ test('wrong tries are counted on the server and never rolled back by an exceptio
 test('existing structures untouched; rollback drops only what this file made', () => {
   assert.doesNotMatch(code, /alter table public\.app_(workspaces|workspace_members|profiles)\b|(insert into|update|delete from) public\.app_workspace_members|function private\.app_is_workspace_owner|rtw_|create extension/i);
   // 뒤 단계 노트 폴더 잠금(20261119233000_note_folder_lock)은 이 표·함수를 고치지 않고 부르기만 한다(그 파일의 시험이 본다).
-  const others = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && f !== `${version}_${name}.sql` && f !== '20261119233000_note_folder_lock.sql'
+  // S69-08 앱 전체 잠금(20261124080000_app_lock_whole_app)은 features 검사와 목록 도우미 두 곳만 고친다(tests/security/app-lock-whole-app-migration.test.mjs가 본다).
+  const later = new Set(['20261119233000_note_folder_lock.sql', '20261124080000_app_lock_whole_app.sql']);
+  const others = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && f !== `${version}_${name}.sql` && !later.has(f)
     && /function (public|private)\.app_lock_|app_feature_locks/.test(readFileSync(`supabase/migrations/${f}`, 'utf8')));
   assert.deepEqual(others, []);
   const rollback = readFileSync(`docs/${version}_${name}.rollback.sql`, 'utf8').replace(/--.*$/gm, '');

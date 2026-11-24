@@ -4,12 +4,16 @@
 // 잠겼으면 잠금 화면(?view=lock, lock-ui.js가 유일한 renderer)으로 보낸다 — 잠긴 화면의 자료는 불러오지도 그리지도 않는다.
 // 풀림 상태·설정은 이 탭 메모리에만 둔다(새로고침·앱 다시 열기 = 다시 잠김). 브라우저 저장소에 PIN·풀림 상태를 두지 않는다.
 const LOCKABLE = { diary: 'diary', photos: 'photos', calls: 'calls', telegram: 'telegram' };
-export const FEATURE_NAMES = { diary: '하루 기록', photos: '사진', calls: '통화', telegram: '텔레그램 소식' };
+// S69-08 앱 전체 잠금(설계 9절): 'app'은 화면 하나가 아니라 앱 전체다. 켜 두면 잠금 화면 말고는 어떤 화면도 열지 않는다.
+// 풀림은 같은 PIN 한 번(기능 잠금과 함께 풀림), 다시 잠그기는 같은 설정이지만 시계는 따로다 — 앱 전체는 앱을 떠난 때(화면 숨김)부터 잰다.
+const APP = 'app';
+const KNOWN = new Set([APP, ...Object.values(LOCKABLE)]);
+export const FEATURE_NAMES = { app: '앱 전체', diary: '하루 기록', photos: '사진', calls: '통화', telegram: '텔레그램 소식' };
 export const RELOCK = [['now', '바로'], ['5m', '5분'], ['30m', '30분'], ['close', '앱 닫을 때']];
 const RELOCK_MS = { '5m': 5 * 60 * 1000, '30m': 30 * 60 * 1000 };
 
 const NONE = Object.freeze({ has_pin: false, features: [], relock: '5m', left: 5, blocked_until: null });
-const state = { settings: null, reading: null, failed: false, open: false, leftAt: null, pending: null, notes: null, held: null, spot: null };
+const state = { settings: null, reading: null, failed: false, open: false, leftAt: null, appOpen: false, appLeftAt: null, pending: null, notes: null, held: null, spot: null };
 // 노트 폴더 잠금(S67-14, docs/design/feature-pin-lock.md 7절): 서버가 준 잠근 폴더·덮인 하위 폴더·덮인 맨 위 폴더 이름(메모리만).
 const NO_NOTES = Object.freeze({ folders: [], covered: new Set(), topNames: new Set() });
 const ids = v => Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
@@ -19,7 +23,7 @@ const cleanNotes = value => value && typeof value === 'object' && Array.isArray(
 const quiet = status => status >= 400 && status < 500 && status !== 401;
 const changed = () => window.dispatchEvent(new CustomEvent('kptu:feature-lock-changed'));
 const clean = value => value && typeof value === 'object' && typeof value.has_pin === 'boolean' && Array.isArray(value.features)
-  ? { has_pin: value.has_pin, features: value.features.filter(f => LOCKABLE[f]), relock: RELOCK.some(([k]) => k === value.relock) ? value.relock : '5m',
+  ? { has_pin: value.has_pin, features: value.features.filter(f => KNOWN.has(f)), relock: RELOCK.some(([k]) => k === value.relock) ? value.relock : '5m',
       left: Number.isInteger(value.left) ? value.left : 5, blocked_until: typeof value.blocked_until === 'string' ? value.blocked_until : null }
   : null;
 
@@ -35,6 +39,8 @@ export function refresh() {
     state.notes = folders; // null = 이번에 못 읽음(아래 notesHidden이 PIN이 있으면 가린다)
     // 답 모양이 다르면(서버 함수가 아직 없거나 바뀜) 잠금 없음으로 본다 — 잠금은 화면 가림이고 자료 경계는 서버가 지킨다.
     state.settings = clean(value) || NONE; state.failed = false;
+    // 늦게 안 앱 전체 잠금(시작 때 기다림을 넘긴 때): 보고 있던 화면을 바로 가린다(쓰던 것은 붙든 채).
+    if (appOn() && !state.appOpen) queueMicrotask(relockCurrent);
     return state.settings;
   }).catch(error => {
     const status = Number(error?.status) || 0;
@@ -70,7 +76,41 @@ export function hides(feature) {
   expire();
   return !state.open;
 }
-export const locked = view => isLockable(view) && hides(LOCKABLE[view]);
+// ── 앱 전체 잠금(S69-08) ────────────────────────────────────────────────────────────────────
+// 설정 읽기가 실패했으면 앱 전체도 가린다(켜 두었는지 모르므로 — 잠금 화면이 [다시]를 보인다). 아직 읽는 중(느림)이면 앱을 멈춰 세우지 않는다:
+// 시작 순서는 설정을 잠시(loader-v2.js) 기다린 뒤 열고, 늦게 온 설정이 앱 전체 잠금이면 그때 바로 잠금 화면으로 옮긴다(refresh).
+export const appOn = () => !!state.settings?.features.includes(APP);
+function expireApp() {
+  if (!state.appOpen || state.appLeftAt === null || !state.settings) return;
+  const ms = RELOCK_MS[state.settings.relock];
+  if (ms && Date.now() - state.appLeftAt >= ms) { state.appOpen = false; state.appLeftAt = null; queueMicrotask(changed); }
+}
+export function appLocked() {
+  if (!state.settings) return state.failed;
+  if (!appOn()) return false;
+  expireApp();
+  return !state.appOpen;
+}
+// 잠금 화면으로 가려야 하나: 잠근 기능 화면이거나, 앱 전체가 잠겼으면 잠금 화면 말고 모두.
+export const locked = view => !!view && view !== 'lock' && ((isLockable(view) && hides(LOCKABLE[view])) || appLocked());
+// 잠금 화면이 PIN 뒤에 돌려보낼 수 있는 화면인가(새로고침한 ?view=lock&for=…): 잠근 기능 화면, 앱 전체 잠금이 켜졌으면 어떤 화면이든.
+export const canReturnTo = view => !!view && view !== 'lock' && (isLockable(view) || (appOn() && window.KPTUViewLoader?.normalize?.(view) === view));
+// 시작 문지기(loader-v2.js): 앱 전체가 잠겼으면 첫 화면 프로그램·자료를 받기 전에 잠금 화면만 열고, 풀릴 때까지 기다린다.
+// 주소는 바꾸지 않는다(updateUrl:false) — 풀리면 시작 순서가 원래 주소의 첫 화면을 그대로 연다(이 모듈은 그 화면으로 가지 않는다).
+// renew: PIN 잊음에서 구글 로그인을 다시 하고 돌아온 길(잠금 화면이 새 PIN 정하기를 연다).
+export function startGate(view, { renew = false } = {}) {
+  return new Promise(resolve => {
+    const done = () => {
+      if (appLocked()) return;
+      window.removeEventListener('kptu:feature-lock-changed', done);
+      if (state.pending?.startup) state.pending = null;
+      resolve();
+    };
+    window.addEventListener('kptu:feature-lock-changed', done);
+    state.pending = { view, sub: null, startup: true, ...(renew ? { renew: true } : {}) };
+    window.KPTURouter?.go?.('lock', { source: 'startup', scroll: false, updateUrl: false });
+  });
+}
 // 잠금이 켜진 기능만(설정을 아직 모르면 null) — 다른 화면 미리보기가 '잠김' 한 줄을 쓸지 정할 때.
 export const anyHidden = (...features) => features.some(f => hides(f));
 
@@ -101,7 +141,7 @@ export function noteHidden(note) {
 export function applyNoteFolders(result) {
   const next = cleanNotes(result); if (next) state.notes = next;
   if (state.settings && !state.settings.has_pin) state.settings = { ...state.settings, has_pin: true };
-  state.open = true; state.leftAt = Date.now();
+  state.open = true; state.leftAt = Date.now(); state.appOpen = true; state.appLeftAt = null;
   changed();
 }
 // 잠긴 노트·폴더를 열려 할 때: 잠금 화면 숫자 판으로 보내고, 맞으면 정리함(노트)으로 돌아온다.
@@ -127,6 +167,8 @@ export function guard(view, { source = 'api', sub = null, hold = false } = {}) {
   // 잠금이 쓰던 것을 붙들고 있는 화면(held, 아래 relockCurrent)은 PIN을 풀기 전에는 다른 길(메뉴·뒤로가기)로도 다시 보이지 않게 한다.
   if (!locked(view) && !(state.held === view && heldHidden(view))) { if (state.held === view && !state.pending) state.held = null; return false; }
   hold ||= state.held === view;
+  // 시작 문지기가 이미 잠금 화면을 열어 두었으면(앱 전체, startup) 그 일을 덮지 않는다.
+  if (state.pending?.startup && window.KPTURouter?.current === 'lock') return true;
   state.pending = { view, sub, ...(hold ? { hold: true } : {}) };
   if (hold) state.held = view;
   window.KPTURouter?.go?.('lock', { source: 'api', replaceUrl: source === 'popstate' || source === 'startup' || source === 'restore', ...(hold ? { hold: true } : {}) });
@@ -137,18 +179,19 @@ export const pending = () => state.pending;
 export const clearPending = () => { state.pending = null; state.held = null; };
 
 // 서버가 맞다고 한 뒤에만 부른다. 잠근 기능 모두 함께 풀린다(PIN 하나).
+// 앱 전체 잠금도 함께 풀린다. 시작 문지기가 연 잠금 화면(startup)이면 화면 이동은 시작 순서가 한다.
 export function markOpen({ thenGo = true } = {}) {
-  state.open = true; state.leftAt = null;
-  const target = state.pending; state.pending = null; state.held = null;
+  state.open = true; state.leftAt = null; state.appOpen = true; state.appLeftAt = null;
+  const target = state.pending; state.pending = target?.startup ? target : null; state.held = null;
   changed();
-  if (thenGo && target) window.KPTURouter?.go?.(target.view, { source: 'api', replaceUrl: true, ...(target.sub ? { sub: target.sub } : {}), ...(target.hold ? { hold: true } : {}) });
+  if (thenGo && target && !target.startup) window.KPTURouter?.go?.(target.view, { source: 'api', replaceUrl: true, ...(target.sub ? { sub: target.sub } : {}), ...(target.hold ? { hold: true } : {}) });
 }
 // ── 그 자리 풀기(S67-25) ───────────────────────────────────────────────────────────────────
 // 다른 화면의 '잠김' 줄(data-lock-here="기능 이름 …" 또는 "notes")을 누르면 화면을 떠나지 않고 작은 PIN 창(lock-pad.js, 잠금 화면과 같은 숫자 판).
 // 서버가 맞다고 한 뒤 openHere()가 푼다 — 그 화면(spot)은 잠근 것을 보여 주는 화면으로 쳐서, 다시 잠그기 시간은 잠근 화면과 같은 규칙
 // (그 화면을 떠난 때부터 재고, '바로'는 떠나면 바로, '앱 닫을 때'는 앱을 닫으면).
 export function openHere() {
-  state.open = true; state.leftAt = null;
+  state.open = true; state.leftAt = null; state.appOpen = true; state.appLeftAt = null;
   state.spot = window.KPTURouter?.current || null;
   changed();
 }
@@ -174,9 +217,9 @@ window.addEventListener('click', event => {
 export function applySaved(next) {
   if (next && Array.isArray(next.features)) {
     state.settings = { ...(state.settings || { has_pin: true, left: 5, blocked_until: null }), has_pin: true,
-      features: next.features.filter(f => LOCKABLE[f]), relock: next.relock || state.settings?.relock || '5m', left: 5, blocked_until: null };
+      features: next.features.filter(f => KNOWN.has(f)), relock: next.relock || state.settings?.relock || '5m', left: 5, blocked_until: null };
   }
-  state.open = true; state.leftAt = Date.now();
+  state.open = true; state.leftAt = Date.now(); state.appOpen = true; state.appLeftAt = null;
   changed();
 }
 export function noteBlocked(result) {
@@ -224,21 +267,32 @@ document.addEventListener('click', event => {
   if (t instanceof HTMLInputElement && t.type === 'file' && !t.disabled) stepOut();
 }, true);
 const awayLimit = () => RELOCK_MS[state.settings?.relock] || PICK_AWAY_MS;
+// 앱 전체(S69-08): 앱을 떠나면(화면 숨김) '바로'·'앱 닫을 때'는 곧바로, 5분·30분은 그때부터 재서 돌아왔을 때 지났으면 잠근다.
+function appAway(hidden) {
+  if (!appOn() || !state.appOpen) return;
+  if (hidden) {
+    if (state.settings.relock === 'close' || state.settings.relock === 'now') { state.appOpen = false; state.appLeftAt = null; changed(); }
+    else state.appLeftAt = Date.now();
+  } else { expireApp(); if (state.appOpen) state.appLeftAt = null; }
+}
 document.addEventListener('visibilitychange', () => {
   const hidden = document.visibilityState === 'hidden';
-  if (hidden && state.settings && state.open && Date.now() - steppedAt < STEP_MS) { steppedAt = 0; pickedAwayAt = Date.now(); return; }
+  if (hidden && state.settings && (state.open || state.appOpen) && Date.now() - steppedAt < STEP_MS) { steppedAt = 0; pickedAwayAt = Date.now(); return; }
   steppedAt = 0;
   if (!hidden && pickedAwayAt !== null) {
     const away = Date.now() - pickedAwayAt; pickedAwayAt = null;
-    if (state.settings && state.open && away >= awayLimit()) { state.open = false; state.leftAt = null; changed(); relockCurrent(); return; }
-    expire(); if (!state.open) relockCurrent();
+    if (state.settings && (state.open || state.appOpen) && away >= awayLimit()) {
+      state.open = false; state.leftAt = null; state.appOpen = false; state.appLeftAt = null; changed(); relockCurrent(); return;
+    }
+    expire(); expireApp(); relockCurrent();
     return;
   }
   pickedAwayAt = null;
-  if (!state.settings || !state.open) { if (hidden) relockCurrent(); return; }
+  appAway(hidden);
+  if (!state.settings || !state.open) { relockCurrent(); return; }
   const view = window.KPTURouter?.current;
   const onLocked = onLockedView(view);
-  if (document.visibilityState === 'hidden') {
+  if (hidden) {
     if (state.settings.relock === 'close' || state.settings.relock === 'now') { state.open = false; state.leftAt = null; changed(); }
     else if (onLocked) state.leftAt = Date.now();
     relockCurrent();
@@ -246,6 +300,7 @@ document.addEventListener('visibilitychange', () => {
     expire();
     if (onLocked && !state.open) relockCurrent();
     else if (onLocked) state.leftAt = null;
+    if (appLocked()) relockCurrent();
   }
 });
 // 'kptu:session-changed'는 같은 사람의 로그인 이어 가기(토큰 새로 받기)에도 온다. 로그인한 사람이 바뀌거나 나갔을 때만 모두 지우고 잠근다.
@@ -255,10 +310,11 @@ window.addEventListener('kptu:session-changed', () => {
   const next = ownerNow();
   if (next && next === owner) return;
   owner = next;
-  Object.assign(state, { settings: null, failed: false, open: false, leftAt: null, pending: null, notes: null, held: null, spot: null }); steppedAt = 0; pickedAwayAt = null;
+  Object.assign(state, { settings: null, failed: false, open: false, leftAt: null, appOpen: false, appLeftAt: null, pending: null, notes: null, held: null, spot: null }); steppedAt = 0; pickedAwayAt = null;
   changed();
 });
 
 window.KPTUFeatureLock = { refresh, ready, settings, readFailed, featureOf, isLockable, hides, locked, anyHidden, guard, pending, clearPending,
   markOpen, applySaved, noteBlocked, FEATURE_NAMES, RELOCK,
-  noteFolderLocks, hasNoteLocks, notesHidden, folderCovered, folderLocked, noteHidden, applyNoteFolders, askNotes, pendingNeedsPin, held, stepOut, openHere, askHere, askHereFrom };
+  noteFolderLocks, hasNoteLocks, notesHidden, folderCovered, folderLocked, noteHidden, applyNoteFolders, askNotes, pendingNeedsPin, held, stepOut, openHere, askHere, askHereFrom,
+  appOn, appLocked, canReturnTo, startGate };
