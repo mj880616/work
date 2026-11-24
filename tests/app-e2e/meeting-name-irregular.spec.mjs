@@ -110,14 +110,14 @@ for (const [label, size] of [['폰', {width: 390, height: 844}], ['PC', {width: 
     await expect(page.locator('#meetingParentsModal')).toBeHidden();
     await expect(page.locator('#meetingModal')).toBeVisible();
 
-    // ④ 새 회의명(기타(직접 입력))은 처음부터 비정기·상위를 고를 수 있다.
+    // ④ MTG-비정기회의바로쓰기(A안): 옛 '기타(직접 입력)' 옆 [정기 회의 ▾] 상자는 없다 — 정기/비정기는 회의명 자리 맨 위 붙은 버튼으로 고른다.
     await page.locator('#meetingNameSelect').click();
     await panel(page).locator('[data-mnp-pick="__other__"]').click();
     await page.locator('#meetingTitle').fill('새로 만든 모임');
-    await expect(page.locator('#meetingNameSort')).toBeVisible();
-    await expect(page.locator('#meetingNameSort option')).toHaveText(['정기 회의', '정기 · 가상협의회', '비정기 · 가상협의회', '정기 · 샘플 모임', '비정기 · 샘플 모임', '비정기 · 기타']);
-    await page.locator('#meetingTitle').fill('샘플 정기회의');
-    await expect(page.locator('#meetingNameSort')).toBeHidden();
+    await expect(page.locator('#meetingNameSort')).toHaveCount(0);
+    await expect(page.locator('#meetingNameMode [data-name-mode]')).toHaveText(['정기 회의', '비정기 회의']);
+    await expect(page.locator('#meetingNameMode [data-name-mode="regular"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#meetingNameAdhoc')).toBeHidden();
   });
 }
 
