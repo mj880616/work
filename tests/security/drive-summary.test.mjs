@@ -95,6 +95,8 @@ function harness(options = {}) {
       assert.match(q, /kptu_workspace/);
       assert.match(q, /trashed = false/);
       if (kind !== 'folder') assert.match(q, /'folder' in parents/);
+      // S69-22: 맨 위 사본 폴더는 자리 조건 없이 표식만(맨 위 앱 폴더 아래로 옮겨도 같은 폴더, 둘이면 실패).
+      else assert.doesNotMatch(q, /in parents/);
       if (options.discoveryPages && !url.searchParams.has('pageToken')) return reply({ files: [], nextPageToken: 'discovery-page-2' });
       if (options.duplicate && kind === 'folder') return reply({ files: [{ id: 'folder' }, { id: 'duplicate-folder' }] });
       return reply({ files: [...files.values()].filter(f => f.appProperties.kptu_summary === kind) });
