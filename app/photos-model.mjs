@@ -313,17 +313,19 @@ export function photoMoveTargets(tree, {moving = null, here = null} = {}) {
   return photoFolderRows(tree, () => true).filter(r => !skip.has(r.id)).map(r => ({...r, current: moving ? r.id === parentOfMoving : r.id === here}));
 }
 // 폴더 이름 규칙(서버 cleanFolderName과 같음): 원드라이브 금지 글자·제어 글자·끝 점·1~200자·휴지통 이름(새·옛) 거절. 맞으면 다듬은 이름, 아니면 null.
-// BRAND-웹2흔적지우기: 휴지통 이름은 '.노조+ 휴지통'. 옛 '.Web2 휴지통'은 서버가 쓸 때 새 이름으로 바꾼다(onedrive-photos/graph.ts).
-export const TRASH_FOLDER_NAME = '.노조+ 휴지통';
+// 사진 휴지통 폴더 이름(서버 onedrive-photos/graph.ts·_shared/brand-folders.mjs photo_trash와 같은 값).
+// S69-42(명진 11/24 15:46): 지금 이름은 누구나 '.WORK ON+ 휴지통'. 옛 '.노조+ 휴지통'·'.Web2 휴지통'은 서버가 쓸 때 지금 이름으로 바꾼다.
+// 폴더 이름 거절은 세 이름 모두.
+export const TRASH_FOLDER_NAME = '.WORK ON+ 휴지통';
+export const WORKON_TRASH_FOLDER_NAME = TRASH_FOLDER_NAME;
+export const NOJO_TRASH_FOLDER_NAME = '.노조+ 휴지통';
 export const OLD_TRASH_FOLDER_NAME = '.Web2 휴지통';
-// S68-02: 새 사용자(운영자 기능 nojo_words가 아닌 사람)가 처음 만드는 휴지통 이름(서버 onedrive-photos/graph.ts WORKON_TRASH_NAME).
-// 이미 있는 '.노조+ 휴지통'은 서버가 이름을 바꾸지 않고 계속 쓴다. 폴더 이름 거절은 세 이름 모두.
-export const WORKON_TRASH_FOLDER_NAME = '.WORK ON+ 휴지통';
+export const TRASH_FOLDER_NAMES = Object.freeze([TRASH_FOLDER_NAME, NOJO_TRASH_FOLDER_NAME, OLD_TRASH_FOLDER_NAME]);
 export function cleanPhotoFolderName(v) {
   if (typeof v !== 'string') return null;
   const name = v.normalize('NFC').trim();
   if (!name || [...name].length > 200 || /["*:<>?/\\|\u0000-\u001f\u007f]/.test(name) || name.endsWith('.')) return null;
-  if (name === TRASH_FOLDER_NAME || name === WORKON_TRASH_FOLDER_NAME || name === OLD_TRASH_FOLDER_NAME || name === '.' || name === '..') return null;
+  if (TRASH_FOLDER_NAMES.includes(name) || name === '.' || name === '..') return null;
   return name;
 }
 // 옮긴 결과(서버 photos-move의 moved[{id, from}])를 되돌리기 묶음으로: 원래 폴더 id → 사진 id들(원래 폴더를 모르면 뺀다).

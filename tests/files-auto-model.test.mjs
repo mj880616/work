@@ -66,10 +66,11 @@ test('규칙의 폴더 이름 = 각 자동화 코드의 상수(바뀌면 함께 
   assert.match(read('supabase/functions/drive-summary/core.mjs'), /const COPY_FOLDER = FOLDER_NAMES\.copy\.now;/); // S69-41: 이름 글자는 brand-folders.mjs
   assert.match(read('supabase/functions/_shared/hwp-edit.ts'), /export const BACKUP_FOLDER = "노조\+ 편집 백업";/);
   assert.match(read('supabase/functions/_shared/hwp-edit.ts'), /export const OLD_BACKUP_FOLDER = "Web2 편집 백업";/);
-  assert.match(read('supabase/functions/onedrive-photos/graph.ts'), /export const TRASH_NAME = "\.노조\+ 휴지통";/);
+  assert.match(read('supabase/functions/onedrive-photos/graph.ts'), /export const TRASH_NAME: string = FOLDER_NAMES\.photo_trash\.now;/); // S69-42
+  assert.match(read('supabase/functions/onedrive-photos/graph.ts'), /export const NOJO_TRASH_NAME = "\.노조\+ 휴지통";/);
   assert.match(read('supabase/functions/meeting-transcribe/index.ts'), /const RECORDING_FOLDER = '회의 녹음';/);
   assert.match(read('supabase/functions/meeting-transcribe/recording.mjs'), /export const PIECE_FOLDER = '녹음 조각';/);
-  assert.equal(TRASH_FOLDER_NAME, '.노조+ 휴지통');
+  assert.equal(TRASH_FOLDER_NAME, '.WORK ON+ 휴지통');
   for (const n of ['원문', '전사', '검토대기', '검토완료', '노조+ 읽기용 사본', 'Web2 읽기용 사본', '노조+ 편집 백업', 'Web2 편집 백업', '회의 녹음', '녹음 조각', '.노조+ 휴지통', '.Web2 휴지통']) assert.ok(names.includes(n), n);
 });
 
@@ -80,11 +81,12 @@ test('S68-02: 새 사용자 폴더 이름(WORK ON+ …)도 자동 폴더로 본�
   // S69-41: 새 이름 모두(brand-folders.mjs)가 자동 폴더 규칙에 있다.
   const names = AUTO_FOLDER_RULES.flatMap(r => r.seq.filter(s => typeof s === 'string'));
   for (const kind of ['copy', 'edit_backup']) for (const n of [FOLDER_NAMES[kind].now, ...FOLDER_NAMES[kind].olds]) assert.ok(names.includes(n), n);
-  assert.match(read('supabase/functions/onedrive-photos/graph.ts'), /export const WORKON_TRASH_NAME = "\.WORK ON\+ 휴지통";/);
+  assert.match(read('supabase/functions/onedrive-photos/graph.ts'), /export const WORKON_TRASH_NAME = TRASH_NAME;/);
   assert.equal(FOLDER_NAMES.edit_backup.now, 'WORK ON+ 편집 백업');
   assert.equal(FOLDER_NAMES.edit_backup.old, '노조+ 편집 백업');
   assert.equal(FOLDER_NAMES.photo_trash.now, WORKON_TRASH_FOLDER_NAME);
-  assert.equal(FOLDER_NAMES.photo_trash.old, TRASH_FOLDER_NAME);
+  assert.equal(FOLDER_NAMES.photo_trash.now, TRASH_FOLDER_NAME, 'S69-42: 지금 이름은 누구나 .WORK ON+ 휴지통');
+  for (const n of FOLDER_NAMES.photo_trash.olds) assert.ok(names.includes(n), n);
   assert.equal(autoMadeKind({folder_path: 'WORK ON+ 편집 백업'}), 'edit_backup');
   assert.equal(autoMadeKind({folder_path: '사진 › .WORK ON+ 휴지통'}), 'trash');
   assert.equal(autoMadeKind({folder_path: '가짜 WORK ON+ 편집 백업'}), null);

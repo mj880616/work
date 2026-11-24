@@ -69,11 +69,17 @@ function fakeDrive({ files, rootPerms = [{ type: 'user', role: 'owner' }], patch
     if (method === 'GET' && u.pathname === '/drive/v3/files') {
       const q = u.searchParams.get('q');
       if (q === gatherQuery()) return Response.json({ files: state.files.filter(f => !f.trashed && f.parents[0] === DRIVE_ROOT && gatherKindOf(f)).map(view) });
+      // S69-42: 이름을 바꾸기 전 '같은 자리에 같은 이름 폴더가 있나'(sameNameQuery). 맨 위 앱 폴더(ROOT)도 내 드라이브 맨 위에 있는 폴더로 본다.
+      const same = /^name = '(.+)' and '([^']+)' in parents and mimeType = 'application\/vnd.google-apps.folder' and trashed = false$/.exec(q);
+      if (same) {
+        const all = [...state.files, { id: ROOT, name: state.rootName, parents: [DRIVE_ROOT] }];
+        return Response.json({ files: all.filter(f => !f.trashed && f.name === same[1] && f.parents[0] === same[2]).map(f => ({ id: f.id })) });
+      }
       assert.equal(q, renameQuery(ROOT), '이름 맞추기 쿼리는 맨 위·맨 위 앱 폴더 바로 아래만');
       return Response.json({ files: state.files.filter(f => !f.trashed && [DRIVE_ROOT, ROOT].includes(f.parents[0]) && gatherKindOf(f)).map(view) });
     }
     const id = decodeURIComponent(u.pathname.split('/').at(-1));
-    if (method === 'GET' && id === ROOT) return Response.json({ id: ROOT, name: state.rootName, mimeType: 'application/vnd.google-apps.folder', ownedByMe: true, trashed: false, permissions: rootPerms });
+    if (method === 'GET' && id === ROOT) return Response.json({ id: ROOT, name: state.rootName, parents: [DRIVE_ROOT], mimeType: 'application/vnd.google-apps.folder', ownedByMe: true, trashed: false, permissions: rootPerms });
     if (method === 'PATCH') {
       const b = JSON.parse(init.body);
       if (patchFail.has(id)) return Response.json({ error: {} }, { status: 403 });
@@ -117,10 +123,10 @@ const ROOT_URL = `https://drive.google.com/drive/folders/${ROOT}`;
 test('[모으기] 세기 → 옮기기 → 이름 맞추기: 앱 폴더 4개만 옮기고, 맨 위 앱 폴더와 앱 폴더의 옛 이름을 새 이름으로(S69-41)', async () => {
   const { drive, state } = fakeDrive({ files: SCENE() });
   const plan = await gatherFolders({ drive, rootId: ROOT, dryRun: true });
-  assert.deepEqual(plan, { root_name: '웹2', root_url: ROOT_URL, count: 4, kinds: { basket: 1, record_backup: 1, edit_backup: 1, copy: 1 }, rename: 5 });
+  assert.deepEqual(plan, { root_name: '웹2', root_url: ROOT_URL, count: 4, kinds: { basket: 1, record_backup: 1, edit_backup: 1, copy: 1 }, rename: 5, rename_dup: 0 });
   assert.equal(state.calls.some(c => c.method === 'PATCH'), false, '세기는 아무것도 바꾸지 않는다');
   const r = await gatherFolders({ drive, rootId: ROOT });
-  assert.deepEqual(r, { root_name: 'WORK ON+', root_url: ROOT_URL, moved: 4, failed: 0, left: 0, kinds: { basket: 1, record_backup: 1, edit_backup: 1, copy: 1 }, renamed: 5, rename_failed: 0, rename_left: 0 });
+  assert.deepEqual(r, { root_name: 'WORK ON+', root_url: ROOT_URL, moved: 4, failed: 0, left: 0, kinds: { basket: 1, record_backup: 1, edit_backup: 1, copy: 1 }, renamed: 5, rename_failed: 0, rename_left: 0, rename_dup: 0 });
   const byId = Object.fromEntries(state.files.map(f => [f.id, f]));
   for (const id of ['basket-folder-01', 'record-backup-01', 'edit-backup-0001', 'copy-folder-0001']) assert.deepEqual(byId[id].parents, [ROOT], id);
   assert.deepEqual(byId['telegram-folder1'].parents, [DRIVE_ROOT], '앱 코드 밖 폴더는 그대로');
@@ -135,8 +141,8 @@ test('[모으기] 세기 → 옮기기 → 이름 맞추기: 앱 폴더 4개만 
   assert.equal(state.calls.some(c => c.method === 'DELETE' || /trashed/.test(c.body || '')), false, '지우지 않는다');
   // 이어서 다시 눌러도 이미 옮기고 바꾼 것은 다시 하지 않는다(→ 화면 '모아 둠').
   const again = await gatherFolders({ drive, rootId: ROOT });
-  assert.deepEqual(again, { root_name: 'WORK ON+', root_url: ROOT_URL, moved: 0, failed: 0, left: 0, kinds: {}, renamed: 0, rename_failed: 0, rename_left: 0 });
-  assert.deepEqual(await gatherFolders({ drive, rootId: ROOT, dryRun: true }), { root_name: 'WORK ON+', root_url: ROOT_URL, count: 0, kinds: {}, rename: 0 });
+  assert.deepEqual(again, { root_name: 'WORK ON+', root_url: ROOT_URL, moved: 0, failed: 0, left: 0, kinds: {}, renamed: 0, rename_failed: 0, rename_left: 0, rename_dup: 0 });
+  assert.deepEqual(await gatherFolders({ drive, rootId: ROOT, dryRun: true }), { root_name: 'WORK ON+', root_url: ROOT_URL, count: 0, kinds: {}, rename: 0, rename_dup: 0 });
 });
 
 test('[이름 맞추기] 사람이 바꾼 이름(표식 있는 앱 폴더·맨 위 앱 폴더)은 그대로, 이미 안에 있는 옛 이름 폴더는 바꾼다, 실패는 세기만', async () => {
@@ -146,6 +152,7 @@ test('[이름 맞추기] 사람이 바꾼 이름(표식 있는 앱 폴더·맨 �
     { id: 'edit-backup-0002', name: 'Web2 편집 백업', parents: [ROOT], appProperties: { kptu_app_folder: 'edit_backup' } },
     { id: 'copy-folder-0002', name: '노조+ 읽기용 사본', parents: [ROOT], appProperties: { kptu_summary: 'folder', kptu_workspace: 'other' } },
   ] });
+  // 세기는 바꿀 수 있는지만 본다(실패할 PATCH는 모름) — 바구니·편집 백업 둘.
   assert.equal((await gatherFolders({ drive, rootId: ROOT, dryRun: true })).rename, 2);
   const r = await gatherFolders({ drive, rootId: ROOT });
   assert.deepEqual([r.root_name, r.moved, r.renamed, r.rename_failed, r.rename_left], ['내 업무 폴더', 0, 1, 1, 0]);
@@ -164,8 +171,11 @@ test('[모으기] 한 번에 정해진 개수까지, 남으면 left — 다시 �
   assert.deepEqual([first.moved, first.failed, first.left, first.renamed], [GATHER_MAX_MOVES - 1, 1, 3, 0], '옮기기가 남으면 이름 맞추기는 다음에');
   const second = await gatherFolders({ drive, rootId: ROOT });
   assert.deepEqual([second.moved, second.failed, second.left], [3, 1, 0]);
-  assert.equal(second.renamed + second.rename_failed + second.rename_left, 1 + GATHER_MAX_MOVES + 3, '맨 위 앱 폴더 1 + 바구니 13개(옮기지 못한 1개도 이름은 맞춤 대상)');
+  // S69-42: 같은 자리(맨 위 앱 폴더 아래)에 바구니가 여럿이면 하나만 새 이름이 되고, 나머지는 합치지 않고 그대로(rename_dup).
+  // 옮기지 못한 1개는 다른 자리(내 드라이브 맨 위)라 새 이름으로 바뀐다.
+  assert.equal(second.renamed + second.rename_failed + second.rename_dup + second.rename_left, 1 + GATHER_MAX_MOVES + 3, '맨 위 앱 폴더 1 + 바구니 13개');
   assert.equal(second.rename_left, GATHER_MAX_MOVES + 3 - RENAME_MAX);
+  assert.ok(second.rename_dup >= 1, '같은 자리 두 번째 바구니부터는 같은 이름이 있어 그대로');
 });
 
 test('[모으기] 맨 위 앱 폴더가 공유돼 있거나 없거나 못 읽으면 아무것도 옮기지 않는다', async () => {
@@ -285,6 +295,55 @@ test('S69-41: [한곳으로 모으기]로 이름을 바꾼 뒤에도 바구니 �
   assert.equal(isBasketFolder({ name: '내 바구니', appProperties: { kptu_app_folder: 'basket' } }), true);
 });
 
+// S69-42(명진 11/24 15:49 "중단없이 꾸준히 … 폴더명을 바꿔서 기능이 고장나면 안되고"): 바구니를 쓸 때 옛 이름('Web2 바구니')이면 이름만 새 이름으로.
+test('S69-42: 바구니를 쓸 때 옛 이름은 새 이름으로(같은 id, 안 파일 그대로), 같은 자리에 새 이름이 있으면 그대로, 바꾼 뒤에도 같은 폴더', async () => {
+  const world = (extra = []) => {
+    const folders = [{ ...basketFolder(ROOT), appProperties: { kptu_app_folder: 'basket' } }, ...extra];
+    const calls = [];
+    const fetch = async (url, init = {}) => {
+      const u = new URL(String(url)), method = init.method || 'GET';
+      calls.push({ method, path: u.pathname, body: init.body, auth: init.headers?.Authorization });
+      if (method === 'GET' && u.pathname === '/drive/v3/files') {
+        const q = u.searchParams.get('q');
+        const same = /^name = '(.+)' and '([^']+)' in parents and /.exec(q);
+        if (same) return Response.json({ files: folders.filter(f => f.name === same[1] && f.parents[0] === same[2]).map(f => ({ id: f.id })) });
+        return Response.json({ files: strictBasketFolders(folders, q) });
+      }
+      const id = u.pathname.split('/').at(-1), f = folders.find(x => x.id === id);
+      if (method === 'GET') return f ? Response.json(f) : Response.json({}, { status: 404 });
+      if (method === 'PATCH' && f) {
+        const b = JSON.parse(init.body);
+        assert.deepEqual(Object.keys(b), ['name'], '이름만 바꾼다(부모·휴지통·권한 그대로)');
+        f.name = b.name; return Response.json({ id, name: f.name });
+      }
+      throw new Error('unexpected ' + method + ' ' + url);
+    };
+    return { folders, calls, fetch };
+  };
+  const settings = { basket_folder_id: 'basket-folder-01', root_folder_id: ROOT };
+  const w = world();
+  const up = createDriveUpload(fakeAdmin(settings).admin, { fetch: w.fetch, log: () => {} });
+  assert.equal(await up.ensurePrivateRootFolder('ws-1', 'token'), 'basket-folder-01');
+  assert.equal(w.folders[0].name, 'WORK ON+ 바구니');
+  assert.deepEqual(w.folders[0].parents, [ROOT], '자리 그대로');
+  assert.ok(w.calls.filter(c => c.method === 'PATCH').every(c => c.auth === 'Bearer token'), '내 토큰으로만');
+  // 바꾼 뒤에도 같은 폴더(저장한 id), 이름을 다시 바꾸지 않는다.
+  assert.equal(await up.ensurePrivateRootFolder('ws-1', 'token'), 'basket-folder-01');
+  assert.equal(w.calls.filter(c => c.method === 'PATCH').length, 1);
+  // 같은 자리에 'WORK ON+ 바구니'(사람이 만든 폴더)가 이미 있으면 합치지 않고 옛 이름 그대로 쓴다.
+  const d = world([{ ...basketFolder(ROOT, 'person-made-0001'), name: 'WORK ON+ 바구니' }]);
+  const up2 = createDriveUpload(fakeAdmin(settings).admin, { fetch: d.fetch, log: () => {} });
+  assert.equal(await up2.ensurePrivateRootFolder('ws-1', 'token'), 'basket-folder-01');
+  assert.equal(d.folders[0].name, 'Web2 바구니');
+  assert.equal(d.calls.some(c => c.method === 'PATCH'), false);
+  // 드라이브가 이름 바꾸기를 거절해도 바구니는 그대로 쓴다.
+  const broken = world();
+  const fetchFail = async (url, init = {}) => (init.method === 'PATCH' ? Response.json({}, { status: 500 }) : broken.fetch(url, init));
+  const up3 = createDriveUpload(fakeAdmin(settings).admin, { fetch: fetchFail, log: () => {} });
+  assert.equal(await up3.ensurePrivateRootFolder('ws-1', 'token'), 'basket-folder-01');
+  assert.equal(broken.folders[0].name, 'Web2 바구니');
+});
+
 test('바구니 원본 보호: 맨 위 앱 폴더 아래로 옮긴 바구니 폴더의 파일도 원본으로 지킨다', async () => {
   const rows = {
     app_workspace_members: [{ workspace_id: 'ws-1', role: 'owner' }],
@@ -349,15 +408,18 @@ test('화면 [한곳으로 모으기]: 세기 → 확인 → 옮기기·이름 �
   ];
   const api = async (path, init) => { calls.push([path, init]); return answers.shift(); };
   const r = await gatherAppFolders({ api, ask: async () => true, say: (t, o) => said.push([t, !!o?.error]) });
-  assert.deepEqual(r, { moved: 12, failed: 0, left: 0, renamed: 13, renameFailed: 0, renameLeft: 0, where: 'WORK ON+' });
+  assert.deepEqual(r, { moved: 12, failed: 0, left: 0, renamed: 13, renameFailed: 0, renameLeft: 0, renameDup: 0, where: 'WORK ON+' });
   assert.deepEqual(calls.map(c => [c[0], c[1].method, JSON.stringify(c[1].body)]), [
     ['/functions/v1/workspace-drive?action=gather-folders', 'POST', '{"dry_run":true}'],
     ['/functions/v1/workspace-drive?action=gather-folders', 'POST', '{}'],
     ['/functions/v1/workspace-drive?action=gather-folders', 'POST', '{}'],
     ['/functions/v1/workspace-drive?action=gather-folders', 'POST', '{}'],
   ]);
-  assert.deepEqual(said, [["앱 폴더 12개를 'WORK ON+' 아래로 모았어요 · 이름 13개를 새 이름으로 바꿨어요.", false]]);
-  assert.deepEqual(gatherResultText({ renamed: 2, renameFailed: 1 }), { text: '이름 2개를 새 이름으로 바꿨어요 · 1개는 하지 못했어요 — 다시 눌러 주세요.', error: true });
+  assert.deepEqual(said, [["앱 폴더 12개를 'WORK ON+' 아래로 모았어요 · 이름 바꿈 13", false]]);
+  assert.deepEqual(gatherResultText({ renamed: 2, renameFailed: 1 }), { text: '이름 바꿈 2 · 1개는 하지 못했어요 — 다시 눌러 주세요.', error: true });
+  // S69-42: 같은 자리에 새 이름 폴더가 있어 그대로 둔 것은 따로 센다(합치지 않음).
+  assert.deepEqual(gatherResultText({ renamed: 1, renameDup: 2 }), { text: '이름 바꿈 1 · 같은 이름 있어 그대로 2', error: false });
+  assert.deepEqual(gatherResultText({ renameDup: 1 }), { text: '같은 이름 있어 그대로 1 — 드라이브에서 둘 중 하나를 정리해 주세요.', error: false });
   // 취소하면 옮기지 않는다. 없으면 확인창 없이 한 줄.
   const c2 = [];
   assert.equal(await gatherAppFolders({ api: async (p, i) => { c2.push(i.body); return { count: 2, root_name: '웹2', kinds: {} }; }, ask: async () => false, say: () => {} }), null);
@@ -382,6 +444,8 @@ test('화면: 자료실 위 줄에는 [앱 폴더 모으기]가 없고(저장 �
   const p = cleanPlan({ ok: true, root_name: 'WORK ON+', root_url: 'https://drive.google.com/drive/folders/abcdefghij12', count: 0, rename: 0 });
   assert.match(driveFoldersHtml(p), /앱이 쓰는 드라이브 폴더:.*내 드라이브 › WORK ON\+.*열기 ↗.*모아 둠/);
   assert.match(driveFoldersHtml({ ...p, rename: 1 }), /data-dfp-gather[^>]*>한곳으로 모으기</);
+  assert.match(driveFoldersHtml(cleanPlan({ ok: true, root_name: 'WORK ON+', count: 0, rename: 0, rename_dup: 2 })), /모아 둠.*class="dfp-dup"[^>]*>같은 이름 있어 그대로 2</, 'S69-42: 같은 이름이 있어 둔 것은 작게 한 마디');
+  assert.doesNotMatch(driveFoldersHtml(p), /dfp-dup/);
   assert.equal(cleanPlan({ ok: true, root_name: 'x', root_url: 'https://evil.example/drive/folders/abcdefghij12', count: 0 }).url, null, '드라이브 주소가 아니면 링크를 그리지 않는다');
   assert.equal(cleanPlan(null), null);
   const users = readdirSync(fileURLToPath(new URL('../app/', import.meta.url))).filter(n => /\.(js|mjs)$/.test(n))

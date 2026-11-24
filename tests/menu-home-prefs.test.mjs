@@ -19,12 +19,18 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S66-01 PRIVACY-백업안내: DB(20261118100000, DB 앞 PR) record_backup을 화면 허용 목록에도 더했다(적용 전에는 이번 접속만 기억). DB에만 있는 칸은 없다.
 // S67-52 HOME-칸끄기: DB(20261120230000, 같은 PR) home_off를 화면 허용 목록에도 더했다(적용 전에는 이번 접속만 기억). DB에만 있는 칸은 없다.
 // S69-25b LIB-드라이브에서가져오기: DB(20261124110000, 같은 PR) drive_import_folder를 화면 허용 목록에도 더했다(적용 전에는 기억만 건너뜀). DB에만 있는 칸은 없다.
+// UI-머리눌러정렬: DB(20261124170000, 같은 PR) files_sort를 화면 허용 목록에도 더했다(적용 전에는 정렬 기억만 건너뜀). DB에만 있는 칸은 없다.
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, READ-글자크기 news_font 다섯 단계 판 위에 LIB-드라이브에서가져오기 drive_import_folder)와 같다', () => {
-  const sql = read('supabase/migrations/20261124110000_profile_view_prefs_drive_import.sql');
+test('허용 칸이 DB 검사(마지막 migration, LIB-드라이브에서가져오기 판 위에 UI-머리눌러정렬 files_sort)와 같다', () => {
+  const sql = read('supabase/migrations/20261124170000_profile_view_prefs_files_sort.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 58);
+  assert.equal(KEYS.length, 59);
+  // files_sort 허용 칸(key)이 DB 검사 목록과 같다.
+  const sortKeys = [...sql.match(/view_prefs -> 'files_sort' ->> 'key'\) in \(([^)]*)\)/)[1].matchAll(/'([a-z]+)'/g)].map(m => m[1]);
+  assert.deepEqual(sortKeys, ['name', 'modified', 'size', 'kind']);
+  for (const key of sortKeys) for (const dir of ['asc', 'desc']) assert.equal(validValue('files_sort', {key, dir}), true, key + dir);
+  for (const v of [null, {}, 'name', {key: 'name'}, {dir: 'asc'}, {key: 'path', dir: 'asc'}, {key: 'name', dir: 'up'}, {key: 'name', dir: 'asc', x: 1}, ['name', 'asc']]) assert.equal(validValue('files_sort', v), false, JSON.stringify(v));
   for (const v of ['1FakeDriveFolder_Id-01', 'a'.repeat(10), 'Z'.repeat(200)]) assert.equal(validValue('drive_import_folder', v), true, v);
   for (const v of [null, '', 'short', 'a'.repeat(201), "1Fake'Folder01", '1Fake Folder 01', '../../folderId', 1234567890, ['1FakeDriveFolder_Id-01']]) assert.equal(validValue('drive_import_folder', v), false, JSON.stringify(v));
   // news_font 허용 값(S68-33): DB 검사 목록과 화면 목록이 같다.

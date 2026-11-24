@@ -5,7 +5,7 @@ import {requestLibraryDocument} from './basket-library-send.js';
 import {slotBox, slotImg, slotFailed} from './img-slot.js';
 import {lookLayout, lookOf, lookValue, stepLook, lookCols, thumbWanted, FILES_LOOK_KEY} from './files-look-model.mjs';
 import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, FIND_LIMIT, FIND_WAIT_MS,
-  TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, kindSvg, previewKind, sizeText, folderCountText, isLockedItem, dayText, fullTime,
+  TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_KEYS, SORT_NAME, SORT_DESC_FIRST, kindOf, kindLabel, kindIcon, kindSvg, previewKind, sizeText, folderCountText, isLockedItem, dayText, fullTime,
   syncLabel, applySyncReply, syncSettled, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
   placeOf, whereOf, cleanQuery, findSummary, errorText, failReason, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT, xferPlan, xferBig, sameNameRows, sameNameAsk, bigAsk, destTitle, destButton, destName,
@@ -42,6 +42,7 @@ import {FIND_SCOPES, FIND_DIMS, FIND_DIM_NAME, freshFilter, filterSet, dimLabel,
 import {PINS_MAX, pinParse, pinKey, pinsClean, pinHas, pinAdd, pinRemove, pinMove, pinStep, pinView} from './files-pins-model.mjs';
 import {mountReorder} from './reorder-drag.js';
 import {mountColResize, gripHtml} from './col-resize.js';
+import {nextSort, headCellHtml, sortSelectHtml, sortOptions, sortValue, parseSortValue, cleanSort, bindHeadSort} from './head-sort.mjs';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {screenSameFiles} from './same-file.js'; // UX-이미있는파일알림: 기기에서 넣는 파일은 올리기 전에 같은 이름·크기가 내 작업공간에 있는지 묻는다
 import {viewPrefs} from './view-prefs.js';
@@ -207,7 +208,7 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="filesView" class="view-panel hidden" aria-labelledby="fxTitle">
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
-<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><span class="ds-seg fx-view-seg" data-fx-view-seg role="group" aria-label="파일 보기" hidden><button type="button" class="ds-seg-btn" data-fx-one aria-pressed="true" aria-label="한 칸 보기" title="한 칸 보기">${ONE_SVG}<span class="fx-seg-t">한 칸</span></button><button type="button" class="ds-seg-btn" data-fx-two aria-pressed="false" aria-label="두 칸 보기" title="두 칸 보기">${TWO_SVG}<span class="fx-seg-t">두 칸</span></button></span></div>
+<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search">${sortSelectHtml({keys: SORTS, names: SORT_NAME, cur: null, className: 'fx-sort', attrs: 'data-fx-sort', descFirst: SORT_DESC_FIRST})}<button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><span class="ds-seg fx-view-seg" data-fx-view-seg role="group" aria-label="파일 보기" hidden><button type="button" class="ds-seg-btn" data-fx-one aria-pressed="true" aria-label="한 칸 보기" title="한 칸 보기">${ONE_SVG}<span class="fx-seg-t">한 칸</span></button><button type="button" class="ds-seg-btn" data-fx-two aria-pressed="false" aria-label="두 칸 보기" title="두 칸 보기">${TWO_SVG}<span class="fx-seg-t">두 칸</span></button></span></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="선택한 것" hidden></div>
 <p class="fx-note" data-fx-note role="status" hidden></p><div class="fx-connect" data-fx-connect-box role="status" hidden></div>
 <div class="fx-up" data-fx-uprows hidden></div>
@@ -459,9 +460,9 @@ async function loadStatus() {
 function setWhere(p, where, {keepPreview = false, down = false} = {}) {
   const fromShelf = !!p.where?.shelf || !p.where;
   p.where = where; p.rows = []; p.loaded = false; p.failed = ''; p.trail = []; p.drop = false; p.xopen = new Set(); p.inline = new Map();
-  // 묶음은 저마다 기본 정렬(큰 파일 = 크기, 별표 = 이름). 폴더 안에서 고른 정렬은 폴더를 옮겨도 그대로.
+  // 묶음은 저마다 기본 정렬(큰 파일 = 크기, 별표 = 이름). 폴더 안에서 고른 정렬은 폴더를 옮겨도 그대로이고 서버에 기억한다(files_sort, 처음 열 때·묶음에서 나올 때 그 값).
   if (where?.shelf) [p.sort, p.dir] = where.shelf === 'big' ? ['size', 'desc'] : ['name', 'asc'];
-  else if (fromShelf) [p.sort, p.dir] = ['name', 'asc'];
+  else if (fromShelf) ({key: p.sort, dir: p.dir} = savedSort());
   if (!keepPreview) { p.sel = ''; closePreview(); }
   p.picked.clear(); p.anchor = ''; p.pane = 'list'; state.hint = '';
   if (where?.parent !== p.lastTry) p.lastTry = '';
@@ -648,7 +649,7 @@ function setQuery(p, raw) {
   const q = cleanQuery(raw);
   clearTimeout(p.ftimer);
   if (q === p.query) return;
-  p.query = q;
+  p.query = q; p.findSorted = false;
   if (!q) { p.found = null; p.findFailed = ''; p.fseq++; p.ff = freshFilter(); paint(); return; }
   p.ftimer = setTimeout(() => find(p, q), FIND_WAIT_MS);
 }
@@ -801,7 +802,42 @@ function crumbHtml(p, {noRoot = false} = {}) {
   if (names.length > 1 || back || (noRoot && names.length)) html = `<button type="button" class="fx-up" data-fx-up aria-label="${back ? '폴더 나무' : '위 폴더'}">‹</button>` + html;
   return html;
 }
-const sortHtml = p => `<select class="fx-sort" data-fx-sort aria-label="${p ? side(idxOf(p)) + ' 칸 ' : ''}정렬">${SORTS.map(k => `<option value="${k}"${p?.sort === k ? ' selected' : ''}>${SORT_NAME[k]}</option>`).join('')}</select>`;
+// ---------- UI-머리눌러정렬(명진 11/24 15:47): 정렬 상태 주인은 칸마다 p.sort·p.dir 하나 ----------
+// 머리 칸(fileHeadHtml)과 정렬 고르기(sortHtml)는 그 값을 그리기만 한다. 바꾸는 길은 setSort 하나(머리 누르기·고르기 모두).
+// 찾기 결과는 처음엔 맞는 순(서버 순서) — 머리나 고르기로 정렬을 고르면 그때부터 그 정렬(p.findSorted, 새로 찾으면 다시 맞는 순).
+// 기억: 폴더 목록에서 고른 정렬만 서버 view_prefs.files_sort(모든 기기 같음). 묶음(큰 파일·별표)·찾기에서 고른 정렬은 그 자리에서만.
+const savedSort = () => cleanSort(viewPrefs.getFilesSort?.(), SORTS) || {key: 'name', dir: 'asc'};
+const FIND_ORDER = '';
+const withPathOf = p => !!p?.query || !!p?.where?.shelf;
+const sortKeysOf = p => withPathOf(p) ? SORT_KEYS : SORTS;
+const curSort = p => p.query && !p.findSorted ? null : {key: sortKeysOf(p).includes(p.sort) ? p.sort : 'name', dir: p.dir};
+const sortOptionsHtml = p => {
+  const cur = curSort(p), now = cur ? sortValue(cur) : FIND_ORDER;
+  return (p.query ? `<option value="${FIND_ORDER}"${now === FIND_ORDER ? ' selected' : ''}>맞는 순</option>` : '')
+    + sortOptions(sortKeysOf(p), SORT_NAME, {descFirst: SORT_DESC_FIRST}).map(o => `<option value="${esc(o.value)}"${o.value === now ? ' selected' : ''}>${esc(o.label)}</option>`).join('');
+};
+const sortHtml = p => `<select class="fx-sort" data-fx-sort aria-label="${p ? side(idxOf(p)) + ' 칸 ' : ''}정렬">${sortOptionsHtml(p)}</select>`;
+// 정렬 고르기를 지금 값에 맞춘다(보기 목록이 달라졌으면 다시 채움).
+function syncSortSelect(sel, p) {
+  if (!sel) return;
+  const html = sortOptionsHtml(p);
+  if (sel.fxOpts !== html) { sel.innerHTML = html; sel.fxOpts = html; }
+  const cur = curSort(p), want = cur ? sortValue(cur) : FIND_ORDER;
+  if (sel.value !== want) sel.value = want;
+}
+function setSort(p, s, {focusKey = ''} = {}) {
+  if (!s) { if (p.query) { p.findSorted = false; paintList(p); syncSorts(p); } return; }
+  p.sort = validSort(s.key); p.dir = s.dir === 'desc' ? 'desc' : 'asc';
+  if (p.query) p.findSorted = true;
+  else if (!p.where?.shelf && SORTS.includes(p.sort)) viewPrefs.setFilesSort?.({key: p.sort, dir: p.dir});
+  paintList(p); syncSorts(p);
+  // 키보드로 누른 머리 칸은 다시 그린 뒤에도 초점이 그 칸에 남는다.
+  if (focusKey) inPane(p, `[data-fx-list] [data-head-sort="${focusKey}"]`)?.focus({preventScroll: true});
+}
+function syncSorts(p) {
+  if (p === P()) syncSortSelect($('.fx-top [data-fx-sort]'), p);
+  syncSortSelect(inPane(p, '[data-fx-ptop] [data-fx-sort]'), p);
+}
 // 칸 위 줄(두 칸일 때만): 폴드는 ▾(그 칸 위로 나무) + 위치 줄 + 정렬, PC는 위치 줄 + 정렬(나무는 왼쪽 그대로).
 function paintPaneTop(p) { return keepFxMenus(() => paintPaneTopNow(p)); }
 function paintPaneTopNow(p) {
@@ -863,7 +899,7 @@ function paintTop() {
   const crumbNow = twoNow ? '' : crumbHtml(p);
   if (crumb) { crumb.hidden = !crumbNow; crumb.innerHTML = crumbNow; }
   const sort = $('.fx-top [data-fx-sort]');
-  if (sort) { sort.hidden = twoNow; if (sort.value !== p.sort) sort.value = p.sort; }
+  if (sort) { sort.hidden = twoNow; syncSortSelect(sort, p); }
   const search = $('[data-fx-search]');
   if (search && document.activeElement !== search && search.value !== p.query) search.value = p.query;
   // 맞추기 단추: PC·폴드는 위 줄, 폰은 나무의 첫 클라우드 뿌리 줄 오른쪽(treeHtml). 글자는 같은 계산(syncNow)으로 둘 다 칠한다.
@@ -1425,7 +1461,10 @@ const COL_CELL = {name: '.fx-nm', path: '.fx-path', day: '.fx-day', size: '.fx-s
 const cellFit = el => el.matches('.fx-nm')
   ? [...el.children].reduce((w, c, i) => w + (i ? 6 : 0) + (c.classList.contains('fx-name') ? c.scrollWidth : c.getBoundingClientRect().width), 0)
   : el.scrollWidth;
-const fileHeadHtml = withPath => `<div class="fx-head${withPath ? ' fx-with-path' : ''}"><span aria-hidden="true"></span><span>이름${gripHtml('name', '이름')}</span>${withPath ? `<span>위치${gripHtml('path', '위치')}</span>` : ''}<span>바뀐 날${gripHtml('day', '바뀐 날')}</span><span>크기${gripHtml('size', '크기')}</span><span>종류</span></div>`;
+// UI-머리눌러정렬: 머리 칸 = 공용 head-sort.mjs headCellHtml(누르면 그 칸 정렬, 다시 누르면 반대, ▲/▼·aria-sort). 너비 손잡이는 버튼 밖이라 끌어도 정렬되지 않는다.
+const HEAD_COLS = [['name', 'name'], ['path', 'path'], ['modified', 'day'], ['size', 'size'], ['kind', '']];
+const fileHeadHtml = (withPath, p) => `<div class="fx-head${withPath ? ' fx-with-path' : ''}" role="row" aria-label="정렬 머리"><span aria-hidden="true"></span>`
+  + HEAD_COLS.filter(([key]) => withPath || key !== 'path').map(([key, grip]) => headCellHtml({key, label: SORT_NAME[key], cur: p ? curSort(p) : null, extra: grip ? gripHtml(grip, SORT_NAME[key]) : ''})).join('') + '</div>';
 function mountWidths(list) {
   const cols = $('[data-fx-cols]');
   if (cols) {
@@ -1450,11 +1489,11 @@ function paintListNow(p) {
   if (p.query) {
     if (p.findFailed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.findFailed), reason: p.findWhy}); return; }
     if (!p.found) { list.innerHTML = waitHtml({rows: 4}); return; }
-    const found = foundShown(p);
+    const found = p.findSorted ? sortRows(foundShown(p), p.sort, p.dir) : foundShown(p);
     // LIB-사진숨김나머지: 찾은 사진도 줄에서 빼고 맨 아래 [사진 n](개수 그대로). 종류 거르기 '사진'이면 줄로 보인다.
     const {rest, photos} = p.ff?.kind === 'image' ? {rest: found, photos: []} : fxSplit(found), pk = fxPhotoKey(p, '');
     const foundRows = rest.map(r => rowHtml(p, r, {withPath: true})).join('') + (photos.length ? fxPhotoToggle(pk, photos.length) + fxPhotoGridHtml(p, photos, pk, 0, '') : '');
-    list.innerHTML = findBarHtml(p) + (found.length ? `${fileHeadHtml(true)}<div class="fx-rows fx-with-path" role="list">${foundRows}</div>` : emptyHtml(p.found.length ? '거른 뒤 남은 것 없음' : '찾은 것 없음'));
+    list.innerHTML = findBarHtml(p) + (found.length ? `${fileHeadHtml(true, p)}<div class="fx-rows fx-with-path" role="list">${foundRows}</div>` : emptyHtml(p.found.length ? '거른 뒤 남은 것 없음' : '찾은 것 없음'));
     list.dataset.fxMode = 'find'; delete list.dataset.fxLook;
     mountThumbs(list);
     return;
@@ -1481,7 +1520,7 @@ function paintListNow(p) {
     mountThumbs(list);
     return;
   }
-  list.innerHTML = fileHeadHtml(!!w.shelf)
+  list.innerHTML = fileHeadHtml(!!w.shelf, p)
     + `<div class="fx-rows${w.shelf ? ' fx-with-path' : ''}" role="list">${xListHtml(p, rows, {withPath: !!w.shelf})}</div>`;
   mountThumbs(list);
 }
@@ -3916,6 +3955,11 @@ ftBindTreeArrows(); // LIB-나무접기 ③: PC 나무 ←/→
 root?.addEventListener('pointerdown', event => { const i = paneOfEl(event.target); if (i >= 0) setCur(i); }, true);
 root?.addEventListener('focusin', event => { const i = paneOfEl(event.target); if (i >= 0) setCur(i); });
 bindPhotoTileMenus(root); // LIB-사진숨김: 폰 꾹 누르기(contextmenu)로 작은 그림 칸의 ⋯
+// UI-머리눌러정렬: 머리 칸 누르기(마우스·손가락·Enter·Space) = 그 칸 정렬, 다시 누르면 반대(공용 head-sort.mjs). 칸은 위 듣기가 먼저 지금 칸으로 정한다.
+function onHeadSort(key, b) {
+  const i = paneOfEl(b), p = i >= 0 ? state.panes[i] : P();
+  setSort(p, nextSort(curSort(p), key, {descFirst: SORT_DESC_FIRST}), {focusKey: key});
+}
 root?.addEventListener('click', event => {
   const b = event.target.closest('button');
   if (state.dropAsk && !event.target.closest('[data-fx-dropask]')) dropAskClose();
@@ -4072,6 +4116,7 @@ root?.addEventListener('dblclick', event => {
   const r = b && rowByKey(b.dataset.fxRow);
   if (r && !r.is_folder) openCloud(r);
 });
+bindHeadSort(root, (key, b) => onHeadSort(key, b)); // 위 누르기 듣기(지금 칸 정하기) 다음에 단다
 root?.addEventListener('input', event => { if (event.target.matches('[data-fx-search]')) setQuery(P(), event.target.value); });
 root?.addEventListener('change', event => {
   if (event.target.matches('[data-fx-file]')) { const d = state.upTo || hereDest(), files = [...(event.target.files || [])]; state.upTo = null; event.target.value = ''; if (d && files.length) void uploadNewFiles(files, d); return; }
@@ -4079,7 +4124,7 @@ root?.addEventListener('change', event => {
   if (!event.target.matches('[data-fx-sort]')) return;
   // 칸 위 줄의 정렬은 그 칸, 위 줄의 정렬은 지금 칸.
   const i = paneOfEl(event.target), p = i >= 0 ? state.panes[i] : P();
-  p.sort = validSort(event.target.value); p.dir = p.sort === 'name' ? 'asc' : 'desc'; paintList(p);
+  setSort(p, parseSortValue(event.target.value, sortKeysOf(p)));
 });
 // 두 칸 키(F5·F6·Tab): 공용 두 칸 틀(two-pane.js)이 판정 — 이 화면이 보이고 두 칸일 때, 입력 칸 밖에서만(F5 새로고침을 막는 것은 두 칸 동안만).
 const twoKey = event => frame.key(event);

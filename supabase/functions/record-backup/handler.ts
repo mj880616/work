@@ -13,9 +13,9 @@
 // 같은 날 다시 하면 그날 폴더를 휴지통으로 보내고 새로 만든다. 최근 4주(날짜 폴더 4개)만 남기고 오래된 폴더는 드라이브 휴지통으로(영구 삭제 안 함).
 // 로그·응답: 코드와 숫자만. 기록 내용·제목·파일 ID를 로그에 싣지 않는다.
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
-import { appNameFor, folderNameFor, keepOldFromMyFeatures } from "../_shared/brand-folders.mjs";
+import { FOLDER_NAMES, appNameFor, folderNameFor, keepOldFromMyFeatures } from "../_shared/brand-folders.mjs";
 // S69-22: 백업 맨 위 폴더는 내 드라이브 맨 위 또는 맨 위 앱 폴더 바로 아래 어디에 있어도 같은 폴더(표식 kptu_backup=root).
-import { createParentFor, isDriveId, topParentsClause } from "../_shared/app-folders.mjs";
+import { createParentFor, isDriveId, renameIfOld, topParentsClause } from "../_shared/app-folders.mjs";
 import { CATEGORIES, DOC_BYTES, KEEP_WEEKS, ROWS_PER_TABLE, cleanRow, foldersToTrash, kstDate, parseKinds, readableHtml, tableQuery, toCsv } from "./model.mjs";
 
 export type Env = (name: string) => string | undefined;
@@ -123,7 +123,7 @@ export function createRecordBackupHandler(deps: BackupDeps) {
   async function list(t: string, query: string): Promise<Row[]> {
     const files: Row[] = []; let pageToken = "";
     do {
-      const p = new URLSearchParams({ q: query, spaces: "drive", pageSize: "100", fields: "files(id,name,appProperties),nextPageToken,incompleteSearch" });
+      const p = new URLSearchParams({ q: query, spaces: "drive", pageSize: "100", fields: "files(id,name,parents,appProperties),nextPageToken,incompleteSearch" });
       if (pageToken) p.set("pageToken", pageToken);
       const data = await okJson(await call(`${DRIVE}?${p}`, { headers: auth(t) }, "DRIVE_LIST_FAILED"), "DRIVE_LIST_FAILED");
       if (data.incompleteSearch || !Array.isArray(data.files)) throw new Fail(502, "DRIVE_LIST_FAILED");
@@ -240,6 +240,12 @@ export function createRecordBackupHandler(deps: BackupDeps) {
     const keepOld = await keepOldNames(w.auth), appName = appNameFor(keepOld);
     const root = await rootFolder(t, w.workspaceId, true, keepOld) as Row;
     await assertPrivate(t, String(root.id));
+    // S69-42: 맨 위 백업 폴더가 옛 이름('노조+ 백업')이면 쓸 때 새 이름으로(같은 자리에 새 이름 폴더가 있으면 그대로). 이름만 — id·안 파일은 그대로, 실패해도 백업은 한다.
+    const renamed = await renameIfOld({
+      drive: (url: string, init: RequestInit = {}) => doFetch(url, { ...init, headers: auth(t, (init.headers || {}) as Record<string, string>), signal: AbortSignal.timeout(15000) }),
+      kind: "record_backup", file: { id: String(root.id), name: root.name, parents: root.parents },
+    });
+    if (renamed === "renamed") root.name = FOLDER_NAMES.record_backup.now;
     for (const old of await list(t, mine("day", String(root.id)))) {
       if ((old.appProperties as Record<string, string>)?.kptu_backup_date === date) await trash(t, String(old.id));
     }

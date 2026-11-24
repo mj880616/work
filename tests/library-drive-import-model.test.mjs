@@ -35,3 +35,14 @@ test('S69-25b 고른 폴더 기억: 목록에 아직 있으면 그 폴더, 없�
   assert.equal(pickFolder([], 'folderAAAA01'), '');
   assert.equal(skippedLine({ others: 2 }), '목록에서 뺀 것: 다른 사람이 올린 파일 2');
 });
+
+test('S69-45: 자료실에 같은 내용이 있는 파일은 기본 선택에서 빼고 한 줄로 알린다', async () => {
+  const { defaultPicked, sameNote, headLine } = await import('../app/library-drive-import-model.mjs');
+  const it = { id: 'a', name: 'a 사본.pdf', same: { title: '교섭안', path: '자료실 › 교섭' } };
+  assert.equal(defaultPicked(it), false);
+  assert.equal(defaultPicked({ id: 'b', name: 'b.pdf' }), true);
+  assert.equal(sameNote(it), '이미 있음(같은 내용: 교섭안 · 자료실 › 교섭)');
+  assert.equal(sameNote({ same: { title: 'b.pdf', path: '이 목록', inList: true } }), "목록 안 'b.pdf'와 같은 내용");
+  assert.equal(sameNote({}), '');
+  assert.match(headLine({ total: 3, picked: 2, same: 1 }), /같은 내용이 이미 있는 1개는 뺐어요/);
+});

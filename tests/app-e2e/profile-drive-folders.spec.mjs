@@ -41,7 +41,7 @@ for(const [label,width] of [['폰 390',390],['PC 1280',1280]]){
     await expect(page.locator('.kptu-ask-text')).toHaveText("앱 폴더 2개를 '웹2' 아래로 모으고, 옛 이름 3개를 새 이름으로 바꿀까요?");
     await expect(page.locator('.kptu-ask-note')).toContainText('삭제하지 않고 자리·이름만 바꿔요');
     await page.locator('.kptu-ask-actions button.primary').click();
-    await expect(panel.locator('.dfp-result')).toHaveText("앱 폴더 2개를 'WORK ON+' 아래로 모았어요 · 이름 3개를 새 이름으로 바꿨어요.");
+    await expect(panel.locator('.dfp-result')).toHaveText("앱 폴더 2개를 'WORK ON+' 아래로 모았어요 · 이름 바꿈 3");
     await expect(panel.locator('.dfp-where')).toHaveText('내 드라이브 › WORK ON+');
     await expect(panel.locator('.dfp-done')).toHaveText('모아 둠');
     await expect(panel.getByRole('button',{name:'한곳으로 모으기'})).toHaveCount(0);
@@ -67,6 +67,10 @@ test('이미 다 모았으면 버튼 대신 모아 둠, 취소하면 바꾸지 �
   await expect(page.locator('.kptu-ask-text')).toHaveCount(0);
   await expect(panel.getByRole('button',{name:'한곳으로 모으기'})).toBeEnabled();
   expect((await page.evaluate(()=>window.__state.driveAsks)).filter(b=>!b.dry_run)).toEqual([]);
+  // S69-42: 같은 자리에 새 이름 폴더가 이미 있어 그대로 둔 것은 '모아 둠' 옆에 작게 한 마디(합치지 않음).
+  await openProfile(page,{plan:{ok:true,root_name:'WORK ON+',root_url:ROOT_URL,count:0,kinds:{},rename:0,rename_dup:1},run:[],after:null});
+  await expect(panel.locator('.dfp-done')).toHaveText('모아 둠');
+  await expect(panel.locator('.dfp-dup')).toHaveText('같은 이름 있어 그대로 1');
   // 연결 없음(세기 실패) → 칸 감춤
   await openProfile(page,null);
   await expect(page.locator('#psDriveFoldersPanel')).toBeHidden();

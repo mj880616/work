@@ -2,8 +2,15 @@
 // 서버(library-files action drive-import-list)가 준 항목: {id,name,path,kind:'file'|'link',size,modified,personal,media}.
 export const ADD_BATCH = 50; // 서버 한 번 한도(drive-import.mjs ADD_MAX)와 같다.
 
-// 개인 서류로 보이는 이름·사진/동영상은 기본으로 뺀다(명진이 선택하면 넣음). 나머지는 모두 체크.
-export const defaultPicked = item => !item?.personal && !item?.media;
+// 개인 서류로 보이는 이름·사진/동영상·자료실에 같은 내용이 이미 있는 파일(S69-45)은 기본으로 뺀다(명진이 선택하면 넣음). 나머지는 모두 체크.
+export const defaultPicked = item => !item?.personal && !item?.media && !item?.same;
+
+// S69-45: 드라이브 id는 달라도 내용(md5 + 크기)이 같은 자료가 이미 있을 때 한 줄. 목록 안 앞 파일과 같으면 그 파일 이름.
+export function sameNote(item) {
+  const s = item?.same;
+  if (!s) return '';
+  return s.inList ? `목록 안 '${s.title}'와 같은 내용` : `이미 있음(같은 내용: ${s.title} · ${s.path})`;
+}
 
 // 드라이브 폴더 경로별 묶음(서버가 경로·이름 순으로 정렬해 보냄 — 그 순서 그대로).
 export function groupByPath(items) {
@@ -48,8 +55,10 @@ export function resultLine(t) {
 }
 
 // 목록 머리 한 줄: '자료실에 없는 파일 n개 · 선택 m개'(+ 서버가 줄인 경우 안내).
-export function headLine({ total = 0, shown = 0, picked = 0, more = false, partial = false }) {
+export function headLine({ total = 0, shown = 0, picked = 0, more = false, partial = false, same = 0, samePartial = false }) {
   let s = `자료실에 없는 파일 ${total}개 · 선택 ${picked}개`;
+  if (same) s += ` · 같은 내용이 이미 있는 ${same}개는 뺐어요`;
+  if (samePartial) s += ' · 자료가 많아 같은 내용은 일부만 견줬어요';
   if (more) s += ` · 앞 ${shown}개만 보여요(가져온 뒤 다시 열면 나머지)`;
   else if (partial) s += ' · 드라이브가 커서 일부만 읽었어요(가져온 뒤 다시 열면 나머지)';
   return s;

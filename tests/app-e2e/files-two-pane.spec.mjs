@@ -49,9 +49,10 @@ test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나�
   await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 문서함');
   await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 업무 공간');
   // 정렬은 칸마다: 오른쪽만 크기 순.
-  await pane(page, 1).locator('[data-fx-sort]').selectOption('size');
+  // UI-머리눌러정렬: 고르기 값은 칸과 방향을 함께 담는다(머리 칸과 같은 값).
+  await pane(page, 1).locator('[data-fx-sort]').selectOption('size:desc');
   await expect(pane(page, 1).locator('[data-fx-row]:not(.fx-folder)').first()).toHaveAttribute('data-fx-row', 'od:OD!11');
-  await expect(pane(page, 0).locator('[data-fx-sort]')).toHaveValue('name');
+  await expect(pane(page, 0).locator('[data-fx-sort]')).toHaveValue('name:asc');
   // 왼쪽에서 고르기(Ctrl) → 막대 '1개 (왼쪽) · [→ 오른쪽에 복사] [→ 옮기기] …'
   await prow(page, 0, 'gd:gdDoc1').click({ modifiers: ['Control'] });
   await expect(pane(page, 0)).toHaveClass(/fx-cur/);

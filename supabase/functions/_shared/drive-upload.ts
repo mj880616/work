@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { WorkspaceDriveError, workspaceDriveToken } from "./workspace-drive-token.ts";
 // S69-22: 바구니 폴더는 내 드라이브 맨 위 또는 맨 위 앱 폴더(root_folder_id) 바로 아래 어디에 있어도 같은 폴더(옮긴 뒤 새로 안 만듦).
-import { APP_FOLDER_MARK, basketFolderClause, createParentFor, isBasketFolder, topParentsClause } from "./app-folders.mjs";
+import { APP_FOLDER_MARK, basketFolderClause, createParentFor, isBasketFolder, renameIfOld, topParentsClause } from "./app-folders.mjs";
 // S69-41: 새 바구니 폴더 이름('WORK ON+ 바구니'). 찾기·확인은 표식 또는 알려진 이름(옛·새)이라 [한곳으로 모으기]가 이름을 바꿔도 같은 폴더.
 import { FOLDER_NAMES } from "./brand-folders.mjs";
 
@@ -236,6 +236,16 @@ export function createDriveUpload(
       }
       return f.id as string;
     };
+    // S69-42: 확인을 마친 바구니 폴더가 옛 이름('Web2 바구니')이면 쓸 때 새 이름으로(같은 자리에 새 이름 폴더가 있으면 그대로).
+    // 이름만 바꾼다(id·자리·안 파일 그대로). 덤이라 실패해도 올리기는 그대로 한다(다음에 쓸 때 다시).
+    const renameOld = async (f: FolderMeta) => {
+      await renameIfOld({
+        drive: (url: string, init: RequestInit = {}) =>
+          request(url, { ...init, redirect: "error", headers: { ...(init.headers as Record<string, string> || {}), ...auth(token) } }),
+        kind: "basket",
+        file: { id: f.id, name: f.name, parents: f.parents },
+      }).catch(() => "failed");
+    };
     // Root membership comes from the query, never GET /files/root (404 with drive.file).
     // Search own My Drive root or directly inside the stored app root folder (S69-22, [앱 폴더 한곳에 모으기]);
     // never create permissions or adopt a shared folder (privateOwnedFolder: a folder under a shared parent inherits its permissions).
@@ -247,7 +257,9 @@ export function createDriveUpload(
     async function verifyStoredFolder(id: string) {
       const folder = await folderInfo(id, token);
       const found = await rootFolders();
-      return verify(folder, folder.id === id && found.some((f) => f.id === id));
+      const ok = verify(folder, folder.id === id && found.some((f) => f.id === id));
+      await renameOld(folder);
+      return ok;
     }
     if (setting?.basket_folder_id) {
       return await verifyStoredFolder(setting.basket_folder_id);
@@ -256,8 +268,12 @@ export function createDriveUpload(
       throw new UploadError(409, "drive_folder_missing", "drive_folder");
     }
     const found = await rootFolders();
+    if (found.length) {
+      verify(found[0], true);
+      await renameOld(found[0]);
+    }
     const id = found.length
-      ? verify(found[0], true)
+      ? found[0].id as string
       : await createFolder(FOLDER_NAMES.basket.now, createParentFor(appRoot), token, { [APP_FOLDER_MARK]: "basket" });
     // The POST with parents:[app root or 'root'] returned this ID; verify its full metadata with explicit permissions.
     // Never compare parents to a root metadata ID or overwrite root/library settings.

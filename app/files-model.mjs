@@ -3,6 +3,7 @@
 
 import {phoneErrorText} from './phone-files-model.mjs';
 import {pcErrorText} from './pc-files-model.mjs';
+import {naturalCompare} from './head-sort.mjs';
 
 export const SOURCES = Object.freeze(['od', 'gd']);
 // 'ph' = 이 폰 저장 공간(S49-51 FILES-통합 3단계, 폰 앱에서만). 클라우드 목록(SOURCES)에는 넣지 않는다 — 서버 색인·맞추기·쓰기는 클라우드 둘만.
@@ -182,22 +183,27 @@ export function applySyncReply(status, reply, sources = ['od', 'gd']) {
 // 모두 끝까지 맞췄을 때만 '맞춘 때'를 지금으로 옮긴다(이어 받을 쪽이 남았거나 실패한 출처가 있으면 그대로).
 export const syncSettled = (reply, sources = ['od', 'gd']) => sources.every(s => !reply?.[s] || (!reply[s].more && !reply[s].error && !reply[s].busy));
 
-// 정렬: 폴더 먼저, 그다음 고른 열. 같은 값이면 이름 → id(늘 같은 순서).
-export const SORTS = Object.freeze(['name', 'modified', 'size']);
-export const SORT_NAME = Object.freeze({name: '이름', modified: '바뀐 날', size: '크기'});
+// 정렬: 폴더 먼저(늘 위), 그다음 고른 열. 같은 값이면 이름 → id(늘 같은 순서). 이름·위치·종류는 한국어·숫자 자연 정렬(head-sort.mjs naturalCompare).
+// UI-머리눌러정렬: 머리 칸(이름·위치·바뀐 날·크기·종류)을 누르면 그 칸 기준(head-sort.mjs). 위치(path)는 위치가 보이는 목록(찾기·묶음)에서만 쓴다.
+export const SORTS = Object.freeze(['name', 'modified', 'size', 'kind']);
+export const SORT_KEYS = Object.freeze([...SORTS, 'path']);
+export const SORT_NAME = Object.freeze({name: '이름', path: '위치', modified: '바뀐 날', size: '크기', kind: '종류'});
+// 머리 칸 처음 누르기는 모든 칸이 오름차순(명진 11/24: 누르면 오름 → 다시 누르면 내림). 큰 파일 묶음만 크기 내림으로 연다(setWhere).
+export const SORT_DESC_FIRST = Object.freeze([]);
 export function sortRows(rows, key = 'name', dir = 'asc') {
   const sign = dir === 'desc' ? -1 : 1;
-  const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko', {numeric: true}) || String(a.item_id).localeCompare(String(b.item_id));
+  const byName = (a, b) => naturalCompare(a.name, b.name) || String(a.item_id).localeCompare(String(b.item_id));
+  const text = r => key === 'kind' ? kindLabel(r) : key === 'path' ? pathText(r.source, r.folder_path) : '';
   const val = r => key === 'size' ? (Number.isFinite(Number(r.size_bytes)) && r.size_bytes !== null ? Number(r.size_bytes) : -1)
     : key === 'modified' ? (Date.parse(r.modified_at || '') || 0) : 0;
   return [...(rows || [])].sort((a, b) => {
     if (!!a.is_folder !== !!b.is_folder) return a.is_folder ? -1 : 1;
     if (key === 'name') return sign * byName(a, b);
-    const d = val(a) - val(b);
+    const d = key === 'kind' || key === 'path' ? naturalCompare(text(a), text(b)) : val(a) - val(b);
     return d ? sign * d : byName(a, b);
   });
 }
-export const validSort = v => SORTS.includes(v) ? v : 'name';
+export const validSort = v => SORT_KEYS.includes(v) ? v : 'name';
 
 export const rowKey = r => `${r.source}:${r.item_id}`;
 // Edge sync 응답(changed·removed)을 지금 보는 폴더 줄에 입힌다. 이 폴더로 들어온 줄은 넣고, 나간 줄·휴지통·지운 줄은 뺀다.

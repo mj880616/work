@@ -16,7 +16,7 @@ function harness(options={}){
   const calls={admin:[],user:[],drive:[],logs:[],userClients:[]};
   const state={notes:structuredClone(options.notes??[{id:NOTE,workspace_id:WS,updated_at:T1,attachments:[attachment('a1'),attachment('a2')]}]),
     documents:structuredClone(options.documents??[]),files:new Map((options.files??[file('a1'),file('a2')]).map(f=>[f.id,structuredClone(f)]))};
-  const folder={id:FOLDER,name:'Web2 바구니',mimeType:'application/vnd.google-apps.folder',ownedByMe:true,trashed:false,parents:['synthetic-root'],permissions:[{type:'user',role:'owner'}]};
+  const folder={id:FOLDER,name:'WORK ON+ 바구니',mimeType:'application/vnd.google-apps.folder',ownedByMe:true,trashed:false,parents:['synthetic-root'],permissions:[{type:'user',role:'owner'}]};
   const admin={auth:{getUser:async()=>options.auth||{data:{user:{id:'synthetic-owner'}},error:null}},from:table=>{
     const q={table,filters:[],mutation:null};calls.admin.push(q);
     const b={select:()=>b,eq:(k,v)=>{q.filters.push([k,v]);return b;},is:(k,v)=>{q.filters.push([k,v]);return b;},
