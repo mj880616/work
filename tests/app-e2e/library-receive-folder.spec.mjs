@@ -27,6 +27,8 @@ async function openFolderMenu(page,id,width){await press(page,menuButton(page,'f
 
 test.describe('PC 1280 한 칸(왼쪽 나무 | 목록)',()=>{
   test.use({hasTouch:false});
+  // S69-28 LIB-한칸탐색기: PC 한 칸은 탐색기 — '폴더 밖' 묶음 머리가 없고 왼쪽 나무 '폴더 밖 n' 줄이 폴더 밖 자료가 있을 때만 있다.
+  const outside=page=>page.locator('#libraryFolderNav [data-lu-nav="x:out"]');
   test('메뉴로 켜기 → 폴더 밖 3개 옮기기 물음 → 옮김·표시·되돌리기, 올린 자료는 받는 폴더로, 연 폴더는 그 폴더로, 다른 폴더로 옮기기·끄기',async({page},info)=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더',init:{viewPrefs:{library_two:false},receiveFolder:null}});
     await expect(outside(page)).toBeVisible();
@@ -73,9 +75,9 @@ test.describe('PC 1280 한 칸(왼쪽 나무 | 목록)',()=>{
     await expect.poll(()=>s.items.find(x=>x.document_id==='upload-1')?.folder_id).toBe(RECV);
     expect(itemWrites(s).length).toBe(before);
     await expect(head(page,RECV)).toBeVisible();
-    await expect(page.locator('#documentList details[data-lu-node="x:out"] [data-lu-document="upload-1"]')).toHaveCount(0);
+    await expect(page.locator('#documentList > [data-lu-document="upload-1"]')).toHaveCount(0);
     // 폴더를 열고 올리면 지금처럼 그 폴더(서버가 받는 폴더에 넣은 줄을 연 폴더로 고침).
-    await page.locator(`#libraryFolderNav [data-lu-nav="${FA}"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+    await page.locator(`#libraryFolderNav [data-lu-nav="${FA}"]`).click();await expect(page.locator(`#libraryFolderNav [data-lu-nav="${FA}"]`)).toHaveAttribute('aria-current','true');
     await page.locator('#newDocumentBtn').click();
     await expect(folderLabel(page)).toHaveText('‘가상 A’ 폴더에 넣어요');
     await upload(page,'연-폴더.pdf');

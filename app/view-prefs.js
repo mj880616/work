@@ -175,7 +175,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -183,6 +183,7 @@ export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24, HOME_OFF
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
 const FOLDER_RE = /^(all|none|f:[^\p{Cc}]{1,20})$/u;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DRIVE_FOLDER_RE = /^[A-Za-z0-9_-]{10,200}$/;
 const ratioOk = v => typeof v === 'number' && Number.isFinite(v) && v > 0 && v < 1;
 
 // 칸 하나의 값이 맞는 모양인가(DB 검사와 같은 규칙).
@@ -202,6 +203,9 @@ export function validValue(key, value) {
     // S67-52 HOME-칸끄기: home_off = 홈에서 끈 칸 이름 배열(12개까지, 같은 이름 규칙 — DB 검사와 같음, 겹친 이름은 home-off-model.mjs가 하나로). 뜻은 home-off-model.mjs. migration 20261120230000.
     // 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(home-off.js).
     case 'home_off': return idList(value, HOME_OFF_MAX);
+    // S69-25b LIB-드라이브에서가져오기: drive_import_folder = 자료실 [드라이브에서 가져오기]에서 마지막에 고른 구글 드라이브 폴더 id 글자(DB 검사와 같은 모양).
+    // migration 20261124110000. 적용 전에는 쓰기가 400이라 rejectable로 보내 기억만 건너뛴다(다음에 열면 다시 고름). 서버가 쓸 때마다 그 폴더를 다시 확인한다.
+    case 'drive_import_folder': return typeof value === 'string' && DRIVE_FOLDER_RE.test(value);
     case 'photo_cols': return PHOTO_COLS.includes(value);
     case 'photo_cols_wide': return PHOTO_COLS_WIDE.includes(value);
     case 'diary_view': return DIARY_VIEWS.includes(value);

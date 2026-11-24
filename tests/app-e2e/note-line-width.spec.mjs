@@ -47,10 +47,12 @@ const grip = d => d.locator('[data-note-read] > [data-line-grip]');
 for (const width of [1280, 900]) test(`노트 보기: 글 줄은 한 줄 약 40자, 표는 넘어도 됨, 손잡이는 글 끝에 ${width}`, async ({page}) => {
   const {errors} = await fixture(page, width);
   const d = await openNote(page, 'n-doc', width);
-  await expect.poll(async () => Math.round((await firstLine(d)).em)).toBe(40);
+  // S69-27: [폴더] 보기 두 칸(왼쪽 나무 | 오른쪽 노트)에서는 오른쪽 칸이 40자보다 좁으면(900) 칸 폭까지만 — 40자를 넘지 않는다.
+  if (width >= 1280) await expect.poll(async () => Math.round((await firstLine(d)).em)).toBe(40);
+  else { await expect.poll(async () => Math.round((await firstLine(d)).em)).toBeGreaterThan(25); expect(Math.round((await firstLine(d)).em)).toBeLessThanOrEqual(40); }
   // 표는 글 폭보다 넓을 수 있다(잘리지 않음).
   const table = await d.locator('[data-basket-read-text] table').evaluate(el => el.getBoundingClientRect().width);
-  expect(table).toBeGreaterThan((await firstLine(d)).w);
+  if (width >= 1280) expect(table).toBeGreaterThan((await firstLine(d)).w); else expect(table).toBeGreaterThanOrEqual((await firstLine(d)).w); // 좁은 오른쪽 칸(900)은 글 줄이 이미 칸 폭
   // 손잡이는 글 줄 오른쪽 끝(±2px).
   await expect(grip(d)).toBeVisible();
   const g = await grip(d).boundingBox(), line = await firstLine(d);

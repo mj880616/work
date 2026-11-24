@@ -50,6 +50,8 @@ for(const width of [390,1280]){
   await field.click();await page.keyboard.press('Control+End');
   // The [사진] button: on a phone it is in the [넣기 ▾] group.
   if(width<761)await box.locator('[data-ed-cmd="gInsert"]').click();
+  // S69-27: PC [폴더] 보기는 노트가 오른쪽 칸에 열려 서식 줄이 좁으면 안 들어가는 단추가 [⌄] 줄로 간다(ed-editor.js fitTools).
+  else if(!(await box.locator('[data-ed-cmd="photo"]').isVisible()))await box.locator('.ed-tools .ed-more').click();
   const chooser=page.waitForEvent('filechooser');
   await box.locator('[data-ed-cmd="photo"]').click();
   await (await chooser).setFiles([{name:'현장.png',mimeType:'image/png',buffer:PNG}]);

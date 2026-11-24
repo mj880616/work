@@ -4,6 +4,7 @@
 // 칸(list)이 여럿이어도 된다(하단바 칸 ↔ [메뉴] 칸). 어디에 놓을지는 dropIndex(가운데 세로 위치 목록, y)로 정한다.
 import {dropZone} from './folder-look-model.mjs';
 import {createEdgeScroll, EDGE} from './drag-edge-scroll.js';
+import {createDragGhost} from './drag-ghost.js';
 export const LONG_MS = 450, SLOP = 8, MOVED = 12;
 export {EDGE};
 export function dropIndex(centers, y) {
@@ -42,8 +43,11 @@ export function dropIndexGrid(rects, x, y) {
 //  links: true  → whole 모드에서 <a href> 줄도 잡힌다(PC 왼쪽 메뉴 줄은 링크). 링크의 기본 끌기(주소 끌어가기)는 막는다.
 //  early: true  → 끌기 뒤 따라오는 클릭 한 번을 창(window) 단계에서 먼저 삼킨다. 마우스로 끌면 포인터를 잡아 둔 줄이 그 클릭을 받는데(자리가 안 바뀌어 줄이 그대로면 클릭이 생긴다),
 //         문서 단계 위임 클릭(loader-v2의 [data-view] 화면 열기)이 root보다 먼저 받으면 끌었다 놓은 줄의 화면이 열려 버리기 때문이다. 부품이 다시 붙는 곳은 destroy로 그 창 쪽 귀를 뗀다.
-export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false, early = false} = {}) {
+// S69-27 끄는 모습 보이기 — 다른 사용처는 기본값 그대로(조각 없음):
+//  ghost(el, id) -> 글자 | null : 잡은 동안 마우스·손가락을 따라오는 반투명 조각(공용 drag-ghost.js)에 쓸 글자. 놓거나 취소하면 사라진다.
+export function mountReorder(root, {ghost = null, listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false, early = false} = {}) {
   let drag = null, touch = null, marker = null;
+  const floater = ghost ? createDragGhost(root.ownerDocument || document) : null;
   const idOf = el => el?.dataset?.reorderId || '';
   const lists = () => [...root.querySelectorAll(listSelector)];
   const clearMarks = () => {
@@ -52,7 +56,14 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
   };
   // zones 모드: 포인터 아래 줄과 그 줄 안 자리(위 25% 앞 / 가운데 50% 안 / 아래 25% 뒤).
   function zoneTarget(x, y) {
-    const hit = document.elementFromPoint(x, y), over = hit?.closest?.(itemSelector);
+    const hit = document.elementFromPoint(x, y);
+    let over = hit?.closest?.(itemSelector);
+    // S69-27: 줄 안 작은 단추(나무 펼침 아이콘 등)는 누르는 범위(44px)가 줄 밖으로 넓어 옆 줄 위에 걸친다. 포인터가 잡힌 줄 상자 밖이면
+    // 포인터를 실제로 품은 줄로 바로잡는다(줄 경계 가까이에서 위·아래 줄이 바뀌어 잡히지 않게).
+    if (over && root.contains(over)) {
+      const box = over.getBoundingClientRect();
+      if (y < box.top || y >= box.bottom) over = [...root.querySelectorAll(itemSelector)].find(el => { const b = el.getBoundingClientRect(); return b.height > 0 && y >= b.top && y < b.bottom && x >= b.left && x <= b.right; }) || over;
+    }
     if (!over || !root.contains(over) || over === drag.el) return null;
     const overId = idOf(over), rule = zones.resolve(drag.id, overId) || {};
     if (rule.ok === false) return null;
@@ -95,15 +106,19 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
   // 끄는 동안 저절로 굴리기: 공용 부품(drag-edge-scroll.js). scroller()가 준 칸을 먼저, 없으면 포인터 아래 가장 안쪽 굴러가는 칸(끝은 화면). 굴린 뒤 놓을 자리를 다시 본다.
   const edge = createEdgeScroll({prefer: () => scroller(), onScroll: (x, y) => { if (!drag) return; drag.drop = target(x, y); showMark(drag.drop); if (zones) onHover?.(drag.drop ? {id: drag.id, over: drag.drop.over, zone: drag.drop.zone} : null); }});
   const stopScroll = () => edge.stop();
-  function begin(el) { drag = {el, id: idOf(el), drop: null}; el.classList.add('re-dragging'); root.classList.add('re-active'); }
+  function begin(el, x, y) {
+    drag = {el, id: idOf(el), drop: null}; el.classList.add('re-dragging'); root.classList.add('re-active');
+    if (floater) { let label = null; try { label = ghost(el, drag.id); } catch { label = null; } if (label) floater.show(label, x, y); }
+  }
   function move(x, y) {
     if (!drag) return;
+    floater?.move(x, y);
     drag.drop = target(x, y); showMark(drag.drop); edge.update(x, y);
     if (zones) onHover?.(drag.drop ? {id: drag.id, over: drag.drop.over, zone: drag.drop.zone} : null);
   }
   function finish(commit) {
     const d = drag;
-    drag = null; stopScroll(); clearMarks(); root.classList.remove('re-active');
+    drag = null; stopScroll(); clearMarks(); root.classList.remove('re-active'); floater?.hide();
     if (zones) onHover?.(null);
     if (commit && d?.drop) onDrop?.({id: d.id, list: d.drop.listId, index: d.drop.index, ...(zones ? {over: d.drop.over, zone: d.drop.zone} : {})});
   }
@@ -117,7 +132,7 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     const start = {x: event.clientX, y: event.clientY, pointer: event.pointerId};
     const onMove = e => {
       if (e.pointerId !== start.pointer) return;
-      if (!drag) { if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 4) return; begin(item); try { handle.setPointerCapture(start.pointer); } catch { /* 잡지 못해도 문서 이벤트로 이어진다 */ } }
+      if (!drag) { if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 4) return; begin(item, e.clientX, e.clientY); try { handle.setPointerCapture(start.pointer); } catch { /* 잡지 못해도 문서 이벤트로 이어진다 */ } }
       e.preventDefault(); move(e.clientX, e.clientY);
     };
     const onEnd = e => {
@@ -141,7 +156,7 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     cancelTouch();
     touch = {el: item, x: event.clientX, y: event.clientY, grabbed: false, moved: false, timer: setTimeout(() => {
       if (!touch || touch.el !== item) return;
-      touch.grabbed = true; begin(item); item.classList.add('re-grabbed'); try { navigator.vibrate?.(12); } catch { /* 진동 없는 기기 */ }
+      touch.grabbed = true; begin(item, touch.x, touch.y); item.classList.add('re-grabbed'); try { navigator.vibrate?.(12); } catch { /* 진동 없는 기기 */ }
     }, LONG_MS)};
   });
   root.addEventListener('pointermove', event => {

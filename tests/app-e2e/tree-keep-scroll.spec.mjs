@@ -47,8 +47,9 @@ const LIB = Array.from({ length: N }, (_, i) => [libFolder('f' + i, null, { name
 async function library(page, width, two = false) {
   const r = await bootLibrary(page, width, { folders: LIB, items: [] });
   await page.locator('#libraryGroupBy').selectOption({ label: '폴더' });
-  const btn = page.locator('#libraryTwoBtn');
-  if (width >= 761 || two) { await expect(btn).toBeVisible(); if ((await btn.getAttribute('aria-pressed') === 'true') !== two) await btn.click(); }
+  // S69-28 LIB-보기두칸: 붙은 [한 칸 | 두 칸] — 원하는 쪽을 누른다(이미 그 보기면 그대로).
+  const btn = page.locator(two ? '#libraryTwoBtn' : '#libraryOneBtn');
+  if (width >= 761 || two) { await expect(btn).toBeVisible(); await btn.click(); await expect(btn).toHaveAttribute('aria-pressed', 'true'); }
   return r;
 }
 for (const width of [1280, 884]) test(`자료실 ${width}: 왼쪽 나무를 내려 아래 폴더를 펼치고 접어도 그 자리`, async ({ page }) => {
@@ -58,12 +59,13 @@ for (const width of [1280, 884]) test(`자료실 ${width}: 왼쪽 나무를 내�
   await expect(row).toBeVisible();
   const box = nav.locator('.lu-fnav-in');
   const same = await box.elementHandle();
-  await pressStays(page, row, { open: () => expect(kid).toBeVisible(), shots: `library-${width}` });
-  expect(await box.evaluate(b => b.scrollTop)).toBeGreaterThan(100);
-  expect(await same.evaluate(b => b.isConnected)).toBe(true); // 스크롤 상자는 그대로, 안쪽만 바뀐다
-  await pressStays(page, row, { open: () => expect(kid).toHaveCount(0) });
-  // 아이콘 누르기도 같다
-  await pressStays(page, row, { press: nav.locator('[data-lu-nav-tog="f22"]'), open: () => expect(kid).toBeVisible() });
+  // S69-28 LIB-한칸탐색기: 나무 칸은 따로 굴러가지 않고(카드가 늘어남) 화면이 굴러간다. 펼치기·접기는 줄 앞 폴더 그림(이름 누르기 = 그 폴더 열기).
+  const tog = nav.locator('[data-lu-nav-tog="f22"]');
+  await pressStays(page, row, { press: tog, open: () => expect(kid).toBeVisible(), shots: `library-${width}` });
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+  expect(await same.evaluate(b => b.isConnected)).toBe(true); // 나무 상자는 그대로, 안쪽만 바뀐다
+  await pressStays(page, row, { press: tog, open: () => expect(kid).toHaveCount(0) });
+  await pressStays(page, row, { press: tog, open: () => expect(kid).toBeVisible() });
   expect(s.writes).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -83,8 +85,10 @@ test('자료실 폰 412: 목록 폴더 묶음을 아래에서 펼치고 접어�
   const { errors } = await library(page, 412);
   const d = page.locator('#documentList details[data-lu-node="f:f22"]'), row = d.locator('> summary');
   const open0 = await d.evaluate(x => x.open);
-  await pressStays(page, row, { open: () => expect.poll(() => d.evaluate(x => x.open)).toBe(!open0), shots: 'library-412' });
-  await pressStays(page, row, { open: () => expect.poll(() => d.evaluate(x => x.open)).toBe(open0) });
+  // S69-28: 폰 나무는 폴더 그림 누르기 = 펼치기·접기(이름 누르기 = 그 폴더 내용 화면). 그림은 누르기를 줄에 넘기므로 그 자리를 누른다.
+  const ico = { click: async () => { const r = await row.boundingBox(), i = await row.locator('.lu-folder-emoji').boundingBox(); await row.click({ position: { x: i.x - r.x + i.width / 2, y: r.height / 2 } }); } };
+  await pressStays(page, row, { press: ico, open: () => expect.poll(() => d.evaluate(x => x.open)).toBe(!open0), shots: 'library-412' });
+  await pressStays(page, row, { press: ico, open: () => expect.poll(() => d.evaluate(x => x.open)).toBe(open0) });
   expect(errors).toEqual([]);
 });
 

@@ -21,6 +21,7 @@ import { setKeep } from '../_shared/library-prev-model.mjs';
 import { fileNameTitle, isMeaninglessName } from '../_shared/library-file-name.mjs';
 import { RECORD_LINE_INSTRUCTIONS, RECORD_LINE_SCHEMA, RECORD_LINE_TEXT_CHARS, checkRecordLine, recordLineKind } from './record-line.ts';
 import { withWebCors } from "../_shared/web-cors.ts";
+import { createDriveImport, parseImportRequest } from './drive-import.mjs';
 import { WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog } from "../_shared/safe-error.ts";
 // S69-20: 새 사용자 맨 위 드라이브 폴더 이름(이미 있는 폴더는 id로 찾고 이름을 바꾸지 않음).
@@ -243,6 +244,17 @@ Deno.serve(withWebCors(async(req:Request)=>{
         if(!ids)throw new UploadError('요청을 확인할 수 없습니다.',{code:'invalid_request'});
         const wmBrief=await workspaceFor(user.id);
         return await photoBriefs(wmBrief.workspace_id,user.id,'Bearer '+(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,''),ids);
+      }
+      // S69-25 LIB-드라이브에서가져오기: 내 드라이브에만 있고 자료실에 없는 파일 목록·등록(drive-import.mjs). 내 작업공간·내 구글 연결만, 파일 내용은 열지 않음.
+      // S69-25b: 드라이브 전체가 아니라 고른 드라이브 폴더(하위 포함) 안만 — drive-import-folders로 고를 목록, list·add는 folder_id를 서버가 다시 확인.
+      if(input?.action==='drive-import-folders'||input?.action==='drive-import-list'||input?.action==='drive-import-add'){
+        const req2=parseImportRequest(input);
+        if(!req2)throw new UploadError('요청을 확인할 수 없습니다.',{code:'invalid_request'});
+        const wmImport=await workspaceFor(user.id);
+        const token=await driveToken(wmImport.workspace_id);
+        const imp=createDriveImport({admin,fetch,token,workspaceId:wmImport.workspace_id,userId:user.id,titleFor:(name:string)=>(!isMeaninglessName(name)&&fileNameTitle(name))||tidyFileTitle(name),classify});
+        try{return json(req2.action==='folders'?await imp.folders():req2.action==='list'?await imp.list(req2.folderId):await imp.add(req2.folderId,req2.ids))}
+        catch(e){if(e instanceof imp.ImportFail){const code=(e as any).code;return json({ok:false,error:code,code,message:code==='folder_invalid'?'고른 드라이브 폴더를 찾지 못했어요. 폴더를 다시 선택해 주세요.':'Google Drive 목록을 읽지 못했어요. 잠시 후 다시 해 주세요.'},(e as any).status)}throw e}
       }
       if(input?.action!=='previous-keep')throw new UploadError('지원하지 않는 작업입니다.',{code:'unsupported_request'});
       const wmKeep=await workspaceFor(user.id);

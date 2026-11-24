@@ -138,10 +138,12 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       // LIB-폴더끌어순서(S61-14, 명진 11/12 15:30): 순서는 끌어서 바꾸므로 [위로]·[아래로]는 메뉴에서 뺐다. 키보드는 폴더 줄에서 Alt+↑·Alt+↓(bindKeys).
       // LIB-폴더100단 ②(10:34): 폴더 보기에서는 펼치기·접기 다음에 [이 폴더로 들어가기] — 그 폴더만 보이고 위에 위치 줄(자료실 › … ). 폴더 줄을 두 번 눌러도 같다.
       // '폴더 밖'이 비어 그 줄이 없으면(LIB-정리보충) 맨 위 폴더 메뉴 첫 줄이 맨 위 새 폴더 자리.
-      const top=s().free&&!s().inFolder&&!f.parent_id&&!outsideHead()?'<button type="button" data-lu-folder-action="create-top">맨 위에 새 폴더</button>':'';
+      // 탐색기(S69-28)는 '폴더 밖' 머리가 늘 없지만 맨 위 ⋯·빈 자리 우클릭 [새 폴더]가 맨 위 자리라 이 줄을 더하지 않는다.
+      const top=s().free&&!s().explorer&&!s().inFolder&&!f.parent_id&&!outsideHead()?'<button type="button" data-lu-folder-action="create-top">맨 위에 새 폴더</button>':'';
       return top+'<button type="button" data-lu-folder-action="rename" aria-keyshortcuts="F2">이름 바꾸기<span class="lu-menu-key" aria-hidden="true">F2</span></button>'
         +(canAddChild(s().folders,f.id)?'<button type="button" data-lu-folder-action="create">안에 새 폴더</button>':'')
-        +`<button type="button" data-lu-folder-action="toggle">${s().isOpen?.(key)?'접기':'펼치기'}</button>`
+        // S69-28 LIB-한칸탐색기: 탐색기(한 칸 폴더 보기)의 폴더 줄은 펼치지 않고 들어가므로 [펼치기·접기] 줄이 없다(왼쪽 나무는 줄 앞 폴더 그림).
+        +(s().explorer?'':`<button type="button" data-lu-folder-action="toggle">${s().isOpen?.(key)?'접기':'펼치기'}</button>`)
         +(enter&&s().free?'<button type="button" data-lu-folder-action="enter">이 폴더로 들어가기</button>':'')
         +(folderMoveTargets(s().folders,f.id,!!s().free).length?'<button type="button" data-lu-folder-action="move">옮기기…</button>':'')
         +'<button type="button" data-lu-folder-action="paint">색 선택…</button>'
@@ -380,7 +382,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function hoverOpen(t){
     if(t?.nav)t=null;
     const node=t?.head?.parentElement,key=node?.dataset?.luNode||'';
-    const want=node&&!node.open&&t.kind!=='before'&&t.kind!=='after'?key:'';
+    // S69-28: 탐색기 칸의 하위 폴더 줄(data-lu-enter)은 펼치지 않는 줄이라 머물러도 열지 않는다(놓으면 그 폴더 안).
+    const want=node&&!node.open&&!node.hasAttribute?.('data-lu-enter')&&t.kind!=='before'&&t.kind!=='after'?key:'';
     if(want===hoverKey)return;
     clearTimeout(hoverTimer);hoverKey=want;
     if(want)hoverTimer=setTimeout(()=>{if(hoverKey===want&&(drag||touch?.grabbed||fileDrag)&&node.isConnected&&!node.open)node.open=true},HOVER_OPEN_MS);
