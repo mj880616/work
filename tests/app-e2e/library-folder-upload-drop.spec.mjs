@@ -29,7 +29,8 @@ test.describe('PC 1440 PC 파일을 폴더에 놓아 올리기',()=>{
     await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('주간보고에 2개 올렸어요');
     expect(s.uploads.map(u=>u.id)).toEqual(['upload-1','upload-2']);
     expect(s.items.filter(x=>x.folder_id==='fw')).toEqual([{document_id:'upload-1',folder_id:'fw',workspace_id:'workspace-1'},{document_id:'upload-2',folder_id:'fw',workspace_id:'workspace-1'}]);
-    await expect(page.locator('#documentList [data-lu-document="upload-1"]')).toHaveCount(0); // 맨 위 그대로
+    await expect(page.locator('#documentList [data-lu-document="upload-1"]')).toBeHidden(); // 맨 위 그대로(S69-68: 접힌 주간보고 줄 안에만 — 저절로 펼치지 않음)
+    await expect(page.locator('#documentList details[data-lu-node="f:fw"]')).not.toHaveAttribute('open','');
     await page.locator('#libraryFolderNav [data-lu-nav="fw"]').click();
     await expect(page.locator('#documentList > [data-lu-document]')).toHaveCount(2);
     await page.locator('#libraryFolderNav [data-lu-nav=""]').click();

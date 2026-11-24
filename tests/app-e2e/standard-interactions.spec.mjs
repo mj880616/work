@@ -318,6 +318,163 @@ for (const [name, open] of PRESS_SCREENS) test(`T5 ${name} 폰 390: 폴더 이�
   expect(s.errors).toEqual([]);
 });
 
+// T5 PC(S69-68 UI-오른쪽목록펼치기, 명진 11/24 20:09 "여기서 노조를 클릭하면 노조가 펼쳐지는거야 거기로 들어가는게아니고 들어가는건 무조건 왼쪽에서 클릭했을 때"):
+// PC 탐색기 오른쪽 목록의 폴더 줄 누르기 = 그 자리 펼치기·접기(안의 하위 폴더·파일이 들여 보임). 주소·위치 줄·왼쪽 나무(지금 폴더·펼침)는 그대로.
+// 새 탐색기 화면이 생기면 RIGHT_SCREENS에 한 줄 더한다({press 오른쪽 폴더 줄, open 펼쳤나, inner 안 줄, here 위치 글자, treeOpen 왼쪽 나무에서 그 폴더가 보이나}).
+async function filesRight(page) {
+  const { errors } = await startFiles(page, 1280);
+  await openFiles(page, 1280);
+  await page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main').click();
+  const row = page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!10"]');
+  await expect(row).toBeVisible();
+  return { errors, press: () => row.click(), open: async () => (await row.getAttribute('aria-expanded')) === 'true',
+    inner: page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!14"]'), here: () => page.locator('#filesRoot [data-fx-crumb] .fx-crumb-now').textContent(),
+    treeSub: page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!14"], #filesRoot [data-fx-tree] .ft-row.ft-current [data-fx-go][data-fx-id="OD!10"]') };
+}
+async function libraryRight(page) {
+  const folders = [libFolder('ra', null, { name: '가상 노조', sort_order: 1024 }), libFolder('rb', null, { name: '가상 회의', parent_id: 'ra', sort_order: 1024 }), libFolder('rc', null, { name: '가상 안건', parent_id: 'rb', sort_order: 1024 })];
+  const { errors } = await bootLibrary(page, 1280, { folders, items: [{ document_id: 'd1', folder_id: 'rb' }], docs: [libDoc('d1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
+  await page.locator('#libraryFolderNav [data-lu-nav="ra"]').click();
+  const d = page.locator('#documentList details[data-lu-node="f:rb"]');
+  await expect(d).toBeVisible();
+  return { errors, press: () => d.locator(':scope > summary').click(), open: () => d.evaluate(x => x.open),
+    inner: d.locator('[data-lu-document="d1"]'), here: () => page.locator('#libraryPath').textContent(),
+    treeSub: page.locator('#libraryFolderNav [data-lu-nav="rc"], #libraryFolderNav .ft-current [data-lu-nav="rb"]') };
+}
+async function notesRight(page) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page);
+  await installViewPrefsServer(page);
+  const f = (id, parent_id, name) => ({ id: U(id), workspace_id: 'w', parent_id, name, sort_order: 1024, created_at: '2026-10-01T00:00:00Z' });
+  const folders = [f(301, null, '가상 노조'), f(302, U(301), '가상 회의'), f(303, U(302), '가상 안건')];
+  const note = { id: 'rn1', workspace_id: 'w', kind: 'note', title: '가짜 회의 노트', raw_text: '가짜', occurred_at: '2026-10-12T01:00:00Z', created_at: '2026-10-12T01:00:00Z', updated_at: '2026-10-12T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: { folder_id: U(302) } };
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: [structuredClone(note)] }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.request().method() === 'GET' ? r.fulfill({ json: structuredClone(folders) }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
+  await page.evaluate(() => window.KPTURouter.go('basket'));
+  await chooseBasketKind(page, 'note');
+  await page.locator(`[data-nx-tree] [data-nx-open="${U(301)}"]`).click();
+  const main = page.locator(`#noteRows [data-nx-open="${U(302)}"]`);
+  await expect(main).toBeVisible();
+  return { errors, press: () => main.click(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+    inner: page.locator('#noteRows [data-note-row="rn1"]'), here: async () => (await page.locator(`[data-nx-tree] .ft-current [data-nx-open]`).getAttribute('data-nx-open')),
+    treeSub: page.locator(`[data-nx-tree] [data-nx-open="${U(303)}"], [data-nx-tree] .ft-current [data-nx-open="${U(302)}"]`) };
+}
+const RIGHT_SCREENS = [['파일', filesRight], ['자료실', libraryRight], ['노트', notesRight]];
+for (const [name, open] of RIGHT_SCREENS) test(`T5 ${name} PC 1280: 오른쪽 목록 폴더 줄 누르기 = 그 자리 펼치기·접기, 주소·위치·왼쪽 나무 그대로`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page);
+  const url0 = page.url(), here0 = await s.here();
+  await s.press();
+  await expect.poll(s.open).toBe(true);
+  await expect(s.inner).toBeVisible();
+  expect(page.url()).toBe(url0);
+  expect(await s.here()).toBe(here0);
+  await expect(s.treeSub).toHaveCount(0); // 왼쪽 나무는 따라 펼치거나 강조하지 않는다
+  await s.press();
+  await expect.poll(s.open).toBe(false);
+  await expect(s.inner).toBeHidden();
+  expect(page.url()).toBe(url0);
+  expect(s.errors).toEqual([]);
+});
+
+// T6(S69-68 UI-두칸따로, 명진 11/24 20:14 "우측에서의 폴더조작이 왼쪽에 영향 안미치게 반대로도. 원래 따로 조작하는게 의도임"):
+// 두 칸 보기의 칸마다 펼침·지금 폴더가 따로 — 한 칸에서 펼치기·접기·들어가기를 해도 다른 칸은 그대로.
+const TWO_FOLDERS = () => Array.from({ length: 24 }, (_, i) => libFolder('w' + i, null, { name: '가상 칸 폴더 ' + String(i).padStart(2, '0'), sort_order: 1024 * (i + 1) }));
+const TWO_DOCS = () => Array.from({ length: 30 }, (_, i) => libDoc('w' + i, null));
+const TWO_ITEMS = () => TWO_DOCS().map((d, i) => ({ document_id: d.id, folder_id: 'w' + (i % 3) }));
+const lp = i => `#documentList [data-lu-pane-i="${i}"]`;
+test('T6 자료실 1280 두 칸: 칸마다 펼침·들어가기가 따로', async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors } = await bootLibrary(page, 1280, { folders: TWO_FOLDERS(), items: TWO_ITEMS(), docs: TWO_DOCS(), group: '폴더', init: { viewPrefs: { library_two: true } } });
+  await expect(page.locator('#documentList [data-lu-two]')).toBeVisible();
+  const row = (i, id) => page.locator(`${lp(i)} [data-lu-nav="${id}"]`);
+  // 왼쪽 칸에서 펼치면 오른쪽 칸 같은 폴더는 접힌 채, 오른쪽에서 펼쳐도 왼쪽은 그대로.
+  await row(0, 'w0').click();
+  await expect(row(0, 'w0')).toHaveAttribute('aria-expanded', 'true');
+  await expect(row(1, 'w0')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator(`${lp(1)} [data-lu-document="w0"]`)).toHaveCount(0);
+  await row(1, 'w1').click();
+  await expect(row(1, 'w1')).toHaveAttribute('aria-expanded', 'true');
+  await expect(row(0, 'w1')).toHaveAttribute('aria-expanded', 'false');
+  await row(1, 'w0').click();
+  await expect(row(1, 'w0')).toHaveAttribute('aria-expanded', 'true');
+  await row(1, 'w0').click();
+  await expect(row(1, 'w0')).toHaveAttribute('aria-expanded', 'false');
+  await expect(row(0, 'w0')).toHaveAttribute('aria-expanded', 'true'); // 오른쪽에서 접어도 왼쪽은 펼친 채
+  // 오른쪽 칸에서 들어가도 왼쪽 칸 위치·펼침은 그대로.
+  await row(1, 'w2').click({ button: 'right' });
+  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+  await expect(page.locator(`${lp(1)} .lu-pane-here`)).toHaveText('가상 칸 폴더 02');
+  await expect(page.locator(`${lp(0)} .lu-pane-here`)).toHaveText('자료실');
+  await expect(row(0, 'w0')).toHaveAttribute('aria-expanded', 'true');
+  expect(errors).toEqual([]);
+});
+test('T6 파일 1280 두 칸: 칸마다 펼침·들어가기가 따로', async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors } = await startFiles(page, 1280);
+  await openFiles(page, 1280, { two: true });
+  const two = page.locator('#filesRoot [data-fx-two]');
+  if ((await two.getAttribute('aria-pressed')) !== 'true') await two.click();
+  await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
+  const pane = i => page.locator(`#filesRoot [data-fx-pane-i="${i}"] [data-fx-list]`);
+  await expect(pane(0).locator('[data-fx-row="od:OD!1"]')).toBeVisible();
+  // 오른쪽 칸은 구글 드라이브 맨 위에서 시작한다(서버 기억 없음 — 두 칸이 다른 곳).
+  await expect(pane(1).locator('[data-fx-row="gd:gdFolder1"]')).toBeVisible();
+  await pane(0).locator('[data-fx-row="od:OD!1"]').click();
+  await expect(pane(0).locator('[data-fx-row="od:OD!1"]')).toHaveAttribute('aria-expanded', 'true');
+  await expect(pane(1).locator('[data-fx-row="gd:gdFolder1"]')).toHaveAttribute('aria-expanded', 'false');
+  await pane(1).locator('[data-fx-row="gd:gdFolder1"]').click();
+  await expect(pane(1).locator('[data-fx-row="gd:gdDoc1"]')).toBeVisible();
+  await expect(pane(0).locator('[data-fx-row="od:OD!10"]')).toBeVisible(); // 오른쪽 칸에서 펼쳐도 왼쪽 칸 펼침 그대로
+  await pane(0).locator('[data-fx-row="od:OD!1"]').click();
+  await expect(pane(0).locator('[data-fx-row="od:OD!10"]')).toHaveCount(0);
+  await expect(pane(1).locator('[data-fx-row="gd:gdDoc1"]')).toBeVisible(); // 왼쪽 칸에서 접어도 오른쪽 칸 펼침 그대로
+  await pane(0).locator('[data-fx-row="od:OD!1"]').click();
+  // 오른쪽 칸에서 들어가도 왼쪽 칸 위치·펼침은 그대로.
+  await pane(1).locator('[data-fx-row="gd:gdFolder1"]').click({ button: 'right' });
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
+  await expect(pane(1).locator('[data-fx-row="gd:gdFolder1"]')).toHaveCount(0);
+  await expect(pane(1).locator('[data-fx-row="gd:gdDoc1"]')).toBeVisible();
+  await expect(pane(0).locator('[data-fx-row="od:OD!1"]')).toHaveAttribute('aria-expanded', 'true');
+  await expect(pane(0).locator('[data-fx-row="od:OD!10"]')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+// T7(S69-68, 명진 11/24 20:15 "왼쪽에서 오른쪽으로 드래그를 하거나 조작을 하면 그 조작하기 직전 화면에 멈춰져있어야하는데 자꾸 위치가 바뀌어"):
+// 두 칸을 각각 내려 둔 채 왼쪽 칸 자료를 오른쪽 칸 폴더에 끌어 놓으면 두 칸 모두 스크롤 자리·펼침이 그대로(옮긴 곳을 저절로 펼치지 않음).
+test('T7 자료실 1280 두 칸: 끌어 놓기·펼치기 뒤 두 칸 스크롤·펼침 그대로', async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors, s } = await bootLibrary(page, 1280, { folders: TWO_FOLDERS(), items: TWO_ITEMS(), docs: TWO_DOCS(), group: '폴더', init: { viewPrefs: { library_two: true } } });
+  await expect(page.locator('#documentList [data-lu-two]')).toBeVisible();
+  await page.locator(`${lp(0)} [data-lu-nav="w0"]`).click();
+  await page.locator(`${lp(1)} [data-lu-nav="w1"]`).click();
+  const list = i => page.locator(`${lp(i)} .lu-pane-list`);
+  for (const i of [0, 1]) expect(await list(i).evaluate(el => el.scrollHeight > el.clientHeight + 100)).toBe(true);
+  await list(0).evaluate(el => { el.scrollTop = 150; });
+  await list(1).evaluate(el => { el.scrollTop = el.scrollHeight; });
+  const tops = () => Promise.all([0, 1].map(i => list(i).evaluate(el => Math.round(el.scrollTop))));
+  const opened = () => Promise.all([0, 1].map(i => page.locator(`${lp(i)} [data-lu-nav][aria-expanded="true"]`).evaluateAll(xs => xs.map(x => x.dataset.luNav))));
+  const top0 = await tops(), open0 = await opened();
+  expect(top0[0]).toBe(150); expect(top0[1]).toBeGreaterThan(150);
+  // 보이는 자료 줄(왼쪽)과 보이는 폴더 줄(오른쪽)을 고른다(시험 도구가 스크롤하지 않게).
+  const inView = (i, sel) => page.evaluate(([p, q]) => { const l = document.querySelector(p + ' .lu-pane-list').getBoundingClientRect(); return [...document.querySelectorAll(p + ' ' + q)].find(x => { const r = x.getBoundingClientRect(); return r.top > l.top + 20 && r.bottom < l.bottom - 20; })?.getAttribute(q.slice(1, -1)); }, [lp(i), sel]);
+  const doc = await inView(0, '[data-lu-document]'), to = await inView(1, '[data-lu-nav]');
+  expect(doc && to).toBeTruthy();
+  await page.locator(`${lp(0)} [data-lu-document="${doc}"]`).dragTo(page.locator(`${lp(1)} [data-lu-nav="${to}"]`));
+  await expect.poll(() => s.items.find(x => x.document_id === doc)?.folder_id).toBe(to);
+  await expect.poll(tops).toEqual(top0);
+  expect(await opened()).toEqual(open0);
+  // 펼치기·접기(보이는 줄)도 두 칸 자리 그대로.
+  const fold = await inView(1, '[data-lu-nav]');
+  await page.locator(`${lp(1)} [data-lu-nav="${fold}"]`).click();
+  await page.locator(`${lp(1)} [data-lu-nav="${fold}"]`).click();
+  await expect.poll(tops).toEqual(top0);
+  expect(errors).toEqual([]);
+});
+
 // ---------- S9. 폴더 고르기 창(LIB-폴더창들어가기, 명진 11/24 18:04 → S69-62 [파일] '옮길 곳' 창 하나로) ----------
 // 폴더를 눌러도 바로 실행하지 않는다: 누르면 선택 + 펼치기(하위 폴더가 보임), 실행 단추([여기에 옮기기])에만 실행, ✕(닫기)면 그대로.
 async function libraryPick(page, width) {
@@ -355,19 +512,37 @@ for (const [name, open] of S9_SCREENS) for (const width of [390, 1280]) test.des
 // ---------- P4. 폰 길게 누르기 = 선택 모드 + 그 줄 선택, 메뉴는 ⋯ (S69 LONGPRESS-선택, 명진 11/24 18:06) ----------
 // "이 상태에서 꾹 누르면 선택이 활성화되는 거야. … 이거는 선택한 상태가 되는 거야. 우클릭 메뉴는 옆에 점점점으로 활성화"
 // 공용 규칙: app/select-mode.js holdPick(꺼져 있으면 켜고 그 줄을 고름, 켜져 있으면 더함 — 토글 아님). 끌기는 움직였을 때만(library-folder-drag.spec.mjs).
-// 새 목록 화면이 생기면 HOLD_SCREENS에 한 줄 더한다. 노트는 basket-note-folder.spec.mjs, 파일은 files-touch-drag.spec.mjs, 사진 작은 그림은 library-photo-pick.spec.mjs.
+// 새 목록 화면이 생기면 HOLD_SCREENS에 한 줄 더한다. 노트는 basket-note-folder.spec.mjs, 파일 목록 줄은 files-touch-drag.spec.mjs, 사진 작은 그림은 library-photo-pick.spec.mjs.
+// 화면마다 돌려줄 것: first·second(꾹 누를 줄·누를 줄), bar(선택 막대), countIs(n)(막대 개수 글), isPicked(줄)(고름 표시), tap(줄)(한 번 누르기), more(줄)(⋯), menu(메뉴 상자).
 const P4_FOLDERS = [libFolder('fa', 'top-a', { name: '가상 A', sort_order: 1024 }), libFolder('fc', 'child-a1', { name: '가상 C', parent_id: 'fa', sort_order: 0 })];
 async function libraryRows(page) {
   const r = await bootLibrary(page, 390, { folders: P4_FOLDERS, items: [{ document_id: 'a-1', folder_id: 'fc' }], group: '폴더' });
   await expandLibraryTree(page);
   const row = id => page.locator(`#documentList [data-lu-document="${id}"]`);
+  const count = page.locator('#librarySelectCount');
   return {
     errors: r.errors, first: row('a-2'), second: row('a1-1'),
-    bar: page.locator('#librarySelectBar'), count: page.locator('#librarySelectCount'),
-    picked: l => l.locator('[data-lu-pick]'), more: l => l.locator('[data-lu-menu]'), menu: page.locator('#luMorePanel'),
+    bar: page.locator('#librarySelectBar'), countIs: n => expect(count).toHaveText(`${n}개 선택됨`),
+    isPicked: l => expect(l.locator('[data-lu-pick]')).toBeChecked(), tap: l => l.locator('h3,.lu-row-title').first().tap(),
+    more: l => l.locator('[data-lu-menu]'), menu: page.locator('#luMorePanel'),
   };
 }
-const HOLD_SCREENS = [['자료실', libraryRows]];
+// S69-75 LONGPRESS-폰나무(2026-11-24 명진 "파일 목록에 보이는 파일 폴더 꾹 눌러도 선택 안되는데?"): [파일] 폰 첫 화면 나무(저장소 상자)의 폴더 줄·파일 줄.
+async function filesTreeRows(page) {
+  const { errors } = await startFiles(page, 390);
+  await openFiles(page, 390);
+  const tree = page.locator('#filesRoot [data-fx-tree]');
+  const fold = key => tree.locator(`[data-fx-tog="${key}"]`);
+  await expect(fold('od:OD!1')).toBeVisible();
+  const bar = page.locator('#filesRoot [data-fx-bar]');
+  return {
+    errors, first: fold('od:OD!1'), second: fold('gd:gdFolder1'),
+    bar, countIs: n => expect(bar.locator('.fx-bar-t')).toHaveText(`${n}개`),
+    isPicked: l => expect(l).toHaveClass(/fx-picked/), tap: l => l.tap(),
+    more: l => l.locator('xpath=..').locator('[data-fx-tmenu]'), menu: page.locator('#rowMenu'),
+  };
+}
+const HOLD_SCREENS = [['자료실', libraryRows], ['파일 폰 나무', filesTreeRows]];
 const centerOf = l => l.evaluate(el => { el.scrollIntoView({ block: 'center', behavior: 'instant' }); const t = el.querySelector('h3,.lu-row-title') || el; const r = t.getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 60), y: r.top + r.height / 2 }; });
 async function hold(page, l) {
   const p = await centerOf(l), cdp = await page.context().newCDPSession(page);
@@ -383,17 +558,17 @@ test.describe('P4 폰 390 터치', () => {
     await expect(s.bar).toBeHidden();
     await hold(page, s.first);
     await expect(s.bar).toBeVisible();
-    await expect(s.count).toHaveText('1개 선택됨');
-    await expect(s.picked(s.first)).toBeChecked();
+    await s.countIs(1);
+    await s.isPicked(s.first);
     await expect(s.menu).toBeHidden();
     // 다시 길게 눌러도 풀리지 않는다(토글 아님).
     await hold(page, s.first);
-    await expect(s.count).toHaveText('1개 선택됨');
+    await s.countIs(1);
     await expect(s.menu).toBeHidden();
     // 선택 모드에서 다른 줄을 한 번 누르면 더한다.
-    await s.second.locator('h3,.lu-row-title').first().tap();
-    await expect(s.count).toHaveText('2개 선택됨');
-    await expect(s.picked(s.second)).toBeChecked();
+    await s.tap(s.second);
+    await s.countIs(2);
+    await s.isPicked(s.second);
     // 메뉴는 줄 오른쪽 ⋯로(꾹 누른 바로 뒤에도 ⋯는 삼키지 않는다).
     await s.more(s.second).tap();
     await expect(s.menu).toBeVisible();

@@ -77,12 +77,17 @@ test('PC 1440 한 칸(나무 | 목록): 위치 줄 링크 · Backspace 한 단�
   const head=key=>page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
   await menuButton(page,'f:fa').click();await folderMenuItem(page,'이 폴더로 들어가기').click();
   await expect(path.locator('.fp-here')).toHaveText('가상 A');
+  // S69-68(명진 11/24 20:09): 오른쪽 폴더 줄은 두 번 눌러도 들어가지 않는다(그 자리 펼치기). 들어가기는 왼쪽 나무.
+  // #2994(왼쪽 나무: 누르면 바로 펼치기·접기 + 오른쪽은 늘 그 폴더): 이미 펼쳐 둔 폴더를 다시 누르면 접힐 수 있어, 들어간 뒤 접혀 있으면 그림으로 펼친다(다음 단계 줄이 보이게).
+  const navGo=async id=>{await page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`).click();await expect(path.locator('.fp-here')).toHaveText(new RegExp(`^가상 ${id.slice(1).toUpperCase()}$`));const t=page.locator(`#libraryFolderNav [data-lu-nav-tog="${id}"]`);if(await t.count()&&(await t.getAttribute('aria-expanded'))==='false')await t.click()};
   await head('f:fb').dblclick();
+  await expect(path.locator('.fp-here')).toHaveText('가상 A');
+  await navGo('fb');
   await expect(path.locator('.fp-here')).toHaveText('가상 B');
   await page.locator('#documentList [data-lu-document]').first().focus();
   await page.keyboard.press('Backspace');
   await expect(path.locator('.fp-here')).toHaveText('가상 A');
-  await head('f:fb').dblclick();await head('f:fc').dblclick();await head('f:fd').dblclick();
+  await navGo('fb');await navGo('fc');await navGo('fd');
   await expect(path.locator('.fp-here')).toHaveText('가상 D');
   expect(await shown(path.locator('> *:not(.fp-sep)'))).toEqual(['‹','자료실','…','가상 C','가상 D']);
   await page.screenshot({path:'test-results/s69-19-pc-one-deep.png'});
@@ -100,25 +105,29 @@ test('폰 412: 두 단계 들어간 폴더 → 위치 줄 자료실 = 맨 위 ·
   const head=key=>page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
   const path=page.locator('#libraryPath');
   await pinch(page,head('f:fa'),'out');
-  // S69-28 LIB-한칸탐색기: 폰 '그 폴더만'도 탐색기 칸 — 위치 줄 끝에 지금 폴더 이름(굵게 한 번), 안의 폴더 줄 누르기(두 번 눌러도 한 단계) = 들어가기.
+  // S69-28 LIB-한칸탐색기: 폰 '그 폴더만'도 탐색기 칸 — 위치 줄 끝에 지금 폴더 이름(굵게 한 번).
+  // S69-68(명진 11/24 20:09): 안의 폴더 줄 누르기 = 그 자리 펼치기(두 번 눌러도 들어가지 않음). 한 단계 들어가기는 ⋯ [이 폴더로 들어가기].
+  const enter=async key=>{await head(key).locator('[data-lu-node-menu]').click();await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()};
   await head('f:fb').dblclick();
+  await expect(path).toHaveText('‹자료실›가상 A');
+  await enter('f:fb');
   await expect(path).toHaveText('‹자료실›가상 A›가상 B');
   await page.screenshot({path:'test-results/s69-19-phone-path.png'});
   // 자료실 = 맨 위(나무).
   await path.locator('[data-lu-path=""]').click();
   await expect(path).toBeHidden();
   // Backspace = 한 단계 위.
-  await pinch(page,head('f:fa'),'out');await head('f:fb').dblclick();
+  await pinch(page,head('f:fa'),'out');await enter('f:fb');
   await expect(path).toHaveText('‹자료실›가상 A›가상 B');
   await page.keyboard.press('Backspace');
   await expect(path).toHaveText('‹자료실›가상 A');
   // 폰 뒤로가기 = 한 단계 위.
-  await head('f:fb').dblclick();
+  await enter('f:fb');
   await expect(path).toHaveText('‹자료실›가상 A›가상 B');
   await page.goBack();
   await expect(path).toHaveText('‹자료실›가상 A');
   // 깊으면 가운데 '…'.
-  await head('f:fb').dblclick();await head('f:fc').dblclick();await head('f:fd').dblclick();
+  await enter('f:fb');await enter('f:fc');await enter('f:fd');
   expect(await shown(path.locator('> *:not(.ft-focus-sep)'))).toEqual(['‹','자료실','…','가상 C','가상 D']);
   await page.screenshot({path:'test-results/s69-19-phone-deep.png'});
   await path.locator('[data-fp-more]').click();

@@ -3,7 +3,8 @@ import { createShareReadHandler } from "./handler.ts";
 
 // verify_jwt=false: 링크를 받은 사람은 로그인하지 않는다. 인증 대신 링크 지문으로 한 페이지만 연다.
 // 서버 키는 이 함수 안에서만 쓴다. DB에서 service_role은 링크 지문·기한·끔과 페이지 제목·블록·상태 칸, 사진 기록의 id·페이지·경로 칸,
-// 짧은 주소의 지문 두 칸, HTML 판의 페이지·글자·만든 시각 칸만 읽을 수 있다.
+// 짧은 주소의 지문 두 칸, HTML 판의 페이지·글자·만든 시각 칸, 노트 게시 짝의 페이지·노트 두 칸만 읽을 수 있다.
+// 노트 표(app_notes)는 service_role 표 권한이 원래 있다(basket-files 등). 이 함수는 짝이 가리킨 노트 하나의 보여 줄 칸만 고른다.
 const admin = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -53,6 +54,24 @@ Deno.serve(createShareReadHandler({
       .maybeSingle();
     if (error) throw new Error("html lookup failed");
     return data ? data.html : null;
+  },
+  // NOTE-게시: 짝 표는 page_id·note_id 두 칸만 읽을 수 있다(그 밖의 칸 권한 없음). 노트는 보여 줄 칸만 고른다.
+  async noteForPage(pageId) {
+    const { data, error } = await admin.from("app_note_share_pages")
+      .select("note_id")
+      .eq("page_id", pageId)
+      .maybeSingle();
+    if (error) throw new Error("note pair lookup failed");
+    return data;
+  },
+  async noteById(id) {
+    const { data, error } = await admin.from("app_notes")
+      .select("id,kind,title,raw_text,doc,deleted_at,archived_at")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error) throw new Error("note lookup failed");
+    return data;
   },
   async signMedia(path, seconds) {
     const { data, error } = await admin.storage.from("share-page-media").createSignedUrl(path, seconds);
