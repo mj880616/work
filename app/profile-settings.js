@@ -249,7 +249,9 @@ function installWidgetLine(){if(!/KPTUAndroid/i.test(navigator.userAgent||''))re
 let statusMount=null;
 function installStatus(){const grid=$('#profileView .ps-profile-grid');if(!grid)return;if(!$('#psStatusPanel'))grid.insertAdjacentHTML('beforeend','<article class="panel ps-panel ps-status" id="psStatusPanel" aria-label="사용 현황" hidden></article>');import('./profile-status.js').then(m=>{statusMount=statusMount||m.mountProfileStatus($('#psStatusPanel'))}).catch(()=>{})}
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='profile')statusMount?.refresh()});
-async function boot(){installView();installStatus();installWidgetLine();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
+// S69 STORE-계정삭제: '계정' 칸 끝에 [계정 삭제](account-delete.js가 버튼·확인 창의 주인). 폰 앱·웹 모두.
+function installAccountDelete(){import('./account-delete.js').then(m=>m.mountAccountDelete($('#profileView .ps-account-actions'))).catch(()=>{})}
+async function boot(){installView();installStatus();installWidgetLine();installAccountDelete();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
 window.addEventListener('kptu:suborganization-updated',()=>{if(user&&!saving)load().catch(console.error)});
 // MULTI ②-3: 묶음·순서가 바뀌면(조직 보고 화면) 담당 사업장 목록을 같은 자료로 다시 그린다(서버 다시 읽기 없음).
 window.addEventListener('kptu:report-settings-changed',()=>{if(user&&!saving&&$('#psWorkplaceList'))renderWorkplaces()});
