@@ -57,9 +57,9 @@ test('loadItem without feedText reads the shared body blocks first, else the old
   d=deps({rows:{app_outside_articles:[ART],app_outside_posts:[],app_outside_article_bodies:[{state:'image_only',blocks:[{t:'p',text:'첨부.hwp'}]}],app_outside_article_sentences:[{idx:0,text:'문장 표 본문.'}]}});
   item=await B.loadItem(d.deps,{type:'outside',id:POST.id});
   assert.equal(item.body,'문장 표 본문.');assert.equal(item.fromFeed,false);
-  d=deps({rows:{app_news_articles:[{id:id(3),url_key:'n.example/3',title:'가상 기사',summary:'',body:'저장 body.',lang:'ko'}],app_news_items:[]}});
+  d=deps({rows:{app_news_articles:[{id:id(3),url_key:'n.example/3',title:'가상 기사',summary:'',body:'저장 body. 수집 때 기사 줄에 남겨 둔 본문 글자입니다.',lang:'ko'}],app_news_items:[]}});
   item=await B.loadItem(d.deps,{type:'news',id:id(3)});
-  assert.equal(item.body,'저장 body.');assert.ok(d.logs.some(l=>l.detail?.stage==='feed_body'));
+  assert.equal(item.body,'저장 body. 수집 때 기사 줄에 남겨 둔 본문 글자입니다.');assert.ok(d.logs.some(l=>l.detail?.stage==='feed_body'));
   assert.equal(B.itemHasMaterial(item),true);
 });
 

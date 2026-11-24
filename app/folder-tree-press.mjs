@@ -116,8 +116,28 @@ export function ftKeepPlace(box, paint) {
   if (sel && !at.isConnected) box.querySelector(sel)?.focus?.({preventScroll: true});
   return out;
 }
+// ③-2 ↑/↓(STD-기본동작 K4, docs/design/standard-interactions.md): role="tree" 나무 안 이름 단추에서 보이는 앞·뒤 줄의 이름 단추로 커서를 옮긴다.
+// 앱 공용 ↑↓(keyboard-keys.js)는 role=tree를 건드리지 않으므로 겹치지 않는다. 화면이 이미 처리한 키(defaultPrevented)는 손대지 않는다.
+const visibleMain = el => el.getClientRects().length > 0 && !el.closest('[hidden],[inert]');
+function ftTreeUpDown(event) {
+  if ((event.key !== 'ArrowUp' && event.key !== 'ArrowDown') || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
+  const t = event.target;
+  const ROW_MAIN = '.ft-row .ft-main, .nx-row .nx-main'; // 사진 PC 나무는 nx-row 모양
+  if (!t?.matches?.(ROW_MAIN)) return false;
+  const tree = t.closest('[role="tree"]');
+  if (!tree) return false;
+  const mains = [...tree.querySelectorAll(ROW_MAIN)].filter(visibleMain);
+  const next = mains[mains.indexOf(t) + (event.key === 'ArrowDown' ? 1 : -1)];
+  if (!next) return false;
+  event.preventDefault();
+  next.focus({preventScroll: true});
+  next.scrollIntoView?.({block: 'nearest'});
+  return true;
+}
+
 // ③ ←/→. 처리했으면 true.
 export function ftTreeArrow(event) {
+  if (ftTreeUpDown(event)) return true;
   if ((event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
   const t = event.target, row = t?.closest?.('.ft-row.ft-has-tog');
   if (!row || !(t.matches('.ft-main') || t.matches('.ft-tog'))) return false;

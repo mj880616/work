@@ -21,6 +21,8 @@
 // - 글자 판(html·xhtml·text)만 받는다. HTML은 돌려주지 않고 글자 블록만 돌려준다. 본문은 노트 글자 상한 안으로 자른다.
 // 하루 횟수: 작업공간 하루 사용량 표 app_news_days의 fetch_n 칸을 뉴스 기사 열기와 함께 쓴다(NOTE_IMPORT_DAILY, DB 변경 없음).
 // 가져온 글은 돌려주기만 한다. AI에 넘기거나 발송·공유로 잇지 않는다.
+// 첨부 본문(S69 READ-첨부본문): 쪽 본문이 비거나 짧으면 그 쪽의 첨부 PDF·HWP·HWPX를 같은 안전 규칙으로 받아(15MB까지) 글자만 본문으로 돌려준다
+//   (news-feed/attach.ts — 자체 글자 읽기 _shared/hwp-text.mjs·pdf-text.mjs, 외부 서비스·AI 없음).
 // 서비스 역할로 닿는 곳: app_workspace_members(owner 확인 읽기) · app_news_days(읽기·넣기·고치기) 둘뿐(makeDb가 다른 표를 거절).
 // 로그·응답: 코드와 숫자만. 주소·제목·본문·풀린 IP·오류 원문을 싣지 않는다.
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
@@ -30,6 +32,8 @@ import { textBlocks } from "../_shared/feed-extract.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { takeDaily, type DayDb } from "../_shared/news-days.ts";
 import { guessLang, readArticlePage } from "../news-feed/page.ts";
+import type { PageInfo } from "../news-feed/page.ts";
+import { needsAttachment, withAttachment } from "../news-feed/attach.ts";
 import { makeGuardedFetch, newGuardState, noteImportUrl, type GuardState, type Resolve } from "./guard.ts";
 import { noteBody, readAuthor, textKind, type NoteBlock } from "./article.ts";
 
@@ -153,8 +157,9 @@ export function failReason(code: string, guard: GuardState, expired: boolean): F
 }
 const lookupCode = (g: GuardState) => g.unavailable ? "unavailable" : g.private ? "private" : g.unresolved ? "unresolved" : "ok";
 
-// 읽어 온 글 → 결과. 순수 함수(시험용으로 내보냄).
-export function buildResult(got: { text: string; url: string; contentType: string | null }, nowMs: number): ImportResult {
+// 읽어 온 글 → 결과. 순수 함수(시험용으로 내보냄). page: 이미 읽은 쪽 결과(첨부 본문을 더한 것, S69 READ-첨부본문) — 없으면 여기서 읽는다.
+export const pageRule = (base: string) => ({ key: OPEN_ARTICLE_KEY, rule: OPEN_ARTICLE_RULE, base });
+export function buildResult(got: { text: string; url: string; contentType: string | null }, nowMs: number, given?: PageInfo): ImportResult {
   const kind = textKind(got.contentType);
   if (!kind) return failed("not_text");
   if (kind === "plain") {
@@ -162,7 +167,7 @@ export function buildResult(got: { text: string; url: string; contentType: strin
     if (!body.blocks.length) return failed("no_body");
     return { ok: true, state: "ok", reason: null, ...NO_META, url: got.url, lang: guessLang(got.text), ...body };
   }
-  const page = readArticlePage(got.text, nowMs, { key: OPEN_ARTICLE_KEY, rule: OPEN_ARTICLE_RULE, base: got.url });
+  const page = given ?? readArticlePage(got.text, nowMs, pageRule(got.url));
   if (page.state === "bot_check") return failed("bot_check");
   const author = readAuthor(got.text);
   const meta: Meta = {
@@ -223,11 +228,28 @@ export function createNoteImportHandler(deps: NoteImportDeps) {
           sleep, log, now, userAgent: USER_AGENT, robotsAgent: ROBOTS_AGENT, gapMs: GAP_MS, allow,
           skipRobots: SKIP_ROBOTS,
         });
+        // 첨부 받기용 읽기(S69): 같은 규칙·같은 전체 시간, 막힌 까닭은 따로 센다(첨부가 막혀도 쪽 결과는 그대로).
+        const attachGuard = newGuardState();
+        const attachReader = () => makeFeedReader({
+          doFetch: makeGuardedFetch(doFetch, deps.resolve, attachGuard, { stop: stop.signal }),
+          sleep, log, now, userAgent: USER_AGENT, robotsAgent: ROBOTS_AGENT, gapMs: GAP_MS,
+          allow: (next: string) => { const u = noteImportUrl(next); if (!u) attachGuard.shape = true; return u; },
+          skipRobots: SKIP_ROBOTS,
+        });
         const got = await reader.get(start.href, ACCEPT_HTML);
         const stopped = guard.shape || guard.private || guard.unresolved || guard.unavailable;
         // 가는 길에 하나라도 막았으면 읽은 글이 있어도 돌려주지 않는다.
         if (!got.ok || stopped) out = failed(failReason(got.ok ? "" : got.code, guard, stop.signal.aborted));
-        else out = buildResult(got, nowMs);
+        else {
+          // S69 READ-첨부본문: 쪽 본문이 비거나 짧으면 그 쪽의 첨부 파일(PDF·HWP·HWPX) 글자를 본문으로. 첨부 받기는 같은 주소 규칙·이름 풀이 확인을
+          // 따로 센다(첨부 하나가 막혀도 쪽 결과는 그대로 — 막힌 첨부는 읽지 않을 뿐). 하루 횟수는 이 가져오기 한 번 그대로.
+          let page: PageInfo | undefined;
+          if (textKind(got.contentType) === "html") {
+            page = readArticlePage(got.text, nowMs, pageRule(got.url));
+            if (needsAttachment(page)) page = await withAttachment(page, got.text, got.url, attachReader(), pageRule(got.url), log);
+          }
+          out = buildResult(got, nowMs, page);
+        }
       } finally {
         clearTimeout(timer);
       }

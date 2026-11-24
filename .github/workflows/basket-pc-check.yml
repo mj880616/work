@@ -31,4 +31,16 @@ jobs:
         run: dotnet build basket-pc/BasketDrop.sln -c Release
 
       - name: Test (fake server only, no production calls)
+        env:
+          # S69-35: the desktop tile picture at 100·125·150·200% is kept as an artifact (pictures only, no data).
+          BASKET_TILE_SHOTS: ${{ runner.temp }}/tile-shots
         run: dotnet test basket-pc/tests/BasketDrop.Tests -c Release --no-build
+
+      - name: Keep the tile pictures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: basket-pc-tile-shots
+          path: ${{ runner.temp }}/tile-shots
+          if-no-files-found: ignore
+          retention-days: 14

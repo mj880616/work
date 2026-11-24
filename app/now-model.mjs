@@ -378,6 +378,22 @@ export function handBodyRequest(id, text) {
 // S68-44: 손으로 넣은 본문(블록 규칙 manual@1)인데 글자 블록이 없는가(본문을 비웠거나 사진만). 상세 원문 칸은 까닭 대신 '본문 없음' 한 줄.
 // 제목만 고친 못 읽은 기사(블록은 읽기 실패 그대로)는 들지 않는다 — 원래 까닭(늦은 답 등)이 그대로 보인다.
 export const handNoText = b => !!b?.hand && !b.failedLoad && !(b.blocks || []).some(x => x && x.t !== 'img');
+// S69 READ-첨부본문(명진 11/24 '[사진 1] .'뿐인 손 본문에 '마침표 하나뿐…' 요약): 본문 글자(띄어쓰기·문장부호·기호 빼고)가 BODY_SHORT_CHARS 미만이면 짧은 본문.
+// 서버(ai-assist 재료 규칙 MATERIAL_MIN_CHARS · news-feed HAND_SHORT_CHARS)와 같은 값·같은 셈. 짧은 본문은 요약·시사점을 만들지 않고(422 no_material),
+// 손으로 넣은 짧은 본문은 [원문 다시 가져오기](open again)로 원래 주소 본문(첨부 PDF·HWP 포함)을 채울 수 있다.
+export const BODY_SHORT_CHARS = 20;
+export const meaningfulChars = t => [...String(t ?? '').replace(/[\s\p{P}\p{S}]/gu, '')].length;
+export const blocksText = b => (b?.blocks || []).filter(x => x && x.t !== 'img' && typeof x.text === 'string').map(x => x.text).join(' ');
+export const bodyShort = b => !!b && !b.failedLoad && b.state !== 'failed' && meaningfulChars(blocksText(b)) < BODY_SHORT_CHARS;
+export const handShort = b => !!b?.hand && bodyShort(b);
+// 요약을 만들지 않은 까닭 한 줄(422 no_material): 손 본문에 글자가 없으면 '본문 없음', 글자가 짧으면 '본문이 짧아 요약하지 않았어요', 못 읽었으면 그 까닭.
+export const SHORT_SUMMARY_TEXT = '본문이 짧아 요약하지 않았어요';
+export function noMaterialLine(b, fallback = '') {
+  if (handNoText(b)) return '본문 없음';
+  if (b && b.state === 'failed') return b.reason || fallback;
+  if (bodyShort(b) && blocksText(b).trim()) return SHORT_SUMMARY_TEXT;
+  return fallback;
+}
 const pad2 = n => String(n).padStart(2, '0');
 // ISO 시각 → 달력+시각 칸 값(이 기기 시각, 'YYYY-MM-DDTHH:mm'). 모르면 ''.
 export function localInputOf(iso) {
