@@ -20,17 +20,15 @@ const modal=page=>page.locator('#libraryTidyModal');
 const group=(page,gid)=>modal(page).locator(`[data-tidy-group="${gid}"]`);
 const folderOf=(s,id)=>s.items.find(x=>x.document_id===id)?.folder_id;
 async function openTop(page,width){
-  // 다시 읽은 직후에는 맨 위 ⋯가 아직 일을 받기 전일 수 있다 — 메뉴 항목이 보일 때까지 ⋯를 다시 누른다(창은 한 번만 연다).
-  const item=page.locator('#luTopMenu [data-lu-top="tidy"]');
-  await expect(async()=>{if(!await item.isVisible())await press(page,page.locator('#libraryTopMenuBtn'),width);await expect(item).toBeVisible({timeout:1500})}).toPass({timeout:15000});
-  await press(page,item,width);
+  await press(page,page.locator('#libraryTopMenuBtn'),width);
+  await press(page,page.locator('#luTopMenu [data-lu-top="tidy"]'),width);
   await expect(modal(page)).toBeVisible();
 }
 
 for(const [label,width,touch] of [['PC 1280',1280,false],['폰 412',412,true]]){
   test.describe(label,()=>{
     test.use({hasTouch:touch,isMobile:touch});
-    test('본보기로 깊은 폴더 제안 → 애매하면 고르기 → 옮기기 → 손으로 옮긴 뒤 다시 열면 따라옴',async({page})=>{
+    test('본보기로 깊은 폴더 제안 → 애매하면 고르기 → 옮기기 → 손으로 옮긴 뒤 다시 열면 따라옴',async({page,browser})=>{
       const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS.map(d=>({...d})),group:'폴더',init:{viewPrefs:{library_two:false},receiveFolder:RCV}});
       await openTop(page,width);
       await expect(modal(page).locator('#libraryTidySub')).toContainText('닮은 폴더가 있는 자료 2묶음');
@@ -57,16 +55,18 @@ for(const [label,width,touch] of [['PC 1280',1280,false],['폰 412',412,true]]){
       // 손으로 옮기기(다른 기기에서 옮긴 것처럼 서버 자리만 바꿈): 대표자회의 자료 셋을 '가상팀 › 회의 › 집행위'로 → 새 대표자회의 자료 제안도 그리로.
       for(const id of [u(101),u(102),NEW_R])s.items.find(i=>i.document_id===id).folder_id=BMX;
       s.docs.push(libDoc(u(204),null,{title:'가상궤도협의회 제8차 대표자회의자료'}));s.items.push({workspace_id:'workspace-1',document_id:u(204),folder_id:RCV});
-      await page.reload();
-      await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      await expect(page.locator('#documentList details[data-lu-node]').first()).toBeAttached();
-      await expect(page.locator('.lu-receive-mark,#libraryFolderNav .ft-tag,#documentList [data-lu-two] .ft-tag').first()).toBeAttached();
-      await openTop(page,width);
-      await expect(modal(page).locator(`[data-tidy-row="${u(204)}"]`)).toHaveCount(1);
-      await expect(modal(page).locator(`[data-tidy-row="${u(204)}"]`).locator('xpath=ancestor::section[1]')).toHaveAttribute('data-tidy-group',/^(e|g):/);
-      await expect(modal(page).locator(`[data-tidy-row="${u(204)}"]`).locator('xpath=ancestor::section[1]').locator('[data-tidy-pick]').first()).toContainText('가상팀 › 회의 › 집행위');
-      // 폰: 창이 가로로 넘치지 않는다.
-      if(touch)expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+      // 다른 기기(새 브라우저)에서 같은 서버 상태로 다시 연다.
+      const other=await browser.newPage({hasTouch:touch,isMobile:touch});
+      try{
+        const o=await bootLibrary(other,width,{state:s,group:'폴더'});
+        await openTop(other,width);
+        const row=modal(other).locator(`[data-tidy-row="${u(204)}"]`),sec=row.locator('xpath=ancestor::section[1]');
+        await expect(row).toHaveCount(1);
+        await expect(sec).toHaveAttribute('data-tidy-group',/^(e|g):/);
+        await expect(sec.locator('[data-tidy-pick]').first()).toContainText('가상팀 › 회의 › 집행위');
+        if(touch)expect(await other.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+        expect(o.errors).toEqual([]);
+      }finally{await other.close()}
       expect(errors).toEqual([]);
     });
   });
