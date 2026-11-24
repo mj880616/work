@@ -33,16 +33,26 @@ async function pick(page,ids,width){
   await expect(page.locator('#librarySelectCount')).toHaveText(`${ids.length}개 선택됨`);
 }
 const menuItem=(page,name)=>page.locator('#luBulkMenu').getByRole('button',{name,exact:true});
+// UI-고르기막대(S69-85): 사업영역·담당조직·분류 바꾸기는 막대 ⋯ 안(명진 확정). ⋯ 항목 = 그 단추를 누른 것과 같다.
+const MORE=['사업영역 바꾸기','담당조직 바꾸기','분류 바꾸기'];
+const moreMenu=page=>page.locator('#rowMenu');
+async function bulk(page,name,width){await press(page,bar(page).locator('.kptu-sb-more'),width);await press(page,moreMenu(page).getByRole('button',{name,exact:true}),width)}
 
 for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
   test.use({hasTouch:width<761});
   test(`한 줄 도구줄: 선택한 것이 없으면 꺼져 있고, 선택하면 켜진다 ${width}`,async({page})=>{
     const {errors}=await boot(page,width);
     await libraryTopMenu(page,'select',{tap:width<761});
-    const labels=['사업영역 바꾸기','담당조직 바꾸기','분류 바꾸기','폴더로 옮기기','삭제'];
+    const labels=['폴더로 옮기기','삭제'];
     for(const name of labels){await expect(bar(page).getByRole('button',{name,exact:true})).toBeVisible();await expect(bar(page).getByRole('button',{name,exact:true})).toBeDisabled()}
+    await press(page,bar(page).locator('.kptu-sb-more'),width);
+    for(const name of MORE)await expect(moreMenu(page).getByRole('button',{name,exact:true})).toBeDisabled();
+    await page.keyboard.press('Escape');await expect(moreMenu(page)).toBeHidden();
     await page.locator('[data-lu-pick="a-2"]').check();
     for(const name of labels)await expect(bar(page).getByRole('button',{name,exact:true})).toBeEnabled();
+    await press(page,bar(page).locator('.kptu-sb-more'),width);
+    for(const name of MORE)await expect(moreMenu(page).getByRole('button',{name,exact:true})).toBeEnabled();
+    await page.keyboard.press('Escape');await expect(moreMenu(page)).toBeHidden();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     expect(errors).toEqual([]);
   });
@@ -66,7 +76,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
   test(`프로젝트 바꾸기: 선택한 자료 모두, 사용자 수정 표시, 칸 기록 user, 되돌리기 ${width}`,async({page})=>{
     const {s,errors}=await boot(page,width);
     await pick(page,['a-2','a1-1'],width);
-    await press(page,bar(page).getByRole('button',{name:'사업영역 바꾸기',exact:true}),width);
+    await bulk(page,'사업영역 바꾸기',width);
     // S52-01 ③c: 사업영역·담당조직은 공용 고르기 창(하나만, 맨 위 '사업영역 없음', 누르면 바로 바꿈).
     await expect(page.locator(SHEET)).toBeVisible();await expect(page.locator(SHEET+' h2')).toHaveText('사업영역 바꾸기');
     await expect(page.locator(SHEET+' .aop-list [data-sheet-value=""]')).toHaveText('사업영역 없음');
@@ -92,7 +102,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
   test(`종류 바꾸기·담당조직 바꾸기 ${width}`,async({page})=>{
     const {s,errors}=await boot(page,width);
     await pick(page,['a-1','n-1'],width);
-    await press(page,bar(page).getByRole('button',{name:'분류 바꾸기',exact:true}),width);
+    await bulk(page,'분류 바꾸기',width);
     await expect(menuItem(page,'기타')).toBeVisible();
     await press(page,menuItem(page,'기타'),width);
     await expect.poll(()=>s.patches.length).toBe(2);
@@ -102,7 +112,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     await expect(bar(page)).toBeHidden();
     s.patches.length=0;
     await pick(page,['a-1','n-1'],width);
-    await press(page,bar(page).getByRole('button',{name:'담당조직 바꾸기',exact:true}),width);
+    await bulk(page,'담당조직 바꾸기',width);
     await expect(page.locator(SHEET)).toBeVisible();await expect(page.locator(SHEET+' .aop-list [data-sheet-value=""]')).toHaveText('담당조직 없음');
     await pressName(page,'가상 조직');await expect(page.locator(SHEET)).toBeHidden();
     await expect.poll(()=>s.patches.length).toBe(2);
@@ -113,7 +123,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
   test(`일부만 실패하면 성공한 만큼만 바꾸고 알려 주며, 실패한 자료는 그대로 선택해 둔다 ${width}`,async({page})=>{
     const {s,errors}=await boot(page,width);s.failPatch='a1-1';
     await pick(page,['a-2','a1-1'],width);
-    await press(page,bar(page).getByRole('button',{name:'분류 바꾸기',exact:true}),width);
+    await bulk(page,'분류 바꾸기',width);
     await press(page,menuItem(page,'기타'),width);
     await expect(line(page)).toContainText('1개의 분류을(를) 바꿨고 1개는 바꾸지 못했어요');await expect(line(page)).toHaveClass(/error/);
     expect(s.docs.find(d=>d.id==='a-2').category).toBe('기타');expect(s.docs.find(d=>d.id==='a1-1').category).toBe('정책자료');

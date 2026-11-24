@@ -49,10 +49,14 @@ export function fitSelectBar(bar) {
   const acts = [...bar.querySelectorAll('button.kptu-sb-act')].filter(isAct);
   for (const b of acts) b.classList.remove('kptu-sb-folded');
   bar.classList.remove('kptu-sb-icons');
+  // ⋯는 막대에 하나만. 단추가 모두 떼어져 있으면(자료실·노트 끄는 동안) ⋯도 두지 않는다.
+  const olds = [...bar.querySelectorAll('.kptu-sb-more')];
+  for (const m of olds.slice(1)) m.remove();
+  const shown = acts.filter(b => !b.hidden);
+  if (!shown.some(b => !b.classList.contains('kptu-sb-close'))) { olds[0]?.remove(); return; }
   const more = moreButton(bar);
   more.hidden = true;
   if (bar.hidden || !bar.isConnected) return;
-  const shown = acts.filter(b => !b.hidden);
   // ⋯ 자리: 휴지통 바로 앞(휴지통은 늘 맨 끝), 없으면 마지막 단추 뒤.
   const danger = shown.find(b => b.classList.contains('kptu-sb-danger'));
   const last = [...shown].reverse().find(b => !b.classList.contains('kptu-sb-close'));

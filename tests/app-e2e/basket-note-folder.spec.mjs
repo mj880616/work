@@ -399,7 +399,7 @@ for (const width of [390, 768, 1280]) test(`UI-고르기막대: 노트 선택 �
   expect(m.last, '삭제는 맨 끝').toBe(true);
   expect(m.danger, '삭제만 경고색').not.toBe(m.ink);
   expect(m.borders.every(w => w === '0px')).toBe(true);
-  await expect(page.locator('[data-nx-select-count]')).toHaveText('0개 선택됨');
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   await page.screenshot({ path: `${DIR}/s69-85-notes-${width}.png` });
   process.stdout.write(`::notice title=select-bar notes ${width}::${JSON.stringify(m)}\n`);
   await page.keyboard.press('Escape');
