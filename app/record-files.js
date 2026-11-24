@@ -13,13 +13,15 @@ import { renameHostAttrs, renameButtonHtml, renameMenuAttrs, applyRenamed } from
 import { menuItemsHtml, fileAttrs } from './file-actions.js';
 import { bindPhotoTileMenus } from './photo-fold.js';
 import {partStyles} from './part-styles.js';
+import { recordLocked } from './basket-link-records.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('record-files');
 
 const SHOWN = 6;
 const PHOTO = /^image\/(jpeg|png|webp|gif)$/i;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
-const filesOf = row => (Array.isArray(row?.attachments) ? row.attachments : []).filter(f => /^[A-Za-z0-9_-]{1,255}$/.test(String(f?.drive_file_id || '')));
+// S69 보드잠금가림 전수: 잠긴 폴더 노트의 연결 기록은 사진·파일 띠를 그리지 않는다(이름·그림도 노트 내용).
+const filesOf = row => (recordLocked(row) || row?.locked ? [] : Array.isArray(row?.attachments) ? row.attachments : []).filter(f => /^[A-Za-z0-9_-]{1,255}$/.test(String(f?.drive_file_id || '')));
 const isPhoto = file => PHOTO.test(String(file?.mime_type || ''));
 
 // LIB-사진숨김(S60-10, 명진 결정 11/12): 사진은 이름 줄·그림 줄로 늘어놓지 않고 [사진 n] 하나(접힌 <details>). 펼치면 그 자리에 작은 그림,

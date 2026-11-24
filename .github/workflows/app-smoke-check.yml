@@ -742,7 +742,7 @@ jobs:
       - name: Check note views and sticky board (NOTE-보기3가지)
         run: node --test tests/note-board-model.test.mjs
       - name: Check note boards (NOTE-보드여러개)
-        run: node --test tests/note-boards-model.test.mjs
+        run: node --test tests/note-boards-model.test.mjs tests/note-lock-record-lines.test.mjs
       - name: Check note board links (S68-38 생각 지도)
         run: node --test tests/note-board-links-model.test.mjs
       - name: Check note hashtags and comments (NOTE-읽생기아이디어)
