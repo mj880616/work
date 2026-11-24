@@ -46,12 +46,14 @@ export async function findSameFiles(files, {rt = globalThis.window?.KPTURuntime,
     const [docs, tasks, ...notes] = await Promise.all([
       quiet(api(`/rest/v1/app_documents?workspace_id=eq.${enc(ws)}&file_name=in.${enc(names)}&file_size=in.${sizes}&select=id,title,file_name,file_size,meeting_id,organization_id,file_id,drive_url,mime_type,created_at&order=created_at.desc&limit=60`)),
       quiet(api(`/rest/v1/app_task_attachments?workspace_id=eq.${enc(ws)}&file_name=in.${enc(names)}&size_bytes=in.${sizes}&select=google_task_id,drive_file_id,file_name,size_bytes,created_at&order=created_at.desc&limit=60`)),
-      ...targets.map(t => quiet(api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=in.(basket,note)&attachments=cs.${enc(noteContains(t))}&select=id,kind,title,occurred_at,created_at,attachments&order=created_at.desc&limit=5`))),
+      ...targets.map(t => quiet(api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=in.(basket,note)&attachments=cs.${enc(noteContains(t))}&select=id,kind,title,occurred_at,created_at,attachments,folder_id:metadata->>folder_id,folder:metadata->>folder&order=created_at.desc&limit=5`))),
     ]);
     const hits = [];
     if (docs.length) { const n = await placeNames(api, ws, docs); docs.forEach(d => hits.push(docHit(d, n))); }
     // 돌아온 노트가 정말 그 첨부(이름·크기)를 가졌는지 한 번 더 본다(서버 거르기를 그대로 믿지 않음).
-    notes.forEach((found, i) => found.filter(n => noteHas(n, targets[i])).forEach(n => hits.push(noteHits(n, targets[i]))));
+    // S69 보드잠금가림 전수: 잠근 노트 폴더(아직 안 풀림)의 노트는 제목 대신 '잠긴 노트'(판정은 feature-lock.js 한 곳, 폴더 자리만 읽음).
+    const shown = n => globalThis.window?.KPTUFeatureLock?.noteHidden?.({metadata:{...(n.folder_id ? {folder_id:n.folder_id} : {}), ...(n.folder ? {folder:n.folder} : {})}}) ? {...n, title:'잠긴 노트'} : n;
+    notes.forEach((found, i) => found.filter(n => noteHas(n, targets[i])).forEach(n => hits.push(noteHits(shown(n), targets[i]))));
     tasks.forEach(r => hits.push(taskHit(r)));
     return matchFiles(list, hits);
   })().catch(() => new Map());

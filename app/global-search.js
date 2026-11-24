@@ -253,7 +253,10 @@ function answerBox(where) {
   if (answer?.lines?.length) {
     const list = el('ul', 'gs-ask-lines');
     for (const line of answer.lines) {
-      const li = el('li', 'gs-ask-text', line.text);
+      // S69 보드잠금가림 전수: 잠긴 폴더 노트를 근거로 쓴 줄은 글 대신 '잠김'(AI 답 글도 그 노트에서 나온 내용이다). 풀리면 다시 그린다.
+      const hiddenLine = line.refs.some(ref => srcLocked(answer.sources.find(s => s.ref === ref)));
+      const li = el('li', 'gs-ask-text', hiddenLine ? '잠김 — 잠긴 노트를 근거로 쓴 줄' : line.text);
+      if (hiddenLine) { li.dataset.gsLocked = ''; li.dataset.lockHere = 'notes'; }
       for (const ref of line.refs) { const src = answer.sources.find(s => s.ref === ref); if (src) li.append(' ', srcButton(src, answer, 'gs-ask-tag', tagLabel(src))); }
       list.append(li);
     }
@@ -271,7 +274,7 @@ function answerBox(where) {
     for (const src of answer.sources) {
       const row = srcButton(src, answer, 'gs-ask-src-row');
       // SEC-기능PIN잠금(S67-14): 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 근거 줄은 제목·내용 대신 '잠김'(누르면 그 자리 PIN 창, S67-25 — 풀리면 다시 그림).
-      if (srcLocked(src)) { row.dataset.gsLocked = ''; row.dataset.lockHere = src.kind === 'call' ? 'calls' : 'telegram'; row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', '잠김'), el('span', 'lk-open', '풀기')); det.append(row); continue; }
+      if (srcLocked(src)) { row.dataset.gsLocked = ''; row.dataset.lockHere = src.kind === 'call' ? 'calls' : src.kind === 'note' ? 'notes' : 'telegram'; row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', '잠김'), el('span', 'lk-open', '풀기')); det.append(row); continue; }
       row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', src.title));
       if (src.tag) row.append(el('span', 'gs-state', src.tag));
       if (src.snippet) row.append(el('span', 'gs-ask-src-snip', src.snippet));
@@ -280,9 +283,10 @@ function answerBox(where) {
     box.append(det);
   }
   if (answer?.lines?.length) box.append(el('p', 'gs-ask-foot', ASK_TEXT.foot));
+  if (noteAsk.size) queueMicrotask(() => { if (noteAsk.size) void loadNoteMeta(); }); // 근거 노트의 폴더를 모르면 읽은 뒤 다시 그린다(그 전까지 '잠김')
   return box;
 }
-const srcLocked = src => (src?.kind === 'call' || src?.kind === 'telegram') && !!lock.settings() && lock.hides(src.kind === 'call' ? 'calls' : 'telegram');
+const srcLocked = src => src?.kind === 'note' ? noteLocked({source: 'note', id: src.id}) : (src?.kind === 'call' || src?.kind === 'telegram') && !!lock.settings() && lock.hides(src.kind === 'call' ? 'calls' : 'telegram');
 function srcButton(src, answer, cls, text = '') {
   const b = el('button', cls, text || null); b.type = 'button';
   const key = `${src.ref}:${answer.id || 'new'}`; askSources.set(key, src); b.dataset.gsSrc = key;
