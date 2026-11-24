@@ -7,6 +7,8 @@
 //   그 전에 떼면 보통 클릭 그대로(빈 줄 오른쪽을 누르면 그 줄이 열리는 것 등). 사각형을 그린 뒤 떼면 바로 다음 클릭 하나는 먹는다.
 // - Ctrl·Shift(맥 Cmd)와 함께 끌면 끌기 전 고른 것에 더한다. 아니면 사각형에 닿은 것만.
 // - 사각형은 시작한 칸(굴러가는 칸) 안 좌표로 기억해, 굴러가도(휠·가장자리 굴리기) 시작점이 따라간다.
+// - S69(명진 11/24 "창 밖에서도 창 안으로 드래그" · "어느곳에서든 자유롭게"): 사각형은 화면(창) 기준으로 그린다 — 시작한 칸 경계에 갇히지 않고
+//   칸 밖에서 시작해 칸 안으로, 칸 안에서 시작해 칸 밖으로 자유롭게 끈다. 어디서 시작할 수 있는지는 부르는 화면의 area·blank가 정한다.
 import {createEdgeScroll, scrollBoxesAt} from './drag-edge-scroll.js';
 import {partStyles} from './part-styles.js';
 
@@ -62,8 +64,8 @@ export function bindMarquee(area, {enabled = () => true, blank = () => false, it
     if (!s?.on) return;
     relive();
     const r = rectOf(startNow(), {x: s.x, y: s.y});
-    // 보이는 사각형은 시작 칸 안으로 자른다(굴러 나간 부분은 칸 밖이라 그리지 않음). 닿은 줄 계산은 자르지 않은 사각형으로.
-    const c = s.clip();
+    // 보이는 사각형은 창 안으로만 자른다(굴러서 창 밖으로 나간 부분은 그리지 않음). 닿은 줄 계산은 자르지 않은 사각형으로.
+    const c = {left: 0, top: 0, right: win.innerWidth, bottom: win.innerHeight};
     const v = {left: Math.max(r.left, c.left), top: Math.max(r.top, c.top), right: Math.min(r.right, c.right), bottom: Math.min(r.bottom, c.bottom)};
     Object.assign(s.el.style, {left: v.left + 'px', top: v.top + 'px', width: Math.max(0, v.right - v.left) + 'px', height: Math.max(0, v.bottom - v.top) + 'px'});
     const hit = hitKeys(r, [...items(s.start)].map(el => ({key: keyOf(el), box: el.getBoundingClientRect()})));
@@ -121,13 +123,15 @@ export function bindMarquee(area, {enabled = () => true, blank = () => false, it
     const t = e.target;
     if (!(t instanceof win.Element) || !blank(t, e.clientX, e.clientY)) return;
     e.preventDefault(); // 빈 곳: 글자 고르기·HTML 끌기를 시작하지 않는다(클릭은 그대로 온다)
+    // 기본 동작을 막으면 글자 칸에서 초점이 빠지지 않는다 — 빈 곳 누르기는 보통처럼 입력칸 초점을 놓는다(바깥 누르기 = 저장 같은 동작이 그대로).
+    const focused = doc.activeElement;
+    if (focused && focused !== doc.body && !focused.contains(t) && focused.matches?.('input,textarea,select,[contenteditable],[contenteditable] *')) focused.blur();
     const boxes = scrollBoxesAt(t, {doc});
     const box = boxes[0]?.node || page();
     const ref = box === page() ? (anchor(t) || area) : box;
     s = {ref, r0: {x: 0, y: 0},
       x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, start: t, box, sy0: scrollY(box), on: false, sig: null,
       additive: !!(e.ctrlKey || e.metaKey || e.shiftKey), base: [],
-      clip: () => { const box = s.box; if (box === page()) return {left: 0, top: 0, right: win.innerWidth, bottom: win.innerHeight}; const r = box.getBoundingClientRect(); return {left: r.left, top: r.top, right: r.right, bottom: r.bottom}; },
     };
     s.r0 = refAt();
     win.addEventListener('mousemove', onMove, true);
