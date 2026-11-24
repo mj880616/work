@@ -873,6 +873,8 @@ jobs:
         run: node --test tests/folder-tree-press.test.mjs
       - name: UI-폴더이름펼치기 그 자리 펼치는 목록 폴더 누르기 = 펼치기·접기(빈 폴더 한 줄·⋯ 첫 줄 들어가기) 시험
         run: node --test tests/folder-press-in-place.test.mjs
+      - name: S69-76 폴더 두 번 누르기로 들어가지 않음(들어가기는 ⋯ 첫 줄로만) 시험
+        run: node --test tests/folder-no-double-press.test.mjs
       - name: S69-68 오른쪽 목록 폴더 누르기 = 그 자리 펼치기·두 칸 칸마다 펼침 시험
         run: node --test tests/right-list-expand.test.mjs
       - name: S51-24 UI-빈칸손짓 손짓 칸 높이 계산·'그 폴더만' 상자 시험

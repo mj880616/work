@@ -274,19 +274,19 @@ const EMPTY_OD = { source: 'od', item_id: 'OD!19', parent_id: 'OD!1', name: '가
 async function libraryPress(page, width) {
   const { errors } = await library(page, width);
   const d = page.locator('#documentList details[data-lu-node="f:f0"]');
-  return { errors, press: () => d.locator(':scope > summary').click(), open: () => d.evaluate(x => x.open), empty: d.locator('.lu-node-empty'),
+  return { errors, press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), open: () => d.evaluate(x => x.open), empty: d.locator('.lu-node-empty'),
     more: d.locator(':scope > summary [data-lu-node-menu]'), panel: page.locator('#luFolderMenu') };
 }
 async function notesPress(page, width) {
   const { errors } = await notes(page, width);
   const row = page.locator(`#noteRows [data-nx-folder="${U(100)}"]`);
-  return { errors, press: () => row.locator('.ft-main').click(), open: async () => (await row.locator('.ft-main').getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => row.locator('.ft-main').click(), dbl: () => row.locator('.ft-main').dblclick(), open: async () => (await row.locator('.ft-main').getAttribute('aria-expanded')) === 'true',
     empty: page.locator(`#noteRows .ft-empty-row[data-ft-parent="${U(100)}"]`), more: page.locator(`#noteRows [data-nx-folder-more="${U(100)}"]`), panel: page.locator('#noteDocMenu') };
 }
 async function photosPress(page, width) {
   const { errors } = await photos(page, width);
   const main = page.locator('#photosRoot [data-photos-ftog="o:S0"]');
-  return { errors, press: () => main.click(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => main.click(), dbl: () => main.dblclick(), where: () => page.locator('#photosRoot [data-photos-fx-back]').count(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     empty: page.locator('#photosRoot .ft-empty-row[data-ft-parent="o:S0"]'), more: page.locator('#photosRoot [data-photos-fx-more="S0"]'), panel: page.locator('#photosFolderMenu') };
 }
 async function filesPress(page, width) {
@@ -297,7 +297,7 @@ async function filesPress(page, width) {
   await tree.locator('[data-fx-tog="od:OD!1"]').click();
   const main = tree.locator('[data-fx-tog="od:OD!19"]');
   await expect(main).toBeVisible();
-  return { errors, press: () => main.click(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => main.click(), dbl: () => main.dblclick(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     empty: tree.locator('.ft-empty-row[data-ft-parent="od:OD!19"]'), more: tree.locator('[data-fx-fold="od:OD!19"] [data-fx-tmenu]'), panel: page.locator('#rowMenu') };
 }
 const PRESS_SCREENS = [['자료실', libraryPress], ['파일', filesPress], ['노트', notesPress], ['사진', photosPress]];
@@ -327,7 +327,7 @@ async function filesRight(page) {
   await page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main').click();
   const row = page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!10"]');
   await expect(row).toBeVisible();
-  return { errors, press: () => row.click(), open: async () => (await row.getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => row.click(), dbl: () => row.dblclick(), menu: () => row.click({ button: 'right' }), panel: page.locator('#rowMenu'), open: async () => (await row.getAttribute('aria-expanded')) === 'true',
     inner: page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!14"]'), here: () => page.locator('#filesRoot [data-fx-crumb] .fx-crumb-now').textContent(),
     treeSub: page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!14"], #filesRoot [data-fx-tree] .ft-row.ft-current [data-fx-go][data-fx-id="OD!10"]') };
 }
@@ -337,7 +337,7 @@ async function libraryRight(page) {
   await page.locator('#libraryFolderNav [data-lu-nav="ra"]').click();
   const d = page.locator('#documentList details[data-lu-node="f:rb"]');
   await expect(d).toBeVisible();
-  return { errors, press: () => d.locator(':scope > summary').click(), open: () => d.evaluate(x => x.open),
+  return { errors, press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), menu: () => d.locator(':scope > summary').click({ button: 'right' }), panel: page.locator('#luFolderMenu'), open: () => d.evaluate(x => x.open),
     inner: d.locator('[data-lu-document="d1"]'), here: () => page.locator('#libraryPath').textContent(),
     treeSub: page.locator('#libraryFolderNav [data-lu-nav="rc"], #libraryFolderNav .ft-current [data-lu-nav="rb"]') };
 }
@@ -358,7 +358,7 @@ async function notesRight(page) {
   await page.locator(`[data-nx-tree] [data-nx-open="${U(301)}"]`).click();
   const main = page.locator(`#noteRows [data-nx-open="${U(302)}"]`);
   await expect(main).toBeVisible();
-  return { errors, press: () => main.click(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, press: () => main.click(), dbl: () => main.dblclick(), menu: () => main.click({ button: 'right' }), panel: page.locator('#noteDocMenu'), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     inner: page.locator('#noteRows [data-note-row="rn1"]'), here: async () => (await page.locator(`[data-nx-tree] .ft-current [data-nx-open]`).getAttribute('data-nx-open')),
     treeSub: page.locator(`[data-nx-tree] [data-nx-open="${U(303)}"], [data-nx-tree] .ft-current [data-nx-open="${U(302)}"]`) };
 }
@@ -377,6 +377,43 @@ for (const [name, open] of RIGHT_SCREENS) test(`T5 ${name} PC 1280: 오른쪽 �
   await expect.poll(s.open).toBe(false);
   await expect(s.inner).toBeHidden();
   expect(page.url()).toBe(url0);
+  expect(s.errors).toEqual([]);
+});
+
+// T8(S69-76 UI-두번누르기없앰, 명진 11/24 21:30 "폴더 두번 누르면 들어가지는데 너무 민감 더블클릭 없애고 그 폴더에 들어가는 건 ... 해서 들어가기로만"):
+// 폴더 줄 두 번 누르기(PC 더블클릭·폰 두 번 탭) = 한 번 누르기 두 번(펼치기 → 접기)과 같다 — 주소·위치 그대로, 들어가지 않는다.
+// 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기](PC는 우클릭도 같은 메뉴)로만. 폰 그 자리 펼치는 목록(PRESS_SCREENS)·PC 오른쪽 목록(RIGHT_SCREENS) 모두.
+for (const [name, open] of PRESS_SCREENS) test(`T8 ${name} 폰 390: 폴더 두 번 누르기 = 들어가지 않음(펼치기·접기 두 번), ⋯ 첫 줄로만 들어감`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page, 390);
+  const where = s.where || (async () => page.url()); // 들어갔는지: 주소(사진은 주소가 같아 '폴더 나무로' ‹ 단추가 생겼는지)
+  const url0 = page.url(), at0 = await where();
+  await s.dbl();
+  await page.waitForTimeout(400);
+  await expect.poll(s.open).toBe(false);
+  expect(page.url()).toBe(url0);
+  expect(await where()).toBe(at0);
+  await s.more.click();
+  const enter = s.panel.locator('button').first();
+  await expect(enter).toHaveText('이 폴더로 들어가기');
+  await enter.click();
+  await expect.poll(where).not.toBe(at0);
+  expect(s.errors).toEqual([]);
+});
+for (const [name, open] of RIGHT_SCREENS) test(`T8 ${name} PC 1280: 오른쪽 목록 폴더 두 번 누르기 = 들어가지 않음, 우클릭(⋯ 같은 메뉴) 첫 줄로만 들어감`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page);
+  const url0 = page.url(), here0 = await s.here();
+  await s.dbl();
+  await page.waitForTimeout(400);
+  await expect.poll(s.open).toBe(false);
+  expect(page.url()).toBe(url0);
+  expect(await s.here()).toBe(here0);
+  await s.menu();
+  const enter = s.panel.locator('button').first();
+  await expect(enter).toHaveText('이 폴더로 들어가기');
+  await enter.click();
+  await expect.poll(s.here).not.toBe(here0);
   expect(s.errors).toEqual([]);
 });
 
