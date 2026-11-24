@@ -41,6 +41,9 @@ window.KPTURuntime={context:{read:()=>({user:{id:'u1'},workspace:{id:'w1'}})},se
  if(/^\/functions\/v1\/phone-push\?action=(recent|notices)$/.test(path))return {ok:true,items:[]};
  // COLLAB-묶인사람끼리공유 1단계: '내 묶음' 칸이 여는 내 묶음 목록(app_collab_my_groups)도 POST로 묻는 읽기라 calls에 넣지 않는다(묶음 없음).
  if(path==='/rest/v1/rpc/app_collab_my_groups')return [];
+ // S69-41: '구글 드라이브' 칸이 여는 세기(gather-folders dry_run)도 POST로 묻는 읽기라 calls에 넣지 않는다(state.drive가 없으면 연결 없음처럼 실패).
+ if(path==='/functions/v1/workspace-drive?action=gather-folders'&&opts.body?.dry_run===true){(state.driveAsks||=[]).push(clone(opts.body));if(!state.drive)throw new Error('drive not connected');return clone(state.drive.plan)}
+ if(path==='/functions/v1/workspace-drive?action=gather-folders'){(state.driveAsks||=[]).push(clone(opts.body));const r=state.drive.run.shift();state.drive.plan=clone(state.drive.after);return clone(r)}
  state.calls.push({path,method,body:clone(opts.body??null)});
  const hit=state.fail.find(x=>x.method===method&&path.startsWith(x.path)&&(!x.org||path.includes(x.org)||JSON.stringify(opts.body??null).includes(x.org)));if(hit)throw new Error('mock failure');
  if(path==='/auth/v1/user')return clone(state.user);

@@ -145,8 +145,8 @@ test('참고 묶음 화면: 담당조직 목록 맨 아래 입구, 묶음 더하
  await expect(page.locator(`#soOrganizationList [data-so-org="${o}"]`)).toBeVisible();
  const entry=page.locator('#soOrganizationList .so-reference-entry');
  await expect(entry).toHaveText('참고 묶음 ›');
- // 맨 아래 한 줄.
- expect(await page.locator('#soOrganizationList > *').last().evaluate(el=>el.classList.contains('so-reference-entry'))).toBe(true);
+ // 맨 아래 한 줄(그 아래는 '연락 없는 조직' 줄 자리 하나뿐 — 2026-11-24 홈에서 옮김).
+ expect(await page.locator('#soOrganizationList > :not([data-team-quiet])').last().evaluate(el=>el.classList.contains('so-reference-entry'))).toBe(true);
  await entry.click();
  await expect(page.locator('#referenceView')).toBeVisible();
  // 사이드바·하단 탭에 새 항목이 없고, 담당조직 메뉴가 계속 선택된 것으로 보인다.

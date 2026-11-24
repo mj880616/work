@@ -1,23 +1,46 @@
 // S68-02: 서버가 만드는 폴더 이름(supabase/functions/_shared/brand-folders.mjs)과 화면 안내 글자. 값은 모두 가짜.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { APP_NAMES, appNameFor, FOLDER_NAMES, folderNames, folderNameFor, keepOldFromMyFeatures, keepOldFromFeatureWorkspace, driveQuoted, NOJO_WORDS_FEATURE } from '../supabase/functions/_shared/brand-folders.mjs';
+import { APP_NAMES, appNameFor, DRIVE_BRAND, FOLDER_NAMES, knownFolderNames, renameTo, rootRenameTo, ROOT_FOLDER_NAME, folderNames, folderNameFor, keepOldFromMyFeatures, keepOldFromFeatureWorkspace, driveQuoted, NOJO_WORDS_FEATURE } from '../supabase/functions/_shared/brand-folders.mjs';
 import { WORD_BASE_FEATURES } from '../app/brand/custom-words-model.mjs';
 
 const WS = '10000000-0000-4000-8000-00000000000a';
 globalThis.window ??= {addEventListener() {}, dispatchEvent() {}};
 
-test('폴더 이름 둘: 지금(노조+)·새(WORK ON+). 새로 만들 때만 고르고, 모르면 지금 이름', () => {
+test('폴더 이름: 구글 드라이브 폴더는 새로 만들 때 늘 새 이름(S69-41), 원드라이브 휴지통만 예전 규칙', () => {
   assert.deepEqual(folderNames('record_backup'), ['노조+ 백업', 'WORK ON+ 백업']);
   assert.deepEqual(folderNames('edit_backup'), ['노조+ 편집 백업', 'WORK ON+ 편집 백업']);
   assert.deepEqual(folderNames('photo_trash'), ['.노조+ 휴지통', '.WORK ON+ 휴지통']);
   for (const kind of Object.keys(FOLDER_NAMES)) {
     assert.equal(folderNameFor(kind, false), FOLDER_NAMES[kind].now);
-    assert.equal(folderNameFor(kind, true), FOLDER_NAMES[kind].old);
-    assert.equal(folderNameFor(kind, null), FOLDER_NAMES[kind].old, '확인 실패는 지금 이름(지금 동작 그대로)');
-    assert.equal(folderNameFor(kind, undefined), FOLDER_NAMES[kind].old);
+    const keep = FOLDER_NAMES[kind].drive ? FOLDER_NAMES[kind].now : FOLDER_NAMES[kind].old;
+    assert.equal(folderNameFor(kind, true), keep, kind);
+    assert.equal(folderNameFor(kind, null), keep, kind);
+    assert.equal(folderNameFor(kind, undefined), keep, kind);
   }
+  assert.equal(FOLDER_NAMES.photo_trash.drive, false, '원드라이브 휴지통은 이번 이름 맞추기 대상이 아님');
   assert.throws(() => folderNameFor('nope', false));
+});
+
+test('S69-41: 앱 이름 글자는 DRIVE_BRAND 한 곳, 옛 이름 → 새 이름(사람이 바꾼 이름은 그대로)', () => {
+  assert.equal(DRIVE_BRAND, 'WORK ON+');
+  assert.equal(ROOT_FOLDER_NAME, DRIVE_BRAND);
+  for (const kind of ['record_backup', 'edit_backup', 'basket', 'copy']) {
+    assert.ok(FOLDER_NAMES[kind].now.startsWith(DRIVE_BRAND), kind);
+    assert.ok(!FOLDER_NAMES[kind].olds.includes(FOLDER_NAMES[kind].now), kind);
+    assert.deepEqual([...knownFolderNames(kind)], [...FOLDER_NAMES[kind].olds, FOLDER_NAMES[kind].now]);
+  }
+  assert.equal(renameTo('basket', 'Web2 바구니'), 'WORK ON+ 바구니');
+  assert.equal(renameTo('record_backup', '노조+ 백업'), 'WORK ON+ 백업');
+  assert.equal(renameTo('edit_backup', 'Web2 편집 백업'), 'WORK ON+ 편집 백업');
+  assert.equal(renameTo('edit_backup', '노조+ 편집 백업'), 'WORK ON+ 편집 백업');
+  assert.equal(renameTo('copy', '노조+ 읽기용 사본'), 'WORK ON+ 읽기용 사본');
+  assert.equal(renameTo('copy', 'Web2 읽기용 사본'), 'WORK ON+ 읽기용 사본');
+  assert.equal(renameTo('basket', 'WORK ON+ 바구니'), null, '이미 새 이름');
+  assert.equal(renameTo('basket', '내 바구니'), null, '사람이 바꾼 이름');
+  assert.equal(renameTo('photo_trash', '.노조+ 휴지통'), null, '원드라이브는 대상 아님');
+  for (const n of ['웹2', 'Web2', '공공기관사업팀 Workspace', '노조+', '노동조합+']) assert.equal(rootRenameTo(n), 'WORK ON+', n);
+  for (const n of ['WORK ON+', '내 업무', '웹2 자료']) assert.equal(rootRenameTo(n), null, n);
 });
 
 test('nojo_words 판정: 로그인 토큰 app_my_features 답·service role app_operator_feature_workspace 답', () => {

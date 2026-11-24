@@ -34,7 +34,7 @@ export async function putFilesIntoTargets({noteId,files,projectId=null,organizat
       if(!isCurrent())return stop('stale','');
       if(sent.kind==='unknown')return stop('unknown',FILE_DOCS_TEXT.unknown);
       if(!['created','exists'].includes(sent.kind))return stop('refused',sent.message||FILE_DOCS_TEXT.refused);
-      doc={id:sent.document.id,title:sent.document.title,project_id:undefined,organization_id:undefined};
+      doc={id:sent.document.id,title:sent.document.title,project_id:undefined,organization_id:undefined,created:sent.kind==='created'};
       if(sent.kind==='created')window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
     }
     const patch={};

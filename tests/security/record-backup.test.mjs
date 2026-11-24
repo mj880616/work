@@ -103,7 +103,7 @@ test('드라이브: 노조+ 백업/날짜 폴더, csv·읽기용 문서, 같은 
   const body = await r.json();
   assert.equal(r.status, 200); assert.equal(body.date, '2026-11-18'); assert.equal(body.count, 3);
   const root = w.drive.files.find(f => f.appProperties?.kptu_backup === 'root');
-  assert.equal(root.name, '노조+ 백업'); assert.deepEqual(root.parents, ['root']);
+  assert.equal(root.name, 'WORK ON+ 백업'); assert.deepEqual(root.parents, ['root']); // S69-41: 새로 만들 때 늘 새 이름
   assert.equal(root.appProperties.kptu_backup_last_count, '3');
   const day = w.drive.files.find(f => f.appProperties?.kptu_backup === 'day');
   assert.equal(day.name, '2026-11-18'); assert.deepEqual(day.parents, [root.id]);
@@ -178,7 +178,7 @@ test('S68-02: 새로 만드는 백업 폴더 이름과 이미 있는 폴더 보�
   assert.ok(!JSON.stringify(rpc.headers).includes(SERVICE), '기능 확인은 로그인 토큰으로(서비스 역할 키 안 씀)');
   const failed = world({ features: 'fail' });
   await failed.ask('run', { kinds: ['notes'] });
-  assert.equal(failed.drive.files.find(f => f.appProperties?.kptu_backup === 'root').name, '노조+ 백업', '확인 실패는 지금 이름');
+  assert.equal(failed.drive.files.find(f => f.appProperties?.kptu_backup === 'root').name, 'WORK ON+ 백업', 'S69-41: 확인 실패여도 새로 만들 때는 새 이름');
   const kept = world({ rootName: '노조+ 백업' });
   const k = await (await kept.ask('run', { kinds: ['notes'] })).json();
   const roots = kept.drive.files.filter(f => f.appProperties?.kptu_backup === 'root');

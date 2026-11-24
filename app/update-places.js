@@ -293,6 +293,9 @@ async function placeFiles({noteId, list, link, line, files, sameOwner}, rt) {
   if (sameOwner() && files.length && (project || organization)) {
     try { filed = await putFilesIntoTargets({noteId, files, projectId:project?.id || null, organizationId:organization?.id || null, rt, expectedSessionEpoch:rt.session.epoch(), isCurrent:sameOwner}); }
     catch { filed = {ok:false, kind:'unknown', message:''}; }
+    // ORG-기록자료폴더: 조직 기록에 붙여 새로 자료가 된 파일은 자료실 '모으는 폴더 › 그 조직 폴더'로(이미 있던 자료는 옮기지 않음, org-files-folder.js).
+    const made = organization && filed?.docs ? [...filed.docs.values()].filter(d => d.created).map(d => d.id) : [];
+    if (made.length && sameOwner()) void import('./org-files-folder.js').then(m => m.fileIntoOrgFolder({docIds:made, org:{id:organization.id}, rt})).catch(() => {});
   }
   return {note:note || {id:noteId}, linkError, filed};
 }

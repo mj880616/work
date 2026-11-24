@@ -34,6 +34,8 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
       if(s.colorMissing&&/(^|,)color(,|$)/.test(url.searchParams.get('select')||''))return route.fulfill(reject('42703','column app_library_folders.color does not exist'));
       // LIB-받는폴더나누기: 상위 폴더로 거른 읽기(parent_id=eq.…, 이번에 만든 폴더가 비었는지 볼 때)도 받는다.
       const pid=eq(url,'parent_id'),list=pid?s.folders.filter(f=>f.parent_id===pid):s.folders;
+      // ORG-기록자료폴더: 짝 읽기(organization_id=not.is.null). s.orgOwned가 없으면 칸을 모르는 서버(줄에 칸 없음).
+      if(url.searchParams.get('organization_id')==='not.is.null')return route.fulfill({json:s.orgOwned?list.filter(f=>f.organization_id).map(f=>({id:f.id,organization_id:f.organization_id})):list.map(f=>({id:f.id}))});
       return route.fulfill({json:s.colorMissing?list.map(({color,...rest})=>rest):list});
     }
     if(m==='POST'){
@@ -64,6 +66,13 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
     s.trash=s.trash.filter(x=>x!==t);s.folders.push(...t.folders);return route.fulfill({json:{ok:true,kind:'library_folder',id:t.root,restored:t.folders.length}});
   });
   // FOLDER-순서·색 ③-1: 폴더 색은 서버 함수(owner만)로만 쓴다. s.colorCalls에 쌓고, s.colorFail이면 실패, s.colorMissing이면 함수가 아직 없음(404).
+  // ORG-기록자료폴더: 폴더 ↔ 담당조직 짝(서버 함수 app_library_folder_set_org). state.orgOwned = 내 작업공간 조직 id 목록(그 밖은 서버처럼 거절).
+  await page.route(`${SB}/rest/v1/rpc/app_library_folder_set_org`,route=>{
+    const body=route.request().postDataJSON()||{};(s.orgCalls||(s.orgCalls=[])).push(body);
+    const f=byId(body.p_id);if(!f||(body.p_org&&!(s.orgOwned||[]).includes(body.p_org)))return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({code:'42501',message:'LIBRARY_FOLDER_ORG_FORBIDDEN'})});
+    if(body.p_org)for(const o of s.folders)if(o.organization_id===body.p_org&&o.id!==f.id)o.organization_id=null;
+    f.organization_id=body.p_org||null;return route.fulfill({json:{ok:true,id:f.id,organization_id:f.organization_id}});
+  });
   await page.route(`${SB}/rest/v1/rpc/app_library_folder_set_color`,route=>{
     const body=route.request().postDataJSON()||{};(s.colorCalls||(s.colorCalls=[])).push(body);
     if(s.colorMissing)return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST202',message:'function not found'})});

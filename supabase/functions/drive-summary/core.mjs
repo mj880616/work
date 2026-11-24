@@ -1,4 +1,5 @@
 import { isDelegatedToken } from '../_shared/delegated-token-guard.mjs';
+import { FOLDER_NAMES, renameTo } from '../_shared/brand-folders.mjs'; // S69-41: 읽기용 사본 폴더 이름
 import {select} from './project-catalog-model.mjs';
 // Pure rendering + injectable HTTP boundary. Node 24 tests exercise this same code.
 import {createBasketReader} from './basket-read.mjs';
@@ -18,7 +19,8 @@ const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const NOTICE = '이 문서는 노동조합+가 자동으로 만드는 읽기용 사본입니다. 직접 고쳐도 다음 갱신 때 덮어써집니다. 원본은 노동조합+입니다.';
 // BRAND-웹2흔적지우기: 읽기용 사본 폴더 이름. 폴더는 이름이 아니라 appProperties로 찾으므로, 옛 이름('Web2 읽기용 사본') 폴더는
 // 갱신 때 이름만 새 이름으로 바꾼다(새 폴더를 만들지 않고, 안의 문서는 그대로).
-const COPY_FOLDER = '노조+ 읽기용 사본';
+// S69-41: 새 이름은 brand-folders.mjs 한 곳('WORK ON+ 읽기용 사본'). 갱신 때 바꾸는 것은 옛 이름(노조+·Web2 …)일 때만 — 사람이 바꾼 이름은 그대로.
+const COPY_FOLDER = FOLDER_NAMES.copy.now;
 const OTHERS = '그 외';
 const TITLES = { org: '조직 업데이트 (읽기용 사본)', project: '프로젝트 현황 (읽기용 사본)', ledger: LEDGER_TITLE };
 const LEDGER_BACKUP_FOLDER = '원장 백업';
@@ -373,7 +375,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
   async function folderFor(token) {
     const found = await findFile(token, 'folder');
     if (found) {
-      if (typeof found.name === 'string' && found.name !== COPY_FOLDER) {
+      if (typeof found.name === 'string' && renameTo('copy', found.name)) {
         // 이름 바꾸기는 덤이다. 실패해도 사본 갱신은 그대로 한다.
         try {
           await fetcher(`${DRIVE}/${encodeURIComponent(found.id)}?fields=id`, {

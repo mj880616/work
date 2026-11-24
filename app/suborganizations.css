@@ -201,3 +201,23 @@
 #soOrganizationList.so-picking .so-pick{flex:none;width:16px;height:16px;margin:0 0 0 var(--kptu-space-3)}
 #soOrganizationList.so-picking .so-row.is-picked>.kptu-list-row{background:var(--kptu-surface-subtle)}
 #soOrganizationList.so-picking [data-so-grip]{visibility:hidden}
+/* 연락 없는 조직(org-quiet.js, 2026-11-24 명진 요청으로 홈에서 옮김): 조직 관리 목록 맨 아래 톤다운 경고색 한 줄. 펼치면 바로 아래 얇은 목록. */
+#soOrganizationList .so-quiet { min-width:0; }
+#soOrganizationList .so-quiet[hidden] { display:none; }
+#soOrganizationList .so-quiet .oq-line { display:flex; align-items:center; gap:6px; min-height:30px; padding:2px 4px 2px 10px; border-radius:var(--kptu-radius-md); background:var(--kptu-warning-soft,var(--kptu-surface)); color:var(--kptu-warning); font-size:var(--ds-text-meta,12px); line-height:1.4; }
+#soOrganizationList .so-quiet.is-open .oq-line { border-radius:var(--kptu-radius-md) var(--kptu-radius-md) 0 0; }
+/* 목록 칸이 좁으면(PC 목록 칸·폴드) 이름이 말줄임으로 잘려 누를 수 없게 되지 않도록, 조직 하나(이름+날 수)는 붙여 두고 사이에서만 줄을 바꾼다. */
+#soOrganizationList .so-quiet .oq-text { flex:1; min-width:0; white-space:normal; overflow-wrap:anywhere; }
+#soOrganizationList .so-quiet .oq-item { white-space:nowrap; }
+#soOrganizationList .so-quiet .oq-org { display:inline; min-height:0; margin:0; padding:0; border:0; background:transparent; color:var(--kptu-ink); font:inherit; cursor:pointer; text-decoration:none; }
+#soOrganizationList .so-quiet .oq-org:hover, #soOrganizationList .so-quiet .oq-org:focus-visible { text-decoration:underline; }
+#soOrganizationList .so-quiet .oq-d { color:var(--kptu-faint); }
+#soOrganizationList .so-quiet .oq-toggle { flex:none; width:28px; height:28px; margin:0; padding:0; border:0; border-radius:var(--kptu-radius-sm); background:transparent; color:var(--kptu-muted); font:inherit; font-size:14px; cursor:pointer; }
+#soOrganizationList .so-quiet .oq-list { margin:0; padding:2px 10px 4px; list-style:none; border:1px solid var(--kptu-border); border-top:0; border-radius:0 0 var(--kptu-radius-md) var(--kptu-radius-md); font-size:var(--ds-text-meta,12px); }
+#soOrganizationList .so-quiet .oq-list[hidden] { display:none; }
+#soOrganizationList .so-quiet .oq-row { display:flex; align-items:center; gap:8px; min-height:28px; border-top:1px solid var(--kptu-border); }
+#soOrganizationList .so-quiet .oq-row:first-child { border-top:0; }
+#soOrganizationList .so-quiet .oq-row .oq-org { flex:1; min-width:0; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-height:28px; }
+#soOrganizationList .so-quiet .oq-last { color:var(--kptu-faint); font-size:11px; white-space:nowrap; }
+#soOrganizationList .so-quiet .oq-days { min-width:44px; text-align:right; color:var(--kptu-muted); white-space:nowrap; }
+#soOrganizationList .so-quiet .oq-note { padding:3px 0 0; color:var(--kptu-faint); font-size:11px; border-top:1px solid var(--kptu-border); }

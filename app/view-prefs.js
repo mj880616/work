@@ -38,7 +38,7 @@ export const PHOTO_VIEW_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']
 // PHOTO-정렬: photo_view.sort = 사진·폴더·앨범 정렬 기준(없으면 찍은 날 최근 먼저). migration 20261030150000. 뜻은 photos-model.mjs SORTS. 적용 전에는 쓰기가 400이라 rejectable로 되돌리고 알린다.
 export const PHOTO_VIEW_SORTS = Object.freeze(['taken_desc', 'taken_asc', 'uploaded_desc', 'name_asc', 'size_desc', 'duration_desc']);
 // OD-연결아이콘: diary_onedrive = 일기에서 원드라이브 사진 보이기(참·거짓, 기본 참). migration 20261028150000. 적용 전에는 쓰기가 400이라 이번 접속만 기억
-// FEAT-1029묶음 ③: quiet_weeks = 홈 '연락 없는 조직' 기준 주 수(정수 0=끔, 1~12주, 없으면 3주). 뜻은 org-quiet-model.mjs, 모양은 DB 검사(migration 20261029103000)와 같다.
+// FEAT-1029묶음 ③: quiet_weeks = '연락 없는 조직'(조직 관리 목록 맨 아래) 기준 주 수(정수 0=끔, 1~12주, 없으면 3주). 뜻은 org-quiet-model.mjs, 모양은 DB 검사(migration 20261029103000)와 같다.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 이 칸만 되돌리고 알린다(기본 3주 그대로).
 // NOTE-보기3가지: note_view = 노트 화면 [폴더|목록|포스트잇] 중 마지막에 고른 보기(없으면 폴더). migration 20261029183000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억
 export const NOTE_VIEWS = Object.freeze(['folder', 'list', 'board']);
