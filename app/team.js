@@ -208,7 +208,7 @@ function setupMeetingNamePicker(select,input,match,use,{current='',names=meeting
   function paintMode(){
     modeBox?.querySelectorAll('[data-name-mode]').forEach(b=>b.setAttribute('aria-checked',String((b.dataset.nameMode==='adhoc')===adhoc)));
     if(adhocBox)adhocBox.hidden=!adhoc;
-    if(adhoc)input.setAttribute('placeholder','예: ○○지부 긴급 간담회');else if(input.dataset.regularPlaceholder)input.setAttribute('placeholder',input.dataset.regularPlaceholder);else input.removeAttribute('placeholder');
+    if(adhoc)input.setAttribute('placeholder','예: 긴급 간담회');else if(input.dataset.regularPlaceholder)input.setAttribute('placeholder',input.dataset.regularPlaceholder);else input.removeAttribute('placeholder');
     if(adhoc){paintArea();void loadNamePanel().then(m=>m.paintAdhocOrgs(prefix),()=>{})}
   }
   function update(){const custom=adhoc||select.value==='__other__'||!names.length;select.classList.toggle('hidden',!names.length||adhoc);input.classList.toggle('hidden',!custom);if(!custom)input.value=select.value;const equivalent=custom?names.find(name=>meetingNameKey(name)===meetingNameKey(input.value)&&name!==input.value.trim()):null;match.classList.toggle('hidden',!equivalent);match.querySelector('span').textContent=equivalent?`같은 이름이 있습니다: ${equivalent}`:'';use.onclick=()=>{adhoc=false;select.value=equivalent;paintMode();update()};
