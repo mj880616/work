@@ -325,10 +325,17 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const trail = [{label:'노트', attrs:{'data-nx-at':''}}, ...path.slice(0, -1).map(x => ({label:x.name, attrs:{'data-nx-at':x.id}}))];
     return ftFocusHtml({back:{'data-nx-back':''}, trail, name:f ? f.name : OUTSIDE_NAME, color:f ? colorOf(f) : null, count:ftFocusCount(subs, own, '노트'), body, attrs:{'data-nx-focus':at}});
   }
+  // LIB-끄는중막대(S69, 명진 11/24 16:17 — 자료실과 같은 규칙): 고른 노트를 끄는 동안은 막대에 '옮기는 중 N개'와 ✕(선택 끝내기)만.
+  // [폴더로 옮기기]·[삭제]·[전체 선택]은 그동안 막대에서 떼어 둔다(숨김 아님 — 이 함수 하나가 떼고 붙임). 끝나면 원래대로.
+  let selDragging = false; // 끄는 중인가(showHover가 공용 끌기 부품 표시 re-active로 바꾼다)
+  let parkedActs = null; // 끄는 동안 막대에서 떼어 둔 단추(끝나면 제자리)
   function paintSelectBar() {
     const bar = host.querySelector('[data-nx-select-bar]');
     bar.hidden = !pick.active;
-    if (pick.active) { host.querySelector('[data-nx-select-count]').textContent = `${pick.size}개 선택됨`; bar.querySelectorAll('[data-nx-sel-move],[data-nx-sel-delete]').forEach(b => { b.disabled = !pick.size || busy; }); }
+    const acts = bar.querySelector('.nx-sel-acts'), moving = !!pick.active && selDragging;
+    if (acts && moving && !parkedActs) { parkedActs = [...acts.children]; for (const b of parkedActs) b.remove(); }
+    else if (acts && !moving && parkedActs) { acts.append(...parkedActs); parkedActs = null; }
+    if (pick.active) { host.querySelector('[data-nx-select-count]').textContent = moving ? `옮기는 중 ${pick.size}개` : `${pick.size}개 선택됨`; bar.querySelectorAll('[data-nx-sel-move],[data-nx-sel-delete]').forEach(b => { b.disabled = !pick.size || busy; }); }
     list.classList.toggle('nx-selecting', !!pick.active);
   }
 
@@ -1463,6 +1470,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   function showHover(info) {
     clearDrop();
+    // 끄는 중 = 공용 끌기 부품이 붙이는 re-active(시작에 붙고 끝에 먼저 떼어짐) — 빈 틈 위에서 놓을 곳이 없을 때도 끄는 중이다.
+    const on = host.classList.contains('re-active'); if (on !== selDragging) { selDragging = on; paintSelectBar(); }
     if (!info) { dragging = false; hoverOpen(null); return; }
     dragging = true;
     const plan = dropPlan(info.id, info.over, info.zone);
