@@ -839,7 +839,10 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (tdrag && e.pointerId === tdrag.pointerId) { if (e.type === 'pointercancel') cancelTextDrag(); else finishTextDrag(e); return; }
     if (pan && e.pointerId === pan.pointerId) {
       const p = pan; pan = null; dragOn(false); box.classList.remove('nb-panning');
-      if (!p.moved && e.type !== 'pointercancel') { // 빈 곳 누름 = 고르기 풀기, 폰에서 빠르게 두 번 = 글 상자
+      if (!p.moved && e.type !== 'pointercancel') { // 빈 곳 누름 = 고르기 풀기(쓰던 상자는 저장), 폰에서 빠르게 두 번 = 새 주제
+        // S69-82: 쓰던 상자는 여기서 바로 저장한다. 입력칸이 초점을 잃는 것(blur)에만 기대면, 폰이 이 누름을 두 번 누르기 손짓으로 삼켜
+        // 흉내 마우스 누름이 오지 않을 때 입력칸이 열린 채 남았다.
+        if (editing) { void endEdit(true); lastTap = null; return; }
         select(null); clearMulti(); closeLineMenu();
         const now = Date.now(), here = {x:e.clientX, y:e.clientY};
         if (e.pointerType !== 'mouse' && lastTap && now - lastTap.t < 350 && Math.hypot(here.x - lastTap.x, here.y - lastTap.y) < 24) { lastTap = null; const at = pointOf(e); afterClick = {run:() => newText(at)}; }
@@ -850,7 +853,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     }
     if (blankDown && e.pointerId === blankDown.pointerId) { // 마우스 빈 곳: 사각형을 그리지 않고 떼면 고르기 풀기
       blankDown = null;
-      if (!marquee.active && e.type !== 'pointercancel') { select(null); clearMulti(); closeLineMenu(); }
+      if (!marquee.active && e.type !== 'pointercancel') { if (editing) void endEdit(true); select(null); clearMulti(); closeLineMenu(); }
       return;
     }
     if (!drag || e.pointerId !== drag.pointerId) return;
