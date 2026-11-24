@@ -37,7 +37,10 @@ test('[파일] PC 1280: 하위 있는 상위 폴더를 눌러도 오른쪽 = 그
   await expect(voice).toHaveClass(/ft-current/);
   await expect(voice.locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'true');
   await expect(fxTreeRow(page, 'gd:gdWait')).toBeVisible();
-  // 다시 눌러도 접히지 않는다(접기는 아이콘).
+  // 이름을 다시 누르면 접힌다(명진 11/24 15:42), 또 누르면 펼친다. 오른쪽은 그 폴더 그대로.
+  await voice.locator('.ft-main').click();
+  await expect(voice.locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'false');
+  await expect(fxTreeRow(page, 'gd:gdWait')).toHaveCount(0);
   await voice.locator('.ft-main').click();
   await expect(voice.locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'true');
   await voice.locator(':scope > .ft-tog').click();
