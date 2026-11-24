@@ -76,7 +76,7 @@ function renderTeam(){const box=document.querySelector('#soOrganizationList');if
  // MULTI-다른담당자맞춤 ②: 묶음이 있거나(값) 빈 묶음을 만들었으면 묶음 칸·손잡이·묶음 ⋯(org-groups-drag.js), 아니면 지금처럼 가나다순 한 목록.
  const grouped=!!soGroupsMod&&(window.KPTUOrganizationOrder.hasGroups?.()||soGroupsMod.hasPending());
  box.classList.toggle('so-picking',pk);
- const html=(pk?pickBarHtml():'')+(mine.length?(grouped?soGroupsMod.sectionsHtml(shown,row):ordered(shown,row,true))+excludedHtml:soEmptyHtml())+(pk?'':'<button type="button" class="so-reference-entry" data-goto="reference">참고 묶음 <span aria-hidden="true">›</span></button>');if(html!==soTeamHtml||box!==soTeamBox||!box.firstElementChild){box.innerHTML=html;soTeamHtml=html;soTeamBox=box}paintSelection();paintStageTags();repaintRecency();window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}));
+ const html=(pk?pickBarHtml():'')+(mine.length?(grouped?soGroupsMod.sectionsHtml(shown,row):ordered(shown,row,true))+excludedHtml:soEmptyHtml())+(pk?'':'<button type="button" class="so-reference-entry" data-goto="reference">참고 묶음 <span aria-hidden="true">›</span></button>');if(html!==soTeamHtml||box!==soTeamBox||!box.firstElementChild){box.innerHTML=html;soTeamHtml=html;soTeamBox=box}placeQuiet(box,pk);paintSelection();paintStageTags();repaintRecency();window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}));
  // DESK-전체현황표: 담당조직 맨 위 소탭 [목록|전체 표]. 전체 표(org-overview.js)는 같은 내 담당조직 목록을 받아 묶음별 표로 그린다.
  if(mine.length||document.querySelector('#soTeamTabs'))import('./org-overview.js').then(m=>m.syncOverview({orgs:mine,workspaceId:soWorkspace,rt})).catch(err=>console.error('org overview',err))}
 // ORG-쟁의단계: 목록 줄 꼬리표(모든 조직의 지금 단계, 색 = 투쟁 중·끝남·평시 — ORG-단계꼬리표전부)와 ⋯ 메뉴 [쟁의 단계 관리]. 판정은 org-dispute-stage-model.mjs 한 곳, 읽기·쓰기는 org-dispute-stage.js.
@@ -102,10 +102,16 @@ const soMenuItem=(attr,label)=>`<button type="button" ${attr}>${label}</button>`
 // 화면 제목 줄 ⋯는 지금처럼 [쟁의 단계 관리] 하나. 우클릭은 맨 위 [열기]가 더 붙는다. 어느 조직의 메뉴인지는 이 화면만 기억한다(menuOrg).
 let menuFrom='screen';
 function orgMenuItems(id){const o=soOrganizations.find(x=>x.id===id);if(!o)return '';const out=window.KPTUOrganizationOrder.PICKER_EXCLUDED?.includes(o.name);const mine=canEdit(o);return (mine?soMenuItem('data-so-rename','이름 바꾸기'):'')+(menuFrom==='row'?soMenuItem('data-so-stage-manage',word('쟁의 단계')):'')+soMenuItem('data-so-exclude',out?word('담당 조직으로 추가'):word('담당 조직에서 제외'))+(mine?'<hr class="so-menu-sep" role="separator">'+soMenuItem('data-so-row-delete','삭제'):'')}
-// MULTI-다른담당자맞춤 ⑥: 홈 '연락 없는 조직' 줄의 기준 [2주|3주|4주|6주|끄기]는 내 프로필에서 조직 보고 화면 ⋯로 옮겼다. 값은 그대로
+// MULTI-다른담당자맞춤 ⑥: '연락 없는 조직' 줄(2026-11-24 홈에서 이 화면 목록 맨 아래로 옮김)의 기준 [2주|3주|4주|6주|끄기]는 내 프로필에서 조직 보고 화면 ⋯로 옮겼다. 값은 그대로
 // 서버 화면 기억 view_prefs.quiet_weeks 하나(바꾸면 바로 서버 저장). 통화·텔레그램 수집이 있는 작업공간(서버 운영자 기능)에서만 보인다.
 let quietMod=null,quietShown=false;
-function quietItems(){if(!quietShown||!quietMod)return '';const now=quietMod.weeksOf(window.KPTUViewPrefs?.get?.('quiet_weeks'));return word('<hr class="so-menu-sep" role="separator"><div class="so-menu-label" id="soQuietLabel">홈 \'연락 없는 조직\' 기준</div><span class="ds-seg so-quiet-seg" role="group" aria-labelledby="soQuietLabel">')+quietMod.WEEK_CHOICES.map(w=>`<button type="button" class="ds-seg-btn" data-so-quiet="${w}" aria-pressed="${now===w}">${w?w+'주':'끄기'}</button>`).join('')+'</span>'}
+// 2026-11-24 명진 요청("홈화면에서 이거 없애고, 이거는 조직 관리 화면 맨 아래로"): 줄의 유일한 renderer는 org-quiet.js, 이 화면은 자리(soQuietEl)만 둔다.
+// 목록(renderTeam)이 다시 그려도 같은 자리를 목록 맨 끝에 다시 붙인다. 고르기 중에는 빼 둔다. 무거운 읽기라 조직 관리를 처음 열 때 불러온다.
+let soQuietEl=null,soQuietFlight=null;
+function placeQuiet(box,pk){if(!soQuietEl)return;if(pk||!box){soQuietEl.remove();return}if(soQuietEl.parentNode!==box||box.lastElementChild!==soQuietEl)box.appendChild(soQuietEl)}
+function mountQuiet(){if(soQuietFlight)return;soQuietEl=document.createElement('section');soQuietEl.className='so-quiet';soQuietEl.dataset.teamQuiet='';soQuietEl.hidden=true;soQuietEl.setAttribute('aria-labelledby','orgQuietTitle');placeQuiet(document.querySelector('#soOrganizationList'),picking());
+ soQuietFlight=import('./org-quiet.js').then(({mountOrgQuiet})=>mountOrgQuiet(soQuietEl,{rt})?.refresh()).catch(err=>{soQuietFlight=null;console.warn('org quiet load',err?.message||err)})}
+function quietItems(){if(!quietShown||!quietMod)return '';const now=quietMod.weeksOf(window.KPTUViewPrefs?.get?.('quiet_weeks'));return word('<hr class="so-menu-sep" role="separator"><div class="so-menu-label" id="soQuietLabel">\'연락 없는 조직\' 기준</div><span class="ds-seg so-quiet-seg" role="group" aria-labelledby="soQuietLabel">')+quietMod.WEEK_CHOICES.map(w=>`<button type="button" class="ds-seg-btn" data-so-quiet="${w}" aria-pressed="${now===w}">${w?w+'주':'끄기'}</button>`).join('')+'</span>'}
 async function quietReady(){try{const [{myFeatures},m]=await Promise.all([import('./my-features.js'),import('./org-quiet-model.mjs')]);quietMod=m;const f=await myFeatures(rt);quietShown=f.includes('calls')||f.includes('telegram')}catch{quietShown=false}}
 function setQuiet(w){const prefs=window.KPTUViewPrefs;if(!prefs?.set||!quietMod)return;prefs.set('quiet_weeks',w,{rejectable:true});void prefs.flush?.();window.dispatchEvent(new CustomEvent('kptu:quiet-weeks-changed'));toast(w?word`'연락 없는 조직' 기준을 ${w}주로 바꿨어요.`:word("'연락 없는 조직' 줄을 껐어요."))}
 window.addEventListener('kptu:view-prefs-rejected',e=>{if(!e.detail?.paths?.includes('quiet_weeks'))return;notify('서버가 아직 이 기준을 받지 못해 이전 값으로 되돌렸어요.',{error:true});window.dispatchEvent(new CustomEvent('kptu:quiet-weeks-changed'))});
@@ -224,7 +230,7 @@ let groupsFlight=null;
 function loadGroups(){groupsFlight||=import('./org-groups-drag.js').then(m=>{if(!soGroupsMod){soGroupsMod=m;m.install({writeOrder,rerender:()=>renderTeam(),toast,notify,openGroupEdit,menuItem:soMenuItem});if(soOrganizations.length)renderTeam()}return m}).catch(err=>{groupsFlight=null;console.error('org groups',err)});return groupsFlight}
 // S67-01: 묶음 손잡이 모듈(org-groups-drag.js)도 함께 기다린 뒤 한 번에 그린다. 따로 늦게 오면 손잡이 없는 목록을 먼저 그렸다가
 // 손잡이 있는 목록으로 줄을 통째로 갈아 끼워, 누르려던 줄이 손가락 밑에서 바뀌었다(모듈을 못 읽으면 지금처럼 손잡이 없이 그린다).
-async function load(){if(!soWorkspace)return;let rule;[soOrganizations,soAssignments,rule]=await Promise.all([api(`/rest/v1/app_suborganizations?workspace_id=eq.${soWorkspace}&active=eq.true&select=*&order=name.asc`),api('/rest/v1/app_suborganization_assignees?select=organization_id,user_id,assigned_by,created_at'),import('./my-organizations.js'),loadGroups()]);soPickRule=rule.pickMyOrganizations;soLoadedFor=soWorkspace;renderTeam();renderEventCreate(undefined,undefined,{withAreas:false});void loadSummaries();if(window.KPTURouter?.current==='team')void refreshStages();return {organizations:soOrganizations,assignments:soAssignments}}
+async function load(){if(!soWorkspace)return;let rule;[soOrganizations,soAssignments,rule]=await Promise.all([api(`/rest/v1/app_suborganizations?workspace_id=eq.${soWorkspace}&active=eq.true&select=*&order=name.asc`),api('/rest/v1/app_suborganization_assignees?select=organization_id,user_id,assigned_by,created_at'),import('./my-organizations.js'),loadGroups()]);soPickRule=rule.pickMyOrganizations;soLoadedFor=soWorkspace;renderTeam();if(window.KPTURouter?.current==='team')mountQuiet();renderEventCreate(undefined,undefined,{withAreas:false});void loadSummaries();if(window.KPTURouter?.current==='team')void refreshStages();return {organizations:soOrganizations,assignments:soAssignments}}
 function open(id,{trigger=document.activeElement,initialFocus=null}={}){const m=document.querySelector('#'+id);if(!m)return;m.classList.remove('hidden');m.setAttribute('aria-hidden','false');window.KPTUA11y?.dialog.activate(m,{trigger,initialFocus,onRequestClose:()=>close(id)})}
 function close(id){const m=document.querySelector('#'+id);if(!m)return;m.classList.add('hidden');m.setAttribute('aria-hidden','true');window.KPTUA11y?.dialog.deactivate(m,{restoreFocus:true,fallbackFocus:'#soAddOrg'})}
 // MULTI-다른담당자맞춤 ①: 조직 보고 맨 위 [+ 담당조직]과 줄 ⋯ [이름 바꾸기]가 여는 창. 칸은 이름·종류 둘(다른 이름·설명은 고치지 않고 그대로 둔다).
@@ -286,5 +292,6 @@ function afterReveal(){return new Promise(resolve=>{const next=()=>requestAnimat
 // — 상세를 따로 띄운 시험 틀은 자기가 고른 모듈을 그대로 쓴다.
 function preloadDetail(){void afterReveal().then(loadDetail).catch(err=>console.error('organization detail load',err))}
 if(window.KPTUViewLoader){if(window.KPTURouter?.current==='team')preloadDetail();window.KPTURouter?.on?.('team',preloadDetail)}
+window.KPTURouter?.on?.('team',()=>{if(soLoadedFor)mountQuiet()});
 window.__KPTU_SUBORGANIZATIONS_READY__=boot().catch(err=>{console.error('suborganizations init',err);return false});
 })();

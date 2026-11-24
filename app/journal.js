@@ -113,12 +113,9 @@ root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-d
 <div class="journal-materials" data-journal-materials></div>
 </div>
 </section>
-<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><div class="journal-weekly-body" data-journal-weekly></div></section>
-<section class="home-quiet" data-home-quiet aria-labelledby="home-quiet-title" hidden></section>`;
+<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><div class="journal-weekly-body" data-journal-weekly></div></section>`;
 const $ = selector => root.querySelector(selector);
 // HOME-업무일지홈: 요약 한 줄과 업데이트 입력줄(home-summary.js · home-quick.js). 이 화면은 자리만 둔다.
-// FEAT-1029묶음 ③ 연락 없는 조직: 홈 맨 아래 한 줄(org-quiet.js가 유일한 renderer, 무거운 읽기라 나중에 불러온다). 기준은 내 프로필 '수집·사용량' 칸.
-void appShown().then(() => import('./org-quiet.js')).then(({mountOrgQuiet}) => mountOrgQuiet(root.querySelector('[data-home-quiet]'))?.refresh()).catch(error => console.warn('org quiet load', error?.message || error));
 const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, rt, onTasksChanged:() => refreshTasks()});
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 // HOME-하루채우기: [하루] 오늘 한 일 아래 세 칸(home-day-fill.js가 유일한 renderer). 사진·일기 쓰기는 그날 일기 화면으로 간다(일기 저장은 일기 화면 몫).

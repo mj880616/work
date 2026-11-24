@@ -1,5 +1,6 @@
-// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: 홈 '연락 없는 조직' 줄의 유일한 renderer(설계 docs/design/feature-bundle-1029.md 3절, 시안 mockups/org-quiet-line.html).
-// 줄: '3주째 연락 없음: 가지부 25일 · 나지부 40일 · 다분회 62일 외 2곳 ›'. 이름을 누르면 그 담당조직 상세, ›를 누르면 조직마다 '마지막 · 통화 10.3'.
+// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: '연락 없는 조직' 줄의 유일한 renderer(설계 docs/design/feature-bundle-1029.md 3절, 시안 mockups/org-quiet-line.html).
+// 2026-11-24 명진 요청("홈화면에서 이거 없애고, 이거는 조직 관리 화면 맨 아래로"): 줄 자리는 조직 관리 목록 맨 아래 하나(suborganizations.js가 자리만 둔다). 홈에는 없다.
+// 줄: '3주째 연락 없음: 가지부 25일 · 나지부 40일 · 다분회 62일 외 2곳 ›'. 이름을 누르면 그 담당조직 상세(목록 줄과 같은 [data-ps-workplace-org] 길), ›를 누르면 조직마다 '마지막 · 통화 10.3'.
 // - 무엇을 '연락'으로 세는지는 org-quiet-model.mjs(명진 결정 10/29·11/13): 주요 인물과의 통화, 텔레그램 단체방에서 내가 묻고 그쪽이 답한 것,
 //   1:1 방(app_feed_rooms.chat_kind='user')에서 그쪽이 직접 쓴 글이 있는 날.
 // - 내 담당조직만(my-organizations.js selectMyOrganizations). 담당 지정이 없어 전체로 물러난 경우(fallback)에는 줄을 그리지 않는다.
@@ -133,18 +134,18 @@ export function mountOrgQuiet(el, {rt = window.KPTURuntime} = {}) {
     const L = window.KPTUFeatureLock;
     if (L?.settings?.() && (L.hides?.('calls') || L.hides?.('telegram'))) {
       el.hidden = false; el.classList.remove('is-open');
-      el.innerHTML = word('<h3 id="home-quiet-title" class="a11y-only">연락 없는 조직</h3><div class="oq-line" data-oq-locked data-lock-here="calls telegram"><span class="oq-text">연락 없는 조직 · 잠김 <button type="button" class="row-act lk-open">풀기</button></span></div>');
+      el.innerHTML = word('<h3 id="orgQuietTitle" class="a11y-only">연락 없는 조직</h3><div class="oq-line" data-oq-locked data-lock-here="calls telegram"><span class="oq-text">연락 없는 조직 · 잠김 <button type="button" class="row-act lk-open">풀기</button></span></div>');
       return;
     }
     const weeks = weeksOf(viewPrefs.get('quiet_weeks')), {shown, more} = headParts(rows), d = today();
-    const name = r => `<button type="button" class="oq-org" data-oq-org="${esc(r.id)}">${esc(r.name)}</button>`;
+    const name = r => `<button type="button" class="oq-org" data-oq-org="${esc(r.id)}" data-ps-workplace-org="${esc(r.id)}">${esc(r.name)}</button>`;
     const head = open
       ? `<span class="oq-text">${weeks}주째 연락 없음 ${rows.length}곳</span>`
       : `<span class="oq-text">${weeks}주째 연락 없음: ${shown.map(r => `${name(r)} <span class="oq-d">${esc(daysText(r))}</span>`).join(' · ')}${more ? ` 외 ${more}곳` : ''}</span>`;
     el.hidden = false;
     el.classList.toggle('is-open', open);
-    el.innerHTML = word`<h3 id="home-quiet-title" class="a11y-only">연락 없는 조직</h3><div class="oq-line">${head}<button type="button" class="oq-toggle" data-oq-toggle aria-expanded="${open}" aria-controls="homeQuietList" aria-label="${open ? word('연락 없는 조직 접기') : word('연락 없는 조직 펼치기')}">${open ? '⌄' : '›'}</button></div>`
-      + `<ul class="oq-list" id="homeQuietList"${open ? '' : ' hidden'}>${rows.map(r => `<li class="oq-row">${name(r)}<span class="oq-last">${esc(lastText(r, d))}</span><span class="oq-days">${esc(daysText(r))}</span></li>`).join('')}`
+    el.innerHTML = word`<h3 id="orgQuietTitle" class="a11y-only">연락 없는 조직</h3><div class="oq-line">${head}<button type="button" class="oq-toggle" data-oq-toggle aria-expanded="${open}" aria-controls="orgQuietList" aria-label="${open ? word('연락 없는 조직 접기') : word('연락 없는 조직 펼치기')}">${open ? '⌄' : '›'}</button></div>`
+      + `<ul class="oq-list" id="orgQuietList"${open ? '' : ' hidden'}>${rows.map(r => `<li class="oq-row">${name(r)}<span class="oq-last">${esc(lastText(r, d))}</span><span class="oq-days">${esc(daysText(r))}</span></li>`).join('')}`
       + `${data.skipped ? word`<li class="oq-note">주요 인물이 없는 담당조직 ${data.skipped}곳은 세지 않음</li>` : ''}</ul>`;
   }
   async function refresh() {
@@ -153,13 +154,10 @@ export function mountOrgQuiet(el, {rt = window.KPTURuntime} = {}) {
     if (!alive || mine !== run) return;
     data = out; paint();
   }
-  el.addEventListener('click', async event => {
-    const toggle = event.target.closest('[data-oq-toggle]'), org = event.target.closest('[data-oq-org]');
-    if (toggle) { open = !open; paint(); el.querySelector('[data-oq-toggle]')?.focus({preventScroll: true}); return; }
-    if (org) {
-      // NAV-원문열기나머지(S56-14): 라우터 openFrom 한 길(조직 상세가 같은 기록 칸 → 뒤로가기 한 번 = 이 줄 그 자리).
-      try { await window.KPTURouter?.openFrom?.('team', () => window.KPTUWorkplace?.open?.(org.dataset.oqOrg)); } catch (error) { console.error('org quiet open', error); }
-    }
+  // 조직 이름은 [data-ps-workplace-org]라서 조직 관리 목록 줄과 같은 길(workplace-detail.js)로 열린다(PC는 오른쪽 상세 칸, 폰은 상세 창). 여기서는 펼치기만.
+  el.addEventListener('click', event => {
+    const toggle = event.target.closest('[data-oq-toggle]');
+    if (toggle) { open = !open; paint(); el.querySelector('[data-oq-toggle]')?.focus({preventScroll: true}); }
   });
   const onPrefs = () => void refresh();
   const EVENTS = ['kptu:view-prefs-ready', 'kptu:quiet-weeks-changed'];
