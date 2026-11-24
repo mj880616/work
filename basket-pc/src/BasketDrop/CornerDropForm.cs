@@ -5,7 +5,7 @@ namespace BasketDrop.App;
 /// <summary>
 /// The small drop box that the hot corner opens. It never takes focus (so typing elsewhere is not interrupted), stays
 /// above other windows while open, and accepts files, text and pictures dragged onto it. A click opens the Windows
-/// file picker (<see cref="TrayApp.PickFiles"/>). Everything dropped goes through <see cref="DropData.Send"/> and so <see cref="TrayApp.Submit"/>, the same gate as every other entry.
+/// file picker (<see cref="TrayApp.PickFiles"/>); a double click opens the input window (<see cref="TrayApp.OpenPaste"/>, S69-35). Everything dropped goes through <see cref="DropData.Send"/> and so <see cref="TrayApp.Submit"/>, the same gate as every other entry.
 /// Sizes are physical pixels worked out from the monitor's own scale, so it looks the same at 100%, 125% and 150%.
 /// </summary>
 internal sealed class CornerDropForm : Form
@@ -22,6 +22,10 @@ internal sealed class CornerDropForm : Form
     private int _dpi = 96;
     private bool _dragOver;
     private bool _busy;
+    private readonly System.Windows.Forms.Timer _clickTimer = new();
+    private bool _clickPending;
+    private Point _clickAt;
+    private long _clickMs;
 
     /// <summary>Raised after something was dropped (or the file picker was opened), so the watcher closes the box.</summary>
     public event Action? Dropped;
@@ -43,7 +47,9 @@ internal sealed class CornerDropForm : Form
         Cursor = Cursors.Hand;
         Text = "WORK ON+ 화면 구석 칸";
         AccessibleName = "WORK ON+로";
-        AccessibleDescription = "파일·글·사진을 여기에 끌어다 놓으면 WORK ON+로 보냅니다. 누르면 파일 선택 창이 열립니다.";
+        AccessibleDescription = "파일·글·사진을 여기에 끌어다 놓으면 WORK ON+로 보냅니다. 누르면 파일 선택 창, 두 번 누르면 붙여넣기 창이 열립니다.";
+        _clickTimer.Interval = Math.Max(100, SystemInformation.DoubleClickTime);
+        _clickTimer.Tick += (_, _) => SingleClick();
     }
 
     protected override bool ShowWithoutActivation => true;
@@ -121,14 +127,49 @@ internal sealed class CornerDropForm : Form
         if (sub.Length > 0) TextRenderer.DrawText(g, sub, small, subBox, PaperMuted, centered);
     }
 
-    // ---- click: pick files ----
+    // ---- click: pick files; double click: the input window ----
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
         if (e.Button != MouseButtons.Left || _busy) return;
+        var at = Cursor.Position;
+        var ms = Environment.TickCount64;
+        if (_clickPending && DoubleClickRule.IsDouble(_clickAt, _clickMs, at, ms, _clickTimer.Interval, SystemInformation.DoubleClickSize))
+        {
+            CancelClick();
+            var anchor = Bounds;
+            var dpi = _dpi;
+            Dropped?.Invoke();
+            _app.OpenPaste(anchor, dpi);
+            return;
+        }
+        // Wait a moment: a second click turns this into a double click.
+        _clickPending = true;
+        _clickAt = at;
+        _clickMs = ms;
+        _clickTimer.Stop();
+        _clickTimer.Start();
+    }
+
+    private void SingleClick()
+    {
+        CancelClick();
+        if (_busy || IsDisposed) return;
         Dropped?.Invoke();
         _app.PickFiles(null);
+    }
+
+    private void CancelClick()
+    {
+        _clickPending = false;
+        _clickTimer.Stop();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _clickTimer.Dispose();
+        base.Dispose(disposing);
     }
 
     // ---- drag and drop ----

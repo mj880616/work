@@ -40,11 +40,11 @@ test('파일 폰 412: 두 손가락이 아닌 길(두 칸 → 한 칸)로 들어
   await tree(page).locator('[data-fx-fold="od:OD!1"] .ft-main').tap();
   await phoneFolder(page, 'od', 'OD!10');
   await expect(list(page).first().locator('[data-fx-row="od:OD!14"]')).toBeVisible();
-  const two = page.locator('#filesRoot [data-fx-two]');
+  const two = page.locator('#filesRoot [data-fx-two]'), one = page.locator('#filesRoot [data-fx-one]'); // S69-38: 붙은 [한 칸 | 두 칸]
   for (const leave of ['pinch', 'up', 'back']) {
     await two.click();
     await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
-    await two.click();
+    await one.click();
     await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(0);
     await expect(page.locator('#filesRoot')).toHaveAttribute('data-fx-pane', 'list');
     if (leave === 'pinch') await pinch(page, list(page), 'in');

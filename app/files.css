@@ -130,8 +130,9 @@
   /* S50-33(시안 승인): 위 줄 = 찾기 칸 + 출처 단추(같은 줄 오른쪽 작은 정사각). 목록일 때만 아래 줄에 위치 길(‹ 원드라이브 › Pictures)·정렬. */
   .fx-top { flex-wrap:wrap; row-gap:2px; min-height:0; padding:4px 0 3px; }
   /* 찾기 칸은 출처 단추(2~4개)와만 한 줄을 채우고, 위치 길은 늘 다음 줄(최소 120px라 첫 줄 남은 자리에 끼지 않음). */
-  /* S62-40: [두 칸 보기] 아이콘(28px + 사이 6px)도 같은 줄이라 그만큼 뺀다. */
-  .fx-search { flex:1 1 calc(100% - 164px); width:auto; order:1; height:30px; }
+  /* S62-40: 보기 단추도 같은 줄이라 그만큼 뺀다. S69-38: 붙은 [한 칸 | 두 칸](그림만, 칸 34px 둘)이라 더 뺀다. */
+  .fx-search { flex:1 1 calc(100% - 220px); width:auto; min-width:0; order:1; height:30px; }
+  #appView #filesView .fx-view-seg .ds-seg-btn { min-width:34px; width:34px; }
   .fx-srcs { order:2; }
   #appView #filesView .fx-srcs [data-src-chip] { min-width:28px; width:28px; height:28px; min-height:28px; padding:0; }
   .fx-crumb { order:3; flex:1 1 120px; }
@@ -220,12 +221,13 @@
 /* FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2, 시안 ⑥ 폴드 884 · ⑧ PC 1440). 칸 둘은 같은 칸 모양(.fx-listcol)을 나란히.
    칸 위 줄(위치 줄 + 정렬, 폴드는 ▾ 나무)은 밑선 2px, 지금 칸은 강조색 밑선(시안 pane-top.cur). 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾ 나무.
    미리보기는 두 칸이면 덮는 칸. 칸 사이로 끌면 받는 칸에 '여기에 놓으면 → 복사 · 옮기기' 점선 안내, 놓으면 작은 고르기(fx-drop-ask). */
-.fx-crumb[hidden], .fx-sort[hidden], .fx-ptop[hidden], .fx-ptree[hidden], .fx-drop-ask[hidden], .fx-two[hidden] { display:none; }
-/* S62-40 UI-파일검색줄(시안 PR 2691 B안): [두 칸 보기]는 공용 ⑥ 아이콘(button.icon-btn, 선·바탕 없음). 출처 단추와 같은 28px 정사각, 켜짐(aria-pressed)은 옅은 바탕.
-   그림은 폰(위·아래 두 칸) 가로 선, 600px~(왼쪽·오른쪽 두 칸)는 돌려서 세로 선. */
-.fx-two { flex:none; width:28px; height:28px; min-width:28px; min-height:28px; font-size:inherit; }
-.fx-two[aria-pressed="true"] { color:var(--kptu-primary-text); background:var(--kptu-primary-soft); }
+.fx-crumb[hidden], .fx-sort[hidden], .fx-ptop[hidden], .fx-ptree[hidden], .fx-drop-ask[hidden], .fx-view-seg[hidden] { display:none; }
+/* S69-38 FILES-보기두칸: [한 칸 | 두 칸]은 공용 ⑤ 보기 바꾸기(ds-seg) 모양 그대로(자료실 #libraryViewSeg와 같음). 여기는 자리만.
+   두 칸 그림은 폰(위·아래 두 칸) 가로 선, 600px~(왼쪽·오른쪽 두 칸)는 돌려서 세로 선. 폰은 그림만(글자는 이름표로). */
+.fx-view-seg { flex:none; white-space:nowrap; }
+.fx-view-seg svg { flex:none; }
 @media (min-width:600px) { .fx-two-ic { transform:rotate(90deg); } }
+@media (max-width:599px) { .fx-view-seg .fx-seg-t { display:none; } }
 .fx-listcol { position:relative; }
 .fx[data-fx-two] .fx-main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:stretch; }
 /* LIB-두칸아래여백 같은 종류(S60-13): [파일] 두 칸도 두 칸 높이를 긴 쪽에 맞추고 목록 아래 줄 두 개쯤(60px) 비운다(칸 상자는 그대로 블록 — 칸 안 스크롤 길 files-pane-scroll 유지). 빈 자리는 칸 상자라 반대 칸에서 끌어 놓으면 그 칸의 지금 폴더. */
@@ -323,7 +325,7 @@
 /* S51-20 FILES-폰보기끌기 ②(시안 files-phone-grid-two-drag.html ②): 폰 [두 칸 보기] = 위·아래 두 칸. 칸마다 칸 위 줄(▾ 나무·위치·정렬)과 따로 굴러가는 목록,
    누른 칸이 지금 칸(옅은 보라 바탕 + 칸 위 줄 강조 밑선). 줄 모양은 폰 두 줄 그대로. */
 @media (max-width:599px) {
-  .fx-two { order:2; }
+  .fx-view-seg { order:2; }
   .fx[data-fx-two="phone"] .fx-main { grid-template-columns:minmax(0,1fr); }
   .fx[data-fx-two="phone"] .fx-listcol { height:calc((100dvh - var(--kptu-mobile-tab-height, 56px) - 150px) / 2); min-height:180px; overflow:auto; overscroll-behavior:contain; }
   .fx[data-fx-two="phone"] .fx-listcol + .fx-listcol { border-left:0; border-top:2px solid var(--kptu-border-strong, var(--kptu-border)); }

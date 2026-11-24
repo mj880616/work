@@ -152,6 +152,16 @@ class QuickPhotoTest {
     }
 
     @Test
+    fun cutAfterSentIsNotResent() {
+        signIn()
+        // 다 보낸 뒤 답을 못 받음: 서버가 이미 붙였을 수 있어 같은 사진을 저절로 다시 보내지 않는다(중복 사진 방지).
+        http.answers.add { throw WidgetSentException() }
+        assertEquals(WidgetSession.Photo.Failed(QuickPhotoRules.UNKNOWN, false), session.uploadPhoto(photo(), "a.jpg", "image/jpeg", null))
+        assertEquals(1, http.sent.size)
+        assertTrue(http.sent[0].once)
+    }
+
+    @Test
     fun serverAnswersMapToOneLine() {
         fun r(code: Int, body: String, n: String? = null) = QuickPhotoRules.result(code, MiniJson.parse(body), n)
         assertEquals(WidgetSession.Photo.Saved(note), r(200, """{"ok":true,"note_id":"$note"}"""))

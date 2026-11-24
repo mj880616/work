@@ -46,8 +46,8 @@ export const HTML_VIEW_MAX_BYTES = 2 * 1024 * 1024;
 export const isHtmlName = (name: string) => /\.html?$/i.test(String(name || ""));
 export const BACKUP_FOLDER = "노조+ 편집 백업";
 // S68-02: 새 사용자(운영자 기능 nojo_words가 아닌 사람)가 처음 만들 때의 이름(_shared/brand-folders.mjs와 같은 값).
-export const WORKON_BACKUP_FOLDER = "WORK ON+ 편집 백업";
-if (FOLDER_NAMES.edit_backup.old !== BACKUP_FOLDER || FOLDER_NAMES.edit_backup.now !== WORKON_BACKUP_FOLDER) {
+export const WORKON_BACKUP_FOLDER = FOLDER_NAMES.edit_backup.now; // S69-41: 이름 글자는 brand-folders.mjs DRIVE_BRAND 한 곳
+if (FOLDER_NAMES.edit_backup.old !== BACKUP_FOLDER) {
   throw new Error("edit backup folder names drifted");
 }
 // BRAND-웹2흔적지우기: 예전에 만든 폴더 이름. 찾을 때 함께 보고, 찾으면 이름만 새 이름으로 바꾼다(파일은 그대로).
@@ -374,7 +374,7 @@ export function createHwpEdit(deps: Deps) {
     }
   }
   async function backupFolder(token: string, workspaceId: string) {
-    const order = [BACKUP_FOLDER, WORKON_BACKUP_FOLDER, OLD_BACKUP_FOLDER];
+    const order = [...new Set([BACKUP_FOLDER, WORKON_BACKUP_FOLDER, OLD_BACKUP_FOLDER, ...FOLDER_NAMES.edit_backup.olds])];
     const appRoot = await appRootOf(workspaceId);
     const mark = `appProperties has { key='${APP_FOLDER_MARK}' and value='edit_backup' }`;
     const params = new URLSearchParams({

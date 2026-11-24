@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- S69-35: windows, so the tile picture (TileArt in the app) can be drawn and checked at every screen scale. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
@@ -12,5 +13,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\BasketDrop.Core\BasketDrop.Core.csproj" />
+    <ProjectReference Include="..\..\src\BasketDrop\BasketDrop.csproj" />
   </ItemGroup>
 </Project>

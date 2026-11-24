@@ -146,6 +146,11 @@ for (const width of [390, 1280]) test(`select mode: [선택] → pick rows → m
   await press(page, noteRow(page, 'n3'), width);
   await expect(page.locator('[data-nx-select-count]')).toHaveText('2개 선택됨');
   await expect(page.locator('[data-note-detail]')).toBeHidden();
+  // S69(명진 11/24 "선택된거 클릭하면 선택해제"): 고른 줄을 다시 누르면 풀리고, 또 누르면 다시 골라진다(자료실과 같은 규칙).
+  await press(page, noteRow(page, 'n3'), width);
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
+  await press(page, noteRow(page, 'n3'), width);
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('2개 선택됨');
   await press(page, page.locator('[data-nx-select-bar] [data-nx-sel-move]'), width);
   await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
   await expect(page.locator('[data-nx-select-bar]')).toBeHidden();
@@ -349,9 +354,9 @@ test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유
   expect(errors).toEqual([]);
 });
 
-// UI-고르기줄(S48-54, 요청함 11/03 07:44 ③): 노트 고르기 줄도 사진과 같은 공용 부품(.kptu-actbar-text) — 칸 같은 너비·같은 간격·최대 120px·글자 잘림 없음, 지우기 글자 빨강.
-for (const width of [412, 768, 1280]) test(`UI-선택줄: 노트 선택 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
-  const { measureActBar, checkActBar } = await import('./helpers/act-bar-measure.mjs');
+// UI-고르기줄(S48-54, 요청함 11/03 07:44 ③): 노트 고르기 줄도 공용 부품(.kptu-actbar-text) — S69(11/24 '왼쪽 정렬')부터 왼쪽부터 촘촘히·같은 간격·글자 잘림 없음.
+for (const width of [412, 768, 1280]) test(`UI-선택줄: 노트 선택 줄 왼쪽부터 촘촘히·같은 간격 ${width}`, async ({ page }) => {
+  const { measureActBar, checkTextBar, textBarRows } = await import('./helpers/act-bar-measure.mjs');
   const { mkdirSync } = await import('node:fs');
   const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
   const f = await fixture(page, width);
@@ -360,7 +365,7 @@ for (const width of [412, 768, 1280]) test(`UI-선택줄: 노트 선택 줄 같�
   await press(page, page.locator('#noteDocMenu [data-nx-select]'), width);
   await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
   const m = await measureActBar(page, '[data-nx-select-bar] .nx-sel-acts');
-  checkActBar(m, (a, e, l) => expect(a, l).toEqual(e), `노트 선택 줄 ${width}`);
+  checkTextBar(m, await textBarRows(page, '[data-nx-select-bar] .nx-sel-acts'), (a, e, l) => expect(a, l).toEqual(e), `노트 선택 줄 ${width}`);
   expect(m.n).toBe(3);
   expect(m.dangerText, '삭제 글자도 다른 버튼과 같은 색').toBe(await page.locator('[data-nx-sel-move]').evaluate(b => getComputedStyle(b).color));
   for (const b of await page.locator('[data-nx-select-bar] .kptu-act').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(26);

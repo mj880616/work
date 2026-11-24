@@ -130,7 +130,8 @@ export function paneRows({folders, notes, folderOf, at = null, matches = null, p
   const noteRows = list => sort(list).map(n => ({type: 'note', id: n.id, note: n, depth: 0, indent: 0}));
   const folderRows = parent => folderSiblings(folders, {free: true, parentId: parent}).map(f => ({type: 'folder', id: f.id, name: f.name, depth: 0, indent: 0, count: total.get(f.id) || 0, color: colorOf(f), open: false}));
   const inFolder = at && at !== OUTSIDE && folders.some(f => f.id === at) ? at : null;
-  if (!phone) return noteRows(byFolder.get(inFolder) || []);
+  // S69-38 UI-탐색기나무누르기: PC·폴드 오른쪽 칸도 그 폴더 바로 안 하위 폴더 줄(누르면 들어감) → 그 폴더 노트. 맨 위·'폴더 없음'은 노트만.
+  if (!phone) return inFolder ? [...folderRows(inFolder), ...noteRows(byFolder.get(inFolder) || [])] : noteRows(byFolder.get(inFolder) || []);
   if (inFolder) return [...folderRows(inFolder), ...noteRows(byFolder.get(inFolder) || [])];
   if (at === OUTSIDE || !folders.length) return noteRows(byFolder.get(null) || []);
   return [...folderRows(null), {type: 'outside', id: OUTSIDE, name: OUTSIDE_NAME, depth: 0, indent: 0, count: (byFolder.get(null) || []).length, open: false}];

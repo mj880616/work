@@ -210,4 +210,18 @@ class UpdateRulesTest {
         assertFalse(UpdateRules.sameRelease("0.5.21", Phase.READY, "0.5.22"))
         assertFalse(UpdateRules.sameRelease(null, Phase.IDLE, "0.5.21"))
     }
+
+    // ── S69-34 계정 메뉴 [업데이트 확인] 다리 ──
+
+    @Test fun 업데이트확인_다리_묻기와_답() {
+        assertEquals(UpdateRules.Ask.CHECK, UpdateRules.ask("update:check"))
+        assertEquals(UpdateRules.Ask.GET, UpdateRules.ask("update:get"))
+        assertNull(UpdateRules.ask("update:other"))
+        assertNull(UpdateRules.ask(null))
+        assertEquals("update:new:0.3.9", UpdateRules.answer(false, rel, "0.3.8"))
+        assertEquals("update:latest:0.3.9", UpdateRules.answer(false, null, "0.3.9"))
+        assertEquals("update:fail", UpdateRules.answer(true, null, "0.3.9"))
+        assertEquals("market://details?id=com.workonplus.app", UpdateRules.storeUri("com.workonplus.app"))
+        assertEquals("https://play.google.com/store/apps/details?id=com.workonplus.app", UpdateRules.storeWebUrl("com.workonplus.app"))
+    }
 }

@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { WorkspaceDriveError, workspaceDriveToken } from "./workspace-drive-token.ts";
 // S69-22: 바구니 폴더는 내 드라이브 맨 위 또는 맨 위 앱 폴더(root_folder_id) 바로 아래 어디에 있어도 같은 폴더(옮긴 뒤 새로 안 만듦).
-import { APP_FOLDER_MARK, createParentFor, topParentsClause } from "./app-folders.mjs";
+import { APP_FOLDER_MARK, basketFolderClause, createParentFor, isBasketFolder, topParentsClause } from "./app-folders.mjs";
+// S69-41: 새 바구니 폴더 이름('WORK ON+ 바구니'). 찾기·확인은 표식 또는 알려진 이름(옛·새)이라 [한곳으로 모으기]가 이름을 바꿔도 같은 폴더.
+import { FOLDER_NAMES } from "./brand-folders.mjs";
 
 export type UploadAdmin = Pick<SupabaseClient, "auth" | "from">;
 export type UploadLog = (code: string) => void;
@@ -143,7 +145,7 @@ export function createDriveUpload(
     }
   }
   const fields =
-    "id,name,mimeType,ownedByMe,trashed,parents,permissions(type,role)";
+    "id,name,mimeType,ownedByMe,trashed,parents,appProperties,permissions(type,role)";
   type FolderMeta = {
     id?: unknown;
     name?: string;
@@ -152,6 +154,7 @@ export function createDriveUpload(
     trashed?: boolean;
     parents?: string[];
     permissions?: { type: string; role: string }[];
+    appProperties?: Record<string, string>;
   };
   // Owned, not trashed, exactly one parent and exactly one permission (the owner): never shared, publicly or otherwise.
   const privateOwnedFolder = (f: FolderMeta) =>
@@ -224,7 +227,7 @@ export function createDriveUpload(
           "drive_folder",
         );
       }
-      if (f.name !== "Web2 바구니" || !atRoot || !privateOwnedFolder(f)) {
+      if (!isBasketFolder(f) || !atRoot || !privateOwnedFolder(f)) {
         throw new UploadError(
           409,
           "drive_folder_not_private_root",
@@ -238,7 +241,7 @@ export function createDriveUpload(
     // never create permissions or adopt a shared folder (privateOwnedFolder: a folder under a shared parent inherits its permissions).
     const rootFolders = () =>
       listFolders(
-        `name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and ${topParentsClause(appRoot)} and 'me' in owners and trashed = false`,
+        `${basketFolderClause()} and mimeType = 'application/vnd.google-apps.folder' and ${topParentsClause(appRoot)} and 'me' in owners and trashed = false`,
         token,
       );
     async function verifyStoredFolder(id: string) {
@@ -255,7 +258,7 @@ export function createDriveUpload(
     const found = await rootFolders();
     const id = found.length
       ? verify(found[0], true)
-      : await createFolder("Web2 바구니", createParentFor(appRoot), token, { [APP_FOLDER_MARK]: "basket" });
+      : await createFolder(FOLDER_NAMES.basket.now, createParentFor(appRoot), token, { [APP_FOLDER_MARK]: "basket" });
     // The POST with parents:[app root or 'root'] returned this ID; verify its full metadata with explicit permissions.
     // Never compare parents to a root metadata ID or overwrite root/library settings.
     if (!found.length) {

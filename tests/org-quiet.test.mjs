@@ -1,7 +1,7 @@
-// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: '연락' 판정 규칙(명진 결정 10/29)과 홈 줄 계산. 가짜 이름만.
+// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: '연락' 판정 규칙(명진 결정 10/29)과 줄 계산(조직 관리 목록 맨 아래). 가짜 이름만.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 import {quietAllowed, isQuestion, answeredBy, wroteBy, contactedBy, directRooms, talkDays, lastCallDays, mergeLast, quietList, daysText, lastText, headParts, weeksOf, addDays, daysBetween, WEEK_CHOICES} from '../app/org-quiet-model.mjs';
 import {telegramLines} from '../app/feed-model.mjs';
 import {validValue} from '../app/view-prefs.js';
@@ -106,14 +106,22 @@ test('화면: org-quiet.js가 줄의 유일한 renderer, 기기 저장·AI 없�
   assert.match(src, /selectMyOrganizations/);
   assert.match(src, /if \(mine\.fallback\) throw new Hide\(\)/);
   assert.doesNotMatch(src, /method:\s*'(POST|PATCH|DELETE)'/);
-  // HOME-업무일지홈: 줄 자리는 홈(journal.js) 맨 아래 하나. MULTI-다른담당자맞춤 ⑥: 기준 단추는 조직 보고 ⋯(suborganizations.js) 하나.
+  // 2026-11-24 명진 요청: 줄은 홈에서 빼고 조직 관리 목록 맨 아래 하나(suborganizations.js가 자리만 둔다). MULTI-다른담당자맞춤 ⑥: 기준 단추는 조직 관리 ⋯ 하나.
   const home = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
-  assert.equal((home.match(/data-home-quiet/g) || []).length, 2);
-  assert.match(home, /mountOrgQuiet\(root\.querySelector\('\[data-home-quiet\]'\)\)/);
+  assert.doesNotMatch(home, /data-home-quiet|org-quiet|mountOrgQuiet/);
+  for (const f of ['home-quick.css', 'journal.css']) assert.doesNotMatch(readFileSync(new URL('../app/' + f, import.meta.url), 'utf8'), /home-quiet|\.oq-/);
+  assert.match(src, /data-ps-workplace-org=/);
+  assert.doesNotMatch(src, /openFrom/);
   const prof = readFileSync(new URL('../app/profile-status.js', import.meta.url), 'utf8');
   assert.doesNotMatch(prof, /data-ps-quiet|viewPrefs/);
   const team = readFileSync(new URL('../app/suborganizations.js', import.meta.url), 'utf8');
   assert.match(team, /prefs\.set\('quiet_weeks',w,\{rejectable:true\}\)/);
+  assert.match(team, /import\('\.\/org-quiet\.js'\)\.then\(\(\{mountOrgQuiet\}\)=>mountOrgQuiet\(soQuietEl,\{rt\}\)/);
+  assert.match(team, /placeQuiet\(box,pk\)/);
+  // 같은 계산을 쓰는 다른 화면이 없다(조직 관리 한 곳).
+  for (const f of readdirSync(new URL('../app/', import.meta.url)).filter(f => /\.(js|mjs)$/.test(f) && !/^org-quiet/.test(f) && f !== 'suborganizations.js')) {
+    assert.doesNotMatch(readFileSync(new URL('../app/' + f, import.meta.url), 'utf8'), /import\(['"]\.\/org-quiet\.js['"]\)|from ['"]\.\/org-quiet\.js['"]/, f);
+  }
 });
 
 // ORG-연락없음1대1수집(11/13 명진 결정): 1:1 방은 상대(주요 인물)가 그 날 직접 쓴 글이 있으면 연락. 단체방은 묻고 → 답 그대로.

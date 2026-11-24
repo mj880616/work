@@ -192,7 +192,11 @@ const item = (extra = {}) => ({ type: 'outside', id: id(501), oldId: null, title
 
 test('재료 없는 사회운동 글은 요약하지 않는다(제목만으로 요약 금지). 외국 글은 저장 요약·주요 문장이 재료', () => {
   assert.equal(B.itemHasMaterial(item()), false);
-  assert.equal(B.itemHasMaterial(item({ body: '본문' })), true);
+  assert.equal(B.itemHasMaterial(item({ body: '합성 성명 본문입니다. 노동자들이 오늘 광장에 모여 임금 인상을 요구했다.' })), true);
+  // S69 READ-첨부본문: 글자(띄어쓰기·문장부호 빼고)가 MATERIAL_MIN_CHARS 미만인 본문(마침표 하나 등)은 재료가 아니다.
+  assert.equal(B.itemHasMaterial(item({ body: '.' })), false);
+  assert.equal(B.itemHasMaterial(item({ body: '[사진] .  ' })), false);
+  assert.equal(B.itemHasMaterial(item({ type: 'news', body: '본문' })), false);
   assert.equal(B.itemHasMaterial(item({ lang: 'en', summary: '한국어 요약' })), true);
   assert.equal(B.itemHasMaterial(item({ lang: 'en', keySentences: [{ orig: 'A.', ko: '가.' }] })), true);
   assert.equal(B.itemHasMaterial(item({ type: 'news' })), false);

@@ -66,8 +66,8 @@ test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나�
   expect(edgeCalls(server, 'job_add')[0].body).toEqual({ action: 'job_add', confirm: true, kind: 'copy', to_source: 'od', to: 'OD!1', items: [{ source: 'gd', id: 'gdDoc1' }] });
   await expect(root(page).locator('[data-fx-xfer] b')).toHaveText('1/1 보내는 중');
   server.jobsHold = false;
-  // 두 칸 끄기 → 한 칸(오른쪽 칸 자리는 없어지고 나무가 돌아옴), 서버에 이 기기·이 폭 칸으로 기억.
-  await root(page).locator('[data-fx-two]').click();
+  // 두 칸 끄기 → 한 칸(오른쪽 칸 자리는 없어지고 나무가 돌아옴), 서버에 이 기기·이 폭 칸으로 기억. S69-38: 붙은 [한 칸 | 두 칸]의 [한 칸].
+  await root(page).locator('[data-fx-one]').click();
   await expect(pane(page, 1)).toHaveCount(0);
   await expect(root(page).locator('[data-fx-tree]')).toBeVisible();
   await expect.poll(() => prefs.value?.files_two).toEqual({ pc: { fold: false } });
@@ -207,7 +207,7 @@ test('폰 412: [두 칸 보기] → 위·아래 두 칸 · 칸마다 ▾ · 지�
   server.jobsHold = false;
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   // [한 칸 보기] → 폰 한 칸: 지금 칸(위)의 폴더 목록, ‹ 한 번에 나무.
-  await root(page).locator('[data-fx-two]').click();
+  await root(page).locator('[data-fx-one]').click();
   await expect(pane(page, 1)).toHaveCount(0);
   await expect.poll(() => prefs.value?.files_two?.phone).toEqual({ narrow: false });
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');

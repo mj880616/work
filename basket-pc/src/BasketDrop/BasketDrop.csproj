@@ -10,7 +10,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.8.2</Version>
+    <Version>0.8.3</Version>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
   <ItemGroup>
@@ -21,6 +21,10 @@
     <EmbeddedResource Include="tray-pending.ico" LogicalName="BasketDrop.tray-pending.ico" />
     <EmbeddedResource Include="tray-signedout.ico" LogicalName="BasketDrop.tray-signedout.ico" />
     <EmbeddedResource Include="tray-signedout-pending.ico" LogicalName="BasketDrop.tray-signedout-pending.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- S69-35: the tests draw the desktop tile picture (TileArt) and check its edges. -->
+    <InternalsVisibleTo Include="BasketDrop.Tests" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Velopack" Version="1.2.161" />

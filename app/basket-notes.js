@@ -7,7 +7,7 @@ import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml, iconSvg } from './tree-icons.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
-import { ftPressToggle, ftBindTreeArrows, folderPressAction, FOLDER_PRESS_ENTER } from './folder-tree-press.mjs';
+import { ftExplorePress, ftBindTreeArrows, folderPressAction, FOLDER_PRESS_ENTER } from './folder-tree-press.mjs';
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { riseFromRow, sinkToRow, topOf } from './folder-focus-motion.js';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
@@ -1742,13 +1742,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.hasAttribute('data-nb-remove')) { if (!pick.active) boards.detach(b.dataset.nbRemove); return; }
     if (b.hasAttribute('data-note-row')) { if (pick.active) togglePick('n:' + b.dataset.noteRow); else void switchNote(b.dataset.noteRow, b); }
     else if (b.hasAttribute('data-nx-tog')) { const id = b.dataset.nxTog; if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); host.querySelector(`[data-nx-tog="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); }
-    // UI-폴더누르기한규칙(S57-5): PC·폴드 왼쪽 나무 폴더 이름 누르기 = 아이콘 누르기와 같은 펼치기·접기(오른쪽 노트·위치 줄 그대로, 들어가지 않음). 들어가기 = 우클릭 [이 폴더로 들어가기]·두 손가락.
-    // OPS-빠진일2차 1: 하위 폴더가 없는 폴더(아이콘 단추 없음)는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction).
+    // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 모든곳 공통 노트 자료 파일'): PC·폴드 왼쪽 나무 폴더 이름 누르기 =
+    // 오른쪽을 그 폴더(하위 폴더 줄 → 그 폴더 노트)로, 접혀 있으면 펼침 — 공용 부품 ftExplorePress(자료실·[파일]·사진 나무와 같은 부품). 아이콘([data-nx-tog])은 펼치기·접기만.
     else if (b.hasAttribute('data-nx-open')) {
-      // 두 칸에서 노트를 읽는 중 펼치기·접기 줄이 아닌 곳('최근'·'밑줄'·휴지통 등)을 누르면 노트를 닫고 그 칸을 보인다.
-      const id = b.dataset.nxOpen;
-      if (splitOpen() && !b.closest('.ft-row')?.matches('.ft-has-tog')) { void askClose(b).then(ok => { if (ok && !ftPressToggle(b, () => pressEnter(id))) pressFolder(id, e); }); return; }
-      if (!ftPressToggle(b, () => pressEnter(id))) pressFolder(id, e);
+      const id = b.dataset.nxOpen, treeRow = wideList.matches && !pick.active && !!b.closest('[data-nx-tree] .ft-row.ft-has-tog');
+      const go = () => { if (treeRow) ftExplorePress(b, () => pressEnter(id)); else pressFolder(id, e); };
+      // 두 칸에서 노트를 읽는 중 다른 칸으로 가면 노트를 먼저 닫는다(고치던 글이 있으면 묻는다).
+      if (splitOpen()) { void askClose(b).then(ok => { if (ok) go(); }); return; }
+      go();
     } // '최근'·'폴더 없음'·선택 모드 줄은 나무 줄이 아니라 지금처럼
     // 위치 줄 맨 앞 '노트'(폰 '그 폴더만' 상자 안)는 [‹]와 같이 펼친 자리 그대로 나무로(S51-24).
     else if (b.hasAttribute('data-nx-at')) { const id = b.dataset.nxAt || null; if (id === null && !wideList.matches && at !== null) up(); else enter(id); }
@@ -1778,8 +1779,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nt-cal-day')) { calDay = b.dataset.ntCalDay; renderList(); }
     else if (b.hasAttribute('data-note-tag')) { const key = b.dataset.noteTag; void askClose(b).then(ok => { if (!ok) return; tagSel = [key]; tagTouched = true; if (view === 'tag') renderList(); else setView('tag'); }); }
   });
-  // 폴더 줄: 선택 모드면 고르기. 폰은 그 자리 펼치기·접기. PC·폴드 왼쪽 나무의 폴더 줄은 ftPressToggle이 먼저 맡아 펼침·접힘만 한다(UI-폴더누르기한규칙).
-  // 여기 오는 PC·폴드 줄은 '최근'(오른쪽에 최근 노트)·'폴더 없음'('폴더 없음'도 한 화면)·선택 모드 줄뿐이다. 폴더만 보기는 우클릭·⋯ [이 폴더로 들어가기]·두 손가락.
+  // 폴더 줄: 선택 모드면 고르기. 폰은 그 자리 펼치기·접기. PC·폴드 왼쪽 나무의 폴더 줄은 ftExplorePress가 먼저 맡는다(S69-38 UI-탐색기나무누르기).
+  // 여기 오는 PC·폴드 줄은 오른쪽 칸 하위 폴더 줄(들어가기)·'최근'(오른쪽에 최근 노트)·'폴더 없음'·선택 모드 줄이다.
   function pressFolder(id, e) {
     if (isPaneAt(id)) { if (!pick.active) enter(id); return; } // 'News에서' 두 줄·휴지통: 그 칸(폰은 '그 폴더만'처럼 한 겹)
     // FOLDER-나무새기준 ③: 폰 나무(첫 화면·그 폴더만 보기 모두)는 화면을 바꾸지 않고 그 자리에서 펼치기·접기(줄 어디를 눌러도). 그 폴더만 보기는 두 손가락 벌리기.
@@ -1787,6 +1788,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!wideList.matches && id !== RECENT && id !== OUTSIDE && !pick.active && folderById(id) && id !== at
       && folderPressAction(folderSiblings(folders, {free:true, parentId:id}).length, notes.filter(n => folderOf(n) === id).length) === FOLDER_PRESS_ENTER) { pressEnter(id); return; }
     if (!wideList.matches && id !== RECENT && !(pick.active && id !== OUTSIDE)) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); return; }
+    // S69-38: PC·폴드 오른쪽 칸의 하위 폴더 줄 = 그 폴더로 들어가기(왼쪽 나무가 따라 펼침·강조 — enter가 위 폴더들을 연다).
+    if (wideList.matches && !pick.active && folderById(id)) { enter(id); return; }
     if (id === OUTSIDE) { enter(OUTSIDE); return; }
     if (id === RECENT) { enter(null); return; }
     if (pick.active) { togglePick('f:' + id); }

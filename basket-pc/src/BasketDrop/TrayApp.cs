@@ -6,8 +6,9 @@ namespace BasketDrop.App;
 /// The program's single owner: tray icon, login, auto start, update, 'WORK ON+에서 이 PC 보기', the two drop boxes
 /// (screen-corner box and desktop tile, back in S69-31) and the queue pump. Everything dropped goes through
 /// <see cref="Submit"/>, so limits, the program-file question and the duplicate question are asked in one place, and it
-/// is sent by the one existing queue path (<see cref="QueueProcessor"/>). The clipboard hotkey, paste window and
-/// right-click Send to stay removed (S54-13).
+/// is sent by the one existing queue path (<see cref="QueueProcessor"/>). The clipboard hotkey and right-click Send to
+/// stay removed (S54-13). S69-35 (명진 11/24): a double click on either box opens a small input window
+/// (<see cref="PasteForm"/>) that sends through the same <see cref="Submit"/>; there is no hotkey for it.
 /// </summary>
 internal sealed class TrayApp : ApplicationContext
 {
@@ -47,6 +48,7 @@ internal sealed class TrayApp : ApplicationContext
     private PcDoor? _door;
     private CancellationTokenSource? _signInCts;
     private StatusForm? _status;
+    private PasteForm? _paste;
     private TrayPicture _trayPicture = TrayPicture.Normal;
 
     private void Ui(Action action)
@@ -319,6 +321,7 @@ internal sealed class TrayApp : ApplicationContext
         _stop.Cancel();
         _cornerWatcher.Dispose();
         _desktopTile.Dispose();
+        _paste?.Dispose();
         CloseDoor();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
@@ -422,6 +425,7 @@ internal sealed class TrayApp : ApplicationContext
         _stop.Cancel();
         _cornerWatcher.Dispose();
         _desktopTile.Dispose();
+        _paste?.Dispose();
         CloseDoor();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
@@ -437,6 +441,16 @@ internal sealed class TrayApp : ApplicationContext
         if (dialog.ShowDialog(owner) != DialogResult.OK || dialog.FileNames.Length == 0) return;
         if (Submit(dialog.FileNames.Select(DropSource.FromPath).ToList(), "", owner))
             ShowQueued($"파일 {dialog.FileNames.Length}개");
+    }
+
+    /// <summary>
+    /// S69-35: a double click on a drop box opens the input window next to it. One window for the whole program; what was
+    /// typed or pasted stays in it (in memory only) while it is closed, until it is sent or the program quits.
+    /// </summary>
+    public void OpenPaste(Rectangle anchor, int dpi)
+    {
+        if (_paste == null || _paste.IsDisposed) _paste = new PasteForm(this);
+        _paste.ShowNear(anchor, dpi);
     }
 
     /// <summary>The small notice after a drop: sending now, or waiting for the login.</summary>

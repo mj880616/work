@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { buildPages, rewriteVersions, versionOf } from './build-pages.mjs';
+import { buildPages, rewriteVersions, versionOf, buildInfoJson } from './build-pages.mjs';
 
 const sha = text => createHash('sha256').update(text).digest('hex');
 // The repository writes plain paths (CI-버전자동화 3단계); a leftover number is overwritten too.
@@ -165,4 +165,13 @@ test('a marked preload list gets the static import chain of its entries, version
   }
   assert.throws(() => fillStaticChains({ 'app/l.js': "p(/*static-chain*/['./none.js'])" }), /none\.js 파일이 없습니다/);
   assert.deepEqual(fillStaticChains({ 'scripts/s.mjs': "/*static-chain*/['./none.js']" })['scripts/s.mjs'], "/*static-chain*/['./none.js']", 'app/ 밖은 손대지 않는다');
+});
+
+test('S69-34 build-info.json: the app.js version in index.html and the build time, never in buildPages', () => {
+  const out = buildPages(tree());
+  assert.equal(Object.hasOwn(out, 'app/build-info.json'), false);
+  const info = JSON.parse(buildInfoJson(out, '2026-11-24T05:00:00.000Z'));
+  assert.deepEqual(info, { v: versionOf(Buffer.from(out['app/app.js'])), at: '2026-11-24T05:00:00.000Z' });
+  assert.ok(out['app/index.html'].includes(`./app.js?v=${info.v}`));
+  assert.equal(buildInfoJson({}, 'x'), null);
 });

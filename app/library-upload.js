@@ -46,7 +46,7 @@ import {viewPrefs} from './view-prefs.js';
 import {mountLibraryCardSize} from './library-pane-size.js'; // S69-29 한 칸 탐색기: 나무 폭·카드 높이 끌기
 import {createLibraryTwo} from './library-two-pane.js';
 import {iconHtml,treeIconHtml} from './tree-icons.js';
-import {ftBindTreeArrows,ftKeepPlace,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
+import {ftBindTreeArrows,ftKeepPlace,ftExplorePress,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
 import {createAnchoredMenu,moveMenuTrigger} from './anchored-menu.js';
@@ -83,7 +83,7 @@ window.addEventListener('kptu:before-reload',event=>{if((luUploadEntries.length&
 // 로그인 세션은 runtime-client.js(KPTURuntime.session) 한 곳에서 읽고 갱신한다.
 function luRead(){return window.KPTURuntime?.session?.read?.()||null}
 async function luEnsure(){if(window.KPTURuntime?.session){const ok=await window.KPTURuntime.session.ensure();luSession=window.KPTURuntime.session.read();return ok}luSession=luRead();return !!luSession}
-async function luApi(path,{method='GET',body=null,prefer='',expectedSessionEpoch=null,singleFlight=true,refreshSession=true}={}){if(window.KPTURuntime?.api)return window.KPTURuntime.api(path,{method,body,prefer,expectedSessionEpoch,singleFlight,refreshSession});if(!(await luEnsure()))throw new Error('로그인이 필요합니다.');const form=body instanceof FormData,h={apikey:LU_KEY,Authorization:'Bearer '+luSession.access_token};if(!form)h['Content-Type']='application/json';if(prefer)h.Prefer=prefer;const r=await fetch(LU_SB+path,{method,headers:h,body:body===null?null:(form?body:JSON.stringify(body)),cache:'no-store'});const t=await r.text();let d;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.error_description||d?.hint||('요청 실패 '+r.status));return d}
+async function luApi(path,{method='GET',body=null,prefer='',expectedSessionEpoch=null,singleFlight=true,refreshSession=true,timeoutMs}={}){if(window.KPTURuntime?.api)return window.KPTURuntime.api(path,{method,body,prefer,expectedSessionEpoch,singleFlight,refreshSession,...(timeoutMs?{timeoutMs}:{})});if(!(await luEnsure()))throw new Error('로그인이 필요합니다.');const form=body instanceof FormData,h={apikey:LU_KEY,Authorization:'Bearer '+luSession.access_token};if(!form)h['Content-Type']='application/json';if(prefer)h.Prefer=prefer;const r=await fetch(LU_SB+path,{method,headers:h,body:body===null?null:(form?body:JSON.stringify(body)),cache:'no-store'});const t=await r.text();let d;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.error_description||d?.hint||('요청 실패 '+r.status));return d}
 function luEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function luSize(n){n=Number(n)||0;if(!n)return'';if(n<1024)return n+'B';if(n<1048576)return(n/1024).toFixed(1)+'KB';return(n/1048576).toFixed(1)+'MB'}
 function luCatalog(){const s=window.KPTUProjectCatalog?.snapshot?.();return s?.loaded&&s.workspaceId===luWorkspace&&s.userId===luUser?.id?s:null}
@@ -716,6 +716,8 @@ const unknown=failures.some(f=>f.kind==='unknown');
 if(succeeded&&!luDrive().place())void luDrive().refresh(); // S69-20: 첫 자료를 올려 드라이브 폴더가 막 생겼으면 저장 위치 줄을 보인다
 if(succeeded||unknown){try{await (folder?.receive?luLoadAll():luLoadDocuments());luRenderLibrary()}catch(e){console.error('library list refresh after upload failed',e)}if(filedId)luFolders().revealFolder(filedId)}
 if(succeeded)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:lastProjectId,...(org?{organization_id:org.id}:{}),...(meeting?{meeting_id:meeting.id}:{})}}));
+// ORG-기록자료폴더: 담당조직 자료로 올렸고 폴더를 따로 고르지 않았으면(받는 폴더 포함) 모으는 폴더 › 그 조직 폴더로(org-files-folder.js, 첫 사용 때 한 줄로 묻는다).
+if(succeeded&&org&&(!folder||folder.receive)&&okDocIds.length)void import('./org-files-folder.js').then(m=>m.fileIntoOrgFolder({docIds:okDocIds,org})).catch(()=>{});
 // 올라갔지만 폴더·담당조직에 못 넣은 것: 끝 알림이 이 한 줄을 덮지 않게 끝 알림 자리에 같이 싣는다(성공뿐이면 이 글이 끝 알림).
 const warn=[unfiled?`자료 ${unfiled}개는 올라갔지만 ‘${folder.name}’ 폴더에 넣지 못해 폴더 밖에 있어요. 그 자료를 폴더로 옮겨 주세요.`:'',linkFailed?word`자료 ${linkFailed}개는 올라갔지만 담당조직에 붙이지 못했어요. 그 자료의 [정보 수정]에서 담당조직을 선택해 주세요.`:''].filter(Boolean).join(' ');
 // 끝 알림(UX-알림하나로 S59-21: 하단바 위 한 줄 하나, upload-done.js). 다 올렸으면 '○○ 올렸어요 · [열기]'. 못 올린 것이 있으면
@@ -1067,6 +1069,11 @@ function luSort(){if(!luSortUi)luSortUi=createReceiveSort({api:luApi,esc:luEsc,s
 // LIB-정돈제안(S61-13): 자료실 전체(또는 고른 폴더 안)의 흩어진 같은 종류 자료 묶음 — 같은 창 부품·옮기기 길(library-sort.js createTidySuggest).
 // 단추 자리: 자료실 맨 위 ⋯(폴더 보기, 들어간 폴더가 있으면 그 안)·PC 빈 자리 우클릭(그 칸의 지금 폴더)·폴더 메뉴(그 폴더 안).
 let luTidyUi=null;
+// S69-25 LIB-드라이브에서가져오기: 내 드라이브에만 있고 자료실에 없는 파일을 받는 폴더(잡동사니)로 등록하는 창(library-drive-import.js, 누를 때만 불러옴).
+let luTopFilesUi=null; // S69-40 [맨 위 파일 정리] 창(library-top-files.js) — 누를 때만 불러온다
+async function luTopFilesOpen(trigger){try{if(!luTopFilesUi){const m=await import('./library-top-files.js');luTopFilesUi=m.createTopFiles({api:luApi,esc:luEsc,onDone:async()=>{await luLoadAll();luRenderLibrary()},reconnect:()=>luReconnectDrive()})}await luTopFilesUi.open(trigger)}catch(e){console.error('top files open failed',e);notify('맨 위 파일 정리를 열지 못했어요.',{error:true})}}
+let luDriveImportUi=null;
+async function luDriveImportOpen(trigger){try{if(!luDriveImportUi){const m=await import('./library-drive-import.js');luDriveImportUi=m.createDriveImport({api:luApi,esc:luEsc,receiveName:()=>luReceiveFolder()?.name||null,onDone:async()=>{await luLoadAll();luRenderLibrary()},reconnect:()=>luReconnectDrive()})}await luDriveImportUi.open(trigger)}catch(e){console.error('drive import open failed',e);notify('드라이브에서 가져오기를 열지 못했어요.',{error:true})}}
 function luTidy(){if(!luTidyUi)luTidyUi=createTidySuggest({api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,listDocs:luListDocs(),receiveId:luReceiveFolder()?.id||null}),reload:async()=>{await luLoadFolders();luRenderLibrary()},say:luRenameNotice});return luTidyUi}
 const luSortReady=id=>!!id&&luFoldersReady&&luReceiveFolder()?.id===id&&luSort().count()>0;
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-lu-sort]');if(!b)return;e.preventDefault();void luSort().open(b)});
@@ -1153,8 +1160,8 @@ document.addEventListener('click',e=>{
   // 펼치기·접기는 줄 앞 폴더 그림(data-lu-nav-tog). 예전 규칙(UI-폴더누르기한규칙: 이름 누르기 = 펼치기만)은 이 나무에서 이 요청으로 바뀌었다.
 const id=b.dataset.luNav||null;
   if(id===OUT_KEY){luTreeBack=null;luShowOut();document.querySelector(`#libraryFolderNav [data-lu-nav="${OUT_KEY}"]`)?.focus({preventScroll:true});return}
-  luTreeBack=null;luEnterFolder(id);
-  document.querySelector(`#libraryFolderNav [data-lu-nav="${CSS.escape(id||'')}"]`)?.focus({preventScroll:true});
+  // S69-38 UI-탐색기나무누르기: 공용 부품 ftExplorePress(오른쪽 = 그 폴더, 접혀 있으면 펼침) — [파일]·노트·사진 나무가 같은 부품.
+  luTreeBack=null;ftExplorePress(b,()=>luEnterFolder(id));
 });
 ftBindTreeArrows();
 LU_SPLIT?.addEventListener?.('change',()=>{if(document.querySelector('#libraryListCard'))luRenderLibrary()});
@@ -1853,14 +1860,16 @@ function luTopMenuHtml(){
   return (folder?luMenuRow('data-lu-top="folder"',luInFolder?'이 폴더 안에 새 폴더':'새 폴더'):'')
     +(folder&&luCanPickFolder()?luMenuRow('data-lu-top="folder-upload"','폴더 올리기'):'') // S69-23: 탐색기 폴더째 올리기
     +(folder?luMenuRow('data-lu-top="tidy"',TIDY_LABEL):'')
+    +luMenuRow('data-lu-top="drive-import"','드라이브에서 가져오기') // S69-25 LIB-드라이브에서가져오기
     +(luPick.active?luMenuRow('data-lu-top="select-stop"','선택 끝내기'):luMenuRow('data-lu-top="select"','여러 개 선택'))
     +(luExplorerNow?'':luMenuRow(`data-lu-top="expand"${luExpandNow.count?'':' disabled'}`,luExpandNow.open?'모두 접기':'모두 펴기')) // S69-28: 탐색기 칸은 펼칠 묶음이 없다
     +(luDrive().place()?luMenuRow(`data-lu-top="drive-align"${luDrive().busy()?' disabled':''}`,'드라이브 폴더 맞추기'):'') // S69-20 ④: 누를 때만 기존 자료까지 드라이브 폴더로 정리
+    +(luDrive().place()?luMenuRow('data-lu-top="top-files"','맨 위 파일 정리'):'') // S69-40: 드라이브 자료실 맨 위에 쌓인 파일 판정·정리(누를 때만)
     +luMenuRow('data-lu-top="help"','쓰는 법'); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'
 }
 function luTopMenuOpen(trigger){
   luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-folder-menu lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
-    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-align')void luDrive().align().then(()=>luLoadFolders()).then(()=>luRenderLibrary()).catch(()=>{});else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
+    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-import')void luDriveImportOpen(active.trigger);else if(act==='top-files')void luTopFilesOpen(active.trigger);else if(act==='drive-align')void luDrive().align().then(()=>luLoadFolders()).then(()=>luRenderLibrary()).catch(()=>{});else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
   luTopMenu.open(trigger);
 }
 // S55-08 LIB-우클릭메뉴 (2026-11-09 명진 결정): PC(761px~) 폴더 보기에서 빈 자리(왼쪽 나무 빈 곳·'자료실 전체'·'폴더 밖' 줄, 오른쪽 목록의 어느 폴더도 아닌 바탕,
@@ -1901,6 +1910,14 @@ function luOnSelEscape(e){
   e.preventDefault();luSelStop();
 }
 function luPickToggle(ids){luPick.toggle(luTwinIds(ids),{anchor:false});luSyncPicks()}
+// S69(명진 11/24 "선택된거 클릭하면 선택해제돼야지"): 폴더 칸·폴더 줄 누르기 — 안의 자료가 하나라도 골라져 있으면(✓ 또는 '−' 일부) 그 폴더 안 것을 모두 풀고,
+// 하나도 없으면 모두 고른다(윈도우·구글 드라이브처럼 '일부' → 해제). 고른 수·'접힌 n개 포함'은 같은 상태(luPick.items)에서 luSyncPicks가 다시 센다.
+function luPickNode(key){
+  const ids=luTwinIds(nodeDocumentIds(luTreeNode(key)));if(!ids.length){luSyncPicks();return}
+  const next=new Set(luPick.items);
+  if(ids.some(id=>next.has(id)))for(const id of ids)next.delete(id);else for(const id of ids)next.add(id);
+  luPick.items=next;luSyncPicks();
+}
 // PC: Ctrl/Cmd+클릭 = 그 줄만 더하고 빼기(선택 모드가 아니면 켜면서), Shift+클릭 = 마지막으로 고른 줄부터 이 줄까지 보이는 줄을 모두 더하기.
 function luPickAt(e,id){
   if(e.shiftKey&&luPick.anchor!=null){
@@ -1919,7 +1936,10 @@ function luOnPickClick(e){
   }
   const t=e.target;
   const node=t.closest?.('[data-lu-pick-node]');
-  if(node){e.stopPropagation();if(!luSelBusy)luPickToggle(nodeDocumentIds(luTreeNode(node.dataset.luPickNode)));else luSyncPicks();return}
+  if(node){e.stopPropagation();if(!luSelBusy)luPickNode(node.dataset.luPickNode);else luSyncPicks();return}
+  // S69: 탐색기 칸의 하위 폴더 줄(data-lu-enter)은 고르는 중에 들어가지 않는 줄이라(들어가기는 왼쪽 나무), 줄 본문을 눌러도 폴더 칸과 같이 고르기·풀기.
+  const enter=t.closest?.('#documentList details[data-lu-enter] > summary');
+  if(enter&&!t.closest('[data-lu-node-menu],button,a')){e.stopPropagation();e.preventDefault();if(!luSelBusy&&enter.querySelector('[data-lu-pick-node]'))luPickNode(enter.parentElement.dataset.luNode);return}
   const pick=t.closest?.('[data-lu-pick]');
   if(pick){e.stopPropagation();if(!luSelBusy)luPickAt(e,pick.dataset.luPick);else luSyncPicks();return}
   const row=t.closest?.('[data-lu-document]');
@@ -2028,13 +2048,21 @@ function luBindRowSwipe(list){
       else if(key==='move'&&luFoldersReady){const at=el.querySelector('[data-lu-menu]')||el;luFolders().openMove(luMoveDocs(id),at,{place:'below',trigger:at})}},
     select:{attr:'data-lu-document',open:el=>luSelStartWith(el.dataset.luDocument)}});
 }
-// S69-17 UI-끌어고르기(명진 11/24 08:30 "자료실에서 선택 말고 드래그해서 파일 선택 가능하게"): PC 마우스로 목록 빈 곳(목록·칸 아래 빈 곳, 폴더 사이, 들여 쓴 줄의 왼쪽 여백, 사진 사이)에서 끌면
+// S69-17 UI-끌어고르기(명진 11/24 08:30 "자료실에서 선택 말고 드래그해서 파일 선택 가능하게"): PC 마우스로 빈 곳에서 끌면
 // 반투명 사각형이 그려지고 닿은 자료 줄·사진이 골라진다(윈도우 탐색기처럼). 사각형·닿은 줄 계산은 공용 부품(marquee-select.js), 고른 상태 주인은 선택 모드 luPick 하나.
-// 자료 줄 위(이름·빈칸·날짜·⋯·사진)에서 시작한 끌기는 지금처럼 폴더로 끌어 옮기기, 폴더 줄·폴더 나무·글자 칸·두 칸 위 줄은 건드리지 않는다. Ctrl·Shift와 끌면 더하기.
-const LU_MQ_SKIP='input,textarea,select,button,a,label,[contenteditable],summary,.ft-row,[data-lu-nav],[data-lu-photoset],.lu-pane-head,#libraryFolderNav,.lu-renaming,.lu-two-bar';
+// S69(명진 11/24 "창 밖에서도 창 안으로 드래그" · "이 드래그가 어느곳에서든 자유롭게"): 시작 자리는 자료실 화면 본문 전체의 빈 곳 —
+// 카드 밖 바탕(아래·옆·위 빈 띠), 카드 여백·테두리, 왼쪽 나무 칸의 줄 없는 곳, 목록·칸 아래 빈 곳, 폴더 사이, 들여 쓴 줄의 왼쪽 여백, 사진 사이.
+// 사각형은 창 기준으로 자유롭게 그려지고 목록(#documentList)의 자료 줄과 탐색기 칸의 하위 폴더 줄(폴더 칸과 같이 그 안 자료 모두)에 닿은 것을 고른다.
+// 자료 줄 위(이름·빈칸·날짜·⋯·사진)에서 시작한 끌기는 지금처럼 폴더로 끌어 옮기기, 폴더 줄·폴더 나무 줄·위 검색줄·최근 올린 파일·단추·입력칸·두 칸 위 줄은 건드리지 않는다. Ctrl·Shift와 끌면 더하기.
+const LU_MQ_SKIP='input,textarea,select,button,a,label,[contenteditable],summary,.ft-row,[data-lu-nav],[data-lu-photoset],.lu-pane-head,.lu-renaming,.lu-two-bar,.lu-search-row,.lu-filter-row,#libraryRecent,.lu-select-row,#libraryUploadRows,[popover],[role="menu"],[role="dialog"],.modal';
+// 끌기를 받는 곳은 앱 바탕 전체(.shell — 자료실 화면이 아닐 때는 enabled가 끈다). 빈 곳은 ① 자료실 화면(#libraryView) 안의 빈 곳,
+// ② 자료실 화면 바깥의 맨 바탕(화면 아래·옆 빈 띠 — 앱 바탕 상자 자신만. 사이드 메뉴·위 검색줄 같은 다른 부분은 아님).
+const luMqView=()=>document.querySelector('#libraryView');
+const luMqArea=()=>{const v=luMqView();return v?.closest('.shell')||v?.closest('main')||v};
 function luMqBlank(t,x){
-  const list=document.querySelector('#documentList'),card=document.querySelector('#libraryListCard');
-  if(!list||!(list.contains(t)||t===card))return false;
+  const area=luMqArea(),view=luMqView();
+  if(!area||!view||!area.contains(t))return false;
+  if(!view.contains(t)){let e=view.parentElement;while(e&&e!==area.parentElement){if(e===t)return true;e=e.parentElement}return false}
   if(t.closest(LU_MQ_SKIP))return false;
   const row=t.closest('[data-lu-document]');if(!row)return true;
   // 자료 줄 위는 어디든(가운데 빈칸 포함) 지금처럼 '잡아 폴더로 옮기기'다(줄 가운데를 잡아 끄는 사람이 많고 그 동작을 지킨다).
@@ -2045,18 +2073,21 @@ function luMqBlank(t,x){
 }
 // 고르는 동안 선택 모드가 켜지면 목록이 다시 그려진다: 누른 요소가 문서에서 빠져도 그 칸 번호(두 칸)로 지금 칸을 다시 찾는다.
 const luMqPane=el=>{const i=el?.closest?.('[data-lu-pane-i]')?.dataset.luPaneI;return i==null?null:document.querySelector(`#documentList [data-lu-pane-i="${i}"]`)};
-function luMqItems(start){const root=luMqPane(start)||document.querySelector('#documentList');return root?root.querySelectorAll('[data-lu-document]'):[]}
+// 고를 수 있는 줄: 자료 줄 + 탐색기 칸의 하위 폴더 줄(열쇠 'n:폴더 열쇠' → 고를 때 그 안 자료 모두). 두 칸 안에서 시작하면 그 칸만.
+const LU_MQ_NODE='n:';
+function luMqItems(start){const root=luMqPane(start)||document.querySelector('#documentList');return root?[...root.querySelectorAll('[data-lu-document]'),...root.querySelectorAll('details[data-lu-enter] > summary')]:[]}
+const luMqKey=el=>el.dataset.luDocument||(el.parentElement?.dataset.luNode?LU_MQ_NODE+el.parentElement.dataset.luNode:null);
 function luMqLive(old){if(old.matches?.('.lu-pane-list'))return luMqPane(old)?.querySelector('.lu-pane-list')||null;if(old.id)return document.getElementById(old.id);return null}
 function luMqApply(set){
-  const ids=luTwinIds([...set]);
+  const ids=luTwinIds([...set].flatMap(k=>String(k).startsWith(LU_MQ_NODE)?nodeDocumentIds(luTreeNode(String(k).slice(LU_MQ_NODE.length))):[k]));
   if(!luPick.items){if(!ids.length)return;luPick.start(ids);luRenderLibrary();return}
   luPick.items=new Set(ids);luSyncPicks();
 }
 function luBindMarquee(){
-  const card=document.querySelector('#libraryListCard');if(!card)return;
-  bindMarquee(card,{
-    enabled:()=>!!LU_FINE?.matches&&window.KPTURouter?.current==='library'&&!luSelBusy&&!luRenameBusy&&!luRename&&!luActiveMenu&&!luFolderUi?.busy&&!luFolderUi?.moveOpen,
-    blank:luMqBlank,items:luMqItems,live:luMqLive,anchor:()=>document.querySelector('#documentList'),keyOf:el=>el.dataset.luDocument,
+  const area=luMqArea();if(!area||area.dataset.luMqBound)return;area.dataset.luMqBound='1';
+  bindMarquee(area,{
+    enabled:()=>!!LU_FINE?.matches&&window.KPTURouter?.current==='library'&&!luSelBusy&&!luRenameBusy&&!luRename&&!luActiveMenu&&!luBulkUi?.active&&!luFolderUi?.busy&&!luFolderUi?.moveOpen,
+    blank:luMqBlank,items:luMqItems,live:luMqLive,anchor:()=>document.querySelector('#documentList'),keyOf:luMqKey,
     begin:additive=>additive&&luPick.items?[...luPick.items]:[],
     onChange:set=>{if(!luSelBusy)luMqApply(set)},
   });

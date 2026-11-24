@@ -10,38 +10,63 @@ const back=(page,width)=>width<761?page.evaluate(()=>window.KPTURouter.back()):p
 const index=page=>page.evaluate(()=>navigation.currentEntry.index);
 const tap=(page,locator,width)=>width<761?locator.tap():locator.click();
 
-// ---------- 연락 없는 조직(홈) → 조직 상세 ----------
+// ---------- 연락 없는 조직(조직 관리 맨 아래 — 2026-11-24 홈에서 옮김) → 조직 상세 ----------
 const ORGS=[['o1','가지부'],['o2','나지부']];
 async function quietRoutes(page){
-  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>json(r,ORGS.map(([id,name])=>({id,workspace_id:'w',name,active:true}))));
+  // 조직 한 곳 읽기(id=eq.…)는 그 조직만 돌려준다(상세 제목 확인용).
+  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>{const one=new URL(r.request().url()).searchParams.get('id');return json(r,ORGS.filter(([id])=>!one||one==='eq.'+id).map(([id,name])=>({id,workspace_id:'w',name,active:true})))});
   await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>json(r,ORGS.map(([id])=>({organization_id:id,user_id:'home-test'}))));
   await page.route(SB+'/rest/v1/app_org_key_people?**',r=>json(r,ORGS.map(([id],i)=>({id:'k'+i,workspace_id:'w',organization_id:id,name:'가상인물'+i,match_names:['가상인물'+i],sort_order:i}))));
   await page.route(SB+'/rest/v1/app_tg_senders?**',r=>json(r,[]));
   await page.route(SB+'/rest/v1/app_tg_day_senders?**',r=>json(r,[]));
   await page.route(SB+'/rest/v1/app_feed_items?**',r=>json(r,[]));
 }
+async function openTeam(page){
+  await page.evaluate(()=>window.KPTURouter.go('team'));
+  await expect(page.locator('#teamView')).toBeVisible();
+}
 for(const width of [412,1280]){
-  test(`${width}: 홈 '연락 없는 조직' 이름 → 조직 상세, 뒤로가기 한 번 → 홈 같은 자리`,async({page})=>{
+  test(`${width}: 조직 관리 '연락 없는 조직' 이름 → 조직 상세${width<761?', 뒤로가기 한 번 → 같은 자리':'(오른쪽 칸)'}`,async({page})=>{
     await page.setViewportSize({width,height:700});
-    await openHome(page,{beforeLoad:()=>quietRoutes(page),quickRest:true}); // 폰 빠른 입력은 처음 모습(한 줄로 접힘) 그대로 — 이 시험은 스크롤 자리만 본다
-    const name=page.locator('#homeView [data-home-quiet] .oq-text [data-oq-org="o1"]');
+    await openHome(page,{beforeLoad:()=>quietRoutes(page),quickRest:true});
+    await expect(page.locator('#homeView [data-home-quiet], #homeView .oq-line')).toHaveCount(0);
+    await openTeam(page);
+    const name=page.locator('#teamView [data-team-quiet] .oq-text [data-oq-org="o2"]');
     await expect(name).toBeVisible();
     await name.scrollIntoViewIfNeeded();
     const y=await page.evaluate(()=>Math.round(scrollY)),at=await index(page);
     await tap(page,name,width);
-    await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('team');
-    await expect(page.locator('#wdModal')).toBeVisible();
-    await expect(page.locator('#wdTitle')).toHaveText('가지부');
-    // 화면 이동과 조직 창이 기록 칸 하나.
-    expect(await index(page)).toBe(at+1);
-    await back(page,width);
-    await expect(page.locator('#homeView')).toBeVisible();
-    await expect(page.locator('#wdModal')).toBeHidden();
-    expect(await index(page)).toBe(at);
-    await expect.poll(()=>page.evaluate(()=>Math.round(scrollY))).toBe(y);
-    await expect(name).toBeInViewport();
+    await expect(page.locator('#wdTitle')).toHaveText('나지부');
+    expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('team');
+    if(width<761){
+      await expect(page.locator('#wdModal')).toBeVisible();
+      expect(await index(page)).toBe(at+1);
+      await back(page,width);
+      await expect(page.locator('#wdModal')).toBeHidden();
+      await expect(page.locator('#teamView')).toBeVisible();
+      expect(await index(page)).toBe(at);
+      await expect.poll(()=>page.evaluate(()=>Math.round(scrollY))).toBe(y);
+      await expect(name).toBeInViewport();
+    }else{
+      await expect(page.locator('#soOrganizationList [data-so-org="o2"]')).toHaveClass(/is-selected/);
+    }
   });
 }
+
+test('412: 조직 관리 맨 아래에서 연 조직 창의 ×는 한 번에 조직 관리로',async({page})=>{
+  await page.setViewportSize({width:412,height:700});
+  await openHome(page,{beforeLoad:()=>quietRoutes(page),quickRest:true});
+  await openTeam(page);
+  const name=page.locator('#teamView [data-team-quiet] .oq-text [data-oq-org="o2"]');
+  await expect(name).toBeVisible();
+  const at=await index(page);
+  await name.tap();
+  await expect(page.locator('#wdModal')).toBeVisible();
+  await page.locator('#wdModal [data-wd-close="wdModal"]').tap();
+  await expect(page.locator('#teamView')).toBeVisible();
+  await expect(page.locator('#wdModal')).toBeHidden();
+  await expect.poll(()=>index(page)).toBe(at);
+});
 
 // ---------- 전체 검색 → 업데이트(자료를 읽은 뒤 상세를 여는 길) ----------
 const NOTE='10000000-0000-4000-8000-000000000005',stamp='2026-10-05T01:00:00.000000+00:00';
@@ -96,20 +121,6 @@ for(const width of [412,1280]){
     }
   });
 }
-
-test('412: 다른 화면에서 연 조직 창의 ×도 한 번에 원래 화면으로',async({page})=>{
-  await page.setViewportSize({width:412,height:700});
-  await openHome(page,{beforeLoad:()=>quietRoutes(page),quickRest:true}); // 폰 빠른 입력은 처음 모습(한 줄로 접힘) 그대로 — 이 시험은 스크롤 자리만 본다
-  const name=page.locator('#homeView [data-home-quiet] .oq-text [data-oq-org="o2"]');
-  await expect(name).toBeVisible();
-  const at=await index(page);
-  await name.tap();
-  await expect(page.locator('#wdModal')).toBeVisible();
-  await page.locator('#wdModal [data-wd-close="wdModal"]').tap();
-  await expect(page.locator('#homeView')).toBeVisible();
-  await expect(page.locator('#wdModal')).toBeHidden();
-  await expect.poll(()=>index(page)).toBe(at);
-});
 
 // ---------- 지킴: 도착 화면에서 사람이 먼저 누른 뒤 열린 겹은 그 칸을 가져가지 않는다 ----------
 test('412: openFrom 뒤 사람이 먼저 누르면, 그다음 열린 겹은 제 칸을 따로 쓴다',async({page})=>{

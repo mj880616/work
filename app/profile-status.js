@@ -1,7 +1,7 @@
 // HOME-업무일지홈(2026-10-30 명진 시안 확정): 옛 홈 칸 화면에만 있던 상태 줄을 내 프로필 맨 아래 칸으로 옮겼다.
 // MULTI-다른담당자맞춤 ⑥(명진 11/13 15:30): 칸 이름 '사용 현황'. 마지막 수집 시각·글자 읽기·AI 사용량 줄은 서버 운영자 기능이 있는
 // 작업공간만(collection-status.js isOperator). 다른 사람에게는 이 칸 자체가 안 보이고, 한 달 AI 한도에 닿았을 때만 그 한 줄(ai-cap-line.js).
-// 홈 '연락 없는 조직' 기준 [2주|3주|4주|6주|끄기]는 조직 보고 화면 ⋯로 옮겼다(suborganizations.js, 값은 그대로 view_prefs.quiet_weeks).
+// '연락 없는 조직' 기준 [2주|3주|4주|6주|끄기]는 조직 보고 화면 ⋯로 옮겼다(suborganizations.js, 값은 그대로 view_prefs.quiet_weeks).
 // - 마지막 수집 시각: collection-status.js가 유일한 renderer. 예전 자료 글자 읽기 끝남: text-backfill-notice.js. AI 사용량: ai-usage-line.js.
 // 이 파일은 칸 자리와 칸 전체 보이기만 정한다(줄이 하나도 없으면 칸을 숨김). 읽기·쓰기 경로는 각 모듈 그대로(새 저장소·새 요청 없음).
 import {mountCollectionStatus} from './collection-status.js';

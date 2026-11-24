@@ -211,6 +211,34 @@ object UpdateRules {
         else -> null
     }
 
+    // ── S69-34 계정 메뉴 '앱 정보' [업데이트 확인] 다리(웹 app/app-info.js) ──
+    // 웹 → 앱: update:check(지금 바로 새 판 확인) · update:get(위쪽 줄 [받기]·[지금 업데이트]와 같은 일).
+    // 앱 → 웹: update:new:<버전> · update:latest:<지금 버전> · update:busy(확인 중) · update:fail(목록을 못 읽음) · update:store(플레이 판, 스토어를 열었음).
+    const val ASK_CHECK = "update:check"
+    const val ASK_GET = "update:get"
+    const val SAY_BUSY = "update:busy"
+    const val SAY_FAIL = "update:fail"
+    const val SAY_STORE = "update:store"
+
+    enum class Ask { CHECK, GET }
+
+    fun ask(data: String?): Ask? = when (data) {
+        ASK_CHECK -> Ask.CHECK
+        ASK_GET -> Ask.GET
+        else -> null
+    }
+
+    /** 확인 결과 → 웹에 보낼 한 줄. failed = 목록을 읽지 못함. */
+    fun answer(failed: Boolean, found: Release?, current: String): String = when {
+        failed -> SAY_FAIL
+        found != null -> "update:new:${found.version}"
+        else -> "update:latest:$current"
+    }
+
+    /** 플레이 판 [업데이트 확인]: 스토어 앱 페이지(앱이 없으면 웹 주소). */
+    fun storeUri(appId: String): String = "market://details?id=$appId"
+    fun storeWebUrl(appId: String): String = "https://play.google.com/store/apps/details?id=$appId"
+
     /** 받은 파일 이름(앱 전용 공간 noBackupFilesDir/update/ 안). */
     fun apkFileName(version: String): String = "web2-phone-$version.apk"
 

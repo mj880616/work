@@ -162,6 +162,23 @@ export function refetchBatches(rows, {tried = new Set(), busy = () => false, sin
 // 자동 다시 가져오기를 그만둘 요청 실패(하루 횟수 다 씀·로그인 풀림·권한 없음 — 다음 줄도 같은 답).
 export const stopsAuto = reason => ['daily_limit', 'login', 'forbidden'].includes(reason);
 
+// ---- 제목 주인 하나(S69 READ-제목하나, 명진 11/24 "목록에서 이상한 제목이 보임") ----
+// News에서 온 줄의 제목은 이 표의 사본이고, 사람이 글 보기 [직접 넣기]·⋯ [수정]으로 고치는 곳은 공용 기사(app_news_articles, 손으로 넣은 기사 manual_at)다.
+// 그래서 손으로 넣은 기사의 제목이 사본과 다르면 그 제목이 이긴다 — 목록·글 보기·검색·홈·밑줄 출처가 모두 이 표 제목을 읽으므로 사본을 맞춘다.
+// articles: [{id, title, manual_at}] (기사 표에서 읽은 줄). 고칠 줄 [{id: 이 표 줄 id, title}]만 돌려준다(수집 기사·빈 제목·같은 제목은 그대로).
+export function titleFixes(rows, articles) {
+  const by = new Map((Array.isArray(articles) ? articles : []).filter(a => isId(a?.id) && a?.manual_at).map(a => [String(a.id).toLowerCase(), oneLine(a.title, TITLE_MAX)]));
+  const out = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!isId(row?.id) || !isId(row?.news_article_id)) continue;
+    const t = by.get(row.news_article_id.toLowerCase());
+    if (t && t !== oneLine(row.title, TITLE_MAX)) out.push({id: row.id, title: t});
+  }
+  return out;
+}
+// 손으로 고친 제목 → 이 표 사본 칸 값(한 줄·상한). 빈 제목이면 null(고치지 않음).
+export const ownTitle = t => oneLine(t, TITLE_MAX) || null;
+
 // News에서 온 줄: News 쪽 본문(공용 본문 표 app_news_article_bodies·app_outside_article_bodies, 옛 사회운동 글은 문장 표)이 이미 있으면 그 본문으로 원문 사본을 만든다.
 // DB의 private.app_reading_body(20261122230000 3))와 같은 규칙: 상태 ok·lead의 글자 블록(p·h·quote)만, lead → paywall. 문장은 빈칸으로 잇는다. 없으면 null(원래 주소로 받기).
 export function copyPatch(got, sentences, nowIso = new Date().toISOString()) {

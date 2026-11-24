@@ -1,4 +1,4 @@
-// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: 홈 한 줄의 순수 규칙(입출력 없음). 화면은 org-quiet.js 하나가 그린다.
+// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: '연락 없는 조직' 줄(조직 관리 목록 맨 아래)의 순수 규칙(입출력 없음). 화면은 org-quiet.js 하나가 그린다.
 // 명진 결정(10/29 07:27~07:31): '연락'은 그 조직의 대표자·간부와
 //   ① 통화한 것, 또는 ② 텔레그램에서 내가 묻고(질문) 같은 대화에서 그쪽 답을 받은 것만 센다.
 //   11/13 명진 결정(ORG-연락없음1대1수집, "상대 답변을 기준으로 세는게 좋을듯?"): 1:1 방(app_feed_rooms.chat_kind='user')에서는
@@ -10,7 +10,7 @@
 import {whoIn} from './org-key-people-model.mjs';
 
 export const DEFAULT_WEEKS = 3, MAX_WEEKS = 12, LOOKBACK_DAYS = 180, NAMES_MAX = 3;
-export const WEEK_CHOICES = Object.freeze([2, 3, 4, 6, 0]); // 홈 편집의 고르기 [2주|3주|4주|6주|끄기]
+export const WEEK_CHOICES = Object.freeze([2, 3, 4, 6, 0]); // 조직 관리 ⋯의 고르기 [2주|3주|4주|6주|끄기]
 export const VIA_LABEL = Object.freeze({call:'통화', telegram:'텔레그램'});
 
 // 저장된 값 → 주 수(0 = 끔). 모르는 값이면 기본 3주.
@@ -122,7 +122,7 @@ export function mergeLast(callDays, tgDays) {
   return out;
 }
 
-// 홈 줄에 올릴 조직: 주요 인물이 있는 내 담당조직 중 마지막 연락이 기준(주 수 × 7일) 이상 지난 곳. 기간 안에 하나도 없으면 days=null(180일+).
+// 줄에 올릴 조직: 주요 인물이 있는 내 담당조직 중 마지막 연락이 기준(주 수 × 7일) 이상 지난 곳. 기간 안에 하나도 없으면 days=null(180일+).
 // unsure: 기준보다 오래된 텔레그램을 다 확인하지 못한 조직(기준 안 연락은 없다고 확인됨) → 날 수는 기준 일수 '이상'으로만 보인다.
 // 정렬은 시안대로 덜 오래된 곳부터(같으면 이름).
 export function quietList({orgs = [], people = [], last = new Map(), unsure = new Set(), today, weeks = DEFAULT_WEEKS} = {}) {
@@ -157,6 +157,6 @@ export function headParts(rows, max = NAMES_MAX) {
   return {shown:(rows || []).slice(0, max), more:Math.max(0, (rows || []).length - max)};
 }
 
-// S67-51 D1: 홈 '연락 없는 조직'을 계산할 사람인가. '연락'은 통화·텔레그램으로만 세므로 그 수집 기능(서버 app_my_features)이 있을 때만.
+// S67-51 D1: '연락 없는 조직'을 계산할 사람인가. '연락'은 통화·텔레그램으로만 세므로 그 수집 기능(서버 app_my_features)이 있을 때만.
 // 목록을 못 읽었으면(null 등) 아니라고 본다 — 틀린 '연락 없음'을 보이지 않기 위해.
 export const quietAllowed = features => Array.isArray(features) && (features.includes('calls') || features.includes('telegram'));

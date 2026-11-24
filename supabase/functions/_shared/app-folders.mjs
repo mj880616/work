@@ -10,7 +10,10 @@
 // - 새로 만들 때는 맨 위 앱 폴더 id를 알면 그 아래, 모르면(자료실을 아직 안 쓴 새 사용자) 지금처럼 내 드라이브 맨 위
 //   (createParentFor). 맨 위 앱 폴더를 이 함수들이 몰래 만들지는 않는다 — 나중에 [모으기]가 옮긴다.
 // - 앱 코드 밖(명진 Apps Script·PC 텔레그램 수집기)이 쓰는 폴더는 모으지 않는다(NOT_GATHERED — 옮기면 그쪽이 깨질 수 있음).
+// - S69-41: [한곳으로 모으기]는 표식(또는 저장한 id)으로 알아본 앱 폴더의 옛 이름('Web2 바구니'·'노조+ 백업' 등)만 새 이름으로 바꾼다
+//   (renameQuery·renameTarget). 사람이 직접 바꾼 이름·사람이 만든 폴더는 건드리지 않는다. 이름 글자는 brand-folders.mjs 한 곳.
 // DOM·네트워크 없음(단위 시험 tests/app-folders.test.mjs).
+import { FOLDER_NAMES, knownFolderNames, renameTo } from './brand-folders.mjs';
 
 /** 드라이브 파일 id 모양(쿼리 글자 안에 그대로 넣어도 되는 글자만). 'root' 별칭은 id가 아니다. */
 export const isDriveId = v => typeof v === 'string' && /^[A-Za-z0-9_-]{10,200}$/.test(v);
@@ -44,11 +47,11 @@ export function placedAtTop(parents, rootIds, rootIdOfDrive = null) {
 // 모두 '서버(앱)가 만든 폴더'. kind = 표식 값(새로 붙이는 것은 APP_FOLDER_MARK). names = 표식이 없는 옛 폴더를 찾을 이름(없으면 표식만).
 export const GATHER_KINDS = Object.freeze([
   // _shared/drive-upload.ts 바구니 원본 폴더(저장한 id basket_folder_id, 첫 찾기만 이름)
-  Object.freeze({ kind: 'basket', label: '바구니', mark: { key: APP_FOLDER_MARK, value: 'basket' }, names: Object.freeze(['Web2 바구니']) }),
+  Object.freeze({ kind: 'basket', label: '바구니', mark: { key: APP_FOLDER_MARK, value: 'basket' }, names: knownFolderNames('basket') }),
   // record-backup '내 기록 백업' 맨 위(표식 kptu_backup=root)
   Object.freeze({ kind: 'record_backup', label: '기록 백업', mark: { key: 'kptu_backup', value: 'root' }, names: Object.freeze([]) }),
   // _shared/hwp-edit.ts 한글 덮어쓰기 전 사본(옛 폴더는 이름, 이제 표식 kptu_app_folder=edit_backup)
-  Object.freeze({ kind: 'edit_backup', label: '편집 백업', mark: { key: APP_FOLDER_MARK, value: 'edit_backup' }, names: Object.freeze(['노조+ 편집 백업', 'WORK ON+ 편집 백업', 'Web2 편집 백업']) }),
+  Object.freeze({ kind: 'edit_backup', label: '편집 백업', mark: { key: APP_FOLDER_MARK, value: 'edit_backup' }, names: knownFolderNames('edit_backup') }),
   // drive-summary 읽기용 사본(표식 kptu_summary=folder + kptu_workspace=kptu-work)
   Object.freeze({ kind: 'copy', label: '읽기용 사본', mark: { key: 'kptu_summary', value: 'folder' }, names: Object.freeze([]) }),
 ]);
@@ -92,4 +95,32 @@ export function markFor(kind) {
 export function privateOwnedFolder(f) {
   return !!f && isDriveId(f.id) && f.mimeType === 'application/vnd.google-apps.folder' && f.ownedByMe === true && f.trashed === false &&
     Array.isArray(f.permissions) && f.permissions.length === 1 && f.permissions[0]?.type === 'user' && f.permissions[0]?.role === 'owner';
+}
+
+// ---- 바구니 폴더 알아보기(_shared/drive-upload.ts·basket-file-origin.ts가 함께 쓴다) -------------------------------------
+// S69-41: 예전에는 이름('Web2 바구니')으로만 찾고 확인했다. 이제 표식(kptu_app_folder=basket) 또는 알려진 이름(옛·새)으로 찾고 확인한다.
+// 그래서 [한곳으로 모으기]가 이름을 'WORK ON+ 바구니'로 바꾼 뒤에도 같은 폴더를 찾는다(저장한 id basket_folder_id가 먼저).
+export const BASKET_MARK = Object.freeze({ key: APP_FOLDER_MARK, value: 'basket' });
+export const BASKET_NAMES = knownFolderNames('basket');
+/** Drive 검색(q)의 바구니 조건: (표식 또는 알려진 이름). */
+export const basketFolderClause = () => '(' + [markClause(BASKET_MARK), ...BASKET_NAMES.map(n => `name = '${quoted(n)}'`)].join(' or ') + ')';
+/** 폴더 하나가 바구니 폴더로 보이나(표식 또는 알려진 이름). 공유·자리 확인은 부르는 쪽이 따로 한다. */
+export function isBasketFolder(f) {
+  const props = f && typeof f.appProperties === 'object' && f.appProperties ? f.appProperties : {};
+  return props[BASKET_MARK.key] === BASKET_MARK.value || BASKET_NAMES.includes(f?.name);
+}
+
+// ---- [한곳으로 모으기]의 이름 맞추기(S69-41) ----------------------------------------------------------------------------
+/** 이름 맞추기 후보 찾기 쿼리: 맨 위 또는 맨 위 앱 폴더 바로 아래의 내 폴더 중 표식 또는 옛 이름이 맞는 것. */
+export function renameQuery(rootId) {
+  const any = GATHER_KINDS.flatMap(k => [markClause(k.mark), ...k.names.map(n => `name = '${quoted(n)}'`)]);
+  return `${topParentsClause(rootId)} and 'me' in owners and trashed = false and mimeType = 'application/vnd.google-apps.folder' and (${any.join(' or ')})`;
+}
+
+/** 찾은 폴더 하나 → {kind, name: 새 이름, mark: 같이 붙일 표식|null} 또는 null(앱 폴더가 아니거나 이미 새 이름·사람이 바꾼 이름). */
+export function renameTarget(file) {
+  const k = gatherKindOf(file);
+  if (!k || !FOLDER_NAMES[k.kind]) return null;
+  const name = renameTo(k.kind, file?.name);
+  return name ? { kind: k.kind, name, mark: k.marked ? null : markFor(k.kind) } : null;
 }

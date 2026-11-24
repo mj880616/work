@@ -15,7 +15,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   starWant, starLabel, applyStars, boxRows, MEDIA_PREVIEW_MAX, HWP_PREVIEW_MAX, HWP_PREVIEW_PAGES, mediaMime, stepFile, pathCopyText, treeAcrossBig, treeAcrossTooBigText, treeBigAsk, treeDoneText, TREE_MOVE_NOTE,
   TREE_DEV_MOVE_NOTE, treeDevKeptText, treeDevDoneText, LIB_TREE_MAX, LIB_TREE_BYTES, libTreeTooBigText, UPLOAD_MAX_BYTES} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
-import {ftKeepPlace, ftBindTreeArrows, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, createLeafWait} from './folder-tree-press.mjs';
+import {ftKeepPlace, ftBindTreeArrows, ftExplorePress, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, createLeafWait} from './folder-tree-press.mjs';
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
@@ -191,7 +191,9 @@ const pc = createPcFiles(window, {enabled: pcDeviceOk({ua: navigator.userAgent |
 let pcOff = false;
 const PC_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 14h4M8 11v3" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>';
 // S62-40: [두 칸 보기] 아이콘(네모 하나를 가운데 선으로 나눈 그림). 폰은 위·아래 두 칸이라 가로 선, 600px~는 CSS가 돌려 세로 선(왼쪽·오른쪽 두 칸).
-const TWO_SVG = '<svg class="fx-two-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 8h12" stroke="currentColor" stroke-width="1.4"/></svg>';
+// S69-38 FILES-보기두칸(명진 11/24 '오른쪽 위 두 칸 아이콘을 자료실과 같은 붙은 버튼으로'): [한 칸 | 두 칸] 붙은 단추(공용 ⑤ 보기 바꾸기 ds-seg, 자료실과 같은 그림).
+const ONE_SVG = '<svg class="fx-one-ic" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
+const TWO_SVG = '<svg class="fx-two-ic" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 8h12" stroke="currentColor" stroke-width="1.4"/></svg>';
 const PHONE_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/></svg>';
 
 // S52-07 칸 머리 출처 그림(위 줄 출처 아이콘과 같은 그림).
@@ -205,7 +207,7 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="filesView" class="view-panel hidden" aria-labelledby="fxTitle">
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
-<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><button type="button" class="icon-btn fx-two" data-fx-two aria-pressed="false" aria-label="두 칸 보기" title="두 칸 보기" hidden>${TWO_SVG}</button></div>
+<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><span class="ds-seg fx-view-seg" data-fx-view-seg role="group" aria-label="파일 보기" hidden><button type="button" class="ds-seg-btn" data-fx-one aria-pressed="true" aria-label="한 칸 보기" title="한 칸 보기">${ONE_SVG}<span class="fx-seg-t">한 칸</span></button><button type="button" class="ds-seg-btn" data-fx-two aria-pressed="false" aria-label="두 칸 보기" title="두 칸 보기">${TWO_SVG}<span class="fx-seg-t">두 칸</span></button></span></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="선택한 것" hidden></div>
 <p class="fx-note" data-fx-note role="status" hidden></p><div class="fx-connect" data-fx-connect-box role="status" hidden></div>
 <div class="fx-up" data-fx-uprows hidden></div>
@@ -890,10 +892,9 @@ function paintTop() {
     tt.hidden = !show; tt.setAttribute('aria-pressed', String(open));
     const t = open ? '폴더 나무 닫기' : '폴더 나무 열기'; tt.title = t; tt.setAttribute('aria-label', t);
   }
-  const tw = $('[data-fx-two]');
-  // S62-40 UI-파일검색줄(시안 PR 2691 B안, 명진 11/16 08:37): [두 칸 보기]는 두 칸 그림 아이콘 단추(이름 '두 칸 보기' 그대로), 켜짐은 aria-pressed와 옅은 바탕.
-  //   폰 맨 위 줄 [찾기][출처][두 칸] 한 줄에 들어간다(전에는 글자 단추가 둘째 줄을 혼자 차지). S50-20 글자 바꾸기(한 칸이면 '두 칸 보기', 두 칸이면 반대 글자)는 이걸로 대신한다.
-  if (tw) { tw.hidden = false; tw.setAttribute('aria-pressed', String(!!twoNow)); }
+  // S62-40 UI-파일검색줄: 폰 맨 위 줄 [찾기][출처][보기] 한 줄. S69-38: 보기는 붙은 [한 칸 | 두 칸](지금 보기 쪽이 눌린 표시, 폰은 그림만).
+  const seg = $('[data-fx-view-seg]');
+  if (seg) { seg.hidden = false; seg.querySelector('[data-fx-one]')?.setAttribute('aria-pressed', String(!twoNow)); seg.querySelector('[data-fx-two]')?.setAttribute('aria-pressed', String(!!twoNow)); }
   paintSrcs();
   const note = $('[data-fx-note]');
   // S62-16 FILES-구글드라이브아이콘연결전: 연결 안내는 공용 부품(글 한 줄 → 아래 버튼). 둘 다 연결 전이면 두 연결 버튼, 아이콘을 누른 출처면 그 연결 버튼.
@@ -1516,7 +1517,7 @@ function focusFileHtml(p, r, parent, depth = 0) {
     + ftMoreButtonHtml({attrs: {'data-fx-tmenu': key, 'data-fx-tin': parent}, label: `${r.name} 메뉴`}) + '</div>';
 }
 function focusFolderHtml(p, r, parent, depth = 0) {
-  const key = rowKey(r), fk = folderKey(r.source, r.item_id), local = r.source === PC && !pcWrite(), open = p.xopen.has(fk);
+  const key = rowKey(r), fk = folderKey(r.source, r.item_id), local = r.source === PC && !pcWrite(), open = xable(p) && p.xopen.has(fk);
   state.treeRows.set(key, r);
   // 고름·잘라 둠 표시는 누르는 단추(data-fx-row)에 둔다(paintPicks가 그 단추만 바꾼다).
   const mark = [p.picked.has(key) ? 'fx-picked' : '', state.clip?.keys.includes(key) ? 'fx-cut' : ''].filter(Boolean).join(' ');
@@ -1557,7 +1558,7 @@ function paintFocus(p, list, drawn = '') {
 // 펼쳐 보일 것(하위 폴더·파일)이 없는 폴더는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction). 그 폴더만 보기(들어가기)는 우클릭 [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기.
 // 펼친 폴더 안은 나무와 같은 읽기(state.children·state.files — loadChildren·fillFolder)를 쓰고, 그 칸 정렬 그대로 하위 폴더 → 파일 순서. 펼침은 칸마다 화면 메모리(p.xopen).
 // 찾기 결과·묶음(별표·큰 파일)은 여러 위치가 섞인 목록이라 지금처럼 누르면 들어간다.
-const xable = p => orderable(p);
+const xable = p => orderable(p) && two(); // S69-38: 그 자리 펼치기는 두 칸 보기 칸 안만
 // 폴더 줄의 펼침 표시(aria-expanded·data-fx-xkey)와 펼친 폴더 안 줄 표시(data-fx-xof = 그 폴더 열쇠 — 두 손가락 벌리기가 그 폴더로 들어간다).
 const xAttrs = (r, open, xof) => (open === null ? '' : ` aria-expanded="${open}"`) + (open ? ` data-fx-xkey="${esc(folderKey(r.source, r.item_id))}"` : '') + (xof ? ` data-fx-xof="${esc(xof)}"` : '');
 // 펼친 폴더 안 줄(아직 못 읽었으면 null). 정렬은 그 칸 정렬, 폴더는 정한 순서로 앞에(shown과 같은 규칙).
@@ -1616,7 +1617,7 @@ function xFocusHtml(p, rows, parent, depth = 0) {
     if (!r.is_folder) { html += focusFileHtml(p, r, parent, depth); continue; }
     html += focusFolderHtml(p, r, parent, depth);
     const fk = folderKey(r.source, r.item_id);
-    if (!p.xopen.has(fk) || depth >= 40) continue;
+    if (!xable(p) || !p.xopen.has(fk) || depth >= 40) continue;
     const kids = xKids(p, r);
     html += kids === null ? `<div class="ft-row ft-item" style="--ft-depth:${depth + 1}" data-fx-xof="${esc(fk)}"${dropIn(fk)}>${waitHtml({rows: 1})}</div>`
       : kids.length ? xFocusHtml(p, kids, fk, depth + 1) : `<div class="ft-row ft-item fx-xnote" style="--ft-depth:${depth + 1}" data-fx-xof="${esc(fk)}"${dropIn(fk)}>${emptyHtml('빈 폴더')}</div>`;
@@ -1643,9 +1644,11 @@ function xToggle(p, r) {
   inPane(p, `[data-fx-row="${CSS.escape(rowKey(r))}"]`)?.focus({preventScroll: true});
 }
 // 목록 칸 폴더 줄 하나 누르기(마우스·손가락·Enter 같은 길).
+// S69-38 UI-탐색기나무누르기: 한 칸(PC·폴드 탐색기 오른쪽, 폰 '그 폴더만')은 하위 폴더를 누르면 그 폴더로 들어가고 왼쪽 나무가 따라 펼침·강조(goFolder → 위치 줄 폴더 펼침).
+// 오른쪽에 나무를 다시 그리지 않는다(그 자리 펼치기는 두 칸 보기 칸 안 목록만 — 지금 그대로).
 function pressListFolder(p, r) {
   const enter = () => goFolder(r.source, r.item_id, p, {down: focusBox(p)});
-  if (!xable(p) && !focusBox(p)) { enter(); return; }
+  if (!xable(p)) { enter(); return; }
   const btn = inPane(p, `[data-fx-row="${CSS.escape(rowKey(r))}"]`);
   pressFolder(r.source, r.item_id, {open: p.xopen.has(folderKey(r.source, r.item_id)), toggle: () => xToggle(p, r), enter, busy: btn, withFiles: true});
 }
@@ -3938,7 +3941,7 @@ root?.addEventListener('click', event => {
     root.querySelector(`[data-fx-photos="${CSS.escape(key)}"]`)?.focus({preventScroll: true});
     return;
   }
-  if (b.matches('[data-fx-two]')) { setTwo(!two()); return; }
+  if (b.matches('[data-fx-two],[data-fx-one]')) { const want = b.matches('[data-fx-two]'); if (two() !== want) setTwo(want); return; }
   if (b.matches('[data-fx-fscope]')) { const p = P(); p.ff = filterSet(p.ff, 'scope', b.dataset.fxFscope); paint(); inPane(p, `[data-fx-fscope="${p.ff.scope}"]`)?.focus({preventScroll: true}); return; }
   if (b.matches('[data-fx-fdim]')) { findDimMenu(b); return; }
   if (b.matches('[data-fx-tree-tog]')) { toggleTree(); return; }
@@ -3990,19 +3993,14 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-recent-fold]')) { toggleRecentFolded('files'); paintTree(); root?.querySelector('[data-fx-recent-fold]')?.focus({preventScroll: true}); return; }
   if (b.matches('[data-fx-tfile]')) { const r = state.treeRows.get(b.dataset.fxTfile); if (r) openPreview(r); return; }
   if (b.matches('[data-fx-tmenu]')) { treeMenu(b); return; }
-  // UI-폴더누르기한규칙(S57-5): PC 나무 폴더 이름 누르기 = 그 자리 펼치기·접기(아이콘 누르기와 같음, 들어가지 않음). 들어가기 = ⋯·우클릭 [이 폴더로 들어가기]·두 손가락.
-  // 위치 줄·상자 머리 [맨 위]·같은 이름 폴더 줄처럼 나무 줄이 아닌 [data-fx-go]는 지금처럼 그 폴더로 들어간다.
+  // 위치 줄·상자 머리 [맨 위]·같은 이름 폴더 줄처럼 나무 줄이 아닌 [data-fx-go]는 그 폴더로 들어간다.
   // 두 칸 ▾ 선택 창 나무([data-fx-ptree])는 '이 칸에 열 폴더 고르기'라 눌러 고르면 그 폴더가 열리고 창이 닫힌다(그대로).
-  // OPS-빠진일2차 1: 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction, 우클릭 [이 폴더로 들어가기]와 같은 곳). 하위 폴더를 아직 모르면 먼저 읽고 정한다(pressFolder).
+  // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게'): PC·폴드 왼쪽 나무 폴더 이름 누르기 = 지금 칸을 그 폴더로(하위 폴더가 있어도),
+  // 접혀 있으면 펼침 — 공용 부품 ftExplorePress(자료실·노트·사진 나무와 같은 부품). 펼침 아이콘([data-fx-twist])은 펼치기·접기만.
   if (b.matches('[data-fx-go]')) {
-    const fold = !b.closest('[data-fx-ptree]') && b.matches('.ft-main') && b.closest('.ft-row.ft-has-tog[data-fx-fold]');
-    if (fold) {
-      const key = fold.dataset.fxFold, source = b.dataset.fxGo, id = b.dataset.fxId || null, focusMain = () => root?.querySelector(`[data-fx-fold="${CSS.escape(key)}"] .ft-main`)?.focus({preventScroll: true});
-      pressFolder(source, id, {open: state.open.has(key) && fold.querySelector(':scope > .ft-tog[aria-expanded="true"]') !== null, busy: b,
-        toggle: () => { toggle(key, fold.closest('[data-fx-tree]')); focusMain(); }, enter: () => goFolder(source, id)});
-      return;
-    }
-    goFolder(b.dataset.fxGo, b.dataset.fxId || null); return;
+    const source = b.dataset.fxGo, id = b.dataset.fxId || null;
+    if (!b.closest('[data-fx-ptree]') && b.matches('.ft-main') && b.closest('[data-fx-tree] .ft-row[data-fx-fold]')) { pressWait.clear(); ftExplorePress(b, () => goFolder(source, id)); return; }
+    goFolder(source, id); return;
   }
   if (b.matches('[data-fx-shelf]')) { goShelf(b.dataset.fxShelf); return; }
   if (b.matches('[data-fx-twist]')) { toggle(b.dataset.fxTwist, b.closest('.nx-tree')); return; }

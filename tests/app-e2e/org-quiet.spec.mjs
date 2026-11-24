@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: 홈 한 줄(폰 412·884, PC 1440). HOME-업무일지홈: 줄은 홈(업무일지) 맨 아래 [data-home-quiet],
-// 기준 주 수는 조직 보고 화면 ⋯ [data-so-quiet](MULTI-다른담당자맞춤 ⑥, 통화·텔레그램 수집이 있는 작업공간만). 가짜 이름만. 오늘 = 2026-10-06(KST).
+// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직 한 줄(폰 412·884, PC 1440). 2026-11-24 명진 요청("홈화면에서 이거 없애고, 이거는 조직 관리 화면 맨 아래로"):
+// 줄은 홈에 없고 조직 관리 목록(#soOrganizationList) 맨 아래 [data-team-quiet]. 기준 주 수는 조직 관리 ⋯ [data-so-quiet](MULTI-다른담당자맞춤 ⑥,
+// 통화·텔레그램 수집이 있는 작업공간만). 가짜 이름만. 오늘 = 2026-10-06(KST).
 // '연락' = 주요 인물과의 통화, 또는 텔레그램에서 내가 묻고 그쪽이 답한 것. 일방 전달·단체방 소식은 세지 않는다.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ORGS = [['o1', '가지부'], ['o2', '나지부'], ['o3', '다분회'], ['o4', '라지부'], ['o5', '마분회'], ['o6', '바지부'], ['o7', '사지부']];
@@ -46,7 +47,8 @@ const DM_ROOMS = [{room_key: '5005', chat_kind: 'user'}, {room_key: '7007', chat
 async function routes(page, weeks, {dm = false} = {}) {
   const raw = dm ? {...RAW, ...DM_RAW} : RAW;
   const json = (r, body) => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(body)});
-  await page.route(SB + '/rest/v1/app_suborganizations?**', r => json(r, ORGS.map(([id, name]) => ({id, name, active: true}))));
+  // 조직 한 곳 읽기(id=eq.…)는 그 조직만(상세 제목 확인용).
+  await page.route(SB + '/rest/v1/app_suborganizations?**', r => { const one = new URL(r.request().url()).searchParams.get('id'); return json(r, ORGS.filter(([id]) => !one || one === 'eq.' + id).map(([id, name]) => ({id, name, active: true}))); });
   await page.route(SB + '/rest/v1/app_suborganization_assignees?**', r => json(r, ORGS.map(([id]) => ({organization_id: id, user_id: 'home-test'}))));
   await page.route(SB + '/rest/v1/app_org_key_people?**', r => json(r, PEOPLE.map(([id, organization_id, name], i) => ({id, workspace_id: 'w', organization_id, name, match_names: [name], sort_order: i}))));
   await page.route(SB + '/rest/v1/app_tg_senders?**', r => json(r, dm ? [...SENDERS, ...DM_SENDERS] : SENDERS));
@@ -63,19 +65,33 @@ async function routes(page, weeks, {dm = false} = {}) {
   });
   return weeks;
 }
-const line = page => page.locator('#homeView [data-home-quiet]');
+const line = page => page.locator('#teamView [data-team-quiet]');
+async function openTeam(page) {
+  await page.evaluate(() => window.KPTURouter.go('team'));
+  await expect(page.locator('#teamView')).toBeVisible();
+  await expect(page.locator('#soOrganizationList [data-so-org]').first()).toBeVisible();
+}
+const noHomeLine = async page => {
+  await expect(page.locator('#homeView [data-home-quiet], #homeView [data-team-quiet], #homeView .oq-line')).toHaveCount(0);
+};
 
 for (const [width, phone] of [[412, true], [884, false], [1440, false]]) {
-  test(`연락 없는 조직 한 줄 ${width}`, async ({page}) => {
+  test(`연락 없는 조직 한 줄은 조직 관리 맨 아래 ${width}`, async ({page}) => {
     await page.setViewportSize({width, height: 900});
     await openHome(page, {beforeLoad: () => routes(page)});
+    await expect(page.locator('#homeView [data-journal-schedule]')).toBeVisible();
+    // 홈에는 이 줄이 없다(그리지도 않음).
+    await page.waitForTimeout(600);
+    await noHomeLine(page);
+    await openTeam(page);
     const q = line(page);
     await expect(q).toBeVisible();
     await expect(q.locator('.oq-text')).toHaveText('3주째 연락 없음: 가지부 25일 · 나지부 40일 · 사지부 62일 외 1곳');
-    // 자리: 홈 맨 아래(그날 재료·주간 정리 뒤, #journalRoot의 마지막 칸)
-    expect(await page.locator('#journalRoot > :last-child').getAttribute('data-home-quiet')).toBe('');
-    const day = await page.locator('#journalRoot [data-journal-day]').boundingBox(), qb = await q.boundingBox();
-    expect(qb.y).toBeGreaterThan(day.y + day.height - 1);
+    // 자리: 조직 관리 목록의 마지막 칸(참고 묶음 줄 뒤), 마지막 조직 줄보다 아래.
+    expect(await page.locator('#soOrganizationList > :last-child').getAttribute('data-team-quiet')).toBe('');
+    const lastRow = await page.locator('#soOrganizationList [data-so-org]').last().boundingBox(), qb = await q.boundingBox();
+    expect(qb.y).toBeGreaterThan(lastRow.y + lastRow.height - 1);
+    await noHomeLine(page);
     // 펼치기
     await q.locator('[data-oq-toggle]').click();
     await expect(q.locator('[data-oq-toggle]')).toHaveAttribute('aria-expanded', 'true');
@@ -89,36 +105,50 @@ for (const [width, phone] of [[412, true], [884, false], [1440, false]]) {
     await expect(q).not.toContainText('라지부');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const box = await q.locator('.oq-line').boundingBox();
-    expect(box.height).toBeLessThanOrEqual(36);
+    if (width !== 884) expect(box.height).toBeLessThanOrEqual(36);
+    // 좁은 목록 칸(PC 884)에서도 접힌 줄의 이름이 잘려 숨지 않는다(모두 줄 안에 보이고 누를 수 있다).
+    await q.locator('[data-oq-toggle]').click();
+    for (const b of await q.locator('.oq-text .oq-org').all()) {
+      const r = await b.boundingBox();
+      expect(r.x).toBeGreaterThanOrEqual(qb.x - 1);
+      expect(r.x + r.width).toBeLessThanOrEqual(qb.x + qb.width + 1);
+    }
+    await q.locator('[data-oq-toggle]').click();
+    if (process.env.KPTU_SHOTS) await page.screenshot({path: `docs/design/screens/org-quiet-team-${width}.png`});
     // 키보드로 접기
     await q.locator('[data-oq-toggle]').focus();
     await page.keyboard.press('Enter');
     await expect(q.locator('.oq-list')).toBeHidden();
-    // 이름을 누르면 담당조직으로
-    await q.locator('.oq-text [data-oq-org="o1"]').click();
-    await expect.poll(() => page.evaluate(() => window.KPTURouter.current)).toBe('team');
+    // 목록을 다시 그려도 같은 자리(맨 끝)에 남는다.
+    await page.evaluate(() => window.dispatchEvent(new Event('kptu:basket-links-changed')));
+    await expect(q.locator('.oq-text')).toHaveText('3주째 연락 없음: 가지부 25일 · 나지부 40일 · 사지부 62일 외 1곳');
+    // 이름을 누르면 그 담당조직 상세
+    await q.locator('.oq-text [data-oq-org="o2"]').click();
+    await expect(page.locator('#wdTitle')).toHaveText('나지부');
+    if (!phone) await expect(page.locator('#soOrganizationList [data-so-org="o2"]')).toHaveClass(/is-selected/);
+    if (phone) await expect(page.locator('#wdModal')).toBeVisible();
+    expect(await page.evaluate(() => window.KPTURouter.current)).toBe('team');
   });
 }
 
-// MULTI-다른담당자맞춤 ⑥: 기준은 조직 보고 ⋯에서 선택(내 프로필에는 없음). 값은 그대로 서버 화면 기억 quiet_weeks.
+// MULTI-다른담당자맞춤 ⑥: 기준은 조직 관리 ⋯에서 선택(내 프로필에는 없음). 값은 그대로 서버 화면 기억 quiet_weeks.
 const SBQ = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 async function teamMenu(page) {
-  await page.evaluate(() => window.KPTURouter.go('team'));
-  await expect(page.locator('#teamView')).toBeVisible();
+  await openTeam(page);
   await page.locator('#soTeamMore').click();
   return page.locator('#soTeamMenu');
 }
-test('기준 주 수는 조직 보고 ⋯에서 선택하고 서버에 저장한다(끄기면 줄 없음)', async ({page}) => {
+test('기준 주 수는 조직 관리 ⋯에서 선택하고 서버에 저장한다(끄기면 줄 없음)', async ({page}) => {
   await page.setViewportSize({width: 412, height: 900});
   const home = await openHome(page, {beforeLoad: async () => { await routes(page); await page.route(u => u.origin === SBQ && u.pathname === '/rest/v1/rpc/app_my_features', r => r.fulfill({json: ['calls']})); }});
-  await expect(line(page)).toBeVisible();
   // 내 프로필에는 기준 칸이 없다.
   await page.evaluate(() => window.KPTURouter.go('profile'));
   await expect(page.locator('#profileView')).toBeVisible();
   await expect(page.locator('[data-ps-quiet]')).toHaveCount(0);
   let menu = await teamMenu(page);
+  await expect(line(page)).toBeVisible();
   const seg = menu.locator('.so-quiet-seg');
-  await expect(menu.locator('.so-menu-label')).toHaveText("홈 '연락 없는 조직' 기준");
+  await expect(menu.locator('.so-menu-label')).toHaveText("'연락 없는 조직' 기준");
   await expect(seg.locator('[aria-pressed="true"]')).toHaveText('3주');
   await expect(seg.locator('button')).toHaveText(['2주', '3주', '4주', '6주', '끄기']);
   await seg.locator('[data-so-quiet="6"]').click();
@@ -127,15 +157,12 @@ test('기준 주 수는 조직 보고 ⋯에서 선택하고 서버에 저장한
   await expect(menu.locator('.so-quiet-seg [aria-pressed="true"]')).toHaveText('6주');
   await menu.locator('[data-so-quiet="0"]').click();
   await expect.poll(() => home.prefs.value?.quiet_weeks).toBe(0);
-  await page.evaluate(() => window.KPTURouter.go('home'));
-  await expect(page.locator('#homeView')).toBeVisible();
   await expect(line(page)).toBeHidden();
   menu = await teamMenu(page);
   await menu.locator('[data-so-quiet="6"]').click();
-  await page.evaluate(() => window.KPTURouter.go('home'));
   await expect(line(page).locator('.oq-text')).toHaveText('6주째 연락 없음: 사지부 62일 · 마분회 180일+');
 });
-test('통화·텔레그램 수집이 없는 작업공간은 조직 보고 ⋯에 기준 칸이 없다', async ({page}) => {
+test('통화·텔레그램 수집이 없는 작업공간은 조직 관리 ⋯에 기준 칸이 없다', async ({page}) => {
   await page.setViewportSize({width: 1280, height: 900});
   await openHome(page, {beforeLoad: async () => { await routes(page); await page.route(u => u.origin === SBQ && u.pathname === '/rest/v1/rpc/app_my_features', r => r.fulfill({json: []})); }});
   const menu = await teamMenu(page);
@@ -143,7 +170,7 @@ test('통화·텔레그램 수집이 없는 작업공간은 조직 보고 ⋯에
   await expect(menu.locator('.so-quiet-seg, .so-menu-label')).toHaveCount(0);
 });
 
-test('S67-51: 통화·텔레그램 수집이 없는 사람은 주요 인물이 있어도 홈에 연락 없는 조직 줄이 없고 통화를 읽지 않는다', async ({page}) => {
+test('S67-51: 통화·텔레그램 수집이 없는 사람은 주요 인물이 있어도 연락 없는 조직 줄이 없고 통화를 읽지 않는다', async ({page}) => {
   await page.setViewportSize({width: 412, height: 900});
   let feedReads = 0;
   await openHome(page, {beforeLoad: async () => {
@@ -151,11 +178,30 @@ test('S67-51: 통화·텔레그램 수집이 없는 사람은 주요 인물이 �
     await page.route(u => u.origin === SBQ && u.pathname === '/rest/v1/rpc/app_my_features', r => r.fulfill({json: ['files']}));
     await page.route(SB + '/rest/v1/app_feed_items?**', r => (/source=eq\.call.*counterpart,organization_id,points/.test(r.request().url()) && (feedReads += 1), r.fulfill({status: 200, contentType: 'application/json', body: '[]'})));
   }});
-  await expect(page.locator('#homeView [data-journal-schedule]')).toBeVisible();
+  await openTeam(page);
   await page.waitForTimeout(800);
   await expect(line(page)).toBeHidden();
   await expect(line(page)).toBeEmpty();
   expect(feedReads).toBe(0);
+});
+
+test('대상 조직이 없으면 줄 자체가 보이지 않는다', async ({page}) => {
+  await page.setViewportSize({width: 412, height: 900});
+  let calls = 0;
+  await openHome(page, {beforeLoad: async () => {
+    await routes(page);
+    // 모든 조직과 어제 통화 → 조용한 조직 없음
+    await page.route(SB + '/rest/v1/app_feed_items?**', r => {
+      const source = new URL(r.request().url()).searchParams.get('source');
+      if (source === 'eq.call') calls += 1;
+      return r.fulfill({json: source === 'eq.call' ? PEOPLE.map(([, , name], i) => ({id: 'y' + i, workspace_id: 'w', source: 'call', day: '2026-10-05', occurred_at: '2026-10-05T01:00:00Z', counterpart: name, title: '통화'})) : []});
+    });
+  }});
+  await openTeam(page);
+  await expect.poll(() => calls).toBeGreaterThan(0);
+  await page.waitForTimeout(400);
+  await expect(line(page)).toBeHidden();
+  await expect(line(page)).toBeEmpty();
 });
 
 test('하나라도 읽기에 실패하면 줄을 그리지 않는다', async ({page}) => {
@@ -165,7 +211,7 @@ test('하나라도 읽기에 실패하면 줄을 그리지 않는다', async ({p
     await routes(page);
     await page.route(SB + '/rest/v1/app_tg_day_senders?**', r => (failed = true, r.fulfill({status: 500, contentType: 'application/json', body: '{"message":"QA"}'})));
   }});
-  await expect(page.locator('#homeView [data-journal-schedule]')).toBeVisible();
+  await openTeam(page);
   await expect.poll(() => failed).toBe(true);
   await expect(line(page)).toBeHidden();
   await expect(line(page)).toBeEmpty();
@@ -174,6 +220,7 @@ test('하나라도 읽기에 실패하면 줄을 그리지 않는다', async ({p
 test('1:1 방은 상대가 쓴 글로 센다(나만 보낸 날·전달 글·단체방 상대 글은 세지 않음)', async ({page}) => {
   await page.setViewportSize({width: 412, height: 900});
   await openHome(page, {beforeLoad: () => routes(page, undefined, {dm: true})});
+  await openTeam(page);
   const q = line(page);
   await expect(q.locator('.oq-text')).toHaveText('3주째 연락 없음: 가지부 25일 · 나지부 40일 · 사지부 62일');
   await q.locator('[data-oq-toggle]').click();
@@ -190,12 +237,12 @@ test('통화를 잠그면 연락 없는 조직은 "잠김" 한 줄 412', async (
     await page.route(SB + '/rest/v1/rpc/app_lock_read*', r => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({has_pin: true, features: ['calls'], relock: '5m', left: 5, blocked_until: null})}));
     await page.route(SB + '/rest/v1/rpc/app_lock_check*', r => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(r.request().postDataJSON()?.p_pin === '1234' ? {ok: true, left: 5, blocked_until: null} : {ok: false, left: 4, blocked_until: null})}));
   }});
+  await openTeam(page);
   const q = line(page);
   await expect(q.locator('[data-oq-locked]')).toHaveText('연락 없는 조직 · 잠김 풀기');
   await expect(q).not.toContainText('가지부');
   await expect(q).not.toContainText('25일');
-  // S67-25: [풀기] → 그 자리 PIN 창(홈을 떠나지 않음) → 맞으면 같은 자리에 조직 이름이 보인다.
-  if (process.env.KPTU_SHOTS) await page.screenshot({path: 'docs/design/screens/s67-25/home-quiet-locked-412.png'});
+  // S67-25: [풀기] → 그 자리 PIN 창(화면을 떠나지 않음) → 맞으면 같은 자리에 조직 이름이 보인다.
   await q.locator('button.lk-open').click();
   const here = page.locator('dialog.lk-here');
   await expect(here.locator('.lk-title')).toHaveText('통화·텔레그램 잠김');
@@ -203,5 +250,5 @@ test('통화를 잠그면 연락 없는 조직은 "잠김" 한 줄 412', async (
   await expect(here).toHaveCount(0);
   await expect(q.locator('[data-oq-locked]')).toHaveCount(0);
   await expect(q).toContainText('가지부');
-  expect(await page.evaluate(() => window.KPTURouter.current)).toBe('home');
+  expect(await page.evaluate(() => window.KPTURouter.current)).toBe('team');
 });

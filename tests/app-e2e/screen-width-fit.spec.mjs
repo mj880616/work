@@ -37,9 +37,17 @@ const overflow=page=>page.evaluate(()=>{
   const wide=[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>w+1&&getComputedStyle(e).position!=='fixed'}).slice(0,4).map(name);
   return `scrollWidth ${root.scrollWidth} > ${w}; ${wide.join(', ')}`;
 });
+// STAB-화면폭시험(S69-25): 화면 바꾸기는 페이지 안에서 시작만 하고(evaluate는 곧바로 돌아옴) 끝났는지는 waitForFunction으로 본다.
+// 전에는 화면 프로그램 받기(KPTUViewLoader.load)를 기다리는 evaluate 하나를 앱이 막 켜진 직후 수백 ms 붙들고 있다가, 화면 이동이 없었는데도
+// (주소·기록·문서 그대로, 화면은 이미 home) 그 evaluate의 답이 'Execution context was destroyed'로 끊겨 가끔 실패했다(CI에서만, 첫 화면 home).
+// waitForFunction은 답이 끊기면 다시 물어 끝을 확인한다. 기다리는 시간·재시도 횟수는 늘리지 않았다(시험 시간 한도 그대로).
 async function openView(page,view){
-  const opened=await page.evaluate(async v=>{try{await window.KPTUViewLoader?.load?.(v);window.KPTURouter.go(v);return true}catch{return false}},view);
-  if(!opened)return false;
+  await page.evaluate(v=>{
+    const run={view:v,state:'loading'};window.__kptuWidthOpen=run;
+    Promise.resolve().then(()=>window.KPTUViewLoader?.load?.(v)).then(()=>{window.KPTURouter.go(v);run.state='ok'}).catch(()=>{run.state='fail'});
+  },view);
+  const state=await page.waitForFunction(v=>{const run=window.__kptuWidthOpen;return run?.view===v&&run.state!=='loading'&&run.state},view).then(h=>h.jsonValue());
+  if(state!=='ok')return false;
   const box=page.locator(`#${view}View`).first();
   if(await box.count())await box.waitFor({state:'visible',timeout:8000}).catch(()=>{});
   await page.waitForTimeout(300);
