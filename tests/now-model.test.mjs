@@ -154,6 +154,19 @@ test('매체 거르기: 사회운동 키 · 언론 키(고른 쪽이 아니면 �
   assert.deepEqual(newsKeysOf('s:kctu', nc), []);
 });
 
+test('S69 사설·칼럼 묶음: 매체 고르기에 [사설·칼럼] 한 칸(언론 국내 다음), 고르면 사설·칼럼 매체만 거른다', () => {
+  const nc = [{key: 'news-a', name: '가상일보', region: 'domestic'}, {key: 'news-a-opinion', name: '가상일보 사설·칼럼', region: 'opinion'},
+    {key: 'news-c-opinion', name: '나상신문 사설·칼럼', region: 'opinion'}, {key: 'news-b', name: 'Fake Times', region: 'foreign'}];
+  const rows = mediaRows({tab: 'media', nc, non: ['news-a', 'news-a-opinion', 'news-c-opinion', 'news-b']}).all;
+  assert.deepEqual(rows.map(r => r.id), ['all', 'r:domestic', 'n:news-a', 'r:opinion', 'n:news-a-opinion', 'n:news-c-opinion', 'r:foreign', 'n:news-b']);
+  assert.equal(rows.find(r => r.id === 'r:opinion').name, '사설·칼럼');
+  assert.equal(mediaName('r:opinion'), '사설·칼럼');
+  assert.deepEqual(newsKeysOf('r:opinion', nc), ['news-a-opinion', 'news-c-opinion']);
+  assert.deepEqual(newsKeysOf('r:domestic', nc), ['news-a'], '언론 국내에는 사설·칼럼이 섞이지 않음');
+  // 꺼 둔 사설·칼럼 매체는 줄에 없고, 다 끄면 묶음도 없다.
+  assert.ok(!mediaRows({tab: 'media', nc, non: ['news-a']}).all.some(r => r.id === 'r:opinion'));
+});
+
 test('[전체] 한 줄: 시각 최신 순, 시각 모르는 글은 맨 뒤', () => {
   const m = mergeFeed([{id: 'p1', at: '2026-11-06T00:00:00Z'}, {id: 'p2', at: ''}], [{id: 'n1', at: '2026-11-06T01:00:00Z'}]);
   assert.deepEqual(m.map(x => `${x.type}:${x.id}`), ['news:n1', 'outside:p1', 'outside:p2']);

@@ -43,7 +43,7 @@ for (const width of [412, 884, 1440]) {
     await expect(e1).toHaveAttribute('style', /--nw-c:var\(--ds-news-press-[1-4]\)/);
     await expect(c1.locator('.nw-tag')).toHaveCount(0);
     // 대기 줄: 주소의 도메인.
-    await expect(item(page, 'w1').locator('.nw-title')).toHaveText('제목 읽기 전 · example.org');
+    await expect(item(page, 'w1').locator('.nw-title')).toHaveText('못 읽은 기사 · example.org'); // S69: '제목 읽기 전' 없음 — 주소 조각이 없으면 '못 읽은 기사 · 도메인'
     // 위 찾기 칸(S63-11): 서버 찾기 — 최근 30일 기사 + 별표 기사의 제목·한국어 제목·요약(지금 목록에 없는 기사도).
     await page.locator('#outsideRoot [data-nw-find]').fill('유료');
     await expect(items(page)).toHaveCount(1);
@@ -201,7 +201,7 @@ test('PC News: 목록이 오기 전에 연 ⋯ 메뉴는 목록이 와도 닫히
 // 읽지 못하면 AI를 부르지 않고 이유·[다시]·[원래 사이트 ↗]만 보인다. 저장 원문(app_feed_bodies) 줄이 없는 옛 기사만 이 길(S51-14).
 const NOW_DETAIL = { ok: true, kind: 'now_detail', detail: { level: 'full', summary: '가짜 기사 한 줄 요약입니다.', key_sentences: [{ orig: '가짜 본문 첫 문단.', ko: null }], relevance: null, implications: null, related: [], generated_at: '2026-10-06T01:00:00Z', context_at: null }, stale: false };
 for (const width of [412, 1440]) {
-  test(`뉴스 상세 ${width}: 제목 읽기 전 기사를 누르면 먼저 읽고 요약 상세가 뜬다`, async ({ page }) => {
+  test(`뉴스 상세 ${width}: 제목 없는 대기 기사를 누르면 먼저 읽고 요약 상세가 뜬다`, async ({ page }) => {
     test.setTimeout(60000);
     const { errors, server } = await start(page, width);
     const order = [];

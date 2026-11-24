@@ -41,3 +41,6 @@
 }
 @media(max-width:760px){#readingView .rd-row{padding:7px 0}#readingView .rd-meta{max-width:9em}}
 /* S68-24 News에서 보관한 글 줄(꼬리표 'News', 점 없음 — 안 읽음 셈에 들지 않음). 출처 꼬리표는 사업영역 꼬리표보다 옅게. */
+/* S69-BM: PC 크롬 저장 버튼 줄(넓은 화면·마우스에서만 그려짐) — 한 줄 작은 글자. */
+#readingView .rd-bm{display:flex;align-items:center;gap:6px;white-space:nowrap}
+#readingView .rd-bm-link{color:var(--kptu-link);cursor:grab}

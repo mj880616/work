@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createSelectMode} from '../app/select-mode.js';
-import {folderTrail, folderPathHtml} from '../app/folder-path.mjs';
+import {folderTrail, folderPathHtml, collapseSteps} from '../app/folder-path.mjs';
 
 // NOTE-탐색기 후속 ⑦: 자료실·노트가 같은 선택 상태 부품을 쓴다.
 test('select mode: start, toggle, shift range from the anchor, prune, stop', () => {
@@ -89,4 +89,17 @@ test('the library and the note screen draw the path with the shared part and one
   assert.match(readFileSync('app/base-ui.css', 'utf8'), /\.fp-path\{display:flex/);
   assert.doesNotMatch(readFileSync('app/library-upload.css', 'utf8'), /\.lu-path/);
   assert.doesNotMatch(readFileSync('app/basket.css', 'utf8'), /\.nx-where/);
+});
+
+// S69-19: 위치 줄이 길면 가운데를 '…' 하나로. 가려진 단계는 hidden 단추로 남아 '…' 목록에서 고르면 같은 처리를 탄다.
+test('a long path keeps the first step and the last two, with one … in the middle', () => {
+  const steps = ['r', 'a', 'b', 'c', 'd'].map(id => ({id, name: id.toUpperCase()}));
+  assert.deepEqual(collapseSteps(steps.slice(0, 4)).hidden, []);
+  const c = collapseSteps(steps);
+  assert.deepEqual([c.head, c.hidden, c.tail].map(x => x.map(s => s.id)), [['r'], ['a', 'b'], ['c', 'd']]);
+  assert.deepEqual(collapseSteps(steps, {max: 3, tail: 1}).hidden.map(s => s.id), ['a', 'b', 'c']);
+  const html = folderPathHtml({rootLabel: '자료실', trail: steps.slice(1).map(s => ({id: s.id, name: s.name})), attr: 'data-lu-path', esc});
+  assert.match(html, /^<button type="button" class="fp-step" data-lu-path="">자료실<\/button><span class="fp-sep" aria-hidden="true">›<\/span><button type="button" class="icon-btn fp-more" data-fp-more /);
+  assert.match(html, /<button type="button" class="row-act fp-step" data-lu-path="a" data-fp-hidden hidden>A<\/button>/);
+  assert.match(html, /<button type="button" class="fp-step" data-lu-path="c">C<\/button><span class="fp-sep" aria-hidden="true">›<\/span><span class="fp-here" aria-current="location">D<\/span>$/);
 });
