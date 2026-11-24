@@ -167,6 +167,28 @@ test.describe('폰 390 길게 누르기',()=>{
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     expect(errors).toEqual([]);
   });
+  // S69-74: 메뉴(줄 ⋯·폴더 ⋯)를 Esc로 닫자마자 Esc로 선택 모드를 끄면, 메뉴의 뒤로가기와 선택 모드 겹의 뒤로가기가 겹쳐 자료실 밖(앞 화면)까지 갔다.
+  // 두 Esc를 한 번에(뒤로가기가 도착하기 전) 보내도 자료실·목록 그대로, 선택 모드만 꺼진다.
+  test('메뉴를 닫은 바로 뒤 선택 모드를 꺼도 자료실에 그대로(줄 ⋯·폴더 ⋯)',async({page})=>{
+    const {errors}=await bootLibrary(page,390,{folders:FOLDERS,items:ITEMS,group:'폴더'});
+    await expandLibraryTree(page);
+    const cdp=await page.context().newCDPSession(page);
+    const twoEsc=()=>page.evaluate(()=>{const k=()=>document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));k();k()});
+    for(const menu of [{open:row('a1-1')+' [data-lu-menu]',panel:'#luMorePanel'},{open:head('f:fa')+' [data-lu-node-menu]',panel:'#luFolderMenu'}]){
+      const from=await centerView(page,row('a1-1')+' .lu-row-title');
+      await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);await touch(cdp,'touchEnd',[]);
+      await expect(page.locator('#librarySelectBar')).toBeVisible();
+      await page.locator(menu.open).click();
+      await expect(page.locator(menu.panel)).toBeVisible();
+      await twoEsc();
+      await expect(page.locator('#librarySelectBar')).toBeHidden();
+      await expect(page.locator(menu.panel)).toBeHidden();
+      await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('library');
+      await expect(page.locator('#libraryView')).toBeVisible();
+      await expect(page.locator(row('a1-1'))).toBeVisible();
+    }
+    expect(errors).toEqual([]);
+  });
 });
 
 // LIB-정리보충 ④(10:41): 열린 폴더 안의 자료 줄 위에 놓아도 그 폴더로(놓일 폴더 전체를 칠함), '폴더 밖' 자료 줄이면 폴더 밖으로.
