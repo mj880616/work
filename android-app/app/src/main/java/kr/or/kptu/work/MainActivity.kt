@@ -350,6 +350,7 @@ class MainActivity : ComponentActivity() {
                 else if (data == "write:hello") writeReply = reply
                 else if (data == "pull:on" || data == "pull:off") pullOn = data == "pull:on"
                 else if (data.startsWith("reopen:")) onReopenMessage(data, reply)
+                else if (data.startsWith("update:")) onUpdateMessage(data, reply)
             }
         }
 
@@ -1763,21 +1764,63 @@ class MainActivity : ComponentActivity() {
         updateBar.addView(updateClose)
     }
 
-    /** force: 처음 열 때(간격 무시). 아니면 onResume에서 10분 간격. 어느 쪽이든 확인 중이면 다시 시작하지 않는다(UpdateRules.shouldCheck). */
-    private fun checkForUpdate(force: Boolean) {
+    /**
+     * S69-34: 계정 메뉴 '앱 정보' [업데이트 확인](app/app-info.js). 직접 설치판은 아래 새 판 확인을 바로(간격 무시) 부르고 결과를 한 줄로 돌려준다.
+     * 플레이 판은 스스로 받지 않고(플레이 정책) 플레이 스토어의 이 앱 페이지를 연다. update:get은 위쪽 줄 단추와 같은 일.
+     */
+    private fun onUpdateMessage(data: String, reply: JavaScriptReplyProxy) {
+        val ask = UpdateRules.ask(data) ?: return
+        val say: (String) -> Unit = { text ->
+            try {
+                reply.postMessage(text)
+            } catch (_: Exception) {
+            }
+        }
+        if (!BuildConfig.SELF_UPDATE) {
+            openStore()
+            say(UpdateRules.SAY_STORE)
+            return
+        }
+        when (ask) {
+            UpdateRules.Ask.CHECK -> if (!checkForUpdate(true, say)) say(UpdateRules.SAY_BUSY)
+            UpdateRules.Ask.GET -> {
+                updateClosedFor = null
+                renderUpdate()
+                onUpdateTap()
+            }
+        }
+    }
+
+    private fun openStore() {
+        val id = BuildConfig.APPLICATION_ID
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateRules.storeUri(id))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: ActivityNotFoundException) {
+            openTab(Uri.parse(UpdateRules.storeWebUrl(id)))
+        }
+    }
+
+    /**
+     * force: 처음 열 때(간격 무시). 아니면 onResume에서 10분 간격. 어느 쪽이든 확인 중이면 다시 시작하지 않는다(UpdateRules.shouldCheck).
+     * S69-34: answer가 있으면(계정 메뉴 [업데이트 확인]) 결과 한 줄을 돌려준다. 시작하지 않았으면 false.
+     */
+    private fun checkForUpdate(force: Boolean, answer: ((String) -> Unit)? = null): Boolean {
         // S62-34: 플레이 판은 플레이가 업데이트한다. GitHub 릴리스를 보지도 받지도 않는다.
-        if (!BuildConfig.SELF_UPDATE) return
-        if (!UpdateCheck.begin(System.currentTimeMillis(), force)) return
+        if (!BuildConfig.SELF_UPDATE) return false
+        if (!UpdateCheck.begin(System.currentTimeMillis(), force)) return false
         val current = BuildConfig.VERSION_NAME
         Thread {
-            val found = try {
-                UpdateCheck.fetch(current)
+            val result = try {
+                UpdateCheck.ask(current)
             } finally {
                 UpdateCheck.end()
             }
+            val found = result.release
+            answer?.let { tell -> runOnUiThread { if (alive) tell(UpdateRules.answer(result.failed, found, current)) } }
             if (found == null) return@Thread
             runOnUiThread {
                 if (!alive) return@runOnUiThread
+                if (answer != null) updateClosedFor = null
                 updateUrl = found.url
                 // 앱 안에서 받아 설치한다(AppUpdater). 어긋나면 FAILED → 예전처럼 [받기](브라우저).
                 // 같은 판을 다시 찾으면 AppUpdater.found가 건너뛴다(받는 중·설치 준비됨·실패 그대로, IDLE일 때만 새로 시작).
@@ -1785,6 +1828,7 @@ class MainActivity : ComponentActivity() {
                 renderUpdate()
             }
         }.apply { isDaemon = true }.start()
+        return true
     }
 
     /** 위쪽 새 버전 줄(UpdateRules.barText). */

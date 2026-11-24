@@ -172,6 +172,8 @@ on:
       - 'tests/menu-model.test.mjs'
       - 'tests/help-content.test.mjs'
       - 'tests/phone-app-download.test.mjs'
+      - 'tests/app-info-model.test.mjs'
+      - 'app/app-info-model.mjs'
       - 'scripts/phone-app-latest.mjs'
       - 'tests/phone-app-play-flavor.test.mjs'
       - 'android-app/app/build.gradle'
@@ -454,6 +456,8 @@ on:
       - 'tests/menu-model.test.mjs'
       - 'tests/help-content.test.mjs'
       - 'tests/phone-app-download.test.mjs'
+      - 'tests/app-info-model.test.mjs'
+      - 'app/app-info-model.mjs'
       - 'scripts/phone-app-latest.mjs'
       - 'tests/phone-app-play-flavor.test.mjs'
       - 'android-app/app/build.gradle'
@@ -1241,6 +1245,9 @@ jobs:
 
       - name: APP-앱내려받기버튼 최신 폰 앱 APK 고르기·로그인/메뉴 내려받기 계획
         run: node --test tests/phone-app-download.test.mjs
+
+      - name: APP-업데이트확인 계정 메뉴 앱 정보 판 비교·폰 앱 다리 답
+        run: node --test tests/app-info-model.test.mjs
 
       - name: APP-플레이스토어비공개테스트 폰 앱 두 판(github·play) 앱 ID·권한·로그인 복귀·play-bundle 확인
         run: node --test tests/phone-app-play-flavor.test.mjs

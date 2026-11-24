@@ -74,6 +74,7 @@
 처음 설치: GitHub 릴리스 `phone-app-v<버전>`의 `web2-phone-<버전>.apk`를 폰 브라우저로 받아 누른다. **0.3.7 이하에서 0.3.8로는 마지막으로 한 번 브라우저로 받아 설치한다**(0.3.7 이하는 앱 안 설치 기능이 없다). 0.3.8부터는 다음 판을 앱이 스스로 받는다.
 
 - 확인: 앱을 열 때 공개 릴리스 목록(로그인·토큰 없음)에서 지금보다 새 판을 찾는다(`UpdateRules.pick`). S68-15: 앱을 닫지 않고 다른 앱에 다녀와도(onResume) 마지막 확인에서 10분이 지났고 확인 중이 아니면 다시 찾는다(`UpdateRules.shouldCheck`, 같은 판이면 받기를 다시 시작하지 않음 `UpdateRules.sameRelease`). 초안·미리보기, 다른 저장소·다른 태그 자산, 크기 0·64MB 넘는 자산은 뺀다.
+- S69-34(0.5.28): 웹 계정 메뉴 '앱 정보' [업데이트 확인]이 다리 `update:check`로 같은 확인을 바로(간격 무시) 부른다. 답은 `update:new:<버전>`·`update:latest:<지금 버전>`·`update:busy`·`update:fail`(`UpdateRules.answer`). 새 판이면 위쪽 줄도 다시 보이고, 웹 [받기]는 `update:get`(위쪽 줄 단추와 같은 일). 플레이 판은 스스로 받지 않고 플레이 스토어의 이 앱 페이지를 열고 `update:store`로 답한다.
 - 받기(`AppUpdater`): 앱 전용 공간 `noBackupFilesDir/update/web2-phone-<버전>.apk`에 받는다. 첫 주소는 `https://github.com/mj880616/work/releases/download/phone-app-v<버전>/…apk`만, 넘김(302)은 자동으로 따라가지 않고 한 번씩 허용 목록(`objects.githubusercontent.com`·`release-assets.githubusercontent.com`, https·기본 포트)만 따라간다(5번까지). 받는 동안 릴리스 정보의 크기를 넘으면 멈추고, 다 받으면 크기·sha256(릴리스 `digest`가 있을 때)을 맞춘다.
 - 확인(설치 전): 받은 APK를 `PackageManager`로 열어 앱 ID `kr.or.kptu.work`, 버전 이름 = 릴리스 버전, 버전 번호 > 지금, 서명 인증서 SHA-256 묶음 = 지금 앱 서명(`UpdateRules.sameSigner`)을 본다. 설치 직전에 한 번 더 본다.
 - 처음 한 번 '이 앱에서 설치 허용': 위쪽 줄 '처음 한 번 설치 허용 필요 [허용하기]' → 안내 창(1. [설정 열기] 2. '이 출처 허용' 켜기 3. 뒤로가기) → 설정 화면(`ACTION_MANAGE_UNKNOWN_APP_SOURCES`, 이 앱 자리)이 바로 열린다. 돌아오면 이어서 설치한다.
