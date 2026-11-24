@@ -16,7 +16,7 @@ export function createSameContent({api,esc,onDone,reconnect}){
   const $=s=>root.querySelector(s);
   function ensure(){
     if(root)return root;
-    document.body.insertAdjacentHTML('beforeend',`<div id="librarySameModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="librarySameTitle"><div class="modal-card small-card lu-di-card"><div class="modal-head"><div><h2 id="librarySameTitle">${SAME_LABEL}</h2><p id="librarySameSub" class="lu-di-sub" aria-live="polite"></p></div><button class="icon-btn" type="button" data-sc-close aria-label="닫기">×</button></div><div class="lu-di-list" id="librarySameList"></div><p class="status" id="librarySameStatus" role="status"></p><div class="modal-action-footer"><button class="secondary" type="button" data-sc-undo hidden>되돌리기</button><button class="secondary" type="button" data-sc-close>닫기</button><button class="primary" type="button" data-sc-apply disabled>정리하기</button></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend',`<div id="librarySameModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="librarySameTitle"><div class="modal-card small-card lu-di-card"><div class="modal-head"><div><h2 id="librarySameTitle">${SAME_LABEL}</h2><p id="librarySameSub" class="lu-di-sub" aria-live="polite"></p></div><button class="icon-btn" type="button" data-sc-close aria-label="닫기">×</button></div><div class="lu-di-list" id="librarySameList"></div><p class="status" id="librarySameStatus" role="status"></p><div class="modal-action-footer"><span data-sc-undo-slot style="display:contents"></span><button class="secondary" type="button" data-sc-close>닫기</button><button class="primary" type="button" data-sc-apply disabled>정리하기</button></div></div></div>`);
     root=document.querySelector('#librarySameModal');
     root.addEventListener('click',onClick);
     return root;
@@ -32,7 +32,10 @@ export function createSameContent({api,esc,onDone,reconnect}){
   function buttons(){
     const b=$('[data-sc-apply]'),n=todo();
     b.disabled=busy||!n;b.textContent=busy?'정리하는 중…':'정리하기';
-    const u=$('[data-sc-undo]');u.hidden=!undos.length;u.disabled=busy;
+    // [되돌리기]는 되돌릴 정리가 있을 때만 그린다(폰 화면 단추 모양 규칙이 hidden 속성을 덮어쓰는 일을 피함).
+    const slot=$('[data-sc-undo-slot]'),want=undos.length>0;
+    if(want!==!!slot.firstChild)slot.innerHTML=want?'<button class="secondary" type="button" data-sc-undo>되돌리기</button>':'';
+    const u=$('[data-sc-undo]');if(u)u.disabled=busy;
   }
   const line=(d,mark)=>`<div class="lu-di-row"><span class="lu-di-note">${mark}</span><span class="lu-di-name">${esc(d.title)}</span><span class="lu-di-meta">${esc(d.path)}</span></div>`;
   function paint(){
