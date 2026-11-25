@@ -369,7 +369,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const listGrid = cols => ['var(--nl-w-title,minmax(0,1fr))', ...cols.map(k => `var(--nl-w-${k},${LIST_COL_WIDTH[k]}px)`)].join(' ');
   // ①-2: 머리 칸 = 공용 head-sort.mjs headCellHtml(누르면 그 칸 정렬, 다시 누르면 반대, ▲/▼·aria-sort). 태그·공유 칸은 정렬하지 않는다. 너비 손잡이는 버튼 밖이라 끌어도 정렬되지 않는다.
   const LIST_HEAD_SORT = {title:'title', folder:'folder', day:'changed', made:'created', clip:'clip', memo:'memo', chars:'chars'};
-  const COLS_BTN = `<button type="button" class="nl-cols-btn" data-nl-cols-menu aria-label="보일 칸" title="보일 칸" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
+  const COLS_BTN = `<button type="button" class="icon-btn nl-cols-btn" data-nl-cols-menu aria-label="보일 칸" title="보일 칸" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
   const listHeadHtml = (cols = listCols()) => { const cur = listSort(), all = [['title', LIST_COL_NAMES.title], ...cols.map(k => [k, LIST_COL_NAMES[k]])]; return `<div class="nl-head" data-nl-head role="row" aria-label="노트 목록 칸">`
     + all.map(([key, label], i) => headCellHtml({key:LIST_HEAD_SORT[key] || key, label, cur, sortable:!!LIST_HEAD_SORT[key], extra:i < all.length - 1 ? gripHtml(key, label) : ''})
       .replace('<span role="columnheader"', `<span data-nl-col="${key}" role="columnheader"`)).join('') + COLS_BTN + '</div>'; };
@@ -920,6 +920,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (focus && closed.trigger.isConnected) closed.trigger.focus({preventScroll: true});
     return closed;
   }
+  // 메뉴 줄 버튼 글자 한 곳(열 때·'보일 칸' 체크를 바꿔 다시 그릴 때 같이 쓴다).
+  const menuButtonsHtml = items => items.map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
   function openMenu(trigger, note, from, fileId = null, folderId = null) {
     if (!note && !['folder', 'head', 'picked', 'board', 'cols'].includes(from)) return;
     if (note && pinLock.noteHidden(note)) { pinLock.askNotes(); return; }
@@ -927,7 +929,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     closeMenu();
     const el = menuEl();
     el.setAttribute('aria-label', from === 'folder' || from === 'head' ? '폴더 메뉴' : from === 'board' ? '보드 메뉴' : from === 'file' ? '첨부 파일 메뉴' : from === 'picked' ? '선택한 것 메뉴' : from === 'cols' ? '보일 칸' : '노트 메뉴');
-    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuItems(note, from, folderId, {goto: from === 'list' && view === 'folder' && !!trigger.closest?.('[data-nx-recent-row]')}).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
+    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuButtonsHtml(menuItems(note, from, folderId, {goto: from === 'list' && view === 'folder' && !!trigger.closest?.('[data-nx-recent-row]')}));
     el.hidden = false;
     // UI-메뉴잘림: 높이를 묶지 않는다(창 높이까지 다 보임, 정말 길 때만 스크롤 + 아래 흐림 — anchored-popup.js).
     const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: window.innerHeight});
@@ -2044,7 +2046,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (b.dataset.nlColToggle && menu?.from === 'cols') {
         const key = b.dataset.nlColToggle, on = listCols();
         if (NOTE_COLS.includes(key)) setListCols(on.includes(key) ? on.filter(k => k !== key) : [...on, key]);
-        const el = menuEl(); el.innerHTML = menuItems(null, 'cols').map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
+        const el = menuEl(); el.innerHTML = menuButtonsHtml(menuItems(null, 'cols'));
         el.querySelector(`[data-nl-col-toggle="${key}"]`)?.focus({preventScroll:true});
         return;
       }
