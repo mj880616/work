@@ -161,7 +161,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-select-bar:not([hidden]) { position:sticky; top:var(--kptu-stick-top,0px); z-index:3; }
 .nx-body { display:block; }
 /* UI-칸폭끌기전수: 나무 | 노트 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 30:70). */
-[data-note-list].nx-wide .nx-body { --ds-split-list:30fr; --ds-split-detail:70fr; --ds-split-list-min:180px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:10px; align-items:start; }
+[data-note-list].nx-wide .nx-body { --ds-split-list:30fr; --ds-split-detail:70fr; --ds-split-list-min:180px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:var(--ds-gap-pane); align-items:start; }
 #appView #basketView .nx-row.nx-note { padding-left:calc(var(--nx-indent, 0) * 14px); }
 .nx-outside .ft-name { color:var(--kptu-muted); font-weight:400; }
 #appView #basketView .nx-note .note-row { display:flex; align-items:center; gap:6px; min-height:36px; }
