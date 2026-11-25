@@ -1,9 +1,10 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {followPane} from './follow-pane.js';
+import {registerScreenFind, refreshScreenFind} from './screen-find.js';
 import {mountSplitResize} from './split-resize.js';
 // 주소 개편 ② E1(docs/design/domain-move.md 2절, 시안 docs/design/mockups/domain-move.html): '아스날' 화면(?view=arsenal). #arsenalView의 유일한 그리기 주인.
 // - 자료 app/arsenal/matches.js(window.ARSENAL_MATCHES)는 이 화면을 처음 열 때만 불러온다(view-loader가 이 모듈도 열 때만 부름 → 첫 화면 속도 영향 없음).
-// - 위 줄: 시즌·대회 고르기·상대 검색·경기 수. 아래: 경기 목록(최신순) + 고른 경기 리뷰.
+// - 위 줄: 시즌·대회 고르기·경기 수(상대 찾기는 맨 위 칸 '아스날에서 찾기', S70-57). 아래: 경기 목록(최신순) + 고른 경기 리뷰.
 //   PC(761px~)는 목록 1/3 · 리뷰 2/3 두 칸, 폰은 목록 → 리뷰 한 칸(KPTURouter.layer, 뒤로 한 번 = 목록).
 // - 리뷰: 날짜·대회·경기장 줄, 점수, 득점·도움, 판정(한 문장 요약, 늘 보임), 묶음 넷(첫 묶음만 펼침), 주요 통계, 영상·참고 링크(https만, 새 탭).
 // 저장하는 것 없음(읽기 전용 화면, 기기 저장 없음). 거르기 값은 이 탭 메모리에만.
@@ -23,7 +24,6 @@ function install() {
 <div class="ars-bar" role="group" aria-label="경기 거르기">
 <label class="a11y-only" for="arsSeason">시즌</label><select id="arsSeason" class="ars-filter" data-ars-season><option value="${ALL}">전체 시즌</option></select>
 <label class="a11y-only" for="arsCompetition">대회</label><select id="arsCompetition" class="ars-filter" data-ars-competition><option value="${ALL}">전체 대회</option></select>
-<label class="a11y-only" for="arsSearch">상대 검색</label><input id="arsSearch" class="ars-search" data-ars-search type="search" placeholder="상대 검색" autocomplete="off" data-enter-field="off">
 <span class="ars-count" data-ars-count role="status" aria-live="polite"></span>
 </div>
 <div class="ars-body"><div class="ars-list" data-ars-list aria-label="경기 목록"></div><div class="ars-detail" data-ars-detail aria-label="경기 리뷰"></div></div>
@@ -117,6 +117,7 @@ function paint() {
   list.innerHTML = nextHtml + (shown.length ? shown.map(m => rowHtml(m, m === current)).join('') : emptyHtml('맞는 경기 없음'));
   detail.innerHTML = current ? reviewHtml(current) : '';
   root.dataset.open = String(!!current && (pc.matches || detailOpen));
+  refreshScreenFind();
   // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 목록은 화면과 같이 내려가고 리뷰 칸은 위 줄(.ars-bar, 위에 붙음) 바로 아래에 붙어 따라온다.
   // 다른 경기를 고르면 리뷰 머리부터 보인다.
   if (pc.matches && current) {
@@ -164,9 +165,13 @@ root?.addEventListener('change', event => {
   else return;
   paint();
 });
-root?.addEventListener('input', event => {
-  if (!event.target.matches('[data-ars-search]')) return;
-  filters.query = event.target.value; paint();
+// S70-57 UI-검색창하나로: 상대 찾기는 맨 위 칸 '아스날에서 찾기'(옛 화면 안 '상대 검색' 칸을 뺐다). 같은 filters.query → filterMatches 그대로.
+// 목록이 보일 때만(PC 두 칸은 늘, 폰은 리뷰 한 칸을 연 동안은 아님).
+registerScreenFind('arsenal', {
+  label: '아스날에서 찾기',
+  active: () => window.KPTURouter?.current === 'arsenal' && (pc.matches || !detailOpen),
+  value: () => filters.query,
+  apply: raw => { const q = String(raw ?? ''); if (q === filters.query) return; filters.query = q; paint(); },
 });
 pc.addEventListener('change', () => { if (pc.matches) closeLayer(); if (window.KPTURouter?.current === 'arsenal') paint(); });
 
@@ -175,7 +180,7 @@ function openWritten(want) {
   if (!want || !matches?.some(m => m.id === want)) return;
   filters.season = ALL; filters.competition = ALL; filters.query = '';
   fillFilters();
-  const search = $('[data-ars-search]'); if (search) search.value = '';
+  refreshScreenFind();
   openMatch(want);
 }
 function enter() {

@@ -69,12 +69,17 @@
    screen-width.mjs 600px)은 제목만 있던 큰 줄(44px + 아래 12px) 대신 '제목 · 찾기' 낮은 한 줄(36px + 아래 8px)이다. PC 틀(761px~) 위 한 줄과 같은 구성이고,
    찾기는 폰 메뉴 창 맨 위와 같은 입구(global-search.js mountMenuEntry — 누르면 화면 전체 검색)다. 접은 폰(600px 미만)은 그대로(입구는 메뉴 창).
    화면 첫 줄이 제목을 보이는 화면(사업 보고·자료실·사진·공유 페이지, ui-standard.css)은 지금처럼 이 줄이 없다. 검색 화면 자신은 검색칸이 있어 입구를 두지 않는다. */
+/* S70-57(명진 11/26 "전체 검색은 홈에만"): 머리 줄 '전체 검색' 입구는 홈에서만 보인다(폰·폴드 접힘·폴드 펼침 모두). 다른 화면은 그 화면 찾기 칸(아래). */
 .mobile-shell-search{display:none}
 @media(min-width:600px) and (max-width:760px){
   .mobile-shell-header{min-height:36px;margin-bottom:8px}
   .mobile-shell-header>[data-mobile-view-name]{flex:none;white-space:nowrap}
-  .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}
-  html:has(#searchView:not(.hidden)) .mobile-shell-search{display:none}
+}
+@media(max-width:760px){
+  html:has(#homeView:not(.hidden)) .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}
+  html:has(#homeView:not(.hidden)) .mobile-shell-header{min-height:36px;margin-bottom:8px}
+  /* 홈은 본문 날짜 줄에 이미 아이콘이 있다 — 머리 줄은 '전체 검색' 입구 하나만(아이콘 두 번 없음). */
+  html:has(#homeView:not(.hidden)) .mobile-shell-header>.head-mark{display:none}
 }
 
 /* UI-검색창하나로(S70-54, 설계 docs/design/one-search-bar.md): 지금 화면에 화면 찾기가 있으면(html[data-screen-find], 주인 screen-find.js) 앱 머리 줄의

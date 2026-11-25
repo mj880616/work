@@ -95,6 +95,7 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => [], openSource = () => {}, updateCount = () => null} = {}) {
   if (!host) return null;
   let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
+  let query = ''; // S70-57 UI-메뉴별검색: '잊지 말기에서 찾기' 글자(맨 위 칸, basket.js가 setQuery로 넘김). 메모리만, 거르기는 아래 items() 한 곳.
   let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
   const busy = new Set(), unknown = new Set(), linking = new Map(), openBundles = new Set();
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
@@ -144,6 +145,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const lockOf = feature => !!win.KPTUFeatureLock?.hides?.(feature) && !!win.KPTUFeatureLock?.settings?.();
     const locked = {telegram: lockOf('telegram'), call: lockOf('calls')};
     let hidden = 0;
+    // 찾기: 줄 글(요청·제안 글, 아래 작은 줄)에 찾는 글자가 든 줄만(대소문자 무시). 잠긴 줄 수 세기는 그대로.
+    const q = query.trim().toLowerCase(), hit = (...parts) => !q || parts.filter(Boolean).join(' ').toLowerCase().includes(q);
     // FORGET-기본이미함(S70-20b): 처리 전 업무 제안 중 ★(마감·직접 부름)는 맨 위에 한 줄씩, 어제 들어온 나머지는 '어제 들어온 요청 n개' 한 줄 묶음.
     // 묶음은 그냥 두면 서버 예약(app_forget_auto_expire)이 다음 날 0시(서울)에 '이미 함(지남)'으로 옮긴다 — 화면은 묶어 보이기만 한다.
     const stars = [], bundle = [], today = seoulDateKey();
@@ -151,6 +154,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       for (const c of candidatesFor(view, rows, taskTitles())) {
         const s = candidateSource(c); if (src !== 'all' && src !== s) continue;
         if (s === 'telegram' && locked.telegram) { hidden++; continue; }
+        if (!hit(plainText(c.summary), candidateMeta(c))) continue;
         const open = c.status === 'open', isBusy = busy.has(c.id), star = open && starredCandidate(c);
         const into = star ? stars : open && bundleDay(c, today, d => seoulDateKey(d)) ? bundle : out;
         into.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
@@ -163,20 +167,21 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       }
     }
     if (view === 'open' && fOn && (src === 'all' || src === 'family')) {
-      for (const n of notes) out.push({at: n.at || n.day, html: rowHtml({id: `f:${n.id}`, body: n.body, meta: metaLine(n), src: SOURCE_TAG.family, busy: busy.has(`f:${n.id}`),
+      for (const n of notes) if (hit(n.body, metaLine(n))) out.push({at: n.at || n.day, html: rowHtml({id: `f:${n.id}`, body: n.body, meta: metaLine(n), src: SOURCE_TAG.family, busy: busy.has(`f:${n.id}`),
         prefix: FIRM_LABEL[n.firmness] ? `<span class="nbx-tag">${esc(FIRM_LABEL[n.firmness])}</span> ` : '', more: `data-forget-more="f:${esc(n.id)}"`, attrs: 'data-forget-src="family"'})});
     }
     if (nOn && (src === 'all' || src === 'news')) {
       for (const r of newsFor(view, news, nPicks)) {
         if (locked[r.source]) { hidden++; continue; }
         const open = r.status === 'suggested', label = newsText(r);
+        if (!hit(label)) continue;
         out.push({at: open ? r.at : (r.decidedAt || r.at), html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: NEWS_SOURCE_TAG[r.source], busy: busy.has(`n:${r.id}`),
           open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
           report: true, hint: open ? NEWS_HINT[r.kind] || '' : '', why: open ? r.reason : '', done: open ? '' : newsDone(r), more: `data-forget-more="n:${esc(r.id)}"`, attrs: `data-forget-src="news"`})});
       }
     }
     if (src === 'all' || src === 'update') {
-      for (const u of updates().items || []) out.push({at: u.at, html: rowHtml({id: `u:${u.id}`, body: u.body, meta: u.meta, src: SOURCE_TAG.update, busy: !!u.busy,
+      for (const u of updates().items || []) if (hit(u.text ?? u.body, u.meta)) out.push({at: u.at, html: rowHtml({id: `u:${u.id}`, body: u.body, meta: u.meta, src: SOURCE_TAG.update, busy: !!u.busy,
         report: true, done: view === 'open' ? '' : (u.done || ' '), open: u.open, tail: u.tail || '', below: u.below || '', attrs: `data-forget-src="update" ${u.attrs || ''}`})});
     }
     if (bundle.length) {
@@ -188,11 +193,12 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     // S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 내가 남에게 부탁해 상대가 하기로 한 일은 어느 길에서 왔든 여기 한 곳에 모은다. 꼬리표 = '상대 약속 · 출처'.
     // - 챙길 것 찾기가 돌려준 약속(radarPromises, 저장하지 않음): 모든 출처일 때만, 버튼 [원장으로] 하나(그대로).
     // - 소식(통화·텔레그램, 서버 표 종류 promise): 모든 출처·소식일 때. [원장으로][받음][무시] — 받음·무시는 소식 줄의 기존 상태 길(되돌리기 있음).
-    if (view === 'open' && src === 'all' && cState === 'ok') (radarPromises() || []).forEach((p, i) => sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: `${SOURCE_TAG.promise} · ${SOURCE_TAG.todo}`,
+    if (view === 'open' && src === 'all' && cState === 'ok') (radarPromises() || []).forEach((p, i) => hit(p.summary) && sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: `${SOURCE_TAG.promise} · ${SOURCE_TAG.todo}`,
       meta: [RADAR_SOURCE_LABEL[p.source_kind] || '', dueLabel(p.due) ? `기한 ${dueLabel(p.due)}` : ''].filter(Boolean).join(' · '), acts: [['ledger', '원장으로']], attrs: 'data-forget-src="promise" data-inbox-promise'})}));
     if (view === 'open' && nOn && (src === 'all' || src === 'news')) for (const r of promiseNews(news)) {
       if (locked[r.source]) { hidden++; continue; }
       const label = newsText(r);
+      if (!hit(label)) continue;
       sorted.push({html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: `${SOURCE_TAG.promise} · ${r.source === 'telegram' ? '텔레그램' : '통화'}`, busy: busy.has(`n:${r.id}`),
         open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
         why: r.reason, acts: PROMISE_NEWS_ACTS, attrs: 'data-forget-src="promise" data-forget-promise-news'})});
@@ -661,6 +667,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     onView(view); paint();
   });
   const api = {refresh, paint, setView, view: () => view, source: () => src,
+    // S70-57: 맨 위 칸 '잊지 말기에서 찾기'(basket.js registerScreenFind)가 부른다. 같은 글자면 다시 그리지 않는다.
+    query: () => query, setQuery: raw => { const next = String(raw ?? ''); if (next === query) return; query = next; paint(); },
     // 처리 안 한 줄 수(연결 안 된 업데이트 포함, 홈 한 줄과 같은 기준 — 상대 약속은 세지 않음). 모르면 null.
     // FORGET-소식합치기(명진 '넣어'): 처리 전 소식도 센다.
     openCount: count => cState === 'ok' && Number.isInteger(count) ? candidatesFor('open', rows, taskTitles()).length + (fOn ? notes.length : 0) + (nOn ? openNews(news, nPicks).length : 0) + count : null};

@@ -39,7 +39,7 @@ function installTeamHead(section){if(document.querySelector('#soTeamHead'))retur
  import('./screen-tools.js').then(m=>m.mountScreenTools('team',document.querySelector('#soTeamTools'))).catch(err=>console.error('screen tools',err))}
 // S70-54 UI-검색창하나로: 맨 위 칸이 '조직 관리에서 찾기'를 겸한다 = 담당조직 이름 거르기(renderTeam 안, 서버 검색 없음). 단추 자리는 위 screen-tools.js 그대로.
 let soQuery='',soFindText='';
-registerScreenFind('team',{label:word('조직 관리에서 찾기'),foot:()=>document.querySelector('#soOrganizationList'),active:()=>{const v=document.querySelector('#teamView');return !!v&&!v.classList.contains('hidden')&&!!document.querySelector('#soTeamSection')},value:()=>soQuery?soFindText:'',
+registerScreenFind('team',{label:word('조직 관리에서 찾기'),active:()=>{const v=document.querySelector('#teamView');return !!v&&!v.classList.contains('hidden')&&!!document.querySelector('#soTeamSection')},value:()=>soQuery?soFindText:'',
   apply:raw=>{soFindText=String(raw??'');const next=norm(soFindText);if(next===soQuery)return;soQuery=next;renderTeam()}});
 function installTeam(){const team=document.querySelector('#teamView');if(!team)return false;let section=document.querySelector('#soTeamSection');if(!section){section=document.createElement('section');section.id='soTeamSection';section.className='so-team-section';section.innerHTML='<div id="soOrganizationList" class="so-list"></div>';team.appendChild(section)}installTeamHead(section);if(!document.querySelector('#wdDetailPane'))section.insertAdjacentHTML('beforeend',word('<aside id="wdDetailPane" class="so-pane" aria-label="담당조직 상세"></aside>'));return true}
 // ORG-PC좌우: on a PC the organization shown on the right (workplace-detail.js, kptu:workplace-selection) is marked in the list.

@@ -80,6 +80,7 @@ import {setFolderOrderLook, photoFolderRows, photoFolderTrail, photoSubfolders, 
   validAlbumView, stepAlbumView, albumPeriod, ALBUM_VIEW_TEXT, gdriveFolderTree, folderCountText, GDRIVE_TOP} from './photos-model.mjs';
 import {notify, askConfirm, askChoice} from './small-notice.js';
 import {viewPrefs, validValue} from './view-prefs.js';
+import {registerScreenFind, toolsBox} from './screen-find.js';
 import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
@@ -124,18 +125,38 @@ const MARK_SVG = {onedrive:brandIconSvg('onedrive', {size:11}),
   gdrive:brandIconSvg('gdrive', {size:10})};
 // UI-보기탭드롭다운(11/10 명진 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기 [사진|달력|폴더|앨범|휴지통]은 탭 줄이 아니라
 // 도구 줄 맨 앞 고르기 상자 [사진 ▾] 하나(고른 이름이 상자 글자). 자료실 [폴더 ▾]·사업 보고 [주 단위 ▾]와 같은 공용 고르기 상자(select, 열리는 목록은 select-menu.js).
-// 출처 아이콘은 폰에서 제목 '사진' 줄 오른쪽(앱 머리 대신 화면 첫 줄), PC(761px~)는 도구 줄 오른쪽 끝 — 위쪽은 폰 두 줄·PC 한 줄.
+// 출처 아이콘은 맨 위 줄 단추 자리(아래 srcBox, S70-57). 위쪽은 도구 줄 한 줄.
 const viewOptions = TABS.map(v => `<option value="${v}">${TAB_TEXT[v]}</option>`).join('');
 const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
-root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-head"><h2 class="photos-title">사진</h2><span class="photos-srcs src-chips" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" data-src-chip aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" data-src-chip aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" data-src-chip aria-pressed="true" aria-label="폰 폴더" title="폰 폴더" hidden>${PHONE_SVG}</button></span></div><div class="photos-tools" data-photos-tools><select class="photos-view-select" data-photos-view aria-label="사진 보기" aria-controls="photosRoot">${viewOptions}</select><button type="button" class="photos-chip photos-tidy-chip" data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리</button><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-sp"></span><button type="button" class="secondary photos-al-new" data-photos-al-new hidden>+ 새 앨범</button></div></div><div class="photos-sel kptu-selbar" data-photos-sel role="toolbar" aria-label="선택한 사진" hidden>${sbCloseHtml('data-photos-sel-off', '선택 끝내기')}<span class="kptu-sb-count" data-photos-sel-count>0개 선택됨</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-tidy" id="photosTidy" data-photos-tidy hidden></div><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act role="group" aria-label="선택한 사진" hidden>${photoActButtons(PHOTO_MENUS.selectBar, id => `data-photos-act-${id}`)}</div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-trash-act role="group" aria-label="선택한 휴지통 사진" hidden><button type="button" class="kptu-act" data-photos-restore>${actInner(ACT_ICON.restore,'되살리기')}</button><button type="button" class="kptu-act kptu-act-danger" data-photos-purge>${actInner(ACT_ICON.delete,'바로 삭제')}</button></div>`;
+// S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 화면 첫 줄 제목 '사진'은 없앴다 — 폰 틀은 앱 머리 줄(화면 이름 '사진' + 찾기 돋보기),
+// PC 틀은 상단 줄 위치. 출처 아이콘은 맨 위 줄 단추 자리(screen-find.js 상자 — PC 상단 줄 찾기 칸 오른쪽, 폰 틀 앱 머리 줄 오른쪽)에 산다. 누르기는 이 화면(srcBox에 직접).
+const srcBox = toolsBox('photos', 'photos');
+srcBox.innerHTML = `<span class="photos-srcs src-chips" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" data-src-chip aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" data-src-chip aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" data-src-chip aria-pressed="true" aria-label="폰 폴더" title="폰 폴더" hidden>${PHONE_SVG}</button></span>`;
+root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-tools" data-photos-tools><select class="photos-view-select" data-photos-view aria-label="사진 보기" aria-controls="photosRoot">${viewOptions}</select><button type="button" class="photos-chip photos-tidy-chip" data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리</button><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-sp"></span><button type="button" class="secondary photos-al-new" data-photos-al-new hidden>+ 새 앨범</button></div></div><div class="photos-sel kptu-selbar" data-photos-sel role="toolbar" aria-label="선택한 사진" hidden>${sbCloseHtml('data-photos-sel-off', '선택 끝내기')}<span class="kptu-sb-count" data-photos-sel-count>0개 선택됨</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-tidy" id="photosTidy" data-photos-tidy hidden></div><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act role="group" aria-label="선택한 사진" hidden>${photoActButtons(PHOTO_MENUS.selectBar, id => `data-photos-act-${id}`)}</div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-trash-act role="group" aria-label="선택한 휴지통 사진" hidden><button type="button" class="kptu-act" data-photos-restore>${actInner(ACT_ICON.restore,'되살리기')}</button><button type="button" class="kptu-act kptu-act-danger" data-photos-purge>${actInner(ACT_ICON.delete,'바로 삭제')}</button></div>`;
 const $ = sel => root.querySelector(sel);
-const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), linkBtn = $('[data-od-link]'), odHost = $('[data-photos-od]');
+const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), linkBtn = srcBox.querySelector('[data-od-link]'), odHost = $('[data-photos-od]');
 const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]');
 
 const OD_NONE = {configured:false, connected:false, folder:null, canDelete:false};
 let owner = ownerScope(rt), run = 0;
 let od = {...OD_NONE}, odFault = false, odReady = false, odMessage = '';
 let tab = 'all', filter = 'all', colsSaved = null, prefsRead = false, sort = DEFAULT_SORT;
+// S70-57: 맨 위 칸 '사진에서 찾기' = 보이는 사진 칸(그림 이름)·앨범 이름 거르기. 화면 메모리만(새 서버 찾기 없음).
+// photoQ = 다듬은 소문자 글자(빈 글자 = 거르지 않음), photoQRaw = 칸에 친 그대로.
+let photoQ = '', photoQRaw = '';
+const hitText = text => !photoQ || String(text ?? '').toLowerCase().includes(photoQ);
+const photoHit = item => hitText(item?.name);
+// [달력]·월·연 보기는 그림 칸이 없어 치면 [사진] 일 보기로 바꿔 맞는 칸을 보인다(기억해 둔 크기 단계는 그대로 — 저장하지 않음).
+registerScreenFind('photos', {label:'사진에서 찾기', active:() => window.KPTURouter?.current === 'photos', value:() => photoQRaw,
+  apply:raw => {
+    photoQRaw = String(raw ?? '');
+    const q = photoQRaw.trim().toLowerCase();
+    if (q === photoQ) return;
+    photoQ = q;
+    if (q && tab === 'calendar') { level = 'day'; setTab('all'); return; }
+    if (q && tab === 'all' && level !== 'day') { level = 'day'; render(); return; }
+    repaintShown();
+  }});
 // [사진] 목록: items(최신순), next(다음 쪽 cursor), from(막대·달력으로 건너뛴 시작 {cursor, label} 또는 null = 최신부터).
 let items = [], next = null, ended = false, loading = null, failed = '', from = null, rendered = 0, renderedIds = [];
 // PHOTO-출처 ①: 출처마다 받은 것(odList·phList)을 섞은 것이 items다(mergeSources). hidden = 지우는 중(되돌리기 시간)이라 빼 둔 칸 id.
@@ -856,8 +877,9 @@ function paintListNow({full = false} = {}) {
   // 앞에 그린 칸이 그대로인지(출처가 늦게 보낸 같은 사진을 빼면 앞이 바뀔 수 있다 → 통째로 다시).
   const same = rendered <= items.length && renderedIds.every((id, k) => items[k]?.id === id);
   // S53-3: 늦게 온 출처의 칸만 사이사이 더해졌으면(그린 칸은 순서 그대로 다 남음) 그린 칸은 두고 새 칸만 제자리에 끼운다.
-  if (!full && list && !same && keptOrder(renderedIds, items)) { insertCells(list); paintListEnd(list); return; }
-  if (full || !list || !same) {
+  if (!full && !photoQ && list && !same && keptOrder(renderedIds, items)) { insertCells(list); paintListEnd(list); return; }
+  // 찾는 중이면 늘 통째로(맞는 칸만, 칸 번호는 목록 자리 그대로).
+  if (full || photoQ || !list || !same) {
     rendered = 0;
     const top = srcNotes() + (from ? `<p class="photos-muted photos-top">${esc(from.label)}부터 보는 중 · <button type="button" class="mini" data-photos-newest>최신으로</button></p>` : '');
     body.innerHTML = `${top}<div data-photos-list></div><p class="photos-muted photos-foot" data-photos-foot></p>`;
@@ -866,17 +888,20 @@ function paintListNow({full = false} = {}) {
   let i = rendered;
   if (sortByDay(listSort())) {
     for (const group of groupByDay(items.slice(rendered))) {
+      const at = i; i += group.items.length;
+      const shown = group.items.map((item, k) => [item, at + k]).filter(([item]) => photoHit(item));
+      if (!shown.length) continue;
       const lastHead = list.lastElementChild?.previousElementSibling;
       let grid;
       if (lastHead?.dataset.photosDay === group.day) grid = list.lastElementChild;
       else { list.append(dayHeadEl(group.day, 0)); grid = newGrid(); list.append(grid); }
-      for (const item of group.items) grid.append(cell(item, i++));
+      for (const [item, k] of shown) grid.append(cell(item, k));
     }
   } else {
     // 찍은 날이 아닌 기준: 날짜 머리줄 없이 한 격자
     let grid = list.lastElementChild;
     if (!grid?.matches?.('[data-diary-grid]')) { grid = newGrid(); list.append(grid); }
-    for (const item of items.slice(rendered)) grid.append(cell(item, i++));
+    for (const item of items.slice(rendered)) { const k = i++; if (photoHit(item)) grid.append(cell(item, k)); }
   }
   paintListEnd(list);
 }
@@ -922,7 +947,7 @@ function insertCells(list) {
 }
 function paintListEnd(list) {
   const counts = new Map();
-  for (const it of items) counts.set(it.day, (counts.get(it.day) || 0) + 1);
+  for (const it of items) if (photoHit(it)) counts.set(it.day, (counts.get(it.day) || 0) + 1);
   rendered = items.length; renderedIds = items.map(x => x.id);
   list.querySelectorAll('[data-photos-day]').forEach(h => { const n = h.querySelector('[data-photos-day-n]'); if (n) n.textContent = `· ${counts.get(h.dataset.photosDay) || 0}장`; });
   const foot = body.querySelector('[data-photos-foot]');
@@ -1119,7 +1144,7 @@ async function renderTrash({reload = false} = {}) {
   }
   if (!trash) { body.innerHTML = `${phoneLine}<p class="photos-muted">휴지통을 읽지 못했어요: ${esc(trashFailed)} <button type="button" class="mini" data-photos-trash-retry>다시</button></p>`; return; }
   body.innerHTML = `${phoneLine}<p class="photos-muted photos-top">30일 뒤 원드라이브 휴지통으로 가요${trash.length ? ' · <button type="button" class="mini" data-photos-purge-all>모두 비우기</button>' : ''}</p>${trash.length ? '' : emptyHtml()}`;
-  if (trash.length) { const grid = newGrid(); trash.forEach((item, i) => { const b = cell(item, i); b.dataset.photosTrash = ''; grid.append(b); }); body.append(grid); }
+  if (trash.length) { const grid = newGrid(); trash.forEach((item, i) => { if (!photoHit(item)) return; const b = cell(item, i); b.dataset.photosTrash = ''; grid.append(b); }); body.append(grid); }
   paintSize(); paintSelect();
 }
 // FILES-다시그리기메뉴자리: 뒤에서 목록·폴더·앨범을 다시 그려도 열린 ⋯ 메뉴(폴더·폰 폴더·구글 드라이브 폴더·사진·앨범)는 닫지 않고
@@ -2510,7 +2535,7 @@ function paintPhoneFolderGridNow() {
   if (pFor !== pAt) loadPhoneFolder(pAt);
   box.replaceChildren();
   const list = pFor === pAt ? pItems : [];
-  if (list.length) { const grid = newGrid(); list.forEach((item, i) => grid.append(cell(item, i))); box.append(grid); }
+  if (list.length) { const grid = newGrid(); list.forEach((item, i) => { if (photoHit(item)) grid.append(cell(item, i)); }); box.append(grid); }
   foot.innerHTML = pFor === pAt && pFailed ? failHtml({retry:'data-photos-pf-again', reason:pFailed}) : pFor === pAt && pEnded ? (list.length ? '' : '이 폴더에 사진이 없어요.') : waitHtml({rows:2, h:72});
   paintSize(); paintSelect();
   io?.disconnect();
@@ -2553,7 +2578,7 @@ function paintFolderGridNow() {
   if (!box) return;
   box.replaceChildren();
   const list = fFor === at ? fItems : [];
-  if (list.length) { const grid = newGrid(); list.forEach((item, i) => { const c = cell(item, i); c.draggable = treeWide(); grid.append(c); }); box.append(grid); }
+  if (list.length) { const grid = newGrid(); list.forEach((item, i) => { if (!photoHit(item)) return; const c = cell(item, i); c.draggable = treeWide(); grid.append(c); }); box.append(grid); }
   foot.innerHTML = fFor === at && fFailed ? failHtml({retry:'data-photos-fx-again', reason:fFailed}) : fFor === at && fEnded ? (list.length ? '' : '이 폴더에 바로 든 사진이 없어요.') : waitHtml({rows:2, h:72});
   paintSize(); paintSelect();
   io?.disconnect();
@@ -3007,7 +3032,7 @@ function paintGdFolderGridNow() {
   if (gdAt === GDRIVE_TOP || !f?.enabled) { foot.textContent = ''; paintSelect(); return; }
   if (gdFFor !== gdAt) gdLoadFolderPhotos(gdAt);
   const list = gdFFor === gdAt ? gdFItems : [];
-  if (list.length) { const grid = newGrid(); list.forEach((item, i) => grid.append(cell(item, i))); box.append(grid); }
+  if (list.length) { const grid = newGrid(); list.forEach((item, i) => { if (photoHit(item)) grid.append(cell(item, i)); }); box.append(grid); }
   foot.innerHTML = gdFFor === gdAt && gdFFailed ? failHtml({retry:'data-photos-gf-again', reason:gdFFailed}) : gdFFor === gdAt && !gdFLoading ? (list.length ? '' : '이 폴더에 바로 든 사진이 없어요.') : waitHtml({rows:2, h:72});
   paintSize(); paintSelect();
 }
@@ -3187,7 +3212,7 @@ function renderAlbumsNow() {
   if (album && !cardOf(album)) album = null;
   syncAlbumLayer();
   if (!album) {
-    const list = cards(), view = albumView();
+    const list = cards().filter(c => hitText(c.name)), view = albumView();
     paintTools();
     body.innerHTML = `<div class="photos-albums" data-photos-albums data-view="${view}">${list.map(c => albumRowHtml(c, view)).join('')}</div>`;
     for (const c of list) {
@@ -3205,7 +3230,7 @@ function renderAlbumsNow() {
   if (aLoading) { body.insertAdjacentHTML('beforeend', waitHtml({rows:2, h:72})); return; }
   if (aFailed) { body.insertAdjacentHTML('beforeend', `<p class="photos-muted">사진을 읽지 못했어요: ${esc(aFailed)} <button type="button" class="mini" data-photos-al-retry>다시</button></p>`); return; }
   if (!aItems.length) { body.insertAdjacentHTML('beforeend', emptyHtml()); paintSelect(); return; }
-  const grid = newGrid(); aItems.forEach((item, i) => grid.append(cell(item, i))); body.append(grid);
+  const grid = newGrid(); aItems.forEach((item, i) => { if (photoHit(item)) grid.append(cell(item, i)); }); body.append(grid);
   paintSize(); paintSelect();
 }
 function syncAlbumLayer() {
@@ -3673,11 +3698,10 @@ root.addEventListener('click', event => {
   if (odHost.contains(b) && settings.click(b, odHost)) return;
   if (b.matches('[data-photos-tab]')) return setTab(b.dataset.photosTab);
   if (b.matches('[data-photo-size]')) { if (albumSizing()) { changeAlbumView(Number(b.dataset.photoSize)); return; } if (changeStage(Number(b.dataset.photoSize))) { if (stageDirty) stageEnd(); else sizeChanged(); } return; }
-  if (b.matches('[data-photos-src]')) return sourceClick(b);
   if (b.matches('[data-photos-phone-ask]')) return phone.ask();
   if (b.matches('[data-od-link]')) return linkMenu.open(b);
   if (b.matches('[data-photos-sel-off]')) { select.stop(); return paintSelect(); }
-  if (b.matches('[data-photos-day-pick]')) { select.toggle(items.filter(x => x.day === b.dataset.photosDayPick).map(x => x.id), {anchor:false}); return paintSelect(); }
+  if (b.matches('[data-photos-day-pick]')) { select.toggle(items.filter(x => x.day === b.dataset.photosDayPick && photoHit(x)).map(x => x.id), {anchor:false}); return paintSelect(); }
   if (b.matches('[data-photos-act-star]')) return starPicked();
   if (b.matches('[data-photos-sort]')) return sortMenu.open(b);
   if (b.matches('[data-photos-act-share]')) return shareButton(b);
@@ -3725,7 +3749,7 @@ function resetList() {
 // ---- 출처 아이콘(PHOTO-출처 ①) ----
 function paintSources() {
   const btns = sourceButtons(sources, {phone:phone.available(), gdrive:gd.allowed, gdriveProblem:gd.problem});
-  for (const b of root.querySelectorAll('[data-photos-src]')) {
+  for (const b of srcBox.querySelectorAll('[data-photos-src]')) {
     const m = btns.find(x => x.name === b.dataset.photosSrc);
     if (b.dataset.photosSrc === 'phone' || b.dataset.photosSrc === 'gdrive') b.hidden = !m;
     if (b.dataset.photosSrc === 'gdrive') { if (m?.problem) b.dataset.problem = m.problem; else delete b.dataset.problem; }
@@ -3758,20 +3782,21 @@ function toggleSourceName(name) {
 }
 // 원드라이브 아이콘 꾹 누르기(PC 우클릭) = 연결 메뉴(폴더 바꾸기·하위 폴더·연결 끊기). 꾹 누른 뒤 오는 누르기(켜기/끄기)는 먹는다.
 let srcHold = null, srcAte = false;
-root.addEventListener('contextmenu', e => {
+srcBox.addEventListener('click', e => { const b = e.target.closest?.('[data-photos-src]'); if (b) sourceClick(b); });
+srcBox.addEventListener('contextmenu', e => {
   const b = e.target.closest?.('[data-photos-src="onedrive"]'); if (!b) return;
   e.preventDefault();
   if (srcAte) return;
   linkMenu.open(b);
 });
-root.addEventListener('pointerdown', e => {
+srcBox.addEventListener('pointerdown', e => {
   const b = e.target.closest?.('[data-photos-src="onedrive"]'); srcAte = false; if (!b || e.pointerType === 'mouse') return;
   clearTimeout(srcHold?.timer);
   srcHold = {x:e.clientX, y:e.clientY, timer:setTimeout(() => { srcHold = null; srcAte = true; navigator.vibrate?.(12); linkMenu.open(b); }, HOLD_MS)};
 });
-root.addEventListener('pointermove', e => { if (srcHold && Math.hypot(e.clientX - srcHold.x, e.clientY - srcHold.y) > HOLD_MOVE) { clearTimeout(srcHold.timer); srcHold = null; } });
-for (const t of ['pointerup', 'pointercancel']) root.addEventListener(t, () => { if (srcHold) { clearTimeout(srcHold.timer); srcHold = null; } });
-root.addEventListener('click', e => { if (srcAte && e.target.closest?.('[data-photos-src]')) { srcAte = false; e.preventDefault(); e.stopPropagation(); } }, true);
+srcBox.addEventListener('pointermove', e => { if (srcHold && Math.hypot(e.clientX - srcHold.x, e.clientY - srcHold.y) > HOLD_MOVE) { clearTimeout(srcHold.timer); srcHold = null; } });
+for (const t of ['pointerup', 'pointercancel']) srcBox.addEventListener(t, () => { if (srcHold) { clearTimeout(srcHold.timer); srcHold = null; } });
+srcBox.addEventListener('click', e => { if (srcAte && e.target.closest?.('[data-photos-src]')) { srcAte = false; e.preventDefault(); e.stopPropagation(); } }, true);
 window.addEventListener('kptu:view-prefs-rejected', e => {
   if (!(e.detail?.paths || []).includes(deviceSourcesPref())) return;
   sources = readDeviceSources();

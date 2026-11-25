@@ -532,7 +532,7 @@ function makeInput(id, cls) {
   const entry = {wrap, input};
   inputs.add(entry);
   input.addEventListener('input', () => {
-    if (scoped(input)) { scope.apply(input.value); scopeSent = input.value; paintAllLine(); return; }
+    if (scoped(input)) { entry.sent = input.value; scope.apply(input.value); return; }
     if (input === sfInput?.input) return;
     setText(input.value); if (input === slotInput?.input && router()?.current !== 'search') openPanel();
   });
@@ -738,16 +738,14 @@ document.addEventListener('click', e => {
   e.preventDefault(); activate(option);
 });
 
-// ---------- 화면 찾기(UI-검색창하나로 S70-54, 설계 docs/design/one-search-bar.md) ----------
+// ---------- 화면 찾기(UI-검색창하나로 S70-54 → S70-57, 설계 docs/design/one-search-bar.md) ----------
+// 2026-11-26 명진: "전체 검색은 홈에만 있으면 됨 / 메뉴별 검색창은 그 메뉴에서 찾기로 통일 / 검색창은 하나로만".
 // 지금 화면에 등록된 찾기(screen-find.js)가 있으면 맨 위 칸(PC 상단 줄 #gsTopInput, 폰 틀 앱 머리 줄 #gsScreenInput)은 그 화면 찾기다:
 // 안내글은 그 화면 것('노트에서 찾기'), 치면 그 화면이 원래 쓰던 걸러 내기 함수(apply), Enter는 화면 몫(apply(q, {submit: true})).
-// 걸러진 목록 아래 끝에 한 줄 '전체에서 「…」 찾기 →'(그 화면이 정한 자리 spec.foot(), 그리기는 여기) = 같은 낱말로 전체 검색 화면.
-// 목록 위를 덮는 펼침 창은 쓰지 않는다(폰에서 아래 고르기·줄을 누르려다 그 줄을 누르지 않게). 전체 검색 글자와 섞지 않는다.
+// '전체 검색'은 홈(과 전체 검색 화면 자신)에서만이다. 찾기가 등록되지 않은 다른 화면(내 프로필·쓰는 법 등)은 맨 위 칸 자체가 없다(hidden).
 // 폰(600px 미만)은 머리 줄이 좁아 돋보기 하나 → 누르면 화면 이름 자리에 칸이 펼쳐진다(비운 채 머리 줄 밖을 누르거나 Esc면 다시 돋보기).
-let scope = null, scopeKeyNow = null, scopeSent = '', sfInput = null, sfOpen = null;
-const allLine = el('button', 'gs-all-line');
-allLine.type = 'button'; allLine.id = 'gsAllLine'; allLine.dataset.gsAll = ''; allLine.hidden = true;
-allLine.addEventListener('click', () => void goAll(scopeSent));
+let scope = null, scopeKeyNow = null, sfInput = null, sfOpen = null;
+const ALL_VIEWS = new Set(['home', 'search']);
 function scoped(input) { return !!scope && !!input && (input === slotInput?.input || input === sfInput?.input); }
 const shellHead = () => sfInput?.wrap.closest('.mobile-shell-header');
 function mountScreenFind() {
@@ -761,9 +759,12 @@ function mountScreenFind() {
 function openPhoneFind() { shellHead()?.classList.add('sf-open'); sfInput?.input.focus({preventScroll: true}); }
 function closePhoneFind() { shellHead()?.classList.remove('sf-open'); }
 function syncScope(next) {
-  scope = router()?.current === 'search' ? null : next;
+  const current = router()?.current;
+  scope = current === 'search' ? null : next;
   const key = scope?.key || null, moved = key !== scopeKeyNow;
   const label = scope ? scope.label : '전체 검색';
+  // 맨 위 칸이 아무 찾기도 아닌 화면(홈·전체 검색 밖이면서 화면 찾기 없음)은 칸을 두지 않는다.
+  if (slotInput) slotInput.wrap.hidden = !scope && !ALL_VIEWS.has(current || 'home');
   for (const entry of [slotInput, sfInput]) {
     if (!entry) continue;
     const {input, wrap} = entry;
@@ -773,40 +774,21 @@ function syncScope(next) {
     if (scope) input.removeAttribute('aria-controls'); else if (entry === slotInput) input.setAttribute('aria-controls', 'gsList-panel');
     // 화면이 스스로 찾기 글자를 바꿨으면(다른 화면이 걸러 열기·로그인 바뀜 등) 칸에 커서가 있어도 맞춘다.
     const want = scope ? String(scope.value() ?? '') : entry === sfInput ? '' : state.text;
-    if (moved || document.activeElement !== input || (scope && input.value !== want && input.value === scopeSent)) input.value = want;
+    if (moved || document.activeElement !== input || (scope && input.value !== want && input.value === entry.sent)) input.value = want;
+    entry.sent = scope ? want : '';
   }
   if (sfOpen) sfOpen.setAttribute('aria-label', label);
   if (scope && panelOpen) void closePanel();
   if (moved) shellHead()?.classList.toggle('sf-open', !!scope && !!sfInput?.input.value);
-  scopeKeyNow = key; scopeSent = scope ? String(scope.value() ?? '') : '';
-  paintAllLine();
-}
-// '전체에서 「…」 찾기 →' 한 줄: 화면이 정한 자리(목록 아래 끝)에 붙인다. 화면이 목록을 다시 그려 떨어졌으면 다음 맞출 때 다시 붙인다.
-function paintAllLine() {
-  const q = scopeSent.trim();
-  const spot = q && scope?.foot ? scope.foot() : null;
-  if (!spot) { allLine.hidden = true; return; }
-  allLine.textContent = `전체에서 「${q}」 찾기 →`;
-  if (allLine.parentElement !== spot || allLine !== spot.lastElementChild) spot.append(allLine);
-  allLine.hidden = false;
+  scopeKeyNow = key;
 }
 function scopeKey(e, input) {
   if (e.isComposing) return;
-  if (e.key === 'Enter') { e.preventDefault(); scope.apply(input.value, {submit: true}); paintAllLine(); return; }
+  if (e.key === 'Enter') { e.preventDefault(); scope.apply(input.value, {submit: true}); return; }
   if (e.key === 'Escape') {
-    if (input.value) { e.preventDefault(); input.value = ''; scope.apply(''); scopeSent = ''; paintAllLine(); return; }
+    if (input.value) { e.preventDefault(); input.value = ''; scope.apply(''); return; }
     if (input === sfInput?.input) { input.blur(); closePhoneFind(); }
   }
-}
-// '전체에서 「…」 찾기': 지금 전체 검색 화면(?view=search&q=…)으로. 화면 찾기 글자는 그 화면에 그대로 남는다.
-async function goAll(raw) {
-  const q = String(raw ?? '').trim();
-  if (!q) return;
-  state.kind = 'all';
-  await window.KPTUViewLoader?.load?.('search');
-  const u = new URL(location.href); u.searchParams.set('q', q); u.searchParams.delete('kind');
-  history.replaceState(history.state, '', u.pathname + u.search + u.hash);
-  router()?.go?.('search', {source: 'delegated'});
 }
 document.addEventListener('pointerdown', e => {
   // 폰: 비운 칸은 머리 줄 밖을 누르면 다시 돋보기(포커스가 저절로 옮겨 가는 것으로는 접지 않는다 — 화면이 다시 그리며 커서를 옮겨도 칸은 그대로).
@@ -821,17 +803,15 @@ function focusScreenFind() {
   return true;
 }
 
-// ---------- 폰 메뉴 창 맨 위 검색칸(입구) ----------
-// FOLD-넓은화면 A(S57-21): 입구 자리는 둘이다 — 폰 메뉴 창 맨 위, 그리고 폴드 펼침(600~760px, 폰 틀)의 앱 머리 한 줄(제목 오른쪽, topbar-actions.css).
-// 둘 다 같은 버튼·같은 길(화면 전체 검색)이다. 머리 한 줄의 입구는 그 폭에서만 보인다(접은 폰은 메뉴 창, PC 틀은 상단 줄 검색칸).
+// ---------- 폰 틀 홈 머리 줄 '전체 검색' 입구 ----------
+// S70-57(명진 11/26 "전체 검색은 홈에만"): 입구는 폰 틀(~760px) 앱 머리 줄 하나이고 홈에서만 보인다(topbar-actions.css). PC 틀은 상단 줄 검색칸(홈에서만 '전체 검색').
+// 예전 폰 메뉴 창 맨 위 입구는 없앴다.
 function mountMenuEntry() {
   for (const host of document.querySelectorAll('[data-search-entry]')) {
     if (host.childElementCount) continue;
     const button = el('button', 'gs-menu-entry'); button.type = 'button'; button.setAttribute('aria-label', '전체 검색 열기');
     button.append(icon('search', 'gs-field-icon'), el('span', null, '전체 검색'));
-    // topbar-actions.js가 메뉴 판을 먼저 닫고 이 버튼을 다시 누른다(메뉴 판 규칙).
     button.addEventListener('click', async () => {
-      if (window.KPTUMobileMenu?.isOpen?.()) return;
       await window.KPTUViewLoader?.load?.('search');
       router()?.go?.('search', {source: 'delegated'});
     });

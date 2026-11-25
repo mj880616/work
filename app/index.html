@@ -93,10 +93,10 @@
   <div id="mobileMenu" class="mobile-menu" hidden>
     <aside class="mobile-menu-panel" role="dialog" aria-modal="true" aria-label="메뉴" tabindex="-1">
       <div class="mobile-menu-head"><b>메뉴</b><button type="button" data-mobile-menu-close aria-label="메뉴 닫기"><span class="mobile-menu-x" aria-hidden="true">×</span></button></div>
-      <!-- S68-36 메뉴 창 정리(명진 11/23 확정): 덜 쓰는 설정 링크 묶음·운영 줄은 위, 전체 검색·메뉴 칸은 아래(하단바 바로 위, 엄지 닿는 곳). -->
+      <!-- S68-36 메뉴 창 정리(명진 11/23 확정): 덜 쓰는 설정 링크 묶음·운영 줄은 위, 메뉴 칸은 아래(하단바 바로 위, 엄지 닿는 곳).
+           S70-57(명진 11/26 "전체 검색은 홈에만"): 메뉴 창의 전체 검색 입구는 없앴다 — 폰 전체 검색은 홈 머리줄 입구 하나. -->
       <div id="mobileAccountGroup" role="group" aria-label="계정"><div class="mobile-menu-settings" data-menu-settings></div><div class="mobile-menu-ops" data-menu-ops></div></div>
       <hr class="mobile-menu-sep">
-      <div class="mobile-menu-search" data-search-entry></div>
       <nav aria-label="더 보기">
         <button type="button" data-view="basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3"/></svg><span>잊지 말기</span></button>
         <button type="button" data-view="reading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4zM9 8h6M9 11h4"/></svg><span>저장한 글</span></button>
@@ -163,7 +163,7 @@
   </section>
 
   <section id="meetingsView" class="view-panel hidden">
-    <div class="report-top"><div class="toolbar report-top-line"><a class="head-mark" href="./?view=home" data-goto="home" aria-label="홈"><img src="./app-icon.svg" width="20" height="20" alt=""></a><h2 class="report-top-title">사업 관리</h2><span class="report-filter-slot"><button id="reportFilterChip" class="report-filter-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="reportFilterBar" hidden><span class="report-filter-chip-text">전체</span></button></span><div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음</button><button id="newMeetingBtn" class="primary" type="button" aria-label="사업 보고 등록">+ 사업 보고</button><button id="reportMore" class="icon-btn report-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="사업 관리 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div>
+    <div class="report-top"><div class="toolbar report-top-line"><span class="report-filter-slot"><button id="reportFilterChip" class="report-filter-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="reportFilterBar" hidden><span class="report-filter-chip-text">전체</span></button></span><div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음</button><button id="newMeetingBtn" class="primary" type="button" aria-label="사업 보고 등록">+ 사업 보고</button><button id="reportMore" class="icon-btn report-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="사업 관리 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div>
     <div id="reportFilterBar" class="toolbar report-kind-bar"><select id="reportKindSelect" class="report-top-select" aria-label="종류" aria-controls="meetingList"></select><select id="reportAreaSelect" class="report-top-select" aria-label="사업영역" aria-controls="meetingList" hidden></select><span id="reportPeriodPick" class="report-period-host"></span><select id="reportViewSelect" class="report-top-select" aria-label="보기" aria-controls="meetingList"></select></div><div class="toolbar report-week-bar" hidden><div id="reportWeekFilter" role="group" aria-label="기간" aria-controls="meetingList"></div></div></div>
     <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2 class="a11y-only">사업 관리</h2></div><div id="recPendingLine" class="rec-pending" hidden></div><div id="areaUntaggedLine" class="area-untagged" hidden></div><section id="bizWeekBox" class="biz-week" aria-label="이번 주 주간 보고" hidden><h3 class="biz-week-title"><button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="true">이번 주 주간 보고 <i class="kptu-chev is-open" aria-hidden="true"></i></button></h3><div data-bw-body></div></section><div id="meetingList" class="card-list meeting-list"></div></section>
   </section>
