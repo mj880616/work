@@ -1,5 +1,5 @@
 begin;
--- 20261125120000_note_alarm_push_kind의 짝 되돌리기(SQL Editor 새 쿼리 창 전용). 검사 둘을 앞 판(20261115234500_signup_notify: signup까지, note 없음)
+-- 20261125130000_note_alarm_push_kind의 짝 되돌리기(SQL Editor 새 쿼리 창 전용). 검사 둘을 앞 판(20261115234500_signup_notify: signup까지, note 없음)
 -- 모양으로 다시 만들고 기록 1행을 지운다.
 -- 'note' 알림 기록 줄이나 설정의 note 키가 있으면 멈춘다(지우면 그 기록·설정이 사라지므로). 그때는 먼저 화면·Edge phone-push를 되돌리고,
 -- 아래 확인 SQL로 개수를 본 뒤 명진이 정한다.
@@ -11,7 +11,7 @@ lock table public.app_profiles in access exclusive mode;
 
 do $$
 begin
-  if (select count(*) from supabase_migrations.schema_migrations where version = '20261125120000' and name = 'note_alarm_push_kind') <> 1 then
+  if (select count(*) from supabase_migrations.schema_migrations where version = '20261125130000' and name = 'note_alarm_push_kind') <> 1 then
     raise exception 'NOTE_ALARM_PUSH_KIND_ROLLBACK_BLOCKED: migration record differs';
   end if;
   if exists (select 1 from public.app_push_log where kind = 'note')
@@ -49,5 +49,5 @@ alter table public.app_profiles
   );
 
 delete from supabase_migrations.schema_migrations
-  where version = '20261125120000' and name = 'note_alarm_push_kind';
+  where version = '20261125130000' and name = 'note_alarm_push_kind';
 commit;

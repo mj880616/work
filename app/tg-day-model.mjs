@@ -123,6 +123,13 @@ export function openTarget({room_key, chat_username, open_ref} = {}) {
   return {kind:'link', url:`tg://openmessage?user_id=${key}`, how:'number'};
 }
 
+// TG-불러오기속도(S70-31, 2026-11-24 "불러오는 속도가 너무 느림 한 15초"): 화면을 열 때 부르는 읽기의 차례.
+// first = 첫 목록(방·날 줄)을 그리는 데 꼭 필요한 것만(방·날 줄, 방 상태, 폴더 칸, 고친 요약). 이것만 기다려 목록을 그린다.
+// later = 같은 때 함께 부르되 목록을 기다리게 하지 않는 것(요청·꼬리표·안 본 것·제목·고정·휴지통·조직·보낸 사람). 다 오면 한 번 더 그린다.
+export const LOAD_PLAN = Object.freeze({
+  first:Object.freeze(['lines', 'rooms', 'folders', 'edits']),
+  later:Object.freeze(['days', 'orgs', 'pins', 'trashed', 'trashedDays', 'asks', 'marks', 'seen', 'titles', 'pinLines', 'senders']),
+});
 // 읽기 범위: 오늘 기준 첫 창(14일)과, 더 읽을 때의 이전 창. 한계(120일)에 닿으면 end=true.
 export function firstWindow(today) { return {from:addDays(today, -(LIST_WINDOW - 1)), to:today}; }
 export function olderWindow(from, today) {

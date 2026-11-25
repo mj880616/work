@@ -35,7 +35,7 @@
 //     기록에는 종류·열쇠·상태만(이름 없음). 메일·작업공간 id·기록 내용은 읽지 않는다.
 //   - 알림 줄(notices): 운영자에게만, 아직 열지 않은 새 가입(마지막으로 연 열쇠 뒤, 최근 7일)을 사용자 로그인으로 rpc app_signup_list
 //     (운영자만 — 서버가 다시 확인)에서 가입 시각만 읽어 '새 가입 n명' 한 줄. 이 종류만 보일 말(text)을 함께 준다.
-// S69-97 노트 알림 ②(note-alarm.ts, migration 20261125120000_note_alarm_push_kind): 같은 15분 예약이 노트에 건 알림 시각(metadata.alarm.at)이
+// S69-97 노트 알림 ②(note-alarm.ts, migration 20261125130000_note_alarm_push_kind): 같은 15분 예약이 노트에 건 알림 시각(metadata.alarm.at)이
 //   지난 36시간 안에 지난 노트마다 '노트 다시 보기' 하나(본문 없음, 누르면 그 노트). service_role 읽기는 id·workspace_id·alarm 칸만(제목·글 없음).
 //   열쇠 note:<노트 id>:<시각>으로 한 번만. 끄기(kinds.note=false → skipped_off)만 보고 조용한 시간은 보지 않는다(사람이 고른 시각). 노트에는 쓰지 않는다.
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";

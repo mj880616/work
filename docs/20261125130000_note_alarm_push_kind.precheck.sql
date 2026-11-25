@@ -6,7 +6,7 @@
 -- expect: notify prefs check without note = 예
 -- expect: push log rows = 기록
 -- expect: push log and profiles grants policies hash = 기록
-select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261125120000') then '예' else '아니오' end as value
+select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261125130000') then '예' else '아니오' end as value
 union all select 'previous step applied',case when (select count(*) from supabase_migrations.schema_migrations where version='20261115234500' and name='signup_notify')=1 then '예' else '아니오' end
 union all select 'push log kind check without note',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_push_log') and conname='app_push_log_kind_check' and pg_get_constraintdef(oid) ~ '''signup''' and pg_get_constraintdef(oid) !~ '''note''')=1 then '예' else '아니오' end
 union all select 'notify prefs check without note',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_profiles') and conname='app_profiles_notify_prefs_check' and pg_get_constraintdef(oid) ~ '"signup"' and pg_get_constraintdef(oid) !~ '"note"')=1 then '예' else '아니오' end

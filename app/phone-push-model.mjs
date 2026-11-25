@@ -22,7 +22,7 @@ export const FAMILY_KIND = Object.freeze(['family', '잊지 말기']);
 // (DB 검사 20261115234500_signup_notify가 이 키를 받는다). 알림은 서버가 운영자 작업공간에만 보내므로 칩을 빼는 것은 보안이 아니다.
 export const SIGNUP_KIND = Object.freeze(['signup', '새 가입']);
 // S69-97 노트 알림: 노트에 건 알림(정한 시각)을 서버(phone-push 15분 예약)가 보낸다. 모든 사람에게 보이는 칩. family·signup과 같은 방식 —
-// 기본 켬, 끌 때만 kinds.note=false(DB 검사 20261125120000_note_alarm_push_kind가 이 키를 받는다. 켬일 때는 칸을 만들지 않아
+// 기본 켬, 끌 때만 kinds.note=false(DB 검사 20261125130000_note_alarm_push_kind가 이 키를 받는다. 켬일 때는 칸을 만들지 않아
 // DB 변경 전에도 저장 모양이 그대로 통과한다).
 export const NOTE_KIND = Object.freeze(['note', '노트 알림']);
 export const SIGNUP_FEATURE = 'dev_inbox';

@@ -3,5 +3,5 @@ select 'constraint' as kind,c.conname::text as name,case when length(pg_get_cons
   from pg_constraint c where c.conrelid in(to_regclass('public.app_push_log'),to_regclass('public.app_profiles')) and c.contype='c'
 union all select 'table',c.relname::text,c.relrowsecurity::text||':'||coalesce(c.relacl::text,'none') from pg_class c where c.oid in(to_regclass('public.app_push_log'),to_regclass('public.app_profiles'))
 union all select 'policy',p.polname::text,p.polcmd::text||':'||p.polpermissive::text||':'||p.polroles::text||':'||md5(coalesce(pg_get_expr(p.polqual,p.polrelid),'')) from pg_policy p where p.polrelid in(to_regclass('public.app_push_log'),to_regclass('public.app_profiles'))
-union all select 'history',version,name from supabase_migrations.schema_migrations where version in('20261115234500','20261125120000')
+union all select 'history',version,name from supabase_migrations.schema_migrations where version in('20261115234500','20261125130000')
 order by 1,2;

@@ -1,5 +1,5 @@
 // S69-97 노트 서식(NOTE-에버노트 ③, 설계 docs/design/note-evernote.md 4절): 기본 서식과 서식 이름 검사(화면 없음).
-// 기본 서식 셋은 코드에만 있다(저장하지 않음, 고칠 수 없음). 내 서식은 서버 표 app_note_templates(주인만, migration 20261125121000).
+// 기본 서식 셋은 코드에만 있다(저장하지 않음, 고칠 수 없음). 내 서식은 서버 표 app_note_templates(주인만, migration 20261125131000).
 // WORK ON+ 원칙: 기본 서식 글은 누구나 쓰는 일반 문구(특정 단체·업무 색 낱말 없음).
 export const TEMPLATE_NAME_MAX = 40;
 export const TEMPLATE_MAX = 50; // 한 사람이 저장하는 서식 수(화면이 지킨다)

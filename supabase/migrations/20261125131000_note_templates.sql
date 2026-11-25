@@ -8,14 +8,14 @@ begin;
 -- 권한: owner만(private.app_is_workspace_owner). authenticated: 읽기·지우기, 넣기는 작업공간·이름·본문만(id·시각은 서버가 정함),
 --   고치기는 이름·본문·updated_at만(작업공간은 못 고침). anon·PUBLIC·service_role 권한 없음. 함수·트리거 없음.
 --   공유(COLLAB) 함수는 이 표를 읽지 않는다(넓히지 않음).
--- 짝: docs/20261125121000_note_templates.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261125131000_note_templates.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125121000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125131000')
      or to_regclass('public.app_note_templates') is not null
      or to_regclass('public.app_workspaces') is null
      or not exists (select 1 from pg_attribute where attrelid = to_regclass('public.app_workspaces') and attname = 'id'
@@ -95,5 +95,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261125121000', 'note_templates', array['S69-97 NOTE templates: app_note_templates (owner RLS, name 1-40 unique per workspace, ed1 doc up to 200000 bytes, select/delete, insert and update named columns)']);
+values ('20261125131000', 'note_templates', array['S69-97 NOTE templates: app_note_templates (owner RLS, name 1-40 unique per workspace, ed1 doc up to 200000 bytes, select/delete, insert and update named columns)']);
 commit;

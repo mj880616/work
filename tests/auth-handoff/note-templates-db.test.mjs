@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google, OpenAI or production credentials. All data synthetic.
-// S69-97 노트 서식 DB(20261125121000_note_templates): 소유자만 읽기·쓰기, 다른 작업공간·anon·service_role 거절,
+// S69-97 노트 서식 DB(20261125131000_note_templates): 소유자만 읽기·쓰기, 다른 작업공간·anon·service_role 거절,
 // 이름·본문 모양 검사, 작업공간 고치기 불가, id·시각 넣기 불가, 작업공간 안 이름 하나, 되돌리기.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261125121000',name='note_templates',stem=version+'_'+name;
+const version='20261125131000',name='note_templates',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];

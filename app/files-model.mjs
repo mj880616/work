@@ -14,7 +14,7 @@ export const SOURCE_NAME = Object.freeze({od: '원드라이브', gd: '구글 드
 // S50-33(명진 결정, 시안 승인): [최근] 묶음과 폰 탭 줄(최근·폴더·별표)은 화면·주소에서 뺐다(서버 p_shelf 'recent'는 그대로 둠). 폰 첫 화면은 나무.
 export const SHELVES = Object.freeze(['starred', 'big']);
 export const SHELF_NAME = Object.freeze({starred: '별표', big: '큰 파일'});
-// F2: 화면이 열려 있는 동안 2분마다 바뀐 것만(서버도 2분 안이면 클라우드를 부르지 않는다).
+// 명진 결정 F2: 화면이 열려 있는 동안 2분마다 바뀐 것만(서버도 2분 안이면 클라우드를 부르지 않는다).
 export const SYNC_EVERY_MS = 2 * 60 * 1000;
 export const SHELF_LIMIT = 200;
 export const FIND_LIMIT = 200;
@@ -145,30 +145,26 @@ export function fullTime(iso) {
   const d = new Date(ms);
   return `${dayKey(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-// 맞춘 때 한 줄(머리 오른쪽 작게).
-export function syncText(syncedAt, now = Date.now()) {
-  const ms = typeof syncedAt === 'number' ? syncedAt : Date.parse(syncedAt || '');
-  if (!Number.isFinite(ms)) return '';
-  const s = Math.max(0, Math.round((now - ms) / 1000));
-  if (s < 60) return '방금 맞춤';
-  if (s < 3600) return `${Math.floor(s / 60)}분 전 맞춤`;
-  if (s < 86400) return `${Math.floor(s / 3600)}시간 전 맞춤`;
-  return `${Math.floor(s / 86400)}일 전 맞춤`;
+// FILES-맞춤단추없애기(S70-26, 11/25 명진 "굳이 내가 안쓰거든 / 자동으로 맞추게"): '○분 전 맞춤' 단추는 없앴다. 맞추기는 사람이 누르지 않는다 —
+//   [파일]에 들어올 때 · 화면에 있는 동안 2분마다(SYNC_EVERY_MS) · 창으로 돌아올 때(마지막 시도에서 SYNC_BACK_MS 지났으면) 저절로.
+//   실패·덜 받음은 글자 없이 다음 차례에 다시. 연달아 SYNC_ALERT_FAILS번 실패했을 때만 공용 알림 한 줄.
+export const SYNC_BACK_MS = 60 * 1000;
+export const SYNC_ALERT_FAILS = 3;
+// 이번 차례에 맞출지: 들어올 때·시계는 늘 맞춘다(서버가 2분 안이면 클라우드를 부르지 않는다). 창으로 돌아올 때는 마지막 시도에서 1분 지났을 때만.
+export function syncDue(reason, lastTry, now = Date.now()) {
+  if (reason !== 'back') return true;
+  return typeof lastTry !== 'number' || !Number.isFinite(lastTry) || now - lastTry >= SYNC_BACK_MS;
 }
-
-// S50-14: 맞추기 단추 글자. 처음 목록 받기가 아직 안 끝났거나(scanning) 실패했으면 '방금 맞춤'을 띄우지 않는다
-//   (예전에는 실패해도 '방금 맞춤'이 떠서 목록이 덜 찬 것을 알 수 없었다). 글줄 안 진행 표시는 '…' 한 글자(UI-로딩맨위).
-export function syncLabel(status, syncedAt, now = Date.now(), sources = ['od', 'gd']) {
-  const on = sources.map(s => status?.[s]).filter(x => x?.connected);
-  if (on.some(x => x.error)) return {text: '맞추기 안 됨', title: '목록을 다 받지 못했어요. 누르면 다시 맞춥니다', state: 'error'};
-  // S50-20: 처음 받는 중이면 받은 개수도(서버 status의 received, 내 파일만). 세지 못한 출처만 있으면 개수 없이.
-  const scan = on.filter(x => x.scanning);
-  if (scan.length) {
-    const got = scan.map(x => x.received).filter(n => Number.isFinite(n) && n >= 0);
-    const n = got.length ? got.reduce((a, b) => a + b, 0) : null;
-    return {text: n === null ? '맞추기…' : `맞추기… ${countText(n)}개`, title: '처음 목록을 아직 다 받지 못했어요 — 끝날 때까지 일부 파일이 안 보일 수 있어요', state: 'scanning'};
-  }
-  return {text: syncText(syncedAt, now) || '맞추기', title: '지금 맞추기', state: 'ok'};
+// 맞추기 한 번이 끝났을 때: 성공이면 실패 수 0. 실패면 하나 더하고, 연달아 SYNC_ALERT_FAILS번째에만 알린다(그 뒤로는 조용히).
+//   알림의 [다시]로 부른 것(asked)이 또 실패하면 그때도 알린다.
+export function syncFailStep(fails, ok, {asked = false, alertAt = SYNC_ALERT_FAILS} = {}) {
+  if (ok) return {fails: 0, alert: false};
+  const n = (Number.isFinite(fails) && fails > 0 ? fails : 0) + 1;
+  return {fails: n, alert: n === alertAt || (asked && n >= alertAt)};
+}
+// 응답을 입힌 상태에서 연결된 출처 중 하나라도 오류가 있으면 실패. 이어 받기(more)·처음 받는 중(scanning)은 실패가 아니다.
+export function syncOk(status, sources = ['od', 'gd']) {
+  return !sources.some(s => status?.[s]?.connected && status[s].error);
 }
 // sync 응답(출처마다 fresh·busy·more·done·error)을 화면이 들고 있는 상태(status 응답 모양)에 입힌다. 바꾼 새 객체를 돌려준다.
 export function applySyncReply(status, reply, sources = ['od', 'gd']) {
@@ -182,8 +178,6 @@ export function applySyncReply(status, reply, sources = ['od', 'gd']) {
   }
   return out;
 }
-// 모두 끝까지 맞췄을 때만 '맞춘 때'를 지금으로 옮긴다(이어 받을 쪽이 남았거나 실패한 출처가 있으면 그대로).
-export const syncSettled = (reply, sources = ['od', 'gd']) => sources.every(s => !reply?.[s] || (!reply[s].more && !reply[s].error && !reply[s].busy));
 
 // 정렬: 폴더 먼저(늘 위), 그다음 고른 열. 같은 값이면 이름 → id(늘 같은 순서). 이름·위치·종류는 한국어·숫자 자연 정렬(head-sort.mjs naturalCompare).
 // UI-머리눌러정렬: 머리 칸(이름·위치·바뀐 날·크기·종류)을 누르면 그 칸 기준(head-sort.mjs). 위치(path)는 위치가 보이는 목록(찾기·묶음)에서만 쓴다.

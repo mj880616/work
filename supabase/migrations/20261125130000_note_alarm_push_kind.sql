@@ -5,7 +5,7 @@ begin;
 --   2) public.app_profiles의 알림 설정 검사(app_profiles_notify_prefs_check)를 지우고 같은 이름으로 다시 만든다: kinds 키에 'note'만 더함
 --      (내 프로필 폰 알림 칩에서 '노트 알림'을 끌 수 있게. 모양·크기 상한·조용한 시간 규칙 그대로).
 -- 안 하는 것: 표·칸·권한·정책·RLS·함수·트리거 변경, 기존 줄 변경, anon·PUBLIC 권한, rtw_* 객체. 알림 기록에는 지금처럼 노트 제목·본문을 저장하지 않는다.
--- 짝: docs/20261125120000_note_alarm_push_kind.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261125130000_note_alarm_push_kind.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 lock table public.app_push_log in access exclusive mode;
@@ -14,7 +14,7 @@ lock table public.app_profiles in access exclusive mode;
 -- 사전 조건: 앞 판(signup_notify) 기록 1행, 두 검사가 signup은 있고 note는 없는 모양. 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125120000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125130000')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261115234500' and name = 'signup_notify') <> 1
      or (select count(*) from pg_constraint where conrelid = 'public.app_push_log'::regclass and conname = 'app_push_log_kind_check'
          and contype = 'c' and convalidated and pg_get_constraintdef(oid) ~ '''signup''' and pg_get_constraintdef(oid) !~ '''note''') <> 1
@@ -68,5 +68,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261125120000', 'note_alarm_push_kind', array['S69-97 NOTE alarm: app_push_log_kind_check and app_profiles_notify_prefs_check recreated with the extra kind note (no table, column, grant, policy, function or row change)']);
+values ('20261125130000', 'note_alarm_push_kind', array['S69-97 NOTE alarm: app_push_log_kind_check and app_profiles_notify_prefs_check recreated with the extra kind note (no table, column, grant, policy, function or row change)']);
 commit;

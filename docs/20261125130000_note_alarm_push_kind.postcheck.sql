@@ -4,7 +4,7 @@
 -- expect: notify prefs check with note = 예
 -- expect: push log rows = 기록
 -- expect: push log and profiles grants policies hash = 기록
-select 'history row present' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261125120000' and name='note_alarm_push_kind')=1 then '예' else '아니오' end as value
+select 'history row present' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261125130000' and name='note_alarm_push_kind')=1 then '예' else '아니오' end as value
 union all select 'push log kind check with note',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_push_log') and conname='app_push_log_kind_check' and convalidated and pg_get_constraintdef(oid) ~ '''note''' and pg_get_constraintdef(oid) ~ '''signup''' and pg_get_constraintdef(oid) ~ '''family''')=1 then '예' else '아니오' end
 union all select 'notify prefs check with note',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_profiles') and conname='app_profiles_notify_prefs_check' and convalidated and pg_get_constraintdef(oid) ~ '"note"' and pg_get_constraintdef(oid) ~ '"signup"' and pg_get_constraintdef(oid) ~ '"family"')=1 then '예' else '아니오' end
 union all select 'push log rows',(select count(*)::text from public.app_push_log)

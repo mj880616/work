@@ -1,6 +1,6 @@
 -- SELECT only. pg_catalog와 migration 기록만 읽는다. 적용 뒤 모두 예, 되돌린 뒤에도 모두 예(기록·표가 함께 없음).
 with t as (select to_regclass('public.app_note_templates') as f),
-history as (select count(*) filter(where name='note_templates') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261125121000')
+history as (select count(*) filter(where name='note_templates') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261125131000')
 select 'table and history agree' as item,case when (history.n=0 and t.f is null) or (history.n=1 and history.named=1 and t.f is not null) then '예' else '아니오' end as ok
   from t,history
 union all select 'RLS on, 1 owner policy for authenticated only, no triggers',case when (select f from t) is null or (

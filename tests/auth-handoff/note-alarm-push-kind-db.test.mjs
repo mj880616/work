@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic(가상 이름).
-// S69-97 NOTE-알림 DB(20261125120000_note_alarm_push_kind): 폰 알림 종류 'note'를 알림 기록·알림 설정 검사에 더한다 — 승인형 DB workflow 실행기로.
+// S69-97 NOTE-알림 DB(20261125130000_note_alarm_push_kind): 폰 알림 종류 'note'를 알림 기록·알림 설정 검사에 더한다 — 승인형 DB workflow 실행기로.
 // 앞 판 20261115234500_signup_notify까지 저장소 파일 그대로 적용한다(앞 단계 준비는 signup-notify-db.test.mjs와 같다).
 // - 규칙 통과(full 흐름), 시험 적용은 아무것도 안 바꿈, 적용 뒤 사후 확인 모두 예, 두 번째 적용 거절.
 // - note 기록·설정 kinds.note 참/거짓 저장 됨, 모르는 종류·키·참거짓 아닌 값은 그대로 거절, 앞 판 종류(family·signup) 그대로.
@@ -17,7 +17,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261125120000',name='note_alarm_push_kind',stem=version+'_'+name;
+const version='20261125130000',name='note_alarm_push_kind',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];

@@ -163,7 +163,7 @@ test('S69-97: 노트 알림 종류는 기본 켬, 끌 때만 kinds.note=false, �
   assert.equal(onCount(off), 5, '기본 다섯 종류 수는 그대로');
   const both = toggleKind(toggleKind(p, 'family'), 'note');
   assert.deepEqual(serializePrefs(both).kinds, {...Object.fromEntries(KIND_KEYS.map(k => [k, true])), family: false, note: false});
-  const sql = read('supabase/migrations/20261125120000_note_alarm_push_kind.sql');
+  const sql = read('supabase/migrations/20261125130000_note_alarm_push_kind.sql');
   assert.match(sql, /@\.key == "note"/);
   const ui = read('app/phone-push-settings.js');
   assert.match(ui, /COLLECT_KINDS\.has\(key\)\), NOTE_KIND, \.\.\.\(state\.family/, '노트 알림 칩은 기능 확인 없이 모두에게');
