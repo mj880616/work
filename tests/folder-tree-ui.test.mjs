@@ -19,7 +19,7 @@ test('폴더 줄: 맨 위 단계 ft-top·하위 ft-sub, 들여쓰기 4단까지,
   const top = ftFolderRowHtml({name: '<가>', count: 8, countLabel: '노트 8개', depth: 0, open: true, rowAttrs: {'data-x': 'a'}, mainAttrs: {'data-open': 'a'}, more: {attrs: {'data-more': 'a'}, label: '가 메뉴'}});
   assert.match(top, /class="ft-row ft-folder ft-top ft-open"/);
   assert.match(top, /style="--ft-depth:0"/);
-  assert.match(top, /<span class="ft-name">&lt;가&gt;<\/span><span class="ft-num" aria-label="노트 8개">8<\/span>/);
+  assert.match(top, /<span class="ft-name" title="&lt;가&gt;">&lt;가&gt;<\/span><span class="ft-num" aria-label="노트 8개">8<\/span>/);
   assert.match(top, /data-ft-shape="open"/);
   assert.match(top, /aria-expanded="true"/);
   assert.match(top, /<button type="button" class="ft-btn ft-dots" data-more="a" aria-label="가 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots"/);
@@ -111,13 +111,25 @@ test('[파일]·사진도 같은 공용 부품을 부른다(복사 없음)', () 
   }
 });
 
+// UI-긴폴더이름(S70-19, 표준 L2): 이름 칸에 늘 전체 이름 title. 특수문자는 이스케이프되고 nameTail은 title에 들어가지 않는다.
+test('L2 폴더 줄: 이름 칸 title = 전체 이름(특수문자 이스케이프, 꼬리 글자 제외)', () => {
+  const name = '가상 "긴" <폴더> & \'이름\' '.repeat(3) + '끝';
+  const row = ftFolderRowHtml({name, nameTail: '<span class="x">꼬리</span>', toggle: {attrs: {'data-x-tog': 'a'}}});
+  const m = /<span class="ft-name" title="([^"]*)">/.exec(row);
+  assert.ok(m, 'title이 있다');
+  assert.equal(m[1], name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
+  assert.doesNotMatch(m[1], /[<>"']/, '날 글자가 속성을 깨지 않는다');
+  assert.doesNotMatch(m[1], /꼬리/);
+  assert.match(ftFolderRowHtml({name: ''}), /<span class="ft-name" title="">/);
+});
+
 // S51-25 FOLDER-PC나무: PC 나무는 아이콘이 따로인 단추(줄 = 열기 + 펼침, 아이콘 = 접기·펼치기만). 세모 없음.
 test('toggle: 폴더 아이콘이 줄 앞 따로인 단추, 열린 그림 = 펼침, 펼칠 것이 없으면 단추 없이 닫힌 그림', () => {
   const open = ftFolderRowHtml({name: '문서함', depth: 1, open: true, hasContent: true, mainAttrs: {'data-x-go': 'a'}, toggle: {attrs: {'data-x-tog': 'a'}}});
   assert.match(open, /^<div class="ft-row ft-folder ft-sub ft-open ft-has-tog"/);
   assert.match(open, /<button type="button" class="ft-btn ft-tog" data-x-tog="a" aria-expanded="true" aria-label="문서함 접기"><span class="ft-ico" data-ft-shape="open"/);
   // 이름 단추에는 아이콘도 aria-expanded도 없다(펼침은 아이콘 단추가 알림).
-  assert.match(open, /<button type="button" class="ft-btn ft-main" data-x-go="a"><span class="ft-name">문서함<\/span><\/button>/);
+  assert.match(open, /<button type="button" class="ft-btn ft-main" data-x-go="a"><span class="ft-name" title="문서함">문서함<\/span><\/button>/);
   const shut = ftFolderRowHtml({name: '문서함', open: false, hasContent: true, toggle: {attrs: {'data-x-tog': 'a'}}});
   assert.match(shut, /aria-expanded="false" aria-label="문서함 펼치기"><span class="ft-ico" data-ft-shape="closed"/);
   const leaf = ftFolderRowHtml({name: '빈 폴더', open: true, hasContent: false, toggle: {attrs: {'data-x-tog': 'b'}}});
