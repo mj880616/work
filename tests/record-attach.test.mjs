@@ -105,7 +105,7 @@ test('library-files record_line mode answers one line, stores nothing and record
   const start=src.indexOf("if(String(form.get('mode')||'')==='record_line'){"),end=src.indexOf('return json({ok:true,line});',start);
   assert.ok(start>0&&end>start);
   const block=src.slice(start,end);
-  assert.match(block,/await recordAiDailyUsage\(admin,\{workspaceId:wm\.workspace_id,userId:user\.id,meter\}\);/);
+  assert.match(block,/await recordAiDailyUsage\(admin,\{workspaceId:wm\.workspace_id,userId:user\.id,feature:AI_FEATURE,meter\}\);/);
   assert.doesNotMatch(block,/upload\(|insert\(|update\(|driveToken|ensureLibrary/);
   assert.ok(src.indexOf('const wm=await workspaceFor(user.id);')<start,'owner check first');
 });

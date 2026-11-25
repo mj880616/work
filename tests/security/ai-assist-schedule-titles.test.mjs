@@ -104,7 +104,7 @@ test('owner: one OpenAI call with event lines, names and the week\'s own records
   assert.match(notes,/kind=in\.\(basket,work\)/);assert.match(notes,/archived_at=is\.null/);assert.match(notes,/ai_export_allowed=is\.true/);
   // records from the shown week's Monday to the last event day
   assert.match(calls.rest.find(c=>c.table==='app_suborganization_updates').query,/occurred_at=gte\.2026-10-18T15:00:00\.000Z&occurred_at=lt\.2026-10-28T15:00:00\.000Z/);
-  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'),'no write but the usage count');
+  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'||c.table==='app_ai_usage_events'),'no write but the usage count');
   assert.equal(db.app_ai_daily_usage[0].requests,1);
   assert.ok(!/가상|기자회견|임단투/.test(JSON.stringify(calls.logs)),'no titles or material in logs');
   assert.ok(calls.logs.some(l=>l.code==='schedule_titles_done'&&l.detail.items===2));

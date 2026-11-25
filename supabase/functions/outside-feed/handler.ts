@@ -28,6 +28,7 @@
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSource } from "../_shared/outside-catalog.ts";
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env, type Log } from "../_shared/openai-responses.ts";
+import { FUNCTION_FEATURES, recordAiUsageEvent } from "../_shared/ai-features.mjs";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { BROWSER_ACCEPT_FEED, BROWSER_ACCEPT_HTML, readerHeaders, readerUserAgent } from "../_shared/reader-headers.ts";
@@ -314,7 +315,7 @@ const EXPAND_SCHEMA = { type: "object", additionalProperties: false, required: [
 
 type AiDeps = { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log; env: Env };
 // opts(S52-36 [번역]만 씀): 시간·응답 크기 상한을 늘리고, 쓴 토큰 수를 onUsage로 알려 준다(월 한도 계산용, 숫자만).
-type AskOpts = { timeoutMs?: number; maxBytes?: number; onUsage?: (u: { input: number; output: number }) => void };
+type AskOpts = { timeoutMs?: number; maxBytes?: number; onUsage?: (u: { input: number; output: number; model: string }) => void };
 async function askAi(deps: AiDeps, name: string, instructions: string, material: string, schema: unknown, maxOut: number, opts: AskOpts = {}): Promise<unknown | null> {
   const config = aiConfigFrom(deps.env, { keyName: KEY_NAME, model: DEFAULT_AI_MODEL, priceIn: DEFAULT_PRICE_IN_KRW_PER_MTOK, priceOut: DEFAULT_PRICE_OUT_KRW_PER_MTOK });
   if (!config) { deps.log("ai_not_configured"); return null; }
@@ -324,12 +325,22 @@ async function askAi(deps: AiDeps, name: string, instructions: string, material:
     text: { format: { type: "json_schema", name, strict: true, schema } },
   }, { url: OPENAI_URL, timeoutMs: opts.timeoutMs ?? AI_TIMEOUT_MS, retryDelayMs: 1000, maxResponseBytes: opts.maxBytes ?? AI_RESPONSE_BYTES });
   if (!result.ok) { deps.log("ai_failed", { stage: result.code }); return null; }
-  opts.onUsage?.({ input: tokenCount(result.usage.input), output: tokenCount(result.usage.output) });
+  opts.onUsage?.({ input: tokenCount(result.usage.input), output: tokenCount(result.usage.output), model: config.model });
   const text = opts.maxBytes ? outputText(result.raw, opts.maxBytes) : outputText(result.raw);
   if (!text) { deps.log("ai_failed", { stage: "ai_invalid_response" }); return null; }
   try { return JSON.parse(text); } catch { deps.log("ai_failed", { stage: "ai_invalid_json" }); return null; }
 }
 
+// S70-55 I-3: 사람이 누른 AI([번역]·찾는 말 넓히기)는 그 사람 작업공간 몫으로 기능별 표(app_ai_usage_events, 'news')에 1행.
+// 숫자·모델 이름만, 실패는 로그만(응답을 막지 않음). 예약 수집의 요약·소개 AI는 여러 작업공간 공용이라 아직 어느 몫에도 세지 않는다(PR 범위 밖).
+const AI_FEATURE = FUNCTION_FEATURES["outside-feed"];
+type DbSend = { send: (m: "POST" | "PATCH", p: string, b: unknown, prefer?: string) => Promise<unknown> };
+async function recordAiEvent(db: DbSend, ws: string, nowMs: number, used: { input: number; output: number; model?: string }, log: Log) {
+  if (!used.input && !used.output) return;
+  await recordAiUsageEvent((row) => db.send("POST", "app_ai_usage_events", row, "return=minimal"),
+    { workspaceId: ws, day: kstDay(nowMs), feature: AI_FEATURE, model: used.model, calls: 1, input: used.input, output: used.output },
+    (code, detail) => log(code, detail));
+}
 const okText = (v: unknown, max: number) => typeof v === "string" && oneLine(v) !== "" && chars(oneLine(v)) <= max ? oneLine(v) : null;
 // 요약 칸에는 요약만: '요약할 수 없음' 같은 안내 문장(aiSaysNoMaterial)은 요약이 아니므로 비운다(제목만 보임).
 const summaryText = (v: unknown) => { const s = okText(v, 2000); return s && !aiSaysNoMaterial(s) ? s : null; };
@@ -1217,12 +1228,13 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
           doFetch, log, google, title: String(art.title ?? ""), text, lang: art.lang, needTitle: !hadTitle,
           monthCapped: async () => !!(await aiMonthStop(db, ws, nowMs)),
           askAi: async (material, maxOut, timeoutMs) => {
-            let used = { input: 0, output: 0 };
+            let used: { input: number; output: number; model?: string } = { input: 0, output: 0 };
             const v = await askAi({ doFetch, sleep, log, env: deps.env }, "outside_translate", TRANSLATE_INSTRUCTIONS, material, TRANSLATE_SCHEMA, maxOut,
               { timeoutMs, maxBytes: 1024 * 1024, onUsage: (u) => { used = u; } });
             if (used.input || used.output) {
               try { await addDay(db, ws, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: used.input, ai_output_tokens: used.output }, nowMs); }
               catch { log("usage_record_failed"); }
+              await recordAiEvent(db, ws, nowMs, used, log);
             }
             return v;
           },
@@ -1245,7 +1257,10 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
       const n = expandUse.get(use) ?? 0;
       if (n >= EXPAND_DAILY_PER_USER) throw new Fail(429, "DAILY_LIMIT");
       expandUse.set(use, n + 1);
-      const terms = readTerms(await askAi({ doFetch, sleep, log, env: deps.env }, "outside_expand", EXPAND_INSTRUCTIONS, query, EXPAND_SCHEMA, 200), query);
+      let expandUsed: { input: number; output: number; model?: string } = { input: 0, output: 0 };
+      const terms = readTerms(await askAi({ doFetch, sleep, log, env: deps.env }, "outside_expand", EXPAND_INSTRUCTIONS, query, EXPAND_SCHEMA, 200,
+        { onUsage: (u) => { expandUsed = u; } }), query);
+      await recordAiEvent(db, who.workspaceId, nowMs, expandUsed, log);
       if (!terms) throw new Fail(503, "AI_UNAVAILABLE");
       return json({ ok: true, terms });
     } catch (e) {
