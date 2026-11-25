@@ -34,6 +34,8 @@ async function fixture(page,width){
  await page.route(SB+'/functions/v1/basket-files**',r=>{
   const url=new URL(r.request().url());
   if(url.searchParams.get('action')==='photo'){photos.push(Object.fromEntries(url.searchParams));return r.fulfill({status:200,headers:{'content-type':'image/png'},body:PNG});}
+  // S69-98: 노트 사진도 올린 뒤 글자 읽기(ocr-*)를 묻는다 — 이 시험은 읽기를 보지 않으므로 '못 함'으로 답한다(올리기만 센다).
+  if(url.searchParams.get('action')?.startsWith('ocr-'))return r.fulfill({status:404,json:{ok:false}});
   const raw=r.request().postDataBuffer()?.toString('latin1')||'';
   const noteId=raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1],name=raw.match(/filename="([^"]*)"/)?.[1],type=raw.match(/Content-Type: ([^\r]+)/)?.[1];
   const shown=Buffer.from(name||'','latin1').toString('utf8');uploads.push({noteId,name:shown});

@@ -10,14 +10,14 @@ do $$
 begin
   if (select count(*) from supabase_migrations.schema_migrations where version = '20261125180000' and name = 'mcp_claude_settings_row') <> 1
      or (select count(*) from public.app_mcp_settings) <> 1
-     or (select count(*) from public.app_mcp_settings s where s.workspace_id in (select f.workspace_id from public.app_operator_features f)) <> 1 then
+     or (select count(*) from public.app_mcp_settings s where s.workspace_id in (select f.workspace_id from public.app_operator_features f where f.feature = 'calls')) <> 1 then
     raise exception 'MCP_SETTINGS_ROW_ROLLBACK_BLOCKED: state differs';
   end if;
 end
 $$;
 
 delete from public.app_mcp_settings
-  where workspace_id in (select f.workspace_id from public.app_operator_features f);
+  where workspace_id in (select f.workspace_id from public.app_operator_features f where f.feature = 'calls');
 
 delete from supabase_migrations.schema_migrations
   where version = '20261125180000' and name = 'mcp_claude_settings_row';

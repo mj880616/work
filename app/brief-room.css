@@ -4,7 +4,8 @@
 #briefView .br-title{margin:0;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #briefView .br-head .br-pick-lib,#briefView .br-head .br-src{margin-left:auto;flex:none}
 #briefView .br-head .br-add{flex:none}
-#briefView .br-drop{margin:2px 0 4px;padding:4px 8px;border:1px dashed var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+/* UI-간격기준 A(S70-42, 명진 11/25 "자료실에서 선택 자료넣기랑 그 아래랑 여백 없고"): 머리줄 단추 줄과 놓기 칸 사이 = --ds-gap-bar. */
+#briefView .br-drop{margin:var(--ds-gap-bar) 0 4px;padding:4px 8px;border:1px dashed var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView.br-dropping .br-drop{border-color:var(--kptu-primary-ink);color:var(--kptu-ink)}
 #briefView .br-rows{border-top:.5px solid var(--kptu-border)}
 #briefView .br-row{display:grid;grid-template-columns:2.8em minmax(0,1fr) auto auto;gap:1px 6px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row)}
