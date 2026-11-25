@@ -27,7 +27,7 @@ export async function cleanBoardPhoto(file, {shrink} = {}) {
     const bytes = stripPhotoMeta(await readBytes(out)); // 다시 그린 그림엔 정보 칸이 없다 — 그래도 한 번 더 뺀다
     if (bytes) out = new File([bytes], out.name, {type:out.type, lastModified:out.lastModified});
   }
-  if (metaLeft(await readBytes(out)).length) throw new Error(`${name}의 사진 정보를 지우지 못해 올리지 않았어요.`);
+  if (metaLeft(await readBytes(out)).length) throw new Error(`${name}의 사진 정보를 빼지 못해 올리지 않았어요.`);
   return {file:out, size:size || (await sizeOf(out))};
 }
 

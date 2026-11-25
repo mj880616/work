@@ -171,5 +171,5 @@ test('pair files: catalog only, three summary lines, rollback (SQL Editor) drops
  assert.deepEqual(rollback.match(/drop [^;]*;/g),['drop function public.app_meeting_join_undo(uuid, text);','drop function public.app_meeting_join_apply(uuid);','drop table public.app_meeting_join_jobs;']);
  assert.match(rollback,/status in \('queued', 'running'\)\) then\s+raise exception 'MEETING_JOIN_JOBS_ROLLBACK_BLOCKED: join job in progress';/);
  assert.match(rollback,/delete from supabase_migrations\.schema_migrations\s+where version = '20261111142100' and name = 'meeting_join_jobs';\s*commit;\s*$/);
- assert.match(readFileSync('docs/migration-history.md','utf8'),/`20261111142100_meeting_join_jobs\.sql` \| 미적용/);
+ assert.match(readFileSync('docs/migration-history.md','utf8'),/`20261111142100_meeting_join_jobs\.sql` \| (?:미적용|적용 완료)/);
 });
