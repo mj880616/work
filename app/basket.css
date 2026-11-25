@@ -695,4 +695,4 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* S69-98 NOTE-에버노트 ⑧ 이 노트를 가리키는 노트(한 줄, 넘치면 줄바꿈). */
 #basketView .note-linkedby { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 4px 0; font-size: 13px; color: var(--kptu-muted); }
 #basketView .note-linkedby-label::before { content: "← "; }
-#basketView .note-linkedby-link { min-height: 28px; margin: 0; padding: 0 2px; border: 0; background: transparent; box-shadow: none; color: var(--kptu-primary); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#basketView .note-linkedby-link { min-height: 28px; margin: 0; padding: 0 2px; border: 0; background: transparent; box-shadow: none; color: var(--kptu-primary-text); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
