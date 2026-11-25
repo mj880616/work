@@ -94,7 +94,7 @@ claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──
 - **verify_jwt = false** (결정과 이유):
   1. MCP는 열쇠 없는 첫 호출에 **서버가 직접** `401` + `WWW-Authenticate: Bearer resource_metadata="…/mcp-read/.well-known/oauth-protected-resource"`를 돌려줘야 로그인이 시작된다(사실, Claude 커넥터 인증 문서: 이 헤더 없는 401·200은 무시). 관문(`verify_jwt=true`)이 먼저 막으면 이 헤더 없는 401이 나가 Claude가 OAuth를 찾지 못한다.
   2. 보호 자원 정보 문서는 로그인 전에 읽혀야 한다.
-  3. 대신 함수 코드가 인증한다(기존 `false` Web2 함수와 같은 방식, AGENTS §8): 열쇠를 Auth로 확인(`/auth/v1/user`) → 열쇠의 `client_id`가 있는지(없으면 = 일반 Web2 로그인 열쇠 → 거절, 이 입구는 OAuth 열쇠만 받음) → 같은 열쇠로 DB 읽기 함수 호출 → DB가 작업공간 소유자·허용 클라이언트·스위치·상한을 다시 확인(7절). 함수는 서버 키를 읽지 않는다(정적 시험).
+  3. 대신 함수 코드가 인증한다(기존 `false` Web2 함수와 같은 방식, AGENTS §8): 열쇠에 `client_id`가 있는지 먼저 본다(없으면 = 일반 Web2 로그인 열쇠 → Auth에 묻지 않고 거절, 이 입구는 OAuth 열쇠만 받음) → 열쇠를 Auth OAuth 서버로 확인(`GET /auth/v1/oauth/userinfo`, 돌아온 `sub`가 열쇠 `sub`와 같아야 함. 2026-11-25 S70-56에서 `/auth/v1/user`에서 바꿈 — Supabase 수정 #2898 뒤엔 위임 열쇠로 `/user`가 403, 14.4 준비 ①) → 같은 열쇠로 DB 읽기 함수 호출 → DB가 작업공간 소유자·허용 클라이언트·스위치·상한을 다시 확인(7절). 함수는 서버 키를 읽지 않는다(정적 시험).
   4. workflow 첫 배포: `first_deploy=true`, `verify_jwt=false`, `expect_unauth_401=true`(비로그인 POST에 함수가 401을 돌려주므로 검사 가능). OPTIONS 204.
 - 받는 열쇠: OAuth 열쇠의 `aud`는 일반 로그인과 같은 `authenticated`라 RFC 8707 "이 자원 전용 열쇠"를 `aud`로는 가릴 수 없다(사실, 1판 4.2). 대신 **`client_id`가 등록된 Claude 클라이언트 하나와 같은지**를 DB 문지기가 확인한다(허용 클라이언트 값은 7.1 설정 표에 SQL로만 넣음). 남는 위험은 8절 T3.
 - 받은 열쇠를 다른 API에 넘기기(token passthrough): `mcp-read`는 같은 프로젝트의 REST에 그 열쇠를 그대로 쓴다. MCP 사양이 막으려는 "다른 서비스로 넘기기"와 달리 같은 발급처·같은 자원 서버 안이고, L1이 그 열쇠로 갈 수 있는 곳을 `app_mcp_*` 읽기 함수로 줄인다. 열쇠가 새어도 할 수 있는 일 = Claude가 할 수 있는 일과 같다(읽기 도구만).
@@ -280,7 +280,7 @@ create policy app_mcp_no_delegated_storage on storage.objects
 | M-4 | Edge `mcp-read` 코드·시험(모의 응답으로 401 헤더·정보 문서·도구 목록·봉투·입력 검사·서버 키 없음 정적 시험) → 첫 배포 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=true`, `docs/web2-env6b-edge-source.md` 5절 표에 행 추가 | **Edge 첫 배포** | 이전 버전 없음 → 클라이언트 등록 전이라 쓰는 곳 없음, 필요 시 대시보드 삭제 판단 |
 | M-5 | Web2 동의 화면 + 설정 화면 [Claude 읽기 연결](스위치·[모든 연결 끊기]·최근 읽은 기록·이번 달 호출 수) | Pages 배포(= merge) | PR revert |
 | M-6 | Auth: OAuth 서버 켬, 동의 화면 주소, DCR 끔, "Claude" 클라이언트 등록. 설정 행 SQL(명진 작업공간, `enabled=false`, 클라이언트 ID). 켜기 전·후 화면 캡처 | **Auth 설정 변경 + production 데이터 1행** | 4.5 되돌리기 순서 |
-| M-7 | 켜기 전 시험(스위치 꺼진 채, CC): OAuth 열쇠로 ① REST 표 GET → 403 ② `app_mcp_*` 외 RPC → 403 ③ Storage → 거절 ④ Edge 함수 아무거나 → 401 ⑤ **`PUT /auth/v1/user` → 거절이어야 함** ⑥ 읽생기 표 → 403. **하나라도 실패하면 OAuth 서버를 끄고 멈춤**(명진 결정 D1 다시) | 시험 결과 판정 | OAuth 서버 끄기 |
+| M-7 | 켜기 전 시험(스위치 꺼진 채, CC, 절차 `scripts/ops/mcp-m7-check.md`): OAuth 열쇠로 ① REST 표 GET → 403 ② `app_mcp_*` 외 RPC → 403 ③ Storage → 거절(또는 빈 목록) ④ Edge 함수 아무거나 → 401 ⑤ **계정 기능 모두 403**(14.4): `PUT /auth/v1/user`(`{"data":{}}`·빈 email·빈 password), `GET /auth/v1/user`, `POST /auth/v1/factors`(`{}`), `GET /auth/v1/user/identities/authorize`(공급자 없이), `POST /auth/v1/reauthenticate`(`GET /user`가 403일 때만 — 메일 발송 위험) ⑥ 읽생기 표 → 403 ⑦ 허용 RPC(스위치 꺼짐) → 403 `DISCONNECTED` ⑧ `GET /auth/v1/oauth/userinfo` → 200 ⑨ `mcp-read` ping → 200. 시험용 계정 변경은 값 없는 요청만, 결과는 상태 코드만 기록(열쇠 값 출력 금지). **하나라도 실패하면 OAuth 서버를 끄고 멈춤**(명진 결정 D1 다시) | 시험 결과 판정 | OAuth 서버 끄기 |
 | M-8 | 명진: claude.ai 커넥터 추가(9.1) → Web2 스위치 켬 → 도구 시험(상한 21번째 거절, [모든 연결 끊기] 뒤 즉시 거절, 지시문이 든 시험 기록으로 주입 시험) | 실제 데이터 | Web2 스위치 끄기 |
 
 ### 9.1 명진이 claude.ai에서 커넥터 추가하기 (M-8, 한 단계씩)
@@ -296,7 +296,7 @@ create policy app_mcp_no_delegated_storage on storage.objects
 
 ## 10. 남은 위험
 
-- **Auth 계정 기능**: Supabase가 OAuth 열쇠로 계정 정보 바꾸기를 막는지 모른다(M-7 ⑤가 통과 조건).
+- **Auth 계정 기능**: 2026-11-25 M-7 ⑤ 실패(위임 열쇠로 `PUT /auth/v1/user` 200). OAuth 서버를 다시 껐다. 결과는 13절, 대책은 14절.
 - **Edge 27개 재배포 부담**: 한 번에 하나씩, 약 27번. 이후 새 함수는 CI가 지킨다.
 - **요청 전 함수는 프로젝트에 하나**: 나중에 읽생기가 요청 전 함수를 쓰려 하면 둘을 합쳐야 한다(읽생기 문서에 알림 필요).
 - **민감한 글이 허용 칸에**: 조직 기록 요지·노트 앞 200자에 교섭 전략이 있으면 그대로 간다(지금 Drive 사본과 같은 수준).
@@ -326,3 +326,94 @@ create policy app_mcp_no_delegated_storage on storage.objects
 - Supabase OAuth — MCP Authentication: https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication
 - Supabase OAuth — Token Security and RLS: https://supabase.com/docs/guides/auth/oauth-server/token-security
 - PostgREST 요청 전 함수(`db-pre-request`): https://docs.postgrest.org/en/stable/references/configuration.html#db-pre-request
+
+## 13. M-7 결과 (2026-11-25)
+
+- 11절 번호는 이미 "조사 중 알게 된 것"이 쓰고 있어, 다른 문서·PR이 가리키는 번호를 바꾸지 않으려고 13·14절로 더한다.
+- 시험: CC가 2026-11-25 20:10에 운영에서 했다(사실, CC 보고). 조건: M-6 뒤(OAuth 서버 켬, "Claude" 공개 클라이언트, 설정 행 `enabled=false`), Supabase OAuth 2.1 위임 열쇠(`client_id` 칸 있음).
+
+| # | 시험 | 결과 | 판정 |
+| --- | --- | --- | --- |
+| ① | REST 표 GET | 403 `NOT_ALLOWED` | 통과(L1) |
+| ② | `app_mcp_*` 밖 RPC | 403 | 통과(L1) |
+| ③ | Storage 버킷 목록 | 200 `[]` | 통과로 봄 — 거절 코드는 아니지만 제한 정책(L2)이 모두 걸러 빈 목록. 파일 읽기·쓰기는 정책상 0행 |
+| ④ | Edge 함수(`library-files`) | 401 | 통과(L3) |
+| ⑤ | `PUT /auth/v1/user` `{"data":{}}` | **200** | **실패** — 위임 열쇠로 계정 정보 바꾸기 길이 열려 있음 |
+| ⑥ | 읽생기 표(`rtw_notes`) | 403 | 통과(L1) |
+| ⑦ | 허용 RPC(스위치 꺼짐) | 403 `DISCONNECTED` | 통과(문지기) |
+| 덧 | `POST /auth/v1/logout?scope=local` | 403 | 위임 열쇠로 자기 세션 끊기 안 됨(이상 동작은 아님) |
+
+- 조치(사실, CC): 9절 M-7 규칙대로 **OAuth 서버를 다시 껐다**(지금 꺼짐, 이미 나간 위임 열쇠도 무효로 봄). "Claude" 클라이언트 등록·설정 행·동의 화면은 그대로 둠. Site URL은 동의 화면 origin 검사 때문에 `https://workonplus.com/work/app/`으로 바꿈(명진 허락).
+- 결론: ⑤ 하나 때문에 M-8(명진 커넥터 추가)로 가지 않는다. 대책은 14절.
+
+## 14. Auth 계정 기능 대책 (S70-51, 2026-11-25 조사)
+
+표기: **사실**=공식 문서·Supabase Auth 저장소 이슈/PR·이 저장소 코드에서 확인. **추정**=확인 못 함(운영 시험이나 문서 재확인 필요). 웹 세션이라 운영 Auth 설정 화면은 보지 않았다.
+
+### 14.1 Supabase가 이 길을 막는 설정이 있나 — 지금은 **없다**
+
+- (사실) Supabase Auth 이슈 [#2877](https://github.com/supabase/auth/issues/2877)(2026-10-17 열림, 조사 시점 열림): "OAuth 2.1 서버가 바깥 앱에 준 접근 열쇠로 `/user`·`/factors`를 부를 수 있다". 보고 내용: `GET /user` 200, `PUT /user`(data) 200·user_metadata 바뀜, `PUT /user`(password) 200(검증된 MFA 없는 계정), `POST /factors` 200(MFA 없는 계정). 검증된 TOTP가 있으면 비밀번호 변경 401 `insufficient_aal`, 인증 수단 등록 403. 위임 새로고침 열쇠로 `/token` 새로고침은 400 `invalid_client`(정상). — 우리 ⑤ 결과와 같은 현상이다.
+- (사실) 고치는 PR [#2898](https://github.com/supabase/auth/pull/2898) "restrict OAuth client access tokens to OAuth endpoints"(2026-11-03 열림, 조사 시점 **merge 전**, 배포 안 됨). 내용:
+  - 위임 열쇠는 일반 로그인 확인(`requireAuthentication`)을 쓰는 모든 길에서 403 `no_authorization`. 막히는 곳: `GET /user`·`PUT /user`, `/factors/*`, `/passkeys/*`, `/user/identities/*`, `/user/oauth/grants`, `/oauth/authorizations/*`, `/reauthenticate`, `/logout`, `/admin/*`, `/invite`.
+  - 남는 곳: `GET /oauth/userinfo`(범위에 따라 `sub`·이메일·이름 등).
+  - 판정은 열쇠 칸(`client_id`)이 아니라 DB의 세션 기록(`session.oauth_client_id`)으로 한다 — "custom access token hook이 칸을 바꿀 수 있으므로". 설정 스위치는 설명에 없어 **늘 켜짐으로 보임**(추정).
+  - 같은 목적의 외부 기여 PR [#2878](https://github.com/supabase/auth/pull/2878)도 있다(상태 미확인).
+- (사실) [Token Security 문서](https://supabase.com/docs/guides/auth/oauth-server/token-security): 범위(`openid`·`email`·`profile`·`phone`)는 ID 열쇠·userinfo 내용만 정하고 "DB 표나 API 입구 접근은 막지 않는다". Auth API(`/user`) 제한은 문서에 없다.
+- (미확인) #2898이 들어간 Auth 판 번호·호스팅 반영 날짜. Supabase 릴리스 페이지·관련 이슈 [#2838](https://github.com/supabase/auth/issues/2838)(위임 열쇠에 aal2 요구 방법 없음)는 이번 세션에서 페이지 열기 허락이 나지 않아 읽지 못했다.
+- 결론(사실+추정): **지금 호스팅 Supabase에는 위임 열쇠의 계정 기능을 끄는 설정이 없다**. Supabase가 고치는 중이며, 들어오면 우리 쪽 설정 없이 ⑤가 403이 될 것으로 본다(추정, 들어온 뒤 다시 시험).
+
+### 14.2 위임 열쇠로 열려 있는 계정 기능과 우리 쪽 피해 (이 저장소 기준)
+
+| 기능 | 열쇠가 새면 | 우리 쪽 피해 | 근거 |
+| --- | --- | --- | --- |
+| user_metadata 바꾸기 | 표시 이름 등 바뀜 | 작음: 앱은 권한 판단에 쓰지 않음. `app/profile-settings.js`·`app/journal-hwpx.js`가 프로필 이름이 비었을 때 **표시 이름 대신**으로만 씀. DB 함수의 `raw_user_meta_data` 사용은 옛 가입 요청·알림 이름뿐이고 11/23 운영자 정보 3가지 변경으로 알림에서 빠짐 | 사실(전수 검색: `app/`·`supabase/functions/`·`supabase/migrations/`) |
+| app_metadata | 못 바꿈(관리자 키만) | 없음 | 사실(Supabase 구조) |
+| 이메일 바꾸기 | 계정 이메일이 남의 주소로 | **중간**: 가입 허용·막기 목록(`app_workspace_signup_allow`, `20261113140000`)이 이메일로 본다. 운영자 기능은 작업공간 허용 표라 이메일과 무관. "이메일 이중 확인"이 켜져 있으면 명진 Gmail 확인 없이는 안 바뀜 | 사실(코드) + 추정(설정 값 미확인) |
+| 비밀번호 만들기 | 구글만 쓰던 계정에 비밀번호가 생김 | 작음~중간: Email 로그인(provider)이 2026-10-21부터 꺼져 있어 비밀번호로 들어오는 길이 막힘(추정: provider 끄면 비밀번호 로그인 거절). 나중에 Email 로그인을 다시 켜면 위험이 살아남 | 사실(원장 SEC-이메일로그인제거) + 추정 |
+| 인증 수단(MFA) 등록 | 공격자 TOTP 등록 | 중간: 앱은 MFA를 쓰지 않지만, 검증된 수단이 생기면 비밀번호 변경·수단 삭제에 aal2가 필요해져 명진이 스스로 지우기 어려움(관리자 삭제 필요) | 사실(#2877) + 추정 |
+| 신원 연결(linkIdentity) | 공격자 구글 계정을 명진 계정에 연결 | **큼**(계정 탈취): 연결되면 공격자 구글로 명진 계정 로그인. 단 "수동 연결(Manual linking)"이 꺼져 있으면 막힘(Supabase 기본값 꺼짐, 운영 값 미확인) | 추정 |
+| 재인증 요청 | 명진 메일로 확인 번호 발송 | 작음(귀찮음) | 추정 |
+
+- 주의: 이 피해는 **위임 열쇠가 새었을 때**만 생긴다. 열쇠는 명진이 동의 화면에서 [허락]해야 나오고 Claude 쪽에만 있다. 그래도 9절 규칙은 "새도 읽기 도구 범위만"이므로 켜지 않는다.
+
+### 14.3 대안별 비교
+
+| 안 | 막히는 것 | 남는 것 | 명진 손 | 되돌리기 | 읽생기 영향 |
+| --- | --- | --- | --- | --- | --- |
+| (a) Auth 설정 다지기: 이메일 이중 확인(Secure email change) 켬, 비밀번호 변경 재인증(Secure password change) 켬, 수동 신원 연결 끔 확인, Email 로그인 끔 유지 | 이메일 탈취(옛 주소 확인 필요), 신원 연결 탈취(꺼져 있으면) | user_metadata 바꾸기, MFA 등록, 비밀번호 만들기 자체(재인증은 "최근 로그인"이면 생략되는데 위임 세션은 방금 만든 세션이라 통과할 것으로 추정), 재인증 메일 | 없음(CC 대시보드) | 같은 화면에서 되돌림 | **있음**: 프로젝트 전체 설정이라 읽생기 이메일·비밀번호 사용자도 이메일 바꿀 때 두 주소 확인·비밀번호 바꿀 때 재인증이 생김 |
+| (b) Custom access token hook으로 위임 열쇠의 `aud`·`role` 바꾸기 | 효과 불확실: Auth API는 열쇠 칸보다 세션 기록을 믿는 구조로 보임(#2898이 "hook이 칸을 바꿀 수 있어 세션 기록으로 판정"이라 적음). `aud`를 바꿔도 `/user`가 거절할지 모름(추정, 시험 필요) | 계정 기능 대부분 그대로일 가능성 높음 | 없음 | hook 끄기 | **큼**: hook은 프로젝트 하나뿐이고 모든 로그인(읽생기 포함)의 열쇠 발급에 끼어든다. hook 오류 = 모든 로그인 실패. `auth` 쪽 권한이라 승인형 workflow 규칙 밖. 문서의 "최소 열쇠" 예시를 따라 하면 `client_id`가 빠져 L1이 무너짐 |
+| (c) user_metadata 의존 없애기 | metadata 변경 피해를 0으로(표시 이름 대신 쓰기 제거) | 이메일·비밀번호·MFA·신원 연결 | 없음 | PR revert | 없음 |
+| (d) 1판으로: Cloudflare Worker가 자기 열쇠를 만들고 Supabase OAuth 서버는 끔 | Supabase 위임 열쇠 자체가 없으니 계정 기능 길이 사라짐. 9절 L1~L3·문지기는 그대로 재사용 | Worker가 DB를 부를 때 쓸 자격(명진 세션 보관 또는 새 좁은 길)을 새로 설계해야 함 — 그 자격이 Worker에서 새면 같은 문제가 Worker 쪽으로 옮겨감(추정, 설계 필요) | Cloudflare 설정·비밀값 등록(정지 지점), 새 서비스 하나 관리 | Worker 끄기 | 없음(Supabase Auth 안 건드림) |
+| (e1) Supabase 수정(#2898) 기다리기 | 들어오면 계정 기능 전부 403(우리 쪽 설정 불필요, 추정) | 들어오는 시점 모름. 그리고 **`mcp-read`가 열쇠 확인에 `GET /auth/v1/user`를 쓰므로(사실: `supabase/functions/mcp-read/core.mjs` `verifyToken`) 수정이 들어오면 `mcp-read`가 모든 호출을 거절**하게 됨 → 열쇠 확인을 `GET /auth/v1/oauth/userinfo` 또는 서명 공개키(JWKS) 검사로 바꾸는 코드 PR 필요 | 없음 | — | 없음(읽생기는 위임 열쇠를 안 씀) |
+| (e2) 연결 포기(Drive 사본만) | 전부 | Claude가 원장·노트 검색을 못 함 | 없음 | — | 없음 |
+
+### 14.4 추천: (e1) 기다리기 + 준비 2가지, 지금은 OAuth 서버 꺼 둔 채
+
+1. OAuth 서버는 **계속 꺼 둔다**(지금 상태). 동의 화면·클라이언트 등록·DB 겹(L1~L3)은 그대로 둔다(꺼져 있으면 쓰는 곳 없음).
+2. 준비 ① 코드 PR(작업 세션, **S70-56에서 코드 반영 — Edge 재배포 남음**): `mcp-read`의 열쇠 확인을 `GET /auth/v1/user`에서 `GET /auth/v1/oauth/userinfo`(또는 JWKS 서명 검사 + `sub`·`client_id` 확인)로 바꾼다. 지금 판과 수정 뒤 판 모두에서 동작하게. Edge 재배포 1번(정지 지점, CC).
+3. 준비 ② M-7 시험표 늘리기(**S70-56: 9절 M-7 행·`scripts/ops/mcp-m7-check.md`에 반영**): ⑤에 더해 `GET /user`, `PUT /user`(email·password), `POST /factors`, `GET /user/identities/authorize`, `POST /reauthenticate`가 모두 403이어야 통과. 시험용 metadata 변경은 `{"data":{}}`처럼 값 없는 요청만.
+4. Supabase에 #2898이 들어오면(CC가 릴리스·변경 기록 확인) → OAuth 서버 켬 → 늘린 M-7 다시 → 모두 통과하면 M-8.
+5. (a)의 "수동 신원 연결 꺼짐"·"이메일 이중 확인" 현재 값은 CC가 대시보드에서 **보기만** 하고 기록한다(바꾸는 것은 읽생기 영향이 있어 따로 결정).
+6. 기다림이 길어지면(예: 2027-01 말까지 안 들어오면) (d)를 다시 설계할지 명진이 정한다.
+
+- (b)는 읽생기까지 모든 로그인을 흔들고 효과도 불확실해 뺀다. (c)는 피해가 이미 작아 지금 할 필요 없다(범위 밖 발견사항으로만 둠).
+
+일상어 3줄:
+
+- 무엇이 바뀌나: Claude 연결은 Supabase가 자기 쪽 구멍을 고칠 때까지 꺼 둔다. 그동안 Claude 연결 입구 코드가 고친 뒤 Supabase에서도 돌게 미리 손본다.
+- 잘못되면: 기다림이 길어져 Claude가 원장·노트를 바로 못 읽는 기간이 늘어난다(지금처럼 Drive 사본으로만 봄). 보안 위험은 늘지 않는다.
+- 되돌리기: 꺼 둔 상태가 곧 안전한 상태다. 입구 코드 수정은 이전 판을 다시 배포하면 된다.
+
+### 14.5 명진 결정
+
+- **D4** — "Supabase가 고칠 때까지(몇 주로 예상, 날짜 모름) Claude 연결을 미뤄도 될까요? 아니면 새 입구(Cloudflare)를 따로 만들어 먼저 쓸까요?" — 추천 **미루기**.
+
+### 14.6 출처 (2026-11-25 확인)
+
+- Supabase Auth 이슈 #2877: https://github.com/supabase/auth/issues/2877
+- Supabase Auth PR #2898: https://github.com/supabase/auth/pull/2898
+- Supabase Auth PR #2878: https://github.com/supabase/auth/pull/2878 (상태 미확인)
+- Supabase Auth 이슈 #2838: https://github.com/supabase/auth/issues/2838 (못 읽음)
+- Token Security and RLS(2026-07-29 갱신): https://supabase.com/docs/guides/auth/oauth-server/token-security
+- Custom Access Token Hook(2026-09-03 갱신): https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook — 위임 열쇠 발급에도 hook이 돈다, 필수 칸 `iss·aud·exp·iat·sub·role·aal·session_id·email·phone·is_anonymous`, `aud` 바꾸는 예시 있음(사실)
+- Password security: https://supabase.com/docs/guides/auth/password-security (이번에 못 읽음 — "비밀번호 변경 재인증"의 "최근 로그인" 기준은 추정)

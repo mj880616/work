@@ -9,12 +9,14 @@ import { calendarAccessToken, CalendarTokenError } from '../../../supabase/funct
 import { EventAttachError, eventFolderOrigin, findEventAttachment, isEventRef } from '../../../supabase/functions/_shared/event-attach-file.ts';
 // MCP-Claude읽기 M-2: 위임 열쇠(client_id) 거절 검사도 실제 코드를 그대로 넘긴다.
 import { isDelegatedToken } from '../../../supabase/functions/_shared/delegated-token-guard.mjs';
+// S70-55 I-3: AI 기능 키 표(기능별 사용 기록)도 실제 코드를 그대로 넘긴다.
+import { FUNCTION_FEATURES } from '../../../supabase/functions/_shared/ai-features.mjs';
 
 export const EDGE_SHARED = { withWebCors, applyWebCors, WEB2_ORIGINS, safeErrorMessage, safeErrorLog, SAFE_ERROR_FALLBACK,
   callerOwnerWorkspace, isWorkspaceId, WorkspaceDriveError, workspaceDriveConnected, workspaceDriveToken,
-  calendarAccessToken, CalendarTokenError, EventAttachError, eventFolderOrigin, findEventAttachment, isEventRef, isDelegatedToken };
+  calendarAccessToken, CalendarTokenError, EventAttachError, eventFolderOrigin, findEventAttachment, isEventRef, isDelegatedToken, FUNCTION_FEATURES };
 globalThis.__edgeShared = EDGE_SHARED;
-export const EDGE_PRELUDE = 'const { withWebCors, safeErrorMessage, safeErrorLog, callerOwnerWorkspace, WorkspaceDriveError, workspaceDriveToken, calendarAccessToken, CalendarTokenError, EventAttachError, eventFolderOrigin, findEventAttachment, isEventRef, isDelegatedToken } = globalThis.__edgeShared;\n';
+export const EDGE_PRELUDE = 'const { withWebCors, safeErrorMessage, safeErrorLog, callerOwnerWorkspace, WorkspaceDriveError, workspaceDriveToken, calendarAccessToken, CalendarTokenError, EventAttachError, eventFolderOrigin, findEventAttachment, isEventRef, isDelegatedToken, FUNCTION_FEATURES } = globalThis.__edgeShared;\n';
 // import 줄 중 위 공용 도구만 지운다(다른 import는 각 시험이 원래대로 처리).
-export const stripEdgeShared = source => source.replace(/^import .*_shared\/(?:(?:web-cors|safe-error|workspace-drive-token|google-calendar-token|event-attach-file)\.ts|delegated-token-guard\.mjs).*$/gm, '');
+export const stripEdgeShared = source => source.replace(/^import .*_shared\/(?:(?:web-cors|safe-error|workspace-drive-token|google-calendar-token|event-attach-file)\.ts|(?:delegated-token-guard|ai-features)\.mjs).*$/gm, '');
 export const withEdgeShared = source => EDGE_PRELUDE + stripEdgeShared(source);

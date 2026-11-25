@@ -10,6 +10,13 @@
 #readingView .rd-head .rd-switch{margin-left:auto;flex:0 1 auto;min-width:0}
 #readingView .rd-head .rd-switch + .rd-add{margin-left:0}
 @media(max-width:760px){#readingView .rd-head .rd-switch + .rd-add{margin-left:auto}}
+/* S70-40b ④ READ-목록머리(5절 ② (가)): PC 틀(761px~)은 위 줄(app-topline)이 화면 이름을 보이므로 머리 줄 제목을 빼고(중복 제목 없음)
+   보기 탭을 맨 앞, ＋(⑥ 아이콘)를 줄 끝에 둔다 — 좁은 왼쪽 칸(22em)에서도 탭이 잘리지 않는다. */
+@media(min-width:761px){
+  #readingView [data-rd-list] .rd-head > .rd-title{display:none}
+  #readingView [data-rd-list] .rd-head .rd-switch{margin-left:0}
+  #readingView [data-rd-list] .rd-head .rd-switch + .rd-add{margin-left:auto}
+}
 #readingView .rd-rows{border-top:.5px solid var(--kptu-border)}
 #readingView .rd-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;gap:1px 6px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row);cursor:pointer}
 #readingView .rd-row.is-open{background:var(--kptu-surface-soft,var(--kptu-primary-soft))}

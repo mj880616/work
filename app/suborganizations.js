@@ -31,7 +31,10 @@ function assigneeMarkup(o){const actual=actualNames(o);if(actual.length)return a
 // 폰은 위 머리줄 "담당조직" 오른쪽으로 올라가고, 761px~는 본문 제목 줄 오른쪽). 묶음이 바뀌어도 자리가 그대로다.
 // UI-전수디자인점검 F07: 머리줄은 #soTeamSection의 첫 칸이다. PC(761px~)에서는 ⋯ 하나만 담은 빈 줄을 두지 않고, 목록 칸 맨 위 줄(첫 묶음 머리줄 높이)
 // 오른쪽 끝에 겹쳐 놓는다(suborganizations.css). 목록 HTML은 다시 그려지므로 ⋯는 목록 안에 넣지 않는다.
-function installTeamHead(section){if(document.querySelector('#soTeamHead'))return;section.insertAdjacentHTML('afterbegin',word('<div id="soTeamHead" class="so-team-tools so-team-head"><h2 class="so-team-title screen-title">조직 관리</h2>')+(isAdmin()?word('<button id="soAddOrg" class="secondary so-team-add" type="button" aria-label="담당조직 추가">+ 담당조직</button>'):'')+word('<button id="soTeamMore" class="icon-btn so-team-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="조직 관리 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button></div>'))}
+// ORG-머리줄한줄(S70-53, 2026-11-25 명진): [+ 담당조직]·⋯(#soTeamTools)는 화면 이름 줄 오른쪽 끝(폰·폴드 앱 머리 줄, PC 맨 위 줄 검색 칸 오른쪽)으로 —
+// 자리 옮기기는 공용 screen-tools.js. 누름 처리는 지금처럼 document 위임(bind)이라 자리가 바뀌어도 그대로다. 머리줄 안에는 읽기 프로그램용 제목만 남는다.
+function installTeamHead(section){if(document.querySelector('#soTeamHead'))return;section.insertAdjacentHTML('afterbegin',word('<div id="soTeamHead" class="so-team-head"><h2 class="so-team-title screen-title">조직 관리</h2><div id="soTeamTools" class="screen-tools so-team-tools">')+(isAdmin()?word('<button id="soAddOrg" class="secondary so-team-add" type="button" aria-label="담당조직 추가">+ 담당조직</button>'):'')+word('<button id="soTeamMore" class="icon-btn so-team-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="조직 관리 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div>'));
+ import('./screen-tools.js').then(m=>m.mountScreenTools('team',document.querySelector('#soTeamTools'))).catch(err=>console.error('screen tools',err))}
 function installTeam(){const team=document.querySelector('#teamView');if(!team)return false;let section=document.querySelector('#soTeamSection');if(!section){section=document.createElement('section');section.id='soTeamSection';section.className='so-team-section';section.innerHTML='<div id="soOrganizationList" class="so-list"></div>';team.appendChild(section)}installTeamHead(section);if(!document.querySelector('#wdDetailPane'))section.insertAdjacentHTML('beforeend',word('<aside id="wdDetailPane" class="so-pane" aria-label="담당조직 상세"></aside>'));return true}
 // ORG-PC좌우: on a PC the organization shown on the right (workplace-detail.js, kptu:workplace-selection) is marked in the list.
 let soSelected=null;
@@ -85,14 +88,12 @@ async function stageModules(){if(!stageMod){const [data,model,ui]=await Promise.
 function paintStageTags(){
  document.querySelectorAll('#soOrganizationList .so-stage-tag').forEach(el=>el.remove());document.querySelectorAll('#soOrganizationList .has-stage').forEach(el=>el.classList.remove('has-stage'));
  const state=stageMod?.peekDisputeState();if(!state||state.status!=='ready')return;
- // ORG-담당조직버튼자리폴드 ②: 폴드 펼침 폭에서는 꼬리표를 그리지 않는다(조직 이름이 그 자리를 씀, 판정은 model 한 곳). 폭이 바뀌면 아래 change에서 다시 그린다.
- if(window.matchMedia?.(stageMod.LIST_TAG_FOLD_QUERY).matches)return;
+ // ORG-머리줄한줄(S70-53, 2026-11-25 명진 폴드 사진 '칩이 안 보임'): 꼬리표는 모든 폭에서 그린다. 좁으면 조직 이름이 먼저 '…'로 줄고 칩은 남는다
+ // (예전 ORG-담당조직버튼자리폴드 ② '폴드 펼침 600~1023px에서는 그리지 않음'은 이 요청으로 거둠).
  document.querySelectorAll('#soOrganizationList [data-so-org]').forEach(row=>{const tag=stageMod.listTag(stageMod.stageOfOrg(row.dataset.soOrg,state.histories,state.stages)),main=row.querySelector('.kptu-list-row-main');if(!tag||!main)return;
   const span=document.createElement('span');span.className='so-stage-tag'+(tag.kind==='ended'?' is-end':tag.kind==='quiet'?' is-quiet':'');span.dataset.soStage=tag.kind;span.textContent=tag.text;main.querySelector('.kptu-list-chevron')?.before(span);main.classList.add('has-stage')});
 }
-let stageFoldWatch=null;
-function watchStageFold(){if(stageFoldWatch||!stageMod||!window.matchMedia)return;stageFoldWatch=window.matchMedia(stageMod.LIST_TAG_FOLD_QUERY);stageFoldWatch.addEventListener?.('change',()=>paintStageTags())}
-async function refreshStages(){if(!soWorkspace)return;try{await stageModules();watchStageFold();await stageMod.loadDisputeState({rt,workspaceId:soWorkspace});paintStageTags()}catch(err){console.error('dispute stages',err)}}
+async function refreshStages(){if(!soWorkspace)return;try{await stageModules();await stageMod.loadDisputeState({rt,workspaceId:soWorkspace});paintStageTags()}catch(err){console.error('dispute stages',err)}}
 // UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 선택하지 않은 조직 줄을 우클릭하면 같은 화면 메뉴 맨 위에 [열기] 한 줄이 더 붙는다
 // ([열기] ─ [쟁의 단계 관리]). [열기] = 그 줄을 왼쪽 누름과 같은 길로 눌러 오른쪽 상세를 그 조직으로. 메뉴를 띄우는 길은 공용 우클릭(context-menu.js openAt)
 // 그대로이고, 어느 줄에서 열었는지만 이 화면이 기억한다(⋯를 그냥 누르면 [열기] 없이 지금 메뉴).
@@ -118,7 +119,7 @@ window.addEventListener('kptu:view-prefs-rejected',e=>{if(!e.detail?.paths?.incl
 async function installStageMenu(trigger,org=null,from=org?'ctx':'screen'){
  await Promise.all([stageModules(),org?null:quietReady()]);const {createAnchoredMenu}=await import('./anchored-menu.js');
  if(!stageMenu)stageMenu=createAnchoredMenu({id:'soTeamMenu',className:'basket-link-menu so-team-menu',label:word('조직 관리 메뉴'),historyKey:'kptuSoTeamMenu',key:()=>'team',
-  render:()=>{if(menuOrg&&menuFrom==='row')return orgMenuItems(menuOrg);return (menuOrg?soMenuItem('data-so-open-org','열기')+'<hr class="so-menu-sep" role="separator">'+orgMenuItems(menuOrg)+'<hr class="so-menu-sep" role="separator">':'')+(menuOrg?'':soMenuItem('data-so-add-group','묶음 만들기'))+soMenuItem('data-so-stage-manage',word('쟁의 단계 관리'))+(menuOrg?'':soMenuItem('data-so-files-parent',word('조직 기록 자료 모으는 폴더'))+soMenuItem('data-so-files-gather',word('지난 조직 기록 자료도 조직 폴더로 모으기')))+(menuOrg||!isAdmin()||!pickableIds().length?'':soMenuItem('data-so-pick-start','여러 개 선택해 삭제'))+(menuOrg?'':quietItems()+'<hr class="so-menu-sep" role="separator">'+soMenuItem('data-help-open="team"','쓰는 법'))},
+  render:()=>{if(menuOrg&&menuFrom==='row')return orgMenuItems(menuOrg);return (menuOrg?soMenuItem('data-so-open-org','열기')+'<hr class="so-menu-sep" role="separator">'+orgMenuItems(menuOrg)+'<hr class="so-menu-sep" role="separator">':'')+(menuOrg?'':soMenuItem('data-so-add-group','묶음 만들기'))+soMenuItem('data-so-stage-manage',word('쟁의 단계 관리'))+(menuOrg?'':soMenuItem('data-so-files-parent',word('조직 기록 자료 모으는 폴더')))+(menuOrg||!isAdmin()||!pickableIds().length?'':soMenuItem('data-so-pick-start','여러 개 선택해 삭제'))+(menuOrg?'':quietItems()+'<hr class="so-menu-sep" role="separator">'+soMenuItem('data-help-open="team"','쓰는 법'))},
   onAction:(button,active)=>{const id=menuOrg;if(button.matches('[data-help-open]')){import('./help-link.js').then(m=>m.openHelp('team')).catch(()=>{});return}if(button.matches('[data-so-open-org]')){const row=id&&[...document.querySelectorAll('#soOrganizationList [data-so-org]')].find(r=>r.dataset.soOrg===id);row?.click();return}
    if(button.matches('[data-so-rename]')){openEdit(id,{trigger:active.trigger});return}
    if(button.matches('[data-so-exclude]')){void toggleExcluded(id);return}
@@ -126,8 +127,8 @@ async function installStageMenu(trigger,org=null,from=org?'ctx':'screen'){
    if(button.matches('[data-so-pick-start]')){void startPick().catch(err=>console.error('org pick',err));return}
    if(button.matches('[data-so-quiet]')){setQuiet(Number(button.dataset.soQuiet));return}
    if(button.matches('[data-so-add-group]')){openGroupEdit(null,active.trigger);return}
-   // ORG-기록자료폴더(명진 11/24): 모으는 폴더 바꾸기 · 지난 자료 모으기(누를 때만, 되돌리기 있음) — org-files-folder.js.
-   if(button.matches('[data-so-files-parent],[data-so-files-gather]')){const at=active.trigger,gather=button.matches('[data-so-files-gather]');import('./org-files-folder.js').then(m=>gather?m.gatherPastOrgFiles({rt,anchor:at}):m.chooseOrgFilesParent(at,rt)).catch(()=>notify('자료를 확인하지 못했어요. 다시 시도해 주세요.',{error:true}));return}
+   // ORG-기록자료폴더(명진 11/24): 모으는 폴더 바꾸기 — org-files-folder.js. 지난 자료 모으기는 처음 정할 때 저절로(S70-29, 메뉴 줄 지움).
+   if(button.matches('[data-so-files-parent]')){const at=active.trigger;import('./org-files-folder.js').then(m=>m.chooseOrgFilesParent(at,rt)).catch(()=>notify('자료를 확인하지 못했어요. 다시 시도해 주세요.',{error:true}));return}
    stageMod.openStageManager({workspaceId:soWorkspace,rt,trigger:active.trigger,orgNames:()=>new Map(soOrganizations.map(o=>[o.id,o.name]))})}});
  menuOrg=org;menuFrom=org?from:'screen';stageMenu.open(trigger);
 }

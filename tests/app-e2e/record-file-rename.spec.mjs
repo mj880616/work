@@ -38,7 +38,6 @@ for(const width of [412,1280]){
  test(`사진 ⋯ [이름 수정]으로 바꾸면 기록 줄 글·띠가 그 자리에서 새 이름 ${width}`,async({page})=>{
   const f=await fixture(page,width),row=f.row(1);
   await expect(row.locator('[data-link-summary-text]')).toHaveText('그림 1장 · '+OLD);
-  await row.locator('[data-record-photos] > summary').click();
   const tile=row.locator('[data-photo-tile="drvP"]');
   await expect(tile.locator('.record-file-thumb')).toBeVisible();
   await shot(page,`before-${width}`);
@@ -56,8 +55,8 @@ for(const width of [412,1280]){
   await expect(f.row(1).locator('[data-link-summary-text]')).toHaveText('그림 1장 · '+NEW);
   expect(f.s.renames).toEqual([{action:'rename-file',target:'note',id:N1,drive_file_id:'drvP',base:'합성노조 2026 임협 찬반투표 결과'}]);
   expect(f.s.rpc).toEqual([{p_link_id:'11111111-0000-4000-8000-000000000001',p_expected_summary:'그림 1장 · '+OLD,p_summary:'그림 1장 · '+NEW}]);
-  // 띠: [사진 1]은 펼친 채, 사진 이름도 새 이름. 사람이 쓴 다른 줄 글은 그대로.
-  await expect(f.row(1).locator('details[data-record-photos]')).toHaveAttribute('open','');
+  // 띠: 작은 그림은 그대로 보이고(UI-기록카드하나로 S70-42: 접는 줄 없음), 사진 이름도 새 이름. 사람이 쓴 다른 줄 글은 그대로.
+  await expect(f.row(1).locator('[data-record-photo="drvP"]')).toBeVisible();
   await expect(f.row(1).locator('[data-record-photo="drvP"]')).toHaveAttribute('title',NEW);
   await expect(f.row(2).locator('[data-link-summary-text]')).toHaveText('직접 쓴 합성 기록');
   await shot(page,`after-${width}`);
@@ -86,7 +85,6 @@ test('파일 줄 ✎로 바꾸면 띠 이름만 새 이름, 사람이 쓴 줄 �
 
 test('PC 우클릭·폰 꾹 누르기로 사진 칸 ⋯ 메뉴([이름 수정])가 열린다',async({page})=>{
  const f=await fixture(page,1280),row=f.row(1);
- await row.locator('[data-record-photos] > summary').click();
  const thumb=row.locator('[data-photo-tile="drvP"] .record-file-thumb');
  await expect(thumb).toBeVisible();
  await thumb.click({button:'right'});
@@ -103,7 +101,6 @@ test('PC 우클릭·폰 꾹 누르기로 사진 칸 ⋯ 메뉴([이름 수정])�
 // [이름 추천 받기][저장][취소]는 공용 ② 작은 버튼 한 모양. S69_100_SHOTS=1이면 docs/design/screens/s69-100/에 사진을 남긴다(가짜 자료만).
 for(const width of [390,884,1280])test(`이름 고치는 칸 세 단추는 한 모양 ${width}`,async({page})=>{
  const f=await fixture(page,width),row=f.row(1);
- await row.locator('[data-record-photos] > summary').click();
  const tile=row.locator('[data-photo-tile="drvP"]');
  await tile.locator('.record-photo-more > summary').click();
  await tile.locator('[data-fr-menu-edit]').click();

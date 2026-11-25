@@ -118,7 +118,7 @@ test('photo update: the text already read from every photo is joined into one re
   assert.equal(calls.openai.length,1,'one AI call for many photos');
   assert.deepEqual(sent(calls),{target:{kind:'organization',name:'A 사업장'},material:{kind:'files',parts:[{name:'사진1.jpg',text:'공문 1쪽: 11월 3일 교섭 예정'},{name:'사진2.jpg',text:'공문 2쪽: 참석 5명'}]}});
   assert.equal(JSON.stringify(tables.app_notes),before);
-  assert.ok(!calls.rest.some(c=>c.method!=='GET'&&c.table!=='app_ai_daily_usage'));
+  assert.ok(!calls.rest.some(c=>c.method!=='GET'&&c.table!=='app_ai_daily_usage'&&c.table!=='app_ai_usage_events'));
 });
 
 test('hwp/pdf update: the library text of the same Drive file is used together with photo text (project target)',async()=>{

@@ -4,7 +4,8 @@
 #briefView .br-title{margin:0;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #briefView .br-head .br-pick-lib,#briefView .br-head .br-src{margin-left:auto;flex:none}
 #briefView .br-head .br-add{flex:none}
-#briefView .br-drop{margin:2px 0 4px;padding:4px 8px;border:1px dashed var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+/* UI-간격기준 A(S70-42, 명진 11/25 "자료실에서 선택 자료넣기랑 그 아래랑 여백 없고"): 머리줄 단추 줄과 놓기 칸 사이 = --ds-gap-bar. */
+#briefView .br-drop{margin:var(--ds-gap-bar) 0 4px;padding:4px 8px;border:1px dashed var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView.br-dropping .br-drop{border-color:var(--kptu-primary-ink);color:var(--kptu-ink)}
 #briefView .br-rows{border-top:.5px solid var(--kptu-border)}
 #briefView .br-row{display:grid;grid-template-columns:2.8em minmax(0,1fr) auto auto;gap:1px 6px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row)}
@@ -67,3 +68,14 @@
 #briefView .br-body .br-ours,#briefView .br-body .br-ref,#briefView .br-body .br-pg,#briefView .br-body .br-sec h3 small{font-size:calc(var(--ds-text-meta) * var(--txs,1))}
 #briefView .br-rows .br-row{font-size:calc(var(--ds-text-row) * var(--txs,1))}
 #briefView .br-rows .br-one,#briefView .br-rows .br-st,#briefView .br-rows .br-k{font-size:calc(var(--ds-text-meta) * var(--txs,1))}
+/* S70-27 BRIEF-손수정: 고친 브리핑 한 줄, 고치는 칸(글 길이만큼 늘어나는 칸, 촘촘하게), 줄 포커스(키보드 ↑↓·Shift+F10) */
+#briefView .br-edited{display:flex;align-items:center;gap:2px}
+#briefView .br-edited .br-revert{color:var(--kptu-primary-ink)}
+#briefView .br-edit-bar{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:6px;padding:4px 0;background:var(--kptu-bg);font-size:var(--ds-text-meta)}
+#briefView .br-edit-bar .br-muted{margin-right:auto}
+#briefView .br-edit-group{display:flex;flex-direction:column;gap:3px;margin:0 0 8px}
+#briefView .br-edit-head{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#briefView .br-edit-in{width:100%;box-sizing:border-box;min-height:0;resize:none;overflow:hidden;padding:3px 6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);font:inherit;font-size:calc(var(--ds-text-row) * var(--txs,1));line-height:1.45;background:transparent;color:inherit}
+#briefView .br-edit-title{font-weight:600}
+#briefView .br-body [data-br-line]:focus{outline:none}
+#briefView .br-body [data-br-line]:focus-visible{outline:2px solid var(--kptu-focus,var(--kptu-primary-ink));outline-offset:1px;border-radius:3px}

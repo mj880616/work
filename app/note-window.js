@@ -18,6 +18,7 @@ import {toPlain} from './ed-text.mjs';
 import {mountUploadRows} from './upload-progress.js'; // UI-올리기진행표시: 저장 뒤 올라가는 글 안 사진·파일의 막대 + %
 import {iconNode} from './tree-icons.js';
 import {readImportUrl} from './note-import-model.mjs'; // NOTE-주소로 가져오기: 주소 칸 앞 확인(읽기·저장은 note-import.js가 뒤에서)
+import {viewPrefs} from './view-prefs.js'; // NOTE-블록모드찾기: 새 노트 [블록 모드]의 내 기본값(view_prefs.note_blocks, 서버 저장)
 
 export function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
@@ -98,7 +99,8 @@ export function waitingMedia() {
     return src;
   };
   return {
-    photos: {max: 20, async add(file) { return {src: keep(file, true)}; }, async url(src) { return kept.get(src)?.url || null; }},
+    // scan: [넣기] → [문서 스캔] (S69-98 NOTE-에버노트 ⑥) — the straightened picture waits here like any other picture.
+    photos: {max: 20, scan: true, async add(file) { return {src: keep(file, true)}; }, async url(src) { return kept.get(src)?.url || null; }},
     files: {
       async add(file) { return {src: keep(file, false), name: file.name || '파일', size: file.size || null}; },
       open(src) {
@@ -183,7 +185,9 @@ export async function finishNewNote(note, {rt = window.KPTURuntime, noteFolder =
 // (target.family) always saves through target.save (a new family note too: kept out of AI material), and has no [📎 첨부]·사진·파일.
 // NOTE-목록에파일놓기: dropped = files dropped on the note list (they go into this window's own batch through the same picker add as [📎 첨부]:
 // the same size limit and the same-file question), heading = the title box's first value; the cursor then starts in the text.
-export function openNoteWindow({text = '', title = '새 노트', rt = window.KPTURuntime, upload = null, noteFolder = null, target = null, dropped = null, heading: firstHeading = '', onClose = () => {}} = {}) {
+// NOTE-블록모드찾기 blocks: true = the editor's [블록 모드] for a new note (no target). Before the save it starts from, and changes, my default
+// (view_prefs.note_blocks, as the note screen's own switch does); the save keeps the state then on the new note (metadata.block_edit).
+export function openNoteWindow({text = '', title = '새 노트', rt = window.KPTURuntime, upload = null, noteFolder = null, target = null, dropped = null, heading: firstHeading = '', blocks = false, onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
   let own = upload ? null : createUploadBatch(), saved = null, busy = false, handle = null;
   const media = waitingMedia();
@@ -191,6 +195,8 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
   const say = message => handle?.say(message);
   const head = titleRow({value: firstHeading, folder: noteFolder, target});
   const family = !!target?.family, custom = () => !!target && (family || !target.isNew());
+  let blockOn = viewPrefs.get('note_blocks') === true;
+  const blockSwitch = blocks && !target ? {on: blockOn, onToggle: on => { blockOn = !!on; viewPrefs.set('note_blocks', blockOn, {rejectable: true}); }} : null;
   // The title box's Enter goes on to the text (it is not a save).
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
   const files = attachRow({id: 'edwNoteAttach', getBatch: batch, isBusy: () => busy || !!upload?.isBusy?.(), say: message => { upload?.onChange?.(); say(message); }});
@@ -251,7 +257,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
     let warning = '', sending = false;
     try {
       const first = media.file(waits[0])?.name || list.entries.find(entry => entry.kind !== 'success')?.file?.name;
-      const note = await createNoteDoc({title: heading.trim() ? heading : noteTitleFromText(letters) || fileTitle(first), raw_text: letters, markdown: false, doc: letters.trim() || waits.length ? bare : null}, rt);
+      const note = await createNoteDoc({title: heading.trim() ? heading : noteTitleFromText(letters) || fileTitle(first), raw_text: letters, markdown: false, doc: letters.trim() || waits.length ? bare : null, ...(blockSwitch ? {block_edit: blockOn} : {})}, rt);
       saved = {kind: 'note', id: note.id};
       // BIZ-저장먼저닫기 2차(S59-8): 글이 저장되면 폴더에 넣고 창을 닫는다. 글 속 사진·파일과 [📎 첨부]는 그 노트의 뒤 줄에서 끝까지 올라간다(화면을 옮겨도).
       // 글 저장이 실패하면(위 createNoteDoc) 창은 닫히지 않고 아무것도 보내지 않는다.
@@ -267,6 +273,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
   handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: headNode, foot: family ? null : files.node, shortcuts: true,
     dirty: () => (!head.input.hidden && !!head.input.value.trim()) || (!custom() && files.pending() > 0),
     photos: family ? null : media.photos, files: family ? null : media.files,
+    blocks: blockSwitch,
     placeholder: '노트 본문을 쓰세요', save: {aria: target ? '노트에 저장' : '새 노트로 저장', run},
     onClose: ({text: letters}) => { waitingRows.destroy(); media.clear(); noteFolder?.close?.(); target?.close?.(); onClose({saved, text: letters}); }});
   if (handle) {
@@ -282,13 +289,13 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
 // (note-folder-pick.js) with the note's folder now, shown as [폴더 ▾] right of the title box.
 // save(value, text, {title, folder}) → Promise<{ok, message}> is the note screen's own save (it keeps the window open: keepOpen); it writes the title
 // with the text and the folder when it changed. attach: {getBatch, isBusy} for [📎 첨부] (files saved with the text). onClose({value, saved, changed}).
-export function openNoteEditWindow({value, photos, files: edFiles = null, save, title = '', folder = null, attach = null, blocks = null, onClose = () => {}} = {}) {
+export function openNoteEditWindow({value, photos, files: edFiles = null, save, title = '', folder = null, attach = null, blocks = null, noteLinks = null, onClose = () => {}} = {}) {
   let handle = null, savedTitle = title, savedFolder = folder?.get?.() || null;
   const head = titleRow({value: title, folder, placeholder: '제목'});
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
   const files = attach ? attachRow({id: 'edwNoteEditAttach', getBatch: attach.getBatch, isBusy: attach.isBusy, going: attach.going || null, say: message => handle?.say(message)}) : null;
   const extra = () => ({title: head.input.value, folder: folder ? (folder.get() || null) : undefined});
-  handle = openEdWindow({title: '큰 창에서 수정', doc: value, keepOpen: true, limit: NOTE_TEXT_MAX, head: head.row, foot: files?.node || null, shortcuts: true, photos, files: edFiles, blocks,
+  handle = openEdWindow({title: '큰 창에서 수정', doc: value, keepOpen: true, limit: NOTE_TEXT_MAX, head: head.row, foot: files?.node || null, shortcuts: true, photos, files: edFiles, blocks, noteLinks,
     dirty: () => (files?.pending() || 0) > 0 || head.input.value !== savedTitle || (!!folder && (folder.get() || null) !== savedFolder), placeholder: '노트 본문을 쓰세요',
     save: {aria: '노트 저장', run: async ({value: next, text}) => {
       const sent = extra(), result = await save(next, text, sent);
