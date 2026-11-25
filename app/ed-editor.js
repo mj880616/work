@@ -187,7 +187,7 @@ const BUTTONS = [
   ['color', '글자색 ▾', '글자색 선택', 'paint'], ['highlight', '형광펜 ▾', '형광펜 선택', 'paint'],
   ['align', '왼쪽 ▾', '정렬 선택', 'align'],
   ['bullet', '목록 ▾', '글머리 목록 선택', 'list'], ['ordered', '번호 ▾', '번호 목록 선택', 'list'],
-  ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['file', '파일', '파일 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
+  ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['scan', '문서 스캔', '문서 스캔해 넣기', 'insert'], ['file', '파일', '파일 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
   ['symDot', '· ▾', '점 기호 선택', 'sym'], ['symNote', '※ ▾', '참고 기호 선택', 'sym'], ['symArrow', '→ ▾', '화살표 선택', 'sym'], ['symCircled', '① ▾', '동그라미 번호 선택', 'sym'],
   ['undo', '↶', '되돌리기', 'history'], ['redo', '↷', '다시하기', 'history'],
   // NOTE-노션편집 ①(나): 블록 편집 켜기·끄기 (only where the opener gives `blocks`). Pressed = on (손잡이 ⋮⋮).
@@ -220,7 +220,8 @@ const GRID = {rows: 6, cols: 8};
 const GROUPS = [
   ['gText', '글자 ▾', '글자 서식 선택', ['em', 'underline', 'strike', 'color', 'highlight', 'clear']],
   ['gPara', '문단 ▾', '문단 서식 선택', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule']],
-  ['gInsert', '넣기 ▾', '넣을 것 선택', ['table', 'photo', 'file', 'link', 'nowStamp', 'plainPaste']],
+  // S69-98 NOTE-에버노트 ⑥: [문서 스캔] (only where the opener's photos say scan: notes) sits after [링크] (PC_OUT stays a prefix), inside [넣기 ▾] on a PC too.
+  ['gInsert', '넣기 ▾', '넣을 것 선택', ['table', 'photo', 'file', 'link', 'scan', 'nowStamp', 'plainPaste']],
   ['gSym', '기호 ▾', '기호 선택', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
 ];
 const GROUP_KEYS = GROUPS.map(g => g[0]);
@@ -292,7 +293,8 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
 // getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
 // onFiles: null, or (files) => void — the opener's own attachment row, used when photos/files are not given (UPD-그림붙여넣기).
-// photos: null, or {add(file) -> {src}, url(src) -> address|null, max, note?} (share pages, ED-②; notes; the diary S67-20). note: the words
+// photos: null, or {add(file) -> {src}, url(src) -> address|null, max, note?, scan?} (share pages, ED-②; notes; the diary S67-20). scan: true adds
+//   [문서 스캔] (notes, S69-98). note: the words
 //   said after photos went in (default: share pages' '저장해야 받는 사람에게 보여요.' where there is no files option).
 // files: null, or {add(file) -> {src, name, size}, open(src)} (S48-21 [파일]; notes).
 // onBox(open): ED③-창 — told (once per change, after the current event) when a small box (a button row panel, the 글자색·표 크기 list, the table cell menu)
@@ -328,6 +330,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   let lastGroup = null;
   for (const [key, text, aria, group] of BUTTONS) {
     if (key === 'photo' && !photos) continue;
+    if (key === 'scan' && !photos?.scan) continue;
     // NOTE-파일그림넣기 ④: where the opener has its own attachment row (onFiles: the update windows), [파일] puts the chosen files in that row.
     if (key === 'file' && !files && !onFiles) continue;
     if (key === 'blocks' && !blocks) continue;
@@ -1452,6 +1455,27 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return filesFrom(pictures);
   });
   const pickFiles = () => pickFrom('', chosen => files ? filesIn(chosen) : chosen.length && onFiles?.(chosen));
+  // S69-98 NOTE-에버노트 ⑥ [문서 스캔]: the phone's camera (a PC picks a picture) → doc-scan.js straightens and brightens it → the same [사진] path.
+  const pickScan = () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*'; input.setAttribute('capture', 'environment'); input.hidden = true;
+    input.addEventListener('change', async () => {
+      const chosen = input.files?.[0]; input.remove();
+      if (!chosen || view.isDestroyed) return;
+      // Where the picture goes: the cursor as it was before the scan window took the focus (closing it puts the focus back on the text).
+      const at = view.state.selection.from;
+      const {pictures} = await splitPictures([chosen]);
+      if (!pictures.length) { showNote('사진으로 알아보지 못했어요. 종이를 사진으로 찍어 주세요.'); return; }
+      let made;
+      try { made = await (await import('./doc-scan.js')).openDocScan(pictures[0]); } catch { made = {error: '스캔 창을 열지 못했어요. 다시 눌러 주세요.'}; }
+      if (view.isDestroyed || !made) return;
+      if (made.error) { showNote(made.error); return; }
+      view.focus();
+      return filesFrom([made], Math.min(at, view.state.doc.content.size));
+    }, {once: true});
+    input.addEventListener('cancel', () => input.remove(), {once: true});
+    root.append(input); input.click();
+  };
 
   // ── 사진 나란히 ──
   // The photo chosen now: {node, pos, row: {node, pos} | null}, or null.
@@ -1544,6 +1568,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     rule: () => insertBlock(N.horizontal_rule.create()),
     nowStamp: () => view.dispatch(view.state.tr.insertText(nowText()).scrollIntoView()),
     photo: () => pickPhotos(),
+    scan: () => pickScan(),
     blocks: () => setBlocks(!blockPart?.isOn(), true),
     file: () => pickFiles(),
     indent: () => pm.chainCommands(pm.sinkListItem(N.list_item), indentBy(1))(view.state, view.dispatch),

@@ -91,9 +91,11 @@ export function docHangul(note) { return hasDoc(note) ? toHangul(note.doc) : nul
 
 // photos option for the editor (ed-editor.js createDocEditor): the note's own attachments.
 // getNote() — the note as it is now; upload(files) → Promise<attachments after> through the note's basket-files path.
+// scan: [넣기] → [문서 스캔] (S69-98 NOTE-에버노트 ⑥, notes only — the diary and share pages give no scan).
 export function notePhotos({getNote, upload, rt = window.KPTURuntime}) {
   return {
     max: 20,
+    scan: true,
     async add(file) {
       const note = getNote();
       if (!note?.id) throw new Error('사진은 노트를 한 번 저장한 뒤 넣을 수 있어요.');

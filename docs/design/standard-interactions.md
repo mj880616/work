@@ -156,3 +156,4 @@
 | C4 | 입력 칸·글 쓰는 칸·편집 중·링크 위는 브라우저 기본 메뉴 그대로(붙여넣기·맞춤법·새 탭에서 열기). | 같은 시험 입력 칸 줄 | `context-menu.js` EDITABLE |
 | C5 | Shift+F10·메뉴 키 = 마우스 우클릭과 같은 메뉴(초점 있는 줄 자리에). | 같은 시험 `keyboardMenu` | `context-menu.js` |
 | C6 | 폰·손가락 꾹 누르기는 우클릭 메뉴가 아니라 고르기(P4) 그대로. | `standard-interactions.spec.mjs` P4 | `select-mode.js` |
+| C7 | 읽는 글 칸(줄마다 ⋯가 없는 글 — 브리핑 요약 등)도 PC 오른쪽 클릭 = 앱 메뉴(공용 줄 메뉴 `row-menu.js`, 누른 자리). 항목은 그 화면 일([수정] 등) + 고른 글 막대와 같은 항목(`text-select-bar.js` `selectBarActs` — 막대에 단추가 더해지면 메뉴에도). 글을 골라 두었으면 고른 글에, 아니면 누른 줄 글에. Shift+F10·메뉴 키(포커스 받은 줄, ↑↓로 줄 옮김)도 같은 메뉴. 입력 칸·고치는 칸·폰 폭·손가락·Shift+클릭은 브라우저 기본 메뉴 그대로. | PC 1280에서 글 줄을 오른쪽 클릭해 앱 메뉴가 뜨고 브라우저 메뉴가 막혔는지(contextmenu defaultPrevented), 고치는 칸 오른쪽 클릭은 막히지 않는지 본다(`standard-interactions.spec.mjs` C7 CTX_SCREENS: 브리핑 룸, `brief-room-edit.spec.mjs`). | 2026-11-25 11:14 명진 "여기 우클릭 안먹네"(S70-27). 카드·줄 ⋯가 있는 화면은 공용 `context-menu.js`(⋯ 메뉴를 누른 자리에) 그대로 |
