@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // FEAT-1029 ⑤ 텔레그램에서 나한테 온 요청(docs/design/feature-bundle-1029.md 5.2절, 명진 결정 10/29 5-①~③).
 // 소식 고르는 같은 AI 호출의 ask_me 칸 → 소식 저장 뒤 서버 전용 DB 함수로 챙길 것 후보 한 줄. 지어낸 Supabase·OpenAI로 실제 handler를 돌린다. 네트워크 없음. 이름·글은 지어낸 것이다.
-const {createCollectorFeedHandler,ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,ASK_FILTER_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
+const {createCollectorFeedHandler,ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,ASK_CANDIDATE_AT_FN,OPEN_ASKS_FN,AUTO_DONE_FN,ASK_FILTER_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
 const {parseTelegram,telegramMaterial,askEvidence,TELEGRAM_INSTRUCTIONS,TELEGRAM_SCHEMA}=await import('../../supabase/functions/collector-feed/telegram.ts');
 
 const SB='https://synthetic.supabase.test';
@@ -32,7 +32,10 @@ function harness({ai=()=>aiOk(),rpc=(fn)=>fn===ASK_CANDIDATE_FN?respond({result:
     const path=url.pathname.replace('/rest/v1/','');
     if(path==='rpc/app_operator_feature_workspace')return respond(JSON.stringify(WS)); // MULTI 단계 ①: 작업공간은 허용 표 함수로
     if(path.startsWith('rpc/')){
-      const fn=path.slice(4);assert.ok([ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,ASK_FILTER_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN].includes(fn),'이 시험에서 부르는 DB 함수: '+fn);
+      const fn=path.slice(4);
+      // FORGET-이미한일빼기: 이 파일의 시험은 새 DB 단계(요청 시각을 함께 넣는 함수·저절로 이미 함) 적용 전 모양 — 새 함수는 404(옛 함수로 넣음).
+      // 새 단계의 동작은 tests/security/collector-feed-tg-auto-done.test.mjs가 본다.
+      if(fn===ASK_CANDIDATE_AT_FN||fn===OPEN_ASKS_FN||fn===AUTO_DONE_FN)return respond({code:'PGRST202'},404);assert.ok([ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,ASK_FILTER_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN].includes(fn),'이 시험에서 부르는 DB 함수: '+fn);
       const args=JSON.parse(init.body);calls.rpc.push({fn,args,order:calls.items.length});return rpc(fn,args);
     }
     if(path==='app_workspaces')return respond([{id:WS}]);

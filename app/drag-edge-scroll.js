@@ -56,10 +56,41 @@ export function scrollBoxesAt(el, {prefer = null, fallback = null, doc = el?.own
   return out;
 }
 
+// S70-10 UI-끌기자동스크롤(명진 11/25 09:43 "이렇게 드래그할 때 스크롤 되어야 해"): 'n개 더 보기'로 접힌 목록은 끝까지 굴러도 아래 줄이 없다.
+// 원인(사실): 자료실 한 칸 폴더 보기는 처음 20개 + '20개 더 보기'라, 화면이 끝까지 구르면 굴릴 칸이 없어 더 내려가지 않았다.
+// 그래서 아래 가장자리에 MORE_DWELL 동안 머물면 그 칸 안 '더 보기' 단추(공용 줄 .ft-more-row, 화면마다 붙인 [data-drag-more])를 누른다 — 화면의 '더 보기' 동작 그대로.
+export const MORE_DWELL = 600, MORE_SEL = '.ft-more-row, [data-drag-more]';
+// 단추 칸(rect)이 칸(box) 안에 보이고, 포인터 x가 그 줄의 부모 폭 안인가. 화면 없이 시험한다.
+export const moreVisible = (r, box, x, lane = r) => r.height > 0 && r.top < box.bottom && r.bottom > box.top && x >= lane.left && x <= lane.right;
+// 아래 가장자리(edgeSpeed > 0)인 칸 중 안쪽부터, 그 칸 안에 보이는 '더 보기' 단추 하나.
+export function moreAtEdge(boxes, x, y, doc, edge = EDGE) {
+  const page = doc?.scrollingElement || doc?.documentElement;
+  for (const box of boxes || []) {
+    if (!(edgeSpeed(y, box.top, box.bottom, edge) > 0)) continue;
+    const root = box.node === page || box.node?.nodeType !== 1 ? doc : box.node;
+    for (const b of root?.querySelectorAll?.(MORE_SEL) || []) {
+      if (b.disabled || b.hidden) continue;
+      const lane = (b.parentElement || b).getBoundingClientRect();
+      if (moreVisible(b.getBoundingClientRect(), box, x, lane)) return b;
+    }
+  }
+  return null;
+}
+
+// S70-10: 손가락 끌기 도중 목록이 다시 그려져(가장자리에서 '더 보기'가 열림) 처음 누른 칸이 화면에서 빠지면, 브라우저는 그 뒤 손가락 신호를
+// 빠진 칸에만 보내 끌기 부품(목록 상자에 붙은 받는 곳)까지 오지 않는다. 빠진 동안만 그 칸에서 같은 처리로 받는다(붙어 있으면 받는 곳이 받으니 두 번 처리하지 않음).
+// 잡을 때 부르고, 끝나면 돌려받은 함수로 뗀다. 모든 손가락 끌기 부품(touch-drag.js·reorder-drag.js·자료실)이 이 하나를 쓴다.
+export function followTouch(target, {move = () => {}, end = () => {}, cancel = () => {}} = {}) {
+  if (!target?.addEventListener) return () => {};
+  const lone = f => e => { if (!target.isConnected) f(e); }, m = lone(move), en = lone(end), cc = lone(cancel);
+  target.addEventListener('touchmove', m, {passive: false}); target.addEventListener('touchend', en, {passive: false}); target.addEventListener('touchcancel', cc);
+  return () => { target.removeEventListener('touchmove', m); target.removeEventListener('touchend', en); target.removeEventListener('touchcancel', cc); };
+}
+
 // 끄는 동안 굴리기 하나. update(x, y, target?)를 움직일 때마다 부르고, 끝나면 stop(). prefer(target) → 먼저 굴릴 칸(없으면 포인터 아래), fallback(target) → 포인터 아래 칸들 다음(화면 앞)에 볼 칸.
 // onScroll(x, y): 굴린 직후(손가락 아래 놓을 곳을 다시 볼 때). target을 안 주면 그 점의 요소(elementFromPoint).
 // stale(ms): 그동안 update가 없으면 멈춘다(0 = 끝 신호까지 계속, 손가락·포인터 끌기는 끝 신호를 늘 받는다).
-export function createEdgeScroll({win = typeof window === 'undefined' ? null : window, prefer = () => null, fallback = () => null, onScroll = () => {}, edge = EDGE, max = EDGE_MAX, stale = 0} = {}) {
+export function createEdgeScroll({win = typeof window === 'undefined' ? null : window, prefer = () => null, fallback = () => null, onScroll = () => {}, edge = EDGE, max = EDGE_MAX, stale = 0, moreDwell = MORE_DWELL} = {}) {
   let at = null, raf = 0;
   const doc = win?.document;
   const tick = () => {
@@ -67,8 +98,17 @@ export function createEdgeScroll({win = typeof window === 'undefined' ? null : w
     if (!at || !doc) return;
     if (stale && Date.now() - at.t > stale) { at = null; return; } // 소식이 끊긴 끌기(끝 신호를 못 받음)는 멈춘다
     const el = at.target?.isConnected ? at.target : doc.elementFromPoint(at.x, at.y);
-    const hit = pickScroll(scrollBoxesAt(el, {prefer: prefer(el), fallback: fallback(el), doc}), at.y, edge, max);
-    if (!hit) return; // 가장자리 밖: 다음 update까지 쉰다
+    const boxes = scrollBoxesAt(el, {prefer: prefer(el), fallback: fallback(el), doc});
+    const hit = pickScroll(boxes, at.y, edge, max);
+    if (!hit) {
+      // S70-10: 아래 가장자리인데 더 굴러갈 칸이 없고 그 칸 안에 'n개 더 보기'가 보이면, 머물러 있는 동안(MORE_DWELL) 그 단추를 눌러 다음 묶음을 연다.
+      const more = moreAtEdge(boxes, at.x, at.y, doc, edge);
+      if (!more) { at.more = null; return; } // 가장자리 밖: 다음 update까지 쉰다
+      if (at.more?.el !== more) at.more = {el: more, t: Date.now()};
+      else if (Date.now() - at.more.t >= moreDwell) { at.more = null; more.click(); at.target = null; onScroll(at.x, at.y); }
+      if (at) raf = win.requestAnimationFrame(tick); // 손가락이 멈춰 있어도 머문 시간을 잰다
+      return;
+    }
     hit.box.node.scrollBy(0, hit.v);
     at.target = null; // 굴렀으니 포인터 아래가 바뀌었을 수 있다
     onScroll(at.x, at.y);
@@ -77,7 +117,7 @@ export function createEdgeScroll({win = typeof window === 'undefined' ? null : w
   return {
     update(x, y, target = null) {
       if (!win || !Number.isFinite(x) || !Number.isFinite(y)) return;
-      at = {x, y, target, t: Date.now()};
+      at = {x, y, target, t: Date.now(), more: at?.more || null};
       if (!raf) raf = win.requestAnimationFrame(tick);
     },
     stop() { at = null; if (raf) win.cancelAnimationFrame(raf); raf = 0; },
