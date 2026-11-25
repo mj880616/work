@@ -45,6 +45,8 @@ export const REJECT_REASONS = {
   'pair-missing': '짝 파일 없음(precheck·snapshot·postcheck·rollback·summary 모두 필요)',
   'snapshot-rows': 'snapshot이 시스템 카탈로그 밖(앱 표·사용자 함수·통계)을 읽음 — 공개 artifact에 행 값 위험',
   'expect-format': 'expect 주석 형식 오류',
+  'cron-shape': 'cron 예약 형식(`select cron.schedule(고정 글자 이름, 시각, 명령)` 하나씩·같은 이름은 바로 앞 unschedule 뒤 다시 등록만·이름 없는 예약·다른 DB 예약·변수·함수로 만든 이름 불가)',
+  'cron-command': 'cron 예약 명령 안 허용 밖 문장(권한·역할·RLS·정책·DDL·외부 주소 호출·다른 예약 건드리기 등, 허용: cron.job_run_details·public 표 WHERE 있는 DELETE, public·private 함수 부르기)',
 };
 
 export class ExpandedRejection extends Error {
@@ -167,7 +169,9 @@ function doBlock(ts) {
   const blocks = ts.filter(t => t.kind === 'block');
   if (blocks.length !== 1 || ts.filter(isCode).length !== 1) reject('do-block');
   const body = lex(blocks[0].value);
-  if (body.some(t => t.kind === 'block')) reject('do-block');
+  // A nested $tag$ literal is allowed only as the right side of `=` (e.g. comparing a cron job command
+  // with the text this file scheduled); it is a string there, never run.
+  if (body.some((t, i) => t.kind === 'block' && !symbol(body[i - 1], '='))) reject('do-block');
   const c = code(body);
   if (c.some(v => READ_GUARD_WRITES.has(v))) reject('do-block');
   // Schema-qualified calls only to pg_catalog; no user-defined function side effects.
@@ -175,6 +179,73 @@ function doBlock(ts) {
     if (body[i].kind === 'word' && symbol(body[i + 1], '.') && body[i + 2].kind === 'word' && symbol(body[i + 3], '(')
         && body[i].value !== 'pg_catalog') reject('do-block');
   }
+}
+
+// cron 예약 등록(2026-11-25 명진 결정, OPS-DB적용cron받기). 맨 위 문장 `select cron.schedule('이름', '시각', 명령)`과
+// 같은 이름 다시 등록용 `select cron.unschedule('이름')`만 받는다. 이름·시각은 파일 안 고정 글자 하나, 명령은 고정 글자
+// 또는 $태그$ 한 덩어리. 명령 안에도 본문과 같은 금지(commonRisks)에 더해 아래 좁은 허용 목록만 통과한다.
+const CRON_NAME = /^[a-z][a-z0-9_]{0,62}$/;
+const CRON_SCHEDULE = /^(?:[0-9*\/,-]{1,40}(?: [0-9*\/,-]{1,40}){4}|[1-5]?[0-9] seconds)$/;
+const CRON_COMMAND_WORDS = new Set(['grant', 'revoke', 'alter', 'create', 'drop', 'do', 'execute', 'perform', 'set', 'reset', 'copy',
+  'truncate', 'policy', 'role', 'security', 'definer', 'anon', 'owner', 'comment', 'refresh', 'lock', 'merge', 'insert', 'update',
+  'into', 'begin', 'start', 'end', 'prepare', 'deallocate', 'declare', 'fetch', 'discard', 'vault', 'net', 'extensions', 'auth',
+  'storage', 'cron', 'supabase_migrations', 'ops_backup', 'pg_net', 'dblink']);
+const CRON_COMMAND_SCHEMAS = new Set(['public', 'private', 'pg_catalog']);
+const CRON_SAFE_CALLS = new Set(['now', 'coalesce', 'count', 'greatest', 'least', 'nullif', 'lower', 'upper', 'length', 'date_trunc',
+  'make_interval']);
+const CRON_NON_CALLS = new Set(['in', 'exists', 'any', 'all', 'some', 'not', 'and', 'or', 'where', 'select', 'from', 'values', 'array',
+  'cast', 'filter', 'over', 'as', 'using', 'on', 'when', 'then', 'else', 'case', 'is', 'between', 'interval']);
+function cronCommand(text) {
+  const fail = () => reject('cron-command');
+  if (typeof text !== 'string' || !text.trim() || text.length > 2000 || /:\/\//.test(text)) fail();
+  const body = lex(text);
+  if (!body.length || body.some(t => t.kind === 'block' || t.kind === 'quoted')) fail();
+  const ss = statements(symbol(body.at(-1), ';') ? body : [...body, { kind: 'symbol', value: ';' }]);
+  if (!ss.length || ss.length > 4) fail();
+  for (const ts of ss) {
+    commonRisks(ts);
+    const c = code(ts);
+    if (c.some(v => CRON_COMMAND_WORDS.has(v) && !(v === 'cron' && c[0] === 'delete') || /^http/.test(v) || /^dblink/.test(v))) fail();
+    if (ts.some(t => t.kind === 'string' && /:\/\//.test(t.value))) fail();
+    let target = -1;
+    if (c[0] === 'delete') {
+      // delete from cron.job_run_details where ... | delete from public.<표> where ...
+      if (c[1] !== 'from' || !where(ts)) fail();
+      const schema = c[2]; const rel = ts[4];
+      if (!symbol(ts[3], '.') || !simpleName(rel) || !(schema === 'cron' && rel.value === 'job_run_details' || schema === 'public')) fail();
+      if (c.filter(v => v === 'cron').length > 1 || keyword(ts[5], 'using')) fail();
+      target = 2;
+    } else if (c[0] !== 'select') fail();
+    for (let i = 0; i < ts.length; i++) {
+      const t = ts[i];
+      if (t.kind !== 'word') continue;
+      if (symbol(ts[i + 1], '.') && i !== target && !CRON_COMMAND_SCHEMAS.has(t.value)) fail();
+      if (symbol(ts[i + 1], '(') && !symbol(ts[i - 1], '.') && !CRON_NON_CALLS.has(t.value) && !CRON_SAFE_CALLS.has(t.value)) fail();
+    }
+  }
+}
+function cronStatement(ts, cron) {
+  const fail = () => reject('cron-shape');
+  if (!keyword(ts[1], 'cron') || !symbol(ts[2], '.') || !['schedule', 'unschedule'].includes(ts[3]?.value) || ts[3].kind !== 'word'
+      || !symbol(ts[4], '(') || !symbol(ts.at(-1), ')')) fail();
+  const inner = ts.slice(5, -1); const args = [];
+  for (let i = 0; i < inner.length; i += 2) {
+    if (i + 1 < inner.length && !symbol(inner[i + 1], ',')) fail();
+    args.push(inner[i]);
+  }
+  if (inner.length % 2 !== 1) fail();
+  const [nameArg] = args;
+  if (nameArg?.kind !== 'string' || !CRON_NAME.test(nameArg.value)) fail();
+  const jobName = nameArg.value;
+  if (ts[3].value === 'unschedule') {
+    if (args.length !== 1 || cron.unscheduled.has(jobName) || cron.scheduled.has(jobName)) fail();
+    cron.unscheduled.add(jobName);
+    return;
+  }
+  if (args.length !== 3 || args[1].kind !== 'string' || !CRON_SCHEDULE.test(args[1].value)
+      || !['string', 'block'].includes(args[2].kind) || cron.scheduled.has(jobName)) fail();
+  cronCommand(args[2].value);
+  cron.scheduled.add(jobName);
 }
 
 const FUNCTION_OPTIONS = new Set(['language', 'security', 'set', 'as', 'stable', 'immutable', 'volatile', 'strict', 'called',
@@ -526,6 +597,7 @@ export function validateExpanded(sql, { version, name }) {
     addedColumns: new Map(), taintedColumns: new Set(), columnGrants: [], filledTables: new Set() };
   const targets = new Set();
   const review = { definer: [], policies: 0, restrictive: 0, grants: 0, triggers: 0, revokes: 0 };
+  const cron = { scheduled: new Set(), unscheduled: new Set() };
   let inserts = 0;
   const body = ss.slice(1, -1);
   body.forEach((ts, index) => {
@@ -552,6 +624,7 @@ export function validateExpanded(sql, { version, name }) {
         tableList(ts, i); return;
       }
       case 'do': doBlock(ts); return;
+      case 'select': cronStatement(ts, cron); return;
       case 'create': {
         if (root[1] === 'table') {
           let i = 2;
@@ -610,6 +683,11 @@ export function validateExpanded(sql, { version, name }) {
     }
   });
   if (inserts !== 1) reject('history');
+  // unschedule is only for re-registering the same name later in this file (no bare job removal).
+  for (const jobName of cron.unscheduled) if (!cron.scheduled.has(jobName)) reject('cron-shape');
+  if (cron.scheduled.size) review.cron = [...cron.scheduled].sort(); // key only when present (older plans keep their shape)
+  // 같은 이름 다시 등록용 unschedule 이름. 실행 단계가 cron 함수 결과 행(작업 번호·참거짓)을 셀 때 쓴다(S70-01b).
+  if (cron.unscheduled.size) review.cronUnscheduled = [...cron.unscheduled].sort();
   // A granted new column may not be dropped, re-added or renamed anywhere in the file (name reuse).
   if (state.columnGrants.some(g => state.taintedColumns.has(`${g.table}.${g.column}`))) reject('grant-existing');
   // Nor may the file write rows of that table or add a trigger on it (which could copy existing column values into the new column).
@@ -783,6 +861,7 @@ export function checkSnapshotSQL(sql) {
   for (let i = 0; i < words.length - 1; i++) {
     if (words[i].kind === 'word' && (keyword(words[i + 1], 'as') && symbol(words[i + 2], '('))) ctes.add(words[i].value);
   }
+  let cronJob = false;
   for (let i = 0; i < words.length; i++) {
     const t = words[i];
     if (t.kind === 'word' && /^pg_stat|^pg_statistic|^pg_largeobject|^pg_authid|^pg_shadow|^pg_user|_to_xml|^xpath|^query_to|^table_to|^cursor_to|^database_to|^schema_to/.test(t.value)) reject('blocked-command');
@@ -793,6 +872,7 @@ export function checkSnapshotSQL(sql) {
       if (next?.kind !== 'word' && next?.kind !== 'quoted') reject('blocked-command');
       if (symbol(words[i + 2], '.')) {
         const schema = next.value; const rel = words[i + 3]?.value;
+        if (schema === 'cron' && rel === 'job' && !symbol(words[i + 4], '.')) { cronJob = true; continue; }
         if (!(schema === 'pg_catalog' && CATALOGS.has(rel) || schema === 'information_schema'
             || schema === 'supabase_migrations' && rel === 'schema_migrations')) reject('blocked-command');
       } else if (!(CATALOGS.has(next.value) || ctes.has(next.value) || FROM_FUNCTIONS.has(next.value) && symbol(words[i + 2], '('))) {
@@ -804,6 +884,16 @@ export function checkSnapshotSQL(sql) {
       const qualified = symbol(words[i - 1], '.');
       if (qualified && words[i - 2]?.value !== 'pg_catalog') reject('blocked-command');
       if (!(SNAPSHOT_CALLS.has(t.value) || /^(?:pg_get_|has_[a-z_]+_privilege$)/.test(t.value))) reject('blocked-command');
+    }
+  }
+  // cron.job(예약 이름·시각·켜짐) may be read for cron migrations (2026-11-25), but the job command
+  // text only as md5(command): the artifact never carries a command body. cron.job_run_details stays refused.
+  if (cronJob) {
+    for (let i = 0; i < words.length; i++) {
+      if (!keyword(words[i], 'command')) continue;
+      const qualified = symbol(words[i - 1], '.') && words[i - 2]?.kind === 'word';
+      const open = qualified ? i - 3 : i - 1;
+      if (!symbol(words[open], '(') || !keyword(words[open - 1], 'md5') || !symbol(words[i + 1], ')')) reject('snapshot-rows');
     }
   }
 }
