@@ -9,6 +9,7 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { pinch } from './helpers/pinch.mjs';
+import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
 import { readFileSync } from 'node:fs';
 // 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
 const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
@@ -933,6 +934,24 @@ test.describe('S11 고르기 중 뒤로가기', () => {
     await expect.poll(async () => JSON.stringify(await here().catch(() => null))).not.toBe(JSON.stringify(at));
     expect(s.errors).toEqual([]);
   });
+});
+
+// ---------- K1·R2 판 화면(목록이 아닌 곳) — S70-03 노트 보드 ----------
+// 고른 것 Delete = 바로 지우고 [되돌리기] 한 번에 모두 돌아온다. 새 판 화면이 생기면 BOARD_SCREENS에 한 줄 더한다.
+async function noteBoard(page) {
+  const bid = 'bs70003';
+  await boardFixture(page, 1280, { bid, seed: [{ id: 'T1', board_id: bid, body: '가 주제', x: 160, y: 380 }, { id: 'T2', board_id: bid, body: '나 주제', x: 360, y: 380 }] });
+  return { items: [nbNode(page, '가 주제'), nbNode(page, '나 주제')] };
+}
+const BOARD_SCREENS = [['노트 보드', noteBoard]];
+for (const [name, open] of BOARD_SCREENS) test(`K1·R2 ${name} PC 1280: 두 개 골라 Delete = 바로 지움, [되돌리기] 한 번에 둘 다`, async ({ page }) => {
+  const { items } = await open(page);
+  const a = await nbBox(items[0]), b = await nbBox(items[1]);
+  await page.mouse.move(a.x - 16, a.y - 16); await page.mouse.down(); await page.mouse.move(b.x + b.width + 4, b.y + b.height + 4, { steps: 8 }); await page.mouse.up();
+  await page.keyboard.press('Delete');
+  for (const it of items) await expect(it).toHaveCount(0);
+  await page.getByRole('button', { name: '되돌리기' }).click();
+  for (const it of items) await expect(it).toHaveCount(1);
 });
 
 // ---------- D6 순서 바꾸기 = 끌기만(S70-04 UI-순서는끌기로, 2026-11-25 명진 "위로 아래로 버튼 이거 불편함. 드래그하는걸로 다 통일해줘") ----------

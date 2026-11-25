@@ -198,6 +198,8 @@ function closeMobile(then,fromBack=false){
   if(!fromBack&&history.state?.kptuMobileMenu){window.addEventListener('popstate',finish,{once:true});history.back()}else finish();
 }
 window.KPTUMobileMenu={isOpen:()=>mobileOpen,close:closeMobile};
+// S70-15: 자기 기록 칸을 쌓는 메뉴 창(폰 [메뉴] 창·계정 메뉴)이 열려 있는지. 라우터가 늦게 받은 화면으로 바꾸기 전에 묻는다(app-router.js).
+window.KPTUMenuPanel={isOpen:()=>mobileOpen||!!activeAccount};
 function syncMobile(){
   if(!mobileGroup||!mobileAccount)return;
   if(!menuQuery.matches&&mobileOpen)closeMobile();
