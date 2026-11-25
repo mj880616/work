@@ -78,7 +78,7 @@ export function summaryLine(s, now = Date.now()) {
 // 기능 이름(화면 말). 키는 서버 _shared/ai-features.mjs·drive-summary by_kind와 같다.
 export const OPENAI_FEATURE_LABELS = Object.freeze({
   ledger:'원장 자동 기록', journal:'업무일지·정리', ask:'AI에 묻기', todo:'챙길 것', library:'자료실', meeting:'회의 요약',
-  org:'조직 요약', telegram:'텔레그램·통화 판정', call_judge:'통화 다시 채우기', news:'뉴스·번역', other:'그 밖',
+  org:word`조직 요약`, telegram:'텔레그램·통화 판정', call_judge:'통화 다시 채우기', news:'뉴스·번역', other:'그 밖',
 });
 export const GEMINI_KIND_LABELS = Object.freeze({
   meeting:'회의 녹음 전사', call_transcript:'통화 전사', call_analysis:'통화 분석', other:'그 밖 전사·분석',
