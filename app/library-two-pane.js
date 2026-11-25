@@ -146,7 +146,7 @@ export function createLibraryTwo(h) {
     const steps = (cut.hidden.length
       ? [one(cut.head[0], 0), moreStepHtml(cut.hidden, {cls: 'row-act lu-pane-step', attr: 'data-lu-pane-go', esc: h.esc, sep: ''}), ...cut.tail.map((t, k) => one(t, trail.length - cut.tail.length + k))]
       : trail.map(one)).join(sep);
-    const up = id ? `<button type="button" class="icon-btn lu-pane-up" data-lu-pane-up aria-label="${side} 칸 위 폴더로" title="위 폴더로 (Backspace)">‹</button>` : '';
+    const up = id ? `<button type="button" class="icon-btn fp-up lu-pane-up" data-lu-pane-up aria-label="${side} 칸 위 폴더로" title="위 폴더로 (Backspace)">‹</button>` : '';
     const sort = `<select class="lu-pane-sort" data-lu-pane-sort aria-label="${side} 칸 정렬">${SORTS.map(([v, l]) => `<option value="${v}"${v === sorts[i] ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
     const node = c.node || {key: id ? 'f:' + id : OUT_KEY};
     const rows = paneRows({...c, node}, paneOpen(i), sorts[i]).map(r => (r.kind === 'folder' ? folderRow(r) : r.kind === 'out' ? outRow(r) : r.kind === 'empty' ? emptyIn(r) : filesHtml(r))).join('');
