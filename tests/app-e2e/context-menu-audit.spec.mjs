@@ -322,7 +322,9 @@ test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 머리 줄 [
   await clickView(page, 'reading');
   const add = page.locator('#readingView [data-rd-add]');
   await expect(add).toHaveAttribute('aria-expanded', 'false');
-  const b = await page.locator('#readingView .wait-empty').boundingBox();
+  const empty = page.locator('#readingView .wait-empty');
+  await expect(empty).toBeVisible(); // 목록 읽기가 끝나 빈 안내가 그려진 뒤
+  const b = await empty.boundingBox();
   const r = await rightClickAt(page, Math.round(b.x + 30), Math.round(b.y + b.height / 2));
   expect(r.result).toBe('app');
   await page.locator('#rowMenu').getByRole('button', { name: '글 추가', exact: true }).click();
