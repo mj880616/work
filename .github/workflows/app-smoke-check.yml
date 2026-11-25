@@ -1214,7 +1214,7 @@ jobs:
         run: node --test tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
 
       - name: Check notes, editor tables and text units (STAB-단위시험등록)
-        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs tests/doc-scan-model.test.mjs tests/note-related-model.test.mjs
+        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs tests/doc-scan-model.test.mjs tests/note-related-model.test.mjs tests/note-link-model.test.mjs
 
       - name: Check phone share intake model (APP-폰앱새로 ②, APP-공유노트할일)
         run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs tests/reading-model.test.mjs tests/reading-fail-reason.test.mjs tests/save-bookmarklet-model.test.mjs
