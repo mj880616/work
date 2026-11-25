@@ -12,12 +12,19 @@ const rowsBox = page => page.locator('#basketView [data-note-rows]');
 const head = page => rowsBox(page).locator('[data-nl-head]');
 const headCell = (page, key) => head(page).locator(`[data-nl-col="${key}"]`);
 
-async function fixture(page, width, { prefs = null } = {}) {
+async function fixture(page, width, { prefs = null, locked = false } = {}) {
   await page.setViewportSize({ width, height: 700 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   const server = await installViewPrefsServer(page, { note_view: 'list', ...(prefs || {}) });
-  await openHome(page);
+  // ② 잠긴 노트 시험: '아주 긴 하위 폴더'(U(2))만 잠김(PIN 있음, 풀지 않음) — 그 폴더 노트(n1·n4·…)는 제목 '잠김'.
+  const lockRoute = () => page.route(u => u.origin === SB && u.pathname.startsWith('/rest/v1/rpc/app_lock_'), route => {
+    const name = new URL(route.request().url()).pathname.split('/').pop(), json = v => route.fulfill({ contentType: 'application/json', body: JSON.stringify(v) });
+    if (name === 'app_lock_read') return json({ has_pin: true, features: [], relock: '5m', left: 5, blocked_until: null });
+    if (name === 'app_lock_note_folders') return json({ folders: [U(2)], covered: [U(2)], top_names: [] });
+    return route.fulfill({ status: 404, body: '' });
+  });
+  await openHome(page, locked ? { beforeLoad: lockRoute } : undefined);
   const row = (i, extra = {}) => {
     const at = new Date(Date.parse('2026-11-20T01:00:00Z') - i * 3600e3).toISOString();
     return { id: 'n' + i, workspace_id: 'w', kind: 'note', title: `가짜 노트 ${i}`, raw_text: `가짜 노트 ${i} 본문`, occurred_at: at, created_at: at, updated_at: at, archived_at: null, ai_export_allowed: true, attachments: [], metadata: {}, ...extra };
@@ -251,5 +258,80 @@ test('[폴더] 보기 ⋯ 메뉴에는 [목록] 정렬 줄이 없다(폴더 보�
   await page.locator('.sf-tools [data-note-folder-more]').click();
   await expect(page.locator('#noteDocMenu')).toBeVisible();
   await expect(page.locator('#noteDocMenu [data-nl-sort]')).toHaveCount(0);
+  expect(s.errors).toEqual([]);
+});
+
+// ---------- ② 보일 칸(결정 ⑦가 메뉴 이름 '보일 칸', ⑤가 칸 차례 고정). 서버 view_prefs.note_cols ----------
+const colsMenu = page => page.locator('#noteDocMenu');
+const openCols = async page => { await head(page).locator('[data-nl-cols-menu]').click(); await expect(colsMenu(page)).toBeVisible(); await expect(colsMenu(page)).toHaveAttribute('aria-label', '보일 칸'); };
+const headNames = page => head(page).locator('[role="columnheader"]').evaluateAll(els => els.map(e => e.dataset.nlCol));
+
+test('PC 1280: 칸을 켜면 머리·줄에 칸이 생기고 끄면 사라짐, 새로 열어도 같음(서버)', async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await fixture(page, 1280);
+  const saved = () => s.server.value?.note_cols ?? null;
+  expect(await headNames(page)).toEqual(['title', 'folder', 'tags', 'day', 'clip']);
+  await openCols(page);
+  await expect(colsMenu(page).locator('[data-nl-col-toggle]')).toHaveText(['✓폴더', '✓태그', '✓수정일', '작성일', '✓첨부', '메모', '글자 수', '공유']);
+  // 제목은 끌 수 없다(목록에 없음).
+  await expect(colsMenu(page).locator('[data-nl-col-toggle="title"]')).toHaveCount(0);
+  // 작성일·글자 수 켜기(메뉴는 열린 채) → 칸 차례는 고정(제목 | 폴더 | 태그 | 수정일 | 작성일 | 첨부 | 글자 수).
+  await colsMenu(page).locator('[data-nl-col-toggle="made"]').click();
+  await expect(colsMenu(page)).toBeVisible();
+  await expect(colsMenu(page).locator('[data-nl-col-toggle="made"]')).toHaveAttribute('aria-checked', 'true');
+  await colsMenu(page).locator('[data-nl-col-toggle="chars"]').click();
+  // 폴더 끄기.
+  await colsMenu(page).locator('[data-nl-col-toggle="folder"]').click();
+  expect(await headNames(page)).toEqual(['title', 'tags', 'day', 'made', 'clip', 'chars']);
+  await expect(rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell]')).toHaveCount(5);
+  await expect(rowsBox(page).locator('[data-nl-cell="folder"]')).toHaveCount(0);
+  await expect(rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell="chars"]')).toHaveText(String([...'가짜 노트 1 본문 #준비 #회의 #가짜 #넷째'].length));
+  await expect(rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell="made"]')).toHaveText('11.20');
+  // 머리 칸과 줄 칸 자리가 맞는다(그리드 하나).
+  const hx = (await headCell(page, 'chars').boundingBox()), cx = await rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell="chars"]').boundingBox();
+  expect(Math.abs(hx.x + hx.width - (cx.x + cx.width))).toBeLessThan(3);
+  await expect.poll(saved).toEqual(['tags', 'day', 'made', 'clip', 'chars']);
+  await page.keyboard.press('Escape');
+  // 새로 열어도 같은 칸.
+  await page.reload(); await s.show();
+  expect(await headNames(page)).toEqual(['title', 'tags', 'day', 'made', 'clip', 'chars']);
+  // [기본으로] = 서버 값 지움, 기본 넷.
+  await openCols(page);
+  await colsMenu(page).locator('[data-nl-cols-reset]').click();
+  await expect.poll(saved).toBeNull();
+  expect(await headNames(page)).toEqual(['title', 'folder', 'tags', 'day', 'clip']);
+  // 작성일 칸 머리를 누르면 작성일 정렬(①-2와 같은 정렬 값).
+  await openCols(page); await colsMenu(page).locator('[data-nl-col-toggle="made"]').click(); await page.keyboard.press('Escape');
+  await sortBtn(page, 'created').click();
+  await expect(sortCell(page, 'created')).toHaveAttribute('aria-sort', 'descending');
+  await expect.poll(() => s.server.value?.note_list_sort ?? null).toEqual({ key: 'created', dir: 'desc' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  expect(s.errors).toEqual([]);
+});
+
+test('제목만 남겨도(모두 끄기) 줄이 그려지고, 폰 390도 ⋯ [보일 칸…]으로 같은 값', async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await fixture(page, 390, { prefs: { note_cols: ['day'] } });
+  // 폰: 아래 작은 줄에 켠 칸(수정일)만.
+  const one = rowsBox(page).locator('[data-nx-note="n1"]');
+  await expect(one.locator('[data-nl-cell]')).toHaveCount(1);
+  await expect(one.locator('[data-nl-cell="day"]')).toBeVisible();
+  await page.locator('#basketView [data-note-folder-more]').click();
+  await colsMenu(page).locator('[data-nl-cols-open]').click();
+  await expect(colsMenu(page)).toHaveAttribute('aria-label', '보일 칸');
+  await colsMenu(page).locator('[data-nl-col-toggle="day"]').click();
+  await expect.poll(() => s.server.value?.note_cols ?? null).toEqual([]);
+  await expect(one.locator('[data-nl-cell]')).toHaveCount(0);
+  await expect(one.locator('.basket-title-text')).toHaveText('가짜 노트 1');
+  expect(s.errors).toEqual([]);
+});
+
+test('PC 1280: 잠긴 노트는 메모·글자 수·공유 칸이 빈칸', async ({ page }) => {
+  const s = await fixture(page, 1280, { locked: true, prefs: { note_cols: ['folder', 'tags', 'day', 'clip', 'memo', 'chars', 'pub'] } });
+  const lockedRow = rowsBox(page).locator('[data-nx-note="n1"]'), open = rowsBox(page).locator('[data-nx-note="n2"]');
+  await expect(lockedRow.locator('.basket-title-text')).toHaveText('잠김');
+  for (const key of ['memo', 'chars', 'pub', 'tags']) await expect(lockedRow.locator(`[data-nl-cell="${key}"]`)).toBeEmpty();
+  // 잠기지 않은 노트는 글자 수가 보인다.
+  await expect(open.locator('[data-nl-cell="chars"]')).not.toBeEmpty();
   expect(s.errors).toEqual([]);
 });
