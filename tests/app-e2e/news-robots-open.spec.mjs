@@ -10,7 +10,8 @@ const base = { lane: 'channel', title: null, lang: 'ko', publisher: null, source
 
 async function setup(page, width, { fail = false } = {}) {
   const { errors, server } = await start(page, width);
-  server.items.unshift({ ...base, id: 'r1', url: 'https://www.example.org/r1' }, { ...base, id: 'r2', url: 'https://www.example.org/r2' });
+  // S70-17b: 제목을 끝내 못 얻은 줄은 목록에서 빠지므로 주소 경로에 읽을 만한 조각을 둔다(목록 제목 = 그 조각).
+  server.items.unshift({ ...base, id: 'r1', url: 'https://www.example.org/news/fake-blocked-story-one' }, { ...base, id: 'r2', url: 'https://www.example.org/news/fake-blocked-story-two' });
   const bodies = { r1: { state: 'failed', reason: 'robots', blocks: [] }, r2: { state: 'failed', reason: 'robots', blocks: [] } };
   const opens = [];
   let release;
@@ -78,7 +79,7 @@ test('robots로 비어 있던 기사 412: 읽어 와도 실패하면 까닭 한 
   await row(page, 'r2').locator('[data-nc-open="r2"]').click();
   const why = detail(page).locator('[data-nd-body] [data-nd-why]');
   await expect(why).toContainText('사이트에서 글을 찾지 못함');
-  await expect(why.getByRole('link', { name: /원래 사이트/ })).toHaveAttribute('href', 'https://www.example.org/r2');
+  await expect(why.getByRole('link', { name: /원래 사이트/ })).toHaveAttribute('href', 'https://www.example.org/news/fake-blocked-story-two');
   await expect(detail(page).locator('[data-nd-prose]')).toHaveCount(0);
   expect(opens).toEqual(['r2']);
   expect(errors).toEqual([]);
