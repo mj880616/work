@@ -156,7 +156,7 @@ test('PRJ-기록입력 old records and items have no line to edit or delete, and
 
 test('PRJ-기록입력 groups: same line lists, small + beside the title, documents open on tap',async({page})=>{
   await fixture(page);
-  for(const [section,label] of [['#ps3-children','하위 사업영역 추가'],['#ps3-tasks','할 일 추가'],['#ps3-documents','자료 올리기']]){
+  for(const [section,label] of [['#ps3-children','하위 사업영역 추가'],['#ps3-tasks','할 일 추가'],['#ps3-documents','자료 업로드']]){
     const plus=page.locator(`${section} .ps3-section-head`).getByRole('button',{name:label});
     await expect(plus).toHaveText('+');const box=await plus.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
   }

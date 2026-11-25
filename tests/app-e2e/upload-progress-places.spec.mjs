@@ -86,7 +86,7 @@ for(const width of [390,1280])test.describe(`자료실 올리기 ${width}px`,()=
   const row=rows(page).first(),pc=row.locator('.up-pc');
   await expect(row).toContainText('모의 자료.pdf');
   await expect(row.locator('[role="progressbar"]')).toBeVisible();
-  await expect(row.getByRole('button',{name:'모의 자료.pdf 올리기 취소'})).toBeVisible();
+  await expect(row.getByRole('button',{name:'모의 자료.pdf 업로드 취소'})).toBeVisible();
   // 이 화면이 올리는 줄을 보이는 동안 하단바 위 한 줄은 겹쳐 뜨지 않는다(공용 부품 규칙).
   await expect(page.locator('#uploadDock:not([hidden])')).toHaveCount(0);
   const seen=await percents(pc,4000);
@@ -99,7 +99,7 @@ for(const width of [390,1280])test.describe(`자료실 올리기 ${width}px`,()=
   expect(state.received.map(r=>r.name)).toEqual(['모의 자료.pdf']);
   expect(errors).toEqual([]);
  });
- test(`보내는 중 ✕(올리기 취소)는 그 파일만 멈추고 서버에 자료가 생기지 않으며 다음 파일은 이어 올리고, [다시]는 취소한 파일만 올린다 ${width}px`,async({page})=>{
+ test(`보내는 중 ✕(업로드 취소)는 그 파일만 멈추고 서버에 자료가 생기지 않으며 다음 파일은 이어 올리고, [다시]는 취소한 파일만 올린다 ${width}px`,async({page})=>{
   test.setTimeout(90000);
   const errors=await open(page);
   state.pauseMs=80;
@@ -108,14 +108,14 @@ for(const width of [390,1280])test.describe(`자료실 올리기 ${width}px`,()=
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
   const first=rows(page).filter({hasText:'멈출 자료.pdf'});
   await expect(first.locator('.up-pc')).toHaveText(/\d+%/);
-  await first.getByRole('button',{name:'멈출 자료.pdf 올리기 취소'}).click();
+  await first.getByRole('button',{name:'멈출 자료.pdf 업로드 취소'}).click();
   await expect.poll(()=>state.received.map(r=>r.name),{timeout:30000}).toEqual(['다음 자료.pdf']);
   // 끝 알림(UX-알림하나로): 하단바 위 한 줄 하나에 예전 창 상태 줄과 같은 글(취소는 오류가 아니다), [다시 올리기]가 취소한 파일만 다시 올린다.
-  await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료. 올리기를 취소했어요.',{timeout:15000});
+  await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료. 업로드를 취소했어요.',{timeout:15000});
   await expect(page.locator('#uploadDock')).toHaveAttribute('role','status');
   await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
   state.pauseMs=5;
-  await page.locator('#uploadDock').getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+  await page.locator('#uploadDock').getByRole('button',{name:'못 올린 파일 다시 업로드'}).click();
   await expect.poll(()=>state.received.map(r=>r.name),{timeout:30000}).toEqual(['다음 자료.pdf','멈출 자료.pdf']);
   await expect(noticeLine(page)).toHaveText('멈출 자료.pdf 올렸어요',{timeout:15000});
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);

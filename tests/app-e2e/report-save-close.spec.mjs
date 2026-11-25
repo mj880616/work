@@ -137,7 +137,7 @@ for(const width of [412,1280]){
     expect(state.errors).toEqual([]);
   });
 
-  test(`못 올린 파일은 아래 한 줄에 [다시 올리기] — 못 올린 파일만 다시 ${width}px`,async({page})=>{
+  test(`못 올린 파일은 아래 한 줄에 [다시 업로드] — 못 올린 파일만 다시 ${width}px`,async({page})=>{
     const state=await boot(page,width);
     state.failNames.add('사진2.jpg');
     await fillReport(page,{photos:2});
@@ -149,8 +149,8 @@ for(const width of [412,1280]){
     await expect(line).toHaveAttribute('role','alert');
     // 작은 둘째 줄: 올라간 것 + 까닭.
     await expect(line.locator('.up-dock-note')).toHaveText(/^사진 1장·자료 1개 올렸어요 · 파일을 업로드하지 못했어요/);
-    const again=line.getByRole('button',{name:'못 올린 파일 다시 올리기'});
-    await expect(again).toHaveText('다시 올리기');
+    const again=line.getByRole('button',{name:'못 올린 파일 다시 업로드'});
+    await expect(again).toHaveText('다시 업로드');
     // 저절로 사라지지 않는다(누를 때까지).
     await page.waitForTimeout(600);
     await expect(again).toBeVisible();
@@ -161,7 +161,7 @@ for(const width of [412,1280]){
     expect(state.uploads[3].meeting).toBe(NEW_ID);
     // 다시 올린 뒤의 끝 글은 그 묶음 전체다(모두 붙었다).
     await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 2장·자료 1개 올렸어요');
-    await expect(dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'})).toHaveCount(0);
+    await expect(dock(page).getByRole('button',{name:'못 올린 파일 다시 업로드'})).toHaveCount(0);
     await openMeetingResult(page,NEW_ID);
     await expect(page.locator('#mrdPhotosHead')).toHaveText('사진 2');
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(1);
@@ -216,15 +216,15 @@ test('차례를 기다리는 파일의 ✕: 그 파일만 보내지 않고 나�
   await expect(page.locator('#meetingModal')).toBeHidden();
   await expect.poll(()=>state.uploads.length).toBe(1);
   await openMeetingResult(page,NEW_ID);
-  await page.getByRole('button',{name:'사진2.jpg 올리기 취소'}).click();
+  await page.getByRole('button',{name:'사진2.jpg 업로드 취소'}).click();
   await expect(page.locator('#mrdPhotoRows .up-row')).toHaveCount(1);
   state.releaseAll();
   await expect.poll(()=>state.uploads.length).toBe(2);
   expect(state.uploads.map(u=>u.name)).toEqual(['사진1.jpg','자료.hwp']);
   await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 1장·자료 1개 올렸어요 · 1개 취소');
   // 못 올린 것이 없으므로 [다시 올리기]는 취소한 그 파일을 다시 올린다.
-  const again=dock(page).getByRole('button',{name:'취소한 파일 다시 올리기'});
-  await expect(again).toHaveText('다시 올리기');
+  const again=dock(page).getByRole('button',{name:'취소한 파일 다시 업로드'});
+  await expect(again).toHaveText('다시 업로드');
   await again.click();
   await expect.poll(()=>state.uploads.length).toBe(3);
   expect(state.uploads[2].name).toBe('사진2.jpg');
@@ -232,7 +232,7 @@ test('차례를 기다리는 파일의 ✕: 그 파일만 보내지 않고 나�
   expect(state.errors).toEqual([]);
 });
 
-for(const width of [412,1280])test(`못 올린 사진은 아래 한 줄 하나로만 알리고(상세 줄에 실패 줄 없음), [다시 올리기]로 다시 올려도 알림·파일 줄이 겹치지 않는다 ${width}px`,async({page})=>{
+for(const width of [412,1280])test(`못 올린 사진은 아래 한 줄 하나로만 알리고(상세 줄에 실패 줄 없음), [다시 업로드]로 다시 올려도 알림·파일 줄이 겹치지 않는다 ${width}px`,async({page})=>{
   const state=await boot(page,width,width<761?900:640);
   state.failNames.add('사진2.jpg');
   await fillReport(page,{photos:2});
@@ -247,10 +247,10 @@ for(const width of [412,1280])test(`못 올린 사진은 아래 한 줄 하나�
   await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
   if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/report-photo-fail-${width}.png`});
   state.failNames.clear();state.hold=true;
-  await dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+  await dock(page).getByRole('button',{name:'못 올린 파일 다시 업로드'}).click();
   await expect.poll(()=>state.uploads.length).toBe(4);
   // 다시 줄 서면 하단의 '못 올렸어요' 알림은 닫히고, 그 파일 줄은 하나뿐이다(실패 줄 + 올리는 줄로 겹치지 않음).
-  await expect(dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'})).toHaveCount(0);
+  await expect(dock(page).getByRole('button',{name:'못 올린 파일 다시 업로드'})).toHaveCount(0);
   await expect(page.locator('#uploadDock:not([hidden])[data-state="note"]')).toHaveCount(0);
   await expect(rows).toHaveCount(1);
   await expect(rows).not.toContainText('실패');

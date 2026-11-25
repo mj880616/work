@@ -11,7 +11,8 @@
   // OUTSIDE-글상세·관심환류 ③ → S51-17 NEWS P5: News 화면(#outsideView, 라우터 이름 outside)의 주소는 ?view=news다(아래 URL_NAME).
   // 옛 ?view=outside·?view=now와 go('news')도 같은 화면을 연다(주소는 ?view=news로 고쳐 쓴다). 탭은 화면이 정한다(마지막 탭).
   // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages, go('pages'))은 없앴다 — 노트(정리함의 노트 쪽, ALIAS_SUB)를 연다. 주소는 ?view=basket&pane=note로 고쳐 쓴다.
-  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
+  // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 화면은 없앴다. 옛 ?view=ledger·go('ledger')는 홈을 연다.
+  const VIEW_ALIAS={ledger:'home','hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
   const ALIAS_SUB={pages:'note'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.

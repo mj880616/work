@@ -150,7 +150,7 @@ export function createPhoneRecorder(deps){
             }catch(e){
               const w=await ask(`rec:failed:${n.no}:${n.seq}:${failWire(e)}`,['wait'],5000);
               const ms=w?.data??3000;
-              if(ms)view.note=`조각 올리기 다시 시도 중`;
+              if(ms)view.note=`조각 업로드 다시 시도 중`;
               paint();
               await nap(ms);
             }
