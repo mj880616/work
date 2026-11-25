@@ -84,16 +84,28 @@ test('readTelegramAsks: one read of open telegram candidates + the room lookup; 
   assert.deepEqual(await radar.readTelegramAsks(down), {ok: false});
 });
 
-test('readLineMarks: no raw text, only shown telegram rows in the day range, paged', async () => {
+test('readLineMarks: no raw text, only shown telegram rows in the day range, one call up to 600 rows (TG-불러오기속도)', async () => {
   const paths = [];
-  const rt = rtWith(async path => { paths.push(path); return path.includes('offset=0') ? Array.from({length: 100}, (_, i) => ({room_key: 'r', day: '2026-10-06', organization_id: null, title: 't' + i, summary: null})) : [{room_key: 'r', day: '2026-10-05'}]; });
+  const rt = rtWith(async path => { paths.push(path); return Array.from({length: 101}, (_, i) => ({room_key: 'r', day: '2026-10-06', organization_id: null, title: 't' + i, summary: null})); });
   const rows = await feed.readLineMarks('2026-09-23', '2026-10-06', rt);
   assert.equal(rows.length, 101);
-  assert.equal(paths.length, 2);
-  for (const p of paths) {
-    assert.match(p, /source=eq\.telegram&hidden_at=is\.null&day=gte\.2026-09-23&day=lte\.2026-10-06&select=room_key,day,organization_id,title,summary&/);
-    assert.doesNotMatch(p, /raw_text/);
-  }
+  assert.equal(paths.length, 1, '100줄씩 차례로 여러 번 부르지 않는다');
+  assert.match(paths[0], /source=eq\.telegram&hidden_at=is\.null&day=gte\.2026-09-23&day=lte\.2026-10-06&select=room_key,day,organization_id,title,summary&/);
+  assert.match(paths[0], /&limit=600$/);
+  assert.doesNotMatch(paths[0], /raw_text|offset=/);
+});
+
+// TG-불러오기속도: 목록을 먼저 그리고 늦게 받은 '봤음'과 합칠 때, 그 사이 화면에서 연 줄(더 늦은 시각)은 남긴다.
+test('mergeSeen: server rows plus rows opened on screen meanwhile; the later open time wins, server update time kept', () => {
+  const fresh = m.seenIndex([{room_key: 'a', day: '2026-10-06', seen_at: '2026-10-06T01:00:00Z', updated_at: '2026-10-06T02:00:00Z'}, {room_key: 'b', day: '2026-10-06', seen_at: '2026-10-06T03:00:00Z'}]);
+  const local = m.withSeen(m.withSeen(new Map(), 'a', '2026-10-06', Date.parse('2026-10-06T05:00:00Z')), 'c', '2026-10-05', Date.parse('2026-10-05T05:00:00Z'));
+  local.set('b|2026-10-06', {at: Date.parse('2026-10-06T00:00:00Z'), up: 0});
+  const got = m.mergeSeen(fresh, local);
+  assert.deepEqual(got.get('a|2026-10-06'), {at: Date.parse('2026-10-06T05:00:00Z'), up: Date.parse('2026-10-06T02:00:00Z')});
+  assert.equal(got.get('b|2026-10-06').at, Date.parse('2026-10-06T03:00:00Z'), '서버 쪽이 늦으면 서버 값');
+  assert.ok(got.has('c|2026-10-05'));
+  assert.equal(m.mergeSeen(fresh, null).size, 2);
+  assert.notEqual(m.mergeSeen(fresh, local), fresh);
 });
 
 // TG-안본것 3/3: '봤음' 시각(app_feed_room_days.seen_at)으로 점·흐림·[안 본 것 n].

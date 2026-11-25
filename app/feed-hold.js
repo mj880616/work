@@ -11,7 +11,10 @@ export function createFeedHold({menu, itemSelector, moreSelector, skipSelector =
     trigger.getBoundingClientRect = () => ({x, y, left:x, top:y, right:x + Math.min(200, innerWidth - 24), bottom:y, width:Math.min(200, innerWidth - 24), height:0, toJSON() { return this; }});
     pinned = trigger;
   };
-  let hold = null, swallowClick = false;
+  let hold = null, swallowClick = false, waiters = [];
+  // TG-불러오기속도: 늦게 온 재료로 목록을 다시 그릴 때, 꾹 누르는 중이면 손을 뗀 뒤(메뉴가 열린 뒤) 그린다(누르던 줄이 바뀌지 않게).
+  const flush = () => { if (hold) return; const w = waiters; waiters = []; for (const fn of w) fn(); };
+  const afterHold = fn => { if (!hold) fn(); else waiters.push(fn); };
   function bind(root) {
     root.addEventListener('pointerdown', e => {
       swallowClick = false;
@@ -29,7 +32,7 @@ export function createFeedHold({menu, itemSelector, moreSelector, skipSelector =
     const cancel = e => {
       if (!hold) return;
       if (e.type === 'pointermove' && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) < MOVE_PX) return;
-      const h = hold; clearTimeout(h.timer); hold = null;
+      const h = hold; clearTimeout(h.timer); hold = null; queueMicrotask(flush);
       if (e.type === 'pointermove' && h.held) swallowClick = false; // 꾹 누른 뒤 밀기 = 메뉴 없음(밀기가 맡는다)
       if (e.type !== 'pointerup' || !h.held) return;
       const trigger = h.item.querySelector(moreSelector); if (!trigger) return;
@@ -41,5 +44,5 @@ export function createFeedHold({menu, itemSelector, moreSelector, skipSelector =
     // On the window, before the open menu's own outside-press handler (document), so the lift does not close the menu just opened.
     window.addEventListener('click', e => { if (swallowClick && root.contains(e.target)) { swallowClick = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   }
-  return {bind, unpin};
+  return {bind, unpin, afterHold};
 }
