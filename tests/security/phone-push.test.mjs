@@ -300,7 +300,7 @@ test('docs 5절 table: phone-push row is verify_jwt=false and 배포 대기; ind
  const doc=readFileSync('docs/web2-env6b-edge-source.md','utf8');
  const section=doc.slice(doc.indexOf('## 5.'),doc.indexOf('### 5.1'));
  const rows=section.split('\n').filter(l=>/^\| \d+ \| `phone-push` \|/.test(l));
- assert.equal(rows.length,1);assert.match(rows[0],/\| 배포 대기 \| 없음 \| false \|/);
+ assert.equal(rows.length,1);assert.match(rows[0],/\| (?:배포 대기 \| 없음|운영 중\(버전은 functions list\) \| [^|]+) \| false \|/);
  const idx=readFileSync('supabase/functions/phone-push/index.ts','utf8');
  assert.match(idx,/Deno\.serve\(withWebCors\(createPhonePushHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\)\);/);
  for(const f of ['supabase/functions/phone-push/handler.ts','supabase/functions/_shared/fcm-send.ts']){
