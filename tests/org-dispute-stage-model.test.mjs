@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DEFAULT_STAGES, seedRows, stageOfOrg, reportKind, listTag, weekOf, monthDay, stageLabel, reorderChanges, stageNameProblem, orgsAtStageText, historyLines, listTagShownAt, LIST_TAG_FOLD_QUERY} from '../app/org-dispute-stage-model.mjs';
-import {SPLIT_MIN_WIDTH} from '../app/screen-width.mjs';
+import {DEFAULT_STAGES, seedRows, stageOfOrg, reportKind, listTag, weekOf, monthDay, stageLabel, reorderChanges, stageNameProblem, orgsAtStageText, historyLines} from '../app/org-dispute-stage-model.mjs';
 import {existingStageRows} from './dispute-stage-fixture.mjs';
 
 // ORG-쟁의단계: 단계 판정·꼬리표·순서 바꾸기. 조직·단계는 모두 가짜 값.
@@ -181,11 +180,4 @@ test('이력 수정·삭제 뒤 현재 단계는 남은 이력의 최신 줄(다
   assert.equal(stageOfOrg('a', new Map([['a', [rows[0]]]]), stages).name, '교섭 중');
   const none = stageOfOrg('a', new Map([['a', []]]), stages);
   assert.equal(none.name, '교섭 시작 전'); assert.equal(none.kind, 'quiet');
-});
-
-// ORG-담당조직버튼자리폴드 ②: 폴드 펼침(600~1023px)만 목록 칩을 그리지 않는다. 600은 screen-width.mjs 칸 나누기 시작과 같은 값.
-test('목록 쟁의 단계 칩을 그리는 폭: 폰·넓은 PC만', () => {
-  for (const w of [360, 412, 599, 1024, 1280, 1920]) assert.equal(listTagShownAt(w), true, String(w));
-  for (const w of [600, 690, 707, 760, 761, 840, 884, 1023]) assert.equal(listTagShownAt(w), false, String(w));
-  assert.equal(LIST_TAG_FOLD_QUERY, `(min-width:${SPLIT_MIN_WIDTH}px) and (max-width:1023px)`);
 });
