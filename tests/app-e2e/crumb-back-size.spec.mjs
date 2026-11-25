@@ -5,7 +5,6 @@
 // 이름은 모두 지어낸 것이다.
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,menuButton,folderMenuItem} from './helpers/library-folder-server.mjs';
-import {pinch} from './helpers/pinch.mjs';
 import {start,openFiles,treeGo,enterRow} from './helpers/files-server.mjs';
 
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fb','top-a',{name:'가상 B',parent_id:'fa',sort_order:0})];
@@ -77,7 +76,9 @@ test('자료실 폰 390: 위치 줄 [‹]는 테두리 없는 작은 꺽쇠 · �
   await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   const head=key=>page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
   const path=page.locator('#libraryPath');
-  await pinch(page,head('f:fa'),'out');
+  // 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기](UI-폴더줄크기 S69-99: 두 손가락은 줄 크기라 들어가지 않는다).
+  await head('f:fa').locator('[data-lu-node-menu]').click();await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+  await expect(path).toHaveText('‹자료실›가상 A');
   await head('f:fb').locator('[data-lu-node-menu]').click();await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
   await expect(path).toHaveText('‹자료실›가상 A›가상 B');
   const up=path.locator('[data-lu-path-back]');
