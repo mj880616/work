@@ -219,7 +219,10 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 @media(min-width:761px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:flex-start; margin-top:2px; } }
 /* ED③ 노트: 노트 수정 칸의 본문은 새 편집기(ed-editor.js, 모양은 ed-doc.css). 칸 테두리만 둘러 옛 textarea 자리와 같은 폭·높이로 둔다. */
 #basketView .note-editor .note-body-field { display:block; min-width:0; margin:6px 0 0; border:1px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); }
-#basketView .note-editor .note-body-field .ed-editor .ProseMirror { min-height:14em; }
+/* NOTE-본문칸여백(S70-38, 2026-11-25 명진 "노트 본문에 너무 딱 맞아서 답답해 위아래 여백이 필요해"): 읽기 본문 상자와 고치기 글 칸은 같은 최소 높이
+   (--note-body-min, 짧은 노트도 몇 줄 높이)라 읽기 ↔ 고치기 전환 때 상자가 흔들리지 않는다. 긴 노트는 글만큼 자란다. */
+#basketView [data-note-detail] { --note-body-min:8.5rem; }
+#basketView .note-editor .note-body-field .ed-editor .ProseMirror { min-height:var(--note-body-min); }
 
 /* FOLDER-나무새기준(S51-12): 폴더 줄·상자 모양은 공용 folder-tree.css(ft-) 한 곳. 여기는 노트 줄을 나무 안 들여쓰기 자리에 두는 것만. */
 #appView #basketView [data-note-list] .nx-note.ft-item { padding-left:calc(var(--ft-depth, 0) * 22px); }
@@ -692,6 +695,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 }
 /* NOTE-글폭(S61-21): 노트 읽기 글 칸(.line-w, ed-doc.css)의 원래 좌우 여백 — 그냥 글(마크다운 아님)은 이 여백으로 줄을 묶는다. */
 #appView #basketView [data-note-read] [data-basket-read-text] { --line-pr:12px; }
+/* NOTE-본문칸여백(S70-38): 글이 테두리에 붙지 않게 위·아래 안쪽 여백은 공용 간격 토큰, 최소 높이는 고치기 글 칸과 같은 값(위 --note-body-min). */
+#appView #basketView [data-note-read] [data-basket-read-text] { padding-top:var(--kptu-space-4, 16px); padding-bottom:var(--kptu-space-4, 16px); min-height:var(--note-body-min, 8.5rem); }
 @media (min-width:600px){ #appView #basketView [data-note-read] [data-basket-read-text]:not(.md-body):not(:has(>.ed-doc)) { padding-right:max(12px, calc(100% - var(--line-w) - 12px)); } }
 /* S67-25: 잊지 말기 맨 아래 '잠김' 줄은 위 줄들과 같은 안쪽 여백(전에는 카드 가장자리에 붙었다). 끝 [풀기]는 ③ 줄 버튼. */
 
