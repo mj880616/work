@@ -53,7 +53,7 @@ test('PC 1440: 미리보기 ← → 단추·키 = 같은 목록의 앞·다음 �
   expect(errors).toEqual([]);
 });
 
-test('PC 1440: 파일 우클릭 [경로 복사] = 클립보드에 위치 글자, 그림 붙여넣기(Ctrl+V) = 지금 폴더에 올리기', async ({ page, context }) => {
+test('PC 1440: 파일 우클릭 [경로 복사] = 클립보드에 위치 글자, 그림 붙여넣기(Ctrl+V) = 지금 폴더에 업로드', async ({ page, context }) => {
   test.setTimeout(90000);
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:8123' });
   const { errors, server } = await begin(page);

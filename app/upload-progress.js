@@ -193,11 +193,11 @@ function paintRow(row, job) {
     acts.replaceChildren();
     if (job.slow) {
       acts.append(el('span', 'up-slow', '느려요'), textButton('계속 기다리기', 'wait'));
-      if (job.phase === 'sending') acts.append(textButton('취소', 'cancel', `${job.name} 올리기 취소`));
+      if (job.phase === 'sending') acts.append(textButton('취소', 'cancel', `${job.name} 업로드 취소`));
     } else if (job.phase === 'sending' || job.phase === 'waiting') {
-      const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'cancel'; x.setAttribute('aria-label', `${job.name} 올리기 취소`); acts.append(x);
+      const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'cancel'; x.setAttribute('aria-label', `${job.name} 업로드 취소`); acts.append(x);
     } else if (job.phase === 'failed') {
-      if (job.retry) acts.append(textButton('다시', 'retry', `${job.name} 다시 올리기`));
+      if (job.retry) acts.append(textButton('다시', 'retry', `${job.name} 다시 업로드`));
       const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'cancel'; x.setAttribute('aria-label', `${job.name} 실패 표시 닫기`); acts.append(x);
     }
   }
@@ -265,7 +265,7 @@ export function paintUploadOverlay(tile, file) {
   if (!job) { over?.remove(); return; }
   if (!over) {
     over = el('span', 'up-tile-over'); over.append(bar(job), el('span', 'up-pc'));
-    const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', `${job.name} 올리기 취소`);
+    const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', `${job.name} 업로드 취소`);
     x.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); uploadJobs().find(item => item.file === file)?.cancel(); });
     over.append(x); tile.append(over);
   }
@@ -282,7 +282,7 @@ export function paintUploadLine(row, file) {
   if (!job) { line?.remove(); return; }
   if (!line) {
     line = el('span', 'up-inline'); line.append(bar(job), el('span', 'up-pc'));
-    const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', `${job.name} 올리기 취소`);
+    const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', `${job.name} 업로드 취소`);
     x.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); uploadJobs().find(item => item.file === file && item.phase === 'sending')?.cancel(); });
     line.append(x); row.append(line);
   }
@@ -377,7 +377,7 @@ function paintNote(note) {
     const acts = el('span', 'up-dock-acts');
     note.actions.forEach((action, index) => { const b = textButton(action.label, 'note-act', action.aria || ''); b.dataset.upNote = String(index); acts.append(b); });
     if (note.back) acts.append(textButton('보기', 'note-open', '올린 곳 보기'));
-    const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'close'; x.setAttribute('aria-label', '올리기 알림 닫기'); acts.append(x);
+    const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'close'; x.setAttribute('aria-label', '업로드 알림 닫기'); acts.append(x);
     node.querySelector('.up-dock-head').append(acts);
     if (note.note) node.append(el('div', 'up-dock-note', note.note));
   }
@@ -420,7 +420,7 @@ function paintDock() {
   node.querySelector('.up-dock-acts')?.remove(); node.querySelector('.up-dock-note')?.remove();
   const acts = el('span', 'up-dock-acts');
   if (dock.back) acts.append(textButton('보기', 'open', '올린 화면 보기'));
-  const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'close'; x.setAttribute('aria-label', '올리기 알림 닫기'); acts.append(x);
+  const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'close'; x.setAttribute('aria-label', '업로드 알림 닫기'); acts.append(x);
   node.querySelector('.up-dock-head').append(acts);
   lift(node); node.hidden = false;
   dock.endTimer = setTimeout(resetDock, dock.failed ? DOCK_DONE_MS * 3 : DOCK_DONE_MS);

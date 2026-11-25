@@ -64,12 +64,12 @@ test('DIARY-맥락사업보고이름 전수: 사업 보고 줄 꼬리표는 그 
   assert.doesNotMatch(view, /KIND_LABEL\[r\.kind\]/);
 });
 
-test('열린 것: 챙길 것(요약·근거)과 기다리는 약속(상대), 마감 가까운 순, 끝난 것은 뺌', () => {
+test('열린 것: 챙길 것(요약·근거)만(원장 약속 없음), 마감 가까운 순, 끝난 것은 뺌', () => {
   const rows = collectOpen({people,
     todos:[{id:'d1', summary:'김하나 위원장에게 자료 보내기', due:'2026-10-31', status:'open'}, {id:'d2', summary:'무관', status:'open'}, {id:'d3', summary:'박둘 회신', status:'tasked'}, {id:'d4', summary:'정리', evidence:'박둘: 다음 주 연락', status:'open'}],
     promises:[{id:'l1', title:'인력 충원안 회신', counterparty:'김하나', commitment_status:'waiting', follow_up_on:'2026-10-30'}, {id:'l2', title:'x', counterparty:'김하나', commitment_status:'fulfilled'}]});
-  assert.deepEqual(rows.map(r => r.key), ['promise:l1', 'todo:d1', 'todo:d4']);
-  assert.deepEqual(rows[0].open, {view:'ledger', id:'l1'});
+  assert.deepEqual(rows.map(r => r.key), ['todo:d1', 'todo:d4']);
+  assert.ok(rows.every(r => r.open?.view !== 'ledger'));
   assert.equal(dday('2026-10-31', '2026-10-28'), 'D-3');
   assert.equal(dday('2026-10-28', '2026-10-28'), 'D-day');
   assert.equal(dday('2026-10-26', '2026-10-28'), 'D+2');
@@ -112,7 +112,7 @@ test('화면 연결: 맨 아래 작은 탭 4개(주요 인물 첫 탭), renderer
   assert.match(ui, /from '\.\/tg-sender-data\.js'/);
   assert.match(read('app/call-feed.js'), /window\.KPTUCallFeed = \{reload:\(\) => load\(\), open:openCall, show:showCall\}/);
   assert.match(read('app/telegram-feed.js'), /window\.KPTUTelegramFeed = \{reload:\(\) => load\(\), show:showDay\}/);
-  assert.match(read('app/ledger-browse-model.mjs'), /export const waitingCommitmentsPath/);
+  assert.doesNotMatch(ui, /waitingCommitmentsPath|KPTULedgerBrowse|'ledger'/);
 });
 
 // ORG-찾을이름칸삭제(S61-4): 창은 이름만 받는다. 고쳐 저장해도 이미 저장된 찾을 이름은 비우지 않고 이어 붙인다.

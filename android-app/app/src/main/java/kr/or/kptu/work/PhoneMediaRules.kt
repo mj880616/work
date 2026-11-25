@@ -260,6 +260,9 @@ object PhoneMediaRules {
         else -> Access.NONE
     }
 
+    /** S70-45: 플레이 판(BuildConfig.PHONE_GALLERY=false)의 답. off = 이 판에는 '폰 사진'이 없다(웹 phone-photos.js가 아이콘·메뉴를 그리지 않음). 열쇠 없음. */
+    const val OFF_MESSAGE = "photos:state:{\"access\":\"none\",\"off\":true}"
+
     /** 다리로 보내는 상태 글. 접근이 없으면 열쇠를 주지 않는다. trash = 폰 휴지통 보내기를 할 수 있는 폰(안드로이드 11+). */
     fun stateMessage(access: Access, key: String, sdk: Int, manage: Boolean = false): String {
         val name = access.name.lowercase()

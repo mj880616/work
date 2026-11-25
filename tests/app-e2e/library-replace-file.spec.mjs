@@ -204,7 +204,7 @@ test('dropping a file on the dialog stages it (several files: the first one, wit
 
 // BIZ-저장먼저닫기 3차(S59-18): 정보가 저장되면 창은 닫히고, 서버가 파일 교체를 거절하면(그사이 파일이 바뀜) 아래 한 줄이 까닭을 알린다.
 // 같은 파일로 다시 보내도 또 거절되거나 겹칠 수 있어 [다시 올리기]는 두지 않는다. 그 밖에는 아무것도 보내지 않는다.
-test('a refused replace (the file changed meanwhile): the typed info is saved and the window closes; the bottom line says why, with no [다시 올리기]',async({page})=>{
+test('a refused replace (the file changed meanwhile): the typed info is saved and the window closes; the bottom line says why, with no [다시 업로드]',async({page})=>{
   const state=await boot(page);state.replaceMode='conflict';
   await openEdit(page);
   await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
@@ -214,7 +214,7 @@ test('a refused replace (the file changed meanwhile): the typed info is saved an
   const dock=page.locator('#uploadDock');
   await expect(dock).toContainText('파일을 바꾸지 못했어요');
   await expect(dock).toContainText('그 사이 바뀌었습니다');
-  await expect(dock.getByRole('button',{name:'바꾸지 못한 파일 다시 올리기'})).toHaveCount(0);
+  await expect(dock.getByRole('button',{name:'바꾸지 못한 파일 다시 업로드'})).toHaveCount(0);
   expect(state.log).toEqual(['patch','replace']);
   expect(state.docs[0].title).toBe('쓰던 제목');
   expect(state.docs[0].file_name).toBe('옛 파일.hwpx');
@@ -231,7 +231,7 @@ test('an unknown outcome (gateway timeout): the window is already closed; the bo
   const dock=page.locator('#uploadDock');
   await expect(dock).toContainText('파일을 바꾸지 못했어요');
   await expect(dock).toContainText('확인');
-  await expect(dock.getByRole('button',{name:'바꾸지 못한 파일 다시 올리기'})).toHaveCount(0);
+  await expect(dock.getByRole('button',{name:'바꾸지 못한 파일 다시 업로드'})).toHaveCount(0);
   await page.waitForTimeout(400);
   expect(state.log).toEqual(['replace']);
 });
@@ -262,7 +262,7 @@ for(const width of [412,1280]){
     expect(state.patches).toEqual([]);
   });
 
-  test(`a failed replace offers [다시 올리기] in the bottom line; it sends only that file again (${width})`,async({page})=>{
+  test(`a failed replace offers [다시 업로드] in the bottom line; it sends only that file again (${width})`,async({page})=>{
     const state=await boot(page,{width});state.replaceMode='server';
     await openEdit(page);
     await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
@@ -277,7 +277,7 @@ for(const width of [412,1280]){
     // 누를 때까지 남는다.
     await page.waitForTimeout(6500);
     await expect(dock).toContainText('파일을 바꾸지 못했어요');
-    await dock.getByRole('button',{name:'바꾸지 못한 파일 다시 올리기'}).click();
+    await dock.getByRole('button',{name:'바꾸지 못한 파일 다시 업로드'}).click();
     await expect(dock).toContainText('파일을 바꿨어요');
     expect(state.replaces.map(r=>r.fileName)).toEqual(['새 파일.pdf','새 파일.pdf']);
     expect(state.docs[0].file_name).toBe('새 파일.pdf');
