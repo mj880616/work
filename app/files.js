@@ -4169,9 +4169,11 @@ root?.addEventListener('change', event => {
 const twoKey = event => frame.key(event);
 document.addEventListener('keydown', event => { if (!root.contains(event.target)) twoKey(event); });
 // UI-목록공용키(S70-18): 목록 칸 Ctrl+A·Delete·F2·Esc는 공용 키 부품이 정하고, 할 일은 이 화면 함수(같은 확인 창·되돌리기 알림).
+// 커서 줄: 초점이 있는 목록 줄, 없으면 지금 줄(p.sel). 고른 것이 없을 때 F2·Delete 대상(탐색기와 같음).
+const cursorRow = (e, p) => { const cur = e.target.closest?.('[data-fx-row]'); return (cur && rowByKey(cur.dataset.fxRow, p)) || (p.sel && rowByKey(p.sel, p)) || null; };
 const fxKeys = createSelectKeys({
-  rename: e => { const p = P(), cur = e.target.closest?.('[data-fx-row]'); const r = renameTarget(pickedRows(p), (cur && rowByKey(cur.dataset.fxRow, p)) || (p.sel && rowByKey(p.sel, p)) || null); if (!r) return false; renameRow(r, e.target.closest('button') || root); return true; },
-  delete: e => { const list = actRows(); if (!list.length) return false; trashRows(list, e.target.closest('button') || root); return true; },
+  rename: e => { const p = P(), r = renameTarget(pickedRows(p), cursorRow(e, p)); if (!r) return false; renameRow(r, e.target.closest('button') || root); return true; },
+  delete: e => { const p = P(), picked = pickedRows(p), cur = cursorRow(e, p), list = picked.length ? picked : cur ? [cur] : []; if (!list.length) return false; trashRows(list, e.target.closest('button') || root); return true; },
   all: () => { const p = P(), rows = [...(paneEl(p)?.querySelectorAll('[data-fx-row]') || [])]; if (!rows.length) return false; for (const b of rows) p.picked.add(b.dataset.fxRow); paintPicks(p); return true; },
   clear: () => { const p = P(); if (!(p.picked.size || state.clip)) return false; if (state.clip) uncut(); else unpick(); return true; },
 });
