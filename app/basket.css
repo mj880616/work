@@ -217,6 +217,17 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .home-quick button.home-quick-folder .home-quick-folder-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media(max-width:760px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:center; max-width:7em; } }
 @media(min-width:761px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:flex-start; margin-top:2px; } }
+/* NOTE-입력창한줄(S70-05, 명진 11/25 09:30 "pc에서 노트를 입력하세요 입력창 한줄로 / 어차피 크게 누르면 전체화면인데"):
+   PC 노트 입력칸은 늘 한 줄 높이([추가]와 같은 --kptu-control-height)로 고정한다. 글이 길어도 늘지 않고(칸 안에서 넘김), 길게 쓸 때는 칸 안 [⤢ 크게].
+   여러 줄 붙여넣기는 값에 그대로 담긴다(보이는 높이만 한 줄). 줄 높이 = 칸 안 높이라 넘겨 볼 때도 늘 한 줄만 온전히 보인다(반쪽 줄 없음). 크기 손잡이 없음. [폴더 ▾]·[첨부]·[추가]는 칸과 가운데를 맞춘 한 줄, 감싼 상자 여백도 줄인다.
+   폰(760 이하)은 위 ui-standard.css 한 줄 규칙 그대로(이 묶음은 PC만). Enter 동작은 바꾸지 않는다(enter-save.js). */
+@media(min-width:761px) {
+  #appView #basketView .home-quick[data-note-only] { margin:8px 0; padding:6px 8px; }
+  #appView #basketView .home-quick[data-note-only] .home-quick-entry { align-items:center; }
+  #appView #basketView .home-quick[data-note-only] .home-quick-entry > button.home-quick-folder { align-self:center; margin-top:0; }
+  #appView #basketView .home-quick[data-note-only] [data-quick-input] { box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); max-height:var(--kptu-control-height); padding-top:0; padding-bottom:0; line-height:calc(var(--kptu-control-height) - 2px); resize:none; overflow-y:auto; scrollbar-width:none; }
+  #appView #basketView .home-quick[data-note-only] [data-quick-input]::-webkit-scrollbar { display:none; }
+}
 /* ED③ 노트: 노트 수정 칸의 본문은 새 편집기(ed-editor.js, 모양은 ed-doc.css). 칸 테두리만 둘러 옛 textarea 자리와 같은 폭·높이로 둔다. */
 #basketView .note-editor .note-body-field { display:block; min-width:0; margin:6px 0 0; border:1px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); }
 /* NOTE-본문칸여백(S70-38, 2026-11-25 명진 "노트 본문에 너무 딱 맞아서 답답해 위아래 여백이 필요해"): 읽기 본문 상자와 고치기 글 칸은 같은 최소 높이
