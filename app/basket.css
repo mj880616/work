@@ -685,8 +685,6 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView .note-rel { border-top: 1px solid var(--kptu-border); padding-top: 4px; }
 #basketView .note-rel-sum { display: flex; align-items: center; gap: 6px; min-height: 32px; cursor: pointer; font-size: 13px; color: var(--kptu-muted); list-style: none; }
 #basketView .note-rel-sum::-webkit-details-marker { display: none; }
-#basketView .note-rel-sum::before { content: "▸"; font-size: 11px; }
-#basketView .note-rel[open] .note-rel-sum::before { content: "▾"; }
 #basketView .note-rel-count { font-size: 12px; }
 #basketView .note-rel-list { list-style: none; margin: 0; padding: 0; }
 #basketView .note-rel-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; margin: 0; padding: 2px 4px; border: 0; background: transparent; color: var(--kptu-ink); font: inherit; font-size: 14px; text-align: left; cursor: pointer; border-radius: 6px; box-shadow: none; }

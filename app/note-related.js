@@ -6,6 +6,7 @@ import {relatedNotes, docQuery, docRows} from './note-related-model.mjs';
 import {backlinks} from './note-link-model.mjs'; // S69-98 ⑧ '이 노트를 가리키는 노트' 한 줄도 이 칸이 그린다
 import {searchRecords} from './global-search-data.js';
 import {iconNode} from './tree-icons.js';
+import {chevHtml} from './fold-chevron.mjs'; // 사이트 공용 접기 꺾쇠(열린 details면 저절로 뒤집힘)
 
 const docCache = new Map(); // `${scope}|${noteId}` → Promise<rows>
 let folded = false;
@@ -47,7 +48,7 @@ export function paintRelated(host, note, notes, {tagsOf, folderOf, hidden = () =
     if (!all.length) { host.replaceChildren(...parts); host.hidden = false; return; }
     const box = el('details', 'note-rel'); box.open = !folded;
     box.addEventListener('toggle', () => { folded = !box.open; });
-    const sum = el('summary', 'note-rel-sum'); sum.append(el('span', 'note-rel-title', '관련'), el('span', 'note-rel-count', String(all.length)));
+    const sum = el('summary', 'note-rel-sum'); sum.append(el('span', 'note-rel-title', '관련'), el('span', 'note-rel-count', String(all.length))); sum.insertAdjacentHTML('beforeend', chevHtml(false));
     const list = el('ul', 'note-rel-list');
     for (const r of all) {
       const li = el('li'), b = el('button', 'note-rel-row'); b.type = 'button';
