@@ -12,7 +12,7 @@ const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const user = {id:'census-user', email:'census@example.org', user_metadata:{display_name:'버튼 전수'}};
 const WS = 'census-workspace';
 const REPORT_ONLY = false;
-const VIEWS = ['home', 'calendar', 'tasks', 'basket', 'library', 'meetings', 'team', 'files', 'photos', 'ledger', 'arsenal', 'diary'];
+const VIEWS = ['home', 'calendar', 'tasks', 'basket', 'library', 'meetings', 'team', 'files', 'photos', 'arsenal', 'diary'];
 
 function mockApp(page) {
   return page.route(SB + '/**', async route => {

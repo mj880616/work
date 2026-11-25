@@ -321,9 +321,9 @@ test('meeting material upload attempts every selected file and reports partial f
   const line=page.locator('#uploadDock:not([hidden])');
   await expect(line.locator('.up-dock-text')).toHaveText('자료 1개 못 올렸어요');
   await expect(line.locator('.up-dock-note')).toHaveText(/^자료 1개 올렸어요 · 파일을 업로드하지 못했어요/);
-  await expect(line.getByRole('button',{name:'못 올린 파일 다시 올리기'})).toHaveText('다시 올리기');
+  await expect(line.getByRole('button',{name:'못 올린 파일 다시 업로드'})).toHaveText('다시 업로드');
   // [다시 올리기] = 못 올린 그 파일만 같은 사업 보고로 다시.
-  await line.getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+  await line.getByRole('button',{name:'못 올린 파일 다시 업로드'}).click();
   await expect.poll(()=>uploadCount).toBe(3);
   await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('자료 2개 올렸어요');
 });

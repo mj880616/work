@@ -1165,7 +1165,7 @@ function sendAttachments(id,batch){
       detail.querySelector('[data-basket-reload]').hidden=!batch.blocked;
     }
     if(done)announceUploaded({done,names:sent(),failed:left,where:'업데이트',retry,note:error.message||'',files});
-    else announceDock({text:`업데이트 첨부 ${left}개 못 올렸어요`,note:error.message||'',error:true,ms:0,files,actions:retry?[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]:[]});
+    else announceDock({text:`업데이트 첨부 ${left}개 못 올렸어요`,note:error.message||'',error:true,ms:0,files,actions:retry?[{label:'다시 업로드',aria:'못 올린 파일 다시 업로드',run:retry}]:[]});
   });
 }
 // 방금 올린 사진의 글자 읽기: 그 업데이트를 보고 있을 때만, 읽는 동안은 예전처럼 상세를 잠근다([글자 읽기]와 같은 잠금).

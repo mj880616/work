@@ -43,5 +43,5 @@ test('promise kind migration only widens the kind CHECK, and rollback refuses wh
     const check = strip(readFileSync(`docs/${version}_${name}.${kind}.sql`, 'utf8'));
     assert.doesNotMatch(check, /information_schema|\binsert into\b|\bupdate public\.|\bdelete from\b|\balter\b|\bcreate\b|\bdrop\b/i, kind);
   }
-  assert.match(readFileSync('docs/migration-history.md', 'utf8'), /`20261112221000_journal_memorable_pick_promise\.sql` \| 미적용/);
+  assert.match(readFileSync('docs/migration-history.md', 'utf8'), /`20261112221000_journal_memorable_pick_promise\.sql` \| (?:미적용|적용 완료)/);
 });

@@ -457,7 +457,6 @@ async function openView(target) {
     });
     else if (target.view === 'calls') await openCallSource(target.id, {workOnly: true}); // FORGET-원문열기·뒤로가기: 뒤로가기 한 번 = 검색 결과
     else if (target.view === 'telegram') await openTelegramSource(target.room, target.day, target.item);
-    else if (target.view === 'ledger') { window.KPTULedgerBrowse?.show?.({openId: target.id}); await r.openFrom('ledger'); }
     else if (target.view === 'calendar') await r.openFrom('calendar', async () => {
       await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
       window.KPTUCalendarEvents?.open?.(target.id, target.calendarId);

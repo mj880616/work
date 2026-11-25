@@ -67,7 +67,7 @@ for(const width of [390,884,1280]){
   test.setTimeout(120000);
   await page.setViewportSize({width,height:900});
   await openHome(page);
-  for(const v of ['tasks','calendar','basket','library','meetings','team','projects','files','photos','ledger','diary','home']){await go(page,v);await page.waitForTimeout(300);}
+  for(const v of ['tasks','calendar','basket','library','meetings','team','projects','files','photos','diary','home']){await go(page,v);await page.waitForTimeout(300);}
   const ids=await page.evaluate(()=>{const out=[];let i=0;for(const f of document.querySelectorAll('.modal .modal-action-footer,.modal .save-row')){
    if(f.parentElement.closest('.modal-action-footer,.save-row'))continue;f.dataset.footProbe=String(++i);out.push({i,host:f.closest('.modal').id});}return out});
   expect(ids.length,'창 아래 줄 수').toBeGreaterThanOrEqual(15);

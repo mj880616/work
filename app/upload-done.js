@@ -19,6 +19,6 @@ export function announceUploaded({done=0,names=[],failed=0,where='',openId='',re
   const text=uploadDoneLine({done,names,failed,where});if(!text)return {close(){}};
   const actions=[];
   if(done&&openId)actions.push({label:'열기',aria:'올린 자료 열기',run:()=>{void openInLibrary(openId)}});
-  if(failed&&typeof retry==='function')actions.push({label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:()=>retry()});
+  if(failed&&typeof retry==='function')actions.push({label:'다시 업로드',aria:'못 올린 파일 다시 업로드',run:()=>retry()});
   return announceDock({text,note,actions,error:!!failed,ms:failed?0:uploadDoneMs({failed}),files});
 }

@@ -532,7 +532,7 @@ const JOB_REASON = Object.freeze({
   size_unknown: '크기를 모르는 파일이에요', across_unsupported: '구글 문서는 다른 저장소로 보내지 않아요',
   across_folder: '폴더는 같은 저장소 안에서만 통째로 보내요', folder_too_big: '폴더 안이 너무 많아요(200개까지)',
   copy_into_self: '폴더를 자기 안으로 보낼 수 없어요', dest_invalid: '받을 곳을 찾지 못했어요', name_taken: '같은 이름이 있어요',
-  upload_failed: '받을 곳에 올리지 못했어요', copy_failed: '클라우드가 복사하지 못했어요', session_expired: '이어 올리기 자리가 끝났어요. [다시]는 처음부터',
+  upload_failed: '받을 곳에 올리지 못했어요', copy_failed: '클라우드가 복사하지 못했어요', session_expired: '이어 업로드 자리가 끝났어요. [다시]는 처음부터',
   od_not_connected: '원드라이브 연결이 필요해요', od_auth_expired: '원드라이브를 다시 연결해 주세요', gd_not_connected: '구글 드라이브 연결이 필요해요',
   cloud_denied: '클라우드가 허락하지 않았어요', drive_owner_mismatch: '이 드라이브는 쓸 수 없어요', feature_required: '파일 기능이 꺼졌어요',
   too_many_steps: '너무 오래 걸려 멈췄어요', big_not_confirmed: '200MB가 넘어 묻지 않고는 보내지 않아요',
@@ -619,8 +619,8 @@ export const UPLOAD_MAX_BYTES = 2 * 1024 * 1024 * 1024;     // 한 파일 2GB까
 export const UPLOAD_BIG_HOW = '이 기기가 5MB씩 올려요. 화면을 닫으면 멈추고, 다시 열어 같은 파일을 선택하면 남은 조각부터 올려요.';
 // 브라우저 제약(H-6): 다시 연 화면은 파일을 기억하지 못한다.
 export const UPLOAD_REOPEN_TEXT = '브라우저는 화면을 닫으면 파일을 잊어요. 같은 파일을 다시 선택하면 남은 조각부터 올려요.';
-export const upDropText = name => `여기 놓으면 ${name || '이 폴더'}에 올리기`;
-export const upStartText = n => `${n}개 올리기 시작 · 아래 전송 줄을 누르면 목록`;
+export const upDropText = name => `여기 놓으면 ${name || '이 폴더'}에 업로드`;
+export const upStartText = n => `${n}개 업로드 시작 · 아래 전송 줄을 누르면 목록`;
 // 고른 파일({name,size}) 거르기: 이름 규칙(공용 checkFileBase는 화면이 넘김)·2GB·수 상한. {ok, blocked:[{file, reason}], reason}.
 export function uploadPlan(files, nameOk = () => true) {
   const list = [...(files || [])].filter(Boolean), ok = [], blocked = [];

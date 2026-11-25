@@ -174,7 +174,7 @@ for(const [status,code,message] of [[503,'note_save_result_unknown','저장 결�
   await page.setViewportSize({width,height:1000});const f=await fixture(page),u=await basketUploadFixture(page,f),q=quick(page);await q.locator('[data-quick-input]').fill('중간 실패 시 원문 유지');await q.locator('input[type=file]').setInputFiles(uploadFiles(['done.txt','bad.txt','later.txt']));
   u.setError({status,code,after:1});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(q.locator('[data-basket-file]')).toHaveCount(0);
   expect(f.writes).toHaveLength(1);expect(f.writes[0].body.raw_text).toBe('중간 실패 시 원문 유지');
-  const dock=page.locator('#uploadDock:not([hidden])'),retry=dock.getByRole('button',{name:'못 올린 파일 다시 올리기'});
+  const dock=page.locator('#uploadDock:not([hidden])'),retry=dock.getByRole('button',{name:'못 올린 파일 다시 업로드'});
   await expect(dock).toContainText('업데이트에 파일 2개 못 올렸어요');await expect(dock).toContainText('파일 1개 올렸어요');await expect(dock).toContainText(message);expect(u.calls).toHaveLength(2);
   if(status===503||status===409){await expect(retry).toHaveCount(0);expect(u.calls).toHaveLength(2);}else {await retry.click();await expect.poll(()=>u.calls.length).toBe(3);expect(u.calls[2]).toContain('filename="bad.txt"');expect(u.calls[2]).toContain('name="note_id"\r\n\r\nnew');}
   const expectedHTTP=`Failed to load resource: the server responded with a status of ${status} (${({503:'Service Unavailable',409:'Conflict',401:'Unauthorized',413:'Payload Too Large'})[status]})`;await expect.poll(()=>f.errors).toEqual(Array(status===503||status===409?1:2).fill(expectedHTTP));
@@ -191,9 +191,9 @@ test('basket text+one file preserves raw text and a 503 behind is never sent aga
  const f=await fixture(page),u=await basketUploadFixture(page,f),q=quick(page),raw=' 첫 파일 원문\n ',dock=page.locator('#uploadDock:not([hidden])');
  await q.locator('[data-quick-input]').fill(raw);await q.locator('input[type=file]').setInputFiles(uploadFiles(['one.txt']));await q.locator('[data-quick-save]').click();await expect(q.locator('[data-basket-file]')).toHaveCount(0);await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(f.writes.map(w=>w.body.raw_text)).toEqual([raw]);await expect(dock).toContainText('업데이트에 파일 1개 올렸어요');expect(u.calls).toHaveLength(1);expect(u.calls[0]).toContain('name="note_id"\r\n\r\nnew');
- await dock.getByRole('button',{name:'올리기 알림 닫기'}).click();await expect(dock).toHaveCount(0);
+ await dock.getByRole('button',{name:'업로드 알림 닫기'}).click();await expect(dock).toHaveCount(0);
  u.setError({status:503,code:'note_save_result_unknown'});await q.locator('input[type=file]').setInputFiles(uploadFiles(['unknown.txt','later.txt']));await q.locator('[data-quick-save]').click();
- await expect(dock).toContainText('업데이트에 파일 2개 못 올렸어요');await expect(dock).toContainText('잊지 말기에서 확인 후 다시 시도하세요');await expect(dock.getByRole('button',{name:'못 올린 파일 다시 올리기'})).toHaveCount(0);expect(u.calls).toHaveLength(2);
+ await expect(dock).toContainText('업데이트에 파일 2개 못 올렸어요');await expect(dock).toContainText('잊지 말기에서 확인 후 다시 시도하세요');await expect(dock.getByRole('button',{name:'못 올린 파일 다시 업로드'})).toHaveCount(0);expect(u.calls).toHaveLength(2);
  await expect(q.locator('[data-basket-file]')).toHaveCount(0);await expect(q.locator('input[type=file]')).toBeEnabled();await expect(q.locator('[data-quick-input]')).toBeEditable();
  u.setError(null);await q.locator('input[type=file]').setInputFiles(uploadFiles(['next.txt']));await q.locator('[data-quick-save]').click();await expect.poll(()=>u.calls.length).toBe(3);expect(u.calls[2]).toContain('filename="next.txt"');expect(u.calls[2]).not.toContain('name="note_id"');expect(u.calls.filter(c=>c.includes('unknown.txt')||c.includes('later.txt'))).toHaveLength(1);
 });
@@ -292,7 +292,7 @@ for(const width of [412,1280]){
   expect(f.errors).toEqual([]);
  });
 }
-test('basket attachment that did not go up is told by the bottom line, and [다시 올리기] sends only that file to the same update (412)',async({page})=>{
+test('basket attachment that did not go up is told by the bottom line, and [다시 업로드] sends only that file to the same update (412)',async({page})=>{
  await page.setViewportSize({width:412,height:1000});
  const f=await fixture(page),u=await basketUploadFixture(page,f);let open;u.setPending(new Promise(r=>open=r));u.setError({status:400,code:'bad_file',after:1});
  await toBasket(page);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
@@ -304,7 +304,7 @@ test('basket attachment that did not go up is told by the bottom line, and [다�
  await expect(notice).toContainText('업데이트에 one.txt 올렸어요 · 1개 못 올렸어요');
  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
  if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/update-attach-fail-412.png`});
- u.setError(null);await notice.getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+ u.setError(null);await notice.getByRole('button',{name:'못 올린 파일 다시 업로드'}).click();
  await expect(notice).toContainText('업데이트에 two.txt 올렸어요');
  expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n','n']); // 올라간 파일은 다시 보내지 않는다
  await expect(page.locator('[data-basket-row-item="n"]')).toContainText('첨부 2개');
