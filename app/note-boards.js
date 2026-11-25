@@ -47,7 +47,7 @@ const shownNotes = list => pinLock.notesHidden() ? list.filter(n => !pinLock.not
 // 줄을 누르면(또는 [풀기]) 다른 화면의 '잠김' 줄과 같은 그 자리 PIN 창(feature-lock.js data-lock-here 한 곳). 풀리면 kptu:feature-lock-changed로 다시 그린다.
 export const lockedFolderRowHtml = (r, esc, attr) => `<div class="nbb-folder nbb-locked" data-${attr}="${esc(r.id)}" data-lock-here="notes" style="--nx-indent:${r.indent}">${iconHtml('lock', {className:'nbb-caret'})}<span class="nbb-name">${esc(r.name)}</span><span class="nbb-num"><span aria-hidden="true">· </span>잠김</span><button type="button" class="row-act lk-open">풀기</button></div>`;
 
-export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}, moveToFolder = null, focusCard = () => false, centerPoint = () => null, openNote = () => {}}) {
+export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}, moveToFolder = null, focusCard = () => false, centerPoint = () => null, openNote = () => {}, onExport = null}) {
   const coarse = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)') : {matches:false};
   let boards = parseBoards(viewPrefs.get('note_boards')), current = pickBoard(viewPrefs.get('note_board'), boards), chosen = false;
   let openSet = new Set(), menu = null, picker = null;
@@ -251,9 +251,11 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const id = chip.dataset.nbbBoard; if (!id) return;
     closeMenu();
     const el = menuEl();
-    el.innerHTML = '<button type="button" data-nbb-rename>이름 바꾸기</button><button type="button" class="basket-menu-danger" data-nbb-delete>보드 삭제</button>';
+    // S70-32 ③: 지금 연 보드면 [PDF로 내보내기]·[HTML로 내보내기](보드 전체를 이 기기로 내려받기).
+    const items = [['data-nbb-rename', '이름 바꾸기'], ...(onExport && id === current ? [['data-nbb-export="pdf"', 'PDF로 내보내기'], ['data-nbb-export="html"', 'HTML로 내보내기']] : []), ['data-nbb-delete', '보드 삭제', 'basket-menu-danger']];
+    el.innerHTML = items.map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
     el.hidden = false;
-    const place = () => placeAnchored(el, chip, {maxWidth:200, maxHeight:200});
+    const place = () => placeAnchored(el, chip, {maxWidth:200, maxHeight:260});
     place();
     menu = {id, chip, stop:followAnchor(el, chip, {place, lost:() => closeMenu()})};
     chip.setAttribute('aria-expanded', 'true');
@@ -268,7 +270,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   bar.parentElement.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const inMenu = b.closest('[data-nbb-menu]');
-    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); return; }
+    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.dataset.nbbExport && m.id === current) onExport(b.dataset.nbbExport); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); return; }
     if (!bar.contains(b)) return;
     if (Date.now() < suppress) { e.preventDefault(); return; }
     if (b.dataset.nbbBoard) select(b.dataset.nbbBoard);
