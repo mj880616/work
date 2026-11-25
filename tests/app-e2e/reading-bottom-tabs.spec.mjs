@@ -38,7 +38,8 @@ async function openReading(page, width) {
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: '저장한 글', exact: true }).click();
   await expect(page.locator('#readingView')).toBeVisible();
   const list = page.locator('#readingView [data-rd-list]');
-  await expect(list.locator('.rd-row')).toHaveCount(24);
+  // S70-24: 처음은 [전체] — 25줄.
+  await expect(list.locator('.rd-row')).toHaveCount(25);
   return { errors, list };
 }
 const box = async l => { const b = await l.boundingBox(); expect(b).not.toBeNull(); return b; };
@@ -56,7 +57,7 @@ for (const width of [390, 412, 700]) {
     const { errors, list } = await openReading(page, width);
     const sw = list.locator('.rd-switch');
     await expect(sw).toHaveClass(/(^|\s)ds-seg(\s|$)/);
-    await expect(sw.locator('button.ds-seg-btn[data-filter-value]')).toHaveText(['안 읽음 24', '전체', '밑줄', '메모']);
+    await expect(sw.locator('button.ds-seg-btn[data-filter-value]')).toHaveText(['전체', '안 읽음 24', '밑줄', '메모']);
     await expect(sw).toHaveAttribute('aria-label', '저장한 글 보기');
     await expect(list.locator('.rd-chips, .filter-chips')).toHaveCount(0);
     expect(await sw.evaluate(e => getComputedStyle(e).position)).toBe('fixed');
@@ -72,13 +73,13 @@ for (const width of [390, 412, 700]) {
     // [+ 추가]는 제목 줄 그대로.
     await expect(list.locator('.rd-head .rd-add')).toBeVisible();
     // 탭을 누르면 바뀌고, 목록(머리줄)을 좌우로 밀면 옆 탭.
-    await sw.locator('[data-filter-value="all"]').click();
-    await expect(list.locator('.rd-row')).toHaveCount(25);
+    await sw.locator('[data-filter-value="unread"]').click();
+    await expect(list.locator('.rd-row')).toHaveCount(24);
     await swipe(list.locator('.rd-head .rd-title'), -160);
     await expect(sw.locator('[data-filter-value="marks"]')).toHaveAttribute('aria-checked', 'true');
     await swipe(list.locator('.rd-head .rd-title'), 160);
     await swipe(list.locator('.rd-head .rd-title'), 160);
-    await expect(sw.locator('[data-filter-value="unread"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(sw.locator('[data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
     if (process.env.S68_48_SHOTS) await page.screenshot({ path: `${process.env.S68_48_SHOTS}/reading-${width}.png` });
     // 글을 열면(폰은 목록 대신) 탭 줄도 없다.
     await list.locator('.rd-row').first().click();
@@ -101,8 +102,8 @@ for (const width of [904, 1280]) {
     expect(Math.abs((s.y + s.height / 2) - (add.y + add.height / 2)), '제목 줄 한 줄').toBeLessThan(4);
     expect(s.x).toBeGreaterThan(title.x + title.width);
     expect(s.x + s.width).toBeLessThanOrEqual(add.x + 1);
-    await sw.locator('[data-filter-value="all"]').click();
-    await expect(list.locator('.rd-row')).toHaveCount(25);
+    await sw.locator('[data-filter-value="unread"]').click();
+    await expect(list.locator('.rd-row')).toHaveCount(24);
     if (process.env.S68_48_SHOTS) await page.screenshot({ path: `${process.env.S68_48_SHOTS}/reading-${width}.png` });
     expect(errors).toEqual([]);
   });

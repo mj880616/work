@@ -93,19 +93,18 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
     await openHome(page);
     const s = await server(page);
     await goReading(page, width);
-    // 처음은 [안 읽음]: 안 읽은 줄 하나. 칩은 [안 읽음 1][전체][밑줄] 셋뿐 — News 기능이 있는 계정(기본 운영자 흉내)도 [News] 칩 없음(S68-29).
-    await expect(list(page).locator('.rd-switch [data-filter-value]')).toHaveText(['안 읽음 1', '전체', '밑줄', '메모']);
+    // 처음은 [전체](S70-24): 두 줄. 칩은 [전체][안 읽음 1][밑줄][메모] — News 기능이 있는 계정(기본 운영자 흉내)도 [News] 칩 없음(S68-29).
+    await expect(list(page).locator('.rd-switch [data-filter-value]')).toHaveText(['전체', '안 읽음 1', '밑줄', '메모']);
+    await expect(list(page).locator('.rd-row')).toHaveCount(2);
+    await list(page).locator('.rd-switch [data-filter-value="unread"]').click();
     await expect(list(page).locator('.rd-row')).toHaveCount(1);
     await expect(list(page).locator('.rd-row').first()).toContainText('예시 기사 하나');
     await expect(list(page).locator('.rd-row').first()).toContainText('example.com · 11/22');
     await expect(list(page).locator('.rd-row.is-unread .rd-dot')).toHaveCount(1);
-    await list(page).locator('.rd-switch [data-filter-value="all"]').click();
-    await expect(list(page).locator('.rd-row')).toHaveCount(2);
     // 요청은 모두 내 작업공간 열쇠로만(서버 RLS가 owner를 다시 본다).
     expect(s.calls.every(c => c.search.includes('workspace_id=eq.w'))).toBe(true);
 
-    // 글 보기: 원문 사본(글자로만), 원래 페이지 링크, 밑줄 줄. S68-45: 열면 읽음(read_at만 서버에 저장).
-    await list(page).locator('.rd-switch [data-filter-value="unread"]').click();
+    // 글 보기: 원문 사본(글자로만), 원래 페이지 링크, 밑줄 줄. S68-45: 열면 읽음(read_at만 서버에 저장). 지금 [안 읽음] 보기.
     await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
     await expect.poll(() => s.patches.length).toBe(1);
     expect(s.patches[0].id).toBe(A);
@@ -185,9 +184,9 @@ test('열면 읽음 412: 저장 실패 → 알림 한 줄·점 그대로, 다음
   await expect.poll(() => s.rows.find(r => r.id === A).read_at).toBeTruthy();
   await expect(detail(page).locator('[data-rd-read="0"]')).toHaveText('안 읽음으로');
   await page.goBack();
+  await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/); // [전체](S70-24 기본)에서 점 꺼짐
+  await list(page).locator('.rd-switch [data-filter-value="unread"]').click();
   await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).toHaveCount(0); // [안 읽음]에서 빠짐
-  await list(page).locator('.rd-switch [data-filter-value="all"]').click();
-  await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/);
 });
 
 test('[+ 추가]: 주소 → 넣기 → note-import로 원문을 받아 글자로만 저장, 막힌 줄은 한 줄 상태와 원래 페이지 링크', async ({ page }) => {
