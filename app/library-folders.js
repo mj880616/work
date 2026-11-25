@@ -628,7 +628,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const NAV_ROW='#libraryFolderNav .ft-row,[data-lu-pane-i] .ft-row';
   function bindTouch(list){
     const area=list.closest?.('#libraryListCard')||list;
-    const cancel=()=>{if(touch?.timer)clearTimeout(touch.timer);touch=null};
+    const cancel=()=>{if(touch?.timer)clearTimeout(touch.timer);touch?.unbind?.();touch=null};
     const finish=()=>{clearMarks();stopScroll();touchGhost.hide();drag=null;cancel()};
     const ROW='.lu-row[data-lu-document],.lu-row[data-lu-photoset],summary.lu-node-head,'+NAV_ROW;
     area.addEventListener('pointerdown',e=>{
@@ -643,6 +643,11 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         if(!touch||touch.el!==el)return;
         touch.grabbed=true;
         if(canDrag){touch.drag=dragFrom(el,true);drag=touch.drag;pokeDrag();if(touch.drag){el.classList.add('lu-grabbed');markDragging(touch.drag)}}
+        // S70-10: 끄는 동안 목록이 다시 그려지면(가장자리에 머물러 'n개 더 보기'가 열림) 처음 누른 칸이 화면에서 빠진다. 브라우저는 그 뒤 손가락 신호를
+        // 빠진 칸에만 보내 목록 상자까지 오지 않으므로, 빠진 동안만 그 칸에서 같은 처리로 받는다(붙어 있으면 목록 상자가 받으니 두 번 처리하지 않음).
+        const lone=f=>ev=>{if(!t.isConnected)f(ev)},m=lone(onMove),en=lone(onEnd),cc=lone(onCancel);
+        t.addEventListener('touchmove',m,{passive:false});t.addEventListener('touchend',en);t.addEventListener('touchcancel',cc);
+        touch.unbind=()=>{t.removeEventListener('touchmove',m);t.removeEventListener('touchend',en);t.removeEventListener('touchcancel',cc)};
         try{navigator.vibrate?.(12)}catch{}
       },LONG_MS)};
     });
@@ -652,7 +657,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     });
     area.addEventListener('pointercancel',e=>{if(e.pointerType==='touch'&&touch&&!touch.grabbed)cancel()});
     // 잡은 뒤의 움직임은 touch 이벤트로 받는다(passive:false라야 스크롤을 막을 수 있다).
-    area.addEventListener('touchmove',e=>{
+    const onMove=e=>{
       if(!touch?.grabbed)return;
       if(e.cancelable)e.preventDefault();
       const p=e.touches[0];if(!p)return;
@@ -660,8 +665,9 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(!touch.moved||!touch.drag)return;
       if(!touchGhost.shown)touchGhost.show(ghostLabel(touch.drag),p.clientX,p.clientY);else touchGhost.move(p.clientX,p.clientY);
       touch.drop=dropFor({target:document.elementFromPoint(p.clientX,p.clientY),clientY:p.clientY});showMarks(touch.drop);hoverOpen(touch.drop);touchScroll.update(p.clientX,p.clientY);
-    },{passive:false});
-    area.addEventListener('touchend',e=>{
+    };
+    area.addEventListener('touchmove',onMove,{passive:false});
+    const onEnd=e=>{
       if(!touch)return;
       if(!touch.grabbed){cancel();return}
       if(e.cancelable)e.preventDefault();
@@ -671,8 +677,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(moved){if(d)commitDrop(d,drop);return}
       // 움직이지 않고 뗌 = 선택 모드 + 그 줄 선택(메뉴 아님).
       onHold(el);
-    });
-    area.addEventListener('touchcancel',()=>{if(touch?.grabbed)finish();else cancel()});
+    };
+    area.addEventListener('touchend',onEnd);
+    const onCancel=()=>{if(touch?.grabbed)finish();else cancel()};
+    area.addEventListener('touchcancel',onCancel);
     // 꾹 누르면 브라우저가 보내는 기본 길게누르기 메뉴와 뗀 직후 따라오는 클릭(자료 열기, 토글 접기)은 막는다.
     area.addEventListener('contextmenu',e=>{if(touch||Date.now()<suppressUntil||(e.pointerType==='touch'&&e.target.closest?.(ROW)))e.preventDefault()},true);
     // ⋯ 단추는 따로 누르는 것이라 삼키지 않는다(꾹 눌러 고른 바로 뒤에도 ⋯로 메뉴).
