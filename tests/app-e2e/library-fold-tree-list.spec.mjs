@@ -1,10 +1,9 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
-import {pinch} from './helpers/pinch.mjs';
 // S51-20 FILES-폴드나무목록 ⑦(시안 docs/design/mockups/files-fold-tree-list.html '같은 종류'): 자료실 폴더 묶기도 펼친 폴드·PC(600px~)에서
 // 왼쪽 폴더 나무 | 오른쪽 목록. UI-폴더누르기한규칙(S57-5): 나무 줄을 누르면 들어가지 않고 그 자리에서 펼침·접힘, 그 폴더로 들어가기(위치 줄·주소)는 우클릭 [이 폴더로 들어가기]. 나무는 그대로 남는다. 폰(412)은 지금처럼 나무 칸 없음. 이름은 지어낸 것.
 // 들어가기: PC(761px~)는 우클릭 메뉴, 폴드(600~760px)는 두 손가락 벌리기.
-const enter=async(page,id,width=1280)=>{if(width>=761){await nav(page).locator(`[data-lu-nav="${id}"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}else await pinch(page,nav(page).locator(`[data-lu-nav="${id}"]`),'out')};
+const enter=async(page,id,width=1280)=>{if(width>=761){await nav(page).locator(`[data-lu-nav="${id}"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}else{await nav(page).locator(`[data-lu-nav="${id}"]`).locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," ft-row ")][1]').locator('.ft-dots').first().click();await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}};
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
 const ITEMS=[{document_id:'a-1',folder_id:'fc'},{document_id:'n-1',folder_id:'fa'}];
 // LIB-위쪽한줄: 묶기는 고르기 상자 [폴더 ▾](#libraryGroupBy, select) 하나.

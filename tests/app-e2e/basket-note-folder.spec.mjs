@@ -3,7 +3,6 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
-import { pinch } from './helpers/pinch.mjs';
 import { folderSheet, pickInSheet } from './helpers/folder-sheet.mjs';
 // S48-28: 폴더 이름은 공용 작은 글 입력창(.kptu-ask, app/small-notice.js askText)으로 묻는다. 글을 넣고 [확인]을 누른다.
 async function answerText(page, value) {
@@ -64,16 +63,16 @@ const press = async (page, l, width) => { await expect(l).toBeVisible(); if (wid
 // S69-62: 폴더 고르기 = [파일] '옮길 곳' 창과 같은 창(줄 누르기 = 고르기·펼치기, [여기에 옮기기]로만 옮김).
 const picker = page => folderSheet(page);
 const noteRow = (page, id) => page.locator(`#noteRows [data-note-row="${id}"]`);
-// Shows the notes of folder id: phone spreads two fingers on that folder in the tree (그 폴더만), PC enters it from the left tree row's ⋯ menu.
+// Shows the notes of folder id: phone and PC both enter it from the row's ⋯ menu [이 폴더로 들어가기] (S69-99: two fingers change the row size).
 async function showFolder(page, width, id) {
   if (width>=761) { await press(page, page.locator(`[data-nx-tree] [data-nx-folder-more="${id}"]`), width); await page.locator('#noteDocMenu [data-nx-enter]').click(); } // UI-폴더누르기한규칙: 나무 누르기 = 펼침만, 들어가기 = ⋯ 메뉴
-  else { await pinch(page, page.locator(`#noteRows [data-nx-folder="${id}"]`), 'out'); await expect(page.locator('#noteRows [data-nx-focus]')).toBeVisible(); }
+  else { await press(page, page.locator(`#noteRows [data-nx-folder-more="${id}"]`), width); await page.locator('#noteDocMenu [data-nx-enter]').click(); await expect(page.locator('#noteRows [data-nx-focus]')).toBeVisible(); }
 }
 // '폴더 없음' 노트: PC는 처음부터 오른쪽에 보인다(나무의 '폴더 없음'이 고른 곳), 폰은 첫 화면 맨 아래 '폴더 없음'을 눌러 들어간다.
 async function showOutside(page, width) {
   // NOTE-최근5개: PC는 처음 '최근'이 고른 곳이라 나무의 '폴더 없음'을 눌러 연다.
   if (width>=761) { await press(page, page.locator('[data-nx-tree] [data-nx-open="out"]'), width); await expect(page.locator('[data-nx-tree] [data-nx-outside]')).toHaveClass(/ft-current/); }
-  else await pinch(page, page.locator('#noteRows [data-nx-outside]'), 'out');
+  else { await press(page, page.locator('#noteRows [data-nx-outside] [data-nx-folder-more]'), width); await page.locator('#noteDocMenu [data-nx-enter]').click(); }
   await expect(here(page)).toContainText('폴더 없음');
 }
 // S51-24: 폰 '그 폴더만'은 이름·개수가 상자 머리(#noteRows [data-nx-focus] .ft-focus-head), 넓은 화면은 위 줄(data-nx-here).

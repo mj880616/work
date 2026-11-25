@@ -42,7 +42,7 @@ async function noDots(page, scope) {
   expect(await page.locator(scope).first().innerText()).not.toContain('●');
 }
 
-test('노트 폰 412: 최근 상자 + 폴더 상자, 그 자리 펼치기 · n개 더 보기 · 두 손가락 그 폴더만 · 뒤로 키 = 펼친 자리 그대로', async ({ page }) => {
+test('노트 폰 412: 최근 상자 + 폴더 상자, 그 자리 펼치기 · n개 더 보기 · ⋯ 그 폴더만 · 뒤로 키 = 펼친 자리 그대로', async ({ page }) => {
   const f = await notesFixture(page, 412);
   // ① 상자 두 개: '최근'(5줄, [더보기]) + 폴더 상자.
   await expect(page.locator('[data-nx-recent] .ft-box .ft-box-toggle')).toHaveText('최근');
@@ -83,11 +83,19 @@ test('노트 폰 412: 최근 상자 + 폴더 상자, 그 자리 펼치기 · n�
   expect(subX.x - topX.x).toBeGreaterThan(15);
   await noDots(page, '[data-note-list]');
   await page.screenshot({ path: 'test-results/ft-notes-phone-tree.png' });
-  // ④ 펼친 '업무 메모' 노트 줄 위 두 손가락 벌리기 → 그 폴더만([‹] 노트 › 업무 메모 · 8), 폴더 상자·최근 상자 없음.
+  // ④ 펼친 '업무 메모' ⋯ [이 폴더로 들어가기] → 그 폴더만([‹] 노트 › 업무 메모 · 8), 폴더 상자·최근 상자 없음.
+  // UI-폴더줄크기(S69-99): 두 손가락은 줄 크기(들어가기·돌아가기가 아님) — 노트 줄 위 벌리기는 줄만 커진다.
   await page.locator('#noteRows [data-nx-note="w2"]').evaluate(e => e.scrollIntoView({ block: 'center', behavior: 'instant' }));
-  const y0 = await page.evaluate(() => window.scrollY);
-  expect(y0).toBeGreaterThan(0);
   await pinch(page, page.locator(`#noteRows [data-nx-note="w2"]`), 'out');
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.rowSize)).toBe('l');
+  await expect(page.locator('#noteRows [data-nx-focus]')).toHaveCount(0);
+  await pinch(page, page.locator(`#noteRows [data-nx-note="w2"]`), 'in');
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.rowSize)).toBe('m');
+  await page.locator('#noteRows [data-nx-note="w2"]').evaluate(e => e.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const enterNotes = async id => { await folderRow(page, id).locator('[data-nx-folder-more]').first().tap(); await page.locator('#noteDocMenu [data-nx-enter]').click(); };
+  await folderRow(page, U(1)).evaluate(e => e.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const y0 = await page.evaluate(() => window.scrollY);
+  await enterNotes(U(1));
   // S51-24: 그 폴더만 = 나무와 같은 상자(위치 줄 + 머리: 열린 폴더 그림 + 이름 + 개수).
   await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head')).toHaveText('‹업무 메모 노트 8');
   await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head .ft-ico')).toHaveAttribute('data-ft-shape', 'open');
@@ -95,21 +103,21 @@ test('노트 폰 412: 최근 상자 + 폴더 상자, 그 자리 펼치기 · n�
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(8);
   await expect(page.locator('[data-nx-recent]')).toBeHidden();
   await page.screenshot({ path: 'test-results/ft-notes-phone-focus.png' });
-  // 오므리기 → 나무로, 펼친 자리 그대로.
-  await pinch(page, page.locator('#noteRows'), 'in');
+  // [‹] → 나무로, 펼친 자리 그대로.
+  await page.locator('#noteRows [data-nx-focus] .ft-focus-back').tap();
   await expect(page.locator('#noteRows [data-nx-focus]')).toBeHidden();
   expect(await shape(folderRow(page, U(1)))).toBe('open');
   expect(await shape(folderRow(page, U(2)))).toBe('open');
   await expect(folderRow(page, U(3))).toBeVisible();
   expect(await page.evaluate(() => window.scrollY)).toBe(y0);
-  // 다시 벌렸다가 뒤로 키 → 나무.
-  await pinch(page, folderRow(page, U(2)), 'out');
+  // 다시 들어갔다가 뒤로 키 → 나무.
+  await enterNotes(U(2));
   await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head')).toHaveText('‹개발 폴더 1 · 노트 1');
   await page.goBack();
   await expect(page.locator('#noteRows [data-nx-focus]')).toBeHidden();
   await expect(folderRow(page, U(3))).toBeVisible();
   // [‹]도 같다.
-  await pinch(page, folderRow(page, U(2)), 'out');
+  await enterNotes(U(2));
   await page.locator('#noteRows [data-nx-focus] .ft-focus-back').tap();
   await expect(page.locator('#noteRows [data-nx-focus]')).toBeHidden();
   await expect(folderRow(page, U(3))).toBeVisible();
@@ -134,8 +142,8 @@ for (const [width, height, name] of [[884, 1000, '폴드 펼침'], [1280, 900, '
   expect(f.errors).toEqual([]);
 });
 
-// 자료실(기준 화면): 폴더 묶기의 폴더 줄도 같은 공용 폴더 그림(닫힘·열림), 점(●) 없음, 두 손가락 그 폴더만 → 오므리기·[‹]·뒤로 = 펼친 자리 그대로.
-test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 그 폴더만·[‹]·뒤로 키로 나무', async ({ page }) => {
+// 자료실(기준 화면): 폴더 묶기의 폴더 줄도 같은 공용 폴더 그림(닫힘·열림), 점(●) 없음, ⋯ 그 폴더만 → [‹]·뒤로 = 펼친 자리 그대로(S69-99: 두 손가락은 줄 크기).
+test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·⋯ 그 폴더만·[‹]·뒤로 키로 나무', async ({ page }) => {
   const { bootLibrary, libFolder } = await import('./helpers/library-folder-server.mjs');
   const { errors } = await bootLibrary(page, 412, { folders: [libFolder('fa', 'top-a', { name: '가상 A', sort_order: 1024, color: 4 }), libFolder('fc', 'top-a', { name: '가상 C', parent_id: 'fa', sort_order: 0 }), libFolder('fe', null, { name: '가상 빈', sort_order: 2048 })], items: [{ document_id: 'a-1', folder_id: 'fc' }, { document_id: 'n-1', folder_id: 'fa' }] });
   await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
@@ -151,7 +159,8 @@ test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 
   await noDots(page, '#documentList');
   await page.screenshot({ path: 'test-results/ft-library-phone-tree.png' });
   const y0 = await page.evaluate(() => window.scrollY);
-  await pinch(page, head('f:fa'), 'out');
+  const enterLib = async key => { await head(key).locator('[data-lu-node-menu]').tap(); await page.locator('#luFolderMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click(); };
+  await enterLib('f:fa');
   const path = page.locator('#libraryPath');
   await expect(path).toBeVisible();
   // S51-24 → S69-28 LIB-한칸탐색기: 폰 '그 폴더만' = 목록 상자 맨 위 위치 줄(끝에 지금 폴더 이름 굵게 한 번) + 그 폴더 바로 안 폴더 줄·자료 줄.
@@ -159,15 +168,15 @@ test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 
   await expect(path).toHaveClass(/ft-focus-anc/);
   await expect(page.locator('#documentList details[data-lu-node="f:fc"][data-lu-enter]')).toBeVisible();
   await expect(path.locator('[data-lu-path-back]')).toHaveText('‹');
-  await pinch(page, page.locator('#documentList'), 'in');
+  await path.locator('[data-lu-path-back]').tap();
   await expect(path).toBeHidden();
   expect(await visibleShape('f:fa')).toBe('open');
-  await pinch(page, head('f:fa'), 'out');
+  await enterLib('f:fa');
   await expect(path).toBeVisible();
   await page.goBack();
   await expect(path).toBeHidden();
   await expect(page.locator('#documentList details[data-lu-node="f:fc"]')).toBeVisible();
-  await pinch(page, head('f:fa'), 'out');
+  await enterLib('f:fa');
   await path.locator('[data-lu-path-back]').tap();
   await expect(path).toBeHidden();
   expect(typeof y0).toBe('number');
@@ -175,8 +184,8 @@ test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 
 });
 
 // [파일](② S51-12): 폰 나무 = '최근' 상자 + 별표·큰 파일 상자 + 저장소마다 상자(머리를 누르면 접기). 폴더는 그 자리에서 하위 폴더·파일까지,
-// 파일이 많으면 5개 + 'n개 더 보기'. 두 손가락 = 그 폴더만(폴더 목록 화면), [‹]·뒤로 키·오므리기 = 펼친 자리 그대로 나무.
-test('파일 폰 412: 저장소 상자·그 자리 펼치기(파일까지)·n개 더 보기·두 손가락 그 폴더만·뒤로 키로 나무', async ({ page }) => {
+// 파일이 많으면 5개 + 'n개 더 보기'. ⋯ = 그 폴더만(폴더 목록 화면), [‹]·뒤로 키 = 펼친 자리 그대로 나무(S69-99: 두 손가락은 줄 크기).
+test('파일 폰 412: 저장소 상자·그 자리 펼치기(파일까지)·n개 더 보기·⋯ 그 폴더만·뒤로 키로 나무', async ({ page }) => {
   const { start, openFiles } = await import('./helpers/files-server.mjs');
   const { errors, server } = await start(page, 412);
   for (let i = 1; i <= 7; i++) server.items.push({ source: 'od', item_id: 'OD!3' + i, parent_id: 'OD!2', name: `가짜 문서 ${i}.pdf`, is_folder: false, mime: 'application/pdf', size_bytes: 1000, modified_at: `2026-09-0${i}T01:00:00Z`, hash: null, trashed: false, starred: false, library_doc_id: null });
@@ -204,15 +213,16 @@ test('파일 폰 412: 저장소 상자·그 자리 펼치기(파일까지)·n개
   await gd.locator('.ft-box-toggle').tap();
   await expect(gd.locator('.ft-box-toggle')).toHaveAttribute('aria-expanded', 'false');
   await expect(gd.locator('[data-fx-fold]')).toHaveCount(0);
-  // 두 손가락 벌리기 → 그 폴더만(목록), 오므리기 → 나무(펼친 자리 그대로).
-  await pinch(page, od.locator('[data-ft-parent="od:OD!2"]').first(), 'out');
+  // ⋯ [이 폴더로 들어가기] → 그 폴더만(목록), [‹] → 나무(펼친 자리 그대로).
+  const { phoneFolder } = await import('./helpers/files-server.mjs');
+  await phoneFolder(page, 'od', 'OD!2');
   await expect(page.locator('#filesRoot [data-fx-list] [data-fx-row]').first()).toBeVisible();
   await expect(tree).toBeHidden();
-  await pinch(page, page.locator('#filesRoot [data-fx-list]'), 'in');
+  await page.locator('#filesRoot [data-fx-list] [data-fx-up]').click();
   await expect(tree).toBeVisible();
   expect(await tree.locator('[data-fx-fold="od:OD!2"] .ft-ico').getAttribute('data-ft-shape')).toBe('open');
   // 뒤로 키도 같다(한 단계 위가 아니라 나무로).
-  await pinch(page, tree.locator('[data-fx-fold="od:OD!1"]'), 'out');
+  await phoneFolder(page, 'od', 'OD!1');
   await expect(tree).toBeHidden();
   await page.goBack();
   await expect(tree).toBeVisible();

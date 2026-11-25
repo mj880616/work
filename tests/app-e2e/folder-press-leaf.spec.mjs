@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
 import { bootLibrary, libFolder } from './helpers/library-folder-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
@@ -88,15 +88,19 @@ for (const width of [884, 1280]) test(`[파일] ${width} 두 칸: 칸 안 목록
   expect(errors).toEqual([]);
 });
 
-test('[파일] 폴드 884 두 칸: 펼친 폴더 위 두 손가락 벌리기 = 그 폴더로 들어가기, 그 밖은 지금처럼 보기 바꾸기', async ({ page }) => {
+test('[파일] 폴드 884 두 칸: 펼친 폴더 위 두 손가락 벌리기 = 들어가지 않고 줄 크기 한 단계(S69-99)', async ({ page }) => {
   test.setTimeout(90000);
   const { errors } = await start(page, 884);
   const { list, crumb } = await twoPanes(page, 884);
   const docs = list.locator('[data-fx-row="od:OD!1"]');
   await docs.click();
   await expect(list.locator('[data-fx-row="od:OD!11"]')).toBeVisible();
+  const before = await crumb.textContent();
   await pinch(page, list.locator('[data-fx-row="od:OD!11"]'), 'out');
-  await expect(crumb).toContainText('가짜 문서함');
+  // UI-폴더줄크기(명진 11/25 08:23 "폴더 안으로 들어가기가 아니라"): 들어가기는 ⋯·우클릭 첫 줄만.
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.rowSize)).toBe('l');
+  await expect(crumb).toHaveText(before);
+  await expect(list.locator('[data-fx-row="od:OD!1"]')).toHaveAttribute('aria-expanded', 'true');
   expect(errors).toEqual([]);
 });
 
@@ -129,7 +133,7 @@ test('[파일] 폰 412: 나무 폴더 누르기 = 늘 그 자리 펼치기(빈 �
   await page.goBack();
   await expect(tree).toBeVisible();
   // S69-68: '그 폴더만'(폰의 내용 칸) 안 하위 폴더 누르기도 그 자리 펼치기·접기(빈 폴더도 '빈 폴더' 한 줄). 한 단계 들어가기는 ⋯ 첫 줄, 뒤로가기 = 한 단계 위.
-  await pinch(page, tree.locator('[data-fx-fold="od:OD!1"]'), 'out');
+  await phoneFolder(page, 'od', 'OD!1');
   const focus = files(page).locator('[data-fx-list]');
   await focus.locator('[data-fx-row="od:OD!10"]').click();
   await expect(focus.locator('[data-fx-row="od:OD!10"]')).toHaveAttribute('aria-expanded', 'true');

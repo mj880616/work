@@ -1,13 +1,12 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,SB} from './helpers/library-folder-server.mjs';
-import {pinch} from './helpers/pinch.mjs';
 // S53-19 LIB-화면끌어놓기 이어서: PC·펼친 폴드 자료실은 어느 보기·어느 자리에 PC 파일을 놓아도 올라간다.
 // 두 칸 폴더 보기(왼쪽 나무 | 오른쪽 목록): 나무 줄·위치 줄·목록 폴더 줄 위면 그 폴더, 들어간 폴더 안 빈 곳이면 그 폴더, '자료실 전체'·최근 올린 파일 칸 등 그 밖은 폴더 밖.
 // 끄는 동안 화면 전체 점선 + 한 줄 안내(놓일 폴더 이름) + 놓일 줄 표시, 올리는 동안 공용 '올리는 중' 줄(막대·%). 가짜 서버만(실제 Supabase·Drive·AI 없음), 이름은 지어낸 것.
 const FOLDERS=[libFolder('fa',null,{name:'가상 A',sort_order:1024}),libFolder('fc',null,{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
 const ITEMS=[{document_id:'n-1',folder_id:'fa'}];
 const nav=page=>page.locator('#libraryFolderNav');
-const enterNav=async(page,id,width=1440)=>{if(width>=761){await page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}else await pinch(page,page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`),'out')}; // UI-폴더누르기한규칙: 나무 줄 누르기 = 펼침만, 들어가기는 PC 우클릭·폰·폴드 두 손가락 벌리기
+const enterNav=async(page,id,width=1440)=>{if(width>=761){await page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}else{await page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`).locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," ft-row ")][1]').locator('.ft-dots').first().click();await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}}; // UI-폴더누르기한규칙: 나무 줄 누르기 = 펼침만, 들어가기는 PC 우클릭·폰·폴드 ⋯ 첫 줄(S69-99: 두 손가락은 줄 크기)
 const tops=page=>page.locator('#documentList > details').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));
 // 파일을 실은 DataTransfer로 dragenter → dragover → drop을 그 자리(점 x,y가 있으면 그 점의 맨 위 요소)에 보낸다. 놓기 직전의 안내·표시를 돌려준다.
 const dropAt=(page,sel,names,{point=null}={})=>page.evaluate(({sel,names,point})=>{

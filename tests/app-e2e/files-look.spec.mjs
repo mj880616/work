@@ -76,7 +76,7 @@ test('파일 폴드 700: 격자 칸 — 폴더는 큰 폴더, 누르면 그 폴�
   expect(errors).toEqual([]);
 });
 
-test('파일 폰 412: 나무에서 연 폴더 — 격자에서 오므리면 목록, 목록에서 한 번 더 오므리면 펼친 자리 그대로 나무', async ({ page }) => {
+test('파일 폰 412: 나무에서 연 폴더 — 격자에서 오므리면 목록, 목록에서 한 번 더 오므려도 나무로 가지 않음(S69-99)', async ({ page }) => {
   test.setTimeout(90000);
   await installViewPrefsServer(page);
   const { errors } = await start(page, 412);
@@ -90,6 +90,11 @@ test('파일 폰 412: 나무에서 연 폴더 — 격자에서 오므리면 목�
   await expect(list(page)).toHaveAttribute('data-fx-look', 'list');
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');
   await pinch(page, list(page), 'in');
+  await page.waitForTimeout(300);
+  // UI-폴더줄크기(S69-99, 명진 11/25 08:23 "폴더 안으로 들어가기가 아니라"): 두 손가락은 나무로 돌아가지 않는다 — 돌아가기는 [‹]·뒤로.
+  await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');
+  await expect(list(page)).toHaveAttribute('data-fx-look', 'list');
+  await root(page).locator('[data-fx-list] [data-fx-up]').click();
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree');
   expect(errors).toEqual([]);
 });

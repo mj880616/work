@@ -291,15 +291,18 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 폴더 누르기
 
 test.describe('펼친 폴드 884 손가락 두 칸',()=>{
   test.use({hasTouch:true});
-  test('두 손가락 벌리기 = 그 칸에서 그 폴더만, 오므리기 = 한 단계 위',async({page})=>{
+  // UI-폴더줄크기(S69-99, 명진 11/25 08:23 "폴더 안으로 들어가기가 아니라"): 두 손가락 = 줄 크기 한 단계(칸은 그대로), 그 칸에서 들어가기는 ⋯ 첫 줄.
+  test('두 손가락 벌리기 = 줄 크기 한 단계(들어가지 않음), 그 칸 ⋯ = 그 칸에서 그 폴더만',async({page})=>{
     const {errors}=await boot(page,884);
     await page.locator(folderIn(1,'fa')).click();
     await expect(page.locator(folderIn(1,'fc'))).toBeVisible();
     await pinch(page,page.locator(folderIn(1,'fa')),'out');
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.dataset.rowSize)).toBe('l');
+    await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('자료실');
+    await page.locator(folderIn(1,'fa')).locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," ft-row ")][1]').locator('.ft-dots').first().click();
+    await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
     await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('가상 A');
     await expect(page.locator(`${pane(0)} .lu-pane-here`)).toHaveText('자료실');
-    await pinch(page,page.locator(`${pane(1)} .lu-pane-list`),'in');
-    await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('자료실');
     expect(errors).toEqual([]);
   });
 });

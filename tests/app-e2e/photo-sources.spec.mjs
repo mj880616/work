@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { pinch } from './helpers/pinch.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // PHOTO-출처 ①(요청함 10/30 17:30): 사진 메뉴 위 줄 오른쪽 출처 아이콘 + 폰 사진 섞어 보기.
@@ -178,8 +177,9 @@ test.describe('폰 앱 412 · 모든 칩', () => {
     await expect(bodyEl.locator('[data-photos-folder]')).toHaveCount(0);
     await expect(bodyEl.locator('[data-photos-fx-more], [data-photos-fx-new]')).toHaveCount(0);
     await expect(bodyEl.locator('[data-photos-pf] .ft-main')).toHaveText(['Camera2', 'Screenshots2']);
-    // 폰 폴더 위 두 손가락 벌리기 → 그 폴더만(사진 격자), 뒤로가기로 나무.
-    await pinch(page, bodyEl.locator('[data-photos-pf="DCIM/Camera/"]'), 'out');
+    // 폰 폴더 ⋯ [이 폴더로 들어가기] → 그 폴더만(사진 격자), 뒤로가기로 나무(S69-99: 두 손가락은 줄 크기).
+    await bodyEl.locator('[data-photos-pf="DCIM/Camera/"] [data-photos-pf-more]').click();
+    await page.locator('#photosPhoneFolderMenu [data-pfm-enter]').click();
     await expect(bodyEl.locator('.photos-fx-here')).toContainText('Camera');
     await expect.poll(() => bodyEl.locator('[data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId))).toEqual(['ph:1', 'ph:2']);
     expect(state.phoneReads.some(p => /page\?.*folder=DCIM%2FCamera%2F/.test(p))).toBe(true);
