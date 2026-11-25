@@ -91,7 +91,7 @@ for (const width of [412, 360]) {
     await tick(page);
     let b = await box(rows(list).first());
     let r = await finger(page, cdp, arc(b.x + b.width * 0.7, b.y + b.height / 2 - 12, -150, 36));
-    await expect(cells(list), '엄지 호 왼쪽 밀기').toHaveCount(3);
+    await expect(cells(list), '엄지 호 왼쪽 밀기').toHaveCount(2);
     expect(r).toEqual({ pull: ['pull:on', 'pull:off'], cancels: 0 });
     await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
     await expect(cells(list)).toHaveCount(0);
@@ -99,7 +99,7 @@ for (const width of [412, 360]) {
     await tick(page);
     b = await box(rows(list).nth(2));
     r = await finger(page, cdp, arc(b.x + b.width - 6, b.y + b.height / 2 - 12, -140, 40));
-    await expect(cells(list), '오른쪽 끝 시작 엄지 호').toHaveCount(3);
+    await expect(cells(list), '오른쪽 끝 시작 엄지 호').toHaveCount(2);
     expect(r).toEqual({ pull: ['pull:on', 'pull:off'], cancels: 0 });
     await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
     await expect(cells(list)).toHaveCount(0);
@@ -139,7 +139,7 @@ for (const width of [412, 360]) {
       await tick(page);
       const b = await box(rows(list).first());
       const r = await finger(page, cdp, arc(b.x + b.width * 0.7, b.y + Math.min(b.height / 2, 30), -150, 30));
-      await expect(cells(list), `글자 ${done.toFixed(1)}배 왼쪽 밀기`).toHaveCount(3);
+      await expect(cells(list), `글자 ${done.toFixed(1)}배 왼쪽 밀기`).toHaveCount(2);
       expect(r.cancels).toBe(0);
       await finger(page, cdp, [[b.x + 40, b.y + 20]]);
       await expect(cells(list)).toHaveCount(0);

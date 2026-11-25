@@ -23,7 +23,7 @@ const SKIP = 'input,textarea,select,[contenteditable],[data-row-swipe-act]';
 export const PICK = Object.freeze({key:'select', label:'선택', tone:'pick', icon:'pick'});
 // 이름이 같은 일은 같은 그림(그 목록이 icon을 주지 않았을 때).
 const ICON = {select:'pick', delete:'trash', move:'move', share:'share', hide:'hide', save:'archive', release:'undo', unstar:'undo', toggle:'done', done:'done',
-  hold:'archive', unhold:'undo', pin:'pin', dismiss:'hide'};
+  hold:'archive', unhold:'undo', pin:'pin', dismiss:'hide', edit:'edit', unhide:'show'};
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 let claimed = 0, roots = 0;
 // 마지막 줄 밀기가 시작된 때(ms). 다른 좌우 밀기는 자기 손동작 시작 뒤에 줄 밀기가 있었으면 아무것도 하지 않는다.

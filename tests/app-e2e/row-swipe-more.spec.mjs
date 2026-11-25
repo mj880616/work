@@ -84,37 +84,31 @@ async function openReading(page, width) {
 }
 const rdRow = (list, id) => list.locator(`.rd-row[data-rd-open="${id}"]`);
 
-test('읽을 거리 412: 왼쪽 밀기 [사업에 연결]·[읽음]·[삭제] 칸, 끝까지 밀어도 바로 하지 않고 칸만 열림', async ({ page }) => {
+// S70-62 READ-밀기메뉴(명진 11/26 07:41 "저장된 글에서는 수정 삭제로"): 저장한 글 줄 왼쪽 밀기 칸은 [수정][삭제] 둘. 읽음·사업에 연결은 ⋯에만.
+test('저장한 글 390: 왼쪽 밀기 [수정][삭제] 두 칸, 끝까지 밀어도 바로 하지 않고 칸만 열림, [수정]은 제목·매체 칸', async ({ page }) => {
   test.setTimeout(90000);
-  const { s, errors, list } = await openReading(page, 412);
+  const { s, errors, list } = await openReading(page, 390);
   await swipe(rdRow(list, RA), -60);
-  await expect(ends(list)).toHaveCount(3);
-  await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'area');
-  await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'read');
-  // S68-31: ⋯에 [삭제]가 있으므로 맨 끝(위험 색)에 [삭제].
-  await expect(ends(list).nth(2)).toHaveAttribute('data-row-swipe-key', 'delete');
-  await expect(ends(list).nth(2)).toHaveClass(/row-swipe-tone-danger/);
+  await expect(ends(list)).toHaveCount(2);
+  await expect(ends(list)).toHaveText(['수정', '삭제']);
+  await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'edit');
+  await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'delete');
+  await expect(ends(list).nth(1)).toHaveClass(/row-swipe-tone-danger/);
   // 칸은 줄 높이만큼 꽉 찬다.
   const [cellH, rowH] = await Promise.all([ends(list).first().evaluate(b => b.getBoundingClientRect().height), rdRow(list, RA).evaluate(r => r.getBoundingClientRect().height)]);
   expect(Math.abs(cellH - rowH)).toBeLessThan(1.5);
-  await touchTap(cell(list, 'read'));
-  await expect.poll(() => s.patches.filter(p => p.id === RA).length).toBe(1);
-  expect(s.patches.at(-1).body.read_at).toBeTruthy();
-  // 읽은 줄(B)을 왼쪽 끝까지: 맨 끝이 [삭제]라 아무것도 하지 않고 칸만 열린 채 멈춘다(묻는 창도 없음).
+  // 끝까지 밀기: 맨 끝이 [삭제]라 아무것도 하지 않고 칸만 열린 채 멈춘다(묻는 창도 없음).
   await tick(page);
   await swipe(rdRow(list, RB), -320);
-  await expect(ends(list)).toHaveCount(3);
-  await expect(cell(list, 'unread')).toBeVisible();
+  await expect(ends(list)).toHaveCount(2);
   await expect(page.locator('.kptu-ask')).toHaveCount(0);
-  // 열린 칸의 [안 읽음으로] = ⋯ 메뉴와 같은 길.
-  await touchTap(cell(list, 'unread'));
-  await expect.poll(() => s.patches.filter(p => p.id === RB).length).toBe(1);
-  expect(s.patches.at(-1).body.read_at).toBeNull();
-  // [사업에 연결] 칸 = ⋯ [사업에 연결]과 같은 사업영역 고르기 창.
-  await tick(page);
-  await swipe(rdRow(list, RC), -60);
-  await touchTap(cell(list, 'area'));
-  await expect(page.locator('#areaOrgPickSheet')).toBeVisible();
+  // [수정] = ⋯ [수정]과 같은 길: 글 보기를 열고 제목·매체 칸.
+  await touchTap(cell(list, 'edit'));
+  const form = page.locator('#readingView [data-rd-edit-form]');
+  await expect(form).toBeVisible();
+  await expect(form.locator('input[name="title"]')).toHaveValue('가짜 칼럼 둘');
+  // S70-62: '보관'은 '저장'으로 통일 — 저장한 글 화면에 '보관' 글자가 없다.
+  expect(await page.locator('#readingView').evaluate(el => el.innerText)).not.toContain('보관');
   expect(s.deletes).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
@@ -203,7 +197,7 @@ test('읽을 거리 412: 줄 위 좌우 밀기는 칩을 넘기지 않고, 줄 �
   const allChip = list.locator('.rd-switch [data-filter-value="all"]');
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await both(rdRow(list, RA), -120);
-  await expect(ends(list)).toHaveCount(3);
+  await expect(ends(list)).toHaveCount(2);
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await tick(page);
   await both(rdRow(list, RB), 320);

@@ -82,7 +82,7 @@ for (const width of [412, 390]) {
       const sx = b.x + b.width - 4;
       expect(sx).toBeGreaterThan(width - 24);
       await finger(page, cdp, path(sx, b.y + b.height / 2, -120, 0));
-      await expect(cells(list), `${v}: 오른쪽 끝 시작`).toHaveCount(3);
+      await expect(cells(list), `${v}: 오른쪽 끝 시작`).toHaveCount(2);
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
       await expect(detail(page)).toHaveCount(0);
       await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]); // 열린 줄을 누르면 닫기만
@@ -91,7 +91,7 @@ for (const width of [412, 390]) {
       await tick(page);
       const more = await box(first.locator('[data-rd-more]'));
       await finger(page, cdp, path(more.x + more.width * 0.75, more.y + more.height / 2, -120, 0));
-      await expect(cells(list), `${v}: ⋯ 위 시작`).toHaveCount(3);
+      await expect(cells(list), `${v}: ⋯ 위 시작`).toHaveCount(2);
       await expect(menu).toHaveCount(0);
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
       await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
@@ -100,7 +100,7 @@ for (const width of [412, 390]) {
       await tick(page);
       b = await box(rows(list).last());
       await finger(page, cdp, path(b.x + b.width / 2, b.y + b.height / 2, -100, 0));
-      await expect(cells(list), `${v}: 가운데 시작`).toHaveCount(3);
+      await expect(cells(list), `${v}: 가운데 시작`).toHaveCount(2);
       await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
       await expect(cells(list)).toHaveCount(0);
       // ④ 오른쪽 밀기: [선택] → '1개 선택됨', 탭 그대로.
