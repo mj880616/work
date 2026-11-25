@@ -2,7 +2,7 @@
 // 여는 법: ⋯가 있는 줄은 ⋯ 메뉴 안 [이름 수정](renameMenuAttrs, FILE-이름고치기연필먹통 — ✎를 따로 두지 않는다), ⋯가 없는 줄은 이름 끝 작은 ✎(renameButtonHtml),
 //   PC는 이름 두 번 누르기, 폰은 이름 꾹 누르기(0.5초, 움직이지 않고 손 뗄 때 열림). 줄 전체를 덮는 '열기' 덮개(.file-line-open) 위에서도 이름 글자 자리는 같은 손짓이 닿는다(hostAt).
 //   이름 칸에는 renameHostAttrs(spec)를, 줄(이름과 ✎·⋯을 함께 담는 상자)에는 data-fr-row를 붙인다.
-// 고치는 칸: [이름 부분 입력].확장자 [AI 이름] [저장] [취소] + 작은 빨간 안내. 확장자는 따로 두고 저장 때 서버가 붙인다.
+// 고치는 칸: [이름 부분 입력].확장자 [이름 추천 받기] [저장] [취소] + 작은 빨간 안내. 세 단추는 공용 ② 작은 버튼(button.secondary) 한 모양(UI-이름고치기단추 S69-100). 확장자는 따로 두고 저장 때 서버가 붙인다.
 //   Enter 저장·Esc 취소. 빈 이름·못 쓰는 글자는 저장 전에 막는다(규칙은 file-rename-name.mjs 한 곳, 서버도 같은 규칙으로 다시 검사).
 // 저장: document-actions action=rename-file — 서버가 Drive 원본 이름과 그 파일을 가리키는 Web2 줄(노트 첨부·할 일 첨부·자료)을 함께 바꾼다.
 //   성공하면 window에 'kptu:file-renamed' {drive_file_id, name, old_name, notes:[{id,updated_at}]}를 보낸다. 화면마다 들고 있는 값을 이 알림으로 고쳐
@@ -90,7 +90,7 @@ export function openRenameEditor(trigger, {rt = globalThis.window?.KPTURuntime} 
   const box = document.createElement('span');
   box.className = 'fr-box'; box.dataset.enterField = 'off';
   box.innerHTML = `<span class="fr-field"><input type="text" class="fr-input" aria-label="파일 이름" autocomplete="off" spellcheck="false" maxlength="200">${ext ? `<span class="fr-ext">${esc(ext)}</span>` : ''}</span>`
-    + `<span class="fr-acts"><button type="button" class="fr-ai" data-fr-ai>이름 추천 받기</button><button type="button" class="fr-save" data-fr-save>저장</button><button type="button" class="fr-cancel" data-fr-cancel>취소</button></span>`
+    + `<span class="fr-acts"><button type="button" class="secondary fr-ai" data-fr-ai>이름 추천 받기</button><button type="button" class="secondary fr-save" data-fr-save>저장</button><button type="button" class="secondary fr-cancel" data-fr-cancel>취소</button></span>`
     + '<small class="fr-err" role="alert" hidden></small>';
   const input = box.querySelector('.fr-input'), err = box.querySelector('.fr-err'), saveBtn = box.querySelector('[data-fr-save]'), aiBtn = box.querySelector('[data-fr-ai]');
   if (spec.target === 'event') aiBtn.hidden = true; // CAL-일정첨부: 일정 첨부에는 AI 이름 추천 길이 없다(서버 ai-assist는 그대로)
