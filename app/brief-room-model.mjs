@@ -98,7 +98,6 @@ export const SHOW_N = 3;
 export const GIST_TITLE = '요지';
 export const QUOTES_TITLE = '원문 인용';
 export const OURS_TAG = '우리 관련';
-export const LEGACY_LINE = '예전 방식 브리핑';
 export const moreLabel = n => `+ ${n}개 더 보기`;
 const strs = v => (Array.isArray(v) ? v.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim()) : []);
 const str = v => (typeof v === 'string' ? v.trim() : '');

@@ -119,30 +119,6 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     await expect(detail(page).locator('.br-edited')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
-
-  test(`손으로 고친 브리핑 다시 만들기 = 먼저 묻기, 취소면 그대로 (${label})`, async ({ page }) => {
-    test.setTimeout(120000);
-    await page.setViewportSize({ width, height });
-    const s = await open(page);
-    await openBrief(page, '예전 자료', '예전 방식 줄 하나');
-    await detail(page).locator('[data-br-edit]').click();
-    await detail(page).locator('textarea[data-br-field="i:0:0"]').fill('예전 방식 줄 하나(고침)');
-    await detail(page).locator('textarea[data-br-field="i:0:0"]').press('Enter'); // Enter = 저장
-    await expect.poll(() => s.edits.length).toBe(1);
-    await expect(body(page)).toContainText('예전 방식 줄 하나(고침)');
-
-    await detail(page).locator('[data-br-redo]').click();
-    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('손으로 수정한 브리핑이에요. 다시 만들까요?');
-    await expect(ask(page).getByRole('button', { name: '취소' })).toBeFocused(); // 덮지 않는 쪽이 기본
-    await ask(page).getByRole('button', { name: '취소' }).click();
-    await expect(ask(page)).toHaveCount(0);
-    expect(s.starts).toEqual([]);
-    await expect(body(page)).toContainText('예전 방식 줄 하나(고침)');
-
-    await detail(page).locator('[data-br-redo]').click();
-    await ask(page).getByRole('button', { name: '다시 만들기' }).click();
-    await expect.poll(() => s.starts).toEqual([D(4)]);
-  });
 }
 
 test('PC 1280: 요약 글 우클릭 = 앱 메뉴, Shift+F10도 같은 메뉴, 고른 글 우클릭 = 막대와 같은 항목, 고치는 칸 우클릭 = 브라우저 메뉴', async ({ page }) => {

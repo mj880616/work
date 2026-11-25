@@ -380,7 +380,7 @@ test('조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관
  // ⋯ 그냥 누르기는 [열기] 없이
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  await page.locator('#soTeamMore').click();
- await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['묶음 만들기','쟁의 단계 관리','옛 사진 기록 채우기','조직 기록 자료 모으는 폴더','지난 조직 기록 자료도 조직 폴더로 모으기','여러 개 선택해 삭제','쓰는 법']); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'. MULTI-다른담당자맞춤 ②: 화면 ⋯ 첫 줄 [묶음 만들기]
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['묶음 만들기','쟁의 단계 관리','조직 기록 자료 모으는 폴더','여러 개 선택해 삭제','쓰는 법']); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'. MULTI-다른담당자맞춤 ②: 화면 ⋯ 첫 줄 [묶음 만들기]
  await page.keyboard.press('Escape');
  // 우클릭 메뉴의 [쟁의 단계 관리]도 그대로 열린다
  await row(page,other).click({button:'right'});

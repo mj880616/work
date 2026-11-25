@@ -2,7 +2,7 @@
 // - 목록: 자료실 '브리핑 요청함' 폴더 자료 + 브리핑을 받은 자료. 줄마다 [브리핑 받기] / 만드는 중 n/m / 한 줄 요지 / 실패 한 줄.
 // - 보기(S68-56, 명진 11/23 15:06·15:12 "미리 정한 칸에 우겨넣지 말고 걍 요약"): 요지(옅은 띠) → AI가 자료 짜임대로 정한 소제목별 항목
 //   (소제목 앞 3개만 펼치고 나머지는 접힘 <details>, 항목 옆 쪽 링크·'우리 관련' 작은 표시) → 원문 인용(접힘, 원문 그대로 + 발언자 + 쪽).
-//   고정 칸(챙길 일·대응할 것)과 [할 일로]는 없다. 옛 형식 브리핑은 briefView가 읽을 때 같은 모양으로 옮기고, 위에 '예전 방식 브리핑 · [다시 만들기]'.
+//   고정 칸(챙길 일·대응할 것)과 [할 일로]는 없다. 옛 형식 브리핑은 briefView가 읽을 때 같은 모양으로 옮긴다(S70-29: 위 '예전 방식 브리핑' 띠는 일회용이라 지움).
 //   폰은 목록 대신, 761px~는 오른쪽 칸.
 // - [브리핑 받기]만 AI를 부른다(명진 결정 1). 서버 document-actions brief-start, 진행·결과는 표 app_document_briefs를 owner RLS로 읽기만.
 // - [자료 넣기]·놓기: 자료실 등록 창을 '브리핑 요청함' 폴더로 연다(자료 원본은 자료실 한 곳, 폴더는 없으면 owner RLS로 하나 만든다).
@@ -19,13 +19,13 @@
 //   셋 다 글을 복사해 넣고 브리핑·자료를 가리키는 연결(외래 키)을 두지 않아, 브리핑만 삭제·자료까지 삭제 뒤에도 남는다(출처는 이름·날짜 글자).
 //   글자 크기 [−][+]는 공용 text-size.js(읽을 거리·News 글 보기와 같은 다섯 단계·같은 서버 값 view_prefs.news_font — 읽는 글자 크기 하나를 함께 쓴다).
 //   보기는 머리 줄 [원문 열기] 옆, 목록만 보일 때(폰 목록·보기를 열지 않은 PC)는 목록 머리 줄 끝. 본문·목록 줄 글자만 커지고 머리·단추는 그대로.
-// - S70-27 BRIEF-손수정·우클릭(명진 11/25 11:14 "브리핑 ai가 만든걸 수기 수정가능하게 / 여기 우클릭 안먹네"): 머리 [고치기](PC는 요약 글 우클릭 [고치기]도)
+// - S70-27 BRIEF-손수정·우클릭(명진 11/25 11:14 "브리핑 ai가 만든걸 수기 수정가능하게 / 여기 우클릭 안먹네"): 머리 [수정](PC는 요약 글 우클릭 [수정]도)
 //   = 요지 줄·소제목·줄을 그 자리 칸으로 바꿔 고치고 [저장](Enter)·[취소](Esc). 저장은 서버 함수 app_document_brief_edit(owner 검사, 표 edited 칸) —
 //   AI 원문(brief 칸)은 그대로, 보기는 고친 한 장(brief-edit-model.mjs). 고친 브리핑은 줄 아래 '손으로 고침 · [원래 AI 글로 되돌리기]'.
-//   다시 만들기(brief-start)는 고친 브리핑이면 먼저 묻는다(취소가 기본). 밑줄은 글자 대조(locate)라 고친 뒤 못 찾은 밑줄은 칠하지 않을 뿐 남는다.
+//   다시 만들기(brief-start)는 고친 브리핑이면 먼저 묻는다(취소가 기본 — 지금 다 된 브리핑을 다시 만드는 단추는 없어(S70-29) 막아 두는 몫만). 밑줄은 글자 대조(locate)라 고친 뒤 못 찾은 밑줄은 칠하지 않을 뿐 남는다.
 //   PC 요약 글 우클릭(Shift+F10·메뉴 키) = 공용 줄 메뉴(row-menu.js) [고치기] + 고른 글 막대와 같은 항목(text-select-bar selectBarActs).
 //   글을 골라 두었으면 그 고른 글에, 아니면 누른 줄 글에. 고치는 칸·입력 칸 위에서는 브라우저 기본 메뉴 그대로.
-import {ARCHIVE_LABEL,BRIEF_GONE,archiveNote,briefSource,BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,BRIEF_SELECT_EDIT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GIST_TITLE,LEGACY_LINE,OURS_TAG,QUOTES_TITLE,RETRY_LABEL,SHOW_N,briefView,canRetry,doneDate,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
+import {ARCHIVE_LABEL,BRIEF_GONE,archiveNote,briefSource,BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,BRIEF_SELECT_EDIT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GIST_TITLE,OURS_TAG,QUOTES_TITLE,RETRY_LABEL,SHOW_N,briefView,canRetry,doneDate,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {readLibraryFolders} from './library-folder-data.js';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
@@ -200,10 +200,8 @@ function drawDetail(){
   const head=[bar,meta];
   const part=partialLine(b.brief);if(part)head.push(el('p','br-meta br-partial',part));
   const v=briefView(shownBrief(b));
-  // 손으로 고친 브리핑: 작은 줄 하나 '손으로 고침 · [원래 AI 글로 되돌리기]'(줄마다 표시는 두지 않는다 — 고친 줄 비교는 줄을 빼면 어긋나 틀린 표시가 됨).
+  // 손으로 고친 브리핑: 작은 줄 하나 '손으로 수정함 · [원래 AI 글로 되돌리기]'(줄마다 표시는 두지 않는다 — 고친 줄 비교는 줄을 빼면 어긋나 틀린 표시가 됨).
   if(isEdited(b)&&!state.editing){const p=el('p','br-meta br-edited',`${EDITED_TAG} · `);p.append(btn('br-revert row-act',REVERT_LABEL,{brRevert:doc.id}));head.push(p)}
-  // 옛 형식: 작은 줄 하나 + [다시 만들기](목록 [브리핑 받기]와 같은 길 brief-start로 새로 만든다). 옛 형식인지는 AI 원문으로 본다(고치면 새 모양으로 저장되므로).
-  if(briefView(b.brief).legacy&&!state.editing){const p=el('p','br-meta br-legacy',`${LEGACY_LINE} · `);p.append(btn('br-redo row-act',RETRY_LABEL,{brRedo:doc.id}));head.push(p)}
   // 본문 = 글 선택·밑줄 칸(data-br-zone)이자 글자 크기 대상. 머리·단추는 밖에 둔다.
   const parts=[];
   if(v.gist.length){
@@ -414,7 +412,6 @@ function bind(){
     if(t.closest?.('[data-br-edit-cancel]')){stopEdit();return}
     const sv=t.closest?.('[data-br-edit-save]');if(sv){void saveEdit(sv);return}
     const rv=t.closest?.('[data-br-revert]');if(rv){e.stopPropagation();void revertEdit(rv.dataset.brRevert,rv);return}
-    const redo=t.closest?.('[data-br-redo]');if(redo){e.stopPropagation();void start(redo.dataset.brRedo,redo);return}
     const s=t.closest?.('[data-br-start]');if(s){e.stopPropagation();void start(s.dataset.brStart,s);return}
     const lib=t.closest?.('[data-br-pick-lib]');if(lib){void openLibraryPick(lib);return}
     if(t.closest?.('[data-br-add],[data-fu-action="brief"]')){void add();return}
