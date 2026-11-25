@@ -6,7 +6,6 @@ import {aiSummaryAllowed,aiSummaryMarkup,newAiState,placeAiSummary,requestLinkSu
 import {previewText,markdownSource,writtenText} from './note-preview.mjs';
 import {attachmentsLabel} from './record-file-line.mjs';
 import {dayCell} from './org-record-rows.mjs'; // UI-기록카드하나로: 글 기록 줄과 같은 날짜 칸 글
-import {markLineRevert,revertRecordLine} from './record-line-briefs.js'; // ORG-기록첨부 옛줄바꾸기(S67-13): 사진 설명으로 바꾼 줄 표시
 
 const PAGE_SIZE=100;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -68,8 +67,6 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
       rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,origin:row.origin??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,...(bundle?{bundle_id:row.bundle_id}:{}),occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null,note_folder:folderMeta(note.metadata)}:{}),...(withFiles&&!dateOnly?{attachments:Array.isArray(note.attachments)?note.attachments:[]}:{})});
     }
   }
-  // ORG-기록첨부 옛줄바꾸기(S67-13): withFiles 줄 가운데 [옛 사진 기록 채우기]로 바꾼 줄에 line_revert(⋯ [이전 줄로 되돌리기]).
-  if(withFiles&&!dateOnly){await markLineRevert(rows,rt);if(owner!==scope(rt))throw changed();}
   return rows;
 }
 // S69 보드잠금가림 전수: a note line keeps only the note's folder place (metadata.folder_id / old name metadata.folder) so the lock check
@@ -133,11 +130,9 @@ export const recordWrittenSource=row=>{const text=recordSourceText(row);return !
 export function linkRecordHtml(row,{extra=''}={}){
   const ok=Number.isFinite(Date.parse(row.occurred_at)),date=ok?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'',day=ok?dayCell(row):'';
   const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}"${row.line_revert?' data-basket-link-revert':''} data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><span class="basket-link-day"><time${ok?` datetime="${escape(new Date(row.occurred_at).toISOString())}" title="${escape(date)}"`:''}>${escape(day)}</time></span><div class="basket-link-main"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}">${isDirectRecord(row)?'':`<small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'잊지 말기 연결'}</small>`}<p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordShownText(row))}</p></a>${extra}</div><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="${recordMenuLabel(row)}" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><span class="basket-link-day"><time${ok?` datetime="${escape(new Date(row.occurred_at).toISOString())}" title="${escape(date)}"`:''}>${escape(day)}</time></span><div class="basket-link-main"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}">${isDirectRecord(row)?'':`<small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'잊지 말기 연결'}</small>`}<p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordShownText(row))}</p></a>${extra}</div><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="${recordMenuLabel(row)}" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
-// ORG-기록첨부 옛줄바꾸기(S67-13): 기록 줄 ⋯ [이전 줄로 되돌리기] 한 줄(조직 기록 메뉴·사업 진행 기록 메뉴가 같이 씀). attr = 그 메뉴의 동작 속성.
-export const lineRevertItem=attr=>`<button type="button" ${attr}="line-revert">이전 줄로 되돌리기</button>`;
 // One menu panel for every mounted record host (created on first use inside the open dialog).
 const mountedHosts=new Map();let linkMenu=null;
 const hostOf=trigger=>[...mountedHosts.keys()].find(host=>host.contains(trigger));
@@ -147,7 +142,7 @@ function recordMenu(host){
     key:trigger=>trigger.dataset.basketLinkMenu,canOpen:trigger=>!!hostOf(trigger)&&!trigger.disabled,
     // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제]·[요약 수정]. UI-연결요약수정: [요약 수정] changes only this link's summary.
     // ORG-연결노트삭제(2026-11-12 명진 지시): 노트 줄에도 업데이트와 같은 자리·이름의 [원문 삭제](맨 아래, 위험 색). 노트 화면 [삭제]와 같은 휴지통 길.
-    render:id=>([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button>')+'<button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button>'+([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.hasAttribute('data-basket-link-revert')?lineRevertItem('data-basket-link-action'):'')+'<button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
+    render:id=>([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button>')+'<button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button>'+'<button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
     onAction:(button,active)=>{const host=hostOf(active.trigger);mountedHosts.get(host)?.(button.dataset.basketLinkAction,active.id);}});
   return linkMenu;
 }
@@ -282,16 +277,6 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     if(name==='open'){openNote(row.dataset.basketLinkNote,noteRow?'note':'basket');return;}
     if(name==='summary'){open(id);return;}
     if(name==='disconnect'||name==='note-delete')void act(id,name==='note-delete');
-    if(name==='line-revert')void revert(id);
-  }
-  // ORG-기록첨부 옛줄바꾸기(S67-13): [이전 줄로 되돌리기] — 첨부로 다시 만든 옛 줄을 같은 요약 쓰기 길(읽은 줄과 같을 때만)로. 목록은 공용 알림으로 다시 읽는다.
-  async function revert(id){
-    const record=getRecord(id),key=`link:${id}`;if(!record||acting.has(key))return;
-    if(formFor(id)){say(id,'요약 수정을 먼저 저장하거나 취소해 주세요.');return;}
-    const run=epoch,owner=scope(rt),rows=rowsFor('basketLink',id);acting.add(key);setRowBusy(rows,true);say(id,'처리 중…');
-    let result;try{result=await revertRecordLine(record,rt,{update:updateLinkSummary});}catch{result={ok:false,message:'결과를 확인하지 못했어요. 다시 시도해 주세요.'};}finally{acting.delete(key);}
-    if(run!==epoch||owner!==scope(rt)||!isCurrent()||result.stale)return;
-    const live=rowsFor('basketLink',id);setRowBusy(live,false);say(id,result.ok?'':result.message);
   }
   // UI-모바일업데이트겹쳐보기: a tap on the line itself passes {line,linkId,trigger}, so a phone can show the record over the detail
   // (record-sheet.js) instead of leaving; the ⋯ [업데이트 열기]/[노트 열기] passes nothing and still opens the full view.

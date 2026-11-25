@@ -72,11 +72,12 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await expect(list.locator('.br-row').nth(2).locator('.br-st')).toHaveText(/^(\d{2}\.)?10\.05$/);
     await expect(list.locator('.br-row').nth(3)).toContainText('글자를 읽을 수 없는 파일이에요');
     await page.screenshot({ path: `docs/design/screens/s61-45/${label}-list.png`, fullPage: false });
-    // 보기(S68-56): 옛 형식(v1) 브리핑은 같은 모양으로 — 요지 띠 → 옛 칸 이름 그대로의 소제목 묶음 → 원문 인용(접힘). 위에 '예전 방식 브리핑 · [다시 만들기]'.
+    // 보기(S68-56): 옛 형식(v1) 브리핑은 같은 모양으로 — 요지 띠 → 옛 칸 이름 그대로의 소제목 묶음 → 원문 인용(접힘). S70-29: 위 '예전 방식 브리핑 · [다시 만들기]' 띠는 지움 — 없어야 한다.
     await list.locator('.br-row').nth(2).click();
     const detail = page.locator('#briefView [data-br-detail]');
     await expect(detail).toBeVisible();
-    await expect(detail.locator('.br-legacy')).toContainText('예전 방식 브리핑');
+    await expect(detail.locator('.br-legacy, [data-br-redo]')).toHaveCount(0);
+    await expect(detail).not.toContainText('예전 방식 브리핑');
     await expect(detail.locator('.br-gist p')).toHaveText([brief.lead]);
     await expect(detail.locator('.br-sec h3')).toHaveText(['닿는 것 1', '할 일·기한·숫자 2', '부딪히는 대목 1', '원문 인용 1']);
     await expect(detail).not.toContainText('챙길 일');
@@ -91,13 +92,19 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await page.screenshot({ path: `docs/design/screens/s61-45/${label}-brief.png`, fullPage: false });
     // [브리핑 받기]는 누를 때만 서버를 부른다(넣기만 해서는 부르지 않음).
     expect(calls.filter(c => c.action === 'brief-start')).toHaveLength(0);
-    // [다시 만들기](옛 형식): 목록 [브리핑 받기]와 같은 길(brief-start)로 새로 만든다. 만드는 중이 되면 보기는 닫히고 목록이 보인다.
-    await detail.locator('[data-br-redo]').click();
-    await expect.poll(() => calls.filter(c => c.action === 'brief-start').map(c => c.document_id)).toEqual([D(3)]);
-    await expect(list.locator('.br-row').nth(2)).toContainText('만드는 중');
-    await expect(list).toBeVisible();
+    // S70-29: 옛 형식 보기에도 [다시 만들기] 띠가 없다 — 보기에서는 brief-start를 부르지 않는다.
+    await expect(detail.locator('[data-br-redo]')).toHaveCount(0);
+    expect(calls.filter(c => c.action === 'brief-start')).toHaveLength(0);
+  });
+  // [브리핑 받기]는 목록 줄에서 누를 때만 서버(brief-start)를 부른다.
+  test(`브리핑 룸 [브리핑 받기] (${label})`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const calls = await open(page);
+    await goBrief(page);
+    const list = page.locator('#briefView [data-br-list]');
+    expect(calls.filter(c => c.action === 'brief-start')).toHaveLength(0);
     await list.locator('[data-br-start]').click();
-    await expect.poll(() => calls.filter(c => c.action === 'brief-start').map(c => c.document_id)).toEqual([D(3), D(1)]);
+    await expect.poll(() => calls.filter(c => c.action === 'brief-start').map(c => c.document_id)).toEqual([D(1)]);
   });
 }
 
