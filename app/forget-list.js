@@ -183,7 +183,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (bundle.length) {
       const rowsIn = newestFirst(bundle), shut = !openBundles.has('yesterday');
       out.push({at: rowsIn[0].at, html: `<li class="forget-bundle" data-forget-bundle="yesterday"><details${shut ? '' : ' open'}><summary class="forget-bundle-head">`
-        + `어제 들어온 요청 ${bundle.length}개<span class="nbx-faint"> · 두면 내일 이미 함</span></summary><ul class="forget-bundle-rows">${rowsIn.map(x => x.html).join('')}</ul></details></li>`});
+        + `어제 들어온 요청 ${bundle.length}개<span class="nbx-faint">&nbsp;· 두면 내일 이미 함</span></summary><ul class="forget-bundle-rows">${rowsIn.map(x => x.html).join('')}</ul></details></li>`});
     }
     const sorted = [...newestFirst(stars), ...newestFirst(out)];
     // 상대 약속: 처리 전일 때만, 맨 아래(시각 없음). 세지 않는다(상대가 할 일).

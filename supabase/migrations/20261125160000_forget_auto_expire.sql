@@ -29,6 +29,7 @@ begin
      or to_regprocedure('public.app_todo_candidate_from_telegram_at(uuid,text,text,text,date,timestamp with time zone,text,text)') is null
      or to_regprocedure('public.app_todo_candidate_from_telegram_ask(uuid,text,text,text,date,timestamp with time zone,text,text,boolean)') is not null
      or to_regprocedure('public.app_forget_auto_expire()') is not null
+     or to_regclass('public.app_operator_features') is null
      or (select count(*) from pg_constraint where conrelid = to_regclass('public.app_todo_candidates') and conname = 'app_todo_candidates_auto_done_check') <> 1
      or exists (select 1 from pg_attribute where attrelid = to_regclass('public.app_todo_candidates') and attnum > 0 and not attisdropped and attname = 'ask_direct')
      or to_regprocedure('cron.schedule(text,text,text)') is null
@@ -106,7 +107,10 @@ declare
 begin
   update public.app_todo_candidates c
      set status = 'done', decided_at = v_now, auto_done = 'expired', auto_done_at = v_now
-   where c.status = 'open' and c.auto_done is null and c.due is null and c.ask_direct is not true and c.created_at < v_cut;
+   where c.status = 'open' and c.auto_done is null and c.due is null and c.ask_direct is not true and c.created_at < v_cut
+     -- 텔레그램 줄은 운영자 기능이 켜진 작업공간만(기존 트리거 trg_op_feature_guard가 막을 줄 하나 때문에 예약 전체가 멈추지 않게).
+     -- 기능 판정은 트리거와 같이 허용 표 행만 본다(예약에는 로그인 사람이 없어 주인 확인 함수를 쓸 수 없다).
+     and (c.source_kind <> 'telegram' or exists (select 1 from public.app_operator_features f where f.workspace_id = c.workspace_id and f.feature = 'telegram'));
   get diagnostics v_n = row_count;
   return pg_catalog.jsonb_build_object('expired', v_n);
 end

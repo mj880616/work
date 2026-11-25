@@ -597,3 +597,47 @@ test('390: 내가 답장한 텔레그램 요청은 처리 전에 없고, 이미 
   await expect(line(page,`c:${cid(2)}`)).toBeVisible();
   await expect(line(page,`c:${cid(2)}`).locator('.nbx-acts [data-nbx-act="task"]')).toBeVisible();
 });
+
+// S70-20b FORGET-기본이미함(명진 11/25 12:39 "모두 추천대로"): 업무 제안은 오늘 것은 한 줄씩, 어제 것은 '어제 들어온 요청 n개' 한 줄 묶음(펼치면 같은 줄),
+// ★(마감·직접 부름)는 맨 위. 하루 지나 서버가 옮긴 줄(auto_done='expired')은 '이미 함 · 지남' + [되돌리기](done → open). 가족 줄은 그대로.
+// 시계는 2026-10-06 10:00 KST(openHome) — 어제 = 10/5(서울).
+for(const width of [390,1280])test(`${width}: 어제 업무 제안은 한 줄 묶음, ★는 맨 위, 이미 함 보기 지남 · [되돌리기]`,async({page})=>{
+  const at='2026-10-06T15:13:00Z';
+  const h=await fixture(page,{width,cands:[
+    cand(1),                                                                                     // 오늘 줄
+    cand(2,{summary:'가짜 어제 요청 하나',created_at:'2026-10-05T02:00:00Z'}),                      // 어제 → 묶음
+    cand(3,{source_kind:'basket',summary:'지어낸 어제 챙길 것',created_at:'2026-10-04T16:00:00Z'}),   // 어제 01:00 서울 → 묶음
+    cand(4,{summary:'가짜 마감 요청',due:'2026-10-09',created_at:'2026-10-05T01:00:00Z'}),           // ★(마감)
+    cand(6,{summary:'가짜 직접 부른 요청',ask_direct:true,created_at:'2026-10-05T00:30:00Z'}),        // ★(직접 부름)
+    cand(7,{source_kind:'basket',summary:'지어낸 지난 챙길 것',status:'done',decided_at:at,auto_done:'expired',auto_done_at:at,created_at:'2026-10-03T01:00:00Z'})]});
+  const rows=list(page).locator('[data-nbx-row]');
+  // ★ 둘이 맨 위(★ 사이는 새 것이 위), 줄 글자는 그대로(★는 글자 앞 그림).
+  await expect(rows.nth(0)).toHaveAttribute('data-nbx-row',`c:${cid(4)}`);
+  await expect(rows.nth(1)).toHaveAttribute('data-nbx-row',`c:${cid(6)}`);
+  await expect(rows.nth(0)).toHaveAttribute('data-forget-star','');
+  await expect(rows.nth(0).locator('.nbx-body')).toHaveText('가짜 마감 요청');
+  await expect(line(page,`c:${cid(1)}`)).toBeVisible();
+  await expect(line(page,`c:${cid(1)}`)).not.toHaveAttribute('data-forget-star','');
+  // 어제 줄 둘은 접힌 한 줄 묶음 — 펼치면 같은 줄·같은 버튼.
+  const bundle=list(page).locator('[data-forget-bundle="yesterday"]');
+  await expect(bundle.locator('summary')).toContainText('어제 들어온 요청 2개');
+  await expect(line(page,`c:${cid(2)}`)).toBeHidden();
+  await bundle.locator('summary').click();
+  await expect(line(page,`c:${cid(2)}`)).toBeVisible();
+  await expect(line(page,`c:${cid(3)}`).locator('.nbx-acts [data-nbx-act="task"]')).toBeVisible();
+  // 가족 줄은 묶지 않고 그대로.
+  await expect(list(page).locator('[data-forget-src="family"]')).toHaveCount(1);
+  await expect(bundle.locator('[data-forget-src="family"]')).toHaveCount(0);
+  expect(await noWide(page)).toBe(true);
+  // 이미 함 보기: 저절로 옮긴 줄 '이미 함 · 지남' + [되돌리기] → 처리 전.
+  await pickView(page,'이미 함');
+  await expect(line(page,`c:${cid(7)}`).locator('.nbx-done')).toContainText('이미 함 · 지남');
+  const back=line(page,`c:${cid(7)}`).getByRole('button',{name:'되돌리기',exact:true});
+  await expect(back).toBeVisible();
+  expect(await noWide(page)).toBe(true);
+  await back.click();
+  await expect.poll(()=>h.patches.length).toBe(1);
+  expect(h.patches[0]).toEqual({id:cid(7),from:'done',body:{status:'open',decided_at:null}});
+  await pickView(page,'처리 전');
+  await expect(line(page,`c:${cid(7)}`)).toBeVisible();
+});
