@@ -730,7 +730,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
   .nl-head .hs-btn { padding:0; min-height:0; font:inherit; color:inherit; }
   .nl-head > :is([data-nl-col="day"], [data-nl-col="made"], [data-nl-col="clip"], [data-nl-col="memo"], [data-nl-col="chars"]) .hs-btn { margin-left:auto; }
   /* ② 머리 줄 오른쪽 끝 작은 ⋯ = '보일 칸' 메뉴(줄의 ⋯ 자리와 같은 세로 줄). */
-  .nl-head > .nl-cols-btn { position:absolute; right:4px; top:50%; transform:translateY(-50%); width:32px; height:24px; padding:0; border:0; background:transparent; color:var(--kptu-muted); font-size:16px; line-height:1; }
+  .nl-head > .nl-cols-btn { position:absolute; right:4px; top:50%; transform:translateY(-50%); color:var(--kptu-muted); }
   .nl-cols .nl-made, .nl-cols .nl-memo, .nl-cols .nl-chars { text-align:right; }
   .nl-head > [role="columnheader"] > .col-grip { right:-8px; }
   #appView #basketView [data-note-list][data-notes-view="list"] .nx-note.nl-cols .note-row { display:grid; grid-template-columns:var(--nl-grid); column-gap:8px; }
