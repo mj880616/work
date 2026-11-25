@@ -1238,9 +1238,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // UX-알림하나로(S59-21): 끝·실패·[다시 올리기]는 하단바 위 한 줄 하나 — 큰 창이 열려 있어도 창 상태 줄·위쪽 작은 알림으로 또 알리지 않는다
       // (files: 창의 올리는 줄이 이 파일들의 '실패 [다시]'·'✓ 완료'를 따로 그리지 않게).
       if (!error) { announceUploaded({done, names:sent(), where:'노트', files}); return; }
-      if (error.code === 'upload_cancelled') { announceDock({text:'올리기를 취소했어요', files}); return; }
+      if (error.code === 'upload_cancelled') { announceDock({text:'업로드를 취소했어요', files}); return; }
       if (done) announceUploaded({done, names:sent(), failed:left, where:'노트', retry, note:error.message || '', files});
-      else announceDock({text:`노트 첨부 ${left}개 못 올렸어요`, note:error.message || '', error:true, ms:0, files, actions:retry ? [{label:'다시 올리기', aria:'못 올린 파일 다시 올리기', run:retry}] : []});
+      else announceDock({text:`노트 첨부 ${left}개 못 올렸어요`, note:error.message || '', error:true, ms:0, files, actions:retry ? [{label:'다시 업로드', aria:'못 올린 파일 다시 업로드', run:retry}] : []});
     });
   }
   // 올리는 동안에도 잠그는 것: 같은 노트의 빼기·삭제·고정·옮기기. 서버는 올리는 사이 노트가 바뀌면 그 올리기를 거절하므로(updated_at·attachments
