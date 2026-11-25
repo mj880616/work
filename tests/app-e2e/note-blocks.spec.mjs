@@ -45,10 +45,12 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
 
     test('끈 상태가 기본: 손잡이 없음 · [블록]으로 켜면 손잡이 보임 · 끄면 사라짐', async ({page}) => {
       await open(page, 'blocks=off');
-      // [블록 모드]은 [문단 ▾] 묶음 맨 끝(폰·PC 같은 자리).
+      // [블록 모드]는 편집 막대 위 작은 아이콘 단추(↶ 앞, 폰·PC 같은 자리). NOTE-블록모드찾기: [문단 ▾] 안이 아니다.
       const box = page.locator('.ed-input'), toggle = page.locator('.ed-bar').getByRole('button', {name: '블록 모드', exact: true, includeHidden: true});
       await expect(toggle).toHaveAttribute('data-ed-cmd', 'blocks');
-      expect(await toggle.evaluate(el => el.closest('[data-ed-panel]')?.dataset.edPanel)).toBe('gPara');
+      expect(await toggle.evaluate(el => el.closest('[data-ed-panel]')?.dataset.edPanel ?? null)).toBe(null);
+      await expect(toggle).toBeVisible();
+      expect(await toggle.evaluate(el => el.nextElementSibling?.dataset.edCmd)).toBe('undo');
       await expect(toggle).toHaveAttribute('aria-pressed', 'false');
       await expect(page.locator('.ed-editor')).not.toHaveClass(/ed-blocks-on/);
       const pad = await box.evaluate(el => getComputedStyle(el).paddingLeft);
@@ -258,11 +260,11 @@ for (const width of [1280, 390]) test(`노트에서 블록 편집 켜기 → 끌
   await expect(page.locator('[data-note-body-field] .ed-grip')).toBeVisible();
   const top = (await field.locator('p').first().boundingBox()).y + 2;
   // 손잡이는 누른 셋째 문단 옆에 선다(첫 문단 옆에 남으면 끌어도 순서가 그대로다).
-  // S70-33: 블록 편집을 켜면 손잡이는 먼저 첫 문단(커서 자리) 옆에 서고, 누른 뒤 편집기가 커서를 옮겨(selectionchange — 브라우저가 조금 뒤에 알림)
+  // S70-33·NOTE-블록모드찾기: 블록 편집을 켜면 손잡이는 먼저 첫 문단(커서 자리) 옆에 서고, 누른 뒤 편집기가 커서를 옮겨(selectionchange — 브라우저가 조금 뒤에 알림)
   // 셋째 옆으로 간다. 손잡이가 셋째 옆에 선 모습을 기다린다(누르자마자 한 번 재면 아직 첫 문단 옆일 수 있다).
   const gripOff = async () => {
     const g = await page.locator('[data-note-body-field] .ed-grip').boundingBox(), t = await third.boundingBox();
-    return Math.abs((g.y + g.height / 2) - (t.y + t.height / 2)) / t.height;
+    return g && t ? Math.abs((g.y + g.height / 2) - (t.y + t.height / 2)) / t.height : Infinity;
   };
   await expect.poll(gripOff).toBeLessThan(1);
   if (touch) await touchDrag(page, top, '[data-note-body-field]');

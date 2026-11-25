@@ -10,14 +10,16 @@ test('linkRecordHtml: record_input은 날짜만, basket·null은 잊지 말기 �
   const {linkRecordHtml,isDirectRecord,recordMenuLabel}=await import('../app/basket-link-records.js');
   const direct=linkRecordHtml(row({origin:'record_input'}));
   assert.doesNotMatch(direct,/잊지 말기 연결/);assert.doesNotMatch(direct,/data-record-mark/);
-  assert.match(direct,/<small><time>[^<]*2026[^<]*<\/time><\/small>/);
+  // UI-기록카드하나로(S70-42): 날짜는 글 기록 줄과 같은 왼쪽 날짜 칸('MM.DD.' 또는 올해가 아니면 'YY.M.D.'), 긴 날짜·시각은 title로만.
+  assert.doesNotMatch(direct,/<small>/);
+  assert.match(direct,/<span class="basket-link-day"><time datetime="2026-11-12T01:00:00.000Z" title="[^"]*2026[^"]*">(26\.)?11\.12\.<\/time><\/span>/);
   assert.match(direct,/aria-label="기록 메뉴"/);
   for(const origin of ['basket',null,undefined,'other']){
     const html=linkRecordHtml(row({origin}));
-    assert.match(html,/잊지 말기 연결 · <time>/,String(origin));assert.match(html,/data-record-mark="update"/);assert.match(html,/aria-label="잊지 말기 기록 메뉴"/);
+    assert.match(html,/잊지 말기 연결<\/small>/,String(origin));assert.match(html,/class="basket-link-day"><time/,String(origin));assert.match(html,/data-record-mark="update"/);assert.match(html,/aria-label="잊지 말기 기록 메뉴"/);
   }
   const note=linkRecordHtml(row({origin:'record_input',note_kind:'note',title:'합성 노트'}));
-  assert.match(note,/노트 연결 · <time>/);assert.equal(isDirectRecord(row({origin:'record_input',note_kind:'note'})),false);
+  assert.match(note,/노트 연결<\/small>/);assert.equal(isDirectRecord(row({origin:'record_input',note_kind:'note'})),false);
   assert.equal(recordMenuLabel(row({origin:'record_input'})),'기록 메뉴');assert.equal(recordMenuLabel(row({})),'잊지 말기 기록 메뉴');
 });
 

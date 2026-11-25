@@ -3,7 +3,6 @@ import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
-import { pinch } from './helpers/pinch.mjs';
 import { folderSheet, sheetRow, sheetGo, pickInSheet } from './helpers/folder-sheet.mjs';
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더](원드라이브 폴더 나무·폴더 안 사진·여러 장 옮기기·끌어 놓기·되돌리기·우클릭/⋯ 메뉴·새 폴더)와
 // [앨범](#태그: 새 앨범에 넣기·앨범 카드·앨범 사진·앨범에서 빼기). 지어낸 Supabase: onedrive-photos(Edge)·app_photo_tags·app_photo_tag_items·app_diary_stars.
@@ -123,7 +122,7 @@ for (const width of [412, 884, 1440]) {
       await expect(tree.locator('[data-photos-folder="S1"]')).toHaveClass(/ft-current/);
       if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/photos-pc-${width}-2-entered.png` });
     } else {
-      // 폰·폴드(FOLDER-나무새기준 ③): 첫 화면은 상자 나무 — 폴더를 누르면 그 자리에서 하위 폴더 + 처음 몇 장, 두 손가락 벌리기 = 그 폴더만(위치 줄 ‹), 뒤로가기 = 나무.
+      // 폰·폴드(FOLDER-나무새기준 ③): 첫 화면은 상자 나무 — 폴더를 누르면 그 자리에서 하위 폴더 + 처음 몇 장, ⋯ [이 폴더로 들어가기] = 그 폴더만(위치 줄 ‹), 뒤로가기 = 나무(S69-99: 두 손가락은 줄 크기).
       const box = root(page).locator('[data-photos-box="onedrive"]');
       await expect(box.locator('.ft-folder .ft-name')).toHaveText(['2026', '여행']);
       await expect(root(page).locator('[data-photos-fx-tree]')).toHaveCount(0);
@@ -132,13 +131,14 @@ for (const width of [412, 884, 1440]) {
       await expect(box.locator('.ft-folder .ft-name')).toHaveText(['2026', '여행', '제주']);
       await page.screenshot({ path: `test-results/ft-photos-tree-${width}.png` });
       await expect(path(page)).toHaveCount(0);
-      await pinch(page, box.locator('[data-photos-folder="S21"]'), 'out');
+      const enterPh = async id => { await box.locator(`[data-photos-fx-more="${id}"]`).click(); await page.locator('#photosFolderMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click(); };
+      await enterPh('S21');
       await expect(path(page)).toHaveText(at('카메라', '여행', '제주'));
       await expect.poll(() => ids(page)).toEqual(['C1']);
       await page.goBack();
       await expect(path(page)).toHaveCount(0);
       await expect(box.locator('[data-photos-folder="S21"]')).toBeVisible();
-      await pinch(page, box.locator('[data-photos-folder="S1"]'), 'out');
+      await enterPh('S1');
     }
     await expect(path(page)).toHaveText(at('카메라', '2026'));
     await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);

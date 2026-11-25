@@ -45,14 +45,14 @@ const routeStyles={
   arsenal:['./arsenal.css','./ui-standard.css'],
   // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
   outside:['./od-link.css','./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./folder-dest-sheet.css','./memo-thread.css','./ui-standard.css'],
-  files:['./od-link.css','./folder-tree.css','./source-chips.css','./folder-dest-sheet.css','./files.css','./folder-look.css','./ui-standard.css'],
+  files:['./od-link.css','./folder-tree.css','./source-chips.css','./folder-dest-sheet.css','./files.css','./folder-look.css','./marquee-select.css','./ui-standard.css'],
   updates:['./release-notes.css','./update-news.css','./small-form-modal.css','./ui-standard.css'],
   whatsnew:['./update-news.css','./ui-standard.css'],
   feedback:['./feedback.css','./ui-standard.css'],
   signups:['./signups.css','./ui-standard.css'],
   // SEC-기능PIN잠금 ②: 잠금 화면(설정 목록·숫자 판).
   lock:['./lock.css','./ui-standard.css'],
-  brief:['./feed.css','./news-mark-rows.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./ui-standard.css'],
+  brief:['./feed.css','./news-mark-rows.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./od-link.css','./ui-standard.css'],
   // S68-09 READ-읽을거리함: 읽을 거리 목록·글 보기(줄 메뉴는 feed.css 공용 작은 메뉴).
   reading:['./feed.css','./choice-sheet.css','./area-org-picker.css','./filter-chips.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./reading.css','./memo-thread.css','./ui-standard.css'],
   // HELP-메뉴안쓰는법: 쓰는 법 화면. 앱 내려받기 탭·단계는 빈 화면 안내와 같은 모양(first-use.css).
