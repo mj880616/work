@@ -719,3 +719,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* '보일 칸' 메뉴 체크 줄: 왼쪽 고정 폭 체크 자리(켜진 칸만 ✓). */
 #noteDocMenu .nl-check { display:inline-block; width:1.2em; color:var(--kptu-primary-ink,var(--kptu-primary)); }
 .nl-cols .nl-pub { color:var(--kptu-link); }
+/* S70-35 ③ 태그 칸: 칩 테두리 없는 작은 회색 #태그, 칸 너비에 들어가는 만큼 + 넘치면 +N(basket-notes.js fitListTags). */
+#basketView .nl-cols .nl-tagset { display:inline-flex; align-items:center; gap:4px; max-width:100%; overflow:hidden; white-space:nowrap; }
+.nl-cols .nl-tagset > .nl-tag, .nl-cols .nl-tagset > .nl-more { flex:none; }
+.nl-cols .nl-tagset > [hidden] { display:none; }

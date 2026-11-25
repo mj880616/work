@@ -345,7 +345,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
         const fid = r.path ? folderOf(note) : null, full = fid ? folderPath(folders, fid).map(f => f.name).join(' › ') : '';
         return r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''} title="${esc(full || r.path)}">${esc(r.path)}</span>` : '';
       }
-      if (key === 'tags') return hidden || importing ? '' : rowTagsHtml(note);
+      if (key === 'tags') return hidden || importing ? '' : listTagsHtml(note);
       if (key === 'clip') return note.attachments?.length && !hidden ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}<span class="nl-num" aria-hidden="true">${note.attachments.length}</span></span>` : '';
       if (hidden) return ''; // 잠긴 노트: 폴더·태그·날짜 밖 칸(메모·글자 수·공유)은 빈칸(지금 규칙 그대로 — 내용에서 나오는 값은 보이지 않는다)
       if (key === 'memo') { const n = memoCountOf(note); return n ? `<span aria-label="메모 ${n}개">${n}</span>` : ''; }
@@ -377,6 +377,49 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     });
     mountColResize({host:rowsBox, name:'notes', vars:LIST_COL_VARS, labels:LIST_COL_NAMES,
       fit:key => Math.ceil(Math.max(0, ...[...rowsBox.querySelectorAll(`.nl-cols ${key === 'title' ? '.basket-title' : `[data-nl-cell="${key}"]`}`)].map(listCellFit)))});
+  }
+  // S70-35 ③ 태그 칸: 태그를 모두 그려 두고(12개까지) 칸 너비에 들어가는 만큼만 보이고 넘치면 +N(fitListTags, 화면 읽기는 '외 N개').
+  // 폰(아래 작은 줄)은 지금처럼 앞 두 개 + N. 태그를 누르면 줄 누르기와 같다(노트 열기, 결정 ⑥가) — 줄 단추 안의 글자일 뿐이다.
+  const LIST_TAGS_MAX = 12, PHONE_TAGS = 2;
+  function listTagsHtml(note) {
+    const tags = tagsOfNote(note); if (!tags.length) return '';
+    const shown = tags.slice(0, LIST_TAGS_MAX).map(t => `#${esc([...t].slice(0, 12).join(''))}`);
+    return `<span class="nx-tags nl-tagset" data-nx-tags data-nl-tags="${tags.length}"><span class="a11y-only">태그: </span>`
+      + shown.map(t => `<span class="nl-tag">${t}</span>`).join(' ') + `<span class="nl-more" hidden></span></span>`;
+  }
+  // 칸 너비에 맞춰 보일 태그 수를 정한다: 먼저 모두 보이게 한 번 읽고(태그마다 폭), 그다음 한 번에 숨긴다(줄마다 읽기·쓰기 섞지 않음).
+  const MORE_ROOM = 28, TAG_GAP = 4;
+  function fitListTags(box) {
+    const sets = [...box.querySelectorAll('.nl-cols .nl-tagset')]; if (!sets.length) return;
+    const phone = !wideList.matches;
+    for (const set of sets) for (const t of set.querySelectorAll('.nl-tag[hidden]')) t.hidden = false;
+    const plan = sets.map(set => {
+      const tags = [...set.querySelectorAll('.nl-tag')], total = Number(set.dataset.nlTags) || tags.length;
+      if (phone) return {set, tags, keep:Math.min(PHONE_TAGS, tags.length), total};
+      const room = set.parentElement.clientWidth, widths = tags.map(t => t.getBoundingClientRect().width);
+      let used = 0, keep = 0;
+      for (let i = 0; i < widths.length; i++) {
+        const next = used + (i ? TAG_GAP : 0) + widths[i], restAfter = total - (i + 1);
+        if (next + (restAfter > 0 ? MORE_ROOM : 0) > room) break;
+        used = next; keep = i + 1;
+      }
+      return {set, tags, keep, total};
+    });
+    for (const {set, tags, keep, total} of plan) {
+      tags.forEach((t, i) => { const hide = i >= keep; if (t.hidden !== hide) t.hidden = hide; });
+      const more = set.querySelector('.nl-more'), rest = total - keep, text = rest > 0 ? `+${rest}` : '';
+      if (more.textContent !== text) { more.textContent = text; if (rest > 0) more.setAttribute('aria-label', `외 ${rest}개`); else more.removeAttribute('aria-label'); }
+      if (more.hidden !== !rest) more.hidden = !rest;
+    }
+  }
+  let tagFit = null;
+  function watchListTags(box) {
+    if (!globalThis.ResizeObserver) return;
+    // 태그 칸 너비가 바뀌면(칸 끌기·창 크기) 다시 맞춘다. 머리 줄 태그 칸 하나만 지켜본다(줄마다 지켜보지 않음).
+    tagFit ||= new ResizeObserver(() => fitListTags(box));
+    tagFit.disconnect();
+    const cell = box.querySelector('[data-nl-head] [data-nl-col="tags"]') || box.querySelector('.nl-cols [data-nl-cell="tags"]');
+    if (cell) tagFit.observe(cell);
   }
   // S67-48: 노트 줄 오른쪽에 그 노트 태그를 작게(앞 두 개 + 남은 수). 줄 단추 안의 글자일 뿐이다(누르면 노트가 열림). 잠긴 노트는 그리지 않는다.
   function rowTagsHtml(note) {
@@ -645,6 +688,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (rowsBox.style.getPropertyValue('--nl-grid') !== listGrid(cols)) rowsBox.style.setProperty('--nl-grid', listGrid(cols));
     rowsBox.innerHTML = rows.length ? listHeadHtml(cols) + rows.map(r => rowHtml({...r, cols})).join('') : pubOnly ? emptyHtml('맞는 노트 없음') : '';
     paintMemos = null;
+    if (cols.includes('tags')) { fitListTags(rowsBox); watchListTags(rowsBox); } else tagFit?.disconnect();
   }
   // NOTE-게시 ② 읽기 머리 한 줄: 게시 중일 때만 '게시 중 · 링크 복사 · 게시 멈춤'(잠근 폴더 노트는 [링크 복사] 없이).
   function paintPub() {

@@ -335,3 +335,43 @@ test('PC 1280: 잠긴 노트는 메모·글자 수·공유 칸이 빈칸', async
   await expect(open.locator('[data-nl-cell="chars"]')).not.toBeEmpty();
   expect(s.errors).toEqual([]);
 });
+
+// ---------- ③ 태그 칸(칸 너비 기준 +N, 결정 ⑥가 태그 누르기 = 노트 열기) ----------
+const tagsOf = row => row.locator('[data-nl-cell="tags"]').evaluate(el => ({ shown: [...el.querySelectorAll('.nl-tag')].filter(t => !t.hidden).length, more: el.querySelector('.nl-more')?.hidden ? '' : el.querySelector('.nl-more')?.textContent || '' }));
+
+test('PC 1280: 태그 4개 노트 — 칸 너비를 줄이면 보이는 태그가 줄고 +N이 늘어남', async ({ page }) => {
+  const s = await fixture(page, 1280, { prefs: { col_widths: { notes: { tags: 400 } } } });
+  const row = rowsBox(page).locator('[data-nx-note="n1"]');
+  await expect.poll(() => tagsOf(row)).toEqual({ shown: 4, more: '' });
+  // 글자로는 모든 태그('태그: #준비 #회의 …', 지금 [태그] 칸 글자와 같은 꼴).
+  await expect(row.locator('[data-nx-tags]')).toHaveText('태그: #준비 #회의 #가짜 #넷째');
+  // 금을 끌어 칸을 줄이면(서버 저장) 보이는 태그가 줄고 +N.
+  const grip = head(page).locator('[data-col-grip="tags"]');
+  const g = await grip.boundingBox(), y = g.y + g.height / 2, x = g.x + g.width / 2;
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x - 150, y, { steps: 5 }); await page.mouse.move(x - 300, y, { steps: 5 }); await page.mouse.up(); await settle(page);
+  await expect.poll(async () => (await tagsOf(row)).shown).toBeLessThan(4);
+  const narrow = await tagsOf(row);
+  expect(narrow.shown).toBeGreaterThanOrEqual(1);
+  expect(narrow.more).toBe(`+${4 - narrow.shown}`);
+  await expect(row.locator('.nl-more')).toHaveAttribute('aria-label', `외 ${4 - narrow.shown}개`);
+  // 칸 안에 넘치지 않는다.
+  expect(await row.locator('[data-nl-cell="tags"]').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  // 태그를 누르면 줄 누르기와 같다(노트 열기).
+  await row.locator('.nl-tag').first().click();
+  await expect(page.locator('#basketView [data-note-detail]')).toBeVisible();
+  expect(s.errors).toEqual([]);
+});
+
+test('PC 1280: 태그 칸 끄면 줄에 #태그 0개', async ({ page }) => {
+  const s = await fixture(page, 1280, { prefs: { note_cols: ['folder', 'day'] } });
+  await expect(rowsBox(page).locator('[data-nx-note="n1"]')).toBeVisible();
+  await expect(rowsBox(page).locator('.nl-cols [data-nx-tags], .nl-cols .nl-tag')).toHaveCount(0);
+  expect(await rowsBox(page).locator('[data-nx-note="n1"] .note-row').innerText()).not.toContain('#');
+  expect(s.errors).toEqual([]);
+});
+
+test('폰 390: 태그는 앞 두 개 + N(아래 작은 줄)', async ({ page }) => {
+  const s = await fixture(page, 390);
+  await expect.poll(() => tagsOf(rowsBox(page).locator('[data-nx-note="n1"]'))).toEqual({ shown: 2, more: '+2' });
+  expect(s.errors).toEqual([]);
+});
