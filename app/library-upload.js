@@ -79,6 +79,7 @@ import {memosNow,loadMemos} from './memo-store.js';
 import {readDroppedEntries,readPickedFiles,planFolderUpload,isBigFolder,skippedCount,skippedText,takenRoots,buildFolders,folderIdOf} from './library-folder-upload.mjs'; // S69-23 폴더째 올리기
 import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,resultText as luDropResultText,DROP_HINT} from './library-drop.js';
 import {word} from './brand/brand.mjs';
+import {bindSelectKeys,renameTarget} from './select-keys.js'; // UI-목록공용키(S70-18)
 import {fitSelectBar} from './select-bar.js'; // UI-고르기막대(S69-85): 선택 막대 한 줄 맞추기
 import {uploadLabelHtml} from './upload-label.mjs'; // UI-업로드말(S70-41): 클립 + 업로드
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -1414,7 +1415,15 @@ function luDragRowHtml0(d,node){const html=luAddSuggest(luRowHtml(d,node),d,node
 // Enter·바깥 누르기=저장, Esc=취소. 저장하면 줄 위 한 줄에 '이름을 바꿨어요 · 되돌리기'. 바꾸는 것은 Web2 제목뿐(Drive 원본 파일 이름 그대로).
 // 저장은 [수정] 창과 같은 서버 길(app_documents PATCH)이고 제목 칸을 사용자 값('user')으로 남긴다(library-rename.js). 브라우저 저장소는 쓰지 않는다.
 let luRename=null,luRenameBusy=false,luRenameNoticeToken=0,luKeepFocus=null;
-function luBindRename(list){list.addEventListener('keydown',e=>{if(e.key!=='F2'||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;const t=e.target;if(!(t instanceof Element)||t.closest('input,textarea,select,[contenteditable]'))return;const row=t.closest('[data-lu-document]');if(!row)return;e.preventDefault();luStartRename(row.dataset.luDocument)})}
+// UI-목록공용키(S70-18, N2·N3·N4): 목록 칸 Ctrl+A·Delete·F2는 공용 키 부품(select-keys.js)이 정하고, 할 일은 이 화면 길 그대로 —
+// Ctrl+A = [전체]와 같은 보이는 자료 모두(선택 모드가 아니면 켜면서), Delete = 고른 것이 있으면 선택 막대 [삭제](여럿·폴더는 한 번 묻기), 없으면 커서 줄 ⋯ [삭제](바로 빠지고 [되돌리기]),
+// F2 = 고른 자료 하나, 없으면 커서 줄 이름 바꾸기(폴더 머리 줄 F2는 폴더 부품 bindKeys). Esc = 고르기 풀기는 luOnSelEscape(문서 전체)가 맡는다.
+const luDocIdOf=e=>{const id=e.target.closest?.('[data-lu-document]')?.dataset.luDocument||null;return id&&luDocuments.some(d=>d.id===id)?id:null};
+function luBindRename(list){bindSelectKeys(list,{
+  all:()=>{if(luSelBusy||luRenameBusy)return false;const ids=luTwinIds(luVisibleIds());if(!ids.length)return false;const was=!!luPick.items;luPick.start(ids);if(was)luSyncPicks();else luRenderLibrary();return true},
+  delete:e=>{if(luSelBusy||luRenameBusy)return false;if(luPick.items?.size){void luSelDelete();return true}const id=luDocIdOf(e);if(!id)return false;luDeleteDocument(id);return true},
+  rename:e=>{if(luSelBusy||luRenameBusy||e.target.closest?.('summary.lu-node-head'))return false;const picked=luPick.items?splitPicks(luPick.items).docs.filter(id=>luDocuments.some(d=>d.id===id)):[];const id=renameTarget(picked,luDocIdOf(e));if(!id)return false;if(luPick.items){luPick.stop();luRenderLibrary()}luStartRename(id);return true},
+},{active:()=>window.KPTURouter?.current==='library',blocked:()=>!!(luActiveMenu||luFolderUi?.moveOpen||luBulkUi?.active)})}
 function luRenameNotice(text,{error=false,undo=null}={}){
   const token=++luRenameNoticeToken;luFolderStatus(text,error);
   const el=document.querySelector('#libraryFolderStatusLine');if(!el||!text)return;

@@ -953,6 +953,8 @@ jobs:
         run: node --test tests/select-mode-folder-path.test.mjs
       - name: S69 폰 꾹 누르기 = 선택 모드 + 그 줄 선택(공용 규칙) 시험
         run: node --test tests/longpress-select.test.mjs
+      - name: S70-18 UI-목록공용키 키 → 할 일 결정 표·F2 대상 규칙(select-keys.js) 시험
+        run: node --test tests/select-keys.test.mjs
       - name: S69-75 파일 폰 나무 줄 꾹 누르기 = 선택 모드 + 그 줄(공용 규칙) 시험
         run: node --test tests/files-tree-hold.test.mjs
       - name: S69-84 목록 엔진 통일 ① 꾹 누르기·고르기를 폰·폴드·PC 같은 규칙으로(손가락이냐 마우스냐) 시험
