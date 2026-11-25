@@ -20,7 +20,7 @@ async function advance(page,ms){
   }
   throw new Error('시험 시계가 '+ms+'ms 가지 않음');
 }
-async function boot(page,{connected=false}={}){
+async function boot(page,{connected=false,featuresDown=null}={}){
   // BUG-main브라우저시험: version-notice.js skips checks while navigator.onLine is false. Chromium
   // derives that value from the host's network interfaces, and a CI runner can report offline even
   // though every request here is mocked. Pin it online; the offline test below overrides it again.
@@ -49,7 +49,8 @@ async function boot(page,{connected=false}={}){
     else if(path==='/rest/v1/app_workspaces')data=[workspace];
     else if(path==='/rest/v1/app_profiles')data=[{user_id:user.id,display_name:'QA'}];
     // UPDATE-운영자전용기록업데이트소식: 새 판 안내 줄은 운영자에게만 뜬다(이 파일은 운영자 화면을 본다. 이용자 쪽은 release-notes.spec.mjs).
-    else if(path==='/rest/v1/rpc/app_my_features')data=['dev_inbox'];
+    // S70-52: featuresDown.on이면 운영자 판정 읽기가 서버 오류(503) — 열 때 한 번 실패한 경우를 흉내 낸다.
+    else if(path==='/rest/v1/rpc/app_my_features'){if(featuresDown?.on)return route.fulfill({status:503,contentType:'application/json',body:'{}'});data=['dev_inbox'];}
     else if(path==='/rest/v1/app_spaces')data=[{id:'version-project',workspace_id:workspace.id,name:'QA project',status:'active',owner_id:user.id,metadata:{project_system:'v2',management_version:2}}];
     else if(path==='/rest/v1/app_project_modules')data=[{project_id:'version-project',module_key:'progress',enabled:true,sort_order:10}];
     // MTG-프로젝트합치기 결정 ⑥: 상세 기록 목록에는 정리함 연결 줄만 그려지고 옛 진행 기록 고치기 칸도 없다. 초안은 이 연결 줄의
@@ -82,6 +83,17 @@ test('equal version has no notice; newer version appears after visibility change
   await expect(notice(page)).toHaveCount(0);
   await page.clock.install();await advance(page,CHECK_GAP);
   await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
+});
+// S70-52 APP-새판알림안뜸: 열 때 운영자 판정 읽기가 한 번 실패해도, 서버가 돌아온 뒤 새 판을 보면 다시 물어 안내가 뜬다
+// (전에는 그 한 번의 답을 탭이 살아 있는 내내 써서, 폰 앱처럼 오래 켜 둔 화면에는 새 판 안내가 끝내 뜨지 않았다).
+test('operator check that failed at open is asked again when a newer version appears',async({page})=>{
+  const featuresDown={on:true};
+  await boot(page,{featuresDown});await page.clock.install();
+  await response(page,current+1);const first=page.waitForResponse(origin+'/app/index.html');await visible(page);await first;await settled(page);
+  await expect(notice(page)).toHaveCount(0);
+  featuresDown.on=false;
+  await advance(page,CHECK_GAP);await visible(page);
+  await expect(notice(page)).toBeVisible();
 });
 test('dismissed deployment stays dismissed in this tab; later deployment appears',async({page})=>{
   await boot(page);await page.clock.install();await response(page,current+1);await visible(page);

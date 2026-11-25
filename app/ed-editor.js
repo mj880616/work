@@ -15,7 +15,7 @@
 // holds the rest, so reading the row then each list gives the same sequence on every width. When the row is too narrow for them,
 // they go back into their group from the right end (the last group first). Shortcuts show in each button's tooltip (SHORTCUTS).
 // ED-서식줄묶음 (2026-10-23 사용자 13:16): on a phone (max-width 760px) the same buttons are grouped so the row fits on one line:
-//   [본문 2 ▾] [굵게] [· ▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
+//   [본문 2 ▾] [굵게] [· ▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | ([⋮⋮] where the opener gives blocks) [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
 //   글자 ▾ = 기울임 밑줄 취소선 글자색 형광펜 서식 지우기 / 문단 ▾ = 정렬 목록 번호 들여쓰기 내어쓰기 인용 구분선
 //   넣기 ▾ = 표 사진 링크 지금 시각 서식 없이 붙여넣기 / 기호 ▾ = ※ → ① 「」 ([· ▾] is one button as on a wider screen: its list starts with ·)
 // The grouped buttons are the same nodes (moved, so their commands and state stay); a button that opens choices (글자색, 정렬, 목록…)
@@ -190,7 +190,8 @@ const BUTTONS = [
   ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['file', '파일', '파일 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
   ['symDot', '· ▾', '점 기호 선택', 'sym'], ['symNote', '※ ▾', '참고 기호 선택', 'sym'], ['symArrow', '→ ▾', '화살표 선택', 'sym'], ['symCircled', '① ▾', '동그라미 번호 선택', 'sym'],
   ['undo', '↶', '되돌리기', 'history'], ['redo', '↷', '다시하기', 'history'],
-  // NOTE-노션편집 ①(나): 블록 편집 켜기·끄기 (only where the opener gives `blocks`; in [문단 ▾]). Pressed = on (손잡이 ⋮⋮).
+  // NOTE-노션편집 ①(나): 블록 편집 켜기·끄기 (only where the opener gives `blocks`). Pressed = on (손잡이 ⋮⋮).
+  // NOTE-블록모드찾기(2026-11-25): a small icon button on the row itself (PHONE_ORDER, before ↶), not inside [문단 ▾] — every width the same place.
   ['blocks', '블록 모드', '블록 모드', 'blocks'],
 ];
 const PLAIN_PASTE_HINT = '복사한 글의 색·크기·표는 빼고 글자만 붙여요 (Ctrl+Shift+V)';
@@ -218,14 +219,13 @@ const GRID = {rows: 6, cols: 8};
 // ED-서식줄묶음: [key, label, aria, items (button keys, in order)] — a phone's grouped row (see the top of this file).
 const GROUPS = [
   ['gText', '글자 ▾', '글자 서식 선택', ['em', 'underline', 'strike', 'color', 'highlight', 'clear']],
-  // NOTE-노션편집 ①(나): [블록 편집] (켜기·끄기, ✓ = 켬) is the last of 문단, only where the opener gives `blocks`.
-  ['gPara', '문단 ▾', '문단 서식 선택', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule', 'blocks']],
+  ['gPara', '문단 ▾', '문단 서식 선택', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule']],
   ['gInsert', '넣기 ▾', '넣을 것 선택', ['table', 'photo', 'file', 'link', 'nowStamp', 'plainPaste']],
   ['gSym', '기호 ▾', '기호 선택', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
 ];
 const GROUP_KEYS = GROUPS.map(g => g[0]);
 // UI-화면정리 C(2026-10-28 명진 요청 20:03 B④): 폰도 PC와 같은 [· ▾] 한 칸(따로 있던 [·][▾] 두 칸은 하나로). 점은 펼친 목록 맨 앞.
-const PHONE_ORDER = ['style', 'strong', 'symDot', ...GROUP_KEYS, 'undo', 'redo'];
+const PHONE_ORDER = ['style', 'strong', 'symDot', ...GROUP_KEYS, 'blocks', 'undo', 'redo'];
 // NOTE-노션편집 ①(가): wider than a phone, each group's first buttons (a prefix of its list, in its order) stand on the row before the group button.
 export const PC_OUT = {
   gText: ['em', 'underline', 'strike', 'color', 'highlight'],
@@ -1584,7 +1584,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const vv = window.visualViewport;
     const view0 = {l: vv ? vv.offsetLeft : 0, t: vv ? vv.offsetTop : 0, w: vv ? vv.width : innerWidth, h: vv ? vv.height : innerHeight};
     const gap = 4, side = 8, bottomRoom = view0.w <= 760 ? 72 : 12;
-    pop.style.maxHeight = ''; pop.style.maxWidth = '';
+    pop.style.maxHeight = ''; pop.style.maxWidth = ''; pop.style.overflowY = '';
     if (pop.getBoundingClientRect().width > view0.w - side * 2) pop.style.maxWidth = `${Math.max(120, view0.w - side * 2)}px`;
     pop.style.left = '0px'; pop.style.top = '0px';
     const t = trigger.getBoundingClientRect(), size = pop.getBoundingClientRect();
@@ -1597,6 +1597,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     // (A button inside a scrolled group popover can sit above the screen's top: the popover stays on the screen.)
     const top = Math.max(ceiling, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
     pop.style.maxHeight = `${room}px`;
+    // NOTE-블록모드찾기(2026-11-25): a list that fits shows no scroll bar. Its buttons' 44px press area (::after) reaches a few px past the box
+    // edge, which alone made the list "scroll" with every item already in view; it scrolls only when the list is taller than the room.
+    pop.style.overflowY = size.height <= room ? 'hidden' : '';
     // (The left floor is the screen's side margin, or the button's own left when the button sits closer to the edge, so a popover
     // under the first button of a tight phone row still starts on that button.)
     const left = Math.max(view0.l + Math.min(side, Math.max(0, t.left - view0.l)), Math.min(t.left, view0.l + view0.w - side - size.width));
@@ -1845,8 +1848,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       if (panels[k].childElementCount !== inside.length || inside.some((b, i) => panels[k].children[i] !== b)) panels[k].replaceChildren(...inside);
       buttons[k].hidden = n >= items.length;
     }
-    // A small gap before each part: [단계] | 굵게 · | each group | ↶ ↷.
-    const starts = new Set([buttons.strong, buttons.undo]);
+    // A small gap before each part: [단계] | 굵게 · | each group | [⋮⋮ 블록 모드] ↶ ↷.
+    const starts = new Set([buttons.strong, buttons.blocks || buttons.undo]);
     for (const k of GROUP_KEYS) starts.add(groupItems(k).slice(0, outCount[k] || 0)[0] || buttons[k]);
     for (const b of Object.values(buttons)) b.classList.remove('ed-gap');
     for (const b of row) if (starts.has(b)) b.classList.add('ed-gap');

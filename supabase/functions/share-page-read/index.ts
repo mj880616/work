@@ -5,6 +5,7 @@ import { createShareReadHandler } from "./handler.ts";
 // 서버 키는 이 함수 안에서만 쓴다. DB에서 service_role은 링크 지문·기한·끔과 페이지 제목·블록·상태 칸, 사진 기록의 id·페이지·경로 칸,
 // 짧은 주소의 지문 두 칸, HTML 판의 페이지·글자·만든 시각 칸, 노트 게시 짝의 페이지·노트 두 칸만 읽을 수 있다.
 // 노트 표(app_notes)는 service_role 표 권한이 원래 있다(basket-files 등). 이 함수는 짝이 가리킨 노트 하나의 보여 줄 칸만 고른다.
+// BLOG ①: 블로그 세 표(app_blogs·app_blog_boards·app_blog_posts)의 정해진 칸, 블로그 작업공간 함수(app_operator_feature_workspace)도 읽는다.
 // NOTE-게시 ③: 노트 사진은 주인 화면이 게시할 때 올린 짝 페이지 사진 기록(app_share_page_media, 위 mediaForPage)으로만 보인다. Drive는 읽지 않는다.
 const admin = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -73,6 +74,83 @@ Deno.serve(createShareReadHandler({
       .maybeSingle();
     if (error) throw new Error("note lookup failed");
     return data;
+  },
+  // BLOG ①: 블로그 작업공간은 서버 허용 표가 정한다(허용된 작업공간이 정확히 하나일 때만). 세 표는 service_role이 정해진 칸만 읽는다.
+  // 노트 표는 짝 노트의 휴지통 여부(id·deleted_at)만 본다(글은 읽지 않음 — 블로그 글은 페이지 사본).
+  blog: {
+    async workspace() {
+      const { data, error } = await admin.rpc("app_operator_feature_workspace", { p_feature: "blog" });
+      if (error) throw new Error("blog workspace lookup failed");
+      return typeof data === "string" ? data : null;
+    },
+    async blogByWorkspace(workspaceId) {
+      const { data, error } = await admin.from("app_blogs")
+        .select("id,workspace_id,title,intro,enabled,indexable")
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
+      if (error) throw new Error("blog lookup failed");
+      return data;
+    },
+    async boardsForBlog(blogId) {
+      const { data, error } = await admin.from("app_blog_boards")
+        .select("id,blog_id,name,sort,public_key")
+        .eq("blog_id", blogId)
+        .limit(200);
+      if (error) throw new Error("blog boards lookup failed");
+      return data || [];
+    },
+    async postsForBoards(boardIds) {
+      const { data, error } = await admin.from("app_blog_posts")
+        .select("board_id,page_id,note_id,public_key,published_at,republished_at")
+        .in("board_id", boardIds)
+        .order("published_at", { ascending: false })
+        .limit(2000);
+      if (error) throw new Error("blog posts lookup failed");
+      return data || [];
+    },
+    async postByKey(key) {
+      const { data, error } = await admin.from("app_blog_posts")
+        .select("board_id,page_id,note_id,public_key,published_at,republished_at")
+        .eq("public_key", key)
+        .maybeSingle();
+      if (error) throw new Error("blog post lookup failed");
+      return data;
+    },
+    // 주소 길이를 넘지 않게 100개씩 나눠 묻는다.
+    async pagesByIds(ids) {
+      const out = [];
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data, error } = await admin.from("app_share_pages")
+          .select("id,title,blocks,status")
+          .in("id", ids.slice(i, i + 100));
+        if (error) throw new Error("blog pages lookup failed");
+        out.push(...(data || []));
+      }
+      return out;
+    },
+    async notesByIds(ids) {
+      const out = [];
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data, error } = await admin.from("app_notes")
+          .select("id,deleted_at")
+          .in("id", ids.slice(i, i + 100));
+        if (error) throw new Error("blog notes lookup failed");
+        out.push(...(data || []));
+      }
+      return out;
+    },
+    async mediaForPage(pageId, ids) {
+      const { data, error } = await admin.from("app_share_page_media")
+        .select("id,storage_path")
+        .eq("page_id", pageId)
+        .in("id", ids);
+      if (error) throw new Error("media lookup failed");
+      return data || [];
+    },
+    async signMedia(path, seconds) {
+      const { data, error } = await admin.storage.from("share-page-media").createSignedUrl(path, seconds);
+      return error || !data ? null : data.signedUrl;
+    },
   },
   async signMedia(path, seconds) {
     const { data, error } = await admin.storage.from("share-page-media").createSignedUrl(path, seconds);
