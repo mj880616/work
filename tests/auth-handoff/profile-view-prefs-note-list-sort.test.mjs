@@ -1,7 +1,7 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
 // S70-35 NOTE-목록표머리 ①-2(20261125100000_profile_view_prefs_note_list_sort): app_profiles_view_prefs_check accepts one more key,
 // note_list_sort ({key: title|folder|changed|created|clip|memo|chars, dir: asc|desc}, the note [list] head sort) through the approved DB workflow runner.
-// - 다른 칸 규칙 그대로(앞 판 profile_view_prefs_note_blocks의 예순 칸을 그대로 받고, 전에 거절하던 값은 계속 거절).
+// - 다른 칸 규칙 그대로(앞 판 profile_view_prefs_row_size의 예순한 칸을 그대로 받고, 전에 거절하던 값은 계속 거절).
 // - 권한 그대로: 프로필은 내 행만, anon은 못 읽는다. 표 권한·정책 수 그대로.
 // - 승인형 workflow의 plan·dry-run·apply가 통과하고, rollback은 note_list_sort가 저장돼 있으면 멈춘 뒤 비우면 앞 판 검사와 글자 그대로 같은 모양으로 돌아간다.
 import test from 'node:test';
@@ -101,6 +101,7 @@ const NEWS_FONT5='20261123010000_profile_view_prefs_news_font5';
 const DRIVE_IMPORT='20261124110000_profile_view_prefs_drive_import';
 const FILES_SORT='20261124170000_profile_view_prefs_files_sort';
 const NOTE_BLOCKS='20261125080000_profile_view_prefs_note_blocks';
+const ROW_SIZE='20261125090000_profile_view_prefs_row_size'; // S70-49: #3030이 먼저 merge되어 그 뒤로 줄 세움
 
 test('view prefs note list sort: plan, dry-run, apply, own-row writes, CHECK and guarded rollback',{timeout:200000},async t=>{
  const directory=await mkdtemp(join(tmpdir(),'view-prefs-note-list-sort-pg-')),sock=createServer();await new Promise(r=>sock.listen(0,'127.0.0.1',r));const port=sock.address().port;await new Promise(r=>sock.close(r));
@@ -124,18 +125,18 @@ test('view prefs note list sort: plan, dry-run, apply, own-row writes, CHECK and
   const guardFails=async pattern=>{const c=await pool.connect();try{await assert.rejects(c.query(migration),pattern);await c.query('rollback');}finally{c.release();}};
   const [precheck,postcheck,snapshot,rollbackSQL,summary]=await Promise.all(['precheck.sql','postcheck.sql','snapshot.sql','rollback.sql','summary.md'].map(k=>read('docs/'+stem+'.'+k)));
 
-  // 앞 판(note_blocks)까지 받던 예순 칸을 모두 담은 값(시험용 가짜 이름): 적용 뒤에도 통째로 받아야 한다.
+  // 앞 판(row_size)까지 받던 예순한 칸을 모두 담은 값(시험용 가짜 이름): 적용 뒤에도 통째로 받아야 한다.
   const ALL_OLD={theme:'lemon',split_ratio:{tasks:0.4,telegram:0.3,reports3:0.25,photos:0.3,noteboard:0.2,now:0.35,files:0.3,library:0.42},home_cards:['quiet','todo'],diary_view:'list',photo_view:{filter:'star',cols:4,sort:'name_asc'},quiet_weeks:3,note_view:'board',note_boards:[{id:'b1a2b3c4',name:'보드'}],note_board:'b1a2b3c4',photo_hint:2,photo_sources:{onedrive:true,phone:false},org_tab:'table',tg_view:'room',phone_folders_off:['DCIM/Camera/'],album_view:'thumb',now_tab:'news',collect_hidden_on:'2026-11-01',link_hidden_on:'2026-11-01',ed_more:true,
    nav_collapsed:true,calendar_view:'week',home_quick_mode:'task',note_folder:'all',report_view:'calendar',menu_layout:{bar:['home','tasks'],rest:['notes']},photo_cols:4,photo_cols_wide:8,diary_onedrive:false,
    phone_folders_known:['0123abcd'],col_widths:{files:{name:240,day:90}},photo_sources_phone:{phone:true,onedrive:false},photo_sources_pc:{onedrive:true,gdrive:false},photo_level:'month',report_period:{mode:'range',from:'2026-10-01',to:'2026-10-31'},files_sources:{app:{od:true,gd:false},pc:{gd:true}},files_dest_recent:[{source:'gd',id:'gdFolder1',name:'가짜 업무 공간'}],files_two:{pc:{fold:true}},note_sort:'manual',photo_zoom:{app:'day',pc:'year'},
    org_order:{groups:[{name:'가묶음',orgs:['가짜노조']}],hidden:['옛 가짜 조직']},report_calendar:'가짜 업무 달력',news_tab:'media',news_font:'l',
    files_look:{app:{narrow:'grid'},pc:{wide:'big'}},recent_folded:['files'],files_panes:{app:['od','ph'],pc:['pc','gd']},box_shut:{pc:{files:['od']}},
-   files_tree:{app:{fold:true},pc:{wide:false}},files_pins:['od:F1','gd:x'],files_last:[{od:'F1'},{gd:'x'}],category_roles:{weekly_team:'가짜보고›팀 판'},org_row_order:'desc',library_two:true,biz_week_open:{pc:false,app:true},note_zoom:110,record_backup:{auto:true,intro:false},home_off:['suggests'],drive_import_folder:'1FakeDriveFolder_Id-01',files_sort:{key:'modified',dir:'desc'},note_blocks:true};
+   files_tree:{app:{fold:true},pc:{wide:false}},files_pins:['od:F1','gd:x'],files_last:[{od:'F1'},{gd:'x'}],category_roles:{weekly_team:'가짜보고›팀 판'},org_row_order:'desc',library_two:true,biz_week_open:{pc:false,app:true},note_zoom:110,row_size:'l',record_backup:{auto:true,intro:false},home_off:['suggests'],drive_import_folder:'1FakeDriveFolder_Id-01',files_sort:{key:'modified',dir:'desc'},note_blocks:true};
   const RANGE={note_list_sort:{key:'title',dir:'asc'}};
   const GOOD=[...['title','folder','changed','created','clip','memo','chars'].flatMap(key=>['asc','desc'].map(dir=>({note_list_sort:{key,dir}}))),{note_list_sort:{key:'folder',dir:'desc'},note_blocks:true,files_sort:{key:'size',dir:'asc'},news_font:'xxl'}];
   const BAD=[{note_list_sort:'title'},{note_list_sort:null},{note_list_sort:{}},{note_list_sort:{key:'title'}},{note_list_sort:{dir:'asc'}},{note_list_sort:{key:'tags',dir:'asc'}},{note_list_sort:{key:'Title',dir:'asc'}},{note_list_sort:{key:'title',dir:'up'}},{note_list_sort:{key:'title',dir:'asc',x:1}},{note_list_sort:['title','asc']},{note_list_sort:{key:1,dir:'asc'}},{notelist_sort:{key:'title',dir:'asc'}}];
 
-  await t.test('guard: stops without changes when the note blocks step is not recorded',async()=>{
+  await t.test('guard: stops without changes when the row size step is not recorded',async()=>{
    await guardFails(/PROFILE_VIEW_PREFS_NOTE_LIST_SORT_PREREQUISITE_CHANGED/);
    await pool.query(await read('supabase/migrations/'+NEWS_PREFS+'.sql'));
    await pool.query(await read('supabase/migrations/'+FILES_LOOK+'.sql'));
@@ -168,6 +169,8 @@ test('view prefs note list sort: plan, dry-run, apply, own-row writes, CHECK and
    await pool.query(await read('supabase/migrations/'+FILES_SORT+'.sql'));
    await guardFails(/PROFILE_VIEW_PREFS_NOTE_LIST_SORT_PREREQUISITE_CHANGED/);
    await pool.query(await read('supabase/migrations/'+NOTE_BLOCKS+'.sql'));
+   await guardFails(/PROFILE_VIEW_PREFS_NOTE_LIST_SORT_PREREQUISITE_CHANGED/);
+   await pool.query(await read('supabase/migrations/'+ROW_SIZE+'.sql'));
   });
   const prevDef=await checkDef();
   const before=(await pool.query(snapshot)).rows,beforeCheck=(await pool.query(precheck)).rows;
@@ -177,8 +180,8 @@ test('view prefs note list sort: plan, dry-run, apply, own-row writes, CHECK and
    assert.equal(v['prerequisite recorded'],'예');assert.equal(v['new migration absent'],'예');
    assert.equal(v['view prefs check without note list sort'],'예');assert.equal(v['saved note list sorts'],'0');
    await assert.rejects(write(OWNER,OWNER,RANGE),{code:'23514'});
-   assert.equal((await write(OWNER,OWNER,{note_blocks:true})).rowCount,1,'the previous step (note blocks) is in place');
-   assert.equal(Object.keys(ALL_OLD).length,60,'all keys of the note blocks check');
+   assert.equal((await write(OWNER,OWNER,{row_size:'l'})).rowCount,1,'the previous step (row size) is in place');
+   assert.equal(Object.keys(ALL_OLD).length,61,'all keys of the row size check');
    assert.equal((await write(OWNER,OWNER,ALL_OLD)).rowCount,1,'every previous key is accepted before');
    await write(OWNER,OWNER,null);
   });

@@ -88,6 +88,7 @@ async function look(o) {
     return {
       height: Math.round(m.getBoundingClientRect().height), font: cs.fontSize,
       icon: i ? Math.round(i.getBoundingClientRect().width) : null,
+      iconLeft: i ? Math.round(i.getBoundingClientRect().left - r.left) : null, // 줄 왼쪽 끝에서 폴더 그림까지(왼쪽 여백)
       dotsW: db ? Math.round(db.width) : null, dotsH: db ? Math.round(db.height) : null, dotsRight: db ? Math.round(r.right - db.right) : null,
       numFont: n ? getComputedStyle(n).fontSize : null,
       // 옛 사진·노트 줄(.nx-row)이 남아 있지 않은지.
@@ -123,10 +124,9 @@ for (const width of [390, 880, 1280]) for (const [name, slug, open] of SCREENS) 
     const got = await look(o);
     await page.screenshot({ path: `${SHOTS}/s69-90-${slug}-${width}.png` });
     expect(got.old, `${name}: 옛 줄 모양(.nx-row)이 없다`).toBe(false);
-    // 자료실 폰 목록 폴더 묶음 머리는 앞 확정(LIB-목록간격 ② 글자 = 자료 줄 이름·간격 36px, LIB-토글트리 ③ ⋯ 28px)을 지킨다 —
-    // 높이·글자·⋯는 자료 줄 모양과 함께 명진 결정 뒤 맞춘다(S69-85 남은 일). 그림·개수 글씨만 비교.
-    const libList = name === '자료실' && width < 761;
-    const keys = ['height', 'font', 'icon', 'dotsW', 'dotsH', 'dotsRight', 'numFont'].filter(k => !libList || ['icon', 'numFont'].includes(k));
+    // UI-폴더줄크기(S69-99, 명진 11/25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로"): 자료실 폰 목록 폴더 묶음 머리도 모든 값이 [파일]과 같다
+    // (전의 LIB-목록간격 ②·LIB-토글트리 ③ 예외를 대신함).
+    const keys = ['height', 'font', 'icon', 'dotsW', 'dotsH', 'dotsRight', 'numFont', ...(width < 761 ? ['iconLeft'] : [])];
     for (const k of keys) expect(got[k], `${name} ${width} ${k}`).toBe(base[k]);
     expect(o.errors).toEqual([]);
   });

@@ -21,7 +21,7 @@ test('real share-page-read graph checks/bundles with functions-only sources',{ti
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  assert.deepEqual(local.sort(),['share-page-read/handler.ts','share-page-read/index.ts']);
+  assert.deepEqual(local.sort(),['share-page-read/blog.ts','share-page-read/handler.ts','share-page-read/index.ts']);
   run(['check','--no-config',entry]);const bundle=join(isolated,'share-page-read.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });
