@@ -456,3 +456,81 @@ test('cron: approved apply flow for 20261124220000 runs to the end with producti
   assert.equal(changed.ok, false);
   assert.match(changed.summary, /사후 확인 실패/);
 });
+
+// S70-01b: 운영 dry-run(20261124220000)이 '시험 적용'에서 '쓰기 요청이 결과 행을 돌려줌'으로 멈췄다.
+// `select cron.schedule(...)`이 작업 번호 행 하나를 돌려주기 때문. cron 문장으로 판정된 파일의 migration 본문 쓰기에서만
+// 그 단일 값 행을 받고, 다른 쓰기 요청의 결과 행(update … returning, insert … returning 등)은 그대로 실패한다.
+const cronFlow = async ({ planFile = '20261124220000_cron_history_trim.sql', writeRows }) => {
+  const { makePlan } = await import('../../scripts/ops/db-workflow.mjs');
+  const { runFullPlan } = await import('../../scripts/ops/db-migration-run.mjs');
+  const repo = new URL('../../', import.meta.url).pathname;
+  const plan = makePlan('dry-run', '8', 'refs/heads/main', planFile, repo);
+  const pre = [['pg_cron ready', '예'], ['cron timezone UTC', '예'], ['trim job absent', '예'], ['new migration absent', '예'],
+    ['cron jobs', '4'], ['other cron jobs hash', 'a'.repeat(32)], ['retention daily job present', '아니오']];
+  const query = async (sql, opts = {}) => {
+    if (sql.startsWith('select count(*)::int as count from supabase_migrations')) return [{ count: 0 }];
+    if (sql === plan.checks.precheck.sql) return pre.map(([item, value]) => ({ item, value }));
+    if (plan.checks.dryRunPostcheck && sql === plan.checks.dryRunPostcheck.sql) return [{ item: 'x', value: '예' }];
+    if (sql === plan.snapshot.sql) return [{ kind: 'cron job', name: 'web2_feed_tick', definition: '* * * * *:active=true' }];
+    assert.ok(!opts.readOnly, 'unexpected read');
+    return writeRows(sql, plan);
+  };
+  return { plan, result: await runFullPlan(plan, query, { saveSnapshot: async () => {} }) };
+};
+
+test('cron result row: the job id row from cron.schedule passes the dry-run write check (number or digit string)', async () => {
+  for (const id of [12, '12']) {
+    const { result } = await cronFlow({ writeRows: () => [{ schedule: id }] });
+    assert.equal(result.ok, true, `${id}: ${result.summary}`);
+    assert.doesNotMatch(result.summary, /쓰기 요청이 결과 행을 돌려줌/);
+  }
+});
+
+test('cron result row: any other row shape from a cron file write still fails (no widening)', async () => {
+  const bad = [
+    [{ schedule: 12 }, { schedule: 13 }], // more schedule rows than schedule calls
+    [{ unschedule: true }], // no unschedule in the file
+    [{ schedule: 12, command: 'x' }], // extra column
+    [{ jobid: 12 }], // other column name
+    [{ schedule: 0 }], [{ schedule: -1 }], [{ schedule: '12; drop' }], [{ schedule: null }], [{ schedule: true }],
+    [{ id: 1, workspace_id: 'w' }], // update … returning / insert … returning shaped rows
+    [{ schedule: 12 }, { id: 1 }],
+  ];
+  for (const rows of bad) {
+    const { result } = await cronFlow({ writeRows: () => rows });
+    assert.equal(result.ok, false, JSON.stringify(rows));
+    assert.match(result.summary, /쓰기 요청이 결과 행을 돌려줌/, JSON.stringify(rows));
+  }
+});
+
+test('cron result row: unit — only expanded cron plans, only fixed single-value rows within the call count', async () => {
+  const { cronResultRows } = await import('../../scripts/ops/db-migration-run.mjs');
+  const cronPlan = { expanded: true, review: { cron: ['a'] } };
+  const reRegister = { expanded: true, review: { cron: ['a'], cronUnscheduled: ['a'] } };
+  assert.equal(cronResultRows(cronPlan, [{ schedule: 1 }]), true);
+  assert.equal(cronResultRows(reRegister, [{ unschedule: true }, { schedule: '7' }]), true);
+  assert.equal(cronResultRows(reRegister, [{ unschedule: false }]), false);
+  assert.equal(cronResultRows(cronPlan, [{ unschedule: true }]), false);
+  // Plans that are not cron files (strict, or expanded without cron) never accept rows: update/insert … returning stays refused.
+  for (const plan of [{ rules: 'strict', review: { cron: ['a'] } }, { expanded: true, review: {} }, { expanded: true }, null]) {
+    assert.equal(cronResultRows(plan, [{ schedule: 1 }]), false, JSON.stringify(plan));
+    assert.equal(cronResultRows(plan, [{ id: 1 }]), false, JSON.stringify(plan));
+  }
+  // The re-register migration form records the unschedule name for the run step.
+  const re = validateExpanded(wrap(`select cron.unschedule('${cronName}');\n${cronOf(cronTrim)}`), { version, name });
+  assert.deepEqual(re.review.cron, [cronName]); assert.deepEqual(re.review.cronUnscheduled, [cronName]);
+  assert.equal(validateExpanded(wrap(cronOf(cronTrim)), { version, name }).review.cronUnscheduled, undefined);
+});
+
+test('write result row: the same flow without the cron judgment refuses every result row, even the schedule shape', async () => {
+  // 같은 흐름에서 plan을 cron 아닌 파일로 바꿔 보면(review.cron 없음) cron.schedule 모양 행도, returning 모양 행도 실패한다.
+  const { makePlan } = await import('../../scripts/ops/db-workflow.mjs');
+  const repo = new URL('../../', import.meta.url).pathname;
+  const original = makePlan('dry-run', '8', 'refs/heads/main', '20261124220000_cron_history_trim.sql', repo);
+  assert.deepEqual(original.review.cron, ['web2_cron_history_trim']);
+  for (const rows of [[{ schedule: 12 }], [{ id: 1 }], [{ count: 3 }]]) {
+    const { result } = await cronFlow({ writeRows: (sql, plan) => { delete plan.review.cron; return rows; } });
+    assert.equal(result.ok, false, JSON.stringify(rows));
+    assert.match(result.summary, /쓰기 요청이 결과 행을 돌려줌/, JSON.stringify(rows));
+  }
+});
