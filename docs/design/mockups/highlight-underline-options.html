@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 형광펜·밑줄 합치기 세 안 (S70-16)</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--bg:#f4f3f7;--sel:#cfe0f7;
+    --y:#f3e7b0;--g:#d6e8cf;--b:#d3e1ef;--p:#efd6dc;--o:#f1dcc4;--u:#9a8f5a}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.55;max-width:900px}
+  .opt{margin:0 16px 22px;padding:10px 12px;background:#f8f8fa;border:1px solid var(--line);border-radius:12px;max-width:1060px}
+  .opt h2{font-size:14px;margin:2px 0 6px}
+  .opt h2 .rec{font-size:11.5px;background:#5c5470;color:#fff;border-radius:999px;padding:1px 8px;margin-left:6px;font-weight:600}
+  .opt ul{margin:0 0 8px 18px;padding:0;font-size:12.5px;line-height:1.55;color:#4a4652}
+  .row{display:flex;flex-wrap:wrap;gap:14px}
+  .pc{width:620px;background:#fff;border:1px solid #d6d4dd;border-radius:10px;padding:10px 12px;position:relative;min-height:190px}
+  .pc .txt{width:420px;font-size:13.5px;line-height:1.75}
+  .phone{width:300px;background:var(--bg);border:1px solid #d6d4dd;border-radius:18px;padding:10px;position:relative;min-height:250px}
+  .phone .txt{font-size:13px;line-height:1.7;background:#fcfcfd;border:1px solid var(--line);border-radius:10px;padding:8px}
+  .cap{font-size:11.5px;color:var(--faint);margin-bottom:4px}
+  .sel{background:var(--sel)}
+  .m-y{background:var(--y)}.m-g{background:var(--g)}.m-b{background:var(--b)}.m-p{background:var(--p)}.m-o{background:var(--o)}
+  .m-u{text-decoration:underline;text-decoration-color:var(--u);text-decoration-thickness:2px;text-underline-offset:3px}
+  .bar{display:inline-flex;align-items:center;gap:3px;background:#fff;border:1px solid #cfccd8;border-radius:9px;padding:3px 6px;font-size:12px;box-shadow:0 3px 10px rgba(0,0,0,.08)}
+  .bar .lb{color:var(--faint);font-size:11.5px;cursor:grab;padding:0 3px}
+  .bar .grip{color:#b3afbd;cursor:grab;letter-spacing:-2px;padding-right:2px}
+  .bar .a{padding:3px 7px;border-radius:6px;color:var(--ink)}
+  .bar .a:hover{background:#efeef4}
+  .bar .dot{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.12);display:inline-block}
+  .bar .dot.on{outline:2px solid #5c5470;outline-offset:1px}
+  .bar .ul{width:16px;height:14px;display:inline-block;border-bottom:2px solid var(--u);font-size:10px;line-height:12px;text-align:center;color:var(--u)}
+  .bar .x{opacity:.6;padding:0 4px}
+  .pc .bar{position:absolute;left:452px;top:44px;flex-direction:column;align-items:stretch}
+  .pc .bar.h{flex-direction:row}
+  .pc .bar .dots{display:flex;gap:4px;padding:3px 4px}
+  .phone .bar{position:absolute;left:10px;right:10px;bottom:46px;justify-content:space-between}
+  .tab{position:absolute;left:0;right:0;bottom:0;height:38px;border-top:1px solid var(--line);background:#fff;border-radius:0 0 18px 18px;font-size:11px;color:var(--faint);display:flex;justify-content:space-around;align-items:center}
+  .tbl{font-size:12px;border-collapse:collapse;margin:4px 0 0}
+  .tbl td,.tbl th{border:1px solid var(--line);padding:3px 7px;text-align:left;vertical-align:top}
+  .tbl th{background:#efeef4;font-weight:600}
+</style>
+</head>
+<body>
+<h1>형광펜·밑줄 — 세 가지 안 (S70-16)</h1>
+<p class="note">실데이터 없는 그림입니다. 공통: 고른 글을 <b>뗀 뒤</b> 막대가 뜨고, PC는 글 칸 옆 빈 곳(오른쪽 → 왼쪽 → 고른 글 위 → 아래 순), 폰은 하단바 바로 위 고정 줄이라 고른 글과 다음 줄을 가리지 않습니다. PC에서는 막대의 <b>⋮⋮·'선택한 글' 글자 쪽을 왼쪽 단추로 잡고 끌면</b> 옮겨지고, 단추 위에서는 끌리지 않습니다(옮긴 자리는 그 글을 읽는 동안만). 색은 톤다운 노랑(기본)·초록·파랑·분홍·주황 다섯 개, 마지막에 쓴 색은 서버에 남아 다른 기기에서도 이어집니다.</p>
+
+<div class="opt">
+  <h2>(가) 하나로 합침 — [표시] 하나 + 색 점 + 밑줄 모양</h2>
+  <ul>
+    <li>막대: [메모][노트로][복사][공유] + 색 점 다섯 + 밑줄 모양 하나. 점을 누르면 그 색으로 글 안에 표시, 밑줄 모양을 누르면 밑줄.</li>
+    <li>모든 표시가 글 안에 보이고, 노트 › [밑줄]·저장한 글 [밑줄] 모아 보기에는 전부 모임(색으로 걸러 보기).</li>
+    <li>장점: 단추가 가장 적고 '표시는 다 한 곳에' — 헷갈릴 일이 없음. 단점: 모아 보기에 가볍게 칠한 것까지 쌓여 길어짐.</li>
+    <li>지금 밑줄 기록: 지우지 않고 '노랑 형광'으로 그대로 보임(이미 노란 바탕이라 모양도 같음). DB: 이번 칸 두 개로 끝, 옮기기 PR 하나 더(기록 값만 채움).</li>
+  </ul>
+  <div class="row">
+    <div class="pc"><div class="cap">PC — 글 칸 오른쪽 여백</div>
+      <div class="txt">첫 문단 앞부분입니다. <span class="m-y">이미 칠해 둔 노랑 표시</span> 뒤로 글이 이어집니다. <span class="sel">끌어 고른 두 문단의 앞쪽 줄이고 이어서 다음 문단까지 고른 상태입니다.</span> 그다음 줄 글은 막대에 가리지 않고 그대로 보입니다. 아래 줄도 그대로입니다.</div>
+      <div class="bar"><span class="lb"><span class="grip">⋮⋮</span>선택한 글</span><span class="dots"><i class="dot m-y on"></i><i class="dot m-g"></i><i class="dot m-b"></i><i class="dot m-p"></i><i class="dot m-o"></i><i class="ul">가</i></span><span class="a">메모</span><span class="a">노트로</span><span class="a">복사</span><span class="a">공유</span><span class="x">✕</span></div>
+    </div>
+    <div class="phone"><div class="cap">폰 — 하단바 위 고정 줄</div>
+      <div class="txt">첫 줄 글. <span class="sel">고른 두 문단 앞부분과 다음 문단 첫 줄까지.</span> 다음 줄 글도 가리지 않습니다.</div>
+      <div class="bar"><i class="dot m-y on"></i><i class="dot m-g"></i><i class="dot m-b"></i><i class="dot m-p"></i><i class="dot m-o"></i><i class="ul">가</i><span class="a">메모</span><span class="a">노트로</span><span class="a">복사</span><span class="x">✕</span></div>
+      <div class="tab">홈 · 일정 · 노트 · 더보기</div>
+    </div>
+  </div>
+</div>
+
+<div class="opt">
+  <h2>(나) 둘을 두되 같은 저장소 — [형광펜](글 안만) · [밑줄 저장](모아 보기) <span class="rec">추천</span></h2>
+  <ul>
+    <li>막대: [형광펜] + 색 점 다섯 · [밑줄 저장][메모][노트로][복사][공유]. 형광은 글 안에만 보이고 모아 보기에 안 나옴. 밑줄 저장은 지금처럼 모아 보기 + 글 안 표시.</li>
+    <li>장점: 지금 쓰는 밑줄 모아 보기가 그대로라 익숙함, '그냥 칠해 두기'와 '모아 둘 문장'을 가를 수 있음. 단점: 단추가 하나 더 많음.</li>
+    <li>지금 밑줄 기록: 손대지 않음(그대로 모아 보기에 있고 글 안 노란 바탕도 그대로). DB: 같은 표에 칸 두 개(모양·색)만 — 이번 PR로 끝.</li>
+    <li>이미 칠한 곳을 고르면 막대가 [색 바꾸기 점][지우기]로 바뀜. 칠한 곳을 누르면 작은 메뉴(색 점·지우기·복사).</li>
+  </ul>
+  <div class="row">
+    <div class="pc"><div class="cap">PC — 글 칸 오른쪽 여백</div>
+      <div class="txt">첫 문단 앞부분입니다. <span class="m-g">초록으로 칠해 둔 곳</span>과 <span class="m-y">지금 밑줄 저장(노란 바탕)</span>. <span class="sel">끌어 고른 두 문단의 앞쪽 줄이고 이어서 다음 문단까지 고른 상태입니다.</span> 그다음 줄 글은 가리지 않습니다.</div>
+      <div class="bar"><span class="lb"><span class="grip">⋮⋮</span>선택한 글</span><span class="a">형광펜</span><span class="dots"><i class="dot m-y"></i><i class="dot m-g on"></i><i class="dot m-b"></i><i class="dot m-p"></i><i class="dot m-o"></i></span><span class="a">밑줄 저장</span><span class="a">메모</span><span class="a">노트로</span><span class="a">복사</span><span class="x">✕</span></div>
+    </div>
+    <div class="phone"><div class="cap">폰 — 하단바 위 고정 줄</div>
+      <div class="txt">첫 줄 글. <span class="sel">고른 두 문단 앞부분과 다음 문단 첫 줄까지.</span> 다음 줄 글도 가리지 않습니다.</div>
+      <div class="bar"><span class="a">형광펜</span><i class="dot m-y"></i><i class="dot m-g on"></i><i class="dot m-b"></i><i class="dot m-p"></i><i class="dot m-o"></i><span class="a">밑줄</span><span class="a">메모</span><span class="x">✕</span></div>
+      <div class="tab">홈 · 일정 · 노트 · 더보기</div>
+    </div>
+  </div>
+</div>
+
+<div class="opt">
+  <h2>(다) 형광펜만 새로, 밑줄은 그대로</h2>
+  <ul>
+    <li>막대: [형광펜] 하나(색은 마지막 색) — 색 바꾸기는 칠한 곳을 눌러 작은 메뉴에서. 밑줄 저장은 지금 그대로.</li>
+    <li>장점: 막대가 가장 덜 바뀜. 단점: 처음부터 다른 색으로 칠하려면 두 번 눌러야 함, 밑줄과 노랑 형광이 글 안에서 똑같아 보여 헷갈림.</li>
+    <li>지금 밑줄 기록: 손대지 않음. DB: (나)와 같음(칸 두 개).</li>
+  </ul>
+  <div class="row">
+    <div class="pc"><div class="cap">PC</div>
+      <div class="txt">첫 문단 앞부분입니다. <span class="sel">끌어 고른 두 문단의 앞쪽 줄이고 이어서 다음 문단까지 고른 상태입니다.</span> 그다음 줄 글은 가리지 않습니다.</div>
+      <div class="bar"><span class="lb"><span class="grip">⋮⋮</span>선택한 글</span><span class="a">형광펜</span><span class="a">밑줄 저장</span><span class="a">메모</span><span class="a">노트로</span><span class="a">복사</span><span class="x">✕</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="opt">
+  <h2>한눈에</h2>
+  <table class="tbl">
+    <tr><th></th><th>(가) 하나로</th><th>(나) 둘 · 같은 저장소 ★</th><th>(다) 형광만 새로</th></tr>
+    <tr><td>막대 단추</td><td>가장 적음</td><td>하나 더(형광펜+점)</td><td>지금 + 하나</td></tr>
+    <tr><td>모아 보기</td><td>모든 표시</td><td>밑줄 저장만</td><td>밑줄 저장만</td></tr>
+    <tr><td>지금 밑줄 기록</td><td>노랑 형광으로 보임(보존)</td><td>그대로</td><td>그대로</td></tr>
+    <tr><td>DB</td><td>칸 둘 + 옮기기 PR</td><td>칸 둘</td><td>칸 둘</td></tr>
+  </table>
+</div>
+</body>
+</html>

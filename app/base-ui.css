@@ -482,6 +482,22 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 .hl-bar-close{flex:0 0 auto;min-height:28px;padding:0 6px;border:0;background:transparent;color:inherit;font:inherit;opacity:.7;cursor:pointer}
 mark.hl-mark{background:var(--kptu-warning-soft);color:inherit;border-radius:2px;cursor:pointer;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 mark.hl-mark:focus-visible{outline:2px solid currentColor;outline-offset:1px}
+/* S70-16 UI-고른글메뉴·형광펜(시안 docs/design/mockups/highlight-underline-options.html): 형광 색 다섯(톤다운 — 바탕색에 섞어 어두운 바탕에서도 눈부시지 않게).
+   줄은 PC에서 글 칸 옆·위·아래(text-select-bar.js가 left·top을 적음), 폰은 위 기본 자리(하단바 바로 위). 빈 곳·'선택한 글'을 잡고 끌어 옮긴다(공용 dragByTitle). */
+:root{--kptu-hl-yellow:#e8c84a;--kptu-hl-green:#7fb36a;--kptu-hl-blue:#6f9cc8;--kptu-hl-pink:#d68a9c;--kptu-hl-orange:#dc9a5a}
+:root{--kptu-hl-mark-yellow:color-mix(in srgb,var(--kptu-hl-yellow) 34%,var(--kptu-surface));--kptu-hl-mark-green:color-mix(in srgb,var(--kptu-hl-green) 32%,var(--kptu-surface));--kptu-hl-mark-blue:color-mix(in srgb,var(--kptu-hl-blue) 32%,var(--kptu-surface));--kptu-hl-mark-pink:color-mix(in srgb,var(--kptu-hl-pink) 32%,var(--kptu-surface));--kptu-hl-mark-orange:color-mix(in srgb,var(--kptu-hl-orange) 32%,var(--kptu-surface))}
+.hl-c-yellow{--hl-c:var(--kptu-hl-mark-yellow)}.hl-c-green{--hl-c:var(--kptu-hl-mark-green)}.hl-c-blue{--hl-c:var(--kptu-hl-mark-blue)}.hl-c-pink{--hl-c:var(--kptu-hl-mark-pink)}.hl-c-orange{--hl-c:var(--kptu-hl-mark-orange)}
+mark.hl-mark.hl-pen{background:var(--hl-c)}
+.hl-bar.anchored-dragging{cursor:grabbing;user-select:none}
+.hl-bar-label{cursor:grab;user-select:none;white-space:nowrap}
+.hl-bar-grip{margin-right:3px;letter-spacing:-2px;opacity:.55}
+.hl-bar-marks{flex:0 0 auto;display:inline-flex;align-items:center;gap:2px}
+.hl-bar-marks[hidden],#appView .hl-bar-marks [hidden]{display:none}
+#appView .hl-bar-marks>button.kptu-act:not([hidden]){display:inline-flex;align-items:center;width:auto;height:auto;min-height:var(--ds-compact-height-sm,28px);padding:2px 4px;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1.25}
+/* 폰: 형광펜 칸이 있으면 두 줄 — 위 [형광펜 ●●●●●] … ✕, 아래 [밑줄 저장][메모][노트로][복사][공유]. 글자 '선택한 글'은 감춤(끌기는 PC만). */
+@media (max-width:760px){.hl-bar:has(.hl-bar-marks:not([hidden])){flex-wrap:wrap;row-gap:0}.hl-bar:has(.hl-bar-marks:not([hidden])) .hl-bar-label{display:none}.hl-bar:has(.hl-bar-marks:not([hidden])) .hl-bar-close{order:2;margin-left:auto}.hl-bar:has(.hl-bar-marks:not([hidden])) .hl-bar-acts{order:3;flex:1 0 100%}}
+.hl-dots,.hl-menu-dots{display:inline-flex;flex-wrap:nowrap;align-items:center}
+.hl-menu-dots{padding:2px 6px}
 /* UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸(auto-grow.js). 높이는 그 모듈이 글에 맞추고, 손잡이로 끌지 않는다. */
 textarea[data-autogrow]{box-sizing:border-box;resize:none}
 textarea[data-autogrow][data-enter-field]{line-height:1.4}
