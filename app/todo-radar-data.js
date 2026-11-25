@@ -102,16 +102,32 @@ export async function readTelegramAsks(rt = window.KPTURuntime) {
 }
 // BASKET-정리함이름: the 정리함's [챙길 것] side shows what is still open and, under its other chips, what was sent to a task or
 // ignored (newest decision first). Two reads so a long history of handled rows never pushes an open row out of the list.
+// FORGET-이미한일빼기(S70-20): 서버가 '이미 함(저절로)'으로 옮긴 텔레그램 요청은 auto_done='replied'와 그 시각을 함께 읽어 '답장함' 꼬리표를 단다.
+// 두 칸은 migration 20261125120000 뒤에 생긴다. 적용 전 서버는 이 칸 읽기를 400(42703)으로 거절하므로 두 칸 없이 다시 읽는다(꼬리표만 없음).
+const AUTO_FIELDS = `${FIELDS},auto_done,auto_done_at`;
+const autoColumnMissing = error => /42703|PGRST204|auto_done|column .* does not exist/.test(`${error?.code || ''} ${error?.message || ''}`)
+  && !/PGRST205|42P01/.test(`${error?.code || ''} ${error?.message || ''}`) && error?.status !== 404;
+let inboxFields = AUTO_FIELDS;
 export async function readInboxCandidates(rt = window.KPTURuntime) {
   try {
     const base = `/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}`;
-    const [open, handled] = await Promise.all([
-      rt.api(`${base}&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false}),
-      rt.api(`${base}&status=in.(tasked,dismissed,done)&select=${FIELDS}&order=decided_at.desc.nullslast,id.asc&limit=100`, {singleFlight:false}),
+    const read = fields => Promise.all([
+      rt.api(`${base}&status=eq.open&select=${fields}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false}),
+      rt.api(`${base}&status=in.(tasked,dismissed,done)&select=${fields}&order=decided_at.desc.nullslast,id.asc&limit=100`, {singleFlight:false}),
     ]);
+    let got;
+    try { got = await read(inboxFields); }
+    catch (error) { if (inboxFields === FIELDS || !autoColumnMissing(error)) throw error; inboxFields = FIELDS; got = await read(FIELDS); }
+    const [open, handled] = got;
     const rows = await withTelegramPlaces([...clean(open), ...clean(handled)], rt);
     return {ok:true, rows:await withOutcomes(rows, rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+// '답장함' 꼬리표: 서버가 저절로 옮긴 그대로인 줄만(사람이 되돌렸다가 다시 [이미 함]을 누르면 처리한 때가 달라져 꼬리표 없음).
+export function autoReplied(c) {
+  if (c?.status !== 'done' || c?.source_kind !== 'telegram' || c?.auto_done !== 'replied') return false;
+  const a = Date.parse(c.decided_at), b = Date.parse(c.auto_done_at);
+  return Number.isFinite(a) && Number.isFinite(b) && a === b;
 }
 // JOURNAL-챙길것화면 ⑤: home shows what is still open and, folded below, what was handled since `since` (today's start).
 export async function readHomeCandidates(since, rt = window.KPTURuntime) {
