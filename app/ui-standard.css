@@ -1734,6 +1734,7 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 
 /* UI-업로드말(S70-41): 파일을 올리는 단추 = 클립 아이콘 + '업로드'(app/upload-label.mjs 한 곳). 글자 앞 작은 클립, 단추 높이는 그 단추 그대로. */
 .up-clip-btn { display:inline-flex; align-items:center; gap:4px; }
+.up-clip-btn[hidden] { display:none; } /* 숨긴 단추는 그대로 숨김(inline-flex가 hidden을 이기지 않게) */
 .up-clip { flex:none; width:14px; height:14px; vertical-align:-2px; margin-right:3px; }
 .up-clip-btn .up-clip { margin-right:0; }
 /* 그림·글자는 단추 몸의 일부: 누르기·elementFromPoint가 단추 자체를 잡게(안쪽 그림이 누르는 자리를 가로채지 않음). */

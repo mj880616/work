@@ -27,6 +27,7 @@ test('클립 그림은 [첨부] 단추와 같은 그림 하나, 단추 안 = 클
 
 test('파일 고르기 단추마다 클립 + 업로드', () => {
   assert.match(read('app/ui-standard.css'), /\.up-clip, \.up-clip-t \{ pointer-events:none; \}/, '안쪽 그림·글자가 누르는 자리를 가로채지 않는다(단추 자체가 잡힘)');
+  assert.match(read('app/ui-standard.css'), /\.up-clip-btn\[hidden\] \{ display:none; \}/, '숨긴 업로드 단추는 숨은 채(inline-flex가 hidden을 이기지 않게)');
   assert.match(read('app/files.js'), /data-fx-upload hidden>\$\{uploadLabelHtml\(\)\}<\/button>/, '[파일] 위 줄 [업로드]');
   const lib = read('app/library-upload.js');
   assert.match(lib, /luMenuRow\('data-lu-area="add"',uploadLabelHtml\('파일 업로드'\)\)/, '자료실 빈 곳 메뉴 [파일 업로드]');
