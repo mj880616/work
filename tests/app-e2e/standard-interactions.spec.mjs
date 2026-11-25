@@ -11,6 +11,7 @@ import { touchDrag } from './helpers/touch-drag.mjs';
 import { pinch } from './helpers/pinch.mjs';
 import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
 import { DOC_SCREENS } from './helpers/doc-view.mjs';
+import { screenFindLocator } from './helpers/screen-find.mjs';
 import { readFileSync } from 'node:fs';
 // 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
 const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
@@ -1242,7 +1243,7 @@ async function keyLibrary(page) {
     picked: () => page.locator('#documentList .lu-row.lu-picked').count(),
     pickTwo: async () => { await rows.nth(0).click({ modifiers: ['Control'] }); await rows.nth(1).click({ modifiers: ['Control'] }); await expect(page.locator('#documentList .lu-row.lu-picked')).toHaveCount(2); },
     renameOpen: async i => { const input = rows.nth(i).locator('.lu-rename-input'); await expect(input).toBeFocused(); await expect(input).toHaveValue(/가상 . 자료/); await input.press('Escape'); },
-    field: page.locator('#documentSearch'),
+    field: screenFindLocator(page), // S70-54: 화면 안 찾기 칸 대신 맨 위 칸이 겸함(옛 #documentSearch)
     id: i => rows.nth(i).getAttribute('data-lu-document'),
     deleteOne: async id => {
       await expect(page.locator(`#documentList [data-lu-document="${id}"]`)).toHaveCount(0);
@@ -1278,7 +1279,7 @@ async function keyNotes(page) {
     picked: () => page.locator('#noteRows [data-nx-note].nx-picked').count(),
     pickTwo: async () => { await rows.nth(0).locator('[data-note-row-more]').click(); await page.locator('#noteDocMenu [data-nx-select]').click(); await rows.nth(1).locator('[data-note-row]').click(); await expect(page.locator('#noteRows .nx-picked')).toHaveCount(2); await rows.nth(1).locator('[data-note-row]').focus(); },
     renameOpen: async () => { const input = page.locator('[data-note-title-input]'); await expect(input).toBeFocused(); await expect(input).toHaveValue(/가상 . 노트/); },
-    field: page.locator('[data-note-search]'),
+    field: screenFindLocator(page), // S70-54: 맨 위 칸(옛 [data-note-search])
     id: i => rows.nth(i).getAttribute('data-nx-note'),
     deleteOne: async () => { await expect(askShown(page)).toBeVisible(); await expect(page.locator('.kptu-ask-text')).toContainText('노트를 휴지통으로 옮길까요?'); await page.keyboard.press('Escape'); await expect(rows).toHaveCount(3); },
     deleteMany: async () => { await expect(page.locator('.kptu-ask-text')).toHaveText('노트 2개를 삭제할까요?'); await page.keyboard.press('Escape'); await expect(rows).toHaveCount(3); } };
