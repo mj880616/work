@@ -74,6 +74,21 @@ dry-run도 운영 DB에 접속해야 하고, 그 열쇠(`SUPABASE_ACCESS_TOKEN`)
 | drop table/schema·truncate·role·extension·default privileges·copy·call·dblink·파일 읽기·set role | `blocked-command` |
 | CREATE TABLE … AS(자료 복사), WHERE 없는 UPDATE/DELETE, rtw_ 언급, 중간 commit | `create-table-as`, `where-missing`, `rtw`, `transaction-control` |
 | 짝 파일 없음, snapshot이 카탈로그 밖을 읽음 | `pair-missing`, `snapshot-rows` |
+| cron 예약 형식 밖: 이름이 고정 글자 하나가 아님(이어 붙이기·함수·변수·$태그$·E''), 이름 없는 예약, 다른 DB 예약(`schedule_in_database`)·`alter_job`, 시각 글자 형식 밖, 같은 이름 두 번, 다시 등록 없는 `unschedule`(예약 지우기만)·다른 이름 unschedule·schedule 뒤 unschedule, cron 외 맨 위 SELECT | `cron-shape` |
+| cron 예약 명령 안: GRANT·REVOKE·anon·ALTER(ROLE·TABLE 등)·CREATE·DROP·RLS 끄기·정책·SECURITY DEFINER·SET·DO·INSERT·UPDATE·SELECT INTO·`net.*`·`http*`·`extensions.*`·`vault`·`auth`·`storage`·`cron.*`(다른 예약)·`://` 주소·허용 밖 함수 | `cron-command`(또는 `blocked-command`·`rls-disable`) |
+
+### cron 예약 등록 (2026-11-25 명진 결정, S70-01)
+
+cron 예약 등록은 아래 조건으로만 받는다(그 밖은 위 `cron-shape`·`cron-command`로 거절). 짝 파일 5개·dry-run 먼저·백업·사후 확인·실패하면 멈춤은 그대로다.
+
+- 맨 위 문장 `select cron.schedule('이름', '시각', 명령);` 하나씩. 이름은 파일 안 고정 글자(`^[a-z][a-z0-9_]{0,62}$`), 시각은 cron 다섯 칸 또는 `N seconds` 고정 글자, 명령은 고정 글자 또는 `$태그$` 한 덩어리.
+- 같은 이름 다시 등록: 그 이름의 `select cron.unschedule('이름');`을 먼저 두고 뒤에서 같은 이름을 schedule할 때만 받는다. 예약만 지우는 unschedule은 받지 않는다.
+- 명령 안 허용: `delete from cron.job_run_details where …`·`delete from public.<표> where …`(최상위 WHERE 필수), `select public.<함수>(…)`·`select private.<함수>(…)`(기존 함수 부르기), `now`·`coalesce`·`count` 등 몇 가지 기본 함수. 본문과 같은 금지(권한·역할·RLS·정책·DDL·외부 주소 호출 등)를 명령 안에도 그대로 적용한다.
+- 읽기 전용 DO 확인 안에서는 `= $태그$…$태그$`처럼 `=` 오른쪽에 둔 글자 비교만 받는다(실행 안 됨). cron 함수는 DO 안에서 부를 수 없다.
+- snapshot은 `cron.job`을 읽을 수 있지만 명령 글자는 `md5(command)`로만(artifact에 명령 본문이 남지 않게). `cron.job_run_details`는 계속 거절.
+- precheck에는 1분마다 바뀌는 값(실행 기록 줄 수·크기)을 넣지 않는다: 시험 적용 뒤 같은 값 비교가 흔들린다.
+- plan summary "검토 표시"에 등록할 예약 이름이 나온다. rollback 모드는 엄격 규칙만이라 cron 되돌리기는 SQL Editor(폰 경로 C)로 한다.
+- 시험: `tests/security/db-migration-expanded.test.mjs`의 `cron:` 시험들.
 
 ### 기존 표의 새 칸 권한 (S68-42)
 
@@ -268,6 +283,6 @@ drop table ops_backup."<version>_<table>_<run_id>";
 commit;
 ```
 
-자동 정리: DB 안 예약 `web2_cron_history_trim`(매일 03:43 KST, `20261124220000_cron_history_trim`, SQL Editor 전용)이 예약 실행 기록 `cron.job_run_details`에서 끝난 지 3일 지난 줄을 지운다. `ops_backup` 백업 표는 아직 자동으로 지우지 않는다(정리 규칙 제안: `docs/design/db-retention.md`의 14일 규칙).
+자동 정리: DB 안 예약 `web2_cron_history_trim`(매일 03:43 KST, `20261124220000_cron_history_trim`, 승인형 DB workflow로 적용 가능 — 위 "cron 예약 등록", 되돌리기는 SQL Editor)이 예약 실행 기록 `cron.job_run_details`에서 끝난 지 3일 지난 줄을 지운다. `ops_backup` 백업 표는 아직 자동으로 지우지 않는다(정리 규칙 제안: `docs/design/db-retention.md`의 14일 규칙).
 
 응답 유실·강제 종료 때도 자동 재실행하지 않는다. 백업은 남았을 수 있고 적용도 완료되었을 수 있다. plan의 예상 백업 이름·main SHA, run의 마지막 확인 단계로 커맨드센터가 상태를 확인한다.
