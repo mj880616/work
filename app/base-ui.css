@@ -383,6 +383,10 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 :is(.fp-path .fp-step,.ft-focus-anc .ft-focus-step,.lu-pane-path .lu-pane-step):is(:hover,:focus-visible){text-decoration-color:currentColor}
 :is(.fp-path,.ft-focus-anc,.lu-pane-path) button.icon-btn.fp-more{flex:none;width:auto;min-width:24px;height:24px;min-height:0;padding:0 4px;border:0;background:none;color:var(--kptu-link);font:inherit;letter-spacing:1px}
 :is(.fp-path,.ft-focus-anc,.lu-pane-path) button.icon-btn.fp-more:is(:hover,:focus-visible){background:var(--kptu-surface-subtle)}
+/* S70-13 UI-위치줄뒤로작게(명진 11/25 "이 버튼이 너무 큼"): 위치 줄 맨 앞 [‹](위 폴더로·폴더 나무로)는 ⑥ 아이콘 하나 — 자료실 한 칸·두 칸 칸 머리, [파일] 위치 줄(한 칸·두 칸), 사진 위치 줄.
+   선·바탕 없이 위치 줄 글자 높이에 맞춘 작은 꺽쇠(같은 줄 [⋯]와 같은 24px). 누르는 범위 44px는 공용 ::after(base-ui.css :where(button.icon-btn)::after). */
+:is(.fp-path,.fx-crumb,.lu-pane-head) > button.icon-btn.fp-up{flex:none;width:24px;height:24px;min-width:0;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-sm,6px);background:none;color:var(--kptu-ink);font:inherit;font-size:16px;line-height:1}
+:is(.fp-path,.fx-crumb,.lu-pane-head) > button.icon-btn.fp-up:hover{background:var(--kptu-surface-subtle)}
 .fp-more-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
 .fp-more-menu[hidden]{display:none}
 .fp-more-menu button.row-act{display:block;width:100%;height:36px;min-height:36px;padding:0 10px;text-align:left;border-radius:var(--kptu-radius-sm,6px);color:var(--kptu-ink);font-size:var(--kptu-text-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

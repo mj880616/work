@@ -1076,7 +1076,7 @@ function luRenderPathNow(box){
   nav.innerHTML=phone?`<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="${walkUpLabel(luWalk)}" title="${walkUpLabel(luWalk)}">‹</button>`+luPhoneAncHtml([{id:'',name:'자료실'},...trail.slice(0,-1)])
       // S69-28: 탐색기 칸에는 지금 폴더 줄(상자 머리)이 없으므로 위치 줄 끝에 지금 폴더 이름(굵게) — 한 번만 보인다.
       +(luExplorerNow&&trail.length?`<b class="lu-focus-here" aria-current="location">${luEsc(trail.at(-1).name)}</b>`:'')
-    :`<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="${luExplorerNow&&LU_SPLIT?.matches?'위 폴더로':'폴더 나무로'}">‹</button>`+folderPathHtml({rootLabel:'자료실',trail:folderTrail(luFolders_,luInFolder),attr:'data-lu-path',esc:luEsc});
+    :`<button type="button" class="icon-btn fp-up" data-lu-path-back aria-label="${luExplorerNow&&LU_SPLIT?.matches?'위 폴더로':'폴더 나무로'}">‹</button>`+folderPathHtml({rootLabel:'자료실',trail:folderTrail(luFolders_,luInFolder),attr:'data-lu-path',esc:luEsc});
   // LIB-받는폴더나누기(S60-18, 시안 ①): 받는 폴더를 연 화면이고 그 안에 자료가 있으면 위치 줄 끝에 작은 [폴더로 나누기].
   if(luSortReady(luInFolder))nav.insertAdjacentHTML('beforeend',sortButtonHtml());
   nav.hidden=false;
