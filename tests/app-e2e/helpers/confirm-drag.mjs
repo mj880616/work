@@ -1,4 +1,4 @@
-// S70-12 UI-확인창끌기: 작은 확인창(.kptu-ask)을 마우스로 끄는 시험 도우미(confirm-drag.spec.mjs·standard-interactions.spec.mjs D6).
+// S70-12 UI-확인창끌기: 작은 확인창(.kptu-ask)을 마우스로 끄는 시험 도우미(confirm-drag.spec.mjs·standard-interactions.spec.mjs D7).
 export const askBox=async l=>{const b=await l.boundingBox();return {x:Math.round(b.x),y:Math.round(b.y),w:Math.round(b.width),h:Math.round(b.height)}};
 // 창 안 한 점(at: 창 왼쪽 위 기준 px)을 마우스 왼쪽 단추로 잡고 dx,dy만큼 여러 걸음에 나눠 끈 뒤 놓는다.
 export async function dragAsk(page,ask,{at,dx,dy}){

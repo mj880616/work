@@ -21,7 +21,7 @@ function doc(n,over={}){
 }
 function baseState(docs){
   return {user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},
-    docs:docs||[doc(1)],log:[],replaces:[],patches:[],texts:[],tidies:[],replaceMode:'ok',attemptsReady:false};
+    docs:docs||[doc(1)],log:[],otherAi:[],replaces:[],patches:[],texts:[],tidies:[],replaceMode:'ok',attemptsReady:false};
 }
 async function mockApp(page,state){
   await page.route(`${SB}/**`,async route=>{
@@ -52,6 +52,9 @@ async function mockApp(page,state){
     }
     if(path==='/functions/v1/document-actions'){state.log.push('text');state.texts.push(body);const d=state.docs.find(x=>x.id===body?.document_id);if(d){d.extraction_status='ready';d.extracted_text='새 글자'}return ok({ok:true,status:'ready',reason:'ok'})}
     if(path==='/functions/v1/ai-assist'){
+      // STAB(S70-02): 자료실 다시 보기(library_fill)만 센다. 다른 화면(홈)도 자기 AI 요청(todo_radar·home_day_picks)을 같은 함수로 보내므로,
+      // 모두 'tidy'로 세면 홈 요청이 먼저 오거나 늦게 오는 순서에 따라 수가 0~3으로 흔들렸다. 그 밖의 요청은 따로 적고 빈 답을 준다.
+      if(body?.kind!=='library_fill'){state.otherAi.push(body?.kind??null);return ok({})}
       state.log.push('tidy');state.tidies.push(body);
       let updated=0;
       for(const id of body.document_ids||[]){
@@ -246,10 +249,16 @@ for(const width of [412,1280]){
     await page.evaluate(()=>window.KPTURouter.go('home',{source:'test'}));
     const dock=page.locator('#uploadDock');
     await expect(dock).toContainText('올리는 중');
+    // 흔들리던 순서를 일부러 만든다: 홈 화면의 AI 요청이 이 자료의 다시 보기보다 먼저 온 뒤에 파일을 끝낸다(S70-02).
+    await expect.poll(()=>state.otherAi.length).toBeGreaterThan(0);
+    expect(state.tidies).toEqual([]);
     release();
     await expect(dock).toContainText('‘수정한 제목’ 파일을 바꿨어요');
     await expect.poll(()=>state.docs[0].file_name).toBe('새 파일.pdf');
+    // 이 자료의 다시 보기는 정확히 한 번, 바뀐 자료 하나만.
     await expect.poll(()=>state.tidies.length).toBe(1);
+    expect(state.tidies).toEqual([{kind:'library_fill',mode:'tidy',document_ids:[DOC(1)]}]);
+    expect(state.log).toEqual(['replace','text','tidy']);
     expect(state.patches).toEqual([]);
   });
 
