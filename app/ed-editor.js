@@ -1584,7 +1584,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const vv = window.visualViewport;
     const view0 = {l: vv ? vv.offsetLeft : 0, t: vv ? vv.offsetTop : 0, w: vv ? vv.width : innerWidth, h: vv ? vv.height : innerHeight};
     const gap = 4, side = 8, bottomRoom = view0.w <= 760 ? 72 : 12;
-    pop.style.maxHeight = ''; pop.style.maxWidth = '';
+    pop.style.maxHeight = ''; pop.style.maxWidth = ''; pop.style.overflowY = '';
     if (pop.getBoundingClientRect().width > view0.w - side * 2) pop.style.maxWidth = `${Math.max(120, view0.w - side * 2)}px`;
     pop.style.left = '0px'; pop.style.top = '0px';
     const t = trigger.getBoundingClientRect(), size = pop.getBoundingClientRect();
@@ -1597,6 +1597,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     // (A button inside a scrolled group popover can sit above the screen's top: the popover stays on the screen.)
     const top = Math.max(ceiling, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
     pop.style.maxHeight = `${room}px`;
+    // NOTE-블록모드찾기(2026-11-25): a list that fits shows no scroll bar. Its buttons' 44px press area (::after) reaches a few px past the box
+    // edge, which alone made the list "scroll" with every item already in view; it scrolls only when the list is taller than the room.
+    pop.style.overflowY = size.height <= room ? 'hidden' : '';
     // (The left floor is the screen's side margin, or the button's own left when the button sits closer to the edge, so a popover
     // under the first button of a tight phone row still starts on that button.)
     const left = Math.max(view0.l + Math.min(side, Math.max(0, t.left - view0.l)), Math.min(t.left, view0.l + view0.w - side - size.width));

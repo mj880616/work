@@ -83,9 +83,10 @@ async function checkParaList(page, scope, {touch}) {
   await press(group);
   const list = scope.locator('.ed-bar [data-ed-panel="gPara"]').first();
   await expect(list).toBeVisible();
-  const m = await list.evaluate(el => ({scroll: el.scrollHeight, client: el.clientHeight, items: [...el.children].filter(c => !c.hidden).map(c => c.getBoundingClientRect()), box: el.getBoundingClientRect(), keys: [...el.children].map(c => c.dataset.edCmd)}));
+  const m = await list.evaluate(el => ({scrolls: ['auto', 'scroll'].includes(getComputedStyle(el).overflowY), scroll: el.scrollHeight, client: el.clientHeight, items: [...el.children].filter(c => !c.hidden).map(c => c.getBoundingClientRect()), box: el.getBoundingClientRect(), keys: [...el.children].map(c => c.dataset.edCmd)}));
   expect(m.keys).not.toContain('blocks');
-  expect(m.scroll).toBeLessThanOrEqual(m.client + 1);
+  // 스크롤 막대 없음: 스크롤하는 상자가 아니거나, 넘치는 것이 없다.
+  expect(m.scrolls && m.scroll > m.client + 1).toBe(false);
   for (const r of m.items) { expect(r.top).toBeGreaterThanOrEqual(m.box.top - 1); expect(r.bottom).toBeLessThanOrEqual(m.box.bottom + 1); }
   await page.keyboard.press('Escape');
   await expect(list).toBeHidden();
