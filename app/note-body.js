@@ -155,7 +155,8 @@ export function noteFiles({getNote, upload, open = url => window.open(url, '_bla
 // The edit field: the new editor in the note's detail, on the note's text. Returns {getValue, isChanged, setValue, focus, destroy}.
 // lead: NOTE-제목서식줄고정 — the 제목 칸 put in the editor's top band with the button row (createDocEditor lead).
 // blocks: NOTE-노션편집 ①(나) — null, or {on, onToggle(on)} (createDocEditor blocks: the handle ⋮⋮ and the [블록] switch).
-export async function mountEditField(host, note, {photos = null, files = null, label = '본문', lead = null, blocks = null, tasks = null} = {}) {
+// noteLinks: S69-98 NOTE-에버노트 ⑧ — null, or the '[[' note list's source (createDocEditor noteLinks).
+export async function mountEditField(host, note, {photos = null, files = null, label = '본문', lead = null, blocks = null, noteLinks = null, tasks = null} = {}) {
   const [{createDocEditor}, start] = await Promise.all([editorModule(), startValue(note)]);
   // UI-뒤로가기겹규칙: 편집기 안의 작은 상자(글자색 목록·표 칸 메뉴·버튼 줄 판)가 열리면 라우터 겹 하나 — 뒤로가기 = 상자만 닫기(일기·창과 같은 onBox 계약).
   let editor = null, boxLayer = null;
@@ -164,7 +165,7 @@ export async function mountEditField(host, note, {photos = null, files = null, l
     if (open) boxLayer ||= window.KPTURouter?.layer?.open('note-edit-box', {close:() => { boxLayer = null; editor?.closeBoxes(); return true; }}) || null;
     else dropBox();
   };
-  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead, lineWidth: true, blocks, tasks});
+  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead, lineWidth: true, blocks, noteLinks, tasks});
   let base = JSON.stringify(editor.getValue());
   // S69-97: the first read of the linked Google tasks may tick boxes (Google's state). That alone is not the person's change.
   const bare = text => text.replace(/,?"(checked|gtask)":(true|false|null|"[^"]*")/g, '');

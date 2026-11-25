@@ -314,13 +314,14 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // line: "## " "### " → 제목 2·3, "- " "* " → 목록, "1. " → 번호 목록, "> " → 인용, and **글자** → 굵게. One undo (Backspace right after, or ↶)
 // puts the typed marks back. The engine does not run a rule while a 한글 composition is going on (it waits for the composed text). Off
 // by default: the share page editor stays as before (결정 2 가 there: no format while typing).
+// noteLinks: S69-98 NOTE-에버노트 ⑧ — null, or {notes(), self(), hidden(note), titleOf(note), base()} (notes): typing '[[' lists notes to link.
 // lineWidth: NOTE-글폭(S61-21) — true keeps the text lines about 40 letters wide (tables and photos may go wider) with a thin handle at the
 // lines' right end to drag the width (line-width.js; one width for notes, the diary and the big windows, kept on the server). Off by default
 // (the share page editor stays as before).
 // blocks: NOTE-노션편집 ①(나) — null, or {on, onToggle(on)}: the block handle ⋮⋮ (drag to move, press for the block menu) and a [블록] switch on the
 //   row. on = start with it on; onToggle is told when the switch is pressed (the opener keeps the choice on the server). Off = the plain text.
 // slash: '/' on an empty line opens the list of blocks to put in (default: where shortcuts are on — notes and their big window).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts, tasks = null} = {}) {
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts, noteLinks = null, tasks = null} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -824,7 +825,10 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // NOTE-노션편집 ①(나): the '/' list and the folded ▸ line take their keys before the editor's own keymap.
   let blockPart = null, gtaskPart = null;
   const blockKeys = new pm.Plugin({props: {handleKeyDown: (v, e) => !!blockPart && blockPart.handleKey(v, e)}});
-  const plugins = [blockKeys, resizePlugin, pm.columnResizing({handleWidth: 6, cellMinWidth: 32, defaultCellMinWidth: 48, View: TableView}),
+  // S69-98 NOTE-에버노트 ⑧: the '[[' note list (ed-note-link.js) takes its keys first while it is open.
+  let noteLinkPart = null;
+  const noteLinkKeys = new pm.Plugin({props: {handleKeyDown: (v, e) => !!noteLinkPart && noteLinkPart.handleKey(v, e)}});
+  const plugins = [noteLinkKeys, blockKeys, resizePlugin, pm.columnResizing({handleWidth: 6, cellMinWidth: 32, defaultCellMinWidth: 48, View: TableView}),
     pm.history(), ...(shortcuts ? [pm.inputRules({rules: shortcutRules}), pm.keymap(shortcutKeys)] : []),
     pm.keymap(keys), pm.keymap(pm.baseKeymap), pm.gapCursor(), pm.tableEditing(), pastePlugin, endLinePlugin, rowsPlugin, gtaskDedupe(pm, N)];
   let state = pm.EditorState.create({doc, plugins});
@@ -951,6 +955,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       if (tr.docChanged) gtaskPart?.changed(before, tr, view.state.doc);
       paint();
       blockPart?.update();
+      noteLinkPart?.update();
     },
   });
   // NOTE-노션편집 ①(나) 할 일 체크: a press on an item's box (left of its text) ticks or unticks it — on or off 블록 편집, one undo step.
@@ -980,6 +985,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   if (tasks) {
     gtaskPart = mountGtasks({view, N, provider: tasks, say: text => showNote(text), makeCheckList: () => setListStyle('bullet', CHECK_MARKER)});
     void gtaskPart.sync();
+  }
+  // S69-98 NOTE-에버노트 ⑧ 노트 연결: '[[' → 노트 고르기 목록 → 그 노트 링크. 노트(noteLinks를 주는 곳)에만 붙는다.
+  if (noteLinks) {
+    const {mountNoteLink} = await import('./ed-note-link.js');
+    noteLinkPart = mountNoteLink({pm, view, schema, bar, noteLinks, changed: () => syncBox()});
   }
   // NOTE-글폭(S61-21): 글 줄 폭 묶음은 바로(.line-w), 손잡이는 부품을 불러온 뒤 붙인다(공유 페이지 편집기는 부르지 않음).
   let lineGrip = null, lineGone = false;
@@ -1683,7 +1693,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // ED③-창: any open panel or the cell menu counts as a small box. Coalesced into one call per event so closing one box to open another
   // (a panel then the cell menu) reaches onBox as a single "open".
   let boxWas = false, boxQueued = false;
-  const boxOpen = () => !!openName || !ctx.hidden || !!blockPart?.isOpen();
+  const boxOpen = () => !!openName || !ctx.hidden || !!blockPart?.isOpen() || !!noteLinkPart?.isOpen();
   const syncBox = () => {
     if (!onBox || boxQueued) return;
     boxQueued = true;
@@ -1733,7 +1743,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
   function closeBoxes() {
     if (!boxOpen()) return false;
-    closeCtx(false); closePanels(); blockPart?.close();
+    closeCtx(false); closePanels(); blockPart?.close(); noteLinkPart?.close();
     return true;
   }
   ctx.addEventListener('click', e => {
@@ -2053,7 +2063,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       window.visualViewport?.removeEventListener('scroll', followPop);
       window.removeEventListener('mouseup', release, true);
       stopUploads(); upRows.destroy(); for (const url of upPreview.values()) URL.revokeObjectURL(url); upPreview.clear();
-      lineGone = true; lineGrip?.destroy(); blockPart?.destroy(); gtaskPart?.destroy();
+      lineGone = true; lineGrip?.destroy(); blockPart?.destroy(); noteLinkPart?.destroy(); gtaskPart?.destroy();
       view.destroy();
       if (leadAt?.parent?.isConnected) leadAt.parent.insertBefore(lead, leadAt.next?.parentNode === leadAt.parent ? leadAt.next : null);
       root.remove();
