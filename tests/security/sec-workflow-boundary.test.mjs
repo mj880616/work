@@ -126,6 +126,8 @@ test('browser-e2e reports on every main PR and decides from the change scope', (
   assert.match(on, /^  push:\n    branches:\n      - main\n    paths:\n/m);
   assert.match(on, /^  schedule:\n/m);
   assert.match(on, /^  workflow_dispatch:\n/m);
+  // OPS-시험줄(S70-39): merge queue 묶음마다 같은 필수 검사 이름(browser-e2e)으로 전체 시험.
+  assert.match(on, /^  merge_group:\n    types: \[checks_requested\]\n/m);
 
   const jobs = jobBlocks(source);
   assert.deepEqual(Object.keys(jobs), ['changes', 'browser-e2e-shard', 'startup-benchmark', 'browser-e2e']);
@@ -133,17 +135,19 @@ test('browser-e2e reports on every main PR and decides from the change scope', (
   assert.doesNotMatch(decide, /^    if:/m);
   assert.match(decide, /if \[ "\$EVENT_NAME" != "pull_request" \]; then[\s\S]*?e2e=true/);
   assert.match(decide, /git diff --no-renames --name-only -z "\$BASE_SHA\.\.\.\$HEAD_SHA"/);
-  assert.match(decide, /\^\(app\/\|p\/\|tests\/app-e2e\/\|\\\.github\/workflows\/app-e2e-check\\\.yml\$\)/);
+  // PR은 고친 파일 → 관련 시험(scripts/ci/e2e-select.mjs 한 곳). PR 밖(merge_group·push·schedule·수동)은 늘 전체.
+  assert.match(decide, /node scripts\/ci\/e2e-select\.mjs \/tmp\/e2e-changed-files \/tmp\/e2e-select\.json/);
+  assert.match(decide, /event \$EVENT_NAME: complete browser E2E"\n\s+\{\n\s+echo "e2e=true"; echo "full=true"; echo "shards=\[\$\(seq -s, 1 24\)\]"; echo "specs=tests\/app-e2e"/);
   for (const use of decide.matchAll(/uses: (\S+)/g)) assert.match(use[1], /@[0-9a-f]{40}$/);
-  assert.equal([...decide.matchAll(/uses: /g)].length, 1, 'only checkout');
+  assert.equal([...decide.matchAll(/uses: /g)].length, 2, 'only checkout and setup-node');
 
-  for (const job of ['browser-e2e-shard', 'startup-benchmark']) {
-    assert.match(jobs[job], /^    needs: changes\n    if: needs\.changes\.outputs\.e2e == 'true' && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n/m, job);
-  }
+  assert.match(jobs['browser-e2e-shard'], /^    needs: changes\n    if: needs\.changes\.outputs\.e2e == 'true' && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n/m);
+  // 시작 시간 측정은 전체일 때만(관련 시험만 도는 PR은 건너뛰고 merge queue에서 돈다).
+  assert.match(jobs['startup-benchmark'], /^    needs: changes\n    if: needs\.changes\.outputs\.full == 'true' && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n/m);
 
   const aggregate = jobs['browser-e2e'];
   assert.match(aggregate, /^    if: always\(\) && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n    needs: \[changes, browser-e2e-shard, startup-benchmark\]\n/m);
-  const order = ['"$CHANGES_RESULT" != "success"', '"$E2E_NEEDED" = "false"', '"$E2E_NEEDED" != "true"', 'test "$SHARD_RESULT" = "success"', 'test "$BENCHMARK_RESULT" = "success"'];
+  const order = ['"$CHANGES_RESULT" != "success"', '"$E2E_NEEDED" = "false"', '"$E2E_NEEDED" != "true"', 'test "$SHARD_RESULT" = "success"', 'if [ "$E2E_FULL" = "true" ]; then', 'test "$BENCHMARK_RESULT" = "success"', 'test "$BENCHMARK_RESULT" = "skipped"'];
   const positions = order.map(text => aggregate.indexOf(text));
   assert.ok(positions.every(position => position >= 0), 'aggregate checks decision, need and shard result');
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
@@ -267,13 +271,15 @@ test('S54-14 CI diet: nightly E2E skips unchanged commits without wider permissi
   const e2e = workflow('app-e2e-check.yml');
   // OPS-작업속도(S56-29): 시험 하나씩 24갈래에 차례로 나누고(scripts/ci/e2e-shard.mjs) 갈래마다 workers 2. 재시도는 붙이지 않는다.
   assert.match(e2e, /--browser=chromium --workers=2 --fully-parallel --reporter=line,github,json\n\s+--grep "\$\(cat \/tmp\/e2e-shard-grep\.txt\)"/);
-  assert.match(e2e, /shardIndex: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24\]\n        shardTotal: \[24\]/);
+  // OPS-시험줄(S70-39): 갈래 수는 판정 job이 정한다(전체 24, 관련 시험만이면 그보다 적게).
+  assert.match(e2e, /shardIndex: \$\{\{ fromJSON\(needs\.changes\.outputs\.shards\) \}\}/);
   const shard = jobBlocks(e2e)['browser-e2e-shard'];
-  const planAt = shard.indexOf('node scripts/ci/e2e-shard.mjs plan /tmp/e2e-list.json ${{ matrix.shardIndex }} ${{ matrix.shardTotal }}');
-  const runAt = shard.indexOf('- name: Run complete browser regression suite');
+  const planAt = shard.indexOf('node scripts/ci/e2e-shard.mjs plan /tmp/e2e-list.json "$SHARD_INDEX" "$SHARD_TOTAL"');
+  const runAt = shard.indexOf('- name: Run browser regression suite (complete or related specs)');
   const verifyAt = shard.indexOf('node scripts/ci/e2e-shard.mjs verify /tmp/e2e-shard.json /tmp/e2e-result.json');
   assert.ok(planAt > 0 && planAt < runAt && runAt < verifyAt, 'plan → run → verify 순서');
-  assert.match(shard, /npx playwright test tests\/app-e2e --browser=chromium --list --reporter=json > \/tmp\/e2e-list\.json/);
+  assert.match(shard, /npx playwright test \$E2E_SPECS --browser=chromium --list --reporter=json > \/tmp\/e2e-list\.json/);
+  assert.match(shard, /E2E_SPECS: \$\{\{ needs\.changes\.outputs\.specs \}\}/);
   assert.match(shard, /PLAYWRIGHT_JSON_OUTPUT_FILE: \/tmp\/e2e-result\.json/);
   assert.doesNotMatch(shard, /--shard=|--grep-invert|continue-on-error/);
   assert.doesNotMatch(e2e, /--last-failed|--repeat-each|test\.skip|--grep-invert|--pass-with-no-tests/);
