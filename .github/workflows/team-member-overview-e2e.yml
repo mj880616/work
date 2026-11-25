@@ -35,12 +35,34 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           package-manager-cache: false
+      # OPS-시험줄(S70-39): PR에서는 고친 파일이 이 시험과 관련될 때만 돈다(scripts/ci/e2e-select.mjs 한 곳).
+      # 관련 없으면 시험 칸은 건너뛰고 job은 성공으로 끝난다. push(main)는 늘 돈다. 전체는 merge queue의 browser-e2e가 본다.
+      - name: Decide whether these specs are related to the change
+        id: related
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "pull_request" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git diff --no-renames --name-only -z "$BASE_SHA...$HEAD_SHA" > /tmp/e2e-changed-files
+          node scripts/ci/e2e-select.mjs /tmp/e2e-changed-files /tmp/e2e-select.json
+          run="$(node scripts/ci/e2e-select.mjs --has /tmp/e2e-select.json tests/app-e2e/nonmember-access.spec.mjs tests/app-e2e/access-request-push.spec.mjs tests/app-e2e/solo-shell.spec.mjs)"
+          if grep -zq '^\.github/workflows/team-member-overview-e2e.yml$' /tmp/e2e-changed-files; then run=true; fi
+          echo "related: $run" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
       - name: Install Playwright
+        if: steps.related.outputs.run == 'true'
         uses: ./.github/actions/setup-playwright
       - run: python3 -m http.server 8123 >/tmp/http.log 2>&1 &
+        if: steps.related.outputs.run == 'true'
       - run: node --test tests/domain/web2-auth-origin.test.mjs
       - run: npx playwright test tests/app-e2e/nonmember-access.spec.mjs tests/app-e2e/access-request-push.spec.mjs tests/app-e2e/solo-shell.spec.mjs --browser=chromium --workers=1 --reporter=line,github
+        if: steps.related.outputs.run == 'true'

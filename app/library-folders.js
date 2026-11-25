@@ -16,7 +16,7 @@ import {colorOf,dropZone,folderDropPlan,placeAt,isSamePlace} from './folder-look
 import {setLibraryFolderColor,createLibraryFolder,putDocumentInFolder} from './library-folder-data.js';
 import {paneDropAt} from './library-drop.js';
 import {writeMoves,undoMoves} from './library-move-write.mjs';
-import {createEdgeScroll,installDragEdgeScroll} from './drag-edge-scroll.js';
+import {createEdgeScroll,installDragEdgeScroll,followTouch} from './drag-edge-scroll.js';
 import {createDragGhost,setDragGhostImage} from './drag-ghost.js'; // S69-29 끄는 동안 따라오는 반투명 조각(노트 폴더 보기와 같은 공용 부품)
 import {openFolderAt} from './drop-open-folder.mjs';
 import {askConfirm} from './small-notice.js';
@@ -26,12 +26,13 @@ import {word} from './brand/brand.mjs';
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,tidy=null,onDragState=()=>{},onHold=()=>false}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],pickedFolders=()=>[],onPickedMoved=()=>{},touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,tidy=null,onDragState=()=>{},onHold=()=>false}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
   // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 눌러 끌기를 켤 화면인지. onHold(el): 폰에서 줄을 꾹 눌렀다 움직이지 않고 뗌(고르기).
   // recent: 최근 넣은 폴더 기억(get()=id 목록, push(id)=맨 앞에 두고 서버에 기억). state().treeView: 지금 묶기가 폴더 토글이 보이는 화면(프로젝트·폴더)인지.
   // receive(LIB-받는폴더 S59-11): {ready()=서버 칸이 있어 켜고 끌 수 있나, get()=지금 받는 폴더 id|null, set(id|null)=서버에 저장(성공 true), outside()='폴더 밖' 자료, sortCount()·sort(trigger)=받는 폴더 나누기(S60-18)}.
+  // pickedFolders()(S70-08 LIB-여러폴더끌기): 폴더째 고른 폴더 id들(위 폴더를 함께 고른 아래 폴더는 뺐다 — topPicked). onPickedMoved(): 고른 것을 끌어 모두 옮긴 뒤 선택을 끝낸다.
   // onDragState(v)(LIB-끄는중막대 S69): 자료를 끄는 동안 {count}, 놓은 뒤 옮기는 동안 {count,moving:true}, 끝나면 null — 고르기 막대 주인(library-upload.js)이 그 모양으로 다시 그린다.
   // tidy(LIB-정돈제안 S61-13): {open(trigger, folderId)} — 폴더 메뉴 [정돈 제안]은 그 폴더 안만(창·묶음·옮기기는 library-sort.js createTidySuggest).
   let busy=false,dialog=null;
@@ -346,7 +347,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // 여기는 안에서 시작한 끌기(drag)만 보므로 서로 부딪치지 않는다.
   let drag=null,moving=0,dragTick=0;
   // LIB-끄는중막대: 끌기 시작·끝, 옮기기 시작·끝마다 부른다. 끌기 시작 중에 화면을 바꾸면 브라우저가 끌기를 취소하므로 한 박자 뒤에, 그때의 상태로 한 번만 알린다.
-  function pokeDrag(){if(dragTick)return;dragTick=setTimeout(()=>{dragTick=0;const v=moving?{count:moving,moving:true}:drag?.kind==='file'?{count:drag.docs.length}:null;try{onDragState(v)}catch{}},0)}
+  function pokeDrag(){if(dragTick)return;dragTick=setTimeout(()=>{dragTick=0;const v=moving?{count:moving,moving:true}:drag?.kind==='file'?{count:drag.docs.length}:drag?.kind==='many'?{count:drag.folders.length+drag.docs.length}:null;try{onDragState(v)}catch{}},0)}
   const frameKeyOf=key=>key==='p:none'?null:key.slice(2);
   const docById=id=>s().docs.find(d=>d.id===id);
   const rowOf=id=>[...document.querySelectorAll('#documentList .lu-row')].find(x=>x.dataset.luDocument===id);
@@ -364,20 +365,46 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function dragFrom(el,touch=false){
     // S69-84: 손가락 끌기는 왼쪽 나무·두 칸 칸의 폴더 줄(.ft-row)째 잡는다(draggable은 마우스 HTML 끌기 표시라 보지 않음).
     const nav=touch?(el?.matches?.('.ft-row')?el.querySelector('[data-lu-nav]'):null):el?.closest?.('#libraryListCard [data-lu-nav][draggable="true"]');
-    if(nav){const f=folder(nav.dataset.luNav);return f?{kind:'folder',id:f.id,frame:f.project_id||null,els:[nav.closest('.ft-row')||nav]}:null}
+    if(nav){const f=folder(nav.dataset.luNav);return f?withPicked({kind:'folder',id:f.id,frame:f.project_id||null,els:[nav.closest('.ft-row')||nav]}):null}
     const head=el.closest?.(touch?'summary.lu-node-head':'summary.lu-node-head[draggable="true"]'),row=el.closest?.(touch?'.lu-row[data-lu-document],.lu-row[data-lu-photoset]':'.lu-row[draggable="true"]');
-    if(head){const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:'))return null;const f=folder(key.slice(2));if(!f)return null;return {kind:'folder',id:f.id,frame:f.project_id||null,els:[head.parentElement]}}
+    if(head){const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:'))return null;const f=folder(key.slice(2));if(!f)return null;return withPicked({kind:'folder',id:f.id,frame:f.project_id||null,els:[head.parentElement]})}
     // LIB-정리보충 ②: 사진 묶음 줄은 폴더 보기에서만 끈다. 묶음 안 실제 사진 자료 모두가 함께 옮겨지고(set=true), 일부만 옮겨진 채로 끝나지 않는다(moveDocs all).
     if(row?.dataset.luPhotoset){if(!s().free)return null;const docs=photoSetDocs(row.dataset.luPhotoset);if(!docs.length)return null;return {kind:'file',id:'photoset:'+row.dataset.luPhotoset,docs,els:[row],set:true}}
     if(row){
       const doc=docById(row.dataset.luDocument);if(!doc)return null;
       const picked=selected(),many=picked.length>1&&picked.includes(doc.id),docs=(many?picked.map(docById).filter(Boolean):(twinDocs(doc.id)||[doc]));
-      return {kind:'file',id:doc.id,docs,els:docs.map(d=>rowOf(d.id)).filter(Boolean)};
+      return withPicked({kind:'file',id:doc.id,docs,els:docs.map(d=>rowOf(d.id)).filter(Boolean)});
     }
     return null;
   }
+  // S70-08 LIB-여러폴더끌기(명진 11/25 09:39 "선택해서 드래그하면 다 드래그되어야하는데 하나만 드래그됨"): 원인(사실) — 끌기 시작(dragFrom)이 폴더 줄이면
+  // 고른 것을 보지 않고 그 폴더 하나만, 자료 줄이면 고른 자료만(폴더째 고른 폴더는 빼고) 잡았다. 끄는 방향과는 상관없다.
+  // 이제 잡은 줄이 고른 것 안에 있고(폴더째 고른 폴더 아래 폴더 포함) 고른 것에 폴더가 하나라도 있으면 고른 것 모두(kind 'many')를 끈다.
+  // 고른 상태의 주인은 그대로 선택 모드(luPick) 하나 — 여기서는 읽기만 한다. 옮기기는 메뉴 [폴더로 옮기기]와 같은 movePicked(한 서버 길).
+  const underPicked=(id,fids)=>{for(let f=folder(id),g=0;f&&g<200;f=f.parent_id?folder(f.parent_id):null,g++)if(fids.includes(f.id))return true;return false};
+  function withPicked(d){
+    if(!d||d.set)return d;
+    const fids=(pickedFolders()||[]).filter(id=>folder(id));if(!fids.length)return d;
+    const dids=selected()||[],inPick=d.kind==='folder'?underPicked(d.id,fids):d.docs.some(x=>dids.includes(x.id));
+    if(!inPick||fids.length+dids.length<2)return d;
+    const docs=dids.map(docById).filter(Boolean);
+    return {kind:'many',id:d.id,folders:fids,docs,els:[...fids.flatMap(folderEls),...docs.map(x=>rowOf(x.id))].filter(Boolean)};
+  }
+  // 화면에 보이는 그 폴더의 줄(한 칸 목록 토글·두 칸 칸 줄·왼쪽 나무 줄) — 끄는 동안 흐리게 표시할 곳.
+  const folderEls=id=>[...document.querySelectorAll(`#documentList details[data-lu-node="f:${CSS.escape(id)}"], #libraryListCard [data-lu-nav="${CSS.escape(id)}"]`)].map(el=>el.matches('[data-lu-nav]')?el.closest('.ft-row')||el:el);
+  // 고른 것 모두를 targetId(null = 맨 위·폴더 밖) 안으로 옮길 수 있나 — 메뉴 [폴더로 옮기기] 창(openMove)과 같은 규칙:
+  // 고른 폴더나 그 아래, 폴더 단 제한을 넘는 곳은 거절(놓을 폴더가 고른 것 안이면 거절), 폴더 묶기가 아니면 같은 사업영역 틀 안만, 이미 다 그 안이면 할 일 없음.
+  function manyOk(targetId){
+    const free=!!s().free,fm=folderMoveOk(s().folders,drag.folders,{maxDepth:FOLDER_DEPTH,free});
+    const frames=new Set([...drag.docs.map(x=>x.project_id||null),...drag.folders.map(id=>folder(id)?.project_id||null)]);
+    if(targetId===null)return (free||frames.size===1)&&(fm.top||drag.docs.some(x=>docFolder(x)));
+    if(!fm.ok(targetId))return false;
+    if(!free&&!(frames.size===1&&frames.has(folder(targetId)?.project_id||null)))return false;
+    return drag.folders.some(id=>(folder(id)?.parent_id||null)!==targetId)||drag.docs.some(x=>docFolder(x)?.id!==targetId);
+  }
   // S69-29 LIB-끄는모습: 끄는 동안 따라오는 조각 글자 — 폴더면 폴더 이름, 자료 여럿이면 '자료 n개', 하나면 그 제목.
-  const ghostLabel=d=>!d?'':d.kind==='folder'?String(folder(d.id)?.name||'폴더'):d.docs.length>1?`자료 ${d.docs.length}개`:String(d.docs[0]?.title||d.docs[0]?.file_name||'자료');
+  const ghostLabel=d=>!d?'':d.kind==='many'?manyText(d.folders.length,d.docs.length):d.kind==='folder'?String(folder(d.id)?.name||'폴더'):d.docs.length>1?`자료 ${d.docs.length}개`:String(d.docs[0]?.title||d.docs[0]?.file_name||'자료');
+  const manyText=(f,n)=>n?`폴더 ${f}개 · 자료 ${n}개`:`폴더 ${f}개`;
   const touchGhost=createDragGhost();
   function dropFor(e){
     if(!drag)return null;
@@ -388,10 +415,12 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       const head=nav?nav.closest('.ft-row')||nav:spot.place,id=nav?nav.dataset.luNav||'':spot.id,group=spot?.group||null;
       if(!s().free)return null;
       if(!id||id===OUTSIDE_KEY){
+        if(drag.kind==='many')return {head,nav:true,ok:manyOk(null),kind:'top'};
         if(drag.kind==='file')return {head,nav:true,ok:drag.docs.some(d=>docFolder(d)),kind:'top'};
         return {head,nav:true,ok:!!folder(drag.id)?.parent_id,kind:'top'};
       }
       const target=folder(id);if(!target)return {head,nav:true,ok:false};
+      if(drag.kind==='many')return {head,nav:true,group,ok:manyOk(target.id),kind:'into',target:target.id};
       if(drag.kind==='file')return {head,nav:true,group,ok:drag.docs.some(d=>docFolder(d)?.id!==target.id),kind:'into',target:target.id};
       // LIB-폴더끌어순서(S61-14): 나무·칸의 폴더 줄도 위 끝 = 그 앞, 아래 끝 = 그 뒤, 가운데 = 안으로(노트 나무와 같은 공용 판정). 칸의 빈 자리·자료 줄은 안으로만.
       const p=folderPlace(drag.id,target,nav?dropZone(head.getBoundingClientRect(),e.clientY):'inside');
@@ -410,16 +439,18 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(!head)return null;
     const node=head.parentElement,key=node?.dataset.luNode;if(!key)return null;
     const free=!!s().free,r=head.getBoundingClientRect();
-    const sameFrame=frame=>drag.kind==='folder'?drag.frame===frame:drag.docs.every(d=>(d.project_id||null)===frame);
+    const sameFrame=frame=>drag.kind==='folder'?drag.frame===frame:drag.kind==='many'?drag.folders.every(id=>(folder(id)?.project_id||null)===frame)&&drag.docs.every(d=>(d.project_id||null)===frame):drag.docs.every(d=>(d.project_id||null)===frame);
     // 맨 위 머리: 프로젝트 묶기는 그 프로젝트 머리, 폴더 보기는 '폴더 밖'.
     if(key.startsWith('p:')||key===OUTSIDE_KEY){
       if(key.startsWith('p:')===free)return {head,ok:false};
       if(!free&&!sameFrame(frameKeyOf(key)))return {head,ok:false};
+      if(drag.kind==='many')return {head,ok:manyOk(null),kind:'top'};
       if(drag.kind==='file')return {head,ok:drag.docs.some(d=>docFolder(d)),kind:'top'};
       return {head,ok:!!folder(drag.id)?.parent_id,kind:'top'};
     }
     const target=folder(key.slice(2));if(!target)return {head,ok:false};
     if(!free&&!sameFrame(target.project_id||null))return {head,ok:false};
+    if(drag.kind==='many')return {head,ok:manyOk(target.id),kind:'into',target:target.id};
     if(drag.kind==='file')return {head,ok:drag.docs.some(d=>docFolder(d)?.id!==target.id),kind:'into',target:target.id};
     // LIB-폴더끌어순서(S61-14): 같은 단·다른 단 모두 위 끝 = 그 앞, 아래 끝 = 그 뒤(다른 단이면 그 단으로 옮기며 그 자리에), 가운데 = 안으로. 열린 폴더 안 자료 줄 위는 안으로만.
     const p=folderPlace(drag.id,target,viaRow?'inside':dropZone(r,e.clientY));
@@ -479,7 +510,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     // UI-펼친폴더안놓기전체(S60-13): 두 칸 칸 안 펼친 폴더 묶음이면 그 폴더 줄 + 안의 자료 묶음 전체를 옅은 바탕으로(한 칸 목록과 같은 표시).
     if(t.nav){paneGroup(t);return} // 나무 줄·칸 상자는 그 줄만 표시(묶음 강조 없음).
     // 놓일 묶음 전체(머리줄 + 안의 줄)를 연한 강조색으로: 분류 바꾸기, 그리고 자료를 폴더(또는 폴더 밖)에 넣을 때.
-    t.head.parentElement?.classList.toggle('lu-drop-group',t.ok&&(t.kind==='category'||((drag?.kind==='file'||fileDrag)&&(t.kind==='into'||t.kind==='top'))));
+    t.head.parentElement?.classList.toggle('lu-drop-group',t.ok&&(t.kind==='category'||((drag?.kind==='file'||drag?.kind==='many'||fileDrag)&&(t.kind==='into'||t.kind==='top'))));
   }
   function paneGroup(t){for(const el of t?.ok!==false&&t?.kind!=='before'&&t?.kind!=='after'?t?.group||[]:[])el.classList.add('lu-drop-group')}
   const markDragging=d=>{for(const el of d?.els||[])el.classList.add('lu-dragging')};
@@ -549,6 +580,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   function commitDrop(d,t){
     if(!d||!t?.ok)return;
+    // S70-08: 고른 것 모두 — 메뉴 [폴더로 옮기기]와 같은 movePicked(폴더째 + 자료, 알림 한 줄 '옮겼어요 폴더 n개 · 자료 m개 → 곳 · 되돌리기', 되돌리기 = 모두).
+    if(d.kind==='many'){const docs=d.docs.map(x=>docById(x.id)).filter(Boolean),fids=d.folders.filter(id=>folder(id));if(!fids.length)return;void movePicked(docs,fids,t.kind==='top'?null:t.target).then(ok=>{if(ok)try{onPickedMoved()}catch{}});return}
     if(d.kind==='file'){const docs=d.docs.map(x=>docById(x.id)).filter(Boolean);if(!docs.length)return;if(t.kind==='category'){void changeCategory(docs.filter(x=>categoryOf(x.category)!==t.value),t.value);return}void moveDocs(docs,t.kind==='top'?null:t.target,{all:!!d.set});return}
     if(t.kind==='top')void dragMoveFolder(d.id,null);else if(t.kind==='into')void dragMoveFolder(d.id,t.target);else void placeBeside(d.id,t.target,t.kind==='after');
   }
@@ -628,7 +661,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const NAV_ROW='#libraryFolderNav .ft-row,[data-lu-pane-i] .ft-row';
   function bindTouch(list){
     const area=list.closest?.('#libraryListCard')||list;
-    const cancel=()=>{if(touch?.timer)clearTimeout(touch.timer);touch=null};
+    const cancel=()=>{if(touch?.timer)clearTimeout(touch.timer);touch?.unbind?.();touch=null};
     const finish=()=>{clearMarks();stopScroll();touchGhost.hide();drag=null;cancel()};
     const ROW='.lu-row[data-lu-document],.lu-row[data-lu-photoset],summary.lu-node-head,'+NAV_ROW;
     area.addEventListener('pointerdown',e=>{
@@ -643,6 +676,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         if(!touch||touch.el!==el)return;
         touch.grabbed=true;
         if(canDrag){touch.drag=dragFrom(el,true);drag=touch.drag;pokeDrag();if(touch.drag){el.classList.add('lu-grabbed');markDragging(touch.drag)}}
+        // S70-10: 끄는 동안 목록이 다시 그려져('n개 더 보기' 열림) 처음 누른 칸이 빠져도 끌기가 이어지게(공용 followTouch).
+        touch.unbind=followTouch(t,{move:onMove,end:onEnd,cancel:onCancel});
         try{navigator.vibrate?.(12)}catch{}
       },LONG_MS)};
     });
@@ -652,7 +687,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     });
     area.addEventListener('pointercancel',e=>{if(e.pointerType==='touch'&&touch&&!touch.grabbed)cancel()});
     // 잡은 뒤의 움직임은 touch 이벤트로 받는다(passive:false라야 스크롤을 막을 수 있다).
-    area.addEventListener('touchmove',e=>{
+    const onMove=e=>{
       if(!touch?.grabbed)return;
       if(e.cancelable)e.preventDefault();
       const p=e.touches[0];if(!p)return;
@@ -660,8 +695,9 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(!touch.moved||!touch.drag)return;
       if(!touchGhost.shown)touchGhost.show(ghostLabel(touch.drag),p.clientX,p.clientY);else touchGhost.move(p.clientX,p.clientY);
       touch.drop=dropFor({target:document.elementFromPoint(p.clientX,p.clientY),clientY:p.clientY});showMarks(touch.drop);hoverOpen(touch.drop);touchScroll.update(p.clientX,p.clientY);
-    },{passive:false});
-    area.addEventListener('touchend',e=>{
+    };
+    area.addEventListener('touchmove',onMove,{passive:false});
+    const onEnd=e=>{
       if(!touch)return;
       if(!touch.grabbed){cancel();return}
       if(e.cancelable)e.preventDefault();
@@ -671,8 +707,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(moved){if(d)commitDrop(d,drop);return}
       // 움직이지 않고 뗌 = 선택 모드 + 그 줄 선택(메뉴 아님).
       onHold(el);
-    });
-    area.addEventListener('touchcancel',()=>{if(touch?.grabbed)finish();else cancel()});
+    };
+    area.addEventListener('touchend',onEnd);
+    const onCancel=()=>{if(touch?.grabbed)finish();else cancel()};
+    area.addEventListener('touchcancel',onCancel);
     // 꾹 누르면 브라우저가 보내는 기본 길게누르기 메뉴와 뗀 직후 따라오는 클릭(자료 열기, 토글 접기)은 막는다.
     area.addEventListener('contextmenu',e=>{if(touch||Date.now()<suppressUntil||(e.pointerType==='touch'&&e.target.closest?.(ROW)))e.preventDefault()},true);
     // ⋯ 단추는 따로 누르는 것이라 삼키지 않는다(꾹 눌러 고른 바로 뒤에도 ⋯로 메뉴).
