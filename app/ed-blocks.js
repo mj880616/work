@@ -204,8 +204,6 @@ export function mountBlocks({pm, view, schema, root, box, bar = root, handles = 
     menuFor = index;
     const text = isTextual(node);
     for (const b of menu.querySelectorAll('[data-ed-block-cmd^="turn:"]')) b.disabled = !text || b.dataset.edBlockCmd === 'turn:' + kindOf(node);
-    menu.querySelector('[data-ed-block-cmd="up"]').disabled = index === 0;
-    menu.querySelector('[data-ed-block-cmd="down"]').disabled = index >= view.state.doc.childCount - 1;
     menu.hidden = false; grip.setAttribute('aria-expanded', 'true');
     menu.style.left = '0px'; menu.style.top = '0px'; menu.style.maxHeight = '';
     const g = grip.getBoundingClientRect(), m = menu.getBoundingClientRect(), vh = window.visualViewport?.height || innerHeight, vw = innerWidth;
