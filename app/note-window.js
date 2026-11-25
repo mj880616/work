@@ -99,7 +99,8 @@ export function waitingMedia() {
     return src;
   };
   return {
-    photos: {max: 20, async add(file) { return {src: keep(file, true)}; }, async url(src) { return kept.get(src)?.url || null; }},
+    // scan: [넣기] → [문서 스캔] (S69-98 NOTE-에버노트 ⑥) — the straightened picture waits here like any other picture.
+    photos: {max: 20, scan: true, async add(file) { return {src: keep(file, true)}; }, async url(src) { return kept.get(src)?.url || null; }},
     files: {
       async add(file) { return {src: keep(file, false), name: file.name || '파일', size: file.size || null}; },
       open(src) {
