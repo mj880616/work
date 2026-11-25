@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 // S69-98 NOTE-에버노트 ⑦(명진 11/25 "좋아 모두 다 넣어!"): 노트 읽기 아래 '관련' 칸 — 태그·제목·글자가 겹치는 노트(최대 4)와
-// 기존 전체 검색(app_search_records, 자료만·대표 낱말 하나)으로 찾은 자료(최대 2). AI 요청 없음, 접을 수 있음, 누르면 그 노트·자료로.
+// 기존 전체 검색(app_search_records, 자료만·대표 낱말 하나)으로 찾은 자료(최대 2). 접을 수 있음, 누르면 그 노트·자료로.
 // 합성 데이터, 390·1280.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -15,7 +15,7 @@ async function fixture(page,width){
   note('n-word','임금 교섭 일정','교섭 날짜 정리','2026-11-18T01:00:00Z'),
   note('n-other','여행 계획','바다 산','2026-11-17T01:00:00Z'),
  ];
- const rpc=[],ai=[],errors=[];
+ const rpc=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await openHome(page);
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',async r=>{
@@ -27,11 +27,10 @@ async function fixture(page,width){
  });
  await page.route(SB+'/rest/v1/app_record_links?**',r=>r.fulfill({json:[]}));
  await page.route(SB+'/rest/v1/rpc/app_search_records',r=>{const b=r.request().postDataJSON();rpc.push(b);return r.fulfill({json:{words:[b.p_query],groups:[{kind:'document',total:1,items:[{kind:'document',source:'document',id:'d-1',title:'교섭 자료집',matched_in:'title'}]}]}});});
- await page.route(SB+'/functions/v1/ai-assist**',r=>{ai.push(1);return r.fulfill({json:{}});});
  await page.evaluate(()=>window.KPTURouter.go('basket'));
  await openKindMenu(page,'note');const kind=basketKindButton(page,'note');await expect(kind).toBeVisible();await kind.click();
  await expect(page.locator('[data-note-row="n-me"]')).toBeVisible();
- return {rpc,ai,errors};
+ return {rpc,errors};
 }
 for(const width of [390,1280]){
  test(`관련 노트·자료: 겹치는 노트와 자료를 접는 칸에, 누르면 그 노트로 (${width})`,async({page})=>{
@@ -45,10 +44,9 @@ for(const width of [390,1280]){
   await expect(box.locator('[data-note-rel-id="n-other"]')).toHaveCount(0);
   await expect(box.locator('[data-note-rel-id="n-tag"]')).toContainText('#교섭');
   await expect(box.locator('[data-note-rel="document"]')).toContainText('교섭 자료집');
-  // 자료는 기존 전체 검색을 자료 종류로만, 한 번. AI 요청 없음.
+  // 자료는 기존 전체 검색을 자료 종류로만, 한 번. (AI를 부르지 않는 것은 단위 시험이 소스로 본다 — 이 화면 밖 AI 요청이 섞일 수 있어 여기서는 세지 않음.)
   expect(f.rpc).toHaveLength(1);
   expect(f.rpc[0]).toMatchObject({p_kind:'document',p_per_kind:2,p_kinds:null});
-  expect(f.ai).toEqual([]);
   // 접기·펴기
   await box.locator('summary').click();
   await expect(rows.first()).toBeHidden();
