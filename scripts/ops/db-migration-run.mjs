@@ -96,6 +96,28 @@ const RUNNER_REASONS = new Map([
   ['Invalid postcheck size', '사후 검사 결과 행 수 위반'],
   ['Invalid postcheck verdict', '사후 검사 판정 값 형식 위반'],
 ]);
+// S70-01b(2026-11-25): `select cron.schedule(...)`/`select cron.unschedule(...)`는 결과 행 하나(작업 번호·참거짓)를 돌려준다.
+// 확장 규칙이 cron 문장으로 판정한 파일(plan.review.cron)의 migration 본문 쓰기에서만, 그 함수가 돌려주는 단일 값 행을
+// 판정된 호출 수 이하로만 받는다. 다른 열·다른 값·남는 행·cron이 아닌 파일·백업 쓰기의 결과 행은 그대로 실패다.
+export function cronResultRows(plan, rows) {
+  const scheduled = plan?.expanded === true && Array.isArray(plan.review?.cron) ? plan.review.cron.length : 0;
+  const unscheduled = scheduled && Array.isArray(plan.review?.cronUnscheduled) ? plan.review.cronUnscheduled.length : 0;
+  if (!scheduled || !Array.isArray(rows)) return false;
+  let schedule = 0; let unschedule = 0;
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || Array.isArray(row) || Object.keys(row).length !== 1) return false;
+    if (Object.hasOwn(row, 'schedule')) {
+      const id = row.schedule;
+      if (!(Number.isSafeInteger(id) && id > 0 || typeof id === 'string' && /^[1-9][0-9]{0,18}$/.test(id))) return false;
+      schedule++;
+    } else if (Object.hasOwn(row, 'unschedule')) {
+      if (row.unschedule !== true) return false;
+      unschedule++;
+    } else return false;
+  }
+  return schedule <= scheduled && unschedule <= unscheduled;
+}
+
 export function failureText(error) {
   const reason = error?.constructor === Error ? RUNNER_REASONS.get(error.message) : undefined;
   return queryErrorSummary(error) + (reason ? ` 원인 분류: ${reason}.` : '');
@@ -122,10 +144,10 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
     if (rows.length !== 1 || !onlyKeys(rows[0], ['count']) || !Number.isSafeInteger(rows[0].count) || rows[0].count < 0) throw new Error('Invalid history count');
     return rows[0].count;
   };
-  const write = async sql => {
+  const write = async (sql, { cronRows = false } = {}) => {
     writeRequested = true;
     const rows = await query(sql);
-    if (rows.length !== 0) throw new Error('Unexpected write response');
+    if (rows.length !== 0 && !(cronRows && cronResultRows(plan, rows))) throw new Error('Unexpected write response');
   };
   const stop = reason => {
     steps.push(`멈춤: ${reason}`);
@@ -195,7 +217,7 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
 
     phase = '시험 적용(dry-run)';
     executed = plan.mode === 'dry-run';
-    await write(toDryRun(plan.file.sql));
+    await write(toDryRun(plan.file.sql), { cronRows: true });
     if (await historyCount() !== 0) throw new Error('Dry-run left history');
     const again = rawObservations(await query(plan.checks.precheck.sql, { readOnly: true }), secretValues, ['value']);
     if (again.size !== pre.size || [...pre].some(([item, value]) => again.get(item) !== value)) {
@@ -229,7 +251,7 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
 
     phase = '적용';
     executed = true;
-    await write(plan.file.sql);
+    await write(plan.file.sql, { cronRows: true });
     applied = true;
     if (await historyCount(true) !== 1) throw new Error('Unexpected post-history');
     steps.push('적용: 성공 · migration 기록 1행');
