@@ -2086,7 +2086,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (at !== null && !folderLayer) { const folderId = at; folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); const back = treeScroll || (wideList.matches ? null : {y:null, id:at}), from = focusHeadTop(); treeScroll = null; at = null; renderList(); restoreTree(back, from); return true; }, reopen: () => enter(folderId)}) || null; }
     else if (at === null && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
   }
-  host.addEventListener('keydown', e => {
+  // S70-54: 목록 머리 ⋯가 맨 위 줄 상자(tools)로 옮겨 가 메뉴를 닫은 뒤 커서가 그 ⋯에 있다 — 같은 키 규칙(Esc = 메뉴 닫기·고르기 끝)을 상자에도 붙인다.
+  const onListKey = e => {
     if (e.key === 'F2' && (!selected || splitOpen()) && !editing && !e.target.closest('input,textarea,[contenteditable]')) { const row = e.target.closest('[data-nx-folder]'); if (row) { e.preventDefault(); void renameFolder(row.dataset.nxFolder); return; } }
     if (e.key !== 'Escape') return;
     if (menu) { e.preventDefault(); e.stopPropagation(); closeMenu({focus:true}); return; }
@@ -2096,7 +2097,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (manual.isOpen()) void manual.cancel({anchor:e.target instanceof Element ? e.target : null});
     else if (editing) void finishEdit({anchor:e.target instanceof Element ? e.target : null});
     else void askClose(e.target instanceof Element ? e.target : null);
-  });
+  };
+  host.addEventListener('keydown', onListKey);
+  tools.addEventListener('keydown', onListKey);
   // NOTE-보기3가지 ①: 폰은 좌우로 밀어 보기 전환(왼쪽으로 밀면 폴더 → 목록 → 보드). 보드 판 위는 판 이동이라 빼고(판이 먼저, data-nb-scroll),
   // 보드에서는 위쪽 줄(검색 칸 줄·보드 칸 줄)에서 밀거나 전환 단추를 누른다. 꾹 눌러 잡은 줄·선택 모드·열린 노트·글 칸에서는 밀기를 보지 않는다.
   // UI-칩줄두줄: 보드 칸 줄(data-nbb)은 이제 옆으로 밀지 않으므로(두 줄 + [더보기]) 밀기 예외에서 뺐다.
