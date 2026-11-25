@@ -5,6 +5,7 @@ import {articleOf, knownArticleId} from './feed-shared.js';
 import {notify, askText, askConfirm} from './small-notice.js';
 import {highlightBody, edgesOf, markRanges, noteOf, copyOf, cleanMemo, draftOf, replyNoteOf, MEMO_MAX, MARK_COLORS, MARK_COLOR_NAMES, markColor, isHighlight, isCollected, lastColor, highlightAt} from './text-highlights-model.mjs';
 import {partStyles} from './part-styles.js';
+import {swatchHtml} from './color-swatch.mjs';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('text-highlights');
 // S53-5 NEWS-밑줄모으기(시안 docs/design/mockups/news-highlights.html ②·③): 밑줄 저장·읽기·메모·지우기·노트로 + 글 칸 위 노란 밑줄 칠하기.
@@ -244,7 +245,7 @@ const markMenu = createAnchoredMenu({id: 'hlMarkMenu', className: 'topline-add-m
     if (!h) return '<p class="hl-menu-memo">이미 삭제한 밑줄이에요</p>';
     if (isHighlight(h)) {
       const now = markColor(h.mark_color);
-      return `<div class="hl-menu-dots" role="group" aria-label="형광펜 색">${MARK_COLORS.map(c => `<button type="button" class="hl-dot hl-c-${c}" data-hl-menu="color" data-hl-color="${c}" aria-label="${MARK_COLOR_NAMES[c]}" aria-pressed="${c === now}"></button>`).join('')}</div><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="erase">지우기</button>`;
+      return `<div class="hl-menu-dots ui-swatches" role="group" aria-label="형광펜 색">${MARK_COLORS.map(c => swatchHtml({color: `var(--kptu-hl-mark-${c})`, label: MARK_COLOR_NAMES[c], on: c === now, attrs: {'data-hl-menu': 'color', 'data-hl-color': c}})).join('')}</div><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="erase">지우기</button>`;
     }
     return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 수정' : '메모 달기'}</button>${menuSource ? '<button type="button" class="row-act" data-hl-menu="source">원문에서 보기</button>' : ''}${h.source_type === 'note' ? '' : '<button type="button" class="row-act" data-hl-menu="note">노트로</button>'}<button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">삭제</button>`;
   },

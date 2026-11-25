@@ -3,6 +3,7 @@ import {notify} from './small-notice.js';
 import {copyOf, draftOf, cleanQuote, tooLong, MARK_COLORS, MARK_COLOR_NAMES, markColor} from './text-highlights-model.mjs';
 import {clearAnchored, followAnchor, bottomInset, isWide, keepInside, dragByTitle} from './anchored-popup.js';
 import {pickBarSpot} from './select-bar-place-model.mjs';
+import {swatchHtml, setSwatchOn} from './color-swatch.mjs';
 // S53-5 NEWS-밑줄모으기 ①(시안 docs/design/mockups/news-highlights.html ①): 원문에서 글을 고르면(손가락으로 끌기·[모두 선택] 모두)
 // 뜨는 Web2 줄 [형광펜 ●●●●●][밑줄 저장][메모][노트로][복사][공유] ✕. 폰 자체 선택 메뉴는 그대로 두고 덧붙인다.
 // - [모두 선택](프로그램이 고른 글)에는 폰 메뉴가 뜨지 않아 복사·공유를 못 하던 문제(11/08 09:56)를 이 줄이 메운다.
@@ -22,7 +23,8 @@ let bar = null, picked = null, hideTimer = 0, pressAt = 0, stopFollow = null, mo
 const canShare = () => typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
 function host() { return document.getElementById('appView') || document.body; }
-const dotsHtml = () => MARK_COLORS.map(c => `<button type="button" class="hl-dot hl-c-${c}" data-hl-bar="color" data-hl-color="${c}" aria-label="형광펜 ${MARK_COLOR_NAMES[c]}" aria-pressed="false"></button>`).join('');
+// 색 점은 공용 색 칸(color-swatch.mjs) — 칸 색은 형광 칠과 같은 토큰(base-ui.css --kptu-hl-mark-*).
+const dotsHtml = () => MARK_COLORS.map(c => swatchHtml({color: `var(--kptu-hl-mark-${c})`, label: `형광펜 ${MARK_COLOR_NAMES[c]}`, attrs: {'data-hl-bar': 'color', 'data-hl-color': c}})).join('');
 function ensureBar() {
   if (bar?.isConnected) return bar;
   bar = document.createElement('div');
@@ -31,7 +33,7 @@ function ensureBar() {
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-label', '선택한 글');
   bar.hidden = true;
-  bar.innerHTML = `<span class="hl-bar-label" title="끌어서 옮기기"><span class="hl-bar-grip" aria-hidden="true">⋮⋮</span>선택한 글</span><span class="hl-bar-marks"><button type="button" class="ghost kptu-act hl-bar-pen" data-hl-bar="mark">형광펜</button><span class="hl-dots" role="group" aria-label="형광펜 색">${dotsHtml()}</span><button type="button" class="ghost kptu-act" data-hl-bar="erase">지우기</button></span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="reply">메모</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="선택 끝내기">✕</button>`;
+  bar.innerHTML = `<span class="hl-bar-label" title="끌어서 옮기기"><span class="hl-bar-grip" aria-hidden="true">⋮⋮</span>선택한 글</span><span class="hl-bar-marks"><button type="button" class="ghost kptu-act hl-bar-pen" data-hl-bar="mark">형광펜</button><span class="hl-dots ui-swatches" role="group" aria-label="형광펜 색">${dotsHtml()}</span><button type="button" class="ghost kptu-act" data-hl-bar="erase">지우기</button></span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="reply">메모</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="선택 끝내기">✕</button>`;
   // 줄을 누를 때 PC는 고른 글이 풀리지 않게(폰은 풀려도 받아 둔 글로 실행). 빈 곳을 잡고 끌 때도 고른 글이 풀리지 않게 mousedown은 늘 막는다.
   bar.addEventListener('pointerdown', e => { pressAt = Date.now(); if (e.target.closest('button')) e.preventDefault(); });
   bar.addEventListener('mousedown', e => { pressAt = Date.now(); e.preventDefault(); });
@@ -55,7 +57,7 @@ function paint() {
   b.querySelector('[data-hl-bar="mark"]').hidden = !!on;
   b.querySelector('[data-hl-bar="erase"]').hidden = !on;
   const now = on ? markColor(on.mark_color) : marks?.lastColor?.();
-  for (const d of b.querySelectorAll('.hl-dot')) d.setAttribute('aria-pressed', String(d.dataset.hlColor === now));
+  for (const d of b.querySelectorAll('[data-hl-color]')) setSwatchOn(d, d.dataset.hlColor === now);
   b.dataset.hlOn = on ? '1' : '';
   b.hidden = !picked;
   if (picked) place(); else unfollow();
@@ -82,7 +84,7 @@ function fallback(b) { clearAnchored(b); }
 function barWidth(b) {
   const vw = document.documentElement.clientWidth;
   const acts = [...b.querySelectorAll('.kptu-act')].filter(x => !x.hidden && !x.closest('[hidden]')).length;
-  const dots = b.querySelector('.hl-bar-marks')?.hidden ? 0 : MARK_COLORS.length * 20 + 6;
+  const dots = b.querySelector('.hl-bar-marks')?.hidden ? 0 : (b.querySelector('.hl-dots')?.offsetWidth || MARK_COLORS.length * 32);
   const label = b.querySelector('.hl-bar-label')?.offsetWidth || 0, close = b.querySelector('.hl-bar-close')?.offsetWidth || 0;
   return Math.min(Math.ceil(label + close + acts * 64 + dots + 28), 640, vw - 16);
 }
