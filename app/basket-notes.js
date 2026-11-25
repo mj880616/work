@@ -1342,7 +1342,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const [{saveAsTemplate}, doc] = await Promise.all([import('./note-templates.js'), startValue(note)]);
       const result = await saveAsTemplate(trigger, {name:note.title, doc, rt});
       if (!result || owner !== scope()) return;
-      if (result.ok) showToast(`'${result.name}' 서식으로 저장했어요. 새 노트 창 [서식 ▾]에서 골라 쓸 수 있어요.`); else report(result.message);
+      if (result.ok) showToast(`'${result.name}' 서식으로 저장했어요. 새 노트 창 [서식]에서 선택해 쓸 수 있어요.`); else report(result.message);
     } catch { if (owner === scope()) report('서식을 저장하지 못했어요. 다시 해 주세요.'); }
   }
   async function pin(target = selected) {

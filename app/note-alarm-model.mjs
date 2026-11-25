@@ -45,7 +45,7 @@ export function quickAlarms(now = Date.now()) {
 export function checkAlarm(at, now = Date.now()) {
   const ms = Date.parse(at);
   if (!Number.isFinite(ms)) return '날짜와 시각을 확인해 주세요.';
-  if (ms <= now + 60000) return '지금보다 뒤의 시각을 골라 주세요.';
-  if (ms > now + 366 * DAY) return '1년 안의 시각만 고를 수 있어요.';
+  if (ms <= now + 60000) return '지금보다 뒤의 시각을 선택해 주세요.';
+  if (ms > now + 366 * DAY) return '1년 안의 시각만 선택할 수 있어요.';
   return '';
 }

@@ -52,7 +52,7 @@ export async function pickTemplate(anchor, {rt = window.KPTURuntime} = {}) {
       ...mine.rows.map(r => ({value: 'm:' + r.id, label: r.name, note: '내 서식'})),
       ...(mine.rows.length ? [{value: 'drop', label: '내 서식 삭제…', note: `${mine.rows.length}개`}] : []),
     ];
-    const v = await askChoice(anchor, {text: '서식 고르기', choices, foot: mine.ok ? '노트 ⋯ [서식으로 저장]으로 내 서식을 더할 수 있어요.' : '내 서식을 읽지 못해 기본 서식만 보여요.'});
+    const v = await askChoice(anchor, {text: '서식 선택', choices, foot: mine.ok ? '노트 ⋯ [서식으로 저장]으로 내 서식을 더할 수 있어요.' : '내 서식을 읽지 못해 기본 서식만 보여요.'});
     if (!v) return null;
     if (v.startsWith('b:')) { const t = BUILTIN_TEMPLATES.find(x => 'b:' + x.key === v); return t ? {name: t.name, doc: templateBody(t)} : null; }
     if (v.startsWith('m:')) { const r = mine.rows.find(x => 'm:' + x.id === v); return r ? {name: r.name, doc: templateBody(r)} : null; }

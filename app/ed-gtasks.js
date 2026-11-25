@@ -114,7 +114,7 @@ export function mountGtasks({view, N, provider, say, makeCheckList}) {
         if (status.has(i.id) && status.get(i.id) !== i.checked) { setAttr(tr, i.pos, {checked: status.get(i.id)}); moved++; }
       }
       if (moved || dropped) view.dispatch(quiet(tr));
-      if (dropped) say(`구글에서 지운 할 일 ${dropped}개는 연결을 풀었어요.`);
+      if (dropped) say(`구글에서 삭제한 할 일 ${dropped}개는 연결을 풀었어요.`);
       else if (moved) say('구글 할 일에서 바뀐 체크를 맞췄어요.');
     }).catch(() => { if (!gone) say('구글 할 일 상태를 읽지 못했어요. 노트의 체크는 마지막 저장 그대로예요.'); })
       .finally(() => { syncing = null; });

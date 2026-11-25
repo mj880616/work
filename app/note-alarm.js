@@ -18,7 +18,7 @@ export async function openNoteAlarm(anchor, note, {rt = window.KPTURuntime, now 
   const at = noteAlarmAt(note), quick = quickAlarms(now);
   const choices = [
     ...quick.map(q => ({value: q.at, label: q.label, note: alarmLabel(q.at, now), icon: BELL})),
-    {value: 'pick', label: '날짜·시각 고르기…', note: '달력에서 고르기'},
+    {value: 'pick', label: '날짜·시각 선택…', note: '달력에서 선택'},
     ...(at ? [{value: 'off', label: '알림 끄기', note: `${alarmPast(at, now) ? '지난 알림' : '지금'} ${alarmLabel(at, now)}`, danger: true}] : []),
   ];
   const picked = await askChoice(anchor, {text: '이 노트를 언제 다시 볼까요?', choices, foot: '그 시각에 폰으로 알려요(폰 앱 알림을 켠 기기).'});
