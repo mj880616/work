@@ -21,19 +21,11 @@
   #appView #outsideView .osq-filters > .osq-row + .osq-row{ margin-left:8px; padding-left:8px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
 }
 @media(max-width:760px){ #appView #outsideView .os.now[data-detail="open"] > .os-tabs{ display:none; } }
-#appView #outsideView :is([data-now-panel-all],[data-now-panel-news],.now-interests,.nw-top,.nw-dd)[hidden]{ display:none; }
-/* [언론] 칸 안 키워드·매체 켜고 끄기·별표 폴더 칸(news-clipping.js data-mode)에서는 위 찾기 줄을 감춘다(그 칸 머리 ‹ 가 맨 위). */
-#appView #outsideView .os.now[data-tab="media"]:has(#newsRoot:not([data-mode="list"])) .nw-top{ display:none; }
+#appView #outsideView :is([data-now-panel-all],[data-now-panel-news],.now-interests)[hidden]{ display:none; }
 
 /* ---- S51-8 NEWS-전면개편 P4b News 목록(시안 news-overhaul.html ①·③) ----
    위 줄: 찾기 칸 하나 + [매체: 전체 ▾] + ⋯. 줄: 날짜 묶음 머리 → 흰 상자(--kptu-surface) 안 줄(왼쪽 매체 색 띠 · 제목 · 매체 이름 같은 색 · 꼬리표 · 시각 · ★).
    색은 news-colors.mjs가 고른 토큰(--nw-c, --nw-tag-*)만. 안 읽은 글 굵게(is-new), 읽은 글 흐리게(is-read), 아직 모르면 보통. */
-#appView #outsideView .nw-top{ display:flex; align-items:center; gap:6px; min-width:0; padding:2px 0 4px; }
-#appView #outsideView .nw-find{ flex:1 1 auto; min-width:0; box-sizing:border-box; height:var(--ds-compact-height,32px); min-height:0; padding:0 10px; font:inherit; font-size:var(--ds-text-meta,12px);
-  color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:8px; }
-#appView #outsideView .nw-dd{ flex:none; box-sizing:border-box; max-width:11em; height:var(--ds-compact-height,32px); min-height:0; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font:inherit; font-size:var(--ds-text-meta,12px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:8px; box-shadow:none; cursor:pointer; }
-#appView #outsideView .nw-top .os-more{ margin:0; height:var(--ds-compact-height,32px); }
 #appView #outsideView .nw-day-head{ margin:8px 0 4px; padding:0 4px; font-size:11px; font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); }
 #appView #outsideView .nw-card{ background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:12px; overflow:hidden; }
 #appView #outsideView .nw-row{ display:flex; gap:9px; min-width:0; padding:9px 11px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }

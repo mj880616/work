@@ -228,7 +228,7 @@ test('폰 390: 머리 줄 없는 [목록]은 ⋯ 메뉴 정렬로 같은 값, �
   test.setTimeout(90000);
   const s = await fixture(page, 390);
   const menu = page.locator('#noteDocMenu');
-  const openMenu = async () => { await page.locator('#basketView [data-note-folder-more]').click(); await expect(menu).toBeVisible(); };
+  const openMenu = async () => { await page.locator('.sf-tools [data-note-folder-more]').click(); await expect(menu).toBeVisible(); };
   await openMenu();
   await expect(menu.locator('[data-nl-sort]')).toHaveText(['정렬: 제목', '정렬: 폴더', '정렬: 수정일 ▼', '정렬: 첨부']);
   await menu.locator('[data-nl-sort="title"]').click();
@@ -248,7 +248,7 @@ test('폰 390: 머리 줄 없는 [목록]은 ⋯ 메뉴 정렬로 같은 값, �
 test('[폴더] 보기 ⋯ 메뉴에는 [목록] 정렬 줄이 없다(폴더 보기 정렬은 지금 그대로)', async ({ page }) => {
   const s = await fixture(page, 1280);
   await page.locator('#basketView [data-note-view="folder"]').click();
-  await page.locator('#basketView [data-note-folder-more]').click();
+  await page.locator('.sf-tools [data-note-folder-more]').click();
   await expect(page.locator('#noteDocMenu')).toBeVisible();
   await expect(page.locator('#noteDocMenu [data-nl-sort]')).toHaveCount(0);
   expect(s.errors).toEqual([]);

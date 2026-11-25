@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { routeMemos } from './helpers/memo-server.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 // S69-94 NOTE-메모통일(명진 11/25 03:14~03:17 "생각 질문 인용 구분은 불필요 / 걍 다 메모로 통일 / 남기는 형식은 댓글인데 부르는 명칭은 메모 남기기 /
 // 메모를 모아두는 화면에서는 메모도 보이지만 그 메모를 남긴 원문 기록으로 연결도 되어야"):
@@ -148,9 +149,9 @@ for (const width of [390, 1280]) {
     await tap(page, page.locator('[data-note-meta-tags] [data-note-tag="회의"]'), width);
     await expect(page.locator('[data-note-detail]')).toBeHidden();
     await tap(page, page.locator('.nv-switch [data-note-view="list"]'), width);
-    await page.locator('[data-note-search]').fill('고친 질문');
+    await (await screenFind(page)).fill('고친 질문');
     await expect(page.locator('#noteRows .basket-title-text')).toHaveText(['회의 메모']);
-    await page.locator('[data-note-search]').fill('');
+    await (await screenFind(page)).fill('');
     expect(oldReads).toEqual([]);
     expect(errors).toEqual([]);
   });

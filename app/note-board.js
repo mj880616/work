@@ -1039,7 +1039,10 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   }
   // S69-91: 글자 넣기 = 배경 없는 새 글(그 자리에서 바로 쓰기), 도형 넣기 = 글 없는 도형(바로 고르기), 선 넣기 = 양 끝이 점인 선(바로 고르기·메뉴).
   // 판 칸 중 실제로 보이는 높이(폰은 아래 입력 줄·탭 줄이 판 아래쪽을 덮는다).
-  const seenSize = () => { const {w, h} = size(), top = scroll.getBoundingClientRect().top; return {w, h:Math.max(80, Math.min(h, window.innerHeight - bottomInset() - top))}; };
+  // 보이는 판 높이: 화면 아래 하단바·전환 줄·자판(bottomInset)과, 폰에서 판 아래쪽을 덮는 노트 입력 줄(.home-quick-entry, 노트 목록 맨 아래)까지 뺀다.
+  // (S70-54: 목록 머리 찾기 줄이 없어져 판이 위로 올라오자, 입력 줄에 가린 자리를 '보인다'고 쳐 새 도형이 그 밑에 놓이던 것.)
+  const seenBottom = () => { let bottom = window.innerHeight - bottomInset(); const q = scroll.closest('[data-note-list]')?.querySelector('.home-quick-entry'); if (q?.getClientRects().length) { const r = q.getBoundingClientRect(); if (r.height && r.top > scroll.getBoundingClientRect().top) bottom = Math.min(bottom, r.top); } return bottom; };
+  const seenSize = () => { const {w, h} = size(), top = scroll.getBoundingClientRect().top; return {w, h:Math.max(80, Math.min(h, seenBottom() - top))}; };
   const viewCenter = () => { const {w, h} = seenSize(); return toBoard(view, w / 2, h / 2); };
   const topTextZ = () => texts.reduce((m, t) => Math.max(m, t.z || 0), 0);
   // 비켜 간 자리가 화면 밖이면 판을 옮겨 그 칸이 보이게(넣자마자 고르고 끌 수 있게).

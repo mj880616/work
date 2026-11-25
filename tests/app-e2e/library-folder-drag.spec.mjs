@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNodeHead,libraryTopMenu} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,childrenOf} from './helpers/library-folder-server.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // LIB-폴더탐색기 화면 ②(docs/design/library-tree.md 12절): 끌어 옮기기(폴더 보기는 프로젝트 틀과 무관), 놓을 곳 점선 표시,
 // '옮겼어요 · 되돌리기', 여러 자료 한꺼번에 끌기, 화면 가장자리 자동 스크롤, 폰 길게 누르기(잡아 옮기기·떼면 고르기·세로 스크롤과 구분).
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -12,7 +13,7 @@ const line=page=>page.locator('#libraryFolderStatusLine');
 const nav=id=>`#libraryFolderNav [data-lu-nav="${id}"]`;
 const go=async(page,id)=>{await page.locator(nav(id)).click();await expect(page.locator(nav(id))).toHaveAttribute('aria-current','true')};
 // 찾는 글자가 있으면 한 칸 목록은 예전 나무 목록(찾은 것을 펼쳐 보임) — 펼친 폴더 안 줄에 놓기·머물면 열림 규칙은 거기서 본다.
-const treeList=async page=>{await page.locator('#documentSearch').fill('자료');await expect(page.locator('#documentList details[data-lu-node="x:out"]')).toBeAttached()};
+const treeList=async page=>{await (await screenFind(page)).fill('자료');await expect(page.locator('#documentList details[data-lu-node="x:out"]')).toBeAttached()};
 async function dragTo(page,from,to,{edge='middle'}={}){
   await page.evaluate(({from,to,edge})=>{
     const src=document.querySelector(from),dst=document.querySelector(to),dt=new DataTransfer(),r=dst.getBoundingClientRect();
@@ -250,7 +251,7 @@ test.describe('PC 1280 자료 줄 위에 놓기·머물면 열림',()=>{
     },{from:row('a-2'),fa:head('f:fa'),out:head('x:out')});
     expect(result).toEqual({fa:true,fn:false});
     // 탐색기 칸(찾는 글자 없음): 폴더 줄 위에 오래 머물러도 열리지 않는다(놓으면 그 폴더 안).
-    await page.locator('#documentSearch').fill('');await expect(page.locator('#libraryFolderNav')).toBeVisible();await expect(page.locator('#documentList details[data-lu-node="f:fa"][data-lu-enter]')).toBeAttached();
+    await (await screenFind(page)).fill('');await expect(page.locator('#libraryFolderNav')).toBeVisible();await expect(page.locator('#documentList details[data-lu-node="f:fa"][data-lu-enter]')).toBeAttached();
     const stay=await page.evaluate(async({from,fa})=>{const src=document.querySelector(from),dt=new DataTransfer(),el=document.querySelector(fa),r=el.getBoundingClientRect();
       src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
       for(let i=0;i<30;i++){el.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:r.left+r.width/2,clientY:r.top+r.height/2}));await new Promise(res=>setTimeout(res,60))}

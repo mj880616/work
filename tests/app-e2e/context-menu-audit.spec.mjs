@@ -291,7 +291,8 @@ test('S70-28 전수 1280: News(읽을 거리) 화면', async ({ page }, testInfo
   await expect(page.locator('#newsRoot [data-nc-item="c1"]')).toBeVisible();
   await census(page, '읽을 거리', '#outsideView', testInfo);
   await expectSpot(page, { name: 'News 글 줄 제목', sel: '#newsRoot [data-nc-item="c1"] .nw-title', want: 'app' });
-  await expectSpot(page, { name: 'News 찾기 칸', sel: '#outsideView .nw-find', want: 'browser' });
+  // S70-54 UI-검색창하나로: 화면 안 찾기 칸은 없고 맨 위 칸이 '읽을 거리에서 찾기'를 겸한다(글 칸이라 브라우저 메뉴 그대로).
+  await expectSpot(page, { name: 'News 찾기 칸(맨 위 칸)', sel: '#gsTopInput[data-screen-find="outside"]', want: 'browser' });
 });
 
 test('S70-28 전수 1280: 자료실 화면', async ({ page }, testInfo) => {
@@ -300,7 +301,7 @@ test('S70-28 전수 1280: 자료실 화면', async ({ page }, testInfo) => {
   await bootLibrary(page, W, { folders: [libFolder('fa', 'top-a', { name: '가상 폴더' })], items: [{ document_id: 'a-1', folder_id: 'fa' }], group: '폴더' });
   await census(page, '자료실', '#libraryView', testInfo);
   await expectSpot(page, { name: '자료실 자료 줄', sel: '#libraryView article.lu-row', want: 'app' });
-  await expectSpot(page, { name: '자료실 검색 칸', sel: '#libraryView input.search', want: 'browser' });
+  await expectSpot(page, { name: '자료실 검색 칸(맨 위 칸)', sel: '#gsTopInput[data-screen-find="library"]', want: 'browser' });
 });
 
 test('S70-28 전수 1280: 통화 화면', async ({ page }, testInfo) => {

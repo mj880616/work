@@ -100,8 +100,8 @@ test('PC: files dropped on the library screen upload at once with nothing set, a
   const state=await boot(page,{width:1440});
   const overlay=page.locator('#libraryDropOverlay');
   await expect(overlay).toBeHidden();
-  await dragFiles(page,'dragenter',['251020_요구안.hwpx'],'#documentSearch');
-  await dragFiles(page,'dragover',['251020_요구안.hwpx'],'#documentSearch');
+  await dragFiles(page,'dragenter',['251020_요구안.hwpx'],'#libraryCategoryPick');
+  await dragFiles(page,'dragover',['251020_요구안.hwpx'],'#libraryCategoryPick');
   await expect(overlay).toBeVisible();
   await expect(overlay).toHaveText('놓으면 바로 올려요');
   await dragFiles(page,'drop',['a-요구안.hwpx','b-보도자료.pdf'],'#documentList');
