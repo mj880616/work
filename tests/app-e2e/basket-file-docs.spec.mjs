@@ -7,6 +7,7 @@ import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { pickBasketView } from './helpers/forget-view.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 // UI-바구니첨부메모 PR 1: 글 없는 첨부 메모 화면(①~⑥), 프로젝트 [자료로 넣기](⑦⑧), 프로젝트 [자료] 묶음·전체 보기(⑩),
 // 분류 7개 칩·꼬리표(⑪, 저장 값은 그대로). Supabase REST·Edge 경계만 합성이고 화면은 실제 앱이다.
@@ -329,7 +330,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  await capture(page,info,`library-${width}-${scheme}`);
  await onlyLibraryCategories(page,['정책']);await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('.lu-row')).toContainText('국토부 지침');
  await onlyLibraryCategories(page,['투쟁']);await expect(page.locator('.lu-row')).toHaveText([/집회 계획/]);
- await showAllLibraryCategories(page);await expect(page.locator('#libraryCategoryPick')).toHaveText('분류: 전체');if(width<=760)await page.locator('#librarySearchOpen').click();await page.locator('#documentSearch').fill('선전');await expect(page.locator('.lu-row')).toHaveText([/기자회견 웹자보/]);
+ await showAllLibraryCategories(page);await expect(page.locator('#libraryCategoryPick')).toHaveText('분류: 전체');await (await screenFind(page)).fill('선전');await expect(page.locator('.lu-row')).toHaveText([/기자회견 웹자보/]);
 });
 
 test('the library forms choose one of the 7 categories; an old value is shown as its match and kept unless changed',async({page})=>{

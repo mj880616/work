@@ -4,6 +4,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {libraryNode,libraryNodeHead,libraryTopMenu,libraryExpandItem} from './helpers/library-tree.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const doc=(id,project_id,extra={})=>({id,workspace_id:'workspace-1',project_id,title:'자료 '+id,file_name:id+'.pdf',category:'정책자료',tags:[],document_date:null,created_at:'2026-10-01T00:00:00Z',...extra});
@@ -92,8 +93,8 @@ for(const width of [390,1280])test(`프로젝트 트리: 맨 위 단만, 자료 
 for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 펼침, 수는 거른 수, 풀면 직전 펼침으로 ${width}`,async({page})=>{
   const {errors}=await boot(page,width);
   await libraryNodeHead(page,'p:top-b').click();
-  if(width<=760)await page.locator('#librarySearchOpen').click();/* LIB-위쪽한줄 가안: 폰은 ⌕로 찾기 칸을 연다 */
-  await page.locator('#documentSearch').fill('a1-');
+  
+  await (await screenFind(page)).fill('a1-');
   // 맞는 자료가 든 토글만 남고(위 단까지) 펼쳐진다. 맞지 않는 토글·'프로젝트 없음'은 숨는다.
   expect(await tops(page)).toEqual(['p:top-a']);
   await expect(libraryNode(page,'p:top-a')).toHaveAttribute('open','');await expect(libraryNode(page,'p:child-a1')).toHaveAttribute('open','');
@@ -103,7 +104,7 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
   await libraryNodeHead(page,'p:child-a1').click();await expect(page.locator('.lu-row:visible')).toHaveCount(0);
   await page.evaluate(()=>window.KPTULibrary.render());await expect(libraryNode(page,'p:child-a1')).not.toHaveAttribute('open','');
   // 거르기를 풀면 직전 펼침(top-b만 열림)으로 돌아간다.
-  await page.locator('#documentSearch').fill('');
+  await (await screenFind(page)).fill('');
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   await expect(libraryNode(page,'p:top-b')).toHaveAttribute('open','');await expect(libraryNode(page,'p:top-a')).not.toHaveAttribute('open','');
   // 분류로 거르면 같은 규칙(LIB-위쪽한줄: 폰·PC 모두 [분류 ▾] 창으로 교섭만 남긴다).
@@ -113,7 +114,7 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
   await showAllLibraryCategories(page);
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   // 맞는 자료가 없으면 빈 안내.
-  await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');expect((await libraryExpandItem(page)).disabled).toBe(true);
+  await (await screenFind(page)).fill('없는 검색어');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');expect((await libraryExpandItem(page)).disabled).toBe(true);
   expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
 });
 

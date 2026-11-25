@@ -266,7 +266,6 @@
 
 /* 입력: 높이 하나·0.5px 선·모서리 8px. */
 /* LIB-위쪽한줄: 자료실 찾기 칸은 같은 줄 고르기 상자·작은 아이콘과 같은 높이(--ds-compact-height). */
-#appView #libraryView #documentSearch{ box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; }
 
 /* 상자: 0.5px 선·모서리 12px·그림자 없음. 상자 안 제목(자료실·회의 결과)은 섹션 이름 13px·테마 색. */
 #appView :is(#libraryView #libraryListCard,#meetingsView #meetingsListCard,#teamView .so-group-card){ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none; }
@@ -887,10 +886,9 @@
   html:has(:where(#appView #teamView:not(.hidden) > #soTeamSection > #soTeamTabs:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   /* S68-48 READ-보기탭아래(명진 11/23 12:42): 폰 저장한 글 [안 읽음 n|전체|밑줄](reading.js .rd-switch)도 같은 전환 줄(아래 가운데). 글을 연 폰 화면(목록 숨김)에는 없다. */
   html:has(:where(#appView #readingView:not(.hidden) [data-rd-list]:not([hidden]) .rd-switch)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
-  /* LIB-위쪽한줄: 자료실은 아래 알약이 없어 --kptu-switch-dock을 쓰지 않는다. 앱 머리 '자료실'은 숨기고 화면 첫 줄이 제목을 보인다. */
+  /* LIB-위쪽한줄: 자료실은 아래 알약이 없어 --kptu-switch-dock을 쓰지 않는다. S70-54: 앱 머리 '자료실'에 찾기 돋보기·[+]·⋯(맨 위 칸 하나로), 화면 첫 줄은 고르기 둘. */
   /* UI-보기탭드롭다운(11/10): 사업 보고 보기는 위 줄 고르기 상자 [목록 ▾]라 아래 전환 줄이 없다(--kptu-switch-dock 쓰지 않음). */
   html:has(#appView #meetingsView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
-  html:has(#appView #libraryView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
   /* UI-보기탭드롭다운(11/10): 사진도 앱 머리를 숨기고 화면 첫 줄이 제목 '사진' + 오른쪽 출처 아이콘(photos.css .photos-head). */
   html:has(#appView #photosView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
   /* SHARE-제목줄더하기: 공유 페이지 목록은 앱 머리를 숨기고 화면 첫 줄이 제목 '공유 페이지'와 오른쪽 작은 +를 한 줄에 보인다(사업 보고·자료실과 같은 방식). 쓰는 화면(편집기)은 그대로. */
@@ -1090,7 +1088,6 @@ body:has(.basket-photo-view) > :is(.kptu-ask,.kptu-notice,.kptu-undo-notice,.toa
   /* 한 줄 입력칸: 글줄 21px + 위 7px·아래 6px + 테두리(화면에 1px씩) = 36px. 홈은 길게 쓰면 지금처럼 늘어나고 5줄에서 멈춘다(home-quick.js). */
   #appView :is(#homeView,#tasksView) .home-quick[data-home-quick] [data-quick-input]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:7px; padding-bottom:6px; }
   #appView :is(#homeView,#basketView) .home-quick .home-quick-big,#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
-  #appView #basketView .note-list-head .note-search input{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* SHARE-현장공유 PR 2: 공유 페이지 화면의 큰 버튼([새 공유 페이지]·[저장]·[링크 만들기]·[다시 불러오기])도 같은 36px. 작은 보조 버튼(.sp-tool)은 그대로. */
   #appView #pagesView .sp-root button.primary:not(.icon-btn){ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* UI-버튼크기전수: 머리줄의 [+ HTML]과 [+ 새 공유 페이지]는 한 줄이라 같은 작은 버튼 높이(.btn-row). 이 묶음은 PC 폭(761px~)이고 폰은 첫 줄 네모 작은 +(.sp-add) 하나. */

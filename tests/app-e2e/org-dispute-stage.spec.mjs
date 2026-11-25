@@ -302,33 +302,22 @@ for(const width of [390,412,900,1280])test(`화면 전체 ⋯(담당조직 메�
  const more=page.locator('#soTeamMore');await expect(more).toBeVisible();await expect(more).toHaveCount(1);
  await expect(page.locator('#soOrganizationList #soTeamMore, .so-group-card #soTeamMore')).toHaveCount(0);
  const m=await more.boundingBox(),group=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();
- if(width<761)expect(m.y+m.height).toBeLessThanOrEqual(group.y); // 묶음 머리줄보다 위
+ expect(m.y+m.height).toBeLessThanOrEqual(group.y); // 묶음 머리줄보다 위
+ // S70-54 UI-검색창하나로(명진 11/25 21:28 "담당조직+ 랑 ... 맨 첫째줄 우측에 … 전체 검색 우측에"): ⋯는 맨 위 줄 단추 자리(.sf-tools) — 옛 화면 머리 줄은 없다.
+ await expect(page.locator('#soTeamHead')).toHaveCount(0);await expect(page.locator('.sf-tools:not([hidden]) #soTeamMore')).toHaveCount(1);
+ // 화면 이름 큰 제목은 읽기 프로그램용(공용 .screen-title)으로 남는다.
+ await expect(page.locator('#soTeamSection .so-team-title')).toHaveText('조직 관리');await expect(page.locator('#soTeamSection .so-team-title')).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');
  if(width<=760){
-  // 폰: 위 머리줄의 화면 이름 "담당조직"과 같은 줄, 오른쪽 끝
+  // 폰 틀: 앱 머리 줄의 화면 이름과 같은 줄, 오른쪽
   const name=await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();
   expect(Math.abs((m.y+m.height/2)-(name.y+name.height/2))).toBeLessThanOrEqual(6);
   expect(m.x).toBeGreaterThan(name.x+name.width);
-  if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
  }else{
-  const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('조직 관리');
-  // UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄이 화면 이름을 맡아 본문 큰 제목은 읽기 프로그램용(잘라 숨김), 중간 폭은 제목 줄 그대로.
-  if(width>=761){
-   await expect(title).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');
-   // MULTI-다른담당자맞춤 ①·②(S61-39c): PC 머리줄([+ 담당조직]·⋯)은 묶음이 있어도 목록 위 한 줄(전에는 F07로 ⋯만 첫 묶음 머리줄에 겹쳐 두었다).
-   // [+ 담당조직]·⋯는 첫 묶음 머리줄보다 위, 목록 칸 오른쪽 끝 안. 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
-   const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox();
-   await expect.poll(async()=>{const a=await more.boundingBox(),b=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();return b.y-(a.y+a.height);}).toBeGreaterThanOrEqual(0);
-   const a=await more.boundingBox(),add=await page.locator('#soAddOrg').boundingBox(),first=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();
-   expect(add.y+add.height).toBeLessThanOrEqual(first.y);expect(add.x+add.width).toBeLessThanOrEqual(a.x);
-   expect(a.x+a.width).toBeLessThanOrEqual(list.x+list.width+1);expect(a.x).toBeGreaterThan(list.x+list.width/2);
-   expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
-   expect(list.y-(a.y+a.height)).toBeLessThanOrEqual(12); // 머리줄과 목록 사이가 벌어지지 않음
-   if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
-  }else{
-   await expect(title).toBeVisible();const t=await title.boundingBox();expect(Math.abs((m.y+m.height/2)-(t.y+t.height/2))).toBeLessThanOrEqual(6);
-   const list=await page.locator('#soOrganizationList').boundingBox();expect(m.x+m.width).toBeGreaterThan(list.x+list.width-1); // 목록 칸 밖(화면 오른쪽)
-  }
+  // PC 틀: 상단 줄 찾기 칸 오른쪽, 같은 줄
+  const top=await page.locator('#gsTopInput').boundingBox();
+  expect(Math.abs((m.y+m.height/2)-(top.y+top.height/2))).toBeLessThanOrEqual(2);expect(m.x).toBeGreaterThanOrEqual(top.x+top.width);
  }
+ if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
  await more.click();await expect(page.locator('#soTeamMenu [data-so-stage-manage]')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
@@ -350,15 +339,15 @@ for(const width of [412,690,840,1280])test(`조직 보고 맨 위 [+ 담당조�
  const a=await add.boundingBox(),m=await more.boundingBox();
  expect(Math.abs((a.y+a.height/2)-(m.y+m.height/2))).toBeLessThanOrEqual(1);
  expect(a.x+a.width).toBeLessThanOrEqual(m.x);expect(m.x-(a.x+a.width)).toBeLessThanOrEqual(8);
- const search=page.locator('.mobile-shell-search:visible,.topline-search:visible').first();
+ const search=page.locator('.mobile-shell-search:visible,.mobile-shell-find .gs-field:visible,.topline-search:visible').first();
  if(await search.count()){
   const s=await search.boundingBox(),apart=(b)=>b.y>=s.y+s.height||b.y+b.height<=s.y||b.x>=s.x+s.width||b.x+b.width<=s.x;
   expect(apart(a)).toBe(true);expect(apart(m)).toBe(true);
  }
  if(width>=600){
-  // 목록 칸 위 한 줄, 목록 칸 오른쪽 끝 안. 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
+  // S70-54: [+ 담당조직]·⋯는 맨 위 줄(목록 칸 위). 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
   const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox();
-  expect(m.y+m.height).toBeLessThanOrEqual(list.y);expect(m.x+m.width).toBeLessThanOrEqual(list.x+list.width+1);
+  expect(m.y+m.height).toBeLessThanOrEqual(list.y);
   expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
  }
  // 조직 이름이 한두 글자로 잘리지 않는다(이름 칸이 글자 6개 넘게).

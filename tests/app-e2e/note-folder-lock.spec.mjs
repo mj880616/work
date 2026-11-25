@@ -4,6 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 // 화면 사진: KPTU_SHOTS=1 이면 docs/design/screens/s67-14/.
@@ -106,9 +107,9 @@ test('폴더 ⋯ [잠금] → PIN 정하기 → 하위·옛 이름 노트까지 
   await shot(page, 'list-locked-1280');
   await expect(page.locator('#noteRows')).not.toContainText('감춘 노트');
   // 찾기: 잠긴 노트 글자로는 걸리지 않는다.
-  await page.locator('[data-note-search]').fill('감춘');
+  await (await screenFind(page)).fill('감춘');
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(0);
-  await page.locator('[data-note-search]').fill('');
+  await (await screenFind(page)).fill('');
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(4);
   // 잠긴 노트를 누르면 그 자리 숫자 판(S67-25) → 틀림 → 맞음 → 화면을 떠나지 않고 노트가 보인다.
   await page.locator('#noteRows [data-note-row="n3"]').click();

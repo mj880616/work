@@ -145,17 +145,15 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
 /* [노트] 위쪽: 검색칸 + [+ 노트]. 폰의 [+ 노트]는 위 입력칸으로 바뀌었다(BASKET-노트입력창). */
 .note-list-head { display:flex; align-items:center; gap:8px; margin:8px 0; }
-.note-list-head .note-search { flex:1; min-width:0; margin:0; }
-.note-search { display:block; margin:8px 0; }
-#basketView :is(.note-search input,.note-editor input[type="text"],.note-editor textarea[data-note-title-input],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
+#basketView :is(.note-editor input[type="text"],.note-editor textarea[data-note-title-input],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 /* NOTE-마크다운선택: 노트 수정 칸의 [☐ 마크다운] 체크(노트마다 따로 저장). 누르는 범위 44px. */
 #appView #basketView .note-editor label.note-md-toggle { display:flex; flex-direction:row; width:max-content; align-items:center; gap:8px; min-height:44px; margin:2px 0 0; font-size:14px; font-weight:500; color:var(--kptu-ink); cursor:pointer; }
 .note-row-chips { display:flex; flex-wrap:wrap; gap:6px; }
 /* NOTE-탐색기(10/28 09:24): 맨 위 '노트 · 54 · 🔍 ⋯', 폴더 나무(📁 닫힘 / 📂 열림, ▸ 없음), 한 줄 노트, 선택 모드·끌어 놓기. 작고 낮게, 톤다운. */
 .note-list-head { display:flex; align-items:center; gap:6px; min-width:0; }
-.note-list-head > .note-search { flex:1 1 auto; min-width:0; }
+/* S70-54: 찾기 칸·⋯가 맨 위 줄로 가고 보기 탭만 남는다. 폰은 보기 탭이 아래 전환 줄(자리 없음)이라 이 줄도 자리를 비운다. */
+.note-list-head:not(:has(> :not(.a11y-only):not([hidden]))) { display:none; }
 .nx-count { flex:none; font-size:12px; color:var(--kptu-muted); white-space:nowrap; }
-#appView #basketView .note-list-head > button.note-folder-more { flex:none; font-size:20px; line-height:1; }
 .note-folder-status { margin:0 0 6px; color:var(--kptu-muted); font-size:13px; }
 /* UI-고르기막대(S69-85): 모양은 공용 .kptu-selbar(base-ui.css). 여기서는 위에 붙는 자리만. */
 .nx-select-bar:not([hidden]) { position:sticky; top:var(--kptu-stick-top,0px); z-index:3; }

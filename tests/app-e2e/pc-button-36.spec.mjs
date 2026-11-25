@@ -5,6 +5,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { openQuickBox } from './helpers/home-entry.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 // UI-PC버튼36(2026-10-20 사용자 결정): PC(≥1024) 큰 버튼은 회의 [+ 회의 결과]와 같은 입력칸 높이(--kptu-control-height 36px).
 // 같은 줄 입력칸·칸 안 아이콘도 36px로 맞춰 줄이 어긋나지 않는다. 누르는 범위는 44px(::after). 폰 동그란 [+]·폰 버튼·중간 폭은 그대로.
@@ -90,8 +91,8 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  await open(page,'basket');const bq=page.locator('#basketView [data-basket-list] [data-home-quick]');
  await pcButton(bq.locator('[data-quick-save]'),'정리함 추가');await pcButton(bq.getByRole('button',{name:'파일 첨부',exact:true}),'정리함 첨부');
  await chooseBasketKind(page,'note');
- const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가'),ns=await measure(page.locator('#basketView [data-note-search]'));
- expect(ns.height).toBe(36);
+ const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가'),ns=await measure((await screenFind(page)));
+ expect(ns.height).toBe(32); // S70-54 UI-검색창하나로: 노트 찾기는 상단 줄 칸(상단 줄 높이 32px)이 겸한다
  // 입력 줄 버튼은 모두 36px. 창(모달) 버튼은 공용 기준(46px) 그대로.
  expect(nb.height).toBe(36);
  await open(page,'projects');await page.locator('#newProjectBtn').click();

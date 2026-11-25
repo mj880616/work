@@ -8,6 +8,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {pickReportFilter} from './helpers/report-filter.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의를 새 기준(버튼 높이 하나·버튼 4종·모서리 8px·13px/500·0.5px 상자 안 줄 단위)으로,
 // 목록 줄 이름 13px·400(프로젝트 메인만 500)·보조 줄 12px 흐린 색, 담당조직 마지막 기록 점·보조 줄, 프로젝트 목록 오른쪽 D-day 하나,
 // 자료실 종류 색(확장자, 없으면 Drive 파일 종류), 바구니 [분류 결과 입력] 칸 제목.
@@ -173,11 +174,10 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  // [분류 ▾]·[폴더 ▾]는 고르기 상자 바탕(--ds-select-bg), 칩 줄은 없다.
  await expect(page.locator('#libraryCategoryFilter')).toHaveCount(0);
  for(const sel of ['#libraryCategoryPick','#libraryGroupBy']){const p=await look(page.locator(sel));expect(p.height,sel).toBe(32);expect(p.radius,sel).toBe('8px');}
- const search=await look(page.locator('#documentSearch'));
- if(width<761)await page.locator('#librarySearchOpen').click();
- const shown=await look(page.locator('#documentSearch'));expect(shown.height).toBe(32);expect(search.radius).toBe('8px');expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
+ const search=await look((await screenFind(page)));
+ const shown=await look((await screenFind(page)));expect(shown.height).toBe(32);expect(search.radius).toBe('8px');expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
  // S61-12: 찾기 결과에서도 사진은 줄 대신 [사진 1](개수 그대로), 누르면 작은 그림.
- await page.locator('#documentSearch').fill('사진');
+ await (await screenFind(page)).fill('사진');
  await expect(page.locator('#documentList .lu-row[data-lu-document="d9"]')).toHaveCount(0);
  const photoToggle=page.locator('#documentList [data-lu-photos]');await expect(photoToggle).toHaveText(['사진 1']);
  await photoToggle.click();await expect(page.locator('#documentList [data-photo-tile="d9"]')).toHaveCount(1);

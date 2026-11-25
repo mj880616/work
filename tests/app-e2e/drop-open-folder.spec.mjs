@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {start,openFiles,treeGo} from './helpers/files-server.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // S60-13 UI-펼친폴더안놓기전체(명진 11/12 09:23, ★급★): "a폴더(파일·파일·파일 a) b폴더(파일 *·파일·파일)에서 * 파일을 끌어서 '파일 a' 쪽에만 가져가도
 // 드롭이 가능하게. 비슷한 인터페이스는 모두". 공용 규칙(app/drop-open-folder.mjs): 펼친 폴더 묶음 안 아무 자리(자료 줄·[사진 n]·줄 사이) = 그 폴더.
 // 표시: 놓일 묶음 전체 옅은 바탕 + 그 폴더 줄 '여기에 놓기'. 명진 예 그대로(실제 마우스 끌기). 이름은 모두 지어낸 것.
@@ -29,7 +30,7 @@ for(const two of [false,true])test(`자료실 PC 1280 ${two?'두 칸':'한 칸'}
   if(two){for(const k of ['fa','fb'])await page.locator(`${root} [data-lu-nav="${k}"]`).click()}
   else{
     // S69-28 LIB-한칸탐색기: PC 한 칸은 탐색기(지금 폴더 하나만)라 두 폴더 묶음을 한꺼번에 펼친 목록은 찾는 중(나무 목록)에만 있다 — 같은 규칙을 거기서 본다.
-    await page.locator('#documentSearch').fill('.');await expect(page.locator('#documentList details[data-lu-node="f:fa"]')).toBeAttached();
+    await (await screenFind(page)).fill('.');await expect(page.locator('#documentList details[data-lu-node="f:fa"]')).toBeAttached();
     for(const k of ['fa','fb']){const n=page.locator(`#documentList details[data-lu-node="f:${k}"]`);if(!(await n.evaluate(e=>e.open)))await n.locator(':scope > summary').click()}
   }
   const doc=id=>page.locator(`${root} [data-lu-document="${id}"]`).first();

@@ -93,7 +93,8 @@ test('task grouping, month controls, and destructive task actions expose clear n
 test('library toolbar exposes accessible navigation; the share page screen is gone',async({page})=>{
   await boot(page,{width:1024,height:768});
   await clickView(page,'library');
-  await expect(page.locator('label[for="documentSearch"]')).toHaveCount(1);
+  // S70-54: 자료실 찾기 칸은 맨 위 칸(이름표 '자료실에서 찾기')이 겸한다.
+  await expect(page.locator('label[for="gsTopInput"]')).toHaveText('자료실에서 찾기');
   await expect(page.locator('#documentProject')).toHaveAttribute('aria-label','사업영역 필터');
   // NOTE-게시 ③: 공유 페이지 화면은 화면째 지웠다(옛 Web1 카드도 DOMAIN-④ E2에서 없음).
   await expect(page.locator('#pagesView,#sharePagesRoot,.w1b-card,#web1BoardLegacy,#web1BoardDetailModal')).toHaveCount(0);

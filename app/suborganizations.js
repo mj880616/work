@@ -1,4 +1,6 @@
 import {word} from './brand/brand.mjs';
+import {registerScreenFind,refreshScreenFind,toolsBox} from './screen-find.js'; // S70-54 UI-검색창하나로
+import {emptyHtml} from './wait-state.js';
 const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-notice.js').then(m=>m.holdToast(el,opt)).catch(()=>{})}; // UI-작은알림자리: 일반 스크립트라 동적 import(#toast 위쪽·2초·올려 두면 멈춤)
 (()=>{
 'use strict';
@@ -31,7 +33,13 @@ function assigneeMarkup(o){const actual=actualNames(o);if(actual.length)return a
 // 폰은 위 머리줄 "담당조직" 오른쪽으로 올라가고, 761px~는 본문 제목 줄 오른쪽). 묶음이 바뀌어도 자리가 그대로다.
 // UI-전수디자인점검 F07: 머리줄은 #soTeamSection의 첫 칸이다. PC(761px~)에서는 ⋯ 하나만 담은 빈 줄을 두지 않고, 목록 칸 맨 위 줄(첫 묶음 머리줄 높이)
 // 오른쪽 끝에 겹쳐 놓는다(suborganizations.css). 목록 HTML은 다시 그려지므로 ⋯는 목록 안에 넣지 않는다.
-function installTeamHead(section){if(document.querySelector('#soTeamHead'))return;section.insertAdjacentHTML('afterbegin',word('<div id="soTeamHead" class="so-team-tools so-team-head"><h2 class="so-team-title screen-title">조직 관리</h2>')+(isAdmin()?word('<button id="soAddOrg" class="secondary so-team-add" type="button" aria-label="담당조직 추가">+ 담당조직</button>'):'')+word('<button id="soTeamMore" class="icon-btn so-team-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="조직 관리 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button></div>'))}
+// S70-54 UI-검색창하나로(명진 11/25 21:28 "담당조직+ 랑 ... 맨 첫째줄 우측에 … 전체 검색 우측에"): 옛 화면 머리 줄(#soTeamHead: 제목·[+ 담당조직]·⋯)은 없애고
+// [+ 담당조직]·⋯는 맨 위 줄 단추 자리(screen-find.js 상자)에 둔다. 누르기는 그대로 아래 document 누르기 처리(#soAddOrg·#soTeamMore).
+// 맨 위 칸은 '조직 관리에서 찾기' = 담당조직 이름 거르기(renderTeam 안, 서버 검색 없음).
+function installTeamHead(section){if(!section.querySelector('.so-team-title'))section.insertAdjacentHTML('afterbegin',word('<h2 class="so-team-title screen-title">조직 관리</h2>'));const box=toolsBox('team');if(box.querySelector('#soTeamMore'))return;box.innerHTML=(isAdmin()?word('<button id="soAddOrg" class="secondary so-team-add sf-chip" type="button" aria-label="담당조직 추가">+ 담당조직</button>'):'')+word('<button id="soTeamMore" class="icon-btn so-team-more sf-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="조직 관리 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button>');refreshScreenFind()}
+let soQuery='',soFindText='';
+registerScreenFind('team',{label:word('조직 관리에서 찾기'),foot:()=>document.querySelector('#soOrganizationList'),active:()=>{const v=document.querySelector('#teamView');return !!v&&!v.classList.contains('hidden')&&!!document.querySelector('#soTeamSection')},value:()=>soQuery?soFindText:'',
+  apply:raw=>{soFindText=String(raw??'');const next=norm(soFindText);if(next===soQuery)return;soQuery=next;renderTeam()}});
 function installTeam(){const team=document.querySelector('#teamView');if(!team)return false;let section=document.querySelector('#soTeamSection');if(!section){section=document.createElement('section');section.id='soTeamSection';section.className='so-team-section';section.innerHTML='<div id="soOrganizationList" class="so-list"></div>';team.appendChild(section)}installTeamHead(section);if(!document.querySelector('#wdDetailPane'))section.insertAdjacentHTML('beforeend',word('<aside id="wdDetailPane" class="so-pane" aria-label="담당조직 상세"></aside>'));return true}
 // ORG-PC좌우: on a PC the organization shown on the right (workplace-detail.js, kptu:workplace-selection) is marked in the list.
 let soSelected=null;
@@ -64,7 +72,7 @@ async function deletePicked(trigger){if(!picking()||soPickBusy)return;const ids=
  finally{soPickBusy=false}
  if(r?.status==='moved'){if(r.left.length)soPick.items=new Set(r.left);else soPick.stop()}
  soTeamHtml=null;renderTeam();(picking()?document.querySelector('#soOrganizationList [data-so-pick-delete]'):document.querySelector('#soTeamMore'))?.focus({preventScroll:true})}
-function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const mine=myOrganizations();const hidden=new Set(window.KPTUOrganizationOrder.PICKER_EXCLUDED||[]),shown=mine.filter(o=>!hidden.has(o.name)),excluded=mine.filter(o=>hidden.has(o.name)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const all=myOrganizations(),mine=soQuery?all.filter(o=>norm(o.name).includes(soQuery)||(o.aliases||[]).some(x=>norm(x).includes(soQuery))):all;const hidden=new Set(window.KPTUOrganizationOrder.PICKER_EXCLUDED||[]),shown=mine.filter(o=>!hidden.has(o.name)),excluded=mine.filter(o=>hidden.has(o.name)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
  const pk=picking();if(pk)soPick.prune(pickableIds());
  // S67-53 ORG-여러개삭제: 선택 중에는 줄 앞에 선택 칸, 줄 ⋯는 빼고, 줄을 누르면 열지 않고 선택만(아래 click). 내가 지울 수 없는 조직은 칸이 꺼져 있다.
  const pickBox=o=>{if(!pk)return '';const on=soPick.has(o.id),off=!canEdit(o)||soPickBusy;return `<input type="checkbox" class="so-pick" data-so-pick="${esc(o.id)}" aria-label="${esc(o.name)} 선택"${on?' checked':''}${off?' disabled':''}>`};
@@ -76,7 +84,7 @@ function renderTeam(){const box=document.querySelector('#soOrganizationList');if
  // MULTI-다른담당자맞춤 ②: 묶음이 있거나(값) 빈 묶음을 만들었으면 묶음 칸·손잡이·묶음 ⋯(org-groups-drag.js), 아니면 지금처럼 가나다순 한 목록.
  const grouped=!!soGroupsMod&&(window.KPTUOrganizationOrder.hasGroups?.()||soGroupsMod.hasPending());
  box.classList.toggle('so-picking',pk);
- const html=(pk?pickBarHtml():'')+(mine.length?(grouped?soGroupsMod.sectionsHtml(shown,row):ordered(shown,row,true))+excludedHtml:soEmptyHtml())+(pk?'':'<button type="button" class="so-reference-entry" data-goto="reference">참고 묶음 <span aria-hidden="true">›</span></button>');if(html!==soTeamHtml||box!==soTeamBox||!box.firstElementChild){box.innerHTML=html;soTeamHtml=html;soTeamBox=box}placeQuiet(box,pk);paintSelection();paintStageTags();repaintRecency();window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}));
+ const html=(pk?pickBarHtml():'')+(mine.length?(grouped?soGroupsMod.sectionsHtml(shown,row):ordered(shown,row,true))+excludedHtml:all.length?emptyHtml('맞는 담당조직 없음'):soEmptyHtml())+(pk?'':'<button type="button" class="so-reference-entry" data-goto="reference">참고 묶음 <span aria-hidden="true">›</span></button>');if(html!==soTeamHtml||box!==soTeamBox||!box.firstElementChild){box.innerHTML=html;soTeamHtml=html;soTeamBox=box}placeQuiet(box,pk);paintSelection();paintStageTags();repaintRecency();window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}));
  // DESK-전체현황표: 담당조직 맨 위 소탭 [목록|전체 표]. 전체 표(org-overview.js)는 같은 내 담당조직 목록을 받아 묶음별 표로 그린다.
  if(mine.length||document.querySelector('#soTeamTabs'))import('./org-overview.js').then(m=>m.syncOverview({orgs:mine,workspaceId:soWorkspace,rt})).catch(err=>console.error('org overview',err))}
 // ORG-쟁의단계: 목록 줄 꼬리표(모든 조직의 지금 단계, 색 = 투쟁 중·끝남·평시 — ORG-단계꼬리표전부)와 ⋯ 메뉴 [쟁의 단계 관리]. 판정은 org-dispute-stage-model.mjs 한 곳, 읽기·쓰기는 org-dispute-stage.js.

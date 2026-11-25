@@ -29,6 +29,8 @@ import {chevHtml} from './fold-chevron.mjs';
 import {newsPage} from './feed-shared-model.mjs';
 import {fillGestureArea} from './gesture-fill.js';
 import {sortByName} from './name-order.mjs';
+// UI-검색창하나로(S70-54): 찾기 칸은 맨 위 칸(화면 찾기 등록), [매체 ▾]·⋯는 맨 위 줄 단추 자리(screen-find.js 상자)로.
+import {registerScreenFind, refreshScreenFind, toolsBox} from './screen-find.js';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — S51-17 P5에서 메뉴 이름 'News'·주소 ?view=news).
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1·6.3·6.4절, 시안 docs/design/mockups/news-overhaul.html ①·③):
 // - 탭 [전체][사회운동][언론][보관](now-model.mjs NOW_TABS). 폰은 아래 떠 있는 탭 줄, 폴드 펼침(761~1199px)은 오른쪽 아래, PC(1200px~)는 위(명진 11/06 탭 자리 규칙).
@@ -62,7 +64,6 @@ function install() {
 <div id="outsideRoot" class="os now" data-mode="list" data-tab="all" data-detail="closed">
 <div class="os-tabs ds-seg" role="tablist" aria-label="읽을 거리 보기" data-os-tabs>${TABS_HTML}</div>
 <div class="now-main" id="nowMain">
-<form class="nw-top" data-nw-top role="search" aria-label="읽을 거리 찾기"><input type="search" class="nw-find" data-nw-find maxlength="100" enterkeyhint="search" placeholder="읽을 거리 찾기 — 제목·문장" aria-label="읽을 거리 찾기 — 제목·문장" autocomplete="off"><button type="button" class="nw-dd" data-nw-media aria-haspopup="dialog" aria-expanded="false"></button><button type="button" class="os-more" data-os-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="읽을 거리 메뉴">${MORE}</button></form>
 <div id="osPanelSearch" class="osq" data-os-search aria-label="문장 찾기" hidden></div>
 <div id="nowPanelAll" role="tabpanel" aria-labelledby="osTab-all" data-now-panel-all><div class="os-list" data-nw-all aria-label="새로 온 글"></div></div>
 <div id="osPanelNew" role="tabpanel" aria-labelledby="osTab-movement" data-os-panel-new hidden>
@@ -81,7 +82,10 @@ function install() {
 install();
 
 const root = document.getElementById('outsideRoot');
-const $ = sel => root?.querySelector(sel);
+// S70-54: 옛 찾기 줄(.nw-top)의 [매체 ▾]·⋯는 맨 위 줄 단추 상자에 산다(그리기·누르기는 이 모듈 그대로). 찾기 칸은 맨 위 칸이 겸한다.
+const tools = toolsBox('outside');
+tools.innerHTML = `<button type="button" class="nw-dd secondary sf-chip" data-nw-media aria-haspopup="dialog" aria-expanded="false"></button><button type="button" class="os-more icon-btn sf-more" data-os-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="읽을 거리 메뉴">${MORE}</button>`;
+const $ = sel => root?.querySelector(sel) || tools.querySelector(sel);
 const rt = () => window.KPTURuntime;
 const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
@@ -296,7 +300,7 @@ function openDetail(item, head, opts = {}) {
   detail.open(item, head, opts);
   // 상세를 열면 읽음(app_feed_reads, 이미 있으면 서버가 그대로 둔다). PC에서 맨 위 글을 저절로 연 것은 읽은 것으로 치지 않는다.
   if (!autoOpening) markRead(item);
-  if (root) root.dataset.detail = 'open';
+  if (root) root.dataset.detail = 'open'; refreshScreenFind();
   mountSplit();
   // 폰(좁은 화면): 상세가 전체 화면 — 뒤로가기 한 번 = 목록(라우터 겹). PC·폴드 펼침은 오른쪽 칸이라 겹 없음.
   if (!PC.matches) { detailLayer ||= window.KPTURouter?.layer?.open('now-detail', {reopen: () => openDetail(item, head, {from: opts.from}), close: () => { detailLayer = null; closeDetail({fromLayer: true}); return true; }}) || null; window.scrollTo({top: 0, behavior: 'instant'}); }
@@ -321,7 +325,7 @@ window.KPTURouter?.pick?.on?.('outside', ({item = null} = {}) => {
 function closeDetail({fromLayer = false} = {}) {
   const was = detail.current();
   detail.close();
-  if (root) root.dataset.detail = 'closed';
+  if (root) root.dataset.detail = 'closed'; refreshScreenFind();
   mountSplit();
   if (!fromLayer) { const l = detailLayer; detailLayer = null; l?.close(); }
   window.KPTURouter?.setPlace?.('outside', {item: null});
@@ -451,9 +455,9 @@ function paintTabs() {
   const tab = state.tab || 'all';
   root.dataset.tab = tab;
   const list = state.mode === 'list';
-  const tabs = $('[data-os-tabs]'), top = $('[data-nw-top]');
+  const tabs = $('[data-os-tabs]');
   if (tabs) tabs.hidden = !list;
-  if (top) top.hidden = !list;
+  refreshScreenFind();
   root.querySelectorAll('[data-os-tab]').forEach(b => { const on = b.dataset.osTab === tab; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
   // 단체 켜고 끄기 칸은 [사회운동] 칸 안이다.
   const show = (sel, on) => { const el = $(sel); if (el) el.hidden = !on; };
@@ -541,7 +545,7 @@ function fitDetail() {
 }
 function clearDetail(panel) {
   detail.close();
-  if (root) root.dataset.detail = PC.matches && panel?.querySelector('.now-row') ? 'empty' : 'closed';
+  if (root) root.dataset.detail = PC.matches && panel?.querySelector('.now-row') ? 'empty' : 'closed'; refreshScreenFind();
   mountSplit();
   window.KPTURouter?.setPlace?.('outside', {item: null});
   markOpen();
@@ -569,8 +573,8 @@ function resetIfOwnerChanged() {
   search.reset(); allFind.reset();
   detail.reset(); marks.reset(); memos.reset(); interests.reset(); folds.clear();
   detailFrom = ''; fitWanted = false;
-  if (root) root.dataset.detail = 'closed';
-  const f = $('[data-nw-find]'); if (f) f.value = '';
+  if (root) root.dataset.detail = 'closed'; refreshScreenFind();
+  refreshScreenFind();
 }
 
 // 숨기거나 별표(= 보관)한 사회운동 글 표시(줄 밀기·상세 단추가 같은 서버 표시를 쓴다). 숨긴 글은 목록에서 감추고, 별표한 글은 ★와 오른쪽 밀기 '보관 풀기'.
@@ -830,9 +834,9 @@ const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-m
     else if (a === 'news-sources') newsPanel('sources'); else if (a === 'keywords' || a === 'folders') newsPanel(a);
   }});
 
-root?.addEventListener('click', event => {
+function onClick(event) {
   const b = event.target.closest('button');
-  if (!b || !root.contains(b)) return;
+  if (!b || !(root.contains(b) || tools.contains(b))) return;
   if (b.matches('[data-os-tab]')) { setTab(b.dataset.osTab); return; }
   if (b.matches('[data-now-open]')) {
     const key = b.closest('[data-nw-key]')?.dataset.nwKey || '', [type, id] = key.split(':');
@@ -850,7 +854,9 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-nw-all-more]')) { loadMore(); return; }
   if (b.matches('[data-nw-find-retry]')) { allFind.again(); return; }
   if (b.matches('[data-os-retry]')) { load().catch(() => {}); paint(); }
-});
+}
+root?.addEventListener('click', onClick);
+tools.addEventListener('click', onClick);
 // 매체 묶음 펼침·접힘을 기억. [언론] 칸(news-clipping.js)도 이 화면 안이라 같이 잡힌다.
 // 누른 순간(클릭·Enter·Space 모두 click)에 바로 적는다 — toggle 알림은 늦게 와서 그사이 목록을 다시 그리면 떨어진 줄에 가 버린다.
 // toggle(거품 없음 → 잡기 단계)은 그 밖의 길(브라우저 찾기로 열림 등)을 맞춘다.
@@ -870,11 +876,16 @@ root?.addEventListener('toggle', event => {
   state.intlOpen = d.open;
   paintList();
 }, true);
-root?.addEventListener('input', event => { if (event.target.matches?.('[data-nw-find]')) setQuery(event.target.value); });
-root?.addEventListener('submit', event => {
-  if (!event.target.matches?.('[data-nw-top]')) return;
-  event.preventDefault();
-  setQuery($('[data-nw-find]')?.value, {submit: true});
+// S70-54 UI-검색창하나로: 찾기는 맨 위 칸(화면 찾기). 치면 setQuery, Enter면 setQuery(…, {submit}) — 옛 찾기 줄이 하던 그대로.
+// 목록 화면일 때만(단체 켜고 끄기·관심 주제 칸, [언론] 안 키워드·폴더 칸, 폰에서 글을 연 화면은 옛 줄도 없었다).
+let findText = '';
+registerScreenFind('outside', {
+  label: '읽을 거리에서 찾기',
+  foot: () => mainBox, // '전체에서 「…」 찾기 →' 줄은 목록 칸(#nowMain) 맨 아래
+  active: () => window.KPTURouter?.current === 'outside' && state.mode === 'list' && !(PHONE.matches && root?.dataset.detail === 'open')
+    && !(state.tab === 'media' && document.getElementById('newsRoot')?.dataset.mode && document.getElementById('newsRoot').dataset.mode !== 'list'),
+  value: () => (state.query ? findText : ''),
+  apply: (raw, {submit = false} = {}) => { findText = String(raw ?? ''); setQuery(findText, {submit}); },
 });
 
 // 탭 줄: 왼쪽·오른쪽 화살표로 탭 이동(WAI tablist).
@@ -937,7 +948,7 @@ window.addEventListener('kptu:view-changed', event => {
   if (mediaPicker?.isOpen) void mediaPicker.close();
   if (state.mode !== 'list') { state.mode = 'list'; listDirty = false; }
   state.seenRead = false;
-  if (detail.current()) { detail.close(); if (root) root.dataset.detail = 'closed'; }
+  if (detail.current()) { detail.close(); if (root) root.dataset.detail = 'closed'; refreshScreenFind(); }
 });
 window.KPTURouter?.on?.('outside', () => { enter(); });
 window.addEventListener('kptu:view-prefs-ready', () => {

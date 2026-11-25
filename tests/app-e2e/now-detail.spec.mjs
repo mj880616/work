@@ -132,7 +132,7 @@ for (const width of [412, 884, 1280]) {
 
     // 관심 주제 후보가 있으면 화면 머리 ⋯ 메뉴 안 한 줄(S69-70 — 목록 위 줄은 없음). 서버에 후보를 만들지 묻는다(규칙은 서버).
     await expect(root(page).locator('[data-now-cand]')).toHaveCount(0);
-    await root(page).locator('[data-os-more]').click();
+    await page.locator('.sf-tools [data-os-more]').click();
     await expect(page.locator('#osMenu [data-os-cand]')).toHaveText('관심 주제 후보 1');
     await page.keyboard.press('Escape');
     await expect(page.locator('#osMenu')).toBeHidden();
@@ -223,7 +223,7 @@ for (const width of [412, 884, 1280]) {
     }
 
     // 관심 주제 후보 → [ㅇ 확정](state·decided_at·updated_at만 고침) → 목록 줄에 작은 표시.
-    await root(page).locator('[data-os-more]').click();
+    await page.locator('.sf-tools [data-os-more]').click();
     await page.locator('#osMenu [data-os-cand]').click();
     const box = root(page).locator('[data-now-interests-box]');
     await expect(box.locator('[data-ni-row="i1"]')).toContainText('철도 민영화');
@@ -240,7 +240,7 @@ for (const width of [412, 884, 1280]) {
     await page.goBack();
     await expect(root(page).locator('[data-now-interests]')).toBeHidden();
     await expect(root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"] .now-hit`)).toHaveText('철도 민영화');
-    await root(page).locator('[data-os-more]').click();
+    await page.locator('.sf-tools [data-os-more]').click();
     await expect(page.locator('#osMenu')).toBeVisible();
     await expect(page.locator('#osMenu [data-os-cand]')).toHaveCount(0); // 후보 0개면 메뉴 줄도 없음
     await page.keyboard.press('Escape');
