@@ -823,6 +823,133 @@ test('S4 자료실 두 칸 PC 1440: 사각형으로 고른 폴더 줄 [삭제]�
   expect(errors).toEqual([]);
 });
 
+// ---------- S4·D 펼친 안쪽 폴더 줄 사각형 고르기 + 여럿 끌어 점선 폴더에 놓기(S70-08b, 명진 11/25 09:45·09:47) ----------
+// 09:47 "하이폴더 펼친 다음에 드래그 했는데 여러 개 선택이 안 돼": 위 폴더를 펼친 뒤 그 안쪽 폴더 줄들을 사각형으로 덮으면 폴더째 골라지고, 끌어 다른 폴더에 놓으면 모두 옮겨진다(한 칸·두 칸).
+// 09:45 점선('여기에 놓기')이 뜬 폴더에 놓았는데 '순서를 바꿨어요'(그때는 S70-08 전이라 한 폴더만 끌렸다): 여럿을 고른 채 끌면 폴더 줄은 어디든 '안으로'(점선)만이고
+// 놓으면 그 안 — 머무는 동안 그 폴더가 저절로 펼쳐져도 같다. 이름은 지어낸 것, 가짜 서버.
+const NEST = ['n0', 'n1', 'n2', 'n3'];
+const parentIs = (s, id) => s.folders.find(f => f.id === id)?.parent_id || null;
+const rectOf = (page, sel) => page.locator(sel).first().evaluate(el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, x: r.left + r.width / 2, y: r.top + r.height / 2, h: r.height }; });
+// 'up'(위 폴더) 안: dst(놓을 곳) · track(펼칠 폴더, 안에 n0~n3) · more(그 밖 폴더 extra개).
+function nestedFolders(extra = 0) {
+  return [libFolder('up', null, { name: '가상 위 사업', sort_order: 1024 }), libFolder('dst', null, { name: '가상 보관', parent_id: 'up', sort_order: 1024 }),
+    libFolder('track', null, { name: '가상 궤도', parent_id: 'up', sort_order: 2048 }),
+    ...NEST.map((id, i) => libFolder(id, null, { name: `가상 안쪽 ${i + 1}`, parent_id: 'track', sort_order: 1024 * (i + 1) })),
+    ...Array.from({ length: extra }, (_, i) => libFolder('m' + i, null, { name: `가상 더 ${i + 1}`, parent_id: 'up', sort_order: 4096 + 1024 * i }))];
+}
+// PC HTML 끌기: from 줄을 잡아 to 줄 가운데로. beforeUp(): 놓기 직전(표시가 뜬 뒤) 할 일.
+async function dragRow(page, fromSel, toSel, { beforeUp = null } = {}) {
+  const a = await rectOf(page, fromSel);
+  await page.mouse.move(a.x, a.y); await page.mouse.down();
+  await page.mouse.move(a.x + 4, a.y + 6, { steps: 3 });
+  const b = await rectOf(page, toSel);
+  await page.mouse.move(b.x, b.y, { steps: 12 });
+  await page.mouse.move(b.x + 2, b.y, { steps: 2 });
+  if (beforeUp) await beforeUp();
+  await page.mouse.up();
+}
+async function oneNested(page, extra = 0) {
+  const r = await bootLibrary(page, 1280, { folders: nestedFolders(extra), items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
+  await page.locator('#libraryFolderNav [data-lu-nav="up"]').click();
+  const head = id => `#documentList details[data-lu-node="f:${id}"] > summary`;
+  await expect(page.locator(head('track'))).toBeVisible();
+  return { ...r, head };
+}
+async function twoNested(page, extra = 0) {
+  const r = await bootLibrary(page, 1280, { folders: nestedFolders(extra), items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: null } });
+  const pane = '#documentList [data-lu-pane-i="1"]';
+  await page.locator(`${pane} [data-lu-nav="up"]`).click({ button: 'right' });
+  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+  await expect(page.locator(`${pane} .lu-pane-here`)).toHaveText('가상 위 사업');
+  return { ...r, pane, head: id => `${pane} .ft-row:has(> [data-lu-nav="${id}"])` };
+}
+// 마지막 안쪽 줄(n3) 아래 빈 곳에서 n0 가운데까지 위로 끈다(처음 고르면 위 막대가 나타나 줄이 내려가므로 끝점을 다시 잰다).
+async function marqueeUp(page, head, from) {
+  await page.mouse.move(from.x, from.y); await page.mouse.down();
+  await page.mouse.move(from.x + 6, from.y - 8, { steps: 3 });
+  await expect(page.locator('.marquee-box')).toBeVisible();
+  let t = await rectOf(page, head('n0')); await page.mouse.move(from.x + 20, t.y, { steps: 8 });
+  await page.waitForTimeout(80);
+  t = await rectOf(page, head('n0')); await page.mouse.move(from.x + 24, t.y, { steps: 3 });
+  await page.mouse.up();
+  await expect(page.locator('.marquee-box')).toHaveCount(0);
+}
+test('S4 자료실 한 칸 PC 1280: 위 폴더 펼침 → 안쪽 폴더 4개 사각형 = 4개 골라짐 → 끌어 다른 폴더에 놓기 = 4개 모두 그 안', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, head } = await oneNested(page);
+  await page.locator(head('track')).click();
+  for (const id of NEST) await expect(page.locator(head(id))).toBeVisible();
+  const card = await rectOf(page, '#libraryListCard'), list = await rectOf(page, '#documentList');
+  expect(await page.evaluate(() => innerHeight)).toBeGreaterThan(card.bottom + 40);
+  await marqueeUp(page, head, { x: list.x, y: card.bottom + 24 });
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 4 선택됨');
+  for (const id of NEST) await expect(page.locator(head(id))).toHaveClass(/lu-folder-picked/);
+  await expect(page.locator(head('track'))).not.toHaveClass(/lu-folder-picked/);
+  await dragRow(page, head('n1'), head('dst'));
+  await expect.poll(() => NEST.map(id => parentIs(s, id))).toEqual(NEST.map(() => 'dst'));
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 폴더 4개 → 가상 보관 폴더');
+  expect(errors).toEqual([]);
+});
+test('S4 자료실 두 칸 PC 1280: 칸 안 위 폴더 펼침 → 안쪽 폴더 4개 사각형 = 4개 골라짐 → 끌어 다른 폴더에 놓기 = 4개 모두 그 안', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, pane, head } = await twoNested(page);
+  await page.locator(`${pane} [data-lu-nav="track"]`).click();
+  for (const id of NEST) await expect(page.locator(head(id))).toBeVisible();
+  const list = await rectOf(page, `${pane} .lu-pane-list`), last = await rectOf(page, `${pane} .lu-pane-list .ft-row >> nth=-1`);
+  await marqueeUp(page, head, { x: list.x, y: Math.min(list.bottom - 8, last.bottom + 30) });
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 4 선택됨');
+  await dragRow(page, head('n1'), head('dst'));
+  await expect.poll(() => NEST.map(id => parentIs(s, id))).toEqual(NEST.map(() => 'dst'));
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 폴더 4개 → 가상 보관 폴더');
+  expect(errors).toEqual([]);
+});
+// 'up' 안: track(펼칠 폴더 — 안에 dst(놓을 곳, 닫힌 채 안에 폴더 하나) · n0~n3) · m0~m4. 안쪽 4개 + m 5개 = 9개를 사각형 하나로 고른다.
+function nineFolders() {
+  return [libFolder('up', null, { name: '가상 위 사업', sort_order: 1024 }), libFolder('track', null, { name: '가상 궤도', parent_id: 'up', sort_order: 1024 }),
+    libFolder('dst', null, { name: '가상 보관', parent_id: 'track', sort_order: 1 }), libFolder('dstc', null, { name: '가상 보관 안', parent_id: 'dst' }),
+    ...NEST.map((id, i) => libFolder(id, null, { name: `가상 안쪽 ${i + 1}`, parent_id: 'track', sort_order: 1024 * (i + 1) })),
+    ...Array.from({ length: 5 }, (_, i) => libFolder('m' + i, null, { name: `가상 더 ${i + 1}`, parent_id: 'up', sort_order: 4096 + 1024 * i }))];
+}
+test('D 자료실 한 칸 PC 1280: 폴더 9개 고른 채 한 줄을 끌어 점선이 뜬 폴더에 놓기 = 9개 모두 그 안(머무는 동안 그 폴더가 저절로 펼쳐져도)', async ({ page }) => {
+  test.setTimeout(60000);
+  const r = await bootLibrary(page, 1280, { folders: nineFolders(), items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
+  const { s, errors } = r, head = id => `#documentList details[data-lu-node="f:${id}"] > summary`, ids = [...NEST, 'm0', 'm1', 'm2', 'm3', 'm4'];
+  await page.locator('#libraryFolderNav [data-lu-nav="up"]').click();
+  await page.locator(head('track')).click();
+  for (const id of [...NEST, 'dst']) await expect(page.locator(head(id))).toBeVisible();
+  const card = await rectOf(page, '#libraryListCard'), list = await rectOf(page, '#documentList');
+  await marqueeUp(page, head, { x: list.x, y: card.bottom + 24 });
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 9 선택됨');
+  await dragRow(page, head('m4'), head('dst'), { beforeUp: async () => {
+    await expect(page.locator(head('dst'))).toHaveClass(/lu-drop-into/);
+    // 1초 넘게 머물면 그 폴더가 저절로 펼쳐진다(다시 그리기) — 그 뒤에도 표시와 놓기는 그 폴더 안.
+    const b = await rectOf(page, head('dst'));
+    for (let i = 0; i < 7; i++) { await page.waitForTimeout(200); await page.mouse.move(b.x + 2 + (i % 2), b.y, { steps: 1 }); }
+    await expect(page.locator('#documentList details[data-lu-node="f:dst"]')).toHaveJSProperty('open', true);
+    await expect(page.locator(head('dst'))).toHaveClass(/lu-drop-into/);
+  } });
+  await expect.poll(() => ids.map(id => parentIs(s, id))).toEqual(ids.map(() => 'dst'));
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 폴더 9개 → 가상 보관 폴더');
+  expect(errors).toEqual([]);
+});
+test('D 자료실 두 칸 PC 1280: 폴더 9개 고른 채 한 줄을 끌어 점선이 뜬 폴더에 놓기 = 9개 모두 그 안(순서 바꾸기 아님)', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, pane, head } = await twoNested(page, 8);
+  const ids = ['track', ...Array.from({ length: 8 }, (_, i) => 'm' + i)];
+  for (const id of ids) await page.locator(`${pane} [data-lu-nav="${id}"]`).click({ modifiers: ['Control'] });
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 9 선택됨');
+  // 놓을 줄의 위 끝 가까이(혼자 끌 때는 '그 앞' 자리) — 여럿을 끌 때는 폴더 줄 어디든 안으로(표시 = 점선).
+  const a = await rectOf(page, head('m7'));
+  await page.mouse.move(a.x, a.y); await page.mouse.down(); await page.mouse.move(a.x + 4, a.y + 6, { steps: 3 });
+  const b = await rectOf(page, head('dst')), y = b.y - b.h * 0.4;
+  await page.mouse.move(b.x, y, { steps: 12 }); await page.mouse.move(b.x + 2, y, { steps: 2 });
+  await expect(page.locator(head('dst'))).toHaveClass(/lu-drop-into/);
+  await page.mouse.up();
+  await expect.poll(() => ids.map(id => parentIs(s, id))).toEqual(ids.map(() => 'dst'));
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 폴더 9개 → 가상 보관 폴더');
+  expect(errors).toEqual([]);
+});
+
 // S10(S69-89 UI-고르기모드통일, 2026-11-25 명진 "선택 가능 화면에서는 폴더 이름을 클릭해도 선택 되게 앞 네모 클릭이 아니라 / 파일에서는 되는데"):
 // 고르기 중에는 폴더 줄 이름·그림·빈 곳 어디를 눌러도 그 폴더 고르기·풀기. 펼치기·접기·들어가기는 하지 않는다(⋯만 예외). 고르기가 아닐 때는 T5 그대로.
 // 화면마다 돌려줄 것: first·second(폴더 줄), tap(줄), isPicked(줄)·notPicked(줄), opened(줄)(펼쳐졌나), afterHold(꾹 누른 뒤 시계).
