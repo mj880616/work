@@ -42,7 +42,7 @@ test('④ 화면 칸 전체의 버튼 기본 모양(#화면 button)이 글 편�
 
 test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [·][▾] 두 칸 없음)', () => {
   const ed = read('ed-editor.js');
-  assert.match(ed, /const PHONE_ORDER = \['style', 'strong', 'symDot', \.\.\.GROUP_KEYS, 'undo', 'redo'\];/);
+  assert.match(ed, /const PHONE_ORDER = \['style', 'strong', 'symDot', \.\.\.GROUP_KEYS, 'blocks', 'undo', 'redo'\];/);
   assert.match(ed, /\['symDot', '· ▾', '점 기호 선택', 'sym'\]/);
   assert.doesNotMatch(ed, /dotNow|ed-pair|setLabel\(buttons\.symDot/);
   assert.doesNotMatch(read('ed-doc.css'), /ed-pair/);
@@ -55,7 +55,6 @@ const SQUARE = [
   // LIB-위쪽한줄(11/09): 자료실 [+]도 폰·PC 모두 위 줄 오른쪽 작은 아이콘이라 이 목록에 없다(별도 시험 library-top-row.spec.mjs).
   // BIZ-위쪽정돈(B안, 11/09): 사업 보고 [+]도 마찬가지(별도 시험 biz-top-tidy.spec.mjs).
   ['#diaryView #newDiaryBtn', 'diary.js', /id="newDiaryBtn"/],
-  ['#ledgerView button.lb-add', 'ledger-browse.js', /class="lb-add\$\{isPhone\(\) \? ' icon-btn' : ''\}"/],
 ];
 test('⑥ 폰 추가 버튼은 위쪽 줄 안 네모 작은 + 한 규칙에 들고, 떠 있는 동그란 [+]는 없다', () => {
   const css = read('ui-standard.css');
@@ -65,16 +64,16 @@ test('⑥ 폰 추가 버튼은 위쪽 줄 안 네모 작은 + 한 규칙에 들�
   for (const [, f, mark] of SQUARE) assert.match(read(f), mark, f);
   // 아이콘·누르는 범위·초점 줄도 같은 목록이다.
   const inner = SQUARE.map(a => a[0]).join(',');
-  assert.equal(css.split(inner).length - 1, 4);
+  // LEDGER-화면에서빼기: 목록이 달력·하루 기록 둘만 남아 다른 규칙과 겹치므로, 아이콘(::before·::after)·초점 줄을 하나씩 센다.
+  for (const tail of ['::before{', '::after{', ':focus-visible{']) assert.equal(css.split(`:is(${inner})${tail}`).length - 1, 1, tail);
   // 떠 있는 동그란 [+](position:fixed + 원): 어느 화면에도 없다.
   const round = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*border-radius:50%[^{}]*)\}/g)].filter(m => /position:\s*fixed/.test(m[2])).map(m => m[1].trim().replace(/\s+/g, ' '));
   assert.deepEqual(round, []);
   assert.doesNotMatch(css, /button\.primary\[data-sp-new\]|--ds-fab-size|--ds-fab-gap/);
   assert.doesNotMatch(read('theme-tokens.css'), /--ds-fab-size|--ds-fab-gap/);
   // 목록 끝 여백: 떠 있는 [+] 몫 없이 전환 줄 몫+16px만.
-  assert.match(css, /#appView :is\(#projectsView,#meetingsView,#ledgerView\)\.view-panel\{ padding-bottom:calc\(var\(--kptu-switch-dock,0px\) \+ 16px/);
-  // 원장 [+ 기록하기]는 PC에서도 다른 화면처럼 주 색으로 채운 작은 버튼(흰 테두리 버튼 아님).
-  assert.match(read('ledger-import.css'), /#appView #ledgerView \.lb-add\{[^}]*background:var\(--kptu-primary\); color:var\(--kptu-on-primary\);/);
+  assert.match(css, /#appView :is\(#projectsView,#meetingsView\)\.view-panel\{ padding-bottom:calc\(var\(--kptu-switch-dock,0px\) \+ 16px/);
+  // LEDGER-화면에서빼기(2026-11-25): 원장 화면과 [+ 기록하기]는 없다.
 });
 
 test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트 뒤로 가기, 폰 업무일지 날짜 한 번', () => {

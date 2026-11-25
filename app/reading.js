@@ -13,14 +13,15 @@
 //   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
 // - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
-import {DEFAULT_FILTER, keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto} from './reading-model.mjs';
+import {DEFAULT_FILTER, keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto, readingNote} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, setTitle, fixLinkedTitles, fetchBody, fetching} from './reading-data.js';
 import {loadHighlights, highlightsNow, sourceHighlights, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu} from './text-highlights.js';
 import {highlightRowHtml} from './now-highlights.js';
 import {sourceTag} from './text-highlights-model.mjs';
 import {visibleMarks, marksNewsOn} from './note-news-marks-model.mjs';
 import {requestNewsOpen} from './news-request.mjs';
-import {requestBasketNote} from './basket-note-tasks.js';
+import {requestBasketNote, requestNoteDocOpen} from './basket-note-tasks.js';
+import {createNoteDoc} from './basket-data.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {renderFilterChips} from './filter-chips.js';
 import {createAnchoredMenu} from './anchored-menu.js';
@@ -54,7 +55,7 @@ function install() {
 }
 
 const state = {rows: [], loaded: false, failed: false, filter: DEFAULT_FILTER, open: null, body: null, bodyFor: null, adding: false, addError: '', lines: new Map(), scope: '',
-  newsOn: false, marksNewsOn: true, editing: null, editBusy: false, editNote: ''};
+  newsOn: false, marksNewsOn: true, editing: null, editBusy: false, editNote: '', noteBusy: null};
 const scopeNow = () => { const c = window.KPTURuntime?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const rowOf = id => state.rows.find(r => r.id === id) || null;
 // S70-24 READ-저장한글기본전체(명진 11/25 "전체를 기본으로 / 탭 누르면 전체가 나오는"): 보기 탭 상태 주인은 state.filter 하나.
@@ -471,6 +472,22 @@ async function saveEdit(form) {
   notify('저장했어요', {record: false});
   draw();
 }
+// [노트로 만들기]: 받아 둔 원문(이미 연 글의 사본)으로 노트 한 장 — 기존 노트 만들기 길(owner RLS)만 쓴다. 두 번 눌러도 한 장(누르는 동안 잠금).
+async function makeNote(id) {
+  const row = rowOf(id);
+  if (!row || state.noteBusy || state.bodyFor !== id) return;
+  const made = readingNote(row, state.body);
+  if (!made) { notify('이 글은 노트로 만들 수 없어요', {error: true, record: false}); return; }
+  state.noteBusy = id; drawDetail();
+  let note = null;
+  try { note = await createNoteDoc({title: made.title, raw_text: made.raw_text, source: made.source}, window.KPTURuntime); }
+  catch (e) { notify(e?.message && !e?.status ? e.message : '노트로 만들지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
+  finally { state.noteBusy = null; if (state.open === id) drawDetail(); }
+  if (!note?.id) return;
+  const router = window.KPTURouter;
+  notify(made.cut ? '노트로 만들었어요 · 긴 글이라 앞부분만 넣었어요' : '노트로 만들었어요', {record: false,
+    actions: [{label: '열기', run: ({close}) => { close(); requestNoteDocOpen(note.id); router?.go?.('basket', {source: 'delegated'}); }}]});
+}
 async function marksToNote(id) {
   const marks = sourceHighlights('reading', id);
   if (!marks.length) { notify('밑줄이 없어요 · 글을 선택하고 [밑줄 저장]을 먼저 눌러 주세요', {record: false}); return; }
@@ -554,7 +571,9 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     // S69: 맨 앞 [수정](다른 화면 ⋯과 같은 순서 — 수정 … 삭제). 고칠 수 없는 줄(News에서 온 사회운동 글)은 없음.
     // S70-40b: 글 보기 머리 ⋯(data-rd-head-more)도 이 메뉴 — [수정] 다음에 [밑줄을 노트로 n]이 더 있다(옛 테두리 단추 줄의 동작).
     const n = headMenu ? sourceHighlights('reading', id).length : 0;
-    const note = headMenu ? `<button type="button" class="row-act" data-rd-act="note">${n ? `밑줄을 노트로 ${n}` : '밑줄을 노트로'}</button>` : '';
+    // S69-98 NOTE-에버노트 ⑤: [노트로 만들기](원문 사본·출처 주소·저장 시각을 새 노트로) — 글 보기 머리 ⋯에만, 원문을 받은 뒤에만 누를 수 있다.
+    const making = headMenu ? `<button type="button" class="row-act" data-rd-act="make"${state.noteBusy === id || state.bodyFor !== id ? ' disabled' : ''}>${state.noteBusy === id ? '만드는 중…' : '노트로 만들기'}</button>` : '';
+    const note = headMenu ? `${making}<button type="button" class="row-act" data-rd-act="note">${n ? `밑줄을 노트로 ${n}` : '밑줄을 노트로'}</button>` : '';
     return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}${note}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">${headMenu && areaText(lineOf(row).area) ? word('사업영역 바꾸기') : '사업에 연결'}</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
   },
   onAction: (button, active) => {
@@ -566,6 +585,7 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     else if (act === 'area' && at) void pickArea(at, id);
     else if (act === 'fetch') void startFetch(row);
     else if (act === 'note') void marksToNote(id);
+    else if (act === 'make' && state.open === id) void makeNote(id);
     else if (act === 'delete') void removeAny(id, at);
   }});
 

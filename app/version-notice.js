@@ -16,11 +16,23 @@ export function startVersionNotice(scriptUrl){
   // UI-업데이트안내 → UPDATE-운영자전용기록업데이트소식(명진 11/15 13:37): 새 판 안내 줄은 운영자에게만 띄운다(이용자에게는 창·줄 없음,
   // 새 판은 다음에 열 때 조용히 반영). 운영자 판정은 서버 허용 표(app_my_features)이고, 바뀐 것 세기는 서버 기록(app_release_notes_read, 운영자만)에서 한다.
   // 이 화면이 열릴 때 마지막 기록 버전명(known)을 한 번 기억하고(메모리만), 새 판이 뜨면 서버 기록에서 known 뒤로 생긴 것만 센다. 못 읽으면 지금 문구 그대로.
-  let operator=false,waiting=null;
-  void canReadReleaseNotes().then(yes=>{operator=yes;if(yes&&waiting)show(waiting)});
+  // S70-52 APP-새판알림안뜸: 운영자인지 한 번만 묻고 그 답을 탭이 살아 있는 내내 썼다. 열 때 그 한 번이 실패하면(잠깐 끊김·서버 오류·시간 초과 —
+  // my-features.js는 실패를 기억하지 않고 다음 물음에 다시 묻는다) 그 탭·폰 앱은 며칠을 켜 두어도 새 판 안내가 뜨지 않았다.
+  // 그래서 '운영자다'를 아직 모르면 새 판을 볼 때마다 서버에 다시 묻는다(새 판이 보일 때만, 한 번에 하나). 판정은 여전히 서버 허용 표다.
+  let operator=false,waiting=null,asking=null;
   const readNotes=()=>readReleaseNotes({fresh:true});
   let known=null,described=null;
-  setTimeout(()=>{if(operator)void readNotes().then(list=>{if(list&&known===null)known=list.current})},3000);
+  const readKnown=()=>void readNotes().then(list=>{if(list&&known===null&&waiting===null)known=list.current});
+  function askOperator(){
+    if(operator||asking)return;
+    asking=canReadReleaseNotes().then(yes=>{
+      asking=null;if(!yes||stopped)return;
+      operator=true;
+      if(waiting)show(waiting);else if(started)readKnown();
+    });
+  }
+  let started=false;
+  setTimeout(()=>{started=true;if(operator)readKnown()},3000);
   async function describe(deployed){
     if(described===deployed)return;described=deployed;
     const list=await readNotes(),text=noticeText(newSince(list,known));
@@ -85,7 +97,7 @@ export function startVersionNotice(scriptUrl){
   }
   function show(deployed){
     if(deployed===current||dismissed.has(deployed)||stopped)return;
-    if(!operator){waiting=deployed;return}
+    if(!operator){waiting=deployed;askOperator();return}
     latest=deployed;
     if(box){void describe(deployed);return}
     // HOME-모바일정리①: 화면 맨 위 얇은 한 줄(아이콘 + 안내 + 글자 버튼 [새로고침] + ✕). PC·폰 같은 모양.
@@ -124,6 +136,7 @@ export function startVersionNotice(scriptUrl){
     })().finally(()=>{flight=null});
     return flight;
   }
+  askOperator();
   const timer=setInterval(check,10*60*1000);
   document.addEventListener('visibilitychange',check);
   window.addEventListener('focus',check);

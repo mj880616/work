@@ -28,12 +28,12 @@ test('answer check: refs must exist, lines without refs dropped, unknown kinds/i
   assert.equal(m.recentLabel(a),'10/29 질문임');
 });
 
-test('open targets: same as search rows, plus calls, telegram room/day and ledger; Edge not deployed → 준비 중',()=>{
+test('open targets: same as search rows, plus calls, telegram room/day (ledger has no screen); Edge not deployed → 준비 중',()=>{
   const src=(o)=>m.cleanSource({ref:'s1',title:'t',...o});
   assert.deepEqual(m.sourceTarget(src({kind:'call',id:ID(1)})),{view:'calls',id:ID(1)});
   assert.deepEqual(m.sourceTarget(src({kind:'telegram',id:ID(2),room:'room-1',day:'2026-10-28'})),{view:'telegram',room:'room-1',day:'2026-10-28',item:ID(2)});
   assert.equal(m.sourceTarget(src({kind:'telegram',id:ID(2)})),null);
-  assert.deepEqual(m.sourceTarget(src({kind:'ledger',id:ID(3)})),{view:'ledger',id:ID(3)});
+  assert.equal(m.sourceTarget(src({kind:'ledger',id:ID(3)})),null); // LEDGER-화면에서빼기: 원장 화면 없음
   assert.deepEqual(m.sourceTarget(src({kind:'work',source:'note',id:ID(4),day:'2026-10-27'})),{view:'journal',day:'2026-10-27'});
   assert.deepEqual(m.sourceTarget(src({kind:'project',source:'progress',id:ID(5),project_id:ID(6)})),{view:'projects',id:ID(6)});
   assert.deepEqual(m.sourceTarget(src({kind:'document',id:ID(7)})),{view:'library',id:ID(7)});

@@ -1703,7 +1703,7 @@ test('[주간 정리] 담당 팀원 칸 이름: 확정본에서 표기를 못 �
 
 // WEEKLY-내양식자유변형 ②·③(S62-28): 바탕 없는 백지의 [파일 올리기]는 바탕으로 열지 않고 항목·표 머리 칸만 읽어 확인·짝짓기 화면을 열고,
 // [저장]하면 '내 양식'으로 저장한다(app_weekly_forms). [빈 양식에서 만들기]는 빈 양식에서 항목을 직접 추가.
-test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 올리기] — 읽은 양식 확인·짝짓기 → 내 양식 저장, 다른 팀 양식 글자 없음',async({page})=>{
+test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 업로드] — 읽은 양식 확인·짝짓기 → 내 양식 저장, 다른 팀 양식 글자 없음',async({page})=>{
  const f=await hwpxFixture(page,{width:1280,noConfirmed:true});
  const forms=[];let row=null;
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_forms',r=>{const m=r.request().method();if(m==='GET')return r.fulfill({json:row?[row]:[]});const body=r.request().postDataJSON();forms.push({method:m,query:Object.fromEntries(new URL(r.request().url()).searchParams),body});row={id:'form-1',...(row??{}),...body,updated_at:'2026-11-16T00:00:0'+forms.length+'Z'};return r.fulfill({status:m==='POST'?201:200,json:[row]});});
@@ -1727,7 +1727,7 @@ test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 올�
  expect(await weekly.evaluate(n=>{const c=n.cloneNode(true);c.querySelector('[data-weekly-start]')?.remove();return c.textContent;})).not.toContain('주요 일정');
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('이 기기 안에서만');
  expect(f.sent.open).toEqual([]);
- const [chooser]=await Promise.all([page.waitForEvent('filechooser'),weekly.getByRole('button',{name:'파일 올리기'}).click()]);
+ const [chooser]=await Promise.all([page.waitForEvent('filechooser'),weekly.getByRole('button',{name:'파일 업로드'}).click()]);
  await chooser.setFiles({name:'my-form.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
  // 읽은 양식 확인·짝짓기(시안 ②): 아직 저장 안 함, 바탕도 열지 않음.
  const ed=weekly.locator('[data-own-form]');
@@ -2429,7 +2429,7 @@ for(const width of [412,1280])test(`[주간 정리] 확정 뒤 '내가 수정한
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('수정한 최종본을 이번 주 개인 확정본으로 저장했어요');
  await expect(fin.locator('[data-hwpx-final-mine]')).toContainText('주간보고_고친본.hwpx');
  await expect(fin.locator('[data-hwpx-final-mine]')).toContainText('이번 주 확정본');
- await expect(fin.locator('[data-hwpx-final-pick]')).toHaveText('다시 올리기');
+ await expect(fin.locator('[data-hwpx-final-pick]')).toHaveText('다시 업로드');
  await expect(fin).toContainText('이전 판');
  await page.screenshot({path:`docs/design/screens/s61-42/6-final-after-${width}.png`});
  // WEEKLY-기본HWP ④: 한글에서 고쳐 .hwp로 저장한 판도 그대로 올린다(내용으로 HWP 5인지 보고, 같은 자료의 새 판). 다음 주 바탕으로 열 때 엔진이 .hwpx로 바꿔 읽는다.
@@ -2599,7 +2599,7 @@ for(const width of [390,1280])test(`[주간 정리] 회의 종류: 내부 정례
  await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견','10월 8일(목)10:00 운영위원회 3차','10월 9일(금)10:00 새 회의 종류']);
  expect(f.profile.reads).toEqual(['eq.home-test']);
  await expect(weekly(page,'meetings').locator('[data-journal-kinds-off],[data-journal-kind-off]')).toHaveCount(0);
- await expect(weekly(page,'meetings')).not.toContainText('다시 올리기');
+ await expect(weekly(page,'meetings')).not.toContainText('다시 업로드');
  await page.locator('#journalRoot [data-journal-status]').evaluate(e=>{e.textContent='';});
  await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
@@ -4025,7 +4025,7 @@ for(const width of [412,1280])test(`S67-29 상집 논의 요청 한글 파일: �
  await d.locator('[data-journal-discuss-add]').click();
  // 작은 [한글 파일 올리기](큰 단추 아님) + 끌어 놓기 안내.
  const pick=d.locator('[data-journal-discuss-file-pick]');
- await expect(pick).toHaveText('한글 파일 올리기');
+ await expect(pick).toHaveText('한글 파일 업로드');
  // 칸은 조직 이름 목록을 늦게 읽으면 그 칸만 한 번 다시 그린다(S67-30) — 다시 그린 뒤의 단추를 재도록 기다려 잰다(boundingBox는 스스로 기다리지 않음).
  await expect.poll(async()=>(await pick.boundingBox())?.height??99).toBeLessThanOrEqual(32.5);
  await expect(d.locator('.journal-discuss-dochint')).toHaveText('끌어 놓아도 돼요');

@@ -245,6 +245,10 @@ on:
       - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
+      - 'scripts/ops/stalled-scan.mjs'
+      - 'scripts/ops/stalled-scan-ignore.json'
+      - 'tests/ops-stalled-scan.test.mjs'
+      - '.github/workflows/stalled-scan.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -543,6 +547,10 @@ on:
       - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
+      - 'scripts/ops/stalled-scan.mjs'
+      - 'scripts/ops/stalled-scan-ignore.json'
+      - 'tests/ops-stalled-scan.test.mjs'
+      - '.github/workflows/stalled-scan.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -807,12 +815,16 @@ jobs:
         run: node --test tests/note-board-frame-model.test.mjs
       - name: Check note board labels, shapes and free lines (S69-91 ①)
         run: node --test tests/note-board-decor-model.test.mjs
+      - name: Check note board images (S70-32 ② 사진 정보 지우기·칸 크기)
+        run: node --test tests/note-board-image-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
         run: node --test tests/note-tags-comments.test.mjs tests/memo-model.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)
         run: node --test tests/note-tags-edit.test.mjs
       - name: Check small popup width and title drag (UI-창잘림·끌어옮기기)
         run: node --test tests/popup-fit-drag.test.mjs
+      - name: Check dragging small confirm popups (S70-12 UI-확인창끌기)
+        run: node --test tests/confirm-drag-model.test.mjs
 
       - name: Check ledger decision history (FEAT-1029묶음 ⑥)
         run: node --test tests/ledger-decision-history.test.mjs
@@ -822,6 +834,8 @@ jobs:
         run: node --test tests/ops-inbox-gap.test.mjs
       - name: Check work timing and stalled-session calculator (OPS-작업속도)
         run: node --test tests/ops-work-timing.test.mjs
+      - name: Check stalled work daily scan (QA-멈춘일자동점검)
+        run: node --test tests/ops-stalled-scan.test.mjs
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
         run: node --test tests/ci-e2e-shard.test.mjs
 
@@ -900,8 +914,10 @@ jobs:
         run: node --test tests/folder-limits.test.mjs
       - name: NOTE-탐색기 노트 폴더 나무(순수 부분) 시험
         run: node --test tests/note-tree.test.mjs
-      - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자·두 손가락) 시험
+      - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자) 시험
         run: node --test tests/folder-tree-ui.test.mjs
+      - name: UI-폴더줄크기 줄 크기 단계·두 손가락 임계값 시험
+        run: node --test tests/row-size-model.test.mjs
       - name: LIB-폴더개수 폴더 줄 '폴더 N · 파일 M' 글자·고르기 창 위 폴더 시험
         run: node --test tests/folder-count.test.mjs
       - name: UI-폴더누르기한규칙 폴더 이름 누르기 = 펼침·접힘 공용 부품 시험
@@ -1247,7 +1263,7 @@ jobs:
         run: node --test tests/button-six-kinds.test.mjs
 
       - name: Check UI words standard ratchet (UI-용어통일)
-        run: node --test tests/ui-words.test.mjs
+        run: node --test tests/ui-words.test.mjs tests/ui-words-upload.test.mjs
 
       - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
         run: node --test tests/update-news-model.test.mjs

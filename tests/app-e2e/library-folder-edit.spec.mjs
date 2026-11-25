@@ -68,9 +68,9 @@ for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
   test.use({hasTouch:width<761});
   test(`만들기·안에 만들기(4단 넘어서도, 들여쓰기는 4단까지)·이름 바꾸기·위로/아래로, 프로젝트 토글은 ⋯=폴더 만들기만 ${width}`,async({page},info)=>{
     const {s,errors}=await boot(page,width);
-    // ⋯는 작은 버튼(28px, 누르는 범위 44px). 누르면 토글은 여닫히지 않고 메뉴만.
+    // ⋯는 [파일] 폴더 줄 ⋯와 같은 작은 버튼(36×32, 누르는 범위 44px — UI-폴더줄크기 S69-99). 누르면 토글은 여닫히지 않고 메뉴만.
     const more=menuOf(page,'p:top-a');await expect(more).toHaveAttribute('aria-label','폴더 만들기: 공공기관 기능개혁 대응');
-    expect(Math.round((await more.boundingBox()).height)).toBe(28);
+    expect(Math.round((await more.boundingBox()).height)).toBe(32);
     await press(page,more,width);await expect(page.locator('#luFolderMenu')).toBeVisible();await expect(libraryNode(page,'p:top-a')).not.toHaveAttribute('open','');
     await expect(page.locator('#luFolderMenu button')).toHaveText(['새 폴더']);
     await press(page,action(page,'새 폴더'),width);

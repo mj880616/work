@@ -43,6 +43,9 @@ android {
             applicationId = 'kr.or.kptu.work'
             buildConfigField 'boolean', 'SELF_UPDATE', 'true'
             buildConfigField 'boolean', 'ALL_FILES', 'true'
+            // S70-45 APP-플레이판권한줄이기: 앞쪽 서비스(화면 꺼진 뒤 녹음 잇기·올리는 동안 알림)와 폰 사진 전체 보기. github 판은 그대로 켬.
+            buildConfigField 'boolean', 'FG_SERVICES', 'true'
+            buildConfigField 'boolean', 'PHONE_GALLERY', 'true'
             // 로그인 복귀 주소의 native 값(app/native-auth-bridge.js가 이 값으로 돌아갈 앱 패키지를 고른다).
             buildConfigField 'String', 'LOGIN_RETURN', '"android"'
             // 웹이 플레이 판인지 아는 사용자 에이전트 표시(github 판은 붙이지 않는다 = 지금과 같다).
@@ -53,6 +56,12 @@ android {
             applicationId = 'com.workonplus.app'
             buildConfigField 'boolean', 'SELF_UPDATE', 'false'
             buildConfigField 'boolean', 'ALL_FILES', 'false'
+            // S70-45(명진 결정 11/25 '플레이 판만 빼고 먼저'): 플레이 검토의 앞쪽 서비스·사진 권한 신고를 피한다.
+            //   FG_SERVICES=false → 녹음은 앱이 켜진 동안만(나가면 일시정지), 뒤에서 올리기는 알림 없는 보통 작업.
+            //   PHONE_GALLERY=false → 사진 메뉴 '폰 사진'(폰 사진 폴더 전체 보기·폴더 바꾸기·정보 고치기)을 다리가 '없음'으로 알려 웹이 그리지 않는다.
+            //   권한·서비스 종류는 src/play/AndroidManifest.xml에서 뺀다.
+            buildConfigField 'boolean', 'FG_SERVICES', 'false'
+            buildConfigField 'boolean', 'PHONE_GALLERY', 'false'
             buildConfigField 'String', 'LOGIN_RETURN', '"android-play"'
             // S69-10: 노조 약칭이 든 옛 표시 대신 WorkOnPlay. 웹 login/native-google-return.js가 이 표시를 읽는다.
             buildConfigField 'String', 'UA_MARK', '" WorkOnPlay"'
