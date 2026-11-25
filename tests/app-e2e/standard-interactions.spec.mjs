@@ -894,6 +894,32 @@ test.describe('S11 고르기 중 뒤로가기', () => {
   });
 });
 
+// G1·G2(S70-16 '고른 글 막대', 기준표 12절): 글을 고르면 뜨는 공용 '선택한 글' 막대(text-select-bar.js)는 고른 글과 앞뒤 줄을 가리지 않고,
+// PC에서는 빈 곳을 잡아 끌어 옮길 수 있다(단추 위는 끌기 아님). 막대를 쓰는 글 화면이 늘면 아래 표에 한 줄 더한다.
+import { openBriefRoom, openBrief as openBriefText, bar as selectBar, pickSpan as pickTextSpan, coversText, box as rectOf, LINE1 as BRIEF_L1, LINE2 as BRIEF_L2 } from './helpers/select-text-bar.mjs';
+const TEXT_BAR_SCREENS = [['브리핑 룸', async page => { await openBriefRoom(page); await openBriefText(page); return () => pickTextSpan(page, BRIEF_L1, BRIEF_L2); }]];
+for (const [screen, boot] of TEXT_BAR_SCREENS) {
+  for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280, 860]]) {
+    test(`G1·G2 고른 글 막대 — ${screen} (${label})`, async ({ page }) => {
+      test.setTimeout(90000);
+      await page.setViewportSize({ width, height });
+      const pick = await boot(page);
+      expect(await pick()).toBe(true);
+      await expect(selectBar(page)).toBeVisible();
+      expect(await coversText(page)).toBe(false);
+      if (width <= 760) return;
+      const before = await rectOf(selectBar(page)), grip = await rectOf(selectBar(page).locator('.hl-bar-label'));
+      await page.mouse.move(grip.x + 6, grip.y + grip.h / 2); await page.mouse.down();
+      await page.mouse.move(grip.x + 46, grip.y + grip.h / 2 + 50, { steps: 5 }); await page.mouse.up();
+      const after = await rectOf(selectBar(page));
+      expect(Math.round(after.x - before.x)).toBe(40);
+      const btn = await rectOf(selectBar(page).getByRole('button', { name: '복사', exact: true }));
+      await page.mouse.move(btn.x + btn.w / 2, btn.y + btn.h / 2); await page.mouse.down();
+      await page.mouse.move(btn.x + btn.w / 2 + 40, btn.y + 30, { steps: 4 }); await page.mouse.up();
+      expect(await rectOf(selectBar(page))).toEqual(after);
+    });
+  }
+}
 // ---------- K1·R2 판 화면(목록이 아닌 곳) — S70-03 노트 보드 ----------
 // 고른 것 Delete = 바로 지우고 [되돌리기] 한 번에 모두 돌아온다. 새 판 화면이 생기면 BOARD_SCREENS에 한 줄 더한다.
 async function noteBoard(page) {
