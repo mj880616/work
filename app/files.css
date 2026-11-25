@@ -3,7 +3,7 @@
    폭: 폰(600px 미만) 한 칸(첫 화면 나무 → 누르면 같은 자리에 목록), 폴드 펼침(600~1199, 공용 판정 screen-width.mjs — S51-18) 나무 + 목록 두 칸(미리보기는 목록 위 덮는 칸), PC(1200~) 나무 · 목록 · 미리보기 세 칸. */
 .fx { display:flex; flex-direction:column; min-width:0; font-size:13px; }
 .fx-top { display:flex; align-items:center; gap:6px; min-height:36px; padding:4px 0; border-bottom:.5px solid var(--kptu-border); flex-wrap:wrap; }
-.fx-crumb { flex:1 1 200px; min-width:0; display:flex; align-items:center; gap:2px; font-size:12.5px; color:var(--kptu-muted); white-space:nowrap; overflow:hidden; }
+.fx-crumb { flex:1 1 200px; min-width:0; align-self:stretch; display:flex; align-items:center; gap:2px; font-size:12.5px; color:var(--kptu-muted); white-space:nowrap; overflow:hidden; }
 .fx-crumb-step, .fx-up, .fx-back { border:0; background:none; color:var(--kptu-muted); font:inherit; padding:2px 4px; border-radius:var(--kptu-radius-sm); cursor:pointer; white-space:nowrap; }
 .fx-crumb-step:hover, .fx-up:hover, .fx-back:hover { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
 .fx-crumb-now { color:var(--kptu-ink); font-weight:500; overflow:hidden; text-overflow:ellipsis; padding:2px 4px; }

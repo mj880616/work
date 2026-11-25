@@ -3,7 +3,7 @@
 // 잡은 뒤에는 스크롤을 막고 손가락을 따라 놓을 자리를 선으로 보인다. 키보드는 손잡이에서 위·아래 화살표(onStep).
 // 칸(list)이 여럿이어도 된다(하단바 칸 ↔ [메뉴] 칸). 어디에 놓을지는 dropIndex(가운데 세로 위치 목록, y)로 정한다.
 import {dropZone} from './folder-look-model.mjs';
-import {createEdgeScroll, EDGE} from './drag-edge-scroll.js';
+import {createEdgeScroll, EDGE, followTouch} from './drag-edge-scroll.js';
 import {createDragGhost} from './drag-ghost.js';
 export const LONG_MS = 450, SLOP = 8, MOVED = 12;
 export {EDGE};
@@ -152,7 +152,7 @@ export function mountReorder(root, {ghost = null, altStep = false, listSelector 
   (early ? window : root).addEventListener('click', clickGuard, true);
 
   // 폰: 줄을 LONG_MS 눌러 두면 잡힌다.
-  const cancelTouch = () => { if (touch?.timer) clearTimeout(touch.timer); touch = null; };
+  const cancelTouch = () => { if (touch?.timer) clearTimeout(touch.timer); touch?.unfollow?.(); touch = null; };
   root.addEventListener('pointerdown', event => {
     if (event.pointerType !== 'touch' || !event.isPrimary) return;
     const item = event.target.closest?.(itemSelector);
@@ -160,9 +160,11 @@ export function mountReorder(root, {ghost = null, altStep = false, listSelector 
     const draggable = canDrag(idOf(item));
     if (!draggable && !(onHold && canHold?.(idOf(item)))) return;
     cancelTouch();
+    const src = event.target;
     touch = {el: item, x: event.clientX, y: event.clientY, grabbed: false, moved: false, timer: setTimeout(() => {
       if (!touch || touch.el !== item) return;
-      touch.grabbed = true; if (draggable) begin(item, touch.x, touch.y); item.classList.add('re-grabbed'); try { navigator.vibrate?.(12); } catch { /* 진동 없는 기기 */ }
+      touch.grabbed = true; touch.unfollow = followTouch(src, {move: onTouchMove, end: onTouchEnd, cancel: onTouchCancel}); // S70-10: 누른 칸이 다시 그려져 빠져도 이어진다
+      if (draggable) begin(item, touch.x, touch.y); item.classList.add('re-grabbed'); try { navigator.vibrate?.(12); } catch { /* 진동 없는 기기 */ }
     }, LONG_MS)};
   });
   root.addEventListener('pointermove', event => {
@@ -171,22 +173,25 @@ export function mountReorder(root, {ghost = null, altStep = false, listSelector 
   });
   root.addEventListener('pointercancel', event => { if (event.pointerType === 'touch' && touch && !touch.grabbed) cancelTouch(); });
   // 잡은 뒤의 움직임은 touch 이벤트로 받는다(passive:false라야 스크롤을 막을 수 있다).
-  root.addEventListener('touchmove', event => {
+  const onTouchMove = event => {
     if (!touch?.grabbed) return;
     if (event.cancelable) event.preventDefault();
     const p = event.touches[0]; if (!p) return;
     if (Math.hypot(p.clientX - touch.x, p.clientY - touch.y) > MOVED) touch.moved = true;
     if (touch.moved) move(p.clientX, p.clientY);
-  }, {passive: false});
-  root.addEventListener('touchend', event => {
+  };
+  root.addEventListener('touchmove', onTouchMove, {passive: false});
+  const onTouchEnd = event => {
     if (!touch) return;
     if (!touch.grabbed) { cancelTouch(); return; }
     if (event.cancelable) event.preventDefault();
     const moved = touch.moved, held = touch.el; cancelTouch(); swallow = true; setTimeout(() => { swallow = false; }, 600);
     finish(moved);
     if (!moved) onHold?.(held);
-  });
-  root.addEventListener('touchcancel', () => { if (touch?.grabbed) { cancelTouch(); finish(false); } else cancelTouch(); });
+  };
+  root.addEventListener('touchend', onTouchEnd);
+  const onTouchCancel = () => { if (touch?.grabbed) { cancelTouch(); finish(false); } else cancelTouch(); };
+  root.addEventListener('touchcancel', onTouchCancel);
   // 잡은 직후 따라오는 기본 길게누르기 메뉴는 막는다. 줄 안 입력칸(메뉴 수정 창 이름 칸 등)은 끌기를 시작하지 않으므로 붙여넣기 메뉴를 그대로 둔다.
   root.addEventListener('contextmenu', event => { if (touch || drag || (!whole && event.target.closest?.(itemSelector) && !event.target.closest('input,textarea,select'))) event.preventDefault(); });
   // links 모드: 줄이 링크라서 브라우저가 주소 끌어가기(HTML5 끌기)를 시작하면 포인터 이벤트가 끊긴다. 줄 위에서는 그 기본 끌기를 막는다.
