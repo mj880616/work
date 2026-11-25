@@ -37,7 +37,6 @@ const routeStyles={
   team:['./first-use.css','./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./list-edit.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./home-quick.css','./ui-standard.css'],
-  ledger:['./ledger-import.css','./folder-look.css','./folder-tree.css','./ui-standard.css'],
   search:['./filter-chips.css','./global-search.css','./folder-look.css','./folder-tree.css','./ui-standard.css'],
   reference:['./reference-bundles.css','./ui-standard.css'],
   calls:['./choice-sheet.css','./feed.css','./area-org-picker.css','./ui-standard.css'],
@@ -170,10 +169,6 @@ async function diary(){ await module('./diary.js'); return {ok:true} }
 async function hwpLab(){ await module('./hwp-lab.js','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 // UI-프로필입구: [계정 ▾] → [내 프로필]. Like hwp, it stays out of loadAll; the module installs #profileView and loads its data on first open.
 async function profile(){ await organizationOrder(); await module('./profile-settings.js','__KPTU_PROFILE_SETTINGS_READY__'); return {ok:true} }
-// AI-서버연동 S7-b → LEDGER-화면정리: [원장](사이드바·메뉴 판 [원장], ?view=ledger). loadAll에 넣지 않고 열 때만 목록(화면 틀)·고치기 칸·사본 상태 줄을 불러온다.
-// 칸마다 모듈 하나(사본 상태 줄 ledger-export.js, 고치기·기록하기 ledger-fix.js, 겹친 기록 합치기 ledger-merge.js, 목록·검색 ledger-browse.js). 표·함수가 없으면 각 칸이 조용히 숨는다.
-// S52-08 ②: 사본 상태 줄은 화면이 바뀔 때(kptu:view-changed, 처음 열 때도 이 불러오기 뒤에 옴) ledger-export.js가 스스로 읽는다 — 여기서 또 부르면 같은 요청이 두 번 나간다.
-async function ledger(){ await module('./ledger-browse.js','__KPTU_LEDGER_BROWSE_READY__'); await Promise.all([module('./ledger-fix.js','__KPTU_LEDGER_FIX_READY__'),module('./ledger-merge.js','__KPTU_LEDGER_MERGE_READY__'),module('./ledger-export.js','__KPTU_LEDGER_EXPORT_READY__')]); return {ok:true} }
 // SEARCH-전체검색: 상단 줄 검색칸·결과 창·검색 결과 화면(?view=search)·폰 메뉴 검색 입구. loader-v2가 첫 화면 뒤에 한 번 불러온다.
 async function search(){ await module('./global-search.js','__KPTU_GLOBAL_SEARCH_READY__'); return {ok:true} }
 // REF-참고묶음 화면 2: 참고 묶음(?view=reference, 입구는 담당조직 목록 맨 아래·바구니 "참고" 칩). loadAll에 넣지 않고 처음 열 때만 불러온다.
@@ -216,7 +211,7 @@ async function reading(){ await module('./reading.js'); return {ok:true} }
 // SEC-기능PIN잠금 ②: [잠금](?view=lock, 계정 메뉴) — 잠긴 기능을 열 때도 문지기(feature-lock.js)가 이 화면으로 보낸다. 열 때만 불러온다(모듈이 #lockView를 만든다).
 async function lock(){ await module('./lock-ui.js'); return {ok:true} }
 async function help(){ await module('./help.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages)은 없앴다 — 노트(정리함 노트 쪽, 라우터 ALIAS_SUB)를 연다.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home',pages:'basket'};
@@ -263,7 +258,6 @@ const warmModules={
   library:/*static-chain*/['./library-upload.js'],
   meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js','./meeting-from-files.js'],
   team:/*static-chain*/['./suborganizations.js','./workplace-detail.js'],
-  ledger:/*static-chain*/['./ledger-browse.js','./ledger-fix.js','./ledger-merge.js','./ledger-export.js'],
   reference:/*static-chain*/['./reference-bundles.js'],
   calls:/*static-chain*/['./call-feed.js'],
   telegram:/*static-chain*/['./telegram-feed.js'],
