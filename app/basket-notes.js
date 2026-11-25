@@ -397,6 +397,21 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // S68-38c 글 상자 → S69-82 생각 지도 상자(그 보드에만 있는 짧은 글·가지, 서버 표 app_note_board_texts — 노트 목록·검색·폴더·태그와 무관).
       onTextAdd:text => boardLinks.addText(text), onTextChange:(id, patch) => { void boardLinks.updateText(id, patch); }, onTextsChange:list => { void boardLinks.updateTexts(list); },
       onTextRemove:id => { void boardLinks.removeText(id); },
+      // S70-03 고른 것 한 번에 지우기(Delete·Backspace·우클릭 [삭제]): 상자(아래 가지째)·선·카드(보드에서 빼기). 되돌리기 함수를 돌려준다(못 하면 null).
+      onRemoveItems:async ({texts:textIds = [], links:linkIds = [], cards = []}) => {
+        if (pick.active) return null;
+        const boardId = boards.current(), noteIds = cards.map(c => c.id);
+        const asked = boardLinks.removeMany({textIds, linkIds, noteIds, boardId}); // 화면은 여기서 바로 바뀐다(카드 선도 함께)
+        if (noteIds.length) boards.detach(noteIds);
+        const snap = await asked; if (!snap) return null;
+        return async () => {
+          if (boards.current() !== boardId) return {status:'stale'};
+          const back = boards.restore(boardId, cards.map(c => [c.id, c.place]));
+          const onBoard = nid => !!boards.boardView()?.notes.some(n => n.id === nid);
+          const ok = await boardLinks.restore(snap, onBoard);
+          return back && ok ? true : {status:'failed', message:'일부는 되돌리지 못했어요.'};
+        };
+      },
       canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(),
       // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
       decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast});
