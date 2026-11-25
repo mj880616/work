@@ -104,3 +104,22 @@ test('화면 코드: 로컬 스토리지·옛 덮어쓰기 없음, 표는 읽기
   assert.match(data, /app_tg_sender_set_name/); assert.match(data, /app_tg_sender_merge/); assert.match(data, /app_tg_sender_forget/);
   assert.doesNotMatch(data, /sender_key\s*:/);
 });
+
+// TG-불러오기속도(S70-31): 방·날짜·라벨 줄은 첫 쪽 뒤 여섯 쪽씩 함께 부르고, 짧은 쪽에서 멈춘다(빠짐·겹침 없음).
+test('readLinkPages: first page alone, then six pages at once, stops at the short page with rows in order', async () => {
+  const {readLinkPages} = await import('../app/tg-sender-data.js');
+  const total = 750, calls = [];
+  let inFlight = 0, most = 0;
+  const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}, api:async path => {
+    const offset = Number(/offset=(\d+)/.exec(path)[1]), limit = Number(/limit=(\d+)/.exec(path)[1]);
+    calls.push(offset); inFlight++; most = Math.max(most, inFlight); await new Promise(r => setTimeout(r, 2)); inFlight--;
+    return Array.from({length:Math.max(0, Math.min(limit, total - offset))}, (_, i) => ({n:offset + i}));
+  }};
+  const rows = await readLinkPages('/rest/v1/app_tg_day_senders?workspace_id=eq.w&order=day.desc', rt);
+  assert.deepEqual(rows.map(r => r.n), Array.from({length:total}, (_, i) => i));
+  assert.deepEqual(calls.slice(0, 1), [0]);
+  assert.ok(most >= 6, '여섯 쪽을 함께 부른다');
+  assert.ok(calls.length <= 1 + 12);
+  const small = {context:rt.context, api:async () => [{n:1}]};
+  assert.equal((await readLinkPages('/x?a=1', small)).length, 1);
+});
