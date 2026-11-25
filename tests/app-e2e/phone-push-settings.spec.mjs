@@ -11,7 +11,7 @@ const ANDROID = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/1
 const TOKEN = 'fake_fcm_token-0123456789abcdefghij:XYZ';
 
 // MULTI-처음쓰는사람 ⑤: features = 서버 운영자 기능 답(app_my_features). 기본은 운영자(통화·텔레그램) — 칩 다섯 개. 새 계정은 [].
-async function boot(page, {app = false, prefs = null, devices = [], features = ['calls', 'telegram'], chips = 5, aiMonth = null} = {}) {
+async function boot(page, {app = false, prefs = null, devices = [], features = ['calls', 'telegram'], chips = 6, aiMonth = null} = {}) {
   const state = {prefs, devices: devices.map(d => ({...d})), patches: [], push: [], reads: [], errors: []};
   page.on('pageerror', e => state.errors.push(e.message));
   if (app) {
@@ -88,12 +88,12 @@ async function boot(page, {app = false, prefs = null, devices = [], features = [
 const panel = page => page.locator('#psPushPanel');
 const OLD = {id: 'dev-old', token: 'other_phone_token_0123456789abcdef', app_version: '0.4.4', created_at: '2026-11-01T00:00:00Z', last_seen_at: '2026-11-01T01:20:00Z'};
 
-for (const width of [1280, 412]) test(`웹: 종류 칩 다섯 개·조용한 시간·시험 알림·등록된 폰, 넘치지 않음 (${width}px)`, async ({page}) => {
+for (const width of [1280, 412]) test(`웹: 종류 칩 여섯 개(노트 알림 포함)·조용한 시간·시험 알림·등록된 폰, 넘치지 않음 (${width}px)`, async ({page}) => {
   await page.setViewportSize({width, height: 900});
   const state = await boot(page, {devices: [OLD]});
   const p = panel(page);
   await expect(p.locator('h3')).toHaveText('폰 알림');
-  await expect(p.locator('[data-ps-push-kind]')).toHaveText(['할 일 기한', '회의 요약', '수집 멈춤', '아침 묶음', '저녁 묶음']);
+  await expect(p.locator('[data-ps-push-kind]')).toHaveText(['할 일 기한', '회의 요약', '수집 멈춤', '아침 묶음', '저녁 묶음', '노트 알림']);
   for (const chip of await p.locator('[data-ps-push-kind]').all()) await expect(chip).toHaveAttribute('aria-pressed', 'true');
   await expect(p.locator('[data-ps-push-quiet="from"]')).toHaveValue('22:00');
   await expect(p.locator('[data-ps-push-quiet="to"]')).toHaveValue('07:00');
@@ -172,10 +172,10 @@ test.describe('폰 앱', () => {
 // '사용 현황' 칸은 MULTI-다른담당자맞춤 ⑥(#2566)이 정한 그대로: 새 계정은 한도에 닿기 전에는 칸이 없다.
 // S62-27(PUSH-원장약속알림빼기·JOURNAL-다음주준비삭제): '원장 약속'·'다음 주 준비'는 누구에게도 없다 → 새 계정은 '할 일 기한·회의 요약' 둘.
 // 저장된 설정에 옛 키(next_week·commitment)가 남아 있어도 오류 없이 무시하고, 다음 저장에서 빠진다.
-for (const width of [1280, 880, 760, 412]) test(`새 계정: 폰 알림 칩 둘, 사용 현황 칸 없음, 옛 키는 무시 (${width}px)`, async ({page}) => {
+for (const width of [1280, 880, 760, 412]) test(`새 계정: 폰 알림 칩 셋(할 일 기한·회의 요약·노트 알림), 사용 현황 칸 없음, 옛 키는 무시 (${width}px)`, async ({page}) => {
   await page.setViewportSize({width, height: 900});
-  const state = await boot(page, {features: [], chips: 2, prefs: {kinds: {next_week: false, commitment: false, task_due: true}}, aiMonth: {ok: true, exempt: false, used_krw: 420, cap_krw: 3000, capped: false}});
-  await expect(panel(page).locator('[data-ps-push-kind]')).toHaveText(['할 일 기한', '회의 요약']);
+  const state = await boot(page, {features: [], chips: 3, prefs: {kinds: {next_week: false, commitment: false, task_due: true}}, aiMonth: {ok: true, exempt: false, used_krw: 420, cap_krw: 3000, capped: false}});
+  await expect(panel(page).locator('[data-ps-push-kind]')).toHaveText(['할 일 기한', '회의 요약', '노트 알림']);
   await expect(page.locator('#psStatusPanel')).toBeHidden();
   await page.locator('#profileView').screenshot({path: `docs/design/screens/s62-27/profile-new-${width}.png`});
   // 칩을 눌러도 저장 모양은 그대로(숨긴 종류의 값은 건드리지 않음), 옛 키는 빠진다.
@@ -187,12 +187,12 @@ for (const width of [1280, 880, 760, 412]) test(`새 계정: 폰 알림 칩 둘,
 // 운영자(명진) 계정: 수집·잊지 말기·새 가입 기능이 있으면 그 칩만 더해진다. '원장 약속'·'다음 주 준비'는 여기에도 없다.
 for (const width of [1280, 880, 412]) test(`운영자 계정: 폰 알림 칩에 원장 약속·다음 주 준비 없음 (${width}px)`, async ({page}) => {
   await page.setViewportSize({width, height: 900});
-  const state = await boot(page, {features: ['calls', 'telegram', 'family', 'dev_inbox'], chips: 7});
-  await expect(panel(page).locator('[data-ps-push-kind]')).toHaveText(['할 일 기한', '회의 요약', '수집 멈춤', '아침 묶음', '저녁 묶음', '잊지 말기', '새 가입']);
+  const state = await boot(page, {features: ['calls', 'telegram', 'family', 'dev_inbox'], chips: 8});
+  await expect(panel(page).locator('[data-ps-push-kind]')).toHaveText(['할 일 기한', '회의 요약', '수집 멈춤', '아침 묶음', '저녁 묶음', '노트 알림', '잊지 말기', '새 가입']);
   await page.locator('#profileView').screenshot({path: `docs/design/screens/s62-27/profile-operator-${width}.png`});
   expect(state.errors).toEqual([]);
 });
-test('기능 답을 못 받으면 칩 다섯 개 그대로(운영자 화면이 빠지지 않게)', async ({page}) => {
+test('기능 답을 못 받으면 칩 여섯 개 그대로(운영자 화면이 빠지지 않게)', async ({page}) => {
   await page.setViewportSize({width: 412, height: 900});
   await boot(page, {features: {message: 'x'}});
 });

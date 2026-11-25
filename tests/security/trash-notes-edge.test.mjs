@@ -26,6 +26,8 @@ const CLASSIFIED = {
   'basket-files/handler.ts': 'filtered',
   // FAMILY-기억알림 ②: 월요일 폰 알림이 서버 키로 가족 '잊지 말기' 노트 하나를 읽고 본 기록을 쓴다 — deleted_at=is.null로 휴지통 노트를 뺀다
   'phone-push/family-remind.ts': 'filtered',
+  // S69-97 노트 알림 ②: 15분 예약이 서버 키로 알림 시각이 지난 노트의 id·workspace_id·alarm 칸만 읽는다 — deleted_at=is.null로 휴지통 노트를 뺀다(쓰기 없음)
+  'phone-push/note-alarm.ts': 'filtered',
   // NOTE-게시: 링크로 보는 게시 노트 하나를 서버 키로 읽는다 — deleted_at=is.null로 휴지통 노트를 빼고(handler도 다시 확인해 404)
   'share-page-read/index.ts': 'filtered',
   // 일부러 거르지 않음: 휴지통 노트가 되돌아올 수 있으므로 그 첨부 Drive 파일은 계속 보호돼야 한다
