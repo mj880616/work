@@ -28,8 +28,8 @@ test.describe('PC 1440 두 칸',()=>{
     await page.locator(`${pane(1)} [data-lu-nav="fa"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
     await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('가상 A');
     await rightClick(page,pane(1));
-    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안']);
-    await page.locator('#luAreaMenu').getByRole('button',{name:'자료 등록',exact:true}).click();
+    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','파일 올리기','폴더 올리기','정돈 제안']);
+    await page.locator('#luAreaMenu').getByRole('button',{name:'파일 올리기',exact:true}).click();
     await expect(page.locator('#documentModal')).toBeVisible();
     await expect(folderLabel(page)).toHaveText('‘가상 A’ 폴더에 넣어요');
     await upload(page,'오른쪽-칸.pdf');
@@ -38,7 +38,7 @@ test.describe('PC 1440 두 칸',()=>{
     await expect(page.locator(`${pane(1)} [data-lu-document="upload-1"]`)).toBeVisible();
     // 왼쪽 칸은 맨 위(자료실): 같은 메뉴로 열면 폴더 칸이 없고, 올린 자료는 폴더 밖.
     await rightClick(page,pane(0));
-    await page.locator('#luAreaMenu').getByRole('button',{name:'자료 등록',exact:true}).click();
+    await page.locator('#luAreaMenu').getByRole('button',{name:'파일 올리기',exact:true}).click();
     await expect(page.locator('#documentModal')).toBeVisible();
     await expect(folderLabel(page)).toHaveCount(0);
     await upload(page,'맨-위.pdf');
