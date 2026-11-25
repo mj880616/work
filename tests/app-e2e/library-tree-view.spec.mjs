@@ -56,8 +56,8 @@ for(const width of [390,1280])test(`프로젝트 트리: 맨 위 단만, 자료 
   await expect(libraryNodeHead(page,'p:orphan-1').locator('.lu-node-count')).toHaveText('0');
   // 자료가 없는 하위(산자부 대응)는 숨긴다.
   await expect(libraryNode(page,'p:child-a2')).toHaveCount(0);
-  // 접힌 줄은 36px 얇은 줄(LIB-목록간격 ②: 32 → 36px, 줄 간격 조금 넓게), 누르는 범위 44px.
-  expect(Math.round((await a.boundingBox()).height)).toBe(36);
+  // 맨 위 단 줄은 [파일] 폴더 줄과 같은 높이(UI-폴더줄크기 S69-99: 폰 44px·넓은 화면 36px, LIB-목록간격 ②를 대신함).
+  expect(Math.round((await a.boundingBox()).height)).toBe(width>=761?36:44);
   // 펼치기: 하위 프로젝트 토글이 먼저, 그다음 이 단의 파일.
   await a.click();await expect(libraryNode(page,'p:top-a')).toHaveAttribute('open','');
   expect(await page.locator('#documentList details[data-lu-node="p:top-a"] > .lu-node-body > *').evaluateAll(xs=>xs.map(x=>x.dataset.luNode||x.dataset.luDocument))).toEqual(['p:child-a1','a-1']);

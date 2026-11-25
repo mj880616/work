@@ -53,6 +53,10 @@
 
 /* ORG-쟁의단계: 화면 제목 줄 ⋯(아래 .so-team-head), 목록 줄 꼬리표(투쟁 중·이번 주 끝남만), 쟁의 단계 관리 창. 크고 굵은 버튼 없음(UI-버튼기준). */
 #soOrganizationList{position:relative}
+.so-team-tools .so-team-more{position:relative;width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-button);line-height:1;cursor:pointer}
+.so-team-tools .so-team-more::after{content:"";position:absolute;inset:-6px}
+.so-team-tools .so-team-more:hover,.so-team-tools .so-team-more[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
+.so-team-tools .so-team-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .so-stage-tag{white-space:nowrap;padding:1px 7px;border-radius:999px;background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink);font-size:var(--ds-text-meta);line-height:1.5}
 .so-stage-tag.is-end{background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink)}
 .so-stage-tag.is-quiet{background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink)}
@@ -63,18 +67,17 @@
 .stg-link{min-height:var(--ds-compact-height-sm);padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
 .stg-link.danger{color:var(--kptu-danger)}
 .stg-note,.stg-msg{margin:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}.stg-msg:empty{display:none}.stg-msg.error{color:var(--kptu-danger)}
-/* ORG-쟁의단계 다듬기 ③: 화면 전체 ⋯는 화면 제목 '담당조직' 줄 오른쪽(#soTeamHead). 761px~: 본문 제목 줄(바구니 머리줄과 같은 글자 크기),
-   폰: 위 머리줄 "담당조직" 오른쪽 자리로 올린다(바구니 .basket-head와 같은 방식, ☰가 빠진 자리). 크기 값은 기존 토큰만. */
-/* ORG-담당조직버튼자리폴드 ①: [+ 담당조직]·⋯는 모든 폭에서 오른쪽 끝에 나란히(제목은 읽기 프로그램용이라 자리를 차지하지 않음). */
-/* 화면 오른쪽 끝에 붙으므로 누르는 범위는 위아래로만 넓힌다(좌우로 넓히면 화면이 옆으로 6px 넘친다). */
-@media(max-width:760px){
-}
-/* UI-화면정리 B ①: PC(761px~)는 위쪽 경로 줄('담당조직')이 화면 이름을 보인다. 큰 제목은 공용 .screen-title(ui-standard.css)이 폰·PC에서 읽기 프로그램용으로 두고, ⋯는 같은 줄 오른쪽 끝.
-   MULTI-다른담당자맞춤 ②(S61-39c, CC 사진 검토): PC 머리줄([+ 담당조직]·⋯)은 묶음이 있든 없든 목록 위 한 줄(#2546 자리)이다.
-   전에는(UI-전수디자인점검 F07) ⋯ 하나뿐이라 첫 묶음 머리줄 오른쪽 끝에 겹쳐 두었으나, [+ 담당조직]이 더해져 첫 묶음 이름·'N곳'·묶음 ⋯와 겹쳤다.
-   오른쪽 상세 칸은 목록과 같은 줄에서 시작한다. 자리는 아래 '머리줄 자리 하나' 규칙. */
-@media(min-width:761px){
-}
+/* ORG-머리줄한줄(S70-53, 2026-11-25 명진 "담당조직+ 랑 ... 맨 첫째줄 우측에 넣어도 되자나?"): [+ 담당조직]·⋯(#soTeamTools)는 모든 폭에서
+   화면 이름 줄 오른쪽 끝(폰·폴드 앱 머리 줄, PC 맨 위 줄 — 검색 칸 오른쪽)에 있다. 자리 옮기기는 공용 screen-tools.js 하나, 모양은 아래.
+   화면 안 머리줄(#soTeamHead)은 읽기 프로그램용 제목만 남아 자리를 차지하지 않는다(전에는 목록 위 한 줄 또는 폰 머리 줄에 겹쳐 올리기).
+   예전 자리: ORG-쟁의단계 다듬기 ③(폰 머리 줄 겹치기), MULTI-다른담당자맞춤 ②(PC 목록 위 한 줄), ORG-담당조직버튼자리폴드 ①(폴드 목록 위 한 줄). */
+#appView #soTeamSection>.so-team-head{position:absolute;width:1px;height:1px;margin:0;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+#soTeamTools{gap:2px}
+#soTeamTools .so-team-more{background:transparent}
+/* 줄 오른쪽 끝에 붙으므로 누르는 범위는 위아래로만 넓힌다(좌우로 넓히면 화면이 옆으로 넘친다). */
+#soTeamTools .so-team-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
+/* 접은 폰(600px 미만) 머리 줄은 44px 높이 — ⋯도 그 높이(예전 폰 자리와 같은 크기). */
+@media(max-width:599px){#soTeamTools .so-team-more{width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);font-size:22px}#soTeamTools .so-team-more::after{content:none}}
 /* REF-참고묶음 화면 2: 담당조직 목록 맨 아래 입구 한 줄 "참고 묶음 ›"(질문 1 추천안). 담당조직 줄처럼 낮은 줄, 흐린 글자. */
 #soOrganizationList .so-reference-entry{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px var(--kptu-space-4);border:0;border-top:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
 #soOrganizationList .so-reference-entry:hover{background:var(--kptu-surface-subtle)}
@@ -108,6 +111,7 @@
 .so-team-menu .so-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 /* MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정): 맨 위 [+ 담당조직](⋯ 왼쪽, 작은 글자 버튼)과 조직 줄 끝 ⋯(그 조직 메뉴).
    줄은 .so-row 안에 줄(article)과 ⋯(button)를 나란히 둔다(누르는 것 안에 누르는 것을 넣지 않음). ⋯ 자리만큼 줄 글은 왼쪽으로. */
+.so-team-tools .so-team-add{flex:none;white-space:nowrap}
 /* ORG-목록단계칩위치: 줄 끝은 [칩 ·8· › ·8· ⋯ ·8· 끝]. 묶음 머리줄 [N곳 ·8· ⋯ ·8· 끝]과 같은 자리 — ⋯ 폭·오른쪽 끝을 한 값(--so-more-w, space-2)으로 맞춘다.
    예전에는 ⋯가 끝에서 4px, 머리줄 ⋯는 16px이라 › 와 'N곳'이 어긋났다. */
 #soOrganizationList{--so-more-w:32px}
@@ -125,12 +129,13 @@
 /* PC [목록] 머리줄 자리 하나(MULTI-다른담당자맞춤 ①·②): 목록 칸 위 한 줄. 오른쪽 상세 칸은 목록과 같은 줄에서 시작(왼쪽 첫 카드 윗선 = 상세 칸 윗선).
    소탭 [목록|전체 표]가 있으면 한 줄씩 아래로. */
 @media(min-width:761px){
-  #appView #teamView #soTeamSection:not(.so-view-table)>#soOrganizationList{grid-row:2}
-  #appView #teamView #soTeamSection:not(.so-view-table)>#wdDetailPane{grid-row:2}
+  #appView #teamView #soTeamSection:not(.so-view-table)>#soOrganizationList{grid-row:1}
+  #appView #teamView #soTeamSection:not(.so-view-table)>#wdDetailPane{grid-row:1}
   #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>#soOrganizationList{grid-row:2}
   #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>#wdDetailPane{grid-row:2}
 }
 /* [전체 표]에서는 맨 위 줄 오른쪽이 표 도구 자리라 [+ 담당조직]은 [목록]에서만. */
+html:has(#soTeamSection.so-view-table) #soTeamTools .so-team-add{display:none}
 /* 줄 ⋯는 화면 오른쪽 끝 가까이라 누르는 범위는 위아래로만 넓힌다(좌우로 넓히면 화면이 옆으로 넘친다, 머리줄 ⋯와 같음). */
 #soOrganizationList .so-row-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
 /* MULTI-다른담당자맞춤 ②(시안 #2522): 묶음 칸 손잡이 ⋮⋮·묶음 ⋯·빈 묶음·놓을 자리 줄. 모양은 공용 .icon-btn, 여기는 자리만. */
@@ -198,6 +203,3 @@
 #soOrganizationList .so-quiet .oq-last { color:var(--kptu-faint); font-size:11px; white-space:nowrap; }
 #soOrganizationList .so-quiet .oq-days { min-width:44px; text-align:right; color:var(--kptu-muted); white-space:nowrap; }
 #soOrganizationList .so-quiet .oq-note { padding:3px 0 0; color:var(--kptu-faint); font-size:11px; border-top:1px solid var(--kptu-border); }
-
-/* S70-54 UI-검색창하나로: 옛 화면 머리 줄(.so-team-head)은 없고 [+ 담당조직]·⋯는 맨 위 줄 단추 자리(.sf-tools). 전체 표 보기에서는 [+ 담당조직]을 두지 않는다(예전과 같음). */
-html:has(#soTeamSection.so-view-table) .sf-tools #soAddOrg{display:none}

@@ -71,16 +71,17 @@ for(const width of [1280,390])test(`LIB-목록간격: 자료 줄 여백 절반·
   // 줄 안 단추는 작게 보이지만 누르는 범위는 44px.
   const more=row.locator('.lu-more-trigger');expect((await more.boundingBox()).height).toBeLessThanOrEqual(width>=761?24:32);
   expect(await more.evaluate(e=>parseFloat(getComputedStyle(e,'::after').height))).toBe(44);
-  // ② 폴더 줄: 자료 줄 이름과 같은 글자 크기, 맨 위 단(프로젝트·'프로젝트 없음')만 굵게, 하위·폴더는 보통 굵기, 단마다 들여 쓰기, 줄 간격은 예전(32px)보다 넓음.
+  // ② 폴더 줄: UI-폴더줄크기(S69-99, 명진 11/25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로")가 LIB-목록간격 ②를 대신한다 —
+  // [파일] 폴더 줄과 같은 글자(폰 14px·넓은 화면 13px)·높이(맨 위 44/36px, 하위 40/32px)·들여쓰기(왼쪽 12px + 단마다 22px). 맨 위 단만 굵게.
   const head=key=>page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
-  const titleSize=await px(title,'fontSize');
-  for(const key of ['p:top-a','p:none','p:child-a1','f:f1','f:f2','f:f3']){await expect(head(key)).toBeVisible();expect(await px(head(key),'fontSize')).toBe(titleSize)}
+  const ftFont=width>=761?13:14;
+  for(const key of ['p:top-a','p:none','p:child-a1','f:f1','f:f2','f:f3']){await expect(head(key)).toBeVisible();expect(await px(head(key),'fontSize')).toBe(ftFont)}
   for(const key of ['p:top-a','p:top-b','p:none'])expect(Number(await css(head(key),'fontWeight'))).toBeGreaterThanOrEqual(700);
   for(const key of ['p:child-a1','f:f1','f:f2','f:f3'])expect(Number(await css(head(key),'fontWeight'))).toBe(400);
-  const step=width>=761?16:12;
-  expect(await px(head('p:top-a'),'paddingLeft')).toBe(0);expect(await px(head('p:child-a1'),'paddingLeft')).toBe(step);
-  expect(await px(head('f:f1'),'paddingLeft')).toBe(step);expect(await px(head('f:f2'),'paddingLeft')).toBe(step*2);
-  expect((await head('f:f1').boundingBox()).height).toBeGreaterThanOrEqual(36);expect((await head('p:top-a').boundingBox()).height).toBeGreaterThanOrEqual(36);
+  const step=22;
+  expect(await px(head('p:top-a'),'paddingLeft')).toBe(12);expect(await px(head('p:child-a1'),'paddingLeft')).toBe(12+step);
+  expect(await px(head('f:f1'),'paddingLeft')).toBe(12+step);expect(await px(head('f:f2'),'paddingLeft')).toBe(12+step*2);
+  expect(Math.round((await head('f:f1').boundingBox()).height)).toBe(width>=761?32:40);expect(Math.round((await head('p:top-a').boundingBox()).height)).toBe(width>=761?36:44);
   // 지금 파일 줄 자체는 바뀌지 않음: 열면 여전히 같은 열기 길(줄 role=button).
   await expect(row).toHaveAttribute('role','button');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);

@@ -1,8 +1,7 @@
 <!doctype html><html><head><meta charset="utf-8"><title>suborganization canonical fixture</title><link rel="stylesheet" href="/app/base-ui.css"><link rel="stylesheet" href="/app/suborganizations.css"><link rel="stylesheet" href="/app/weekly-org-lines.css"><link rel="stylesheet" href="/app/workplace-detail.css"><link rel="stylesheet" href="/app/theme-tokens.css"><link rel="stylesheet" href="/app/ui-standard.css"><style>.hidden{display:none}</style></head><body>
 <!-- The team route always loads ui-standard.css (UI-디자인기준 3/3), whose rules are scoped to #appView #teamView. -->
-<!-- S70-54 UI-검색창하나로: [+ 담당조직]·⋯는 맨 위 줄 단추 자리(screen-find.js)에 산다 — 앱 껍데기의 두 자리(상단 줄·폰 머리 줄)만 둔다. -->
-<div class="app-topline"><div class="topline-tools" data-screen-tools></div></div><header class="mobile-shell-header"><span data-mobile-view-name>조직 관리</span><div class="mobile-shell-tools" data-screen-tools></div></header>
-<main id="appView" class="kptu-ui-ready"><section id="teamView"></section></main>
+<!-- ORG-머리줄한줄(S70-53): 앱의 화면 이름 줄 자리(screen-tools.js가 [+ 담당조직]·⋯를 옮겨 넣음). 폭에 따라 한쪽만 쓰인다. -->
+<main id="appView" class="kptu-ui-ready"><div class="screen-tools-slot" data-screen-tools="head" style="display:flex;justify-content:flex-end"></div><div class="screen-tools-slot" data-screen-tools="top" style="display:flex;justify-content:flex-end"></div><section id="teamView"></section></main>
 <div id="eventModal" class="modal hidden"><div class="modal-card"><label>설명<textarea id="eventDescription"></textarea></label><button id="saveEventBtn" type="button">저장</button></div></div>
 <div id="ciGoogleModal" class="modal hidden"><div class="modal-card"><label>메모<textarea id="ciGoogleMemo"></textarea></label><button id="ciGoogleSave" type="button">저장</button></div></div>
 <button id="openAppEventE2E" class="hidden" type="button" data-app-event="ev-keep">일정 수정</button>

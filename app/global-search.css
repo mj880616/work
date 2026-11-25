@@ -127,8 +127,6 @@
 .sf-tools{display:flex;align-items:center;gap:4px;flex:none;min-width:0}
 .sf-tools[hidden]{display:none}
 .sf-tools>:is(button,select,a){margin:0;white-space:nowrap}
-.app-topline .topline-tools{display:flex;align-items:center;flex:0 0 auto;min-width:0}
-.app-topline .topline-tools:not(:has(.sf-tools:not([hidden]))){display:none}
 html[data-screen-find] .app-topline .topline-search{min-width:140px}
 /* 옮겨 온 단추는 공용 6가지(⋯ = icon-btn, 고르기·만들기 = secondary)를 그대로 쓰고, 여기서는 상단 줄 높이에 맞춘 크기·자리만. */
 .sf-tools .sf-chip{max-width:11em;overflow:hidden;text-overflow:ellipsis}

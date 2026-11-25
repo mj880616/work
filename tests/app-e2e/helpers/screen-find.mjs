@@ -16,4 +16,5 @@ export async function screenFind(page) {
   return box;
 }
 // 맨 위 줄로 옮겨 온 단추(지금 화면 상자 안).
-export const screenTools = page => page.locator('.sf-tools:not([hidden])');
+export const screenTools = page => page.locator(`[data-screen-tools="${(page.viewportSize()?.width || 1280) > 760 ? 'top' : 'head'}"]`);
+// (S70-53 공용 자리: 조직 관리 #soTeamTools는 screen-tools.js, 노트·읽을 거리·자료실 상자는 screen-find.js가 같은 칸에 둔다)

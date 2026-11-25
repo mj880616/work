@@ -83,7 +83,7 @@ install();
 
 const root = document.getElementById('outsideRoot');
 // S70-54: 옛 찾기 줄(.nw-top)의 [매체 ▾]·⋯는 맨 위 줄 단추 상자에 산다(그리기·누르기는 이 모듈 그대로). 찾기 칸은 맨 위 칸이 겸한다.
-const tools = toolsBox('outside');
+const tools = toolsBox('outside', 'outside');
 tools.innerHTML = `<button type="button" class="nw-dd secondary sf-chip" data-nw-media aria-haspopup="dialog" aria-expanded="false"></button><button type="button" class="os-more icon-btn sf-more" data-os-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="읽을 거리 메뉴">${MORE}</button>`;
 const $ = sel => root?.querySelector(sel) || tools.querySelector(sel);
 const rt = () => window.KPTURuntime;

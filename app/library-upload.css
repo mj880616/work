@@ -189,21 +189,32 @@
 #appView #libraryView .lu-node-head.lu-renaming::after{content:none}
 .lu-node-head .lu-folder-rename,.lu-row .lu-rename-input{position:relative;z-index:1}
 #appView #libraryView .lu-node-head:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-/* LIB-목록간격 ②(2026-10-23 사용자 확정 11:02): 폴더 줄 글자는 자료 줄 이름과 같은 크기(--ds-text-row), 맨 위 단(프로젝트 이름·'프로젝트 없음')만 굵게,
-   하위 프로젝트·폴더는 보통 굵기에 단마다 들여 쓴다. 줄 간격은 지금보다 조금 넓게(32 → 36px). 누르는 범위(44px)는 ::after 그대로.
-   공용 규칙(ui-standard.css 목록 글자: summary 500)보다 앞서도록 #documentList까지 한정한다. */
-#appView #libraryView #documentList .lu-node > summary.lu-node-head{min-height:calc(var(--ds-compact-height,32px) + 4px);padding-top:8px;padding-bottom:8px;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400)}
-#appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{font-weight:700}
-/* UI-폴더목록한모양(S69-90): 자료실 목록 폴더 묶음 머리(summary)는 앞 확정 LIB-목록간격 ②(2026-10-23: 글자 = 자료 줄 이름, 줄 간격 36px)·LIB-토글트리 ③(⋯ 보이는 크기 28px)
-   그대로 둔다 — 높이·글자·⋯를 [파일] 줄 값으로 바꾸려면 이 두 확정을 바꾸는 명진 결정이 필요하고, 자료 줄 모양(S69-85 남은 일)과 함께 정한다.
-   왼쪽 나무·두 칸 칸(.ft-row)은 [파일]과 같은 공용 값 그대로(전의 30px·12.5px 덮어쓰기를 지움). */
+/* UI-폴더줄크기(S69-99, 명진 2026-11-25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로"): 자료실 목록 폴더 묶음 머리(summary)도 [파일] 폴더 줄과 같은 값 —
+   높이·글자·폴더 그림·간격·들여쓰기는 folder-tree.css의 줄 크기 값(--ft-*, 두 손가락 단계와 함께 바뀜) 그대로, 맨 위 단만 굵게, ⋯는 [파일] ⋯(36×32, 오른쪽 끝 2px),
+   개수는 작은 흐린 글씨(높이를 바꾸지 않음). 이 결정이 앞 확정 LIB-목록간격 ②(2026-10-23, 글자 = 자료 줄·간격 36px)·LIB-토글트리 ③(⋯ 28px)을 대신한다. */
+#appView #libraryView #documentList .lu-node > summary.lu-node-head{gap:var(--ft-gap,9px);min-height:var(--ft-sub-h,40px);padding:0 0 0 calc(12px + var(--lu-depth,0) * var(--ft-indent,22px));font-size:var(--ft-font,14px);font-weight:var(--ds-weight-regular,400)}
+#appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{min-height:var(--ft-row-h,44px);font-weight:700}
+#appView #libraryView #documentList .lu-node-head .lu-folder-shape{margin:0}
+#appView #libraryView #documentList .lu-node-head .lu-node-count{font-weight:var(--ds-weight-regular,400)}
+#appView #libraryView #documentList .lu-node-head > .lu-node-more{width:36px;height:32px;margin:0 2px 0 auto;border-radius:var(--kptu-radius-sm,6px);font-size:inherit;font-weight:400}
+#appView #libraryView #documentList .lu-node-head > .lu-node-more::after{inset:calc((32px - var(--kptu-touch-target,44px)) / 2) -4px}
+#appView #libraryView #documentList .lu-node-body > .lu-row{padding-left:calc(12px + (var(--lu-depth,0) + 1) * var(--ft-indent,22px))}
+#appView #libraryView #documentList .lu-node-body > .ft-more-row{padding-left:calc(12px + (var(--lu-depth,0) + 1) * var(--ft-indent,22px))}
+#appView #libraryView #documentList .lu-node-body > .lu-node-empty{padding-left:calc(12px + (var(--lu-depth,0) + 1) * var(--ft-indent,22px))}
+/* 폰: 목록 상자 안쪽 여백도 [파일] 상자처럼 없다(줄이 상자 테두리까지, 구분선이 상자 끝까지). 상자 안 다른 줄(안내·고르기 줄)은 [파일] 줄과 같은 12px 안쪽. */
+@media(max-width:760px){
+  #appView #libraryView #libraryListCard{padding:0;overflow:hidden}
+  #appView #libraryView #libraryListCard > :not(#documentList):not(.add-list-head){margin-left:12px;margin-right:12px}
+  #appView #libraryView #documentList > .lu-row{padding-left:12px;padding-right:0}
+  /* 목록이 빈 때·실패 안내 한 줄도 [파일] 상자 안 안내처럼 12px 안쪽(상자 여백을 없앤 뒤 글자가 테두리에 붙지 않게). */
+  #appView #libraryView #documentList > :is(.wait-empty,.wait-fail){margin:0;padding:8px 12px}
+}
 
 #appView #libraryView .lu-node-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #appView #libraryView .lu-node-count{flex:none;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 /* LIB-받는폴더(S59-11): 받는 폴더 줄의 작은 표시(시안 ①③ — 개수 뒤, 연한 테두리, 굵지 않게). [파일]·나무 줄의 .ft-tag와 같은 모양. */
 #appView #libraryView .lu-receive-mark{flex:none;font-size:11px;line-height:1.5;padding:0 6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);color:var(--kptu-primary-ink,var(--kptu-muted));font-weight:var(--ds-weight-regular,400);white-space:nowrap}
 /* FOLDER-나무새기준 ⑨(S51-12): 종류 점·사업영역 색 점은 그리지 않는다(점 없음). 폴더 그림은 공용 folder-tree.css .ft-ico. */
-#appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px)}
 #appView #libraryView .lu-node-body > .lu-row:first-child{border-top:0}
 /* 'N건 더': 작은 글자 버튼(UI-버튼기준, 28px·12px·테두리 없음, 누르는 범위 44px). */
 #appView #libraryView .lu-more-files{position:relative;display:inline-flex;align-items:center;height:var(--ds-compact-height-sm,28px);min-height:0;margin:2px 0;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);white-space:nowrap;cursor:pointer}
@@ -216,8 +227,6 @@
 #appView #libraryView #libraryListCard > .add-list-head{position:relative;z-index:2}
 /* LIB-맨위메뉴하나(빠짐9): 자료실 위 줄 오른쪽 끝 ⋯ 하나(새 폴더·여러 개 고르기·모두 펴기/접기). 모양은 아래 'LIB-위쪽한줄' 절(⑥ 아이콘). */
 @media(max-width:760px){
-  #appView #libraryView .lu-node-head{padding-left:calc(var(--lu-depth,0) * 12px)}
-  #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 12px)}
   #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 12px)}
 }
 /* (세모 ::before 없음 — S51-25) */
@@ -419,7 +428,6 @@
 #appView #libraryView .lu-folder-shape{display:inline-flex;margin:0 4px 0 0}
 #appView #libraryView .lu-folder-shape .lu-fe-open,#appView #libraryView .lu-node[open] > .lu-node-head .lu-folder-shape .lu-fe-closed:not(.lu-fe-only){display:none}
 #appView #libraryView .lu-node[open] > .lu-node-head .lu-folder-shape .lu-fe-open{display:inline-flex}
-#appView #libraryView .lu-node-body > .ft-more-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px + 8px)}
 /* UI-폴더이름펼치기(11/24): 펼친 빈 폴더 안 '빈 폴더' 한 줄 — 안 줄과 같은 들여쓰기. */
 #appView #libraryView .lu-node-body > .lu-node-empty{padding:2px 0 2px calc((var(--lu-depth,0) + 1) * 16px + 8px)}
 #appView #libraryView .lu-node-empty > .wait-empty{margin:0}
@@ -561,8 +569,8 @@
 #documentList .lu-empty-up .wait-empty{margin:0}
 #documentList .lu-pane-list{flex:1 1 auto;max-height:calc(100dvh - var(--follow-top,8px) - 150px);overflow:auto;padding:2px 4px 60px}
 /* LIB-두칸폴더펼치기(S56-40): 칸 안에서 펼친 폴더의 자료는 그 폴더의 하위 줄과 같은 단만큼 들여 보인다(공용 나무 들여쓰기 22px 한 단). */
-#documentList .lu-pane-sub{padding-left:calc(var(--ft-depth,0) * 22px)}
-#documentList .lu-pane-empty{padding-left:calc(var(--ft-depth,0) * 22px + 8px)} /* UI-폴더이름펼치기: 펼친 빈 폴더 안 '빈 폴더' 한 줄 */
+#documentList .lu-pane-sub{padding-left:calc(var(--ft-depth,0) * var(--ft-indent,22px))}
+#documentList .lu-pane-empty{padding-left:calc(var(--ft-depth,0) * var(--ft-indent,22px) + 8px)} /* UI-폴더이름펼치기: 펼친 빈 폴더 안 '빈 폴더' 한 줄 */
 #documentList .lu-pane-empty > .wait-empty{margin:2px 0}
 #documentList .lu-pane.lu-drop-into{border-color:var(--kptu-primary);background:var(--kptu-primary-soft)}
 #documentList .lu-pane.lu-drop-no{border-style:dashed}

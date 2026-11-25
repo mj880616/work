@@ -86,9 +86,7 @@ function screenTrigger(target) {
   if (!node || node.closest('.modal,[role="dialog"],[role="menu"],[popover]')) return null;
   const panel = node.closest('.view-panel');
   if (!panel) return null;
-  // UI-검색창하나로(S70-54): 화면 머리 ⋯가 맨 위 줄 단추 자리(screen-find.js .sf-tools — 지금 화면 상자만 보임)로 옮겨 간 화면은 그 ⋯.
-  const moved = panel.classList.contains('hidden') ? [] : [...document.querySelectorAll(`.sf-tools:not([hidden]) ${SCREEN}`)];
-  const list = [...panel.querySelectorAll(SCREEN), ...moved].filter(el => isMore(el) && visible(el));
+  const list = [...panel.querySelectorAll(SCREEN), ...(panel.id ? document.querySelectorAll(`[data-screen-tools-for="${CSS.escape(panel.id)}"] ${SCREEN}`) : [])].filter(el => isMore(el) && visible(el)); // 화면 이름 줄로 옮긴 ⋯(screen-tools.js)
   return list.length === 1 ? list[0] : null;
 }
 

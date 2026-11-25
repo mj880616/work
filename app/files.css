@@ -277,7 +277,7 @@
 /* FOLDER-나무새기준 ②(S51-12): 폰 나무는 공용 상자·줄(folder-tree.css ft-). 여기는 [파일]만의 것 — 상자 머리 저장소 그림, 파일 줄 종류 글자·날짜. */
 :is(.fx-tree, .fx-ptree) .ft-box-ico { display:inline-flex; align-items:center; color:var(--kptu-muted); }
 :is(.fx-tree, .fx-ptree) .ft-box-ico svg { display:block; }
-.fx-titem .ft-main { min-height:40px; }
+.fx-titem .ft-main { min-height:var(--ft-item-h,40px); } /* 줄 크기 단계(folder-tree.css, S69-99) */
 .fx-tkind { flex:none; box-sizing:border-box; min-width:30px; height:18px; padding:0 5px; border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:10px; line-height:18px; text-align:center; white-space:nowrap; }
 .fx-titem .fx-tday { margin-left:auto; }
 /* S51-24 '그 폴더만' 사진 줄: 종류 글자 자리에 작은 그림(목록 보기 사진 작은 그림, S51-20 그대로). */
@@ -387,3 +387,5 @@
 @keyframes fx-flash { 0%,60% { background:var(--kptu-primary-soft); outline-color:var(--kptu-primary); } 100% { background:transparent; outline-color:transparent; } }
 .fx-flash { outline:2px solid transparent; outline-offset:-2px; animation:fx-flash 1.8s ease-out; }
 @media (prefers-reduced-motion:reduce) { .fx-flash { animation:none; background:var(--kptu-primary-soft); } }
+/* UI-폴더줄크기(S69-99): 폰 나무 저장소 상자 머리 오른쪽 = 맞춘 시각 + ⋯([이 폴더로 들어가기] — 전의 상자 머리 두 손가락 벌리기 대신). ⋯는 폴더 줄 ⋯와 같은 공용 모양. */
+.fx-box-tail { flex:none; display:inline-flex; align-items:center; gap:2px; margin-left:auto; }

@@ -215,7 +215,8 @@ const SPOTS = {
   '하루 기록': [{ name: '하루 기록 머리 줄', sel: '#diaryView .diary-week-head', want: 'app', gap: SCREEN_GAP }],
   '사진': [{ name: '사진 머리 줄', sel: '#photosView .photos-head', want: 'app', gap: SCREEN_GAP }],
   '잊지 말기': [{ name: '잊지 말기 머리 줄', sel: '#basketView .forget-head', want: 'app', gap: SCREEN_GAP, at: 200 }],
-  '저장한 글': [{ name: '저장한 글 제목', sel: '#readingView .rd-title', want: 'app', gap: SCREEN_GAP }],
+  // S70-40b ④: PC 틀은 목록 머리 줄 제목이 없다(위 줄에 화면 이름) — 머리 줄 탭 오른쪽 빈 곳.
+  '저장한 글': [{ name: '저장한 글 머리 줄', sel: '#readingView [data-rd-list] .rd-head', want: 'app', gap: SCREEN_GAP, at: 300 }],
   '조직 관리': [
     { name: '조직 카드', sel: '#teamView article.so-card', want: 'app' },
     { name: '조직 기록 줄', sel: '#teamView .wd-log-row', want: 'app' },

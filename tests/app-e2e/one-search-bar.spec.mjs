@@ -116,7 +116,6 @@ for(const width of WIDTHS)test.describe(`검색 칸 하나 ${width}`,()=>{
     await page.evaluate(()=>window.KPTURouter.go('team'));
     const cards=page.locator('#soOrganizationList [data-so-org]');
     await expect(cards).toHaveCount(2);
-    await expect(page.locator('#soTeamHead')).toHaveCount(0);
     await expect(screenTools(page).locator('#soAddOrg')).toBeVisible();await expect(screenTools(page).locator('#soTeamMore')).toBeVisible();
     const find=await screenFind(page);
     await expect(find).toHaveAttribute('placeholder','조직 관리에서 찾기');
