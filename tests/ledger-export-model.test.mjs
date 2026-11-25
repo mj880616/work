@@ -1,7 +1,7 @@
 // AI-서버연동 S7-d: 원장 매주 Drive 내보내기 앱 판단(순수 함수).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { ledgerFromStatus, exportDue, exportResult, failureText, WEEK_MS, RETRY_AFTER_FAILURE_MS } from '../app/ledger-export-model.mjs';
 
 const NOW = Date.parse('2026-10-26T00:00:00Z');
@@ -46,9 +46,7 @@ test('module: owner-only, no request body, fixed paths, one renderer region, no 
   assert.doesNotMatch(src, /service_role|cron-secret/i);
   assert.match(src, /membership\?\.role === 'owner'/);
   assert.equal((src.match(/#ledgerExportRoot/g) || []).length >= 1, true);
-  const shell = readFileSync(new URL('../app/ledger-browse.js', import.meta.url), 'utf8');
-  // LEDGER-자동기록: 상태 한 줄은 원장 화면 맨 위 칸. LEDGER-화면정리: 틀은 목록 모듈이 만들고, 가져오기·후보 칸은 없다.
-  assert.match(shell, /<div class="lg-root"><div id="ledgerExportRoot" class="lg-root" hidden><\/div><div id="ledgerFixRoot" class="lg-root" hidden><\/div><div id="ledgerMergeRoot" class="lg-root" hidden><\/div><div id="ledgerBrowseRoot"/);
-  assert.doesNotMatch(shell, /ledgerRoot"|ledgerCandidatesRoot/);
+  // LEDGER-화면에서빼기(2026-11-25): 원장 화면 틀(#ledgerView)은 없다 — 사본 갱신은 화면 없이 뒤에서만.
+  assert.equal(existsSync(new URL('../app/ledger-browse.js', import.meta.url)), false);
   assert.doesNotMatch(src, /지금 Drive로 내보내기/);
 });

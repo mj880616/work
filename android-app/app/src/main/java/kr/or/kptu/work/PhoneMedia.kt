@@ -119,7 +119,8 @@ object PhoneMedia {
         return PhoneMediaRules.access(Build.VERSION.SDK_INT, granted)
     }
 
-    fun stateMessage(context: Context): String = PhoneMediaRules.stateMessage(access(context), key, Build.VERSION.SDK_INT, canManage(context))
+    // S70-45: 플레이 판(PHONE_GALLERY=false)은 어디서 부르든 '폰 사진 없음'만 알린다(설정에서 돌아올 때 onResume 포함).
+    fun stateMessage(context: Context): String = if (!BuildConfig.PHONE_GALLERY) PhoneMediaRules.OFF_MESSAGE else PhoneMediaRules.stateMessage(access(context), key, Build.VERSION.SDK_INT, canManage(context))
 
     /** PHOTO-폴더스위치: '미디어 관리 허용'(안드로이드 12+)이 켜져 있나. 켜져 있으면 바꾸기·휴지통 요청에 시스템이 묻지 않는다. */
     fun canManage(context: Context): Boolean = try {

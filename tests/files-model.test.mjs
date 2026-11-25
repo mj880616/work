@@ -403,9 +403,9 @@ test('upload plan: name rule, 2GB cap, count cap; same name; big; resume match; 
   assert.equal(m.upPiece(10, 10, 4), null);
   assert.equal(m.upResultId({id: 'OD!7'}), 'OD!7');
   assert.equal(m.upResultId({id: '../x'}), null);
-  assert.equal(m.upDropText('가짜 문서함'), '여기 놓으면 가짜 문서함에 올리기');
+  assert.equal(m.upDropText('가짜 문서함'), '여기 놓으면 가짜 문서함에 업로드');
 });
-test('upload rows in the transfer list: device rows show %, [이어 올리기], re-pick hint only without the file', async () => {
+test('upload rows in the transfer list: device rows show %, [이어 업로드], re-pick hint only without the file', async () => {
   const m = await import('../app/files-model.mjs');
   const j = {origin: 'device', status: 'running', size_bytes: 10, sent_bytes: 4, src_source: 'dev', dest_source: 'od', name: 'a.txt'};
   assert.equal(m.jobStatusText(j), '40%');
