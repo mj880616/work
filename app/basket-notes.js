@@ -37,6 +37,7 @@ import { openFolderSheet, closeFolderSheet, folderSheetOpen } from './folder-des
 import { sheetTitle } from './folder-dest-sheet.mjs';
 import { folderPathHtml } from './folder-path.mjs';
 import { createSelectMode } from './select-mode.js';
+import { bindSelectKeys, renameTarget } from './select-keys.js'; // UI-목록공용키(S70-18)
 import { notify, askConfirm, askText } from './small-notice.js';
 import { requestNewsItem } from './news-request.mjs';
 import { createNoteNewsMarks, isNewsAt } from './note-news-marks.js';
@@ -2000,8 +2001,25 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (at !== null && !folderLayer) { const folderId = at; folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); const back = treeScroll || (wideList.matches ? null : {y:null, id:at}), from = focusHeadTop(); treeScroll = null; at = null; renderList(); restoreTree(back, from); return true; }, reopen: () => enter(folderId)}) || null; }
     else if (at === null && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
   }
+  // UI-목록공용키(S70-18, N2·N3·N4): 목록 칸 Ctrl+A·Delete·F2는 공용 키 부품(select-keys.js)이 정하고, 할 일은 이 화면 길 그대로 —
+  // Ctrl+A = [전체]와 같은 보이는 노트·폴더 줄 모두(선택 모드가 아니면 켜면서), Delete = 고른 것이 있으면 선택 막대 [삭제](한 번 묻기), 없으면 커서 노트 줄 ⋯ [삭제](확인),
+  // F2 = 고른 것 하나, 없으면 커서 줄 — 폴더는 이름 바꾸기, 노트는 제목 고치기(⋯ [수정]과 같은 길, 제목 칸에 커서). Esc는 아래 host 처리 그대로.
+  const cursorKey = e => { const n = e.target.closest?.('[data-nx-note]')?.dataset.nxNote; if (n) return 'n:' + n; const f = e.target.closest?.('[data-nx-folder]')?.dataset.nxFolder; return f ? 'f:' + f : null; };
+  bindSelectKeys(list, {
+    all: () => { const keys = [...host.querySelectorAll('[data-nx-recent] [data-nx-note], #noteRows [data-nx-note], #noteRows [data-nx-folder]')].map(el => el.dataset.nxNote ? 'n:' + el.dataset.nxNote : 'f:' + el.dataset.nxFolder); if (!keys.length) return false; pick.start(keys); renderList(); return true; },
+    delete: e => {
+      if (pick.active && pick.size) { void deletePicked(e.target instanceof Element ? e.target : null); return true; }
+      const key = cursorKey(e); if (!key?.startsWith('n:') || !notes.some(n => n.id === key.slice(2))) return false;
+      void remove(key.slice(2)); return true;
+    },
+    rename: e => {
+      const key = renameTarget(pick.active ? [...pick.items] : [], cursorKey(e)); if (!key) return false;
+      if (key.startsWith('f:')) { if (!folderById(key.slice(2))) return false; void renameFolder(key.slice(2)); return true; }
+      const note = notes.find(n => n.id === key.slice(2)); if (!note || pinLock.noteHidden(note)) return false;
+      endSelect(); if (selected?.id !== note.id) open(note.id, {focus:false}); void startEdit(); return true;
+    },
+  }, {active:() => !busy && !editing && (!selected || splitOpen()) && view !== 'board', blocked:() => !!menu || folderSheetOpen()});
   host.addEventListener('keydown', e => {
-    if (e.key === 'F2' && (!selected || splitOpen()) && !editing && !e.target.closest('input,textarea,[contenteditable]')) { const row = e.target.closest('[data-nx-folder]'); if (row) { e.preventDefault(); void renameFolder(row.dataset.nxFolder); return; } }
     if (e.key !== 'Escape') return;
     if (menu) { e.preventDefault(); e.stopPropagation(); closeMenu({focus:true}); return; }
     if (pick.active && !selected) { e.preventDefault(); e.stopPropagation(); endSelect(); return; }
