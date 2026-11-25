@@ -45,10 +45,12 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
 
     test('끈 상태가 기본: 손잡이 없음 · [블록]으로 켜면 손잡이 보임 · 끄면 사라짐', async ({page}) => {
       await open(page, 'blocks=off');
-      // [블록 모드]은 [문단 ▾] 묶음 맨 끝(폰·PC 같은 자리).
+      // [블록 모드]는 편집 막대 위 작은 아이콘 단추(↶ 앞, 폰·PC 같은 자리). NOTE-블록모드찾기: [문단 ▾] 안이 아니다.
       const box = page.locator('.ed-input'), toggle = page.locator('.ed-bar').getByRole('button', {name: '블록 모드', exact: true, includeHidden: true});
       await expect(toggle).toHaveAttribute('data-ed-cmd', 'blocks');
-      expect(await toggle.evaluate(el => el.closest('[data-ed-panel]')?.dataset.edPanel)).toBe('gPara');
+      expect(await toggle.evaluate(el => el.closest('[data-ed-panel]')?.dataset.edPanel ?? null)).toBe(null);
+      await expect(toggle).toBeVisible();
+      expect(await toggle.evaluate(el => el.nextElementSibling?.dataset.edCmd)).toBe('undo');
       await expect(toggle).toHaveAttribute('aria-pressed', 'false');
       await expect(page.locator('.ed-editor')).not.toHaveClass(/ed-blocks-on/);
       const pad = await box.evaluate(el => getComputedStyle(el).paddingLeft);

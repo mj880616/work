@@ -110,6 +110,9 @@
 /* 펼침 상자(popover): 누른 버튼 바로 아래에 본문 위로 뜬다(본문은 밀리지 않음). 위치·화면 안 맞춤은 ed-editor.js placePop이 한다. */
 .ed-pop{position:fixed;z-index:40;display:flex;flex-direction:column;align-items:stretch;gap:2px;min-height:0;width:max-content;min-width:128px;padding:4px;overflow:auto;overscroll-behavior:contain;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);box-shadow:var(--kptu-shadow-float)}
 .ed-pop[hidden]{display:none}
+/* NOTE-블록모드찾기(2026-11-25): 목록 단추의 누르는 범위(44px, ::after)가 상자 안쪽에 들어가도록 위아래 여백을 그 넘침만큼 둔다.
+   여백이 4px이면 맨 아래 단추의 ::after가 상자 밖으로 넘쳐, 항목이 다 들어가는데도 스크롤 막대가 생겼다(펼침 목록은 화면을 넘을 때만 스크롤). */
+.ed-bar .ed-pop{padding-block:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height-sm,28px)) / 2)}
 .ed-bar .ed-pop button{display:flex;align-items:center;gap:8px;width:100%;height:var(--ds-compact-height-sm,28px);padding:0 8px;border-color:transparent;text-align:left}
 .ed-bar .ed-pop button:hover,.ed-bar .ed-pop button:focus-visible{background:var(--kptu-surface-subtle)}
 .ed-bar .ed-pop button[aria-pressed="true"]{background:var(--kptu-surface-subtle);border-color:transparent;color:var(--kptu-ink)}
