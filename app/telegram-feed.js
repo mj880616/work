@@ -29,12 +29,12 @@ import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} f
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
   firstWindow, olderWindow, reachedEnd, chunksOf, cleanFolderName, FOLDER_ERROR_TEXT, archivedRooms, withRoomState, pinnedRooms, withoutPinned, pinsWithoutLine,
   swipeIntent, swipeEdge, swipeOffset, swipeSettle, swipeOpenOffset, allowOf, SWIPE_ACTIONS, ACTION_LABEL,
-  SUMEDIT, SUMEDIT_TEXT, editMap, itemTarget, dayTarget, itemSummary, isItemEdited, applyLineEdit, dayEdit, cleanSummaryInput, cleanDayInput, dayPatch, sumEditErrorText, linesToText, rawFoldable, rawMoreKey} from './tg-day-model.mjs';
+  LOAD_PLAN, SUMEDIT, SUMEDIT_TEXT, editMap, itemTarget, dayTarget, itemSummary, isItemEdited, applyLineEdit, dayEdit, cleanSummaryInput, cleanDayInput, dayPatch, sumEditErrorText, linesToText, rawFoldable, rawMoreKey} from './tg-day-model.mjs';
 // TG-요청강조: 나한테 온 요청(챙길 것 후보의 ask_me 결과 재사용) 노란 띠·꼬리표와 [나한테 온 요청 n] 칸, 담당조직·일정 회색 꼬리표(tg-mark-model.mjs).
 // TG-방고정(시안 A): 방 줄 메뉴 맨 위 [고정]/[고정 풀기]. 고정한 방은 날짜 줄 위 맨 위 칸에 📌와 함께 그 방의 가장 최근 날 한 줄로 늘 보이고 아래 날짜 묶음에는 다시 나오지 않는다.
 //   고정·순서는 서버(app_feed_rooms.pinned_at, DB 함수 app_feed_room_pin)에만 둔다. 보관한 방은 고정에서 빠진다. 칸이 아직 없으면 [고정]을 감춘다.
 // TG-안본것: 안 연 방·날은 이름 옆 작은 점, 연 것은 흐림, [안 본 것 n] 칸. '봤음'은 서버(app_feed_room_days.seen_at, DB 함수 app_feed_room_day_seen)에만 둔다.
-import {askIndex, askTagText, markIndex, markTagText, askCount, filterLines, ASK_TAG, seenIndex, withSeen, isUnseen, unseenCount} from './tg-mark-model.mjs';
+import {askIndex, askTagText, markIndex, markTagText, askCount, filterLines, ASK_TAG, seenIndex, withSeen, mergeSeen, isUnseen, unseenCount} from './tg-mark-model.mjs';
 import {readTelegramAsks} from './todo-radar-data.js';
 // TG-방별보기(요청함 10/30 11:28): 위쪽 [날짜별 | 방별]. 방별은 방마다 한 줄(방 이름·마지막 날짜·소식 있는 날 수·최근 한 줄)이고, 누르면 오른쪽 칸(폰은 다음 화면)에
 //   그 방의 날짜를 최근부터 이어서(날짜 머리·그날 요약·소식 줄, 원문은 접어 둠) 보인다. 아래로 내리면 옛 날짜를 이어 불러온다(날짜별과 같은 읽기 길).
@@ -108,26 +108,36 @@ const labelOfRoom = key => state.rooms.get(key)?.room_label || state.lines.find(
 
 // ---------- data
 async function readLines(from, to) { return (await readRoomDayLines(chunksOf(from, to), rt)).map(lineOf).filter(Boolean); }
+// TG-불러오기속도(S70-31): 읽기는 모두 처음에 함께 부르고, 첫 목록은 LOAD_PLAN.first(방·날 줄·방 상태·폴더·고친 요약)만 기다려 그린다.
+// 나머지(LOAD_PLAN.later)는 다 오면 한 번 더 그린다(fillLater). 요청·꼬리표·안 본 것·제목·고정 칸은 그때 채워진다(실패해도 목록은 그대로).
+// 다시 그릴 때 꾹 누르는 중이면 손을 뗀 뒤 그린다(STAB-텔레그램방고정시험: 누르던 줄이 바뀌어 메뉴가 열리지 않던 문제).
+let laterWait = null;
+function startReads(from, today) {
+  const linesP = readLines(from, today), roomsP = readFeedRooms(rt).catch(() => ({rooms:new Map(), pinReady:false}));
+  const reads = {
+    lines:() => linesP, rooms:() => roomsP, folders:() => readFeedFolders(rt).catch(() => []), edits:() => readSummaryEdits(rt).then(editMap).catch(() => null),
+    days:() => readDays('telegram', rt).catch(() => []), orgs:() => readOrganizations(rt).catch(() => ({orgs:[], mine:new Set()})),
+    pins:() => readPinnedItems(rt).catch(() => []), trashed:() => readTrashedItems(rt).catch(() => []), trashedDays:() => readTrashedDays(rt).catch(() => []),
+    asks:() => readTelegramAsks(rt).catch(() => null), marks:() => readLineMarks(from, today, rt).catch(() => []), seen:() => readSeenDays(from, today, rt).catch(() => null),
+    titles:() => linesP.then(readTitlesOf).catch(() => null), pinLines:() => Promise.all([linesP, roomsP]).then(([ls, rs]) => readPinLines(rs.rooms, ls)).catch(() => []),
+    senders:() => readSenders(rt).catch(() => null),
+  };
+  const got = {};
+  for (const name of [...LOAD_PLAN.first, ...LOAD_PLAN.later]) got[name] = reads[name]();
+  const pick = names => Promise.all(names.map(n => got[n])).then(vals => Object.fromEntries(names.map((n, i) => [n, vals[i]])));
+  return {first:pick(LOAD_PLAN.first), later:pick(LOAD_PLAN.later.filter(n => n !== 'senders')), senders:got.senders};
+}
 async function load() {
   const owner = scopeOf(rt), me = ++run; if (!state.loaded) paint();
   const today = kstDay(), first = firstWindow(today), from = state.from && state.from < first.from ? state.from : first.from;
-  // 요청·꼬리표 재료는 목록과 함께 읽는다(실패해도 목록은 그대로: 요청은 null, 꼬리표는 빈 목록).
-  // 줄 글(요약 없는 날의 소식 제목)과 불러온 기간 밖 고정 방의 한 줄도 목록과 함께 읽어 첫 그림에 넣는다(STAB-텔레그램방고정시험:
-  // 목록을 그린 직후 이것들 때문에 목록을 통째로 다시 그려, 그 사이 꾹 누르던 줄이 바뀌어 메뉴가 열리지 않던 문제).
-  const linesP = readLines(from, today), roomsP = readFeedRooms(rt).catch(() => ({rooms:new Map(), pinReady:false}));
-  const extra = Promise.all([readTelegramAsks(rt).catch(() => null), readLineMarks(from, today, rt).catch(() => []), readSeenDays(from, today, rt).catch(() => null),
-    linesP.then(readTitlesOf).catch(() => null), Promise.all([linesP, roomsP]).then(([ls, rs]) => readPinLines(rs.rooms, ls)).catch(() => [])]);
+  const reads = startReads(from, today);
+  laterWait = fillLater(reads, me, owner).catch(() => {});
   try {
-    const [lines, days, orgs, senders, pins, trashed, folders, roomState, trashedDays, edits] = await Promise.all([linesP, readDays('telegram', rt).catch(() => []), readOrganizations(rt).catch(() => ({orgs:[], mine:new Set()})), readSenders(rt).catch(() => null), readPinnedItems(rt).catch(() => []), readTrashedItems(rt).catch(() => []),
-      readFeedFolders(rt).catch(() => []), roomsP, readTrashedDays(rt).catch(() => []), readSummaryEdits(rt).then(editMap).catch(() => null)]);
-    const [asks, markRows, seenRows, titles, pinLines] = await extra;
+    const {lines, rooms:roomState, folders, edits} = await reads.first;
     if (me !== run || owner !== scopeOf(rt)) return;
     const {rooms, pinReady, newsReady = false} = roomState;
-    if (titles) state.titles = titles;
-    Object.assign(state, {owner, loaded:true, missing:false, error:'', pinReady, newsReady, pinLines:withRoomState(pinLines, rooms), lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, edits, se:null, dcache:new Map(), swipe:null, asks:asks?.ok ? askIndex(asks.rows) : null, markRows, marks:markIndex(markRows, orgs.mine), seen:seenRows ? seenIndex(seenRows) : null});
-    setSenders(senders);
+    Object.assign(state, {owner, loaded:true, missing:false, error:'', pinReady, newsReady, pinLines:withRoomState(state.pinLines, rooms), lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), folders, rooms, edits, se:null, dcache:new Map(), swipe:null});
     if (state.folder && !folders.some(f => f.id === state.folder)) state.folder = '';
-    if (state.mode === 'trash' && !trashed.length && !trashedDays.length) leaveShelf();
     if (state.mode === 'archive' && !archivedRooms(rooms, state.lines).length) leaveShelf();
   } catch (error) {
     if (me !== run || owner !== scopeOf(rt)) return;
@@ -141,6 +151,29 @@ async function load() {
   }
   paint();
   if (state.sel) void ensureDetail(); else if (state.rsel) void ensureRoomDays();
+}
+// 늦게 오는 재료를 채우고 한 번 더 그린다. 그 사이 화면에서 바꾼 고정·휴지통은 덮지 않고(같은 목록일 때만 바꿈), '봤음'은 늦은 쪽을 남긴다.
+async function fillLater(reads, me, owner) {
+  void reads.senders.then(data => {
+    if (me !== run || owner !== scopeOf(rt)) return; setSenders(data);
+    hold.afterHold(() => { if (me !== run) return; if (state.mode === 'senders') paintList(); if (state.sel || state.rsel) paintDetail(); });
+  });
+  const was = {pins:state.pins, trashed:state.trashed, trashedDays:state.trashedDays};
+  let got; try { got = await reads.later; } catch { return; }
+  try { await reads.first; } catch { return; }
+  if (me !== run || owner !== scopeOf(rt) || state.error || state.missing) return;
+  const {days, orgs, pins, trashed, trashedDays, asks, marks, seen, titles, pinLines} = got;
+  if (titles) state.titles = titles;
+  if (state.pins === was.pins) state.pins = pins;
+  if (state.trashed === was.trashed) state.trashed = trashed;
+  if (state.trashedDays === was.trashedDays) state.trashedDays = trashedDays;
+  const firstSeen = !state.seen;
+  Object.assign(state, {days, orgs:orgs.orgs, mine:orgs.mine, pinLines:withRoomState(pinLines, state.rooms), asks:asks?.ok ? askIndex(asks.rows) : null,
+    markRows:marks, marks:markIndex(marks, orgs.mine), seen:seen ? mergeSeen(seenIndex(seen), state.seen) : null});
+  if (state.mode === 'trash' && !trashCount()) leaveShelf();
+  // 첫 읽기에서 '봤음'이 오기 전에 연 방·날은 지금 봤음으로 남긴다.
+  if (firstSeen && state.seen) { if (state.sel) markSeen(state.sel.room, state.sel.day); else if (state.rsel) void ensureRoomDays(); }
+  hold.afterHold(() => { if (me === run) paint(); });
 }
 // 보기(날짜별·방별): 이번 접속에서 고른 것 > 주소(새로고침 제자리) > 서버 화면 기억 > 날짜별.
 function byNow() {
@@ -170,6 +203,7 @@ async function fillTitles(me) {
   state.titles = titles; paintList();
 }
 async function extend() {
+  await laterWait; // 늦게 오는 재료(꼬리표·봤음)가 먼저 채워진 뒤 이전 날을 더한다(서로 덮지 않게)
   const today = kstDay(), win = olderWindow(state.from, today), me = run, owner = scopeOf(rt);
   if (!win) { state.end = true; return false; }
   const [lines, marks, seenRows] = await Promise.all([readLines(win.from, win.to), readLineMarks(win.from, win.to, rt).catch(() => []), state.seen ? readSeenDays(win.from, win.to, rt).catch(() => []) : null]); if (me !== run || owner !== scopeOf(rt)) return false;
@@ -1172,6 +1206,24 @@ function bindSwipe(root) {
   window.addEventListener('click', e => { if (swallow && root.contains(e.target)) { swallow = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
 }
 
+// [이전 날 더 보기]: 누르거나, 날짜별 목록을 아래 끝까지 내리면(TG-불러오기속도) 이전 14일을 더 읽는다. 처음 그린 채로는 부르지 않고 스크롤할 때만 본다.
+let olderBusy = false;
+async function loadOlder(b) {
+  if (olderBusy) return; olderBusy = true; b.disabled = true;
+  try { await extend(); paintList(); if (state.rsel) paintDetail(); }
+  catch { state.status = '이전 날을 불러오지 못했어요.'; paintList(); }
+  finally { olderBusy = false; }
+}
+let olderFrame = 0;
+document.addEventListener('scroll', () => {
+  if (olderFrame) return;
+  olderFrame = requestAnimationFrame(() => {
+    olderFrame = 0;
+    const root = view(); if (!root || root.classList.contains('hidden') || olderBusy || !state.loaded || state.end || state.mode !== 'live' || byNow() === 'room') return;
+    const b = $('#tgList [data-tg-older]'), r = b && !b.disabled ? b.getBoundingClientRect() : null;
+    if (r && r.height > 0 && r.top < innerHeight + 200) void loadOlder(b);
+  });
+}, {passive:true, capture:true});
 function bind() {
   const root = view(); if (!root || root.dataset.tgBound) return; root.dataset.tgBound = '1';
   hold.bind(root); bindSwipe(root);
@@ -1209,7 +1261,7 @@ function bind() {
     else if (d.tgPinOpen) { const r = itemOf(d.tgPinOpen); if (r) { if (roomMode()) openRoom(r.room_key, {picked:true}); else select(r.room_key, r.day, r.id, {picked:true}); } }
     else if (d.tgNav) void navDay(d.tgNav);
     else if (d.tgRestore) void restoreItem(d.tgRestore);
-    else if (b.hasAttribute('data-tg-older')) { b.disabled = true; void extend().then(() => { paintList(); if (state.rsel) paintDetail(); }).catch(() => { state.status = '이전 날을 불러오지 못했어요.'; paintList(); }); }
+    else if (b.hasAttribute('data-tg-older')) void loadOlder(b);
     else if (b.hasAttribute('data-tg-shelf-back')) { leaveShelf(); paint(); }
     else if (d.tgRtMore) { const k = d.tgRtMore; if (state.more.has(k)) state.more.delete(k); else state.more.add(k); paintDetail(); $(`#tgDetail [data-tg-rt-more="${CSS.escape(k)}"]`)?.focus({preventScroll:true}); }
     else if (d.tgOpen) { const id = d.tgOpen; if (state.open.has(id)) { state.open.delete(id); if (state.link?.rowId === id && !dropLink(() => { if (!state.open.delete(id)) return; if (state.sedit?.rowId === id) endEdit(); paintDetail(); })) { state.open.add(id); return; } if (state.sedit?.rowId === id) endEdit(); } else { state.open.add(id); void loadRaw(id); } paintDetail(); }
