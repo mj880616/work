@@ -125,7 +125,22 @@ function ratioFor(bills, estimateOf, month) {
 }
 const latest = list => list.reduce((a, b) => (!a || String(b.created_at) > String(a.created_at) ? b : a), null);
 
-export function summarizeAiUsage({ assist = [], feed = [], news = [], external = [], entries = [] }, now, price) {
+// AI-비용보기 6단계: 기능별 표(app_ai_usage_events, 5단계부터 쌓임)의 이번 달 금액. 표를 못 읽으면(옛 DB·읽기 실패) null — 화면은 '기능 구분 전' 한 줄로 보인다.
+// 금액은 다른 OpenAI 줄과 같은 단가(보정 전 추정). features_from = 이번 달 첫 기록 날(그 전 사용은 화면이 '기능 구분 전'으로 묶는다).
+export function featureUsage(events, month, next, price) {
+  if (!Array.isArray(events)) return { by_feature: null, features_from: null };
+  const sums = new Map();
+  let from = null;
+  for (const r of events) {
+    if (!isDay(r?.day) || r.day < month || r.day >= next || !FEATURE_KEY.test(String(r.feature ?? ''))) continue;
+    sums.set(r.feature, (sums.get(r.feature) || 0) + openAiKrw(tok(r.input_tokens), tok(r.output_tokens), price));
+    if (!from || r.day < from) from = r.day;
+  }
+  return { by_feature: Object.fromEntries([...sums].map(([k, v]) => [k, won(v)])), features_from: from };
+}
+const FEATURE_KEY = /^[a-z_]{2,20}$/;
+
+export function summarizeAiUsage({ assist = [], feed = [], news = [], external = [], entries = [], events = null }, now, price) {
   const today = seoulDay(now), month = monthOf(today), next = addMonths(month, 1);
   const days = byDay({ assist, feed, news, external }, price);
   const cleanEntries = entries.filter(e => ['openai', 'gemini'].includes(e?.provider) && ['topup', 'bill'].includes(e?.kind) && Number.isSafeInteger(e.amount_krw));
@@ -162,7 +177,7 @@ export function summarizeAiUsage({ assist = [], feed = [], news = [], external =
     assist_krw: won(assistKrw), telegram_krw: won(tgKrw), call_krw: won(callKrw), news_krw: won(newsKrw),
     requests: sumRange(days.openai, month, next, v => v.requests),
     limit_assist_krw: AI_MONTHLY_LIMIT_ASSIST_KRW, limit_feed_krw: AI_MONTHLY_LIMIT_FEED_KRW, limit_news_krw: AI_MONTHLY_LIMIT_NEWS_KRW,
-  });
+  }, featureUsage(events, month, next, price));
   // 상한은 서버가 실제로 막는 기준(보정 전 추정)과 같게 본다.
   if (assistKrw >= AI_MONTHLY_LIMIT_ASSIST_KRW * WARN_RATIO) out.warn.unshift('openai_limit');
   else if (tgKrw + callKrw >= AI_MONTHLY_LIMIT_FEED_KRW * WARN_RATIO) out.warn.unshift('feed_limit');
@@ -279,5 +294,7 @@ export async function readAiUsage({ fetcher, baseUrl, anonKey, userAuthorization
     get(`app_news_days?workspace_id=eq.${ws}&day=gte.${start}&select=day,ai_requests,ai_input_tokens,ai_output_tokens&limit=1000`),
     getPages(`app_ai_external_usage?workspace_id=eq.${ws}&day=gte.${start}&select=day,ref,source,model,calls,input_tokens,audio_tokens,output_tokens&order=day.asc,ref.asc`),
   ]);
-  return { assist, feed, news, external, entries };
+  // 기능별 표는 없거나 못 읽어도 나머지 숫자는 그대로 보인다(events null → 화면 '기능 구분 전').
+  const events = await getPages(`app_ai_usage_events?workspace_id=eq.${ws}&day=gte.${monthOf(seoulDay(now))}&select=day,feature,input_tokens,output_tokens&order=day.asc,id.asc`).catch(() => null);
+  return { assist, feed, news, external, entries, events };
 }
