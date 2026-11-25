@@ -90,28 +90,23 @@ export async function readRoomFind(room, filter, from, limit = 20, rt = window.K
 }
 // 요약이 없는 날의 소식 제목 재료(방·날 줄 글이 빈 날만). days: 날짜 배열(14개씩 나눠 부름).
 export async function readTitleRows(days, rt = window.KPTURuntime) {
-  const ws = workspaceOf(rt), out = [];
-  for (let i = 0; i < days.length; i += 14) {
-    const part = days.slice(i, i + 14);
-    for (let offset = 0; offset < 500; offset += 100) {
-      const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&hidden_at=is.null&day=in.(${part.map(encode).join(',')})&select=room_key,day,title,summary,occurred_at&order=day.desc,occurred_at.asc&limit=100&offset=${offset}`);
-      if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
-      out.push(...page);
-      if (page.length < 100) break;
-    }
-  }
-  return out;
+  // TG-불러오기속도: 14일 묶음마다 한 번(500줄까지)씩, 묶음끼리는 함께 부른다.
+  const ws = workspaceOf(rt), parts = [];
+  for (let i = 0; i < days.length; i += 14) parts.push(days.slice(i, i + 14));
+  const pages = await Promise.all(parts.map(async part => {
+    const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&hidden_at=is.null&day=in.(${part.map(encode).join(',')})&select=room_key,day,title,summary,occurred_at&order=day.desc,occurred_at.asc&limit=500`, {singleFlight:false});
+    if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+    return page;
+  }));
+  return pages.flat();
 }
 // TG-요청강조: 방·날 줄의 회색 꼬리표(담당조직·일정) 재료. 지우지 않은 소식의 방·날·조직·제목·요약만(원문 없음), 600줄까지.
 export async function readLineMarks(from, to, rt = window.KPTURuntime) {
-  const ws = workspaceOf(rt), out = [];
-  for (let offset = 0; offset < LIST_MAX; offset += 100) {
-    const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&hidden_at=is.null&day=gte.${encode(from)}&day=lte.${encode(to)}&select=room_key,day,organization_id,title,summary&order=day.desc,occurred_at.asc,id.asc&limit=100&offset=${offset}`);
-    if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
-    out.push(...page);
-    if (page.length < 100) break;
-  }
-  return out;
+  // TG-불러오기속도: 100줄씩 차례로 여러 번 부르던 것을 한 번에(같은 600줄 한도).
+  const ws = workspaceOf(rt);
+  const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&hidden_at=is.null&day=gte.${encode(from)}&day=lte.${encode(to)}&select=room_key,day,organization_id,title,summary&order=day.desc,occurred_at.asc,id.asc&limit=${LIST_MAX}`);
+  if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+  return page;
 }
 export async function readPinnedItems(rt = window.KPTURuntime) {
   const ws = workspaceOf(rt);
@@ -152,11 +147,14 @@ export async function readFeedFolders(rt = window.KPTURuntime) {
 // NEWS-모두에게열기 ③: chat_kind(1:1·그룹·채널)·news_at(뉴스방으로 정한 시각)은 따로 읽는다 — 칸이 없거나 못 읽으면 newsReady=false(화면이 [뉴스방으로]를 감춘다).
 export async function readFeedRooms(rt = window.KPTURuntime) {
   const ws = workspaceOf(rt), path = cols => `/rest/v1/app_feed_rooms?workspace_id=eq.${encode(ws)}&select=${cols}&order=room_key.asc`;
-  let rows, pinReady = true;
-  try { rows = await readRecordPages(path('room_key,room_label,folder_id,archived_at,pinned_at'), rt); }
-  catch { pinReady = false; rows = await readRecordPages(path('room_key,room_label,folder_id,archived_at'), rt); }
-  let news = null;
-  try { news = new Map((await readRecordPages(path('room_key,chat_kind,news_at'), rt)).filter(r => r?.room_key).map(r => [r.room_key, r])); } catch { news = null; }
+  let rows, pinReady = true, news = null;
+  // TG-불러오기속도: 칸이 다 있으면 한 번에 읽는다(두 번 차례로 읽던 것). 칸이 없을 때만 예전처럼 나눠 읽는다.
+  try { rows = await readRecordPages(path('room_key,room_label,folder_id,archived_at,pinned_at,chat_kind,news_at'), rt); news = new Map(rows.filter(r => r?.room_key).map(r => [r.room_key, r])); }
+  catch {
+    try { rows = await readRecordPages(path('room_key,room_label,folder_id,archived_at,pinned_at'), rt); }
+    catch { pinReady = false; rows = await readRecordPages(path('room_key,room_label,folder_id,archived_at'), rt); }
+    try { news = new Map((await readRecordPages(path('room_key,chat_kind,news_at'), rt)).filter(r => r?.room_key).map(r => [r.room_key, r])); } catch { news = null; }
+  }
   const rooms = new Map(rows.filter(r => r?.room_key).map(r => [r.room_key, {room_label:r.room_label || '', folder_id:r.folder_id || null, archived_at:r.archived_at || null, pinned_at:(pinReady && r.pinned_at) || null,
     chat_kind:news?.get(r.room_key)?.chat_kind || null, news_at:news?.get(r.room_key)?.news_at || null}]));
   return {rooms, pinReady, newsReady:!!news};
@@ -203,14 +201,10 @@ export const setRoomDay = (roomKey, day, state, rt = window.KPTURuntime) => tgdg
 export const markRoomDaySeen = (roomKey, day, rt = window.KPTURuntime) => tgdg('app_feed_room_day_seen', {p_room_key:roomKey, p_day:day}, rt);
 // 이 날 범위에서 '봤음' 시각이 있는 방·날(소유자 읽기). 칸이 아직 없거나(DB 적용 전) 읽지 못하면 던진다(부르는 쪽이 안 본 것 표시를 끈다).
 export async function readSeenDays(from, to, rt = window.KPTURuntime) {
-  const ws = workspaceOf(rt), out = [];
-  for (let offset = 0; offset < LIST_MAX; offset += 100) {
-    const page = await rt.api(`/rest/v1/app_feed_room_days?workspace_id=eq.${encode(ws)}&day=gte.${encode(from)}&day=lte.${encode(to)}&seen_at=not.is.null&select=room_key,day,seen_at,updated_at&order=day.desc,room_key.asc&limit=100&offset=${offset}`);
-    if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
-    out.push(...page);
-    if (page.length < 100) break;
-  }
-  return out;
+  const ws = workspaceOf(rt); // TG-불러오기속도: 한 번에(같은 600줄 한도)
+  const page = await rt.api(`/rest/v1/app_feed_room_days?workspace_id=eq.${encode(ws)}&day=gte.${encode(from)}&day=lte.${encode(to)}&seen_at=not.is.null&select=room_key,day,seen_at,updated_at&order=day.desc,room_key.asc&limit=${LIST_MAX}`);
+  if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+  return page;
 }
 export const createFolder = (name, rt = window.KPTURuntime) => tgdg('app_feed_folder_create', {p_name:name}, rt);
 export const renameFolder = (id, name, rt = window.KPTURuntime) => tgdg('app_feed_folder_rename', {p_id:id, p_name:name}, rt);
