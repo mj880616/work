@@ -1,0 +1,186 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 나만의 블로그 (BLOG-나만의블로그)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+*{box-sizing:border-box}
+body{margin:0;padding:12px;background:#ece9e1;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2b2b28;font-size:13px;line-height:1.5}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#555;margin:0 0 12px}
+.cap{font-size:13px;font-weight:700;margin:20px 0 6px}
+.cap small{font-weight:400;color:#666}
+.new{outline:2px solid #b8663a;outline-offset:1px;border-radius:4px}
+a{color:#47532a;text-decoration:none}
+/* 블로그 겉 PC */
+.pc{background:#fffefa;border:1px solid #cfc8b6;border-radius:8px;overflow:hidden;max-width:980px}
+.bh{display:flex;align-items:baseline;gap:10px;padding:10px 16px;border-bottom:1px solid #e2ddcf}
+.bh b{font-size:15px;font-weight:600}.bh span{color:#6e6c60;font-size:12px}
+.cols{display:grid;grid-template-columns:170px 260px 1fr;min-height:330px}
+.cols>div{border-right:1px solid #e2ddcf;padding:8px 0}.cols>div:last-child{border-right:0;padding:12px 18px}
+.lh{color:#8f8c7f;font-size:11px;padding:0 12px 4px}
+.row{display:flex;gap:8px;align-items:baseline;padding:4px 12px;cursor:default}
+.row .m{margin-left:auto;color:#8f8c7f;font-size:11px;white-space:nowrap}
+.row.on{background:#eef0e4}
+.post .row{display:block}.post .row .m{display:block;margin:0}
+.art h2{font-size:17px;margin:0 0 2px;font-weight:600}
+.art .meta{color:#8f8c7f;font-size:11px;margin:0 0 10px}
+.art p{margin:0 0 8px}
+.ph{height:90px;background:linear-gradient(135deg,#d9d4c3,#c7c0aa);border-radius:4px;margin:4px 0 8px;display:flex;align-items:center;justify-content:center;color:#6e6c60;font-size:11px}
+.more{padding:6px 12px;color:#6e6c60;font-size:11px}
+/* 폰 */
+.phones{display:flex;gap:10px;flex-wrap:wrap}
+.scr{width:250px;background:#fffefa;border:1px solid #cfc8b6;border-radius:14px;overflow:hidden;min-height:400px}
+.top{display:flex;gap:8px;align-items:center;padding:9px 12px;border-bottom:1px solid #e2ddcf}
+.top b{font-weight:600}.top span{color:#8f8c7f;font-size:11px;margin-left:auto}
+.top .back{margin-left:0;color:#6e6c60;font-size:13px}
+.scr .row{padding:7px 12px;border-bottom:1px solid #f0ece2}
+.scr .art{padding:10px 12px}
+.foot{color:#8f8c7f;font-size:10px;padding:10px 12px}
+/* WORK ON+ 안 */
+.app{display:grid;grid-template-columns:130px 1fr;background:#fffefa;border:1px solid #cfc8b6;border-radius:8px;overflow:hidden;max-width:980px}
+.side{background:#f4f1e8;padding:8px 0;border-right:1px solid #e2ddcf}
+.side div{padding:4px 12px;color:#4a4a42}.side .on{background:#e4e6d6;font-weight:600}
+.main{padding:0}
+.bar{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid #e2ddcf;font-size:12px}
+.bar b{font-size:13px}.bar .sp{margin-left:auto}
+.lk{color:#47532a}.mu{color:#8f8c7f}
+.btn{border:1px solid #cfc8b6;border-radius:5px;padding:1px 8px;background:#fffefa;font-size:12px;white-space:nowrap}
+.pri{border-radius:5px;padding:2px 10px;background:#5c6a35;color:#fffefa;font-size:12px;white-space:nowrap}
+.two{display:grid;grid-template-columns:190px 1fr;min-height:250px}
+.two>div:first-child{border-right:1px solid #e2ddcf;padding:6px 0}
+.tag{font-size:10px;color:#9a4f24;border:1px solid #e0b89e;border-radius:3px;padding:0 4px;margin-left:6px}
+.dots{color:#8f8c7f;margin-left:6px}
+.add{padding:4px 12px;color:#47532a;font-size:12px}
+.wrapx{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.notebox{background:#fffefa;border:1px solid #cfc8b6;border-radius:8px;width:360px;overflow:hidden}
+.nh{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid #e2ddcf}
+.nh b{font-weight:600}.nh .sp{margin-left:auto}
+.line{background:#eef0e4;font-size:12px;padding:4px 12px;color:#4a4a42}
+.nb{padding:10px 12px;color:#4a4a42;min-height:60px}
+.menu{border:1px solid #cfc8b6;border-radius:6px;background:#fffefa;box-shadow:0 4px 14px rgba(0,0,0,.1);padding:3px 0;width:170px;font-size:12px}
+.menu div{padding:4px 12px}.menu .sep{border-top:1px solid #eee;margin:3px 0;padding:0}
+.menu .h{color:#8f8c7f;font-size:10px;padding:3px 12px 0}
+.dlg{border:1px solid #cfc8b6;border-radius:8px;background:#fffefa;box-shadow:0 6px 20px rgba(0,0,0,.12);width:290px;font-size:12px}
+.dlg .t{padding:8px 12px;font-weight:600;border-bottom:1px solid #eee}
+.dlg label{display:flex;gap:8px;align-items:center;padding:4px 12px}
+.dlg label .m{margin-left:auto;color:#8f8c7f;font-size:11px}
+.dlg .hint{color:#6e6c60;font-size:11px;padding:6px 12px;border-top:1px solid #eee}
+.dlg .acts{display:flex;justify-content:flex-end;gap:6px;padding:8px 12px;border-top:1px solid #eee}
+.in{border:1px solid #cfc8b6;border-radius:4px;padding:2px 6px;font-size:12px;color:#6e6c60}
+@media (max-width:760px){.cols{grid-template-columns:1fr}.cols>div{border-right:0;border-bottom:1px solid #e2ddcf}.app{grid-template-columns:1fr}.side{display:none}.two{grid-template-columns:1fr}}
+</style></head><body>
+<h1>시안: 나만의 블로그</h1>
+<p class="note">실데이터 없음(예시 글). 주황 테두리 = 새로 생기는 부분. 블로그 겉은 게시판 목록 → 글 목록 → 글 본문뿐(댓글·좋아요·방문자 수 없음). 주소는 <b>bokdoong.com</b> 하나(명진 블로그 전용, 첫 화면 = 게시판 목록). 블로그는 운영자 계정에만 있다 — 다른 가입자에게는 [블로그] 메뉴·[블로그에 게시]가 없고 공유 링크까지만.</p>
+
+<div class="cap">① 블로그 겉 — PC <small>bokdoong.com · 게시판 bokdoong.com/board/&lt;key&gt; · 글 bokdoong.com/post/&lt;key&gt; · 세 칸이 한 화면</small></div>
+<div class="pc new">
+  <div class="bh"><b>하늘의 기록장</b><span>일하며 남기는 메모</span></div>
+  <div class="cols">
+    <div>
+      <div class="lh">게시판</div>
+      <div class="row on">일하는 이야기<span class="m">12</span></div>
+      <div class="row">읽은 책<span class="m">5</span></div>
+      <div class="row">여행<span class="m">3</span></div>
+      <div class="row">요리 메모<span class="m">0</span></div>
+    </div>
+    <div class="post">
+      <div class="lh">일하는 이야기 · 12</div>
+      <div class="row on">회의를 30분으로 줄인 방법<span class="m">11.25</span></div>
+      <div class="row">할 일 목록을 하루 세 개로<span class="m">11.20 · 고침 11.22</span></div>
+      <div class="row">메모는 쓰는 곳 하나만<span class="m">11.14</span></div>
+      <div class="row">월요일 아침 정리 습관<span class="m">11.03</span></div>
+      <div class="row">작은 일부터 끝내기<span class="m">10.28</span></div>
+      <div class="more">더 보기</div>
+    </div>
+    <div class="art">
+      <h2>회의를 30분으로 줄인 방법</h2>
+      <div class="meta">2026.11.25 · 일하는 이야기</div>
+      <p>회의 시작 전에 정할 것 세 가지를 먼저 적어 두면 대부분의 회의가 짧아진다. 예시 문장입니다.</p>
+      <div class="ph">사진(위치 정보 지움)</div>
+      <p>끝나기 5분 전에는 정한 것만 다시 읽는다. 예시 문장입니다.</p>
+    </div>
+  </div>
+</div>
+
+<div class="cap">① 블로그 겉 — 폰 <small>한 단계씩, 뒤로가기 = 이전 화면</small></div>
+<div class="phones">
+  <div class="scr new">
+    <div class="top"><b>하늘의 기록장</b></div>
+    <div class="foot" style="padding-top:6px">일하며 남기는 메모</div>
+    <div class="row">일하는 이야기<span class="m">12</span></div>
+    <div class="row">읽은 책<span class="m">5</span></div>
+    <div class="row">여행<span class="m">3</span></div>
+    <div class="row">요리 메모<span class="m">0</span></div>
+  </div>
+  <div class="scr new post">
+    <div class="top"><span class="back">‹</span><b>일하는 이야기</b><span>12</span></div>
+    <div class="row">회의를 30분으로 줄인 방법<span class="m">11.25</span></div>
+    <div class="row">할 일 목록을 하루 세 개로<span class="m">11.20 · 고침 11.22</span></div>
+    <div class="row">메모는 쓰는 곳 하나만<span class="m">11.14</span></div>
+    <div class="row">월요일 아침 정리 습관<span class="m">11.03</span></div>
+    <div class="more">더 보기</div>
+  </div>
+  <div class="scr new">
+    <div class="top"><span class="back">‹</span><b>일하는 이야기</b></div>
+    <div class="art">
+      <h2>회의를 30분으로 줄인 방법</h2>
+      <div class="meta">2026.11.25</div>
+      <p>회의 시작 전에 정할 것 세 가지를 먼저 적어 두면 대부분의 회의가 짧아진다.</p>
+      <div class="ph">사진</div>
+      <p>끝나기 5분 전에는 정한 것만 다시 읽는다.</p>
+    </div>
+  </div>
+</div>
+
+<div class="cap">② WORK ON+ 안 [블로그] 메뉴 <small>운영자 계정만 · 밖 블로그와 같은 모양 + 주인 손잡이만</small></div>
+<div class="app">
+  <div class="side"><div>홈</div><div>노트</div><div>캘린더</div><div>할 일</div><div class="on new">블로그</div><div>자료실</div></div>
+  <div class="main">
+    <div class="bar"><b>하늘의 기록장</b><span class="mu">bokdoong.com</span><span class="lk">주소 복사</span><span class="lk">밖에서 열기</span><span class="sp dots">⋯</span></div>
+    <div class="two">
+      <div>
+        <div class="lh">게시판</div>
+        <div class="row on">일하는 이야기<span class="m">12</span></div>
+        <div class="row">읽은 책<span class="m">5</span></div>
+        <div class="row">여행<span class="m">3</span></div>
+        <div class="row">요리 메모<span class="m">0</span></div>
+        <div class="add">+ 게시판</div>
+      </div>
+      <div class="post">
+        <div class="lh">일하는 이야기 · 끌어서 게시판 옮기기 / 줄 ⋯ = 노트 열기 · 다시 게시 · 게시판 옮기기 · 내리기</div>
+        <div class="row" style="display:flex">회의를 30분으로 줄인 방법<span class="m" style="display:inline;margin-left:auto">11.25</span><span class="dots">⋯</span></div>
+        <div class="row" style="display:flex">할 일 목록을 하루 세 개로<span class="tag">노트가 바뀜</span><span class="m" style="display:inline;margin-left:auto">11.20</span><span class="dots">⋯</span></div>
+        <div class="row" style="display:flex">메모는 쓰는 곳 하나만<span class="m" style="display:inline;margin-left:auto">11.14</span><span class="dots">⋯</span></div>
+        <div class="row" style="display:flex">월요일 아침 정리 습관<span class="m" style="display:inline;margin-left:auto">11.03</span><span class="dots">⋯</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="note" style="margin-top:6px">처음 열면(꺼짐): "블로그 꺼짐 · [켜기]" 한 줄 → 켜기 창(블로그 이름 · 소개 한 줄 · 검색 엔진 노출 끔). 주소는 bokdoong.com으로 정해져 있어 고르는 칸이 없다.</p>
+
+<div class="cap">② 노트 ⋯ [블로그에 게시] → 게시판 고르기 창</div>
+<div class="wrapx">
+  <div class="notebox">
+    <div class="nh"><b>할 일 목록을 하루 세 개로</b><span class="sp dots">⋯</span></div>
+    <div class="line new">블로그 · 일하는 이야기 · 11.20 게시 · <span class="lk">다시 게시</span> · <span class="lk">내리기</span></div>
+    <div class="nb">노트 본문(예시)…</div>
+  </div>
+  <div class="menu">
+    <div>고정</div><div>폴더 옮기기</div>
+    <div class="sep"></div><div class="h">게시</div>
+    <div>공유 링크 만들기</div>
+    <div class="new">블로그에 게시</div>
+    <div class="sep"></div><div>휴지통</div>
+  </div>
+  <div class="dlg new">
+    <div class="t">블로그에 게시</div>
+    <label><input type="radio" checked> 일하는 이야기<span class="m">12</span></label>
+    <label><input type="radio"> 읽은 책<span class="m">5</span></label>
+    <label><input type="radio"> 여행<span class="m">3</span></label>
+    <label><input type="radio"> 요리 메모<span class="m">0</span></label>
+    <label class="lk">+ 새 게시판 <span class="in" style="margin-left:4px">이름</span></label>
+    <div class="hint">지금 글이 그대로 공개돼요. 노트를 고치면 [다시 게시]해야 바뀌어요. 사진은 위치 정보를 지우고 올리고, 첨부 파일은 공개되지 않아요.</div>
+    <div class="acts"><span class="btn">닫기</span><span class="pri">게시</span></div>
+  </div>
+</div>
+<p class="note" style="margin-top:6px">블로그가 꺼져 있으면 이 창 맨 위에 "블로그 꺼짐 · 켜고 게시" 한 줄이 먼저 나온다. 잠근 폴더·휴지통·보관 노트에는 [블로그에 게시]가 없다. 다른 가입자의 노트 ⋯ 게시 묶음에는 [공유 링크 만들기]만 있다(줄 자체가 없음, 서버도 거절).</p>
+</body></html>
