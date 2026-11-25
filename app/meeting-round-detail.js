@@ -510,7 +510,7 @@ async function mrdAddFiles(files){
   if(!(await mrdEnsureLibrary(fail)))return;
   if(mrdCurrent?.id!==m.id)return;
   st.textContent='';st.className='status';
-  if(!window.KPTULibrary?.startUploadForMeeting?.({id:m.id,name:`${mrdMeetingName(m)||m.title||word('사업 보고')}${m.round_no?` ${m.round_no}차`:''}`,project_id:m.project_id||''},others))fail('자료 올리기를 열지 못했어요. 잠시 후 다시 눌러 주세요.');
+  if(!window.KPTULibrary?.startUploadForMeeting?.({id:m.id,name:`${mrdMeetingName(m)||m.title||word('사업 보고')}${m.round_no?` ${m.round_no}차`:''}`,project_id:m.project_id||''},others))fail('자료 업로드를 열지 못했어요. 잠시 후 다시 눌러 주세요.');
 }
 // HOTFIX-회의첨부칸 ②(S48-53): PC에서 보기·고치기 면 어디에 파일을 놓아도 이 사업 보고에 붙는다(예전에는 보기 면에서만).
 // 사진은 사진 줄로 바로, 나머지는 [+]와 같은 자료실 올리기 창(library-files, meeting_id)으로. 결과 파일(놓은 자리가 결과 칸이거나 이름이 결과)은
@@ -542,14 +542,14 @@ function mrdDropReport(ev){
   if(ev.type==='queued'){mrdDropNote(job,null);for(const f of job.files)mrdDropOwner.set(f,t.id);mrdPaintDropRows();mrdDropStatus(t,ev.ahead?`앞서 놓은 파일 다음에 올려요(${job.files.length}개).`:'');return}
   if(ev.type==='uploading'){mrdDropStatus(t,'');return} // 진행은 회의자료 칸 올리기 줄(막대·%) 하나
   if(ev.type==='reading'){mrdDropStatus(t,'','status',`결과 파일 본문 ${waitInlineHtml()}`);return}
-  if(ev.type==='blocked'){mrdDropNote(job,{text:`파일 ${job.files.length}개 못 올렸어요`,note:'자료실을 불러오지 못했어요. 잠시 후 다시 올려 주세요.',error:true,ms:0,actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:()=>mrdDropQueue().retry(job)}]});mrdDropStatus(t,'');return}
+  if(ev.type==='blocked'){mrdDropNote(job,{text:`파일 ${job.files.length}개 못 올렸어요`,note:'자료실을 불러오지 못했어요. 잠시 후 다시 올려 주세요.',error:true,ms:0,actions:[{label:'다시 업로드',aria:'못 올린 파일 다시 업로드',run:()=>mrdDropQueue().retry(job)}]});mrdDropStatus(t,'');return}
   if(ev.type!=='done')return;
   if(ev.sent){if(t.project_id)window.KPTUDriveSummary?.saved?.();window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:t.project_id||null,meeting_id:t.id}}))}
   for(const f of job.failed.keys())setUploadRetry(f,()=>mrdDropQueue().retry(job));
   const textLine=ev.text==='added'?' · 결과 칸에 본문을 더했어요':ev.text==='unread'?' · 본문은 읽지 못해 파일만 붙였어요':ev.text==='failed'?' · 결과 칸에 본문을 넣지 못했어요':'';
   const bad=ev.failed>0||ev.text==='failed',retry=bad?()=>mrdDropQueue().retry(job):null;
   const line=ev.failed?`${t.name}: 파일 ${ev.sent}개 올림 · ${ev.failed}개 못 올림${textLine}`:`${t.name}: 파일 ${ev.sent}개를 올렸어요${textLine}`;
-  mrdDropNote(job,{text:line,error:bad,ms:bad?0:undefined,actions:retry?[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]:[]});
+  mrdDropNote(job,{text:line,error:bad,ms:bad?0:undefined,actions:retry?[{label:'다시 업로드',aria:'못 올린 파일 다시 업로드',run:retry}]:[]});
   mrdDropStatus(t,'');
   if(!job.failed.size)for(const f of job.files)mrdDropOwner.delete(f);
   mrdPaintDropRows();
