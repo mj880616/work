@@ -571,7 +571,6 @@
 #documentList .lu-pane-here{color:var(--kptu-ink);overflow:hidden;text-overflow:ellipsis}
 #documentList .lu-pane-sep{color:var(--kptu-faint)}
 #documentList .lu-pane-head .lu-pane-sort{flex:none;width:auto;min-width:0;height:26px;min-height:26px;padding:0 22px 0 6px;font-size:12px}
-#documentList .lu-pane-head .lu-pane-up{flex:none;margin-left:-4px;color:var(--kptu-ink)}
 /* S69-19: 빈 폴더 한 줄 = '빈 폴더' + 작은 [위 폴더로](칸 머리 ‹와 같은 동작). */
 #documentList .lu-empty-up{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #documentList .lu-empty-up .wait-empty{margin:0}
