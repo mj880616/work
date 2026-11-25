@@ -114,6 +114,9 @@ test('저장한 글 → News 글 보기: 같은 글 보기에서 같은 단추(�
   await page.locator('#appView>.app-nav').getByRole('link', { name: '저장한 글', exact: true }).click();
   await expect(page.locator('#readingView')).toBeVisible();
   await page.locator(`#readingView .rd-row[data-rd-open="${RID}"]`).click();
+  // S70-58 READ-두칸보기: PC 두 칸은 줄을 누르면 오른쪽 칸 — 읽을 거리 글 보기는 글 보기 머리 ⋯ [읽을 거리에서 보기].
+  await page.locator('#readingView [data-rd-detail] [data-rd-head-more]').click();
+  await page.locator('#rdRowMenu [data-rd-act="news"]').click();
   await expect(page.locator('#outsideView')).toBeVisible();
   const nd = detail(page);
   const why = nd.locator('[data-nd-body] [data-nd-why]');

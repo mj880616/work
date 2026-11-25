@@ -701,7 +701,8 @@ function bind() {
     const open = t.closest?.('[data-rd-open]');
     if (open && !t.closest('a,button,input')) {
       const id = open.dataset.rdOpen, link = newsLinkOf(id);
-      if (link && !split()) { void markOpened(id); void openNews(link); } else void openItem(id);
+      // 두 칸은 오른쪽 칸에 연다. 이 화면이 열 수 없는 줄(id 모양이 아님)은 전처럼 읽을 거리 글 보기로.
+      if (link && (!split() || !isId(id))) { void markOpened(id); void openNews(link); } else void openItem(id);
       return;
     }
   });

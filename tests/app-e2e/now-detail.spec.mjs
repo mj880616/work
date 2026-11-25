@@ -270,16 +270,6 @@ for (const width of [412, 884, 1280]) {
   });
 }
 
-// 저장한 글에서 읽을 거리(기사 화면)에서 온 줄을 읽을 거리 글 보기로 연다: 폰은 줄을 누르면 바로, 두 칸(S70-58 READ-두칸보기, 600px~)은
-// 줄을 누르면 오른쪽 칸에 열리고 그 글 보기 머리 ⋯ [읽을 거리에서 보기]로 간다(뒤로 = 저장한 글).
-async function openSavedRow(page, line, width) {
-  await line.click();
-  if (width < 600) return;
-  const more = page.locator('#readingView [data-rd-detail] [data-rd-head-more]');
-  await expect(more).toBeVisible();
-  await more.click();
-  await page.locator('#rdRowMenu [data-rd-act="news"]').click();
-}
 // S68-45(명진 11/23 11:08 "안읽은 글 눌러서 읽었는데 읽음 처리 안됨"): 저장한 글에서 읽을 거리(기사 화면)에서 온 안 읽은 줄을 누르면
 // 기사 원문 보기로 넘어가면서 그 줄도 읽음으로 서버에 저장 → 뒤로 오면 점이 꺼져 있고, 새로고침 뒤에도 그대로.
 for (const width of [412, 1280]) {
@@ -293,7 +283,7 @@ for (const width of [412, 1280]) {
     await expect(rd).toBeVisible();
     const line = rd.locator(`.rd-row[data-rd-open="r-${P1}"]`);
     await expect(line).toHaveClass(/is-unread/);
-    await openSavedRow(page, line, width);
+    await line.click();
     await expect(page.locator('#outsideView')).toBeVisible();
     await expect(detail(page).locator('.nd-title')).toContainText('가상 철도 민영화 반대');
     await expect.poll(() => server.calls.filter(c => c.what === 'app_reading_items' && c.method === 'PATCH').length).toBe(1);
@@ -329,7 +319,7 @@ for (const width of [412, 1280]) {
     const rd = page.locator('#readingView');
     await expect(rd).toBeVisible();
     await rd.locator('.rd-switch [data-filter-value="all"]').click();
-    await openSavedRow(page, rd.locator(`.rd-row[data-rd-open="r-${P2}"]`), width);
+    await rd.locator(`.rd-row[data-rd-open="r-${P2}"]`).click();
     await expect(page.locator('#outsideView')).toBeVisible();
     const nd = detail(page);
     await expect(nd.locator('.nd-title')).toHaveText('가상의 외국 글');
