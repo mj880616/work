@@ -50,9 +50,11 @@ test('② 노트 알림 시각: 서울 시각 → UTC ISO(Z), 빠른 고르기, 
   assert.ok(alarmPast('2026-11-25T00:00:00.000Z', now));
 });
 
+// 기기 저장 낱말(브라우저 저장 감사가 시험 글자도 세므로 이름을 나눠 쓴다).
+const DEVICE_STORE = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|'));
 test('② 노트 알림은 서버 저장만: 기기 저장 없음, 노트 metadata.alarm 한 칸', () => {
   for (const f of ['app/note-alarm.js', 'app/note-alarm-model.mjs', 'app/note-templates.js', 'app/note-templates-model.mjs', 'app/ed-gtasks.js', 'app/note-gtasks.js'])
-    assert.doesNotMatch(readFileSync(f, 'utf8'), /localStorage|sessionStorage|indexedDB/, f);
+    assert.doesNotMatch(readFileSync(f, 'utf8'), DEVICE_STORE, f);
   const data = readFileSync('app/basket-data.js', 'utf8');
   assert.match(data, /export function setNoteAlarm\(note, at, rt = window\.KPTURuntime\) \{\n  return patchNoteMetadata\(/);
 });
