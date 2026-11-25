@@ -617,14 +617,20 @@ async function filesTreeRows(page, width = 390) {
   const tree = page.locator('#filesRoot [data-fx-tree]');
   const bar = page.locator('#filesRoot [data-fx-bar]');
   const base = { errors, bar, countIs: n => expect(bar.locator('.fx-bar-t')).toHaveText(`${n}개`), isPicked: l => expect(l).toHaveClass(/fx-picked/), tap: l => l.tap(), menu: page.locator('#rowMenu') };
+  // S70-33: 나무는 먼저 보이고 상자들이 따로 읽힌다 — 폰 나무 맨 위 '최근' 상자가 늦게 오면 아래 줄이 통째로 밀리고(약 280px),
+  // 다른 상자가 늦게 오면 나무를 다시 그린다. 자리를 재서 누르는 시험(꾹 누르기·누르기)이 엉뚱한 줄을 누르지 않게, 다 읽힌 나무를 기다린다.
+  // ('최근' 상자는 폰 나무에만 있다.)
+  const settled = async () => { if (width < 600) await expect(tree.locator('[data-fx-box="recent"]')).toBeVisible(); await expect(tree.locator('kptu-wait')).toHaveCount(0); };
   if (width < 600) {
     const fold = key => tree.locator(`[data-fx-tog="${key}"]`);
+    await settled();
     await expect(fold('od:OD!1')).toBeVisible();
     return { ...base, first: fold('od:OD!1'), second: fold('gd:gdFolder1'), more: l => l.locator('xpath=..').locator('[data-fx-tmenu]') };
   }
   // 폴드 펼침·PC 한 칸 왼쪽 나무: 폴더 줄 이름 단추(data-fx-go). 저장소 맨 위 줄(폴더 아님)은 빼고 처음 두 폴더.
   const mains = tree.locator('.ft-row[data-fx-fold] > .ft-main[data-fx-go]:not([data-fx-id=""])');
   await expect.poll(() => mains.count()).toBeGreaterThan(1);
+  await settled();
   const key = async i => mains.nth(i).locator('xpath=..').getAttribute('data-fx-fold');
   const main = k => tree.locator(`.ft-row[data-fx-fold="${k}"] > .ft-main`);
   return { ...base, first: main(await key(0)), second: main(await key(1)), more: l => l.locator('xpath=..').locator('[data-fx-tmenu]') };
