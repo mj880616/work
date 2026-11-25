@@ -327,7 +327,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 줄마다 날짜가 세로로 한 줄에 선다. PC·펼친 폴드(600~)는 머리 줄과 같은 그리드, 폰은 제목 한 줄 + 아래 작은 줄(CSS). 폴더 칸은 끝 폴더 이름, 마우스를 올리면 전체 경로.
   function listCellsHtml(r, note, hidden, importing) {
     const fid = r.path ? folderOf(note) : null, full = fid ? folderPath(folders, fid).map(f => f.name).join(' › ') : '';
-    const folder = r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''} title="${esc(full || r.path)}"><span class="a11y-only">폴더: </span>${esc(r.path)}</span>` : '';
+    const folder = r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''} title="${esc(full || r.path)}">${esc(r.path)}</span>` : '';
     const clip = note.attachments?.length && !hidden ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}<span class="nl-num" aria-hidden="true">${note.attachments.length}</span></span>` : '';
     return `<span class="nl-c nl-folder" data-nl-cell="folder">${folder}</span><span class="nl-c nl-tags" data-nl-cell="tags">${hidden || importing ? '' : rowTagsHtml(note)}</span>`
       + `<time class="nl-c nl-day" data-nl-cell="day" datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time>`
