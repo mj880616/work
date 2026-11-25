@@ -9,6 +9,7 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
+import { askBox, dragAsk, askTextSpot } from './helpers/confirm-drag.mjs';
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
 // 이름은 모두 지어낸 것이다. 서버 쓰기는 없다(가짜 서버).
@@ -987,4 +988,41 @@ for (const [name, open] of ORDER_SCREENS) for (const width of [390, 1280]) test.
     await expect.poll(s.order).toEqual([d, b, c, a]);
     expect(s.errors).toEqual([]);
   });
+});
+
+// D7(S70-12 UI-확인창끌기, 2026-11-25 명진 "휴지통으로 옮길까요 경고창도 좌클릭 드래그해서 이동가능하게"): PC에서 누른 자리 옆에 뜬 작은 확인창(.kptu-ask)은
+// 빈 곳(글·여백)을 마우스 왼쪽 단추로 잡고 끌어 옮긴다(공용 app/small-notice.js askPanel → app/anchored-popup.js dragByTitle). 단추 위에서 끌면 그대로, 끈 뒤 Esc = 취소.
+// 같은 공용 확인창을 쓰는 화면을 CONFIRM_DRAG_SCREENS에 한 줄 더한다. 자세한 검사(가장자리 가두기·다시 열면 제자리·[휴지통으로])는 confirm-drag.spec.mjs.
+async function libraryConfirm(page) {
+  const r = await bootLibrary(page, 1280, { folders: [libFolder('fa', 'top-a', { name: '가상 폴더 A' })], items: [] });
+  await expandLibraryTree(page);
+  await page.locator('#documentList details[data-lu-node="f:fa"] > summary [data-lu-node-menu]').click();
+  await page.locator('#luFolderMenu').getByRole('button', { name: '폴더 삭제', exact: true }).click();
+  return { errors: r.errors, writes: () => r.s.writes.length };
+}
+async function notesConfirm(page) {
+  const { errors } = await notes(page, 1280);
+  const more = page.locator(`#noteRows [data-nx-folder-more="${U(100)}"], [data-nx-tree] [data-nx-folder-more="${U(100)}"]`).first();
+  await more.click();
+  await page.locator('#noteDocMenu [data-nx-delete-folder]').click();
+  return { errors, writes: () => 0 };
+}
+const CONFIRM_DRAG_SCREENS = [['자료실 폴더 삭제', libraryConfirm], ['노트 폴더 삭제', notesConfirm]];
+for (const [name, open] of CONFIRM_DRAG_SCREENS) test(`D7 ${name} PC 1280: 확인 창 빈 곳을 끌어 옮기고, 단추 위에서는 안 움직이고, 끈 뒤 Esc = 취소`, async ({ page }) => {
+  const s = await open(page);
+  const ask = page.locator('.kptu-ask');
+  await expect(ask).toBeVisible();
+  const start = await askBox(ask);
+  await dragAsk(page, ask, { at: await askTextSpot(ask), dx: -150, dy: -100 });
+  const moved = await askBox(ask);
+  expect(moved).not.toEqual(start);
+  expect(Math.abs(moved.x - Math.max(8, start.x - 150))).toBeLessThanOrEqual(2);
+  const btn = ask.locator('.kptu-ask-actions button').first(), bb = await btn.boundingBox(), ab = await ask.boundingBox();
+  await dragAsk(page, ask, { at: { x: bb.x - ab.x + bb.width / 2, y: bb.y - ab.y + bb.height / 2 }, dx: 120, dy: 80 });
+  expect(await askBox(ask)).toEqual(moved);
+  await expect(ask).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(ask).toHaveCount(0);
+  expect(s.writes()).toBe(0);
+  expect(s.errors).toEqual([]);
 });

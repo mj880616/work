@@ -807,6 +807,8 @@ jobs:
         run: node --test tests/note-tags-edit.test.mjs
       - name: Check small popup width and title drag (UI-창잘림·끌어옮기기)
         run: node --test tests/popup-fit-drag.test.mjs
+      - name: Check dragging small confirm popups (S70-12 UI-확인창끌기)
+        run: node --test tests/confirm-drag-model.test.mjs
 
       - name: Check ledger decision history (FEAT-1029묶음 ⑥)
         run: node --test tests/ledger-decision-history.test.mjs
