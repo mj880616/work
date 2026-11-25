@@ -1709,7 +1709,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       const rects = [...board.querySelectorAll('[data-nb-cards] > [data-nb-card], [data-nb-texts] > [data-nb-text]')].map(el => ({x:el.offsetLeft, y:el.offsetTop, w:el.offsetWidth, h:el.offsetHeight}));
       for (const g of board.querySelectorAll('[data-nb-lines], [data-nb-branches]')) { try { const b = g.getBBox(); if (b.width || b.height) rects.push({x:b.x, y:b.y, w:b.width, h:b.height}); } catch { /* 그림 없음 */ } }
       const bounds = unionBounds(rects);
-      return bounds ? {board, bounds, background:getComputedStyle(scroll).backgroundColor || '#fff'} : null;
+      return bounds ? {board, bounds, background:getComputedStyle(scroll).backgroundColor || getComputedStyle(document.body).backgroundColor} : null;
     },
     selected: () => [...multi],
     isFull: () => !!full,

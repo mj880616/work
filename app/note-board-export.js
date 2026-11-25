@@ -80,7 +80,7 @@ export async function boardPdf(snapshot) {
   await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = () => reject(new Error('보드를 그림으로 만들지 못했어요.')); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
   const k = rasterScale(w, h), canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(w * k)); canvas.height = Math.max(1, Math.round(h * k));
-  const ctx = canvas.getContext('2d'); ctx.fillStyle = snapshot.background || '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const ctx = canvas.getContext('2d'); ctx.fillStyle = snapshot.background; ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   const blob = await new Promise(resolve => { try { canvas.toBlob(resolve, 'image/jpeg', 0.92); } catch { resolve(null); } });
   if (!blob?.size) throw new Error('보드를 그림으로 만들지 못했어요.');
