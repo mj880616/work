@@ -67,7 +67,9 @@ test('홈: 잊지 말기 띠 줄 없음, 입력 칸 머리 줄 칩 [잊지 말�
   assert.doesNotMatch(four + forgetChipHtml(0), /놓친|챙길 것|정리 안 된|›/);
   assert.match(forgetChipHtml(120), /data-nbx-badge>99\+<\/span>/);
   assert.match(nb.headHtml({title: 'x', badge: 120}), /<span class="nbx-badge" data-nbx-badge>99\+<\/span>/);
-  assert.match(forgetChipHtml(1, 2), /<\/button><button type="button" class="row-act home-forget-promises" data-goto="ledger" data-home-summary-promises[^>]*>내일 약속 2 ›<\/button>$/);
+  // LEDGER-화면에서빼기(2026-11-25): 칩 뒤 '내일 약속 n ›'(원장으로) 없음.
+  assert.doesNotMatch(forgetChipHtml(1, 2), /내일 약속|ledger/);
+  assert.doesNotMatch(read('home-summary.js'), /data-goto="ledger"|home-forget-promises|tomorrowCommitmentsPath/);
   // 칩 색: 공용 ④ 칩 + forget 톤(톤다운 노랑), 비면 흐리게. 화면 id 없이 ui-standard.css 한 곳.
   const ui = read('ui-standard.css');
   assert.match(ui, /button\.ds-chip\[data-chip-tone="forget"\]\{ color:var\(--kptu-warning\); background:var\(--kptu-warning-soft\); \}/);
