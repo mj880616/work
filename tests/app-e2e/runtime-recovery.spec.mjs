@@ -312,6 +312,8 @@ window.__fixtureDelete=id=>luDeleteDocument(id);`}));
     const base=document.createElement('base');base.href='/app/';document.head.prepend(base);
     document.body.className='';document.documentElement.dataset.theme='olive';
     const app=document.querySelector('#appView');app.classList.remove('hidden');app.classList.add('kptu-ui-ready');app.inert=false;
+    // S70-54: 자료실 [+]·⋯는 앱 머리 줄(폰)·맨 위 줄(PC) 공용 자리에 산다 — 이 시험 화면에는 껍데기(topbar-actions.js)가 없으므로 그 일(머리 줄 보이기)만 한다.
+    const head=document.querySelector('.mobile-shell-header');if(head){head.hidden=false;head.querySelector('[data-mobile-view-name]').textContent=view==='library'?'자료실':'사업 관리'}
     window.KPTURuntime.context.set({user:{id:'owner'},workspace:{id:'ws'},membership:{role:'owner'}});
     history.replaceState({},'',location.pathname+'?view='+view);
     window.__deleteEvents=0;window.addEventListener('kptu:documents-changed',()=>window.__deleteEvents++);

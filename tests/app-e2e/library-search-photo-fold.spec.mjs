@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { expandLibraryTree } from './helpers/library-tree.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 // S61-12 (LIB-사진숨김나머지 남은 것, 커맨드센터 결정 11/13): 자료실 검색 결과도 [파일] 찾기와 같게 사진은 줄로 보이지 않고
 // 그 묶음 맨 아래 [사진 n] 하나(개수 그대로, 누르면 작은 그림, 그림을 누르면 크게 보기). 모든 이름·번호는 지어낸 것이다.
@@ -56,8 +57,7 @@ for (const width of [412, 1280]) test(`자료실 ${width}: 검색 결과의 사�
   await signInWithSession(page, 'owner@example.org');
   await expect(page.locator('[data-lu-document]').first()).toBeAttached({timeout: 10000});
   await expandLibraryTree(page);
-  if (width < 761) await page.locator('#librarySearchOpen').click();
-  await page.locator('#documentSearch').fill('가짜');
+  await (await screenFind(page)).fill('가짜');
   const list = page.locator('#documentList');
   // 사진 아닌 자료 2개는 줄, 사진 2장은 줄 없이 맨 아래 [사진 2](접힘, 작은 그림도 아직 받지 않음).
   await expect(list.locator(`.lu-row[data-lu-document="${ID(3)}"]`)).toBeVisible();
@@ -85,7 +85,7 @@ for (const width of [412, 1280]) test(`자료실 ${width}: 검색 결과의 사�
   await page.keyboard.press('Escape');
   await expect(view).toHaveCount(0);
   // 사진만 찾아도 [사진 1] 하나.
-  await page.locator('#documentSearch').fill('휴대폰');
+  await (await screenFind(page)).fill('휴대폰');
   await expect(list.locator('.lu-row[data-lu-document]')).toHaveCount(0);
   await expect(list.locator('[data-lu-photos]')).toHaveText('사진 1');
 });

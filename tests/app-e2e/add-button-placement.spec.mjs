@@ -100,9 +100,9 @@ for(const width of [390,1440]){
     test.use({viewport:{width,height:width===390?844:900},timezoneId:'Asia/Seoul'});
     test('library list card keeps add action and opens the same form',async({page})=>{
       await openApp(page,'library');
-      // LIB-위쪽한줄(11/09 명진 B·가안): 자료실 [+]도 사업 보고처럼 폰·PC 모두 위 줄 오른쪽 작은 아이콘 [+][⋯](떠 있지 않음, ⋯가 줄 끝).
+      // LIB-위쪽한줄(11/09 명진 B·가안) → S70-54: 자료실 [+]도 폰·PC 모두 맨 위 줄 검색 칸 오른쪽 작은 아이콘 [+][⋯](떠 있지 않음, ⋯가 상자 끝).
       // 분류 수정은 [분류 ▾] 창 아래 '✎ 분류 수정' 하나(칩 줄 끝 버튼 없음).
-      {const bar=page.locator('#libraryView .lu-search-row');await expect(bar.locator('.lu-head-actions > #newDocumentBtn')).toBeVisible();
+      {const bar=page.locator('.sf-tools[data-sf-tools="library"]');/* S70-54: [+]·⋯는 맨 위 줄 단추 자리(검색 칸 오른쪽) */await expect(bar.locator('.lu-head-actions > #newDocumentBtn')).toBeVisible();
         expect(await page.locator('#newDocumentBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
         const [b,btn,more]=await bar.evaluate(el=>[el,el.querySelector('#newDocumentBtn'),document.querySelector('#libraryTopMenuBtn')].map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}}));/* STAB-간헐묶음: 세 상자를 한 번에(같은 프레임) 재서 움직이는 중 따로 재는 어긋남을 없앤다 */
         expect(btn.x+btn.width).toBeLessThanOrEqual(more.x);expect(more.x+more.width).toBeCloseTo(b.x+b.width,0);expect(Math.abs((btn.y+btn.height/2)-(more.y+more.height/2))).toBeLessThan(2);

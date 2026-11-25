@@ -10,6 +10,7 @@ import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/file
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { pinch } from './helpers/pinch.mjs';
 import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
+import { DOC_SCREENS } from './helpers/doc-view.mjs';
 import { readFileSync } from 'node:fs';
 // 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
 const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
@@ -117,6 +118,19 @@ for (const [name, open] of SCREENS) for (const width of [360, 412, 1280]) test(`
   await page.waitForTimeout(300);
   const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(over).toBeLessThanOrEqual(1);
+  expect(errors).toEqual([]);
+});
+
+// Z3·Z1 글 보기 화면(S70-40b READ-글보기머리, 공용 .ds-doc-* 머리): 저장한 글 글 보기·읽을 거리 글 보기. 새 글 보기 화면이 생기면
+// helpers/doc-view.mjs DOC_SCREENS에 한 줄 더한다. 머리 첫 줄은 고정 높이(--ds-compact-height)라 제목은 둘째 줄에서 줄바꿈(Z1 잘리지 않음).
+for (const [name, open] of DOC_SCREENS) for (const width of [360, 412, 1280]) test(`Z3 ${name} ${width}: 가로로 넘치지 않고 제목이 잘리지 않는다`, async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors, detail } = await open(page, width);
+  await page.waitForTimeout(300);
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(over).toBeLessThanOrEqual(1);
+  const title = detail.locator('.ds-doc-title');
+  expect(await title.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true);
   expect(errors).toEqual([]);
 });
 

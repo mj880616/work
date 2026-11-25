@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // S48-18 사회운동 Now [문장 찾기](docs/design/outside-statements.md 3.3·4·5절) → S51-8 News 위 찾기 칸 하나(Enter = 문장 찾기 결과 칸),
 // 기간·[비슷한 말]·[내 성명] + 단체는 위 [매체 ▾], 결과 문장 칠하기·앞뒤 문장·'비슷한 말' 꼬리표·[원문]. PRESS-성명초안삭제(11/09): [초안에 쓰기]·성명 초안 창은 없다.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 글은 모두 가상의 글.
@@ -70,8 +71,8 @@ for (const width of [412, 1280]) {
     await expect(root.getByRole('tab', { name: '문장 찾기' })).toHaveCount(0);
     await root.getByRole('tab', { name: '사회운동' }).click();
     await expect(root.getByRole('tab', { name: '사회운동' })).toHaveAttribute('aria-selected', 'true');
-    const find = root.locator('[data-nw-find]');
-    await expect(find).toHaveAttribute('placeholder', '읽을 거리 찾기 — 제목·문장');
+    const find = await screenFind(page);
+    await expect(find).toHaveAttribute('placeholder', '읽을 거리에서 찾기'); // S70-54: 맨 위 칸이 겸함
     await find.fill('구조조정');
     await expect(root.locator('[data-os-search]')).toBeHidden();
     expect(s.calls.filter(c => c.what === 'search')).toHaveLength(0);
@@ -104,7 +105,7 @@ for (const width of [412, 1280]) {
     // 거르기: 기간 1달(게시 날짜 기준 서울 9.6부터), 단체는 위 [매체 ▾]에서 '정당' → 그 묶음 단체만. 비슷한 말은 다시 부르지 않는다.
     await box.locator('[data-osq-period="1m"]').click();
     await expect.poll(() => s.calls.filter(c => c.what === 'search').at(-1).body.p_from).toBe('2026-09-06');
-    await root.locator('[data-nw-media]').click();
+    await page.locator('.sf-tools [data-nw-media]').click();
     await page.locator('#nwMediaPicker [data-lu-move-folder="g:party"]').click();
     await expect.poll(() => s.calls.filter(c => c.what === 'search').at(-1).body.p_sources).toEqual(['laborparty']);
     expect(s.expand).toBe(1);
@@ -112,7 +113,7 @@ for (const width of [412, 1280]) {
     await box.locator('[data-osq-period="pick"]').click();
     await expect(box.locator('input[type="date"]')).toHaveCount(2);
     await box.locator('[data-osq-period="all"]').click();
-    await root.locator('[data-nw-media]').click();
+    await page.locator('.sf-tools [data-nw-media]').click();
     await page.locator('#nwMediaPicker [data-lu-move-folder="all"]').click();
     await expect(box.locator('.osq-outside .osq-hit')).toHaveCount(2);
 

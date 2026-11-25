@@ -121,9 +121,10 @@ for (const width of [412, 884, 1440]) {
     await expect.poll(fs).toBe('14px');
     await expect(smaller).toBeDisabled();
     await expect.poll(() => prefs.value?.news_font).toBe('s');
-    // 단추 줄 끝 [원래 사이트 ↗](새 창, 리퍼러 안 보냄).
-    const site = d.locator('[data-nd-acts] .nd-site');
-    await expect(site).toHaveText('원래 사이트 ↗');
+    // 글 머리 첫 줄 끝 [↗ 원래 페이지](S70-40b 공용 .ds-doc-icon, 새 창, 리퍼러 안 보냄).
+    const site = d.locator('.nd-top .ds-doc-icons .nd-site');
+    await expect(site).toHaveText('↗');
+    await expect(site).toHaveAttribute('aria-label', '원래 페이지 (새 창)');
     await expect(site).toHaveAttribute('href', 'https://nodong.org/statement/1');
     await expect(site).toHaveAttribute('rel', 'noopener noreferrer');
     expect(await noWideScroll(page)).toBe(true);
