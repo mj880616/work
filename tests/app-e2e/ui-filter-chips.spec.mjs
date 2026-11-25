@@ -10,6 +10,7 @@ import {expandLibraryTree,focusLibraryProject,libraryNodeHead} from './helpers/l
 import {reportFilterSelect,reportFilterPicked,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 import {addReport} from './helpers/report-add.mjs';
 import {openReportBoxes} from './helpers/report-boxes.mjs'; // S67-75: 폰 폭이면 고르기 상자는 칩이 여는 창 안
+import {screenFind} from './helpers/screen-find.mjs';
 export function chipState(){const s=baseState();s.meetingWrites=[];s.meetings=['궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의',''].map((name,i)=>({id:`meeting-${i}`,workspace_id:s.workspace.id,title:name,series_name:name,round_no:i+1,meeting_at:'2026-10-11T01:00:00Z',transcript_text:'원문',created_by:s.user.id}));s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});return s}
 // UI-PC회의: PC(≥1024) 회의는 유형별 열이고 위쪽 칩은 "보일 열 고르기"(meeting-columns.spec.mjs). 회의명 필터는 폰(≤760, UI-폴드PC틀)에서 본다.
 // FOLD-넓은화면 2차(S59-19): 760(펼친 폴드, 폰 틀)은 '날짜·이름 목록 | 결과' 두 칸이라 목록 줄은 [data-meeting-round], 접은 폰(390)은 한 줄 목록(.meeting-list-row). 회의명 거르기는 둘 다 같다.
@@ -54,13 +55,13 @@ for(const width of [390,760])test(`공용 알약 필터·2단 프로젝트·키�
   // [정책]을 끄면 회의 자료만 남고, 검색 중 [회의]를 끄면 목록 아래 안내와 [켜기]가 나온다.
   await toggleLibraryCategory(page,'정책');await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
-  if(width<=760)await page.locator('#librarySearchOpen').click();/* LIB-위쪽한줄 가안: 폰은 ⌕로 찾기 칸을 연다 */
-  await page.locator('#documentSearch').fill('회의');await expect(page.locator('.lu-row')).toHaveCount(1);
+  
+  await (await screenFind(page)).fill('회의');await expect(page.locator('.lu-row')).toHaveCount(1);
   await toggleLibraryCategory(page,'회의');await expect(page.locator('.lu-row')).toHaveCount(0);
   await expect(page.locator('.lu-off-hint')).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');
   await page.locator('.lu-off-hint button').click();await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('.lu-off-hint')).toHaveCount(0);
   await showAllLibraryCategories(page);await expect(page.locator('#libraryCategoryPick')).toHaveText('분류: 전체');
-  await page.locator('#documentSearch').fill('');await focusLibraryProject(page,'all');await expect(project).toBeHidden();await expect(page.locator('.lu-row')).toHaveCount(7);
+  await (await screenFind(page)).fill('');await focusLibraryProject(page,'all');await expect(project).toBeHidden();await expect(page.locator('.lu-row')).toHaveCount(7);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
 for(const timezoneId of ['Europe/Rome','Asia/Seoul','UTC'])test.describe(timezoneId,()=>{test.use({timezoneId});test('회의 표시·새 입력·수정 왕복 한국 고정',async({page})=>{

@@ -7,6 +7,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 // UI-바구니첨부메모 PR 3: 조직 쪽 ⑨⑩(조직에 자료로 넣기·조직 상세 [자료] 묶음·자료실을 조직으로 걸러 열기)와 분류 목록 편집.
 // Supabase REST·RPC·Edge 경계만 합성이고 화면은 실제 앱이다. 서버 함수(app_document_category_*)의 동작은 migration 문서대로 흉내 낸다.
@@ -249,7 +250,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`organiz
  await expect(page.locator('#documentList details[data-lu-node="p:none"] .lu-row')).toHaveText([/합성 공문/,/합성 교섭 일정/,/합성 집회 계획/,/합성 교육 안내/,/합성 국토부 지침/]);
  await expect(page.locator('#documentList .lu-row')).toHaveCount(6);
  await expect(page.locator('#documentList')).not.toContainText('다른 조직 자료');
- await expect(page.locator('#documentSearch')).toHaveValue('');
+ await expect((await screenFind(page))).toHaveValue('');
  // Rows keep the file kind and show the small category tag.
  await expect(page.locator('[data-lu-document="doc-hwp"] .lu-file-kind')).toHaveText('HWP');
  await expect(page.locator('#documentList .doc-category-tag')).toHaveText(['교섭','기타','교섭','투쟁','교육','정책']);

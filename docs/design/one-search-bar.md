@@ -35,7 +35,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 노트 | `[data-note-search]` '노트 검색' (`basket-notes.js` 목록 머리) | 입력 → `query` → `renderList()` | 보기 탭(PC), ⋯ `[data-note-folder-more]` | 맨 위 칸 '노트에서 찾기', ⋯ 맨 위 줄, 보기 탭은 본문 한 줄 | ② |
 | 읽을 거리 | `[data-nw-find]` '읽을 거리 찾기 — 제목·문장' (`outside-statements.js` `.nw-top`) | `setQuery(raw,{submit})` | [매체: 전체 ▾] `[data-nw-media]`, ⋯ `[data-os-more]` | 맨 위 칸 '읽을 거리에서 찾기'(Enter = 문장 찾기 그대로), 매체·⋯ 맨 위 줄 | ② |
-| 자료실 | `#documentSearch` '제목·출처·태그 검색' + 폰 돋보기 `#librarySearchOpen/Close` (`index.html`, `library-upload.js`) | `renderDocuments`·`luRenderLibraryNow`가 칸 글자를 읽음 | 제목, [사업영역 ▾] `#libraryGroupBy`, [분류 ▾] `#libraryCategoryPick`, [+] `#newDocumentBtn`, ⋯ `#libraryTopMenuBtn` | 맨 위 칸 '자료실에서 찾기', 고르기 둘·+·⋯ 맨 위 줄(폰은 고르기 둘이 머리 줄 아래 한 줄 그대로) | ② |
+| 자료실 | `#documentSearch` '제목·출처·태그 검색' + 폰 돋보기 `#librarySearchOpen/Close` (`index.html`, `library-upload.js`) | `renderDocuments`·`luRenderLibraryNow`가 칸 글자를 읽음 | 제목, [사업영역 ▾] `#libraryGroupBy`, [분류 ▾] `#libraryCategoryPick`, [+] `#newDocumentBtn`, ⋯ `#libraryTopMenuBtn` | 맨 위 칸 '자료실에서 찾기', [한 칸·두 칸]·+·⋯ 맨 위 줄. 고르기 둘은 본문 첫 줄 고르기 줄로 남김(맨 위 줄에 올리면 폴드 884에서 검색 칸이 9em 아래로 좁아짐). 폰은 앱 머리 줄을 다시 보이고(제목 '자료실' ⌕ + ⋯) 화면 안 제목 줄은 없앰 | ② |
 | 조직 관리 | 없음. 머리 줄 `#soTeamHead`(제목·[+ 담당조직]·⋯, PC는 본문 위 따로 한 줄) | (없음) `renderTeam()` | [+ 담당조직] `#soAddOrg`, ⋯ `#soTeamMore` | 맨 위 칸 '조직 관리에서 찾기' = 담당조직 이름 거르기(`renderTeam` 안), +·⋯ 맨 위 줄 — S70-53 범위와 같음 | ② |
 | 파일 | `.fx-top` '이름·자료실 글자 찾기' (`files.js`) | 파일 찾기(서버·자료실 글자) | 정렬, 클라우드 두 개, [한 칸·두 칸] | 같은 방법 | 뒤 PR |
 | 텔레그램 소식 | `[data-tg-find-input]` '이 방에서 찾기'(방 안에서만) | 방 안 찾기 | 없음 | 방 안일 때만 맨 위 칸 '이 방에서 찾기' | 뒤 PR |

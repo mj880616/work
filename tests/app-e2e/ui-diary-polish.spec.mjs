@@ -3,6 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
 import { chooseBasketKind, basketPaneButton } from './helpers/basket-kind.mjs';
 import { closeNote } from './helpers/note-close.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // UI-일기손질: ① the shared round [+] never moves when a button is pressed (it used to jump while the finger was down,
 // because the swipe code put will-change:transform on the view panel and the fixed [+] then followed the panel),
 // ② today = filled purple circle on the day number, the chosen day = the cell border, ③ [+] in [일기] writes the chosen day,
@@ -95,7 +96,7 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  // BASKET-노트입력창: notes have no [+] any more; the note input docked above the tabs stays put the same way.
  await expect(page.locator('#basketView #newNoteBtn')).toHaveCount(0);
  const dockSel='#basketView [data-note-list] [data-home-quick]',dock=await fabSpot(page,dockSel);
- const seen=await pressAndMeasure(page,'[data-note-search]',dockSel);
+ const seen=await pressAndMeasure(page,'.mobile-shell-header .sf-open',dockSel);/* S70-54: 노트 찾기는 머리 줄 돋보기 */
  expect(seen.during).toEqual(dock);expect(seen.after).toEqual(dock);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
@@ -177,7 +178,7 @@ test('⑤ an empty note list shows no guide sentence',async({page})=>{
  await expect(status).toHaveText('');await expect(status).toHaveAttribute('data-basket-empty','');
  await expect(page.locator('[data-note-host]')).not.toContainText('아직 노트가 없어요');
  // A search with no hit still says so.
- await page.locator('[data-note-search]').fill('없는 말');
+ await (await screenFind(page)).fill('없는 말');
  await expect(status.locator('[data-wait-empty]')).toHaveText('맞는 노트 없음');
  expect(f.errors).toEqual([]);
 });

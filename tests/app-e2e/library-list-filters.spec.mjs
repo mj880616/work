@@ -4,6 +4,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {toggleLibraryCategory,pickLibraryCategories,readLibraryCategories} from './helpers/library-categories.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 const OPEN=`${appOrigin}/tests/app-e2e/library-open-fixture.html`;
 const doc=(id,title,category,date,file,pid='top-a',extra={})=>({id,workspace_id:'workspace-1',project_id:pid,title,file_name:file,category,document_date:date,tags:[],drive_url:OPEN,created_at:'2026-10-01T00:00:00Z',...extra});
@@ -105,12 +106,12 @@ for(const width of [1280,884])test(`LIB-거르기전체: [분류 ▾] 창 [전�
   // 정책 하나만 → 그 분류만.
   await pickLibraryCategories(page,['정책']);await expect(pick(page)).toHaveText('분류: 정책');expect(await ids(page)).toEqual(['d3','d4','d6','d7']);
   // 검색어가 있으면 꺼진 분류 안내('꺼져 있어요')는 그대로 따로 나온다.
-  await page.locator('#documentSearch').fill('보도');
+  await (await screenFind(page)).fill('보도');
   await expect(page.locator('.lu-off-hint')).toContainText('선전 분류 1건은 꺼져 있어요');
   // 없는 자료를 찾는 평소 빈 목록은 예전 문구 그대로.
-  await pickLibraryCategories(page,[]);await page.locator('#documentSearch').fill('없는검색어zzz');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');
+  await pickLibraryCategories(page,[]);await (await screenFind(page)).fill('없는검색어zzz');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');
   // 키보드: 단추·창 줄은 버튼이라 Enter로 열고 고르고, [적용]도 Enter.
-  await page.locator('#documentSearch').fill('');await pick(page).focus();await page.keyboard.press('Enter');await expect(sheet(page)).toBeVisible();
+  await (await screenFind(page)).fill('');await pick(page).focus();await page.keyboard.press('Enter');await expect(sheet(page)).toBeVisible();
   await sheetRow(page,'교섭').focus();await page.keyboard.press('Enter');await expect(sheetRow(page,'교섭')).toHaveAttribute('aria-pressed','true');
   await sheet(page).locator('[data-sheet-save]').focus();await page.keyboard.press('Enter');await expect(pick(page)).toHaveText('분류: 교섭');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);

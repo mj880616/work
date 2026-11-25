@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // S69-70(명진 11/24 20:43~20:45): 읽을 거리 [메모] 탭 = 메모 있는 글(글에 [메모]로 남긴 노트, 저장하지 않은 글도).
 // - 줄 = 글 줄 + 메모 첫 줄(작게). 관심 없음으로 목록에서 빠진 글·[전체]에 없는 기사도 id로 다시 읽어 보인다. 글을 못 찾으면 메모만 한 줄 → 노트로.
 // - 종류마다 1000줄씩 읽고 넘으면 [더 보기]. 서버 읽기는 내 작업공간 노트만(workspace_id=eq.w, kind=eq.note, 보관 노트 빼고).
@@ -114,9 +115,9 @@ for (const width of [412, 1280]) {
     expect(server.calls.some(c => c.what === 'app_outside_articles' && c.query.includes(`id=in.(${P1},${P2},${P3})`))).toBe(true);
     expect(server.calls.some(c => c.what === 'app_news_articles' && c.query.includes(`id=in.(${N1})`))).toBe(true);
     // 위 찾기 칸 글자로 제목·메모를 거른다.
-    await root(page).locator('[data-nw-find]').fill('기사 메모');
+    await (await screenFind(page)).fill('기사 메모');
     await expect(panel(page).locator('.now-row .nw-title')).toHaveText(['가상 오래된 기사']);
-    await root(page).locator('[data-nw-find]').fill('');
+    await (await screenFind(page)).fill('');
     await expect(rows).toHaveCount(4);
     // 관심 없음 글 줄을 누르면 그 글 상세(메모가 보인다).
     await panel(page).locator(`[data-nw-key="outside:${P2}"] .now-open`).click();

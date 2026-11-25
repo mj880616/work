@@ -145,17 +145,15 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
 /* [노트] 위쪽: 검색칸 + [+ 노트]. 폰의 [+ 노트]는 위 입력칸으로 바뀌었다(BASKET-노트입력창). */
 .note-list-head { display:flex; align-items:center; gap:8px; margin:8px 0; }
-.note-list-head .note-search { flex:1; min-width:0; margin:0; }
-.note-search { display:block; margin:8px 0; }
-#basketView :is(.note-search input,.note-editor input[type="text"],.note-editor textarea[data-note-title-input],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
+#basketView :is(.note-editor input[type="text"],.note-editor textarea[data-note-title-input],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 /* NOTE-마크다운선택: 노트 수정 칸의 [☐ 마크다운] 체크(노트마다 따로 저장). 누르는 범위 44px. */
 #appView #basketView .note-editor label.note-md-toggle { display:flex; flex-direction:row; width:max-content; align-items:center; gap:8px; min-height:44px; margin:2px 0 0; font-size:14px; font-weight:500; color:var(--kptu-ink); cursor:pointer; }
 .note-row-chips { display:flex; flex-wrap:wrap; gap:6px; }
 /* NOTE-탐색기(10/28 09:24): 맨 위 '노트 · 54 · 🔍 ⋯', 폴더 나무(📁 닫힘 / 📂 열림, ▸ 없음), 한 줄 노트, 선택 모드·끌어 놓기. 작고 낮게, 톤다운. */
 .note-list-head { display:flex; align-items:center; gap:6px; min-width:0; }
-.note-list-head > .note-search { flex:1 1 auto; min-width:0; }
+/* S70-54: 찾기 칸·⋯가 맨 위 줄로 가고 보기 탭만 남는다. 폰은 보기 탭이 아래 전환 줄(자리 없음)이라 이 줄도 자리를 비운다. */
+.note-list-head:not(:has(> :not(.a11y-only):not([hidden]))) { display:none; }
 .nx-count { flex:none; font-size:12px; color:var(--kptu-muted); white-space:nowrap; }
-#appView #basketView .note-list-head > button.note-folder-more { flex:none; font-size:20px; line-height:1; }
 .note-folder-status { margin:0 0 6px; color:var(--kptu-muted); font-size:13px; }
 /* UI-고르기막대(S69-85): 모양은 공용 .kptu-selbar(base-ui.css). 여기서는 위에 붙는 자리만. */
 .nx-select-bar:not([hidden]) { position:sticky; top:var(--kptu-stick-top,0px); z-index:3; }
@@ -752,11 +750,25 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
   [data-note-list][data-notes-view="list"] [data-note-rows] { --nl-grid:var(--nl-w-title,minmax(0,1fr)) var(--nl-w-folder,120px) var(--nl-w-tags,140px) var(--nl-w-day,64px) var(--nl-w-clip,48px); }
   [data-note-list][data-notes-view="list"] .nl-head { display:grid; grid-template-columns:var(--nl-grid); column-gap:8px; align-items:center; height:28px; padding:0 48px 0 var(--ds-row-pad-x); font-size:12px; color:var(--kptu-muted);
     position:sticky; top:calc(var(--kptu-stick-top,0px) + var(--nx-bar-h,0px)); z-index:2; background:var(--kptu-bg); border-bottom:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border)); }
-  .nl-head .nl-h { position:relative; min-width:0; overflow:visible; white-space:nowrap; }
-  .nl-head .nl-h-day, .nl-head .nl-h-clip { text-align:right; }
-  .nl-head .nl-h > .col-grip { right:-8px; }
+  .nl-head > [role="columnheader"] { position:relative; min-width:0; overflow:visible; white-space:nowrap; }
+  .nl-head > :is([data-nl-col="day"], [data-nl-col="made"], [data-nl-col="clip"], [data-nl-col="memo"], [data-nl-col="chars"]) { text-align:right; }
+  .nl-head .hs-btn { padding:0; min-height:0; font:inherit; color:inherit; }
+  .nl-head > :is([data-nl-col="day"], [data-nl-col="made"], [data-nl-col="clip"], [data-nl-col="memo"], [data-nl-col="chars"]) .hs-btn { margin-left:auto; }
+  /* ② 머리 줄 오른쪽 끝 작은 ⋯ = '보일 칸' 메뉴(줄의 ⋯ 자리와 같은 세로 줄). */
+  .nl-head > .nl-cols-btn { position:absolute; right:4px; top:50%; transform:translateY(-50%); color:var(--kptu-muted); }
+  .nl-cols .nl-made, .nl-cols .nl-memo, .nl-cols .nl-chars { text-align:right; }
+  .nl-head > [role="columnheader"] > .col-grip { right:-8px; }
   #appView #basketView [data-note-list][data-notes-view="list"] .nx-note.nl-cols .note-row { display:grid; grid-template-columns:var(--nl-grid); column-gap:8px; }
   #appView #basketView .nx-note.nl-cols .note-row .nl-c:empty { display:block; }
   .nl-cols .nl-day, .nl-cols .nl-clip { text-align:right; }
   .nl-cols .nl-c > .nx-path { display:inline-block; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; }
 }
+.nl-head > .nl-cols-btn { display:none; }
+@media (min-width:600px) { [data-note-list][data-notes-view="list"] .nl-head > .nl-cols-btn { display:inline-grid; place-items:center; } }
+/* '보일 칸' 메뉴 체크 줄: 왼쪽 고정 폭 체크 자리(켜진 칸만 ✓). */
+#noteDocMenu .nl-check { display:inline-block; width:1.2em; color:var(--kptu-primary-ink,var(--kptu-primary)); }
+.nl-cols .nl-pub { color:var(--kptu-link); }
+/* S70-35 ③ 태그 칸: 칩 테두리 없는 작은 회색 #태그, 칸 너비에 들어가는 만큼 + 넘치면 +N(basket-notes.js fitListTags). */
+#basketView .nl-cols .nl-tagset { display:inline-flex; align-items:center; gap:4px; max-width:100%; overflow:hidden; white-space:nowrap; }
+.nl-cols .nl-tagset > .nl-tag, .nl-cols .nl-tagset > .nl-more { flex:none; }
+.nl-cols .nl-tagset > [hidden] { display:none; }

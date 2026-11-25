@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // S69(명진 11/24): 자료실 한 칸 탐색기(왼쪽 나무 | 오른쪽 그 폴더 내용)에서
 // ① "드래그가 저 창 안에서만 되는데 창 밖에서도 창 안으로" · "이 드래그가 어느곳에서든 자유롭게" — 사각형 고르기를 카드 아래 빈 바탕·왼쪽 나무 칸 빈 곳에서도 시작,
 //    사각형은 칸 경계에 갇히지 않고 오른쪽 목록 줄(자료 줄·하위 폴더 줄)에 닿은 것을 고른다. 줄 위 시작 = 끌어 옮기기 그대로, 단추 위 시작 = 사각형 없음.
@@ -100,10 +101,10 @@ test('PC 1280 한 칸: 자료 줄 위에서 시작하면 사각형 없이 끌어
   await page.mouse.up();
   await expect(page.locator('#librarySelectBar')).toBeHidden();
   // 검색칸에 초점이 있을 때 카드 아래 빈 바탕을 누르면 보통처럼 초점이 빠진다(빈 곳 누르기가 글자 고르기만 막고 초점은 놓는다).
-  await page.locator('#documentSearch').focus();
+  await (await screenFind(page)).focus();
   const card=await box(page,'#libraryListCard');
   await page.mouse.click(card.x,card.bottom+20);
-  await expect(page.locator('#documentSearch')).not.toBeFocused();
+  await expect((await screenFind(page))).not.toBeFocused();
   // 자료 줄 이름 위에서 끌어 왼쪽 나무 '가상 묶음 3'에 놓기 → 옮겨진다(사각형 없음).
   const t=await box(page,docRow('o2')+' .lu-row-title');
   const to=await box(page,'#libraryFolderNav [data-lu-nav="f3"]');

@@ -77,6 +77,27 @@
   html:has(#searchView:not(.hidden)) .mobile-shell-search{display:none}
 }
 
+/* UI-검색창하나로(S70-54, 설계 docs/design/one-search-bar.md): 지금 화면에 화면 찾기가 있으면(html[data-screen-find], 주인 screen-find.js) 앱 머리 줄의
+   '전체 검색' 입구 대신 그 화면 찾기 칸(global-search.js #gsScreenInput)을 둔다. 옮겨 온 단추는 S70-53 공용 자리(.screen-tools-slot)에.
+   폴드 펼침(600~760px)은 칸이 늘 보이고, 폰(600px 미만)은 돋보기 하나 → 누르면 화면 이름 자리에 칸이 펼쳐진다(.sf-open). */
+.mobile-shell-find{display:none}
+@media(max-width:760px){
+  html[data-screen-find] .mobile-shell-header>.mobile-shell-search{display:none}
+  html[data-screen-find] .mobile-shell-header>.mobile-shell-find{display:flex;align-items:center;justify-content:flex-end;flex:1 1 auto;min-width:0;gap:4px}
+  .mobile-shell-find .gs-field{flex:1 1 auto;min-width:0}
+  .mobile-shell-find .gs-input{height:36px;min-height:36px}
+  .mobile-shell-find .sf-open{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);cursor:pointer}
+  .mobile-shell-find .sf-open::after{content:"";position:absolute;inset:-4px}
+  .mobile-shell-find .sf-open .gs-icon{width:20px;height:20px;color:inherit}
+  .mobile-shell-find .sf-open:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+}
+@media(min-width:600px) and (max-width:760px){.mobile-shell-find .sf-open{display:none}}
+@media(max-width:599px){
+  .mobile-shell-header:not(.sf-open)>.mobile-shell-find>.gs-field{display:none}
+  .mobile-shell-header.sf-open>.mobile-shell-find>.sf-open{display:none}
+  .mobile-shell-header.sf-open>[data-mobile-view-name]{display:none}
+}
+
 /* MENU-HOME-편집: [메뉴 편집] 창(menu-edit.js)과 끌어 옮기기 부품(reorder-drag.js) 표시. 작고 낮게. */
 .menu-edit-card{padding:var(--kptu-space-3,10px) var(--kptu-space-4,14px);width:min(380px,calc(100vw - 24px));max-width:100%;box-sizing:border-box;max-height:calc(100dvh - 24px);overflow:auto}
 .menu-edit-card .modal-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -153,5 +174,7 @@ a.account-action{text-decoration:none;box-sizing:border-box}
    찾기 칸은 남은 폭만 쓰므로 단추가 있으면 그만큼 짧아진다. 화면 안 원래 자리(그 화면이 안 보일 때)에서는 보이지 않는다. */
 .screen-tools-slot{display:flex;align-items:center;flex:none;min-width:0;margin-left:auto}
 .screen-tools-slot:empty{display:none}
+/* S70-54: 화면 찾기 단추 상자(screen-find.js .sf-tools)는 다른 화면일 때 숨긴 채 이 자리에 남는다 — 보이는 것이 없으면 자리째 없앤다(줄 간격이 남지 않게). */
+.screen-tools-slot:not(:has(>:not([hidden]))){display:none}
 .screen-tools{display:flex;align-items:center;flex:none}
 .screen-tools:not([data-screen-tools-placed]){display:none}

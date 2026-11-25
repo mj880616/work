@@ -85,9 +85,9 @@ test.describe('자료실 PC 오른쪽 클릭 1280',()=>{
     await expect(page.locator('#luFolderMenu')).toBeVisible();
     expect(await texts(page.locator('#luFolderMenu button'))).toEqual(viaMore);
     await page.keyboard.press('Escape');await expect(page.locator('#luFolderMenu')).toBeHidden();
-    // 검색 입력칸: 복사·붙여넣기용 크롬 메뉴 그대로 — 앱 메뉴가 뜨지 않고 기본 동작도 막지 않는다.
+    // 검색 입력칸(S70-54: 맨 위 칸이 '자료실에서 찾기'를 겸함): 복사·붙여넣기용 크롬 메뉴 그대로 — 앱 메뉴가 뜨지 않고 기본 동작도 막지 않는다.
     await watch(page);
-    const search=page.locator('#libraryView input[type="search"], #libraryView input[placeholder*="검색"]').first();
+    const search=page.locator('#gsTopInput[data-screen-find="library"]');
     await expect(search).toBeVisible();
     await search.click({button:'right'});
     await page.waitForTimeout(200);
