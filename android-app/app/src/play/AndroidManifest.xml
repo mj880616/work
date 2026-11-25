@@ -3,10 +3,33 @@
      - REQUEST_INSTALL_PACKAGES·UPDATE_PACKAGES_WITHOUT_USER_ACTION: 플레이 앱은 플레이 밖에서 스스로 업데이트하면 안 된다(기기·네트워크 악용 정책).
        업데이트는 플레이가 한다. 코드도 BuildConfig.SELF_UPDATE=false로 새 판 확인·받기를 하지 않는다.
      - MANAGE_EXTERNAL_STORAGE('모든 파일 접근'): 파일 관리자·백업 앱 등만 허용되는 권한이라 플레이 판에서는 [파일] '이 폰'을 끈다(BuildConfig.ALL_FILES=false).
-     github 판 매니페스트는 바뀌지 않는다(main 매니페스트 그대로). 빠졌는지는 android-app/scripts/check-flavor-manifests.sh가 빌드된 APK·AAB로 본다. -->
+     S70-45 APP-플레이판권한줄이기(명진 결정 11/25 '플레이 판만 빼고 먼저'): 플레이 검토의 신고 두 가지(앞쪽 서비스 종류·사진과 동영상 권한)를 없앤다.
+     - FOREGROUND_SERVICE·FOREGROUND_SERVICE_MICROPHONE·FOREGROUND_SERVICE_DATA_SYNC와 두 서비스의 foregroundServiceType:
+       플레이 판은 앞쪽 서비스를 쓰지 않는다(BuildConfig.FG_SERVICES=false). 녹음은 앱이 켜진 동안만, 뒤에서 올리기는 알림 없는 보통 작업.
+     - READ_MEDIA_IMAGES·READ_MEDIA_VIDEO·READ_MEDIA_VISUAL_USER_SELECTED·READ_EXTERNAL_STORAGE·ACCESS_MEDIA_LOCATION·MANAGE_MEDIA:
+       사진 메뉴 '폰 사진'(폰 사진 폴더 전체 보기)을 끈다(BuildConfig.PHONE_GALLERY=false). 사진 넣기는 안드로이드 사진 고르기(권한 없음) 그대로.
+     github 판 매니페스트는 바뀌지 않는다(main 매니페스트 그대로). 빠졌는지는 android-app/scripts/check-flavor-manifests.py가 빌드된 APK·AAB로 본다. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" tools:node="remove" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.MANAGE_MEDIA" tools:node="remove" />
+    <application>
+        <!-- 앞쪽 서비스 종류만 지운다(구성 요소는 그대로 둬 코드 이름이 두 판에서 같다). -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            tools:remove="android:foregroundServiceType" />
+        <service
+            android:name=".RecorderService"
+            tools:remove="android:foregroundServiceType" />
+    </application>
 </manifest>

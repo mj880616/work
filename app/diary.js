@@ -834,7 +834,7 @@ async function finishBehind(session) {
     const retry = () => { if (session.owner !== ownerScope(rt) || session.pump) return; session.note?.close(); session.note = null; sendBehind(session, session.pending.filter(entry => entry.behind && !entry.up)); };
     for (const entry of left) setUploadRetry(entry.file, retry);
     session.note = announceDock({text:`${head}사진 ${left.length}장 못 올렸어요`, note:[done.length ? `사진 ${done.length}장 올렸어요` : '', left[0].failed, extra].filter(Boolean).join(' · '), error:true, ms:0, files:[...left, ...done].map(entry => entry.file),
-      actions:[{label:'다시 올리기', aria:'못 올린 사진 다시 올리기', run:retry}], onClose:why => { if (why === 'closed' && !session.pump) behindSessions.delete(session); }});
+      actions:[{label:'다시 업로드', aria:'못 올린 사진 다시 업로드', run:retry}], onClose:why => { if (why === 'closed' && !session.pump) behindSessions.delete(session); }});
     return;
   }
   behindSessions.delete(session);
@@ -899,7 +899,7 @@ function tellFailed(session) {
   if (!bad.length || edit !== session || session.behind) return;
   const retry = () => { if (edit !== session || session.behind) return; for (const entry of bad) entry.failed = ''; pumpUploads(session); };
   session.failNote = announceDock({text:`사진 ${bad.length}장 못 올렸어요`, note:bad[0].failed, error:true, ms:0, files:bad.map(entry => entry.file),
-    actions:[{label:'다시 올리기', aria:'못 올린 사진 다시 올리기', run:retry}]});
+    actions:[{label:'다시 업로드', aria:'못 올린 사진 다시 업로드', run:retry}]});
 }
 async function recoverUpload(session, entry) {
   try {

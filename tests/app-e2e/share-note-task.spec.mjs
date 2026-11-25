@@ -170,7 +170,7 @@ test('WORK ON+ 노트: [저장]하면 창이 바로 닫히고 사진은 뒤에�
   open();
   const line = page.locator('#uploadDock:not([hidden])');
   await expect(line).toContainText('노트에 사진 1장 못 올렸어요');
-  await line.getByRole('button', {name:'못 올린 파일 다시 올리기'}).tap();
+  await line.getByRole('button', {name:'못 올린 파일 다시 업로드'}).tap();
   await expect(line).toContainText('노트에 사진 1장 올렸어요');
   expect(state.uploads).toEqual([{note_id:NOTE, file:'사진1.gif'}, {note_id:NOTE, file:'사진2.gif'}]);
   expect(tries).toBe(3);
@@ -206,7 +206,7 @@ test('WORK ON+ 할 일: [저장]하면 창이 바로 닫히고 사진은 뒤에�
   await expect(line).toContainText('할 일에 사진 1장 못 올렸어요');
   await expect(line.locator('.up-dock-note')).toContainText('사진 1장 올렸어요');
   if (process.env.CAPTURE_DIR) await page.screenshot({path:`${process.env.CAPTURE_DIR}/task-share-fail-412.png`});
-  await line.getByRole('button', {name:'못 올린 파일 다시 올리기'}).tap();
+  await line.getByRole('button', {name:'못 올린 파일 다시 업로드'}).tap();
   await expect(line).toContainText('할 일에 사진 1장 올렸어요');
   expect(sent).toEqual([{task:'task-1', file:'현장1.gif'}, {task:'task-1', file:'현장2.gif'}, {task:'task-1', file:'현장2.gif'}]);
   expect(errors).toEqual([]);

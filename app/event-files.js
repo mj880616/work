@@ -134,7 +134,7 @@ export function sendEventFilesBehind({calendarId, eventId, files, rt = window.KP
     let note;
     if (left.length || unknown.length) {
       note = announceDock({text: `일정에 ${words([...left, ...unknown])} 못 올렸어요`, note: [okText, reason].filter(Boolean).join(' · '), error: true, ms: 0, files: list,
-        actions: left.length ? [{label: '다시 올리기', aria: '못 올린 파일 다시 올리기', run: again}] : []});
+        actions: left.length ? [{label: '다시 업로드', aria: '못 올린 파일 다시 업로드', run: again}] : []});
     } else if (sent.length) note = announceDock({text: `일정에 ${okText}`, files: list});
     if (note) lineNotes.set(key, note);
   });
