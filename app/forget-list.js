@@ -18,18 +18,18 @@
 // 이 파일이 이 목록 자리의 유일한 renderer다. 기기 저장 없음.
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
-import {esc, rowHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
+import {esc, rowHtml, groupHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {seoulDateKey} from './meeting-time.js';
 import {dueLabel} from './task-due.mjs';
 import {readInboxCandidates, dismissCandidate, reopenCandidate, markDone, markTasked, markNotMine, undoNotMine, candidateToTask, validateTaskDraft,
-  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText, autoReplied} from './todo-radar-data.js';
+  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText, autoDone, AUTO_DONE_LABEL, starredCandidate, bundleDay} from './todo-radar-data.js';
 import {similarTasks} from './todo-link-model.mjs';
 import {FIRM_LABEL, draftOf, metaLine, noteLine} from './family-notes-model.mjs';
 import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.js';
-import {newsOn, readNews, pickTodayNews, decideNews, openNews, oldNews, promiseNews, suspectNews, recheckNews, newsText, matchOrg, openNewsSource, NEWS_SOURCE_TAG} from './forget-news-data.js';
+import {newsOn, readNews, pickTodayNews, decideNews, openNews, promiseNews, newsText, matchOrg, openNewsSource, NEWS_SOURCE_TAG} from './forget-news-data.js';
 import {word} from './brand/brand.mjs';
 
 const CHANGED = 'kptu:todo-radar-changed';
@@ -71,7 +71,8 @@ export function candidateDone(c) {
   if (c.outcome === 'already_tasked' && (c.status === 'tasked' || c.status === 'dismissed')) return at('이미 할 일에 있음');
   if (c.status === 'dismissed') return at(c.outcome === 'not_mine' ? '내 일 아님' : '무시함');
   // FORGET-이미한일빼기: 텔레그램에서 내가 이미 답해 서버가 저절로 옮긴 줄은 까닭 꼬리표 '답장함'(이미 함 보기에서만 보임).
-  if (c.status === 'done') return at(autoReplied(c) ? '이미 함 · 답장함' : '이미 함');
+  // FORGET-기본이미함: 하루 지나도 손대지 않아 저절로 옮긴 줄은 '지남'.
+  if (c.status === 'done') { const why = AUTO_DONE_LABEL[autoDone(c)]; return at(why ? `이미 함 · ${why}` : '이미 함'); }
   const due = c.task_due ? dotDay(c.task_due) : '';
   return due ? `할 일로 보냄 · ${due}` : '할 일로 보냄';
 }
@@ -94,9 +95,8 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => [], openSource = () => {}, updateCount = () => null} = {}) {
   if (!host) return null;
   let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
-  // fix: 옛 소식 정리(FORGET-소식바로잡기 ④) 한 줄의 상태 — null(안 함) · {phase:'preview'|'confirm'|'run', keep, drop, left}.
-  let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null, fix = null, fixedOnce = false; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
-  const busy = new Set(), unknown = new Set(), linking = new Map();
+  let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
+  const busy = new Set(), unknown = new Set(), linking = new Map(), openBundles = new Set();
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
   const changed = () => win.dispatchEvent(new CustomEvent(CHANGED, {detail: {reload: true}}));
   const byId = id => rows.find(r => r.id === id);
@@ -144,17 +144,22 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const lockOf = feature => !!win.KPTUFeatureLock?.hides?.(feature) && !!win.KPTUFeatureLock?.settings?.();
     const locked = {telegram: lockOf('telegram'), call: lockOf('calls')};
     let hidden = 0;
+    // FORGET-기본이미함(S70-20b): 처리 전 업무 제안 중 ★(마감·직접 부름)는 맨 위에 한 줄씩, 어제 들어온 나머지는 '어제 들어온 요청 n개' 한 줄 묶음.
+    // 묶음은 그냥 두면 서버 예약(app_forget_auto_expire)이 다음 날 0시(서울)에 '이미 함(지남)'으로 옮긴다 — 화면은 묶어 보이기만 한다.
+    const stars = [], bundle = [], today = seoulDateKey();
     if (src === 'all' || src === 'telegram' || src === 'todo') {
       for (const c of candidatesFor(view, rows, taskTitles())) {
         const s = candidateSource(c); if (src !== 'all' && src !== s) continue;
         if (s === 'telegram' && locked.telegram) { hidden++; continue; }
-        const open = c.status === 'open', isBusy = busy.has(c.id);
-        out.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
+        const open = c.status === 'open', isBusy = busy.has(c.id), star = open && starredCandidate(c);
+        const into = star ? stars : open && bundleDay(c, today, d => seoulDateKey(d)) ? bundle : out;
+        into.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
+
           // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
           open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${plainText(c.summary)} — 출처 열기: ${sourceText(c)}`)}"`},
           done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '',
           // 저절로 옮긴 줄만 [되돌리기](잘못 빠진 것을 처리 전으로) — 기존 되살리기 길(status·decided_at만 바꿈).
-          tail: autoReplied(c) ? `<button type="button" class="row-act" data-forget-reopen="${esc(c.id)}"${isBusy ? ' disabled' : ''}>되돌리기</button>` : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"`, below: open ? linkingHtml(c) : ''})});
+          tail: autoDone(c) ? `<button type="button" class="row-act" data-forget-reopen="${esc(c.id)}"${isBusy ? ' disabled' : ''}>되돌리기</button>` : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"${star ? ' data-nbx-star' : ''}`, below: open ? linkingHtml(c) : ''})});
       }
     }
     if (view === 'open' && fOn && (src === 'all' || src === 'family')) {
@@ -174,7 +179,11 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       for (const u of updates().items || []) out.push({at: u.at, html: rowHtml({id: `u:${u.id}`, body: u.body, meta: u.meta, src: SOURCE_TAG.update, busy: !!u.busy,
         report: true, done: view === 'open' ? '' : (u.done || ' '), open: u.open, tail: u.tail || '', below: u.below || '', attrs: `data-forget-src="update" ${u.attrs || ''}`})});
     }
-    const sorted = newestFirst(out);
+    if (bundle.length) {
+      const rowsIn = newestFirst(bundle), shut = !openBundles.has('yesterday');
+      out.push({at: rowsIn[0].at, html: groupHtml({key: 'yesterday', label: `어제 들어온 요청 ${bundle.length}개`, faint: '· 두면 내일 이미 함', rows: rowsIn.map(x => x.html), open: !shut})});
+    }
+    const sorted = [...newestFirst(stars), ...newestFirst(out)];
     // 상대 약속: 처리 전일 때만, 맨 아래(시각 없음). 세지 않는다(상대가 할 일).
     // S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 내가 남에게 부탁해 상대가 하기로 한 일은 어느 길에서 왔든 여기 한 곳에 모은다. 꼬리표 = '상대 약속 · 출처'.
     // - 챙길 것 찾기가 돌려준 약속(radarPromises, 저장하지 않음): 모든 출처일 때만, 버튼 [원장으로] 하나(그대로).
@@ -215,42 +224,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     else host.innerHTML = `<li>${emptyHtml('없음', {attrs: 'data-forget-empty'})}</li>`;
     if (statusEl) {
       const fail = cState === 'failed' ? 'AI 제안을 불러오지 못했어요. <button type="button" class="row-act" data-forget-retry>다시 시도</button>' : '';
-      statusEl.innerHTML = [esc(status), fail, fixHtml()].filter(Boolean).join(' ');
+      statusEl.innerHTML = [esc(status), fail].filter(Boolean).join(' ');
     }
     if (focus?.row) host.querySelector(`[data-nbx-row="${CSS.escape(focus.row)}"] ${focus.act ? `[data-nbx-act="${CSS.escape(focus.act)}"]` : 'button'}`)?.focus({preventScroll: true});
-  }
-  // FORGET-소식바로잡기 ④: 옛 기준으로 쌓인 처리 전 소식이 있을 때만 상태 줄에 작은 한 줄. [정리] → 서버 미리 보기 수 → [확인]으로 실행.
-  // 판정·바꾸기는 모두 서버가 한다(forget-news-data.js recheckNews). 끝나면 옛 줄이 없어져 이 줄도 사라진다(한 번만 보임).
-  // S61-11: 방향 규칙 전에 '할 일'로 고른 줄(suspectNews)도 함께 다시 본다. 거꾸로 적힌 줄은 상대 약속으로 옮긴다(서버).
-  function fixHtml() {
-    if (!nOn || !nPicks || view !== 'open' || (src !== 'all' && src !== 'news')) return '';
-    if (fixedOnce && !fix) return '';
-    const n = oldNews(news, nPicks).length + suspectNews(news, nPicks).length;
-    if (!n && !fix) return '';
-    if (fix?.phase === 'preview') return `<span class="nbx-faint" data-forget-fix>옛 소식 ${n}개 살펴보는 중…</span>`;
-    if (fix?.phase === 'run') return `<span class="nbx-faint" data-forget-fix>옛 소식 정리하는 중…</span>`;
-    if (fix?.phase === 'confirm') {
-      const wait = fix.left ? ` · ${fix.left}개는 다음에` : '';
-      const moved = fix.promise ? ` · ${fix.promise}개는 상대 약속으로` : '';
-      return `<span data-forget-fix>옛 소식 ${n}개 중 ${fix.keep}개 남기고 ${fix.drop}개는 무시로${moved}${wait} <button type="button" class="row-act" data-forget-fix-go>확인</button><button type="button" class="row-act" data-forget-fix-cancel>취소</button></span>`;
-    }
-    return n ? `<span data-forget-fix>옛 소식 ${n}개 새 기준으로 정리 <button type="button" class="row-act" data-forget-fix-ask>정리</button></span>` : '';
-  }
-  async function fixNews(mode) {
-    const owner = radarScope(rt);
-    fix = {...(fix || {}), phase: mode}; status = ''; paint();
-    const r = await recheckNews(rt, mode);
-    if (owner !== radarScope(rt)) return;
-    if (!r.ok) { fix = null; say('옛 소식을 정리하지 못했어요. 잠시 뒤 다시 눌러 주세요.'); return; }
-    if (mode === 'preview') {
-      // 옮길 줄이 없으면(남길 옛 줄도 무시할 줄도 상대 약속으로 옮길 줄도 없음) 이 탭에서는 다시 묻지 않는다(방향만 다시 본 '할 일' 줄은 그대로 남음).
-      if (!r.keep && !r.drop && !r.promise) { fix = null; fixedOnce = true; say(r.left ? '지금은 정리할 옛 소식이 없어요.' : '정리할 옛 소식이 없어요.'); return; }
-      fix = {phase: 'confirm', keep: r.keep, drop: r.drop, left: r.left, promise: r.promise}; paint(); return;
-    }
-    fix = null; fixedOnce = true;
-    status = `옛 소식 정리: ${r.keep}개 남김 · ${r.drop}개 무시${r.promise ? ` · ${r.promise}개 상대 약속으로` : ''}`;
-    await loadNews();
-    paint();
   }
   function setView(next) {
     if (!FORGET_VIEWS.some(([v]) => v === next)) return;
@@ -543,7 +519,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       return {status: 'done', message: '다시 보이게 했어요.'};
     }});
   }
-  // FORGET-이미한일빼기: 서버가 '답장함'으로 저절로 뺀 줄을 처리 전으로 돌린다. 서버는 한 번 옮긴 줄을 다시 옮기지 않는다(auto_done이 남음).
+  // 묶음을 펼친 채로 다시 그리기(줄을 처리해도 접히지 않게). 이 화면 동안만 기억한다(저장하지 않음).
+  host.addEventListener('toggle', e => { const b = e.target?.closest?.('[data-nbx-group]'); if (!b) return; if (e.target.open) openBundles.add(b.dataset.nbxGroup); else openBundles.delete(b.dataset.nbxGroup); }, true);
+  // FORGET-이미한일빼기·기본이미함: 서버가 '답장함'·'지남'으로 저절로 뺀 줄을 처리 전으로 돌린다. 서버는 한 번 옮긴 줄을 다시 옮기지 않는다(auto_done이 남음).
   async function reopenAuto(c) {
     busy.add(c.id); paint();
     let ok = false;
@@ -656,7 +634,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (b.dataset.forgetNewsOpen) { const r = newsById(b.dataset.forgetNewsOpen); if (r) void openNewsSource(r, rt).then(ok => { if (!ok) say('원본을 열지 못했어요.'); }, () => say('원본을 열지 못했어요. 다시 시도해 주세요.')); return; }
     const d = b.dataset;
     if (d.forgetSource) { const c = byId(d.forgetSource); if (c) openSource(c); return; }
-    if (d.forgetReopen) { const c = byId(d.forgetReopen); if (c && autoReplied(c) && !busy.has(c.id)) void reopenAuto(c); return; }
+    if (d.forgetReopen) { const c = byId(d.forgetReopen); if (c && autoDone(c) && !busy.has(c.id)) void reopenAuto(c); return; }
     if (d.forgetLinkTask) { const c = byId(d.forgetLinkFor), t = c && linking.get(c.id)?.tasks?.find(x => x.id === d.forgetLinkTask); if (c && t && !busy.has(c.id)) void linkTask(c, t); return; }
     if (d.forgetLinkNone) { const c = byId(d.forgetLinkNone); if (c && c.status === 'open' && !busy.has(c.id)) void dropAlready(c); return; }
     if (d.forgetLinkRetry) { const c = byId(d.forgetLinkRetry); if (c && linking.has(c.id)) void startLinking(c); return; }
@@ -669,11 +647,6 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   });
   statusEl?.addEventListener('click', event => {
     if (event.target.closest?.('[data-forget-retry]')) { cState = 'loading'; paint(); void loadCandidates(); }
-    if (fix?.phase !== 'preview' && fix?.phase !== 'run') {
-      if (event.target.closest?.('[data-forget-fix-ask]')) void fixNews('preview');
-      else if (event.target.closest?.('[data-forget-fix-go]') && fix?.phase === 'confirm') void fixNews('run');
-      else if (event.target.closest?.('[data-forget-fix-cancel]')) { fix = null; paint(); }
-    }
   });
   viewButton?.addEventListener('click', () => menu.open(viewButton));
   win.addEventListener(CHANGED, event => {
@@ -684,7 +657,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   win.addEventListener('kptu:feature-lock-changed', () => { if (cState === 'ok') paint(); });
   win.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
-    run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; fix = null; fixedOnce = false; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
+    run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
     onView(view); paint();
   });
   const api = {refresh, paint, setView, view: () => view, source: () => src,

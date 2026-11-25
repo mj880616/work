@@ -1094,6 +1094,32 @@ test.describe('S11 고르기 중 뒤로가기', () => {
   });
 });
 
+// G1·G2(S70-16 '고른 글 막대', 기준표 12절): 글을 고르면 뜨는 공용 '선택한 글' 막대(text-select-bar.js)는 고른 글과 앞뒤 줄을 가리지 않고,
+// PC에서는 빈 곳을 잡아 끌어 옮길 수 있다(단추 위는 끌기 아님). 막대를 쓰는 글 화면이 늘면 아래 표에 한 줄 더한다.
+import { openBriefRoom, openBrief as openBriefText, bar as selectBar, pickSpan as pickTextSpan, coversText, box as textBarBox, LINE1 as BRIEF_L1, LINE2 as BRIEF_L2 } from './helpers/select-text-bar.mjs';
+const TEXT_BAR_SCREENS = [['브리핑 룸', async page => { await openBriefRoom(page); await openBriefText(page); return () => pickTextSpan(page, BRIEF_L1, BRIEF_L2); }]];
+for (const [screen, boot] of TEXT_BAR_SCREENS) {
+  for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280, 860]]) {
+    test(`G1·G2 고른 글 막대 — ${screen} (${label})`, async ({ page }) => {
+      test.setTimeout(90000);
+      await page.setViewportSize({ width, height });
+      const pick = await boot(page);
+      expect(await pick()).toBe(true);
+      await expect(selectBar(page)).toBeVisible();
+      expect(await coversText(page)).toBe(false);
+      if (width <= 760) return;
+      const before = await textBarBox(selectBar(page)), grip = await textBarBox(selectBar(page).locator('.hl-bar-label'));
+      await page.mouse.move(grip.x + 6, grip.y + grip.h / 2); await page.mouse.down();
+      await page.mouse.move(grip.x + 46, grip.y + grip.h / 2 + 50, { steps: 5 }); await page.mouse.up();
+      const after = await textBarBox(selectBar(page));
+      expect(Math.round(after.x - before.x)).toBe(40);
+      const btn = await textBarBox(selectBar(page).getByRole('button', { name: '복사', exact: true }));
+      await page.mouse.move(btn.x + btn.w / 2, btn.y + btn.h / 2); await page.mouse.down();
+      await page.mouse.move(btn.x + btn.w / 2 + 40, btn.y + 30, { steps: 4 }); await page.mouse.up();
+      expect(await textBarBox(selectBar(page))).toEqual(after);
+    });
+  }
+}
 // ---------- K1·R2 판 화면(목록이 아닌 곳) — S70-03 노트 보드 ----------
 // 고른 것 Delete = 바로 지우고 [되돌리기] 한 번에 모두 돌아온다. 새 판 화면이 생기면 BOARD_SCREENS에 한 줄 더한다.
 async function noteBoard(page) {
@@ -1181,6 +1207,48 @@ for (const [name, open] of ORDER_SCREENS) for (const width of [390, 1280]) test.
     await expect.poll(s.order).toEqual([d, b, c, a]);
     expect(s.errors).toEqual([]);
   });
+});
+
+// ---------- C7 읽는 글 칸 오른쪽 클릭 = 앱 메뉴(S70-27, docs/design/standard-interactions.md 12절 C7) ----------
+// 화면마다 {line(): 글 줄 locator, editField(): 고치는 칸을 연 뒤 그 칸 locator}를 돌려주는 여는 함수를 CTX_SCREENS에 더한다.
+async function briefCtx(page) {
+  const doc = 'd0000000-0000-4000-8000-000000000003';
+  const brief = { v: 3, lead: '가상 요지', gist: ['가상 요지'], sections: [{ title: '가상 소제목', items: [{ text: '가상 줄 하나', page: 2 }, { text: '가상 줄 둘', page: null }] }], quotes: [] };
+  await openHome(page, {
+    beforeLoad: async () => {
+      await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: [{ id: 'b1', document_id: doc, status: 'done', stage: 'done', step_no: 1, step_total: 1, page_count: 4, brief, edited: null, edited_at: null, error_code: null, created_at: '2026-11-24T00:00:00Z', updated_at: '2026-11-24T00:00:00Z', finished_at: '2026-11-24T00:00:00Z' }] }));
+      await page.route(SB + '/rest/v1/app_library_folders**', r => r.fulfill({ json: [{ id: 'f-brief' }] }));
+      await page.route(SB + '/rest/v1/app_library_folder_items**', r => r.fulfill({ json: [{ document_id: doc }] }));
+      await page.route(SB + '/rest/v1/app_documents?**', r => new URL(r.request().url()).searchParams.get('id')?.startsWith('in.') ? r.fulfill({ json: [{ id: doc, title: '가상 자료', file_name: '가상.pdf', mime_type: 'application/pdf', created_at: '2026-11-24T00:00:00Z' }] }) : r.fallback());
+      await page.route(SB + '/rest/v1/app_news_highlights**', r => r.fulfill({ json: [] }));
+    },
+  });
+  await page.evaluate(() => window.KPTURouter.go('brief'));
+  await page.locator('#briefView .br-row').first().click();
+  const line = page.locator('#briefView [data-br-zone] [data-br-line="i:0:1"]');
+  await expect(line).toContainText('가상 줄 둘');
+  return {
+    line: () => line.locator('.br-tx'),
+    editField: async () => { await page.locator('#briefView [data-br-edit]').click(); return page.locator('#briefView textarea[data-br-field="i:0:1"]'); },
+  };
+}
+const CTX_SCREENS = [['브리핑 룸', briefCtx]];
+for (const [name, open] of CTX_SCREENS) test(`C7 ${name} PC 1280: 글 줄 오른쪽 클릭 = 앱 메뉴(브라우저 메뉴 아님), 고치는 칸 오른쪽 클릭 = 브라우저 메뉴`, async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  const s = await open(page);
+  await page.evaluate(() => { window.__ctx = []; window.addEventListener('contextmenu', e => window.__ctx.push(e.defaultPrevented)); });
+  await s.line().click({ button: 'right' });
+  await expect(page.locator('#rowMenu')).toBeVisible();
+  expect(await page.evaluate(() => window.__ctx.at(-1))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#rowMenu')).toBeHidden();
+  const field = await s.editField();
+  await field.click({ button: 'right' });
+  expect(await page.evaluate(() => window.__ctx.at(-1))).toBe(false);
+  await expect(page.locator('#rowMenu')).toBeHidden();
+  expect(errors).toEqual([]);
 });
 
 // ---------- [파일] 고르기·끌기(S70-30 FILES-선택드래그, 명진 11/24 20:08 "파일에 선택 만들어줘." / "드래그도 안되네;") ----------

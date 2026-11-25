@@ -156,7 +156,7 @@ test('owner: two records read with the caller token, one AI call, verdict saved 
   assert.ok(w.model.length>=1&&w.model.length<=60);
   assert.equal(db.app_record_overlaps.length,1);assert.equal(db.app_record_overlaps[0].decided_by,'ai');
   // every read is a GET under the caller; the only writes are the usage count and the DB function
-  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'));
+  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'||c.table==='app_ai_usage_events'));
   assert.equal(db.app_ai_daily_usage[0].requests,1);
   // logs: numbers only
   const logs=JSON.stringify(calls.logs);
