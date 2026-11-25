@@ -35,11 +35,15 @@ test('pinnedRooms: only pinned and not archived, in pin order, latest non-trashe
 
 test('readFeedRooms reads pinned_at; before the DB step it falls back without the column and reports pinReady=false', async () => {
   const paths = [];
-  const ok = rtWith(async path => { paths.push(path); return [{room_key: 'room-a', room_label: '방', folder_id: null, archived_at: null, pinned_at: '2026-10-30T01:00:00Z'}]; });
+  const ok = rtWith(async path => { paths.push(path); return [{room_key: 'room-a', room_label: '방', folder_id: null, archived_at: null, pinned_at: '2026-10-30T01:00:00Z', chat_kind: 'group', news_at: null}]; });
   const got = await feed.readFeedRooms(ok);
   assert.equal(got.pinReady, true);
+  assert.equal(got.newsReady, true);
   assert.equal(got.rooms.get('room-a').pinned_at, '2026-10-30T01:00:00Z');
-  assert.match(paths[0], /^\/rest\/v1\/app_feed_rooms\?workspace_id=eq\.w&select=room_key,room_label,folder_id,archived_at,pinned_at&order=room_key\.asc&/);
+  assert.equal(got.rooms.get('room-a').chat_kind, 'group');
+  // TG-불러오기속도: 칸이 다 있으면 한 번에 읽는다(방 상태와 뉴스방 표시를 차례로 두 번 읽지 않음).
+  assert.equal(paths.length, 1);
+  assert.match(paths[0], /^\/rest\/v1\/app_feed_rooms\?workspace_id=eq\.w&select=room_key,room_label,folder_id,archived_at,pinned_at,chat_kind,news_at&order=room_key\.asc&/);
   const seen = [];
   const before = rtWith(async path => {
     seen.push(path);
@@ -49,9 +53,10 @@ test('readFeedRooms reads pinned_at; before the DB step it falls back without th
   const old = await feed.readFeedRooms(before);
   assert.equal(old.pinReady, false);
   assert.deepEqual(old.rooms.get('room-a'), {room_label: '방', folder_id: 'f1', archived_at: null, pinned_at: null, chat_kind: null, news_at: null});
-  assert.equal(seen.length, 3);
-  assert.doesNotMatch(seen[1], /pinned_at/);
-  assert.match(seen[2], /select=room_key,chat_kind,news_at&/, 'NEWS-모두에게열기: room kind and news mark are read separately');
+  assert.equal(seen.length, 4);
+  assert.match(seen[1], /select=room_key,room_label,folder_id,archived_at,pinned_at&/);
+  assert.doesNotMatch(seen[2], /pinned_at/);
+  assert.match(seen[3], /select=room_key,chat_kind,news_at&/, 'NEWS-모두에게열기: room kind and news mark are read separately when the full read fails');
 });
 
 test('setRoomPin: one DB function call; archived, limit and missing function map to their own errors', async () => {
