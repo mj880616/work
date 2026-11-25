@@ -1,4 +1,4 @@
-import { WEB2_CSP, WEB2_REFERRER_POLICY, WEB2_SECURITY_HEADERS, web2CspPage } from './web2-csp.mjs';
+import { WEB2_CSP, WEB2_REFERRER_POLICY, WEB2_REPORTING_ENDPOINTS, WEB2_SECURITY_HEADERS, web2CspPage } from './web2-csp.mjs';
 
 const PAGES_ORIGIN = 'https://mj880616.github.io';
 const SERVICES = Object.freeze({
@@ -536,6 +536,8 @@ export default {
     // SEC-Web2CSP 1단계: Web2 첫 화면·로그인 화면에만 보고 전용 CSP(막지 않음)와 Referrer-Policy. 304에도 붙여 저장된 헤더를 갱신한다.
     if (web2Path(host, incoming.pathname) && web2CspPage(incoming.pathname) && (upstream.status === 200 || upstream.status === 304)) {
       responseHeaders.set('Content-Security-Policy-Report-Only', WEB2_CSP);
+      // 보고 받는 곳(I-5): CSP의 report-to 이름이 가리키는 주소. 막는 단계로 바꾸지 않는다.
+      responseHeaders.set('Reporting-Endpoints', WEB2_REPORTING_ENDPOINTS);
       responseHeaders.set('Referrer-Policy', WEB2_REFERRER_POLICY);
     }
     // SEC-보안헤더: bokdoong.com의 Web2 응답(화면·파일·오류 모두)에 끼워 넣기 금지·형식 추측 금지를 붙인다.
