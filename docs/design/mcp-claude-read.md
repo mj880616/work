@@ -94,7 +94,7 @@ claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──
 - **verify_jwt = false** (결정과 이유):
   1. MCP는 열쇠 없는 첫 호출에 **서버가 직접** `401` + `WWW-Authenticate: Bearer resource_metadata="…/mcp-read/.well-known/oauth-protected-resource"`를 돌려줘야 로그인이 시작된다(사실, Claude 커넥터 인증 문서: 이 헤더 없는 401·200은 무시). 관문(`verify_jwt=true`)이 먼저 막으면 이 헤더 없는 401이 나가 Claude가 OAuth를 찾지 못한다.
   2. 보호 자원 정보 문서는 로그인 전에 읽혀야 한다.
-  3. 대신 함수 코드가 인증한다(기존 `false` Web2 함수와 같은 방식, AGENTS §8): 열쇠를 Auth로 확인(`/auth/v1/user`) → 열쇠의 `client_id`가 있는지(없으면 = 일반 Web2 로그인 열쇠 → 거절, 이 입구는 OAuth 열쇠만 받음) → 같은 열쇠로 DB 읽기 함수 호출 → DB가 작업공간 소유자·허용 클라이언트·스위치·상한을 다시 확인(7절). 함수는 서버 키를 읽지 않는다(정적 시험).
+  3. 대신 함수 코드가 인증한다(기존 `false` Web2 함수와 같은 방식, AGENTS §8): 열쇠에 `client_id`가 있는지 먼저 본다(없으면 = 일반 Web2 로그인 열쇠 → Auth에 묻지 않고 거절, 이 입구는 OAuth 열쇠만 받음) → 열쇠를 Auth OAuth 서버로 확인(`GET /auth/v1/oauth/userinfo`, 돌아온 `sub`가 열쇠 `sub`와 같아야 함. 2026-11-25 S70-56에서 `/auth/v1/user`에서 바꿈 — Supabase 수정 #2898 뒤엔 위임 열쇠로 `/user`가 403, 14.4 준비 ①) → 같은 열쇠로 DB 읽기 함수 호출 → DB가 작업공간 소유자·허용 클라이언트·스위치·상한을 다시 확인(7절). 함수는 서버 키를 읽지 않는다(정적 시험).
   4. workflow 첫 배포: `first_deploy=true`, `verify_jwt=false`, `expect_unauth_401=true`(비로그인 POST에 함수가 401을 돌려주므로 검사 가능). OPTIONS 204.
 - 받는 열쇠: OAuth 열쇠의 `aud`는 일반 로그인과 같은 `authenticated`라 RFC 8707 "이 자원 전용 열쇠"를 `aud`로는 가릴 수 없다(사실, 1판 4.2). 대신 **`client_id`가 등록된 Claude 클라이언트 하나와 같은지**를 DB 문지기가 확인한다(허용 클라이언트 값은 7.1 설정 표에 SQL로만 넣음). 남는 위험은 8절 T3.
 - 받은 열쇠를 다른 API에 넘기기(token passthrough): `mcp-read`는 같은 프로젝트의 REST에 그 열쇠를 그대로 쓴다. MCP 사양이 막으려는 "다른 서비스로 넘기기"와 달리 같은 발급처·같은 자원 서버 안이고, L1이 그 열쇠로 갈 수 있는 곳을 `app_mcp_*` 읽기 함수로 줄인다. 열쇠가 새어도 할 수 있는 일 = Claude가 할 수 있는 일과 같다(읽기 도구만).
@@ -280,7 +280,7 @@ create policy app_mcp_no_delegated_storage on storage.objects
 | M-4 | Edge `mcp-read` 코드·시험(모의 응답으로 401 헤더·정보 문서·도구 목록·봉투·입력 검사·서버 키 없음 정적 시험) → 첫 배포 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=true`, `docs/web2-env6b-edge-source.md` 5절 표에 행 추가 | **Edge 첫 배포** | 이전 버전 없음 → 클라이언트 등록 전이라 쓰는 곳 없음, 필요 시 대시보드 삭제 판단 |
 | M-5 | Web2 동의 화면 + 설정 화면 [Claude 읽기 연결](스위치·[모든 연결 끊기]·최근 읽은 기록·이번 달 호출 수) | Pages 배포(= merge) | PR revert |
 | M-6 | Auth: OAuth 서버 켬, 동의 화면 주소, DCR 끔, "Claude" 클라이언트 등록. 설정 행 SQL(명진 작업공간, `enabled=false`, 클라이언트 ID). 켜기 전·후 화면 캡처 | **Auth 설정 변경 + production 데이터 1행** | 4.5 되돌리기 순서 |
-| M-7 | 켜기 전 시험(스위치 꺼진 채, CC): OAuth 열쇠로 ① REST 표 GET → 403 ② `app_mcp_*` 외 RPC → 403 ③ Storage → 거절 ④ Edge 함수 아무거나 → 401 ⑤ **`PUT /auth/v1/user` → 거절이어야 함** ⑥ 읽생기 표 → 403. **하나라도 실패하면 OAuth 서버를 끄고 멈춤**(명진 결정 D1 다시) | 시험 결과 판정 | OAuth 서버 끄기 |
+| M-7 | 켜기 전 시험(스위치 꺼진 채, CC, 절차 `scripts/ops/mcp-m7-check.md`): OAuth 열쇠로 ① REST 표 GET → 403 ② `app_mcp_*` 외 RPC → 403 ③ Storage → 거절(또는 빈 목록) ④ Edge 함수 아무거나 → 401 ⑤ **계정 기능 모두 403**(14.4): `PUT /auth/v1/user`(`{"data":{}}`·빈 email·빈 password), `GET /auth/v1/user`, `POST /auth/v1/factors`(`{}`), `GET /auth/v1/user/identities/authorize`(공급자 없이), `POST /auth/v1/reauthenticate`(`GET /user`가 403일 때만 — 메일 발송 위험) ⑥ 읽생기 표 → 403 ⑦ 허용 RPC(스위치 꺼짐) → 403 `DISCONNECTED` ⑧ `GET /auth/v1/oauth/userinfo` → 200 ⑨ `mcp-read` ping → 200. 시험용 계정 변경은 값 없는 요청만, 결과는 상태 코드만 기록(열쇠 값 출력 금지). **하나라도 실패하면 OAuth 서버를 끄고 멈춤**(명진 결정 D1 다시) | 시험 결과 판정 | OAuth 서버 끄기 |
 | M-8 | 명진: claude.ai 커넥터 추가(9.1) → Web2 스위치 켬 → 도구 시험(상한 21번째 거절, [모든 연결 끊기] 뒤 즉시 거절, 지시문이 든 시험 기록으로 주입 시험) | 실제 데이터 | Web2 스위치 끄기 |
 
 ### 9.1 명진이 claude.ai에서 커넥터 추가하기 (M-8, 한 단계씩)
@@ -390,8 +390,8 @@ create policy app_mcp_no_delegated_storage on storage.objects
 ### 14.4 추천: (e1) 기다리기 + 준비 2가지, 지금은 OAuth 서버 꺼 둔 채
 
 1. OAuth 서버는 **계속 꺼 둔다**(지금 상태). 동의 화면·클라이언트 등록·DB 겹(L1~L3)은 그대로 둔다(꺼져 있으면 쓰는 곳 없음).
-2. 준비 ① 코드 PR(작업 세션): `mcp-read`의 열쇠 확인을 `GET /auth/v1/user`에서 `GET /auth/v1/oauth/userinfo`(또는 JWKS 서명 검사 + `sub`·`client_id` 확인)로 바꾼다. 지금 판과 수정 뒤 판 모두에서 동작하게. Edge 재배포 1번(정지 지점, CC).
-3. 준비 ② M-7 시험표 늘리기: ⑤에 더해 `GET /user`, `PUT /user`(email·password), `POST /factors`, `GET /user/identities/authorize`, `POST /reauthenticate`가 모두 403이어야 통과. 시험용 metadata 변경은 `{"data":{}}`처럼 값 없는 요청만.
+2. 준비 ① 코드 PR(작업 세션, **S70-56에서 코드 반영 — Edge 재배포 남음**): `mcp-read`의 열쇠 확인을 `GET /auth/v1/user`에서 `GET /auth/v1/oauth/userinfo`(또는 JWKS 서명 검사 + `sub`·`client_id` 확인)로 바꾼다. 지금 판과 수정 뒤 판 모두에서 동작하게. Edge 재배포 1번(정지 지점, CC).
+3. 준비 ② M-7 시험표 늘리기(**S70-56: 9절 M-7 행·`scripts/ops/mcp-m7-check.md`에 반영**): ⑤에 더해 `GET /user`, `PUT /user`(email·password), `POST /factors`, `GET /user/identities/authorize`, `POST /reauthenticate`가 모두 403이어야 통과. 시험용 metadata 변경은 `{"data":{}}`처럼 값 없는 요청만.
 4. Supabase에 #2898이 들어오면(CC가 릴리스·변경 기록 확인) → OAuth 서버 켬 → 늘린 M-7 다시 → 모두 통과하면 M-8.
 5. (a)의 "수동 신원 연결 꺼짐"·"이메일 이중 확인" 현재 값은 CC가 대시보드에서 **보기만** 하고 기록한다(바꾸는 것은 읽생기 영향이 있어 따로 결정).
 6. 기다림이 길어지면(예: 2027-01 말까지 안 들어오면) (d)를 다시 설계할지 명진이 정한다.
