@@ -89,7 +89,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     // 기본 16:84·목록 최소 150px). 폭은 서버(view_prefs.split_ratio.noteboard)에 기억한다. 목록이 없으면(보드 없음·폰) 경계가 숨는다.
     if (body) mountSplitResize({container:body, name:'noteboard', label:'노트 목록과 보드 칸 폭 조절', columns:[
       {el:() => side, varName:'--ds-split-list', minVar:'--ds-split-list-min', minFallback:150, share:16},
-      {el:() => body.querySelector(':scope>[data-note-board]'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:84}],
+      {el:() => body.querySelector(':scope>[data-nbw-main]'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:84}],
       active:() => wide.matches && body.isConnected && !side.hidden && !!side.getClientRects().length});
     if (!show) { side.replaceChildren(); return; }
     const all = notes.get(), m = matches();

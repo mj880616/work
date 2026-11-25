@@ -324,13 +324,16 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
    왼쪽 노트 목록은 [노트 목록]으로 판 위 왼쪽에 펼친다(끌어 놓기 그대로). 상태는 저장하지 않는다(note-board.js). */
 html.nb-full-on, html.nb-full-on body { overflow:hidden; overscroll-behavior:none; }
 #appView #basketView .nbw.nbw-full { position:fixed; inset:0; z-index:55; margin:0; padding:0; background:var(--kptu-surface-subtle); }
-#appView #basketView .nbw.nbw-full > [data-nbb] { display:none; }
-#appView #basketView .nbw.nbw-full .nbw-body { display:block; position:relative; height:100%; }
+/* S70-21 NOTE-보드탭자리: 전체 화면에서도 보드 칸 줄은 판 바로 위(한 줄) — 몸통을 위(보드 칸 줄)·아래(판) 두 줄 격자로, 왼쪽 목록은 아래 줄 위에 겹쳐 연다. */
+#appView #basketView .nbw.nbw-full .nbw-body { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); gap:0; position:relative; height:100%; }
+#appView #basketView .nbw.nbw-full .nbw-main { display:contents; }
+#appView #basketView .nbw.nbw-full [data-nbb] { grid-row:1; grid-column:1; margin:0; padding:4px 8px; }
+#appView #basketView .nbw.nbw-full :is(.nb, [data-nbw-none]) { grid-row:2; grid-column:1; min-height:0; }
 #appView #basketView .nbw.nbw-full .split-resize-handle { display:none; }
 #appView #basketView .nbw.nbw-full .nb { height:100%; margin:0; }
-#appView #basketView .nbw.nbw-full .nb-scroll { height:100dvh; min-height:0; border:0; border-radius:0; }
+#appView #basketView .nbw.nbw-full .nb-scroll { height:100%; min-height:0; border:0; border-radius:0; }
 #appView #basketView .nbw.nbw-full .nbb-side { display:none; }
-#appView #basketView .nbw.nbw-full.nbw-side-open .nbb-side:not([hidden]) { display:block; position:absolute; z-index:3; left:8px; top:48px; bottom:8px; width:min(260px, 42vw); height:auto; min-height:0; box-shadow:var(--kptu-shadow-float,none); }
+#appView #basketView .nbw.nbw-full.nbw-side-open .nbb-side:not([hidden]) { display:block; grid-row:2; grid-column:1; justify-self:start; align-self:stretch; position:relative; z-index:3; margin:48px 0 8px 8px; width:min(260px, 42vw); height:auto; min-height:0; contain:size; box-shadow:var(--kptu-shadow-float,none); }
 #appView #basketView .nbw.nbw-full.nbw-side-open .nb-selbar { left:calc(min(260px, 42vw) + 16px); }
 /* 전체 화면 안에서 여는 노트 메뉴·작은 창은 보드 위에 뜬다. */
 html.nb-full-on #noteDocMenu { z-index:60; }
@@ -517,6 +520,9 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nbb .nbb-chip[aria-pressed="true"] { background:var(--ds-select-bg); border-color:var(--ds-select-line); color:var(--ds-select-ink); font-weight:var(--ds-weight-medium,500); }
 #appView #basketView .nbb .nbb-new { border-style:dashed; background:transparent; }
 .nbw-body { display:block; }
+/* S70-21 NOTE-보드탭자리: 오른쪽 칸 = 보드 칸 줄 + 판. 왼쪽 노트 목록은 그 칸 높이에 맞춰 늘고(contain:size — 목록 길이가 줄 높이를 키우지 않음) 안에서 스크롤. */
+.nbw-main { min-width:0; }
+.nbw-body.nbw-split > .nbb-side { align-self:stretch; height:auto; contain:size; }
 /* UI-칸폭끌기전수: 노트 목록 | 보드 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 16:84·목록 최소 150px). */
 .nbw-body.nbw-split { --ds-split-list:16fr; --ds-split-detail:84fr; --ds-split-list-min:150px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:8px; align-items:start; }
 .nbb-side { height:calc(100dvh - 186px); min-height:320px; overflow:auto; box-sizing:border-box; padding:4px 2px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); font-size:12.5px; }
