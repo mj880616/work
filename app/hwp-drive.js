@@ -166,7 +166,7 @@ export async function openHwpFromDrive(target,{rt=window.KPTURuntime,fetcher}={}
 
 export function newFileOutcome({status,data,error},where){
   if(error?.kind==='session')return {kind:'session',message:HWP_TEXT.session};
-  if(error?.kind==='cancelled')return {kind:'refused',message:'올리기를 취소했어요. 아무것도 바뀌지 않았어요.'};
+  if(error?.kind==='cancelled')return {kind:'refused',message:'업로드를 취소했어요. 아무것도 바뀌지 않았어요.'};
   if(error)return {kind:'unknown',message:HWP_TEXT.newUnknown.replace('{where}',where)};
   if(status===401)return {kind:'session',message:HWP_TEXT.session};
   if(status>=400&&status<500)return {kind:'refused',message:[HWP_TEXT.refused,data?.message||data?.error].filter(Boolean).join(' '),code:data?.code};

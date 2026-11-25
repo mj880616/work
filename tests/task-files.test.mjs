@@ -83,14 +83,14 @@ test('attach sends one file as multipart to the Edge; detach sends only ids', as
 // 못 보낸 것이 확실한 실패(4xx·빈 파일)는 그 파일만 남기고([다시 올리기]) 나머지는 이어 가고, 결과를 알 수 없는 실패(5xx)는 거기서 멈춘다(다시 보내지 않음).
 import { pickProblem, taskFilesAvailable, sendTaskFilesBehind, taskFileLine } from '../app/task-files.js';
 const ctxRt = (api) => viaUpload({ context: { read: () => ({ user: { id: 'u1' }, workspace: { id: 'w1' } }) }, api, copyUploadFile: async f => f });
-test('sendTaskFilesBehind: one attach per file on the task line; a refused file stays for [다시 올리기] and the rest still go', async () => {
+test('sendTaskFilesBehind: one attach per file on the task line; a refused file stays for [다시 업로드] and the rest still go', async () => {
   const sent = [];
   const rt = ctxRt(async (path, options) => { const name = options.body.get('file').name; sent.push([path, options.body.get('task_id'), name]); if (name === 'b.txt') throw Object.assign(Error('Drive에 올리지 못했어요.'), { status: 409 }); return { ok: true, files: sent.filter(s => s[2] !== 'b.txt').map((s, i) => ({ drive_file_id: 'd' + i, file_name: s[2], size_bytes: 1 })), notes_synced: true }; });
   const files = [new File(['a'], 'a.txt'), new File(['b'], 'b.txt'), new File([''], 'empty.txt'), new File(['c'], 'c.txt')];
   await sendTaskFilesBehind({ task: { id: 't1' }, files, count: 0, rt });
   assert.deepEqual(sent, [['/functions/v1/google-tasks?action=attach', 't1', 'a.txt'], ['/functions/v1/google-tasks?action=attach', 't1', 'b.txt'], ['/functions/v1/google-tasks?action=attach', 't1', 'c.txt']]);
   assert.equal(taskFileLine.has('t1', files[0]), false, '올라간 파일은 줄에서 빠진다');
-  assert.equal(taskFileLine.has('t1', files[1]), true, '못 올린 파일은 [다시 올리기]를 위해 남는다');
+  assert.equal(taskFileLine.has('t1', files[1]), true, '못 올린 파일은 [다시 업로드]를 위해 남는다');
   assert.equal(taskFileLine.has('t1', files[2]), true, '빈 파일은 보내지 않고 못 올린 것으로');
   assert.equal(taskFileLine.has('t1', files[3]), false);
 });
