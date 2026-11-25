@@ -1245,7 +1245,7 @@ jobs:
         run: node --test tests/button-six-kinds.test.mjs
 
       - name: Check UI words standard ratchet (UI-용어통일)
-        run: node --test tests/ui-words.test.mjs
+        run: node --test tests/ui-words.test.mjs tests/ui-words-upload.test.mjs
 
       - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
         run: node --test tests/update-news-model.test.mjs
