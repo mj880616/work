@@ -77,6 +77,9 @@ import { bindRowSwipe, claimedSince, PICK } from './row-swipe.js';
 import { notePreview, noteCopyPayload } from './note-preview.mjs';
 // NOTE-보기3가지(요청함 10/29 15:05): [폴더|목록|보드](S68-38 옛 이름 포스트잇) 보기. 고른 보기는 서버(view_prefs.note_view, 값 'board' 그대로), 카드 자리는 노트 metadata.boards[보드 id](S69-83: 옛 [전체]의 metadata.board는 읽지 않음).
 import { mountNoteBoard } from './note-board.js';
+import { createNoteBoardImages } from './note-board-image.js';
+import { photoOnlyFile } from './note-board-image-model.mjs';
+import { diaryPhotoUrl } from './diary-data.js';
 // NOTE-보드여러개(요청함 10/30 05:48): 보드 보기의 [보드…] [+ 새 보드](S69-83 [전체] 없앰). 보드 칸 줄·PC 왼쪽 목록·폰 고르기 창은 note-boards.js.
 // S70-21 NOTE-보드탭자리(명진 11/25 "왼쪽은 노트목록이잖아"): 보드 칸 줄은 오른쪽 보드 칸(nbw-main)의 머리 — 판 바로 위, 판과 같은 왼쪽 끝.
 //   왼쪽 노트 목록 칸 위에는 아무것도 없다(목록은 '노트 목록' 머리부터). 전체 화면에서도 보드 칸 줄은 판 위에 함께 있다.
@@ -258,6 +261,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // S69-33: 왼쪽 목록 노트 누르기 = 붙이지 않음. 이미 붙은 노트는 판에서 그 카드로, 아니면 노트 열기(노트 줄 누르기와 같은 길).
     focusCard:id => !!board?.focusCard(id), centerPoint:() => board?.centerPoint() || null,
     openNote:id => { if (busy || !notes.some(n => n.id === id)) return; open(id); }});
+  const boardImages = createNoteBoardImages({rt, notes:{get:() => notes, set:fn => { notes = fn(notes); }}, boards, toast:showToast,
+    rerender:() => { if (loaded && !selected && view === 'board') renderList(); }});
   // S69-94: 열린 노트의 메모 칸(memo-thread.js가 그 칸의 유일한 renderer). 메모 목록(memo-store.js)이 바뀌면 [메모] 보기만 다시 그린다.
   const noteComments = createMemoThread();
   // [폴더] 보기는 '메모' 줄 수 때문에 — 목록을 읽는 중(marksRun)·끄는 중에는 다시 그리지 않는다(STAB-노트폴더끌기시험, refresh가 한 번 그린다).
@@ -382,7 +387,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function boardText(note) {
     // S69 보드잠금가림: 잠긴 동안 카드는 자물쇠 모양만(제목·내용 없음, 누르면 PIN 창 — open()이 막는다).
     if (pinLock.noteHidden(note)) return {title:LOCKED, locked:true};
-    return {title:[...noteLineTitle(note)].slice(0, 60).join('')};
+    // S70-32 ②: 사진 한 장뿐인 노트는 보드에서 사진 칸(note-board.js가 owner 사진 보기로 받는다).
+    return {title:[...noteLineTitle(note)].slice(0, 60).join(''), photo:photoOnlyFile(note)};
   }
   function paintBoard(m) {
     const box = host.querySelector('[data-note-board]');
@@ -415,7 +421,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       },
       canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(),
       // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
-      decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast});
+      decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
+      // S70-32 ②: 사진 끌어 놓기·붙여넣기·[이미지] → 사진 정보를 지우고 사진 한 장뿐인 노트로(노트 첨부, owner만) → 놓은 자리에 붙임.
+      onImages:(files, point) => { if (!busy) void boardImages.add(files, point); }, photoUrl:(noteId, fileId) => diaryPhotoUrl(noteId, fileId, 'large', {rt})});
     boards.paint();
     // S69-83: [전체]가 없으므로 보드가 하나도 없으면 판(도구 줄 포함) 대신 빈 안내 한 줄 — 보드 칸 줄의 [+ 새 보드]로 만든다.
     const named = boards.boardView(), none = host.querySelector('[data-nbw-none]');
