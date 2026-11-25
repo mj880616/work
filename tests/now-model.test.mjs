@@ -74,18 +74,18 @@ test('목록 작은 표시: 확정 주제가 제목·요약에 들면 그 주제
 test('상세 답 모양: 틀린 칸은 버리고 basic은 연관·시사점 없이', () => {
   const v = detailView({level: 'full', summary: ' 요약 ', key_sentences: [{orig: 'A line.', ko: '한 줄.'}, {orig: ''}, {orig: 'b'}, {orig: 'c'}, {orig: 'd'}],
     relevance: {topics: ['철도', '', 3], reason: '이유'}, implications: {kptu: '가', labor: ''},
-    related: [{kind: 'ledger', id: 'x1', title: '원장 줄'}, {kind: 'bad', id: 'x', title: 't'}, {kind: 'news', id: B, title: ''}]});
+    related: [{kind: 'ledger', id: 'x1', title: '원장 줄'}, {kind: 'library', id: 'x2', title: '자료'}, {kind: 'bad', id: 'x', title: 't'}, {kind: 'news', id: B, title: ''}]});
   assert.equal(v.summary, '요약');
   assert.deepEqual(v.sentences, [{orig: 'A line.', ko: '한 줄.'}, {orig: 'b', ko: ''}, {orig: 'c', ko: ''}]);
   assert.deepEqual(v.relevance, {topics: ['철도'], reason: '이유'});
   assert.deepEqual(v.implications, {kptu: '가', labor: ''});
-  assert.deepEqual(v.related, [{kind: 'ledger', id: 'x1', title: '원장 줄'}]);
+  assert.deepEqual(v.related, [{kind: 'library', id: 'x2', title: '자료'}]); // LEDGER-화면에서빼기: 원장 줄 없음
   const b = detailView({level: 'basic', summary: 's'});
   assert.equal(b.level, 'basic');
   assert.equal(b.relevance, null);
   assert.equal(b.implications, null);
   assert.deepEqual(relatedTarget({kind: 'news', id: B}), {detail: {type: 'news', id: B}});
-  assert.deepEqual(relatedTarget({kind: 'ledger', id: 'x'}), {view: 'ledger'});
+  assert.deepEqual(relatedTarget({kind: 'ledger', id: 'x'}), {view: undefined});
   assert.equal(detailError({status: 429}), '오늘 상세 만들기를 다 씀 · 내일 다시');
   assert.equal(detailError({status: 503, message: 'monthly_limit'}), '이번 달 AI 한도를 다 씀');
 });

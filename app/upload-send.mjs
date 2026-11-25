@@ -12,7 +12,7 @@ const failure = (message, code, status = 0, via = '') => Object.assign(new Error
 
 export function sendUpload(url, {method = 'POST', headers = {}, body, size = 0, timeoutMs = uploadTimeoutMs(size), signal = null, onProgress = () => {}, Xhr = globalThis.XMLHttpRequest, fetcher = globalThis.fetch} = {}) {
   const tell = value => { try { onProgress(value); } catch { /* 표시가 올리기를 멈추게 하지 않는다 */ } };
-  if (signal?.aborted) return Promise.reject(failure('올리기를 취소했어요.', 'upload_cancelled'));
+  if (signal?.aborted) return Promise.reject(failure('업로드를 취소했어요.', 'upload_cancelled'));
   if (typeof Xhr !== 'function') return sendByFetch(url, {method, headers, body, size, timeoutMs, signal, tell, fetcher});
   return new Promise((resolve, reject) => {
     const xhr = new Xhr();
@@ -22,7 +22,7 @@ export function sendUpload(url, {method = 'POST', headers = {}, body, size = 0, 
     function onAbort() {
       if (finishing) return; // 다 보낸 뒤에는 서버가 이미 받았을 수 있으므로 끊지 않는다(✕도 이때는 보이지 않음).
       try { xhr.abort(); } catch { /* 이미 끝남 */ }
-      end(reject, failure('올리기를 취소했어요.', 'upload_cancelled'));
+      end(reject, failure('업로드를 취소했어요.', 'upload_cancelled'));
     }
     xhr.open(method, url, true);
     for (const [name, value] of Object.entries(headers)) if (value != null) xhr.setRequestHeader(name, value);
@@ -37,7 +37,7 @@ export function sendUpload(url, {method = 'POST', headers = {}, body, size = 0, 
     xhr.onload = () => end(resolve, {ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, text: String(xhr.responseText ?? '')});
     xhr.onerror = () => end(reject, notSent() ? failure('연결이 끊겨 다 보내지 못했어요.', 'upload_not_sent', 0, 'error') : failure('저장 결과를 확인하지 못했어요.', 'note_save_result_unknown', 0, 'error'));
     xhr.ontimeout = () => end(reject, notSent() ? failure('너무 오래 걸려 다 보내지 못했어요.', 'upload_timeout_sending', 0, 'timeout') : failure('저장 결과를 확인하지 못했어요.', 'note_save_result_unknown', 0, 'timeout'));
-    xhr.onabort = () => end(reject, failure('올리기를 취소했어요.', 'upload_cancelled'));
+    xhr.onabort = () => end(reject, failure('업로드를 취소했어요.', 'upload_cancelled'));
     signal?.addEventListener?.('abort', onAbort, {once: true});
     tell({loaded: 0, total: whole, phase: 'sending'});
     xhr.send(body);

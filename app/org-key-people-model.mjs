@@ -4,7 +4,7 @@
 // - 텔레그램: 보낸 사람 이름표(손 이름·수집기 이름)가 찾을 이름이면 그 방·날 전부, 그리고 제목·요약에 이름이 나온 소식.
 //   S61-53: 그 방·날의 소식이 읽어 온 목록(최근 것부터 600개)에 없어도 이름표가 있으면 방 이름 한 줄로 잡는다(누르면 그 방 그날).
 //   줄 key는 'telegram:방|날'(방 key에 '|'는 없음) — 예전 NUL 구분자는 HTML 속성에서 깨져 텔레그램 줄을 눌러도 열리지 않았다.
-// - 회의(사업 보고): 제목·내용 글에 이름이 나오면. 챙길 것: 요약·근거 글. 원장 약속: 상대·제목.
+// - 회의(사업 보고): 제목·내용 글에 이름이 나오면. 챙길 것: 요약·근거 글.
 // DB 규칙(20261029014700_org_key_people)과 같은 숫자: 이름 1~40자, 찾을 이름 2~40자·20개·중복 없음.
 
 import {reportKindOf, reportKindLabel} from './report-kinds.mjs';
@@ -12,7 +12,7 @@ import {word} from './brand/brand.mjs';
 
 export const NAME_MAX = 40, MATCH_MIN = 2, MATCH_MAX = 40, MATCHES_MAX = 20, PEOPLE_MAX = 40;
 export const RECORD_LIMIT = 80, OPEN_LIMIT = 30;
-export const KIND_LABEL = Object.freeze({call:'통화', personal:'통화', telegram:'텔레그램', meeting:'회의', todo:'잊지 말기', promise:'약속'});
+export const KIND_LABEL = Object.freeze({call:'통화', personal:'통화', telegram:'텔레그램', meeting:'회의', todo:'잊지 말기'});
 
 // 줄 꼬리표 글자. 사업 보고 줄은 '회의'로 고정하지 않고 그 줄의 칸 이름(label: 회의·투쟁·정책 …, DIARY-맥락사업보고이름 전수).
 export const recordTag = r => r?.label || KIND_LABEL[r?.kind] || '';
@@ -128,19 +128,14 @@ export function collectRecords({people = [], calls = [], personal = [], telegram
   return out.sort(byNewest).slice(0, limit);
 }
 
-// 열린 것(약속·챙길 것), 마감 가까운 순(마감 없는 것은 뒤). 줄: {key, kind, id, text, due, people, open}.
-export function collectOpen({people = [], todos = [], promises = []} = {}, limit = OPEN_LIMIT) {
+// 열린 것(챙길 것 — LEDGER-화면에서빼기 2026-11-25: 원장 약속 줄 없음), 마감 가까운 순(마감 없는 것은 뒤). 줄: {key, kind, id, text, due, people, open}.
+export function collectOpen({people = [], todos = []} = {}, limit = OPEN_LIMIT) {
   if (!people.length) return [];
   const out = [];
   for (const c of todos || []) {
     if (!c?.id || (c.status && c.status !== 'open')) continue;
     const ids = whoIn([c.summary, c.evidence], people); if (!ids.length) continue;
     out.push({key:`todo:${c.id}`, kind:'todo', id:c.id, text:clean(c.summary) || '(내용 없음)', due:dayOf(c.due), people:ids, open:{view:'basket', id:c.id}});
-  }
-  for (const p of promises || []) {
-    if (!p?.id || (p.commitment_status && p.commitment_status !== 'waiting')) continue;
-    const ids = whoIn([p.counterparty, p.title], people); if (!ids.length) continue;
-    out.push({key:`promise:${p.id}`, kind:'promise', id:p.id, text:clean(p.title || p.summary) || '(내용 없음)', due:dayOf(p.follow_up_on || p.date_end || p.date_start), people:ids, open:{view:'ledger', id:p.id}});
   }
   return out.sort((a, b) => (a.due ? 0 : 1) - (b.due ? 0 : 1) || String(a.due).localeCompare(String(b.due)) || String(a.key).localeCompare(String(b.key))).slice(0, limit);
 }

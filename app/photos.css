@@ -115,7 +115,7 @@
 /* [폴더]: 폴더 나무(공용 folder-tree.css 줄 모양) + 위치 줄(공용 .fp-path) + 그 폴더 사진 격자. PC(761px~)는 왼쪽 나무·오른쪽 격자. */
 #appView #photosView .photos-fx{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 /* UI-칸폭끌기전수: 나무 | 사진 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 24:76). */
-#appView #photosView .photos-fx.is-wide{ --ds-split-list:24fr; --ds-split-detail:76fr; --ds-split-list-min:180px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail)); gap:10px; align-items:start; }
+#appView #photosView .photos-fx.is-wide{ --ds-split-list:24fr; --ds-split-detail:76fr; --ds-split-list-min:180px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail)); gap:var(--ds-gap-pane); align-items:start; }
 #appView #photosView .photos-fx-pane{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 #appView #photosView .photos-fx-tree{ top:var(--follow-top,calc(var(--kptu-touch-target,44px) + 8px)); } /* 따라오는 자리는 photos.js followPane(top 52) */
 #appView #photosView .photos-fx-here{ display:flex; align-items:center; gap:6px; margin:2px 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
@@ -287,7 +287,7 @@
 #appView #photosView .photos-album-ico{ margin-right:3px; vertical-align:-2px; }
 /* FOLDER-나무새기준 ③(S51-12): 폰 [폴더] 첫 화면은 공용 상자·줄(folder-tree.css ft-). 여기는 사진만의 것 — 상자 머리 출처 그림, 펼친 폴더의 작은 그림 한 줄. */
 #appView #photosView .photos-fx-boxes .ft-box-toggle > svg{ flex:none; }
-#appView #photosView .photos-fx-strip{ display:flex; flex-wrap:nowrap; gap:4px; min-height:48px; padding:4px 8px 4px calc(12px + var(--ft-depth,0) * 22px + 29px); overflow:hidden; }
+#appView #photosView .photos-fx-strip{ display:flex; flex-wrap:nowrap; gap:4px; min-height:48px; padding:4px 8px 4px calc(12px + var(--ft-depth,0) * var(--ft-indent,22px) + var(--ft-ico,20px) + var(--ft-gap,9px)); overflow:hidden; }
 #appView #photosView .photos-fx-strip-wait{ width:44px; height:44px; border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface-subtle); }
 #appView #photosView button.photos-fx-thumb{ position:relative; flex:0 0 44px; width:44px; height:44px; min-height:0; margin:0; padding:0; border:0; border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface-subtle); overflow:hidden; cursor:pointer; }
 #appView #photosView button.photos-fx-thumb > *{ display:block; width:100%; height:100%; object-fit:cover; }
