@@ -34,7 +34,8 @@ alter table public.app_news_highlights add column mark_kind text;
 alter table public.app_news_highlights add column mark_color text;
 alter table public.app_news_highlights add constraint app_news_highlights_mark_check check (
   (mark_kind is null and mark_color is null)
-  or (mark_kind = 'highlight' and mark_color in ('yellow', 'green', 'blue', 'pink', 'orange') and memo is null));
+  or (mark_kind = 'highlight' and mark_color is not null and mark_color in ('yellow', 'green', 'blue', 'pink', 'orange') and memo is null));
+-- (mark_color is not null을 따로 둔다: 비운 색은 in 검사가 '모름'이 되어 check를 통과하므로)
 
 grant insert (mark_kind, mark_color) on table public.app_news_highlights to authenticated;
 grant update (mark_color) on table public.app_news_highlights to authenticated;
