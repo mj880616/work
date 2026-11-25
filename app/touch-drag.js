@@ -20,7 +20,9 @@ export function bindTouchDrag(el, {pick = () => null, hold = () => {}, over = ()
   const arm = () => {
     if (!s || s.armed) return;
     clearTimeout(s.timer);
-    const item = pick(s.target);
+    // S70-33: 누르고 있는 동안 목록이 다시 그려져 누른 칸이 빠졌으면(떼어진 칸) 손가락 아래 지금 칸을 집는다.
+    // 손짓 소식(touchmove·touchend)은 브라우저가 계속 처음 칸으로 보내므로 따라가기(followTouch)는 처음 칸 그대로.
+    const item = pick(s.target.isConnected ? s.target : doc.elementFromPoint(s.x, s.y));
     if (!item) { s = null; return; }
     s.item = item; s.armed = true;
     s.unfollow = followTouch(s.target, {move, end, cancel: stop}); // S70-10: 끄는 중 목록이 다시 그려져 누른 칸이 빠져도 이어진다
