@@ -452,6 +452,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nb-text .nb-tx-edit { min-height:0; max-height:none; width:100%; height:100%; margin:0; padding:var(--nb-pad); border:0; border-radius:inherit; background:transparent; box-shadow:none; color:inherit; font:inherit; line-height:inherit; resize:none; white-space:pre-wrap; }
 /* 글 쓰는 중: 상자 둘레 8px 띠를 끌면 옮기기(입력칸 안은 글자). */
 .nb-text.nb-editing::before { content:""; position:absolute; inset:-8px; cursor:move; }
+.nb-text.nb-editing[data-nb-draft-child]::before { cursor:default; } /* S70-03: 가지 새 칸은 자리를 배치가 정한다 — 끌 수 없으니 이동 표시도 없다(둘레를 눌러도 글쓰기 그대로) */
 /* 접기·펼치기 동그라미: 가지가 나가는 쪽 변 바깥 가운데(공용 icon-btn 안의 작은 동그라미). 접히면 숨은 가지 수. */
 #appView #basketView .nb-text .nb-fold { position:absolute; top:calc(50% - 11px); left:calc(100% + 1px); width:22px; min-width:0; padding:0; z-index:1; }
 #appView #basketView .nb-text[data-side="-1"] .nb-fold { left:auto; right:calc(100% + 1px); }
