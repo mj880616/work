@@ -9,6 +9,7 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { pinch } from './helpers/pinch.mjs';
+import { EDGE } from '../../app/drag-edge-scroll.js';
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
 // 이름은 모두 지어낸 것이다. 서버 쓰기는 없다(가짜 서버).
@@ -560,7 +561,9 @@ test('T7 자료실 1280 두 칸: 끌어 놓기·펼치기 뒤 두 칸 스크롤�
   const top0 = await tops(), open0 = await opened();
   expect(top0[0]).toBe(150); expect(top0[1]).toBeGreaterThan(150);
   // 보이는 자료 줄(왼쪽)과 보이는 폴더 줄(오른쪽)을 고른다(시험 도구가 스크롤하지 않게).
-  const inView = (i, sel) => page.evaluate(([p, q]) => { const l = document.querySelector(p + ' .lu-pane-list').getBoundingClientRect(); return [...document.querySelectorAll(p + ' ' + q)].find(x => { const r = x.getBoundingClientRect(); return r.top > l.top + 20 && r.bottom < l.bottom - 20; })?.getAttribute(q.slice(1, -1)); }, [lp(i), sel]);
+  // 칸 위·아래 가장자리(EDGE px, drag-edge-scroll.js)는 끄는 동안 저절로 굴리는 자리라 그 밖(칸 안쪽)의 줄만 고른다 —
+  // 전에는 위 가장자리 20px 밖이면 골라, 그 줄 위로 끌고 가는 동안 칸이 몇 px 올라가 스크롤 자리가 어긋났다(CI에서 587 → 584).
+  const inView = (i, sel) => page.evaluate(([p, q, edge]) => { const l = document.querySelector(p + ' .lu-pane-list').getBoundingClientRect(); return [...document.querySelectorAll(p + ' ' + q)].find(x => { const r = x.getBoundingClientRect(); return r.top > l.top + edge + 4 && r.bottom < l.bottom - edge - 4; })?.getAttribute(q.slice(1, -1)); }, [lp(i), sel, EDGE]);
   const doc = await inView(0, '[data-lu-document]'), to = await inView(1, '[data-lu-nav]');
   expect(doc && to).toBeTruthy();
   await page.locator(`${lp(0)} [data-lu-document="${doc}"]`).dragTo(page.locator(`${lp(1)} [data-lu-nav="${to}"]`));
