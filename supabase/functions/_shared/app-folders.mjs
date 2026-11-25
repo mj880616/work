@@ -8,7 +8,8 @@
 // - 찾기는 저장한 id(바구니 basket_folder_id) 또는 appProperties 표식(kptu_backup·kptu_summary·kptu_app_folder)으로.
 //   표식이 없는 옛 폴더(편집 백업)만 이름으로 한 번 찾고, 찾으면 표식을 적어 둔다(다음부터는 표식).
 // - 새로 만들 때는 맨 위 앱 폴더 id를 알면 그 아래, 모르면(자료실을 아직 안 쓴 새 사용자) 지금처럼 내 드라이브 맨 위
-//   (createParentFor). 맨 위 앱 폴더를 이 함수들이 몰래 만들지는 않는다 — 나중에 [모으기]가 옮긴다.
+//   (createParentFor). 맨 위 앱 폴더를 이 함수들이 몰래 만들지는 않는다 — 맨 위 앱 폴더가 처음 생길 때 서버가 모은다
+//   (S70-29, gather-folders.mjs gatherIntoNewRoot — 옛 [한곳으로 모으기] 버튼은 지움).
 // - 앱 코드 밖(명진 Apps Script·PC 텔레그램 수집기)이 쓰는 폴더는 모으지 않는다(NOT_GATHERED — 옮기면 그쪽이 깨질 수 있음).
 // - S69-41: [한곳으로 모으기]는 표식(또는 저장한 id)으로 알아본 앱 폴더의 옛 이름('Web2 바구니'·'노조+ 백업' 등)만 새 이름으로 바꾼다
 //   (renameQuery·renameTarget). 사람이 직접 바꾼 이름·사람이 만든 폴더는 건드리지 않는다. 이름 글자는 brand-folders.mjs 한 곳.

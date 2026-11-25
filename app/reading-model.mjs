@@ -9,11 +9,12 @@ export const TITLE_MAX = 500, SITE_MAX = 120, BODY_MAX = 200000, URL_MAX = 2000,
 export const LIST_COLS = 'id,url,title,site,saved_at,read_at,body_state,body_at,business_area_id,updated_at,origin,news_article_id,outside_article_id';
 // lead(본문을 못 찾아 소개 글만)·login(로그인 화면이 옴)은 S70-40a READ-실패까닭에서 더함(DB 20261125170000_reading_body_state_login_lead).
 export const BODY_STATES = Object.freeze(['pending', 'ok', 'paywall', 'lead', 'bot_check', 'robots', 'too_big', 'blocked', 'login', 'failed']);
-// 거르기 칩: [안 읽음 n] [전체] [밑줄]. 처음은 안 읽음.
+// 거르기 칩: [전체] [안 읽음 n] [밑줄] [메모]. 처음은 전체(S70-24 READ-저장한글기본전체, 명진 11/25 "전체를 기본으로").
 // S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 글을 따로 거르는 칩은 없다 — 평범한 읽을 거리 줄.
 // S69-94 NOTE-메모통일: [메모] = 이 화면 글에 남긴 메모만 모아 보기(노트 [메모]와 같은 메모 목록·같은 줄).
-export const FILTERS = Object.freeze(['unread', 'all', 'marks', 'memos']);
-export const keepFilter = v => (FILTERS.includes(v) ? v : 'unread');
+export const FILTERS = Object.freeze(['all', 'unread', 'marks', 'memos']);
+export const DEFAULT_FILTER = 'all';
+export const keepFilter = v => (FILTERS.includes(v) ? v : DEFAULT_FILTER);
 
 const oneLine = (v, max) => (typeof v === 'string' ? [...v.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, max).join('').trim() : '');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -75,7 +76,7 @@ export const unreadCount = entries => (Array.isArray(entries) ? entries.filter(e
 export function filterOptions(entries, marks = null, memos = null) {
   const list = Array.isArray(entries) ? entries : [];
   const n = unreadCount(list), m = Number.isInteger(marks) ? marks : 0, c = Number.isInteger(memos) ? memos : 0;
-  return [{value: 'unread', label: `안 읽음 ${n}`}, {value: 'all', label: '전체'}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}, {value: 'memos', label: c ? `메모 ${c}` : '메모'}];
+  return [{value: 'all', label: '전체'}, {value: 'unread', label: `안 읽음 ${n}`}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}, {value: 'memos', label: c ? `메모 ${c}` : '메모'}];
 }
 // 좌우 밀기: 지금 칩에서 옆 칩으로(끝에서는 그대로).
 export function nextFilter(current, dir) {

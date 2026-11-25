@@ -1,5 +1,5 @@
 // S69-94 NOTE-메모통일: 원문 기록 아래 메모 칸(노트·읽을 거리 글·저장한 글이 같은 부품 하나) + 모아 보기 줄 그리기.
-// 메모 칸(createMemoThread): 이 칸의 유일한 renderer. 머리 '메모 n' · 시간순 줄(글 · 날짜 · [수정] · ✕) · 쓰기 칸 + [메모 남기기].
+// 메모 칸(createMemoThread): 이 칸의 유일한 renderer. 머리 '메모 n' · 시간순 줄(글 · 날짜 · [수정] · ✕) · 한 줄 쓰기 칸 + 옆 작은 [남기기](이름 '메모 남기기', S70-06).
 //  - 자료는 memo-store.js 목록 하나(서버 표 app_memos). 남기기·고치기·지우기 뒤 그 목록이 바뀌면 이 칸과 모아 보기가 함께 다시 그려진다.
 //  - 생각·질문·인용 같은 종류는 없다(옛 댓글의 종류 값은 표에 그대로 두고 화면에서 쓰지 않음). 옛 인용 글이 있는 메모는 그 글을 작게 위에 보인다.
 //  - [수정]은 그 줄이 쓰기 칸이 되고 [취소][저장]. 지우기는 바로 지우고 알림 '메모를 삭제했어요 · [되돌리기]'(같은 글로 다시 남김).
@@ -13,6 +13,7 @@ import {takeMemoReveal} from './memo-reveal.js';
 import {noteLineDate} from './note-tree.mjs';
 import {notify} from './small-notice.js';
 import {waitInlineHtml} from './wait-state.js';
+import {fitAll} from './auto-grow.js';
 
 await partStyles('memo-thread');
 
@@ -25,10 +26,12 @@ export function createMemoThread({onChange = () => {}} = {}) {
   let box = null, target = null, busy = false, editing = null, editText = '', reveal = null, flashId = null, flashUntil = 0, waitTimer = 0, waitLeft = 180;
   const drafts = new Map(); // 원문 열쇠 → 쓰던 글(화면 메모리만)
   const key = () => (target ? `${target.type}:${target.id}` : '');
+  // [남기기]는 글자가 있을 때만 누를 수 있다(빈 칸·빈칸만이면 흐리게). 저장 중에는 save()가 끈다.
+  const canSave = () => { const b = box?.querySelector('[data-cm-save]'), t = box?.querySelector('[data-cm-text]'); if (b && !busy) b.disabled = !(t?.value || '').trim(); };
   const say = text => { const p = box?.querySelector('[data-cm-status]'); if (p) { p.textContent = text; p.hidden = !text; } };
   function rowHtml(m, canEdit) {
     if (editing === m.id) {
-      return `<li class="memo-th-row memo-th-editing" data-cm-row="${esc(m.id)}" tabindex="-1"><div class="memo-th-text"><label class="a11y-only" for="${uid}e">메모 수정</label><textarea id="${uid}e" data-cm-edit-text rows="2" maxlength="${MEMO_LIMITS.body}">${esc(editText)}</textarea><div class="save-row memo-th-actions" data-enter-save="[data-cm-edit-save]"><button type="button" class="secondary" data-cm-edit-cancel>취소</button><button type="button" class="primary" data-cm-edit-save>저장</button></div></div></li>`;
+      return `<li class="memo-th-row memo-th-editing" data-cm-row="${esc(m.id)}" tabindex="-1"><div class="memo-th-text"><label class="a11y-only" for="${uid}e">메모 수정</label><textarea id="${uid}e" data-cm-edit-text rows="1" data-autogrow="8" maxlength="${MEMO_LIMITS.body}">${esc(editText)}</textarea><div class="save-row memo-th-actions" data-enter-save="[data-cm-edit-save]"><button type="button" class="secondary" data-cm-edit-cancel>취소</button><button type="button" class="primary" data-cm-edit-save>저장</button></div></div></li>`;
     }
     const edited = m.updated_at && m.created_at && Date.parse(m.updated_at) - Date.parse(m.created_at) > 1000;
     const flash = m.id === flashId && Date.now() < flashUntil ? ' memo-th-flash' : '';
@@ -43,10 +46,11 @@ export function createMemoThread({onChange = () => {}} = {}) {
     const canWrite = !st.legacy || target.type === 'note', canEdit = !st.legacy;
     const keepFocus = box.contains(document.activeElement) && document.activeElement.matches?.('[data-cm-text]');
     box.innerHTML = `<div class="memo-th-head"><span data-cm-count>메모 ${rows.length}</span></div>${rows.length ? `<ol class="memo-th-list" data-cm-list>${rows.map(m => rowHtml(m, canEdit)).join('')}</ol>` : ''}${canWrite
-      ? `<div class="memo-th-write" data-cm-write data-enter-save="[data-cm-save]"><label class="a11y-only" for="${uid}">메모 남기기</label><textarea id="${uid}" data-cm-text rows="2" maxlength="${MEMO_LIMITS.body}" placeholder="메모"></textarea><p class="memo-th-status" data-cm-status role="status" hidden></p><div class="save-row memo-th-actions"><button type="button" class="primary" data-cm-save>메모 남기기</button></div></div>`
+      ? `<div class="memo-th-write" data-cm-write data-enter-save="[data-cm-save]"><label class="a11y-only" for="${uid}">메모 남기기</label><div class="memo-th-line"><textarea id="${uid}" data-cm-text rows="1" data-autogrow="5" maxlength="${MEMO_LIMITS.body}" placeholder="메모"></textarea><button type="button" class="secondary memo-th-save" data-cm-save aria-label="메모 남기기" disabled>남기기</button></div><p class="memo-th-status" data-cm-status role="status" hidden></p></div>`
       : '<p class="memo-th-wait" data-cm-wait>메모는 준비 중이에요.</p>'}`;
     const ta = box.querySelector('[data-cm-text]');
-    if (ta) { ta.value = drafts.get(key()) || ''; if (keepFocus) ta.focus({preventScroll: true}); }
+    if (ta) { ta.value = drafts.get(key()) || ''; canSave(); if (keepFocus) ta.focus({preventScroll: true}); }
+    fitAll(box); // 쓰던 글·고치는 글이 있으면 열자마자 그만큼(없으면 한 줄)
     if (editing) box.querySelector('[data-cm-edit-text]')?.focus({preventScroll: true});
     showReveal();
   }
@@ -116,7 +120,7 @@ export function createMemoThread({onChange = () => {}} = {}) {
     else if (b.hasAttribute('data-cm-edit-save')) void saveEdit();
   }
   function onInput(e) {
-    if (e.target.matches('[data-cm-text]')) { drafts.set(key(), e.target.value); say(''); }
+    if (e.target.matches('[data-cm-text]')) { drafts.set(key(), e.target.value); say(''); canSave(); }
     else if (e.target.matches('[data-cm-edit-text]')) editText = e.target.value;
   }
   const off = onMemos(() => { if (box?.isConnected && !busy) paint(); });

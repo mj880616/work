@@ -20,12 +20,15 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S67-52 HOME-칸끄기: DB(20261120230000, 같은 PR) home_off를 화면 허용 목록에도 더했다(적용 전에는 이번 접속만 기억). DB에만 있는 칸은 없다.
 // S69-25b LIB-드라이브에서가져오기: DB(20261124110000, 같은 PR) drive_import_folder를 화면 허용 목록에도 더했다(적용 전에는 기억만 건너뜀). DB에만 있는 칸은 없다.
 // UI-머리눌러정렬: DB(20261124170000, 같은 PR) files_sort를 화면 허용 목록에도 더했다(적용 전에는 정렬 기억만 건너뜀). DB에만 있는 칸은 없다.
+// NOTE-노션편집 ①(나): DB(20261125080000, 같은 PR) note_blocks를 화면 허용 목록에도 더했다(적용 전에는 기본값 기억만 이번 접속). DB에만 있는 칸은 없다.
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, LIB-드라이브에서가져오기 판 위에 UI-머리눌러정렬 files_sort)와 같다', () => {
-  const sql = read('supabase/migrations/20261124170000_profile_view_prefs_files_sort.sql');
+test('허용 칸이 DB 검사(마지막 migration, files_sort 판 위에 NOTE-노션편집 note_blocks)와 같다', () => {
+  const sql = read('supabase/migrations/20261125080000_profile_view_prefs_note_blocks.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 59);
+  assert.equal(KEYS.length, 60);
+  for (const v of [true, false]) assert.equal(validValue('note_blocks', v), true);
+  for (const v of [null, 'true', 1, {on: true}]) assert.equal(validValue('note_blocks', v), false, JSON.stringify(v));
   // files_sort 허용 칸(key)이 DB 검사 목록과 같다.
   const sortKeys = [...sql.match(/view_prefs -> 'files_sort' ->> 'key'\) in \(([^)]*)\)/)[1].matchAll(/'([a-z]+)'/g)].map(m => m[1]);
   assert.deepEqual(sortKeys, ['name', 'modified', 'size', 'kind']);

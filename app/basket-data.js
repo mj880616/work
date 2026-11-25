@@ -305,6 +305,16 @@ export function setNotePinned(note, pinned, rt = window.KPTURuntime, now = new D
     return metadata;
   }, rt);
 }
+// NOTE-노션편집 ①(나): 이 노트의 '블록 편집' 켜기·끄기(metadata.block_edit 참·거짓, 새 칸·DB 변경 없음). 고치기가 아니라 updated_at은 그대로,
+// 다른 metadata 칸도 그대로(고정·폴더와 같은 읽고-지키며-쓰기). 같은 값이면 쓰지 않는다.
+export const noteBlockEdit = note => { const v = plainObject(note?.metadata) ? note.metadata.block_edit : undefined; return typeof v === 'boolean' ? v : null; };
+export function setNoteBlockEdit(note, on, rt = window.KPTURuntime) {
+  return patchNoteMetadata(note, metadata => {
+    if (metadata.block_edit === !!on) return null;
+    metadata.block_edit = !!on;
+    return metadata;
+  }, rt);
+}
 // NOTE-주소로 가져오기 2단계(docs/design/note-import-by-url.md 5절): 원문 정보는 노트 행의 기존 metadata jsonb(metadata.source) 하나(새 칸·DB 변경 없음).
 // setNoteSource: 원문 정보만 바꾼다(실패 표시·[주소만 두기]·[다시 시도] 표시). 수정이 아니라 updated_at은 그대로, 다른 metadata 칸도 그대로
 // (고정·폴더와 같은 읽고-지키며-쓰기). change(지금 source 또는 null) → 새 source, 객체가 아니면 쓰지 않는다.

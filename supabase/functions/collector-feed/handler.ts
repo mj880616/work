@@ -67,6 +67,7 @@
 //   거절해 업무 소식 표에 들어가지 않게 한다(앱 스크립트가 먼저 빼는 것이 첫째 장치, 이것은 둘째 장치).
 //   할 일·일정·원장·업무일지를 만들지 않는다. 화면에서 명진이 눌러야만 생긴다(4단계).
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·주소·오류 원문은 넣지 않는다.
+import { askReplied, AUTO_DONE_REPLIED, type ReplyMsg } from "./replied.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "../_shared/news-url.ts";
 import { makeFeedReader } from "../_shared/feed-fetch.ts";
@@ -160,6 +161,12 @@ export const ROOM_DAY_ADD_FN = "app_feed_room_day_add";
 export const ROOM_DAY_CONTEXT_FN = "app_feed_room_day_context";
 // FEAT-1029 ⑤ 나한테 온 요청 → 챙길 것 후보 한 줄(migration 20261029120000, service_role 전용). 소식은 source_ref로 찾고 출처 날짜·조직은 DB가 소식 줄에서 읽는다.
 export const ASK_CANDIDATE_FN = "app_todo_candidate_from_telegram";
+// FORGET-이미한일빼기(migration 20261125120000, service_role 전용): 요청 메시지 시각·번호를 함께 남기고, 같은 묶음에서 내가 이미 답한 요청은
+// '이미 함(저절로, 답장함)'으로 넣는다. 함수가 아직 없으면(404) 위 옛 함수로 넣는다(처리 전, 지금과 같음).
+export const ASK_CANDIDATE_AT_FN = "app_todo_candidate_from_telegram_at";
+// 이 방의 처리 전 텔레그램 요청(id·요청 시각·번호만, 글 없음) 읽기와, 그 뒤 내가 답한 것을 '이미 함(저절로)'으로 옮기기.
+export const OPEN_ASKS_FN = "app_todo_tg_open_asks";
+export const AUTO_DONE_FN = "app_todo_tg_auto_done";
 // TODO-내일만(migration 20261029210000, service_role 전용, 읽기만): 이 방이 '전체 부탁도 올릴' 예외 방인지 + [내 일 아님] 예시.
 // 함수가 없거나 읽기에 실패하면 예외 방 없음·예시 없음으로 본다(단체방 전체 부탁은 기본으로 빼므로 닫힌 쪽).
 export const ASK_FILTER_FN = "app_todo_ask_filter";
@@ -728,11 +735,19 @@ async function senderNames(db: Db, ws: string, input: TelegramInput, log: Log) {
 }
 // 나한테 온 요청을 챙길 것 후보로(FEAT-1029 ⑤). 소식 저장 뒤에 부른다. 실패해도 던지지 않는다: 소식은 이미 저장됐다.
 // 함수가 아직 없으면(DB 적용 전, 404) 한 번만 로그를 남기고 그만 부른다. 요약·근거·이름은 로그에 넣지 않는다(개수와 단계 코드만).
-async function saveAsks(db: Db, ws: string, asks: { source_ref: string; ask: TgAsk; evidence: string }[], log: Log) {
-  let added = 0, exists = 0, failed = 0;
+type AskRow = { source_ref: string; ask: TgAsk; evidence: string; ask_ref: string; ask_at: number; auto_done: string | null };
+async function saveAsks(db: Db, ws: string, asks: AskRow[], log: Log) {
+  let added = 0, exists = 0, failed = 0, auto = 0, atFn = true;
   for (const a of asks) {
     try {
-      const r = await db.rpcObject(ASK_CANDIDATE_FN, { p_workspace: ws, p_source_ref: a.source_ref, p_summary: a.ask.request, p_evidence: a.evidence, p_due: a.ask.due });
+      const old = { p_workspace: ws, p_source_ref: a.source_ref, p_summary: a.ask.request, p_evidence: a.evidence, p_due: a.ask.due };
+      let r = atFn
+        ? await db.rpcObject(ASK_CANDIDATE_AT_FN, { ...old, p_ask_at: new Date(a.ask_at).toISOString(), p_ask_ref: a.ask_ref, p_auto_done: a.auto_done })
+        : null;
+      // DB 단계가 아직 적용 전이면(404) 옛 함수로(처리 전으로 넣음). 한 번 없으면 이번 요청 안에서는 다시 묻지 않는다.
+      if (r && !r.ok && r.code === "FN_MISSING") { atFn = false; r = null; }
+      if (!r) r = await db.rpcObject(ASK_CANDIDATE_FN, old);
+      else if (r.ok && r.value.result === "added" && a.auto_done) auto++;
       if (!r.ok) {
         failed++;
         log("telegram_ask_failed", { stage: r.code });
@@ -742,7 +757,27 @@ async function saveAsks(db: Db, ws: string, asks: { source_ref: string; ask: TgA
       if (r.value.result === "added") added++; else exists++;
     } catch { failed++; log("telegram_ask_failed", { stage: "INTERNAL" }); }
   }
-  if (asks.length) log("telegram_ask_saved", { added, exists, failed });
+  if (asks.length) log("telegram_ask_saved", { added, exists, failed, auto });
+}
+// FORGET-이미한일빼기: 이번 묶음에 내 메시지가 있을 때만 이 방의 처리 전 요청(최근 3일, 글 없음)을 읽어, 그 뒤 내가 답한 것을 '이미 함(저절로)'으로 옮긴다.
+// 실패해도 던지지 않는다(소식 저장 우선, 그 줄은 처리 전 그대로). 수만 로그에 남긴다.
+export async function autoDoneEarlier(db: Db, ws: string, roomKey: string, msgs: ReplyMsg[], personal: boolean, log: Log) {
+  if (!msgs.some((m) => m.self && !m.forwarded)) return;
+  try {
+    const r = await db.rpcObject(OPEN_ASKS_FN, { p_workspace: ws, p_room_key: roomKey });
+    if (!r.ok) { if (r.code !== "FN_MISSING") log("telegram_auto_done_failed", { stage: r.code }); return; }
+    const rows = Array.isArray(r.value.rows) ? r.value.rows : [];
+    const ids: string[] = [];
+    for (const row of rows as Record<string, unknown>[]) {
+      const at = typeof row?.ask_at === "string" ? Date.parse(row.ask_at) : NaN;
+      if (typeof row?.id !== "string" || typeof row?.ask_ref !== "string" || !Number.isFinite(at)) continue;
+      if (askReplied({ ref: row.ask_ref, at }, msgs, personal) === AUTO_DONE_REPLIED) ids.push(row.id);
+    }
+    if (!ids.length) return;
+    const d = await db.rpcObject(AUTO_DONE_FN, { p_workspace: ws, p_ids: ids.slice(0, 50) });
+    if (!d.ok) { log("telegram_auto_done_failed", { stage: d.code }); return; }
+    log("telegram_auto_done", { count: typeof d.value.done === "number" ? d.value.done : 0 });
+  } catch { log("telegram_auto_done_failed", { stage: "INTERNAL" }); }
 }
 // 예외 방 여부·[내 일 아님] 예시 읽기(TODO-내일만). 실패해도 던지지 않는다. 예시 글은 로그에 넣지 않는다.
 async function askFilter(db: Db, ws: string, input: TelegramInput, log: Log): Promise<{ groupRoom: boolean; notMine: string[] }> {
@@ -860,7 +895,10 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   }
   if (orgDropped) deps.log("telegram_org_unevidenced", { count: orgDropped });
   let kept = 0, groupAsksSkipped = 0;
-  const asks: { source_ref: string; ask: TgAsk; evidence: string }[] = [];
+  const asks: AskRow[] = [];
+  // FORGET-이미한일빼기: 내가 보낸 메시지인지는 이름표의 '나'(self)로만 본다. 1:1 방이면 요청 뒤 6시간 안 내 메시지도 답으로 본다(replied.ts).
+  const replyMsgs: ReplyMsg[] = input.messages.map((m) => ({ ref: m.ref, at: m.at, self: self.has(m.sender), reply_to: m.reply_to, forwarded: m.forwarded }));
+  const personal = input.chat_kind === "user";
   // 단체방 전체에게 한 부탁(to=all)은 기본으로 뺀다. 개인 대화방이거나 사용자가 설정한 예외 방이면 남긴다(TODO-내일만 결정 4).
   const allowAll = input.chat_kind === "user" || filter.groupRoom;
   const judged = new Date(nowMs).toISOString();
@@ -877,7 +915,11 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
     if (r === "ok") {
       kept++;
       if (item.ask && item.ask.to === "all" && !allowAll) groupAsksSkipped++;
-      else if (item.ask) asks.push({ source_ref: `${prefix}${n + 1}`, ask: item.ask, evidence: askEvidence(input.messages[item.ask.quote], names) });
+      else if (item.ask) {
+        const quoted = input.messages[item.ask.quote];
+        asks.push({ source_ref: `${prefix}${n + 1}`, ask: item.ask, evidence: askEvidence(quoted, names), ask_ref: quoted.ref, ask_at: quoted.at,
+          auto_done: askReplied({ ref: quoted.ref, at: quoted.at }, replyMsgs, personal) });
+      }
     }
   }
   await addDay(db, ws, input.day, "telegram", counts(kept), nowMs);
@@ -885,6 +927,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   // 앞서 모인 소식을 읽었으면(없어서 빈 목록이어도) 그날 요약은 그때까지 모인 소식 전체로 쓴 것이다(c- 묶음).
   if (kept > 0) await saveRoomDay(db, ws, input, batch, parsedAi.day, deps.log, earlier.ok);
   if (groupAsksSkipped) deps.log("telegram_ask_group_skipped", { count: groupAsksSkipped });
+  // 앞 묶음에서 올린 이 방의 처리 전 요청 중 이번 묶음에서 내가 답한 것(새로 넣기 전에 — 새 줄은 위에서 이미 판정함).
+  await autoDoneEarlier(db, ws, input.room_key, replyMsgs, personal, deps.log);
   await saveAsks(db, ws, asks, deps.log);
   return callResult({ kept });
 }
