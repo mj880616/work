@@ -130,3 +130,14 @@ test('LIB-최근폴더로가기(S61-12): \'최근\' 파일 줄만 맨 위 [폴�
   assert.equal(treeMenuItems({source: 'od'}, {goto: true})[0].label, '폴더로 가기');
   assert.equal(treeMenuItems({source: 'od'}, {goto: true})[0].sep, undefined);
 });
+
+test('FILES-선택드래그(S70-30): select면 [선택] — 파일은 맨 위(최근은 [폴더로 가기] 다음), 폴더는 [이 폴더로 들어가기] 다음, 없으면 없음', () => {
+  const ids = (row, opt) => treeMenuItems(row, opt).map(x => x.id);
+  for (const source of ['od', 'gd', 'ph', 'pc']) {
+    assert.equal(ids({source}, {select: true})[0], 'select', source);
+    assert.deepEqual(ids({source}, {select: true, goto: true}).slice(0, 2), ['goto', 'select'], source);
+    assert.deepEqual(ids({source, is_folder: true, parent_id: 'x'}, {select: true}).slice(0, 2), ['only', 'select'], source);
+    assert.ok(!ids({source}).includes('select'), source);
+  }
+  assert.equal(treeMenuItems({source: 'od'}, {select: true})[0].label, '선택');
+});
