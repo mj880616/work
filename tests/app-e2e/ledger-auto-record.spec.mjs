@@ -4,8 +4,7 @@ import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 
-// LEDGER-자동기록 3단계(앱): 재료 저장 → 10분 묶어 ai-assist {kind:"ledger_auto"} 한 번(모의 서버) → 원장 목록에 '자동' 꼬리표·확인필요
-// → 근거 ‹원문› → 상세 ⋯ [이번 자동 기록 취소](app_auto_ledger_undo). 맨 위 Claude용 사본 상태 한 줄, [지금 Drive로 내보내기] 버튼 없음.
+// LEDGER-자동기록 3단계(앱): 재료 저장 → 10분 묶어 ai-assist {kind:"ledger_auto"} 한 번(모의 서버). 원장 화면은 없다(LEDGER-화면에서빼기).
 // 서버가 배포 전(unsupported_kind)이면 저장은 그대로 되고 한 번만 묻고 조용히 멈춘다. Supabase는 시험 응답(가상 값만).
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'ledger-a-user',email:'ledger-a@example.org',user_metadata:{display_name:'Ledger QA'}};
@@ -81,7 +80,7 @@ async function mockApp(page,{server=true}={}){
  });
  return db;
 }
-async function signIn(page,view='ledger'){
+async function signIn(page,view='home'){
  await page.clock.install();
  await page.goto(testOrigin+'/app/?view='+view);
  await enterLogin(page);
@@ -95,21 +94,21 @@ const saveUpdate=page=>page.evaluate(ws=>window.KPTURuntime.api('/rest/v1/app_no
 const autoCalls=db=>db.ai.filter(b=>b&&JSON.parse(b).kind==='ledger_auto');
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth);
 
+// LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장은 AI가 쓰는 뒤쪽 자료라 사용자 화면이 없다. 옛 ?view=ledger 주소는 홈을 열고,
+// 하루 카드의 '새로 기록된 약속' 줄도 없다. 자동 기록(저장 → 10분 묶어 ai-assist ledger_auto 한 번)과 Claude용 사본 갱신은 화면 없이 그대로다.
 for(const [name,width] of [['PC',1280],['phone',390]]){
- test(`원장 자동 기록: 저장 → 10분 뒤 한 번 → '자동'·확인필요 → ‹원문› → 이번 자동 기록 취소 (${name} ${width}px)`,async({page})=>{
+ test(`원장 화면 없음: 옛 주소는 홈, '새로 기록된 약속' 줄 없음, 자동 기록·사본 갱신은 그대로 (${name} ${width}px)`,async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width,height:900});
   const db=await mockApp(page);
-  await signIn(page);
-  await expect(page.locator('#ledgerView')).toBeVisible({timeout:15000});
-  // 맨 위 상태 한 줄, 내보내기 버튼·칸 없음.
-  const line=page.locator('#ledgerExportRoot [data-le-line]');
-  await expect(line).toHaveAttribute('data-le-line','ok',{timeout:15000});
-  await expect(line).toContainText('Claude용 사본');
-  await expect(page.getByRole('button',{name:'지금 Drive로 내보내기'})).toHaveCount(0);
-  await expect(page.locator('[data-le-action="export"]')).toHaveCount(0);
-  const order=await page.evaluate(()=>[...document.querySelector('#ledgerView .lg-root').children].map(e=>e.id));
-  expect(order[0]).toBe('ledgerExportRoot');
+  await signIn(page,'ledger');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current),{timeout:15000}).toBe('home');
+  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#ledgerView')).toHaveCount(0);
+  expect(new URL(page.url()).searchParams.get('view')).not.toBe('ledger');
+  await page.evaluate(()=>window.KPTURouter.go('ledger'));
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('home');
+  await expect(page.locator('#ledgerView')).toHaveCount(0);
 
   await saveUpdate(page);
   expect(db.saves).toHaveLength(1);
@@ -118,42 +117,15 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await page.clock.fastForward(1000);
   await expect.poll(()=>autoCalls(db).length,{timeout:10000}).toBe(1);
   expect(JSON.parse(autoCalls(db)[0])).toEqual({kind:'ledger_auto'});
-
-  const row=page.locator('[data-lb-row]').filter({hasText:'가상 기관 자료 회신 약속'});
-  await expect(row).toBeVisible({timeout:10000});
-  await expect(row.locator('[data-lb-auto]')).toHaveText('자동');
-  await expect(row).toContainText('확인필요');
-  await row.locator('[data-lb-action="open"]').click();
-  const detail=row.locator('.lb-detail');
-  await expect(detail.locator('[data-lb-web2="basket"]')).toContainText('업데이트 · 10/24',{timeout:10000});
-  await expect(detail.getByRole('button',{name:'‹원문›'})).toBeVisible();
-  expect(await noSideScroll(page)).toBe(true);
-
-  await row.locator('summary[aria-label^="기록 관리"]').click();
-  await row.getByRole('menuitem',{name:'이번 자동 기록 취소'}).click();
-  await answerAsk(page,true);
-  await expect.poll(()=>db.undo.length).toBe(1);
-  expect(db.undo[0]).toEqual({p_run_id:RUN});
-  await expect(page.locator('[data-lb-notice]')).toContainText('이번 자동 기록을 취소했어요');
-  await expect(page.locator('[data-lb-row]').filter({hasText:'가상 기관 자료 회신 약속'})).toHaveCount(0,{timeout:10000});
-  // 원장이 바뀌어 사본 갱신이 10분 뒤 한 번 예약된다.
+  // 원장이 바뀌어 사본 갱신이 10분 뒤 한 번 예약된다(화면 없이).
   await page.clock.fastForward(WAIT+1000);
   await expect.poll(()=>db.exports.length,{timeout:10000}).toBeGreaterThanOrEqual(1);
+  // 홈 어디에도 원장 줄이 없다(하루 카드 '새로 기록된 약속', 칩 뒤 '내일 약속').
+  await expect(page.locator('#homeView')).not.toContainText('새로 기록된 약속');
+  await expect(page.locator('#homeView [data-journal-ledger], #homeView [data-home-summary-promises]')).toHaveCount(0);
+  expect(await noSideScroll(page)).toBe(true);
  });
 }
-
-test('원장 자동 기록: ‹원문›을 누르면 그 업데이트가 열린다',async({page})=>{
- test.setTimeout(90000);
- const db=await mockApp(page);
- await signIn(page);
- await saveUpdate(page);
- await page.clock.fastForward(WAIT);
- await expect.poll(()=>autoCalls(db).length,{timeout:10000}).toBe(1);
- const row=page.locator('[data-lb-row]').filter({hasText:'가상 기관 자료 회신 약속'});
- await row.locator('[data-lb-action="open"]').click();
- await row.getByRole('button',{name:'‹원문›'}).click();
- await expect(page.locator('#basketView')).toBeVisible({timeout:15000});
-});
 
 test('원장 자동 기록: 서버 배포 전이면 저장은 그대로, 한 번만 묻고 조용히 멈춤',async({page})=>{
  test.setTimeout(90000);

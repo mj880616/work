@@ -75,7 +75,7 @@ export async function screenSameFiles(files, {anchor = null, rt = globalThis.win
   const lines = askLines(found);
   const actions = [
     {value: 'skip', label: '올리지 않기', kind: 'row-act'},
-    {value: 'upload', label: '그래도 올리기', kind: useExisting ? 'secondary' : 'primary'},
+    {value: 'upload', label: '그래도 업로드', kind: useExisting ? 'secondary' : 'primary'},
     ...(useExisting ? [{value: 'use', label: '있는 것 쓰기', kind: 'primary'}] : []),
   ];
   const rest = list.length - found.size;
