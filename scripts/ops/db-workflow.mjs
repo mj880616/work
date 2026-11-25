@@ -67,6 +67,7 @@ export function fullFlowSummary(plan) {
     + (r ? `검토 표시: 정책 ${r.policies}개(restrictive ${r.restrictive}) · 권한 부여 ${r.grants}개(authenticated·service_role만, 이번 파일의 새 표·함수만) · 트리거 ${r.triggers}개 · 회수 ${r.revokes}개`
       + (plan.policyReplacements?.length ? ` · 정책 교체 ${plan.policyReplacements.map(x => `\`${x.table}.${x.name}\``).join(', ')}(운영 현재 정의와 비교해 넓어지면 멈춤)` : '')
       + (plan.newColumnGrantTables?.length ? ` · 기존 표 새 칸 권한 ${plan.newColumnGrantTables.map(t => `\`${t}\``).join(', ')}(이번 파일이 더한 칸만, authenticated만, 운영 RLS 켜짐 확인 후 진행)` : '')
+      + (r.cron?.length ? ` · cron 예약 등록 ${r.cron.map(n => `\`${n}\``).join(', ')}(고정 이름, 명령 안 권한·외부 호출 거절)` : '')
       + ` · SECURITY DEFINER 함수 ${r.definer.length ? r.definer.map(n => `\`${n}\``).join(', ') : '없음'}\n\n` : '')
     + `### snapshot (읽기 전용, artifact로 저장)\n\n파일: \`${plan.snapshot.path}\` · SHA256: \`${plan.snapshot.sha256}\`\n\n${sqlBlock(plan.snapshot.sql)}\n`
     + (plan.checks.precheck?.expect?.size ? `precheck expect 주석 ${plan.checks.precheck.expect.size}개, 나머지 항목은 \`예\`여야 합니다.\n\n` : 'precheck 항목은 모두 `예`여야 합니다.\n\n')
