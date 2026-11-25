@@ -52,7 +52,7 @@ import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, titleKey, type PageRule } from "./page.ts";
 import { needsAttachment, withAttachment } from "./attach.ts";
-import { peekTitle } from "../_shared/page-title.ts";
+import { countWhy, peekTitleWhy } from "../_shared/page-title.ts";
 import { createHandPhotos, HAND_PHOTO_REQ_MAX, HandPhotoFail, photoSizeOf } from "./hand-photo.ts";
 import { BODY_LIMITS, bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
 import { googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_MAX_CHARS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
@@ -1124,7 +1124,7 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
   const pages = new Map<string, FeedReader>();
   const pageOf = (s: NewsSource) => { let r = pages.get(s.key); if (!r) { r = readers.page(s); pages.set(s.key, r); } return r; };
   let retry = { done: 0, deferred: 0 };
-  let heads = { tried: 0, read: 0 };
+  let heads: { tried: number; read: number; why?: Record<string, number> } = { tried: 0, read: 0 };
   if (!onlyWs) {
     try {
       const on = await enabledMedia(db);
@@ -1138,7 +1138,7 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
     try { retry = await runRobotsRetry(db, reader, pageOf, ai, nowMs, startMs, clock, chargeWs); } catch { log("robots_retry_failed"); }
     try { heads = await runTitleRetry(db, reader, nowMs, startMs, clock); } catch { log("title_retry_failed"); }
   }
-  log("pending_done", { done, deferred, remaining, stale, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, head_retry: heads.tried, head_read: heads.read, ...states });
+  log("pending_done", { done, deferred, remaining, stale, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, head_retry: heads.tried, head_read: heads.read, head_why: heads.why ?? {}, ...states });
   return { ok: true, step: "pending", done, deferred, remaining, stale, states, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, head_retry: heads.tried, head_read: heads.read };
 }
 
@@ -1148,13 +1148,14 @@ export async function runTitleRetry(db: Db, reader: FeedReader, nowMs: number, s
   const arts = await db.get(`app_news_articles?title=is.null&state=eq.failed&lane=neq.media&fetched_at=lte.${encodeURIComponent(upTo)}&fetched_at=gt.${encodeURIComponent(from)}` +
     `&select=id,url,url_key&order=fetched_at.desc&limit=${TITLE_RETRY_PER_RUN}`);
   let tried = 0, read = 0;
+  const why: Record<string, number> = {}; // 못 읽은 까닭 코드별 건수(S70-17, 주소·제목 없음)
   for (const a of arts) {
     if (clock() - startMs > RUN_BUDGET_MS) break;
     if (typeof a.id !== "string" || !UUID.test(a.id) || typeof a.url !== "string" || typeof a.url_key !== "string" || !a.url_key) continue;
     tried++;
     const iso = new Date(clock()).toISOString();
     let got = null;
-    try { got = await peekTitle(reader, a.url); } catch { got = null; }
+    try { const p = await peekTitleWhy(reader, a.url); got = p.peek; if (!got) countWhy(why, p.why); } catch { got = null; countWhy(why, "error"); }
     if (!got) continue; // 못 읽으면 그대로(화면은 '못 읽은 기사 · 도메인', [직접 넣기]·열기는 그대로)
     const title = newsTitle(got.title);
     const patch: Row = { title, title_key: titleKey(title), updated_at: iso };
@@ -1162,7 +1163,7 @@ export async function runTitleRetry(db: Db, reader: FeedReader, nowMs: number, s
     read++;
     await db.send("PATCH", `app_news_items?url_key=eq.${encodeURIComponent(a.url_key)}&title=is.null`, patch, "return=minimal");
   }
-  return { tried, read };
+  return { tried, read, why };
 }
 
 // robots 때문에 원문이 빈 지난 기사 다시 읽기(S68-25). 공용 기사(state robots)를 새 것부터 ROBOTS_RETRY_PER_RUN건까지, 같은 주소의 내 옛 줄과 함께 한 번 읽는다.

@@ -39,12 +39,27 @@ export function titleKey(title: string): string | null {
 export type Peek = { title: string; publisher: string | null };
 // 그 주소 한 장만 읽어 제목을 얻는다. 못 읽으면(막힘·늦음·제목 없음·봇 확인) null — 부르는 쪽은 그 줄을 그대로 두어 다음 수집이 다시 읽게 한다.
 export async function peekTitle(reader: FeedReader, url: string): Promise<Peek | null> {
+  return (await peekTitleWhy(reader, url)).peek;
+}
+
+// S70-17(NEWS-동아못읽음): 못 읽은 까닭 코드도 함께(로그 숫자용 — 주소·제목은 담지 않는다).
+// why: 'ok' · 읽기 코드(timeout·network·http_403·redirect_loop·redirect_outside·too_large·url_outside 등, feed-fetch.ts) · 'bot_check' · 'no_title'.
+// 동아일보 공유 기사가 '못 읽은 기사'로 남았을 때 화면·저장소만으로는 까닭(사이트 응답 쪽인지 제목 뽑기 쪽인지)을 가를 수 없어서 더했다.
+export type PeekWhy = { peek: Peek | null; why: string };
+export async function peekTitleWhy(reader: FeedReader, url: string): Promise<PeekWhy> {
   const got = await reader.get(url, ACCEPT_HTML);
-  if (!got.ok) return null;
+  if (!got.ok) return { peek: null, why: whyCode(got.code) };
   const head = got.text.slice(0, 400000);
-  if (looksLikeBotCheck(head)) return null;
+  if (looksLikeBotCheck(head)) return { peek: null, why: "bot_check" };
   const title = pageTitle(head);
-  if (!title) return null;
+  if (!title) return { peek: null, why: "no_title" };
   const publisher = cut(metaContent(head, ["og:site_name", "application-name"]) ?? "", 120) || null;
-  return { title, publisher };
+  return { peek: { title, publisher }, why: "ok" };
+}
+// 코드 모양만 통과(로그에 글자가 새지 않게). 모르는 모양은 'other'.
+const whyCode = (code: string) => /^(http_\d{3}|[a-z_]{2,24})$/.test(code) ? code : "other";
+// 까닭 코드별 건수 더하기(로그용).
+export function countWhy(counts: Record<string, number>, why: string): Record<string, number> {
+  counts[why] = (counts[why] ?? 0) + 1;
+  return counts;
 }

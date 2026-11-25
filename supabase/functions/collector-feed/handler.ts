@@ -70,7 +70,7 @@
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "../_shared/news-url.ts";
 import { makeFeedReader } from "../_shared/feed-fetch.ts";
-import { peekTitle, titleKey } from "../_shared/page-title.ts";
+import { countWhy, peekTitleWhy, titleKey } from "../_shared/page-title.ts";
 import { readerUserAgent } from "../_shared/reader-headers.ts";
 import { aiConfigFrom, callOpenAi, estimateKrw, isIncomplete, outputText, tokenCount } from "../_shared/openai-responses.ts";
 import { organizationOptions, projectOptions } from "../ai-assist/library-fill.ts";
@@ -1111,10 +1111,11 @@ function makePeeker(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>,
       allow: openArticleUrl, now, skipRobots: true });
     const start = now();
     let read = 0, missed = 0, late = 0;
+    const why: Record<string, number> = {}; // 못 읽은 까닭 코드별 건수(S70-17, 주소·제목 없음)
     for (const r of list) {
       if (now() - start > TITLE_PEEK_BUDGET_MS) { late++; continue; }
       let got = null;
-      try { got = await peekTitle(reader, r.url); } catch { got = null; }
+      try { const p = await peekTitleWhy(reader, r.url); got = p.peek; if (!got) countWhy(why, p.why); } catch { got = null; countWhy(why, "error"); }
       if (!got) { missed++; continue; }
       const patch: Record<string, unknown> = { title: got.title, title_key: titleKey(got.title), updated_at: new Date(now()).toISOString() };
       if (got.publisher) patch.publisher = got.publisher;
@@ -1124,7 +1125,7 @@ function makePeeker(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>,
         read++;
       } catch { missed++; }
     }
-    log("title_peek", { read, missed, late });
+    log("title_peek", { read, missed, late, why });
   };
 }
 
