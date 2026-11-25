@@ -87,7 +87,7 @@ test('정적: 사용자 확인(/auth/v1/user·auth.getUser)을 하는 모든 Web
     'pc0921-board', 'phone-push', 'public-page-edit', 'public-policy-drive', 'record-backup', 'share-page-media', 'workspace-drive',
   ]);
   // 사용자 확인이 없는 함수(서버 예약 키·공개 읽기·비밀번호 확인)는 검사를 부르지 않아도 된다. 다만 목록이 바뀌면 다시 보게 고정한다.
-  assert.deepEqual(rows.filter(r => r.authSites === 0).map(r => r.name).sort(), ['collector-feed', 'pc0914-checklist', 'push-notifications', 'release-notes-sync', 'share-page-read']);
+  assert.deepEqual(rows.filter(r => r.authSites === 0).map(r => r.name).sort(), ['collector-feed', 'csp-report', 'pc0914-checklist', 'push-notifications', 'release-notes-sync', 'share-page-read']);
 });
 
 test('정적: 검사 공용 파일은 Deno 전역·서버 키·바깥 주소를 쓰지 않는 순수 함수다', () => {

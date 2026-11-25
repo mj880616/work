@@ -147,7 +147,7 @@ for (const width of [412, 884, 1280]) {
     await page.evaluate(() => window.KPTURouter.go('reading'));
     await expect(page.locator('#readingView')).toBeVisible();
     await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
-    await expect(rlist(page).locator('.rd-switch [data-filter-value]')).toHaveText(['전체', '안 읽음 0', '밑줄', '메모']);
+    await expect(rlist(page).locator('.rd-switch [data-filter-value]')).toHaveText(['전체', '안 읽음', '밑줄', '메모']);
     await expect(rlist(page).locator('.rd-switch [data-filter-value="news"]')).toHaveCount(0);
     // ① 한 표의 줄을 저장 시각순으로: N1(10/06) · R1(10/05, 같은 주소 사회운동 글에 연결) · N2(10/04). 연결된 줄도 꼬리표 없이 평범한 줄.
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
@@ -296,7 +296,7 @@ test('읽을 거리: News 기능이 없는 사람은 [News] 칩이 없고 News �
   const s = await server(page, { plain: true });
   await goReading(page, 1280);
   await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
-  await expect(rlist(page).locator('.rd-switch [data-filter-value]')).toHaveText(['전체', '안 읽음 0', '밑줄', '메모']);
+  await expect(rlist(page).locator('.rd-switch [data-filter-value]')).toHaveText(['전체', '안 읽음', '밑줄', '메모']);
   await expect.poll(() => titles(page)).toEqual([T_R1]);
   await expect(rlist(page).locator('.rd-src-tag')).toHaveCount(0);
   await page.waitForTimeout(500);

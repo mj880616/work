@@ -1,0 +1,137 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 검색 칸 하나로 — 맨 위 칸이 지금 화면 찾기를 겸함</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23;font-size:13px}
+h1{font-size:15px;margin:0 0 4px}.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px;max-width:60em}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}.cap small{font-weight:400;color:#6e6c60}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:4px}
+.lab{font-size:12px;color:#6e6c60}
+.pc{width:640px;max-width:100%;box-sizing:border-box}
+.ph{width:330px;max-width:100%;box-sizing:border-box}
+.scr{background:#f7f5ee;border:1px solid #d8d2c2;border-radius:10px;padding:6px 8px 10px;overflow:hidden}
+.bar{display:flex;align-items:center;gap:6px;min-height:32px;white-space:nowrap}
+.bar+.bar{margin-top:6px}
+.ic{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;color:#55534a;flex:none}
+.logo{width:20px;height:20px;border-radius:5px;background:#2a2a23;flex:none}
+.name{font-weight:700;flex:none}
+.where{color:#55534a;flex:none}
+.find{flex:1 1 auto;min-width:90px;display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:1px solid #d8d2c2;border-radius:8px;background:#fffefa;color:#8b8777;overflow:hidden}
+.find.on{border-color:#4d5a2e;color:#2a2a23}
+.find i{font-style:normal}
+.chip{flex:none;height:26px;display:inline-flex;align-items:center;padding:0 8px;border:1px solid #d8d2c2;border-radius:7px;background:#fffefa;font-size:12px}
+.chip.g{background:#ebe8de;border-color:#ebe8de}
+.more{flex:none;width:26px;text-align:center;color:#55534a}
+.plus{flex:none;width:26px;text-align:center;font-size:16px;color:#55534a}
+.add{flex:none;color:#2a2a23;font-size:12px}
+.acc{flex:none;color:#55534a;font-size:12px}
+.seg{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:#ebe8de;font-size:12px;flex:none}
+.seg span{padding:3px 7px;border-radius:6px}.seg span.on{background:#fffefa;font-weight:700}
+.list{margin-top:6px;border:1px solid #e2ddd0;border-radius:8px;background:#fffefa}
+.it{padding:6px 10px;border-top:1px solid #ece7da}.it:first-child{border-top:0}
+.it mark{background:#efe2b8;color:inherit}
+.dim{color:#a9a493}
+.gone{position:relative;opacity:.45}
+.gone::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid #b8663a}
+.new{outline:2px solid #b8663a;outline-offset:2px;border-radius:7px}
+.all{padding:6px 10px;border-top:1px dashed #d8d2c2;color:#4d5a2e;font-size:12px}
+.pop{margin:2px 0 0 auto;width:260px;border:1px solid #d8d2c2;border-radius:8px;background:#fffefa;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.pop .all{border-top:0}
+table{border-collapse:collapse;font-size:12px;margin-top:6px;background:#fffefa}
+th,td{border:1px solid #d9d3c3;padding:4px 6px;text-align:left;vertical-align:top}
+thead th{background:#efece2;font-weight:600}
+</style></head><body>
+<h1>검색 칸 하나로 (S70-54 UI-검색창하나로)</h1>
+<p class="note">맨 위 검색 칸이 지금 화면 안 찾기를 겸한다. 노트 화면이면 칸 안내글이 ‘노트에서 찾기’이고, 치는 대로 노트 목록이 걸러진다(지금 화면 안 칸이 하던 걸러 내기 그대로). 칸 바로 아래(폰도 같은 자리)에 작은 한 줄 ‘전체에서 「…」 찾기 →’가 떠서 누르면 지금의 전체 검색 화면으로 간다. 화면 안 찾기가 없는 화면(홈 등)은 지금처럼 전체 검색이다.<br>
+화면 안 검색 칸 줄은 자리째 없앤다(숨김 아님). 그 줄에 있던 고르기·⋯·만들기 단추는 맨 위 줄 검색 칸 오른쪽에 작은 칩 크기로 붙는다. 주황 테두리 = 새로 옮겨 온 것, 줄 그은 것 = 없어지는 것.</p>
+
+<div class="cap">① 노트 <small>PC 884(폴드 펼침 넓은 틀)·폰 390</small></div>
+<div class="row">
+ <div class="col pc"><span class="lab">지금 — PC 884</span><div class="scr">
+  <div class="bar"><span class="ic">◫</span><span class="ic">‹</span><span class="ic">›</span><span class="where">노트</span><span class="find">⌕ <i>전체 검색</i></span><span class="add">+ 추가</span><span class="acc">계정 ▾</span></div>
+  <div class="bar gone"><span class="find">노트 검색</span><span class="seg"><span class="on">폴더</span><span>목록</span><span>보드</span><span>태그</span><span>메모</span><span>달력</span></span><span class="more">⋯</span></div>
+  <div class="list"><div class="it">교섭 준비 메모</div><div class="it">회의 정리</div></div>
+ </div></div>
+ <div class="col pc"><span class="lab">바꾼 뒤 — PC 884 (‘교섭’을 친 모습)</span><div class="scr">
+  <div class="bar"><span class="ic">◫</span><span class="ic">‹</span><span class="ic">›</span><span class="where">노트</span><span class="find on">⌕ <i>교섭</i></span><span class="more new">⋯</span><span class="add">+ 추가</span><span class="acc">계정 ▾</span></div>
+  <div class="pop"><div class="all">전체에서 「교섭」 찾기 →</div></div>
+  <div class="bar"><span class="seg"><span class="on">폴더</span><span>목록</span><span>보드</span><span>태그</span><span>메모</span><span>달력</span></span></div>
+  <div class="list"><div class="it"><mark>교섭</mark> 준비 메모</div></div>
+ </div><span class="lab">보기 탭(폴더·목록·보드…)은 ‘고르기’가 아니라 화면 탭이라 본문 맨 위 한 줄로 남는다(읽을 거리 [전체·사회운동·언론…] 탭 줄과 같은 자리).</span></div>
+</div>
+<div class="row" style="margin-top:8px">
+ <div class="col ph"><span class="lab">지금 — 폰 390</span><div class="scr">
+  <div class="bar"><span class="logo"></span><span class="name">노트</span></div>
+  <div class="bar gone"><span class="find">노트 검색</span><span class="more">⋯</span></div>
+  <div class="list"><div class="it">교섭 준비 메모</div><div class="it">회의 정리</div></div>
+ </div></div>
+ <div class="col ph"><span class="lab">바꾼 뒤 — 폰 390 (닫힘 → 돋보기 누름)</span><div class="scr">
+  <div class="bar"><span class="logo"></span><span class="name">노트</span><span style="flex:1"></span><span class="ic new">⌕</span><span class="more new">⋯</span></div>
+  <div class="bar"><span class="logo"></span><span class="find on new">⌕ <i>교섭</i></span><span class="more">⋯</span></div>
+  <div class="pop"><div class="all">전체에서 「교섭」 찾기 →</div></div>
+  <div class="list"><div class="it"><mark>교섭</mark> 준비 메모</div></div>
+ </div><span class="lab">폰은 머리 줄이 좁아 검색은 돋보기 하나. 누르면 화면 이름 자리에 칸이 펼쳐지고, 비운 채 밖을 누르면 다시 돋보기.</span></div>
+</div>
+
+<div class="cap">② 읽을 거리 <small>매체 고르기·⋯가 맨 위 줄로</small></div>
+<div class="row">
+ <div class="col pc"><span class="lab">지금 — PC 884</span><div class="scr">
+  <div class="bar"><span class="ic">◫</span><span class="ic">‹</span><span class="ic">›</span><span class="where">읽을 거리</span><span class="find">⌕ <i>전체 검색</i></span><span class="add">+ 추가</span><span class="acc">계정 ▾</span></div>
+  <div class="bar"><span class="seg"><span class="on">전체</span><span>사회운동</span><span>언론</span><span>밑줄</span><span>메모</span></span></div>
+  <div class="bar gone"><span class="find">읽을 거리 찾기 — 제목·문장</span><span class="chip">매체: 전체 ▾</span><span class="more">⋯</span></div>
+  <div class="list"><div class="it">가짜 채널 기사</div><div class="it">가짜 키워드 기사</div></div>
+ </div></div>
+ <div class="col pc"><span class="lab">바꾼 뒤 — PC 884</span><div class="scr">
+  <div class="bar"><span class="ic">◫</span><span class="ic">‹</span><span class="ic">›</span><span class="where">읽을 거리</span><span class="find">⌕ <i>읽을 거리에서 찾기</i></span><span class="chip new">매체: 전체 ▾</span><span class="more new">⋯</span><span class="add">+ 추가</span><span class="acc">계정 ▾</span></div>
+  <div class="bar"><span class="seg"><span class="on">전체</span><span>사회운동</span><span>언론</span><span>밑줄</span><span>메모</span></span></div>
+  <div class="list"><div class="it">가짜 채널 기사</div><div class="it">가짜 키워드 기사</div></div>
+ </div><span class="lab">Enter = 지금처럼 문장까지 찾기([전체]·[언론]은 서버 찾기 바로).</span></div>
+ <div class="col ph"><span class="lab">바꾼 뒤 — 폰 390</span><div class="scr">
+  <div class="bar"><span class="logo"></span><span class="name">읽을 거리</span><span style="flex:1"></span><span class="ic new">⌕</span><span class="chip new">매체: 전체 ▾</span><span class="more new">⋯</span></div>
+  <div class="bar"><span class="seg"><span class="on">전체</span><span>사회운동</span><span>언론</span><span>밑줄</span><span>메모</span></span></div>
+  <div class="list"><div class="it">가짜 채널 기사</div></div>
+ </div></div>
+</div>
+
+<div class="cap">③ 자료실 <small>[사업영역]·[분류]·[+]·⋯가 맨 위 줄로</small></div>
+<div class="row">
+ <div class="col pc"><span class="lab">지금 — PC 884</span><div class="scr">
+  <div class="bar"><span class="ic">◫</span><span class="ic">‹</span><span class="ic">›</span><span class="where">자료실</span><span class="find">⌕ <i>전체 검색</i></span><span class="add">+ 추가</span><span class="acc">계정 ▾</span></div>
+  <div class="bar gone"><span class="chip g">사업영역 ▾</span><span class="chip g">분류: 회의 빼고 ▾</span><span class="find">제목·출처·태그 검색</span><span class="plus">+</span><span class="more">⋯</span></div>
+  <div class="list"><div class="it">가짜 보고서</div></div>
+ </div></div>
+ <div class="col pc"><span class="lab">바꾼 뒤 — PC 884</span><div class="scr">
+  <div class="bar"><span class="ic">◫</span><span class="ic">‹</span><span class="ic">›</span><span class="where">자료실</span><span class="find">⌕ <i>자료실에서 찾기</i></span><span class="chip g new">사업영역 ▾</span><span class="chip g new">분류 ▾</span><span class="plus new">+</span><span class="more new">⋯</span><span class="add">+ 추가</span><span class="acc">계정 ▾</span></div>
+  <div class="list"><div class="it">가짜 보고서</div></div>
+ </div><span class="lab">폭이 모자라면 검색 칸이 먼저 줄어든다. 위 줄 [+ 추가](빠른 추가)는 그대로.</span></div>
+ <div class="col ph"><span class="lab">바꾼 뒤 — 폰 390 (지금도 돋보기 → 칸, 그 모양을 앱 머리 줄로)</span><div class="scr">
+  <div class="bar"><span class="logo"></span><span class="name">자료실</span><span style="flex:1"></span><span class="ic">⌕</span><span class="plus">+</span><span class="more">⋯</span></div>
+  <div class="bar"><span class="chip g">사업영역 ▾</span><span class="chip g">분류: 회의 빼고 ▾</span></div>
+  <div class="list"><div class="it">가짜 보고서</div></div>
+ </div><span class="lab">폰은 고르기 두 개가 머리 줄에 다 안 들어가 지금 자리(머리 줄 바로 아래 한 줄) 그대로.</span></div>
+</div>
+
+<div class="cap">④ 조직 관리 <small>S70-53과 같은 자리 규칙: [+ 담당조직]·⋯를 검색 칸 오른쪽으로</small></div>
+<div class="row">
+ <div class="col pc"><span class="lab">지금 — PC 884</span><div class="scr">
+  <div class="bar"><span class="ic">◫</span><span class="ic">‹</span><span class="ic">›</span><span class="where">조직 관리</span><span class="find">⌕ <i>전체 검색</i></span><span class="add">+ 추가</span><span class="acc">계정 ▾</span></div>
+  <div class="bar"><span class="seg"><span class="on">목록</span><span>전체 표</span></span></div>
+  <div class="bar gone"><span style="flex:1"></span><span class="chip">+ 담당조직</span><span class="more">⋯</span></div>
+  <div class="list"><div class="it">테스트 조직</div><div class="it">가짜 지부</div></div>
+ </div></div>
+ <div class="col pc"><span class="lab">바꾼 뒤 — PC 884 (‘가짜’를 친 모습)</span><div class="scr">
+  <div class="bar"><span class="ic">◫</span><span class="ic">‹</span><span class="ic">›</span><span class="where">조직 관리</span><span class="find on">⌕ <i>가짜</i></span><span class="chip new">+ 담당조직</span><span class="more new">⋯</span><span class="acc">계정 ▾</span></div>
+  <div class="pop"><div class="all">전체에서 「가짜」 찾기 →</div></div>
+  <div class="bar"><span class="seg"><span class="on">목록</span><span>전체 표</span></span></div>
+  <div class="list"><div class="it"><mark>가짜</mark> 지부</div></div>
+ </div><span class="lab">조직 관리는 지금 화면 안 찾기가 없었다. 담당조직 이름으로만 거른다(목록을 그리는 같은 함수 안에서, 새 서버 검색 없음).</span></div>
+</div>
+
+<div class="cap">맨 위 칸이 하는 일(모든 폭 같음)</div>
+<table><thead><tr><th>지금 화면</th><th>칸 안내글</th><th>칠 때</th><th>Enter</th><th>Esc</th><th>‘전체에서 「…」 찾기 →’</th></tr></thead><tbody>
+<tr><td>화면 안 찾기가 있는 화면</td><td>‘노트에서 찾기’ 등</td><td>그 화면 목록이 바로 걸러짐</td><td>화면이 Enter를 쓰면 그대로(읽을 거리 문장 찾기)</td><td>칸 비우기 = 거르기 풀기</td><td>누르면 같은 낱말로 전체 검색 화면</td></tr>
+<tr><td>그 밖(홈 등)</td><td>‘전체 검색’</td><td>지금처럼 결과 창</td><td>지금처럼</td><td>지금처럼</td><td>—</td></tr>
+</tbody></table>
+<p class="note">키보드: ‘/’·Ctrl+K는 맨 위 칸으로(지금 화면에 찾기가 있으면 그 화면 찾기). 다른 화면으로 가면 그 화면 찾기 글자는 그 화면에 남고(돌아오면 그대로), 맨 위 칸은 새 화면 것으로 바뀐다.</p>
+</body></html>

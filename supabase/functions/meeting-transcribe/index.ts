@@ -62,6 +62,7 @@ import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meet
 import { readOwnerOrg } from '../_shared/owner-role.mjs'; // S67-51: AI가 부르는 말에 맡긴 사람 프로필 소속도
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import { addAiRequest, readTodayAiUsage } from '../_shared/ai-daily-usage.mjs';
+import { FUNCTION_FEATURES } from '../_shared/ai-features.mjs';
 // AI-사람별한도: 작업공간 이번 달 AI 한도(기본 3,000원, 운영자 제외) 이상이면 전사를 시작하지 않는다(녹음 전사 월 상한과 별개).
 import { AiCapError, assertAiUserCap } from '../_shared/ai-user-cap.mjs';
 import {
@@ -967,6 +968,8 @@ async function recRestore(user: { id: string }, body: Record<string, unknown>) {
 // REC-초안버리기(S60-20): job_discard {job_id}·job_restore {job_id} — 끝난 결과에 '버림' 표시를 넣고 빼기(job_list에서 빠짐, 소리·글은 그대로).
 // REC-정리멈춤반복(11/09): 서버 요약도 Web2 전용 열쇠만 읽는다(결정 D2, docs/design/ai-server.md). 옛 이름 OPENAI_API_KEY는 Web2 열쇠가 아니라 OpenAI가 401로 거절해 요약이 늘 draft_failed였다.
 const OPENAI = () => (Deno.env.get('WEB2_OPENAI_API_KEY') || '').trim();
+// S70-55 I-3: 서버 요약(OpenAI)은 기능별 표에 'meeting'으로 1행(_shared/ai-features.mjs). Gemini 전사는 app_ai_external_usage에 따로 남는다.
+const AI_FEATURE = FUNCTION_FEATURES['meeting-transcribe'];
 // 사람이 봐야 하는 요약 초안(답 원문 보존·칸 어긋남). 같은 실행 안에서 serverDraft → runStep으로만 넘긴다(저장하지 않음).
 const draftNeedsReview = new WeakSet<object>();
 // deno-lint-ignore no-explicit-any
@@ -1257,7 +1260,7 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
     throw e instanceof Fail ? e : new Fail(late ? 'draft_timeout' : 'draft_failed');
   }
   const u = d.usage || {};
-  if (await addAiRequest(admin, { workspaceId: job.workspace_id, userId: job.created_by, day: today.day, row: today.row, usage: u }) === 'failed') console.warn('meeting-transcribe: draft usage not recorded');
+  if (await addAiRequest(admin, { workspaceId: job.workspace_id, userId: job.created_by, day: today.day, row: today.row, usage: u, feature: AI_FEATURE, model: d.model }) === 'failed') console.warn('meeting-transcribe: draft usage not recorded');
   // 답 상태별 실패 갈래: 답이 길어 잘림(max_output_tokens) = draft_cut(부른 쪽이 조각을 나눔), 그 밖 = draft_failed. 로그는 이유 이름만.
   const result = draftResult(d);
   if (result.code) { console.warn('meeting-transcribe: draft answer', stage.kind || 'one', result.why, transcript.length); throw new Fail(result.code); }

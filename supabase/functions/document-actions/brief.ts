@@ -9,6 +9,7 @@
 import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { checkAiUserCap } from "../_shared/ai-user-cap.mjs";
+import { FUNCTION_FEATURES, recordAiUsageEvent } from "../_shared/ai-features.mjs";
 import { BRIEF_PUBLIC, BriefError, createBriefRunner, isUuid } from "./brief-run.mjs";
 import type { DocumentFile, ReadFrom, TextResult } from "../_shared/document-text.ts";
 
@@ -85,6 +86,12 @@ export async function briefAction(action: "brief-start" | "brief-step", body: Re
     }, { url: OPENAI_URL, timeoutMs: 90000, retryDelayMs: 1000, maxResponseBytes: 256 * 1024 });
     const used = result.ok ? result.usage : result.charged ? { input: Math.ceil(input.length * 1.2), output: maxTokens } : { input: 0, output: 0 };
     if (used.input || used.output) { try { await addUsage(used.input, used.output); } catch { log("brief_usage_record_failed"); } }
+    // S70-55 I-3: 기능별 표(app_ai_usage_events, 'library')에도 1행 — 로그인 토큰(소유자 넣기 칸 grant). 숫자·모델 이름만, 실패는 로그만.
+    if (used.input || used.output) {
+      await recordAiUsageEvent((row) => deps.userDb("app_ai_usage_events", { method: "POST", prefer: "return=minimal", body: row }),
+        { workspaceId, day: seoulDay(now()), feature: FUNCTION_FEATURES["document-actions"], model: config.model, calls: 1, input: used.input, output: used.output },
+        (code) => log(code));
+    }
     if (!result.ok) return { ok: false as const, code: result.code };
     return { ok: true as const, text: outputText(result.raw), model: config.model, krw: estimateKrw(used.input, used.output, config.price) };
   };

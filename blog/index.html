@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- BLOG ②(docs/design/blog.md 5절·8절): 명진 블로그 밖 화면. bokdoong.com/ · /board/<key> · /post/<key>를 Worker가 이 파일로 내준다(주소창은 그대로).
+     기본은 검색 엔진 금지(결정 D). 블로그의 [검색 허용]이 켜져 있을 때만 blog.js가 아래 robots를 바꾼다. 로그인 정보·저장소 없음. -->
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://xmlkxfjeagycwttklxjw.supabase.co; connect-src https://xmlkxfjeagycwttklxjw.supabase.co; base-uri 'self'; form-action 'none'">
+<meta name="color-scheme" content="light dark">
+<!-- 화면 주소가 /board/<key>여도 파일은 /work/blog/에서 부르도록(공용 그리기 파일 경로를 저장소 그대로 둠). -->
+<base href="/work/blog/">
+<title>블로그</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../app/theme-tokens.css">
+<link rel="stylesheet" href="../app/sr-blocks.css">
+<link rel="stylesheet" href="../app/ed-doc.css">
+<link rel="stylesheet" href="./blog.css">
+</head>
+<body>
+<header class="bl-head" id="blHead"></header>
+<main id="blMain" class="bl-main" aria-busy="true">
+  <p class="bl-loading" role="status">불러오는 중…</p>
+</main>
+<script type="module" src="./blog.js"></script>
+</body>
+</html>

@@ -157,6 +157,7 @@ export const NEWS_TABS = Object.freeze(['all', 'movement', 'media', 'archive']);
 // S68-33 READ-글자크기: news_font는 읽을 거리 글 보기와 함께 쓰는 본문 글자 크기 다섯 단계(xl·xxl은 migration 20261123010000). 뜻은 text-size-model.mjs.
 // 적용 전에는 xl·xxl 쓰기가 400이라 rejectable로 보내고 화면(text-size.js)이 이번 접속만 기억한다.
 export const NEWS_FONTS = Object.freeze(['s', 'm', 'l', 'xl', 'xxl']);
+export const ROW_SIZES_SAVED = Object.freeze(['s', 'l', 'xl']); // row_size 서버 값(보통 m은 저장하지 않는다, DB 검사와 같음)
 // S61-16 NOTE-내용확대축소: note_zoom = 노트 보기에서 글·HTML 첨부 내용만 키우고 줄이는 배율(%) 하나(모든 기기·모든 노트 같음, 없으면 100).
 // migration 20261113110000. 적용 전에는 쓰기가 400이라 rejectable로 보내고 화면(note-zoom.js)이 이번 접속만 기억한다(알림 없음).
 export const NOTE_ZOOMS = Object.freeze([80, 90, 100, 110, 125, 150]);
@@ -176,7 +177,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -211,6 +212,9 @@ export function validValue(key, value) {
     // migration 20261124170000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다. 기본(이름 오름)은 지운다(null).
     case 'files_sort': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 2
       && FILES_SORT_KEYS.includes(value.key) && (value.dir === 'asc' || value.dir === 'desc');
+    // UI-폴더줄크기(S69-99): row_size = 파일·자료실·노트·사진 폴더·항목 줄 크기 단계 's'|'l'|'xl'(보통 m은 칸을 지움, 모든 화면·모든 기기 같음). 뜻은 row-size-model.mjs.
+    // migration 20261125090000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(row-size.js).
+    case 'row_size': return ROW_SIZES_SAVED.includes(value);
     case 'photo_cols': return PHOTO_COLS.includes(value);
     case 'photo_cols_wide': return PHOTO_COLS_WIDE.includes(value);
     case 'diary_view': return DIARY_VIEWS.includes(value);

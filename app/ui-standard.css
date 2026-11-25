@@ -304,14 +304,13 @@
 #appView #teamView .so-group-card>.so-group-heading{ margin:0; padding:var(--kptu-space-3) var(--kptu-space-4); border-bottom:var(--ds-line-width) solid var(--ds-line); }
 #appView #teamView #soOrgCount{ font-size:var(--ds-text-meta); }
 #appView #teamView #soOrganizationList .kptu-list-row{ box-sizing:border-box; display:grid; align-items:center; min-height:var(--kptu-touch-target,44px); padding-top:0; padding-bottom:0; }
-#appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 24px; gap:10px; }
+#appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) auto; gap:var(--kptu-space-2); }
 #appView #teamView .so-dot{ width:8px; height:8px; border-radius:50%; box-sizing:border-box; border:var(--ds-line-width) solid var(--ds-line); }
 #appView #teamView .so-dot[data-so-recency]{ border:0; }
 #appView #teamView .so-dot[data-so-recency="fresh"]{ background:var(--ds-recency-fresh); }
 #appView #teamView .so-dot[data-so-recency="warn"]{ background:var(--ds-recency-warn); }
 #appView #teamView .so-dot[data-so-recency="stale"]{ background:var(--ds-recency-stale); }
 @media(max-width:650px){
-  #appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 20px; }
   #appView #teamView .so-team-actions #soAddOrg{ min-height:var(--kptu-control-height); padding:0 var(--ds-control-pad-x); font-size:var(--ds-text-button); }
 }
 
@@ -1925,6 +1924,15 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
    처리 안 한 것이 없으면(data-chip-empty) 칩만 흐리게. 폰·폴드 펼침·PC 같은 규칙(자리만 home-quick.css). */
 button.ds-chip[data-chip-tone="forget"]{ color:var(--kptu-warning); background:var(--kptu-warning-soft); }
 button.ds-chip[data-chip-tone="forget"][data-chip-empty]{ color:var(--kptu-faint); background:transparent; }
+
+/* FORGET-기본이미함(S70-20b): 줄 앞 ★(중요 — 글자에 섞지 않고 앞에만 그림, 읽기 프로그램에는 '중요')와 접힌 한 줄 묶음(notice-box.mjs groupHtml). */
+.nbx-item[data-nbx-star] > .nbx-body::before{ content:"★ " / "중요 "; color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium,500); }
+.nbx-group{ list-style:none; }
+.nbx-group > details > summary{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); padding:0 4px; font-size:var(--ds-text-meta,12px); cursor:pointer; list-style:none; }
+.nbx-group > details > summary::-webkit-details-marker{ display:none; }
+.nbx-group > details > summary::before{ content:"›" / ""; display:inline-block; width:1em; color:var(--kptu-muted); transition:transform .15s; }
+.nbx-group > details[open] > summary::before{ transform:rotate(90deg); }
+.nbx-group-rows{ margin:0; padding:0; list-style:none; }
 
 /* ===== UI-색점·색점칩(S52-18 CAL-캘린더색칩, 2026-11-07 명진 14:33 '캘린더 종류 옆에 색상 표시 버튼 크기', 시안 docs/design/mockups/calendar-color-chip.html 14:35 'A') =====
    이름 옆 색 표시는 사이트 어디서나 같은 점 하나: .ui-color-dot = 지름 --ds-color-dot(12px) 동그라미 + 옅은 테두리 한 겹(연한 색도 바탕에서 보이게).

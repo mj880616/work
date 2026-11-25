@@ -128,6 +128,8 @@
   --ds-view-tabs-below:var(--ds-chip-row-above);
   --ds-color-dot:12px; /* UI-색점(S52-18): 이름 옆 색 표시 점 하나의 크기(.ui-color-dot) */
   --ds-row-pad-y:9px;--ds-row-pad-x:12px;
+  /* UI-간격기준(S70-25): 붙음만 막는 최소 간격. 두 칸(나무 | 목록, 목록 | 상세) 경계선과 옆 칸 내용 사이(노트·사진이 쓰던 10px), 머리·탭·도구 줄 밑선 둘레. */
+  --ds-gap-pane:10px;--ds-gap-bar:6px;
   --ds-section-ink:var(--kptu-primary-ink);
   /* 종류별 색: 연한 바탕 + 같은 계열 진한 글자. 그 밖에는 회색. */
   --ds-kind-basket-soft:#fdeedb;--ds-kind-basket-ink:#8f4708;

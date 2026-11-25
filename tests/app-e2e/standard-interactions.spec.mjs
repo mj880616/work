@@ -8,7 +8,11 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
+import { pinch } from './helpers/pinch.mjs';
 import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
+import { readFileSync } from 'node:fs';
+// 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
+const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
 import { askBox, dragAsk, askTextSpot } from './helpers/confirm-drag.mjs';
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
@@ -24,7 +28,7 @@ async function library(page, width, { first = '' } = {}) {
   const folders = Array.from({ length: N }, (_, i) => libFolder('f' + i, null, { name: (i === 0 && first) || '가상 폴더 ' + i, sort_order: 1024 * (i + 1) }));
   const r = await bootLibrary(page, width, { folders, items: [] });
   await page.locator('#libraryGroupBy').selectOption({ label: '폴더' });
-  return { errors: r.errors, tree: page.locator('#libraryFolderNav [role="tree"]'), main: '.ft-row .ft-main' };
+  return { errors: r.errors, prefs: () => r.s.viewPrefs, tree: page.locator('#libraryFolderNav [role="tree"]'), main: '.ft-row .ft-main' };
 }
 async function notes(page, width, { first = '' } = {}) {
   await page.setViewportSize({ width, height: 900 });
@@ -299,21 +303,21 @@ for (const [name, open, openMove, isWrite] of PICK_SCREENS) for (const width of 
 // 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]. 새 그 자리 펼치는 목록이 생기면 PRESS_SCREENS에 한 줄 더한다.
 const EMPTY_OD = { source: 'od', item_id: 'OD!19', parent_id: 'OD!1', name: '가상 빈 폴더', is_folder: true, mime: null, size_bytes: null, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null };
 async function libraryPress(page, width) {
-  const { errors } = await library(page, width);
+  const { errors, prefs } = await library(page, width);
   const d = page.locator('#documentList details[data-lu-node="f:f0"]');
-  return { errors, press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), open: () => d.evaluate(x => x.open), empty: d.locator('.lu-node-empty'),
+  return { errors, prefs, row: d.locator(':scope > summary'), press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), open: () => d.evaluate(x => x.open), empty: d.locator('.lu-node-empty'),
     more: d.locator(':scope > summary [data-lu-node-menu]'), panel: page.locator('#luFolderMenu') };
 }
 async function notesPress(page, width) {
   const { errors } = await notes(page, width);
   const row = page.locator(`#noteRows [data-nx-folder="${U(100)}"]`);
-  return { errors, press: () => row.locator('.ft-main').click(), dbl: () => row.locator('.ft-main').dblclick(), open: async () => (await row.locator('.ft-main').getAttribute('aria-expanded')) === 'true',
+  return { errors, row: row.locator('.ft-main'), press: () => row.locator('.ft-main').click(), dbl: () => row.locator('.ft-main').dblclick(), open: async () => (await row.locator('.ft-main').getAttribute('aria-expanded')) === 'true',
     empty: page.locator(`#noteRows .ft-empty-row[data-ft-parent="${U(100)}"]`), more: page.locator(`#noteRows [data-nx-folder-more="${U(100)}"]`), panel: page.locator('#noteDocMenu') };
 }
 async function photosPress(page, width) {
   const { errors } = await photos(page, width);
   const main = page.locator('#photosRoot [data-photos-ftog="o:S0"]');
-  return { errors, press: () => main.click(), dbl: () => main.dblclick(), where: () => page.locator('#photosRoot [data-photos-fx-back]').count(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, row: page.locator('#photosRoot [data-photos-folder="S0"] .ft-main').first(), press: () => main.click(), dbl: () => main.dblclick(), where: () => page.locator('#photosRoot [data-photos-fx-back]').count(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     empty: page.locator('#photosRoot .ft-empty-row[data-ft-parent="o:S0"]'), more: page.locator('#photosRoot [data-photos-fx-more="S0"]'), panel: page.locator('#photosFolderMenu') };
 }
 async function filesPress(page, width) {
@@ -324,7 +328,7 @@ async function filesPress(page, width) {
   await tree.locator('[data-fx-tog="od:OD!1"]').click();
   const main = tree.locator('[data-fx-tog="od:OD!19"]');
   await expect(main).toBeVisible();
-  return { errors, press: () => main.click(), dbl: () => main.dblclick(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, row: tree.locator('[data-fx-fold="od:OD!19"] .ft-main'), press: () => main.click(), dbl: () => main.dblclick(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     empty: tree.locator('.ft-empty-row[data-ft-parent="od:OD!19"]'), more: tree.locator('[data-fx-fold="od:OD!19"] [data-fx-tmenu]'), panel: page.locator('#rowMenu') };
 }
 const PRESS_SCREENS = [['자료실', libraryPress], ['파일', filesPress], ['노트', notesPress], ['사진', photosPress]];
@@ -360,11 +364,11 @@ async function filesRight(page, width = 1280) {
 }
 async function libraryRight(page, width = 1280) {
   const folders = [libFolder('ra', null, { name: '가상 노조', sort_order: 1024 }), libFolder('rb', null, { name: '가상 회의', parent_id: 'ra', sort_order: 1024 }), libFolder('rc', null, { name: '가상 안건', parent_id: 'rb', sort_order: 1024 })];
-  const { errors } = await bootLibrary(page, width, { folders, items: [{ document_id: 'd1', folder_id: 'rb' }], docs: [libDoc('d1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
+  const { errors, s: st } = await bootLibrary(page, width, { folders, items: [{ document_id: 'd1', folder_id: 'rb' }], docs: [libDoc('d1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
   await page.locator('#libraryFolderNav [data-lu-nav="ra"]').click();
   const d = page.locator('#documentList details[data-lu-node="f:rb"]');
   await expect(d).toBeVisible();
-  return { errors, press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), menu: () => d.locator(':scope > summary').click({ button: 'right' }), panel: page.locator('#luFolderMenu'), open: () => d.evaluate(x => x.open),
+  return { errors, prefs: () => st.viewPrefs, row: d.locator(':scope > summary'), press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), menu: () => d.locator(':scope > summary').click({ button: 'right' }), panel: page.locator('#luFolderMenu'), open: () => d.evaluate(x => x.open),
     inner: d.locator('[data-lu-document="d1"]'), here: () => page.locator('#libraryPath').textContent(),
     treeSub: page.locator('#libraryFolderNav [data-lu-nav="rc"], #libraryFolderNav .ft-current [data-lu-nav="rb"]') };
 }
@@ -425,6 +429,66 @@ for (const [name, open] of PRESS_SCREENS) test(`T8 ${name} 폰 390: 폴더 두 �
   await expect(enter).toHaveText('이 폴더로 들어가기');
   await enter.click();
   await expect.poll(where).not.toBe(at0);
+  expect(s.errors).toEqual([]);
+});
+// T9(UI-폴더줄크기 S69-99, 명진 11/25 08:23 "오므리기 벌리기로 폴더 크기 다르게 보기 폴더 안으로 들어가기가 아니라 / 달력쪽 확대가 아니라 + - 느낌으로 사진 썸네일처럼"):
+// 폴더 줄 위 두 손가락 벌리기 = 줄 크기 한 단계 크게, 오므리기 = 한 단계 작게(한 손짓에 한 단계). 들어가지 않고(주소·위치 그대로) 펼침도 그대로.
+// 고른 단계는 서버(view_prefs.row_size)에 남아 새로고침해도 그대로. 들어가기는 ⋯ 첫 줄로만(T8). 화면 표는 PRESS_SCREENS(폰 390 터치).
+const rowSizeNow = page => page.evaluate(() => document.documentElement.dataset.rowSize || 'm');
+const rowH = l => l.evaluate(el => Math.round(el.getBoundingClientRect().height));
+for (const [name, open] of PRESS_SCREENS) test(`T9 ${name} 폰 390: 두 손가락 벌리기·오므리기 = 줄 크기 한 단계(들어가지 않음), 새로고침해도 그대로`, async ({ page }) => {
+  test.setTimeout(120000);
+  const s = await open(page, 390);
+  const server = s.prefs ? null : await installViewPrefsServer(page); // 이미 붙은 가짜 서버 상태(같은 쪽이면 처음 것을 돌려줌). 자료실은 자기 가짜 서버(s.prefs).
+  const saved = () => (s.prefs ? s.prefs() : server.value)?.row_size ?? null;
+  const where = s.where || (async () => page.url());
+  const url0 = page.url(), at0 = await where(), open0 = await s.open();
+  expect(await rowSizeNow(page)).toBe('m');
+  const h0 = await rowH(s.row);
+  await pinch(page, s.row, 'out');
+  await expect.poll(() => rowSizeNow(page)).toBe('l');
+  await expect.poll(() => rowH(s.row)).toBeGreaterThan(h0);
+  expect(page.url(), '두 손가락으로 들어가지 않는다').toBe(url0);
+  expect(await where()).toBe(at0);
+  expect(await s.open(), '펼침도 그대로').toBe(open0);
+  await expect.poll(saved).toBe('l');
+  // 한 번의 손짓에 한 단계: 크게(l)에서 두 번 오므리면 보통 → 작게.
+  await pinch(page, s.row, 'in');
+  await expect.poll(() => rowSizeNow(page)).toBe('m');
+  await expect.poll(saved).toBe(null); // 보통은 저장하지 않는다
+  await pinch(page, s.row, 'in');
+  await expect.poll(() => rowSizeNow(page)).toBe('s');
+  await expect.poll(() => rowH(s.row)).toBeLessThan(h0);
+  await expect.poll(saved).toBe('s');
+  expect(page.url()).toBe(url0);
+  expect(await where()).toBe(at0);
+  // '두 손가락 벌리면 이 폴더만' 안내 글자가 없다.
+  await expect(page.getByText('두 손가락 벌리면')).toHaveCount(0);
+  await page.reload();
+  await expect.poll(() => rowSizeNow(page), { timeout: 20000 }).toBe('s');
+  expect(s.errors).toEqual([]);
+});
+// T9 PC: 손짓 칸 위 Ctrl+휠 한 번 = 한 단계(브라우저 확대가 아니라 줄 크기). 위로 = 크게, 아래로 = 작게.
+for (const [name, open] of RIGHT_SCREENS) test(`T9 ${name} PC 1280: Ctrl+휠 = 줄 크기 한 단계, 화면 확대·들어가기 없음`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page, 1280);
+  const server = s.prefs ? null : await installViewPrefsServer(page);
+  const saved = () => (s.prefs ? s.prefs() : server.value)?.row_size ?? null;
+  const url0 = page.url();
+  const target = page.locator('.ft-pinch .ft-row.ft-folder .ft-main:visible').first();
+  await target.hover();
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -120);
+  await page.keyboard.up('Control');
+  await expect.poll(() => rowSizeNow(page)).toBe('l');
+  await expect.poll(saved).toBe('l');
+  await page.waitForTimeout(300);
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, 120);
+  await page.keyboard.up('Control');
+  await expect.poll(() => rowSizeNow(page)).toBe('m');
+  expect(page.url()).toBe(url0);
+  expect(await page.evaluate(() => Math.round(visualViewport.scale * 100))).toBe(100);
   expect(s.errors).toEqual([]);
 });
 // S69-84: 폴드 펼침 880(왼쪽 나무 + 오른쪽 목록)도 PC와 같은 규칙.
@@ -525,7 +589,9 @@ test('T7 자료실 1280 두 칸: 끌어 놓기·펼치기 뒤 두 칸 스크롤�
   const top0 = await tops(), open0 = await opened();
   expect(top0[0]).toBe(150); expect(top0[1]).toBeGreaterThan(150);
   // 보이는 자료 줄(왼쪽)과 보이는 폴더 줄(오른쪽)을 고른다(시험 도구가 스크롤하지 않게).
-  const inView = (i, sel) => page.evaluate(([p, q]) => { const l = document.querySelector(p + ' .lu-pane-list').getBoundingClientRect(); return [...document.querySelectorAll(p + ' ' + q)].find(x => { const r = x.getBoundingClientRect(); return r.top > l.top + 20 && r.bottom < l.bottom - 20; })?.getAttribute(q.slice(1, -1)); }, [lp(i), sel]);
+  // 칸 위·아래 가장자리(EDGE px, drag-edge-scroll.js)는 끄는 동안 저절로 굴리는 자리라 그 밖(칸 안쪽)의 줄만 고른다 —
+  // 전에는 위 가장자리 20px 밖이면 골라, 그 줄 위로 끌고 가는 동안 칸이 몇 px 올라가 스크롤 자리가 어긋났다(CI에서 587 → 584).
+  const inView = (i, sel) => page.evaluate(([p, q, edge]) => { const l = document.querySelector(p + ' .lu-pane-list').getBoundingClientRect(); return [...document.querySelectorAll(p + ' ' + q)].find(x => { const r = x.getBoundingClientRect(); return r.top > l.top + edge + 4 && r.bottom < l.bottom - edge - 4; })?.getAttribute(q.slice(1, -1)); }, [lp(i), sel, EDGE]);
   const doc = await inView(0, '[data-lu-document]'), to = await inView(1, '[data-lu-nav]');
   expect(doc && to).toBeTruthy();
   await page.locator(`${lp(0)} [data-lu-document="${doc}"]`).dragTo(page.locator(`${lp(1)} [data-lu-nav="${to}"]`));
@@ -1028,6 +1094,32 @@ test.describe('S11 고르기 중 뒤로가기', () => {
   });
 });
 
+// G1·G2(S70-16 '고른 글 막대', 기준표 12절): 글을 고르면 뜨는 공용 '선택한 글' 막대(text-select-bar.js)는 고른 글과 앞뒤 줄을 가리지 않고,
+// PC에서는 빈 곳을 잡아 끌어 옮길 수 있다(단추 위는 끌기 아님). 막대를 쓰는 글 화면이 늘면 아래 표에 한 줄 더한다.
+import { openBriefRoom, openBrief as openBriefText, bar as selectBar, pickSpan as pickTextSpan, coversText, box as textBarBox, LINE1 as BRIEF_L1, LINE2 as BRIEF_L2 } from './helpers/select-text-bar.mjs';
+const TEXT_BAR_SCREENS = [['브리핑 룸', async page => { await openBriefRoom(page); await openBriefText(page); return () => pickTextSpan(page, BRIEF_L1, BRIEF_L2); }]];
+for (const [screen, boot] of TEXT_BAR_SCREENS) {
+  for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280, 860]]) {
+    test(`G1·G2 고른 글 막대 — ${screen} (${label})`, async ({ page }) => {
+      test.setTimeout(90000);
+      await page.setViewportSize({ width, height });
+      const pick = await boot(page);
+      expect(await pick()).toBe(true);
+      await expect(selectBar(page)).toBeVisible();
+      expect(await coversText(page)).toBe(false);
+      if (width <= 760) return;
+      const before = await textBarBox(selectBar(page)), grip = await textBarBox(selectBar(page).locator('.hl-bar-label'));
+      await page.mouse.move(grip.x + 6, grip.y + grip.h / 2); await page.mouse.down();
+      await page.mouse.move(grip.x + 46, grip.y + grip.h / 2 + 50, { steps: 5 }); await page.mouse.up();
+      const after = await textBarBox(selectBar(page));
+      expect(Math.round(after.x - before.x)).toBe(40);
+      const btn = await textBarBox(selectBar(page).getByRole('button', { name: '복사', exact: true }));
+      await page.mouse.move(btn.x + btn.w / 2, btn.y + btn.h / 2); await page.mouse.down();
+      await page.mouse.move(btn.x + btn.w / 2 + 40, btn.y + 30, { steps: 4 }); await page.mouse.up();
+      expect(await textBarBox(selectBar(page))).toEqual(after);
+    });
+  }
+}
 // ---------- K1·R2 판 화면(목록이 아닌 곳) — S70-03 노트 보드 ----------
 // 고른 것 Delete = 바로 지우고 [되돌리기] 한 번에 모두 돌아온다. 새 판 화면이 생기면 BOARD_SCREENS에 한 줄 더한다.
 async function noteBoard(page) {
@@ -1235,6 +1327,140 @@ for (const [name, open] of KEY_SCREENS) test(`S5·K1 ${name} PC 1280: 글 칸 �
   await expect(s.field).toHaveValue('');
   await expect(askShown(page)).toHaveCount(0);
   expect(await s.picked()).toBe(0);
+  expect(s.errors).toEqual([]);
+});
+
+// ---------- C7 읽는 글 칸 오른쪽 클릭 = 앱 메뉴(S70-27, docs/design/standard-interactions.md 12절 C7) ----------
+// 화면마다 {line(): 글 줄 locator, editField(): 고치는 칸을 연 뒤 그 칸 locator}를 돌려주는 여는 함수를 CTX_SCREENS에 더한다.
+async function briefCtx(page) {
+  const doc = 'd0000000-0000-4000-8000-000000000003';
+  const brief = { v: 3, lead: '가상 요지', gist: ['가상 요지'], sections: [{ title: '가상 소제목', items: [{ text: '가상 줄 하나', page: 2 }, { text: '가상 줄 둘', page: null }] }], quotes: [] };
+  await openHome(page, {
+    beforeLoad: async () => {
+      await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: [{ id: 'b1', document_id: doc, status: 'done', stage: 'done', step_no: 1, step_total: 1, page_count: 4, brief, edited: null, edited_at: null, error_code: null, created_at: '2026-11-24T00:00:00Z', updated_at: '2026-11-24T00:00:00Z', finished_at: '2026-11-24T00:00:00Z' }] }));
+      await page.route(SB + '/rest/v1/app_library_folders**', r => r.fulfill({ json: [{ id: 'f-brief' }] }));
+      await page.route(SB + '/rest/v1/app_library_folder_items**', r => r.fulfill({ json: [{ document_id: doc }] }));
+      await page.route(SB + '/rest/v1/app_documents?**', r => new URL(r.request().url()).searchParams.get('id')?.startsWith('in.') ? r.fulfill({ json: [{ id: doc, title: '가상 자료', file_name: '가상.pdf', mime_type: 'application/pdf', created_at: '2026-11-24T00:00:00Z' }] }) : r.fallback());
+      await page.route(SB + '/rest/v1/app_news_highlights**', r => r.fulfill({ json: [] }));
+    },
+  });
+  await page.evaluate(() => window.KPTURouter.go('brief'));
+  await page.locator('#briefView .br-row').first().click();
+  const line = page.locator('#briefView [data-br-zone] [data-br-line="i:0:1"]');
+  await expect(line).toContainText('가상 줄 둘');
+  return {
+    line: () => line.locator('.br-tx'),
+    editField: async () => { await page.locator('#briefView [data-br-edit]').click(); return page.locator('#briefView textarea[data-br-field="i:0:1"]'); },
+  };
+}
+const CTX_SCREENS = [['브리핑 룸', briefCtx]];
+for (const [name, open] of CTX_SCREENS) test(`C7 ${name} PC 1280: 글 줄 오른쪽 클릭 = 앱 메뉴(브라우저 메뉴 아님), 고치는 칸 오른쪽 클릭 = 브라우저 메뉴`, async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  const s = await open(page);
+  await page.evaluate(() => { window.__ctx = []; window.addEventListener('contextmenu', e => window.__ctx.push(e.defaultPrevented)); });
+  await s.line().click({ button: 'right' });
+  await expect(page.locator('#rowMenu')).toBeVisible();
+  expect(await page.evaluate(() => window.__ctx.at(-1))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#rowMenu')).toBeHidden();
+  const field = await s.editField();
+  await field.click({ button: 'right' });
+  expect(await page.evaluate(() => window.__ctx.at(-1))).toBe(false);
+  await expect(page.locator('#rowMenu')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+// ---------- [파일] 고르기·끌기(S70-30 FILES-선택드래그, 명진 11/24 20:08 "파일에 선택 만들어줘." / "드래그도 안되네;") ----------
+// 자료실·노트와 같은 규칙: 줄 ⋯·우클릭 메뉴 첫 묶음 맨 위 [선택] = 그 줄을 고른 채 고르기 막대(공용 holdPick),
+// 빈 곳에서 끌면 사각형으로 여러 줄 고르기(공용 marquee-select.js, S4), 여러 줄을 끌어 폴더에 놓으면 고른 것 전부 옮김(D 끌어 놓기).
+// 새 탐색기 목록이 생기면 FILE_PICK_SCREENS에 한 줄 더한다. 이름은 지어낸 것, 가짜 서버.
+async function filesPick(page, width, two) {
+  const { errors, server } = await startFiles(page, width);
+  await openFiles(page, width, { two });
+  const t = page.locator('#filesRoot [data-fx-two]');
+  if (two && (await t.getAttribute('aria-pressed')) !== 'true') await t.click();
+  if (two) {
+    await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
+    await page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!1"]').click(); // 그 자리 펼치기
+  } else await page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main').first().click();
+  const list = page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list]');
+  await expect(list.locator('[data-fx-row="od:OD!11"]')).toBeVisible();
+  const row = id => list.locator(`[data-fx-row="od:${id}"]`);
+  return { errors, server, list, row, picked: () => list.locator('[data-fx-row].fx-picked').evaluateAll(a => a.map(x => x.dataset.fxRow).sort()),
+    bar: page.locator('#filesRoot [data-fx-bar]'), moves: () => server.calls.filter(c => c.what === 'edge' && c.action === 'move').map(c => c.body) };
+}
+const FILE_PICK_SCREENS = [['파일 한 칸', w => (page => filesPick(page, w, false))], ['파일 두 칸', w => (page => filesPick(page, w, true))]];
+for (const [name, opener] of FILE_PICK_SCREENS) test.describe(`${name} PC 1280 고르기·끌기`, () => {
+  test(`S0 ${name} 1280: 줄 우클릭·⋯ 메뉴 맨 위 [선택] → 그 줄 고른 채 고르기 막대`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    await s.row('OD!11').click({ button: 'right' });
+    const menu = page.locator('#rowMenu');
+    await expect(menu.locator('button:visible').first()).toHaveText('선택');
+    await menu.getByRole('button', { name: '선택', exact: true }).click();
+    await expect(menu).toBeHidden();
+    await expect.poll(s.picked).toEqual(['od:OD!11']);
+    await expect(s.bar).toBeVisible();
+    await expect(s.bar).toContainText('1');
+    // 폴더 줄은 [이 폴더로 들어가기] 다음(T5 첫 줄 그대로), 다른 줄 [선택]은 더하기(풀지 않음 — holdPick).
+    await s.row('OD!10').click({ button: 'right' });
+    await expect(menu.locator('button:visible').nth(0)).toHaveText('이 폴더로 들어가기');
+    await expect(menu.locator('button:visible').nth(1)).toHaveText('선택');
+    await page.keyboard.press('Escape');
+    await s.row('OD!13').click({ button: 'right' });
+    await menu.getByRole('button', { name: '선택', exact: true }).click();
+    await expect.poll(s.picked).toEqual(['od:OD!11', 'od:OD!13']);
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
+  test(`S4 ${name} 1280: 목록 아래 빈 곳에서 위로 끌면 사각형, 닿은 줄 여러 개 고르기 · Esc면 그대로`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    const rows = s.list.locator('[data-fx-row]');
+    const last = await rows.last().boundingBox(), first = await s.row('OD!13').boundingBox();
+    const x = last.x + last.width * 0.6;
+    await page.mouse.move(x, last.y + last.height + 24);
+    await page.mouse.down();
+    await page.mouse.move(x - 30, first.y + 4, { steps: 10 });
+    await expect(page.locator('.marquee-box')).toBeVisible();
+    await page.mouse.up();
+    await expect(page.locator('.marquee-box')).toHaveCount(0);
+    const got = await s.picked();
+    expect(got.length).toBeGreaterThanOrEqual(3);
+    expect(got).toEqual(expect.arrayContaining(['od:OD!11', 'od:OD!12', 'od:OD!13']));
+    await expect(s.bar).toBeVisible();
+    await expect(s.bar).toContainText(String(got.length));
+    // 끄는 중 Esc = 처음 고른 것으로(사각형 취소).
+    await page.mouse.move(x, last.y + last.height + 24);
+    await page.mouse.down();
+    await page.mouse.move(x - 30, first.y + 4, { steps: 6 });
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('.marquee-box')).toHaveCount(0);
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
+  test(`D ${name} 1280: 여러 줄 고르고 끌어 폴더 줄에 놓으면 고른 것 전부 옮김`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    await s.row('OD!11').click({ modifiers: ['Control'] });
+    await s.row('OD!13').click({ modifiers: ['Control'] });
+    await expect.poll(s.picked).toEqual(['od:OD!11', 'od:OD!13']);
+    await expect(s.row('OD!11')).toHaveAttribute('draggable', 'true');
+    await s.row('OD!11').dragTo(s.row('OD!10'));
+    await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11', 'OD!13'], to: 'OD!10', confirm: true }]);
+    await expect(s.row('OD!11')).toHaveCount(0);
+    await expect(s.row('OD!13')).toHaveCount(0);
+    expect(s.errors).toEqual([]);
+  });
+});
+test('D 파일 한 칸 PC 1280: 여러 줄 고르고 끌어 왼쪽 나무 폴더에 놓으면 고른 것 전부 옮김', async ({ page }) => {
+  const s = await filesPick(page, 1280, false);
+  await s.row('OD!11').click({ modifiers: ['Control'] });
+  await s.row('OD!12').click({ modifiers: ['Control'] });
+  await s.row('OD!12').dragTo(page.locator('#filesRoot [data-fx-tree] [data-fx-drop="od:OD!2"]').first());
+  await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11', 'OD!12'], to: 'OD!2', confirm: true }]);
+  await expect(s.row('OD!11')).toHaveCount(0);
+  await expect(s.row('OD!12')).toHaveCount(0);
   expect(s.errors).toEqual([]);
 });
 
