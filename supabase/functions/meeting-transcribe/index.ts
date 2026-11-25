@@ -54,6 +54,7 @@ import { withWebCors } from "../_shared/web-cors.ts";
 import { WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog } from "../_shared/safe-error.ts";
 import { ROOT_FOLDER_NAME } from '../_shared/brand-folders.mjs'; // S69-20: 새 사용자 맨 위 드라이브 폴더 이름
+import { gatherIntoNewRoot } from '../_shared/gather-folders.mjs'; // S70-29: 맨 위 앱 폴더 처음 만들 때 앱 폴더 모으기
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
 import { outputText } from '../_shared/openai-responses.ts';
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig } from '../_shared/fcm-send.ts';
@@ -166,6 +167,8 @@ async function recordingFolder(workspaceId: string, token: string, create: boole
     if (!root) {
       root = await createFolder(token, ROOT_FOLDER_NAME);
       await admin.from('app_drive_settings').upsert({ workspace_id: workspaceId, root_folder_id: root, updated_at: new Date().toISOString() });
+      // S70-29: 맨 위 앱 폴더를 처음 만들면 앱 폴더 모으기를 한 번(_shared/gather-folders.mjs, 실패해도 멈추지 않음).
+      await gatherIntoNewRoot({ drive: (url: string, init: RequestInit = {}) => fetch(url, { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) }), rootId: root });
     }
     meetings = await createFolder(token, '회의자료', root);
     await admin.from('app_drive_settings').upsert({ workspace_id: workspaceId, meetings_folder_id: meetings, updated_at: new Date().toISOString() });

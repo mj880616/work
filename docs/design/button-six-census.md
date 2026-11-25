@@ -206,7 +206,6 @@
 | 파일 | file-rename.js | 취소 | `fr-cancel` | ② 작은 버튼 |
 | 파일 | files.js | 새 폴더 | `fx-btn fx-mkdir` | ② 작은 버튼 |
 | 파일 | files.js | 올리기 | `fx-btn fx-upload` | ② 작은 버튼 |
-| 파일 | files.js | data-fx-sync | `fx-sync` | ② 작은 버튼 |
 | 파일 | files.js | 구글 드라이브 | `mini fx-src-btn` | ④ 칩 |
 | 파일 | files.js | 이 폰 | `mini fx-src-btn` | ④ 칩 |
 | 파일 | files.js | 내 PC | `mini fx-src-btn` | ④ 칩 |
@@ -215,7 +214,6 @@
 | 파일 | files.js | data-fx-go | `fx-crumb-step` | ② 작은 버튼 |
 | 파일 | files.js | 1 ? '위 폴더' : '폴더 나무' | `fx-up` | ⑥ 아이콘 |
 | 파일 | files.js | ▾ | `mini fx-pdrop` | ② 작은 버튼 |
-| 파일 | files.js | data-fx-sync | `fx-sync fx-sync-tree` | ② 작은 버튼 |
 | 파일 | files.js | data-fx-shelf | `nx-main` | ② 작은 버튼 |
 | 파일 | files.js | data-fx-twist | `fx-twist` | ② 작은 버튼 |
 | 파일 | files.js | data-fx-go | `nx-main` | ② 작은 버튼 |
