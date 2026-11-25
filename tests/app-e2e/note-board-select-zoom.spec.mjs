@@ -156,21 +156,23 @@ test('PC: 비율 글자·80~120% 목록·[맞추기]·전체 화면(Esc·뒤로�
   // [맞추기]: 이름·설명.
   await expect(page.locator('[data-nb-fit]')).toHaveText('맞추기');
   await expect(page.locator('[data-nb-fit]')).toHaveAttribute('title', '맞추기 — 카드가 모두 보이게');
-  // 전체 화면: 판이 창 가득, 앱 머리 줄·보기 탭·보드 칸 줄이 안 보이고 도구 줄은 오른쪽 위에 그대로.
+  // 전체 화면: 창 가득, 앱 머리 줄·보기 탭이 안 보이고 도구 줄은 판 오른쪽 위에 그대로.
+  // S70-21 NOTE-보드탭자리: 보드 칸 줄은 전체 화면에서도 판 바로 위 한 줄에 함께 있고, 판은 그 아래를 창 끝까지 채운다.
   const full = page.locator('[data-nb-full]');
   await full.click();
   const wrap = page.locator('[data-note-board-wrap]');
   await expect(wrap).toHaveClass(/nbw-full/);
-  const vb = page.viewportSize(), sb = await page.locator('[data-nb-scroll]').boundingBox();
-  expect(sb.x).toBeLessThanOrEqual(1); expect(sb.y).toBeLessThanOrEqual(1);
-  expect(sb.width).toBeGreaterThanOrEqual(vb.width - 2); expect(sb.height).toBeGreaterThanOrEqual(vb.height - 2);
+  await expect(page.locator('[data-nbb]')).toBeVisible();
+  const vb = page.viewportSize(), sb = await page.locator('[data-nb-scroll]').boundingBox(), bb = await page.locator('[data-nbb]').boundingBox();
+  expect(bb.y).toBeLessThanOrEqual(1); expect(bb.height).toBeLessThanOrEqual(40);
+  expect(sb.x).toBeLessThanOrEqual(1); expect(Math.abs(sb.y - (bb.y + bb.height))).toBeLessThanOrEqual(1);
+  expect(sb.width).toBeGreaterThanOrEqual(vb.width - 2); expect(sb.y + sb.height).toBeGreaterThanOrEqual(vb.height - 2);
   for (const [x, y] of [[4, 4], [vb.width - 4, vb.height - 4], [vb.width / 2, 30], [30, vb.height / 2]])
     expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('[data-note-board-wrap]'), [x, y]), `${x},${y}`).toBe(true);
   const covered = async sel => { const c = await center(page.locator(sel).first()); return page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('[data-note-board-wrap]'), [c.x, c.y]); };
   expect(await covered('.nv-switch')).toBe(true); // 보기 탭은 덮였다
-  await expect(page.locator('[data-nbb]')).toBeHidden();
   const tb = await page.locator('[data-note-board] .nb-tools').boundingBox();
-  expect(vb.width - (tb.x + tb.width)).toBeLessThanOrEqual(16); expect(tb.y).toBeLessThanOrEqual(16);
+  expect(vb.width - (tb.x + tb.width)).toBeLessThanOrEqual(16); expect(tb.y - sb.y).toBeLessThanOrEqual(16);
   await expect(full).toHaveAttribute('aria-label', '전체 화면 끝내기 (Esc)');
   // 왼쪽 노트 목록은 [노트 목록]으로 옆에 펼친다.
   const sideBtn = page.locator('[data-nb-side-toggle]');
