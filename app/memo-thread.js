@@ -37,6 +37,7 @@ export function createMemoThread({onChange = () => {}} = {}) {
     const flash = m.id === flashId && Date.now() < flashUntil ? ' memo-th-flash' : '';
     return `<li class="memo-th-row${flash}" data-cm-row="${esc(m.id)}" tabindex="-1"><div class="memo-th-text">${m.quote ? `<q class="memo-th-quote">${esc(m.quote)}</q>` : ''}<p>${esc(m.body)}</p></div><time datetime="${esc(m.created_at || '')}">${esc(noteLineDate(m.created_at))}${edited ? ' · 수정됨' : ''}</time>${canEdit ? `<button type="button" class="row-act memo-th-btn" data-cm-edit="${esc(m.id)}" aria-label="메모 수정" title="수정">수정</button>` : ''}<button type="button" class="icon-btn memo-th-btn" data-cm-del="${esc(m.id)}" aria-label="메모 삭제" title="삭제">✕</button></li>`;
   }
+  let openOff = false; // 남긴 직후 다시 그릴 때 쓰기 칸을 한 줄로(아래 paint·save)
   function paint() {
     if (!box || !target) return;
     const st = memoState();
@@ -45,11 +46,14 @@ export function createMemoThread({onChange = () => {}} = {}) {
     const rows = memosOf(memosNow(), target.type, target.id);
     const canWrite = !st.legacy || target.type === 'note', canEdit = !st.legacy;
     const keepFocus = box.contains(document.activeElement) && document.activeElement.matches?.('[data-cm-text]');
+    // 누른 쓰기 칸(.memo-th-open)은 메모 목록이 늦게 와 다시 그려도 큰 채로. 남긴 직후(save가 openOff를 켬)만 한 줄로 돌아간다.
+    const keepOpen = !openOff && !!box.querySelector('[data-cm-text].memo-th-open');
+    openOff = false;
     box.innerHTML = `<div class="memo-th-head"><span data-cm-count>메모 ${rows.length}</span></div>${rows.length ? `<ol class="memo-th-list" data-cm-list>${rows.map(m => rowHtml(m, canEdit)).join('')}</ol>` : ''}${canWrite
       ? `<div class="memo-th-write" data-cm-write data-enter-save="[data-cm-save]"><label class="a11y-only" for="${uid}">메모 남기기</label><div class="memo-th-line"><textarea id="${uid}" data-cm-text rows="1" data-autogrow="5" maxlength="${MEMO_LIMITS.body}" placeholder="메모 남기기…"></textarea><button type="button" class="secondary memo-th-save" data-cm-save aria-label="메모 남기기" disabled>남기기</button></div><p class="memo-th-status" data-cm-status role="status" hidden></p></div>`
       : '<p class="memo-th-wait" data-cm-wait>메모는 준비 중이에요.</p>'}`;
     const ta = box.querySelector('[data-cm-text]');
-    if (ta) { ta.value = drafts.get(key()) || ''; canSave(); if (keepFocus) ta.focus({preventScroll: true}); }
+    if (ta) { ta.value = drafts.get(key()) || ''; if (keepOpen) ta.classList.add('memo-th-open'); canSave(); if (keepFocus) ta.focus({preventScroll: true}); }
     fitAll(box); // 쓰던 글·고치는 글이 있으면 열자마자 그만큼(없으면 한 줄)
     if (editing) box.querySelector('[data-cm-edit-text]')?.focus({preventScroll: true});
     showReveal();
@@ -83,7 +87,7 @@ export function createMemoThread({onChange = () => {}} = {}) {
     try {
       await leaveMemo(t, body);
       drafts.delete(k);
-      onChange(); paint();
+      openOff = true; onChange(); paint();
       box?.querySelector('[data-cm-text]')?.focus({preventScroll: true});
     } catch { if (key() === k) { say('메모를 저장하지 못했어요. 다시 눌러 주세요.'); if (button) button.disabled = false; } }
     finally { busy = false; }

@@ -46,7 +46,7 @@ test('저장한 글 글 보기: 테두리 단추 줄·안내문 없음, 동작�
   await expect(t).toHaveText(long);
   expect(await t.evaluate(el => el.scrollWidth <= el.clientWidth && getComputedStyle(el).textOverflow !== 'ellipsis' && getComputedStyle(el).whiteSpace !== 'nowrap')).toBe(true);
   await detail.locator('[data-rd-head-more]').click();
-  await expect(page.locator('#rdRowMenu button')).toHaveText(['수정', '밑줄을 노트로', '안 읽음으로', '사업에 연결', '삭제']);
+  await expect(page.locator('#rdRowMenu button')).toHaveText(['수정', '노트로 만들기', '밑줄을 노트로', '안 읽음으로', '사업에 연결', '삭제']);
   expect(errors).toEqual([]);
 });
 
@@ -57,9 +57,12 @@ for (const [name, open] of DOC_SCREENS) test(`메모 칸 한 줄 → 누르면 �
   const ta = page.locator('.memo-th:visible [data-cm-text]').first();
   await expect(ta).toBeVisible();
   await expect(ta).toHaveAttribute('placeholder', '메모 남기기…');
-  const before = (await ta.boundingBox()).height;
+  // 칸은 메모 목록이 오면 다시 그려질 수 있다 — 높이는 그때그때 지금 칸에서 잰다.
+  const h = () => ta.evaluate(el => el.getBoundingClientRect().height).catch(() => 0);
+  await expect.poll(h).toBeGreaterThan(0);
+  const before = await h();
   expect(before).toBeLessThanOrEqual(await compact(page) + 2);
   await ta.click();
-  await expect.poll(async () => (await ta.boundingBox()).height).toBeGreaterThan(before * 1.8);
+  await expect.poll(h).toBeGreaterThan(before * 1.8);
   expect(errors).toEqual([]);
 });
