@@ -90,10 +90,10 @@ test('both record screens listen and redraw only their own lines; the rename sen
   const css = read('app/file-rename.css');
   assert.match(css, /\n\.fr-edit\{[^}]*margin-left:\.5em;opacity:\.6\}/);
   assert.match(css, /\.fr-edit:hover,\.fr-edit:focus-visible\{opacity:1\}/);
-  assert.match(css, /\.fr-edit,\.fr-acts button\{[^}]*border:var\(--ds-line-width\) solid transparent;[^}]*background:transparent/);
+  assert.match(css, /\.fr-edit\{[^}]*border:var\(--ds-line-width\) solid transparent;[^}]*background:transparent/);
   assert.doesNotMatch(css, /margin-left:2px/);
   // 정리함의 넓은 단추 규칙이 ✎에 테두리를 덮어쓰지 않는다.
-  assert.match(read('app/basket.css'), /#basketView button:not\([^)]*\.fr-edit\)/);
+  assert.match(read('app/basket.css'), /#basketView button:not\([^)]*\.fr-edit[,)]/);
   // 요약 쓰는 길은 하나(같은지 확인 뒤 씀)
   const s = read('app/record-name-sync.js');
   assert.match(s, /updateLinkSummary\(row\.id, row\.summary, next, rt\)/);

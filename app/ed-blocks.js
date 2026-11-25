@@ -91,7 +91,11 @@ export function mountBlocks({pm, view, schema, root, box, bar = root, handles = 
     grip.style.left = `${Math.max(0, Math.round(r.left - host.left - 26))}px`;
     grip.dataset.edBlock = String(b.index);
   };
-  const touchy = () => !!window.matchMedia?.('(hover: none)').matches;
+  // A finger (or pen) press: the handle follows the cursor's block (there is no hover). The last press decides, so a touch screen that
+  // also reports hover (a laptop with touch, a phone browser that says "hover") still gets the handle where it tapped.
+  let lastPress = '';
+  box.addEventListener('pointerdown', e => { if (!grip.contains(e.target)) lastPress = e.pointerType || ''; }, true);
+  const touchy = () => (lastPress ? lastPress !== 'mouse' : !!window.matchMedia?.('(hover: none)').matches);
   box.addEventListener('pointermove', e => {
     if (!on || dragging || e.pointerType !== 'mouse' || grip.contains(e.target) || menu.contains(e.target)) return;
     const b = topAtY(e.clientY);
