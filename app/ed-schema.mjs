@@ -18,6 +18,9 @@ export const ALIGNS = ['left', 'center', 'right', 'justify'];
 // ED-서식줄펼침: list marker shapes. A list's `marker` is one of these names, or absent (= automatic by nesting depth:
 // bullets • ◦ ▪ ▪…, numbers 1. → 1) → (1) → ① → ①…). Saved on the list node, read the same by every reader and export.
 export const BULLET_MARKERS = ['disc', 'dash', 'circle', 'square'];
+// NOTE-노션편집 ①(나) 할 일 체크: a bullet list saved with marker 'check' draws a box before each item; an item's checked attr (true)
+// draws it ticked. Not one of the [목록 ▾] shapes (it comes from the '/' list and the block menu).
+export const CHECK_MARKER = 'check';
 export const ORDER_MARKERS = ['decimal', 'paren', 'parens', 'circled', 'hangul'];
 export const MARKS = ['strong', 'em', 'underline', 'strike', 'link', 'color', 'highlight'];
 // 글자색·형광펜: a short fixed list of names (never a raw color), drawn by ed-doc.css from theme tokens so dark mode and the
@@ -28,7 +31,7 @@ const COLOR_NAMES = {red:1, orange:1, green:1, blue:1, purple:1, gray:1};
 const HIGHLIGHT_NAMES = {yellow:1, green:1, blue:1, pink:1, orange:1};
 // Block nodes and what they hold. Inline: text, hard_break.
 export const BLOCK_NODES = ['paragraph', 'heading', 'blockquote', 'bullet_list', 'ordered_list', 'list_item', 'horizontal_rule',
-  'code_block', 'image', 'photo_row', 'file', 'table', 'table_row', 'table_cell', 'table_header'];
+  'code_block', 'image', 'photo_row', 'file', 'table', 'table_row', 'table_cell', 'table_header', 'toggle'];
 // Photo src is our own id, never an address: drive:<Drive file id> (notes·diary·updates, ③) or share:<photo id> (share pages, ②).
 // Until ② a photo is a place only (src null) with its description.
 export const PHOTO_SRC = /^(drive|share):[A-Za-z0-9_-]{1,200}$/;
@@ -95,12 +98,13 @@ function cleanMarks(marks) {
 
 // What each block may hold, after cleaning. 'inline' = text and hard_break.
 const HOLDS = {
-  doc:'block', blockquote:'block', list_item:'block', table_cell:'block', table_header:'block',
+  doc:'block', blockquote:'block', list_item:'block', table_cell:'block', table_header:'block', toggle:'block',
   paragraph:'inline', heading:'inline', code_block:'text',
   bullet_list:'list_item', ordered_list:'list_item', table:'table_row', table_row:'cell',
   horizontal_rule:'none', image:'none', file:'none', photo_row:'image',
 };
-const TOP_BLOCKS = {paragraph:1, heading:1, blockquote:1, bullet_list:1, ordered_list:1, horizontal_rule:1, code_block:1, image:1, photo_row:1, file:1, table:1};
+// NOTE-노션편집 ①(나) 접기(toggle): its first paragraph is the line with ▸, the blocks after it fold under it. attrs.open false = folded (saved).
+const TOP_BLOCKS = {paragraph:1, heading:1, blockquote:1, bullet_list:1, ordered_list:1, horizontal_rule:1, code_block:1, image:1, photo_row:1, file:1, table:1, toggle:1};
 
 function attrsOf(type, a) {
   a = isObject(a) ? a : {};
@@ -121,7 +125,9 @@ function attrsOf(type, a) {
     if (ORDER_MARKERS.indexOf(a.marker) >= 0) ol.marker = a.marker;
     return ol;
   }
-  if (type === 'bullet_list') return BULLET_MARKERS.indexOf(a.marker) >= 0 ? {marker:a.marker} : null;
+  if (type === 'bullet_list') return BULLET_MARKERS.indexOf(a.marker) >= 0 || a.marker === CHECK_MARKER ? {marker:a.marker} : null;
+  if (type === 'list_item') return a.checked === true ? {checked:true} : null;
+  if (type === 'toggle') return a.open === false ? {open:false} : null;
   if (type === 'image') {
     var img = {src:typeof a.src === 'string' && PHOTO_SRC.test(a.src) ? a.src : null, alt:cleanString(a.alt).slice(0, LIMITS.alt)};
     var ia = alignOf(a.align); if (ia) img.align = ia;
@@ -237,10 +243,10 @@ function cleanNode(n, depth, budget) {
   else content = cleanChildren(type, n.content, depth + 1, budget);
   // Containers that must hold something get an empty paragraph (list item, quote, cell) or are dropped (list, table, row).
   if (!content.length) {
-    if (type === 'list_item' || type === 'blockquote' || type === 'table_cell' || type === 'table_header') content = [emptyParagraph()];
+    if (type === 'list_item' || type === 'blockquote' || type === 'table_cell' || type === 'table_header' || type === 'toggle') content = [emptyParagraph()];
     else if (type === 'bullet_list' || type === 'ordered_list' || type === 'table' || type === 'table_row' || type === 'photo_row') return null;
   }
-  if (type === 'list_item' && content[0].type !== 'paragraph') content.unshift(emptyParagraph());
+  if ((type === 'list_item' || type === 'toggle') && content[0].type !== 'paragraph') content.unshift(emptyParagraph());
   if (content.length) node.content = content;
   return node;
 }
@@ -381,7 +387,7 @@ export function nextCircled(current, earlier) {
 // ── list markers (ED-서식줄펼침) ──
 // What a list shows before each item. kind: 'bullet' | 'ordered'; marker: a saved name or empty (automatic); depth: how many
 // lists of the same kind hold this one (0 = outermost); n: the item's number (ordered only).
-var BULLET_GLYPH = {disc:'\u2022', dash:'-', circle:'\u25E6', square:'\u25AA'};
+var BULLET_GLYPH = {disc:'\u2022', dash:'-', circle:'\u25E6', square:'\u25AA', check:'\u2610'};
 var HANGUL_ORDER = '\uAC00\uB098\uB2E4\uB77C\uB9C8\uBC14\uC0AC\uC544\uC790\uCC28\uCE74\uD0C0\uD30C\uD558';
 export function autoMarker(kind, depth) {
   var d = depth > 0 ? depth : 0;

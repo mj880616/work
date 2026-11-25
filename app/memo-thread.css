@@ -12,7 +12,16 @@
 .memo-line-text q { display:inline; }
 /* 줄 단추는 공용 6가지 그대로([수정] 글자 버튼 .row-act, ✕ 아이콘 .icon-btn) — 자리만 정한다. */
 .memo-th-row > .memo-th-btn { flex:none; align-self:center; }
-.memo-th-write textarea, .memo-th-editing textarea { display:block; box-sizing:border-box; width:100%; min-height:56px; margin:0 0 6px; padding:6px 8px; font:inherit; font-size:var(--ds-text-read,14px); border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-ink); resize:vertical; }
+/* S70-06 MEMO-입력칸작게(명진 11/25 09:33 "메모가 없으면 메모칸은 일반적인 댓글창 수준으로"): 쓰기 칸은 댓글창처럼 한 줄 + 같은 줄 오른쪽 작은 [남기기](공용 ② 작은 버튼).
+   글만큼 늘고(auto-grow.js data-autogrow="5", 5줄 뒤 칸 안 스크롤) 남기면 다시 한 줄. 크기 손잡이 없음.
+   원인: 노트 화면의 넓은 글 칸 규칙(basket.css #basketView textarea — 높이 240px·안쪽 12px·크기 손잡이)이 이 부품 칸에도 걸렸다(다른 화면 넓은 칸 규칙도 같은 위험).
+   그래서 부품 칸 규칙은 :is(#appView, body)로 id 하나 무게를 갖게 해 어느 화면·창에 붙어도 이 모양이 이긴다(화면 쪽은 고치지 않음). */
+.memo-th-line { display:flex; align-items:flex-start; gap:6px; }
+/* 글자 크기·색·테두리는 놓인 화면·창 규칙 그대로(아래 약한 규칙), 한 줄 높이·여백·손잡이만 강하게 정한다. */
+.memo-th-line textarea, .memo-th-editing textarea { font:inherit; font-size:var(--ds-text-read,14px); border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-ink); }
+:is(#appView, body) .memo-th .memo-th-line textarea, :is(#appView, body) .memo-th .memo-th-editing textarea { display:block; box-sizing:border-box; flex:1 1 auto; width:100%; min-width:0; min-height:var(--ds-compact-height,32px); margin:0; padding:5px 8px; line-height:20px; resize:none; overflow-y:hidden; white-space:pre-wrap; }
+:is(#appView, body) .memo-th .memo-th-editing textarea { margin:0 0 6px; }
+.memo-th-line > .memo-th-save { flex:none; }
 .memo-th-status:not([hidden]) { margin:4px 0 0; font-size:12px; color:var(--kptu-danger); }
 /* 모아 보기에서 연 메모: 잠깐 칠하고 사라짐(움직임 줄이기 설정이면 칠만). */
 .memo-th-row.memo-th-flash { background:var(--kptu-primary-soft); animation:memo-th-flash 2.4s ease-out forwards; }
