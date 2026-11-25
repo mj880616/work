@@ -63,7 +63,7 @@ test.describe('PC 1440',()=>{
   });
 
   test('서버 칸이 아직 없으면 지금처럼: 묻지도 넣지도 않는다',async({page})=>{
-    const {s,errors}=await boot(page,1440,{});
+    const {s,errors}=await boot(page,1440,{weeklyFolderMissing:true});
     expect(await file(page,'w-new')).toBe('off');
     expect(itemOf(s,'w-new')).toBeUndefined();
     expect(s.weeklyPatches).toBeUndefined();
