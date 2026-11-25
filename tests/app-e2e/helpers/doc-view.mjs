@@ -58,6 +58,7 @@ export async function openNewsDoc(page, width) {
   await first.click({ position: { x: 60, y: 12 } });
   const detail = page.locator('#outsideRoot [data-now-detail] .nd');
   await expect(detail.locator('.ds-doc-top')).toBeVisible();
-  return { errors, detail, firstLeft: page.locator('#outsideRoot #nowMain') }; // S70-54·57: 찾기 줄은 맨 위 칸으로 — 왼쪽 첫 줄 = 목록 칸 맨 위
+  // 왼쪽 첫 줄: 옛 찾기 줄([data-nw-top])은 S70-54 UI-검색창하나로에서 맨 위 칸으로 옮겨 없어졌다 — 왼쪽 칸(#nowMain) 위 끝이 곧 첫 줄 위 끝.
+  return { errors, detail, firstLeft: page.locator('#outsideRoot #nowMain') };
 }
 export const DOC_SCREENS = [['저장한 글 글 보기', openSavedDoc], ['읽을 거리 글 보기', openNewsDoc]];

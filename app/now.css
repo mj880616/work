@@ -100,8 +100,9 @@
 #appView #outsideView .ni-add{ display:flex; gap:6px; align-items:center; padding-top:4px; }
 
 /* 글 상세 */
-/* S70-40b READ-글보기머리(③ (가)): 위 여백은 왼쪽 찾기 줄(.nw-top 위 2px)과 같게 — 글 머리 첫 줄(공용 .ds-doc-top 32px)이 찾기 줄과 같은 줄에 선다. */
-#appView #outsideView .nd{ display:flex; flex-direction:column; gap:6px; min-width:0; padding:0 0 16px; } /* S70-57: 왼쪽 목록 첫 줄(찾기 줄이 맨 위 칸으로 간 뒤 목록 칸 맨 위)과 글 머리 위 끝을 맞춤 */
+/* S70-40b READ-글보기머리(③ (가)): 글 머리 첫 줄(공용 .ds-doc-top 32px)이 왼쪽 칸 첫 줄과 같은 줄에 선다.
+   S70-63: 왼쪽 찾기 줄(.nw-top, 위 2px)은 S70-54 UI-검색창하나로에서 맨 위 칸으로 옮겨 없어졌다 — 왼쪽 칸(.now-main)이 첫 줄부터 바로 시작하므로 위 여백 없음. */
+#appView #outsideView .nd{ display:flex; flex-direction:column; gap:6px; min-width:0; padding:0 0 16px; }
 #appView #outsideView .nd-empty{ margin:12px 0; font-size:13px; color:var(--kptu-muted); }
 #appView #outsideView .nd-top{ display:flex; align-items:center; gap:6px; min-width:0; }
 #appView #outsideView .nd-back{ flex:none; display:inline-grid; place-items:center; width:32px; height:32px; min-height:0; padding:0; font-size:20px; color:var(--kptu-muted); background:transparent; border:0; box-shadow:none; cursor:pointer; }
