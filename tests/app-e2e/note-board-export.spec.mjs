@@ -113,7 +113,7 @@ for (const width of [1280, 390]) {
     await expect(view.locator('[data-nb-export] [data-nb-text]')).toHaveCount(3);
     expect(await view.locator('[data-nb-export] img').evaluate(i => i.complete && i.naturalWidth > 0)).toBe(true);
     await view.close();
-    expect(requests.slice(before)).toEqual([]); // 서버에 사본·공개 주소를 만들지 않음
+    expect(requests.slice(before).filter(r => /app_note|basket-files|share|storage|library|drive/.test(r))).toEqual([]); // 서버에 사본·공개 주소를 만들지 않음(앱의 다른 화면 배경 요청은 상관없음)
     expect(errors).toEqual([]);
   });
 }
@@ -129,7 +129,7 @@ test('보드 칸 메뉴 [PDF로 내보내기]: 쪽 1 이상인 PDF 파일, 빈 �
   expect((text.match(/\/Type\s*\/Page(?!s)/g) || []).length).toBeGreaterThanOrEqual(1);
   expect(text).toContain('/Filter /DCTDecode');
   expect(bytes.length).toBeGreaterThan(2000);
-  expect(requests.slice(before)).toEqual([]);
+  expect(requests.slice(before).filter(r => /app_note|basket-files|share|storage|library|drive/.test(r))).toEqual([]);
   // 보드 빈 곳 오른쪽 클릭 메뉴에도 [PDF로 내보내기]·[HTML로 내보내기].
   await page.locator('[data-note-board]').click({ button: 'right', position: { x: 600, y: 520 } });
   await expect(page.locator('#noteDocMenu [data-nbb-export-pdf]')).toBeVisible();
