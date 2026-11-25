@@ -1,11 +1,11 @@
 // S51-24 FOLDER-그폴더만같은모양(요청함 11/06 21:52, 시안 docs/design/mockups/folder-focus-continuity.html ②·전환):
 // 폰 '그 폴더만'도 나무와 같은 둥근 상자(ft-box)·같은 줄(ft-row)·같은 폴더 그림(ft-ico 열림/닫힘)·줄마다 ⋯.
 // 상자 맨 위 작은 위치 줄(‹ + 저장소 › 위 폴더 ›, 누르면 그 단계), 머리 = 열린 폴더 그림 + 굵은 이름 + '폴더 n · 파일 m'.
-// 옛 목록 모양(그림 문자 폴더·두 줄 줄·위 경로 막대)과 '나무로' 같은 돌아가기 글자는 없다. 벌리기·오므리기는 0.2초 움직임으로 잇고,
+// 옛 목록 모양(그림 문자 폴더·두 줄 줄·위 경로 막대)과 '나무로' 같은 돌아가기 글자는 없다. 들어가기(⋯)·돌아가기([‹])는 0.2초 움직임으로 잇고,
+// (UI-폴더줄크기 S69-99: 두 손가락은 줄 크기 — 들어가기·돌아가기가 아니다)
 // 기기 '움직임 줄이기'면 움직임 없이 바로 바뀐다. 이름은 모두 지어낸 것이다.
 import { test, expect } from '@playwright/test';
 import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
-import { pinch } from './helpers/pinch.mjs';
 
 test.use({ hasTouch: true });
 const tree = page => page.locator('#filesRoot [data-fx-tree]');
@@ -14,7 +14,7 @@ const box = page => page.locator('#filesRoot [data-fx-list] .ft-focus');
 const countMoves = page => page.addInitScript(() => { window.__moves = 0; const a = Element.prototype.animate; Element.prototype.animate = function (...x) { window.__moves++; return a.apply(this, x); }; });
 const moves = page => page.evaluate(() => window.__moves);
 
-test('파일 폰 412: 그 폴더만 = 나무와 같은 상자·줄·그림, 위치 줄, 돌아가기 글자 없음, 하위 폴더 위 벌리기 = 한 단계 더 안', async ({ page }) => {
+test('파일 폰 412: 그 폴더만 = 나무와 같은 상자·줄·그림, 위치 줄, 돌아가기 글자 없음, 하위 폴더 ⋯ = 한 단계 더 안', async ({ page }) => {
   const { errors } = await start(page, 412);
   await openFiles(page, 412);
   await tree(page).locator('[data-fx-fold="od:OD!1"] .ft-main').tap();
@@ -41,32 +41,33 @@ test('파일 폰 412: 그 폴더만 = 나무와 같은 상자·줄·그림, 위�
   await expect(page.locator('[data-row-item]').first()).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(box(page)).toBeVisible();
-  // 하위 폴더 위 벌리기 = 한 단계 더 안(같은 상자 모양), 위치 줄에 위 단계가 더해진다.
-  await pinch(page, box(page).locator('.ft-folder').first(), 'out');
+  // 하위 폴더 ⋯ [이 폴더로 들어가기] = 한 단계 더 안(같은 상자 모양), 위치 줄에 위 단계가 더해진다.
+  await box(page).locator('.ft-folder').first().locator('[data-fx-tmenu]').click();
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect(box(page).locator('.ft-focus-name')).toHaveText('가짜 2026');
   await expect(box(page).locator('.ft-focus-anc')).toHaveText('원드라이브›가짜 문서함›');
   // 위치 줄 '가짜 문서함' = 그 단계로.
   await box(page).locator('.ft-focus-step', { hasText: '가짜 문서함' }).click();
   await expect(box(page).locator('.ft-focus-name')).toHaveText('가짜 문서함');
-  // 오므리기 = 나무.
-  await pinch(page, box(page), 'in');
+  // [‹] = 나무.
+  await box(page).locator('[data-fx-up]').click();
   await expect(tree(page)).toBeVisible();
   await page.screenshot({ path: 'test-results/files-focus-same-box-412.png' });
   expect(errors).toEqual([]);
 });
 
-test('파일 폰 412: 벌리기·오므리기는 0.2초 움직임으로 이어진다(그 줄 → 상자 머리 → 그 줄)', async ({ page }) => {
+test('파일 폰 412: 들어가기(⋯)·돌아가기([‹])는 0.2초 움직임으로 이어진다(그 줄 → 상자 머리 → 그 줄)', async ({ page }) => {
   await countMoves(page);
   const { errors } = await start(page, 412);
   await openFiles(page, 412);
   await tree(page).locator('[data-fx-fold="od:OD!1"] .ft-main').tap();
   const m0 = await moves(page);
-  await pinch(page, tree(page).locator('[data-fx-fold="od:OD!1"]'), 'out');
+  await phoneFolder(page, 'od', 'OD!1');
   await expect(box(page)).toBeVisible();
   // 머리·하위 폴더 줄·파일 줄·위치 줄에 움직임.
   await expect.poll(() => moves(page)).toBeGreaterThan(m0 + 3);
   const m1 = await moves(page);
-  await pinch(page, box(page), 'in');
+  await box(page).locator('[data-fx-up]').click();
   await expect(tree(page)).toBeVisible();
   await expect.poll(() => moves(page)).toBeGreaterThan(m1);
   expect(errors).toEqual([]);
@@ -82,9 +83,9 @@ test.describe('움직임 줄이기', () => {
     expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
     await tree(page).locator('[data-fx-fold="od:OD!1"] .ft-main').tap();
     const m0 = await moves(page);
-    await pinch(page, tree(page).locator('[data-fx-fold="od:OD!1"]'), 'out');
+    await phoneFolder(page, 'od', 'OD!1');
     await expect(box(page)).toBeVisible();
-    await pinch(page, box(page), 'in');
+    await box(page).locator('[data-fx-up]').click();
     await expect(tree(page)).toBeVisible();
     await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
     expect(await moves(page)).toBe(m0);

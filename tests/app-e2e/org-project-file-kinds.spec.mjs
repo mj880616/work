@@ -291,14 +291,11 @@ for(const width of [412,1280])test(`LIB-사진숨김 조직 창 [자료]·기록
  expect(rowsNow.find(o=>o[0]==='성명·보도자료')).toEqual(['성명·보도자료','1',false]);
  expect(rowsNow.findIndex(o=>o[0]==='사진')).toBe(rowsNow.findIndex(o=>o[2])-1);
  expect(calls).toEqual([]); // 누르기 전에는 작은 그림을 받지 않는다
- // ④ 기록 줄 첨부: 사진 파일 이름 줄 대신 [사진 2] 하나(접힘), 한글 파일은 이름 줄 그대로.
+ // ④ 기록 줄 첨부: 사진 파일 이름 줄 대신 작은 그림 2장(UI-기록카드하나로 S70-42: 접는 줄 없이 바로), 한글 파일은 이름 줄 그대로.
  const rec=page.locator('#wdUpdates [data-basket-link="40000000-0000-4000-8000-000000000009"]');
  await expect(rec.locator('[data-record-file]')).toHaveCount(1);
- const recPics=rec.locator('[data-record-photos]');
- await expect(recPics.locator(':scope > summary')).toHaveText('사진 2');
- await expect(rec.locator('[data-record-photo]').first()).toBeHidden();
+ await expect(rec.locator('[data-record-photos] summary.photo-fold-toggle, details[data-record-photos]')).toHaveCount(0);
  await capture(page,info,`photo-hide-org-${width}`,page.locator('#wdModal .modal-card'));
- await recPics.locator(':scope > summary').click();
  await expect(rec.locator('[data-record-photo]')).toHaveCount(2);
  await expect(rec.locator('[data-record-photo] img').first()).toBeVisible();
  // ③ [사진 3]을 누르면 줄 대신 작은 그림 칸 3개. 누르면 크게 보기.

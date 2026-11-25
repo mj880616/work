@@ -304,14 +304,13 @@
 #appView #teamView .so-group-card>.so-group-heading{ margin:0; padding:var(--kptu-space-3) var(--kptu-space-4); border-bottom:var(--ds-line-width) solid var(--ds-line); }
 #appView #teamView #soOrgCount{ font-size:var(--ds-text-meta); }
 #appView #teamView #soOrganizationList .kptu-list-row{ box-sizing:border-box; display:grid; align-items:center; min-height:var(--kptu-touch-target,44px); padding-top:0; padding-bottom:0; }
-#appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 24px; gap:10px; }
+#appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) auto; gap:var(--kptu-space-2); }
 #appView #teamView .so-dot{ width:8px; height:8px; border-radius:50%; box-sizing:border-box; border:var(--ds-line-width) solid var(--ds-line); }
 #appView #teamView .so-dot[data-so-recency]{ border:0; }
 #appView #teamView .so-dot[data-so-recency="fresh"]{ background:var(--ds-recency-fresh); }
 #appView #teamView .so-dot[data-so-recency="warn"]{ background:var(--ds-recency-warn); }
 #appView #teamView .so-dot[data-so-recency="stale"]{ background:var(--ds-recency-stale); }
 @media(max-width:650px){
-  #appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 20px; }
   #appView #teamView .so-team-actions #soAddOrg{ min-height:var(--kptu-control-height); padding:0 var(--ds-control-pad-x); font-size:var(--ds-text-button); }
 }
 
