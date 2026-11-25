@@ -117,7 +117,8 @@ test('mcp claude settings row db: plan, refusals (client 0/2, operator 2, row pr
    await nothingChanged();
   });
 
-  await pool.query(`delete from public.app_operator_features where workspace_id='${WS_B}'`);
+  // 운영에는 'calls' 없이 다른 운영자 기능만 켠 작업공간이 하나 더 있다(11/25 dry-run 멈춤 원인) — 세지 않아야 한다.
+  await pool.query(`delete from public.app_operator_features where workspace_id='${WS_B}'; insert into public.app_operator_features(workspace_id,feature) values ('${WS_B}','telegram')`);
   await t.test('settings row already present (without history): stops, existing row untouched',async()=>{
    await pool.query(`insert into public.app_mcp_settings(workspace_id,enabled,allowed_client_id) values ('${WS_B}',true,'x')`);
    assert.equal((await readOnly(precheck)).find(r=>r.item==='settings rows absent').value,'아니오');
