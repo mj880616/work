@@ -170,13 +170,18 @@ export function createHandler({ env, fetchImpl = fetch, now = () => new Date() }
     'WWW-Authenticate': `Bearer resource_metadata="${metadataUrl}"`,
   });
 
+  // 열쇠 확인은 OAuth 서버의 userinfo로 한다(설계 14.4 준비 ①).
+  // Supabase Auth 수정(#2898) 뒤에는 위임 열쇠로 GET /user가 403이 되므로 /user를 쓰지 않는다.
+  // userinfo는 지금 판·수정 뒤 판 모두 위임 열쇠에 열려 있고, Auth가 서명·만료·세션을 확인한다.
   async function verifyToken(token) {
-    const res = await fetchImpl(`${authServer}/user`, { headers: { apikey: env.anonKey, Authorization: `Bearer ${token}` } });
-    if (!res.ok) return false;
-    const user = await res.json().catch(() => null);
     const claims = decodeClaims(token);
-    // 이 입구는 OAuth 클라이언트 열쇠만 받는다. 허용 클라이언트 비교는 DB 문지기가 한다.
-    return Boolean(user && user.id && claims && claims.sub === user.id && typeof claims.client_id === 'string' && claims.client_id);
+    // 이 입구는 OAuth 클라이언트 열쇠만 받는다(일반 로그인 열쇠는 Auth에 묻기 전에 거절).
+    // 허용 클라이언트 비교는 DB 문지기가 한다.
+    if (!claims || typeof claims.sub !== 'string' || !claims.sub || typeof claims.client_id !== 'string' || !claims.client_id) return false;
+    const res = await fetchImpl(`${authServer}/oauth/userinfo`, { headers: { apikey: env.anonKey, Authorization: `Bearer ${token}` } });
+    if (!res.ok) return false;
+    const info = await res.json().catch(() => null);
+    return Boolean(info && typeof info.sub === 'string' && info.sub === claims.sub);
   }
 
   async function callTool(id, params, token) {
