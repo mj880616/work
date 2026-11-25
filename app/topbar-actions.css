@@ -174,5 +174,7 @@ a.account-action{text-decoration:none;box-sizing:border-box}
    찾기 칸은 남은 폭만 쓰므로 단추가 있으면 그만큼 짧아진다. 화면 안 원래 자리(그 화면이 안 보일 때)에서는 보이지 않는다. */
 .screen-tools-slot{display:flex;align-items:center;flex:none;min-width:0;margin-left:auto}
 .screen-tools-slot:empty{display:none}
+/* S70-54: 화면 찾기 단추 상자(screen-find.js .sf-tools)는 다른 화면일 때 숨긴 채 이 자리에 남는다 — 보이는 것이 없으면 자리째 없앤다(줄 간격이 남지 않게). */
+.screen-tools-slot:not(:has(>:not([hidden]))){display:none}
 .screen-tools{display:flex;align-items:center;flex:none}
 .screen-tools:not([data-screen-tools-placed]){display:none}
