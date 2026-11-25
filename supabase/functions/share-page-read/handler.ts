@@ -6,6 +6,8 @@
 // HTML 파일 판이 있는 페이지는 가장 최근 판 하나를 {kind:'html', title, html}로 돌려준다(블록 대신).
 // NOTE-게시(docs/design/note-publish.md): 노트를 게시한 페이지(app_note_share_pages 짝)는 그 노트의 지금 제목·글을 글 블록 하나로 돌려준다.
 // head:true면 제목만 돌려준다(Worker의 링크 미리보기 제목용, 5MB HTML을 보내지 않음).
+// BLOG ①(docs/design/blog.md 4절): {blog:…} 모양은 블로그 길(./blog.ts)로 간다. 링크 길 코드는 그대로다.
+import { type BlogReader, parseBlogRequest, readBlog } from "./blog.ts";
 
 export type ShareLinkRow = {
   page_id: string;
@@ -33,6 +35,8 @@ export type ShareReader = {
   // 노트 id → 그 노트의 보여 줄 칸만(제목·글·종류·휴지통·보관). 작업공간·첨부·메타는 읽지 않는다.
   noteForPage?(pageId: string): Promise<NotePairRow | null>;
   noteById?(id: string): Promise<NoteRow | null>;
+  // BLOG ①: 블로그 길 질의(없으면 블로그 요청은 모두 404).
+  blog?: BlogReader;
 };
 export type NotePairRow = { note_id: string | null };
 export type NoteRow = {
@@ -158,7 +162,8 @@ export function sharePhotoIds(blocks: unknown[]): string[] {
   return [...found];
 }
 
-export const ALLOWED_ORIGINS = new Set(["https://work.bokdoong.com"]);
+// BLOG ①: 명진 블로그 화면(bokdoong.com, docs/design/blog.md 5절) 정확히 하나를 더한다.
+export const ALLOWED_ORIGINS = new Set(["https://work.bokdoong.com", "https://bokdoong.com"]);
 export const MAX_BODY_BYTES = 1024;
 const TOKEN = /^[0-9a-f]{64}$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -268,6 +273,18 @@ export function createShareReadHandler(
     if (!body || typeof body !== "object" || Array.isArray(body)) return reply({ error: "bad_request" }, 400);
     const keys = Object.keys(body);
     const o = body as Record<string, unknown>;
+    // BLOG ①: 블로그 모양은 링크 길과 섞이지 않는다. 모양이 틀린 블로그 요청도 같은 404.
+    if (Object.hasOwn(o, "blog")) {
+      const want = parseBlogRequest(o);
+      if (!want || !reader.blog) return notFound();
+      try {
+        const result = await readBlog(reader.blog, want, { ids: sharePhotoIds, seconds: SIGN_SECONDS, log });
+        return result.status === 200 ? reply(result.body, 200) : notFound();
+      } catch {
+        log("blog_read_unavailable");
+        return reply({ error: "unavailable" }, 503);
+      }
+    }
     const head = Object.hasOwn(o, "head");
     if (head && o.head !== true) return reply({ error: "bad_request" }, 400);
     const byToken = Object.hasOwn(o, "token"), bySlug = Object.hasOwn(o, "slug");

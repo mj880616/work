@@ -115,7 +115,17 @@ test('index reads only the needed columns with the server key kept inside the fu
  assert.match(index,/\.select\("page_id,token_hash,expires_at,disabled_at"\)\s*\.eq\("token_hash", hash\)/);
  assert.match(index,/\.select\("id,title,blocks,status"\)\s*\.eq\("id", id\)/);
  assert.match(index,/\.select\("id,storage_path"\)\s*\.eq\("page_id", pageId\)/);
- assert.doesNotMatch(index,/select\("\*"\)|\.insert\(|\.update\(|\.delete\(|\.rpc\(|token"|workspace_id/);
+ // BLOG ①: 블로그 길 묶음(blog: {...})만 따로 본다 — 그 밖(링크 길)은 예전 금지 그대로.
+ const start=index.indexOf('\n  blog: {'),end=index.indexOf('\n  },\n',start);
+ assert.ok(start>0&&end>start,'blog reader block');
+ const blog=index.slice(start,end),rest=index.slice(0,start)+index.slice(end);
+ assert.doesNotMatch(rest,/select\("\*"\)|\.insert\(|\.update\(|\.delete\(|\.rpc\(|token"|workspace_id/);
+ // 블로그 묶음: 쓰기 없음, rpc는 블로그 작업공간 함수 하나, workspace_id는 서버가 정한 작업공간의 블로그 한 줄을 찾을 때만.
+ assert.doesNotMatch(blog,/select\("\*"\)|\.insert\(|\.update\(|\.delete\(|\.upsert\(|token"|raw_text|doc"|title,raw/);
+ assert.deepEqual(blog.match(/\.rpc\([^)]*\)/g),['.rpc("app_operator_feature_workspace", { p_feature: "blog" })']);
+ assert.equal((blog.match(/workspace_id/g)||[]).length,2);
+ assert.match(blog,/\.select\("id,workspace_id,title,intro,enabled,indexable"\)\s*\.eq\("workspace_id", workspaceId\)/);
+ assert.match(blog,/from\("app_notes"\)\s*\.select\("id,deleted_at"\)/);
 });
 test('verify_jwt=false is registered for share-page-read in section 5 with the reason',()=>{
  const doc=readFileSync('docs/web2-env6b-edge-source.md','utf8');
