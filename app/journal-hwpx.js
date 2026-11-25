@@ -85,6 +85,7 @@ import {saveReportSnapshot} from './report-snapshot-save.js'; // ORG-기록하�
 import {sortPicks, droppedOf, keptOf, withPick, pickKey, reviewDue, withReview} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {learnFor} from './weekly-picks.js';
 import {word} from './brand/brand.mjs';
+import {putUploadLabel} from './upload-label.mjs';
 
 // WEEKLY-환류학습 1(docs/design/weekly-draft-feedback.md 10절): 다음 주 바탕은 내가 최종으로 올린 최신 개인 확정본(보고일 앞의 것). 없으면 지금처럼 팀 확정본.
 // S53-16: 두 분류는 이름 글자가 아니라 역할로 찾는다(document-categories.js weeklyCategoryOf). 안내 문구도 지금 분류 이름으로.
@@ -413,7 +414,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const made = el('p', 'journal-hwpx-final-row');
     made.append(el('b', '', word('① WORK ON+가 만든 파일')), ` ${mdhm(c.at)}${c.final ? ' · 이전 판' : ''}`);
     const mine = el('p', 'journal-hwpx-final-row'); mine.dataset.hwpxFinalMine = '';
-    const pick = button(c.final ? '다시 올리기' : '올리기', 'hwpxFinalPick', 'row-act'); pick.disabled = finalBusy;
+    const pick = putUploadLabel(button(c.final ? '다시 업로드' : '업로드', 'hwpxFinalPick', 'row-act'), c.final ? '다시 업로드' : '업로드'); pick.disabled = finalBusy;
     if (c.final) { mine.dataset.hwpxFinalDone = ''; mine.append(el('b', '', '② 내가 수정한 최종본'), ` ${c.final.file_name} · ${mdhm(c.final.at)} — 이번 주 확정본 `, pick); }
     else mine.append(el('b', '', '② 내가 수정한 최종본'), ' 한글에서 수정한 파일을 끌어 놓거나 ', pick);
     finalLine.replaceChildren(made, mine);

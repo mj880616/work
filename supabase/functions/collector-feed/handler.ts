@@ -71,7 +71,8 @@ import { askDirect, askReplied, AUTO_DONE_REPLIED, messagedAfter, type ReplyMsg 
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "../_shared/news-url.ts";
 import { makeFeedReader } from "../_shared/feed-fetch.ts";
-import { peekTitle, titleKey } from "../_shared/page-title.ts";
+import { countWhy, peekTitleWhy, titleKey } from "../_shared/page-title.ts";
+import { sameArticleTitle } from "../_shared/same-article.ts";
 import { readerUserAgent } from "../_shared/reader-headers.ts";
 import { aiConfigFrom, callOpenAi, estimateKrw, isIncomplete, outputText, tokenCount } from "../_shared/openai-responses.ts";
 import { organizationOptions, projectOptions } from "../ai-assist/library-fill.ts";
@@ -1188,11 +1189,17 @@ function makePeeker(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>,
     const reader = makeFeedReader({ doFetch, sleep, log: () => {}, userAgent: PEEK_UA, robotsAgent: "Web2NewsFeed", gapMs: PEEK_GAP_MS,
       allow: openArticleUrl, now, skipRobots: true });
     const start = now();
-    let read = 0, missed = 0, late = 0;
+    let read = 0, missed = 0, late = 0, same = 0;
+    const why: Record<string, number> = {}; // 못 읽은 까닭 코드별 건수(S70-17, 주소·제목 없음)
     for (const r of list) {
-      if (now() - start > TITLE_PEEK_BUDGET_MS) { late++; continue; }
-      let got = null;
-      try { got = await peekTitle(reader, r.url); } catch { got = null; }
+      // S70-17b: 같은 기사의 매체 RSS 줄이 이미 있으면 그 제목(우리 DB만 읽음 — 사이트를 부르지 않는다. 동아일보처럼 서버 접속이 늦거나 막힌 매체도 제목이 생긴다).
+      let got: { title: string; publisher: string | null } | null = null;
+      try { got = await sameArticleTitle(db.get, r.url); } catch { got = null; }
+      if (got) same++;
+      else {
+        if (now() - start > TITLE_PEEK_BUDGET_MS) { late++; continue; }
+        try { const p = await peekTitleWhy(reader, r.url); got = p.peek; if (!got) countWhy(why, p.why); } catch { got = null; countWhy(why, "error"); }
+      }
       if (!got) { missed++; continue; }
       const patch: Record<string, unknown> = { title: got.title, title_key: titleKey(got.title), updated_at: new Date(now()).toISOString() };
       if (got.publisher) patch.publisher = got.publisher;
@@ -1202,7 +1209,7 @@ function makePeeker(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>,
         read++;
       } catch { missed++; }
     }
-    log("title_peek", { read, missed, late });
+    log("title_peek", { read, missed, late, same, why }); // same = 그 가운데 같은 기사 RSS 줄에서 얻은 건수(내부 표시, 화면에는 출처 꼬리표 없음)
   };
 }
 

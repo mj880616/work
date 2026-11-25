@@ -36,9 +36,9 @@ test('세모 ▴는 접기 표시로 쓰지 않는다(계정 메뉴 열림 표�
 });
 
 test('세모 ▸는 접기 표시로 쓰지 않는다(폴더 나무 줄·하위 메뉴·[목록 ▸]만 예외 — 폴더 나무는 FOLDER-세모0 몫)', () => {
-  assert.deepEqual(hits(/▸|\\25B8/, ['files.js', 'ledger-browse.js', 'note-boards.js', 'news-clipping.js', 'od-settings.js', 'photos.js']), []);
+  assert.deepEqual(hits(/▸|\\25B8/, ['files.js', 'note-boards.js', 'news-clipping.js', 'od-settings.js', 'photos.js']), []);
   // 예외 파일도 접는 칸 머리에는 쓰지 않는다.
-  for (const f of ['ledger-browse.js', 'google-tasks.js', 'weekly-org-lines.js', 'diary-list.js']) assert.doesNotMatch(code(f).join('\n'), /(이전 결정|나중|완료|지난주|줄) [^<]{0,8}▸/, f);
+  for (const f of ['google-tasks.js', 'weekly-org-lines.js', 'diary-list.js']) assert.doesNotMatch(code(f).join('\n'), /(이전 결정|나중|완료|지난주|줄) [^<]{0,8}▸/, f);
 });
 
 test('CSS 가상 요소로 세모 접기 표시를 그리지 않는다(고르기 ▾는 field-btn·계정 메뉴·UI-펼침표시만)', () => {

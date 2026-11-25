@@ -106,7 +106,7 @@ for(const width of [390,1280]){
    // HWP-화면가득: 폰은 위 얇은 줄의 [파일 ▾]·[저장 ▾]만 작은 버튼(32px)으로 보인다.
    await check(page.locator('#hwpMenuFile'),32,'[파일 ▾]');await check(page.locator('#hwpMenuSave'),32,'[저장 ▾]');
   }else{
-   await check(page.locator('#hwpLabPick'),32,'[파일 선택]');await check(page.locator('#hwpLabUpload'),32,'[자료실에 올리기]');
+   await check(page.locator('#hwpLabPick'),32,'[파일 선택]');await check(page.locator('#hwpLabUpload'),32,'[자료실에 업로드]');
    await expect(page.locator('#hwpLabSave')).toBeVisible();expect((await measure(page.locator('#hwpLabSave'))).h).toBe(36);
   }
   await noWideScroll(page);expect(errors.filter(e=>!/rhwp|wasm/i.test(e))).toEqual([]);

@@ -6,7 +6,7 @@ import { openHome } from './helpers/home-entry.mjs';
 // 사진은 화면 첫 줄이 제목이라 앱 머리가 없고, 폴드 펼침에서는 제목 · 도구 줄 · 출처가 한 줄이다(접은 폰은 두 줄 그대로).
 // 가짜 서버·가짜 자료만 쓴다(openHome).
 const FOLD = [[690, 1000], [750, 1000]];
-const VIEWS = [['tasks', '할 일'], ['ledger', '원장'], ['outside', '읽을 거리'], ['basket', '잊지 말기'], ['diary', '하루 기록']];
+const VIEWS = [['tasks', '할 일'], ['outside', '읽을 거리'], ['basket', '잊지 말기'], ['diary', '하루 기록']];
 const go = async (page, view) => {
   await page.evaluate(v => window.KPTURouter.go(v), view);
   await page.waitForFunction(v => window.KPTURouter.current === v && !document.querySelector(`#${v}View`)?.classList.contains('hidden'), view);

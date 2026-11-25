@@ -159,3 +159,36 @@ test('폰 412 나무: 폴더 줄 꾹 눌러 다른 폴더 줄로 끌면 [복사]
   expect(edgeCalls(server, 'move')[0].body).toMatchObject({ source: 'od', ids: ['OD!2'], to: 'OD!1' });
   expect(errors).toEqual([]);
 });
+
+// S70-33 QA-간헐실패: 꾹 누르는 동안(집어 들기 전) 다른 저장소 상자가 늦게 읽혀 나무가 통째로 다시 그려져도, 손가락 아래 그 줄을 고른다.
+// 예전에는 떼어진 옛 줄을 집으려다 아무것도 집지 못하고, 손을 뗀 뒤 브라우저 누르기(click)가 그 줄을 펼쳤다(S10 파일 390 간헐 실패의 원인).
+test('폰 390 나무: 꾹 누르는 동안 나무가 다시 그려져도 손가락 아래 그 폴더 줄 고르기(펼치지 않음)', async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors } = await start(page, 390);
+  const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+  let release, held = false;
+  const gate = new Promise(r => { release = r; });
+  await page.route(SB + '/rest/v1/rpc/app_cloud_list', async r => {
+    if (r.request().postDataJSON()?.p_source === 'gd') { held = true; await gate; }
+    return r.fallback();
+  });
+  await openFiles(page, 390);
+  const f = tfold(page, 'od:OD!1');
+  await expect(f).toBeVisible();
+  await expect.poll(() => held).toBe(true);
+  await expect(f).toHaveAttribute('aria-expanded', 'false');
+  const b = await f.boundingBox(), p = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  await f.evaluate(e => { window.__s7033 = e; });
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...p, id: 0 }] });
+  release();
+  // 구글 상자가 읽혀 나무가 다시 그려질 때까지(누른 줄이 새 줄로 바뀜) — 집어 들기(380ms) 전에 일어나는 경우.
+  await page.waitForFunction(() => window.__s7033 && !window.__s7033.isConnected);
+  await page.waitForTimeout(600);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+  await expect(f).toHaveClass(/fx-picked/);
+  await expect(barText(page)).toHaveText('1개');
+  await expect(f).toHaveAttribute('aria-expanded', 'false');
+  expect(errors).toEqual([]);
+});
