@@ -75,6 +75,7 @@ import { countWhy, peekTitleWhy, titleKey } from "../_shared/page-title.ts";
 import { sameArticleTitle } from "../_shared/same-article.ts";
 import { readerUserAgent } from "../_shared/reader-headers.ts";
 import { aiConfigFrom, callOpenAi, estimateKrw, isIncomplete, outputText, tokenCount } from "../_shared/openai-responses.ts";
+import { FUNCTION_FEATURES, recordAiUsageEvent } from "../_shared/ai-features.mjs";
 import { organizationOptions, projectOptions } from "../ai-assist/library-fill.ts";
 import {
   CALL_LIMITS, type CallResolve, cleanLine, contactDigest, contactIsWork, contactNorm, contactRaw, kstDay, type OrgRow, parseCall, sourceTxtNameOf,
@@ -520,6 +521,15 @@ async function addDay(db: Db, ws: string, day: string, source: string, delta: De
   throw new Fail(503, "DB_WRITE_FAILED");
 }
 
+// S70-55 I-3: AI 한 번(텔레그램 판정·가족 기록 뽑기)을 기능별 표(app_ai_usage_events, 'telegram')에도 1행.
+// 하루 숫자(app_feed_days)·한 달 상한은 그대로. 숫자·모델 이름만, 실패는 로그만(본 작업을 막지 않음).
+const AI_FEATURE = FUNCTION_FEATURES["collector-feed"];
+async function recordAiEvent(db: Db, ws: string, day: string, model: string, usage: { input: number; output: number }, log: (code: string, detail?: Record<string, unknown>) => void) {
+  await recordAiUsageEvent(async (row) => { await db.insert("app_ai_usage_events", row); },
+    { workspaceId: ws, day, feature: AI_FEATURE, model, calls: 1, input: tokenCount(usage.input), output: tokenCount(usage.output) },
+    (code, detail) => log(code, detail));
+}
+
 // 허용된 작업공간이 없거나 둘 이상이면(함수가 null), 함수가 없으면(DB 적용 전) 저장하지 않고 503. 몸통의 작업공간 값은 받지 않는다(400).
 async function workspaceId(db: Db, feature: "calls" | "telegram" | "family") {
   const value = await db.rpcScalar(FEATURE_WORKSPACE_FN, { p_feature: feature });
@@ -871,6 +881,7 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   if (usage.input || usage.output) {
     try { await addDay(db, ws, today, "telegram", { ai_input_tokens: tokenCount(usage.input), ai_output_tokens: tokenCount(usage.output) }, nowMs); }
     catch { deps.log("usage_record_failed"); }
+    await recordAiEvent(db, ws, today, config.model, usage, deps.log);
   }
   const text = result.ok ? outputText(result.raw) : null;
   const parsedAi = result.ok ? parseTelegram(text, input.messages.length, orgs, projects, (i) => self.has(input.messages[i].sender)) : null;
@@ -988,6 +999,7 @@ async function familyExtract(db: Db, ws: string, material: string, recent: Famil
   if (usage.input || usage.output) {
     try { await addDay(db, ws, today, "telegram", { ai_input_tokens: tokenCount(usage.input), ai_output_tokens: tokenCount(usage.output) }, nowMs); }
     catch { deps.log("usage_record_failed"); }
+    await recordAiEvent(db, ws, today, config.model, usage, deps.log);
   }
   const parsed = result.ok ? parseFamily(outputText(result.raw), recent) : null;
   if (!parsed) {

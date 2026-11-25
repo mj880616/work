@@ -180,6 +180,7 @@ export const OPENAI_URL = "https://api.openai.com/v1/responses";
 export const KEY_NAME = "WEB2_OPENAI_API_KEY";
 // 모델·가격 기본값은 _shared/ai-model.ts 한 곳(운영 값은 WEB2_AI_MODEL·WEB2_AI_PRICE_*로 바꿀 수 있음).
 import { DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
+import { featureOfKind, recordAiUsageEvent } from "../_shared/ai-features.mjs";
 export { DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK };
 export const DEFAULT_MODEL = DEFAULT_AI_MODEL;
 // Web2 월 추정 한도(D4 ②). OpenAI 쪽 월 한도(약 2만 원, D4 ①)보다 먼저 멈춘다.
@@ -971,6 +972,7 @@ async function checkBudget(ctx: Ctx, kind: string, nowMs: number, price: { input
   // 사용 기록 표는 사용자·날짜마다 1행이라 하루 횟수는 모든 쓰임 합계로 센다. 챙길 것 찾기의 하루 5회는 찾기 상태 표가 센다.
   if (!(kind in DAILY_LIMITS) || used >= DAILY_TOTAL_LIMIT) throw new Fail(429, "daily_limit");
   return {
+    kind,
     day,
     requests: used,
     input: tokenCount(today?.input_tokens),
@@ -993,6 +995,23 @@ async function writeUsage(ctx: Ctx, day: string, requests: number, input: number
       updated_at: new Date(nowMs).toISOString(),
     },
   });
+}
+
+// S70-55 I-3: AI를 부른 뒤 쓴 토큰을 오늘 행에 더하고(지금과 같음), 기능별 표(app_ai_usage_events)에도 1행 넣는다.
+// 기능 키는 checkBudget이 받은 쓰임(kind)으로 _shared/ai-features.mjs 표에서 정한다. 행에는 숫자·모델 이름·기능 키만(글 없음).
+// 오늘 행 기록 실패는 지금처럼 부르는 쪽에 던진다(각 쓰임이 usage_record_failed로 받음). 기능별 행 실패는 던지지 않고 고정 코드만 로그.
+// 내 로그인 토큰으로 넣는다(표의 authenticated 넣기 칸 grant + 소유자 with check).
+type UsedTokens = { input: number; output: number; calls?: number };
+async function writeUsageAfterAi(ctx: Ctx, budget: { kind: string; day: string; requests: number; input: number; output: number }, used: UsedTokens, model: string, nowMs: number) {
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, nowMs);
+  } finally {
+    await recordAiUsageEvent(
+      (row) => rest(ctx, "app_ai_usage_events", { method: "POST", prefer: "return=minimal", body: row }),
+      { workspaceId: ctx.workspaceId, day: budget.day, feature: featureOfKind(budget.kind), model, calls: used.calls ?? 1, input: used.input, output: used.output },
+      (code, detail) => ctx.log(code, detail),
+    );
+  }
 }
 
 // OpenAI 호출 1번 + 잠깐 막힘 1번 재시도는 공용 모듈이 한다(collector-feed와 같은 길).
@@ -1095,7 +1114,7 @@ async function runTodoRecheck(ctx: Ctx, deps: RadarDeps): Promise<Response> {
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: RECHECK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -1181,7 +1200,7 @@ async function runTodoRulesReview(ctx: Ctx, deps: RadarDeps): Promise<Response> 
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: RULES_REVIEW_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -1575,7 +1594,7 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
     const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: RADAR_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
     if (used.input || used.output) {
       try {
-        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+        await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
       } catch {
         deps.log("usage_record_failed");
       }
@@ -1773,7 +1792,7 @@ async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response>
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: LEDGER_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -2372,7 +2391,7 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
     used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: AUTO_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
     if (used.input || used.output) {
       try {
-        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+        await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
       } catch {
         deps.log("usage_record_failed");
       }
@@ -2483,7 +2502,7 @@ async function runLedgerFix(ctx: Ctx, input: LedgerFixInput, deps: RadarDeps): P
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: FIX_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -2891,7 +2910,7 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: LIBRARY_MAX_OUTPUT_TOKENS * files.length } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3096,7 +3115,7 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: PEOPLE_BRIEF_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3188,7 +3207,7 @@ async function runShareDraft(ctx: Ctx, input: ShareInput, deps: RadarDeps): Prom
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: SHARE_LIMITS.maxOutputTokens } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3309,7 +3328,7 @@ async function runScheduleTitles(ctx: Ctx, input: ScheduleTitlesInput, deps: Rad
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: SCHEDULE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3361,7 +3380,7 @@ async function runHwpConvert(ctx: Ctx, input: HwpConvertInput, deps: RadarDeps):
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: HWP_CONVERT_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3528,7 +3547,7 @@ async function runOverlapCheck(ctx: Ctx, input: OverlapCheckInput, deps: RadarDe
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: OVERLAP_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3641,7 +3660,7 @@ async function runCallRefill(ctx: Ctx, input: CallRefillInput, deps: RadarDeps):
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: CALL_REFILL_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3740,7 +3759,7 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: JOURNAL_DRAFT_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3899,7 +3918,7 @@ async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps:
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: MEMORABLE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4114,7 +4133,7 @@ async function callDayAi(ctx: Ctx, deps: RadarDeps, started: number, name: strin
   });
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: maxTokens } : { input: 0, output: 0 };
   if (used.input || used.output) {
-    try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now()); } catch { deps.log("usage_record_failed"); }
+    try { await writeUsageAfterAi(ctx, budget, used, config.model, deps.now()); } catch { deps.log("usage_record_failed"); }
   }
   if (!result.ok) {
     deps.log(result.code);
@@ -4171,7 +4190,7 @@ async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): P
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: WORK_SCOPE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4229,7 +4248,7 @@ async function runRecordOneLine(ctx: Ctx, input: RecordOneLineInput, deps: Radar
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: ONE_LINE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4304,7 +4323,7 @@ async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): P
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: NOTE_TITLE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4392,7 +4411,7 @@ async function runFileName(ctx: Ctx, input: FileNameInput, deps: RadarDeps): Pro
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: FILE_NAME_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4463,7 +4482,7 @@ async function runLibrarySort(ctx: Ctx, input: LibrarySortInput, deps: RadarDeps
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: LIBRARY_SORT_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4569,7 +4588,7 @@ async function callWeeklyAi(ctx: Ctx, kind: "weekly_draft" | "weekly_review", de
   });
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: maxTokens } : { input: 0, output: 0 };
   if (used.input || used.output) {
-    try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now()); } catch { deps.log("usage_record_failed"); }
+    try { await writeUsageAfterAi(ctx, budget, used, config.model, deps.now()); } catch { deps.log("usage_record_failed"); }
   }
   if (!result.ok) {
     deps.log(result.code);
@@ -4659,7 +4678,7 @@ async function runAreaSuggest(ctx: Ctx, input: AreaSuggestInput, deps: RadarDeps
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: AREA_SUGGEST_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4869,7 +4888,7 @@ async function runAskWeb2(ctx: Ctx, input: AskWeb2Input, deps: RadarDeps): Promi
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: ASK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4903,6 +4922,7 @@ function nowKit(ctx: Ctx, d: RadarDeps): NowKit {
     rest: (path) => rest(ctx, path), rpc: (name, args) => askRpc(ctx, name, args), aiConfig: () => aiConfig(d.env),
     budget: (kind, price) => checkBudget(ctx, kind, d.now(), price),
     usage: (day, requests, input, output) => writeUsage(ctx, day, requests, input, output, d.now()),
+    usageAfterAi: (budget, used, model) => writeUsageAfterAi(ctx, budget, used, model, d.now()),
     ai: (key, body) => callOpenAi({ doFetch: ctx.doFetch, sleep: d.sleep, log: d.log }, key, body),
     fail: (status, code) => new Fail(status, code), failCode: (e) => e instanceof Fail ? e.code : null,
   };
@@ -4996,7 +5016,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
         : { input: 0, output: 0 };
       if (used.input || used.output) {
         try {
-          await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, now());
+          await writeUsageAfterAi(ctx, budget, used, config.model, now());
         } catch {
           log("usage_record_failed");
         }
