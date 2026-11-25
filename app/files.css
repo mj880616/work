@@ -31,7 +31,7 @@
 .fx-list { flex:1 1 auto; min-width:0; }
 /* S49-4 FILES-칸폭: 폴드 펼침·PC는 두 칸(폴더 나무 | 목록+미리보기) 그리드 — 폭은 split-resize.js가 변수(fr)로 넣고 서버에 기억. 폰은 나무가 없어 그대로. */
 @media (min-width:600px) {
-  .fx-cols { --ds-split-files-tree:22fr; --ds-split-files-main:78fr; --ds-split-files-tree-min:160px; --ds-split-files-main-min:440px; display:grid; grid-template-columns:minmax(var(--ds-split-files-tree-min), var(--ds-split-files-tree)) minmax(0, var(--ds-split-files-main)); }
+  .fx-cols { --ds-split-files-tree:22fr; --ds-split-files-main:78fr; --ds-split-files-tree-min:160px; --ds-split-files-main-min:440px; display:grid; grid-template-columns:minmax(var(--ds-split-files-tree-min), var(--ds-split-files-tree)) minmax(0, var(--ds-split-files-main)); column-gap:var(--ds-gap-pane); }
   .fx-tree { flex:none; width:auto; min-width:0; }
 }
 /* S51-18: 폴드 폭(600~1199)은 나무 최소 폭을 넓혀 폴더 이름이 잘리지 않게, 목록 칸 최소 폭은 줄여 나무를 더 넓힐 수 있게(목록은 이름 칸이 좁아질 뿐 줄 모양 그대로). */
@@ -45,6 +45,8 @@
    칸 합이 목록보다 넓어질 수 있어 목록을 옆으로 밀어 본다(머리줄·줄이 함께 움직임). 줄은 칸 합보다 좁아지지 않는다(min-content = 정해진 칸 합). */
 .fx-list { overflow-x:auto; overscroll-behavior-x:contain; }
 .fx-list > .fx-head, .fx-list > .fx-rows:not(.fx-grid) { min-width:min-content; }
+/* UI-간격기준 E(S70-25): 목록 칸의 빈 상태·실패 안내는 목록 줄 글자와 같은 왼쪽 선(머리 줄·줄의 좌우 8px). */
+.fx-list > :is(.wait-empty, .wait-fail) { padding-inline:8px; }
 .fx-head { height:26px; padding:0 8px; font-size:11.5px; color:var(--kptu-muted); border-bottom:.5px solid var(--kptu-border); }
 .fx-head span { position:relative; min-width:0; white-space:nowrap; }
 /* 첫 칸(아이콘 자리)은 비우고 이름 머리는 이름 칸 위에(S51-33: 이름 칸 금이 이름 칸 너비만 바꾸게). */
@@ -371,7 +373,9 @@
 .fx-row[aria-busy="true"], .ft-main[aria-busy="true"] { cursor:progress; opacity:.7; }
 /* LIB-사진숨김(S60-10): 폴더 안 사진은 줄에서 빼고 맨 아래 [사진 n](photo-fold.js 공용 단추). 펼치면 작은 그림 칸. */
 .fx-photo-fold { padding:2px 8px 2px calc(8px + var(--fx-xdepth,0) * 16px); }
-.fx-photo-fold.ft-row { padding:2px 0 2px calc(8px + var(--ft-depth,0) * 16px); min-height:0; }
+/* UI-간격기준 A(S70-25): [사진 n] 칩이 상자 마지막 줄일 때 상자 밑선에 붙지 않게 위 여백을 아래로 옮긴다(위 0 · 아래 4px = 최소 간격).
+   줄 높이 합은 그대로(2+2 → 0+4)라 짧은 목록 아래 빈 곳(손짓 칸)이 줄지 않는다. 칩 위는 앞 줄의 안쪽 여백이 간격이 된다. */
+.fx-photo-fold.ft-row { padding:0 0 4px calc(8px + var(--ft-depth,0) * 16px); min-height:0; }
 .fx .fx-rows.fx-grid > .fx-photo-fold-grid { grid-column:1 / -1; padding:0; }
 .fx .fx-rows.fx-grid.fx-photo-grid { grid-template-columns:repeat(auto-fill, minmax(68px, 1fr)); padding:2px 8px 8px calc(8px + var(--fx-xdepth,0) * 16px); gap:6px; }
 .fx-photo-grid .fx-nm { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }

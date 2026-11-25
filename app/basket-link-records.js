@@ -5,6 +5,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {aiSummaryAllowed,aiSummaryMarkup,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
 import {previewText,markdownSource,writtenText} from './note-preview.mjs';
 import {attachmentsLabel} from './record-file-line.mjs';
+import {dayCell} from './org-record-rows.mjs'; // UI-기록카드하나로: 글 기록 줄과 같은 날짜 칸 글
 import {markLineRevert,revertRecordLine} from './record-line-briefs.js'; // ORG-기록첨부 옛줄바꾸기(S67-13): 사진 설명으로 바꾼 줄 표시
 
 const PAGE_SIZE=100;
@@ -127,10 +128,12 @@ export const recordMarkdownSource=row=>markdownSource(recordSourceText(row));
 // EDIT-번호모양보존: a text with no markdown marks that was written over several lines opens as written ("1)" "(1)" indentation and blank lines stay).
 export const recordWrittenSource=row=>{const text=recordSourceText(row);return !markdownSource(text)&&/\n/.test(String(text??'').trim())?writtenText(text):'';};
 // extra: html put inside the record under its line (ORG-기록첨부: the picture/file strip, record-files.js).
+// UI-기록카드하나로(S70-42, 명진 11/25 "사진이 있는거랑 글자가 있는거랑 먼가 통일감이 없음"): 글 기록 줄과 같은 틀 [날짜 칸 'MM.DD.' | 본문 | ⋯].
+// 본문 = 글(또는 사진만인 기록의 한 줄) + 그 아래 extra(기록 띠: 작은 사진·파일 이름, record-files.js). 긴 날짜·시각은 날짜 칸 title로만.
 export function linkRecordHtml(row,{extra=''}={}){
-  const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
+  const ok=Number.isFinite(Date.parse(row.occurred_at)),date=ok?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'',day=ok?dayCell(row):'';
   const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}"${row.line_revert?' data-basket-link-revert':''} data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${isDirectRecord(row)?`<time>${escape(date)}</time>`:`${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'잊지 말기 연결'} · <time>${escape(date)}</time>`}</small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordShownText(row))}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="${recordMenuLabel(row)}" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div>${extra}<p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}"${row.line_revert?' data-basket-link-revert':''} data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><span class="basket-link-day"><time${ok?` datetime="${escape(new Date(row.occurred_at).toISOString())}" title="${escape(date)}"`:''}>${escape(day)}</time></span><div class="basket-link-main"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}">${isDirectRecord(row)?'':`<small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'잊지 말기 연결'}</small>`}<p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordShownText(row))}</p></a>${extra}</div><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="${recordMenuLabel(row)}" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
 // ORG-기록첨부 옛줄바꾸기(S67-13): 기록 줄 ⋯ [이전 줄로 되돌리기] 한 줄(조직 기록 메뉴·사업 진행 기록 메뉴가 같이 씀). attr = 그 메뉴의 동작 속성.
