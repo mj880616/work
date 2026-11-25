@@ -155,7 +155,7 @@ function drawList() {
   // 화면 이름 '저장한 글'이 이미 보이므로 머리 줄 제목은 그리지 않는 쪽(reading.css가 761px~에서 뺌) — 머리 줄은 보기 탭 + ＋ 아이콘만.
   // 폰·접은 폴드(~760px)는 위 줄이 없어 제목이 화면 이름이고 탭은 하단바 위 공용 전환 줄로 간다(머리 = 제목 + ＋).
   head.append(el('h2', 'rd-title', '저장한 글'));
-  const add = btn('rd-add icon-btn', '＋', {rdAdd: '1'});
+  const add = btn('rd-add icon-btn', '＋', {rdAdd: '1', ctxScreenItem: '글 추가'}); // S70-28: 빈 곳 우클릭 메뉴에도(context-menu.js)
   add.setAttribute('aria-label', '글 추가'); add.title = '글 추가';
   add.setAttribute('aria-expanded', String(state.adding));
   head.append(add);

@@ -171,7 +171,7 @@ async function census(page, screen, rootSel, testInfo) {
 
 // ② 지키는 표: 이름 붙인 자리. want = app | browser. gap = 아직 브라우저 메뉴가 뜨는 자리를 맡은 작업(고치는 PR이 지운다).
 // sel은 화면 안 자리(첫 번째 보이는 것), at은 그 자리 안 누를 점(left 기준 px, 없으면 왼쪽 40px·가운데).
-async function expectSpot(page, { name, sel, want, gap = null, at = null }) {
+async function expectSpot(page, { name, sel, want, gap = null, at = null, labels = null }) {
   const loc = page.locator(sel).first();
   await expect(loc, name).toBeVisible();
   const b = await loc.boundingBox();
@@ -180,6 +180,8 @@ async function expectSpot(page, { name, sel, want, gap = null, at = null }) {
   const now = r.result === 'app' ? 'app' : 'browser';
   const expected = gap ? 'browser' : want;
   expect(now, `${name}: ${gap ? '알려진 빈 곳(' + gap + ') — 고쳤으면 SPOTS에서 gap을 지운다' : '기대 ' + want}`).toBe(expected);
+  if (labels && !gap) expect(r.labels, name + ' 메뉴 항목').toEqual(labels);
+  await closeMenus(page);
   return r;
 }
 
@@ -212,11 +214,12 @@ const SPOTS = {
     { name: '할 일 줄', sel: '#tasksView li.gt-row.gt-card', want: 'app' },
     { name: '할 일 머리 줄', sel: '#tasksView .gt-head-left', want: 'app', gap: SCREEN_GAP },
   ],
-  '하루 기록': [{ name: '하루 기록 머리 줄', sel: '#diaryView .diary-week-head', want: 'app', gap: SCREEN_GAP }],
+  // A(S70-28): 머리 줄 '새로 만들기' 단추(data-ctx-screen-item)를 빈 곳 우클릭 메뉴로.
+  '하루 기록': [{ name: '하루 기록 머리 줄', sel: '#diaryView .diary-week-head', want: 'app', labels: ['하루 기록 쓰기'] }],
   '사진': [{ name: '사진 머리 줄', sel: '#photosView .photos-head', want: 'app', gap: SCREEN_GAP }],
   '잊지 말기': [{ name: '잊지 말기 머리 줄', sel: '#basketView .forget-head', want: 'app', gap: SCREEN_GAP, at: 200 }],
-  // S70-40b ④: PC 틀은 목록 머리 줄 제목이 없다(위 줄에 화면 이름) — 머리 줄 탭 오른쪽 빈 곳.
-  '저장한 글': [{ name: '저장한 글 머리 줄', sel: '#readingView [data-rd-list] .rd-head', want: 'app', gap: SCREEN_GAP, at: 300 }],
+  // S70-40b ④: PC 틀은 목록 머리 줄 제목이 없다(위 줄에 화면 이름) — 머리 줄 탭 오른쪽 빈 곳. S70-28: 그 우클릭 메뉴에 '글 추가'.
+  '저장한 글': [{ name: '저장한 글 머리 줄', sel: '#readingView [data-rd-list] .rd-head', want: 'app', labels: ['글 추가'], at: 300 }, { name: '저장한 글 빈 곳', sel: '#readingView .wait-empty', want: 'app', labels: ['글 추가'] }],
   '조직 관리': [
     { name: '조직 카드', sel: '#teamView article.so-card', want: 'app' },
     { name: '조직 기록 줄', sel: '#teamView .wd-log-row', want: 'app' },
@@ -311,4 +314,33 @@ test('S70-28 전수 1280: 통화 화면', async ({ page }, testInfo) => {
   await openCalls(page, W);
   await census(page, '통화', '#callsView', testInfo);
   await expectSpot(page, { name: '통화 줄', sel: '#callsView .feed-rows', want: 'app' });
+});
+
+// A(S70-28): 빈 곳 메뉴 항목을 고르면 그 머리 줄 단추를 그대로 누른 것과 같다(같은 단추에서 만든 목록).
+test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 머리 줄 [+ 추가]', async ({ page }) => {
+  await page.setViewportSize({ width: W, height: 900 });
+  await instrument(page);
+  await openHome(page);
+  await clickView(page, 'reading');
+  const add = page.locator('#readingView [data-rd-add]');
+  await expect(add).toHaveAttribute('aria-expanded', 'false');
+  const empty = page.locator('#readingView .wait-empty');
+  await expect(empty).toBeVisible(); // 목록 읽기가 끝나 빈 안내가 그려진 뒤
+  const b = await empty.boundingBox();
+  const r = await rightClickAt(page, Math.round(b.x + 30), Math.round(b.y + b.height / 2));
+  expect(r.result).toBe('app');
+  await page.locator('#rowMenu').getByRole('button', { name: '글 추가', exact: true }).click();
+  await expect(page.locator('#readingView [data-rd-add]')).toHaveAttribute('aria-expanded', 'true');
+  // 입력 칸은 브라우저 메뉴 그대로.
+  const input = page.locator('#readingView input:visible').first();
+  await expect(input).toBeVisible();
+  const ib = await input.boundingBox();
+  expect((await rightClickAt(page, Math.round(ib.x + 20), Math.round(ib.y + ib.height / 2))).result).toBe('browser');
+  // Shift+F10(메뉴 키)도 같은 메뉴.
+  // S70-40b ④ 뒤: PC 틀은 머리 줄 제목(.rd-title)을 그리지 않으므로 머리 줄 자체에 초점.
+  await page.locator('#readingView [data-rd-list] .rd-head').evaluate(el => { el.tabIndex = -1; el.focus(); });
+  await page.evaluate(() => { window.__ctxBy = []; });
+  await page.keyboard.press('Shift+F10');
+  await expect(page.locator('#rowMenu')).toBeVisible();
+  expect(await page.evaluate(MENU_LABELS)).toEqual(['글 추가']);
 });
