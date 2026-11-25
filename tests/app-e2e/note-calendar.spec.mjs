@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -114,9 +115,9 @@ for (const width of [412, 884, 1440]) test(`[달력] 보기: 탭 노출·만든 
   await expect(dayList(page)).toHaveAttribute('data-nt-cal-list', TODAY);
 
   // 찾기: 맞는 노트만 센다.
-  await page.locator('[data-note-search]').fill('회의');
+  await (await screenFind(page)).fill('회의');
   await expect(todayCell.locator('.nt-cal-count')).toHaveText('1');
-  await page.locator('[data-note-search]').fill('');
+  await (await screenFind(page)).fill('');
   await expect(todayCell.locator('.nt-cal-count')).toHaveText('2');
 
   // 잠긴 노트를 누르면 그 자리 숫자 판 → 맞는 PIN이면 제목이 보인다(잠금 규칙 그대로).

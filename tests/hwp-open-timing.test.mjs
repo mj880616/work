@@ -14,9 +14,11 @@ test('오래 걸리면 단계별 초와 전체 초를 보인다', () => {
 test('빠진 단계는 건너뛴다', () => {
   assert.equal(openTimingText({editor: 4000, total: 4200}), ' (걸린 시간: HWP 편집 4.0초 · 전체 4.2초)');
 });
-test('자료실 검색 결과 모두 고르기 버튼이 검색칸 옆에 연결돼 있다', () => {
+// S70-54 UI-검색창하나로: 찾기 칸은 맨 위 칸이 겸하므로 [결과 n개 모두 선택]은 그 오른쪽 맨 위 줄 단추 자리(luTools) 맨 앞.
+test('자료실 검색 결과 모두 고르기 버튼이 맨 위 찾기 칸 옆(맨 위 줄 단추 자리)에 연결돼 있다', () => {
   const js = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');
   assert.match(js, /luSyncSearchPickAll\(q,matches\)/);
   assert.match(js, /결과 \$\{luSearchPickIds\.length\}개 모두 선택/);
-  assert.match(js, /input\.after\(button\)/);
+  assert.match(js, /const row=luTools;/);
+  assert.match(js, /row\.prepend\(button\)/);
 });

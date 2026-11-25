@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // NEWS-클리핑 C1(docs/design/news-clipping.md) → S51-8 NEWS-전면개편 P4b: News [언론] 탭(?view=outside).
 // 제목 중심 줄(색 띠·매체 이름·국제 꼬리표·시각, 요약·접기·번역은 상세로) · 위 찾기 칸 서버 찾기(S63-11) · [매체 ▾] 거르기
 // · 껍데기 ⋯ [지금 채우기]·[키워드 고치기]·[언론 매체 켜고 끄기](서버 저장, 뒤로가기 한 번 = 목록) · 폰 좌우 밀기로 탭 이동.
@@ -45,31 +46,31 @@ for (const width of [412, 884, 1440]) {
     // 대기 줄: 주소의 도메인.
     await expect(item(page, 'w1').locator('.nw-title')).toHaveText('가짜 대기 기사'); // S69: '제목 읽기 전' 없음 — 주소 경로 조각(S70-17b: 그것도 없으면 목록에서 빠진다)
     // 위 찾기 칸(S63-11): 서버 찾기 — 최근 30일 기사 + 별표 기사의 제목·한국어 제목·요약(지금 목록에 없는 기사도).
-    await page.locator('#outsideRoot [data-nw-find]').fill('유료');
+    await (await screenFind(page)).fill('유료');
     await expect(items(page)).toHaveCount(1);
     await expect(item(page, 'p1')).toBeVisible();
     const findQ = server.calls.filter(c => c.what === 'app_news_articles' && c.query.includes('ilike')).at(-1).query;
     expect(findQ).toContain('or=(title.ilike."*유료*",title_ko.ilike."*유료*",summary.ilike."*유료*")'); expect(findQ).toContain('created_at=gte.');
     // S68-27: '보관한 글' 찾기 = 내 읽을 거리 줄이 가리키는 기사(표시 표의 별표 칸이 아님).
     expect(server.calls.some(c => c.what === 'app_reading_items' && c.query.includes('news_article_id=not.is.null') && c.query.includes('app_news_articles!inner(') && c.query.includes('app_news_articles.or='))).toBe(true);
-    await page.locator('#outsideRoot [data-nw-find]').fill('없는낱말');
+    await (await screenFind(page)).fill('없는낱말');
     await expect(root(page).locator('[data-nc-empty]')).toHaveText('최근 30일·저장한 글에서 찾은 글이 없어요');
-    await page.locator('#outsideRoot [data-nw-find]').fill('');
+    await (await screenFind(page)).fill('');
     await expect(items(page)).toHaveCount(5);
 
     // ⋯ → 지금 채우기: 언론은 fill_now → 결과 한 줄 + 목록 다시 읽기.
     server.fillArmed = true;
-    await page.locator('#outsideRoot [data-os-more]').click();
+    await page.locator('.sf-tools [data-os-more]').click();
     await page.locator('#osMenu').getByRole('button', { name: '지금 채우기' }).click();
     await expect(root(page).locator('[data-nc-when]')).toHaveText('1건 채움');
     await expect(item(page, 'w1').locator('.nw-title')).toHaveText('채운 가짜 기사');
 
     // ⋯ → 키워드 고치기: 더하기·끄기·지우기(서버 저장), 뒤로가기 한 번 = 목록. 위 찾기 줄은 감춘다.
-    await page.locator('#outsideRoot [data-os-more]').click();
+    await page.locator('.sf-tools [data-os-more]').click();
     await page.locator('#osMenu').getByRole('button', { name: '키워드 수정' }).click();
     await expect(root(page).locator('[data-nc-kw]')).toHaveCount(1);
     await expect(items(page)).toHaveCount(0);
-    await expect(page.locator('#outsideRoot [data-nw-top]')).toBeHidden();
+    await expect(page.locator('.sf-tools [data-nw-media]')).toBeHidden();
     await expect(root(page).locator('.nc-panel-head')).toContainText('1/30');
     await expect(root(page).locator('.nc-panel-head')).not.toContainText('하루'); // S59-1: 키워드 기사 하루 상한은 없다(밖에서 새로 찾지 않음)
     // S59-1: 키워드 줄 아래에 받은 글 가운데 그 키워드가 든 글(서버가 keywords 칸에 적어 둔 글)이 모인다.
@@ -89,7 +90,7 @@ for (const width of [412, 884, 1440]) {
 
     // ⋯ → 언론 매체 켜고 끄기: news- 키만, 국내·해외 묶음, 켜기 = 새 줄 넣기. 켜면 [매체 ▾] 창에도 나온다.
     const callsBefore = server.calls.length;
-    await page.locator('#outsideRoot [data-os-more]').click();
+    await page.locator('.sf-tools [data-os-more]').click();
     await page.locator('#osMenu').getByRole('button', { name: '언론 매체 켜고 끄기' }).click();
     await expect(root(page).locator('.nc-group-head')).toHaveText(['국내', '해외']);
     // 이 창이 읽는 것은 news- 키뿐이다. (같은 표를 다른 칸 — 외부 소식 탭의 'news- 아님' 읽기 — 도 읽어 마지막 한 건으로 가리지 않고, 연 뒤의 읽기 중에서 찾는다.)
@@ -101,7 +102,7 @@ for (const width of [412, 884, 1440]) {
     await root(page).locator('[data-nc-back]').click();
     await expect(items(page)).toHaveCount(5);
     // [매체 ▾] → 'Fake Wire'만: 서버에 그 news- 키만 묻는다.
-    await page.locator('#outsideRoot [data-nw-media]').click();
+    await page.locator('.sf-tools [data-nw-media]').click();
     await expect(page.locator('#nwMediaPicker .lu-move-item')).toHaveText([/^전체/, '언론 국내', '가짜노동신문', '언론 국제', 'Fake Wire']);
     await page.locator('#nwMediaPicker [data-lu-move-folder="n:news-fake-en"]').click();
     await expect(items(page)).toHaveCount(1);
@@ -118,7 +119,7 @@ test('News [언론] 1440: 매체 창 읽기가 늦게 와도 방금 켠 매체�
   await openNews(page, 1440);
   await expect(items(page)).toHaveCount(5);
   let release; server.sourcesHold = new Promise(r => { release = r; });
-  await page.locator('#outsideRoot [data-os-more]').click();
+  await page.locator('.sf-tools [data-os-more]').click();
   await page.locator('#osMenu').getByRole('button', { name: '언론 매체 켜고 끄기' }).click();
   const en = root(page).locator('[data-nc-source="news-fake-en"]');
   await expect(en).toHaveAttribute('aria-checked', 'false');
@@ -154,7 +155,7 @@ test('News [언론] 폰 412: 좌우로 밀면 탭 이동, ⋯ 메뉴는 하단�
   await swipe(120);
   await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');
   await expect(items(page)).toHaveCount(5);
-  await page.locator('#outsideRoot [data-os-more]').click();
+  await page.locator('.sf-tools [data-os-more]').click();
   const menu = page.locator('#osMenu');
   await expect(menu).toBeVisible();
   const [m, bar] = await Promise.all([menu.boundingBox(), page.locator('.mobile-tabs').boundingBox()]);
@@ -168,7 +169,7 @@ test('Now [사회운동] ⋯ [지금 채우기]: 켠 단체만 read_now로 하�
   server.sources.set('kctu', { source_key: 'kctu', enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null });
   await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
-  await page.locator('#outsideRoot [data-os-more]').click();
+  await page.locator('.sf-tools [data-os-more]').click();
   await page.locator('#osMenu').getByRole('button', { name: '지금 채우기' }).click();
   await expect.poll(() => server.calls.filter(c => c.what === 'outside-edge' && c.action === 'read_now').length).toBe(1);
   expect(server.calls.find(c => c.action === 'read_now').body).toEqual({ source: 'kctu' });
@@ -184,13 +185,13 @@ test('PC News: 목록이 오기 전에 연 ⋯ 메뉴는 목록이 와도 닫히
   await page.route(u => /\/rest\/v1\/(app_news_articles|app_outside_articles)$/.test(u.pathname), async r => { await held; return r.fallback(); });
   await page.locator('#appView>.app-nav').getByRole('link', { name: '읽을 거리', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
-  await page.locator('#outsideRoot [data-os-more]').click();
+  await page.locator('.sf-tools [data-os-more]').click();
   const fill = page.locator('#osMenu').getByRole('button', { name: '지금 채우기' });
   await expect(fill).toBeVisible();
   release();
   await expect(page.locator('#nowPanelAll .now-row').first()).toBeVisible();
   await expect(fill).toBeVisible();
-  await expect(page.locator('#outsideRoot [data-os-more]')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.sf-tools [data-os-more]')).toHaveAttribute('aria-expanded', 'true');
   await page.keyboard.press('Escape');
   await expect(page.locator('#osMenu')).toBeHidden();
   await expect(page.locator('#nowPanelAll .now-row.is-open').first()).toBeVisible();

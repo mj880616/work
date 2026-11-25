@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // UI-키보드하단바: 하단 탭은 자판이 없을 때만 보이고(홈 빠른 입력·노트 검색 공통, accessibility-dialog.js 한 곳) 자판이 뜨면 숨는다.
 // 쓰기 창(ed-window.js)의 하단 탭·자판 시험은 ed-window.spec.mjs가 맡는다(옛 큰 창 시험은 ED③ 순서 6에서 지웠다).
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -36,7 +37,7 @@ test('다른 화면 입력 칸(홈 빠른 입력·노트 검색)도 같은 곳�
  await keyboard(page,false);await expect(tabs(page)).toBeVisible();
  await page.evaluate(()=>document.activeElement.blur());
  await goView(page,'basket');await chooseBasketKind(page,'note');
- const search=page.locator('[data-note-search]');await search.focus();
+ const search=(await screenFind(page));await search.focus();
  await keyboard(page,true);await expect(tabs(page)).toBeHidden();
  await keyboard(page,false);await expect(tabs(page)).toBeVisible();
  // Wide screens never use the keyboard layout.

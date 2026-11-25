@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // S62-13 NOTE-News밑줄보관보기(명진 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html ①~④):
 // 노트 [폴더] 목록 맨 아래 'News에서' + [밑줄 n]·[보관한 글 n]. 복사본 없이 News와 같은 서버 자료(app_news_highlights, app_outside_marks·app_news_items 별표)를 읽는다.
 // 밑줄 ⋯ = News 밑줄 메뉴 + [원문에서 보기], 보관한 글 [전체|뉴스|사회운동 글], 노트 검색이 밑줄·보관도 찾음('노트 n · 밑줄 n · 보관 n'),
@@ -169,7 +170,7 @@ test('880: 보관한 글 — [전체|뉴스|사회운동 글] 거르기, 줄 ⋯
 
 test('1280: 노트 검색이 노트·밑줄·보관을 함께 찾는다(꼬리표, 노트 n · 밑줄 n · 보관 n) · [목록] 보기에는 News에서가 없다', async ({ page }) => {
   const { errors } = await fixture(page, 1280);
-  await page.locator('[data-note-search]').fill('철도');
+  await (await screenFind(page)).fill('철도');
   await expect(page.locator('[data-nnm-head]')).toContainText('노트 1 · 밑줄 1 · 저장한 글 1');
   await expect(page.locator('#noteRows [data-note-row="n1"]')).toBeVisible();
   const b = box(page);
@@ -177,10 +178,10 @@ test('1280: 노트 검색이 노트·밑줄·보관을 함께 찾는다(꼬리�
   await expect(b.locator('.nnm-sv .nnm-tag')).toHaveText(['저장한 글']);
   if (SHOTS) await page.screenshot({ path: SHOTS + '1280-4-search.png' });
   // 노트에는 없고 밑줄에만 있는 말도 '맞는 노트 없음'으로 가리지 않는다.
-  await page.locator('[data-note-search]').fill('총인건비');
+  await (await screenFind(page)).fill('총인건비');
   await expect(page.locator('[data-nnm-head]')).toContainText('노트 0 · 밑줄 1 · 저장한 글 0');
   await expect(page.locator('[data-note-list-status]')).not.toContainText('맞는 노트 없음');
-  await page.locator('[data-note-search]').fill('');
+  await (await screenFind(page)).fill('');
   await page.locator('[data-note-view="list"]').click();
   await expect(page.locator('#basketView .nnm-sep')).toHaveCount(0);
   await expect(box(page)).toBeHidden();

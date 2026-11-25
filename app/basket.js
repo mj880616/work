@@ -44,6 +44,7 @@ import { bindRowSwipe, PICK } from './row-swipe.js';
 import { SPLIT_QUERY } from './screen-width.mjs';
 import { followPane } from './follow-pane.js';
 import {word} from './brand/brand.mjs';
+import {refreshScreenFind} from './screen-find.js'; // S70-54: [노트]일 때만 맨 위 칸이 노트 찾기
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 // STAB-간헐3: the refresh run whose list read is still pending (0 = none). Until it answers, an empty list is "loading",
@@ -452,7 +453,7 @@ window.addEventListener('kptu:sub-changed',e=>{
 // address: how the side reaches the address — 'replace' corrects it to the side shown (entering the screen), 'push' is a step of its
 // own (an update moved to the notes), false leaves it (a back/forward step already wrote it, or the screen is being left).
 function showKind(next,{openId=null,folder=null,address='replace'}={}){
-  closeRowMenu();kind=next;root.dataset.kind=kind;
+  closeRowMenu();kind=next;root.dataset.kind=kind;refreshScreenFind();
   basketTitle.textContent=kind==='note'?'노트':'잊지 말기';
   const memo=kind==='memo';
   paintListChrome();
