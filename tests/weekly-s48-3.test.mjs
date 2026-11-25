@@ -65,7 +65,7 @@ test('2) 주요 일정 제안: 기준에 맞고 표에 없는 달력 일정만, 
 test('옛 안내 문구·뺀 목록 코드가 화면 파일에 남지 않는다(코드째 삭제)', async () => {
   const weekly = await readFile(new URL('../app/journal-weekly.js', import.meta.url), 'utf8');
   const flow = await readFile(new URL('../app/weekly-flow-cells.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(weekly, /HQ_SCHEDULE_GUIDE|journalWeeklyGuide|주간보고에서 뺀 회의 종류|journalKindsOff|다시 올리기/);
+  assert.doesNotMatch(weekly, /HQ_SCHEDULE_GUIDE|journalWeeklyGuide|주간보고에서 뺀 회의 종류|journalKindsOff|다시 업로드/);
   assert.doesNotMatch(flow, /이번 주 보고에서 뺀 사업장|flowHiddenSites|flowSiteShow/);
 });
 

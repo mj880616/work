@@ -54,7 +54,7 @@ async function openProject(page){
   await page.locator(`[data-ps3-project="${P}"]`).first().click();
   await expectProjectTitle(page,'합성 사업영역');
 }
-const addDoc=page=>page.locator('#ps3-documents .ps3-section-head').getByRole('button',{name:'자료 올리기'});
+const addDoc=page=>page.locator('#ps3-documents .ps3-section-head').getByRole('button',{name:'자료 업로드'});
 const noticeLine=page=>page.locator('#uploadDock:not([hidden]) .up-dock-text');
 const retryButton=page=>page.locator('#uploadDock:not([hidden]) [data-up-act="note-act"]',{hasText:'다시'});
 const dock=page=>page.locator('#uploadDock:not([hidden])');

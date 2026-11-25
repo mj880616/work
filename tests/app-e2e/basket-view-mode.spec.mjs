@@ -136,7 +136,7 @@ test('basket quick input never locks: a result-unknown upload behind is said on 
  await expect(input).toHaveValue('');expect(await input.evaluate(el=>el.readOnly)).toBe(false);await expect(q.locator('[data-basket-file]')).toHaveCount(0);
  const dock=page.locator('#uploadDock:not([hidden])');
  await expect(dock).toContainText('업데이트에 파일 1개 못 올렸어요');await expect(dock).toContainText('파일 1개 올렸어요');
- await expect(dock.getByRole('button',{name:'못 올린 파일 다시 올리기'})).toHaveCount(0);
+ await expect(dock.getByRole('button',{name:'못 올린 파일 다시 업로드'})).toHaveCount(0);
  expect(calls).toBe(2);expect(f.writes.filter(w=>w.method==='POST')).toHaveLength(1);
  await input.click();await page.keyboard.type('새로 쓰는 메모');await expect(input).toHaveValue('새로 쓰는 메모');
  expect(f.errors.filter(e=>!e.includes('503'))).toEqual([]);

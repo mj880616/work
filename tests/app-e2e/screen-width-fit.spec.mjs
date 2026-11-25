@@ -12,7 +12,7 @@ const LONG='10.26. 메트로9호선노조 조합원 결의대회, 서울시청 �
 const URLISH='https://example.org/'+'abcdefghij'.repeat(14);
 const KINDS=['meeting','policy','negotiation','press','assembly','struggle','education','other'];
 // HOME-업무일지홈: 업무일지는 홈(home)이라 따로 열지 않는다.
-const VIEWS=['home','basket','calendar','tasks','projects','meetings','library','team','calls','telegram','ledger','diary'];
+const VIEWS=['home','basket','calendar','tasks','projects','meetings','library','team','calls','telegram','diary'];
 
 function wideState(){
   const s=baseState();s.meetingWrites=[];

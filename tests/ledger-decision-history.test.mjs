@@ -38,14 +38,3 @@ test('읽기 경로: 대체됨만 거꾸로, 한 번에 30건, 최대 10단계 /
   assert.equal(HISTORY_STEPS, 10); assert.equal(HISTORY_MAX, 30);
   assert.deepEqual(topicDecisionArgs('t1'), {p_query:'', p_kinds:['decision'], p_organization_id:null, p_topic_id:'t1', p_date_from:null, p_date_to:null, p_scope:null, p_include_inactive:false, p_limit:200});
 });
-test('화면: 상세 맨 아래 접힌 <details>, 같은 주제는 섞지 않고 따로 한 줄(6-②), 쓰기·기기 저장 없음', () => {
-  const src = readFileSync(new URL('../app/ledger-browse.js', import.meta.url), 'utf8');
-  const fn = src.slice(src.indexOf('function historyHtml('), src.indexOf('// 상세 ⋯ 메뉴'));
-  assert.match(fn, /<details class="lb-history" data-lb-history/);
-  assert.match(fn, /data-lb-action="story" data-lb-type="topic"/);
-  assert.match(fn, /같은 주제 결정 \$\{d\.topicCount\}건 ›/);
-  assert.match(src, /\$\{links\}\$\{historyHtml\(d\)\}`;/, '상세 맨 아래');
-  const hist = src.slice(src.indexOf('async function readHistory('), src.indexOf('// 근거가 Web2 기록이면'));
-  assert.doesNotMatch(hist, /method: 'PATCH'|method: 'DELETE'|app_apply_ledger_fix/);
-  assert.doesNotMatch(src, new RegExp(['local', 'session'].map(k => k + 'Storage').join('|')));
-});

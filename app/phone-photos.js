@@ -43,8 +43,12 @@ export function createPhonePhotos(win = globalThis.window) {
         let v = null; try { v = JSON.parse(d.slice('photos:state:'.length)); } catch { return; }
         const access = ['full', 'partial', 'none'].includes(v?.access) ? v.access : 'none';
         const key = access !== 'none' && /^[A-Za-z0-9_-]{22,64}$/.test(v?.key || '') ? v.key : '';
-        const changed = !state.known || state.access !== access || state.key !== key || state.manage !== (v?.manage === true);
-        state = {known:true, access:key ? access : 'none', key, trash:v?.trash === true, hide:v?.hide === true, ops:v?.hide === true && v?.ops === true, manage:v?.manage === true, edit:v?.edit === true, restore:v?.restore === true, meta:v?.meta === true};
+        const changed = !state.known || !!state.off !== (v?.off === true) || state.access !== access || state.key !== key || state.manage !== (v?.manage === true);
+        // S70-45: 플레이 판 앱은 사진 권한이 없어 off:true로 답한다 → '폰 사진' 아이콘·메뉴를 그리지 않는다(available false, 열쇠·기능 모두 꺼짐).
+        const off = v?.off === true;
+        state = off
+          ? {known:true, off:true, access:'none', key:'', trash:false, hide:false, ops:false, manage:false, edit:false, restore:false, meta:false}
+          : {known:true, access:key ? access : 'none', key, trash:v?.trash === true, hide:v?.hide === true, ops:v?.hide === true && v?.ops === true, manage:v?.manage === true, edit:v?.edit === true, restore:v?.restore === true, meta:v?.meta === true};
         helloWait?.(state); helloWait = null;
         if (changed) listeners.forEach(fn => { try { fn(state); } catch { /* 한 곳 실패가 다른 곳을 막지 않게 */ } });
       } else if (d.startsWith('photos:trashed:')) {
@@ -142,7 +146,8 @@ export function createPhonePhotos(win = globalThis.window) {
   const api = {
     get usable() { return usable; },
     // 앱이 답했다(0.3.9+) = 폰 사진 아이콘을 그린다.
-    available: () => usable && state.known,
+    // S70-45: 플레이 판(off)은 '폰 사진'이 없다.
+    available: () => usable && state.known && !state.off,
     state: () => state,
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     hello() {

@@ -14,7 +14,7 @@ const lastCtx=page=>page.evaluate(()=>window.__ctx);
 
 test.describe('자료실 PC 오른쪽 클릭 1280',()=>{
   test.use({hasTouch:false});
-  test('목록 아래 빈 곳 = [새 폴더][파일 올리기][모두 선택], [새 폴더]는 지금 폴더 안',async({page},info)=>{
+  test('목록 아래 빈 곳 = [새 폴더][파일 업로드][모두 선택], [새 폴더]는 지금 폴더 안',async({page},info)=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
     await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
     await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(4);
@@ -28,8 +28,8 @@ test.describe('자료실 PC 오른쪽 클릭 1280',()=>{
     await expect(areaMenu(page)).toBeVisible();
     expect((await lastCtx(page)).prevented).toBe(true);
     const items=await texts(areaMenu(page).locator('button'));
-    expect(items).toEqual(expect.arrayContaining(['새 폴더','파일 올리기','모두 선택']));
-    expect(items[0]).toBe('새 폴더');expect(items[1]).toBe('파일 올리기');
+    expect(items).toEqual(expect.arrayContaining(['새 폴더','파일 업로드','모두 선택']));
+    expect(items[0]).toBe('새 폴더');expect(items[1]).toBe('파일 업로드');
     await page.screenshot({path:info.outputPath('library-pc-after-right-click.png')});
     await areaMenu(page).getByRole('button',{name:'새 폴더',exact:true}).click();
     await expect(page.locator('#libraryFolderTitle')).toHaveText('안에 폴더 만들기');
