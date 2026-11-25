@@ -275,9 +275,12 @@ for (const [name, open] of SCREENS) {
     await expect(s.picked).toBeHidden();
     expect(writes, '오른쪽 끝까지 밀기만으로 서버 쓰기').toEqual([]);
     // [선택] 칸을 누르면 그때 선택이 시작된다.
-    await swipeOpen(s.row, W + 40, pickCell);
-    await touchTap(pickCell);
-    await expect(s.picked).toBeVisible();
+    // (민 뒤 목록이 다시 그려져 칸이 사라졌으면 열고 누르기를 통째로 다시 한다.)
+    await expect(async () => {
+      await swipeOpen(s.row, W + 40, pickCell);
+      await touchTap(pickCell);
+      await expect(s.picked).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
     expect(writes).toEqual([]);
     // 선택 끝내기: 공용 선택 줄은 [그만], 화면 고유 선택 막대는 그 화면의 끝내기(노트) 또는 Esc(자료실).
     const quit = page.locator('.row-swipe-pickbar:visible [data-row-pick-stop]');

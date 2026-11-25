@@ -209,15 +209,18 @@ test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제]
   await undo.click();
   await expect.poll(() => f.trash.restored).toEqual(['n-one']);
   // 오른쪽 끝까지: [선택] 칸만 펼쳐진다(S70-60 UI-스와이프메뉴만). 누르면 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(새 고르기 줄을 만들지 않음).
-  // 되돌린 뒤 목록이 다시 그려지면 열린 칸도 사라지므로, 칸이 보일 때까지 다시 민다.
+  // 되돌린 뒤 목록이 다시 읽혀 그려지면(밀기 뒤에도 올 수 있음) 열린 칸도 사라지므로, 칸을 열고 누르기까지 통째로 다시 한다.
+  // 누르기는 칸에 바로 보낸다(Playwright tap의 '보이게 스크롤'이 스크롤 이벤트로 열린 칸을 닫지 않게 — 손가락은 스크롤하지 않고 누른다).
   const pick = page.locator('[data-note-list] [data-row-swipe-key="select"]');
+  const bar = page.locator('[data-nx-select-bar]');
   await expect(async () => {
     await swipe(page.locator('[data-note-row="n-two"]'), 320);
     await expect(pick).toBeVisible({ timeout: 1000 });
+    await expect(bar).toBeHidden({ timeout: 500 }); // 미는 것만으로는 선택이 시작되지 않는다
+    await pick.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
+    await pick.dispatchEvent('click');
+    await expect(bar).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
-  await expect(page.locator('[data-nx-select-bar]')).toBeHidden();
-  await pick.tap();
-  await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
   await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   await expect(page.locator('[data-note-list] .row-swipe-pickbar')).toHaveCount(0);
   expect(f.errors).toEqual([]);
