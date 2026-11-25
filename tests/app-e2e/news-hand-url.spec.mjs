@@ -7,7 +7,8 @@ import { start, openNews } from './helpers/news-server.mjs';
 const detail = page => page.locator('#outsideRoot [data-now-detail] .nd');
 const row = (page, id) => page.locator(`#newsRoot [data-nc-item="${id}"]`);
 const LONG = 'https://www.example.org/portal/bbs/P0000559/view.do?nttId=10093517&searchCnd=1&searchKwd=&depth2=200038&depth3=200091&date=&sdate=&edate=&sort=1&pageUnit=10&depth=200091&pageIndex=1&programType=newsData&menuNo=200690&oldMenuNo=200091';
-const FAILED = { id: 'x1', lane: 'channel', url: 'https://www.example.org/x1', title: null, lang: 'ko', publisher: null, source_key: null, keywords: [], published_at: null, scrapped_at: '2026-10-06T00:40:00Z', created_at: '2026-10-06T00:41:00Z', state: 'failed', summary: null, body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null, author: null, manual_at: null };
+// S70-17b NEWS-제목꼭얻기: 제목 없는 기사는 보관한 글(공유로 넣은 글 = 바로 보관)일 때만 목록에 남는다 — [직접 넣기]는 그 글에서.
+const FAILED = { id: 'x1', lane: 'channel', url: 'https://www.example.org/x1', title: null, lang: 'ko', publisher: null, source_key: null, keywords: [], published_at: null, scrapped_at: '2026-10-06T00:40:00Z', created_at: '2026-10-06T00:41:00Z', state: 'failed', summary: null, body_kind: null, title_ko: null, translated_at: null, starred_at: '2026-10-06T00:41:30Z', folder_id: null, _body: null, author: null, manual_at: null };
 const MANUAL = { ...FAILED, id: 'm1', url: 'https://www.example.org/share-m1', title: '가짜 손으로 넣은 기사', publisher: '가짜은행', origin: 'user', state: 'ok', body_kind: 'full', _body: `${LONG}\n가짜 본문 첫 문단.`, manual_at: '2026-10-06T00:50:00Z' };
 
 // prep(server): 목록을 읽기 전에 가짜 서버 줄을 고친다. 목록이 읽힌 뒤에 고치면 화면은 이미 읽은 옛 줄(직접 넣음·내 기사)로

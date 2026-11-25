@@ -51,6 +51,8 @@ S69-10, 2026-11-24 명진 결정(08:05). S62-34(APP-플레이스토어비공개�
 | minSdk | 29 |
 | 스스로 업데이트·설치 요청 | play 판에서 `REQUEST_INSTALL_PACKAGES`·`UPDATE_PACKAGES_WITHOUT_USER_ACTION` 뺌, `SELF_UPDATE=false` |
 | 모든 파일 접근 | play 판에서 `MANAGE_EXTERNAL_STORAGE` 뺌, `ALL_FILES=false` |
+| 앞쪽 서비스(포그라운드 서비스) 신고 | S70-45(명진 결정 11/25 '플레이 판만 빼고 먼저'): play 판에서 `FOREGROUND_SERVICE`·`_MICROPHONE`·`_DATA_SYNC`와 두 서비스의 `foregroundServiceType` 뺌, `FG_SERVICES=false` — 신고 없음 |
+| 사진·동영상 권한 신고 | S70-45: play 판에서 `READ_MEDIA_*`·`READ_EXTERNAL_STORAGE`·`ACCESS_MEDIA_LOCATION`·`MANAGE_MEDIA` 뺌, `PHONE_GALLERY=false` — 신고 없음 |
 | 제한 권한(통화·SMS·위치·연락처·카메라·모든 앱 보기 등) | 없음 — `check-flavor-manifests.py`가 빌드된 판으로 막는다 |
 
 권한과 이유(play 판 최종)
@@ -58,19 +60,18 @@ S69-10, 2026-11-24 명진 결정(08:05). S62-34(APP-플레이스토어비공개�
 | 권한 | 이유 |
 | --- | --- |
 | `INTERNET` | 웹 화면·서버 |
-| `READ_MEDIA_IMAGES`·`READ_MEDIA_VIDEO`·`READ_MEDIA_VISUAL_USER_SELECTED`·`READ_EXTERNAL_STORAGE`(≤32) | 사진 메뉴 '폰 사진'. 처음 누를 때만 묻는다, 목록은 폰 안에서만 |
-| `ACCESS_MEDIA_LOCATION` | 사진 정보(EXIF 위치) 읽기·고치기 |
-| `MANAGE_MEDIA` | 사진 폴더 바꾸기·지우기 확인 창 줄이기(사용자가 설정에서 켬) |
-| `RECORD_AUDIO`·`FOREGROUND_SERVICE`·`FOREGROUND_SERVICE_MICROPHONE` | [녹음](화면 꺼져도 잇기) |
-| `FOREGROUND_SERVICE_DATA_SYNC` | 사용자가 고른 사진·자료를 앱을 나가도 끝까지 올리기(WorkManager) — **플레이 콘솔 '포그라운드 서비스' 신고에 `dataSync`·`microphone` 둘 다 적는다**(`docs/design/phone-widget-auth.md` 16.11절) |
-| `POST_NOTIFICATIONS` | 녹음·올리기 진행 알림, 폰 알림 |
+| `RECORD_AUDIO` | [녹음] — play 판은 앱이 켜진 동안만(앱을 나가면 일시정지). 실행 중 묻는 보통 위험 권한이라 플레이 '민감 권한' 신고 대상이 아니다(데이터 보안 양식의 '오디오' 항목만) |
+
+play 판에 없는 것(S70-45, github 판에는 그대로): 사진 메뉴 '폰 사진'(폰 사진 폴더 전체 보기·폴더 바꾸기·정보 고치기 — 사진 넣기는 안드로이드 사진 고르기, 권한 없음), 화면 꺼진 뒤 녹음 잇기, 올리는 동안 앞쪽 알림(뒤에서 올리기는 알림 없는 보통 작업으로 계속).
+
+| `POST_NOTIFICATIONS` | 폰 알림 |
 | FCM 라이브러리 권한(`WAKE_LOCK`·`RECEIVE` 등) | 폰 알림 받기 |
 | `com.google.android.gms.permission.AD_ID` | 라이브러리가 끌어오면 검사가 알림만 남긴다. 들어 있으면 콘솔 '광고 ID' 질문에 '광고에 쓰지 않음'으로 답하거나 매니페스트에서 뺀다 |
 
 데이터 보안 양식에 적을 것(초안)
 
 - 수집: 이메일 주소(구글 로그인, 계정 관리), 사용자 콘텐츠(노트·업데이트·보고·일정·할 일·자료 파일·사용자가 올린 사진·녹음), 기기 ID(폰 알림 토큰), 앱 안 오류·의견(사용자가 보낸 것만).
-- 사진 목록·'이 폰' 파일 목록은 폰 안에서만 쓰고 서버로 보내지 않는다(사용자가 올린 것만 수집).
+- play 판은 폰 사진 목록·'이 폰' 파일 목록을 읽지 않는다(사용자가 골라 올린 것만 수집).
 - 공유(제3자): 사용자가 연결한 본인 Google 캘린더·할 일·Drive와 주고받는 것, 녹음 받아쓰기 때 AI 처리 업체(about/privacy 5절). 광고·판매 없음.
 - 전송 중 암호화: 예(`usesCleartextTraffic=false`, HTTPS만).
 - 삭제 요청: 가능 — 앱 안 내 프로필 › 계정 › [계정 삭제](바로), 앱에 못 들어가면 문의(about/privacy 6·11절, `about/delete-account/`).

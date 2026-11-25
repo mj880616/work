@@ -618,7 +618,7 @@ test('project detail keeps one summary-first column at desktop and phone widths'
   await expect(page.locator('#ps3-memos')).toHaveCount(0);
   await expect(page.locator('#ps3Body .ps3-section-head p,#ps3Body :not(.gt-linked)>[data-wait-empty]:not([data-ps3-rec-empty]),#ps3Body .ps3-detail-head')).toHaveCount(0);
   await expect(page.locator('#ps3-tasks .ps3-section-actions [data-ps3-global="task"]')).toHaveAccessibleName('할 일 추가');
-  await expect(page.locator('#ps3-documents .ps3-section-actions [data-ps3-global="document"]')).toHaveAccessibleName('자료 올리기');
+  await expect(page.locator('#ps3-documents .ps3-section-actions [data-ps3-global="document"]')).toHaveAccessibleName('자료 업로드');
   for(const width of [1280,360,390,412,430]){
     await page.setViewportSize({width,height:844});
     // UI-PC프로젝트좌우: crossing 1024px moves the detail between the PC pane and the dialog; measure once it is shown again.

@@ -73,7 +73,7 @@ test('올리는 중에 또 저장하면 같은 줄 뒤에 선다(묶음 사이�
   assert.equal(s.most(), 1);
 });
 
-test('못 올린 파일만 [다시 올리기]: 올라간 것은 다시 보내지 않는다', async () => {
+test('못 올린 파일만 [다시 업로드]: 올라간 것은 다시 보내지 않는다', async () => {
   let broken = true;
   const s = setup({upload: async (t, f) => { if (f.name === 'p2.jpg' && broken) throw Object.assign(new Error('서버 오류'), {status: 500}); return {id: f.name}; },
     classify: e => ({kind: 'error', message: '파일을 업로드하지 못했어요.'})});
@@ -83,7 +83,7 @@ test('못 올린 파일만 [다시 올리기]: 올라간 것은 다시 보내지
   const done = s.events.at(-1);
   assert.deepEqual([done.okPhotos, done.okFiles, done.badPhotos, done.badFiles, done.retry], [1, 1, 1, 0, true]);
   assert.equal(done.message, '파일을 업로드하지 못했어요.');
-  assert.equal(s.send.has('m1', files[1]), true, '못 올린 파일은 [다시 올리기]를 위해 남는다');
+  assert.equal(s.send.has('m1', files[1]), true, '못 올린 파일은 [다시 업로드]를 위해 남는다');
   assert.equal(s.send.has('m1', files[0]), false);
   broken = false;
   let calls = 0;
@@ -99,7 +99,7 @@ test('못 올린 파일만 [다시 올리기]: 올라간 것은 다시 보내지
   assert.equal(await s.send.retry(batch), false, '다 올라간 묶음은 다시 올리지 않는다');
 });
 
-test('멈춰야 하는 실패(로그인 만료 등) 뒤 남은 파일은 보내지 않고 [다시 올리기]로 남긴다', async () => {
+test('멈춰야 하는 실패(로그인 만료 등) 뒤 남은 파일은 보내지 않고 [다시 업로드]로 남긴다', async () => {
   const seen = [];
   const s = setup({upload: async (t, f) => { seen.push(f.name); if (f.name === 'p1.jpg') throw Object.assign(new Error('x'), {status: 401}); return {}; },
     classify: () => ({kind: 'error', stop: true, message: '로그인 세션이 만료됐습니다.'})});
@@ -154,7 +154,7 @@ test('✕로 취소한 파일(대기·보내는 중)은 건너뛰고 다음 파�
   assert.deepEqual(s.sent, ['p3.jpg']);
   const done = s.events.at(-1);
   assert.deepEqual([done.okPhotos, done.badPhotos, done.cancelled, done.retry], [1, 0, 2, true], '취소한 것은 못 올린 것과 따로 센다');
-  assert.equal(await s.send.retry(batch), true, '못 올린 것이 없으면 취소한 파일을 [다시 올리기]로 다시 보낼 수 있다');
+  assert.equal(await s.send.retry(batch), true, '못 올린 것이 없으면 취소한 파일을 [다시 업로드]로 다시 보낼 수 있다');
 });
 
 test('✕로 취소한 파일은 못 올린 파일과 섞어 다시 보내지 않는다', async () => {
@@ -189,7 +189,7 @@ test('계정·작업공간이 바뀌면 남은 파일을 보내지 않고 알리
   assert.equal(await s.send.retry(batch), false);
 });
 
-test('다시 골라야 하는 파일(빈 파일·읽지 못함)은 [다시 올리기]에 넣지 않는다', async () => {
+test('다시 골라야 하는 파일(빈 파일·읽지 못함)은 [다시 업로드]에 넣지 않는다', async () => {
   const s = setup({preflight: f => (f.size ? null : {message: '빈 파일은 업로드할 수 없어요.'}),
     upload: async (t, f) => { if (f.name === 'r.pdf') throw Object.assign(new Error('읽기'), {code: 'file_read_failed'}); return {}; },
     classify: () => ({kind: 'error', retry: false, message: '파일을 읽지 못했어요.'})});
@@ -219,7 +219,7 @@ test('폰 앱 다리가 받으면(handoff ok) 화면 안 올리기를 건너뛴�
   assert.deepEqual(broke.sent, ['p1.jpg', 'a.pdf']);
 });
 
-test('파일이 없으면 줄을 세우지 않는다 · forget은 못 올린 파일을 놓는다(그 뒤 다시 올리기 없음)', async () => {
+test('파일이 없으면 줄을 세우지 않는다 · forget은 못 올린 파일을 놓는다(그 뒤 다시 업로드 없음)', async () => {
   const s = setup({upload: async () => { throw new Error('x'); }, classify: () => ({kind: 'error', message: '실패'})});
   const empty = s.send.send(target, []);
   await empty.settled;
@@ -290,7 +290,7 @@ test('앱에 넘김: 넘긴 파일은 앱의 끝 알림(handedJob)으로 올림�
   assert.equal(s.events.filter(e => e.type === 'done').length, 1);
 });
 
-test('앱에 넘김: 결과를 적지 못한 파일·unknown은 결과 불명, 너무 큼·권한 없음은 다시 올리기 대상이 아니다', async () => {
+test('앱에 넘김: 결과를 적지 못한 파일·unknown은 결과 불명, 너무 큼·권한 없음은 다시 업로드 대상이 아니다', async () => {
   const s = setup({track: f => handJob({file: f}), handoff: async (t, items) => ({ok: true, jobs: [{id: 'jobB', count: items.length}]})});
   const batch = s.send.send(target, [photo(1), photo(2), photo(3), photo(4)]);
   await batch.settled;
@@ -317,7 +317,7 @@ test('앱에 넘김: 20개씩 나눠 넘기다 뒤 묶음을 못 넘기면 앞�
   assert.equal(done.type, 'done'); assert.equal(done.sent, 2, '앞에서 센 파일을 또 세지 않는다'); assert.equal(done.okPhotos, 3); assert.equal(done.handedPhotos, 0);
 });
 
-test('앱에 넘김: 일부만 넘긴 묶음에서 화면이 못 올린 파일은 앱을 기다리지 않고 바로 알리고 [다시 올리기]를 준다', async () => {
+test('앱에 넘김: 일부만 넘긴 묶음에서 화면이 못 올린 파일은 앱을 기다리지 않고 바로 알리고 [다시 업로드]를 준다', async () => {
   const s = setup({track: f => handJob({file: f}), handoff: async () => ({ok: true, jobs: [{id: 'jobP', count: 1}]}),
     upload: async () => { throw new Error('x'); }, classify: () => ({kind: 'error', message: '실패'})});
   const batch = s.send.send(target, [photo(1), photo(2)]);
@@ -499,7 +499,7 @@ test('화면을 벗어나 다 보내기 전에 끊긴 파일: 돌아오면 그 �
   assert.equal(s.most(), 1);
 });
 
-test('돌아와 다시 보내도 안 되면 보통 실패([다시 올리기]) · 결과 불명·돌아옴을 모르는 곳은 저절로 다시 보내지 않는다', async () => {
+test('돌아와 다시 보내도 안 되면 보통 실패([다시 업로드]) · 결과 불명·돌아옴을 모르는 곳은 저절로 다시 보내지 않는다', async () => {
   let tries = 0;
   const away = {kind: 'error', away: true, stop: true, message: '화면을 벗어나 멈췄어요'};
   const s = setup({back: async () => {}, upload: async () => { tries++; throw Object.assign(new Error('끊김'), {away: true}); }, classify: () => away});
@@ -596,7 +596,7 @@ test('폰 앱(가짜 KPTUAppShell): 사진·자료 묶음을 앱에 넘기고 �
   a.stop();
 });
 
-test('폰 앱: 끝 알림(up:job done) → 올린 줄은 완료, 못 올린 줄은 까닭 + 다시 올리기 대상 · 반영한 묶음은 앱 기록을 지운다(up:seen)', async () => {
+test('폰 앱: 끝 알림(up:job done) → 올린 줄은 완료, 못 올린 줄은 까닭 + 다시 업로드 대상 · 반영한 묶음은 앱 기록을 지운다(up:seen)', async () => {
   const a = await withApp();
   const files = [blob('p1.jpg'), blob('p2.jpg')];
   const batch = a.send.send(appTarget, files);
