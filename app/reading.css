@@ -41,10 +41,11 @@
 #readingView .rd-prose p{margin:0 0 8px;white-space:pre-line}
 #readingView .rd-faint{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #readingView [hidden]{display:none}
-/* 761px~(폴드 펼침·PC): 왼쪽 목록, 오른쪽 글(같은 내용). */
-@media(min-width:761px){
-  #readingView.rd-reading .rd-wrap{grid-template-columns:minmax(0,22em) minmax(0,1fr)}
-  #readingView.rd-reading .rd-detail{padding-left:12px;margin-left:12px;border-left:.5px solid var(--kptu-border)}
+/* S70-58 READ-두칸보기: 칸 나누기 폭(600px~ — 폴드 펼침·PC, screen-width.mjs)은 왼쪽 목록 | 오른쪽 글. 칸 비율은 공용 split-resize.js가
+   --ds-split-list/--ds-split-detail(fr)로 정한다(기본 1 : 2, 서버 split_ratio.reading). 오른쪽 칸은 follow-pane.js가 화면 위에 붙인다(그 칸만 스크롤). */
+@media(min-width:600px){
+  #readingView.rd-reading .rd-wrap{grid-template-columns:minmax(0,var(--ds-split-list,1fr)) minmax(0,var(--ds-split-detail,2fr));column-gap:12px;align-items:start;--ds-split-list-min:200px;--ds-split-detail-min:320px}
+  #readingView.rd-reading .rd-detail{padding-left:12px;border-left:.5px solid var(--kptu-border)}
 }
 @media(max-width:760px){#readingView .rd-row{padding:7px 0}#readingView .rd-meta{max-width:9em}}
 /* S68-24 News에서 보관한 글 줄(꼬리표 'News', 점 없음 — 안 읽음 셈에 들지 않음). 출처 꼬리표는 사업영역 꼬리표보다 옅게. */

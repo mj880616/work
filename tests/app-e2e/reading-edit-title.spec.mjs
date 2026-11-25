@@ -98,9 +98,10 @@ for (const width of [412, 1280]) {
     // 직접 넣은 줄 제목은 그대로(고치지 않음).
     await expect(row(page, D1).locator('.rd-nm')).toHaveText('직접 넣은 예시 글');
     expect(s.patches.some(x => x.id === D1)).toBe(false);
-    // 줄을 누르면 News 글 보기 — 같은 제목.
+    // 줄을 누르면 같은 제목: 폰은 News 글 보기, 두 칸(S70-58 READ-두칸보기, 600px~)은 목록이 남는 오른쪽 칸 글 보기.
     await row(page, RN1).click();
-    await expect(nd(page).locator('.nd-title')).toHaveText(MINE);
+    if (width < 600) await expect(nd(page).locator('.nd-title')).toHaveText(MINE);
+    else { await expect(rdetail(page).locator('.ds-doc-title')).toHaveText(MINE); await expect(rlist(page)).toBeVisible(); }
     expect(errors).toEqual([]);
   });
 

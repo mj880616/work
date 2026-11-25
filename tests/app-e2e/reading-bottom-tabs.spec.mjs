@@ -81,10 +81,11 @@ for (const width of [390, 412, 700]) {
     await swipe(list.locator('.rd-head .rd-title'), 160);
     await expect(sw.locator('[data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
     if (process.env.S68_48_SHOTS) await page.screenshot({ path: `${process.env.S68_48_SHOTS}/reading-${width}.png` });
-    // 글을 열면(폰은 목록 대신) 탭 줄도 없다.
+    // 글을 열면 폰은 목록 대신 글이라 탭 줄도 없다. S70-58: 펼친 폴드(600px~)는 목록 | 글 두 칸이라 목록·탭 줄이 그대로.
     await list.locator('.rd-row').first().click();
     await expect(page.locator('#readingView [data-rd-detail]')).toBeVisible();
-    await expect(sw).toBeHidden();
+    if (width < 600) await expect(sw).toBeHidden();
+    else { await expect(sw).toBeVisible(); await expect(list).toBeVisible(); }
     expect(errors).toEqual([]);
   });
 }

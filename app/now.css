@@ -1,16 +1,18 @@
 /* OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 껍데기(탭 · 목록 | 상세 두 칸) + 글 상세(now-detail.js)
    + 관심 주제 칸(now-interests.js). 콤팩트·톤다운(색은 theme-tokens.css 토큰만), 제목 16px·본문 13~14px·꼬리 12px. */
 
-/* 껍데기: 폰·중간 폭은 한 칸(상세가 열리면 목록 대신 상세 전체 화면), PC(761px~)는 목록 | 상세 두 칸(split-resize.js가 --ds-split-* fr 값). */
+/* 껍데기: 폰·접은 폴드(~599px)는 한 칸(상세가 열리면 목록 대신 상세 전체 화면), 폴드 펼침·PC(600px~)는 목록 | 상세 두 칸(split-resize.js가 --ds-split-* fr 값). */
 #appView #outsideView .os.now{ display:grid; grid-template-columns:minmax(0,1fr); gap:4px 12px; max-width:none; align-items:start; }
 #appView #outsideView .now-main{ display:flex; flex-direction:column; gap:4px; min-width:0; max-width:860px; }
 #appView #outsideView .now-detail{ display:none; min-width:0; }
 #appView #outsideView .os.now[data-detail="open"] > .now-detail{ display:block; }
 #appView #outsideView .os.now[data-detail="open"] > .now-main{ display:none; }
-@media (min-width:761px){
+/* S70-58 READ-두칸보기: 두 칸은 앱 공용 칸 나누기 폭(600px~, screen-width.mjs — 폴드 펼침 포함)부터. 칸 붙이기(sticky)는 PC 틀(761px~)은 여기,
+   폴드 펼침(600~760px, 폰 틀)은 공용 follow-pane narrow(desktop-ui.css — 아래 떠 있는 하단바·탭 줄만큼 뺀 높이)가 맡는다. */
+@media (min-width:600px){
   #appView #outsideView .os.now{ grid-template-columns:minmax(0,var(--ds-split-list,3fr)) minmax(0,var(--ds-split-detail,2fr)); }
   #appView #outsideView .now-main,#appView #outsideView .os.now[data-detail="open"] > .now-main{ display:flex; max-width:none; }
-  #appView #outsideView .now-detail{ display:block; position:sticky; top:var(--follow-top,8px); max-height:calc(100vh - var(--follow-top,8px) - 8px); overflow:auto; padding-left:12px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
+  #appView #outsideView .now-detail{ display:block; padding-left:12px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
   #appView #outsideView .nd-back{ display:none; }
   /* UI-Now PC정돈: 탭 줄은 두 칸 위로 가로 전체(아래선이 왼쪽 칸에서만 끊기지 않게). 상세가 안 열린 때(글 없는 탭 포함)는 안내 상자 없이 목록이 폭 전체를 쓴다. */
   #appView #outsideView .os.now > .os-tabs{ grid-column:1 / -1; }
@@ -20,7 +22,12 @@
   #appView #outsideView .osq-filters{ display:flex; flex-wrap:wrap; align-items:center; row-gap:4px; }
   #appView #outsideView .osq-filters > .osq-row + .osq-row{ margin-left:8px; padding-left:8px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
 }
-@media(max-width:760px){ #appView #outsideView .os.now[data-detail="open"] > .os-tabs{ display:none; } }
+/* 펼친 폴드(약 690px): 칸 최소 폭을 좁혀(공용 기본 240·360px) 두 칸이 기본 2 : 3(outside-statements.js mountSplit)으로 들어오게. */
+@media (min-width:600px) and (max-width:760px){ #appView #outsideView .os.now{ --ds-split-list-min:220px; --ds-split-detail-min:280px; } }
+@media (min-width:761px){
+  #appView #outsideView .now-detail{ position:sticky; top:var(--follow-top,8px); max-height:calc(100vh - var(--follow-top,8px) - 8px); overflow:auto; }
+}
+@media(max-width:599px){ #appView #outsideView .os.now[data-detail="open"] > .os-tabs{ display:none; } }
 #appView #outsideView :is([data-now-panel-all],[data-now-panel-news],.now-interests)[hidden]{ display:none; }
 
 /* ---- S51-8 NEWS-전면개편 P4b News 목록(시안 news-overhaul.html ①·③) ----
@@ -105,6 +112,8 @@
 #appView #outsideView .nd-empty{ margin:12px 0; font-size:13px; color:var(--kptu-muted); }
 #appView #outsideView .nd-top{ display:flex; align-items:center; gap:6px; min-width:0; }
 #appView #outsideView .nd-back{ flex:none; display:inline-grid; place-items:center; width:32px; height:32px; min-height:0; padding:0; font-size:20px; color:var(--kptu-muted); background:transparent; border:0; box-shadow:none; cursor:pointer; }
+/* S70-58: 두 칸(600px~)에서는 [‹ 목록으로]가 없다(목록이 옆에 있음). 위 모양 규칙보다 뒤에 둬야 이긴다(전에는 앞 미디어 규칙이 이 줄에 져서 PC에도 보였다). */
+@media (min-width:600px){ #appView #outsideView .nd-back{ display:none; } }
 #appView #outsideView .nd-meta{ display:flex; flex-wrap:nowrap; overflow:hidden; white-space:nowrap; align-items:center; gap:0 6px; flex:1 1 auto; min-width:0; margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #outsideView .nd-meta > span + span:not(.now-hit)::before{ content:"·"; margin-right:6px; }
 #appView #outsideView .nd-link{ flex:none; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); text-decoration:underline; text-underline-offset:2px; }

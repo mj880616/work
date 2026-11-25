@@ -10,7 +10,8 @@ import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/file
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { pinch } from './helpers/pinch.mjs';
 import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
-import { DOC_SCREENS } from './helpers/doc-view.mjs';
+import { DOC_SCREENS, DOC_SPLITS } from './helpers/doc-view.mjs';
+import { checkSplit } from './helpers/split-check.mjs';
 import { screenFindLocator } from './helpers/screen-find.mjs';
 import { readFileSync } from 'node:fs';
 // 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
@@ -124,7 +125,7 @@ for (const [name, open] of SCREENS) for (const width of [360, 412, 1280]) test(`
 
 // Z3·Z1 글 보기 화면(S70-40b READ-글보기머리, 공용 .ds-doc-* 머리): 저장한 글 글 보기·읽을 거리 글 보기. 새 글 보기 화면이 생기면
 // helpers/doc-view.mjs DOC_SCREENS에 한 줄 더한다. 머리 첫 줄은 고정 높이(--ds-compact-height)라 제목은 둘째 줄에서 줄바꿈(Z1 잘리지 않음).
-for (const [name, open] of DOC_SCREENS) for (const width of [360, 412, 1280]) test(`Z3 ${name} ${width}: 가로로 넘치지 않고 제목이 잘리지 않는다`, async ({ page }) => {
+for (const [name, open] of DOC_SCREENS) for (const width of [360, 412, 690, 1280]) test(`Z3 ${name} ${width}: 가로로 넘치지 않고 제목이 잘리지 않는다`, async ({ page }) => {
   test.setTimeout(60000);
   const { errors, detail } = await open(page, width);
   await page.waitForTimeout(300);
@@ -132,6 +133,16 @@ for (const [name, open] of DOC_SCREENS) for (const width of [360, 412, 1280]) te
   expect(over).toBeLessThanOrEqual(1);
   const title = detail.locator('.ds-doc-title');
   expect(await title.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+// Z2 두 칸 글 보기 화면(S70-58 READ-두칸보기): 펼친 폴드 690·PC 1280에서 목록 | 글 경계를 끌어 폭이 바뀌고, 서버에 기억해 새로고침 뒤 같고, 두 번 누르면 기본.
+// 새 '목록 | 글' 두 칸 화면이 생기면 helpers/doc-view.mjs DOC_SCREENS·DOC_SPLITS에 한 줄 더한다.
+for (const [name, open] of DOC_SCREENS) for (const width of [690, 1280]) test(`Z2 ${name} ${width}: 목록 | 글 경계 끌기 → 서버 기억 → 새로고침 유지 → 두 번 누르면 기본`, async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors, prefs } = await open(page, width);
+  const s = DOC_SPLITS[name];
+  await checkSplit(page, { ...s, share: s.share(width), server: prefs, reopen: () => s.ready(page) });
   expect(errors).toEqual([]);
 });
 
