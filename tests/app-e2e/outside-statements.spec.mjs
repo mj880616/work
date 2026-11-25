@@ -335,7 +335,8 @@ for (const width of [390, 884, 1280]) test(`News 매체 고르기 창은 누른 
 });
 
 // S69 NEWS-제목늘읽기·NEWS-사설칼럼(명진 11/24): 제목 없는 줄은 '제목 읽기 전'으로 남지 않고(대기·robots 모의), [매체 ▾]에 '사설·칼럼' 묶음 하나 — 고르면 사설·칼럼만.
-test('S69 News: 제목 없는 대기·robots 줄은 주소 조각 또는 못 읽은 기사 · 도메인, [매체 ▾] 사설·칼럼 묶음으로 거르기', async ({ page }) => {
+// S70-17b NEWS-제목꼭얻기(명진 11/25 "못읽으면 차라리 목록에서 빠지는게 나음"): 주소 조각도 없는 줄(동아일보 꼴)은 목록에서 빠진다.
+test('S69 News: 제목 없는 대기·robots 줄은 주소 조각으로, 조각도 없으면 목록에서 빠짐, [매체 ▾] 사설·칼럼 묶음으로 거르기', async ({ page }) => {
   test.setTimeout(90000);
   const newsCatalog = [...NEWS_CATALOG, { key: 'news-fake-a-opinion', name: '가짜일보 사설·칼럼', region: 'opinion', lang: 'ko' }];
   const base = { lane: 'channel', lang: 'ko', publisher: null, source_key: null, published_at: null, summary: null, body_kind: null, title_ko: null, starred_at: null, title: null };
@@ -347,8 +348,9 @@ test('S69 News: 제목 없는 대기·robots 줄은 주소 조각 또는 못 읽
   const { errors, server } = await start(page, 412, null, { newsCatalog, news });
   server.newsRows.push({ source_key: 'news-fake-a-opinion', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null });
   await openOutside(page, 412);
-  await expect(row(page, 'news:t1')).toContainText('못 읽은 기사 · donga.com');
   await expect(row(page, 'news:t2')).toContainText('workers win wage deal');
+  await expect(row(page, 'news:t1')).toHaveCount(0);
+  await expect(root(page)).not.toContainText('못 읽은 기사');
   await expect(root(page)).not.toContainText('제목 읽기 전');
   const dd = root(page).locator('[data-nw-media]');
   await dd.click();
@@ -360,4 +362,36 @@ test('S69 News: 제목 없는 대기·robots 줄은 주소 조각 또는 못 읽
   await expect(row(page, 'news:o1')).toBeVisible();
   expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-a-opinion)');
   expect(errors).toEqual([]);
+});
+
+// S70-17b NEWS-제목꼭얻기(명진 11/25 10:26 "원문 못읽어도 최소한 제목이라도 읽어야함 … 못읽으면 차라리 목록에서 빠지는게 나음"): 폰 390 읽을 거리.
+// 제목을 끝내 못 얻은 기사(동아일보 공유 주소 꼴 — 주소 조각도 없음)는 '못 읽은 기사 · 도메인' 카드로 보이지 않고 '새 글 N'에도 세지 않는다.
+// 서버가 나중에 제목을 얻으면(같은 기사 RSS 줄 등) 다시 읽을 때 보인다. 보관한 글(공유로 넣은 글)은 [직접 넣기]를 위해 남는다.
+test('S70-17b 폰 390: 제목 없는 기사는 읽을 거리 목록·새 글 수에서 빠지고, 제목이 생기면 다시 보임', async ({ page }) => {
+  test.setTimeout(90000);
+  const base = { lane: 'channel', lang: 'ko', publisher: null, source_key: null, published_at: null, summary: null, body_kind: null, title_ko: null, starred_at: null, title: null, state: 'failed' };
+  const news = [...NEWS,
+    { ...base, id: 'd1', url: 'https://www.donga.com/news/article/all/20261006/100000001/1', scrapped_at: '2026-10-06T00:58:00Z', created_at: '2026-10-06T00:58:00Z' },
+    { ...base, id: 'd2', url: 'https://m.donga.com/news/Society/article/all/20261006/100000002/1', scrapped_at: '2026-10-06T00:57:00Z', created_at: '2026-10-06T00:57:00Z', state: 'pending' },
+  ];
+  const { errors, server } = await start(page, 390, null, { news });
+  await openOutside(page, 390);
+  await expect(row(page, 'news:a1')).toBeVisible();
+  await expect(row(page, 'news:d1')).toHaveCount(0);
+  await expect(row(page, 'news:d2')).toHaveCount(0);
+  await expect(root(page)).not.toContainText('못 읽은 기사');
+  // 오늘 묶음 머리의 '새 글 N' = 그 묶음 안 굵은(안 읽은) 줄 수 — 빠진 줄은 세지 않는다.
+  const today = root(page).locator('.nw-day').filter({ has: page.locator('.nw-day-head', { hasText: '오늘' }) }).first();
+  await expect(today.locator('.nw-row.is-new').first()).toBeVisible();
+  const fresh = await today.locator('.nw-row.is-new').count();
+  await expect(today.locator('.nw-day-head')).toHaveText(`오늘 · 새 글 ${fresh}`);
+  await page.screenshot({ path: test.info().outputPath('no-title-hidden-390.png') });
+  // 서버가 나중에 같은 기사 RSS 줄 제목을 적었다 → 다시 읽으면 보이고 새 글 수에 든다.
+  Object.assign(news.find(n => n.id === 'd1'), { title: '나중에 얻은 가짜 제목', publisher: '동아일보' });
+  await page.evaluate(() => window.KPTUOutside?.refresh?.());
+  await expect(row(page, 'news:d1')).toContainText('나중에 얻은 가짜 제목');
+  await expect(today.locator('.nw-day-head')).toHaveText(`오늘 · 새 글 ${fresh + 1}`);
+  await expect(row(page, 'news:d2')).toHaveCount(0);
+  expect(errors).toEqual([]);
+  expect(server.calls.length).toBeGreaterThan(0);
 });

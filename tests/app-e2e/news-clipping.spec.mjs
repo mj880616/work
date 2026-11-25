@@ -43,7 +43,7 @@ for (const width of [412, 884, 1440]) {
     await expect(e1).toHaveAttribute('style', /--nw-c:var\(--ds-news-press-[1-4]\)/);
     await expect(c1.locator('.nw-tag')).toHaveCount(0);
     // 대기 줄: 주소의 도메인.
-    await expect(item(page, 'w1').locator('.nw-title')).toHaveText('못 읽은 기사 · example.org'); // S69: '제목 읽기 전' 없음 — 주소 조각이 없으면 '못 읽은 기사 · 도메인'
+    await expect(item(page, 'w1').locator('.nw-title')).toHaveText('가짜 대기 기사'); // S69: '제목 읽기 전' 없음 — 주소 경로 조각(S70-17b: 그것도 없으면 목록에서 빠진다)
     // 위 찾기 칸(S63-11): 서버 찾기 — 최근 30일 기사 + 별표 기사의 제목·한국어 제목·요약(지금 목록에 없는 기사도).
     await page.locator('#outsideRoot [data-nw-find]').fill('유료');
     await expect(items(page)).toHaveCount(1);

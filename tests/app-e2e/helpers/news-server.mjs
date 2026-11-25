@@ -8,12 +8,13 @@ const CATALOG = [
   { key: 'news-fake-en', name: 'Fake Wire', region: 'foreign', lang: 'en' },
 ];
 const LIMITS = { fill: 10, translate: 20, open: 60, keywords: 30 };
+// S70-17b: w1(제목 없는 대기 줄)의 주소에는 읽을 만한 경로 조각('가짜 대기 기사')이 있다 — 제목을 끝내 못 얻은 줄은 목록에서 빠지므로(feed-shared-model newsPage).
 export const ITEMS = () => [
   { id: 'c1', lane: 'channel', url: 'https://example.org/c1', title: '가짜 채널 기사', lang: 'ko', publisher: '가짜노동신문', source_key: null, keywords: [], published_at: '2026-10-06T00:00:00Z', scrapped_at: '2026-10-06T00:20:00Z', created_at: '2026-10-06T00:21:00Z', state: 'ok', summary: '가짜 채널 기사 한 문장 요약.', body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null },
   { id: 'k1', lane: 'keyword', url: 'https://news.google.com/rss/articles/fake-1', title: '가짜 키워드 기사', lang: 'ko', publisher: '가짜일보', source_key: null, keywords: ['가짜어'], published_at: '2026-10-05T22:00:00Z', scrapped_at: null, created_at: '2026-10-06T00:10:00Z', state: 'ok', summary: '가짜 키워드 요약.', body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null },
   { id: 'e1', lane: 'media', url: 'https://example.org/en1', title: 'A fake foreign story', lang: 'en', publisher: 'Fake Wire', source_key: 'news-fake-en', keywords: [], published_at: '2026-10-05T03:00:00Z', scrapped_at: null, created_at: '2026-10-05T03:10:00Z', state: 'ok', summary: 'One fake line.', body_kind: 'full', title_ko: '가짜 외국 기사', translated_at: '2026-10-05T03:20:00Z', starred_at: null, folder_id: null, _body: 'Fake body paragraph.' },
   { id: 'p1', lane: 'channel', url: 'https://example.org/paid', title: '가짜 유료 기사', lang: 'ko', publisher: '가짜일보', source_key: null, keywords: [], published_at: null, scrapped_at: '2026-10-05T02:00:00Z', created_at: '2026-10-05T02:01:00Z', state: 'paywall', summary: '공개된 가짜 요약.', body_kind: 'lead', title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: '공개된 가짜 앞부분.' },
-  { id: 'w1', lane: 'channel', url: 'https://www.example.org/wait', title: null, lang: 'ko', publisher: null, source_key: null, keywords: [], published_at: null, scrapped_at: '2026-10-04T02:00:00Z', created_at: '2026-10-04T02:01:00Z', state: 'pending', summary: null, body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null },
+  { id: 'w1', lane: 'channel', url: 'https://www.example.org/news/%EA%B0%80%EC%A7%9C-%EB%8C%80%EA%B8%B0-%EA%B8%B0%EC%82%AC', title: null, lang: 'ko', publisher: null, source_key: null, keywords: [], published_at: null, scrapped_at: '2026-10-04T02:00:00Z', created_at: '2026-10-04T02:01:00Z', state: 'pending', summary: null, body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null },
 ];
 
 // S63-11 서버 찾기 흉내: or=(title.ilike."*낱말*낱말*",…) — 제목·한국어 제목·요약에서 낱말을 순서대로(대소문자 무시).

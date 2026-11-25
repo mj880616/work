@@ -31,7 +31,10 @@ export const OPEN_ARTICLE_KEY = "open";
 // region "opinion"(S69 NEWS-사설칼럼, 명진 11/24 "주요 신문 사설 칼럼도 추가해줘요"): 신문의 사설·칼럼(오피니언) 피드. 화면 매체 고르기에서 '사설·칼럼' 묶음 하나로 모인다.
 //   켬·끔은 다른 매체처럼 사람마다(app_outside_sources), 기본 켬(on). 새 저장 구조 없음.
 export type NewsSource = OutsideSource & { region: "domestic" | "foreign" | "opinion"; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true;
-  beat?: "labor"; sections?: readonly ("society" | "politics" | "economy" | "mixed" | "opinion")[]; mixedAs?: "society" | "politics" | "economy" };
+  beat?: "labor"; sections?: readonly ("society" | "politics" | "economy" | "mixed" | "opinion")[]; mixedAs?: "society" | "politics" | "economy";
+  // S70-17b NEWS-제목꼭얻기: 같은 기사 알아보기(공유·모바일·amp 주소처럼 모양이 달라도 기사 번호가 같으면 같은 기사). _shared/same-article.ts가 쓴다.
+  // site = 그 매체 주소의 도메인(그 도메인과 하위 도메인만 본다), ref = 주소 → 기사 번호(모르면 null).
+  sameArticle?: { site: string; ref: (u: URL) => string | null } };
 
 const article = () => "article" as const;
 
@@ -121,7 +124,9 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     // 안내 쪽 rss.donga.com(개인 비상업) [사실, 11/08 CC 크롬 확인: 섹션마다 item 50, 기사 링크 www.donga.com]. AI 문구 있음(하단 'AI학습 이용 금지'), 명진 결정으로 넣음(개인 용도).
     extract: false,
     lists: ["https://rss.donga.com/national.xml", "https://rss.donga.com/economy.xml", "https://rss.donga.com/politics.xml"],
-    hosts: ["rss.donga.com", "www.donga.com", "donga.com"], kindOf: article },
+    hosts: ["rss.donga.com", "www.donga.com", "donga.com"], kindOf: article,
+    // 기사 주소 꼴: /news/<분류>/article/all/<날짜 8자리>/<기사 번호>/<쪽>, 분류 없는 공유 주소 /news/article/all/…, amp /news/amp/all/…, 모바일 m.donga.com 같은 꼴.
+    sameArticle: { site: "donga.com", ref: (u) => /\/(?:article|amp)\/all\/\d{8}\/(\d{5,12})(?:\/\d{1,3})?\/?$/.exec(u.pathname)?.[1] ?? null } },
   { key: "news-jtbc", name: "JTBC", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 news.jtbc.co.kr/rss [사실, 11/08 CC 크롬 확인: item 사회 11·경제 4·정치 14, 기사 링크 news.jtbc.co.kr]. AI 문구 있음(하단 'AI 학습 등 금함'), 명진 결정으로 넣음(개인 용도).
     extract: false,

@@ -25,7 +25,7 @@ for (const width of [412, 1280]) {
     });
     await page.route('**/functions/v1/ai-assist', route => (route.request().postDataJSON()?.kind === 'now_detail' ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }) : route.fallback()));
     await openNews(page, width);
-    await expect(row(page).locator('.nw-title')).toHaveText('못 읽은 기사 · example.org'); // S69: '제목 읽기 전' 없음 — 주소 조각이 없으면 '못 읽은 기사 · 도메인'
+    await expect(row(page).locator('.nw-title')).toHaveText('가짜 대기 기사'); // S69: '제목 읽기 전' 없음 — 주소 경로 조각(S70-17b: 그것도 없으면 목록에서 빠진다)
     await row(page).locator('[data-nc-open="w1"]').click();
     const nd = detail(page).locator('.nd');
     await expect(nd.locator('[data-nd-prose]')).toHaveText('저장된 가짜 본문.');
