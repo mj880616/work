@@ -571,3 +571,29 @@ for(const width of [412,1280])test(`옛 소식 정리: 방향 규칙 전 할 일
   await expect(list(page).locator(`[data-nbx-row="n:${nid(2)}"]`)).toHaveAttribute('data-forget-src','promise');
   await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(0);
 });
+
+// S70-20 FORGET-이미한일빼기(명진 11/25 "텔레그램에서 내가 답변을 했다거나 하면 제안 없애든지"): 서버가 내가 이미 답한 텔레그램 요청을
+// '이미 함(저절로)'으로 옮긴 줄(auto_done='replied', 처리한 때 = 옮긴 때)은 처리 전 목록에 없고, '이미 함' 보기에 '답장함' 꼬리표 + [되돌리기].
+// 사람이 다시 [이미 함]을 누른 줄(처리한 때가 다름)은 꼬리표·[되돌리기] 없음. [되돌리기]는 기존 되살리기 길(done → open).
+test('390: 내가 답장한 텔레그램 요청은 처리 전에 없고, 이미 함 보기에 답장함 · [되돌리기]로 처리 전',async({page})=>{
+  const at='2026-10-06T07:00:00Z';
+  const h=await fixture(page,{cands:[cand(1),cand(2,{summary:'가짜 답한 요청',status:'done',decided_at:at,auto_done:'replied',auto_done_at:at}),
+    cand(4,{summary:'가짜 다시 누른 요청',status:'done',decided_at:'2026-10-06T08:00:00Z',auto_done:'replied',auto_done_at:at}),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'})]});
+  await expect(line(page,`c:${cid(1)}`)).toBeVisible();
+  await expect(line(page,`c:${cid(2)}`)).toHaveCount(0);
+  await pickView(page,'이미 함');
+  await expect(line(page,`c:${cid(2)}`).locator('.nbx-done')).toContainText('이미 함 · 답장함');
+  await expect(line(page,`c:${cid(4)}`).locator('.nbx-done')).not.toContainText('답장함');
+  await expect(line(page,`c:${cid(4)}`).locator('[data-forget-reopen]')).toHaveCount(0);
+  const back=line(page,`c:${cid(2)}`).getByRole('button',{name:'되돌리기',exact:true});
+  await expect(back).toBeVisible();
+  expect(await noWide(page)).toBe(true);
+  await back.click();
+  await expect.poll(()=>h.patches.length).toBe(1);
+  expect(h.patches[0]).toEqual({id:cid(2),from:'done',body:{status:'open',decided_at:null}});
+  await expect(line(page,`c:${cid(2)}`)).toHaveCount(0);
+  await expect(page.locator('#basketView [data-forget-section]')).toContainText('처리 전으로 돌렸어요.');
+  await pickView(page,'처리 전');
+  await expect(line(page,`c:${cid(2)}`)).toBeVisible();
+  await expect(line(page,`c:${cid(2)}`).locator('.nbx-acts [data-nbx-act="task"]')).toBeVisible();
+});
