@@ -981,10 +981,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       changed: () => syncBox()});
     root.classList.add('ed-has-blocks');
   }
-  // S69-97 노트 안 할 일: the notes opener's provider (its own Google connection only). Reads the linked tasks' state once now.
+  // S69-97 노트 안 할 일: the notes opener's provider (its own Google connection only). Its first read starts after the first paint (below).
   if (tasks) {
     gtaskPart = mountGtasks({view, N, provider: tasks, say: text => showNote(text), makeCheckList: () => setListStyle('bullet', CHECK_MARKER)});
-    void gtaskPart.sync();
   }
   // S69-98 NOTE-에버노트 ⑧ 노트 연결: '[[' → 노트 고르기 목록 → 그 노트 링크. 노트(noteLinks를 주는 곳)에만 붙는다.
   if (noteLinks) {
@@ -2038,6 +2037,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
   syncLayout();
   paint();
+  // S69-97: the first read of the linked Google tasks starts only now — its answer redraws (paint), which needs everything above
+  // (an earlier start could answer during the '[[' part's import and paint before the toolbar's helpers exist).
+  void gtaskPart?.sync();
   if (blocks) setBlocks(!!blocks.on);
   return {
     view, root, getValue, isEmpty, closeBoxes, hasBox: boxOpen,
