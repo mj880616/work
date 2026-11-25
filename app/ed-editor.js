@@ -9,6 +9,11 @@
 // 19:24~19:33, 대조표 docs/design/unified-editor.md 9절): the often-used buttons stay on the row, the rest are under [⋯]:
 //   [본문 2 ▾] | 굵게 기울임 밑줄 | 글자색 ▾ 형광펜 ▾ | 정렬 ▾ | 목록 ▾ 번호 ▾ | 표 ▾ 링크 | · ※ → ① (each ▾) | ↶ ↷ | ⌄
 //   ⌄ = 취소선 인용 구분선 들여쓰기 내어쓰기 서식 지우기 지금 시각 서식 없이 붙여넣기 「」 (그리고 폭이 모자라 옮겨진 버튼)
+// NOTE-노션편집 ①(가) (2026-11-25 명진 03:24 "모바일 편집툴 ui는 좋음 / Pc는 기능이 산개돼있는 느낌"): every width now uses the phone's
+// grouped row below — the same groups, the same order, the same names. There is no [⌄] row any more (the old PC layout above is history).
+// Wider than a phone a group's first buttons also stand on the row right before their group button (PC_OUT), and the group's list
+// holds the rest, so reading the row then each list gives the same sequence on every width. When the row is too narrow for them,
+// they go back into their group from the right end (the last group first). Shortcuts show in each button's tooltip (SHORTCUTS).
 // ED-서식줄묶음 (2026-10-23 사용자 13:16): on a phone (max-width 760px) the same buttons are grouped so the row fits on one line:
 //   [본문 2 ▾] [굵게] [· ▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
 //   글자 ▾ = 기울임 밑줄 취소선 글자색 형광펜 서식 지우기 / 문단 ▾ = 정렬 목록 번호 들여쓰기 내어쓰기 인용 구분선
@@ -31,9 +36,7 @@
 // as typed text with no paste at all: both count as a markdown paste. A text that is only plain lines looking like markdown (one
 // pasted as letters before) gets a small [서식으로 바꾸기] that converts the whole text once (undo puts it back). [①] opens ①~⑩ (the next number after the nearest one is marked).
 // S48-21 (요청함 10/22 09:33·19:27, 10/23 11:08):
-//   - [⌄] row open or closed is remembered on the server (view-prefs.js ed_more, the same for every editor and device): it stays as it
-//     was left — a press outside or Esc closes only the small popovers, never the row; only [⌄]/[⌃] opens or closes it. (A phone has no
-//     [⌄]: its row is grouped, see above.)
+//   - (the [⌄] row and its remembered open state were retired by NOTE-노션편집 ①(가): every width is the grouped row.)
 //   - [파일] exists only where the opener passes `files` (notes: the note's own attachments) or `onFiles` (update windows: the chosen files
 //     go to the window's own attachment row, NOTE-파일그림넣기 ④). With `files` a file goes in as a small card
 //     (name · size); its [열기] opens it (files.open). A dropped or pasted file that is not a picture goes the same way.
@@ -50,7 +53,6 @@ import {markdownToDoc, markdownLettersOf} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
 import {nowText} from './ed-now-text.mjs';
 import {slotLoading, slotShown, slotFailed} from './img-slot.js';
-import {viewPrefs} from './view-prefs.js';
 import {clipboardFiles, namePasted} from './paste-files.mjs';
 import {keepLetterBreaks, splitBlankLines} from './ed-paste.mjs';
 import {splitPictures} from './picture-file.mjs';
@@ -60,9 +62,6 @@ import {mountUploadRows, watchUploads, isUploading, announceDock, uploadJobs} fr
 const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
 let pmPromise = null, mdPromise = null;
-// S48-21: the [⌄] row as last left in this visit (null = not pressed yet: the server's remembered value). Every editor opened later in
-// the visit starts the same, also before the server accepts the setting (its DB change not applied yet: the write is refused, this stays).
-let sessionMore = null;
 export const loadEditorLib = () => (pmPromise ||= import(LIB));
 // The editor's markdown-it (html off, safe links only). Exported for ED③ 노트: an old markdown note opens through the same conversion.
 export const loadMarkdownIt = () => (mdPromise ||= import(MARKDOWN_IT).then(({default: MarkdownIt}) => {
@@ -215,6 +214,20 @@ const GROUPS = [
 const GROUP_KEYS = GROUPS.map(g => g[0]);
 // UI-화면정리 C(2026-10-28 명진 요청 20:03 B④): 폰도 PC와 같은 [· ▾] 한 칸(따로 있던 [·][▾] 두 칸은 하나로). 점은 펼친 목록 맨 앞.
 const PHONE_ORDER = ['style', 'strong', 'symDot', ...GROUP_KEYS, 'undo', 'redo'];
+// NOTE-노션편집 ①(가): wider than a phone, each group's first buttons (a prefix of its list, in its order) stand on the row before the group button.
+export const PC_OUT = {
+  gText: ['em', 'underline', 'strike', 'color', 'highlight'],
+  gPara: ['align', 'bullet', 'ordered'],
+  gInsert: ['table', 'photo', 'file', 'link'],
+  gSym: ['symNote', 'symArrow', 'symCircled'],
+};
+// The keyboard shortcut of a button, shown in its tooltip ("굵게 (Ctrl+B)"). The keys themselves are the keymap below (unchanged).
+const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
+const keyText = k => (MAC ? k.replace(/Ctrl\+/g, '⌘').replace(/Shift\+/g, '⇧') : k);
+export const SHORTCUTS = {
+  strong: 'Ctrl+B', em: 'Ctrl+I', underline: 'Ctrl+U', link: 'Ctrl+K', clear: 'Ctrl+\\',
+  indent: 'Tab', outdent: 'Shift+Tab', plainPaste: 'Ctrl+Shift+V', undo: 'Ctrl+Z', redo: 'Ctrl+Y',
+};
 
 // A button's text. A label that ends in " ▾" gets a small caret of its own (hidden from screen readers).
 function setLabel(b, text) {
@@ -241,8 +254,6 @@ function panel(className, label, popover = false) {
 }
 const checkMark = () => { const c = document.createElement('span'); c.className = 'ed-check'; c.setAttribute('aria-hidden', 'true'); c.textContent = '✓'; return c; };
 const svgEl = (tag, attrs) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
-// [⌄] (rotated to [⌃] while open by the stylesheet): a small chevron, drawn so no font has to carry the sign.
-const chevron = () => { const svg = svgEl('svg', {viewBox: '0 0 12 12', width: '12', height: '12', 'aria-hidden': 'true', focusable: 'false'}); svg.classList.add('ed-chevron'); svg.append(svgEl('path', {d: 'M2.5 4.5 6 8l3.5-3.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round'})); return svg; };
 // ED-사진링크아이콘: [사진] [링크] are icons on the row and icon + letters inside the phone's [넣기 ▾] list (the stylesheet hides the letters
 // on the row). Drawn in the site's own icon style (the 24-box stroke icons of the bottom menu: currentColor, round ends), shown at 16px.
 const ICON_PATHS = {
@@ -316,12 +327,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (group === 'mark' || group === 'list') b.setAttribute('aria-pressed', 'false');
     buttons[key] = b; tools.append(b);
   }
-  // [⌄] / [⌃]: no box, the same small size; a light highlight while open (stylesheet). The one button that opens a full row.
-  const more = btn('', {edMore: ''}, '서식 더 보기');
-  more.classList.add('ed-more'); more.title = '서식 더 보기'; more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
-  more.append(chevron());
-  tools.append(more);
-  const homeTools = [...tools.children].filter(b => b !== more);
   // ED-서식줄묶음: the phone's group buttons. They sit outside the row until a phone needs them.
   for (const [key, text, aria] of GROUPS) {
     const b = btn(text, {edCmd: key, edGroup: 'phone'}, aria);
@@ -329,20 +334,23 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     buttons[key] = b;
   }
   const panels = {};
-  panels.more = panel('ed-more-menu', '서식 더 보기');
-  const homeMore = [];
   for (const [key, text, aria] of MORE) {
-    const b = btn(text, {edCmd: key, edFixed: ''}, aria);
-    homeMore.push(b);
+    const b = btn(text, {edCmd: key}, aria);
     if (OPENS[key]) { b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); }
     if (key === 'strike' || key === 'quote') b.setAttribute('aria-pressed', 'false');
     if (key === 'plainPaste') { b.title = PLAIN_PASTE_HINT; b.setAttribute('aria-description', PLAIN_PASTE_HINT); }
-    buttons[key] = b; panels.more.append(b);
+    buttons[key] = b;
+  }
+  // Tooltips: the button's name, and its shortcut when it has one.
+  for (const [key, b] of Object.entries(buttons)) {
+    const name = (b.getAttribute('aria-label') || b.dataset.edLabel || '').replace(/ ?▾$/, '');
+    if (SHORTCUTS[key]) b.title = `${name} (${keyText(SHORTCUTS[key])})`;
+    else if (!b.title && b.getAttribute('aria-label')) b.title = name;
   }
   // Popovers (ed-pop): a vertical list with a ✓ on the current choice (글 단계·정렬·목록·번호), or a small block of swatches
   // and signs (글자색·형광펜·기호·표 격자). Each opens right under the button that was pressed.
-  // The group popovers hold the grouped buttons as a vertical list (filled by setGrouped).
-  for (const [key, , aria] of GROUPS) panels[key] = panel('ed-group-menu', aria.replace(/ (?:고르기|선택)$/, ''), true);
+  // The group popovers hold the grouped buttons as a vertical list (filled by layoutTools).
+  for (const [key, , aria] of GROUPS) { panels[key] = panel('ed-group-menu', aria.replace(/ (?:고르기|선택)$/, ''), true); panels[key].dataset.edPanel = key; }
   panels.style = panel('ed-style-menu', '글 단계', true);
   for (const [v, text] of TEXT_STYLES) { const b = btn(text, {edStyle: v}); b.append(checkMark()); panels.style.append(b); }
   panels.color = panel('ed-color-menu', '글자색', true);
@@ -419,9 +427,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const uploadEnds = file => { upGoing.delete(file); forgetUploads(); };
   const status = document.createElement('p');
   status.className = 'ed-status a11y-only'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-  const PANEL_ORDER = ['more', ...GROUP_KEYS, 'style', 'color', 'highlight', 'align', 'bullet', 'ordered', 'symDot', 'symNote', 'symArrow', 'symCircled', 'symBracket', 'grid', 'link'];
-  // The full-width rows (the [⌄] row, table tools, offers, notes) sit in the flow; popovers are placed on the screen.
-  bar.append(tools, panels.more, tableRow, photoTools, suggest, note, ...PANEL_ORDER.filter(k => k !== 'more').map(k => panels[k]));
+  const PANEL_ORDER = [...GROUP_KEYS, 'style', 'color', 'highlight', 'align', 'bullet', 'ordered', 'symDot', 'symNote', 'symArrow', 'symCircled', 'symBracket', 'grid', 'link'];
+  // The full-width rows (table tools, offers, notes) sit in the flow; popovers are placed on the screen.
+  bar.append(tools, tableRow, photoTools, suggest, note, ...PANEL_ORDER.map(k => panels[k]));
   const box = document.createElement('div');
   box.className = 'ed-box';
   // The table cell menu (right click, a phone's long press): a small floating list, closed by Esc or a press outside.
@@ -1484,12 +1492,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
 
   // ── panels ──
   let openName = null, grouped = false;
-  const triggerOf = name => name === 'more' ? more : name === 'grid' ? buttons.table : buttons[name];
-  // The panel a panel's own button sits in ([⌄] row or a group popover), or null when the button is on the row: that one stays
+  const triggerOf = name => name === 'grid' ? buttons.table : buttons[name];
+  // The panel a panel's own button sits in (a group popover), or null when the button is on the row: that one stays
   // open under the panel opened from inside it, and a second press (or Esc) goes back to it.
   const hostOf = name => {
     const p = triggerOf(name)?.parentElement;
-    return ['more', ...GROUP_KEYS].find(k => panels[k] === p) || null;
+    return GROUP_KEYS.find(k => panels[k] === p) || null;
   };
   const placeOpen = () => {
     if (!openName) return;
@@ -1510,10 +1518,14 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (pop.getBoundingClientRect().width > view0.w - side * 2) pop.style.maxWidth = `${Math.max(120, view0.w - side * 2)}px`;
     pop.style.left = '0px'; pop.style.top = '0px';
     const t = trigger.getBoundingClientRect(), size = pop.getBoundingClientRect();
-    const below = view0.t + view0.h - bottomRoom - t.bottom - gap, above = t.top - view0.t - side - gap;
+    // NOTE-노션편집 ①(가): the screen's own top line (PC: the fixed top bar, --kptu-stick-top) is not room — a box opened upward
+    // under it could not be pressed. (0 on a phone and in the big window.)
+    const topLine = parseFloat(getComputedStyle(root).getPropertyValue('--kptu-stick-top')) || 0;
+    const ceiling = Math.max(view0.t + side, topLine + side);
+    const below = view0.t + view0.h - bottomRoom - t.bottom - gap, above = t.top - ceiling - gap;
     const underneath = size.height <= below || below >= above, room = Math.max(80, Math.floor(underneath ? below : above));
     // (A button inside a scrolled group popover can sit above the screen's top: the popover stays on the screen.)
-    const top = Math.max(view0.t + side, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
+    const top = Math.max(ceiling, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
     pop.style.maxHeight = `${room}px`;
     // (The left floor is the screen's side margin, or the button's own left when the button sits closer to the edge, so a popover
     // under the first button of a tight phone row still starts on that button.)
@@ -1525,31 +1537,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (Math.abs(drawn.top - top) > 1) pop.style.top = `${Math.round(top - (drawn.top - top))}px`;
   }
   const followPop = e => { if (openName && !(e && e.target && e.target.closest && e.target.closest('.ed-pop'))) placeOpen(); };
-  // S48-21: the [⌄] row is not a box: open or closed as it was left (remembered on the server), only [⌄]/[⌃] changes it.
-  // openPanel('more') (a popover inside the row closed back to its host) means: close the popovers, the row stays.
-  const rememberedMore = () => sessionMore ?? (viewPrefs.get('ed_more') === true);
-  let moreOn = rememberedMore();
-  function paintMore() {
-    panels.more.hidden = grouped || !moreOn;
-    more.setAttribute('aria-expanded', String(!grouped && moreOn));
-  }
-  function setMore(on) {
-    moreOn = !!on; sessionMore = moreOn;
-    closePanels();
-    paintMore();
-    viewPrefs.set('ed_more', moreOn, {rejectable: true});
-  }
-  // The remembered value may arrive after this editor opened (the first screen of a visit): it is taken once, unless [⌄] was pressed.
-  const takeMore = () => { if (sessionMore !== null || view.isDestroyed) return; moreOn = rememberedMore(); paintMore(); };
-  window.addEventListener('kptu:view-prefs-ready', takeMore);
   function openPanel(name) {
-    if (name === 'more') name = null;
     const was = openName;
-    // The panels that hold the pressed panel's button stay open ([⌄] row or a group popover).
+    // The panels that hold the pressed panel's button stay open (a group popover).
     const hosts = new Set();
     for (let h = name && hostOf(name); h && !hosts.has(h); h = hostOf(h)) hosts.add(h);
     for (const key of PANEL_ORDER) {
-      if (key === 'more') continue;
       const on = key === name || hosts.has(key);
       panels[key].hidden = !on;
       triggerOf(key)?.setAttribute('aria-expanded', String(on));
@@ -1736,7 +1729,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const b = e.target.closest('button');
     if (!b || !bar.contains(b) || b.disabled) return;
     const d = b.dataset;
-    if ('edMore' in d) { setMore(!moreOn); return; }
     if (d.edPhoto) { run(d.edPhoto === 'join' ? joinPhoto : apartPhoto); return; }
     if (d.edCmd && OPENS[d.edCmd]) { const name = OPENS[d.edCmd]; openPanel(openName === name ? hostOf(name) : name); return; }
     if (d.edStyle) { run(() => setTextStyle(d.edStyle)); closePanels(); return; }
@@ -1761,49 +1753,71 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   bar.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || !openName) return;
     e.preventDefault();
-    const name = openName, trigger = triggerOf(name);
+    const name = openName, trigger = triggerOf(name), host = hostOf(name);
     if (name === 'link') { closePanels(); view.focus(); return; }
-    openPanel(hostOf(name));
-    (trigger.offsetParent ? trigger : more).focus();
+    openPanel(host);
+    (trigger.offsetParent ? trigger : buttons[host] || view.dom).focus();
   });
-  // Wider than a phone the row never scrolls sideways: the buttons that do not fit move (the same nodes, so their state
-  // and presses stay) to the front of the [⋯] row, from the end. On a phone the row scrolls sideways under the finger.
+  // NOTE-노션편집 ①(가): one row model for every width (see the top of this file). A phone: PHONE_ORDER, every group's buttons in its list.
+  // Wider: each group's PC_OUT prefix stands on the row before the group button; when the row does not fit, those go back into their
+  // group from the right end (the last group first), so the order read through the row and the lists never changes.
   const phone = window.matchMedia ? window.matchMedia('(max-width: 760px)') : null;
-  function fitTools() {
-    for (const b of [...panels.more.querySelectorAll('[data-ed-moved]')]) { delete b.dataset.edMoved; tools.insertBefore(b, more); }
-    if (grouped || phone?.matches || !tools.clientWidth || tools.scrollWidth <= tools.clientWidth) return;
-    const list = [...tools.children].filter(b => b !== more && b !== buttons.style);
-    const firstFixed = panels.more.querySelector('[data-ed-fixed]');
-    let front = firstFixed;
-    while (tools.scrollWidth > tools.clientWidth && list.length) {
-      const b = list.pop();
-      b.dataset.edMoved = '';
-      panels.more.insertBefore(b, front);
-      front = b;
+  const groupItems = key => GROUPS.find(g => g[0] === key)[3].map(k => buttons[k]).filter(Boolean);
+  const outCount = {};
+  function placeTools() {
+    const row = [];
+    for (const k of PHONE_ORDER) {
+      if (!GROUP_KEYS.includes(k)) { if (buttons[k]) row.push(buttons[k]); continue; }
+      const items = groupItems(k), n = outCount[k] || 0;
+      row.push(...items.slice(0, n), buttons[k]);
+      const inside = items.slice(n);
+      // (The same nodes in the same order are left where they are: no detaching, so focus and an open popover's anchor stay.)
+      if (panels[k].childElementCount !== inside.length || inside.some((b, i) => panels[k].children[i] !== b)) panels[k].replaceChildren(...inside);
+      buttons[k].hidden = n >= items.length;
     }
+    // A small gap before each part: [단계] | 굵게 · | each group | ↶ ↷.
+    const starts = new Set([buttons.strong, buttons.undo]);
+    for (const k of GROUP_KEYS) starts.add(groupItems(k).slice(0, outCount[k] || 0)[0] || buttons[k]);
+    for (const b of Object.values(buttons)) b.classList.remove('ed-gap');
+    for (const b of row) if (starts.has(b)) b.classList.add('ed-gap');
+    if (tools.childElementCount !== row.length || row.some((b, i) => tools.children[i] !== b)) tools.replaceChildren(...row);
   }
-  let fitFrame = 0;
-  const queueFit = () => { if (!fitFrame) fitFrame = requestAnimationFrame(() => { fitFrame = 0; fitTools(); }); };
+  function fitTools() {
+    if (grouped) return;
+    for (const k of GROUP_KEYS) { const items = groupItems(k), pcOut = PC_OUT[k] || []; let n = 0; while (n < items.length && pcOut.includes(items[n].dataset.edCmd)) n++; outCount[k] = n; }
+    placeTools();
+    if (!tools.clientWidth) return;
+    for (let i = GROUP_KEYS.length - 1; i >= 0 && tools.scrollWidth > tools.clientWidth; i--) {
+      const k = GROUP_KEYS[i];
+      while (outCount[k] > 0 && tools.scrollWidth > tools.clientWidth) { outCount[k]--; placeTools(); }
+    }
+    paint();
+  }
+  // Refit only when the row overflows now or became clearly wider (more buttons may fit). A small width change that still fits (a page
+  // scroll bar coming and going) changes nothing — no layout loop, and an open popover stays open. When the layout changes, popovers close.
+  let fitFrame = 0, lastWidth = -1;
+  const layoutKey = () => GROUP_KEYS.map(k => outCount[k] || 0).join();
+  const queueFit = () => { if (!fitFrame) fitFrame = requestAnimationFrame(() => {
+    fitFrame = 0;
+    const w = tools.clientWidth;
+    if (grouped || !w || w === lastWidth) return;
+    if (lastWidth >= 0 && tools.scrollWidth <= w && w < lastWidth + 24) return;
+    lastWidth = w;
+    const was = layoutKey();
+    fitTools();
+    if (layoutKey() !== was) closePanels();
+  }); };
   const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(queueFit) : null;
   resize?.observe(tools);
-  // ED-서식줄묶음: a phone gets the grouped row; wider screens get the full row back (the same button nodes move to and fro).
+  let laidOut = false;
   function setGrouped(on) {
-    if (on === grouped) return;
+    if (on === grouped && laidOut) return;
+    laidOut = true;
     closePanels();
-    for (const b of [...panels.more.querySelectorAll('[data-ed-moved]')]) { delete b.dataset.edMoved; tools.insertBefore(b, more); }
     grouped = on;
     root.classList.toggle('ed-grouped', on);
-    if (on) {
-      tools.replaceChildren(...PHONE_ORDER.map(k => buttons[k]).filter(Boolean), more);
-      for (const [key, , , items] of GROUPS) panels[key].replaceChildren(...items.map(k => buttons[k]).filter(Boolean));
-      panels.more.replaceChildren();
-    } else {
-      tools.replaceChildren(...homeTools, more);
-      panels.more.replaceChildren(...homeMore);
-      for (const key of GROUP_KEYS) panels[key].replaceChildren();
-    }
-    more.hidden = on;
-    paintMore(); paint(); queueFit();
+    root.classList.toggle('ed-wide', !on);
+    if (on) { for (const k of GROUP_KEYS) outCount[k] = 0; placeTools(); paint(); } else { fitTools(); lastWidth = tools.clientWidth || -1; }
   }
   const syncLayout = () => setGrouped(!!phone?.matches);
   phone?.addEventListener?.('change', syncLayout);
@@ -1839,7 +1853,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     for (const b of panels.highlight.querySelectorAll('[data-ed-highlight]')) b.setAttribute('aria-pressed', String(b.dataset.edHighlight === hl));
     const p = st.selection.$from.parent;
     const align = (st.selection instanceof pm.NodeSelection ? st.selection.node.attrs.align : p.attrs && p.attrs.align) || 'left';
-    setLabel(buttons.align, `${grouped ? '정렬 ' : ''}${(ALIGNS.find(([v]) => v === align) || ALIGNS[0])[1]} ▾`);
+    setLabel(buttons.align, `${buttons.align.parentElement !== tools ? '정렬 ' : ''}${(ALIGNS.find(([v]) => v === align) || ALIGNS[0])[1]} ▾`);
     for (const b of panels.align.querySelectorAll('[data-ed-align]')) b.setAttribute('aria-pressed', String(b.dataset.edAlign === align));
     buttons.quote.setAttribute('aria-pressed', String(inNode(st, N.blockquote) > 0));
     const li = inNode(st, N.list_item), around = listAround(st);
@@ -1885,9 +1899,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return d.childCount === 1 && d.firstChild.type === N.paragraph && d.firstChild.content.size === 0;
   }
   syncLayout();
-  paintMore();
   paint();
-  fitTools();
   return {
     view, root, getValue, isEmpty, closeBoxes, hasBox: boxOpen,
     getText: () => toPlain(getValue()),
@@ -1902,7 +1914,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     focus: () => view.focus(),
     destroy() {
       resize?.disconnect(); phone?.removeEventListener?.('change', syncLayout); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
-      window.removeEventListener('kptu:view-prefs-ready', takeMore);
       document.removeEventListener('pointerdown', outside, true);
       document.removeEventListener('keydown', escape, true);
       window.removeEventListener('pointerup', syncSelection, true);

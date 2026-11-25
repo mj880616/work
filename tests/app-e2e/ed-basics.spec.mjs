@@ -2,6 +2,7 @@
 // Blog·한글 (대조표 docs/design/unified-editor.md 9절). Fixture page only (no app shell, no network beyond static files).
 import {test, expect} from '@playwright/test';
 import {appOrigin} from './helpers/test-origin.mjs';
+import {edPress, edFlatOrder} from './helpers/ed-tools.mjs';
 
 const url = `${appOrigin}/tests/app-e2e/ed-editor-fixture.html`;
 const open = async (page, doc) => {
@@ -15,14 +16,8 @@ const value = page => page.evaluate(() => window.ed.getValue());
 const content = async page => (await value(page)).doc.content;
 const tool = (page, name) => page.locator('.ed-tools').getByRole('button', {name, exact: true});
 const menu = (page, name) => page.getByRole('group', {name, exact: true});
-// A button on the row, or under [⋯] when it is kept there.
-async function press(page, name) {
-  const onRow = tool(page, name);
-  if (await onRow.count() && await onRow.isVisible()) return onRow.click();
-  const more = page.locator('.ed-more');
-  if ((await more.getAttribute('aria-expanded')) !== 'true') await more.click();
-  await menu(page, '서식 더 보기').getByRole('button', {name, exact: true}).click();
-}
+// A button on the row, or in its group list (NOTE-노션편집 ①(가): no [⋯] row any more).
+const press = (page, name) => edPress(page, name);
 const para = (text, attrs = {style: 'body2'}) => ({type: 'paragraph', attrs, ...(text ? {content: [{type: 'text', text}]} : {})});
 const ed1 = (...nodes) => ({v: 'ed1', doc: {type: 'doc', content: nodes}});
 const table = (rows, cols, cellAttrs = () => ({})) => ({type: 'table', content: Array.from({length: rows}, (_, r) => ({type: 'table_row',
@@ -460,21 +455,31 @@ test.describe('PC 1280', () => {
     await expect(box.locator('img')).toHaveCount(0);
   });
 
-  test('서식 줄: 자주 쓰는 것만 밖, 나머지는 [⋯] 안; 한 줄, 작은 버튼', async ({page}) => {
+  test('서식 줄: 폰과 같은 묶음·순서(묶음 앞 버튼 몇 개만 밖), 한 줄, 작은 버튼, 단축키는 툴팁에', async ({page}) => {
     await open(page);
     const row = page.locator('.ed-tools');
-    await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '기울임', '밑줄', '글자색 ▾', '형광펜 ▾', '왼쪽 ▾', '목록 ▾', '번호 ▾', '표 ▾', '링크', '· ▾', '※ ▾', '→ ▾', '① ▾', '↶', '↷', '']);
-    // ED-사진링크아이콘: [링크] is an icon with a hover name; its letters are not shown on the row.
+    await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '· ▾', '기울임', '밑줄', '취소선', '글자색 ▾', '형광펜 ▾', '글자 ▾',
+      '왼쪽 ▾', '목록 ▾', '번호 ▾', '문단 ▾', '표 ▾', '링크', '넣기 ▾', '※ ▾', '→ ▾', '① ▾', '기호 ▾', '↶', '↷']);
+    // ED-사진링크아이콘: [링크] is an icon with a hover name (and its shortcut); its letters are not shown on the row.
     const linkTool = row.getByRole('button', {name: '링크 넣기', exact: true});
-    await expect(linkTool).toHaveAttribute('title', '링크 넣기');
+    await expect(linkTool).toHaveAttribute('title', '링크 넣기 (Ctrl+K)');
+    await expect(row.getByRole('button', {name: '굵게', exact: true})).toHaveAttribute('title', '굵게 (Ctrl+B)');
+    await expect(row.getByRole('button', {name: '되돌리기', exact: true})).toHaveAttribute('title', '되돌리기 (Ctrl+Z)');
     await expect(linkTool.locator('svg.ed-tool-icon')).toBeVisible();
     await expect(linkTool.locator('.ed-tool-word')).toBeHidden();
     expect(await row.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
     for (const h of await row.locator('button:visible').evaluateAll(l => l.map(b => Math.round(b.getBoundingClientRect().height)))) expect(h).toBeLessThanOrEqual(28);
-    await page.locator('.ed-more').click();
-    await expect(menu(page, '서식 더 보기').getByRole('button')).toHaveText(['취소선', '인용', '구분선', '들여쓰기', '내어쓰기', '서식 삭제', '지금 시각', '서식 없이 붙여넣기', '「」 ▾']);
+    expect(await row.locator('button:visible').evaluateAll(l => new Set(l.map(b => Math.round(b.getBoundingClientRect().top))).size)).toBe(1);
+    await row.getByRole('button', {name: '글자 서식 선택', exact: true}).click();
+    await expect(page.locator('.ed-pop:not([hidden])').first().getByRole('button')).toHaveText(['서식 삭제']);
+    await page.keyboard.press('Escape');
+    await row.getByRole('button', {name: '문단 서식 선택', exact: true}).click();
+    await expect(page.locator('.ed-pop:not([hidden])').first().getByRole('button')).toHaveText(['들여쓰기', '내어쓰기', '인용', '구분선']);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.ed-more')).toHaveCount(0);
     await page.screenshot({path: 'test-results/ed-basics-1280.png'});
   });
+
 });
 
 test.describe('폰 390', () => {
@@ -486,7 +491,7 @@ test.describe('폰 390', () => {
     const row = page.locator('.ed-tools');
     expect(await row.evaluate(el => getComputedStyle(el).flexWrap)).toBe('nowrap');
     await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '· ▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
-    await expect(page.locator('.ed-more')).toBeHidden();
+    await expect(page.locator('.ed-more')).toHaveCount(0);
     for (const width of [390, 360, 344]) {
       await page.setViewportSize({width, height: 844});
       await expect.poll(() => row.evaluate(el => el.scrollWidth - el.clientWidth), `row at ${width}`).toBeLessThanOrEqual(0);

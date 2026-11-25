@@ -4,6 +4,7 @@ import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteField, edWin, edWinText } from './helpers/note-editor.mjs';
+import { edCmd } from './helpers/ed-tools.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // NOTE-마크다운선택·NOTE-큰창저장유지 (합성 데이터). One app_notes store honours the kind/id filters, like basket-notes.spec.mjs.
 const LONG='https://example.org/'+'아주긴주소'.repeat(40);
@@ -186,15 +187,11 @@ for(const width of [390,1280]){
   await page.keyboard.insertText('빨간 글');await page.keyboard.press('Shift+Home');
   await page.evaluate(()=>{});
   const tools=detail.locator('[data-note-body-field] .ed-tools');
-  if(width<761){await tools.locator('[data-ed-cmd="gText"]').click();}
-  await detail.locator('[data-note-body-field] [data-ed-cmd="color"]').click();
+  await edCmd(detail.locator('[data-note-body-field]'),'color');
   await detail.locator('[data-note-body-field] [data-ed-color="red"]').click();
   await expect(field.locator('.ed-c-red')).toHaveText('빨간 글');
   await page.keyboard.press('End');await page.keyboard.press('Enter');
-  if(width<761){await tools.locator('[data-ed-cmd="gInsert"]').click();}
-  // S69-27: PC [폴더] 보기는 노트가 오른쪽 칸에 열려 서식 줄이 좁으면 안 들어가는 단추가 [⌄] 줄로 간다(ed-editor.js fitTools).
-  else if(!(await detail.locator('[data-note-body-field] [data-ed-cmd="table"]').isVisible()))await tools.locator('.ed-more').click();
-  await detail.locator('[data-note-body-field] [data-ed-cmd="table"]').click();
+  await edCmd(detail.locator('[data-note-body-field]'),'table');
   await detail.locator('[data-note-body-field] [data-ed-grid-r="2"][data-ed-grid-c="2"]').click();
   await expect(field.locator('table')).toHaveCount(1);
   await field.locator('table td, table th').first().click();await page.keyboard.insertText('칸 하나');
