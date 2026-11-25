@@ -4,7 +4,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {ftIconHtml, ftFolderRowHtml, ftMoreRowHtml, ftTrashRowHtml, ftBoxHtml, ftLimit, FT_PREVIEW} from '../app/folder-tree-ui.mjs';
-import {pinchStep, PINCH_OUT, PINCH_IN} from '../app/folder-pinch.js';
 import {treeRows, OUTSIDE} from '../app/note-tree.mjs';
 import * as lib from '../app/library-tree.js';
 
@@ -33,8 +32,9 @@ test('폴더 줄: 맨 위 단계 ft-top·하위 ft-sub, 들여쓰기 4단까지,
 });
 
 test('n개 더 보기·휴지통·상자·자르기', () => {
-  assert.match(ftMoreRowHtml({rest: 860, depth: 1, attrs: {'data-m': 'k'}}), /data-m="k" style="--ft-depth:1">860개 더 보기<span class="ft-hint"> · 두 손가락 벌리면 이 폴더만<\/span>/);
-  assert.doesNotMatch(ftMoreRowHtml({rest: 2, hint: false}), /ft-hint/);
+  // UI-폴더줄크기(S69-99): 두 손가락 '이 폴더만' 안내는 없다(두 손가락 = 줄 크기, 들어가기는 ⋯로만).
+  assert.match(ftMoreRowHtml({rest: 860, depth: 1, attrs: {'data-m': 'k'}}), /data-m="k" style="--ft-depth:1">860개 더 보기<\/button>$/);
+  assert.doesNotMatch(ftMoreRowHtml({rest: 2}), /ft-hint|두 손가락/);
   assert.match(ftTrashRowHtml({count: 9, attrs: {'data-t': ''}}), /class="ft-row ft-trash ft-top"[\s\S]*휴지통[\s\S]*>9</);
   const box = ftBoxHtml({head: '원드라이브', collapsible: true, open: false, toggleAttrs: {'data-b': 'od'}, body: '<i>x</i>'});
   assert.match(box, /ft-box ft-box-closed/); assert.match(box, /aria-expanded="false"/); assert.match(box, /접힘/); assert.doesNotMatch(box, /<i>x<\/i>/);
@@ -43,14 +43,6 @@ test('n개 더 보기·휴지통·상자·자르기', () => {
   assert.deepEqual(ftLimit(list), {shown: list.slice(0, FT_PREVIEW), rest: 8 - FT_PREVIEW});
   assert.deepEqual(ftLimit(list, true), {shown: list, rest: 0});
   assert.deepEqual(ftLimit(list.slice(0, 3)), {shown: [0, 1, 2], rest: 0});
-});
-
-test('두 손가락: 1.35배 벌리면 out, 0.75배 오므리면 in, 그 사이는 아무것도 안 함', () => {
-  assert.equal(pinchStep(100, 100 * PINCH_OUT), 'out');
-  assert.equal(pinchStep(100, 100 * PINCH_IN), 'in');
-  assert.equal(pinchStep(100, 120), null);
-  assert.equal(pinchStep(0, 50), null);
-  assert.equal(pinchStep(NaN, 50), null);
 });
 
 test('노트 나무: 펼친 폴더 노트는 limit개 + more 줄, 폴더 줄 hasContent, 폴더 없음도 같음', () => {

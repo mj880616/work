@@ -1,5 +1,6 @@
 // S51-24 UI-빈칸손짓(요청함 11/06 21:52, 시안 docs/design/mockups/folder-focus-continuity.html 왼쪽 두 화면 점선 칸):
 // 손짓(두 손가락 벌리기·오므리기, 좌우 밀기)은 내용이 끝난 아래 빈 곳에서도 된다 — 손짓 칸이 아래 바 바로 위까지 채워진다(app/gesture-fill.js).
+// UI-폴더줄크기(S69-99): 두 손가락은 줄 크기 한 단계(나무로 돌아가거나 들어가지 않는다). 들어가기는 ⋯ 첫 줄.
 // 화면마다 '목록이 짧아 아래가 빈' 상태에서 빈 곳 좌표가 손짓 칸 안인지 보고, 그 좌표에서 실제 손짓을 흉내 낸다. 이름은 모두 지어낸 것이다.
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
@@ -8,6 +9,7 @@ import { pinchAt, swipeAt, emptySpot, spotIn } from './helpers/pinch.mjs';
 
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+const rowSize = page => page.evaluate(() => document.documentElement.dataset.rowSize || 'm');
 // 빈 곳: 내용 끝 아래, 아래 바보다 위(목록이 짧은 상태여야 시험이 뜻이 있다).
 async function emptyIn(page, items, host) {
   const spot = await emptySpot(page, items);
@@ -16,7 +18,7 @@ async function emptyIn(page, items, host) {
   return spot;
 }
 
-test('파일 폰 412: 그 폴더만 아래 빈 곳에서 오므리기 = 나무, 나무 아래 빈 곳도 손짓 칸', async ({ page }) => {
+test('파일 폰 412: 그 폴더만 아래 빈 곳에서 오므리기 = 줄 크기 한 단계 작게(나무로 가지 않음), 나무 아래 빈 곳도 손짓 칸', async ({ page }) => {
   const { start, openFiles, phoneFolder } = await import('./helpers/files-server.mjs');
   const { errors } = await start(page, 412);
   await openFiles(page, 412);
@@ -28,7 +30,8 @@ test('파일 폰 412: 그 폴더만 아래 빈 곳에서 오므리기 = 나무, 
   await expect(page.locator('#filesRoot [data-fx-list] [data-fx-photos]')).toHaveText('사진 1');
   const spot = await emptyIn(page, '#filesRoot [data-fx-list] .ft-focus', '#filesRoot');
   await pinchAt(page, spot.x, spot.y, 'in');
-  await expect(tree).toBeVisible();
+  await expect.poll(() => rowSize(page)).toBe('s');
+  await expect(tree).toBeHidden();
   // 아래 바 바로 위까지 손짓 칸이고, 그 때문에 화면이 더 길어지지 않는다(짧은 목록이면 스크롤 없음).
   expect(await spotIn(page, { x: spot.x, y: spot.barTop - 6 }, '#filesRoot')).toBe(true);
   expect(await page.evaluate(() => document.scrollingElement.scrollHeight - innerHeight)).toBeLessThanOrEqual(1);
@@ -37,7 +40,7 @@ test('파일 폰 412: 그 폴더만 아래 빈 곳에서 오므리기 = 나무, 
   expect(errors).toEqual([]);
 });
 
-test('노트 폰 412: 아래 빈 곳에서 좌우 밀기 = 보기 전환, 그 폴더만 아래 빈 곳에서 오므리기 = 나무', async ({ page }) => {
+test('노트 폰 412: 아래 빈 곳에서 좌우 밀기 = 보기 전환, 그 폴더만 아래 빈 곳에서 오므리기 = 줄 크기 작게(나무로 가지 않음)', async ({ page }) => {
   await page.setViewportSize({ width: 412, height: 915 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -53,12 +56,15 @@ test('노트 폰 412: 아래 빈 곳에서 좌우 밀기 = 보기 전환, 그 �
   await chooseBasketKind(page, 'note');
   const folderRow = page.locator(`#noteRows [data-nx-folder="${U(1)}"]`);
   await expect(folderRow).toBeVisible();
-  // 그 폴더만 → 아래 빈 곳 오므리기 → 나무.
-  const { pinch } = await import('./helpers/pinch.mjs');
-  await pinch(page, folderRow, 'out');
+  // 그 폴더만(⋯ 첫 줄) → 아래 빈 곳 오므리기 = 줄 크기 작게, 그 폴더만 그대로 → [‹]로 나무.
+  await folderRow.locator('[data-nx-folder-more]').click();
+  await page.locator('#noteDocMenu [data-nx-enter]').click();
   await expect(page.locator('#noteRows [data-nx-focus]')).toBeVisible();
   let spot = await emptyIn(page, '#noteRows [data-nx-focus]', '[data-nx-body]');
   await pinchAt(page, spot.x, spot.y, 'in');
+  await expect.poll(() => rowSize(page)).toBe('s');
+  await expect(page.locator('#noteRows [data-nx-focus]')).toBeVisible();
+  await page.locator('#noteRows [data-nx-focus] .ft-focus-back').click();
   await expect(page.locator('#noteRows [data-nx-focus]')).toHaveCount(0);
   await expect(folderRow).toBeVisible();
   // 나무 아래 빈 곳에서 왼쪽으로 밀기 = [목록] 보기.
@@ -68,21 +74,22 @@ test('노트 폰 412: 아래 빈 곳에서 좌우 밀기 = 보기 전환, 그 �
   expect(errors).toEqual([]);
 });
 
-test('자료실 폰 412: 그 폴더만 아래 빈 곳에서 오므리기 = 나무', async ({ page }) => {
+test('자료실 폰 412: 그 폴더만 아래 빈 곳에서 오므리기 = 줄 크기 작게(나무로 가지 않음)', async ({ page }) => {
   const { bootLibrary, libFolder } = await import('./helpers/library-folder-server.mjs');
   const { errors } = await bootLibrary(page, 412, { folders: [libFolder('fa', 'top-a', { name: '가상 A', sort_order: 1024 })], items: [{ document_id: 'n-1', folder_id: 'fa' }] });
   await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   const head = page.locator('#documentList details[data-lu-node="f:fa"] > summary');
   await expect(head).toBeVisible();
-  const { pinch } = await import('./helpers/pinch.mjs');
-  await pinch(page, head, 'out');
+  await head.locator('[data-lu-node-menu]').click();
+  await page.locator('#luFolderMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   const path = page.locator('#libraryPath');
   await expect(path).toBeVisible();
   // 손짓 칸은 자료실 화면 전체(테두리 있는 목록 상자는 늘이지 않는다).
   const spot = await emptyIn(page, '#libraryListCard', '#libraryView');
   expect(await spotIn(page, { x: spot.x, y: spot.barTop - 6 }, '#libraryView')).toBe(true);
   await pinchAt(page, spot.x, spot.y, 'in');
-  await expect(path).toBeHidden();
+  await expect.poll(() => rowSize(page)).toBe('s');
+  await expect(path).toBeVisible();
   expect(errors).toEqual([]);
 });
 

@@ -111,7 +111,10 @@ test('요청 실패 → 이유: 하루 횟수·로그인 만료', () => {
 test('서버 결과 → 끝 상태', () => {
   assert.deepEqual(resultOutcome({ok: true, state: 'ok'}), {state: 'ok', reason: null});
   assert.deepEqual(resultOutcome({ok: true, state: 'ok', truncated: true}), {state: 'ok', reason: 'cut'});
-  assert.deepEqual(resultOutcome({ok: true, state: 'lead', reason: 'paywall'}), {state: 'ok', reason: 'lead'});
+  assert.deepEqual(resultOutcome({ok: true, state: 'lead', reason: 'paywall'}), {state: 'ok', reason: 'lead', lead: 'paywall'});
+  assert.deepEqual(resultOutcome({ok: true, state: 'lead', reason: 'lead_only'}), {state: 'ok', reason: 'lead', lead: 'lead_only'});
+  // S70-40a: 서버 까닭 login(로그인 화면)은 앱 로그인 만료(login)와 다른 이름으로.
+  assert.deepEqual(resultOutcome({ok: true, state: 'failed', reason: 'login'}), {state: 'failed', reason: 'login_page'});
   assert.deepEqual(resultOutcome({ok: true, state: 'failed', reason: 'robots'}), {state: 'failed', reason: 'robots'});
   assert.deepEqual(resultOutcome({ok: true, state: 'failed', reason: 'DROP TABLE'}), {state: 'failed', reason: 'busy'});
   assert.deepEqual(resultOutcome(null), {state: 'failed', reason: 'busy'});
