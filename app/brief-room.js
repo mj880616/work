@@ -246,7 +246,7 @@ function drawDetail(){
 // 원문 인용은 '원문 그대로'라 고치지 않는다(칸 없음). 위 줄 '고치는 중 · [취소][저장]', Enter = 저장, Esc = 취소.
 function editForm(doc,b){
   const ed=state.editing,form=el('div','br-body br-edit');form.dataset.brForm=doc.id;form.dataset.textSizeTarget='';
-  const top=el('div','br-edit-bar');top.append(el('span','br-muted','고치는 중 · 비운 줄은 빠져요'),btn('br-edit-cancel secondary','취소',{brEditCancel:'1'}),btn('br-edit-save secondary','저장',{brEditSave:'1'}));
+  const top=el('div','br-edit-bar');top.append(el('span','br-muted','수정 중 · 비운 줄은 빠져요'),btn('br-edit-cancel secondary','취소',{brEditCancel:'1'}),btn('br-edit-save secondary','저장',{brEditSave:'1'}));
   form.append(top);
   let group=null,last='';
   for(const f of editFields(shownBrief(b))){
@@ -283,7 +283,7 @@ async function saveEdit(button){
   try{
     const at=await api('/rest/v1/rpc/app_document_brief_edit',{method:'POST',body:{p_brief_id:b.id,p_edited:edited}});
     b.edited=edited;b.edited_at=typeof at==='string'?at:new Date().toISOString();
-    state.editing=null;toast('고친 글을 저장했어요');draw();
+    state.editing=null;toast('수정한 글을 저장했어요');draw();
   }catch{toast('저장하지 못했어요 · 잠시 뒤 다시',true)}
   finally{state.busy=false;if(button?.isConnected)button.disabled=false}
 }

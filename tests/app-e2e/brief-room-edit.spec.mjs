@@ -101,7 +101,7 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     expect(sent.p_edited.quotes).toEqual(brief3.quotes);
     expect(s.briefs.find(b => b.id === 'b3').brief).toEqual(brief3); // AI 원문은 그대로(서버 흉내 — 화면은 edited만 보냄)
     await expect(body(page).locator('.br-items li').first()).toContainText(NEW1);
-    await expect(detail(page).locator('.br-edited')).toContainText('손으로 고침');
+    await expect(detail(page).locator('.br-edited')).toContainText('손으로 수정함');
 
     // 새로 불러와도 고친 글.
     await page.reload();
@@ -111,7 +111,7 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
 
     // [원래 AI 글로 되돌리기] → 묻기 → 되돌리기 → 원래 글.
     await detail(page).locator('[data-br-revert]').click();
-    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('손으로 고친 글을 버리고 AI가 만든 글로 되돌릴까요?');
+    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('손으로 수정한 글 대신 AI가 만든 글로 되돌릴까요?');
     await ask(page).getByRole('button', { name: '되돌리기' }).click();
     await expect.poll(() => s.edits.length).toBe(2);
     expect(s.edits[1]).toEqual({ p_brief_id: 'b3', p_edited: null });
@@ -132,7 +132,7 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     await expect(body(page)).toContainText('예전 방식 줄 하나(고침)');
 
     await detail(page).locator('[data-br-redo]').click();
-    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('손으로 고친 브리핑이에요. 다시 만들까요?');
+    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('손으로 수정한 브리핑이에요. 다시 만들까요?');
     await expect(ask(page).getByRole('button', { name: '취소' })).toBeFocused(); // 덮지 않는 쪽이 기본
     await ask(page).getByRole('button', { name: '취소' }).click();
     await expect(ask(page)).toHaveCount(0);
@@ -158,7 +158,7 @@ test('PC 1280: 요약 글 우클릭 = 앱 메뉴, Shift+F10도 같은 메뉴, �
   await expect(menu).toBeVisible();
   expect(await page.evaluate(() => window.__ctx.at(-1))).toBe(true);
   const names = await menu.locator('[data-row-item]').allInnerTexts();
-  expect(names.map(t => t.trim())).toEqual(['고치기', '밑줄 저장', '메모', '노트로', '복사']);
+  expect(names.map(t => t.trim())).toEqual(['수정', '밑줄 저장', '메모', '노트로', '복사']);
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
 

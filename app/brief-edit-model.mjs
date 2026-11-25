@@ -5,9 +5,9 @@
 // 칸을 비우고 저장하면 그 줄은 빠진다(소제목을 비우면 제목 없는 묶음). 고친 한 장은 늘 새 모양(v3) — 옛 형식 브리핑도 고치면 새 모양으로 저장한다.
 import { briefView } from './brief-room-model.mjs';
 
-export const EDIT_LABEL = '고치기';
+export const EDIT_LABEL = '수정';
 export const REVERT_LABEL = '원래 AI 글로 되돌리기';
-export const EDITED_TAG = '손으로 고침';
+export const EDITED_TAG = '손으로 수정함';
 export const LINE_MAX = 2000;
 export const EDIT_BYTES = 60000; // DB 검사와 같은 크기(바이트)
 
@@ -67,12 +67,12 @@ export const fitsServer = edited => new TextEncoder().encode(JSON.stringify(edit
 
 // 다시 만들기 묻기(손으로 고친 브리핑만). 취소가 기본(덮지 않음) — askConfirm danger면 [취소]에 먼저 손이 간다.
 export const REDO_ASK = Object.freeze({
-  text: '손으로 고친 브리핑이에요. 다시 만들까요?',
-  note: 'AI가 새로 만든 글이 보이고, 고친 글은 보이지 않게 돼요.',
+  text: '손으로 수정한 브리핑이에요. 다시 만들까요?',
+  note: 'AI가 새로 만든 글이 보이고, 수정한 글은 보이지 않게 돼요.',
   ok: '다시 만들기', danger: true,
 });
 export const REVERT_ASK = Object.freeze({
-  text: '손으로 고친 글을 버리고 AI가 만든 글로 되돌릴까요?',
+  text: '손으로 수정한 글 대신 AI가 만든 글로 되돌릴까요?',
   ok: '되돌리기', danger: true,
 });
 
