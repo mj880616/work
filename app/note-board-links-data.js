@@ -184,7 +184,7 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
   const frameless = patch => (frame ? patch : Object.fromEntries(Object.entries(patch).filter(([k]) => !FRAME_KEYS.includes(k))));
   // 지운 상자 아래 가지 id(서버 cascade와 같게 화면에서도 함께 뺀다).
   const branchOf = id => { const out = new Set([id]); let grew = true; while (grew) { grew = false; for (const t of texts) if (t.parent_id && out.has(t.parent_id) && !out.has(t.id)) { out.add(t.id); grew = true; } } return out; };
-  return {
+  const api = {
     load,
     reset() { links = []; texts = []; ready = false; v2 = false; lines = false; textsReady = false; mindmap = false; frame = false; decor = false; missing = false; loadedFor = undefined; },
     mindmapReady:() => mindmap,
@@ -268,6 +268,48 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
         if (owner === scope()) { const got = new Map(saved.map(t => [t.id, t])); texts = texts.map(t => got.get(t.id) || t); onChange(); }
       } catch { if (owner === scope()) await failed('상자를 바꾸지 못했어요. 다시 불러올게요.'); }
     },
+    // S70-03 여러 개 한 번에 지우기(고른 것 Delete·Backspace·우클릭 [삭제]): 상자는 아래 가지째, 선은 그 선, noteIds = 보드에서 빼는 카드의 선.
+    // 화면은 한 번에 바꾸고 서버에는 뿌리 상자·남은 선만 보낸다(아래 가지·붙은 선은 서버 cascade). 지운 줄을 돌려준다(되돌리기용) — 못 하면 null.
+    async removeMany({textIds = [], linkIds = [], noteIds = [], boardId = null} = {}) {
+      const tIds = [...new Set(textIds)].filter(id => texts.some(t => t.id === id && !t.pending));
+      if (tIds.length && textBlocked()) return null;
+      const gone = new Set(); for (const id of tIds) for (const g of branchOf(id)) gone.add(g);
+      const goneTexts = texts.filter(t => gone.has(t.id)), notes = new Set(noteIds), want = new Set(linkIds);
+      const goneLinks = links.filter(l => !l.pending && (want.has(l.id) || [...gone].some(g => touches(l, g)) || (boardId && l.board_id === boardId && (notes.has(l.from_note) || notes.has(l.to_note)))));
+      if (!goneTexts.length && !goneLinks.length) return {texts:[], links:[]};
+      texts = texts.filter(t => !gone.has(t.id)); links = links.filter(l => !goneLinks.includes(l)); onChange();
+      const roots = goneTexts.filter(t => !(t.parent_id && gone.has(t.parent_id))).map(t => t.id);
+      const loose = goneLinks.filter(l => ![...gone].some(g => touches(l, g)));
+      const owner = scope();
+      try { await Promise.all([...roots.map(id => deleteBoardTexts({id}, rt)), ...loose.map(l => deleteBoardLinks({id:l.id}, rt))]); }
+      catch { if (owner === scope()) await failed('삭제하지 못했어요. 다시 불러올게요.'); return null; }
+      return {texts:goneTexts, links:goneLinks};
+    },
+    // 되돌리기: 지운 상자를 위(뿌리)부터 다시 만들고(새 id), 선은 새 id로 이어 다시 긋는다. 끝이 없어진 선은 건너뛴다. 다 되면 true.
+    async restore({texts:rows = [], links:lrows = []} = {}, alive = () => true) {
+      const map = new Map(), inSet = new Set(rows.map(t => t.id));
+      let left = rows.slice(), ok = true;
+      while (left.length) {
+        const ready = left.filter(t => !t.parent_id || !inSet.has(t.parent_id) || map.has(t.parent_id));
+        if (!ready.length) { ok = false; break; }
+        left = left.filter(t => !ready.includes(t));
+        const saved = await Promise.all(ready.map(t => {
+          const {id:_id, pending:_p, workspace_id:_w, created_at:_c, updated_at:_u, ...rest} = t;
+          return api.addText({...rest, parent_id:t.parent_id && inSet.has(t.parent_id) ? map.get(t.parent_id) ?? null : t.parent_id ?? null});
+        }));
+        ready.forEach((t, i) => { if (saved[i]) map.set(t.id, saved[i].id); else ok = false; });
+      }
+      const there = id => map.get(id) || (texts.some(t => t.id === id) ? id : null);
+      for (const l of lrows) {
+        const {id:_id, pending:_p, workspace_id:_w, created_at:_c, ...rest} = l, next = {...rest};
+        let skip = false;
+        for (const side of ['from', 'to']) if (l[`${side}_text`]) { const t = there(l[`${side}_text`]); if (t) next[`${side}_text`] = t; else skip = true; }
+        for (const side of ['from', 'to']) if (l[`${side}_note`] && !alive(l[`${side}_note`])) skip = true;
+        if (skip) { ok = false; continue; }
+        if (!(await api.add(next))) ok = false;
+      }
+      return ok;
+    },
     async removeText(id) {
       if (textBlocked()) return;
       if (!texts.some(t => t.id === id && !t.pending)) return;
@@ -277,4 +319,5 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
       try { await deleteBoardTexts({id}, rt); } catch { if (owner === scope()) await failed('상자를 삭제하지 못했어요. 다시 불러올게요.'); }
     },
   };
+  return api;
 }
