@@ -63,6 +63,9 @@ export async function measureLayout(page, root = '#appView') {
       const top = document.elementFromPoint(cx, cy);
       if (!top || el.contains(top) || top.contains(el)) continue;
       if (top.closest('label')?.contains(el) || el.closest('label')?.contains(top)) continue;
+      // 떠 있는 층(계정 창·메뉴 창·줄 메뉴·대화 상자)이 뒤 화면을 덮는 것은 정상이다. 그 층 안끼리 겹침만 센다.
+      const FLOAT = '#sidebarAccountPanel,#mobileMenu,#rowMenu,[role=menu],[role=dialog],[aria-modal=true],.modal';
+      if (top.closest(FLOAT) && top.closest(FLOAT) !== el.closest(FLOAT)) continue;
       if (top.closest('.mobile-tabs,.app-topline')) continue; // 굴리는 목록이 하단바·상단 줄 밑을 지나가는 것은 정상(맨 끝 여백은 따로 본다)
       push('overlap', el, { by: where(top) });
     }
