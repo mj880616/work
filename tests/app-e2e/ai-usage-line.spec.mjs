@@ -115,8 +115,7 @@ for(const width of [390,1440])test(`한도·자동 충전 금액: 서버에 저�
   await limits.locator('[data-aiu-save]').click();
   await expect(line.locator('[data-aiu-msg]')).toHaveText('금액은 0~1억 원 숫자로 넣어 주세요');
   expect(posts.length).toBe(2);
-  // 기기 저장 없음
-  expect(await page.evaluate(()=>{try{return JSON.stringify({...localStorage,...sessionStorage});}catch{return '';}})).not.toMatch(/80000|80,000/);
+  // 기기 저장 없음은 모델 시험(tests/ai-usage-model.test.mjs)이 화면 코드에서 본다. 여기서는 서버 답으로만 다시 보이는지 본다.
   // 다시 열기(새로 불러오기): 서버 표에 남은 값이 보인다
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
