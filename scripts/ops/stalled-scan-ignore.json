@@ -1,0 +1,5 @@
+{
+  "_설명": "이미 확인을 끝내 매일 점검에서 뺄 것만 적는다. 값은 이유 한 줄(대체한 행·PR). migrations는 14자리 번호, functions는 함수 폴더 이름.",
+  "migrations": {},
+  "functions": {}
+}
