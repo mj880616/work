@@ -12,6 +12,7 @@ on:
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'tests/same-file.test.mjs'
+      - 'tests/ui-no-updown-buttons.test.mjs'
       - 'supabase/functions/basket-files/photo-prune.ts'
       - 'supabase/functions/basket-files/note-delete.ts'
       - 'tests/security/basket-photo-prune.test.mjs'
@@ -169,6 +170,7 @@ on:
       - 'tests/ed-editor.test.mjs'
       - 'tests/ed-now-text.test.mjs'
       - 'tests/ed-photo-row-file.test.mjs'
+      - 'tests/ed-blocks-model.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
       - 'tests/note-link-import-model.test.mjs'
@@ -461,6 +463,7 @@ on:
       - 'tests/ed-editor.test.mjs'
       - 'tests/ed-now-text.test.mjs'
       - 'tests/ed-photo-row-file.test.mjs'
+      - 'tests/ed-blocks-model.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
       - 'tests/note-link-import-model.test.mjs'
@@ -997,7 +1000,7 @@ jobs:
         run: node --test tests/markdown-view.test.mjs tests/md-telegram.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs tests/basket-notes-data.test.mjs tests/number-shape.test.mjs
 
       - name: Unified editor pin, saved form and text export unit tests (ED-통합편집기)
-        run: node --test tests/ed-editor.test.mjs tests/ed-now-text.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs tests/ed-photo-row-file.test.mjs tests/note-pending-media.test.mjs tests/note-import-model.test.mjs tests/note-link-import-model.test.mjs
+        run: node --test tests/ed-editor.test.mjs tests/ed-now-text.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs tests/ed-photo-row-file.test.mjs tests/ed-blocks-model.test.mjs tests/note-pending-media.test.mjs tests/note-import-model.test.mjs tests/note-link-import-model.test.mjs
 
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
@@ -1110,6 +1113,8 @@ jobs:
         run: node --test tests/photo-info.test.mjs
       - name: "Select bars (S48-54 UI-고르기줄: 사진·크게 보기·노트·자료실 고르기 줄 공용 부품, 같은 칸·선 아이콘)"
         run: node --test tests/act-bar.test.mjs
+      - name: "Order is drag only (S70-04 UI-순서는끌기로: 순서용 [위로][아래로]·↑↓ 단추 글자 없음)"
+        run: node --test tests/ui-no-updown-buttons.test.mjs
       - name: "Photo sources (PHOTO-출처: 섞기·중복 판정·출처 상태·폰 다리)"
         run: node --test tests/photo-sources.test.mjs
       - name: "Phone photo read errors (PHOTO-폰사진못읽음: 앱 실패 종류·이유 글·공용 실패 표시 이유, synthetic)"

@@ -23,7 +23,7 @@ import { formatSeoulTime, seoulDateKey } from './meeting-time.js';
 // note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder } from './basket-data.js';
+import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, noteBlockEdit, setNoteBlockEdit } from './basket-data.js';
 // NOTE-탐색기(2026-10-28 09:24·10:34·11:01): 폴더 안 폴더(app_note_folders, 100단), 한 줄 노트, 끌어 옮기기·선택 모드·되돌리기.
 import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder, setNoteFolderColor } from './note-folders-data.js';
 // FOLDER-순서·색 ②(S49-38): 폴더 색·끌기 순서 공용 부품(folder-look-model.mjs 계산, folder-look.js 그림, reorder-drag.js 끌기).
@@ -689,11 +689,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const lockable = canEditFolders() && !!folderById(folderId) && !String(folderId).startsWith('name:');
       const lockItem = lockable ? [pinLock.folderLocked(folderId) ? ['data-nx-lock-folder', '잠금 해제'] : ['data-nx-lock-folder', '잠금']] : [];
       if (pinLock.notesHidden() && pinLock.folderCovered(folderId)) return [['data-nx-lock-open', '열기'], ...(pinLock.folderLocked(folderId) ? lockItem : [])];
-      const step = folderStepState(folderId);
       // NOTE-폴더메뉴새노트(11/07): [새 노트](11/24부터 [이 폴더로 들어가기] 다음) — 기존 새 노트 창이 이 폴더가 골라진 채로 열린다(newNoteIn).
       // UI-폴더이름펼치기(명진 11/24 18:09): 폰 폴더 이름 누르기는 그 자리 펼치기·접기만이라, 들어가기는 이 메뉴 첫 줄.
       return [['data-nx-enter', '이 폴더로 들어가기'], ['data-nx-new-note', '새 노트'], ['data-nx-select', '선택'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-color', '색 선택…'],
-        ...(step.up ? [['data-nx-folder-up', '위로']] : []), ...(step.down ? [['data-nx-folder-down', '아래로']] : []),
         ['data-nx-move-folder', '옮기기…'], ...lockItem, ['data-nx-delete-folder', '폴더 삭제', 'basket-menu-danger']] : [])];
     }
     // PRESS-성명초안삭제(11/09 명진 결정): [성명·보도자료 초안] 메뉴는 기능째 삭제했다(저장해 둔 초안 노트·폴더는 그대로).
@@ -709,8 +707,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'list' ? [['data-nx-select', '선택']] : []),
       // 17:45 ③: 줄의 복사 아이콘은 없앴다 — 복사는 PC·폰 모두 이 메뉴(⋯·우클릭·꾹 누르기) 안.
       ...(from === 'list' && noteCopyPayload(note) ? [['data-note-copy', '복사']] : []),
-      // FOLDER-순서·색 ②: '내가 정한 순서'일 때만 한 칸 위·아래(끌기가 어려울 때의 같은 동작).
-      ...(from === 'list' && noteStepState(note).up ? [['data-note-up', '위로']] : []), ...(from === 'list' && noteStepState(note).down ? [['data-note-down', '아래로']] : []),
+      // S70-04 UI-순서는끌기로: 순서 바꾸기는 끌기(PC 마우스·폰 꾹 눌러 끌기)와 키보드 Alt+↑↓만 — 메뉴 [위로][아래로]는 없앴다.
       // NOTE-보드여러개 ③: 이름 붙은 보드의 칸 메뉴 맨 위 [보드에서 빼기](노트는 그대로).
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-detach', '보드에서 빼기']] : []),
       // S69-88(명진 11/25 02:48 "노트 내용, 링크는 유지하더라도 텍스트는 다르게"): 이 보드에서만 카드에 보일 글자(별명) · 손으로 정한 카드 크기 되돌리기.
@@ -1049,12 +1046,22 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const host = detail.querySelector('[data-note-body-field]');
     try {
       // NOTE-제목서식줄고정(S61-16 ②): 제목 칸은 서식 줄과 한 묶음으로 편집기 위 띠에 들어가 위에 붙는다(닫으면 제자리로 돌아온다).
-      const made = await mountEditField(host, selected, {photos:photosFor(id), files:filesFor(id), lead:f.title.closest('label')});
+      const made = await mountEditField(host, selected, {photos:photosFor(id), files:filesFor(id), lead:f.title.closest('label'), blocks:blocksFor(id)});
       if (run !== epoch || !editing || selected?.id !== id || !host.isConnected) { made.destroy(); return; }
       field?.destroy(); field = made; paintEditTags();
     } catch { if (run === epoch && editing) say('수정 화면을 열지 못했어요. 다시 눌러 주세요.'); }
   }
   const dropField = () => { field?.destroy(); field = null; fieldBase = null; };
+  // NOTE-노션편집 ①(나): '블록 편집'(손잡이 ⋮⋮) 켜기·끄기. 이 노트에서 고른 값(metadata.block_edit)이 먼저, 없으면 내 기본값(view_prefs.note_blocks), 없으면 끔(글쓰기).
+  // [블록]을 누르면 이 노트 값과 내 기본값을 함께 기억한다(서버 저장, 기기 저장 없음). 노트 값 쓰기는 고치기가 아니라 updated_at·저장 판은 그대로다.
+  const blocksFor = id => ({
+    on: noteBlockEdit(selected) ?? (viewPrefs.get('note_blocks') === true),
+    onToggle: on => {
+      viewPrefs.set('note_blocks', on, {rejectable:true});
+      const note = notes.find(n => n.id === id); if (!note) return;
+      setNoteBlockEdit(note, on, rt).then(saved => { if (saved?.metadata) applySaved(id, saved); }).catch(() => say('블록 모드 선택을 이 노트에 기억하지 못했어요. 다음에 열면 기본값으로 열려요.'));
+    },
+  });
   async function finishEdit({force = false, anchor = null} = {}) {
     if (!selected || !editing) return;
     if (!force && textDirty()) {
@@ -1103,7 +1110,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // The window shows the note's title and [폴더 ▾] (the folder now, changeable); a changed title goes with the text save, a changed folder
     // is written after it (setNoteFolder, as [폴더로 옮기기]).
     const folder = windowFolderPick(folderOf(selected));
-    bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id), files:filesFor(id), title:fields().title.value, folder,
+    // NOTE-노션편집 ①(나): the window starts with the edit field's 블록 편집 state; its [블록] changes both (and is kept as on the field).
+    const keep = blocksFor(id);
+    const blocks = {on:!!field.editor?.blocksOn?.(), onToggle:on => { field?.editor?.setBlocks?.(on); keep.onToggle(on); }};
+    bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id), files:filesFor(id), title:fields().title.value, folder, blocks,
       attach:{getBatch:() => bigFiles, isBusy:() => busy, going:job => fileQueue.has(id, job.file)},
       save: async (value, text, extra) => {
         if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'};
@@ -1616,7 +1626,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const note = notes.find(n => n.id === items.notes[0]);
     return note ? ghostText(pinLock.noteHidden(note) ? LOCKED : noteLineTitle(note)) : '';
   };
-  mountReorder(host, {whole:true, zones:{resolve:resolveOver}, onHover:showHover, onDrop:handleDrop, onHold:handleHold, scroller:() => pageScroller, ghost:(el, key) => dragLabel(key),
+  mountReorder(host, {whole:true, altStep:true, onStep:(key, dir) => stepKey(key, dir), zones:{resolve:resolveOver}, onHover:showHover, onDrop:handleDrop, onHold:handleHold, scroller:() => pageScroller, ghost:(el, key) => dragLabel(key),
     canDrag:key => (key.startsWith('n:') || key.startsWith('f:')) && canReorder() && !busy, canHold:key => holdKey(key) && !busy});
   host.addEventListener('contextmenu', e => { if (Date.now() < suppressUntil) e.preventDefault(); }, true);
   host.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nx-note],[data-nx-folder]') && !e.target.closest('.basket-row-more,.nx-more')) { e.preventDefault(); e.stopPropagation(); } }, true);
@@ -1683,12 +1693,23 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const note = notes.find(n => n.id === id); if (!note) return;
     await applyNoteOrder(stepPlan(manualList(folderOf(note)), id, dir, noteOrderOf));
   }
-  // 메뉴 [위로][아래로]를 보일지: 폴더는 형제 안 자리, 노트는 '내가 정한 순서'이고 고정이 아닌 노트의 자리.
-  const folderStepState = id => { const f = folderById(id); if (!f || !canEditFolders()) return {up:false, down:false}; const s = folderSibs(f.parent_id), i = s.findIndex(x => x.id === id); return {up:i > 0, down:i >= 0 && i < s.length - 1}; };
-  const noteStepState = note => {
-    if (!note || noteSort !== 'manual' || view !== 'folder' || notePinnedAt(note) || query) return {up:false, down:false};
-    const s = manualList(folderOf(note)), i = s.findIndex(x => x.id === note.id); return {up:i > 0, down:i >= 0 && i < s.length - 1};
-  };
+  // S70-04 UI-순서는끌기로: 키보드 Alt+↑↓(공용 끌기 부품 altStep) = 끌어서 한 칸 옮긴 것과 같다. 폴더는 형제 안 자리,
+  // 노트는 '내가 정한 순서'이고 고정이 아닌 노트만(끌기와 같은 조건 — 아니면 끌기와 같은 안내).
+  // 다시 그린 뒤에도 초점은 옮긴 줄(같은 칸: 왼쪽 나무 / 오른쪽 목록)에 남아 Alt+↑↓를 이어 누를 수 있다.
+  function stepKey(key, dir) {
+    if (busy) return;
+    const inTree = !!document.activeElement?.closest?.('[data-nx-tree]');
+    const refocus = () => {
+      const row = keyEls(key).find(el => !!el.closest('[data-nx-tree]') === inTree) || keyEls(key)[0];
+      const main = row && [...row.querySelectorAll('button,[tabindex]')].find(b => !b.closest('.basket-row-more,.nx-more'));
+      (main || row)?.focus?.({preventScroll:true});
+    };
+    if (key.startsWith('f:')) { const id = key.slice(2); if (folderById(id) && canEditFolders()) void stepFolder(id, dir).then(refocus); return; }
+    if (!key.startsWith('n:')) return;
+    const note = notes.find(n => n.id === key.slice(2)); if (!note || view !== 'folder' || query || notePinnedAt(note)) return;
+    if (noteSort !== 'manual') { reorderHint(); return; }
+    void stepNote(note.id, dir).then(refocus);
+  }
   // ---- 폴더 색 (1~8, 기본 = null): 바로 저장, 실패하면 되돌리고 알린다. 같은 폴더를 보이는 곳(나무·꼬리표·포스트잇·고르기 창)이 모두 이 값 하나를 읽는다. ----
   async function applyFolderColor(id, color) {
     const f = folderById(id); if (!f || !canEditFolders() || (colorOf(f) ?? null) === color) return;
@@ -1802,8 +1823,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-up')) enter(folderById(at)?.parent_id || null);
       else if (b.hasAttribute('data-nx-new-in')) void newFolder(id);
       else if (b.hasAttribute('data-nx-rename')) void renameFolder(id);
-      else if (b.hasAttribute('data-nx-folder-up')) void stepFolder(id, -1);
-      else if (b.hasAttribute('data-nx-folder-down')) void stepFolder(id, 1);
       else if (b.hasAttribute('data-nx-sort')) setNoteSort(noteSort === 'manual' ? 'changed' : 'manual');
       else if (b.hasAttribute('data-nx-move-folder')) openMovePicker(from.trigger, {notes:[], folders:[id]});
       else if (b.hasAttribute('data-nx-delete-folder')) void deleteFolder(id, from.trigger);
@@ -1819,8 +1838,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nbb-autosize')) boards.autosize(note.id);
     else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);
     else if (b.hasAttribute('data-note-copy')) void telegram(note, from.trigger); // UI-눌림느낌: the menu is closed, so the row's ⋯ shows the ✓
-    else if (b.hasAttribute('data-note-up')) void stepNote(note.id, -1);
-    else if (b.hasAttribute('data-note-down')) void stepNote(note.id, 1);
     else if (b.hasAttribute('data-note-pin')) void pin(note);
     else if (b.hasAttribute('data-note-pub-make')) void pubAct('make', note, from.trigger);
     else if (b.hasAttribute('data-note-pub-copy')) void pubAct('copy', note, from.trigger);
