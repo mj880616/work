@@ -687,6 +687,9 @@
       const requestedEntry=window.navigation?.currentEntry?.key,requestedUrl=location.href;
       lazy.load(view).then(()=>{
         if(request!==goSeq)return false;
+        // S70-15 QA-간헐실패: 기다리는 사이 폰 [메뉴] 창이나 계정 메뉴(각자 자기 기록 칸을 쌓는다)를 열었으면 그것도 '뒤에 연 것'이다.
+        // 그대로 바꾸면 새 화면 기록 칸이 그 창의 칸 위에 쌓이고 창 표시까지 물려받아, 창을 닫는 뒤로가기가 앞 화면으로 돌아가 버린다.
+        if(window.KPTUMenuPanel?.isOpen?.())return false;
         if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
         return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub,areas,hold});
       }).catch(err=>console.error('view lazy load',view,err));
