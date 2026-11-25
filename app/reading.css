@@ -1,6 +1,6 @@
 /* S68-09 READ-읽을거리함: 읽을 거리(?view=reading, reading.js). 촘촘한 한 줄 목록·글 보기. 새 색 없음(기존 토큰만), 큰 카드 없음. */
 #readingView .rd-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:0;min-width:0}
-#readingView .rd-head{display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px)}
+#readingView .rd-head{display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px);margin-bottom:var(--ds-view-tabs-below)} /* S70-24: 머리줄(보기 탭)과 목록 첫 줄 사이 공용 간격 */
 #readingView .rd-title{margin:0;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #readingView .rd-head .rd-add,#readingView .rd-head .rd-src{margin-left:auto;flex:none}
 #readingView .rd-form{display:flex;gap:6px;align-items:center;margin:2px 0 4px}
