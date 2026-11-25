@@ -150,7 +150,7 @@ test('S70-11 붙는 곳: 자료실 [+ 자료 등록]으로 주간보고 분류�
   assert.match(up, /const kind=weeklyRoleOf\(String\(fields\.category\|\|''\)\);if\(kind\)void import\('\.\/weekly-save-folder\.js'\)/);
   assert.match(up, /weekly:\{show:luWeeklyShow,get:luWeeklyGet,set:luWeeklySet\}/);
   const fo = readFileSync(new URL('../app/library-folders.js', import.meta.url), 'utf8');
-  assert.match(fo, /data-lu-folder-action="weekly-\$\{kind\}"/);
+  assert.match(fo, /toggleLine\('weekly-'\+kind,weekly\.get\(kind\)===f\.id,/);
   const mod = readFileSync(new URL('../app/weekly-save-folder.js', import.meta.url), 'utf8');
   assert.match(mod, /one\(`\$\{COL\.personal\},\$\{COL\.confirmed\}`\)/);
 });

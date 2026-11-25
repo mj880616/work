@@ -189,14 +189,17 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function receiveLine(f){
     if(!receive?.ready?.())return '';
     const on=receive.get()===f.id;
-    return `<button type="button" class="lu-menu-receive" data-lu-folder-action="receive" aria-pressed="${on}"><span>${on?'<span class="lu-menu-check" aria-hidden="true">✓ </span>':''}${RECEIVE_MENU}</span></button>`;
+    return toggleLine('receive',on,RECEIVE_MENU,'lu-menu-receive');
+  }
+  // 켜고 끄는 메뉴 줄 한 모양(받는 폴더·주간 보고 저장 폴더 줄이 같이 씀): 켜면 앞에 ✓, aria-pressed.
+  function toggleLine(action,on,label,cls=''){
+    return `<button type="button"${cls?` class="${cls}"`:''} data-lu-folder-action="${action}" aria-pressed="${on}"><span>${on?'<span class="lu-menu-check" aria-hidden="true">✓ </span>':''}${label}</span></button>`;
   }
   // S70-11 WEEKLY-저장폴더나누기: [내 주간 보고 저장 폴더]·[팀 보고 취합 저장 폴더] — 받는 폴더 줄과 같은 모양(켜면 ✓, 다시 누르면 끔).
   // weekly = {show(id)=이 폴더 메뉴에 보일까, get(kind)=지금 저장 폴더 id|null, set(kind,id|null)=서버에 저장(성공 true)}. 규칙·글은 weekly-save-folder-model.mjs.
   function weeklyLines(f){
     if(!weekly?.show?.(f.id))return '';
-    return ['personal','confirmed'].map(kind=>{const on=weekly.get(kind)===f.id;
-      return `<button type="button" data-lu-folder-action="weekly-${kind}" aria-pressed="${on}"><span>${on?'<span class="lu-menu-check" aria-hidden="true">✓ </span>':''}${esc(WEEKLY_FOLDER_TEXT.menu(kind))}</span></button>`}).join('');
+    return ['personal','confirmed'].map(kind=>toggleLine('weekly-'+kind,weekly.get(kind)===f.id,esc(WEEKLY_FOLDER_TEXT.menu(kind)))).join('');
   }
   async function toggleWeekly(f,kind){
     if(!weekly||busy)return;
