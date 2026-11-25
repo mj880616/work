@@ -117,9 +117,18 @@ export function bodyPatch(result, nowIso = new Date().toISOString()) {
   return {...meta, body: null, body_state: FAIL_STATE[outcome.reason] || 'failed', body_at: nowIso};
 }
 // 이미 사람이 단 제목이 있으면 원문 제목으로 덮지 않는다(사이트도 같음).
+// S70-44: 다만 지금 제목이 사이트 이름뿐이면(예전 서버가 게시판형 누리집에서 사이트 이름을 제목으로 읽었던 줄) 새로 읽은 글 제목으로 바꾼다.
+const nameKey = v => String(v ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
+export function siteOnlyTitle(row, patch = {}) {
+  const t = nameKey(row?.title);
+  if (!t) return false;
+  const names = [row?.site, patch?.site].map(nameKey).filter(k => k.length >= 2);
+  for (const part of hostOf(row?.url).split('.')) if (part.length >= 3) names.push(nameKey(part));
+  return names.includes(t);
+}
 export function keepOwn(row, patch) {
   const out = {...patch};
-  if (row?.title && out.title) delete out.title;
+  if (row?.title && out.title && !(siteOnlyTitle(row, patch) && !siteOnlyTitle({...row, title: out.title}, patch))) delete out.title;
   if (row?.site && row.site !== hostOf(row?.url) && out.site) delete out.site;
   return out;
 }
@@ -146,9 +155,16 @@ export const canRetry = row => !NO_RETRY.includes(BODY_STATES.includes(row?.body
 export const REFETCH_SINCE = '2026-11-23T04:00:00+09:00';
 export const AUTO_BATCH = 2;
 const AUTO_STATES = Object.freeze(['pending', 'failed', 'robots']);
-export function needsRefetch(row, since = REFETCH_SINCE) {
+// S70-44 READ-제목사이트이름: 제목이 사이트 이름뿐인 줄은 고친 서버(이 시각 뒤)로 한 번 다시 읽는다 — 한 번 정리 단추 없이 목록을 열 때 저절로.
+// 다시 읽은 뒤에는 body_at이 이 시각보다 뒤라 또 읽지 않는다(새 제목을 못 얻어도 되풀이 없음).
+export const TITLE_REFETCH_SINCE = '2026-11-25T18:00:00+09:00';
+export function needsRefetch(row, since = REFETCH_SINCE, titleSince = TITLE_REFETCH_SINCE) {
   if (!isId(row?.id) || !row?.url) return false;
   const s = BODY_STATES.includes(row?.body_state) ? row.body_state : 'pending';
+  if ((s === 'ok' || s === 'paywall') && !linkOf(row) && siteOnlyTitle(row)) {
+    const at = Date.parse(row?.body_at), cut = Date.parse(titleSince);
+    return !Number.isFinite(at) || at < cut;
+  }
   if (!(AUTO_STATES.includes(s) || (s === 'bot_check' && linkOf(row)))) return false;
   if (s === 'pending') return true;
   const at = Date.parse(row?.body_at), cut = Date.parse(since);
