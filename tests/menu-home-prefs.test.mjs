@@ -22,12 +22,18 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // UI-머리눌러정렬: DB(20261124170000, 같은 PR) files_sort를 화면 허용 목록에도 더했다(적용 전에는 정렬 기억만 건너뜀). DB에만 있는 칸은 없다.
 // NOTE-노션편집 ①(나): DB(20261125080000, 같은 PR) note_blocks를 화면 허용 목록에도 더했다(적용 전에는 기본값 기억만 이번 접속). DB에만 있는 칸은 없다.
 // S70-35 NOTE-목록표머리 ①-2: DB(20261125100000, 같은 PR) note_list_sort를 화면 허용 목록에도 더했다(적용 전에는 정렬 기억만 이번 접속). DB에만 있는 칸은 없다.
+// S70-35 NOTE-목록표머리 ②: DB(20261125110000, 같은 PR) note_cols를 화면 허용 목록에도 더했다(적용 전에는 보일 칸 기억만 이번 접속). DB에만 있는 칸은 없다.
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, note_blocks 판 위에 NOTE-목록표머리 note_list_sort)와 같다', () => {
-  const sql = read('supabase/migrations/20261125100000_profile_view_prefs_note_list_sort.sql');
+test('허용 칸이 DB 검사(마지막 migration, note_list_sort 판 위에 NOTE-목록표머리 note_cols)와 같다', () => {
+  const sql = read('supabase/migrations/20261125110000_profile_view_prefs_note_cols.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 61);
+  assert.equal(KEYS.length, 62);
+  // note_cols 칸 이름이 DB 검사 목록과 같다.
+  const colNames = [...sql.match(/strict \$\.note_cols\[\*\] \? \(@\.type\(\) != "string" \|\| !\(([^)]*)\)\)/)[1].matchAll(/@ == "([a-z]+)"/g)].map(m => m[1]);
+  assert.deepEqual(colNames, ['folder', 'tags', 'day', 'made', 'clip', 'memo', 'chars', 'pub']);
+  for (const v of [[], ['folder'], colNames, ['pub', 'made']]) assert.equal(validValue('note_cols', v), true, JSON.stringify(v));
+  for (const v of [null, 'folder', {}, ['title'], ['folder', 'folder'], ['x'], [1], [...colNames, 'folder']]) assert.equal(validValue('note_cols', v), false, JSON.stringify(v));
   // note_list_sort 허용 칸(key)이 DB 검사 목록과 같다.
   const noteSortKeys = [...sql.match(/view_prefs -> 'note_list_sort' ->> 'key'\) in \(([^)]*)\)/)[1].matchAll(/'([a-z]+)'/g)].map(m => m[1]);
   assert.deepEqual(noteSortKeys, ['title', 'folder', 'changed', 'created', 'clip', 'memo', 'chars']);
