@@ -76,7 +76,7 @@ test.describe('PC 1280',()=>{
   });
 
   test('팀 칸이 아직 없는 서버면 지금처럼: 내 주간 보고는 한 폴더에 그대로(다시 묻지 않음), 팀 보고 취합은 아무것도 안 함',async({page})=>{
-    const {s,errors}=await boot(page,1280,{weeklyFolder:'wk'});
+    const {s,errors}=await boot(page,1280,{weeklyFolder:'wk',weeklyTeamFolderMissing:true});
     expect(await file(page,'p-new')).toBe('filed');
     expect(itemOf(s,'p-new')).toBe('wk');
     await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('주간 보고 파일을 ‘가상 팀 › 가상 보고’ 폴더에 넣었어요.');

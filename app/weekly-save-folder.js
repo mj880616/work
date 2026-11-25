@@ -20,7 +20,8 @@ const ctxOf = rt => { const c = rt?.context?.read?.(); return {ws: c?.workspace?
 const okId = v => v === null || isFolderId(v);
 
 // 두 칸 읽기. {status:'ok', personal, team, legacy}(legacy = 팀 칸이 아직 없는 서버, team은 null) | {status:'pending'}(두 칸 다 없음) | {status:'error'}
-export async function readWeeklyFolders(rt = window.KPTURuntime) {
+// fallback=false(자료실 폴더 메뉴가 들어올 때 읽기): 400이면 개인 칸을 다시 읽지 않고 'pending'(메뉴 줄은 두 칸이 다 있을 때만 쓰므로).
+export async function readWeeklyFolders(rt = window.KPTURuntime, {fallback = true} = {}) {
   const url = profileUrl(rt); if (!url) return {status: 'error'};
   const one = async cols => {
     const rows = await rt.api(`${url}&select=${cols}&limit=1`);
@@ -35,6 +36,7 @@ export async function readWeeklyFolders(rt = window.KPTURuntime) {
     return okId(personal) && okId(team) ? {status: 'ok', personal, team, legacy} : {status: 'error'};
   } catch (error) {
     if (Number(error?.status) !== 400) return {status: 'error'};
+    if (!fallback) return {status: 'pending'};
     // 팀 칸이 아직 없는 서버: 개인 칸만 다시 읽는다(S69-67 그대로).
     try {
       const row = await one(COL.personal);

@@ -250,7 +250,7 @@ async function luSetReceive(id){
 let luWeekly={status:'idle',personal:null,team:null,owner:''};
 async function luRefreshWeekly(){
   const owner=luUser?.id;if(!owner)return;
-  try{const m=await import('./weekly-save-folder.js'),r=await m.readWeeklyFolders();if(luUser?.id!==owner)return;
+  try{const m=await import('./weekly-save-folder.js'),r=await m.readWeeklyFolders(undefined,{fallback:false});if(luUser?.id!==owner)return;
     luWeekly=r.status==='ok'&&!r.legacy?{status:'ok',personal:r.personal,team:r.team,owner}:{status:r.status==='ok'?'legacy':r.status,personal:null,team:null,owner};}
   catch{luWeekly={status:'error',personal:null,team:null,owner}}
 }
