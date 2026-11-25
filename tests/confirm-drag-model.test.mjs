@@ -55,5 +55,5 @@ test('공용 확인창은 공용 끌기 부품 하나로, 마우스만, 저장 �
   assert.match(popup,/movedSpot\(/);assert.match(popup,/dragStartOk\(/);
   // 닫히면 옮긴 자리를 잊는다(clearAnchored가 data-anchor-moved를 지운다). 기기 저장 없음.
   assert.match(popup,/delete panel\.dataset\.anchorMoved/);
-  assert.doesNotMatch(read('drag-move-model.mjs')+popup,/localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(read('drag-move-model.mjs')+popup,/Storage\b|DB\b/); // 저장 API 이름(공용 browser-storage-audit가 따로 막는다)
 });
