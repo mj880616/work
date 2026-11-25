@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { appOrigin } from './helpers/test-origin.mjs';
 import { bootLibrary, libFolder, libDoc, openMove, movePicker, pickMove } from './helpers/library-folder-server.mjs';
-import { expandLibraryTree } from './helpers/library-tree.mjs';
+import { expandLibraryTree, revealLibraryRow } from './helpers/library-tree.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
@@ -11,6 +11,7 @@ import { touchDrag } from './helpers/touch-drag.mjs';
 import { pinch } from './helpers/pinch.mjs';
 import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
 import { DOC_SCREENS } from './helpers/doc-view.mjs';
+import { screenFindLocator } from './helpers/screen-find.mjs';
 import { readFileSync } from 'node:fs';
 // 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
 const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
@@ -1221,6 +1222,127 @@ for (const [name, open] of ORDER_SCREENS) for (const width of [390, 1280]) test.
     await expect.poll(s.order).toEqual([d, b, c, a]);
     expect(s.errors).toEqual([]);
   });
+});
+
+// ---------- S5·K1·K2 목록 공용 키(UI-목록공용키 S70-18, docs/qa/folder-tree-audit-20261125.md N2·N3·N4) ----------
+// 공용 부품 app/select-keys.js: 목록 줄에 커서를 두고 Ctrl+A = 그 목록 전체 고르기(화면 글자 전체가 아님), Delete = 그 화면 [삭제](확인 창·되돌리기 알림 그대로),
+// F2 = 고른 줄, 없으면 커서 줄 이름 바꾸기. 글 쓰는 칸 안 Ctrl+A·Delete는 글자 동작 그대로. 새 목록 화면은 KEY_SCREENS에 한 줄 더한다.
+// 화면마다 돌려줄 것: rows(목록 줄 locator), focus(i)(i번째 줄에 커서), picked()(고른 줄 수), total(줄 수), pickTwo()(두 줄 고르기),
+// renameOpen(i)(이름 칸이 i번째 줄 이름으로 열렸나), field(글 쓰는 칸), id(i)(줄 열쇠), deleteOne(id)·deleteMany()(Delete 뒤 확인 창·되돌리기 확인).
+const textSelected = page => page.evaluate(() => String(window.getSelection?.() || '').trim().length);
+const askShown = page => page.locator('.kptu-ask').filter({ visible: true });
+async function keyLibrary(page) {
+  const docs = ['가', '나', '다', '라'].map((n, i) => libDoc('k' + i, null, { title: '가상 ' + n + ' 자료', file_name: 'k' + i + '.pdf' }));
+  const { errors } = await bootLibrary(page, 1280, { folders: [], items: [], docs, init: { deletes: [] } });
+  await page.evaluate(() => window.__KPTU_LIBRARY_UPLOAD_READY__);
+  for (const d of docs) await revealLibraryRow(page, d.id);
+  const rows = page.locator('#documentList .lu-row[data-lu-document]').filter({ visible: true });
+  await expect(rows).toHaveCount(4);
+  return { errors, rows, total: 4,
+    focus: i => rows.nth(i).focus(),
+    picked: () => page.locator('#documentList .lu-row.lu-picked').count(),
+    pickTwo: async () => { await rows.nth(0).click({ modifiers: ['Control'] }); await rows.nth(1).click({ modifiers: ['Control'] }); await expect(page.locator('#documentList .lu-row.lu-picked')).toHaveCount(2); },
+    renameOpen: async i => { const input = rows.nth(i).locator('.lu-rename-input'); await expect(input).toBeFocused(); await expect(input).toHaveValue(/가상 . 자료/); await input.press('Escape'); },
+    field: screenFindLocator(page), // S70-54: 화면 안 찾기 칸 대신 맨 위 칸이 겸함(옛 #documentSearch)
+    id: i => rows.nth(i).getAttribute('data-lu-document'),
+    deleteOne: async id => {
+      await expect(page.locator(`#documentList [data-lu-document="${id}"]`)).toHaveCount(0);
+      await page.locator('#kptuNotice .kptu-notice-undo').click();
+      await expect(page.locator(`#documentList [data-lu-document="${id}"]`)).toHaveCount(1);
+    },
+    deleteMany: async () => {
+      await expect(page.locator('.kptu-ask-text')).toHaveText('2개를 삭제할까요?');
+      await page.locator('.kptu-ask button', { hasText: '삭제' }).click();
+      await expect(rows).toHaveCount(2);
+      await page.locator('#kptuNotice .kptu-notice-undo').click();
+      await expect(rows).toHaveCount(4);
+    } };
+}
+async function keyNotes(page) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page);
+  await installViewPrefsServer(page);
+  const note = (id, title) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + ' 본문', occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-1' + id.slice(-1) + 'T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: {} });
+  const rowsData = [note('n1', '가상 가 노트'), note('n2', '가상 나 노트'), note('n3', '가상 다 노트')];
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: structuredClone(rowsData) }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
+  await page.evaluate(() => window.KPTURouter.go('basket'));
+  await chooseBasketKind(page, 'note');
+  await page.locator('[data-nx-tree] [data-nx-open]').first().click(); // 왼쪽 나무 '폴더 없음' = 오른쪽에 노트 3개
+  const rows = page.locator('#noteRows [data-nx-note]').filter({ visible: true });
+  await expect(rows).toHaveCount(3);
+  return { errors, rows, total: 3,
+    focus: i => rows.nth(i).locator('[data-note-row]').focus(),
+    picked: () => page.locator('#noteRows [data-nx-note].nx-picked').count(),
+    pickTwo: async () => { await rows.nth(0).locator('[data-note-row-more]').click(); await page.locator('#noteDocMenu [data-nx-select]').click(); await rows.nth(1).locator('[data-note-row]').click(); await expect(page.locator('#noteRows .nx-picked')).toHaveCount(2); await rows.nth(1).locator('[data-note-row]').focus(); },
+    renameOpen: async () => { const input = page.locator('[data-note-title-input]'); await expect(input).toBeFocused(); await expect(input).toHaveValue(/가상 . 노트/); },
+    field: screenFindLocator(page), // S70-54: 맨 위 칸(옛 [data-note-search])
+    id: i => rows.nth(i).getAttribute('data-nx-note'),
+    deleteOne: async () => { await expect(askShown(page)).toBeVisible(); await expect(page.locator('.kptu-ask-text')).toContainText('노트를 휴지통으로 옮길까요?'); await page.keyboard.press('Escape'); await expect(rows).toHaveCount(3); },
+    deleteMany: async () => { await expect(page.locator('.kptu-ask-text')).toHaveText('노트 2개를 삭제할까요?'); await page.keyboard.press('Escape'); await expect(rows).toHaveCount(3); } };
+}
+async function keyFiles(page) {
+  const { errors } = await startFiles(page, 1280);
+  await openFiles(page, 1280);
+  await treeGo(page, 'od');
+  await enterRow(page, page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!1"]'));
+  const rows = page.locator('#filesRoot [data-fx-list] [data-fx-row]').filter({ visible: true });
+  await expect(page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
+  const total = await rows.count();
+  return { errors, rows, total,
+    focus: i => rows.nth(i).focus(),
+    picked: () => page.locator('#filesRoot [data-fx-list] [data-fx-row][aria-selected="true"], #filesRoot [data-fx-list] [data-fx-row].fx-picked').count(),
+    pickTwo: async () => { await rows.nth(1).click({ modifiers: ['Control'] }); await rows.nth(2).click({ modifiers: ['Control'] }); },
+    renameOpen: async () => { await expect(askShown(page).locator('.kptu-ask-field')).toBeVisible(); await expect(askShown(page).locator('.kptu-ask-field')).toHaveValue(/가짜/); await page.keyboard.press('Escape'); },
+    field: page.locator('#filesRoot [data-fx-search]'),
+    id: i => rows.nth(i).getAttribute('data-fx-row'),
+    deleteOne: async () => { await expect(askShown(page)).toBeVisible(); await expect(page.locator('.kptu-ask-text')).toContainText('휴지통'); await page.keyboard.press('Escape'); },
+    deleteMany: async () => { await expect(page.locator('.kptu-ask-text')).toContainText('2개'); await page.keyboard.press('Escape'); } };
+}
+const KEY_SCREENS = [['자료실', keyLibrary], ['노트', keyNotes], ['파일', keyFiles]];
+for (const [name, open] of KEY_SCREENS) test(`S5 ${name} PC 1280: Ctrl+A = 목록 전체`, async ({ page }) => {
+  const s = await open(page);
+  await s.focus(1);
+  await page.keyboard.press('Control+a');
+  await expect.poll(s.picked).toBe(s.total);
+  expect(await textSelected(page), '화면 글자 전체가 골라지지 않는다').toBe(0);
+  expect(s.errors).toEqual([]);
+});
+for (const [name, open] of KEY_SCREENS) test(`K1 ${name} PC 1280: Delete = 고른 것 지우기(확인 창·되돌리기)`, async ({ page }) => {
+  const s = await open(page);
+  // 커서만 둔 줄 하나: 그 화면 ⋯ [삭제]와 같은 길.
+  const id = await s.id(1);
+  await s.focus(1);
+  await page.keyboard.press('Delete');
+  await s.deleteOne(id);
+  // 고른 둘: 선택 막대 [삭제]와 같은 길(한 번 묻기).
+  await s.pickTwo();
+  await page.keyboard.press('Delete');
+  await s.deleteMany();
+  expect(s.errors).toEqual([]);
+});
+for (const [name, open] of KEY_SCREENS) test(`F2 ${name} PC 1280: 커서 줄 이름 바꾸기`, async ({ page }) => {
+  const s = await open(page);
+  await s.focus(1);
+  await page.keyboard.press('F2');
+  await s.renameOpen(1);
+  expect(s.errors).toEqual([]);
+});
+for (const [name, open] of KEY_SCREENS) test(`S5·K1 ${name} PC 1280: 글 칸 안 Ctrl+A·Delete는 글자 동작 그대로`, async ({ page }) => {
+  const s = await open(page);
+  await s.field.fill('가상');
+  await s.field.focus();
+  await page.keyboard.press('Control+a');
+  expect(await s.field.evaluate(el => [el.selectionStart, el.selectionEnd])).toEqual([0, 2]);
+  expect(await s.picked()).toBe(0);
+  await page.keyboard.press('Delete');
+  await expect(s.field).toHaveValue('');
+  await expect(askShown(page)).toHaveCount(0);
+  expect(await s.picked()).toBe(0);
+  expect(s.errors).toEqual([]);
 });
 
 // ---------- C7 읽는 글 칸 오른쪽 클릭 = 앱 메뉴(S70-27, docs/design/standard-interactions.md 12절 C7) ----------
