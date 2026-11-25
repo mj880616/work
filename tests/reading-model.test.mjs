@@ -45,20 +45,22 @@ test('목록 줄: 안 읽음 점·제목(없으면 사이트)·사이트·날짜
   assert.deepEqual(filterEntries(only, 'all').map(e => e.key), ['a', 'b']);
   // S69-04: [밑줄]은 글 줄을 거르지 않는다(밑줄 줄 목록은 visibleMarks) — 탭 숫자는 넘겨받은 밑줄 수 그대로.
   assert.deepEqual(filterEntries(only, 'marks'), []);
-  assert.deepEqual(filterOptions(only, 5).map(o => o.label), ['안 읽음 1', '전체', '밑줄 5', '메모']);
-  assert.deepEqual(filterOptions(only, null).map(o => o.label), ['안 읽음 1', '전체', '밑줄', '메모']);
+  assert.deepEqual(filterOptions(only, 5).map(o => o.label), ['전체', '안 읽음 1', '밑줄 5', '메모']);
+  assert.deepEqual(filterOptions(only, null).map(o => o.label), ['전체', '안 읽음 1', '밑줄', '메모']);
   // S69-94: [메모] — 이 화면 글에 남긴 메모 모아 보기(글 줄은 거르지 않음, 탭 숫자는 넘겨받은 메모 수).
-  assert.deepEqual(filterOptions(only, 5, 3).map(o => o.label), ['안 읽음 1', '전체', '밑줄 5', '메모 3']);
+  assert.deepEqual(filterOptions(only, 5, 3).map(o => o.label), ['전체', '안 읽음 1', '밑줄 5', '메모 3']);
   assert.deepEqual(filterEntries(only, 'memos'), []);
   assert.equal(emptyText('memos', 0), '남긴 메모가 없어요 · 글 아래 [메모 남기기]');
   assert.equal(emptyText('marks', 0), '저장한 밑줄이 없어요 · 글을 선택하고 [밑줄 저장]', '저장한 글이 없어도 밑줄 탭은 밑줄 안내');
-  assert.equal(keepFilter('news'), 'unread', 'S68-29: [News] 칩 값은 없다');
+  assert.equal(keepFilter('news'), 'all', 'S68-29: [News] 칩 값은 없다');
   assert.equal(nextFilter('marks', 1), 'memos');
-  assert.equal(keepFilter('x'), 'unread');
-  assert.deepEqual(FILTERS, ['unread', 'all', 'marks', 'memos']);
-  assert.equal(nextFilter('unread', 1), 'all');
+  assert.equal(keepFilter('x'), 'all', 'S70-24: 처음·모르는 값은 [전체]');
+  assert.deepEqual(FILTERS, ['all', 'unread', 'marks', 'memos'], 'S70-24: [전체]가 맨 앞');
+  assert.equal(nextFilter('all', 1), 'unread');
+  assert.equal(nextFilter('unread', 1), 'marks');
   assert.equal(nextFilter('memos', 1), 'memos');
-  assert.equal(nextFilter('all', -1), 'unread');
+  assert.equal(nextFilter('unread', -1), 'all');
+  assert.equal(nextFilter('all', -1), 'all');
   assert.equal(shortDay('없음'), '');
 });
 
@@ -77,11 +79,11 @@ test('한 목록(S68-27·S68-29): 읽을 거리 표 하나 — News에서 보낸
   assert.deepEqual(all.map(e => e.link), [{type: 'outside', id: N2}, null, {type: 'news', id: N1}]);
   assert.equal(linkOf({news_article_id: 'nope'}), null);
   // S68-29(명진 11/23 02:23): News에서 보낸 줄을 따로 거르는 칩은 없다(S69-94부터 칩은 [안 읽음][전체][밑줄][메모]).
-  assert.deepEqual(filterOptions(all, 2).map(o => o.label), ['안 읽음 2', '전체', '밑줄 2', '메모']);
-  assert.deepEqual(filterEntries(all, 'news').map(e => e.key), [R3, R1], '옛 칩 값은 처음 칩(안 읽음)으로');
+  assert.deepEqual(filterOptions(all, 2).map(o => o.label), ['전체', '안 읽음 2', '밑줄 2', '메모']);
+  assert.deepEqual(filterEntries(all, 'news').map(e => e.key), filterEntries(all, 'all').map(e => e.key), '옛 칩 값은 처음 칩(전체)으로 — S70-24');
   assert.deepEqual(filterEntries(all, 'unread').map(e => e.key), [R3, R1], '안 읽음은 줄의 읽음 칸 하나로');
   assert.deepEqual(filterEntries(all, 'all').map(e => e.key), [R3, R2, R1]);
-  assert.equal(keepFilter('news'), 'unread');
+  assert.equal(keepFilter('news'), 'all');
   assert.equal(nextFilter('memos', 1), 'memos');
   assert.doesNotMatch(emptyText('all', 3), /News/);
   assert.match(emptyText('unread', 0), /^저장한 글이 없어요/); // S68-34: 화면 이름 '저장한 글'

@@ -124,6 +124,8 @@
   --ds-chip-row-height:26px;--ds-chip-row-pad-x:8px;--ds-chip-row-gap:4px;
   /* LIB-맨위다듬기(S53-18): 거르기 칩 줄과 바로 위 줄(보기 탭·찾기 칸) 사이 간격. 화면마다 같은 값. */
   --ds-chip-row-above:6px;
+  /* S70-24 READ-저장한글기본전체(명진 11/25 "메뉴랑 밑에 줄이랑 여백 없어서 답답함"): 보기 탭이 든 머리줄과 그 아래 목록 첫 줄 사이 간격. 위 칩 줄 간격과 같은 값. */
+  --ds-view-tabs-below:var(--ds-chip-row-above);
   --ds-color-dot:12px; /* UI-색점(S52-18): 이름 옆 색 표시 점 하나의 크기(.ui-color-dot) */
   --ds-row-pad-y:9px;--ds-row-pad-x:12px;
   --ds-section-ink:var(--kptu-primary-ink);

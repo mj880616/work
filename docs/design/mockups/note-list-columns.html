@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>노트 목록 머리 줄 시안</title>
+<!-- S70-22 NOTE-목록표머리 시안. 실데이터 없음(지어낸 노트 제목만). 앱 코드 아님. 개선안: docs/design/note-list-columns.md -->
+<style>
+:root{--bg:#f3f1ea;--surface:#fffefa;--subtle:#f7f5ee;--border:#e2ddd0;--border-strong:#cfc8b6;--ink:#22262b;--muted:#77736a;--primary:#5c6a35;--primary-soft:#eef0e1;
+--p0:#dcebdc;--p1:#d8e6f0;--p2:#e6def0;--p3:#f2ddd6;--p4:#d4ebe6;--pn:#eceae4;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif}
+header.pg{padding:14px 16px 4px}
+h1{font-size:16px;margin:0 0 4px}
+h2{font-size:13px;margin:18px 0 6px;color:var(--muted);font-weight:600}
+.lead{color:var(--muted);font-size:12px;margin:0}
+main{padding:0 16px 40px}
+.frame{position:relative;background:var(--surface);border:.5px solid var(--border);border-radius:8px;max-width:1280px}
+.frame>.bar{border-radius:8px 8px 0 0}.frame>.scroll{border-radius:0 0 8px 8px}
+.bar{display:flex;gap:6px;align-items:center;padding:6px 8px;border-bottom:.5px solid var(--border);background:var(--surface)}
+.quick{flex:1;height:30px;border:.5px solid var(--border);border-radius:6px;background:var(--subtle);color:var(--muted);display:flex;align-items:center;padding:0 8px;font-size:12px}
+.search{width:180px;height:28px;border:.5px solid var(--border);border-radius:6px;padding:0 8px;color:var(--muted);display:flex;align-items:center;font-size:12px}
+.seg{display:flex;border:.5px solid var(--border);border-radius:6px;overflow:hidden}
+.seg span{padding:3px 8px;font-size:12px;color:var(--muted)}
+.seg span.on{background:var(--primary-soft);color:var(--ink)}
+.scroll{height:340px;overflow:auto;position:relative}
+/* 지금 모습 */
+.old .row{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px;border-bottom:.5px solid var(--border)}
+.old .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.old .tags{color:var(--muted);font-size:12px;flex:none}
+.chip{display:inline-block;max-width:8em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;padding:0 5px;border-radius:4px;background:var(--pn);color:#4a4740;vertical-align:middle}
+.old time,.old .clip{flex:none;font-size:12px;color:var(--muted)}
+/* 개선안: 그리드 + 고정 머리 */
+.new{--w-folder:120px;--w-tags:140px;--w-mod:64px;--w-made:64px;--w-att:48px;--w-memo:44px;--w-len:64px;--w-pub:52px}
+.grid{display:grid;grid-template-columns:var(--cols);align-items:center}
+.head{position:sticky;top:0;z-index:3;background:var(--bg);border-bottom:.5px solid var(--border-strong);height:28px;font-size:12px;color:var(--muted)}
+.head>div{position:relative;padding:0 8px;height:28px;display:flex;align-items:center;gap:3px;white-space:nowrap;cursor:pointer;user-select:none}
+.head>div:hover{color:var(--ink)}
+.head .arrow{font-size:10px}
+.grip{position:absolute;top:0;bottom:0;right:-12px;width:24px;cursor:col-resize;z-index:4;touch-action:none}
+.grip::before{content:"";position:absolute;top:6px;bottom:6px;left:50%;width:2px;margin-left:-1px;border-radius:2px;background:var(--border-strong)}
+.grip:hover::before,.grip.drag::before{background:var(--primary);width:3px}
+.head .more{cursor:pointer;justify-content:center;padding:0;font-size:14px;letter-spacing:1px}
+.nrow{height:34px;border-bottom:.5px solid var(--border)}
+.nrow:hover{background:var(--subtle)}
+.nrow>div{padding:0 8px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nrow .t{font-weight:600}
+.nrow .m{font-size:12px;color:var(--muted)}
+.nrow .chip{max-width:100%}
+.pin{color:var(--primary);font-size:11px;margin-right:3px}
+.menu{position:absolute;z-index:10;background:var(--surface);border:.5px solid var(--border-strong);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);padding:4px 0;min-width:150px;font-size:12px}
+.menu[hidden]{display:none}
+.menu .mt{padding:3px 10px;color:var(--muted);font-size:11px}
+.menu label{display:flex;gap:6px;align-items:center;padding:4px 10px;cursor:pointer}
+.menu label:hover{background:var(--subtle)}
+.menu button{margin:4px 10px 2px;font:inherit;font-size:12px;background:none;border:.5px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--ink);cursor:pointer}
+.guide{position:absolute;top:0;bottom:0;width:2px;background:var(--primary);opacity:.5;pointer-events:none;z-index:5}
+.two{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:390px;max-width:100%;background:var(--surface);border:.5px solid var(--border);border-radius:14px;overflow:hidden}
+.phone .scroll{height:420px}
+.prow{padding:6px 12px;border-bottom:.5px solid var(--border)}
+.prow .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .s{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.prow .chip{font-size:11px}
+.note{font-size:12px;color:var(--muted);max-width:560px;margin:0}
+.note li{margin:2px 0}
+.tag-hint{font-size:11px;color:var(--muted);margin:4px 0 0}
+</style>
+</head>
+<body>
+<header class="pg">
+  <h1>노트 [목록] 머리 줄 시안</h1>
+  <p class="lead">S70-22 · 지어낸 노트로 만든 시안이에요. 아래 개선안 표에서 칸 경계 끌기, 머리 칸 누르기(정렬), 오른쪽 끝 ⋯(또는 머리 줄 우클릭) '보일 칸'을 직접 해 볼 수 있어요.</p>
+</header>
+<main>
+  <h2>① PC 1280 — 지금 모습</h2>
+  <div class="frame old">
+    <div class="bar"><div class="quick">노트 입력…</div><div class="search">노트 검색</div><div class="seg"><span>폴더</span><span class="on">목록</span><span>보드</span><span>태그</span><span>메모</span><span>달력</span></div></div>
+    <div class="scroll" id="oldRows" style="height:220px"></div>
+  </div>
+
+  <h2>② PC 1280 — 개선안 (머리 줄 고정 · 칸 너비 끌기 · 보일 칸)</h2>
+  <div class="frame new" id="newFrame">
+    <div class="bar"><div class="quick">노트 입력…</div><div class="search">노트 검색</div><div class="seg"><span>폴더</span><span class="on">목록</span><span>보드</span><span>태그</span><span>메모</span><span>달력</span></div></div>
+    <div class="scroll" id="newScroll">
+      <div class="grid head" id="head" role="row"></div>
+      <div id="newRows"></div>
+    </div>
+    <div class="menu" id="colMenu" role="menu" hidden></div>
+  </div>
+  <p class="tag-hint">목록을 내려 보세요 — 머리 줄은 위에 붙어 있어요(실제 앱에서는 입력칸·찾기 줄이 먼저 올라가고, 머리 줄이 앱 위 줄 바로 아래에 붙어요). 칸 경계를 두 번 누르면 글자 길이에 맞춰요.</p>
+
+  <h2>③ 폰 390 — 개선안 (표 없음, 아래 작은 줄)</h2>
+  <div class="two">
+    <div class="phone">
+      <div class="bar"><div class="search" style="flex:1;width:auto">노트 검색</div></div>
+      <div class="scroll" id="phoneRows"></div>
+    </div>
+    <ul class="note">
+      <li>한 줄 제목 + 그 아래 흐린 작은 줄: <b>폴더 · #태그 +N · 날짜 · 📎</b>(PC에서 켜 둔 칸만).</li>
+      <li>폰은 칸 끌기 없음 — 칸을 나누면 제목이 몇 글자만 남고, 손가락 끌기가 줄 밀기·뒤로가기 밀기와 부딪쳐요.</li>
+      <li>정렬은 지금처럼 ⋯ 메뉴에서(PC 머리 줄과 같은 값).</li>
+    </ul>
+  </div>
+</main>
+<script>
+// 지어낸 노트(실데이터 아님)
+const FOLDERS=[['기획','p0'],['05. 말과 글, 글쓰기 연습장','p1'],['읽을 것','p2'],['여행 준비','p3'],['','pn'],['회의','p4']];
+const TITLES=['주간 계획 초안','회의 준비 메모','올해 목표 다시 보기','책 읽고 떠오른 생각','장보기 목록','여행 짐 챙길 것','글쓰기 연습 — 첫 문단','새 프로젝트 아이디어','지난달 돌아보기','발표 자료 순서','자주 쓰는 문장 모음','사진 정리 방법','운동 기록 표','다음 주 할 일 생각','좋았던 노래 목록','작은 실험 기록','질문 모아 두기','요리 해 볼 것','글 고칠 곳 표시','하루 메모'];
+const TAGS=[['계획'],['준비','회의'],['목표','올해','돌아보기','정리'],['책'],[],['여행','짐'],['글쓰기','연습'],['아이디어','새일'],['돌아보기'],['발표','순서','자료'],['문장'],['사진'],[],['할일'],['음악','목록'],['실험'],['질문'],['요리'],['글쓰기'],[]];
+const notes=TITLES.map((t,i)=>{const f=FOLDERS[i%FOLDERS.length];const d=25-Math.floor(i*1.3);const mod=d>0?`11.${String(d).padStart(2,'0')}`:`10.${String(31+d).padStart(2,'0')}`;const md=Math.max(1,d-3-(i%4));return{t,pin:i<2,folder:f[0],tone:f[1],tags:TAGS[i],mod,made:`${d-3-(i%4)>0?'11':'10'}.${String(d-3-(i%4)>0?md:28-(i%3)).padStart(2,'0')}`,att:i%3===0?(i%5)+1:0,memo:i%4===1?i%3+1:0,len:300+i*137%2400,pub:i===4}});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const chip=n=>n.folder?`<span class="chip" style="background:var(--${n.tone})" title="${esc(n.folder)}">${esc(n.folder)}</span>`:'';
+// ① 지금
+document.getElementById('oldRows').innerHTML=notes.map(n=>`<div class="row"><span class="t">${n.pin?'<span class="pin">📌</span>':''}${esc(n.t)}</span><span class="tags">${n.tags.slice(0,2).map(t=>'#'+esc(t)).join(' ')}${n.tags.length>2?' +'+(n.tags.length-2):''}</span>${chip(n)}${n.att?'<span class="clip">📎</span>':''}<time>${n.mod}</time></div>`).join('');
+// ② 개선안
+const COLS={title:{label:'제목',fixed:true},folder:{label:'폴더',v:'--w-folder'},tags:{label:'태그',v:'--w-tags'},mod:{label:'수정일',v:'--w-mod'},made:{label:'작성일',v:'--w-made'},att:{label:'첨부',v:'--w-att',short:'📎'},memo:{label:'메모',v:'--w-memo'},len:{label:'글자 수',v:'--w-len'},pub:{label:'공유',v:'--w-pub'}};
+const ORDER=['title','folder','tags','mod','made','att','memo','len','pub'];
+const DEFAULT=['title','folder','tags','mod','att'];
+let on=new Set(DEFAULT),sort={key:'mod',dir:'desc'};
+const frame=document.getElementById('newFrame'),head=document.getElementById('head'),rowsBox=document.getElementById('newRows'),menu=document.getElementById('colMenu'),scroller=document.getElementById('newScroll');
+const shown=()=>ORDER.filter(k=>on.has(k));
+const fitTags=(tags,w)=>{if(!tags.length)return'';const per=[];let used=0,max=Math.max(0,w-16);for(const t of tags){const tw=(t.length*12)+12;if(used+tw>max-(per.length<tags.length-1?22:0)&&per.length)break;per.push(t);used+=tw;}const rest=tags.length-per.length;return per.map(t=>'#'+esc(t)).join(' ')+(rest?` <span>+${rest}</span>`:'');};
+const width=v=>parseInt(getComputedStyle(frame).getPropertyValue(v))||60;
+function cell(k,n){switch(k){case'title':return`<div class="t">${n.pin?'<span class="pin">📌</span>':''}${esc(n.t)}</div>`;case'folder':return`<div>${chip(n)}</div>`;case'tags':return`<div class="m">${fitTags(n.tags,width('--w-tags'))}</div>`;case'mod':return`<div class="m">${n.mod}</div>`;case'made':return`<div class="m">${n.made}</div>`;case'att':return`<div class="m">${n.att?'📎'+n.att:''}</div>`;case'memo':return`<div class="m">${n.memo||''}</div>`;case'len':return`<div class="m">${n.len.toLocaleString()}</div>`;case'pub':return`<div class="m">${n.pub?'게시 중':''}</div>`;}}
+function sorted(){const k=sort.key,d=sort.dir==='asc'?1:-1;const val=n=>k==='title'?n.t:k==='folder'?n.folder:k==='tags'?n.tags.length:k==='mod'?n.mod:k==='made'?n.made:n[k];return[...notes].sort((a,b)=>{const x=val(a),y=val(b);return(typeof x==='number'?x-y:String(x).localeCompare(String(y),'ko',{numeric:true}))*d;});}
+function paint(){
+  const ks=shown();
+  frame.style.setProperty('--cols',ks.map(k=>COLS[k].fixed?'minmax(160px,1fr)':`var(${COLS[k].v})`).join(' ')+' 28px');
+  head.innerHTML=ks.map(k=>`<div data-sort="${k}" role="columnheader" aria-sort="${sort.key===k?(sort.dir==='asc'?'ascending':'descending'):'none'}" tabindex="0">${COLS[k].label}${sort.key===k?`<span class="arrow">${sort.dir==='asc'?'▲':'▼'}</span>`:''}${k!==ks[ks.length-1]||true?`<span class="grip" data-grip="${k}" role="separator" aria-label="${COLS[k].label} 칸 너비"></span>`:''}</div>`).join('')+'<div class="more" data-more aria-label="보일 칸" title="보일 칸">⋯</div>';
+  rowsBox.innerHTML=sorted().map(n=>`<div class="grid nrow">${ks.map(k=>cell(k,n)).join('')}<div></div></div>`).join('');
+  paintPhone();
+}
+// 칸 너비 끌기: 금은 그 칸 오른쪽. 제목 칸(1fr)은 오른쪽 이웃 칸을 반대로 줄이고 늘린다.
+let drag=null;
+head.addEventListener('pointerdown',e=>{const g=e.target.closest('[data-grip]');if(!g)return;e.preventDefault();const k=g.dataset.grip,ks=shown(),i=ks.indexOf(k);let target=k,sign=1;if(COLS[k].fixed){target=ks[i+1];sign=-1;}if(!target||!COLS[target].v)return;g.classList.add('drag');g.setPointerCapture(e.pointerId);const guide=document.createElement('div');guide.className='guide';scroller.append(guide);drag={g,target,sign,x:e.clientX,w:width(COLS[target].v),guide};moveGuide(e);});
+function moveGuide(e){const r=scroller.getBoundingClientRect();drag.guide.style.left=(e.clientX-r.left+scroller.scrollLeft)+'px';drag.guide.style.top=scroller.scrollTop+'px';drag.guide.style.height=scroller.clientHeight+'px';}
+head.addEventListener('pointermove',e=>{if(!drag)return;const w=Math.min(800,Math.max(40,drag.w+drag.sign*(e.clientX-drag.x)));frame.style.setProperty(COLS[drag.target].v,w+'px');moveGuide(e);if(drag.target==='tags')rowsBox.querySelectorAll('.nrow').forEach((r,i)=>{});});
+const endDrag=()=>{if(!drag)return;drag.g.classList.remove('drag');drag.guide.remove();drag=null;paint();};
+head.addEventListener('pointerup',endDrag);head.addEventListener('pointercancel',endDrag);
+// 금 두 번 누르기 = 글자 길이에 맞춤
+head.addEventListener('dblclick',e=>{const g=e.target.closest('[data-grip]');if(!g)return;const k=COLS[g.dataset.grip].fixed?shown()[shown().indexOf(g.dataset.grip)+1]:g.dataset.grip;if(!k)return;const i=shown().indexOf(k);let max=40;rowsBox.querySelectorAll('.nrow').forEach(r=>{const c=r.children[i];if(c){const s=c.style.overflow;c.style.overflow='visible';max=Math.max(max,c.scrollWidth+2);c.style.overflow=s;}});frame.style.setProperty(COLS[k].v,Math.min(800,max)+'px');paint();});
+// 머리 누르기 = 정렬(금 누르기·끌기는 정렬 안 함)
+head.addEventListener('click',e=>{if(e.target.closest('[data-grip]'))return;if(e.target.closest('[data-more]')){openMenu(e.target.closest('[data-more]'));return;}const c=e.target.closest('[data-sort]');if(!c)return;const k=c.dataset.sort;sort=sort.key===k?{key:k,dir:sort.dir==='asc'?'desc':'asc'}:{key:k,dir:(k==='mod'||k==='made'||k==='att'||k==='memo'||k==='len')?'desc':'asc'};paint();});
+head.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.dataset.sort){e.preventDefault();e.target.click();}});
+head.addEventListener('contextmenu',e=>{e.preventDefault();openMenu(null,e);});
+function openMenu(anchor,ev){
+  menu.innerHTML='<div class="mt">보일 칸</div>'+ORDER.filter(k=>!COLS[k].fixed).map(k=>`<label><input type="checkbox" data-col="${k}" ${on.has(k)?'checked':''}>${COLS[k].label}</label>`).join('')+'<button type="button" data-reset>기본으로</button>';
+  const fr=frame.getBoundingClientRect();
+  if(anchor){const r=anchor.getBoundingClientRect();menu.style.left=(r.right-fr.left-150)+'px';menu.style.top=(r.bottom-fr.top+2)+'px';}
+  else{menu.style.left=(ev.clientX-fr.left)+'px';menu.style.top=(ev.clientY-fr.top)+'px';}
+  menu.hidden=false;
+}
+menu.addEventListener('change',e=>{const k=e.target.dataset.col;if(!k)return;e.target.checked?on.add(k):on.delete(k);paint();});
+menu.addEventListener('click',e=>{if(e.target.dataset.reset!==undefined){on=new Set(DEFAULT);paint();openMenu(head.querySelector('[data-more]'));}});
+document.addEventListener('pointerdown',e=>{if(!menu.hidden&&!menu.contains(e.target)&&!e.target.closest('[data-more]'))menu.hidden=true;});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')menu.hidden=true;});
+// ③ 폰
+function paintPhone(){const ks=shown().filter(k=>k!=='title');document.getElementById('phoneRows').innerHTML=sorted().map(n=>{const bits=ks.map(k=>k==='folder'?(n.folder?chip(n):''):k==='tags'?(n.tags.length?'#'+esc(n.tags[0])+(n.tags.length>1?' +'+(n.tags.length-1):''):''):k==='mod'?n.mod:k==='made'?'작성 '+n.made:k==='att'?(n.att?'📎'+n.att:''):k==='memo'?(n.memo?'메모 '+n.memo:''):k==='len'?n.len.toLocaleString()+'자':k==='pub'?(n.pub?'게시 중':''):'').filter(Boolean);return`<div class="prow"><div class="t">${n.pin?'<span class="pin">📌</span>':''}${esc(n.t)}</div><div class="s">${bits.join(' · ')}</div></div>`;}).join('');}
+paint();
+</script>
+</body>
+</html>
