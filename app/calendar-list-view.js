@@ -9,7 +9,7 @@ let observer=null,focusKey=null,armScroll=null,armedStart=null;
 function unwatch(){observer?.disconnect();observer=null;if(armScroll){document.removeEventListener('scroll',armScroll,true);armScroll=null}}
 export function stopList(){unwatch();armedStart=null}
 // UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 일정 목록 줄 — 왼쪽으로 밀면 [보고할 일정]/[표시 끄기](우클릭·꾹 누르기 메뉴의 [보고할 일정]과 같은
-// KPTUCalendarEvents.setPlan, 서버 저장·다시 누르면 되돌아감, 끝까지 밀면 바로). 서버에서 읽어 둔 값이 없으면 칸이 없다(메뉴와 같은 규칙).
+// KPTUCalendarEvents.setPlan, 서버 저장·다시 누르면 되돌아감, 끝까지 밀어도 칸만 — S70-60). 서버에서 읽어 둔 값이 없으면 칸이 없다(메뉴와 같은 규칙).
 // 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [보고할 일정]'(하나씩 차례로 같은 길). 다른 캘린더로 옮기기는 수정 창에서만 한다.
 // S68-31(명진 11/23 02:24 "삭제가 필요 가능한 경우 왼쪽으로 밀 때 삭제도"): 꾹 누르기·우클릭 메뉴에 [삭제]가 있는 일정(쓰기 권한 있는 캘린더, 메뉴와 같은 canDrag)은
 // 왼쪽 밀기 맨 끝에 [삭제] — 메뉴 [삭제]와 같은 KPTUCalendarEvents.act(…,'delete')(수정 창을 열고 '이 Google 일정을 삭제할까요?' 한 번 묻기). 끝까지 밀어도 칸만 열린다.

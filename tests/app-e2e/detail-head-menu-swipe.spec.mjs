@@ -7,7 +7,7 @@ import { noteTrash } from './helpers/note-trash.mjs';
 // [1] 위에 다른 칸(공유 받기 칸 등)이 떠 있어도 업데이트·노트 상세의 '‹ 잊지 말기 … ⋯' 줄이 그 위에 포개지지 않는다(폰 412·폴드 884).
 // [2] 정리함 업데이트 줄 ⋯ 메뉴가 [삭제]까지 안쪽 스크롤 없이 다 보이고, [삭제]는 맨 끝에 선으로 나뉜다(412·884).
 // [3] 폰 목록 줄 밀기(S68-26 Raindrop식): 왼쪽으로 밀기 = 칸 여러 개(업데이트 [보류로][삭제], 노트 [고정][옮기기][삭제] — 삭제는 휴지통 + '지웠어요 [되돌리기]'),
-//     오른쪽으로 밀기 = [고르기]. 조금 밀면 칸만 보이고 멈추고, 끝까지 밀면 맨 끝 칸을 바로 실행한다(삭제면 칸만 열림). 폴드 펼친 폭(884)은 ⋯·우클릭 메뉴만(밀기 없음).
+//     오른쪽으로 밀기 = [고르기]. 밀면 칸만 보이고 멈춘다 — 끝까지 밀어도 바로 실행하지 않는다(S70-60). 폴드 펼친 폭(884)은 ⋯·우클릭 메뉴만(밀기 없음).
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co', stamp = '2026-10-06T01:00:00Z';
 const A = '10000000-0000-4000-8000-0000000000a1', B = '10000000-0000-4000-8000-0000000000b2';
@@ -187,7 +187,7 @@ test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 �
   expect(f.errors).toEqual([]);
 });
 
-test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제], 오른쪽 끝까지 밀면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
+test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제], 오른쪽 끝까지 밀면 [선택] 칸만 → 누르면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
   const f = await notesList(page, 412);
   page.on('dialog', d => { throw new Error('묻지 않아야 함: ' + d.message()); });
   await swipe(page.locator('[data-note-row="n-two"]'), -50);
@@ -209,8 +209,15 @@ test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제]
   await expect(undo).toBeVisible();
   await undo.click();
   await expect.poll(() => f.trash.restored).toEqual(['n-one']);
-  // 오른쪽 끝까지: 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(새 고르기 줄을 만들지 않음).
-  await swipe(page.locator('[data-note-row="n-two"]'), 320);
+  // 오른쪽 끝까지: [선택] 칸만 펼쳐진다(S70-60 UI-스와이프메뉴만). 누르면 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(새 고르기 줄을 만들지 않음).
+  // 되돌린 뒤 목록이 다시 그려지면 열린 칸도 사라지므로, 칸이 보일 때까지 다시 민다.
+  const pick = page.locator('[data-note-list] [data-row-swipe-key="select"]');
+  await expect(async () => {
+    await swipe(page.locator('[data-note-row="n-two"]'), 320);
+    await expect(pick).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+  await expect(page.locator('[data-nx-select-bar]')).toBeHidden();
+  await pick.tap();
   await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
   await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   await expect(page.locator('[data-note-list] .row-swipe-pickbar')).toHaveCount(0);
