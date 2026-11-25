@@ -205,6 +205,8 @@
   #appView #libraryView #libraryListCard{padding:0;overflow:hidden}
   #appView #libraryView #libraryListCard > :not(#documentList):not(.add-list-head){margin-left:12px;margin-right:12px}
   #appView #libraryView #documentList > .lu-row{padding-left:12px;padding-right:0}
+  /* 목록이 빈 때·실패 안내 한 줄도 [파일] 상자 안 안내처럼 12px 안쪽(상자 여백을 없앤 뒤 글자가 테두리에 붙지 않게). */
+  #appView #libraryView #documentList > :is(.wait-empty,.wait-fail){margin:0;padding:8px 12px}
 }
 
 #appView #libraryView .lu-node-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
