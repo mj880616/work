@@ -72,7 +72,7 @@
 /* S70-27 BRIEF-손수정: 고친 브리핑 한 줄, 고치는 칸(글 길이만큼 늘어나는 칸, 촘촘하게), 줄 포커스(키보드 ↑↓·Shift+F10) */
 #briefView .br-edited{display:flex;align-items:center;gap:2px}
 #briefView .br-edited .br-revert{color:var(--kptu-primary-ink)}
-#briefView .br-edit-bar{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:6px;padding:4px 0;background:var(--kptu-surface);font-size:var(--ds-text-meta)}
+#briefView .br-edit-bar{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:6px;padding:4px 0;background:var(--kptu-bg);font-size:var(--ds-text-meta)}
 #briefView .br-edit-bar .br-muted{margin-right:auto}
 #briefView .br-edit-group{display:flex;flex-direction:column;gap:3px;margin:0 0 8px}
 #briefView .br-edit-head{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
