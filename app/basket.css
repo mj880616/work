@@ -301,6 +301,13 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 /* S69-33: [−] [100% ▾] [+] 가운데 비율 글자(폭 고정 — 숫자가 바뀌어도 단추가 흔들리지 않게), [전체 화면] 그림 단추, 전체 화면 안 [노트 목록]. */
 #appView #basketView .nb-tools .nb-pct { display:inline-flex; flex-direction:row; align-items:center; justify-content:center; min-width:52px; padding:0 6px; font-size:var(--ds-text-meta,12px); font-variant-numeric:tabular-nums; }
 #appView #basketView .nb-tools .nb-full-btn { display:inline-flex; align-items:center; justify-content:center; padding:0 7px; }
+#appView #basketView .nb-tools .nb-img-btn { display:inline-flex; align-items:center; justify-content:center; padding:0 7px; }
+/* S70-32 ②: 좁은 폰(420px 이하)은 [이미지]가 더해져도 묶음이 판 안에 한 줄로 — 단추 안쪽 여백만 줄인다(보이는 폭 28px 이상 그대로). */
+@media (max-width:420px) {
+  #appView #basketView .nb-tools button { min-width:28px; padding:0 2px; }
+  #appView #basketView .nb-tools :is(.nb-full-btn,.nb-img-btn) { padding:0 6px; }
+  #appView #basketView .nb-tools .nb-pct { min-width:44px; padding:0 4px; }
+}
 #appView #basketView .nb-tools .nb-side-btn { padding:0 8px; font-size:var(--ds-text-meta,12px); }
 #appView #basketView .nb-tools .nb-side-btn[hidden] { display:none; }
 #appView #basketView .nb-tools .nb-side-btn[aria-pressed="true"] { background:var(--ds-select-bg); color:var(--ds-select-ink); }
@@ -324,13 +331,16 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
    왼쪽 노트 목록은 [노트 목록]으로 판 위 왼쪽에 펼친다(끌어 놓기 그대로). 상태는 저장하지 않는다(note-board.js). */
 html.nb-full-on, html.nb-full-on body { overflow:hidden; overscroll-behavior:none; }
 #appView #basketView .nbw.nbw-full { position:fixed; inset:0; z-index:55; margin:0; padding:0; background:var(--kptu-surface-subtle); }
-#appView #basketView .nbw.nbw-full > [data-nbb] { display:none; }
-#appView #basketView .nbw.nbw-full .nbw-body { display:block; position:relative; height:100%; }
+/* S70-21 NOTE-보드탭자리: 전체 화면에서도 보드 칸 줄은 판 바로 위(한 줄) — 몸통을 위(보드 칸 줄)·아래(판) 두 줄 격자로, 왼쪽 목록은 아래 줄 위에 겹쳐 연다. */
+#appView #basketView .nbw.nbw-full .nbw-body { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); gap:0; position:relative; height:100%; }
+#appView #basketView .nbw.nbw-full .nbw-main { display:contents; }
+#appView #basketView .nbw.nbw-full [data-nbb] { grid-row:1; grid-column:1; margin:0; padding:4px 8px; }
+#appView #basketView .nbw.nbw-full :is(.nb, [data-nbw-none]) { grid-row:2; grid-column:1; min-height:0; }
 #appView #basketView .nbw.nbw-full .split-resize-handle { display:none; }
 #appView #basketView .nbw.nbw-full .nb { height:100%; margin:0; }
-#appView #basketView .nbw.nbw-full .nb-scroll { height:100dvh; min-height:0; border:0; border-radius:0; }
+#appView #basketView .nbw.nbw-full .nb-scroll { height:100%; min-height:0; border:0; border-radius:0; }
 #appView #basketView .nbw.nbw-full .nbb-side { display:none; }
-#appView #basketView .nbw.nbw-full.nbw-side-open .nbb-side:not([hidden]) { display:block; position:absolute; z-index:3; left:8px; top:48px; bottom:8px; width:min(260px, 42vw); height:auto; min-height:0; box-shadow:var(--kptu-shadow-float,none); }
+#appView #basketView .nbw.nbw-full.nbw-side-open .nbb-side:not([hidden]) { display:block; grid-row:2; grid-column:1; justify-self:start; align-self:stretch; position:relative; z-index:3; margin:48px 0 8px 8px; width:min(260px, 42vw); height:auto; min-height:0; contain:size; box-shadow:var(--kptu-shadow-float,none); }
 #appView #basketView .nbw.nbw-full.nbw-side-open .nb-selbar { left:calc(min(260px, 42vw) + 16px); }
 /* 전체 화면 안에서 여는 노트 메뉴·작은 창은 보드 위에 뜬다. */
 html.nb-full-on #noteDocMenu { z-index:60; }
@@ -363,6 +373,11 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-title { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12.5px; font-weight:600; line-height:1.2; }
 /* S69 보드잠금가림: 잠긴 폴더 노트 카드는 자물쇠 모양만, 왼쪽 목록의 잠근 폴더 줄은 흐린 한 줄. */
 .nb-title.nb-lock { display:flex; align-items:center; justify-content:center; color:var(--kptu-muted); }
+/* S70-32 ② 이미지 칸: 사진 한 장뿐인 노트 카드 = 사진만(바탕·안쪽 여백 없음). 크기는 카드 손잡이(S69-88), 사진은 칸 안에 비율대로. */
+.nb-card.nb-card-photo { background:transparent; box-shadow:none; }
+#appView #basketView .nb-card.nb-card-photo .nb-open { padding:0; }
+.nb-photo { display:block; flex:1 1 auto; width:100%; height:100%; min-width:0; overflow:hidden; border-radius:inherit; }
+.nb-photo .nb-photo-img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; }
 .nb-lock-ico { display:inline-flex; }
 :is(#appView #basketView .nbb-side, .nbb-pick) .nbb-folder.nbb-locked .ui-ico { flex:none; display:inline-flex; color:var(--kptu-muted); }
 /* ×·⋯·손잡이: 고른 카드(마우스를 올린 카드도 — nb-hover, note-board.js가 마우스일 때만 붙임)에서만 작게. */
@@ -501,6 +516,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-bar-row[hidden] { display:none; }
 #appView #basketView .nb-node-bar .nb-bar-btn { width:auto; padding:0 7px; font-size:var(--ds-text-meta,12px); white-space:nowrap; }
 #appView #basketView .nb-tools .nb-add-text { padding:0 6px; font-size:var(--ds-text-meta,12px); } /* S69-91: 넣기 단추 셋이 더해져 폰 390에서도 한 줄에 들도록 6px */
+@media (max-width:420px) { #appView #basketView .nb-tools .nb-add-text { padding:0 4px; } } /* S70-32 ②: [이미지]까지 한 줄 */
 /* 선 메뉴(누른 자리 옆 작은 창, 본문 맨 끝에 붙음): [실선|점선] [직선으로] [→|↔|없음] [뒤집기] [글자] [삭제]. 버튼은 공용 칩·글자 버튼. 선 위를 끌면 곡선(S68-38c). */
 .nb-link-menu { position:fixed; z-index:60; display:flex; flex-direction:column; gap:6px; box-sizing:border-box; max-width:calc(100vw - 16px); padding:8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float,none); }
 .nb-link-menu[hidden] { display:none; }
@@ -517,6 +533,9 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nbb .nbb-chip[aria-pressed="true"] { background:var(--ds-select-bg); border-color:var(--ds-select-line); color:var(--ds-select-ink); font-weight:var(--ds-weight-medium,500); }
 #appView #basketView .nbb .nbb-new { border-style:dashed; background:transparent; }
 .nbw-body { display:block; }
+/* S70-21 NOTE-보드탭자리: 오른쪽 칸 = 보드 칸 줄 + 판. 왼쪽 노트 목록은 그 칸 높이에 맞춰 늘고(contain:size — 목록 길이가 줄 높이를 키우지 않음) 안에서 스크롤. */
+.nbw-main { min-width:0; }
+.nbw-body.nbw-split > .nbb-side { align-self:stretch; height:auto; contain:size; }
 /* UI-칸폭끌기전수: 노트 목록 | 보드 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 16:84·목록 최소 150px). */
 .nbw-body.nbw-split { --ds-split-list:16fr; --ds-split-detail:84fr; --ds-split-list-min:150px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:8px; align-items:start; }
 .nbb-side { height:calc(100dvh - 186px); min-height:320px; overflow:auto; box-sizing:border-box; padding:4px 2px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); font-size:12.5px; }
