@@ -13,7 +13,9 @@ html.ed-window-open, html.ed-window-open body { overflow:hidden; }
 /* S61-46: 쓰기 창(1000) 안 [폴더 ▾] → [+ 새 폴더 만들어 넣기]의 이름 묻는 작은 창(.kptu-ask, 61)이 창 뒤로 숨지 않게 창 위로(diary.css 보기 창과 같은 방법). */
 html.ed-window-open body > .kptu-ask { z-index:1001; }
 .modal.ed-window.hidden { display:none; }
-.modal.ed-window[data-ed-nav="side"] { border-left:1px solid var(--kptu-border); }
+/* NOTE-크게쓰기틀(S70-38): 넓은 화면은 본문 칸 틀 그대로 — 위·아래 끝은 왼쪽 메뉴 카드와 같고(ed-window.js가 --ed-window-top/bottom),
+   좌우는 본문 칸(머리줄) 좌우, 모서리·테두리는 메뉴 카드와 같은 둥근 카드(desktop-ui.css .app-nav). 폰은 지금처럼 화면 전체. */
+html .modal.ed-window[data-ed-nav="side"] { right:var(--ed-window-right, 0px); bottom:var(--ed-window-bottom, 0px); border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-lg, 12px); }
 html .modal.ed-window { align-items:stretch !important; overflow:hidden !important; padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left) !important; }
 /* 폰: 하단 탭 높이(창이 열린 동안 0) + 안전 여백 위에서 끝난다. 자판이 열리면 위 기본값(자판 위)으로 돌아간다. */
 @media (max-width:760px) {
