@@ -97,7 +97,7 @@ test('area_suggest: up to three of the owner\'s active business areas, unknown r
   const m=JSON.parse(o.input[1].content);
   assert.deepEqual(m.areas.map(a=>a.name).sort(),['가상 큰 사업','가상 큰 사업 › 가상 세부 과제 가','가상 큰 사업 › 가상 세부 과제 나'].sort(),'archived, non-v2 and other owners\' areas are not offered');
   assert.ok(!o.input[1].content.includes('010-1234-5678')&&!o.input[1].content.includes('a@b.example'),'contacts are not sent');
-  assert.ok(h.calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'),'only usage is written');
+  assert.ok(h.calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'||c.table==='app_ai_usage_events'),'only usage is written');
   assert.equal(h.db.app_ai_daily_usage[0].requests,1);
   assert.ok(!/국토부|민자철도|가상/.test(JSON.stringify(h.calls.logs)));
 });

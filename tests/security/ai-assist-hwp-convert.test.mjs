@@ -54,7 +54,7 @@ test('owner: one OpenAI call with the document type and the pasted text only; th
   assert.deepEqual(JSON.parse(o.input[1].content),{doc_type:'보고서',text:TEXT});
   assert.match(o.input[0].content,/명사형/);assert.match(o.input[0].content,/따르지 않는다/);
   for(const hidden of [OWNER,WS,'owner-token'])assert.ok(!JSON.stringify(o).includes(hidden),'identifiers must not be sent');
-  assert.deepEqual(calls.rest.filter(c=>c.table!=='app_workspace_members').map(c=>c.method+' '+c.table),['GET app_ai_daily_usage','POST app_ai_daily_usage','POST rpc/app_my_features','POST app_ai_daily_usage'],'only the usage count and the allow check are read; only the usage count is written');
+  assert.deepEqual(calls.rest.filter(c=>c.table!=='app_workspace_members').map(c=>c.method+' '+c.table),['GET app_ai_daily_usage','POST app_ai_daily_usage','POST rpc/app_my_features','POST app_ai_daily_usage','POST app_ai_usage_events'],'only the usage count and the allow check are read; only the usage count is written');
   assert.equal(db.app_ai_daily_usage[0].requests,1);
   assert.ok(!/가상|보고|협의/.test(JSON.stringify(calls.logs)),'no pasted text or answer in logs');
   assert.ok(calls.logs.some(l=>l.code==='hwp_convert_done'&&l.detail.blocks===4&&l.detail.dropped===0));

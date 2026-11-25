@@ -75,6 +75,7 @@ on:
       - 'tests/org-files-folder-model.test.mjs'
       - 'tests/weekly-save-folder-model.test.mjs'
       - 'supabase/migrations/20261124203000_profile_weekly_folder.sql'
+      - 'supabase/migrations/20261125193000_profile_weekly_team_folder.sql'
       - 'supabase/migrations/20261124160000_library_org_folder.sql'
       - 'tests/meeting-folder-model.test.mjs'
       - 'supabase/migrations/20261124213000_library_folder_meeting.sql'
@@ -220,6 +221,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
+      - 'tests/brief-edit-model.test.mjs'
       - 'tests/brief-marks-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
       - 'tests/report-library-pick-model.test.mjs'
@@ -522,6 +524,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
+      - 'tests/brief-edit-model.test.mjs'
       - 'tests/brief-marks-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
       - 'tests/report-library-pick-model.test.mjs'
@@ -817,6 +820,8 @@ jobs:
         run: node --test tests/note-board-decor-model.test.mjs
       - name: Check note board images (S70-32 ② 사진 정보 지우기·칸 크기)
         run: node --test tests/note-board-image-model.test.mjs
+      - name: Check note board export (S70-32 ③ 범위·PDF 한 쪽)
+        run: node --test tests/note-board-export-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
         run: node --test tests/note-tags-comments.test.mjs tests/memo-model.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)
@@ -871,6 +876,9 @@ jobs:
       - name: Check forget promise route (asked-by-me lines go to 상대 약속, recheck of reversed task lines)
         run: node --test tests/forget-promise-route.test.mjs
 
+      - name: Check forget default done (S70-20b 기본 이미 함 · 저절로 지남)
+        run: node --test tests/forget-default-done.test.mjs
+
       - name: Check today-done work/personal split for the weekly report (drop personal lines, re-ask when lines change)
         run: node --test tests/work-scope-model.test.mjs
 
@@ -893,7 +901,7 @@ jobs:
         run: node --test tests/s59-20-small-fixes.test.mjs
 
       - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
-        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs
+        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-edit-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs
 
       - name: S67-39 사업 보고·조직 보고 자료실에서 선택·빼기 규칙
         run: node --test tests/report-library-pick-model.test.mjs
@@ -1209,7 +1217,7 @@ jobs:
         run: node --test tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
 
       - name: Check notes, editor tables and text units (STAB-단위시험등록)
-        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
+        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs tests/doc-scan-model.test.mjs tests/note-related-model.test.mjs tests/note-link-model.test.mjs
 
       - name: Check phone share intake model (APP-폰앱새로 ②, APP-공유노트할일)
         run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs tests/reading-model.test.mjs tests/reading-fail-reason.test.mjs tests/save-bookmarklet-model.test.mjs
