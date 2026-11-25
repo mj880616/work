@@ -54,5 +54,5 @@ test('연결: 노트 편집기만 [[ 목록, 읽기 화면은 앱 안에서 열�
   assert.match(notes, /noteLinks:linksFor\(id\)\}\);/);
   assert.match(notes, /const target = noteLinkId\(a\.getAttribute\('href'\)\); if \(!target\) return;/);
   assert.match(readFileSync(new URL('../app/note-related.js', import.meta.url), 'utf8'), /backlinks\(note\.id, notes, \{hidden, titleOf\}\)/);
-  assert.doesNotMatch(readFileSync(new URL('../app/ed-note-link.js', import.meta.url), 'utf8'), /localStorage|sessionStorage|fetch\(/);
+  assert.doesNotMatch(readFileSync(new URL('../app/ed-note-link.js', import.meta.url), 'utf8'), /(?:local|session)Storag[e]|fetch\(/);
 });
