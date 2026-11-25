@@ -18,14 +18,14 @@
 // 이 파일이 이 목록 자리의 유일한 renderer다. 기기 저장 없음.
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
-import {esc, rowHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
+import {esc, rowHtml, groupHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {seoulDateKey} from './meeting-time.js';
 import {dueLabel} from './task-due.mjs';
 import {readInboxCandidates, dismissCandidate, reopenCandidate, markDone, markTasked, markNotMine, undoNotMine, candidateToTask, validateTaskDraft,
-  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText, autoReplied} from './todo-radar-data.js';
+  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText, autoDone, AUTO_DONE_LABEL, starredCandidate, bundleDay} from './todo-radar-data.js';
 import {similarTasks} from './todo-link-model.mjs';
 import {FIRM_LABEL, draftOf, metaLine, noteLine} from './family-notes-model.mjs';
 import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.js';
@@ -71,7 +71,8 @@ export function candidateDone(c) {
   if (c.outcome === 'already_tasked' && (c.status === 'tasked' || c.status === 'dismissed')) return at('이미 할 일에 있음');
   if (c.status === 'dismissed') return at(c.outcome === 'not_mine' ? '내 일 아님' : '무시함');
   // FORGET-이미한일빼기: 텔레그램에서 내가 이미 답해 서버가 저절로 옮긴 줄은 까닭 꼬리표 '답장함'(이미 함 보기에서만 보임).
-  if (c.status === 'done') return at(autoReplied(c) ? '이미 함 · 답장함' : '이미 함');
+  // FORGET-기본이미함: 하루 지나도 손대지 않아 저절로 옮긴 줄은 '지남'.
+  if (c.status === 'done') { const why = AUTO_DONE_LABEL[autoDone(c)]; return at(why ? `이미 함 · ${why}` : '이미 함'); }
   const due = c.task_due ? dotDay(c.task_due) : '';
   return due ? `할 일로 보냄 · ${due}` : '할 일로 보냄';
 }
@@ -95,7 +96,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   if (!host) return null;
   let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
   let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
-  const busy = new Set(), unknown = new Set(), linking = new Map();
+  const busy = new Set(), unknown = new Set(), linking = new Map(), openBundles = new Set();
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
   const changed = () => win.dispatchEvent(new CustomEvent(CHANGED, {detail: {reload: true}}));
   const byId = id => rows.find(r => r.id === id);
@@ -143,17 +144,22 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const lockOf = feature => !!win.KPTUFeatureLock?.hides?.(feature) && !!win.KPTUFeatureLock?.settings?.();
     const locked = {telegram: lockOf('telegram'), call: lockOf('calls')};
     let hidden = 0;
+    // FORGET-기본이미함(S70-20b): 처리 전 업무 제안 중 ★(마감·직접 부름)는 맨 위에 한 줄씩, 어제 들어온 나머지는 '어제 들어온 요청 n개' 한 줄 묶음.
+    // 묶음은 그냥 두면 서버 예약(app_forget_auto_expire)이 다음 날 0시(서울)에 '이미 함(지남)'으로 옮긴다 — 화면은 묶어 보이기만 한다.
+    const stars = [], bundle = [], today = seoulDateKey();
     if (src === 'all' || src === 'telegram' || src === 'todo') {
       for (const c of candidatesFor(view, rows, taskTitles())) {
         const s = candidateSource(c); if (src !== 'all' && src !== s) continue;
         if (s === 'telegram' && locked.telegram) { hidden++; continue; }
-        const open = c.status === 'open', isBusy = busy.has(c.id);
-        out.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
+        const open = c.status === 'open', isBusy = busy.has(c.id), star = open && starredCandidate(c);
+        const into = star ? stars : open && bundleDay(c, today, d => seoulDateKey(d)) ? bundle : out;
+        into.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
+
           // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
           open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${plainText(c.summary)} — 출처 열기: ${sourceText(c)}`)}"`},
           done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '',
           // 저절로 옮긴 줄만 [되돌리기](잘못 빠진 것을 처리 전으로) — 기존 되살리기 길(status·decided_at만 바꿈).
-          tail: autoReplied(c) ? `<button type="button" class="row-act" data-forget-reopen="${esc(c.id)}"${isBusy ? ' disabled' : ''}>되돌리기</button>` : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"`, below: open ? linkingHtml(c) : ''})});
+          tail: autoDone(c) ? `<button type="button" class="row-act" data-forget-reopen="${esc(c.id)}"${isBusy ? ' disabled' : ''}>되돌리기</button>` : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"${star ? ' data-nbx-star' : ''}`, below: open ? linkingHtml(c) : ''})});
       }
     }
     if (view === 'open' && fOn && (src === 'all' || src === 'family')) {
@@ -173,7 +179,11 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       for (const u of updates().items || []) out.push({at: u.at, html: rowHtml({id: `u:${u.id}`, body: u.body, meta: u.meta, src: SOURCE_TAG.update, busy: !!u.busy,
         report: true, done: view === 'open' ? '' : (u.done || ' '), open: u.open, tail: u.tail || '', below: u.below || '', attrs: `data-forget-src="update" ${u.attrs || ''}`})});
     }
-    const sorted = newestFirst(out);
+    if (bundle.length) {
+      const rowsIn = newestFirst(bundle), shut = !openBundles.has('yesterday');
+      out.push({at: rowsIn[0].at, html: groupHtml({key: 'yesterday', label: `어제 들어온 요청 ${bundle.length}개`, faint: '· 두면 내일 이미 함', rows: rowsIn.map(x => x.html), open: !shut})});
+    }
+    const sorted = [...newestFirst(stars), ...newestFirst(out)];
     // 상대 약속: 처리 전일 때만, 맨 아래(시각 없음). 세지 않는다(상대가 할 일).
     // S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 내가 남에게 부탁해 상대가 하기로 한 일은 어느 길에서 왔든 여기 한 곳에 모은다. 꼬리표 = '상대 약속 · 출처'.
     // - 챙길 것 찾기가 돌려준 약속(radarPromises, 저장하지 않음): 모든 출처일 때만, 버튼 [원장으로] 하나(그대로).
@@ -509,7 +519,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       return {status: 'done', message: '다시 보이게 했어요.'};
     }});
   }
-  // FORGET-이미한일빼기: 서버가 '답장함'으로 저절로 뺀 줄을 처리 전으로 돌린다. 서버는 한 번 옮긴 줄을 다시 옮기지 않는다(auto_done이 남음).
+  // 묶음을 펼친 채로 다시 그리기(줄을 처리해도 접히지 않게). 이 화면 동안만 기억한다(저장하지 않음).
+  host.addEventListener('toggle', e => { const b = e.target?.closest?.('[data-nbx-group]'); if (!b) return; if (e.target.open) openBundles.add(b.dataset.nbxGroup); else openBundles.delete(b.dataset.nbxGroup); }, true);
+  // FORGET-이미한일빼기·기본이미함: 서버가 '답장함'·'지남'으로 저절로 뺀 줄을 처리 전으로 돌린다. 서버는 한 번 옮긴 줄을 다시 옮기지 않는다(auto_done이 남음).
   async function reopenAuto(c) {
     busy.add(c.id); paint();
     let ok = false;
@@ -622,7 +634,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (b.dataset.forgetNewsOpen) { const r = newsById(b.dataset.forgetNewsOpen); if (r) void openNewsSource(r, rt).then(ok => { if (!ok) say('원본을 열지 못했어요.'); }, () => say('원본을 열지 못했어요. 다시 시도해 주세요.')); return; }
     const d = b.dataset;
     if (d.forgetSource) { const c = byId(d.forgetSource); if (c) openSource(c); return; }
-    if (d.forgetReopen) { const c = byId(d.forgetReopen); if (c && autoReplied(c) && !busy.has(c.id)) void reopenAuto(c); return; }
+    if (d.forgetReopen) { const c = byId(d.forgetReopen); if (c && autoDone(c) && !busy.has(c.id)) void reopenAuto(c); return; }
     if (d.forgetLinkTask) { const c = byId(d.forgetLinkFor), t = c && linking.get(c.id)?.tasks?.find(x => x.id === d.forgetLinkTask); if (c && t && !busy.has(c.id)) void linkTask(c, t); return; }
     if (d.forgetLinkNone) { const c = byId(d.forgetLinkNone); if (c && c.status === 'open' && !busy.has(c.id)) void dropAlready(c); return; }
     if (d.forgetLinkRetry) { const c = byId(d.forgetLinkRetry); if (c && linking.has(c.id)) void startLinking(c); return; }
