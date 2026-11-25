@@ -147,7 +147,7 @@ test('S70-11 안내 글: 종류 이름과 받침에 맞는 조사, 띄어 쓴 �
 
 test('S70-11 붙는 곳: 자료실 [+ 자료 등록]으로 주간보고 분류를 골라 올리면 그 종류 저장 폴더로, 폴더 ⋯ 메뉴 두 줄', () => {
   const up = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');
-  assert.match(up, /const kind=weeklyRoleOf\(String\(fields\.category\|\|''\)\);if\(kind\)void import\('\.\/weekly-save-folder\.js'\)/);
+  assert.match(up, /if\(succeeded&&!org&&!meeting&&\(!folder\|\|folder\.receive\)&&okDocIds\.length\)\{const kind=weeklyRoleOf\(String\(fields\.category\|\|''\)\);if\(kind\)void import\('\.\/weekly-save-folder\.js'\)/);
   assert.match(up, /weekly:\{show:luWeeklyShow,get:luWeeklyGet,set:luWeeklySet\}/);
   const fo = readFileSync(new URL('../app/library-folders.js', import.meta.url), 'utf8');
   assert.match(fo, /toggleLine\('weekly-'\+kind,weekly\.get\(kind\)===f\.id,/);

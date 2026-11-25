@@ -86,6 +86,28 @@ test.describe('PC 1280',()=>{
     expect(errors).toEqual([]);
   });
 
+  test('자료실 [+ 자료 등록]에서 분류 팀 확정본을 골라 올리면 팀 보고 취합 폴더에, 분류를 안 고르면 그대로',async({page})=>{
+    const cats=['기타','주간보고',P,C];
+    const {s,errors}=await boot(page,1280,{weeklyFolder:'mine',weeklyTeamFolder:'teamf',documentCategories:cats,viewPrefs:{library_two:false}});
+    const send=async(name,category)=>{
+      await page.locator('#newDocumentBtn').click();
+      await expect(page.locator('#documentModal')).toBeVisible();
+      if(category)await page.locator('#docCategory').selectOption(category);
+      await page.locator('#libraryFileInput').setInputFiles({name,mimeType:'application/pdf',buffer:Buffer.from('%PDF synthetic')});
+      await page.locator('#saveDocumentBtn').click();
+      await expect(page.locator('#documentModal')).toBeHidden();
+    };
+    await send('팀.pdf',C);
+    await expect.poll(()=>itemOf(s,'upload-1')).toBe('teamf');
+    await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('팀 보고 취합을 ‘가상 팀 › 가상 보고 › 가상 팀 보고 취합’ 폴더에 넣었어요.');
+    await send('그냥.pdf','');
+    await expect.poll(()=>s.uploads.length).toBe(2);
+    await page.waitForTimeout(300);
+    expect(itemOf(s,'upload-2')).toBeUndefined();
+    expect(s.weeklyPatches||[]).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
   test('폴더 ⋯ 메뉴에서 두 저장 폴더를 보고 바꾼다(정해 둔 폴더와 그 곁에서만 줄이 보임)',async({page})=>{
     const {s,errors}=await boot(page,1280,{weeklyFolder:'other',weeklyTeamFolder:null,viewPrefs:{library_two:false}});
     await press(page,menuButton(page,'f:other'),1280);

@@ -749,11 +749,11 @@ if(succeeded||unknown){try{await (folder?.receive?luLoadAll():luLoadDocuments())
 if(succeeded)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:lastProjectId,...(org?{organization_id:org.id}:{}),...(meeting?{meeting_id:meeting.id}:{})}}));
 // ORG-기록자료폴더: 담당조직 자료로 올렸고 폴더를 따로 고르지 않았으면(받는 폴더 포함) 모으는 폴더 › 그 조직 폴더로(org-files-folder.js, 첫 사용 때 한 줄로 묻는다).
 if(succeeded&&org&&(!folder||folder.receive)&&okDocIds.length)void import('./org-files-folder.js').then(m=>m.fileIntoOrgFolder({docIds:okDocIds,org})).catch(()=>{});
-// S70-11 WEEKLY-저장폴더나누기: 주간보고 분류(팀 확정본 = 팀 보고 취합, 개인 확정본 = 내 주간 보고)를 골라 올렸고 폴더를 따로 고르지 않았으면(받는 폴더 포함)
-// 그 종류의 저장 폴더로(weekly-save-folder.js — 처음 한 번 묻기, 칸이 없는 서버면 지금처럼). 분류를 AI 자동 분류에 맡긴 자료는 넣지 않는다.
-if(succeeded&&!org&&(!folder||folder.receive)&&okDocIds.length){const kind=weeklyRoleOf(String(fields.category||''));if(kind)void import('./weekly-save-folder.js').then(async m=>{for(const id of okDocIds)await m.fileWeeklyReport({docId:id,kind})}).catch(()=>{})}
 // MTG-정기회의자료폴더: 사업 보고 자료로 올렸고 폴더를 따로 고르지 않았으면 그 회의명과 짝인(없으면 이름이 같은) 자료실 폴더로(meeting-folder.js). 없으면 지금처럼.
 else if(succeeded&&meeting&&(!folder||folder.receive)&&okDocIds.length)void import('./meeting-folder.js').then(m=>m.fileIntoMeetingFolder({docIds:okDocIds,meetingId:meeting.id})).catch(()=>{});
+// S70-11 WEEKLY-저장폴더나누기: 주간보고 분류(팀 확정본 = 팀 보고 취합, 개인 확정본 = 내 주간 보고)를 골라 올렸고 폴더를 따로 고르지 않았으면(받는 폴더 포함)
+// 담당조직·사업 보고 자료가 아닐 때만(그 둘은 위 else-if 줄이 맡는다) 그 종류의 저장 폴더로(weekly-save-folder.js — 처음 한 번 묻기, 칸이 없는 서버면 지금처럼). 분류를 AI 자동 분류에 맡긴 자료는 넣지 않는다.
+if(succeeded&&!org&&!meeting&&(!folder||folder.receive)&&okDocIds.length){const kind=weeklyRoleOf(String(fields.category||''));if(kind)void import('./weekly-save-folder.js').then(async m=>{for(const id of okDocIds)await m.fileWeeklyReport({docId:id,kind})}).catch(()=>{})}
 // 올라갔지만 폴더·담당조직에 못 넣은 것: 끝 알림이 이 한 줄을 덮지 않게 끝 알림 자리에 같이 싣는다(성공뿐이면 이 글이 끝 알림).
 const warn=[unfiled?`자료 ${unfiled}개는 올라갔지만 ‘${folder.name}’ 폴더에 넣지 못해 폴더 밖에 있어요. 그 자료를 폴더로 옮겨 주세요.`:'',linkFailed?word`자료 ${linkFailed}개는 올라갔지만 담당조직에 붙이지 못했어요. 그 자료의 [정보 수정]에서 담당조직을 선택해 주세요.`:''].filter(Boolean).join(' ');
 // 끝 알림(UX-알림하나로 S59-21: 하단바 위 한 줄 하나, upload-done.js). 다 올렸으면 '○○ 올렸어요 · [열기]'. 못 올린 것이 있으면
