@@ -75,6 +75,7 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 import {within, isLoadTimeout} from './load-deadline.js';
 import {word} from './brand/brand.mjs';
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
+import {createSelectKeys, renameTarget} from './select-keys.js';
 import {uploadLabelHtml} from './upload-label.mjs';
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
 installDragEdgeScroll();
@@ -4171,6 +4172,15 @@ root?.addEventListener('change', event => {
 // 두 칸 키(F5·F6·Tab): 공용 두 칸 틀(two-pane.js)이 판정 — 이 화면이 보이고 두 칸일 때, 입력 칸 밖에서만(F5 새로고침을 막는 것은 두 칸 동안만).
 const twoKey = event => frame.key(event);
 document.addEventListener('keydown', event => { if (!root.contains(event.target)) twoKey(event); });
+// UI-목록공용키(S70-18): 목록 칸 Ctrl+A·Delete·F2·Esc는 공용 키 부품이 정하고, 할 일은 이 화면 함수(같은 확인 창·되돌리기 알림).
+// 커서 줄: 초점이 있는 목록 줄, 없으면 지금 줄(p.sel). 고른 것이 없을 때 F2·Delete 대상(탐색기와 같음).
+const cursorRow = (e, p) => { const cur = e.target.closest?.('[data-fx-row]'); return (cur && rowByKey(cur.dataset.fxRow, p)) || (p.sel && rowByKey(p.sel, p)) || null; };
+const fxKeys = createSelectKeys({
+  rename: e => { const p = P(), r = renameTarget(pickedRows(p), cursorRow(e, p)); if (!r) return false; renameRow(r, e.target.closest('button') || root); return true; },
+  delete: e => { const p = P(), picked = pickedRows(p), cur = cursorRow(e, p), list = picked.length ? picked : cur ? [cur] : []; if (!list.length) return false; trashRows(list, e.target.closest('button') || root); return true; },
+  all: () => { const p = P(), rows = [...(paneEl(p)?.querySelectorAll('[data-fx-row]') || [])]; if (!rows.length) return false; for (const b of rows) p.picked.add(b.dataset.fxRow); paintPicks(p); return true; },
+  clear: () => { const p = P(); if (!(p.picked.size || state.clip)) return false; if (state.clip) uncut(); else unpick(); return true; },
+});
 // PC 단축키: ↑↓ 고르기 · Enter 열기(폴더는 들어가기) · Backspace 위 폴더 · / 찾기.
 root?.addEventListener('keydown', event => {
   if (event.target.matches('input,select,textarea')) {
@@ -4182,16 +4192,15 @@ root?.addEventListener('keydown', event => {
   const mod = event.ctrlKey || event.metaKey, k = String(event.key).toLowerCase();
   if (event.key === 'Escape' && state.dropAsk) { event.preventDefault(); dropAskClose(); return; }
   if (event.key === 'Escape' && state.panes.some(q => q.srcOpen)) { event.preventDefault(); paneSrcClose(true); return; }
-  if (event.key === 'F2') { const list = actRows(); if (list.length === 1) { event.preventDefault(); renameRow(list[0], event.target.closest('button') || root); } return; }
-  if (event.key === 'Delete') { const list = actRows(); if (list.length) { event.preventDefault(); trashRows(list, event.target.closest('button') || root); } return; }
-  if (mod && k === 'a' && rows.length) { event.preventDefault(); for (const b of rows) p.picked.add(b.dataset.fxRow); paintPicks(p); return; }
+  // UI-목록공용키(S70-18): F2·Delete·Ctrl+A는 공용 키 부품(select-keys.js) — 자료실·노트와 같은 규칙. F2 대상은 고른 줄, 없으면 커서 줄(N4).
+  if (fxKeys.handle(event, ['rename', 'delete', 'all']) || event.key === 'F2' || event.key === 'Delete') return;
   if (mod && k === 'x') { const list = actRows(); if (list.length) { event.preventDefault(); cutRows(list); } return; }
   if (mod && k === 'c') { const list = actRows(); if (list.length) { event.preventDefault(); cutRows(list, 'copy'); } return; }
   if (mod && k === 'v') { const d = hereDest(); if (state.clip && d) { event.preventDefault(); pasteClip(d, root.querySelector('[data-fx-bar]') || root); } return; }
   if (event.key === 'Escape' && state.ask) { event.preventDefault(); answer('skip'); return; }
   if (event.key === 'Escape' && state.xfer) { event.preventDefault(); closeDest(); return; }
   if (event.key === 'Escape' && state.jobsOpen) { event.preventDefault(); closeJobs(); return; }
-  if (event.key === 'Escape' && (p.picked.size || state.clip)) { event.preventDefault(); if (state.clip) uncut(); else unpick(); return; }
+  if (fxKeys.handle(event, ['clear'])) return; // Esc = 잘라 두기 풀기, 없으면 고르기 풀기(공용 키 부품)
   if (event.key === 'Escape' && p.drop) { event.preventDefault(); p.drop = false; paintPaneTop(p); return; }
   if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !mod && state.preview && !event.target.closest('[data-fx-media]')) {
     if (previewStep(event.key === 'ArrowLeft' ? -1 : 1)) event.preventDefault();

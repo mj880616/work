@@ -41,7 +41,7 @@ test('자료실 연결: 메뉴 맨 위 [이름 바꾸기 F2] → [폴더로 옮�
   assert.deepEqual([...order].sort((a,b)=>a-b),order);
   assert.match(menu,/>이름 바꾸기<span class="lu-menu-key"[^>]*>F2<\/span>/);
   assert.match(menu,/data-lu-edit="[^"]*">정보 수정…<\/button>/);
-  assert.match(src,/e\.key!=='F2'/);
+  assert.match(src,/bindSelectKeys\(list,\{/);assert.match(src,/rename:e=>\{[^\n]*luStartRename\(id\)/); // UI-목록공용키(S70-18): 줄 F2는 공용 키 부품(select-keys.js)
   // 저장은 [수정] 창과 같은 app_documents PATCH, 제목 값은 library-rename.js가 만든다.
   const block=src.slice(src.indexOf('function luStartRename'),src.indexOf('function luFolderStatus'));
   assert.match(block,/\/rest\/v1\/app_documents\?id=eq\./);assert.match(block,/method:'PATCH'/);assert.match(block,/renameBody\(d,value\)/);
