@@ -237,3 +237,31 @@ test('FEAT-1029 ⑤ telegram candidates: one feed read adds the room; a failed r
   const ib=await mod.readInboxCandidates(inbox.rt);
   assert.ok(ib.rows.every(x=>x.tg?.room_key==='r1'));
 });
+
+// S70-20 FORGET-이미한일빼기: 잊지 말기 목록은 서버가 저절로 옮긴 표시(auto_done·auto_done_at)를 함께 읽고, DB 단계 적용 전(400 42703)이면 그 두 칸 없이 다시 읽는다.
+test('FORGET-이미한일빼기: 목록 읽기는 auto_done 칸을 함께, 칸이 없으면(42703) 한 번 다시 읽음; 답장함 꼬리표 판정',async()=>{
+  const fresh=await import('../app/todo-radar-data.js?auto-done-1');
+  const at='2026-11-25T01:00:00.000Z';
+  const done=row({id:id(31),source_kind:'telegram',status:'done',decided_at:at,auto_done:'replied',auto_done_at:at});
+  const ok=fakeRt({api:async path=>path.includes('app_feed_items')?[]:path.includes('status=eq.open')?[]:[done]});
+  const r=await fresh.readInboxCandidates(ok.rt);
+  assert.equal(r.ok,true);
+  assert.ok(ok.calls.filter(c=>c.path.includes('app_todo_candidates')).every(c=>c.path.includes('auto_done,auto_done_at')));
+  assert.equal(fresh.autoReplied(r.rows[0]),true);
+  // 적용 전: 새 칸 읽기 거절 → 두 칸 없이 다시(그 뒤로는 바로 옛 칸).
+  const old=await import('../app/todo-radar-data.js?auto-done-2');
+  let refused=0;
+  const before=fakeRt({api:async path=>{if(path.includes('auto_done')){refused++;throw Object.assign(new Error('column app_todo_candidates.auto_done does not exist'),{status:400,code:'42703'});}return path.includes('app_feed_items')?[]:[row()];}});
+  const b=await old.readInboxCandidates(before.rt);
+  assert.equal(b.ok,true);assert.equal(b.rows.length,2);assert.ok(refused>=1);
+  const n=before.calls.length;await old.readInboxCandidates(before.rt);
+  assert.ok(before.calls.slice(n).every(c=>!c.path.includes('auto_done')),'한 번 없으면 다시 묻지 않음');
+  // 표가 없으면(404) 그대로 missing.
+  const gone=await import('../app/todo-radar-data.js?auto-done-3');
+  assert.deepEqual(await gone.readInboxCandidates(fakeRt({api:async()=>{throw Object.assign(new Error('relation does not exist'),{status:404,code:'42P01'});}}).rt),{missing:true});
+  // 꼬리표: 서버가 옮긴 그대로(처리한 때 = 옮긴 때)인 텔레그램 줄만.
+  assert.equal(fresh.autoReplied({...done,decided_at:'2026-11-25T02:00:00Z'}),false,'사람이 다시 누름');
+  assert.equal(fresh.autoReplied({...done,status:'open',decided_at:null}),false,'되돌림');
+  assert.equal(fresh.autoReplied({...done,auto_done:null,auto_done_at:null}),false,'사람이 [이미 함]');
+  assert.equal(fresh.autoReplied({...done,source_kind:'basket'}),false);
+});
