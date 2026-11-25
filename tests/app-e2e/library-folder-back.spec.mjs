@@ -23,13 +23,14 @@ test('PC 1440 두 칸: 앞 칸 링크 모양 · Backspace 한 단계 위 · 자�
   await enterIn(page,1,'fa');await enterIn(page,1,'fb');
   await expect(here(page,1)).toHaveText('가상 B');
   const root=page.locator(`${pane(1)} [data-lu-pane-go=""]`);
-  // 앞 칸은 링크 색 + 옅은 밑줄, 마우스를 올리면 진한 밑줄(글자 색). ‹는 공용 아이콘 단추(32px).
+  // 앞 칸은 링크 색 + 옅은 밑줄, 마우스를 올리면 진한 밑줄(글자 색). ‹는 위치 줄 공용 작은 아이콘(S70-13: 보이는 24px, 누르는 범위 44px — crumb-back-size.spec.mjs).
   const look=await root.evaluate(b=>{const s=getComputedStyle(b),link=getComputedStyle(document.documentElement).getPropertyValue('--kptu-link').trim();const p=document.createElement('span');p.style.color=link;document.body.append(p);const want=getComputedStyle(p).color;p.remove();return {color:s.color,want,deco:s.textDecorationLine,line:s.textDecorationColor}});
   expect(look.color).toBe(look.want);expect(look.deco).toBe('underline');expect(look.line).not.toBe(look.color);
   await root.hover();
   await expect.poll(()=>root.evaluate(b=>getComputedStyle(b).textDecorationColor===getComputedStyle(b).color)).toBe(true);
-  const up=page.locator(`${pane(1)} [data-lu-pane-up]`);
-  const ub=await up.boundingBox();expect(ub.width).toBeGreaterThanOrEqual(28);expect(ub.height).toBeGreaterThanOrEqual(28);
+  const up=page.locator(`${pane(1)} .lu-pane-head [data-lu-pane-up]`);
+  const ub=await up.evaluate(b=>{const r=b.getBoundingClientRect(),a=getComputedStyle(b,'::after');return {h:r.height,tw:parseFloat(a.width),th:parseFloat(a.height)}});
+  expect(ub.h).toBeLessThanOrEqual(24);expect(ub.tw).toBeGreaterThanOrEqual(44);expect(ub.th).toBeGreaterThanOrEqual(44);
   await page.screenshot({path:'test-results/s69-19-pc-two-path.png'});
   // Backspace = 한 단계 위(지금 칸).
   await page.locator(`${pane(1)} [data-lu-prow]`).first().focus();

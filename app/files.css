@@ -3,7 +3,7 @@
    폭: 폰(600px 미만) 한 칸(첫 화면 나무 → 누르면 같은 자리에 목록), 폴드 펼침(600~1199, 공용 판정 screen-width.mjs — S51-18) 나무 + 목록 두 칸(미리보기는 목록 위 덮는 칸), PC(1200~) 나무 · 목록 · 미리보기 세 칸. */
 .fx { display:flex; flex-direction:column; min-width:0; font-size:13px; }
 .fx-top { display:flex; align-items:center; gap:6px; min-height:36px; padding:4px 0; border-bottom:.5px solid var(--kptu-border); flex-wrap:wrap; }
-.fx-crumb { flex:1 1 200px; min-width:0; display:flex; align-items:center; gap:2px; font-size:12.5px; color:var(--kptu-muted); white-space:nowrap; overflow:hidden; }
+.fx-crumb { flex:1 1 200px; min-width:0; align-self:stretch; display:flex; align-items:center; gap:2px; font-size:12.5px; color:var(--kptu-muted); white-space:nowrap; overflow:hidden; }
 .fx-crumb-step, .fx-up, .fx-back { border:0; background:none; color:var(--kptu-muted); font:inherit; padding:2px 4px; border-radius:var(--kptu-radius-sm); cursor:pointer; white-space:nowrap; }
 .fx-crumb-step:hover, .fx-up:hover, .fx-back:hover { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
 .fx-crumb-now { color:var(--kptu-ink); font-weight:500; overflow:hidden; text-overflow:ellipsis; padding:2px 4px; }
@@ -14,8 +14,6 @@
 .fx-wait { margin:0; }
 .fx-wait[hidden] { display:none; }
 .fx-sort { height:28px; border:.5px solid var(--kptu-border); border-radius:var(--kptu-radius-sm); background:var(--kptu-surface); color:var(--kptu-muted); font:inherit; font-size:12px; padding:0 4px; }
-.fx-sync { border:0; background:none; color:var(--kptu-faint); font:inherit; font-size:11px; padding:2px 4px; cursor:pointer; white-space:nowrap; }
-.fx-sync:hover:not(:disabled) { color:var(--kptu-ink); }
 .fx-note { margin:4px 0; font-size:12px; color:var(--kptu-muted); }
 /* S62-16: 연결 전·권한 빠짐 아이콘은 원드라이브 연결 전과 같이 회색조로 엷게(od-link.css data-state=off와 같은 값). */
 .fx-srcs .fx-src-off svg { filter:grayscale(1); opacity:.45; }
@@ -151,7 +149,6 @@
   .fx[data-fx-pane="tree"] .fx-tree { display:block; position:static; flex:1 1 auto; width:100%; padding:2px 0 8px; border-right:0; }
   /* FOLDER-나무새기준 ②: 나무에서 파일 줄을 누르면 미리보기가 나무 위에 뜬다(미리보기 칸만 남기고 목록 칸은 숨김). */
   .fx[data-fx-pane="tree"] .fx-main > :not([data-fx-prev]), .fx[data-fx-pane="tree"] .fx-sort { display:none; }
-  .fx-sync-tree { flex:none; align-self:stretch; padding:0 6px; font-size:11px; color:var(--kptu-faint); }
   .fx-head { display:none; }
   .fx-row, .fx-with-path .fx-row { grid-template-columns:20px minmax(0,1fr); grid-template-rows:auto auto; min-height:44px; padding:4px 8px; row-gap:1px; }
   .fx-ico { grid-row:1 / 3; font-size:14px; }
@@ -280,7 +277,6 @@
 /* FOLDER-나무새기준 ②(S51-12): 폰 나무는 공용 상자·줄(folder-tree.css ft-). 여기는 [파일]만의 것 — 상자 머리 저장소 그림, 파일 줄 종류 글자·날짜. */
 :is(.fx-tree, .fx-ptree) .ft-box-ico { display:inline-flex; align-items:center; color:var(--kptu-muted); }
 :is(.fx-tree, .fx-ptree) .ft-box-ico svg { display:block; }
-.fx-tree .ft-box-head .fx-sync-tree { align-self:center; }
 .fx-titem .ft-main { min-height:40px; }
 .fx-tkind { flex:none; box-sizing:border-box; min-width:30px; height:18px; padding:0 5px; border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:10px; line-height:18px; text-align:center; white-space:nowrap; }
 .fx-titem .fx-tday { margin-left:auto; }
