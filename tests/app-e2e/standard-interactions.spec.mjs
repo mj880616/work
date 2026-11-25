@@ -9,7 +9,9 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { pinch } from './helpers/pinch.mjs';
-import { EDGE } from '../../app/drag-edge-scroll.js';
+import { readFileSync } from 'node:fs';
+// 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
+const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
 // 이름은 모두 지어낸 것이다. 서버 쓰기는 없다(가짜 서버).
