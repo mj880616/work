@@ -145,7 +145,7 @@ async function loadBackup(){
     await (await backupPanel.ready).load();
   }catch(e){console.error('record backup',e?.name||'Error')}
 }
-// S69-41: '구글 드라이브' 칸(drive-folders-panel.js가 그린다) — 앱이 쓰는 드라이브 폴더 한 줄 + [한곳으로 모으기](자료실 위 줄에서 옮겨 옴).
+// S69-41: '구글 드라이브' 칸(drive-folders-panel.js가 그린다) — 앱이 쓰는 드라이브 폴더 한 줄 + [열기 ↗](S70-29: [한곳으로 모으기]는 지움 — 서버가 저절로).
 // 자리는 '내 기록 백업' 칸 바로 다음, 한 번만 붙인다. 드라이브 연결이 없거나 읽기가 실패하면 칸이 감춰진다.
 let driveFoldersPanel=null;
 async function loadDriveFolders(){
