@@ -313,7 +313,7 @@ async function openWriter(kind='update'){
       // It starts at the top folder named by the last viewed folder setting (server view settings; none = 폴더 밖). The chosen folder (id) is
       // written by the window right after the note is saved (pick.put → setNoteFolderRef).
       const pick=createNoteFolderPick({initial:lastViewedFolder(),title:'새 노트를 넣을 폴더'});void pick.load();
-      openNoteWindow({text:'',title:'새 노트',noteFolder:{label:pick.label,open:pick.open,get:pick.get,put:pick.put,watch:pick.watch,close:pick.close,write:true},onClose:({saved})=>{
+      openNoteWindow({text:'',title:'새 노트',blocks:true,noteFolder:{label:pick.label,open:pick.open,get:pick.get,put:pick.put,watch:pick.watch,close:pick.close,write:true},onClose:({saved})=>{
         if(saved?.kind!=='note')return;
         requestNoteDocOpen(saved.id);
         const go=()=>window.KPTURouter?.go('basket',{source:'delegated'});

@@ -245,6 +245,10 @@ on:
       - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
+      - 'scripts/ops/stalled-scan.mjs'
+      - 'scripts/ops/stalled-scan-ignore.json'
+      - 'tests/ops-stalled-scan.test.mjs'
+      - '.github/workflows/stalled-scan.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -266,6 +270,8 @@ on:
       - 'tests/now-memos-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/reading-model.test.mjs'
+      - 'tests/reading-fail-reason.test.mjs'
+      - 'supabase/functions/note-import/**'
       - 'tests/save-bookmarklet-model.test.mjs'
       - 'tests/text-size-model.test.mjs'
       - 'tests/news-colors.test.mjs'
@@ -540,6 +546,10 @@ on:
       - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
+      - 'scripts/ops/stalled-scan.mjs'
+      - 'scripts/ops/stalled-scan-ignore.json'
+      - 'tests/ops-stalled-scan.test.mjs'
+      - '.github/workflows/stalled-scan.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -561,6 +571,8 @@ on:
       - 'tests/now-memos-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/reading-model.test.mjs'
+      - 'tests/reading-fail-reason.test.mjs'
+      - 'supabase/functions/note-import/**'
       - 'tests/save-bookmarklet-model.test.mjs'
       - 'tests/text-size-model.test.mjs'
       - 'tests/news-colors.test.mjs'
@@ -822,6 +834,8 @@ jobs:
         run: node --test tests/ops-inbox-gap.test.mjs
       - name: Check work timing and stalled-session calculator (OPS-작업속도)
         run: node --test tests/ops-work-timing.test.mjs
+      - name: Check stalled work daily scan (QA-멈춘일자동점검)
+        run: node --test tests/ops-stalled-scan.test.mjs
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
         run: node --test tests/ci-e2e-shard.test.mjs
 
@@ -900,8 +914,10 @@ jobs:
         run: node --test tests/folder-limits.test.mjs
       - name: NOTE-탐색기 노트 폴더 나무(순수 부분) 시험
         run: node --test tests/note-tree.test.mjs
-      - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자·두 손가락) 시험
+      - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자) 시험
         run: node --test tests/folder-tree-ui.test.mjs
+      - name: UI-폴더줄크기 줄 크기 단계·두 손가락 임계값 시험
+        run: node --test tests/row-size-model.test.mjs
       - name: LIB-폴더개수 폴더 줄 '폴더 N · 파일 M' 글자·고르기 창 위 폴더 시험
         run: node --test tests/folder-count.test.mjs
       - name: UI-폴더누르기한규칙 폴더 이름 누르기 = 펼침·접힘 공용 부품 시험
@@ -1196,7 +1212,7 @@ jobs:
         run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
 
       - name: Check phone share intake model (APP-폰앱새로 ②, APP-공유노트할일)
-        run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs tests/reading-model.test.mjs tests/save-bookmarklet-model.test.mjs
+        run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs tests/reading-model.test.mjs tests/reading-fail-reason.test.mjs tests/save-bookmarklet-model.test.mjs
 
       - name: Check share goes straight into the basket (SHARE-바로넣기, 확인 줄 없음·메모 달기·되돌리기·다시)
         run: node --test tests/share-auto-put.test.mjs
@@ -1247,7 +1263,7 @@ jobs:
         run: node --test tests/button-six-kinds.test.mjs
 
       - name: Check UI words standard ratchet (UI-용어통일)
-        run: node --test tests/ui-words.test.mjs
+        run: node --test tests/ui-words.test.mjs tests/ui-words-upload.test.mjs
 
       - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
         run: node --test tests/update-news-model.test.mjs

@@ -16,7 +16,7 @@
 //   'ph' = 폰에 쓸 수 없음(옛 앱·권한), 'pc' = 바구니 PC 앱이 휴지통을 모르는 판, 'drive' = 내 PC 드라이브 줄(C:\ 등).
 //   이 폰 폴더는 폰에 쓸 수 있으면 [휴지통] = 안 파일을 모두 안드로이드 휴지통으로(폴더는 빈 채로 남음 — files.js trashRows).
 export const TREE_MENU_LABEL = Object.freeze({
-  goto: GOTO_FOLDER_LABEL, open: '열기', only: '이 폴더로 들어가기', mkdir: '새 폴더', upload: '업로드', copy: '복사', move: '옮기기', tocloud: '클라우드에 복사',
+  goto: GOTO_FOLDER_LABEL, select: '선택', open: '열기', only: '이 폴더로 들어가기', mkdir: '새 폴더', upload: '업로드', copy: '복사', move: '옮기기', tocloud: '클라우드에 복사',
   rename: '이름 바꾸기', color: '색', up: '위로', down: '아래로', star: '별표', unstar: '별표 빼기', trash: '휴지통',
   tolib: '자료실로 보내기', libview: '자료실에서 보기', pin: '위에 고정', unpin: '고정 풀기', path: '경로 복사', zip: '여러 개 받기'
 });
@@ -27,8 +27,10 @@ const SECOND = ['pin', 'unpin', 'star', 'unstar', 'color', 'up', 'down']; // 둘
 // pinned(S52-41 FILES-폴더고정): 폴더를 고정할 수 있으면 true(고정됨)·false(안 됨), 고정할 수 없는 곳이면 null(항목 없음).
 // zip(S52-44 ⑤): 이 줄을 포함해 파일을 여러 개 골랐으면 첫 묶음 끝에 [여러 개 받기](고른 파일을 zip 하나로, files-zip-model.mjs).
 // copyPath(S52-43 ③ FILES-관리자마무리): 화면이 클립보드에 위치를 넣을 수 있으면 첫 묶음 끝에 [경로 복사](내 PC는 실제 경로, 그 밖은 '원드라이브 › 문서 › 이름').
+// select(S70-30 FILES-선택드래그, 명진 11/24 "파일에 선택 만들어줘"): 화면이 그 줄을 고를 수 있으면 첫 묶음 맨 위 [선택](파일은 맨 위·최근은 [폴더로 가기] 다음, 폴더는 [이 폴더로 들어가기] 다음)
+//   = 그 줄을 고른 상태로 고르기 막대(자료실 ⋯·노트 ⋯의 [선택]과 같은 글자·자리, 고르기는 공용 select-mode.js holdPick).
 // goto(S61-12 LIB-최근폴더로가기): '최근' 상자 파일 줄이면 맨 위 [폴더로 가기](그 파일이 든 폴더로 들어가 그 줄 강조). 폴더 줄에는 없다.
-export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit = false, sibIndex = -1, sibCount = 0, pinned = null, copyPath = false, zip = false, goto = false} = {}) {
+export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit = false, sibIndex = -1, sibCount = 0, pinned = null, copyPath = false, zip = false, goto = false, select = false} = {}) {
   if (!row || !row.source) return [];
   const folder = !!row.is_folder, ids = goto && !folder ? ['goto'] : [];
   let off = '';
@@ -57,6 +59,8 @@ export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit 
     } else ids.push('open', row.library_doc_id && row.source === 'gd' ? 'libview' : 'tolib', 'copy', 'move', 'rename');
     ids.push(row.starred ? 'unstar' : 'star', 'trash');
   }
+  // 폴더는 첫 줄 [이 폴더로 들어가기](T5) 바로 다음, 파일은 맨 위([폴더로 가기]가 있으면 그다음).
+  if (select && ids.length) ids.splice(ids[0] === 'goto' || ids[0] === 'only' ? 1 : 0, 0, 'select');
   if (folder && typeof pinned === 'boolean') ids.push(pinned ? 'unpin' : 'pin');
   if (copyPath) ids.push('path');
   if (zip) ids.push('zip');

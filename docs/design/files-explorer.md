@@ -188,3 +188,8 @@ F1 원드라이브 자체 휴지통 / F2 열 때 + 2분마다 바뀐 것만 + �
 - 원인: `app_cloud_find`(INVOKER)가 작업공간을 칸으로 거르지 않아 RLS가 줄마다 owner·files 함수를 부르고, 정렬이 색인 순서와 맞지 않아 전체를 읽어 정렬한 뒤 200줄을 잘랐다. 자료실 짝(`app_documents`)은 색인 없이 줄마다 찾았다.
 - 고침(migration `20261104120000_cloud_find_sources`): 새 읽기 함수 `app_cloud_find_in(p_sources, p_query, p_shelf, p_limit)` — 주인·files 검사는 처음 한 번(본인 owner 작업공간, 클라이언트 id 안 받음), 그 작업공간 칸으로만 읽고, 묶음은 출처마다 새 색인(`app_cloud_items_recent_src_idx`·`big_src_idx`) 순서로 `p_limit`줄만, 별표·자료실 짝·경로는 고른 줄에만. 자료실 짝 색인 `app_documents_workspace_file_idx`. 옛 `app_cloud_find`는 두 출처 모두를 부르는 INVOKER 얇은 길(DROP은 승인형 workflow가 받지 않음).
 - 화면: 켜진 출처를 `p_sources`로 넘기고 받은 줄을 덮어 거르지 않는다(`filterBySource` 삭제). 출처를 바꾸면 묶음·찾기를 다시 묻는다. 실패하면 '불러오지 못했습니다' 옆 작은 글자로 까닭(`failReason`: 시간 초과·서버 시간 초과·연결 끊김·서버 오류 n·요청 오류 n) + [다시].
+
+### 명진 결정 — 영구 삭제·[공유 링크] (2026-11-25 명진 결정(21:35 "추천대로", `docs/qa/stalled-audit-20261125.md` 2절) 4·5번)
+
+- 4번: 구글 드라이브 휴지통에 **영구 삭제(휴지통 비우기 포함) 단추를 넣지 않는다**(#2992 결정 질문 닫음). 되돌릴 수 없는 일이라서다. cloud-files 보안 시험의 "영구 삭제·휴지통 비우기·구글 DELETE 없음"을 그대로 지킨다.
+- 5번: 클라우드 파일에 **[공유 링크]를 넣지 않는다**(#2084 결정 질문 닫음). 공유 권한을 바꾸는 서버 금지 규칙(Edge 정적 시험)을 그대로 두고, 밖으로 보낼 때는 지금 쓰는 공유 페이지(`share/`)를 쓴다.

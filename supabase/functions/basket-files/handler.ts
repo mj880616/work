@@ -1,7 +1,7 @@
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { createDriveUpload, UploadError } from "../_shared/drive-upload.ts";
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
-import {createOcrHandler} from "./ocr.ts";
+import {createOcrHandler, NOTE_FILES_FOLDER} from "./ocr.ts";
 import { createNoteDeleteHandler } from "./note-delete.ts";
 import { createPhotoHandler } from "./photo.ts";
 import { createPhotoPruneHandler } from "./photo-prune.ts";
@@ -30,7 +30,7 @@ const MAX_ATTACHMENTS = 20;
 // NOTE-파일붙이기: files attached to a note (kind=note) go into this folder inside the private "Web2 바구니" root, not into
 // 자료실 (the library list reads app_documents only, so these files never show there). The folder is chosen here from the
 // stored row's kind, never from the request. A shared folder is refused before any upload (ensurePrivateChildFolder).
-export const NOTE_FILES_FOLDER = "노트 첨부";
+export {NOTE_FILES_FOLDER};
 const characters = (text: string) => [...text].length;
 function validateFiles(files: FormDataEntryValue[]): File[] {
   if (!files.length || files.some((f) => !(f instanceof File))) {
