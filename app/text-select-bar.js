@@ -236,3 +236,23 @@ export function bindSelectZone(container, {zone, source, onSave = null, onNote =
   }
 }
 export const hideSelectBar = hide;
+
+// S70-27 BRIEF-우클릭: 글 칸 위 오른쪽 클릭 메뉴(PC)가 막대와 같은 항목·같은 실행을 쓰게 한다(항목을 따로 적지 않는다).
+// selectBarActs(zoneEl) = 그 글 칸에서 막대에 보일 항목 [{id, label}](✕ 빼고, 막대 단추 그대로 — 막대에 단추가 더해지면 메뉴에도 더해진다).
+// runSelectBarAct(kind) = 지금 고른 글로 막대 단추를 누른 것과 같다(고른 글이 그 칸 안이 아니면 아무것도 하지 않음).
+export function selectBarActs(zoneEl) {
+  const z = zoneEl ? zoneOf(zoneEl)?.z : picked?.z;
+  if (!z) return [];
+  // [형광펜](S70-16)은 칠할 수 있는 글 칸에서만, 마지막에 쓴 색으로(색 고르기·삭제는 막대에서).
+  const off = {save: !z.onSave, note: !z.onNote, reply: !z.onReply, share: !canShare(), mark: !z.marks};
+  return [...ensureBar().querySelectorAll('.hl-bar-marks button[data-hl-bar="mark"], .hl-bar-acts button[data-hl-bar]')]
+    .filter(b => b.dataset.hlBar !== 'close' && !off[b.dataset.hlBar])
+    .map(b => ({id: b.dataset.hlBar, label: b.textContent.trim()}))
+    .filter(a => a.label);
+}
+export async function runSelectBarAct(kind, anchor = null) {
+  const now = readSelection();
+  if (!now) return;
+  picked = now;
+  await act(kind, anchor);
+}
