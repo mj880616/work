@@ -377,7 +377,8 @@
 .fx-row[aria-busy="true"], .ft-main[aria-busy="true"] { cursor:progress; opacity:.7; }
 /* LIB-사진숨김(S60-10): 폴더 안 사진은 줄에서 빼고 맨 아래 [사진 n](photo-fold.js 공용 단추). 펼치면 작은 그림 칸. */
 .fx-photo-fold { padding:2px 8px 2px calc(8px + var(--fx-xdepth,0) * 16px); }
-.fx-photo-fold.ft-row { padding:2px 0 2px calc(8px + var(--ft-depth,0) * 16px); min-height:0; }
+/* UI-간격기준 A(S70-25): [사진 n] 칩이 상자 마지막 줄일 때 상자 밑선에 붙지 않게 아래만 --ds-gap-bar. */
+.fx-photo-fold.ft-row { padding:2px 0 var(--ds-gap-bar) calc(8px + var(--ft-depth,0) * 16px); min-height:0; }
 .fx .fx-rows.fx-grid > .fx-photo-fold-grid { grid-column:1 / -1; padding:0; }
 .fx .fx-rows.fx-grid.fx-photo-grid { grid-template-columns:repeat(auto-fill, minmax(68px, 1fr)); padding:2px 8px 8px calc(8px + var(--fx-xdepth,0) * 16px); gap:6px; }
 .fx-photo-grid .fx-nm { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
