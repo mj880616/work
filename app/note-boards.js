@@ -252,8 +252,8 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     closeMenu();
     const el = menuEl();
     // S70-32 ③: 지금 연 보드면 [PDF로 내보내기]·[HTML로 내보내기](보드 전체를 이 기기로 내려받기).
-    const out = onExport && id === current ? '<button type="button" data-nbb-export="pdf">PDF로 내보내기</button><button type="button" data-nbb-export="html">HTML로 내보내기</button>' : '';
-    el.innerHTML = `<button type="button" data-nbb-rename>이름 바꾸기</button>${out}<button type="button" class="basket-menu-danger" data-nbb-delete>보드 삭제</button>`;
+    const items = [['data-nbb-rename', '이름 바꾸기'], ...(onExport && id === current ? [['data-nbb-export="pdf"', 'PDF로 내보내기'], ['data-nbb-export="html"', 'HTML로 내보내기']] : []), ['data-nbb-delete', '보드 삭제', 'basket-menu-danger']];
+    el.innerHTML = items.map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
     el.hidden = false;
     const place = () => placeAnchored(el, chip, {maxWidth:200, maxHeight:260});
     place();
