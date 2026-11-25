@@ -120,6 +120,20 @@
 | 6 | 화면: 프로필 'AI 비용' 칸 | `app/ai-usage-line.js`·`ai-usage-model.mjs`를 키움(같은 상태 소유자·렌더러), 한도·자동 충전 금액 입력 한 줄, 업데이트 기록 | 없음 | 3·5 뒤(5 전엔 OpenAI가 '기능 구분 전'으로 한 줄) |
 | 7 | (명진이 하기로 하면) OpenAI 실제 금액 대조 | `drive-summary`에 Costs API 읽기 | 비밀값 등록(명진) + Edge 배포 | 6 뒤 언제든 |
 
+### 5.1 5단계 반영(S70-55 I-3)
+
+- 기능 키·쓰임 → 기능 키 표·함수 → 기능 키 표는 `supabase/functions/_shared/ai-features.mjs` 한 곳. 시험 `tests/security/ai-usage-events-features.test.mjs`가 DB check 목록·ai-assist 쓰임 목록·실제 호출 곳과 대조한다.
+- 넣는 함수 11개: `ai-assist`(로그인 토큰) · `document-actions` 브리핑(로그인 토큰) · `library-files`·`document-ai-index`·`meeting-ai-ingest`·`meeting-ai-draft`·`meeting-transcribe`(녹음 뒤 요약)·`page-ai-draft`(서버 키, `_shared/ai-daily-usage.mjs`) · `collector-feed`·`news-feed`·`outside-feed`(서버 키).
+- 한 행 = AI 한 번(또는 한 요청 안 묶음). 쓴 토큰이 0인 실패(청구 없음)는 행을 넣지 않는다. 기록 실패는 고정 코드 `ai_usage_event_failed`만 로그.
+- 아직 세지 않는 것: `outside-feed` 예약 수집의 요약·소개 AI(여러 작업공간 공용, 지금도 하루 숫자에 안 셈 — 누구 몫으로 셀지 따로 결정), Gemini 전사(`app_ai_external_usage`에 따로).
+
+### 5.2 6단계 반영(S70-55 I-4)
+
+- 화면: `app/ai-usage-line.js`(상태 주인·렌더러 하나) + `app/ai-usage-model.mjs`(순수 함수). 접힌 한 줄 → 펼치면 공급자 두 줄(시안 A 목록형) → 접힌 '기능별'(한 문장 요약 + 표 + 서버 상한 한 줄) → 접힌 '한도·자동 충전'(입력 두 칸 + [저장] 한 줄).
+- 저장: `app_ai_cost_entries`에 kind `cap`(Gemini)·`reload`(OpenAI)를 소유자 토큰으로 넣기만(바뀐 것만, 0원 = 안 씀). 저장 뒤 상태 답을 새로 받아 서버가 다시 센 한도 도달일·충전 횟수를 보인다.
+- 서버: `drive-summary`가 `app_ai_usage_events`(이번 달)를 같은 단가로 셈해 `openai.by_feature`·`features_from`을 더한다. 화면은 그 전 사용을 '기능 구분 전(○일 전)' 한 줄로 묶어 표 합이 공급자 추정 합과 같다. 이 함수가 배포되기 전에는 'AI 기능(기능 구분 전)' 한 줄로 보인다.
+- 하지 않은 것: 추세 막대(6절 4), 대시보드 바로가기. 시안 A/B 고르기는 아직(지금은 A).
+
 ## 6. 화면 (시안 요약)
 
 자리: 프로필 '수집·사용량' 칸 안, 지금 'AI 사용량' 줄 자리. 접힌 상태 한 줄 → 펼치면 아래.

@@ -86,7 +86,7 @@ test('owner: one call, full text sent without phone/ID numbers, topic·org·name
   assert.deepEqual(sent.organizations,[],'조직 목록은 보내지 않는다(내용으로 상대 조직을 짐작하지 않음)');
   // Saved only through app_call_work_info (no direct PATCH); summary·points·raw_text stay.
   assert.deepEqual(h.calls.rpc,[{p_id:id(1),p_title:'임금교섭 3차 일정 협의',p_counterpart:'홍길동 지부장',p_organization_id:null}]);
-  assert.ok(h.calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'||c.table==='rpc/app_call_work_info'));
+  assert.ok(h.calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'||c.table==='app_ai_usage_events'||c.table==='rpc/app_call_work_info'));
   const row=h.db.app_feed_items[0];
   assert.equal(row.summary,'요약 문장');assert.deepEqual(row.points,['핵심 하나']);assert.ok(row.raw_text.includes('임금교섭'));assert.ok(row.refilled_at);
   assert.match(h.calls.rest.find(c=>c.table==='app_feed_items').query,/[?&]source=eq\.call&/);

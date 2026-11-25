@@ -91,9 +91,11 @@ export function docHangul(note) { return hasDoc(note) ? toHangul(note.doc) : nul
 
 // photos option for the editor (ed-editor.js createDocEditor): the note's own attachments.
 // getNote() — the note as it is now; upload(files) → Promise<attachments after> through the note's basket-files path.
+// scan: [넣기] → [문서 스캔] (S69-98 NOTE-에버노트 ⑥, notes only — the diary and share pages give no scan).
 export function notePhotos({getNote, upload, rt = window.KPTURuntime}) {
   return {
     max: 20,
+    scan: true,
     async add(file) {
       const note = getNote();
       if (!note?.id) throw new Error('사진은 노트를 한 번 저장한 뒤 넣을 수 있어요.');
@@ -135,7 +137,8 @@ export function noteFiles({getNote, upload, open = url => window.open(url, '_bla
 // The edit field: the new editor in the note's detail, on the note's text. Returns {getValue, isChanged, setValue, focus, destroy}.
 // lead: NOTE-제목서식줄고정 — the 제목 칸 put in the editor's top band with the button row (createDocEditor lead).
 // blocks: NOTE-노션편집 ①(나) — null, or {on, onToggle(on)} (createDocEditor blocks: the handle ⋮⋮ and the [블록] switch).
-export async function mountEditField(host, note, {photos = null, files = null, label = '본문', lead = null, blocks = null} = {}) {
+// noteLinks: S69-98 NOTE-에버노트 ⑧ — null, or the '[[' note list's source (createDocEditor noteLinks).
+export async function mountEditField(host, note, {photos = null, files = null, label = '본문', lead = null, blocks = null, noteLinks = null} = {}) {
   const [{createDocEditor}, start] = await Promise.all([editorModule(), startValue(note)]);
   // UI-뒤로가기겹규칙: 편집기 안의 작은 상자(글자색 목록·표 칸 메뉴·버튼 줄 판)가 열리면 라우터 겹 하나 — 뒤로가기 = 상자만 닫기(일기·창과 같은 onBox 계약).
   let editor = null, boxLayer = null;
@@ -144,7 +147,7 @@ export async function mountEditField(host, note, {photos = null, files = null, l
     if (open) boxLayer ||= window.KPTURouter?.layer?.open('note-edit-box', {close:() => { boxLayer = null; editor?.closeBoxes(); return true; }}) || null;
     else dropBox();
   };
-  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead, lineWidth: true, blocks});
+  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead, lineWidth: true, blocks, noteLinks});
   let base = JSON.stringify(editor.getValue());
   return {
     editor,

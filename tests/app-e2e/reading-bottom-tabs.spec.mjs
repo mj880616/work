@@ -90,7 +90,8 @@ for (const width of [390, 412, 700]) {
 }
 
 for (const width of [904, 1280]) {
-  test(`저장한 글 보기 탭 ${width}: PC 틀은 제목 줄 오른쪽([+ 추가] 앞), 따로 칩 줄 없음`, async ({ page }) => {
+  // S70-40b ④ READ-목록머리(명진 11/25 "추천대로" ② (가)): PC 틀은 위 줄에 화면 이름이 있어 머리 줄 제목이 없다 — 탭이 맨 앞, ＋가 줄 끝.
+  test(`저장한 글 보기 탭 ${width}: PC 틀은 머리 줄 맨 앞(제목 없음, ＋ 앞), 따로 칩 줄 없음`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, list } = await openReading(page, width);
     const sw = list.locator('.rd-head > .rd-switch');
@@ -98,9 +99,10 @@ for (const width of [904, 1280]) {
     await expect(sw).toHaveClass(/(^|\s)ds-seg(\s|$)/);
     expect(await sw.evaluate(e => getComputedStyle(e).position)).not.toBe('fixed');
     await expect(list.locator('.rd-chips, .filter-chips')).toHaveCount(0);
-    const s = await box(sw), add = await box(list.locator('.rd-head .rd-add')), title = await box(list.locator('.rd-head .rd-title'));
-    expect(Math.abs((s.y + s.height / 2) - (add.y + add.height / 2)), '제목 줄 한 줄').toBeLessThan(4);
-    expect(s.x).toBeGreaterThan(title.x + title.width);
+    await expect(list.locator('.rd-head .rd-title')).toBeHidden();
+    const s = await box(sw), add = await box(list.locator('.rd-head .rd-add')), head = await box(list.locator('.rd-head'));
+    expect(Math.abs((s.y + s.height / 2) - (add.y + add.height / 2)), '머리 줄 한 줄').toBeLessThan(4);
+    expect(s.x - head.x).toBeLessThanOrEqual(1);
     expect(s.x + s.width).toBeLessThanOrEqual(add.x + 1);
     await sw.locator('[data-filter-value="unread"]').click();
     await expect(list.locator('.rd-row')).toHaveCount(24);

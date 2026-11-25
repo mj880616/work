@@ -237,7 +237,7 @@ test('phone toolbar: one grouped row in the requested order, every button still 
   const items=Object.fromEntries(groups.map(g=>[g[0],g[3]]));
   assert.deepEqual(items.gText,['em','underline','strike','color','highlight','clear']);
   assert.deepEqual(items.gPara,['align','bullet','ordered','indent','outdent','quote','rule']);
-  assert.deepEqual(items.gInsert,['table','photo','file','link','nowStamp','plainPaste']); // S48-21 [파일]
+  assert.deepEqual(items.gInsert,['table','photo','file','link','scan','nowStamp','plainPaste']); // S48-21 [파일] · S69-98 [문서 스캔](노트만)
   assert.deepEqual(items.gSym,['symNote','symArrow','symCircled','symBracket']);
   // Every existing button (the row and the [⌄] list) is on the phone row or in exactly one group, none twice.
   const tables=edSource.slice(edSource.indexOf('const BUTTONS = ['),edSource.indexOf('const ALIGNS'));

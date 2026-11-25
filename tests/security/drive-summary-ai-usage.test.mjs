@@ -104,7 +104,7 @@ test('GET: 소유자 JWT만, 읽기는 소유자 토큰 + anon 키(서버 키로
   assert.equal(s.gemini.krw, 1400); assert.equal(s.gemini.transcript_krw, 1400); assert.equal(s.gemini.calls, 2);
   assert.deepEqual(s.warn, []);
   const reads = h.calls.filter(c => c.url.pathname.startsWith('/rest/v1/app_ai') || c.url.pathname.endsWith('app_feed_days') || c.url.pathname.endsWith('app_news_days'));
-  assert.equal(reads.length, 5);
+  assert.equal(reads.length, 6); // + 기능별 표 app_ai_usage_events(AI-비용보기 6단계)
   for (const c of reads) { assert.equal(c.method, 'GET'); assert.equal(c.init.headers.Authorization, 'Bearer owner-jwt'); assert.equal(c.init.headers.apikey, 'anon'); }
   assert.equal(h.calls.filter(c => c.method !== 'GET').length, 0);
   assert.equal((await harness({ missing: 'app_ai_cost_entries' }).get({ Authorization: 'Bearer owner-jwt' })).status, 404);
@@ -270,4 +270,31 @@ test('예측: 달 초에는 지난달 끝을 이어 14일 평균, 읽기 시작�
   assert.equal(s.forecast.openai.remaining_days, 27);
   assert.equal(s.forecast.openai.month_end_krw, 1350); // 이번 달 0 + 27 × 50
   assert.equal(s.openai.krw, 0);
+});
+
+test('기능별 표(app_ai_usage_events): 이번 달만 같은 단가로 by_feature, 첫 기록 날, 못 읽으면 null(나머지 숫자는 그대로)', async () => {
+  const price = { input: 1000, output: 1000 };
+  const base = { assist: [{ day: '2026-10-20', requests: 1, input_tokens: 3_000_000, output_tokens: 0 }], feed: [], news: [], external: [], entries: [] };
+  const events = [
+    { day: '2026-09-30', feature: 'ledger', input_tokens: 9_000_000, output_tokens: 0 },
+    { day: '2026-10-21', feature: 'ledger', input_tokens: 1_000_000, output_tokens: 0 },
+    { day: '2026-10-22', feature: 'ledger', input_tokens: 0, output_tokens: 500_000 },
+    { day: '2026-10-25', feature: 'ask', input_tokens: 250_000, output_tokens: 0 },
+    { day: '2026-10-25', feature: 'BAD KEY', input_tokens: 9_000_000, output_tokens: 0 },
+  ];
+  const s = summarizeAiUsage({ ...base, events }, now, price);
+  assert.deepEqual(s.openai.by_feature, { ledger: 1500, ask: 250 });
+  assert.equal(s.openai.features_from, '2026-10-21');
+  assert.equal(s.openai.estimate_krw, 3000);
+  const none = summarizeAiUsage(base, now, price);
+  assert.equal(none.openai.by_feature, null); assert.equal(none.openai.features_from, null); assert.equal(none.openai.estimate_krw, 3000);
+  // 읽기: 소유자 토큰, 이번 달 1일부터, 숫자·기능 키 칸만. 표가 없으면(404) 상태 답은 200이고 by_feature만 null.
+  const h = harness({ missing: 'app_ai_usage_events' });
+  const r = await h.get({ Authorization: 'Bearer owner-jwt' });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).openai.by_feature, null);
+  const ev = h.calls.find(c => c.url.pathname.endsWith('app_ai_usage_events'));
+  assert.equal(ev.method, 'GET'); assert.equal(ev.init.headers.Authorization, 'Bearer owner-jwt');
+  assert.equal(ev.url.searchParams.get('day'), 'gte.2026-10-01');
+  assert.equal(ev.url.searchParams.get('select'), 'day,feature,input_tokens,output_tokens');
 });

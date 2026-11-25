@@ -65,7 +65,7 @@ export type NowInput =
   | { kind: "now_interests" };
 
 type NowCtx = { sb: string; anon: string; token: string; userId: string; workspaceId: string; doFetch: typeof fetch; log: (code: string, detail?: Record<string, unknown>) => void };
-type Budget = { day: string; requests: number; input: number; output: number };
+type Budget = { kind: string; day: string; requests: number; input: number; output: number };
 export type NowKit = {
   ctx: NowCtx;
   env: (name: string) => string | undefined;
@@ -76,6 +76,8 @@ export type NowKit = {
   aiConfig: () => { key: string; model: string; price: { input: number; output: number } } | null;
   budget: (kind: string, price: { input: number; output: number }) => Promise<Budget>;
   usage: (day: string, requests: number, input: number, output: number) => Promise<void>;
+  // 부른 뒤: 오늘 행에 더하고 기능별 표에도 1행(S70-55 I-3, handler.ts writeUsageAfterAi). 오늘 행 실패만 던진다.
+  usageAfterAi: (budget: Budget, used: { input: number; output: number; calls?: number }, model: string) => Promise<void>;
   ai: (key: string, body: Record<string, unknown>) => Promise<OpenAiResult>;
   fail: (status: number, code: string) => Error;
   failCode: (e: unknown) => string | null;
@@ -188,14 +190,14 @@ async function startAi(kit: NowKit, kind: string): Promise<AiRun | "limit"> {
   } catch {
     throw kit.fail(503, "usage_unavailable");
   }
-  let input = 0, output = 0;
+  let input = 0, output = 0, calls = 0;
   const running: Promise<unknown>[] = [];
   const ask = (name: string, instructions: string, material: string, schema: unknown, maxOut: number) => {
     const call = (async () => {
       // 몸통 모양(store: false·도구 없음·JSON 모양)은 공용 aiRequestBody.
       const result = await kit.ai(config.key, aiRequestBody(config.model, name, instructions, material, schema, maxOut));
       const used = result.ok ? result.usage : result.charged ? { input: len(material) * 2, output: maxOut } : { input: 0, output: 0 };
-      input += used.input; output += used.output;
+      input += used.input; output += used.output; calls += 1;
       if (!result.ok) {
         kit.ctx.log(result.code);
         throw kit.fail(result.code === "ai_timeout" ? 504 : result.code === "ai_busy" || result.code === "ai_not_configured" ? 503 : 502, result.code);
@@ -208,7 +210,7 @@ async function startAi(kit: NowKit, kind: string): Promise<AiRun | "limit"> {
   const settle = async () => {
     await Promise.all(running);
     if (!input && !output) return;
-    try { await kit.usage(budget.day, budget.requests + 1, budget.input + input, budget.output + output); } catch { kit.ctx.log("usage_record_failed"); }
+    try { await kit.usageAfterAi(budget, { input, output, calls }, config.model); } catch { kit.ctx.log("usage_record_failed"); }
   };
   return { ask, settle };
 }
