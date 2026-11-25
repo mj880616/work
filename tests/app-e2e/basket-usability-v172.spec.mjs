@@ -39,7 +39,7 @@ test('direct partial upload keeps original and files, then retries only the fail
  expect(f.writes.filter(w=>w.path==='/rest/v1/app_notes').map(w=>w.body.raw_text)).toEqual(['부분 업로드 원문']);
  const dock=page.locator('#uploadDock:not([hidden])');await expect(dock).toContainText('업데이트에 파일 1개 못 올렸어요');await expect(dock).toContainText('파일 1개 올렸어요');
  expect(calls).toEqual([['first','new-note'],['second','new-note']]);failSecond=false;
- await dock.getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+ await dock.getByRole('button',{name:'못 올린 파일 다시 업로드'}).click();
  await expect(dock).toContainText('업데이트에 파일 1개 올렸어요');expect(calls).toEqual([['first','new-note'],['second','new-note'],['second','new-note']]);
  expect(f.writes.filter(w=>w.path==='/rest/v1/app_notes')).toHaveLength(1);expect(f.errors).toEqual(['Failed to load resource: the server responded with a status of 403 (Forbidden)']);
 });

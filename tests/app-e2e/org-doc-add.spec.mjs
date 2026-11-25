@@ -122,7 +122,7 @@ for(const width of [412,1440])test(`조직 상세 자료 [+] [자료실에서 �
   {id:'30000000-0000-4000-8000-0000000000a2',workspace_id:'w',title:'합성 다른 조직 자료',file_name:'다른.pdf',mime_type:'application/pdf',category:'기타',organization_id:'30000000-0000-4000-8000-000000000009',meeting_id:null,created_at:stamp});
  await openOrg(page);
  const add=page.locator('#wdDocAdd');await (width<761?add.tap():add.click());
- const menu=page.locator('#reportAddMenu');await expect(menu.getByRole('button')).toHaveText(['기기에서 올리기','자료실에서 선택']);
+ const menu=page.locator('#reportAddMenu');await expect(menu.getByRole('button')).toHaveText(['기기에서 업로드','자료실에서 선택']);
  await menu.locator('[data-report-add="library"]').click();
  const picker=page.locator('#reportLibPicker');await expect(picker).toBeVisible();
  await expect(picker.locator('.lu-move-item',{hasText:'다른 조직 자료'})).toHaveAttribute('aria-disabled','true');

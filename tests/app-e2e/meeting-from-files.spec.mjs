@@ -219,7 +219,7 @@ test('a file the name cannot place is orange until its role is chosen; a result-
 
 // BIZ-저장먼저닫기 3차(S59-18): 회의 글이 저장되면 창은 닫히고 파일은 뒤에서 올라간다. 못 올린 파일은 아래 한 줄의 [다시 올리기]로
 // 그 파일만 같은 회의로 다시 보낸다(회의를 다시 만들거나 결과 글을 다시 더하지 않는다). 예전에는 창에 남아 [다시 만들기]로 했다.
-test('a failed upload: the meetings are made and the window closes; [다시 올리기] in the bottom line sends only the failed file to its meeting',async({page})=>{
+test('a failed upload: the meetings are made and the window closes; [다시 업로드] in the bottom line sends only the failed file to its meeting',async({page})=>{
   const f=await fixture(page,{failUpload:(file,attempt)=>file.includes('2차')&&attempt===1});
   await page.locator('#mffFiles').setInputFiles([
     pdf('250910 제2차 본부 운영위원회 안건.pdf'),
@@ -232,7 +232,7 @@ test('a failed upload: the meetings are made and the window closes; [다시 올�
   const dock=page.locator('#uploadDock');
   await expect(dock).toContainText('자료 1개 못 올렸어요',{timeout:30000});
   expect(f.posts).toHaveLength(2);
-  await dock.getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+  await dock.getByRole('button',{name:'못 올린 파일 다시 업로드'}).click();
   await expect(dock).toContainText('자료 1개 올렸어요',{timeout:30000});
   expect(f.posts).toHaveLength(2);
   expect(f.patches).toEqual([]);
