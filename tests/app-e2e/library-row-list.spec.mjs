@@ -9,6 +9,7 @@ import {execFileSync} from 'node:child_process';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openMeetingResult,mrdMenu,closeMeetingResult,showReportsOf} from './helpers/meeting-open.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -156,7 +157,7 @@ for(const width of [390,1440]){
     else{await expect(title).toHaveCSS('white-space','nowrap');await expect(title).toHaveCSS('text-overflow','ellipsis');expect(await title.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true)}
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
-    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['libraryCategoryPick','librarySearchOpen','librarySearchClose','newDocumentBtn','libraryTopMenuBtn']);// LIB-위쪽한줄: 위 줄 [분류 ▾]·⌕·✕(폰만 보임)·[+]·⋯, 분류 수정은 [분류 ▾] 창 안.
+    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['libraryCategoryPick']);expect(await page.locator('.sf-tools[data-sf-tools="library"] button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);// LIB-위쪽한줄 → S70-54: 본문 첫 줄 [분류 ▾], [+]·⋯는 맨 위 줄 단추 자리, 분류 수정은 [분류 ▾] 창 안.
     await expect(page.locator('#manageLibraryBtn')).toHaveCount(0);
     await openLibraryCategoryEditor(page);await expect(page.locator('#libraryManageModal')).toBeVisible();
     await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
@@ -227,10 +228,9 @@ test('library file type keeps its kind color in all ten themes and search/filter
     await expect(page.locator('#documentList .lu-file-kind').first()).toHaveAttribute('data-lu-kind','hwp');
     expect(await page.locator('#documentList .lu-file-kind').first().evaluate(el=>{const s=getComputedStyle(el);const probe=document.createElement('span');probe.style.color='var(--ds-file-hwp-ink)';probe.style.backgroundColor='var(--ds-file-hwp-soft)';el.append(probe);const p=getComputedStyle(probe),match=s.color===p.color&&s.backgroundColor===(innerWidth<761?'rgba(0, 0, 0, 0)':p.backgroundColor);probe.remove();return match})).toBe(true);
   }
-  await page.locator('#librarySearchOpen').click();/* LIB-위쪽한줄 가안: 이 시험은 폰 390 — ⌕로 찾기 칸을 연다 */
-  await page.locator('#documentSearch').fill('목록에 표시하지 않을 출처');await expect(page.locator('.lu-row')).toHaveCount(10);
-  await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('.lu-row')).toHaveCount(0);
-  await page.locator('#documentSearch').fill('');await focusLibraryProject(page,'top-b');await expect(page.locator('.lu-row')).toHaveCount(0);
+  await (await screenFind(page)).fill('목록에 표시하지 않을 출처');await expect(page.locator('.lu-row')).toHaveCount(10);
+  await (await screenFind(page)).fill('없는 검색어');await expect(page.locator('.lu-row')).toHaveCount(0);
+  await (await screenFind(page)).fill('');await focusLibraryProject(page,'top-b');await expect(page.locator('.lu-row')).toHaveCount(0);
   await focusLibraryProject(page,'top-a');await expect(page.locator('.lu-row')).toHaveCount(10);
 });
 
@@ -293,15 +293,15 @@ for(const width of [390,1280]){
       await showAllLibraryCategories(page);await expect(rows).toHaveCount(5);
       await toggleLibraryCategory(page,'회의',{tap:width===390});await expect(rows).toHaveCount(3);await expect(category).toHaveText('분류: 회의 빼고');
       await focusLibraryProject(page,'top-a');
-      if(width<=760)await page.locator('#librarySearchOpen').click();// LIB-위쪽한줄 가안: 폰은 ⌕를 눌러 찾기 칸을 연다
-      await page.locator('#documentSearch').fill('철도');
+      // LIB-위쪽한줄 가안: 폰은 ⌕를 눌러 찾기 칸을 연다
+      await (await screenFind(page)).fill('철도');
       // A search follows the chips; a hit in a switched-off category is reported below the list with [켜기].
       await expect(rows).toHaveCount(2);await expect(page.locator('.lu-off-hint')).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');
       await onlyLibraryCategories(page,['회의'],{tap:width===390});await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="category-only"]')).toBeVisible();
       await expect(page.locator('.lu-off-hint')).toHaveText('정책·기타 분류 2건은 꺼져 있어요 켜기');
-      await page.locator('#documentSearch').fill('회의 연결');await expect(rows).toHaveCount(0);await expect(page.locator('.lu-off-hint')).toHaveText('기타 분류 1건은 꺼져 있어요 켜기');
+      await (await screenFind(page)).fill('회의 연결');await expect(rows).toHaveCount(0);await expect(page.locator('.lu-off-hint')).toHaveText('기타 분류 1건은 꺼져 있어요 켜기');
       await page.locator('.lu-off-hint button').click();await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="meeting-a"]')).toBeVisible();await expect(category).toHaveText('분류: 회의 외 1');
-      await page.locator('#documentSearch').fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);await focusLibraryProject(page,'all');
+      await (await screenFind(page)).fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);await focusLibraryProject(page,'all');
       expect(await ids()).toEqual(['category-only','meeting-a','meeting-b']);
       await showAllLibraryCategories(page);await expect(rows).toHaveCount(5);
       await openLibraryCategoryEditor(page,{tap:width===390});

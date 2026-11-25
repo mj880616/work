@@ -5,6 +5,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {showAllLibraryCategories,pickLibraryCategories,toggleLibraryCategory,readLibraryCategories,libraryCategoriesReady} from './helpers/library-categories.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 const OPEN=`${appOrigin}/tests/app-e2e/library-open-fixture.html`;
 const LONG='가상 예시 자료 — 아주 긴 이름이 줄 끝을 넘어갈 때 잘리는지 확인하기 위한 시험용 제목 '.repeat(4).trim();
@@ -83,13 +84,13 @@ for(const width of [1440,884,390])test(`분류: 기본은 회의만 꺼짐, 여�
   await pickLibraryCategories(page,[]);await expect(pick(page)).toHaveText('분류: 전체');await expect(rows(page)).toHaveCount(8);
   await toggleLibraryCategory(page,'회의');await expect(pick(page)).toHaveText('분류: 회의 빼고');await expect(rows(page)).toHaveCount(7);
   // 검색은 분류를 따르고, 꺼진 분류에 걸린 자료는 목록 아래에 알린다. [켜기]는 그 분류만 켠다.
-  if(width<=760)await page.locator('#librarySearchOpen').click();
-  await page.locator('#documentSearch').fill('가상');
+  
+  await (await screenFind(page)).fill('가상');
   expect((await ids(page)).sort()).toEqual(['dated-prefix','long','prefixed']);
   const hint=page.locator('.lu-off-hint');await expect(hint).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');await expect(hint).toHaveAttribute('role','status');
   await hint.getByRole('button',{name:'켜기'}).click();await expect(pick(page)).toHaveText('분류: 전체');await expect(page.locator('[data-lu-document="meeting"]')).toBeVisible();await expect(hint).toHaveCount(0);
   // 검색어가 없으면 안내도 없다.
-  await toggleLibraryCategory(page,'회의');await page.locator('#documentSearch').fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);
+  await toggleLibraryCategory(page,'회의');await (await screenFind(page)).fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
@@ -175,9 +176,8 @@ test('폰 M2: 이름 다듬기(날짜 앞머리 → 오른쪽 날짜, 밑줄 →
   expect(s.docs.find(d=>d.id==='prefixed').title).toBe('261009_가상노조_교섭_본교섭_3차_요구안.hwp');
   await expect(row.locator('.lu-more-trigger')).toHaveAttribute('aria-label','자료 관리: 261009_가상노조_교섭_본교섭_3차_요구안.hwp');
   // 원본 이름(밑줄·날짜 포함)으로 검색된다.
-  await page.locator('#librarySearchOpen').click();/* LIB-위쪽한줄 가안: 폰은 ⌕로 찾기 칸을 연다 */
-  await page.locator('#documentSearch').fill('261009_가상노조');expect(await ids(page)).toEqual(['prefixed']);
-  await page.locator('#documentSearch').fill('');
+  await (await screenFind(page)).fill('261009_가상노조');expect(await ids(page)).toEqual(['prefixed']);
+  await (await screenFind(page)).fill('');
   // PC 폭으로 넓히면 원래 이름으로 다시 그린다.
   await page.setViewportSize({width:1280,height:900});await expect(name('prefixed')).toHaveText('261009_가상노조_교섭_본교섭_3차_요구안.hwp');
   await page.setViewportSize({width:390,height:844});await expect(name('prefixed')).toHaveText('가상노조 교섭 본교섭 3차 요구안');
@@ -192,14 +192,17 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 위 한 줄·담당
   const labels=page.locator('#libraryView .library-filter-toolbar .lu-filter-label:visible'),group=page.locator('#libraryGroupBy');
   await expect(labels).toHaveCount(0);await expect(page.locator('#documentProject')).toBeHidden();
   await expect(group.locator('option')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);await expect(group).toHaveValue('project');
-  const search=await box(page.locator('#documentSearch')),g=await box(group),cat=await box(pick(page));
+  // S70-54: 찾기는 맨 위 칸(상단 줄)이 겸하고, 본문 첫 줄은 [사업영역 ▾][분류 ▾] 둘.
+  const search=await box(page.locator('#libraryView .lu-search-row')),g=await box(group),cat=await box(pick(page));
   expect(Math.abs((g.y+g.height/2)-(search.y+search.height/2))).toBeLessThan(3);expect(Math.abs((cat.y+cat.height/2)-(search.y+search.height/2))).toBeLessThan(3);
+  await expect(await screenFind(page)).toHaveAttribute('placeholder','자료실에서 찾기');
   // '최근 올린 파일' 칸은 위 줄 아래.
   expect(await page.evaluate(()=>!!(document.querySelector('#libraryView .lu-search-row').compareDocumentPosition(document.querySelector('#libraryRecent'))&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   // 빠짐9: [모두 펴기/접기]·[여러 개 고르기]·[새 폴더]는 위 줄 오른쪽 끝 ⋯ 하나(32px 아이콘, 누르는 범위 44px). 따로 뜬 글자 버튼은 없다.
   await expect(page.locator('#libraryExpandAll,#librarySelectBtn')).toHaveCount(0);
-  const more=page.locator('#libraryTopMenuBtn'),m=await box(more),head=await box(page.locator('#libraryView .lu-search-row'));
-  expect(Math.abs((m.x+m.width)-(head.x+head.width))).toBeLessThan(2);expect(Math.round(m.height)).toBe(32);expect(await more.evaluate(n=>Math.round(parseFloat(getComputedStyle(n,'::after').height)))).toBe(44);
+  // S70-54: ⋯는 맨 위 줄 단추 자리(검색 칸 오른쪽).
+  const more=page.locator('.sf-tools:not([hidden]) #libraryTopMenuBtn'),m=await box(more),top=await box(page.locator('#gsTopInput'));
+  expect(m.x).toBeGreaterThanOrEqual(top.x+top.width);expect(Math.abs((m.y+m.height/2)-(top.y+top.height/2))).toBeLessThan(2);expect(Math.round(m.height)).toBe(32);expect(await more.evaluate(n=>Math.round(parseFloat(getComputedStyle(n,'::after').height)))).toBe(44);
   await expect(group).toHaveAttribute('aria-label','묶기');await expect(group).toHaveAttribute('aria-controls','documentList');
   expect(await page.locator('#libraryView .lu-filter-label').evaluateAll(els=>els.every(el=>el.getAttribute('aria-hidden')==='true'))).toBe(true);
   // 담당조직으로 걸러 들어오면 그 줄(이름표 + 칩)이 위 줄 아래에 낀다.
@@ -215,15 +218,15 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 위 한 줄·담당
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-// LIB-위쪽한줄 가안: 폰 위쪽은 두 줄 — 제목 '자료실' ……… [⌕][+][⋯] / [폴더 ▾][분류 ▾]. 아래 알약·떠 있는 [+] 없음(자세한 동작은 library-top-row.spec.mjs).
+// LIB-위쪽한줄 가안 → S70-54: 폰 위쪽은 앱 머리 줄 '자료실' ……… [⌕][+][⋯] / 본문 첫 줄 [폴더 ▾][분류 ▾]. 아래 알약·떠 있는 [+] 없음(자세한 동작은 library-top-row.spec.mjs).
 test('폰 거르기 줄: 두 줄, 이름표 없음, 아래 알약·떠 있는 [+] 없음',async({page})=>{
   const {errors}=await boot(page,390);
   await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveCount(0);
   await expect(page.locator('#libraryCategoryFilter,#manageLibraryBtn')).toHaveCount(0);
-  const title=await box(page.locator('#libraryView .lu-top-title')),find=await box(page.locator('#librarySearchOpen')),more=await box(page.locator('#libraryTopMenuBtn')),g=await box(page.locator('#libraryGroupBy')),p=await box(pick(page));
+  const title=await box(page.locator('.mobile-shell-header [data-mobile-view-name]')),find=await box(page.locator('.mobile-shell-header .sf-open')),more=await box(page.locator('#libraryTopMenuBtn')),g=await box(page.locator('#libraryGroupBy')),p=await box(pick(page));
   expect(Math.abs((title.y+title.height/2)-(find.y+find.height/2))).toBeLessThan(3);expect(Math.abs((more.y+more.height/2)-(find.y+find.height/2))).toBeLessThan(3);
   expect(Math.abs((g.y+g.height/2)-(p.y+p.height/2))).toBeLessThan(3);expect(g.y).toBeGreaterThan(title.y+title.height-1);
-  await expect(page.locator('#documentSearch')).toBeHidden();
+  await expect(page.locator('#gsScreenInput')).toBeHidden();
   expect(await page.locator('#libraryGroupBy,#newDocumentBtn').evaluateAll(xs=>xs.map(x=>getComputedStyle(x).position))).not.toContain('fixed');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
@@ -233,7 +236,8 @@ for(const width of [1440,884,390])test(`'✎ 분류 수정'은 [분류 ▾] 창 
   const {errors}=await boot(page,width);
   await expect(page.getByRole('button',{name:'분류 수정',exact:true})).toHaveCount(0);
   expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);
-  expect(await page.locator('#libraryView .lu-search-row button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(width<=760?['libraryCategoryPick','librarySearchOpen','newDocumentBtn','libraryTopMenuBtn']:['libraryCategoryPick','newDocumentBtn','libraryTopMenuBtn']);
+  expect(await page.locator('#libraryView .lu-search-row button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['libraryCategoryPick']);
+  expect(await page.locator('.sf-tools:not([hidden]) button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);
   await libraryCategoriesReady(page);await pick(page).click();
   const edit=sheet(page).getByRole('button',{name:'분류 수정',exact:true});
   await expect(edit).toHaveCount(1);await expect(edit).toBeVisible();await expect(edit).toHaveText('✎ 분류 수정');

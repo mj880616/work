@@ -116,3 +116,17 @@
 .gs-recent .gs-row{padding-left:28px}
 /* S67-25 그 자리 풀기: 잠긴 결과 줄 끝 '풀기' 표시(줄 전체가 누름 — 그 자리 PIN 창). 작은 흐린 밑줄 글자. */
 .gs-row .lk-open,.gs-ask-src-row .lk-open{flex:none;margin-left:.4em;color:var(--kptu-primary-ink,var(--kptu-ink));font-size:var(--ds-text-meta);text-decoration:underline}
+
+/* UI-검색창하나로(S70-54, 설계 docs/design/one-search-bar.md): 맨 위 칸이 지금 화면 찾기일 때 걸러진 목록 아래 끝 '전체에서 「…」 찾기 →' 한 줄.
+   그리는 곳은 global-search.js(#gsAllLine), 자리는 그 화면이 정한다(screen-find spec.foot). 글자 링크 모양, 크고 굵은 버튼 없음. */
+.gs-all-line{display:flex;align-items:center;width:100%;max-width:100%;min-height:var(--kptu-touch-target,44px);box-sizing:border-box;margin:4px 0 0;padding:0 12px;border:0;border-top:var(--ds-line-width,.5px) dashed var(--ds-line);background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-all-line[hidden]{display:none}
+.gs-all-line:hover{background:var(--kptu-primary-soft)}
+.gs-all-line:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+/* 옮겨 온 단추 자리(screen-find.js 상자 .sf-tools): 화면 안 검색 줄에 있던 고르기·⋯·만들기 단추. 작은 칩 크기(상단 줄 단추 높이). */
+.sf-tools{display:flex;align-items:center;gap:4px;flex:none;min-width:0}
+.sf-tools[hidden]{display:none}
+.sf-tools>:is(button,select,a){margin:0;white-space:nowrap}
+html[data-screen-find] .app-topline .topline-search{min-width:140px}
+/* 옮겨 온 단추는 공용 6가지(⋯ = icon-btn, 고르기·만들기 = secondary)를 그대로 쓰고, 여기서는 상단 줄 높이에 맞춘 크기·자리만. */
+.sf-tools .sf-chip{max-width:11em;overflow:hidden;text-overflow:ellipsis}

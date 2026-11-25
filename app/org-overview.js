@@ -48,7 +48,7 @@ export function syncOverview({orgs, workspaceId, rt}) {
 function install() {
   const {section} = st;
   if (!section.querySelector('#soTeamTabs')) {
-    section.querySelector('#soTeamHead')?.insertAdjacentHTML('afterend',
+    section.insertAdjacentHTML('afterbegin', // S70-54: 옛 머리 줄(#soTeamHead)은 없다 — 보기 탭이 화면 첫 줄
       word('<div id="soTeamTabs" class="so-team-tabs ds-seg" role="tablist" aria-label="조직 관리 보기"><button type="button" role="tab" class="so-team-tab ds-seg-btn" data-so-view="list" aria-selected="true" tabindex="0">목록</button><button type="button" role="tab" class="so-team-tab ds-seg-btn" data-so-view="table" aria-selected="false" tabindex="-1">전체 표</button></div>'));
   }
   if (!section.querySelector('#soOverview')) section.insertAdjacentHTML('beforeend', word('<section id="soOverview" class="oa wd-st" aria-label="조직 관리 이번 주 보고" hidden></section>'));

@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { segBox } from './helpers/seg-box.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 // NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 노트 검색 칸 오른쪽 [폴더|목록|보드](S68-38 옛 이름 포스트잇).
 // 목록 = 모든 노트 최근 고친 순 한 줄(폴더 꼬리표·날짜), 보드 = 끝없이 넓은 판 위 제목만 보이는 같은 크기 작은 카드(S68-38), 끌어 놓으면
@@ -80,9 +81,9 @@ for (const width of [412, 884, 1440]) {
     // 고르지 않은 카드는 ×·⋯·손잡이가 안 보인다(폰).
     if (width < 761) { await expect(page.locator('[data-nb-card="n1"] .nb-more')).toBeHidden(); await expect(page.locator('[data-nb-card="n1"] [data-nb-handle]').first()).toBeHidden(); }
     // 검색은 보드에서도.
-    await page.locator('[data-note-search]').fill('다 노트');
+    await (await screenFind(page)).fill('다 노트');
     await expect(cards).toHaveCount(1);
-    await page.locator('[data-note-search]').fill('');
+    await (await screenFind(page)).fill('');
     await expect(cards).toHaveCount(3);
     // [＋][－][맞추기]
     const before = await zoomOf(page);

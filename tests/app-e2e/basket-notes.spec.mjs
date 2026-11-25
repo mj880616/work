@@ -7,6 +7,7 @@ import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteField, edWin, edWinText, typeInto } from './helpers/note-editor.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // MEMO-노트 PR 3: [메모 | 노트] in the basket tab. The mock keeps one app_notes store and honours the kind/id
 // filters, so every list and write is checked against the row kind the screen showed.
@@ -73,9 +74,9 @@ for(const width of [390,1280]){
   // NOTE-탐색기 ②: a note row is one line (title + date); link chips are not drawn in the list (the open note still shows them).
   await expect(noteList(page).nth(0)).not.toContainText('합성 임금 프로젝트');
   await expect(page.locator('[data-note-host]')).not.toContainText('회의 준비 메모');
-  await page.locator('[data-note-search]').fill('기본급');
+  await (await screenFind(page)).fill('기본급');
   await expect(noteList(page)).toHaveCount(1);await expect(noteList(page)).toContainText('임금협상 정리');
-  await page.locator('[data-note-search]').fill('없는 말');
+  await (await screenFind(page)).fill('없는 말');
   await expect(noteList(page)).toHaveCount(0);await expect(page.locator('[data-note-list-status] [data-wait-empty]')).toHaveText('맞는 노트 없음');
   await chooseBasketKind(page,'memo');
   await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await expect(page.locator('[data-note-host]')).toBeHidden();

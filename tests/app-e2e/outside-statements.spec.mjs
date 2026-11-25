@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { expectPickerAtButton } from './helpers/picker-anchor.mjs';
 import { segBox } from './helpers/seg-box.mjs'; // UI-보기탭한모양(S52-17): 보기 탭은 보이는 알약 자리로 잰다
+import {screenFind} from './helpers/screen-find.mjs';
 // OUTSIDE-바깥성명 ④ 화면 1 → S51-8 NEWS-전면개편 P4b(docs/design/news-overhaul.md 6.1·6.3절, 시안 mockups/news-overhaul.html): News 목록(?view=outside).
 // 탭 [전체][사회운동][언론][밑줄] + 길 '보관 ↗'(S68-24, [보관] 탭 없앰 — 읽을 거리 [News]로) — 폰 아래 떠 있는 탭 줄·폴드 오른쪽 아래·PC 위, 좌우 밀기 = 탭 이동, 고른 탭은 서버 view_prefs.news_tab.
 // 위 찾기 칸(제목 바로 거르기), [매체: 전체 ▾](자료실 분류 창 부품), 줄은 날짜 묶음 → 흰 상자 안 줄(매체 색 띠·같은 색 이름·분류 꼬리표·시각·★),
@@ -204,7 +205,7 @@ for (const width of [412, 884, 1280]) {
     expect(await noWideScroll(page)).toBe(true);
 
     // 탭 자리(명진 11/06): 폰 = 아래 가운데 떠 있음, 폴드 = 오른쪽 아래, PC = 위.
-    const tb = await segBox(root(page).locator('[data-os-tabs]')), vw = width, top = await root(page).locator('[data-nw-top]').boundingBox();
+    const tb = await segBox(root(page).locator('[data-os-tabs]')), vw = width, top = await root(page).locator('[data-nw-all]').boundingBox(); // S70-54: 옛 찾기 줄은 없고 탭 줄 바로 아래가 목록
     if (width <= 760) { expect(Math.abs(tb.x + tb.width / 2 - vw / 2)).toBeLessThan(4); expect(tb.y).toBeGreaterThan(700); }
     else if (width < 1200) { expect(vw - (tb.x + tb.width)).toBeLessThan(20); expect(tb.y).toBeGreaterThan(800); }
     else expect(tb.y + tb.height).toBeLessThanOrEqual(top.y + 1);
@@ -219,7 +220,7 @@ for (const width of [412, 884, 1280]) {
     await expect(row(page, 'outside:p1')).toHaveClass(/is-read/);
 
     // 위 찾기 칸(S63-11): [전체]는 서버 찾기 — 언론 기사 + 사회운동 글, 최근 30일 + 보관한 글의 제목·한국어 제목·요약. 문장 찾기 결과 칸은 열지 않는다.
-    const find = root(page).locator('[data-nw-find]');
+    const find = (await screenFind(page));
     await find.fill('외신');
     await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
     await expect(row(page, 'news:e1')).toBeVisible();
@@ -230,7 +231,7 @@ for (const width of [412, 884, 1280]) {
     await expect(rows(page, '[data-nw-all]')).toHaveCount(POSTS.length + NEWS.length);
 
     // [매체: 전체 ▾]: 자료실 분류 창과 같은 부품 — 전체 → 묶음 → 켠 매체. 고르면 그 매체 글만(서버에 그 키만 묻는다).
-    const dd = root(page).locator('[data-nw-media]');
+    const dd = page.locator('.sf-tools [data-nw-media]');
     await expect(dd).toHaveText('매체: 전체 ▾');
     await dd.click();
     const pick = page.locator('#nwMediaPicker');
@@ -274,11 +275,11 @@ for (const width of [412, 884, 1280]) {
     if (width < 1200) { await swipeOn(row(page, 'outside:p4'), -160); await expect(tab(page, 'movement')).toHaveAttribute('aria-selected', 'true'); }
 
     // ⋯ → 단체 켜고 끄기: 카탈로그 단체마다 켬/끔 + 상태(마지막 읽은 시각·막힘). 위 줄·탭 줄은 감춘다.
-    await root(page).locator('[data-os-more]').click();
+    await page.locator('.sf-tools [data-os-more]').click();
     await page.locator('#osMenu').getByRole('button', { name: '단체 켜고 끄기' }).click();
     const sw = key => root(page).locator(`[data-os-source="${key}"]`);
     await expect(sw('kctu')).toBeVisible();
-    await expect(root(page).locator('[data-nw-top]')).toBeHidden();
+    await expect(page.locator('.sf-tools [data-nw-media]')).toBeHidden();
     await expect(root(page).locator('[data-os-tabs]')).toBeHidden();
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'false');
     await expect(root(page).locator('[data-os-on-count]')).toHaveText('켬 4');
@@ -322,7 +323,7 @@ test('News 처음 탭: news_tab이 없으면 옛 now_tab을 바꿔 한 번 옮�
 for (const width of [390, 884, 1280]) test(`News 매체 고르기 창은 누른 버튼 바로 아래 ${width}`, async ({ page }) => {
   const { errors } = await start(page, width);
   await openOutside(page, width);
-  const dd = root(page).locator('[data-nw-media]');
+  const dd = page.locator('.sf-tools [data-nw-media]');
   await dd.click();
   const pick = page.locator('#nwMediaPicker');
   await expectPickerAtButton(page, pick, dd);
@@ -352,7 +353,7 @@ test('S69 News: 제목 없는 대기·robots 줄은 주소 조각으로, 조각�
   await expect(row(page, 'news:t1')).toHaveCount(0);
   await expect(root(page)).not.toContainText('못 읽은 기사');
   await expect(root(page)).not.toContainText('제목 읽기 전');
-  const dd = root(page).locator('[data-nw-media]');
+  const dd = page.locator('.sf-tools [data-nw-media]');
   await dd.click();
   const pick = page.locator('#nwMediaPicker');
   await expect(pick.locator('.lu-move-item')).toContainText(['언론 국내', '가짜일보', '사설·칼럼', '가짜일보 사설·칼럼', '언론 국제']);

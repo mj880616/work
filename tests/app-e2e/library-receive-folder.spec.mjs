@@ -133,7 +133,7 @@ test.describe('PC 1280 한 칸(왼쪽 나무 | 목록)',()=>{
   test('폴더가 아닌 곳에 PC 파일을 끌어 놓으면 서버가 받는 폴더에 넣고 결과 줄에 그 이름',async({page})=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더',init:{viewPrefs:{library_two:false},receiveFolder:RECV}});
     await page.evaluate(names=>{const dt=new DataTransfer();for(const n of names)dt.items.add(new File(['%PDF synthetic'],n,{type:'application/pdf'}));
-      for(const type of ['dragenter','dragover','drop'])document.querySelector('#documentSearch').dispatchEvent(new DragEvent(type,{bubbles:true,cancelable:true,dataTransfer:dt}))},['가-자료.pdf','나-자료.pdf']);
+      for(const type of ['dragenter','dragover','drop'])document.querySelector('#libraryCategoryPick').dispatchEvent(new DragEvent(type,{bubbles:true,cancelable:true,dataTransfer:dt}))},['가-자료.pdf','나-자료.pdf']);
     await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('잡동사니에 2개 올렸어요');
     await expect.poll(()=>s.items.filter(x=>x.folder_id===RECV).map(x=>x.document_id).sort()).toEqual(['upload-1','upload-2']);
     expect(itemWrites(s)).toEqual([]);

@@ -255,7 +255,7 @@ test('titleFixes: 손으로 넣은 기사 제목이 사본과 다를 때만 고�
 
 test('저장한 글 [수정]: ⋯ 맨 앞 [수정](다른 화면과 같은 순서), News 뉴스 기사는 그 글 보기 ⋯ [수정] 창, 직접 넣은 줄은 이 화면 칸 — 새 창 부품 없음', () => {
   const js = readFileSync('app/reading.js', 'utf8'), out = readFileSync('app/outside-statements.js', 'utf8'), nd = readFileSync('app/now-detail.js', 'utf8');
-  assert.match(js, /\$\{editKind\(id\) \? '<button type="button" class="row-act" data-rd-act="edit">수정<\/button>' : ''\}<button type="button" class="row-act" data-rd-act="read">/);
+  assert.match(js, /\$\{editKind\(id\) \? '<button type="button" class="row-act" data-rd-act="edit">수정<\/button>' : ''\}\$\{note\}<button type="button" class="row-act" data-rd-act="read">/); // S70-40b: 글 보기 머리 ⋯은 [수정] 다음 [밑줄을 노트로]
   assert.match(js, /openNews\(link, \{edit: true\}\)/);
   assert.match(out, /openItem: async \(item, \{edit = false\} = \{\}\) =>/);
   assert.match(out, /if \(edit && detail\.current\(\)\) void detail\.edit\(\);/);
@@ -286,9 +286,11 @@ test('readingNote: 원문·출처·저장 시각을 노트 한 장으로, 긴 �
   assert.equal(readingNote({...row, id: 'x'}, 'a'), null);
   assert.equal(readingNote({...row, url: 'javascript:alert(1)'}, 'a'), null);
 });
-test('[노트로 만들기]: 글 보기 단추 · 기존 노트 만들기 길 · 원문을 받은 뒤에만', () => {
+test('[노트로 만들기]: 글 보기 머리 ⋯ 메뉴 · 기존 노트 만들기 길 · 원문을 받은 뒤에만', () => {
   const src = readFileSync(new URL('../app/reading.js', import.meta.url), 'utf8');
-  assert.match(src, /'노트로 만들기', \{rdMakeNote: row\.id\}/);
+  // S70-40b 글 보기 머리: 테두리 단추 줄이 없어져 [노트로 만들기]도 머리 ⋯(headMenu) 안 — 목록 줄 ⋯에는 없다.
+  assert.match(src, /const making = headMenu \? `<button type="button" class="row-act" data-rd-act="make"/);
+  assert.match(src, /state\.noteBusy === id \|\| state\.bodyFor !== id \? ' disabled' : ''/);
+  assert.match(src, /else if \(act === 'make' && state\.open === id\) void makeNote\(id\);/);
   assert.match(src, /createNoteDoc\(\{title: made\.title, raw_text: made\.raw_text, source: made\.source\}/);
-  assert.match(src, /state\.bodyFor !== row\.id\) making\.disabled = true/);
 });

@@ -18,6 +18,7 @@ import {liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {bindNowRows, hoverActsHtml, dropSaved} from './now-row-acts.js';
 import {canDeleteNews, setSaved} from './now-marks.js';
 import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId, KW_GROUP_SIZE, keywordGroups, keywordGroupLabel} from './news-clipping-model.mjs';
+import {refreshScreenFind} from './screen-find.js';
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩. 탭 줄·좌우 밀기·위 찾기 칸·[매체 ▾]·⋯·상세 칸은 껍데기(outside-statements.js)가 갖는다.
 // - 칸(같은 화면 안, 뒤로가기 한 번 = 목록, KPTURouter.layer): [키워드 고치기](app_news_keywords + 키워드에 걸린 글 모아 보기, S59-1) · [언론 매체 켜고 끄기](app_outside_sources의 news- 키)
@@ -227,7 +228,7 @@ var ncMenus; // 메뉴는 아래에서 만든다(그 전 그리기는 붙일 메
 function paint() { return keepMenus(ncMenus || [], {attrs:['data-nc-folder-more']}, paintNow); }
 function paintNow() {
   if (!root) return;
-  root.dataset.mode = state.mode;
+  root.dataset.mode = state.mode; refreshScreenFind(); // S70-54: 목록이 아닌 칸(키워드·매체·폴더)에서는 맨 위 칸이 읽을 거리 찾기가 아니다
   const when = $('[data-nc-when]');
   if (when) {
     if (state.mode === 'list' && state.filling) when.innerHTML = `<span>채우는 중</span> ${waitInlineHtml()}`;

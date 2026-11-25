@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // S53-5 NEWS-밑줄모으기(시안 docs/design/mockups/news-highlights.html #2090): 원문에서 글을 고르면(끌기·⋯ [모두 선택]) 하단바 위 줄
 // [밑줄 저장][노트로][복사][공유] ✕. [밑줄 저장] → 노란 밑줄(누르면 메모·노트로·복사·지우기) → News [밑줄] 탭에 모임(찾기 칸이 밑줄 글도 찾음, 누르면 그 글로).
 // 서버는 흉내(app_news_highlights·app_notes 넣기만 적어 둠), 글은 모두 가상.
@@ -156,11 +157,11 @@ for (const width of [412, 1440]) {
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText(QUOTE);
     await expect(rows.first()).toContainText('가상 글 2');
-    await root(page).locator('[data-nw-find]').fill('없는 말');
+    await (await screenFind(page)).fill('없는 말');
     await expect(rows).toHaveCount(0);
-    await root(page).locator('[data-nw-find]').fill('냉소');
+    await (await screenFind(page)).fill('냉소');
     await expect(rows).toHaveCount(1);
-    await root(page).locator('[data-nw-find]').fill('');
+    await (await screenFind(page)).fill('');
     await rows.first().locator('[data-nh-open]').click();
     await expect(nd(page).locator('[data-nd-prose] mark.hl-mark')).toHaveText(QUOTE);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

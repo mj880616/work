@@ -1,5 +1,6 @@
 // UI-PC손맛묶음 ② 키보드(요청 11/10 11:23 "전체 검색 단축키, 메뉴 건너 본문으로 가기, 목록 ↑↓·Enter"). 앱 전체에 한 번만 붙는 키보드 규칙의 유일한 곳.
 // - 전체 검색: Ctrl+K(⌘K)는 어디서나, '/'는 글을 쓰는 칸 밖에서. 상단 줄 검색칸(global-search.js #gsTopInput)에 커서를 둔다.
+//   지금 화면에 화면 찾기가 있으면(UI-검색창하나로 S70-54) 그 칸이 곧 그 화면 찾기다(폰 틀은 머리 줄 칸).
 //   칸이 아직 없으면(검색 모듈을 받기 전·폰) 검색 화면(?view=search)을 열고 그 칸에 둔다. 검색 결과·여는 길은 global-search.js 그대로.
 // - 본문으로 가기: index.html 맨 앞 링크([data-skip-main]). Tab을 처음 누르면 보이고, 누르면 지금 화면(.view-panel)으로 커서를 옮긴다.
 // - 목록 ↑↓: 커서가 목록 줄(같은 모양의 형제 줄이 있는 단추·링크·누를 수 있는 줄)에 있으면 위·아래 줄의 같은 자리로 옮긴다.
@@ -28,6 +29,8 @@ function focusSearch(input) {
   input.select?.();
 }
 function openSearch() {
+  // UI-검색창하나로(S70-54): 폰 틀에서 지금 화면에 화면 찾기가 있으면 머리 줄 그 칸(돋보기를 펼침). PC는 상단 줄 칸이 이미 그 찾기다.
+  if (window.KPTUGlobalSearch?.focusScreenFind?.()) return;
   const input = searchInput();
   if (input) { focusSearch(input); return; }
   const router = window.KPTURouter;

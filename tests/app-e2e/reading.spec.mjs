@@ -76,6 +76,10 @@ async function goReading(page, width) {
 }
 const list = page => page.locator('#readingView [data-rd-list]');
 const detail = page => page.locator('#readingView [data-rd-detail]');
+// S70-40b READ-글보기머리: 글 보기 동작([밑줄을 노트로]·[읽음]/[안 읽음으로] 등)은 머리 ⋯ 메뉴(#rdRowMenu, 목록 줄 ⋯과 같은 메뉴) 안.
+const headMenu = async page => { await detail(page).locator('[data-rd-head-more]').click(); const m = page.locator('#rdRowMenu'); await expect(m).toBeVisible(); return m; };
+const headAct = async (page, act) => (await headMenu(page)).locator(`[data-rd-act="${act}"]`).click();
+const readLabel = async page => { const m = await headMenu(page); const t = (await m.locator('[data-rd-act="read"]').textContent()).trim(); await page.keyboard.press('Escape'); await expect(m).toBeHidden(); return t; };
 const bar = page => page.locator('div[data-hl-bar]');
 const pick = (page, text) => page.evaluate(t => {
   const p = [...document.querySelectorAll('#readingView [data-rd-prose] p')].find(x => x.textContent.includes(t));
@@ -124,23 +128,23 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
     await expect(detail(page).locator('[data-rd-prose] mark.hl-mark')).toHaveText(QUOTE);
 
     // [밑줄을 노트로]: 밑줄 문장 + 출처(제목·사이트·주소)로 노트 하나.
-    await detail(page).locator('[data-rd-note]').click();
+    await headAct(page, 'note');
     await expect.poll(() => s.notes.length).toBe(1);
     expect(s.notes[0].raw_text).toContain(QUOTE);
     expect(s.notes[0].raw_text).toContain('https://example.com/a');
     expect(s.notes[0].raw_text).toContain('example.com');
 
     // 연 글은 이미 읽음 → [안 읽음으로]로 되돌릴 수 있고, [읽음]으로 다시. 읽은 시각만 고친다.
-    await expect(detail(page).locator('[data-rd-read="0"]')).toHaveText('안 읽음으로');
+    await expect.poll(() => readLabel(page)).toBe('안 읽음으로');
     if (width > 760) await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/); // 열어 둔 줄은 [안 읽음]에서도 닫을 때까지 그 자리
-    await detail(page).locator('[data-rd-read="0"]').click();
+    await headAct(page, 'read');
     await expect.poll(() => s.patches.length).toBe(2);
     expect(s.patches[1].body.read_at).toBeNull();
-    await expect(detail(page).locator('[data-rd-read="1"]')).toHaveText('읽음');
-    await detail(page).locator('[data-rd-read="1"]').click();
+    await expect.poll(() => readLabel(page)).toBe('읽음');
+    await headAct(page, 'read');
     await expect.poll(() => s.patches.length).toBe(3);
     expect(Object.keys(s.patches[2].body).sort()).toEqual(['read_at', 'updated_at']);
-    await expect(detail(page).locator('[data-rd-read="0"]')).toHaveText('안 읽음으로');
+    await expect.poll(() => readLabel(page)).toBe('안 읽음으로');
 
     // 폰: 뒤로 = 목록(다른 화면으로 가지 않음).
     if (width <= 760) {
@@ -176,13 +180,13 @@ test('열면 읽음 412: 저장 실패 → 알림 한 줄·점 그대로, 다음
   await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
   await expect(detail(page)).toBeVisible();
   await expect.poll(() => noticeText(page)).toContain('읽음으로 저장하지 못했어요');
-  await expect(detail(page).locator('[data-rd-read="1"]')).toHaveText('읽음');
+  await expect.poll(() => readLabel(page)).toBe('읽음');
   await page.goBack();
   await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).toHaveClass(/is-unread/);
   refuse = false;
   await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
   await expect.poll(() => s.rows.find(r => r.id === A).read_at).toBeTruthy();
-  await expect(detail(page).locator('[data-rd-read="0"]')).toHaveText('안 읽음으로');
+  await expect.poll(() => readLabel(page)).toBe('안 읽음으로');
   await page.goBack();
   await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/); // [전체](S70-24 기본)에서 점 꺼짐
   await list(page).locator('.rd-switch [data-filter-value="unread"]').click();
@@ -236,9 +240,9 @@ test('남의 작업공간 줄: 서버가 거절하면 바꾸지 않고 한 줄 �
   await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
   // S68-45: 열 때 읽음 저장도 서버가 거절 → 알림 한 줄, 그대로 안 읽음.
   await expect.poll(() => noticeText(page)).toContain('읽음으로 저장하지 못했어요');
-  await detail(page).locator('[data-rd-read="1"]').click();
+  await headAct(page, 'read');
   await expect.poll(() => noticeText(page)).toContain('저장하지 못했어요');
-  await expect(detail(page).locator('[data-rd-read="1"]')).toHaveText('읽음');
+  await expect.poll(() => readLabel(page)).toBe('읽음');
   expect(s.calls.filter(c => c.method === 'PATCH').every(c => c.search.includes(`id=eq.${A}`) && c.search.includes('workspace_id=eq.w'))).toBe(true);
 });
 
@@ -428,16 +432,19 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     await goReading(page, width);
     await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
     await expect(detail(page).locator('[data-rd-prose] p')).toHaveCount(3);
-    const make = detail(page).locator(`[data-rd-make-note="${A}"]`);
+    // S70-40b 글 보기 머리: [노트로 만들기]는 머리 ⋯ 메뉴 안(테두리 단추 줄 없음).
+    const make = (await headMenu(page)).locator('[data-rd-act="make"]');
     await expect(make).toHaveText('노트로 만들기');
     await expect(make).toBeEnabled();
     const before = s.patches.length;
     s.noteDelay = 800;
     await make.click();
-    // 만드는 동안은 단추가 잠겨 두 번 눌러도 한 장.
-    await expect(make).toHaveText('만드는 중…');
-    await expect(make).toBeDisabled();
-    await make.click({ force: true, timeout: 500 }).catch(() => {});
+    // 만드는 동안 다시 ⋯를 열면 단추가 잠겨 있어 두 번 눌러도 한 장.
+    const again = (await headMenu(page)).locator('[data-rd-act="make"]');
+    await expect(again).toHaveText('만드는 중…');
+    await expect(again).toBeDisabled();
+    await again.click({ force: true, timeout: 500 }).catch(() => {});
+    await page.keyboard.press('Escape');
     await expect.poll(() => noticeText(page)).toContain('노트로 만들었어요');
     expect(s.notes).toHaveLength(1);
     const n = s.notes[0];
@@ -454,7 +461,9 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     expect(s.patches.length).toBe(before);
     expect(s.calls.some(c => c.method === 'DELETE')).toBe(false);
     await expect(detail(page).locator('a.rd-src')).toHaveAttribute('href', 'https://example.com/a');
-    await expect(make).toHaveText('노트로 만들기');
+    const after = (await headMenu(page)).locator('[data-rd-act="make"]');
+    await expect(after).toHaveText('노트로 만들기');
+    await page.keyboard.press('Escape');
     const over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(over).toBeLessThanOrEqual(1);
     expect(errors).toEqual([]);
