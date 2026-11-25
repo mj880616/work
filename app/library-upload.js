@@ -1953,12 +1953,14 @@ let luAreaFolder=null;
 function luAreaMenuOpen(owner,x,y,folder=luInFolder){luAreaFolder=folder||null;
   luAreaMenu||=createAnchoredMenu({id:'luAreaMenu',className:'lu-folder-menu lu-area-menu',label:'자료실 빈 자리 메뉴',historyKey:'kptuLibraryAreaMenu',key:()=>'area',
     // S69-28 LIB-한칸탐색기: 탐색기 칸에는 '폴더 밖' 묶음 머리(그 ⋯ [전체 선택])가 없으므로 빈 자리 메뉴에 [전체 선택](지금 자리 자료 모두).
-    render:()=>luMenuRow('data-lu-area="folder"','새 폴더')+luMenuRow('data-lu-area="add"','자료 등록')+(luCanPickFolder()?luMenuRow('data-lu-area="folder-upload"','폴더 올리기'):'')+luMenuRow('data-lu-area="tidy"',TIDY_LABEL)+(luExplorerNow&&!luTwoActive()&&luExplorerFileIds().length&&!luPick.items?luMenuRow('data-lu-area="select-all"','전체 선택'):''),
+    // S70-09 LIB-PC우클릭(명진 11/25 "새 폴더 만들기 이런걸 우클릭해서"): 윈도우 탐색기처럼 [새 폴더][파일 올리기]…[모두 선택](ui-words '모두 선택'). 이미 몇 개 고른 중에도 [모두 선택].
+    render:()=>luMenuRow('data-lu-area="folder"','새 폴더')+luMenuRow('data-lu-area="add"','파일 올리기')+(luCanPickFolder()?luMenuRow('data-lu-area="folder-upload"','폴더 올리기'):'')+luMenuRow('data-lu-area="tidy"',TIDY_LABEL)+(luExplorerNow&&!luTwoActive()&&luExplorerFileIds().length?luMenuRow('data-lu-area="select-all"','모두 선택'):''),
     onClose:()=>document.querySelectorAll('#libraryListCard[aria-expanded],#libraryFolderNav[aria-expanded],#documentList[aria-expanded]').forEach(el=>el.removeAttribute('aria-expanded')),
     onAction:(b,active)=>{if(b.dataset.luArea==='select-all'){const ids=luExplorerFileIds();if(ids.length&&!luSelBusy){luPick.stop();luPick.start(ids);luRenderLibrary()}return}if(b.dataset.luArea==='folder')luFolders().createIn(luAreaFolder,active.trigger);else if(b.dataset.luArea==='folder-upload')luPickFolderUpload(luAreaFolder,active.trigger);else if(b.dataset.luArea==='tidy')void luTidy().open(active.trigger,luAreaFolder);else if(luOpenUploadWindow())luSetUploadFolder(luAreaFolder);else notify('자료 올리기를 열지 못했어요.',{error:true})}});
   luCloseMenu(()=>luAreaMenu.open(owner,{at:{x,y}}));
 }
-const LU_CTX_SKIP='input,textarea,select,[contenteditable],a[href],.lu-row,summary,.lu-node,#librarySelectBar,#libraryFolderStatusLine,#libraryPath';
+// S70-09: 위치 줄(#libraryPath)의 빈 곳·지금 폴더 이름도 지금 자리 빈 자리 메뉴(위치 줄 단추 ‹·위 단계는 단추라 브라우저 메뉴 그대로).
+const LU_CTX_SKIP='input,textarea,select,[contenteditable],a[href],.lu-row,summary,.lu-node,#librarySelectBar,#libraryFolderStatusLine';
 function luOnCardContext(e){
   if(e.defaultPrevented||e.shiftKey||e.ctrlKey||e.altKey||e.metaKey||e.pointerType==='touch'||!LU_SPLIT?.matches||!LU_FINE?.matches)return;
   if(luGroupBy!=='folder'||!luFoldersReady)return;
@@ -1972,6 +1974,24 @@ function luOnCardContext(e){
   // LIB-두칸보기: 두 칸이면 [새 폴더]는 누른 칸의 지금 폴더 안.
   luAreaMenuOpen(t.closest('[data-lu-pane-i]')||t.closest('#libraryFolderNav')||t.closest('#documentList')||t.closest('#libraryListCard'),e.clientX,e.clientY,luTwoActive()?luTwo.folderAt(t):luInFolder);
 }
+// S70-09 LIB-PC우클릭: 목록 상자 밖 자료실 화면 빈 곳(목록 상자 아래 남는 자리·상자 사이 틈)도 같은 빈 자리 메뉴. 전에는 상자 안에서만 받아
+// 목록이 짧으면 그 아래 넓은 빈 곳에서 크롬 메뉴가 떴다. 자료실 화면 폭 안·화면 위쪽 끝 아래의 바탕(화면 칸 자신·그 바깥 틀)만 받는다 —
+// 옆 메뉴·위 막대·창·카드·단추·입력칸은 그대로(공용 우클릭·브라우저 메뉴). 두 칸이면 누른 가로 자리의 칸(그 칸의 지금 폴더).
+const LU_PAGE_BLANK='.shell,main,#appView,body';
+function luOnPageContext(e){
+  if(e.defaultPrevented||e.shiftKey||e.ctrlKey||e.altKey||e.metaKey||e.pointerType==='touch'||!LU_SPLIT?.matches||!LU_FINE?.matches)return;
+  if(window.KPTURouter?.current!=='library'||luGroupBy!=='folder'||!luFoldersReady)return;
+  const t=e.target,view=document.querySelector('#libraryView'),card=document.querySelector('#libraryListCard');
+  if(!(t instanceof Element)||!view||!card||!view.checkVisibility?.())return;
+  if(!(t===view||(!view.contains(t)&&t.matches(LU_PAGE_BLANK))))return;
+  const r=view.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top)return;
+  const sel=window.getSelection?.();if(sel&&!sel.isCollapsed&&sel.toString().trim())return;
+  e.preventDefault();
+  const pane=luTwoActive()?[...card.querySelectorAll('[data-lu-pane-i]')].find(p=>{const b=p.getBoundingClientRect();return e.clientX>=b.left&&e.clientX<=b.right}):null;
+  luAreaMenuOpen(pane||card,e.clientX,e.clientY,luTwoActive()?luTwo.folderAt(pane||card):luInFolder);
+}
+// 모듈은 한 번만 실린다 — 화면 판정(자료실·폴더 보기)은 위 함수가 누를 때마다 한다.
+document.addEventListener('contextmenu',luOnPageContext);
 // S69-74: 자료실 메뉴(줄 ⋯·폴더·맨 위·빈 자리·일괄)는 닫을 때 제 기록 한 칸을 history.back()으로 뺀다. 그 뒤로가기가 오기 전에
 // 선택 모드 겹을 닫으면(⋯ Esc 바로 뒤 Esc·[취소]) 라우터는 아직 메뉴 칸에 서 있다고 보고 두 칸을 더 물러나, 둘이 겹쳐 자료실 밖(앞 화면)까지 갔다.
 // 그래서 메뉴의 뒤로가기가 도착한 뒤에 선택 모드를 끈다(기다릴 것이 없으면 바로).
