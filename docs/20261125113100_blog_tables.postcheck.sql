@@ -3,7 +3,7 @@
 -- app_share_pages, app_notes and app_operator_features unchanged; no share page row added or removed).
 -- After apply also: RLS on the three new tables, four authenticated policies each, no anon/PUBLIC privilege, service_role reads only, blog row = calls workspace.
 with history as (
-  select count(*) as n,count(*) filter(where name='blog_tables') as named from supabase_migrations.schema_migrations where version='20261125113000'
+  select count(*) as n,count(*) filter(where name='blog_tables') as named from supabase_migrations.schema_migrations where version='20261125113100'
 ), present as (
   select count(*) as n from unnest(array['app_blogs','app_blog_boards','app_blog_posts']) t where to_regclass('public.'||t) is not null
 )

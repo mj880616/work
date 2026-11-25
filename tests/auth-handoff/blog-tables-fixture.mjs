@@ -1,4 +1,4 @@
-// Synthetic prerequisites for BLOG ① (20261125113000_blog_tables). No production connection.
+// Synthetic prerequisites for BLOG ① (20261125113100_blog_tables). No production connection.
 // Run after basket4-fixture and 20261020005000_share_pages_links: the operator feature table and helpers as production has them
 // (same bodies as 20261029090000_operator_features, key list as of 20261121090000_nojo_words_feature), the note table as far as
 // the migration reads it, and the two prerequisite history rows. WS_A (OWNER) is the operator (calls), WS_B (STRANGER) is not.

@@ -12,5 +12,5 @@ union all select 'owner RLS grants',relname,relowner::text||':'||relrowsecurity:
 union all select 'new table',n,case when to_regclass('public.'||n) is null then 'absent' else 'present' end from unnest(array['app_blogs','app_blog_boards','app_blog_posts']) n
 union all select 'function',p.oid::regprocedure::text,p.prosecdef::text||':'||coalesce(p.proconfig::text,'none')||':'||coalesce(p.proacl::text,'none')||':'||md5(p.prosrc)
   from pg_proc p where p.oid in (to_regprocedure('private.app_is_workspace_owner(uuid)'),to_regprocedure('private.app_workspace_has_feature(uuid,text)'),to_regprocedure('public.app_operator_feature_workspace(text)'))
-union all select 'history',version,name from supabase_migrations.schema_migrations where version in ('20261121090000','20261027050000','20261125113000')
+union all select 'history',version,name from supabase_migrations.schema_migrations where version in ('20261121090000','20261027050000','20261125113100')
 order by 1,2;

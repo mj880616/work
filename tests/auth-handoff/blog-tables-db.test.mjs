@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
-// BLOG ①(20261125113000_blog_tables, docs/design/blog.md 3절·9절): 운영자 기능 키 blog + 표 3개(app_blogs·app_blog_boards·app_blog_posts).
+// BLOG ①(20261125113100_blog_tables, docs/design/blog.md 3절·9절): 운영자 기능 키 blog + 표 3개(app_blogs·app_blog_boards·app_blog_posts).
 // - 사전 조건이 다르면 멈추고, 적용 뒤 사후 확인이 모두 예이며 기존 표(공유 페이지·노트·운영자 표)의 칸·정책·권한·트리거 해시가 그대로.
 // - blog 허용 행은 calls 작업공간 하나에만. 그 owner만 세 표를 읽고 쓴다. 다른 가입자(blog 허용 없음)는 자기 작업공간에도 못 넣고(RLS 42501),
 //   남의 작업공간에도 못 넣는다. anon·PUBLIC 권한 없음. service_role은 정해진 칸만 읽고 쓰지 못한다.
@@ -17,7 +17,7 @@ import pg from 'pg';
 import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {blogPrerequisites} from './blog-tables-fixture.mjs';
-const version='20261125113000',name='blog_tables',stem=version+'_'+name;
+const version='20261125113100',name='blog_tables',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
 

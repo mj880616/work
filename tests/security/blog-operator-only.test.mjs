@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {store,handler,read,WS_OP,WS_OTHER,KEYS} from './blog-read-harness.mjs';
 // BLOG ① 9절 '운영자 아닌 사람의 블로그 게시 요청 서버 거절'. 쓰기 거절은 RLS(정책 12개가 모두 blog 허용을 요구 — 아래 정적 검사, 실제 거절은
 // tests/auth-handoff/blog-tables-db.test.mjs가 로컬 PostgreSQL에서 확인). 읽기는 서버 허용 표가 정한 작업공간 하나만 내주고 요청 값으로 못 고른다.
-const sql=readFileSync('supabase/migrations/20261125113000_blog_tables.sql','utf8').replace(/--.*$/gm,'');
+const sql=readFileSync('supabase/migrations/20261125113100_blog_tables.sql','utf8').replace(/--.*$/gm,'');
 
 test('every blog policy requires the owner and the blog allow row (12 policies, authenticated only)',()=>{
  const policies=[...sql.matchAll(/create policy (\w+) on public\.(app_blog\w*) for (\w+) to (\w+)([\s\S]*?);/g)];

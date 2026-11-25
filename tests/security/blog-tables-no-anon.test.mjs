@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 // BLOG ① 9절 '사본 표에 익명 직접 권한 없음'. migration 정적 검사 + 짝 postcheck SQL 항목. 실제 권한은 tests/auth-handoff/blog-tables-db.test.mjs.
-const stem='20261125113000_blog_tables';
+const stem='20261125113100_blog_tables';
 const raw=readFileSync('supabase/migrations/'+stem+'.sql','utf8'),sql=raw.replace(/--.*$/gm,'');
 const tables=['app_blogs','app_blog_boards','app_blog_posts'];
 
@@ -21,7 +21,7 @@ test('RLS on, hosted defaults revoked, no anon/PUBLIC grant or policy, no define
   'select (board_id, page_id, note_id, public_key, published_at, republished_at) public.app_blog_posts']);
 });
 test('approved DB workflow accepts it under the expanded rules with all five pair files; postcheck covers the no-anon items',()=>{
- const plan=prepareMigration({mode:'apply',version:'20261125113000',runId:'1',root:process.cwd()});
+ const plan=prepareMigration({mode:'apply',version:'20261125113100',runId:'1',root:process.cwd()});
  assert.equal(plan.rules,'expanded');assert.deepEqual([...plan.createdTables].sort(),[...tables].sort());
  assert.equal(plan.review.definer.length,0);
  for(const ext of ['precheck.sql','snapshot.sql','postcheck.sql','rollback.sql','summary.md'])assert.ok(readFileSync('docs/'+stem+'.'+ext,'utf8').length>100,ext);
@@ -30,5 +30,5 @@ test('approved DB workflow accepts it under the expanded rules with all five pai
  assert.doesNotMatch(readFileSync('docs/'+stem+'.snapshot.sql','utf8').replace(/--.*$/gm,''),/from public\.app_/);
  // 마이그레이션 안의 사후 확인도 같은 조건으로 전체 취소한다.
  assert.match(raw,/BLOG_TABLES_POSTCHECK_FAILED/);
- assert.match(raw,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261125113000', 'blog_tables'/);
+ assert.match(raw,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261125113100', 'blog_tables'/);
 });
