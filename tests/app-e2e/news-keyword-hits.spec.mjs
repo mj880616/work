@@ -17,7 +17,7 @@ for (const width of [412, 1280]) {
     server.keywords = [{ word: '가짜어', enabled: true, created_at: '2026-10-01T00:00:00Z' }, { word: '꺼진말', enabled: false, created_at: '2026-10-02T00:00:00Z' },
       { word: '새말', enabled: true, created_at: '2026-10-03T00:00:00Z' }];
     await openNews(page, width);
-    await page.locator('#outsideRoot [data-os-more]').click();
+    await page.locator('.sf-tools [data-os-more]').click();
     await page.locator('#osMenu').getByRole('button', { name: '키워드 수정' }).click();
     await expect(root(page).locator('[data-nc-kw]')).toHaveCount(3);
     // 켠 키워드만, 걸린 글이 있는 것만 묶음(꺼진말은 꺼짐, 새말은 아직 걸린 글 없음). 머리 글자 = 키워드 · 건수 · 새 글.

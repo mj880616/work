@@ -21,7 +21,7 @@ const extra = { id: UID, lane: 'channel', url: 'https://example.org/u', title: '
 
 // S51-8 NEWS P4b: 목록 줄에는 별표 단추가 없다(★ 표시만). 별표는 상세 [☆ 별표]·줄 밀기, 폴더 정리는 ⋯ [별표 폴더] 칸(옛 [별표] 칩의 트리).
 async function openFolders(page) {
-  await page.locator('#outsideRoot [data-os-more]').click();
+  await page.locator('.sf-tools [data-os-more]').click();
   await page.locator('#osMenu').getByRole('button', { name: '별표 폴더' }).click();
   await expect(root(page).locator('.nc-panel-head')).toContainText('별표 폴더');
 }

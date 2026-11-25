@@ -29,6 +29,21 @@ for (const [width, height] of FOLD) {
     for (const [view, title] of VIEWS) {
       await go(page, view);
       // 찾기 입구는 전체 검색 모듈이 뜬 뒤에 붙는다(메뉴 창 입구와 같은 때). 붙은 뒤에 잰다 — 바쁜 러너에서 그 전에 재면 입구가 아직 없다.
+      // S70-54 UI-검색창하나로: 화면 찾기가 있는 화면(읽을 거리)은 입구 대신 그 화면 찾기 칸(+ 오른쪽 옮겨 온 단추)이 같은 자리·같은 높이다.
+      if (view === 'outside') {
+        const find = page.locator('#appView > .mobile-shell-header #gsScreenInput');
+        await expect(find, view).toBeVisible({ timeout: 15000 });
+        await expect(find).toHaveAttribute('placeholder', '읽을 거리에서 찾기');
+        await expect(page.locator('#appView > .mobile-shell-header .gs-menu-entry')).toBeHidden();
+        const f = await page.evaluate(() => { const h = document.querySelector('#appView > .mobile-shell-header'), n = h.querySelector('[data-mobile-view-name]').getBoundingClientRect(), b = h.querySelector('.mobile-shell-find .gs-field').getBoundingClientRect();
+          return { h: h.getBoundingClientRect().height, nameMid: n.y + n.height / 2, nameRight: n.right, mid: b.y + b.height / 2, x: b.x, fh: b.height, docW: document.documentElement.scrollWidth, vw: innerWidth }; });
+        expect(Math.round(f.h), view).toBe(36);
+        expect(Math.abs(f.mid - f.nameMid), view).toBeLessThanOrEqual(1.5);
+        expect(f.x, view).toBeGreaterThanOrEqual(f.nameRight + 8);
+        expect(f.fh, view).toBe(36);
+        expect(f.docW, view).toBeLessThanOrEqual(f.vw);
+        continue;
+      }
       await expect(page.locator('#appView > .mobile-shell-header .gs-menu-entry'), view).toBeVisible({ timeout: 15000 });
       const m = await head(page);
       expect(m.shown, view).toBe(true);

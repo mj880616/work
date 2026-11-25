@@ -73,7 +73,7 @@ for (const width of [412, 1280]) {
     await expect(form).toHaveCount(0);
     expect(seen.fills).toHaveLength(1);
     expect(seen.fills[0]).toMatchObject({ id: 'x1', title: '가짜 제목', url: 'https://www.example.org/real-article-1', body: '가짜 본문.' });
-    await expect(nd.locator('.nd-acts a[data-nd-link]')).toHaveAttribute('href', 'https://www.example.org/real-article-1');
+    await expect(nd.locator('.nd-top a[data-nd-link]')).toHaveAttribute('href', 'https://www.example.org/real-article-1');
     expect(server.items.find(i => i.id === 'x1').url).toBe('https://www.example.org/real-article-1');
     // 다시 [수정]을 열면 새 주소가 칸에 있고, 그대로 저장하면 url은 보내지 않는다.
     await nd.locator('[data-nd-ob-more]').click();
@@ -119,7 +119,7 @@ for (const width of [390, 1280]) {
     expect(seen.fills[0].body.startsWith('http')).toBe(false);
     expect(seen.fills[0].body).toContain('가짜 본문 첫 문단.');
     await expect(nd.locator('[data-nd-move-url]')).toHaveCount(0);
-    await expect(nd.locator('.nd-acts a[data-nd-link]')).toHaveAttribute('href', LONG);
+    await expect(nd.locator('.nd-top a[data-nd-link]')).toHaveAttribute('href', LONG);
     await expect(nd.locator('[data-nd-prose] p').first()).toContainText('가짜 본문 첫 문단.');
     expect(errors).toEqual([]);
   });

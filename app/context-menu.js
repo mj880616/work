@@ -90,6 +90,30 @@ function screenTrigger(target) {
   return list.length === 1 ? list[0] : null;
 }
 
+// S70-28 UI-우클릭전수 A: 화면 머리 ⋯가 없는 화면의 빈 곳 — 그 화면의 '새로 만들기' 단추(머리 줄 [+ 추가] 등)에 data-ctx-screen-item을
+// 붙여 두면, 빈 곳 우클릭이 그 단추들의 글자로 작은 메뉴(공용 줄 메뉴 row-menu.js)를 열고 고르면 그 단추를 그대로 누른다(같은 단추에서
+// 만든 목록 — 화면마다 따로 메뉴 목록을 만들지 않는다). 머리 ⋯(screen)가 있는 화면은 그 ⋯가 먼저. 표시가 없는 화면은 브라우저 메뉴 그대로.
+const SCREEN_ITEM = '[data-ctx-screen-item]';
+function screenItems(target) {
+  const node = target instanceof Element ? target : target?.parentElement;
+  if (!node || node.closest('.modal,[role="dialog"],[role="menu"],[popover]')) return null;
+  const panel = node.closest('.view-panel');
+  if (!panel) return null;
+  // 화면 이름 줄로 옮긴 단추(screen-tools.js, data-screen-tools-for)도 그 화면 것 — screenTrigger와 같은 길.
+  const list = [...panel.querySelectorAll(SCREEN_ITEM), ...(panel.id ? document.querySelectorAll(`[data-screen-tools-for="${CSS.escape(panel.id)}"] ${SCREEN_ITEM}`) : [])].filter(el => visible(el) && !el.closest('.modal,[role="dialog"]'));
+  return list.length ? list : null;
+}
+const itemLabel = el => (el.dataset.ctxScreenItem || el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').replace(/^\+\s*/, '').trim();
+function openScreenItems(items, x, y) {
+  import('./row-menu.js').then(({ openRowMenu }) => {
+    if (!items[0].isConnected) return;
+    openRowMenu(items[0], { key: 'screen-items', label: '이 화면', row: items[0], at: { x, y },
+      items: items.map((el, i) => ({ id: 'screen-item-' + i, label: itemLabel(el), icon: ROW_ICON_NEW })),
+      run: id => { const el = items[Number(id.slice(12))]; if (el?.isConnected && visible(el)) el.click(); } });
+  });
+}
+const ROW_ICON_NEW = 'M8 3.5v9M3.5 8h9';
+
 let pinned = null; // { trigger, x, y, observer, timer, panel, panelObserver }
 function unpin() {
   if (!pinned) return;
@@ -209,7 +233,15 @@ document.addEventListener('contextmenu', e => {
   const selection = window.getSelection?.();
   if (selection && !selection.isCollapsed && selection.toString().trim() !== '') return;
   const trigger = findTrigger(target) || screenTrigger(target);
-  if (!trigger) return;
+  if (!trigger) {
+    const items = screenItems(target);
+    if (!items || target.closest('a[href]')) return;
+    e.preventDefault();
+    closeDetails(false);
+    const rect = target.getBoundingClientRect();
+    openScreenItems(items, e.clientX || Math.round(rect.left + Math.min(rect.width / 2, 24)), e.clientY || Math.round(rect.top + Math.min(rect.height, 28)));
+    return;
+  }
   // A link (<a href>) inside the card keeps the browser's own menu (open in a new tab, copy link address). A card's own
   // "open" line (a link that sits next to its ⋯ in the same row, e.g. a project record line) is the card itself, not a link
   // in its text, so it still opens the ⋯ menu.

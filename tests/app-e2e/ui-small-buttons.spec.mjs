@@ -7,6 +7,7 @@ import { chooseBasketKind, basketKindButton, openKindMenu } from './helpers/bask
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 import { segBox } from './helpers/seg-box.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 // UI-버튼작게(2026-10-18 사용자 결정):
 // ① 바구니 노트·메모 읽기 화면 아래 버튼은 한 줄, 보이는 높이 32px(누르는 범위 44px), [연결하기]만 주 버튼 색. 첨부만 있는 메모도 같음. 노트는 UI-노트메뉴정리로 이 줄이 없어지고 [⋯] 안으로 들어갔다.
 // ② (옛 큰 창의 서식 도구줄 28px 시험은 창과 함께 지웠다.)
@@ -190,11 +191,11 @@ test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려�
  await keyboard(page,false);
  await expect(tabs).toBeVisible();await expect(sw).toBeVisible();
  // 노트 검색칸도 같은 공용 감지.
- await openKindMenu(page,'note');await basketKindButton(page,'note').tap();await page.locator('[data-note-search]').focus();await keyboard(page,true);
+ await openKindMenu(page,'note');await basketKindButton(page,'note').tap();await (await screenFind(page)).focus();await keyboard(page,true);
  await expect(tabs).toBeHidden();await expect(sw).toBeHidden();
  await keyboard(page,false);await expect(tabs).toBeVisible();await expect(sw).toBeVisible();await expect(page.locator('#basketView [data-note-list] .home-quick')).toBeVisible();
  // 일정 [일기]: 글 칸에 초점 → 자판.
- await page.locator('[data-note-search]').blur();
+ await (await screenFind(page)).blur();
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').tap();
  await page.locator('#appView .view-panel:not(.hidden) > .schedule-switch [data-view="diary"]').tap();
  const diarySwitch=page.locator('#diaryView .schedule-switch');await expect(diarySwitch).toBeVisible();

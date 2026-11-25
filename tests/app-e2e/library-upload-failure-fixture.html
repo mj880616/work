@@ -3,6 +3,8 @@
 <head><meta charset="utf-8"><title>Library upload failure fixture</title><link rel="stylesheet" href="/app/styles.css"></head>
 <body>
   <div id="toast" class="hidden"></div>
+  <!-- S70-54 UI-검색창하나로: 자료실 위 줄 [+]·⋯는 맨 위 줄 공용 자리(screen-find.js 상자)에 산다 — 앱 껍데기의 두 자리만 둔다. -->
+  <div class="app-topline"><div class="screen-tools-slot" data-screen-tools="top"></div></div><header class="mobile-shell-header" hidden><div class="screen-tools-slot" data-screen-tools="head"></div></header>
   <section id="libraryView"><input id="documentSearch"><div id="documentProject"></div><section id="libraryListCard" class="add-list-card"><div class="add-list-head"><h2>자료실</h2><div class="lu-head-actions"><button id="manageLibraryBtn" class="secondary" type="button">분류 수정</button><button id="newDocumentBtn" class="primary" type="button">+ 자료 등록</button></div></div><div id="documentList" class="card-list"></div></section></section>
   <div id="documentModal"><div class="modal-card">
     <label>자료명<input id="docTitle"></label>
