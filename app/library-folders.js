@@ -500,8 +500,11 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   // 표시는 오른쪽 목록과 왼쪽 나무 두 곳에 붙는다(S55-08).
   const marked=list=>document.querySelectorAll(list.split(',').flatMap(c=>['#documentList '+c,'#libraryFolderNav '+c]).join(','));
-  function clearMarks(){pokeDrag();clearTimeout(hoverTimer);hoverKey='';hideDropPanel();marked('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no,.lu-dragging,.lu-grabbed,.lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
+  // 마지막에 화면에 보여 준 놓을 곳(undefined = 이번 끌기에서 아직 보여 준 것 없음). PC 놓기(drop)는 이것 그대로 한다(S70-08b).
+  let shown;
+  function clearMarks(){shown=undefined;pokeDrag();clearTimeout(hoverTimer);hoverKey='';hideDropPanel();marked('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no,.lu-dragging,.lu-grabbed,.lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
   function showMarks(t){
+    shown=t||null;
     if(!t)document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-group'));
     marked('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no').forEach(el=>{if(el!==t?.head)el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no')});
     if(!t)return;t.head.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no');
@@ -631,7 +634,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     // S55-08: 끌기·놓기는 목록 상자 전체(#libraryListCard = 왼쪽 나무 + 오른쪽 목록)에서 받는다. 폰 길게 누르기는 지금처럼 목록만.
     const area=list.closest?.('#libraryListCard')||list;
     area.addEventListener('dragstart',e=>{
-      const d=dragFrom(e.target);if(!d)return;drag=d;markDragging(d);pokeDrag();
+      const d=dragFrom(e.target);if(!d)return;drag=d;shown=undefined;markDragging(d);pokeDrag();
       try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',d.id)}catch{}
       setDragGhostImage(e.dataTransfer,ghostLabel(d));
       // 폴더 토글이 없는 묶기에서는 왼쪽에 놓을 곳 목록을 띄운다. 끌기 시작 중에 DOM을 바꾸면 브라우저가 끌기를 취소하므로 한 박자 뒤에.
@@ -644,7 +647,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       e.preventDefault();try{e.dataTransfer.dropEffect='move'}catch{}
     });
     area.addEventListener('drop',e=>{
-      if(!drag)return;const t=dropFor(e),d=drag;drag=null;clearMarks();stopScroll();if(!t?.ok)return;e.preventDefault();commitDrop(d,t);
+      // S70-08b(명진 11/25 09:45 점선 '여기에 놓기'가 떴는데 '순서를 바꿨어요'): 원인(사실) — 놓을 때 drop 자리로 dropFor를 다시 계산해서, 마지막 dragover 때 보여 준
+      // 표시(가운데 = 안으로)와 놓는 순간의 판정(위·아래 끝 = 순서)이 갈렸다(놓기 직전 손 떨림, 끄는 중 저절로 펼침·굴리기로 줄이 움직인 뒤 등).
+      // 이제 놓기는 마지막에 화면에 보여 준 표시(shown — showMarks가 기억) 그대로 한다. 보인 것이 없을 때만 그 자리로 계산.
+      if(!drag)return;const t=shown!==undefined?shown:dropFor(e),d=drag;drag=null;clearMarks();stopScroll();if(!t?.ok)return;e.preventDefault();commitDrop(d,t);
     });
     area.addEventListener('dragend',()=>{drag=null;clearMarks();stopScroll()});
     bindTouch(list);
