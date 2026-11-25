@@ -5,6 +5,8 @@ export const BRIEF_FOLDER = '브리핑 요청함';
 export const BRIEF_POLL_MS = 4000;
 export const BRIEF_STALE_MS = 30 * 1000;   // 서버 brief-run.mjs BRIEF_STALE_MS와 같은 값
 export const BRIEF_SELECT = 'id,document_id,status,stage,step_no,step_total,page_count,brief,error_code,created_at,updated_at,finished_at,lease_until';
+// S70-27: 손으로 고친 한 장(DB 20261125143000). 적용 전(칸 없음 400)이면 화면이 BRIEF_SELECT로 다시 읽고 [고치기]만 끈다.
+export const BRIEF_SELECT_EDIT = `${BRIEF_SELECT},edited,edited_at`;
 const ERRORS = Object.freeze({
   no_text: '글자를 읽을 수 없는 파일이에요',
   unsupported: '브리핑할 수 없는 형식이에요',
@@ -54,7 +56,9 @@ export function rowState(row, now = new Date()) {
     const word = row.stage === 'read' ? '파일 읽기' : '만드는 중';
     return { kind: 'making', text: t ? `${word} ${Math.min(n, t)}/${t}` : '만드는 중', date: '' };
   }
-  if (row.status === 'done' && row.brief && typeof row.brief.lead === 'string') return { kind: 'done', text: row.brief.lead, date: doneDate(row.finished_at || row.updated_at, now) };
+  // S70-27: 손으로 고친 한 장(edited)이 있으면 그 요지(brief-edit-model.mjs shownBrief와 같은 규칙).
+  const shown = row.edited && typeof row.edited === 'object' && !Array.isArray(row.edited) ? row.edited : row.brief;
+  if (row.status === 'done' && row.brief && shown && typeof shown.lead === 'string') return { kind: 'done', text: shown.lead, date: doneDate(row.finished_at || row.updated_at, now) };
   return { kind: 'failed', text: errorLine(row.error_code), date: '' };
 }
 
@@ -94,7 +98,6 @@ export const SHOW_N = 3;
 export const GIST_TITLE = '요지';
 export const QUOTES_TITLE = '원문 인용';
 export const OURS_TAG = '우리 관련';
-export const LEGACY_LINE = '예전 방식 브리핑';
 export const moreLabel = n => `+ ${n}개 더 보기`;
 const strs = v => (Array.isArray(v) ? v.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim()) : []);
 const str = v => (typeof v === 'string' ? v.trim() : '');
@@ -275,7 +278,8 @@ const quoteLines = text => String(text).trim().split('\n').map(l => `> ${l}`).jo
 export function archiveNote({ doc, row, marks = [] } = {}) {
   if (!doc?.id || !row?.brief) return null;
   const name = String(doc.title || doc.file_name || '이름 없는 자료').trim();
-  const v = briefView(row.brief);
+  // S70-27: 손으로 고친 한 장이 있으면 그것을 보관한다(화면에 보이는 글 그대로).
+  const v = briefView(row.edited && typeof row.edited === 'object' && !Array.isArray(row.edited) ? row.edited : row.brief);
   const out = [`출처: ${[BRIEF_MEDIA, kstDay(row.finished_at || row.updated_at), name].filter(Boolean).join(' · ')}`];
   const meta = [fileBadge(doc.file_name, doc.mime_type), row.page_count ? `${row.page_count}쪽` : ''].filter(Boolean).join(' · ');
   if (meta) out[0] += ` (${meta})`;

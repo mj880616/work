@@ -108,7 +108,7 @@ test('weekly_draft: learns only from weeks before the asked week (no answer leak
   const read=calls.rest.find(c=>c.table==='app_weekly_exec_requests');
   assert.match(read.query,/week_start=lt\.2026-10-26/);
   assert.match(read.query,/select=workspace_id,week_start,feedback:draft->feedback,rules:draft->rules/);
-  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'),'no write but the usage count');
+  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'||c.table==='app_ai_usage_events'),'no write but the usage count');
   assert.equal(db.app_ai_daily_usage[0].requests,1);
   assert.ok(!/가상|교섭|규칙/.test(JSON.stringify(calls.logs)),'no text in logs');
   assert.ok(calls.logs.some(l=>l.code==='weekly_draft_done'&&l.detail.weeks===2&&l.detail.mode==='test'));

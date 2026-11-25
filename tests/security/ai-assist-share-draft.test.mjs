@@ -107,7 +107,7 @@ test('share_draft: re-reads the chosen records, sends s1… refs only, keeps ref
   assert.match(reads[2].query,/select=display_name,job_title/);
   assert.match(reads[0].query,new RegExp(`workspace_id=eq.${WS}&id=in.\\(${M1}\\)&deleted_at=is.null`));
   assert.match(reads[1].query,new RegExp(`workspace_id=eq.${WS}&id=in.\\(${N1},${U1}\\)&kind=in.\\(note,basket\\)`));
-  assert.deepEqual([...new Set(h.calls.rest.filter(c=>c.method!=='GET').map(c=>c.table))],['app_ai_daily_usage']);
+  assert.deepEqual([...new Set(h.calls.rest.filter(c=>c.method!=='GET').map(c=>c.table))],['app_ai_daily_usage','app_ai_usage_events']);
   assert.equal(h.db.app_ai_daily_usage[0].requests,1);
   const log=JSON.stringify(h.calls.logs);
   assert.match(log,/share_draft_done/);assert.ok(!/가상철도|단협|기자회견|010-/.test(log),'logs carry numbers only');
