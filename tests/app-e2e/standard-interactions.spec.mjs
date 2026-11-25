@@ -887,3 +887,74 @@ for (const [name, open] of BOARD_SCREENS) test(`K1·R2 ${name} PC 1280: 두 개 
   await page.getByRole('button', { name: '되돌리기' }).click();
   for (const it of items) await expect(it).toHaveCount(1);
 });
+
+// ---------- D6 순서 바꾸기 = 끌기만(S70-04 UI-순서는끌기로, 2026-11-25 명진 "위로 아래로 버튼 이거 불편함. 드래그하는걸로 다 통일해줘") ----------
+// ⋯ 메뉴·줄에 순서용 [위로][아래로]가 없다 / 끌어서(PC 마우스·폰 꾹 눌러 끌기) 순서를 바꾸면 서버에 저장돼 새로고침해도 그대로 / 키보드 Alt+↑↓로도 바뀐다.
+// 화면마다 {rows(): 줄 locator 목록 선택자, order(), more(id), menu, focus(id), reopen(), writes}를 돌려주는 여는 함수를 ORDER_SCREENS 표에 더한다.
+async function notesOrder(page, width) {
+  await page.setViewportSize({ width, height: 900 });
+  const errors = [], writes = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page);
+  await installViewPrefsServer(page);
+  const folders = Array.from({ length: 4 }, (_, i) => ({ id: U(100 + i), workspace_id: 'w', parent_id: null, name: '가상 폴더 ' + i, sort_order: 1024 * (i + 1), created_at: '2026-10-01T00:00:00Z', color: null }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => {
+    const req = r.request();
+    if (req.method() === 'GET') return r.fulfill({ json: structuredClone(folders) });
+    if (req.method() === 'PATCH') { const id = (new URL(req.url()).searchParams.get('id') || '').slice(3), body = req.postDataJSON(), x = folders.find(f => f.id === id); writes.push({ id, body }); Object.assign(x, body); return r.fulfill({ json: [structuredClone(x)] }); }
+    return r.fulfill({ status: 500, json: {} });
+  });
+  await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
+  const show = async () => { await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 }); await page.waitForFunction(() => window.KPTURouter?.go); await page.evaluate(() => window.KPTURouter.go('basket')); await chooseBasketKind(page, 'note'); };
+  await show();
+  const box = width >= 1000 ? '[data-nx-tree]' : '#noteRows';
+  const row = id => page.locator(`${box} [data-nx-folder="${id}"]`).first();
+  await expect(row(U(100))).toBeVisible();
+  return {
+    errors, writes, ids: folders.map(f => f.id).sort(), row,
+    order: () => page.locator(`${box} [data-nx-folder]`).evaluateAll(els => els.map(el => el.dataset.nxFolder)),
+    openMenu: async id => { await page.locator(`${box} [data-nx-folder-more="${id}"]`).first().click(); await expect(page.locator('#noteDocMenu')).toBeVisible(); return page.locator('#noteDocMenu'); },
+    focus: id => row(id).locator('button').first().focus(),
+    reopen: async () => { await page.reload(); await show(); await expect(row(U(100))).toBeVisible(); },
+  };
+}
+const ORDER_SCREENS = [['노트 폴더', notesOrder]];
+for (const [name, open] of ORDER_SCREENS) for (const width of [390, 1280]) test.describe(`D6 ${name} ${width}`, () => {
+  if (width < 1000) test.use({ hasTouch: true });
+  test(`D6 ${name} ${width}: ⋯ 메뉴에 위로·아래로 없음, 끌어서 순서 바꾸기(새로고침해도 그대로), Alt+↑↓`, async ({ page }) => {
+    const s = await open(page, width);
+    const [a, b, c, d] = s.ids;
+    expect(await s.order()).toEqual([a, b, c, d]);
+    for (const id of s.ids) {
+      const menu = await s.openMenu(id);
+      await expect(menu.locator('button, [role="menuitem"]', { hasText: /^\s*(위로|아래로|↑|↓)\s*$/ })).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await expect(menu).toBeHidden();
+    }
+    // 끌기: 마지막 줄(d)을 첫 줄(a) 윗부분(위 25% 안)에 놓는다 → d가 맨 앞.
+    const to = await s.row(a).boundingBox(), from = await s.row(d).boundingBox();
+    const target = { x: to.x + Math.min(60, to.width / 2), y: to.y + to.height * 0.1 };
+    if (width < 1000) {
+      await page.waitForTimeout(700);
+      await touchDrag(page, { x: from.x + Math.min(60, from.width / 2), y: from.y + from.height / 2 }, target, { hold: 650 });
+    } else {
+      await page.mouse.move(from.x + 60, from.y + from.height / 2); await page.mouse.down();
+      await page.mouse.move(from.x + 70, from.y + from.height / 2 + 6, { steps: 3 });
+      await page.mouse.move(target.x, target.y, { steps: 8 }); await page.mouse.up();
+    }
+    await expect.poll(s.order).toEqual([d, a, b, c]);
+    await s.reopen();
+    await expect.poll(s.order).toEqual([d, a, b, c]);
+    // 키보드: 초점 둔 줄에서 Alt+↓ = 한 칸 아래, Alt+↑ = 한 칸 위(눈에 보이는 단추 없이).
+    await s.focus(a);
+    await page.keyboard.press('Alt+ArrowDown');
+    await expect.poll(s.order).toEqual([d, b, a, c]);
+    await s.focus(c);
+    await page.keyboard.press('Alt+ArrowUp');
+    await expect.poll(s.order).toEqual([d, b, c, a]);
+    await s.reopen();
+    await expect.poll(s.order).toEqual([d, b, c, a]);
+    expect(s.errors).toEqual([]);
+  });
+});
