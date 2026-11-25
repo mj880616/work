@@ -240,10 +240,14 @@ class RecorderService : Service() {
 
     // ---- 알림줄 ----
     private fun goForeground(s: RecordRules.Session?) {
+        // S70-45: 플레이 판은 앞쪽 서비스가 없다(FG_SERVICES=false). 앱이 켜진 동안만 녹음하고(MainActivity가 startService로 부름),
+        // 앱을 나가면 MainActivity.onStop이 일시정지한다. 알림줄도 띄우지 않는다(띠·단추는 웹 화면).
+        if (!BuildConfig.FG_SERVICES) return
         ServiceCompat.startForeground(this, NOTE_ID, build(s), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
     }
 
     private fun notifyNow() {
+        if (!BuildConfig.FG_SERVICES) return
         val s = RecordHub.session() ?: return
         if (recorder == null) return
         getSystemService(NotificationManager::class.java)?.notify(NOTE_ID, build(s))

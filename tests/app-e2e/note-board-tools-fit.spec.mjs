@@ -48,12 +48,12 @@ const measure = page => page.evaluate(() => {
 });
 
 for (const width of [390, 412, 884, 1280]) {
-  test(`보드 단추 묶음: 겹침·잘림 없이 아홉 단추가 다 보이고 판 안쪽에 있다 (${width})`, async ({ page }) => {
+  test(`보드 단추 묶음: 겹침·잘림 없이 열 단추가 다 보이고 판 안쪽에 있다 (${width})`, async ({ page }) => {
     const errors = await openEmptyBoard(page, width);
     const m = await measure(page);
     // S69-33: [－] [100% ▾] [＋] 가운데 비율 글자, [전체] → [맞추기], 끝에 [전체 화면]. [노트 목록]은 전체 화면 안에서만 보인다.
-    // S69-91: [+ 주제] 옆에 [글자]·[도형▾]·[선▾](넣기). 좁은 폰에서도 한 줄·겹침 없이.
-    expect(m.buttons.map(b => b.label)).toEqual(['+ 주제', '글자', '도형▾', '선▾', '작게', '보드 비율 100% · 누르면 비율 선택', '크게', '맞추기 — 카드가 모두 보이게', '전체 화면']);
+    // S69-91: [+ 주제] 옆에 [글자]·[도형▾]·[선▾](넣기). 좁은 폰에서도 한 줄·겹침 없이. S70-32 ②: 그 옆 [이미지].
+    expect(m.buttons.map(b => b.label)).toEqual(['+ 주제', '글자', '도형▾', '선▾', '이미지 넣기', '작게', '보드 비율 100% · 누르면 비율 선택', '크게', '맞추기 — 카드가 모두 보이게', '전체 화면']);
     // 묶음은 판 테두리 안쪽 여백(4px 이상)을 지킨다.
     expect(m.tools.l - m.scroll.l).toBeGreaterThanOrEqual(4);
     expect(m.scroll.r - m.tools.r).toBeGreaterThanOrEqual(4);
