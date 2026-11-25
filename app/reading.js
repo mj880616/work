@@ -151,8 +151,12 @@ function drawList() {
   const box = view()?.querySelector('[data-rd-list]');
   if (!box) return;
   const head = el('div', 'rd-head');
+  // S70-40b ④ READ-목록머리(docs/design/reading-screens.md 5절 ② (가), 명진 11/25 16:16 "추천대로"): PC 틀(761px~)은 위 줄(app-topline)에
+  // 화면 이름 '저장한 글'이 이미 보이므로 머리 줄 제목은 그리지 않는 쪽(reading.css가 761px~에서 뺌) — 머리 줄은 보기 탭 + ＋ 아이콘만.
+  // 폰·접은 폴드(~760px)는 위 줄이 없어 제목이 화면 이름이고 탭은 하단바 위 공용 전환 줄로 간다(머리 = 제목 + ＋).
   head.append(el('h2', 'rd-title', '저장한 글'));
-  const add = btn('rd-add mini', '+ 추가', {rdAdd: '1'});
+  const add = btn('rd-add icon-btn', '＋', {rdAdd: '1'});
+  add.setAttribute('aria-label', '글 추가'); add.title = '글 추가';
   add.setAttribute('aria-expanded', String(state.adding));
   head.append(add);
   const parts = [head];

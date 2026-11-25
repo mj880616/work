@@ -158,7 +158,7 @@ test('PC 1280: 요약 글 우클릭 = 앱 메뉴, Shift+F10도 같은 메뉴, �
   await expect(menu).toBeVisible();
   expect(await page.evaluate(() => window.__ctx.at(-1))).toBe(true);
   const names = await menu.locator('[data-row-item]').allInnerTexts();
-  expect(names.map(t => t.trim())).toEqual(['수정', '밑줄 저장', '메모', '노트로', '복사']);
+  expect(names.map(t => t.trim())).toEqual(['수정', '형광펜', '밑줄 저장', '메모', '노트로', '복사']);
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
 

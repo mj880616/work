@@ -35,7 +35,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {createFeedHold} from './feed-hold.js';
 import {createSelectMode} from './select-mode.js';
 import {deleteSequentially} from './library-select.js';
-import {loadHighlights,sourceHighlights,onHighlights,paintMarks,bindMarks,saveFromSelection,noteFromSelection,replyFromSelection,revealMark} from './text-highlights.js';
+import {loadHighlights,sourceHighlights,sourceMarks,markActions,onHighlights,paintMarks,bindMarks,saveFromSelection,noteFromSelection,replyFromSelection,revealMark} from './text-highlights.js';
 import {bindSelectZone,selectBarActs,runSelectBarAct} from './text-select-bar.js';
 import {EDIT_LABEL,EDITED_TAG,REDO_ASK,REVERT_ASK,REVERT_LABEL,applyEdits,editFields,fitsServer,isEdited,lineMenuItems,shownBrief} from './brief-edit-model.mjs';
 import {openRowMenu,appMenuPoint} from './row-menu.js';
@@ -238,7 +238,7 @@ function drawDetail(){
   const body=el('div','br-body');body.dataset.brZone=doc.id;body.dataset.textSizeTarget='';body.append(...parts);
   box.replaceChildren(...head,body);box.hidden=false;
   paintTextSize(box);
-  paintMarks(body,sourceHighlights('brief',doc.id));
+  paintMarks(body,sourceMarks('brief',doc.id)); // S70-16: 밑줄 + 형광펜(글 안 표시)
 }
 
 // ---------- S70-27 손으로 고치기 ----------
@@ -436,7 +436,7 @@ function bind(){
   hold.bind(v);
   // 밑줄: 칠한 밑줄을 누르면 공용 밑줄 메뉴, 본문에서 글을 선택하면 공용 선택 줄. 출처는 지금 연 자료(이름·브리핑 날짜만, 주소 없음).
   bindMarks(v);
-  bindSelectZone(v,{zone:'[data-br-zone]',source:zone=>{const id=zone?.dataset?.brZone;return briefSource(state.docs.find(d=>d.id===id),state.briefs.get(id))},onSave:saveFromSelection,onNote:noteFromSelection,onReply:replyFromSelection});
+  bindSelectZone(v,{zone:'[data-br-zone]',source:zone=>{const id=zone?.dataset?.brZone;return briefSource(state.docs.find(d=>d.id===id),state.briefs.get(id))},onSave:saveFromSelection,onNote:noteFromSelection,onReply:replyFromSelection,marks:markActions});
   onHighlights(()=>{if(window.KPTURouter?.current==='brief')drawDetail()});
   // 파일 놓기: 화면 아무 곳에나 놓으면 자료 등록 창(브리핑 요청함 폴더)에 담는다.
   v.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files')){e.preventDefault();v.classList.add('br-dropping')}});
