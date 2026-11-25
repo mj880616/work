@@ -84,7 +84,7 @@ test('library_sort: own folders only, the current folder is not offered, refs ma
     {id:D1,folder_id:GYO,new:null,why:'교섭 자료'},
     {id:D3,folder_id:null,new:{name:'산별전환',parent_id:GYO},why:'새 주제'},
   ]);
-  assert.deepEqual(h.calls.rest.filter(c=>c.method!=='GET').map(c=>c.table),['app_ai_daily_usage','app_ai_daily_usage']);
+  assert.deepEqual(h.calls.rest.filter(c=>c.method!=='GET').map(c=>c.table),['app_ai_daily_usage','app_ai_daily_usage','app_ai_usage_events']);
   assert.equal(h.db.app_ai_daily_usage[0].requests,1);
   assert.equal(DAILY_LIMITS.library_sort,30);
 });
