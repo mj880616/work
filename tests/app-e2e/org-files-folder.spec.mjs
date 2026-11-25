@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,SB} from './helpers/library-folder-server.mjs';
 // ORG-기록자료폴더(명진 11/24 "앞으로 조직관리에서 각 조직 기록 자료 추가하면 … 각 조직 폴더에 저장"):
 // 담당조직 자료로 올린 자료는 자료실 '모으는 폴더 › 그 조직 폴더'에 하나 들어간다(복사 아님). 첫 사용 때 한 줄로 묻고([예]·[다른 폴더]), 폴더가 없으면 만들고,
-// 조직 이름이 바뀌어도 짝지은 폴더(id)를 쓴다. 남의 작업공간 조직(공유로 보이는 조직)은 내 자료실 폴더에 넣지 않는다. 지난 자료 모으기는 누를 때만, 되돌리기 있음.
+// 조직 이름이 바뀌어도 짝지은 폴더(id)를 쓴다. 남의 작업공간 조직(공유로 보이는 조직)은 내 자료실 폴더에 넣지 않는다. 지난 자료 모으기는 모으는 폴더를 처음 정할 때 저절로(S70-29 — 조직 관리 ⋯ 메뉴 줄은 지움), 되돌리기 있음.
 // 가짜 서버만 쓴다. 이름은 지어낸 것.
 const FOLDERS=[
   libFolder('pp',null,{name:'가상 부모',sort_order:1024}),
@@ -77,17 +77,36 @@ test.describe('PC 1440',()=>{
     expect(errors).toEqual([]);
   });
 
-  test('[지난 조직 기록 자료도 조직 폴더로 모으기]: 폴더 밖 자료만 옮김 N, 고른 폴더 자료는 그대로, [되돌리기]',async({page})=>{
+  // S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 메뉴 줄 대신, 모으는 폴더를 처음 정할 때([예]) 지난 조직 기록 자료도 저절로 모은다.
+  test('처음 정할 때 저절로: [예] → 지난 조직 기록 자료 중 폴더 밖 것만 조직 폴더로, 고른 폴더 자료는 그대로, [되돌리기]',async({page})=>{
     const D=n=>`00000000-0000-4000-8000-00000000b00${n}`;
-    const {s,errors}=await boot(page,{orgFilesFolder:'pp'});
+    const {s,errors}=await boot(page,{orgFilesFolder:null});
     s.docs.push({id:D(1),workspace_id:'workspace-1',organization_id:ORGS[0].id,title:'가'},{id:D(2),workspace_id:'workspace-1',organization_id:ORGS[0].id,title:'나'},{id:D(3),workspace_id:'workspace-1',organization_id:ORGS[1].id,title:'다'});
     s.items.push({workspace_id:'workspace-1',document_id:D(2),folder_id:'other'});
-    await page.evaluate(()=>import('./org-files-folder.js').then(m=>m.gatherPastOrgFiles()));
-    await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('옮김 2');
-    expect(itemOf(s,D(1))).toBe('c1');expect(itemOf(s,D(3))).toBe('c2');expect(itemOf(s,D(2))).toBe('other');
-    await page.locator('#kptuNotice').getByRole('button',{name:'되돌리기'}).click();
+    await uploadFor(page,ORGS[0],'첫 자료.pdf');
+    const notice=page.locator('#kptuNotice');
+    await expect(notice.locator('.kptu-notice-text')).toHaveText('조직 기록 자료를 ‘가상 부모’ 폴더에 모을까요?');
+    await notice.getByRole('button',{name:'예',exact:true}).click();
+    await expect.poll(()=>s.orgFilesFolder).toBe('pp');
+    await expect.poll(()=>itemOf(s,D(1))).toBe('c1');
+    await expect.poll(()=>itemOf(s,D(3))).toBe('c2');
+    expect(itemOf(s,D(2))).toBe('other');
+    await expect.poll(()=>itemOf(s,UUIDS['upload-1'])).toBe('c1');
+    await expect(notice.locator('.kptu-notice-text')).toContainText('지난 조직 기록 자료');
+    await notice.getByRole('button',{name:'되돌리기'}).click();
     await expect.poll(()=>itemOf(s,D(1))).toBeUndefined();
     await expect.poll(()=>itemOf(s,D(3))).toBeUndefined();expect(itemOf(s,D(2))).toBe('other');
     expect(errors).toEqual([]);
   });
+  test('이미 정한 뒤에는 지난 자료를 다시 모으지 않는다(올린 자료만 넣음)',async({page})=>{
+    const D=n=>`00000000-0000-4000-8000-00000000b00${n}`;
+    const {s,errors}=await boot(page,{orgFilesFolder:'pp'});
+    s.docs.push({id:D(1),workspace_id:'workspace-1',organization_id:ORGS[0].id,title:'가'});
+    await uploadFor(page,ORGS[0],'새 자료.pdf');
+    await expect.poll(()=>itemOf(s,UUIDS['upload-1'])).toBe('c1');
+    await page.waitForTimeout(300);
+    expect(itemOf(s,D(1))).toBeUndefined();
+    expect(errors).toEqual([]);
+  });
+
 });

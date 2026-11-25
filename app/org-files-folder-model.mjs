@@ -73,5 +73,4 @@ export function gatherPlan({docs, items, visibleIds, receiveId = null, orgIds}) 
 }
 
 export const ASK_TEXT = name => word`조직 기록 자료를 ‘${name}’ 폴더에 모을까요?`;
-export const GATHER_LABEL = word('지난 조직 기록 자료도 조직 폴더로 모으기');
-export const gatherLine = (moved, failed = 0) => `옮김 ${moved}` + (failed ? ` · 못 옮김 ${failed}` : '');
+export const gatherLine = (moved, failed = 0) => word`지난 조직 기록 자료 ${moved}개를 조직 폴더로 모았어요` + (failed ? ` · 못 옮김 ${failed}` : '');
