@@ -247,6 +247,8 @@ on:
       - 'tests/ops-work-timing.test.mjs'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
+      - 'scripts/ci/e2e-select.mjs'
+      - 'tests/ci-e2e-select.test.mjs'
       - 'tests/files-search-row.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/outside-search-model.test.mjs'
@@ -540,6 +542,8 @@ on:
       - 'tests/ops-work-timing.test.mjs'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
+      - 'scripts/ci/e2e-select.mjs'
+      - 'tests/ci-e2e-select.test.mjs'
       - 'tests/files-search-row.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/outside-search-model.test.mjs'
@@ -814,6 +818,9 @@ jobs:
         run: node --test tests/ops-work-timing.test.mjs
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
         run: node --test tests/ci-e2e-shard.test.mjs
+
+      - name: Check related browser E2E selection (OPS-시험줄)
+        run: node --test tests/ci-e2e-select.test.mjs
       - name: Check files top row two-pane icon button (UI-파일검색줄)
         run: node --test tests/files-search-row.test.mjs
       - name: Check news daily limits count only what a person used (S69-72 등록)
