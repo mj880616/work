@@ -221,6 +221,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
+      - 'tests/brief-edit-model.test.mjs'
       - 'tests/brief-marks-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
       - 'tests/report-library-pick-model.test.mjs'
@@ -523,6 +524,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
+      - 'tests/brief-edit-model.test.mjs'
       - 'tests/brief-marks-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
       - 'tests/report-library-pick-model.test.mjs'
@@ -899,7 +901,7 @@ jobs:
         run: node --test tests/s59-20-small-fixes.test.mjs
 
       - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
-        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs
+        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-edit-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs
 
       - name: S67-39 사업 보고·조직 보고 자료실에서 선택·빼기 규칙
         run: node --test tests/report-library-pick-model.test.mjs
@@ -1215,7 +1217,7 @@ jobs:
         run: node --test tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
 
       - name: Check notes, editor tables and text units (STAB-단위시험등록)
-        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
+        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs tests/doc-scan-model.test.mjs tests/note-related-model.test.mjs tests/note-link-model.test.mjs
 
       - name: Check phone share intake model (APP-폰앱새로 ②, APP-공유노트할일)
         run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs tests/reading-model.test.mjs tests/reading-fail-reason.test.mjs tests/save-bookmarklet-model.test.mjs
