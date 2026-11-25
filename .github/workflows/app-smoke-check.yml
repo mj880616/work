@@ -12,6 +12,7 @@ on:
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'tests/same-file.test.mjs'
+      - 'tests/ui-no-updown-buttons.test.mjs'
       - 'supabase/functions/basket-files/photo-prune.ts'
       - 'supabase/functions/basket-files/note-delete.ts'
       - 'tests/security/basket-photo-prune.test.mjs'
@@ -1111,6 +1112,8 @@ jobs:
         run: node --test tests/photo-info.test.mjs
       - name: "Select bars (S48-54 UI-고르기줄: 사진·크게 보기·노트·자료실 고르기 줄 공용 부품, 같은 칸·선 아이콘)"
         run: node --test tests/act-bar.test.mjs
+      - name: "Order is drag only (S70-04 UI-순서는끌기로: 순서용 [위로][아래로]·↑↓ 단추 글자 없음)"
+        run: node --test tests/ui-no-updown-buttons.test.mjs
       - name: "Photo sources (PHOTO-출처: 섞기·중복 판정·출처 상태·폰 다리)"
         run: node --test tests/photo-sources.test.mjs
       - name: "Phone photo read errors (PHOTO-폰사진못읽음: 앱 실패 종류·이유 글·공용 실패 표시 이유, synthetic)"

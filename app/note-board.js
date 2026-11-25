@@ -140,7 +140,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   const cardEls = new Map(), lineEls = new Map(), textEls = new Map(), textSize = new Map(), htmlOf = new Map();
   let texts = [], textById = new Map(), tdrag = null, textSel = null, editing = null, bend = null, lastTap = null, afterClick = null, bendEnded = false;
   let tree = buildTree([]), lay = {rects:new Map(), hidden:new Set()}, draft = null, barOpen = null; // 생각 지도: 나무·자동 배치·새로 쓰는 상자·막대에서 펼친 줄
-  let rz = null, nudge = null, lend = null, lmove = null; // S69-91: 선 끝 끌기·양 끝이 점인 선 통째로 옮기기 // 크기 손잡이 끌기·화살표로 옮기는 중(0.5초 멈추면 저장)
+  let rz = null, nudge = null, lend = null, lmove = null, ddrag = null; // S70-03: 새로 쓰는 칸 둘레 끌기 // S69-91: 선 끝 끌기·양 끝이 점인 선 통째로 옮기기 // 크기 손잡이 끌기·화살표로 옮기는 중(0.5초 멈추면 저장)
   let drag = null, pan = null, pinch = null, wire = null, selected = null, lineSel = null, menu = null, suppressUntil = 0, linesQuietUntil = 0, keyTimer = null, opts = {};
   const touches = new Map();
   let multi = new Set(), spaceDown = false, blankDown = null, full = null; // 여러 장 고르기(이번 화면만)·Space 누름·마우스 빈 곳 누름·전체 화면
@@ -933,7 +933,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); void endEdit(true, true); }
       else if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); void endEdit(true, true).then(saved => { if (saved) addChild(saved.id); }); }
     });
-    area.addEventListener('blur', () => { if (editing?.area === area && !(rz && rz.el === el) && !(tdrag && tdrag.el === el)) void endEdit(true); }); // 크기·자리를 바꾸는 손 = 쓰기 그대로
+    area.addEventListener('blur', () => { if (editing?.area === area && !(rz && rz.el === el) && !(tdrag && tdrag.el === el) && !ddrag) void endEdit(true); }); // 크기·자리를 바꾸는 손 = 쓰기 그대로
     grow(); area.focus({preventScroll:true}); area.setSelectionRange(area.value.length, area.value.length);
     keepNodeVisible(id);
   }
@@ -977,7 +977,8 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     draft = {x:0, y:0, parent_id:null, ord:0, side:null, font:FONT_DEFAULT, ...spec};
     selectText(null);
     renderTexts();
-    textEls.get(DRAFT)?.classList.add('nb-draft');
+    const del = textEls.get(DRAFT); del?.classList.add('nb-draft');
+    del?.toggleAttribute('data-nb-draft-child', !!draft.parent_id); // 가지 새 칸은 자리를 배치가 정한다(끌 수 없음 — 이동 표시 없음)
     startEdit(DRAFT);
   }
   // 새 주제 자리: 화면 가운데에서 시작해 노트 카드·상자와 겹치지 않는 곳(아래로, 그다음 오른쪽으로 비켜 감).
@@ -1084,7 +1085,24 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   const edgeKick = () => { if (!edgeFrame) edgeFrame = requestAnimationFrame(edgeLoop); };
 
   // ---- 두 손가락(확대·축소 + 이동) ----
+  // ---- S70-03 새로 쓰는 칸(뿌리 주제·글자) 둘레 끌기: 글쓰기는 그대로 두고 자리만 옮긴다(저장은 글을 다 쓴 뒤 그 자리로). ----
+  function followDraft(e) {
+    if (!draft || !ddrag) return;
+    const p = pointOf(e), x = Math.max(0, Math.round(ddrag.start.x + p.x - ddrag.p0.x)), y = Math.max(0, Math.round(ddrag.start.y + p.y - ddrag.p0.y));
+    draft = {...draft, x, y};
+    const n = tree.byId.get(DRAFT); if (n) { n.x = x; n.y = y; }
+    relayout();
+  }
+  function endDraftDrag(cancel = false) {
+    const d = ddrag; if (!d) return; ddrag = null;
+    if (d.moved) {
+      dragOn(false); textEls.get(DRAFT)?.classList.remove('nb-dragging'); suppressUntil = Date.now() + 300;
+      if (cancel && draft) { draft = {...draft, ...d.start}; const n = tree.byId.get(DRAFT); if (n) Object.assign(n, d.start); relayout(); }
+    }
+    if (editing?.isNew && document.activeElement !== editing.area) editing.area.focus({preventScroll:true});
+  }
   function startPinch() {
+    endDraftDrag(true);
     cancelDrag(); cancelWire(); cancelTextDrag(); cancelBend(); cancelResize(); cancelLineEnd(); lmove = null; pan = null;
     const [a, b] = [...touches.values()];
     pinch = {d:Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)), mid:{x:(a.x + b.x) / 2, y:(a.y + b.y) / 2}, view:{...view}};
@@ -1115,6 +1133,10 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (lgrip) { startLineEnd(e, lgrip); return; } // 고른 선의 끝 동그라미
     const grip = e.target.closest?.('[data-nb-resize]');
     if (grip) { startResize(e, grip); return; } // 크기 손잡이(글 쓰는 중에도)
+    // S70-03: 폰은 손가락 닿는 범위가 넓어 둘레 띠를 눌러도 입력칸이 잡힌다 — 새로 쓰는 칸(뿌리·글자)은 입력칸 안에서 끌어도 옮긴다(짧게 누르면 글쓰기 그대로).
+    if (e.pointerType === 'touch' && editing?.isNew && draft && !draft.parent_id && !opts.pickActive && e.target.closest?.('[data-nb-text-edit]') === editing.area) {
+      ddrag = {pointerId:e.pointerId, x:e.clientX, y:e.clientY, p0:pointOf(e), start:{x:draft.x, y:draft.y}, touch:true, moved:false}; return;
+    }
     if (e.target.closest?.('[data-nb-text-edit],[data-nb-fold]')) return; // 입력칸 안·접기 단추는 그대로
     if (e.target.closest?.('.nb-tools,.nb-selbar,.nb-node-bar')) return; // 도구 줄·고른 카드 줄·상자 막대 단추는 그대로(click이 맡는다)
     const handle = e.target.closest?.('[data-nb-handle]');
@@ -1154,6 +1176,14 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       return;
     }
     const textEl = e.target.closest?.('[data-nb-text]');
+    if (textEl && editing?.el === textEl && editing.isNew) { // S70-03: 새로 쓰는 칸 둘레 — 누르기 = 글쓰기 그대로(입력칸 초점을 잃지 않게), 끌기 = 옮기기(뿌리·글자만)
+      e.preventDefault(); closeLineMenu();
+      if (draft && !draft.parent_id && !opts.pickActive) {
+        ddrag = {pointerId:e.pointerId, x:e.clientX, y:e.clientY, p0:pointOf(e), start:{x:draft.x, y:draft.y}, touch:e.pointerType !== 'mouse', moved:false};
+        try { scroll.setPointerCapture(e.pointerId); } catch { /* 잡기 실패해도 움직임은 받는다 */ }
+      }
+      return;
+    }
     if (textEl) { // 상자: 끌기 = 그 가지째 옮기기, 짧게 누름 = 고르기(고른 상자면 고치기)
       const id = textEl.dataset.nbText, t = textById.get(id); if (!t || t.pending || (editing?.el === textEl && editing.isNew)) return;
       if (editing?.el === textEl) e.preventDefault(); // 글 쓰는 중 테두리 끌기 = 옮기기(입력칸 초점은 그대로)
@@ -1194,6 +1224,13 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   scroll.addEventListener('pointermove', e => {
     if (e.pointerType === 'touch' && touches.has(e.pointerId)) { touches.set(e.pointerId, local(e)); if (pinch) { e.preventDefault(); movePinch(); return; } }
     if (rz && e.pointerId === rz.pointerId) { e.preventDefault(); followResize(e); return; }
+    if (ddrag && e.pointerId === ddrag.pointerId) {
+      if (!ddrag.moved) {
+        if (Math.hypot(e.clientX - ddrag.x, e.clientY - ddrag.y) <= (ddrag.touch ? SLOP : 4)) return;
+        ddrag.moved = true; dragOn(true); textEls.get(DRAFT)?.classList.add('nb-dragging');
+      }
+      e.preventDefault(); followDraft(e); return;
+    }
     if (wire && e.pointerId === wire.pointerId) { e.preventDefault(); wire.last = {clientX:e.clientX, clientY:e.clientY}; followWire(); edgeKick(); return; }
     if (lend && e.pointerId === lend.pointerId) { e.preventDefault(); followLineEnd(e); return; }
     if (lmove && e.pointerId === lmove.pointerId) {
@@ -1245,6 +1282,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       if (pinch) { if (touches.size < 2) { pinch = null; if (!touches.size) dragOn(false); } return; }
     }
     if (rz && e.pointerId === rz.pointerId) { if (e.type === 'pointercancel') cancelResize(); else finishResize(e); return; }
+    if (ddrag && e.pointerId === ddrag.pointerId) { if (e.type !== 'pointercancel' && ddrag.moved) followDraft(e); endDraftDrag(e.type === 'pointercancel'); return; }
     if (wire && e.pointerId === wire.pointerId) { if (e.type === 'pointercancel') cancelWire(); else finishWire(e); return; }
     if (lend && e.pointerId === lend.pointerId) { if (e.type === 'pointercancel') cancelLineEnd(); else finishLineEnd(e); return; }
     if (lmove && e.pointerId === lmove.pointerId) {

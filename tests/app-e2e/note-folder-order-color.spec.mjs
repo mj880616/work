@@ -4,7 +4,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S49-38 FOLDER-순서·색 ② (설계 docs/design/folder-color-order.md): 노트 폴더·노트 끌기 순서(줄 사이 = 순서 / 줄 가운데 = 넣기), 색 8가지(고르기·새로고침 뒤 유지·
-// 폴더 고르기 창·꼬리표·포스트잇 같은 색), 노트 정렬 [내가 정한 순서]일 때만 노트 끌기, 폰은 꾹 눌러 끌기 + ⋯ [위로][아래로]. 이름·내용은 모두 가짜.
+// 폴더 고르기 창·꼬리표·포스트잇 같은 색), 노트 정렬 [내가 정한 순서]일 때만 노트 끌기, 폰은 꾹 눌러 끌기, 키보드는 Alt+↑↓(S70-04: 메뉴 [위로][아래로]는 없앴다). 이름·내용은 모두 가짜.
 test.use({ hasTouch: true });
 // 시험 화면은 시계가 멈춰 있어(home-entry) '끌기 직후 누름 삼킴 시간'이 저절로 안 지난다: 시계를 앞으로 보낸다.
 let clockStep = 0;
@@ -221,11 +221,14 @@ test.describe('PC 1440', () => {
     expect(orders.n3).toBeLessThan(orders.n1); expect(orders.n1).toBeLessThan(orders.n2);
     // 순서 쓰기는 고친 날을 바꾸지 않는다.
     expect(f.rows.find(r => r.id === 'n3').updated_at).toBe('2026-10-14T01:00:00Z');
-    // ⋯ [아래로](끌기 직후 누름 삼킴 시간이 지난 뒤).
+    // S70-04: ⋯ 메뉴에 [위로][아래로]가 없다. 키보드 Alt+↓ = 한 칸 아래(끌기 직후 누름 삼킴 시간이 지난 뒤).
     await tick(page);
     await page.locator('#noteRows [data-note-row-more="n3"]').click(); // S69-27: 왼쪽 나무에도 같은 노트 줄이 있어 오른쪽 목록 줄
-    await expect(page.locator('#noteDocMenu [data-note-up]')).toHaveCount(0);
-    await page.locator('#noteDocMenu [data-note-down]').click();
+    await expect(page.locator('#noteDocMenu')).toBeVisible();
+    await expect(page.locator('#noteDocMenu button', { hasText: /^(위로|아래로)$/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.locator('#noteRows [data-nx-note="n3"] button').first().focus();
+    await page.keyboard.press('Alt+ArrowDown');
     await expect.poll(() => noteOrder(page)).toEqual(['n1', 'n3', 'n2']);
     // 새로고침해도 같은 정렬·같은 순서.
     await page.reload(); await f.show();
@@ -239,23 +242,34 @@ test.describe('PC 1440', () => {
     expect(f.errors).toEqual([]);
   });
 
-  test('폴더 ⋯ 메뉴: 색 선택·위로·아래로(맨 앞은 위로 없음, 맨 끝은 아래로 없음)', async ({ page }) => {
+  // S70-04 UI-순서는끌기로(명진 11/25 "위로 아래로 버튼 불편함, 드래그로 다 통일"): 폴더 ⋯ 메뉴에 [위로][아래로]가 없고, 키보드는 Alt+↑↓.
+  test('폴더 ⋯ 메뉴: 위로·아래로 없음, 키보드 Alt+↑↓로 한 칸씩(초점 그대로), 새로고침해도 그대로', async ({ page }) => {
     const f = await fixture(page, 1440);
-    await more(page, U(1)).click();
-    await expect(rootMenu(page).locator('button')).toHaveText(['이 폴더로 들어가기', '새 노트', '선택', '새 폴더', '이름 바꾸기', '색 선택…', '아래로', '옮기기…', '잠금', '폴더 삭제']);
-    await page.keyboard.press('Escape');
-    await more(page, U(3)).click();
-    await expect(rootMenu(page).locator('[data-nx-folder-up]')).toHaveText('위로');
-    await expect(rootMenu(page).locator('[data-nx-folder-down]')).toHaveCount(0);
-    await rootMenu(page).locator('[data-nx-folder-up]').click();
+    for (const n of [1, 2, 3]) {
+      await more(page, U(n)).click();
+      await expect(rootMenu(page).locator('button')).toHaveText(['이 폴더로 들어가기', '새 노트', '선택', '새 폴더', '이름 바꾸기', '색 선택…', '옮기기…', '잠금', '폴더 삭제']);
+      await page.keyboard.press('Escape');
+    }
+    await page.locator(`[data-nx-tree] [data-nx-folder="${U(3)}"] button`).first().focus();
+    await page.keyboard.press('Alt+ArrowUp');
     await expect.poll(() => treeOrder(page)).toEqual([U(1), U(3), U(2)]);
     expect(f.folders.find(x => x.id === U(3)).sort_order).toBeLessThan(f.folders.find(x => x.id === U(2)).sort_order);
+    // 초점은 옮긴 줄에 남아 한 번 더 누르면 또 한 칸.
+    await page.keyboard.press('Alt+ArrowUp');
+    await expect.poll(() => treeOrder(page)).toEqual([U(3), U(1), U(2)]);
+    // 맨 앞에서 Alt+↑는 아무것도 하지 않는다(저장 없음).
+    const count = f.writes.length;
+    await page.keyboard.press('Alt+ArrowUp');
+    await page.waitForTimeout(200);
+    expect(f.writes.length).toBe(count);
+    await page.reload(); await f.show();
+    await expect.poll(() => treeOrder(page)).toEqual([U(3), U(1), U(2)]);
     expect(f.errors).toEqual([]);
   });
 });
 
 test.describe('폰 412', () => {
-  test('꾹 눌러 끌어 폴더 순서 바꾸기, 끌지 않고 떼면 선택, ⋯ [위로]·색', async ({ page }) => {
+  test('꾹 눌러 끌어 폴더 순서 바꾸기(새로고침해도 그대로), 끌지 않고 떼면 선택, ⋯ 위로·아래로 없음·색', async ({ page }) => {
     const f = await fixture(page, 412);
     const cdp = await page.context().newCDPSession(page);
     const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
@@ -287,9 +301,9 @@ test.describe('폰 412', () => {
     await expect(rootMenu(page).locator('button').first()).toHaveText('이 폴더로 들어가기');
     await expect(rootMenu(page).locator('button').nth(1)).toHaveText('새 노트');
     await expect(rootMenu(page).locator('button').nth(2)).toHaveText('선택');
-    await expect(rootMenu(page).locator('[data-nx-folder-up]')).toHaveText('위로');
-    await rootMenu(page).locator('[data-nx-folder-up]').tap();
-    await expect.poll(order).toEqual([U(3), U(2), U(1)]);
+    await expect(rootMenu(page).locator('button', { hasText: /^(위로|아래로)$/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(rootMenu(page)).toBeHidden();
     await tick(page);
     await page.waitForTimeout(700);
     // 색 고르기(폰): 동그라미 9개가 화면 안에 보이고 누르면 저장.
@@ -300,6 +314,9 @@ test.describe('폰 412', () => {
     await rootMenu(page).locator('[aria-label="황토"]').tap();
     await expect.poll(() => f.rpc).toEqual([{ p_id: U(2), p_color: 2 }]);
     await expect(page.locator(`#noteRows [data-nx-folder="${U(2)}"] .ft-ico`)).toHaveAttribute('data-fc', '2');
+    // 끌어서 바꾼 순서는 서버에 저장돼 새로고침해도 그대로.
+    await page.reload(); await f.show();
+    await expect.poll(order).toEqual([U(3), U(1), U(2)]);
     await cdp.detach();
     expect(f.errors).toEqual([]);
   });
