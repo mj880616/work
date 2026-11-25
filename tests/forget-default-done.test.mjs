@@ -57,7 +57,10 @@ test('서버 옮기기: 처리 전·까닭 없음·마감 없음·직접 부름 
     assert.ok(where.includes(part), part);
   assert.match(where, /set status = 'done', decided_at = v_now, auto_done = 'expired', auto_done_at = v_now/);
   assert.match(fn, /timezone\('Asia\/Seoul', v_now\)\)::date - 1\)::timestamp at time zone 'Asia\/Seoul'/, '서울 어제 0시');
-  assert.doesNotMatch(sql.replace(/^--.*$/gm, ''), /app_family_notes|app_journal_memorable/, '가족 잊지 말기·소식 표 변경 없음');
+  // 가족 잊지 말기·소식 표는 건드리지 않는다: 바꾸는 표는 후보 표 하나뿐.
+  const code = sql.replace(/--.*$/gm, '');
+  const touched = [...code.matchAll(/\b(?:update|alter table|insert into|delete from)\s+([a-z_]+\.[a-z_]+)/gi)].map(m => m[1]);
+  assert.deepEqual([...new Set(touched)].sort(), ['public.app_todo_candidates', 'supabase_migrations.schema_migrations'], '후보 표와 migration 기록만');
   assert.doesNotMatch(fn, /summary|evidence/, '글 칸을 읽지 않음');
   assert.match(sql, /revoke all on function public\.app_forget_auto_expire\(\) from public, anon, authenticated, service_role;/);
   assert.doesNotMatch(sql, /grant execute on function public\.app_forget_auto_expire/, '실행권은 아무에게도 주지 않음(예약만)');
