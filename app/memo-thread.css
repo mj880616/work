@@ -17,7 +17,9 @@
    원인: 노트 화면의 넓은 글 칸 규칙(basket.css #basketView textarea — 높이 240px·안쪽 12px·크기 손잡이)이 이 부품 칸에도 걸렸다(다른 화면 넓은 칸 규칙도 같은 위험).
    그래서 부품 칸 규칙은 :is(#appView, body)로 id 하나 무게를 갖게 해 어느 화면·창에 붙어도 이 모양이 이긴다(화면 쪽은 고치지 않음). */
 .memo-th-line { display:flex; align-items:flex-start; gap:6px; }
-:is(#appView, body) .memo-th .memo-th-line textarea, :is(#appView, body) .memo-th .memo-th-editing textarea { display:block; box-sizing:border-box; flex:1 1 auto; width:100%; min-width:0; min-height:var(--ds-compact-height,32px); margin:0; padding:5px 8px; font:inherit; font-size:var(--ds-text-read,14px); line-height:20px; border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-ink); resize:none; overflow-y:hidden; white-space:pre-wrap; }
+/* 글자 크기·색·테두리는 놓인 화면·창 규칙 그대로(아래 약한 규칙), 한 줄 높이·여백·손잡이만 강하게 정한다. */
+.memo-th-line textarea, .memo-th-editing textarea { font:inherit; font-size:var(--ds-text-read,14px); border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-ink); }
+:is(#appView, body) .memo-th .memo-th-line textarea, :is(#appView, body) .memo-th .memo-th-editing textarea { display:block; box-sizing:border-box; flex:1 1 auto; width:100%; min-width:0; min-height:var(--ds-compact-height,32px); margin:0; padding:5px 8px; line-height:20px; resize:none; overflow-y:hidden; white-space:pre-wrap; }
 :is(#appView, body) .memo-th .memo-th-editing textarea { margin:0 0 6px; }
 .memo-th-line > .memo-th-save { flex:none; }
 .memo-th-status:not([hidden]) { margin:4px 0 0; font-size:12px; color:var(--kptu-danger); }
