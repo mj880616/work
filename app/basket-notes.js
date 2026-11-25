@@ -1095,7 +1095,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const target = noteLinkId(a.getAttribute('href')); if (!target) return;
     e.preventDefault();
     const row = notes.find(n => n.id.toLowerCase() === target);
-    if (!row || pinLock.noteHidden(row)) { showToast(row ? '잠긴 노트예요.' : '연결한 노트를 찾지 못했어요. 지워졌을 수 있어요.'); return; }
+    if (!row || pinLock.noteHidden(row)) { showToast(row ? '잠긴 노트예요.' : '연결한 노트를 찾지 못했어요. 삭제됐을 수 있어요.'); return; }
     if (!busy) open(row.id);
   });
   const photosFor = id => notePhotos({rt, getNote:() => selected?.id === id ? selected : null, upload:noteUpload(id)});
