@@ -1285,7 +1285,7 @@ function backToTree() {
 // 폰 나무 저장소 상자 머리 ⋯: [이 폴더로 들어가기] = 그 저장소 맨 위 목록(돌아올 나무 자리 기억, focusTreeFolder).
 function boxMenu(b) {
   const source = b.dataset.fxBoxmenu;
-  if (!SOURCES.includes(source)) return;
+  if (!source || !SOURCE_NAME[source]) return;
   openRowMenu(b, {key: 'box:' + source, label: SOURCE_NAME[source], items: [{id: 'only', label: FOLDER_ENTER_LABEL}], run: id => { if (id === 'only') focusTreeFolder(folderKey(source, null)); }});
 }
 // 같은 부모 안 폴더 순서(위로·아래로): 나무가 그리는 순서(lookOrder) 그대로.
@@ -2178,13 +2178,20 @@ function paintBarNow() {
     // 반대 칸이 내 PC면 바구니 문이 받을 수 있을 때만(0.4.0+ · 드라이브나 폴더를 연 칸).
     const why = dest ? pcWhy(pickedRows(p), dest) : `${side(i ^ 1)} 칸에서 받을 폴더를 여세요`;
     const off = why ? ` disabled title="${esc(why)}"` : '';
-    bar.innerHTML = UNPICK_HTML + countHtml(`${n}개 (${side(i)})`) + sendButtonsHtml(i, off, keys)
+    bar.innerHTML = UNPICK_HTML + countHtml(`${n}개 (${side(i)})`) + enterPickedHtml(p) + sendButtonsHtml(i, off, keys)
       + TOLIB_BTN + (n === 1 ? renameHtml(keys) : '') + lookButtonsHtml(p) + starHtml(p) + trashHtml(keys);
     return;
   }
   // 시안 ③: '✕ N개 · [복사] [옮기기] [자료실로] [이름] [별표] [휴지통]'(쓰지 않는 ⋯는 두지 않는다 — ⋯는 폭이 모자랄 때만).
-  bar.innerHTML = UNPICK_HTML + countHtml(`${n}개`) + COPY_CUT_HTML + TOLIB_BTN
+  bar.innerHTML = UNPICK_HTML + countHtml(`${n}개`) + enterPickedHtml(p) + COPY_CUT_HTML + TOLIB_BTN
     + (n === 1 ? renameHtml(false) : '') + lookButtonsHtml(p) + starHtml(p) + PH_TRASH_HTML;
+}
+// UI-폴더줄크기(S69-99): 손가락 화면·좁은 폭 목록 칸(⋯가 없는 줄 — 폰 두 칸·좁은 폴드)에서 폴더 하나를 꾹 눌러(마우스는 Ctrl+누르기·우클릭) 고르면 막대 첫 단추 [들어가기](전의 두 손가락 벌리기 대신).
+// ⋯가 있는 줄(나무·'그 폴더만')은 ⋯ 첫 줄 [이 폴더로 들어가기], PC는 우클릭 같은 메뉴.
+function enterPickedHtml(p) {
+  if (p.picked.size !== 1 || !(TOUCH.matches || !window.matchMedia('(min-width:761px)').matches)) return ''; // 우클릭 메뉴가 없는 폭(row-menu.js appMenuPoint)·손가락 화면
+  const r = pickedRows(p)[0];
+  return r?.is_folder ? sbActHtml({attrs: 'data-fx-enter-picked', icon: 'folder', label: '들어가기', title: FOLDER_ENTER_LABEL, rank: 1}) : '';
 }
 function paintPicks(p = P()) {
   for (const b of paneEl(p)?.querySelectorAll('[data-fx-row]') || []) {
@@ -4084,6 +4091,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-tfile]')) { const r = state.treeRows.get(b.dataset.fxTfile); if (r) openPreview(r); return; }
   if (b.matches('[data-fx-tmenu]')) { treeMenu(b); return; }
   if (b.matches('[data-fx-boxmenu]')) { boxMenu(b); return; }
+  if (b.matches('[data-fx-enter-picked]')) { const q = P(), r = pickedRows(q)[0]; if (r?.is_folder) { unpick(q); goFolder(r.source, r.item_id, q, {down: focusBox(q)}); } return; }
   // 위치 줄·상자 머리 [맨 위]·같은 이름 폴더 줄처럼 나무 줄이 아닌 [data-fx-go]는 그 폴더로 들어간다.
   // 두 칸 ▾ 선택 창 나무([data-fx-ptree])는 '이 칸에 열 폴더 고르기'라 눌러 고르면 그 폴더가 열리고 창이 닫힌다(그대로).
   // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게'): PC·폴드 왼쪽 나무 폴더 이름 누르기 = 지금 칸을 그 폴더로(하위 폴더가 있어도),

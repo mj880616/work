@@ -338,6 +338,14 @@ export async function enterRow(page, row) {
     await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
     return;
   }
-  await row.locator('xpath=ancestor-or-self::*[contains(concat(" ",normalize-space(@class)," ")," ft-row ")][1]').locator('[data-fx-tmenu]').first().click();
-  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
+  const more = row.locator('xpath=ancestor-or-self::*[contains(concat(" ",normalize-space(@class)," ")," ft-row ")][1]').locator('[data-fx-tmenu]').first();
+  if (await more.count()) {
+    await more.click();
+    await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
+    return;
+  }
+  // ⋯가 없는 목록 줄(폰 두 칸·좁은 폴드): 꾹 눌러(마우스 화면은 Ctrl+누르기) 고른 뒤 고르기 막대 첫 단추 [들어가기].
+  if (await page.evaluate(() => matchMedia('(hover: none) and (pointer: coarse)').matches)) { const { touchDrag } = await import('./touch-drag.mjs'); await touchDrag(page, row); }
+  else await row.click({ modifiers: ['Control'] });
+  await page.locator('#filesRoot [data-fx-enter-picked]').click();
 }
