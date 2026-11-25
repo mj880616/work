@@ -26,7 +26,7 @@ export function alignMessage(done, sum, last, why) {
   return `드라이브 폴더를 다 맞추지 못했어요 — ${STAGE_WORDS[why] || STAGE_WORDS[last?.stage] || STAGE_WORDS.rounds}(${counts}${left}). 다시 누르면 이어서 해요.`;
 }
 // S69-41(명진 11/24 "이게 자료실에 있는게 좀 뜬금없는느낌임"): [앱 폴더 모으기](S69-22)는 앱 전체 드라이브 폴더 기능이라
-// 내 프로필 '구글 드라이브' 칸([한곳으로 모으기], drive-folders-panel.js)으로 옮겼다. 이 줄에는 저장 위치와 [열기 ↗]만 남는다.
+// 내 프로필 '구글 드라이브' 칸(drive-folders-panel.js — S70-29에 버튼은 지우고 서버가 저절로)으로 옮겼다. 이 줄에는 저장 위치와 [열기 ↗]만 남는다.
 /** 서버 답 place → 그릴 값 {path:[이름…], url, pairs:{앱 폴더 id: 드라이브 폴더 id}} 또는 null(모양이 어긋나면 그리지 않음). */
 export function cleanPlace(place) {
   if (!place || typeof place !== 'object' || typeof place.url !== 'string' || !DRIVE_FOLDER_URL.test(place.url)) return null;
