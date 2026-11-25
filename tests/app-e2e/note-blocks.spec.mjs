@@ -258,8 +258,13 @@ for (const width of [1280, 390]) test(`노트에서 블록 편집 켜기 → 끌
   await expect(page.locator('[data-note-body-field] .ed-grip')).toBeVisible();
   const top = (await field.locator('p').first().boundingBox()).y + 2;
   // 손잡이는 누른 셋째 문단 옆에 선다(첫 문단 옆에 남으면 끌어도 순서가 그대로다).
-  const gripAt = await page.locator('[data-note-body-field] .ed-grip').boundingBox(), thirdAt = await third.boundingBox();
-  expect(Math.abs((gripAt.y + gripAt.height / 2) - (thirdAt.y + thirdAt.height / 2))).toBeLessThan(thirdAt.height);
+  // S70-33: 블록 편집을 켜면 손잡이는 먼저 첫 문단(커서 자리) 옆에 서고, 누른 뒤 편집기가 커서를 옮겨(selectionchange — 브라우저가 조금 뒤에 알림)
+  // 셋째 옆으로 간다. 손잡이가 셋째 옆에 선 모습을 기다린다(누르자마자 한 번 재면 아직 첫 문단 옆일 수 있다).
+  const gripOff = async () => {
+    const g = await page.locator('[data-note-body-field] .ed-grip').boundingBox(), t = await third.boundingBox();
+    return Math.abs((g.y + g.height / 2) - (t.y + t.height / 2)) / t.height;
+  };
+  await expect.poll(gripOff).toBeLessThan(1);
   if (touch) await touchDrag(page, top, '[data-note-body-field]');
   else {
     const g = await page.locator('[data-note-body-field] .ed-grip').boundingBox();
