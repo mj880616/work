@@ -686,6 +686,8 @@ export function validateExpanded(sql, { version, name }) {
   // unschedule is only for re-registering the same name later in this file (no bare job removal).
   for (const jobName of cron.unscheduled) if (!cron.scheduled.has(jobName)) reject('cron-shape');
   if (cron.scheduled.size) review.cron = [...cron.scheduled].sort(); // key only when present (older plans keep their shape)
+  // 같은 이름 다시 등록용 unschedule 이름. 실행 단계가 cron 함수 결과 행(작업 번호·참거짓)을 셀 때 쓴다(S70-01b).
+  if (cron.unscheduled.size) review.cronUnscheduled = [...cron.unscheduled].sort();
   // A granted new column may not be dropped, re-added or renamed anywhere in the file (name reuse).
   if (state.columnGrants.some(g => state.taintedColumns.has(`${g.table}.${g.column}`))) reject('grant-existing');
   // Nor may the file write rows of that table or add a trigger on it (which could copy existing column values into the new column).
