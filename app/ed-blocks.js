@@ -1,8 +1,9 @@
 // NOTE-노션편집 ①(나) (명진 2026-11-24 21:41 "노션의 자유로운 편집", 11-25 03:19 "블록 끌어오기는 켜고 끌 수 있게 / 때로는 블로그 글
 // 쓰기처럼"): the note editor's block parts, mounted by ed-editor.js (createDocEditor blocks·slash options). Nothing here saves.
 //   - Block handle ⋮⋮ (only while 블록 편집 is on): beside the top-level block under the mouse (a phone: the block with the cursor).
-//     Drag it to move the block (a phone: press and hold the handle, then drag); press it for the block menu (위로·아래로·복제·지우기
+//     Drag it to move the block (a phone: press and hold the handle, then drag); press it for the block menu (복제·지우기
 //     and 바꾸기: 본문·제목 1~3·글머리·번호·할 일·인용·접기·코드). Off = no handle, no menu, no gutter: the text looks as before (블로그 글쓰기).
+//     순서는 끌기 + 키보드 Alt+↑ / Alt+↓(글자 안 커서 또는 손잡이에 초점) — 메뉴에 순서 단추 없음(S70-04·S70-34, standard-interactions D6).
 //   - '/' list (on or off, wherever the opener asks for slash): '/' typed on an empty line opens a small list (제목 1~3·글머리·번호·할 일 체크·
 //     인용·구분선·표·사진·접기·코드); letters typed after it narrow the list; ↑ ↓ choose, Enter (or Tab) puts it in, Esc closes it.
 //   - 접기 (toggle): Enter at the end of a folded ▸ line starts a new line after the fold (not a hidden one inside it).
@@ -195,7 +196,7 @@ export function mountBlocks({pm, view, schema, root, box, bar = root, handles = 
   bar.append(menu);
   let menuFor = -1;
   const item = (key, text) => { const b = make('button', '', text); b.type = 'button'; b.dataset.edBlockCmd = key; b.setAttribute('role', 'menuitem'); return b; };
-  menu.append(item('up', '위로'), item('down', '아래로'), item('copy', '복제'), item('del', '삭제'), make('span', 'ed-block-sep', '바꾸기'));
+  menu.append(item('copy', '복제'), item('del', '삭제'), make('span', 'ed-block-sep', '바꾸기'));
   for (const [key, text] of TURN_ITEMS) menu.append(item('turn:' + key, text));
   function openMenu(index) {
     const node = view.state.doc.maybeChild(index);
@@ -203,8 +204,6 @@ export function mountBlocks({pm, view, schema, root, box, bar = root, handles = 
     menuFor = index;
     const text = isTextual(node);
     for (const b of menu.querySelectorAll('[data-ed-block-cmd^="turn:"]')) b.disabled = !text || b.dataset.edBlockCmd === 'turn:' + kindOf(node);
-    menu.querySelector('[data-ed-block-cmd="up"]').disabled = index === 0;
-    menu.querySelector('[data-ed-block-cmd="down"]').disabled = index >= view.state.doc.childCount - 1;
     menu.hidden = false; grip.setAttribute('aria-expanded', 'true');
     menu.style.left = '0px'; menu.style.top = '0px'; menu.style.maxHeight = '';
     const g = grip.getBoundingClientRect(), m = menu.getBoundingClientRect(), vh = window.visualViewport?.height || innerHeight, vw = innerWidth;
@@ -286,8 +285,6 @@ export function mountBlocks({pm, view, schema, root, box, bar = root, handles = 
     if (!node) return;
     let pos = 0; for (let i = 0; i < index; i++) pos += doc.child(i).nodeSize;
     const end = pos + node.nodeSize, tr = view.state.tr;
-    if (cmd === 'up') { moveBlock(index, index - 1); return; }
-    if (cmd === 'down') { moveBlock(index, index + 2); return; }
     if (cmd === 'copy') {
       tr.insert(end, node);
       tr.setSelection(node.isAtom ? pm.NodeSelection.create(tr.doc, end) : pm.TextSelection.near(tr.doc.resolve(end + 1)));
@@ -388,6 +385,18 @@ export function mountBlocks({pm, view, schema, root, box, bar = root, handles = 
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { active = (active + (e.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length; paintSlash(); return true; }
       if (e.key === 'Enter' || e.key === 'Tab') { const it = matches[active]; if (it) chooseSlash(it[0]); return true; }
       if (e.key === 'Escape') { closeSlash(true); return true; }
+    }
+    // D6: Alt+↑ / Alt+↓ = 커서가 있는 블록을 한 칸 위·아래로(블록 편집이 켜져 있을 때). 커서는 글자 안 같은 자리에 남는다.
+    if (on && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !v.composing && slashBox.hidden) {
+      const sel = v.state.selection, $h = sel.$head;
+      if ($h.depth < 1 || !sel.empty) return true;
+      const i = $h.index(0), off = $h.pos - $h.before(1), up = e.key === 'ArrowUp';
+      if (!moveBlock(i, up ? i - 1 : i + 2)) return true;
+      const at = up ? i - 1 : i + 1, doc = v.state.doc;
+      let start = 0; for (let k = 0; k < at; k++) start += doc.child(k).nodeSize;
+      const pos = Math.min(start + off, start + doc.child(at).nodeSize - 1);
+      try { v.dispatch(v.state.tr.setSelection(pm.TextSelection.near(v.state.doc.resolve(pos))).scrollIntoView()); } catch { /* 블록 처음 자리 그대로 */ }
+      return true;
     }
     // 접기: Enter at the end of a folded ▸ line goes on after the fold.
     if (e.key === 'Enter' && !e.shiftKey && !v.composing) {

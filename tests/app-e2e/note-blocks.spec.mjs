@@ -1,7 +1,7 @@
 // NOTE-노션편집 ①(나) (명진 11/24 21:41, 11/25 03:19): 노트 블록 편집. 합성 데이터만.
 // - 끈 상태가 기본(손잡이 없음, 글쓰기 그대로). 서식 줄 [블록]으로 켜면 손잡이 ⋮⋮가 보이고, 끄면 사라진다.
 // - 손잡이를 끌어 블록 순서를 바꾸고(PC는 마우스 끌기, 폰은 꾹 누른 뒤 끌기), 저장 뒤 다시 불러와도 그 순서다.
-// - 손잡이를 누르면 블록 메뉴(위로·아래로·복제·지우기·바꾸기).
+// - 손잡이를 누르면 블록 메뉴(복제·지우기·바꾸기). 순서는 끌기 + Alt+↑↓만(메뉴에 위로·아래로 없음, D6).
 // - '/' 목록으로 제목·접기 블록을 넣는다(블록 편집을 꺼도 쓸 수 있다). 접기는 접힘 상태가 저장되고, 게시(받는 화면) 글에서도 보인다.
 import {test, expect} from '@playwright/test';
 import {appOrigin} from './helpers/test-origin.mjs';
@@ -68,7 +68,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       expect(await box.evaluate(el => getComputedStyle(el).paddingLeft)).toBe(pad);
     });
 
-    test('손잡이를 끌어 순서 바꾸기(↶ 한 번에 되돌림) · 누르면 블록 메뉴(위로·복제·지우기·바꾸기)', async ({page}) => {
+    test('손잡이를 끌어 순서 바꾸기(↶ 한 번에 되돌림) · Alt+↑↓ · 누르면 블록 메뉴(복제·지우기·바꾸기, 위로·아래로 없음)', async ({page}) => {
       await open(page, 'blocks=on');
       const box = page.locator('.ed-input');
       await reach(page, box.locator('p').nth(2));
@@ -88,15 +88,29 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       await expect(page.locator('.ed-drop-line')).toBeHidden();
       await press(page.locator('.ed-tools').getByRole('button', {name: '되돌리기', exact: true}));
       await expect.poll(() => texts(page)).toEqual(['첫째', '둘째', '셋째']);
-      // 블록 메뉴: 둘째를 위로 → 복제 → 제목 2로 바꾸기 → 지우기.
+      // D6 키보드: 글자 안 커서에서 Alt+↓ / Alt+↑ = 그 블록 한 칸 아래·위(커서는 같은 글자 자리, 이어서 또 누를 수 있음).
+      await reach(page, box.locator('p').nth(0));
+      await page.keyboard.press('End');
+      await page.keyboard.press('Alt+ArrowDown');
+      await expect.poll(() => texts(page)).toEqual(['둘째', '첫째', '셋째']);
+      await page.keyboard.press('Alt+ArrowDown');
+      await expect.poll(() => texts(page)).toEqual(['둘째', '셋째', '첫째']);
+      await page.keyboard.press('Alt+ArrowUp');
+      await expect.poll(() => texts(page)).toEqual(['둘째', '첫째', '셋째']);
+      await page.keyboard.press('Alt+ArrowUp'); await page.keyboard.press('Alt+ArrowUp'); // 맨 위에서 더 올라가지 않는다
+      await expect.poll(() => texts(page)).toEqual(['첫째', '둘째', '셋째']);
+      await page.keyboard.type('!');
+      expect(await page.evaluate(() => window.ed.getValue().doc.content[0].content[0].text)).toBe('첫째!');
+      await page.keyboard.press('Backspace');
+      // 블록 메뉴: 순서 단추 없음 → 둘째를 제목 2로 바꾸기 → 복제 → 지우기.
       await reach(page, box.locator('p').nth(1));
       await press(page.locator('.ed-grip'));
       const menu = page.getByRole('menu', {name: '블록 메뉴'});
       await expect(menu).toBeVisible();
-      await expect(menu.getByRole('menuitem')).toHaveText(['위로', '아래로', '복제', '삭제', '본문', '제목 1', '제목 2', '제목 3', '글머리 목록', '번호 목록', '할 일 체크', '인용', '접기 블록', '코드']);
-      await press(menu.getByRole('menuitem', {name: '위로'}));
-      await expect.poll(() => texts(page)).toEqual(['둘째', '첫째', '셋째']);
-      await reach(page, box.locator('p').first());
+      await expect(menu.getByRole('menuitem')).toHaveText(['복제', '삭제', '본문', '제목 1', '제목 2', '제목 3', '글머리 목록', '번호 목록', '할 일 체크', '인용', '접기 블록', '코드']);
+      await page.keyboard.press('Escape');
+      await expect(menu).toBeHidden();
+      await reach(page, box.locator('p').nth(1));
       await press(page.locator('.ed-grip'));
       await press(menu.getByRole('menuitem', {name: '제목 2'}));
       await expect(box.locator('h3.ed-h2')).toHaveText('둘째');
