@@ -40,7 +40,7 @@ test('자료: 대표 낱말 하나로 묻고, 자료 줄만 2개', () => {
 });
 test('화면 연결: 읽기 화면 칸 하나, 기존 검색 RPC(자료만)·AI 없음·기기 저장 없음', () => {
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
-  assert.match(notes, /<section class="note-rel-box" data-note-related aria-label="관련 노트·자료" hidden><\/section>/);
+  assert.match(notes, /<section class="note-rel-box" data-note-related aria-label="연결·관련 노트" hidden><\/section>/);
   assert.match(notes, /hidden:note => pinLock\.noteHidden\(note\)/);
   const ui = readFileSync(new URL('../app/note-related.js', import.meta.url), 'utf8');
   assert.match(ui, /searchRecords\(word, \{kind: 'document', per: 2\}\)/);
