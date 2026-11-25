@@ -1,7 +1,7 @@
 // S68-09 READ-읽을거리함(명진 11/22 "Raindrop 가져올 것 ㄱ", 위치 "B: 메뉴에 새 칸"): 읽을 거리의 순수 계산. DOM·네트워크 없음(node --test).
 // 저장은 서버 표 public.app_reading_items(DB 20261122100000 — 자기 작업공간 주인만). 원문 받아 오기는 기존 Edge note-import 답(글자 블록)을 그대로 쓴다.
 // 밑줄은 기존 표 app_news_highlights(종류 'reading')와 공용 부품 text-highlights.js. 여기서는 주소 다듬기·줄 값·거르기·원문 글자·상태 한 줄만 만든다.
-import {readImportUrl, hostOf, resultOutcome, failInfo} from './note-import-model.mjs';
+import {readImportUrl, hostOf, resultOutcome, failInfo, makeSource, NOTE_BODY_MAX, NOTE_TITLE_MAX} from './note-import-model.mjs';
 import {shareArticleUrl, shareArticleTitle} from './share-intake-model.mjs';
 import {urlTitle} from './url-title.mjs';
 
@@ -118,9 +118,18 @@ export function bodyPatch(result, nowIso = new Date().toISOString()) {
   return {...meta, body: null, body_state: FAIL_STATE[outcome.reason] || 'failed', body_at: nowIso};
 }
 // 이미 사람이 단 제목이 있으면 원문 제목으로 덮지 않는다(사이트도 같음).
+// S70-44: 다만 지금 제목이 사이트 이름뿐이면(예전 서버가 게시판형 누리집에서 사이트 이름을 제목으로 읽었던 줄) 새로 읽은 글 제목으로 바꾼다.
+const nameKey = v => String(v ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
+export function siteOnlyTitle(row, patch = {}) {
+  const t = nameKey(row?.title);
+  if (!t) return false;
+  const names = [row?.site, patch?.site].map(nameKey).filter(k => k.length >= 2);
+  for (const part of hostOf(row?.url).split('.')) if (part.length >= 3) names.push(nameKey(part));
+  return names.includes(t);
+}
 export function keepOwn(row, patch) {
   const out = {...patch};
-  if (row?.title && out.title) delete out.title;
+  if (row?.title && out.title && !(siteOnlyTitle(row, patch) && !siteOnlyTitle({...row, title: out.title}, patch))) delete out.title;
   if (row?.site && row.site !== hostOf(row?.url) && out.site) delete out.site;
   return out;
 }
@@ -147,9 +156,16 @@ export const canRetry = row => !NO_RETRY.includes(BODY_STATES.includes(row?.body
 export const REFETCH_SINCE = '2026-11-23T04:00:00+09:00';
 export const AUTO_BATCH = 2;
 const AUTO_STATES = Object.freeze(['pending', 'failed', 'robots']);
-export function needsRefetch(row, since = REFETCH_SINCE) {
+// S70-44 READ-제목사이트이름: 제목이 사이트 이름뿐인 줄은 고친 서버(이 시각 뒤)로 한 번 다시 읽는다 — 한 번 정리 단추 없이 목록을 열 때 저절로.
+// 다시 읽은 뒤에는 body_at이 이 시각보다 뒤라 또 읽지 않는다(새 제목을 못 얻어도 되풀이 없음).
+export const TITLE_REFETCH_SINCE = '2026-11-25T18:00:00+09:00';
+export function needsRefetch(row, since = REFETCH_SINCE, titleSince = TITLE_REFETCH_SINCE) {
   if (!isId(row?.id) || !row?.url) return false;
   const s = BODY_STATES.includes(row?.body_state) ? row.body_state : 'pending';
+  if ((s === 'ok' || s === 'paywall') && !linkOf(row) && siteOnlyTitle(row)) {
+    const at = Date.parse(row?.body_at), cut = Date.parse(titleSince);
+    return !Number.isFinite(at) || at < cut;
+  }
   if (!(AUTO_STATES.includes(s) || (s === 'bot_check' && linkOf(row)))) return false;
   if (s === 'pending') return true;
   const at = Date.parse(row?.body_at), cut = Date.parse(since);
@@ -208,4 +224,31 @@ export function sourceOf(row) {
   if (!isId(row?.id)) return null;
   const l = lineOf(row);
   return {type: 'reading', id: row.id, title: l.title, media: l.site || null, date: row?.saved_at || null, url: row?.url || null};
+}
+
+// S69-98 NOTE-에버노트 ⑤(명진 11/25 "좋아 모두 다 넣어!"): 글 보기 [노트로 만들기] — 받아 둔 원문 사본 + 출처 주소 + 저장 시각을 새 노트 한 장으로.
+// 새 저장소 없음: 노트는 기존 노트 만들기 길(createNoteDoc), 원래 주소는 노트의 원문 정보(metadata.source, 주소로 가져오기와 같은 모양)로도 남긴다.
+// 읽을 거리 줄·원문 사본은 그대로 둔다(복사). 노트 글자 상한을 넘으면 뒤 문단부터 빼고 한 줄로 알린다.
+// → {title, raw_text, source, cut} | null(줄 id·https 주소가 없을 때)
+export const NOTE_CUT_LINE = '(뒷부분은 원래 페이지에서 읽어 주세요)';
+export function savedStamp(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return '';
+  const d = new Date(t + 9 * 3600000), two = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
+}
+export function readingNote(row, body, {max = NOTE_BODY_MAX} = {}) {
+  if (!isId(row?.id)) return null;
+  const l = lineOf(row);
+  const source = makeSource({url: row?.url, site: l.site, fetched_at: row?.body_at || undefined, state: 'ok'});
+  if (!source) return null;
+  const stamp = savedStamp(row?.saved_at);
+  const tail = ['---', '출처: ' + [l.site, source.url].filter(Boolean).join(' · '), stamp ? '저장: ' + stamp : ''].filter(Boolean).join('\n');
+  const len = v => [...v].length;
+  let paras = paragraphs(body), cut = false;
+  const join = list => [list.join('\n\n'), cut ? NOTE_CUT_LINE : '', tail].filter(Boolean).join('\n\n');
+  let raw = join(paras);
+  while (len(raw) > max && paras.length) { paras = paras.slice(0, -1); cut = true; raw = join(paras); }
+  if (len(raw) > max) return null;
+  return {title: [...l.title].slice(0, NOTE_TITLE_MAX).join('').trim(), raw_text: raw, source, cut};
 }

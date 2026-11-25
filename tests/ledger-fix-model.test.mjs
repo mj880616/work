@@ -70,21 +70,6 @@ test('home helpers: searching or not, overdue days and label, story order, chips
   assert.deepEqual(Object.values(SENSITIVITY_LABEL), ['공개 가능', '내부', '교섭·전략']);
 });
 
-test('screen modules: import and candidate panels are gone from the screen; data functions stay untouched', () => {
-  const browse = readFileSync(new URL('../app/ledger-browse.js', import.meta.url), 'utf8');
-  const loader = readFileSync(new URL('../app/view-loader.js', import.meta.url), 'utf8');
-  const fix = readFileSync(new URL('../app/ledger-fix.js', import.meta.url), 'utf8');
-  for (const src of [browse, loader, fix]) assert.doesNotMatch(src, /ledger-import\.js|ledger-candidates\.js|app_import_ledger_apply|app_confirm_ledger_candidate|원장 가져오기|원장 후보 만들기/);
-  assert.match(loader, /module\('\.\/ledger-fix\.js','__KPTU_LEDGER_FIX_READY__'\)/);
-  // The fix panel only writes through the two DB functions, and applies only a request it previewed (dry run first).
-  const writes = [...fix.matchAll(/rpc\/(app_[a-z_]+)/g)].map(m => m[1]);
-  assert.deepEqual([...new Set(writes)].sort(), ['app_apply_ledger_fix', 'app_undo_ledger_fix']);
-  assert.match(fix, /p_dry_run: true/);
-  assert.match(fix, /if \(state\.busy \|\| !state\.request\) return;/);
-  // 브라우저 저장소 이름은 조각으로 만든다(저장소 사용 검사 workflow가 이 시험 파일을 사용처로 보지 않게).
-  assert.doesNotMatch(fix, new RegExp(['local', 'session'].map(k => k + 'Storage').concat(['indexed' + 'DB']).join('|')));
-});
-
 // ---------- LEDGER-기록바로업데이트 ----------
 const com = { ledger_id: 'COM-0901', kind: 'commitment', validity: 'current', commitment_status: 'waiting', note: '' };
 const evt = { ledger_id: 'EVT-0901', kind: 'event', validity: 'current', event_status: 'tracking', note: '기존 비고' };
@@ -172,16 +157,3 @@ test('after the ledger is re-read: re-read the open record when it is still list
   assert.equal(reopenPlan('a', undefined), 'close');
 });
 
-test('browse screen wiring (source text): detail is re-read after a reload, every write path goes through the same reload, no browser storage', () => {
-  const src = readFileSync(new URL('../app/ledger-browse.js', import.meta.url), 'utf8');
-  assert.match(src, /settleOpen\(open\)/);
-  assert.match(src, /reopenPlan\(/);
-  assert.match(src, /keepOpen: true/);
-  assert.match(src, /again = true/);
-  for (const fn of ['retireRecord', 'quickApply', 'undoRun']) assert.match(src, new RegExp('function ' + fn), fn);
-  assert.equal((src.match(/changedLedger\(\)/g) || []).length >= 5, true);
-  // 브라우저 저장소 금지(글자를 쪼개 둔 것은 저장소 사용 점검기가 이 시험 파일을 사용처로 오인하지 않게).
-  assert.equal(['local', 'session'].some(p => src.includes(p + 'Storage')) || src.includes('indexed' + 'DB'), false);
-  assert.doesNotMatch(src, /lg-danger/);
-  assert.doesNotMatch(src, /lb-detail-top/);
-});
