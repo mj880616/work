@@ -13,7 +13,7 @@
 //   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
 // - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
-import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto, readingNote} from './reading-model.mjs';
+import {DEFAULT_FILTER, keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto, readingNote} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, setTitle, fixLinkedTitles, fetchBody, fetching} from './reading-data.js';
 import {loadHighlights, highlightsNow, sourceHighlights, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu} from './text-highlights.js';
 import {highlightRowHtml} from './now-highlights.js';
@@ -54,10 +54,18 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', '<section id="readingView" class="view-panel hidden" aria-label="저장한 글"><div class="rd-wrap"><div class="rd-list" data-rd-list></div><div class="rd-detail" data-rd-detail hidden></div></div></section>');
 }
 
-const state = {rows: [], loaded: false, failed: false, filter: 'unread', open: null, body: null, bodyFor: null, adding: false, addError: '', lines: new Map(), scope: '',
+const state = {rows: [], loaded: false, failed: false, filter: DEFAULT_FILTER, open: null, body: null, bodyFor: null, adding: false, addError: '', lines: new Map(), scope: '',
   newsOn: false, marksNewsOn: true, editing: null, editBusy: false, editNote: '', noteBusy: null};
 const scopeNow = () => { const c = window.KPTURuntime?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const rowOf = id => state.rows.find(r => r.id === id) || null;
+// S70-24 READ-저장한글기본전체(명진 11/25 "전체를 기본으로 / 탭 누르면 전체가 나오는"): 보기 탭 상태 주인은 state.filter 하나.
+// 메뉴로 들어오면(라우터가 주소의 자리 값을 지움) 늘 [전체], 주소에 ?tab=이 적혀 들어오면(뒤로가기·새로고침·링크) 그 보기.
+// 고른 보기는 주소에만 적는다(replaceState — 기록 칸을 늘리지 않음). 기기·서버에 '마지막 보기'를 따로 두지 않는다.
+const filterFromUrl = () => keepFilter(window.KPTURouter?.place?.('reading')?.tab);
+function setFilter(v) {
+  state.filter = keepFilter(v);
+  window.KPTURouter?.setPlace?.('reading', {tab: state.filter === DEFAULT_FILTER ? null : state.filter});
+}
 // S69-04 MARK-밑줄한목록(명진 11/24 "노트 밑줄에 있는 것들 저장한 글 밑줄에 없음 두개 동기화"): [밑줄] 탭은 글 줄 거르기가 아니라
 // 내가 그은 밑줄 전부(저장한 글에 있든 없든) — 노트 › 밑줄과 같은 원본(text-highlights.js 목록)·같은 규칙(visibleMarks)이라 같은 목록·같은 개수.
 // 잠근 노트 폴더가 있고 안 풀렸으면 노트 밑줄은 뺀다(이 화면은 노트 목록을 모른다 — 풀리면 노트 › 밑줄과 같아진다).
@@ -183,7 +191,7 @@ function drawList() {
   // 폰·펼친 폴드(~760px) 하단바 바로 위 가운데, PC 틀(761px~) 제목 줄 오른쪽([+ 추가] 앞). 따로 칩 줄은 없다.
   switchHost ||= el('div', 'rd-switch');
   renderFilterChips(switchHost, {options: filterOptions(entries, marks ? marks.length : null, memoState().ready ? myMemos().length : null), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
-    onChange: v => { state.filter = keepFilter(v); drawList(); }});
+    onChange: v => { setFilter(v); drawList(); }});
   head.insertBefore(switchHost, add);
   if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks)); box.replaceChildren(...parts); return; }
   if (keepFilter(state.filter) === 'memos') { parts.push(memosEl()); box.replaceChildren(...parts); return; }
@@ -401,7 +409,7 @@ async function addUrl(text) {
   catch { state.addError = '저장하지 못했어요 · 잠시 뒤 다시'; drawList(); return; }
   state.adding = false;
   if (!out.dup) state.rows = [out.row, ...state.rows.filter(r => r.id !== out.row.id)];
-  if (state.filter === 'marks') state.filter = 'all';
+  if (state.filter === 'marks') setFilter('all');
   notify(out.dup ? '이미 저장한 글에 있어요' : '저장한 글에 넣었어요', {record: false});
   draw();
   if (!out.dup) void startFetch(out.row);
@@ -586,7 +594,7 @@ function bindSwipe(box) {
     if (claimedSince(t0)) return;
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2) return;
     const next = nextFilter(state.filter, dx < 0 ? 1 : -1);
-    if (next !== state.filter) { state.filter = next; drawList(); }
+    if (next !== state.filter) { setFilter(next); drawList(); }
   }, {passive: true});
 }
 
@@ -701,6 +709,7 @@ function takeAsked() {
 }
 
 install(); bind();
-window.KPTURouter?.on?.('reading', () => { void refresh().then(takeAsked); });
+state.filter = filterFromUrl();
+window.KPTURouter?.on?.('reading', () => { state.filter = filterFromUrl(); if (state.loaded) drawList(); void refresh().then(takeAsked); });
 void refresh().then(takeAsked);
 window.KPTUReading = {refresh, open: (id, opts) => { window.KPTUReadingOpen = {id, ...(opts || {})}; if (window.KPTURouter?.current === 'reading') takeAsked(); else window.KPTURouter?.go?.('reading'); }};
