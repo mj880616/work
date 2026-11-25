@@ -121,8 +121,9 @@ for (const width of [412, 1280]) {
     await expect(rdetail(page).locator('.rd-title')).toHaveText('고친 예시 제목');
     if (width > 760) await expect(row(page, D1).locator('.rd-nm')).toHaveText('고친 예시 제목');
     expect(await noticeText(page)).toContain('저장했어요');
-    // 글 보기 단추줄의 [수정]도 같은 칸.
-    await rdetail(page).locator('[data-rd-edit]').click();
+    // 글 보기 머리 ⋯ [수정]도 같은 칸(S70-40b: 테두리 단추줄 대신 머리 ⋯).
+    await rdetail(page).locator('[data-rd-head-more]').click();
+    await page.locator('#rdRowMenu [data-rd-act="edit"]').click();
     await expect(form).toBeVisible();
     await rdetail(page).locator('[data-rd-edit-cancel]').click();
     await expect(form).toHaveCount(0);

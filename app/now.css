@@ -100,11 +100,12 @@
 #appView #outsideView .ni-add{ display:flex; gap:6px; align-items:center; padding-top:4px; }
 
 /* 글 상세 */
-#appView #outsideView .nd{ display:flex; flex-direction:column; gap:6px; min-width:0; padding:4px 0 16px; }
+/* S70-40b READ-글보기머리(③ (가)): 위 여백은 왼쪽 찾기 줄(.nw-top 위 2px)과 같게 — 글 머리 첫 줄(공용 .ds-doc-top 32px)이 찾기 줄과 같은 줄에 선다. */
+#appView #outsideView .nd{ display:flex; flex-direction:column; gap:6px; min-width:0; padding:2px 0 16px; }
 #appView #outsideView .nd-empty{ margin:12px 0; font-size:13px; color:var(--kptu-muted); }
 #appView #outsideView .nd-top{ display:flex; align-items:center; gap:6px; min-width:0; }
 #appView #outsideView .nd-back{ flex:none; display:inline-grid; place-items:center; width:32px; height:32px; min-height:0; padding:0; font-size:20px; color:var(--kptu-muted); background:transparent; border:0; box-shadow:none; cursor:pointer; }
-#appView #outsideView .nd-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:0 6px; flex:1 1 auto; min-width:0; margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .nd-meta{ display:flex; flex-wrap:nowrap; overflow:hidden; white-space:nowrap; align-items:center; gap:0 6px; flex:1 1 auto; min-width:0; margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #outsideView .nd-meta > span + span:not(.now-hit)::before{ content:"·"; margin-right:6px; }
 #appView #outsideView .nd-link{ flex:none; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); text-decoration:underline; text-underline-offset:2px; }
 #appView #outsideView .nd-link:hover{ color:var(--kptu-ink); }
@@ -194,7 +195,8 @@
 #appView #outsideView .nd-img[hidden],#appView #outsideView .nd-fig[hidden],#appView #outsideView .nd-hand-pic img[hidden]{ display:none; }
 #appView #outsideView .nd-img-link{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #outsideView .nd-fig figcaption{ margin-top:3px; font-size:12px; line-height:1.45; color:var(--kptu-muted); }
-#appView #outsideView .nd-site{ margin-left:auto; }
+/* 글 머리 첫 줄 끝 ↗ 원래 페이지 — 모양은 공용 .ds-doc-icon(선·밑줄 없음). */
+#appView #outsideView .nd-top .nd-site{ font-size:var(--ds-text-row); text-decoration:none; }
 /* S53-5 NEWS-밑줄모으기 [밑줄] 탭(now-highlights.js, 시안 news-highlights.html ③): 고른 글(노란 띠) · 메모 · 매체·날짜·제목 · ⋯. 촘촘하게. */
 #appView #outsideView .now-marks{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 #appView #outsideView .now-marks[hidden]{ display:none; }

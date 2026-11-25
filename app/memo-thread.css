@@ -22,6 +22,9 @@
 :is(#appView, body) .memo-th .memo-th-line textarea, :is(#appView, body) .memo-th .memo-th-editing textarea { display:block; box-sizing:border-box; flex:1 1 auto; width:100%; min-width:0; min-height:var(--ds-compact-height,32px); margin:0; padding:5px 8px; line-height:20px; resize:none; overflow-y:hidden; white-space:pre-wrap; }
 :is(#appView, body) .memo-th .memo-th-editing textarea { margin:0 0 6px; }
 .memo-th-line > .memo-th-save { flex:none; }
+/* S70-40b READ-글보기머리(docs/design/reading-screens.md 5절 ④ (가)): 쓰기 칸은 비어 있으면 한 줄, 누르면(memo-thread.js가 .memo-th-open) 세 줄 높이로 커진다 —
+   글이 더 길면 auto-grow.js가 5줄까지 늘린다. 공용 메모 부품 한 곳이라 노트·저장한 글·읽을 거리·자료실·사업 보고·담당조직·텔레그램 메모 칸이 같이 바뀐다. */
+:is(#appView, body) .memo-th .memo-th-line textarea.memo-th-open { min-height:calc(20px * 3 + 10px); }
 .memo-th-status:not([hidden]) { margin:4px 0 0; font-size:12px; color:var(--kptu-danger); }
 /* 모아 보기에서 연 메모: 잠깐 칠하고 사라짐(움직임 줄이기 설정이면 칠만). */
 .memo-th-row.memo-th-flash { background:var(--kptu-primary-soft); animation:memo-th-flash 2.4s ease-out forwards; }
