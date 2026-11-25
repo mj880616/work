@@ -253,7 +253,7 @@ test('titleFixes: 손으로 넣은 기사 제목이 사본과 다를 때만 고�
 
 test('저장한 글 [수정]: ⋯ 맨 앞 [수정](다른 화면과 같은 순서), News 뉴스 기사는 그 글 보기 ⋯ [수정] 창, 직접 넣은 줄은 이 화면 칸 — 새 창 부품 없음', () => {
   const js = readFileSync('app/reading.js', 'utf8'), out = readFileSync('app/outside-statements.js', 'utf8'), nd = readFileSync('app/now-detail.js', 'utf8');
-  assert.match(js, /\$\{editKind\(id\) \? '<button type="button" class="row-act" data-rd-act="edit">수정<\/button>' : ''\}<button type="button" class="row-act" data-rd-act="read">/);
+  assert.match(js, /\$\{editKind\(id\) \? '<button type="button" class="row-act" data-rd-act="edit">수정<\/button>' : ''\}\$\{note\}<button type="button" class="row-act" data-rd-act="read">/); // S70-40b: 글 보기 머리 ⋯은 [수정] 다음 [밑줄을 노트로]
   assert.match(js, /openNews\(link, \{edit: true\}\)/);
   assert.match(out, /openItem: async \(item, \{edit = false\} = \{\}\) =>/);
   assert.match(out, /if \(edit && detail\.current\(\)\) void detail\.edit\(\);/);

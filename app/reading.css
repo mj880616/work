@@ -1,8 +1,8 @@
 /* S68-09 READ-읽을거리함: 읽을 거리(?view=reading, reading.js). 촘촘한 한 줄 목록·글 보기. 새 색 없음(기존 토큰만), 큰 카드 없음. */
 #readingView .rd-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:0;min-width:0}
 #readingView .rd-head{display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px);margin-bottom:var(--ds-view-tabs-below)} /* S70-24: 머리줄(보기 탭)과 목록 첫 줄 사이 공용 간격 */
-#readingView .rd-title{margin:0;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#readingView .rd-head .rd-add,#readingView .rd-head .rd-src{margin-left:auto;flex:none}
+#readingView .rd-head .rd-title{margin:0;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#readingView .rd-head .rd-add{margin-left:auto;flex:none}
 #readingView .rd-form{display:flex;gap:6px;align-items:center;margin:2px 0 4px}
 #readingView .rd-url{flex:1 1 auto;min-width:0;height:var(--ds-compact-height,32px);padding:0 8px;border:.5px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface,transparent);color:var(--kptu-ink);font-size:var(--ds-text-row)}
 /* S68-48 READ-보기탭아래: [안 읽음|전체|밑줄]은 공용 ⑤(.ds-seg) — 여기서는 자리만. PC 틀(761px~)은 제목 줄 오른쪽([+ 추가] 앞),
@@ -25,14 +25,14 @@
 #readingView .rd-line{margin:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta);min-width:0;overflow:hidden;text-overflow:ellipsis}
 #readingView .rd-sub .rd-line{margin:0;white-space:nowrap}
 #readingView .rd-bad{color:var(--kptu-danger,var(--kptu-ink))}
-#readingView .rd-meta-line{margin:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#readingView .rd-acts{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:0 0 6px}
-/* S68-33 READ-글자크기: [−][+](공용 text-size.js, 모양은 공용 ⑤)는 단추줄 끝 자리만. 본문 글자 = 기본 글자 × --txs(배율, 단추가 칠함). */
-#readingView .rd-acts .txs{margin-left:auto}
+/* S70-40b READ-글보기머리: 머리 모양은 공용(ui-standard.css .ds-doc-*) — 여기는 자리만. 첫 줄은 왼쪽 목록 머리 줄과 같은 공용 아래 간격,
+   제목 다음 실패 줄·본문. 본문 글자 = 기본 글자 × --txs(배율, 공용 [−][+]가 칠함). */
+#readingView .rd-dhead{margin-bottom:var(--ds-view-tabs-below)}
+#readingView .rd-detail .ds-doc-title{margin:0 0 4px}
+#readingView .rd-detail .ds-doc-fail{margin:0 0 4px}
 #readingView .rd-prose{border-top:.5px solid var(--kptu-border);padding-top:6px;font-size:calc(var(--ds-text-row) * var(--txs,1));line-height:1.65;overflow-wrap:anywhere;max-width:44em}
 #readingView .rd-prose p{margin:0 0 8px;white-space:pre-line}
 #readingView .rd-faint{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#readingView .rd-tip{margin:4px 0 0}
 #readingView [hidden]{display:none}
 /* 761px~(폴드 펼침·PC): 왼쪽 목록, 오른쪽 글(같은 내용). */
 @media(min-width:761px){

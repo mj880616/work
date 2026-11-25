@@ -46,7 +46,7 @@ export function createMemoThread({onChange = () => {}} = {}) {
     const canWrite = !st.legacy || target.type === 'note', canEdit = !st.legacy;
     const keepFocus = box.contains(document.activeElement) && document.activeElement.matches?.('[data-cm-text]');
     box.innerHTML = `<div class="memo-th-head"><span data-cm-count>메모 ${rows.length}</span></div>${rows.length ? `<ol class="memo-th-list" data-cm-list>${rows.map(m => rowHtml(m, canEdit)).join('')}</ol>` : ''}${canWrite
-      ? `<div class="memo-th-write" data-cm-write data-enter-save="[data-cm-save]"><label class="a11y-only" for="${uid}">메모 남기기</label><div class="memo-th-line"><textarea id="${uid}" data-cm-text rows="1" data-autogrow="5" maxlength="${MEMO_LIMITS.body}" placeholder="메모"></textarea><button type="button" class="secondary memo-th-save" data-cm-save aria-label="메모 남기기" disabled>남기기</button></div><p class="memo-th-status" data-cm-status role="status" hidden></p></div>`
+      ? `<div class="memo-th-write" data-cm-write data-enter-save="[data-cm-save]"><label class="a11y-only" for="${uid}">메모 남기기</label><div class="memo-th-line"><textarea id="${uid}" data-cm-text rows="1" data-autogrow="5" maxlength="${MEMO_LIMITS.body}" placeholder="메모 남기기…"></textarea><button type="button" class="secondary memo-th-save" data-cm-save aria-label="메모 남기기" disabled>남기기</button></div><p class="memo-th-status" data-cm-status role="status" hidden></p></div>`
       : '<p class="memo-th-wait" data-cm-wait>메모는 준비 중이에요.</p>'}`;
     const ta = box.querySelector('[data-cm-text]');
     if (ta) { ta.value = drafts.get(key()) || ''; canSave(); if (keepFocus) ta.focus({preventScroll: true}); }
@@ -119,12 +119,15 @@ export function createMemoThread({onChange = () => {}} = {}) {
     else if (b.hasAttribute('data-cm-edit-cancel')) { const id = editing; editing = null; editText = ''; paint(); if (id) box?.querySelector(`[data-cm-row="${CSS.escape(id)}"]`)?.focus({preventScroll: true}); }
     else if (b.hasAttribute('data-cm-edit-save')) void saveEdit();
   }
+  // S70-40b(reading-screens.md 5절 ④ (가)): 비어 있는 쓰기 칸은 한 줄, 누르면 세 줄 높이로 커진다(memo-thread.css .memo-th-open).
+  // 남기면 칸을 새로 그려 다시 한 줄(초점은 그대로). 글이 길면 auto-grow.js가 5줄까지.
+  function onPress(e) { if (e.target.matches?.('[data-cm-text]')) e.target.classList.add('memo-th-open'); }
   function onInput(e) {
     if (e.target.matches('[data-cm-text]')) { drafts.set(key(), e.target.value); say(''); canSave(); }
     else if (e.target.matches('[data-cm-edit-text]')) editText = e.target.value;
   }
   const off = onMemos(() => { if (box?.isConnected && !busy) paint(); });
-  function detach() { box?.removeEventListener('click', onClick); box?.removeEventListener('input', onInput); box = null; target = null; }
+  function detach() { box?.removeEventListener('click', onClick); box?.removeEventListener('input', onInput); box?.removeEventListener('pointerdown', onPress); box = null; target = null; }
   return {
     // 원문을 그릴 때마다 칸을 받는다. 같은 원문이면 쓰던 글은 그대로. target = {type, id, title}.
     attach(nextBox, nextTarget) {
@@ -134,7 +137,7 @@ export function createMemoThread({onChange = () => {}} = {}) {
       if (!box || !target) return;
       const want = takeMemoReveal(target.type, target.id);
       if (want) { reveal = want; waitLeft = 180; }
-      if (!same) { box.addEventListener('click', onClick); box.addEventListener('input', onInput); }
+      if (!same) { box.addEventListener('click', onClick); box.addEventListener('input', onInput); box.addEventListener('pointerdown', onPress); }
       if (!memoState().loaded) void loadMemos();
       paint();
     },

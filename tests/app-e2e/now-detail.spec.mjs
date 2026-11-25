@@ -158,8 +158,8 @@ for (const width of [412, 884, 1280]) {
     await expect(nd.locator('.nd-meta')).toContainText('성명');
     await expect(nd.locator('.nd-meta')).toContainText('2026. 10. 6. 09:30');
     await expect(nd.locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대');
-    const link = nd.locator('.nd-acts .nd-site');
-    await expect(link).toHaveText('원래 사이트 ↗');
+    const link = nd.locator('.nd-top .ds-doc-icons .nd-site'); // S70-40b: 글 머리 첫 줄 끝 ↗ 원래 페이지
+    await expect(link).toHaveText('↗');
     await expect(link).toHaveAttribute('href', 'https://nodong.org/statement/101');
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');

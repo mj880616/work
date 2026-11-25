@@ -102,12 +102,12 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     const s = await readingServer(page);
     await openReading(page, width);
 
-    // 단추 자리: 머리 단추줄 끝, 이름 '글자 작게'·'글자 크게', 공용 ⑤ 모양(작은 칸).
-    const acts = detail(page).locator('.rd-acts');
+    // 단추 자리: 글 머리 첫 줄 아이콘 줄(공용 .ds-doc-icons, S70-40b) [↗ 원래 페이지][−][+][⋯], 이름 '글자 작게'·'글자 크게', 공용 ⑤ 모양(작은 칸).
+    const acts = detail(page).locator('.ds-doc-top .ds-doc-icons');
     const ctl = acts.locator('[data-text-size-ctl]');
     await expect(ctl).toHaveAttribute('role', 'group');
     await expect(ctl).toHaveAttribute('aria-label', '글자 크기');
-    expect(await acts.evaluate(el => el.lastElementChild.matches('[data-text-size-ctl]'))).toBe(true);
+    expect(await acts.evaluate(el => el.lastElementChild.matches('[data-rd-head-more]') && el.lastElementChild.previousElementSibling.matches('[data-text-size-ctl]'))).toBe(true);
     const smaller = ctl.getByRole('button', { name: '글자 작게' }), bigger = ctl.getByRole('button', { name: '글자 크게' });
     await expect(smaller).toHaveClass(/ds-seg-btn/);
     expect((await bigger.boundingBox()).height).toBeLessThanOrEqual(32);

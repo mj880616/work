@@ -54,7 +54,7 @@
 | --- | --- | --- | --- |
 | Z1 | 카드·칸은 내용만큼 늘어난다. 고정 높이로 잘리지 않는다. | 긴 내용을 넣고 칸 높이가 커지는지, 넘친 글이 숨지 않는지 본다. | 화면 CSS |
 | Z2 | 칸 경계(폭)와 높이를 끌어 바꾼다. 두 번 누르면 기본값이다. | 경계를 끌어 폭이 바뀌고 다시 열어도 같은지 본다. | `split-resize.js`, `col-resize.js` |
-| Z3 | 폰 360·412, PC 1280에서 가로로 넘치거나 겹치지 않는다. | `scrollWidth - clientWidth ≤ 1`을 본다. | — |
+| Z3 | 폰 360·412, PC 1280에서 가로로 넘치거나 겹치지 않는다. | `scrollWidth - clientWidth ≤ 1`을 본다. 글 보기 화면(저장한 글·읽을 거리 글 보기, `standard-interactions.spec.mjs` DOC_SCREENS — `helpers/doc-view.mjs`)은 제목이 잘리지 않는지도 본다. | 글 보기 머리는 공용 `ui-standard.css` `.ds-doc-*`(S70-40b) |
 
 ## 5. 지우기 (R)
 

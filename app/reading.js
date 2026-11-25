@@ -287,34 +287,37 @@ function drawDetail() {
   view()?.classList.add('rd-reading');
   if (listBox) listBox.hidden = !wide();
   const l = lineOf(row);
+  // S70-40b READ-글보기머리(docs/design/reading-screens.md 4절·5절 ①③ (가)): 공용 '글 보기 머리'(ui-standard.css .ds-doc-*) —
+  // 첫 줄 = [‹](폰) 출처 · 날짜 · 사업영역 꼬리표 + 오른쪽 작은 아이콘 줄 [↗ 원래 페이지][−][+][⋯], 둘째 줄 = 제목(두 줄까지 줄바꿈, 말줄임 없음).
+  // 첫 줄은 왼쪽 목록 머리 줄과 같은 32px 줄이라 두 칸 위 끝이 맞는다. 테두리 단추 줄(.rd-acts)은 없앴고 동작은 모두 ⋯(목록 줄 ⋯과 같은 메뉴) 안.
   const parts0 = [];
-  const bar = el('div', 'rd-head');
+  const bar = el('div', 'ds-doc-top rd-dhead');
   if (!wide()) { const back = btn('rd-back icon-btn', '‹', {rdBack: '1'}); back.setAttribute('aria-label', '목록으로'); bar.append(back); }
-  bar.append(el('h2', 'rd-title rd-doc', l.title));
-  if (state.editing === row.id) parts0.push(editForm(row));
-  const src = el('a', 'rd-src mini', '원래 페이지');
-  src.href = row.url; src.target = '_blank'; src.rel = 'noopener noreferrer';
-  bar.append(src);
-  const meta = el('p', 'rd-meta-line', [l.site, l.day ? l.day + ' 저장' : ''].filter(Boolean).join(' · '));
+  const meta = el('p', 'ds-doc-meta rd-meta-line', [l.site, l.day ? l.day + ' 저장' : ''].filter(Boolean).join(' · '));
   const tag = areaText(l.area);
   if (tag) meta.append(' · ', el('span', 'rd-tag', tag));
-  const acts = el('div', 'rd-acts');
-  const marks = sourceHighlights('reading', row.id);
-  if (editKind(row.id) === 'own' && state.editing !== row.id) acts.append(btn('mini', '수정', {rdEdit: row.id}));
-  acts.append(btn('mini', marks.length ? `밑줄을 노트로 ${marks.length}` : '밑줄을 노트로', {rdNote: '1'}),
-    btn('mini', tag ? word('사업영역 바꾸기') : '사업에 연결', {rdArea: '1'}),
-    btn('mini', row.read_at ? '안 읽음으로' : '읽음', {rdRead: row.read_at ? '0' : '1'}));
-  // S68-33 READ-글자크기: 머리 단추줄 끝 [−][+](공용 text-size.js — News 글 상세와 같은 단추·같은 서버 값). 본문 칸만 커지고 작아진다.
-  acts.insertAdjacentHTML('beforeend', textSizeHtml());
-  const parts = [bar, ...parts0, meta, acts];
+  const icons = el('span', 'ds-doc-icons');
+  const src = el('a', 'ds-doc-icon rd-src', '↗');
+  src.href = row.url; src.target = '_blank'; src.rel = 'noopener noreferrer'; src.title = '원래 페이지'; src.setAttribute('aria-label', '원래 페이지 (새 창)');
+  icons.append(src);
+  // S68-33 READ-글자크기: [−][+](공용 text-size.js — News 글 상세와 같은 단추·같은 서버 값). 본문 칸만 커지고 작아진다.
+  icons.insertAdjacentHTML('beforeend', textSizeHtml());
+  const more = btn('ds-doc-icon rd-head-more', '⋯', {rdMore: row.id, rdHeadMore: '1'});
+  more.setAttribute('aria-label', '이 글 메뉴'); more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
+  icons.append(more);
+  bar.append(meta, icons);
+  const title = el('h2', 'ds-doc-title rd-title rd-doc', l.title);
+  if (state.editing === row.id) parts0.push(editForm(row));
+  const parts = [bar, title, ...parts0];
   const busy = fetching(row.id);
   const line = state.lines.get(row.id) || stateLine(row, {busy});
   if (line) {
-    const p = el('p', 'rd-line', line);
+    const p = el('p', 'ds-doc-fail rd-line', line);
     p.setAttribute('role', 'status');
     if (!busy && canRetry(row)) p.append(' ', btn('row-act', '원문 다시 가져오기', {rdFetch: row.id}));
     parts.push(p);
   }
+  const marks = sourceHighlights('reading', row.id);
   const prose = el('div', 'rd-prose');
   prose.dataset.rdProse = '1';
   prose.dataset.textSizeTarget = '';
@@ -325,7 +328,6 @@ function drawDetail() {
     prose.append(el('p', 'rd-faint', '원문을 읽지 못했어요.'), btn('row-act', '다시', {rdReopen: row.id}));
   } else prose.insertAdjacentHTML('beforeend', waitHtml({rows: 3}));
   parts.push(prose);
-  if (prose.querySelector('p') && state.bodyFor === row.id) parts.push(el('p', 'rd-faint rd-tip', '글을 선택하고 [밑줄 저장] · 밑줄을 누르면 밑줄 메모'));
   // S69-94: 글 아래 메모 칸(노트·읽을 거리와 같은 부품). 칸은 한 번 만들어 다시 그려도 그대로 붙인다(쓰던 글·초점 유지).
   if (!memoHost) { memoHost = el('section', 'memo-th rd-memos'); memoHost.dataset.rdMemos = '1'; memoHost.setAttribute('aria-label', '메모'); }
   parts.push(memoHost);
@@ -541,6 +543,7 @@ async function removeMany(ids) {
   } catch { notify('삭제하지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
 }
 
+let headMenu = false; // 지금 여는 메뉴가 글 보기 머리 ⋯인지(목록 줄 ⋯이면 false)
 const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label: '저장한 글 메뉴', historyKey: 'kptuReadingRowMenu',
   key: t => t.dataset.rdMore || '',
   row: t => t.closest('.rd-row'),
@@ -549,16 +552,20 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     if (!row) return '';
     // S68-29: News에서 보낸 줄도 같은 단추. 'News에서 열기'는 두지 않는다 — 줄을 누르면 이미 News 원문 보기로 열린다(키가 있을 때).
     // S69: 맨 앞 [수정](다른 화면 ⋯과 같은 순서 — 수정 … 삭제). 고칠 수 없는 줄(News에서 온 사회운동 글)은 없음.
-    return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">사업에 연결</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
+    // S70-40b: 글 보기 머리 ⋯(data-rd-head-more)도 이 메뉴 — [수정] 다음에 [밑줄을 노트로 n]이 더 있다(옛 테두리 단추 줄의 동작).
+    const n = headMenu ? sourceHighlights('reading', id).length : 0;
+    const note = headMenu ? `<button type="button" class="row-act" data-rd-act="note">${n ? `밑줄을 노트로 ${n}` : '밑줄을 노트로'}</button>` : '';
+    return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}${note}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">${headMenu && areaText(lineOf(row).area) ? word('사업영역 바꾸기') : '사업에 연결'}</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
   },
   onAction: (button, active) => {
-    const id = active.id, act = button.dataset.rdAct, at = view()?.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || null;
+    const id = active.id, act = button.dataset.rdAct, at = (active.trigger?.isConnected ? active.trigger : null) || view()?.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || null;
     const row = rowOf(id);
     if (!row) return;
     if (act === 'edit') void startEdit(id);
     else if (act === 'read') void toggleRead(id, !row.read_at);
     else if (act === 'area' && at) void pickArea(at, id);
     else if (act === 'fetch') void startFetch(row);
+    else if (act === 'note') void marksToNote(id);
     else if (act === 'delete') void removeAny(id, at);
   }});
 
@@ -621,7 +628,7 @@ function bind() {
     const mo = t.closest?.('[data-rd-memo-list] [data-memo-open]');
     if (mo) { openMemoLine(mo.dataset.memoOpen); return; }
     const more = t.closest?.('[data-rd-more]');
-    if (more) { menu.open(more); return; }
+    if (more) { headMenu = more.dataset.rdHeadMore === '1'; menu.open(more); return; }
     if (t.closest?.('[data-rd-add]')) { state.adding = !state.adding; state.addError = ''; drawList(); return; }
     if (t.closest?.('[data-rd-add-close]')) { state.adding = false; state.addError = ''; drawList(); return; }
     if (t.closest?.('[data-rd-bm-link]')) { e.preventDefault(); notify('즐겨찾기 막대로 끌어 놓아 쓰세요', {record: false}); return; }
@@ -632,14 +639,7 @@ function bind() {
     if (f) { const row = rowOf(f.dataset.rdFetch); if (row) void startFetch(row); return; }
     const re = t.closest?.('[data-rd-reopen]');
     if (re) { void openItem(re.dataset.rdReopen); return; }
-    const ed = t.closest?.('[data-rd-edit]');
-    if (ed) { void startEdit(ed.dataset.rdEdit); return; }
     if (t.closest?.('[data-rd-edit-cancel]')) { if (!state.editBusy) { state.editing = null; state.editNote = ''; drawDetail(); } return; }
-    if (t.closest?.('[data-rd-note]') && state.open) { void marksToNote(state.open); return; }
-    const area = t.closest?.('[data-rd-area]');
-    if (area && state.open) { void pickArea(area, state.open); return; }
-    const read = t.closest?.('[data-rd-read]');
-    if (read && state.open) { void toggleRead(state.open, read.dataset.rdRead === '1'); return; }
     const open = t.closest?.('[data-rd-open]');
     if (open && !t.closest('a,button,input')) {
       const id = open.dataset.rdOpen, link = newsLinkOf(id);

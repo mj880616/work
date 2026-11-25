@@ -101,7 +101,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   const signal = (item, action) => sendSignal(item, action, onSignal);
 
   // ---------- 그리기(칸마다 따로 — 요약이 와도 원문 칸은 그대로) ----------
-  const siteLink = (label = '원래 사이트 ↗', cls = 'nd-link') => (cur.head.url ? `<a class="${cls}" data-nd-link href="${esc(cur.head.url)}" target="_blank" rel="noopener noreferrer" aria-label="원래 사이트 (새 창)">${esc(label)}</a>` : '');
+  // S70-40b READ-글보기머리: 이름은 저장한 글과 같은 '원래 페이지'(ui-words.md). 글 머리 첫 줄 오른쪽 ↗ 아이콘(공용 .ds-doc-icon)이 기본 자리,
+  // 원문을 못 받은 까닭 줄 끝 글자 링크(…원래 사이트 ↗)는 그 줄 안내라 그대로 둔다.
+  const siteLink = (label = '원래 사이트 ↗', cls = 'nd-link', name = '원래 사이트') => (cur.head.url ? `<a class="${cls}" data-nd-link href="${esc(cur.head.url)}" target="_blank" rel="noopener noreferrer" title="${esc(name)}" aria-label="${esc(name)} (새 창)">${esc(label)}</a>` : '');
   const langAttr = () => (cur.head.lang && cur.head.lang !== 'ko' ? ` lang="${esc(cur.head.lang)}"` : '');
   const boxHead = (title, note = '') => `<p class="nd-bh"><b>${title}</b>${note ? `<span class="nd-bh-note" role="status">${esc(note)}</span>` : ''}</p>`;
   function sumHtml() {
@@ -257,7 +259,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const del = cur.item.type === 'news' && cur.head?.mine ? one('data-nd-delete', m.star ? DELETE_BOTH_LABEL : DELETE_LABEL) : '';
     const star = m.star ? one(`data-nd-act="star" aria-pressed="true" aria-label="${SAVED_ARIA}" title="${SAVED_ARIA}"`, SAVED_LABEL) : btn('star', false, SAVE_LABEL, SAVED_LABEL);
     const dismiss = cur.from === 'saved' ? '' : btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓');
-    return `${star}${memo}${dismiss}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
+    return `${star}${memo}${dismiss}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}`;
   }
   // S69-94: 예전에 [메모]로 남긴 메모(노트 한 장, metadata.news_item_id|outside_post_id)는 지우지 않고 메모 칸 위에 한 줄로 보인다(고치기는 그 노트에서).
   function oldMemoHtml() {
@@ -305,8 +307,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const hit = interestHit([h.title, h.origTitle], topics());
     const imp = impHtml();
     box.innerHTML = `<article class="nd" data-nd="${esc(itemKey(cur.item))}" data-text-size-target data-text-size="${textSize()}" style="--txs:${textScale(textSize())}" aria-label="글 상세">
-<div class="nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${h.manual ? '<span class="nd-hand-mark" data-nd-manual>직접 넣음</span>' : ''}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p></div>
-<h3 class="nd-title" tabindex="-1"${h.titleLang ? ` lang="${esc(h.titleLang)}"` : ''}>${esc(h.title)}</h3>${h.origTitle ? `<p class="nd-orig" lang="${esc(h.lang || 'en')}">${esc(h.origTitle)}</p>` : ''}
+<div class="ds-doc-top nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="ds-doc-meta nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${h.manual ? '<span class="nd-hand-mark" data-nd-manual>직접 넣음</span>' : ''}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p>${h.url ? `<span class="ds-doc-icons">${siteLink('↗', 'ds-doc-icon nd-link nd-site', '원래 페이지')}</span>` : ''}</div>
+<h3 class="ds-doc-title nd-title" tabindex="-1"${h.titleLang ? ` lang="${esc(h.titleLang)}"` : ''}>${esc(h.title)}</h3>${h.origTitle ? `<p class="nd-orig" lang="${esc(h.lang || 'en')}">${esc(h.origTitle)}</p>` : ''}
 <section class="nd-box nd-orig-box" data-nd-body aria-label="원문 전체">${bodyHtml()}</section>
 <section class="nd-box" data-nd-summary aria-label="요약">${sumHtml()}</section>
 <section class="nd-box" data-nd-implications aria-label="시사점"${imp ? '' : ' hidden'}>${imp}</section>

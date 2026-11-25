@@ -9,6 +9,7 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
+import { DOC_SCREENS } from './helpers/doc-view.mjs';
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
 // 이름은 모두 지어낸 것이다. 서버 쓰기는 없다(가짜 서버).
@@ -112,6 +113,19 @@ for (const [name, open] of SCREENS) for (const width of [360, 412, 1280]) test(`
   await page.waitForTimeout(300);
   const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(over).toBeLessThanOrEqual(1);
+  expect(errors).toEqual([]);
+});
+
+// Z3·Z1 글 보기 화면(S70-40b READ-글보기머리, 공용 .ds-doc-* 머리): 저장한 글 글 보기·읽을 거리 글 보기. 새 글 보기 화면이 생기면
+// helpers/doc-view.mjs DOC_SCREENS에 한 줄 더한다. 머리 첫 줄은 고정 높이(--ds-compact-height)라 제목은 둘째 줄에서 줄바꿈(Z1 잘리지 않음).
+for (const [name, open] of DOC_SCREENS) for (const width of [360, 412, 1280]) test(`Z3 ${name} ${width}: 가로로 넘치지 않고 제목이 잘리지 않는다`, async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors, detail } = await open(page, width);
+  await page.waitForTimeout(300);
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(over).toBeLessThanOrEqual(1);
+  const title = detail.locator('.ds-doc-title');
+  expect(await title.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true);
   expect(errors).toEqual([]);
 });
 
