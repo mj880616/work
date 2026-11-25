@@ -35,7 +35,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={lock:['for','renew'],meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item'],help:['topic']};
+  const PLACE_PARAMS={lock:['for','renew'],meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item'],help:['topic'],reading:['tab']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -687,6 +687,9 @@
       const requestedEntry=window.navigation?.currentEntry?.key,requestedUrl=location.href;
       lazy.load(view).then(()=>{
         if(request!==goSeq)return false;
+        // S70-15 QA-간헐실패: 기다리는 사이 폰 [메뉴] 창이나 계정 메뉴(각자 자기 기록 칸을 쌓는다)를 열었으면 그것도 '뒤에 연 것'이다.
+        // 그대로 바꾸면 새 화면 기록 칸이 그 창의 칸 위에 쌓이고 창 표시까지 물려받아, 창을 닫는 뒤로가기가 앞 화면으로 돌아가 버린다.
+        if(window.KPTUMenuPanel?.isOpen?.())return false;
         if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
         return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub,areas,hold});
       }).catch(err=>console.error('view lazy load',view,err));
