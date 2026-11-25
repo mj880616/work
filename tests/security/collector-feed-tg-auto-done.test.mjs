@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 // FORGET-이미한일빼기(S70-20, 명진 11/25 "텔레그램에서 내가 답변을 했다거나 하면 제안 없애든지").
 // 텔레그램 '나한테 온 요청' 뒤 내가 답장(reply_to)했거나, 1:1 방에서 6시간 안에 내 메시지를 보냈으면 '이미 함(저절로, 답장함)'.
 // 판정 규칙(replied.ts) 단위 시험 + 지어낸 Supabase·OpenAI로 실제 handler를 돌린다. 네트워크 없음. 이름·글은 지어낸 것이다.
-const {askReplied,askDirect,ASK_REPLY_WINDOW_MS,REPLY_LOOKBACK_MS,AUTO_DONE_REPLIED}=await import('../../supabase/functions/collector-feed/replied.ts');
-const {createCollectorFeedHandler,ASK_CANDIDATE_FN,ASK_CANDIDATE_AT_FN,ASK_CANDIDATE_DIRECT_FN,OPEN_ASKS_FN,AUTO_DONE_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
+const {askReplied,askDirect,messagedAfter,ASK_REPLY_WINDOW_MS,REPLY_LOOKBACK_MS,AUTO_DONE_REPLIED}=await import('../../supabase/functions/collector-feed/replied.ts');
+const {createCollectorFeedHandler,ASK_CANDIDATE_FN,ASK_CANDIDATE_AT_FN,ASK_CANDIDATE_DIRECT_FN,OPEN_ASKS_FN,OPEN_ASKS_PEER_FN,AUTO_DONE_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
 
 const T0=Date.parse('2026-10-24T00:10:00Z'),H=3600_000;
 const ask={ref:'1001',at:T0};
@@ -49,7 +49,7 @@ const askOn=(quote='m1')=>({ask:true,to:'me',request:'가상 자료 금요일까
 const NO={ask:false,to:'me',request:'',quote:'',due:''};
 
 // direct: '직접 부름' 판(20261125160000)이 있는가. 기본은 적용 전(404) — 이 파일의 앞 시험은 20261125120000 모양을 본다.
-function harness({items=[item(askOn())],open=[],selfLabel='B',selfName='',atMissing=false,direct=false}={}){
+function harness({items=[item(askOn())],open=[],fromRows=null,selfLabel='B',selfName='',atMissing=false,direct=false}={}){
   const calls={rpc:[],logs:[]};
   const doFetch=async(input,init={})=>{
     const url=new URL(String(input)),method=init.method||'GET';
@@ -64,6 +64,7 @@ function harness({items=[item(askOn())],open=[],selfLabel='B',selfName='',atMiss
       if(fn===ASK_CANDIDATE_AT_FN)return atMissing?respond({code:'PGRST202'},404):respond({result:'added'});
       if(fn===ASK_CANDIDATE_FN)return respond({result:'added'});
       if(fn===OPEN_ASKS_FN)return respond({rows:open});
+      if(fn===OPEN_ASKS_PEER_FN)return fromRows?respond({rows:fromRows}):respond({code:'PGRST202'},404);
       if(fn===AUTO_DONE_FN)return respond({done:args.p_ids.length});
       return respond({ok:true});
     }
@@ -167,4 +168,43 @@ test('넣기: 직접 부름 판이 아직 없으면(404) 요청 시각 판으로
   assert.equal(h.of(ASK_CANDIDATE_DIRECT_FN).length,1,'한 번 없으면 다시 묻지 않음');
   assert.equal(h.of(ASK_CANDIDATE_AT_FN).length,2);
   assert.ok(!('p_direct' in h.of(ASK_CANDIDATE_AT_FN)[0].args));
+});
+
+// ── ② 흔적 넓히기(다른 방 답): 단체방에서 그 사람이 한 요청 뒤 그 사람과의 1:1 방에 내 메시지 → 이미 함(답장함) ──
+const KA='a1b2c3d4e5f60718',KB='0f1e2d3c4b5a6978'; // 지어낸 이름표 열쇠(해시 모양)
+test('규칙: 요청 뒤 3일 안 내 메시지(전달 아님)면 다른 방 답',()=>{
+  assert.equal(messagedAfter(T0,[m('2',T0+H,{self:true})]),true);
+  assert.equal(messagedAfter(T0,[m('2',T0-H,{self:true})]),false,'요청보다 앞');
+  assert.equal(messagedAfter(T0,[m('2',T0+H,{self:true,forwarded:true})]),false,'전달');
+  assert.equal(messagedAfter(T0,[m('2',T0+H)]),false,'상대 메시지');
+  assert.equal(messagedAfter(T0,[m('2',T0+REPLY_LOOKBACK_MS+1,{self:true})]),false,'3일 밖');
+});
+test('넣기: 부탁한 사람의 이름표 열쇠를 p_from으로(내 요청·열쇠 없는 사람은 null)',async()=>{
+  const h=harness({direct:true});
+  await h.send(body([A1],{room_key:'-12345',senders:[{label:'A',key:KA},{label:'B',key:KB,self:true}]}));
+  assert.equal(h.of(ASK_CANDIDATE_DIRECT_FN)[0].args.p_from,KA);
+  const n=harness({direct:true});
+  await n.send(body([A1],{room_key:'-12345'}));
+  assert.equal(n.of(ASK_CANDIDATE_DIRECT_FN)[0].args.p_from,null);
+});
+test('1:1 방에 내 메시지: 그 상대가 다른 방에서 한 요청 중 내 메시지보다 앞선 것만 이미 함, 로그에 열쇠·글 없음',async()=>{
+  const h=harness({items:[item(NO,['m1'])],fromRows:[{id:CID,ask_at:'2026-10-24T00:10:00Z'},{id:CID2,ask_at:'2026-10-24T03:00:00Z'},{id:'bad',ask_at:'x'}]});
+  await h.send(body([{ref:'2002',at:'2026-10-24T02:05:00Z',sender:'B',text:'보냈어요'}]));
+  const [o]=h.of(OPEN_ASKS_PEER_FN);assert.deepEqual(o.args,{p_workspace:WS,p_room_key:'12345'});
+  assert.deepEqual(h.of(AUTO_DONE_FN).at(-1).args,{p_workspace:WS,p_ids:[CID]},'내 메시지(02:05) 뒤 요청(03:00)은 그대로');
+  const logs=h.calls.logs.join('\n');assert.match(logs,/telegram_auto_done_other_room.*"count":1/);
+  for(const v of ['12345','보냈어요'])assert.ok(!logs.includes(v),v);
+});
+test('다른 방 답은 1:1 방·내 메시지일 때만, 함수가 없으면(404) 조용히 건너뜀',async()=>{
+  const rows=[{id:CID,ask_at:'2026-10-24T00:10:00Z'}],msgs=[{ref:'2002',at:'2026-10-24T02:05:00Z',sender:'B',text:'네'}];
+  const group=harness({items:[item(NO,['m1'])],fromRows:rows});
+  await group.send(body(msgs,{room_key:'-12345'}));
+  assert.equal(group.of(OPEN_ASKS_PEER_FN).length,0,'단체방');
+  const noMine=harness({items:[item(NO,['m1'])],fromRows:rows});
+  await noMine.send(body([{ref:'2001',at:'2026-10-24T02:00:00Z',sender:'A',text:'자료요'}]));
+  assert.equal(noMine.of(OPEN_ASKS_PEER_FN).length,0,'내 메시지 없음');
+  const missing=harness({items:[item(NO,['m1'])]});
+  const r=await missing.send(body(msgs));
+  assert.equal(r.status,200);assert.equal(missing.of(OPEN_ASKS_PEER_FN).length,1);
+  assert.doesNotMatch(missing.calls.logs.join('\n'),/telegram_auto_done_failed/);
 });

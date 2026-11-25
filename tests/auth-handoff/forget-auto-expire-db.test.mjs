@@ -75,19 +75,19 @@ test('forget auto expire: plan, dry-run, apply, cron job, expires only old plain
   const before=(await pool.query(snapshot)).rows;
   const beforeCheck=await readOnly(precheck);
   const feed=(id,ws,ref)=>pool.query("insert into public.app_feed_items(id,workspace_id,source,day,occurred_at,room_key,room_label,title,summary,raw_count,points,raw_text,source_ref) values($1,$2,'telegram','2026-11-25',now(),'-100','가상 방','가상','가상 요약',1,'[]','가상 원문',$3)",[id,ws,ref]);
-  const F=n=>`32000000-0000-4000-8000-00000000000${n}`;
+  const F=n=>`32000000-0000-4000-8000-00000000000${n}`,KA='a1b2c3d4e5f60718';
   // 서울 어제 0시 기준: 3일 전 = 옮김, 지금 = 그대로.
   const cand=(ws,key,o={})=>pool.query(`insert into public.app_todo_candidates(workspace_id,kind,summary,due,source_kind,source_id,source_day,dedupe_key,status,task_id,decided_at,created_at)
     values($1,'my_task','가상 제안',$3,$4,gen_random_uuid(),'2026-11-20',$2,$5,$6,$7,now()-($8||' hours')::interval)`,[ws,key,o.due||null,o.kind||'basket',o.status||'open',o.status==='tasked'?'task-1':null,o.status&&o.status!=='open'?new Date().toISOString():null,String(o.hours??72)]);
-  const add="select public.app_todo_candidate_from_telegram_ask($1,$2,'가상 자료 보내기','가상 근거',null,now()-interval '3 days',$3,null,$4)->>'result' r";
+  const add="select public.app_todo_candidate_from_telegram_ask($1,$2,'가상 자료 보내기','가상 근거',null,now()-interval '1 hour',$3,null,$4,$5)->>'result' r";
   const state=async()=>Object.fromEntries((await pool.query("select dedupe_key k,status||':'||coalesce(auto_done,'-')||':'||coalesce((decided_at=auto_done_at)::text,'-') v from public.app_todo_candidates")).rows.map(r=>[r.k,r.v]));
 
-  await t.test('files: expanded rules with cron; two definer functions; one grant to service_role; summary 3 lines',async()=>{
+  await t.test('files: expanded rules with cron; three definer functions; grants to service_role only; summary 3 lines',async()=>{
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
    for(const mode of ['apply','dry-run']){
     const plan=prepareMigration({mode,version,runId:'1',root});
     assert.equal(plan.rules,'expanded');assert.equal(plan.flow,'full');
-    assert.deepEqual([...plan.functions].sort(),['public.app_forget_auto_expire','public.app_todo_candidate_from_telegram_ask']);
+    assert.deepEqual([...plan.functions].sort(),['public.app_forget_auto_expire','public.app_todo_candidate_from_telegram_ask','public.app_todo_tg_open_asks_peer']);
     assert.deepEqual(plan.review.cron,['web2_forget_auto_expire']);
     assert.deepEqual(plan.createdTables,[]);
    }
@@ -96,7 +96,7 @@ test('forget auto expire: plan, dry-run, apply, cron job, expires only old plain
    ['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((p,i)=>assert.ok(lines[i].startsWith(p)));
    const code=migration.replace(/--.*$/gm,'');
    const grants=[...code.matchAll(/^grant [^;]*;/gim)].map(m=>m[0]);
-   assert.equal(grants.length,1);assert.match(grants[0],/^grant execute on function public\.app_todo_candidate_from_telegram_ask\([^)]*\) to service_role;$/);
+   assert.equal(grants.length,2);for(const g of grants)assert.match(g,/^grant execute on function public\.app_todo_(candidate_from_telegram_ask|tg_open_asks_peer)\([^)]*\) to service_role;$/);
    assert.doesNotMatch(code,/create table|create policy|alter policy|drop policy|create trigger|create or replace|rtw_|family_notes|journal_memorable|\bto (anon|public|authenticated)\b/i);
   });
   await t.test('precheck, dry-run changes nothing, apply passes postcheck with one cron job, second apply refused',async()=>{
@@ -115,16 +115,27 @@ test('forget auto expire: plan, dry-run, apply, cron job, expires only old plain
   });
   await t.test('direct insert: p_direct stored; roles denied; owner cannot write ask_direct',async()=>{
    await feed(F(1),WS_A,'tg:fake:1');await feed(F(2),WS_A,'tg:fake:2');
-   assert.equal((await server(c=>c.query(add,[WS_A,'tg:fake:1','1001',true]))).rows[0].r,'added');
-   assert.equal((await server(c=>c.query(add,[WS_A,'tg:fake:2','1002',false]))).rows[0].r,'added');
-   await assert.rejects(server(c=>c.query(add,[WS_A,'tg:fake:2','1002',null])),/TODO_TG_ARGS/);
+   assert.equal((await server(c=>c.query(add,[WS_A,'tg:fake:1','1001',true,null]))).rows[0].r,'added');
+   assert.equal((await server(c=>c.query(add,[WS_A,'tg:fake:2','1002',false,KA]))).rows[0].r,'added');
+   await assert.rejects(server(c=>c.query(add,[WS_A,'tg:fake:2','1002',null,null])),/TODO_TG_ARGS/);
+   await assert.rejects(server(c=>c.query(add,[WS_A,'tg:fake:2','1002',false,'홍길동'])),/TODO_TG_ARGS/,'열쇠 모양만(이름·번호 원문 안 됨)');
    await pool.query("update public.app_todo_candidates set created_at=now()-interval '3 days' where source_kind='telegram'");
-   for(const fn of ["select public.app_forget_auto_expire()","select public.app_todo_candidate_from_telegram_ask($1,'tg:fake:1','x','',null,now(),'1',null,true)"]){
+   for(const fn of ["select public.app_forget_auto_expire()","select public.app_todo_candidate_from_telegram_ask($1,'tg:fake:1','x','',null,now(),'1',null,true,null)","select public.app_todo_tg_open_asks_peer($1,'555')"]){
     await assert.rejects(owner(c=>c.query(fn,fn.includes('$1')?[WS_A]:[])),/permission denied/);
     await assert.rejects(as('anon','',c=>c.query(fn,fn.includes('$1')?[WS_A]:[])),/permission denied/);
    }
    await assert.rejects(server(c=>c.query("select public.app_forget_auto_expire()")),/permission denied/,'service_role도 직접 부르지 못함(예약만)');
    await assert.rejects(owner(c=>c.query("update public.app_todo_candidates set ask_direct=false")),/permission denied/);
+   await assert.rejects(owner(c=>c.query("update public.app_todo_candidates set ask_from=null")),/permission denied/);
+   // ② 다른 방 답: 1:1 방('555')의 나 아닌 사람이 정확히 한 명(A)이면 A가 다른 방에서 한 처리 전 요청의 id·시각만.
+   await pool.query(`insert into public.app_tg_senders(id,workspace_id,sender_key,is_self) values('41000000-0000-4000-8000-000000000001',$1,$2,false),('41000000-0000-4000-8000-000000000002',$1,'0f1e2d3c4b5a6978',true),('41000000-0000-4000-8000-000000000003',$1,'ffffeeeeddddcccc',false)`,[WS_A,KA]);
+   await pool.query(`insert into public.app_tg_day_senders(workspace_id,room_key,day,label,sender_id) values($1,'-100','2026-11-25','A','41000000-0000-4000-8000-000000000001'),($1,'-100','2026-11-25','B','41000000-0000-4000-8000-000000000002'),($1,'-100','2026-11-25','C','41000000-0000-4000-8000-000000000003'),($1,'555','2026-11-25','A','41000000-0000-4000-8000-000000000001'),($1,'555','2026-11-25','B','41000000-0000-4000-8000-000000000002')`,[WS_A]);
+   const peer=async room=>(await server(c=>c.query("select public.app_todo_tg_open_asks_peer($1,$2) r",[WS_A,room]))).rows[0].r.rows;
+   const one=await peer('555');assert.equal(one.length,1);assert.deepEqual(Object.keys(one[0]).sort(),['ask_at','id']);
+   assert.deepEqual(await peer('-100'),[],'단체방(나 아닌 사람 둘)은 찾지 않음');
+   assert.deepEqual(await peer('777'),[],'모르는 방');
+   assert.deepEqual((await server(c=>c.query("select public.app_todo_tg_open_asks_peer($1,'555') r",[WS_B]))).rows[0].r.rows,[],'다른 작업공간');
+   await assert.rejects(server(c=>c.query("select public.app_todo_tg_open_asks_peer($1,'bad room')",[WS_A])),/TODO_TG_ARGS/);
   });
   await t.test('expire: only open, no due, not direct, not auto-moved, before yesterday 00:00 Seoul; other workspaces too; family untouched',async()=>{
    await cand(WS_A,'old');                                  // 3일 전 → 지남

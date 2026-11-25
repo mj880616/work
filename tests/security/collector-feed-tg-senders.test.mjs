@@ -223,8 +223,8 @@ test('parseTelegramBody: senders 결과 모양',()=>{
 
 test('소스: 번호 원문 칸·로그에 이름을 쓰는 코드·DB 표 직접 쓰기가 없다(함수 한 개만 부른다)',()=>{
   const src=readFileSync('supabase/functions/collector-feed/handler.ts','utf8');
-  assert.equal([...src.matchAll(/rpcObject\(/g)].length,12,'정의 1 + 사용 11(이름표·소급 이름표·방 정보·하루 요약·나한테 온 요청 후보(직접 부름·새·옛)·예외 방 확인·뉴스방 기사 주소·방 처리 전 요청 읽기·저절로 이미 함)');
-  assert.equal([...src.matchAll(/rpcObject\((\w+),/g)].map(m=>m[1]).filter(n=>n!=='fn').sort().join(),'ASK_CANDIDATE_AT_FN,ASK_CANDIDATE_DIRECT_FN,ASK_CANDIDATE_FN,ASK_FILTER_FN,AUTO_DONE_FN,NEWS_ROOM_FN,OPEN_ASKS_FN,ROOM_DAY_ADD_FN,ROOM_TOUCH_FN,SENDERS_FN,SENDERS_FN','쓰는 DB 함수는 이 열뿐(FORGET-기본이미함: 직접 부름과 함께 넣기)(FORGET-이미한일빼기: 요청 시각과 함께 넣기·방 처리 전 요청 읽기·저절로 이미 함)(뉴스방은 NEWS-모두에게열기 ②)(이름표는 telegram·telegram_senders 두 곳)(이름 읽기는 rpc로 별도, 후보는 FEAT-1029 ⑤, 예외 방 읽기는 TODO-내일만)');
+  assert.equal([...src.matchAll(/rpcObject\(/g)].length,14,'정의 1 + 사용 13(이름표·소급 이름표·방 정보·하루 요약·나한테 온 요청 후보(직접 부름·새·옛)·예외 방 확인·뉴스방 기사 주소·방 처리 전 요청 읽기·저절로 이미 함·그 사람 요청 읽기·다른 방 답 이미 함)');
+  assert.equal([...src.matchAll(/rpcObject\((\w+),/g)].map(m=>m[1]).filter(n=>n!=='fn').sort().join(),'ASK_CANDIDATE_AT_FN,ASK_CANDIDATE_DIRECT_FN,ASK_CANDIDATE_FN,ASK_FILTER_FN,AUTO_DONE_FN,AUTO_DONE_FN,NEWS_ROOM_FN,OPEN_ASKS_FN,OPEN_ASKS_PEER_FN,ROOM_DAY_ADD_FN,ROOM_TOUCH_FN,SENDERS_FN,SENDERS_FN','쓰는 DB 함수는 이 열하나뿐(FORGET-기본이미함: 직접 부름과 함께 넣기·그 사람 요청 읽기)(FORGET-이미한일빼기: 요청 시각과 함께 넣기·방 처리 전 요청 읽기·저절로 이미 함)(뉴스방은 NEWS-모두에게열기 ②)(이름표는 telegram·telegram_senders 두 곳)(이름 읽기는 rpc로 별도, 후보는 FEAT-1029 ⑤, 예외 방 읽기는 TODO-내일만)');
   const code=src.replace(/\/\/.*$/gm,'');
   assert.ok(!/app_tg_senders['"`?]|app_tg_day_senders/.test(code),'표를 직접 읽거나 쓰지 않는다');
   assert.equal([...code.matchAll(/db\.rpc\(NAMES_FN/g)].length,1,'읽기 전용 함수 호출 한 곳(AI 표시 이름)');

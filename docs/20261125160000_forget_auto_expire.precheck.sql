@@ -13,9 +13,9 @@
 -- expect: other cron jobs hash = 기록
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261125120000' and name='todo_tg_auto_done')=1 then '예' else '아니오' end as value
 union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261125160000') then '예' else '아니오' end
-union all select 'new column absent',case when not exists(select 1 from pg_attribute where attrelid=to_regclass('public.app_todo_candidates') and attnum>0 and not attisdropped and attname='ask_direct') then '예' else '아니오' end
-union all select 'new functions absent',case when to_regprocedure('public.app_todo_candidate_from_telegram_ask(uuid,text,text,text,date,timestamp with time zone,text,text,boolean)') is null
-  and to_regprocedure('public.app_forget_auto_expire()') is null then '예' else '아니오' end
+union all select 'new column absent',case when not exists(select 1 from pg_attribute where attrelid=to_regclass('public.app_todo_candidates') and attnum>0 and not attisdropped and attname in ('ask_direct','ask_from')) then '예' else '아니오' end
+union all select 'new functions absent',case when to_regprocedure('public.app_todo_candidate_from_telegram_ask(uuid,text,text,text,date,timestamp with time zone,text,text,boolean,text)') is null
+  and to_regprocedure('public.app_todo_tg_open_asks_peer(uuid,text)') is null and to_regprocedure('public.app_forget_auto_expire()') is null then '예' else '아니오' end
 union all select 'pg_cron ready',case when to_regprocedure('cron.schedule(text,text,text)') is not null and to_regclass('cron.job') is not null then '예' else '아니오' end
 union all select 'cron timezone UTC',case when coalesce(current_setting('cron.timezone',true),'') in ('GMT','UTC','Etc/UTC') then '예' else '아니오' end
 union all select 'expire job absent',case when not exists(select 1 from cron.job where jobname='web2_forget_auto_expire') then '예' else '아니오' end

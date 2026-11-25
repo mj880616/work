@@ -39,3 +39,10 @@ export function askDirect(ask: DirectMsg, messages: readonly DirectMsg[], person
   const text = typeof ask.text === "string" ? ask.text.normalize("NFC") : "";
   return selfNames.some((n) => typeof n === "string" && [...n.trim()].length >= 2 && text.includes(n.trim().normalize("NFC")));
 }
+
+// FORGET-기본이미함 ② 흔적 넓히기(다른 방 답): 단체방에서 그 사람이 한 요청 뒤, 그 사람과의 1:1 방에 내가 메시지를 보냈다면 답한 것.
+// 1:1 방은 상대가 한 사람뿐이라 내 메시지 = 그 사람에게 한 말. 요청 뒤 REPLY_LOOKBACK_MS(3일) 안, 전달한 메시지는 치지 않는다.
+export function messagedAfter(askAt: number, messages: readonly ReplyMsg[]): boolean {
+  if (!Number.isFinite(askAt)) return false;
+  return messages.some((m) => m && m.self === true && m.forwarded !== true && Number.isFinite(m.at) && m.at > askAt && m.at - askAt <= REPLY_LOOKBACK_MS);
+}
