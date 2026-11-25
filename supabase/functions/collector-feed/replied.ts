@@ -26,3 +26,23 @@ export function askReplied(ask: AskAnchor, messages: readonly ReplyMsg[], person
   }
   return null;
 }
+
+// FORGET-기본이미함(S70-20b, 명진 11/25 12:39 "모두 추천대로" ③): 명진을 '직접 부른' 요청인지. 직접 부른 요청은 마감 있는 요청과 함께
+// ★로 묶음 맨 위에 두고, 하루 지나 저절로 '이미 함(지남)'으로 옮기는 대상(DB 예약 app_forget_auto_expire)에서 뺀다.
+// 직접 부름으로 보는 때(하나라도): 1:1 방이다 / 그 요청이 내 메시지에 단 답장이다 / 그 요청 글에 내 이름(이름표 이름, 2자 이상)이나 @내 이름이 있다.
+// 이름은 비교에만 쓰고 어디에도 남기지 않는다.
+export type DirectMsg = { ref: string; self: boolean; reply_to: string | null; text: string };
+export function askDirect(ask: DirectMsg, messages: readonly DirectMsg[], personal: boolean, selfNames: readonly string[] = []): boolean {
+  if (personal) return true;
+  if (!ask) return false;
+  if (ask.reply_to && messages.some((m) => m && m.self === true && m.ref === ask.reply_to)) return true;
+  const text = typeof ask.text === "string" ? ask.text.normalize("NFC") : "";
+  return selfNames.some((n) => typeof n === "string" && [...n.trim()].length >= 2 && text.includes(n.trim().normalize("NFC")));
+}
+
+// FORGET-기본이미함 ② 흔적 넓히기(다른 방 답): 단체방에서 그 사람이 한 요청 뒤, 그 사람과의 1:1 방에 내가 메시지를 보냈다면 답한 것.
+// 1:1 방은 상대가 한 사람뿐이라 내 메시지 = 그 사람에게 한 말. 요청 뒤 REPLY_LOOKBACK_MS(3일) 안, 전달한 메시지는 치지 않는다.
+export function messagedAfter(askAt: number, messages: readonly ReplyMsg[]): boolean {
+  if (!Number.isFinite(askAt)) return false;
+  return messages.some((m) => m && m.self === true && m.forwarded !== true && Number.isFinite(m.at) && m.at > askAt && m.at - askAt <= REPLY_LOOKBACK_MS);
+}

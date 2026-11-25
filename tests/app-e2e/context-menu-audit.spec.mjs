@@ -218,7 +218,8 @@ const SPOTS = {
   '하루 기록': [{ name: '하루 기록 머리 줄', sel: '#diaryView .diary-week-head', want: 'app', labels: ['하루 기록 쓰기'] }],
   '사진': [{ name: '사진 머리 줄', sel: '#photosView .photos-head', want: 'app', gap: SCREEN_GAP }],
   '잊지 말기': [{ name: '잊지 말기 머리 줄', sel: '#basketView .forget-head', want: 'app', gap: SCREEN_GAP, at: 200 }],
-  '저장한 글': [{ name: '저장한 글 제목', sel: '#readingView .rd-title', want: 'app', labels: ['글 추가'] }, { name: '저장한 글 빈 곳', sel: '#readingView .wait-empty', want: 'app', labels: ['글 추가'] }],
+  // S70-40b ④: PC 틀은 목록 머리 줄 제목이 없다(위 줄에 화면 이름) — 머리 줄 탭 오른쪽 빈 곳. S70-28: 그 우클릭 메뉴에 '글 추가'.
+  '저장한 글': [{ name: '저장한 글 머리 줄', sel: '#readingView [data-rd-list] .rd-head', want: 'app', labels: ['글 추가'], at: 300 }, { name: '저장한 글 빈 곳', sel: '#readingView .wait-empty', want: 'app', labels: ['글 추가'] }],
   '조직 관리': [
     { name: '조직 카드', sel: '#teamView article.so-card', want: 'app' },
     { name: '조직 기록 줄', sel: '#teamView .wd-log-row', want: 'app' },
@@ -335,7 +336,8 @@ test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 머리 줄 [
   const ib = await input.boundingBox();
   expect((await rightClickAt(page, Math.round(ib.x + 20), Math.round(ib.y + ib.height / 2))).result).toBe('browser');
   // Shift+F10(메뉴 키)도 같은 메뉴.
-  await page.locator('#readingView .rd-title').evaluate(el => { el.tabIndex = -1; el.focus(); });
+  // S70-40b ④ 뒤: PC 틀은 머리 줄 제목(.rd-title)을 그리지 않으므로 머리 줄 자체에 초점.
+  await page.locator('#readingView [data-rd-list] .rd-head').evaluate(el => { el.tabIndex = -1; el.focus(); });
   await page.evaluate(() => { window.__ctxBy = []; });
   await page.keyboard.press('Shift+F10');
   await expect(page.locator('#rowMenu')).toBeVisible();

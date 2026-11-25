@@ -1,4 +1,5 @@
 // STAB-폴더상자시험(S61-10): 두 손가락 벌리는 도중 화면이 자료를 받아 폴더 나무를 다시 그려도(innerHTML) 벌리기가 사라지지 않는다.
+// UI-폴더줄크기(S69-99): 벌리기 = 줄 크기 한 단계(그 폴더로 들어가지 않음).
 // 손가락 이벤트는 손가락을 댄 요소로만 가서, 그 요소가 다시 그려져 문서에서 떨어지면 칸까지 올라오지 않았다(folder-pinch.js).
 // 다른 폴더를 읽는 응답을 붙잡아 두었다가 손가락을 댄 뒤에 풀어, 진짜 다시 그리기가 손짓 한가운데에 오게 한다. 이름은 모두 지어낸 것이다.
 import { test, expect } from '@playwright/test';
@@ -31,7 +32,7 @@ async function pinchOutAround(page, locator, between) {
   await cdp.detach();
 }
 
-test('파일 폰 412: 벌리는 도중 나무가 다시 그려져도 그 폴더만이 열린다', async ({ page }) => {
+test('파일 폰 412: 벌리는 도중 나무가 다시 그려져도 줄 크기가 한 단계 커진다(들어가지 않음)', async ({ page }) => {
   const { errors } = await start(page, 412);
   const hold = await holdList(page, 'OD!2');
   await openFiles(page, 412);
@@ -48,8 +49,8 @@ test('파일 폰 412: 벌리는 도중 나무가 다시 그려져도 그 폴더�
     // 응답이 와서 나무가 다시 그려졌다(손가락을 댄 옛 줄은 문서에서 떨어짐).
     await expect(tree.locator('[data-fx-fold="od:OD!1"][data-old]')).toHaveCount(0);
   });
-  await expect(tree).toBeHidden();
-  const box = page.locator('#filesRoot [data-fx-list] .ft-focus');
-  await expect(box.locator('.ft-focus-head .ft-focus-name')).toHaveText('가짜 문서함');
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.rowSize)).toBe('l');
+  await expect(tree).toBeVisible();
+  await expect(page.locator('#filesRoot [data-fx-list] .ft-focus')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

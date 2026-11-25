@@ -161,10 +161,10 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-select-bar:not([hidden]) { position:sticky; top:var(--kptu-stick-top,0px); z-index:3; }
 .nx-body { display:block; }
 /* UI-칸폭끌기전수: 나무 | 노트 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 30:70). */
-[data-note-list].nx-wide .nx-body { --ds-split-list:30fr; --ds-split-detail:70fr; --ds-split-list-min:180px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:10px; align-items:start; }
+[data-note-list].nx-wide .nx-body { --ds-split-list:30fr; --ds-split-detail:70fr; --ds-split-list-min:180px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:var(--ds-gap-pane); align-items:start; }
 #appView #basketView .nx-row.nx-note { padding-left:calc(var(--nx-indent, 0) * 14px); }
 .nx-outside .ft-name { color:var(--kptu-muted); font-weight:400; }
-#appView #basketView .nx-note .note-row { display:flex; align-items:center; gap:6px; min-height:36px; }
+#appView #basketView .nx-note .note-row { display:flex; align-items:center; gap:6px; min-height:var(--ft-item-h,40px); } /* 폴더 안 파일 줄과 같은 높이·줄 크기 단계(S69-99) */
 #appView #basketView .nx-note .note-row .basket-title { flex:1 1 auto; min-width:0; font-weight:500; }
 .nx-path { font-size:12px; color:var(--kptu-muted); } /* 늘 온전히 보이는 꼬리표 규칙은 공용 .row-tail(ui-standard.css) */
 .nx-clip { flex:none; font-size:12px; }
@@ -217,6 +217,17 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .home-quick button.home-quick-folder .home-quick-folder-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media(max-width:760px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:center; max-width:7em; } }
 @media(min-width:761px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:flex-start; margin-top:2px; } }
+/* NOTE-입력창한줄(S70-05, 명진 11/25 09:30 "pc에서 노트를 입력하세요 입력창 한줄로 / 어차피 크게 누르면 전체화면인데"):
+   PC 노트 입력칸은 늘 한 줄 높이([추가]와 같은 --kptu-control-height)로 고정한다. 글이 길어도 늘지 않고(칸 안에서 넘김), 길게 쓸 때는 칸 안 [⤢ 크게].
+   여러 줄 붙여넣기는 값에 그대로 담긴다(보이는 높이만 한 줄). 줄 높이 = 칸 안 높이라 넘겨 볼 때도 늘 한 줄만 온전히 보인다(반쪽 줄 없음). 크기 손잡이 없음. [폴더 ▾]·[첨부]·[추가]는 칸과 가운데를 맞춘 한 줄, 감싼 상자 여백도 줄인다.
+   폰(760 이하)은 위 ui-standard.css 한 줄 규칙 그대로(이 묶음은 PC만). Enter 동작은 바꾸지 않는다(enter-save.js). */
+@media(min-width:761px) {
+  #appView #basketView .home-quick[data-note-only] { margin:8px 0; padding:6px 8px; }
+  #appView #basketView .home-quick[data-note-only] .home-quick-entry { align-items:center; }
+  #appView #basketView .home-quick[data-note-only] .home-quick-entry > button.home-quick-folder { align-self:center; margin-top:0; }
+  #appView #basketView .home-quick[data-note-only] [data-quick-input] { box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); max-height:var(--kptu-control-height); padding-top:0; padding-bottom:0; line-height:calc(var(--kptu-control-height) - 2px); resize:none; overflow-y:auto; scrollbar-width:none; }
+  #appView #basketView .home-quick[data-note-only] [data-quick-input]::-webkit-scrollbar { display:none; }
+}
 /* ED③ 노트: 노트 수정 칸의 본문은 새 편집기(ed-editor.js, 모양은 ed-doc.css). 칸 테두리만 둘러 옛 textarea 자리와 같은 폭·높이로 둔다. */
 #basketView .note-editor .note-body-field { display:block; min-width:0; margin:6px 0 0; border:1px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); }
 /* NOTE-본문칸여백(S70-38, 2026-11-25 명진 "노트 본문에 너무 딱 맞아서 답답해 위아래 여백이 필요해"): 읽기 본문 상자와 고치기 글 칸은 같은 최소 높이
@@ -225,7 +236,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .note-editor .note-body-field .ed-editor .ProseMirror { min-height:var(--note-body-min); }
 
 /* FOLDER-나무새기준(S51-12): 폴더 줄·상자 모양은 공용 folder-tree.css(ft-) 한 곳. 여기는 노트 줄을 나무 안 들여쓰기 자리에 두는 것만. */
-#appView #basketView [data-note-list] .nx-note.ft-item { padding-left:calc(var(--ft-depth, 0) * 22px); }
+#appView #basketView [data-note-list] .nx-note.ft-item { padding-left:calc(var(--ft-depth, 0) * var(--ft-indent,22px)); }
 #appView #basketView [data-note-list] .ft-box-body > .nx-note { border-top:0; }
 #appView #basketView [data-note-list] button:is(.nx-new-folder,.nx-back) { min-height:28px; padding:0 6px; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:13px; font-weight:400; justify-content:flex-start; }
 #appView #basketView [data-note-list] button.nx-new-folder { display:flex; margin:2px 0 0; }
@@ -704,6 +715,22 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .note-pub-line { display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; margin:0 0 8px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #basketView .note-pub-line[hidden] { display:none; }
 #appView #basketView .note-pub-on { color:var(--kptu-ink); font-weight:600; }
+/* S69-98 NOTE-에버노트 ⑦ 관련 노트·자료(note-related.js): 노트 읽기 아래 접는 칸 하나, 줄은 촘촘하게 한 줄씩. */
+#basketView .note-rel-box { margin: 6px 0 2px; }
+#basketView .note-rel { border-top: 1px solid var(--kptu-border); padding-top: 4px; }
+#basketView .note-rel-sum { display: flex; align-items: center; gap: 6px; min-height: 32px; cursor: pointer; font-size: 13px; color: var(--kptu-muted); list-style: none; }
+#basketView .note-rel-sum::-webkit-details-marker { display: none; }
+#basketView .note-rel-count { font-size: 12px; }
+#basketView .note-rel-list { list-style: none; margin: 0; padding: 0; }
+#basketView .note-rel-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; margin: 0; padding: 2px 4px; border: 0; background: transparent; color: var(--kptu-ink); font: inherit; font-size: 14px; text-align: left; cursor: pointer; border-radius: 6px; box-shadow: none; }
+#basketView .note-rel-row:hover, #basketView .note-rel-row:focus-visible { background: var(--kptu-surface-subtle); }
+#basketView .note-rel-ico { flex: none; width: 14px; height: 14px; color: var(--kptu-muted); }
+#basketView .note-rel-name { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#basketView .note-rel-why { flex: none; max-width: 40%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--kptu-muted); }
+/* S69-98 NOTE-에버노트 ⑧ 이 노트를 가리키는 노트(한 줄, 넘치면 줄바꿈). */
+#basketView .note-linkedby { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 4px 0; font-size: 13px; color: var(--kptu-muted); }
+#basketView .note-linkedby-label::before { content: "← "; }
+#basketView .note-linkedby-link { min-height: 28px; margin: 0; padding: 0 2px; border: 0; background: transparent; box-shadow: none; color: var(--kptu-primary-text); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* S70-35 NOTE-목록표머리 ①(docs/design/note-list-columns.md): [목록] 보기 = 머리 줄(제목 | 폴더 | 태그 | 수정일 | 첨부) + 칸 자리가 맞는 줄.
    칸 너비는 공용 col-resize.js가 [data-note-rows]에 --nl-w-* 변수로 넣는다(서버 view_prefs.col_widths.notes, 화면 종류별). 제목 칸은 남는 폭을 모두 가진다.
    머리 줄은 틀 고정: 목록을 내리면 앱 위 줄 바로 아래(고르기 막대가 떠 있으면 막대 바로 아래)에 붙는다. 바탕은 화면 바탕(흰 띠 없음). */

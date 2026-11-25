@@ -3,7 +3,7 @@
 // 운영자 기능 키 'outside'가 있는 작업공간 몫만 한다. 화면 메뉴 숨김(app/menu-model.mjs)만으로 끝내지 않는다(AGENTS.md 3·5절).
 // 판정은 서버 허용 표(app_operator_features, SQL로만 씀)를 service role 함수 app_operator_feature_workspace('outside')로 읽는다 —
 // 그 키를 가진 작업공간이 정확히 한 곳일 때만 그 id, 아니면(없음·여러 곳·읽기 실패) null = 아무 작업공간도 안 함(닫힌 쪽으로 실패).
-// 다시 모두에게 열 때는 이 파일과 부르는 곳(news-feed·outside-feed)을 함께 고친다. 이미 모인 글·보관·밑줄은 지우지 않는다.
+// 다시 모두에게 열 때는 이 파일과 부르는 곳(news-feed·outside-feed·phone-push 저녁 알림)을 함께 고친다. 이미 모인 글·보관·밑줄은 지우지 않는다.
 import { readBoundedJson } from "./bounded-json.mjs";
 
 export const NEWS_FEATURE = "outside";

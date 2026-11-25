@@ -34,6 +34,8 @@ async function fixture(page, width, {postFails = false} = {}) {
   await page.route(SB + '/functions/v1/note-ai-title**', r => r.fulfill({json: {ok: true}}));
   // basket-files: gate()가 열릴 때까지 잡아 두었다가, fail(이름)이면 다시 보내도 되는 거절(400), 아니면 그 노트에 붙인다(진짜 함수처럼).
   await page.route(SB + '/functions/v1/basket-files**', async r => {
+    // S69-98: 노트 사진도 올린 뒤 글자 읽기(ocr-*)를 묻는다 — 이 시험은 읽기를 보지 않으므로 '못 함'으로 답한다(올리기만 센다).
+    if (new URL(r.request().url()).searchParams.get('action')?.startsWith('ocr-')) return r.fulfill({status: 404, json: {ok: false}});
     const raw = r.request().postDataBuffer()?.toString('latin1') || '';
     const noteId = raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1], name = Buffer.from(raw.match(/filename="([^"]*)"/)?.[1] || '', 'latin1').toString('utf8'), type = raw.match(/Content-Type: ([^\r]+)/)?.[1];
     uploads.push({noteId, name});

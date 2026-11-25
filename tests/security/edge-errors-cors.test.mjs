@@ -61,7 +61,7 @@ test('web CORS echoes only the six owned origins and never sends a wildcard', as
 });
 
 const FN = new URL('../../supabase/functions/', import.meta.url);
-const WRAPPED = ['account-delete', 'ai-assist', 'record-backup', 'basket-files', 'cloud-files', 'collector-feed', 'document-actions', 'document-ai-index', 'drive-summary', 'event-media', 'gdrive-photos',
+const WRAPPED = ['account-delete', 'ai-assist', 'record-backup', 'basket-files', 'cloud-files', 'collector-feed', 'csp-report', 'document-actions', 'document-ai-index', 'drive-summary', 'event-media', 'gdrive-photos',
   'google-calendar', 'google-tasks', 'library-files', 'meeting-ai-draft', 'meeting-ai-ingest', 'meeting-files', 'meeting-transcribe', 'mcp-read', 'news-feed',
   'note-import', 'onedrive-photos', 'outside-feed', 'page-ai-draft', 'phone-push', 'release-notes-sync', 'share-page-media', 'workspace-drive'];
 // 자기 출처 목록을 따로 가진 공개·로그인 전달 함수, 그리고 410만 돌려주는 퇴역 함수.

@@ -4,6 +4,8 @@ import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } from '..
 import { outputText } from '../_shared/openai-responses.ts';
 // S48-15: 제목 찾기에 부른 AI 토큰을 홈 'AI 사용량' 줄의 기존 표(app_ai_daily_usage)에 더한다. 기록 실패는 올리기를 막지 않는다.
 import { createAiUsageMeter, recordAiDailyUsage } from '../_shared/ai-daily-usage.mjs';
+import { FUNCTION_FEATURES } from '../_shared/ai-features.mjs';
+const AI_FEATURE=FUNCTION_FEATURES['library-files'];
 // WEEKLY-재료전체 ②: 사진 설명은 사진 한 장마다 하루 AI 요청 수(80회 표)에도 1회씩 센다.
 import { addAiRequest, readTodayAiUsage } from '../_shared/ai-daily-usage.mjs';
 // AI-사람별한도: 작업공간 이번 달 AI 한도에 닿으면 제목·한 줄 AI를 건너뛴다(올리기는 그대로, 파일 이름으로).
@@ -217,10 +219,10 @@ async function photoBriefs(workspaceId:string,userId:string,authorization:string
       ask:async(content:unknown[])=>{const d=await openAI({model,store:false,max_output_tokens:300+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:PHOTO_BRIEF_INSTRUCTIONS},{role:'user',content}],text:{format:{type:'json_schema',name:'photo_brief',strict:true,schema:PHOTO_BRIEF_SCHEMA}}},meter);try{return String(JSON.parse(outputText(d)??'').brief??'')}catch{return null}},
       count:async()=>{const t=await readTodayAiUsage(admin,{workspaceId,userId});await addAiRequest(admin,{workspaceId,userId,day:t.day,row:t.row})},
       log:(code:string,detail?:Record<string,number>)=>console.log('library-files '+code,detail||{})});
-    await recordAiDailyUsage(admin,{workspaceId,userId,meter});
+    await recordAiDailyUsage(admin,{workspaceId,userId,feature:AI_FEATURE,meter});
     return json(r);
   }catch(e){
-    await recordAiDailyUsage(admin,{workspaceId,userId,meter});
+    await recordAiDailyUsage(admin,{workspaceId,userId,feature:AI_FEATURE,meter});
     console.error('library-files photo brief failed',safeErrorLog(e));
     throw new UploadError('지금은 사진을 읽을 수 없습니다.',{status:503,code:'photo_brief_unavailable',stage:'photo_brief',retryable:true});
   }
@@ -311,7 +313,7 @@ Deno.serve(withWebCors(async(req:Request)=>{
       try{await assertAiUserCap(admin,wm.workspace_id)}catch(e){code='ai_cap';console.warn('record line skipped',safeErrorLog(e))}
       if(code==='ok'){try{const got=await inferRecordLine(file,await workspaceModel(wm.workspace_id),meter);line=got.line;code=got.code}catch(e){code='error';console.warn('record line skipped',safeErrorLog(e))}}
       console.log('library-files record line',{code,kb:Math.round(file.size/1024),ms:Date.now()-started});
-      await recordAiDailyUsage(admin,{workspaceId:wm.workspace_id,userId:user.id,meter});
+      await recordAiDailyUsage(admin,{workspaceId:wm.workspace_id,userId:user.id,feature:AI_FEATURE,meter});
       return json({ok:true,line});
     }
     const replaceId=String(form.get('replace_document_id')||'').trim();
@@ -342,7 +344,7 @@ Deno.serve(withWebCors(async(req:Request)=>{
         const inferred=await inferTitleFromFile(file,model,meter);
         if(inferred){title=tidyFileTitle(inferred);titleSource='content'}
       }catch(e){console.warn('content title inference skipped',safeErrorLog(e))}
-      await recordAiDailyUsage(admin,{workspaceId:wm.workspace_id,userId:user.id,meter});
+      await recordAiDailyUsage(admin,{workspaceId:wm.workspace_id,userId:user.id,feature:AI_FEATURE,meter});
     }
     if(!title||(!(meaningfulName&&titleSource==='filename')&&weakTitle(title)))title=nameTitle();
 

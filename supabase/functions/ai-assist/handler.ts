@@ -81,8 +81,7 @@ import {
 } from "./journal-draft.ts";
 import {
   MEMORABLE_DAY_CAP, MEMORABLE_INSTRUCTIONS, MEMORABLE_MAX_ITEMS, MEMORABLE_MAX_OUTPUT_TOKENS, MEMORABLE_SCHEMA, memorableDayInRange, memorableDue,
-  memorableMaterial, parseJournalMemorableRecheckRequest, parseJournalMemorableRequest, parseMemorable, MEMORABLE_RECHECK_AI_CALLS, MEMORABLE_RECHECK_DAYS,
-  MEMORABLE_DIRECTION_SINCE, MEMORABLE_RECHECK_KEEP_MAX, MEMORABLE_RECHECK_LINES_MAX, MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS, recheckSplit, toFeedRow,
+  memorableMaterial, parseJournalMemorableRequest, parseMemorable, toFeedRow,
 } from "./journal-memorable.ts";
 import type { FeedRow } from "./journal-memorable.ts";
 import {
@@ -181,6 +180,7 @@ export const OPENAI_URL = "https://api.openai.com/v1/responses";
 export const KEY_NAME = "WEB2_OPENAI_API_KEY";
 // 모델·가격 기본값은 _shared/ai-model.ts 한 곳(운영 값은 WEB2_AI_MODEL·WEB2_AI_PRICE_*로 바꿀 수 있음).
 import { DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
+import { featureOfKind, recordAiUsageEvent } from "../_shared/ai-features.mjs";
 export { DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK };
 export const DEFAULT_MODEL = DEFAULT_AI_MODEL;
 // Web2 월 추정 한도(D4 ②). OpenAI 쪽 월 한도(약 2만 원, D4 ①)보다 먼저 멈춘다.
@@ -189,7 +189,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 // 숫자는 _shared/ai-daily-usage.mjs 한 곳(녹음 요약·초안 함수와 같은 한도).
 export { DAILY_TOTAL_LIMIT };
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, library_sort: 30, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, record_one_line: 120, file_name: 60, journal_draft: 3, journal_memorable: 24, journal_memorable_recheck: 6, home_day_picks: 8, share_draft: SHARE_LIMITS.daily, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, library_sort: 30, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, record_one_line: 120, file_name: 60, journal_draft: 3, journal_memorable: 24, home_day_picks: 8, share_draft: SHARE_LIMITS.daily, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -543,7 +543,6 @@ type FileNameInput = { kind: "file_name" } & FileNameRequest;
 type LibrarySortInput = { kind: "library_sort" } & LibrarySortRequest;
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
 type JournalMemorableInput = { kind: "journal_memorable"; day: string };
-type JournalMemorableRecheckInput = { kind: "journal_memorable_recheck"; mode: "preview" | "run" };
 type HomeDayPicksInput = { kind: "home_day_picks" } & HomeDayPicksRequest;
 // 홈 [하루] 요청 몸통 상한: 일정 40개·할 일 30개(제목 120자) + JSON.
 const HOME_DAY_BODY_BYTES = 24 * 1024;
@@ -586,7 +585,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | RecordOneLineInput | FileNameInput | LibrarySortInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | HomeDayPicksInput | AreaSuggestInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WorkScopeInput | NowInput | AiMonthInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | RecordOneLineInput | FileNameInput | LibrarySortInput | JournalDraftInput | JournalMemorableInput | HomeDayPicksInput | AreaSuggestInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WorkScopeInput | NowInput | AiMonthInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -669,11 +668,6 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     const parsed = parseHomeDayPicksRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "home_day_picks", ...parsed };
-  }
-  if (b.kind === "journal_memorable_recheck") {
-    const parsed = parseJournalMemorableRecheckRequest(b);
-    if (!parsed) throw new Fail(400, "invalid_request");
-    return { kind: "journal_memorable_recheck", ...parsed };
   }
   if (b.kind === "work_scope") {
     const parsed = parseWorkScopeRequest(b);
@@ -978,6 +972,7 @@ async function checkBudget(ctx: Ctx, kind: string, nowMs: number, price: { input
   // 사용 기록 표는 사용자·날짜마다 1행이라 하루 횟수는 모든 쓰임 합계로 센다. 챙길 것 찾기의 하루 5회는 찾기 상태 표가 센다.
   if (!(kind in DAILY_LIMITS) || used >= DAILY_TOTAL_LIMIT) throw new Fail(429, "daily_limit");
   return {
+    kind,
     day,
     requests: used,
     input: tokenCount(today?.input_tokens),
@@ -1000,6 +995,23 @@ async function writeUsage(ctx: Ctx, day: string, requests: number, input: number
       updated_at: new Date(nowMs).toISOString(),
     },
   });
+}
+
+// S70-55 I-3: AI를 부른 뒤 쓴 토큰을 오늘 행에 더하고(지금과 같음), 기능별 표(app_ai_usage_events)에도 1행 넣는다.
+// 기능 키는 checkBudget이 받은 쓰임(kind)으로 _shared/ai-features.mjs 표에서 정한다. 행에는 숫자·모델 이름·기능 키만(글 없음).
+// 오늘 행 기록 실패는 지금처럼 부르는 쪽에 던진다(각 쓰임이 usage_record_failed로 받음). 기능별 행 실패는 던지지 않고 고정 코드만 로그.
+// 내 로그인 토큰으로 넣는다(표의 authenticated 넣기 칸 grant + 소유자 with check).
+type UsedTokens = { input: number; output: number; calls?: number };
+async function writeUsageAfterAi(ctx: Ctx, budget: { kind: string; day: string; requests: number; input: number; output: number }, used: UsedTokens, model: string, nowMs: number) {
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, nowMs);
+  } finally {
+    await recordAiUsageEvent(
+      (row) => rest(ctx, "app_ai_usage_events", { method: "POST", prefer: "return=minimal", body: row }),
+      { workspaceId: ctx.workspaceId, day: budget.day, feature: featureOfKind(budget.kind), model, calls: used.calls ?? 1, input: used.input, output: used.output },
+      (code, detail) => ctx.log(code, detail),
+    );
+  }
 }
 
 // OpenAI 호출 1번 + 잠깐 막힘 1번 재시도는 공용 모듈이 한다(collector-feed와 같은 길).
@@ -1102,7 +1114,7 @@ async function runTodoRecheck(ctx: Ctx, deps: RadarDeps): Promise<Response> {
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: RECHECK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -1188,7 +1200,7 @@ async function runTodoRulesReview(ctx: Ctx, deps: RadarDeps): Promise<Response> 
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: RULES_REVIEW_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -1582,7 +1594,7 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
     const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: RADAR_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
     if (used.input || used.output) {
       try {
-        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+        await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
       } catch {
         deps.log("usage_record_failed");
       }
@@ -1780,7 +1792,7 @@ async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response>
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: LEDGER_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -2379,7 +2391,7 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
     used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: AUTO_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
     if (used.input || used.output) {
       try {
-        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+        await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
       } catch {
         deps.log("usage_record_failed");
       }
@@ -2490,7 +2502,7 @@ async function runLedgerFix(ctx: Ctx, input: LedgerFixInput, deps: RadarDeps): P
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: FIX_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -2898,7 +2910,7 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: LIBRARY_MAX_OUTPUT_TOKENS * files.length } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3103,7 +3115,7 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: PEOPLE_BRIEF_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3195,7 +3207,7 @@ async function runShareDraft(ctx: Ctx, input: ShareInput, deps: RadarDeps): Prom
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: SHARE_LIMITS.maxOutputTokens } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3316,7 +3328,7 @@ async function runScheduleTitles(ctx: Ctx, input: ScheduleTitlesInput, deps: Rad
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: SCHEDULE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3368,7 +3380,7 @@ async function runHwpConvert(ctx: Ctx, input: HwpConvertInput, deps: RadarDeps):
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: HWP_CONVERT_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3535,7 +3547,7 @@ async function runOverlapCheck(ctx: Ctx, input: OverlapCheckInput, deps: RadarDe
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: OVERLAP_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3648,7 +3660,7 @@ async function runCallRefill(ctx: Ctx, input: CallRefillInput, deps: RadarDeps):
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: CALL_REFILL_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3747,7 +3759,7 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: JOURNAL_DRAFT_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -3775,7 +3787,7 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
   return json({ ok: true, kind: "journal_draft", day, draft: saved });
 }
 
-// 소식 고르기 맥락(journal_memorable·journal_memorable_recheck 같이 씀).
+// 소식 고르기 맥락(journal_memorable).
 // 이미 있는 것: 처리 전 챙길 것·텔레그램 요청 후보와 최근 2주 잊지 말기 소식(같은 내용은 고르지 않게 AI에 함께 보냄).
 // 텔레그램 요청 후보가 이미 가리키는 같은 기록은 아예 보내지 않는다(같은 글이면 하나만). 맥락은 못 읽어도 고르기는 돈다(빈 목록).
 // skip: '이미 있는 것'에서 뺄 소식 줄 id(④ 다시 판정할 줄 자신은 '이미 있는 것'이 아니다).
@@ -3906,7 +3918,7 @@ async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps:
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: MEMORABLE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4121,180 +4133,13 @@ async function callDayAi(ctx: Ctx, deps: RadarDeps, started: number, name: strin
   });
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: maxTokens } : { input: 0, output: 0 };
   if (used.input || used.output) {
-    try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now()); } catch { deps.log("usage_record_failed"); }
+    try { await writeUsageAfterAi(ctx, budget, used, config.model, deps.now()); } catch { deps.log("usage_record_failed"); }
   }
   if (!result.ok) {
     deps.log(result.code);
     throw new Fail(result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" || result.code === "ai_busy" ? 503 : 502, result.code);
   }
   return result.raw;
-}
-
-// ---- 쓰임 journal_memorable_recheck: FORGET-소식바로잡기 ④ 쌓인 소식 한 번 다시 판정(요청함 11/09 01:45) ----------
-// 종류·이유가 없는(옛 기준으로 고른) 최근 2주 처리 전 소식 줄을 #2172와 같은 지시문(MEMORABLE_INSTRUCTIONS)·같은 검사(parseMemorable)로 다시 거른다.
-// - 로그인한 소유자 본인 작업공간만(ownerWorkspace), 운영자 기능(calls·telegram)은 서버 허용 표로 판정 — 없으면 거절(403). 표 정책도 한 번 더 막는다.
-// - mode=preview: 아무것도 바꾸지 않고 남을 수·무시로 갈 수만 돌려준다. mode=run: 남는 줄에 종류·이유(picks 행)를 넣고, 안 드는 줄은 상태만
-//   'dropped'(무시)로 바꾼다(지우지 않음, 내용 칸 그대로). 바꾼 줄 id(무시로 옮긴 줄·종류를 붙인 줄)와 시각(decided_at)을 응답·기록에 남긴다(내용 없이 id·수만) — 되돌리기용.
-// - 같은 줄은 두 번 판정하지 않는다: 판정이 끝난 줄은 picks가 있거나 처리 전이 아니므로 다음 요청의 대상이 아니다.
-// - 하루 5개 상한은 쓰지 않고, 새 기준에 드는 줄은 최근 것부터 MEMORABLE_RECHECK_KEEP_MAX개까지만 남긴다. AI는 한 번 요청에 MEMORABLE_RECHECK_AI_CALLS번까지.
-// S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 방향 규칙 전(MEMORABLE_DIRECTION_SINCE 전)에 '할 일'로 고른 처리 전 줄(suspect)도 같은 지시문으로 다시 본다.
-//   AI가 그 줄을 '내가 남에게 부탁한 일'(from_me)로 보면 종류만 promise(상대 약속)로 바꾼다(줄·상태 그대로, 지우지 않음 — 되돌리기는 종류를 task로).
-//   그 밖의 판정(할 일 그대로·다른 종류·고르지 않음)은 그 줄을 바꾸지 않는다(이미 새 기준으로 고른 줄을 무시로 보내지 않음). 남길 자리(KEEP_MAX)는 옛 줄만 쓴다.
-//   옛 줄(종류 없음)도 promise로 판정되면 종류 promise로 남는다(상대 약속 줄에 보임). 응답에 promise 수·id(내용 없음).
-async function runJournalMemorableRecheck(ctx: Ctx, input: JournalMemorableRecheckInput, deps: RadarDeps): Promise<Response> {
-  const started = deps.now();
-  const ws = encodeURIComponent(ctx.workspaceId), mode = input.mode;
-  const features = await myFeatures(ctx);
-  if (features === "missing") throw new Fail(503, "journal_memorable_not_ready");
-  if (features === "error") throw new Fail(503, "journal_memorable_unavailable");
-  const sources = [features.has("calls") ? "call" : "", features.has("telegram") ? "telegram" : ""].filter(Boolean);
-  if (!sources.length) throw new Fail(403, "forbidden");
-  const readRows = async (path: string): Promise<Record<string, unknown>[]> => {
-    let rows: unknown;
-    try {
-      rows = await rest(ctx, path);
-    } catch (e) {
-      throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "journal_memorable_not_ready" : "journal_memorable_unavailable");
-    }
-    if (!Array.isArray(rows)) throw new Fail(503, "journal_memorable_unavailable");
-    return rows as Record<string, unknown>[];
-  };
-  const today = seoulDays(started).day;
-  const from = new Date(Date.parse(`${today}T00:00:00Z`) - MEMORABLE_RECHECK_DAYS * 86400000).toISOString().slice(0, 10);
-  const lines = (await readRows(`app_journal_memorable?workspace_id=eq.${ws}&status=eq.suggested&day=gte.${from}&select=id,workspace_id,day,source,feed_item_id,status&order=day.desc,picked_at.desc,id.asc&limit=${MEMORABLE_RECHECK_LINES_MAX}`))
-    .filter((r) => String(r?.workspace_id ?? "").toLowerCase() === ctx.workspaceId && r?.status === "suggested" && UUID.test(String(r?.id ?? ""))
-      && UUID.test(String(r?.feed_item_id ?? "")) && sources.includes(String(r?.source)))
-    .map((r) => ({ id: String(r.id).toLowerCase(), day: String(r.day ?? ""), source: String(r.source), feed: String(r.feed_item_id).toLowerCase() }));
-  // 종류·이유가 이미 있는 줄(새 기준)은 대상이 아니다. 다만 방향 규칙 전에 '할 일'로 고른 줄은 다시 본다(suspect).
-  const withPick = new Set<string>(), suspectIds = new Set<string>();
-  const since = Date.parse(MEMORABLE_DIRECTION_SINCE);
-  for (let i = 0; i < lines.length; i += 50) {
-    const ids = lines.slice(i, i + 50).map((l) => l.id).join(",");
-    for (const p of await readRows(`app_journal_memorable_picks?workspace_id=eq.${ws}&memorable_id=in.(${ids})&select=memorable_id,kind,picked_at&limit=50`)) {
-      const id = String(p?.memorable_id ?? "").toLowerCase();
-      withPick.add(id);
-      const at = Date.parse(String(p?.picked_at ?? ""));
-      if (p?.kind === "task" && Number.isFinite(at) && at < since) suspectIds.add(id);
-    }
-  }
-  const old = lines.filter((l) => !withPick.has(l.id));
-  const suspects = lines.filter((l) => suspectIds.has(l.id));
-  const done = (out: { keep: string[]; drop: string[]; left: string[] }, promise: string[] = [], extra: Record<string, unknown> = {}) => {
-    const counts = { target: old.length + suspects.length, keep: out.keep.length, drop: out.drop.length, left: out.left.length, promise: promise.length };
-    deps.log("journal_memorable_recheck_done", { mode, ...counts, ...extra });
-    return json({ ok: true, kind: "journal_memorable_recheck", mode, ...counts, ...extra });
-  };
-  if (!old.length && !suspects.length) return done({ keep: [], drop: [], left: [] });
-
-  // 원본(통화·텔레그램 기록)은 출처마다 따로 읽는다(source=eq.call / source=eq.telegram). 숨긴 기록은 읽지 않는다.
-  const feedById = new Map<string, FeedRow>();
-  for (const src of sources) {
-    const ids = [...old, ...suspects].filter((l) => l.source === src).map((l) => l.feed);
-    for (let i = 0; i < ids.length; i += 50) {
-      const chunk = ids.slice(i, i + 50).join(",");
-      const got = src === "call"
-        ? await readRows(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&id=in.(${chunk})&select=id,workspace_id,source,title,summary,points,room_label&limit=50`)
-        : await readRows(`app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&hidden_at=is.null&id=in.(${chunk})&select=id,workspace_id,source,title,summary,points,room_label&limit=50`);
-      for (const raw of got) {
-        if (String(raw?.workspace_id ?? "").toLowerCase() !== ctx.workspaceId || raw?.source !== src) continue;
-        const row = toFeedRow(raw);
-        if (row) feedById.set(row.id, row);
-      }
-    }
-  }
-  const { asked, myOrgs, areas, known } = await memorableContext(ctx, today, new Set([...old, ...suspects].map((l) => l.id)));
-  // 옛 줄 먼저(최근 것부터), 그다음 suspect(최근 것부터). suspect는 원본이 없거나 판정할 수 없으면 그대로 둔다.
-  const judgeable = [...old, ...suspects].filter((l) => feedById.has(l.feed) && !asked.has(l.feed));
-  const unjudgeable = old.filter((l) => !feedById.has(l.feed) || asked.has(l.feed)).map((l) => l.id);
-  const lineByFeed = new Map(judgeable.map((l) => [l.feed, l]));
-  const toPromise: string[] = [];
-
-  // 최근 것부터 MEMORABLE_MAX_ITEMS줄씩 AI에 보내고, 남길 자리가 다 차거나 AI 횟수 상한이면 멈춘다. 쓰기는 모두 끝난 뒤 한 번에(중간 실패 = 아무것도 안 바꿈).
-  const judged: string[] = [], kept: string[] = [];
-  const picksByLine = new Map<string, { kind: string; reason: string }>();
-  let sentLines = 0, calls = 0;
-  if (judgeable.length) {
-    const config = aiConfig(deps.env);
-    if (!config) {
-      deps.log("ai_not_configured");
-      throw new Fail(503, "ai_not_configured");
-    }
-    for (let i = 0; i < judgeable.length && calls < MEMORABLE_RECHECK_AI_CALLS && kept.length < MEMORABLE_RECHECK_KEEP_MAX; i += MEMORABLE_MAX_ITEMS) {
-      const batch = judgeable.slice(i, i + MEMORABLE_MAX_ITEMS);
-      const rows = batch.map((l) => ({ ...feedById.get(l.feed)!, day: l.day }));
-      // suspect는 남길 자리를 쓰지 않는다: 고를 수 있는 수 = 남은 자리 + 이 묶음의 suspect 수(KEEP_MAX 안).
-      const room = Math.min(MEMORABLE_RECHECK_KEEP_MAX, MEMORABLE_RECHECK_KEEP_MAX - kept.length + batch.filter((l) => suspectIds.has(l.id)).length);
-      const material = memorableMaterial(`${from}~${today}`, rows, { orgs: myOrgs, areas, known, max: room, cap: MEMORABLE_RECHECK_KEEP_MAX });
-      const budget = await checkBudget(ctx, "journal_memorable_recheck", deps.now(), config.price);
-      try {
-        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
-      } catch {
-        throw new Fail(503, "usage_unavailable");
-      }
-      calls++;
-      const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
-        model: config.model,
-        store: false,
-        max_output_tokens: MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS,
-        input: [
-          { role: "developer", content: MEMORABLE_INSTRUCTIONS },
-          { role: "user", content: material },
-        ],
-        text: { format: { type: "json_schema", name: "journal_memorable", strict: true, schema: MEMORABLE_SCHEMA } },
-      });
-      const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
-      if (used.input || used.output) {
-        try {
-          await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
-        } catch {
-          deps.log("usage_record_failed");
-        }
-      }
-      if (!result.ok) {
-        deps.log(result.code);
-        const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
-        throw new Fail(status, result.code);
-      }
-      const picks = parseMemorable(outputText(result.raw, 16 * 1024) ?? "", rows, room, MEMORABLE_RECHECK_KEEP_MAX);
-      if (!picks) {
-        deps.log("ai_invalid_response");
-        throw new Fail(502, "ai_invalid_response");
-      }
-      sentLines += batch.length;
-      judged.push(...batch.filter((l) => !suspectIds.has(l.id)).map((l) => l.id));
-      for (const p of picks) {
-        const line = lineByFeed.get(p.feed_item_id);
-        if (!line || picksByLine.has(line.id)) continue;
-        picksByLine.set(line.id, { kind: p.kind, reason: p.reason });
-        if (suspectIds.has(line.id)) { if (p.kind === "promise") toPromise.push(line.id); }
-        else if (kept.length < MEMORABLE_RECHECK_KEEP_MAX) kept.push(line.id);
-      }
-    }
-  }
-  const split = recheckSplit(old.map((l) => l.id), judged, kept, unjudgeable);
-  const promise = [...split.keep.filter((id) => picksByLine.get(id)?.kind === "promise"), ...toPromise];
-  if (mode === "preview") return done(split, promise, { calls, sent: sentLines });
-
-  // 실행: 남는 줄에 종류·이유(같은 줄은 한 번만), 안 드는 줄은 처리 전일 때만 상태를 무시로(그 사이 사람이 정한 줄은 그대로).
-  const at = new Date(started).toISOString();
-  try {
-    const marks = split.keep.map((id) => ({ memorable_id: id, workspace_id: ctx.workspaceId, kind: picksByLine.get(id)!.kind, reason: picksByLine.get(id)!.reason }));
-    if (marks.length) await rest(ctx, "app_journal_memorable_picks?on_conflict=memorable_id", { method: "POST", prefer: "resolution=ignore-duplicates,return=minimal", body: marks });
-    // suspect → 상대 약속: 아직 '할 일'인 종류만 바꾼다(그 사이 사람이 바꾼 줄은 그대로). 표가 허락한 칸(kind·reason)만.
-    for (const id of toPromise) {
-      await rest(ctx, `app_journal_memorable_picks?workspace_id=eq.${ws}&memorable_id=eq.${id}&kind=eq.task`, {
-        method: "PATCH", prefer: "return=minimal", body: { kind: "promise", reason: picksByLine.get(id)!.reason },
-      });
-    }
-    for (let i = 0; i < split.drop.length; i += 50) {
-      await rest(ctx, `app_journal_memorable?workspace_id=eq.${ws}&status=eq.suggested&id=in.(${split.drop.slice(i, i + 50).join(",")})`, {
-        method: "PATCH", prefer: "return=minimal", body: { status: "dropped", decided_at: at },
-      });
-    }
-  } catch {
-    throw new Fail(503, "journal_memorable_unavailable");
-  }
-  return done(split, promise, { calls, sent: sentLines, at, dropped_ids: split.drop, kept_ids: split.keep, promise_ids: promise });
 }
 
 // ---- 쓰임 work_scope: '오늘 한 일' 줄 업무·개인 가르기(JOURNAL-오늘한일업무개인, work-scope.ts) ---------------------------------
@@ -4345,7 +4190,7 @@ async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): P
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: WORK_SCOPE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4403,7 +4248,7 @@ async function runRecordOneLine(ctx: Ctx, input: RecordOneLineInput, deps: Radar
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: ONE_LINE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4478,7 +4323,7 @@ async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): P
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: NOTE_TITLE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4566,7 +4411,7 @@ async function runFileName(ctx: Ctx, input: FileNameInput, deps: RadarDeps): Pro
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: FILE_NAME_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4637,7 +4482,7 @@ async function runLibrarySort(ctx: Ctx, input: LibrarySortInput, deps: RadarDeps
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: LIBRARY_SORT_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -4743,7 +4588,7 @@ async function callWeeklyAi(ctx: Ctx, kind: "weekly_draft" | "weekly_review", de
   });
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: maxTokens } : { input: 0, output: 0 };
   if (used.input || used.output) {
-    try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now()); } catch { deps.log("usage_record_failed"); }
+    try { await writeUsageAfterAi(ctx, budget, used, config.model, deps.now()); } catch { deps.log("usage_record_failed"); }
   }
   if (!result.ok) {
     deps.log(result.code);
@@ -4833,7 +4678,7 @@ async function runAreaSuggest(ctx: Ctx, input: AreaSuggestInput, deps: RadarDeps
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: AREA_SUGGEST_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -5043,7 +4888,7 @@ async function runAskWeb2(ctx: Ctx, input: AskWeb2Input, deps: RadarDeps): Promi
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: ASK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (used.input || used.output) {
     try {
-      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
     } catch {
       deps.log("usage_record_failed");
     }
@@ -5077,6 +4922,7 @@ function nowKit(ctx: Ctx, d: RadarDeps): NowKit {
     rest: (path) => rest(ctx, path), rpc: (name, args) => askRpc(ctx, name, args), aiConfig: () => aiConfig(d.env),
     budget: (kind, price) => checkBudget(ctx, kind, d.now(), price),
     usage: (day, requests, input, output) => writeUsage(ctx, day, requests, input, output, d.now()),
+    usageAfterAi: (budget, used, model) => writeUsageAfterAi(ctx, budget, used, model, d.now()),
     ai: (key, body) => callOpenAi({ doFetch: ctx.doFetch, sleep: d.sleep, log: d.log }, key, body),
     fail: (status, code) => new Fail(status, code), failCode: (e) => e instanceof Fail ? e.code : null,
   };
@@ -5123,7 +4969,6 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "library_sort") return await runLibrarySort(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_memorable") return await runJournalMemorable(ctx, input, { env: deps.env, now, sleep, log, doFetch });
-      if (input.kind === "journal_memorable_recheck") return await runJournalMemorableRecheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "home_day_picks") return await runHomeDayPicks(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "work_scope") return await runWorkScope(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
@@ -5171,7 +5016,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
         : { input: 0, output: 0 };
       if (used.input || used.output) {
         try {
-          await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, now());
+          await writeUsageAfterAi(ctx, budget, used, config.model, now());
         } catch {
           log("usage_record_failed");
         }

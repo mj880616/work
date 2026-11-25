@@ -42,6 +42,7 @@ const PLACE: Record<string, string> = {
   morning: "?view=basket&pane=todo",
   test: "?view=profile",
   signup: "?view=signups", // 운영자 전용 '가입자' 목록(OPS-새가입알림 ③)
+  evening: "?view=news", // 저녁 Now 한 줄(OUTSIDE-바깥성명 ⑥) → News 화면
 };
 export function openPath(kind: string, refKey: string) {
   const place = PLACE[kind] ?? "";

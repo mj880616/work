@@ -12,7 +12,9 @@ const plainToken = token({ sub: 'u1' });
 function fakeFetch(calls, rpcResponse = { status: 200, body: { records: [{ type: 'x', text: 'a' }] } }) {
   return async (url, init = {}) => {
     calls.push({ url, init });
-    if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u1' }), { status: 200 });
+    if (url.endsWith('/auth/v1/oauth/userinfo')) return new Response(JSON.stringify({ sub: 'u1' }), { status: 200 });
+    // Supabase Auth 수정(#2898) 뒤 판: 위임 열쇠로 /user는 403.
+    if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ error: 'no_authorization' }), { status: 403 });
     return new Response(JSON.stringify(rpcResponse.body), { status: rpcResponse.status });
   };
 }
@@ -30,6 +32,62 @@ test('열쇠 없는 POST는 401 + resource_metadata', async () => {
 test('일반 로그인 열쇠(client_id 없음)는 401', async () => {
   const res = await createHandler({ env, fetchImpl: fakeFetch([]) })(post({ jsonrpc: '2.0', id: 1, method: 'ping' }, plainToken));
   assert.equal(res.status, 401);
+});
+
+function authFetch(calls, userinfo) {
+  return async (url, init = {}) => {
+    calls.push({ url, init });
+    if (url.endsWith('/auth/v1/oauth/userinfo')) return new Response(JSON.stringify(userinfo.body ?? {}), { status: userinfo.status });
+    if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u1' }), { status: 200 });
+    return new Response(JSON.stringify({}), { status: 200 });
+  };
+}
+
+test('열쇠 확인은 userinfo로: 200이고 sub가 같으면 통과, /user는 부르지 않는다', async () => {
+  const calls = [];
+  const res = await createHandler({ env, fetchImpl: authFetch(calls, { status: 200, body: { sub: 'u1' } }) })(post({ jsonrpc: '2.0', id: 1, method: 'ping' }));
+  assert.equal(res.status, 200);
+  const auth = calls.filter((c) => c.url.includes('/auth/v1/'));
+  assert.deepEqual(auth.map((c) => c.url), ['https://example.supabase.co/auth/v1/oauth/userinfo']);
+  assert.equal(auth[0].init.headers.Authorization, `Bearer ${oauthToken}`);
+  assert.equal(auth[0].init.headers.apikey, 'public-anon');
+  assert.equal(auth[0].init.method || 'GET', 'GET');
+});
+
+test('/user가 403(Supabase 수정 뒤 판)이어도 userinfo 200이면 통과', async () => {
+  const calls = [];
+  const res = await createHandler({ env, fetchImpl: fakeFetch(calls) })(post({ jsonrpc: '2.0', id: 1, method: 'ping' }));
+  assert.equal(res.status, 200);
+  assert.equal(calls.some((c) => c.url.endsWith('/auth/v1/user')), false);
+});
+
+for (const status of [401, 403, 500]) {
+  test(`userinfo ${status}이면 401 + resource_metadata`, async () => {
+    const res = await createHandler({ env, fetchImpl: authFetch([], { status, body: { error: 'x' } }) })(post({ jsonrpc: '2.0', id: 1, method: 'ping' }));
+    assert.equal(res.status, 401);
+    assert.match(res.headers.get('WWW-Authenticate'), /^Bearer resource_metadata=/);
+  });
+}
+
+test('userinfo sub가 열쇠 sub와 다르거나 없으면 401', async () => {
+  for (const body of [{ sub: 'u2' }, {}, null]) {
+    const res = await createHandler({ env, fetchImpl: authFetch([], { status: 200, body }) })(post({ jsonrpc: '2.0', id: 1, method: 'ping' }));
+    assert.equal(res.status, 401);
+  }
+});
+
+test('userinfo 호출이 실패(네트워크)하면 401', async () => {
+  const handle = createHandler({ env, fetchImpl: async () => { throw new Error('down'); } });
+  assert.equal((await handle(post({ jsonrpc: '2.0', id: 1, method: 'ping' }))).status, 401);
+});
+
+test('일반 로그인 열쇠(client_id 없음)는 Auth에 묻지 않고 401', async () => {
+  const calls = [];
+  for (const tok of [plainToken, token({ sub: 'u1', client_id: '' }), token({ client_id: 'claude' }), 'not-a-jwt-token-value-xxxxxxxx']) {
+    const res = await createHandler({ env, fetchImpl: authFetch(calls, { status: 200, body: { sub: 'u1' } }) })(post({ jsonrpc: '2.0', id: 1, method: 'ping' }, tok));
+    assert.equal(res.status, 401);
+  }
+  assert.equal(calls.length, 0);
 });
 
 test('보호 자원 정보 문서와 OPTIONS', async () => {

@@ -28,6 +28,14 @@ export const PC_DOOR = Object.freeze(['http://127.0.0.1:47620', 'http://127.0.0.
 // 내용이 바뀌면 tests/web2-csp.test.mjs가 실패하므로 값을 함께 고친다.
 export const THEME_BOOTSTRAP_HASH = "'sha256-b7PNGgw4xbtYSKK7nSnLN9sA0vY8I0CPIiMV/REfMUs='";
 
+// SEC-Web2CSP 보고 받는 곳(I-5, 2026-11-25 명진 결정 "추천대로"): 위반을 2주 모아 숫자로 본 뒤 막는 단계를 따로 정한다.
+// 브라우저가 위반을 Edge 함수 csp-report로 보낸다. 그 함수는 지시어·막힌 주소의 출처(origin)·날짜·개수만 남긴다(쿼리·경로·토큰·사용자 id 없음).
+// report-to(새 방식, Reporting-Endpoints 머리와 짝)를 아는 브라우저는 report-uri를 무시하고, 모르는 브라우저(옛 Firefox 등)는 report-uri로 보낸다.
+export const CSP_REPORT_URL = `${SUPABASE_ORIGIN}/functions/v1/csp-report`;
+export const CSP_REPORT_GROUP = 'web2-csp';
+export const web2ReportingEndpoints = (url = CSP_REPORT_URL) => `${CSP_REPORT_GROUP}="${url}"`;
+export const WEB2_REPORTING_ENDPOINTS = web2ReportingEndpoints();
+
 const DIRECTIVES = Object.freeze([
   ['default-src', ["'self'"]],
   // 'wasm-unsafe-eval': 저장소 안 pdf.js(app/pdf-lib)가 WebAssembly를 쓸 수 있다. eval·new Function은 허용하지 않는다.
@@ -55,7 +63,12 @@ const DIRECTIVES = Object.freeze([
   ['frame-ancestors', ["'self'"]]
 ]);
 
-export const WEB2_CSP = DIRECTIVES.map(([name, values]) => `${name} ${values.join(' ')}`).join('; ');
+// 보고 받는 주소만 바꿔 같은 정책을 만든다. 시험(E2E)은 운영 주소로 보고가 가지 않게 시험 서버 주소를 넣는다.
+export function web2Csp(reportUrl = CSP_REPORT_URL) {
+  const directives = [...DIRECTIVES, ['report-uri', [reportUrl]], ['report-to', [CSP_REPORT_GROUP]]];
+  return directives.map(([name, values]) => `${name} ${values.join(' ')}`).join('; ');
+}
+export const WEB2_CSP = web2Csp();
 export const WEB2_REFERRER_POLICY = 'strict-origin-when-cross-origin';
 
 // 이 정책을 붙이는 Web2 화면: 첫 화면과 로그인 화면만. 공유 페이지(/work/share/)는 자기 meta CSP가 있고, 다른 app/*.html은 범위 밖.
