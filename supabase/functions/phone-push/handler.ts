@@ -38,10 +38,18 @@
 // S69-97 노트 알림 ②(note-alarm.ts, migration 20261125130000_note_alarm_push_kind): 같은 15분 예약이 노트에 건 알림 시각(metadata.alarm.at)이
 //   지난 36시간 안에 지난 노트마다 '노트 다시 보기' 하나(본문 없음, 누르면 그 노트). service_role 읽기는 id·workspace_id·alarm 칸만(제목·글 없음).
 //   열쇠 note:<노트 id>:<시각>으로 한 번만. 끄기(kinds.note=false → skipped_off)만 보고 조용한 시간은 보지 않는다(사람이 고른 시각). 노트에는 쓰지 않는다.
+// OUTSIDE-바깥성명 ⑥(S70-55 I-11, 명진 결정 11/25 "저녁 알림만"): 저녁 예약(slot=evening, 18:22 서울)에서 Now 한 줄('새 성명 n · 새 기사 n',
+//   now-line.ts)을 폰 알림 하나로 보낸다(종류 evening — DB 검사·설정 키·폰 앱 종류 목록에 이미 있음, 새 종류·새 저장소 없음).
+//   - 받는 곳: 운영자 기능 'outside' 작업공간 하나(rpc app_operator_feature_workspace, _shared/news-access.ts와 같은 판정). 화면 값은 받지 않는다.
+//   - 하루 한 번: 기록 열쇠 now:<서울 날짜>. 그날 같은 열쇠 기록이 있으면(보냄·실패·끔·조용한 시간) 다시 보내지 않는다.
+//   - 끈 사람(kinds.evening=false) → skipped_off. 조용한 시간에 걸리면 held_quiet로 적고 그날은 보내지 않는다(저녁 예약은 하루 한 번이고,
+//     다음 날 줄이 마지막으로 본 시각부터 다시 세므로 빠지는 수가 없다).
+//   - 줄이 없으면(둘 다 0) 보내지도 적지도 않는다. 알림 글은 개수만 — 기사 제목·내용은 읽지도 싣지도 않는다(now-line.ts는 id만 읽음).
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from "../_shared/fcm-send.ts";
 import { nowEveningCounts, nowEveningLine } from "./now-line.ts";
+import { NEWS_FEATURE, newsWorkspaceOf } from "../_shared/news-access.ts";
 import { remindNotePath, remindPatchPath, REMIND_OPEN, remindRef, remindWeek, weekPicks, withRemind } from "./family-remind.ts";
 import { dueByWorkspace, NOTE_KIND, NOTE_PER_WORKSPACE, NOTE_TITLE, noteAlarmPath, noteDecision, noteOpen } from "./note-alarm.ts";
 import { doneItems, NOTICE_LOG_KINDS, openPath, RECENT_DAYS, RECENT_LIMIT, recentRows, recentSince, REF_KEY, type DoneItem } from "./done-items.ts";
@@ -276,7 +284,7 @@ export const FAMILY_TABLE = "app_family_notes";
 export const FAMILY_OPEN = "/work/app/?view=home&family=1";
 const HM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 // 보낼지: 끈 사람 = skipped_off, 조용한 시간(기본 22:00~07:00 서울) = held_quiet, 그 밖 = send(meeting-transcribe pushDecision과 같은 규칙, 종류만 다름).
-export function kindDecision(kind: "family" | "signup", prefs: unknown, nowMs: number): "send" | "held_quiet" | "skipped_off" {
+export function kindDecision(kind: "family" | "signup" | "evening", prefs: unknown, nowMs: number): "send" | "held_quiet" | "skipped_off" {
   const p = prefs && typeof prefs === "object" && !Array.isArray(prefs) ? prefs as Record<string, unknown> : {};
   const kinds = p.kinds && typeof p.kinds === "object" ? p.kinds as Record<string, unknown> : {};
   if (kinds[kind] === false) return "skipped_off";
@@ -493,6 +501,39 @@ async function signupNotice(db: Db, asUserRpc: (fn: string) => Promise<Record<st
   }
 }
 
+// ---- 저녁 Now 한 줄 알림(OUTSIDE-바깥성명 ⑥) -------------------------------------------------------------------------
+
+export const eveningRef = (day: string) => `now:${day}`;
+
+async function eveningPush(db: Db, ids: string[], nowMs: number, sender: FcmSender | null, log: Log) {
+  const out = { lines: 0, sent: 0, held: 0, off: 0 };
+  try {
+    const ws = newsWorkspaceOf(await db.rpc("app_operator_feature_workspace", { p_feature: NEWS_FEATURE }));
+    if (!ws || !ids.some((id) => id.toLowerCase() === ws)) return out; // 기능이 없거나 살아 있는 기기가 없으면 아무것도 읽지 않는다
+    const day = kstDay(nowMs), ref = eveningRef(day);
+    const logged = await db.get(`app_push_log?workspace_id=eq.${ws}&kind=eq.evening&ref_key=eq.${encodeURIComponent(ref)}&select=status&limit=1`);
+    if (logged.length) return out; // 하루 한 번
+    const line = nowEveningLine(await nowEveningCounts(db.get, ws, nowMs));
+    if (!line) return out; // 개수 0이면 안 보냄(기록도 안 남김)
+    out.lines = 1;
+    if (!sender) return out;
+    const owners = (await db.get(`app_workspace_members?workspace_id=eq.${ws}&role=eq.owner&select=user_id&limit=2`)).map((r) => r.user_id).filter((v): v is string => typeof v === "string" && UUID.test(v));
+    if (owners.length !== 1) return out;
+    const prefs = (await db.get(`app_profiles?user_id=eq.${owners[0]}&select=notify_prefs&limit=1`))[0]?.notify_prefs ?? null;
+    const decision = kindDecision("evening", prefs, nowMs);
+    if (decision === "held_quiet") { await logPush(db, ws, "evening", ref, day, "held_quiet"); out.held++; return out; }
+    if (decision === "skipped_off") { await logPush(db, ws, "evening", ref, day, "skipped_off"); out.off++; return out; }
+    const devices = (await activeDevices(db, ws)).slice(0, MAX_DEVICES);
+    if (!devices.length) return out;
+    const sent = await sendToDevices(db, sender, devices, { kind: "evening", title: line, open: openPath("evening", ref), urgent: false }, new Date(nowMs).toISOString());
+    await logPush(db, ws, "evening", ref, day, sent.sent ? "sent" : "failed");
+    if (sent.sent) out.sent++;
+  } catch (e) {
+    log("evening_push_failed", { stage: e instanceof Fail ? e.code : "INTERNAL" });
+  }
+  return out;
+}
+
 async function runSlot(db: Db, slot: string, nowMs: number, sender: FcmSender | null = null, log: Log = () => {}) {
   // 30일 지난 기록 정리(설계 4.1). 기록에는 종류·열쇠·날짜·상태만 있다.
   const cutoff = new Date(nowMs - LOG_KEEP_DAYS * DAY_MS).toISOString();
@@ -509,12 +550,9 @@ async function runSlot(db: Db, slot: string, nowMs: number, sender: FcmSender | 
     return { ok: true, slot, workspaces: ids.length, sent: fam.sent + remind.sent + signup.sent + note.sent, pruned: pruned.length, family: fam, remind, signup, note };
   }
   if (slot !== "evening") return { ok: true, slot, workspaces: ids.length, sent: 0, pruned: pruned.length };
-  // 저녁: Now 한 줄('새 성명 n · 새 기사 n', now-line.ts)이 생길 작업공간 수만 센다(줄 글은 응답·로그에 싣지 않음). 보내기는 N5 저녁 묶음.
-  let nowLines = 0;
-  for (const ws of ids.slice(0, 50)) {
-    try { if (nowEveningLine(await nowEveningCounts(db.get, ws, nowMs))) nowLines++; } catch { /* 이 재료만 건너뜀 */ }
-  }
-  return { ok: true, slot, workspaces: ids.length, sent: 0, pruned: pruned.length, now_lines: nowLines };
+  // 저녁: Now 한 줄('새 성명 n · 새 기사 n', now-line.ts)을 'outside' 작업공간에 폰 알림 하나로(줄 글은 응답·로그에 싣지 않음).
+  const evening = await eveningPush(db, ids, nowMs, sender, log);
+  return { ok: true, slot, workspaces: ids.length, sent: evening.sent, pruned: pruned.length, now_lines: evening.lines, evening: { sent: evening.sent, held: evening.held, off: evening.off } };
 }
 
 // ---- 입구 ----------------------------------------------------------------------------------------------------------
@@ -555,7 +593,7 @@ export function createPhonePushHandler(deps: PhonePushDeps) {
       if (cron) {
         // 몸통은 빈 {}만. 받을 사람·작업공간은 서버가 정한다(요청 값 안 받음).
         if (!exactKeys(b, []) || !(SLOTS as readonly string[]).includes(slot ?? "")) throw new Fail(400, "INVALID_BODY");
-        const fcm = slot === "quarter" ? readFcmConfig(deps.env(FCM_SECRET_NAME)) : null;
+        const fcm = slot === "quarter" || slot === "evening" ? readFcmConfig(deps.env(FCM_SECRET_NAME)) : null;
         return json(await runSlot(db, slot!, nowMs, fcm ? makeFcmSender(fcm, doFetch, now) : null, log));
       }
 
