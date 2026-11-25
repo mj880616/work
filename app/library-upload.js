@@ -2238,7 +2238,11 @@ function luMqFolderId(el){
   if(el.matches?.('summary')){const k=el.parentElement?.dataset.luNode||'';return k.startsWith('f:')?k.slice(2):''}
   const id=el.querySelector?.('[data-lu-nav]')?.dataset.luNav||'';return id&&id!==OUT_KEY&&luFolders_.some(f=>f.id===id)?id:'';
 }
-function luMqItems(start){const root=luMqPane(start)||document.querySelector('#documentList');return root?[...root.querySelectorAll('[data-lu-document]'),...root.querySelectorAll('details[data-lu-enter] > summary'),...root.querySelectorAll('[data-lu-pane-i] .ft-row')].filter(el=>el.matches('[data-lu-document]')||luMqFolderId(el)):[]}
+// S70-08b LIB-여러폴더끌기 이어서(명진 11/25 09:47 "하이폴더 펼친 다음에 드래그 했는데 여러 개 선택이 안 돼"): 원인(사실) — 한 칸 목록의 폴더 줄은
+// 탐색기 칸 0단 줄(details[data-lu-enter] > summary)만 모아서, 그 줄을 펼친 안쪽(1단 이상) 폴더 줄은 덮어도 고를 수 있는 줄이 아니었다.
+// 이제 한 칸 목록은 어느 단이든 폴더 줄(details[data-lu-node^="f:"] > summary — 접힌 폴더 안 줄은 크기 0이라 닿지 않음), 두 칸 칸은 지금처럼 칸 안 .ft-row 모두(펼친 안쪽 포함).
+// 폴더째 열쇠는 luMqFolderId 그대로(위 폴더와 아래 폴더를 함께 덮으면 빼는 것은 부르는 쪽 규칙 그대로).
+function luMqItems(start){const root=luMqPane(start)||document.querySelector('#documentList');return root?[...root.querySelectorAll('[data-lu-document]'),...root.querySelectorAll('details[data-lu-node^="f:"] > summary'),...root.querySelectorAll('[data-lu-pane-i] .ft-row')].filter(el=>el.matches('[data-lu-document]')||luMqFolderId(el)):[]}
 const luMqKey=el=>el.dataset.luDocument||(luMqFolderId(el)?folderPick(luMqFolderId(el)):null);
 function luMqLive(old){if(old.matches?.('.lu-pane-list'))return luMqPane(old)?.querySelector('.lu-pane-list')||null;if(old.id)return document.getElementById(old.id);return null}
 function luMqApply(set){
