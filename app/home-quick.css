@@ -103,6 +103,22 @@
 .home-ai-usage .aiu-bar { grid-column:1 / -1; display:block; height:3px; margin:1px 0 3px; border-radius:2px; background:var(--kptu-surface-subtle,var(--kptu-border)); overflow:hidden; }
 .home-ai-usage .aiu-bar > span { display:block; height:100%; background:var(--kptu-primary); }
 .home-ai-usage .aiu-bar > span[data-warn] { background:var(--kptu-warning); }
+/* AI-비용보기 6단계: 공급자 두 줄 · 접힌 기능별 표 · 접힌 한도·자동 충전(한 줄 입력). 촘촘하게, 톤다운 색 점 두 개. */
+.home-ai-usage .aiu-prov .aiu-sub,.home-ai-usage .aiu-prov .aiu-bar { grid-column:1 / -1; }
+.home-ai-usage .aiu-sub { margin:0; min-width:0; color:var(--kptu-muted); font-size:11px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.home-ai-usage .aiu-dot { display:inline-block; width:7px; height:7px; margin-right:5px; border-radius:50%; vertical-align:1px; background:var(--kptu-primary); opacity:.7; }
+.home-ai-usage .aiu-dot[data-p="gemini"] { background:var(--kptu-accent,var(--kptu-info)); }
+.home-ai-usage .aiu-fold { margin-top:3px; border-top:1px solid var(--kptu-border); }
+.home-ai-usage .aiu-fold > summary { display:flex; align-items:center; min-height:var(--ds-compact-height-sm,28px); padding:0 2px; color:var(--kptu-muted); font-size:12px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.home-ai-usage .aiu-fold > summary:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+.home-ai-usage .aiu-feat { padding:0 2px 2px; }
+.home-ai-usage .aiu-inputs { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; padding:2px; }
+.home-ai-usage .aiu-field { display:inline-flex; flex-direction:row; align-items:center; gap:4px; min-width:0; margin:0; font-size:12px; font-weight:400; color:var(--kptu-muted); }
+.home-ai-usage .aiu-field input { box-sizing:border-box; flex:0 0 auto; width:92px; height:28px; min-height:0; padding:0 6px; border:1px solid var(--kptu-border); border-radius:var(--ds-radius-control,6px); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:13px; text-align:right; font-variant-numeric:tabular-nums; }
+.home-ai-usage .aiu-save { flex:none; } /* 모양은 공용 ② 작은 버튼(.secondary, ui-standard.css) */
+.home-ai-usage .aiu-field input::placeholder { color:var(--kptu-faint,var(--kptu-muted)); }
+.home-ai-usage .aiu-field input:disabled { opacity:.6; cursor:default; }
+.home-ai-usage [data-aiu-msg]:empty { display:none; }
 .he-seg { display:inline-flex; flex:none; border:1px solid var(--kptu-border-strong,var(--kptu-border)); border-radius:6px; overflow:hidden; }
 .he-seg button { min-height:28px; margin:0; padding:0 7px; border:0; border-left:1px solid var(--kptu-border); background:transparent; color:var(--kptu-muted); font:inherit; font-size:12px; cursor:pointer; }
 .he-seg button:first-child { border-left:0; }
