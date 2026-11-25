@@ -71,6 +71,8 @@ let tail = Promise.resolve();
 const queued = work => { const run = tail.then(work, work); tail = run.catch(() => {}); return run; };
 
 // 첫 사용: '조직 기록 자료를 ○○ 폴더에 모을까요? [예] [다른 폴더]'. 선택하면 저장하고 방금 올린 자료도 넣는다. 답하지 않으면 다음에 다시 묻는다.
+// S70-29(2026-11-25 명진 '다 없애 1회용 기능'·조사 문서 8번 '자동으로 바꿈'): 모으는 폴더를 처음 정하면 지난 조직 기록 자료도 같이 조직 폴더로 모은다
+// (옛 조직 관리 ⋯ [지난 조직 기록 자료도 조직 폴더로 모으기] 메뉴 줄은 지움). 결과 한 줄 + [되돌리기]. 처음 정할 때만 — 나중에 폴더를 바꿔도 다시 모으지 않는다.
 let asking = false;
 function askParent(st, rt, then) {
   if (asking) return; asking = true;
@@ -81,6 +83,7 @@ function askParent(st, rt, then) {
     if (!folder?.id) return;
     if (!(await saveOrgFilesParent(folder.id, rt))) { notify('모으는 폴더를 저장하지 못했어요. 다시 시도해 주세요.', {error: true}); return; }
     then();
+    void gatherPastOrgFiles({rt});
   };
   const pickOther = async ({box, close}) => {
     const {openLibraryFolderPicker} = await import('./library-folder-pick.js');
@@ -130,21 +133,20 @@ export async function chooseOrgFilesParent(anchor, rt = window.KPTURuntime) {
   const {openLibraryFolderPicker} = await import('./library-folder-pick.js');
   openLibraryFolderPicker({anchor, folders: st.folders, choose: true, title: '모으는 폴더 선택', start: st.parentId, onPick: async f => {
     if (!f?.id) return;
-    notify((await saveOrgFilesParent(f.id, rt)) ? word`조직 기록 자료를 ‘${f.name}’ 폴더에 모아요.` : '모으는 폴더를 저장하지 못했어요.', {error: false});
+    const saved = await saveOrgFilesParent(f.id, rt);
+    notify(saved ? word`조직 기록 자료를 ‘${f.name}’ 폴더에 모아요.` : '모으는 폴더를 저장하지 못했어요.', {error: false});
+    if (saved && !liveParent(st.parentId, st.folders)) void gatherPastOrgFiles({rt}); // 처음 정할 때만(S70-29)
   }});
 }
 
-// 조직 관리 ⋯ [지난 조직 기록 자료도 조직 폴더로 모으기]: 누를 때만. 담당조직이 붙은 자료 중 폴더 밖·받는 폴더에 있는 것만 옮긴다. 결과 한 줄 + [되돌리기].
-export async function gatherPastOrgFiles({rt = window.KPTURuntime, anchor = null} = {}) {
+// 모으는 폴더를 처음 정했을 때 저절로(S70-29 — 메뉴 줄 없음): 담당조직이 붙은 자료 중 폴더 밖·받는 폴더에 있는 것만 옮긴다.
+// 옮긴 것이 있을 때만 결과 한 줄 + [되돌리기]. 모으는 폴더가 없거나 서버 준비 전이면 아무것도 하지 않는다(묻지 않음).
+export async function gatherPastOrgFiles({rt = window.KPTURuntime} = {}) {
   return queued(async () => {
     const st = await loadState(rt).catch(() => null);
-    if (!st || st.off) { notify('아직 준비 중인 기능이에요.', {error: true}); return {status: 'off'}; }
+    if (!st || st.off) return {status: 'off'};
     const parent = liveParent(st.parentId, st.folders);
-    if (!parent) {
-      st.orgs = await myOrgs(rt, st.ws).catch(() => []);
-      queueMicrotask(() => askParent(st, rt, () => void gatherPastOrgFiles({rt, anchor})));
-      return {status: 'asked'};
-    }
+    if (!parent) return {status: 'off'};
     const [orgs, docs, items, receive] = await Promise.all([
       myOrgs(rt, st.ws),
       rt.api(`/rest/v1/app_documents?workspace_id=eq.${enc(st.ws)}&organization_id=not.is.null&select=id,organization_id&order=id.asc&limit=5000`),
@@ -174,7 +176,7 @@ export async function gatherPastOrgFiles({rt = window.KPTURuntime, anchor = null
       window.dispatchEvent(new CustomEvent('kptu:library-folders-changed', {detail: {}}));
       return back > 0;
     } : null;
-    notify(gatherLine(moved.length, failed), {error: failed > 0, ...(undo ? {undo, label: word`조직 폴더로 모으기 ${moved.length}개`} : {})});
+    if (moved.length || failed) notify(gatherLine(moved.length, failed), {error: failed > 0, ...(undo ? {undo, label: word`조직 폴더로 모으기 ${moved.length}개`} : {})});
     return {status: 'done', moved: moved.length, failed};
   });
 }

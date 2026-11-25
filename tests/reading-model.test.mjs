@@ -49,6 +49,8 @@ test('목록 줄: 안 읽음 점·제목(없으면 사이트)·사이트·날짜
   assert.deepEqual(filterOptions(only, null).map(o => o.label), ['전체', '안 읽음 1', '밑줄', '메모']);
   // S69-94: [메모] — 이 화면 글에 남긴 메모 모아 보기(글 줄은 거르지 않음, 탭 숫자는 넘겨받은 메모 수).
   assert.deepEqual(filterOptions(only, 5, 3).map(o => o.label), ['전체', '안 읽음 1', '밑줄 5', '메모 3']);
+  // S70-40b ④ READ-목록머리: 안 읽은 글이 없으면 숫자 0을 붙이지 않는다(밑줄·메모와 같게).
+  assert.deepEqual(filterOptions([], 0, 0).map(o => o.label), ['전체', '안 읽음', '밑줄', '메모']);
   assert.deepEqual(filterEntries(only, 'memos'), []);
   assert.equal(emptyText('memos', 0), '남긴 메모가 없어요 · 글 아래 [메모 남기기]');
   assert.equal(emptyText('marks', 0), '저장한 밑줄이 없어요 · 글을 선택하고 [밑줄 저장]', '저장한 글이 없어도 밑줄 탭은 밑줄 안내');
@@ -116,7 +118,8 @@ test('원문 사본: note-import 글자 블록만 글자로(사진·다른 블�
   const ok = bodyPatch({ok: true, state: 'ok', title: '원문 제목', site: '예시 신문', blocks}, '2026-11-22T00:00:00.000Z');
   assert.deepEqual(Object.keys(ok).sort(), ['body', 'body_at', 'body_state', 'site', 'title']);
   assert.equal(ok.body_state, 'ok');
-  assert.equal(bodyPatch({ok: true, state: 'lead', blocks}).body_state, 'paywall');
+  assert.equal(bodyPatch({ok: true, state: 'lead', reason: 'paywall', blocks}).body_state, 'paywall');
+  assert.equal(bodyPatch({ok: true, state: 'lead', reason: 'lead_only', blocks}).body_state, 'lead'); // S70-40a: 메타 설명만은 유료가 아니다
   assert.deepEqual(bodyPatch({ok: true, state: 'failed', reason: 'robots'}, 'T'), {body: null, body_state: 'robots', body_at: 'T'});
   assert.equal(bodyPatch({ok: true, state: 'failed', reason: 'redirect'}).body_state, 'blocked');
   assert.equal(bodyPatch({ok: true, state: 'failed', reason: 'timeout'}).body_state, 'failed');
@@ -131,7 +134,7 @@ test('상태 한 줄과 [다시]: 받기 전·막힘·앞부분만, 막힌 주�
   assert.equal(stateLine({body_state: 'ok'}), '');
   assert.equal(stateLine({body_state: 'pending'}), '원문을 아직 가져오지 않았어요.');
   assert.equal(stateLine({body_state: 'pending'}, {busy: true}), '원문을 가져오는 중…');
-  assert.equal(stateLine({body_state: 'paywall', body: '앞'}), '공개된 앞부분만 가져왔어요.');
+  assert.equal(stateLine({body_state: 'paywall', body: '앞'}), '유료 기사라 앞부분만 있어요.');
   assert.match(stateLine({body_state: 'bot_check'}), /읽기를 막아/);
   assert.match(stateLine({body_state: 'robots'}), /다시 시도/); // S68-23: 옛 robots 상태는 다시 하면 읽힐 수 있다
   assert.match(stateLine({body_state: 'too_big'}), /너무 커서/);

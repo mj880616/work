@@ -210,3 +210,7 @@
 
 - Microsoft Graph `driveItem: restore` — 개인 계정 위임 권한 `Files.ReadWrite.All` 필요: https://learn.microsoft.com/en-us/graph/api/driveitem-restore
 - 카카오 개발자 사용량 정책(지도 JS SDK 하루 30만 회, 첫 앱만 무료): https://developers.kakao.com/docs/latest/en/getting-started/quota · 2026-07-21 지도 정책 공지: https://devtalk.kakao.com/t/api-notice-on-new-kakao-map-api-features-and-free-quota-policy/150222
+
+## 명진 결정 — ③ 지도·휴지통 보기 닫음 (2026-11-25 명진 결정(21:35 "추천대로", `docs/qa/stalled-audit-20261125.md` 2절) 13번)
+
+- [지도]·[휴지통] 보기는 **만들지 않고 원장 행(PHOTO-사진메뉴)을 닫는다.** ①② 운영 반영분과 정리 도우미(`app/photo-tidy.js`)는 그대로다. 이 문서의 지도·휴지통 절은 기록으로만 남긴다.

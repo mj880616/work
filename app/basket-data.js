@@ -203,13 +203,15 @@ export function noteTitleFromText(text) {
 // family_list:true(optional) = 홈 '잊지 말기'가 한 줄씩 더하는 노트 표시(metadata.family_list). 다른 값은 보내지 않는다.
 // FAMILY-기억알림: family_past:true(optional) = 가족 '잊지 말기' 노트에서 [과거 기록으로] 옮긴 줄을 받는 '과거 기록' 노트 표시(metadata.family_past).
 // NOTE-주소로 가져오기 2단계: source(optional, 원문 정보 객체 — note-import-model.mjs makeSource가 만든 모양) = 주소로 가져온 노트(metadata.source). 다른 값은 보내지 않는다.
-export async function createNoteDoc({title, raw_text, markdown, doc, ai_export_allowed, news_item_id, outside_post_id, folder, family_list, family_past, source}, rt = window.KPTURuntime) {
+export async function createNoteDoc({title, raw_text, markdown, doc, ai_export_allowed, news_item_id, outside_post_id, folder, family_list, family_past, source, block_edit}, rt = window.KPTURuntime) {
   const uuid = v => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v : null;
   const newsId = uuid(news_item_id), postId = newsId ? null : uuid(outside_post_id);
   const folderId = uuid(folder?.id), folderName = folderId ? String(folder.name || '').trim() : '';
   const metadata = {...(typeof markdown === 'boolean' ? {markdown} : {}), ...(newsId ? {news_item_id:newsId} : {}), ...(postId ? {outside_post_id:postId} : {}),
     ...(folderId && folderName ? {folder_id:folderId, folder:folderName} : {}), ...(family_list === true ? {family_list:true} : {}), ...(family_past === true && family_list !== true ? {family_past:true} : {}),
-    ...(plainObject(source) && typeof source.url === 'string' ? {source} : {})};
+    ...(plainObject(source) && typeof source.url === 'string' ? {source} : {}),
+    // NOTE-블록모드찾기: 새 노트 큰 창의 [블록 모드] 값을 그 노트에 기억(setNoteBlockEdit과 같은 metadata.block_edit, 새 칸·DB 변경 없음).
+    ...(typeof block_edit === 'boolean' ? {block_edit} : {})};
   const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(Object.keys(metadata).length ? {metadata} : {}), ...(doc ? {doc} : {}), ...(ai_export_allowed === false ? {ai_export_allowed:false} : {})};
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
