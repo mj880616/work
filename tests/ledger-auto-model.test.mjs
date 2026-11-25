@@ -1,11 +1,10 @@
 // LEDGER-자동기록 3단계(앱): 저장 뒤 묶음 호출·재시도·서버 없음 처리, 원장 화면 도우미, Drive 사본 상태 한 줄(순수 함수).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { affectsLedger, autoOutcome, callsRunDue, createAutoBatcher, WAIT_MS, MAX_WAIT_MS, RETRY_MS } from '../app/ledger-auto-model.mjs';
 import { web2Source, web2OpenTarget, web2SourceLabel, soleSourceRecords, sourceRetireRequest, changeInfo, retireRequest, undoErrorText } from '../app/ledger-browse-model.mjs';
 import { exportDue, copyState, nextExportDelay, ledgerFromStatus, DAY_MS, MIN_GAP_MS, CHANGE_WAIT_MS } from '../app/ledger-export-model.mjs';
-import { countByDay, kstDayStart } from '../app/journal-ledger.js';
 
 const BASE = 'https://example.supabase.co';
 const U = n => `e0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -162,18 +161,11 @@ test('Drive 사본: 열 때 하루 넘고 바뀌었으면, 바뀐 뒤 10분·한
   assert.equal(copyState(null, NOW), null);
 });
 
-test('업무일지 약속 수: 기록된 날(KST)별, 같은 기록 한 번, 약속만', () => {
-  assert.equal(kstDayStart('2026-10-24'), '2026-10-23T15:00:00.000Z');
-  const rows = [{ record_id: U(1), created_at: '2026-10-23T15:30:00Z' }, { record_id: U(1), created_at: '2026-10-23T16:00:00Z' },
-    { record_id: U(2), created_at: '2026-10-23T14:59:00Z' }, { record_id: U(3), created_at: '2026-10-24T01:00:00Z' }];
-  assert.deepEqual([...countByDay(rows, new Set([U(1), U(2)]))], [['2026-10-24', 1], ['2026-10-23', 1]]);
-});
-
 test('모듈: 본문은 kind 하나, 브라우저 저장소·서버 키 없음, 내보내기 버튼 없음', () => {
   const strip = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8').split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
   const auto = strip('ledger-auto.js'), model = strip('ledger-auto-model.mjs'), exp = strip('ledger-export.js');
   assert.match(auto, /\{ kind: 'ledger_auto' \}/);
-  for (const src of [auto, model, exp, strip('journal-ledger.js')]) {
+  for (const src of [auto, model, exp]) {
     // 브라우저 저장소 금지(이름은 browser-storage-audit가 따로 막으므로 여기서는 조각으로 만든다).
     assert.doesNotMatch(src, new RegExp(['local', 'session'].map(x => x + 'Storage').concat(['indexed' + 'DB']).join('|')));
     assert.doesNotMatch(src, /service_role|cron-secret/i);
@@ -182,6 +174,9 @@ test('모듈: 본문은 kind 하나, 브라우저 저장소·서버 키 없음, 
   assert.match(exp, /'\/functions\/v1\/drive-summary\?action=ledger_export'/);
   assert.doesNotMatch(exp, /body:/);
   assert.match(strip('loader-v2.js'), /import\('\.\/ledger-auto\.js'\)/);
+  // LEDGER-화면에서빼기(2026-11-25): 하루 카드의 '새로 기록된 약속' 줄 재료는 지웠다(자동 기록은 그대로).
+  assert.equal(existsSync(new URL('../app/journal-ledger.js', import.meta.url)), false);
+  assert.doesNotMatch(strip('journal.js'), /새로 기록된 약속|data-journal-ledger/);
 });
 
 test('통화 근거: web2:call:<id> → 통화 열기(삭제했으면 원문 없음), 줄 글', () => {

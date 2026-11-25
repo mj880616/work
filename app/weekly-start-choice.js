@@ -6,12 +6,13 @@
 // WEEKLY-처음시작여러개(명진 11/17 16:04 "복수선택 가능해야할 듯"): 1~3은 여러 개 고르기, 4 직접 만들기는 혼자만(규칙은 모델 togglePick), 0개면 [이 모양으로 시작] 못 누름.
 // 쓴 공용 부품: button.secondary([파일 올리기]·[취소]), button.primary([이 모양으로 시작]), 기본 <input type="checkbox">(키보드·터치 그대로).
 import {START_CHOICES, START_DEFAULT, startPicks, togglePick} from './weekly-own-form-model.mjs';
+import {putUploadLabel} from './upload-label.mjs';
 
 let seq = 0; // 한 화면에 둘이 있어도 체크 묶음 이름·제목 id가 겹치지 않게
 export const START_TEXT = Object.freeze({
   file: '예전에 쓴 주간 보고 파일이 있나요? 올리면 그 모양 그대로 만들어요.',
   fileHint: '한글(.hwpx·.hwp) · 끌어 놓아도 돼요',
-  pick: '파일 올리기',
+  pick: '파일 업로드',
   ask: '파일이 없으면, 어떤 모양으로 만들까요? (여러 개 선택해도 돼요)',
   later: '나중에 [양식 수정]에서 바꿀 수 있어요.',
   start: '이 모양으로 시작',
@@ -26,7 +27,7 @@ export function startChoiceEl(doc, {selected = START_DEFAULT, busy = false, onPi
   if (!chosen.length) chosen = [START_DEFAULT];
   const box = el('section', 'journal-weekly-start'); box.dataset.weeklyStart = '';
   const file = el('p', 'journal-weekly-blank-line journal-weekly-start-file');
-  const pick = el('button', 'secondary', START_TEXT.pick); pick.type = 'button'; pick.dataset.weeklyBlankPick = ''; pick.disabled = busy;
+  const pick = el('button', 'secondary', START_TEXT.pick); putUploadLabel(pick, START_TEXT.pick); pick.type = 'button'; pick.dataset.weeklyBlankPick = ''; pick.disabled = busy;
   pick.addEventListener('click', () => onPick?.());
   file.append(el('span', 'journal-weekly-start-file-text', `${START_TEXT.file} `), el('span', 'journal-muted', START_TEXT.fileHint), pick);
   const ask = el('p', 'journal-weekly-start-ask', START_TEXT.ask); ask.id = `weekly-start-ask-${++seq}`;
