@@ -40,7 +40,7 @@ import { openFolderSheet, closeFolderSheet, folderSheetOpen } from './folder-des
 import { sheetTitle } from './folder-dest-sheet.mjs';
 import { folderPathHtml } from './folder-path.mjs';
 import { createSelectMode } from './select-mode.js';
-import { bindSelectKeys, renameTarget } from './select-keys.js'; // UI-목록공용키(S70-18)
+import { bindSelectKeys, renameTarget, confirmDelete, deleteNeedsConfirm } from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
 import { notify, askConfirm, askText } from './small-notice.js';
 import { requestNewsItem } from './news-request.mjs';
 import { createNoteNewsMarks, isNewsAt } from './note-news-marks.js';
@@ -1744,7 +1744,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   async function deletePicked(trigger) {
     const items = pickedItems(); if (!items.notes.length && !items.folders.length) return;
     if (items.folders.length) { folderSay('폴더는 폴더 ⋯의 [폴더 삭제]로 하나씩 삭제해 주세요. 노트만 함께 삭제할 수 있어요.'); return; }
-    if (!await askConfirm(trigger, {text:`노트 ${items.notes.length}개를 삭제할까요?`, note:'휴지통으로 가요. 첨부 파일은 Drive에 그대로 남아요.', ok:'삭제', danger:true})) return;
+    // K1 한 규칙(I-6, select-keys.js confirmDelete): 여럿 지우기는 노트마다 알림이 덮여 끝에 [되돌리기]가 남지 않는다(휴지통에서 되살림) — 확인 창을 받는다.
+    if (!await confirmDelete({undo:false, ask:() => askConfirm(trigger, {text:`노트 ${items.notes.length}개를 삭제할까요?`, note:'휴지통으로 가요. 첨부 파일은 Drive에 그대로 남아요.', ok:'삭제', danger:true})})) return;
     let ok = 0;
     for (const id of items.notes) {
       let result; busy = true;
@@ -2255,15 +2256,17 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (at === null && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
   }
   // UI-목록공용키(S70-18, N2·N3·N4): 목록 칸 Ctrl+A·Delete·F2는 공용 키 부품(select-keys.js)이 정하고, 할 일은 이 화면 길 그대로 —
-  // Ctrl+A = [전체]와 같은 보이는 노트·폴더 줄 모두(선택 모드가 아니면 켜면서), Delete = 고른 것이 있으면 선택 막대 [삭제](한 번 묻기), 없으면 커서 노트 줄 ⋯ [삭제](확인),
+  // Ctrl+A = [전체]와 같은 보이는 노트·폴더 줄 모두(선택 모드가 아니면 켜면서), Delete = 고른 것이 있으면 선택 막대 [삭제](한 번 묻기 — 끝에 되돌리기가 없다), 없으면 커서 노트 줄 휴지통 길(바로 + [되돌리기], K1 한 규칙),
   // F2 = 고른 것 하나, 없으면 커서 줄 — 폴더는 이름 바꾸기, 노트는 제목 고치기(⋯ [수정]과 같은 길, 제목 칸에 커서). Esc는 아래 host 처리 그대로.
+  // K1 한 규칙(I-6): 노트 한 개 휴지통 길은 지운 뒤 '· 되돌리기' 알림이 뜬다(basket-record-delete.js deleteNoteToTrash) — 커서 줄 Delete·줄 밀기 [삭제]는 묻지 않는다.
+  const ROW_DELETE = {confirmed:!deleteNeedsConfirm({undo:true})};
   const cursorKey = e => { const n = e.target.closest?.('[data-nx-note]')?.dataset.nxNote; if (n) return 'n:' + n; const f = e.target.closest?.('[data-nx-folder]')?.dataset.nxFolder; return f ? 'f:' + f : null; };
   bindSelectKeys(list, {
     all: () => { const keys = [...host.querySelectorAll('[data-nx-recent] [data-nx-note], #noteRows [data-nx-note], #noteRows [data-nx-folder]')].map(el => el.dataset.nxNote ? 'n:' + el.dataset.nxNote : 'f:' + el.dataset.nxFolder); if (!keys.length) return false; pick.start(keys); renderList(); return true; },
     delete: e => {
       if (pick.active && pick.size) { void deletePicked(e.target instanceof Element ? e.target : null); return true; }
       const key = cursorKey(e); if (!key?.startsWith('n:') || !notes.some(n => n.id === key.slice(2))) return false;
-      void remove(key.slice(2)); return true;
+      void remove(key.slice(2), ROW_DELETE); return true;
     },
     rename: e => {
       const key = renameTarget(pick.active ? [...pick.items] : [], cursorKey(e)); if (!key) return false;
@@ -2308,7 +2311,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 선택 모드·열린 노트·포스트잇 보드에서는 밀지 않는다(보드는 칸 옮기기). 노트에는 공유 길이 없어 [공유] 칸은 없다.
   bindRowSwipe(list, {row:'[data-nx-note]', enabled:() => !selected && !pick.active && !busy && !editing && view !== 'board',
     actions:el => { const note = notes.find(n => n.id === el.dataset.nxNote); return note ? {start:PICK, end:[{key:'pin', label:notePinnedAt(note) ? '고정 풀기' : '고정', tone:'muted'}, ...(canEditFolders() ? [{key:'move', label:'옮기기', tone:'move'}] : []), {key:'delete', label:'삭제', tone:'danger'}]} : null; },
-    run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, {confirmed:true}); else if (key === 'move') openMovePicker(el.querySelector('[data-note-row-more]') || el, {notes:[note.id], folders:[]}); else void pin(note); },
+    run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, ROW_DELETE); else if (key === 'move') openMovePicker(el.querySelector('[data-note-row-more]') || el, {notes:[note.id], folders:[]}); else void pin(note); },
     select:{attr:'data-nx-note', open:el => { if (!selected && !busy) startSelect('n:' + el.dataset.nxNote); }}});
   // UI-폴더줄크기(S69-99): 폴더·목록 보기에서 두 손가락 벌리기·오므리기(PC Ctrl+휠) = 줄 크기 한 단계(row-size.js, 모든 폴더 화면 같은 값).
   // 그 폴더만 보기(들어가기)는 ⋯ [이 폴더로 들어가기]로만, 돌아오기는 [‹]·뒤로·왼쪽 끝 밀기. 포스트잇 보드는 보드 확대(note-board.js) 그대로.

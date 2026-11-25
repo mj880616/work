@@ -79,7 +79,7 @@ import {memosNow,loadMemos} from './memo-store.js';
 import {readDroppedEntries,readPickedFiles,planFolderUpload,isBigFolder,skippedCount,skippedText,takenRoots,buildFolders,folderIdOf} from './library-folder-upload.mjs'; // S69-23 폴더째 올리기
 import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,resultText as luDropResultText,DROP_HINT} from './library-drop.js';
 import {word} from './brand/brand.mjs';
-import {bindSelectKeys,renameTarget} from './select-keys.js'; // UI-목록공용키(S70-18)
+import {bindSelectKeys,renameTarget,confirmDelete} from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
 import {fitSelectBar} from './select-bar.js'; // UI-고르기막대(S69-85): 선택 막대 한 줄 맞추기
 import {uploadLabelHtml} from './upload-label.mjs'; // UI-업로드말(S70-41): 클립 + 업로드
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -1422,7 +1422,7 @@ function luDragRowHtml0(d,node){const html=luAddSuggest(luRowHtml(d,node),d,node
 // 저장은 [수정] 창과 같은 서버 길(app_documents PATCH)이고 제목 칸을 사용자 값('user')으로 남긴다(library-rename.js). 브라우저 저장소는 쓰지 않는다.
 let luRename=null,luRenameBusy=false,luRenameNoticeToken=0,luKeepFocus=null;
 // UI-목록공용키(S70-18, N2·N3·N4): 목록 칸 Ctrl+A·Delete·F2는 공용 키 부품(select-keys.js)이 정하고, 할 일은 이 화면 길 그대로 —
-// Ctrl+A = [전체]와 같은 보이는 자료 모두(선택 모드가 아니면 켜면서), Delete = 고른 것이 있으면 선택 막대 [삭제](여럿·폴더는 한 번 묻기), 없으면 커서 줄 ⋯ [삭제](바로 빠지고 [되돌리기]),
+// Ctrl+A = [전체]와 같은 보이는 자료 모두(선택 모드가 아니면 켜면서), Delete = 고른 것이 있으면 선택 막대 [삭제], 없으면 커서 줄 ⋯ [삭제] — 둘 다 바로 빠지고 [되돌리기](K1 한 규칙, 묻지 않음),
 // F2 = 고른 자료 하나, 없으면 커서 줄 이름 바꾸기(폴더 머리 줄 F2는 폴더 부품 bindKeys). Esc = 고르기 풀기는 luOnSelEscape(문서 전체)가 맡는다.
 const luDocIdOf=e=>{const id=e.target.closest?.('[data-lu-document]')?.dataset.luDocument||null;return id&&luDocuments.some(d=>d.id===id)?id:null};
 function luBindRename(list){bindSelectKeys(list,{
@@ -2226,13 +2226,15 @@ async function luSelDelete(anchor=document.querySelector('#librarySelectDelete')
   // S69-69 LIB-사각형폴더: 폴더째 고른 폴더는 폴더째 휴지통으로(폴더 하나 [폴더 삭제]와 같은 길 — 안의 자료는 폴더와 함께 숨고 휴지통에서 되살린다).
   const fids=luPickedFolderIds();
   if(!ids.length&&!fids.length)return;
-  if(fids.length||ids.length>1){// 폴더가 있으면 하나여도 한 번 묻는다(폴더 [폴더 삭제]처럼)
+  // K1 한 규칙(I-6, select-keys.js confirmDelete): 자료는 줄이 바로 빠지고 '삭제했어요 · 되돌리기'(luQueueDelete), 폴더는 휴지통 + '· 되돌리기'(trashFolders) —
+  // 둘 다 [되돌리기]가 있으니 여럿·폴더여도 묻지 않는다(되돌리기가 없어지면 아래 확인 창이 다시 나온다).
+  const ok=await confirmDelete({undo:true,ask:()=>{
     const docs=ids.map(id=>have.get(id));
     const what=fids.length?[`폴더 ${fids.length}개`,ids.length?`자료 ${ids.length}개`:''].filter(Boolean).join('·'):`${ids.length}개`;
     const note=[fids.length?'폴더는 안의 것과 함께 휴지통으로 가요(휴지통에서 되살릴 수 있어요).':'',ids.length?luDeleteNote(docs):''].filter(Boolean).join(' ');
-    const ok=await askConfirm(anchor?.isConnected?anchor:null,{text:`${what}를 삭제할까요?`,note,ok:'삭제',danger:true});
-    if(!ok||!luPick.items||luSelBusy)return;
-  }
+    return askConfirm(anchor?.isConnected?anchor:null,{text:`${what}를 삭제할까요?`,note,ok:'삭제',danger:true});
+  }});
+  if(!ok||!luPick.items||luSelBusy)return;
   if(ids.length)luQueueDelete(ids);
   if(fids.length){
     const r=await luFolders().trashFolders(fids);
