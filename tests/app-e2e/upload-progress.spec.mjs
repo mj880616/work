@@ -124,7 +124,7 @@ test.describe('폰 412',()=>{
   const row=f.box.locator('.ed-uploads .up-row');
   await expect(row).toContainText('큰 자료.pdf');
   await expect(row.locator('.up-pc')).toHaveText(/^\d+%$/);
-  await row.getByRole('button',{name:'큰 자료.pdf 올리기 취소'}).click();
+  await row.getByRole('button',{name:'큰 자료.pdf 업로드 취소'}).click();
   await expect(f.box.locator('.ed-uploads')).toBeHidden();
   await page.waitForTimeout(800);
   await expect(f.field.locator('.ed-file')).toHaveCount(0);
@@ -142,7 +142,7 @@ test.describe('폰 412',()=>{
   await expect(dock.locator('.up-dock-text')).toHaveText('사진을 올리지 못했어요',{timeout:30000});
   await expect(f.box.locator('.ed-uploads .up-row')).toHaveCount(0);
   await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
-  const again=dock.getByRole('button',{name:'못 올린 사진 다시 올리기'});
+  const again=dock.getByRole('button',{name:'못 올린 사진 다시 업로드'});
   await expect(again).toBeVisible();
   expect(f.uploads).toEqual([]);
   await again.click();

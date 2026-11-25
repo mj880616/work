@@ -101,16 +101,28 @@ export function groupItems(items, now = Date.now()) {
 
 // 줄 하나의 보임 값. 외국어 제목은 한국어 번역(title_ko)이 있으면 늘 한국어로 보이고 원제는 origTitle로 작게.
 // showKo: 본문 번역 보기를 고른 상태(본문 번역 저장본이 있을 때만 화면이 켠다).
+// 보일 제목(한국어 번역 제목 → 제목(주소뿐인 것 빼고) → 주소 경로 조각). 없으면 ''. 아래 itemView와 목록 규칙(hasTitle)이 같은 계산을 쓴다.
+const koTitleOf = item => (isForeign(item) && typeof item.title_ko === 'string' && item.title_ko.trim() ? plainText(item.title_ko).replace(/\s+/g, ' ').trim() : '');
+const rawTitleOf = item => plainText(item?.title).replace(/\s+/g, ' ').trim();
+function ownTitle(item) {
+  const raw = rawTitleOf(item);
+  return koTitleOf(item) || (raw && !isAddressTitle(raw) ? raw : '') || urlTitle(item?.url);
+}
+// S70-17 NEWS-제목꼭얻기(명진 11/25 10:26 "제목 못읽으면 차라리 목록에서 빠지는게 나음"): 목록에 띄울 수 있는 줄인가.
+// 보일 제목이 있거나, 내가 보관한 글(공유로 넣은 글 포함 — [직접 넣기]로 채울 수 있게 보관 목록·상세에는 남는다)이면 띄운다.
+// 제목이 없는 줄은 지우지 않는다 — 서버가 나중에 제목을 얻으면(다른 곳 제목·제목 다시 읽기) 다음 읽기에서 다시 보인다.
+// 목록 규칙 한 곳은 feed-shared-model.mjs newsPage(목록 읽기 = [전체]·[언론] 같은 길)이다.
+export const hasTitle = item => !!item && (!!ownTitle(item) || !!item.starred_at);
 export function itemView(item, {showKo = false} = {}) {
   const foreign = isForeign(item);
   const ko = foreign && showKo;
   const t = whenOf(item);
-  const koTitle = foreign && typeof item.title_ko === 'string' && item.title_ko.trim() ? plainText(item.title_ko).replace(/\s+/g, ' ').trim() : '';
-  // 제목이 없거나 주소·도메인뿐이면 도메인을 제목으로 보이지 않는다(NEWS-채널밀림 ②, 11/02): '제목 읽기 전 · 도메인' / '못 읽은 기사 · 도메인'(S67-10, 위 NO_TITLE).
-  const rawTitle = plainText(item.title).replace(/\s+/g, ' ').trim();
-  const own = rawTitle && !isAddressTitle(rawTitle) ? rawTitle : '';
+  const koTitle = koTitleOf(item);
+  // 제목이 없거나 주소·도메인뿐이면 도메인을 제목으로 보이지 않는다(NEWS-채널밀림 ②, 11/02): '못 읽은 기사 · 도메인'(S67-10, 위 NO_TITLE).
+  // S70-17: 이런 줄은 목록에 띄우지 않는다(hasTitle). 이 글자는 보관한 글·상세에서만 보인다.
+  const rawTitle = rawTitleOf(item);
   const host = domainOf(item.url);
-  const title = koTitle || own || urlTitle(item.url) || `${NO_TITLE[item.state] || NO_TITLE_ELSE}${host ? ` · ${host}` : ''}`;
+  const title = ownTitle(item) || `${NO_TITLE[item.state] || NO_TITLE_ELSE}${host ? ` · ${host}` : ''}`;
   return {
     publisher: item.publisher || domainOf(item.url),
     time: t === null ? '' : hhmm(t),

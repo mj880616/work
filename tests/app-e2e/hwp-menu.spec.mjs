@@ -97,12 +97,12 @@ for(const width of [390,1280])test(`menu entry opens a device HWP and hands the 
     await page.keyboard.press('Escape');
     await expect(page.locator('#hwpBarMenu')).toBeHidden();
     await openHwpMenu(page,'hwpLabSave');
-    await expect(page.locator('#hwpBarMenu button')).toHaveText(['내 기기에 저장','자료실에 올리기']);
+    await expect(page.locator('#hwpBarMenu button')).toHaveText(['내 기기에 저장','자료실에 업로드']);
     await expect(hwpMenuItem(page,'hwpLabSave')).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(page.locator('#hwpBarMenu')).toBeHidden();
   }else{
-    for(const name of ['파일 선택','내 기기에 저장','자료실에 올리기','전체 화면'])await expect(page.locator('#hwpView').getByRole('button',{name,exact:true})).toBeVisible();
+    for(const name of ['파일 선택','내 기기에 저장','자료실에 업로드','전체 화면'])await expect(page.locator('#hwpView').getByRole('button',{name,exact:true})).toBeVisible();
     await expect(page.locator('#hwpLabBar')).toBeHidden();
     const [pick,save,upload,full]=await Promise.all(['#hwpLabPick','#hwpLabSave','#hwpLabUpload','#hwpLabFull'].map(id=>box(page.locator(id))));
     // UI-버튼줄이기: [파일 선택]·[자료실에 올리기]는 보조 32px, [내 기기에 저장]은 주 동작 36px. 누르는 범위는 ::after 44px.

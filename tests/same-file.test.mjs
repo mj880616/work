@@ -121,10 +121,10 @@ test('묻기: 같은 것만 모아 한 번, 나머지는 바로', async () => {
   assert.equal(seen.text, '이미 있는 자료예요');
   assert.deepEqual(seen.lines, ['자료실 › 예시 폴더 › a.hwp · 11/11']);
   assert.equal(seen.note, '나머지 1개는 바로 올려요');
-  assert.deepEqual(seen.actions.map(x => x.label), ['올리지 않기', '그래도 올리기']);
+  assert.deepEqual(seen.actions.map(x => x.label), ['올리지 않기', '그래도 업로드']);
   assert.deepEqual(r.files, [b]);
   const r2 = await screenSameFiles([a, b], {find, useExisting: true, ask: async (anchor, o) => { seen = o; return 'use'; }});
-  assert.deepEqual(seen.actions.map(x => x.label), ['올리지 않기', '그래도 올리기', '있는 것 쓰기']);
+  assert.deepEqual(seen.actions.map(x => x.label), ['올리지 않기', '그래도 업로드', '있는 것 쓰기']);
   assert.equal(r2.used[0].file, a);
   let took = null;
   await takeAfterSameCheck([a], list => { took = list; }, {find, ask: async () => 'skip'});

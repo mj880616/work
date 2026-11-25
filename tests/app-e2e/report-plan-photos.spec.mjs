@@ -148,7 +148,7 @@ test('1280 [보고 쓰기]: 그 시각 사진이 미리 골라져 있고(서버�
   expect(errors).toEqual([]);
 });
 
-test('1280 못 올린 사진(올리기 실패·사진 읽기 실패)은 아래 한 줄 [다시 올리기]로 그 사진만 다시', async ({page}) => {
+test('1280 못 올린 사진(올리기 실패·사진 읽기 실패)은 아래 한 줄 [다시 업로드]로 그 사진만 다시', async ({page}) => {
   const errors = watch(page), state = makeState();
   const cal = await openReportCalendar(page, state, {routes: photoRoutes(state)});
   await writeFromPlan(page, cal);
@@ -165,13 +165,13 @@ test('1280 못 올린 사진(올리기 실패·사진 읽기 실패)은 아래 �
   await expect(readFail.locator('.up-dock-note')).toHaveText('사진을 읽지 못했어요. 폰·원드라이브 연결을 확인한 뒤 다시 올려 주세요.');
   await shot(page, 'fail-1280');
   state.photo.badMedia.clear();
-  await readFail.locator('button', {hasText: '다시 올리기'}).click();
+  await readFail.locator('button', {hasText: '다시 업로드'}).click();
   await expect.poll(() => state.photo.uploads.map(u => u.name).sort()).toEqual(['od_a.jpg', 'od_b.jpg', 'od_c.jpg']);
   // 올리기 실패(c): 공용 묶음 끝 알림의 [다시 올리기](못 올린 파일만)
   await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 1장 못 올렸어요');
   await expect(dock(page).locator('.up-dock-note')).toContainText('사진 1장 올렸어요');
   state.photo.failNames.clear();
-  await dock(page).locator('button', {hasText: '다시 올리기'}).click();
+  await dock(page).locator('button', {hasText: '다시 업로드'}).click();
   // 그 묶음(a·c)이 끝까지 올라감 — 새 끝 알림이 앞의 '올렸어요'(b)를 갈아 끼운다(UX-알림하나로: 지난 끝이 줄 서 있지 않다).
   await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 2장 올렸어요');
   expect(state.photo.uploads.map(u => u.name).filter(n => n === 'od_c.jpg')).toHaveLength(2);
