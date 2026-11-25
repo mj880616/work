@@ -16,7 +16,7 @@ import {colorOf,dropZone,folderDropPlan,placeAt,isSamePlace} from './folder-look
 import {setLibraryFolderColor,createLibraryFolder,putDocumentInFolder} from './library-folder-data.js';
 import {paneDropAt} from './library-drop.js';
 import {writeMoves,undoMoves} from './library-move-write.mjs';
-import {createEdgeScroll,installDragEdgeScroll} from './drag-edge-scroll.js';
+import {createEdgeScroll,installDragEdgeScroll,followTouch} from './drag-edge-scroll.js';
 import {createDragGhost,setDragGhostImage} from './drag-ghost.js'; // S69-29 끄는 동안 따라오는 반투명 조각(노트 폴더 보기와 같은 공용 부품)
 import {openFolderAt} from './drop-open-folder.mjs';
 import {askConfirm} from './small-notice.js';
@@ -643,11 +643,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         if(!touch||touch.el!==el)return;
         touch.grabbed=true;
         if(canDrag){touch.drag=dragFrom(el,true);drag=touch.drag;pokeDrag();if(touch.drag){el.classList.add('lu-grabbed');markDragging(touch.drag)}}
-        // S70-10: 끄는 동안 목록이 다시 그려지면(가장자리에 머물러 'n개 더 보기'가 열림) 처음 누른 칸이 화면에서 빠진다. 브라우저는 그 뒤 손가락 신호를
-        // 빠진 칸에만 보내 목록 상자까지 오지 않으므로, 빠진 동안만 그 칸에서 같은 처리로 받는다(붙어 있으면 목록 상자가 받으니 두 번 처리하지 않음).
-        const lone=f=>ev=>{if(!t.isConnected)f(ev)},m=lone(onMove),en=lone(onEnd),cc=lone(onCancel);
-        t.addEventListener('touchmove',m,{passive:false});t.addEventListener('touchend',en);t.addEventListener('touchcancel',cc);
-        touch.unbind=()=>{t.removeEventListener('touchmove',m);t.removeEventListener('touchend',en);t.removeEventListener('touchcancel',cc)};
+        // S70-10: 끄는 동안 목록이 다시 그려져('n개 더 보기' 열림) 처음 누른 칸이 빠져도 끌기가 이어지게(공용 followTouch).
+        touch.unbind=followTouch(t,{move:onMove,end:onEnd,cancel:onCancel});
         try{navigator.vibrate?.(12)}catch{}
       },LONG_MS)};
     });

@@ -53,3 +53,14 @@ test('아래 가장자리 · 칸 안에 보이는 \'더 보기\'만 고른다', 
   const pane = {node: {nodeType: 1, querySelectorAll: () => []}, top: 100, bottom: 600};
   assert.equal(moreAtEdge([pane, page], 100, 590, doc), null, '칸 아래 가장자리지만 그 칸 안에 단추 없음, 화면 가장자리 밖');
 });
+test('손가락 끌기: 누른 칸이 빠진 동안만 그 칸에서 받고, 떼면 받지 않는다(followTouch)', async () => {
+  const {followTouch} = await import('../app/drag-edge-scroll.js');
+  const on = {};
+  const t = {isConnected: true, addEventListener: (k, f) => { on[k] = f; }, removeEventListener: k => { delete on[k]; }};
+  const got = [];
+  const off = followTouch(t, {move: () => got.push('move'), end: () => got.push('end'), cancel: () => got.push('cancel')});
+  on.touchmove({}); assert.deepEqual(got, [], '붙어 있으면 받는 곳이 받는다');
+  t.isConnected = false; on.touchmove({}); on.touchend({}); assert.deepEqual(got, ['move', 'end']);
+  off(); assert.deepEqual(Object.keys(on), []);
+  assert.equal(typeof followTouch(null), 'function');
+});

@@ -77,6 +77,16 @@ export function moreAtEdge(boxes, x, y, doc, edge = EDGE) {
   return null;
 }
 
+// S70-10: 손가락 끌기 도중 목록이 다시 그려져(가장자리에서 '더 보기'가 열림) 처음 누른 칸이 화면에서 빠지면, 브라우저는 그 뒤 손가락 신호를
+// 빠진 칸에만 보내 끌기 부품(목록 상자에 붙은 받는 곳)까지 오지 않는다. 빠진 동안만 그 칸에서 같은 처리로 받는다(붙어 있으면 받는 곳이 받으니 두 번 처리하지 않음).
+// 잡을 때 부르고, 끝나면 돌려받은 함수로 뗀다. 모든 손가락 끌기 부품(touch-drag.js·reorder-drag.js·자료실)이 이 하나를 쓴다.
+export function followTouch(target, {move = () => {}, end = () => {}, cancel = () => {}} = {}) {
+  if (!target?.addEventListener) return () => {};
+  const lone = f => e => { if (!target.isConnected) f(e); }, m = lone(move), en = lone(end), cc = lone(cancel);
+  target.addEventListener('touchmove', m, {passive: false}); target.addEventListener('touchend', en, {passive: false}); target.addEventListener('touchcancel', cc);
+  return () => { target.removeEventListener('touchmove', m); target.removeEventListener('touchend', en); target.removeEventListener('touchcancel', cc); };
+}
+
 // 끄는 동안 굴리기 하나. update(x, y, target?)를 움직일 때마다 부르고, 끝나면 stop(). prefer(target) → 먼저 굴릴 칸(없으면 포인터 아래), fallback(target) → 포인터 아래 칸들 다음(화면 앞)에 볼 칸.
 // onScroll(x, y): 굴린 직후(손가락 아래 놓을 곳을 다시 볼 때). target을 안 주면 그 점의 요소(elementFromPoint).
 // stale(ms): 그동안 update가 없으면 멈춘다(0 = 끝 신호까지 계속, 손가락·포인터 끌기는 끝 신호를 늘 받는다).
