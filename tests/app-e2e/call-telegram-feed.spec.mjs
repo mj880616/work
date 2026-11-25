@@ -227,7 +227,7 @@ test('통화 1280: 삭제한 통화에서 원장에 들어간 기록 안내와 [
  expect(f.errors).toEqual([]);
 });
 
-// 원장 근거 ‹원문›(ledger-browse)이 부르는 KPTUCallFeed.open: 목록을 읽은 뒤 그 통화를 열고, 없는 통화는 열지 않는다.
+// 원문 열기(전체 검색 등)가 부르는 KPTUCallFeed.open: 목록을 읽은 뒤 그 통화를 열고, 없는 통화는 열지 않는다.
 test('통화 1280: KPTUCallFeed.open(id)은 그 통화 상세를 연다',async({page})=>{
  const f=await fixture(page,{width:1280});
  await openMenu(page,1280,'통화');

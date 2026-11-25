@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>읽기 화면 다듬기 시안</title>
+<style>
+:root{
+  --ink:#2b2f33;--muted:#6b7177;--faint:#9aa0a6;--line:#dfe2e5;--bg:#f6f7f8;--surface:#fff;--soft:#eef1f3;
+  --accent:#3d6f8f;--accent-soft:#e6eef3;--warn:#9a6b2f;--warn-soft:#f6efe4;--bad:#b4473c;
+  --h:32px;--h-sm:28px;--meta:12px;--title:15px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#e3e5e7;--muted:#a3a9ae;--faint:#7c8287;--line:#3a3f44;--bg:#1d2023;--surface:#25292c;--soft:#2f3438;
+  --accent:#8db6cf;--accent-soft:#2d3b45;--warn:#d2a76c;--warn-soft:#3a3226;--bad:#e08a80;}}
+:root[data-theme="dark"]{--ink:#e3e5e7;--muted:#a3a9ae;--faint:#7c8287;--line:#3a3f44;--bg:#1d2023;--surface:#25292c;--soft:#2f3438;
+  --accent:#8db6cf;--accent-soft:#2d3b45;--warn:#d2a76c;--warn-soft:#3a3226;--bad:#e08a80;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;}
+.page{max-width:1340px;margin:0 auto;padding:16px}
+h1{font-size:18px;margin:0 0 4px}
+h2.sec{font-size:15px;margin:28px 0 6px;padding-top:12px;border-top:1px solid var(--line)}
+p.lead{margin:0 0 8px;color:var(--muted)}
+.cap{display:flex;gap:8px;align-items:baseline;margin:14px 0 6px;font-weight:600}
+.cap .tag{font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--soft);color:var(--muted)}
+.cap .tag.new{background:var(--accent-soft);color:var(--accent)}
+.scroll{overflow-x:auto;padding-bottom:4px}
+.frame{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.pc{width:1280px;height:560px}
+.ph{width:390px;height:720px;flex:none}
+.notes{margin:6px 0 0;padding-left:18px;color:var(--muted);font-size:12px}
+.notes b{color:var(--ink)}
+.bad{outline:2px dashed var(--bad);outline-offset:1px}
+.n{display:inline-grid;place-items:center;min-width:16px;height:16px;margin-right:2px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;font-weight:700;vertical-align:middle}
+/* 앱 껍데기 */
+.top{display:flex;align-items:center;gap:10px;height:40px;padding:0 14px;border-bottom:1px solid var(--line);font-weight:600}
+.top .crumb{color:var(--muted);font-weight:400;font-size:12px}
+.body{display:grid;grid-template-columns:180px 1fr;height:calc(100% - 40px)}
+.side{border-right:1px solid var(--line);padding:10px;color:var(--muted);font-size:12px}
+.side div{padding:4px 6px;border-radius:5px}.side .on{background:var(--soft);color:var(--ink);font-weight:600}
+.main{padding:10px 14px;overflow:hidden}
+/* 공용 부품 흉내 */
+.seg{display:inline-flex;align-items:center;gap:2px;height:var(--h);padding:2px;border-radius:999px;background:var(--soft)}
+.seg span{display:inline-grid;place-items:center;height:calc(var(--h) - 4px);padding:0 10px;border-radius:999px;font-size:12px;color:var(--muted);white-space:nowrap}
+.seg span.on{background:var(--surface);color:var(--ink);font-weight:600}
+.seg.tight span{padding:0 6px}
+.btn{display:inline-grid;place-items:center;height:var(--h);padding:0 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:13px;white-space:nowrap}
+.btn.big{height:36px;padding:0 14px;border-radius:999px;font-size:13px}
+.chip{display:inline-grid;place-items:center;height:var(--h-sm);padding:0 10px;border:1px solid var(--line);border-radius:999px;font-size:12px}
+.ico{display:inline-grid;place-items:center;width:var(--h);height:var(--h);border-radius:6px;color:var(--muted);font-size:14px;flex:none}
+.ico:hover{background:var(--soft)}
+.ico.t{font-size:12px;font-weight:600}
+.ra{color:var(--muted);font-size:12px;text-decoration:underline;text-underline-offset:2px}
+.field{display:flex;align-items:center;height:var(--h);padding:0 10px;border:1px solid var(--line);border-radius:6px;color:var(--faint);font-size:12px;background:var(--surface)}
+.dd{display:inline-flex;align-items:center;height:var(--h);padding:0 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;white-space:nowrap;background:var(--surface)}
+.meta{color:var(--muted);font-size:var(--meta)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle}
+/* 두 칸 */
+.split{display:grid;grid-template-columns:330px 1fr;height:100%;gap:0}
+.split.news{grid-template-columns:3fr 2fr}
+.left{padding-right:12px;overflow:hidden}
+.right{padding-left:14px;border-left:1px solid var(--line);overflow:hidden}
+.row{display:flex;align-items:center;gap:8px;min-height:40px;padding:6px 0;border-bottom:1px solid var(--line)}
+.row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.on{background:var(--accent-soft);margin:0 -6px;padding:6px}
+.card{padding:8px 10px;margin-bottom:6px;border:1px solid var(--line);border-radius:6px}
+.card .t{font-weight:600;margin-bottom:2px}
+.prose p{margin:0 0 8px;line-height:1.7}
+.box{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:6px 0}
+.box .bh{display:flex;align-items:center;gap:4px;margin-bottom:6px;font-size:12px;font-weight:600}
+.wait{height:10px;border-radius:5px;background:var(--soft);margin:6px 0}
+.memo{display:flex;align-items:center;height:var(--h);padding:0 10px;border:1px solid var(--line);border-radius:6px;color:var(--faint);font-size:12px}
+.memo-big{height:84px;align-items:flex-start;padding-top:8px}
+.fail{display:flex;align-items:center;gap:8px;font-size:var(--meta);color:var(--warn);margin:4px 0 8px}
+.fail .ra{color:var(--warn)}
+.tip{font-size:12px;color:var(--faint);margin:6px 0}
+/* 새 글 보기 머리 */
+.dh-title{margin:0;font-size:var(--title);font-weight:600;line-height:1.4}
+.dh-line{display:flex;align-items:center;gap:6px;min-height:var(--h)}
+.dh-line .meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dh-icons{display:flex;align-items:center;gap:0;flex:none}
+.dh-icons .sep{width:1px;height:16px;background:var(--line);margin:0 2px}
+.areatag{display:inline-block;padding:0 6px;border-radius:4px;background:var(--soft);font-size:11px;color:var(--muted)}
+.menu{position:absolute;right:0;top:34px;width:170px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);box-shadow:0 4px 14px rgba(0,0,0,.08);font-size:13px;z-index:2}
+.menu div{padding:6px 10px;border-radius:5px}.menu div:hover{background:var(--soft)}
+.menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+.menu .del{color:var(--bad)}
+.rel{position:relative}
+/* 폰 */
+.phrow{display:flex;gap:16px;flex-wrap:wrap}
+.ph .top{height:44px}
+.ph .main{padding:8px 12px;height:calc(100% - 44px - 52px);overflow:hidden}
+.ph .tabbar{height:52px;border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;color:var(--muted);font-size:11px}
+.ph .bseg{display:flex;justify-content:center;margin-top:6px}
+/* 결정 표 */
+table{min-width:640px;border-collapse:collapse;width:100%;font-size:12px;margin-top:6px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--soft)}
+.rec{color:var(--accent);font-weight:700}
+.alt{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px}
+.alt .frame{width:420px;padding:10px 12px}
+@media (max-width:600px){.page{padding:16px}.alt .frame{width:100%}}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>읽기 화면 다듬기 — [저장한 글] · [읽을 거리]</h1>
+<p class="lead">두 화면 글 보기 머리를 공용 부품 하나로 맞춘 시안입니다. 글 제목·매체는 지어낸 것입니다. 빨간 번호는 문제 목록(docs/design/reading-screens.md)의 번호입니다. PC 칸은 옆으로 밀어 보세요.</p>
+
+<div class="scroll"><table>
+<tr><th>명진 결정</th><th>(가)</th><th>(나)</th></tr>
+<tr><td>① 글 동작 단추</td><td><span class="rec">추천</span> 머리 오른쪽 작은 아이콘 줄(↗ · 가− 가+ · 복사 · ⋯), 나머지는 ⋯ 안</td><td>자주 쓰는 하나(읽음 / 저장)만 작은 칩으로 남기고 나머지 ⋯</td></tr>
+<tr><td>② 저장한 글 목록 머리</td><td><span class="rec">추천</span> 제목 빼고 보기 탭만(위 줄에 화면 이름이 이미 있음), 추가는 ＋</td><td>제목 한 줄, 탭은 아래 줄</td></tr>
+<tr><td>③ 두 칸 위 끝</td><td><span class="rec">추천</span> 오른쪽 글 머리 첫 줄 = 왼쪽 첫 줄(탭·찾기 줄)과 같은 높이</td><td>오른쪽 글 머리를 왼쪽 첫 카드에 맞춤</td></tr>
+<tr><td>④ 메모 칸</td><td><span class="rec">추천</span> 빈 칸 한 줄 '메모 남기기…', 누르면 커짐</td><td>접기 '메모 2 ▸'</td></tr>
+</table></div>
+
+<!-- ============ 저장한 글 ============ -->
+<h2 class="sec">1. 저장한 글 — PC 1280</h2>
+
+<div class="cap"><span class="tag">지금</span> 사진 ① 모양</div>
+<div class="scroll"><div class="frame pc">
+  <div class="top">WORK ON+ <span class="crumb">저장한 글</span></div>
+  <div class="body"><div class="side"><div>홈</div><div>노트</div><div>읽을 거리</div><div class="on">저장한 글</div><div>자료실</div></div>
+  <div class="main"><div class="split">
+    <div class="left">
+      <div style="display:flex;align-items:center;gap:6px;height:32px;margin-bottom:8px">
+        <b class="bad" style="font-size:15px;max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="n">1</span>저장한 글</b>
+        <span class="seg tight bad" style="margin-left:auto"><span class="n">2</span><span>안 읽음 0</span><span class="on">전체</span><span>밑줄 6</span><span>메모</span></span>
+        <span class="btn" style="padding:0 8px">+ 추가</span>
+      </div>
+      <div class="row on"><span class="t">비 오는 날 동네 서점 지도 만들기</span><span class="meta">example.org · 11/25</span><span class="meta">⋯</span></div>
+      <div class="row"><span class="t">작은 정원 가꾸기 첫 달 기록</span><span class="meta">garden.example · 11/24</span><span class="meta">⋯</span></div>
+      <div class="row"><span class="t">도시 자전거 길 열 군데 걸어 보기</span><span class="meta">bike.example · 11/23</span><span class="meta">⋯</span></div>
+      <div class="row"><span class="t">겨울 반찬 다섯 가지 손쉽게</span><span class="meta">food.example · 11/22</span><span class="meta">⋯</span></div>
+    </div>
+    <div class="right">
+      <div style="display:flex;align-items:center;gap:6px;min-height:32px">
+        <b style="font-size:15px">비 오는 날 동네 서점 지도 만들기</b>
+        <span class="btn bad" style="margin-left:auto"><span class="n">4</span>원래 페이지</span>
+      </div>
+      <p class="meta" style="margin:0 0 6px">example.org · 11/25 저장</p>
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px">
+        <span class="bad" style="display:flex;gap:4px"><span class="n">3</span><span class="btn">수정</span><span class="btn">밑줄을 노트로</span><span class="btn">사업에 연결</span><span class="btn">안 읽음으로</span></span>
+        <span class="seg bad" style="margin-left:auto"><span>−</span><span>+</span></span>
+      </div>
+      <p class="fail bad" style="color:var(--muted)"><span class="n">5</span>가져오지 못했어요. 유료 기사예요. <span class="ra">원문 다시 가져오기</span></p>
+      <div class="prose bad"><span class="n">6</span><p>Try out a little gallery made by other readers</p></div>
+      <p class="tip bad"><span class="n">7</span>글을 선택하고 [밑줄 저장] · 밑줄을 누르면 밑줄 메모</p>
+      <div class="memo memo-big bad"><span class="n">8</span>메모 남기기</div>
+    </div>
+  </div></div></div>
+</div></div>
+
+<div class="cap"><span class="tag new">개선안 (가)</span></div>
+<div class="scroll"><div class="frame pc">
+  <div class="top">WORK ON+ <span class="crumb">저장한 글</span></div>
+  <div class="body"><div class="side"><div>홈</div><div>노트</div><div>읽을 거리</div><div class="on">저장한 글</div><div>자료실</div></div>
+  <div class="main"><div class="split">
+    <div class="left">
+      <div style="display:flex;align-items:center;gap:6px;height:32px;margin-bottom:8px">
+        <span class="seg"><span>안 읽음</span><span class="on">전체</span><span>밑줄 6</span><span>메모</span></span>
+        <span class="ico" style="margin-left:auto" title="추가">＋</span>
+      </div>
+      <div class="row on"><span class="t">비 오는 날 동네 서점 지도 만들기</span><span class="meta">example.org · 11/25</span></div>
+      <div class="row"><span class="t"><span class="dot"></span>작은 정원 가꾸기 첫 달 기록</span><span class="meta">garden.example · 11/24</span></div>
+      <div class="row"><span class="t">도시 자전거 길 열 군데 걸어 보기</span><span class="meta">bike.example · 11/23</span></div>
+      <div class="row"><span class="t">겨울 반찬 다섯 가지 손쉽게</span><span class="meta">food.example · 11/22</span></div>
+    </div>
+    <div class="right">
+      <div class="dh-line rel">
+        <span class="meta">example.org · 11/25 저장 · <span class="areatag">동네 모임</span></span>
+        <span class="dh-icons"><span class="ico" title="원래 페이지">↗</span><span class="sep"></span><span class="ico t">가−</span><span class="ico t">가+</span><span class="sep"></span><span class="ico" title="복사">⧉</span><span class="ico" style="background:var(--soft)">⋯</span></span>
+        <div class="menu"><div>밑줄을 노트로 6</div><div>사업에 연결</div><div>안 읽음으로</div><div>원문 다시 가져오기</div><hr><div class="del">삭제</div></div>
+      </div>
+      <h3 class="dh-title">비 오는 날 동네 서점 지도 만들기</h3>
+      <p class="fail">로그인이 필요한 페이지예요 <span class="ra">다시 가져오기</span></p>
+      <div class="prose" style="color:var(--faint)"><p>받아 둔 원문이 없어요. ↗ 원래 페이지에서 읽어 주세요.</p></div>
+      <div class="memo">메모 남기기…</div>
+    </div>
+  </div></div></div>
+</div></div>
+<ul class="notes">
+  <li><b>1·2</b> 목록 머리에 제목을 두지 않아 잘릴 것이 없고(위 줄에 '저장한 글'), 탭은 0이면 숫자를 감춤. 추가는 ＋ 아이콘.</li>
+  <li><b>3·4</b> 큰 단추 넷과 따로 떨어진 [원래 페이지]·−/+ 를 머리 둘째 줄 오른쪽 아이콘 한 줄(모두 32px, 테두리 없음)로. 나머지는 ⋯ 안.</li>
+  <li><b>5·6</b> 실패 줄은 한 줄 작게, 까닭은 서버가 바르게 알려 줌. 로그인 화면 제목은 본문·제목으로 저장하지 않음.</li>
+  <li><b>7·8</b> 안내문 없음. 메모는 한 줄 칸. <b>9</b> 오른쪽 첫 줄(출처·아이콘)이 왼쪽 탭 줄과 같은 32px 줄에서 시작.</li>
+  <li>실패 줄 까닭 말: 로그인이 필요한 페이지예요 · 유료 기사라 앞부분만 있어요 · 이 사이트가 읽기를 막아 두었어요 · 사이트가 늦게 답해요 · 본문을 찾지 못했어요</li>
+</ul>
+
+<!-- ============ 읽을 거리 ============ -->
+<h2 class="sec">2. 읽을 거리 — PC 1280</h2>
+
+<div class="cap"><span class="tag">지금</span> 사진 ② 모양</div>
+<div class="scroll"><div class="frame pc">
+  <div class="top">WORK ON+ <span class="crumb">읽을 거리</span></div>
+  <div class="body"><div class="side"><div>홈</div><div>노트</div><div class="on">읽을 거리</div><div>저장한 글</div><div>자료실</div></div>
+  <div class="main">
+    <div style="margin-bottom:6px"><span class="seg"><span class="on">전체</span><span>모임 소식</span><span>매체</span><span>밑줄</span><span>메모</span></span></div>
+    <div class="split news" style="height:calc(100% - 40px)">
+    <div class="left">
+      <div class="bad" style="display:flex;align-items:center;gap:6px;padding:2px 0 4px"><span class="n">B1</span>
+        <div class="field" style="flex:1;height:32px">읽을 거리 찾기 — 제목·문장</div>
+        <span class="dd" style="height:30px">매체: 전체 ▾</span>
+        <span class="ico" style="height:26px;border:0">⋯</span>
+      </div>
+      <div class="card bad"><span class="n">B7</span><div class="t">마을 도서관 밤 열람 시험 운영</div><div class="meta">동네 소식지 · 11/25 · 요약 한 줄이 여기 보입니다</div></div>
+      <div class="card"><div class="t">공원 벤치 새로 놓는 자리 의견 모음</div><div class="meta">구청 소식 · 11/25</div></div>
+      <div class="card"><div class="t">버스 노선 바뀌는 곳 지도</div><div class="meta">교통 안내 · 11/24</div></div>
+    </div>
+    <div class="right" style="padding-top:4px">
+      <div class="dh-line"><span class="meta"><span class="bad"><span class="n">B2</span>‹ 동네 소식지 · 11/25</span></span></div>
+      <h3 class="dh-title" style="margin-bottom:6px">마을 도서관 밤 열람 시험 운영</h3>
+      <div class="box"><div class="bh">원문 전체 · 동네 소식지 <span class="bad" style="margin-left:auto;display:flex;gap:4px;align-items:center"><span class="n">B3</span><span class="chip">복사</span><span class="seg"><span>−</span><span>+</span></span><span class="ico" style="height:26px">⋯</span></span></div>
+        <p style="margin:0">다음 달부터 마을 도서관이 저녁 아홉 시까지 문을 엽니다. 시험 운영은 석 달 동안…</p></div>
+      <div class="box"><div class="bh">요약 <span class="meta" style="font-weight:400">만드는 중</span></div><div class="wait"></div><div class="wait" style="width:70%"></div></div>
+      <div class="bad" style="display:flex;gap:6px;align-items:center;padding-top:8px;border-top:1px solid var(--line)"><span class="n">B5</span><span class="btn big">저장</span><span class="btn big">메모</span><span class="btn big">관심 없음</span><span class="ra" style="margin-left:auto"><span class="n">B8</span>원래 사이트 ↗</span></div>
+      <div class="memo memo-big bad" style="margin-top:8px"><span class="n">B6</span>메모 남기기</div>
+    </div>
+  </div></div></div>
+</div></div>
+
+<div class="cap"><span class="tag new">개선안 (가)</span></div>
+<div class="scroll"><div class="frame pc">
+  <div class="top">WORK ON+ <span class="crumb">읽을 거리</span></div>
+  <div class="body"><div class="side"><div>홈</div><div>노트</div><div class="on">읽을 거리</div><div>저장한 글</div><div>자료실</div></div>
+  <div class="main">
+    <div style="margin-bottom:8px"><span class="seg"><span class="on">전체</span><span>모임 소식</span><span>매체</span><span>밑줄</span><span>메모</span></span></div>
+    <div class="split news" style="height:calc(100% - 40px)">
+    <div class="left">
+      <div style="display:flex;align-items:center;gap:6px;height:32px;margin-bottom:8px">
+        <div class="field" style="flex:1">읽을 거리 찾기 — 제목·문장</div>
+        <span class="dd">매체: 전체 ▾</span>
+        <span class="ico" style="border:1px solid var(--line)">⋯</span>
+      </div>
+      <div class="card"><div class="t">마을 도서관 밤 열람 시험 운영</div><div class="meta">동네 소식지 · 11/25 · 요약 한 줄이 여기 보입니다</div></div>
+      <div class="card"><div class="t">공원 벤치 새로 놓는 자리 의견 모음</div><div class="meta">구청 소식 · 11/25</div></div>
+      <div class="card"><div class="t">버스 노선 바뀌는 곳 지도</div><div class="meta">교통 안내 · 11/24</div></div>
+    </div>
+    <div class="right">
+      <div class="dh-line rel" style="margin-bottom:8px">
+        <span class="meta">동네 소식지 · 11/25</span>
+        <span class="dh-icons"><span class="ico" title="원래 페이지">↗</span><span class="sep"></span><span class="ico t">가−</span><span class="ico t">가+</span><span class="sep"></span><span class="ico" title="복사">⧉</span><span class="ico" style="background:var(--soft)">⋯</span></span>
+        <div class="menu"><div>저장</div><div>메모</div><div>관심 없음</div><hr><div>원문 다시 가져오기</div><div>직접 넣기</div></div>
+      </div>
+      <h3 class="dh-title">마을 도서관 밤 열람 시험 운영</h3>
+      <div class="prose" style="margin-top:6px"><p>다음 달부터 마을 도서관이 저녁 아홉 시까지 문을 엽니다. 시험 운영은 석 달 동안…</p></div>
+      <div class="box"><div class="bh">요약 <span class="meta" style="font-weight:400">만드는 중</span></div><div class="wait"></div><div class="wait" style="width:70%"></div></div>
+      <div class="memo">메모 남기기…</div>
+    </div>
+  </div></div></div>
+</div></div>
+<ul class="notes">
+  <li><b>B1</b> 찾기 칸·[매체 ▾]·⋯ 모두 공용 작은 높이(32px) 하나, 위·아래 끝이 한 줄에 맞음.</li>
+  <li><b>B2·B3·B8</b> 저장한 글과 같은 글 보기 머리. 복사·글자 크기·⋯가 같은 모양 아이콘. '원래 사이트'는 '원래 페이지 ↗'로 이름 통일.</li>
+  <li><b>B5</b> 아래 큰 둥근 단추 줄 없음 — 저장·메모·관심 없음은 ⋯ 안(저장하면 ⋯ 옆에 작은 '저장됨 ✓' 표시). <b>B7</b> 오른쪽 첫 줄이 왼쪽 찾기 줄과 같은 높이.</li>
+  <li>원문 상자의 '원문 전체 · 매체' 머리는 빼고 본문을 바로 보임(중복 제목).</li>
+</ul>
+
+<!-- ============ 폰 ============ -->
+<h2 class="sec">3. 폰 390 — 개선안 (가)</h2>
+<div class="scroll"><div class="phrow">
+  <div class="frame ph">
+    <div class="top"><span class="ico">‹</span> 저장한 글</div>
+    <div class="main">
+      <div class="dh-line rel">
+        <span class="meta">example.org · 11/25 저장</span>
+        <span class="dh-icons"><span class="ico">↗</span><span class="ico t">가−</span><span class="ico t">가+</span><span class="ico">⧉</span><span class="ico">⋯</span></span>
+      </div>
+      <h3 class="dh-title">비 오는 날 동네 서점 지도 만들기</h3>
+      <p class="fail">유료 기사라 앞부분만 있어요 <span class="ra">다시 가져오기</span></p>
+      <div class="prose"><p>비가 오면 골목 서점에 사람이 몰립니다. 지난달부터 동네 사람들과 서점 여섯 곳을 걸어 다니며 지도를 그렸습니다.</p><p>지도에는 여는 시간, 앉을 자리, 아이와 함께 갈 수 있는지를 적었습니다…</p></div>
+      <div class="memo">메모 남기기…</div>
+    </div>
+    <div class="tabbar"><span>홈</span><span>노트</span><span>읽을 거리</span><span>더보기</span></div>
+  </div>
+  <div class="frame ph">
+    <div class="top">읽을 거리</div>
+    <div class="main">
+      <div style="display:flex;align-items:center;gap:6px;height:32px;margin-bottom:8px">
+        <div class="field" style="flex:1">찾기 — 제목·문장</div>
+        <span class="dd">매체 ▾</span>
+        <span class="ico" style="border:1px solid var(--line)">⋯</span>
+      </div>
+      <div class="card"><div class="t">마을 도서관 밤 열람 시험 운영</div><div class="meta">동네 소식지 · 11/25</div></div>
+      <div class="card"><div class="t">공원 벤치 새로 놓는 자리 의견 모음</div><div class="meta">구청 소식 · 11/25</div></div>
+      <div class="card"><div class="t">버스 노선 바뀌는 곳 지도</div><div class="meta">교통 안내 · 11/24</div></div>
+      <div class="card"><div class="t">주말 장터 여는 곳 세 군데</div><div class="meta">동네 소식지 · 11/24</div></div>
+      <div class="bseg"><span class="seg"><span class="on">전체</span><span>모임 소식</span><span>매체</span><span>밑줄</span></span></div>
+    </div>
+    <div class="tabbar"><span>홈</span><span>노트</span><span>읽을 거리</span><span>더보기</span></div>
+  </div>
+</div>
+</div><ul class="notes"><li>폰은 글 보기 머리가 같은 부품(‹ 뒤로는 위 줄). 보기 탭은 지금처럼 하단바 바로 위 가운데.</li></ul>
+
+<!-- ============ (나) ============ -->
+<h2 class="sec">4. (나) 안 — 작게</h2>
+<div class="alt">
+  <div class="frame">
+    <div class="cap" style="margin-top:0"><span class="tag">① (나)</span> 자주 쓰는 하나만 칩으로</div>
+    <div class="dh-line"><span class="meta">동네 소식지 · 11/25</span><span class="dh-icons"><span class="chip" style="margin-right:4px">저장</span><span class="ico">↗</span><span class="ico t">가−</span><span class="ico t">가+</span><span class="ico">⧉</span><span class="ico">⋯</span></span></div>
+    <h3 class="dh-title">마을 도서관 밤 열람 시험 운영</h3>
+  </div>
+  <div class="frame">
+    <div class="cap" style="margin-top:0"><span class="tag">② (나)</span> 목록 머리 두 줄</div>
+    <div style="font-weight:600;font-size:15px;height:28px">저장한 글</div>
+    <div style="display:flex;align-items:center;gap:6px"><span class="seg"><span>안 읽음</span><span class="on">전체</span><span>밑줄 6</span><span>메모</span></span><span class="ico" style="margin-left:auto">＋</span></div>
+  </div>
+  <div class="frame">
+    <div class="cap" style="margin-top:0"><span class="tag">④ (나)</span> 메모 접기</div>
+    <div class="meta">메모 2 ▸</div>
+  </div>
+</div>
+</div>
+</body>
+</html>

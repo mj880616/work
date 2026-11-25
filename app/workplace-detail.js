@@ -206,7 +206,7 @@ async function wdAddDoc(files=[]){
   const loader=window.KPTUViewLoader;
   try{if(!loader?.load)throw new Error('no loader');if(!loader.isLoaded?.('library'))await loader.load('library')}catch{wdToast('자료실을 불러오지 못했어요.');return}
   if(!wdRecordCurrent(org.id)||wdOrg?.id!==org.id)return;
-  if(!window.KPTULibrary?.startUploadForOrganization?.({id:org.id,name:org.name},files))wdToast('자료 올리기를 열지 못했어요. 잠시 후 다시 눌러 주세요.')
+  if(!window.KPTULibrary?.startUploadForOrganization?.({id:org.id,name:org.name},files))wdToast('자료 업로드를 열지 못했어요. 잠시 후 다시 눌러 주세요.')
 }
 // S67-39(명진 11/20 "자료 + 자료실에서 추가도 가능하게", 같은 종류 맞춤): 자료 칸 [+] = 사업 보고와 같은 작은 메뉴 [기기에서 올리기](위 올리기 창)·
 // [자료실에서 선택](이미 있는 자료의 담당조직 칸만 채움, 다시 올리기 없음 — [조직에서 빼기]의 반대 길, report-library-pick.js).
