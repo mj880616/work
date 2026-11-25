@@ -38,8 +38,8 @@
 .record-photos{display:flex;align-items:center;gap:6px;flex:1 0 100%;min-width:0}
 .record-files[data-record-only-photos] .record-photos{flex:none}
 .record-photo-thumbs{display:flex;flex-wrap:wrap;gap:4px}
-.record-photos-more{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:var(--record-thumb);height:var(--record-thumb);min-width:0;min-height:0;margin:0;padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-muted);font-size:var(--kptu-text-meta,12px);font-weight:400;cursor:pointer}
-.record-photos-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+/* [+n]은 공용 ④ 칩(UI-버튼6가지) 모양 그대로, 그림 줄 세로 가운데. */
+.record-photos-more{align-self:center}
 /* ORG-기록첨부이름반영(S60-14): 띠에서 바로 이름 고치기(file-rename.js 공용 부품).
    파일 줄 = [파일 단추][✎](한 줄 칸 data-fr-row). 이름을 고치는 동안 그 줄은 한 줄 전체를 쓴다. */
 .record-file{display:inline-flex;align-items:center;min-width:0;max-width:100%}
