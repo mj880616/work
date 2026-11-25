@@ -86,7 +86,7 @@ function isoDate(raw: string | null, nowMs: number): string | null {
 
 export function readArticlePage(html: string, nowMs: number, rule?: PageRule): PageInfo {
   // 제목 규칙은 _shared/page-title.ts 한 곳(가볍게 제목만 읽는 peekTitle과 같음).
-  const title = pageTitle(html);
+  const title = pageTitle(html, rule?.base);
   const publisher = cut(meta(html, ["og:site_name", "application-name"]) ?? "", 120) || null;
   // 날짜: 메타 → 구조화 데이터(JSON-LD "datePublished") → 첫 <time datetime>. 못 읽으면 null('날짜 모름' 묶음, 화면에서 맨 아래).
   const published_at = isoDate(meta(html, ["article:published_time", "og:article:published_time", "datePublished", "pubdate", "date"]), nowMs)

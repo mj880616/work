@@ -95,7 +95,7 @@ function paint(){
     l=state==='paused'?'일시정지':'녹음 중';
     t=clockText(sec);
     const q=queuedPieces(segments);
-    m=fails&&q?escapeText(`조각 ${q}개 올리기 다시 시도 중`):'';
+    m=fails&&q?escapeText(`조각 ${q}개 업로드 다시 시도 중`):'';
     a=`<button type="button" class="rec-btn" data-rec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 저장</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>`;
   }else if(state==='finishing'){
     l='저장 중';

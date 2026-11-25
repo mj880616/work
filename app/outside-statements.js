@@ -343,7 +343,7 @@ async function openRelated(r) {
     } catch { /* 못 읽으면 그대로 */ }
     return;
   }
-  const view = {update: 'home', ledger: 'ledger', library: 'library'}[r.kind];
+  const view = {update: 'home', library: 'library'}[r.kind];
   if (view) window.KPTURouter?.go?.(view, {source: 'delegated'});
 }
 function mountSplit() {

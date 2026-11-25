@@ -108,10 +108,10 @@ export function sendFilesBehind({line, key, batch, rt = window.KPTURuntime, send
     if (left.length) {
       const reason = error?.message || '';
       behindNote(batch, {text:`${head}${fileWords(left.map(entry => entry.file))} 못 올렸어요`, note:[sent.length ? `${fileWords(sent)} 올렸어요` : '', reason, extra].filter(Boolean).join(' · '),
-        error:true, ms:0, files, actions:retry ? [{label:'다시 올리기', aria:'못 올린 파일 다시 올리기', run:retry}] : []});
-    } else if (extra) behindNote(batch, {text:okText || `${head}올리기를 마쳤어요`, note:extra, error:true, ms:0, files});
+        error:true, ms:0, files, actions:retry ? [{label:'다시 업로드', aria:'못 올린 파일 다시 업로드', run:retry}] : []});
+    } else if (extra) behindNote(batch, {text:okText || `${head}업로드를 마쳤어요`, note:extra, error:true, ms:0, files});
     else if (sent.length) behindNote(batch, {text:okText + (cancelled ? ` · ${cancelled}개 취소` : ''), files});
-    else if (cancelled) behindNote(batch, {text:'올리기를 취소했어요', files});
+    else if (cancelled) behindNote(batch, {text:'업로드를 취소했어요', files});
   });
 }
 // 새 노트의 첨부(새 노트 큰 창·빠른 입력칸·폰 공유): 노트 줄에 서서 그 노트로 올린다. 끝나면 노트 화면이 그 노트를 다시 읽는다(kptu:note-files-sent).
@@ -203,7 +203,7 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
     } finally { fd?.delete('file'); }
   }
   // 고른 파일을 모두 ✕로 취소했으면 아무것도 올라가지 않았다: 부른 곳이 '저장함'으로 보지 않게 알린다(노트·일기 글 안 사진이 건너뜀).
-  if (tried && cancelled === tried) throw uploadError('올리기를 취소했어요.', 'upload_cancelled');
+  if (tried && cancelled === tried) throw uploadError('업로드를 취소했어요.', 'upload_cancelled');
   // Multipart success is final before this separate phase. An OCR failure never
   // changes upload entries, blocks the batch, or sends the source file again.
   if(hadPending && isCurrent()) await readNewPhotos(batch,originalIds,{rt,isCurrent,ocr,onOcrChange});
