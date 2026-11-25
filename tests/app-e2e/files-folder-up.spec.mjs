@@ -127,7 +127,6 @@ for (const width of [390, 344]) {
 // ⑤ 같은 종류: 자료실 폰 '그 폴더만'도 같은 규칙 — 하위 폴더로 들어간 뒤 [‹]·뒤로 키·왼쪽 끝 밀기 = 한 단계 위, 들어온 폴더에서는 나무.
 test('자료실 폰 390: 하위 폴더로 들어간 뒤 [‹]·뒤로 키 = 한 단계 위, 들어온 폴더에서 왼쪽 끝 밀기 = 나무', async ({ page }) => {
   const { bootLibrary, libFolder } = await import('./helpers/library-folder-server.mjs');
-  const { pinch } = await import('./helpers/pinch.mjs');
   const { errors } = await bootLibrary(page, 390, { folders: [libFolder('fa', 'top-a', { name: '가상 A', sort_order: 1024 }), libFolder('fc', 'top-a', { name: '가상 C', parent_id: 'fa', sort_order: 0 })], items: [{ document_id: 'a-1', folder_id: 'fc' }, { document_id: 'n-1', folder_id: 'fa' }] });
   await page.locator('#libraryGroupBy').selectOption({ label: '폴더' });
   const head = key => page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
@@ -135,7 +134,7 @@ test('자료실 폰 390: 하위 폴더로 들어간 뒤 [‹]·뒤로 키 = 한 
   const back = path.locator('[data-lu-path-back]');
   // S69-28 LIB-한칸탐색기: 폰 '그 폴더만'은 탐색기 칸 — 위치 줄 끝에 지금 폴더 이름. S69-68: 안의 폴더 줄 누르기 = 그 자리 펼치기, 한 단계 더는 ⋯ [이 폴더로 들어가기].
   const enter = async key => { await head(key).locator('[data-lu-node-menu]').click(); await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click(); };
-  await pinch(page, head('f:fa'), 'out');
+  await enter('f:fa'); // S69-99: 들어가기는 ⋯ 첫 줄(두 손가락은 줄 크기)
   await expect(path).toHaveText('‹자료실›가상 A');
   await expect(back).toHaveAttribute('aria-label', '폴더 나무');
   await head('f:fc').click();

@@ -7,6 +7,35 @@ export const QUOTE_MAX = 4000, EDGE = 60, MEMO_MAX = 2000;
 // reading: 읽을 거리 원문 사본에서 고른 밑줄(S68-09 READ-읽을거리함, DB 20261122100000 — source_id = app_reading_items.id).
 // brief: 브리핑 룸 자료 보기에서 고른 밑줄(S69-86 BRIEF-밑줄노트, DB 20261125010000 — source_id = app_documents.id, 출처 사본은 자료 이름·브리핑 날짜).
 export const HL_TYPES = Object.freeze(['news', 'outside', 'telegram', 'note', 'reading', 'brief']);
+// S70-16 UI-고른글메뉴·형광펜(시안 docs/design/mockups/highlight-underline-options.html): 같은 표의 한 줄에 모양(mark_kind)과 색(mark_color) 칸
+// (DB 20261125090000). mark_kind 비움 = 지금까지의 '밑줄 저장'(모아 보기에 나옴), 'highlight' = 형광펜(글 안에만 칠하고 모아 보기에는 안 나옴).
+// 색은 톤다운 다섯 가지(DB 검사와 같음), 비면 노랑. 표시 하나 = 원본 종류 + 원본 id + 위치(고른 글·앞뒤 글) + 모양 + 색.
+export const MARK_COLORS = Object.freeze(['yellow', 'green', 'blue', 'pink', 'orange']);
+export const MARK_COLOR_NAMES = Object.freeze({yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍', orange: '주황'});
+export const DEFAULT_COLOR = 'yellow';
+export const markColor = v => (MARK_COLORS.includes(v) ? v : DEFAULT_COLOR);
+export const isHighlight = h => h?.mark_kind === 'highlight';
+// 모아 보기(노트 [밑줄]·저장한 글 [밑줄]·밑줄 개수)에 나오는 줄 = 형광펜이 아닌 줄.
+export const isCollected = h => !!h && !isHighlight(h);
+// 마지막에 쓴 형광 색: 내 형광 줄 중 가장 최근에 칠하거나 색을 바꾼 줄의 색(서버 줄에서 읽으므로 다른 기기에서도 같다). 없으면 노랑.
+export function lastColor(list) {
+  let best = null, at = -Infinity;
+  for (const h of Array.isArray(list) ? list : []) {
+    if (!isHighlight(h)) continue;
+    const t = Math.max(Date.parse(h.updated_at || '') || -Infinity, Date.parse(h.created_at || '') || -Infinity);
+    if (t > at) { at = t; best = h; }
+  }
+  return best ? markColor(best.mark_color) : DEFAULT_COLOR;
+}
+// 고른 자리 [start, end)와 겹치는 형광 표시(칠한 자리 목록 ranges = markRanges 답, rows = 그 글의 줄들). 첫 번째만.
+export function highlightAt(ranges, rows, start, end) {
+  const byId = new Map((Array.isArray(rows) ? rows : []).map(h => [h.id, h]));
+  for (const r of Array.isArray(ranges) ? ranges : []) {
+    const h = byId.get(r.id);
+    if (isHighlight(h) && start < r.end && r.start < end) return h;
+  }
+  return null;
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const oneLine = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
 const httpUrl = v => (typeof v === 'string' && /^https?:\/\/\S+$/.test(v.trim()) && v.trim().length <= 2000 ? v.trim() : '');
@@ -33,11 +62,14 @@ export function cleanSource(src) {
   return {type: src.type, id: String(src.id), title: oneLine(src.title, 500) || null, media: oneLine(src.media, 200) || null, date: iso(src.date), url: httpUrl(src.url) || null};
 }
 // 서버에 넣을 한 줄(authenticated가 넣을 수 있는 열만). 모양이 틀리면 null.
-export function highlightBody(workspaceId, src, quote, {prefix = '', suffix = ''} = {}, memo = null) {
+// mark: {kind: 'highlight', color} 이면 형광 줄(메모 없음). 비우면 지금까지의 밑줄 줄 — 새 칸을 보내지 않는다(DB 적용 전에도 밑줄 저장은 그대로 된다).
+export function highlightBody(workspaceId, src, quote, {prefix = '', suffix = ''} = {}, memo = null, mark = null) {
   const s = cleanSource(src), q = cleanQuote(quote);
   if (!s || !q || typeof workspaceId !== 'string' || !workspaceId) return null; // 작업공간 열쇠는 서버(외래 키·RLS)가 확인
-  return {workspace_id: workspaceId, source_type: s.type, source_id: s.id, quote: q, quote_prefix: String(prefix).slice(-EDGE), quote_suffix: String(suffix).slice(0, EDGE),
+  const body = {workspace_id: workspaceId, source_type: s.type, source_id: s.id, quote: q, quote_prefix: String(prefix).slice(-EDGE), quote_suffix: String(suffix).slice(0, EDGE),
     memo: cleanMemo(memo), source_title: s.title, source_media: s.media, source_date: s.date, source_url: s.url};
+  if (mark?.kind === 'highlight') Object.assign(body, {memo: null, mark_kind: 'highlight', mark_color: markColor(mark.color)});
+  return body;
 }
 // 출처 꼬리표(노트 › 밑줄 목록 줄 앞): 노트 · 텔레그램 · News(뉴스 기사·사회운동 글).
 export const sourceTag = h => (h?.source_type === 'note' ? '노트' : h?.source_type === 'telegram' ? '텔레그램' : h?.source_type === 'reading' ? '저장한 글' : h?.source_type === 'brief' ? '브리핑' : '읽을 거리');

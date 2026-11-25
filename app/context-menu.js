@@ -86,7 +86,7 @@ function screenTrigger(target) {
   if (!node || node.closest('.modal,[role="dialog"],[role="menu"],[popover]')) return null;
   const panel = node.closest('.view-panel');
   if (!panel) return null;
-  const list = [...panel.querySelectorAll(SCREEN)].filter(el => isMore(el) && visible(el));
+  const list = [...panel.querySelectorAll(SCREEN), ...(panel.id ? document.querySelectorAll(`[data-screen-tools-for="${CSS.escape(panel.id)}"] ${SCREEN}`) : [])].filter(el => isMore(el) && visible(el)); // 화면 이름 줄로 옮긴 ⋯(screen-tools.js)
   return list.length === 1 ? list[0] : null;
 }
 

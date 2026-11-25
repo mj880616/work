@@ -189,6 +189,8 @@ const FAIL = {
   // '막아 두었어요'는 사이트가 실제로 거절했을 때만(봇 확인 화면·401·403 — 서버가 bot_check로 알림).
   bot_check: ['가져오지 못했어요. 이 사이트가 읽기를 막아 두었어요.', false],
   paywall: ['가져오지 못했어요. 유료 기사예요.', false],
+  // 서버 까닭 login(로그인 화면이 왔음 — S70-40a). 화면 이유 login(우리 앱 로그인 만료)과 이름이 겹치므로 resultOutcome이 login_page로 바꿔 부른다.
+  login_page: ['가져오지 못했어요. 로그인이 필요한 페이지예요.', false],
   unreachable: ['사이트가 답하지 않아요. 잠시 뒤 다시 시도해 주세요.', true],
   timeout: ['사이트가 답하지 않아요. 잠시 뒤 다시 시도해 주세요.', true],
   http_error: ['사이트가 답하지 않아요. 잠시 뒤 다시 시도해 주세요.', true],
@@ -215,11 +217,13 @@ export function requestFailReason(error) {
   if (status === 400 || status === 413) return 'blocked';
   return 'busy';
 }
-// 서버 결과 → {state:'ok'|'failed', reason}. 앞부분만 온 글(lead)은 넣되 reason에 남긴다.
+// 서버 결과 → {state:'ok'|'failed', reason}. 앞부분만 온 글(lead)은 넣되 reason에 남기고, 왜 앞부분뿐인지(lead: 'paywall' 유료벽 | 'lead_only' 본문 못 찾음)도 둔다.
+// 서버 까닭 login(로그인 화면)은 화면 이유 login(앱 로그인 만료)과 다른 뜻이라 login_page로 바꾼다(S70-40a READ-실패까닭).
 export function resultOutcome(result) {
   if (!isObject(result) || result.ok !== true) return {state: 'failed', reason: 'busy'};
   if (result.state === 'ok') return {state: 'ok', reason: result.truncated === true ? 'cut' : null};
-  if (result.state === 'lead') return {state: 'ok', reason: 'lead'};
+  if (result.state === 'lead') return {state: 'ok', reason: 'lead', lead: result.reason === 'paywall' ? 'paywall' : 'lead_only'};
+  if (result.reason === 'login') return {state: 'failed', reason: 'login_page'};
   return {state: 'failed', reason: reasonOrNull(result.reason) && FAIL[result.reason] ? result.reason : 'busy'};
 }
 // 끝났을 때 작은 알림 글.

@@ -60,15 +60,19 @@ test('the sync reads only my links of the renamed notes and writes through the o
   assert.equal(calls.length, 0);
 });
 
-test('the strip offers rename on files (✎) and pictures (⋯ [이름 수정]) with the shared part, and keeps [사진 n] open when asked', () => {
+test('the strip offers rename on files (✎) and pictures (⋯ [이름 수정]) with the shared part, and keeps all pictures shown ([+n] pressed) when asked', () => {
   const row = {id: 'l1', note_id: 'n1', attachments: [pic('d1', 'a.jpg'), pdf('d2', 'b.pdf')]};
   const html = files.recordFilesHtml(row, {open: true});
   assert.match(html, /class="record-file" data-fr-row><button[^>]*data-record-file="d2"[^>]*data-fr-host data-fr-target="note" data-fr-id="n1" data-fr-drive="d2" data-fr-name="b\.pdf"/);
   assert.match(html, /class="fr-edit" data-fr-edit[^>]*data-fr-drive="d2"/);
   assert.match(html, /data-photo-tile="d1" data-fr-row>.*<span class="record-photo-name" data-fr-host[^>]*data-fr-drive="d1"/);
   assert.match(html, /data-fr-menu-edit[^>]*data-fr-drive="d1"[^>]*>이름 수정<\/button>/);
-  assert.match(html, /data-record-photos="n1" open>/);
-  assert.doesNotMatch(files.recordFilesHtml(row), /data-record-photos="n1" open/);
+  // UI-기록카드하나로(S70-42): 접는 [사진 n] 없이 작은 그림 줄. 3장 넘으면 [+n], open이면 모두 편 채로.
+  assert.doesNotMatch(html, /<details class="record-photos"|photo-fold-toggle/);
+  const many = {...row, attachments: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map(id => pic(id, id + '.jpg'))};
+  assert.match(files.recordFilesHtml(many), /data-record-photos="n1"><div class="record-photo-thumbs">.*data-photo-tile="p4" data-fr-row hidden>.*aria-label="사진 3장 더 보기">\+3<\/button>/);
+  assert.match(files.recordFilesHtml(many, {open: true}), /data-record-photos="n1" data-all>/);
+  assert.doesNotMatch(files.recordFilesHtml(many, {open: true}), / hidden>|data-record-photos-more/);
   // 이름 바뀜을 들고 있는 줄에 반영
   const rows = [row, {id: 'l2', note_id: 'n2', attachments: [pic('d9', 'z.jpg')], summary: 's'}];
   assert.deepEqual(files.renameInRecordRows(rows, {drive_file_id: 'd1', name: '새.jpg'}), ['l1']);
