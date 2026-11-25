@@ -186,6 +186,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - 문서 전용 PR은 CI 대상 아님을 완료 기준으로 인정한다.
 - 같은 E2E 시험이 서로 다른 실행에서 두 번 이상 간헐 실패하면 재실행으로 넘기지 않고 안정화 작업을 원장에 올려 원인을 고친다. 재시도 횟수 증가·대기 시간만 늘리기·skip은 해결로 인정하지 않는다(2026-10-19 사용자 결정).
 - If a security or authorization issue remains unresolved, do not describe the task as fully complete.
+- **시험 양 줄이기**(2026-11-25 명진 결정 "규칙에 아예 박아버려"): PR마다 도는 브라우저 E2E는 그 PR이 고친 파일과 관련된 시험만 돌린다(고친 파일 → 관련 시험 대응표 한 곳, 대응을 못 찾으면 전체). 앱 전체 E2E는 합치기 직전 GitHub merge queue에서 묶음으로 한 번, 그리고 main에서 하루 한 번 돈다. 관련 시험만 도는 PR도 merge queue 전체 시험을 통과해야 main에 들어간다(보호 장치는 낮추지 않음). 공용 부품·공용 CSS·시험 도구를 고친 PR은 전체를 돌린다.
 
 ## 10. 보고
 
