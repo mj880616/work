@@ -77,3 +77,40 @@ test('note is a highlight source; source tag; quote gone when the note text chan
   assert.equal(quoteGone(null, '철도'), true, 'a deleted note counts as changed');
   assert.equal(quoteGone(raw, ''), true);
 });
+
+// S70-16 UI-형광펜: 같은 표의 모양(mark_kind)·색(mark_color) 칸 — DB 검사(20261125113000)와 같은 값.
+import {MARK_COLORS, markColor, isHighlight, isCollected, lastColor, highlightAt, DEFAULT_COLOR} from '../app/text-highlights-model.mjs';
+test('highlight body: kind and one of five colors, no memo; plain underline sends no new columns', () => {
+  const src = {type: 'brief', id: ID, title: '자료'};
+  const pen = highlightBody(WS, src, '칠한 글', {prefix: '앞', suffix: '뒤'}, '메모는 빠짐', {kind: 'highlight', color: 'green'});
+  assert.equal(pen.mark_kind, 'highlight');
+  assert.equal(pen.mark_color, 'green');
+  assert.equal(pen.memo, null);
+  assert.equal(highlightBody(WS, src, '칠한 글', {}, null, {kind: 'highlight', color: 'red'}).mark_color, DEFAULT_COLOR);
+  const plain = highlightBody(WS, src, '밑줄 글', {}, '메모');
+  assert.equal('mark_kind' in plain || 'mark_color' in plain, false);
+  assert.equal(plain.memo, '메모');
+  assert.deepEqual([...MARK_COLORS], ['yellow', 'green', 'blue', 'pink', 'orange']);
+  assert.equal(markColor('blue'), 'blue');
+  assert.equal(markColor(undefined), 'yellow');
+});
+test('collections leave highlights out; last color = most recent painted or recolored highlight', () => {
+  const rows = [
+    {id: 'a', mark_kind: null, mark_color: null, created_at: '2026-11-25T03:00:00Z', updated_at: '2026-11-25T03:00:00Z'},
+    {id: 'b', mark_kind: 'highlight', mark_color: 'green', created_at: '2026-11-25T01:00:00Z', updated_at: '2026-11-25T01:00:00Z'},
+    {id: 'c', mark_kind: 'highlight', mark_color: 'pink', created_at: '2026-11-25T00:00:00Z', updated_at: '2026-11-25T02:00:00Z'},
+  ];
+  assert.deepEqual(rows.filter(isCollected).map(h => h.id), ['a']);
+  assert.equal(isHighlight(rows[1]), true);
+  assert.equal(lastColor(rows), 'pink');
+  assert.equal(lastColor([rows[0]]), 'yellow');
+  assert.equal(lastColor(null), 'yellow');
+});
+test('highlightAt finds the painted highlight under a selection (underlines are not edited this way)', () => {
+  const rows = [{id: 'p', mark_kind: 'highlight', mark_color: 'blue'}, {id: 'u', mark_kind: null}];
+  const ranges = [{start: 0, end: 5, id: 'u'}, {start: 10, end: 20, id: 'p'}];
+  assert.equal(highlightAt(ranges, rows, 12, 14)?.id, 'p');
+  assert.equal(highlightAt(ranges, rows, 18, 30)?.id, 'p');
+  assert.equal(highlightAt(ranges, rows, 1, 3), null);
+  assert.equal(highlightAt(ranges, rows, 20, 25), null);
+});
