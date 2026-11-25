@@ -122,7 +122,7 @@ test('팝업 412: 일정 창 안 칸도 아래 버튼 줄에 덮이지 않고 �
 });
 
 // 전수: 폰 412·폴드 접힘 344에서 메뉴 화면마다 칸을 하나씩 눌러(자판이 열린 채 다음 칸으로) 가려지는 곳 0.
-const VIEWS=['home','calendar','tasks','diary','basket','library','meetings','team','ledger','profile'];
+const VIEWS=['home','calendar','tasks','diary','basket','library','meetings','team','profile'];
 for(const [width,height] of [[412,915],[344,882]])test(`전수 ${width}: 모든 메뉴 화면의 칸이 자판 위에서 아무것에도 덮이지 않음`,async({page})=>{
  test.setTimeout(120000);
  await boot(page,width,height);

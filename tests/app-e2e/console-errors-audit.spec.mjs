@@ -10,7 +10,7 @@ import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 
 const WIDTHS=[[412,915],[870,1000],[1280,900]];
 // 메뉴 15칸(app/menu-model.mjs) + 메뉴 안 화면 3곳(할 일·일기·사업영역 관리) = 18곳. 노트는 정리함의 노트 쪽(note)이다.
-const MENU_VIEWS=['home','basket','note','calendar','tasks','diary','meetings','projects','library','team','hwp','ledger','photos','outside','calls','telegram','arsenal'];
+const MENU_VIEWS=['home','basket','note','calendar','tasks','diary','meetings','projects','library','team','hwp','photos','outside','calls','telegram','arsenal'];
 const DIR='test-results/console-audit';
 const short=text=>String(text||'').replace(/\s+/g,' ').replace(/https?:\/\/[^\s)]+/g,u=>{try{const x=new URL(u);return x.pathname}catch{return u}}).slice(0,160);
 

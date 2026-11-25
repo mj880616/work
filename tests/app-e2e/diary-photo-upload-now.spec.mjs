@@ -149,13 +149,13 @@ for(const width of [412,1280]){
    await expect(page.locator('#toast')).not.toContainText('사진');
    expect(f.errors).toEqual([]);
   });
-  test(`뒤에서 못 올린 사진은 아래 한 줄에 남고 [다시 올리기]는 그 사진만 같은 하루 기록으로 보낸다(${width})`,async({page})=>{
+  test(`뒤에서 못 올린 사진은 아래 한 줄에 남고 [다시 업로드]는 그 사진만 같은 하루 기록으로 보낸다(${width})`,async({page})=>{
    const {f,row}=await saveWhileUploadingFail(page);
    const dock=page.locator('#uploadDock');
    await expect(dock).toContainText('사진 1장 못 올렸어요',{timeout:45000});
    await page.waitForTimeout(6500);
    await expect(dock).toContainText('사진 1장 못 올렸어요');
-   await dock.getByRole('button',{name:'못 올린 사진 다시 올리기'}).click();
+   await dock.getByRole('button',{name:'못 올린 사진 다시 업로드'}).click();
    await expect(dock).toContainText('사진 1장 올렸어요',{timeout:30000});
    expect(f.uploads.map(u=>u.name)).toEqual(['IMG_1.jpg','IMG_2.jpg','IMG_3.jpg','IMG_3.jpg']);
    expect(row.attachments.map(a=>a.file_name)).toEqual(['IMG_1.jpg','IMG_2.jpg','IMG_3.jpg']);
