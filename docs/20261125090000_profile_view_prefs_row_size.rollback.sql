@@ -1,5 +1,5 @@
 begin;
--- 20261125090000_profile_view_prefs_row_size의 짝 되돌리기. 화면 기억 검사를 row_size 칸이 없는 20261124170000 profile_view_prefs_files_sort 모양(글자 그대로)으로
+-- 20261125090000_profile_view_prefs_row_size의 짝 되돌리기. 화면 기억 검사를 row_size 칸이 없는 20261125080000 profile_view_prefs_note_blocks 모양(글자 그대로)으로
 -- 되돌리고 이번 기록 1행만 지운다. 어떤 프로필이라도 row_size가 저장돼 있으면 멈춘다(값을 지워서 통과시키지 않는다 —
 -- 먼저 화면 PR을 이전 판으로 되돌리고, 남은 값을 어떻게 할지 정한 뒤 다시 계획한다). 표 권한·정책·함수·다른 칸에는 손대지 않는다.
 set local lock_timeout = '5s';
@@ -26,8 +26,8 @@ alter table public.app_profiles
       when jsonb_typeof(view_prefs) <> 'object' then false
       else
         octet_length(view_prefs::text) <= 4000
-        -- 칸은 아래 쉰아홉 개뿐(20261124110000 profile_view_prefs_drive_import 판에 files_sort 하나 더).
-        and not jsonb_path_exists(view_prefs, 'strict $.keyvalue() ? (!(@.key == "theme" || @.key == "nav_collapsed" || @.key == "calendar_view" || @.key == "home_quick_mode" || @.key == "note_folder" || @.key == "split_ratio" || @.key == "collect_hidden_on" || @.key == "report_view" || @.key == "menu_layout" || @.key == "home_cards" || @.key == "photo_cols" || @.key == "photo_cols_wide" || @.key == "diary_view" || @.key == "diary_onedrive" || @.key == "photo_view" || @.key == "quiet_weeks" || @.key == "note_view" || @.key == "note_boards" || @.key == "note_board" || @.key == "photo_hint" || @.key == "photo_sources" || @.key == "org_tab" || @.key == "tg_view" || @.key == "phone_folders_off" || @.key == "album_view" || @.key == "now_tab" || @.key == "link_hidden_on" || @.key == "ed_more" || @.key == "phone_folders_known" || @.key == "col_widths" || @.key == "photo_sources_phone" || @.key == "photo_sources_pc" || @.key == "photo_level" || @.key == "report_period" || @.key == "files_sources" || @.key == "files_dest_recent" || @.key == "files_two" || @.key == "note_sort" || @.key == "photo_zoom" || @.key == "org_order" || @.key == "report_calendar" || @.key == "news_tab" || @.key == "news_font" || @.key == "files_look" || @.key == "recent_folded" || @.key == "files_panes" || @.key == "box_shut" || @.key == "files_tree" || @.key == "files_pins" || @.key == "files_last" || @.key == "category_roles" || @.key == "org_row_order" || @.key == "library_two" || @.key == "biz_week_open" || @.key == "note_zoom" || @.key == "record_backup" || @.key == "home_off" || @.key == "drive_import_folder" || @.key == "files_sort"))')
+        -- 칸은 아래 예순 개뿐(20261124170000 profile_view_prefs_files_sort 판에 note_blocks 하나 더).
+        and not jsonb_path_exists(view_prefs, 'strict $.keyvalue() ? (!(@.key == "theme" || @.key == "nav_collapsed" || @.key == "calendar_view" || @.key == "home_quick_mode" || @.key == "note_folder" || @.key == "split_ratio" || @.key == "collect_hidden_on" || @.key == "report_view" || @.key == "menu_layout" || @.key == "home_cards" || @.key == "photo_cols" || @.key == "photo_cols_wide" || @.key == "diary_view" || @.key == "diary_onedrive" || @.key == "photo_view" || @.key == "quiet_weeks" || @.key == "note_view" || @.key == "note_boards" || @.key == "note_board" || @.key == "photo_hint" || @.key == "photo_sources" || @.key == "org_tab" || @.key == "tg_view" || @.key == "phone_folders_off" || @.key == "album_view" || @.key == "now_tab" || @.key == "link_hidden_on" || @.key == "ed_more" || @.key == "phone_folders_known" || @.key == "col_widths" || @.key == "photo_sources_phone" || @.key == "photo_sources_pc" || @.key == "photo_level" || @.key == "report_period" || @.key == "files_sources" || @.key == "files_dest_recent" || @.key == "files_two" || @.key == "note_sort" || @.key == "photo_zoom" || @.key == "org_order" || @.key == "report_calendar" || @.key == "news_tab" || @.key == "news_font" || @.key == "files_look" || @.key == "recent_folded" || @.key == "files_panes" || @.key == "box_shut" || @.key == "files_tree" || @.key == "files_pins" || @.key == "files_last" || @.key == "category_roles" || @.key == "org_row_order" || @.key == "library_two" || @.key == "biz_week_open" || @.key == "note_zoom" || @.key == "record_backup" || @.key == "home_off" || @.key == "drive_import_folder" || @.key == "files_sort" || @.key == "note_blocks"))')
         and case when not (view_prefs ? 'theme') then true
               else jsonb_typeof(view_prefs -> 'theme') = 'string' and view_prefs ->> 'theme' in ('olive', 'navy', 'ink', 'lavender', 'teal', 'sky', 'mint', 'coral', 'lemon', 'red') end
         and case when not (view_prefs ? 'nav_collapsed') then true
@@ -347,6 +347,10 @@ alter table public.app_profiles
                and (view_prefs -> 'files_sort') ? 'key' and (view_prefs -> 'files_sort') ? 'dir'
                and jsonb_typeof(view_prefs -> 'files_sort' -> 'key') = 'string' and (view_prefs -> 'files_sort' ->> 'key') in ('name', 'modified', 'size', 'kind')
                and jsonb_typeof(view_prefs -> 'files_sort' -> 'dir') = 'string' and (view_prefs -> 'files_sort' ->> 'dir') in ('asc', 'desc') end
+        -- 노트 블록 편집 기본값(NOTE-노션편집 ①(나), 명진 11/25 03:19): 참이면 새로 여는 노트(노트마다 고른 값이 없는 노트)가 블록 편집(손잡이 ⋮⋮)을 켠 채 열린다.
+        -- 참·거짓 하나. 없으면 끔(글쓰기). 모든 기기 같음. 글 내용은 넣지 않는다.
+        and case when not (view_prefs ? 'note_blocks') then true
+              else jsonb_typeof(view_prefs -> 'note_blocks') = 'boolean' end
     end
   );
 
