@@ -1,14 +1,14 @@
 // S70-16 UI-고른글메뉴·형광펜(명진 2026-11-25 09:51·09:54, 시안 docs/design/mockups/highlight-underline-options.html) — 브리핑 룸.
 // ① 두 문단을 고르면 '선택한 글' 막대가 고른 글과 앞뒤 줄을 가리지 않는다(PC 글 칸 옆·위·아래, 폰 하단바 위). PC는 마우스를 누른 채 고르는 동안 뜨지 않고 뗀 뒤 뜬다.
 // ② PC: 막대 빈 곳('선택한 글' 글자)을 끌면 따라 움직이고, 단추 위에서 끌면 움직이지 않으며, 끈 뒤에도 단추가 동작한다.
-// ③ [형광펜] 색 점 → 그 색으로 글 안 표시(서버 줄 mark_kind highlight·mark_color) → 새로 불러와도 같은 색 → 칠한 곳을 골라 색 바꾸기 → 다음 [형광펜]은 마지막 색 → [지우기].
+// ③ [형광펜] 색 점 → 그 색으로 글 안 표시(서버 줄 mark_kind highlight·mark_color) → 새로 불러와도 같은 색 → 칠한 곳을 골라 색 바꾸기 → 다음 [형광펜]은 마지막 색 → [삭제].
 // ④ 형광 줄은 모아 보기(노트로 보관의 '밑줄')에 섞이지 않는다.
 // 자료 이름·문장은 모두 예시. 서버는 흉내(helpers/select-text-bar.mjs).
 import { test, expect } from '@playwright/test';
 import { openBriefRoom as open, openBrief, zone, bar, pickSpan, coversText, ends, box, LINE1, LINE2, DOC } from './helpers/select-text-bar.mjs';
 
 for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280, 860]]) {
-  test(`고른 글 막대: 글 안 가림·끌어 옮기기·형광펜 색 칠하기·바꾸기·지우기 (${label})`, async ({ page }) => {
+  test(`고른 글 막대: 글 안 가림·끌어 옮기기·형광펜 색 칠하기·바꾸기·삭제 (${label})`, async ({ page }) => {
     test.setTimeout(120000);
     await page.setViewportSize({ width, height });
     const errors = [];
@@ -88,9 +88,9 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     await openBrief(page);
     await expect(zone(page).locator('mark.hl-mark.hl-pen').first()).toHaveClass(/hl-c-green/);
 
-    // 칠한 곳을 고르면 [지우기]·색 바꾸기. 파랑으로.
+    // 칠한 곳을 고르면 [삭제]·색 바꾸기. 파랑으로.
     expect(await pickSpan(page, '통합 운영', '연내')).toBe(true);
-    await expect(bar(page).getByRole('button', { name: '지우기', exact: true })).toBeVisible();
+    await expect(bar(page).getByRole('button', { name: '삭제', exact: true })).toBeVisible();
     await expect(bar(page).getByRole('button', { name: '형광펜', exact: true })).toBeHidden();
     await expect(bar(page).getByRole('button', { name: '형광펜 초록' })).toHaveAttribute('aria-pressed', 'true');
     await bar(page).getByRole('button', { name: '형광펜 파랑' }).click();
@@ -111,9 +111,9 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     await expect.poll(() => s.notes.length).toBe(1);
     expect(s.notes[0].raw_text).not.toContain('## 밑줄');
 
-    // [지우기] → 사라짐.
+    // [삭제] → 사라짐.
     expect(await pickSpan(page, '통합 운영', '연내')).toBe(true);
-    await bar(page).getByRole('button', { name: '지우기', exact: true }).click();
+    await bar(page).getByRole('button', { name: '삭제', exact: true }).click();
     await expect.poll(() => s.deletes).toBe(1);
     await expect(zone(page).locator('mark.hl-mark.hl-pen')).toHaveCount(1);
     await expect(zone(page).locator('mark.hl-mark.hl-pen', { hasText: '통합 운영' })).toHaveCount(0);

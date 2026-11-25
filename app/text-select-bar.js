@@ -16,7 +16,7 @@ import {swatchHtml, setSwatchOn} from './color-swatch.mjs';
 // - 끌어 옮기기(PC 마우스 왼쪽): 줄의 빈 곳·'선택한 글' 글자를 잡고 끌면 따라 움직인다(공용 dragByTitle — 단추 위에서는 끌기 아님, 화면 밖으로 안 나감).
 //   옮긴 자리는 같은 글 칸을 읽는 동안만 쓴다(다른 글·다른 화면이면 잊음, 어디에도 저장하지 않음).
 // - 형광펜: marks(text-highlights.js markActions)를 준 글 칸에서만 [형광펜]과 색 점 다섯이 보인다. [형광펜] = 마지막 색, 점 = 그 색으로 칠함.
-//   이미 칠한 곳을 고르면 점은 '색 바꾸기', [지우기]가 보인다.
+//   이미 칠한 곳을 고르면 점은 '색 바꾸기', [삭제]가 보인다.
 
 const zones = []; // {container, zone, source, onSave, onNote, onReply, marks}
 let bar = null, picked = null, hideTimer = 0, pressAt = 0, stopFollow = null, mouseHeld = false, movedSpot = null;
@@ -33,7 +33,7 @@ function ensureBar() {
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-label', '선택한 글');
   bar.hidden = true;
-  bar.innerHTML = `<span class="hl-bar-label" title="끌어서 옮기기"><span class="hl-bar-grip" aria-hidden="true">⋮⋮</span>선택한 글</span><span class="hl-bar-marks"><button type="button" class="ghost kptu-act hl-bar-pen" data-hl-bar="mark">형광펜</button><span class="hl-dots ui-swatches" role="group" aria-label="형광펜 색">${dotsHtml()}</span><button type="button" class="ghost kptu-act" data-hl-bar="erase">지우기</button></span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="reply">메모</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="선택 끝내기">✕</button>`;
+  bar.innerHTML = `<span class="hl-bar-label" title="끌어서 옮기기"><span class="hl-bar-grip" aria-hidden="true">⋮⋮</span>선택한 글</span><span class="hl-bar-marks"><button type="button" class="ghost kptu-act hl-bar-pen" data-hl-bar="mark">형광펜</button><span class="hl-dots ui-swatches" role="group" aria-label="형광펜 색">${dotsHtml()}</span><button type="button" class="ghost kptu-act" data-hl-bar="erase">삭제</button></span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="reply">메모</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="선택 끝내기">✕</button>`;
   // 줄을 누를 때 PC는 고른 글이 풀리지 않게(폰은 풀려도 받아 둔 글로 실행). 빈 곳을 잡고 끌 때도 고른 글이 풀리지 않게 mousedown은 늘 막는다.
   bar.addEventListener('pointerdown', e => { pressAt = Date.now(); if (e.target.closest('button')) e.preventDefault(); });
   bar.addEventListener('mousedown', e => { pressAt = Date.now(); e.preventDefault(); });
@@ -154,7 +154,7 @@ function readSelection() {
   pre.selectNodeContents(a.zoneEl);
   pre.setEnd(range.startContainer, range.startOffset);
   const start = pre.toString().length, end = start + range.toString().length;
-  // 이미 칠한 형광 위를 골랐는가(색 바꾸기·지우기).
+  // 이미 칠한 형광 위를 골랐는가(색 바꾸기·삭제).
   const mark = a.z.marks?.find?.(a.zoneEl, start, end) || null;
   return {...a, text, start, end, range: range.cloneRange(), mark};
 }

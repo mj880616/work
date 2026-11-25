@@ -126,7 +126,7 @@
 | --- | --- | --- | --- |
 | G1 | 막대는 고른 글과 바로 앞뒤 줄을 가리지 않는다. PC는 글 칸 옆 여백 → 고른 글 위(한 줄 띄움) → 아래(한 줄 띄움), 폰은 하단바 바로 위 고정 줄. 마우스를 누른 채 고르는 동안은 뜨지 않고 뗀 뒤 뜬다. | 두 문단을 골라 막대 상자가 '고른 글 상자 위아래 한 줄씩 넓힌 상자'와 겹치지 않는지 본다(폰 390·PC 1280, `standard-interactions.spec.mjs` G1·G2 TEXT_BAR_SCREENS, `select-bar-highlight.spec.mjs`). | `text-select-bar.js`, 자리 계산 `select-bar-place-model.mjs` |
 | G2 | PC에서 막대 빈 곳·'선택한 글' 글자를 마우스 왼쪽으로 잡고 끌면 따라 움직인다. 단추 위에서 끌면 움직이지 않고, 화면 밖으로 나가지 않는다. 옮긴 자리는 같은 글을 읽는 동안만(저장 없음). | 글자를 잡고 끌어 막대가 그만큼 움직이는지, 단추 위 끌기에 그대로인지 본다. | 공용 `anchored-popup.js` `dragByTitle`(떠 있는 창 끌기 — 다른 떠 있는 창도 같은 부품) |
-| G3 | 형광펜: [형광펜] = 마지막 색, 색 점 다섯(톤다운) = 그 색. 칠한 곳을 고르거나 누르면 색 바꾸기·[지우기]. 칠한 표시는 글 안에만 보이고 모아 보기에는 안 나온다. 내 것만(서버 owner RLS). | 칠하기 → 새로 불러오기 → 색 바꾸기 → 다음 칠하기가 마지막 색 → 지우기(`select-bar-highlight.spec.mjs`). | `text-highlights.js` `markActions`, 저장 `app_news_highlights`(mark_kind·mark_color) |
+| G3 | 형광펜: [형광펜] = 마지막 색, 색 점 다섯(톤다운) = 그 색. 칠한 곳을 고르거나 누르면 색 바꾸기·[삭제]. 칠한 표시는 글 안에만 보이고 모아 보기에는 안 나온다. 내 것만(서버 owner RLS). | 칠하기 → 새로 불러오기 → 색 바꾸기 → 다음 칠하기가 마지막 색 → 삭제(`select-bar-highlight.spec.mjs`). | `text-highlights.js` `markActions`, 저장 `app_news_highlights`(mark_kind·mark_color) |
 
 ## 10. 폴더 고르기 (F)
 

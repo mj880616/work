@@ -176,7 +176,7 @@ export async function recolorMark(h, color) {
     usedNow = c;
     emit();
     return row;
-  } catch (e) { notify(e?.code === 'gone' ? '이미 지운 형광펜이에요' : markFail(e), {error: true, record: false}); return null; }
+  } catch (e) { notify(e?.code === 'gone' ? '이미 삭제한 형광펜이에요' : markFail(e), {error: true, record: false}); return null; }
 }
 // 지우기: 확인 없이 지우고 [되돌리기](같은 글·같은 색으로 다시).
 export async function eraseMark(h) {
@@ -184,7 +184,7 @@ export async function eraseMark(h) {
   try { await removeHighlight(h.id); }
   catch (e) { notify(failNote(e), {error: true, record: false}); return false; }
   const src = {type: h.source_type, id: h.source_id, title: h.source_title, media: h.source_media, date: h.source_date, url: h.source_url};
-  notify('형광펜을 지웠어요', {label: '형광펜 지우기', undo: async () => { await addHighlight(src, h.quote, {prefix: h.quote_prefix || '', suffix: h.quote_suffix || ''}, null, {kind: 'highlight', color: h.mark_color}); }});
+  notify('형광펜을 삭제했어요', {label: '형광펜 삭제', undo: async () => { await addHighlight(src, h.quote, {prefix: h.quote_prefix || '', suffix: h.quote_suffix || ''}, null, {kind: 'highlight', color: h.mark_color}); }});
   return true;
 }
 // 고른 자리 [start, end)가 이미 칠한 형광 위인가(글 칸에 칠해 둔 표시로 찾는다).
@@ -231,7 +231,7 @@ export function paintMarks(zoneEl, list) {
       mark.className = pen ? `hl-mark hl-pen hl-c-${markColor(row.mark_color)}` : 'hl-mark';
       mark.dataset.hlId = seg.id;
       if (pen) mark.dataset.hlKind = 'highlight';
-      if (seg.first) { mark.tabIndex = 0; mark.setAttribute('role', 'button'); mark.setAttribute('aria-label', pen ? `형광펜 ${MARK_COLOR_NAMES[markColor(row.mark_color)]} — 색 바꾸기·지우기` : '밑줄 — 메모 보기'); }
+      if (seg.first) { mark.tabIndex = 0; mark.setAttribute('role', 'button'); mark.setAttribute('aria-label', pen ? `형광펜 ${MARK_COLOR_NAMES[markColor(row.mark_color)]} — 색 바꾸기·삭제` : '밑줄 — 메모 보기'); }
       mid.replaceWith(mark);
       mark.append(mid);
       if (mid === node) break; // 이 마디 앞쪽은 더 없다
@@ -245,7 +245,7 @@ const markMenu = createAnchoredMenu({id: 'hlMarkMenu', className: 'topline-add-m
     if (!h) return '<p class="hl-menu-memo">이미 삭제한 밑줄이에요</p>';
     if (isHighlight(h)) {
       const now = markColor(h.mark_color);
-      return `<div class="hl-menu-dots ui-swatches" role="group" aria-label="형광펜 색">${MARK_COLORS.map(c => swatchHtml({color: `var(--kptu-hl-mark-${c})`, label: MARK_COLOR_NAMES[c], on: c === now, attrs: {'data-hl-menu': 'color', 'data-hl-color': c}})).join('')}</div><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="erase">지우기</button>`;
+      return `<div class="hl-menu-dots ui-swatches" role="group" aria-label="형광펜 색">${MARK_COLORS.map(c => swatchHtml({color: `var(--kptu-hl-mark-${c})`, label: MARK_COLOR_NAMES[c], on: c === now, attrs: {'data-hl-menu': 'color', 'data-hl-color': c}})).join('')}</div><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="erase">삭제</button>`;
     }
     return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 수정' : '메모 달기'}</button>${menuSource ? '<button type="button" class="row-act" data-hl-menu="source">원문에서 보기</button>' : ''}${h.source_type === 'note' ? '' : '<button type="button" class="row-act" data-hl-menu="note">노트로</button>'}<button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">삭제</button>`;
   },
