@@ -5,6 +5,8 @@
 //   줄 모양의 starred_at 칸 = 그 글을 가리키는 내 읽을 거리 줄의 저장 시각(saved_at). 표시 표의 옛 별표 칸(app_news_marks.starred_at·app_outside_article_marks.starred_at·
 //   archived_at)은 읽지도 쓰지도 않는다(DB에 남긴 되돌리기용 기록).
 
+import {hasTitle} from './news-clipping-model.mjs';
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = v => typeof v === 'string' && UUID.test(v);
 // 줄 id(서버 줄은 uuid — 모양 검사는 서버가 한다. 화면은 빈 값만 거른다).
@@ -47,10 +49,12 @@ export function flatNewsSaved(saved) {
   return {...art, starred_at: saved.saved_at ?? null, folder_id: m?.folder_id ?? null, hidden_at: m?.hidden_at ?? null, keywords: Array.isArray(m?.keywords) ? m.keywords : []};
 }
 // 목록 한 쪽: 읽은 줄 수(raw, 다음 쪽 시작 자리)와 내가 숨긴 것을 뺀 줄. 숨김은 사람별이라 공용 표 주소로 거를 수 없어 화면에서 뺀다.
+// S70-17 NEWS-제목꼭얻기: 제목을 못 얻은 줄(보관하지 않은 것)도 뺀다(hasTitle — 지우지 않음, 제목이 생기면 다음 읽기에서 보인다).
+// 목록 줄 수·날짜 묶음의 '새 글 N'은 이 결과로 세므로 함께 맞는다. raw(다음 쪽 읽기 위치)는 뺀 줄까지 센다.
 export function newsPage(rows, pageSize) {
   const got = (Array.isArray(rows) ? rows : []).map(flatNews).filter(Boolean);
   const raw = Math.min(got.length, pageSize);
-  return {raw, end: got.length <= pageSize, rows: got.slice(0, pageSize).filter(it => !it.hidden_at)};
+  return {raw, end: got.length <= pageSize, rows: got.slice(0, pageSize).filter(it => !it.hidden_at && hasTitle(it))};
 }
 // 사회운동 글의 내 표시(관심 없음) + 내 보관(읽을 거리) → 한 모양({post_id, starred_at, dismissed_at, app_outside_posts}).
 // marks: [{article_id, dismissed_at}], saved: [{outside_article_id, saved_at, app_outside_articles?}]. starred_at = 보관 시각.

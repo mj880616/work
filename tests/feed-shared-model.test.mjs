@@ -30,10 +30,29 @@ test('공용 기사 + 내 표시 + 내 보관(읽을 거리 줄) → 옛 줄 모
 });
 
 test('목록 한 쪽: 내가 숨긴 기사는 화면에서 빼되 다음 쪽 자리(raw)는 읽은 줄 수 그대로', () => {
-  const rows = [{id: A, app_news_marks: [{hidden_at: 'h'}]}, {id: B, app_news_marks: []}, {id: OLD, app_news_marks: []}];
-  assert.deepEqual(newsPage(rows, 2), {raw: 2, end: false, rows: [{id: B, starred_at: null, folder_id: null, hidden_at: null, keywords: []}]});
+  const rows = [{id: A, title: '가짜 제목 1', app_news_marks: [{hidden_at: 'h'}]}, {id: B, title: '가짜 제목 2', app_news_marks: []}, {id: OLD, title: '가짜 제목 3', app_news_marks: []}];
+  assert.deepEqual(newsPage(rows, 2), {raw: 2, end: false, rows: [{id: B, title: '가짜 제목 2', starred_at: null, folder_id: null, hidden_at: null, keywords: []}]});
   const last = newsPage(rows.slice(1), 2);
   assert.equal(last.end, true); assert.equal(last.raw, 2); assert.equal(last.rows.length, 2);
+});
+
+// S70-17 NEWS-제목꼭얻기(명진 11/25 10:26 "제목 못읽으면 차라리 목록에서 빠지는게 나음").
+test('S70-17 목록 한 쪽: 제목을 못 얻은 줄은 빼고(지우지 않음), 제목이 생기면 다시 보이고, 보관한 글은 남는다', () => {
+  const donga = 'https://www.donga.com/news/Society/article/all/20261125/132845001/1';
+  const rows = [
+    {id: A, url: donga, title: null, state: 'failed', app_news_marks: []},
+    {id: B, url: 'https://www.example.org/a', title: '가짜 제목', state: 'ok', app_news_marks: []},
+    {id: OLD, url: 'https://www.example.org/x', title: 'https://www.example.org/x', state: 'pending', app_news_marks: []},
+  ];
+  const page = newsPage(rows, 10);
+  assert.deepEqual(page.rows.map(r => r.id), [B], '제목 없음·주소뿐인 제목 줄은 목록에 없다');
+  assert.equal(page.raw, 3, '다음 쪽 자리는 뺀 줄까지 센다');
+  const later = newsPage([{...rows[0], title: '나중에 얻은 가짜 제목'}, rows[1]], 10);
+  assert.deepEqual(later.rows.map(r => r.id), [A, B], '나중에 제목이 생기면 다시 보인다');
+  const kept = newsPage([{...rows[0], app_reading_items: [{saved_at: '2026-11-25T01:00:00Z'}]}], 10);
+  assert.deepEqual(kept.rows.map(r => r.id), [A], '보관한 글(공유로 넣은 글)은 [직접 넣기]를 위해 남는다');
+  const path = newsPage([{id: A, url: 'https://news.example.org/2026/11/25/minimum-wage-talks-stall', title: null, state: 'failed', app_news_marks: []}], 10);
+  assert.equal(path.rows.length, 1, '주소 경로 조각이 제목이면 보인다');
 });
 
 test('옛 id 지도: 지도 줄이 있으면 공용 id, 없으면 같은 id(옮길 때 운영자 줄 id를 그대로 씀)', () => {
