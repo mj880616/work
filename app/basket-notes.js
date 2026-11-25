@@ -6,6 +6,7 @@ import * as pinLock from './feature-lock.js';
 import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml, iconSvg } from './tree-icons.js';
+import { mountColResize, gripHtml } from './col-resize.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
 import { ftExplorePress, ftBindTreeArrows } from './folder-tree-press.mjs';
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, ftEmptyRowHtml, FT_PREVIEW } from './folder-tree-ui.mjs';
@@ -334,7 +335,28 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const note = r.note, hidden = pinLock.noteHidden(note), importing = !hidden && isImporting(note.id), title = hidden ? LOCKED : importing ? busyTitle(noteSource(note)) : noteLineTitle(note), name = [...title].slice(0, 40).join(''), key = 'n:' + note.id;
     // S69-27 PC·폴드 왼쪽 나무 안 노트 줄(side): 좁은 칸이라 제목(+ 고정·첨부 표시)만, 태그·폴더·날짜는 오른쪽 노트 안에서 본다. 지금 연 노트는 표시.
     const side = !!r.side, now = side && selected?.id === note.id;
-    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${side ? ' nx-side' : ''}${now ? ' nx-current' : ''}${isPicked(key) ? ' nx-picked' : ''}"${importing ? ' data-ni-busy' : ''} data-nx-note="${esc(note.id)}"${hidden ? ' data-nx-locked' : ''} data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''}${side ? ' role="treeitem"' : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${now ? ' aria-current="true"' : ''}${side ? ` title="${esc([...title].slice(0, 80).join(''))}"` : ''}${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}><b class="basket-title">${notePinnedAt(note) && !hidden ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${hidden || importing || side ? '' : rowTagsHtml(note)}${r.path && !side ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length && !hidden ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}</span>` : ''}${side ? '' : `<time datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time>`}</button></div>`;
+    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${side ? ' nx-side' : ''}${r.cols ? ' nl-cols' : ''}${now ? ' nx-current' : ''}${isPicked(key) ? ' nx-picked' : ''}"${importing ? ' data-ni-busy' : ''} data-nx-note="${esc(note.id)}"${hidden ? ' data-nx-locked' : ''} data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''}${side ? ' role="treeitem"' : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${now ? ' aria-current="true"' : ''}${side ? ` title="${esc([...title].slice(0, 80).join(''))}"` : ''}${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}><b class="basket-title">${notePinnedAt(note) && !hidden ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${r.cols ? listCellsHtml(r, note, hidden, importing) : `${hidden || importing || side ? '' : rowTagsHtml(note)}${r.path && !side ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length && !hidden ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}</span>` : ''}${side ? '' : `<time datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time>`}`}</button></div>`;
+  }
+  // S70-35 NOTE-목록표머리 ①(docs/design/note-list-columns.md): [목록] 보기 줄은 칸마다 자리가 늘 있는 칸(폴더 | 태그 | 수정일 | 첨부) — 빈 값도 빈칸으로 둬서
+  // 줄마다 날짜가 세로로 한 줄에 선다. PC·펼친 폴드(600~)는 머리 줄과 같은 그리드, 폰은 제목 한 줄 + 아래 작은 줄(CSS). 폴더 칸은 끝 폴더 이름, 마우스를 올리면 전체 경로.
+  function listCellsHtml(r, note, hidden, importing) {
+    const fid = r.path ? folderOf(note) : null, full = fid ? folderPath(folders, fid).map(f => f.name).join(' › ') : '';
+    const folder = r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''} title="${esc(full || r.path)}">${esc(r.path)}</span>` : '';
+    const clip = note.attachments?.length && !hidden ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}<span class="nl-num" aria-hidden="true">${note.attachments.length}</span></span>` : '';
+    return `<span class="nl-c nl-folder" data-nl-cell="folder">${folder}</span><span class="nl-c nl-tags" data-nl-cell="tags">${hidden || importing ? '' : rowTagsHtml(note)}</span>`
+      + `<time class="nl-c nl-day" data-nl-cell="day" datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time>`
+      + `<span class="nl-c nl-clip" data-nl-cell="clip">${clip}</span>`;
+  }
+  // 머리 줄(PC·펼친 폴드만, 폰은 CSS가 숨김). 칸 오른쪽 금을 끌면 그 칸 너비(공용 col-resize.js, 서버 view_prefs.col_widths.notes, 화면 종류별).
+  const LIST_COLS = [['title', '제목'], ['folder', '폴더'], ['tags', '태그'], ['day', '수정일'], ['clip', '첨부']];
+  const LIST_COL_VARS = {title:'--nl-w-title', folder:'--nl-w-folder', tags:'--nl-w-tags', day:'--nl-w-day', clip:'--nl-w-clip'};
+  const listHeadHtml = () => `<div class="nl-head" data-nl-head role="row" aria-label="노트 목록 칸">`
+    + LIST_COLS.map(([key, label], i) => `<span class="nl-h nl-h-${key}" role="columnheader">${label}${i < LIST_COLS.length - 1 ? gripHtml(key, label) : ''}</span>`).join('') + '</div>';
+  // 금 두 번 누르기 = 그 칸 글자 길이에 맞춤: 줄마다 그 칸 안 글자 폭 중 가장 긴 것(잘린 제목·꼬리표는 scrollWidth로).
+  const listCellFit = el => [...el.children].filter(c => !c.classList.contains('a11y-only')).reduce((w, c, i) => w + (i ? 6 : 0) + c.scrollWidth, 0);
+  function mountListCols(rowsBox) {
+    mountColResize({host:rowsBox, name:'notes', vars:LIST_COL_VARS, labels:Object.fromEntries(LIST_COLS),
+      fit:key => Math.ceil(Math.max(0, ...[...rowsBox.querySelectorAll(`.nl-cols ${key === 'title' ? '.basket-title' : `[data-nl-cell="${key}"]`}`)].map(listCellFit)))});
   }
   // S67-48: 노트 줄 오른쪽에 그 노트 태그를 작게(앞 두 개 + 남은 수). 줄 단추 안의 글자일 뿐이다(누르면 노트가 열림). 잠긴 노트는 그리지 않는다.
   function rowTagsHtml(note) {
@@ -378,6 +400,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   let selDragging = false; // 끄는 중인가(showHover가 공용 끌기 부품 표시 re-active로 바꾼다)
   let parkedActs = null; // 끄는 동안 막대에서 떼어 둔 단추(끝나면 제자리)
   function paintSelectBar() { paintSelectBarNow(); fitSelectBar(host.querySelector('[data-nx-select-bar]')); }
+  // S70-35: [목록] 머리 줄은 고르기 막대가 떠 있으면 막대 바로 아래에 붙는다(둘이 겹치지 않게 막대 높이를 --nx-bar-h로 넘긴다, 숨으면 0).
+  if (globalThis.ResizeObserver) new ResizeObserver(([e]) => { const h = `${Math.ceil(e.target.hidden ? 0 : e.borderBoxSize?.[0]?.blockSize ?? e.target.offsetHeight)}px`; if (list.style.getPropertyValue('--nx-bar-h') !== h) list.style.setProperty('--nx-bar-h', h); }).observe(host.querySelector('[data-nx-select-bar]'));
   function paintSelectBarNow() {
     const bar = host.querySelector('[data-nx-select-bar]');
     bar.hidden = !pick.active;
@@ -567,7 +591,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       chipsBox.innerHTML = `<button type="button" class="ds-chip nt-chip" data-nt-pub aria-pressed="${pubOnly}">게시 중<span class="nt-num" aria-label="노트 ${on}개">${on}</span></button>`;
     }
     const rows = listViewRows(pubOnly ? n => (!m || m(n)) && notePub.isOn(n.id) && !pinLock.noteHidden(n) : m);
-    rowsBox.innerHTML = rows.map(r => rowHtml(r)).join('') || (pubOnly ? emptyHtml('맞는 노트 없음') : '');
+    mountListCols(rowsBox);
+    rowsBox.innerHTML = rows.length ? listHeadHtml() + rows.map(r => rowHtml({...r, cols:true})).join('') : pubOnly ? emptyHtml('맞는 노트 없음') : '';
   }
   // NOTE-게시 ② 읽기 머리 한 줄: 게시 중일 때만 '게시 중 · 링크 복사 · 게시 멈춤'(잠근 폴더 노트는 [링크 복사] 없이).
   function paintPub() {
@@ -1258,9 +1283,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // UX-알림하나로(S59-21): 끝·실패·[다시 올리기]는 하단바 위 한 줄 하나 — 큰 창이 열려 있어도 창 상태 줄·위쪽 작은 알림으로 또 알리지 않는다
       // (files: 창의 올리는 줄이 이 파일들의 '실패 [다시]'·'✓ 완료'를 따로 그리지 않게).
       if (!error) { announceUploaded({done, names:sent(), where:'노트', files}); return; }
-      if (error.code === 'upload_cancelled') { announceDock({text:'올리기를 취소했어요', files}); return; }
+      if (error.code === 'upload_cancelled') { announceDock({text:'업로드를 취소했어요', files}); return; }
       if (done) announceUploaded({done, names:sent(), failed:left, where:'노트', retry, note:error.message || '', files});
-      else announceDock({text:`노트 첨부 ${left}개 못 올렸어요`, note:error.message || '', error:true, ms:0, files, actions:retry ? [{label:'다시 올리기', aria:'못 올린 파일 다시 올리기', run:retry}] : []});
+      else announceDock({text:`노트 첨부 ${left}개 못 올렸어요`, note:error.message || '', error:true, ms:0, files, actions:retry ? [{label:'다시 업로드', aria:'못 올린 파일 다시 업로드', run:retry}] : []});
     });
   }
   // 올리는 동안에도 잠그는 것: 같은 노트의 빼기·삭제·고정·옮기기. 서버는 올리는 사이 노트가 바뀌면 그 올리기를 거절하므로(updated_at·attachments

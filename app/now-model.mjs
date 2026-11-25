@@ -84,8 +84,9 @@ export function detailView(detail) {
   const rel = d.relevance && typeof d.relevance === 'object' ? d.relevance : null;
   const topics = rel && Array.isArray(rel.topics) ? rel.topics.map(str).filter(Boolean).slice(0, 5) : [];
   const imp = d.implications && typeof d.implications === 'object' ? d.implications : null;
+  // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 줄은 '함께 볼 것'에 그리지 않는다(원장은 사용자 화면에 없는 AI용 뒤쪽 자료).
   const related = (Array.isArray(d.related) ? d.related : [])
-    .filter(r => r && ['outside', 'news', 'update', 'ledger', 'library'].includes(r.kind) && str(r.id) && str(r.title))
+    .filter(r => r && ['outside', 'news', 'update', 'library'].includes(r.kind) && str(r.id) && str(r.title))
     .slice(0, 8).map(r => ({kind: r.kind, id: str(r.id), title: str(r.title)}));
   return {
     level: d.level === 'basic' ? 'basic' : 'full',
@@ -96,9 +97,9 @@ export function detailView(detail) {
     related,
   };
 }
-export const RELATED_LABEL = Object.freeze({outside: '사회운동', news: '언론', update: '업데이트', ledger: '원장', library: '자료실'});
+export const RELATED_LABEL = Object.freeze({outside: '사회운동', news: '언론', update: '업데이트', library: '자료실'});
 // '함께 볼 것'을 누르면 갈 곳: 같은 Now 안의 글은 상세로, 내 기록은 그 화면으로(라우터 이름).
-export const relatedTarget = r => (r.kind === 'outside' || r.kind === 'news' ? {detail: {type: r.kind, id: r.id}} : {view: {update: 'home', ledger: 'ledger', library: 'library'}[r.kind]});
+export const relatedTarget = r => (r.kind === 'outside' || r.kind === 'news' ? {detail: {type: r.kind, id: r.id}} : {view: {update: 'home', library: 'library'}[r.kind]});
 // 뉴스 기사 읽기(S48-66): 본문·요약이 없는 줄은 상세 전에 먼저 읽는다. 읽고도 재료가 없으면 AI를 부르지 않는다.
 const REASONS = {robots: '이 사이트가 읽기를 막아 둠', paywall: '유료 기사', bot_check: '사이트가 자동 읽기를 막음', original_only: '원문에서 보는 기사', daily_limit: '오늘 읽기 한도를 다 씀', error: '잠시 뒤 다시', unavailable: '기사를 열 수 없음'};
 export const hasMaterial = row => !!(row?.summary || row?.body_kind);

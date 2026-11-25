@@ -153,7 +153,7 @@ test('a file read sent before the upload answers late: the name under the new ta
   await context.close();
 });
 
-test('upload failure in the 할 일 등록 window: the task stays, the window closes and the bottom line offers [다시 올리기] for that file only (phone)',async({browser})=>{
+test('upload failure in the 할 일 등록 window: the task stays, the window closes and the bottom line offers [다시 업로드] for that file only (phone)',async({browser})=>{
   const {context,page,state}=await openTasks(browser,{viewport:{width:390,height:844},failAttach:(name,tries)=>name==='큰 자료.txt'&&tries===1});
   const q=quick(page);
   await q.locator('[data-quick-input]').fill('자료 정리');
@@ -178,7 +178,7 @@ test('upload failure in the 할 일 등록 window: the task stays, the window cl
   await expect(line).toContainText('할 일에 파일 1개 못 올렸어요');
   await expect(line.locator('.up-dock-note')).toContainText('파일 1개 올렸어요');
   await expect(line.locator('.up-dock-note')).toContainText('Drive에 올리지 못했습니다');
-  const again=line.getByRole('button',{name:'못 올린 파일 다시 올리기'});
+  const again=line.getByRole('button',{name:'못 올린 파일 다시 업로드'});
   await expect(again).toBeVisible();
   // The task list reloads on each visit to [할 일] (the 할 일 등록 window itself only marks the list stale).
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
@@ -202,7 +202,7 @@ test('upload failure from the task editor keeps the task and says so in the bott
   await page.locator('#gtSaveBtn').click();
   await expect(page.locator('#gtTaskModal')).toBeHidden();
   await expect(dock(page)).toContainText('할 일에 파일 1개 못 올렸어요');
-  await expect(dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'})).toBeVisible();
+  await expect(dock(page).getByRole('button',{name:'못 올린 파일 다시 업로드'})).toBeVisible();
   // The task is kept (it sits in the folded 기한 없음 group of the list).
   await expect(row(page,'실패 시험')).toHaveCount(1);
   expect(state.calls.creates.length).toBe(1);

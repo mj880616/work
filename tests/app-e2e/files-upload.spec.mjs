@@ -45,7 +45,7 @@ test('PC 1440: 바탕화면 파일 끌어 놓기 → 점선 안내 → 같은 �
   const pane = root(page).locator('[data-fx-pane-i="0"]');
   const dt = await dropFiles(page, pane, [{ name: '가짜 메모.txt', text: '같은 이름 열 글자' }, { name: '가짜 새 글.txt', text: '0123456789' }]);
   await expect(pane).toHaveClass(/fx-drop-up/);
-  await expect(pane).toHaveAttribute('data-fx-uptext', '여기 놓으면 가짜 문서함에 올리기');
+  await expect(pane).toHaveAttribute('data-fx-uptext', '여기 놓으면 가짜 문서함에 업로드');
   await shot(page, 'files-upload-drop-1440');
   await pane.dispatchEvent('drop', { dataTransfer: dt });
   await expect(pane).not.toHaveClass(/fx-drop-up/);
