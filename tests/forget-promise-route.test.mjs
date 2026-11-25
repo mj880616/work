@@ -17,13 +17,6 @@ test('소식 종류 promise: 처리 전 할 일·빨간 숫자에서 빠지고 �
   assert.deepEqual(fl.newsFor('dismissed', rows, true).map(r => r.id), ['d'], 'a dismissed promise line stays in 무시 (undo path)');
 });
 
-test('다시 판정 대상: 방향 규칙 전에 할 일로 고른 처리 전 줄만(서버와 같은 시각)', () => {
-  const rows = m.newsRows([row('a', 'task'), row('b', 'task', {pickedAt: '2026-11-13T01:00:00Z'}), row('c', 'event'), row('d', 'task', {status: 'kept'})]);
-  assert.deepEqual(m.suspectNews(rows, true).map(r => r.id), ['a']);
-  assert.deepEqual(m.suspectNews(rows, false), [], 'unknown picks → none');
-  const server = readFileSync('supabase/functions/ai-assist/journal-memorable.ts', 'utf8');
-  assert.match(server, new RegExp(`MEMORABLE_DIRECTION_SINCE = "${m.NEWS_DIRECTION_SINCE}"`));
-});
 
 test('상대 약속 줄: 출처 꼬리표·버튼(원장으로·받음·무시)·원장 글에 사람 이름·연락처 없음', () => {
   assert.deepEqual(fl.PROMISE_NEWS_ACTS.map(a => a[0]), ['ledger', 'done', 'dismissed']);
@@ -34,7 +27,4 @@ test('상대 약속 줄: 출처 꼬리표·버튼(원장으로·받음·무시)�
   const src = readFileSync('app/forget-list.js', 'utf8');
   assert.match(src, /src: `\$\{SOURCE_TAG\.promise\} · \$\{SOURCE_TAG\.todo\}`/, 'radar promises tagged 상대 약속 · AI 제안');
   assert.match(src, /src: `\$\{SOURCE_TAG\.promise\} · \$\{r\.source === 'telegram' \? '텔레그램' : '통화'\}`/, 'news promises tagged 상대 약속 · 텔레그램/통화');
-  // 다시 판정: 미리 보기 수를 먼저 보이고 [확인]을 눌러야 실행(기존 화면 재사용), 상대 약속으로 옮길 수도 보인다.
-  assert.match(src, /개는 상대 약속으로/);
-  assert.match(src, /suspectNews\(news, nPicks\)\.length/);
 });

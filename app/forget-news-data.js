@@ -30,8 +30,6 @@ export const NEWS_SOURCE_TAG = Object.freeze({telegram: '소식 · 텔레그램'
 // S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 종류 promise = 내가 남에게 부탁해 상대가 하기로 한 일(상대 약속).
 // 처리 전 할 일 줄·빨간 숫자에 들지 않고 잊지 말기 맨 아래 '상대 약속' 줄에 보인다(promiseNews). 서버가 정한다(ai-assist journal-memorable.ts).
 export const NEWS_KINDS = Object.freeze(['task', 'event', 'note', 'org', 'area', 'promise']);
-// 방향 규칙(S61-9) 전에 '할 일'로 고른 처리 전 줄 — 다시 판정 대상(서버 MEMORABLE_DIRECTION_SINCE와 같은 값).
-export const NEWS_DIRECTION_SINCE = '2026-11-12T23:00:00Z';
 const PICK = 'app_journal_memorable_picks';
 const pickOf = r => { const p = Array.isArray(r?.[PICK]) ? r[PICK][0] : r?.[PICK]; return p && NEWS_KINDS.includes(p.kind) ? p : null; };
 // 서버 줄에 종류·이유 칸이 붙어 왔는가(연결 읽기가 된 응답은 줄마다 그 칸이 있다 — 없으면 null).
@@ -54,31 +52,11 @@ export function matchOrg(name, orgs, mine) {
   if (!key) return null;
   return (orgs || []).find(o => o?.id && o.active !== false && mine?.has?.(o.id) && [o.name, ...(Array.isArray(o.aliases) ? o.aliases : [])].some(n => norm(n) === key)) || null;
 }
-// 처리 전 소식. 종류·이유를 읽을 수 있으면(picks) 새 기준(종류가 있는) 줄만 — 옛 기준 줄은 셈·목록에 넣지 않는다(정리는 서버 쪽 한 번, PR 본문 ④).
+// 처리 전 소식. 종류·이유를 읽을 수 있으면(picks) 새 기준(종류가 있는) 줄만 — 옛 기준 줄은 셈·목록에 넣지 않는다.
 export const openNews = (rows, picks = true) => (rows || []).filter(r => r.status === 'suggested' && (!picks || !!r.kind) && r.kind !== 'promise');
 // 상대 약속 소식(처리 전 중 종류 promise). 세지 않는다(상대가 할 일).
 export const promiseNews = rows => (rows || []).filter(r => r.status === 'suggested' && r.kind === 'promise');
-// 방향 규칙 전에 '할 일'로 고른 처리 전 줄(다시 판정에서 거꾸로 적힌 줄인지 다시 본다).
-export const suspectNews = (rows, picks = true) => picks ? (rows || []).filter(r => r.status === 'suggested' && r.kind === 'task'
-  && Number.isFinite(Date.parse(r.pickedAt)) && Date.parse(r.pickedAt) < Date.parse(NEWS_DIRECTION_SINCE)) : [];
-
-// FORGET-소식바로잡기 ④: 옛 기준으로 골라 종류·이유가 없는 처리 전 소식(종류를 읽을 수 있을 때만 셈 — 표 적용 전이면 0).
-export const oldNews = (rows, picks = true) => picks ? (rows || []).filter(r => r.status === 'suggested' && !r.kind) : [];
-export const RECHECK_TIMEOUT_MS = 140000; // 서버가 AI를 세 번까지 부를 수 있어 일반 AI 요청보다 길게 기다린다.
-// 쌓인 소식 한 번 다시 판정(서버 ai-assist journal_memorable_recheck). mode: 'preview'(바꾸지 않고 수만) | 'run'(실행).
-// 대상 줄·원본은 서버가 로그인 토큰으로 읽고 소유자·운영자 기능을 다시 판정한다. 화면은 mode만 보낸다.
-// 돌려줌: {ok:true, keep, drop, left} 또는 {ok:false}.
-export async function recheckNews(rt, mode, opts = {}) {
-  if (mode !== 'preview' && mode !== 'run') return {ok: false};
-  try {
-    const r = await callAiAssist({kind: 'journal_memorable_recheck', mode}, {rt, timeoutMs: RECHECK_TIMEOUT_MS, ...opts});
-    const d = r?.ok ? r.data : null;
-    const n = v => Number.isInteger(v) && v >= 0 ? v : null;
-    if (!d || d.mode !== mode || [d.keep, d.drop, d.left].some(v => n(v) === null)) return {ok: false};
-    // promise(상대 약속으로 옮길 수)는 S61-11 서버부터. 옛 서버 답에는 없어 0으로 본다.
-    return {ok: true, keep: d.keep, drop: d.drop, left: d.left, promise: n(d.promise) ?? 0, target: n(d.target) ?? 0};
-  } catch { return {ok: false}; }
-}
+// S70-29(2026-11-25): 옛 기준 소식 한 번 다시 판정(FORGET-소식바로잡기 ④ oldNews·suspectNews·recheckNews)은 일회용이라 지웠다.
 // 운영자 기능 calls·telegram 중 하나라도 있는가(서버 app_my_features — 공용 my-features.js 한 곳에서 GET으로 한 번만 묻는다).
 // 못 읽으면 없음으로 본다(줄을 안 읽을 뿐, 보안은 서버).
 export async function newsOn(rt = window.KPTURuntime) {

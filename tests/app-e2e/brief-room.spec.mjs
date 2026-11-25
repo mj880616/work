@@ -72,11 +72,12 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await expect(list.locator('.br-row').nth(2).locator('.br-st')).toHaveText(/^(\d{2}\.)?10\.05$/);
     await expect(list.locator('.br-row').nth(3)).toContainText('글자를 읽을 수 없는 파일이에요');
     await page.screenshot({ path: `docs/design/screens/s61-45/${label}-list.png`, fullPage: false });
-    // 보기(S68-56): 옛 형식(v1) 브리핑은 같은 모양으로 — 요지 띠 → 옛 칸 이름 그대로의 소제목 묶음 → 원문 인용(접힘). 위에 '예전 방식 브리핑 · [다시 만들기]'.
+    // 보기(S68-56): 옛 형식(v1) 브리핑은 같은 모양으로 — 요지 띠 → 옛 칸 이름 그대로의 소제목 묶음 → 원문 인용(접힘). S70-29: 위 '예전 방식 브리핑 · [다시 만들기]' 띠는 지움 — 없어야 한다.
     await list.locator('.br-row').nth(2).click();
     const detail = page.locator('#briefView [data-br-detail]');
     await expect(detail).toBeVisible();
-    await expect(detail.locator('.br-legacy')).toContainText('예전 방식 브리핑');
+    await expect(detail.locator('.br-legacy, [data-br-redo]')).toHaveCount(0);
+    await expect(detail).not.toContainText('예전 방식 브리핑');
     await expect(detail.locator('.br-gist p')).toHaveText([brief.lead]);
     await expect(detail.locator('.br-sec h3')).toHaveText(['닿는 것 1', '할 일·기한·숫자 2', '부딪히는 대목 1', '원문 인용 1']);
     await expect(detail).not.toContainText('챙길 일');
