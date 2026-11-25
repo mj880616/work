@@ -67,7 +67,7 @@
 //   거절해 업무 소식 표에 들어가지 않게 한다(앱 스크립트가 먼저 빼는 것이 첫째 장치, 이것은 둘째 장치).
 //   할 일·일정·원장·업무일지를 만들지 않는다. 화면에서 명진이 눌러야만 생긴다(4단계).
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·주소·오류 원문은 넣지 않는다.
-import { askReplied, AUTO_DONE_REPLIED, type ReplyMsg } from "./replied.ts";
+import { askDirect, askReplied, AUTO_DONE_REPLIED, type ReplyMsg } from "./replied.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "../_shared/news-url.ts";
 import { makeFeedReader } from "../_shared/feed-fetch.ts";
@@ -165,6 +165,8 @@ export const ASK_CANDIDATE_FN = "app_todo_candidate_from_telegram";
 export const ASK_CANDIDATE_AT_FN = "app_todo_candidate_from_telegram_at";
 // 이 방의 처리 전 텔레그램 요청(id·요청 시각·번호만, 글 없음) 읽기와, 그 뒤 내가 답한 것을 '이미 함(저절로)'으로 옮기기.
 export const OPEN_ASKS_FN = "app_todo_tg_open_asks";
+// FORGET-기본이미함(migration 20261125160000): 위 넣기에 '직접 부름'(p_direct)을 더한 판. 없으면(404) ASK_CANDIDATE_AT_FN → ASK_CANDIDATE_FN 순으로 물러난다.
+export const ASK_CANDIDATE_DIRECT_FN = "app_todo_candidate_from_telegram_ask";
 export const AUTO_DONE_FN = "app_todo_tg_auto_done";
 // TODO-내일만(migration 20261029210000, service_role 전용, 읽기만): 이 방이 '전체 부탁도 올릴' 예외 방인지 + [내 일 아님] 예시.
 // 함수가 없거나 읽기에 실패하면 예외 방 없음·예시 없음으로 본다(단체방 전체 부탁은 기본으로 빼므로 닫힌 쪽).
@@ -710,7 +712,7 @@ async function saveRoomDay(db: Db, ws: string, input: TelegramInput, batch: stri
 const cleanName = (v: unknown) => (typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").trim().normalize("NFC") : "");
 // self: 기록 주인('나')의 라벨(이름표의 is_self 또는 이번 요청 senders의 self). 나한테 온 요청을 가릴 때 쓴다(FEAT-1029 ⑤).
 async function senderNames(db: Db, ws: string, input: TelegramInput, log: Log) {
-  const out = new Map<string, string>(), self = new Set<string>();
+  const out = new Map<string, string>(), self = new Set<string>(), selfNames = new Set<string>();
   const labels = new Set(input.messages.map((m) => m.sender));
   const stored = new Map<string, { name: string; self: boolean }>();
   try {
@@ -719,6 +721,8 @@ async function senderNames(db: Db, ws: string, input: TelegramInput, log: Log) {
     if (res === "missing") log("telegram_sender_names_failed", { stage: "FN_MISSING" });
     else for (const r of res.rows) {
       const label = typeof r.label === "string" ? r.label : "";
+      // FORGET-기본이미함 ③: 내 이름(손으로 붙인 이름)은 이번 묶음에 내 메시지가 없어도 '직접 부름' 판정에 쓴다(비교만, 남기지 않음).
+      if (r.is_self === true && cleanName(r.name)) selfNames.add([...cleanName(r.name)].slice(0, 40).join(""));
       if (!labels.has(label)) continue;
       stored.set(label, { name: cleanName(r.name), self: r.is_self === true });
     }
@@ -730,19 +734,21 @@ async function senderNames(db: Db, ws: string, input: TelegramInput, log: Log) {
     if (name) out.set(label, name);
     if (st?.self || rq?.self) self.add(label);
   }
-  return { names: out, self };
+  return { names: out, self, selfNames: [...selfNames] };
 }
 // 나한테 온 요청을 챙길 것 후보로(FEAT-1029 ⑤). 소식 저장 뒤에 부른다. 실패해도 던지지 않는다: 소식은 이미 저장됐다.
 // 함수가 아직 없으면(DB 적용 전, 404) 한 번만 로그를 남기고 그만 부른다. 요약·근거·이름은 로그에 넣지 않는다(개수와 단계 코드만).
-type AskRow = { source_ref: string; ask: TgAsk; evidence: string; ask_ref: string; ask_at: number; auto_done: string | null };
+type AskRow = { source_ref: string; ask: TgAsk; evidence: string; ask_ref: string; ask_at: number; auto_done: string | null; direct: boolean };
 async function saveAsks(db: Db, ws: string, asks: AskRow[], log: Log) {
-  let added = 0, exists = 0, failed = 0, auto = 0, atFn = true;
+  let added = 0, exists = 0, failed = 0, auto = 0, atFn = true, directFn = true;
   for (const a of asks) {
     try {
       const old = { p_workspace: ws, p_source_ref: a.source_ref, p_summary: a.ask.request, p_evidence: a.evidence, p_due: a.ask.due };
-      let r = atFn
-        ? await db.rpcObject(ASK_CANDIDATE_AT_FN, { ...old, p_ask_at: new Date(a.ask_at).toISOString(), p_ask_ref: a.ask_ref, p_auto_done: a.auto_done })
-        : null;
+      const at = { ...old, p_ask_at: new Date(a.ask_at).toISOString(), p_ask_ref: a.ask_ref, p_auto_done: a.auto_done };
+      let r = directFn ? await db.rpcObject(ASK_CANDIDATE_DIRECT_FN, { ...at, p_direct: a.direct === true }) : null;
+      // '직접 부름' 판이 아직 없으면(404) 요청 시각 판으로. 한 번 없으면 이번 요청 안에서는 다시 묻지 않는다.
+      if (r && !r.ok && r.code === "FN_MISSING") { directFn = false; r = null; }
+      if (!r && atFn) r = await db.rpcObject(ASK_CANDIDATE_AT_FN, at);
       // DB 단계가 아직 적용 전이면(404) 옛 함수로(처리 전으로 넣음). 한 번 없으면 이번 요청 안에서는 다시 묻지 않는다.
       if (r && !r.ok && r.code === "FN_MISSING") { atFn = false; r = null; }
       if (!r) r = await db.rpcObject(ASK_CANDIDATE_FN, old);
@@ -849,7 +855,7 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const orgs = organizationOptions(orgRows);
   const projects = projectOptions(settledValue(settled[2]));
   // 한 방·하루가 여러 묶음이면(둘째 묶음부터, 또는 보낸 메시지가 하루 전체보다 적을 때) 요약을 그 묶음 몫으로 쓰게 한다(설계 3.2절).
-  const { names, self } = settledValue(settled[3]);
+  const { names, self, selfNames } = settledValue(settled[3]);
   const earlier = settledValue(settled[4]);
   const filter = settledValue(settled[5]);
   const partial = input.part > 1 || input.cont || input.total > input.messages.length;
@@ -898,6 +904,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   // FORGET-이미한일빼기: 내가 보낸 메시지인지는 이름표의 '나'(self)로만 본다. 1:1 방이면 요청 뒤 6시간 안 내 메시지도 답으로 본다(replied.ts).
   const replyMsgs: ReplyMsg[] = input.messages.map((m) => ({ ref: m.ref, at: m.at, self: self.has(m.sender), reply_to: m.reply_to, forwarded: m.forwarded }));
   const personal = input.chat_kind === "user";
+  // FORGET-기본이미함 ③: 직접 부름 판정 재료(replied.ts askDirect). 내 이름은 이름표에 손으로 붙인 이름만('나'·라벨 그대로는 쓰지 않음).
+  const directMsgs = input.messages.map((m) => ({ ref: m.ref, self: self.has(m.sender), reply_to: m.reply_to, text: m.text }));
   // 단체방 전체에게 한 부탁(to=all)은 기본으로 뺀다. 개인 대화방이거나 사용자가 설정한 예외 방이면 남긴다(TODO-내일만 결정 4).
   const allowAll = input.chat_kind === "user" || filter.groupRoom;
   const judged = new Date(nowMs).toISOString();
@@ -917,7 +925,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
       else if (item.ask) {
         const quoted = input.messages[item.ask.quote];
         asks.push({ source_ref: `${prefix}${n + 1}`, ask: item.ask, evidence: askEvidence(quoted, names), ask_ref: quoted.ref, ask_at: quoted.at,
-          auto_done: askReplied({ ref: quoted.ref, at: quoted.at }, replyMsgs, personal) });
+          auto_done: askReplied({ ref: quoted.ref, at: quoted.at }, replyMsgs, personal),
+          direct: askDirect(quoted && { ref: quoted.ref, self: self.has(quoted.sender), reply_to: quoted.reply_to, text: quoted.text }, directMsgs, personal, selfNames) });
       }
     }
   }
