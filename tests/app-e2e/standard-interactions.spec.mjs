@@ -8,6 +8,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
+import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
 // 이름은 모두 지어낸 것이다. 서버 쓰기는 없다(가짜 서버).
@@ -895,6 +896,24 @@ for (const [screen, boot] of TEXT_BAR_SCREENS) {
     });
   }
 }
+// ---------- K1·R2 판 화면(목록이 아닌 곳) — S70-03 노트 보드 ----------
+// 고른 것 Delete = 바로 지우고 [되돌리기] 한 번에 모두 돌아온다. 새 판 화면이 생기면 BOARD_SCREENS에 한 줄 더한다.
+async function noteBoard(page) {
+  const bid = 'bs70003';
+  await boardFixture(page, 1280, { bid, seed: [{ id: 'T1', board_id: bid, body: '가 주제', x: 160, y: 380 }, { id: 'T2', board_id: bid, body: '나 주제', x: 360, y: 380 }] });
+  return { items: [nbNode(page, '가 주제'), nbNode(page, '나 주제')] };
+}
+const BOARD_SCREENS = [['노트 보드', noteBoard]];
+for (const [name, open] of BOARD_SCREENS) test(`K1·R2 ${name} PC 1280: 두 개 골라 Delete = 바로 지움, [되돌리기] 한 번에 둘 다`, async ({ page }) => {
+  const { items } = await open(page);
+  const a = await nbBox(items[0]), b = await nbBox(items[1]);
+  await page.mouse.move(a.x - 16, a.y - 16); await page.mouse.down(); await page.mouse.move(b.x + b.width + 4, b.y + b.height + 4, { steps: 8 }); await page.mouse.up();
+  await page.keyboard.press('Delete');
+  for (const it of items) await expect(it).toHaveCount(0);
+  await page.getByRole('button', { name: '되돌리기' }).click();
+  for (const it of items) await expect(it).toHaveCount(1);
+});
+
 // ---------- D6 순서 바꾸기 = 끌기만(S70-04 UI-순서는끌기로, 2026-11-25 명진 "위로 아래로 버튼 이거 불편함. 드래그하는걸로 다 통일해줘") ----------
 // ⋯ 메뉴·줄에 순서용 [위로][아래로]가 없다 / 끌어서(PC 마우스·폰 꾹 눌러 끌기) 순서를 바꾸면 서버에 저장돼 새로고침해도 그대로 / 키보드 Alt+↑↓로도 바뀐다.
 // 화면마다 {rows(): 줄 locator 목록 선택자, order(), more(id), menu, focus(id), reopen(), writes}를 돌려주는 여는 함수를 ORDER_SCREENS 표에 더한다.

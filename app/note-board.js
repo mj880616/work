@@ -54,7 +54,8 @@
 //   색은 테마 변수 색판 번호(note-board-decor-model.mjs PALETTE)로만 저장한다. 꾸미기 칸 적용 전(decorReady 거짓)에는 글자·도형·새 꾸미기 단추를 숨긴다.
 import { multiTouchActive, onMultiTouch } from './photo-grid-size.js';
 import { LONG_MS, SLOP } from './reorder-drag.js';
-import { askText, askConfirm } from './small-notice.js';
+import { askText, askConfirm, notify } from './small-notice.js';
+import { openRowMenu, appMenuPoint, ROW_MENU_ICON } from './row-menu.js';
 import { swatchHtml, setSwatchOn } from './color-swatch.mjs';
 import { iconSvg } from './tree-icons.js';
 import { bottomInset, keepInside } from './anchored-popup.js';
@@ -127,7 +128,7 @@ const insertHtml = () => `<div class="nb-insert" data-nb-insert="shape" role="gr
   + `<div class="nb-insert" data-nb-insert="line" role="group" aria-label="선 넣기" hidden>${LINE_KINDS.map(k => `<button type="button" class="ds-chip" data-nb-add-line="${k}">${LINE_KIND_NAMES[k]}</button>`).join('')}</div>`;
 // fullHost(): 전체 화면으로 키울 칸(없으면 판 칸 자신). hasSide(): 지금 왼쪽 노트 목록이 있나(전체 화면 안 [노트 목록] 단추). onRemove(ids): 고른 카드 함께 빼기(이름 붙은 보드).
 export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onBackgroundMenu = null, onMove = () => {}, onDrop = null, onRemove = null, fullHost = () => null, hasSide = () => false,
-  onLinkAdd = () => {}, onLinkChange = () => {}, onLinkRemove = () => {}, onTextAdd = () => null, onTextChange = () => {}, onTextsChange = () => {}, onTextRemove = () => {},
+  onLinkAdd = () => {}, onLinkChange = () => {}, onLinkRemove = () => {}, onTextAdd = () => null, onTextChange = () => {}, onTextsChange = () => {}, onTextRemove = () => {}, onRemoveItems = null,
   canText = () => true, mapReady = () => true, canMap = () => true, frameReady = () => true, decorReady = () => true, canDecor = () => true, linesReady = () => true, canLines = () => true, toast = () => {}}) {
   const mark = `nb${++uid}`;
   box.innerHTML = `<div class="nb-selbar" data-nb-selbar role="toolbar" aria-label="선택한 카드" hidden><span data-nb-sel-count></span><button type="button" class="icon-btn" data-nb-sel-remove>보드에서 빼기</button><button type="button" class="icon-btn nb-sel-x" data-nb-sel-clear aria-label="선택 해제" title="선택 해제 (Esc)">✕</button></div><div class="nb-tools" role="group" aria-label="보드 도구"><button type="button" class="icon-btn nb-side-btn" data-nb-side-toggle aria-pressed="false" hidden>노트 목록</button><button type="button" class="icon-btn nb-add-text" data-nb-add-text title="주제 상자 더하기 (빈 곳 두 번 누르기)">+ 주제</button><button type="button" class="icon-btn nb-add-text" data-nb-add-label title="글자 넣기 (배경 없는 글)">글자</button><button type="button" class="icon-btn nb-add-text" data-nb-insert-open="shape" aria-expanded="false" title="도형 넣기">도형▾</button><button type="button" class="icon-btn nb-add-text" data-nb-insert-open="line" aria-expanded="false" title="선 넣기">선▾</button><button type="button" class="icon-btn" data-nb-zoom="-1" aria-label="작게">－</button><button type="button" class="icon-btn nb-pct" data-nb-zoom-pct data-zoom-pct-key="board">100%</button><button type="button" class="icon-btn" data-nb-zoom="1" aria-label="크게">＋</button><button type="button" class="icon-btn nb-fit" data-nb-fit aria-label="맞추기 — 카드가 모두 보이게" title="맞추기 — 카드가 모두 보이게">맞추기</button><button type="button" class="icon-btn nb-full-btn" data-nb-full aria-pressed="false" aria-label="전체 화면" title="전체 화면">${FULL_ICON}</button></div>${insertHtml()}<div class="nb-scroll" data-nb-scroll><div class="nb-board" data-nb-board role="group" aria-label="노트 보드"><svg class="nb-links" data-nb-links width="${20000}" height="${20000}" focusable="false"><defs><marker id="${mark}-a" class="nb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker><marker id="${mark}-s" class="nb-arrow nb-arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g class="nb-branches" data-nb-branches></g><g data-nb-lines></g><path class="nb-temp" data-nb-temp d="" hidden/><g class="nb-guides" data-nb-guides></g></svg><div class="nb-texts" data-nb-texts></div><div class="nb-cards" data-nb-cards></div></div><p class="nb-empty" data-nb-empty hidden></p>${barHtml()}</div>`;
@@ -523,8 +524,29 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   const toggleMulti = id => { const next = new Set(multi); if (!next.size && selected && selected !== id) next.add(selected); if (next.has(id)) next.delete(id); else next.add(id); setMulti(next); };
   const clearMulti = () => { if (multi.size) setMulti(new Set()); };
   function removeMulti() {
+    if (onRemoveItems) { void removeItems(selection()); return; }
     const ids = multiCards(); if (!ids.length || !opts.removable || !onRemove) return;
     multi = new Set(); select(null); paintSel(); onRemove(ids);
+  }
+  // ---- S70-03 고른 것 지우기(Delete·Backspace·우클릭 [삭제]·고르기 막대): 상자(아래 가지째)·글자·도형·선·카드(보드에서 빼기, 노트는 그대로) ----
+  // 지운 뒤 알림 한 줄 + [되돌리기](공용 small-notice — Ctrl+Z도 같은 되돌리기). 서버 저장 길은 부르는 쪽(onRemoveItems) 하나.
+  const selection = () => (multi.size ? {cards:multiCards(), texts:multiTexts(), links:[]}
+    : {cards:selected ? [selected] : [], texts:textSel ? [textSel] : [], links:lineSel ? [lineSel] : []});
+  async function removeItems({cards:cIds = [], texts:tIds = [], links:lIds = []} = {}) {
+    if (!onRemoveItems || opts.pickActive) return false;
+    const cards = (opts.removable ? cIds : []).filter(id => places.has(id)).map(id => { const {saved:_s, ...place} = places.get(id); return {id, place}; });
+    const ts = tIds.filter(id => textById.has(id) && !textById.get(id).pending), ls = lIds.filter(id => links.some(l => l.id === id && !l.pending));
+    const n = cards.length + ts.length + ls.length; if (!n) return false;
+    if (editing) void endEdit(true);
+    if (textSel && ts.includes(textSel)) { textSel = null; closeBar(); }
+    if (lineSel && ls.includes(lineSel)) closeLineMenu();
+    multi = new Set(); if (selected && cards.some(c => c.id === selected)) select(null); paintSel();
+    const undo = await onRemoveItems({cards, texts:ts, links:ls});
+    if (!undo) return false;
+    const onlyCards = cards.length === n;
+    notify(onlyCards ? (n === 1 ? '보드에서 뺐어요' : `보드에서 ${n}개 뺐어요`) : n === 1 ? '삭제했어요' : `${n}개 삭제했어요`,
+      {label:onlyCards ? `보드에서 빼기 ${n}개` : `보드에서 삭제 ${n}개`, undo});
+    return true;
   }
   // 왼쪽 목록에서 이미 붙은 노트를 누름 → 그 카드가 가운데 오게 옮기고 잠깐 강조(고르기).
   function focusCard(id) {
@@ -1063,7 +1085,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     }
     const parent = tree.parentOf.get(id);
     if (textSel === id) { textSel = null; closeBar(); }
-    onTextRemove(id);
+    if (onRemoveItems) void removeItems({texts:[id]}); else onTextRemove(id); // S70-03: 지운 뒤 [되돌리기]
     if (parent && textEls.has(parent)) focusNode(parent);
   }
 
@@ -1351,13 +1373,56 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (!t || t.closest('[data-nb-card],[data-nb-text],[data-nb-hit],.nb-tools,input,textarea,select,[contenteditable],a[href]')) return;
     e.preventDefault(); onBackgroundMenu(e.clientX, e.clientY);
   });
+  // S70-03 NOTE-보드우클릭: PC에서 상자·글자·도형 오른쪽 클릭 = 그 자리 작은 메뉴(공용 줄 메뉴 row-menu.js — 달력·목록 우클릭과 같은 부품):
+  // 수정·+ 하위·+ 형제·색·테두리·글자·모양·글자 크기·삭제(위 막대와 같은 동작). 선 = 선 메뉴(삭제 포함). 여러 개 고른 것 위 = 고른 것 전체 메뉴.
+  // 카드 하나는 지금처럼 카드 ⋯ 메뉴(공용 context-menu.js, [보드에서 빼기] 포함). 브라우저 기본 메뉴는 보드 요소 위에서만 막는다(빈 판은 위 판 메뉴).
+  box.addEventListener('contextmenu', e => {
+    if (e.defaultPrevented || opts.pickActive) return;
+    const t = e.target instanceof Element ? e.target : null; if (!t || t.closest('textarea,input')) return;
+    const textEl = t.closest('[data-nb-text]'), hit = textEl ? null : t.closest('[data-nb-hit]'), card = textEl || hit ? null : t.closest('[data-nb-card]');
+    const own = textEl || hit || card; if (!own) return;
+    const at = appMenuPoint(e, own); if (!at) return;
+    const stop = () => { e.preventDefault(); e.stopPropagation(); };
+    const k = textEl ? tKey(textEl.dataset.nbText) : card?.dataset.nbCard;
+    if (multi.size > 1 && k && multi.has(k)) { stop(); openMultiMenu(own, at); return; }
+    if (hit) { const l = links.find(x => x.id === hit.dataset.nbHit); if (l && !l.pending) { stop(); clearMulti(); select(null); openLineMenu(l.id, at.x, at.y); } return; }
+    if (!textEl) return;
+    const id = textEl.dataset.nbText, node = textById.get(id); stop();
+    if (!node || node.pending || editing?.el === textEl) return;
+    closeLineMenu(); clearMulti(); selectText(id); openNodeMenu(id, textEl, at);
+  }, true);
+  function openNodeMenu(id, el, at) {
+    const t = textById.get(id); if (!t) return;
+    const map = mapReady(), decor = map && decorReady(), free = isFree(t);
+    const items = [{id:'edit', label:'수정'},
+      map && !free && {id:'child', label:'+ 하위', icon:ROW_MENU_ICON.mkdir}, map && !free && {id:'sibling', label:'+ 형제', icon:ROW_MENU_ICON.mkdir},
+      map && {id:'tone', label:'색', icon:ROW_MENU_ICON.color, popup:true, sep:true}, decor && {id:'stroke', label:'테두리', popup:true}, decor && {id:'ink', label:'글자', popup:true},
+      map && t.kind !== 'label' && (t.kind !== 'shape' || decor) && {id:'shape', label:'모양', popup:true},
+      map && {id:'font-1', label:'글자 작게', disabled:t.font <= FONT_MIN}, map && {id:'font1', label:'글자 크게', disabled:t.font >= FONT_MAX},
+      {id:'delete', label:'삭제', last:true}];
+    const short = [...String(t.body || '').replace(/\s+/g, ' ')].slice(0, 20).join('');
+    const SEL = {edit:'[data-nb-bar-edit]', child:'[data-nb-bar-child]', sibling:'[data-nb-bar-sibling]', tone:'[data-nb-bar-open="tone"]', stroke:'[data-nb-bar-open="stroke"]',
+      ink:'[data-nb-bar-open="ink"]', shape:'[data-nb-bar-open="shape"]', 'font-1':'[data-nb-font="-1"]', font1:'[data-nb-font="1"]', delete:'[data-nb-bar-del]'};
+    openRowMenu(el, {key:`nb-node:${id}`, label:short || (t.kind === 'shape' ? '도형' : t.kind === 'label' ? '글자' : '상자'), items, at, run:item => {
+      if (!textById.has(id)) return;
+      if (textSel !== id) selectText(id);
+      const b = bar.querySelector(SEL[item]); if (!b) return;
+      if (b.dataset.nbBarOpen) { barOpen = null; } // 펼칠 줄은 막대에서 바로 열린 채로(한 번 누름 = 열기)
+      barAction(b);
+    }});
+  }
+  function openMultiMenu(el, at) {
+    const sel = selection(), n = sel.cards.length + sel.texts.length, onlyCards = !sel.texts.length;
+    openRowMenu(el, {key:'nb-multi', label:`${n}개 선택`, at, items:[{id:'clear', label:'선택 해제'}, {id:'delete', label:onlyCards ? `보드에서 빼기 ${n}개` : `${n}개 삭제`, last:true}],
+      run:item => { if (item === 'clear') { clearMulti(); select(null); } else if (item === 'delete') removeMulti(); }});
+  }
   box.addEventListener('click', e => {
     if (afterClick) { const run = afterClick.run; afterClick = null; run(); return; }
     const z = e.target.closest?.('[data-nb-zoom]'); if (z && !z.disabled) { zoomBy(Number(z.dataset.nbZoom)); return; }
     if (e.target.closest?.('[data-nb-fit]')) { fitBoard(); return; }
     if (e.target.closest?.('[data-nb-full]')) { if (full) exitFull(); else enterFull(); return; }
     if (e.target.closest?.('[data-nb-side-toggle]')) { toggleSide(); return; }
-    if (e.target.closest?.('[data-nb-sel-remove]')) { removeMulti(); return; }
+    if (e.target.closest?.('[data-nb-sel-remove]')) { if (onRemoveItems) void removeItems({cards:multiCards()}); else removeMulti(); return; } // [보드에서 빼기] = 고른 카드만
     if (e.target.closest?.('[data-nb-sel-clear]')) { clearMulti(); select(null); return; }
     if (e.target.closest?.('[data-nb-add-text]')) { closeInsert(); const {w, h} = size(); newText(freeSpot(toBoard(view, w / 2 - 60, h / 2 - 18))); return; }
     if (e.target.closest?.('[data-nb-add-label]')) { closeInsert(); newLabel(viewCenter()); return; }
@@ -1383,6 +1448,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       const id = tx.closest('[data-nb-text]')?.dataset.nbText; if (!textById.has(id)) return;
       e.preventDefault(); flushNudge(); const next = neighbor(tree, lay.rects, id, e.key); if (next && next !== DRAFT) focusNode(next); return;
     }
+    if (tx && !editing && multi.size > 1 && (e.key === 'Delete' || e.key === 'Backspace') && !e.altKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); e.stopPropagation(); removeMulti(); return; } // S70-03: 여러 개 고른 중이면 고른 것 모두
     if (tx && !editing && !e.altKey && !e.ctrlKey && !e.metaKey) { // 생각 지도 키: Tab 하위 · Enter 형제 · F2·Space 고치기 · Delete 지우기 · 화살표 옮기기(1px, Shift 10px) · Esc 고르기 풀기
       const id = tx.closest('[data-nb-text]')?.dataset.nbText, t = textById.get(id);
       if (!t || t.pending) return;
@@ -1499,7 +1565,14 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   document.addEventListener('keydown', e => {
     if (e.defaultPrevented || typing(e.target) || !box.isConnected || !box.getClientRects().length || document.querySelector('dialog[open]')) return;
     if (e.key === 'Escape' && (multi.size || full)) { e.preventDefault(); if (multi.size) clearMulti(); else exitFull(); return; }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && multi.size && opts.removable && onRemove && !e.target.closest?.('[data-nb-text]')) { e.preventDefault(); removeMulti(); }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !e.altKey && !e.ctrlKey && !e.metaKey && !editing && !e.target.closest?.('[data-nb-text]')) {
+      // S70-03: 고른 것(여러 개·카드 하나·선 하나) 지우기 + [되돌리기]. 글 칸 안에서 쓰는 중이면 위 typing()이 막아 글자만 지운다.
+      if (onRemoveItems) {
+        if (!(multi.size || selected || lineSel) || (e.target.closest?.('[role="menu"],[role="dialog"],.modal') && !menu?.el.contains(e.target))) return; // 다른 메뉴·창 안의 키는 그쪽 몫
+        e.preventDefault(); void removeItems(selection()); return;
+      }
+      if (multi.size && opts.removable && onRemove) { e.preventDefault(); removeMulti(); }
+    }
   });
 
   // ---- 선 메뉴(작은 창, 누른 자리 옆) ----
@@ -1570,7 +1643,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       if (typed === null) { b.isConnected && b.focus({preventScroll:true}); return; }
       try { patch = {label:validateLabel(typed)}; } catch (err) { toast(err.message); return; }
       if (patch.label === l.label) return;
-    } else if (b.hasAttribute('data-nb-del')) { closeLineMenu(); onLinkRemove(l.id); return; }
+    } else if (b.hasAttribute('data-nb-del')) { closeLineMenu(); if (onRemoveItems) void removeItems({links:[l.id]}); else onLinkRemove(l.id); return; }
     if (!patch || Object.entries(patch).every(([k, v]) => l[k] === v)) return;
     onLinkChange(l.id, patch);
   }

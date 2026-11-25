@@ -168,6 +168,16 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     void store(ids.map(n => [n, id, null]), '보드에서 빼지 못했어요. 다시 불러올게요.');
     for (const n of ids) void links?.removeBoard(id, n);
   }
+  // S70-03 되돌리기: 보드에서 뺀 카드를 그 보드의 그 자리로 다시 붙인다(list = [[노트 id, 자리]]). 그 보드를 보고 있을 때만.
+  function restore(boardId, list) {
+    if (!named() || current !== boardId) return false;
+    const all = notes.get(), ok = list.filter(([nid, p]) => p && all.some(n => n.id === nid));
+    if (!ok.length) return !list.length;
+    for (const [nid, p] of ok) localPlace(nid, boardId, p);
+    rerender();
+    void store(ok.map(([nid, p]) => [nid, boardId, p]), '보드에 다시 붙이지 못했어요. 다시 불러올게요.');
+    return ok.length === list.length;
+  }
   function move(nid, next) {
     if (!named()) return;
     const id = current; localPlace(nid, id, next);
@@ -384,7 +394,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   }
 
   return {
-    paint, boardView, attach, detach, move, relabel, autosize, isSized,
+    paint, boardView, attach, detach, restore, move, relabel, autosize, isSized,
     current:() => current, isNamed:named, name:boardName,
     reset() { closeMenu(); picker?.close(); openSet = new Set(); chosen = false; boards = parseBoards(viewPrefs.get('note_boards')); current = pickBoard(viewPrefs.get('note_board'), boards); },
   };
