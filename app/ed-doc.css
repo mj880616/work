@@ -247,3 +247,34 @@
 .ed-video .ed-video-mark::before{content:"\25B6"}
 .ed-video .ed-video-frame{display:block;width:100%;height:100%;border:0}
 @media(min-width:600px){.ed-video{width:min(100%,400px)}}
+/* NOTE-노션편집 ①(나) 할 일 체크: 'check' 목록은 글머리 대신 네모 칸(☐/☑). 편집 중에는 네모를 눌러 체크한다(읽기 화면은 보이기만). */
+.ed-doc ul.ed-ul-check{list-style:none;padding-left:1.5em}
+.ed-doc ul.ed-ul-check>li{position:relative}
+.ed-doc ul.ed-ul-check>li::before{content:"\2610";position:absolute;left:-1.35em;top:0;width:1.2em;text-align:center;color:var(--kptu-muted)}
+.ed-doc ul.ed-ul-check>li[data-checked="true"]::before{content:"\2611";color:var(--kptu-primary-ink,var(--kptu-ink))}
+.ed-doc ul.ed-ul-check>li[data-checked="true"]>.ed-p{color:var(--kptu-muted);text-decoration:line-through}
+.ed-input ul.ed-ul-check>li::before{cursor:pointer}
+/* NOTE-노션편집 ①(나) 접기: 첫 줄 + 펼치면 안쪽 블록. 표시는 사이트 공용 꺾쇠(UI-접기꺾쇠 .kptu-chev — 닫힘 ⌄, 펼침 ⌃, 모양은 ui-standard.css 한 곳).
+   읽기 화면·게시 받는 화면은 <details>(누르면 열고 닫음, 스크립트 없음), 편집기는 [꺾쇠] 단추. */
+.ed-doc .ed-toggle{position:relative;margin:0 0 .4em;padding-left:1.4em}
+.ed-doc details.ed-toggle>summary{display:block;list-style:none;cursor:pointer;margin:0 0 .15em}
+.ed-doc details.ed-toggle>summary::-webkit-details-marker{display:none}
+.ed-doc details.ed-toggle>summary>.kptu-chev{position:absolute;left:.2em;top:.3em}
+.ed-doc .ed-toggle-body>.ed-p:first-child{margin-bottom:.15em}
+.ed-input .ed-toggle-btn{position:absolute;left:0;top:.1em;display:inline-flex;align-items:center;justify-content:center;width:1.2em;height:1.4em;min-height:0;padding:0;border:0;background:none;color:var(--kptu-muted);font:inherit;cursor:pointer}
+.ed-input .ed-toggle.is-closed>.ed-toggle-body>:not(:first-child){display:none}
+/* NOTE-노션편집 ①(나) 블록 편집: 켜면 글 왼쪽에 손잡이 ⋮⋮ 자리(조금 넓은 왼쪽 여백)만 생기고, 끄면 지금 글쓰기 화면 그대로(테두리·여백 표시 없음). */
+.ed-has-blocks .ed-box{position:relative}
+.ed-blocks-on .ed-input{padding-left:34px}
+.ed-grip{position:absolute;z-index:5;display:inline-flex;align-items:center;justify-content:center;width:22px;height:24px;min-height:0;padding:0;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;color:var(--kptu-muted);cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.ed-grip::after{content:"";position:absolute;inset:-10px -6px}
+.ed-grip:hover,.ed-grip[aria-expanded="true"]{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.ed-grip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.ed-grip[hidden],.ed-drop-line[hidden]{display:none}
+.ed-dragging,.ed-dragging *{cursor:grabbing}
+.ed-dragging .ed-input{-webkit-user-select:none;user-select:none}
+.ed-drop-line{position:absolute;z-index:4;height:2px;border-radius:1px;background:var(--kptu-primary);pointer-events:none}
+.ed-block-menu .ed-block-sep{padding:4px 8px 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));margin-top:2px}
+.ed-slash .is-active{outline:2px solid var(--kptu-primary-soft);outline-offset:-2px}
+.ed-drag-ghost{position:fixed;z-index:45;max-height:96px;overflow:hidden;opacity:.55;pointer-events:none;padding:2px 6px;border-radius:var(--ds-radius-control,6px);background:var(--kptu-surface);box-shadow:var(--kptu-shadow-float)}
+.ed-drag-ghost>*{margin:0}

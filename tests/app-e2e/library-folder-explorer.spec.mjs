@@ -217,14 +217,14 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
 test.describe('빈 곳 우클릭(PC)',()=>{
   test.use({hasTouch:false});
   // S69-28 LIB-한칸탐색기: 탐색기 칸의 빈 곳 = 지금 자리(맨 위·들어간 폴더)의 빈 자리 메뉴 — 지금 자리 자료가 있으면 [전체 선택]도(옛 '폴더 밖' ⋯ [전체 선택] 자리).
-  test('빈 곳 = 지금 자리 메뉴: 목록 바탕은 [새 폴더][자료 등록][정돈 제안][전체 선택], 자료 줄·폴더 줄 우클릭은 그 줄 메뉴',async({page})=>{
+  test('빈 곳 = 지금 자리 메뉴: 목록 바탕은 [새 폴더][파일 업로드][정돈 제안][모두 선택], 자료 줄·폴더 줄 우클릭은 그 줄 메뉴',async({page})=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     const ctx=(x,y)=>page.evaluate(([x,y])=>document.querySelector('#documentList').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:x,clientY:y})),[x,y]);
     await ctx(420,360);
-    await expect(page.locator('#luAreaMenu')).toBeVisible();await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안','전체 선택']);
+    await expect(page.locator('#luAreaMenu')).toBeVisible();await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','파일 업로드','폴더 업로드','정돈 제안','모두 선택']);
     const box=await page.locator('#luAreaMenu').boundingBox();expect(Math.abs(box.x-420)).toBeLessThan(40);expect(Math.abs(box.y-360)).toBeLessThan(40);
-    // [전체 선택] = 지금 자리(맨 위 = 폴더 밖) 자료 모두 고른 선택 모드.
-    await page.locator('#luAreaMenu').getByRole('button',{name:'전체 선택',exact:true}).click();
+    // [모두 선택] = 지금 자리(맨 위 = 폴더 밖) 자료 모두 고른 선택 모드.
+    await page.locator('#luAreaMenu').getByRole('button',{name:'모두 선택',exact:true}).click();
     await expect(page.locator('#documentList .lu-row input.lu-pick:checked')).toHaveCount(2);
     await page.locator('#librarySelectCancel').click();
     // 파일 줄 위 우클릭은 [새 폴더]를 열지 않는다(파일 ⋯ 메뉴).
@@ -236,7 +236,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     // 들어간 폴더의 빈 곳도 같은 메뉴(그 폴더 자리).
     await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
     await ctx(700,600);
-    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안','전체 선택']);await page.keyboard.press('Escape');
+    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','파일 업로드','폴더 업로드','정돈 제안','모두 선택']);await page.keyboard.press('Escape');
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
 
@@ -326,8 +326,8 @@ for(const width of [390,1280])test.describe(`폴더 밖 정리 ${width}`,()=>{te
   await expect.poll(()=>s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fc');
   await expect(page).toHaveURL(/view=library/);
   // ⋯ [전체 고르기] → 폴더 밖에 남은 자료(a1-1) 모두 골라진 선택 모드.
-  // 넓은 화면 탐색기: '폴더 밖' 묶음 머리 대신 빈 자리 우클릭 [전체 선택](맨 위 = 폴더 밖 자료).
-  if(wideOf(width)){await page.evaluate(()=>document.querySelector('#documentList').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:600,clientY:500})));await page.locator('#luAreaMenu').getByRole('button',{name:'전체 선택',exact:true}).click()}
+  // 넓은 화면 탐색기: '폴더 밖' 묶음 머리 대신 빈 자리 우클릭 [모두 선택](맨 위 = 폴더 밖 자료).
+  if(wideOf(width)){await page.evaluate(()=>document.querySelector('#documentList').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:600,clientY:500})));await page.locator('#luAreaMenu').getByRole('button',{name:'모두 선택',exact:true}).click()}
   else{await press(page,menuButton(page,'x:out'),width);await press(page,folderMenuItem(page,'전체 선택'),width)}
   await expect(page.locator('#documentList .lu-row input.lu-pick:checked')).toHaveCount(1);
   await expect(page.locator('[data-lu-document="a1-1"] input.lu-pick')).toBeChecked();

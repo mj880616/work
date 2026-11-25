@@ -101,7 +101,7 @@ for (const width of [412, 1280]) {
     expect(f.errors).toEqual([]);
   });
 
-  test(`빠른 입력칸 업데이트: 못 올린 파일은 하단 한 줄에 남고 [다시 올리기]는 못 올린 것만 같은 업데이트로 보낸다 ${width}`, async ({page}) => {
+  test(`빠른 입력칸 업데이트: 못 올린 파일은 하단 한 줄에 남고 [다시 업로드]는 못 올린 것만 같은 업데이트로 보낸다 ${width}`, async ({page}) => {
     const f = await fixture(page, width), q = quick(page);
     f.failWhen(name => name === '두번째.pdf');
     await q.locator('[data-quick-input]').fill('자료 모음');
@@ -111,8 +111,8 @@ for (const width of [412, 1280]) {
     const line = dock(page);
     await expect(line).toContainText('업데이트에 파일 1개 못 올렸어요');
     await expect(line.locator('.up-dock-note')).toContainText('파일 1개 올렸어요');
-    const again = line.getByRole('button', {name: '못 올린 파일 다시 올리기'});
-    await expect(again).toHaveText('다시 올리기');
+    const again = line.getByRole('button', {name: '못 올린 파일 다시 업로드'});
+    await expect(again).toHaveText('다시 업로드');
     // 누를 때까지 남는다.
     await page.waitForTimeout(6500); await expect(again).toBeVisible();
     expect(await noFrameWidth(page)).toBe(true);
@@ -185,7 +185,7 @@ for (const width of [412, 1280]) {
   });
 }
 
-test('조직 기록 입력칸: 못 올린 파일은 [다시 올리기]로 못 올린 것만, 같은 업데이트로 (412)', async ({page}) => {
+test('조직 기록 입력칸: 못 올린 파일은 [다시 업로드]로 못 올린 것만, 같은 업데이트로 (412)', async ({page}) => {
   const f = await fixture(page, 412);
   await clickView(page, 'team'); await page.locator('[data-so-org="o"]').first().click();
   await expect(page.locator('#wdInboxClip [data-basket-clip]')).toBeVisible();
@@ -193,7 +193,7 @@ test('조직 기록 입력칸: 못 올린 파일은 [다시 올리기]로 못 �
   await page.locator('#wdInboxText').fill('자료 두 개');
   await page.locator('#wdInboxAttach').setInputFiles([pdf('먼저 자료.pdf'), pdf('빠진 자료.pdf')]);
   await page.locator('#wdInboxSave').click();
-  const again = dock(page).getByRole('button', {name: '못 올린 파일 다시 올리기'});
+  const again = dock(page).getByRole('button', {name: '못 올린 파일 다시 업로드'});
   await expect(dock(page)).toContainText('테스트 조직 기록에 파일 1개 못 올렸어요'); await expect(again).toBeVisible();
   if (SHOTS) await page.screenshot({path: `${SHOTS}/org-fail-412.png`});
   f.failWhen(() => false); await again.click();

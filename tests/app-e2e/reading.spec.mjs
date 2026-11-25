@@ -61,7 +61,7 @@ async function server(page, { refuseRead = false, extra = [], importFail = {}, n
       if (method === 'POST') { const row = { ...body, id: 'b6800000-0000-4000-8000-00000000000' + (s.hl.length + 1), created_at: '2026-11-22T04:00:00Z', updated_at: '2026-11-22T04:00:00Z' }; s.hlPosts.push(body); s.hl.unshift(row); return ok([row], 201); }
       return ok(s.hl);
     }
-    if (table === 'app_notes' && method === 'POST') { s.notes.push(body); return ok([{ id: 'c6800000-0000-4000-8000-000000000001', kind: 'note', title: body.title, raw_text: body.raw_text, metadata: body.metadata || {}, created_at: '2026-11-22T04:00:00Z', updated_at: '2026-11-22T04:00:00Z', archived_at: null }], 201); }
+    if (table === 'app_notes' && method === 'POST') { s.notes.push(body); if (s.noteDelay) await new Promise(r => setTimeout(r, s.noteDelay)); return ok([{ id: 'c6800000-0000-4000-8000-000000000001', kind: 'note', title: body.title, raw_text: body.raw_text, metadata: body.metadata || {}, created_at: '2026-11-22T04:00:00Z', updated_at: '2026-11-22T04:00:00Z', archived_at: null }], 201); }
     return route.fallback();
   });
   return s;
@@ -93,19 +93,18 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
     await openHome(page);
     const s = await server(page);
     await goReading(page, width);
-    // 처음은 [안 읽음]: 안 읽은 줄 하나. 칩은 [안 읽음 1][전체][밑줄] 셋뿐 — News 기능이 있는 계정(기본 운영자 흉내)도 [News] 칩 없음(S68-29).
-    await expect(list(page).locator('.rd-switch [data-filter-value]')).toHaveText(['안 읽음 1', '전체', '밑줄', '메모']);
+    // 처음은 [전체](S70-24): 두 줄. 칩은 [전체][안 읽음 1][밑줄][메모] — News 기능이 있는 계정(기본 운영자 흉내)도 [News] 칩 없음(S68-29).
+    await expect(list(page).locator('.rd-switch [data-filter-value]')).toHaveText(['전체', '안 읽음 1', '밑줄', '메모']);
+    await expect(list(page).locator('.rd-row')).toHaveCount(2);
+    await list(page).locator('.rd-switch [data-filter-value="unread"]').click();
     await expect(list(page).locator('.rd-row')).toHaveCount(1);
     await expect(list(page).locator('.rd-row').first()).toContainText('예시 기사 하나');
     await expect(list(page).locator('.rd-row').first()).toContainText('example.com · 11/22');
     await expect(list(page).locator('.rd-row.is-unread .rd-dot')).toHaveCount(1);
-    await list(page).locator('.rd-switch [data-filter-value="all"]').click();
-    await expect(list(page).locator('.rd-row')).toHaveCount(2);
     // 요청은 모두 내 작업공간 열쇠로만(서버 RLS가 owner를 다시 본다).
     expect(s.calls.every(c => c.search.includes('workspace_id=eq.w'))).toBe(true);
 
-    // 글 보기: 원문 사본(글자로만), 원래 페이지 링크, 밑줄 줄. S68-45: 열면 읽음(read_at만 서버에 저장).
-    await list(page).locator('.rd-switch [data-filter-value="unread"]').click();
+    // 글 보기: 원문 사본(글자로만), 원래 페이지 링크, 밑줄 줄. S68-45: 열면 읽음(read_at만 서버에 저장). 지금 [안 읽음] 보기.
     await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
     await expect.poll(() => s.patches.length).toBe(1);
     expect(s.patches[0].id).toBe(A);
@@ -185,9 +184,9 @@ test('열면 읽음 412: 저장 실패 → 알림 한 줄·점 그대로, 다음
   await expect.poll(() => s.rows.find(r => r.id === A).read_at).toBeTruthy();
   await expect(detail(page).locator('[data-rd-read="0"]')).toHaveText('안 읽음으로');
   await page.goBack();
+  await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/); // [전체](S70-24 기본)에서 점 꺼짐
+  await list(page).locator('.rd-switch [data-filter-value="unread"]').click();
   await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).toHaveCount(0); // [안 읽음]에서 빠짐
-  await list(page).locator('.rd-switch [data-filter-value="all"]').click();
-  await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).not.toHaveClass(/is-unread/);
 });
 
 test('[+ 추가]: 주소 → 넣기 → note-import로 원문을 받아 글자로만 저장, 막힌 줄은 한 줄 상태와 원래 페이지 링크', async ({ page }) => {
@@ -346,7 +345,7 @@ test('글 보기 [원문 다시 가져오기]: 가져오는 중 → 본문 표�
   });
   await goReading(page, 1280);
   await list(page).locator(`.rd-row[data-rd-open="${LEAD}"]`).click();
-  await expect(detail(page).locator('.rd-line')).toContainText('공개된 앞부분만');
+  await expect(detail(page).locator('.rd-line')).toContainText('유료 기사라 앞부분만'); // S70-40a 까닭 말(paywall)
   const again = detail(page).locator('.rd-line [data-rd-fetch]');
   await expect(again).toHaveText('원문 다시 가져오기');
   await page.waitForTimeout(300);
@@ -415,3 +414,49 @@ test('글 보기 [원문 다시 가져오기] 폰 폭: 단추가 줄 안에 보�
   expect(s.imports.length).toBe(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+// S69-98 NOTE-에버노트 ⑤: 글 보기 [노트로 만들기] — 원문 사본·출처 주소·저장 시각을 새 노트 한 장으로(기존 노트 만들기 길, 내 작업공간 열쇠),
+// 원래 주소는 노트 원문 정보(metadata.source)에도. 읽을 거리 줄은 그대로(지우거나 바꾸지 않음), 누르는 동안은 한 번만.
+for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
+  test(`[노트로 만들기]: 원문·출처·저장 시각을 노트로 복사, 줄은 그대로 (${label})`, async ({ page }) => {
+    test.setTimeout(60000);
+    await page.setViewportSize({ width, height: 860 });
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await openHome(page);
+    const s = await server(page);
+    await goReading(page, width);
+    await list(page).locator(`.rd-row[data-rd-open="${A}"]`).click();
+    await expect(detail(page).locator('[data-rd-prose] p')).toHaveCount(3);
+    const make = detail(page).locator(`[data-rd-make-note="${A}"]`);
+    await expect(make).toHaveText('노트로 만들기');
+    await expect(make).toBeEnabled();
+    const before = s.patches.length;
+    s.noteDelay = 800;
+    await make.click();
+    // 만드는 동안은 단추가 잠겨 두 번 눌러도 한 장.
+    await expect(make).toHaveText('만드는 중…');
+    await expect(make).toBeDisabled();
+    await make.click({ force: true, timeout: 500 }).catch(() => {});
+    await expect.poll(() => noticeText(page)).toContain('노트로 만들었어요');
+    expect(s.notes).toHaveLength(1);
+    const n = s.notes[0];
+    expect(n.workspace_id).toBe('w');
+    expect(n.kind).toBe('note');
+    expect(n.title).toBe('예시 기사 하나');
+    expect(n.raw_text).toContain('첫 문단은 배경이에요.');
+    expect(n.raw_text).toContain(QUOTE);
+    expect(n.raw_text).toContain('출처: example.com · https://example.com/a');
+    expect(n.raw_text).toContain('저장: 2026-11-22 10:00');
+    expect(n.metadata.source).toMatchObject({ url: 'https://example.com/a', state: 'ok', site: 'example.com' });
+    await expect(page.locator('#kptuNotice:not([hidden])').getByRole('button', { name: '열기' })).toBeVisible();
+    // 읽을 거리 줄은 그대로: 지우기·고치기 요청 없음(열면 읽음 저장 한 번 말고는).
+    expect(s.patches.length).toBe(before);
+    expect(s.calls.some(c => c.method === 'DELETE')).toBe(false);
+    await expect(detail(page).locator('a.rd-src')).toHaveAttribute('href', 'https://example.com/a');
+    await expect(make).toHaveText('노트로 만들기');
+    const over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    expect(over).toBeLessThanOrEqual(1);
+    expect(errors).toEqual([]);
+  });
+}

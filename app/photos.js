@@ -83,7 +83,7 @@ import {viewPrefs, validValue} from './view-prefs.js';
 import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
-// FOLDER-나무새기준 ③(S51-12): 폰 [폴더]는 노트·파일·자료실과 같은 공용 상자·줄, 두 손가락 그 폴더만.
+// FOLDER-나무새기준 ③(S51-12): 폰 [폴더]는 노트·파일·자료실과 같은 공용 상자·줄. 두 손가락은 줄 크기(folder-pinch.js).
 import {openFolderSheet} from './folder-dest-sheet.js'; // S69-62 폴더 고르기 = [파일] '옮길 곳' 창 하나
 import {sheetTitle} from './folder-dest-sheet.mjs';
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, ftIconHtml, ftFocusBackHtml, ftEmptyRowHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
@@ -1082,8 +1082,7 @@ function openZoomLayer(prev) {
 }
 // [－][＋]·두 손가락: 일별 칸 수 → 월 → 연. 바뀌었으면 true. 단계가 바뀌면 stageDirty — 손동작 중에는 닿은 칸을 지우지 않고 끝나고 다시 그린다.
 function changeStage(dir) {
-  // FOLDER-나무새기준 ④: 폰 [폴더]의 '그 폴더만'(격자)에서 오므리기 = 펼친 자리 그대로 나무로(더 벌리기는 지금처럼 칸을 키움).
-  if (tab === 'folders' && dir < 0 && !treeWide() && !fxTreeShown()) { fxToTree(); return false; }
+  // UI-폴더줄크기(S69-99): 폰 [폴더]의 '그 폴더만'(격자)에서도 두 손가락은 칸 수만 바꾼다(전의 '오므리기 = 나무로'는 없앰 — 돌아가기는 [‹]·뒤로·왼쪽 끝 밀기).
   if (tab !== 'all') return sizer.changeCols(dir);
   const res = stepZoom(level, dir, d => sizer.changeCols(d));
   if (!res.moved) return false;
@@ -1205,21 +1204,11 @@ attachPinch(body, () => {
   onEnd: () => { stageEnd(); if (albumPinched) { albumPinched = false; if (albumSizing()) renderAlbums(); } },
 });
 // 본문이 짧아도 화면 아래까지 손가락을 받도록 본문 칸 높이를 채우고(CSS), 그 탭에서는 두 손가락을 화면 확대 대신 보기 크기로 쓴다.
-// FOLDER-나무새기준 ④: 폰 [폴더] 나무에서 펼친 폴더(또는 그 작은 그림 줄) 위 두 손가락 벌리기 = 그 폴더만. (그 폴더만 화면의 오므리기는 위 changeStage가 나무로.)
 // S51-24 UI-빈칸손짓: 본문 칸은 늘 아래 빈 곳까지(예전 100svh - 240px 어림 대신 공용 gesture-fill.js가 잰 높이).
 fillGestureArea(body);
-// UI-폴더누르기한규칙: PC(1200px~) 나무 줄 위 벌리기 = 그 폴더로 들어가기(우클릭·⋯ [이 폴더로 들어가기]와 같은 곳). 줄에 'w:o|g|p:<id>' 열쇠를 돌려 폰 나무 열쇠와 가른다.
-const wideRowKey = el => {
-  const r = el.closest('[data-photos-folder],[data-photos-gf],[data-photos-pf]');
-  return !r ? null : r.dataset.photosFolder !== undefined ? 'w:o:' + r.dataset.photosFolder : r.dataset.photosGf !== undefined ? 'w:g:' + r.dataset.photosGf : 'w:p:' + r.dataset.photosPf;
-};
-bindFolderPinch(body, {enabled:() => tab === 'folders' && (fxTreeShown() || treeWide()) && !select.active,
-  folderAt:el => (treeWide() ? wideRowKey(el) : el.closest('[data-ft-key]')?.dataset.ftKey || el.closest('[data-ft-parent]')?.dataset.ftParent || null),
-  onOut:key => {
-    if (!key.startsWith('w:')) { fxFocus(key); return; }
-    const kind = key[2], id = key.slice(4);
-    if (kind === 'g') goGdFolder(id); else if (kind === 'p') goPhoneFolder(id); else if (!tree || photoFolderById(tree, id)) goFolder(id);
-  }});
+// UI-폴더줄크기(S69-99, 명진 11/25 08:23): [폴더] 나무(폰 나무·PC 왼쪽 나무) 위 두 손가락 벌리기·오므리기(PC Ctrl+휠) = 폴더 줄 크기 한 단계(row-size.js, 모든 폴더 화면 같은 값).
+// 그 폴더로 들어가기는 ⋯ [이 폴더로 들어가기](PC 우클릭도 같은 메뉴)로만. 사진 격자 위는 위 attachPinch(사진 칸 수) 그대로.
+bindFolderPinch(body, {enabled:at => tab === 'folders' && !select.active && (fxTreeShown() || (treeWide() && !!at?.closest?.('[data-photos-fx-tree]')))});
 // FILES-폰폴더위로 ④⑤: 폰 '그 폴더만'에서 화면 왼쪽 끝에서 오른쪽으로 밀기 = [‹]와 같은 곳(fxUp). 손짓 칸은 사진 화면 칸 전체(왼쪽 여백까지).
 bindEdgeBack(body.closest('.view-panel') || body, {enabled:() => tab === 'folders' && !treeWide() && !fxTreeShown() && !select.active, onBack:() => fxUp()});
 const paintBodyPinch = () => { if (bodyPinch()) body.dataset.photosPinch = ''; else delete body.dataset.photosPinch; };
@@ -2252,8 +2241,8 @@ const lookRefresh = () => { if (Date.now() - lookReadAt < 20000) return; lookRea
 folderLook.onChange(() => { if (tab === 'folders') renderFolders(); });
 // ---- FOLDER-나무새기준 ③(S51-12): 폰 [폴더] 첫 화면 나무 ----
 // 상자: 원드라이브(폴더 나무 + 맨 위 폴더 사진 + 휴지통 줄) · 폰(사진첩 폴더) · 구글 드라이브(지금 줄 그대로, 누르면 그 폴더 화면).
-// 폴더를 누르면 화면이 바뀌지 않고 그 자리에서 하위 폴더와 처음 FT_PREVIEW장(작은 그림 한 줄)까지 펼침. 'n장 더 보기'·두 손가락 벌리기 = 그 폴더만(격자),
-// [‹]·뒤로 키·오므리기 = 펼친 자리 그대로 나무. 꺼 둔 폴더는 흐리게 + '끔'(켜기·끄기는 ⋯ 안). 색을 정한 폴더는 그림 색.
+// 폴더를 누르면 화면이 바뀌지 않고 그 자리에서 하위 폴더와 처음 FT_PREVIEW장(작은 그림 한 줄)까지 펼침. 'n장 더 보기' = 그 폴더만(격자),
+// [‹]·뒤로 키 = 펼친 자리 그대로 나무. 꺼 둔 폴더는 흐리게 + '끔'(켜기·끄기는 ⋯ 안). 색을 정한 폴더는 그림 색.
 const fxKey = (kind, id) => `${kind}:${id}`;
 // 폰 나무 줄 열쇠(fxKey)의 펼쳐 보일 것 [하위 폴더 수, 그 폴더 사진 장수]: 원드라이브는 읽어 둔 나무, 폰 저장소 폴더는 하위 폴더가 없다(0). 모르면 null(펼치기).
 // 펼친 줄의 사진 한 줄(fxStripHtml)은 장수가 0이 아닐 때만 보이므로 장수를 모르면(null) 있다고 본다(hasContent와 같은 규칙).
@@ -2393,7 +2382,7 @@ function fxBoxesHtml(u) {
 }
 // 지금 폰 첫 화면 나무가 보이는가.
 const fxTreeShown = () => !treeWide() && pAt === null && gdAt === null && !fxTopFocus && (!tree || at === tree.top.id);
-// 두 손가락·'n장 더 보기' → 그 폴더만(지금의 폴더 화면 = 격자). 돌아올 자리를 기억해 두고, 뒤로 키·[‹]·오므리기는 한 단계 위가 아니라 나무로.
+// 'n장 더 보기'·⋯ → 그 폴더만(지금의 폴더 화면 = 격자). 돌아올 자리를 기억해 두고, 뒤로 키·[‹]는 한 단계 위가 아니라 나무로.
 function fxFocus(key) {
   if (!fxTreeShown() || !key) return;
   const [kind, ...rest] = key.split(':'), id = rest.join(':');
@@ -2404,7 +2393,7 @@ function fxFocus(key) {
   if (id === tree.top.id) { select.stop(); fxTopFocus = true; renderFolders(); window.scrollTo?.(0, 0); return; }
   goFolder(id);
 }
-// [‹]·뒤로 키·화면 왼쪽 끝 밀기 = 한 곳: 내려온 길이면 한 단계 위, 들어온 폴더면 펼친 자리 그대로 나무. 오므리기는 늘 나무(fxToTree).
+// [‹]·뒤로 키·화면 왼쪽 끝 밀기 = 한 곳: 내려온 길이면 한 단계 위, 들어온 폴더면 펼친 자리 그대로 나무. (두 손가락으로는 돌아가지 않는다, S69-99)
 function fxUp() {
   const {to} = walkUp(fxWalk);
   if (!to) { fxToTree(); return; }
@@ -2419,7 +2408,7 @@ function fxToTree() {
   renderFolders();
   if (back) requestAnimationFrame(() => { settleGestureAreas(); window.scrollTo({top:back.y, behavior:'instant'}); body.querySelector(`[data-ft-key="${CSS.escape(back.key)}"] .ft-main`)?.focus({preventScroll:true}); });
 }
-const fxBackBtn = () => (treeWide() ? '' : '<button type="button" class="ft-btn ft-focus-back" data-photos-fx-back aria-label="폴더 나무로">‹</button>');
+const fxBackBtn = () => (treeWide() ? '' : '<button type="button" class="icon-btn fp-up" data-photos-fx-back aria-label="폴더 나무로">‹</button>');
 // S51-24 FOLDER-그폴더만같은모양(시안 folder-focus-continuity.html ②): 폰·폴드 '그 폴더만' = 나무와 같은 둥근 상자(공용 folder-tree.css ft-focus).
 // 상자 맨 위 작은 회색 위치 줄(위 단계만 — [‹]·'사진' = 펼친 자리 그대로 나무), 머리 = 열린 폴더 그림 + 그 폴더 줄(굵은 이름 · 장수 · 보이기 스위치), 안 = 하위 폴더·사진 격자.
 // steps: [{attr, id, name}] 위 단계(맨 앞 '사진'은 함수가 넣는다). head: 그 폴더 줄(photos-fx-here) HTML.
@@ -2801,7 +2790,7 @@ function folderClick(b) {
   // FOLDER-나무새기준 ③: 폰 나무 — 펼치기·접기(줄 어디든), 상자 접기, 'n장 더 보기'(그 폴더만), [‹](나무로), 펼친 폴더의 작은 그림(크게 보기).
   if (b.matches('[data-photos-fx-inline-retry]')) { const k = b.closest('[data-photos-strip]')?.dataset.photosStrip; if (k) { fxInline.delete(k); renderFolders(); } return true; }
   if (b.matches('[data-photos-ftog]')) {
-    // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기 = 늘 그 자리 펼치기·접기(빈 폴더도 펼쳐 '빈 폴더' 한 줄). 그 폴더만 보기는 ⋯ 첫 줄 [이 폴더로 들어가기]·두 손가락 벌리기만
+    // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기 = 늘 그 자리 펼치기·접기(빈 폴더도 펼쳐 '빈 폴더' 한 줄). 그 폴더만 보기는 ⋯ 첫 줄 [이 폴더로 들어가기]만
     //  (전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 그 폴더만'은 없앴다).
     const k = b.dataset.photosFtog;
     if (fxOpen.has(k)) fxOpen.delete(k); else fxOpen.add(k); renderFolders(); return true;
@@ -3353,7 +3342,7 @@ const folderMenu = createAnchoredMenu({id:'photosFolderMenu', className:'od-link
     if (b.matches('[data-fm-move]')) return openPick(trigger, {kind:'folder', id});
     if (b.matches('[data-fm-delete]')) return deleteFolder(trigger, id);
   }});
-// ⋯ [이 폴더로 들어가기]: PC 나무는 그 폴더로, 폰 첫 화면 나무는 두 손가락 벌리기와 같은 길(돌아올 자리를 기억하고 그 폴더만 — fxFocus).
+// ⋯ [이 폴더로 들어가기]: PC 나무는 그 폴더로, 폰 첫 화면 나무는 돌아올 자리를 기억하고 그 폴더만(fxFocus).
 const menuEnter = (kind, id, go) => (!treeWide() && fxTreeShown() ? fxFocus(fxKey(kind, id)) : go(id));
 // PHOTO-폴더스위치 ③: 폰 폴더 ⋯ 메뉴(원드라이브 폴더 메뉴와 같은 모양·같은 항목 순서). 앱 0.4.1+만.
 const phoneFolderMenu = createAnchoredMenu({id:'photosPhoneFolderMenu', className:'od-link-menu', label:'폰 폴더 메뉴', historyKey:'kptuPhotosPhoneFolderMenu',

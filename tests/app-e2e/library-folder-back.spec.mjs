@@ -1,6 +1,5 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,menuButton,folderMenuItem} from './helpers/library-folder-server.mjs';
-import {pinch} from './helpers/pinch.mjs';
 // S69-19(명진 11/24 08:35 '자료실 특정 폴더로 들어왔을 때 다시 목록으로 돌아가는게 쉬워야함'):
 // 위치 줄 앞 칸은 링크 모양(색·마우스 올리면 밑줄), 길면 가운데 '…'(누르면 가려진 단계 목록), Backspace = 한 단계 위,
 // 뒤로가기(PC 직전 폴더·폰 한 단계 위), 빈 폴더는 '빈 폴더' 옆 작은 [위 폴더로]. 두 칸 보기·한 칸 보기·폰 모두. 이름은 지어낸 것.
@@ -23,13 +22,14 @@ test('PC 1440 두 칸: 앞 칸 링크 모양 · Backspace 한 단계 위 · 자�
   await enterIn(page,1,'fa');await enterIn(page,1,'fb');
   await expect(here(page,1)).toHaveText('가상 B');
   const root=page.locator(`${pane(1)} [data-lu-pane-go=""]`);
-  // 앞 칸은 링크 색 + 옅은 밑줄, 마우스를 올리면 진한 밑줄(글자 색). ‹는 공용 아이콘 단추(32px).
+  // 앞 칸은 링크 색 + 옅은 밑줄, 마우스를 올리면 진한 밑줄(글자 색). ‹는 위치 줄 공용 작은 아이콘(S70-13: 보이는 24px, 누르는 범위 44px — crumb-back-size.spec.mjs).
   const look=await root.evaluate(b=>{const s=getComputedStyle(b),link=getComputedStyle(document.documentElement).getPropertyValue('--kptu-link').trim();const p=document.createElement('span');p.style.color=link;document.body.append(p);const want=getComputedStyle(p).color;p.remove();return {color:s.color,want,deco:s.textDecorationLine,line:s.textDecorationColor}});
   expect(look.color).toBe(look.want);expect(look.deco).toBe('underline');expect(look.line).not.toBe(look.color);
   await root.hover();
   await expect.poll(()=>root.evaluate(b=>getComputedStyle(b).textDecorationColor===getComputedStyle(b).color)).toBe(true);
-  const up=page.locator(`${pane(1)} [data-lu-pane-up]`);
-  const ub=await up.boundingBox();expect(ub.width).toBeGreaterThanOrEqual(28);expect(ub.height).toBeGreaterThanOrEqual(28);
+  const up=page.locator(`${pane(1)} .lu-pane-head [data-lu-pane-up]`);
+  const ub=await up.evaluate(b=>{const r=b.getBoundingClientRect(),a=getComputedStyle(b,'::after');return {h:r.height,tw:parseFloat(a.width),th:parseFloat(a.height)}});
+  expect(ub.h).toBeLessThanOrEqual(24);expect(ub.tw).toBeGreaterThanOrEqual(44);expect(ub.th).toBeGreaterThanOrEqual(44);
   await page.screenshot({path:'test-results/s69-19-pc-two-path.png'});
   // Backspace = 한 단계 위(지금 칸).
   await page.locator(`${pane(1)} [data-lu-prow]`).first().focus();
@@ -106,7 +106,8 @@ test('폰 412: 두 단계 들어간 폴더 → 위치 줄 자료실 = 맨 위 ·
   await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   const head=key=>page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
   const path=page.locator('#libraryPath');
-  await pinch(page,head('f:fa'),'out');
+  const enterTop=async key=>{await head(key).locator('[data-lu-node-menu]').click();await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}; // S69-99: 들어가기는 ⋯ 첫 줄(두 손가락은 줄 크기)
+  await enterTop('f:fa');
   // S69-28 LIB-한칸탐색기: 폰 '그 폴더만'도 탐색기 칸 — 위치 줄 끝에 지금 폴더 이름(굵게 한 번).
   // S69-68(명진 11/24 20:09): 안의 폴더 줄 누르기 = 그 자리 펼치기(두 번 눌러도 들어가지 않음). 한 단계 들어가기는 ⋯ [이 폴더로 들어가기].
   const enter=async key=>{await head(key).locator('[data-lu-node-menu]').click();await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()};
@@ -119,7 +120,7 @@ test('폰 412: 두 단계 들어간 폴더 → 위치 줄 자료실 = 맨 위 ·
   await path.locator('[data-lu-path=""]').click();
   await expect(path).toBeHidden();
   // Backspace = 한 단계 위.
-  await pinch(page,head('f:fa'),'out');await enter('f:fb');
+  await enterTop('f:fa');await enter('f:fb');
   await expect(path).toHaveText('‹자료실›가상 A›가상 B');
   await page.keyboard.press('Backspace');
   await expect(path).toHaveText('‹자료실›가상 A');

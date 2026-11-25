@@ -15,7 +15,7 @@
 // holds the rest, so reading the row then each list gives the same sequence on every width. When the row is too narrow for them,
 // they go back into their group from the right end (the last group first). Shortcuts show in each button's tooltip (SHORTCUTS).
 // ED-서식줄묶음 (2026-10-23 사용자 13:16): on a phone (max-width 760px) the same buttons are grouped so the row fits on one line:
-//   [본문 2 ▾] [굵게] [· ▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
+//   [본문 2 ▾] [굵게] [· ▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | ([⋮⋮] where the opener gives blocks) [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
 //   글자 ▾ = 기울임 밑줄 취소선 글자색 형광펜 서식 지우기 / 문단 ▾ = 정렬 목록 번호 들여쓰기 내어쓰기 인용 구분선
 //   넣기 ▾ = 표 사진 링크 지금 시각 서식 없이 붙여넣기 / 기호 ▾ = ※ → ① 「」 ([· ▾] is one button as on a wider screen: its list starts with ·)
 // The grouped buttons are the same nodes (moved, so their commands and state stay); a button that opens choices (글자색, 정렬, 목록…)
@@ -46,7 +46,8 @@
 //     The row's photos are as high as each other; a phone wraps a row of three or four (ed-doc.css).
 // 한글 IME: nothing here changes the document while a composition is running. A button pressed during one lets the press blur
 // the box first (that ends the composition), then runs and puts focus back.
-import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, PHOTO_ROW_MAX, fileSizeText, cleanDoc, emptyDoc, safeHref, nextCircled,
+import {mountBlocks, gripIcon} from './ed-blocks.js';
+import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, PHOTO_ROW_MAX, fileSizeText, cleanDoc, emptyDoc, safeHref, nextCircled, CHECK_MARKER,
   circled, widthsOfRow, tableLayout, scaleWidths, stepWidths, evenWidths, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
 import {looksLikeMarkdown} from './note-markdown.mjs';
 import {markdownToDoc, markdownLettersOf} from './ed-markdown.mjs';
@@ -98,12 +99,20 @@ function buildSchema(pm) {
       blockquote: {group: 'block', content: 'block+', defining: true, parseDOM: [{tag: 'blockquote'}], toDOM: () => ['blockquote', {class: 'ed-quote'}, 0]},
       // ED-서식줄펼침: `marker` is a shape name (ed-schema.mjs BULLET_MARKERS·ORDER_MARKERS) or null = automatic by nesting depth.
       bullet_list: {group: 'block', content: 'list_item+', attrs: {marker: {default: null}},
-        parseDOM: [{tag: 'ul', getAttrs: el => ({marker: nameFrom(el, 'ed-ul', BULLET_MARKERS)})}],
+        parseDOM: [{tag: 'ul', getAttrs: el => ({marker: nameFrom(el, 'ed-ul', [...BULLET_MARKERS, CHECK_MARKER])})}],
         toDOM: n => ['ul', {class: `ed-ul ed-ul-${n.attrs.marker || 'auto'}`}, 0]},
       ordered_list: {group: 'block', content: 'list_item+', attrs: {order: {default: 1}, marker: {default: null}},
         parseDOM: [{tag: 'ol', getAttrs: el => ({order: el.hasAttribute('start') ? (+el.getAttribute('start') || 1) : 1, marker: nameFrom(el, 'ed-ol', ORDER_MARKERS)})}],
         toDOM: n => ['ol', n.attrs.order === 1 ? {class: `ed-ol ed-ol-${n.attrs.marker || 'auto'}`} : {class: `ed-ol ed-ol-${n.attrs.marker || 'auto'}`, start: n.attrs.order}, 0]},
-      list_item: {content: 'paragraph block*', defining: true, parseDOM: [{tag: 'li'}], toDOM: () => ['li', 0]},
+      // NOTE-노션편집 ①(나) 할 일 체크: checked draws a ticked box in a 'check' list (a press on the box ticks it: ed-editor click below).
+      list_item: {content: 'paragraph block*', defining: true, attrs: {checked: {default: false}},
+        parseDOM: [{tag: 'li', getAttrs: el => ({checked: el.getAttribute('data-checked') === 'true'})}],
+        toDOM: n => ['li', n.attrs.checked ? {'data-checked': 'true', class: 'ed-done'} : {}, 0]},
+      // NOTE-노션편집 ①(나) 접기: the first paragraph is the ▸ line; open false folds the rest (saved). Drawn by toggleView in the editor.
+      toggle: {group: 'block', content: 'paragraph block*', defining: true, attrs: {open: {default: true}},
+        parseDOM: [{tag: 'div.ed-toggle', contentElement: '.ed-toggle-body', getAttrs: el => ({open: !el.classList.contains('is-closed')})},
+          {tag: 'details', getAttrs: el => ({open: el.hasAttribute('open')})}],
+        toDOM: n => ['div', {class: n.attrs.open ? 'ed-toggle' : 'ed-toggle is-closed'}, ['div', {class: 'ed-toggle-body'}, 0]]},
       horizontal_rule: {group: 'block', parseDOM: [{tag: 'hr'}], toDOM: () => ['hr', {class: 'ed-hr'}]},
       code_block: {group: 'block', content: 'text*', marks: '', code: true, defining: true,
         parseDOM: [{tag: 'pre', preserveWhitespace: 'full'}], toDOM: () => ['pre', {class: 'ed-code'}, ['code', 0]]},
@@ -181,6 +190,9 @@ const BUTTONS = [
   ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['file', '파일', '파일 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
   ['symDot', '· ▾', '점 기호 선택', 'sym'], ['symNote', '※ ▾', '참고 기호 선택', 'sym'], ['symArrow', '→ ▾', '화살표 선택', 'sym'], ['symCircled', '① ▾', '동그라미 번호 선택', 'sym'],
   ['undo', '↶', '되돌리기', 'history'], ['redo', '↷', '다시하기', 'history'],
+  // NOTE-노션편집 ①(나): 블록 편집 켜기·끄기 (only where the opener gives `blocks`). Pressed = on (손잡이 ⋮⋮).
+  // NOTE-블록모드찾기(2026-11-25): a small icon button on the row itself (PHONE_ORDER, before ↶), not inside [문단 ▾] — every width the same place.
+  ['blocks', '블록 모드', '블록 모드', 'blocks'],
 ];
 const PLAIN_PASTE_HINT = '복사한 글의 색·크기·표는 빼고 글자만 붙여요 (Ctrl+Shift+V)';
 const MORE = [
@@ -213,7 +225,7 @@ const GROUPS = [
 ];
 const GROUP_KEYS = GROUPS.map(g => g[0]);
 // UI-화면정리 C(2026-10-28 명진 요청 20:03 B④): 폰도 PC와 같은 [· ▾] 한 칸(따로 있던 [·][▾] 두 칸은 하나로). 점은 펼친 목록 맨 앞.
-const PHONE_ORDER = ['style', 'strong', 'symDot', ...GROUP_KEYS, 'undo', 'redo'];
+const PHONE_ORDER = ['style', 'strong', 'symDot', ...GROUP_KEYS, 'blocks', 'undo', 'redo'];
 // NOTE-노션편집 ①(가): wider than a phone, each group's first buttons (a prefix of its list, in its order) stand on the row before the group button.
 export const PC_OUT = {
   gText: ['em', 'underline', 'strike', 'color', 'highlight'],
@@ -292,7 +304,10 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // lineWidth: NOTE-글폭(S61-21) — true keeps the text lines about 40 letters wide (tables and photos may go wider) with a thin handle at the
 // lines' right end to drag the width (line-width.js; one width for notes, the diary and the big windows, kept on the server). Off by default
 // (the share page editor stays as before).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false} = {}) {
+// blocks: NOTE-노션편집 ①(나) — null, or {on, onToggle(on)}: the block handle ⋮⋮ (drag to move, press for the block menu) and a [블록] switch on the
+//   row. on = start with it on; onToggle is told when the switch is pressed (the opener keeps the choice on the server). Off = the plain text.
+// slash: '/' on an empty line opens the list of blocks to put in (default: where shortcuts are on — notes and their big window).
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -315,6 +330,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (key === 'photo' && !photos) continue;
     // NOTE-파일그림넣기 ④: where the opener has its own attachment row (onFiles: the update windows), [파일] puts the chosen files in that row.
     if (key === 'file' && !files && !onFiles) continue;
+    if (key === 'blocks' && !blocks) continue;
     const b = btn(text, {edCmd: key, edGroup: group}, aria);
     if (lastGroup && group !== lastGroup) b.classList.add('ed-gap');
     lastGroup = group;
@@ -324,7 +340,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       const word = document.createElement('span'); word.className = 'ed-tool-word'; word.textContent = text;
       b.replaceChildren(toolIcon(key), word); b.classList.add('ed-icon-btn'); b.title = aria;
     }
-    if (group === 'mark' || group === 'list') b.setAttribute('aria-pressed', 'false');
+    if (group === 'mark' || group === 'list' || group === 'blocks') b.setAttribute('aria-pressed', 'false');
+    if (key === 'blocks') { const word = document.createElement('span'); word.className = 'ed-tool-word'; word.textContent = text; b.replaceChildren(gripIcon(), word); b.classList.add('ed-icon-btn', 'ed-blocks-btn'); }
     buttons[key] = b; tools.append(b);
   }
   // ED-서식줄묶음: the phone's group buttons. They sit outside the row until a phone needs them.
@@ -789,7 +806,10 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   ] : [];
   // One undo after a shortcut (Backspace right after it, Ctrl+Z or [↶]) gives the typed marks back as letters, "## " included.
   const shortcutKeys = shortcuts ? {Backspace: pm.undoInputRule, 'Mod-z': pm.chainCommands(pm.undoInputRule, pm.undo)} : null;
-  const plugins = [resizePlugin, pm.columnResizing({handleWidth: 6, cellMinWidth: 32, defaultCellMinWidth: 48, View: TableView}),
+  // NOTE-노션편집 ①(나): the '/' list and the folded ▸ line take their keys before the editor's own keymap.
+  let blockPart = null;
+  const blockKeys = new pm.Plugin({props: {handleKeyDown: (v, e) => !!blockPart && blockPart.handleKey(v, e)}});
+  const plugins = [blockKeys, resizePlugin, pm.columnResizing({handleWidth: 6, cellMinWidth: 32, defaultCellMinWidth: 48, View: TableView}),
     pm.history(), ...(shortcuts ? [pm.inputRules({rules: shortcutRules}), pm.keymap(shortcutKeys)] : []),
     pm.keymap(keys), pm.keymap(pm.baseKeymap), pm.gapCursor(), pm.tableEditing(), pastePlugin, endLinePlugin, rowsPlugin];
   let state = pm.EditorState.create({doc, plugins});
@@ -809,7 +829,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const isFileTransfer = data => !!data && ([...(data.types || [])].includes('Files') || (data.files && data.files.length > 0));
   const view = new pm.EditorView(box, {
     state,
-    nodeViews: {image: node => photoView(node), file: node => fileView(node)},
+    nodeViews: {image: node => photoView(node), file: node => fileView(node), toggle: (node, v, getPos) => toggleView(node, v, getPos)},
     attributes: {class: 'ed-doc ed-input', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label, spellcheck: 'false',
       ...(placeholder ? {'data-placeholder': placeholder} : {})},
     transformPastedHTML: html => cleanPastedHtml(html, outsidePaste?.text || ''),
@@ -913,8 +933,32 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       } else view.updateState(next);
       if (tr.docChanged) onChange?.(getValue());
       paint();
+      blockPart?.update();
     },
   });
+  // NOTE-노션편집 ①(나) 할 일 체크: a press on an item's box (left of its text) ticks or unticks it — on or off 블록 편집, one undo step.
+  view.dom.addEventListener('click', e => {
+    const li = e.target.closest?.('li');
+    if (!li || !view.dom.contains(li) || !li.parentElement?.classList.contains('ed-ul-check')) return;
+    const first = li.firstElementChild, r = (first || li).getBoundingClientRect();
+    if (e.clientX >= r.left - 2) return;
+    let at; try { at = view.posAtDOM(li, 0); } catch { return; }
+    const $p = view.state.doc.resolve(at);
+    for (let d = $p.depth; d > 0; d--) {
+      const node = $p.node(d);
+      if (node.type !== N.list_item) continue;
+      e.preventDefault();
+      view.dispatch(view.state.tr.setNodeMarkup($p.before(d), null, {...node.attrs, checked: !node.attrs.checked}));
+      return;
+    }
+  });
+  // NOTE-노션편집 ①(나): the block parts (handle ⋮⋮ and its menu, the '/' list). Made for the openers that ask (notes); none elsewhere.
+  if (blocks || slash) {
+    blockPart = mountBlocks({pm, view, schema, root, box, bar, handles: !!blocks?.on, slash,
+      insert: {block: node => insertBlock(node), table: () => insertBlock(newTable(2, 2)), photo: photos ? () => pickPhotos() : null},
+      changed: () => syncBox()});
+    root.classList.add('ed-has-blocks');
+  }
   // NOTE-글폭(S61-21): 글 줄 폭 묶음은 바로(.line-w), 손잡이는 부품을 불러온 뒤 붙인다(공유 페이지 편집기는 부르지 않음).
   let lineGrip = null, lineGone = false;
   if (lineWidth) {
@@ -1229,6 +1273,31 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const notePhotoLater = () => showNote(photos && !files ? '사진 파일만 넣을 수 있어요.' : !photos && files ? '이 글에는 사진을 넣을 수 없어요. [파일]로 넣어 주세요.'
     : '이 글에는 사진·파일을 넣을 수 없어요. 공유 페이지·노트 글쓰기에서 넣을 수 있어요.');
   // A photo in the text: our own id only. A saved place (no src) or a photo without an address shows as a place.
+  // NOTE-노션편집 ①(나) 접기: [▸] before the first line opens or folds the rest (saved on the block; ↶ undoes it).
+  function toggleView(node, v, getPos) {
+    const dom = document.createElement('div'), btnEl = document.createElement('button'), body = document.createElement('div');
+    // UI-접기꺾쇠: the site's one fold sign (⌄ folded, ⌃ open — turned by aria-expanded, ui-standard.css), not a triangle.
+    btnEl.type = 'button'; btnEl.className = 'ed-toggle-btn'; btnEl.contentEditable = 'false';
+    btnEl.append(Object.assign(document.createElement('i'), {className: 'kptu-chev'})); btnEl.firstChild.setAttribute('aria-hidden', 'true');
+    body.className = 'ed-toggle-body';
+    dom.append(btnEl, body);
+    const show = n => { dom.className = n.attrs.open ? 'ed-toggle' : 'ed-toggle is-closed'; btnEl.setAttribute('aria-expanded', String(n.attrs.open)); btnEl.setAttribute('aria-label', n.attrs.open ? '접기' : '펼치기'); };
+    show(node);
+    btnEl.addEventListener('mousedown', e => e.preventDefault());
+    btnEl.addEventListener('click', e => {
+      e.preventDefault();
+      const pos = getPos(); if (typeof pos !== 'number') return;
+      const cur = v.state.doc.nodeAt(pos); if (!cur) return;
+      const tr = v.state.tr.setNodeMarkup(pos, null, {...cur.attrs, open: !cur.attrs.open});
+      // Folding with the cursor inside the hidden part: the cursor goes to the end of the ▸ line.
+      const sel = v.state.selection, head = pos + 1 + cur.firstChild.nodeSize;
+      if (cur.attrs.open && sel.from > head && sel.from < pos + cur.nodeSize) tr.setSelection(pm.TextSelection.create(tr.doc, head - 1));
+      v.dispatch(tr);
+    });
+    return {dom, contentDOM: body,
+      update(n) { if (n.type !== node.type) return false; node = n; show(n); return true; },
+      stopEvent: e => btnEl.contains(e.target), ignoreMutation: m => btnEl.contains(m.target)};
+  }
   function photoView(node) {
     const dom = document.createElement('figure');
     dom.contentEditable = 'false';
@@ -1311,7 +1380,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (!file || !uploadJobs().some(job => job.file === file && job.phase === 'failed')) { showNote((e && e.message) || `${what}을 올리지 못했어요.`); return; }
     const canRetry = file && (!e?.code || !['note_save_result_unknown', 'note_changed'].includes(e.code));
     upNote = announceDock({text: `${what}을 올리지 못했어요`, note: (e && e.message) || '', error: true, ms: 0, files: file ? [file] : [],
-      actions: canRetry ? [{label: '다시 올리기', aria: `못 올린 ${what} 다시 올리기`, run: () => { if (!view.isDestroyed) void again([file]); }}] : []});
+      actions: canRetry ? [{label: '다시 업로드', aria: `못 올린 ${what} 다시 업로드`, run: () => { if (!view.isDestroyed) void again([file]); }}] : []});
   }
   async function photosIn(pictures) {
     const room = (photos.max || 40) - photoCount();
@@ -1475,6 +1544,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     rule: () => insertBlock(N.horizontal_rule.create()),
     nowStamp: () => view.dispatch(view.state.tr.insertText(nowText()).scrollIntoView()),
     photo: () => pickPhotos(),
+    blocks: () => setBlocks(!blockPart?.isOn(), true),
     file: () => pickFiles(),
     indent: () => pm.chainCommands(pm.sinkListItem(N.list_item), indentBy(1))(view.state, view.dispatch),
     outdent: () => pm.chainCommands(pm.liftListItem(N.list_item), indentBy(-1))(view.state, view.dispatch),
@@ -1514,7 +1584,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const vv = window.visualViewport;
     const view0 = {l: vv ? vv.offsetLeft : 0, t: vv ? vv.offsetTop : 0, w: vv ? vv.width : innerWidth, h: vv ? vv.height : innerHeight};
     const gap = 4, side = 8, bottomRoom = view0.w <= 760 ? 72 : 12;
-    pop.style.maxHeight = ''; pop.style.maxWidth = '';
+    pop.style.maxHeight = ''; pop.style.maxWidth = ''; pop.style.overflowY = '';
     if (pop.getBoundingClientRect().width > view0.w - side * 2) pop.style.maxWidth = `${Math.max(120, view0.w - side * 2)}px`;
     pop.style.left = '0px'; pop.style.top = '0px';
     const t = trigger.getBoundingClientRect(), size = pop.getBoundingClientRect();
@@ -1527,6 +1597,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     // (A button inside a scrolled group popover can sit above the screen's top: the popover stays on the screen.)
     const top = Math.max(ceiling, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
     pop.style.maxHeight = `${room}px`;
+    // NOTE-블록모드찾기(2026-11-25): a list that fits shows no scroll bar. Its buttons' 44px press area (::after) reaches a few px past the box
+    // edge, which alone made the list "scroll" with every item already in view; it scrolls only when the list is taller than the room.
+    pop.style.overflowY = size.height <= room ? 'hidden' : '';
     // (The left floor is the screen's side margin, or the button's own left when the button sits closer to the edge, so a popover
     // under the first button of a tight phone row still starts on that button.)
     const left = Math.max(view0.l + Math.min(side, Math.max(0, t.left - view0.l)), Math.min(t.left, view0.l + view0.w - side - size.width));
@@ -1565,7 +1638,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // ED③-창: any open panel or the cell menu counts as a small box. Coalesced into one call per event so closing one box to open another
   // (a panel then the cell menu) reaches onBox as a single "open".
   let boxWas = false, boxQueued = false;
-  const boxOpen = () => !!openName || !ctx.hidden;
+  const boxOpen = () => !!openName || !ctx.hidden || !!blockPart?.isOpen();
   const syncBox = () => {
     if (!onBox || boxQueued) return;
     boxQueued = true;
@@ -1615,7 +1688,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
   function closeBoxes() {
     if (!boxOpen()) return false;
-    closeCtx(false); closePanels();
+    closeCtx(false); closePanels(); blockPart?.close();
     return true;
   }
   ctx.addEventListener('click', e => {
@@ -1775,8 +1848,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       if (panels[k].childElementCount !== inside.length || inside.some((b, i) => panels[k].children[i] !== b)) panels[k].replaceChildren(...inside);
       buttons[k].hidden = n >= items.length;
     }
-    // A small gap before each part: [단계] | 굵게 · | each group | ↶ ↷.
-    const starts = new Set([buttons.strong, buttons.undo]);
+    // A small gap before each part: [단계] | 굵게 · | each group | [⋮⋮ 블록 모드] ↶ ↷.
+    const starts = new Set([buttons.strong, buttons.blocks || buttons.undo]);
     for (const k of GROUP_KEYS) starts.add(groupItems(k).slice(0, outCount[k] || 0)[0] || buttons[k]);
     for (const b of Object.values(buttons)) b.classList.remove('ed-gap');
     for (const b of row) if (starts.has(b)) b.classList.add('ed-gap');
@@ -1894,14 +1967,25 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
 
   function getValue() { return cleanDoc({v: 'ed1', doc: view.state.doc.toJSON()}); }
+  // NOTE-노션편집 ①(나): 블록 편집 on/off. pressed = from the [블록] switch (the opener is told, to keep the choice).
+  function setBlocks(next, pressed = false) {
+    if (!blockPart || !blocks) return false;
+    blockPart.setOn(!!next);
+    buttons.blocks?.setAttribute('aria-pressed', String(blockPart.isOn()));
+    if (pressed) blocks.onToggle?.(blockPart.isOn());
+    syncBox();
+    return blockPart.isOn();
+  }
   function isEmpty() {
     const d = view.state.doc;
     return d.childCount === 1 && d.firstChild.type === N.paragraph && d.firstChild.content.size === 0;
   }
   syncLayout();
   paint();
+  if (blocks) setBlocks(!!blocks.on);
   return {
     view, root, getValue, isEmpty, closeBoxes, hasBox: boxOpen,
+    setBlocks: on => setBlocks(on), blocksOn: () => !!blockPart?.isOn(),
     getText: () => toPlain(getValue()),
     // ED③ 노트: put a whole saved form in (the big window hands its text back to the note's edit field). A fresh undo history.
     setValue(next) {
@@ -1923,7 +2007,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       window.visualViewport?.removeEventListener('scroll', followPop);
       window.removeEventListener('mouseup', release, true);
       stopUploads(); upRows.destroy(); for (const url of upPreview.values()) URL.revokeObjectURL(url); upPreview.clear();
-      lineGone = true; lineGrip?.destroy();
+      lineGone = true; lineGrip?.destroy(); blockPart?.destroy();
       view.destroy();
       if (leadAt?.parent?.isConnected) leadAt.parent.insertBefore(lead, leadAt.next?.parentNode === leadAt.parent ? leadAt.next : null);
       root.remove();

@@ -71,7 +71,8 @@ test('app-e2e-check still decides on draft PRs and only skips the shards and the
   assert.equal(jobIf(blocks.changes), undefined);
   assert.equal(jobIf(blocks['browser-e2e-shard']), `needs.changes.outputs.e2e == 'true' && (${DRAFT})`);
   // OPS-작업속도: 시작 시간 측정은 shard 1에서 떼어 따로 돌지만, 판정 job이 결과를 함께 본다.
-  assert.equal(jobIf(blocks['startup-benchmark']), `needs.changes.outputs.e2e == 'true' && (${DRAFT})`);
+  // OPS-시험줄(S70-39): 시작 시간 측정은 전체 시험일 때만 돈다(관련 시험만 도는 PR은 merge queue에서).
+  assert.equal(jobIf(blocks['startup-benchmark']), `needs.changes.outputs.full == 'true' && (${DRAFT})`);
   assert.match(blocks['browser-e2e'], /needs: \[changes, browser-e2e-shard, startup-benchmark\]/);
   assert.match(blocks['browser-e2e'], /test "\$BENCHMARK_RESULT" = "success"/);
   assert.equal(jobIf(blocks['browser-e2e']), `always() && (${DRAFT})`);

@@ -2,8 +2,8 @@
 // [▥ 두 칸]을 켜면(서버 view_prefs.library_two, 없으면 켬) PC·펼친 폴드(600px~)의 폴더 묶기에서 왼쪽 나무 대신 두 칸이 같은 목록이다:
 // 칸마다 위치 줄(‹ 자료실 › 궤도 › 회의)·정렬, 폴더 줄 + 자료 줄. 맨 위(자료실)는 맨 위 폴더 + 폴더 밖 자료.
 // LIB-두칸폴더펼치기(S56-40, 명진 11/10 18:25): 폴더 줄을 누르면 들어가지 않고 그 칸 안에서 나무처럼 펼치기·접기(하위 폴더·자료가 들여 보임).
-// 그 폴더만 보기(들어가기)는 PC = 우클릭 [이 폴더로 들어가기](library-folders.js), 손가락 화면 = 펼친 폴더 위 두 손가락 벌리기(folder-pinch.js).
-// UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 칸 안에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯·우클릭 첫 줄 [이 폴더로 들어가기]·두 손가락만.
+// 그 폴더만 보기(들어가기)는 PC = 우클릭 [이 폴더로 들어가기](library-folders.js).
+// UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 칸 안에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯·우클릭 첫 줄 [이 폴더로 들어가기]만.
 // S69-68 UI-두칸따로(명진 11/24 20:14 '우측에서의 폴더조작이 왼쪽에 영향 안미치게 반대로도. 원래 따로 조작하는게 의도임'):
 //  펼침은 칸마다 따로 적는다(own[i] — 화면 메모리, 기기 저장 없음). 칸에서 펼치거나 접은 적 없는 폴더만 한 칸 목록 펼침(luOpened·거르기 펼침 — isOpen)을 따른다.
 //  지금 폴더도 칸마다 따로(왼쪽 = left, 오른쪽 = luInFolder) — 한 칸에서 펼치기·접기·들어가기를 해도 다른 칸은 그대로.
@@ -146,7 +146,7 @@ export function createLibraryTwo(h) {
     const steps = (cut.hidden.length
       ? [one(cut.head[0], 0), moreStepHtml(cut.hidden, {cls: 'row-act lu-pane-step', attr: 'data-lu-pane-go', esc: h.esc, sep: ''}), ...cut.tail.map((t, k) => one(t, trail.length - cut.tail.length + k))]
       : trail.map(one)).join(sep);
-    const up = id ? `<button type="button" class="icon-btn lu-pane-up" data-lu-pane-up aria-label="${side} 칸 위 폴더로" title="위 폴더로 (Backspace)">‹</button>` : '';
+    const up = id ? `<button type="button" class="icon-btn fp-up lu-pane-up" data-lu-pane-up aria-label="${side} 칸 위 폴더로" title="위 폴더로 (Backspace)">‹</button>` : '';
     const sort = `<select class="lu-pane-sort" data-lu-pane-sort aria-label="${side} 칸 정렬">${SORTS.map(([v, l]) => `<option value="${v}"${v === sorts[i] ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
     const node = c.node || {key: id ? 'f:' + id : OUT_KEY};
     const rows = paneRows({...c, node}, paneOpen(i), sorts[i]).map(r => (r.kind === 'folder' ? folderRow(r) : r.kind === 'out' ? outRow(r) : r.kind === 'empty' ? emptyIn(r) : filesHtml(r))).join('');
@@ -211,7 +211,7 @@ export function createLibraryTwo(h) {
       const step = e.target.closest('[data-lu-pane-go]');
       if (step) { e.preventDefault(); go(i, step.dataset.luPaneGo || null); focusHead(i); return; }
       if (e.target.closest('[data-lu-pane-up]')) { e.preventDefault(); const f = h.folders().find(x => x.id === where(i)); go(i, f?.parent_id || null); focusHead(i); return; }
-      // 폴더 줄 누르기 = 그 칸 안에서 펼치기·접기(들어가지 않음). 들어가기는 ⋯·우클릭 메뉴 첫 줄 [이 폴더로 들어가기]·두 손가락.
+      // 폴더 줄 누르기 = 그 칸 안에서 펼치기·접기(들어가지 않음). 들어가기는 ⋯·우클릭 메뉴 첫 줄 [이 폴더로 들어가기].
       // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 펼친다(안에 '빈 폴더' 한 줄) — 전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 열기'는 없앴다.
       const nav = e.target.closest('[data-lu-nav]');
       if (nav && !e.target.closest('input')) {
@@ -254,12 +254,12 @@ export function createLibraryTwo(h) {
   const reveal = keys => { openIn(cur, keys); h.render(); };
   // [폴더로 가기]·최근 줄: 그 자료가 보이도록 칸 i에서만 위 단까지 펼침(다시 그리기는 부르는 쪽).
   const openIn = (i, keys) => { for (const k of keys) own[i === 1 ? 1 : 0].set(k, true); };
-  // 그 폴더만 보기(들어가기): 우클릭 [이 폴더로 들어가기]·두 손가락 벌리기. el이 있는 칸(없으면 지금 칸)에서 들어간다.
+  // 그 폴더만 보기(들어가기): 우클릭 [이 폴더로 들어가기]. el이 있는 칸(없으면 지금 칸)에서 들어간다.
   function enter(id, el = null) {
     const p = el ? frame.paneOf(el) : -1, i = p >= 0 ? p : cur;
     setCur(i); go(i, id || null); focusHead(i);
   }
-  // 두 손가락 오므리기: 그 칸의 한 단계 위로.
+  // 그 칸의 한 단계 위로([‹]·뒤로 키).
   function up(el = null) {
     const p = el ? frame.paneOf(el) : -1, i = p >= 0 ? p : cur, here = where(i);
     if (!here) return;

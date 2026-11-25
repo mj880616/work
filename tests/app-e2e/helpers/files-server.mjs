@@ -299,22 +299,24 @@ export async function openFiles(page, width, { two = false } = {}) {
   }
 }
 
-// FOLDER-나무새기준 ②(S51-12): 폰 나무는 그 자리 펼치기라 폴더 목록(그 폴더만)은 두 손가락 벌리기로 연다. id 없음 = 저장소 맨 위(상자 머리 위에서).
+// 폰 나무는 그 자리 펼치기라 폴더 목록(그 폴더만)은 ⋯ 첫 줄 [이 폴더로 들어가기]로 연다(UI-폴더줄크기 S69-99: 두 손가락은 줄 크기).
+// id 없음 = 저장소 맨 위(상자 머리 ⋯).
 export async function phoneFolder(page, source, id = '') {
-  const { pinch } = await import('./pinch.mjs');
   const tree = page.locator('#filesRoot [data-fx-tree]');
-  await pinch(page, id ? tree.locator(`[data-fx-fold="${source}:${id}"]`) : tree.locator(`[data-fx-box="${source}"] .ft-box-head`), 'out');
+  const more = id ? tree.locator(`[data-fx-fold="${source}:${id}"] [data-fx-tmenu]`).first() : tree.locator(`[data-fx-box="${source}"] [data-fx-boxmenu]`);
+  await more.click();
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect(tree).toBeHidden();
   // '그 폴더만' 상자는 0.2초 동안 줄 자리에서 올라온다(folder-focus-motion.js riseFromRow). 움직이는 동안 누르면 줄이 아직
   // 제자리에 오지 않아 위 머리줄(폴더 이름)이 눌릴 수 있으므로, 움직임이 끝난(다 그려진) 뒤 돌려준다(STAB-main화면시험흔들림).
   await page.waitForFunction(() => document.getAnimations().every(a => a.constructor !== Animation || a.playState !== 'running'));
 }
-// 나무에서 그 폴더 목록 열기: 넓은 화면은 나무 줄 이름을 누르고, 폰(상자 나무)은 두 손가락 벌리기.
+// 나무에서 그 폴더 목록 열기: 넓은 화면은 나무 줄 이름을 누르고, 폰(상자 나무)은 ⋯ [이 폴더로 들어가기].
 export async function treeGo(page, source, id = '') {
   const go = page.locator(`#filesRoot [data-fx-tree] [data-fx-go="${source}"][data-fx-id="${id}"]`).first();
   const box = page.locator(`#filesRoot [data-fx-tree] [data-fx-box="${source}"]`);
-  // 두 손가락 길은 폰 한 칸 나무(data-fx-pane="tree")에서만. 넓은 화면도 저장소 상자가 먼저 보이므로(나무 줄은 폴더를 읽은 뒤)
-  // 상자만 보고 고르면 줄이 그려지기 전에 넓은 화면에서 벌리기를 해 나무가 그대로 남는다(STAB-폰파일판).
+  // ⋯ 길(phoneFolder)은 폰 한 칸 나무(data-fx-pane="tree")에서만. 넓은 화면도 저장소 상자가 먼저 보이므로(나무 줄은 폴더를 읽은 뒤)
+  // 상자만 보고 고르면 줄이 그려지기 전에 넓은 화면에서 상자 ⋯를 찾아 나무가 그대로 남는다(STAB-폰파일판).
   const phoneTree = () => page.locator('#filesRoot[data-fx-pane="tree"]').count().then(n => n > 0);
   await expect.poll(async () => (await go.isVisible()) || ((await box.isVisible()) && (await phoneTree()))).toBe(true);
   if (await go.isVisible()) {
@@ -328,16 +330,22 @@ export async function treeGo(page, source, id = '') {
   } else await phoneFolder(page, source, id);
 }
 
-// OPS-빠진일2차 1(S59-17): 목록 칸 폴더 누르기 = 그 자리 펼치기·접기(하위 폴더가 없으면 한 번에 열기). 그 폴더로 '들어가기'를 시험할 때는 이 도우미:
-// 761px~ = 우클릭 [이 폴더로 들어가기], 그 아래(폴드 좁은 폭·폰) = 눌러 펼친 뒤 그 폴더 위 두 손가락 벌리기(하위 폴더가 없으면 누르기만으로 열린다).
+// 목록 칸 폴더 누르기 = 그 자리 펼치기·접기. 그 폴더로 '들어가기'를 시험할 때는 이 도우미:
+// 761px~ = 우클릭 [이 폴더로 들어가기], 그 아래(폴드 좁은 폭·폰) = 그 줄 ⋯ 첫 줄 [이 폴더로 들어가기](UI-폴더줄크기 S69-99: 두 손가락은 줄 크기).
 export async function enterRow(page, row) {
   if (await page.evaluate(() => matchMedia('(min-width:761px)').matches)) {
     await row.click({ button: 'right' });
     await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
     return;
   }
-  const { pinch } = await import('./pinch.mjs');
-  await row.click();
-  await expect.poll(async () => (await row.count()) === 0 || (await row.getAttribute('aria-expanded')) === 'true').toBe(true);
-  if (await row.count()) await pinch(page, row, 'out');
+  const more = row.locator('xpath=ancestor-or-self::*[contains(concat(" ",normalize-space(@class)," ")," ft-row ")][1]').locator('[data-fx-tmenu]').first();
+  if (await more.count()) {
+    await more.click();
+    await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
+    return;
+  }
+  // ⋯가 없는 목록 줄(폰 두 칸·좁은 폴드): 꾹 눌러(마우스 화면은 Ctrl+누르기) 고른 뒤 고르기 막대 첫 단추 [들어가기].
+  if (await page.evaluate(() => matchMedia('(hover: none) and (pointer: coarse)').matches)) { const { touchDrag } = await import('./touch-drag.mjs'); await touchDrag(page, row); }
+  else await row.click({ modifiers: ['Control'] });
+  await page.locator('#filesRoot [data-fx-enter-picked]').click();
 }

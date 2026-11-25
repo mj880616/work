@@ -7,7 +7,7 @@
 //     파일이 많으면 처음 FT_PREVIEW개 + 'n개 더 보기'(ftMoreRowHtml).
 //  ⑤ 휴지통은 상자 맨 아래 회색 줄(ftTrashRowHtml). ⑥ 색을 정한 폴더는 아이콘 색(data-fc, folder-look.css). ⑦ 꺼 둔 폴더는 흐리게 + '끔'.
 //  ⑨ 점(●)은 없다(종류 점·색 점을 그리지 않는다).
-// 줄을 누르는 동작·상태(어느 폴더가 열렸나)는 각 화면의 상태 주인이 갖고, 이 파일은 HTML만 만든다. 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
+// 줄을 누르는 동작·상태(어느 폴더가 열렸나)는 각 화면의 상태 주인이 갖고, 이 파일은 HTML만 만든다. 두 손가락은 줄 크기(folder-pinch.js, S69-99).
 import {folderIndent} from './folder-limits.mjs';
 import {folderShapeHtml, colorOf} from './folder-look-model.mjs';
 import {chevHtml} from './fold-chevron.mjs';
@@ -19,8 +19,6 @@ await partStyles('folder-tree-ui');
 
 // 펼친 폴더에 처음 보이는 파일(노트·사진) 수. 나머지는 'n개 더 보기'.
 export const FT_PREVIEW = 5;
-// 두 손가락으로 그 폴더만 볼 수 있다는 짧은 안내(손가락으로 쓰는 화면에서만 CSS가 보인다).
-export const FT_PINCH_HINT = '두 손가락 벌리면 이 폴더만';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const attrsHtml = attrs => Object.entries(attrs || {}).filter(([, v]) => v !== undefined && v !== null && v !== false)
@@ -53,6 +51,7 @@ export function ftMoreButtonHtml({attrs = {}, label = '메뉴', className = ''} 
 //  top(S69-90): 맨 위 단계 모양(구분선·굵은 이름)을 depth와 따로 정할 때(사진 PC 나무는 맨 위 줄 아래 한 단계까지 굵게). 없으면 depth === 0.
 //  nameTail(S69-90): 이름 뒤 같은 칸에 붙일 작은 글자 HTML(사진 ' · 자리'·'백업 안 됨'). 부르는 쪽이 이미 이스케이프한 HTML만 넘긴다.
 //  after(UI-폴더목록한모양 S69-90): 줄 단추와 ⋯ 사이에 둘 그 화면만의 칸(사진 '사진에 보이기' 스위치 등). 없으면 없음.
+//  이름 칸(.ft-name)에는 늘 전체 이름 title(UI-긴폴더이름 S70-19, 표준 L2): 좁은 나무에서 … 로 잘려도 마우스를 올리면 전체 이름이 보인다. nameTail은 넣지 않는다.
 //  고른 줄(picked)은 [파일]과 같은 표시 — 옅은 강조 바탕 + 왼쪽 진한 세로줄(folder-tree.css .ft-picked). 줄 앞 체크칸은 두지 않는다.
 export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0, open = false, hasContent = true, color = null, off = false,
   current = false, picked = false, lead = '', rowAttrs = {}, mainAttrs = {}, more = null, tree = false, className = '', mainClass = '', icon = null, toggle = null, tag = '', after = '', top: topLook = null, nameTail = ''}) {
@@ -65,14 +64,14 @@ export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0,
     ? `<button type="button" class="ft-btn ft-tog"${attrsHtml(toggle.attrs)} aria-expanded="${shown}" aria-label="${esc(toggle.label || `${name} ${shown ? '접기' : '펼치기'}`)}">${ico}</button>`
     : `<span class="ft-tog ft-tog-none">${ico}</span>`;
   return `<div class="${cls}"${attrsHtml(rowAttrs)} style="--ft-depth:${ftDepth(depth)}"${tree ? ' role="treeitem"' : ''}>${tog}`
-    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name">${esc(name)}${nameTail}</span>${num}${tag ? `<span class="ft-tag">${esc(tag)}</span>` : ''}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
+    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name" title="${esc(name)}">${esc(name)}${nameTail}</span>${num}${tag ? `<span class="ft-tag">${esc(tag)}</span>` : ''}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
     + `${after}${more ? ftMoreButtonHtml(more) : ''}</div>`;
 }
 
 // 'n개 더 보기' 줄(펼친 폴더 안 파일이 FT_PREVIEW개를 넘을 때). attrs: 누르면 그 폴더를 다 보이게 하는 data 이름과 값.
-// hint: 두 손가락 안내를 붙일지(손가락 화면에서만 보임).
-export function ftMoreRowHtml({rest, depth = 1, attrs = {}, hint = true} = {}) {
-  return `<button type="button" class="ft-btn ft-row ft-more-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${esc(rest)}개 더 보기${hint ? `<span class="ft-hint"> · ${FT_PINCH_HINT}</span>` : ''}</button>`;
+// UI-폴더줄크기(S69-99): 전의 두 손가락 안내(' · 두 손가락 벌리면 이 폴더만')는 없앴다 — 두 손가락은 줄 크기, 들어가기는 ⋯로만.
+export function ftMoreRowHtml({rest, depth = 1, attrs = {}} = {}) {
+  return `<button type="button" class="ft-btn ft-row ft-more-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${esc(rest)}개 더 보기</button>`;
 }
 
 // UI-폴더이름펼치기(명진 11/24 18:09): 그 자리 펼치는 목록에서 빈 폴더를 펼치면 그 아래 '빈 폴더' 한 줄(들어가지 않는다). attrs: 그 화면의 표시(예 data-ft-parent).

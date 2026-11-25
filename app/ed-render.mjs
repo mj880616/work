@@ -78,7 +78,24 @@ function block(n) {
       if (a.order && a.order !== 1) ol.setAttribute('start', String(a.order));
       return ol;
     }
-    case 'list_item': return blocks(make('li'), n.content);
+    // NOTE-노션편집 ①(나) 할 일 체크: a ticked item reads ticked (ed-doc.css draws the box; reading never changes it).
+    case 'list_item': {
+      var li = blocks(make('li', a.checked ? 'ed-done' : ''), n.content);
+      if (a.checked) li.setAttribute('data-checked', 'true');
+      return li;
+    }
+    // NOTE-노션편집 ①(나) 접기: <details> (a reader opens and closes it, no script), its first paragraph the fold line. Saved folded = closed.
+    case 'toggle': {
+      var det = make('details', 'ed-toggle');
+      if (a.open !== false) det.setAttribute('open', '');
+      var list = n.content || [], head = list[0], sum = make('summary', 'ed-toggle-sum');
+      if (head && head.type === 'paragraph') textBlock(sum, head.content); else sum.appendChild(make('br', 'ed-trail'));
+      // UI-접기꺾쇠: the site's one fold sign (turned when the <details> is open, ui-standard.css; the share page has its own copy of the look).
+      var chev = make('i', 'kptu-chev'); chev.setAttribute('aria-hidden', 'true'); sum.insertBefore(chev, sum.firstChild);
+      det.appendChild(sum);
+      det.appendChild(blocks(make('div', 'ed-toggle-body'), head && head.type === 'paragraph' ? list.slice(1) : list));
+      return det;
+    }
     case 'horizontal_rule': return make('hr', 'ed-hr');
     case 'code_block': {
       var pre = make('pre', 'ed-code'), text = '';

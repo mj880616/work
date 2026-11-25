@@ -804,7 +804,9 @@ class MainActivity : ComponentActivity() {
                 !micGranted() -> postRec("rec:denied")
                 !RecordHub.begin(m) -> postRec("rec:busy")
                 else -> try {
-                    ContextCompat.startForegroundService(this, RecorderService.intent(this, RecorderService.ACTION_START))
+                    // S70-45: 플레이 판은 앞쪽 서비스가 없어 보통 서비스로 연다(앱이 켜진 동안만 녹음).
+                    if (BuildConfig.FG_SERVICES) ContextCompat.startForegroundService(this, RecorderService.intent(this, RecorderService.ACTION_START))
+                    else startService(RecorderService.intent(this, RecorderService.ACTION_START))
                 } catch (_: Exception) {
                     RecordHub.failStart()
                 }
@@ -969,6 +971,12 @@ class MainActivity : ComponentActivity() {
      * trash:<번호들> = 폰 휴지통으로(안드로이드 11+, 시스템 확인 창). 목록·그림은 __phone 가로채기(PhoneMedia.serve)로만 준다.
      */
     private fun onPhotoMessage(data: String, reply: JavaScriptReplyProxy) {
+        // S70-45: 플레이 판은 사진 권한이 없다(PHONE_GALLERY=false). 어떤 photos: 요청에도 '이 판에는 폰 사진 없음' 상태만 답해 웹이 '폰 사진'을 그리지 않게 한다.
+        if (!BuildConfig.PHONE_GALLERY) {
+            photoReply = reply
+            postPhotos(PhoneMedia.stateMessage(this))
+            return
+        }
         if (data.startsWith("photos:meta:")) {
             photoReply = reply
             onMetaMessage(data)
@@ -1603,6 +1611,8 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         AppUpdater.onBackground(this)
+        // S70-45: 플레이 판은 앞쪽 서비스가 없어 화면을 나가면 마이크가 막힌다. 빈 소리가 녹음되지 않게 나갈 때 일시정지한다(돌아와서 [이어서]).
+        if (!BuildConfig.FG_SERVICES && RecordHub.session()?.state == RecordRules.State.RECORDING) recService(RecorderService.ACTION_PAUSE)
         // 앱을 닫거나 뒤로 보낼 때 위젯을 한 번 새로 그린다(같은 이름 작업은 KEEP).
         if (WidgetHub.session(this).signedIn() && HomeWidgets.any(this)) WidgetJobs.refreshNow(this)
     }

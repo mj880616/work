@@ -8,6 +8,12 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
+import { pinch } from './helpers/pinch.mjs';
+import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
+import { readFileSync } from 'node:fs';
+// 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
+const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
+import { askBox, dragAsk, askTextSpot } from './helpers/confirm-drag.mjs';
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
 // 이름은 모두 지어낸 것이다. 서버 쓰기는 없다(가짜 서버).
@@ -18,19 +24,19 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 const N = 6;
 
 // ---------- 화면 열기(나무가 있는 화면) ----------
-async function library(page, width) {
-  const folders = Array.from({ length: N }, (_, i) => libFolder('f' + i, null, { name: '가상 폴더 ' + i, sort_order: 1024 * (i + 1) }));
+async function library(page, width, { first = '' } = {}) {
+  const folders = Array.from({ length: N }, (_, i) => libFolder('f' + i, null, { name: (i === 0 && first) || '가상 폴더 ' + i, sort_order: 1024 * (i + 1) }));
   const r = await bootLibrary(page, width, { folders, items: [] });
   await page.locator('#libraryGroupBy').selectOption({ label: '폴더' });
-  return { errors: r.errors, tree: page.locator('#libraryFolderNav [role="tree"]'), main: '.ft-row .ft-main' };
+  return { errors: r.errors, prefs: () => r.s.viewPrefs, tree: page.locator('#libraryFolderNav [role="tree"]'), main: '.ft-row .ft-main' };
 }
-async function notes(page, width) {
+async function notes(page, width, { first = '' } = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await openHome(page);
   await installViewPrefsServer(page);
-  const folders = Array.from({ length: N }, (_, i) => ({ id: U(100 + i), workspace_id: 'w', parent_id: null, name: '가상 폴더 ' + i, sort_order: 1024 * (i + 1), created_at: '2026-10-01T00:00:00Z' }));
+  const folders = Array.from({ length: N }, (_, i) => ({ id: U(100 + i), workspace_id: 'w', parent_id: null, name: (i === 0 && first) || '가상 폴더 ' + i, sort_order: 1024 * (i + 1), created_at: '2026-10-01T00:00:00Z' }));
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 500, json: {} }));
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.request().method() === 'GET' ? r.fulfill({ json: structuredClone(folders) }) : r.fulfill({ status: 500, json: {} }));
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
@@ -38,8 +44,8 @@ async function notes(page, width) {
   await chooseBasketKind(page, 'note');
   return { errors, tree: page.locator('[data-nx-tree][role="tree"]'), main: '.ft-row .ft-main' };
 }
-async function photos(page, width) {
-  const folders = Array.from({ length: N }, (_, i) => ({ id: 'S' + i, name: '가상 폴더 ' + i, parent_id: 'T' }));
+async function photos(page, width, { first = '' } = {}) {
+  const folders = Array.from({ length: N }, (_, i) => ({ id: 'S' + i, name: (i === 0 && first) || '가상 폴더 ' + i, parent_id: 'T' }));
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width, height: 900 });
@@ -61,6 +67,30 @@ async function photos(page, width) {
   return { errors, tree: page.locator('#photosRoot [data-photos-fx-tree][role="tree"]'), main: '.ft-row .ft-main' };
 }
 const SCREENS = [['자료실', library], ['노트', notes], ['사진', photos]];
+
+// L2(UI-긴폴더이름 S70-19): PC 나무에서 … 로 잘린 폴더 이름은 마우스를 올리면 전체 이름이 보인다(이름 칸 title = 전체 이름).
+// 공용 줄 app/folder-tree-ui.mjs ftFolderRowHtml 한 곳. 새 나무 화면이 생기면 LONG_SCREENS에 한 줄 더한다({tree, name 그 폴더 이름 칸}).
+const LONG = '가상 "아주" 긴 폴더 & 이름 '.repeat(4) + '끝';
+async function filesLong(page, width) {
+  const { errors, server } = await startFiles(page, width);
+  server.items.find(i => i.item_id === 'OD!1').name = LONG;
+  await openFiles(page, width);
+  const tree = page.locator('#filesRoot [data-fx-tree]');
+  return { errors, name: tree.locator('[data-fx-fold="od:OD!1"] .ft-name') };
+}
+const longOf = open => async (page, width) => {
+  const { errors, tree } = await open(page, width, { first: LONG });
+  return { errors, name: tree.locator('.ft-row .ft-name').filter({ hasText: '끝' }).first() };
+};
+const LONG_SCREENS = [['자료실', longOf(library)], ['파일', filesLong], ['노트', longOf(notes)], ['사진', longOf(photos)]];
+for (const [name, open] of LONG_SCREENS) test(`L2 ${name} PC 1280: 잘린 폴더 이름에 전체 이름(title)`, async ({ page }) => {
+  const s = await open(page, 1280);
+  await expect(s.name).toBeVisible();
+  // 정말 … 로 잘려 보이는지(글자 폭 > 보이는 폭) 먼저 본다 — 안 잘리면 이 시험이 뜻이 없다.
+  await expect.poll(() => s.name.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+  await expect(s.name).toHaveAttribute('title', LONG);
+  expect(s.errors).toEqual([]);
+});
 
 // K4: 왼쪽 폴더 나무에서 ↑↓ = 보이는 앞·뒤 줄로 커서 이동(공용 app/folder-tree-press.mjs ftTreeArrow).
 for (const [name, open] of SCREENS) test(`K4 ${name} PC 1280: 폴더 나무에서 ↑↓로 줄을 옮겨 다닌다`, async ({ page }) => {
@@ -273,21 +303,21 @@ for (const [name, open, openMove, isWrite] of PICK_SCREENS) for (const width of 
 // 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]. 새 그 자리 펼치는 목록이 생기면 PRESS_SCREENS에 한 줄 더한다.
 const EMPTY_OD = { source: 'od', item_id: 'OD!19', parent_id: 'OD!1', name: '가상 빈 폴더', is_folder: true, mime: null, size_bytes: null, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null };
 async function libraryPress(page, width) {
-  const { errors } = await library(page, width);
+  const { errors, prefs } = await library(page, width);
   const d = page.locator('#documentList details[data-lu-node="f:f0"]');
-  return { errors, press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), open: () => d.evaluate(x => x.open), empty: d.locator('.lu-node-empty'),
+  return { errors, prefs, row: d.locator(':scope > summary'), press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), open: () => d.evaluate(x => x.open), empty: d.locator('.lu-node-empty'),
     more: d.locator(':scope > summary [data-lu-node-menu]'), panel: page.locator('#luFolderMenu') };
 }
 async function notesPress(page, width) {
   const { errors } = await notes(page, width);
   const row = page.locator(`#noteRows [data-nx-folder="${U(100)}"]`);
-  return { errors, press: () => row.locator('.ft-main').click(), dbl: () => row.locator('.ft-main').dblclick(), open: async () => (await row.locator('.ft-main').getAttribute('aria-expanded')) === 'true',
+  return { errors, row: row.locator('.ft-main'), press: () => row.locator('.ft-main').click(), dbl: () => row.locator('.ft-main').dblclick(), open: async () => (await row.locator('.ft-main').getAttribute('aria-expanded')) === 'true',
     empty: page.locator(`#noteRows .ft-empty-row[data-ft-parent="${U(100)}"]`), more: page.locator(`#noteRows [data-nx-folder-more="${U(100)}"]`), panel: page.locator('#noteDocMenu') };
 }
 async function photosPress(page, width) {
   const { errors } = await photos(page, width);
   const main = page.locator('#photosRoot [data-photos-ftog="o:S0"]');
-  return { errors, press: () => main.click(), dbl: () => main.dblclick(), where: () => page.locator('#photosRoot [data-photos-fx-back]').count(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, row: page.locator('#photosRoot [data-photos-folder="S0"] .ft-main').first(), press: () => main.click(), dbl: () => main.dblclick(), where: () => page.locator('#photosRoot [data-photos-fx-back]').count(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     empty: page.locator('#photosRoot .ft-empty-row[data-ft-parent="o:S0"]'), more: page.locator('#photosRoot [data-photos-fx-more="S0"]'), panel: page.locator('#photosFolderMenu') };
 }
 async function filesPress(page, width) {
@@ -298,7 +328,7 @@ async function filesPress(page, width) {
   await tree.locator('[data-fx-tog="od:OD!1"]').click();
   const main = tree.locator('[data-fx-tog="od:OD!19"]');
   await expect(main).toBeVisible();
-  return { errors, press: () => main.click(), dbl: () => main.dblclick(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
+  return { errors, row: tree.locator('[data-fx-fold="od:OD!19"] .ft-main'), press: () => main.click(), dbl: () => main.dblclick(), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
     empty: tree.locator('.ft-empty-row[data-ft-parent="od:OD!19"]'), more: tree.locator('[data-fx-fold="od:OD!19"] [data-fx-tmenu]'), panel: page.locator('#rowMenu') };
 }
 const PRESS_SCREENS = [['자료실', libraryPress], ['파일', filesPress], ['노트', notesPress], ['사진', photosPress]];
@@ -334,11 +364,11 @@ async function filesRight(page, width = 1280) {
 }
 async function libraryRight(page, width = 1280) {
   const folders = [libFolder('ra', null, { name: '가상 노조', sort_order: 1024 }), libFolder('rb', null, { name: '가상 회의', parent_id: 'ra', sort_order: 1024 }), libFolder('rc', null, { name: '가상 안건', parent_id: 'rb', sort_order: 1024 })];
-  const { errors } = await bootLibrary(page, width, { folders, items: [{ document_id: 'd1', folder_id: 'rb' }], docs: [libDoc('d1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
+  const { errors, s: st } = await bootLibrary(page, width, { folders, items: [{ document_id: 'd1', folder_id: 'rb' }], docs: [libDoc('d1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
   await page.locator('#libraryFolderNav [data-lu-nav="ra"]').click();
   const d = page.locator('#documentList details[data-lu-node="f:rb"]');
   await expect(d).toBeVisible();
-  return { errors, press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), menu: () => d.locator(':scope > summary').click({ button: 'right' }), panel: page.locator('#luFolderMenu'), open: () => d.evaluate(x => x.open),
+  return { errors, prefs: () => st.viewPrefs, row: d.locator(':scope > summary'), press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), menu: () => d.locator(':scope > summary').click({ button: 'right' }), panel: page.locator('#luFolderMenu'), open: () => d.evaluate(x => x.open),
     inner: d.locator('[data-lu-document="d1"]'), here: () => page.locator('#libraryPath').textContent(),
     treeSub: page.locator('#libraryFolderNav [data-lu-nav="rc"], #libraryFolderNav .ft-current [data-lu-nav="rb"]') };
 }
@@ -399,6 +429,66 @@ for (const [name, open] of PRESS_SCREENS) test(`T8 ${name} 폰 390: 폴더 두 �
   await expect(enter).toHaveText('이 폴더로 들어가기');
   await enter.click();
   await expect.poll(where).not.toBe(at0);
+  expect(s.errors).toEqual([]);
+});
+// T9(UI-폴더줄크기 S69-99, 명진 11/25 08:23 "오므리기 벌리기로 폴더 크기 다르게 보기 폴더 안으로 들어가기가 아니라 / 달력쪽 확대가 아니라 + - 느낌으로 사진 썸네일처럼"):
+// 폴더 줄 위 두 손가락 벌리기 = 줄 크기 한 단계 크게, 오므리기 = 한 단계 작게(한 손짓에 한 단계). 들어가지 않고(주소·위치 그대로) 펼침도 그대로.
+// 고른 단계는 서버(view_prefs.row_size)에 남아 새로고침해도 그대로. 들어가기는 ⋯ 첫 줄로만(T8). 화면 표는 PRESS_SCREENS(폰 390 터치).
+const rowSizeNow = page => page.evaluate(() => document.documentElement.dataset.rowSize || 'm');
+const rowH = l => l.evaluate(el => Math.round(el.getBoundingClientRect().height));
+for (const [name, open] of PRESS_SCREENS) test(`T9 ${name} 폰 390: 두 손가락 벌리기·오므리기 = 줄 크기 한 단계(들어가지 않음), 새로고침해도 그대로`, async ({ page }) => {
+  test.setTimeout(120000);
+  const s = await open(page, 390);
+  const server = s.prefs ? null : await installViewPrefsServer(page); // 이미 붙은 가짜 서버 상태(같은 쪽이면 처음 것을 돌려줌). 자료실은 자기 가짜 서버(s.prefs).
+  const saved = () => (s.prefs ? s.prefs() : server.value)?.row_size ?? null;
+  const where = s.where || (async () => page.url());
+  const url0 = page.url(), at0 = await where(), open0 = await s.open();
+  expect(await rowSizeNow(page)).toBe('m');
+  const h0 = await rowH(s.row);
+  await pinch(page, s.row, 'out');
+  await expect.poll(() => rowSizeNow(page)).toBe('l');
+  await expect.poll(() => rowH(s.row)).toBeGreaterThan(h0);
+  expect(page.url(), '두 손가락으로 들어가지 않는다').toBe(url0);
+  expect(await where()).toBe(at0);
+  expect(await s.open(), '펼침도 그대로').toBe(open0);
+  await expect.poll(saved).toBe('l');
+  // 한 번의 손짓에 한 단계: 크게(l)에서 두 번 오므리면 보통 → 작게.
+  await pinch(page, s.row, 'in');
+  await expect.poll(() => rowSizeNow(page)).toBe('m');
+  await expect.poll(saved).toBe(null); // 보통은 저장하지 않는다
+  await pinch(page, s.row, 'in');
+  await expect.poll(() => rowSizeNow(page)).toBe('s');
+  await expect.poll(() => rowH(s.row)).toBeLessThan(h0);
+  await expect.poll(saved).toBe('s');
+  expect(page.url()).toBe(url0);
+  expect(await where()).toBe(at0);
+  // '두 손가락 벌리면 이 폴더만' 안내 글자가 없다.
+  await expect(page.getByText('두 손가락 벌리면')).toHaveCount(0);
+  await page.reload();
+  await expect.poll(() => rowSizeNow(page), { timeout: 20000 }).toBe('s');
+  expect(s.errors).toEqual([]);
+});
+// T9 PC: 손짓 칸 위 Ctrl+휠 한 번 = 한 단계(브라우저 확대가 아니라 줄 크기). 위로 = 크게, 아래로 = 작게.
+for (const [name, open] of RIGHT_SCREENS) test(`T9 ${name} PC 1280: Ctrl+휠 = 줄 크기 한 단계, 화면 확대·들어가기 없음`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page, 1280);
+  const server = s.prefs ? null : await installViewPrefsServer(page);
+  const saved = () => (s.prefs ? s.prefs() : server.value)?.row_size ?? null;
+  const url0 = page.url();
+  const target = page.locator('.ft-pinch .ft-row.ft-folder .ft-main:visible').first();
+  await target.hover();
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -120);
+  await page.keyboard.up('Control');
+  await expect.poll(() => rowSizeNow(page)).toBe('l');
+  await expect.poll(saved).toBe('l');
+  await page.waitForTimeout(300);
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, 120);
+  await page.keyboard.up('Control');
+  await expect.poll(() => rowSizeNow(page)).toBe('m');
+  expect(page.url()).toBe(url0);
+  expect(await page.evaluate(() => Math.round(visualViewport.scale * 100))).toBe(100);
   expect(s.errors).toEqual([]);
 });
 // S69-84: 폴드 펼침 880(왼쪽 나무 + 오른쪽 목록)도 PC와 같은 규칙.
@@ -499,7 +589,9 @@ test('T7 자료실 1280 두 칸: 끌어 놓기·펼치기 뒤 두 칸 스크롤�
   const top0 = await tops(), open0 = await opened();
   expect(top0[0]).toBe(150); expect(top0[1]).toBeGreaterThan(150);
   // 보이는 자료 줄(왼쪽)과 보이는 폴더 줄(오른쪽)을 고른다(시험 도구가 스크롤하지 않게).
-  const inView = (i, sel) => page.evaluate(([p, q]) => { const l = document.querySelector(p + ' .lu-pane-list').getBoundingClientRect(); return [...document.querySelectorAll(p + ' ' + q)].find(x => { const r = x.getBoundingClientRect(); return r.top > l.top + 20 && r.bottom < l.bottom - 20; })?.getAttribute(q.slice(1, -1)); }, [lp(i), sel]);
+  // 칸 위·아래 가장자리(EDGE px, drag-edge-scroll.js)는 끄는 동안 저절로 굴리는 자리라 그 밖(칸 안쪽)의 줄만 고른다 —
+  // 전에는 위 가장자리 20px 밖이면 골라, 그 줄 위로 끌고 가는 동안 칸이 몇 px 올라가 스크롤 자리가 어긋났다(CI에서 587 → 584).
+  const inView = (i, sel) => page.evaluate(([p, q, edge]) => { const l = document.querySelector(p + ' .lu-pane-list').getBoundingClientRect(); return [...document.querySelectorAll(p + ' ' + q)].find(x => { const r = x.getBoundingClientRect(); return r.top > l.top + edge + 4 && r.bottom < l.bottom - edge - 4; })?.getAttribute(q.slice(1, -1)); }, [lp(i), sel, EDGE]);
   const doc = await inView(0, '[data-lu-document]'), to = await inView(1, '[data-lu-nav]');
   expect(doc && to).toBeTruthy();
   await page.locator(`${lp(0)} [data-lu-document="${doc}"]`).dragTo(page.locator(`${lp(1)} [data-lu-nav="${to}"]`));
@@ -592,14 +684,20 @@ async function filesTreeRows(page, width = 390) {
   const tree = page.locator('#filesRoot [data-fx-tree]');
   const bar = page.locator('#filesRoot [data-fx-bar]');
   const base = { errors, bar, countIs: n => expect(bar.locator('.fx-bar-t')).toHaveText(`${n}개`), isPicked: l => expect(l).toHaveClass(/fx-picked/), tap: l => l.tap(), menu: page.locator('#rowMenu') };
+  // S70-33: 나무는 먼저 보이고 상자들이 따로 읽힌다 — 폰 나무 맨 위 '최근' 상자가 늦게 오면 아래 줄이 통째로 밀리고(약 280px),
+  // 다른 상자가 늦게 오면 나무를 다시 그린다. 자리를 재서 누르는 시험(꾹 누르기·누르기)이 엉뚱한 줄을 누르지 않게, 다 읽힌 나무를 기다린다.
+  // ('최근' 상자는 폰 나무에만 있다.)
+  const settled = async () => { if (width < 600) await expect(tree.locator('[data-fx-box="recent"]')).toBeVisible(); await expect(tree.locator('kptu-wait')).toHaveCount(0); };
   if (width < 600) {
     const fold = key => tree.locator(`[data-fx-tog="${key}"]`);
+    await settled();
     await expect(fold('od:OD!1')).toBeVisible();
     return { ...base, first: fold('od:OD!1'), second: fold('gd:gdFolder1'), more: l => l.locator('xpath=..').locator('[data-fx-tmenu]') };
   }
   // 폴드 펼침·PC 한 칸 왼쪽 나무: 폴더 줄 이름 단추(data-fx-go). 저장소 맨 위 줄(폴더 아님)은 빼고 처음 두 폴더.
   const mains = tree.locator('.ft-row[data-fx-fold] > .ft-main[data-fx-go]:not([data-fx-id=""])');
   await expect.poll(() => mains.count()).toBeGreaterThan(1);
+  await settled();
   const key = async i => mains.nth(i).locator('xpath=..').getAttribute('data-fx-fold');
   const main = k => tree.locator(`.ft-row[data-fx-fold="${k}"] > .ft-main`);
   return { ...base, first: main(await key(0)), second: main(await key(1)), more: l => l.locator('xpath=..').locator('[data-fx-tmenu]') };
@@ -791,6 +889,133 @@ test('S4 자료실 두 칸 PC 1440: 사각형으로 고른 폴더 줄 [삭제]�
   expect(errors).toEqual([]);
 });
 
+// ---------- S4·D 펼친 안쪽 폴더 줄 사각형 고르기 + 여럿 끌어 점선 폴더에 놓기(S70-08b, 명진 11/25 09:45·09:47) ----------
+// 09:47 "하이폴더 펼친 다음에 드래그 했는데 여러 개 선택이 안 돼": 위 폴더를 펼친 뒤 그 안쪽 폴더 줄들을 사각형으로 덮으면 폴더째 골라지고, 끌어 다른 폴더에 놓으면 모두 옮겨진다(한 칸·두 칸).
+// 09:45 점선('여기에 놓기')이 뜬 폴더에 놓았는데 '순서를 바꿨어요'(그때는 S70-08 전이라 한 폴더만 끌렸다): 여럿을 고른 채 끌면 폴더 줄은 어디든 '안으로'(점선)만이고
+// 놓으면 그 안 — 머무는 동안 그 폴더가 저절로 펼쳐져도 같다. 이름은 지어낸 것, 가짜 서버.
+const NEST = ['n0', 'n1', 'n2', 'n3'];
+const parentIs = (s, id) => s.folders.find(f => f.id === id)?.parent_id || null;
+const rectOf = (page, sel) => page.locator(sel).first().evaluate(el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, x: r.left + r.width / 2, y: r.top + r.height / 2, h: r.height }; });
+// 'up'(위 폴더) 안: dst(놓을 곳) · track(펼칠 폴더, 안에 n0~n3) · more(그 밖 폴더 extra개).
+function nestedFolders(extra = 0) {
+  return [libFolder('up', null, { name: '가상 위 사업', sort_order: 1024 }), libFolder('dst', null, { name: '가상 보관', parent_id: 'up', sort_order: 1024 }),
+    libFolder('track', null, { name: '가상 궤도', parent_id: 'up', sort_order: 2048 }),
+    ...NEST.map((id, i) => libFolder(id, null, { name: `가상 안쪽 ${i + 1}`, parent_id: 'track', sort_order: 1024 * (i + 1) })),
+    ...Array.from({ length: extra }, (_, i) => libFolder('m' + i, null, { name: `가상 더 ${i + 1}`, parent_id: 'up', sort_order: 4096 + 1024 * i }))];
+}
+// PC HTML 끌기: from 줄을 잡아 to 줄 가운데로. beforeUp(): 놓기 직전(표시가 뜬 뒤) 할 일.
+async function dragRow(page, fromSel, toSel, { beforeUp = null } = {}) {
+  const a = await rectOf(page, fromSel);
+  await page.mouse.move(a.x, a.y); await page.mouse.down();
+  await page.mouse.move(a.x + 4, a.y + 6, { steps: 3 });
+  const b = await rectOf(page, toSel);
+  await page.mouse.move(b.x, b.y, { steps: 12 });
+  await page.mouse.move(b.x + 2, b.y, { steps: 2 });
+  if (beforeUp) await beforeUp();
+  await page.mouse.up();
+}
+async function oneNested(page, extra = 0) {
+  const r = await bootLibrary(page, 1280, { folders: nestedFolders(extra), items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
+  await page.locator('#libraryFolderNav [data-lu-nav="up"]').click();
+  const head = id => `#documentList details[data-lu-node="f:${id}"] > summary`;
+  await expect(page.locator(head('track'))).toBeVisible();
+  return { ...r, head };
+}
+async function twoNested(page, extra = 0) {
+  const r = await bootLibrary(page, 1280, { folders: nestedFolders(extra), items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: null } });
+  const pane = '#documentList [data-lu-pane-i="1"]';
+  await page.locator(`${pane} [data-lu-nav="up"]`).click({ button: 'right' });
+  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+  await expect(page.locator(`${pane} .lu-pane-here`)).toHaveText('가상 위 사업');
+  return { ...r, pane, head: id => `${pane} .ft-row:has(> [data-lu-nav="${id}"])` };
+}
+// 마지막 안쪽 줄(n3) 아래 빈 곳에서 n0 가운데까지 위로 끈다(처음 고르면 위 막대가 나타나 줄이 내려가므로 끝점을 다시 잰다).
+async function marqueeUp(page, head, from) {
+  await page.mouse.move(from.x, from.y); await page.mouse.down();
+  await page.mouse.move(from.x + 6, from.y - 8, { steps: 3 });
+  await expect(page.locator('.marquee-box')).toBeVisible();
+  let t = await rectOf(page, head('n0')); await page.mouse.move(from.x + 20, t.y, { steps: 8 });
+  await page.waitForTimeout(80);
+  t = await rectOf(page, head('n0')); await page.mouse.move(from.x + 24, t.y, { steps: 3 });
+  await page.mouse.up();
+  await expect(page.locator('.marquee-box')).toHaveCount(0);
+}
+test('S4 자료실 한 칸 PC 1280: 위 폴더 펼침 → 안쪽 폴더 4개 사각형 = 4개 골라짐 → 끌어 다른 폴더에 놓기 = 4개 모두 그 안', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, head } = await oneNested(page);
+  await page.locator(head('track')).click();
+  for (const id of NEST) await expect(page.locator(head(id))).toBeVisible();
+  const card = await rectOf(page, '#libraryListCard'), list = await rectOf(page, '#documentList');
+  expect(await page.evaluate(() => innerHeight)).toBeGreaterThan(card.bottom + 40);
+  await marqueeUp(page, head, { x: list.x, y: card.bottom + 24 });
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 4 선택됨');
+  for (const id of NEST) await expect(page.locator(head(id))).toHaveClass(/lu-folder-picked/);
+  await expect(page.locator(head('track'))).not.toHaveClass(/lu-folder-picked/);
+  await dragRow(page, head('n1'), head('dst'));
+  await expect.poll(() => NEST.map(id => parentIs(s, id))).toEqual(NEST.map(() => 'dst'));
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 폴더 4개 → 가상 보관 폴더');
+  expect(errors).toEqual([]);
+});
+test('S4 자료실 두 칸 PC 1280: 칸 안 위 폴더 펼침 → 안쪽 폴더 4개 사각형 = 4개 골라짐 → 끌어 다른 폴더에 놓기 = 4개 모두 그 안', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, pane, head } = await twoNested(page);
+  await page.locator(`${pane} [data-lu-nav="track"]`).click();
+  for (const id of NEST) await expect(page.locator(head(id))).toBeVisible();
+  const list = await rectOf(page, `${pane} .lu-pane-list`), last = await rectOf(page, `${pane} .lu-pane-list .ft-row >> nth=-1`);
+  await marqueeUp(page, head, { x: list.x, y: Math.min(list.bottom - 8, last.bottom + 30) });
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 4 선택됨');
+  await dragRow(page, head('n1'), head('dst'));
+  await expect.poll(() => NEST.map(id => parentIs(s, id))).toEqual(NEST.map(() => 'dst'));
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 폴더 4개 → 가상 보관 폴더');
+  expect(errors).toEqual([]);
+});
+// 'up' 안: track(펼칠 폴더 — 안에 dst(놓을 곳, 닫힌 채 안에 폴더 하나) · n0~n3) · m0~m4. 안쪽 4개 + m 5개 = 9개를 사각형 하나로 고른다.
+function nineFolders() {
+  return [libFolder('up', null, { name: '가상 위 사업', sort_order: 1024 }), libFolder('track', null, { name: '가상 궤도', parent_id: 'up', sort_order: 1024 }),
+    libFolder('dst', null, { name: '가상 보관', parent_id: 'track', sort_order: 1 }), libFolder('dstc', null, { name: '가상 보관 안', parent_id: 'dst' }),
+    ...NEST.map((id, i) => libFolder(id, null, { name: `가상 안쪽 ${i + 1}`, parent_id: 'track', sort_order: 1024 * (i + 1) })),
+    ...Array.from({ length: 5 }, (_, i) => libFolder('m' + i, null, { name: `가상 더 ${i + 1}`, parent_id: 'up', sort_order: 4096 + 1024 * i }))];
+}
+test('D 자료실 한 칸 PC 1280: 폴더 9개 고른 채 한 줄을 끌어 점선이 뜬 폴더에 놓기 = 9개 모두 그 안(머무는 동안 그 폴더가 저절로 펼쳐져도)', async ({ page }) => {
+  test.setTimeout(60000);
+  const r = await bootLibrary(page, 1280, { folders: nineFolders(), items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
+  const { s, errors } = r, head = id => `#documentList details[data-lu-node="f:${id}"] > summary`, ids = [...NEST, 'm0', 'm1', 'm2', 'm3', 'm4'];
+  await page.locator('#libraryFolderNav [data-lu-nav="up"]').click();
+  await page.locator(head('track')).click();
+  for (const id of [...NEST, 'dst']) await expect(page.locator(head(id))).toBeVisible();
+  const card = await rectOf(page, '#libraryListCard'), list = await rectOf(page, '#documentList');
+  await marqueeUp(page, head, { x: list.x, y: card.bottom + 24 });
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 9 선택됨');
+  await dragRow(page, head('m4'), head('dst'), { beforeUp: async () => {
+    await expect(page.locator(head('dst'))).toHaveClass(/lu-drop-into/);
+    // 1초 넘게 머물면 그 폴더가 저절로 펼쳐진다(다시 그리기) — 그 뒤에도 표시와 놓기는 그 폴더 안.
+    const b = await rectOf(page, head('dst'));
+    for (let i = 0; i < 7; i++) { await page.waitForTimeout(200); await page.mouse.move(b.x + 2 + (i % 2), b.y, { steps: 1 }); }
+    await expect(page.locator('#documentList details[data-lu-node="f:dst"]')).toHaveJSProperty('open', true);
+    await expect(page.locator(head('dst'))).toHaveClass(/lu-drop-into/);
+  } });
+  await expect.poll(() => ids.map(id => parentIs(s, id))).toEqual(ids.map(() => 'dst'));
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 폴더 9개 → 가상 보관 폴더');
+  expect(errors).toEqual([]);
+});
+test('D 자료실 두 칸 PC 1280: 폴더 9개 고른 채 한 줄을 끌어 점선이 뜬 폴더에 놓기 = 9개 모두 그 안(순서 바꾸기 아님)', async ({ page }) => {
+  test.setTimeout(60000);
+  const { s, errors, pane, head } = await twoNested(page, 8);
+  const ids = ['track', ...Array.from({ length: 8 }, (_, i) => 'm' + i)];
+  for (const id of ids) await page.locator(`${pane} [data-lu-nav="${id}"]`).click({ modifiers: ['Control'] });
+  await expect(page.locator('#librarySelectCount')).toHaveText('폴더 9 선택됨');
+  // 놓을 줄의 위 끝 가까이(혼자 끌 때는 '그 앞' 자리) — 여럿을 끌 때는 폴더 줄 어디든 안으로(표시 = 점선).
+  const a = await rectOf(page, head('m7'));
+  await page.mouse.move(a.x, a.y); await page.mouse.down(); await page.mouse.move(a.x + 4, a.y + 6, { steps: 3 });
+  const b = await rectOf(page, head('dst')), y = b.y - b.h * 0.4;
+  await page.mouse.move(b.x, y, { steps: 12 }); await page.mouse.move(b.x + 2, y, { steps: 2 });
+  await expect(page.locator(head('dst'))).toHaveClass(/lu-drop-into/);
+  await page.mouse.up();
+  await expect.poll(() => ids.map(id => parentIs(s, id))).toEqual(ids.map(() => 'dst'));
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 폴더 9개 → 가상 보관 폴더');
+  expect(errors).toEqual([]);
+});
+
 // S10(S69-89 UI-고르기모드통일, 2026-11-25 명진 "선택 가능 화면에서는 폴더 이름을 클릭해도 선택 되게 앞 네모 클릭이 아니라 / 파일에서는 되는데"):
 // 고르기 중에는 폴더 줄 이름·그림·빈 곳 어디를 눌러도 그 폴더 고르기·풀기. 펼치기·접기·들어가기는 하지 않는다(⋯만 예외). 고르기가 아닐 때는 T5 그대로.
 // 화면마다 돌려줄 것: first·second(폴더 줄), tap(줄), isPicked(줄)·notPicked(줄), opened(줄)(펼쳐졌나), afterHold(꾹 누른 뒤 시계).
@@ -869,6 +1094,24 @@ test.describe('S11 고르기 중 뒤로가기', () => {
   });
 });
 
+// ---------- K1·R2 판 화면(목록이 아닌 곳) — S70-03 노트 보드 ----------
+// 고른 것 Delete = 바로 지우고 [되돌리기] 한 번에 모두 돌아온다. 새 판 화면이 생기면 BOARD_SCREENS에 한 줄 더한다.
+async function noteBoard(page) {
+  const bid = 'bs70003';
+  await boardFixture(page, 1280, { bid, seed: [{ id: 'T1', board_id: bid, body: '가 주제', x: 160, y: 380 }, { id: 'T2', board_id: bid, body: '나 주제', x: 360, y: 380 }] });
+  return { items: [nbNode(page, '가 주제'), nbNode(page, '나 주제')] };
+}
+const BOARD_SCREENS = [['노트 보드', noteBoard]];
+for (const [name, open] of BOARD_SCREENS) test(`K1·R2 ${name} PC 1280: 두 개 골라 Delete = 바로 지움, [되돌리기] 한 번에 둘 다`, async ({ page }) => {
+  const { items } = await open(page);
+  const a = await nbBox(items[0]), b = await nbBox(items[1]);
+  await page.mouse.move(a.x - 16, a.y - 16); await page.mouse.down(); await page.mouse.move(b.x + b.width + 4, b.y + b.height + 4, { steps: 8 }); await page.mouse.up();
+  await page.keyboard.press('Delete');
+  for (const it of items) await expect(it).toHaveCount(0);
+  await page.getByRole('button', { name: '되돌리기' }).click();
+  for (const it of items) await expect(it).toHaveCount(1);
+});
+
 // ---------- D6 순서 바꾸기 = 끌기만(S70-04 UI-순서는끌기로, 2026-11-25 명진 "위로 아래로 버튼 이거 불편함. 드래그하는걸로 다 통일해줘") ----------
 // ⋯ 메뉴·줄에 순서용 [위로][아래로]가 없다 / 끌어서(PC 마우스·폰 꾹 눌러 끌기) 순서를 바꾸면 서버에 저장돼 새로고침해도 그대로 / 키보드 Alt+↑↓로도 바뀐다.
 // 화면마다 {rows(): 줄 locator 목록 선택자, order(), more(id), menu, focus(id), reopen(), writes}를 돌려주는 여는 함수를 ORDER_SCREENS 표에 더한다.
@@ -938,4 +1181,133 @@ for (const [name, open] of ORDER_SCREENS) for (const width of [390, 1280]) test.
     await expect.poll(s.order).toEqual([d, b, c, a]);
     expect(s.errors).toEqual([]);
   });
+});
+
+// ---------- [파일] 고르기·끌기(S70-30 FILES-선택드래그, 명진 11/24 20:08 "파일에 선택 만들어줘." / "드래그도 안되네;") ----------
+// 자료실·노트와 같은 규칙: 줄 ⋯·우클릭 메뉴 첫 묶음 맨 위 [선택] = 그 줄을 고른 채 고르기 막대(공용 holdPick),
+// 빈 곳에서 끌면 사각형으로 여러 줄 고르기(공용 marquee-select.js, S4), 여러 줄을 끌어 폴더에 놓으면 고른 것 전부 옮김(D 끌어 놓기).
+// 새 탐색기 목록이 생기면 FILE_PICK_SCREENS에 한 줄 더한다. 이름은 지어낸 것, 가짜 서버.
+async function filesPick(page, width, two) {
+  const { errors, server } = await startFiles(page, width);
+  await openFiles(page, width, { two });
+  const t = page.locator('#filesRoot [data-fx-two]');
+  if (two && (await t.getAttribute('aria-pressed')) !== 'true') await t.click();
+  if (two) {
+    await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
+    await page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!1"]').click(); // 그 자리 펼치기
+  } else await page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main').first().click();
+  const list = page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list]');
+  await expect(list.locator('[data-fx-row="od:OD!11"]')).toBeVisible();
+  const row = id => list.locator(`[data-fx-row="od:${id}"]`);
+  return { errors, server, list, row, picked: () => list.locator('[data-fx-row].fx-picked').evaluateAll(a => a.map(x => x.dataset.fxRow).sort()),
+    bar: page.locator('#filesRoot [data-fx-bar]'), moves: () => server.calls.filter(c => c.what === 'edge' && c.action === 'move').map(c => c.body) };
+}
+const FILE_PICK_SCREENS = [['파일 한 칸', w => (page => filesPick(page, w, false))], ['파일 두 칸', w => (page => filesPick(page, w, true))]];
+for (const [name, opener] of FILE_PICK_SCREENS) test.describe(`${name} PC 1280 고르기·끌기`, () => {
+  test(`S0 ${name} 1280: 줄 우클릭·⋯ 메뉴 맨 위 [선택] → 그 줄 고른 채 고르기 막대`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    await s.row('OD!11').click({ button: 'right' });
+    const menu = page.locator('#rowMenu');
+    await expect(menu.locator('button:visible').first()).toHaveText('선택');
+    await menu.getByRole('button', { name: '선택', exact: true }).click();
+    await expect(menu).toBeHidden();
+    await expect.poll(s.picked).toEqual(['od:OD!11']);
+    await expect(s.bar).toBeVisible();
+    await expect(s.bar).toContainText('1');
+    // 폴더 줄은 [이 폴더로 들어가기] 다음(T5 첫 줄 그대로), 다른 줄 [선택]은 더하기(풀지 않음 — holdPick).
+    await s.row('OD!10').click({ button: 'right' });
+    await expect(menu.locator('button:visible').nth(0)).toHaveText('이 폴더로 들어가기');
+    await expect(menu.locator('button:visible').nth(1)).toHaveText('선택');
+    await page.keyboard.press('Escape');
+    await s.row('OD!13').click({ button: 'right' });
+    await menu.getByRole('button', { name: '선택', exact: true }).click();
+    await expect.poll(s.picked).toEqual(['od:OD!11', 'od:OD!13']);
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
+  test(`S4 ${name} 1280: 목록 아래 빈 곳에서 위로 끌면 사각형, 닿은 줄 여러 개 고르기 · Esc면 그대로`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    const rows = s.list.locator('[data-fx-row]');
+    const last = await rows.last().boundingBox(), first = await s.row('OD!13').boundingBox();
+    const x = last.x + last.width * 0.6;
+    await page.mouse.move(x, last.y + last.height + 24);
+    await page.mouse.down();
+    await page.mouse.move(x - 30, first.y + 4, { steps: 10 });
+    await expect(page.locator('.marquee-box')).toBeVisible();
+    await page.mouse.up();
+    await expect(page.locator('.marquee-box')).toHaveCount(0);
+    const got = await s.picked();
+    expect(got.length).toBeGreaterThanOrEqual(3);
+    expect(got).toEqual(expect.arrayContaining(['od:OD!11', 'od:OD!12', 'od:OD!13']));
+    await expect(s.bar).toBeVisible();
+    await expect(s.bar).toContainText(String(got.length));
+    // 끄는 중 Esc = 처음 고른 것으로(사각형 취소).
+    await page.mouse.move(x, last.y + last.height + 24);
+    await page.mouse.down();
+    await page.mouse.move(x - 30, first.y + 4, { steps: 6 });
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('.marquee-box')).toHaveCount(0);
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
+  test(`D ${name} 1280: 여러 줄 고르고 끌어 폴더 줄에 놓으면 고른 것 전부 옮김`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    await s.row('OD!11').click({ modifiers: ['Control'] });
+    await s.row('OD!13').click({ modifiers: ['Control'] });
+    await expect.poll(s.picked).toEqual(['od:OD!11', 'od:OD!13']);
+    await expect(s.row('OD!11')).toHaveAttribute('draggable', 'true');
+    await s.row('OD!11').dragTo(s.row('OD!10'));
+    await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11', 'OD!13'], to: 'OD!10', confirm: true }]);
+    await expect(s.row('OD!11')).toHaveCount(0);
+    await expect(s.row('OD!13')).toHaveCount(0);
+    expect(s.errors).toEqual([]);
+  });
+});
+test('D 파일 한 칸 PC 1280: 여러 줄 고르고 끌어 왼쪽 나무 폴더에 놓으면 고른 것 전부 옮김', async ({ page }) => {
+  const s = await filesPick(page, 1280, false);
+  await s.row('OD!11').click({ modifiers: ['Control'] });
+  await s.row('OD!12').click({ modifiers: ['Control'] });
+  await s.row('OD!12').dragTo(page.locator('#filesRoot [data-fx-tree] [data-fx-drop="od:OD!2"]').first());
+  await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11', 'OD!12'], to: 'OD!2', confirm: true }]);
+  await expect(s.row('OD!11')).toHaveCount(0);
+  await expect(s.row('OD!12')).toHaveCount(0);
+  expect(s.errors).toEqual([]);
+});
+
+// D7(S70-12 UI-확인창끌기, 2026-11-25 명진 "휴지통으로 옮길까요 경고창도 좌클릭 드래그해서 이동가능하게"): PC에서 누른 자리 옆에 뜬 작은 확인창(.kptu-ask)은
+// 빈 곳(글·여백)을 마우스 왼쪽 단추로 잡고 끌어 옮긴다(공용 app/small-notice.js askPanel → app/anchored-popup.js dragByTitle). 단추 위에서 끌면 그대로, 끈 뒤 Esc = 취소.
+// 같은 공용 확인창을 쓰는 화면을 CONFIRM_DRAG_SCREENS에 한 줄 더한다. 자세한 검사(가장자리 가두기·다시 열면 제자리·[휴지통으로])는 confirm-drag.spec.mjs.
+async function libraryConfirm(page) {
+  const r = await bootLibrary(page, 1280, { folders: [libFolder('fa', 'top-a', { name: '가상 폴더 A' })], items: [] });
+  await expandLibraryTree(page);
+  await page.locator('#documentList details[data-lu-node="f:fa"] > summary [data-lu-node-menu]').click();
+  await page.locator('#luFolderMenu').getByRole('button', { name: '폴더 삭제', exact: true }).click();
+  return { errors: r.errors, writes: () => r.s.writes.length };
+}
+async function notesConfirm(page) {
+  const { errors } = await notes(page, 1280);
+  const more = page.locator(`#noteRows [data-nx-folder-more="${U(100)}"], [data-nx-tree] [data-nx-folder-more="${U(100)}"]`).first();
+  await more.click();
+  await page.locator('#noteDocMenu [data-nx-delete-folder]').click();
+  return { errors, writes: () => 0 };
+}
+const CONFIRM_DRAG_SCREENS = [['자료실 폴더 삭제', libraryConfirm], ['노트 폴더 삭제', notesConfirm]];
+for (const [name, open] of CONFIRM_DRAG_SCREENS) test(`D7 ${name} PC 1280: 확인 창 빈 곳을 끌어 옮기고, 단추 위에서는 안 움직이고, 끈 뒤 Esc = 취소`, async ({ page }) => {
+  const s = await open(page);
+  const ask = page.locator('.kptu-ask');
+  await expect(ask).toBeVisible();
+  const start = await askBox(ask);
+  await dragAsk(page, ask, { at: await askTextSpot(ask), dx: -150, dy: -100 });
+  const moved = await askBox(ask);
+  expect(moved).not.toEqual(start);
+  expect(Math.abs(moved.x - Math.max(8, start.x - 150))).toBeLessThanOrEqual(2);
+  const btn = ask.locator('.kptu-ask-actions button').first(), bb = await btn.boundingBox(), ab = await ask.boundingBox();
+  await dragAsk(page, ask, { at: { x: bb.x - ab.x + bb.width / 2, y: bb.y - ab.y + bb.height / 2 }, dx: 120, dy: 80 });
+  expect(await askBox(ask)).toEqual(moved);
+  await expect(ask).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(ask).toHaveCount(0);
+  expect(s.writes()).toBe(0);
+  expect(s.errors).toEqual([]);
 });

@@ -1,18 +1,20 @@
 // S68-09 READ-읽을거리함(명진 11/22 "Raindrop 가져올 것 ㄱ", 위치 "B: 메뉴에 새 칸"): 읽을 거리의 순수 계산. DOM·네트워크 없음(node --test).
 // 저장은 서버 표 public.app_reading_items(DB 20261122100000 — 자기 작업공간 주인만). 원문 받아 오기는 기존 Edge note-import 답(글자 블록)을 그대로 쓴다.
 // 밑줄은 기존 표 app_news_highlights(종류 'reading')와 공용 부품 text-highlights.js. 여기서는 주소 다듬기·줄 값·거르기·원문 글자·상태 한 줄만 만든다.
-import {readImportUrl, hostOf, resultOutcome, failInfo} from './note-import-model.mjs';
+import {readImportUrl, hostOf, resultOutcome, failInfo, makeSource, NOTE_BODY_MAX, NOTE_TITLE_MAX} from './note-import-model.mjs';
 import {shareArticleUrl, shareArticleTitle} from './share-intake-model.mjs';
 import {urlTitle} from './url-title.mjs';
 
 export const TITLE_MAX = 500, SITE_MAX = 120, BODY_MAX = 200000, URL_MAX = 2000, LIST_LIMIT = 500;
 export const LIST_COLS = 'id,url,title,site,saved_at,read_at,body_state,body_at,business_area_id,updated_at,origin,news_article_id,outside_article_id';
-export const BODY_STATES = Object.freeze(['pending', 'ok', 'paywall', 'bot_check', 'robots', 'too_big', 'blocked', 'failed']);
-// 거르기 칩: [안 읽음 n] [전체] [밑줄]. 처음은 안 읽음.
+// lead(본문을 못 찾아 소개 글만)·login(로그인 화면이 옴)은 S70-40a READ-실패까닭에서 더함(DB 20261125170000_reading_body_state_login_lead).
+export const BODY_STATES = Object.freeze(['pending', 'ok', 'paywall', 'lead', 'bot_check', 'robots', 'too_big', 'blocked', 'login', 'failed']);
+// 거르기 칩: [전체] [안 읽음 n] [밑줄] [메모]. 처음은 전체(S70-24 READ-저장한글기본전체, 명진 11/25 "전체를 기본으로").
 // S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 글을 따로 거르는 칩은 없다 — 평범한 읽을 거리 줄.
 // S69-94 NOTE-메모통일: [메모] = 이 화면 글에 남긴 메모만 모아 보기(노트 [메모]와 같은 메모 목록·같은 줄).
-export const FILTERS = Object.freeze(['unread', 'all', 'marks', 'memos']);
-export const keepFilter = v => (FILTERS.includes(v) ? v : 'unread');
+export const FILTERS = Object.freeze(['all', 'unread', 'marks', 'memos']);
+export const DEFAULT_FILTER = 'all';
+export const keepFilter = v => (FILTERS.includes(v) ? v : DEFAULT_FILTER);
 
 const oneLine = (v, max) => (typeof v === 'string' ? [...v.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, max).join('').trim() : '');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -74,7 +76,7 @@ export const unreadCount = entries => (Array.isArray(entries) ? entries.filter(e
 export function filterOptions(entries, marks = null, memos = null) {
   const list = Array.isArray(entries) ? entries : [];
   const n = unreadCount(list), m = Number.isInteger(marks) ? marks : 0, c = Number.isInteger(memos) ? memos : 0;
-  return [{value: 'unread', label: `안 읽음 ${n}`}, {value: 'all', label: '전체'}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}, {value: 'memos', label: c ? `메모 ${c}` : '메모'}];
+  return [{value: 'all', label: '전체'}, {value: 'unread', label: `안 읽음 ${n}`}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}, {value: 'memos', label: c ? `메모 ${c}` : '메모'}];
 }
 // 좌우 밀기: 지금 칩에서 옆 칩으로(끝에서는 그대로).
 export function nextFilter(current, dir) {
@@ -102,7 +104,7 @@ export function bodyText(blocks) {
   const all = parts.join('\n\n');
   return [...all].length > BODY_MAX ? [...all].slice(0, BODY_MAX).join('').trim() : all;
 }
-const FAIL_STATE = {robots: 'robots', bot_check: 'bot_check', paywall: 'paywall', too_big: 'too_big', blocked: 'blocked', redirect: 'blocked'};
+const FAIL_STATE = {robots: 'robots', bot_check: 'bot_check', paywall: 'paywall', too_big: 'too_big', blocked: 'blocked', redirect: 'blocked', login_page: 'login'};
 export function bodyPatch(result, nowIso = new Date().toISOString()) {
   const outcome = resultOutcome(result);
   const meta = {};
@@ -111,15 +113,27 @@ export function bodyPatch(result, nowIso = new Date().toISOString()) {
   if (site) meta.site = site;
   if (outcome.state === 'ok') {
     const body = bodyText(result?.blocks);
-    if (body) return {...meta, body, body_state: outcome.reason === 'lead' ? 'paywall' : 'ok', body_at: nowIso};
+    // 앞부분만 온 글: 유료벽이면 paywall, 본문을 못 찾아 메타 설명만이면 lead(예전에는 둘 다 paywall이라 '유료 기사'로 불렀다 — S70-40a).
+    if (body) return {...meta, body, body_state: outcome.reason !== 'lead' ? 'ok' : outcome.lead === 'paywall' ? 'paywall' : 'lead', body_at: nowIso};
     return {...meta, body: null, body_state: 'failed', body_at: nowIso};
   }
+  // 로그인 화면: 그 화면의 제목·사이트를 글 제목으로 쓰지 않는다(서버도 돌려주지 않지만 한 번 더 막음).
+  if (outcome.reason === 'login_page') return {body: null, body_state: 'login', body_at: nowIso};
   return {...meta, body: null, body_state: FAIL_STATE[outcome.reason] || 'failed', body_at: nowIso};
 }
 // 이미 사람이 단 제목이 있으면 원문 제목으로 덮지 않는다(사이트도 같음).
+// S70-44: 다만 지금 제목이 사이트 이름뿐이면(예전 서버가 게시판형 누리집에서 사이트 이름을 제목으로 읽었던 줄) 새로 읽은 글 제목으로 바꾼다.
+const nameKey = v => String(v ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
+export function siteOnlyTitle(row, patch = {}) {
+  const t = nameKey(row?.title);
+  if (!t) return false;
+  const names = [row?.site, patch?.site].map(nameKey).filter(k => k.length >= 2);
+  for (const part of hostOf(row?.url).split('.')) if (part.length >= 3) names.push(nameKey(part));
+  return names.includes(t);
+}
 export function keepOwn(row, patch) {
   const out = {...patch};
-  if (row?.title && out.title) delete out.title;
+  if (row?.title && out.title && !(siteOnlyTitle(row, patch) && !siteOnlyTitle({...row, title: out.title}, patch))) delete out.title;
   if (row?.site && row.site !== hostOf(row?.url) && out.site) delete out.site;
   return out;
 }
@@ -130,7 +144,9 @@ export function stateLine(row, {busy = false} = {}) {
   if (busy) return '원문을 가져오는 중…';
   if (s === 'ok') return '';
   if (s === 'pending') return '원문을 아직 가져오지 않았어요.';
-  if (s === 'paywall') return row?.body ? '공개된 앞부분만 가져왔어요.' : failInfo('paywall').text;
+  if (s === 'paywall') return row?.body ? '유료 기사라 앞부분만 있어요.' : failInfo('paywall').text;
+  if (s === 'lead') return row?.body ? '본문을 찾지 못해 소개 글만 있어요.' : failInfo('no_body').text;
+  if (s === 'login') return failInfo('login_page').text;
   return failInfo(s === 'failed' ? 'no_body' : s).text;
 }
 // 다시 가져오기 버튼을 보일까. 다시 해도 같은 결과인 상태만 숨긴다: ok(이미 있음) · blocked(주소 규칙 밖 — 안쪽 주소·리다이렉트 고리, 서버 guard가 늘 거절) · too_big(크기 한도).
@@ -146,9 +162,16 @@ export const canRetry = row => !NO_RETRY.includes(BODY_STATES.includes(row?.body
 export const REFETCH_SINCE = '2026-11-23T04:00:00+09:00';
 export const AUTO_BATCH = 2;
 const AUTO_STATES = Object.freeze(['pending', 'failed', 'robots']);
-export function needsRefetch(row, since = REFETCH_SINCE) {
+// S70-44 READ-제목사이트이름: 제목이 사이트 이름뿐인 줄은 고친 서버(이 시각 뒤)로 한 번 다시 읽는다 — 한 번 정리 단추 없이 목록을 열 때 저절로.
+// 다시 읽은 뒤에는 body_at이 이 시각보다 뒤라 또 읽지 않는다(새 제목을 못 얻어도 되풀이 없음).
+export const TITLE_REFETCH_SINCE = '2026-11-25T18:00:00+09:00';
+export function needsRefetch(row, since = REFETCH_SINCE, titleSince = TITLE_REFETCH_SINCE) {
   if (!isId(row?.id) || !row?.url) return false;
   const s = BODY_STATES.includes(row?.body_state) ? row.body_state : 'pending';
+  if ((s === 'ok' || s === 'paywall') && !linkOf(row) && siteOnlyTitle(row)) {
+    const at = Date.parse(row?.body_at), cut = Date.parse(titleSince);
+    return !Number.isFinite(at) || at < cut;
+  }
   if (!(AUTO_STATES.includes(s) || (s === 'bot_check' && linkOf(row)))) return false;
   if (s === 'pending') return true;
   const at = Date.parse(row?.body_at), cut = Date.parse(since);
@@ -207,4 +230,31 @@ export function sourceOf(row) {
   if (!isId(row?.id)) return null;
   const l = lineOf(row);
   return {type: 'reading', id: row.id, title: l.title, media: l.site || null, date: row?.saved_at || null, url: row?.url || null};
+}
+
+// S69-98 NOTE-에버노트 ⑤(명진 11/25 "좋아 모두 다 넣어!"): 글 보기 [노트로 만들기] — 받아 둔 원문 사본 + 출처 주소 + 저장 시각을 새 노트 한 장으로.
+// 새 저장소 없음: 노트는 기존 노트 만들기 길(createNoteDoc), 원래 주소는 노트의 원문 정보(metadata.source, 주소로 가져오기와 같은 모양)로도 남긴다.
+// 읽을 거리 줄·원문 사본은 그대로 둔다(복사). 노트 글자 상한을 넘으면 뒤 문단부터 빼고 한 줄로 알린다.
+// → {title, raw_text, source, cut} | null(줄 id·https 주소가 없을 때)
+export const NOTE_CUT_LINE = '(뒷부분은 원래 페이지에서 읽어 주세요)';
+export function savedStamp(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return '';
+  const d = new Date(t + 9 * 3600000), two = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
+}
+export function readingNote(row, body, {max = NOTE_BODY_MAX} = {}) {
+  if (!isId(row?.id)) return null;
+  const l = lineOf(row);
+  const source = makeSource({url: row?.url, site: l.site, fetched_at: row?.body_at || undefined, state: 'ok'});
+  if (!source) return null;
+  const stamp = savedStamp(row?.saved_at);
+  const tail = ['---', '출처: ' + [l.site, source.url].filter(Boolean).join(' · '), stamp ? '저장: ' + stamp : ''].filter(Boolean).join('\n');
+  const len = v => [...v].length;
+  let paras = paragraphs(body), cut = false;
+  const join = list => [list.join('\n\n'), cut ? NOTE_CUT_LINE : '', tail].filter(Boolean).join('\n\n');
+  let raw = join(paras);
+  while (len(raw) > max && paras.length) { paras = paras.slice(0, -1); cut = true; raw = join(paras); }
+  if (len(raw) > max) return null;
+  return {title: [...l.title].slice(0, NOTE_TITLE_MAX).join('').trim(), raw_text: raw, source, cut};
 }

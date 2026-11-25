@@ -11,7 +11,8 @@
   // OUTSIDE-글상세·관심환류 ③ → S51-17 NEWS P5: News 화면(#outsideView, 라우터 이름 outside)의 주소는 ?view=news다(아래 URL_NAME).
   // 옛 ?view=outside·?view=now와 go('news')도 같은 화면을 연다(주소는 ?view=news로 고쳐 쓴다). 탭은 화면이 정한다(마지막 탭).
   // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages, go('pages'))은 없앴다 — 노트(정리함의 노트 쪽, ALIAS_SUB)를 연다. 주소는 ?view=basket&pane=note로 고쳐 쓴다.
-  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
+  // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 화면은 없앴다. 옛 ?view=ledger·go('ledger')는 홈을 연다.
+  const VIEW_ALIAS={ledger:'home','hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
   const ALIAS_SUB={pages:'note'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
@@ -35,7 +36,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={lock:['for','renew'],meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item'],help:['topic']};
+  const PLACE_PARAMS={lock:['for','renew'],meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item'],help:['topic'],reading:['tab']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -687,6 +688,9 @@
       const requestedEntry=window.navigation?.currentEntry?.key,requestedUrl=location.href;
       lazy.load(view).then(()=>{
         if(request!==goSeq)return false;
+        // S70-15 QA-간헐실패: 기다리는 사이 폰 [메뉴] 창이나 계정 메뉴(각자 자기 기록 칸을 쌓는다)를 열었으면 그것도 '뒤에 연 것'이다.
+        // 그대로 바꾸면 새 화면 기록 칸이 그 창의 칸 위에 쌓이고 창 표시까지 물려받아, 창을 닫는 뒤로가기가 앞 화면으로 돌아가 버린다.
+        if(window.KPTUMenuPanel?.isOpen?.())return false;
         if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
         return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub,areas,hold});
       }).catch(err=>console.error('view lazy load',view,err));

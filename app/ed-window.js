@@ -43,6 +43,8 @@ const PHONE = window.matchMedia('(max-width:760px)');
 const NAV = '#appView>.app-nav';
 const TABS = `.mobile-tabs button, ${NAV} :is(button, a[href])`;
 const NAV_GAP = 12;
+// The body column of every screen on a wide window: the top line (back · search · add) spans it (desktop-ui.css).
+const COLUMN = '#appView>.app-topline';
 const STYLES = ['./choice-sheet.css', './ed-doc.css', './ed-window.css'];
 const EXPORTS = [['telegram', '텔레그램용 복사'], ['hangul', '한글용 복사'], ['hwp', 'HWP 파일로 받기']];
 const CLOSE_CHOICES = [['stay', '계속 쓰기'], ['close', '저장하지 않고 닫기']];
@@ -102,7 +104,7 @@ function closeChoices() {
 }
 
 export function openEdWindow({title = '크게 쓰기', doc = null, text = '', convert = null, save = null, limit = 0, textOnly = false, draft = false, keepOpen = false, saveUnchanged = false,
-  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, files = null, onFiles = null, shortcuts = false, onClose = () => {}} = {}) {
+  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, files = null, onFiles = null, shortcuts = false, blocks = null, onClose = () => {}} = {}) {
   // One big window at a time: this one is replaced when another opens.
   current?.close({silent: true});
   if (bigWindowOpen()) return null;
@@ -150,17 +152,25 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   const say = message => { if (!closed) status.textContent = message || ''; };
 
   // 761px~: the app's own menu stays beside the window (side); the window takes only the rest.
+  // NOTE-크게쓰기틀(S70-38, 2026-11-25 명진 "가"): the window sits in the body column's own frame — the same top and bottom as the menu card,
+  // the same left and right as the screen's body column (the top line above every screen), and the same rounded card (ed-window.css).
+  const FRAME_VARS = ['--ed-window-left', '--ed-window-top', '--ed-window-right', '--ed-window-bottom'];
   function placeBesideNav() {
     const nav = PHONE.matches ? null : document.querySelector(NAV);
     const box = nav?.getClientRects().length ? nav.getBoundingClientRect() : null;
     const side = box ? 'side' : null;
     if (side) {
+      const line = document.querySelector(COLUMN), col = line?.getClientRects().length ? line.getBoundingClientRect() : null;
+      const width = document.documentElement.clientWidth, height = window.innerHeight;
+      const left = col && col.left >= box.right ? col.left : box.right + NAV_GAP, right = col ? width - col.right : box.left;
       shell.dataset.edNav = side;
-      shell.style.setProperty('--ed-window-left', side === 'side' ? Math.ceil(box.right) + NAV_GAP + 'px' : '0px');
-      shell.style.setProperty('--ed-window-top', '0px');
+      shell.style.setProperty('--ed-window-left', Math.round(left) + 'px');
+      shell.style.setProperty('--ed-window-right', Math.max(0, Math.round(right)) + 'px');
+      shell.style.setProperty('--ed-window-top', Math.max(0, Math.round(box.top)) + 'px');
+      shell.style.setProperty('--ed-window-bottom', Math.max(0, Math.round(height - box.bottom)) + 'px');
     } else {
       delete shell.dataset.edNav;
-      shell.style.removeProperty('--ed-window-left'); shell.style.removeProperty('--ed-window-top');
+      for (const name of FRAME_VARS) shell.style.removeProperty(name);
     }
     shell.setAttribute('aria-modal', String(!side));
   }
@@ -313,7 +323,8 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   handle.ready = (async () => {
     await ensureStyles();
     if (closed) return handle;
-    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, onFiles, shortcuts, lineWidth: true}); // NOTE-글폭: 큰 창 글 줄도 같은 폭·같은 손잡이
+    // NOTE-노션편집 ①(나): blocks — the opener's 블록 편집 state and switch (notes), the same as its edit field.
+    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, onFiles, shortcuts, lineWidth: true, blocks}); // NOTE-글폭: 큰 창 글 줄도 같은 폭·같은 손잡이
     if (closed) { made.destroy(); return handle; }
     editor = made;
     // The editor's own first value is the baseline (its cleaning may differ in small ways from the converted one), so opening alone is "not changed".

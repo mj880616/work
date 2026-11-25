@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {readingUrl, sharedReading, newRow, lineOf, filterEntries, filterOptions, nextFilter, keepFilter, entriesOf, linkOf, emptyText, LIST_COLS, bodyText, bodyPatch, keepOwn, stateLine, canRetry,
-  paragraphs, sourceOf, shortDay, BODY_MAX, FILTERS, needsRefetch, refetchBatches, stopsAuto, copyPatch, REFETCH_SINCE, AUTO_BATCH} from '../app/reading-model.mjs';
+  paragraphs, sourceOf, shortDay, BODY_MAX, FILTERS, needsRefetch, refetchBatches, stopsAuto, copyPatch, REFETCH_SINCE, AUTO_BATCH, readingNote, savedStamp, NOTE_CUT_LINE} from '../app/reading-model.mjs';
 import {ITEMS, DEFAULT_REST, withFeatures, defaultLayout} from '../app/menu-model.mjs';
 import {cleanSource} from '../app/text-highlights-model.mjs';
 
@@ -45,20 +45,22 @@ test('목록 줄: 안 읽음 점·제목(없으면 사이트)·사이트·날짜
   assert.deepEqual(filterEntries(only, 'all').map(e => e.key), ['a', 'b']);
   // S69-04: [밑줄]은 글 줄을 거르지 않는다(밑줄 줄 목록은 visibleMarks) — 탭 숫자는 넘겨받은 밑줄 수 그대로.
   assert.deepEqual(filterEntries(only, 'marks'), []);
-  assert.deepEqual(filterOptions(only, 5).map(o => o.label), ['안 읽음 1', '전체', '밑줄 5', '메모']);
-  assert.deepEqual(filterOptions(only, null).map(o => o.label), ['안 읽음 1', '전체', '밑줄', '메모']);
+  assert.deepEqual(filterOptions(only, 5).map(o => o.label), ['전체', '안 읽음 1', '밑줄 5', '메모']);
+  assert.deepEqual(filterOptions(only, null).map(o => o.label), ['전체', '안 읽음 1', '밑줄', '메모']);
   // S69-94: [메모] — 이 화면 글에 남긴 메모 모아 보기(글 줄은 거르지 않음, 탭 숫자는 넘겨받은 메모 수).
-  assert.deepEqual(filterOptions(only, 5, 3).map(o => o.label), ['안 읽음 1', '전체', '밑줄 5', '메모 3']);
+  assert.deepEqual(filterOptions(only, 5, 3).map(o => o.label), ['전체', '안 읽음 1', '밑줄 5', '메모 3']);
   assert.deepEqual(filterEntries(only, 'memos'), []);
   assert.equal(emptyText('memos', 0), '남긴 메모가 없어요 · 글 아래 [메모 남기기]');
   assert.equal(emptyText('marks', 0), '저장한 밑줄이 없어요 · 글을 선택하고 [밑줄 저장]', '저장한 글이 없어도 밑줄 탭은 밑줄 안내');
-  assert.equal(keepFilter('news'), 'unread', 'S68-29: [News] 칩 값은 없다');
+  assert.equal(keepFilter('news'), 'all', 'S68-29: [News] 칩 값은 없다');
   assert.equal(nextFilter('marks', 1), 'memos');
-  assert.equal(keepFilter('x'), 'unread');
-  assert.deepEqual(FILTERS, ['unread', 'all', 'marks', 'memos']);
-  assert.equal(nextFilter('unread', 1), 'all');
+  assert.equal(keepFilter('x'), 'all', 'S70-24: 처음·모르는 값은 [전체]');
+  assert.deepEqual(FILTERS, ['all', 'unread', 'marks', 'memos'], 'S70-24: [전체]가 맨 앞');
+  assert.equal(nextFilter('all', 1), 'unread');
+  assert.equal(nextFilter('unread', 1), 'marks');
   assert.equal(nextFilter('memos', 1), 'memos');
-  assert.equal(nextFilter('all', -1), 'unread');
+  assert.equal(nextFilter('unread', -1), 'all');
+  assert.equal(nextFilter('all', -1), 'all');
   assert.equal(shortDay('없음'), '');
 });
 
@@ -77,11 +79,11 @@ test('한 목록(S68-27·S68-29): 읽을 거리 표 하나 — News에서 보낸
   assert.deepEqual(all.map(e => e.link), [{type: 'outside', id: N2}, null, {type: 'news', id: N1}]);
   assert.equal(linkOf({news_article_id: 'nope'}), null);
   // S68-29(명진 11/23 02:23): News에서 보낸 줄을 따로 거르는 칩은 없다(S69-94부터 칩은 [안 읽음][전체][밑줄][메모]).
-  assert.deepEqual(filterOptions(all, 2).map(o => o.label), ['안 읽음 2', '전체', '밑줄 2', '메모']);
-  assert.deepEqual(filterEntries(all, 'news').map(e => e.key), [R3, R1], '옛 칩 값은 처음 칩(안 읽음)으로');
+  assert.deepEqual(filterOptions(all, 2).map(o => o.label), ['전체', '안 읽음 2', '밑줄 2', '메모']);
+  assert.deepEqual(filterEntries(all, 'news').map(e => e.key), filterEntries(all, 'all').map(e => e.key), '옛 칩 값은 처음 칩(전체)으로 — S70-24');
   assert.deepEqual(filterEntries(all, 'unread').map(e => e.key), [R3, R1], '안 읽음은 줄의 읽음 칸 하나로');
   assert.deepEqual(filterEntries(all, 'all').map(e => e.key), [R3, R2, R1]);
-  assert.equal(keepFilter('news'), 'unread');
+  assert.equal(keepFilter('news'), 'all');
   assert.equal(nextFilter('memos', 1), 'memos');
   assert.doesNotMatch(emptyText('all', 3), /News/);
   assert.match(emptyText('unread', 0), /^저장한 글이 없어요/); // S68-34: 화면 이름 '저장한 글'
@@ -114,7 +116,8 @@ test('원문 사본: note-import 글자 블록만 글자로(사진·다른 블�
   const ok = bodyPatch({ok: true, state: 'ok', title: '원문 제목', site: '예시 신문', blocks}, '2026-11-22T00:00:00.000Z');
   assert.deepEqual(Object.keys(ok).sort(), ['body', 'body_at', 'body_state', 'site', 'title']);
   assert.equal(ok.body_state, 'ok');
-  assert.equal(bodyPatch({ok: true, state: 'lead', blocks}).body_state, 'paywall');
+  assert.equal(bodyPatch({ok: true, state: 'lead', reason: 'paywall', blocks}).body_state, 'paywall');
+  assert.equal(bodyPatch({ok: true, state: 'lead', reason: 'lead_only', blocks}).body_state, 'lead'); // S70-40a: 메타 설명만은 유료가 아니다
   assert.deepEqual(bodyPatch({ok: true, state: 'failed', reason: 'robots'}, 'T'), {body: null, body_state: 'robots', body_at: 'T'});
   assert.equal(bodyPatch({ok: true, state: 'failed', reason: 'redirect'}).body_state, 'blocked');
   assert.equal(bodyPatch({ok: true, state: 'failed', reason: 'timeout'}).body_state, 'failed');
@@ -129,7 +132,7 @@ test('상태 한 줄과 [다시]: 받기 전·막힘·앞부분만, 막힌 주�
   assert.equal(stateLine({body_state: 'ok'}), '');
   assert.equal(stateLine({body_state: 'pending'}), '원문을 아직 가져오지 않았어요.');
   assert.equal(stateLine({body_state: 'pending'}, {busy: true}), '원문을 가져오는 중…');
-  assert.equal(stateLine({body_state: 'paywall', body: '앞'}), '공개된 앞부분만 가져왔어요.');
+  assert.equal(stateLine({body_state: 'paywall', body: '앞'}), '유료 기사라 앞부분만 있어요.');
   assert.match(stateLine({body_state: 'bot_check'}), /읽기를 막아/);
   assert.match(stateLine({body_state: 'robots'}), /다시 시도/); // S68-23: 옛 robots 상태는 다시 하면 읽힐 수 있다
   assert.match(stateLine({body_state: 'too_big'}), /너무 커서/);
@@ -257,4 +260,33 @@ test('저장한 글 [수정]: ⋯ 맨 앞 [수정](다른 화면과 같은 순�
   assert.match(nd, /async function edit\(\) \{[\s\S]*?await openHand\(\);/);
   // 제목 고친 뒤 이어진 저장한 글 줄의 사본도 같은 제목으로.
   assert.match(nd, /m\.syncNewsTitle\(c\.item\.id, row\.title\)/);
+});
+
+// S69-98 NOTE-에버노트 ⑤: [노트로 만들기] — 원문 사본 + 출처 주소 + 저장 시각, 원문 정보(metadata.source)는 주소로 가져오기와 같은 모양.
+test('readingNote: 원문·출처·저장 시각을 노트 한 장으로, 긴 글은 뒤 문단부터 빼고 한 줄 알림', () => {
+  const row = {id: 'a6800000-0000-4000-8000-000000000001', url: 'https://example.com/a', title: '예시 기사', site: 'example.com', saved_at: '2026-11-22T01:00:00Z', body_at: '2026-11-22T01:00:10Z'};
+  assert.equal(savedStamp('2026-11-22T01:00:00Z'), '2026-11-22 10:00');
+  assert.equal(savedStamp('x'), '');
+  const n = readingNote(row, '첫 문단.\n\n둘째 문단.');
+  assert.equal(n.title, '예시 기사');
+  assert.equal(n.raw_text, '첫 문단.\n\n둘째 문단.\n\n---\n출처: example.com · https://example.com/a\n저장: 2026-11-22 10:00');
+  assert.deepEqual(n.source, {url: 'https://example.com/a', state: 'ok', site: 'example.com', fetched_at: '2026-11-22T01:00:10.000Z'});
+  assert.equal(n.cut, false);
+  // 원문이 없으면 출처·저장 시각만(주소는 늘 남는다).
+  assert.equal(readingNote(row, '').raw_text, '---\n출처: example.com · https://example.com/a\n저장: 2026-11-22 10:00');
+  // 상한: 뒤 문단부터 빼고 한 줄.
+  const long = readingNote(row, 'ㄱ'.repeat(60) + '\n\n' + 'ㄴ'.repeat(60), {max: 150});
+  assert.equal(long.cut, true);
+  assert.ok(long.raw_text.startsWith('ㄱ'.repeat(60) + '\n\n' + NOTE_CUT_LINE));
+  assert.ok(!long.raw_text.includes('ㄴ'));
+  assert.ok([...long.raw_text].length <= 150);
+  // id·https 주소가 없으면 만들지 않는다.
+  assert.equal(readingNote({...row, id: 'x'}, 'a'), null);
+  assert.equal(readingNote({...row, url: 'javascript:alert(1)'}, 'a'), null);
+});
+test('[노트로 만들기]: 글 보기 단추 · 기존 노트 만들기 길 · 원문을 받은 뒤에만', () => {
+  const src = readFileSync(new URL('../app/reading.js', import.meta.url), 'utf8');
+  assert.match(src, /'노트로 만들기', \{rdMakeNote: row\.id\}/);
+  assert.match(src, /createNoteDoc\(\{title: made\.title, raw_text: made\.raw_text, source: made\.source\}/);
+  assert.match(src, /state\.bodyFor !== row\.id\) making\.disabled = true/);
 });

@@ -4,7 +4,7 @@
 //   손가락 아래 요소를 over(item, el)로 알려 받는 화면이 점선 표시를 하고, 떼면 drop(item, el, x, y). 무엇을 집고 어디에 놓을지는 화면(상태 주인)이 정한다.
 // - 브라우저의 길게 누르기 메뉴(contextmenu)는 화면이 holding()으로 물어 막는다(누르고 있는 동안은 이 부품이 맡음, armNow()로 바로 집어 듦).
 // - 마우스·펜은 건드리지 않는다(PC는 HTML 끌어 놓기 그대로). 기기 저장 없음.
-import {createEdgeScroll, edgeSpeed, EDGE, EDGE_MAX} from './drag-edge-scroll.js';
+import {createEdgeScroll, edgeSpeed, EDGE, EDGE_MAX, followTouch} from './drag-edge-scroll.js';
 // 저절로 굴리기 계산은 모든 끌기 공용(drag-edge-scroll.js — 손가락 아래 가장 안쪽 굴러가는 칸, 끝까지 구르면 바깥 칸). 예전 이름 그대로 내보낸다.
 export {edgeSpeed, EDGE, EDGE_MAX};
 export const HOLD_MS = 380, SLOP = 10;
@@ -20,15 +20,18 @@ export function bindTouchDrag(el, {pick = () => null, hold = () => {}, over = ()
   const arm = () => {
     if (!s || s.armed) return;
     clearTimeout(s.timer);
-    const item = pick(s.target);
+    // S70-33: 누르고 있는 동안 목록이 다시 그려져 누른 칸이 빠졌으면(떼어진 칸) 손가락 아래 지금 칸을 집는다.
+    // 손짓 소식(touchmove·touchend)은 브라우저가 계속 처음 칸으로 보내므로 따라가기(followTouch)는 처음 칸 그대로.
+    const item = pick(s.target.isConnected ? s.target : doc.elementFromPoint(s.x, s.y));
     if (!item) { s = null; return; }
     s.item = item; s.armed = true;
+    s.unfollow = followTouch(s.target, {move, end, cancel: stop}); // S70-10: 끄는 중 목록이 다시 그려져 누른 칸이 빠져도 이어진다
     try { win.navigator?.vibrate?.(12); } catch { /* 떨림 없음 */ }
   };
   const place = () => { if (s?.ghost) s.ghost.style.transform = `translate(${Math.round(s.x + 12)}px, ${Math.round(s.y - 28)}px)`; };
   // scroller(el): 먼저 굴릴 칸(화면이 정함, 없으면 손가락 아래 가장 안쪽 굴러가는 칸). 굴린 뒤 손가락 아래를 다시 알린다.
   const edge = createEdgeScroll({win, prefer: t => scroller(t), onScroll: () => { if (s?.drag) over(s.item, under()); }});
-  const clear = () => { if (!s) return; clearTimeout(s.timer); edge.stop(); s.ghost?.remove(); };
+  const clear = () => { if (!s) return; clearTimeout(s.timer); edge.stop(); s.ghost?.remove(); s.unfollow?.(); };
   const start = e => {
     if (s) { const was = s; clear(); s = null; if (was.drag) cancel(was.item); }
     if (e.touches.length !== 1 || !enabled()) return;

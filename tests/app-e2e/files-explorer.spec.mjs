@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
-import { pinch } from './helpers/pinch.mjs';
 // FILES-클라우드탐색기 ④(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files).
 // 색인 목록 · 폴더 들어가기·위치 줄·위 폴더 · 찾기(이름 + 자료실 글자) · 미리보기(사진·PDF·오피스 → PDF·글) · 갱신(바뀐 줄만) · 폰 첫 화면 나무(S50-33).
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 파일·폴더 이름은 모두 가짜.
@@ -10,7 +9,7 @@ const rows = page => root(page).locator('[data-fx-list] [data-fx-row]');
 const noWideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 const names = page => rows(page).locator(':is(.fx-name, .ft-name)').allTextContents();
 
-test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — 최근·별표·큰 파일·저장소 상자, 폴더는 그 자리 펼치기, 두 손가락 그 폴더만(위치 길), 뒤로가기는 나무로', async ({ page }) => {
+test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — 최근·별표·큰 파일·저장소 상자, 폴더는 그 자리 펼치기, ⋯ 그 폴더만(위치 길), 뒤로가기는 나무로', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 412);
   await openFiles(page, 412);
@@ -19,7 +18,7 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   await expect(tree).toBeVisible();
   await expect(root(page).locator('[data-fx-tab]')).toHaveCount(0);
   await expect(root(page).locator('.fx-top [data-fx-crumb]')).toBeHidden();
-  // '최근' 상자(최근 바뀐 파일) → 별표·큰 파일 → 저장소마다 상자(머리 = 저장소 그림 + 이름, 첫 클라우드 머리 오른쪽에 맞춤 글자).
+  // '최근' 상자(최근 바뀐 파일) → 별표·큰 파일 → 저장소마다 상자(머리 = 저장소 그림 + 이름). 맞춤 글자·단추는 없다(S70-26, 저절로만).
   await expect(tree.locator('[data-fx-box="recent"] .ft-box-toggle')).toHaveText('최근');
   await expect(tree.locator('[data-fx-shelf] .ft-name')).toHaveText(['별표', '큰 파일']);
   // S51-25: 별표 아이콘은 그림 문자 대신 공용 SVG(글자 없음).
@@ -27,8 +26,7 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   await expect(tree.locator('[data-fx-shelf="starred"] .ft-ico')).toHaveText('');
   await expect(tree.locator('[data-fx-shelf="starred"] .ft-num')).toHaveText('1개');
   await expect(tree.locator('[data-fx-box-tog]')).toHaveText(['원드라이브', '구글 드라이브']);
-  await expect(tree.locator('[data-fx-box="od"] .ft-box-head [data-fx-sync]')).toBeVisible();
-  await expect(root(page).locator('.fx-top [data-fx-sync]')).toBeHidden();
+  await expect(root(page).locator('[data-fx-sync]')).toHaveCount(0);
   const search = await root(page).locator('[data-fx-search]').boundingBox(), chip = await root(page).locator('[data-fx-srcs] [data-fx-src="od"]').boundingBox();
   expect(Math.abs((search.y + search.height / 2) - (chip.y + chip.height / 2))).toBeLessThan(4);
   expect(chip.width).toBeLessThanOrEqual(30);
@@ -54,8 +52,9 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   await page.goBack();
   await expect(prev).toBeHidden();
   await expect(tree).toBeVisible();
-  // 두 손가락 벌리기 → 그 폴더만(같은 자리에 목록 + 위치 길 ‹ 원드라이브 › 가짜 문서함).
-  await pinch(page, folder, 'out');
+  // ⋯ [이 폴더로 들어가기] → 그 폴더만(같은 자리에 목록 + 위치 길 ‹ 원드라이브 › 가짜 문서함). S69-99: 두 손가락은 줄 크기.
+  await folder.locator('[data-fx-tmenu]').click();
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect(tree).toBeHidden();
   await expect(row(page, 'od:OD!11')).toBeVisible();
   await expect(root(page).locator(':is(.fx-crumb-step, .ft-focus-step)')).toHaveText(['원드라이브']);
@@ -129,12 +128,15 @@ for (const width of [884, 1440]) {
       await expect(prev).toBeHidden();
     }
     // 갱신: 서버가 돌려준 바뀐 줄만 입힌다(이름 바뀜·새 파일·지운 파일). 목록을 다시 읽지 않는다.
+    // S70-26: 누르는 단추는 없다 — 창으로 돌아올 때(1분 지났으면) 저절로 맞춘다.
     server.pendingSync = { changed: [{ source: 'od', item_id: 'OD!13', parent_id: 'OD!1', name: '가짜 메모 새이름.txt', is_folder: false, mime: 'text/plain', size_bytes: 3000, modified_at: '2026-10-06T00:30:00Z', hash: null, trashed: false }], removed: [{ source: 'od', id: 'OD!11' }] };
     const lists = () => server.calls.filter(c => c.what === 'app_cloud_list' && c.body.p_parent_id === 'OD!1').length;
     const before = lists();
-    await root(page).locator('[data-fx-sync]').click();
+    await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange')); });
+    await page.clock.setFixedTime(new Date('2026-10-06T01:05:00Z'));
+    await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange')); });
     await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 예산표.xlsx', '가짜 메모 새이름.txt']);
-    expect(server.calls.filter(c => c.action === 'sync').at(-1).body).toEqual({ action: 'sync', force: true });
+    expect(server.calls.filter(c => c.action === 'sync').at(-1).body).toEqual({ action: 'sync' });
     expect(lists()).toBe(before);
     // 찾기: 이름 + 자료실이 이미 읽은 글자(F7), 두 클라우드 함께, 경로 함께.
     await root(page).locator('[data-fx-search]').fill('협약');
@@ -196,19 +198,15 @@ test('1440: 폴더를 열면 그 폴더만 클라우드에서 바로 읽어 색�
   expect(errors).toEqual([]);
 });
 
-// S50-14 FILES-다안나옴: 처음 목록 받기가 실패하면(운영: 같은 id 두 줄 → 묶음 거절 → 매번 같은 쪽에서 실패) 위 단추가 '방금 맞춤'이 아니라 '맞추기 안 됨'.
-//   이어 받을 쪽이 남으면 '맞추기…'(글줄 안 표시는 '…' 한 글자, UI-로딩맨위). 다 받으면 다시 '방금 맞춤'.
-test('PC 1280: 맞추기 실패·이어 받기 남음은 \'방금 맞춤\'으로 덮지 않음', async ({ page }) => {
+// S50-14 FILES-다안나옴 → S70-26: 실패·이어 받기 남음은 글자 없이 다음 차례에 다시. 이어 받을 쪽이 남으면 곧바로 이어 받는다.
+test('PC 1280: 이어 받기가 남으면 저절로 이어 받고, 화면에 맞춤 글자는 없다', async ({ page }) => {
   const { errors, server } = await start(page, 1280);
-  server.syncReply = { od: { error: 'store_unavailable', more: false, done: false } };
-  await openFiles(page, 1280);
-  const btn = root(page).locator('[data-fx-sync]');
-  await expect(btn).toHaveText('맞추기 안 됨');
-  await expect(btn).toHaveAttribute('data-fx-sync-state', 'error');
   server.syncReply = { od: { more: true, done: false } };
-  await btn.click();
-  await expect(btn).toHaveText('맞추기…');
+  await openFiles(page, 1280);
+  await expect.poll(() => server.calls.filter(c => c.action === 'sync').length).toBe(1);
   server.syncReply = { od: { more: false, done: true } };
-  await expect(btn).toHaveText('방금 맞춤', { timeout: 10000 });
+  await expect.poll(() => server.calls.filter(c => c.action === 'sync').length, { timeout: 10000 }).toBe(2);
+  await expect(root(page).locator('[data-fx-sync]')).toHaveCount(0);
+  await expect(root(page)).not.toContainText('맞추기');
   expect(errors).toEqual([]);
 });

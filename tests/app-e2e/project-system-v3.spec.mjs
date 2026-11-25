@@ -228,8 +228,14 @@ test('project list loads and its heading uses available width at desktop, tablet
       const grid=document.querySelector('#projectGrid');
       const card=grid.querySelector('.ps3-prow');
       const rect=element=>element.getBoundingClientRect();
-      return {title:rect(title).width,card:rect(card).width,overflow:document.documentElement.scrollWidth-window.innerWidth,ready:grid.dataset.ps3Ready};
+      // ORG-목록단계칩위치: › 칸은 글자 폭만큼이고, 앞 요약(또는 이름)과 › 사이는 공용 작은 간격(8px) — 고정 24·20px 칸 가운데라 › 앞에 빈 폭이 생기던 것.
+      // 요약이 비면 › 는 줄 오른쪽 끝(이름 칸이 남은 폭을 다 쓴다).
+      const chev=rect(card.querySelector('.kptu-list-chevron')),meta=card.querySelector('.ps3-prow-meta'),main=rect(card.querySelector('.kptu-list-row-main'));
+      return {title:rect(title).width,card:rect(card).width,overflow:document.documentElement.scrollWidth-window.innerWidth,ready:grid.dataset.ps3Ready,chevWidth:chev.width,chevGap:meta&&rect(meta).width?chev.left-rect(meta).right:0,chevEnd:main.right-chev.right};
     });
+    expect(layout.chevWidth,`chevron width at ${width}px`).toBeLessThanOrEqual(12);
+    expect(layout.chevGap,`summary to chevron at ${width}px`).toBeLessThanOrEqual(8.5);
+    expect(layout.chevEnd,`chevron to row end at ${width}px`).toBeLessThanOrEqual(1);
     expect(layout.ready).toBe('1');
     // UI-스와이프·주소: 목록부터 열려 머리줄은 '사업영역 관리'만(고른 사업영역 이름이 붙지 않음) — 그 글자가 잘리지 않을 폭이면 된다.
     expect(layout.title,`window heading at ${width}px`).toBeGreaterThan(60);
@@ -618,7 +624,7 @@ test('project detail keeps one summary-first column at desktop and phone widths'
   await expect(page.locator('#ps3-memos')).toHaveCount(0);
   await expect(page.locator('#ps3Body .ps3-section-head p,#ps3Body :not(.gt-linked)>[data-wait-empty]:not([data-ps3-rec-empty]),#ps3Body .ps3-detail-head')).toHaveCount(0);
   await expect(page.locator('#ps3-tasks .ps3-section-actions [data-ps3-global="task"]')).toHaveAccessibleName('할 일 추가');
-  await expect(page.locator('#ps3-documents .ps3-section-actions [data-ps3-global="document"]')).toHaveAccessibleName('자료 올리기');
+  await expect(page.locator('#ps3-documents .ps3-section-actions [data-ps3-global="document"]')).toHaveAccessibleName('자료 업로드');
   for(const width of [1280,360,390,412,430]){
     await page.setViewportSize({width,height:844});
     // UI-PC프로젝트좌우: crossing 1024px moves the detail between the PC pane and the dialog; measure once it is shown again.

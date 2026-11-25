@@ -1,3 +1,17 @@
+/* ===== UI-폴더줄크기(S69-99, 명진 2026-11-25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로 그리고 오므리기 벌리기로 폴더 크기 다르게 보기"):
+   파일·자료실·노트·사진 폴더·항목 줄 크기 값은 여기 한 곳이다(화면 CSS는 이 값을 쓰기만 하고 따로 덮어쓰지 않는다).
+   보통(m, 기본) = [파일] 줄: 폰 맨 위 단계 44px·하위 40px·글자 14px, 넓은 화면(761px~) 36px·32px·13px, 폴더 그림 20px. 폴더 안 파일·노트 줄(--ft-item-h)은 40px.
+   단계는 <html data-row-size> 하나(row-size.js, 서버 view_prefs.row_size). 두 손가락 벌리기·오므리기·Ctrl+휠로 한 단계씩(folder-pinch.js). ===== */
+:root { --ft-row-h:44px; --ft-sub-h:40px; --ft-item-h:40px; --ft-font:14px; --ft-ico:20px; --ft-ico-svg:19px; --ft-gap:9px; --ft-indent:22px; }
+:root[data-row-size="s"] { --ft-row-h:36px; --ft-sub-h:32px; --ft-item-h:32px; --ft-font:13px; --ft-ico:17px; --ft-ico-svg:16px; --ft-gap:7px; --ft-indent:18px; }
+:root[data-row-size="l"] { --ft-row-h:52px; --ft-sub-h:48px; --ft-item-h:48px; --ft-font:15px; --ft-ico:24px; --ft-ico-svg:23px; --ft-gap:10px; --ft-indent:24px; }
+:root[data-row-size="xl"] { --ft-row-h:60px; --ft-sub-h:56px; --ft-item-h:56px; --ft-font:17px; --ft-ico:28px; --ft-ico-svg:27px; --ft-gap:12px; --ft-indent:26px; }
+@media (min-width:761px) {
+  :root { --ft-row-h:36px; --ft-sub-h:32px; --ft-font:var(--ds-compact-text,13px); }
+  :root[data-row-size="s"] { --ft-row-h:30px; --ft-sub-h:28px; --ft-font:12px; }
+  :root[data-row-size="l"] { --ft-row-h:44px; --ft-sub-h:40px; --ft-font:14px; }
+  :root[data-row-size="xl"] { --ft-row-h:52px; --ft-sub-h:48px; --ft-font:15px; }
+}
 /* 폴더 나무 공용 모양(사진 메뉴 ②, 2026-10-29): 노트(basket-notes.js NOTE-탐색기)와 사진 메뉴 [폴더](photos.js)가 같은 줄 모양을 쓴다.
    노란 폴더 그림(닫힘/열림)·들여쓰기(--nx-indent, folder-limits.mjs 4단까지)·장수·지금 폴더 강조·끌어 놓을 곳·끄는 중. basket.css에 있던 줄을 그대로 옮겼다. */
 /* UI-칸안스크롤하나로(시안 A): 나무 칸에 따로 스크롤을 두지 않는다. 화면 스크롤 하나이고, 나무는 follow-pane.js가 --follow-top으로 화면에 붙여 따라오게 한다
@@ -6,14 +20,14 @@
 .nx-row { position:relative; display:flex; align-items:center; min-width:0; }
 /* UI-폴더나무촘촘 A안(S52-33): 옛 줄(.nx-*, 사진 [폴더]의 PC 나무·폰 기기 폴더 줄)도 아래 공용 상자 줄(.ft-*)과 같은 치수 — 들여쓰기 22px·글자·높이·폴더 그림 19px·간격 9px.
    맨 위 단계(.nx-top) 굵은 이름, 하위(.nx-sub) 낮은 줄. 폰 44/40px·14px, 넓은 화면(761px~) 36/32px·13px(아래 @media). 화면 CSS는 높이·글자를 따로 정하지 않는다. */
-.nx-row.nx-folder, .nx-row.nx-outside { padding-left:calc(var(--nx-indent, 0) * 22px); }
-.nx-main { flex:1 1 auto; display:flex; align-items:center; gap:9px; min-width:0; min-height:44px; padding:0 6px; border:0; background:none; color:var(--kptu-ink); font:inherit; font-size:14px; text-align:left; cursor:pointer; border-radius:var(--kptu-radius-sm); }
-.nx-sub > .nx-main { min-height:40px; }
+.nx-row.nx-folder, .nx-row.nx-outside { padding-left:calc(var(--nx-indent, 0) * var(--ft-indent)); }
+.nx-main { flex:1 1 auto; display:flex; align-items:center; gap:var(--ft-gap); min-width:0; min-height:var(--ft-row-h); padding:0 6px; border:0; background:none; color:var(--kptu-ink); font:inherit; font-size:var(--ft-font); text-align:left; cursor:pointer; border-radius:var(--kptu-radius-sm); }
+.nx-sub > .nx-main { min-height:var(--ft-sub-h); }
 .nx-top > .nx-main .nx-name { font-weight:700; }
 .nx-main:hover { background:var(--kptu-surface-subtle); }
 .nx-ico { flex:none; font-size:15px; line-height:1; }
-.nx-ico.fl-ico { width:20px; height:20px; }
-.nx-ico.fl-ico svg { width:19px; height:19px; }
+.nx-ico.fl-ico { width:var(--ft-ico); height:var(--ft-ico); }
+.nx-ico.fl-ico svg { width:var(--ft-ico-svg); height:var(--ft-ico-svg); }
 .nx-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .nx-num { flex:none; font-size:12px; color:var(--kptu-muted); }
 .nx-more { flex:none; }
@@ -54,8 +68,8 @@
 .ft-box-body { min-width:0; }
 .ft-box-body > .ft-top + .ft-top, .ft-box-body > .ft-top ~ .ft-top, .ft-box-head + .ft-box-body > .ft-top:first-child { border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
 .ft-row { position:relative; box-sizing:border-box; display:flex; align-items:center; min-width:0; }
-.ft-main { flex:1 1 auto; display:flex; align-items:center; gap:9px; box-sizing:border-box; min-width:0; min-height:44px; margin:0; padding:0 8px 0 calc(12px + var(--ft-depth,0) * 22px); border:0; border-radius:0; background:none; color:var(--kptu-ink); font:inherit; font-size:14px; font-weight:400; text-align:left; cursor:pointer; }
-.ft-sub > .ft-main { min-height:40px; }
+.ft-main { flex:1 1 auto; display:flex; align-items:center; gap:var(--ft-gap); box-sizing:border-box; min-width:0; min-height:var(--ft-row-h); margin:0; padding:0 8px 0 calc(12px + var(--ft-depth,0) * var(--ft-indent)); border:0; border-radius:0; background:none; color:var(--kptu-ink); font:inherit; font-size:var(--ft-font); font-weight:400; text-align:left; cursor:pointer; }
+.ft-sub > .ft-main { min-height:var(--ft-sub-h); }
 .ft-top > .ft-main .ft-name { font-weight:700; }
 .ft-main:hover { background:var(--kptu-surface-subtle); }
 .ft-main:focus-visible { outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
@@ -64,8 +78,8 @@
 .ft-offtag { flex:none; margin-left:auto; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 /* LIB-받는폴더(S59-11): 개수 뒤 작은 표시 글자(받는 폴더). 연한 테두리 한 줄, 굵지 않게. */
 .ft-tag { flex:none; font-size:11px; line-height:1.5; padding:0 6px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-sm,6px); color:var(--kptu-primary-ink,var(--kptu-muted)); white-space:nowrap; }
-.ft-ico { flex:none; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; color:var(--fl-ico,var(--ds-folder-0-ico)); }
-.ft-ico svg { display:block; width:19px; height:19px; fill:currentColor; }
+.ft-ico { flex:none; display:inline-flex; align-items:center; justify-content:center; width:var(--ft-ico); height:var(--ft-ico); color:var(--fl-ico,var(--ds-folder-0-ico)); }
+.ft-ico svg { display:block; width:var(--ft-ico-svg); height:var(--ft-ico-svg); fill:currentColor; }
 .ft-ico.ft-ico-trash { color:var(--kptu-faint); }
 .ft-ico.ft-ico-trash svg { fill:none; width:17px; height:17px; }
 .ft-dots { position:relative; flex:none; width:36px; height:32px; min-height:0; margin:0 2px 0 0; padding:0; border:0; border-radius:var(--kptu-radius-sm,6px); background:none; color:var(--kptu-muted); cursor:pointer; }
@@ -81,17 +95,15 @@
 .ft-off > .ft-main .ft-name { font-weight:400; }
 /* 휴지통: 상자 맨 아래 회색 줄. */
 .ft-trash > .ft-main, .ft-trash > .ft-main .ft-name { color:var(--kptu-muted); font-weight:400; }
-/* 'n개 더 보기': 파일 줄 들여쓰기 자리에서 시작하는 작은 글자 줄. 두 손가락 안내는 손가락 화면에서만. */
-.ft-more-row { display:block; width:100%; min-height:32px; margin:0; padding:0 8px 0 calc(12px + var(--ft-depth,0) * 22px + 29px); border:0; background:none; color:var(--kptu-primary-ink,var(--kptu-primary)); font:inherit; font-size:var(--ds-text-meta,12px); text-align:left; cursor:pointer; }
+/* 'n개 더 보기': 파일 줄 들여쓰기 자리에서 시작하는 작은 글자 줄. */
+.ft-more-row { display:block; width:100%; min-height:32px; margin:0; padding:0 8px 0 calc(12px + var(--ft-depth,0) * var(--ft-indent) + var(--ft-ico) + var(--ft-gap)); border:0; background:none; color:var(--kptu-primary-ink,var(--kptu-primary)); font:inherit; font-size:var(--ds-text-meta,12px); text-align:left; cursor:pointer; }
 .ft-more-row:hover { background:var(--kptu-surface-subtle); }
 /* UI-폴더이름펼치기(11/24): 펼친 빈 폴더 안 '빈 폴더' 한 줄 — 'n개 더 보기'와 같은 들여쓰기. */
-.ft-empty-row { display:block; padding:2px 8px 2px calc(12px + var(--ft-depth,0) * 22px + 29px); }
+.ft-empty-row { display:block; padding:2px 8px 2px calc(12px + var(--ft-depth,0) * var(--ft-indent) + var(--ft-ico) + var(--ft-gap)); }
 .ft-empty-row > .wait-empty { margin:0; }
-.ft-hint { color:var(--kptu-muted); }
-@media (pointer:fine) { .ft-hint { display:none; } }
 /* 폴더 안 파일(노트·사진·자료) 줄: 화면의 줄 모양은 그대로 두고 들여쓰기만 이 규칙(폴더 그림 자리만큼 더). */
-.ft-item { --ft-item-pad:calc(12px + var(--ft-depth,0) * 22px); }
-/* ④ 두 손가락 손짓을 받는 칸: 브라우저 확대 대신 이 칸의 손짓(folder-pinch.js). 한 손가락 위아래·옆 밀기는 그대로. */
+.ft-item { --ft-item-pad:calc(12px + var(--ft-depth,0) * var(--ft-indent)); }
+/* 두 손가락 손짓을 받는 칸: 브라우저 확대 대신 이 칸의 손짓(folder-pinch.js = 줄 크기 단계, S69-99). 한 손가락 위아래·옆 밀기는 그대로. */
 .ft-pinch { touch-action:pan-x pan-y; }
 /* [‹] 나무로 돌아가기 단추(사진 위치 줄). '그 폴더만' 상자 위치 줄 안에서는 아래 .ft-focus-anc 모양. */
 .ft-focus-back { position:relative; flex:none; width:32px; height:32px; min-height:0; margin:0; padding:0; border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:16px; line-height:1; cursor:pointer; }
@@ -116,7 +128,7 @@
 .ft-focus .ft-box-body > .wait-empty, .ft-focus .ft-box-body > .wait { margin:0; padding:8px 12px; }
 /* S51-25 FOLDER-PC나무: 아이콘이 따로인 단추(줄 = 그 폴더 열기 + 펼침, 아이콘 = 접기·펼치기만). 세모 없음 — 열린 폴더 = 펼침, 닫힌 폴더 = 접힘.
    들여쓰기는 아이콘 단추 앞 같은 폭(단계마다 22px), 이름 단추는 아이콘 바로 뒤에서 시작한다. 아이콘에 마우스를 올리면 옅은 보라 테두리·손가락. */
-.ft-has-tog { padding-left:calc(6px + var(--ft-depth,0) * 22px); }
+.ft-has-tog { padding-left:calc(6px + var(--ft-depth,0) * var(--ft-indent)); }
 .ft-has-tog > .ft-main { padding-left:5px; }
 .ft-tog { position:relative; flex:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:28px; height:28px; min-height:0; margin:0; padding:0; border:1px solid transparent; border-radius:var(--kptu-radius-sm,6px); background:none; color:inherit; font:inherit; }
 button.ft-tog { cursor:pointer; }
@@ -126,7 +138,4 @@ button.ft-tog:focus-visible { outline:2px solid var(--kptu-primary-ink,var(--kpt
 .ft-current > .ft-tog { background:none; }
 .ft-has-tog.ft-current { background:var(--kptu-primary-soft); }
 .ft-has-tog.ft-current > .ft-main { background:none; }
-@media (min-width:761px) {
-  :is(.ft-main,.nx-main) { min-height:36px; font-size:var(--ds-compact-text,13px); }
-  :is(.ft-sub > .ft-main,.nx-sub > .nx-main) { min-height:32px; }
-}
+

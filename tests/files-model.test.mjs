@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {SOURCES, SHELVES, SYNC_EVERY_MS, MOVE_ACROSS_MAX_BYTES, MOVE_SAME_MAX, kindOf, previewKind, sizeText, dayText,
-  syncText, syncLabel, applySyncReply, syncSettled, sortRows, applyChanges, touchesCounts, moveCheck, trailNames, trailIds, pathText, treeRows, folderKey, placeOf, whereOf,
+  syncDue, syncFailStep, syncOk, SYNC_BACK_MS, SYNC_ALERT_FAILS, applySyncReply, sortRows, applyChanges, touchesCounts, moveCheck, trailNames, trailIds, pathText, treeRows, folderKey, placeOf, whereOf,
   cleanQuery, findSummary, errorText, failReason, OD_PDF_EXT, GD_EXPORT_MIME} from '../app/files-model.mjs';
 import {ITEMS, defaultLayout} from '../app/menu-model.mjs';
 // FILES-클라우드탐색기 ④ 화면 모델(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02). 이름은 모두 가짜.
@@ -67,9 +67,6 @@ test('크기·날짜·맞춘 때 글', () => {
   assert.equal(dayText(new Date(2026, 9, 30, 9).toISOString(), now), '10/30');
   assert.equal(dayText(new Date(2025, 9, 30, 9).toISOString(), now), '2025-10-30');
   assert.equal(dayText(null, now), '—');
-  assert.equal(syncText(now - 20000, now), '방금 맞춤');
-  assert.equal(syncText(now - 3 * 60000, now), '3분 전 맞춤');
-  assert.equal(syncText(null, now), '');
 });
 
 test('정렬: 폴더 먼저, 이름은 숫자 순, 크기·바뀐 날은 고른 방향', () => {
@@ -406,9 +403,9 @@ test('upload plan: name rule, 2GB cap, count cap; same name; big; resume match; 
   assert.equal(m.upPiece(10, 10, 4), null);
   assert.equal(m.upResultId({id: 'OD!7'}), 'OD!7');
   assert.equal(m.upResultId({id: '../x'}), null);
-  assert.equal(m.upDropText('가짜 문서함'), '여기 놓으면 가짜 문서함에 올리기');
+  assert.equal(m.upDropText('가짜 문서함'), '여기 놓으면 가짜 문서함에 업로드');
 });
-test('upload rows in the transfer list: device rows show %, [이어 올리기], re-pick hint only without the file', async () => {
+test('upload rows in the transfer list: device rows show %, [이어 업로드], re-pick hint only without the file', async () => {
   const m = await import('../app/files-model.mjs');
   const j = {origin: 'device', status: 'running', size_bytes: 10, sent_bytes: 4, src_source: 'dev', dest_source: 'od', name: 'a.txt'};
   assert.equal(m.jobStatusText(j), '40%');
@@ -433,34 +430,53 @@ test('stars: want/label and apply', async () => {
   assert.equal(m.applyStars(next, 'od', ['A'], true), next, 'no change keeps the same array');
 });
 
-test('S50-14: 처음 목록 받기가 안 끝났거나 실패하면 \'방금 맞춤\'을 띄우지 않는다', () => {
-  const now = Date.parse('2026-11-05T03:00:00Z'), recent = now - 5000;
+test('S70-26: 응답을 상태에 입힘 — 이어 받기 남음 → 받는 중, 끝·이미 맞음 → 끝, 실패 → 오류. busy는 그대로', () => {
   const st = {od: {connected: true, scanning: false, error: null}, gd: {connected: true, scanning: false, error: null}};
-  assert.equal(syncLabel(st, recent, now).text, '방금 맞춤');
-  assert.equal(syncLabel({...st, od: {...st.od, scanning: true}}, recent, now).text, '맞추기…');
-  // S50-20: 받는 중이면 받은 개수도(두 출처 합). 세지 못한 출처는 빼고, 하나도 못 세면 개수 없이.
-  assert.equal(syncLabel({...st, od: {...st.od, scanning: true, received: 1200}}, recent, now).text, '맞추기… 1,200개');
-  assert.equal(syncLabel({...st, od: {...st.od, scanning: true, received: 5}, gd: {...st.gd, scanning: true, received: null}}, recent, now).text, '맞추기… 5개');
   assert.equal(applySyncReply(st, {od: {more: true, received: 30}}).od.received, 30);
   assert.equal(applySyncReply({...st, od: {...st.od, received: 30}}, {od: {done: true}}).od.received, null);
-  assert.equal(syncLabel({...st, gd: {...st.gd, error: 'GD_STORE_UNAVAILABLE'}}, recent, now).text, '맞추기 안 됨');
-  // 연결 안 된 출처의 옛 오류는 보지 않는다.
-  assert.equal(syncLabel({...st, gd: {connected: false, error: 'x'}}, recent, now).text, '방금 맞춤');
-  assert.equal(syncLabel(null, NaN, now).text, '맞추기');
-  // 응답을 상태에 입힘: 이어 받기 남음 → 받는 중, 끝·이미 맞음 → 끝, 실패 → 오류. busy는 그대로.
   let s2 = applySyncReply(st, {od: {more: true, done: false}, gd: {error: 'store_unavailable', more: false, done: false}});
   assert.equal(s2.od.scanning, true); assert.equal(s2.gd.error, 'store_unavailable');
+  assert.equal(syncOk(s2), false, '연결된 출처 하나라도 오류면 실패');
   s2 = applySyncReply(s2, {od: {more: false, done: true}, gd: {fresh: true}});
   assert.equal(s2.od.scanning, false); assert.equal(s2.gd.error, null);
+  assert.equal(syncOk(s2), true);
+  assert.equal(syncOk(applySyncReply(st, {od: {more: true}})), true, '이어 받기(덜 받음)는 실패가 아니다');
+  assert.equal(syncOk({...st, gd: {connected: false, error: 'x'}}), true, '연결 안 된 출처의 옛 오류는 보지 않는다');
   assert.deepEqual(applySyncReply(s2, {od: {busy: true}}).od, s2.od);
-  assert.equal(syncSettled({od: {more: true}, gd: {fresh: true}}), false);
-  assert.equal(syncSettled({od: {done: true}, gd: {error: 'x'}}), false);
-  assert.equal(syncSettled({od: {busy: true}}), false);
-  assert.equal(syncSettled({od: {done: true, more: false}, gd: {fresh: true}}), true);
-  // 화면은 응답마다 상태를 입히고, 다 끝났을 때만 맞춘 때를 옮긴다(실패해도 '방금 맞춤'이던 옛 코드 금지).
-  const src = read('app/files.js');
-  assert.match(src, /state\.status = applySyncReply\(state\.status, d, SOURCES\);\n\s*if \(syncSettled\(d, SOURCES\)\) state\.syncedAt = Date\.now\(\);/);
-  assert.doesNotMatch(src, /\n\s*state\.syncedAt = Date\.now\(\);\n\s*if \(SOURCES\.some/);
+});
+
+// FILES-맞춤단추없애기(S70-26): 맞추기 차례 결정(지난 시간 → 맞출지) · 실패 수 → 알릴지.
+test('S70-26: 맞추기 차례 — 들어올 때·시계는 늘, 창으로 돌아올 때는 1분 지났을 때만', () => {
+  const now = Date.parse('2026-11-25T03:00:00Z');
+  assert.equal(SYNC_BACK_MS, 60000);
+  for (const reason of ['enter', 'timer', 'more', 'ask']) assert.equal(syncDue(reason, now - 1000, now), true, reason);
+  assert.equal(syncDue('back', now - 10 * 1000, now), false, '방금 맞췄으면 돌아와도 다시 안 부름');
+  assert.equal(syncDue('back', now - SYNC_BACK_MS, now), true);
+  assert.equal(syncDue('back', null, now), true, '한 번도 안 맞췄으면 맞춤');
+});
+
+test('S70-26: 실패 수 → 한 번 실패는 조용히, 연달아 3번째에만 알림, 성공하면 0', () => {
+  assert.equal(SYNC_ALERT_FAILS, 3);
+  let f = 0, alerts = [];
+  for (let i = 0; i < 5; i++) { const s = syncFailStep(f, false); f = s.fails; alerts.push(s.alert); }
+  assert.deepEqual(alerts, [false, false, true, false, false], '3번째에만 한 번');
+  assert.equal(f, 5);
+  assert.deepEqual(syncFailStep(f, true), {fails: 0, alert: false});
+  assert.deepEqual(syncFailStep(0, false), {fails: 1, alert: false});
+  assert.equal(syncFailStep(5, false, {asked: true}).alert, true, '알림의 [다시]가 또 실패하면 다시 알림');
+  assert.equal(syncFailStep(0, false, {asked: true}).alert, false);
+  assert.deepEqual(syncFailStep(undefined, false), {fails: 1, alert: false});
+});
+
+test('S70-26: [파일]에 맞춤 단추·글자·누르는 길이 없다', () => {
+  const src = read('app/files.js'), css = read('app/files.css'), model = read('app/files-model.mjs');
+  assert.doesNotMatch(src, /data-fx-sync|syncLabel|syncText|syncTreeHtml|맞추기 안 됨|전 맞춤/);
+  assert.doesNotMatch(css, /\.fx-sync/);
+  assert.doesNotMatch(model, /export function syncText|export function syncLabel/);
+  // 들어올 때·2분마다·창으로 돌아올 때 저절로(이유를 붙여 부름).
+  assert.match(src, /startTimer\(\);\n\s*sync\(\{reason: 'enter'\}\);/);
+  assert.match(src, /sync\(\{reason: 'timer'\}\)/);
+  assert.match(src, /sync\(\{reason: 'back'\}\)/);
 });
 
 // S52-43 ③ FILES-관리자마무리: 동영상·소리 재생 칸, 미리보기 ←→, 경로 복사 글자.

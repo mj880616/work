@@ -20,7 +20,7 @@ import { viewPrefs } from './view-prefs.js';
 import { treeIconHtml, iconHtml } from './tree-icons.js';
 import { mountSplitResize } from './split-resize.js';
 import { BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace } from './note-boards-model.mjs';
-import { layoutBoard, spreadFrom, topZ, placeFields, validateCardLabel, CARD_LABEL_MAX } from './note-board-model.mjs';
+import { layoutBoard, spreadFrom, topZ, placeFields, validateCardLabel, CARD_LABEL_MAX, clampPos, Z_MAX } from './note-board-model.mjs';
 import { treeRows, noteLineTitle, OUTSIDE, OUTSIDE_NAME } from './note-tree.mjs';
 import { setNoteBoardPlace } from './basket-data.js';
 import { NOTE_DRAG } from './note-board.js';
@@ -89,7 +89,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     // 기본 16:84·목록 최소 150px). 폭은 서버(view_prefs.split_ratio.noteboard)에 기억한다. 목록이 없으면(보드 없음·폰) 경계가 숨는다.
     if (body) mountSplitResize({container:body, name:'noteboard', label:'노트 목록과 보드 칸 폭 조절', columns:[
       {el:() => side, varName:'--ds-split-list', minVar:'--ds-split-list-min', minFallback:150, share:16},
-      {el:() => body.querySelector(':scope>[data-note-board]'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:84}],
+      {el:() => body.querySelector(':scope>[data-nbw-main]'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:84}],
       active:() => wide.matches && body.isConnected && !side.hidden && !!side.getClientRects().length});
     if (!show) { side.replaceChildren(); return; }
     const all = notes.get(), m = matches();
@@ -159,6 +159,15 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     rerender();
     void store([...placed].map(([nid, p]) => [nid, id, p]), '보드에 붙이지 못했어요. 다시 불러올게요.');
   }
+  // S70-32 ②: 보드에 넣은 사진 노트 하나를 놓은 자리(point = 사진 가운데)에 사진 비율 크기(size = {w, h})로 붙인다. 저장은 attach와 같은 길.
+  function attachSized(nid, point, size) {
+    if (!named() || !notes.get().some(n => n.id === nid)) return;
+    const id = current, base = new Map(notesOnBoard(notes.get(), id).map(n => [n.id, boardPlaceOf(n, id)]).filter(([, p]) => p));
+    const p = {x:clampPos(point.x - size.w / 2, size.w), y:clampPos(point.y - size.h / 2, size.h), r:0, z:Math.min(Z_MAX, topZ(base) + 1), w:size.w, h:size.h};
+    localPlace(nid, id, p);
+    rerender();
+    void store([[nid, id, p]], '보드에 붙이지 못했어요. 다시 불러올게요.');
+  }
   // nid: 노트 id 하나 또는 여러 개(판에서 고른 카드 함께 빼기, S69-33).
   function detach(nid) {
     if (!named()) return;
@@ -167,6 +176,16 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     rerender();
     void store(ids.map(n => [n, id, null]), '보드에서 빼지 못했어요. 다시 불러올게요.');
     for (const n of ids) void links?.removeBoard(id, n);
+  }
+  // S70-03 되돌리기: 보드에서 뺀 카드를 그 보드의 그 자리로 다시 붙인다(list = [[노트 id, 자리]]). 그 보드를 보고 있을 때만.
+  function restore(boardId, list) {
+    if (!named() || current !== boardId) return false;
+    const all = notes.get(), ok = list.filter(([nid, p]) => p && all.some(n => n.id === nid));
+    if (!ok.length) return !list.length;
+    for (const [nid, p] of ok) localPlace(nid, boardId, p);
+    rerender();
+    void store(ok.map(([nid, p]) => [nid, boardId, p]), '보드에 다시 붙이지 못했어요. 다시 불러올게요.');
+    return ok.length === list.length;
   }
   function move(nid, next) {
     if (!named()) return;
@@ -384,7 +403,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   }
 
   return {
-    paint, boardView, attach, detach, move, relabel, autosize, isSized,
+    paint, boardView, attach, attachSized, detach, restore, move, relabel, autosize, isSized,
     current:() => current, isNamed:named, name:boardName,
     reset() { closeMenu(); picker?.close(); openSet = new Set(); chosen = false; boards = parseBoards(viewPrefs.get('note_boards')); current = pickBoard(viewPrefs.get('note_board'), boards); },
   };
