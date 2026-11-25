@@ -1736,6 +1736,8 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 .up-clip-btn { display:inline-flex; align-items:center; gap:4px; }
 .up-clip { flex:none; width:14px; height:14px; vertical-align:-2px; margin-right:3px; }
 .up-clip-btn .up-clip { margin-right:0; }
+/* 그림·글자는 단추 몸의 일부: 누르기·elementFromPoint가 단추 자체를 잡게(안쪽 그림이 누르는 자리를 가로채지 않음). */
+.up-clip, .up-clip-t { pointer-events:none; }
 
 /* UI-올리기진행표시(S52-15, 시안 docs/design/mockups/upload-progress.html): 올리는 중 표시 공용 부품(app/upload-progress.js) 한 곳.
    ① 첨부 줄(.up-rows): 합계 줄 + 파일마다 얇은 막대·%·✕ / 실패 [다시]. ② 흐린 미리보기 위 막대(.up-tile·.up-tile-over). ③ 하단바 위 한 줄(#uploadDock).
