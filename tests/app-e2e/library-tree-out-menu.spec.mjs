@@ -57,14 +57,14 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     expect(errors).toEqual([]);
   });
 
-  test('LIB-우클릭메뉴: 빈 자리 = [새 폴더][자료 등록](들어간 폴더 안에 새 폴더), 나무 폴더 줄 = 폴더 메뉴(이름 바꾸기 바로)',async({page})=>{
+  test('LIB-우클릭메뉴: 빈 자리 = [새 폴더][파일 올리기](들어간 폴더 안에 새 폴더), 나무 폴더 줄 = 폴더 메뉴(이름 바꾸기 바로)',async({page})=>{
     test.setTimeout(90000);
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     const nb=await navRoot(page).boundingBox(),cb=await page.locator('#libraryListCard').boundingBox();
     // 왼쪽 나무 칸 빈 곳(마지막 줄 아래 — 카드는 나무·목록 중 긴 쪽만큼 늘어나므로 카드 아래 끝 바로 위).
     const blank={x:nb.x+30,y:cb.y+cb.height-6};
     await page.mouse.click(blank.x,blank.y,{button:'right'});
-    await expect(areaMenu(page)).toBeVisible();await expect(areaMenu(page).locator('button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안','전체 선택']); // [전체 선택] = 지금 자리 자료(S69-28)
+    await expect(areaMenu(page)).toBeVisible();await expect(areaMenu(page).locator('button')).toHaveText(['새 폴더','파일 올리기','폴더 올리기','정돈 제안','모두 선택']); // [전체 선택] = 지금 자리 자료(S69-28)
     const mb=await areaMenu(page).boundingBox();expect(Math.abs(mb.x-blank.x)).toBeLessThan(40);expect(Math.abs(mb.y-blank.y)).toBeLessThan(220);
     await areaMenu(page).getByRole('button',{name:'새 폴더'}).click();
     await expect(page.locator('#libraryFolderModal')).toBeVisible();await expect(page.locator('#libraryFolderTitle')).toHaveText('폴더 만들기');
@@ -77,11 +77,11 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     await expect(page.locator('#libraryFolderTitle')).toHaveText('안에 폴더 만들기');
     await page.locator('#libraryFolderName').fill('가상 안');await page.locator('#libraryFolderSave').click();
     await expect.poll(()=>s.folders.find(f=>f.name==='가상 안')?.parent_id).toBe('fa');
-    // 오른쪽 목록 바탕(어느 폴더도 아님) = 같은 메뉴, [자료 등록] = 등록 창.
+    // 오른쪽 목록 바탕(어느 폴더도 아님) = 같은 메뉴, [파일 올리기] = 등록 창.
     await page.locator(nav('')).click();await expect.poll(async()=>(await tops(page)).length).toBe(3);
     await page.evaluate(()=>{const l=document.querySelector('#documentList'),r=l.getBoundingClientRect();l.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.right-40,clientY:r.bottom-6}))});
-    await expect(areaMenu(page).locator('button')).toHaveText(['새 폴더','자료 등록','폴더 올리기','정돈 제안','전체 선택']);
-    await areaMenu(page).getByRole('button',{name:'자료 등록'}).click();
+    await expect(areaMenu(page).locator('button')).toHaveText(['새 폴더','파일 올리기','폴더 올리기','정돈 제안','모두 선택']);
+    await areaMenu(page).getByRole('button',{name:'파일 올리기'}).click();
     await expect(page.locator('#documentModal')).toBeVisible();
     await page.keyboard.press('Escape');await expect(page.locator('#documentModal')).toBeHidden();
     // 나무 폴더 줄 우클릭 = 오른쪽 폴더 줄 ⋯와 같은 메뉴, [이름 바꾸기]는 그 나무 줄에서 바로.
