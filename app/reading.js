@@ -143,7 +143,7 @@ function drawList() {
   if (!box) return;
   const head = el('div', 'rd-head');
   head.append(el('h2', 'rd-title', '저장한 글'));
-  const add = btn('rd-add mini', '+ 추가', {rdAdd: '1'});
+  const add = btn('rd-add mini', '+ 추가', {rdAdd: '1', ctxScreenItem: '글 추가'}); // S70-28: 빈 곳 우클릭 메뉴에도(context-menu.js)
   add.setAttribute('aria-expanded', String(state.adding));
   head.append(add);
   const parts = [head];
