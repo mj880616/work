@@ -114,7 +114,8 @@ test('원문 사본: note-import 글자 블록만 글자로(사진·다른 블�
   const ok = bodyPatch({ok: true, state: 'ok', title: '원문 제목', site: '예시 신문', blocks}, '2026-11-22T00:00:00.000Z');
   assert.deepEqual(Object.keys(ok).sort(), ['body', 'body_at', 'body_state', 'site', 'title']);
   assert.equal(ok.body_state, 'ok');
-  assert.equal(bodyPatch({ok: true, state: 'lead', blocks}).body_state, 'paywall');
+  assert.equal(bodyPatch({ok: true, state: 'lead', reason: 'paywall', blocks}).body_state, 'paywall');
+  assert.equal(bodyPatch({ok: true, state: 'lead', reason: 'lead_only', blocks}).body_state, 'lead'); // S70-40a: 메타 설명만은 유료가 아니다
   assert.deepEqual(bodyPatch({ok: true, state: 'failed', reason: 'robots'}, 'T'), {body: null, body_state: 'robots', body_at: 'T'});
   assert.equal(bodyPatch({ok: true, state: 'failed', reason: 'redirect'}).body_state, 'blocked');
   assert.equal(bodyPatch({ok: true, state: 'failed', reason: 'timeout'}).body_state, 'failed');
@@ -129,7 +130,7 @@ test('상태 한 줄과 [다시]: 받기 전·막힘·앞부분만, 막힌 주�
   assert.equal(stateLine({body_state: 'ok'}), '');
   assert.equal(stateLine({body_state: 'pending'}), '원문을 아직 가져오지 않았어요.');
   assert.equal(stateLine({body_state: 'pending'}, {busy: true}), '원문을 가져오는 중…');
-  assert.equal(stateLine({body_state: 'paywall', body: '앞'}), '공개된 앞부분만 가져왔어요.');
+  assert.equal(stateLine({body_state: 'paywall', body: '앞'}), '유료 기사라 앞부분만 있어요.');
   assert.match(stateLine({body_state: 'bot_check'}), /읽기를 막아/);
   assert.match(stateLine({body_state: 'robots'}), /다시 시도/); // S68-23: 옛 robots 상태는 다시 하면 읽힐 수 있다
   assert.match(stateLine({body_state: 'too_big'}), /너무 커서/);

@@ -346,7 +346,7 @@ test('글 보기 [원문 다시 가져오기]: 가져오는 중 → 본문 표�
   });
   await goReading(page, 1280);
   await list(page).locator(`.rd-row[data-rd-open="${LEAD}"]`).click();
-  await expect(detail(page).locator('.rd-line')).toContainText('공개된 앞부분만');
+  await expect(detail(page).locator('.rd-line')).toContainText('유료 기사라 앞부분만'); // S70-40a 까닭 말(paywall)
   const again = detail(page).locator('.rd-line [data-rd-fetch]');
   await expect(again).toHaveText('원문 다시 가져오기');
   await page.waitForTimeout(300);
