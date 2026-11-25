@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials. All data synthetic (no real folder or document names).
-// S70-11 WEEKLY-저장폴더나누기 DB: 20261125090000_profile_weekly_team_folder — app_profiles.weekly_team_folder(팀 보고 취합 저장 폴더, 외래 키, 폴더가 지워지면 비움).
+// S70-11 WEEKLY-저장폴더나누기 DB: 20261125193000_profile_weekly_team_folder — app_profiles.weekly_team_folder(팀 보고 취합 저장 폴더, 외래 키, 폴더가 지워지면 비움).
 // 승인형 DB workflow 실행기로 plan·dry-run·apply를 시험하고, 앞 단계(20261124203000 weekly_folder)가 없으면 멈추는지, 내 행만 쓰는지, 남의 행·없는 폴더는 거절되는지,
 // 권한이 넓어지지 않는지, 되돌리기가 이 칸만 지우는지(내 주간 보고 칸 weekly_folder는 그대로) 본다. 모양(앞 표·정책)은 library-receive-folder-db 시험과 같다.
 import test from 'node:test';
@@ -15,7 +15,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261125090000',name='profile_weekly_team_folder',stem=version+'_'+name;
+const version='20261125193000',name='profile_weekly_team_folder',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
@@ -110,7 +110,7 @@ test('WEEKLY-저장폴더나누기 DB: precheck, plan, dry-run, prerequisite sto
     ['grant select on public.app_profiles to anon','revoke select on public.app_profiles from anon'],
     ['alter table public.app_profiles disable row level security','alter table public.app_profiles enable row level security'],
     ['revoke update on public.app_profiles from authenticated','grant update on public.app_profiles to authenticated'],
-    ["insert into supabase_migrations.schema_migrations(version,name) values('20261125090000','profile_weekly_team_folder')","delete from supabase_migrations.schema_migrations where version='20261125090000'"],
+    ["insert into supabase_migrations.schema_migrations(version,name) values('20261125193000','profile_weekly_team_folder')","delete from supabase_migrations.schema_migrations where version='20261125193000'"],
    ];
    for(const [breakIt,fixIt] of attempts){
     await pool.query(breakIt);

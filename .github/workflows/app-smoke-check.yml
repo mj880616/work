@@ -75,7 +75,7 @@ on:
       - 'tests/org-files-folder-model.test.mjs'
       - 'tests/weekly-save-folder-model.test.mjs'
       - 'supabase/migrations/20261124203000_profile_weekly_folder.sql'
-      - 'supabase/migrations/20261125090000_profile_weekly_team_folder.sql'
+      - 'supabase/migrations/20261125193000_profile_weekly_team_folder.sql'
       - 'supabase/migrations/20261124160000_library_org_folder.sql'
       - 'tests/meeting-folder-model.test.mjs'
       - 'supabase/migrations/20261124213000_library_folder_meeting.sql'

@@ -6,7 +6,7 @@
 // 서버 칸이 아직 없으면(적용 전, 400) 아무것도 하지 않는다(지금처럼).
 // 드라이브: 새 옮기기 코드를 두지 않는다. 폴더 연결을 바꾼 뒤 자료실 = 드라이브 폴더 맞추기(workspace-drive drive-mirror 'auto', S69-20/40)를 한 번 부탁해
 // 드라이브 파일도 그 폴더의 짝 드라이브 폴더로 옮겨지게 한다(같은 자료의 파일만 바꾼 [올리기]·다시 확정도 새 파일이 자료실 폴더에 놓이므로 같이 옮겨진다).
-// S70-11 WEEKLY-저장폴더나누기: 종류별 두 칸 — 'personal'(내 주간 보고) = weekly_folder, 'confirmed'(팀 보고 취합) = weekly_team_folder(migration 20261125090000).
+// S70-11 WEEKLY-저장폴더나누기: 종류별 두 칸 — 'personal'(내 주간 보고) = weekly_folder, 'confirmed'(팀 보고 취합) = weekly_team_folder(migration 20261125193000).
 // 팀 칸이 아직 없는 서버(400)면 S69-67 그대로(개인 쪽만, 한 폴더). 규칙(종류별 고르기·하위 폴더가 생기면 한 번 다시 묻기·이름 권하기)은 모델 planWeeklySave 한 곳.
 // 남의 기록 안 보기(AGENTS.md 3절): 내 로그인·내 작업공간만 읽고 쓴다.
 import {readLibraryFolders, putDocumentInFolder} from './library-folder-data.js';

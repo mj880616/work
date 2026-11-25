@@ -7,13 +7,13 @@ begin;
 --   화면은 내 프로필 행의 이 칸만 PATCH한다(task12a owner 정책·기존 표 UPDATE 권한 그대로, 새 권한 없음). 이 칸은 화면이 폴더를 고르는 데만 쓰고
 --   서버 권한 판단에 쓰지 않는다. 자료를 폴더에 넣는 쓰기는 기존 폴더 연결 표(app_library_folder_items) owner RLS 그대로다.
 -- 안 하는 것: 정책·표 권한·트리거·함수 변경, 기존 줄 내용 변경(weekly_folder 값 그대로), anon·PUBLIC 권한, RLS 약화, rtw_* 객체.
--- 짝: docs/20261125090000_profile_weekly_team_folder.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261125193000_profile_weekly_team_folder.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125090000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125193000')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261124203000' and name = 'profile_weekly_folder') <> 1
      or (select count(*) from pg_attribute where attrelid = to_regclass('public.app_profiles') and not attisdropped
            and attname = 'weekly_folder' and atttypid = 'uuid'::regtype) <> 1
@@ -53,5 +53,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261125090000', 'profile_weekly_team_folder', array['S70-11 WEEKLY-저장폴더나누기: app_profiles adds nullable uuid weekly_team_folder (fk app_library_folders on delete set null, partial index app_profiles_weekly_team_folder_idx); no policy, table grant, function, trigger or RLS change']);
+values ('20261125193000', 'profile_weekly_team_folder', array['S70-11 WEEKLY-저장폴더나누기: app_profiles adds nullable uuid weekly_team_folder (fk app_library_folders on delete set null, partial index app_profiles_weekly_team_folder_idx); no policy, table grant, function, trigger or RLS change']);
 commit;
