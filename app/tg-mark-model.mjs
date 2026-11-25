@@ -93,3 +93,9 @@ export function isUnseen(line, seen) {
 export function unseenCount(lines, seen) {
   return seen instanceof Map ? (Array.isArray(lines) ? lines : []).filter(l => isUnseen(l, seen)).length : 0;
 }
+// TG-불러오기속도(S70-31): 목록을 먼저 그린 뒤 '봤음'을 늦게 받는다. 그 사이 화면에서 연 줄(local)이 서버 값(fresh)보다 늦으면 그것을 남긴다. 돌려준 Map은 새 것.
+export function mergeSeen(fresh, local) {
+  const out = new Map(fresh instanceof Map ? fresh : []);
+  for (const [k, v] of local instanceof Map ? local : []) { const f = out.get(k); if (!f || v.at > f.at) out.set(k, {at:v.at, up:f ? f.up : v.up}); }
+  return out;
+}
