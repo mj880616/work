@@ -1117,6 +1117,98 @@ for (const [name, open] of ORDER_SCREENS) for (const width of [390, 1280]) test.
   });
 });
 
+// ---------- [파일] 고르기·끌기(S70-30 FILES-선택드래그, 명진 11/24 20:08 "파일에 선택 만들어줘." / "드래그도 안되네;") ----------
+// 자료실·노트와 같은 규칙: 줄 ⋯·우클릭 메뉴 첫 묶음 맨 위 [선택] = 그 줄을 고른 채 고르기 막대(공용 holdPick),
+// 빈 곳에서 끌면 사각형으로 여러 줄 고르기(공용 marquee-select.js, S4), 여러 줄을 끌어 폴더에 놓으면 고른 것 전부 옮김(D 끌어 놓기).
+// 새 탐색기 목록이 생기면 FILE_PICK_SCREENS에 한 줄 더한다. 이름은 지어낸 것, 가짜 서버.
+async function filesPick(page, width, two) {
+  const { errors, server } = await startFiles(page, width);
+  await openFiles(page, width, { two });
+  const t = page.locator('#filesRoot [data-fx-two]');
+  if (two && (await t.getAttribute('aria-pressed')) !== 'true') await t.click();
+  if (two) {
+    await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
+    await page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!1"]').click(); // 그 자리 펼치기
+  } else await page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main').first().click();
+  const list = page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list]');
+  await expect(list.locator('[data-fx-row="od:OD!11"]')).toBeVisible();
+  const row = id => list.locator(`[data-fx-row="od:${id}"]`);
+  return { errors, server, list, row, picked: () => list.locator('[data-fx-row].fx-picked').evaluateAll(a => a.map(x => x.dataset.fxRow).sort()),
+    bar: page.locator('#filesRoot [data-fx-bar]'), moves: () => server.calls.filter(c => c.what === 'edge' && c.action === 'move').map(c => c.body) };
+}
+const FILE_PICK_SCREENS = [['파일 한 칸', w => (page => filesPick(page, w, false))], ['파일 두 칸', w => (page => filesPick(page, w, true))]];
+for (const [name, opener] of FILE_PICK_SCREENS) test.describe(`${name} PC 1280 고르기·끌기`, () => {
+  test(`S0 ${name} 1280: 줄 우클릭·⋯ 메뉴 맨 위 [선택] → 그 줄 고른 채 고르기 막대`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    await s.row('OD!11').click({ button: 'right' });
+    const menu = page.locator('#rowMenu');
+    await expect(menu.locator('button:visible').first()).toHaveText('선택');
+    await menu.getByRole('button', { name: '선택', exact: true }).click();
+    await expect(menu).toBeHidden();
+    await expect.poll(s.picked).toEqual(['od:OD!11']);
+    await expect(s.bar).toBeVisible();
+    await expect(s.bar).toContainText('1');
+    // 폴더 줄은 [이 폴더로 들어가기] 다음(T5 첫 줄 그대로), 다른 줄 [선택]은 더하기(풀지 않음 — holdPick).
+    await s.row('OD!10').click({ button: 'right' });
+    await expect(menu.locator('button:visible').nth(0)).toHaveText('이 폴더로 들어가기');
+    await expect(menu.locator('button:visible').nth(1)).toHaveText('선택');
+    await page.keyboard.press('Escape');
+    await s.row('OD!13').click({ button: 'right' });
+    await menu.getByRole('button', { name: '선택', exact: true }).click();
+    await expect.poll(s.picked).toEqual(['od:OD!11', 'od:OD!13']);
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
+  test(`S4 ${name} 1280: 목록 아래 빈 곳에서 위로 끌면 사각형, 닿은 줄 여러 개 고르기 · Esc면 그대로`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    const rows = s.list.locator('[data-fx-row]');
+    const last = await rows.last().boundingBox(), first = await s.row('OD!13').boundingBox();
+    const x = last.x + last.width * 0.6;
+    await page.mouse.move(x, last.y + last.height + 24);
+    await page.mouse.down();
+    await page.mouse.move(x - 30, first.y + 4, { steps: 10 });
+    await expect(page.locator('.marquee-box')).toBeVisible();
+    await page.mouse.up();
+    await expect(page.locator('.marquee-box')).toHaveCount(0);
+    const got = await s.picked();
+    expect(got.length).toBeGreaterThanOrEqual(3);
+    expect(got).toEqual(expect.arrayContaining(['od:OD!11', 'od:OD!12', 'od:OD!13']));
+    await expect(s.bar).toBeVisible();
+    await expect(s.bar).toContainText(String(got.length));
+    // 끄는 중 Esc = 처음 고른 것으로(사각형 취소).
+    await page.mouse.move(x, last.y + last.height + 24);
+    await page.mouse.down();
+    await page.mouse.move(x - 30, first.y + 4, { steps: 6 });
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('.marquee-box')).toHaveCount(0);
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
+  test(`D ${name} 1280: 여러 줄 고르고 끌어 폴더 줄에 놓으면 고른 것 전부 옮김`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    await s.row('OD!11').click({ modifiers: ['Control'] });
+    await s.row('OD!13').click({ modifiers: ['Control'] });
+    await expect.poll(s.picked).toEqual(['od:OD!11', 'od:OD!13']);
+    await expect(s.row('OD!11')).toHaveAttribute('draggable', 'true');
+    await s.row('OD!11').dragTo(s.row('OD!10'));
+    await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11', 'OD!13'], to: 'OD!10', confirm: true }]);
+    await expect(s.row('OD!11')).toHaveCount(0);
+    await expect(s.row('OD!13')).toHaveCount(0);
+    expect(s.errors).toEqual([]);
+  });
+});
+test('D 파일 한 칸 PC 1280: 여러 줄 고르고 끌어 왼쪽 나무 폴더에 놓으면 고른 것 전부 옮김', async ({ page }) => {
+  const s = await filesPick(page, 1280, false);
+  await s.row('OD!11').click({ modifiers: ['Control'] });
+  await s.row('OD!12').click({ modifiers: ['Control'] });
+  await s.row('OD!12').dragTo(page.locator('#filesRoot [data-fx-tree] [data-fx-drop="od:OD!2"]').first());
+  await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11', 'OD!12'], to: 'OD!2', confirm: true }]);
+  await expect(s.row('OD!11')).toHaveCount(0);
+  await expect(s.row('OD!12')).toHaveCount(0);
+  expect(s.errors).toEqual([]);
+});
+
 // D7(S70-12 UI-확인창끌기, 2026-11-25 명진 "휴지통으로 옮길까요 경고창도 좌클릭 드래그해서 이동가능하게"): PC에서 누른 자리 옆에 뜬 작은 확인창(.kptu-ask)은
 // 빈 곳(글·여백)을 마우스 왼쪽 단추로 잡고 끌어 옮긴다(공용 app/small-notice.js askPanel → app/anchored-popup.js dragByTitle). 단추 위에서 끌면 그대로, 끈 뒤 Esc = 취소.
 // 같은 공용 확인창을 쓰는 화면을 CONFIRM_DRAG_SCREENS에 한 줄 더한다. 자세한 검사(가장자리 가두기·다시 열면 제자리·[휴지통으로])는 confirm-drag.spec.mjs.

@@ -27,6 +27,7 @@ import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
 import {holdPick, createBackLayer} from './select-mode.js';
+import {bindMarquee} from './marquee-select.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
 import {twoPaneFrame} from './two-pane.js';
@@ -1286,8 +1287,10 @@ function treeMenu(b) {
   const key = b.dataset.fxTmenu, inKey = b.dataset.fxTin || '', r = state.treeRows.get(key);
   if (!r) return;
   const sib = r.is_folder && SOURCES.includes(r.source) ? treeSibs(r.source, inKey) : [];
-  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length, pinned: pinState(r), goto: inKey === 'recent'});
-  openRowMenu(b, {key, label: r.name, items, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '', run: id => { if (!offStop(items, id)) treeAct(id, r, inKey, liveMenuButton(key, b)); }});
+  // S70-30: 고를 수 있는 나무 줄(한 칸 화면의 나무 — 꾹 누르기·Ctrl+클릭으로 고르는 그 줄)이면 [선택] = 그 줄을 고른 채 고르기 막대.
+  const pick = treePickKey(b.closest('.ft-row')?.querySelector('[data-fx-tog], [data-fx-tfile], .ft-main[data-fx-go]'));
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length, pinned: pinState(r), goto: inKey === 'recent', select: !!pick});
+  openRowMenu(b, {key, label: r.name, items, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '', run: id => { if (id === 'select') { holdPickRow(pick); return; } if (!offStop(items, id)) treeAct(id, r, inKey, liveMenuButton(key, b)); }});
 }
 // S53-10 메뉴 모양 통일: 흐린 항목(off — 지금은 지울 수 없는 줄의 [휴지통])을 누르면 지우지 않고 이유·할 일 한 줄만.
 function offText(code) {
@@ -4237,6 +4240,22 @@ root?.addEventListener('contextmenu', event => {
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   if (event.pointerType === 'mouse') togglePick(b.dataset.fxRow); else holdPickRow(b.dataset.fxRow);
 });
+// S70-30 FILES-선택드래그(명진 11/24 "드래그도 안되네;"): PC 마우스로 [파일] 화면의 빈 곳(줄 사이·목록 아래·왼쪽 나무 칸의 줄 없는 곳·칸 바탕)에서 끌면
+// 반투명 사각형이 그려지고 닿은 목록 줄을 고른다 — 자료실과 같은 공용 부품(marquee-select.js, 기준표 S4). 고른 상태 주인은 그 칸의 picked 하나.
+// 줄 위에서 끌면 지금처럼 폴더로 끌어 옮기기(HTML 끌기), 단추·입력칸·메뉴·미리보기·위 줄은 건드리지 않는다. Ctrl·Shift와 끌면 더하기. 두 칸이면 시작한 칸만.
+const MQ_SKIP = 'input,textarea,select,button,a,label,[contenteditable],summary,[data-fx-row],.ft-row,.fx-top,.fx-head,[data-fx-prev],[data-fx-bar],.fx-drop-ask,[popover],[role="menu"],[role="dialog"],dialog,.modal';
+let mqPane = 0;
+const mqPaneOf = el => { const i = el?.isConnected ? paneOfEl(el) : -1; return i >= 0 ? i : mqPane; };
+if (root) bindMarquee(root, {
+  enabled: () => !PHONE.matches && !TOUCH.matches && window.KPTURouter?.current === 'files' && !state.busy && !state.ask && !state.run && !drag,
+  blank: t => root.contains(t) && !t.closest(MQ_SKIP),
+  items: start => [...(paneEl(state.panes[mqPaneOf(start)])?.querySelectorAll('[data-fx-list] [data-fx-row]') || [])],
+  keyOf: el => el.dataset.fxRow,
+  anchor: start => paneEl(state.panes[mqPaneOf(start)]) || root,
+  begin: additive => { if (mqPane !== state.cur && state.panes[mqPane]) setCur(mqPane); return additive ? [...P().picked] : []; },
+  onChange: set => { const p = state.panes[mqPane]; if (!p) return; p.picked = new Set(set); if (set.size) p.anchor = [...set].at(-1); paintPicks(p); },
+});
+root?.addEventListener('mousedown', event => { if (event.button === 0) { const i = paneOfEl(event.target); mqPane = i >= 0 ? i : state.cur; } }, true);
 function listMenu(b, event) {
   const at = appMenuPoint(event, b); if (!at) return false;
   const i = paneOfEl(b); if (i >= 0) setCur(i);
@@ -4244,9 +4263,10 @@ function listMenu(b, event) {
   if (!r) return false;
   // S52-44 ⑤: 이 줄을 포함해 여러 개 골랐으면 [여러 개 받기](파일만 zip 하나로).
   const p = P(), many = p.picked.has(key) && p.picked.size > 1 ? pickedRows(p) : [];
-  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), pinned: pinState(r), zip: many.some(x => !x.is_folder)}).map(it => (it.id === 'only' ? {...it, id: 'go', label: FOLDER_ENTER_LABEL} : it));
+  // S70-30 FILES-선택드래그(명진 11/24 "파일에 선택 만들어줘"): 첫 묶음 맨 위 [선택] = 이 줄을 고른 채 고르기 막대(공용 holdPick — 이미 골랐으면 그대로).
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), pinned: pinState(r), zip: many.some(x => !x.is_folder), select: true}).map(it => (it.id === 'only' ? {...it, id: 'go', label: FOLDER_ENTER_LABEL} : it));
   return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '',
-    run: id => { if (offStop(items, id)) return; if (id === 'go') goFolder(r.source, r.item_id, P(), {down: focusBox(P())}); else if (id === 'zip') void zipDownload(many); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
+    run: id => { if (offStop(items, id)) return; if (id === 'select') { if (i >= 0) setCur(i); holdPickRow(key); return; } if (id === 'go') goFolder(r.source, r.item_id, P(), {down: focusBox(P())}); else if (id === 'zip') void zipDownload(many); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
 }
 // PC: 줄을 폴더(목록의 폴더 줄·나무의 폴더)로 끌어 놓아 옮기기. 끈 줄이 고른 것 안이면 고른 것 모두.
 // 두 칸: 반대 칸(그 칸의 지금 폴더 또는 그 칸의 폴더 줄)에 놓으면 '복사 · 옮기기' 작은 고르기.
