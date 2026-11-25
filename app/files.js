@@ -6,7 +6,7 @@ import {slotBox, slotImg, slotFailed} from './img-slot.js';
 import {lookLayout, lookOf, lookValue, stepLook, lookCols, thumbWanted, FILES_LOOK_KEY} from './files-look-model.mjs';
 import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, FIND_LIMIT, FIND_WAIT_MS,
   TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_KEYS, SORT_NAME, SORT_DESC_FIRST, kindOf, kindLabel, kindIcon, kindSvg, previewKind, sizeText, folderCountText, isLockedItem, dayText, fullTime,
-  syncLabel, applySyncReply, syncSettled, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
+  syncDue, syncFailStep, syncOk, applySyncReply, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
   placeOf, whereOf, cleanQuery, findSummary, errorText, failReason, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT, xferPlan, xferBig, sameNameRows, sameNameAsk, bigAsk, destTitle, destButton, destName,
   pushRecentDest, recentDestOf, xferLine, xferPercent, xferDoneText, XFER_BIG_HOW,
@@ -78,13 +78,13 @@ import {installDragEdgeScroll} from './drag-edge-scroll.js';
 installDragEdgeScroll();
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
-// - 갱신(F2): 들어올 때 + 2분마다 + 창으로 돌아올 때 Edge cloud-files sync(서버가 2분 안이면 클라우드를 부르지 않음). 응답의 바뀐 줄만
+// - 갱신(명진 결정 F2, 단축키 아님): 들어올 때 + 2분마다 + 창으로 돌아올 때(1분 지났으면) Edge cloud-files sync(서버가 2분 안이면 클라우드를 부르지 않음). 응답의 바뀐 줄만
 //   지금 목록에 입힌다(applyChanges). 많이 바뀌면(reload) 지금 목록을 서버에서 다시 읽는다. 밤 한 번은 서버 예약(⑧).
 // - 미리보기(오른쪽 칸 / 폰·폴드는 겹친 칸, 뒤로가기 한 번 = 닫힘): 사진 = 큰 썸네일, PDF = 원본, 오피스 = 서버가 PDF로 바꾼 것(F4),
 //   PDF는 저장소에 고정한 pdf.js로 쪽마다 그린다. 글 = 앞 200KB. 그 밖은 이름·크기·위치만 + [열기](클라우드 보기 새 창).
 // - S50-33(명진 결정, 시안 승인): [최근]·폰 탭 줄은 없앴다. 폰 첫 화면은 나무(맨 위 '★ 별표 (개수)' · '큰 파일' → 저장소 뿌리 → 폴더, 줄 30px·들여쓰기 7px).
 //   폴더·별표를 누르면 같은 자리에서 목록 + 위치 줄(원드라이브 › Pictures). 뒤로가기(브라우저·폰)·‹ = 한 단계 위, 맨 위 목록이면 나무(layer 'files-list').
-//   위 줄은 찾기 칸 + 출처 단추(같은 줄 오른쪽 작은 정사각). '○분 전 맞춤'은 폰 나무의 첫 클라우드 뿌리 줄 오른쪽 작은 회색 글자. PC·폴드 첫 화면은 첫 저장소 맨 위.
+//   위 줄은 찾기 칸 + 출처 단추(같은 줄 오른쪽 작은 정사각). 맞추기 단추·맞춘 때 글자는 없다(S70-26, 저절로만). PC·폴드 첫 화면은 첫 저장소 맨 위.
 // - 폰은 보기·찾기·열기·공유.
 // - 쓰기(S48-45 ⑤·⑦): 이름 바꾸기·새 폴더·옮기기(같은 클라우드는 200개까지, 원드라이브↔구글은 전송 목록 — S52-43 ②부터 여러 개·폴더째)·휴지통(F1: 그 클라우드
 //   휴지통, 확인 창 한 번). 모두 사람이 누른 것만 Edge cloud-files로 보내고(confirm:true), 서버가 로그인·주인·색인을 다시 본다.
@@ -212,7 +212,7 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="filesView" class="view-panel hidden" aria-labelledby="fxTitle">
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
-<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search">${sortSelectHtml({keys: SORTS, names: SORT_NAME, cur: null, className: 'fx-sort', attrs: 'data-fx-sort', descFirst: SORT_DESC_FIRST})}<button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><span class="ds-seg fx-view-seg" data-fx-view-seg role="group" aria-label="파일 보기" hidden><button type="button" class="ds-seg-btn" data-fx-one aria-pressed="true" aria-label="한 칸 보기" title="한 칸 보기">${ONE_SVG}<span class="fx-seg-t">한 칸</span></button><button type="button" class="ds-seg-btn" data-fx-two aria-pressed="false" aria-label="두 칸 보기" title="두 칸 보기">${TWO_SVG}<span class="fx-seg-t">두 칸</span></button></span></div>
+<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search">${sortSelectHtml({keys: SORTS, names: SORT_NAME, cur: null, className: 'fx-sort', attrs: 'data-fx-sort', descFirst: SORT_DESC_FIRST})}<button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><span class="ds-seg fx-view-seg" data-fx-view-seg role="group" aria-label="파일 보기" hidden><button type="button" class="ds-seg-btn" data-fx-one aria-pressed="true" aria-label="한 칸 보기" title="한 칸 보기">${ONE_SVG}<span class="fx-seg-t">한 칸</span></button><button type="button" class="ds-seg-btn" data-fx-two aria-pressed="false" aria-label="두 칸 보기" title="두 칸 보기">${TWO_SVG}<span class="fx-seg-t">두 칸</span></button></span></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="선택한 것" hidden></div>
 <p class="fx-note" data-fx-note role="status" hidden></p><div class="fx-connect" data-fx-connect-box role="status" hidden></div>
 <div class="fx-up" data-fx-uprows hidden></div>
@@ -235,7 +235,7 @@ const freshPane = () => ({where: null, rows: [], loaded: false, failed: '', fail
 const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', panes: [freshPane(), freshPane()], cur: 0,
   // S62-16: 연결 안내를 띄운 출처('od'|'gd', 아이콘을 누름)와 이번 접속에서 구글 드라이브 읽기가 권한 문제로 실패한 코드(gd_scope_missing 등).
   connectAsk: '', gdProblem: '',
-  children: new Map(), open: new Set(), stars: null, syncedAt: null, syncing: false,
+  children: new Map(), open: new Set(), stars: null, syncing: false, syncTry: null, syncFails: 0,
   // FOLDER-나무새기준 ②: 폴더 안 파일(폰 나무 그 자리 펼치기), 접은 저장소 상자, 'n개 더 보기'를 누른 폴더, '최근' 상자(서버 p_shelf 'recent'),
   // 두 손가락으로 그 폴더만 보기 전 나무 화면 위치. 모두 화면 메모리만(기기 저장 없음).
   files: new Map(), more: new Set(), recent: null, recentAll: false, treeBack: null, treeRows: new Map(),
@@ -454,8 +454,6 @@ async function loadStatus() {
     const d = await edge('status');
     if (state.scope !== scope) return;
     state.status = d && typeof d === 'object' ? d : {}; state.statusFailed = '';
-    const times = SOURCES.map(s => Date.parse(d?.[s]?.synced_at || '')).filter(Number.isFinite);
-    if (times.length) state.syncedAt = Math.min(...times);
   } catch (e) {
     if (state.scope !== scope) return;
     state.statusFailed = codeOf(e); state.statusWhy = failReason(e);
@@ -672,18 +670,20 @@ async function find(p, q) {
 }
 const refind = p => { const q = p.query; p.query = ''; setQuery(p, q); };
 
-// ---------- 갱신(F2) ----------
-async function sync({force = false} = {}) {
+// ---------- 갱신(명진 결정 F2 — 저절로만, S70-26) ----------
+// reason: 'enter'(들어올 때) · 'timer'(2분마다) · 'back'(창으로 돌아올 때, 1분 지났을 때만) · 'more'(이어 받기) · 'ask'(알림의 [다시]).
+async function sync({force = false, reason = 'enter'} = {}) {
   if (state.syncing || !state.status || !connected().length) return;
+  if (!syncDue(reason, state.syncTry)) return;
   const scope = state.scope, seen = panesOn().map(p => [p, p.where]);
-  state.syncing = true; paintTop();
+  state.syncing = true; state.syncTry = Date.now(); paintTop();
+  let ok = false;
   try {
     const d = await edge('sync', force ? {force: true} : {});
     if (state.scope !== scope) return;
-    // S50-14: 실패·이어 받기가 남은 출처가 있으면 '방금 맞춤'으로 덮지 않는다(단추 글자는 syncLabel).
     state.status = applySyncReply(state.status, d, SOURCES);
-    if (syncSettled(d, SOURCES)) state.syncedAt = Date.now();
-    if (SOURCES.some(s => d?.[s]?.more)) setTimeout(() => { if (state.scope === scope) sync(); }, 1500);
+    ok = syncOk(state.status, SOURCES);
+    if (SOURCES.some(s => d?.[s]?.more)) setTimeout(() => { if (state.scope === scope) sync({reason: 'more'}); }, 1500);
     const changed = Array.isArray(d?.changed) ? d.changed : [], removed = Array.isArray(d?.removed) ? d.removed : [];
     // 칸마다 같은 규칙으로 입힌다(한 칸 화면은 칸 0 하나).
     for (const [p, where] of seen) {
@@ -695,11 +695,22 @@ async function sync({force = false} = {}) {
       if (next !== p.rows) { p.rows = next; state.children.set(folderKey(where.source, where.parent), next.filter(r => r.is_folder)); recordCounts(p, scope); paintList(p); paintTree(); }
     }
   } catch { /* 맞추기 실패는 다음 차례에 다시. 목록은 색인 그대로 */ }
-  finally { if (state.scope === scope) { state.syncing = false; paintTop(); for (const p of panesOn()) if (!shown(p).length) paintList(p); } }
+  finally {
+    if (state.scope === scope) {
+      state.syncing = false; paintTop(); for (const p of panesOn()) if (!shown(p).length) paintList(p);
+      syncFailed(ok, reason === 'ask');
+    }
+  }
+}
+// 실패는 평소 아무것도 안 보인다. 연달아 SYNC_ALERT_FAILS번 실패하면 그때만 공용 알림 한 줄 + [다시].
+function syncFailed(ok, asked) {
+  const step = syncFailStep(state.syncFails, ok, {asked});
+  state.syncFails = step.fails;
+  if (step.alert && visible()) notify('드라이브 목록을 못 받았어요', {error: true, record: false, actions: [{label: '다시', run: ({close}) => { close(); sync({force: true, reason: 'ask'}); }}]});
 }
 // FOLDER-순서·색 ③-2: 폴더 색·순서는 들어올 때·2분마다·창으로 돌아올 때 서버에서 다시 읽는다(다른 기기가 바꾼 것도 같아짐). 바뀐 것이 있으면 구독(아래)이 다시 그린다.
 const lookLoad = () => { void folderLook.load(rt()); };
-function startTimer() { clearInterval(syncTimer); syncTimer = setInterval(() => { if (visible()) { sync(); lookLoad(); } else paintTop(); }, SYNC_EVERY_MS); }
+function startTimer() { clearInterval(syncTimer); syncTimer = setInterval(() => { if (visible()) { sync({reason: 'timer'}); lookLoad(); } else paintTop(); }, SYNC_EVERY_MS); }
 const visible = () => window.KPTURouter?.current === 'files' && document.visibilityState === 'visible';
 
 // ---------- 그리기(이 화면의 유일한 그리기 주인 — 칸 둘도 이 함수들이 칸마다 같은 코드로 그린다) ----------
@@ -894,11 +905,9 @@ function paintPaneTreeNow(p) {
   const on = two() && !WIDE.matches && p.drop;
   ftKeepPlace(pt, () => { pt.hidden = !on; pt.innerHTML = on ? treeHtml(p) : ''; });
 }
-const syncNow = () => ({label: syncLabel(state.status, state.syncedAt, Date.now(), SOURCES), scanning: SOURCES.some(x => state.status?.[x]?.scanning), shown: !!state.status && connected().length > 0});
-const syncTreeHtml = () => { const sn = syncNow(); return sn.shown ? `<button type="button" class="fx-sync fx-sync-tree" data-fx-sync title="${esc(sn.label.title)}" data-fx-sync-state="${esc(sn.label.state)}" aria-busy="${state.syncing || sn.scanning}"${state.syncing ? ' disabled' : ''}>${esc(sn.label.text)}</button>` : ''; };
 function paintTop() {
   const crumb = $('[data-fx-crumb]');
-  // 두 칸이면 위치 줄·정렬은 칸 위 줄에 있다(위 줄에는 찾기·새 폴더·맞추기·출처·[두 칸]).
+  // 두 칸이면 위치 줄·정렬은 칸 위 줄에 있다(위 줄에는 찾기·새 폴더·출처·[두 칸]).
   const twoNow = two(), p = P();
   const crumbNow = twoNow ? '' : crumbHtml(p);
   if (crumb) { crumb.hidden = !crumbNow; crumb.innerHTML = crumbNow; }
@@ -906,18 +915,11 @@ function paintTop() {
   if (sort) { sort.hidden = twoNow; syncSortSelect(sort, p); }
   const search = $('[data-fx-search]');
   if (search && document.activeElement !== search && search.value !== p.query) search.value = p.query;
-  // 맞추기 단추: PC·폴드는 위 줄, 폰은 나무의 첫 클라우드 뿌리 줄 오른쪽(treeHtml). 글자는 같은 계산(syncNow)으로 둘 다 칠한다.
-  const sn = syncNow();
-  for (const s of root?.querySelectorAll('[data-fx-sync]') || []) {
-    s.textContent = sn.label.text; s.title = sn.label.title; s.dataset.fxSyncState = sn.label.state;
-    s.disabled = state.syncing;
-    s.setAttribute('aria-busy', String(state.syncing || sn.scanning));
-    s.hidden = !sn.shown || (solo() && !s.closest('.ft-box-head'));
-  }
+  const scanning = SOURCES.some(x => state.status?.[x]?.scanning);
   // UI-로딩자리전수: 맞추는 동안의 두 번째 글자('맞추는 중')는 없다. 목록 칸 맨 위 가는 줄(공용 부품) 하나로만 알린다.
   for (const q of panesOn()) {
     const bar = inPane(q, '[data-fx-wait]');
-    if (bar) { const on = (state.syncing || sn.scanning) && q.loaded && !q.failed; if (on && bar.hidden) bar.innerHTML = barHtml(); bar.hidden = !on; if (!on) bar.replaceChildren(); }
+    if (bar) { const on = (state.syncing || scanning) && q.loaded && !q.failed; if (on && bar.hidden) bar.innerHTML = barHtml(); bar.hidden = !on; if (!on) bar.replaceChildren(); }
   }
   const openHere = !!p.where?.source && !p.query && !treePane(), folderHere = openHere && cloudOn().includes(p.where.source);
   // 새 폴더: 클라우드 폴더 · (쓸 수 있으면) 이 폰 · (0.5.0+ 문이면) 내 PC 드라이브·폴더(맨 위 드라이브 목록은 아님).
@@ -1205,12 +1207,9 @@ function phoneTreeHtml() {
   const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
     icon: treeIconHtml(shelf, {className: 'ft-ico'}), className: 'fx-shelf', mainAttrs: {'data-fx-shelf': shelf}})).join('');
   html += ftBoxHtml({body: shelves, label: '모아 보기', attrs: {'data-fx-box': 'shelves'}});
-  const sync = syncTreeHtml();
-  let syncPut = false;
   for (const source of onSources()) {
     const shut = boxShut('files', source);
     const rows = shut ? [] : boxRows({source, children: state.children, files: state.files, open: state.open, more: state.more, order: lookOrder, limit: FT_PREVIEW, isPhoto: isFxPhoto});
-    const tail = !syncPut && SOURCES.includes(source) && sync ? (syncPut = true, sync) : '';
     const loading = !shut && !state.children.has(folderKey(source, null));
     const body = (loading ? waitHtml({rows: 2}) : rows.length ? rows.map(r => r.type === 'folder' ? treeFolderHtml(r) : r.type === 'photos'
       ? `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:${r.depth}" data-ft-parent="${esc(r.parent)}"${r.depth ? dropIn(r.parent) : ''}>${photoToggleHtml(r.rows.length, {open: state.photoOpen.has(r.key), attrs: ` data-fx-photos="${esc(r.key)}"`})}</div>` + fxTreePhotosHtml(r.rows, r.key, r.depth, r.parent)
@@ -1220,7 +1219,7 @@ function phoneTreeHtml() {
       + (shut || loading ? '' : trashRowHtml(source));
     // UI-폴더줄크기(S69-99): 저장소 맨 위로 들어가기(전의 상자 머리 위 두 손가락 벌리기)는 상자 머리 ⋯ 첫 줄 [이 폴더로 들어가기].
     const boxMore = ftMoreButtonHtml({attrs: {'data-fx-boxmenu': source}, label: `${SOURCE_NAME[source]} 메뉴`});
-    html += ftBoxHtml({head: `${treeIconHtml(source, {className: 'ft-box-ico'})}<span>${esc(SOURCE_NAME[source])}</span>`, collapsible: true, open: !shut, tail: `<span class="fx-box-tail">${tail}${boxMore}</span>`,
+    html += ftBoxHtml({head: `${treeIconHtml(source, {className: 'ft-box-ico'})}<span>${esc(SOURCE_NAME[source])}</span>`, collapsible: true, open: !shut, tail: `<span class="fx-box-tail">${boxMore}</span>`,
       toggleAttrs: {'data-fx-box-tog': source}, attrs: {'data-fx-box': source}, label: SOURCE_NAME[source], body});
   }
   return html + pcOffRowHtml();
@@ -4107,7 +4106,6 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-src]')) { srcClick(b.dataset.fxSrc); return; }
   if (b.matches('[data-fx-connect]')) { void connectGo(b.dataset.fxConnect); return; }
   if (b.matches('[data-fx-pc-knock]')) { pcKnock(); return; }
-  if (b.matches('[data-fx-sync]')) { sync({force: true}); return; }
   if (b.matches('[data-fx-close]')) { closePreview(); return; }
   if (b.matches('[data-fx-more-pages]')) { const p = state.preview; if (p?.doc) drawPages(p, p.shown + PDF_FIRST_PAGES); return; }
   const p = state.preview;
@@ -4384,7 +4382,7 @@ if (root) mountReorder(root, {listSelector: '.fx-pins[data-reorder-list]', itemS
 document.addEventListener('visibilitychange', () => {
   // 올리는 중 화면을 숨기면 그 자리에서 멈춤(H-6), 다시 보이면 쥐고 있던 파일로 남은 조각부터.
   if (document.visibilityState === 'hidden') upStop(); else upShow();
-  if (visible()) { sync(); loadJobs(); lookLoad(); }
+  if (visible()) { sync({reason: 'back'}); loadJobs(); lookLoad(); }
 });
 folderLook.onChange(() => { if (root && visible()) { paintTree(); paintLists(); paintBar(); } });
 window.addEventListener('pagehide', upStop);
@@ -4415,7 +4413,7 @@ async function enter(force = false) {
     for (const s of first) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);
     loadStars();
     startTimer();
-    sync();
+    sync({reason: 'enter'});
     loadJobs();
   })().finally(() => { entering = null; });
   return entering;
