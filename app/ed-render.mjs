@@ -82,6 +82,8 @@ function block(n) {
     case 'list_item': {
       var li = blocks(make('li', a.checked ? 'ed-done' : ''), n.content);
       if (a.checked) li.setAttribute('data-checked', 'true');
+      // S69-97: options.tasks (Web2 note read view only) marks a check linked to a Google task, so the view can show Google's state.
+      if (TASKS && a.gtask) { li.classList.add('ed-gtask'); li.setAttribute('data-gtask', a.gtask); }
       return li;
     }
     // NOTE-노션편집 ①(나) 접기: <details> (a reader opens and closes it, no script), its first paragraph the fold line. Saved folded = closed.
@@ -186,11 +188,13 @@ function blocks(parent, list) {
 // The document as one <div class="ed-doc">. A value that is not a document draws an empty box.
 // media: {photo id: https address} for the photos of this page, or nothing.
 // options.videos: true draws the YouTube video boxes (NOTE-유튜브보기). Off by default (the Web1 reader passes only media).
+var TASKS = false;
 export function renderDoc(value, media, options) {
   var box = make('div', 'ed-doc');
   var clean = cleanDoc(value);
   MEDIA = media && typeof media === 'object' ? media : null;
-  try { if (clean) blocks(box, clean.doc.content); } finally { MEDIA = null; }
+  TASKS = !!(options && options.tasks === true);
+  try { if (clean) blocks(box, clean.doc.content); } finally { MEDIA = null; TASKS = false; }
   if (options && options.videos === true) addVideoBoxes(box);
   return box;
 }

@@ -23,6 +23,8 @@ export const BULLET_MARKERS = ['disc', 'dash', 'circle', 'square'];
 // NOTE-노션편집 ①(나) 할 일 체크: a bullet list saved with marker 'check' draws a box before each item; an item's checked attr (true)
 // draws it ticked. Not one of the [목록 ▾] shapes (it comes from the '/' list and the block menu).
 export const CHECK_MARKER = 'check';
+// S69-97: 구글 할 일 id 모양(google-tasks pick과 같음).
+export const GTASK_ID = /^[A-Za-z0-9_-]{1,200}$/;
 export const ORDER_MARKERS = ['decimal', 'paren', 'parens', 'circled', 'hangul'];
 export const MARKS = ['strong', 'em', 'underline', 'strike', 'link', 'color', 'highlight'];
 // 글자색·형광펜: a short fixed list of names (never a raw color), drawn by ed-doc.css from theme tokens so dark mode and the
@@ -128,7 +130,13 @@ function attrsOf(type, a) {
     return ol;
   }
   if (type === 'bullet_list') return BULLET_MARKERS.indexOf(a.marker) >= 0 || a.marker === CHECK_MARKER ? {marker:a.marker} : null;
-  if (type === 'list_item') return a.checked === true ? {checked:true} : null;
+  // S69-97 노트 안 할 일: gtask = 이 체크칸에 연결한 구글 할 일 id(구글 쪽이 상태의 원본). 모양이 다르면(만드는 중 표시 'wait:…' 포함) 버린다.
+  if (type === 'list_item') {
+    var li = {};
+    if (a.checked === true) li.checked = true;
+    if (typeof a.gtask === 'string' && GTASK_ID.test(a.gtask)) li.gtask = a.gtask;
+    return li.checked || li.gtask ? li : null;
+  }
   if (type === 'toggle') return a.open === false ? {open:false} : null;
   if (type === 'image') {
     var img = {src:typeof a.src === 'string' && PHOTO_SRC.test(a.src) ? a.src : null, alt:cleanString(a.alt).slice(0, LIMITS.alt)};
