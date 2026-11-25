@@ -101,6 +101,7 @@ const NEWS_FONT5='20261123010000_profile_view_prefs_news_font5';
 const DRIVE_IMPORT='20261124110000_profile_view_prefs_drive_import';
 const FILES_SORT='20261124170000_profile_view_prefs_files_sort';
 const NOTE_BLOCKS='20261125080000_profile_view_prefs_note_blocks';
+const ROW_SIZE='20261125090000_profile_view_prefs_row_size'; // S70-49: #3030이 먼저 merge되어 note_list_sort가 그 뒤로 줄 섬
 const NOTE_LIST_SORT='20261125100000_profile_view_prefs_note_list_sort';
 
 test('view prefs note cols: plan, dry-run, apply, own-row writes, CHECK and guarded rollback',{timeout:200000},async t=>{
@@ -131,7 +132,7 @@ test('view prefs note cols: plan, dry-run, apply, own-row writes, CHECK and guar
    phone_folders_known:['0123abcd'],col_widths:{files:{name:240,day:90}},photo_sources_phone:{phone:true,onedrive:false},photo_sources_pc:{onedrive:true,gdrive:false},photo_level:'month',report_period:{mode:'range',from:'2026-10-01',to:'2026-10-31'},files_sources:{app:{od:true,gd:false},pc:{gd:true}},files_dest_recent:[{source:'gd',id:'gdFolder1',name:'가짜 업무 공간'}],files_two:{pc:{fold:true}},note_sort:'manual',photo_zoom:{app:'day',pc:'year'},
    org_order:{groups:[{name:'가묶음',orgs:['가짜노조']}],hidden:['옛 가짜 조직']},report_calendar:'가짜 업무 달력',news_tab:'media',news_font:'l',
    files_look:{app:{narrow:'grid'},pc:{wide:'big'}},recent_folded:['files'],files_panes:{app:['od','ph'],pc:['pc','gd']},box_shut:{pc:{files:['od']}},
-   files_tree:{app:{fold:true},pc:{wide:false}},files_pins:['od:F1','gd:x'],files_last:[{od:'F1'},{gd:'x'}],category_roles:{weekly_team:'가짜보고›팀 판'},org_row_order:'desc',library_two:true,biz_week_open:{pc:false,app:true},note_zoom:110,record_backup:{auto:true,intro:false},home_off:['suggests'],drive_import_folder:'1FakeDriveFolder_Id-01',files_sort:{key:'modified',dir:'desc'},note_blocks:true,note_list_sort:{key:'title',dir:'asc'}};
+   files_tree:{app:{fold:true},pc:{wide:false}},files_pins:['od:F1','gd:x'],files_last:[{od:'F1'},{gd:'x'}],category_roles:{weekly_team:'가짜보고›팀 판'},org_row_order:'desc',library_two:true,biz_week_open:{pc:false,app:true},note_zoom:110,row_size:'l',record_backup:{auto:true,intro:false},home_off:['suggests'],drive_import_folder:'1FakeDriveFolder_Id-01',files_sort:{key:'modified',dir:'desc'},note_blocks:true,note_list_sort:{key:'title',dir:'asc'}};
   const RANGE={note_cols:['folder','made']};
   const GOOD=[{note_cols:[]},{note_cols:['folder','tags','day','clip']},{note_cols:['folder','tags','day','made','clip','memo','chars','pub']},{note_cols:['pub']},{note_cols:['made','day'],note_list_sort:{key:'created',dir:'desc'},note_blocks:false}];
   const BAD=[{note_cols:'folder'},{note_cols:null},{note_cols:{}},{note_cols:['title']},{note_cols:['Folder']},{note_cols:['folder','x']},{note_cols:[1]},{note_cols:[null]},{note_cols:[['folder']]},{note_cols:['folder','tags','day','made','clip','memo','chars','pub','folder']},{notecols:['folder']}];
@@ -169,6 +170,7 @@ test('view prefs note cols: plan, dry-run, apply, own-row writes, CHECK and guar
    await pool.query(await read('supabase/migrations/'+FILES_SORT+'.sql'));
    await guardFails(/PROFILE_VIEW_PREFS_NOTE_COLS_PREREQUISITE_CHANGED/);
    await pool.query(await read('supabase/migrations/'+NOTE_BLOCKS+'.sql'));
+   await pool.query(await read('supabase/migrations/'+ROW_SIZE+'.sql'));
    await guardFails(/PROFILE_VIEW_PREFS_NOTE_COLS_PREREQUISITE_CHANGED/);
    await pool.query(await read('supabase/migrations/'+NOTE_LIST_SORT+'.sql'));
   });
@@ -181,7 +183,7 @@ test('view prefs note cols: plan, dry-run, apply, own-row writes, CHECK and guar
    assert.equal(v['view prefs check without note cols'],'예');assert.equal(v['saved note cols'],'0');
    await assert.rejects(write(OWNER,OWNER,RANGE),{code:'23514'});
    assert.equal((await write(OWNER,OWNER,{note_list_sort:{key:'folder',dir:'asc'}})).rowCount,1,'the previous step (note list sort) is in place');
-   assert.equal(Object.keys(ALL_OLD).length,61,'all keys of the note list sort check');
+   assert.equal(Object.keys(ALL_OLD).length,62,'all keys of the note list sort check');
    assert.equal((await write(OWNER,OWNER,ALL_OLD)).rowCount,1,'every previous key is accepted before');
    await write(OWNER,OWNER,null);
   });

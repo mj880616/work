@@ -4,10 +4,10 @@ begin;
 -- (사람별, 모든 기기 같음, 기기 저장 금지). [파일] files_sort와 같은 모양. 노트 제목·내용은 넣지 않는다.
 -- 적용은 커맨드센터가 docs/ops-db-workflow.md "승인 한 번 흐름"으로만 한다(이 브랜치는 적용 직전 정지).
 --
--- 무엇: app_profiles_view_prefs_check 하나만 바꾼다(지우고 같은 이름으로 다시 만듦). 20261125080000 profile_view_prefs_note_blocks 판 글자 그대로에
+-- 무엇: app_profiles_view_prefs_check 하나만 바꾼다(지우고 같은 이름으로 다시 만듦). 20261125090000 profile_view_prefs_row_size 판 글자 그대로에
 --   칸 하나(note_list_sort = {key: title|folder|changed|created|clip|memo|chars, dir: asc|desc}, 두 칸 모두 있어야 함)만 더한다. 다른 칸 규칙·전체 4000바이트 상한은 글자 그대로 같다. 기존 행은 건드리지 않는다.
 -- 권한: grant·revoke·정책·RLS·함수·트리거·새 열 변경 없음. 프로필 정책은 task12a 두 개 그대로.
--- 앞 단계: 20261125080000_profile_view_prefs_note_blocks(NOTE-노션편집 블록 편집 기본값) 기록이 있어야 한다(없으면 멈춘다).
+-- 앞 단계: 20261125090000_profile_view_prefs_row_size(UI-폴더줄크기, #3030 — 먼저 merge되어 그 뒤로 줄 세움) 기록이 있어야 한다(없으면 멈춘다).
 -- 짝: docs/20261125100000_profile_view_prefs_note_list_sort.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
@@ -18,13 +18,13 @@ do $$
 begin
   if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125100000')
      or (select count(*) from supabase_migrations.schema_migrations
-         where version = '20261125080000' and name = 'profile_view_prefs_note_blocks') <> 1
-     or exists (select 1 from supabase_migrations.schema_migrations where version > '20261125080000' and name like 'profile_view_prefs%')
+         where version = '20261125090000' and name = 'profile_view_prefs_row_size') <> 1
+     or exists (select 1 from supabase_migrations.schema_migrations where version > '20261125090000' and name like 'profile_view_prefs%')
      or (select count(*) from pg_constraint where conrelid = 'public.app_profiles'::regclass and conname = 'app_profiles_view_prefs_check'
          and contype = 'c' and convalidated) <> 1
      or (select count(*) from information_schema.check_constraints
          where constraint_schema = 'public' and constraint_name = 'app_profiles_view_prefs_check'
-           and check_clause ~ 'note_blocks' and check_clause ~ 'files_sort' and check_clause ~ 'drive_import_folder' and check_clause ~ 'xxl' and check_clause ~ 'home_off' and check_clause ~ 'record_backup' and check_clause ~ 'note_zoom' and check_clause ~ 'biz_week_open' and check_clause ~ 'library_two' and check_clause ~ 'org_row_order' and check_clause ~ 'category_roles' and check_clause ~ 'files_last' and check_clause ~ 'files_tree' and check_clause ~ 'files_pins' and check_clause ~ 'box_shut' and check_clause ~ 'files_panes' and check_clause ~ 'recent_folded' and check_clause ~ 'files_look' and check_clause ~ 'news_tab' and check_clause ~ 'news_font' and check_clause ~ 'now_tab' and check_clause ~ 'org_order' and check_clause ~ 'report_calendar' and check_clause ~ 'photo_zoom' and check_clause ~ 'note_sort' and check_clause ~ 'files_two' and check_clause ~ 'files_sources' and check_clause ~ 'col_widths' and check_clause ~ 'home_cards' and check_clause !~ 'note_list_sort') <> 1
+           and check_clause ~ 'row_size' and check_clause ~ 'note_blocks' and check_clause ~ 'files_sort' and check_clause ~ 'drive_import_folder' and check_clause ~ 'xxl' and check_clause ~ 'home_off' and check_clause ~ 'record_backup' and check_clause ~ 'note_zoom' and check_clause ~ 'biz_week_open' and check_clause ~ 'library_two' and check_clause ~ 'org_row_order' and check_clause ~ 'category_roles' and check_clause ~ 'files_last' and check_clause ~ 'files_tree' and check_clause ~ 'files_pins' and check_clause ~ 'box_shut' and check_clause ~ 'files_panes' and check_clause ~ 'recent_folded' and check_clause ~ 'files_look' and check_clause ~ 'news_tab' and check_clause ~ 'news_font' and check_clause ~ 'now_tab' and check_clause ~ 'org_order' and check_clause ~ 'report_calendar' and check_clause ~ 'photo_zoom' and check_clause ~ 'note_sort' and check_clause ~ 'files_two' and check_clause ~ 'files_sources' and check_clause ~ 'col_widths' and check_clause ~ 'home_cards' and check_clause !~ 'note_list_sort') <> 1
      or (select count(*) from pg_attribute
          where attrelid = 'public.app_profiles'::regclass and not attisdropped and attname = 'view_prefs') <> 1
      or exists (select 1 from pg_class where oid = 'public.app_profiles'::regclass and not relrowsecurity)
@@ -49,8 +49,8 @@ alter table public.app_profiles
       when jsonb_typeof(view_prefs) <> 'object' then false
       else
         octet_length(view_prefs::text) <= 4000
-        -- 칸은 아래 예순한 개뿐(20261125080000 profile_view_prefs_note_blocks 판에 note_list_sort 하나 더).
-        and not jsonb_path_exists(view_prefs, 'strict $.keyvalue() ? (!(@.key == "theme" || @.key == "nav_collapsed" || @.key == "calendar_view" || @.key == "home_quick_mode" || @.key == "note_folder" || @.key == "split_ratio" || @.key == "collect_hidden_on" || @.key == "report_view" || @.key == "menu_layout" || @.key == "home_cards" || @.key == "photo_cols" || @.key == "photo_cols_wide" || @.key == "diary_view" || @.key == "diary_onedrive" || @.key == "photo_view" || @.key == "quiet_weeks" || @.key == "note_view" || @.key == "note_boards" || @.key == "note_board" || @.key == "photo_hint" || @.key == "photo_sources" || @.key == "org_tab" || @.key == "tg_view" || @.key == "phone_folders_off" || @.key == "album_view" || @.key == "now_tab" || @.key == "link_hidden_on" || @.key == "ed_more" || @.key == "phone_folders_known" || @.key == "col_widths" || @.key == "photo_sources_phone" || @.key == "photo_sources_pc" || @.key == "photo_level" || @.key == "report_period" || @.key == "files_sources" || @.key == "files_dest_recent" || @.key == "files_two" || @.key == "note_sort" || @.key == "photo_zoom" || @.key == "org_order" || @.key == "report_calendar" || @.key == "news_tab" || @.key == "news_font" || @.key == "files_look" || @.key == "recent_folded" || @.key == "files_panes" || @.key == "box_shut" || @.key == "files_tree" || @.key == "files_pins" || @.key == "files_last" || @.key == "category_roles" || @.key == "org_row_order" || @.key == "library_two" || @.key == "biz_week_open" || @.key == "note_zoom" || @.key == "record_backup" || @.key == "home_off" || @.key == "drive_import_folder" || @.key == "files_sort" || @.key == "note_blocks" || @.key == "note_list_sort"))')
+        -- 칸은 아래 예순두 개뿐(20261125090000 profile_view_prefs_row_size 판에 note_list_sort 하나 더).
+        and not jsonb_path_exists(view_prefs, 'strict $.keyvalue() ? (!(@.key == "theme" || @.key == "nav_collapsed" || @.key == "calendar_view" || @.key == "home_quick_mode" || @.key == "note_folder" || @.key == "split_ratio" || @.key == "collect_hidden_on" || @.key == "report_view" || @.key == "menu_layout" || @.key == "home_cards" || @.key == "photo_cols" || @.key == "photo_cols_wide" || @.key == "diary_view" || @.key == "diary_onedrive" || @.key == "photo_view" || @.key == "quiet_weeks" || @.key == "note_view" || @.key == "note_boards" || @.key == "note_board" || @.key == "photo_hint" || @.key == "photo_sources" || @.key == "org_tab" || @.key == "tg_view" || @.key == "phone_folders_off" || @.key == "album_view" || @.key == "now_tab" || @.key == "link_hidden_on" || @.key == "ed_more" || @.key == "phone_folders_known" || @.key == "col_widths" || @.key == "photo_sources_phone" || @.key == "photo_sources_pc" || @.key == "photo_level" || @.key == "report_period" || @.key == "files_sources" || @.key == "files_dest_recent" || @.key == "files_two" || @.key == "note_sort" || @.key == "photo_zoom" || @.key == "org_order" || @.key == "report_calendar" || @.key == "news_tab" || @.key == "news_font" || @.key == "files_look" || @.key == "recent_folded" || @.key == "files_panes" || @.key == "box_shut" || @.key == "files_tree" || @.key == "files_pins" || @.key == "files_last" || @.key == "category_roles" || @.key == "org_row_order" || @.key == "library_two" || @.key == "biz_week_open" || @.key == "note_zoom" || @.key == "record_backup" || @.key == "home_off" || @.key == "drive_import_folder" || @.key == "files_sort" || @.key == "note_blocks" || @.key == "row_size" || @.key == "note_list_sort"))')
         and case when not (view_prefs ? 'theme') then true
               else jsonb_typeof(view_prefs -> 'theme') = 'string' and view_prefs ->> 'theme' in ('olive', 'navy', 'ink', 'lavender', 'teal', 'sky', 'mint', 'coral', 'lemon', 'red') end
         and case when not (view_prefs ? 'nav_collapsed') then true
@@ -374,6 +374,10 @@ alter table public.app_profiles
         -- 참·거짓 하나. 없으면 끔(글쓰기). 모든 기기 같음. 글 내용은 넣지 않는다.
         and case when not (view_prefs ? 'note_blocks') then true
               else jsonb_typeof(view_prefs -> 'note_blocks') = 'boolean' end
+        -- 폴더·항목 줄 크기(UI-폴더줄크기 S69-99): 파일·자료실·노트·사진 폴더·항목 줄 크기 단계 글자 하나 — s(작게)·l(크게)·xl(아주 크게).
+        -- 보통(m)은 칸을 지워 저장하지 않는다. 폴더 이름·자료 내용은 넣지 않는다. 없으면 화면이 보통으로 본다.
+        and case when not (view_prefs ? 'row_size') then true
+              else jsonb_typeof(view_prefs -> 'row_size') = 'string' and view_prefs ->> 'row_size' in ('s', 'l', 'xl') end
         -- 노트 [목록] 정렬(NOTE-목록표머리 ①-2, 명진 11/25 12:34): [목록] 머리 칸·⋯ 정렬 고르기로 고른 정렬 하나. 객체, 칸은 key·dir 둘 다 있고
         -- key는 title(제목)·folder(폴더)·changed(수정일)·created(작성일)·clip(첨부)·memo(메모)·chars(글자 수) 중 하나, dir은 asc(오름)·desc(내림). 모든 기기 같음. 노트 내용은 넣지 않는다. 없으면 화면이 수정일 내림으로 본다.
         and case when not (view_prefs ? 'note_list_sort') then true
@@ -394,12 +398,12 @@ begin
          and convalidated) <> 1
      or (select count(*) from information_schema.check_constraints
          where constraint_schema = 'public' and constraint_name = 'app_profiles_view_prefs_check'
-           and check_clause ~ 'note_list_sort' and check_clause ~ 'note_blocks' and check_clause ~ 'files_sort' and check_clause ~ 'drive_import_folder' and check_clause ~ 'xxl' and check_clause ~ 'home_off' and check_clause ~ 'record_backup' and check_clause ~ 'note_zoom' and check_clause ~ 'biz_week_open' and check_clause ~ 'library_two' and check_clause ~ 'org_row_order' and check_clause ~ 'category_roles' and check_clause ~ 'files_last' and check_clause ~ 'files_tree' and check_clause ~ 'files_pins' and check_clause ~ 'box_shut' and check_clause ~ 'files_panes' and check_clause ~ 'recent_folded' and check_clause ~ 'files_look' and check_clause ~ 'news_tab' and check_clause ~ 'news_font' and check_clause ~ 'now_tab' and check_clause ~ 'org_order' and check_clause ~ 'report_calendar' and check_clause ~ 'photo_zoom' and check_clause ~ 'note_sort' and check_clause ~ 'files_two' and check_clause ~ 'files_sources' and check_clause ~ 'col_widths' and check_clause ~ 'home_cards') <> 1 then
+           and check_clause ~ 'note_list_sort' and check_clause ~ 'row_size' and check_clause ~ 'note_blocks' and check_clause ~ 'files_sort' and check_clause ~ 'drive_import_folder' and check_clause ~ 'xxl' and check_clause ~ 'home_off' and check_clause ~ 'record_backup' and check_clause ~ 'note_zoom' and check_clause ~ 'biz_week_open' and check_clause ~ 'library_two' and check_clause ~ 'org_row_order' and check_clause ~ 'category_roles' and check_clause ~ 'files_last' and check_clause ~ 'files_tree' and check_clause ~ 'files_pins' and check_clause ~ 'box_shut' and check_clause ~ 'files_panes' and check_clause ~ 'recent_folded' and check_clause ~ 'files_look' and check_clause ~ 'news_tab' and check_clause ~ 'news_font' and check_clause ~ 'now_tab' and check_clause ~ 'org_order' and check_clause ~ 'report_calendar' and check_clause ~ 'photo_zoom' and check_clause ~ 'note_sort' and check_clause ~ 'files_two' and check_clause ~ 'files_sources' and check_clause ~ 'col_widths' and check_clause ~ 'home_cards') <> 1 then
     raise exception 'PROFILE_VIEW_PREFS_NOTE_LIST_SORT_POSTCHECK_FAILED; stop';
   end if;
 end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261125100000', 'profile_view_prefs_note_list_sort', array['NOTE-list-head: app_profiles_view_prefs_check rebuilt on the profile_view_prefs_note_blocks version with one more key, note_list_sort (object with exactly key in title|folder|changed|created|clip|memo|chars and dir in asc|desc); every other key and rule unchanged']);
+values ('20261125100000', 'profile_view_prefs_note_list_sort', array['NOTE-list-head: app_profiles_view_prefs_check rebuilt on the profile_view_prefs_row_size version with one more key, note_list_sort (object with exactly key in title|folder|changed|created|clip|memo|chars and dir in asc|desc); every other key and rule unchanged']);
 commit;

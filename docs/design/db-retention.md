@@ -39,6 +39,8 @@
 
 ## 3. 적용 순서 (커맨드센터)
 
+> **2026-11-25 명진 결정(21:35 "추천대로", `docs/qa/stalled-audit-20261125.md` 2절) 10번**: DB 적용 때 쌓이는 백업 표(`ops_backup`)는 **적용하고 14일 지난 것만** 지운다(그 migration이 `schema_migrations`에 기록된 것만, 기록 없는 백업은 사람이 본다). 지우기 전에 개수를 한 줄로 보고한다. 명진은 "CC가 승인형 workflow로"라고 정했지만, workflow는 지금 `drop table`을 막는다(`docs/ops-db-workflow.md` 차단 목록). 길 고르기는 `docs/qa/stalled-audit-20261125.md` I-8.
+
 1. Edge `news-feed` 배포(main merge 커밋, 되돌리기 ref = 지금 운영 소스 SHA). 오래된 피드 글 거르기가 먼저 들어가야 지운 기사가 다시 들어오지 않는다.
 2. 승인형 DB workflow: `20261120130000_news_outside_retention.sql` dry-run → apply. 적용 순간에는 줄을 지우지 않는다(최상위 DELETE 없음 → 자동 사본 없음 — 한도 초과 중에 사본으로 더 커지지 않게). **적용 뒤 다음 언론 수집(매시 :22)부터 언론 정리가 시작된다.**
 3. SQL Editor(폰 경로 C): `docs/ops/retention-daily.precheck.sql`(숫자 캡처) → `retention-daily.apply.sql` 조각 ①(예약) → precheck → 조각 ②(지금 한 번 정리 + 11/15·16·19 뉴스 백업 지우기) → precheck.

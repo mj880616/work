@@ -136,7 +136,7 @@ export function fetchBody(row) {
     if (copy && patch.body_state !== 'ok') return saveCopy();
     try {
       const saved = await patchItem(row.id, patch);
-      return {state: saved.body_state === 'ok' || saved.body_state === 'paywall' ? 'ok' : 'failed', row: saved};
+      return {state: saved.body_state === 'ok' || saved.body_state === 'paywall' || saved.body_state === 'lead' ? 'ok' : 'failed', row: saved};
     } catch (e) { return {state: 'request', reason: e?.code === 'gone' ? 'gone' : requestFailReason(e)}; }
   }).finally(() => { running.delete(row.id); emit({id: row.id, kind: 'fetched'}); });
   chain = job.catch(() => {});

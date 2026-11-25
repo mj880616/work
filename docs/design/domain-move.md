@@ -5,7 +5,7 @@
 - 기준 문서: [`docs/bokdoong-domain.md`](../bokdoong-domain.md)(지금 주소 구조), [`docs/web2-expand-deploy-verify-contract.md`](../web2-expand-deploy-verify-contract.md)(Expand → Deploy → Verify → Contract 원칙), [`docs/design/diary-onedrive.md`](diary-onedrive.md) 10.4(원드라이브 돌아올 주소).
 - 시안: [`mockups/domain-move.html`](mockups/domain-move.html)(옛 주소 안내 한 줄, 다시 로그인 안내, 아스날 메뉴 자리).
 - 순서(명진 결정 01:08): ① 주소 이전 → ② 아스날 메뉴 → ③ 노트에 읽생기 아이디어 → ④ Web1 삭제. 읽생기 사이트 닫기(③의 ⑥)는 '바로' 요청이라 ③-0으로 따로 떼어 언제든 할 수 있게 했다.
-- 표시: **⏸ 결정 대기** = 커맨드센터 승인·명진 결정 전에는 하지 않음. 모든 운영 단계는 ⏸이다.
+- 표시: **⏸ 결정 대기** = 커맨드센터 승인·명진 결정 전에는 하지 않음. 모든 운영 단계는 ⏸이다. 2026-11-25 S70-50: 1.2·4.5절 상태 칸을 원장·실행 기록으로 고쳤다(⏸ 남은 칸은 2·3절).
 
 ## 0. 지금 구조에서 확인한 사실 (2026-10-28 main `2be017bd`)
 
@@ -40,17 +40,17 @@
 
 | 단계 | 할 일 | 누가 | 상태 |
 | --- | --- | --- | --- |
-| E1 코드 | Edge 허용 주소에 `https://bokdoong.com` **추가만**: `public-policy-drive`(Web2 자료실 올리기·지우기가 씀), `auth-handoff`(Web2 로그인 전달), `public-page-edit`·`pc0921-board`(Web2 안 Web1 편집, ④까지). 지금 주소는 지우지 않음 | 작업 세션 PR | ⏸ |
-| E2 Edge 배포 | E1 함수 4개를 승인형 workflow로 하나씩, `verify_jwt=keep`(넷 다 false 유지, `docs/web2-env6b-edge-source.md` 5절) | 커맨드센터 시작 → 명진 승인 | ⏸ |
-| E3 로그인 주소 | Supabase Auth **Redirect URLs에 bokdoong.com 줄 추가**(1.4-가). Site URL은 아직 그대로 | 명진(화면) | ⏸ |
-| E4 원드라이브 | Azure 앱 등록에 **새 돌아올 주소 추가**(1.4-나). 옛 주소는 지우지 않음. 비밀값은 아직 그대로 | 명진(화면) | ⏸ |
-| E5 Worker | `bokdoong.com/work/app/**`에서도 Web2가 열리게(포털 `/`는 아직 그대로, desk도 그대로) + 1.1절 캐시 동작 | 작업 세션 PR → 커맨드센터 승인 merge(자동 배포) | ⏸ |
-| V1 확인 | 새 주소에서 Google 로그인, 앱 열기·뒤로가기, 자료실 올리기, 일정 연결 다시 하기, 공유 링크 만들기, 폴드·PC. 옛 desk도 여전히 되는지 | 커맨드센터 + 명진 폰 | ⏸ |
-| D1 코드 | Worker: `bokdoong.com/` → Web2, desk·work의 `/work/app/**` → bokdoong.com. `public-policy-drive`의 돌아갈 화면 주소(`DRIVE_APP_URL`·`CALENDAR_APP_URL`) → bokdoong.com. 시험·확인 스크립트(`tests/domain/bokdoong-router.test.mjs`, `scripts/cloudflare-check-urls.mjs`, `scripts/check-pages-build.mjs`, worker 배포 workflow 확인 주소) 갱신 | 작업 세션 PR 2개(Worker / Edge) | ⏸ |
-| D2 배포 | Edge `public-policy-drive` 배포 → Worker PR merge(자동 배포) | 커맨드센터 → 명진 승인 | ⏸ |
-| D3 원드라이브 비밀값 | `ONEDRIVE_REDIRECT_URI`를 새 주소로(1.4-다). D2 직후 | 명진(화면) | ⏸ |
-| V2 확인 | 옛 즐겨찾기(desk·work) → 새 주소, 다시 로그인 1회, 원드라이브 다시 연결, 사진 보기, 공유 링크(옛·새) 열림, 안드로이드·윈도우 앱(github.io) 그대로, 앱 다시 설치(아이콘 바꾸기 재설치와 한 번에) | 커맨드센터 + 명진 | ⏸ |
-| C1 정리(30일 뒤 추천) | `personal/portal/` 삭제, Worker의 포털·favicon 분기 삭제, Supabase Site URL을 새 주소로, Redirect URLs의 desk·work Web2 줄 삭제, Azure 옛 주소 삭제, Edge 허용 주소에서 desk 삭제, `basket-pc` 바로가기 주소 다음 판에 새 주소, AGENTS.md 1절 폰 진단 주소·`docs/bokdoong-domain.md` 갱신 | 작업 세션 PR + 명진 화면 | ⏸ |
+| E1 코드 | Edge 허용 주소에 `https://bokdoong.com` **추가만**: `public-policy-drive`(Web2 자료실 올리기·지우기가 씀), `auth-handoff`(Web2 로그인 전달), `public-page-edit`·`pc0921-board`(Web2 안 Web1 편집, ④까지). 지금 주소는 지우지 않음 | 작업 세션 PR | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| E2 Edge 배포 | E1 함수 4개를 승인형 workflow로 하나씩, `verify_jwt=keep`(넷 다 false 유지, `docs/web2-env6b-edge-source.md` 5절) | 커맨드센터 시작 → 명진 승인 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| E3 로그인 주소 | Supabase Auth **Redirect URLs에 bokdoong.com 줄 추가**(1.4-가). Site URL은 아직 그대로 | 명진(화면) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| E4 원드라이브 | Azure 앱 등록에 **새 돌아올 주소 추가**(1.4-나). 옛 주소는 지우지 않음. 비밀값은 아직 그대로 | 명진(화면) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| E5 Worker | `bokdoong.com/work/app/**`에서도 Web2가 열리게(포털 `/`는 아직 그대로, desk도 그대로) + 1.1절 캐시 동작 | 작업 세션 PR → 커맨드센터 승인 merge(자동 배포) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| V1 확인 | 새 주소에서 Google 로그인, 앱 열기·뒤로가기, 자료실 올리기, 일정 연결 다시 하기, 공유 링크 만들기, 폴드·PC. 옛 desk도 여전히 되는지 | 커맨드센터 + 명진 폰 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| D1 코드 | Worker: `bokdoong.com/` → Web2, desk·work의 `/work/app/**` → bokdoong.com. `public-policy-drive`의 돌아갈 화면 주소(`DRIVE_APP_URL`·`CALENDAR_APP_URL`) → bokdoong.com. 시험·확인 스크립트(`tests/domain/bokdoong-router.test.mjs`, `scripts/cloudflare-check-urls.mjs`, `scripts/check-pages-build.mjs`, worker 배포 workflow 확인 주소) 갱신 | 작업 세션 PR 2개(Worker / Edge) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| D2 배포 | Edge `public-policy-drive` 배포 → Worker PR merge(자동 배포) | 커맨드센터 → 명진 승인 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| D3 원드라이브 비밀값 | `ONEDRIVE_REDIRECT_URI`를 새 주소로(1.4-다). D2 직후 | 명진(화면) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| V2 확인 | 옛 즐겨찾기(desk·work) → 새 주소, 다시 로그인 1회, 원드라이브 다시 연결, 사진 보기, 공유 링크(옛·새) 열림, 안드로이드·윈도우 앱(github.io) 그대로, 앱 다시 설치(아이콘 바꾸기 재설치와 한 번에) | 커맨드센터 + 명진 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| C1 정리(30일 뒤 추천) | `personal/portal/` 삭제, Worker의 포털·favicon 분기 삭제, Supabase Site URL을 새 주소로, Redirect URLs의 desk·work Web2 줄 삭제, Azure 옛 주소 삭제, Edge 허용 주소에서 desk 삭제, `basket-pc` 바로가기 주소 다음 판에 새 주소, AGENTS.md 1절 폰 진단 주소·`docs/bokdoong-domain.md` 갱신 | 작업 세션 PR + 명진 화면 | 남음 — `personal/portal/`·포털 분기 그대로(사실). bokdoong.com은 뒤에 이전 안내로 바뀜(DOMAIN-bokdoong이전안내). CC가 블로그 주소 단계와 묶어 정리(Cloudflare는 정지 지점, `docs/qa/stalled-audit-20261125.md` B7) |
 
 일상어 3줄 (단계별):
 
@@ -207,11 +207,11 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 
 | 단계 | 할 일 | 상태 |
 | --- | --- | --- |
-| E1 | 성명·보도자료 대조(4.2-1) | ⏸ |
-| E2 | Web2가 Web1 빌려 쓰는 화면 삭제 PR(4.2-2) | ⏸ |
-| D1 | 이름표 → Worker 안내 한 줄 + 404.html PR(커맨드센터 승인 merge) | ⏸ |
-| V1 | 공유 링크(옛·새)·Web2 전체·바깥에 보낸 Web1 링크 몇 개가 한 줄 안내로 | ⏸ |
-| C1 | Web1 파일·관문·검사 삭제 PR, Edge 함수 삭제(명진 대시보드), 문서 갱신 | ⏸ |
+| E1 | 성명·보도자료 대조(4.2-1) | 기록 없음 — 확인 필요(PRESS-자료실편입, 멈춘 일 점검 B6) |
+| E2 | Web2가 Web1 빌려 쓰는 화면 삭제 PR(4.2-2) | 완료(#1545) |
+| D1 | 이름표 → Worker 안내 한 줄 + 404.html PR(커맨드센터 승인 merge) | 완료(WEB1-페이지삭제 #2266) |
+| V1 | 공유 링크(옛·새)·Web2 전체·바깥에 보낸 Web1 링크 몇 개가 한 줄 안내로 | 확인 필요(확인 기록 없음) |
+| C1 | Web1 파일·관문·검사 삭제 PR, Edge 함수 삭제(명진 대시보드), 문서 갱신 | 일부 완료(C1-b 파일·관문·검사 삭제 #2265·#2266). 남음: C1-c Edge 삭제·C1-d Auth Redirect 정리(12/10 이후, WEB1-Edge정리 행) |
 
 일상어 3줄:
 
