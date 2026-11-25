@@ -301,7 +301,7 @@ for (const width of [412, 1280]) {
     await page.evaluate(() => window.KPTURouter.go('reading'));
     await rd.locator('.rd-switch [data-filter-value="all"]').click();
     await expect(line).not.toHaveClass(/is-unread/);
-    await expect(rd.locator('.rd-switch [data-filter-value="unread"]')).toHaveText('안 읽음 0');
+    await expect(rd.locator('.rd-switch [data-filter-value="unread"]')).toHaveText('안 읽음');
     // 이미 읽은 줄은 다시 열어도 또 저장하지 않는다.
     expect(server.calls.filter(c => c.what === 'app_reading_items' && c.method === 'PATCH').length).toBe(1);
     expect(errors).toEqual([]);

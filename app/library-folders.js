@@ -158,7 +158,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       // '폴더 밖'이 비어 그 줄이 없으면(LIB-정리보충) 맨 위 폴더 메뉴 첫 줄이 맨 위 새 폴더 자리.
       // 탐색기(S69-28)는 '폴더 밖' 머리가 늘 없지만 맨 위 ⋯·빈 자리 우클릭 [새 폴더]가 맨 위 자리라 이 줄을 더하지 않는다.
       const top=s().free&&!s().explorer&&!s().inFolder&&!f.parent_id&&!outsideHead()?'<button type="button" data-lu-folder-action="create-top">맨 위에 새 폴더</button>':'';
-      // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기는 그 자리 펼치기·접기만이라, 들어가기는 이 메뉴 첫 줄 [이 폴더로 들어가기](와 두 손가락 벌리기)로만.
+      // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기는 그 자리 펼치기·접기만이라, 들어가기는 이 메뉴 첫 줄 [이 폴더로 들어가기]로만.
       return (enter&&s().free?'<button type="button" data-lu-folder-action="enter">이 폴더로 들어가기</button>':'')+top+'<button type="button" data-lu-folder-action="rename" aria-keyshortcuts="F2">이름 바꾸기<span class="lu-menu-key" aria-hidden="true">F2</span></button>'
         +(canAddChild(s().folders,f.id)?'<button type="button" data-lu-folder-action="create">안에 새 폴더</button>':'')
         // S69-28 LIB-한칸탐색기: 탐색기(한 칸 폴더 보기)의 폴더 줄은 펼치지 않고 들어가므로 [펼치기·접기] 줄이 없다(왼쪽 나무는 줄 앞 폴더 그림).
@@ -252,7 +252,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // 줄 안 이름 바꾸기(폴더): 창 없이 그 줄 이름이 입력칸이 된다. Enter·바깥 누르기=저장, Esc=취소. 저장은 폴더 이름뿐(자료·Drive는 그대로).
   let renaming=null;
   // LIB-두칸보기: 두 칸(#documentList 안 [data-lu-pane-i])의 폴더 줄도 왼쪽 나무 줄과 같은 data-lu-nav 단추다.
-  // LIB-두칸폴더펼치기(S56-40): 두 칸 폴더 줄을 누르면 그 칸 안에서 펼치기·접기, 들어가기는 이 메뉴의 [이 폴더로 들어가기]·두 손가락.
+  // LIB-두칸폴더펼치기(S56-40): 두 칸 폴더 줄을 누르면 그 칸 안에서 펼치기·접기, 들어가기는 이 메뉴의 [이 폴더로 들어가기].
   const navBtnOf=(id,trigger=null)=>{const own=trigger?.closest?.('[data-lu-nav]');if(own?.dataset.luNav===id)return own;return [...document.querySelectorAll('#libraryListCard [data-lu-nav]')].find(b=>b.dataset.luNav===id)||null};
   // trigger가 왼쪽 나무 줄이면(나무 줄 우클릭 → [이름 바꾸기]) 그 나무 줄이 입력칸이 된다. 오른쪽 목록에 그 폴더 줄이 없을 때도 나무 줄로.
   function startRename(id,trigger=null){
