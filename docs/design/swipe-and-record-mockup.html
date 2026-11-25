@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>줄 밀기·기록 줄 시안</title>
+<!-- S70-61 시안만: UI-밀기메뉴통일(시안 A) + UI-기록줄높이통일(시안 B). 혼자 열리는 파일: 외부 주소·글꼴·스크립트 없음.
+     색은 앱 먹색 톤(theme-tokens.css)·줄 밀기 칸(row-swipe.css: 64px 칸, 토큰 색 22% 섞은 바탕)을 흉내 냈다. 내용은 모두 가짜 예시.
+     결정 메모: docs/design/swipe-and-record-decision.md -->
+<style>
+:root{--bg:#f3f1ea;--sf:#fffefa;--sub-bg:#f7f5ee;--ink:#2a2a23;--mu:#6e6c60;--fa:#8f8c7f;--bd:#e2ddd0;--bd2:#cfc8b6;
+  --danger:#9a4048;--info:#496b8c;--warn:#8a6218;--move:#6b5a8a;--pri:#22262b}
+:root[data-theme="dark"]{--bg:#1d1e20;--sf:#25272a;--sub-bg:#2b2d31;--ink:#d9d7d2;--mu:#a29f98;--fa:#77746e;--bd:#3a3d41;--bd2:#4a4d52;
+  --danger:#d48a90;--info:#8fa8c4;--warn:#c9a16a;--move:#ab9cc9;--pri:#d9d7d2}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1e20;--sf:#25272a;--sub-bg:#2b2d31;--ink:#d9d7d2;--mu:#a29f98;--fa:#77746e;--bd:#3a3d41;--bd2:#4a4d52;
+  --danger:#d48a90;--info:#8fa8c4;--warn:#c9a16a;--move:#ab9cc9;--pri:#d9d7d2}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Noto Sans KR",sans-serif}
+button{font:inherit;color:inherit}
+.ctl{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:7px 16px;background:var(--sf);border-bottom:1px solid var(--bd)}
+.ctl b{font-size:12px;color:var(--mu);font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:none;font-size:12px;padding:3px 9px;cursor:pointer;color:var(--mu)}
+.seg button[aria-pressed="true"]{background:var(--sub-bg);color:var(--ink);font-weight:600}
+main{padding:10px 16px 60px;max-width:1500px;margin:0 auto}
+section[hidden]{display:none}
+h2{font-size:14px;margin:14px 0 4px}
+h3{font-size:13px;margin:14px 0 4px;color:var(--mu);font-weight:600}
+p.note{margin:2px 0 6px;color:var(--mu);font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 8px}
+.chips button{border:1px solid var(--bd);background:var(--sf);border-radius:12px;padding:1px 9px;font-size:12px;cursor:pointer;color:var(--mu)}
+.chips button[aria-pressed="true"]{border-color:var(--bd2);background:var(--sub-bg);color:var(--ink);font-weight:600}
+.chips .new{font-size:10px;color:var(--warn);margin-left:3px}
+/* 폰 틀: 나란히, 좁으면 옆으로 넘김 */
+.frames{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 0 10px}
+.fw{flex:none;scroll-snap-align:start}
+.fw>.cap{font-size:12px;font-weight:600;margin:0 0 3px}
+.fw>.cap small{font-weight:400;color:var(--mu);margin-left:4px}
+.phone{width:390px;max-width:calc(100vw - 32px);border:1px solid var(--bd);border-radius:10px;background:var(--sf);overflow:hidden}
+.phone.fold{width:690px}
+.bar{display:flex;align-items:center;gap:6px;height:36px;padding:0 10px;border-bottom:1px solid var(--bd);font-weight:600}
+.bar .sp{flex:1}
+.bar .dots{color:var(--mu);font-weight:400}
+.list{position:relative}
+.combo{font-size:11px;color:var(--mu);padding:3px 10px;background:var(--sub-bg);border-bottom:1px solid var(--bd)}
+/* 줄 밀기 — row-swipe.css 흉내 */
+.host{position:relative;overflow:hidden;border-bottom:1px solid var(--bd)}
+.acts{position:absolute;inset:0 0 0 auto;display:flex}
+.act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:64px;height:100%;border:0;padding:0 3px;cursor:pointer;font-size:11px;line-height:1.2;
+  --c:var(--mu);color:var(--c);background:color-mix(in srgb,var(--c) 22%,var(--sf))}
+.act svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.act span{word-break:keep-all;text-align:center}
+.t-danger{--c:var(--danger)}.t-info{--c:var(--info)}.t-warn{--c:var(--warn)}.t-move{--c:var(--move)}.t-muted{--c:var(--mu)}.t-edit{--c:var(--info)}
+.act:focus-visible{outline:2px solid var(--info);outline-offset:-2px}
+.row{position:relative;z-index:1;background:var(--sf);transition:transform .18s ease;display:flex;align-items:center;gap:8px;min-height:44px;padding:5px 6px 5px 10px;touch-action:pan-y;user-select:none}
+.row.drag{transition:none}
+.row .tx{flex:1;min-width:0}
+.row .t1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t2{font-size:11px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.more{flex:none;width:28px;height:28px;border:0;background:none;color:var(--mu);border-radius:5px;cursor:pointer}
+.more:hover{background:var(--sub-bg)}
+.ck{flex:none;width:16px;height:16px;border:1.5px solid var(--bd2);border-radius:50%}
+.ico{flex:none;width:18px;height:18px;border-radius:3px;background:var(--sub-bg);border:1px solid var(--bd)}
+/* ⋯ 메뉴 흉내 */
+.menu{position:absolute;z-index:30;min-width:150px;padding:4px;border:1px solid var(--bd);border-radius:7px;background:var(--sf);box-shadow:0 6px 18px rgba(0,0,0,.14)}
+.menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:7px 10px;border-radius:5px;cursor:pointer;font-size:13px}
+.menu button:hover{background:var(--sub-bg)}
+.menu .dg{color:var(--danger)}
+.menu .hd{font-size:11px;color:var(--fa);padding:2px 10px}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:40;background:var(--pri);color:var(--sf);font-size:12px;padding:6px 12px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:.94}
+/* 표 */
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:760px;background:var(--sf);border:1px solid var(--bd)}
+th,td{border-bottom:1px solid var(--bd);padding:4px 7px;text-align:left;vertical-align:top;font-size:12px}
+th{background:var(--sub-bg);color:var(--mu);font-weight:600;white-space:nowrap}
+td.k{font-weight:600;white-space:nowrap}
+.cl{display:inline-block;font-size:11px;padding:0 5px;border-radius:3px;margin:1px 1px 1px 0;--c:var(--mu);color:var(--c);background:color-mix(in srgb,var(--c) 18%,var(--sf));white-space:nowrap}
+.tag{font-size:10px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,var(--sf));border-radius:3px;padding:0 3px;white-space:nowrap}
+.rule{background:var(--sf);border:1px solid var(--bd);border-radius:7px;padding:6px 10px;margin:6px 0;font-size:12px}
+.rule li{margin:1px 0}
+/* 시안 B 기록 줄 */
+.rec-v{padding:7px 10px;border-bottom:1px solid var(--bd);display:grid;grid-template-columns:52px 1fr;gap:6px}
+.rec-v .d,.rec .d{font-variant-numeric:tabular-nums;color:var(--mu);font-size:12px;white-space:nowrap}
+.rec-v .b{white-space:pre-line}
+.rec-v .f{font-size:11px;color:var(--mu);margin-top:3px}
+.fold-more{padding:6px 10px;color:var(--mu);font-size:12px;border-bottom:1px solid var(--bd)}
+.rec{display:grid;grid-template-columns:52px 1fr auto;align-items:center;column-gap:6px;width:100%;border:0;background:none;text-align:left;padding:0 6px 0 10px;cursor:pointer;color:var(--ink)}
+.rec.h1{height:40px}
+.rec.h2{height:54px}
+.rec .s{min-width:0}
+.rec.h1 .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec.h2 .s{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+.rec .m{display:flex;gap:6px;align-items:center;color:var(--fa);font-size:11px;white-space:nowrap}
+.rec .m svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.7;vertical-align:-2px}
+.rec .cv{color:var(--fa);font-size:10px;transition:transform .15s}
+.rec[aria-expanded="true"] .cv{transform:rotate(90deg)}
+.rec-body{padding:2px 10px 8px 68px;font-size:12.5px;white-space:pre-line;border-top:1px dashed var(--bd);background:var(--sub-bg)}
+.rec-body .fl{margin-top:4px;color:var(--mu);font-size:11px;white-space:normal}
+.rec-body .fl span{display:inline-block;border:1px solid var(--bd);border-radius:3px;padding:0 4px;margin:2px 3px 0 0;background:var(--sf)}
+.rec-host .row{padding:0;min-height:0;display:block}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px}
+.kv b{color:var(--mu);font-weight:600}
+@media (max-width:440px){main{padding:8px 10px 60px}.ctl{padding:6px 10px}}
+</style>
+</head>
+<body>
+<div class="ctl">
+  <b>시안</b>
+  <div class="seg" id="tabSeg"><button type="button" data-tab="a" aria-pressed="true">A 줄 밀기 3칸</button><button type="button" data-tab="b" aria-pressed="false">B 기록 줄 높이</button></div>
+  <b>색</b>
+  <div class="seg" id="themeSeg"><button type="button" data-th="" aria-pressed="true">기기 따라</button><button type="button" data-th="light" aria-pressed="false">밝게</button><button type="button" data-th="dark" aria-pressed="false">어둡게</button></div>
+</div>
+<main>
+<!-- ───────────── 시안 A ───────────── -->
+<section id="secA">
+  <h2>시안 A — 왼쪽으로 밀면 나오는 칸을 화면마다 3칸으로 맞추기</h2>
+  <ul class="rule">
+    <li>왼쪽으로 밀면 오른쪽 끝에 칸이 <b>최대 3개</b> 펼쳐진다. 끝까지 밀어도 <b>바로 실행하지 않는다</b>(S70-60 규칙) — 칸을 눌러야 한다.</li>
+    <li>칸 순서는 지금 규칙 그대로: 왼쪽 덜 위험 → <b>맨 오른쪽 숨기기·삭제</b>. 오른쪽으로 밀기 [선택]은 그대로.</li>
+    <li><b>가안</b> [주 동작][수정][숨기기·삭제] · <b>나안</b> [⋯][수정][숨기기·삭제] — [⋯]은 그 줄 ⋯ 메뉴를 그대로 연다. 공유는 넣지 않는다.</li>
+    <li>수정할 내용이 없는 줄(남이 쓴 기사 등)은 수정 자리에 [⋯]이 온다. 파일은 수정 대신 <b>이름 바꾸기</b>(용어 기준표).</li>
+  </ul>
+  <p class="note">아래 화면 이름을 누르면 세 폰 틀(지금 · 가안 · 나안)이 그 화면으로 바뀐다. 줄을 왼쪽으로 밀거나(마우스는 끌기) 둘째 줄처럼 열린 칸을 눌러 본다. 칸은 눌러도 알림만 뜬다.</p>
+  <div class="chips" id="scrChips"></div>
+  <div class="frames" id="framesA"></div>
+  <h3>전수 표 — 밀기가 있는 화면 · 넓힐 화면</h3>
+  <div class="tw"><table id="tblA"><thead><tr><th>화면</th><th>지금 왼쪽 밀기</th><th>가안</th><th>나안</th><th>⋯ 메뉴에 남는 것 · 메모</th></tr></thead><tbody></tbody></table></div>
+  <p class="note"><span class="tag">넓힘</span> = 지금은 밀기가 없어 새로 붙이는 화면. <span class="tag">따로</span> = 공용 밀기(row-swipe)가 아닌 따로 만든 밀기라, 고르면 공용 밀기로 옮긴다.</p>
+</section>
+
+<!-- ───────────── 시안 B ───────────── -->
+<section id="secB" hidden>
+  <h2>시안 B — 기록 줄 높이를 같게 + 눌러서 펼치기</h2>
+  <ul class="rule">
+    <li>모든 기록 줄 높이를 같게: <b>날짜 · 한 줄 요약 · 첨부·메모 표시</b>. 누르면 그 자리에서 펼쳐 본문·첨부·메모가 보이고, 다시 누르면 접힌다.</li>
+    <li><b>가안 한 줄</b>(40px): 요약 한 줄, 넘치면 '…'. <b>나안 두 줄</b>(54px): 요약 두 줄까지. 둘 다 펼침 표시는 작은 ›.</li>
+    <li>기록 줄도 시안 A처럼 왼쪽 밀기 [메모][수정][삭제](가안) — 틀 안에서 밀어 볼 수 있다.</li>
+  </ul>
+  <div class="chips" id="recChips"></div>
+  <h3>폰(390)</h3>
+  <div class="frames" id="framesB"></div>
+  <h3>폴드 펼침(690)</h3>
+  <div class="chips" id="foldChips"></div>
+  <div class="frames" id="framesFold"></div>
+</section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+// ── 그림(칸 아이콘) ──
+const I={
+  save:'<path d="M6 3h12v18l-6-4-6 4z"/>', edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  hide:'<path d="M3 12s3-6 9-6 9 6 9 6-3 6-9 6-9-6-9-6z"/><path d="M4 4l16 16"/>', trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  more:'<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+  move:'<path d="M3 7h6l2 2h10v10H3z"/><path d="M11 14h6M15 12l2 2-2 2"/>', done:'<path d="M5 12l5 5 9-10"/>',
+  pin:'<path d="M9 4h6l-1 6 3 3H7l3-3zM12 13v7"/>', star:'<path d="M12 4l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/>',
+  memo:'<path d="M4 5h16v11H9l-5 4z"/>', undo:'<path d="M9 7L4 12l5 5"/><path d="M4 12h11a5 5 0 010 10"/>', link:'<path d="M10 14a4 4 0 006 0l3-3a4 4 0 00-6-6l-1 1"/><path d="M14 10a4 4 0 00-6 0l-3 3a4 4 0 006 6l1-1"/>',
+  clock:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>', task:'<path d="M5 6h14M5 12h14M5 18h9"/>', rename:'<path d="M4 18h16"/><path d="M7 15l7-9 3 2-7 9H7z"/>', clip:'<path d="M16 7l-7 7a2 2 0 003 3l7-7a4 4 0 00-6-6l-7 7a6 6 0 008 8l6-6"/>'
+};
+const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${I[k]||''}</svg>`;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// 칸 하나 = [글자, 색, 그림]
+const C={
+  save:['저장','info','save'], hide:['숨기기','muted','hide'], del:['삭제','danger','trash'], edit:['수정','edit','edit'], more:['⋯','muted','more'],
+  move:['옮기기','move','move'], done:['완료','info','done'], due:['기한','warn','clock'], read:['읽음','info','done'], link:['사업에 연결','move','link'],
+  pin:['고정','muted','pin'], star:['별표','warn','star'], memo:['메모','muted','memo'], hold:['보류로','muted','clock'], plan:['보고할 일정','info','done'],
+  ignore:['무시','muted','hide'], totask:['할 일로','info','task'], rename:['이름 바꾸기','edit','rename'], restore:['되살리기','info','undo'], purge:['영구 삭제','danger','trash'],
+  folder:['폴더로','move','move'], archive:['보관','muted','clock'], open:['노트 열기','info','memo'], unlink:['연결 해제','danger','link']
+};
+// ── 화면 전수(지금 저장소 main 기준으로 조사, S70-61) ──
+// now: 지금 칸 / a: 가안 / b: 나안 / menu: 그 줄 ⋯ 메뉴(나안 [⋯]을 누르면 나오는 것) / rows: 가짜 줄
+const S=[
+ {id:'home',name:'홈 읽을 만한 글 · 읽을 거리',file:'now-row-acts.js',now:['save','hide'],a:['save','more','hide'],b:['more','save','hide'],
+  menu:['저장','숨기기','관심 없음','매체 보기'],memo:'기사는 수정할 내용이 없어 수정 자리에 [⋯]. 내가 직접 넣은 기사는 가안·나안 모두 [저장][수정][삭제].',
+  rows:[['교통 요금 조정안 발표, 다음 달부터','한 일보 · 2시간 전'],['지역 축제 일정 확정, 주말 도로 통제','한 신문 · 3시간 전'],['새 도서관 개관 앞두고 시범 운영','한 방송 · 어제']]},
+ {id:'reading',name:'저장한 글',file:'reading.js',now:['link','read','del'],a:['read','edit','del'],b:['more','edit','del'],
+  menu:['수정','사업에 연결','안 읽음으로','삭제'],memo:'[사업에 연결]은 ⋯ 안으로. 수정할 수 없는 줄(읽을 거리에서 온 글)은 수정 자리에 [⋯].',
+  rows:[['좋은 회의록 쓰는 다섯 가지 방법','저장 11.20 · 밑줄 2'],['작은 팀의 일정 관리 요령','저장 11.18'],['보고서 첫 문단 쓰기','저장 11.12 · 메모 1']]},
+ {id:'tasks',name:'할 일',file:'google-tasks.js',now:['done','due','del'],a:['done','edit','del'],b:['more','edit','del'],
+  menu:['수정','기한 바꾸기','파일 붙이기','삭제'],memo:'[기한]은 ⋯ \'기한 바꾸기\'로. 나안은 완료가 밀기에서 빠지지만 줄 앞 동그라미로 끝낼 수 있다.',
+  rows:[['견적서 다시 받기','11.27 (금)'],['회의 자료 정리해서 공유','11.28 (토)'],['다음 달 행사 장소 알아보기','기한 없음']],ck:true},
+ {id:'forget',name:'잊지 말기',file:'inbox-todos.js',now:['ignore'],a:['totask','more','ignore'],b:['more','totask','ignore'],
+  menu:['수정해서 할 일로','이미 할 일에 있음','내 일 아님'],memo:'잊지 말기의 수정은 곧 \'수정해서 할 일로\' 창이라 [할 일로] 한 칸으로 합침(같은 창이 열림).',
+  rows:[['담당자에게 회신 보내기','AI 제안 · 통화에서'],['다음 주 회의 날짜 잡기','AI 제안 · 메모에서'],['자료 원본 받아 두기','AI 제안']]},
+ {id:'basket',name:'업데이트(잊지 말기 목록 안)',file:'basket.js',now:['hold','del'],a:['hold','edit','del'],b:['more','edit','del'],
+  menu:['수정','보류로','하루 기록으로 보내기','삭제'],memo:'',
+  rows:[['현장 사진 몇 장 정리 필요','오늘 09:12'],['거래처 새 연락처 받음','어제'],['다음 회의 안건 생각난 것','11.23']]},
+ {id:'notes',name:'노트 글 목록',file:'basket-notes.js',now:['pin','move','del'],a:['move','edit','del'],b:['more','edit','del'],
+  menu:['수정','고정','폴더로 옮기기','삭제'],memo:'[고정]은 ⋯ 안으로. [수정]은 노트를 쓰기 상태로 바로 연다.',
+  rows:[['주간 회의 메모','회의 · 11.25'],['새 프로젝트 아이디어','기획 · 11.22'],['읽은 책 정리','기타 · 11.19']]},
+ {id:'cal',name:'일정 목록',file:'calendar-list-view.js',now:['plan','del'],a:['plan','edit','del'],b:['more','edit','del'],
+  menu:['수정','보고할 일정','삭제'],memo:'',
+  rows:[['정기 회의','11.26 (목) 10:00'],['거래처 방문','11.27 (금) 14:00'],['교육','11.30 (월) 하루 종일']]},
+ {id:'lib',name:'자료실 자료',file:'library-upload.js',now:['move','del'],a:['move','rename','del'],b:['more','rename','del'],
+  menu:['폴더로 가기','이름 바꾸기','폴더로 옮기기','메모','삭제'],memo:'파일은 내용 수정 대신 [이름 바꾸기](용어 기준표 예외).',
+  rows:[['행사 안내문.hwp','11.24 · 48KB'],['회의 자료.pdf','11.21 · 1.2MB'],['현장 사진 묶음','11.18 · 사진 12']],isFile:true},
+ {id:'trash',name:'사업 관리 휴지통',file:'project-system-v3.js',now:['restore','purge'],a:['restore','purge'],b:['restore','purge'],
+  menu:['되살리기','영구 삭제'],memo:'휴지통은 수정이 없어 2칸 그대로. 지금 칸 이름 \'되돌리기\'는 용어 기준표(휴지통은 \'되살리기\')와 달라 범위 밖 발견으로 보고.',
+  rows:[['지난 행사 준비','삭제 11.20'],['옛 계획 초안','삭제 11.15'],['샘플 프로젝트','삭제 11.02']]},
+ {id:'diary',name:'하루 기록 목록',file:'diary-list.js',tag:'따로',now:['star'],a:['pin','star','edit'],b:['more','star','edit'],
+  menu:['열기','고정','별표'],memo:'지금은 오른쪽 밀기 [고정]·왼쪽 밀기 [별표]인 따로 만든 밀기. 삭제가 없어 맨 오른쪽은 [수정]. 오른쪽 밀기는 다른 화면처럼 [선택]으로.',
+  rows:[['11.25 (수)','산책 · 사진 3'],['11.24 (화)','회의 많았던 날'],['11.23 (월)','사진 1']]},
+ {id:'tg',name:'텔레그램 소식(운영자만)',file:'telegram-feed.js',tag:'따로',now:['trash_tg'],a:['folder','edit','del'],b:['more','edit','del'],
+  menu:['요약 복사','요약 수정','폴더로','보관','삭제'],memo:'지금은 오른쪽 밀기 [폴더로][보관]·왼쪽 밀기 [삭제]. 수정 = 요약 수정.',
+  rows:[['공지방','오늘 요약 4줄'],['업무방','오늘 요약 2줄'],['소식방','어제']]},
+ {id:'files',name:'[파일] 화면 파일 줄',file:'files.js',tag:'넓힘',now:[],a:['move','rename','del'],b:['more','rename','del'],
+  menu:['열기','폴더로 가기','이름 바꾸기','복사','옮기기','삭제'],memo:'지금 밀기 없음. 자료실과 같은 3칸으로. 폴더 줄은 밀기 없이 그대로(누르면 들어가기).',
+  rows:[['견적서_최종.xlsx','원드라이브 · 11.24'],['발표 자료.pptx','구글 드라이브 · 11.20'],['스캔 문서.pdf','원드라이브 · 11.11']],isFile:true},
+ {id:'org',name:'조직 관리 기록',file:'workplace-detail.js',tag:'넓힘',now:[],a:['memo','edit','del'],b:['more','edit','del'],
+  menu:['수정','메모','원래 글 보기','삭제'],memo:'지금 밀기 없음. 날짜 | 기록 표의 한 줄. 시안 B와 함께 고르면 좋다.',
+  rows:[['11.25.','정기 회의 — 다음 달 일정 확정'],['11.21.','담당자 통화, 자료 다시 받기로'],['11.18.','현장 방문 결과 정리']]},
+ {id:'proj',name:'사업 관리 진행 기록',file:'project-system-v3.js',tag:'넓힘',now:[],a:['memo','edit','del'],b:['more','edit','del'],
+  menu:['수정','삭제'],memo:'직접 쓴 기록 기준. 노트에서 연결된 기록은 [노트 열기][요약 수정][연결 해제] — 연결 해제는 원문을 지우지 않는다.',
+  rows:[['11.24.','1차 시안 검토, 수정 의견 정리'],['11.20.','협의 — 일정 2주 미루기로'],['11.15.','준비 회의 시작']]}
+];
+const CN=Object.assign({},C,{trash_tg:['삭제','danger','trash']});
+const cell=(k,i)=>{const [l,t,g]=CN[k];return `<button type="button" class="act t-${t}" data-cell="${k}" tabindex="-1" aria-label="${esc(l)}">${svg(g)}<span>${esc(l)}</span></button>`};
+const TV={edit:'info',muted:'mu'};const chip=k=>{const [l,t]=CN[k];return `<span class="cl" style="--c:var(--${TV[t]||t})">${esc(l)}</span>`};
+const chipsOf=a=>a.length?a.map(chip).join(''):'<span style="color:var(--fa)">없음</span>';
+
+// ── 표 ──
+document.querySelector('#tblA tbody').innerHTML=S.map(s=>`<tr><td class="k">${esc(s.name)}${s.tag?` <span class="tag">${s.tag}</span>`:''}<br><span style="font-weight:400;color:var(--fa);font-size:11px">${esc(s.file)}</span></td><td>${chipsOf(s.now)}</td><td>${chipsOf(s.a)}</td><td>${chipsOf(s.b)}</td><td>⋯ ${esc(s.menu.join(' · '))}${s.memo?`<br><span style="color:var(--mu)">${esc(s.memo)}</span>`:''}</td></tr>`).join('');
+
+// ── 알림·⋯ 메뉴 ──
+const toast=document.getElementById('toast');let tt=0;
+const say=m=>{toast.textContent=m;toast.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>toast.classList.remove('on'),1600)};
+let menuEl=null;const closeMenu=()=>{menuEl?.remove();menuEl=null};
+function openMenu(anchor,items,title){closeMenu();const ph=anchor.closest('.phone');const r=anchor.getBoundingClientRect(),pr=ph.getBoundingClientRect();
+  menuEl=document.createElement('div');menuEl.className='menu';menuEl.setAttribute('role','menu');
+  menuEl.innerHTML=`<div class="hd">${esc(title)}</div>`+items.map(x=>`<button type="button" role="menuitem"${/삭제|연결 해제/.test(x)?' class="dg"':''}>${esc(x)}</button>`).join('');
+  ph.style.position='relative';ph.append(menuEl);
+  const top=Math.min(r.bottom-pr.top+2,ph.clientHeight-menuEl.offsetHeight-4);menuEl.style.top=Math.max(4,top)+'px';menuEl.style.right='8px';
+  menuEl.addEventListener('click',e=>{const b=e.target.closest('button');if(b){say(`‘${b.textContent}’ 누름 — 시안이라 아무 일도 하지 않아요`);closeMenu()}});
+  menuEl.querySelector('button')?.focus();}
+document.addEventListener('pointerdown',e=>{if(menuEl&&!menuEl.contains(e.target)&&!e.target.closest('[data-cell="more"],.more'))closeMenu()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
+
+// ── 줄 밀기(시안용 간단판): 손가락 따라 움직이고, 반 칸 넘게 밀고 떼면 칸만 열림. 끝까지 밀어도 실행하지 않음. ──
+function bindSwipe(host,onCell){
+  const row=host.querySelector('.row'),acts=host.querySelector('.acts');const n=acts?acts.children.length:0;if(!n)return;
+  const W=64*n;let x0=0,y0=0,base=0,mode='',cur=0;
+  const set=(v,anim)=>{cur=v;row.classList.toggle('drag',!anim);row.style.transform=v?`translateX(${v}px)`:'';acts.querySelectorAll('.act').forEach(a=>a.tabIndex=v?0:-1)};
+  host._open=()=>set(-W,true);host._close=()=>set(0,true);
+  row.addEventListener('pointerdown',e=>{if(e.button>0||e.target.closest('.more'))return;x0=e.clientX;y0=e.clientY;base=cur;mode='wait';row._pid=e.pointerId});
+  row.addEventListener('pointermove',e=>{if(!mode)return;const dx=e.clientX-x0,dy=e.clientY-y0;
+    if(mode==='wait'){if(Math.max(Math.abs(dx),Math.abs(dy))<12)return;mode=Math.abs(dx)>Math.abs(dy)*1.5?'swipe':'';if(!mode)return;try{row.setPointerCapture(row._pid)}catch{}}
+    // 칸 폭보다 더 밀면 저항만(끝까지 밀어도 실행 없음).
+    let v=Math.min(0,base+dx);if(v<-W)v=-W+(v+W)*0.25;set(v,false)});
+  const end=()=>{if(mode==='swipe'){const was=base;let open=cur<=-32;if(was<0&&cur>=was+32)open=false;
+      host.closest('.list').querySelectorAll('.host').forEach(h=>{if(h!==host)h._close?.()});set(open?-W:0,true);host._swiped=Date.now()}mode=''};
+  row.addEventListener('pointerup',end);row.addEventListener('pointercancel',end);
+  acts.addEventListener('click',e=>{const b=e.target.closest('.act');if(b)onCell(b.dataset.cell,b)});
+}
+
+// ── 시안 A 그리기 ──
+let curScr='home';
+function phoneA(s,key,label,sub){
+  const cells=key==='now'?s.now:s[key];
+  const rows=s.rows.map((r,i)=>`<div class="host"><div class="acts">${cells.map(cell).join('')}</div><div class="row" data-i="${i}">${s.ck?'<span class="ck"></span>':s.isFile?'<span class="ico"></span>':''}<div class="tx"><div class="t1">${esc(r[0])}</div><div class="t2">${esc(r[1])}</div></div><button type="button" class="more" aria-label="${esc(r[0])} 메뉴">⋯</button></div></div>`).join('');
+  return `<div class="fw" data-k="${key}"><p class="cap">${label}<small>${sub}</small></p><div class="phone"><div class="bar">${esc(s.name)}<span class="sp"></span><span class="dots">⋯</span></div><div class="combo">왼쪽 밀기: ${cells.length?cells.map(k=>CN[k][0]).join(' · '):'없음'}</div><div class="list">${rows}</div></div></div>`;
+}
+function drawA(){
+  const s=S.find(x=>x.id===curScr);
+  document.getElementById('framesA').innerHTML=phoneA(s,'now','지금','저장소 main')+phoneA(s,'a','가안','[주 동작][수정][숨기기·삭제]')+phoneA(s,'b','나안','[⋯][수정][숨기기·삭제]');
+  document.querySelectorAll('#framesA .fw').forEach(fw=>{
+    fw.querySelectorAll('.host').forEach((h,i)=>{bindSwipe(h,(k,b)=>{if(k==='more')openMenu(b,s.menu,'이 줄 ⋯ 메뉴와 같음');else say(`[${CN[k][0]}] 누름 — 시안이라 아무 일도 하지 않아요`)});if(i===1)h._open?.()});
+    fw.querySelectorAll('.more').forEach(b=>b.addEventListener('click',()=>openMenu(b,s.menu,'⋯ 메뉴')));
+  });
+}
+document.getElementById('scrChips').innerHTML=S.map(s=>`<button type="button" data-scr="${s.id}" aria-pressed="${s.id===curScr}">${esc(s.name)}${s.tag==='넓힘'?'<span class="new">넓힘</span>':''}</button>`).join('');
+document.getElementById('scrChips').addEventListener('click',e=>{const b=e.target.closest('[data-scr]');if(!b)return;curScr=b.dataset.scr;document.querySelectorAll('#scrChips button').forEach(x=>x.setAttribute('aria-pressed',x===b));drawA()});
+drawA();
+
+// ── 시안 B: 기록 줄 ──
+const R=[
+ {d:'11.25.',k:'회의',s:'정기 회의 — 다음 달 행사 일정 확정, 준비물 나눠 맡기로 함',b:'정기 회의 — 다음 달 행사 일정 확정.\n준비물은 둘로 나눠 맡기로 함.\n장소 예약은 이번 주 안에 끝내기.\n다음 회의 때 예산 다시 보기.',f:['회의 자료.pdf'],m:1},
+ {d:'11.24.',k:'협의',s:'거래처 담당자 통화',b:'거래처 담당자 통화. 견적 다시 받기로.',f:[],m:0},
+ {d:'11.21.',k:'외근',s:'현장 방문 — 시설 상태 확인, 사진 정리 필요, 보수 범위는 다음 주에 다시 협의',b:'현장 방문 — 시설 상태 확인.\n사진 12장 찍음, 정리 필요.\n보수 범위는 다음 주에 다시 협의.\n담당자 연락처 새로 받음.\n안전 표지판 하나 떨어져 있어 알림.',f:['현장 사진 묶음','점검표.hwp'],m:2},
+ {d:'11.18.',k:'기획',s:'새 프로그램 초안 공유',b:'새 프로그램 초안 공유.',f:['초안.docx'],m:0},
+ {d:'11.15.',k:'교육',s:'안전 교육 참석, 자료 받음',b:'안전 교육 참석, 자료 받음.\n다음 교육은 내년 봄.',f:['교육 자료.pdf'],m:0},
+ {d:'11.12.',k:'홍보',s:'안내문 초안 수정 — 문구 줄이고 날짜·장소를 맨 위로',b:'안내문 초안 수정 — 문구 줄이고 날짜·장소를 맨 위로.',f:[],m:1}
+];
+const recCtx=[['org','조직 관리 기록'],['proj','사업 관리 진행 기록']];let curRec='org',foldV='h2';
+document.getElementById('recChips').innerHTML=recCtx.map(([id,n])=>`<button type="button" data-rc="${id}" aria-pressed="${id===curRec}">${n}</button>`).join('');
+document.getElementById('foldChips').innerHTML=`<button type="button" data-fv="h1" aria-pressed="false">가안 한 줄</button><button type="button" data-fv="h2" aria-pressed="true">나안 두 줄</button>`;
+const meta=r=>`<span class="m">${r.f.length?`<span>${svg('clip')}${r.f.length}</span>`:''}${r.m?`<span>${svg('memo')}${r.m}</span>`:''}<span class="cv">›</span></span>`;
+function recList(h,wide){
+  return R.map((r,i)=>`<div class="host rec-host"><div class="acts">${['memo','edit','del'].map(cell).join('')}</div><div class="row"><button type="button" class="rec ${h}" aria-expanded="false" data-i="${i}"><span class="d">${r.d}</span><span class="s">${wide?`<span class="cl">${r.k}</span> `:''}${esc(r.s)}</span>${meta(r)}</button><div class="rec-body" hidden>${esc(r.b)}${r.f.length?`<div class="fl">${r.f.map(x=>`<span>${esc(x)}</span>`).join('')}</div>`:''}${r.m?`<div class="fl">메모 ${r.m}</div>`:''}</div></div></div>`).join('')+'<div class="fold-more">지난 기록 14 ›</div>';
+}
+function nowList(){return R.map(r=>`<div class="rec-v"><span class="d">${r.d}</span><div><div class="b">${esc(r.b)}</div>${r.f.length||r.m?`<div class="f">${r.f.map(x=>'📎 '+esc(x)).join(' · ')}${r.m?` · 메모 ${r.m}`:''}</div>`:''}</div></div>`).join('')+'<div class="fold-more">지난 기록 14 ›</div>'}
+const title=()=>recCtx.find(x=>x[0]===curRec)[1];
+const frame=(cap,sub,inner,fold)=>`<div class="fw"><p class="cap">${cap}<small>${sub}</small></p><div class="phone${fold?' fold':''}"><div class="bar">${curRec==='org'?'조직 관리 › 예시 부서':'사업 관리 › 예시 프로젝트'}<span class="sp"></span><span class="dots">⋯</span></div><div class="combo">${title()} · 6건</div><div class="list">${inner}</div></div></div>`;
+function bindRec(box){
+  box.querySelectorAll('.rec-host').forEach(h=>{bindSwipe(h,(k)=>say(`[${CN[k][0]}] 누름 — 시안이라 아무 일도 하지 않아요`));
+    const b=h.querySelector('.rec');b.addEventListener('click',()=>{if(Date.now()-(h._swiped||0)<350)return;const body=h.querySelector('.rec-body');const on=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',on);body.hidden=!on;})});
+}
+function drawB(){
+  const fb=document.getElementById('framesB');
+  fb.innerHTML=frame('지금','내용 길이만큼 높이가 달라짐',nowList())+frame('가안 한 줄','줄 높이 40 · 누르면 펼침',recList('h1'))+frame('나안 두 줄','줄 높이 54 · 누르면 펼침',recList('h2'));
+  bindRec(fb);
+  const ff=document.getElementById('framesFold');
+  ff.innerHTML=frame('지금','폴드 펼침',nowList(),true)+frame(foldV==='h1'?'가안 한 줄':'나안 두 줄','폴드 펼침 · 넓으면 분류 칩도 줄에',recList(foldV,true),true);
+  bindRec(ff);
+}
+document.getElementById('recChips').addEventListener('click',e=>{const b=e.target.closest('[data-rc]');if(!b)return;curRec=b.dataset.rc;document.querySelectorAll('#recChips button').forEach(x=>x.setAttribute('aria-pressed',x===b));drawB()});
+document.getElementById('foldChips').addEventListener('click',e=>{const b=e.target.closest('[data-fv]');if(!b)return;foldV=b.dataset.fv;document.querySelectorAll('#foldChips button').forEach(x=>x.setAttribute('aria-pressed',x===b));drawB()});
+drawB();
+
+// ── 탭·색 ──
+document.getElementById('tabSeg').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;document.querySelectorAll('#tabSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b));document.getElementById('secA').hidden=b.dataset.tab!=='a';document.getElementById('secB').hidden=b.dataset.tab!=='b';closeMenu()});
+document.getElementById('themeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-th]');if(!b)return;document.querySelectorAll('#themeSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b));if(b.dataset.th)document.documentElement.dataset.theme=b.dataset.th;else delete document.documentElement.dataset.theme});
+if(location.hash==='#b')document.querySelector('[data-tab="b"]').click();
+</script>
+</body>
+</html>
