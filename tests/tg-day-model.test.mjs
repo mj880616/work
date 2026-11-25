@@ -153,3 +153,17 @@ test('밀기 폭: 버튼 64px씩, 오른쪽 밀기 128px(폴더로·보관), 왼
   assert.equal(swipeSettle(-50, arch), ''); assert.equal(swipeSettle(32, arch), 'start');
   assert.equal(swipeOpenOffset('start', live), 128); assert.equal(swipeOpenOffset('end', live), -64); assert.equal(swipeOpenOffset('', live), 0);
 });
+
+// TG-불러오기속도(S70-31): 화면을 열 때 부르는 읽기의 차례. 첫 목록은 방·날 줄을 그리는 데 꼭 필요한 넷만 기다린다.
+test('요청 계획: 첫 목록은 방·날 줄·방 상태·폴더·고친 요약만, 나머지는 함께 부르되 늦게 채움, 겹치는 이름 없음', async () => {
+  const {LOAD_PLAN} = await import('../app/tg-day-model.mjs');
+  assert.deepEqual([...LOAD_PLAN.first], ['lines', 'rooms', 'folders', 'edits']);
+  for (const heavy of ['trashed', 'pins', 'marks', 'titles', 'senders', 'asks', 'seen', 'orgs']) assert.ok(LOAD_PLAN.later.includes(heavy), heavy);
+  const all = [...LOAD_PLAN.first, ...LOAD_PLAN.later];
+  assert.equal(new Set(all).size, all.length);
+  assert.ok(Object.isFrozen(LOAD_PLAN) && Object.isFrozen(LOAD_PLAN.first) && Object.isFrozen(LOAD_PLAN.later));
+  // 화면 파일이 이 계획 그대로 읽기를 시작한다(이름마다 읽기가 하나씩 있다).
+  const src = (await import('node:fs')).readFileSync(new URL('../app/telegram-feed.js', import.meta.url), 'utf8');
+  for (const name of all) assert.match(src, new RegExp(`\\b${name}:\\(\\) =>`), name);
+  assert.match(src, /await reads\.first;/);
+});
