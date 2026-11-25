@@ -245,6 +245,10 @@ on:
       - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
+      - 'scripts/ops/stalled-scan.mjs'
+      - 'scripts/ops/stalled-scan-ignore.json'
+      - 'tests/ops-stalled-scan.test.mjs'
+      - '.github/workflows/stalled-scan.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -540,6 +544,10 @@ on:
       - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
+      - 'scripts/ops/stalled-scan.mjs'
+      - 'scripts/ops/stalled-scan-ignore.json'
+      - 'tests/ops-stalled-scan.test.mjs'
+      - '.github/workflows/stalled-scan.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -820,6 +828,8 @@ jobs:
         run: node --test tests/ops-inbox-gap.test.mjs
       - name: Check work timing and stalled-session calculator (OPS-작업속도)
         run: node --test tests/ops-work-timing.test.mjs
+      - name: Check stalled work daily scan (QA-멈춘일자동점검)
+        run: node --test tests/ops-stalled-scan.test.mjs
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
         run: node --test tests/ci-e2e-shard.test.mjs
 
