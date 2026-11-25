@@ -174,8 +174,9 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  // [분류 ▾]·[폴더 ▾]는 고르기 상자 바탕(--ds-select-bg), 칩 줄은 없다.
  await expect(page.locator('#libraryCategoryFilter')).toHaveCount(0);
  for(const sel of ['#libraryCategoryPick','#libraryGroupBy']){const p=await look(page.locator(sel));expect(p.height,sel).toBe(32);expect(p.radius,sel).toBe('8px');}
- const search=await look((await screenFind(page)));
- const shown=await look((await screenFind(page)));expect(shown.height).toBe(32);expect(search.radius).toBe('8px');expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
+ const field=await screenFind(page);await field.evaluate(el=>el.blur());/* 폰은 돋보기로 펼치며 커서가 들어가 테두리가 바뀌므로 커서를 뺀 모양을 잰다 */
+ const search=await look(field);
+ const shown=await look((await screenFind(page)));expect(shown.height).toBe(36);/* S70-54: 찾기는 맨 위 칸(상단 줄·머리 줄 칸 높이 36) */expect(search.radius).toBe('8px');expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
  // S61-12: 찾기 결과에서도 사진은 줄 대신 [사진 1](개수 그대로), 누르면 작은 그림.
  await (await screenFind(page)).fill('사진');
  await expect(page.locator('#documentList .lu-row[data-lu-document="d9"]')).toHaveCount(0);

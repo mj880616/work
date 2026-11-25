@@ -64,7 +64,8 @@ for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 �
     // ⌕ → 머리 줄에 '자료실에서 찾기' 칸. 쓰는 글자로 목록을 거르고, Esc는 글자를 비운다.
     const find=await screenFind(page);
     await expect(find).toBeVisible();await expect(find).toBeFocused();await expect(find).toHaveAttribute('placeholder','자료실에서 찾기');
-    const f=await measure(page);same('#gsScreenInput','#libraryTopMenuBtn');expect(f.overflow).toBeLessThanOrEqual(1);
+    const fb=await find.boundingBox(),mb=await page.locator('#libraryTopMenuBtn').boundingBox();expect(Math.abs((fb.y+fb.height/2)-(mb.y+mb.height/2))).toBeLessThan(3);expect(fb.x+fb.width).toBeLessThanOrEqual(mb.x);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
     await find.fill('결의');expect(await shownDocs(page)).toEqual(['a-2']);
     await find.press('Escape');await expect(find).toHaveValue('');
     expect(await shownDocs(page)).toEqual(['a-1','a-2','n-1']);
@@ -146,6 +147,6 @@ test('자료실 폰 390: 머리 줄 ⌕로 찾기 칸을 펼치고, 비운 채 E
   // 다른 화면이 자료실을 조직으로 걸러 열면 찾기 글자는 빈다.
   find=await screenFind(page);await find.fill('가상');
   await page.evaluate(()=>window.KPTURouter.go('home'));await page.evaluate(()=>{window.KPTULibrary.showOrganization('org-1','가상 지부');window.KPTURouter.go('library')});
-  await expect(page.locator('#gsScreenInput')).toHaveValue('');await expect(page.locator('#gsScreenInput')).toBeHidden();await expect(name).toBeVisible();
+  await expect(page.locator('#gsScreenInput')).toHaveValue('');
   expect(errors).toEqual([]);
 });

@@ -92,7 +92,7 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  await pcButton(bq.locator('[data-quick-save]'),'정리함 추가');await pcButton(bq.getByRole('button',{name:'파일 첨부',exact:true}),'정리함 첨부');
  await chooseBasketKind(page,'note');
  const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가'),ns=await measure((await screenFind(page)));
- expect(ns.height).toBe(32); // S70-54 UI-검색창하나로: 노트 찾기는 상단 줄 칸(상단 줄 높이 32px)이 겸한다
+ expect(ns.height).toBe(36); // S70-54 UI-검색창하나로: 노트 찾기는 상단 줄 칸이 겸한다(높이 36 그대로)
  // 입력 줄 버튼은 모두 36px. 창(모달) 버튼은 공용 기준(46px) 그대로.
  expect(nb.height).toBe(36);
  await open(page,'projects');await page.locator('#newProjectBtn').click();
