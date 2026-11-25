@@ -54,7 +54,7 @@ export async function openDocScan(file, {trigger = document.activeElement} = {})
     fill(body) {
       body.innerHTML = `<div class="dscan-wrap"><div class="dscan-stage" data-dscan-stage><canvas class="dscan-view" data-dscan-view aria-hidden="true"></canvas>
 <svg class="dscan-lines" aria-hidden="true"><polygon data-dscan-outline></polygon></svg>
-${NAMES.map((n, i) => `<button type="button" class="dscan-dot" data-dscan-dot="${i}" aria-label="${n} 모서리 (화살표 키로 옮기기)"></button>`).join('')}</div></div>
+${NAMES.map((n, i) => `<button type="button" class="icon-btn dscan-dot" data-dscan-dot="${i}" aria-label="${n} 모서리 (화살표 키로 옮기기)"></button>`).join('')}</div></div>
 <label class="dscan-bright"><input type="checkbox" data-dscan-bright checked> 밝게 보정</label>`;
       stage = body.querySelector('[data-dscan-stage]'); view = body.querySelector('[data-dscan-view]'); outline = body.querySelector('[data-dscan-outline]');
       handles = [...body.querySelectorAll('[data-dscan-dot]')]; bright = body.querySelector('[data-dscan-bright]');
