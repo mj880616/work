@@ -44,5 +44,5 @@ test('화면 연결: 읽기 화면 칸 하나, 기존 검색 RPC(자료만)·AI 
   assert.match(notes, /hidden:note => pinLock\.noteHidden\(note\)/);
   const ui = readFileSync(new URL('../app/note-related.js', import.meta.url), 'utf8');
   assert.match(ui, /searchRecords\(word, \{kind: 'document', per: 2\}\)/);
-  assert.doesNotMatch(ui, /ai-assist|localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(ui, /ai-assist|(?:local|session)Storag[e]|indexedD[B]/);
 });
