@@ -164,7 +164,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 [data-note-list].nx-wide .nx-body { --ds-split-list:30fr; --ds-split-detail:70fr; --ds-split-list-min:180px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:var(--ds-gap-pane); align-items:start; }
 #appView #basketView .nx-row.nx-note { padding-left:calc(var(--nx-indent, 0) * 14px); }
 .nx-outside .ft-name { color:var(--kptu-muted); font-weight:400; }
-#appView #basketView .nx-note .note-row { display:flex; align-items:center; gap:6px; min-height:36px; }
+#appView #basketView .nx-note .note-row { display:flex; align-items:center; gap:6px; min-height:var(--ft-item-h,40px); } /* 폴더 안 파일 줄과 같은 높이·줄 크기 단계(S69-99) */
 #appView #basketView .nx-note .note-row .basket-title { flex:1 1 auto; min-width:0; font-weight:500; }
 .nx-path { font-size:12px; color:var(--kptu-muted); } /* 늘 온전히 보이는 꼬리표 규칙은 공용 .row-tail(ui-standard.css) */
 .nx-clip { flex:none; font-size:12px; }
@@ -236,7 +236,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .note-editor .note-body-field .ed-editor .ProseMirror { min-height:var(--note-body-min); }
 
 /* FOLDER-나무새기준(S51-12): 폴더 줄·상자 모양은 공용 folder-tree.css(ft-) 한 곳. 여기는 노트 줄을 나무 안 들여쓰기 자리에 두는 것만. */
-#appView #basketView [data-note-list] .nx-note.ft-item { padding-left:calc(var(--ft-depth, 0) * 22px); }
+#appView #basketView [data-note-list] .nx-note.ft-item { padding-left:calc(var(--ft-depth, 0) * var(--ft-indent,22px)); }
 #appView #basketView [data-note-list] .ft-box-body > .nx-note { border-top:0; }
 #appView #basketView [data-note-list] button:is(.nx-new-folder,.nx-back) { min-height:28px; padding:0 6px; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:13px; font-weight:400; justify-content:flex-start; }
 #appView #basketView [data-note-list] button.nx-new-folder { display:flex; margin:2px 0 0; }

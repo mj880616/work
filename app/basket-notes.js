@@ -7,7 +7,7 @@ import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml, iconSvg } from './tree-icons.js';
 import { mountColResize, gripHtml } from './col-resize.js';
-// FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
+// FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락은 줄 크기(folder-pinch.js).
 import { ftExplorePress, ftBindTreeArrows } from './folder-tree-press.mjs';
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, ftEmptyRowHtml, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { riseFromRow, sinkToRow, topOf } from './folder-focus-motion.js';
@@ -309,7 +309,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const outsideHere = () => at === OUTSIDE || (at === null && !showRecent());
   const outsideRowHtml = (r, {tree = false} = {}) => ftFolderRowHtml({name:OUTSIDE_NAME, count:r.count, countLabel:`노트 ${r.count}개`, depth:0, open:!!r.open, hasContent:r.count > 0,
     current:tree && outsideHere(), tree, className:'nx-outside', icon:treeIconHtml('outside', {className:'ft-ico'}),
-    rowAttrs:{'data-nx-outside':true, 'data-reorder-id':'o'}, mainAttrs:{'data-nx-open':OUTSIDE}});
+    rowAttrs:{'data-nx-outside':true, 'data-reorder-id':'o'}, mainAttrs:{'data-nx-open':OUTSIDE},
+    // UI-폴더줄크기(S69-99): 폰 첫 화면 '폴더 없음'도 ⋯ 첫 줄 [이 폴더로 들어가기](전의 두 손가락 벌리기 대신). PC 나무는 줄 누르기가 그 칸이라 ⋯ 없음.
+    more:tree ? null : {attrs:{'data-nx-folder-more':OUTSIDE, 'aria-controls':'noteDocMenu'}, label:`${OUTSIDE_NAME} 메뉴`, className:'nx-more'}});
   // PC 왼쪽 나무 맨 위 '최근'(누르면 오른쪽에 최근 5개). 끌어 놓을 곳이 아니다(폴더가 아님).
   const recentTreeRowHtml = () => ftFolderRowHtml({name:RECENT_NAME, depth:0, current:at === null, tree:true, hasContent:false, className:'nx-recent-item',
     icon:treeIconHtml('recent', {className:'ft-ico'}), rowAttrs:{'data-nx-recent-item':true}, mainAttrs:{'data-nx-open':RECENT}});
@@ -528,7 +530,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     } else {
       tree.hidden = true; tree.replaceChildren();
       // FOLDER-나무새기준(S51-12): 폰 첫 화면 = '최근' 상자 + 폴더 상자(폴더를 누르면 그 자리에서 하위 폴더·노트까지 펼침, 노트가 많으면
-      // 처음 FT_PREVIEW개 + 'n개 더 보기'). 두 손가락 벌리면 그 폴더만(at = 그 폴더, 라우터 한 겹), 오므리기·[‹]·뒤로 키로 펼친 자리 그대로 돌아온다.
+      // 처음 FT_PREVIEW개 + 'n개 더 보기'). 그 폴더만(at = 그 폴더, 라우터 한 겹)은 ⋯ [이 폴더로 들어가기], [‹]·뒤로 키로 펼친 자리 그대로 돌아온다.
       // 찾는 중이면 지금처럼 맞는 노트 전부, 폴더가 하나도 없으면 바로 노트 한 목록.
       const limit = id => moreSet.has(id ?? OUTSIDE) ? Infinity : FT_PREVIEW;
       let rows;
@@ -734,6 +736,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // UI-우클릭전수(2026-11-03): 빈 보드 우클릭 메뉴. 새 노트는 목록 맨 위 입력칸에서 쓴다(입력칸으로 초점).
     if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기']];
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '삭제', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
+    if (from === 'folder' && folderId === OUTSIDE) return [['data-nx-enter', '이 폴더로 들어가기']];
     if (from === 'folder') {
       // SEC-기능PIN잠금: 잠겨 가려진 폴더(하위 포함)는 [열기](PIN)·[잠금 해제]만. 잠그기·풀기는 표 폴더(id가 있는 폴더)만.
       const lockable = canEditFolders() && !!folderById(folderId) && !String(folderId).startsWith('name:');
@@ -1779,6 +1782,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (busy || (selected && (!splitOpen() || editing))) return; // 두 칸에서 노트를 읽을 때도 왼쪽 나무 줄 메뉴가 열린다(고칠 때는 아님)
     const noteId = b.dataset.noteRowMore, folderId = b.dataset.nxFolderMore;
     const key = noteId ? 'n:' + noteId : 'f:' + folderId;
+    if (pick.active && folderId === OUTSIDE) return;
     if (pick.active) { if (!pick.has(key)) { pick.add(key); renderList(); b = host.querySelector(noteId ? `[data-note-row-more="${CSS.escape(noteId)}"]` : `[data-nx-folder-more="${CSS.escape(folderId)}"]`) || b; } openMenu(b, null, 'picked'); return; }
     if (noteId) openMenu(b, notes.find(n => n.id === noteId), 'list');
     else openMenu(b, null, 'folder', null, folderId);
@@ -1869,7 +1873,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-lock-folder')) { const f = folderById(id); if (f) pinLock.askNotes({folder:{id:f.id, name:f.name, locked:!pinLock.folderLocked(f.id)}}); }
       else if (b.hasAttribute('data-nx-select')) startSelect(from.from === 'folder' ? 'f:' + id : null);
       else if (b.hasAttribute('data-nx-new-note')) newNoteIn(id);
-      else if (b.hasAttribute('data-nx-enter')) enter(id);
+      else if (b.hasAttribute('data-nx-enter')) { if (from.from === 'folder' && !wideList.matches && at === null) focusFolder(from.folderId); else enter(from.from === 'folder' ? from.folderId : id); } // 폰 첫 화면 = 돌아올 나무 자리 기억(focusFolder)
       else if (b.hasAttribute('data-nx-up')) enter(folderById(at)?.parent_id || null);
       else if (b.hasAttribute('data-nx-new-in')) void newFolder(id);
       else if (b.hasAttribute('data-nx-rename')) void renameFolder(id);
@@ -1977,12 +1981,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 여기 오는 PC·폴드 줄은 오른쪽 칸 하위 폴더 줄(그 자리 펼치기 — S69-68)·'최근'(오른쪽에 최근 노트)·'폴더 없음'·선택 모드 줄이다.
   function pressFolder(id, e) {
     if (isPaneAt(id)) { if (!pick.active) enter(id); return; } // 'News에서' 두 줄·휴지통: 그 칸(폰은 '그 폴더만'처럼 한 겹)
-    // FOLDER-나무새기준 ③: 폰 나무(첫 화면·그 폴더만 보기 모두)는 화면을 바꾸지 않고 그 자리에서 펼치기·접기(줄 어디를 눌러도). 그 폴더만 보기는 두 손가락 벌리기.
-    // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 자리에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]·두 손가락 벌리기만
+    // FOLDER-나무새기준 ③: 폰 나무(첫 화면·그 폴더만 보기 모두)는 화면을 바꾸지 않고 그 자리에서 펼치기·접기(줄 어디를 눌러도). 그 폴더만 보기는 ⋯ [이 폴더로 들어가기].
+    // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 자리에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]만
     //  (전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 열기'는 없앴다).
     if (!wideList.matches && id !== RECENT && !(pick.active && id !== OUTSIDE)) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); return; }
     // S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09, 전의 S69-38 '오른쪽 하위 폴더 줄 = 들어가기'를 대신함): PC·폴드 오른쪽 칸의 폴더 줄 = 그 자리 펼치기·접기만
-    // (왼쪽 나무는 그대로). 들어가기는 왼쪽 나무 누르기·⋯ 첫 줄 [이 폴더로 들어가기]·두 손가락 벌리기.
+    // (왼쪽 나무는 그대로). 들어가기는 왼쪽 나무 누르기·⋯ 첫 줄 [이 폴더로 들어가기].
     if (wideList.matches && !pick.active && folderById(id)) {
       if (paneOpen.has(id)) paneOpen.delete(id); else paneOpen.add(id);
       renderList(); host.querySelector(`#noteRows [data-nx-open="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); return;
@@ -1991,7 +1995,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (id === RECENT) { enter(null); return; }
     if (pick.active) { togglePick('f:' + id); }
   }
-  // 그 폴더 열기(PC·폴드 나무 이름 누르기 ftExplorePress): 두 손가락 벌리기와 같은 길(PC·폴드 = 들어가기, 폰 첫 화면 = 돌아올 자리를 기억하고 그 폴더만, 폰 그 폴더만 안 = 그 안으로).
+  // 그 폴더 열기(PC·폴드 나무 이름 누르기 ftExplorePress): 같은 길(PC·폴드 = 들어가기, 폰 첫 화면 = 돌아올 자리를 기억하고 그 폴더만, 폰 그 폴더만 안 = 그 안으로).
   function pressEnter(id) {
     if (!id || !folderById(id)) return;
     if (wideList.matches) enter(id); else if (at === null) focusFolder(id); else enter(id);
@@ -2021,7 +2025,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (id !== at) enter(id, {focus:false, picked:false});
     return true;
   });
-  // 폰 '그 폴더만' 보기 → 나무(FOLDER-나무새기준 ④): [‹]·오므리기·뒤로 키 모두 첫 화면 나무로, 펼친 폴더와 화면 위치 그대로.
+  // 폰 '그 폴더만' 보기 → 나무(FOLDER-나무새기준 ④): [‹]·뒤로 키 모두 첫 화면 나무로, 펼친 폴더와 화면 위치 그대로.
   // 그 폴더는 펼친 채로 둔다(벌리기 전 접혀 있었어도 돌아오면 그 자리에서 보인다).
   function focusFolder(id) {
     if (wideList.matches || at !== null || !id || (id !== OUTSIDE && !folderById(id))) return;
@@ -2099,14 +2103,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     actions:el => { const note = notes.find(n => n.id === el.dataset.nxNote); return note ? {start:PICK, end:[{key:'pin', label:notePinnedAt(note) ? '고정 풀기' : '고정', tone:'muted'}, ...(canEditFolders() ? [{key:'move', label:'옮기기', tone:'move'}] : []), {key:'delete', label:'삭제', tone:'danger'}]} : null; },
     run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, {confirmed:true}); else if (key === 'move') openMovePicker(el.querySelector('[data-note-row-more]') || el, {notes:[note.id], folders:[]}); else void pin(note); },
     select:{attr:'data-nx-note', open:el => { if (!selected && !busy) startSelect('n:' + el.dataset.nxNote); }}});
-  // FOLDER-나무새기준 ④: 폰 나무에서 펼친 폴더(또는 그 안 노트 줄) 위 두 손가락 벌리기 = 그 폴더만, 그 폴더만 보는 중 오므리기 = 나무로.
+  // UI-폴더줄크기(S69-99): 폴더·목록 보기에서 두 손가락 벌리기·오므리기(PC Ctrl+휠) = 줄 크기 한 단계(row-size.js, 모든 폴더 화면 같은 값).
+  // 그 폴더만 보기(들어가기)는 ⋯ [이 폴더로 들어가기]로만, 돌아오기는 [‹]·뒤로·왼쪽 끝 밀기. 포스트잇 보드는 보드 확대(note-board.js) 그대로.
   // S51-24 UI-빈칸손짓: 노트가 짧아도 아래 빈 곳까지 손짓 칸(두 손가락·좌우 밀기 보기 전환, gesture-fill.js).
   fillGestureArea(host.querySelector('[data-nx-body]'));
-  bindFolderPinch(host.querySelector('[data-nx-body]'), {
-    enabled:() => view === 'folder' && !selected && !pick.active && !busy && !query && folders.length > 0, // UI-폴더누르기한규칙: 폴드·PC 왼쪽 나무 줄 위 벌리기도 그 폴더로 들어가기
-    folderAt:el => { const row = el.closest('[data-nx-folder],[data-nx-outside],[data-ft-parent]'); if (!row) return null; if (row.dataset.nxFolder) return row.dataset.nxFolder; if (row.hasAttribute('data-nx-outside')) return OUTSIDE; return row.dataset.ftParent || null; },
-    onOut:id => { if (wideList.matches) enter(id); else if (at === null) focusFolder(id); },
-    onIn:() => { if (!wideList.matches && at !== null) up(); }});
+  bindFolderPinch(host.querySelector('[data-nx-body]'), {enabled:() => view !== 'board' && !selected && !pick.active && !busy});
   // FILES-폰폴더위로 ④⑤: 폰 '그 폴더만'에서 화면 왼쪽 끝에서 오른쪽으로 밀기 = [‹]와 같은 곳(노트 '그 폴더만'은 한 단계라 늘 펼친 자리 그대로 나무).
   bindEdgeBack(host.closest('.view-panel') || host, {enabled:() => !wideList.matches && at !== null && !selected && !pick.active && !busy, onBack:() => up()});
   // Leaving the menu by keyboard, or pressing anywhere outside it and its ⋯, closes it.
