@@ -22,15 +22,15 @@ async function open(page, query, doc = THREE) {
   await expect(page.locator('body')).toHaveAttribute('data-ready', '1');
 }
 // A synthetic touch drag on the handle: hold (the long press) then move to y and let go.
-async function touchDrag(page, toY) {
-  await page.evaluate(async y => {
-    const g = document.querySelector('.ed-grip'), r = g.getBoundingClientRect(), x = r.left + r.width / 2, y0 = r.top + r.height / 2;
+async function touchDrag(page, toY, scope = '') {
+  await page.evaluate(async ([y, scope]) => {
+    const g = [...document.querySelectorAll(`${scope} .ed-grip`)].find(el => !el.hidden), r = g.getBoundingClientRect(), x = r.left + r.width / 2, y0 = r.top + r.height / 2;
     const ev = (type, cy) => g.dispatchEvent(new PointerEvent(type, {bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: cy, button: 0}));
     ev('pointerdown', y0);
     await new Promise(res => setTimeout(res, 450));
     for (let i = 1; i <= 5; i++) { ev('pointermove', y0 + (y - y0) * i / 5); await new Promise(res => setTimeout(res, 16)); }
     ev('pointerup', y);
-  }, toY);
+  }, [toY, scope]);
 }
 
 for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, false], ['폰 390', {width: 390, height: 844}, true]]) {
@@ -243,7 +243,10 @@ for (const width of [1280, 390]) test(`노트에서 블록 편집 켜기 → 끌
   if (touch) await third.tap(); else { await third.click(); await third.hover(); }
   await expect(page.locator('[data-note-body-field] .ed-grip')).toBeVisible();
   const top = (await field.locator('p').first().boundingBox()).y + 2;
-  if (touch) await touchDrag(page, top);
+  // 손잡이는 누른 셋째 문단 옆에 선다(첫 문단 옆에 남으면 끌어도 순서가 그대로다).
+  const gripAt = await page.locator('[data-note-body-field] .ed-grip').boundingBox(), thirdAt = await third.boundingBox();
+  expect(Math.abs((gripAt.y + gripAt.height / 2) - (thirdAt.y + thirdAt.height / 2))).toBeLessThan(thirdAt.height);
+  if (touch) await touchDrag(page, top, '[data-note-body-field]');
   else {
     const g = await page.locator('[data-note-body-field] .ed-grip').boundingBox();
     await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2); await page.mouse.down();
