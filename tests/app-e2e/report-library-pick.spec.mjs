@@ -70,7 +70,7 @@ for(const width of [412,1280]){
     // ① 두 갈래 메뉴
     await page.locator('#meetingPickFiles').click();
     await expect(menu(page)).toBeVisible();
-    await expect(menu(page).getByRole('button')).toHaveText(['기기에서 올리기','자료실에서 선택']);
+    await expect(menu(page).getByRole('button')).toHaveText(['기기에서 업로드','자료실에서 선택']);
     // 두 줄은 서로 덮지 않는다(공용 글자 버튼의 넓힌 누르는 자리가 옆 줄을 가리던 것 — CI에서 [기기에서 올리기]를 못 누름).
     expect(await menu(page).evaluate(m=>[...m.querySelectorAll('button')].every(b=>{const r=b.getBoundingClientRect();return r.height>=40&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===b}))).toBe(true);
     // [기기에서 올리기] = 지금까지처럼 파일 고르기
@@ -121,7 +121,7 @@ for(const width of [412,1280]){
     await expect(modal.locator('#mrdPhotosHead')).toHaveText('사진 1');
     // 자료실에서 선택 → 바로 붙음
     await modal.locator('#mrdPickFiles').click();
-    await expect(menu(page).getByRole('button')).toHaveText(['기기에서 올리기','자료실에서 선택']);
+    await expect(menu(page).getByRole('button')).toHaveText(['기기에서 업로드','자료실에서 선택']);
     await menu(page).locator('[data-report-add="library"]').click();
     const item=name=>picker(page).locator('.lu-move-item',{hasText:name});
     await expect(item('현장')).toContainText('이미 있음');

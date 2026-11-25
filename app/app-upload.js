@@ -191,7 +191,7 @@ export function uploadReasonText(code) {
     case 'gone': return word('사업 보고를 찾지 못했어요');
     case 'unknown': return '올렸는지 확인하지 못했어요';
     case 'missing': return '임시 파일이 사라졌어요';
-    case 'internal': return '앱이 올리기를 잇지 못했어요';
+    case 'internal': return '앱이 업로드를 잇지 못했어요';
     default: return '서버가 받지 않았어요';
   }
 }
