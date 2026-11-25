@@ -89,15 +89,26 @@ async function mockApp(page,state){
       // ORG-기록자료폴더: 내 프로필 행의 org_files_folder 칸(모으는 부모 폴더). state에 orgFilesFolder 키가 있을 때만 그 칸이 있는 서버(적용 뒤).
       // S69-67 WEEKLY-저장폴더: 내 프로필 행의 weekly_folder 칸(주간보고 저장 폴더). state에 weeklyFolder 키가 있을 때만 그 칸이 있는 서버(적용 뒤),
       // weeklyFolderMissing이면 칸이 아직 없는 서버처럼 400(42703). 없는 폴더 id면 외래 키 거절(409·23503). 쓴 값은 state.weeklyPatches에.
-      const weeklyCol=method==='PATCH'?!!body&&'weekly_folder' in body:(url.searchParams.get('select')||'').includes('weekly_folder');
-      if(weeklyCol){
-        if(state.weeklyFolderMissing||!('weeklyFolder' in state))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.weekly_folder does not exist'})});
+      // S70-11 WEEKLY-저장폴더나누기: weekly_team_folder 칸(팀 보고 취합 저장 폴더). state에 weeklyTeamFolder 키가 있을 때만 그 칸이 있는 서버(적용 뒤),
+      // weeklyTeamFolderMissing이면 그 칸을 고르거나 쓰면 400(42703 — 개인 칸만 있는 S69-67 서버), 키가 없으면 그 칸 없는 행. 쓴 값은 state.weeklyTeamPatches에.
+      const sel=url.searchParams.get('select')||'';
+      const weeklyCol=method==='PATCH'?!!body&&'weekly_folder' in body:/(^|,)weekly_folder(,|$)/.test(sel);
+      const teamCol=method==='PATCH'?!!body&&'weekly_team_folder' in body:/(^|,)weekly_team_folder(,|$)/.test(sel);
+      if(weeklyCol||teamCol){
+        const missing=col=>route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:`column app_profiles.${col} does not exist`})});
+        // 키가 아예 없으면(다른 시험) 칸 없는 행(받는 폴더·모으는 폴더와 같은 약속 — 자료실에 들어올 때 읽어도 브라우저 오류 줄 없음, 화면은 '모름'으로 봄).
+        // …Missing이면 진짜 PostgREST처럼 400(42703).
+        if(state.weeklyFolderMissing)return missing('weekly_folder');
+        if(!('weeklyFolder' in state))return ok([{user_id:state.user.id}]);
+        if(teamCol&&state.weeklyTeamFolderMissing)return missing('weekly_team_folder');
+        const fk=()=>route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({code:'23503',message:'fk'})});
+        const known=id=>id===null||(state.folders||[]).some(f=>f.id===id);
         if(method==='PATCH'){
-          (state.weeklyPatches||(state.weeklyPatches=[])).push(body.weekly_folder);
-          if(body.weekly_folder!==null&&!(state.folders||[]).some(f=>f.id===body.weekly_folder))return route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({code:'23503',message:'fk'})});
-          state.weeklyFolder=body.weekly_folder;
+          if(weeklyCol){(state.weeklyPatches||(state.weeklyPatches=[])).push(body.weekly_folder);if(!known(body.weekly_folder))return fk();state.weeklyFolder=body.weekly_folder}
+          if(teamCol&&!('weeklyTeamFolder' in state))return ok([{user_id:state.user.id,weekly_folder:state.weeklyFolder}]);
+          if(teamCol){(state.weeklyTeamPatches||(state.weeklyTeamPatches=[])).push(body.weekly_team_folder);if(!known(body.weekly_team_folder))return fk();state.weeklyTeamFolder=body.weekly_team_folder}
         }
-        return ok([{user_id:state.user.id,weekly_folder:state.weeklyFolder}]);
+        return ok([{user_id:state.user.id,weekly_folder:state.weeklyFolder,...('weeklyTeamFolder' in state?{weekly_team_folder:state.weeklyTeamFolder}:{})}]);
       }
       const orgCol=method==='PATCH'?!!body&&'org_files_folder' in body:(url.searchParams.get('select')||'').includes('org_files_folder');
       if(orgCol){

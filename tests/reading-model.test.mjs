@@ -49,6 +49,8 @@ test('목록 줄: 안 읽음 점·제목(없으면 사이트)·사이트·날짜
   assert.deepEqual(filterOptions(only, null).map(o => o.label), ['전체', '안 읽음 1', '밑줄', '메모']);
   // S69-94: [메모] — 이 화면 글에 남긴 메모 모아 보기(글 줄은 거르지 않음, 탭 숫자는 넘겨받은 메모 수).
   assert.deepEqual(filterOptions(only, 5, 3).map(o => o.label), ['전체', '안 읽음 1', '밑줄 5', '메모 3']);
+  // S70-40b ④ READ-목록머리: 안 읽은 글이 없으면 숫자 0을 붙이지 않는다(밑줄·메모와 같게).
+  assert.deepEqual(filterOptions([], 0, 0).map(o => o.label), ['전체', '안 읽음', '밑줄', '메모']);
   assert.deepEqual(filterEntries(only, 'memos'), []);
   assert.equal(emptyText('memos', 0), '남긴 메모가 없어요 · 글 아래 [메모 남기기]');
   assert.equal(emptyText('marks', 0), '저장한 밑줄이 없어요 · 글을 선택하고 [밑줄 저장]', '저장한 글이 없어도 밑줄 탭은 밑줄 안내');

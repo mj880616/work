@@ -39,6 +39,7 @@ import { allowedUrl } from "../_shared/outside-catalog.ts";
 import { matchedKeywords, NEWS_CATALOG, newsSourceByKey, OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
 import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleUrl, PERSON_FETCH_TIMEOUT_MS, urlKey, type FeedLog, type FeedReader } from "../_shared/feed-fetch.ts";
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env } from "../_shared/openai-responses.ts";
+import { FUNCTION_FEATURES, recordAiUsageEvent } from "../_shared/ai-features.mjs";
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { NEWS_FEATURE, newsAllowed, newsWorkspaceOf } from "../_shared/news-access.ts";
@@ -332,7 +333,7 @@ async function withHandPhotos(db: Db, log: FeedLog, articleId: string, ex: Extra
 
 // ---- AI ------------------------------------------------------------------------------------------------------------
 type AiDeps = { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: FeedLog; env: Env };
-type AiOut = { value: unknown | null; usage: { input: number; output: number } };
+type AiOut = { value: unknown | null; usage: { input: number; output: number }; model?: string };
 async function askAi(deps: AiDeps, name: string, instructions: string, material: string, schema: unknown, maxOut: number, timeoutMs = 45000): Promise<AiOut> {
   const config = aiConfigFrom(deps.env, { keyName: KEY_NAME, model: DEFAULT_AI_MODEL, priceIn: DEFAULT_PRICE_IN_KRW_PER_MTOK, priceOut: DEFAULT_PRICE_OUT_KRW_PER_MTOK });
   if (!config) { deps.log("ai_not_configured"); return { value: null, usage: { input: 0, output: 0 } }; }
@@ -343,9 +344,17 @@ async function askAi(deps: AiDeps, name: string, instructions: string, material:
   }, { url: OPENAI_URL, timeoutMs, retryDelayMs: 1000, maxResponseBytes: 1024 * 1024 });
   if (!result.ok) { deps.log("ai_failed", { stage: result.code }); return { value: null, usage: { input: 0, output: 0 } }; }
   const usage = { input: tokenCount(result.usage.input), output: tokenCount(result.usage.output) };
+  const model = config.model;
   const text = outputText(result.raw, 512 * 1024);
-  if (!text) return { value: null, usage };
-  try { return { value: JSON.parse(text), usage }; } catch { return { value: null, usage }; }
+  if (!text) return { value: null, usage, model };
+  try { return { value: JSON.parse(text), usage, model }; } catch { return { value: null, usage, model }; }
+}
+// S70-55 I-3: 하루 숫자(app_news_days)에 더한 AI 한 번을 기능별 표(app_ai_usage_events, 'news')에도 1행. 숫자·모델 이름만, 실패는 로그만.
+const AI_FEATURE = FUNCTION_FEATURES["news-feed"];
+async function recordAiEvent(db: Db, ws: string, nowMs: number, out: AiOut, log: FeedLog) {
+  await recordAiUsageEvent((row) => db.send("POST", "app_ai_usage_events", row, "return=minimal"),
+    { workspaceId: ws, day: kstDay(nowMs), feature: AI_FEATURE, model: out.model, calls: 1, input: out.usage.input, output: out.usage.output },
+    (code, detail) => log(code, detail));
 }
 const SUMMARY_INSTRUCTIONS = [
   "너는 기사 한 건을 한 문장으로 요약한다. 요약은 기사 언어와 상관없이 늘 한국어로 쓴다(외국어 기사도 한국어 요약).",
@@ -411,6 +420,7 @@ async function summarize(db: Db, ai: AiDeps, ws: string, title: string, body: st
   if (out.usage.input || out.usage.output) {
     try { await addDay(db, ws, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
     catch { ai.log("usage_record_failed"); }
+    await recordAiEvent(db, ws, nowMs, out, ai.log);
   }
   return readSummary(out.value);
 }
@@ -1232,6 +1242,7 @@ async function titleBatch(db: Db, ai: AiDeps, ws: string, batch: Row[], nowMs: n
   if (out.usage.input || out.usage.output) {
     try { await addDay(db, ws, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
     catch { log("usage_record_failed"); }
+    await recordAiEvent(db, ws, nowMs, out, log);
   }
   // AI가 답했는지(답 글이 있거나 토큰을 썼음). 답하지 않았으면 시도 시각을 적지 않는다.
   return { got: readTitles(out.value, batch.length), sums: readTitleSums(out.value, batch.length), answered: out.value !== null || out.usage.input > 0 || out.usage.output > 0 };
@@ -1954,6 +1965,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           if (out.usage.input || out.usage.output) {
             try { await addDay(db, who.workspaceId, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
             catch { log("usage_record_failed"); }
+            await recordAiEvent(db, who.workspaceId, nowMs, out, log);
           }
           return out.value;
         },

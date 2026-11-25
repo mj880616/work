@@ -159,7 +159,7 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
     await page.reload();
     await goReading(page, width).catch(() => {});
     await expect(page.locator('#readingView')).toBeVisible();
-    await expect(list(page).locator('.rd-switch [data-filter-value="unread"]')).toHaveText('안 읽음 0');
+    await expect(list(page).locator('.rd-switch [data-filter-value="unread"]')).toHaveText('안 읽음');
     expect(errors).toEqual([]);
   });
 }

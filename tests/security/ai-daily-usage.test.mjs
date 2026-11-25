@@ -71,10 +71,10 @@ test('never throws: read error, write error, client crash, missing owner all ret
   const log = (msg, detail) => logs.push([msg, detail]);
   for (const opts of [{ readError: { code: 'PGRST301', message: 'secret detail' } }, { writeError: { code: '42501', message: 'secret detail' } }, { throwOn: 'from' }]) {
     const { admin } = fakeAdmin(opts);
-    assert.equal(await recordAiDailyUsage(admin, { workspaceId: 'ws-1', userId: 'u-1', meter, log }), 'failed');
+    assert.equal(await recordAiDailyUsage(admin, { workspaceId: 'ws-1', userId: 'u-1', feature: 'library', meter, log }), 'failed');
   }
   const { admin, calls } = fakeAdmin();
-  assert.equal(await recordAiDailyUsage(admin, { workspaceId: '', userId: 'u-1', meter, log }), 'failed');
+  assert.equal(await recordAiDailyUsage(admin, { workspaceId: '', userId: 'u-1', feature: 'library', meter, log }), 'failed');
   assert.equal(calls.writes.length, 0);
   assert.equal(logs.length, 4);
   assert.doesNotMatch(JSON.stringify(logs), /secret detail/);
@@ -83,9 +83,9 @@ test('never throws: read error, write error, client crash, missing owner all ret
 
 // 세 함수의 모든 OpenAI 호출이 미터를 거치고, 요청 끝에 서버가 확인한 작업공간·로그인 사용자로 한 번 기록한다.
 for (const [fn, recordCall] of [
-  ['library-files/index.ts', "await recordAiDailyUsage(admin,{workspaceId:wm.workspace_id,userId:user.id,meter});"],
-  ['meeting-ai-ingest/index.ts', "}finally{await recordAiDailyUsage(admin,{workspaceId,userId:user.id,meter})}"],
-  ['document-ai-index/index.ts', "}finally{await recordAiDailyUsage(admin,{workspaceId,userId:user.id,meter})}"],
+  ['library-files/index.ts', "await recordAiDailyUsage(admin,{workspaceId:wm.workspace_id,userId:user.id,feature:AI_FEATURE,meter});"],
+  ['meeting-ai-ingest/index.ts', "}finally{await recordAiDailyUsage(admin,{workspaceId,userId:user.id,feature:AI_FEATURE,meter})}"],
+  ['document-ai-index/index.ts', "}finally{await recordAiDailyUsage(admin,{workspaceId,userId:user.id,feature:AI_FEATURE,meter})}"],
 ]) {
   test(`${fn} meters every OpenAI call and records usage once per request`, () => {
     const src = read(fn);

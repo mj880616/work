@@ -5,6 +5,9 @@
 //   자료를 많이 올린 날 다른 AI 기능이 막히지 않게 한다. 월 비용 한도·홈 사용량 표시는 토큰으로 센다.
 // - 숫자만 넣는다(재료 글·AI 답·파일 이름은 넣지 않음). 기록 실패는 본 작업을 막지 않는다: 던지지 않고 오류 코드만 남긴다.
 // - Node 시험·Deno 배포 양쪽에서 읽으므로 .mjs로 둔다(ai-prices.mjs와 같은 방식).
+// - S70-55 I-3: 토큰을 더하는 두 길(recordAiDailyUsage·addAiRequest usage)은 기능 키(feature)를 받아 기능별 표(app_ai_usage_events)에도
+//   1행을 넣는다(_shared/ai-features.mjs). 하루 행 기록과 따로 시도하고, 어느 쪽 실패도 본 작업을 막지 않는다.
+import { insertWithClient, recordAiUsageEvent } from './ai-features.mjs';
 
 /** @param {unknown} v */
 const tok = v => (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : 0);
@@ -42,12 +45,18 @@ export async function readTodayAiUsage(admin, { workspaceId, userId, nowMs = Dat
 }
 
 // AI 한 번 부른 뒤 같은 행에 요청 1·토큰을 더한다(readTodayAiUsage가 준 day·row 그대로). 실패는 던지지 않고 'failed'.
+// usage를 넘기면(부른 뒤) feature·model로 기능별 표에도 1행(호출 1). usage 없이 부르기 전 횟수만 셀 때는 기능별 행을 넣지 않는다.
 /**
  * @param {any} admin
- * @param {{ workspaceId: string, userId: string, day: string, row: any, usage?: any, nowMs?: number }} opts
+ * @param {{ workspaceId: string, userId: string, day: string, row: any, usage?: any, feature?: string, model?: string, nowMs?: number, log?: (code: string, detail?: Record<string, unknown>) => void }} opts
  * @returns {Promise<'recorded'|'failed'>}
  */
-export async function addAiRequest(admin, { workspaceId, userId, day, row, usage, nowMs = Date.now() }) {
+export async function addAiRequest(admin, { workspaceId, userId, day, row, usage, feature, model, nowMs = Date.now(), log = console.warn }) {
+  if (usage && typeof usage === 'object') {
+    await recordAiUsageEvent(insertWithClient(admin), {
+      workspaceId, day, feature, model, calls: 1, input: tok(usage.input_tokens), output: tok(usage.output_tokens),
+    }, log);
+  }
   try {
     const u = usage && typeof usage === 'object' ? usage : {};
     const { error } = await admin.from('app_ai_daily_usage').upsert({
@@ -63,30 +72,39 @@ export async function addAiRequest(admin, { workspaceId, userId, day, row, usage
 }
 
 // 요청 하나 동안 부른 AI 횟수·토큰을 모은다. raw는 OpenAI Responses 응답(usage.input_tokens·output_tokens).
-/** @returns {{ add: (raw: unknown) => void, readonly calls: number, readonly input: number, readonly output: number }} */
+// 모델 이름은 응답의 model(실제로 쓴 모델) — 마지막 호출 값. 숫자·이름만 모은다.
+/** @returns {{ add: (raw: unknown) => void, readonly calls: number, readonly input: number, readonly output: number, readonly model: string }} */
 export function createAiUsageMeter() {
-  const m = { calls: 0, input: 0, output: 0 };
+  const m = { calls: 0, input: 0, output: 0, model: '' };
   return {
     add(raw) {
       const u = raw && typeof raw === 'object' && raw.usage && typeof raw.usage === 'object' ? raw.usage : {};
       m.calls += 1;
       m.input += tok(u.input_tokens);
       m.output += tok(u.output_tokens);
+      if (raw && typeof raw === 'object' && typeof raw.model === 'string') m.model = raw.model;
     },
     get calls() { return m.calls; },
     get input() { return m.input; },
     get output() { return m.output; },
+    get model() { return m.model; },
   };
 }
 
 // admin: service role supabase-js 클라이언트. 작업공간·사용자는 서버가 DB·로그인에서 확인한 값만 넘긴다(화면 값 불신).
 // 돌려주는 값: 'skipped'(부른 AI 없음) | 'recorded' | 'failed'. 어떤 경우에도 던지지 않는다.
+// feature: 기능 키(_shared/ai-features.mjs). 기능별 표 1행(호출 수·토큰·모델)은 하루 행과 따로 넣는다(그쪽 실패도 던지지 않음).
 /**
  * @param {any} admin
- * @param {{ workspaceId?: string, userId?: string, meter?: { calls: number, input: number, output: number }, nowMs?: number, log?: (msg: string, detail?: Record<string, unknown>) => void }} [opts]
+ * @param {{ workspaceId?: string, userId?: string, feature?: string, meter?: { calls: number, input: number, output: number, model?: string }, nowMs?: number, log?: (msg: string, detail?: Record<string, unknown>) => void }} [opts]
  * @returns {Promise<'skipped'|'recorded'|'failed'>}
  */
-export async function recordAiDailyUsage(admin, { workspaceId, userId, meter, nowMs = Date.now(), log = console.warn } = {}) {
+export async function recordAiDailyUsage(admin, { workspaceId, userId, feature, meter, nowMs = Date.now(), log = console.warn } = {}) {
+  if (meter && meter.calls >= 1) {
+    await recordAiUsageEvent(insertWithClient(admin), {
+      workspaceId, nowMs, feature, model: meter.model, calls: meter.calls, input: meter.input, output: meter.output,
+    }, log);
+  }
   try {
     if (!meter || meter.calls < 1) return 'skipped';
     if (!workspaceId || !userId) throw Object.assign(new Error('missing_owner'), { code: 'missing_owner' });

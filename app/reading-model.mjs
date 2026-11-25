@@ -76,7 +76,7 @@ export const unreadCount = entries => (Array.isArray(entries) ? entries.filter(e
 export function filterOptions(entries, marks = null, memos = null) {
   const list = Array.isArray(entries) ? entries : [];
   const n = unreadCount(list), m = Number.isInteger(marks) ? marks : 0, c = Number.isInteger(memos) ? memos : 0;
-  return [{value: 'all', label: '전체'}, {value: 'unread', label: `안 읽음 ${n}`}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}, {value: 'memos', label: c ? `메모 ${c}` : '메모'}];
+  return [{value: 'all', label: '전체'}, {value: 'unread', label: n ? `안 읽음 ${n}` : '안 읽음'}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}, {value: 'memos', label: c ? `메모 ${c}` : '메모'}];
 }
 // 좌우 밀기: 지금 칩에서 옆 칩으로(끝에서는 그대로).
 export function nextFilter(current, dir) {

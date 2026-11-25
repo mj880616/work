@@ -1925,6 +1925,15 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
 button.ds-chip[data-chip-tone="forget"]{ color:var(--kptu-warning); background:var(--kptu-warning-soft); }
 button.ds-chip[data-chip-tone="forget"][data-chip-empty]{ color:var(--kptu-faint); background:transparent; }
 
+/* FORGET-기본이미함(S70-20b): 줄 앞 ★(중요 — 글자에 섞지 않고 앞에만 그림, 읽기 프로그램에는 '중요')와 접힌 한 줄 묶음(notice-box.mjs groupHtml). */
+.nbx-item[data-nbx-star] > .nbx-body::before{ content:"★ " / "중요 "; color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium,500); }
+.nbx-group{ list-style:none; }
+.nbx-group > details > summary{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); padding:0 4px; font-size:var(--ds-text-meta,12px); cursor:pointer; list-style:none; }
+.nbx-group > details > summary::-webkit-details-marker{ display:none; }
+.nbx-group > details > summary::before{ content:"›" / ""; display:inline-block; width:1em; color:var(--kptu-muted); transition:transform .15s; }
+.nbx-group > details[open] > summary::before{ transform:rotate(90deg); }
+.nbx-group-rows{ margin:0; padding:0; list-style:none; }
+
 /* ===== UI-색점·색점칩(S52-18 CAL-캘린더색칩, 2026-11-07 명진 14:33 '캘린더 종류 옆에 색상 표시 버튼 크기', 시안 docs/design/mockups/calendar-color-chip.html 14:35 'A') =====
    이름 옆 색 표시는 사이트 어디서나 같은 점 하나: .ui-color-dot = 지름 --ds-color-dot(12px) 동그라미 + 옅은 테두리 한 겹(연한 색도 바탕에서 보이게).
    점의 색은 화면이 정한다(화면 규칙의 background, 또는 --ui-dot 변수). 화면 CSS는 점의 크기·모양을 따로 정하지 않는다.
