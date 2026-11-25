@@ -1,5 +1,8 @@
-// S69-22: [앱 폴더 한곳에 모으기] 서버 쪽 판단(workspace-drive POST ?action=gather-folders).
-// - 명진이 화면에서 누를 때만 돈다(서버·예약 작업이 몰래 일괄 실행하지 않음).
+// S69-22: 앱 폴더 한곳에 모으기 서버 쪽 판단.
+// - S70-29(2026-11-25 명진 '다 없애 1회용 기능'·조사 문서 7번 '자동으로 바꿈', S69-22 '누를 때만' 결정을 명진이 바꿈):
+//   내 프로필 [한곳으로 모으기] 버튼은 지웠다. 서버가 '맨 위 앱 폴더'를 처음 만들 때(ensureRoot — workspace-drive·library-files·meeting-files·
+//   meeting-transcribe) gatherIntoNewRoot로 같은 모으기를 한 번 한다. 실패해도 그 기능(올리기 등)은 멈추지 않는다(최선만, 숫자만 기록).
+//   workspace-drive POST ?action=gather-folders는 세기(dry_run — 내 프로필 칸의 위치 한 줄)만 남는다.
 // - 옮기는 것: 내 드라이브 맨 위에 있는 '앱이 만든 폴더'(표 _shared/app-folders.mjs GATHER_KINDS)만. 맨 위 앱 폴더 바로 아래로.
 // - 부모(parents)만 바꾼다: 폴더·파일 id와 링크는 그대로, 지우지 않음, 안의 파일은 건드리지 않음. 폴더·파일 내용은 열지 않는다(이름·id·표식만).
 // - 맨 위 앱 폴더가 공유된 폴더면 옮기지 않는다(안의 자료가 함께 공유되므로). 표식이 없던 옛 폴더는 옮기면서 표식을 붙인다.
@@ -10,8 +13,8 @@
 // - S69-42: 이름 바꾸기는 기능이 쓸 때와 같은 부품(app-folders.mjs renameIfOld) 하나로 한다. 같은 자리에 새 이름 폴더가 이미 있으면
 //   합치지 않고 두고 rename_dup으로 센다(세기 dry_run도 같은 확인을 해서 '바꿀 것'에 넣지 않는다).
 // DOM·네트워크 없음: 드라이브 호출(drive)은 부르는 쪽이 넣는다(단위 시험 tests/app-folders.test.mjs).
-import { gatherKindOf, gatherQuery, isDriveId, markFor, privateOwnedFolder, renameIfOld, renameQuery, renameTarget } from '../_shared/app-folders.mjs';
-import { ROOT_FOLDER_NAME, rootRenameTo } from '../_shared/brand-folders.mjs';
+import { gatherKindOf, gatherQuery, isDriveId, markFor, privateOwnedFolder, renameIfOld, renameQuery, renameTarget } from './app-folders.mjs';
+import { ROOT_FOLDER_NAME, rootRenameTo } from './brand-folders.mjs';
 
 export const GATHER_MAX_MOVES = 10;
 export const RENAME_MAX = 10;
@@ -141,4 +144,23 @@ export async function gatherFolders({ drive, rootId, dryRun = false }) {
     root_name = r.rootName;
   }
   return { root_name, root_url, moved, failed, left, kinds: countKinds(done), renamed, rename_failed, rename_left, rename_dup };
+}
+
+export const NEW_ROOT_ROUNDS = 3; // 처음 만들 때 한 번에 이어서 부르는 수(한 번에 GATHER_MAX_MOVES개씩 — 보통 앱 폴더는 몇 개뿐).
+
+/**
+ * S70-29: 맨 위 앱 폴더를 방금 만들었을 때 서버가 저절로 한 번 모은다(옮기기 → 옛 이름 맞추기). 절대 throw하지 않는다.
+ * drive: (url, init) => Response(토큰을 붙여 부르는 쪽이 만든다). 답: {moved, failed, renamed} 또는 null(맨 위 폴더 확인 실패 등).
+ */
+export async function gatherIntoNewRoot({ drive, rootId, rounds = NEW_ROOT_ROUNDS }) {
+  if (!isDriveId(rootId) || typeof drive !== 'function') return null;
+  const sum = { moved: 0, failed: 0, renamed: 0 };
+  try {
+    for (let i = 0; i < rounds; i++) {
+      const r = await gatherFolders({ drive, rootId });
+      sum.moved += r.moved; sum.failed += r.failed; sum.renamed += r.renamed;
+      if ((!r.left && !r.rename_left) || (!r.moved && !r.renamed)) break;
+    }
+    return sum;
+  } catch { return sum.moved || sum.renamed ? sum : null; }
 }

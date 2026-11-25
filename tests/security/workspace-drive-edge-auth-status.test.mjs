@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { withEdgeShared } from './helpers/edge-shared.mjs';
 import { drivePlace, metaUrl, parsePlaceRequest } from '../../supabase/functions/workspace-drive/drive-place.mjs';
-import { gatherCandidates, gatherFolders, GatherError, parseGatherRequest } from '../../supabase/functions/workspace-drive/gather-folders.mjs';
+import { gatherCandidates, gatherFolders, gatherIntoNewRoot, GatherError, parseGatherRequest } from '../../supabase/functions/_shared/gather-folders.mjs';
 import { DriveFail, MIRROR_BUDGET_MS, mirrorLibrary, parseMirrorBody } from '../../supabase/functions/_shared/library-mirror.mjs';
 
 // EDGE-워크스페이스401: workspace-drive (verify_jwt=false, auth in code) answers 401 when the caller is not logged in
@@ -46,7 +46,7 @@ function harness() {
   const quiet = { log: () => {}, error: () => {}, warn: () => {} };
   const readMultipartForm = async () => new FormData();
   const fetchMock = async url => { calls.fetch.push(String(url)); throw new Error('unexpected fetch ' + url); };
-  new Function('Deno', 'createClient', 'readMultipartForm', 'fetch', 'console', 'drivePlace', 'metaUrl', 'parsePlaceRequest', 'DriveFail', 'MIRROR_BUDGET_MS', 'mirrorLibrary', 'parseMirrorBody', 'gatherCandidates', 'gatherFolders', 'GatherError', 'parseGatherRequest', SOURCE)(Deno, () => client, readMultipartForm, fetchMock, quiet, drivePlace, metaUrl, parsePlaceRequest, DriveFail, MIRROR_BUDGET_MS, mirrorLibrary, parseMirrorBody, gatherCandidates, gatherFolders, GatherError, parseGatherRequest);
+  new Function('Deno', 'createClient', 'readMultipartForm', 'fetch', 'console', 'drivePlace', 'metaUrl', 'parsePlaceRequest', 'DriveFail', 'MIRROR_BUDGET_MS', 'mirrorLibrary', 'parseMirrorBody', 'gatherCandidates', 'gatherFolders', 'gatherIntoNewRoot', 'GatherError', 'parseGatherRequest', SOURCE)(Deno, () => client, readMultipartForm, fetchMock, quiet, drivePlace, metaUrl, parsePlaceRequest, DriveFail, MIRROR_BUDGET_MS, mirrorLibrary, parseMirrorBody, gatherCandidates, gatherFolders, gatherIntoNewRoot, GatherError, parseGatherRequest);
   return { handler, calls };
 }
 
@@ -194,5 +194,7 @@ test('workspace-drive gather-folders: 로그인 없으면 401(DB·드라이브 �
   }
   const getAsk = harness();
   assert.notEqual((await send(getAsk, { token: 'token-a', method: 'GET', action: 'gather-folders' })).status, 200, 'GET으로는 옮기지 않는다');
+  assert.match(SOURCE, /if\(!dryRun\)return json\(\{error:'더 이상 쓰지 않는 요청입니다\.',code:'gone'\},410\);/, 'S70-29: 옮기기 요청(dry_run 없음)은 410 — 버튼이 없어졌고 맨 위 앱 폴더를 처음 만들 때 서버가 저절로 한다');
+  assert.doesNotMatch(SOURCE, /if\(!root\)root=await ensureRoot\(own,token\)/, '세기 요청은 맨 위 앱 폴더를 만들지 않는다');
   assert.deepEqual(getAsk.calls.fetch, []);
 });

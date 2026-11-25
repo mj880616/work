@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
   APP_FOLDER_MARK, GATHER_KINDS, NOT_GATHERED, createParentFor, gatherKindOf, gatherQuery, renameQuery, basketFolderClause, BASKET_NAMES, isBasketFolder, isDriveId, markFor, placedAtTop, privateOwnedFolder, topParents, topParentsClause,
 } from '../supabase/functions/_shared/app-folders.mjs';
-import { GATHER_MAX_MOVES, GatherError, RENAME_MAX, gatherFolders, parseGatherRequest } from '../supabase/functions/workspace-drive/gather-folders.mjs';
+import { GATHER_MAX_MOVES, GatherError, NEW_ROOT_ROUNDS, RENAME_MAX, gatherFolders, gatherIntoNewRoot, parseGatherRequest } from '../supabase/functions/_shared/gather-folders.mjs';
 import { createDriveUpload } from '../supabase/functions/_shared/drive-upload.ts';
 import { inspectBasketOriginal } from '../supabase/functions/_shared/basket-file-origin.ts';
 
@@ -388,67 +388,62 @@ test('전수: 앱 폴더를 맨 위에서 이름으로만 찾는 곳이 없다(�
   assert.match(summary, /kind === 'folder' \? '' :/);
 });
 
-// ---- 화면(app/drive-folders-panel.js, S69-41: 자료실에서 내 프로필 '구글 드라이브' 칸으로 옮김): 세기 → 확인창 → 옮기기·이름 맞추기(남으면 이어서) ----
-test('화면 [한곳으로 모으기]: 세기 → 확인 → 옮기기·이름 맞추기를 이어서, 결과 한 줄', async () => {
-  const { gatherAppFolders, gatherAskText, gatherResultText } = await import('../app/drive-folders-panel.js');
-  assert.equal(gatherAskText({ count: 0 }), null);
-  assert.equal(gatherAskText({ count: 0, rename: 0 }), null);
-  assert.deepEqual(gatherAskText({ count: 3, root_name: '웹2', kinds: { basket: 1, edit_backup: 2 } }), {
-    text: "앱 폴더 3개를 '웹2' 아래로 모을까요?", note: '바구니 · 편집 백업 2. 삭제하지 않고 자리·이름만 바꿔요. 링크는 그대로예요. 내가 만든 폴더와 직접 바꾼 이름은 그대로 둬요.',
-  });
-  assert.equal(gatherAskText({ count: 3, rename: 5, root_name: '웹2', kinds: {} }).text, "앱 폴더 3개를 '웹2' 아래로 모으고, 옛 이름 5개를 새 이름으로 바꿀까요?");
-  assert.equal(gatherAskText({ count: 0, rename: 2, root_name: 'WORK ON+', kinds: {} }).text, '앱 폴더의 옛 이름 2개를 새 이름으로 바꿀까요?');
-  assert.match(gatherAskText({ count: 1, root_name: 'WORK ON+', root_new: true, kinds: {} }).note, /'WORK ON\+' 폴더를 새로 만들어/);
-  const calls = [], said = [];
-  const answers = [
-    { ok: true, root_name: '웹2', count: 12, kinds: { basket: 12 }, rename: 13 },
-    { ok: true, root_name: '웹2', moved: 10, failed: 0, left: 2, renamed: 0, rename_failed: 0, rename_left: 0 },
-    { ok: true, root_name: 'WORK ON+', moved: 2, failed: 0, left: 0, renamed: 10, rename_failed: 0, rename_left: 3 },
-    { ok: true, root_name: 'WORK ON+', moved: 0, failed: 0, left: 0, renamed: 3, rename_failed: 0, rename_left: 0 },
-  ];
-  const api = async (path, init) => { calls.push([path, init]); return answers.shift(); };
-  const r = await gatherAppFolders({ api, ask: async () => true, say: (t, o) => said.push([t, !!o?.error]) });
-  assert.deepEqual(r, { moved: 12, failed: 0, left: 0, renamed: 13, renameFailed: 0, renameLeft: 0, renameDup: 0, where: 'WORK ON+' });
-  assert.deepEqual(calls.map(c => [c[0], c[1].method, JSON.stringify(c[1].body)]), [
-    ['/functions/v1/workspace-drive?action=gather-folders', 'POST', '{"dry_run":true}'],
-    ['/functions/v1/workspace-drive?action=gather-folders', 'POST', '{}'],
-    ['/functions/v1/workspace-drive?action=gather-folders', 'POST', '{}'],
-    ['/functions/v1/workspace-drive?action=gather-folders', 'POST', '{}'],
-  ]);
-  assert.deepEqual(said, [["앱 폴더 12개를 'WORK ON+' 아래로 모았어요 · 이름 바꿈 13", false]]);
-  assert.deepEqual(gatherResultText({ renamed: 2, renameFailed: 1 }), { text: '이름 바꿈 2 · 1개는 하지 못했어요 — 다시 눌러 주세요.', error: true });
-  // S69-42: 같은 자리에 새 이름 폴더가 있어 그대로 둔 것은 따로 센다(합치지 않음).
-  assert.deepEqual(gatherResultText({ renamed: 1, renameDup: 2 }), { text: '이름 바꿈 1 · 같은 이름 있어 그대로 2', error: false });
-  assert.deepEqual(gatherResultText({ renameDup: 1 }), { text: '같은 이름 있어 그대로 1 — 드라이브에서 둘 중 하나를 정리해 주세요.', error: false });
-  // 취소하면 옮기지 않는다. 없으면 확인창 없이 한 줄.
-  const c2 = [];
-  assert.equal(await gatherAppFolders({ api: async (p, i) => { c2.push(i.body); return { count: 2, root_name: '웹2', kinds: {} }; }, ask: async () => false, say: () => {} }), null);
-  assert.deepEqual(c2, [{ dry_run: true }]);
-  const s3 = [];
-  assert.equal(await gatherAppFolders({ api: async () => ({ count: 0, rename: 0 }), ask: async () => { throw new Error('ask'); }, say: t => s3.push(t) }), null);
-  assert.match(s3[0], /이미 모아 뒀어요/);
-  // 서버 실패는 오류 한 줄.
-  const s4 = [];
-  assert.equal(await gatherAppFolders({ api: async () => { throw new Error('x'); }, ask: async () => true, say: (t, o) => s4.push(!!o?.error) }), null);
-  assert.deepEqual(s4, [true]);
+// ---- S70-29(2026-11-25 명진 '다 없애 1회용 기능'·조사 문서 7번 '자동으로 바꿈'): [한곳으로 모으기] 버튼 대신 서버가 맨 위 앱 폴더를 처음 만들 때 저절로 ----
+test('맨 위 앱 폴더를 처음 만들 때 저절로: gatherIntoNewRoot가 앱 폴더를 옮기고 옛 이름을 맞춘다(이어서, 사람 폴더는 그대로), 실패해도 throw 없음', async () => {
+  const { drive, state } = fakeDrive({ files: SCENE() });
+  const r = await gatherIntoNewRoot({ drive, rootId: ROOT });
+  assert.deepEqual(r, { moved: 4, failed: 0, renamed: 5 });
+  const byId = Object.fromEntries(state.files.map(f => [f.id, f]));
+  for (const id of ['basket-folder-01', 'record-backup-01', 'edit-backup-0001', 'copy-folder-0001']) assert.deepEqual(byId[id].parents, [ROOT], id);
+  for (const id of ['telegram-folder1', 'person-folder-01']) assert.deepEqual(byId[id].parents, [DRIVE_ROOT], '앱 밖·사람 폴더는 그대로: ' + id);
+  // 10개 넘게 남으면 이어서(한 번에 GATHER_MAX_MOVES개씩, NEW_ROOT_ROUNDS번까지).
+  const many = Array.from({ length: GATHER_MAX_MOVES + 3 }, (_, i) => ({ id: `edit-backup-${String(i).padStart(4, '0')}x`, name: '노조+ 편집 백업', parents: [DRIVE_ROOT], appProperties: { kptu_app_folder: 'edit_backup' } }));
+  const big = fakeDrive({ files: many });
+  const r2 = await gatherIntoNewRoot({ drive: big.drive, rootId: ROOT });
+  assert.equal(r2.moved, GATHER_MAX_MOVES + 3);
+  assert.ok(NEW_ROOT_ROUNDS >= 2);
+  // 맨 위 앱 폴더 확인 실패·잘못된 값이면 조용히 null(올리기 같은 원래 일은 멈추지 않음).
+  assert.equal(await gatherIntoNewRoot({ drive: async () => { throw new Error('down'); }, rootId: ROOT }), null);
+  assert.equal(await gatherIntoNewRoot({ drive, rootId: 'root' }), null);
+  assert.equal(await gatherIntoNewRoot({ drive: null, rootId: ROOT }), null);
 });
 
-test('화면: 자료실 위 줄에는 [앱 폴더 모으기]가 없고(저장 위치·열기만), 내 프로필 칸이 그 기능의 유일한 자리', async () => {
+test('서버가 맨 위 앱 폴더를 새로 만드는 네 곳 모두 만든 바로 뒤 gatherIntoNewRoot를 부른다(그 밖에는 부르지 않음)', () => {
+  const base = fileURLToPath(new URL('../supabase/functions/', import.meta.url));
+  const read = f => readFileSync(join(base, f), 'utf8');
+  for (const f of ['workspace-drive/index.ts', 'library-files/index.ts', 'meeting-files/index.ts']) {
+    const src = read(f);
+    assert.match(src, /root_folder_id:d\.id,updated_at:new Date\(\)\.toISOString\(\)\}\);await gatherIntoNewRoot\(\{drive:tokenDrive\(token\),rootId:d\.id\}\);return d\.id/, f);
+    assert.match(src, /import \{[^}]*gatherIntoNewRoot[^}]*\} from '\.\.\/_shared\/gather-folders\.mjs'/, f);
+  }
+  const mt = read('meeting-transcribe/index.ts');
+  assert.match(mt, /root_folder_id: root, updated_at: new Date\(\)\.toISOString\(\) \}\);\n\s*\/\/ S70-29[^\n]*\n\s*await gatherIntoNewRoot\(\{ drive: [^\n]*rootId: root \}\);/);
+  // 맨 위 앱 폴더(root_folder_id)를 새로 적는 곳은 이 네 곳뿐 — 다른 곳이 생기면 이 시험이 알린다.
+  const writers = [];
+  const walk = d => { for (const n of readdirSync(join(base, d), { withFileTypes: true })) { const p = join(d, n.name); if (n.isDirectory()) walk(p); else if (/\.(ts|mjs)$/.test(n.name) && /upsert\(\{\s*workspace_id:\s*workspaceId,\s*root_folder_id/.test(read(p))) writers.push(p); } };
+  walk('.');
+  assert.deepEqual(writers.sort(), ['library-files/index.ts', 'meeting-files/index.ts', 'meeting-transcribe/index.ts', 'workspace-drive/index.ts']);
+});
+
+test('화면: 자료실 위 줄·내 프로필 칸 모두 [한곳으로 모으기] 버튼이 없고(S70-29), 내 프로필 칸은 위치와 [열기 ↗]만', async () => {
   const code = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
   assert.doesNotMatch(code('library-drive-line.js'), /lu-drive-gather|앱 폴더 모으기|gather-folders/);
   const { driveLineHtml } = await import('../app/library-drive-line.js');
   const html = driveLineHtml({ url: 'https://drive.google.com/drive/folders/abcdefghij12', path: ['웹2', '자료실'] }, v => String(v));
   assert.match(html, /열기 ↗/);
   assert.doesNotMatch(html, /<button/);
-  const { driveFoldersHtml, cleanPlan } = await import('../app/drive-folders-panel.js');
-  const p = cleanPlan({ ok: true, root_name: 'WORK ON+', root_url: 'https://drive.google.com/drive/folders/abcdefghij12', count: 0, rename: 0 });
-  assert.match(driveFoldersHtml(p), /앱이 쓰는 드라이브 폴더:.*내 드라이브 › WORK ON\+.*열기 ↗.*모아 둠/);
-  assert.match(driveFoldersHtml({ ...p, rename: 1 }), /data-dfp-gather[^>]*>한곳으로 모으기</);
-  assert.match(driveFoldersHtml(cleanPlan({ ok: true, root_name: 'WORK ON+', count: 0, rename: 0, rename_dup: 2 })), /모아 둠.*class="dfp-dup"[^>]*>같은 이름 있어 그대로 2</, 'S69-42: 같은 이름이 있어 둔 것은 작게 한 마디');
+  const mod = await import('../app/drive-folders-panel.js');
+  for (const name of ['gatherAppFolders', 'gatherAskText', 'gatherResultText']) assert.equal(mod[name], undefined, name);
+  const { driveFoldersHtml, cleanPlan } = mod;
+  const p = cleanPlan({ ok: true, root_name: 'WORK ON+', root_url: 'https://drive.google.com/drive/folders/abcdefghij12', count: 3, rename: 2 });
+  assert.match(driveFoldersHtml(p), /앱이 쓰는 드라이브 폴더:.*내 드라이브 › WORK ON\+.*열기 ↗/);
+  assert.doesNotMatch(driveFoldersHtml(p), /<button|data-dfp-gather|한곳으로 모으기|모아 둠/, '모을 것이 남아도 버튼 없음');
+  assert.match(driveFoldersHtml(cleanPlan({ ok: true, root_name: 'WORK ON+', count: 0, rename: 0, rename_dup: 2 })), /class="dfp-dup"[^>]*>같은 이름 있어 그대로 2</, 'S69-42: 같은 이름이 있어 둔 것은 작게 한 마디');
   assert.doesNotMatch(driveFoldersHtml(p), /dfp-dup/);
   assert.equal(cleanPlan({ ok: true, root_name: 'x', root_url: 'https://evil.example/drive/folders/abcdefghij12', count: 0 }).url, null, '드라이브 주소가 아니면 링크를 그리지 않는다');
   assert.equal(cleanPlan(null), null);
   const users = readdirSync(fileURLToPath(new URL('../app/', import.meta.url))).filter(n => /\.(js|mjs)$/.test(n))
     .filter(n => code(n).includes('gather-folders'));
-  assert.deepEqual(users, ['drive-folders-panel.js'], '모으기 서버 부름은 이 칸 한 곳');
+  assert.deepEqual(users, ['drive-folders-panel.js'], '세기(위치 읽기)는 이 칸 한 곳');
+  assert.doesNotMatch(code('drive-folders-panel.js'), /body: \{\}|method: 'POST', body: \{(?!dry_run: true\})/, '화면은 세기(dry_run:true)만 보낸다');
 });

@@ -203,7 +203,4 @@
 #psDriveFoldersPanel .dfp-where{min-width:0;overflow-wrap:anywhere;color:var(--kptu-ink)}
 #psDriveFoldersPanel .dfp-open{white-space:nowrap;color:var(--kptu-link);text-decoration:none}
 #psDriveFoldersPanel .dfp-open:hover,#psDriveFoldersPanel .dfp-open:focus-visible{text-decoration:underline}
-#psDriveFoldersPanel .dfp-gather{font-size:inherit}
-#psDriveFoldersPanel .dfp-done,#psDriveFoldersPanel .dfp-dup{white-space:nowrap}
-#psDriveFoldersPanel .dfp-result{margin:4px 0 0;font-size:var(--ds-compact-text,12px);color:var(--kptu-muted);line-height:1.5}
-#psDriveFoldersPanel .dfp-error{color:var(--kptu-danger)}
+#psDriveFoldersPanel .dfp-dup{white-space:nowrap}
