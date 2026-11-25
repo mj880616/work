@@ -246,8 +246,9 @@ for (const width of [1280, 390]) test(`노트에서 블록 편집 켜기 → 끌
   await expect(page.locator('[data-note-body-field] .ed-grip')).toBeVisible();
   const top = (await field.locator('p').first().boundingBox()).y + 2;
   // 손잡이는 누른 셋째 문단 옆에 선다(첫 문단 옆에 남으면 끌어도 순서가 그대로다).
-  const gripAt = await page.locator('[data-note-body-field] .ed-grip').boundingBox(), thirdAt = await third.boundingBox();
-  expect(Math.abs((gripAt.y + gripAt.height / 2) - (thirdAt.y + thirdAt.height / 2))).toBeLessThan(thirdAt.height);
+  // NOTE-블록모드찾기: [블록 모드]가 막대 위 단추라 켜자마자 커서가 있던 첫 문단 옆에 손잡이가 먼저 보인다. 셋째 문단 옆으로 옮겨 설 때까지 본다.
+  const thirdAt = await third.boundingBox();
+  await expect.poll(async () => { const g = await page.locator('[data-note-body-field] .ed-grip').boundingBox(); return g ? Math.abs((g.y + g.height / 2) - (thirdAt.y + thirdAt.height / 2)) : Infinity; }).toBeLessThan(thirdAt.height);
   if (touch) await touchDrag(page, top, '[data-note-body-field]');
   else {
     const g = await page.locator('[data-note-body-field] .ed-grip').boundingBox();
