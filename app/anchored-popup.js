@@ -4,6 +4,7 @@
 // (library-move-picker.js) opened from a button (place 'below') uses placeAnchored on phones too, with bottomInset = the
 // bottom bars and keyboard, so it opens right under the pressed button and never covers the bottom tabs. Used by the shared choice sheet (choice-sheet.js); a ⋯ menu or any other small popup
 // can use the same two calls: placeAnchored() for the position and followAnchor() to keep it there while the page moves.
+import {dragStartOk,passedSlop,movedSpot} from './drag-move-model.mjs';
 export const WIDE_QUERY='(min-width:761px)';
 export const isWide=()=>window.matchMedia(WIDE_QUERY).matches;
 // S54-04·S54-05: 아래 바(하단바·전환 줄)와 자판이 창 아래를 덮는 높이(px). 버튼 아래 창은 그 위에서 끝난다(placeAnchored의 bottomInset).
@@ -121,12 +122,18 @@ export function clearAnchored(panel){
 // it was put while the page scrolls (followAnchor no longer follows the button) and is forgotten on close (clearAnchored); the
 // spot is not kept anywhere. Phones (bottom sheets, no data-anchor-side) are left alone. Popups with no title row (⋯ menus) are
 // not dragged, so a press on a menu line never turns into a drag. Call once per panel; the row may be redrawn.
-export function dragByTitle(panel,selector,{edge=8}={}){
+// S70-12 UI-확인창끌기: 작은 확인창(small-notice.js askPanel)도 이 부품을 쓴다 — selector가 판 자체('.kptu-ask')라 빈 곳(글·여백) 어디서나 끈다.
+// mouseOnly = 마우스 왼쪽 단추만(손가락은 지금처럼 그 자리). 끄는 동안은 글자가 골라지지 않는다(이미 골라진 것도 지운다). 계산은 drag-move-model.mjs.
+export function dragByTitle(panel,selector,{edge=8,mouseOnly=false}={}){
   let drag=null;
+  const doc=panel.ownerDocument||document;
+  const noSelect=e=>{if(drag?.moved)e.preventDefault()};
   panel.addEventListener('pointerdown',e=>{
-    if(e.button!==0||!isWide()||!panel.dataset.anchorSide)return;
-    const handle=e.target instanceof Element?e.target.closest(selector):null;
-    if(!handle||!panel.contains(handle)||e.target.closest('button,a,input,select,textarea,label,[contenteditable]'))return;
+    if(!isWide()||!panel.dataset.anchorSide)return;
+    const target=e.target instanceof Element?e.target:null;
+    if(!dragStartOk({button:e.button,pointerType:e.pointerType,target},{mouseOnly}))return;
+    const handle=target.closest(selector);
+    if(!handle||!panel.contains(handle))return;
     const r=panel.getBoundingClientRect();
     drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:r.left,top:r.top,moved:false,handle};
     try{handle.setPointerCapture(e.pointerId);}catch{}
@@ -134,15 +141,21 @@ export function dragByTitle(panel,selector,{edge=8}={}){
   panel.addEventListener('pointermove',e=>{
     if(!drag||e.pointerId!==drag.id)return;
     const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
-    if(!drag.moved&&Math.abs(dx)+Math.abs(dy)<4)return;
-    if(!drag.moved){drag.moved=true;panel.dataset.anchorMoved='1';panel.classList.add('anchored-dragging');}
+    if(!drag.moved&&!passedSlop(dx,dy))return;
+    if(!drag.moved){
+      drag.moved=true;panel.dataset.anchorMoved='1';panel.classList.add('anchored-dragging');
+      doc.documentElement.classList.add('anchored-drag-active');doc.addEventListener('selectstart',noSelect,true);
+    }
     e.preventDefault();
-    const r=panel.getBoundingClientRect(),vw=document.documentElement.clientWidth,vh=window.innerHeight;
-    Object.assign(panel.style,{left:clamp(drag.left+dx,edge,vw-edge-r.width)+'px',top:clamp(drag.top+dy,edge,vh-edge-r.height)+'px',bottom:'auto'});
+    doc.getSelection?.()?.removeAllRanges();
+    const r=panel.getBoundingClientRect();
+    const spot=movedSpot({left:drag.left,top:drag.top,dx,dy,width:r.width,height:r.height,vw:doc.documentElement.clientWidth,vh:window.innerHeight,edge});
+    Object.assign(panel.style,{left:spot.left+'px',top:spot.top+'px',bottom:'auto'});
   });
   const end=e=>{
     if(!drag||e.pointerId!==drag.id)return;
     try{drag.handle.releasePointerCapture(e.pointerId);}catch{}
+    if(drag.moved){doc.getSelection?.()?.removeAllRanges();doc.documentElement.classList.remove('anchored-drag-active');doc.removeEventListener('selectstart',noSelect,true);}
     panel.classList.remove('anchored-dragging');drag=null;
   };
   panel.addEventListener('pointerup',end);panel.addEventListener('pointercancel',end);

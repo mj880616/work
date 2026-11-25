@@ -52,7 +52,8 @@ import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, titleKey, type PageRule } from "./page.ts";
 import { needsAttachment, withAttachment } from "./attach.ts";
-import { peekTitle } from "../_shared/page-title.ts";
+import { countWhy, peekTitleWhy } from "../_shared/page-title.ts";
+import { sameArticleTitle, sameArticleUrlFilter } from "../_shared/same-article.ts";
 import { createHandPhotos, HAND_PHOTO_REQ_MAX, HandPhotoFail, photoSizeOf } from "./hand-photo.ts";
 import { BODY_LIMITS, bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
 import { googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_MAX_CHARS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
@@ -111,6 +112,11 @@ export const ROBOTS_RETRY_SCAN = 50;
 // 다시 읽기는 fetched_at을 바꾸지 않으므로 다음 실행에는 띠 밖이다(무한 재시도 없음). 화면 '열기' 하루 한도는 세지 않는다.
 export const TITLE_RETRY_PER_RUN = 10;
 export const TITLE_RETRY_AFTER_MIN = 50;
+// S70-17b NEWS-제목꼭얻기(명진 11/25 10:26 "원문 못읽어도 최소한 제목이라도 읽어야함"): 사이트를 다시 부르기 전에 같은 기사의 매체 RSS 줄 제목을 먼저 본다
+// (_shared/same-article.ts, 우리 DB만). 그리고 띠 밖의 지난 줄도 — 같은 기사 규칙이 있는 매체 주소(동아일보 등)이면서 제목 없는 채널 줄을
+// 최근 TITLE_SAME_DAYS일 안에서 새 것부터 TITLE_SAME_PER_RUN건까지 RSS 줄과만 맞춰 본다(사이트는 부르지 않음 — 이미 들어온 '못 읽은 기사'가 같은 흐름으로 채워진다).
+export const TITLE_SAME_PER_RUN = 20;
+export const TITLE_SAME_DAYS = 14;
 // 다시 뽑기(NEWS-전면개편 P2c, 설계 news-overhaul 4.8 — 예약 입구 action=refill, 몸통 {source}): 최근 REFILL_DAYS일 매체 기사 가운데
 // 블록 줄이 없거나, 까닭이 timeout(사이트가 잠깐 안 닿음·robots를 못 읽음)이거나, state≠ok이고 규칙 판이 지금 카탈로그 판과 다른 것을
 // 새 것부터 주소 REFILL_PER_SOURCE개까지 다시 읽는다(같은 reader라 요청 사이 GAP_MS, 시간 예산 RUN_BUDGET_MS). 찾는 범위는 REFILL_SCAN줄.
@@ -1124,7 +1130,7 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
   const pages = new Map<string, FeedReader>();
   const pageOf = (s: NewsSource) => { let r = pages.get(s.key); if (!r) { r = readers.page(s); pages.set(s.key, r); } return r; };
   let retry = { done: 0, deferred: 0 };
-  let heads = { tried: 0, read: 0 };
+  let heads: { tried: number; read: number; same?: number; why?: Record<string, number> } = { tried: 0, read: 0 };
   if (!onlyWs) {
     try {
       const on = await enabledMedia(db);
@@ -1138,7 +1144,7 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
     try { retry = await runRobotsRetry(db, reader, pageOf, ai, nowMs, startMs, clock, chargeWs); } catch { log("robots_retry_failed"); }
     try { heads = await runTitleRetry(db, reader, nowMs, startMs, clock); } catch { log("title_retry_failed"); }
   }
-  log("pending_done", { done, deferred, remaining, stale, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, head_retry: heads.tried, head_read: heads.read, ...states });
+  log("pending_done", { done, deferred, remaining, stale, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, head_retry: heads.tried, head_read: heads.read, head_same: heads.same ?? 0, head_why: heads.why ?? {}, ...states });
   return { ok: true, step: "pending", done, deferred, remaining, stale, states, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, head_retry: heads.tried, head_read: heads.read };
 }
 
@@ -1147,22 +1153,35 @@ export async function runTitleRetry(db: Db, reader: FeedReader, nowMs: number, s
   const upTo = new Date(nowMs - TITLE_RETRY_AFTER_MIN * 60000).toISOString(), from = new Date(nowMs - (TITLE_RETRY_AFTER_MIN + 60) * 60000).toISOString();
   const arts = await db.get(`app_news_articles?title=is.null&state=eq.failed&lane=neq.media&fetched_at=lte.${encodeURIComponent(upTo)}&fetched_at=gt.${encodeURIComponent(from)}` +
     `&select=id,url,url_key&order=fetched_at.desc&limit=${TITLE_RETRY_PER_RUN}`);
-  let tried = 0, read = 0;
-  for (const a of arts) {
-    if (clock() - startMs > RUN_BUDGET_MS) break;
-    if (typeof a.id !== "string" || !UUID.test(a.id) || typeof a.url !== "string" || typeof a.url_key !== "string" || !a.url_key) continue;
-    tried++;
-    const iso = new Date(clock()).toISOString();
-    let got = null;
-    try { got = await peekTitle(reader, a.url); } catch { got = null; }
-    if (!got) continue; // 못 읽으면 그대로(화면은 '못 읽은 기사 · 도메인', [직접 넣기]·열기는 그대로)
+  const sameFrom = new Date(nowMs - TITLE_SAME_DAYS * 86400000).toISOString();
+  const older = await db.get(`app_news_articles?title=is.null&lane=neq.media&created_at=gt.${encodeURIComponent(sameFrom)}&${sameArticleUrlFilter()}` +
+    `&select=id,url,url_key&order=created_at.desc&limit=${TITLE_SAME_PER_RUN}`);
+  let tried = 0, read = 0, same = 0;
+  const why: Record<string, number> = {}; // 못 읽은 까닭 코드별 건수(S70-17, 주소·제목 없음)
+  const write = async (a: Row, got: { title: string; publisher: string | null }) => {
     const title = newsTitle(got.title);
-    const patch: Row = { title, title_key: titleKey(title), updated_at: iso };
+    const patch: Row = { title, title_key: titleKey(title), updated_at: new Date(clock()).toISOString() };
+    if (got.publisher) patch.publisher = got.publisher;
     await db.send("PATCH", `app_news_articles?id=eq.${a.id}&title=is.null`, patch, "return=minimal");
     read++;
-    await db.send("PATCH", `app_news_items?url_key=eq.${encodeURIComponent(a.url_key)}&title=is.null`, patch, "return=minimal");
+    await db.send("PATCH", `app_news_items?url_key=eq.${encodeURIComponent(String(a.url_key))}&title=is.null`, patch, "return=minimal");
+  };
+  const seen = new Set<string>();
+  // 띠 안의 줄: 같은 기사 RSS 줄 → 없으면 그 주소 한 장. 띠 밖의 지난 줄(older): 같은 기사 RSS 줄만.
+  for (const [a, page] of [...arts.map((a) => [a, true] as const), ...older.map((a) => [a, false] as const)]) {
+    if (clock() - startMs > RUN_BUDGET_MS) break;
+    if (typeof a.id !== "string" || !UUID.test(a.id) || typeof a.url !== "string" || typeof a.url_key !== "string" || !a.url_key || seen.has(a.id)) continue;
+    seen.add(a.id);
+    if (page) tried++;
+    let got: { title: string; publisher: string | null } | null = null;
+    try { got = await sameArticleTitle(db.get, a.url); } catch { got = null; }
+    if (got) { same++; await write(a, got); continue; }
+    if (!page) continue;
+    try { const p = await peekTitleWhy(reader, a.url); got = p.peek; if (!got) countWhy(why, p.why); } catch { got = null; countWhy(why, "error"); }
+    if (!got) continue; // 못 읽으면 그대로(제목 없는 줄은 목록에 띄우지 않는다 — 보관한 글·상세에서만 '못 읽은 기사 · 도메인', [직접 넣기]·열기는 그대로)
+    await write(a, { title: got.title, publisher: null });
   }
-  return { tried, read };
+  return { tried, read, same, why };
 }
 
 // robots 때문에 원문이 빈 지난 기사 다시 읽기(S68-25). 공용 기사(state robots)를 새 것부터 ROBOTS_RETRY_PER_RUN건까지, 같은 주소의 내 옛 줄과 함께 한 번 읽는다.
@@ -1510,6 +1529,17 @@ async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: 
   }
   // 원문에서 제목을 못 얻었으면 공유 창이 넘긴 제목(위 shareTitle). 상태·본문은 그대로(못 읽은 기사는 [직접 넣기]가 그대로 보인다).
   if (!page.title && sharedTitle) { page.title = sharedTitle; page.title_key = titleKey(sharedTitle); log("save_shared_title", { state: String(page.state) }); }
+  // S70-17b: 그것도 없으면 같은 기사의 매체 RSS 줄 제목(우리 DB만, _shared/same-article.ts).
+  if (!page.title) {
+    let same: { title: string; publisher: string | null } | null = null;
+    try { same = await sameArticleTitle(db.get, url); } catch { same = null; }
+    if (same) {
+      const t = newsTitle(same.title);
+      page.title = t; page.title_key = titleKey(t);
+      if (!page.publisher && same.publisher) page.publisher = same.publisher;
+      log("save_same_title", { state: String(page.state) });
+    }
+  }
   const saved = await call(url, key, page);
   if (saved.created === true) await saveArticleBody(db, log, { id: saved.article_id, lane: "channel" }, blocks, nowIso);
   return await savedOut(db, saved);

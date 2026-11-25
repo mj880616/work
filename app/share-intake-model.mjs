@@ -114,14 +114,30 @@ export function shareArticleUrl({subject = '', text = ''} = {}) {
       try { const u = new URL(url); if ((u.protocol === 'https:' || u.protocol === 'http:') && u.hostname.includes('.')) return u.href; } catch { /* 다음 주소 */ }
     }
   }
+  // S70-44: 텔레그램 공지처럼 단축 주소를 앞머리 없이('bit.ly/…') 쓴 글. 이름이 알려진 단축 주소만 https로 본다(아무 'a.b/c'나 주소로 보지 않음).
+  // 실제 기사 주소까지 따라가는 일·주소 검사는 서버(note-import·news-feed)가 그대로 한다.
+  for (const src of [text, subject]) {
+    const m = SHORT_BARE.exec(String(src ?? ''));
+    if (m) { try { return new URL(`https://${m[1]}`).href; } catch { /* 없음 */ } }
+  }
   return '';
 }
+const SHORT_BARE_ALL = /(?:bit\.ly|han\.gl|me2\.do|url\.kr|buly\.kr|vo\.la|naver\.me|kko\.to|lrl\.kr|tinyurl\.com|t\.ly|c11\.kr|zrr\.kr|abit\.ly|goo\.gl)\/[A-Za-z0-9_\-]{2,64}/gi;
+const SHORT_BARE = /(?:^|[\s(\[<"'“‘\p{Extended_Pictographic}:])((?:bit\.ly|han\.gl|me2\.do|url\.kr|buly\.kr|vo\.la|naver\.me|kko\.to|lrl\.kr|tinyurl\.com|t\.ly|c11\.kr|zrr\.kr|abit\.ly|goo\.gl)\/[A-Za-z0-9_\-]{2,64})(?![A-Za-z0-9_\-./])/iu;
 
 // S67-10 NEWS-네이버공유읽기: 공유된 글에서 기사 제목 한 줄(서버 news-feed save_url의 title). 원문을 못 읽었을 때만 서버가 기사 제목으로 쓴다.
 // 제목(subject)이 주소가 아니면 그것, 아니면 본문에서 주소를 뺀 첫 줄. 없으면 ''. 서버가 다시 다듬고 검사한다(글자로만, SHARE_TITLE_MAX자).
 export const SHARE_TITLE_SEND_MAX = 1000;
+// S70-44: 줄 안의 주소(앞머리 없는 단축 주소 포함)·그림 글자(이모지)는 빼고, 줄 전체를 감싼 따옴표만 벗긴다(줄 가운데 인용 따옴표는 그대로).
 export function shareArticleTitle({subject = '', text = ''} = {}) {
-  const line = v => String(v ?? '').replace(/https?:\/\/[^\s<>"'`]+/gi, ' ').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  const line = v => {
+    let t = String(v ?? '').replace(/https?:\/\/[^\s<>"'`]+/gi, ' ').replace(SHORT_BARE_ALL, ' ')
+      .replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\p{Emoji_Modifier}\uFE0F\u200D\u20E3]/gu, ' ')
+      .replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+    const wrap = /^["“'‘「『](.+)["”'’」』]$/u.exec(t);
+    if (wrap && !/["“”「」『』]/u.test(wrap[1])) t = wrap[1].trim();
+    return /[\p{L}\p{N}]/u.test(t) ? t : '';
+  };
   const fromSubject = line(subject);
   if (fromSubject) return [...fromSubject].slice(0, SHARE_TITLE_SEND_MAX).join('');
   for (const raw of String(text ?? '').split(/\r?\n/)) {

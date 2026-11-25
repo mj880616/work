@@ -1380,7 +1380,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (!file || !uploadJobs().some(job => job.file === file && job.phase === 'failed')) { showNote((e && e.message) || `${what}을 올리지 못했어요.`); return; }
     const canRetry = file && (!e?.code || !['note_save_result_unknown', 'note_changed'].includes(e.code));
     upNote = announceDock({text: `${what}을 올리지 못했어요`, note: (e && e.message) || '', error: true, ms: 0, files: file ? [file] : [],
-      actions: canRetry ? [{label: '다시 올리기', aria: `못 올린 ${what} 다시 올리기`, run: () => { if (!view.isDestroyed) void again([file]); }}] : []});
+      actions: canRetry ? [{label: '다시 업로드', aria: `못 올린 ${what} 다시 업로드`, run: () => { if (!view.isDestroyed) void again([file]); }}] : []});
   }
   async function photosIn(pictures) {
     const room = (photos.max || 40) - photoCount();

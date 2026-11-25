@@ -53,7 +53,7 @@ for (const width of [412, 1280]) test(`이미 있는 파일 알림 · 홈 📎 $
   // 다시 넣고 [그래도 올리기] → 그대로 담긴다.
   await input.setInputFiles([{name: '예시 보도자료.hwp', mimeType: 'application/x-hwp', buffer: HWP}]);
   await expect(ask).toBeVisible();
-  await ask.getByRole('button', {name: '그래도 올리기'}).click();
+  await ask.getByRole('button', {name: '그래도 업로드'}).click();
   await expect(q.locator('[data-basket-file] b')).toHaveText(['새 파일.txt', '예시 보도자료.hwp']);
   expect(errors).toEqual([]);
 });
