@@ -325,7 +325,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 html.nb-full-on, html.nb-full-on body { overflow:hidden; overscroll-behavior:none; }
 #appView #basketView .nbw.nbw-full { position:fixed; inset:0; z-index:55; margin:0; padding:0; background:var(--kptu-surface-subtle); }
 /* S70-21 NOTE-보드탭자리: 전체 화면에서도 보드 칸 줄은 판 바로 위(한 줄) — 몸통을 위(보드 칸 줄)·아래(판) 두 줄 격자로, 왼쪽 목록은 아래 줄 위에 겹쳐 연다. */
-#appView #basketView .nbw.nbw-full .nbw-body { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); position:relative; height:100%; }
+#appView #basketView .nbw.nbw-full .nbw-body { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); gap:0; position:relative; height:100%; }
 #appView #basketView .nbw.nbw-full .nbw-main { display:contents; }
 #appView #basketView .nbw.nbw-full [data-nbb] { grid-row:1; grid-column:1; margin:0; padding:4px 8px; }
 #appView #basketView .nbw.nbw-full :is(.nb, [data-nbw-none]) { grid-row:2; grid-column:1; min-height:0; }
