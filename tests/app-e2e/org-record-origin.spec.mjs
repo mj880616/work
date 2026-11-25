@@ -75,15 +75,17 @@ for(const width of [412,1280]){
   expect(f.rpc.map(c=>c.p_targets)).toEqual([[{kind:'organization',target_id:'o',reason:'직접 연결',origin:'record_input'}]]);
   const made=f.links.at(-1).id,row=f.row(made);
   await expect(row.locator('[data-link-summary-text]')).toHaveText('합성 지부 간담회 결과');
-  await expect(row.locator('.basket-link-open small')).not.toContainText('잊지 말기');
-  await expect(row.locator('.basket-link-open small time')).toHaveText(/2026/);
+  await expect(row.locator('.basket-link-open small')).toHaveCount(0); // 이름표 없음
+  // UI-기록카드하나로(S70-42): 날짜는 글 기록과 같은 왼쪽 날짜 칸('MM.DD.'), 긴 날짜는 title.
+  await expect(row.locator('.basket-link-day time')).toHaveText(/^(\d{2}\.)?\d{1,2}\.\d{1,2}\.$/);
+  await expect(row.locator('.basket-link-day time')).toHaveAttribute('title',/2026/);
   await expect(row.locator('[data-record-mark]')).toHaveCount(0);
   await expect(row.locator('[data-basket-link-menu]')).toHaveAttribute('aria-label','기록 메뉴');
-  // 사진 3장이 다 올라간 뒤 목록을 다시 읽으면 그 줄 아래 사진 띠가 [사진 3]이 된다(이름표는 그대로 없음).
+  // 사진 3장이 다 올라간 뒤 목록을 다시 읽으면 그 글 아래 작은 그림 3장(이름표는 그대로 없음).
   await expect(page.locator('#uploadDock:not([hidden])')).toContainText('사진 3장 올렸어요');
   await page.evaluate(()=>window.dispatchEvent(new Event('kptu:basket-links-changed')));
-  await expect(row.locator('[data-record-photos] > summary')).toContainText('사진 3');
-  await expect(row.locator('.basket-link-open small')).not.toContainText('잊지 말기');
+  await expect(row.locator('[data-record-photo]')).toHaveCount(3);
+  await expect(row.locator('.basket-link-open small')).toHaveCount(0);
   await expect(f.row(OLD_BASKET).locator('.basket-link-open small')).toContainText('잊지 말기 연결');
   await row.evaluate(el=>el.scrollIntoView({block:'start'}));
   await shot(page,`org-records-${width}`);
