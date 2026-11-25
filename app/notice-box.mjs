@@ -85,6 +85,12 @@ export function openFromMeta(button) {
   button.closest('[data-nbx-row]')?.querySelector('.nbx-body-btn')?.click();
   return true;
 }
+// FORGET-기본이미함(S70-20b): 줄 여러 개를 접힌 한 줄로 묶는다(네이티브 <details>, 키보드·화면 읽기 그대로). rows: rowHtml 조각 목록,
+// label: 묶음 이름(글), faint: 뒤 흐린 글, key: data-nbx-group 값(다시 그려도 펼친 채로 두는 데 씀), open: 펼친 채로 그릴지.
+export function groupHtml({key, label, faint = '', rows = [], open = false}) {
+  return `<li class="nbx-group" data-nbx-group="${esc(key)}"><details${open ? ' open' : ''}><summary class="nbx-group-head">${esc(label)}`
+    + `${faint ? `<span class="nbx-faint">&nbsp;${esc(faint)}</span>` : ''}</summary><ul class="nbx-group-rows">${rows.join('')}</ul></details></li>`;
+}
 // 상자 안쪽 전체. rows: rowHtml 조각 목록. status: 상태 글, undo: 되돌리기 버튼을 보일지. foot: 맨 아래 흐린 한 줄(HTML).
 export function boxHtml({head, rows = [], status = '', undo = false, foot = ''}) {
   const undoBtn = undo ? ` <button type="button" class="row-act nbx-undo" data-nbx-undo>되돌리기</button>` : '';

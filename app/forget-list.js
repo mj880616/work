@@ -18,7 +18,7 @@
 // 이 파일이 이 목록 자리의 유일한 renderer다. 기기 저장 없음.
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
-import {esc, rowHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
+import {esc, rowHtml, groupHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
@@ -160,7 +160,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
           open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${plainText(c.summary)} — 출처 열기: ${sourceText(c)}`)}"`},
           done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '',
           // 저절로 옮긴 줄만 [되돌리기](잘못 빠진 것을 처리 전으로) — 기존 되살리기 길(status·decided_at만 바꿈).
-          tail: autoDone(c) ? `<button type="button" class="row-act" data-forget-reopen="${esc(c.id)}"${isBusy ? ' disabled' : ''}>되돌리기</button>` : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"${star ? ' data-forget-star' : ''}`, below: open ? linkingHtml(c) : ''})});
+          tail: autoDone(c) ? `<button type="button" class="row-act" data-forget-reopen="${esc(c.id)}"${isBusy ? ' disabled' : ''}>되돌리기</button>` : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"${star ? ' data-nbx-star' : ''}`, below: open ? linkingHtml(c) : ''})});
       }
     }
     if (view === 'open' && fOn && (src === 'all' || src === 'family')) {
@@ -182,8 +182,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }
     if (bundle.length) {
       const rowsIn = newestFirst(bundle), shut = !openBundles.has('yesterday');
-      out.push({at: rowsIn[0].at, html: `<li class="forget-bundle" data-forget-bundle="yesterday"><details${shut ? '' : ' open'}><summary class="forget-bundle-head">`
-        + `어제 들어온 요청 ${bundle.length}개<span class="nbx-faint">&nbsp;· 두면 내일 이미 함</span></summary><ul class="forget-bundle-rows">${rowsIn.map(x => x.html).join('')}</ul></details></li>`});
+      out.push({at: rowsIn[0].at, html: groupHtml({key: 'yesterday', label: `어제 들어온 요청 ${bundle.length}개`, faint: '· 두면 내일 이미 함', rows: rowsIn.map(x => x.html), open: !shut})});
     }
     const sorted = [...newestFirst(stars), ...newestFirst(out)];
     // 상대 약속: 처리 전일 때만, 맨 아래(시각 없음). 세지 않는다(상대가 할 일).
@@ -555,7 +554,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }});
   }
   // 묶음을 펼친 채로 다시 그리기(줄을 처리해도 접히지 않게). 이 화면 동안만 기억한다(저장하지 않음).
-  host.addEventListener('toggle', e => { const b = e.target?.closest?.('[data-forget-bundle]'); if (!b) return; if (e.target.open) openBundles.add(b.dataset.forgetBundle); else openBundles.delete(b.dataset.forgetBundle); }, true);
+  host.addEventListener('toggle', e => { const b = e.target?.closest?.('[data-nbx-group]'); if (!b) return; if (e.target.open) openBundles.add(b.dataset.nbxGroup); else openBundles.delete(b.dataset.nbxGroup); }, true);
   // FORGET-이미한일빼기·기본이미함: 서버가 '답장함'·'지남'으로 저절로 뺀 줄을 처리 전으로 돌린다. 서버는 한 번 옮긴 줄을 다시 옮기지 않는다(auto_done이 남음).
   async function reopenAuto(c) {
     busy.add(c.id); paint();

@@ -614,12 +614,12 @@ for(const width of [390,1280])test(`${width}: 어제 업무 제안은 한 줄 �
   // ★ 둘이 맨 위(★ 사이는 새 것이 위), 줄 글자는 그대로(★는 글자 앞 그림).
   await expect(rows.nth(0)).toHaveAttribute('data-nbx-row',`c:${cid(4)}`);
   await expect(rows.nth(1)).toHaveAttribute('data-nbx-row',`c:${cid(6)}`);
-  await expect(rows.nth(0)).toHaveAttribute('data-forget-star','');
+  await expect(rows.nth(0)).toHaveAttribute('data-nbx-star','');
   await expect(rows.nth(0).locator('.nbx-body')).toHaveText('가짜 마감 요청');
   await expect(line(page,`c:${cid(1)}`)).toBeVisible();
-  await expect(line(page,`c:${cid(1)}`)).not.toHaveAttribute('data-forget-star','');
+  await expect(line(page,`c:${cid(1)}`)).not.toHaveAttribute('data-nbx-star','');
   // 어제 줄 둘은 접힌 한 줄 묶음 — 펼치면 같은 줄·같은 버튼.
-  const bundle=list(page).locator('[data-forget-bundle="yesterday"]');
+  const bundle=list(page).locator('[data-nbx-group="yesterday"]');
   await expect(bundle.locator('summary')).toContainText('어제 들어온 요청 2개');
   await expect(line(page,`c:${cid(2)}`)).toBeHidden();
   await bundle.locator('summary').click();

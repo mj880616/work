@@ -138,15 +138,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .forget-head:not([hidden]) { justify-content:flex-end; }
 #forgetViewMenu .forget-view-sep { margin:4px 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
 #forgetViewMenu button[aria-checked="true"] { color:var(--ds-select-ink); font-weight:var(--ds-weight-medium); }
-/* FORGET-기본이미함(S70-20b): ★(마감·직접 부름) 표시는 글자 크기 그대로 흐린 강조색, 어제 묶음은 한 줄(펼치면 같은 줄 모양 그대로). */
-/* ★는 줄 글자에 섞지 않고(복사·찾기·할 일 제목 그대로) 앞에만 그린다. 읽기 프로그램에는 '중요'. */
-.nbx-item[data-forget-star] > .nbx-body::before { content:"★ " / "중요 "; color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium,500); }
-.forget-bundle { list-style:none; }
-.forget-bundle > details > summary { display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); padding:0 4px; color:var(--kptu-text,inherit); font-size:var(--ds-text-meta,12px); cursor:pointer; }
-.forget-bundle > details > summary::-webkit-details-marker { display:none; }
-.forget-bundle > details > summary::before { content:"›" / ""; display:inline-block; width:1em; color:var(--kptu-muted); transition:transform .15s; }
-.forget-bundle > details[open] > summary::before { transform:rotate(90deg); }
-.forget-bundle-rows { margin:0; padding:0; list-style:none; }
 /* UI-점검1030손질 C5: [다시 찾기]는 거르기 칩(처리 전·보냄·무시)이 아니라 동작이므로 칩 모양이 아니라 홈·업무일지 '챙길 것'의 [다시 찾기]와 같은 글자 버튼(todo-radar.css .radar-find). 누르는 범위 44px은 아래 ::after. */
 #appView #basketView .inbox-find { position:relative; flex:none; height:var(--ds-compact-height-sm,28px); min-height:0; margin:0; padding:0 2px; border:0; border-radius:0; background:transparent; background-image:none; box-shadow:none; color:var(--kptu-primary-ink); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; cursor:pointer; }
 #appView #basketView .inbox-find:disabled { color:var(--kptu-muted); cursor:default; }
