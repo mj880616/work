@@ -79,7 +79,7 @@ test('todo tg auto done: plan, dry-run, apply, server-only functions, open-only 
    const code=migration.replace(/--.*$/gm,'');
    const grants=[...code.matchAll(/^grant [^;]*;/gim)].map(m=>m[0]);
    assert.equal(grants.length,3);for(const g of grants)assert.match(g,/^grant execute on function public\.app_todo_[a-z_]+\([^)]*\) to service_role;$/);
-   assert.doesNotMatch(code,/create table|create policy|alter policy|drop policy|create trigger|create or replace|rtw_|app_family_notes|\bto (anon|public|authenticated)\b/i);
+   assert.doesNotMatch(code,/create table|create policy|alter policy|drop policy|create trigger|create or replace|rtw_|family_notes|\bto (anon|public|authenticated)\b/i);
   });
   await t.test('precheck, dry-run changes nothing, apply passes postcheck, second apply refused',async()=>{
    const v=values(beforeCheck);

@@ -67,7 +67,7 @@
 //   거절해 업무 소식 표에 들어가지 않게 한다(앱 스크립트가 먼저 빼는 것이 첫째 장치, 이것은 둘째 장치).
 //   할 일·일정·원장·업무일지를 만들지 않는다. 화면에서 명진이 눌러야만 생긴다(4단계).
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·주소·오류 원문은 넣지 않는다.
-import { askReplied, AUTO_DONE_REPLIED, type ReplyMsg } from "./ask-replied.ts";
+import { askReplied, AUTO_DONE_REPLIED, type ReplyMsg } from "./replied.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "../_shared/news-url.ts";
 import { makeFeedReader } from "../_shared/feed-fetch.ts";
@@ -895,7 +895,7 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   if (orgDropped) deps.log("telegram_org_unevidenced", { count: orgDropped });
   let kept = 0, groupAsksSkipped = 0;
   const asks: AskRow[] = [];
-  // FORGET-이미한일빼기: 내가 보낸 메시지인지는 이름표의 '나'(self)로만 본다. 1:1 방이면 요청 뒤 6시간 안 내 메시지도 답으로 본다(ask-replied.ts).
+  // FORGET-이미한일빼기: 내가 보낸 메시지인지는 이름표의 '나'(self)로만 본다. 1:1 방이면 요청 뒤 6시간 안 내 메시지도 답으로 본다(replied.ts).
   const replyMsgs: ReplyMsg[] = input.messages.map((m) => ({ ref: m.ref, at: m.at, self: self.has(m.sender), reply_to: m.reply_to, forwarded: m.forwarded }));
   const personal = input.chat_kind === "user";
   // 단체방 전체에게 한 부탁(to=all)은 기본으로 뺀다. 개인 대화방이거나 사용자가 설정한 예외 방이면 남긴다(TODO-내일만 결정 4).

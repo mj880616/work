@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 
 // FORGET-이미한일빼기(S70-20, 명진 11/25 "텔레그램에서 내가 답변을 했다거나 하면 제안 없애든지").
 // 텔레그램 '나한테 온 요청' 뒤 내가 답장(reply_to)했거나, 1:1 방에서 6시간 안에 내 메시지를 보냈으면 '이미 함(저절로, 답장함)'.
-// 판정 규칙(ask-replied.ts) 단위 시험 + 지어낸 Supabase·OpenAI로 실제 handler를 돌린다. 네트워크 없음. 이름·글은 지어낸 것이다.
-const {askReplied,ASK_REPLY_WINDOW_MS,REPLY_LOOKBACK_MS,AUTO_DONE_REPLIED}=await import('../../supabase/functions/collector-feed/ask-replied.ts');
+// 판정 규칙(replied.ts) 단위 시험 + 지어낸 Supabase·OpenAI로 실제 handler를 돌린다. 네트워크 없음. 이름·글은 지어낸 것이다.
+const {askReplied,ASK_REPLY_WINDOW_MS,REPLY_LOOKBACK_MS,AUTO_DONE_REPLIED}=await import('../../supabase/functions/collector-feed/replied.ts');
 const {createCollectorFeedHandler,ASK_CANDIDATE_FN,ASK_CANDIDATE_AT_FN,OPEN_ASKS_FN,AUTO_DONE_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
 
 const T0=Date.parse('2026-10-24T00:10:00Z'),H=3600_000;

@@ -25,7 +25,7 @@ import {offerUndoNotice} from './basket-record-delete.js';
 import {seoulDateKey} from './meeting-time.js';
 import {dueLabel} from './task-due.mjs';
 import {readInboxCandidates, dismissCandidate, reopenCandidate, markDone, markTasked, markNotMine, undoNotMine, candidateToTask, validateTaskDraft,
-  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText} from './todo-radar-data.js';
+  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText, autoReplied} from './todo-radar-data.js';
 import {similarTasks} from './todo-link-model.mjs';
 import {FIRM_LABEL, draftOf, metaLine, noteLine} from './family-notes-model.mjs';
 import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.js';
@@ -70,7 +70,8 @@ export function candidateDone(c) {
   const day = decidedDay(c), at = t => day ? `${t} · ${day}` : t;
   if (c.outcome === 'already_tasked' && (c.status === 'tasked' || c.status === 'dismissed')) return at('이미 할 일에 있음');
   if (c.status === 'dismissed') return at(c.outcome === 'not_mine' ? '내 일 아님' : '무시함');
-  if (c.status === 'done') return at('이미 함');
+  // FORGET-이미한일빼기: 텔레그램에서 내가 이미 답해 서버가 저절로 옮긴 줄은 까닭 꼬리표 '답장함'(이미 함 보기에서만 보임).
+  if (c.status === 'done') return at(autoReplied(c) ? '이미 함 · 답장함' : '이미 함');
   const due = c.task_due ? dotDay(c.task_due) : '';
   return due ? `할 일로 보냄 · ${due}` : '할 일로 보냄';
 }
@@ -151,7 +152,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         out.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
           // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
           open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${plainText(c.summary)} — 출처 열기: ${sourceText(c)}`)}"`},
-          done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"`, below: open ? linkingHtml(c) : ''})});
+          done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '',
+          // 저절로 옮긴 줄만 [되돌리기](잘못 빠진 것을 처리 전으로) — 기존 되살리기 길(status·decided_at만 바꿈).
+          tail: autoReplied(c) ? `<button type="button" class="row-act" data-forget-reopen="${esc(c.id)}"${isBusy ? ' disabled' : ''}>되돌리기</button>` : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"`, below: open ? linkingHtml(c) : ''})});
       }
     }
     if (view === 'open' && fOn && (src === 'all' || src === 'family')) {
@@ -540,6 +543,15 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       return {status: 'done', message: '다시 보이게 했어요.'};
     }});
   }
+  // FORGET-이미한일빼기: 서버가 '답장함'으로 저절로 뺀 줄을 처리 전으로 돌린다. 서버는 한 번 옮긴 줄을 다시 옮기지 않는다(auto_done이 남음).
+  async function reopenAuto(c) {
+    busy.add(c.id); paint();
+    let ok = false;
+    try { ok = await reopenCandidate(c.id, rt, 'done'); } catch { ok = false; }
+    busy.delete(c.id);
+    if (!ok) { say('되돌리지 못했어요. 다시 눌러 주세요.'); return; }
+    c.status = 'open'; c.decided_at = null; say('처리 전으로 돌렸어요.'); changed();
+  }
   // 이어 둘 할 일이 없을 때: 새 할 일 없이 목록에서만 뺀다(결과 기록은 같은 'already_tasked').
   async function dropAlready(c) {
     linking.delete(c.id);
@@ -644,6 +656,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (b.dataset.forgetNewsOpen) { const r = newsById(b.dataset.forgetNewsOpen); if (r) void openNewsSource(r, rt).then(ok => { if (!ok) say('원본을 열지 못했어요.'); }, () => say('원본을 열지 못했어요. 다시 시도해 주세요.')); return; }
     const d = b.dataset;
     if (d.forgetSource) { const c = byId(d.forgetSource); if (c) openSource(c); return; }
+    if (d.forgetReopen) { const c = byId(d.forgetReopen); if (c && autoReplied(c) && !busy.has(c.id)) void reopenAuto(c); return; }
     if (d.forgetLinkTask) { const c = byId(d.forgetLinkFor), t = c && linking.get(c.id)?.tasks?.find(x => x.id === d.forgetLinkTask); if (c && t && !busy.has(c.id)) void linkTask(c, t); return; }
     if (d.forgetLinkNone) { const c = byId(d.forgetLinkNone); if (c && c.status === 'open' && !busy.has(c.id)) void dropAlready(c); return; }
     if (d.forgetLinkRetry) { const c = byId(d.forgetLinkRetry); if (c && linking.has(c.id)) void startLinking(c); return; }

@@ -1,7 +1,7 @@
 begin;
 -- S70-20 FORGET-이미한일빼기(명진 11/25 "텔레그램에서 내가 답변을 했다거나 하면 제안 없애든지").
 -- 텔레그램 '나한테 온 요청' 후보 중, 요청 뒤 내가(작업공간 주인) 이미 답한 것을 서버가 '이미 함(저절로, 답장함)'으로 옮길 수 있게 한다.
--- 답했는지 판정은 collector-feed(supabase/functions/collector-feed/ask-replied.ts) 한 곳에서 하고, DB는 아래만 한다.
+-- 답했는지 판정은 collector-feed(supabase/functions/collector-feed/replied.ts) 한 곳에서 하고, DB는 아래만 한다.
 --   1) public.app_todo_candidates에 칸 넷: ask_at(요청 메시지 시각), ask_ref(요청 메시지 번호), auto_done('replied'만), auto_done_at.
 --      글 칸이 아니다(시각·번호·고정 낱말). authenticated는 표 단위 select로 읽기만 하고, 새 칸 쓰기 권한은 주지 않는다(update 칸 권한 그대로).
 --      되돌리기([되돌리기])는 기존 길(status·decided_at만 바꿈)이고 auto_done은 남아 같은 줄을 다시 저절로 옮기지 않는다(아래 3).
@@ -13,7 +13,7 @@ begin;
 --   4) public.app_todo_tg_auto_done(p_workspace, p_ids uuid[]): 그 작업공간의 처리 전·텔레그램·아직 저절로 옮긴 적 없는 줄만 done으로(최대 50개).
 -- 세 함수 모두 SECURITY DEFINER, 빈 search_path, 실행권은 service_role만(PUBLIC·anon·authenticated 회수). 운영자 기능 판정은 기존 트리거
 -- trg_op_feature_guard(텔레그램 줄 insert·update, 20261102030000)가 그대로 본다.
--- 안 하는 것: 표 grant·정책 변경, 기존 함수 변경·삭제, 기존 줄 변경, 가족 표(app_family_notes) 변경, rtw_* 객체.
+-- 안 하는 것: 표 grant·정책 변경, 기존 함수 변경·삭제, 기존 줄 변경, 가족 잊지 말기 표 변경, rtw_* 객체.
 -- 짝: docs/20261125120000_todo_tg_auto_done.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
