@@ -1,16 +1,16 @@
 import {waitHtml, emptyHtml} from './wait-state.js';
 // ORG-주요인물 화면: 담당조직 상세 맨 아래 작은 탭 [주요 인물][기본 정보][소속][이전 요약] 중 [주요 인물] 칸의 유일한 renderer.
-// 칩 줄([모두][이름…][+ 인물]) → '요즘' 한 문장(조직 단위, 하루 한 번) → 열린 것(약속·챙길 것) → 지난 기록(통화·텔레그램·회의).
+// 칩 줄([모두][이름…][+ 인물]) → '요즘' 한 문장(조직 단위, 하루 한 번) → 열린 것(챙길 것) → 지난 기록(통화·텔레그램·회의).
 // - 지정·찾을 이름(창에서는 이름만 받고, 저장된 찾을 이름은 보존)은 서버 표 app_org_key_people(20261029014700). 표가 없으면(적용 전) 조용히 '준비 중' 한 줄.
 // - 기록은 기존 읽기 경로를 그대로 쓴다: feed-data.js(통화·개인 통화함·통화 고침·텔레그램), tg-sender-data.js(보낸 사람 이름표),
-//   todo-radar-data.js(챙길 것), ledger-browse-model.mjs(약속), 사업 보고(app_meetings 제목·내용). 고르는 규칙은 org-key-people-model.mjs.
-// - 줄을 누르면 그 기록으로: 통화 KPTUCallFeed.show, 텔레그램 KPTUTelegramFeed.show, 회의 openReport, 약속 KPTULedgerBrowse.show, 챙길 것 정리함.
+//   todo-radar-data.js(챙길 것), 사업 보고(app_meetings 제목·내용). 고르는 규칙은 org-key-people-model.mjs.
+// - 줄을 누르면 그 기록으로: 통화 KPTUCallFeed.show, 텔레그램 KPTUTelegramFeed.show, 회의 openReport, 챙길 것 정리함.
+//   LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 약속 줄은 지웠다(원장은 사용자 화면에 없는 AI용 뒤쪽 자료).
 // - 칩 빼기·고치기: 칩 꾹 누르기(폰) 또는 우클릭(PC) → 칩 줄 아래 작은 메뉴.
 import {readFeed, readPersonal, readCallEdits, readFeedRooms, workspaceOf, scopeOf, LIST_DAYS} from './feed-data.js';
 import {applyCallEdit, missingTable, kstDay, addDays} from './feed-model.mjs';
 import {readSenders} from './tg-sender-data.js';
 import {readOpenCandidates} from './todo-radar-data.js';
-import {waitingCommitmentsPath} from './ledger-browse-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 import {openReport} from './report-open.js';
 import {askConfirm, notify} from './small-notice.js';
@@ -41,7 +41,7 @@ async function readBrief(rt, orgId) {
     return Array.isArray(rows) && rows[0]?.organization_id === orgId ? rows[0] : null;
   } catch { return null; }
 }
-// 통화·텔레그램·회의·챙길 것·약속을 한 번에(몇 분 동안 다시 쓰고, 하나가 실패해도 나머지는 보인다).
+// 통화·텔레그램·회의·챙길 것을 한 번에(몇 분 동안 다시 쓰고, 하나가 실패해도 나머지는 보인다).
 function readPool(rt) {
   let scope = '';
   try { scope = scopeOf(rt); } catch { return Promise.resolve(null); }
@@ -49,13 +49,13 @@ function readPool(rt) {
   const settle = p => p.then(v => v, () => null);
   const promise = (async () => {
     const ws = workspaceOf(rt);
-    const [calls, personal, edits, telegram, senders, rooms, meetings, todos, promises] = await Promise.all([
+    const [calls, personal, edits, telegram, senders, rooms, meetings, todos] = await Promise.all([
       settle(readFeed('call', rt)), settle(readPersonal(rt)), settle(readCallEdits(rt)), settle(readFeed('telegram', rt)), settle(readSenders(rt)), settle(readFeedRooms(rt)),
       settle(rt.api(`/rest/v1/app_meetings?workspace_id=eq.${enc(ws)}&deleted_at=is.null&select=id,title,series_name,round_no,meeting_at,notes,activity_kind&order=meeting_at.desc.nullslast&limit=300`, {singleFlight:false})),
-      settle(readOpenCandidates(rt)), settle(rt.api(waitingCommitmentsPath(ws), {singleFlight:false}))]);
+      settle(readOpenCandidates(rt))]);
     const edited = rows => (rows || []).map(r => edits?.get?.(r.id) ? applyCallEdit(r, edits.get(r.id)) : r);
     return {calls:edited(calls), personal:personal || [], telegram:telegram || [], senders, rooms:rooms?.rooms || null, meetings:Array.isArray(meetings) ? meetings : [],
-      todos:todos?.ok ? todos.rows : [], promises:Array.isArray(promises) ? promises : [],
+      todos:todos?.ok ? todos.rows : [],
       partial:[calls, personal, telegram, meetings].some(x => x === null) || !todos?.ok};
   })();
   pool = {scope, at:Date.now(), promise};
@@ -85,7 +85,7 @@ async function load(run) {
   if (ui.status !== 'ready' || !ui.people.length) return;
   const data = await readPool(rt).catch(() => null);
   if (!ui || ui.run !== run) return;
-  ui.data = data || {calls:[], personal:[], telegram:[], senders:null, meetings:[], todos:[], promises:[], partial:true};
+  ui.data = data || {calls:[], personal:[], telegram:[], senders:null, meetings:[], todos:[], partial:true};
   ui.loaded = true;
   paint();
   restorePlace();
@@ -138,7 +138,7 @@ function paint() {
   html += briefHtml();
   const data = ui.data, today = kstDay();
   if (!data) { host.innerHTML = html + '<p class="okp-faint" role="status">기록을 모으는 중…</p>'; return; }
-  const open = onlyPerson(collectOpen({people, todos:data.todos, promises:data.promises}), ui.pick);
+  const open = onlyPerson(collectOpen({people, todos:data.todos}), ui.pick);
   // SEC-기능PIN잠금(S67-14): 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 지난 기록 줄은 그리지 않고 '잠김' 한 줄만(몇 줄인지만).
   const lockOf = feature => !!window.KPTUFeatureLock?.hides?.(feature) && !!window.KPTUFeatureLock?.settings?.();
   const locked = {call: lockOf('calls'), personal: lockOf('calls'), telegram: lockOf('telegram')};
@@ -147,7 +147,7 @@ function paint() {
   const many = people.length > 1 && !ui.pick;
   html += `<h4 class="okp-h">열린 것<small>${open.length || ''}</small></h4>`;
   html += open.length ? `<ul class="okp-list">${open.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}<span class="okp-due${dday(r.due, today).startsWith('D+') ? ' late' : ''}">${esc(dday(r.due, today))}</span></button></li>${failHtml(r.key)}`).join('')}</ul>`
-    : emptyHtml('약속·잊지 말기 없음');
+    : emptyHtml('잊지 말기 없음');
   html += `<h4 class="okp-h">지난 기록<small>${recs.length || ''}</small></h4>`;
   html += recs.length ? `<ul class="okp-list">${recs.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-day">${esc(shortDay(r.day, today))}</span><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}</button></li>${failHtml(r.key)}`).join('')}</ul>`
     : hiddenRecs ? '' : emptyHtml('최근 120일 기록 없음');
@@ -269,7 +269,6 @@ async function openRecord(r) {
     // FORGET-원문열기·뒤로가기: 통화·텔레그램은 원문 열기 한 곳(source-open.js) — 뒤로가기 한 번이면 이 조직 상세 그 자리(back).
     if (o.view === 'calls') opened = await openCallSource(o.id, {back});
     else if (o.view === 'telegram') opened = await openTelegramSource(o.room, o.day, o.item, {back});
-    else if (o.view === 'ledger') { window.KPTULedgerBrowse?.show?.({kinds:['commitment'], openId:o.id}); opened = await router.openFrom('ledger', null, {back}); }
     else if (o.view === 'basket') opened = await router.openFrom('basket', null, {sub:'todo', back});
   } catch (e) { opened = false; console.warn('key people open failed', e?.name || 'Error'); }
   if (opened !== false) return;

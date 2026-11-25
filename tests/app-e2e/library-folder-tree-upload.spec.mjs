@@ -57,12 +57,12 @@ test.describe('PC 1440 폴더째 올리기',()=>{
     expect(errors).toEqual([]);
   });
 
-  test('중간에 하나가 실패하면 [다시 올리기]가 못 올린 파일만 같은 폴더로 다시 올린다',async({page})=>{
+  test('중간에 하나가 실패하면 [다시 업로드]가 못 올린 파일만 같은 폴더로 다시 올린다',async({page})=>{
     const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,group:'폴더',init:{uploadFailures:[null,{status:500,body:{message:'boom'}}]}});
     await dropTree(page,head('f:fw'),TREE);
     await expect(page.locator(`${dock} .up-dock-text`)).toHaveText('회의록에 4개 올렸어요 · 1개 못 올렸어요 · 폴더 3개 만들었어요');
     expect(s.uploads.length).toBe(4);
-    await page.locator(`${dock} button`,{hasText:'다시 올리기'}).click();
+    await page.locator(`${dock} button`,{hasText:'다시 업로드'}).click();
     await expect(page.locator(`${dock} .up-dock-text`)).toHaveText('회의록에 1개 올렸어요');
     const top=named(s,'회의록','fw'),h=named(s,'상반기',named(s,'2026',top.id).id);
     expect(folderOf(s,'upload-5')).toBe(h.id); // 실패한 b.pdf는 상반기 폴더로
@@ -70,7 +70,7 @@ test.describe('PC 1440 폴더째 올리기',()=>{
     expect(errors).toEqual([]);
   });
 
-  test('⋯ [폴더 올리기]로 고른 폴더도 들어가 있는 폴더 안에 같은 구조로',async({page})=>{
+  test('⋯ [폴더 업로드]로 고른 폴더도 들어가 있는 폴더 안에 같은 구조로',async({page})=>{
     const root=mkdtempSync(join(tmpdir(),'lu-folder-')),base=join(root,'pack'); // Playwright는 한글 폴더 이름을 넣지 못해(멈춤) 영문 이름으로 고른다
     mkdirSync(join(base,'inner'),{recursive:true});writeFileSync(join(base,'a.pdf'),'PK a');writeFileSync(join(base,'inner','b.pdf'),'PK b');writeFileSync(join(base,'Thumbs.db'),'x');
     const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,group:'폴더'});

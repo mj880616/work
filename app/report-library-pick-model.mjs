@@ -8,7 +8,7 @@ import { word } from './brand/brand.mjs';
 export const PICK_RECENT = 50, PICK_FOUND = 100;
 export const PICK_SECTIONS = Object.freeze({ all: '최근 자료', found: '찾은 자료' });
 export const PICK_LABEL = '자료실에서 선택';
-export const DEVICE_LABEL = '기기에서 올리기';
+export const DEVICE_LABEL = '기기에서 업로드';
 export const PICKED_NOTE = '저장하면 붙어요';
 export const HERE_TAG = '이미 있음';
 export const OTHER_TAG = '다른 보고에 있음';

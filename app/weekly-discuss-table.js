@@ -14,6 +14,7 @@ import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리:
 import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 칸 폭 끌기 손잡이
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
 import {word} from './brand/brand.mjs';
+import {putUploadLabel} from './upload-label.mjs';
 
 // ⑤-3b: 절 이름은 '내 양식' 제목(model.titles.discuss, weekly-screen-titles.mjs) — 코드에 박지 않는다.
 const named = (title, rest) => `${title ? `${title} ` : ''}${rest}`;
@@ -147,7 +148,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
       if (busy || ui.fileBusy) out.disabled = true;
       docLine.append(name, out);
     } else {
-      const pick = btn(ui.fileBusy ? '올리는 중…' : '한글 파일 올리기', 'journalDiscussFilePick'); pick.setAttribute('aria-label', '한글 파일 올리기(.hwp·.hwpx, 여기에 끌어 놓아도 돼요)');
+      const pick = btn(ui.fileBusy ? '올리는 중…' : '한글 파일 업로드', 'journalDiscussFilePick'); pick.setAttribute('aria-label', '한글 파일 업로드(.hwp·.hwpx, 여기에 끌어 놓아도 돼요)'); if (!ui.fileBusy) putUploadLabel(pick, '한글 파일 업로드');
       if (busy || ui.fileBusy) pick.disabled = true;
       const input = el('input'); input.type = 'file'; input.accept = DOC_ACCEPT; input.hidden = true; input.dataset.journalDiscussFileInput = ''; input.tabIndex = -1;
       docLine.append(pick, input, el('span', 'journal-muted journal-discuss-dochint', '끌어 놓아도 돼요'));

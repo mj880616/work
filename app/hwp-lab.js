@@ -21,6 +21,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {askConfirm,askText} from './small-notice.js';
 import {openTimingText} from './hwp-open-timing.mjs';
 import {word} from './brand/brand.mjs';
+import {uploadLabelHtml} from './upload-label.mjs';
 (()=>{
 'use strict';
 if(window.__KPTU_HWP_LAB_READY__)return;
@@ -114,7 +115,7 @@ function mountBarMenu(card){
     render:key=>(MENU_ITEMS[key]?.()||[]).map(id=>{
       const source=$(id);
       if(!source||source.hidden)return '';
-      return `<button type="button" data-hwp-act="${id}"${source.disabled?' disabled':''}>${escapeText(source.textContent.trim())}</button>`;
+      return `<button type="button" data-hwp-act="${id}"${source.disabled?' disabled':''}>${source.classList.contains('up-clip-btn')?uploadLabelHtml(source.textContent.trim()):escapeText(source.textContent.trim())}</button>`; // UI-업로드말: 업로드 단추는 클립 그대로
     }).join(''),
     onAction:button=>{const source=$(button.dataset.hwpAct);if(source&&!source.disabled&&!source.hidden)source.click()}});
   for(const trigger of card.querySelectorAll('[data-hwp-menu]')){
@@ -234,7 +235,7 @@ async function open(file){
     current={name:file.name,format,savedSeq:seq,latestSeq:seq};
     watchEdits();
     const note=format==='hwpx'?' 저장은 HWP로 합니다.':'';
-    status(`${file.name} · ${result?.pageCount??'?'}쪽을 열었습니다.${note} 수정한 뒤 [내 기기에 저장] 또는 [자료실에 올리기]를 누르세요.`,'ok');
+    status(`${file.name} · ${result?.pageCount??'?'}쪽을 열었습니다.${note} 수정한 뒤 [내 기기에 저장] 또는 [자료실에 업로드]를 누르세요.`,'ok');
   }catch(err){
     console.error('hwp-lab open',err);
     status('파일을 열지 못했어요. 다른 파일로 시도해 주세요.','error');

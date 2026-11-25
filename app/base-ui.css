@@ -537,3 +537,5 @@ textarea[data-autogrow][data-enter-field]{line-height:1.4}
   :where(html, body, *){scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--kptu-muted) 28%,transparent) transparent}
   :where(*):hover{scrollbar-color:color-mix(in srgb,var(--kptu-muted) 55%,transparent) transparent}
 }
+/* S70-12 UI-확인창끌기: 떠 있는 작은 창(anchored-popup.js dragByTitle)을 끄는 동안만 화면 전체 글자 고르기를 막고 손 모양 커서. 놓으면 원래대로(우선순위 덧붙임 없이 — 글자 고르기는 dragByTitle이 selectstart로도 막는다). */
+html.anchored-drag-active,html.anchored-drag-active *{user-select:none;-webkit-user-select:none;cursor:grabbing}
