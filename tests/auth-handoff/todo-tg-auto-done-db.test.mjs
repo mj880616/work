@@ -95,6 +95,8 @@ test('todo tg auto done: plan, dry-run, apply, server-only functions, open-only 
    assert.equal((await run('apply','9993')).ok,false);
   });
   await t.test('insert: replied → done with same times; not replied → open; dedupe; bad args refused; roles denied',async()=>{
+   // 다른 작업공간 소식(대조용)을 넣는 동안만 그 작업공간에 텔레그램 기능을 준다(소식 표 트리거가 막으므로). 아래에서 다시 뺀다.
+   await pool.query("insert into public.app_operator_features(workspace_id,feature) values($1,'telegram') on conflict do nothing",[WS_B]);
    await feed(F(1),WS_A,'tg:fake:1','-100');await feed(F(2),WS_A,'tg:fake:2','-100');await feed(F(3),WS_A,'tg:fake:3','-200');await feed(F(4),WS_B,'tg:fake:4','-100');
    assert.equal((await server(c=>c.query(add,[WS_A,'tg:fake:1',new Date(Date.now()-3600_000).toISOString(),'1001','replied']))).rows[0].r,'added');
    assert.equal((await server(c=>c.query(add,[WS_A,'tg:fake:2',new Date(Date.now()-3600_000).toISOString(),'1002',null]))).rows[0].r,'added');
