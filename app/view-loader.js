@@ -29,9 +29,9 @@ const routeStyles={
   basket:['./basket.css','./month-cal.css','./news-mark-rows.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./area-org-picker.css','./filter-chips.css','./od-link.css','./marquee-select.css','./folder-dest-sheet.css','./memo-thread.css','./ui-standard.css'],
   home:['./journal.css','./weekly-org-lines.css','./biz-summary.css','./home-quick.css','./library-upload.css','./row-swipe.css','./od-link.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./area-org-picker.css','./folder-look.css','./todo-radar.css','./folder-tree.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./area-org-picker.css','./od-link.css','./calendar-ui.css','./basket-picker.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./ui-standard.css'],
-  tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./area-org-picker.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./choice-sheet.css','./folder-tree.css','./ui-standard.css'],
+  tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./area-org-picker.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./choice-sheet.css','./folder-tree.css','./od-link.css','./ui-standard.css'],
   diary:['./diary.css','./od-link.css','./ed-doc.css','./folder-look.css','./basket-picker.css','./folder-tree.css','./ui-standard.css'],
-  projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./basket-picker.css','./choice-sheet.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./ui-standard.css'],
+  projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./basket-picker.css','./choice-sheet.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./od-link.css','./ui-standard.css'],
   library:['./filter-chips.css','./choice-sheet.css','./library-upload.css','./folder-tree.css','./compact-list.css','./markdown-view.css','./folder-look.css','./list-edit.css','./area-org-picker.css','./row-swipe.css','./marquee-select.css','./od-link.css','./folder-dest-sheet.css','./record-sheet.css','./ui-standard.css'],
   meetings:['./first-use.css','./filter-chips.css','./weekly-org-lines.css','./biz-summary.css','./choice-sheet.css','./od-link.css','./month-cal.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./todo-radar.css','./basket-picker.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./memo-thread.css','./ui-standard.css'],
   team:['./first-use.css','./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./list-edit.css','./ui-standard.css'],
@@ -54,7 +54,7 @@ const routeStyles={
   lock:['./lock.css','./ui-standard.css'],
   brief:['./feed.css','./news-mark-rows.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./od-link.css','./ui-standard.css'],
   // S68-09 READ-읽을거리함: 읽을 거리 목록·글 보기(줄 메뉴는 feed.css 공용 작은 메뉴).
-  reading:['./feed.css','./choice-sheet.css','./area-org-picker.css','./filter-chips.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./reading.css','./memo-thread.css','./ui-standard.css'],
+  reading:['./feed.css','./choice-sheet.css','./area-org-picker.css','./filter-chips.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./reading.css','./memo-thread.css','./od-link.css','./ui-standard.css'],
   // HELP-메뉴안쓰는법: 쓰는 법 화면. 앱 내려받기 탭·단계는 빈 화면 안내와 같은 모양(first-use.css).
   help:['./help.css','./first-use.css','./ui-standard.css']
 };

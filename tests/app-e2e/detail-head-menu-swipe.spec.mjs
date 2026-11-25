@@ -169,12 +169,13 @@ test('[3] 폰 업데이트 줄(Raindrop식): 왼쪽으로 끝까지 밀어도 �
 
 test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 줄을 눌러 더 고르고 한 번에 [보류로]', async ({ page }) => {
   const f = await updates(page, 412);
+  // S70-64: 오른쪽으로 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 바로 그 줄이 골라진다.
   await swipe(page.locator(`[data-basket-row="${A}"]`), 50);
-  await expect(page.locator('#basketRows [data-row-swipe-act="start"]')).toHaveText('선택');
-  await page.locator('#basketRows [data-row-swipe-key="select"]').tap();
+  await expect(page.locator('#basketRows [data-row-swipe-act="start"]')).toHaveCount(0);
   const bar = page.locator('#basketView .row-swipe-pickbar');
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
-  await expect(bar.locator('button')).toHaveText(['보류로', '삭제', '모두 선택', '그만']);
+  await expect(bar.locator('[data-row-pick-all]')).toHaveAttribute('aria-checked', 'false');
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['보류로', '삭제']);
   await page.locator(`[data-basket-row="${B}"]`).tap();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(page.locator('[data-basket-detail]')).toBeHidden(); // 고르는 동안 줄을 눌러도 열리지 않는다

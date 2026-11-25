@@ -1515,3 +1515,142 @@ for (const [name, open] of CONFIRM_DRAG_SCREENS) test(`D7 ${name} PC 1280: 확�
   expect(s.writes()).toBe(0);
   expect(s.errors).toEqual([]);
 });
+
+// ---------- W1 오른쪽 밀기 = 여러 개 고르기(S70-64 UI-오른쪽밀기고르기, 기준표 8절 W1) ----------
+// 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와 복수 또는 일괄 삭제
+// / 전테선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제 / 다 이런식으로 왼쪽에서 오른쪽으로 스와이프 하는 건".
+// 공용 줄 밀기(row-swipe.js)를 쓰는 목록마다 같은 검사: 오른쪽 밀기 → 그 줄 고름(칸이 열려 남지 않음) · 줄 눌러 더 고르기 ·
+// [전체 선택] 켜기(체크 표시·전체 개수)·끄기(0개 → 고르기 끝) · 뒤로가기 = 고르기만 끝(화면 그대로) · [삭제] 일괄.
+// [삭제]는 그 목록 길(되돌리기가 있으면 확인 없이 바로 + [되돌리기], 없으면 확인 한 번) — 화면마다 del()이 확인한다. 새 밀기 목록은 이 표에 한 줄 더한다.
+import { openEmphasisFixture } from './helpers/calendar-task-emphasis.mjs';
+async function swipeRight(locator, dx = 60) {
+  await expect(async () => {
+    await expect(locator).toBeVisible();
+    const sent = await locator.evaluate((el, { dx }) => {
+      if (!el.isConnected) return false;
+      const r = el.getBoundingClientRect(), x = r.left + Math.min(r.width / 3, 120), y = r.top + r.height / 2;
+      const fire = (type, cx) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 11, pointerType: 'touch', isPrimary: true, clientX: cx, clientY: y }));
+      fire('pointerdown', x); for (let i = 1; i <= 8; i++) fire('pointermove', x + dx * i / 8); fire('pointerup', x + dx);
+      return true;
+    }, { dx });
+    expect(sent).toBe(true);
+  }).toPass({ timeout: 10000 });
+}
+const swipeTick = async page => { try { await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000)); } catch { /* 시계를 멈추지 않은 화면 */ } };
+async function tasksSwipe(page) {
+  const tasks = ['a', 'b', 'c'].map(id => ({ id, title: '할 일 ' + id, taskListId: '@default', taskListTitle: '내 할 일', due: null, status: 'needsAction', notes: '' }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openEmphasisFixture(page, { view: 'list', now: Date.parse('2026-10-08T03:00:00Z'), events: [], tasks });
+  const calls = [];
+  await page.route('**/functions/v1/google-tasks**', async route => {
+    const url = new URL(route.request().url()), action = url.searchParams.get('action'), body = route.request().postDataJSON?.() || null;
+    calls.push({ action, body });
+    const ok = json => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(json) });
+    if (action === 'links') return ok({ links: [], meeting_links: [] });
+    if (action === 'delete') return ok({ ok: true });
+    return ok({ connected: true, authorized: true, needs_reconnect: false, tasks, pending_scope: 'all' });
+  });
+  await page.evaluate(() => window.KPTURouter.go('tasks'));
+  await expect(page.locator('[data-gt-count]')).toHaveText('할 일 3개');
+  const row = id => page.locator(`#gtTaskBody .gt-row[data-google-task="${id}"]`);
+  return {
+    scope: page.locator('#tasksView, #gtTaskBody').first(), rows: page.locator('#gtTaskBody .gt-row[data-google-task]'), total: 3,
+    first: row('a'), second: row('b'), tapAt: l => l.locator('.gt-title, [data-gt-edit]').first(),
+    // 되돌리기가 있는 목록: 확인 창 없이 바로 '삭제 대기' + [되돌리기], [되돌리기] 한 번이면 둘 다 그대로.
+    async del() {
+      await expect(page.locator('.kptu-ask')).toHaveCount(0);
+      await expect(page.locator('[data-gt-undo="a"]')).toBeVisible();
+      await expect(page.locator('[data-gt-undo="b"]')).toBeVisible();
+      await page.locator('[data-gt-undo="a"]').click(); await page.locator('[data-gt-undo="b"]').click();
+      await expect(row('a')).toBeVisible(); await expect(row('b')).toBeVisible();
+      expect(calls.filter(c => c.action === 'delete')).toEqual([]);
+    },
+  };
+}
+async function readingSwipe(page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openHome(page);
+  const SBU = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+  const ids = ['a6810000-0000-4000-8000-000000000011', 'a6810000-0000-4000-8000-000000000012', 'a6810000-0000-4000-8000-000000000013'];
+  const s = { rows: ids.map((id, i) => ({ id, url: `https://example.com/${i}`, title: `가짜 글 ${i + 1}`, site: 'example.com', saved_at: `2026-11-2${i + 1}T01:00:00Z`, read_at: null, body_state: 'ok', body_at: '2026-11-21T01:00:10Z', business_area_id: null, updated_at: '2026-11-21T01:00:10Z' })), deletes: [] };
+  await page.route(SBU + '/**', async route => {
+    const req = route.request(), u = new URL(req.url());
+    if (u.pathname !== '/rest/v1/app_reading_items') return route.fallback();
+    const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
+    if (req.method() === 'DELETE') { s.deletes.push(id); return route.fulfill({ status: 204 }); }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(id ? s.rows.filter(x => x.id === id) : s.rows) });
+  });
+  await page.locator('#mobileMenuTab').click();
+  await page.locator('#mobileMenu nav button:visible', { hasText: '저장한 글' }).click();
+  const list = page.locator('#readingView [data-rd-list]');
+  await list.locator('.rd-switch [data-filter-value="all"]').click();
+  await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(3);
+  const row = id => list.locator(`.rd-row[data-rd-open="${id}"]`);
+  return {
+    scope: page.locator('#readingView'), rows: list.locator('.rd-row[data-rd-open]'), total: 3,
+    first: row(ids[0]), second: row(ids[1]), tapAt: l => l,
+    // 되돌리기가 없는 목록: 확인 한 번(고른 개수), [삭제]를 누르면 고른 줄만 지운다.
+    async del() {
+      const ask = page.locator('.kptu-ask');
+      await expect(ask).toContainText('2개');
+      await ask.locator('.kptu-ask-actions .primary').click();
+      await expect.poll(() => [...s.deletes].sort()).toEqual([ids[0], ids[1]].sort());
+      await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(1);
+    },
+  };
+}
+const SWIPE_PICK_SCREENS = [['할 일', tasksSwipe], ['저장한 글', readingSwipe]];
+for (const [name, open] of SWIPE_PICK_SCREENS) test(`W1 ${name} 폰 390: 오른쪽 밀기 = 고르기, 줄 눌러 더 고르기, [전체 선택] 켜고 끄기(체크), 뒤로가기로 끝, [삭제] 일괄`, async ({ page }) => {
+  test.setTimeout(120000);
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  const s = await open(page);
+  const bar = s.scope.locator('.row-swipe-pickbar');
+  const count = bar.locator('.row-swipe-pick-count'), all = bar.locator('[data-row-pick-all]');
+  const here = () => page.evaluate(() => [location.href, window.KPTURouter?.current]);
+  const at = await here();
+  // ① 오른쪽으로 조금(반 칸 넘게) 밀고 떼면 그 줄이 골라진다 — [선택] 칸이 열린 채 남지 않는다.
+  await swipeRight(s.first, 60);
+  await expect(bar).toBeVisible();
+  await expect(count).toHaveText('1개 선택됨');
+  await expect(s.scope.locator('.row-swipe-acts')).toHaveCount(0);
+  // 막대: [✕] · 개수 · [전체 선택](꺼짐 = 빈 네모) · … · [삭제] 맨 끝.
+  await expect(bar.locator('[data-row-pick-stop]')).toHaveAttribute('aria-label', '선택 끝내기');
+  await expect(all).toHaveAttribute('aria-checked', 'false');
+  await expect(all).toHaveAttribute('data-sb-icon', 'box');
+  await expect(all).toContainText('전체 선택');
+  await expect(bar.locator('[data-row-pick-act]').last()).toHaveAttribute('data-row-pick-act', 'delete');
+  // 막대가 하단바를 가리지 않는다(P3).
+  const [barBottom, tabTop] = await Promise.all([bar.evaluate(b => b.getBoundingClientRect().bottom), page.locator('#mobileMenuTab').evaluate(t => t.getBoundingClientRect().top)]);
+  expect(barBottom).toBeLessThanOrEqual(tabTop);
+  // ② 고르기 중 줄 누르기 = 고름/풀림.
+  await s.tapAt(s.second).click();
+  await expect(count).toHaveText('2개 선택됨');
+  await s.tapAt(s.second).click();
+  await expect(count).toHaveText('1개 선택됨');
+  // ③ [전체 선택] = 체크 표시 + 화면 목록 전체, 다시 누르면 모두 풀림 → 0개라 고르기 끝.
+  await all.click();
+  await expect(all).toHaveAttribute('aria-checked', 'true');
+  await expect(all).toHaveAttribute('data-sb-icon', 'all');
+  await expect(count).toHaveText(`${s.total}개 선택됨`);
+  await all.click();
+  await expect(bar).toBeHidden();
+  // ④ 뒤로가기 = 고르기만 끝(화면·주소 그대로).
+  await swipeTick(page);
+  await swipeRight(s.first, 60);
+  await expect(count).toHaveText('1개 선택됨');
+  await page.goBack();
+  await expect(bar).toBeHidden();
+  expect(await here()).toEqual(at);
+  // 다시 고르면 처음부터.
+  await swipeTick(page);
+  await swipeRight(s.first, 60);
+  await expect(count).toHaveText('1개 선택됨');
+  // ⑤ [삭제] = 고른 것 한꺼번에(그 목록 길).
+  await s.tapAt(s.second).click();
+  await expect(count).toHaveText('2개 선택됨');
+  await bar.locator('[data-row-pick-act="delete"]').click();
+  await s.del();
+  await expect(bar).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  expect(errors).toEqual([]);
+});

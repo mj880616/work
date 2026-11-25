@@ -85,7 +85,10 @@ test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높
   const bar = page.locator('#newsRoot .row-swipe-pickbar');
   await expect(bar).toBeVisible();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
-  await expect(bar.locator('button')).toHaveText(['저장', '숨기기', '모두 선택', '그만']);
+  // S70-64: 공용 고르기 막대 — [✕] 'n개 선택됨' · [전체 선택](꺼짐) · 그 목록의 일 [저장][숨기기].
+  await expect(bar.locator('[data-row-pick-stop]')).toHaveAttribute('aria-label', '선택 끝내기');
+  await expect(bar.locator('[data-row-pick-all]')).toHaveAttribute('aria-checked', 'false');
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['저장', '숨기기']);
   await touchTap(item(page, 'k1').locator('.nw-title'));
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(page.locator('#newsRoot [data-nc-detail]:visible, #newsRoot .nc-detail:visible')).toHaveCount(0);

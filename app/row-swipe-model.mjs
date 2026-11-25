@@ -44,9 +44,14 @@ export function endCells(end) {
 }
 // 줄에서 쓸 칸 수와 끝까지 밀기 허용. has.start/has.end는 칸 수(옛 true/false도 받음: true = 1칸).
 const count = v => (v === true ? 1 : Math.max(0, Math.min(SWIPE_END_MAX, Number(v) || 0)));
+// UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야"):
+// 오른쪽 밀기는 고르기 하나뿐이다. start 칸이 [선택](key 'select')이면 startPick — 반 칸(32px) 넘게 밀고 떼면 칸을 열어 두지 않고 바로 그 줄을 고른다.
+export const PICK_KEY = 'select';
 export function sides(acts) {
-  const ends = endCells(acts?.end);
-  return {start: acts?.start ? 1 : 0, end: ends.length, startFull: !!acts?.start && !holdFull(acts.start), endFull: ends.length > 0 && !holdFull(ends.at(-1))};
+  const ends = endCells(acts?.end), pick = acts?.start?.key === PICK_KEY;
+  const out = {start: acts?.start ? 1 : 0, end: ends.length, startFull: !!acts?.start && !holdFull(acts.start), endFull: ends.length > 0 && !holdFull(ends.at(-1))};
+  if (pick) out.startPick = true;
+  return out;
 }
 // 줄이 따라가는 자리. 칸이 없는 쪽으로는 움직이지 않는다. 줄 폭보다 더 가지 않는다.
 export function rowOffset(dx, open = 0, has = {start:true, end:true}, rowWidth = 360) {
@@ -59,6 +64,8 @@ export function rowOffset(dx, open = 0, has = {start:true, end:true}, rowWidth =
 // 전에는 칸 3개(192px)가 열린 줄을 닫으려면 160px 넘게 되밀어야 해서, 짧게 밀면 다시 열린 채로 남았다.
 export function rowSettle(offset, has = {start:true, end:true}, rowWidth = 360, from = 0) {
   const x = Number(offset) || 0, full = fullDistance(rowWidth), s = count(has.start), e = count(has.end), was = Number(from) || 0, half = SWIPE_BTN / 2;
+  // 고르기(startPick): 반 칸 넘게 오른쪽으로 밀면 바로 고른다(열린 칸 없음). 열린 왼쪽 칸을 닫는 되밀기는 아래 닫기 규칙이 먼저.
+  if (s && has.startPick && x >= SWIPE_BTN / 2 && !(was < 0 && x < half)) return {side:'start', run:true};
   if (s && x >= full) return {side:'start', run:has.startFull !== false};
   if (e && x <= -full) return {side:'end', run:has.endFull !== false};
   if (was < 0 && x >= was + half && x < half) return {side:'', run:false};

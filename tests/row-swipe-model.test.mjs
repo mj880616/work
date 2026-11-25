@@ -54,13 +54,28 @@ test('칸 여러 개: 멈춘 자리는 칸 수만큼, 밀수록 칸이 함께 �
 test('끝까지 밀기: 맨 오른쪽이 삭제가 아니면 바로 실행, 삭제면 바로 지우지 않고 칸만 연다', () => {
   const w = 400, del = {key:'delete', label:'삭제', tone:'danger'}, hide = {key:'hide', label:'숨기기'}, save = {key:'save', label:'보관'};
   const withDel = sides({start:{key:'select'}, end:[save, del]}), withHide = sides({start:{key:'select'}, end:[save, hide]});
-  assert.deepEqual(withDel, {start:1, end:2, startFull:true, endFull:false});
+  assert.deepEqual(withDel, {start:1, end:2, startFull:true, endFull:false, startPick:true});
   assert.deepEqual(rowSettle(-300, withDel, w), {side:'end', run:false});
   assert.deepEqual(rowSettle(-300, withHide, w), {side:'end', run:true});
   assert.deepEqual(rowSettle(300, withDel, w), {side:'start', run:true});
   assert.deepEqual(rowSettle(-40, withDel, w), {side:'end', run:false});
   assert.deepEqual(sides({start:null, end:null}), {start:0, end:0, startFull:false, endFull:false});
   assert.equal(rowOffset(-80, 0, sides({start:{key:'select'}, end:null}), 400), 0);
+});
+test('S70-64 오른쪽 밀기 = 고르기만: 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 바로 고른다', () => {
+  const w = 412, has = sides({start:{key:'select'}, end:[{key:'delete', label:'삭제', tone:'danger'}]});
+  assert.equal(has.startPick, true);
+  assert.deepEqual(rowSettle(40, has, w), {side:'start', run:true}); // 조금(반 칸 넘게)만 밀어도 고르기
+  assert.deepEqual(rowSettle(20, has, w), {side:'', run:false}); // 반 칸이 안 되면 제자리
+  assert.deepEqual(rowSettle(300, has, w), {side:'start', run:true});
+  assert.equal(sides({start:{key:'other'}, end:null}).startPick, undefined); // [선택]이 아닌 옛 칸은 옛 규칙
+  // 열린 왼쪽 칸(3칸)을 되미는 짧은 밀기는 닫기만(고르지 않음).
+  const open3 = openOffset('end', 1);
+  assert.deepEqual(rowSettle(open3 + 40, has, w, open3), {side:'', run:false});
+  const swipe = read('row-swipe.js');
+  assert.match(swipe, /start:select && a\.start \? PICK : null/); // 오른쪽 밀기에는 다른 동작을 두지 않는다
+  assert.match(swipe, /sbAllHtml\(\{attrs:'data-row-pick-all', on:all/); // [전체 선택] 켜짐(체크 표시)
+  assert.match(swipe, /if \(!pick\.size\) stopPicking\(\)/); // 0개면 고르기 끝
 });
 test('S68-50: 이름이 \'삭제\'인 칸(News [저장한 글]의 차분한 색 [삭제])도 끝까지 밀면 칸만 열린다 — 삭제는 직접 누를 때만', () => {
   const release = {key:'release', label:'삭제', tone:'info'}, hide = {key:'hide', label:'숨기기', tone:'muted'}, save = {key:'save', label:'저장', tone:'info'};

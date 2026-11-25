@@ -172,7 +172,7 @@ function keepRowMenu(kept){
   if(kept.focusAct)(rowMenuEl.querySelector(`[data-basket-row-act="${CSS.escape(kept.focusAct)}"]`)||rowMenuEl.querySelector('button'))?.focus({preventScroll:true});
 }
 // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 업데이트 줄 — 왼쪽으로 밀기 [보류로]/[보류 해제]·[삭제](휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음: 되돌릴 수 있으므로),
-// 끝까지 밀어도 삭제는 바로 하지 않고 칸만 열린다. 오른쪽으로 밀기 [선택] → 여러 개 선택('n개 선택됨 · [보류로][삭제][모두 선택][그만]'). 기존 목록 ⋯의 길 그대로.
+// 끝까지 밀어도 삭제는 바로 하지 않고 칸만 열린다. 오른쪽으로 밀기 → 여러 개 선택('[✕] n개 선택됨 · [전체 선택][보류로][삭제]', S70-64). 기존 목록 ⋯의 길 그대로.
 // 분류 완료는 갈 곳을 골라야 해서 한 번에 끝나는 처리가 아니므로 줄 밀기에 두지 않는다(옮기기 칸 없음, 공유 길 없음).
 bindRowSwipe(root.querySelector('[data-basket-rows]'),{row:'[data-basket-row-item]',enabled:()=>!busy&&(!selected||isSplit())&&!rowMenu,
   actions:el=>{const note=notes.find(n=>n.id===el.dataset.basketRowItem);if(!note)return null;return {start:PICK,end:[note.archived_at?{key:'unhold',label:'보류 해제',tone:'muted'}:{key:'hold',label:'보류로',tone:'muted'},{key:'delete',label:'삭제',tone:'danger'}]};},
