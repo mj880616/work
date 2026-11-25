@@ -22,8 +22,10 @@ const fileText = node => { const size = fileSizeText(node.attrs?.size); return `
 // The text before one list item (ED-서식줄펼침). 'plain' (raw_text for search and AI) keeps the old "- " and "1. " unless the
 // list has a marker saved on it; 'telegram' and 'hangul' always show the shape the editor shows (• ◦ ▪ / 1. 1) (1) ① 가.),
 // automatic by how deep the list is nested.
-const markFor = (node, style, depth, n) => {
+const markFor = (node, style, depth, n, item = null) => {
   const saved = node.attrs?.marker;
+  // NOTE-노션편집 ①(나) 할 일 체크: ☐ / ☑ in every style.
+  if (node.type === 'bullet_list' && saved === 'check') return item?.attrs?.checked ? '☑ ' : '☐ ';
   const shape = style !== 'plain' || !!saved;
   if (node.type === 'ordered_list') return shape ? `${orderedLabel(saved, depth.ordered, n)} ` : `${n}. `;
   return shape ? `${bulletGlyph(saved, depth.bullet)} ` : '- ';
@@ -44,11 +46,13 @@ function linesOf(blocks, style, indent = '', depth = {bullet: 0, ordered: 0}) {
       case 'photo_row': push((node.content || []).map(p => indent + photoText(p))); break;
       case 'file': push([indent + fileText(node)]); break;
       case 'blockquote': push(flat(linesOf(node.content, style, indent, depth))); break;
+      // NOTE-노션편집 ①(나) 접기: its first line, then what folds under it (folded or not, the letters are all there; no fold sign in letters).
+      case 'toggle': push(flat(linesOf(node.content, style, indent, depth))); break;
       case 'bullet_list': case 'ordered_list': {
         const start = node.type === 'ordered_list' ? (node.attrs?.order ?? 1) : 0;
         const lines = [];
         (node.content || []).forEach((item, i) => {
-          const mark = markFor(node, style, depth, start + i);
+          const mark = markFor(node, style, depth, start + i, item);
           const inner = flat(linesOf(item.content, style, '', deeper(depth, node)), false);
           inner.forEach((line, j) => lines.push(indent + (j === 0 ? mark : ' '.repeat(mark.length)) + line));
         });
@@ -116,10 +120,15 @@ function blocksHtml(blocks, pad = '', depth = {bullet: 0, ordered: 0}) {
       case 'photo_row': return `<p style="${P};text-align:center">${esc((node.content || []).map(photoText).join(' '))}</p>`;
       case 'file': return `<p style="${P}">${pad}${esc(fileText(node))}</p>`;
       case 'blockquote': return blocksHtml(node.content, pad + '&nbsp;&nbsp;', depth);
+      case 'toggle': {
+        const [first, ...rest] = node.content || [];
+        const head = first && first.type === 'paragraph' ? `<p style="${P}">${pad}${inlineHtml(first)}</p>` : '';
+        return head + blocksHtml(first && first.type === 'paragraph' ? rest : node.content, pad + '&nbsp;&nbsp;', depth);
+      }
       case 'bullet_list': case 'ordered_list': {
         const start = node.type === 'ordered_list' ? (node.attrs?.order ?? 1) : 0;
         return (node.content || []).map((item, i) => {
-          const mark = markFor(node, 'hangul', depth, start + i);
+          const mark = markFor(node, 'hangul', depth, start + i, item);
           const [first, ...rest] = item.content || [];
           const head = first && first.type === 'paragraph' ? `<p style="${P}">${pad}${esc(mark)}${inlineHtml(first)}</p>` : '';
           return head + blocksHtml(first && first.type === 'paragraph' ? rest : item.content, pad + '&nbsp;&nbsp;&nbsp;&nbsp;', deeper(depth, node));

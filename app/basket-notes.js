@@ -23,7 +23,7 @@ import { formatSeoulTime, seoulDateKey } from './meeting-time.js';
 // note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder } from './basket-data.js';
+import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, noteBlockEdit, setNoteBlockEdit } from './basket-data.js';
 // NOTE-탐색기(2026-10-28 09:24·10:34·11:01): 폴더 안 폴더(app_note_folders, 100단), 한 줄 노트, 끌어 옮기기·선택 모드·되돌리기.
 import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder, setNoteFolderColor } from './note-folders-data.js';
 // FOLDER-순서·색 ②(S49-38): 폴더 색·끌기 순서 공용 부품(folder-look-model.mjs 계산, folder-look.js 그림, reorder-drag.js 끌기).
@@ -1046,12 +1046,22 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const host = detail.querySelector('[data-note-body-field]');
     try {
       // NOTE-제목서식줄고정(S61-16 ②): 제목 칸은 서식 줄과 한 묶음으로 편집기 위 띠에 들어가 위에 붙는다(닫으면 제자리로 돌아온다).
-      const made = await mountEditField(host, selected, {photos:photosFor(id), files:filesFor(id), lead:f.title.closest('label')});
+      const made = await mountEditField(host, selected, {photos:photosFor(id), files:filesFor(id), lead:f.title.closest('label'), blocks:blocksFor(id)});
       if (run !== epoch || !editing || selected?.id !== id || !host.isConnected) { made.destroy(); return; }
       field?.destroy(); field = made; paintEditTags();
     } catch { if (run === epoch && editing) say('수정 화면을 열지 못했어요. 다시 눌러 주세요.'); }
   }
   const dropField = () => { field?.destroy(); field = null; fieldBase = null; };
+  // NOTE-노션편집 ①(나): '블록 편집'(손잡이 ⋮⋮) 켜기·끄기. 이 노트에서 고른 값(metadata.block_edit)이 먼저, 없으면 내 기본값(view_prefs.note_blocks), 없으면 끔(글쓰기).
+  // [블록]을 누르면 이 노트 값과 내 기본값을 함께 기억한다(서버 저장, 기기 저장 없음). 노트 값 쓰기는 고치기가 아니라 updated_at·저장 판은 그대로다.
+  const blocksFor = id => ({
+    on: noteBlockEdit(selected) ?? (viewPrefs.get('note_blocks') === true),
+    onToggle: on => {
+      viewPrefs.set('note_blocks', on, {rejectable:true});
+      const note = notes.find(n => n.id === id); if (!note) return;
+      setNoteBlockEdit(note, on, rt).then(saved => { if (saved?.metadata) applySaved(id, saved); }).catch(() => say('블록 모드 선택을 이 노트에 기억하지 못했어요. 다음에 열면 기본값으로 열려요.'));
+    },
+  });
   async function finishEdit({force = false, anchor = null} = {}) {
     if (!selected || !editing) return;
     if (!force && textDirty()) {
@@ -1100,7 +1110,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // The window shows the note's title and [폴더 ▾] (the folder now, changeable); a changed title goes with the text save, a changed folder
     // is written after it (setNoteFolder, as [폴더로 옮기기]).
     const folder = windowFolderPick(folderOf(selected));
-    bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id), files:filesFor(id), title:fields().title.value, folder,
+    // NOTE-노션편집 ①(나): the window starts with the edit field's 블록 편집 state; its [블록] changes both (and is kept as on the field).
+    const keep = blocksFor(id);
+    const blocks = {on:!!field.editor?.blocksOn?.(), onToggle:on => { field?.editor?.setBlocks?.(on); keep.onToggle(on); }};
+    bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id), files:filesFor(id), title:fields().title.value, folder, blocks,
       attach:{getBatch:() => bigFiles, isBusy:() => busy, going:job => fileQueue.has(id, job.file)},
       save: async (value, text, extra) => {
         if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'};
