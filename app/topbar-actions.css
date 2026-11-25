@@ -80,6 +80,8 @@
   html:has(#homeView:not(.hidden)) .mobile-shell-header{min-height:36px;margin-bottom:8px}
   /* 홈은 본문 날짜 줄에 이미 아이콘이 있다 — 머리 줄은 '전체 검색' 입구 하나만(아이콘 두 번 없음). */
   html:has(#homeView:not(.hidden)) .mobile-shell-header>.head-mark{display:none}
+  /* 홈에서 자판이 열려 있으면(글 쓰는 중) 빠른 입력·아래 탭처럼 이 입구 줄도 접는다 — 쓰는 칸이 자판 위로 올라올 자리(예전 홈과 같은 높이). */
+  html:has(#homeView:not(.hidden)) body.kptu-mobile-keyboard #appView>.mobile-shell-header{display:none}
 }
 
 /* UI-검색창하나로(S70-54, 설계 docs/design/one-search-bar.md): 지금 화면에 화면 찾기가 있으면(html[data-screen-find], 주인 screen-find.js) 앱 머리 줄의
