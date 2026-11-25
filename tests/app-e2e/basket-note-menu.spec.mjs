@@ -15,7 +15,7 @@ import { answerAsk } from './helpers/small-notice.mjs';
 // and the title, preview, date and state run right up to the ⋯ (the column under the ⋯ stays empty). PC (1280) is unchanged.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-async function fixture(page, width) {
+async function fixture(page, width, { more = [] } = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], writes = [], deletes = [];
   page.on('pageerror', e => errors.push(e.message + ' ' + (e.stack || '').split('\n').slice(0, 4).join(' | ')));
@@ -31,6 +31,7 @@ async function fixture(page, width) {
     row('n-plain', '평범한 노트', '둘째 줄 글', '2026-10-12T01:00:00Z'),
     row('n-file', '첨부 노트', '', '2026-10-10T01:00:00Z', { attachments: [{ drive_file_id: 'f1', file_name: '회의록.hwp', mime_type: 'application/x-hwp', size_bytes: 2048 }, { drive_file_id: 'f2', file_name: '표.xlsx', mime_type: 'application/vnd.ms-excel', size_bytes: 100 }] }),
     row('n-empty', '', '', '2026-10-01T01:00:00Z'),
+    ...more.map(([id, at]) => row(id, '', '', at)),
   ];
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
     const req = r.request(), q = new URL(req.url()).searchParams;
@@ -45,7 +46,7 @@ async function fixture(page, width) {
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await chooseBasketKind(page,'note');
-  await expect(page.locator('[data-note-row]')).toHaveCount(4);
+  await expect(page.locator('[data-note-row]')).toHaveCount(4 + more.length);
   return { rows, writes, deletes, errors };
 }
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
@@ -242,12 +243,20 @@ for (const width of [390, 1280]) {
 }
 
 test('PC: the row menu opens above the ⋯ when there is no room below, and follows scrolling', async ({ page }) => {
-  const f = await fixture(page, 1280);
+  // S70-05: 이 시험의 전제는 '⋯ 아래에는 자리가 없고 위에는 메뉴가 다 들어감'이다. 노트 4개만으로는 위쪽 입력칸 높이(화면 위 여백)에 따라
+  // 마지막 줄 ⋯ 위 자리가 메뉴보다 몇 px 모자랄 수 있어(그때는 공용 placeAnchored가 의도대로 줄 위에 조금 겹쳐 띄움), 줄을 더 두고
+  // 맨 아래까지 넘겨 마지막 줄 ⋯가 창 아래쪽에 오게 한 뒤 연다(더한 줄은 n-empty와 같은 빈 노트 — 메뉴 높이가 같다).
+  const f = await fixture(page, 1280, { more: [['n-old1', '2026-09-03T01:00:00Z'], ['n-old2', '2026-09-02T01:00:00Z'], ['n-old3', '2026-09-01T01:00:00Z']] });
   await page.setViewportSize({ width: 1280, height: 420 });
-  const more = rowMore(page, 'n-empty');
-  await more.scrollIntoViewIfNeeded(); await more.click();
+  const more = rowMore(page, 'n-old3');
+  await page.evaluate(() => window.scrollTo(0, document.scrollingElement.scrollHeight));
+  await more.scrollIntoViewIfNeeded();
+  const pre = await more.boundingBox();
+  expect(420 - (pre.y + pre.height)).toBeLessThan(200); // 아래에는 메뉴가 들어갈 자리가 없다(전제)
+  await more.click();
   await expect(menu(page)).toBeVisible();
   const mb = await more.boundingBox(), m = await menu(page).boundingBox();
+  expect(m.y + m.height).toBeLessThanOrEqual(mb.y + 1); // 위쪽에 열림
   expect(m.y + m.height).toBeLessThanOrEqual(420); expect(m.y).toBeGreaterThanOrEqual(0);
   expect(m.y >= mb.y + mb.height - 1 || m.y + m.height <= mb.y + 1 || m.x >= mb.x + mb.width - 1 || m.x + m.width <= mb.x + 1).toBe(true);
   expect(f.errors).toEqual([]);

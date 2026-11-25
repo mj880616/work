@@ -1,0 +1,16 @@
+{
+  "_설명": "이미 확인을 끝내 매일 점검에서 뺄 것만 적는다. 값은 이유 한 줄. migrations는 14자리 번호, functions는 함수 폴더 이름. 적용 기록 없음 — CC 확인 대기(docs/migration-history.md S70-50 절)인 파일은 넣지 않는다.",
+  "migrations": {
+    "20261020005000": "SQL Editor 적용(docs/migration-history.md)",
+    "20261021053502": "SQL Editor 적용(docs/migration-history.md)",
+    "20261022003000": "workflow 사후 확인 오류 뒤 SQL Editor 확인(docs/migration-history.md)",
+    "20261023232000": "SQL Editor 적용(docs/migration-history.md)",
+    "20261024001000": "SQL Editor 적용(docs/migration-history.md)",
+    "20261024180000": "SQL Editor 적용(docs/migration-history.md)",
+    "20261025191000": "SQL Editor 적용(docs/migration-history.md)",
+    "20261027060000": "SQL Editor 적용(docs/migration-history.md)",
+    "20261028010000": "SQL Editor 적용(docs/migration-history.md)",
+    "20261106070000": "SQL Editor 적용(docs/migration-history.md)"
+  },
+  "functions": {}
+}

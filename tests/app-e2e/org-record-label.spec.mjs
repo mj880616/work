@@ -32,8 +32,8 @@ for(const width of [412,1280]){
   await expect(f.row(2).locator('[data-link-summary-text]')).toHaveText('파일 1개');
   await expect(f.row(3).locator('[data-link-summary-text]')).toHaveText('합성 지부 간담회 결과 정리');
   await expect(page.locator('#wdUpdates')).not.toContainText('요약 없음');
-  // 사진 띠([사진 n])는 그대로 아래에 있다.
-  await expect(f.row(1).locator('[data-record-photos] > summary')).toContainText('사진 3');
+  // 사진 띠는 작은 그림 3장(UI-기록카드하나로 S70-42: 접는 [사진 n] 없이 바로).
+  await expect(f.row(1).locator('[data-record-photo]')).toHaveCount(3);
   await f.row(1).evaluate(el=>el.scrollIntoView({block:'start'}));
   await shot(page,`org-records-${width}`);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
