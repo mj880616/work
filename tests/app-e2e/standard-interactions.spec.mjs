@@ -20,19 +20,19 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 const N = 6;
 
 // ---------- 화면 열기(나무가 있는 화면) ----------
-async function library(page, width) {
-  const folders = Array.from({ length: N }, (_, i) => libFolder('f' + i, null, { name: '가상 폴더 ' + i, sort_order: 1024 * (i + 1) }));
+async function library(page, width, { first = '' } = {}) {
+  const folders = Array.from({ length: N }, (_, i) => libFolder('f' + i, null, { name: (i === 0 && first) || '가상 폴더 ' + i, sort_order: 1024 * (i + 1) }));
   const r = await bootLibrary(page, width, { folders, items: [] });
   await page.locator('#libraryGroupBy').selectOption({ label: '폴더' });
   return { errors: r.errors, tree: page.locator('#libraryFolderNav [role="tree"]'), main: '.ft-row .ft-main' };
 }
-async function notes(page, width) {
+async function notes(page, width, { first = '' } = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await openHome(page);
   await installViewPrefsServer(page);
-  const folders = Array.from({ length: N }, (_, i) => ({ id: U(100 + i), workspace_id: 'w', parent_id: null, name: '가상 폴더 ' + i, sort_order: 1024 * (i + 1), created_at: '2026-10-01T00:00:00Z' }));
+  const folders = Array.from({ length: N }, (_, i) => ({ id: U(100 + i), workspace_id: 'w', parent_id: null, name: (i === 0 && first) || '가상 폴더 ' + i, sort_order: 1024 * (i + 1), created_at: '2026-10-01T00:00:00Z' }));
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 500, json: {} }));
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.request().method() === 'GET' ? r.fulfill({ json: structuredClone(folders) }) : r.fulfill({ status: 500, json: {} }));
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
@@ -40,8 +40,8 @@ async function notes(page, width) {
   await chooseBasketKind(page, 'note');
   return { errors, tree: page.locator('[data-nx-tree][role="tree"]'), main: '.ft-row .ft-main' };
 }
-async function photos(page, width) {
-  const folders = Array.from({ length: N }, (_, i) => ({ id: 'S' + i, name: '가상 폴더 ' + i, parent_id: 'T' }));
+async function photos(page, width, { first = '' } = {}) {
+  const folders = Array.from({ length: N }, (_, i) => ({ id: 'S' + i, name: (i === 0 && first) || '가상 폴더 ' + i, parent_id: 'T' }));
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width, height: 900 });
@@ -63,6 +63,30 @@ async function photos(page, width) {
   return { errors, tree: page.locator('#photosRoot [data-photos-fx-tree][role="tree"]'), main: '.ft-row .ft-main' };
 }
 const SCREENS = [['자료실', library], ['노트', notes], ['사진', photos]];
+
+// L2(UI-긴폴더이름 S70-19): PC 나무에서 … 로 잘린 폴더 이름은 마우스를 올리면 전체 이름이 보인다(이름 칸 title = 전체 이름).
+// 공용 줄 app/folder-tree-ui.mjs ftFolderRowHtml 한 곳. 새 나무 화면이 생기면 LONG_SCREENS에 한 줄 더한다({tree, name 그 폴더 이름 칸}).
+const LONG = '가상 "아주" 긴 폴더 & 이름 '.repeat(4) + '끝';
+async function filesLong(page, width) {
+  const { errors, server } = await startFiles(page, width);
+  server.items.find(i => i.item_id === 'OD!1').name = LONG;
+  await openFiles(page, width);
+  const tree = page.locator('#filesRoot [data-fx-tree]');
+  return { errors, name: tree.locator('[data-fx-fold="od:OD!1"] .ft-name') };
+}
+const longOf = open => async (page, width) => {
+  const { errors, tree } = await open(page, width, { first: LONG });
+  return { errors, name: tree.locator('.ft-row .ft-name').filter({ hasText: '끝' }).first() };
+};
+const LONG_SCREENS = [['자료실', longOf(library)], ['파일', filesLong], ['노트', longOf(notes)], ['사진', longOf(photos)]];
+for (const [name, open] of LONG_SCREENS) test(`L2 ${name} PC 1280: 잘린 폴더 이름에 전체 이름(title)`, async ({ page }) => {
+  const s = await open(page, 1280);
+  await expect(s.name).toBeVisible();
+  // 정말 … 로 잘려 보이는지(글자 폭 > 보이는 폭) 먼저 본다 — 안 잘리면 이 시험이 뜻이 없다.
+  await expect.poll(() => s.name.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+  await expect(s.name).toHaveAttribute('title', LONG);
+  expect(s.errors).toEqual([]);
+});
 
 // K4: 왼쪽 폴더 나무에서 ↑↓ = 보이는 앞·뒤 줄로 커서 이동(공용 app/folder-tree-press.mjs ftTreeArrow).
 for (const [name, open] of SCREENS) test(`K4 ${name} PC 1280: 폴더 나무에서 ↑↓로 줄을 옮겨 다닌다`, async ({ page }) => {
