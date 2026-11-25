@@ -367,7 +367,7 @@ for (const width of [412, 1280]) {
     await expect(notice).toContainText('노트에 첫째.pdf 올렸어요 · 1개 못 올렸어요');
     await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
     if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-attach-fail-${width}.png`});
-    await notice.getByRole('button', {name: '못 올린 파일 다시 올리기'}).click();
+    await notice.getByRole('button', {name: '못 올린 파일 다시 업로드'}).click();
     await expect.poll(() => f.uploads).toEqual([sent('n-text', '첫째.pdf'), sent('n-text', '둘째.pdf')]);
     expect(held.seen).toEqual(['첫째.pdf', '둘째.pdf', '둘째.pdf']); // the stored file is not sent again
     await expect(notice).toContainText('노트에 둘째.pdf 올렸어요');

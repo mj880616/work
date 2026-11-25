@@ -18,6 +18,8 @@
 //   (노트 '주소로 가져오기'·노트 [원문 가져오기]·읽을 거리 저장 — 예약·대량 호출 없음) 사람이 브라우저로 그 한 쪽을 여는 것과 같게 본다.
 //   공용 읽기에 skipRobots: true를 명시해서만 건너뛴다. 자동 수집(news-feed·now-detail-build·outside-feed)은 지금처럼 robots를 지킨다.
 // - 봇 확인 쪽·유료벽은 넘지 않는다(봇 확인 화면·401·403은 bot_check로 실패, 유료 기사는 공개 리드만).
+// - 로그인 화면(최종 주소가 로그인 경로, 또는 비밀번호 칸 + 로그인 문구 + 본문 없음 — login-page.ts)은 login으로 실패하고
+//   그 화면의 제목·리드·본문을 돌려주지 않는다(S70-40a READ-실패까닭: 로그인 화면 제목이 글 제목으로 저장되던 것).
 // - 글자 판(html·xhtml·text)만 받는다. HTML은 돌려주지 않고 글자 블록만 돌려준다. 본문은 노트 글자 상한 안으로 자른다.
 // 하루 횟수: 작업공간 하루 사용량 표 app_news_days의 fetch_n 칸을 뉴스 기사 열기와 함께 쓴다(NOTE_IMPORT_DAILY, DB 변경 없음).
 // 가져온 글은 돌려주기만 한다. AI에 넘기거나 발송·공유로 잇지 않는다.
@@ -36,6 +38,7 @@ import type { PageInfo } from "../news-feed/page.ts";
 import { needsAttachment, withAttachment } from "../news-feed/attach.ts";
 import { makeGuardedFetch, newGuardState, noteImportUrl, type GuardState, type Resolve } from "./guard.ts";
 import { noteBody, readAuthor, textKind, type NoteBlock } from "./article.ts";
+import { looksLikeLoginPage } from "./login-page.ts";
 
 export type Env = (name: string) => string | undefined;
 export type NoteImportDeps = {
@@ -59,7 +62,7 @@ export const MAX_BODY_BYTES = 4096;
 
 export type FailReason =
   | "blocked" | "robots" | "too_big" | "timeout" | "not_found" | "http_error" | "redirect" | "unreachable"
-  | "not_text" | "bot_check" | "paywall" | "no_body";
+  | "not_text" | "bot_check" | "paywall" | "no_body" | "login";
 export type ImportResult = {
   ok: true;
   state: "ok" | "lead" | "failed";
@@ -169,6 +172,7 @@ export function buildResult(got: { text: string; url: string; contentType: strin
   }
   const page = given ?? readArticlePage(got.text, nowMs, pageRule(got.url));
   if (page.state === "bot_check") return failed("bot_check");
+  if (looksLikeLoginPage(got.text, got.url, page.blocks.state === "ok" || page.state === "paywall")) return failed("login");
   const author = readAuthor(got.text);
   const meta: Meta = {
     url: got.url, title: page.title, site: page.publisher,

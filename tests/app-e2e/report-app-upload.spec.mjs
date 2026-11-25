@@ -123,7 +123,7 @@ async function openReport(page,id=OLD_ID){
 test.describe('폰 앱(가짜 다리)',()=>{
   test.use({userAgent:ANDROID});
 
-  test('상세 사진 줄: 사진 3장을 앱에 넘기고 화면은 보내지 않는다 → 끝 알림으로 채워지고, 멈춤·실패 줄·[다시 올리기] 412px',async({page})=>{
+  test('상세 사진 줄: 사진 3장을 앱에 넘기고 화면은 보내지 않는다 → 끝 알림으로 채워지고, 멈춤·실패 줄·[다시 업로드] 412px',async({page})=>{
     const state=await boot(page,412,{app:{know:true,on:true}});
     await openReport(page,OLD_ID);
     await pickPhotos(page,3);
@@ -164,7 +164,7 @@ test.describe('폰 앱(가짜 다리)',()=>{
     await expect.poll(async()=>(await appState(page)).sent.includes(`up:seen:${batchId(1)}`)).toBe(true); // 반영한 묶음은 앱 기록을 지운다
     await shot(page,'app-failed-line-412');
     // [다시 올리기]: 못 올린 사진만 다시 앱에 넘긴다.
-    await dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+    await dock(page).getByRole('button',{name:'못 올린 파일 다시 업로드'}).click();
     await expect.poll(async()=>(await appState(page)).starts.length).toBe(2);
     expect((await appState(page)).starts[1]).toEqual({kind:'meeting',meeting:OLD_ID,project:'',count:1});
     await expect(page.locator('#mrdPhotoRows .up-row[data-phase="handed"]')).toHaveCount(1);
@@ -251,7 +251,7 @@ for(const width of [412,1280]){
     await setVisible('hidden'); // 다른 앱·탭으로 감
     state.release();            // 그 사이 첫 사진이 끊긴다
     await expect(page.locator('#mrdPhotoRows .up-row[data-phase="failed"]')).toHaveCount(1);
-    await expect(page.locator('#mrdPhotoRows .up-row[data-phase="failed"]')).toHaveAttribute('title','화면을 벗어나 올리기가 멈췄어요.');
+    await expect(page.locator('#mrdPhotoRows .up-row[data-phase="failed"]')).toHaveAttribute('title','화면을 벗어나 업로드가 멈췄어요.');
     await page.waitForTimeout(900);
     expect(state.uploads.length).toBe(1); // 돌아오기 전에는 다시 보내지 않고, 뒤 사진이 앞지르지도 않는다
     await setVisible('visible');
@@ -286,7 +286,7 @@ for(const width of [412,1280]){
     // 또 끊김: 저절로는 한 번뿐 → 두 장 모두 못 올림, 아래 한 줄 하나에 까닭(인터넷 탓 문구 아님)과 [다시 올리기](사진 칸 줄은 실패를 따로 그리지 않는다).
     await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 2장 못 올렸어요');
     await expect(page.locator('#mrdPhotoRows .up-row[data-phase="failed"]')).toHaveCount(0);
-    await expect(dock(page).locator('.up-dock-note')).toHaveText('화면을 벗어나 올리기가 멈췄어요.');
+    await expect(dock(page).locator('.up-dock-note')).toHaveText('화면을 벗어나 업로드가 멈췄어요.');
     expect(await page.locator('#meetingRoundDetailModal,#uploadDock').allInnerTexts()).not.toContain('네트워크');
     await expect(page.locator('#mrdPhotoStatus')).toHaveText('');
     await shot(page,`back-retry-line-${width}`);
@@ -294,7 +294,7 @@ for(const width of [412,1280]){
     expect(state.uploads.length).toBe(2);
     await setVisible('visible');
     state.cutAlways=false;state.hold=false;
-    await dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+    await dock(page).getByRole('button',{name:'못 올린 파일 다시 업로드'}).click();
     await expect(page.locator('#mrdPhotosHead')).toHaveText('사진 2');
     await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 2장 올렸어요');
     await expect(page.locator('#mrdPhotoRows .up-row')).toHaveCount(0);
@@ -334,7 +334,7 @@ test('브라우저: 다 보낸 뒤 끊긴 사진(올렸는지 모름)은 돌아�
   await page.evaluate(()=>{const Real=window.XMLHttpRequest;window.XMLHttpRequest=function(){const xhr=new Real(),send=xhr.send.bind(xhr);xhr.send=body=>{if(!(body instanceof FormData))return send(body);setTimeout(()=>{window.__vis='hidden';document.dispatchEvent(new Event('visibilitychange'));xhr.upload.onload?.();xhr.onerror?.()},50)};return xhr}});
   await pickPhotos(page,1);
   await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 1장 못 올렸어요',{timeout:FIRST});
-  await expect(dock(page).locator('.up-dock-note')).toContainText('화면을 벗어난 사이 올리기가 끊겨 올렸는지 확인하지 못했어요.');
+  await expect(dock(page).locator('.up-dock-note')).toContainText('화면을 벗어난 사이 업로드가 끊겨 올렸는지 확인하지 못했어요.');
   await setVisible('visible');
   await page.waitForTimeout(900);
   expect(state.uploads).toEqual([]); // 저절로 다시 보내지 않는다(같은 사진이 두 번 붙지 않게)

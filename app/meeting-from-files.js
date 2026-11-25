@@ -325,13 +325,13 @@ const sendTo=meetingId=>async(file,{job=null,gone=()=>false}={})=>{
 async function libraryReady(){
   const loader=window.KPTUViewLoader;
   if(loader?.load&&!loader.isLoaded?.('library'))await loader.load('library');
-  if(!(await window.__KPTU_LIBRARY_UPLOAD_READY__)||typeof window.KPTULibrary?.sendForMeeting!=='function')throw new Error('자료실 올리기를 불러오지 못했어요.');
+  if(!(await window.__KPTU_LIBRARY_UPLOAD_READY__)||typeof window.KPTULibrary?.sendForMeeting!=='function')throw new Error('자료실 업로드를 불러오지 못했어요.');
 }
 function sendBehind(send,ready=null){
   void Promise.resolve(ready||libraryReady()).then(()=>window.KPTULibrary.sendForMeeting(send.meeting,send.files)).catch(err=>{
     console.warn('meeting files hand-off failed',err?.message||err);
-    announceDock({text:sendFailLine({badFiles:send.files.length}),note:'자료실 올리기를 불러오지 못했어요. 잠시 후 다시 올려 주세요.',error:true,ms:0,
-      actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:()=>sendBehind(send)}]});
+    announceDock({text:sendFailLine({badFiles:send.files.length}),note:'자료실 업로드를 불러오지 못했어요. 잠시 후 다시 올려 주세요.',error:true,ms:0,
+      actions:[{label:'다시 업로드',aria:'못 올린 파일 다시 업로드',run:()=>sendBehind(send)}]});
   });
 }
 async function run(){

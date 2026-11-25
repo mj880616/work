@@ -168,7 +168,7 @@ for (const width of [412, 884, 1280]) {
     await expect(nd.locator('.nd-topic')).toHaveText(['철도 민영화']);
     await expect(nd.locator('.nd-reason')).toHaveText('가상 이유 한 줄.');
     await expect(nd.locator('.nd-imp')).toHaveText(['공공운수노조 운동 가상 공공운수노조 시사점.', '한국 노동운동 가상 노동운동 시사점.']);
-    await expect(nd.locator('.nd-rel')).toHaveText(['사회운동가상의 외국 글', '원장가상 원장 줄']);
+    await expect(nd.locator('.nd-rel')).toHaveText(['사회운동가상의 외국 글']); // LEDGER-화면에서빼기: 원장 줄은 그리지 않음
     if (width > 760) {
       // 두 칸: 목록이 그대로 보이고 고른 줄 표시.
       await expect(root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"]`)).toHaveClass(/is-open/);
@@ -301,7 +301,7 @@ for (const width of [412, 1280]) {
     await page.evaluate(() => window.KPTURouter.go('reading'));
     await rd.locator('.rd-switch [data-filter-value="all"]').click();
     await expect(line).not.toHaveClass(/is-unread/);
-    await expect(rd.locator('.rd-switch [data-filter-value="unread"]')).toHaveText('안 읽음 0');
+    await expect(rd.locator('.rd-switch [data-filter-value="unread"]')).toHaveText('안 읽음');
     // 이미 읽은 줄은 다시 열어도 또 저장하지 않는다.
     expect(server.calls.filter(c => c.what === 'app_reading_items' && c.method === 'PATCH').length).toBe(1);
     expect(errors).toEqual([]);

@@ -105,7 +105,8 @@ class BackUploadWorker(context: Context, params: WorkerParameters) : Worker(cont
         val failed = { reason: String -> BackUploadRules.Run.Stopped(reason, true, left, total) }
         // S67-38: 올리는 동안 알림을 띄워 앞쪽 작업으로 돈다(앱을 나가도·화면을 꺼도 끝까지). 못 띄우면(뒤에서 다시 걸림 등) 알림 없이 그대로.
         val photos = WidgetGuard.get { store.photosOnly(batch) } ?: true
-        val front = { done: Int -> WidgetGuard.run { setForegroundAsync(BackUploadNote.info(ctx, photos, done, total)).get() } }
+        // S70-45: 플레이 판은 앞쪽 서비스가 없다(FG_SERVICES=false) → 알림 없는 보통 작업으로 올린다(시스템이 멈추면 WorkManager가 남은 것부터 다시).
+        val front = { done: Int -> if (BuildConfig.FG_SERVICES) WidgetGuard.run { setForegroundAsync(BackUploadNote.info(ctx, photos, done, total)).get() } }
         front(total - left)
         // 다시 도는 묶음은 '멈춤' 표시를 지운다(화면에는 '올리는 중').
         WidgetGuard.run { store.stop(batch, null) }

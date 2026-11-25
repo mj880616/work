@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
-import { pinch } from './helpers/pinch.mjs';
 // FILES-클라우드탐색기 ④(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files).
 // 색인 목록 · 폴더 들어가기·위치 줄·위 폴더 · 찾기(이름 + 자료실 글자) · 미리보기(사진·PDF·오피스 → PDF·글) · 갱신(바뀐 줄만) · 폰 첫 화면 나무(S50-33).
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 파일·폴더 이름은 모두 가짜.
@@ -10,7 +9,7 @@ const rows = page => root(page).locator('[data-fx-list] [data-fx-row]');
 const noWideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 const names = page => rows(page).locator(':is(.fx-name, .ft-name)').allTextContents();
 
-test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — 최근·별표·큰 파일·저장소 상자, 폴더는 그 자리 펼치기, 두 손가락 그 폴더만(위치 길), 뒤로가기는 나무로', async ({ page }) => {
+test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — 최근·별표·큰 파일·저장소 상자, 폴더는 그 자리 펼치기, ⋯ 그 폴더만(위치 길), 뒤로가기는 나무로', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 412);
   await openFiles(page, 412);
@@ -53,8 +52,9 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   await page.goBack();
   await expect(prev).toBeHidden();
   await expect(tree).toBeVisible();
-  // 두 손가락 벌리기 → 그 폴더만(같은 자리에 목록 + 위치 길 ‹ 원드라이브 › 가짜 문서함).
-  await pinch(page, folder, 'out');
+  // ⋯ [이 폴더로 들어가기] → 그 폴더만(같은 자리에 목록 + 위치 길 ‹ 원드라이브 › 가짜 문서함). S69-99: 두 손가락은 줄 크기.
+  await folder.locator('[data-fx-tmenu]').click();
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect(tree).toBeHidden();
   await expect(row(page, 'od:OD!11')).toBeVisible();
   await expect(root(page).locator(':is(.fx-crumb-step, .ft-focus-step)')).toHaveText(['원드라이브']);

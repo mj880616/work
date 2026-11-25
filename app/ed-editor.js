@@ -15,7 +15,7 @@
 // holds the rest, so reading the row then each list gives the same sequence on every width. When the row is too narrow for them,
 // they go back into their group from the right end (the last group first). Shortcuts show in each button's tooltip (SHORTCUTS).
 // ED-서식줄묶음 (2026-10-23 사용자 13:16): on a phone (max-width 760px) the same buttons are grouped so the row fits on one line:
-//   [본문 2 ▾] [굵게] [· ▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
+//   [본문 2 ▾] [굵게] [· ▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | ([⋮⋮] where the opener gives blocks) [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
 //   글자 ▾ = 기울임 밑줄 취소선 글자색 형광펜 서식 지우기 / 문단 ▾ = 정렬 목록 번호 들여쓰기 내어쓰기 인용 구분선
 //   넣기 ▾ = 표 사진 링크 지금 시각 서식 없이 붙여넣기 / 기호 ▾ = ※ → ① 「」 ([· ▾] is one button as on a wider screen: its list starts with ·)
 // The grouped buttons are the same nodes (moved, so their commands and state stay); a button that opens choices (글자색, 정렬, 목록…)
@@ -187,10 +187,11 @@ const BUTTONS = [
   ['color', '글자색 ▾', '글자색 선택', 'paint'], ['highlight', '형광펜 ▾', '형광펜 선택', 'paint'],
   ['align', '왼쪽 ▾', '정렬 선택', 'align'],
   ['bullet', '목록 ▾', '글머리 목록 선택', 'list'], ['ordered', '번호 ▾', '번호 목록 선택', 'list'],
-  ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['file', '파일', '파일 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
+  ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['scan', '문서 스캔', '문서 스캔해 넣기', 'insert'], ['file', '파일', '파일 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
   ['symDot', '· ▾', '점 기호 선택', 'sym'], ['symNote', '※ ▾', '참고 기호 선택', 'sym'], ['symArrow', '→ ▾', '화살표 선택', 'sym'], ['symCircled', '① ▾', '동그라미 번호 선택', 'sym'],
   ['undo', '↶', '되돌리기', 'history'], ['redo', '↷', '다시하기', 'history'],
-  // NOTE-노션편집 ①(나): 블록 편집 켜기·끄기 (only where the opener gives `blocks`; in [문단 ▾]). Pressed = on (손잡이 ⋮⋮).
+  // NOTE-노션편집 ①(나): 블록 편집 켜기·끄기 (only where the opener gives `blocks`). Pressed = on (손잡이 ⋮⋮).
+  // NOTE-블록모드찾기(2026-11-25): a small icon button on the row itself (PHONE_ORDER, before ↶), not inside [문단 ▾] — every width the same place.
   ['blocks', '블록 모드', '블록 모드', 'blocks'],
 ];
 const PLAIN_PASTE_HINT = '복사한 글의 색·크기·표는 빼고 글자만 붙여요 (Ctrl+Shift+V)';
@@ -218,14 +219,14 @@ const GRID = {rows: 6, cols: 8};
 // ED-서식줄묶음: [key, label, aria, items (button keys, in order)] — a phone's grouped row (see the top of this file).
 const GROUPS = [
   ['gText', '글자 ▾', '글자 서식 선택', ['em', 'underline', 'strike', 'color', 'highlight', 'clear']],
-  // NOTE-노션편집 ①(나): [블록 편집] (켜기·끄기, ✓ = 켬) is the last of 문단, only where the opener gives `blocks`.
-  ['gPara', '문단 ▾', '문단 서식 선택', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule', 'blocks']],
-  ['gInsert', '넣기 ▾', '넣을 것 선택', ['table', 'photo', 'file', 'link', 'nowStamp', 'plainPaste']],
+  ['gPara', '문단 ▾', '문단 서식 선택', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule']],
+  // S69-98 NOTE-에버노트 ⑥: [문서 스캔] (only where the opener's photos say scan: notes) sits after [링크] (PC_OUT stays a prefix), inside [넣기 ▾] on a PC too.
+  ['gInsert', '넣기 ▾', '넣을 것 선택', ['table', 'photo', 'file', 'link', 'scan', 'nowStamp', 'plainPaste']],
   ['gSym', '기호 ▾', '기호 선택', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
 ];
 const GROUP_KEYS = GROUPS.map(g => g[0]);
 // UI-화면정리 C(2026-10-28 명진 요청 20:03 B④): 폰도 PC와 같은 [· ▾] 한 칸(따로 있던 [·][▾] 두 칸은 하나로). 점은 펼친 목록 맨 앞.
-const PHONE_ORDER = ['style', 'strong', 'symDot', ...GROUP_KEYS, 'undo', 'redo'];
+const PHONE_ORDER = ['style', 'strong', 'symDot', ...GROUP_KEYS, 'blocks', 'undo', 'redo'];
 // NOTE-노션편집 ①(가): wider than a phone, each group's first buttons (a prefix of its list, in its order) stand on the row before the group button.
 export const PC_OUT = {
   gText: ['em', 'underline', 'strike', 'color', 'highlight'],
@@ -292,7 +293,8 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
 // getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
 // onFiles: null, or (files) => void — the opener's own attachment row, used when photos/files are not given (UPD-그림붙여넣기).
-// photos: null, or {add(file) -> {src}, url(src) -> address|null, max, note?} (share pages, ED-②; notes; the diary S67-20). note: the words
+// photos: null, or {add(file) -> {src}, url(src) -> address|null, max, note?, scan?} (share pages, ED-②; notes; the diary S67-20). scan: true adds
+//   [문서 스캔] (notes, S69-98). note: the words
 //   said after photos went in (default: share pages' '저장해야 받는 사람에게 보여요.' where there is no files option).
 // files: null, or {add(file) -> {src, name, size}, open(src)} (S48-21 [파일]; notes).
 // onBox(open): ED③-창 — told (once per change, after the current event) when a small box (a button row panel, the 글자색·표 크기 list, the table cell menu)
@@ -301,13 +303,14 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // line: "## " "### " → 제목 2·3, "- " "* " → 목록, "1. " → 번호 목록, "> " → 인용, and **글자** → 굵게. One undo (Backspace right after, or ↶)
 // puts the typed marks back. The engine does not run a rule while a 한글 composition is going on (it waits for the composed text). Off
 // by default: the share page editor stays as before (결정 2 가 there: no format while typing).
+// noteLinks: S69-98 NOTE-에버노트 ⑧ — null, or {notes(), self(), hidden(note), titleOf(note), base()} (notes): typing '[[' lists notes to link.
 // lineWidth: NOTE-글폭(S61-21) — true keeps the text lines about 40 letters wide (tables and photos may go wider) with a thin handle at the
 // lines' right end to drag the width (line-width.js; one width for notes, the diary and the big windows, kept on the server). Off by default
 // (the share page editor stays as before).
 // blocks: NOTE-노션편집 ①(나) — null, or {on, onToggle(on)}: the block handle ⋮⋮ (drag to move, press for the block menu) and a [블록] switch on the
 //   row. on = start with it on; onToggle is told when the switch is pressed (the opener keeps the choice on the server). Off = the plain text.
 // slash: '/' on an empty line opens the list of blocks to put in (default: where shortcuts are on — notes and their big window).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts} = {}) {
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts, noteLinks = null} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -328,6 +331,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   let lastGroup = null;
   for (const [key, text, aria, group] of BUTTONS) {
     if (key === 'photo' && !photos) continue;
+    if (key === 'scan' && !photos?.scan) continue;
     // NOTE-파일그림넣기 ④: where the opener has its own attachment row (onFiles: the update windows), [파일] puts the chosen files in that row.
     if (key === 'file' && !files && !onFiles) continue;
     if (key === 'blocks' && !blocks) continue;
@@ -809,7 +813,10 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // NOTE-노션편집 ①(나): the '/' list and the folded ▸ line take their keys before the editor's own keymap.
   let blockPart = null;
   const blockKeys = new pm.Plugin({props: {handleKeyDown: (v, e) => !!blockPart && blockPart.handleKey(v, e)}});
-  const plugins = [blockKeys, resizePlugin, pm.columnResizing({handleWidth: 6, cellMinWidth: 32, defaultCellMinWidth: 48, View: TableView}),
+  // S69-98 NOTE-에버노트 ⑧: the '[[' note list (ed-note-link.js) takes its keys first while it is open.
+  let noteLinkPart = null;
+  const noteLinkKeys = new pm.Plugin({props: {handleKeyDown: (v, e) => !!noteLinkPart && noteLinkPart.handleKey(v, e)}});
+  const plugins = [noteLinkKeys, blockKeys, resizePlugin, pm.columnResizing({handleWidth: 6, cellMinWidth: 32, defaultCellMinWidth: 48, View: TableView}),
     pm.history(), ...(shortcuts ? [pm.inputRules({rules: shortcutRules}), pm.keymap(shortcutKeys)] : []),
     pm.keymap(keys), pm.keymap(pm.baseKeymap), pm.gapCursor(), pm.tableEditing(), pastePlugin, endLinePlugin, rowsPlugin];
   let state = pm.EditorState.create({doc, plugins});
@@ -934,6 +941,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       if (tr.docChanged) onChange?.(getValue());
       paint();
       blockPart?.update();
+      noteLinkPart?.update();
     },
   });
   // NOTE-노션편집 ①(나) 할 일 체크: a press on an item's box (left of its text) ticks or unticks it — on or off 블록 편집, one undo step.
@@ -958,6 +966,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       insert: {block: node => insertBlock(node), table: () => insertBlock(newTable(2, 2)), photo: photos ? () => pickPhotos() : null},
       changed: () => syncBox()});
     root.classList.add('ed-has-blocks');
+  }
+  // S69-98 NOTE-에버노트 ⑧ 노트 연결: '[[' → 노트 고르기 목록 → 그 노트 링크. 노트(noteLinks를 주는 곳)에만 붙는다.
+  if (noteLinks) {
+    const {mountNoteLink} = await import('./ed-note-link.js');
+    noteLinkPart = mountNoteLink({pm, view, schema, bar, noteLinks, changed: () => syncBox()});
   }
   // NOTE-글폭(S61-21): 글 줄 폭 묶음은 바로(.line-w), 손잡이는 부품을 불러온 뒤 붙인다(공유 페이지 편집기는 부르지 않음).
   let lineGrip = null, lineGone = false;
@@ -1380,7 +1393,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (!file || !uploadJobs().some(job => job.file === file && job.phase === 'failed')) { showNote((e && e.message) || `${what}을 올리지 못했어요.`); return; }
     const canRetry = file && (!e?.code || !['note_save_result_unknown', 'note_changed'].includes(e.code));
     upNote = announceDock({text: `${what}을 올리지 못했어요`, note: (e && e.message) || '', error: true, ms: 0, files: file ? [file] : [],
-      actions: canRetry ? [{label: '다시 올리기', aria: `못 올린 ${what} 다시 올리기`, run: () => { if (!view.isDestroyed) void again([file]); }}] : []});
+      actions: canRetry ? [{label: '다시 업로드', aria: `못 올린 ${what} 다시 업로드`, run: () => { if (!view.isDestroyed) void again([file]); }}] : []});
   }
   async function photosIn(pictures) {
     const room = (photos.max || 40) - photoCount();
@@ -1452,6 +1465,27 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return filesFrom(pictures);
   });
   const pickFiles = () => pickFrom('', chosen => files ? filesIn(chosen) : chosen.length && onFiles?.(chosen));
+  // S69-98 NOTE-에버노트 ⑥ [문서 스캔]: the phone's camera (a PC picks a picture) → doc-scan.js straightens and brightens it → the same [사진] path.
+  const pickScan = () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*'; input.setAttribute('capture', 'environment'); input.hidden = true;
+    input.addEventListener('change', async () => {
+      const chosen = input.files?.[0]; input.remove();
+      if (!chosen || view.isDestroyed) return;
+      // Where the picture goes: the cursor as it was before the scan window took the focus (closing it puts the focus back on the text).
+      const at = view.state.selection.from;
+      const {pictures} = await splitPictures([chosen]);
+      if (!pictures.length) { showNote('사진으로 알아보지 못했어요. 종이를 사진으로 찍어 주세요.'); return; }
+      let made;
+      try { made = await (await import('./doc-scan.js')).openDocScan(pictures[0]); } catch { made = {error: '스캔 창을 열지 못했어요. 다시 눌러 주세요.'}; }
+      if (view.isDestroyed || !made) return;
+      if (made.error) { showNote(made.error); return; }
+      view.focus();
+      return filesFrom([made], Math.min(at, view.state.doc.content.size));
+    }, {once: true});
+    input.addEventListener('cancel', () => input.remove(), {once: true});
+    root.append(input); input.click();
+  };
 
   // ── 사진 나란히 ──
   // The photo chosen now: {node, pos, row: {node, pos} | null}, or null.
@@ -1544,6 +1578,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     rule: () => insertBlock(N.horizontal_rule.create()),
     nowStamp: () => view.dispatch(view.state.tr.insertText(nowText()).scrollIntoView()),
     photo: () => pickPhotos(),
+    scan: () => pickScan(),
     blocks: () => setBlocks(!blockPart?.isOn(), true),
     file: () => pickFiles(),
     indent: () => pm.chainCommands(pm.sinkListItem(N.list_item), indentBy(1))(view.state, view.dispatch),
@@ -1584,7 +1619,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const vv = window.visualViewport;
     const view0 = {l: vv ? vv.offsetLeft : 0, t: vv ? vv.offsetTop : 0, w: vv ? vv.width : innerWidth, h: vv ? vv.height : innerHeight};
     const gap = 4, side = 8, bottomRoom = view0.w <= 760 ? 72 : 12;
-    pop.style.maxHeight = ''; pop.style.maxWidth = '';
+    pop.style.maxHeight = ''; pop.style.maxWidth = ''; pop.style.overflowY = '';
     if (pop.getBoundingClientRect().width > view0.w - side * 2) pop.style.maxWidth = `${Math.max(120, view0.w - side * 2)}px`;
     pop.style.left = '0px'; pop.style.top = '0px';
     const t = trigger.getBoundingClientRect(), size = pop.getBoundingClientRect();
@@ -1597,6 +1632,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     // (A button inside a scrolled group popover can sit above the screen's top: the popover stays on the screen.)
     const top = Math.max(ceiling, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
     pop.style.maxHeight = `${room}px`;
+    // NOTE-블록모드찾기(2026-11-25): a list that fits shows no scroll bar. Its buttons' 44px press area (::after) reaches a few px past the box
+    // edge, which alone made the list "scroll" with every item already in view; it scrolls only when the list is taller than the room.
+    pop.style.overflowY = size.height <= room ? 'hidden' : '';
     // (The left floor is the screen's side margin, or the button's own left when the button sits closer to the edge, so a popover
     // under the first button of a tight phone row still starts on that button.)
     const left = Math.max(view0.l + Math.min(side, Math.max(0, t.left - view0.l)), Math.min(t.left, view0.l + view0.w - side - size.width));
@@ -1635,7 +1673,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // ED③-창: any open panel or the cell menu counts as a small box. Coalesced into one call per event so closing one box to open another
   // (a panel then the cell menu) reaches onBox as a single "open".
   let boxWas = false, boxQueued = false;
-  const boxOpen = () => !!openName || !ctx.hidden || !!blockPart?.isOpen();
+  const boxOpen = () => !!openName || !ctx.hidden || !!blockPart?.isOpen() || !!noteLinkPart?.isOpen();
   const syncBox = () => {
     if (!onBox || boxQueued) return;
     boxQueued = true;
@@ -1685,7 +1723,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
   function closeBoxes() {
     if (!boxOpen()) return false;
-    closeCtx(false); closePanels(); blockPart?.close();
+    closeCtx(false); closePanels(); blockPart?.close(); noteLinkPart?.close();
     return true;
   }
   ctx.addEventListener('click', e => {
@@ -1845,8 +1883,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       if (panels[k].childElementCount !== inside.length || inside.some((b, i) => panels[k].children[i] !== b)) panels[k].replaceChildren(...inside);
       buttons[k].hidden = n >= items.length;
     }
-    // A small gap before each part: [단계] | 굵게 · | each group | ↶ ↷.
-    const starts = new Set([buttons.strong, buttons.undo]);
+    // A small gap before each part: [단계] | 굵게 · | each group | [⋮⋮ 블록 모드] ↶ ↷.
+    const starts = new Set([buttons.strong, buttons.blocks || buttons.undo]);
     for (const k of GROUP_KEYS) starts.add(groupItems(k).slice(0, outCount[k] || 0)[0] || buttons[k]);
     for (const b of Object.values(buttons)) b.classList.remove('ed-gap');
     for (const b of row) if (starts.has(b)) b.classList.add('ed-gap');
@@ -2004,7 +2042,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       window.visualViewport?.removeEventListener('scroll', followPop);
       window.removeEventListener('mouseup', release, true);
       stopUploads(); upRows.destroy(); for (const url of upPreview.values()) URL.revokeObjectURL(url); upPreview.clear();
-      lineGone = true; lineGrip?.destroy(); blockPart?.destroy();
+      lineGone = true; lineGrip?.destroy(); blockPart?.destroy(); noteLinkPart?.destroy();
       view.destroy();
       if (leadAt?.parent?.isConnected) leadAt.parent.insertBefore(lead, leadAt.next?.parentNode === leadAt.parent ? leadAt.next : null);
       root.remove();

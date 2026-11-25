@@ -108,6 +108,8 @@
 
 ## 5. 단계별 PR
 
+> **2026-11-25 명진 결정(21:35 "추천대로", `docs/qa/stalled-audit-20261125.md` 2절) 2번**: 통화 글로 옮기기(전사·분석) AI는 유료 열쇠로 보고 비용 화면에 넣는다. 그래서 2단계 붙이기(CC 브라우저) → 4단계 DB → 5단계 Edge → 6단계 화면을 이 순서로 시작한다. 지시서 초안은 `docs/qa/stalled-audit-20261125.md` '결정 뒤 구현 줄' I-1~I-4. 7단계(OpenAI 관리자 열쇠)와 시안 A/B 고르기는 이번 결정에 들지 않는다(6단계 세션이 시안을 다시 보여 준다).
+
 | 순서 | PR | 바뀌는 곳 | 정지 지점 | 의존 |
 | --- | --- | --- | --- | --- |
 | 1 | 이 PR | 설계·시안 문서 | 없음 | — |
@@ -117,6 +119,13 @@
 | 5 | 기능 이름 기록 | `_shared/ai-features.mjs`, `_shared/ai-daily-usage.mjs`, `ai-assist` 등 9개 함수 | Edge 배포 여러 개(한 번에 하나, 되돌리기 ref) | 4 적용 뒤 |
 | 6 | 화면: 프로필 'AI 비용' 칸 | `app/ai-usage-line.js`·`ai-usage-model.mjs`를 키움(같은 상태 소유자·렌더러), 한도·자동 충전 금액 입력 한 줄, 업데이트 기록 | 없음 | 3·5 뒤(5 전엔 OpenAI가 '기능 구분 전'으로 한 줄) |
 | 7 | (명진이 하기로 하면) OpenAI 실제 금액 대조 | `drive-summary`에 Costs API 읽기 | 비밀값 등록(명진) + Edge 배포 | 6 뒤 언제든 |
+
+### 5.1 5단계 반영(S70-55 I-3)
+
+- 기능 키·쓰임 → 기능 키 표·함수 → 기능 키 표는 `supabase/functions/_shared/ai-features.mjs` 한 곳. 시험 `tests/security/ai-usage-events-features.test.mjs`가 DB check 목록·ai-assist 쓰임 목록·실제 호출 곳과 대조한다.
+- 넣는 함수 11개: `ai-assist`(로그인 토큰) · `document-actions` 브리핑(로그인 토큰) · `library-files`·`document-ai-index`·`meeting-ai-ingest`·`meeting-ai-draft`·`meeting-transcribe`(녹음 뒤 요약)·`page-ai-draft`(서버 키, `_shared/ai-daily-usage.mjs`) · `collector-feed`·`news-feed`·`outside-feed`(서버 키).
+- 한 행 = AI 한 번(또는 한 요청 안 묶음). 쓴 토큰이 0인 실패(청구 없음)는 행을 넣지 않는다. 기록 실패는 고정 코드 `ai_usage_event_failed`만 로그.
+- 아직 세지 않는 것: `outside-feed` 예약 수집의 요약·소개 AI(여러 작업공간 공용, 지금도 하루 숫자에 안 셈 — 누구 몫으로 셀지 따로 결정), Gemini 전사(`app_ai_external_usage`에 따로).
 
 ## 6. 화면 (시안 요약)
 

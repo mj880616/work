@@ -13,6 +13,7 @@ export const PART_STYLES = Object.freeze({
   'choice-sheet': ['./choice-sheet.css'],
   'area-org-picker': ['./choice-sheet.css', './area-org-picker.css'],
   'small-form-modal': ['./small-form-modal.css'],
+  'doc-scan': ['./doc-scan.css'],
   'basket-upload': ['./basket-picker.css'],
   'row-swipe': ['./row-swipe.css'],
   'row-menu': ['./od-link.css'],

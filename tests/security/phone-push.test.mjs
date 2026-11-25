@@ -23,7 +23,7 @@ const SA=JSON.stringify({type:'service_account',project_id:'web2-phone-test',cli
 
 const reply=(status,body)=>new Response(body===undefined?null:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-function harness({devices=[],now={},env={},fcm=()=>reply(200,{name:'projects/x/messages/1'}),oauth=()=>reply(200,{access_token:'ya29.synthetic-access-token'})}={}){
+function harness({devices=[],now={},env={},outsideWs=null,fcm=()=>reply(200,{name:'projects/x/messages/1'}),oauth=()=>reply(200,{access_token:'ya29.synthetic-access-token'})}={}){
  const state={devices:devices.map(d=>({...d})),log:[],calls:{rest:[],auth:0,oauth:[],fcm:[],other:[]}};
  const fetcher=async(url,init={})=>{
   const u=new URL(url),method=init.method??'GET';
@@ -39,7 +39,9 @@ function harness({devices=[],now={},env={},fcm=()=>reply(200,{name:'projects/x/m
    assert.equal(init.headers.apikey,SERVICE);
    const table=u.pathname.slice('/rest/v1/'.length),q=u.searchParams,body=init.body?JSON.parse(init.body):undefined;
    state.calls.rest.push({method,table,query:u.search,body});
-   assert.ok(['app_workspace_members','app_push_devices','app_push_log','app_outside_seen','app_outside_posts','app_news_items'].includes(table),'only its own tables + owner lookup + Now counts: '+table);
+   assert.ok(['app_workspace_members','app_push_devices','app_push_log','app_outside_seen','app_outside_posts','app_news_items','rpc/app_operator_feature_workspace'].includes(table),'only its own tables + owner lookup + Now counts: '+table);
+   // OUTSIDE-바깥성명 ⑥: 저녁 알림 받는 곳(운영자 기능 outside 작업공간). 기본은 없음(null) — 아무에게도 안 보냄.
+   if(table==='rpc/app_operator_feature_workspace'){assert.deepEqual(body,{p_feature:'outside'});return reply(200,outsideWs);}
    // 저녁 Now 한 줄: 세 표는 읽기만, id·본 시각만(제목·본문 안 읽음), 작업공간으로 거름.
    if(['app_outside_seen','app_outside_posts','app_news_items'].includes(table)){
     assert.equal(method,'GET');
@@ -79,6 +81,7 @@ function harness({devices=[],now={},env={},fcm=()=>reply(200,{name:'projects/x/m
     }
    }
    if(table==='app_push_log'){
+    if(method==='GET')return reply(200,state.log.filter(r=>r.kind===q.get('kind')?.replace('eq.','')&&r.ref_key===decodeURIComponent(q.get('ref_key')?.replace('eq.','')??'')));
     if(method==='POST'){state.log.push(body);return new Response(null,{status:201,headers:{'content-length':'0'}});}
     if(method==='DELETE'){assert.match(q.get('sent_at'),/^lt\.2026-10-02T03:00:00/);return reply(200,[{day:'2026-09-30'},{day:'2026-09-29'}]);}
    }
@@ -251,7 +254,7 @@ test('cron run: slot required, body must be {}, prunes 30-day log, counts worksp
  assert.equal((await h.cron('quarter','[]')).status,400);
  for(const slot of H.SLOTS){
   const r=await h.cron(slot);assert.equal(r.status,200);
-  assert.deepEqual(await r.json(),slot==='evening'?{ok:true,slot,workspaces:2,sent:0,pruned:2,now_lines:0}:slot==='quarter'?{ok:true,slot,workspaces:2,sent:0,pruned:2,family:{sent:0,held:0,off:0},remind:{sent:0,held:0,off:0},signup:{sent:0,held:0,off:0,found:0}}:{ok:true,slot,workspaces:2,sent:0,pruned:2}); // FAMILY-잊지말기·OPS-새가입알림: FCM 비밀값이 없으면 잊지 말기·새 가입도 보내지 않음(읽지도 않음)
+  assert.deepEqual(await r.json(),slot==='evening'?{ok:true,slot,workspaces:2,sent:0,pruned:2,now_lines:0,evening:{sent:0,held:0,off:0}}:slot==='quarter'?{ok:true,slot,workspaces:2,sent:0,pruned:2,family:{sent:0,held:0,off:0},remind:{sent:0,held:0,off:0},signup:{sent:0,held:0,off:0,found:0}}:{ok:true,slot,workspaces:2,sent:0,pruned:2}); // FAMILY-잊지말기·OPS-새가입알림: FCM 비밀값이 없으면 잊지 말기·새 가입도 보내지 않음(읽지도 않음)
  }
  assert.equal(h.state.calls.auth,0,'cron entrance never reads user logins');
  assert.equal(h.state.calls.fcm.length+h.state.calls.oauth.length,0);
@@ -269,15 +272,16 @@ test('evening Now line: one combined line, zero side dropped, counts only (no ti
  assert.equal(L.nowSince('2026-10-01T00:00:00Z',NOW),'2026-10-25T03:00:00.000Z');
  assert.equal(L.nowSince('2026-11-01T01:00:00Z',NOW),'2026-11-01T01:00:00.000Z');
  const P=n=>`e0000000-0000-4000-8000-00000000000${n}`;
- const h=harness({devices:[dev(D1,WS,TOKEN_A),dev(D2,WS2,TOKEN_B)],now:{
+ const h=harness({devices:[dev(D1,WS,TOKEN_A),dev(D2,WS2,TOKEN_B)],outsideWs:WS,env:{FCM_SERVICE_ACCOUNT_JSON:undefined},now:{
   app_outside_seen:[{workspace_id:WS,seen_at:'2026-11-01T01:00:00Z'}],
   app_outside_posts:[{id:P(1),workspace_id:WS,fetched_at:'2026-11-01T02:00:00Z'},{id:P(2),workspace_id:WS,fetched_at:'2026-11-01T00:30:00Z'},{id:P(3),workspace_id:WS2,fetched_at:'2026-10-30T00:00:00Z'}],
   app_news_items:[{id:P(4),workspace_id:WS,created_at:'2026-11-01T02:30:00Z',hidden_at:'2026-11-01T02:40:00Z'},{id:P(5),workspace_id:WS2,created_at:'2026-10-30T00:00:00Z'}],
  }});
  const r=await h.cron('evening');assert.equal(r.status,200);
  const out=await r.json();
- // WS: 본 뒤 새 글 1·숨긴 기사 0 → 줄 있음. WS2: 본 기록 없음 → 24시간 안 새것 없음 → 줄 없음.
+ // WS(outside 작업공간): 본 뒤 새 글 1·숨긴 기사 0 → 줄 있음. WS2는 outside 작업공간이 아니라 세지 않는다(보내기는 phone-push-evening.test.mjs).
  assert.equal(out.now_lines,1);
+ assert.ok(h.state.calls.rest.every(c=>!['app_outside_posts','app_news_items'].includes(c.table)||c.query.includes(WS)),'outside 작업공간만 센다');
  assert.ok(!JSON.stringify(out).includes('새 성명'),'line text never in the response');
  const g=await L.nowEveningCounts(async p=>{const u=new URL('https://x/rest/v1/'+p);assert.equal(u.searchParams.get('select')==='seen_at'||u.searchParams.get('select')==='id',true);return [];},'bad-id',NOW);
  assert.deepEqual(g,{statements:0,articles:0});
@@ -300,7 +304,7 @@ test('docs 5절 table: phone-push row is verify_jwt=false and 배포 대기; ind
  const doc=readFileSync('docs/web2-env6b-edge-source.md','utf8');
  const section=doc.slice(doc.indexOf('## 5.'),doc.indexOf('### 5.1'));
  const rows=section.split('\n').filter(l=>/^\| \d+ \| `phone-push` \|/.test(l));
- assert.equal(rows.length,1);assert.match(rows[0],/\| 배포 대기 \| 없음 \| false \|/);
+ assert.equal(rows.length,1);assert.match(rows[0],/\| (?:배포 대기 \| 없음|운영 중\(버전은 functions list\) \| [^|]+) \| false \|/);
  const idx=readFileSync('supabase/functions/phone-push/index.ts','utf8');
  assert.match(idx,/Deno\.serve\(withWebCors\(createPhonePushHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\)\);/);
  for(const f of ['supabase/functions/phone-push/handler.ts','supabase/functions/_shared/fcm-send.ts']){

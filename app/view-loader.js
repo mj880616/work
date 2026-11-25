@@ -37,7 +37,6 @@ const routeStyles={
   team:['./first-use.css','./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./list-edit.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./home-quick.css','./ui-standard.css'],
-  ledger:['./ledger-import.css','./folder-look.css','./folder-tree.css','./ui-standard.css'],
   search:['./filter-chips.css','./global-search.css','./folder-look.css','./folder-tree.css','./ui-standard.css'],
   reference:['./reference-bundles.css','./ui-standard.css'],
   calls:['./choice-sheet.css','./feed.css','./area-org-picker.css','./ui-standard.css'],
@@ -46,14 +45,14 @@ const routeStyles={
   arsenal:['./arsenal.css','./ui-standard.css'],
   // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
   outside:['./od-link.css','./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./folder-dest-sheet.css','./memo-thread.css','./ui-standard.css'],
-  files:['./od-link.css','./folder-tree.css','./source-chips.css','./folder-dest-sheet.css','./files.css','./folder-look.css','./ui-standard.css'],
+  files:['./od-link.css','./folder-tree.css','./source-chips.css','./folder-dest-sheet.css','./files.css','./folder-look.css','./marquee-select.css','./ui-standard.css'],
   updates:['./release-notes.css','./update-news.css','./small-form-modal.css','./ui-standard.css'],
   whatsnew:['./update-news.css','./ui-standard.css'],
   feedback:['./feedback.css','./ui-standard.css'],
   signups:['./signups.css','./ui-standard.css'],
   // SEC-기능PIN잠금 ②: 잠금 화면(설정 목록·숫자 판).
   lock:['./lock.css','./ui-standard.css'],
-  brief:['./feed.css','./news-mark-rows.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./ui-standard.css'],
+  brief:['./feed.css','./news-mark-rows.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./od-link.css','./ui-standard.css'],
   // S68-09 READ-읽을거리함: 읽을 거리 목록·글 보기(줄 메뉴는 feed.css 공용 작은 메뉴).
   reading:['./feed.css','./choice-sheet.css','./area-org-picker.css','./filter-chips.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./reading.css','./memo-thread.css','./ui-standard.css'],
   // HELP-메뉴안쓰는법: 쓰는 법 화면. 앱 내려받기 탭·단계는 빈 화면 안내와 같은 모양(first-use.css).
@@ -170,10 +169,6 @@ async function diary(){ await module('./diary.js'); return {ok:true} }
 async function hwpLab(){ await module('./hwp-lab.js','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 // UI-프로필입구: [계정 ▾] → [내 프로필]. Like hwp, it stays out of loadAll; the module installs #profileView and loads its data on first open.
 async function profile(){ await organizationOrder(); await module('./profile-settings.js','__KPTU_PROFILE_SETTINGS_READY__'); return {ok:true} }
-// AI-서버연동 S7-b → LEDGER-화면정리: [원장](사이드바·메뉴 판 [원장], ?view=ledger). loadAll에 넣지 않고 열 때만 목록(화면 틀)·고치기 칸·사본 상태 줄을 불러온다.
-// 칸마다 모듈 하나(사본 상태 줄 ledger-export.js, 고치기·기록하기 ledger-fix.js, 겹친 기록 합치기 ledger-merge.js, 목록·검색 ledger-browse.js). 표·함수가 없으면 각 칸이 조용히 숨는다.
-// S52-08 ②: 사본 상태 줄은 화면이 바뀔 때(kptu:view-changed, 처음 열 때도 이 불러오기 뒤에 옴) ledger-export.js가 스스로 읽는다 — 여기서 또 부르면 같은 요청이 두 번 나간다.
-async function ledger(){ await module('./ledger-browse.js','__KPTU_LEDGER_BROWSE_READY__'); await Promise.all([module('./ledger-fix.js','__KPTU_LEDGER_FIX_READY__'),module('./ledger-merge.js','__KPTU_LEDGER_MERGE_READY__'),module('./ledger-export.js','__KPTU_LEDGER_EXPORT_READY__')]); return {ok:true} }
 // SEARCH-전체검색: 상단 줄 검색칸·결과 창·검색 결과 화면(?view=search)·폰 메뉴 검색 입구. loader-v2가 첫 화면 뒤에 한 번 불러온다.
 async function search(){ await module('./global-search.js','__KPTU_GLOBAL_SEARCH_READY__'); return {ok:true} }
 // REF-참고묶음 화면 2: 참고 묶음(?view=reference, 입구는 담당조직 목록 맨 아래·바구니 "참고" 칩). loadAll에 넣지 않고 처음 열 때만 불러온다.
@@ -216,7 +211,7 @@ async function reading(){ await module('./reading.js'); return {ok:true} }
 // SEC-기능PIN잠금 ②: [잠금](?view=lock, 계정 메뉴) — 잠긴 기능을 열 때도 문지기(feature-lock.js)가 이 화면으로 보낸다. 열 때만 불러온다(모듈이 #lockView를 만든다).
 async function lock(){ await module('./lock-ui.js'); return {ok:true} }
 async function help(){ await module('./help.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages)은 없앴다 — 노트(정리함 노트 쪽, 라우터 ALIAS_SUB)를 연다.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home',pages:'basket'};
@@ -252,7 +247,7 @@ async function loadAll(){
 // HWP 편집기(약 20MB)·아스날은 받지 않는다. 주소는 위 화면별 불러오기와 같은 글자(Pages 빌드가 같은 해시 번호를 붙인다).
 // PERF-첫로딩 P4: 목록에는 화면 첫 프로그램(뿌리)만 적고, 그 정적 import 사슬은 Pages 빌드가 채운다(/*static-chain*/) — 미리 받은 뒤 눌러도 사슬을 다시 받지 않게.
 // S52-08 ①(docs/design/perf-first-load-1107.md 6절): 뿌리에는 위 loaders가 화면이 보이기 전에 기다리는 모듈을 모두 적는다(달력 interactions·mobile-ui·
-// day-overflow·persistence, 사업 보고 파일·녹음 초안, 원장 고치기·합치기·사본 줄). 빠지면 첫 클릭 때 그 사슬을 새로 받는다.
+// day-overflow·persistence, 사업 보고 파일·녹음 초안). 빠지면 첫 클릭 때 그 사슬을 새로 받는다.
 const warmModules={
   basket:/*static-chain*/['./basket.js'],
   calendar:/*static-chain*/['./calendar-month-view.js','./calendar-view.js','./calendar-plus.js','./calendar-interactions-v2.js','./calendar-mobile-ui.js','./calendar-day-overflow.js','./calendar-persistence.js'],
@@ -263,7 +258,6 @@ const warmModules={
   library:/*static-chain*/['./library-upload.js'],
   meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js','./meeting-from-files.js'],
   team:/*static-chain*/['./suborganizations.js','./workplace-detail.js'],
-  ledger:/*static-chain*/['./ledger-browse.js','./ledger-fix.js','./ledger-merge.js','./ledger-export.js'],
   reference:/*static-chain*/['./reference-bundles.js'],
   calls:/*static-chain*/['./call-feed.js'],
   telegram:/*static-chain*/['./telegram-feed.js'],

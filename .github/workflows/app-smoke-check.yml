@@ -75,6 +75,7 @@ on:
       - 'tests/org-files-folder-model.test.mjs'
       - 'tests/weekly-save-folder-model.test.mjs'
       - 'supabase/migrations/20261124203000_profile_weekly_folder.sql'
+      - 'supabase/migrations/20261125193000_profile_weekly_team_folder.sql'
       - 'supabase/migrations/20261124160000_library_org_folder.sql'
       - 'tests/meeting-folder-model.test.mjs'
       - 'supabase/migrations/20261124213000_library_folder_meeting.sql'
@@ -220,6 +221,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
+      - 'tests/brief-edit-model.test.mjs'
       - 'tests/brief-marks-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
       - 'tests/report-library-pick-model.test.mjs'
@@ -245,6 +247,10 @@ on:
       - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
+      - 'scripts/ops/stalled-scan.mjs'
+      - 'scripts/ops/stalled-scan-ignore.json'
+      - 'tests/ops-stalled-scan.test.mjs'
+      - '.github/workflows/stalled-scan.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -265,7 +271,10 @@ on:
       - 'tests/now-model.test.mjs'
       - 'tests/now-memos-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
+      - 'tests/select-bar-place-model.test.mjs'
       - 'tests/reading-model.test.mjs'
+      - 'tests/reading-fail-reason.test.mjs'
+      - 'supabase/functions/note-import/**'
       - 'tests/save-bookmarklet-model.test.mjs'
       - 'tests/text-size-model.test.mjs'
       - 'tests/news-colors.test.mjs'
@@ -515,6 +524,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
+      - 'tests/brief-edit-model.test.mjs'
       - 'tests/brief-marks-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
       - 'tests/report-library-pick-model.test.mjs'
@@ -540,6 +550,10 @@ on:
       - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
+      - 'scripts/ops/stalled-scan.mjs'
+      - 'scripts/ops/stalled-scan-ignore.json'
+      - 'tests/ops-stalled-scan.test.mjs'
+      - '.github/workflows/stalled-scan.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -560,7 +574,10 @@ on:
       - 'tests/now-model.test.mjs'
       - 'tests/now-memos-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
+      - 'tests/select-bar-place-model.test.mjs'
       - 'tests/reading-model.test.mjs'
+      - 'tests/reading-fail-reason.test.mjs'
+      - 'supabase/functions/note-import/**'
       - 'tests/save-bookmarklet-model.test.mjs'
       - 'tests/text-size-model.test.mjs'
       - 'tests/news-colors.test.mjs'
@@ -803,6 +820,8 @@ jobs:
         run: node --test tests/note-board-decor-model.test.mjs
       - name: Check note board images (S70-32 ② 사진 정보 지우기·칸 크기)
         run: node --test tests/note-board-image-model.test.mjs
+      - name: Check note board export (S70-32 ③ 범위·PDF 한 쪽)
+        run: node --test tests/note-board-export-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
         run: node --test tests/note-tags-comments.test.mjs tests/memo-model.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)
@@ -820,6 +839,8 @@ jobs:
         run: node --test tests/ops-inbox-gap.test.mjs
       - name: Check work timing and stalled-session calculator (OPS-작업속도)
         run: node --test tests/ops-work-timing.test.mjs
+      - name: Check stalled work daily scan (QA-멈춘일자동점검)
+        run: node --test tests/ops-stalled-scan.test.mjs
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
         run: node --test tests/ci-e2e-shard.test.mjs
 
@@ -830,7 +851,7 @@ jobs:
       - name: Check news daily limits count only what a person used (S69-72 등록)
         run: node --test tests/news-limit-count.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/now-memos-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/now-memos-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/select-bar-place-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
         run: node --test tests/files-model.test.mjs tests/folder-dest-sheet.test.mjs tests/files-trash.test.mjs tests/head-sort.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/drag-edge-scroll.test.mjs tests/marquee-select.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
 
@@ -855,6 +876,9 @@ jobs:
       - name: Check forget promise route (asked-by-me lines go to 상대 약속, recheck of reversed task lines)
         run: node --test tests/forget-promise-route.test.mjs
 
+      - name: Check forget default done (S70-20b 기본 이미 함 · 저절로 지남)
+        run: node --test tests/forget-default-done.test.mjs
+
       - name: Check today-done work/personal split for the weekly report (drop personal lines, re-ask when lines change)
         run: node --test tests/work-scope-model.test.mjs
 
@@ -877,7 +901,7 @@ jobs:
         run: node --test tests/s59-20-small-fixes.test.mjs
 
       - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
-        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs
+        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-edit-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs
 
       - name: S67-39 사업 보고·조직 보고 자료실에서 선택·빼기 규칙
         run: node --test tests/report-library-pick-model.test.mjs
@@ -898,8 +922,10 @@ jobs:
         run: node --test tests/folder-limits.test.mjs
       - name: NOTE-탐색기 노트 폴더 나무(순수 부분) 시험
         run: node --test tests/note-tree.test.mjs
-      - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자·두 손가락) 시험
+      - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자) 시험
         run: node --test tests/folder-tree-ui.test.mjs
+      - name: UI-폴더줄크기 줄 크기 단계·두 손가락 임계값 시험
+        run: node --test tests/row-size-model.test.mjs
       - name: LIB-폴더개수 폴더 줄 '폴더 N · 파일 M' 글자·고르기 창 위 폴더 시험
         run: node --test tests/folder-count.test.mjs
       - name: UI-폴더누르기한규칙 폴더 이름 누르기 = 펼침·접힘 공용 부품 시험
@@ -1191,10 +1217,10 @@ jobs:
         run: node --test tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
 
       - name: Check notes, editor tables and text units (STAB-단위시험등록)
-        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
+        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs tests/doc-scan-model.test.mjs tests/note-related-model.test.mjs tests/note-link-model.test.mjs
 
       - name: Check phone share intake model (APP-폰앱새로 ②, APP-공유노트할일)
-        run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs tests/reading-model.test.mjs tests/save-bookmarklet-model.test.mjs
+        run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs tests/reading-model.test.mjs tests/reading-fail-reason.test.mjs tests/save-bookmarklet-model.test.mjs
 
       - name: Check share goes straight into the basket (SHARE-바로넣기, 확인 줄 없음·메모 달기·되돌리기·다시)
         run: node --test tests/share-auto-put.test.mjs
@@ -1245,7 +1271,7 @@ jobs:
         run: node --test tests/button-six-kinds.test.mjs
 
       - name: Check UI words standard ratchet (UI-용어통일)
-        run: node --test tests/ui-words.test.mjs
+        run: node --test tests/ui-words.test.mjs tests/ui-words-upload.test.mjs
 
       - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
         run: node --test tests/update-news-model.test.mjs

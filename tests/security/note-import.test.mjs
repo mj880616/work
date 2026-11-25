@@ -539,7 +539,7 @@ test('registration: verify_jwt true in the deploy table, CORS wrapper, shared re
  const read=p=>readFileSync(p,'utf8');
  const rows=read('docs/web2-env6b-edge-source.md').split('\n').filter(l=>/^\| \d+ \| `note-import` \|/.test(l));
  assert.equal(rows.length,1,'registered once');
- assert.match(rows[0],/\| \*\*true\*\* \|/);assert.match(rows[0],/배포 대기/);
+ assert.match(rows[0],/\| \*\*true\*\* \|/);assert.match(rows[0],/배포 대기|운영 중\(버전은 functions list\)/);
  const index=read('supabase/functions/note-import/index.ts');
  assert.match(index,/verify_jwt=true/);assert.match(index,/Deno\.serve\(withWebCors\(createNoteImportHandler\(/);
  const handler=read('supabase/functions/note-import/handler.ts'),guard=read('supabase/functions/note-import/guard.ts'),article=read('supabase/functions/note-import/article.ts');

@@ -4,10 +4,13 @@
 import {test, expect} from '@playwright/test';
 import {appOrigin} from './helpers/test-origin.mjs';
 import {baseState, mockApp, signIn} from './helpers/filter-chip-fixture.mjs';
-import {WEB2_CSP, WEB2_REFERRER_POLICY} from '../../cloudflare/web2-csp.mjs';
+import {WEB2_REFERRER_POLICY, web2Csp} from '../../cloudflare/web2-csp.mjs';
+
+// 운영과 같은 정책이되, 보고 받는 주소만 시험 서버로 바꾼다(위반을 일부러 일으키는 시험이 운영 Edge로 보고를 보내지 않게).
+const WEB2_CSP = web2Csp(`${appOrigin}/__csp-report-test`);
 
 // HOME-업무일지홈: 업무일지는 홈(home)이라 따로 열지 않는다.
-const VIEWS = ['home', 'calendar', 'tasks', 'diary', 'photos', 'basket', 'library', 'meetings', 'team', 'telegram', 'calls', 'ledger', 'hwp', 'arsenal'];
+const VIEWS = ['home', 'calendar', 'tasks', 'diary', 'photos', 'basket', 'library', 'meetings', 'team', 'telegram', 'calls', 'hwp', 'arsenal'];
 // 운영 Worker가 정책을 붙이는 주소(web2CspPage)를 시험 서버 경로(/app/…)로 옮긴 것.
 const PAGES = new Set(['/app/', '/app/index.html', '/app/login/', '/app/login/index.html']);
 

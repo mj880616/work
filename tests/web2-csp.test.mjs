@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import router from '../cloudflare/bokdoong-router.mjs';
-import {WEB2_CSP, WEB2_REFERRER_POLICY, THEME_BOOTSTRAP_HASH, web2CspPage} from '../cloudflare/web2-csp.mjs';
+import {WEB2_CSP, WEB2_REFERRER_POLICY, WEB2_REPORTING_ENDPOINTS, CSP_REPORT_URL, CSP_REPORT_GROUP, THEME_BOOTSTRAP_HASH, web2Csp, web2CspPage} from '../cloudflare/web2-csp.mjs';
 
 const PAGES = ['app/index.html', 'app/login/index.html', 'app/oauth-consent/index.html'];
 const directive = name => WEB2_CSP.split('; ').find(part => part.startsWith(name + ' '))?.split(' ').slice(1) || null;
@@ -43,6 +43,20 @@ test('정책: 스크립트는 eval·인라인 없이, 플러그인·base 바꾸�
   assert.equal(WEB2_REFERRER_POLICY, 'strict-origin-when-cross-origin');
 });
 
+// SEC-Web2CSP I-5 보고 받는 곳: 보고 전용 정책에 report-to(새 방식)·report-uri(옛 방식)가 붙고, 둘 다 Edge csp-report 하나를 가리킨다.
+test('정책: report-to·report-uri가 Edge csp-report를 가리키고, 여전히 보고 전용(막는 정책에는 없음)', () => {
+  assert.equal(CSP_REPORT_URL, 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/csp-report');
+  assert.deepEqual(directive('report-to'), [CSP_REPORT_GROUP]);
+  assert.deepEqual(directive('report-uri'), [CSP_REPORT_URL]);
+  assert.equal(WEB2_REPORTING_ENDPOINTS, `${CSP_REPORT_GROUP}="${CSP_REPORT_URL}"`);
+  assert.match(CSP_REPORT_GROUP, /^[a-z0-9-]+$/);
+  // 보고 주소만 바꾼 정책은 나머지 지시어가 같다(E2E는 시험 서버 주소로 바꿔 쓴다).
+  const other = web2Csp('http://127.0.0.1:1/__csp-report');
+  assert.equal(other.replace('http://127.0.0.1:1/__csp-report', CSP_REPORT_URL), WEB2_CSP);
+  assert.equal(WEB2_CSP.split('; ').filter(p => p.startsWith('report-')).length, 2);
+  assert.ok(WEB2_CSP.endsWith(`report-to ${CSP_REPORT_GROUP}`));
+});
+
 async function request(url, upstream) {
   const original = globalThis.fetch;
   globalThis.fetch = async () => upstream;
@@ -56,6 +70,7 @@ test('Worker: workonplus.com의 Web2 첫 화면·로그인 화면에만 보고 �
       const response = await request(url, page(status));
       assert.equal(response.headers.get('Content-Security-Policy-Report-Only'), WEB2_CSP, `${url} ${status}`);
       assert.equal(response.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin');
+      assert.equal(response.headers.get('Reporting-Endpoints'), WEB2_REPORTING_ENDPOINTS, `${url} ${status}`);
       // 1단계 정책 전체는 막지 않는다. 막는 CSP는 SEC-보안헤더의 frame-ancestors 하나뿐이다.
       assert.equal(response.headers.get('Content-Security-Policy'), "frame-ancestors 'self'");
     }
@@ -74,6 +89,7 @@ test('Worker: 다른 화면·파일·공유 페이지·오류 응답에는 붙�
   ]) {
     const response = await request(url, upstream);
     assert.equal(response.headers.get('Content-Security-Policy-Report-Only'), null, url);
+    assert.equal(response.headers.get('Reporting-Endpoints'), null, url);
   }
   assert.equal(web2CspPage('/work/app/login'), false);
   assert.equal(web2CspPage('/work/app/login/'), true);

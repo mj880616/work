@@ -54,7 +54,6 @@ import {scopeKey, hasLines, keepLines} from './work-scope-model.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountHomeSummary} from './home-summary.js';
-import {readAutoPromises} from './journal-ledger.js';
 import {mountDayFill} from './home-day-fill.js'; // HOME-하루채우기: 오늘 사진·읽을 만한 글·이런 기록은 어때요?(세 칸의 renderer)
 import {readDayPicks, askDayPicks, markSuggestDone, setSuggestDone} from './home-day-picks-data.js'; // HOME-하루채우기 ②·③ 서버 결과(ai-assist·owner 표)
 import {homeCardOff, HOME_OFF_EVENT} from './home-off.js'; // S67-52 HOME-칸끄기: 끈 칸은 그리지도 AI에 묻지도 않는다(서버 화면 기억 view_prefs.home_off)
@@ -485,15 +484,8 @@ function renderDay() {
   // (보고는 [주간 정리]·담당조직 전체 표·사업 보고에서). 그 앞 주(옛 보고)는 예전 주간보고 재료 그대로.
   const report = isRecordWeek(start) ? null : dayReportBlock(card);
   // JOURNAL-그밖의기록삭제(11/08): ⑤ 그 밖의 기록(자료실 새 자료·공유 페이지·기타 메모·참고·어디에도 안 보낸 업데이트)은 없앴다 — 모두 원래 자리가 있다.
-  // LEDGER-자동기록: 그날 원장에 자동으로 기록된 약속이 있을 때만 한 줄(누르면 원장 화면의 약속 목록). 0건·못 읽음은 줄 없음.
-  const promises = materials.ledgerPromises?.status === 'ok' ? materials.ledgerPromises.items.get(selected) || 0 : 0;
+  // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장은 AI가 쓰는 뒤쪽 자료라 하루 카드에 '새로 기록된 약속' 줄을 두지 않는다.
   const blocks = report ? [report] : [];
-  if (promises > 0) {
-    const line = document.createElement('p');
-    line.className = 'journal-muted journal-ledger-line'; line.dataset.journalLedger = '';
-    line.innerHTML = `<button type="button" class="journal-item-open" data-journal-ledger-open>새로 기록된 약속 ${promises}</button>`;
-    blocks.unshift(line);
-  }
   host.replaceChildren(...blocks);
   fitAll(host); // UI-줄입력늘어나기: 고쳐서 넣을 한 줄 칸은 글 전체가 보이게
   renderFill();
@@ -1040,8 +1032,6 @@ const readers = {
   execRequests: async () => { const week = start; return (await weeklyKit()).readExecRequests(week, rt); },
   // WEEKLY-자료요약 화면 ②: 그 주 임시저장 행(자료 줄 고침 docs). 칸이 없으면 {missing:true} — 고침 버튼 없이 지금처럼.
   weekDraft: async () => { const week = start; return (await weeklyKit()).readWeekDraft(week, rt); },
-  // LEDGER-자동기록: 이 주에 자동으로 원장에 들어온 약속 수(날별). 표가 없으면 빈 값.
-  ledgerPromises: () => readAutoPromises(start, rt),
   // CAL-조직참고캘린더: 내 프로필에서 고른 조직 참고 캘린더의 그 주·앞으로 2주 주요 일정(고르지 않았으면 달력을 읽지 않음). 저장하지 않고,
   // [주간 정리] 4. 산하 조직 현황의 그 조직 칸·한글 파일 상자의 그 조직 칸 추천 줄로만 쓴다(5. 주요 일정·하루 카드·원장에는 넣지 않음).
   // The project tree for [주간 정리] (read once per visit, like the basket). Without it records go under their project names.
@@ -1168,7 +1158,7 @@ function loadWeek({shared = false, quiet = false} = {}) {
     lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   }
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'execRequests', 'weekDraft', 'ledgerPromises'];
+  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'execRequests', 'weekDraft'];
   // 하루 화면: [주간 정리] 전용 읽기는 미뤄 둔다(startWeekReads). 주를 넘겨도 기억 읽기는 방문(sharedEpoch)에 묶여 있으므로 함께 넘긴다.
   const defer = mode !== 'week', memoryRead = shared || changedOwner || (!!weekReads?.memory && weekReads.sharedRun === sharedRun);
   const keys = defer ? allKeys.filter(key => !WEEK_READS.includes(key)) : allKeys;
@@ -1870,16 +1860,6 @@ function enter(detail) {
   loadWeek({shared:true, quiet:start === shownStart});
 }
 window.KPTURouter?.on?.('home', enter);
-// LEDGER-자동기록: "새로 기록된 약속 N" → 원장 화면(약속만).
-root.addEventListener('click', async event => {
-  if (!event.target.closest?.('[data-journal-ledger-open]')) return;
-  event.preventDefault();
-  try {
-    await window.KPTUViewLoader?.load?.('ledger');
-    window.KPTULedgerBrowse?.show?.({kinds:['commitment']});
-    window.KPTURouter?.go?.('ledger', {source:'delegated'});
-  } catch (e) { console.error('journal ledger open', e?.name || 'Error'); }
-});
 // A renamed category list (자료실 분류) shows on the next draw of 자료실 새 자료.
 window.addEventListener('kptu:document-categories-changed', () => { if (materials.documents?.status === 'ok') { renderDay(); renderWeekly_(); } });
 // SEARCH-전체검색: a search result line of 업무일지 opens that day (its week, then the day).
