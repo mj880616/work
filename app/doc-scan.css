@@ -6,8 +6,8 @@
 .dscan-lines { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
 .dscan-lines polygon { fill: color-mix(in srgb, var(--kptu-primary) 14%, transparent); stroke: var(--kptu-primary); stroke-width: 2; }
 .dscan-stage.is-bad .dscan-lines polygon { stroke: var(--kptu-danger); fill: color-mix(in srgb, var(--kptu-danger) 12%, transparent); }
-.dscan-dot { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; padding: 0; border-radius: 50%; border: 2px solid var(--kptu-primary);
+.dscan .dscan-dot { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; padding: 0; border-radius: 50%; border: 2px solid var(--kptu-primary);
   background: color-mix(in srgb, var(--kptu-surface) 70%, transparent); cursor: grab; touch-action: none; }
-.dscan-dot:active { cursor: grabbing; }
-.dscan-dot:focus-visible { outline: 3px solid var(--kptu-primary); outline-offset: 2px; }
+.dscan .dscan-dot:active { cursor: grabbing; }
+.dscan .dscan-dot:focus-visible { outline: 3px solid var(--kptu-primary); outline-offset: 2px; }
 .dscan-bright { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: var(--ds-text-meta, 13px); }
