@@ -1,7 +1,7 @@
 // UI-앱안알림 3단계(docs/design/in-app-notices.md 5절, 명진 결정 A4·A5):
 // - S52-20: '잊지 말기'(처리 안 한 것, 홈 한 줄과 같은 숫자)가 1건 이상이면 폰 하단바 '홈'에 작은 점(숫자 없음), 폴드 펼침·PC 왼쪽 메뉴 '홈' 옆에 옅은 숫자. 0이면 아무것도 없다.
 // - 숫자는 홈 한 줄·정리함 한 목록이 이미 센 값(새 읽기 없음). 정리함에서 처리하면 다른 화면에서도 바로 사라진다.
-// - 홈 '잊지 말기' 한 줄 오른쪽 '내일 약속 n'(원장 약속, 있을 때만). 서버는 흉내, 글은 지어낸 것.
+// - 홈 '잊지 말기' 한 줄 오른쪽에 '내일 약속 n'(원장)을 붙이지 않는다(LEDGER-화면에서빼기). 서버는 흉내, 글은 지어낸 것.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -68,15 +68,14 @@ test('handling a request in the 정리함 updates the mark without a new count r
   await page.evaluate(()=>window.KPTURouter.go('basket'));
   await expect.poll(async()=>(await mark(page)).attr).toBeNull();
 });
-test('home summary line ends with tomorrow promises only when there are some',async({page})=>{
+// LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 약속이 있어도 홈에 '내일 약속 n ›'(원장으로) 줄을 붙이지 않고 원장을 읽지도 않는다.
+test('tomorrow promises are never shown on home (ledger has no screen)',async({page})=>{
   const {ledgerAsked}=await fixture(page,{width:390,promises:[{id:'p1'},{id:'p2'}]});
-  const btn=page.locator('#homeView [data-home-summary-promises]');
-  await expect(btn).toHaveText('내일 약속 2 ›');
-  // 폰 알림 '원장 약속 D-1'과 같은 기준: 대기 중·유효·후속확인일(없으면 끝난 날)이 내일(서울). 시험 시계는 10/06 → 내일 10/07.
-  expect(ledgerAsked.at(-1)).toMatchObject({commitment_status:'eq.waiting',validity:'in.(current,needs_check)',or:'(follow_up_on.eq.2026-10-07,and(follow_up_on.is.null,date_end.eq.2026-10-07))',select:'id'});
-  const line=await page.locator('#homeView [data-home-summary] [data-home-forget-open]').boundingBox(),end=await btn.boundingBox();expect(line.height).toBeLessThanOrEqual(40);expect(Math.abs((end.y+end.height/2)-(line.y+line.height/2))).toBeLessThanOrEqual(4); // S53-13: 칩 뒤 같은 줄
-  await btn.click();
-  await expect(page.locator('#ledgerView')).toBeVisible();
+  await expect(page.locator('#homeView [data-home-summary] [data-home-forget-open]')).toBeVisible();
+  await expect(page.locator('#homeView [data-home-summary-promises]')).toHaveCount(0);
+  await expect(page.locator('#homeView')).not.toContainText('내일 약속');
+  await expect(page.locator('#homeView')).not.toContainText('새로 기록된 약속');
+  expect(ledgerAsked).toEqual([]);
 });
 test('no tomorrow promise → nothing appended',async({page})=>{
   await fixture(page,{width:1280});

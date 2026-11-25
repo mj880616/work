@@ -116,7 +116,7 @@ const awaitedBeforeShown = name => {
   return body.split('\n').filter(line => !line.includes('background(')).flatMap(line => [...line.matchAll(/module\('\.\/([^']+)'/g)].map(m => m[1]));
 };
 test('S52-08 ①: 화면이 보이기 전에 기다리는 모듈은 그 화면 미리 받기 사슬 안에 있다', () => {
-  for (const [view, fn] of [['calendar', 'calendar'], ['meetings', 'meetings'], ['ledger', 'ledger'], ['tasks', 'tasks'], ['library', 'library']]) {
+  for (const [view, fn] of [['calendar', 'calendar'], ['meetings', 'meetings'], ['tasks', 'tasks'], ['library', 'library']]) {
     assert.ok(warmRoots(view).length, view + ' 미리 받기 목록 없음');
     // 미리 받기는 목록 순서대로 차례로 받으므로, 앞 화면 사슬에 든 모듈(예: 할 일의 google-tasks.js)은 이미 받아 둔 것으로 본다.
     const order = [...warmBlock.matchAll(/\n\s*(\w+):\/\*static-chain\*\//g)].map(m => m[1]);
