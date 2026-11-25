@@ -8,8 +8,9 @@ const rect = loc => loc.evaluate(el => { const r = el.getBoundingClientRect(); r
 // 보이는 높이: 아이콘은 상자 그대로, [−][+](공용 ⑤ .ds-seg)는 누르는 범위 여백(위아래 padding)을 뺀 알약 바탕.
 const icons = detail => detail.locator('.ds-doc-top .ds-doc-icons').evaluate(el => [...el.querySelectorAll(':scope > .ds-doc-icon, :scope > .ds-seg')].map(b => {
   const r = b.getBoundingClientRect(), cs = getComputedStyle(b), pt = parseFloat(cs.paddingTop) || 0, pb = parseFloat(cs.paddingBottom) || 0;
-  const top = r.top + pt, height = r.height - pt - pb;
-  return { name: b.getAttribute('aria-label') || b.textContent.trim(), height, mid: top + height / 2 };
+  const top = r.top + pt, height = r.height - pt - pb, row = el.closest('.ds-doc-top').getBoundingClientRect();
+  // 가운데 차이는 머리 줄과 같은 순간에 잰다(폰 글 보기 칸이 들어오는 중이어도 둘이 함께 움직여 차이만 남는다).
+  return { name: b.getAttribute('aria-label') || b.textContent.trim(), height, off: top + height / 2 - (row.top + row.height / 2) };
 }));
 const compact = page => page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-compact-height')) || 32);
 
@@ -29,8 +30,7 @@ for (const [name, open] of DOC_SCREENS) {
     expect(list.length).toBeGreaterThan(0);
     expect(list.map(x => x.name)).toContain('원래 페이지 (새 창)');
     for (const b of list) expect(Math.abs(b.height - want), b.name).toBeLessThanOrEqual(1);
-    const top = await rect(detail.locator('.ds-doc-top'));
-    for (const b of list) expect(Math.abs(b.mid - top.mid), b.name).toBeLessThanOrEqual(1);
+    for (const b of list) expect(Math.abs(b.off), b.name).toBeLessThanOrEqual(1);
     expect(errors).toEqual([]);
   });
 }
