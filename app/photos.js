@@ -2419,7 +2419,7 @@ function fxToTree() {
   renderFolders();
   if (back) requestAnimationFrame(() => { settleGestureAreas(); window.scrollTo({top:back.y, behavior:'instant'}); body.querySelector(`[data-ft-key="${CSS.escape(back.key)}"] .ft-main`)?.focus({preventScroll:true}); });
 }
-const fxBackBtn = () => (treeWide() ? '' : '<button type="button" class="ft-btn ft-focus-back" data-photos-fx-back aria-label="폴더 나무로">‹</button>');
+const fxBackBtn = () => (treeWide() ? '' : '<button type="button" class="icon-btn fp-up" data-photos-fx-back aria-label="폴더 나무로">‹</button>');
 // S51-24 FOLDER-그폴더만같은모양(시안 folder-focus-continuity.html ②): 폰·폴드 '그 폴더만' = 나무와 같은 둥근 상자(공용 folder-tree.css ft-focus).
 // 상자 맨 위 작은 회색 위치 줄(위 단계만 — [‹]·'사진' = 펼친 자리 그대로 나무), 머리 = 열린 폴더 그림 + 그 폴더 줄(굵은 이름 · 장수 · 보이기 스위치), 안 = 하위 폴더·사진 격자.
 // steps: [{attr, id, name}] 위 단계(맨 앞 '사진'은 함수가 넣는다). head: 그 폴더 줄(photos-fx-here) HTML.

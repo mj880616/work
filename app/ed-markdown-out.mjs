@@ -77,13 +77,15 @@ function blocks(list, depth = 0, top = false) {
         const ordered = node.type === 'ordered_list', start = Number(node.attrs?.order) || 1, close = node.attrs?.marker === 'paren' ? ')' : '.';
         const lines = [];
         (node.content || []).forEach((item, i) => {
-          const mark = ordered ? `${start + i}${close} ` : '- ', pad = ' '.repeat(mark.length);
+          const mark = ordered ? `${start + i}${close} ` : node.attrs?.marker === 'check' ? (item.attrs?.checked ? '- [x] ' : '- [ ] ') : '- ', pad = ' '.repeat(mark.length);
           const inner = join(blocks(item.content, depth + 1), false).split('\n');
           inner.forEach((line, j) => lines.push(j === 0 ? mark + line : line ? pad + line : ''));
         });
         if (lines.length) out.push(lines);
         break;
       }
+      // NOTE-노션편집 ①(나) 접기: markdown has no fold — the ▸ line and what is under it, as plain blocks.
+      case 'toggle': out.push(...blocks(node.content, depth, top)); break;
       case 'horizontal_rule': out.push(['---']); break;
       case 'code_block': {
         const text = (node.content || []).map(n => n.text || '').join('');
