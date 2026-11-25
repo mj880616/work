@@ -876,6 +876,9 @@ jobs:
       - name: Check forget promise route (asked-by-me lines go to 상대 약속, recheck of reversed task lines)
         run: node --test tests/forget-promise-route.test.mjs
 
+      - name: Check forget default done (S70-20b 기본 이미 함 · 저절로 지남)
+        run: node --test tests/forget-default-done.test.mjs
+
       - name: Check today-done work/personal split for the weekly report (drop personal lines, re-ask when lines change)
         run: node --test tests/work-scope-model.test.mjs
 
