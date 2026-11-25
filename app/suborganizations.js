@@ -119,7 +119,7 @@ window.addEventListener('kptu:view-prefs-rejected',e=>{if(!e.detail?.paths?.incl
 async function installStageMenu(trigger,org=null,from=org?'ctx':'screen'){
  await Promise.all([stageModules(),org?null:quietReady()]);const {createAnchoredMenu}=await import('./anchored-menu.js');
  if(!stageMenu)stageMenu=createAnchoredMenu({id:'soTeamMenu',className:'basket-link-menu so-team-menu',label:word('조직 관리 메뉴'),historyKey:'kptuSoTeamMenu',key:()=>'team',
-  render:()=>{if(menuOrg&&menuFrom==='row')return orgMenuItems(menuOrg);return (menuOrg?soMenuItem('data-so-open-org','열기')+'<hr class="so-menu-sep" role="separator">'+orgMenuItems(menuOrg)+'<hr class="so-menu-sep" role="separator">':'')+(menuOrg?'':soMenuItem('data-so-add-group','묶음 만들기'))+soMenuItem('data-so-stage-manage',word('쟁의 단계 관리'))+(menuOrg?'':soMenuItem('data-so-line-backfill','옛 사진 기록 채우기')+soMenuItem('data-so-files-parent',word('조직 기록 자료 모으는 폴더'))+soMenuItem('data-so-files-gather',word('지난 조직 기록 자료도 조직 폴더로 모으기')))+(menuOrg||!isAdmin()||!pickableIds().length?'':soMenuItem('data-so-pick-start','여러 개 선택해 삭제'))+(menuOrg?'':quietItems()+'<hr class="so-menu-sep" role="separator">'+soMenuItem('data-help-open="team"','쓰는 법'))},
+  render:()=>{if(menuOrg&&menuFrom==='row')return orgMenuItems(menuOrg);return (menuOrg?soMenuItem('data-so-open-org','열기')+'<hr class="so-menu-sep" role="separator">'+orgMenuItems(menuOrg)+'<hr class="so-menu-sep" role="separator">':'')+(menuOrg?'':soMenuItem('data-so-add-group','묶음 만들기'))+soMenuItem('data-so-stage-manage',word('쟁의 단계 관리'))+(menuOrg?'':soMenuItem('data-so-files-parent',word('조직 기록 자료 모으는 폴더')))+(menuOrg||!isAdmin()||!pickableIds().length?'':soMenuItem('data-so-pick-start','여러 개 선택해 삭제'))+(menuOrg?'':quietItems()+'<hr class="so-menu-sep" role="separator">'+soMenuItem('data-help-open="team"','쓰는 법'))},
   onAction:(button,active)=>{const id=menuOrg;if(button.matches('[data-help-open]')){import('./help-link.js').then(m=>m.openHelp('team')).catch(()=>{});return}if(button.matches('[data-so-open-org]')){const row=id&&[...document.querySelectorAll('#soOrganizationList [data-so-org]')].find(r=>r.dataset.soOrg===id);row?.click();return}
    if(button.matches('[data-so-rename]')){openEdit(id,{trigger:active.trigger});return}
    if(button.matches('[data-so-exclude]')){void toggleExcluded(id);return}
@@ -127,10 +127,8 @@ async function installStageMenu(trigger,org=null,from=org?'ctx':'screen'){
    if(button.matches('[data-so-pick-start]')){void startPick().catch(err=>console.error('org pick',err));return}
    if(button.matches('[data-so-quiet]')){setQuiet(Number(button.dataset.soQuiet));return}
    if(button.matches('[data-so-add-group]')){openGroupEdit(null,active.trigger);return}
-   // ORG-기록첨부 옛줄바꾸기(S67-13, 명진 11/19 '나'): 파일 이름으로 남은 기록 줄을 사진 설명으로 — 개수를 묻고 뒤에서 차례로(record-line-backfill.js).
-   // ORG-기록자료폴더(명진 11/24): 모으는 폴더 바꾸기 · 지난 자료 모으기(누를 때만, 되돌리기 있음) — org-files-folder.js.
-   if(button.matches('[data-so-files-parent],[data-so-files-gather]')){const at=active.trigger,gather=button.matches('[data-so-files-gather]');import('./org-files-folder.js').then(m=>gather?m.gatherPastOrgFiles({rt,anchor:at}):m.chooseOrgFilesParent(at,rt)).catch(()=>notify('자료를 확인하지 못했어요. 다시 시도해 주세요.',{error:true}));return}
-   if(button.matches('[data-so-line-backfill]')){const at=active.trigger;import('./record-line-backfill.js').then(m=>m.openRecordBackfill(at,rt)).catch(()=>notify('기록을 확인하지 못했어요. 다시 시도해 주세요.',{error:true}));return}
+   // ORG-기록자료폴더(명진 11/24): 모으는 폴더 바꾸기 — org-files-folder.js. 지난 자료 모으기는 처음 정할 때 저절로(S70-29, 메뉴 줄 지움).
+   if(button.matches('[data-so-files-parent]')){const at=active.trigger;import('./org-files-folder.js').then(m=>m.chooseOrgFilesParent(at,rt)).catch(()=>notify('자료를 확인하지 못했어요. 다시 시도해 주세요.',{error:true}));return}
    stageMod.openStageManager({workspaceId:soWorkspace,rt,trigger:active.trigger,orgNames:()=>new Map(soOrganizations.map(o=>[o.id,o.name]))})}});
  menuOrg=org;menuFrom=org?from:'screen';stageMenu.open(trigger);
 }
