@@ -10,7 +10,7 @@ const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 const rowsBox = page => page.locator('#basketView [data-note-rows]');
 const head = page => rowsBox(page).locator('[data-nl-head]');
-const headCell = (page, key) => head(page).locator(`.nl-h-${key}`);
+const headCell = (page, key) => head(page).locator(`[data-nl-col="${key}"]`);
 
 async function fixture(page, width, { prefs = null } = {}) {
   await page.setViewportSize({ width, height: 700 });
@@ -49,7 +49,7 @@ async function fixture(page, width, { prefs = null } = {}) {
 test('PC 1280: 머리 줄이 보이고 날짜 칸이 줄마다 같은 x', async ({ page }) => {
   const s = await fixture(page, 1280);
   await expect(head(page)).toBeVisible();
-  await expect(head(page).locator('[role="columnheader"]')).toHaveText(['제목', '폴더', '태그', '수정일', '첨부']);
+  await expect(head(page).locator('[role="columnheader"]')).toHaveText([/^제목/, /^폴더/, /^태그/, /^수정일/, /^첨부/]);
   const xs = await rowsBox(page).locator('.nl-cols [data-nl-cell="day"]').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().right)));
   expect(new Set(xs).size).toBe(1);
   // 머리 '수정일' 칸과 줄 날짜 칸의 오른쪽 끝이 맞는다.
@@ -156,5 +156,100 @@ test('[태그]·[폴더] 보기 줄은 지금 모양 그대로(칸 줄 아님)',
   await page.locator('#basketView [data-note-view="folder"]').click();
   await expect(rowsBox(page).locator('.nl-cols')).toHaveCount(0);
   await expect(head(page)).toHaveCount(0);
+  expect(s.errors).toEqual([]);
+});
+
+// ---------- ①-2 머리 눌러 정렬(결정 ③가, 기준표 H1). 서버 view_prefs.note_list_sort({key, dir}, 기본 수정일 내림) ----------
+const ids = page => rowsBox(page).locator('.nl-cols').evaluateAll(els => els.map(e => e.dataset.nxNote));
+const sortBtn = (page, key) => head(page).locator(`[data-head-sort="${key}"]`);
+const sortCell = (page, key) => sortBtn(page, key).locator('xpath=..');
+
+test('PC 1280: 머리 칸 두 번 누르기 = 오름·내림, aria-sort, 새로 열어도 같음', async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await fixture(page, 1280);
+  const saved = () => s.server.value?.note_list_sort ?? null;
+  // 처음 = 수정일 내림(지금 순서), 서버 값 없음.
+  await expect(sortCell(page, 'changed')).toHaveAttribute('aria-sort', 'descending');
+  await expect(sortBtn(page, 'changed')).toContainText('▼');
+  expect((await ids(page)).slice(0, 3)).toEqual(['n1', 'n2', 'n3']);
+  expect(saved()).toBeNull();
+  // 제목: 처음 누르면 오름(가짜 노트 1, 2, … 30 — 숫자 자연 정렬), 다시 누르면 내림.
+  await sortBtn(page, 'title').click();
+  await expect(sortCell(page, 'title')).toHaveAttribute('aria-sort', 'ascending');
+  await expect(sortCell(page, 'changed')).toHaveAttribute('aria-sort', 'none');
+  await expect.poll(async () => (await ids(page)).slice(0, 3)).toEqual(['n1', 'n2', 'n3']);
+  expect((await ids(page)).at(-1)).toBe('n30');
+  await sortBtn(page, 'title').click();
+  await expect(sortCell(page, 'title')).toHaveAttribute('aria-sort', 'descending');
+  await expect(sortBtn(page, 'title')).toContainText('▼');
+  await expect.poll(async () => (await ids(page))[0]).toBe('n30');
+  await expect.poll(saved).toEqual({ key: 'title', dir: 'desc' });
+  // 태그 칸은 정렬 칸이 아니다(누를 단추 없음).
+  await expect(head(page).locator('[data-nl-col="tags"] [data-head-sort]')).toHaveCount(0);
+  // 키보드: 머리 칸에 초점 → Enter = 반대로, 다시 그린 뒤에도 초점은 그 칸.
+  await sortBtn(page, 'title').focus();
+  await page.keyboard.press('Enter');
+  await expect(sortCell(page, 'title')).toHaveAttribute('aria-sort', 'ascending');
+  expect(await sortBtn(page, 'title').evaluate(el => el === document.activeElement)).toBe(true);
+  // 폴더: 오름 = 가나다(갑 → 아주 긴 …), 폴더 없는 노트는 맨 아래. 같은 폴더 안은 수정일 최신순.
+  await sortBtn(page, 'folder').click();
+  await expect(sortCell(page, 'folder')).toHaveAttribute('aria-sort', 'ascending');
+  const byFolder = await ids(page);
+  expect(byFolder.slice(0, 2)).toEqual(['n2', 'n5']);
+  expect(byFolder.at(-1)).toBe('n30');
+  // 새로 열어도 같은 정렬(서버 값).
+  await expect.poll(saved).toEqual({ key: 'folder', dir: 'asc' });
+  await page.reload(); await s.show();
+  await expect(sortCell(page, 'folder')).toHaveAttribute('aria-sort', 'ascending');
+  expect((await ids(page)).slice(0, 2)).toEqual(['n2', 'n5']);
+  // 수정일로 돌아가면 기본(내림)이라 서버 값을 지운다.
+  await sortBtn(page, 'changed').click();
+  await expect(sortCell(page, 'changed')).toHaveAttribute('aria-sort', 'descending');
+  await expect.poll(saved).toBeNull();
+  expect(s.errors).toEqual([]);
+});
+
+test('PC 1280: 너비 손잡이 끌기는 정렬 안 됨', async ({ page }) => {
+  const s = await fixture(page, 1280);
+  const before = await ids(page);
+  for (const key of ['title', 'day']) {
+    const g = await head(page).locator(`[data-col-grip="${key}"]`).boundingBox(), y = g.y + g.height / 2, x = g.x + g.width / 2;
+    await page.mouse.click(x, y); await page.waitForTimeout(150);
+    await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x - 30, y, { steps: 4 }); await page.mouse.up(); await settle(page);
+  }
+  expect(await ids(page)).toEqual(before);
+  await expect(sortCell(page, 'changed')).toHaveAttribute('aria-sort', 'descending');
+  expect(s.server.value?.note_list_sort ?? null).toBeNull();
+  await expect(page.locator('#basketView [data-note-detail]')).toBeHidden();
+  expect(s.errors).toEqual([]);
+});
+
+test('폰 390: 머리 줄 없는 [목록]은 ⋯ 메뉴 정렬로 같은 값, 새로 열어도 같음', async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await fixture(page, 390);
+  const menu = page.locator('#noteDocMenu');
+  const openMenu = async () => { await page.locator('#basketView [data-note-folder-more]').click(); await expect(menu).toBeVisible(); };
+  await openMenu();
+  await expect(menu.locator('[data-nl-sort]')).toHaveText(['정렬: 제목', '정렬: 폴더', '정렬: 수정일 ▼', '정렬: 첨부']);
+  await menu.locator('[data-nl-sort="title"]').click();
+  await expect.poll(async () => (await ids(page)).slice(0, 3)).toEqual(['n1', 'n2', 'n3']);
+  expect((await ids(page)).at(-1)).toBe('n30');
+  await openMenu();
+  await expect(menu.locator('[data-nl-sort="title"]')).toHaveText('정렬: 제목 ▲');
+  await menu.locator('[data-nl-sort="title"]').click();
+  await expect.poll(async () => (await ids(page))[0]).toBe('n30');
+  await expect.poll(() => s.server.value?.note_list_sort ?? null).toEqual({ key: 'title', dir: 'desc' });
+  await page.reload(); await s.show();
+  expect((await ids(page))[0]).toBe('n30');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  expect(s.errors).toEqual([]);
+});
+
+test('[폴더] 보기 ⋯ 메뉴에는 [목록] 정렬 줄이 없다(폴더 보기 정렬은 지금 그대로)', async ({ page }) => {
+  const s = await fixture(page, 1280);
+  await page.locator('#basketView [data-note-view="folder"]').click();
+  await page.locator('#basketView [data-note-folder-more]').click();
+  await expect(page.locator('#noteDocMenu')).toBeVisible();
+  await expect(page.locator('#noteDocMenu [data-nl-sort]')).toHaveCount(0);
   expect(s.errors).toEqual([]);
 });

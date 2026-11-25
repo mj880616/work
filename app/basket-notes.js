@@ -7,6 +7,8 @@ import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml, iconSvg } from './tree-icons.js';
 import { mountColResize, gripHtml } from './col-resize.js';
+import { headCellHtml, nextSort, bindHeadSort, cleanSort, naturalCompare, arrowOf, DESC } from './head-sort.mjs';
+import { NOTE_LIST_SORT_KEYS } from './view-prefs.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락은 줄 크기(folder-pinch.js).
 import { ftExplorePress, ftBindTreeArrows } from './folder-tree-press.mjs';
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, ftEmptyRowHtml, FT_PREVIEW } from './folder-tree-ui.mjs';
@@ -185,6 +187,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   });
   window.addEventListener('kptu:view-prefs-ready', () => {
     const sort = savedSort(); if (sort !== noteSort) { noteSort = sort; if (loaded && !selected) renderList(); }
+    else if (view === 'list' && loaded && !selected) renderList(); // ①-2: 서버에 기억한 [목록] 정렬(note_list_sort)이 늦게 와도 그 순서로
     if (viewChosen || view === savedView()) return; view = savedView(); if (loaded && !selected) renderList();
   });
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
@@ -355,11 +358,20 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 머리 줄(PC·펼친 폴드만, 폰은 CSS가 숨김). 칸 오른쪽 금을 끌면 그 칸 너비(공용 col-resize.js, 서버 view_prefs.col_widths.notes, 화면 종류별).
   const LIST_COLS = [['title', '제목'], ['folder', '폴더'], ['tags', '태그'], ['day', '수정일'], ['clip', '첨부']];
   const LIST_COL_VARS = {title:'--nl-w-title', folder:'--nl-w-folder', tags:'--nl-w-tags', day:'--nl-w-day', clip:'--nl-w-clip'};
-  const listHeadHtml = () => `<div class="nl-head" data-nl-head role="row" aria-label="노트 목록 칸">`
-    + LIST_COLS.map(([key, label], i) => `<span class="nl-h nl-h-${key}" role="columnheader">${label}${i < LIST_COLS.length - 1 ? gripHtml(key, label) : ''}</span>`).join('') + '</div>';
+  // ①-2: 머리 칸 = 공용 head-sort.mjs headCellHtml(누르면 그 칸 정렬, 다시 누르면 반대, ▲/▼·aria-sort). 태그 칸은 정렬하지 않는다. 너비 손잡이는 버튼 밖이라 끌어도 정렬되지 않는다.
+  const LIST_HEAD_SORT = {title:'title', folder:'folder', day:'changed', clip:'clip'};
+  const listHeadHtml = () => { const cur = listSort(); return `<div class="nl-head" data-nl-head role="row" aria-label="노트 목록 칸">`
+    + LIST_COLS.map(([key, label], i) => headCellHtml({key:LIST_HEAD_SORT[key] || key, label, cur, sortable:!!LIST_HEAD_SORT[key], extra:i < LIST_COLS.length - 1 ? gripHtml(key, label) : ''})
+      .replace('<span role="columnheader"', `<span data-nl-col="${key}" role="columnheader"`)).join('') + '</div>'; };
   // 금 두 번 누르기 = 그 칸 글자 길이에 맞춤: 줄마다 그 칸 안 글자 폭 중 가장 긴 것(잘린 제목·꼬리표는 scrollWidth로).
   const listCellFit = el => [...el.children].filter(c => !c.classList.contains('a11y-only')).reduce((w, c, i) => w + (i ? 6 : 0) + c.scrollWidth, 0);
   function mountListCols(rowsBox) {
+    bindHeadSort(rowsBox, key => {
+      const again = document.activeElement?.closest?.('[data-head-sort]')?.dataset.headSort === key;
+      setListSort(nextSort(listSort(), key, {descFirst:LIST_SORT_DESC_FIRST}));
+      // 다시 그린 뒤에도 초점은 그 머리 칸(키보드로 이어서 누를 수 있게).
+      if (again) rowsBox.querySelector(`[data-nl-head] [data-head-sort="${key}"]`)?.focus({preventScroll:true});
+    });
     mountColResize({host:rowsBox, name:'notes', vars:LIST_COL_VARS, labels:Object.fromEntries(LIST_COLS),
       fit:key => Math.ceil(Math.max(0, ...[...rowsBox.querySelectorAll(`.nl-cols ${key === 'title' ? '.basket-title' : `[data-nl-cell="${key}"]`}`)].map(listCellFit)))});
   }
@@ -421,7 +433,37 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const byChange = (a, b) => (Date.parse(b.updated_at || '') || 0) - (Date.parse(a.updated_at || '') || 0) || String(b.id).localeCompare(String(a.id));
   // 목록 한 줄(폴더 색 꼬리표 포함). [목록]·[태그]·[달력] 보기가 같이 쓴다.
   const listRowOf = note => { const fid = folderOf(note), name = fid ? folderName(fid) : null; const fc = fid ? colorOf(folderById(fid)) : null; return {type:'note', note, indent:0, path:name || '', fc, tone:name && !fc ? folderTone(fid) : ''}; };
-  const listViewRows = m => notes.filter(n => !m || m(n)).sort(byChange).map(listRowOf);
+  // S70-35 NOTE-목록표머리 ①-2(결정 ③가): [목록] 정렬 = 머리 칸 누르기(다시 누르면 반대) 또는 ⋯ 메뉴 '정렬: …'(폰). 상태 주인은 서버 view_prefs.note_list_sort 하나
+  // ({key, dir}, 기본 수정일 내림 = 지금 순서). 적용 전(DB 검사가 모를 때)에는 이번 접속만 기억(rejectable). 같은 값이면 수정일 내림, 그다음 id로 줄 세움.
+  const LIST_SORT_NAMES = {title:'제목', folder:'폴더', changed:'수정일', created:'작성일', clip:'첨부', memo:'메모', chars:'글자 수'};
+  const LIST_SORT_DESC_FIRST = ['changed', 'created', 'clip', 'memo', 'chars'];
+  const LIST_SORT_DEFAULT = Object.freeze({key:'changed', dir:DESC});
+  const listSort = () => cleanSort(viewPrefs.getNoteListSort?.(), NOTE_LIST_SORT_KEYS) || LIST_SORT_DEFAULT;
+  const listSortValue = (note, key) => {
+    const hidden = pinLock.noteHidden(note);
+    if (key === 'title') return hidden ? LOCKED : noteLineTitle(note);
+    if (key === 'folder') { const fid = folderOf(note); return fid ? folderName(fid) || '' : ''; }
+    if (key === 'changed') return Date.parse(note.updated_at || '') || 0;
+    if (key === 'created') return Date.parse(note.created_at || '') || 0;
+    if (key === 'clip') return hidden ? 0 : note.attachments?.length || 0;
+    if (key === 'chars') return hidden ? 0 : [...String(note.raw_text || '')].length;
+    return 0;
+  };
+  function byListSort(sort) {
+    const sign = sort.dir === DESC ? -1 : 1, text = sort.key === 'title' || sort.key === 'folder';
+    return (a, b) => {
+      const x = listSortValue(a, sort.key), y = listSortValue(b, sort.key);
+      // 폴더 칸 빈칸(폴더 없음)은 방향과 상관없이 맨 아래.
+      if (sort.key === 'folder' && !x !== !y) return x ? -1 : 1;
+      const c = text ? naturalCompare(x, y) : x - y;
+      return c ? c * sign : byChange(a, b);
+    };
+  }
+  function setListSort(next) {
+    const cur = listSort(); if (cur.key === next.key && cur.dir === next.dir) return;
+    viewPrefs.setNoteListSort(next); renderList();
+  }
+  const listViewRows = (m, {sort = null} = {}) => notes.filter(n => !m || m(n)).sort(sort ? byListSort(sort) : byChange).map(listRowOf);
   // ④ 보드 카드 글(S68-38): 제목 한 줄만(길면 화면이 말줄임). 본문·폴더 줄은 카드에 없다(누르면 노트 열기).
   function boardText(note) {
     // S69 보드잠금가림: 잠긴 동안 카드는 자물쇠 모양만(제목·내용 없음, 누르면 PIN 창 — open()이 막는다).
@@ -595,7 +637,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       chipsBox.setAttribute('aria-label', '거르기');
       chipsBox.innerHTML = `<button type="button" class="ds-chip nt-chip" data-nt-pub aria-pressed="${pubOnly}">게시 중<span class="nt-num" aria-label="노트 ${on}개">${on}</span></button>`;
     }
-    const rows = listViewRows(pubOnly ? n => (!m || m(n)) && notePub.isOn(n.id) && !pinLock.noteHidden(n) : m);
+    const rows = listViewRows(pubOnly ? n => (!m || m(n)) && notePub.isOn(n.id) && !pinLock.noteHidden(n) : m, {sort:listSort()});
     mountListCols(rowsBox);
     rowsBox.innerHTML = rows.length ? listHeadHtml() + rows.map(r => rowHtml({...r, cols:true})).join('') : pubOnly ? emptyHtml('맞는 노트 없음') : '';
   }
@@ -762,6 +804,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }
     // PRESS-성명초안삭제(11/09 명진 결정): [성명·보도자료 초안] 메뉴는 기능째 삭제했다(저장해 둔 초안 노트·폴더는 그대로).
     if (from === 'head') return [...(folderAt() ? [['data-nx-new-note', '이 폴더에 새 노트']] : []), ...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
+      // ①-2: [목록] 보기 정렬(폰은 머리 줄이 없어 여기서만, PC는 머리 칸과 같은 값). 누르면 그 칸, 지금 칸이면 반대로.
+      ...(view === 'list' ? Object.values(LIST_HEAD_SORT).map(k => { const cur = listSort(), on = cur.key === k; return [`data-nl-sort="${k}"`, `정렬: ${LIST_SORT_NAMES[k]}${on ? ` ${arrowOf(cur.dir)}` : ''}`, on ? 'nl-sort-on' : '']; }) : []),
       ...(view === 'folder' && canEditFolders() ? [['data-nx-sort', noteSort === 'manual' ? `노트 정렬: ${NOTE_SORT_NAMES.changed} 순으로` : `노트 정렬: ${NOTE_SORT_NAMES.manual}로`]] : []),
       // NOTE-이 폴더 삭제(S67-34): 들어간 폴더의 ⋯에도 폴더 ⋯의 [폴더 삭제]와 같은 길(deleteFolder: 안의 노트·폴더는 한 단 위로, [되돌리기]).
       // 맨 위 '노트'·'폴더 없음'에서는 넣지 않는다(folderAt() 없음).
@@ -1911,6 +1955,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-new-in')) void newFolder(id);
       else if (b.hasAttribute('data-nx-rename')) void renameFolder(id);
       else if (b.hasAttribute('data-nx-sort')) setNoteSort(noteSort === 'manual' ? 'changed' : 'manual');
+      else if (b.dataset.nlSort && NOTE_LIST_SORT_KEYS.includes(b.dataset.nlSort)) setListSort(nextSort(listSort(), b.dataset.nlSort, {descFirst:LIST_SORT_DESC_FIRST}));
       else if (b.hasAttribute('data-nx-move-folder')) openMovePicker(from.trigger, {notes:[], folders:[id]});
       else if (b.hasAttribute('data-nx-delete-folder')) void deleteFolder(id, from.trigger);
       return;
