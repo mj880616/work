@@ -92,13 +92,19 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await page.screenshot({ path: `docs/design/screens/s61-45/${label}-brief.png`, fullPage: false });
     // [브리핑 받기]는 누를 때만 서버를 부른다(넣기만 해서는 부르지 않음).
     expect(calls.filter(c => c.action === 'brief-start')).toHaveLength(0);
-    // [다시 만들기](옛 형식): 목록 [브리핑 받기]와 같은 길(brief-start)로 새로 만든다. 만드는 중이 되면 보기는 닫히고 목록이 보인다.
-    await detail.locator('[data-br-redo]').click();
-    await expect.poll(() => calls.filter(c => c.action === 'brief-start').map(c => c.document_id)).toEqual([D(3)]);
-    await expect(list.locator('.br-row').nth(2)).toContainText('만드는 중');
-    await expect(list).toBeVisible();
+    // S70-29: 옛 형식 보기에도 [다시 만들기] 띠가 없다 — 보기에서는 brief-start를 부르지 않는다.
+    await expect(detail.locator('[data-br-redo]')).toHaveCount(0);
+    expect(calls.filter(c => c.action === 'brief-start')).toHaveLength(0);
+  });
+  // [브리핑 받기]는 목록 줄에서 누를 때만 서버(brief-start)를 부른다.
+  test(`브리핑 룸 [브리핑 받기] (${label})`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const calls = await open(page);
+    await goBrief(page);
+    const list = page.locator('#briefView [data-br-list]');
+    expect(calls.filter(c => c.action === 'brief-start')).toHaveLength(0);
     await list.locator('[data-br-start]').click();
-    await expect.poll(() => calls.filter(c => c.action === 'brief-start').map(c => c.document_id)).toEqual([D(3), D(1)]);
+    await expect.poll(() => calls.filter(c => c.action === 'brief-start').map(c => c.document_id)).toEqual([D(1)]);
   });
 }
 
