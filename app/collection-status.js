@@ -126,7 +126,7 @@ export async function isOperator(rt) {
 }
 const scopeOf = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 
-// drive-summary GET ?action=status is shared with the home "예전 자료 글자 읽기 끝남" line (text-backfill-notice.js):
+// drive-summary GET ?action=status is shared with the AI usage line (ai-usage-line.js):
 // one request per tab and owner scope for 10 minutes (memory only). A failure is cached as null like the card cache.
 let driveStatus = null; // {scope, at, promise}
 export function readDriveStatus(rt) {
@@ -135,11 +135,6 @@ export function readDriveStatus(rt) {
   const promise = rt.api('/functions/v1/drive-summary?action=status', {refreshSession:false, singleFlight:false, timeoutMs:30000}).catch(() => null);
   driveStatus = {scope, at, promise};
   return promise;
-}
-// After a server write the caller already knows the new value (e.g. the dismissed time): keep the shared answer in step.
-export function updateDriveStatus(rt, change) {
-  if (!driveStatus || driveStatus.scope !== scopeOf(rt)) return;
-  driveStatus.promise = driveStatus.promise.then(data => (data && typeof data === 'object' ? change(data) : data));
 }
 
 // Each read failing (not deployed, 404, network) → null, never thrown.

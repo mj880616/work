@@ -1,12 +1,10 @@
 // Deploy with verify_jwt=false: cron and the collector heartbeat have no JWT. Every path authenticates in core.
 // No Google permissions creation or source-content logging. DB writes: AI-사용량줄 usage reports (POST ?action=ai_usage, collector
-// secret only, one insert-only row in app_ai_external_usage) and the nightly text path
-// (POST ?action=text_backfill, cron secret only): the four text columns of app_documents, workspace-scoped (text-backfill.mjs).
+// secret only, one insert-only row in app_ai_external_usage). The nightly text path (text_backfill) was removed in S70-29.
 // FEED-최신화즉시수집 (POST ?action=collector_pull, owner JWT only): one row of press counts via app_feed_pull_take (service role).
 // LIB-이전파일정리 (POST ?action=library_prev_prune, cron secret only): moves expired previous library files to the Drive trash and marks
 // them in app_documents.previous_files only (library-prev-prune.mjs).
 import { createHandler } from './core.mjs';
-import { createDocumentText } from '../_shared/document-text.ts';
 import { inspectDriveFile, moveDriveFileToTrash } from '../_shared/drive-trash.ts';
 import { withWebCors } from "../_shared/web-cors.ts";
 
@@ -27,8 +25,4 @@ Deno.serve(withWebCors(createHandler({
   },
   // LIB-이전파일정리: Drive trash (trashed=true, never DELETE) for the library's expired previous files; cron secret only.
   driveTrash: { inspect: inspectDriveFile, trash: moveDriveFileToTrash },
-  // LIB-글자채우기야간: the same text reader as document-actions `document-text` (one place reads file text).
-  createTextReader: (driveToken: () => Promise<string>) => createDocumentText({
-    driveToken, fetch, log: code => console.error(JSON.stringify({ fn: 'drive-summary', code })),
-  }),
 })));
