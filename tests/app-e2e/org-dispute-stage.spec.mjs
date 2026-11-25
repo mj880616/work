@@ -437,6 +437,8 @@ for(const width of [390,1280,1920])test(`목록 줄 단계 칩이 줄 오른쪽 
  const rows=await page.evaluate(()=>{const r=el=>el.getBoundingClientRect();const head=document.querySelector('#soOrganizationList .so-group-heading');
   return [...document.querySelectorAll('#soOrganizationList .so-row')].map(row=>{const tag=r(row.querySelector('.so-stage-tag')),chev=r(row.querySelector('.kptu-list-chevron')),more=r(row.querySelector('.so-row-more')),box=r(row);
    return {tagToChev:chev.left-tag.right,chevW:chev.width,chevToMore:more.left-chev.right,moreToEnd:box.right-more.right,countVsChev:head?Math.abs(r(head.querySelector('.so-group-count')).right-chev.right):0}})});
+ // 바꾸기 전·후 사진(PR 본문용): ORG_CHIP_SHOTS=폴더
+ if(process.env.ORG_CHIP_SHOTS)await page.locator('#soOrganizationList').screenshot({path:`${process.env.ORG_CHIP_SHOTS}/org-chip-${width}.png`});
  expect(rows).toHaveLength(orgs.length);
  for(const x of rows){
   expect(x.tagToChev,'칩 → ›').toBeGreaterThanOrEqual(0);expect(x.tagToChev,'칩 → ›').toBeLessThanOrEqual(8.5);
@@ -445,6 +447,5 @@ for(const width of [390,1280,1920])test(`목록 줄 단계 칩이 줄 오른쪽 
   expect(x.countVsChev,"머리줄 'N곳' 끝 = › 끝").toBeLessThanOrEqual(1);
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
- if(process.env.ORG_CHIP_SHOTS)await page.locator('#soOrganizationList').screenshot({path:`${process.env.ORG_CHIP_SHOTS}/org-chip-${width}.png`});
  expect(errors).toEqual([]);
 });
