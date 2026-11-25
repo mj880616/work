@@ -74,7 +74,7 @@ for(const width of [1440,412])test(`${width}: 이번 주 주간 보고 칸 — �
   const paper=dlg.locator('[data-bp-paper]');
   // ① 보고 제목(사실 기록)은 나오고, 내부 정례 회의·늘 빼는 종류는 표와 세부 내용 어디에도 없다. 안내 글·[다시 올리기]도 없다.
   await expect(paper).toContainText('합성 간담회');
-  for(const hidden of ['노조 상집','본부 집행위','궤도 집행국','늘 빼는 종류','뺀 회의','다시 올리기'])await expect(paper).not.toContainText(hidden);
+  for(const hidden of ['노조 상집','본부 집행위','궤도 집행국','늘 빼는 종류','뺀 회의','다시 업로드'])await expect(paper).not.toContainText(hidden);
   // ③ AI: 호출 0, [AI 초안]·(고침)·예전에 저장된 AI 값은 보이지 않는다.
   for(const gone of ['AI 초안','(수정됨)','예전에 저장된 AI 한 줄'])await expect(dlg).not.toContainText(gone);
   // 보고가 있는 줄(세부 과제 '국토부 대응')과 보고가 없는 줄('산자부 대응')이 모두 표에 있다.

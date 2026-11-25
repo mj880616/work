@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {readingUrl, sharedReading, newRow, lineOf, filterEntries, filterOptions, nextFilter, keepFilter, entriesOf, linkOf, emptyText, LIST_COLS, bodyText, bodyPatch, keepOwn, stateLine, canRetry,
-  paragraphs, sourceOf, shortDay, BODY_MAX, FILTERS, needsRefetch, refetchBatches, stopsAuto, copyPatch, REFETCH_SINCE, AUTO_BATCH} from '../app/reading-model.mjs';
+  paragraphs, sourceOf, shortDay, BODY_MAX, FILTERS, needsRefetch, refetchBatches, stopsAuto, copyPatch, REFETCH_SINCE, AUTO_BATCH, readingNote, savedStamp, NOTE_CUT_LINE} from '../app/reading-model.mjs';
 import {ITEMS, DEFAULT_REST, withFeatures, defaultLayout} from '../app/menu-model.mjs';
 import {cleanSource} from '../app/text-highlights-model.mjs';
 
@@ -261,4 +261,33 @@ test('저장한 글 [수정]: ⋯ 맨 앞 [수정](다른 화면과 같은 순�
   assert.match(nd, /async function edit\(\) \{[\s\S]*?await openHand\(\);/);
   // 제목 고친 뒤 이어진 저장한 글 줄의 사본도 같은 제목으로.
   assert.match(nd, /m\.syncNewsTitle\(c\.item\.id, row\.title\)/);
+});
+
+// S69-98 NOTE-에버노트 ⑤: [노트로 만들기] — 원문 사본 + 출처 주소 + 저장 시각, 원문 정보(metadata.source)는 주소로 가져오기와 같은 모양.
+test('readingNote: 원문·출처·저장 시각을 노트 한 장으로, 긴 글은 뒤 문단부터 빼고 한 줄 알림', () => {
+  const row = {id: 'a6800000-0000-4000-8000-000000000001', url: 'https://example.com/a', title: '예시 기사', site: 'example.com', saved_at: '2026-11-22T01:00:00Z', body_at: '2026-11-22T01:00:10Z'};
+  assert.equal(savedStamp('2026-11-22T01:00:00Z'), '2026-11-22 10:00');
+  assert.equal(savedStamp('x'), '');
+  const n = readingNote(row, '첫 문단.\n\n둘째 문단.');
+  assert.equal(n.title, '예시 기사');
+  assert.equal(n.raw_text, '첫 문단.\n\n둘째 문단.\n\n---\n출처: example.com · https://example.com/a\n저장: 2026-11-22 10:00');
+  assert.deepEqual(n.source, {url: 'https://example.com/a', state: 'ok', site: 'example.com', fetched_at: '2026-11-22T01:00:10.000Z'});
+  assert.equal(n.cut, false);
+  // 원문이 없으면 출처·저장 시각만(주소는 늘 남는다).
+  assert.equal(readingNote(row, '').raw_text, '---\n출처: example.com · https://example.com/a\n저장: 2026-11-22 10:00');
+  // 상한: 뒤 문단부터 빼고 한 줄.
+  const long = readingNote(row, 'ㄱ'.repeat(60) + '\n\n' + 'ㄴ'.repeat(60), {max: 150});
+  assert.equal(long.cut, true);
+  assert.ok(long.raw_text.startsWith('ㄱ'.repeat(60) + '\n\n' + NOTE_CUT_LINE));
+  assert.ok(!long.raw_text.includes('ㄴ'));
+  assert.ok([...long.raw_text].length <= 150);
+  // id·https 주소가 없으면 만들지 않는다.
+  assert.equal(readingNote({...row, id: 'x'}, 'a'), null);
+  assert.equal(readingNote({...row, url: 'javascript:alert(1)'}, 'a'), null);
+});
+test('[노트로 만들기]: 글 보기 단추 · 기존 노트 만들기 길 · 원문을 받은 뒤에만', () => {
+  const src = readFileSync(new URL('../app/reading.js', import.meta.url), 'utf8');
+  assert.match(src, /'노트로 만들기', \{rdMakeNote: row\.id\}/);
+  assert.match(src, /createNoteDoc\(\{title: made\.title, raw_text: made\.raw_text, source: made\.source\}/);
+  assert.match(src, /state\.bodyFor !== row\.id\) making\.disabled = true/);
 });
