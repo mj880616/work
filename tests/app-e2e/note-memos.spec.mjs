@@ -187,3 +187,47 @@ test('새 메모 표가 아직 없으면(DB 적용 전) 옛 댓글을 메모로 
   await expect(page.locator('#readingView [data-rd-memos] [data-cm-text]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+// S70-06 MEMO-입력칸작게(명진 11/25 09:33 "메모가 없으면 메모칸은 일반적인 댓글창 수준으로"): 공용 메모 칸(memo-thread.js) 쓰기 칸은
+// 처음 한 줄 + 같은 줄 오른쪽 작은 [남기기](공용 작은 버튼). 글만큼 늘고(5줄 뒤 칸 안 스크롤) 남긴 뒤 다시 한 줄. 크기 손잡이 없음. 빈 칸이면 [남기기] 꺼짐.
+for (const width of [390, 1280]) {
+  test(`메모 0개 노트: 메모 쓰기 칸은 한 줄 + 옆 작은 [남기기], 글만큼 늘고 남기면 다시 한 줄 (${width})`, async ({ page }) => {
+    const { errors, memos } = await fixture(page, width);
+    await notes(page);
+    await tap(page, page.locator(`#noteRows [data-note-row="${N3}"]`), width);
+    const nth = page.locator('[data-note-comments]');
+    await expect(nth.locator('[data-cm-count]')).toHaveText('메모 0');
+    const ta = nth.locator('[data-cm-text]');
+    const save = nth.getByRole('button', { name: '메모 남기기', exact: true });
+    await expect(ta).toBeVisible();
+    const size = async () => ({ ta: await ta.evaluate(el => el.getBoundingClientRect().height), btn: await save.evaluate(el => el.getBoundingClientRect().height) });
+    const first = await size();
+    expect(first.ta).toBeLessThanOrEqual(first.btn + 0.5);
+    expect(first.btn).toBeLessThanOrEqual(32);
+    // 같은 줄 오른쪽.
+    const [tb, bb] = [await ta.boundingBox(), await save.boundingBox()];
+    expect(bb.x).toBeGreaterThan(tb.x + tb.width - 1);
+    expect(Math.abs((bb.y + bb.height / 2) - (tb.y + tb.height / 2))).toBeLessThan(tb.height / 2 + 1);
+    expect(await ta.evaluate(el => getComputedStyle(el).resize)).toBe('none');
+    await expect(save).toHaveText('남기기');
+    await expect(save).toHaveClass(/\bsecondary\b/);
+    await expect(save).toBeDisabled();
+    await ta.fill('   ');
+    await expect(save).toBeDisabled();
+    await ta.fill('첫 줄\n둘째 줄\n셋째 줄');
+    await expect(save).toBeEnabled();
+    await expect.poll(async () => (await size()).ta).toBeGreaterThan(first.ta * 2);
+    await ta.fill('1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12');
+    const tall = (await size()).ta;
+    expect(tall).toBeLessThan(first.ta * 6);
+    expect(await ta.evaluate(el => getComputedStyle(el).overflowY)).toBe('auto');
+    await ta.fill('세 줄\n메모\n남김');
+    await tap(page, save, width);
+    await expect(nth.locator('[data-cm-count]')).toHaveText('메모 1');
+    expect(memos.posts.at(-1)).toMatchObject({ target_type: 'note', target_id: N3, body: '세 줄\n메모\n남김' });
+    await expect(ta).toHaveValue('');
+    await expect.poll(async () => (await size()).ta).toBeLessThanOrEqual(first.ta + 0.5);
+    await expect(save).toBeDisabled();
+    expect(errors).toEqual([]);
+  });
+}
