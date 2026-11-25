@@ -308,10 +308,12 @@ export function createDriveUpload(
   // A named folder directly inside an existing app folder (e.g. "할 일 첨부" in 자료실), found or created by this app.
   // The same private check as the basket root: a folder that is shared (its own or an inherited permission) is never used,
   // and no permission is created or removed. The ID is not stored; the search finds it again (drive.file sees app files only).
+  // existingOnly (S69-98, basket-files OCR of a note photo): only find the folder; when it is not there, refuse instead of creating it.
   async function ensurePrivateChildFolder(
     parentId: string,
     name: string,
     token: string,
+    options: { existingOnly?: boolean } = {},
   ): Promise<string> {
     if (!validId(parentId) || !/^[^'\\]{1,100}$/.test(name)) {
       throw new UploadError(409, "drive_folder_invalid", "drive_folder");
@@ -337,6 +339,9 @@ export function createDriveUpload(
       token,
     );
     if (found.length) return verify(found[0]);
+    if (options.existingOnly) {
+      throw new UploadError(409, "drive_folder_missing", "drive_folder");
+    }
     const id = await createFolder(name, parentId, token);
     const created = await folderInfo(id, token);
     if (created.id !== id) {

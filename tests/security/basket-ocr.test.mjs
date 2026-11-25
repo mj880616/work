@@ -104,3 +104,22 @@ test('only a fresh confirmed attempt with a known pre-POST binary failure can re
  const oldAttempt=h.note.attachments[0].ocr.attempt_id;assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,0);
  delete options.sourceBytes;const next=await(await h.request()).json();assert.equal(next.ok,true);assert.notEqual(h.note.attachments[0].ocr.attempt_id,oldAttempt);assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,1);
 });
+
+// S69-98 NOTE-에버노트 ④: 노트(kind 'note')의 사진은 바구니 안 비공개 폴더 '노트 첨부'에 있다. OCR은 그 폴더를 찾기만 하고(만들지 않음),
+// 임시 문서도 그 폴더에 두었다가 지운다. 폴더가 없거나 공유돼 있으면 거절하고 아무것도 쓰지 않는다. 바구니 업데이트(kind 없음)는 그대로 맨 위 폴더.
+test('note photo: OCR reads inside the private "노트 첨부" folder, never creates it, refuses a shared one, keeps root photos',async()=>{
+ const h=ocrHarness({noteKind:true}),result=await(await h.request()).json();
+ assert.equal(result.ok,true);assert.equal(result.ocr_saved,true);assert.equal(result.cleanup_state,'deleted');
+ assert.equal(h.note.attachments[0].ocr.text,'인식 글');assert.equal(h.note.raw_text,'原文保護');assert.equal(h.calls.childLookups,1);
+ const upload=h.calls.drive.find(c=>c.url.pathname==='/upload/drive/v3/files');assert.ok(upload);
+ const shared=ocrHarness({noteKind:true,sharedNoteFolder:true}),r=await shared.request();assert.equal(r.status,409);assert.equal((await r.json()).code,'OCR_FOLDER_UNAVAILABLE');
+ assert.equal(shared.calls.writes.length,0);assert.equal(shared.calls.drive.some(c=>c.url.pathname.includes('/upload/')||c.method==='DELETE'),false);
+ // A note that was an update keeps its old photos in the root: no "노트 첨부" folder, or the photo's parent is the root → read in the root as before.
+ for(const options of [{noteKind:true,noNoteFolder:true,sourceMetadata:{parents:['folder']}},{noteKind:true,sourceMetadata:{parents:['folder']}}]){
+  const m=ocrHarness(options),got=await(await m.request()).json();assert.equal(got.ok,true);assert.equal(m.note.attachments[0].ocr.text,'인식 글');
+ }
+ // Neither folder (e.g. moved elsewhere in Drive): refused by the private-parent check, nothing written.
+ const lost=ocrHarness({noteKind:true,sourceMetadata:{parents:['elsewhere']}});assert.equal((await lost.request()).status,409);assert.equal(lost.calls.writes.length,0);
+ // A basket update keeps reading in the root folder (no child-folder lookup).
+ const b=ocrHarness();assert.equal((await(await b.request()).json()).ok,true);assert.equal(b.calls.childLookups,undefined);
+});

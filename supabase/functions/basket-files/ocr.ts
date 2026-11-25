@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
-import { createDriveUpload } from "../_shared/drive-upload.ts";
+import { createDriveUpload, UploadError } from "../_shared/drive-upload.ts";
 import { createDriveOcr, OcrError, ocrMarkers } from "../_shared/drive-ocr.ts";
 import { effectiveOcrText, OCR_LIMITS } from "../_shared/basket-ocr-text.mjs";
 
@@ -15,9 +15,15 @@ type File = {
 type Note = {
   id: string;
   workspace_id: string;
+  kind?: string;
   updated_at: string;
   attachments: File[];
 };
+// S69-98 NOTE-에버노트 ④: a note's files live in the private child folder "노트 첨부" inside the basket root (handler.ts upload,
+// chosen from the stored row's kind). OCR reads a note photo there and puts its temporary document there too. It only looks the
+// folder up (existingOnly): OCR never creates a folder, and the same private-folder check as the upload refuses a shared one.
+// A note photo still in the root (the note was an update before) is read in the root as before.
+export const NOTE_FILES_FOLDER = "노트 첨부";
 const RPC = "app_basket_update_attachment_ocr";
 const uuid = (v: unknown): v is string =>
   typeof v === "string" &&
@@ -78,7 +84,7 @@ export function createOcrHandler(
     async function read(id: string) {
       if (!db) throw new OcrError("OCR_DB_UNAVAILABLE");
       const result = await db.from("app_notes").select(
-        "id,workspace_id,updated_at,attachments,archived_at,ai_export_allowed",
+        "id,workspace_id,kind,updated_at,attachments,archived_at,ai_export_allowed",
       ).eq("id", id).eq("workspace_id", workspace).maybeSingle();
       if (result.error) throw new OcrError("OCR_DB_UNAVAILABLE");
       if (!result.data) throw new OcrError("NOTE_MISSING", 404);
@@ -383,11 +389,38 @@ export function createOcrHandler(
       if (setting.error || !setting.data?.basket_folder_id) {
         throw new OcrError("OCR_FOLDER_UNAVAILABLE", 409);
       }
-      const folder = await upload.ensurePrivateRootFolder(workspace, token, {
+      const root = await upload.ensurePrivateRootFolder(workspace, token, {
         existingOnly: true,
       });
-      const source = await drive.source(file, folder, token),
-        sourceStamp = note.updated_at;
+      // A note photo is in "노트 첨부" (uploaded to a note) or still in the root (it came with an update that was turned into a note,
+      // README "노트 첨부 폴더"): the photo's own private parent decides, and that folder also holds the temporary document.
+      let folder = root;
+      let source: Awaited<ReturnType<typeof drive.source>>;
+      let child: string | null = null;
+      if (note.kind === "note") {
+        try {
+          child = await upload.ensurePrivateChildFolder(
+            root,
+            NOTE_FILES_FOLDER,
+            token,
+            { existingOnly: true },
+          );
+        } catch (e) {
+          if (!(e instanceof UploadError && e.code === "drive_folder_missing")) {
+            throw new OcrError("OCR_FOLDER_UNAVAILABLE", 409);
+          }
+        }
+      }
+      if (child) {
+        try {
+          source = await drive.source(file, child, token);
+          folder = child;
+        } catch (e) {
+          if (!(e instanceof OcrError && e.code === "OCR_IDENTITY_INVALID")) throw e;
+          source = await drive.source(file, root, token);
+        }
+      } else source = await drive.source(file, root, token);
+      const sourceStamp = note.updated_at;
       let markers: Record<string, string>;
       if (action === "ocr-read") {
         if (

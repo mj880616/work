@@ -118,7 +118,7 @@ export function sendFilesBehind({line, key, batch, rt = window.KPTURuntime, send
 // onChange: 파일 하나가 끝날 때마다(글 속 사진 자리 맞추기용) · finish: 다 올린 뒤 할 일 · textChanged(): finish가 글을 고쳤는지 · done(): 끝난 뒤 화면 쪽 일.
 export function sendNoteBehind(noteId, batch, {rt = window.KPTURuntime, onChange = () => {}, finish = null, textChanged = () => false, done = () => {}} = {}) {
   return sendFilesBehind({line:noteFileLine, key:noteId, batch, rt, where:'노트', finish,
-    send:({request, isCurrent}) => uploadNoteFiles(noteId, batch, {rt, isCurrent, onChange, request}),
+    send:({request, isCurrent}) => uploadNoteFiles(noteId, batch, {rt, isCurrent, onChange, request, photoText:'wait'}),
     done:() => { try { done(); } finally { globalThis.window?.dispatchEvent?.(new CustomEvent('kptu:note-files-sent', {detail:{id:noteId, text:!!textChanged()}})); } }});
 }
 // 줄은 메모리뿐이라 새로 고치면 남은 파일이 사라진다: 올리는 동안 [최신화]·당겨서 새로고침은 먼저 묻는다(1차 사업 보고 줄과 같음).
@@ -231,22 +231,64 @@ export async function readNewPhotos(batch, originalIds, {rt = window.KPTURuntime
   }
 }
 // NOTE-파일붙이기: files for a note go through the same basket-files upload with the note's id; the server puts them in
-// Drive "노트 첨부" (it reads the row's kind itself). Photo text reading (OCR) is a basket-update feature and does not run here.
-// A batch already tied to another row (a basket save waiting for its result) is never sent to this note.
+// Drive "노트 첨부" (it reads the row's kind itself). A batch already tied to another row (a basket save waiting for its result) is never sent to this note.
+// S69-98 NOTE-에버노트 ④: the note's new photos (JPEG·PNG) are then read for their letters (OCR, basket-files — the same reading as a basket
+// update's), one at a time and only after the whole upload succeeded, so search finds them (app_search_records "사진 글자"). A failed or skipped
+// reading never touches the upload. photoText:
+//   'later' (default — the note screen: a photo put in the text shows at once): the reading runs behind, after this returns; when a reading
+//          saved letters the note screen reads the note again (kptu:note-files-sent, text:false — an open edit keeps its guard on that version).
+//   'wait'  (new notes sent behind a closed window, sendNoteBehind): the reading runs before this returns, so the text-place fix and the AI title
+//          that follow read the note after it and never race it.
+//   One note's uploads and readings take turns (noteTurn): the server refuses an upload or a reading when the note changed between its own
+//   read and write, so a second photo put in while the first is being read goes up right after that reading, not in the middle of it.
 const NO_OCR = Object.freeze({enabled:false});
-export async function uploadNoteFiles(noteId, batch, {rt = window.KPTURuntime, isCurrent = () => true, onChange = () => {}, request} = {}) {
+const noteTurns = new Map();
+function noteTurn(id, fn) {
+  const before = noteTurns.get(id) || Promise.resolve();
+  const mine = before.then(fn, fn), tail = mine.then(() => {}, () => {});
+  noteTurns.set(id, tail);
+  void tail.then(() => { if (noteTurns.get(id) === tail) noteTurns.delete(id); });
+  return mine;
+}
+let photoChain = Promise.resolve();
+function readNotePhotos(noteId, batch, originalIds, {rt, ocr}) {
+  const owner = lineScope(rt), here = () => !!owner && lineScope(rt) === owner;
+  const run = async () => {
+    if (!here()) return 0;
+    let saved = 0;
+    await readNewPhotos(batch, originalIds, {rt, isCurrent:here, ...(ocr ? {ocr} : {}), onOcrChange:value => { if (value?.ok && value.attachment) saved++; }});
+    return here() ? saved : 0;
+  };
+  // One reading at a time for every note (basket-ocr-runtime refuses a second one while one runs).
+  const mine = photoChain.then(run, run);
+  photoChain = mine.then(() => {}, () => {});
+  return mine.catch(() => 0);
+}
+export async function uploadNoteFiles(noteId, batch, {rt = window.KPTURuntime, isCurrent = () => true, onChange = () => {}, request, ocr, photoText = 'later'} = {}) {
   if (batch.blocked) throw batch.blocked;
   if (batch.note_id && batch.note_id !== noteId) throw uploadError('앞선 업데이트의 첨부 저장 결과를 먼저 확인해 주세요.', 'batch_other_row');
   batch.note_id = noteId;
-  try { return await uploadBatch(batch, {rt, isCurrent, onChange, ocr:NO_OCR, ...(request ? {request} : {})}); }
-  catch (error) {
-    // [다시]: 노트는 이미 있으므로 실패한 파일만 같은 노트로 다시 보낸다. 결과를 알 수 없는 실패(저장됐을 수 있음)는 [다시]를 두지 않는다.
-    if (!batch.blocked) for (const entry of batch.entries.filter(e => e.kind === 'error')) setUploadRetry(entry.file, () => uploadNoteFiles(noteId, batch, {rt, isCurrent, onChange, request}).catch(() => {}));
-    // The basket wording ("바구니에서 확인") is said in the note's own words; the code stays.
-    if (error?.code === 'note_save_result_unknown') error.message = '첨부 저장 결과를 확인하지 못했어요. 노트를 다시 열어 첨부를 확인해 주세요.';
-    else if (error?.code === 'note_changed') error.message = '노트가 그사이 바뀌었어요. 노트를 다시 열어 첨부를 확인해 주세요.';
-    throw error;
-  }
+  const options = {rt, isCurrent, onChange, request, ocr, photoText};
+  let originalIds = null, result;
+  try {
+    result = await noteTurn(noteId, () => {
+      originalIds = new Set(batch.attachments.map(file => file?.drive_file_id));
+      return uploadBatch(batch, {rt, isCurrent, onChange, ocr:NO_OCR, ...(request ? {request} : {})});
+    });
+  } catch (error) { throw noteUploadError(error, noteId, batch, options); }
+  if (photoText !== 'later' && photoText !== 'wait') return result;
+  const reading = noteTurn(noteId, () => readNotePhotos(noteId, batch, originalIds, {rt, ocr}));
+  if (photoText === 'wait') { await reading; return result; }
+  void reading.then(saved => { if (saved) globalThis.window?.dispatchEvent?.(new CustomEvent('kptu:note-files-sent', {detail:{id:noteId, text:false}})); });
+  return result;
+}
+// A failed note upload: [다시] for the files that did not go up (same note, same options), and the basket wording said in the note's own words.
+function noteUploadError(error, noteId, batch, options) {
+  // [다시]: 노트는 이미 있으므로 실패한 파일만 같은 노트로 다시 보낸다. 결과를 알 수 없는 실패(저장됐을 수 있음)는 [다시]를 두지 않는다.
+  if (!batch.blocked) for (const entry of batch.entries.filter(e => e.kind === 'error')) setUploadRetry(entry.file, () => uploadNoteFiles(noteId, batch, options).catch(() => {}));
+  if (error?.code === 'note_save_result_unknown') error.message = '첨부 저장 결과를 확인하지 못했어요. 노트를 다시 열어 첨부를 확인해 주세요.';
+  else if (error?.code === 'note_changed') error.message = '노트가 그사이 바뀌었어요. 노트를 다시 열어 첨부를 확인해 주세요.';
+  return error;
 }
 // A new note made only of files is titled with the first file's name (one line, 200 characters at most).
 export const fileTitle = name => [...String(name || '').replace(/[\r\n]+/g, ' ').trim()].slice(0, 200).join('').trim();

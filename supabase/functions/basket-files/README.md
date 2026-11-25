@@ -96,6 +96,12 @@ Drive PUT 성공 응답 자체 유실·정리 실패·강제 종료는 파일이
 노트에서 [빼기]는 화면이 owner RLS PATCH로 `attachments`에서 그 항목만 지우고(Drive 무변경), 노트 삭제는 REST 삭제만 해 파일을 Drive에 남긴다(`note-delete`를 부르지 않음).
 업데이트에서 노트로 옮긴 노트의 기존 파일은 최상위 폴더에 그대로 둔다(옮기지 않음).
 
+S69-98 NOTE-에버노트 ④(노트 사진 글자 읽기): OCR(`ocr-read`·`ocr-reconcile`·`ocr-cleanup`)도 행의 `kind`를 읽어, 노트(`note`)의 사진은
+**노트 첨부** 폴더 안에서 읽고 임시 문서도 그 폴더에 만들었다 지운다. 폴더는 찾기만 한다(`ensurePrivateChildFolder(..., {existingOnly:true})`,
+없으면 `drive_folder_missing` — OCR은 폴더를 만들지 않는다). 공유된 폴더면 `OCR_FOLDER_UNAVAILABLE`(409)로 쓰기 전에 거절한다.
+사진의 부모가 최상위 폴더이면(업데이트에서 옮겨 온 노트) 예전처럼 최상위에서 읽는다. 그 밖의 곳에 있는 사진은 기존 비공개 부모 검사가 거절한다.
+DB·JWT 정책(verify_jwt=false 유지, 코드 인증) 변경 없음.
+
 ## 메모 삭제(note-delete) — 배포 대기
 
 `POST ?action=note-delete`, JSON `{action:"note-delete",note_id,note_updated_at}`(정확히 이 3개 키, 4096 bytes까지).
