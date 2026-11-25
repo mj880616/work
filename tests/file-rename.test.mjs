@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import * as require_fs from 'node:fs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const n = await import('../app/file-rename-name.mjs');
@@ -263,4 +264,22 @@ test('공용 CSS: 이름 칸이 열린 덮개 줄은 칸이 눌림을 받고, �
   assert.match(state, /flex:0 0 auto/);
   assert.match(state, /word-break:keep-all/);
   assert.doesNotMatch(state, /overflow-wrap:anywhere/);
+});
+
+// UI-이름고치기단추(S69-100, 요청함 11/25 '조직 기록 파일명 이름 수정 저장 버튼 미세하게 디자인이 다른'): 세 단추는 공용 ② 작은 버튼 한 모양.
+test('이름 고치는 칸 [이름 추천 받기][저장][취소]는 button.secondary 하나, 화면·부품 CSS가 따로 모양을 정하지 않는다', () => {
+  const js = read('../app/file-rename.js');
+  for (const [cls, label] of [['fr-ai', '이름 추천 받기'], ['fr-save', '저장'], ['fr-cancel', '취소']]) {
+    assert.match(js, new RegExp(`<button type="button" class="secondary ${cls}" data-${cls}>${label}</button>`));
+  }
+  const { readdirSync } = require_fs;
+  for (const f of readdirSync(new URL('../app/', import.meta.url)).filter(f => f.endsWith('.css'))) {
+    const css = read(`../app/${f}`).replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.doesNotMatch(css, /\.fr-(ai|save|cancel)\b/, `${f}: 세 단추 하나만 따로 꾸미지 않는다`);
+    for (const m of css.matchAll(/([^{}]*\.fr-acts[^{}]*)\{([^}]*)\}/g)) {
+      if (/\.fr-acts\s+(button|\.fr-)/.test(m[1])) assert.doesNotMatch(m[2], /(^|;)\s*(height|min-height|border|border-color|border-radius|background|background-color|color|font-size|font-weight)\s*:/, `${f}: ${m[1].trim()}`);
+    }
+  }
+  // 정리함의 넓은 단추 규칙(44px 상자)이 이 칸 단추를 덮지 않는다.
+  assert.match(read('../app/basket.css'), /#basketView button:not\([^)]*\.fr-acts \*\)/);
 });

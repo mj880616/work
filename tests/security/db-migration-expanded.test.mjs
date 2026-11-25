@@ -311,3 +311,148 @@ test('new-column grant: the S68-38c migration passes plan (dry-run) and producti
   assert.match(second.summary, /새 칸 권한 표 RLS 켜짐: 1개 모두 예/);
   assert.ok(sent.some(s => s.sql === plan.checks.precheck.sql));
 });
+
+// OPS-DB적용cron받기(S70-01, 2026-11-25 명진 결정): cron 예약 등록은 좁은 조건으로만 받는다.
+const cronName = 'ex_job';
+const cronOf = (command, jobName = `'${cronName}'`) => `select cron.schedule(${jobName}, '43 18 * * *', $cmd$${command}$cmd$);`;
+const cronTrim = "delete from cron.job_run_details where end_time < now() - interval '3 days'";
+
+test('cron: the 20261124220000_cron_history_trim migration passes the expanded rules and plan (dry-run·apply); rollback mode stays strict', () => {
+  const repo = new URL('../../', import.meta.url).pathname;
+  const sql = readFileSync(join(repo, 'supabase/migrations/20261124220000_cron_history_trim.sql'), 'utf8');
+  const result = validateExpanded(sql, { version: '20261124220000', name: 'cron_history_trim' });
+  assert.deepEqual(result.review.cron, ['web2_cron_history_trim']);
+  assert.deepEqual(result.targets, []);
+  for (const mode of ['dry-run', 'apply']) {
+    const plan = prepareMigration({ mode, version: '20261124220000', runId: '1', root: repo });
+    assert.equal(plan.flow, 'full', mode);
+  }
+  assert.throws(() => prepareMigration({ mode: 'rollback', version: '20261124220000', runId: '1', root: repo }));
+});
+
+test('cron: accepted shapes — fixed name, existing function call, same-name re-register (unschedule then schedule)', () => {
+  assert.equal(reason(wrap(cronOf(cronTrim))), 'accepted');
+  assert.equal(reason(wrap(cronOf('select private.app_feed_tidy()'))), 'accepted');
+  assert.equal(reason(wrap(`select cron.schedule('${cronName}', '43 18 * * *', 'select public.app_x(1)');`)), 'accepted');
+  assert.equal(reason(wrap(`select cron.unschedule('${cronName}');\n${cronOf(cronTrim)}`)), 'accepted');
+  assert.equal(reason(wrap(cronOf("delete from public.app_feed_runs where created_at < now() - interval '7 days'"))), 'accepted');
+});
+
+test('cron: forbidden commands inside the job command are refused (cron-command)', () => {
+  const bad = [
+    ['GRANT', 'grant select on table public.app_notes to authenticated'],
+    ['REVOKE', 'revoke all on table public.app_notes from authenticated'],
+    ['anon privilege', 'grant usage on schema public to anon'],
+    ['anon word', 'select public.app_x(anon)'],
+    ['ALTER ROLE', 'alter role authenticated bypassrls'],
+    ['ALTER ROLE (plain)', 'alter role anon set statement_timeout = 0'],
+    ['RLS off', 'alter table public.app_notes disable row level security'],
+    ['policy widen', 'create policy p on public.app_notes for all to authenticated using (true)'],
+    ['definer function', "create function public.f() returns void language sql security definer as 'select 1'"],
+    ['net.http_post', "select net.http_post(url := 'https://example.com', body := '{}'::jsonb)"],
+    ['net.http_get', 'select net.http_get(public.app_url())'],
+    ['unqualified http_post', "select http_post('x', 'y')"],
+    ['extensions.http', "select extensions.http_get('x')"],
+    ['address in a string', "select public.app_x('https://example.com')"],
+    ['vault', 'select vault.decrypted_secret()'],
+    ['another cron job', "select cron.schedule('other', '* * * * *', 'select 1')"],
+    ['cron.job delete', "delete from cron.job where jobname = 'x'"],
+    ['delete without WHERE', 'delete from cron.job_run_details'],
+    ['delete from auth', "delete from auth.users where id = '1'"],
+    ['update', "update public.app_notes set title = 'x' where id = '1'"],
+    ['insert', "insert into public.app_notes(id) values ('1')"],
+    ['select into', 'select 1 into public.t'],
+    ['truncate', 'truncate public.app_notes'],
+    ['set role', 'set role postgres'],
+    ['set_config', "select set_config('role', 'postgres', true)"],
+    ['dblink', "select dblink_exec('x', 'y')"],
+    ['DO block', 'do $x$ begin perform 1; end $x$'],
+    ['unknown builtin call', "select pg_sleep(1)"],
+    ['schema-qualified other schema', 'select storage.foo()'],
+  ];
+  for (const [label, command] of bad) {
+    const body = command.includes('$x$') ? `select cron.schedule('${cronName}', '* * * * *', '${command.replaceAll("'", "''")}');` : cronOf(command);
+    const got = reason(wrap(body));
+    assert.ok(['cron-command', 'blocked-command', 'rls-disable', 'history', 'rtw'].includes(got), `${label}: ${got}`);
+    assert.notEqual(got, 'accepted', label);
+  }
+});
+
+test('cron: job name must be one fixed literal; other shapes are refused (cron-shape)', () => {
+  const bad = [
+    ['concatenated name', cronOf(cronTrim, "'ex_' || 'job'")],
+    ['name from function', cronOf(cronTrim, "format('%s', 'ex_job')")],
+    ['name from variable', cronOf(cronTrim, 'job_name')],
+    ['name from current_setting', cronOf(cronTrim, "current_setting('app.job')")],
+    ['dollar-quoted name', cronOf(cronTrim, '$n$ex_job$n$')],
+    ['E-string name', cronOf(cronTrim, "E'ex_job'")],
+    ['bad name characters', cronOf(cronTrim, "'Ex-Job'")],
+    ['unnamed two-argument schedule', `select cron.schedule('43 18 * * *', $cmd$${cronTrim}$cmd$);`],
+    ['other database', `select cron.schedule_in_database('${cronName}', '43 18 * * *', $cmd$${cronTrim}$cmd$, 'postgres');`],
+    ['bad schedule text', `select cron.schedule('${cronName}', 'every day', $cmd$${cronTrim}$cmd$);`],
+    ['schedule from expression', `select cron.schedule('${cronName}', '43 ' || '18 * * *', $cmd$${cronTrim}$cmd$);`],
+    ['command from expression', `select cron.schedule('${cronName}', '43 18 * * *', 'select ' || 'public.app_x()');`],
+    ['same name twice', `${cronOf(cronTrim)}\n${cronOf(cronTrim)}`],
+    ['unschedule only (job removal)', `select cron.unschedule('${cronName}');`],
+    ['unschedule other name', `select cron.unschedule('other_job');\n${cronOf(cronTrim)}`],
+    ['unschedule after schedule', `${cronOf(cronTrim)}\nselect cron.unschedule('${cronName}');`],
+    ['unschedule by job id', `select cron.unschedule(42);\n${cronOf(cronTrim)}`],
+    ['alter_job', `select cron.alter_job(1, active := false);`],
+    ['extra select', `select cron.schedule('${cronName}', '43 18 * * *', $cmd$${cronTrim}$cmd$), 1;`],
+  ];
+  for (const [label, body] of bad) {
+    const got = reason(wrap(body));
+    assert.notEqual(got, 'accepted', label);
+    assert.ok(['cron-shape', 'cron-command', 'unknown-statement'].includes(got), `${label}: ${got}`);
+  }
+  // Plain SELECT that is not a cron call stays refused.
+  assert.equal(reason(wrap('select 1;')), 'cron-shape');
+  // cron calls inside a DO block stay refused (DO blocks are read-only guards).
+  assert.equal(reason(wrap(`do $$ begin perform cron.schedule('${cronName}', '* * * * *', 'select 1'); end $$;`)), 'do-block');
+});
+
+test('cron: DO guard may compare with a nested $tag$ literal only after =; snapshot reads cron.job command only as md5', () => {
+  assert.equal(reason(wrap(`${cronOf(cronTrim)}\ndo $$ begin if not exists (select 1 from cron.job where command = $c$x$c$) then raise exception 'x'; end if; end $$;`)), 'accepted');
+  assert.equal(reason(wrap(`${cronOf(cronTrim)}\ndo $$ begin if $c$x$c$ is null then raise exception 'x'; end if; end $$;`)), 'do-block');
+  checkSnapshotSQL("select jobname as name, schedule || md5(command) as definition from cron.job");
+  checkSnapshotSQL("select j.jobname as name, md5(j.command) as definition from cron.job j");
+  for (const sql of ['select jobname, command from cron.job', 'select md5(command) || command from cron.job',
+    'select jobid::text from cron.job_run_details', 'select return_message from cron.job_run_details']) {
+    assert.throws(() => checkSnapshotSQL(sql), ExpandedRejection, sql);
+  }
+});
+
+test('cron: approved apply flow for 20261124220000 runs to the end with production-shaped answers (no DB)', async () => {
+  const { makePlan } = await import('../../scripts/ops/db-workflow.mjs');
+  const { runFullPlan } = await import('../../scripts/ops/db-migration-run.mjs');
+  const repo = new URL('../../', import.meta.url).pathname;
+  const plan = makePlan('apply', '7', 'refs/heads/main', '20261124220000_cron_history_trim.sql', repo);
+  assert.equal(plan.rules, 'expanded'); assert.equal(plan.flow, 'full');
+  let applied = false;
+  const writes = [];
+  const pre = [['pg_cron ready', '예'], ['cron timezone UTC', '예'], ['trim job absent', '예'], ['new migration absent', '예'],
+    ['cron jobs', '4'], ['other cron jobs hash', 'a'.repeat(32)], ['retention daily job present', '아니오']];
+  const post = [['trim job 1', '예'], ['trim job schedule 18:43 UTC active', '예'], ['trim job command', '예'], ['migration recorded', '예'],
+    ['other cron jobs hash', 'a'.repeat(32)], ['trim ran ok (next day)', '아니오(첫 실행 전이면 정상)'], ['finished rows older than 3 days', '1200']];
+  const query = async (sql, opts = {}) => {
+    if (sql.startsWith('select count(*)::int as count from supabase_migrations')) return [{ count: applied ? 1 : 0 }];
+    if (sql === plan.checks.precheck.sql) return pre.map(([item, value]) => ({ item, value }));
+    if (sql === plan.checks.postcheck.sql) return post.map(([item, value]) => ({ item, value }));
+    if (sql === plan.snapshot.sql) return [{ kind: 'cron job', name: 'web2_feed_tick', definition: '* * * * *:active=true' }];
+    assert.ok(!opts.readOnly, 'unexpected read');
+    writes.push(sql);
+    if (sql === plan.file.sql) applied = true;
+    return [];
+  };
+  const result = await runFullPlan(plan, query, { saveSnapshot: async () => {} });
+  assert.equal(result.ok, true, result.summary);
+  assert.equal(writes.length, 2, 'dry-run then apply, no backup (no public table target)');
+  assert.match(writes[0], /rollback;\s*$/);
+  assert.equal(writes[1], plan.file.sql);
+  // A changed set of other jobs is a failed postcheck (not auto-reverted).
+  applied = false; writes.length = 0;
+  post[4] = ['other cron jobs hash', 'b'.repeat(32)];
+  const changed = await runFullPlan(plan, query, { saveSnapshot: async () => {} });
+  assert.equal(changed.ok, false);
+  assert.match(changed.summary, /사후 확인 실패/);
+});

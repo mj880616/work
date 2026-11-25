@@ -63,6 +63,8 @@ test('letters: a row is its photos one line each, a file is "[파일: 이름 (�
   assert.ok(md.includes('\\[파일: 자료.hwp\\]'), md);
 });
 
+// NOTE-노션편집 ①(가): the [⌄] row is gone (every width uses the grouped row), so the editor no longer reads or writes ed_more.
+// The key stays a valid server setting (no DB change; old saved values are simply not used).
 test('ed_more: a server screen setting (참·거짓), not kept on the device', () => {
   assert.ok(KEYS.includes('ed_more'));
   assert.equal(validValue('ed_more', true), true);
@@ -71,7 +73,7 @@ test('ed_more: a server screen setting (참·거짓), not kept on the device', (
   const ed = readFileSync(new URL('../app/ed-editor.js', import.meta.url), 'utf8');
   // (no browser-side store in the editor: the words are built here so the repository audit does not read this line as a use)
   assert.doesNotMatch(ed, new RegExp(['local', 'session'].map(w => w + 'Storage').concat('indexed' + 'DB').join('|')));
-  assert.match(ed, /viewPrefs\.set\('ed_more', moreOn, \{rejectable: true\}\)/);
+  assert.doesNotMatch(ed, /ed_more/);
 });
 
 test('[파일] and [사진] appear only where the opener gives them; notes give both through the note attachments upload', () => {

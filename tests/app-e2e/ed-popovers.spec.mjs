@@ -20,11 +20,14 @@ const content = async page => (await value(page)).doc.content;
 // A button of the editor's bar (the row or, on a phone, a group popover: ED-서식줄묶음).
 const tool = (page, name) => page.locator('.ed-bar').getByRole('button', {name, exact: true});
 const GROUP_BUTTONS = ['글자 서식 선택', '문단 서식 선택', '넣을 것 선택', '기호 선택'];
-// On a phone most buttons sit in a group popover: open the group that holds this button (a no-op wider than a phone or when it shows).
+// Some buttons sit in a group popover (on a phone most; NOTE-노션편집 ①(가): on a PC the rest of each group): open the group that holds
+// this button (a no-op when it shows).
 const showTool = async (page, locator) => {
-  if (page.viewportSize().width > 760 || await locator.isVisible()) return;
+  if (await locator.isVisible()) return;
+  const wide = page.viewportSize().width > 760;
   for (const g of GROUP_BUTTONS) {
-    await page.locator('.ed-tools').getByRole('button', {name: g, exact: true}).tap();
+    const gb = page.locator('.ed-tools').getByRole('button', {name: g, exact: true});
+    if (wide) await gb.click(); else await gb.tap();
     if (await locator.isVisible()) return;
   }
   throw new Error('the button is on no phone group');
@@ -101,40 +104,28 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       }
     });
 
-    test('every button that opens choices carries a small ▾; [⌄] is the only full-width row and turns to [⌃] while open', async ({page}) => {
+    test('every button that opens choices carries a small ▾; there is no full-width [⌄] row, a group\'s button opens its own popover under itself', async ({page}) => {
       await open(page);
       for (const name of ['글 단계 선택', '글자색 선택', '형광펜 선택', '정렬 선택', '글머리 목록 선택', '번호 목록 선택', '표 넣기', '점 기호 선택', '참고 기호 선택', '화살표 선택', '동그라미 번호 선택']) {
         const b = tool(page, name);
         await showTool(page, b);
         await expect(b, name).toContainText('▾');
         await expect(b.locator('.ed-caret'), name).toHaveAttribute('aria-hidden', 'true');
+        await page.keyboard.press('Escape');
       }
-      const more = page.locator('.ed-tools .ed-more');
-      // ED-서식줄묶음: a phone has no [⌄]; every button it held sits in a group popover (see the phone tests below).
-      if (touch) { await expect(more).toBeHidden(); return; }
-      await expect(more).toHaveAttribute('title', '서식 더 보기');
-      await expect(more).toHaveAttribute('aria-label', '서식 더 보기');
-      const idle = await more.evaluate(el => { const c = getComputedStyle(el); return {h: Math.round(el.getBoundingClientRect().height), border: c.borderTopColor, bg: c.backgroundColor, rot: getComputedStyle(el.querySelector('svg')).transform}; });
-      expect(idle.h).toBeLessThanOrEqual(28);
-      expect(idle.border).toBe('rgba(0, 0, 0, 0)');
-      expect(idle.rot).toBe('none');
-      await press(more);
-      const band = group(page, '서식 더 보기');
-      await expect(band).toBeVisible();
-      const open_ = await more.evaluate(el => { const c = getComputedStyle(el); return {border: c.borderTopColor, bg: c.backgroundColor, rot: getComputedStyle(el.querySelector('svg')).transform}; });
-      expect(open_.border).toBe('rgba(0, 0, 0, 0)');
-      expect(open_.bg).not.toBe(idle.bg);
-      await expect.poll(() => more.evaluate(el => getComputedStyle(el.querySelector('svg')).transform)).not.toBe('none');
-      // The band spans the editor's width; a popover does not.
-      const b = await rect(band), bar = await rect(page.locator('.ed-bar'));
-      expect(Math.abs(b.width - bar.width)).toBeLessThanOrEqual(1);
-      // 「」 under it opens its own popover under itself.
-      await press(band.getByRole('button', {name: '괄호·단위 기호 선택'}));
+      // NOTE-노션편집 ①(가): no [⌄] row on any width; every button sits on the row or in its group popover.
+      await expect(page.locator('.ed-more')).toHaveCount(0);
+      const bar = await rect(page.locator('.ed-bar'));
+      // 「」 in [기호 ▾] opens its own popover under itself, over the group popover (which stays).
+      const b = tool(page, '괄호·단위 기호 선택');
+      await showTool(page, b);
+      await press(b);
       const pop = group(page, '괄호·단위 기호');
       await expect(pop).toBeVisible();
       expect((await rect(pop)).width).toBeLessThanOrEqual(bar.width - 16);
-      await expect(group(page, '서식 더 보기')).toBeVisible();
+      await expect(group(page, '기호')).toBeVisible();
     });
+
 
     test('a popover is never cut off at the bottom: it goes above the button or scrolls inside itself', async ({page}) => {
       await page.setViewportSize({width: viewport.width, height: 250});

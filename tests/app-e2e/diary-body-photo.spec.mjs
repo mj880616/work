@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { edCmd } from './helpers/ed-tools.mjs';
 // S67-20 하루 기록 본문 사진(요청함 11/20 07:58): 하루 기록 글 칸에도 노트와 같은 [넣기 ▾] › [사진]. 사진은 그 일기에 올린 사본
 // (basket-files 올리기, note_id = 그 일기, Drive "노트 첨부")이고 글에는 drive:<id>만 남는다. 보기는 본인 전용 사진 보기(?action=photo)뿐.
 // 글 안 사진은 글 안에만: 그날 사진 칸·달력 칸·[사진 n/20]에는 세지 않는다(metadata.body_photos). 글에서 지우고 저장하면 일기에서도 빠진다.
@@ -78,9 +79,8 @@ const field = ed => ed.locator('[data-diary-text] .ProseMirror');
 async function insertPhoto(page, ed, width, name = '현장.png') {
   const box = ed.locator('[data-diary-text]');
   await field(ed).click(); await page.keyboard.press('Control+End');
-  if (width < 761) await box.locator('[data-ed-cmd="gInsert"]').click();
   const chooser = page.waitForEvent('filechooser');
-  await box.locator('[data-ed-cmd="photo"]').click();
+  await edCmd(box, 'photo');
   await (await chooser).setFiles([{ name, mimeType: 'image/png', buffer: PNG }]);
 }
 const shot = (page, name) => page.screenshot({ path: `${SHOTS}/${name}.png` });

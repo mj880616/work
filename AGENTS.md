@@ -106,6 +106,8 @@
 ### 범위
 
 - 요청 범위만 수정한다. 범위 밖에서 발견한 문제는 고치지 않고 보고만 한다.
+- 지적받은 문제와 같은 종류를 전수 검사하되, 다른 곳에서 찾은 같은 종류 문제는 지금 PR에 섞지 않는다. PR 본문 '범위 밖 발견사항'에 위치와 함께 적고, 커맨드센터가 별도 PR로 줄 세운다(2026-11-25 명진 결정, `docs/command-center-ops.md` 1절).
+- 지시서 완료 기준에 적힌 자동 시험이 통과해야 완료다. 요구를 지키는 시험이 없으면 시험부터 추가한다(고치기 전 실패·고친 뒤 통과).
 - 근본 원인 때문에 연관 파일 수정이 불가피하면 그 이유를 보고에 밝힌다.
 
 ### 캐시 버전
@@ -144,7 +146,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 ## 7. production DB 적용 (Claude Code 로컬 또는 폰 경로 C)
 
 - 순서: 로컬 세션 read-only 사전 확인(snapshot 대조) → 사용자가 SQL Editor에서 직접 실행 → 로컬 세션 read-only 사후 검증.
-- 사용자 승인형 DB workflow: 커맨드센터가 main에서 apply를 시작 → (environment 승인이 걸려 있으면 승인 한 번) → 사전 확인·snapshot·시험 적용(취소)·백업·적용·사후 확인, 하나라도 실패하면 멈춤(rollback 자동 실행 없음, 사용자 결정). AI는 승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지. 엄격 규칙 밖의 정책·권한·트리거·함수는 확장 규칙(짝 파일 5개 필수, anon·PUBLIC 권한·RLS 끄기·DEFINER+anon/PUBLIC 실행·권한을 넓히는 정책 교체 등 거절. 같은 이름·같은 표로 다시 만들며 권한을 높이지 않는 정책 교체는 운영 정의와 비교해 받음)으로만 받는다(`docs/ops-db-workflow.md` "승인 한 번 흐름"). rollback 모드 규칙은 그대로다.
+- 사용자 승인형 DB workflow: 커맨드센터가 main에서 apply를 시작 → (environment 승인이 걸려 있으면 승인 한 번) → 사전 확인·snapshot·시험 적용(취소)·백업·적용·사후 확인, 하나라도 실패하면 멈춤(rollback 자동 실행 없음, 사용자 결정). AI는 승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지. 엄격 규칙 밖의 정책·권한·트리거·함수는 확장 규칙(짝 파일 5개 필수, anon·PUBLIC 권한·RLS 끄기·DEFINER+anon/PUBLIC 실행·권한을 넓히는 정책 교체 등 거절. 같은 이름·같은 표로 다시 만들며 권한을 높이지 않는 정책 교체는 운영 정의와 비교해 받음)으로만 받는다(`docs/ops-db-workflow.md` "승인 한 번 흐름"). cron 예약 등록은 위 조건으로 받음(2026-11-25 명진 결정: 고정 글자 이름, 같은 이름은 unschedule 뒤 다시 등록만, 예약 명령 안에도 권한·역할·RLS·정책·외부 주소 호출 금지 그대로, `docs/ops-db-workflow.md` "cron 예약 등록"). rollback 모드 규칙은 그대로다.
 - SQL Editor 적용은 항상 새 쿼리 창(+)에서 시작한다. 붙여 넣은 뒤 첫 줄·마지막 줄(`commit;`)·대상 프로젝트 ID를 확인하고 실행한다.
 - AI가 apply_migration 등 쓰기 도구로 production DB를 직접 변경하지 않는다.
 - **`supabase db push`·`migration repair`는 영구 금지.** production DB를 읽생기 저장소와 공유한다(`docs/migration-history.md`).

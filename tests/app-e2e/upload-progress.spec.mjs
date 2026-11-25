@@ -3,6 +3,7 @@ import http from 'node:http';
 import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
+import { edCmd } from './helpers/ed-tools.mjs';
 // UI-올리기진행표시(S52-15, 요청함 11/07 11:40, 시안 docs/design/mockups/upload-progress.html): 파일·사진을 올리면 막대와 %가
 // 실제로 보낸 양으로 차오르고, ✕ 취소·실패 [다시]·다른 화면에서는 하단바 위 한 줄로 끝남을 알 수 있다.
 // 보낸 양이 진짜여야 하므로 올리기(basket-files POST)만 이 시험 안의 느린 서버(127.0.0.1)로 보낸다: 서버가 받은 만큼만 브라우저의
@@ -89,10 +90,8 @@ async function noteFixture(page,{width=412}={}){
  return {notes,uploads,errors,box,field,srv};
 }
 async function insertVia(page,box,cmd,files){
- const wide=await page.evaluate(()=>innerWidth>760);
- if(!wide||await box.locator('[data-ed-cmd="gInsert"]').isVisible())await box.locator('[data-ed-cmd="gInsert"]').click();
  const chooser=page.waitForEvent('filechooser');
- await box.locator(`[data-ed-cmd="${cmd}"]`).click();
+ await edCmd(box,cmd);
  await (await chooser).setFiles(files);
 }
 
