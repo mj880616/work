@@ -55,7 +55,7 @@ test('PERF 요청 합치기(S48-59): 홈 요약은 들어올 때 숫자 재료 �
   const src = readFileSync(new URL('../app/home-summary.js', import.meta.url), 'utf8');
   const enter = src.slice(src.indexOf('enter() {'), src.indexOf('refresh,', src.indexOf('enter() {')));
   assert.ok(enter.indexOf('readInboxParts(rt)') > 0 && enter.indexOf('readInboxParts(rt)') < enter.indexOf('listTasks'), enter);
-  assert.match(enter, /refresh\(\{parts, promises\}\)/);
+  assert.match(enter, /refresh\(\{parts\}\)/); // LEDGER-화면에서빼기: 내일 약속(원장) 읽기 없음
   const journal = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
   const jEnter = journal.slice(journal.indexOf('function enter(detail)'));
   assert.ok(jEnter.indexOf('homeTop?.enter()') < jEnter.indexOf('loadWeek('), '홈 요약 enter가 loadWeek보다 먼저(같은 주소 읽기가 함께 나가 한 번으로 합쳐짐)');

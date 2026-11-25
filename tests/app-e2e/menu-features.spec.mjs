@@ -56,12 +56,15 @@ for(const width of [1280,760,412]){
     expect(errors).toEqual([]);
   });
 }
-test('원장 화면은 메뉴에 없어도 그대로 열린다',async({page})=>{
+// LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 화면은 없다. go('ledger')는 홈을 열고 원장 화면 틀은 생기지 않는다.
+test('원장 화면은 없다: go(ledger)는 홈',async({page})=>{
   await page.setViewportSize({width:1280,height:900});
   await openHome(page,{features:[]});await settle(page);
+  await page.evaluate(()=>window.KPTURouter.go('basket'));
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
   await page.evaluate(()=>window.KPTURouter.go('ledger'));
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('ledger');
-  await expect(page.locator('#ledgerView')).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('home');
+  await expect(page.locator('#ledgerView')).toHaveCount(0);
 });
 test('운영자 기능 답을 못 받으면 메뉴를 빼지 않는다',async({page})=>{
   await page.setViewportSize({width:1280,height:900});
