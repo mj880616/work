@@ -20,7 +20,7 @@ import { followPane } from './follow-pane.js';
 import { createTaskInline, moreButtonHtml, openTaskDue, closeTaskDue, shortName, toast as inlineToast } from './task-inline.js';
 import { connectNoteFor, connectText } from './connect-note.mjs'; // S62-16 TASK-구글할일연결문구: 처음 = '연결', 권한 빠짐 = '다시 연결'(글 한 줄 → 아래 버튼 공용 부품)
 import { noteChecked, noteUnchecked, checkPopAttr } from './check-motion.js'; // UI-누름움직임: 방금 끝낸 할 일의 체크 움직임(모든 목록 공용)
-import { bindRowSwipe, PICK } from './row-swipe.js';
+import { bindRowSwipe, PICK, EDIT, DELETE } from './row-swipe.js';
 import { mountAreaOrgLines, loadUsedKeys } from './area-org-picker.js';
 import { orgWriteInFor } from './feed-link.js'; // S61-52: 조직 줄 [직접 쓰기] // S52-01: 사업영역·조직 두 줄 + 누르면 고르기 창
 import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 ⑥: 칸 나누기 폭은 공용 판정 한 곳
@@ -579,10 +579,9 @@ function renderTasks(tasks){
   body.querySelectorAll('[data-gt-toggle]').forEach(b=>b.onclick=()=>toggleTask(lastTasks.find(t=>t.id===b.dataset.gtToggle)));
   // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 할 일 줄 — 왼쪽으로 밀기 [완료]/[완료 취소](✓와 같은 길, 다시 밀면 되돌아감).
   // S68-31(명진 11/23 02:24): 맨 끝에 [삭제] — ⋯ [삭제]와 같은 queueDelete(5초 '삭제 대기 [되돌리기]' 뒤에 지움). 삭제가 맨 끝이라 끝까지 밀어도 칸만 열린다.
-  // 오른쪽으로 밀기 [선택] → 'n개 선택됨 · [완료]'(할 일에는 여러 개 삭제 길이 없어 [삭제]는 두지 않는다).
-  bindRowSwipe(body,{row:'.gt-row[data-google-task]',actions:el=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);return t?{start:PICK,end:[{key:'toggle',label:t.status==='completed'?'완료 취소':'완료',tone:'info'},...(t.status==='completed'?[]:[{key:'due',label:'기한',tone:'warning',icon:'clock'}]),{key:'delete',label:'삭제',tone:'danger'}]}:null},
-    // S69-18: 가운데 [기한](칸 3개 — 4개를 넘지 않음) = ⋯ [기한 바꾸기]와 같은 날짜 칸, 그 줄 ⋯ 자리에 연다.
-    run:(key,el)=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);if(!t)return;if(key==='toggle')toggleTask(t);else if(key==='due')chooseTaskDue(t.id,el.querySelector('[data-gt-menu]'));else if(key==='delete')queueDelete(t.id)},
+  // S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [완료][수정][삭제]. [수정] = 줄 제목 누르기와 같은 수정 창. 빠진 [기한]은 ⋯ '기한 바꾸기'.
+  bindRowSwipe(body,{row:'.gt-row[data-google-task]',actions:el=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);return t?{start:PICK,end:[{key:'toggle',label:t.status==='completed'?'완료 취소':'완료',tone:'info'},EDIT,DELETE]}:null},
+    run:(key,el)=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);if(!t)return;if(key==='toggle')toggleTask(t);else if(key==='edit')openEditor(t,{docked:false,picked:false});else if(key==='delete')queueDelete(t.id)},
     // S70-64 UI-오른쪽밀기고르기: 고르기 막대 [삭제] = 고른 할 일을 한꺼번에 줄 [삭제]와 같은 길(queueDelete — 5초 '삭제 대기 [되돌리기]', 확인 없음).
     select:{attr:'data-google-task',label:'선택한 할 일',acts:()=>[{key:'done',label:'완료'},{key:'delete',label:'삭제',danger:true}],run:async(key,ids)=>{if(key==='delete'){for(const id of ids)if(lastTasks.some(t=>t.id===id))queueDelete(id);return}if(key!=='done')return;for(const id of ids){const t=lastTasks.find(x=>x.id===id);if(t&&t.status!=='completed')toggleTask(t)}}}});
   body.querySelectorAll('[data-gt-edit]').forEach(b=>b.onclick=()=>{const task=lastTasks.find(t=>t.id===b.dataset.gtEdit);if(task)openEditor(task,{docked:pc,picked:pc})});

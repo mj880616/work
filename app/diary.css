@@ -265,16 +265,9 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-lv-head i{ margin-left:auto; font-style:normal; }
 #appView #diaryView h4.diary-lv-head{ cursor:default; }
 #appView #diaryView .diary-lv-rows{ display:flex; flex-direction:column; }
-#appView #diaryView .diary-lv-swipe{ position:relative; overflow:hidden; border-bottom:var(--ds-line-width) solid var(--ds-line); }
-#appView #diaryView .diary-lv-row{ position:relative; z-index:1; display:flex; align-items:center; gap:2px; background:var(--kptu-surface); touch-action:pan-y; transition:transform .18s ease; }
-#appView #diaryView .diary-lv-row.is-drag{ transition:none; }
-#appView #diaryView .diary-lv-swipe[data-side="start"] > .diary-lv-row{ transform:translateX(64px); }
-#appView #diaryView .diary-lv-swipe[data-side="end"] > .diary-lv-row{ transform:translateX(-64px); }
-#appView #diaryView .diary-lv-acts{ position:absolute; top:0; bottom:0; display:flex; }
-#appView #diaryView .diary-lv-acts-start{ left:0; }
-#appView #diaryView .diary-lv-acts-end{ right:0; }
-#appView #diaryView .diary-lv-act{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; width:64px; min-height:0; height:auto; margin:0; padding:0; border:0; border-radius:0; font:inherit; font-size:11px; cursor:pointer; background:var(--kptu-warning-soft); color:var(--kptu-warning); }
-#appView #diaryView .diary-lv-acts-start .diary-lv-act{ background:var(--kptu-info-soft); color:var(--kptu-info); }
+/* S70-65: 줄 밀기는 공용 row-swipe.js·row-swipe.css(칸·움직임). 여기는 줄 모양만. */
+#appView #diaryView .diary-lv-swipe{ position:relative; border-bottom:var(--ds-line-width) solid var(--ds-line); background:var(--kptu-surface); touch-action:pan-y; }
+#appView #diaryView .diary-lv-row{ position:relative; z-index:1; display:flex; align-items:center; gap:2px; background:var(--kptu-surface); touch-action:pan-y; }
 #appView #diaryView .diary-lv-open{ display:flex; align-items:center; gap:8px; flex:1 1 auto; min-width:0; min-height:48px; height:auto; margin:0; padding:4px; text-align:left; font:inherit; color:var(--kptu-ink); background:transparent; border:0; border-radius:0; box-shadow:none; cursor:pointer; }
 #appView #diaryView .diary-lv-thumb{ position:relative; flex:0 0 40px; width:40px; height:40px; overflow:hidden; border-radius:var(--ds-radius-control); background:var(--kptu-surface-subtle); }
 #appView #diaryView .diary-lv-thumb:not(.has-photo){ visibility:hidden; }

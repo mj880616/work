@@ -9,12 +9,13 @@ import {syncMoreToggle,bindMoreToggle} from './text-clamp.js';
 import {recordLines,markdownSource,writtenText} from './note-preview.mjs';
 import {recordOneLine} from './record-oneline.mjs'; // RECORD-한줄: 기록 목록도 날짜 + 한 줄(저장된 AI 한 줄 one_line이 있으면 그 값)
 import {formatSeoulTime,seoulParts,seoulDateKey} from './meeting-time.js';
-import {readLinkRecords,readRecordPages,linkRecordHtml,mountLinkSummaryEditor,linkMenuFollower} from './basket-link-records.js';
+import {readLinkRecords,readRecordPages,linkRecordHtml,mountLinkSummaryEditor,linkMenuFollower,linkRowAction} from './basket-link-records.js';
 import {recordFilesHtml,paintRecordFiles,bindRecordFiles,renameInRecordRows,applyRenamedLines,recordPhotosOpen} from './record-files.js'; // ORG-기록첨부: 기록 줄 아래 그림·파일 · ORG-기록첨부이름반영: 이름 바뀜 반영
 import {isPictureDoc,splitPictures} from './photo-fold-model.mjs'; // LIB-사진숨김: 사진은 [자료] 줄에서 빼고 칩 줄 끝 '사진 n'
 import {docKindHtml,photoTilesHtml,bindPhotoTileMenus} from './photo-fold.js';
 import {hydrateLibraryThumbs} from './library-photo.js';
 import {createAnchoredMenu,keepMenus} from './anchored-menu.js';
+import {bindRowSwipe,EDIT,DELETE} from './row-swipe.js';
 import {followPane} from './follow-pane.js';
 import {SPLIT_QUERY} from './screen-width.mjs'; // FOLD-넓은화면 2차: '목록 | 상세' 칸 나누기 폭은 공용 판정 한 곳(600px~)
 let wdFollowed=null; // UI-칸안스크롤하나로: 상세 칸이 마지막으로 머리부터 보여 준 조직
@@ -144,7 +145,14 @@ async function wdToggleSource(id){const x=wdUpdates.find(u=>u.id===id),orgId=wdO
 let wdUpMenu=null; // 기록 ⋯ 메뉴(처음 열 때 만든다)
 const wdKeepMenus=paint=>keepMenus([wdUpMenu,linkMenuFollower],{attrs:['data-wd-up-menu','data-basket-link-menu'],root:document.querySelector('#wdUpdates')||document},paint);
 function wdRenderUpdates(){return wdKeepMenus(wdRenderUpdatesNow)}
-function wdRenderUpdatesNow(){if(!wdRecordCurrent(wdTargetId))return;const box=document.querySelector('#wdUpdates');if(!box)return;if(wdLinkEditor?.hasDraft()||wdUpEditing(box))return;const can=!!wdOrg?.canEdit,rows=[...wdUpdates,...wdLinks].sort((a,b)=>(Date.parse(b.occurred_at)||0)-(Date.parse(a.occurred_at)||0)||String(a.type||'').localeCompare(String(b.type||''))||String(a.id).localeCompare(String(b.id)));const one=x=>x.type==='basket'?linkRecordHtml(x,{extra:recordFilesHtml(x)}):wdLogRow(x,can),{shown,older}=splitRecent(rows);box.innerHTML=rows.length?shown.map(one).join('')+(older.length?`<details class="wd-log-older" data-wd-log-older${wdOlderOpen===wdOrg.id?' open':''}><summary>지난 기록 ${older.length}</summary>${older.map(one).join('')}</details>`:''):emptyHtml();if(wdLinkError)box.insertAdjacentHTML('beforeend','<div class="status error" role="status">잊지 말기 연결 기록을 불러오지 못했어요. <button type="button" data-wd-link-retry>다시</button></div>');fillDocViews(box,wdUpdates);paintRecordFiles(box,wdLinks,wdRt);bindRecordFiles(box,()=>wdLinks,{rt:wdRt,onError:wdToast});wdMountLinks();wdClampSync()}
+// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 '조직 관리 기록 = [수정][삭제] 두 칸'): 폰 기록 줄을 왼쪽으로 밀면 [수정][삭제] — 기록 ⋯ [수정]·[삭제]와 같은 길
+// (수정 = 그 줄 자리 고쳐 쓰기 칸, 삭제 = 지금처럼 한 번 묻고 지움). 끝까지 밀어도 칸만. 고칠 수 있는 담당조직·고쳐 쓰는 중이 아닐 때만. 기록에는 여러 개 고르기가 없어 오른쪽 밀기는 없다.
+// 잊지 말기·노트에서 연결된 줄(data-basket-link)도 같은 두 칸: [수정] = 그 줄 ⋯ [요약 수정], [삭제] = ⋯ [원문 삭제](한 번 묻고 휴지통 + 되돌리기).
+function wdBindSwipe(box){bindRowSwipe(box,{row:'[data-wd-up],[data-basket-link]',enabled:()=>!!wdOrg?.canEdit&&!wdUpEditing(box)&&!box.querySelector('[data-link-summary-form]'),
+  actions:el=>{if(el.dataset.basketLink)return el.querySelector('[data-basket-link-menu]:not(:disabled)')?{start:null,end:[EDIT,DELETE]}:null;return wdUpdates.some(u=>u.id===el.dataset.wdUp)&&!el.querySelector('[data-wd-up-edit]')?{start:null,end:[EDIT,DELETE]}:null},
+  run:(key,el)=>{if(!wdOrg?.canEdit)return;const link=el.dataset.basketLink;if(link){linkRowAction(box,key==='edit'?'summary':'note-delete',link);return}
+    const id=el.dataset.wdUp;if(!wdUpdates.some(u=>u.id===id))return;if(key==='edit')wdUpEdit(id);else if(key==='delete')void wdDelUpdate(id,el.querySelector('[data-wd-up-menu]')||el)}})}
+function wdRenderUpdatesNow(){if(!wdRecordCurrent(wdTargetId))return;const box=document.querySelector('#wdUpdates');if(!box)return;wdBindSwipe(box);if(wdLinkEditor?.hasDraft()||wdUpEditing(box))return;const can=!!wdOrg?.canEdit,rows=[...wdUpdates,...wdLinks].sort((a,b)=>(Date.parse(b.occurred_at)||0)-(Date.parse(a.occurred_at)||0)||String(a.type||'').localeCompare(String(b.type||''))||String(a.id).localeCompare(String(b.id)));const one=x=>x.type==='basket'?linkRecordHtml(x,{extra:recordFilesHtml(x)}):wdLogRow(x,can),{shown,older}=splitRecent(rows);box.innerHTML=rows.length?shown.map(one).join('')+(older.length?`<details class="wd-log-older" data-wd-log-older${wdOlderOpen===wdOrg.id?' open':''}><summary>지난 기록 ${older.length}</summary>${older.map(one).join('')}</details>`:''):emptyHtml();if(wdLinkError)box.insertAdjacentHTML('beforeend','<div class="status error" role="status">잊지 말기 연결 기록을 불러오지 못했어요. <button type="button" data-wd-link-retry>다시</button></div>');fillDocViews(box,wdUpdates);paintRecordFiles(box,wdLinks,wdRt);bindRecordFiles(box,()=>wdLinks,{rt:wdRt,onError:wdToast});wdMountLinks();wdClampSync()}
 const WD_CLAMP='.wd-log-main p,.wd-log-main .wd-doc,[data-link-summary-text]';
 function wdClampSync(){const box=document.querySelector('#wdUpdates');if(!box)return;bindMoreToggle(box,WD_CLAMP);syncMoreToggle(box,WD_CLAMP)}
 // ORG-기록첨부이름반영(S60-14): 첨부 이름이 바뀌면(정리함이든 이 창의 띠든) 들고 있는 기록 줄(wdLinks)을 고치고 그 줄만 이 창이 다시 그린다(한 그리기 주인).
