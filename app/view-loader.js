@@ -247,7 +247,7 @@ async function loadAll(){
 // HWP 편집기(약 20MB)·아스날은 받지 않는다. 주소는 위 화면별 불러오기와 같은 글자(Pages 빌드가 같은 해시 번호를 붙인다).
 // PERF-첫로딩 P4: 목록에는 화면 첫 프로그램(뿌리)만 적고, 그 정적 import 사슬은 Pages 빌드가 채운다(/*static-chain*/) — 미리 받은 뒤 눌러도 사슬을 다시 받지 않게.
 // S52-08 ①(docs/design/perf-first-load-1107.md 6절): 뿌리에는 위 loaders가 화면이 보이기 전에 기다리는 모듈을 모두 적는다(달력 interactions·mobile-ui·
-// day-overflow·persistence, 사업 보고 파일·녹음 초안, 원장 고치기·합치기·사본 줄). 빠지면 첫 클릭 때 그 사슬을 새로 받는다.
+// day-overflow·persistence, 사업 보고 파일·녹음 초안). 빠지면 첫 클릭 때 그 사슬을 새로 받는다.
 const warmModules={
   basket:/*static-chain*/['./basket.js'],
   calendar:/*static-chain*/['./calendar-month-view.js','./calendar-view.js','./calendar-plus.js','./calendar-interactions-v2.js','./calendar-mobile-ui.js','./calendar-day-overflow.js','./calendar-persistence.js'],

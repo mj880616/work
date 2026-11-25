@@ -61,4 +61,3 @@ test('할 일 줄: 기한은 공용 dueLabel + .task-due-text(진회색, 노란�
   assert.match(css, /\.task-meeting-text\{[^}]*color:var\(--kptu-faint\)/);
 });
 
-});
