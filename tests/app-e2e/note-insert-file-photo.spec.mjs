@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { edWin, edWinText } from './helpers/note-editor.mjs';
+import { edCmd } from './helpers/ed-tools.mjs';
 // NOTE-파일그림넣기 (요청함 11/05): 노트 편집기 [넣기]에서 파일·그림 붙이기.
 // ① 새 노트 창: [넣기] → [사진]·[파일]이 저장 전에도 들어간다(창 메모리에서 기다림, 그림은 그 기기 사본으로 보임). 저장하면 노트를 만든 뒤
 //    기다리던 파일을 그 노트 id로 basket-files에 하나씩 올리고, 글 안 자리를 진짜 drive:<id>로 바꿔 한 번 더 쓴다(버전 검사).
@@ -47,10 +48,10 @@ async function fixture(page,width){
  await expect(page.locator('[data-note-row="n-text"]')).toBeVisible();
  return {notes,writes,uploads,photos,errors};
 }
+// NOTE-노션편집 ①(가): 줄 위에 있으면 바로, [넣기 ▾] 안에 있으면 묶음을 열고 누른다(폭·글꼴에 따라 PC도 묶음 안일 수 있다).
 async function insertPick(page,scope,width,cmd,files){
- if(width<761)await scope.locator('[data-ed-cmd="gInsert"]').click();
  const chooser=page.waitForEvent('filechooser');
- await scope.locator(`[data-ed-cmd="${cmd}"]`).click();
+ await edCmd(scope,cmd);
  await (await chooser).setFiles(files);
 }
 const noFrameWidth=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
