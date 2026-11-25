@@ -21,12 +21,13 @@ import {createDragGhost,setDragGhostImage} from './drag-ghost.js'; // S69-29 끄
 import {openFolderAt} from './drop-open-folder.mjs';
 import {askConfirm} from './small-notice.js';
 import {RECEIVE_MENU} from './library-receive.js';
+import {WEEKLY_FOLDER_TEXT} from './weekly-save-folder-model.mjs'; // S70-11 주간보고 저장 폴더 두 줄
 import {word} from './brand/brand.mjs';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],pickedFolders=()=>[],onPickedMoved=()=>{},touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,tidy=null,onDragState=()=>{},onHold=()=>false}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],pickedFolders=()=>[],onPickedMoved=()=>{},touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,weekly=null,tidy=null,onDragState=()=>{},onHold=()=>false}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
   // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 눌러 끌기를 켤 화면인지. onHold(el): 폰에서 줄을 꾹 눌렀다 움직이지 않고 뗌(고르기).
@@ -164,7 +165,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         +(s().explorer?'':`<button type="button" data-lu-folder-action="toggle">${s().isOpen?.(key)?'접기':'펼치기'}</button>`)
         +(folderMoveTargets(s().folders,f.id,!!s().free).length?'<button type="button" data-lu-folder-action="move">옮기기…</button>':'')
         +'<button type="button" data-lu-folder-action="paint">색 선택…</button>'
-        +receiveLine(f)+sortLine(f)+(tidy&&s().free?'<button type="button" class="row-act lu-menu-tidy" data-lu-folder-action="tidy">정돈 제안</button>':'')
+        +receiveLine(f)+weeklyLines(f)+sortLine(f)+(tidy&&s().free?'<button type="button" class="row-act lu-menu-tidy" data-lu-folder-action="tidy">정돈 제안</button>':'')
         +sep+'<button type="button" class="lu-menu-danger" data-lu-folder-action="delete">폴더 삭제</button>';
     },
     onClose:()=>{if(!colorReopen)colorFor=null},
@@ -179,6 +180,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='move')moveFolderSheet(f,trigger);
     else if(action==='paint'){colorFor='f:'+id;colorReopen=true;queueMicrotask(()=>{colorReopen=false;if(trigger?.isConnected)menu.open(trigger)})}
     else if(action==='receive')void toggleReceive(f,trigger);
+    else if(action==='weekly-personal'||action==='weekly-confirmed')void toggleWeekly(f,action.slice(7));
     else if(action==='sort')void receive?.sort?.(trigger);
     else if(action==='tidy')void tidy?.open?.(trigger,id);
     else if(action==='delete')void trashFolder(f,trigger);
@@ -188,7 +190,23 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function receiveLine(f){
     if(!receive?.ready?.())return '';
     const on=receive.get()===f.id;
-    return `<button type="button" class="lu-menu-receive" data-lu-folder-action="receive" aria-pressed="${on}"><span>${on?'<span class="lu-menu-check" aria-hidden="true">✓ </span>':''}${RECEIVE_MENU}</span></button>`;
+    return toggleLine('receive',on,RECEIVE_MENU,'lu-menu-receive');
+  }
+  // 켜고 끄는 메뉴 줄 한 모양(받는 폴더·주간 보고 저장 폴더 줄이 같이 씀): 켜면 앞에 ✓, aria-pressed.
+  function toggleLine(action,on,label,cls=''){
+    return `<button type="button"${cls?` class="${cls}"`:''} data-lu-folder-action="${action}" aria-pressed="${on}"><span>${on?'<span class="lu-menu-check" aria-hidden="true">✓ </span>':''}${label}</span></button>`;
+  }
+  // S70-11 WEEKLY-저장폴더나누기: [내 주간 보고 저장 폴더]·[팀 보고 취합 저장 폴더] — 받는 폴더 줄과 같은 모양(켜면 ✓, 다시 누르면 끔).
+  // weekly = {show(id)=이 폴더 메뉴에 보일까, get(kind)=지금 저장 폴더 id|null, set(kind,id|null)=서버에 저장(성공 true)}. 규칙·글은 weekly-save-folder-model.mjs.
+  function weeklyLines(f){
+    if(!weekly?.show?.(f.id))return '';
+    return ['personal','confirmed'].map(kind=>toggleLine('weekly-'+kind,weekly.get(kind)===f.id,esc(WEEKLY_FOLDER_TEXT.menu(kind)))).join('');
+  }
+  async function toggleWeekly(f,kind){
+    if(!weekly||busy)return;
+    const was=weekly.get(kind),next=was===f.id?null:f.id;
+    if(!(await weekly.set(kind,next))){status(WEEKLY_FOLDER_TEXT.menuFailed,true);return}
+    say(next?WEEKLY_FOLDER_TEXT.menuOn(kind,f.name):WEEKLY_FOLDER_TEXT.menuOff(kind,f.name),{undo:()=>weekly.set(kind,was||null)});
   }
   // LIB-받는폴더나누기(S60-18, 시안 ②): 받는 폴더 메뉴에 [폴더로 나누기] — 그 폴더에 자료가 있을 때만(창·제안·옮기기는 library-sort.js).
   function sortLine(f){return receive?.ready?.()&&receive.get()===f.id&&(receive.sortCount?.()||0)>0?'<button type="button" class="row-act lu-menu-sort" data-lu-folder-action="sort">폴더로 나누기</button>':''}
