@@ -15,7 +15,7 @@ begin;
 --   - service_role(익명 읽기 함수 share-page-read의 블로그 길)은 아래 칸만 읽는다. 쓰기 권한 없음. 받는 작업공간은 요청이 아니라
 --     public.app_operator_feature_workspace('blog')(허용된 작업공간이 정확히 하나일 때만)가 정한다.
 -- 안 하는 것: 기존 허용 행·함수·정책·권한 변경, 공유 페이지·노트 표 변경, 새 함수·RPC·SECURITY DEFINER, rtw_* 객체.
--- 짝: docs/20261125113000_blog_tables.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261125113100_blog_tables.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 lock table public.app_operator_features in access exclusive mode;
@@ -23,7 +23,7 @@ lock table public.app_operator_features in access exclusive mode;
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125113000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261125113100')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261121090000' and name = 'nojo_words_feature') <> 1
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261027050000' and name = 'trash_share_pages_db') <> 1
      or to_regclass('public.app_blogs') is not null
@@ -215,5 +215,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261125113000', 'blog_tables', array['BLOG ①: operator feature key blog (seeded only for the single calls workspace); app_blogs, app_blog_boards, app_blog_posts with owner + blog-feature RLS (4 authenticated policies each), no anon/PUBLIC, column-limited service_role SELECT for share-page-read; no change to existing tables, policies, grants or functions']);
+values ('20261125113100', 'blog_tables', array['BLOG ①: operator feature key blog (seeded only for the single calls workspace); app_blogs, app_blog_boards, app_blog_posts with owner + blog-feature RLS (4 authenticated policies each), no anon/PUBLIC, column-limited service_role SELECT for share-page-read; no change to existing tables, policies, grants or functions']);
 commit;

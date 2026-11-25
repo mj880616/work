@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 // BLOG ① 9절 '남의 게시판·페이지·노트로 글 짝을 못 만듦, 고치기는 두 칸만'. 정책 모양 정적 검사.
 // 실제 거절(42501)·두 칸 고치기·글 남은 게시판 지우기 막힘은 tests/auth-handoff/blog-tables-db.test.mjs가 로컬 PostgreSQL에서 확인한다.
-const sql=readFileSync('supabase/migrations/20261125113000_blog_tables.sql','utf8').replace(/--.*$/gm,'');
+const sql=readFileSync('supabase/migrations/20261125113100_blog_tables.sql','utf8').replace(/--.*$/gm,'');
 const policy=name=>{const m=sql.match(new RegExp(`create policy ${name} [\\s\\S]*?;`));assert.ok(m,name);return m[0].replace(/\s+/g,' ');};
 test('post insert: same-workspace board, share page and kind note; note required',()=>{
  const p=policy('blog_posts_owner_insert');

@@ -15,7 +15,7 @@
 -- expect: existing tables grants hash = 기록
 -- expect: existing tables triggers hash = 기록
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where (version='20261121090000' and name='nojo_words_feature') or (version='20261027050000' and name='trash_share_pages_db'))=2 then '예' else '아니오' end as value
-union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261125113000') then '예' else '아니오' end
+union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261125113100') then '예' else '아니오' end
 union all select 'new tables absent',case when to_regclass('public.app_blogs') is null and to_regclass('public.app_blog_boards') is null and to_regclass('public.app_blog_posts') is null then '예' else '아니오' end
 union all select 'feature check with nojo_words without blog',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_operator_features')
   and conname='app_operator_features_feature_check' and pg_get_constraintdef(oid) ~ '''nojo_words''' and pg_get_constraintdef(oid) !~ '''blog''')=1 then '예' else '아니오' end
