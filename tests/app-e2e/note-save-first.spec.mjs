@@ -93,7 +93,7 @@ for (const width of [412, 1280]) {
     expect(f.errors).toEqual([]);
   });
 
-  test(`빠른 입력칸 노트: 못 올린 파일은 하단 한 줄에 남고 [다시 올리기]는 못 올린 것만 같은 노트로 보낸다 ${width}`, async ({page}) => {
+  test(`빠른 입력칸 노트: 못 올린 파일은 하단 한 줄에 남고 [다시 업로드]는 못 올린 것만 같은 노트로 보낸다 ${width}`, async ({page}) => {
     const f = await fixture(page, width);
     f.failWhen(name => name === '두번째.pdf');
     await bar(page).locator('input[type=file]').setInputFiles([pdf('첫번째.pdf'), pdf('두번째.pdf')]);
@@ -103,8 +103,8 @@ for (const width of [412, 1280]) {
     const line = dock(page);
     await expect(line).toContainText('노트에 파일 1개 못 올렸어요');
     await expect(line.locator('.up-dock-note')).toContainText('파일 1개 올렸어요');
-    const again = line.getByRole('button', {name: '못 올린 파일 다시 올리기'});
-    await expect(again).toHaveText('다시 올리기');
+    const again = line.getByRole('button', {name: '못 올린 파일 다시 업로드'});
+    await expect(again).toHaveText('다시 업로드');
     // 누를 때까지 남는다(창은 이미 닫혀 있어 못 올린 줄 모르고 지나가지 않게).
     await page.waitForTimeout(6500); await expect(again).toBeVisible();
     expect(await noFrameWidth(page)).toBe(true);

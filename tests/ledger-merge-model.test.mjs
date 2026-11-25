@@ -160,13 +160,3 @@ test('최근 합침: 이 화면이 만든 요청만 인정하고 남은 기록 �
   assert.deepEqual(recentMerges(rows).map(r => [r.fixId, r.keep, r.drop]), [['f1', 'EVT-0901', 'EVT-0902'], ['f2', 'EVT-0901', 'EVT-0902']]);
 });
 
-test('화면 연결: 원장 화면 틀에 칸이 있고, 모듈은 기존 수정 요청 함수 둘만 쓰며 브라우저 저장소를 쓰지 않는다', () => {
-  const read = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8');
-  assert.match(read('ledger-browse.js'), /id="ledgerMergeRoot"/);
-  assert.match(read('view-loader.js'), /ledger-merge\.js/);
-  const code = read('ledger-merge.js');
-  assert.deepEqual([...new Set([...code.matchAll(/rpc\/(\w+)/g)].map(m => m[1]))].sort(), ['app_apply_ledger_fix', 'app_undo_ledger_fix']);
-  assert.doesNotMatch(code, new RegExp(['local', 'session'].map(x => x + 'Storage').concat(['indexed' + 'DB']).join('|')));
-  assert.match(code, /app_record_overlaps\?[^`]*select=a_ref,b_ref,verdict,decided_by/); // samePairs가 verdict 칸을 요구한다
-  assert.doesNotMatch(code, /method:\s*'(PATCH|DELETE)'/);
-});

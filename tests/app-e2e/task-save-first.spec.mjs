@@ -114,7 +114,7 @@ for (const viewport of [{ width: 412, height: 915 }, { width: 1280, height: 900 
     await context.close();
   });
 
-  test(`할 일 창 [저장]: 못 올린 파일만 [다시 올리기]로 같은 할 일에 ${w}`, async ({ browser }) => {
+  test(`할 일 창 [저장]: 못 올린 파일만 [다시 업로드]로 같은 할 일에 ${w}`, async ({ browser }) => {
     const { context, page, state, errors } = await openTasks(browser, { viewport, failAttach: (name, tries) => name === '둘째.txt' && tries === 1 });
     await page.evaluate(() => window.KPTUGoogleTasks.openEditor(null));
     await page.locator('#gtNewFiles [data-gt-pick-input]').setInputFiles([txt('첫째.txt'), txt('둘째.txt'), txt('셋째.txt')]);
@@ -129,7 +129,7 @@ for (const viewport of [{ width: 412, height: 915 }, { width: 1280, height: 900 
     await page.waitForTimeout(6500);
     await expect(bar).toContainText('할 일에 파일 1개 못 올렸어요');
     await shot(page, `task-editor-fail-${w}`);
-    await bar.getByRole('button', { name: '못 올린 파일 다시 올리기' }).click();
+    await bar.getByRole('button', { name: '못 올린 파일 다시 업로드' }).click();
     await expect(dock(page)).toContainText('할 일에 파일 1개 올렸어요');
     expect(state.calls.attach.map(c => c.taskId + ':' + c.name)).toEqual(['new1:첫째.txt', 'new1:둘째.txt', 'new1:셋째.txt', 'new1:둘째.txt']);
     expect(state.calls.creates.length).toBe(1);

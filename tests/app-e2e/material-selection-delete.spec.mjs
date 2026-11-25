@@ -154,7 +154,7 @@ for(const width of [390,1280]){
     const sending=page.locator('#libraryView .up-rows .up-row');
     await expect(sending.first()).toContainText('keep-a.pdf');
     await expect(sending.first().locator('[role="progressbar"]')).toBeVisible();
-    await expect(sending.first().getByRole('button',{name:'keep-a.pdf 올리기 취소'})).toBeVisible();
+    await expect(sending.first().getByRole('button',{name:'keep-a.pdf 업로드 취소'})).toBeVisible();
     await expect(page.locator('#newDocumentBtn')).toBeEnabled();
     // 올리는 중에 창을 다시 열어 다른 파일을 골라 저장해도 거절하지 않는다. 뒤 줄에 선 파일은 새 창의 고른 목록에 섞이지 않는다.
     await page.locator('#newDocumentBtn').click();
@@ -233,7 +233,7 @@ for(const width of [390,1280]){
     await expect(attach).toBeVisible();
     await expect(attach.locator('#mrdPickFiles')).toBeVisible();await expect(attach.locator('#mrdPickPhotos')).toBeVisible();
     await expect(attach.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
-    await attach.locator('#mrdPickFiles').click();await page.locator('#reportAddMenu [data-report-add="device"]').click(); // S67-39: [+] = 작은 메뉴 [기기에서 올리기]·[자료실에서 선택]
+    await attach.locator('#mrdPickFiles').click();await page.locator('#reportAddMenu [data-report-add="device"]').click(); // S67-39: [+] = 작은 메뉴 [기기에서 업로드]·[자료실에서 선택]
     await expect(page.locator('#documentModal')).toBeVisible();
     await page.locator('#libraryFileInput').setInputFiles([file('edit-added.pdf')]);
     await page.locator('#saveDocumentBtn').click();
@@ -258,7 +258,7 @@ for(const width of [390,1280]){
     await openMeetingResult(page,'meeting-1');
     await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
     await expect(page.locator('#mrdFiles')).toHaveCount(0);
-    await page.locator('#mrdPickFiles').click();await page.locator('#reportAddMenu [data-report-add="device"]').click(); // S67-39: [+] = 작은 메뉴 [기기에서 올리기]·[자료실에서 선택]
+    await page.locator('#mrdPickFiles').click();await page.locator('#reportAddMenu [data-report-add="device"]').click(); // S67-39: [+] = 작은 메뉴 [기기에서 업로드]·[자료실에서 선택]
     await expect(page.locator('#documentModal')).toBeVisible();
     await expect(page.locator('#libraryUploadMeeting')).toContainText('사업 보고');
     await page.locator('#libraryFileInput').setInputFiles([file('detail-keep.pdf'),file('detail-remove.pdf')]);
@@ -324,7 +324,7 @@ async function openUploadScreen(page,screen){
   await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
   // MEET-파일AI분류: 사업 보고 상세의 [+]는 자료실 올리기 창을 연다(저장 버튼 [등록]).
-  await page.locator('#mrdPickFiles').click();await page.locator('#reportAddMenu [data-report-add="device"]').click(); // S67-39: [+] = 작은 메뉴 [기기에서 올리기]·[자료실에서 선택]
+  await page.locator('#mrdPickFiles').click();await page.locator('#reportAddMenu [data-report-add="device"]').click(); // S67-39: [+] = 작은 메뉴 [기기에서 업로드]·[자료실에서 선택]
   await expect(page.locator('#documentModal')).toBeVisible();
   return {input:'#libraryFileInput',save:'#saveDocumentBtn',rows:'[data-lu-upload-file]',status:'#documentStatus'};
 }
@@ -332,7 +332,7 @@ const READ_ERROR='파일을 읽지 못했어요. 파일을 다시 선택해 주�
 // 자료실·사업 보고 상세는 같은 자료 등록 창(#documentModal)으로 올린다 — [저장] 뒤 바로 닫히고 끝·실패는 공용 작은 알림.
 // BIZ-저장먼저닫기(S58-1): 새 사업 보고 창도 [저장] 뒤 바로 닫힌다 — 끝·실패는 하단바 위 한 줄(#uploadDock: 글 + 작은 둘째 줄 까닭, 못 올린 것만 [다시 올리기]).
 const viaWindow=screen=>screen!=='new meeting',noticeLine=page=>page.locator('#uploadDock:not([hidden]) .up-dock-text');
-const dockLine=page=>page.locator('#uploadDock:not([hidden])'),dockRetry=page=>dockLine(page).getByRole('button',{name:'못 올린 파일 다시 올리기'});
+const dockLine=page=>page.locator('#uploadDock:not([hidden])'),dockRetry=page=>dockLine(page).getByRole('button',{name:'못 올린 파일 다시 업로드'});
 for(const width of [390,1280])for(const screen of ['library','new meeting','meeting detail']){
   test(`memory copy: ${screen} sends metadata-preserving copies sequentially ${width}px`,async({page})=>{
     await observeSelectedFiles(page);

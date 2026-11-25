@@ -39,14 +39,28 @@ test('github 판은 지금 앱 ID 그대로, play 판은 com.workonplus.app, nam
   assert.equal((gradle.match(/versionName '/g) || []).length, 1);
 });
 
-test('play 판 매니페스트는 세 권한만 빼고, github 판(main)은 그대로 둔다', () => {
+// S70-45 APP-플레이판권한줄이기: 플레이 검토의 앞쪽 서비스·사진 권한 신고를 없애려고 play 판에서만 더 뺀다.
+const PLAY_REMOVED = [
+  'android.permission.ACCESS_MEDIA_LOCATION',
+  'android.permission.FOREGROUND_SERVICE',
+  'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
+  'android.permission.FOREGROUND_SERVICE_MICROPHONE',
+  'android.permission.MANAGE_EXTERNAL_STORAGE',
+  'android.permission.MANAGE_MEDIA',
+  'android.permission.READ_EXTERNAL_STORAGE',
+  'android.permission.READ_MEDIA_IMAGES',
+  'android.permission.READ_MEDIA_VIDEO',
+  'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
+  'android.permission.REQUEST_INSTALL_PACKAGES',
+  'android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION',
+];
+
+test('play 판 매니페스트는 정한 권한만 빼고, github 판(main)은 그대로 둔다', () => {
   const removed = [...playManifest.matchAll(/<uses-permission android:name="([^"]+)" tools:node="remove" \/>/g)].map(m => m[1]).sort();
-  assert.deepEqual(removed, [
-    'android.permission.MANAGE_EXTERNAL_STORAGE',
-    'android.permission.REQUEST_INSTALL_PACKAGES',
-    'android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION',
-  ]);
+  assert.deepEqual(removed, PLAY_REMOVED);
   for (const p of removed) assert.match(mainManifest, new RegExp(`android:name="${p.replaceAll('.', '\\.')}"`));
+  // 녹음 마이크·알림은 두 판 모두 남긴다(앱이 켜진 동안 녹음, 플레이 신고 대상 아님).
+  for (const keep of ['RECORD_AUDIO', 'POST_NOTIFICATIONS', 'INTERNET']) assert.doesNotMatch(playManifest, new RegExp(`permission\\.${keep}"`));
   // 판마다 앱 ID를 따르는 FileProvider 이름(두 판을 한 폰에 깔아도 부딪히지 않음).
   assert.match(mainManifest, /android:authorities="\$\{applicationId\}\.shareout"/);
   assert.doesNotMatch(mainManifest, /android:authorities="kr\.or\.kptu\.work/);
@@ -134,4 +148,53 @@ test('phone-app-release.yml은 github 판만 만들고 APK 이름·태그 모양
   assert.match(release, /out\/web2-phone-\$VERSION\.apk/);
   assert.match(release, /TITLE="웹2 폰 앱 \$VERSION"/);
   assert.doesNotMatch(release, /[Pp]lay(Release|Debug)/);
+});
+
+test('S70-45: play 판은 두 서비스의 앞쪽 서비스 종류만 지우고, github 판(main)은 dataSync·microphone 그대로', () => {
+  const services = [...playManifest.matchAll(/<service\s+android:name="([^"]+)"\s+tools:remove="android:foregroundServiceType" \/>/g)].map(m => m[1]).sort();
+  assert.deepEqual(services, ['.RecorderService', 'androidx.work.impl.foreground.SystemForegroundService']);
+  assert.doesNotMatch(playManifest, /tools:node="remove"[^>]*<service|<service[^>]*tools:node="remove"/, '서비스 자체는 지우지 않는다');
+  assert.match(mainManifest, /SystemForegroundService"\s+android:foregroundServiceType="dataSync"/);
+  assert.match(mainManifest, /\.RecorderService"\s+android:exported="false"\s+android:foregroundServiceType="microphone"/);
+  // 판 구분은 build.gradle 한 곳: github 켬, play 끔.
+  assert.match(flavorBlock('github'), /'FG_SERVICES', 'true'/);
+  assert.match(flavorBlock('github'), /'PHONE_GALLERY', 'true'/);
+  assert.match(flavorBlock('play'), /'FG_SERVICES', 'false'/);
+  assert.match(flavorBlock('play'), /'PHONE_GALLERY', 'false'/);
+  // 빌드된 play 판 매니페스트 검사(check-flavor-manifests.py)도 같은 목록을 본다.
+  const py = read('android-app/scripts/check-flavor-manifests.py');
+  for (const p of PLAY_REMOVED) assert.ok(py.includes(`'${p}'`), `검사 스크립트에 ${p}`);
+});
+
+test('S70-45: 코드가 판 값을 읽는다 — 앞쪽 서비스·폰 사진은 play 판에서 열지 않는다', () => {
+  const kt = f => read(`android-app/app/src/main/java/kr/or/kptu/work/${f}`);
+  assert.match(kt('RecorderService.kt'), /private fun goForeground[^}]*if \(!BuildConfig\.FG_SERVICES\) return/);
+  assert.match(kt('MainActivity.kt'), /if \(BuildConfig\.FG_SERVICES\) ContextCompat\.startForegroundService\([^\n]*\n\s*else startService\(/);
+  assert.match(kt('MainActivity.kt'), /!BuildConfig\.FG_SERVICES && RecordHub\.session\(\)\?\.state == RecordRules\.State\.RECORDING\) recService\(RecorderService\.ACTION_PAUSE\)/);
+  assert.match(kt('BackUpload.kt'), /if \(BuildConfig\.FG_SERVICES\) WidgetGuard\.run \{ setForegroundAsync/);
+  assert.match(kt('PhoneMedia.kt'), /if \(!BuildConfig\.PHONE_GALLERY\) PhoneMediaRules\.OFF_MESSAGE/);
+  assert.match(kt('PhoneMediaRules.kt'), /OFF_MESSAGE = "photos:state:\{\\"access\\":\\"none\\",\\"off\\":true\}"/);
+});
+
+test('S70-45: 앱이 photos:state에 off:true로 답하면(플레이 판) 웹은 폰 사진을 그리지 않는다', async () => {
+  const {createPhonePhotos} = await import('../app/phone-photos.js');
+  const make = state => {
+    let onMessage = null;
+    const bridge = {postMessage: t => { if (t === 'photos:hello') queueMicrotask(() => onMessage?.({data:'photos:state:' + state})); }, addEventListener: (_, fn) => { onMessage = fn; }};
+    return createPhonePhotos({navigator:{userAgent:'KPTUAndroid/0.5.32 WorkOnPlay'}, KPTUAppShell:bridge, document:{baseURI:'https://desk.bokdoong.com/work/app/'}, location:{href:'https://desk.bokdoong.com/work/app/'}});
+  };
+  const play = make('{"access":"none","off":true}');
+  await play.hello();
+  assert.equal(play.usable, true);
+  assert.equal(play.available(), false, '아이콘·메뉴 없음');
+  assert.equal(play.state().key, '');
+  assert.equal(play.canEdit(), false); assert.equal(play.canMeta(), false); assert.equal(play.canRestore(), false);
+  assert.equal(play.manage(), false);
+  // github 판(지금 앱)은 그대로: 접근이 없어도 아이콘은 그리고 [사진 접근 허용]을 보인다.
+  const github = make('{"access":"none","trash":true,"hide":true,"ops":true,"manage":false,"edit":true,"restore":true,"meta":true}');
+  await github.hello();
+  assert.equal(github.available(), true);
+  // 앱 상태 글이 Kotlin의 OFF_MESSAGE와 같다.
+  const rules = read('android-app/app/src/main/java/kr/or/kptu/work/PhoneMediaRules.kt');
+  assert.ok(rules.includes('OFF_MESSAGE = "photos:state:{\\"access\\":\\"none\\",\\"off\\":true}"'));
 });
