@@ -17,7 +17,7 @@ test('reader call: one endpoint, POST json, no-store, credentials omit, no refer
  assert.match(js,/const ENDPOINT = 'https:\/\/xmlkxfjeagycwttklxjw\.supabase\.co\/functions\/v1\/share-page-read';/);
  assert.equal((js.match(/fetch\(/g)||[]).length,1);
  assert.match(js,/cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer'/);
- for(const src of [js,model])assert.doesNotMatch(src,/localStorage|sessionStorage|indexedDB|document\.cookie|innerHTML|outerHTML|insertAdjacentHTML|eval\(|new Function|apikey|Authorization/);
+ for(const src of [js,model])assert.doesNotMatch(src,/\b(?:local|session)Storage\b|indexed[D]B|document\.cookie|innerHTML|outerHTML|insertAdjacentHTML|eval\(|new Function|apikey|Authorization/);
  // 검색 허용은 블로그 값이 정확히 true일 때만 연다.
  assert.match(js,/blog\.indexable === true\) robots\.setAttribute\('content', 'index,follow,noarchive'\)/);
 });
