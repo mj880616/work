@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import {createBasketHandler} from '../../../supabase/functions/basket-files/handler.ts';
 const PHOTO={drive_file_id:'source',file_name:'photo.jpg',mime_type:'image/jpeg',size_bytes:4};
 export const STAMP='2026-10-13T01:00:00.123456+00:00';
-const meta=(id,mime,name)=>({id,name,mimeType:mime,ownedByMe:true,trashed:false,parents:['folder'],permissions:[{type:'user',role:'owner'}],capabilities:{canDownload:true,canDelete:true},version:'1',size:'4'});
+const meta=(id,mime,name,parent='folder')=>({id,name,mimeType:mime,ownedByMe:true,trashed:false,parents:[parent],permissions:[{type:'user',role:'owner'}],capabilities:{canDownload:true,canDelete:true},version:'1',size:'4'});
 export function ocrHarness(options={}){
  const NOTE=options.note?.id??'10000000-0000-4000-8000-000000000001',WS=options.note?.workspace_id??'20000000-0000-4000-8000-000000000001';
- const note=options.note??{id:NOTE,workspace_id:WS,updated_at:STAMP,attachments:[structuredClone(PHOTO)],raw_text:'原文保護',archived_at:options.archived?STAMP:null,ai_export_allowed:!options.excluded};
+ // S69-98: noteKind = a note (kind 'note') whose files live in the private child folder '노트 첨부' (id 'notes') inside the basket root.
+ const kind=options.noteKind?{kind:'note'}:{},home=options.sourceMetadata?.parents?.[0]??(options.noteKind?'notes':'folder');
+ const note=options.note??{id:NOTE,workspace_id:WS,...kind,updated_at:STAMP,attachments:[structuredClone(PHOTO)],raw_text:'原文保護',archived_at:options.archived?STAMP:null,ai_export_allowed:!options.excluded};
  const calls={rpc:[],drive:[],logs:[],client:[],writes:[]};let doc=null,counter=0,settingsReads=0;
  const admin={auth:{getUser:async jwt=>({data:{user:jwt==='owner'?{id:'user'}:null},error:null})},from(table){
   if(table==='app_notes'&&options.adminNotes)return options.adminNotes();
@@ -29,16 +31,18 @@ export function ocrHarness(options={}){
   if(url.hostname==='oauth2.googleapis.com')return Response.json({access_token:'token'});
   if(url.pathname.endsWith('/about'))return Response.json({importFormats:{'image/jpeg':['application/vnd.google-apps.document'],'image/png':['application/vnd.google-apps.document']},exportFormats:{'application/vnd.google-apps.document':['text/plain']}});
   if(url.pathname==='/drive/v3/files/folder')return Response.json({...meta('folder','application/vnd.google-apps.folder','Web2 바구니'),parents:['root']});
+  if(url.pathname==='/drive/v3/files'&&method==='GET'&&url.searchParams.get('q')?.includes("name = '노트 첨부'")){calls.childLookups=(calls.childLookups||0)+1;return Response.json({files:options.noNoteFolder?[]:[{...meta('notes','application/vnd.google-apps.folder','노트 첨부'),...(options.sharedNoteFolder?{permissions:[{type:'user',role:'owner'},{type:'anyone',role:'reader'}]}:{})}]});}
+  if(url.pathname==='/drive/v3/files'&&method==='POST'&&!url.searchParams.get('uploadType'))throw Error('OCR must never create a folder');
   if(url.pathname==='/drive/v3/files'&&method==='GET'&&!url.searchParams.get('q')?.includes("name = 'Web2 바구니'")&&options.discoveryStatus)return new Response(null,{status:options.discoveryStatus});
   if(url.pathname==='/drive/v3/files'&&method==='GET')return Response.json({files:url.searchParams.get('q')?.includes("name = 'Web2 바구니'")?options.noRoot?[]:[{...meta('folder','application/vnd.google-apps.folder','Web2 바구니'),parents:['root']}]:options.discoveryEmpty?[]:options.discoveryFiles??(doc?[doc]:[])});
   if(url.pathname==='/drive/v3/files/source'&&url.searchParams.get('alt')==='media')return new Response(options.sourceBytes??new Uint8Array([255,216,255,0]));
-  if(url.pathname==='/drive/v3/files/source')return Response.json({...meta('source','image/jpeg','photo.jpg'),...options.sourceMetadata});
+  if(url.pathname==='/drive/v3/files/source')return Response.json({...meta('source','image/jpeg','photo.jpg',home),...options.sourceMetadata});
   if(url.pathname==='/upload/drive/v3/files'&&url.searchParams.get('uploadType')==='resumable')return new Response('{}',{headers:{location:'https://www.googleapis.com/legacy-upload'}});
   if(url.pathname==='/legacy-upload'&&method==='PUT')return Response.json({id:'legacy-second'});
   if(url.pathname==='/upload/drive/v3/files'){
    assert.equal(calls.writes.at(-1)?.cleanup_state,'create_pending','durable attempt before remote POST');
    const body=new TextDecoder().decode(await new Response(init.body).arrayBuffer()),properties=JSON.parse(body.split('\r\n\r\n')[1].split('\r\n')[0]);
-   doc={...meta('temp','application/vnd.google-apps.document','OCR'),...properties,id:'temp'};
+   doc={...meta('temp','application/vnd.google-apps.document','OCR',home),...properties,id:'temp'};
    if(options.createUnknown)throw Error('PRIVATE_CREATE_ERROR');return Response.json({id:'temp'});
   }
   if(url.pathname==='/drive/v3/files/temp'&&method==='GET')return Response.json({...doc,...options.temp});

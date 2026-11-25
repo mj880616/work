@@ -43,7 +43,7 @@ for(const width of [412,1280])test(`새 담당자: [묶음 만들기]로 만들�
   // 묶음이 없으면 지금처럼 묶음 이름·손잡이 없이 가나다순 한 목록
   await expect(page.locator('.so-group-heading')).toHaveCount(0);await expect(page.locator('[data-so-grip]')).toHaveCount(0);
   // 묶음 만들기는 화면 ⋯ 메뉴 줄(맨 위 줄 단추는 지금처럼 [+ 담당조직]·⋯만)
-  await expect(page.locator('#soTeamHead button:visible')).toHaveCount(2);
+  await expect(page.locator('#soTeamTools button:visible')).toHaveCount(2); // ORG-머리줄한줄: 화면 이름 줄 자리(#soTeamTools)
   await page.locator('#soTeamMore').click();
   await expect(page.locator('#soTeamMenu button').first()).toHaveText('묶음 만들기');
   if(SHOTS)await page.screenshot({path:`${SHOTS}/groups-screen-menu-${width}.png`});
