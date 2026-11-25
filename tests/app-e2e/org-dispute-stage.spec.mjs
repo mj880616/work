@@ -425,3 +425,26 @@ test('조직 줄 우클릭: 폰 폭(412)은 메뉴를 띄우지 않는다',async
  await expect(page.locator('#wdModal')).toBeHidden();
  expect(errors).toEqual([]);
 });
+
+// ORG-목록단계칩위치(2026-11-25 명진 "쟁의권확보 종료 교섭 중 이런게 우측 끝에 붙어야"): 단계 칩은 줄 오른쪽 끝 › 바로 앞.
+// 줄 끝 = [칩 ·8· › ·8· ⋯ ·8· 줄 끝](› 는 글자 폭만큼). 묶음 머리줄 'N곳' 오른쪽 끝은 줄 › 오른쪽 끝과 같은 세로줄.
+// 폰 폭 · PC 좁은 목록 칸(1280) · PC 넓은 목록 칸(1920). 폴드 폭(600~1023)은 칩을 그리지 않는다(위 시험).
+for(const width of [390,1280,1920])test(`목록 줄 단계 칩이 줄 오른쪽 끝 › 바로 앞 ${width}px`,async({page})=>{
+ const {db,errors}=await fixture(page,{width});
+ db.history.push({id:'h-oa',organization_id:'oa',stage_id:'stage-3',stage_name:'쟁의발생 결의',stage_date:'2026-10-01',created_at:'2026-10-01T00:00:00Z',end_date:null});
+ await clickView(page,'team');
+ await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
+ const rows=await page.evaluate(()=>{const r=el=>el.getBoundingClientRect();const head=document.querySelector('#soOrganizationList .so-group-heading');
+  return [...document.querySelectorAll('#soOrganizationList .so-row')].map(row=>{const tag=r(row.querySelector('.so-stage-tag')),chev=r(row.querySelector('.kptu-list-chevron')),more=r(row.querySelector('.so-row-more')),box=r(row);
+   return {tagToChev:chev.left-tag.right,chevW:chev.width,chevToMore:more.left-chev.right,moreToEnd:box.right-more.right,countVsChev:head?Math.abs(r(head.querySelector('.so-group-count')).right-chev.right):0}})});
+ expect(rows).toHaveLength(orgs.length);
+ for(const x of rows){
+  expect(x.tagToChev,'칩 → ›').toBeGreaterThanOrEqual(0);expect(x.tagToChev,'칩 → ›').toBeLessThanOrEqual(8.5);
+  expect(x.chevW,'› 폭').toBeLessThanOrEqual(12);
+  expect(x.chevToMore,'› → ⋯').toBeLessThanOrEqual(8.5);expect(x.moreToEnd,'⋯ → 줄 끝').toBeLessThanOrEqual(8.5);
+  expect(x.countVsChev,"머리줄 'N곳' 끝 = › 끝").toBeLessThanOrEqual(1);
+ }
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+ if(process.env.ORG_CHIP_SHOTS)await page.locator('#soOrganizationList').screenshot({path:`${process.env.ORG_CHIP_SHOTS}/org-chip-${width}.png`});
+ expect(errors).toEqual([]);
+});
