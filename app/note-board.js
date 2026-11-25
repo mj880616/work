@@ -59,6 +59,7 @@ import { openRowMenu, appMenuPoint, ROW_MENU_ICON } from './row-menu.js';
 import { swatchHtml, setSwatchOn } from './color-swatch.mjs';
 import { iconSvg } from './tree-icons.js';
 import { slotLoading, slotImg, slotFailed } from './img-slot.js';
+import { unionBounds } from './note-board-export-model.mjs';
 import { bottomInset, keepInside } from './anchored-popup.js';
 import { layoutBoard, topZ, movedTo, stepZoom, zoomAt, toBoard, fitView, visibleArea, rectsMeet, cardRect, folderTone, clampZoom, centerOn, FIT_MIN, CARD_W, CARD_H } from './note-board-model.mjs';
 import { bindMarquee } from './marquee-select.js';
@@ -1696,6 +1697,20 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     places: () => new Map(places),
     view: () => ({...view}),
     focusCard, centerPoint,
+    // S70-32 ③ 내보내기: 고르기·막대를 닫고 [맞추기](모든 칸이 보이게)로 그린 뒤, 판(보드 좌표 그대로)과 모든 칸을 감싸는 범위를 돌려준다.
+    // 사진 칸은 받는 중이면 잠깐(5초까지) 기다린다. 화면 보기는 내보낸 뒤에도 맞추기 그대로(사용자가 [맞추기]를 누른 것과 같음).
+    async exportSnapshot() {
+      if (!shown.length && !texts.length && !links.length) return null;
+      select(null); closeBar(); closeInsert(); closeLineMenu?.();
+      fitBoard();
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      sync();
+      for (let i = 0; i < 50 && board.querySelector('[data-nb-photo][data-img-state="loading"]'); i++) await new Promise(r => setTimeout(r, 100));
+      const rects = [...board.querySelectorAll('[data-nb-cards] > [data-nb-card], [data-nb-texts] > [data-nb-text]')].map(el => ({x:el.offsetLeft, y:el.offsetTop, w:el.offsetWidth, h:el.offsetHeight}));
+      for (const g of board.querySelectorAll('[data-nb-lines], [data-nb-branches]')) { try { const b = g.getBBox(); if (b.width || b.height) rects.push({x:b.x, y:b.y, w:b.width, h:b.height}); } catch { /* 그림 없음 */ } }
+      const bounds = unionBounds(rects);
+      return bounds ? {board, bounds, background:getComputedStyle(scroll).backgroundColor || getComputedStyle(document.body).backgroundColor} : null;
+    },
     selected: () => [...multi],
     isFull: () => !!full,
     exitFull: () => exitFull(),

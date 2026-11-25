@@ -75,6 +75,7 @@ on:
       - 'tests/org-files-folder-model.test.mjs'
       - 'tests/weekly-save-folder-model.test.mjs'
       - 'supabase/migrations/20261124203000_profile_weekly_folder.sql'
+      - 'supabase/migrations/20261125193000_profile_weekly_team_folder.sql'
       - 'supabase/migrations/20261124160000_library_org_folder.sql'
       - 'tests/meeting-folder-model.test.mjs'
       - 'supabase/migrations/20261124213000_library_folder_meeting.sql'
@@ -817,6 +818,8 @@ jobs:
         run: node --test tests/note-board-decor-model.test.mjs
       - name: Check note board images (S70-32 ② 사진 정보 지우기·칸 크기)
         run: node --test tests/note-board-image-model.test.mjs
+      - name: Check note board export (S70-32 ③ 범위·PDF 한 쪽)
+        run: node --test tests/note-board-export-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
         run: node --test tests/note-tags-comments.test.mjs tests/memo-model.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)

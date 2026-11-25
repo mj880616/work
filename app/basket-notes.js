@@ -264,7 +264,17 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     moveToFolder:(id, folderId) => moveItems({notes:[id], folders:[]}, folderId),
     // S69-33: 왼쪽 목록 노트 누르기 = 붙이지 않음. 이미 붙은 노트는 판에서 그 카드로, 아니면 노트 열기(노트 줄 누르기와 같은 길).
     focusCard:id => !!board?.focusCard(id), centerPoint:() => board?.centerPoint() || null,
-    openNote:id => { if (busy || !notes.some(n => n.id === id)) return; open(id); }});
+    openNote:id => { if (busy || !notes.some(n => n.id === id)) return; open(id); },
+    // S70-32 ③: 보드 칸 메뉴 [PDF로 내보내기]·[HTML로 내보내기] — 보드 전체를 이 기기로 내려받기(서버 사본 없음).
+    onExport:kind => { void exportThisBoard(kind); }});
+  let exporting = false;
+  async function exportThisBoard(kind) {
+    if (exporting || !board || !boards.isNamed()) return;
+    exporting = true; showToast(kind === 'pdf' ? 'PDF를 만드는 중이에요…' : 'HTML을 만드는 중이에요…');
+    try { const {exportBoard} = await import('./note-board-export.js'); showToast(await exportBoard(kind, {getSnapshot:() => board.exportSnapshot(), name:boards.name(boards.current())})); }
+    catch (e) { showToast(e?.message || '내보내지 못했어요. 다시 눌러 주세요.'); }
+    finally { exporting = false; }
+  }
   const boardImages = createNoteBoardImages({rt, notes:{get:() => notes, set:fn => { notes = fn(notes); }}, boards, toast:showToast,
     rerender:() => { if (loaded && !selected && view === 'board') renderList(); }});
   // S69-94: 열린 노트의 메모 칸(memo-thread.js가 그 칸의 유일한 renderer). 메모 목록(memo-store.js)이 바뀌면 [메모] 보기만 다시 그린다.
@@ -737,7 +747,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const menuItems = (note, from, folderId = null, {goto = false} = {}) => {
     if (from === 'file') return [['data-note-file-rename', '이름 수정'], ['data-note-file-detach', '빼기'], ['data-note-file-delete', '삭제', 'basket-menu-danger']];
     // UI-우클릭전수(2026-11-03): 빈 보드 우클릭 메뉴. 새 노트는 목록 맨 위 입력칸에서 쓴다(입력칸으로 초점).
-    if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기']];
+    if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기'], ['data-nbb-export-pdf', 'PDF로 내보내기'], ['data-nbb-export-html', 'HTML로 내보내기']]; // S70-32 ③
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '삭제', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
     if (from === 'folder' && folderId === OUTSIDE) return [['data-nx-enter', '이 폴더로 들어가기']];
     if (from === 'folder') {
@@ -1888,7 +1898,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-sel-close')) endSelect();
       return;
     }
-    if (from.from === 'board') { if (b.hasAttribute('data-nbb-newnote')) { const input = host.querySelector('[data-note-list] textarea[data-quick-input]'); input?.scrollIntoView({block:'nearest'}); input?.focus({preventScroll:true}); } return; }
+    if (from.from === 'board') { if (b.hasAttribute('data-nbb-newnote')) { const input = host.querySelector('[data-note-list] textarea[data-quick-input]'); input?.scrollIntoView({block:'nearest'}); input?.focus({preventScroll:true}); } else if (b.hasAttribute('data-nbb-export-pdf')) void exportThisBoard('pdf'); else if (b.hasAttribute('data-nbb-export-html')) void exportThisBoard('html'); return; }
     if (from.from === 'head' && b.hasAttribute('data-nx-help')) { void import('./help-link.js').then(m => m.openHelp('note')); return; }
     if (from.from === 'folder' || from.from === 'head') {
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
