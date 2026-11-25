@@ -40,8 +40,6 @@ const SCREENS = [
 // 화면|폭 → 아직 허용하는 문제 종류(고치는 PR이 지운다). 조사(2026-11-25) 결과로 채움.
 // 고치는 순서와 PR: docs/qa/layout-audit-20261125.md 4절.
 const KNOWN = {
-  // S70-24(#3060): [저장한 글] 보기 탭 줄이 아래 선에 붙음(사진1) — 그 PR이 고친다
-  '저장한 글|1280': ['under'], '저장한 글|1440': ['under'], '저장한 글|884': ['under'],
 };
 const DEFAULT_ALLOW = new Set();
 
