@@ -3,6 +3,7 @@
 // AI를 부르지 않는다. 접을 수 있는 <details>(기본 펼침, 펼침 여부는 이 화면 메모리에만). 줄을 누르면 그 노트·자료를 연다.
 // 이 칸의 그리기 주인은 이 모듈 하나(paintRelated)다. 계산은 note-related-model.mjs.
 import {relatedNotes, docQuery, docRows} from './note-related-model.mjs';
+import {backlinks} from './note-link-model.mjs'; // S69-98 ⑧ '이 노트를 가리키는 노트' 한 줄도 이 칸이 그린다
 import {searchRecords} from './global-search-data.js';
 import {iconNode} from './tree-icons.js';
 import {chevHtml} from './fold-chevron.mjs'; // 사이트 공용 접기 꺾쇠(열린 details면 저절로 뒤집힘)
@@ -27,10 +28,24 @@ globalThis.window?.addEventListener?.('kptu:session-changed', resetRelated);
 export function paintRelated(host, note, notes, {tagsOf, folderOf, hidden = () => false, titleOf, scope = '', isCurrent = () => true, openNote, openDocument} = {}) {
   if (!host) return;
   const rows = hidden(note) ? [] : relatedNotes(note, notes, {tagsOf, folderOf, hidden, titleOf});
+  const back = hidden(note) ? [] : backlinks(note.id, notes, {hidden, titleOf});
   const draw = docs => {
     if (!isCurrent()) return;
     const all = [...rows.map(r => ({...r, kind: 'note'})), ...docs.map(d => ({...d, kind: 'document'}))];
-    if (!all.length) { host.hidden = true; host.replaceChildren(); return; }
+    if (!all.length && !back.length) { host.hidden = true; host.replaceChildren(); return; }
+    // ⑧ 이 노트를 가리키는 노트: 한 줄(제목 단추들), 접지 않는다.
+    const parts = [];
+    if (back.length) {
+      const line = el('p', 'note-linkedby'); line.dataset.noteLinkedby = '';
+      line.append(el('span', 'note-linkedby-label', '가리키는 노트'));
+      for (const b of back) {
+        const btn = el('button', 'note-linkedby-link', b.title); btn.type = 'button'; btn.dataset.noteLinkedbyId = b.id;
+        btn.addEventListener('click', () => openNote?.(b.id));
+        line.append(btn);
+      }
+      parts.push(line);
+    }
+    if (!all.length) { host.replaceChildren(...parts); host.hidden = false; return; }
     const box = el('details', 'note-rel'); box.open = !folded;
     box.addEventListener('toggle', () => { folded = !box.open; });
     const sum = el('summary', 'note-rel-sum'); sum.append(el('span', 'note-rel-title', '관련'), el('span', 'note-rel-count', String(all.length))); sum.insertAdjacentHTML('beforeend', chevHtml(false));
@@ -44,7 +59,7 @@ export function paintRelated(host, note, notes, {tagsOf, folderOf, hidden = () =
       li.append(b); list.append(li);
     }
     box.append(sum, list);
-    host.replaceChildren(box); host.hidden = false;
+    host.replaceChildren(...parts, box); host.hidden = false;
   };
   draw([]);
   if (hidden(note)) return;

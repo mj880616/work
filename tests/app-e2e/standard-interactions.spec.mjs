@@ -1209,6 +1209,48 @@ for (const [name, open] of ORDER_SCREENS) for (const width of [390, 1280]) test.
   });
 });
 
+// ---------- C7 읽는 글 칸 오른쪽 클릭 = 앱 메뉴(S70-27, docs/design/standard-interactions.md 12절 C7) ----------
+// 화면마다 {line(): 글 줄 locator, editField(): 고치는 칸을 연 뒤 그 칸 locator}를 돌려주는 여는 함수를 CTX_SCREENS에 더한다.
+async function briefCtx(page) {
+  const doc = 'd0000000-0000-4000-8000-000000000003';
+  const brief = { v: 3, lead: '가상 요지', gist: ['가상 요지'], sections: [{ title: '가상 소제목', items: [{ text: '가상 줄 하나', page: 2 }, { text: '가상 줄 둘', page: null }] }], quotes: [] };
+  await openHome(page, {
+    beforeLoad: async () => {
+      await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: [{ id: 'b1', document_id: doc, status: 'done', stage: 'done', step_no: 1, step_total: 1, page_count: 4, brief, edited: null, edited_at: null, error_code: null, created_at: '2026-11-24T00:00:00Z', updated_at: '2026-11-24T00:00:00Z', finished_at: '2026-11-24T00:00:00Z' }] }));
+      await page.route(SB + '/rest/v1/app_library_folders**', r => r.fulfill({ json: [{ id: 'f-brief' }] }));
+      await page.route(SB + '/rest/v1/app_library_folder_items**', r => r.fulfill({ json: [{ document_id: doc }] }));
+      await page.route(SB + '/rest/v1/app_documents?**', r => new URL(r.request().url()).searchParams.get('id')?.startsWith('in.') ? r.fulfill({ json: [{ id: doc, title: '가상 자료', file_name: '가상.pdf', mime_type: 'application/pdf', created_at: '2026-11-24T00:00:00Z' }] }) : r.fallback());
+      await page.route(SB + '/rest/v1/app_news_highlights**', r => r.fulfill({ json: [] }));
+    },
+  });
+  await page.evaluate(() => window.KPTURouter.go('brief'));
+  await page.locator('#briefView .br-row').first().click();
+  const line = page.locator('#briefView [data-br-zone] [data-br-line="i:0:1"]');
+  await expect(line).toContainText('가상 줄 둘');
+  return {
+    line: () => line.locator('.br-tx'),
+    editField: async () => { await page.locator('#briefView [data-br-edit]').click(); return page.locator('#briefView textarea[data-br-field="i:0:1"]'); },
+  };
+}
+const CTX_SCREENS = [['브리핑 룸', briefCtx]];
+for (const [name, open] of CTX_SCREENS) test(`C7 ${name} PC 1280: 글 줄 오른쪽 클릭 = 앱 메뉴(브라우저 메뉴 아님), 고치는 칸 오른쪽 클릭 = 브라우저 메뉴`, async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  const s = await open(page);
+  await page.evaluate(() => { window.__ctx = []; window.addEventListener('contextmenu', e => window.__ctx.push(e.defaultPrevented)); });
+  await s.line().click({ button: 'right' });
+  await expect(page.locator('#rowMenu')).toBeVisible();
+  expect(await page.evaluate(() => window.__ctx.at(-1))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#rowMenu')).toBeHidden();
+  const field = await s.editField();
+  await field.click({ button: 'right' });
+  expect(await page.evaluate(() => window.__ctx.at(-1))).toBe(false);
+  await expect(page.locator('#rowMenu')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 // ---------- [파일] 고르기·끌기(S70-30 FILES-선택드래그, 명진 11/24 20:08 "파일에 선택 만들어줘." / "드래그도 안되네;") ----------
 // 자료실·노트와 같은 규칙: 줄 ⋯·우클릭 메뉴 첫 묶음 맨 위 [선택] = 그 줄을 고른 채 고르기 막대(공용 holdPick),
 // 빈 곳에서 끌면 사각형으로 여러 줄 고르기(공용 marquee-select.js, S4), 여러 줄을 끌어 폴더에 놓으면 고른 것 전부 옮김(D 끌어 놓기).
