@@ -1105,7 +1105,7 @@ function luRenderPathNow(box){
   nav.innerHTML=phone?`<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="${walkUpLabel(luWalk)}" title="${walkUpLabel(luWalk)}">‹</button>`+luPhoneAncHtml([{id:'',name:'자료실'},...trail.slice(0,-1)])
       // S69-28: 탐색기 칸에는 지금 폴더 줄(상자 머리)이 없으므로 위치 줄 끝에 지금 폴더 이름(굵게) — 한 번만 보인다.
       +(luExplorerNow&&trail.length?`<b class="lu-focus-here" aria-current="location">${luEsc(trail.at(-1).name)}</b>`:'')
-    :`<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="${luExplorerNow&&LU_SPLIT?.matches?'위 폴더로':'폴더 나무로'}">‹</button>`+folderPathHtml({rootLabel:'자료실',trail:folderTrail(luFolders_,luInFolder),attr:'data-lu-path',esc:luEsc});
+    :`<button type="button" class="icon-btn fp-up" data-lu-path-back aria-label="${luExplorerNow&&LU_SPLIT?.matches?'위 폴더로':'폴더 나무로'}">‹</button>`+folderPathHtml({rootLabel:'자료실',trail:folderTrail(luFolders_,luInFolder),attr:'data-lu-path',esc:luEsc});
   // LIB-받는폴더나누기(S60-18, 시안 ①): 받는 폴더를 연 화면이고 그 안에 자료가 있으면 위치 줄 끝에 작은 [폴더로 나누기].
   if(luSortReady(luInFolder))nav.insertAdjacentHTML('beforeend',sortButtonHtml());
   nav.hidden=false;
@@ -1487,7 +1487,7 @@ async function luRenameUndo(id,renamed,snapshot){
   finally{luRenameBusy=false}
 }
 function luFolderStatus(text,error=false){const el=document.querySelector('#libraryFolderStatusLine');if(!el)return;el.textContent=text||'';el.hidden=!text;el.classList.toggle('error',!!error)}
-function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({selectNode:luSelectNode,enter:(id,trigger)=>luTwoActive()?luTwo.enter(id,trigger):LU_SPLIT?.matches?luEnterFolder(id):luPressEnter(id),photoSetDocs:luPhotoSetMembers,twinDocs:luTwinDocs,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',inFolder:!!luInFolder,treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen,explorer:luExplorerNow}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luPick.items?splitPicks(luPick.items).docs:[],touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luPick.items&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luPick.items&&ids.every(id=>luPick.items.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luPick.items&&([...done,...failed].some(id=>luPick.items.has(id))||!luPick.items.size)/* S69-28: 들어간 폴더(탐색기 칸)에서 고른 것을 다른 폴더로 옮기면 다시 그릴 때 보이지 않는 고른 것이 먼저 빠져 빈 선택이 된다 — 그것도 선택에서 옮긴 것 */;luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder},receive:{ready:()=>luReceive.status==='ok'&&luReceive.owner===(luUser?.id||''),get:()=>luReceiveFolder()?.id||null,set:luSetReceive,outside:()=>outsideDocuments(luDocuments,luFolderItems),sortCount:()=>luSort().count(),sort:trigger=>luSort().open(trigger)},weekly:{show:luWeeklyShow,get:luWeeklyGet,set:luWeeklySet},tidy:{open:(trigger,id)=>luTidy().open(trigger,id)},onHold:el=>luRowHold(el),onDragState:v=>{luDragNow=v;luSyncPicks()}});return luFolderUi}
+function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({selectNode:luSelectNode,enter:(id,trigger)=>luTwoActive()?luTwo.enter(id,trigger):LU_SPLIT?.matches?luEnterFolder(id):luPressEnter(id),photoSetDocs:luPhotoSetMembers,twinDocs:luTwinDocs,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',inFolder:!!luInFolder,treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen,explorer:luExplorerNow}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luPick.items?splitPicks(luPick.items).docs:[],pickedFolders:luPickedFolderIds,onPickedMoved:()=>{if(luPick.items&&!luSelBusy){luPick.items=null;luRenderLibrary()}},touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luPick.items&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luPick.items&&ids.every(id=>luPick.items.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luPick.items&&([...done,...failed].some(id=>luPick.items.has(id))||!luPick.items.size)/* S69-28: 들어간 폴더(탐색기 칸)에서 고른 것을 다른 폴더로 옮기면 다시 그릴 때 보이지 않는 고른 것이 먼저 빠져 빈 선택이 된다 — 그것도 선택에서 옮긴 것 */;luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder},receive:{ready:()=>luReceive.status==='ok'&&luReceive.owner===(luUser?.id||''),get:()=>luReceiveFolder()?.id||null,set:luSetReceive,outside:()=>outsideDocuments(luDocuments,luFolderItems),sortCount:()=>luSort().count(),sort:trigger=>luSort().open(trigger)},weekly:{show:luWeeklyShow,get:luWeeklyGet,set:luWeeklySet},tidy:{open:(trigger,id)=>luTidy().open(trigger,id)},onHold:el=>luRowHold(el),onDragState:v=>{luDragNow=v;luSyncPicks()}});return luFolderUi}
 // 토글 하나를 접거나 편다(폴더 ⋯ 메뉴의 [접기·펼치기]). 상태는 머리를 눌렀을 때와 같은 곳(luOpened·luFilterOpen)에 적는다.
 const luNodeEl=key=>[...document.querySelectorAll('#documentList details[data-lu-node]')].find(x=>x.dataset.luNode===key);
 // LIB-두칸폴더펼치기(S56-40): 두 칸은 details가 없고 칸 안 나무 줄이다. S69-68 UI-두칸따로: 펼침은 칸마다 따로(library-two-pane.js own[i]) —
@@ -2021,7 +2021,9 @@ function luPickToggle(ids){luPick.toggle(luTwinIds(ids),{anchor:false});luSyncPi
 function luPickNode(key){
   // S69-69: 사각형으로 폴더째 고른 폴더를 누르면 폴더째 풀린다(그 안 자료도 함께).
   if(key.startsWith('f:')&&luPick.items?.has(folderPick(key.slice(2)))){const next=new Set(luPick.items);next.delete(folderPick(key.slice(2)));for(const id of luTwinIds(nodeDocumentIds(luTreeNode(key))))next.delete(id);luPick.items=next;luSyncPicks();return}
-  const ids=luTwinIds(nodeDocumentIds(luTreeNode(key)));if(!ids.length){luSyncPicks();return}
+  const ids=luTwinIds(nodeDocumentIds(luTreeNode(key)));
+  // S70-08: 안에 자료가 없는 폴더는 폴더째 더하기/빼기(S69-89 '안에 자료가 없는 폴더 줄은 폴더째'와 같은 규칙 — 전에는 앞 네모가 있으면 아무 일도 없었다).
+  if(!ids.length){if(key.startsWith('f:')&&luFolders_.some(f=>f.id===key.slice(2))){luPick.toggle([folderPick(key.slice(2))]);if(!luPick.size){luPick.stop();luRenderLibrary();return}}luSyncPicks();return}
   const next=new Set(luPick.items);
   if(ids.some(id=>next.has(id)))for(const id of ids)next.delete(id);else for(const id of ids)next.add(id);
   luPick.items=next;luSyncPicks();
@@ -2038,12 +2040,16 @@ function luPickAt(e,id){
 function luOnNavMore(e){const b=e.target.closest?.('[data-lu-nav-more]');if(!b)return;e.preventDefault();e.stopPropagation();luCloseMenu(()=>luFolders().open(b))}
 // S69-84: 선택 모드에서 손가락으로 왼쪽 나무·두 칸 칸의 폴더 줄 누르기 = 그 폴더째 더하기/빼기(들어가기·펼치기 없음 — 폰 나무와 같은 규칙).
 // 마우스 누르기는 그대로 들어가기·펼치기(마우스 고르기는 Ctrl·Shift·사각형). ⋯·펼침 아이콘은 그대로. 목록 상자(나무 + 목록) 캡처 단계에서 먼저 받는다.
+// S70-08(기준표 S3 'Ctrl+클릭 = 하나씩 더하거나 빼기, 폴더 줄 포함'): PC 마우스 Ctrl(⌘)+클릭도 같은 폴더째 더하기/빼기(고르기 중이 아니어도 켜면서).
+// 원인(사실): 손가락만 받아서 두 칸 칸·왼쪽 나무 폴더 줄은 Ctrl+클릭해도 고른 것이 바뀌지 않았다(상자로 고른 뒤 하나 빼기가 안 됨).
 function luOnNavPickClick(e){
-  if(!luPick.items||(e.pointerType!=='touch'&&e.pointerType!=='pen'))return;
+  const ctrl=(e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&!!LU_FINE?.matches;
+  if(!ctrl&&(!luPick.items||(e.pointerType!=='touch'&&e.pointerType!=='pen')))return;
   const t=e.target,navRow=t.closest?.('#libraryFolderNav .ft-row,#documentList [data-lu-pane-i] .ft-row');
   if(!navRow||t.closest('[data-lu-node-menu],[data-lu-nav-more],[data-lu-nav-tog],.ft-dots,.ft-tog,input'))return;
   const id=luMqFolderId(navRow);if(!id)return;
   e.stopPropagation();e.preventDefault();if(luSelBusy)return;
+  if(!luPick.items){luSelStart();luPick.toggle([folderPick(id)]);luRenderLibrary();return}
   luPick.toggle([folderPick(id)]);if(!luPick.size)luPick.stop();luRenderLibrary();
 }
 // 목록 안 클릭·키보드: 선택 모드에서는 줄을 눌러도 자료를 열지 않고 고르기만 한다(캡처 단계에서 먼저 처리).
@@ -2083,7 +2089,8 @@ function luRowHold(el){
   // S69-84 목록 엔진 통일 ①(명진 11/24 23:57 "폴드 펼침 화면에서도 꾹 눌러 선택 등 움직임 통일"): 왼쪽 나무·두 칸 칸의 폴더 줄(.ft-row)은
   // 폴더째 고른다(열쇠 'F:폴더 id' — 사각형 고르기 luMqKey와 같음). '자료실 전체'·'폴더 밖' 줄은 폴더가 아니라 고르지 않는다.
   if(el.matches?.('.ft-row')){const id=luMqFolderId(el);return id?luHoldIds([folderPick(id)]):false}
-  if(el.matches?.('summary')){const key=el.parentElement?.dataset.luNode;if(!key)return false;return luHoldIds(nodeDocumentIds(luTreeNode(key)))}
+  // S70-08: 안에 자료가 없는 폴더 머리는 폴더째(누르기 S69-89와 같은 규칙 — 전에는 0개가 골라져 꾹 눌러 고르기가 시작되지 않았다).
+  if(el.matches?.('summary')){const key=el.parentElement?.dataset.luNode;if(!key)return false;const ids=nodeDocumentIds(luTreeNode(key));if(!ids.length&&key.startsWith('f:')&&luFolders_.some(f=>f.id===key.slice(2)))return luHoldIds([folderPick(key.slice(2))]);return luHoldIds(ids)}
   const set=el.dataset?.luPhotoset;if(set)return luHoldIds(luPhotoSetMembers(set).map(d=>d.id));
   const id=el.dataset?.luDocument;if(!id||!luDocuments.some(d=>d.id===id))return false;
   return luHoldIds(luTwinIds([id]));

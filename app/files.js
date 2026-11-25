@@ -795,7 +795,7 @@ function crumbHtml(p, {noRoot = false} = {}) {
   // S51-24: 폰 '그 폴더만'은 위치 줄이 상자 안(paintFocus)이라 위 막대가 없다.
   if (focusBox(p)) return '';
   const back = solo() && p === state.panes[0];
-  if (w.shelf) return (back ? '<button type="button" class="fx-up" data-fx-up aria-label="폴더 나무">‹</button>' : '') + `<span class="fx-crumb-now">${esc(SHELF_NAME[w.shelf])}</span>`;
+  if (w.shelf) return (back ? '<button type="button" class="icon-btn fp-up" data-fx-up aria-label="폴더 나무">‹</button>' : '') + `<span class="fx-crumb-now">${esc(SHELF_NAME[w.shelf])}</span>`;
   // S52-07: 두 칸 칸 머리는 출처 이름이 [출처 ▾] 단추에 있어 위치 줄은 출처 다음 단계부터(맨 위면 비움, 맨 위로 = 같은 출처 다시 고르기).
   const all = trailNames(w.source, p.trail), allIds = [null, ...trailIds(p.trail)];
   const names = noRoot ? all.slice(1) : all, ids = noRoot ? allIds.slice(1) : allIds;
@@ -803,7 +803,7 @@ function crumbHtml(p, {noRoot = false} = {}) {
   let html = names.map((n, i) => i === names.length - 1
     ? `<span class="fx-crumb-now" aria-current="location">${esc(n)}</span>`
     : `<button type="button" class="fx-crumb-step" data-fx-go="${esc(w.source)}" data-fx-id="${esc(ids[i] || '')}">${esc(n)}</button>`).join('<span class="fx-crumb-sep" aria-hidden="true">›</span>');
-  if (names.length > 1 || back || (noRoot && names.length)) html = `<button type="button" class="fx-up" data-fx-up aria-label="${back ? '폴더 나무' : '위 폴더'}">‹</button>` + html;
+  if (names.length > 1 || back || (noRoot && names.length)) html = `<button type="button" class="icon-btn fp-up" data-fx-up aria-label="${back ? '폴더 나무' : '위 폴더'}">‹</button>` + html;
   return html;
 }
 // ---------- UI-머리눌러정렬(명진 11/24 15:47): 정렬 상태 주인은 칸마다 p.sort·p.dir 하나 ----------
