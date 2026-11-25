@@ -104,7 +104,7 @@ function closeChoices() {
 }
 
 export function openEdWindow({title = '크게 쓰기', doc = null, text = '', convert = null, save = null, limit = 0, textOnly = false, draft = false, keepOpen = false, saveUnchanged = false,
-  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, files = null, onFiles = null, shortcuts = false, blocks = null, onClose = () => {}} = {}) {
+  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, files = null, onFiles = null, shortcuts = false, blocks = null, noteLinks = null, onClose = () => {}} = {}) {
   // One big window at a time: this one is replaced when another opens.
   current?.close({silent: true});
   if (bigWindowOpen()) return null;
@@ -324,7 +324,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
     await ensureStyles();
     if (closed) return handle;
     // NOTE-노션편집 ①(나): blocks — the opener's 블록 편집 state and switch (notes), the same as its edit field.
-    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, onFiles, shortcuts, lineWidth: true, blocks}); // NOTE-글폭: 큰 창 글 줄도 같은 폭·같은 손잡이
+    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, onFiles, shortcuts, lineWidth: true, blocks, noteLinks}); // S69-98 ⑧ noteLinks: '[[' 노트 연결(노트만) // NOTE-글폭: 큰 창 글 줄도 같은 폭·같은 손잡이
     if (closed) { made.destroy(); return handle; }
     editor = made;
     // The editor's own first value is the baseline (its cleaning may differ in small ways from the converted one), so opening alone is "not changed".

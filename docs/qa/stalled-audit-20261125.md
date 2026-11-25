@@ -91,6 +91,8 @@
 
 ## 2. 명진 결정이 필요한 것 (일상어 한 줄 + 추천안)
 
+> **2026-11-25 21:35 명진 결정 "추천대로"**: 1~14번을 모두 아래 추천안으로 확정했다(15번은 결정이 이미 있음). 설계 문서·원장 행에 '2026-11-25 명진 결정: …'으로 적었고(S70-55), 구현이 필요한 것은 맨 끝 '5. 결정 뒤 구현 줄' 절에 지시서 초안으로 두었다.
+
 1. **계정 삭제 때 로그인 계정까지 지울까요?** 추천: 지금처럼 작업공간 자료만 지우고, 로그인 계정은 남겨 둡니다. 로그인 계정은 읽생기와 같이 쓰기 때문입니다.
 2. **통화 글로 옮기기 AI는 돈 드는 열쇠로 볼까요?** 추천: 유료로 보고 비용 화면에 넣습니다. 그래야 AI 비용 4~6단계가 시작됩니다.
 3. **화면 보안 규칙(CSP)을 '막기'로 올릴까요?** 추천: 먼저 '보고만' 받는 곳을 만들어 2주 지켜본 뒤 정합니다.
@@ -142,3 +144,48 @@
 
 - **열린 PR**: 48개 모두 11/25에 만들어졌다. 7일 넘게 멈춘 PR과 초안 PR은 없다. 충돌 여부는 GitHub가 다시 계산하는 중(`unknown`)이라 판정하지 못했고, `blocked`는 #3076 하나다(시험 대기).
 - **업데이트 기록의 약속 문구**: '나중에·곧·다음에·준비 중·예정'이 든 기록 19개를 보았다. 모두 동작 설명('다음에 열어도 그대로' 등)이고, 지키지 않은 약속은 없었다.
+
+## 5. 결정 뒤 구현 줄 (2026-11-25 명진 결정 뒤, S70-55)
+
+2절 결정 1~14 가운데 코드·운영 일이 남은 것만 지시서 초안으로 적는다. CC가 이 표로 세션을 띄운다. 공통: 최신 main에서 시작, `AGENTS.md`·`app/ARCHITECTURE.md`를 따른다. 화면이 바뀌면 업데이트 기록 1개. 겹치는 열린 PR은 11/25 저녁 기준이고, '뒤'라고 적은 PR이 아직 열려 있으면 줄 세우기(그 PR head에서 시작)로 한다.
+
+### 5-1. 결정별 처리 요약
+
+| 결정 | 처리 | 근거 |
+| --- | --- | --- |
+| 1 계정 삭제는 작업공간 자료만 | 구현 없음(지금 그대로). 원장 STORE-계정삭제 종료 | `docs/design/account-delete.md` 6절 |
+| 2 통화 전사 AI 유료 → 비용 4~6단계 | I-1~I-4 | `docs/design/ai-cost-view.md` 5절 |
+| 3 CSP 2주 '보고만' | I-5 | `docs/design/web2-security-headers.md` 4절 |
+| 4 휴지통 영구 삭제 안 넣음 | 구현 없음. 원장 S69-62 종료 | `docs/design/files-explorer.md` 끝 |
+| 5 [공유 링크] 안 넣음 | 구현 없음. 원장 FILES-관리자마무리 종료 | 같은 곳 |
+| 6 기본 동작 4가지 | 폴더 누르기(#2991 방식, 11/24 main 반영)·P1(안 되살림)·Z1(고정 유지)은 구현 없음. **K1 Delete만** I-6·I-7 | `docs/design/standard-interactions.md` |
+| 7 보드 막대 [삭제] 그대로 | 구현 없음. 원장 NOTE-보드선택지우기 종료 | `docs/design/note-board-mindmap.md` 끝 |
+| 8 '/' 목록 늘 켬 | 구현 없음. 원장 S69-96 종료 | `docs/design/note-notion-edit.md` 끝 |
+| 9 브리핑 자료 안 옮김 | 구현 없음. 원장 BRIEF-자료실에서고르기 종료 | `docs/design/brief-room.md` 끝 |
+| 10 백업 표 14일 지난 것만 삭제 | I-8 | `docs/design/db-retention.md` 3절 |
+| 11 작은 결정 4개 | 캘린더 색 줄: 이미 반영(사실, `app/calendar-persistence.js`가 `app/color-swatch.mjs` 사용, `type="color"` 없음). 칸 폭 저장 같이 씀: 지금 그대로. 'n일째' 톤다운: 지금 `app/`에 'n일째' 표시가 없음(사실, 글자 검색) → I-9에서 확인만. **PC 오른쪽 칸 안 A**: I-9 | `docs/design/ui-abc-c-status.md` 끝 |
+| 12 못 읽는 단체 | I-10 | `docs/design/outside-statements.md` 끝 |
+| 13 사진 지도·휴지통 닫음 | 구현 없음. 원장 PHOTO-사진메뉴 종료 | `docs/design/photo-menu.md` 끝 |
+| 14 바깥 성명 저녁 알림만 | I-11(초안 연결 ⑦은 닫음) | `docs/design/outside-statements.md` 7절 |
+
+### 5-2. 지시서 초안 표
+
+| 이름 | 할 일 | 바꿀 파일(조사로 찾음) | 완료 기준 시험 | 겹치는 열린 PR | DB/Edge 정지 지점 | 크기 |
+| --- | --- | --- | --- | --- | --- | --- |
+| I-1 AI-비용보기 2단계 붙이기 (📱 폰 경로 B·CC 브라우저) | 통화 전사·분석 앱 스크립트에 이미 있는 보고 함수를 붙여 넣는다(ref `call-`·`calla-`). PR 없음 | `docs/ops/ai-usage-report.gs`(붙일 원본, 고치지 않음). 앱 스크립트 편집기(브라우저) | `tests/security/ai-usage-report-gas.test.mjs`(이미 있음, 원본 그대로인지). 붙인 뒤 다음 통화 처리에서 `app_ai_external_usage`에 `call-`·`calla-` 줄이 생기는지 **개수만** CC 확인 | 없음 | 없음(DB·Edge 그대로). 브라우저가 없으면 명진에게 붙여 넣기 한 단계씩 안내 | 작음 |
+| I-2 AI-비용보기 4단계 DB | 기능별 표 `app_ai_usage_events`(넣기만)·`app_ai_cost_entries.kind`에 `cap`·`reload` 더하기 | `supabase/migrations/<새 판>_ai_usage_events.sql` + 짝 파일 5개(`docs/<판>_ai_usage_events.{precheck,snapshot,postcheck,rollback}.sql`·`.summary.md`), `docs/migration-history.md` | 실제 PostgreSQL 권한 시험(소유자 읽기만·service_role 넣기만·anon·PUBLIC 없음·RLS 켬, `tests/auth-handoff/` 방식) + `tests/security/<판>-migration.test.mjs`(확장 규칙). 고치기 전 실패·고친 뒤 통과 | 없음 | ★DB 적용 정지★: 승인형 workflow dry-run → apply(CC) | 중간 |
+| I-3 AI-비용보기 5단계 기능 이름 기록 | 함수마다 기능 키를 넘겨 기능별 표에 1행씩 넣기(한도 판정은 지금 표 그대로) | `supabase/functions/_shared/ai-features.mjs`(새, 기능 키 한 곳), `_shared/ai-daily-usage.mjs`, `recordAiDailyUsage`를 부르는 `library-files`·`meeting-ai-ingest`·`document-ai-index`, `ai-assist` 등(설계 5절 '9개 함수' — 세션이 grep으로 확정) | `tests/security/drive-summary-ai-usage.test.mjs` 방식의 단위 시험 + 함수별 '기능 키 빠짐 없음' 전수 시험 | 없음 | ★Edge 배포 여러 개★: 한 번에 하나, 함수마다 되돌리기 ref 기록. I-2 적용 뒤 | 큼 |
+| I-4 AI-비용보기 6단계 화면 | 프로필 'AI 비용' 칸: 공급자별 이번 달·월말 예상·기능별 표·한도/자동 충전 금액 한 줄 입력(서버 저장) | `app/ai-usage-line.js`, `app/ai-usage-model.mjs`(같은 상태 주인·렌더러 하나), `app/release-notes/…json` | `tests/ai-usage-model.test.mjs` 확장 + E2E(폰 412·폴드 880·PC 1440, 가로 넘침 없음). 시안 A/B는 세션이 다시 보여 주고 명진이 고름 | 없음 | 없음(화면만). I-3 뒤 | 중간 |
+| I-5 SEC-Web2CSP 보고 받는 곳 | Report-Only CSP에 `report-to`를 붙이고, 받은 위반의 **지시어·막힌 주소 출처·날짜·개수만** 모은다(쿼리·토큰·개인정보 저장 금지). 2주 뒤 CC가 숫자로 보고 → 막는 단계는 명진이 따로 정함 | `cloudflare/web2-csp.mjs`, `cloudflare/bokdoong-router.mjs`(받는 경로, 설계 예 `/work/app/__csp`), `docs/design/web2-security-headers.md` 4절. 모으는 곳은 설계 4절 1번 두 안(Supabase 표 / 세지 않고 E2E만) 중 세션이 비교해 제안 — 표로 하면 migration·짝 파일 5개, 넣기는 서버만 | `tests/web2-csp.test.mjs` 확장(헤더에 `report-to` 있음, 받는 경로가 크기·횟수 제한·POST만), `tests/app-e2e/web2-csp-report-only.spec.mjs`(16개 메뉴 위반 0개 유지) | 없음 | ★Cloudflare Worker 배포 정지★(되돌리기 = 이전 커밋 Worker 재배포). 표로 하면 ★DB 정지★, Edge를 새로 두면 ★첫 배포 정지★ | 중간 |
+| I-6 STD-기본동작 K1 Delete 맞추기 ① (#3047 뒤) | 공용 키 부품에서 "되돌리기가 있으면 확인 없이 바로, 없으면 확인" 한 규칙으로. 노트 보드의 '아래 가지가 있는 상자' 확인 창은 [되돌리기]가 생겼으므로(#3044) 없앤다 — 예전 결정·시험을 바꾸는 것이라 PR 본문에 밝힌다. 노트 목록 커서 줄 Delete(지금 확인 창)는 되돌리기 유무를 보고 맞춘다 | `app/select-keys.js`, `app/note-board.js`(`removeNode`), `app/basket-notes.js`, `app/files.js`(`trashRows`), `app/library-upload.js`(`luSelDelete`), `docs/design/standard-interactions.md` K1 칸 | `tests/app-e2e/standard-interactions.spec.mjs` K1 줄(자료실·파일·노트 목록·노트 보드: 되돌리기 있으면 확인 창 없음·[되돌리기]로 돌아옴, 없으면 확인 창), `tests/select-keys.test.mjs` | #3047(같은 부품, 앞), #3073(`note-board.js`), #3030(`files.js`·`library-upload.js`·`basket-notes.js`), #3075·#3037(`library-upload.js`) | 없음(화면만) | 중간 |
+| I-7 STD-기본동작 K1 Delete 나머지 화면 (I-6 뒤) | 기준표 K1이 × 인 화면(할 일·사진·회의·조직·사업 영역)에 같은 Delete를 건다. 고르기 자체가 없는 화면은 STD-고르기키 제안(#2963 후속)과 묶어 먼저 고르기부터 — 세션이 화면별로 나눠 PR을 줄 세운다 | `app/select-keys.js`(부품은 그대로 씀), 할 일 `app/task-*.js`, 사진 `app/photo*.js`, 조직·사업 영역 `app/project-system-v3.js` 등(세션이 화면별 진입 파일 확정) | 같은 E2E K1 줄을 화면 표(`HEAD_SCREENS` 등)에 더해 화면마다 통과 | #3063·#3068(`project-system-v3.js`) | 없음(화면만) | 큼 |
+| I-8 OPS-DB용량정리 백업 표 14일 | ① 읽기 전용으로 `ops_backup` 표 이름 목록만 뽑는다(내용 안 봄). ② 이름의 `run_id`로 실행 날짜를 `gh api …/actions/runs/<id>`에서 얻고, 14일 지났고 그 version이 `schema_migrations`에 기록된 것만 고른다(나이 기록 표를 새로 만들지 않음). ③ **지우기 전 개수 한 줄 보고**(CC) ④ 지움 ⑤ 남은 개수·DB 크기 숫자 보고 | 길 고르기(세션이 PR 본문에 비교 후 CC 결정): (가) 승인형 workflow 차단 목록에 좁은 예외 — `ops_backup` 안·글자 그대로 쓴 표 이름의 `drop table if exists`만, 동적 EXECUTE·다른 스키마 그대로 거절 → `scripts/ops/db-workflow.mjs`·`scripts/ops/db-migration-expanded.mjs`·`docs/ops-db-workflow.md` / (나) 지금 규칙대로 SQL Editor(CC 브라우저, 폰 경로 C)에서 이름을 적은 정적 SQL. 명진은 "승인형 workflow로"라고 했으므로 (가)가 기본, 보안 검토에서 막히면 (나) | (가)면 `tests/security/db-migration-apply.test.mjs`·`db-migration-phase2.test.mjs`에 '예외는 ops_backup 글자 이름 drop만, 다른 drop·동적 EXECUTE·public 표 drop은 여전히 거절' 시험(고치기 전 실패·고친 뒤 통과) | 없음 | ★production 데이터 삭제(되돌릴 수 없음)★: 개수 한 줄 보고 뒤 진행. (가)는 workflow 규칙 변경이라 CC 보안 검토 | 중간 |
+| I-9 UI-화면정리ABC C1 안 A + 'n일째' 확인 | PC(1024px 이상)에서 할 일·사업영역 관리를 처음 열 때 맨 위 항목(할 일 = 맨 위 미완료, 사업영역 = 맨 위)을 오른쪽 칸에 바로 연다(통화·담당조직과 같은 규칙). 'n일째' 빨간 굵은 표시가 남은 곳이 있으면 흐린 12px로(없으면 '해당 없음' 보고) | 할 일 PC 칸 `app/task-layout.js`·`app/task-workflow.js`, 사업영역 관리 `app/project-system-v3.js`, 시안 `docs/design/mockups/ui-c1-pc-right-pane.html` | 새 E2E(PC 1440: 처음 열면 오른쪽 칸 제목이 맨 위 항목, 폰 412는 그대로 목록). '처음엔 빈 칸'을 전제로 한 기존 시험(약 60개 파일, #1790)을 고치되 지우거나 건너뛰지 않음 | #3063·#3068(`project-system-v3.js`) — 그 뒤 | 없음(화면만) | 큼 |
+| I-10 OUTSIDE-다른읽기길 소식 통로 있는 곳만 | ① CC가 단체별 수집 상태(`last_error` 종류·마지막 성공 날짜만, 글 내용 안 봄)를 숫자로 확인 → 계속 막힌 단체 목록을 세션에 넘김 ② 세션: 그 단체가 RSS·공개 채널이 있으면 `mode` 바꿔 그 통로로, 없으면 카탈로그에서 뺌. robots 예외 목록(`ROBOTS_EXEMPT_KEYS`)은 늘리지 않음. 이미 모인 글은 지우지 않음 | `supabase/functions/_shared/outside-catalog.ts`, (필요하면) `supabase/functions/outside-feed/handler.ts` | `tests/security/outside-feed.test.mjs`(카탈로그 키·호스트·예외 고정 시험 갱신), 바꾼 단체 읽기 단위 시험 | 없음 | ★Edge `outside-feed` 배포★(되돌리기 ref 기록) | 작음 |
+| I-11 OUTSIDE-바깥성명 ⑥ 저녁 폰 알림 | 저녁 예약(18:22 KST)에서 지금은 줄 수만 세는 'Now' 한 줄('새 성명 n · 새 기사 n')을 실제로 보낸다. 종류별 끄기(`notify_prefs.kinds`)·조용한 시간·하루 한 번 기록을 지키고, 알림에는 숫자만(제목·내용 없음). 홈·위젯 줄은 만들지 않음 | `supabase/functions/phone-push/handler.ts`(evening 갈래), `now-line.ts`, `done-items.ts`(종류 목록), 내 프로필 종류 칩 `app/phone-push-settings.js`(새 종류를 칩으로 둘 때만) | `tests/security/phone-push.test.mjs`·`phone-push-cron.test.mjs`에 '저녁: 줄 있으면 1통·0건이면 안 보냄·끈 사람·조용한 시간 제외·알림 글에 숫자만' (고치기 전 실패·고친 뒤 통과) | 없음 | ★Edge `phone-push` 배포★(되돌리기 ref 기록). 종류 키를 새로 두면 DB 검사 제약 확인 — 바꿔야 하면 ★DB 정지★ | 중간 |
+
+### 5-3. 줄 세우기 제안
+
+- 바로 띄울 수 있음(서로 다른 파일): I-1, I-2, I-5, I-8, I-10, I-11.
+- 앞 일 뒤: I-3(I-2 적용 뒤) → I-4(I-3 뒤). I-6(#3047 merge 뒤) → I-7. I-9(#3063·#3068 뒤).
+- 정지 지점이 있는 것(I-2·I-3·I-5·I-8·I-10·I-11)은 세션이 정지 지점 앞에서 멈추고 CC가 적용·배포한다(AGENTS.md 6절).

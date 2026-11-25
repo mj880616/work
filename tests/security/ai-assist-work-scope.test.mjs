@@ -71,7 +71,7 @@ test('one AI call over the week\'s allowed lines; personal lines come back as dr
   assert.match(sent,/미술 학원/);assert.ok(!/가상값|다음 주 줄|남의 줄/.test(sent),'secret part, other week and other workspace are not sent');
   assert.match(sent,/와이파이 \[가림\]/,'the old AI-off line is sent with only the secret part masked');
   assert.match(o.input[0].content,/애매하면 personal/);
-  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'),'only the usage row is written');
+  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'||c.table==='app_ai_usage_events'),'only the usage row is written');
   assert.equal(db.app_ai_daily_usage[0].requests,1);
   assert.ok(!/교섭|학원|성명/.test(JSON.stringify(calls.logs)),'no text in logs');
   assert.equal(DAILY_LIMITS.work_scope,30);

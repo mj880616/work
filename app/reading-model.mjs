@@ -7,7 +7,8 @@ import {urlTitle} from './url-title.mjs';
 
 export const TITLE_MAX = 500, SITE_MAX = 120, BODY_MAX = 200000, URL_MAX = 2000, LIST_LIMIT = 500;
 export const LIST_COLS = 'id,url,title,site,saved_at,read_at,body_state,body_at,business_area_id,updated_at,origin,news_article_id,outside_article_id';
-export const BODY_STATES = Object.freeze(['pending', 'ok', 'paywall', 'bot_check', 'robots', 'too_big', 'blocked', 'failed']);
+// lead(본문을 못 찾아 소개 글만)·login(로그인 화면이 옴)은 S70-40a READ-실패까닭에서 더함(DB 20261125170000_reading_body_state_login_lead).
+export const BODY_STATES = Object.freeze(['pending', 'ok', 'paywall', 'lead', 'bot_check', 'robots', 'too_big', 'blocked', 'login', 'failed']);
 // 거르기 칩: [전체] [안 읽음 n] [밑줄] [메모]. 처음은 전체(S70-24 READ-저장한글기본전체, 명진 11/25 "전체를 기본으로").
 // S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 글을 따로 거르는 칩은 없다 — 평범한 읽을 거리 줄.
 // S69-94 NOTE-메모통일: [메모] = 이 화면 글에 남긴 메모만 모아 보기(노트 [메모]와 같은 메모 목록·같은 줄).
@@ -75,7 +76,7 @@ export const unreadCount = entries => (Array.isArray(entries) ? entries.filter(e
 export function filterOptions(entries, marks = null, memos = null) {
   const list = Array.isArray(entries) ? entries : [];
   const n = unreadCount(list), m = Number.isInteger(marks) ? marks : 0, c = Number.isInteger(memos) ? memos : 0;
-  return [{value: 'all', label: '전체'}, {value: 'unread', label: `안 읽음 ${n}`}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}, {value: 'memos', label: c ? `메모 ${c}` : '메모'}];
+  return [{value: 'all', label: '전체'}, {value: 'unread', label: n ? `안 읽음 ${n}` : '안 읽음'}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}, {value: 'memos', label: c ? `메모 ${c}` : '메모'}];
 }
 // 좌우 밀기: 지금 칩에서 옆 칩으로(끝에서는 그대로).
 export function nextFilter(current, dir) {
@@ -103,7 +104,7 @@ export function bodyText(blocks) {
   const all = parts.join('\n\n');
   return [...all].length > BODY_MAX ? [...all].slice(0, BODY_MAX).join('').trim() : all;
 }
-const FAIL_STATE = {robots: 'robots', bot_check: 'bot_check', paywall: 'paywall', too_big: 'too_big', blocked: 'blocked', redirect: 'blocked'};
+const FAIL_STATE = {robots: 'robots', bot_check: 'bot_check', paywall: 'paywall', too_big: 'too_big', blocked: 'blocked', redirect: 'blocked', login_page: 'login'};
 export function bodyPatch(result, nowIso = new Date().toISOString()) {
   const outcome = resultOutcome(result);
   const meta = {};
@@ -112,9 +113,12 @@ export function bodyPatch(result, nowIso = new Date().toISOString()) {
   if (site) meta.site = site;
   if (outcome.state === 'ok') {
     const body = bodyText(result?.blocks);
-    if (body) return {...meta, body, body_state: outcome.reason === 'lead' ? 'paywall' : 'ok', body_at: nowIso};
+    // 앞부분만 온 글: 유료벽이면 paywall, 본문을 못 찾아 메타 설명만이면 lead(예전에는 둘 다 paywall이라 '유료 기사'로 불렀다 — S70-40a).
+    if (body) return {...meta, body, body_state: outcome.reason !== 'lead' ? 'ok' : outcome.lead === 'paywall' ? 'paywall' : 'lead', body_at: nowIso};
     return {...meta, body: null, body_state: 'failed', body_at: nowIso};
   }
+  // 로그인 화면: 그 화면의 제목·사이트를 글 제목으로 쓰지 않는다(서버도 돌려주지 않지만 한 번 더 막음).
+  if (outcome.reason === 'login_page') return {body: null, body_state: 'login', body_at: nowIso};
   return {...meta, body: null, body_state: FAIL_STATE[outcome.reason] || 'failed', body_at: nowIso};
 }
 // 이미 사람이 단 제목이 있으면 원문 제목으로 덮지 않는다(사이트도 같음).
@@ -140,7 +144,9 @@ export function stateLine(row, {busy = false} = {}) {
   if (busy) return '원문을 가져오는 중…';
   if (s === 'ok') return '';
   if (s === 'pending') return '원문을 아직 가져오지 않았어요.';
-  if (s === 'paywall') return row?.body ? '공개된 앞부분만 가져왔어요.' : failInfo('paywall').text;
+  if (s === 'paywall') return row?.body ? '유료 기사라 앞부분만 있어요.' : failInfo('paywall').text;
+  if (s === 'lead') return row?.body ? '본문을 찾지 못해 소개 글만 있어요.' : failInfo('no_body').text;
+  if (s === 'login') return failInfo('login_page').text;
   return failInfo(s === 'failed' ? 'no_body' : s).text;
 }
 // 다시 가져오기 버튼을 보일까. 다시 해도 같은 결과인 상태만 숨긴다: ok(이미 있음) · blocked(주소 규칙 밖 — 안쪽 주소·리다이렉트 고리, 서버 guard가 늘 거절) · too_big(크기 한도).

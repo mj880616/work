@@ -23,13 +23,23 @@
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 #wdModal .wd-year{font-size:var(--kptu-text-subtitle)}
 
-#wdUpdates .basket-link-record{min-width:0;max-width:100%;box-sizing:border-box;padding:10px;margin-top:7px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
+#wdUpdates .basket-link-record{min-width:0;max-width:100%;box-sizing:border-box;padding:9px;margin-top:7px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
 #wdUpdates .basket-link-record small{color:var(--kptu-muted)}
-#wdUpdates .basket-link-record p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:7px 0}
+#wdUpdates .basket-link-record p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:0}
 #wdUpdates .basket-link-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 /* BUG-바구니연결해제: the line opens the note; ⋯ (44px) holds the record's actions. */
-#wdUpdates .basket-link-line{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px}
-#wdUpdates .basket-link-open{display:block;min-width:0;min-height:44px;color:inherit;text-decoration:none;border-radius:var(--kptu-radius-md)}
+/* UI-기록카드하나로(S70-42): 연결 기록(사진 기록 포함)도 글 기록 줄(.wd-log-row)과 같은 틀 [날짜 칸 | 본문 | ⋯] — 날짜 칸 폭·글자, 안쪽 여백 9px 같게. */
+#wdUpdates .basket-link-line{display:grid;grid-template-columns:4.6em minmax(0,1fr) auto;align-items:start;gap:4px 8px}
+#wdUpdates .basket-link-day{padding-top:2px;white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta);font-variant-numeric:tabular-nums}
+#wdUpdates .basket-link-main{min-width:0}
+#wdUpdates .basket-link-main>.record-files{margin:4px 0 0}
+/* 사진만 있는 기록: [작은 그림 줄][기록 한 줄(말줄임)]을 한 줄에. */
+#wdUpdates .basket-link-main:has(>.record-files[data-record-only-photos]){display:flex;align-items:center;gap:8px}
+#wdUpdates .basket-link-main>.record-files[data-record-only-photos]{order:-1;flex:none;margin:0}
+#wdUpdates .basket-link-main:has(>.record-files[data-record-only-photos])>.basket-link-open{flex:1 1 auto;min-width:4.5em}
+#wdUpdates .basket-link-main:has(>.record-files[data-record-only-photos]) [data-link-summary-text]{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:650px){#wdUpdates .basket-link-line{grid-template-columns:3.9em minmax(0,1fr) auto}}
+#wdUpdates .basket-link-open{display:block;min-width:0;color:inherit;text-decoration:none;border-radius:var(--kptu-radius-md)}
 #wdUpdates .basket-link-open:hover p[data-link-summary-text]{text-decoration:underline}
 #wdUpdates .basket-link-more{width:44px;height:44px;min-height:44px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 #wdUpdates .basket-link-more:hover{background:var(--kptu-surface)}

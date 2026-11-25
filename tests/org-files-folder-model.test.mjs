@@ -71,8 +71,8 @@ test('지난 자료 모으기: 폴더 밖·받는 폴더 자료만, 사람이 �
   assert.deepEqual(plan.get(orgs[0].id), [{id: id(200), from: null}, {id: id(201), from: R}]);
   assert.equal(plan.has(orgs[1].id), false);
   assert.equal(plan.has(id(777)), false);
-  assert.equal(gatherLine(3), '옮김 3');
-  assert.equal(gatherLine(3, 1), '옮김 3 · 못 옮김 1');
+  assert.match(gatherLine(3), /^지난 .*기록 자료 3개를 .*폴더로 모았어요$/);
+  assert.match(gatherLine(3, 1), / · 못 옮김 1$/);
   assert.match(ASK_TEXT('조직'), /조직 기록 자료를 ‘조직’ 폴더에 모을까요\?/);
 });
 
@@ -92,4 +92,15 @@ test('공유 조직(남의 작업공간)은 내 조직 표에서만 찾고 서�
   assert.match(sql, /org_ws is null or org_ws <> ws/);
   assert.match(sql, /revoke all on function public\.app_library_folder_set_org\(uuid, uuid\) from public, anon, authenticated, service_role;\ngrant execute on function public\.app_library_folder_set_org\(uuid, uuid\) to authenticated;/);
   assert.doesNotMatch(sql.replace(/--.*$/gm, ''), /to anon|to public|disable row level security|rtw_/i);
+});
+
+// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 조직 관리 ⋯ [지난 조직 기록 자료도 조직 폴더로 모으기] 메뉴 줄은 없고, 모으는 폴더를 처음 정할 때 저절로 모은다.
+test('지난 자료 모으기: 메뉴 줄 없음, 처음 정할 때(askParent [예]·처음 고르기) 저절로', async () => {
+  const {readFileSync} = await import('node:fs');
+  const so = readFileSync(new URL('../app/suborganizations.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(so, /data-so-files-gather|지난 조직 기록 자료도 조직 폴더로 모으기|gatherPastOrgFiles/);
+  const mod = readFileSync(new URL('../app/org-files-folder.js', import.meta.url), 'utf8');
+  assert.match(mod, /then\(\);\n\s*void gatherPastOrgFiles\(\{rt\}\);/, 'first choice in the ask line gathers past files');
+  assert.match(mod, /if \(saved && !liveParent\(st\.parentId, st\.folders\)\) void gatherPastOrgFiles\(\{rt\}\);/, 'first choice from the menu picker gathers too');
+  assert.doesNotMatch(mod, /askParent\(st, rt, \(\) => void gatherPastOrgFiles/, 'gather never asks by itself');
 });

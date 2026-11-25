@@ -296,82 +296,55 @@ for(const width of [390,1280])test(`끝 날짜 칸이 아직 없을 때(DB 적�
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,412,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)는 제목 '담당조직' 줄 오른쪽(PC는 목록 위 한 줄 오른쪽 끝), 목록 HTML 안에 없음 ${width}px`,async({page})=>{
+// ORG-머리줄한줄(S70-53, 2026-11-25 명진 폴드 사진): [+ 담당조직]·⋯는 모든 폭에서 화면 이름 줄 오른쪽 끝 — 폰·폴드(~760px)는 앱 머리 줄(이름·찾기 오른쪽),
+// PC 틀(761px~)은 맨 위 줄(검색 칸 오른쪽). 목록 위에 따로 한 줄을 차지하지 않는다(목록·상세 칸이 머리 줄 바로 아래에서 시작). 목록 HTML 안에는 없다.
+// 단계 칩은 모든 폭에서 보인다(예전 ORG-담당조직버튼자리폴드 ② '폴드 펼침에서는 칩을 그리지 않음'은 거둠) — 좁으면 이름이 먼저 '…'.
+const S70_53=process.env.S70_53_SHOTS;
+for(const width of [390,412,690,884,900,1280])test(`조직 관리 [+ 담당조직]·⋯는 화면 이름 줄 오른쪽 끝, 따로 한 줄 없음, 단계 칩 보임 ${width}px`,async({page})=>{
  const {errors}=await fixture(page,{width});
  await clickView(page,'team');
- const more=page.locator('#soTeamMore');await expect(more).toBeVisible();await expect(more).toHaveCount(1);
- await expect(page.locator('#soOrganizationList #soTeamMore, .so-group-card #soTeamMore')).toHaveCount(0);
- const m=await more.boundingBox(),group=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();
- if(width<761)expect(m.y+m.height).toBeLessThanOrEqual(group.y); // 묶음 머리줄보다 위
- if(width<=760){
-  // 폰: 위 머리줄의 화면 이름 "담당조직"과 같은 줄, 오른쪽 끝
-  const name=await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();
-  expect(Math.abs((m.y+m.height/2)-(name.y+name.height/2))).toBeLessThanOrEqual(6);
-  expect(m.x).toBeGreaterThan(name.x+name.width);
-  if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
- }else{
-  const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('조직 관리');
-  // UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄이 화면 이름을 맡아 본문 큰 제목은 읽기 프로그램용(잘라 숨김), 중간 폭은 제목 줄 그대로.
-  if(width>=761){
-   await expect(title).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');
-   // MULTI-다른담당자맞춤 ①·②(S61-39c): PC 머리줄([+ 담당조직]·⋯)은 묶음이 있어도 목록 위 한 줄(전에는 F07로 ⋯만 첫 묶음 머리줄에 겹쳐 두었다).
-   // [+ 담당조직]·⋯는 첫 묶음 머리줄보다 위, 목록 칸 오른쪽 끝 안. 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
-   const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox();
-   await expect.poll(async()=>{const a=await more.boundingBox(),b=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();return b.y-(a.y+a.height);}).toBeGreaterThanOrEqual(0);
-   const a=await more.boundingBox(),add=await page.locator('#soAddOrg').boundingBox(),first=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();
-   expect(add.y+add.height).toBeLessThanOrEqual(first.y);expect(add.x+add.width).toBeLessThanOrEqual(a.x);
-   expect(a.x+a.width).toBeLessThanOrEqual(list.x+list.width+1);expect(a.x).toBeGreaterThan(list.x+list.width/2);
-   expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
-   expect(list.y-(a.y+a.height)).toBeLessThanOrEqual(12); // 머리줄과 목록 사이가 벌어지지 않음
-   if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
-  }else{
-   await expect(title).toBeVisible();const t=await title.boundingBox();expect(Math.abs((m.y+m.height/2)-(t.y+t.height/2))).toBeLessThanOrEqual(6);
-   const list=await page.locator('#soOrganizationList').boundingBox();expect(m.x+m.width).toBeGreaterThan(list.x+list.width-1); // 목록 칸 밖(화면 오른쪽)
-  }
- }
+ const add=page.locator('#soAddOrg'),more=page.locator('#soTeamMore');await expect(add).toBeVisible();await expect(more).toBeVisible();await expect(more).toHaveCount(1);
+ await expect(page.locator('#soOrganizationList #soTeamMore, #soTeamSection #soAddOrg, #soTeamSection #soTeamMore')).toHaveCount(0);
+ const line=page.locator(width>=761?'#appView>.app-topline':'#appView>.mobile-shell-header');
+ await expect(line.locator('#soAddOrg')).toHaveCount(1);await expect(line.locator('#soTeamMore')).toHaveCount(1);
+ await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
+ const L=await line.boundingBox(),a=await add.boundingBox(),m=await more.boundingBox(),list=await page.locator('#soOrganizationList').boundingBox();
+ // 같은 줄 가운데, ⋯가 바로 오른쪽, 줄 오른쪽 끝 가까이(PC는 [+ 추가]·[계정] 앞).
+ for(const b of [a,m]){expect(Math.abs((b.y+b.height/2)-(L.y+L.height/2))).toBeLessThanOrEqual(3);expect(b.x+b.width).toBeLessThanOrEqual(L.x+L.width+1)}
+ expect(a.x+a.width).toBeLessThanOrEqual(m.x);expect(m.x-(a.x+a.width)).toBeLessThanOrEqual(8);
+ if(width<761)expect(L.x+L.width-(m.x+m.width)).toBeLessThanOrEqual(8);
+ else{const plus=await page.locator('.app-topline .topline-add').boundingBox();expect(m.x+m.width).toBeLessThanOrEqual(plus.x)}
+ // 검색 칸과 겹치지 않는다(검색 칸이 그만큼 짧아짐).
+ const search=page.locator('.mobile-shell-search:visible,.topline-search:visible').first();
+ if(await search.count()){const s=await search.boundingBox();expect(s.x+s.width).toBeLessThanOrEqual(a.x+1)}
+ // 따로 한 줄이 없다: 목록은 머리 줄 바로 아래(줄 아래 간격만), 오른쪽 상세 칸은 목록과 같은 높이.
+ expect(list.y-(L.y+L.height)).toBeLessThanOrEqual(width>=761?60:16);
+ if(width>=600){const pane=await page.locator('#wdDetailPane').boundingBox();expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1)}
+ if(width>=761){const tabs=await page.locator('#soTeamTabs').boundingBox();expect(list.y-(tabs.y+tabs.height)).toBeLessThanOrEqual(12)}
+ // 칩 · › 는 줄 안, 이름은 '…'로 줄어도 칩은 남는다.
+ for(const r of await page.locator('#soOrganizationList .so-row').evaluateAll(rows=>rows.map(row=>{const t=row.querySelector('.so-stage-tag').getBoundingClientRect(),c=row.querySelector('.kptu-list-chevron').getBoundingClientRect(),b=row.getBoundingClientRect();return {w:t.width,in:t.left>=b.left&&c.right<=b.right}})))expect(r.w).toBeGreaterThan(20),expect(r.in).toBe(true);
+ if(S70_53)await page.screenshot({path:`${S70_53}/org-head-${width}.png`});
  await more.click();await expect(page.locator('#soTeamMenu [data-so-stage-manage]')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });
-
-// ORG-담당조직버튼자리폴드(요청함 11/14 23:16·23:21 명진 확정): 폴드 펼침 앱 머리 줄에는 '제목 · 찾기' 검색 칸이 있다.
-// ① [+ 담당조직]·⋯는 어느 폭이든 검색 칸과 겹치지 않고 한 줄에 나란히(같은 높이 가운데, ⋯가 바로 오른쪽).
-// ② 폴드 펼침 폭(600~1023px)은 왼쪽 목록 줄에 쟁의 단계 칩을 그리지 않는다(이름이 그 자리를 씀, 색 점은 그대로). 폰·넓은 PC는 칩을 그린다.
-const S62=process.env.S62_05_SHOTS;
-for(const width of [412,690,840,1280])test(`조직 보고 맨 위 [+ 담당조직]·⋯ 자리와 폴드 폭 목록 이름 ${width}px`,async({page})=>{
- const {errors}=await fixture(page,{width});
- await clickView(page,'team');
- const add=page.locator('#soAddOrg'),more=page.locator('#soTeamMore');await expect(add).toBeVisible();await expect(more).toBeVisible();
- const fold=width>=600&&width<=1023;
- // 단계 정보를 읽은 뒤 칩 그리기가 끝날 때까지 기다린다(폴드 폭은 0개).
- await expect(page.locator('#soOrganizationList [data-so-dot]')).toHaveCount(orgs.length);
- if(fold){await page.waitForTimeout(300);await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(0)}
- else await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
- const a=await add.boundingBox(),m=await more.boundingBox();
- expect(Math.abs((a.y+a.height/2)-(m.y+m.height/2))).toBeLessThanOrEqual(1);
- expect(a.x+a.width).toBeLessThanOrEqual(m.x);expect(m.x-(a.x+a.width)).toBeLessThanOrEqual(8);
- const search=page.locator('.mobile-shell-search:visible,.topline-search:visible').first();
- if(await search.count()){
-  const s=await search.boundingBox(),apart=(b)=>b.y>=s.y+s.height||b.y+b.height<=s.y||b.x>=s.x+s.width||b.x+b.width<=s.x;
-  expect(apart(a)).toBe(true);expect(apart(m)).toBe(true);
- }
- if(width>=600){
-  // 목록 칸 위 한 줄, 목록 칸 오른쪽 끝 안. 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
-  const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox();
-  expect(m.y+m.height).toBeLessThanOrEqual(list.y);expect(m.x+m.width).toBeLessThanOrEqual(list.x+list.width+1);
-  expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
- }
- // 조직 이름이 한두 글자로 잘리지 않는다(이름 칸이 글자 6개 넘게).
- for(const w of await page.locator('#soOrganizationList .kptu-list-name').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().width)))expect(w).toBeGreaterThanOrEqual(fold?72:60);
- if(S62)await page.screenshot({path:`${S62}/org-head-${width}.png`});
- expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
- expect(errors).toEqual([]);
-});
-test('폴드 폭으로 바뀌면 칩을 지우고, 넓은 PC로 돌아오면 다시 그린다',async({page})=>{
+test('다른 화면으로 가면 조직 관리 [+ 담당조직]·⋯는 이름 줄에서 빠지고, 폭이 바뀌면 맞는 줄로 옮겨 간다(칩은 그대로)',async({page})=>{
  await fixture(page,{width:1280});await clickView(page,'team');
+ await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
+ await page.setViewportSize({width:884,height:900});await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
  await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
- await page.setViewportSize({width:900,height:900});await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(0);
- await page.setViewportSize({width:1280,height:900});await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
+ await page.setViewportSize({width:690,height:900});await expect(page.locator('.mobile-shell-header #soTeamMore')).toBeVisible();await expect(page.locator('.mobile-shell-header #soAddOrg')).toBeVisible();
+ await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
+ await page.setViewportSize({width:1280,height:900});await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
+ await clickView(page,'calendar');
+ await expect(page.locator('#soTeamMore')).toBeHidden();await expect(page.locator('.app-topline #soTeamMore, .mobile-shell-header #soTeamMore')).toHaveCount(0);
+ await clickView(page,'team');await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
+});
+test('조직 관리 빈 곳 우클릭은 이름 줄로 옮긴 화면 ⋯ 메뉴를 연다 1280px',async({page})=>{
+ await fixture(page,{width:1280});await clickView(page,'team');await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
+ const pane=await page.locator('#soOrganizationList').boundingBox();
+ await page.mouse.click(pane.x+pane.width/2,pane.y+pane.height+40,{button:'right'});
+ await expect(page.locator('#soTeamMenu [data-so-stage-manage]')).toBeVisible();
 });
 
 // UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 고르지 않은 조직 줄 우클릭 = [열기] ─ 그 조직 일(MULTI-다른담당자맞춤 ①: 이름 바꾸기·담당 조직에서 제외 ─ 삭제) ─ [쟁의 단계 관리].
@@ -407,7 +380,7 @@ test('조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관
  // ⋯ 그냥 누르기는 [열기] 없이
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  await page.locator('#soTeamMore').click();
- await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['묶음 만들기','쟁의 단계 관리','옛 사진 기록 채우기','조직 기록 자료 모으는 폴더','지난 조직 기록 자료도 조직 폴더로 모으기','여러 개 선택해 삭제','쓰는 법']); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'. MULTI-다른담당자맞춤 ②: 화면 ⋯ 첫 줄 [묶음 만들기]
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['묶음 만들기','쟁의 단계 관리','조직 기록 자료 모으는 폴더','여러 개 선택해 삭제','쓰는 법']); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'. MULTI-다른담당자맞춤 ②: 화면 ⋯ 첫 줄 [묶음 만들기]
  await page.keyboard.press('Escape');
  // 우클릭 메뉴의 [쟁의 단계 관리]도 그대로 열린다
  await row(page,other).click({button:'right'});
@@ -423,5 +396,29 @@ test('조직 줄 우클릭: 폰 폭(412)은 메뉴를 띄우지 않는다',async
  await expect(page.locator('#soTeamMenu')).toHaveCount(0);
  if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/org-list-412.png`});
  await expect(page.locator('#wdModal')).toBeHidden();
+ expect(errors).toEqual([]);
+});
+
+// ORG-목록단계칩위치(2026-11-25 명진 "쟁의권확보 종료 교섭 중 이런게 우측 끝에 붙어야"): 단계 칩은 줄 오른쪽 끝 › 바로 앞.
+// 줄 끝 = [칩 ·8· › ·8· ⋯ ·8· 줄 끝](› 는 글자 폭만큼). 묶음 머리줄 'N곳' 오른쪽 끝은 줄 › 오른쪽 끝과 같은 세로줄.
+// 폰 폭 · PC 좁은 목록 칸(1280) · PC 넓은 목록 칸(1920). 폴드 폭(600~1023)은 칩을 그리지 않는다(위 시험).
+for(const width of [390,1280,1920])test(`목록 줄 단계 칩이 줄 오른쪽 끝 › 바로 앞 ${width}px`,async({page})=>{
+ const {db,errors}=await fixture(page,{width});
+ db.history.push({id:'h-oa',organization_id:'oa',stage_id:'stage-3',stage_name:'쟁의발생 결의',stage_date:'2026-10-01',created_at:'2026-10-01T00:00:00Z',end_date:null});
+ await clickView(page,'team');
+ await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
+ const rows=await page.evaluate(()=>{const r=el=>el.getBoundingClientRect();const head=document.querySelector('#soOrganizationList .so-group-heading');
+  return [...document.querySelectorAll('#soOrganizationList .so-row')].map(row=>{const tag=r(row.querySelector('.so-stage-tag')),chev=r(row.querySelector('.kptu-list-chevron')),more=r(row.querySelector('.so-row-more')),box=r(row);
+   return {tagToChev:chev.left-tag.right,chevW:chev.width,chevToMore:more.left-chev.right,moreToEnd:box.right-more.right,countVsChev:head?Math.abs(r(head.querySelector('.so-group-count')).right-chev.right):0}})});
+ // 바꾸기 전·후 사진(PR 본문용): ORG_CHIP_SHOTS=폴더
+ if(process.env.ORG_CHIP_SHOTS)await page.locator('#soOrganizationList').screenshot({path:`${process.env.ORG_CHIP_SHOTS}/org-chip-${width}.png`});
+ expect(rows).toHaveLength(orgs.length);
+ for(const x of rows){
+  expect(x.tagToChev,'칩 → ›').toBeGreaterThanOrEqual(0);expect(x.tagToChev,'칩 → ›').toBeLessThanOrEqual(8.5);
+  expect(x.chevW,'› 폭').toBeLessThanOrEqual(12);
+  expect(x.chevToMore,'› → ⋯').toBeLessThanOrEqual(8.5);expect(x.moreToEnd,'⋯ → 줄 끝').toBeLessThanOrEqual(8.5);
+  expect(x.countVsChev,"머리줄 'N곳' 끝 = › 끝").toBeLessThanOrEqual(1);
+ }
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });
