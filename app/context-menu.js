@@ -99,7 +99,8 @@ function screenItems(target) {
   if (!node || node.closest('.modal,[role="dialog"],[role="menu"],[popover]')) return null;
   const panel = node.closest('.view-panel');
   if (!panel) return null;
-  const list = [...panel.querySelectorAll(SCREEN_ITEM)].filter(el => visible(el) && !el.closest('.modal,[role="dialog"]'));
+  // 화면 이름 줄로 옮긴 단추(screen-tools.js, data-screen-tools-for)도 그 화면 것 — screenTrigger와 같은 길.
+  const list = [...panel.querySelectorAll(SCREEN_ITEM), ...(panel.id ? document.querySelectorAll(`[data-screen-tools-for="${CSS.escape(panel.id)}"] ${SCREEN_ITEM}`) : [])].filter(el => visible(el) && !el.closest('.modal,[role="dialog"]'));
   return list.length ? list : null;
 }
 const itemLabel = el => (el.dataset.ctxScreenItem || el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').replace(/^\+\s*/, '').trim();
