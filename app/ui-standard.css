@@ -1830,7 +1830,7 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   #appView #homeView .journal-head > .journal-day-title{ font-size:var(--ds-text-head); }
 }
 
-/* NOTE-입력줄높이(S71-67, 2026-11-26 사용자 결정 — 시안 B 변형 'B인데 위로 화살표는 추가로'): 빠른 입력 줄(home-quick.js 한 부품 —
+/* ===== NOTE-입력줄높이(S71-67, 2026-11-26 사용자 결정 — 시안 B 변형 'B인데 위로 화살표는 추가로'): 빠른 입력 줄(home-quick.js 한 부품 —
    홈·잊지 말기·노트·[할 일])은 한 줄 = [입력칸(안 왼쪽 클립 = 첨부, 안 오른쪽 ⤢ = 크게)] [폴더 아이콘](노트만) [추가](글자·진한 바탕).
    세 칸은 폰·폴드·PC 모두 같은 높이 하나(--ds-quick-row-height 40px). 칸 안 클립·⤢는 칸 안쪽 높이(40 - 2), 누르는 범위는 ::after로 44px.
    홈은 길게 쓰면 지금처럼 글만큼 늘고(home-quick.js size, 5줄까지) 단추는 첫 줄 옆에 그대로 있다. 다른 화면 CSS는 이 높이를 따로 정하지 않는다. */
