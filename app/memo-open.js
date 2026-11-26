@@ -53,6 +53,16 @@ const OPENERS = {
     });
     return ok === false ? gone(o) : true;
   },
+  // S71-71 연결 기록: 그 기록이 있는 조직(조직 관리)이나 사업(사업 관리)을 연다. 연결 줄은 내 작업공간 것만 읽는다(소유자 RLS 그대로).
+  record_link: async o => {
+    const rows = await rt().api(`/rest/v1/app_record_links?id=eq.${encodeURIComponent(o.id)}&workspace_id=eq.${encodeURIComponent(wsId())}&status=eq.confirmed&select=id,organization_id,project_id&limit=1`, {singleFlight: false});
+    const r = Array.isArray(rows) && rows[0]?.id === o.id ? rows[0] : null;
+    if (!r || (!r.organization_id && !r.project_id)) return gone(o);
+    const ok = r.organization_id
+      ? await window.KPTURouter?.openFrom?.('team', async () => { if (!window.KPTUWorkplace?.open) await window.KPTUWorkplace?.load?.(); return window.KPTUWorkplace?.open?.(r.organization_id); })
+      : await window.KPTURouter?.openFrom?.('projects', async () => window.KPTUProjects?.open?.(r.project_id));
+    return ok === false ? gone(o) : true;
+  },
   // 텔레그램 소식: 그 방·날을 열고 그 소식 원문을 펼친다(원문 아래 메모 칸). 운영자 기능 검사·소유자 RLS는 그 화면 길 그대로.
   telegram: async o => {
     const {openTelegramItem} = await import('./source-open.js');
