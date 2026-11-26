@@ -128,7 +128,7 @@ import {fitSelectBar, paintSelectAll} from './select-bar.js';
 // UI-검색창하나로(S70-54): 노트 찾기는 맨 위 칸(화면 찾기 등록), 목록 머리 ⋯는 맨 위 줄 단추 자리(screen-find.js 상자)로.
 import {registerScreenFind, refreshScreenFind, toolsBox, findFor} from './screen-find.js';
 // UI-고르기막대(S69-85): 노트 고르기 막대도 공용 모양 — [전체 선택][폴더로 옮기기][삭제](좁으면 아이콘만 → ⋯).
-//   S70-64b(명진 11/26 07:46 "그만은 필요없어 폰 뒤로가기 버튼 누르면 되고 Pc는 esc가 그거야"): [✕]·'N개 선택됨' 글자는 두지 않는다.
+//   S70-64b(사용자 11/26 07:46 "그만은 필요없어 폰 뒤로가기 버튼 누르면 되고 Pc는 esc가 그거야"): [✕]·'N개 선택됨' 글자는 두지 않는다.
 //   고른 개수는 화면 읽기에만(kptu-sb-sr). 끄는 동안 '옮기는 중 N개'만 눈에 보인다. 끝내기 = 뒤로가기·Esc.
 //   kptu-act는 정리함 기본 단추 모양(ui-standard.css)에서 빼는 표시로 그대로 둔다.
 const NX_SEL_BAR = '<span class="kptu-sb-count kptu-sb-sr" data-nx-select-count role="status" aria-live="polite"></span><span class="kptu-sb-acts nx-sel-acts">'

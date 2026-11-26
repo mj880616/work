@@ -339,7 +339,7 @@ test('PC 1280: 보드 노트 목록 줄 마우스 올림 = 공용 색 하나 · 
   expect(errors).toEqual([]);
 });
 
-// S70-79 STD-끌기모양(명진 11/26 "노란 네모"): PC에서 왼쪽 노트 목록 줄을 끌 때 마우스를 따라오는 것은 줄 이름이 든 작은 칩 하나.
+// S70-79 STD-끌기모양(사용자 11/26 "노란 네모"): PC에서 왼쪽 노트 목록 줄을 끌 때 마우스를 따라오는 것은 줄 이름이 든 작은 칩 하나.
 // 칩은 화면 안(끌기 그림이 그려질 그 자리)에서 찍는다 — 화면 밖(top:-1000px)에서 찍으면 PC 크롬이 테두리만 남은 작은 네모를 따라오게 했다.
 // 끌기 중 글자 선택(파란 칠) 없음, 줄마다 뜨던 긴 조작 안내 툴팁 없음. 보드에 놓으면 붙고, 폴더 줄에 놓으면 옮겨지는 동작은 그대로.
 test('PC: 노트 목록 줄 끌기 = 줄 이름 칩 하나(화면 안·톤다운), 글자 선택·조작 안내 툴팁 없음, 보드·폴더 놓기 그대로 (1280)', async ({ page }) => {
@@ -365,7 +365,7 @@ test('PC: 노트 목록 줄 끌기 = 줄 이름 칩 하나(화면 안·톤다운
   await expect(n2).not.toHaveAttribute('title', /.+/);
     // 끄는 줄은 글자 선택이 되지 않는다.
   expect(await n2.evaluate(el => getComputedStyle(el).userSelect)).toBe('none');
-  // 앞서 줄 글자가 선택돼 있어도(명진 사진의 파란 칠) 끌기를 시작하면 지운다.
+  // 앞서 줄 글자가 선택돼 있어도(사용자 사진의 파란 칠) 끌기를 시작하면 지운다.
   await n2.locator('.ft-name').evaluate(el => { const r = document.createRange(); r.selectNodeContents(el); getSelection().removeAllRanges(); getSelection().addRange(r); });
   const a = await n2.boundingBox(), b = await folderRow('궤도').boundingBox();
   await page.mouse.move(a.x + 20, a.y + a.height / 2); await page.mouse.down();
