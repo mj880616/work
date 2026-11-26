@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { ANDROID, phonePhotosFixture, openPhotos as openPhonePhotos } from './helpers/phone-photos-fixture.mjs';
 import { head, srcPick, srcRow, openSrcMenu, pickSource, moreBtn, openHeadMenu, sizeBtn } from './helpers/photo-head.mjs';
-// S71-25 PHOTO-머리한줄(사용자 11/26 "요것도 한줄로 가능할 거 가튼데 시안 먼저" → 시안 확정 "ㄱ")·PHOTO-정리삭제("폰 정리 기능 조악해서 잘 안씀 기능 자체를 삭제").
+// S71-25 PHOTO-머리한줄(사용자 결정 11/26, 시안 확정)·PHOTO-정리삭제(사용자 결정: 정리 기능 삭제).
 // - 사진 위쪽은 맨 위 줄 하나: [W] 사진 · [사진 ▾] · [전체 ▾] …… 순서 · 가져올 곳 · 찾기 · ⋯ (폰 390·폴드 690·PC 1280). 화면 안 도구 줄 없음.
 // - 가져올 곳 = 단추 하나(켠 곳 아이콘) → 원드라이브·구글 드라이브·폰 폴더 고르기(예전 큰 단추 셋과 같은 켜고 끄기, 서버 저장).
 // - 순서 = 작은 아이콘 단추(aria-label에 지금 순서) → 순서 고르기 그대로.

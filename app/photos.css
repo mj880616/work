@@ -1,7 +1,7 @@
 /* PHOTO-사진메뉴 1차: '사진' 메뉴(#photosView). 격자·크게 보기·[－][＋]는 일기와 같은 칸(diary.css의 :is(#diaryView,#photosView) 규칙).
    여기는 사진 메뉴에만 있는 칩 줄·날짜 머리줄·달력·선택 줄만. 콤팩트·톤다운, 버튼은 32px(누르는 범위 44px). */
 #appView #photosView .photos{ display:flex; flex-direction:column; gap:4px; min-width:0; }
-/* S71-25 PHOTO-머리한줄(사용자 11/26 시안 확정 "ㄱ", 예전 PHOTO-위쪽두줄앨범보기·UI-보기탭드롭다운·S70-57 도구 줄을 거둠):
+/* S71-25 PHOTO-머리한줄(사용자 결정 11/26 시안 확정, 예전 PHOTO-위쪽두줄앨범보기·UI-보기탭드롭다운·S70-57 도구 줄을 거둠):
    사진 위쪽은 맨 위 줄 하나 = [W] 사진 · [사진 ▾] · [전체 ▾] …… 순서 · 가져올 곳 · 찾기 · ⋯. 화면 안 도구 줄은 없다.
    단추 묶음은 screen-find.js 단추 자리(.sf-tools[data-sf-tools="photos"] — 폰·폴드 앱 머리 줄, PC 상단 줄 찾기 칸 오른쪽)에 있어 #photosView 밖이다.
    아이콘 단추는 자료실·사업 관리 머리 줄 ⋯·[+]와 같은 32px 투명 단추(누르는 범위 44px). */
