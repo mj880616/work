@@ -183,7 +183,7 @@ const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 // 보드 바탕색 이름(note-boards-model.mjs BOARD_BGS와 같음 — tests/note-board-bg.test.mjs가 둘과 DB 검사를 맞춘다).
 export const NOTE_BOARD_BGS = Object.freeze(['sand', 'sage', 'sky', 'lilac', 'peach', 'mint', 'rose', 'gray']);
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut', 'brief_sort', 'note_board_bg']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut', 'brief_sort', 'note_board_bg', 'note_board_map']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -245,6 +245,10 @@ export function validValue(key, value) {
     // 비면 칸을 지운다(null). 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(보드는 기본 바탕).
     case 'note_board_bg': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length >= 1 && Object.keys(value).length <= NOTE_BOARDS_MAX
       && Object.entries(value).every(([id, bg]) => NOTE_BOARD_ID_RE.test(id) && NOTE_BOARD_BGS.includes(bg));
+    // S71-52 ② NOTE-큰생각지도 미니맵: note_board_map = {기기 종류(app·phone·pc): 펼침 참·거짓}(없으면 PC 펼침·폰 접힘). migration 20261127010000.
+    // 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌린다(화면은 이번 접속에서 고른 값 그대로).
+    case 'note_board_map': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length >= 1
+      && Object.entries(value).every(([k, v]) => ['app', 'phone', 'pc'].includes(k) && typeof v === 'boolean');
     case 'diary_onedrive':
     case 'ed_more': return typeof value === 'boolean';
     case 'library_two': return typeof value === 'boolean';

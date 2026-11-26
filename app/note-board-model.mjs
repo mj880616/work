@@ -15,7 +15,7 @@ export const CARD_W = 128, CARD_H = 34, GAP = 22, SLOT_W = CARD_W + GAP, SLOT_H 
 export const BOARD_MAX = 20000, Z_MAX = 1e9, TILT_MAX = 6; // S71-52: BOARD_MAX는 자리 없는 새 노트를 처음 늘어놓는 범위만(판 끝이 아님 — 판 범위는 note-board-coord.mjs)
 export const MIN_W = 1200, MIN_H = 900, ROOM = 360; // 보드는 화면보다 넓게: 놓인 칸 바깥으로 ROOM만큼 더 둔다
 export const TONES = 8;
-export const ZOOM_MIN = 0.2, ZOOM_MAX = 2.5, ZOOM_STEP = 1.25;
+export const ZOOM_MIN = 0.04, ZOOM_MAX = 2.5, ZOOM_STEP = 1.25; // S71-52 ②: 큰 생각지도를 한눈에 — 0.2 → 0.04(멀리 보기는 note-board-view-model.mjs FAR_Z 아래)
 export const CLUSTER_WRAP = 1500; // 처음 배치에서 폴더 묶음을 한 줄에 늘어놓는 너비
 
 export const CARD_W_MIN = 60, CARD_W_MAX = 600, CARD_H_MIN = 30, CARD_H_MAX = 1200, CARD_LABEL_MAX = 100;

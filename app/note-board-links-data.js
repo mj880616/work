@@ -14,7 +14,7 @@
 // - S71-51 모든 칸 가지 칸(카드 부모 parent_note·글자·도형 가지, migration 20261126230000)이 아직 없으면 꾸미기 칸으로 다시 읽고(branch=false),
 //   카드 아래 가지·글자·도형 가지만 '준비 중'으로 알린다(상자 가지는 지금 그대로). 화면 줄은 parent_id 하나 + parent_card(부모가 카드)로 본다 —
 //   서버로는 parent_card면 parent_note에, 아니면 parent_id에 보낸다(둘 중 하나만, 서버 check와 같음).
-// - S71-53 관계선 칸(선 종류 kind 'line'·'relation', migration 20261127010000)이 아직 없으면 점 끝 칸으로 다시 읽고(relation=false),
+// - S71-53 관계선 칸(선 종류 kind 'line'·'relation', migration 20261127020000)이 아직 없으면 점 끝 칸으로 다시 읽고(relation=false),
 //   관계선 만들기는 막는다('준비 중' 한 줄, 화면은 관계 잇기 메뉴를 보이지 않음). 관계선을 일반 선으로 바꿔 저장하지 않는다(kind가 없는 줄은 서버에 보내지 않음).
 // - 화면은 바로 바뀌고(서버 답을 기다리지 않음) 실패하면 알리고 서버 값으로 다시 불러온다.
 import { parseLink, parseText, endId } from './note-board-links-model.mjs';

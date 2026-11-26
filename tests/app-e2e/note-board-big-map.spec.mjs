@@ -9,7 +9,7 @@ import { bigBoardSeed, centerBoardPoint } from './helpers/big-board-seed.mjs';
 const BID = 'bbig0001';
 const REPORT = !!process.env.BIG_BOARD_REPORT;
 // 프레임은 한 번 튀는 값(max) 대신 평균·90% 값으로 본다(CI 기계가 바쁠 때 한 프레임만 늦는 것은 끊김으로 보지 않음).
-const LIMIT = { open: 4000, avg: 100, p90: 250 };
+const LIMIT = { open: 4000, avg: 100, p90: 400 };
 
 async function bigBoard(page, width, { throttle = 1 } = {}) {
   const { texts, links } = bigBoardSeed({ bid: BID });
@@ -51,9 +51,21 @@ for (const [width, throttle] of [[1280, 1], [390, 4]]) {
     // 끌기: 보이는 상자 하나를 잡고 30번 나눠 옮긴다.
     // 끌 상자: 첫 뿌리(판 좌표 3000, 3000 — big-board-seed) 둘레를 화면 가운데로.
     await centerBoardPoint(page, 3200, 3000);
-    const b = await page.evaluate(() => { const s = document.querySelector('[data-nb-scroll]').getBoundingClientRect();
-      const hit = [...document.querySelectorAll('[data-nb-texts] [data-nb-text] .nb-tx')].map(e => e.getBoundingClientRect()).find(r => r.left > s.left + 8 && r.right < s.right - 8 && r.top > s.top + 100 && r.bottom < s.bottom - 30);
-      return hit && { x: hit.left, y: hit.top, width: hit.width, height: hit.height }; });
+    // 판 칸 안에 다 보이는 상자 하나를 찾는다. 없으면(기계마다 첫 화면 자리가 조금 다름) 가장 가까운 붙은 상자를 가운데로 옮겨 다시 본다.
+    let b = null;
+    for (let k = 0; k < 6 && !b; k++) {
+      const got = await page.evaluate(() => {
+        const s = document.querySelector('[data-nb-scroll]').getBoundingClientRect(), cx = s.left + s.width / 2, cy = s.top + s.height / 2;
+        const rects = [...document.querySelectorAll('[data-nb-texts] [data-nb-text] .nb-tx')].map(e => e.getBoundingClientRect()).filter(r => r.width);
+        const hit = rects.find(r => r.left > s.left + 8 && r.right < s.right - 8 && r.top > s.top + 60 && r.bottom < s.bottom - 30);
+        if (hit) return { hit: { x: hit.left, y: hit.top, width: hit.width, height: hit.height } };
+        const near = rects.sort((a, b) => Math.hypot(a.left - cx, a.top - cy) - Math.hypot(b.left - cx, b.top - cy))[0];
+        return { move: near ? { x: near.left + near.width / 2 - cx, y: near.top + near.height / 2 - cy } : null };
+      });
+      if (got.hit) { b = got.hit; break; }
+      if (got.move) { const s = await page.locator('[data-note-board] [data-nb-scroll]').boundingBox(); await page.mouse.move(s.x + s.width / 2, s.y + s.height / 2); await page.mouse.wheel(got.move.x, got.move.y); }
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    }
     expect(b).toBeTruthy();
     await startFrames(page);
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);

@@ -1,6 +1,6 @@
 -- SELECT only. pg_catalog와 migration 기록만 읽는다. 적용 뒤 모두 예, 되돌린 뒤에도 모두 예(기록·새 칸이 함께 없음).
 with t as (select to_regclass('public.app_note_board_links') as f),
-history as (select count(*) filter(where name='note_board_relation') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261127010000'),
+history as (select count(*) filter(where name='note_board_relation') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261127020000'),
 cols as (select count(*) as n from pg_attribute where attrelid=(select f from t) and attname='kind' and not attisdropped),
 chk as (select count(*) as n from pg_constraint where conrelid=(select f from t) and conname='app_note_board_links_kind_check' and contype='c')
 select 'kind column, kind check and history agree' as item,case when (history.n=0 and cols.n=0 and chk.n=0) or (history.n=1 and history.named=1 and cols.n=1 and chk.n=1) then '예' else '아니오' end as ok

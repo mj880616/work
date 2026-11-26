@@ -1,6 +1,7 @@
 import {waitHtml, emptyHtml, barHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
+import { BOX_DEVICE } from './box-fold.js';
 // SEC-기능PIN잠금 노트 폴더(S67-14): 잠근 폴더(하위 폴더 포함)의 노트는 줄·포스트잇·태그·메모·검색 결과에서 제목·내용 대신 '잠김'. 판정은 feature-lock.js 한 곳.
 import * as pinLock from './feature-lock.js';
 import { followPane } from './follow-pane.js';
@@ -575,9 +576,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // S70-32 ②: 사진 한 장뿐인 노트는 보드에서 사진 칸(note-board.js가 owner 사진 보기로 받는다).
     return {title:[...noteLineTitle(note)].slice(0, 60).join(''), photo:photoOnlyFile(note)};
   }
+  let miniSession = null; // 서버가 아직 note_board_map을 모를 때(적용 전) 이번 접속에서 고른 값
   function paintBoard(m) {
     const box = host.querySelector('[data-note-board]');
     board ??= mountNoteBoard(box, {esc, cardText:boardText, moreIcon:MORE_ICON,
+      // S71-52 ② 미니맵 접기·펴기: 서버 화면 기억 view_prefs.note_board_map.<기기 종류>(없으면 PC 펼침·폰 접힘). 적용 전에는 쓰기가 거절되어 이번 접속만.
+      miniOpen:() => { const v = viewPrefs.get('note_board_map'); return v && typeof v === 'object' && typeof v[BOX_DEVICE] === 'boolean' ? v[BOX_DEVICE] : (miniSession ?? null); },
+      onMiniOpen:open => { miniSession = open; const v = viewPrefs.get('note_board_map'); viewPrefs.set('note_board_map', {...(v && typeof v === 'object' ? v : {}), [BOX_DEVICE]:open}, {rejectable:true}); void viewPrefs.flush?.(); },
       onMove:(id, next) => boards.move(id, next),
       onDrop:(id, point, places) => boards.attach([id], point, places),
       // S69-33: 고른 카드 함께 빼기(이름 붙은 보드), 전체 화면으로 키울 칸 = 보드 칸 전체(보드 칸 줄·왼쪽 목록 포함), 왼쪽 목록이 있나.
@@ -641,6 +646,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const shown = named.notes, key = boards.current();
     board.paint({notes:shown, folderOf, colorOfFolder:id => colorOf(folderById(id)), visible:m ? new Set(shown.filter(m).map(n => n.id)) : null, pickActive:!!pick.active, isPicked:id => isPicked('n:' + id),
       boardKey:key, links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key), placeOf:named.placeOf, removable:true, emptyText:named.emptyText, bg:boards.bgOf(key)});
+    board.setFind(query ? noteFind : null); // S71-52 ②: 맨 위 '노트에서 찾기'가 보드 주제 글도 맞춘다(같은 공용 판정)
   }
   function paintViewSwitch() {
     host.querySelectorAll('[data-note-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.noteView === view)));
