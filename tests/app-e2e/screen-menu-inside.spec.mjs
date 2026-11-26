@@ -17,6 +17,8 @@ const orgs = [
 // 화면 × 그 화면 전용 단추(⋯ 또는 만들기) × 화면 안 첫 줄(없으면 null — 화면 맨 위 한 줄).
 const SCREENS = [
   { key: '노트', view: 'basket', kind: 'note', tool: '[data-note-folder-more]', line: '#basketView [data-note-list] > .note-list-head' },
+  // 잊지 말기(S71-29 둘째 줄 없앰)는 노트와 같은 화면 칸(#basketView)이라 첫 줄 자리를 같이 쓴다 — 지금 보이는 쪽의 첫 줄(.basket-head)로 간다.
+  { key: '잊지 말기', view: 'basket', kind: 'memo', tool: '[data-inbox-find]', line: '#basketView > .basket-head', also: ['[data-forget-view-open]'] },
   { key: '조직 관리', view: 'team', tool: '#soTeamMore', line: '#soTeamTabs' },
   { key: '자료실', view: 'library', tool: '#libraryTopMenuBtn', line: '#libraryView .lu-search-row', also: ['#newDocumentBtn'] },
   { key: '읽을 거리', view: 'outside', tool: '[data-os-more]', line: '#outsideRoot > .os-tabs', also: ['[data-nw-media]'] },
@@ -102,6 +104,13 @@ test('PC ↔ 폰 폭을 바꾸면 단추가 맞는 자리로 옮겨 가고, 다�
   await expect(page.locator(`#appView>.mobile-shell-header ${note.tool}`)).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.locator(`${note.line} [data-screen-tools="line"] ${note.tool}`)).toBeVisible();
+  // 같은 화면 칸의 노트 ↔ 잊지 말기를 오가면 자리도 지금 보이는 쪽 첫 줄로 따라간다(숨은 쪽 줄에 남아 안 보이는 일 없음).
+  const forget = SCREENS[1];
+  await go(page, forget);
+  await expect(page.locator(`${forget.line} [data-screen-tools="line"] ${forget.tool}`)).toBeVisible();
+  await go(page, note);
+  await expect(page.locator(`${note.line} [data-screen-tools="line"] ${note.tool}`)).toBeVisible();
+  await expect(page.locator(`${forget.tool}:visible`)).toHaveCount(0);
   await page.evaluate(() => window.KPTURouter.go('library', { source: 'delegated' }));
   await expect(page.locator('#libraryView')).toBeVisible();
   await expect(page.locator(`${note.tool}:visible`)).toHaveCount(0);
