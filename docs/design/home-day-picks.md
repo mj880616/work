@@ -1,6 +1,6 @@
 # 홈 [하루] 읽을 만한 글·기록 제안 서버 (HOME-하루채우기 PR-B)
 
-명진 11/09 09:43 시안 ④ 승인("하루 시안은 좋아"). 화면 칸 부품·거르기는 PR-A(#2198, `app/home-day-fill.js`·`app/home-day-picks-model.mjs`), 이 문서는 서버(PR-B), 화면 연결은 PR-C.
+사용자 11/09 09:43 시안 ④ 승인("하루 시안은 좋아"). 화면 칸 부품·거르기는 PR-A(#2198, `app/home-day-fill.js`·`app/home-day-picks-model.mjs`), 이 문서는 서버(PR-B), 화면 연결은 PR-C.
 
 ## 길
 

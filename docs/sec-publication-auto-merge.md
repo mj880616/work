@@ -1,6 +1,6 @@
 💻 PC 로컬 필요
 
-> **2026-11-10 폐지(WEB1-페이지삭제 C1-b, 명진 결정).** Web1 페이지와 함께 `publication-gate.yml`·`publication-auto-merge.yml`·
+> **2026-11-10 폐지(WEB1-페이지삭제 C1-b, 사용자 결정).** Web1 페이지와 함께 `publication-gate.yml`·`publication-auto-merge.yml`·
 > `web1-file-dropzone.yml`·`scripts/publication-pr-policy.mjs`·`.claude/commands/게시반영.md`를 지웠다. ruleset `main-protect`의
 > 필수 검사 `publication-gate`·`dropzone`은 C1-b merge 직전 커맨드센터가 GitHub 화면에서 뺀다(C1-a). 기록용 사본
 > `docs/main-pr-gate-ruleset.json`도 같은 PR에서 필수 검사 규칙을 뺐다(삭제 금지·force push 금지·PR 필수는 그대로).
