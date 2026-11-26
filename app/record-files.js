@@ -119,7 +119,9 @@ export function bindRecordFiles(host, getRows, {rt = window.KPTURuntime, onError
     const row = getRows().find(r => r.note_id === el.dataset.recordNote);
     const id = el.dataset.recordPhoto || el.dataset.recordFile, file = filesOf(row).find(f => f.drive_file_id === id);
     if (!row || !file) return;
-    if (el.dataset.recordPhoto) { openPhotoView({row:{id:row.note_id}, file, trigger:el, rt}); return; }
-    void pressFile({name:attachmentName(file), mime:file.mime_type, driveId:id, noteId:row.note_id}, {viewPhoto:() => openPhotoView({row:{id:row.note_id}, file, trigger:el, rt}), onError});
+    // PHOTO-크게보기넘기기(S71-72): 같은 기록 줄의 사진끼리 넘긴다(그림 줄과 같은 순서 — splitPictures).
+    const files = splitPictures(filesOf(row), isPicture).pictures;
+    if (el.dataset.recordPhoto) { openPhotoView({row:{id:row.note_id}, file, files, trigger:el, rt}); return; }
+    void pressFile({name:attachmentName(file), mime:file.mime_type, driveId:id, noteId:row.note_id}, {viewPhoto:() => openPhotoView({row:{id:row.note_id}, file, files, trigger:el, rt}), onError});
   });
 }
