@@ -1,7 +1,7 @@
 // S69-45 LIB-같은내용정리(명진 11/24 15:50 "자료실에 없는 파일만 가져오는거 맞지? 중복해서 안가져오는거 믿을만 한거지?",
 // 15:51 "중복된 파일들이 있는거같어. 일단 잡동사니에 넣어둘테니깐 중복된거 지워 알아서").
 // 두 가지에 함께 쓰는 한 곳:
-//   1) [드라이브에서 가져오기] 목록: 드라이브 '파일 id'가 달라도 내용(md5Checksum + 크기)이 자료실 자료와 같으면 '이미 있음(같은 내용)'.
+//   1) 드라이브 자동 등록(drive-auto.mjs, S70-73 — 옛 [드라이브에서 가져오기] 자리): 드라이브 '파일 id'가 달라도 내용(md5Checksum + 크기)이 자료실 자료와 같으면 넣지 않음.
 //   2) 자료실 ⋯ [같은 내용 자료 정리]: 내 작업공간 자료 중 md5 + 크기가 같은 묶음마다 하나만 남기고 나머지를 자료실 휴지통으로.
 // 규칙:
 // - 내용 비교는 드라이브가 주는 md5Checksum·size(파일 메타데이터)만 쓴다. 파일 내용은 열지 않는다(files.get fields=id,md5Checksum,size,trashed).
@@ -156,23 +156,6 @@ export function planSameContent({ docs, keys, items, folders, receiveId = null, 
   }
   out.sort((a, b) => (a.skip ? 1 : 0) - (b.skip ? 1 : 0) || a.keep.title.localeCompare(b.keep.title, 'ko'));
   return { groups: out, totals: { groups: out.length, trash, skipped } };
-}
-
-// [드라이브에서 가져오기] 목록에 '이미 있음(같은 내용)' 붙이기. items: planImport 항목, fileKeys: Map(목록 파일 id → 열쇠),
-// docIndex: Map(열쇠 → {title, path}) — 자료실 자료. 같은 목록 안에서 같은 내용이 앞에 있으면 그 파일 이름(inList).
-export function markSame(items, fileKeys, docIndex) {
-  const first = new Map();
-  let same = 0;
-  const out = (Array.isArray(items) ? items : []).map(it => {
-    const key = it?.kind === 'file' ? fileKeys.get(it.id) : null;
-    if (!key) return it;
-    const hit = docIndex.get(key);
-    if (hit) { same++; return { ...it, same: { title: hit.title, path: hit.path } }; }
-    if (first.has(key)) { same++; return { ...it, same: { title: first.get(key), path: '이 목록', inList: true } }; }
-    first.set(key, it.name);
-    return it;
-  });
-  return { items: out, same };
 }
 
 // 요청 모양: {action:'same-content-scan'} | {action:'same-content-apply', groups:[{keep, drop:[...]}]} | {action:'same-content-undo', undo:{...}}. 아니면 null.

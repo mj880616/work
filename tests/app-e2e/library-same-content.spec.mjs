@@ -1,7 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libDoc,libFolder,press,SB} from './helpers/library-folder-server.mjs';
-// S69-45 LIB-같은내용정리: ① [드라이브에서 가져오기] 목록에서 자료실과 같은 내용(md5 + 크기)인 파일은 '이미 있음(같은 내용: …)'·기본 해제.
-// ② 자료실 ⋯ [같은 내용 자료 정리] → 미리 보기(묶음·남길 것·휴지통 갈 것·건너뜀) → [정리하기]는 건너뜀이 아닌 묶음만 보냄 → 결과 '휴지통 N · 건너뜀 M'
+// S69-45 LIB-같은내용정리: 자료실 ⋯ [같은 내용 자료 정리] → 미리 보기(묶음·남길 것·휴지통 갈 것·건너뜀) → [정리하기]는 건너뜀이 아닌 묶음만 보냄 → 결과 '휴지통 N · 건너뜀 M'
 //    → [되돌리기]는 서버가 준 되돌리기 묶음을 그대로 돌려보냄. 가짜 서버·지어낸 이름만.
 const u=n=>`5f450000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const RECV=u(1);
@@ -19,11 +18,6 @@ async function mockServer(page,{after=null}={}){
     if(body.action==='same-content-scan')return ok(applied&&after?after:{ok:true,groups:GROUPS,totals:{groups:2,trash:2,skipped:1},more:false,partial:false});
     if(body.action==='same-content-apply'){applied=true;return ok({ok:true,trashed:2,skipped:0,in_trash:true,undo:UNDO})}
     if(body.action==='same-content-undo'){applied=false;return ok({ok:true,restored:2,missed:0})}
-    if(body.action==='drive-import-folders')return ok({ok:true,folders:[{id:'driveFolderSC01',name:'가상 노조 폴더'}]});
-    if(body.action==='drive-import-list')return ok({ok:true,folder:{id:'driveFolderSC01',name:'가상 노조 폴더'},items:[
-      {id:'driveFileSC0001',name:'가상 요구안 사본.hwp',path:'가상 노조 폴더',kind:'file',size:20480,modified:'2026-11-01',personal:false,media:false,same:{title:'가상 요구안',path:'자료실 › 가상 교섭'}},
-      {id:'driveFileSC0002',name:'가상 새 자료.pdf',path:'가상 노조 폴더',kind:'file',size:1024,modified:'2026-11-02',personal:false,media:false},
-    ],total:2,more:false,partial:false,same:1,same_partial:false,skipped:{registered:0,app:0,not_file:0,empty:0}});
     return route.fulfill({status:400,body:'{}'});
   });
   return calls;
@@ -60,14 +54,3 @@ for(const width of [1280,390]){
   });
  });
 }
-test('드라이브에서 가져오기: 자료실에 같은 내용이 있으면 이미 있음(같은 내용) 표시·기본 해제',async({page})=>{
-  await bootLibrary(page,1280,{folders:[libFolder(RECV,null,{name:'잡동사니'})],items:[],group:'폴더',init:{viewPrefs:{library_two:false,drive_import_folder:'driveFolderSC01'},receiveFolder:RECV}});
-  await mockServer(page);
-  await press(page,page.locator('#libraryTopMenuBtn'),1280);
-  await press(page,page.locator('#luTopMenu [data-lu-top="drive-import"]'),1280);
-  const m=page.locator('#libraryDriveImportModal');
-  await expect(m.locator('[data-di-same]')).toHaveText('이미 있음(같은 내용: 가상 요구안 · 자료실 › 가상 교섭)');
-  await expect(m.locator('[data-di-pick="driveFileSC0001"]')).not.toBeChecked();
-  await expect(m.locator('[data-di-pick="driveFileSC0002"]')).toBeChecked();
-  await expect(m.locator('#libraryDriveImportSub')).toContainText('같은 내용이 이미 있는 1개는 뺐어요');
-});

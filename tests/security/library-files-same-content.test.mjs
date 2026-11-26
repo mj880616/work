@@ -2,9 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  hashKey, lookupTargets, folderInfo, planSameContent, linkMoves, linksByDoc, markSame, parseSameRequest, folderName, createSameContent, SAME_FOLDER_PREFIX, APPLY_MAX,
+  hashKey, lookupTargets, folderInfo, planSameContent, linkMoves, linksByDoc, parseSameRequest, folderName, createSameContent, SAME_FOLDER_PREFIX, APPLY_MAX,
 } from '../../supabase/functions/library-files/same-content.mjs';
-import { createDriveImport } from '../../supabase/functions/library-files/drive-import.mjs';
 
 // S69-45 LIB-같은내용정리: 가짜 데이터만(네트워크·운영 DB 없음).
 const u = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -72,17 +71,6 @@ test('기록 연결 보호: 옮길 수 없는 연결(회의·조직이 다름, �
   assert.equal(mv.ok, true);
   assert.deepEqual(mv.records, [{ id: u(903), from: u(2), to: u(1) }]);
   assert.deepEqual(mv.snaps, [{ id: u(904), from: u(2), to: u(1) }]);
-});
-
-test('markSame: 자료실과 같은 내용이면 이미 있음(자료 이름·폴더), 목록 안 두 번째도 표시', () => {
-  const items = [{ id: 'x1', name: 'a.pdf', kind: 'file' }, { id: 'x2', name: 'b.pdf', kind: 'file' }, { id: 'x3', name: 'b 사본.pdf', kind: 'file' }, { id: 'x4', name: 'memo', kind: 'link' }];
-  const fileKeys = new Map([['x1', `${M1}:1`], ['x2', `${M2}:1`], ['x3', `${M2}:1`], ['x4', `${M1}:1`]]);
-  const r = markSame(items, fileKeys, new Map([[`${M1}:1`, { title: '교섭안', path: '자료실 › 교섭' }]]));
-  assert.deepEqual(r.items[0].same, { title: '교섭안', path: '자료실 › 교섭' });
-  assert.equal(r.items[1].same, undefined);
-  assert.deepEqual(r.items[2].same, { title: 'b.pdf', path: '이 목록', inList: true });
-  assert.equal(r.items[3].same, undefined, '구글 문서류는 내용 비교 안 함');
-  assert.equal(r.same, 2);
 });
 
 test('parseSameRequest: 모양이 정확할 때만', () => {
@@ -214,35 +202,6 @@ test('apply: 화면이 보낸 묶음이 같은 내용이 아니거나 남의 자
   const r = await same.apply([{ keep: u(3), drop: [u(4)] }, { keep: u(2), drop: [u(9)] }]);
   assert.deepEqual({ trashed: r.trashed, skipped: r.skipped, undo: r.undo }, { trashed: 0, skipped: 2, undo: null });
   assert.equal(tables.app_library_folders.some(f => String(f.name).startsWith(SAME_FOLDER_PREFIX)), false);
-});
-
-test('drive-import list: 드라이브 id가 달라도 같은 내용이면 이미 있음(같은 내용: 자료 이름·폴더)', async () => {
-  const F = 'application/vnd.google-apps.folder';
-  const P = fid('pick');
-  const driveFiles = [
-    { id: P, name: '고른 폴더', mimeType: F, parents: [fid('root')], ownedByMe: true, trashed: false },
-    { id: fid('copy'), name: '교섭안 사본.pdf', mimeType: 'application/pdf', size: '100', md5Checksum: M1, parents: [P], ownedByMe: true },
-    { id: fid('new'), name: '새 자료.pdf', mimeType: 'application/pdf', size: '100', md5Checksum: M2, parents: [P], ownedByMe: true },
-  ];
-  const regMeta = { [fid('f1')]: { md5Checksum: M1, size: '100' } };
-  const json = (d, s = 200) => new Response(JSON.stringify(d), { status: s });
-  const fetch = async url => {
-    const s = String(url);
-    if (s.startsWith('https://oauth2.googleapis.com/tokeninfo')) return json({ scope: 'https://www.googleapis.com/auth/drive' });
-    if (s.startsWith('https://www.googleapis.com/drive/v3/files?')) { const q = new URL(s).searchParams.get('q'); return json({ files: driveFiles.filter(f => (f.parents || []).some(p => q.includes(`'${p}' in parents`))) }); }
-    const m = s.match(/\/files\/([^?]+)\?fields=/);
-    if (m) { const id = decodeURIComponent(m[1]); const f = driveFiles.find(x => x.id === id) || regMeta[id]; return f ? json(f) : json({}, 404); }
-    throw new Error(s);
-  };
-  const docs = [doc(1)];
-  const admin = { from() { const b = { select: () => b, eq: () => b, range: async () => ({ data: docs, error: null }), maybeSingle: async () => ({ data: {}, error: null }) }; return b; } };
-  const { db } = fakeDb({ app_library_folders: [{ id: u(101), workspace_id: 'w1', parent_id: null, name: '교섭' }], app_library_folder_items: [{ document_id: u(1), folder_id: u(101), workspace_id: 'w1' }] });
-  const imp = createDriveImport({ admin, db, fetch, token: 't', workspaceId: 'w1', userId: 'u1', titleFor: n => n, classify: () => ({}), log: () => {} });
-  const r = await imp.list(P);
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.items.find(x => x.id === fid('copy')).same, { title: '자료1', path: '자료실 › 교섭' });
-  assert.equal(r.items.find(x => x.id === fid('new')).same, undefined);
-  assert.equal(r.same, 1);
 });
 
 test('index.ts: 같은 내용 정리 갈래는 로그인 → 내 owner 작업공간 → 내 토큰 DB·내 구글 연결, 화면 작업공간 값을 받지 않는다', () => {

@@ -84,7 +84,7 @@ const KNOWN = {
   'library-upload.css': {
     'library-drop.js': {routes: ['library']}, 'library-html-view.js': {routes: ['library']},
     'library-tree.js': {routes: ['library'], why: '자료실 나무 줄 그리기(다른 화면은 이 파일의 계산 함수만 씀)'},
-    'library-two-pane.js': {routes: ['library']}, 'library-drive-import.js': {routes: ['library'], why: '자료실 ⋯ [드라이브에서 가져오기] 창(S69-25) — 자료실 화면에서만 열림'}, 'library-top-files.js': {routes: ['library'], why: '자료실 ⋯ [맨 위 파일 정리] 창(S69-40) — 자료실 화면에서만 열림, 가져오기 창 모양을 같이 씀'}, 'library-same-content.js': {routes: ['library'], why: '자료실 ⋯ [같은 내용 자료 정리] 창(S69-45) — 자료실 화면에서만 열림, 가져오기 창 모양을 같이 씀'}, 'library-drive-check.js': {routes: ['library'], why: '자료실 ⋯ [드라이브와 맞는지 보기] 창(S69-52) — 자료실 화면에서만 열림, 가져오기 창 모양을 같이 씀'},
+    'library-two-pane.js': {routes: ['library']}, 'library-top-files.js': {routes: ['library'], why: '자료실 ⋯ [맨 위 파일 정리] 창(S69-40) — 자료실 화면에서만 열림, 창 모양을 같이 씀'}, 'library-same-content.js': {routes: ['library'], why: '자료실 ⋯ [같은 내용 자료 정리] 창(S69-45) — 자료실 화면에서만 열림, 창 모양을 같이 씀'}, 'library-drive-check.js': {routes: ['library'], why: '자료실 ⋯ [드라이브와 맞는지 보기] 창(S69-52) — 자료실 화면에서만 열림, 창 모양을 같이 씀'},
     'library-drive-line.js': {routes: ['library'], why: '자료실 위 드라이브 저장 위치 한 줄(S69-20)·[앱 폴더 모으기](S69-22) — library-upload.js가 자료실에서만 붙임'},
     // S69-62: 폴더 고르기가 folder-dest-sheet.js로 옮겨 library-move-picker.js(부품)를 더는 import하지 않는 자료실 화면 모듈들.
     'library-folders.js': {routes: ['library']}, 'library-sort.js': {routes: ['library']}, 'library-upload.js': {routes: ['library']},
