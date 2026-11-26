@@ -97,7 +97,10 @@ const length = text => [...String(text ?? '')].length;
 //   → [하루] 카드 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(home-summary.js, S52-20 — 누르면 정리함 한 목록)
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
-root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">${word('주간 보고')}</button></div></div>
+// S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합"): 폰 틀(~760px)은 따로 있던 '전체 검색' 칸 줄이 없고,
+//   이 머리줄 맨 오른쪽 돋보기(…· [하루|주간 보고] · 찾기)를 누르면 전체 검색 화면의 머리 줄 칸(global-search.js openHere — 이 줄과 같은 첫 줄 자리)에 바로 입력.
+//   PC 틀(761px~)은 맨 위 줄 '전체 검색' 칸이 그대로라 돋보기는 폰 틀에서만 보인다(journal.css).
+root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">${word('주간 보고')}</button></div><button type="button" class="journal-find" data-journal-find aria-label="전체 검색"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"/></svg></button></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
@@ -209,10 +212,24 @@ const waiting = key => !materials[key] || materials[key].status === 'loading' ||
 // 조용히 다시 읽는 칸이 남아 있는 동안 #journalRoot[data-journal-refreshing](글자·모양 없음). 다시 읽은 칸을 다 그린 뒤 사라진다 — 시험·수치 잴 때의 '다 왔다' 신호.
 const markRefreshing = () => root?.toggleAttribute('data-journal-refreshing', refreshing.size > 0);
 
+// S71-41 HOME-머리한줄: 폰 첫 줄(날짜 · [하루|주간 보고] · 찾기)에 날짜가 다 안 들어가면 짧은 꼴('11월 26일 (목)', 주는 '11.23 ~ 11.29')로 쓴다.
+// 실제 폭을 재어 고른다(그래도 넘치면 끝 말줄임 — journal.css). 화면 폭이 바뀌면 다시 잰다. 글자의 주인은 이 함수 하나.
+let titleText = {full: '', short: ''};
+function fitTitle() {
+  const title = $('[data-journal-title]'); if (!title) return;
+  title.textContent = titleText.full;
+  if (title.clientWidth && title.scrollWidth > title.clientWidth) title.textContent = titleText.short;
+}
+// 화면 폭이 바뀌거나 홈이 다시 보일 때(숨어 있던 동안은 폭 0) 다시 잰다. 폰 틀은 날짜 칸 폭이 글자와 상관없어(journal.css 바탕 폭 0) 되풀이되지 않는다.
+if (window.ResizeObserver) new ResizeObserver(() => { if (titleText.full) fitTitle(); }).observe($('[data-journal-title]'));
 function renderWeek() {
   const list = weekDays(start), today = todayKey(), last = list[6];
   // HOME-업무일지홈: 머리줄 제목은 [하루]면 고른 날('10월 30일 금요일'), [주간 정리]면 그 주 범위.
-  $('[data-journal-title]').textContent = mode === 'week' ? `${monthDay(list[0])} ~ ${seoulParts(list[0]).month === seoulParts(last).month ? `${seoulParts(last).day}일` : monthDay(last)}` : longDay(selected);
+  const first = seoulParts(list[0]), end = seoulParts(last);
+  titleText = mode === 'week'
+    ? {full: `${monthDay(list[0])} ~ ${first.month === end.month ? `${end.day}일` : monthDay(last)}`, short: `${first.month + 1}.${first.day} ~ ${end.month + 1}.${end.day}`}
+    : {full: longDay(selected), short: `${monthDay(selected)} (${formatSeoulTime(selected, {weekday:'short'})})`};
+  fitTitle();
   days.replaceChildren(...list.map((day, i) => {
     const button = document.createElement('button'), line = lines.get(day);
     button.type = 'button'; button.className = 'journal-date'; button.dataset.journalDate = day;
@@ -1724,10 +1741,17 @@ async function carryRequests(week, items) {
     return {status:result.skipped ? 'before' : 'saved', added:result.skipped ? 0 : added};
   } catch { return {status:'failed', added:0}; }
 }
+// S71-41: 머리줄 돋보기 = 전체 검색(global-search.js가 칸·결과의 주인). 검색 모듈을 아직 받지 않았으면 받은 뒤 연다.
+function openFind() {
+  const open = () => window.KPTUGlobalSearch?.openHere?.();
+  if (window.KPTUGlobalSearch?.openHere) return open();
+  void Promise.resolve(window.KPTUViewLoader?.load?.('search')).then(open).catch(() => {});
+}
 root.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button || !root.contains(button) || button.disabled) return;
   if (button.matches('[data-journal-mode]')) return setMode(button.dataset.journalMode);
+  if (button.matches('[data-journal-find]')) return openFind();
   if (button.matches('[data-journal-weekly-retry]')) {
     for (const key of button.dataset.journalWeeklyRetry.split(' ')) {
       if (key === 'lines') { if (linesState === 'failed') loadLines(epoch, owner); else if (lineScope.status === 'failed') { lineScope = {key:'', status:'idle', drop:null}; renderWeekly_(); } }

@@ -502,11 +502,21 @@
 #appView #homeView .journal-head .journal-dot{ top:3px; bottom:auto; left:calc(50% + 8px); width:4px; height:4px; margin-left:0; }
 /* 폰: 첫 줄 = 날짜 제목 + [하루|주간 정리], 둘째 줄 = ‹ 날짜 7칸 › 이번 주(폭에 맞춰 줄어듦, 가로 넘침 없음). */
 @media(max-width:760px){
-  #appView #homeView .journal-day-title{ flex:1 1 auto; order:-2; }
+  #appView #homeView .journal-day-title{ flex:1 1 0; order:-2; } /* S71-41: 바탕 폭 0 — 날짜가 길어도 첫 줄이 꺾이지 않고(돋보기가 아래로 안 감) 날짜가 줄어든다 */
   #appView #homeView .journal-head .journal-mode-switch{ order:-1; margin-left:auto; }
   #appView #homeView .journal-head .journal-week-nav{ flex:1 1 100%; }
   #appView #homeView .journal-head .journal-days{ flex:1 1 auto; min-width:0; justify-content:space-between; }
   #appView #homeView .journal-head .journal-date{ min-width:0; flex:1 1 0; padding:0; }
+}
+/* S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합"): 폰 틀 첫 줄 = [아이콘] 날짜 · (빈 칸) · [하루|주간 보고] · 찾기.
+   돋보기는 다른 화면 머리 줄 찾기 돋보기(topbar-actions.css .mobile-shell-find .sf-open)와 같은 36px·20px 아이콘·흐린 색. 누르면 전체 검색(journal.js openFind).
+   PC 틀(761px~)은 맨 위 줄 '전체 검색' 칸이 있어 돋보기를 그리지 않는다. */
+#appView #homeView .journal-head .journal-find{ display:none; }
+@media(max-width:760px){
+  #appView #homeView .journal-head .journal-find{ order:-1; position:relative; display:inline-flex; align-items:center; justify-content:center; flex:none; width:36px; height:36px; min-height:36px; margin-left:-6px; padding:0; border:0; border-radius:var(--kptu-radius-sm); background:transparent; color:var(--kptu-muted); cursor:pointer; }
+  #appView #homeView .journal-head .journal-find::after{ content:""; position:absolute; inset:-4px; }
+  #appView #homeView .journal-head .journal-find svg{ width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  #appView #homeView .journal-head .journal-find:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 }
 /* [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료·그 밖의 기록. */
 #appView #homeView .journal-top-cols{ display:grid; grid-template-columns:minmax(0,1fr); gap:12px 16px; }

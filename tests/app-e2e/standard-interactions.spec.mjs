@@ -2017,42 +2017,53 @@ const q3Box = async loc => { const b = await loc.boundingBox(); expect(b).not.to
 // 누르기 전 자리: 맨 위 줄이 다 그려질 때까지(PC 위치 줄·단추 상자가 늦게 붙으면 칸 폭이 바뀐다 — 누르기와 상관없음) 두 번 잰 값이 같아질 때를 쓴다.
 const q3Settled = async loc => { let last = null; for (let i = 0; i < 20; i++) { const b = await q3Box(loc); if (last && ['x', 'y', 'w', 'h'].every(k => last[k] === b[k])) return b; last = b; await loc.page().waitForTimeout(150); } return last; };
 const q3Same = (a, b, what) => { for (const k of ['x', 'y', 'w', 'h']) expect(Math.abs(a[k] - b[k]), `${what} ${k}`).toBeLessThanOrEqual(1); };
-for (const width of Q3_WIDTHS) test(`Q3 홈 ${width}: '전체 검색' 칸을 누르면 같은 자리·같은 크기로 입력, 결과만 아래 · 뒤로 = 홈 원래 상태`, async ({ page }) => {
+// S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합"): 폰 틀 홈은 날짜 줄 끝 돋보기 → 누르면 그 첫 줄 자리에
+// 전체 검색 칸(전체 검색 화면 머리 줄)이 열리고 결과만 아래. 칸은 돋보기와 같은 줄(가운데 높이 같음)·오른쪽 끝 같음, 친 뒤에도 그대로. PC 틀은 맨 위 줄 칸 그대로.
+for (const width of Q3_WIDTHS) test(`Q3 홈 ${width}: '전체 검색'을 누르면 그 자리(폰 틀은 돋보기 줄)에서 입력, 결과만 아래 · 뒤로 = 홈 원래 상태`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await openHome(page);
-  const input = page.locator(width > 760 ? '#gsTopInput' : '#gsHeadInput');
-  await expect(input).toBeVisible();
-  await expect(input).toHaveAttribute('placeholder', '전체 검색');
-  const before = await q3Settled(input);
-  await input.click();
+  const phone = width <= 760;
+  const input = page.locator(phone ? '#gsHeadInput' : '#gsTopInput');
+  const entry = phone ? page.locator('#homeView [data-journal-find]') : input;
+  await expect(entry).toBeVisible();
+  if (phone) { await expect(entry).toHaveAccessibleName('전체 검색'); await expect(input).toBeHidden(); }
+  else await expect(input).toHaveAttribute('placeholder', '전체 검색');
+  const before = await q3Settled(entry);
+  await entry.click();
   await expect(input).toBeFocused();
-  if (width <= 760) {
+  await expect(input).toHaveAttribute('placeholder', '전체 검색');
+  let opened = before;
+  if (phone) {
     await expect(page.locator('#searchView')).toBeVisible();
     await expect(page.locator('#homeView')).toBeHidden();
     // 화면 안 두 번째 칸·'검색' 제목 줄 없음.
     await expect(page.locator('#searchView input')).toHaveCount(0);
     await expect(page.locator('#appView > .mobile-shell-header [data-mobile-view-name]')).toBeHidden();
-  }
-  q3Same(before, await q3Box(input), '누른 뒤');
+    opened = await q3Box(input);
+    // 돋보기가 있던 그 줄: 가운데 높이 같고 오른쪽 끝 같음(칸은 그 줄 왼쪽으로 펼쳐짐).
+    expect(Math.abs((opened.y + opened.h / 2) - (before.y + before.h / 2)), '같은 줄').toBeLessThanOrEqual(2);
+    expect(Math.abs((opened.x + opened.w) - (before.x + before.w)), '오른쪽 끝').toBeLessThanOrEqual(1);
+    expect(opened.h).toBe(36);
+  } else q3Same(before, await q3Box(input), '누른 뒤');
   await input.pressSequentially('가상', { delay: 20 });
   await expect(input).toHaveValue('가상');
-  if (width > 760) await expect(page.locator('#gsPanel')).toBeVisible();
-  q3Same(before, await q3Box(input), '친 뒤');
+  if (!phone) await expect(page.locator('#gsPanel')).toBeVisible();
+  q3Same(opened, await q3Box(input), '친 뒤');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   // 뒤로: 폰 틀은 기기 뒤로가기(전체 검색 화면을 닫음), PC 틀은 Esc(결과 창을 닫음). 홈은 원래 상태.
-  if (width <= 760) {
+  if (phone) {
     await page.goBack();
     await expect(page.locator('#homeView')).toBeVisible();
     await expect(input).toHaveValue('');
-    await expect(input).not.toBeFocused();
+    await expect(input).toBeHidden();
   } else {
     await page.keyboard.press('Escape');
     await expect(page.locator('#gsPanel')).toBeHidden();
     await expect(page.locator('#homeView')).toBeVisible();
   }
-  q3Same(before, await q3Box(input), '뒤로 뒤');
+  q3Same(before, await q3Box(entry), '뒤로 뒤');
   expect(errors).toEqual([]);
 });
 for (const width of Q3_WIDTHS) for (const c of MENU_FINDS) test(`Q3 ${c.name} ${width}: '${c.label}' 칸은 누르고 쳐도 같은 자리·같은 크기`, async ({ page }) => {
