@@ -80,20 +80,15 @@ export async function run(page,base,width,check,{shot=null}={}){
   if(shot)await page.screenshot({path:shot,fullPage:false});
   await page.locator('#librarySelectAll').click();
   check(await count(page),'0개 선택됨','all off');
-  // S70 LIB-묶음삭제: 여러 개는 한 번 묻는다('5개를 삭제할까요?' + 드라이브에서 가져온 원본은 그대로 둔다는 한 줄). [취소]면 아무것도 안 한다.
-  // 그 뒤는 LIB-바로지우기 그대로: 바로 목록에서 빠지고 작은 알림 '5개를 삭제했어요 · 되돌리기'. 서버 요청은 알림이 사라진 뒤에 보낸다.
+  // K1 한 규칙(I-6, 2026-11-25 명진 결정 6 — 예전 S70 LIB-묶음삭제 '여럿은 한 번 묻기'를 바꿈): 지운 뒤 [되돌리기]가 있으니 여럿도 묻지 않는다.
+  // LIB-바로지우기 그대로: 바로 목록에서 빠지고 작은 알림 '5개를 삭제했어요 · 되돌리기'(드라이브 원본을 둔 수 한 줄). 서버 요청은 알림이 사라진 뒤에 보낸다.
   await page.locator('#librarySelectAll').click();
   const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.type());await d.dismiss()});
   await page.locator('#librarySelectDelete').click();
-  check(await page.locator('.kptu-ask .kptu-ask-text').textContent(),'5개를 삭제할까요?','confirm many');
-  check(await page.locator('.kptu-ask .kptu-ask-note').textContent(),'드라이브에서 가져온 2개는 드라이브 원본을 그대로 둬요. 나머지 3개는 드라이브 휴지통으로 가요.','confirm says Drive originals stay');
-  await page.locator('.kptu-ask .secondary').click();
-  check(await rows(),5,'cancel keeps rows');
-  check(await count(page),'5개 선택됨','cancel keeps selection');
-  await page.locator('#librarySelectDelete').click();
-  await page.locator('.kptu-ask .danger').click();
   check(await rows(),0,'rows leave at once');
+  check(await page.locator('.kptu-ask').count(),0,'no confirm (undo instead)');
   check(await page.locator('#kptuNotice .kptu-notice-text').textContent(),'5개를 삭제했어요','small notice');
+  check(await page.locator('#kptuNotice .kptu-notice-note').textContent(),'드라이브에서 가져온 2개는 드라이브 원본을 그대로 둬요.','notice says Drive originals stay');
   check(state.deletes.length,0,'nothing sent before undo window ends');
   // 되돌리기: 요청 없이 모두 되살림
   await page.locator('#kptuNotice .kptu-notice-undo').click();
@@ -104,7 +99,6 @@ export async function run(page,base,width,check,{shot=null}={}){
   await libraryTopMenu(page,'select');
   await page.locator('#librarySelectAll').click();
   await page.locator('#librarySelectDelete').click();
-  await page.locator('.kptu-ask .danger').click();
   check(await rows(),0,'rows leave again');
   await page.waitForFunction(()=>document.querySelectorAll('#documentList [data-lu-document]').length===1,null,{timeout:20000});
   check(state.deletes.length,1,'one server request for all');
@@ -128,10 +122,9 @@ export async function runMany(page,base,width,check,n=320){
   await libraryTopMenu(page,'select');
   await page.locator('#librarySelectAll').click();
   check(/^320개 선택됨/.test(await count(page)),true,'all picks every document in the group, folded ones too');
-  await page.locator('#librarySelectDelete').click();
-  check(await page.locator('.kptu-ask .kptu-ask-text').textContent(),`${n}개를 삭제할까요?`,'confirm count');
-  await page.locator('.kptu-ask .danger').click();
+  await page.locator('#librarySelectDelete').click(); // K1 한 규칙(I-6): [되돌리기]가 있으니 묻지 않는다
   check(await page.locator('#documentList [data-lu-document]').count(),0,'rows leave at once');
+  check(await page.locator('.kptu-ask').count(),0,'no confirm (undo instead)');
   await page.waitForFunction(()=>/^삭제하는 중 \d+\/320$/.test(document.querySelector('#kptuNotice .kptu-notice-text')?.textContent||''),null,{timeout:15000});
   await page.waitForFunction(()=>(document.querySelector('#kptuNotice .kptu-notice-text')?.textContent||'')==='320개를 삭제했어요.',null,{timeout:30000});
   const sent=state.deletes.flatMap(x=>x.document_ids||[]);

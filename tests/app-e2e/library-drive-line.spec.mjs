@@ -78,23 +78,8 @@ test('서버 답 주소가 드라이브 폴더 주소가 아니면 그리지 않
   await expect(page.locator('#libraryDriveLine')).toBeHidden();
 });
 
-// S70-76 LIB-드라이브늘같게: [드라이브 폴더 맞추기]·[드라이브와 맞는지 보기]는 지웠다. 앱에서 자료실 표를 바꾸면 그 자리에서 '드라이브도 같게'를 부탁하고,
+// S70-76 LIB-드라이브늘같게: 앱에서 자료실 표를 바꾸면 그 자리에서 '드라이브도 같게'를 부탁하고,
 // 드라이브 쪽이 밀리면 줄 끝에 '드라이브에 못 옮겼어요 [다시]' — 누르면 그 자리에서 다시. 가짜 서버만.
-for(const width of [390,1280]){
-  test(`자료실 ⋯에 [드라이브 폴더 맞추기]·[드라이브와 맞는지 보기]가 없다 (${width})`,async({page})=>{
-    const state=await boot(page,{width,place:PLACE});
-    await expect(page.locator('#libraryDriveLine .lu-drive-where')).toBeVisible();
-    await page.locator('#libraryTopMenuBtn').click();
-    const menu=page.locator('#luTopMenu');
-    await expect(menu).toBeVisible();
-    await expect(menu.locator('[data-lu-top="top-files"]')).toHaveCount(1); // 저장 위치를 안 뒤 그려진 메뉴
-    await expect(menu.locator('[data-lu-top="drive-align"],[data-lu-top="drive-check"]')).toHaveCount(0);
-    await expect(menu).not.toContainText('드라이브 폴더 맞추기');
-    await expect(menu).not.toContainText('드라이브와 맞는지 보기');
-    expect(state.mirrorAsks.every(b=>JSON.stringify(b)==='{"mode":"auto"}')).toBe(true);
-  });
-}
-
 test('자료실 표를 바꾸면 그 자리에서 드라이브도 같게 부탁, 밀리면 [다시]',async({page})=>{
   const state=await boot(page,{width:1280,place:PLACE,mirror:[{ok:true,state:'aligned',pending:0,more:false}]});
   await expect(page.locator('#libraryDriveLine .lu-drive-where')).toBeVisible();
@@ -114,44 +99,22 @@ test('자료실 표를 바꾸면 그 자리에서 드라이브도 같게 부탁,
   await expect(again).toHaveCount(0);
 });
 
-// S69-40 [맨 위 파일 정리]: 열면 숫자만 묻고(바꾸지 않음) → [정리하기]는 이어서 부르며 같은 정리 번호 → 결과 한 줄·[되돌리기] → 정리 대기 줄은 제안 폴더가 골라져 있고 [보내기]. 지어낸 이름만.
+// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [드라이브 폴더 맞추기]·[맨 위 파일 정리]·[같은 내용 자료 정리]·[드라이브와 맞는지 보기]는 지웠다.
+// 저장 위치가 있어도 ⋯에 넷 다 없고, [드라이브에서 가져오기]는 남는다. S70-76: 드라이브 쪽이 밀리면 줄 끝은 '드라이브에 못 옮겼어요 [다시]'.
 for(const width of [390,1280]){
-  test(`자료실 ⋯ [맨 위 파일 정리]: 판정 숫자 → 정리 → 정리 대기 보내기 (${width})`,async({page})=>{
-    const F6='a6000000-0000-4000-8000-000000000006',FM='a6000000-0000-4000-8000-000000000009';
-    let tidied=0;
-    const scanBefore={ok:true,total:9,counts:{library:2,library_top:1,attach:1,old:1,temp:2,junk:1,dup:0,none:1},need_align:0,wait:[],folders:[{id:F6,name:'06. 선전'},{id:FM,name:'잡동사니'}],partial:false};
-    const scanAfter={ok:true,total:1,counts:{library:0,library_top:1,attach:0,old:0,temp:0,junk:0,dup:0,none:0},need_align:0,wait:[{id:'waitFile00000001',name:'가상 속보.pdf',mime:'application/pdf',size:2048,suggest:F6},{id:'waitFile00000002',name:'가상 메모.txt',mime:'text/plain',size:10,suggest:null}],folders:scanBefore.folders,partial:false};
-    const state=await boot(page,{width,place:PLACE,topFiles:b=>{
-      if(b.action==='top-files-scan')return tidied?scanAfter:scanBefore;
-      if(b.action==='top-files-tidy'){tidied++;return tidied===1?{ok:true,batch:'batch0001',moved:2,attached:1,trashed:2,waiting:0,cant:0,failed:0,left:3}:{ok:true,batch:'batch0001',moved:0,attached:0,trashed:1,waiting:2,cant:0,failed:0,left:0}}
-      if(b.action==='top-files-wait')return {ok:true,document_id:'d1',moved:true};
-      return {ok:false};
-    }});
+  test(`자료실 ⋯에 한 번 정리 메뉴 넷이 없다, 가져오기는 남고 자동 맞추기는 그대로 (${width})`,async({page})=>{
+    const state=await boot(page,{width,place:PLACE,mirror:[{ok:true,state:'not_aligned',folders_made:0,folders_fixed:0,files_moved:0,cant:0,pending:1,more:false,stopped:false}]});
     await expect(page.locator('#libraryDriveLine .lu-drive-where')).toBeVisible();
+    await expect.poll(()=>state.mirrorAsks.length).toBe(1); // 처음 들어오면 '앞으로 같게' 한 번
+    expect(state.mirrorAsks[0]).toEqual({mode:'auto'});
+    await expect(page.locator('#libraryDriveLine .lu-drive-note')).toHaveText('드라이브에 못 옮겼어요');
     await page.locator('#libraryTopMenuBtn').click();
-    await page.locator('#luTopMenu [data-lu-top="top-files"]').click();
-    const m=page.locator('#libraryTopFilesModal');
-    await expect(m).toBeVisible();
-    await expect(m.locator('#libraryTopFilesSub')).toHaveText('드라이브 자료실 맨 위 파일 9개');
-    await expect(m.locator('.lu-di-hint')).toContainText('제 폴더로 2 · 첨부 폴더로 1 · 휴지통 3(앱 임시 2·찌꺼기 1) · 정리 대기 2(바꿔 끼운 옛 원본 1·앱 기록 없음 1)');
-    expect(state.topAsks).toEqual([{action:'top-files-scan'}]);
-    await m.locator('[data-tf-apply]').click();
-    await expect(m.locator('#libraryTopFilesStatus')).toHaveText('옮김 2 · 첨부로 1 · 휴지통 3 · 정리 대기 2');
-    expect(state.topAsks.filter(a=>a.action==='top-files-tidy')).toEqual([{action:'top-files-tidy'},{action:'top-files-tidy',batch:'batch0001'}]);
-    await expect(m.locator('[data-tf-undo]')).toBeVisible();
-    const rows=m.locator('[data-tf-file]');
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('[data-tf-to]')).toHaveValue(F6);
-    await expect(rows.nth(1).locator('[data-tf-to]')).toHaveValue('');
-    if(process.env.TF_SHOTS)await page.screenshot({path:`${process.env.TF_SHOTS}/tf-${width}.png`});
-    await rows.nth(0).locator('[data-tf-send]').click();
-    await expect(m.locator('[data-tf-file]')).toHaveCount(1);
-    expect(state.topAsks.at(-1)).toEqual({action:'top-files-wait',file_id:'waitFile00000001',to:F6});
-    await m.locator('[data-tf-file] [data-tf-to]').selectOption('trash');
-    await m.locator('[data-tf-file] [data-tf-send]').click();
-    await expect(m.locator('[data-tf-file]')).toHaveCount(0);
-    expect(state.topAsks.at(-1)).toEqual({action:'top-files-wait',file_id:'waitFile00000002',to:'trash'});
-    const box=await m.locator('.modal-card').boundingBox();
-    expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width+1);
+    const menu=page.locator('#luTopMenu');
+    await expect(menu).toBeVisible();
+    await expect(menu.locator('[data-lu-top="drive-import"]')).toHaveText('드라이브에서 가져오기');
+    await expect(menu.locator('[data-lu-top="drive-align"],[data-lu-top="top-files"],[data-lu-top="same-content"],[data-lu-top="drive-check"]')).toHaveCount(0);
+    for(const word of ['드라이브 폴더 맞추기','맨 위 파일 정리','같은 내용 자료 정리','드라이브와 맞는지 보기'])await expect(menu).not.toContainText(word);
+    expect(state.mirrorAsks.every(b=>b?.mode==='auto')).toBe(true);
+    expect(state.asks.filter(a=>/drive-check|gather-folders/.test(a.query))).toEqual([]);
   });
 }

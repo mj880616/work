@@ -30,7 +30,7 @@ export function placeAt(place, {folderId = null, trail = []} = {}) {
   return drive ? {path: [...p.path, ...names], url: `https://drive.google.com/drive/folders/${drive}`} : {path: p.path, url: p.url};
 }
 
-/** 한 줄 HTML. esc: 화면 공용 글자 막기. note: 줄 끝 작은 상태 글('드라이브 정리 대기' 등). */
+/** 한 줄 HTML. esc: 화면 공용 글자 막기. note: 줄 끝 작은 상태 글('드라이브에 못 옮겼어요' 등). */
 export function driveLineHtml(place, esc, at = {}, note = '') {
   const p = placeAt(place, at);
   if (!p) return '';

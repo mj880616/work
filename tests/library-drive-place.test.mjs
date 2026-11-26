@@ -131,3 +131,12 @@ test('③ 폴더 안이면 짝 드라이브 폴더로 열고, 드라이브 쪽�
   assert.doesNotMatch(box.innerHTML, /못 옮겼어요/);
   assert.equal(typeof line.align, 'undefined', '[드라이브 폴더 맞추기]는 지웠다');
 });
+
+// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [드라이브 폴더 맞추기]는 지웠다 — 화면에 align 부름·알림 글이 없다.
+test('S70-29 [드라이브 폴더 맞추기] 지움: align 부품·글이 없고 자료실 메뉴에도 없다', async () => {
+  const m = await import('../app/library-drive-line.js');
+  for (const name of ['alignMessage', 'ALIGN_WAIT_MS', 'ALIGN_ROUNDS']) assert.equal(m[name], undefined, name);
+  const src = ['app/library-drive-line.js', 'app/library-upload.js'].map(f => readFileSync(new URL('../' + f, import.meta.url), 'utf8')).join('\n');
+  assert.doesNotMatch(src, /mode: 'align'|data-lu-top="drive-align"|data-lu-top="drive-check"|data-lu-top="top-files"|data-lu-top="same-content"/);
+  assert.doesNotMatch(src.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n'), /'드라이브 폴더 맞추기'|'드라이브와 맞는지 보기'|'맨 위 파일 정리'|'같은 내용 자료 정리'/);
+});

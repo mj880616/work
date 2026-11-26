@@ -210,3 +210,14 @@ test('workspace-drive gather-folders: 로그인 없으면 401(DB·드라이브 �
   assert.doesNotMatch(SOURCE, /if\(!root\)root=await ensureRoot\(own,token\)/, '세기 요청은 맨 위 앱 폴더를 만들지 않는다');
   assert.deepEqual(getAsk.calls.fetch, []);
 });
+
+// S70-29: 자료실 ⋯ [드라이브와 맞는지 보기](POST ?action=drive-check)는 지웠다 — 어떤 모양이든 '없는 요청'(DB·드라이브 호출 없음).
+test('workspace-drive drive-check: 지운 요청은 DB·드라이브를 부르지 않고 200 성공을 주지 않는다', async () => {
+  for (const body of [{ op: 'scan' }, { op: 'fix', lines: [], all: true }, { op: 'undo', batch: 'abcdefgh1234' }]) {
+    const h = harness();
+    const r = await send(h, { token: 'token-a', action: 'drive-check', body });
+    assert.notEqual(r.status, 200, JSON.stringify(body));
+    assert.deepEqual(h.calls.fetch, []);
+  }
+  assert.doesNotMatch(SOURCE, /driveCheckOf|scanLibrary|fixLibrary|undoLibrary|action==='drive-check'/);
+});

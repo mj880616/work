@@ -70,7 +70,6 @@ on:
       - 'tests/file-actions.test.mjs'
       - 'tests/library-photo.test.mjs'
       - 'tests/library-drive-import-model.test.mjs'
-      - 'tests/library-same-content-model.test.mjs'
       - 'tests/library-move-write.test.mjs'
       - 'tests/org-files-folder-model.test.mjs'
       - 'tests/weekly-save-folder-model.test.mjs'
@@ -173,6 +172,7 @@ on:
       - 'tests/ed-blocks-model.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
+      - 'tests/note-evernote-model.test.mjs'
       - 'tests/note-link-import-model.test.mjs'
       - 'tests/ed-paste-markdown.test.mjs'
       - 'tests/ed-paste-paragraphs.test.mjs'
@@ -476,6 +476,7 @@ on:
       - 'tests/ed-blocks-model.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
+      - 'tests/note-evernote-model.test.mjs'
       - 'tests/note-link-import-model.test.mjs'
       - 'tests/ed-paste-markdown.test.mjs'
       - 'tests/ed-paste-paragraphs.test.mjs'
@@ -972,7 +973,7 @@ jobs:
         run: node --test tests/origin-redirect.test.mjs
 
       - name: Check library toggle tree model
-        run: node --test tests/library-tree.test.mjs tests/library-receive.test.mjs tests/org-files-folder-model.test.mjs tests/weekly-save-folder-model.test.mjs tests/meeting-folder-model.test.mjs tests/library-sort-model.test.mjs tests/library-drive-import-model.test.mjs tests/library-same-content-model.test.mjs tests/library-move-write.test.mjs tests/library-tidy-model.test.mjs tests/library-learn-model.test.mjs tests/library-category-pick.test.mjs tests/list-edit.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/photo-fold-model.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
+        run: node --test tests/library-tree.test.mjs tests/library-receive.test.mjs tests/org-files-folder-model.test.mjs tests/weekly-save-folder-model.test.mjs tests/meeting-folder-model.test.mjs tests/library-sort-model.test.mjs tests/library-drive-import-model.test.mjs tests/library-move-write.test.mjs tests/library-tidy-model.test.mjs tests/library-learn-model.test.mjs tests/library-category-pick.test.mjs tests/list-edit.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/photo-fold-model.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
 
       - name: Check split-resize column math
         run: node --test tests/split-resize-math.test.mjs tests/height-resize-model.test.mjs
@@ -1039,6 +1040,9 @@ jobs:
 
       - name: Unified editor pin, saved form and text export unit tests (ED-통합편집기)
         run: node --test tests/ed-editor.test.mjs tests/ed-now-text.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs tests/ed-photo-row-file.test.mjs tests/ed-blocks-model.test.mjs tests/note-pending-media.test.mjs tests/note-import-model.test.mjs tests/note-link-import-model.test.mjs
+
+      - name: Note evernote-style model unit tests (S69-97 NOTE-알림·서식)
+        run: node --test tests/note-evernote-model.test.mjs
 
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
@@ -1401,7 +1405,7 @@ jobs:
         run: node --test tests/security/no-operator-defaults.test.mjs tests/security/org-names-cross-workspace.test.mjs
 
       - name: Check the two faces and that 노동조합+ screen words stay the same (APP-올인원다이어리 단계 2)
-        run: node --test tests/brand-faces.test.mjs tests/brand-folders.test.mjs tests/library-drive-place.test.mjs tests/library-drive-mirror.test.mjs tests/library-drive-follow-back.test.mjs tests/drive-follow.test.mjs tests/app-folders.test.mjs tests/library-folder-upload.test.mjs tests/library-top-files-model.test.mjs tests/text-temp-sweep.test.mjs
+        run: node --test tests/brand-faces.test.mjs tests/brand-folders.test.mjs tests/library-drive-place.test.mjs tests/library-drive-mirror.test.mjs tests/library-drive-follow-back.test.mjs tests/drive-follow.test.mjs tests/app-folders.test.mjs tests/library-folder-upload.test.mjs tests/text-temp-sweep.test.mjs
 
       - name: Check per-person menu and kind names over the face defaults (APP-기록+이름바꾸기)
         run: node --test tests/custom-words.test.mjs
