@@ -161,10 +161,10 @@ export function startError(code) {
 export const DELETE_KINDS = Object.freeze({ brief: '브리핑만 삭제', doc: '자료까지 삭제' });
 export function deleteConfirm(kind, n, name = '', { keep = 0 } = {}) {
   const what = n > 1 ? `${n}개` : `“${String(name || '이름 없는 자료')}”`;
-  // 밀기 [삭제]: 브리핑과 자료를 함께 지운다. 자료실에 이미 있던 자료(keep)는 지우지 않고 브리핑만 지운다.
+  // 밀기 [삭제]: 브리핑과 자료를 함께 삭제한다. 자료실에 이미 있던 자료(keep)는 자료를 남기고 브리핑만 삭제한다.
   if (kind === 'auto') {
-    if (keep >= n) return { text: `${what} 브리핑을 삭제할까요?`, note: '자료실에 있던 자료라 자료는 지우지 않고 그대로 남아요.', ok: '삭제', danger: true };
-    return { text: `${what} 브리핑과 자료를 삭제할까요?`, note: keep ? `자료실에 있던 자료 ${keep}개는 지우지 않아요. 나머지는 자료실에서도 빠지고 Drive 파일은 휴지통으로 옮겨요(30일 뒤 사라짐).` : '자료실에서도 빠지고 Drive 파일은 휴지통으로 옮겨요(30일 뒤 사라짐).', ok: '삭제', danger: true };
+    if (keep >= n) return { text: `${what} 브리핑을 삭제할까요?`, note: '자료실에 있던 자료라 자료는 삭제하지 않고 그대로 남아요.', ok: '삭제', danger: true };
+    return { text: `${what} 브리핑과 자료를 삭제할까요?`, note: keep ? `자료실에 있던 자료 ${keep}개는 삭제하지 않아요. 나머지는 자료실에서도 빠지고 Drive 파일은 휴지통으로 옮겨요(30일 뒤 사라짐).` : '자료실에서도 빠지고 Drive 파일은 휴지통으로 옮겨요(30일 뒤 사라짐).', ok: '삭제', danger: true };
   }
   if (kind === 'doc') return { text: `${what} 자료까지 삭제할까요?`, note: '자료실에서도 빠지고 Drive 파일은 휴지통으로 옮겨요(30일 뒤 사라짐).', ok: '삭제', danger: true };
   return { text: `${what} 브리핑만 삭제할까요?`, note: '자료는 자료실에 그대로 남아요. 만드는 중이면 멈춰요.', ok: '삭제', danger: true };

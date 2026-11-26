@@ -90,13 +90,13 @@ test('폰 412: 만드는 중 줄은 [삭제]만, 삭제 = 브리핑 + 자료(자
   expect(calls.actions.filter(a => a.action === 'delete').map(a => a.document_id)).toEqual([D(1)]);
 });
 
-test('폰 412: 자료실에 있던 자료(D3)는 삭제해도 자료를 지우지 않고 브리핑만 지운다', async ({ page }) => {
+test('폰 412: 자료실에 있던 자료(D3)는 삭제해도 자료는 남기고 브리핑만 삭제한다', async ({ page }) => {
   await page.setViewportSize({ width: 412, height: 915 });
   const calls = await open(page);
   await swipeLeft(page, row(page, D(3)));
   await page.locator('[data-row-swipe-key="delete"]').click();
   await expect(page.locator('.kptu-ask-text')).toHaveText('“예시 편람 개정안” 브리핑을 삭제할까요?');
-  await expect(page.locator('.kptu-ask-note')).toContainText('자료는 지우지 않고');
+  await expect(page.locator('.kptu-ask-note')).toContainText('자료는 삭제하지 않고');
   await answer(page);
   await expect(row(page, D(3))).toHaveCount(0);
   expect(calls.rpc).toEqual([D(3)]);
@@ -113,7 +113,7 @@ test('PC 1280: ⋯ 단추 없음 · 줄 우클릭 = [수정][삭제] 두 가지,
   await page.keyboard.press('Escape');
   await row(page, D(3)).locator('.br-nm').click({ button: 'right' });
   await page.locator('#rowMenu [data-row-item="delete"]').click();
-  await expect(page.locator('.kptu-ask-note')).toContainText('자료는 지우지 않고');
+  await expect(page.locator('.kptu-ask-note')).toContainText('자료는 삭제하지 않고');
   await answer(page);
   await expect(row(page, D(3))).toHaveCount(0);
   expect(calls.rpc).toEqual([D(3)]);

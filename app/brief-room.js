@@ -78,7 +78,7 @@ const state={folderId:null,docs:[],folderDocs:new Set(),allFolders:[],sub:[],ite
   editable:true,editing:null};// editing = {doc, focus(칸 key), values: Map(key → 글)} — 이 탭 메모리만, 저장은 서버
 
 // 목록에 보일 자료: '브리핑 요청함' 폴더 자료 + 이번에 고른 다른 폴더 자료(브리핑이 있는 자료는 listRows가 더한다).
-// 자료실에 이미 있던 자료를 [자료실에서 선택]으로 넣은 줄(이 화면 '브리핑 요청함' 폴더 밖 자료 + 이번에 고른 자료)은 삭제해도 자료를 지우지 않는다.
+// 자료실에 이미 있던 자료를 [자료실에서 선택]으로 넣은 줄(이 화면 '브리핑 요청함' 폴더 밖 자료 + 이번에 고른 자료)은 삭제해도 자료를 남긴다.
 // 서버가 이 구분을 모르면 화면 규칙일 뿐이라(PR 본문 '제안'), 자료까지 지우는 길(removeWithDocument)에서도 한 번 더 막는다.
 const isLibraryDoc=id=>state.picked.has(id)||!state.folderDocs.has(id);
 const roomIds=()=>new Set([...state.folderDocs,...state.picked]);

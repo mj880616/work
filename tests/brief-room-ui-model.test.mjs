@@ -97,8 +97,8 @@ test('delete kinds: brief only / with document, confirm and result lines', () =>
   assert.equal(m.deleteConfirm('auto', 1, '예시 자료').text, '“예시 자료” 브리핑과 자료를 삭제할까요?');
   assert.match(m.deleteConfirm('auto', 1, '예시 자료').note, /휴지통/);
   assert.equal(m.deleteConfirm('auto', 1, '예시 자료', { keep: 1 }).text, '“예시 자료” 브리핑을 삭제할까요?');
-  assert.match(m.deleteConfirm('auto', 1, '예시 자료', { keep: 1 }).note, /자료는 지우지 않고/);
-  assert.match(m.deleteConfirm('auto', 3, '', { keep: 1 }).note, /1개는 지우지 않아요/);
+  assert.match(m.deleteConfirm('auto', 1, '예시 자료', { keep: 1 }).note, /자료는 삭제하지 않고/);
+  assert.match(m.deleteConfirm('auto', 3, '', { keep: 1 }).note, /1개는 삭제하지 않아요/);
   assert.equal(m.deleteConfirm('doc', 3).text, '3개 자료까지 삭제할까요?');
   assert.match(m.deleteConfirm('doc', 3).note, /휴지통/);
   assert.equal(m.deleteConfirm('doc', 1).ok, '삭제');
