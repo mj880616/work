@@ -50,6 +50,12 @@ async function enterFromMenu(page,width,{ready=true}={}){
   if(ready)await expect(status(page)).toHaveText(/HWP 편집이 준비됐습니다/,{timeout:60000});
   expect(new URL(page.url()).searchParams.get('view')).toBe('hwp');
 }
+// 노트 화면 = 정리함 화면(#basketView)의 '노트' 종류. HWP 편집에서 나오면 여기로 돌아온다.
+async function expectNoteScreen(page){
+  await expect(page.locator('#basketView')).toBeVisible();
+  await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
+  await expect(page.locator('#hwpView')).toBeHidden();
+}
 async function openAndType(page,width,name='sample.hwp'){
   await page.locator('#hwpLabFile').setInputFiles(sample(name));
   await expect(status(page)).toHaveText(new RegExp(`${name.replace('.','\\.')} · 1쪽을 열었습니다`),{timeout:30000});
@@ -156,7 +162,8 @@ test('leaving with unsaved edits asks first; a downloaded file leaves without as
   expect(file.suggestedFilename()).toBe('sample-수정.hwp');
   await expect(status(page)).toHaveText(/sample-수정\.hwp\(\d+KB\)을 내려받았습니다/);
   await page.locator('#hwpLabClose').click();
-  await expect(page.locator('#homeView')).toBeVisible();
+  // S71-61: 들어온 곳이 노트 화면이므로 [✕](= 뒤로가기)는 노트 화면으로 돌아간다(예전 메뉴 입구 때는 홈).
+  await expectNoteScreen(page);
   await expect(page.locator('.kptu-ask')).toHaveCount(0);
 
   // Edits after the download ask again; accepting leaves.
@@ -169,7 +176,7 @@ test('leaving with unsaved edits asks first; a downloaded file leaves without as
   // 폰 뒤로가기도 [✕]와 같이 이전 화면으로 간다(묻고 나서 — [나가기]면 같은 뒤 기록 칸으로).
   await page.evaluate(()=>history.back());
   asked.push(await answerAsk(page,true));
-  await expect(page.locator('#homeView')).toBeVisible();
+  await expectNoteScreen(page);
   expect(asked).toHaveLength(2);
   expect(seen.library).toEqual([]);
   expect(seen.external).toEqual([]);
