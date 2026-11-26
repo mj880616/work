@@ -18,10 +18,21 @@ const api = (path, opts = {}) => rt().api(path, {refreshSession: false, singleFl
 const first = v => (Array.isArray(v) ? v[0] : v) || null;
 const emit = detail => { try { window.dispatchEvent(new CustomEvent(CHANGED, {detail})); } catch { /* 듣는 화면이 일을 막지 않는다 */ } };
 
+// S70-83 READ-저장한글폴더: 목록은 폴더 칸(folder_id, DB 20261126120000)까지 읽는다. 그 칸이 아직 없는 서버(DB 적용 전)면 칸 이름 때문에
+// 거절(400/42703)되므로 칸 없이 다시 읽고 folderColumn()이 false — 화면은 모든 글을 '폴더 없음'으로 보이고 폴더 만들기·옮기기를 두지 않는다.
+let folderCol = null;
+export const folderColumn = () => folderCol;
+const colMissing = (e, col) => new RegExp(`(^|\\D)400(\\D|$)|42703|PGRST204|${col}`).test(`${e?.status || ''} ${e?.code || ''} ${e?.message || ''}`);
 export async function listItems() {
   const w = ws();
   if (!w) return [];
-  const rows = await api(`${T}?workspace_id=eq.${enc(w)}&select=${LIST_COLS}&order=saved_at.desc&limit=${LIST_LIMIT}`);
+  const url = cols => `${T}?workspace_id=eq.${enc(w)}&select=${cols}&order=saved_at.desc&limit=${LIST_LIMIT}`;
+  let rows;
+  if (folderCol !== false) {
+    try { rows = await api(url(LIST_COLS + ',folder_id')); folderCol = true; }
+    catch (e) { if (!colMissing(e, 'folder_id')) throw e; folderCol = false; }
+  }
+  if (folderCol === false) rows = await api(url(LIST_COLS));
   return Array.isArray(rows) ? rows : [];
 }
 export async function getItem(id) {
@@ -167,4 +178,47 @@ export async function saveSharedReading(url, {title = '', isCurrent = () => true
   window.KPTUReading?.refresh?.();
   if (!out.dup && out.row.body_state === 'pending') void fetchBody(out.row).then(() => window.KPTUReading?.refresh?.());
   return id;
+}
+
+// ---------- S70-83 저장한 글 폴더(app_reading_folders, owner RLS REST 길만) ----------
+// 표가 아직 없으면(DB 적용 전, 404/PGRST205/42P01) readFolders가 {ready:false} — 화면은 '폴더 없음' 한 줄만 보이고 만들기·옮기기를 두지 않는다.
+// 기기 저장 없음. 글이 어느 폴더에 있나는 저장한 글 한 줄의 folder_id(moveItems)가 적는다. 폴더를 지우면 서버가 그 글들의 칸만 비운다.
+const FT = '/rest/v1/app_reading_folders';
+const F_COLS = 'id,name,sort_order,created_at';
+const oneRow = rows => { if (!Array.isArray(rows) || rows.length !== 1) throw new Error('폴더를 저장하지 못했어요.'); return rows[0]; };
+export async function readFolders() {
+  const w = ws();
+  if (!w) return {ready: false, folders: []};
+  try {
+    const rows = await api(`${FT}?workspace_id=eq.${enc(w)}&select=${F_COLS}&order=sort_order.asc,created_at.asc&limit=500`);
+    return {ready: true, folders: Array.isArray(rows) ? rows : []};
+  } catch (e) {
+    const text = `${e?.status || ''} ${e?.code || ''} ${e?.message || ''}`;
+    return {ready: false, folders: [], missing: /404|PGRST205|42P01|app_reading_folders/.test(text)};
+  }
+}
+// id(선택): 지운 폴더 되돌리기에서 같은 id로 다시 만든다.
+export async function createFolder({id, name, sort_order = 0}) {
+  const body = {workspace_id: ws(), name, sort_order, ...(id ? {id} : {})};
+  const row = oneRow(await api(`${FT}?select=${F_COLS}`, {method: 'POST', prefer: 'return=representation', body}));
+  emit({id: row.id, kind: 'folder'});
+  return row;
+}
+export async function renameFolder(id, name) {
+  const row = oneRow(await api(`${FT}?id=eq.${enc(id)}&workspace_id=eq.${enc(ws())}&select=${F_COLS}`, {method: 'PATCH', prefer: 'return=representation', body: {name}}));
+  emit({id, kind: 'folder'});
+  return row;
+}
+export async function deleteFolder(id) {
+  const rows = await api(`${FT}?id=eq.${enc(id)}&workspace_id=eq.${enc(ws())}&select=id`, {method: 'DELETE', prefer: 'return=representation'});
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('폴더를 삭제하지 못했어요.');
+  emit({id, kind: 'folder'});
+}
+// 글 옮기기: folderId null = 폴더 없음. 한 번에 고친다(id in 목록). 돌려준 줄(id·folder_id)로 화면을 맞춘다.
+export async function moveItems(ids, folderId) {
+  const list = [...new Set(ids)].filter(isId);
+  if (!list.length) return [];
+  const rows = await api(`${T}?id=in.(${list.map(enc).join(',')})&workspace_id=eq.${enc(ws())}&select=id,folder_id`, {method: 'PATCH', prefer: 'return=representation', body: {folder_id: folderId || null, updated_at: new Date().toISOString()}});
+  for (const id of list) emit({id, kind: 'patch'});
+  return Array.isArray(rows) ? rows : [];
 }

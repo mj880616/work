@@ -79,6 +79,23 @@ async function photos(page, width) {
   return { errors, row, main: '.ft-main', ico: '.ft-ico', dots: '.ft-dots', num: '.ft-num' };
 }
 
+// S70-83 READ-저장한글폴더: 저장한 글 왼쪽 위 폴더 상자(공용 folder-tree-ui.mjs 상자·줄).
+async function reading(page, width) {
+  await page.setViewportSize({ width, height: 900 });
+  const errors = watch(page);
+  await openHome(page);
+  await installViewPrefsServer(page);
+  const item = { id: U(310), url: 'https://example.com/1', title: '가상 저장 글', site: 'example.com', saved_at: '2026-11-25T01:00:00Z', read_at: null, body_state: 'ok',
+    body_at: '2026-11-25T01:00:10Z', business_area_id: null, updated_at: '2026-11-25T01:00:10Z', folder_id: U(300), body: '가상 본문' };
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_reading_items', r => r.request().method() === 'GET' ? r.fulfill({ json: [item] }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_reading_folders', r => r.request().method() === 'GET'
+    ? r.fulfill({ json: [{ id: U(300), name: '가상 폴더', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }] }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_news_highlights', r => r.fulfill({ json: [] }));
+  await page.evaluate(() => window.KPTURouter.go('reading'));
+  const row = page.locator('#readingView [data-rd-folders] .ft-row.ft-folder').first();
+  return { errors, row, main: '.ft-main', ico: '.ft-ico', dots: '.ft-dots', num: '.ft-num' };
+}
+
 async function look(o) {
   await expect(o.row).toBeVisible();
   return o.row.evaluate((row, { main, ico, dots, num }) => {
@@ -97,7 +114,7 @@ async function look(o) {
   }, { main: o.main, ico: o.ico, dots: o.dots, num: o.num });
 }
 
-const SCREENS = [['자료실', 'library', library], ['노트', 'notes', notes], ['사진', 'photos', photos]];
+const SCREENS = [['자료실', 'library', library], ['노트', 'notes', notes], ['사진', 'photos', photos], ['저장한 글', 'reading', reading]];
 const baseline = {};
 async function filesLook(browser, width) {
   if (baseline[width]) return baseline[width];
