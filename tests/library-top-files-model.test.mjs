@@ -18,3 +18,8 @@ test('결과 한 줄과 이어 하기 합계', () => {
   assert.match(tidyLine({ left: 2 }), /남음 2 — 다시 누르면 이어서 해요/);
   assert.equal(sizeShort(1536), '2KB'); assert.equal(sizeShort(0), '');
 });
+
+test('S70-69: 비밀값 파일은 건드리지 않는다는 한 줄(개수만)', () => {
+  assert.match(scanLines({ total: 3, counts: { secret: 2, none: 1 } }).note, /열쇠·비밀번호 파일 2개는 건드리지 않고 그대로/);
+  assert.doesNotMatch(scanLines({ total: 1, counts: { none: 1 } }).note, /열쇠/);
+});

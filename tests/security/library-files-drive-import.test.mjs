@@ -41,7 +41,7 @@ test('planImport: 자료실에 없는 파일만, 앱 폴더·스크립트·바�
   assert.equal(r.items.find(x => x.name === 'memo doc').kind, 'link');
   assert.equal(r.items.find(x => x.name === 'memo doc').size, null);
   assert.equal(r.items.find(x => x.name === 'shared.pdf').path, '다른 사람 폴더');
-  assert.deepEqual(r.skipped, { registered: 2, app: 5, not_file: 3, empty: 1 });
+  assert.deepEqual(r.skipped, { registered: 2, app: 5, secret: 0, not_file: 3, empty: 1 });
   assert.equal(r.total, 3); assert.equal(r.more, false);
 });
 
@@ -255,4 +255,62 @@ test('index.ts: 가져오기 갈래는 로그인 → 내 owner 작업공간 → 
   assert.doesNotMatch(part, /input\.workspace_id|input\.user_id|input\.folder_id/);
   assert.match(part, /imp\.list\(req2\.folderId\)/);
   assert.match(part, /imp\.add\(req2\.folderId,req2\.ids\)/);
+});
+
+// S70-69 LIB-드라이브가져오기 빼기 목록(★급★): 폰 앱 서명 열쇠·그 비밀번호 파일·앱 임시 문서(OCR)·운영 문서(요청함)가 목록에 기본 체크로 나왔다.
+// 서버가 목록·가져오기·고를 폴더에서 아예 뺀다(화면 숨김 아님). 이름은 모두 가상.
+test('S70-69 planImport: 열쇠·비밀번호 파일·비밀값 보관 폴더 안·앱 임시 문서·운영 문서는 목록에 없고, 보통 파일은 나온다', () => {
+  const R = id('appRoot');
+  const files = [
+    folder('keybak', 'web2-phone-key-백업', R, { ownedByMe: true }),
+    file('release.keystore', { parents: [id('keybak')], mimeType: 'application/octet-stream', ownedByMe: true }),
+    file('memo.txt', { parents: [id('keybak')], mimeType: 'text/plain', ownedByMe: true }), // 보관 폴더 안이면 이름과 상관없이 뺌
+    file('upload.jks', { parents: [R], mimeType: 'application/octet-stream', ownedByMe: true }),
+    file('signCert.der', { parents: [R], mimeType: 'application/octet-stream', ownedByMe: true }),
+    file('cert.p12', { parents: [R], mimeType: 'application/x-pkcs12', ownedByMe: true }),
+    file('server.pem', { parents: [R], mimeType: 'text/plain', ownedByMe: true }),
+    file('키 비밀번호.txt', { id: id('pwtxt'), parents: [R], mimeType: 'text/plain', ownedByMe: true }),
+    file('keystore-password.txt', { parents: [R], mimeType: 'text/plain', ownedByMe: true }),
+    file('client_secret_x.json', { parents: [R], mimeType: 'application/json', ownedByMe: true }),
+    file('Web2 OCR abc', { id: id('ocr1'), parents: [R], mimeType: 'application/vnd.google-apps.document', size: undefined, appProperties: { web2_ocr: '1', note: 'n' }, ownedByMe: true }),
+    file('이름 바꾼 임시본', { id: id('ocr2'), parents: [R], mimeType: 'application/vnd.google-apps.document', size: undefined, appProperties: { web2_ocr: '1' }, ownedByMe: true }),
+    file('Web2 OCR old', { id: id('ocr3'), parents: [R], mimeType: 'application/vnd.google-apps.document', size: undefined, ownedByMe: true }),
+    file('Web2 요청함', { id: id('req'), parents: [R], mimeType: 'application/vnd.google-apps.document', size: undefined, ownedByMe: true }),
+    file('2026 사업계획.hwp', { parents: [R], mimeType: 'application/x-hwp', ownedByMe: true }),
+    file('회의록 키워드 정리.pdf', { parents: [R], ownedByMe: true }),
+    file('주민등록증 사본.jpg', { parents: [R], mimeType: 'image/jpeg', ownedByMe: true }),
+  ];
+  const r = planImport({ files, rootId: R, rootName: 'WORK ON+' });
+  assert.deepEqual(r.items.map(x => x.name).sort(), ['2026 사업계획.hwp', '주민등록증 사본.jpg', '회의록 키워드 정리.pdf'].sort());
+  assert.equal(r.skipped.secret, 9);
+  assert.equal(r.skipped.app, 4);
+  assert.equal(r.items.find(x => x.name === '주민등록증 사본.jpg').personal, true, '개인 서류는 목록에 남고 기본 체크만 해제(기존대로)');
+});
+
+test('S70-69 checkAddable·checkFolder: 가져오기 때 다시 확인해 비밀값 파일·앱 임시·운영 문서는 거절, 보관 폴더는 고를 수 없음', () => {
+  const base = { ownedByMe: true, trashed: false, parents: [id('x')] };
+  const deps = { registered: new Set(), appFolderIds: new Set() };
+  for (const f of [file('a.keystore', base), file('b.key', base), file('비번.txt', { ...base, mimeType: 'text/plain' }), file('API Key 메모.txt', { ...base, mimeType: 'text/plain' }),
+    file('Web2 OCR z', { ...base, mimeType: 'application/vnd.google-apps.document', size: undefined }), file('x', { ...base, mimeType: 'application/vnd.google-apps.document', size: undefined, appProperties: { web2_text_tmp: '1' } }),
+    file('Web2 요청함', { ...base, mimeType: 'application/vnd.google-apps.document', size: undefined })]) assert.equal(checkAddable(f, deps), 'unreadable', f.name);
+  assert.equal(checkAddable(file('보통 자료.pdf', base), deps), 'ok');
+  assert.equal(checkFolder(folder('kb', 'web2-phone-key-백업', id('root'), { ownedByMe: true, trashed: false }), { appFolderIds: new Set() }), 'invalid');
+  assert.equal(checkFolder(folder('ok', '사업 자료', id('root'), { ownedByMe: true, trashed: false }), { appFolderIds: new Set() }), 'ok');
+});
+
+test('S70-69 list·add(서버 단위): 고른 폴더 아래 열쇠 백업 폴더·비밀번호 파일·OCR 임시 문서는 목록에도 없고 id를 보내도 넣지 않음', async () => {
+  const kb = folder('keybak', 'web2-phone-key-백업', P, { ownedByMe: true });
+  const key = file('release.keystore', { parents: [id('keybak')], mimeType: 'application/octet-stream', ownedByMe: true, trashed: false });
+  const note = file('memo.txt', { parents: [id('keybak')], mimeType: 'text/plain', ownedByMe: true, trashed: false });
+  const pw = file('키 비밀번호.txt', { id: id('pwtxt'), parents: [P], mimeType: 'text/plain', ownedByMe: true, trashed: false });
+  const ocr = file('Web2 OCR abc', { id: id('ocr1'), parents: [P], mimeType: 'application/vnd.google-apps.document', size: undefined, appProperties: { web2_ocr: '1' }, ownedByMe: true, trashed: false });
+  const ok = file('보통.pdf', { parents: [P], ownedByMe: true, trashed: false });
+  const h = harness({ driveFiles: [pickFolder, kb, key, note, pw, ocr, ok] });
+  const r = await h.imp.list(P);
+  assert.deepEqual(r.items.map(x => x.name), ['보통.pdf']);
+  assert.equal(r.skipped.secret, 3); assert.equal(r.skipped.app, 1);
+  const a = await h.imp.add(P, [key.id, note.id, pw.id, ocr.id, ok.id]);
+  assert.deepEqual(a, { ok: true, added: 1, exists: 0, unreadable: 4, failed: 0 });
+  assert.deepEqual(h.calls.inserts.map(x => x.file_id), [ok.id]);
+  await assert.rejects(h.imp.list(kb.id), e => e.code === 'folder_invalid', '보관 폴더를 직접 골라도 거절');
 });

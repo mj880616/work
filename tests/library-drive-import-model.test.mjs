@@ -22,7 +22,8 @@ test('결과 줄', () => {
   assert.equal(resultLine({ added: 4 }), '4개 가져옴');
   assert.equal(headLine({ total: 10, shown: 10, picked: 8 }), '자료실에 없는 파일 10개 · 선택 8개');
   assert.match(headLine({ total: 6000, shown: 5000, picked: 1, more: true }), /앞 5000개만/);
-  assert.equal(skippedLine({ registered: 3, app: 2, not_file: 0, empty: 1 }), '목록에서 뺀 것: 이미 자료실에 있음 3 · 앱이 쓰는 폴더 2 · 빈 파일 1');
+  assert.equal(skippedLine({ registered: 3, app: 2, not_file: 0, empty: 1 }), '목록에서 뺀 것: 이미 자료실에 있음 3 · 앱이 쓰는 폴더·문서 2 · 빈 파일 1');
+  assert.equal(skippedLine({ secret: 2 }), '목록에서 뺀 것: 열쇠·비밀번호 파일 2', 'S70-69: 서버가 뺀 비밀값 파일은 종류·개수만');
   assert.equal(sizeText(2048), '2KB');
   assert.equal(sizeText(null), '');
 });

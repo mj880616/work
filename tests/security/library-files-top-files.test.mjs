@@ -159,7 +159,7 @@ test('scan: 숫자만·내 작업공간 기록만·폴더는 판정하지 않음
   const w = world();
   const r = await w.top.scan();
   assert.equal(r.ok, true);
-  assert.deepEqual(r.counts, { library: 1, library_top: 2, attach: 2, old: 1, temp: 1, junk: 2, dup: 1, none: 2 });
+  assert.deepEqual(r.counts, { library: 1, library_top: 2, attach: 2, old: 1, temp: 1, junk: 2, dup: 1, none: 2, secret: 0 });
   assert.equal(r.total, 12, '폴더 3개는 빼고 맨 위 파일만');
   assert.deepEqual(r.wait, [], '정리 대기 폴더가 아직 없음');
   assert.deepEqual(r.folders.map(f => f.name), ['03. 궤도', '06. 선전', '잡동사니']);
@@ -244,4 +244,24 @@ test('library-files index.ts: 요청 모양 검사 뒤 내 owner 작업공간·�
   assert.match(part, /workspaceId:wmTop\.workspace_id/);
   assert.doesNotMatch(part, /input\.workspace|input\.user/);
   assert.match(part, /global:\{headers:\{Authorization:'Bearer '/, '앱 표는 내 토큰으로');
+});
+
+test('S70-69 맨 위 파일 정리: 비밀값 파일은 옮기지도 지우지도 않고, 정리 대기 목록·등록에서도 뺀다', async () => {
+  const w = world();
+  w.drive.items.set('keyFile000000001', { name: 'release.keystore', mimeType: 'application/octet-stream', parents: [LIB], size: '10', md5Checksum: md5(30) });
+  w.drive.items.set('pwFile0000000001', { name: '키 비밀번호.txt', mimeType: 'text/plain', parents: [LIB], size: '10', md5Checksum: md5(31) });
+  const s = await w.top.scan();
+  assert.equal(s.counts.secret, 2); assert.equal(s.counts.none, 2, '보통 파일은 그대로 정리 대기 후보');
+  await w.top.tidy(null);
+  assert.deepEqual(w.drive.items.get('keyFile000000001').parents, [LIB]); assert.notEqual(w.drive.items.get('keyFile000000001').trashed, true);
+  assert.deepEqual(w.drive.items.get('pwFile0000000001').parents, [LIB]);
+  // 이미 정리 대기 폴더에 들어가 있던 비밀값 파일: 목록에 안 나오고 등록·휴지통 요청은 거절
+  const wait = [...w.drive.items].find(([, v]) => v.name === WAIT_FOLDER_NAME)[0];
+  w.drive.items.set('keyWait000000001', { name: 'upload.jks', mimeType: 'application/octet-stream', parents: [wait], size: '10' });
+  const s2 = await w.top.scan();
+  assert.equal(s2.wait.some(x => x.id === 'keyWait000000001'), false);
+  assert.ok(s2.wait.length > 0, '보통 정리 대기 파일은 나옴');
+  await assert.rejects(w.top.waitAct('keyWait000000001', U(10)), e => e.code === 'secret_file');
+  await assert.rejects(w.top.waitAct('keyWait000000001', 'trash'), e => e.code === 'secret_file');
+  assert.equal(w.tables.app_documents.some(d => d.file_id === 'keyWait000000001'), false);
 });

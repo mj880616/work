@@ -68,7 +68,8 @@ export function headLine({ total = 0, shown = 0, picked = 0, more = false, parti
 export function skippedLine(sk) {
   const parts = [];
   if (sk?.registered) parts.push(`이미 자료실에 있음 ${sk.registered}`);
-  if (sk?.app) parts.push(`앱이 쓰는 폴더 ${sk.app}`);
+  if (sk?.app) parts.push(`앱이 쓰는 폴더·문서 ${sk.app}`);
+  if (sk?.secret) parts.push(`열쇠·비밀번호 파일 ${sk.secret}`); // S70-69: 서버가 뺀 비밀값 파일(종류·개수만)
   if (sk?.not_file) parts.push(`바로가기·스크립트 등 ${sk.not_file}`);
   if (sk?.empty) parts.push(`빈 파일 ${sk.empty}`);
   if (sk?.others) parts.push(`다른 사람이 올린 파일 ${sk.others}`); // S69-25b: 고른 폴더 안이라도 내 소유가 아닌 것

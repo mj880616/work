@@ -7,6 +7,8 @@
 //   - 제목·분류는 파일 이름으로만(AI 없음 — 많은 파일을 한꺼번에 넣으므로 비용 0, 내용도 읽지 않음).
 //   - 빼는 것: 폴더 자체, 앱이 쓰는 폴더 안 파일(설정에 저장된 앱 폴더 id·앱 표식 kptu_*·앱 폴더 이름 표), 파일이 아닌 구글 형식
 //     (바로가기·Apps Script·양식·사이트 등), 0바이트. 구글 문서·시트·슬라이드는 링크형 자료(크기 없음)로 넣는다.
+//   - S70-69: 비밀값 파일·비밀값 보관 폴더 안 파일(secret)과 앱 임시 문서·운영 문서(app)도 뺀다(_shared/drive-hidden-files.mjs).
+//     목록에 안 나오고(개수만 종류로), 가져오기 때도 다시 확인해 거절하며, 비밀값 보관 폴더는 고를 폴더 목록에도 없다.
 // S69-25b(명진 11/24 09:43 "드라이브 전체가 아니라 드라이브 안에서 공공운수노조 폴더 안에 있는 것만"): 드라이브 전체가 아니라
 //   화면에서 고른 드라이브 폴더 하나(하위 폴더 포함) 안만 훑는다. 고르는 목록은 '내 드라이브' 바로 아래 내 폴더(앱 폴더 빼고).
 //   폴더 이름을 코드에 박지 않는다. 고른 폴더는 서버가 다시 확인하고(내 소유·폴더·휴지통 아님·앱 폴더 아님), 가져오기 때도
@@ -15,6 +17,8 @@
 import { folderNames, knownFolderNames } from '../_shared/brand-folders.mjs';
 // S69-45: 드라이브 id가 달라도 내용(md5 + 크기)이 자료실 자료와 같으면 목록에 '이미 있음(같은 내용)'(기본 선택에서 뺌). 규칙 한 곳은 same-content.mjs.
 import { fileKey, folderInfo, hashable, lookupKeys, markSame } from './same-content.mjs';
+// S70-69: 비밀값 파일(서명 열쇠·비밀번호 메모 등)·비밀값 보관 폴더·앱 임시 문서·운영 문서는 서버에서 뺀다(공용 거름 한 곳).
+import { hiddenReason, isSecretFolder } from '../_shared/drive-hidden-files.mjs';
 
 export const FOLDER_MIME = 'application/vnd.google-apps.folder';
 // 링크형으로 넣는 구글 형식(내려받기 대신 드라이브에서 열기).
@@ -87,23 +91,26 @@ export function planImport({ files, registered = new Set(), appFolderIds = new S
   const all = Array.isArray(files) ? files.filter(f => isDriveId(f?.id)) : [];
   const folders = new Map(all.filter(f => f.mimeType === FOLDER_MIME).map(f => [f.id, f]));
   const appNames = new Set(APP_FOLDER_NAMES);
-  const appMemo = new Map(), pathMemo = new Map();
+  const pathMemo = new Map();
   const parentOf = f => (Array.isArray(f?.parents) && isDriveId(f.parents[0]) ? f.parents[0] : null);
-  // 이 폴더(또는 그 위)가 앱 폴더인가.
-  const appFolder = id => {
+  // 이 폴더(또는 그 위)가 조건에 맞는가(위로 따라 올라가며, 같은 요청 안에서 기억).
+  const upward = (match, memo) => id => {
     const seen = [];
     let cur = id, hit = false;
     for (let depth = 0; cur && depth < 60; depth++) {
-      if (appMemo.has(cur)) { hit = appMemo.get(cur); break; }
+      if (memo.has(cur)) { hit = memo.get(cur); break; }
       seen.push(cur);
       const f = folders.get(cur);
-      if (appFolderIds.has(cur) || (f && (appMarked(f) || appNames.has(String(f.name || '').trim())))) { hit = true; break; }
+      if (match(cur, f)) { hit = true; break; }
       if (!f) break;
       cur = parentOf(f);
     }
-    for (const s of seen) appMemo.set(s, hit);
+    for (const s of seen) memo.set(s, hit);
     return hit;
   };
+  // 앱 폴더 / 비밀값 보관 폴더(S70-69).
+  const appFolder = upward((cur, f) => appFolderIds.has(cur) || !!(f && (appMarked(f) || appNames.has(String(f.name || '').trim()))), new Map());
+  const secretFolder = upward((cur, f) => !!(f && isSecretFolder(f)), new Map());
   // 폴더 경로 글자(내 드라이브 › 가 › 나). 남의 폴더 안(목록에 없는 부모)은 '다른 사람 폴더'.
   const pathOf = id => {
     const top = scoped ? rootName : '내 드라이브';
@@ -139,7 +146,7 @@ export function planImport({ files, registered = new Set(), appFolderIds = new S
     for (const s of seen) underMemo.set(s, hit);
     return hit;
   };
-  const skipped = scoped ? { registered: 0, app: 0, not_file: 0, empty: 0, others: 0 } : { registered: 0, app: 0, not_file: 0, empty: 0 };
+  const skipped = scoped ? { registered: 0, app: 0, secret: 0, not_file: 0, empty: 0, others: 0 } : { registered: 0, app: 0, secret: 0, not_file: 0, empty: 0 };
   const items = [];
   for (const f of all) {
     const k = fileKind(f);
@@ -148,7 +155,9 @@ export function planImport({ files, registered = new Set(), appFolderIds = new S
     if (!k.kind) { if (k.skip !== 'folder') skipped[k.skip]++; continue; }
     if (scoped && f.ownedByMe === false) { skipped.others++; continue; }
     if (registered.has(f.id)) { skipped.registered++; continue; }
-    if (appMarked(f) || (parent && appFolder(parent))) { skipped.app++; continue; }
+    const hidden = hiddenReason(f);
+    if (hidden === 'secret' || (Array.isArray(f.parents) && f.parents.some(p => isDriveId(p) && secretFolder(p)))) { skipped.secret++; continue; }
+    if (hidden === 'app' || appMarked(f) || (parent && appFolder(parent))) { skipped.app++; continue; }
     const name = String(f.name || '이름 없음');
     items.push({
       id: f.id, name, path: pathOf(scoped ? f.parents.find(p => isDriveId(p) && under(p)) : parent), kind: k.kind,
@@ -162,7 +171,8 @@ export function planImport({ files, registered = new Set(), appFolderIds = new S
   return { items: more ? items.slice(0, ITEMS_MAX) : items, total: items.length, more, skipped };
 }
 
-// 가져오기 직전 파일 하나 다시 확인(화면이 보낸 id를 믿지 않음): 내 소유·휴지통 아님·파일 종류·0바이트·앱 표식·앱 폴더 바로 안.
+// 가져오기 직전 파일 하나 다시 확인(화면이 보낸 id를 믿지 않음): 내 소유·휴지통 아님·파일 종류·0바이트·앱 표식·앱 폴더 바로 안
+// ·S70-69 비밀값 파일·앱 임시 문서·운영 문서(비밀값 보관 폴더 안인지는 add의 위로 따라가기가 본다).
 export function checkAddable(f, { registered, appFolderIds }) {
   if (!f || !isDriveId(f.id)) return 'unreadable';
   if (registered.has(f.id)) return 'exists';
@@ -171,13 +181,15 @@ export function checkAddable(f, { registered, appFolderIds }) {
   if (!k.kind) return 'unreadable';
   const parent = Array.isArray(f.parents) ? f.parents[0] : null;
   if (appMarked(f) || (parent && appFolderIds.has(parent))) return 'unreadable';
+  if (hiddenReason(f)) return 'unreadable';
   return 'ok';
 }
 
-// S69-25b: 고를 수 있는 폴더인가(내 소유·폴더·휴지통 아님·앱 폴더 아님). 'ok' | 'invalid'.
+// S69-25b: 고를 수 있는 폴더인가(내 소유·폴더·휴지통 아님·앱 폴더 아님·S70-69 비밀값 보관 폴더 아님). 'ok' | 'invalid'.
 export function checkFolder(f, { appFolderIds }) {
   if (!f || !isDriveId(f.id) || f.mimeType !== FOLDER_MIME || f.trashed === true || f.ownedByMe !== true) return 'invalid';
   if (appMarked(f) || appFolderIds.has(f.id) || APP_FOLDER_NAMES.includes(String(f.name || '').trim())) return 'invalid';
+  if (isSecretFolder(f)) return 'invalid';
   return 'ok';
 }
 // 고르는 목록: '내 드라이브' 바로 아래 내 폴더(앱 폴더 빼고), 이름 순.
@@ -348,7 +360,7 @@ export function createDriveImport(deps) {
       if (!underMemo.has(fid)) underMemo.set(fid, (async () => {
         if (appFolderIds.has(fid)) return false;
         const f = await driveJson('parent', `${DRIVE}/${encodeURIComponent(fid)}?fields=id,name,mimeType,parents,appProperties`);
-        if (!f || f.mimeType !== FOLDER_MIME || appMarked(f) || APP_FOLDER_NAMES.includes(String(f.name || '').trim())) return false;
+        if (!f || f.mimeType !== FOLDER_MIME || appMarked(f) || APP_FOLDER_NAMES.includes(String(f.name || '').trim()) || isSecretFolder(f)) return false;
         for (const p of Array.isArray(f.parents) ? f.parents : []) if (await under(p, depth + 1)) return true;
         return false;
       })());
