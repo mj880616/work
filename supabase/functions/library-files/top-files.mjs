@@ -13,6 +13,8 @@
 //     junk        Thumbs.db·desktop.ini·.DS_Store·~$ 임시 → 드라이브 휴지통
 //     dup         앱 기록이 가리키지 않고, 자료실 아래 다른 폴더에 같은 내용(md5·크기 같음)이 있음 → 드라이브 휴지통
 //     none        앱 기록 없음 → '정리 대기'(보낼 곳 제안을 붙여 화면에서 명진이 고름)
+//     secret      S70-69: 앱 기록 없는 비밀값 파일(서명 열쇠·비밀번호 메모 등, _shared/drive-hidden-files.mjs) → 옮기지도 지우지도 않고 그대로.
+//                 '정리 대기' 목록에도 내보내지 않고, 정리 대기에서 자료로 등록·휴지통 요청도 거절한다(secret_file).
 // - 앱 기록이 가리키는 파일(자료·첨부)은 절대 휴지통에 보내지 않는다(판정 순서가 기록 먼저).
 // - 영구 삭제 없음: 휴지통(trashed:true)까지만, 드라이브에서 30일 안 되돌리기 가능. 옮기거나 휴지통에 보낸 파일에는
 //   won_tidy_from(원래 자리)·won_tidy_batch(이번 정리 번호) 표식을 붙여 [되돌리기]가 원래 자리로 돌린다(DB 변경 없음).
@@ -34,16 +36,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const BATCH = /^[a-z0-9]{8,40}$/;
 export const isDriveId = v => typeof v === 'string' && DRIVE_ID.test(v);
 const JUNK_RE = /^(thumbs\.db|ehthumbs\.db|desktop\.ini|\.ds_store)$|^~\$/i;
-const TEMP_NAMES = /^(Web2 글자 읽기 임시|Web2 OCR\b)/;
+// S70-69: 앱 임시 문서·비밀값 파일 판정은 공용 거름 한 곳(드라이브에서 가져오기와 같은 기준).
+import { isAppTempFile, isSecretFile } from '../_shared/drive-hidden-files.mjs';
 
-export const KINDS = Object.freeze(['library', 'library_top', 'attach', 'old', 'temp', 'junk', 'dup', 'none']);
-export const ACTION_OF = Object.freeze({ library: 'move', library_top: 'keep', attach: 'attach', old: 'wait', temp: 'trash', junk: 'trash', dup: 'trash', none: 'wait' });
+export const KINDS = Object.freeze(['library', 'library_top', 'attach', 'old', 'temp', 'junk', 'dup', 'none', 'secret']);
+export const ACTION_OF = Object.freeze({ library: 'move', library_top: 'keep', attach: 'attach', old: 'wait', temp: 'trash', junk: 'trash', dup: 'trash', none: 'wait', secret: 'keep' });
 
 export const isJunkName = name => JUNK_RE.test(String(name || '').trim());
-export function isTempFile(f) {
-  const p = f && typeof f.appProperties === 'object' && f.appProperties ? f.appProperties : {};
-  return p.web2_text_tmp === '1' || p.web2_ocr === '1' || TEMP_NAMES.test(String(f?.name || ''));
-}
+export const isTempFile = isAppTempFile;
 const dupKey = f => typeof f?.md5Checksum === 'string' && /^[0-9a-f]{32}$/.test(f.md5Checksum) && /^\d{1,15}$/.test(String(f.size ?? '')) && Number(f.size) > 0 ? `${f.md5Checksum}:${f.size}` : null;
 
 /**
@@ -60,6 +60,7 @@ export function judgeTopFile(f, refs, dups) {
   }
   if (refs.task.has(id)) return { kind: 'attach', attach: 'task' };
   if (refs.note.has(id)) return { kind: 'attach', attach: 'note' };
+  if (isSecretFile(f)) return { kind: 'secret' };
   if (isJunkName(f?.name)) return { kind: 'junk' };
   if (isTempFile(f)) return { kind: 'temp' };
   if (refs.old.has(id)) return { kind: 'old' };
@@ -218,7 +219,7 @@ export function createTopFiles(deps) {
     if (!waitId) return [];
     const p = new URLSearchParams({ q: `'${waitId}' in parents and trashed = false and mimeType != '${FOLDER_MIME}'`, spaces: 'drive', pageSize: String(WAIT_LIST_MAX), orderBy: 'name', fields: 'files(id,name,mimeType,size,modifiedTime)' });
     const d = await drive('wait_list', `${DRIVE}?${p}`);
-    return (Array.isArray(d?.files) ? d.files : []).filter(f => isDriveId(f?.id));
+    return (Array.isArray(d?.files) ? d.files : []).filter(f => isDriveId(f?.id) && !isSecretFile(f)); // S70-69: 비밀값 파일은 목록에 내보내지 않음
   }
   const topFoldersOf = refs => refs.folders.filter(f => !f.parent_id).map(f => ({ id: f.id, name: String(f.name || '') })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 
@@ -329,6 +330,7 @@ export function createTopFiles(deps) {
     const parents = Array.isArray(f.parents) ? f.parents : [];
     if (parents.length !== 1 || !isDriveId(parents[0])) throw new TopFail('not_waiting', 400);
     const w = await drive('wait_parent', `${DRIVE}/${encodeURIComponent(parents[0])}?fields=id,name,mimeType,parents,trashed`);
+    if (isSecretFile(f)) throw new TopFail('secret_file', 400); // S70-69: 비밀값 파일은 자료로 등록하지도 휴지통에 보내지도 않음
     if (!w || w.trashed === true || w.mimeType !== FOLDER_MIME || String(w.name || '').trim() !== WAIT_FOLDER_NAME || !(Array.isArray(w.parents) && w.parents.includes(lib))) throw new TopFail('not_waiting', 400);
     const refs = await readRefs();
     if (refs.docs.has(fileId) || refs.task.has(fileId) || refs.note.has(fileId)) throw new TopFail('in_use', 409); // 앱 기록이 가리키면 여기서 다루지 않음

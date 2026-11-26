@@ -12,7 +12,8 @@
 // - 작업공간·구글 연결은 서버가 정한다(로그인한 사람의 owner 작업공간, 그 작업공간 자기 연결). 화면이 보내는 값은 action 하나뿐.
 // - 'WORK ON+ › 자료실' 아래만. 그 아래 앱 폴더('정리 대기'·'할 일 첨부'·'노트 첨부'·'일정 첨부'·바구니·백업 등, 앱 표식 kptu_* 폴더,
 //   설정에 저장된 다른 앱 폴더 id)는 통째로 들어가지 않는다.
-// - 넣지 않는 것: 공용 거름(drive-skip.mjs — 폴더·바로가기·0바이트·앱 임시 문서·열쇠·비밀번호·운영 문서·앱 표식), 남이 올린 파일(ownedByMe 거짓),
+// - 넣지 않는 것: 공용 거름(drive-skip.mjs + S70-69 _shared/drive-hidden-files.mjs — 폴더·바로가기·0바이트·앱 임시 문서·열쇠·비밀번호·
+//   비밀값 보관 폴더 안·운영 문서·앱 표식), 남이 올린 파일(ownedByMe 거짓),
 //   이미 자료실에 있는 드라이브 파일(지금 파일 + 교체로 남긴 옛 파일), 할 일·노트 첨부로 쓰는 파일,
 //   자료실 자료와 내용(md5 + 크기)이 같은 파일(규칙 same-content.mjs), 같은 번에 같은 내용이 앞에 있는 파일,
 //   만든 지 RECENT_MS가 안 된 파일(앱이 올리는 중 — 드라이브에 파일을 만든 뒤 자료 행을 넣으므로 그 사이를 겹치지 않게. 다음 열 때 들어감).
@@ -26,7 +27,7 @@
 import { folderNames, knownFolderNames } from '../_shared/brand-folders.mjs';
 import { ATTACH_FOLDER_NAMES, WAIT_FOLDER_NAME } from './top-files.mjs';
 import { fileKey, hashable, lookupKeys } from './same-content.mjs';
-import { FOLDER_MIME, appMarked, linkKind, skipReason } from './drive-skip.mjs';
+import { FOLDER_MIME, appMarked, isSecretFolder, linkKind, skipReason } from './drive-skip.mjs';
 
 export const AUTO_NOTE = '자료실 드라이브 폴더에서 자동 등록 · 파일명 기반 자동분류';
 // 일정 첨부 폴더 이름(_shared/event-attach-file.ts EVENT_ATTACH_FOLDER와 같음 — 시험이 견준다).
@@ -74,7 +75,8 @@ export function appFolderIdsFrom(settings) {
   return out;
 }
 // 자료실 나무에서 들어가지 않는 폴더인가.
-export const skipFolder = (f, appFolderIds) => !f || appFolderIds.has(f.id) || appMarked(f) || SKIP_FOLDER_NAMES.includes(String(f.name || '').normalize('NFC').trim());
+//   S70-69 비밀값 보관 폴더(폰 열쇠 백업 등, 공용 거름 isSecretFolder) 안도 들어가지 않는다 — 그 안 파일은 이름과 상관없이 넣지 않음.
+export const skipFolder = (f, appFolderIds) => !f || appFolderIds.has(f.id) || appMarked(f) || isSecretFolder(f) || SKIP_FOLDER_NAMES.includes(String(f.name || '').normalize('NFC').trim());
 
 /**
  * 나무에서 읽은 파일들 → 넣을 것. 순수 규칙.
@@ -84,7 +86,7 @@ export const skipFolder = (f, appFolderIds) => !f || appFolderIds.has(f.id) || a
  * 답: {add:[{file, folderId|null}], skipped:{...}, more}
  */
 export function planAuto({ files, libraryId, registered = new Set(), used = new Set(), pairOf = new Map(), knownKeys = new Set(), waitSizes = new Set(), now = Date.now() }) {
-  const skipped = { registered: 0, used: 0, folder: 0, not_file: 0, empty: 0, temp: 0, secret: 0, ops: 0, app: 0, others: 0, same: 0, recent: 0, wait: 0 };
+  const skipped = { registered: 0, used: 0, folder: 0, not_file: 0, empty: 0, temp: 0, secret: 0, app: 0, others: 0, same: 0, recent: 0, wait: 0 };
   const add = [], seenKeys = new Set();
   const list = (Array.isArray(files) ? files : []).filter(f => isDriveId(f?.id));
   // 같은 번에 같은 내용이면 먼저 만든 것 하나만(이름 순으로 고정).

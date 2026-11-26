@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   createDriveAuto, planAuto, parseAutoRequest, registeredIds, appFolderIdsFrom, skipFolder, AUTO_NOTE, EVENT_FOLDER_NAME, RECENT_MS, ADD_MAX,
 } from '../../supabase/functions/library-files/drive-auto.mjs';
-import { skipReason, isSecretName, isOpsName } from '../../supabase/functions/library-files/drive-skip.mjs';
+import { skipReason } from '../../supabase/functions/library-files/drive-skip.mjs';
 import { EVENT_ATTACH_FOLDER } from '../../supabase/functions/_shared/event-attach-file.ts';
 
 // S70-73 LIB-드라이브자동등록: 드라이브 'WORK ON+ › 자료실' 나무 안 새 파일 → 자료 등록. 네트워크·DB 없음(가짜 드라이브·가짜 표).
@@ -83,7 +83,8 @@ function world(over = {}) {
     folder('lib', 'WORK ON+ 자료실', ROOT),
     folder('edu', '교육', LIB), folder('sub', '강의', id('edu')), folder('free', '드라이브에서 만든 폴더', LIB),
     folder('wait', '정리 대기', LIB), folder('task', '할 일 첨부', LIB), folder('event', EVENT_FOLDER_NAME, LIB), folder('mark', '아무 이름', LIB, { appProperties: { kptu_backup: '1' } }),
-    folder('outside', '바깥 폴더', ROOT),
+    folder('outside', '바깥 폴더', ROOT), folder('keyb', '폰 키 백업', LIB),
+    file('keybf', '메모.txt', id('keyb'), { mimeType: 'text/plain', md5Checksum: '0'.repeat(32), size: '10' }),
     file('new1', '강의안.pdf', id('sub'), { md5Checksum: M2, size: '200' }),
     file('top1', '맨 위 파일.hwp', LIB, { md5Checksum: M3, size: '300' }),
     file('free1', '새 폴더 파일.pdf', id('free'), { md5Checksum: 'd'.repeat(32), size: '400' }),
@@ -179,9 +180,9 @@ test('열쇠·비밀번호·앱 임시 문서·운영 문서·바로가기·0바
   const { auto, tables } = world();
   const r = await auto.run();
   const names = new Set(docsOf(tables).map(d => d.file_name));
-  for (const n of ['server.pem', '비밀번호 모음.xlsx', 'Web2 글자 읽기 임시', 'Web2 요청함', '바로가기', '빈 파일.txt', '대기.pdf', '첨부.pdf', '일정 사진.jpg', '백업.json', '남이 올림.pdf', '방금 올리는 중.pdf']) assert.equal(names.has(n), false, n);
-  assert.deepEqual({ secret: r.skipped.secret, temp: r.skipped.temp, ops: r.skipped.ops, not_file: r.skipped.not_file, empty: r.skipped.empty, others: r.skipped.others, recent: r.skipped.recent },
-    { secret: 2, temp: 1, ops: 1, not_file: 1, empty: 1, others: 1, recent: 1 });
+  for (const n of ['server.pem', '비밀번호 모음.xlsx', 'Web2 글자 읽기 임시', 'Web2 요청함', '바로가기', '빈 파일.txt', '대기.pdf', '첨부.pdf', '일정 사진.jpg', '백업.json', '남이 올림.pdf', '방금 올리는 중.pdf', '메모.txt']) assert.equal(names.has(n), false, n);
+  assert.deepEqual({ secret: r.skipped.secret, temp: r.skipped.temp, not_file: r.skipped.not_file, empty: r.skipped.empty, others: r.skipped.others, recent: r.skipped.recent },
+    { secret: 2, temp: 2, not_file: 1, empty: 1, others: 1, recent: 1 });
 });
 
 test('자료실 밖 폴더 파일은 안 들어옴(나무 밖은 목록도 묻지 않음)', async () => {
@@ -191,7 +192,7 @@ test('자료실 밖 폴더 파일은 안 들어옴(나무 밖은 목록도 묻�
   for (const u of dr.seen.filter(s => s.includes('/files?'))) {
     const q = new URL(u).searchParams.get('q');
     assert.equal(q.includes(`'${OUT}' in parents`) || q.includes(`'${ROOT}' in parents`), false, '자료실 나무만 훑는다');
-    for (const skip of ['wait', 'task', 'event', 'mark']) assert.equal(q.includes(`'${id(skip)}' in parents`), false, '앱 폴더 안으로 들어가지 않음: ' + skip);
+    for (const skip of ['wait', 'task', 'event', 'mark', 'keyb']) assert.equal(q.includes(`'${id(skip)}' in parents`), false, '앱 폴더 안으로 들어가지 않음: ' + skip);
   }
 });
 
@@ -239,16 +240,17 @@ test('planAuto: 한 번에 ADD_MAX까지, 넘으면 more', () => {
   assert.deepEqual([...prev].sort(), [id('a'), id('b')].sort(), '교체로 남긴 옛 파일도 이미 있음');
 });
 
-test('공용 거름: 열쇠·비밀번호·운영 문서 이름', () => {
-  for (const n of ['server.pem', 'id_rsa', 'id_ed25519.pub', '.env', 'client_secret_123.json', 'credentials.json', 'service-account.json', 'signPri.key', '비밀번호.txt', '계정 정보.xlsx', 'backup.kdbx', 'vpn.ovpn']) assert.equal(isSecretName(n), true, n);
-  for (const n of ['2026 교섭 요구안.hwp', '회의록.docx', '환경 개선 계획.pdf', '사진.jpg', 'environment report.pdf']) assert.equal(isSecretName(n), false, n);
-  for (const n of ['Web2 요청함', '인계서 V70', '원장', '원장 백업 2026-11']) assert.equal(isOpsName(n), true, n);
-  for (const n of ['원장님 면담.hwp', '요청서.pdf']) assert.equal(isOpsName(n), false, n);
-  assert.equal(skipReason({ mimeType: F }), 'folder');
-  assert.equal(skipReason({ name: 'Thumbs.db', mimeType: 'application/octet-stream', size: '5' }), 'temp');
+test('공용 거름(S70-69 drive-hidden-files.mjs 그대로) + 파일 아님·0바이트·찌꺼기·앱 표식', () => {
+  for (const n of ['server.pem', 'id_rsa', 'release.keystore', '.env', 'service-account.json', '비밀번호.txt']) assert.equal(skipReason({ name: n, mimeType: 'application/octet-stream', size: '5' }), 'secret', n);
+  assert.equal(skipReason({ name: 'Web2 요청함', mimeType: 'application/vnd.google-apps.spreadsheet' }), 'temp', '운영 문서');
   assert.equal(skipReason({ name: 'x.pdf', mimeType: 'application/pdf', size: '5', appProperties: { web2_ocr: '1' } }), 'temp');
+  assert.equal(skipReason({ name: 'Thumbs.db', mimeType: 'application/octet-stream', size: '5' }), 'temp');
+  assert.equal(skipReason({ mimeType: F }), 'folder');
+  assert.equal(skipReason({ name: 's', mimeType: 'application/vnd.google-apps.shortcut' }), 'not_file');
+  assert.equal(skipReason({ name: 'z.txt', mimeType: 'text/plain', size: '0' }), 'empty');
   assert.equal(skipReason({ name: 'x.pdf', mimeType: 'application/pdf', size: '5', appProperties: { kptu_summary: '1' } }), 'app');
-  assert.equal(skipReason({ name: 'x.pdf', mimeType: 'application/pdf', size: '5' }), null);
+  for (const n of ['2026 교섭 요구안.hwp', '회의록.docx', '사진.jpg']) assert.equal(skipReason({ name: n, mimeType: 'application/pdf', size: '5' }), null, n);
+  assert.equal(skipFolder(folder('kb', '폰 키 백업', LIB), new Set()), true, '비밀값 보관 폴더 안으로 들어가지 않음');
 });
 
 test('앱 폴더: 설정의 다른 앱 폴더 id·이름·표식은 들어가지 않음, 자료실·맨 위는 남김', () => {
