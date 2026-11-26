@@ -2059,7 +2059,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     texts.forEach((t, i) => { if (!t.body || t.pending) return; const r = finds.test(t.body); if (r) hits.push({t, i, score:r.score}); });
     hits.sort((a, b) => b.score - a.score || a.i - b.i);
     findsHead.textContent = hits.length ? `주제 ${hits.length}개` : '맞는 주제 없음';
-    findsList.innerHTML = hits.slice(0, FIND_SHOW).map(({t}) => `<button type="button" class="nb-find-row" data-nb-find-go="${esc(t.id)}">${esc([...t.body.replace(/\s+/g, ' ')].slice(0, 60).join(''))}</button>`).join('')
+    findsList.innerHTML = hits.slice(0, FIND_SHOW).map(({t}) => `<button type="button" class="ghost nb-find-row" data-nb-find-go="${esc(t.id)}">${esc([...t.body.replace(/\s+/g, ' ')].slice(0, 60).join(''))}</button>`).join('')
       + (hits.length > FIND_SHOW ? `<p class="nb-finds-more">외 ${hits.length - FIND_SHOW}개</p>` : '');
     findsBox.hidden = false;
   }
@@ -2099,7 +2099,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (ctx) {
       ctx.clearRect(0, 0, W, H);
       if (miniMap) {
-        const css = getComputedStyle(mini), ink = css.getPropertyValue('--nb-mini-ink').trim() || '#888', dim = css.getPropertyValue('--nb-mini-dim').trim() || '#bbb';
+        const css = getComputedStyle(mini), ink = css.getPropertyValue('--nb-mini-ink').trim() || css.color, dim = css.getPropertyValue('--nb-mini-dim').trim() || css.color;
         for (const it of items) {
           const m = toMini(miniMap, it.r);
           ctx.fillStyle = it.root || it.card ? ink : dim; ctx.globalAlpha = focusSet && !focusSet.has(it.id) ? 0.3 : 1;

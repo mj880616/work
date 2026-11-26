@@ -820,7 +820,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb[data-nb-focus] .nb-text:not(.nb-in-focus), .nb[data-nb-focus] .nb-card:not(.nb-in-focus), .nb[data-nb-focus] .nb-branch:not(.nb-in-focus), .nb[data-nb-focus] [data-nb-lines] > g:not(.nb-in-focus) { opacity:.18; }
 .nb-focusbar { position:absolute; left:8px; top:8px; z-index:3; display:inline-flex; align-items:center; gap:6px; height:var(--ds-compact-height,32px); padding:0 4px 0 10px; box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-muted); font-size:13px; box-shadow:var(--kptu-shadow-float,none); }
 .nb-focusbar[hidden] { display:none; }
-#appView #basketView .nb-focusbar .nb-focus-all { width:auto; padding:0 8px; color:var(--kptu-primary); font-size:13px; }
+#appView #basketView .nb-focusbar .nb-focus-all { width:auto; padding:0 8px; color:var(--kptu-primary-text); font-size:13px; }
 /* 찾은 주제 목록(맨 위 '노트에서 찾기'가 보드에서 맞춘 주제): 판 왼쪽 위, 작은 줄. */
 .nb-finds { position:absolute; left:8px; top:48px; z-index:3; width:min(260px, calc(100% - 16px)); max-height:min(320px, 50%); overflow:auto; box-sizing:border-box; padding:4px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
 .nb-finds[hidden] { display:none; }
