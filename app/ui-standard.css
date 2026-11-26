@@ -1835,22 +1835,29 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   #appView > .mobile-shell-header{ justify-content:flex-start; gap:8px; }
   #appView > .mobile-shell-header > [data-mobile-view-name]{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   /* 사업 관리: 첫 줄([녹음][+][⋯] — 아이콘·이름은 S70-57부터 앱 머리 줄)과 고르기 줄(종류 전체 ▾·목록 ▾ 등)을 PC(meeting-ui.css BIZ-위쪽정돈PC)처럼 한 줄로 놓는다.
-     .report-top-line은 자리만 내주고(display:contents) 그 안 요소가 .report-top 줄에 바로 선다. 기간 줄(.report-week-bar)이 보일 때만 아래 한 줄. */
-  #appView #meetingsView .report-top{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; margin-bottom:var(--kptu-space-1); }
+     .report-top-line은 자리만 내주고(display:contents) 그 안 요소가 .report-top 줄에 바로 선다.
+     S71-10(명진 11/26 14:41 '한 줄에 우겨넣고 싶어'): 주 줄(‹ 11.23(월)~11.29(일) › · n건)도 같은 한 줄 = [고르기(칩)] [‹ 날짜 › · n건] … [녹음][+][⋯].
+     넘치면 report-filter-chip.js가 재어 .is-week-short(요일 빼기) → .is-week-tight(건수 짧게) → .is-week-squeeze(칩 끝 말줄임)를 붙인다.
+     기간 정하기·주차 고르기 창이 열리면 그 창(과 주 줄)만 아래 한 줄을 다 쓴다. */
+  #appView #meetingsView .report-top{ display:flex; flex-wrap:nowrap; align-items:center; gap:4px 8px; min-width:0; margin-bottom:var(--kptu-space-1); }
+  #appView #meetingsView .report-top:has(.report-period-panel){ flex-wrap:wrap; }
   #appView #meetingsView .report-top > .report-top-line{ display:contents; }
   /* S67-75 UI-걸러보기칩하나(명진 11/21 18:33 A안, PR 2847 끝 흐림은 걷어냄): 고르기 상자 네 개(종류·사업영역·기간·보기)가 이 줄에 다 들어가면
      지금처럼 네 개(남은 폭을 다 씀), 다 안 들어가면 칩 하나 [전체 ▾]·[고른 값 · 고른 값 ▾]로 묶는다. 어느 쪽인지는 report-filter-chip.js가
      실제 폭으로 재서 .report-top에 .is-filter-one을 붙인다. 칩 글자는 길면 끝 말줄임, ▾는 칩 오른쪽 바탕 그림이라 늘 보인다(칩이 잘리는 일 없음).
      칩을 누르면 상자 줄(.report-kind-bar) 자체가 칩 바로 아래 작은 창(.is-filter-panel, 맨 위 층 popover)이 된다 — 값·동작은 그 상자 그대로. */
-  #appView #meetingsView .report-top > .report-kind-bar{ order:2; flex:1 1 0; min-width:0; margin:0; flex-wrap:nowrap; overflow:hidden; }
+  #appView #meetingsView .report-top > .report-kind-bar{ order:1; flex:0 1 auto; min-width:0; margin:0; flex-wrap:nowrap; overflow:hidden; }
   /* 칩은 줄어들지 않는다(meeting-ui.css의 줄어드는 규칙보다 강하게) — 다 안 들어가면 줄이는 대신 칩 하나로 묶는다. */
   #appView #meetingsView .report-top > .report-kind-bar > :is(select.report-top-select,.report-period-host){ flex:none; }
-  /* 칩 자리(.report-filter-slot)는 남은 폭을 다 쓰고, 칩은 글자만큼 — 자리보다 길면 칩 안 글자 끝이 …(줄이 넘어가지 않음). */
-  #appView #meetingsView .report-top-line > .report-filter-slot{ order:2; flex:1 1 0; min-width:0; display:flex; }
+  /* 칩 자리(.report-filter-slot)는 칩 글자만큼. 주 줄까지 다 줄여도 넘칠 때(.is-week-squeeze)만 줄어들어 칩 안 글자 끝이 …(줄이 넘어가지 않음).
+     칩을 쓰지 않을 때(상자 네 개)는 자리도 없다(meeting-ui.css .report-filter-slot:has(>[hidden])). */
+  #appView #meetingsView .report-top-line > .report-filter-slot{ order:1; flex:none; min-width:0; display:flex; }
+  #appView #meetingsView .report-top.is-week-squeeze > .report-top-line > .report-filter-slot{ flex:0 1 auto; }
   #appView #meetingsView .report-filter-slot > .report-filter-chip{ flex:0 1 auto; min-width:0; max-width:100%; }
   #appView #meetingsView .report-top.is-filter-one > .report-kind-bar:not(.is-filter-panel){ display:none; }
-  #appView #meetingsView .report-top-line > .report-head-actions{ order:3; flex:none; margin-left:0; }
-  #appView #meetingsView .report-top > .report-week-bar{ order:4; flex:1 1 100%; margin:0; }
+  #appView #meetingsView .report-top-line > .report-head-actions{ order:3; flex:none; margin-left:auto; }
+  #appView #meetingsView .report-top > .report-week-bar{ order:2; flex:none; min-width:0; margin:0; }
+  #appView #meetingsView .report-top > .report-week-bar:has(.report-period-panel){ order:4; flex:1 1 100%; }
   /* 홈: 날짜 머리줄 첫 줄 = [아이콘] [날짜 글자(화면 이름 자리)] … [하루|주간 보고]. 날짜 7칸 줄은 그 아래 그대로. */
   #appView #homeView .journal-head > .head-mark{ order:-3; }
   #appView #homeView .journal-head > .journal-day-title{ font-size:var(--ds-text-head); }
