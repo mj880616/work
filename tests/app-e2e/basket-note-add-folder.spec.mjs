@@ -4,7 +4,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { folderSheet, sheetRow, sheetGo, pickInSheet } from './helpers/folder-sheet.mjs';
 
 // NOTE-추가폴더표시 → NOTE-탐색기 (2026-10-28): the note input shows which folder a NEW note goes into as a small [폴더 ▾] button
-// ("회의 ▾" / "폴더 없음 ▾"): the entered folder (folder ⋯ [이 폴더로 들어가기]), unless another one is picked on the button, which opens
+// (S71-67부터 폴더 아이콘 단추, 읽는 이름 '폴더: 회의' / '폴더: 폴더 없음'): the entered folder (folder ⋯ [이 폴더로 들어가기]), unless another one is picked on the button, which opens
 // the shared folder list (library-move-picker.js). A new note is put there with the folder id and name. PC 1280 and phone 390.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -65,33 +65,34 @@ async function addNote(page, width, text) {
 for (const width of [1280, 390]) test(`the note input names the folder a new note goes into and [폴더 ▾] picks another ${width}`, async ({ page }) => {
   const f = await fixture(page, width);
   // At the top: 폴더 없음.
-  await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 폴더 없음');
   await expect(input(page)).toHaveAttribute('placeholder', '노트를 입력하세요');
   // Entering a folder → that folder, in the button and the placeholder.
   await press(page, page.locator(`[data-nx-folder-more="${U(2)}"]`).first(), width);
   await press(page, page.locator('#noteDocMenu [data-nx-enter]'), width);
-  await expect(folderBtn(page)).toHaveText('개발 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 개발');
   // NOTE-큰창잘림: 폰은 옆 [폴더 ▾]가 폴더를 보이므로 안내 글은 '노트 추가'만(한 줄 칸에서 둘째 줄로 잘리지 않게).
   await expect(input(page)).toHaveAttribute('placeholder', width < 761 ? '노트 추가' : '개발에 노트 추가');
+  // NOTE-입력줄높이(S71-67): 폴더 단추는 입력칸·[추가]와 같은 높이(40px) — 높이 비교는 quick-row-height.spec.mjs.
   const box = await folderBtn(page).boundingBox();
-  expect(box.height).toBeLessThanOrEqual(36);
+  expect(box.height).toBeLessThanOrEqual(41);
   expect(box.width).toBeLessThan(200);
   // [폴더 ▾] opens the shared folder list; picking 회의 changes this add only.
   await press(page, folderBtn(page), width);
   await expect(picker(page)).toBeVisible();
   await expect(sheetGo(page)).toHaveText('이 폴더로 정하기');
   await pickInSheet(page, ['회의'], { go: false });
-  await expect(folderBtn(page)).toHaveText('개발 ▾'); // 고르기만으로는 바뀌지 않는다
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 개발'); // 고르기만으로는 바뀌지 않는다
   await sheetGo(page).click();
   await expect(picker(page)).toHaveCount(0);
-  await expect(folderBtn(page)).toHaveText('회의 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 회의');
   // The new note goes into 회의 with the folder id and name (one metadata write after the save).
   await addNote(page, width, '새 노트 글');
   await expect.poll(() => f.rows.find(r => r.id === 'n-new')?.metadata).toEqual({ folder_id: U(1), folder: '회의' });
   // [폴더 ▾] → 맨 위 줄 '노트'(폴더 없음): the next note goes to 폴더 없음.
   await press(page, folderBtn(page), width);
   await pickInSheet(page, ['노트']);
-  await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 폴더 없음');
   expect(f.errors).toEqual([]);
 });
 
@@ -100,7 +101,7 @@ for (const width of [1280, 390]) test(`the note input names the folder a new not
 for (const width of [1280, 412]) test(`folder ⋯ [새 노트] opens the new note window in that folder and saves there ${width}`, async ({ page }) => {
   const f = await fixture(page, width);
   const win = page.locator('#edWindow');
-  await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 폴더 없음');
   await press(page, page.locator(`[data-nx-folder-more="${U(2)}"]`).first(), width);
   // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 ⋯ 첫 줄은 [이 폴더로 들어가기], 그다음 [새 노트].
   await expect(page.locator('#noteDocMenu button').first()).toHaveText('이 폴더로 들어가기');
@@ -109,7 +110,7 @@ for (const width of [1280, 412]) test(`folder ⋯ [새 노트] opens the new not
   await expect(page.locator('#noteDocMenu')).toBeHidden();
   await expect(win).toBeVisible();
   await expect(win.locator('[data-edw-folder]')).toHaveText('개발 ▾');
-  await expect(folderBtn(page)).toHaveText('개발 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 개발');
   await win.locator('[data-edw-title]').fill('폴더 메뉴 새 노트');
   await win.locator('.ed-window-body .ProseMirror').click(); await page.keyboard.type('합성 본문');
   await win.locator('[data-edw-save]').click();
@@ -124,7 +125,7 @@ for (const width of [1280, 412]) test(`inside a folder the head ⋯ has [이 폴
   await fixture(page, width);
   await press(page, page.locator(`[data-nx-folder-more="${U(1)}"]`).first(), width);
   await press(page, page.locator('#noteDocMenu [data-nx-enter]'), width);
-  await expect(folderBtn(page)).toHaveText('회의 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 회의');
   await press(page, page.locator('[data-note-folder-more]'), width);
   await expect(page.locator('#noteDocMenu button').first()).toHaveText('이 폴더에 새 노트');
   await press(page, page.locator('#noteDocMenu [data-nx-new-note]'), width);
@@ -145,7 +146,7 @@ for (const width of [390, 884, 1280]) test(`노트 [폴더 ▾] 고르기 창은
   if (width < 761) expect(Math.round(box.width)).toBe(vp.width);
   else expect(Math.abs(box.x + box.width / 2 - vp.width / 2)).toBeLessThan(2);
   await pickInSheet(page, ['회의']);
-  await expect(folderBtn(page)).toHaveText('회의 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 회의');
   expect(f.errors).toEqual([]);
 });
 
@@ -169,7 +170,7 @@ for (const width of [390, 884, 1280]) test(`노트 입력 줄 [폴더 ▾] → [
   await expect(sheetRow(page, '새 회의')).toHaveAttribute('aria-current', 'true');
   await sheetGo(page).click();
   await expect(picker(page)).toHaveCount(0);
-  await expect(folderBtn(page)).toHaveText('새 회의 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 새 회의');
   const made = f.writes.filter(w => w.folder);
   expect(made).toHaveLength(1);
   expect(made[0].body).toMatchObject({ name: '새 회의', parent_id: null, sort_order: 3072 });
@@ -192,7 +193,7 @@ test('[새 폴더] 취소는 아무것도 만들지 않는다', async ({ page })
   await expect(picker(page).locator('.fx-dest-tree [data-fx-dest-pick]')).toHaveText(['노트', '회의', '개발']);
   await picker(page).locator('[data-fx-dest-close]').click();
   await expect(picker(page)).toHaveCount(0);
-  await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
+  await expect(folderBtn(page)).toHaveAccessibleName('폴더: 폴더 없음');
   expect(f.writes.filter(w => w.folder)).toHaveLength(0);
 });
 

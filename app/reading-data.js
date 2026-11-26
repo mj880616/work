@@ -5,6 +5,7 @@
 // - 한 번에 하나씩 차례로 받는다(같은 줄은 한 번). 바뀌면 'kptu:reading-changed'. 기기에 아무것도 저장하지 않는다(메모리뿐).
 import {LIST_COLS, LIST_LIMIT, newRow, bodyPatch, keepOwn, isId, linkOf, copyPatch, titleFixes, ownTitle} from './reading-model.mjs';
 import {requestFailReason} from './note-import-model.mjs';
+import {openOnScreen} from './source-open.js';
 
 export const CHANGED = 'kptu:reading-changed';
 const FN = '/functions/v1/note-import';
@@ -174,7 +175,7 @@ export async function saveSharedReading(url, {title = '', isCurrent = () => true
   }
   const id = out.row.id;
   notify(out.dup ? SHARE_NOTE.dup : SHARE_NOTE.done, {ms: 6000,
-    actions: [{label: SHARE_NOTE.open, run: ({close}) => { close(); window.KPTUReadingOpen = {id}; window.KPTURouter?.go?.('reading', {source: 'delegated'}); }}]});
+    actions: [{label: SHARE_NOTE.open, run: ({close}) => { close(); window.KPTUReadingOpen = {id}; void openOnScreen('reading'); }}]});
   window.KPTUReading?.refresh?.();
   if (!out.dup && out.row.body_state === 'pending') void fetchBody(out.row).then(() => window.KPTUReading?.refresh?.());
   return id;

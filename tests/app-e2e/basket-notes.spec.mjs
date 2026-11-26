@@ -163,23 +163,18 @@ for(const width of [390,1280]){
   const input=noteInput(page),add=noteAdd(page),big=noteBig(page);
   await expect(input).toBeVisible();await expect(input).toHaveAttribute('placeholder','노트를 입력하세요');await expect(input).toHaveAccessibleName('노트 입력');
   await expect(big).toBeVisible();await expect(add).toBeVisible();
-  // NOTE-파일붙이기: the note input has the update input's clip too (phone: inside the input at its left; PC: [📎 첨부] before [추가]).
+  // NOTE-파일붙이기: the note input has the update input's clip too (inside the input at its left on every width — S71-67).
   const clip=page.locator('[data-note-list] [data-quick-file-picker] .basket-clip');await expect(clip).toBeVisible();
   const folder=page.locator('[data-note-list] [data-quick-folder]');await expect(folder).toBeVisible();
   const [ib,bb,ab,cb,fb]=await Promise.all([input.boundingBox(),big.boundingBox(),add.boundingBox(),clip.boundingBox(),folder.boundingBox()]);
   // [크게] sits at the right end of the input, right before [추가] (on a PC with the clip between them); one row.
   expect(bb.x+bb.width).toBeLessThanOrEqual(ab.x+1);expect(Math.abs((bb.y+bb.height/2)-(ib.y+Math.min(ib.height,46)/2))).toBeLessThan(24);
-  if(width<=760){expect(cb.x+cb.width).toBeLessThanOrEqual(bb.x);
-   // Phone (S52-34 UI-전체정리): one row — input ([크게] at its end) → [폴더 ▾] → [추가], each gap small, [폴더 ▾] on the [추가] line.
-   expect(fb.x).toBeGreaterThanOrEqual(bb.x+bb.width-1);expect(ab.x).toBeGreaterThanOrEqual(fb.x+fb.width-1);
-   for(const gap of [fb.x-(bb.x+bb.width),ab.x-(fb.x+fb.width)]){expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThan(16);}
-   expect(Math.abs((fb.y+fb.height/2)-(ab.y+ab.height/2))).toBeLessThan(8);}
-  else{
-   // PC row: input ([크게] at its end) → [폴더 ▾] → [📎 첨부] → [추가], in that order, each gap small (8px by design; < 16).
-   expect(fb.x).toBeGreaterThanOrEqual(bb.x+bb.width-1);expect(cb.x).toBeGreaterThanOrEqual(fb.x+fb.width-1);expect(ab.x).toBeGreaterThanOrEqual(cb.x+cb.width-1);
-   for(const gap of [fb.x-(bb.x+bb.width),cb.x-(fb.x+fb.width),ab.x-(cb.x+cb.width)]){expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThan(16);}
-   expect(fb.height).toBeLessThanOrEqual(36);expect(Math.abs((fb.y+fb.height/2)-(ab.y+ab.height/2))).toBeLessThan(8);
-  }
+  // NOTE-입력줄높이(S71-67): 폰·PC 모두 한 줄 = 입력칸(안 왼쪽 클립, 안 오른쪽 [크게]) → [폴더] → [추가], 간격 작고 세 칸 같은 높이.
+  expect(cb.x).toBeGreaterThanOrEqual(ib.x-1);expect(cb.x+cb.width).toBeLessThanOrEqual(bb.x);
+  expect(fb.x).toBeGreaterThanOrEqual(bb.x+bb.width-1);expect(ab.x).toBeGreaterThanOrEqual(fb.x+fb.width-1);
+  for(const gap of [fb.x-(bb.x+bb.width),ab.x-(fb.x+fb.width)]){expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThan(16);}
+  expect(Math.abs(fb.height-ab.height)).toBeLessThanOrEqual(1);expect(Math.abs(ib.height-ab.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs((fb.y+fb.height/2)-(ab.y+ab.height/2))).toBeLessThan(8);
   const listTop=(await noteList(page).nth(0).boundingBox()).y;
   if(width<=760){
    // Phone: docked above the bottom tabs, like the update input.

@@ -108,6 +108,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -216,6 +217,7 @@ on:
       - 'tests/overlap-model.test.mjs'
       - 'tests/overlap-weekly.test.mjs'
       - 'tests/overlap-paths.test.mjs'
+      - 'tests/patch-patterns*'
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
@@ -419,6 +421,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -527,6 +530,7 @@ on:
       - 'tests/overlap-model.test.mjs'
       - 'tests/overlap-weekly.test.mjs'
       - 'tests/overlap-paths.test.mjs'
+      - 'tests/patch-patterns*'
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
@@ -1006,7 +1010,7 @@ jobs:
         run: node --test tests/drive-summary-refresh.test.mjs
 
       - name: Check pinned HWP editor files
-        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs
+        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs tests/hwp-into-note.test.mjs
 
       - name: Check HWP union-style template and style shortcuts
         run: node --test tests/hwp-union-style.test.mjs
@@ -1378,6 +1382,10 @@ jobs:
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
 
+      # S71-74 UI-덮어쓰기땜질없애기: 넓은 MutationObserver·display:none!important·:has 숨김이 기준표보다 늘면 실패(AGENTS.md 5절).
+      - name: Check patch-style overwrite patterns stay at or below baseline
+        run: node --test tests/patch-patterns.test.mjs
+
       - name: UI-목록밀기 폰 목록 줄 밀기 셈·연결, UI-메뉴잘림
         run: node --test tests/row-swipe-model.test.mjs
 
@@ -1555,7 +1563,8 @@ jobs:
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed personal view stylesheet was loaded'; exit 1; fi
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
-          grep -q "#authView{display:none!important}" app/base-ui.css
+          # S71-74: #authView 숨김 규칙은 지웠다(요소가 없음) — 요소도 되살아나지 않는다.
+          if grep -q 'id="authView"' app/index.html; then echo 'retired authView returned'; exit 1; fi
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -Fq "[data-kptu-logout]" app/topbar-actions.css
           grep -q "logoutButtons.forEach" app/topbar-actions.js

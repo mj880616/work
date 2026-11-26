@@ -5,7 +5,6 @@ import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
-import { pickBasketView } from './helpers/forget-view.mjs';
 
 // UI-업데이트목록메뉴: every update row has [복사] and [⋯] at its top right (same look and behavior as the note rows, UI-노트메뉴정리).
 // The ⋯ holds 수정 · 연결하기 · 할 일로 · 노트로 · 삭제 (삭제 last, danger color) and opens right under the pressed ⋯.
@@ -214,15 +213,7 @@ for (const width of [390, 1280]) test(`a list re-read that lands while the ⋯ m
   expect(f.writes).toEqual([]); expect(f.posts).toEqual([]); expect(f.errors).toEqual([]);
 });
 
-test('an archived update leaves 연결하기 out of its row menu, as the detail refuses it', async ({ page }) => {
-  const f = await fixture(page, 1280, { archived: '2026-10-06T05:00:00Z' });
-  await pickBasketView(page,'archived');
-  await expect(rowMore(page, B)).toBeVisible();
-  await rowMore(page, B).click();
-  await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '할 일로', '노트로', '하루 기록으로 보내기', '사업 보고로 옮기기', '보류 해제', '삭제']);
-  await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden();
-  expect(f.errors).toEqual([]);
-});
+// S71-58 FORGET-처리전만: 보류한(처리한) 업데이트는 목록에 없어 줄 ⋯ 메뉴도 없다(보류 해제는 상세 ⋯ 메뉴) — 옛 '보류 줄 메뉴' 시험은 지웠다.
 
 // UI-뒤로가기겹규칙(S47-4): 줄 ⋯ 메뉴는 뒤로가기 기록 하나 — 뒤로가기 = 메뉴만 닫기(정리함에 그대로), 고른 항목(수정)이 연 상세는 뒤로 한 번에 목록.
 test('업데이트 줄 ⋯ 메뉴: 뒤로가기 = 메뉴만 닫기, 메뉴로 연 상세는 뒤로 한 번 = 목록 412', async ({ page }) => {

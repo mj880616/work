@@ -94,7 +94,8 @@ for (const width of [390, 1280]) test(`home and basket inputs have no request to
 });
 
 for (const width of [390, 1280]) test(`an old update's saved marks still show as tags, the open update has no toggles, and an edit keeps the marks ${width}`, async ({ page }, info) => {
-  const meta = { requests: ['exec_schedule', 'discussion'], folder: '가상 폴더', pinned_at: '2026-10-05T00:00:00.000Z', tasks: [{ task_id: 't-1', task_list_id: '@default', title: '가상 할 일', created_at: at }], keep: 1 };
+  // S71-58 FORGET-처리전만: 할 일을 만든 업데이트(metadata.tasks)는 처리한 것이라 목록에 없다 — 목록 줄 꼬리표를 보려고 할 일 칸은 뺀다(다른 칸이 그대로인지는 그대로 본다).
+  const meta = { requests: ['exec_schedule', 'discussion'], folder: '가상 폴더', pinned_at: '2026-10-05T00:00:00.000Z', keep: 1 };
   const f = await fixture(page, width, [row('b1', '가상 교섭 상황 공유\n둘째 줄', structuredClone(meta)), row('b2', '표시 없는 업데이트')]);
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await showBasketRow(page, 'b1');
