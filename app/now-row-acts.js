@@ -98,7 +98,7 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
       return {start, end: [{key: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL, tone: 'info'}, del || {key: 'hide', label: HIDE_LABEL, tone: 'muted'}]};
     },
     run: (key, el) => { const item = itemOf(el); if (item) run(key, item); },
-    select: attr ? {attr, label: '선택한 글', acts: () => saved ? [{key: 'release', label: RELEASE_LABEL}] : [{key: 'save', label: SAVE_LABEL}, {key: 'hide', label: HIDE_LABEL}],
+    select: attr ? {attr, label: '선택한 글', acts: () => saved ? [{key: 'release', label: RELEASE_LABEL, danger: true}] : [{key: 'save', label: SAVE_LABEL}, {key: 'hide', label: HIDE_LABEL}],
       run: (key, ids) => runMany(key, ids.map(id => host.querySelector(`${row.slice(0, -1)}="${CSS.escape(id)}"]`)).map(el => el && itemOf(el)).filter(Boolean))} : null});
   // 고른 글 여러 개를 한 번에: 하나씩 같은 서버 길(now-marks.js)로 하고, 알림은 하나 'n개 …했어요 [되돌리기]'(되돌리면 고른 것 모두 원래대로).
   async function runMany(key, items) {
