@@ -100,11 +100,13 @@ for (const width of [390, 1280]) test(`첫 화면은 묶음별 한 줄 메뉴만
   await page.setViewportSize({width, height: 900});
   const state = await boot(page);
   const r = root(page);
-  await expect(r.locator('.sl-group-title')).toHaveText(['앱', '자료', '조직']);
-  await expect(r.locator('[data-ps-open]')).toHaveText([/이름\s*처음 이름/, /홈 칸.*켜짐/, /알림 설정.*폰 없음 · 조용한 시간 22–07/, /내 기록 백업.*마지막 11\/20/, /구글 드라이브.*WORK ON\+ 폴더/, /Claude 읽기 연결.*꺼짐/, /담당조직 현황/, /내 묶음/, /계정/, /사용 현황/]);
+  await expect(r.locator('.sl-group-title')).toHaveText(['앱', '자료']);
+  await expect(r.locator('[data-ps-open]')).toHaveText([/이름\s*처음 이름/, /홈 칸.*켜짐/, /알림 설정.*폰 없음 · 조용한 시간 22–07/, /내 기록 백업.*마지막 11\/20/, /구글 드라이브.*WORK ON\+ 폴더/, /Claude 읽기 연결.*꺼짐/, /계정/, /사용 현황/]);
   // 첫 화면에 입력칸·스위치·큰 단추가 없다(한 줄 메뉴만).
   await expect(page.locator('#profileView :is(input, button.primary, .save-row):visible')).toHaveCount(0);
-  await expect(page.locator('#psSave')).toBeHidden();
+  await expect(page.locator('#psSave, #profileView .save-row')).toHaveCount(0);
+  // S71-35: 담당조직 현황·내 묶음은 조직 관리로 옮겼다 — 첫 화면에 그 줄이 없다.
+  await expect(r.locator('[data-ps-open="org"], [data-ps-open="groups"]')).toHaveCount(0);
   for (const row of await r.locator('[data-ps-open]').all()) {
     const box = await row.boundingBox();
     expect(box.height).toBeGreaterThanOrEqual(43);

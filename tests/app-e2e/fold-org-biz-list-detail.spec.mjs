@@ -31,7 +31,8 @@ async function orgFixture(page,width,height){
  await page.setViewportSize({width,height});
  const errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page);
- page.on('request',req=>{if(req.url().startsWith(SB+'/rest/')&&!['GET','HEAD','OPTIONS'].includes(req.method()))writes.push(req.method()+' '+new URL(req.url()).pathname)});
+ // S71-35: 조직 관리 '내 묶음' 칸의 내 묶음 목록(app_collab_my_groups)은 POST로 묻는 읽기라 쓰기에서 뺀다.
+ page.on('request',req=>{if(req.url().startsWith(SB+'/rest/')&&!['GET','HEAD','OPTIONS'].includes(req.method())&&!req.url().includes('/rpc/app_collab_my_groups'))writes.push(req.method()+' '+new URL(req.url()).pathname)});
  const updates=Array.from({length:4},(_,i)=>({id:'u-'+i,organization_id:'oa',raw_text:'합성 기록 '+i,detail_text:null,occurred_at:`2026-09-2${8-i}T01:00:00Z`}));
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return route.fulfill({json:id?orgs.filter(o=>'eq.'+o.id===id):orgs})});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return route.fulfill({json:q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner}))})});

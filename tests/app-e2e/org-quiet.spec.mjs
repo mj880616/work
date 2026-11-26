@@ -87,7 +87,7 @@ for (const [width, phone] of [[412, true], [884, false], [1440, false]]) {
     const q = line(page);
     await expect(q).toBeVisible();
     await expect(q.locator('.oq-text')).toHaveText('3주째 연락 없음: 가지부 25일 · 나지부 40일 · 사지부 62일 외 1곳');
-    // 자리: 조직 관리 목록의 마지막 칸(참고 묶음 줄 뒤), 마지막 조직 줄보다 아래.
+    // 자리: 조직 관리 목록의 마지막 칸, 마지막 조직 줄보다 아래.
     expect(await page.locator('#soOrganizationList > :last-child').getAttribute('data-team-quiet')).toBe('');
     const lastRow = await page.locator('#soOrganizationList [data-so-org]').last().boundingBox(), qb = await q.boundingBox();
     expect(qb.y).toBeGreaterThan(lastRow.y + lastRow.height - 1);

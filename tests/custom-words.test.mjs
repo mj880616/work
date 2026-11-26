@@ -142,7 +142,7 @@ test('시작 순서: 고친 이름 약속은 소유자 확인에 묶이고, word
   const block = loader.slice(promiseAt, loader.indexOf(';\n', loader.indexOf('Promise.resolve(null)', promiseAt)));
   assert.match(block, /member\.rows\[0\]\?\.role==='owner'/, '소유자만 읽는다(비구성원은 데이터 요청 없음)');
   assert.match(block, /select=custom_words&limit=1/);
-  // S71-32: 고친 이름은 소속 확인과 같은 기다림(15초)으로 받는다 — 3초 남짓에 끊겨 그 접속 내내 기본 이름으로 굳던 원인(명진 폰).
+  // S71-32: 고친 이름은 소속 확인과 같은 기다림(15초)으로 받는다 — 3초 남짓에 끊겨 그 접속 내내 기본 이름으로 굳던 원인(사용자 폰).
   assert.match(loader, /const BOOT_WORDS_MS=15000;/);
   assert.match(block, /timeoutMs:BOOT_WORDS_MS\}/);
   assert.match(block, /setTimeout\(\(\)=>resolve\(null\),BOOT_WORDS_MS\+500\)/, '서버가 끝내 답하지 않을 때만 기본 이름으로 연다');
@@ -247,11 +247,13 @@ test('내 프로필·묶음 칸 글자는 소속 칸 자리로만 부른다(S71-
   const profile = read('app/profile-settings.js');
   assert.doesNotMatch(profile, /psUnion|psDept|psTitle|psReportPanel|UNION_LABEL|REPORT_CALENDAR_TITLE/);
   const groups = read('app/collab-groups.js');
-  assert.match(groups, /\+ \$\{KIND_NAME\.union\} 만들기/);
+  // S71-35: [+ 부서·노조 묶음 만들기] 단추는 조직 관리 ⋯ 안으로 옮겼다(같은 KIND_NAME 글자).
+  assert.doesNotMatch(groups, /data-cg="new"/);
+  assert.match(read('app/suborganizations.js'), /\$\{KIND_NAME\.union\} 만들기/);
   assert.match(groups, /<span>\$\{UNION_LABEL\}<\/span>/);
   assert.match(read('app/collab-groups-model.mjs'), /union: `\$\{UNION_WORD\} 묶음`/);
   // 고정 글자에 노조 낱말이 남지 않는다(주석 빼고).
-  for (const file of ['app/profile-settings.js', 'app/collab-groups.js', 'app/collab-groups-model.mjs', 'app/report-calendar.mjs']) {
+  for (const file of ['app/profile-settings.js', 'app/collab-groups.js', 'app/collab-groups-model.mjs', 'app/report-calendar.mjs', 'app/suborganizations.js']) {
     const code = read(file).replace(/^\s*\/\/.*$/gm, '').replace(/\/\/ [^'"`\n]*$/gm, '');
     assert.doesNotMatch(code, /'노조명|"노조명|>노조명|노조 묶음 만들기|주간 보고 일정 캘린더/, file);
   }
