@@ -55,11 +55,11 @@ test('PC 1280: [정리함]은 하위 줄 없는 한 줄, [노트]는 [일정] �
  expect(errors).toEqual([]);
 });
 
-// S71-29 FORGET-머리한줄: [처리 전 ▾]·최신화(↻)는 맨 위 줄(찾기 칸 오른쪽) 단추 상자에 있다 — 화면 안 따로 된 줄 없음.
-test('PC 1280: 정리함 한 화면 — 맨 위 줄 [처리 전 ▾]와 최신화, 그 아래 한 목록(칸 나눔 없음), 옛 ?pane=todo 주소도 같은 목록',async({page})=>{
+// S71-29 FORGET-머리한줄 → S71-59 UI-화면메뉴안으로 → S71-58 FORGET-처리전만: 최신화(↻)는 화면 안 첫 줄 오른쪽 끝 단추 상자, 보기 단추는 없다.
+test('PC 1280: 정리함 한 화면 — 화면 안 첫 줄 최신화, 그 아래 한 목록(칸 나눔 없음), 옛 ?pane=todo 주소도 같은 목록',async({page})=>{
  const errors=await open(page,1280),basket=page.locator('#basketView');
  await nav(page).locator('.nav-btn[data-view="basket"]').click();await expect(basket).toBeVisible();
- const head=page.locator('.app-topline [data-sf-tools="forget"]'),list=basket.locator('[data-forget-section]');
+ const head=basket.locator('[data-sf-tools="forget"]'),list=basket.locator('[data-forget-section]');
  await expect(head.locator('[data-inbox-find]')).toBeVisible();await expect(head.locator('[data-inbox-find]')).toHaveAttribute('aria-label','최신화');
  await expect(basket.locator('[data-basket-more]')).toHaveCount(0);await expect(basket.locator('.forget-head,.basket-switch-row')).toHaveCount(0);
  await expect(head).toBeVisible();await expect(list).toBeVisible();

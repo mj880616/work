@@ -72,17 +72,17 @@ for (const width of [344, 390, 690]) test(`폰·폴드 ${width}: 앱 머리 줄 
   }
 });
 
-test('PC 1280: 맨 위 줄 한 줄 — 찾기 칸 오른쪽 ↻, 화면 안 둘째 줄 없음, 동작 그대로', async ({page}) => {
+// S71-59 UI-화면메뉴안으로(main): PC 맨 위 줄은 앱 전체 것만 — 화면 단추(↻)는 화면 안 첫 줄 오른쪽 끝(잊지 말기는 첫 줄이 없어 화면 맨 위 자기 줄).
+test('PC 1280: ↻는 화면 안 첫 줄 오른쪽 끝(맨 위 줄 아님), 옛 둘째 줄 없음, 동작 그대로', async ({page}) => {
   const f = await openForget(page, 1280);
   const top = page.locator('#appView > .app-topline');
-  await expect(top.locator('[data-sf-tools="forget"]')).toBeVisible();
+  await expect(top.locator('[data-sf-tools="forget"]')).toHaveCount(0);
+  await expect(page.locator('#basketView [data-sf-tools="forget"]')).toBeVisible();
   await expect(page.locator('#basketView .forget-head, #basketView .basket-switch-row, #basketView [data-forget-view-open]')).toHaveCount(0);
-  const t = await box(top), find = await box(findButton(page));
-  const search = await box(top.locator('[data-search-slot]'));
-  for (const b of [find, search]) expect(Math.abs(b.mid - t.mid)).toBeLessThanOrEqual(3);
-  expect(find.x).toBeGreaterThan(search.right - 1);
+  const panel = await box(page.locator('#basketView')), find = await box(findButton(page));
+  expect(panel.right - find.right).toBeLessThanOrEqual(24);
   const list = await box(page.locator('#basketView [data-forget-section]'));
-  expect(list.y).toBeGreaterThanOrEqual(t.bottom);
+  expect(list.y).toBeGreaterThanOrEqual(find.bottom - 1);
   const before = f.radar.length;
   await findButton(page).click();
   await expect.poll(() => f.radar.length).toBeGreaterThan(before);
