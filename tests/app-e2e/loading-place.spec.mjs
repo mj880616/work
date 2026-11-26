@@ -27,7 +27,7 @@ for (const width of [1440, 1920]) {
     expect(tb.y).toBe(0);
     expect(tb.width).toBeGreaterThan(width - 2);
     await expect(root(page).locator('.wait-empty')).toHaveCount(0); // 불러오는 동안 '없음' 글 없음
-    await expect(root(page)).not.toContainText('빈 폴더');
+    await expect(root(page)).not.toContainText('이 폴더는 비어 있어요');
     await expect(root(page)).not.toContainText('맞추는 중');
     await expect(root(page).locator('.wait-inline')).toHaveCount(0); // 칸 안 구석의 작은 막대 없음
     release();

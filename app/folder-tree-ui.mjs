@@ -12,7 +12,7 @@ import {folderIndent} from './folder-limits.mjs';
 import {folderShapeHtml, colorOf} from './folder-look-model.mjs';
 import {chevHtml} from './fold-chevron.mjs';
 import {partStyles} from './part-styles.js';
-import {emptyHtml} from './wait-state.js';
+import {emptyHtml, waitHtml, failHtml} from './wait-state.js';
 import {folderFileText, countText} from './folder-count.mjs';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('folder-tree-ui');
@@ -93,8 +93,19 @@ export function ftMoreRowHtml({rest, depth = 1, attrs = {}} = {}) {
 }
 
 // UI-폴더이름펼치기(명진 11/24 18:09): 그 자리 펼치는 목록에서 빈 폴더를 펼치면 그 아래 '빈 폴더' 한 줄(들어가지 않는다). attrs: 그 화면의 표시(예 data-ft-parent).
+// FILES-빈폴더줄(S70-70, 명진 11/26 '빈폴더 왜 나오는거? 여백도 없고 의미도 잘 모르겠음'): 빈 폴더 안내 글은 이 한 곳(FOLDER_EMPTY_TEXT).
+// 파일·자료실·노트·사진 나무, 목록 칸이 모두 이 글을 쓴다. 줄은 같은 깊이 다른 줄의 이름 자리에서 시작한다(.ft-empty-row 들여쓰기).
+export const FOLDER_EMPTY_TEXT = '이 폴더는 비어 있어요';
 export function ftEmptyRowHtml({depth = 1, attrs = {}} = {}) {
-  return `<div class="ft-row ft-item ft-empty-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${emptyHtml('빈 폴더')}</div>`;
+  return `<div class="ft-row ft-item ft-empty-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${emptyHtml(FOLDER_EMPTY_TEXT)}</div>`;
+}
+// 같은 자리의 '읽는 중'(회색 뼈대 줄)·'못 읽음'(불러오지 못했어요 [다시]) 줄 — 빈 폴더 줄과 섞이지 않게 따로, 들여쓰기는 같다.
+// retry: [다시] 단추 표시 이름(data-…, 그 화면 처리기가 받는다). reason: 실제 까닭 글.
+export function ftWaitRowHtml({depth = 1, attrs = {}, rows = 1} = {}) {
+  return `<div class="ft-row ft-item ft-empty-row ft-wait-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${waitHtml({rows})}</div>`;
+}
+export function ftFailRowHtml({depth = 1, attrs = {}, retry = '', text, reason = ''} = {}) {
+  return `<div class="ft-row ft-item ft-empty-row ft-fail-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${failHtml({retry, reason, ...(text ? {text} : {})})}</div>`;
 }
 
 // 휴지통 줄(상자 맨 아래 회색). count 없으면 숫자 없음.

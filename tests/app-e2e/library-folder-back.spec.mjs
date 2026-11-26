@@ -45,7 +45,7 @@ test('PC 1440 두 칸: 앞 칸 링크 모양 · Backspace 한 단계 위 · 자�
   expect(await shown(page.locator(`${pane(1)} .lu-pane-path > *:not(.lu-pane-sep)`))).toEqual(['자료실','…','가상 C','가상 D']);
   // 빈 폴더: '빈 폴더' 옆 작은 [위 폴더로].
   const empty=page.locator(`${pane(1)} .lu-empty-up`);
-  await expect(empty).toHaveText(/빈 폴더\s*위 폴더로/);
+  await expect(empty).toHaveText(/이 폴더는 비어 있어요\s*위 폴더로/);
   await page.screenshot({path:'test-results/s69-19-pc-two-deep.png'});
   await empty.getByRole('button',{name:'위 폴더로'}).click();
   await expect(here(page,1)).toHaveText('가상 C');

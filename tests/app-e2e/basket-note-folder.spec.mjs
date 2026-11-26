@@ -339,7 +339,7 @@ test('phone 390: 나무에서 그 자리 펼치기 → 두 손가락 그 폴더�
   // 한 단계 더 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기].
   await expect(page.locator('[data-nx-where]')).toBeHidden();
   await press(page, page.locator(`#noteRows [data-nx-open="${U(3)}"]`), 390);
-  await expect(page.locator(`#noteRows .ft-empty-row[data-ft-parent="${U(3)}"]`)).toContainText('빈 폴더');
+  await expect(page.locator(`#noteRows .ft-empty-row[data-ft-parent="${U(3)}"]`)).toContainText('이 폴더는 비어 있어요');
   await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-anc')).toHaveText('노트›');
   await press(page, page.locator(`#noteRows [data-nx-folder-more="${U(3)}"]`), 390);
   await page.locator('#noteDocMenu [data-nx-enter]').click();

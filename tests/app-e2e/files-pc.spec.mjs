@@ -545,7 +545,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     await pane(page, 1).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
     await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
     await enterRow(page, pane(page, 1).locator(at('data-fx-row', 'pc:D:\\')));
-    await expect(pane(page, 1).locator('[data-fx-list]')).toContainText('빈 폴더');
+    await expect(pane(page, 1).locator('[data-fx-list]')).toContainText('이 폴더는 비어 있어요');
     // 왼쪽 내 PC 파일 → 오른쪽 내 PC D: 끌어 놓기 → [옮기기].
     const memo = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
     await expect(memo).toHaveAttribute('draggable', 'true');
