@@ -120,3 +120,22 @@ for (const [name, open, sel] of [['저장한 글', page => openSavedDoc(page, 39
   });
 }
 });
+
+// TEST-노트폴더끌기굴리기안정화: 노트 [폴더] 왼쪽 나무는 처음 그릴 때부터 창 끝까지다 — 한 틀 뒤에 늘어나지 않는다.
+// 원인(사실): 처음 읽은 뒤 그릴 때 목록 위 회색 빈 줄(읽는 중 자리, 약 128px)이 아직 남은 채로 나무 칸 높이를 재고, 그 뒤 빈 줄을 치워
+// 나무가 위로 올라간 채 높이만 짧았다(다음 그림 틀에 다시 재어 늘어남). 그 사이 나무 아래 끝에 대고 끈 시험(D3)은 끝이 아닌 자리에 손이 있었다.
+// 나무 칸 높이(--follow-max)를 정할 때마다 기록해 처음 값 = 마지막 값인지 본다(MutationObserver는 그림 틀과 상관없이 모든 쓰기를 받는다).
+test('UI-두칸높이 노트 폴더 나무 PC 1280×800: 처음 그릴 때부터 창 끝까지(뒤에 늘어나지 않음)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.addInitScript(() => {
+    window.__treeMax = [];
+    new MutationObserver(list => { for (const m of list) if (m.target.matches?.('[data-nx-tree]')) { const v = m.target.style.getPropertyValue('--follow-max'); if (v && window.__treeMax.at(-1) !== v) window.__treeMax.push(v); } })
+      .observe(document, { subtree: true, attributes: true, attributeFilter: ['style'] });
+  });
+  await openHome(page);
+  await chooseBasketKind(page, 'note');
+  const tree = page.locator('#basketView .nx-tree.kptu-follow-pane');
+  await expect(tree).toBeVisible();
+  await expect.poll(async () => { const m = await measure(page, '#basketView .nx-tree.kptu-follow-pane', null); return Math.abs(Math.round(m.vh - GAP - m.bottom)); }).toBeLessThanOrEqual(2);
+  expect(await page.evaluate(() => window.__treeMax), '나무 칸 높이가 처음 그린 뒤에 바뀜').toHaveLength(1);
+});
