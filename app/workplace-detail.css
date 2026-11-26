@@ -150,6 +150,8 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .wd-top{display:flex;align-items:flex-start;gap:6px;margin:0 0 10px}
 .wd-top:has(>.wd-stage:empty):has(>.wd-org-more[hidden]){display:none}
 .wd-top>.wd-org-more{flex:none;margin-left:auto}
+/* ⋯는 칸 오른쪽 끝이라 누르는 범위는 위아래로만 넓힌다(공용 .icon-btn::after를 좌우로 넓히면 칸이 옆으로 넘친다 — 옛 목록 줄 ⋯와 같음). */
+.wd-top>.wd-org-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
 .wd-stage{display:flex;flex:1 1 auto;min-width:0;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:var(--ds-text-meta)}
 .wd-stage:empty{display:none}
 .wd-stage-k{flex:0 0 auto;color:var(--kptu-muted)}
