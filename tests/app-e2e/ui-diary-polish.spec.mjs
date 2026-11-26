@@ -192,14 +192,14 @@ for(const width of [390,1280])test(`⑥ an opened note draws only its own head (
  await expect(page.locator('[data-note-close]')).toHaveCount(0);
  await expect(more).toBeVisible();
  // The switch row (and the list head) are not drawn at all while the note is open.
- await expect(page.locator('#basketView .basket-switch-row')).toBeHidden();
+ await expect(page.locator('[data-sf-tools="forget"]')).toBeHidden();
  await expect(page.locator('#basketView [data-basket-kind]:visible')).toHaveCount(0);
  const overlap=await page.evaluate(()=>{const b=document.querySelector('[data-note-more]').getBoundingClientRect();
   return [...document.querySelectorAll('#basketView button,#basketView a')].filter(el=>el.getClientRects().length&&!el.closest('[data-note-detail]')).filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.height&&r.left<b.right&&r.right>b.left&&r.top<b.bottom&&r.bottom>b.top;}).map(el=>el.textContent.trim());});
  expect(overlap).toEqual([]);
  // Editing: the same — only the note's head.
  await noteMenuAction(page,'data-note-edit');
- await expect(page.locator('#basketView .basket-switch-row')).toBeHidden();await expect(page.locator('[data-note-editor]')).toBeVisible();
+ await expect(page.locator('[data-sf-tools="forget"]')).toBeHidden();await expect(page.locator('[data-note-editor]')).toBeVisible();
  await page.locator('[data-note-cancel]').click();
  // Files: the shared line (kind tag · name / size · small [Drive에서 열기]).
  const lines=page.locator('[data-note-attachments] .file-line');
@@ -222,9 +222,9 @@ test('⑥ a memo opened from the list hides the switch the same way, and it come
  f.rows.push(row({id:'m1',kind:'basket',raw_text:'메모 하나'}));
  await page.evaluate(()=>window.KPTURouter.go('basket'));
  await page.locator('[data-basket-row="m1"]').click();
- await expect(page.locator('[data-basket-close]')).toBeVisible();await expect(page.locator('#basketView .basket-switch-row')).toBeHidden();
+ await expect(page.locator('[data-basket-close]')).toBeVisible();await expect(page.locator('[data-sf-tools="forget"]')).toBeHidden();
  await page.locator('[data-basket-close]').click();
- await expect(page.locator('#basketView .basket-switch-row')).toBeVisible();await expect(basketPaneButton(page,'update')).toBeVisible();
+ await expect(page.locator('[data-sf-tools="forget"]')).toBeVisible();await expect(basketPaneButton(page,'update')).toBeVisible();
  expect(f.errors).toEqual([]);
 });
 
