@@ -7,10 +7,3 @@ import {word} from './brand/brand.mjs';
 export const UNION_WORD = word('노조', 'group');
 /** 묶음 만들기의 소속 이름 칸. WORK ON 기본 '소속명'. */
 export const UNION_LABEL = `${UNION_WORD}명`;
-<<<<<<< HEAD
-/** 주간 칸 이름. WORK ON 기본 '주간 정리', 사용자 '주간 보고'. */
-export const WEEKLY_WORD = word('주간 보고', 'weekly');
-/** 내 프로필 › 주간 캘린더 칸 제목. */
-export const REPORT_CALENDAR_TITLE = `${WEEKLY_WORD} 일정 캘린더`;
-=======
->>>>>>> origin/main

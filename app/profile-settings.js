@@ -9,15 +9,9 @@ const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-not
 // 저장 전까지 흐리게 남음), 그 아래 접힌 '그 외 n'(맨 위 찾기 칸, 초성 포함). 모양은 공용 부품 pick-fold.mjs 하나다.
 const rt=window.KPTURuntime;
 let user=null,workspaceId=null,workplaces=[],legacyWorkplaces=[],organizations=[],assignments=[],profileWorkplaces=[];
-<<<<<<< HEAD
-// PROFILE-소속칸글로쓰기(사용자 확정 11/15 21:45·21:48): 기본 정보 칸 4개 — 노조명·부서명·이름·직책. 모두 글로 직접(목록·자동완성 없음), 가입 때 받지 않고 여기서 채운다.
-// 노조명·부서명은 이름·직책과 같은 표(app_profiles.union_name·department_name, 각 60자 한 줄 — DB 검사)·같은 저장 길([저장] → 내 행 PATCH)이다.
-const EMPTY_SAVED={name:'',title:'',union:'',dept:''};
-=======
 // S71-34 PROFILE-이름만(사용자 11/26 "기본 정보는 이름(닉네임) 말고 나머지는 수집 x 창도 없애"): 기본 정보 칸은 이름(닉네임) 하나다.
 // 소속·부서·직책은 화면에서 받지도 읽지도 보내지도 않는다. 이미 저장된 값과 DB 칸(app_profiles.union_name·department_name·job_title)은 지우지 않는다(사용자 결정 대기).
 const EMPTY_SAVED={name:''};
->>>>>>> origin/main
 let baseline=new Set(),saved={...EMPTY_SAVED},saving=false,bound=false,fold=null,freshFold=true,note=null;
 // PROFILE-바뀜것없음글자빼기(사용자 확정): 바뀐 게 없으면 상태 글자 없음 + [저장] 흐리게. 고쳤을 때만 'n곳 바뀜, 저장 안 됨'. 저장 직후 잠깐 '저장됨'.
 let justSaved=0,justSavedTimer=null;const SAVED_MS=2000;

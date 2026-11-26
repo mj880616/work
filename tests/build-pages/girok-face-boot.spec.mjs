@@ -252,13 +252,8 @@ test('girok 빌드 + 바탕 없음(기본 사용자) + 고친 이름 없음: 화
   expect(bad).toEqual({});
 });
 
-<<<<<<< HEAD
-// S67-57: 내 프로필의 기본 정보·담당 칸·주간 캘린더 칸·내 묶음(사용자 캡처의 칸들). 칸이 모두 그려질 때까지 기다린다.
-const PROFILE_PANELS = '#profileView .ps-panel:first-child, #psWorkplacePanel, #psReportPanel, #psCollabPanel';
-=======
 // S67-57: 내 프로필의 기본 정보·담당 칸·내 묶음(사용자 캡처의 칸들). 칸이 모두 그려질 때까지 기다린다(S71-34: 주간 캘린더 칸은 없앴다).
 const PROFILE_PANELS = '#profileView .ps-panel:first-child, #psWorkplacePanel, #psCollabPanel';
->>>>>>> origin/main
 async function openProfile(page) {
   await page.evaluate(() => window.KPTURouter.go('profile'));
   await expect(page.locator('#profileView')).toBeVisible();
