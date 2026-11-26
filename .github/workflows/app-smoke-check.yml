@@ -830,6 +830,8 @@ jobs:
         run: node --test tests/note-board-links-model.test.mjs
       - name: Check note board relation lines (S71-53 관계선)
         run: node --test tests/note-board-relation.test.mjs
+      - name: Check note board big map (S71-52 무한 판·좌표 범위·나무 계산 시간)
+        run: node --test tests/note-board-big-map.test.mjs
       - name: Check board hover band (S71-48 연결점 유지)
         run: node --test tests/hover-band.test.mjs
       - name: Check note board mindmap (S69-82 브레인스토밍·마인드맵)
