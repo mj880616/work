@@ -12,7 +12,7 @@ const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'
 // 얼굴 기능 전(main 7e50408) 메뉴 이름 그대로. 노동조합+ 얼굴에서는 한 글자도 달라지면 안 된다.
 const NOJO_MENU_LABELS = Object.freeze({
   home: '홈', basket: '잊지 말기', reading: '저장한 글', calendar: '일정', note: '노트', meetings: '사업 관리', library: '자료실', files: '파일',
-  brief: '브리핑 룸', team: '조직 관리', photos: '사진', outside: '읽을 거리', // S68-34(11/23 명진): News → 읽을 거리, 읽을 거리 → 저장한 글
+  brief: '브리핑 룸', team: '조직 관리', photos: '사진', outside: '읽을 거리', // S68-34(11/23 사용자): News → 읽을 거리, 읽을 거리 → 저장한 글
   calls: '통화', telegram: '텔레그램 소식', arsenal: '아스날'
 });
 
