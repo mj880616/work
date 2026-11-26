@@ -35,6 +35,9 @@
 //     기록에는 종류·열쇠·상태만(이름 없음). 메일·작업공간 id·기록 내용은 읽지 않는다.
 //   - 알림 줄(notices): 운영자에게만, 아직 열지 않은 새 가입(마지막으로 연 열쇠 뒤, 최근 7일)을 사용자 로그인으로 rpc app_signup_list
 //     (운영자만 — 서버가 다시 확인)에서 가입 시각만 읽어 '새 가입 n명' 한 줄. 이 종류만 보일 말(text)을 함께 준다.
+// S69-97 노트 알림 ②(note-alarm.ts, migration 20261125130000_note_alarm_push_kind): 같은 15분 예약이 노트에 건 알림 시각(metadata.alarm.at)이
+//   지난 36시간 안에 지난 노트마다 '노트 다시 보기' 하나(본문 없음, 누르면 그 노트). service_role 읽기는 id·workspace_id·alarm 칸만(제목·글 없음).
+//   열쇠 note:<노트 id>:<시각>으로 한 번만. 끄기(kinds.note=false → skipped_off)만 보고 조용한 시간은 보지 않는다(사람이 고른 시각). 노트에는 쓰지 않는다.
 // OUTSIDE-바깥성명 ⑥(S70-55 I-11, 명진 결정 11/25 "저녁 알림만"): 저녁 예약(slot=evening, 18:22 서울)에서 Now 한 줄('새 성명 n · 새 기사 n',
 //   now-line.ts)을 폰 알림 하나로 보낸다(종류 evening — DB 검사·설정 키·폰 앱 종류 목록에 이미 있음, 새 종류·새 저장소 없음).
 //   - 받는 곳: 운영자 기능 'outside' 작업공간 하나(rpc app_operator_feature_workspace, _shared/news-access.ts와 같은 판정). 화면 값은 받지 않는다.
@@ -48,6 +51,7 @@ import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from ".
 import { nowEveningCounts, nowEveningLine } from "./now-line.ts";
 import { NEWS_FEATURE, newsWorkspaceOf } from "../_shared/news-access.ts";
 import { remindNotePath, remindPatchPath, REMIND_OPEN, remindRef, remindWeek, weekPicks, withRemind } from "./family-remind.ts";
+import { dueByWorkspace, NOTE_KIND, NOTE_PER_WORKSPACE, NOTE_TITLE, noteAlarmPath, noteDecision, noteOpen } from "./note-alarm.ts";
 import { doneItems, NOTICE_LOG_KINDS, openPath, RECENT_DAYS, RECENT_LIMIT, recentRows, recentSince, REF_KEY, type DoneItem } from "./done-items.ts";
 
 type Env = (name: string) => string | undefined;
@@ -368,6 +372,52 @@ async function remindPush(db: Db, ids: string[], nowMs: number, sender: FcmSende
   return { sent, held, off };
 }
 
+// ---- 노트 알림(S69-97 ②, note-alarm.ts) ----------------------------------------------------------------------------
+
+const NOTE_CHUNK = 50; // 한 번 읽기에 넣는 작업공간 수(주소 길이)
+async function notePush(db: Db, ids: string[], nowMs: number, sender: FcmSender | null, log: Log) {
+  const out = { sent: 0, off: 0, failed: 0 };
+  if (!sender) return out;
+  const nowIso = new Date(nowMs).toISOString(), day = kstDay(nowMs);
+  const valid = ids.filter((v) => UUID.test(v));
+  for (let i = 0; i < valid.length; i += NOTE_CHUNK) {
+    const chunk = valid.slice(i, i + NOTE_CHUNK);
+    let due: Map<string, { id: string; ref: string }[]>;
+    try {
+      due = dueByWorkspace(await db.get(noteAlarmPath(chunk, nowMs)), chunk, nowMs);
+    } catch (e) {
+      log("note_push_failed", { stage: e instanceof Fail ? e.code : "INTERNAL" });
+      continue;
+    }
+    for (const [ws, notes] of due) {
+      try {
+        const logged = await db.get(`app_push_log?workspace_id=eq.${ws}&kind=eq.${NOTE_KIND}&ref_key=${inList(notes.map((n) => n.ref))}&select=ref_key,status&limit=${notes.length * 5 + 5}`);
+        const done = new Set(logged.filter((r) => ["sent", "failed", "skipped_off"].includes(String(r.status))).map((r) => r.ref_key));
+        const todo = notes.filter((n) => !done.has(n.ref)).slice(0, NOTE_PER_WORKSPACE); // 넘치면 다음 실행
+        if (!todo.length) continue;
+        const owners = (await db.get(`app_workspace_members?workspace_id=eq.${ws}&role=eq.owner&select=user_id&limit=2`)).map((r) => r.user_id).filter((v): v is string => typeof v === "string" && UUID.test(v));
+        if (owners.length !== 1) continue;
+        const prefs = (await db.get(`app_profiles?user_id=eq.${owners[0]}&select=notify_prefs&limit=1`))[0]?.notify_prefs ?? null;
+        if (noteDecision(prefs) === "skipped_off") {
+          for (const n of todo) await logPush(db, ws, NOTE_KIND, n.ref, day, "skipped_off");
+          out.off += todo.length;
+          continue;
+        }
+        const devices = (await activeDevices(db, ws)).slice(0, MAX_DEVICES);
+        if (!devices.length) continue;
+        for (const n of todo) {
+          const sent = await sendToDevices(db, sender, devices, { kind: NOTE_KIND, title: NOTE_TITLE, open: noteOpen(n.id), urgent: false }, nowIso);
+          await logPush(db, ws, NOTE_KIND, n.ref, day, sent.sent ? "sent" : "failed");
+          if (sent.sent) out.sent++; else out.failed++;
+        }
+      } catch (e) {
+        log("note_push_failed", { stage: e instanceof Fail ? e.code : "INTERNAL" });
+      }
+    }
+  }
+  return out;
+}
+
 // ---- 새 가입 알림(OPS-새가입알림 ②) ---------------------------------------------------------------------------------
 
 export const SIGNUP_FEATURE = "dev_inbox";
@@ -496,7 +546,8 @@ async function runSlot(db: Db, slot: string, nowMs: number, sender: FcmSender | 
     const fam = await familyPush(db, ids, nowMs, sender, log);
     const remind = await remindPush(db, ids, nowMs, sender, log);
     const signup = await signupPush(db, nowMs, sender, log);
-    return { ok: true, slot, workspaces: ids.length, sent: fam.sent + remind.sent + signup.sent, pruned: pruned.length, family: fam, remind, signup };
+    const note = await notePush(db, ids, nowMs, sender, log);
+    return { ok: true, slot, workspaces: ids.length, sent: fam.sent + remind.sent + signup.sent + note.sent, pruned: pruned.length, family: fam, remind, signup, note };
   }
   if (slot !== "evening") return { ok: true, slot, workspaces: ids.length, sent: 0, pruned: pruned.length };
   // 저녁: Now 한 줄('새 성명 n · 새 기사 n', now-line.ts)을 'outside' 작업공간에 폰 알림 하나로(줄 글은 응답·로그에 싣지 않음).

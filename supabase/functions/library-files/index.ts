@@ -24,10 +24,6 @@ import { fileNameTitle, isMeaninglessName } from '../_shared/library-file-name.m
 import { RECORD_LINE_INSTRUCTIONS, RECORD_LINE_SCHEMA, RECORD_LINE_TEXT_CHARS, checkRecordLine, recordLineKind } from './record-line.ts';
 import { withWebCors } from "../_shared/web-cors.ts";
 import { createDriveImport, parseImportRequest } from './drive-import.mjs';
-// S69-40: 드라이브 '자료실' 맨 위 파일 정리(판정·옮기기·휴지통·정리 대기·되돌리기). 명진이 누를 때만, 내 작업공간·내 구글 연결만, 파일 내용은 열지 않음.
-import { createTopFiles, parseTopFilesRequest } from './top-files.mjs';
-// S69-45: 같은 내용(md5 + 크기) 자료 정리 — 미리 보기·정리(자료실 휴지통 = 정리 폴더를 휴지통으로)·되돌리기. 명진이 누를 때만, 내 토큰(owner RLS)으로만.
-import { createSameContent, parseSameRequest } from './same-content.mjs';
 import { WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog } from "../_shared/safe-error.ts";
 // S69-20: 새 사용자 맨 위 드라이브 폴더 이름(이미 있는 폴더는 id로 찾고 이름을 바꾸지 않음).
@@ -268,29 +264,7 @@ Deno.serve(withWebCors(async(req:Request)=>{
         try{return json(req2.action==='folders'?await imp.folders():req2.action==='list'?await imp.list(req2.folderId):await imp.add(req2.folderId,req2.ids))}
         catch(e){if(e instanceof imp.ImportFail){const code=(e as any).code;return json({ok:false,error:code,code,message:code==='folder_invalid'?'고른 드라이브 폴더를 찾지 못했어요. 폴더를 다시 선택해 주세요.':'Google Drive 목록을 읽지 못했어요. 잠시 후 다시 해 주세요.'},(e as any).status)}throw e}
       }
-      if(typeof input?.action==='string'&&input.action.startsWith('top-files-')){
-        const req3=parseTopFilesRequest(input);
-        if(!req3)throw new UploadError('요청을 확인할 수 없습니다.',{code:'invalid_request'});
-        const wmTop=await workspaceFor(user.id);
-        const key=Deno.env.get('SUPABASE_ANON_KEY');
-        if(!key)throw new UploadError('지금은 정리할 수 없습니다.',{status:503,code:'top_files_unavailable',stage:'config',retryable:true});
-        const userDb=createClient(SB,key,{auth:{persistSession:false},global:{headers:{Authorization:'Bearer '+(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'')}}});
-        const token=await driveToken(wmTop.workspace_id);
-        const top=createTopFiles({admin,db:userDb,fetch,token,workspaceId:wmTop.workspace_id,userId:user.id,titleFor:(name:string)=>(!isMeaninglessName(name)&&fileNameTitle(name))||tidyFileTitle(name),classify,newBatch:()=>crypto.randomUUID().replace(/-/g,'').slice(0,20)});
-        try{return json(req3.action==='scan'?await top.scan():req3.action==='tidy'?await top.tidy(req3.batch):req3.action==='undo'?await top.undo(req3.batch):await top.waitAct(req3.fileId,req3.to))}
-        catch(e){if(e instanceof top.TopFail){const code=(e as any).code;return json({ok:false,error:code,code},(e as any).status)}throw e}
-      }
-      if(typeof input?.action==='string'&&input.action.startsWith('same-content-')){
-        const req4=parseSameRequest(input);
-        if(!req4)throw new UploadError('요청을 확인할 수 없습니다.',{code:'invalid_request'});
-        const wmSame=await workspaceFor(user.id);
-        const userDb=userDbFor(req);
-        if(!userDb)throw new UploadError('지금은 정리할 수 없습니다.',{status:503,code:'same_content_unavailable',stage:'config',retryable:true});
-        const token=await driveToken(wmSame.workspace_id);
-        const same=createSameContent({db:userDb,fetch,token,workspaceId:wmSame.workspace_id,userId:user.id});
-        try{return json(req4.action==='scan'?await same.scan():req4.action==='apply'?await same.apply(req4.groups):await same.undo(req4.undo))}
-        catch(e){if(e instanceof same.SameFail){const code=(e as any).code;return json({ok:false,error:code,code},(e as any).status)}throw e}
-      }
+      // S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [맨 위 파일 정리]·[같은 내용 자료 정리] 요청은 한 번 정리라 지웠다 — 아래 '지원하지 않는 작업'으로 거절.
       if(input?.action!=='previous-keep')throw new UploadError('지원하지 않는 작업입니다.',{code:'unsupported_request'});
       const wmKeep=await workspaceFor(user.id);
       return await previousKeep(wmKeep.workspace_id,input);
