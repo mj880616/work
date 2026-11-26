@@ -38,7 +38,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // BASKET-업데이트통합 PR 1: the home box has two modes, [업데이트 ▾] and [할 일]. [업데이트] with no place chosen is the old
   // [바구니] (a basket note, attachments allowed); with an organization or a project chosen it is that place's record, saved
   // through the same existing paths as before. toBasket() is that one rule; data-mode shows the effective kind (basket/update/task).
-  let mode='update',saving=false,expanded=false,focusIn=false,keyboardSeen=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]},bundleChoices=[];
+  let mode='update',saving=false,expanded=false,focusIn=false,keyboardSeen=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
   { const saved=basketOnly||taskOnly?null:viewPrefs.get('home_quick_mode'); mode=saved==='task'?'task':'update'; }
   if(taskOnly)mode='task';
   if(noteOnly)mode='note';
@@ -63,8 +63,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   const takesFiles=()=>noteOnly||mode==='update'||(mode==='task'&&taskFilesOn);
   // UPD-여러곳고르기: places is the list chosen on the 기록할 곳 sheet (in the order picked; empty is the basket).
   const currentPlaces=()=>places.map(p=>({...p}));
-  // The lists the 기록할 곳 sheet offers (REF-참고묶음: with the reference bundles at the bottom).
-  const placeChoices=()=>({projects:projectChoices,orgs:orgChoices,bundles:bundleChoices});
+  // The lists the 기록할 곳 sheet offers.
+  const placeChoices=()=>({projects:projectChoices,orgs:orgChoices});
   const setPlaces=list=>{places=placeList(list);};
   let taskAttempt=null,taskRequest=null,taskSequence=0,taskReading=false,taskSessionEpoch=window.KPTURuntime.session.epoch();
   let upload = createUploadBatch(),pickError='';
@@ -155,7 +155,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       // epoch and clear the flight). Read again for the new epoch and finish with that: returning here would let the sheet open with empty lists.
       if(run!==choiceEpoch){if(choicesFlight===flight)choicesFlight=null;return choices();}
       if(!read)return;
-      projectChoices=read.projects;orgChoices=read.orgs;bundleChoices=read.bundles||[];
+      projectChoices=read.projects;orgChoices=read.orgs;
       if(!projectChoices.some(x=>x.project.id===project))project='';
       places=keepPlaces(placeChoices(),places);
       paint();picker.render();

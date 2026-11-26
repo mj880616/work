@@ -1045,7 +1045,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     el.querySelector('button')?.focus({preventScroll: true});
   }
   const manual = mountManualLink({esc, rt, getNote:() => selected, getLinks:() => links, isBusy:() => busy, setBusy:lock,
-    onLinked:linked, onNoteChanged:() => reload(), onModeChange:() => paintMode(), onTaskRecorded:() => {}, sheetId:'noteLinkChoice'});
+    onLinked:linked, onNoteChanged:() => reload(), onModeChange:() => paintMode(), onTaskRecorded:() => {}});
 
   async function linked(noteId, targets) {
     for (const target of targets) {

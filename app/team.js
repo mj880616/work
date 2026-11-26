@@ -1,6 +1,5 @@
 import {waitHtml, emptyHtml, waitInlineHtml, failEl} from './wait-state.js';
 import {firstUseHtml} from './first-use.js'; // HELP-처음쓰는사람안내 ②: 사업영역도 사업 보고도 없을 때 사업 관리 목록 자리 안내
-import {openHelp} from './help-link.js';
 import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {formatMeetingTime,toMeetingISO,seoulParts,seoulDate,seoulDateKey,seoulClock} from './meeting-time.js';
@@ -24,6 +23,7 @@ let renderFilterChips,defaultReportAt,isPhotoFile,paintLocalPhotos,REPORT_VIEW_O
 import {within, isLoadTimeout} from './load-deadline.js';
 import {SPLIT_QUERY} from './screen-width.mjs'; // FOLD-넓은화면 2차: 사업 보고 '목록 | 결과' 칸 나누기 폭은 공용 판정 한 곳(600px~)
 import {word} from './brand/brand.mjs';
+import {mountScreenTools} from './screen-tools.js'; // BIZ-머리한줄: 사업 관리 첫 줄(#reportTop)을 폰·폴드 앱 머리 줄로
 import {registerScreenFind,refreshScreenFind,finderOf} from './screen-find.js'; // S70-57 UI-메뉴별검색: 맨 위 칸 '사업 관리에서 찾기'
 // FOLD-넓은화면 2차(S59-19, 요청함 11/06 01:18 ④): meetingPc = 칸 나누기(공용 판정 600px~ — 펼친 폴드·PC), meetingWide = [회의] 칸 세 칸(종류 | 차수 | 결과)을 쓰는 PC(1200px~, 홈 두 단·잊지 말기와 같은 경계),
 // meetingFramePc = 앱 틀이 PC(761px~)인지(아니면 폰 틀: 결과 칸은 아래 하단바만큼 짧게 붙는다, follow-pane.js narrow).
@@ -349,25 +349,27 @@ function pickWeek(from){reportWeek=from||null;reportWeekIn=todayWeek()}
 function weekMatch(list){return weekOn()?inReportWeek(list,currentWeek()):rangeOn()?inRange(list,reportRange.from,reportRange.to):list}
 function applyPeriodPref(){if(reportPeriodChosen)return;const p=periodFromPref(viewPrefs.get('report_period'));reportPeriod=p.mode;if(p.mode==='range')reportRange={from:p.from,to:p.to}}
 function setPeriod(mode,range=null){reportPeriodChosen=true;reportPeriod=mode;if(range)reportRange=range;periodPanel='';periodDraft=null;isoDraft=null;meetingSelectedId=null;viewPrefs.set('report_period',prefFromPeriod({mode,...(mode==='range'?reportRange:{})}),{rejectable:true});renderMeetings({resetList:true})}
-function renderReportWeek(){const host=$('#reportWeekFilter'),bar=host?.parentElement,pickHost=$('#reportPeriodPick');if(!host)return;const show=reportView==='list'&&meetings.length>0;if(bar)bar.hidden=!show;if(pickHost)pickHost.hidden=!show;if(!show){host.innerHTML='';if(pickHost)pickHost.innerHTML='';paintReportFilterChip();return}
-  const mode=rangeOn()||reportPeriod!=='range'?reportPeriod:'all',list=filterByReportKind(meetings,reportChip),inList=mode==='week'?inReportWeek(list,currentWeek()):mode==='range'?inRange(list,reportRange.from,reportRange.to):list,none=undatedCount(inList),n=inList.length-none,count=`<small class="report-week-count"><span class="rw-sep">· </span>${n}건${none?`<span class="rw-none"> · ${NO_WHEN} ${none}</span>`:''}</small>`;
+// BIZ-머리한줄(S71-23, 사용자 11/26 "시안 한줄 좋아"): 첫 줄(#reportTop — 폰·폴드는 앱 머리 줄, PC는 화면 안 한 줄)에는 건수만('n건', 정한 기간이면 기간 글자·×도).
+// 주 넘기기 ‹ 11.23~11.29 ›는 아래 '이번 주 주간 보고' 상자 제목 줄로 옮겼다 — 글자는 여기서 만들어 상자에 넘기고(syncWeekBox → weekly-summary-table.js가 놓기만), 누름도 여기서 받는다.
+// 주 상태(reportWeek 등)의 주인은 그대로 이 파일 하나다. 기간 정하기·주차 고르기 작은 창은 첫 줄 아래 칸(#reportWeekFilter)에.
+let weekNavHtml='';
+function renderReportWeek(){const host=$('#reportWeekFilter'),bar=host?.parentElement,pickHost=$('#reportPeriodPick'),countEl=$('#reportCount');if(!host)return;const show=reportView==='list'&&meetings.length>0;if(pickHost)pickHost.hidden=!show;if(countEl)countEl.hidden=!show;
+  if(!show){host.innerHTML='';if(bar)bar.hidden=true;if(pickHost)pickHost.innerHTML='';if(countEl)countEl.innerHTML='';weekNavHtml='';paintReportFilterChip();return}
+  const mode=rangeOn()||reportPeriod!=='range'?reportPeriod:'all',list=filterByReportKind(meetings,reportChip),inList=mode==='week'?inReportWeek(list,currentWeek()):mode==='range'?inRange(list,reportRange.from,reportRange.to):list,none=undatedCount(inList),n=inList.length-none,count=`<span class="report-week-count">${n}건${none?`<span class="rw-none"> · ${NO_WHEN} ${none}</span>`:''}</span>`;
   const thisWeek=weekOf(seoulDateKey()).from,numbered=mode==='week'&&weekNumbered,away=mode==='week'&&(currentWeek()!==thisWeek||numbered),held=mode==='range'&&!periodPanel,value=periodPanel||(away||held?'':mode);
-  // BIZ-위쪽정돈(B안, 11/09): 기간 고르기 상자는 둘째 줄(회의·사업영역 옆), 주 넘기기 ‹ ›는 셋째 줄. 주를 고르는 곳은 이 한 곳이고 '이번 주 주간보고' 칸도 이 주를 따른다.
   const pick=`<select class="report-top-select report-period-select" data-report-period aria-label="기간 선택"><option value="" hidden>${held?'정한 기간':numbered?weekNumberName(currentWeek()):'주 단위'}</option>${PERIOD_CHOICES.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>`;
-  let nav='';
-  if(mode==='week')nav=`<button type="button" class="icon-btn" data-report-week="prev" aria-label="이전 주">‹</button><span class="report-week-label" aria-live="polite">${numbered?`${weekNumberName(currentWeek())} · `:''}${weekLabelHtml(currentWeek())}</span><button type="button" class="icon-btn" data-report-week="next" aria-label="다음 주">›</button>${count}`;
-  else if(mode==='all')nav=`<span class="report-week-label" aria-live="polite">전체</span>${count}`;
-  else nav=`<span class="report-week-label" aria-live="polite">${esc(rangeLabel(reportRange.from,reportRange.to))}</span><button type="button" class="icon-btn report-period-x" data-report-week="clear" aria-label="기간 삭제">×</button>${count}`;
+  // 상자 제목 줄의 주 넘기기: 날짜는 요일 없이 '11.23~11.29'(시안). 주차 고르기로 고른 주면 앞에 'n주차 · '.
+  weekNavHtml=mode==='week'?`<button type="button" class="icon-btn" data-report-week="prev" aria-label="이전 주">‹</button><span class="report-week-label" aria-live="polite">${numbered?`${esc(weekNumberName(currentWeek()))} · `:''}${esc(reportWeekLabel(currentWeek()).replace(/\(.\)/g,''))}</span><button type="button" class="icon-btn" data-report-week="next" aria-label="다음 주">›</button>`:'';
+  const lead=mode==='range'?`<span class="report-week-label">${esc(rangeLabel(reportRange.from,reportRange.to))}</span><button type="button" class="icon-btn report-period-x" data-report-week="clear" aria-label="기간 삭제">×</button>`:'';
+  if(countEl)countEl.innerHTML=lead+count;
   let panel='';
   if(periodPanel==='range')panel=rangePanelHtml(periodDraft||(periodDraft=reportRange?{...reportRange,key:''}:{from:'',to:'',key:''}),quickRanges(seoulDateKey(),meetings));
   else if(periodPanel==='isoweek')panel=weekNumberPanelHtml(isoDraft||(isoDraft=isoPick(weekOn()?currentWeek():thisWeek)),seoulDateKey(),firstReportDay());
-  // 작은 창은 기간 고르기 상자(둘째 줄) 바로 아래, 주 줄 위.
-  host.innerHTML=`${panel}<div class="report-week-nav">${nav}</div>`;
+  // 작은 창은 첫 줄 바로 아래 칸 하나(열린 동안만 보임).
+  host.innerHTML=panel;if(bar)bar.hidden=!panel;
   if(pickHost){pickHost.innerHTML=pick;const sel=pickHost.querySelector('[data-report-period]');sel.value=value;sel.classList.toggle('is-on',mode!=='week'||away)}
   paintReportFilterChip();
 }
-// S71-10(명진 11/26 '한 줄에 우겨넣고 싶어'): 주 줄은 첫 줄 안에 선다. 요일 '(월)'·'(일)'은 따로 감싸, 줄이 모자라면 report-filter-chip.js가 .report-top에 붙이는 단계(is-week-short)에서 빠진다(글자 원문은 그대로).
-const weekLabelHtml=from=>esc(reportWeekLabel(from)).replace(/\((.)\)/g,'<span class="rw-dow">($1)</span>');
 const isoPick=from=>{const w=isoWeekOf(from);return {year:w.year,week:w.week}};
 function firstReportDay(){let first='';for(const m of meetings){const d=reportDayOf(m);if(d&&(!first||d<first))first=d}return first}
 function reportWeekClick(e){
@@ -386,6 +388,11 @@ function reportWeekClick(e){
     else if(to==='week'||to==='clear'){weekNumbered=false;setPeriod('week')}
     else{pickWeek(shiftDays(currentWeek(),to==='next'?7:-7));meetingSelectedId=null;renderMeetings({resetList:true})}
   }))renderReportWeek()}
+// BIZ-머리한줄: 상자 제목 줄의 ‹ ›(weekly-summary-table.js가 놓은 글자) 누름. 다시 그린 뒤 같은 쪽 단추로 초점을 돌려 키보드로 이어 넘길 수 있게.
+function reportWeekBoxClick(e){const b=e.target.closest?.('[data-report-week]');if(!b)return;const to=b.dataset.reportWeek;reportWeekClick(e);if(to==='prev'||to==='next')$(`#bizWeekBox [data-report-week="${to}"]`)?.focus({preventScroll:true})}
+// BIZ-머리한줄: 첫 줄(#reportTop)은 폰·폴드(~760px)에서 앱 머리 줄 [W 사업 관리] 오른쪽으로 가고(공용 자리 screen-tools.js), PC는 화면 안 한 줄 그대로.
+// [+](.report-head-actions)는 머리 줄에서 찾기 오른쪽 맨 끝에 따로 선다(SAVED-머리한줄 '… · 찾기 · [+]', S71-43 — screen-tools.js {end}).
+function mountReportTop(){const el=$('#reportTop');if(el)mountScreenTools('meetings',el,{wide:false,end:el.querySelector('.report-head-actions')})} // 정적 불러오기: 화면이 보이기 전에 자리를 정해 첫 줄이 화면 안에 잠깐 보였다 옮겨 가지 않게
 function reportPeriodPick(e){const sel=e.target.closest?.('[data-report-period]');if(!sel)return;const to=sel.value;
   if(to==='range'||to==='isoweek'){periodPanel=to;periodDraft=null;isoDraft=null;renderReportWeek();return}
   if(!leaveReport(()=>{weekNumbered=false;if(to==='all')setPeriod('all');else if(to==='week'){pickWeek(null);setPeriod('week')}}))renderReportWeek()}
@@ -458,7 +465,7 @@ const areaNone=()=>areaCount()===0;
 // 사업영역 수는 공용 목록(areaCount, 사업영역 관리 창에서 만들면 바로 바뀜)으로 본다. 모르면(null) 안내를 내지 않는다.
 const meetingsEmpty=()=>areaCount()===0&&!meetings.length;let meetingsEmptyDrawn=false;
 function syncWeekBox(){const el=$('#bizWeekBox');if(!el)return;/* BIZ-빈표잠깐보임다시: 칸은 사업영역 수를 안 뒤에만 보인다(모르면 보이지 않음). 보일 때는 부품이 같은 순간에 그린다 —
- 사업영역이 있으면 표 모양 자리 → 표(BIZ-주간칸밀림), 0개면 안내 한 줄. 칸 안을 그리는 곳은 부품(weekly-summary-table.js) 하나, index.html에는 표 모양이 없다. */ const n=areaCount();el.hidden=reportView!=='list'||n===null||!weekBoxKit||meetingsEmpty();if(weekBoxFailed&&!weekBoxKit&&reportView==='list'){weekBoxFailed=false;toast('주간 보고 칸을 열지 못했어요.')}if(el.hidden)return;const many=!weekOn(),week=many?todayWeek():currentWeek();weekBoxKit.mountWeekSummary(el,{meetings:()=>meetings,week,fold:many,auto:weekAuto,visit:weekVisit,onFold:weekBoxFolded,areas:areaCount})}
+ 사업영역이 있으면 표 모양 자리 → 표(BIZ-주간칸밀림), 0개면 안내 한 줄. 칸 안을 그리는 곳은 부품(weekly-summary-table.js) 하나, index.html에는 표 모양이 없다. */ const n=areaCount();el.hidden=reportView!=='list'||n===null||!weekBoxKit||meetingsEmpty();if(weekBoxFailed&&!weekBoxKit&&reportView==='list'){weekBoxFailed=false;toast('주간 보고 칸을 열지 못했어요.')}if(el.hidden)return;const many=!weekOn(),week=many?todayWeek():currentWeek();weekBoxKit.mountWeekSummary(el,{meetings:()=>meetings,week,fold:many,auto:weekAuto,visit:weekVisit,onFold:weekBoxFolded,areas:areaCount,nav:weekOn()?weekNavHtml:''})}
 // 사업영역 공용 목록이 늦게 읽히거나 바뀌면(다른 화면이 먼저 읽음·사업영역 관리 창) 칸만 다시 맞춘다 — 목록이 오기 전에는 위에서 칸을 보이지 않았다.
 window.addEventListener('kptu:project-catalog-updated',()=>{if(workspace?.id&&teamViewLoaded.has('meetings')&&reportKitLoaded){syncWeekBox();if(meetingsEmptyDrawn!==meetingsEmpty())renderMeetings()}});
 // MENU-자리나머지: 달력·사진·목록 줄에서 연 보고 메뉴(창 밖, meeting-round-detail.js outsideMenu)는 다시 그린 뒤 같은 보고의 새 줄에 붙고, 그 줄이 없어지면 닫힌다(공용 keepMenus).
@@ -718,7 +725,8 @@ async function settleOpenEntry(opts={}){
   return true;
 }
 // 다른 화면(프로젝트·담당조직·캘린더·바구니·[+ 추가])이 사업 보고 입력 창을 여는 길: 화면을 불러온 뒤 칸 고르기(또는 정해진 칸) → 채워진 입력 창.
-window.KPTUReportEntry={open:async(opts={})=>{
+// pick(trigger): 사업 관리 [+] › [새 사업 보고]와 같은 길(칸 고르기 '어느 칸에 남길까요?' → 쓰기 창). 맨 위 [+ 추가] › 사업 보고가 쓴다(BIZ-머리한줄).
+window.KPTUReportEntry={pick:trigger=>newReport(trigger),open:async(opts={})=>{
   if(!workspace?.id)return false;
   await loadForView('meetings');
   // REC-한회의로잇기 PR-0: 입력 창이 이미 열려 있으면 그 창부터 끝낸다(쓰던 글이 있으면 먼저 묻고, 두기로 하면 false — 연 쪽은 결과를 제자리에 둔다).
@@ -772,7 +780,7 @@ function bind(){
  $('#bootRetryBtn').onclick=()=>{try{window.KPTUAppShell?.postMessage?.('reopen:mark:retry')}catch{}location.reload()};$('#bootLogoutBtn').onclick=logout;$('#accessDeniedLogoutBtn').onclick=logout;
  document.addEventListener('click',async e=>{const b=e.target.closest('button,a');if(!b)return;if(b.dataset.close){if(b.dataset.close==='meetingModal')void requestMeetingClose();else closeModal(b.dataset.close);return}});
  if(window.KPTURouter?.on)window.KPTURouter.on('calendar',()=>{renderCalendar();if(googleState.connected)window.KPTUCalendarPersistence?.refresh?.()});
- if($('#homeAddEvent'))$('#homeAddEvent').onclick=openEventModal;$('#newEventBtn').onclick=openEventModal;$('#newDocumentBtn').onclick=openDocumentModal;$('#newMeetingBtn').onclick=e=>newReport(e.currentTarget);bindReportMore();$('#meetingPlaces').onclick=e=>void choosePlaces(e.currentTarget);$('#meetingList')?.addEventListener('click',meetingListClick);$('#meetingList')?.addEventListener('contextmenu',e=>void meetingListMenu(e));$('#reportWeekFilter')?.addEventListener('click',reportWeekClick);$('#reportWeekFilter')?.addEventListener('input',reportPeriodInput);$('#reportWeekFilter')?.addEventListener('change',reportPeriodPick);$('#reportPeriodPick')?.addEventListener('change',reportPeriodPick);$('#areaUntaggedLine')?.addEventListener('click',untaggedClick);$('#meetingsView .report-kind-bar')?.addEventListener('change',reportSelectChange);$('#meetingList')?.addEventListener('keydown',meetingKindKeys);
+ if($('#homeAddEvent'))$('#homeAddEvent').onclick=openEventModal;$('#newEventBtn').onclick=openEventModal;$('#newDocumentBtn').onclick=openDocumentModal;bindReportAdd();$('#meetingPlaces').onclick=e=>void choosePlaces(e.currentTarget);$('#meetingList')?.addEventListener('click',meetingListClick);$('#meetingList')?.addEventListener('contextmenu',e=>void meetingListMenu(e));$('#reportWeekFilter')?.addEventListener('click',reportWeekClick);$('#reportCount')?.addEventListener('click',reportWeekClick);$('#bizWeekBox')?.addEventListener('click',reportWeekBoxClick);mountReportTop();$('#reportWeekFilter')?.addEventListener('input',reportPeriodInput);$('#reportWeekFilter')?.addEventListener('change',reportPeriodPick);$('#reportPeriodPick')?.addEventListener('change',reportPeriodPick);$('#areaUntaggedLine')?.addEventListener('click',untaggedClick);$('#meetingsView .report-kind-bar')?.addEventListener('change',reportSelectChange);$('#meetingList')?.addEventListener('keydown',meetingKindKeys);
  $('#meetingRoundNo').oninput=()=>{meetingRoundEdited=true};$('#meetingRoundNo').addEventListener('change',paintEntryKind);
  $('#saveDocumentBtn').onclick=saveDocument;$('#saveMeetingBtn').onclick=saveMeeting;$('#meetingFiles').onchange=selectMeetingFiles;$('#meetingPickFiles').onclick=e=>openMeetingAddMenu(e.currentTarget);bindDropTarget($('#meetingModal .modal-card'),addMeetingFiles,()=>!meetingSavePending);$('#meetingSelectedFiles').addEventListener('click',removeMeetingFile);$('#meetingPhotoFiles').onchange=selectMeetingPhotos;$('#meetingPickPhotos').onclick=()=>$('#meetingPhotoFiles').click();$('#meetingSelectedPhotos').addEventListener('click',removeMeetingFile);
  
@@ -785,22 +793,30 @@ window.__KPTU_TEAM_READY__=init().then(result=>{const state=result==='error'?'er
 
 // MEET-결과3단: 오른쪽 후속 할 일은 할 일·회의가 바뀌거나 회의 결과 창을 닫으면 다시 읽는다(창 안에서 고친 할 일 반영).
 window.addEventListener('kptu:documents-changed',()=>{if(workspace?.id&&teamViewLoaded.has('meetings'))reload(['documents'],renderMeetings).catch(err=>console.error('meeting document count refresh failed',err))});
-/* BIZ-버튼줄정리(10/29 시안 B): 사업 보고 위쪽 줄 ⋯ 메뉴 — 사업영역 관리(WEEKLY-메뉴짝짓기 P5: [사업요약표 미리보기]는 위 접는 칸 '이번 주 주간보고'로 옮김). 공용 메뉴 부품(anchored-menu.js: ⋯ 바로 아래 오른쪽 맞춤,
-   바깥 누르기·Esc·뒤로가기로 닫힘)과 공용 글자 줄 모양(.topline-add-menu). 미리보기는 ⋯를 기준 자리로 연다(전에는 줄의 [사업요약표 미리보기] 버튼).
-   [사업영역 관리]는 메뉴가 닫힌 뒤 사업 보고 위의 창으로 연다(area-window.js, MTG-프로젝트합치기 ①: 닫으면 보던 주·거르기 그대로). */
-function bindReportMore(){
-  const more=$('#reportMore');if(!more||more.dataset.reportMoreBound)return;more.dataset.reportMoreBound='1';
-  // HELP-처음쓰는사람안내 ②: 빈 화면 안내의 [+ 사업영역]은 ⋯ › 사업영역 관리와 같은 창을 연다.
+/* BIZ-머리한줄(S71-23, 사용자 11/26 "녹음은 + 에 넣고 / 쓰는 법 여기 있을 필요 없고 사업영역 관리도 + 안에 있어도 됨 다른 거랑 좀 구분되기만 하면"):
+   첫 줄 [+] 메뉴 = [새 사업 보고][녹음] / 구분선 / [사업영역 관리](옅은 글자). 예전 첫 줄 [녹음]·⋯(사업영역 관리·쓰는 법)는 없앴다.
+   공용 메뉴 부품(anchored-menu.js: [+] 바로 아래, 바깥 누르기·Esc·뒤로가기로 닫힘)과 공용 글자 줄 모양(.topline-add-menu).
+   [새 사업 보고]는 예전 [+]와 같다(칸 고르기 → 쓰기 창). [녹음]은 녹음기가 쓸 수 있을 때만 보이고, 모양·시작은 녹음기 모듈이 정한다
+   (노트북 meeting-recorder.js·폰 앱 phone-recorder.js의 recordItem·start — 이 메뉴는 읽기만). [사업영역 관리]는 메뉴가 닫힌 뒤 사업 보고 위의 창(area-window.js). */
+function recorderItem(){
+  const phone=window.KPTUPhoneRecorder,laptop=window.KPTUMeetingRecorder;
+  for(const r of [phone,laptop]){const it=r?.recordItem?.();if(it?.shown)return {...it,start:()=>r.startRecord?.()}}
+  return null;
+}
+function bindReportAdd(){
+  const add=$('#newMeetingBtn');if(!add||add.dataset.reportAddBound)return;add.dataset.reportAddBound='1';
+  // HELP-처음쓰는사람안내 ②: 빈 화면 안내의 [+ 사업영역]은 [+] › 사업영역 관리와 같은 창을 연다.
   $('#meetingsView')?.addEventListener('click',e=>{const b=e.target.closest?.('[data-fu-action="meetings"]');if(b)window.KPTUAreaWindow?.open?.({trigger:b})});
-  let menu=null;
-  more.addEventListener('click',async()=>{
+  let menu=null,rec=null;
+  add.addEventListener('click',async()=>{
     if(!menu){const {createAnchoredMenu}=await import('./anchored-menu.js');
-      menu=createAnchoredMenu({id:'reportMoreMenu',className:'topline-add-menu report-more-menu',label:word('사업 관리 더 보기'),historyKey:'kptuReportMore',key:()=>'report',
-        render:()=>word('<button type="button" data-report-areas>사업영역 관리</button><button type="button" class="row-act" data-help-open="meetings">쓰는 법</button>'),
+      menu=createAnchoredMenu({id:'bizAddMenu',className:'topline-add-menu biz-add-menu',label:word('사업 관리 추가'),historyKey:'kptuBizAdd',key:()=>'report',
+        render:()=>{rec=recorderItem();return word('<button type="button" class="row-act" data-report-new>새 사업 보고</button>')+(rec?`<button type="button" class="row-act" data-report-rec${rec.disabled?' disabled':''} aria-pressed="${rec.pressed?'true':'false'}">${esc(rec.label||'녹음')}</button>`:'')+word('<hr class="biz-add-sep" role="separator"><button type="button" class="row-act biz-add-quiet" data-report-areas>사업영역 관리</button>')},
         onAction:(b,{trigger})=>{
+          if(b.matches('[data-report-new]'))return void newReport(trigger);
+          if(b.matches('[data-report-rec]'))return void rec?.start?.();
           if(b.matches('[data-report-areas]'))return void window.KPTUAreaWindow?.open?.({trigger});
-          if(b.matches('[data-help-open]'))return void openHelp('meetings');
         }});}
-    menu.open(more);
+    menu.open(add);
   });
 }
