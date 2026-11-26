@@ -4,6 +4,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { expandLibraryTree } from './helpers/library-tree.mjs';
 import { start, openFiles } from './helpers/files-server.mjs';
+import { screenFind } from './helpers/screen-find.mjs';
 
 // LIB-사진숨김나머지(S61-1, 명진 결정 11/13 "모두 숨김"): #2448이 남겨 둔 곳도 같은 규칙 — 사진은 줄에서 빼고 목록 맨 아래 [사진 n] 하나,
 // 누르면 그 자리에 작은 그림, 그림을 누르면 크게 보기. 자료실 '최근 올린 파일', [파일] '최근' 상자·별표·큰 파일 묶음·찾기 결과.
@@ -144,7 +145,7 @@ test('파일 1280: 별표·큰 파일 묶음과 찾기 결과의 사진도 맨 �
   await expect(list.locator('[data-fx-row="od:OD!33"]')).toHaveCount(0);
   await expect(list.locator('[data-fx-photos]')).toHaveText('사진 1');
   // 찾기: '가짜'로 찾으면 사진 2장은 [사진 2](개수 줄은 찾은 것 전체 그대로).
-  await page.locator('#filesRoot [data-fx-search]').fill('가짜');
+  await (await screenFind(page)).fill('가짜');
   await expect(list.locator('[data-fx-row="od:OD!11"]')).toBeVisible();
   await expect(list.locator('[data-fx-row="od:OD!20"]')).toHaveCount(0);
   await expect(list.locator('[data-fx-photos]')).toHaveText('사진 2');

@@ -297,7 +297,7 @@ test('meeting material upload attempts every selected file and reports partial f
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
   // MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기와 같은 library-files 요청으로 올린다(meeting_id 칸으로 연결).
-  await page.route(`${SB}/functions/v1/library-files**`,async route=>{
+  await page.route(`${SB}/functions/v1/library-files**`,async route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     uploadCount++;
     if(uploadCount===2)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'upload failed'})});
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,document:{id:'00000000-0000-4000-8000-00000000000'+uploadCount,meeting_id:'meeting-files'}})});

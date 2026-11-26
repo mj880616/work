@@ -18,7 +18,7 @@ for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글
     await press(page,page.locator('#libraryTopMenuBtn'),width);
     // S69-28 LIB-한칸탐색기: 넓은 화면 폴더 보기 한 칸(탐색기)은 펼칠 묶음이 없어 [모두 펴기]가 없다.
     const wide=width>=600;
-    await expect(page.locator('#luTopMenu button')).toHaveText(['새 폴더',...(width<761?[]:['폴더 업로드']),'정돈 제안','드라이브에서 가져오기','여러 개 선택',...(wide?[]:['모두 펴기']),'쓰는 법']); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래. S69-23: [폴더 업로드]는 PC만
+    await expect(page.locator('#luTopMenu button')).toHaveText(['새 폴더',...(width<761?[]:['폴더 업로드']),'정돈 제안','여러 개 선택',...(wide?[]:['모두 펴기']),'쓰는 법']); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래. S69-23: [폴더 업로드]는 PC만
     await page.keyboard.press('Escape');await expect(page.locator('#luTopMenu')).toBeHidden();
     // 모두 펴기 ↔ 모두 접기.
     if(!wide){await libraryTopMenu(page,'expand',{tap:width<761});await expect(page.locator('#documentList details[data-lu-node]:not([open])')).toHaveCount(0);

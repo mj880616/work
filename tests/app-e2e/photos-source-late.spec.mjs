@@ -50,7 +50,7 @@ test.describe('폰 앱 412 · 늦은 출처', () => {
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1', 'ph:2', 'O2', 'O3', 'ph:4']);
     // 원드라이브 끄기 → 폰 사진만.
-    await page.locator('#photosRoot [data-photos-src="onedrive"]').click();
+    await page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]').click();
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'ph:2', 'ph:9', 'ph:4']);
     await expect(page.locator('#photosRoot [data-photos-tidy]')).toBeHidden();
     expect(state.errors).toEqual([]);

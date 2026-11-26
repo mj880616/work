@@ -645,21 +645,6 @@
 .lu-row-brief{flex:1 0 100%;order:9;min-width:0;margin-top:-2px;padding-left:2px;line-height:1.35;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #appView #libraryView #documentList .lu-row .lu-row-brief{grid-column:1/-1}
 /* S69-25 LIB-드라이브에서가져오기: 받는 폴더 나누기와 같은 창 모양 + 드라이브 폴더 경로 묶음·파일 한 줄(촘촘하게) */
-#libraryDriveImportModal .lu-di-card{max-width:600px;width:calc(100vw - 24px);display:flex;flex-direction:column;max-height:min(86vh,760px)}
-#libraryDriveImportModal .lu-di-sub{margin:2px 0 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-#libraryDriveImportModal .lu-di-from{display:flex;align-items:center;gap:8px;padding:4px 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-#libraryDriveImportModal .lu-di-from select{flex:1 1 auto;min-width:0;max-width:340px}
-#libraryDriveImportModal .lu-di-list{overflow:auto;min-height:60px;flex:1 1 auto;border-top:1px solid var(--kptu-border)}
-#libraryDriveImportModal .lu-di-group>summary{display:flex;align-items:center;gap:6px;padding:5px 2px;border-bottom:1px solid var(--kptu-border);cursor:pointer;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-#libraryDriveImportModal .lu-di-group>summary input,#libraryDriveImportModal .lu-di-row input{flex:none;width:16px;height:16px;margin:0}
-#libraryDriveImportModal .lu-di-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-ink)}
-#libraryDriveImportModal .lu-di-count{flex:none;font-variant-numeric:tabular-nums}
-#libraryDriveImportModal .lu-di-row{display:flex;align-items:center;gap:6px;padding:4px 2px 4px 18px;border-bottom:1px solid var(--kptu-border);font-size:var(--ds-text-body,14px);cursor:pointer}
-#libraryDriveImportModal .lu-di-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#libraryDriveImportModal .lu-di-meta{flex:none;color:var(--kptu-muted);font-size:11px;font-variant-numeric:tabular-nums}
-#libraryDriveImportModal .lu-di-note{flex:none;padding:0 6px;border:1px solid var(--kptu-border);border-radius:999px;color:var(--kptu-muted);font-size:11px}
-#libraryDriveImportModal .lu-di-empty,#libraryDriveImportModal .lu-di-hint{margin:8px 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
-@media (max-width:600px){#libraryDriveImportModal .lu-di-row{flex-wrap:wrap;padding-left:10px}#libraryDriveImportModal .lu-di-meta{flex-basis:100%;padding-left:22px}}
 
 /* S69-28 LIB-한칸탐색기: 탐색기 칸(목록)의 하위 폴더 줄은 펼치지 않고 들어가는 줄 — 펼침 표시 없이 닫힌 폴더 그림만, 줄 모양은 폴더 줄 그대로.
    폰 '그 폴더만' 위치 줄 끝의 지금 폴더 이름(상자 머리 대신 한 번). */
