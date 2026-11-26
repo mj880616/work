@@ -941,7 +941,7 @@ function nestedFolders(extra = 0) {
 }
 // PC HTML 끌기: from 줄을 잡아 to 줄 가운데로. beforeUp(): 놓기 직전(표시가 뜬 뒤) 할 일.
 async function dragRow(page, fromSel, toSel, { beforeUp = null } = {}) {
-  const a = await rectOf(page, fromSel);
+  const a = await namePoint(page.locator(fromSel).first()); // S71-45: 줄 옮기기는 이름 글자를 잡고(S12)
   await page.mouse.move(a.x, a.y); await page.mouse.down();
   await page.mouse.move(a.x + 4, a.y + 6, { steps: 3 });
   const b = await rectOf(page, toSel);
@@ -1996,7 +1996,7 @@ for (const [name, open] of T10_SCREENS.slice(0, 3)) test(`T10 ${name} PC 1280: �
   const B = s.row(s.B);
   await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
   await expect(s.drag.from).toBeVisible();
-  await s.drag.from.hover();
+  await s.drag.from.hover({ position: await nameSpot(s.drag.from) }); // S71-45: 이름 글자를 잡고(S12)
   await page.mouse.down();
   const b = await t10Name(B).boundingBox();
   await page.mouse.move(b.x + 40, b.y + b.height / 2, { steps: 8 });

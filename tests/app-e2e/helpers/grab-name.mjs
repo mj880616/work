@@ -4,13 +4,25 @@
 export const NAME_SEL = '.fx-name, .lu-row-title, .lu-node-name';
 
 // 줄 상자 안 기준의 '이름 글자 첫머리' 자리(sourcePosition 모양).
+// 줄이 막 다시 그려지는 중이면(옛 줄이 빠져 크기 0) 그려질 때까지 잠깐 기다려 다시 잰다.
 export async function nameSpot(row, sel = NAME_SEL) {
+  for (let i = 0; i < 20; i++) {
+    const p = await nameSpotOnce(row, sel);
+    if (p) return p;
+    await row.page().waitForTimeout(50);
+  }
+  const b = await row.boundingBox();
+  return { x: b.width / 2, y: b.height / 2 };
+}
+async function nameSpotOnce(row, sel) {
   return row.evaluate((el, sel) => {
     const r = el.getBoundingClientRect(), n = el.matches(sel) ? el : el.querySelector(sel);
+    if (!el.isConnected || !(r.width > 0 && r.height > 0)) return null;
     if (!n || !n.getClientRects().length) return { x: r.width / 2, y: r.height / 2 };
     const range = document.createRange(); range.selectNodeContents(n);
     const t = range.getBoundingClientRect(), b = n.getBoundingClientRect();
     const left = Math.max(t.left, b.left), right = Math.min(t.right, b.right), top = Math.max(t.top, b.top), bottom = Math.min(t.bottom, b.bottom);
+    if (!(right > left && bottom > top)) return null;
     return { x: left + Math.min(8, Math.max(1, (right - left) / 2)) - r.left, y: (top + bottom) / 2 - r.top };
   }, sel);
 }
