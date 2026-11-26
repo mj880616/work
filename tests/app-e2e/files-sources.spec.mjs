@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // FILES-출처켜고끄기 + FILES-두드라이브나무(S49-21, 요청함 11/04 07:34): [파일] 위 줄 출처 아이콘 [원드라이브][구글 드라이브] 켜기/끄기(서버 view_prefs.files_sources),
 // S49-26(명진 결정 H-8): 켜고 끄기 기억은 기기 종류마다 따로(files_sources.app / .phone / .pc) — 412는 폰 브라우저, 884·1440은 PC 칸.
 // 켜진 두 드라이브가 맨 위 줄로 나란히 있는 폴더 나무(폰 [폴더] 탭 포함), 펼치기 2단계 이상, 폴더 눌러 들어가기, 모두 끔 안내. 파일·폴더 이름은 모두 가짜.
@@ -96,8 +97,11 @@ for (const width of [412, 884, 1440]) {
       await twist(page, 'od:OD!1').click();
       await expect(twist(page, 'od:OD!1')).toHaveAttribute('aria-expanded', 'false');
       await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!1"]')).toBeVisible();
+      // TREE-펼치기먼저(S70-81): 닫힌 폴더 이름 첫 누르기 = 펼치기만(오른쪽 그대로), 다시 = 그 폴더 열기.
       await nameBtn.click();
       await expect(twist(page, 'od:OD!1')).toHaveAttribute('aria-expanded', 'true');
+      await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!1"]')).toBeVisible();
+      await treeEnter(nameBtn);
       await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
     }
 
