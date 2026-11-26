@@ -189,6 +189,8 @@ test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 �
 
 test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [옮기기][수정][삭제](S70-65, 고정은 ⋯), 오른쪽 끝까지 밀면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
   const f = await notesList(page, 412);
+  // 휴지통에서 되돌리면 서버 목록에도 다시 있다(업데이트 줄 시험과 같음) — 되돌린 뒤 다시 읽어도 두 줄 그대로.
+  f.trash.onRestore = row => { const { link_count, deleted_at, ...back } = row; f.rows.push(back); };
   page.on('dialog', d => { throw new Error('묻지 않아야 함: ' + d.message()); });
   await swipe(page.locator('[data-note-row="n-two"]'), -50);
   const cells = page.locator('[data-note-list] [data-row-swipe-act="end"]');
@@ -210,9 +212,14 @@ test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [옮기기][수정][삭제]
   await expect.poll(() => f.trash.restored).toEqual(['n-one']);
   // 오른쪽 끝까지: 칸 없이(S70-64) 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(새 고르기 줄을 만들지 않음).
   // 되돌린 뒤 목록이 다시 그려지면 밀기가 끊길 수 있어, 선택 막대가 보일 때까지 다시 민다.
+  const bar = page.locator('[data-nx-select-bar]');
+  // 되돌린 노트가 목록에 다시 그려질 때까지 먼저 기다린다(그 다시 그리기가 민 뒤에 오면 밀기가 끊긴다).
+  await expect(page.locator('[data-note-row="n-one"]')).toHaveCount(1);
+  await expect(page.locator('[data-note-row]')).toHaveCount(2);
   await expect(async () => {
+    if (await bar.isVisible()) return; // 앞 시도의 누르기가 늦게 먹었으면 그대로(선택 중에는 줄 밀기가 꺼져 다시 밀 수 없다)
     await swipe(page.locator('[data-note-row="n-two"]'), 320);
-    await expect(page.locator('[data-nx-select-bar]')).toBeVisible({ timeout: 1000 });
+    await expect(bar).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
   await expect(page.locator('[data-note-list] [data-row-swipe-key="select"]')).toHaveCount(0);
   await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
