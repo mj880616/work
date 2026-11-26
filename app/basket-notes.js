@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, emptyHtml, barHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
 // SEC-기능PIN잠금 노트 폴더(S67-14): 잠근 폴더(하위 폴더 포함)의 노트는 줄·포스트잇·태그·메모·검색 결과에서 제목·내용 대신 '잠김'. 판정은 feature-lock.js 한 곳.
@@ -899,7 +899,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   async function refresh() {
     if (busy) return;
     const run = ++epoch, owner = scope();
-    status.innerHTML = waitInlineHtml(); host.querySelector('[data-note-retry]').hidden = true;
+    // S71-74 UI-덮어쓰기땜질없애기(사용자 11/26 "노트 탭 누르면 화면 깜빡임 / 옛 화면 위를 현재 화면이 덮어씀"): 읽는 동안 목록 위에
+    // '…' 한 줄(글줄 기다림)을 두지 않는다. 그 줄이 최근·폴더 목록을 한 줄 밀었다가 다 읽으면 사라져 목록이 위로 올라붙었다(PR 610 '불러오는 중…' 줄 → PR 1447 '…').
+    // 이미 그린 목록이 있으면 그대로 두고 맨 위 막대만(높이 0 — barHtml), 처음 읽을 때는 목록 자리에 회색 빈 줄(waitHtml) — 다 읽으면 그 자리에 목록이 한 번 그려진다.
+    status.innerHTML = loaded ? barHtml() : waitHtml({rows:3, h:36}); host.querySelector('[data-note-retry]').hidden = true;
     marksRun = run;
     try {
       // S69-27: 휴지통 수도 같이 기다려 한 번만 그린다(늦게 와서 다시 그리면 막 잡은 줄이 떨어져 나간다 — STAB-노트폴더끌기시험과 같은 까닭).
