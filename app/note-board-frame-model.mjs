@@ -11,14 +11,14 @@ export const SNAP_PX = 6; // 화면 px(판 좌표로는 배율로 나눈다)
 
 export const clampSize = (v, lo, hi) => Math.round(Math.max(lo, Math.min(hi, Number.isFinite(v) ? v : lo)));
 
-// 손잡이를 (dx, dy)만큼 끈 칸. start = 끌기 시작 칸 {x, y, w, h}(판 좌표). 반대편 변은 그대로.
+// 손잡이를 (dx, dy)만큼 끈 칸. start = 끌기 시작 칸 {x, y, w, h}(판 좌표). 반대편 변은 그대로. S71-52: 판은 음수 쪽으로도 뻗으므로 왼쪽·위로 0을 넘어 키워도 된다.
 export function resizeRect(start, handle, dx, dy, lim = FRAME_LIMITS) {
   let {x, y, w, h} = start;
   const right = start.x + start.w, bottom = start.y + start.h;
   if (handle.includes('e')) w = clampSize(start.w + dx, lim.wMin, lim.wMax);
-  if (handle.includes('w')) { w = clampSize(Math.min(start.w - dx, right), lim.wMin, lim.wMax); x = right - w; }
+  if (handle.includes('w')) { w = clampSize(start.w - dx, lim.wMin, lim.wMax); x = right - w; }
   if (handle.includes('s')) h = clampSize(start.h + dy, lim.hMin, lim.hMax);
-  if (handle.includes('n')) { h = clampSize(Math.min(start.h - dy, bottom), lim.hMin, lim.hMax); y = bottom - h; }
+  if (handle.includes('n')) { h = clampSize(start.h - dy, lim.hMin, lim.hMax); y = bottom - h; }
   return {x:Math.round(x), y:Math.round(y), w, h};
 }
 

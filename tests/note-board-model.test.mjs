@@ -11,7 +11,7 @@ const overlap = (a, b) => a.x < b.x + CARD_W && b.x < a.x + CARD_W && a.y < b.y 
 
 test('저장된 자리는 모양이 맞을 때만 쓴다', () => {
   assert.deepEqual(boardOf(note('a', null, undefined, {x:10, y:20, r:-2, z:3})), {x:10, y:20, r:-2, z:3});
-  for (const bad of [{x:'1', y:0, r:0, z:0}, {x:-1, y:0, r:0, z:0}, {x:0, y:BOARD_MAX + 1, r:0, z:0}, {x:0, y:0, r:30, z:0}, {x:0, y:0, r:0, z:1.5}, {x:0, y:0, r:0}, [1, 2], 'x'])
+  for (const bad of [{x:'1', y:0, r:0, z:0}, {x:-1000001, y:0, r:0, z:0}, {x:0, y:1000001, r:0, z:0}, {x:0, y:0, r:30, z:0}, {x:0, y:0, r:0, z:1.5}, {x:0, y:0, r:0}, [1, 2], 'x'])
     assert.equal(boardOf(note('a', null, undefined, bad)), null, JSON.stringify(bad));
   assert.equal(boardOf({id:'a'}), null);
 });
@@ -39,11 +39,12 @@ test('새 노트는 저장된 칸과 겹치지 않는 왼쪽 위 빈 곳에, 맨
   assert.ok(n1.y < 200, '왼쪽 위 줄에서 찾는다');
   assert.ok(n1.z > 9 && n2.z > 9);
 });
-test('끌어 놓기: 옮긴 만큼, 보드 안으로, 맨 위로(기울기는 그대로)', () => {
+test('끌어 놓기: 옮긴 만큼(S71-52 음수 쪽으로도), 저장 범위 안으로, 맨 위로(기울기는 그대로)', () => {
   assert.deepEqual(movedTo({x:100, y:100, r:3, z:2}, 40.4, -30, 7), {x:140, y:70, r:3, z:8});
-  assert.deepEqual(movedTo({x:10, y:10, r:-2, z:0}, -500, -500, 0), {x:0, y:0, r:-2, z:1});
-  assert.equal(movedTo({x:BOARD_MAX, y:0, r:0, z:0}, 100, 0, 0).x, BOARD_MAX - CARD_W);
-  assert.equal(movedTo({x:0, y:BOARD_MAX, r:0, z:0}, 0, 100, 0).y, BOARD_MAX - CARD_H);
+  assert.deepEqual(movedTo({x:10, y:10, r:-2, z:0}, -500, -500, 0), {x:-490, y:-490, r:-2, z:1});
+  assert.equal(movedTo({x:BOARD_MAX, y:0, r:0, z:0}, 100, 0, 0).x, BOARD_MAX + 100, '옛 판 끝(20000)을 넘어 뻗음');
+  assert.equal(movedTo({x:0, y:999990, r:0, z:0}, 0, 100, 0).y, 1000000 - CARD_H);
+  assert.equal(movedTo({x:-999990, y:0, r:0, z:0}, -100, 0, 0).x, -1000000);
   const places = new Map([['a', {z:3}], ['b', {z:11}]]); assert.equal(topZ(places), 11); assert.equal(topZ(new Map()), -1);
 });
 test('보드는 화면보다 넓다(최소 크기 + 놓인 칸 바깥 여유)', () => {

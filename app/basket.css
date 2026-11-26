@@ -13,8 +13,10 @@
    UI-이름고치기단추(S69-100): 이름 고치는 칸의 [이름 추천 받기][저장][취소](.fr-acts)도 공용 ② 작은 버튼 그대로 — 이 규칙이 44px 상자로 덮어썼다.
    NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로.
    S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로.
-   S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게). */
-#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+   S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게).
+   S71-50: 보드 배경색 고르기(.nbb-bg)도 공용 색 칸 모양 그대로.
+   S71-52 ②: 보드 보기 기능 칸(.nb-vx — 이 가지만 보는 중 줄·찾은 주제 목록·미니맵)도 공용 icon-btn·자기 줄 모양 그대로. */
+#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .nbb-bg *, .nb-vx *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -355,7 +357,16 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nb-card.nb-flash { animation:nb-flash 1.2s ease-out; }
 @keyframes nb-flash { 0%, 40% { outline:3px solid var(--kptu-primary); outline-offset:3px; } 100% { outline-offset:1px; } }
 @media (prefers-reduced-motion:reduce) { .nb-card.nb-flash { animation:none; outline:2px solid var(--kptu-primary); } }
-.nb-scroll { position:relative; height:calc(100dvh - 210px); min-height:320px; overflow:hidden; overscroll-behavior:none; touch-action:none; user-select:none; -webkit-user-select:none; cursor:default; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface-subtle); background-image:radial-gradient(var(--kptu-border) 1px, transparent 1px); background-size:22px 22px; }
+.nb-scroll { position:relative; height:calc(100dvh - 210px); min-height:320px; overflow:hidden; overscroll-behavior:none; touch-action:none; user-select:none; -webkit-user-select:none; cursor:default; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); --nb-board-bg:var(--kptu-surface-subtle); background:var(--nb-board-bg); background-image:radial-gradient(var(--kptu-border) 1px, transparent 1px); background-size:22px 22px; }
+/* S71-50 NOTE-보드배경색: 보드마다 고른 바탕색(data-nb-bg, 값은 theme-tokens.css --ds-board-bg-*). 점 무늬·선 글자 테두리는 그 색 위에 그대로. */
+.nb-scroll[data-nb-bg="sand"] { --nb-board-bg:var(--ds-board-bg-sand); }
+.nb-scroll[data-nb-bg="sage"] { --nb-board-bg:var(--ds-board-bg-sage); }
+.nb-scroll[data-nb-bg="sky"] { --nb-board-bg:var(--ds-board-bg-sky); }
+.nb-scroll[data-nb-bg="lilac"] { --nb-board-bg:var(--ds-board-bg-lilac); }
+.nb-scroll[data-nb-bg="peach"] { --nb-board-bg:var(--ds-board-bg-peach); }
+.nb-scroll[data-nb-bg="mint"] { --nb-board-bg:var(--ds-board-bg-mint); }
+.nb-scroll[data-nb-bg="rose"] { --nb-board-bg:var(--ds-board-bg-rose); }
+.nb-scroll[data-nb-bg="gray"] { --nb-board-bg:var(--ds-board-bg-gray); }
 @media (min-width:761px) { .nb-scroll { height:calc(100dvh - 150px); } }
 .nb.nb-space .nb-scroll { cursor:grab; } /* S69-33: PC는 Space+끌기·가운데 단추로 판 이동(빈 곳 끌기 = 사각형 고르기) */
 .nb.nb-panning .nb-scroll { cursor:grabbing; }
@@ -390,9 +401,21 @@ html.nb-full-on #noteDocMenu { z-index:60; }
 /* 누르는 범위: 보이지 않는 굵은 선(폰 손가락으로도 잡힘). */
 .nb-hit { fill:none; stroke:transparent; stroke-width:16; pointer-events:stroke; cursor:pointer; outline:none; }
 .nb-hit:focus-visible { stroke:color-mix(in srgb,var(--nb-link-on) 28%,transparent); }
-.nb-label { font-size:11px; fill:var(--kptu-ink); stroke:var(--kptu-surface-subtle); stroke-width:4px; stroke-linejoin:round; paint-order:stroke; pointer-events:none; }
+.nb-label { font-size:11px; fill:var(--kptu-ink); stroke:var(--nb-board-bg,var(--kptu-surface-subtle)); stroke-width:4px; stroke-linejoin:round; paint-order:stroke; pointer-events:none; }
 .nb-temp[hidden] { display:none; }
 .nb-temp { fill:none; stroke:var(--nb-link-on); stroke-width:1.6; stroke-dasharray:4 4; }
+/* S71-53 NOTE-관계선: 가지와 다른 점선 곡선(작은 화살표). 멀리 볼 때(배율 0.5 미만) 흐리게, 고른 칸의 관계선만 진하게. 접힌 칸으로 모인 관계선은 짧은 점. */
+.nb-rel .nb-line { stroke-dasharray:6 5; stroke-width:var(--nb-line-w,1.4px); }
+.nb-rel.nb-rel-gather .nb-line { stroke-dasharray:2 4; }
+.nb-rel.nb-rel-on .nb-line { stroke:var(--nb-line-c,var(--nb-link-on)); stroke-width:calc(var(--nb-line-w,1.4px) + .6px); }
+.nb-arrow-rel path { fill:var(--nb-link); }
+.nb[data-nb-small]:not([data-nb-export]) .nb-rel:not(.nb-rel-on,.nb-line-sel) { opacity:.3; }
+.nb.nb-wiring-rel .nb-temp { stroke-dasharray:6 5; }
+.nb-relbar .nb-relbar-msg { padding-right:8px; max-width:56vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nb.nb-rel-picking :is(.nb-card,.nb-text) { cursor:crosshair; }
+:is(.nb-card,.nb-text).nb-rel-from { outline:2px dashed var(--nb-link-on); outline-offset:3px; }
+.nb-text.nb-flash { animation:nb-flash 1.2s ease-out; }
+@media (prefers-reduced-motion:reduce) { .nb-text.nb-flash { animation:none; outline:2px solid var(--kptu-primary); } }
 .nb-cards { position:absolute; left:0; top:0; width:0; height:0; }
 .nb-card { position:absolute; width:128px; height:34px; box-sizing:border-box; background:var(--nb-paper); color:var(--ds-note-ink); border-radius:var(--ds-radius-control,8px); box-shadow:var(--ds-note-shadow); touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 .nb-card.nb-dragging, .nb-card.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); }
@@ -439,6 +462,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* S69-82 생각 지도 상자(옛 S68-38c 글 상자): 글 길이만큼 가로로 늘고(width:max-content — 폭 0인 판 칸 안에서도 한 글자씩 세로로 쌓이지 않게),
    최대 폭(또는 손으로 정한 폭)에서만 줄바꿈. 모양(둥근/네모/알약/글만)·글자 크기(1~4)·색(노트 색 8가지)은 data-* 하나로. 노트 카드보다 아래 층. */
 .nb-texts { position:absolute; left:0; top:0; width:0; height:0; }
+.nb-lift { position:absolute; left:0; top:0; width:0; height:0; z-index:100002; will-change:transform; } /* S71-52: 가지째 끄는 동안만 — 끄는 상자들을 담아 한 번에 옮김(note-board.js liftDrag) */
+.nb-measure { position:absolute; left:0; top:0; width:0; height:0; visibility:hidden; pointer-events:none; } /* S71-52: 상자 크기만 잠깐 재는 칸(note-board.js renderTexts) */
 .nb-text { --nb-pad:5px 10px; --nb-paper:var(--kptu-surface); position:absolute; box-sizing:border-box; width:max-content; min-width:36px; max-width:260px; padding:var(--nb-pad); border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:8px; background:var(--nb-paper); color:var(--kptu-ink); font-size:14px; line-height:1.35; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:default; }
 .nb-text[style*="width"] { max-width:none; }
 .nb-text[data-font="1"] { font-size:12px; --nb-pad:3px 8px; }
@@ -465,7 +490,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-text.nb-dragging, .nb-text.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); opacity:.85; }
 .nb-text.nb-pending { opacity:.6; }
 /* 놓을 곳 강조: 가운데 = 그 아래 가지로, 위·아래 끝 = 앞·뒤 형제로. 잇는 중 놓을 끝(nb-target)은 노트 카드도 같이. */
-.nb-text.nb-drop-in, :is(.nb-text,.nb-card).nb-target { outline:2px dashed var(--nb-link-on); outline-offset:3px; }
+.nb-text.nb-drop-in, .nb-card.nb-drop-in, :is(.nb-text,.nb-card).nb-target { outline:2px dashed var(--nb-link-on); outline-offset:3px; }
 .nb-text.nb-drop-before { box-shadow:0 -3px 0 0 var(--nb-link-on); }
 .nb-text.nb-drop-after { box-shadow:0 3px 0 0 var(--nb-link-on); }
 /* 글 고치기: 상자 안 글(.nb-tx)은 보이지 않게 폭·높이만 잡고, 입력칸이 그 위에 겹친다(상자가 글 길이만큼 늘고 줄어듦). */
@@ -510,9 +535,10 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nb-text .nb-fold { position:absolute; top:calc(50% - 11px); left:calc(100% + 1px); width:22px; min-width:0; padding:0; z-index:1; }
 #appView #basketView .nb-text[data-side="-1"] .nb-fold { left:auto; right:calc(100% + 1px); }
 .nb-fold-dot { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:16px; height:16px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:50%; background:var(--kptu-surface); color:var(--kptu-muted); font-size:10px; line-height:1; }
-.nb-text:has(.nb-fold) .nb-h-right { right:calc(-14px - var(--nb-h-out)); }
-.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-right { right:calc(-1 * var(--nb-h-out)); }
-.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-left { left:calc(-14px - var(--nb-h-out)); }
+/* S71-52: 접기 동그라미가 있는 상자는 data-fold(그리는 곳이 붙임) — :has()는 판 안 어느 변화에도 모든 손잡이 모양을 다시 계산하게 해 큰 보드를 끊기게 했다. */
+.nb-text[data-fold] .nb-h-right { right:calc(-14px - var(--nb-h-out)); }
+.nb-text[data-side="-1"][data-fold] .nb-h-right { right:calc(-1 * var(--nb-h-out)); }
+.nb-text[data-side="-1"][data-fold] .nb-h-left { left:calc(-14px - var(--nb-h-out)); }
 .nb:not([data-nb-small]) .nb-text.nb-sel:not(.nb-editing,.nb-pending) .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-text:not(.nb-pending,.nb-draft) .nb-h { display:block; }
 .nb:not(.nb-panning,[data-nb-small]) .nb-text.nb-hover:not(.nb-editing,.nb-pending) .nb-h { display:block; }
 /* S69-88 크기 손잡이 8개(파워포인트 글 상자처럼): 고른 상자·카드(글 쓰는 중에도)의 네 모서리·네 변 가운데 작은 네모. 누르는 범위는 손가락 크기(24px).
@@ -570,6 +596,9 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nbb .nbb-chip { max-width:12em; overflow:hidden; text-overflow:ellipsis; }
 #appView #basketView .nbb .nbb-chip[aria-pressed="true"] { background:var(--ds-select-bg); border-color:var(--ds-select-line); color:var(--ds-select-ink); font-weight:var(--ds-weight-medium,500); }
 #appView #basketView .nbb .nbb-new { border-style:dashed; background:transparent; }
+/* S71-50 NOTE-보드배경색: 보드 메뉴 안 '배경색' 한 묶음(공용 ui-swatch 칸 그대로 — 위 #basketView button 규칙에서 .nbb-bg 안은 뺐다). */
+#appView #basketView .nbb-bg { display:flex; flex-wrap:wrap; align-items:center; gap:2px 0; padding:4px 8px 6px; max-width:220px; border-bottom:var(--ds-line-width,1px) solid var(--kptu-border); }
+#appView #basketView .nbb-bg-label { width:100%; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); line-height:1.6; }
 .nbw-body { display:block; }
 /* S70-21 NOTE-보드탭자리: 오른쪽 칸 = 보드 칸 줄 + 판. 왼쪽 노트 목록은 그 칸 높이에 맞춰 늘고(contain:size — 목록 길이가 줄 높이를 키우지 않음) 안에서 스크롤. */
 .nbw-main { min-width:0; }
@@ -792,3 +821,31 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView .nl-cols .nl-tagset { display:inline-flex; align-items:center; gap:4px; max-width:100%; overflow:hidden; white-space:nowrap; }
 .nl-cols .nl-tagset > .nl-tag, .nl-cols .nl-tagset > .nl-more { flex:none; }
 .nl-cols .nl-tagset > [hidden] { display:none; }
+
+/* S71-52 ② NOTE-큰생각지도 보기 기능(note-board.js · note-board-view-model.mjs, 결정 docs/design/note-board-mindmap.md 11절) */
+/* 멀리 보기: 아주 작게 줄이면 큰 가지(뿌리·첫 가지)만 글자(화면에서 읽히게 키움), 그 아래는 흐린 막대. */
+.nb[data-nb-far] .nb-text .nb-tx { color:transparent; }
+.nb[data-nb-far] .nb-text[data-deep] { opacity:.45; }
+.nb[data-nb-far] .nb-text .nb-fold { visibility:hidden; }
+.nb[data-nb-far] .nb-text[data-far-label]::after { content:attr(data-far-label); position:absolute; left:50%; top:50%; z-index:3; transform:translate(-50%,-50%) scale(var(--nb-far-s,1)); transform-origin:center; white-space:nowrap; padding:1px 6px; border-radius:6px; background:var(--kptu-surface); color:var(--kptu-ink); font-size:14px; font-weight:600; line-height:1.3; pointer-events:none; box-shadow:0 0 0 1px var(--kptu-border); }
+/* 이 가지만 보기: 고른 가지 밖은 흐리게(누르기는 그대로 — 전체 보기로 돌아가기는 위 줄). */
+.nb[data-nb-focus] .nb-text:not(.nb-in-focus), .nb[data-nb-focus] .nb-card:not(.nb-in-focus), .nb[data-nb-focus] .nb-branch:not(.nb-in-focus), .nb[data-nb-focus] [data-nb-lines] > g:not(.nb-in-focus) { opacity:.18; }
+.nb-focusbar { position:absolute; left:8px; top:8px; z-index:3; display:inline-flex; align-items:center; gap:6px; height:var(--ds-compact-height,32px); padding:0 4px 0 10px; box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-muted); font-size:13px; box-shadow:var(--kptu-shadow-float,none); }
+.nb-focusbar[hidden] { display:none; }
+#appView #basketView .nb-focusbar .nb-focus-all { width:auto; padding:0 8px; color:var(--kptu-primary-text); font-size:13px; }
+/* 찾은 주제 목록(맨 위 '노트에서 찾기'가 보드에서 맞춘 주제): 판 왼쪽 위, 작은 줄. */
+.nb-finds { position:absolute; left:8px; top:48px; z-index:3; width:min(260px, calc(100% - 16px)); max-height:min(320px, 50%); overflow:auto; box-sizing:border-box; padding:4px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
+.nb-finds[hidden] { display:none; }
+.nb-finds-head, .nb-finds-more { margin:2px 6px 4px; color:var(--kptu-muted); font-size:12px; }
+#appView #basketView .nb-finds .nb-find-row { display:block; width:100%; min-height:32px; padding:4px 8px; border:0; border-radius:6px; background:transparent; color:var(--kptu-ink); font:inherit; font-size:13px; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+#appView #basketView .nb-finds .nb-find-row:hover, #appView #basketView .nb-finds .nb-find-row:focus-visible { background:var(--kptu-surface-subtle); }
+.nb-text.nb-flash { animation:nb-flash 1.2s ease-out; }
+@media (prefers-reduced-motion:reduce) { .nb-text.nb-flash { animation:none; outline:2px solid var(--kptu-primary); } }
+/* 미니맵: 오른쪽 아래, 접기 가능(서버 화면 기억 note_board_map). 지금 보이는 자리는 네모. */
+.nb-mini { position:absolute; right:8px; bottom:8px; z-index:3; display:flex; flex-direction:column; align-items:flex-end; gap:4px; --nb-mini-ink:var(--kptu-muted); --nb-mini-dim:var(--kptu-border); }
+#appView #basketView .nb-mini .nb-mini-toggle { border:var(--ds-line-width,1px) solid var(--kptu-border); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
+.nb-mini[data-open] { flex-direction:column-reverse; }
+.nb-mini-body { position:relative; width:168px; height:112px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); overflow:hidden; touch-action:none; cursor:pointer; }
+.nb-mini-body[hidden] { display:none; }
+.nb-mini-canvas { display:block; width:168px; height:112px; }
+.nb-mini-view { position:absolute; box-sizing:border-box; border:1.5px solid var(--kptu-primary); border-radius:2px; background:color-mix(in srgb, var(--kptu-primary) 8%, transparent); pointer-events:none; }

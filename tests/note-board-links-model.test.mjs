@@ -8,7 +8,7 @@ import {createBoardLinks, readBoardLinks} from '../app/note-board-links-data.js'
 import {CARD_W, CARD_H} from '../app/note-board-model.mjs';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
-const row = (over = {}) => ({id:'l1', board_id:'all', from_note:'a', to_note:'b', from_text:null, to_text:null, from_x:null, from_y:null, to_x:null, to_y:null, from_side:null, to_side:null, shape:'line', dash:'solid', ends:'end', label:null, bend_x:null, bend_y:null, color:null, width:null, ...over});
+const row = (over = {}) => ({id:'l1', board_id:'all', from_note:'a', to_note:'b', from_text:null, to_text:null, from_x:null, from_y:null, to_x:null, to_y:null, from_side:null, to_side:null, shape:'line', dash:'solid', ends:'end', label:null, bend_x:null, bend_y:null, color:null, width:null, kind:'line', ...over}); // S71-53: 선 종류(옛 줄은 'line')
 
 test('서버 줄 모양 검사: 틀린 보드 id·같은 노트·없는 칸은 버리고, 모르는 값은 기본값', () => {
   assert.deepEqual(parseLink(row()), row());
@@ -175,7 +175,8 @@ test('곡선 지나는 점: 상대 위치 ↔ 좌표, 직선 가까우면 직선
   const box = linkBox(a, b, {x:200, y:900}); assert.ok(box.y + box.h > 900);
 });
 test('글 상자: 서버 줄 검사, 글 다듬기(줄바꿈 허용·앞뒤 빈 줄 지움·300자)', () => {
-  assert.deepEqual(parseText({id:'t', board_id:'all', body:'가', x:1.4, y:-3}), {id:'t', board_id:'all', body:'가', x:1, y:0});
+  assert.deepEqual(parseText({id:'t', board_id:'all', body:'가', x:1.4, y:-3}), {id:'t', board_id:'all', body:'가', x:1, y:-3}); // S71-52: 음수 좌표도
+  assert.equal(parseText({id:'t', board_id:'all', body:'가', x:5e6, y:-5e6}).x, 1000000, 'S71-52: 저장 범위 ±1,000,000 안으로');
   for (const bad of [{body:''}, {body:'  '}, {board_id:'X'}, {id:''}]) assert.equal(parseText({id:'t', board_id:'all', body:'가', x:0, y:0, ...bad}), null, JSON.stringify(bad));
   assert.equal(validateText('\n  첫 줄\r\n둘째  \n'), '첫 줄\n둘째'); assert.equal(validateText(' \n '), null); assert.equal(validateText(null), null);
   assert.throws(() => validateText('탭\t글'), /쓸 수 없는/); assert.throws(() => validateText('가'.repeat(TEXT_MAX + 1)), /300자/);

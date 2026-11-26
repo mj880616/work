@@ -22,7 +22,7 @@ test('PC: 주제 오른쪽 클릭 = 작은 메뉴(막대 동작 + 삭제), [삭�
   await page.mouse.click(c.x, c.y, { button: 'right' });
   await expect(menu(page)).toBeVisible();
   const names = (await menu(page).locator('button').allInnerTexts()).map(t => t.trim());
-  expect(names).toEqual(['수정', '+ 하위', '+ 형제', '색', '테두리', '글자', '모양', '글자 작게', '글자 크게', '노트로 만들기', '삭제']);
+  expect(names).toEqual(['수정', '+ 하위', '+ 형제', '색', '테두리', '글자', '모양', '글자 작게', '글자 크게', '노트로 만들기', '관계 잇기', '삭제']); // S71-53: 관계선 칸이 있는 서버면 [관계 잇기]
   // 메뉴는 누른 자리 근처
   const mb = await nbBox(menu(page));
   expect(Math.abs(mb.x - c.x)).toBeLessThan(220); expect(Math.abs(mb.y - c.y)).toBeLessThan(220);
@@ -43,13 +43,13 @@ test('PC: 주제 오른쪽 클릭 = 작은 메뉴(막대 동작 + 삭제), [삭�
   expect(errors).toEqual([]);
 });
 
-test('PC: 도형 오른쪽 클릭 = 가지 단추 없는 메뉴 + [삭제], 선 오른쪽 클릭 = 선 메뉴 [삭제] (1280)', async ({ page }) => {
+test('PC: 도형 오른쪽 클릭 = 가지 단추 있는 메뉴(S71-51 모든 칸 가지) + [삭제], 선 오른쪽 클릭 = 선 메뉴 [삭제] (1280)', async ({ page }) => {
   const { errors, textRows, linkRows } = await boardFixture(page, 1280, { bid: BID, seed: SEED, links: [{ id: 'L9', board_id: BID, from_text: 'T1', to_text: 'T2' }] });
   const s = await nbCenter(nbNode(page, '네모'));
   await page.mouse.click(s.x, s.y, { button: 'right' });
   await expect(menu(page)).toBeVisible();
   const names = (await menu(page).locator('button').allInnerTexts()).map(t => t.trim());
-  expect(names).not.toContain('+ 하위');
+  expect(names).toContain('+ 하위'); // S71-51(사용자 결정 2026-11-26): 도형도 가지를 뻗는다
   expect(names.at(-1)).toBe('삭제');
   await item(page, '삭제').click();
   await expect(nbNode(page, '네모')).toHaveCount(0);
