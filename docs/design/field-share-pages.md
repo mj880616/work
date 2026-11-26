@@ -62,7 +62,7 @@
 ### 2.1 Web2 "게시판" 메뉴
 
 - 코드: `app/web1-board.js`(불러오기 `app/view-loader.js` `pages`). 메뉴 이름 "게시판"은 `app/index.html`(PC 사이드바·폰 ☰ 메뉴)과 화면 제목에 있다.
-- **목록은 코드에 고정된 카드 5개**(2인1조·공공기관 인력확충·민자철도 사업 현황·궤도협의회·산별전환). DB 목록이 아니다.
+- **목록은 코드에 고정된 카드 5개**(2인1조·공공기관 인력확충·민자철도 사업 현황·레일협의회·산별전환). DB 목록이 아니다.
 - **본문은 공개 저장소 파일**이다. 카드를 누르면 `raw.githubusercontent.com/…/main/<폴더>/index.html`을 받아 격리된 틀(iframe, sandbox)에 넣는다. 즉 이 페이지들의 내용은 이미 공개 저장소와 공개 Pages(`work.bokdoong.com/work/<폴더>/`)에 있다.
 - "지나간 업무" 구분은 `main_project_archive_state` 표를 **로그인 없이** 읽어 정한다(`auth:false`). 이 표의 정의·권한은 저장소 migration에 없다(추정: 저장소 이전에 만든 Web1용 표).
 - 검색 차단 표시: `private-rail/`·`sanbyeol/`은 `noindex`가 있다. `2in1/`·`workforce/`·`rail-council/`의 첫 화면에는 검색 차단 표시가 **없다**(범위 밖 발견, 10절).

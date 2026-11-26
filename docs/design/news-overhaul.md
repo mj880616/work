@@ -35,7 +35,7 @@
 | 묶음 | 키 | 이름 | 읽는 길 | 7일 건수·마지막 오류 | 본문 추출(저장소 기록) | 사진(저장소 기록) | P2 할 일 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 노동 | `kctu` | 민주노총 | 게시판 HTML | A-1 | 흔한 본문 칸 자동(카탈로그 `bodyClass` 없음) [사실] | 확인 못 함 | 본문 칸 고정 규칙 확인 |
-| 노동 | `kptu` | 공공운수노조 | 게시판 HTML, robots 예외(예약 때만) | A-1 | `publishList_write` [사실]. 글 대부분이 그림 + 한글 파일 → 그림뿐인 글은 제목만 [사실, outside-statements 1.5] | **본문이 그림인 글이 많음** → 사진 주소가 사실상 본문 | 그림뿐인 글은 사진 블록으로 보임 + 첨부 이름 줄 |
+| 노동 | `kptu` | A노조 | 게시판 HTML, robots 예외(예약 때만) | A-1 | `publishList_write` [사실]. 글 대부분이 그림 + 한글 파일 → 그림뿐인 글은 제목만 [사실, outside-statements 1.5] | **본문이 그림인 글이 많음** → 사진 주소가 사실상 본문 | 그림뿐인 글은 사진 블록으로 보임 + 첨부 이름 줄 |
 | 노동 | `kmwu` | 금속노조 | 그누보드 HTML | A-1 | 자동 [사실] | 확인 못 함 | 규칙 확인 |
 | 노동 | `kfsu` | 서비스연맹 | 워드프레스 HTML | A-1 | 자동 [사실] | 확인 못 함 | 규칙 확인 |
 | 노동 | `hakbi` | 학비노조 | 게시판 HTML | A-1 | 자동 [사실] | 확인 못 함 | 규칙 확인 |
@@ -253,7 +253,7 @@ pg_cron (DB 안 시계, postgres 역할로 실행)
 | LabourStart 등 링크가 허용 호스트 밖 | `failed`/`off_host` | 같음 |
 | robots·봇 확인 | `failed`/`robots`·`bot_check` | '사이트가 자동 읽기를 막아 둠' + ↗ |
 | 유료벽 | `lead`/`paywall` | 앞부분 + '나머지는 원래 사이트 ↗' |
-| 그림·한글 파일뿐(공공운수노조 다수) | `image_only` | 사진 블록 + 첨부 이름 + ↗ |
+| 그림·한글 파일뿐(A노조 다수) | `image_only` | 사진 블록 + 첨부 이름 + ↗ |
 
 ### 4.4 첫 커밋: 추출 시험 실행 (0절 7의 실측 대신)
 
@@ -298,7 +298,7 @@ P2c 구현(S51-15) [사실: 코드]:
 - 예약 입구 `action=refill`, 몸통 `{source}`(키 하나, 주소 안 받음) — `news-feed`(매체 기사)·`outside-feed`(사회운동 글). 같은 열쇠 확인(비밀값 또는 `app_cron_keys` 지문).
 - 고르는 줄: 최근 30일(`REFILL_DAYS`) 가운데 블록 줄 없음 / `reason=timeout` / `state≠ok`이고 `rule`이 지금 카탈로그 판과 다름. 새 것부터 주소 20개(`REFILL_PER_SOURCE`), 찾는 범위 1000줄, 요청 사이 2초, 시간 예산 100초.
 - 블록 줄만 merge로 고친다(지우지 않음). 뉴스는 기사 줄의 body·body_kind·state도 같은 결과로(수집과 같은 `fillItems`, AI 요약 없음·열기 한도 안 셈). 사회운동 글은 문장 표·요약·제목을 건드리지 않는다.
-- 하지 않는 것: 텔레그램(목록 글이 본문)·`extract=false`·robots 예외 단체(공공운수노조·노동당 — 하루 3번 새 글만, 사용자 결정).
+- 하지 않는 것: 텔레그램(목록 글이 본문)·`extract=false`·robots 예외 단체(A노조·노동당 — 하루 3번 새 글만, 사용자 결정).
 - 부르는 길(지금): CC가 SQL Editor에서 `docs/ops/feed-refill-once.sql`(① 건수 확인 → ② `net.http_post`로 몇 개씩 → ③ 응답 건수). DB 일 줄(`app_feed_jobs`)은 `action`이 `run_plan|run`, `step`이 정해진 목록만 받고 계획 응답 뒤 일을 `app_feed_settle`이 고정으로 넣으므로, 하루 한 번 자동으로 넣으려면 DB 검사·함수 바꿈이 필요하다 → 별도 PR(제안, 4.8 끝).
 - 하루 한 번 자동(제안): `app_feed_jobs_action_check`에 `refill` 더하기 + 새 예약 `web2_feed_refill`(밤 한 번, 일 줄에 매체·단체마다 `refill` 일) — 예약(cron)이 들어가 SQL Editor 전용 파일. 지금 숫자(남은 줄 수백 건)는 손 부르기 몇 번으로 끝나므로 급하지 않다.
 

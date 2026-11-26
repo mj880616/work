@@ -27,15 +27,15 @@
 | A6 | ai-assist/org-summary.ts:105-112 | "노동조합 본부 부팀장의 주간보고 '산하 조직 현황'", 예 "임금교섭 3차", "쟁의행위 찬반투표", "지부장" | 없음(쓰임 org_summary는 WEEKLY-메뉴짝짓기 P7에서 지움, 지시문만 남음) | 쓰지 않는 지시문 정리(범위 밖) | 아니오 | 후속 | 하 |
 | A7 | ai-assist/org-status-rows.ts:79-85 | "노동조합 담당자", 먼저 고를 일 "교섭·조정·쟁의·집회·결의대회·투표·협약" | 없음(쓰임 org_status_rows도 P7에서 지움) | 쓰지 않는 지시문 정리(범위 밖) | 아니오 | 후속 | 하 |
 | A8 | ai-assist/todo-radar.ts:159-178, todo-recheck.ts:50-52 | 기록 주인 = "산하 조직·사업장을 맡아 확인·연락·지원하는 팀의 실무 담당자", 다른 주체 = "조합원·현장 간부·지부·지부장·임원" | 모두 | 일반 기본값(담당 대상·상대 기관·동료) | 아니오 | S67-51 #2821 | 상 |
-| A9 | ai-assist/schedule-titles.ts:99-100 | 예 "지티엑스→지티엑스에이운영지부 임단투 점검 회의", "공철 파업선포→공항철도 경고파업" | 모두 | 특정 조직 없는 중립 예시. 정식 이름은 지시문에 이미 들어가는 내 담당 대상 목록에서 | 아니오 | S67-51 #2821 | 상 |
+| A9 | ai-assist/schedule-titles.ts:99-100 | 예 "지티엑스→다온에이운영지부 임단투 점검 회의", "공철 파업선포→공항철도 경고파업" | 모두 | 특정 조직 없는 중립 예시. 정식 이름은 지시문에 이미 들어가는 내 담당 대상 목록에서 | 아니오 | S67-51 #2821 | 상 |
 | A10 | ai-assist/share-draft.ts:86-95 | "현장 조합원·간부가 로그인 없이 읽는", 기록 주인 실명 | 모두 | "링크를 받은 사람", "기록 주인" | 아니오 | S67-51 #2821 | 상 |
 | A11 | document-ai-index/index.ts:37,40, meeting-ai-ingest/index.ts:35 | "이 파일은 노조 업무·회의·정책 자료다" | 모두 | "업무 자료" | 아니오 | S67-51 #2821 | 상 |
-| A12 | page-ai-draft/index.ts:36 | "민주노총 공공운수노조의 웹2에서 공공기관사업팀 업무를…" | 없음(화면 `app/`에서 부르는 곳 없음, 기능 검사도 없음) | 함수 정리 작업으로(범위 밖) | 아니오 | 후속 | 하 |
+| A12 | page-ai-draft/index.ts:36 | "민주노총 A노조의 웹2에서 공공기관사업팀 업무를…" | 없음(화면 `app/`에서 부르는 곳 없음, 기능 검사도 없음) | 함수 정리 작업으로(범위 밖) | 아니오 | 후속 | 하 |
 | A13 | ai-assist/org-people-brief.ts:77-78, record-one-line.ts:51-56, library-sort.ts:58, library-files/photo-brief.ts:23, record-line.ts:13 | "노동조합 담당자/활동가", "다음 교섭 날짜" | 모두 | `OWNER_ROLE` | 아니오 | S67-51 #2821 | 중 |
 | A14 | ai-assist/home-day-picks.ts:255 | 일기 재료 고르기 "노동조합 상근자 한 사람" | 모두 | `OWNER_ROLE` | 아니오 | S67-51 #2821 | 중 |
 | A15 | ai-assist/hwp-convert.ts:67 | 일반 규칙 "노동조합 문서를…"(63줄 `ppwu_forms`는 운영자) | 모두 | "업무 문서" | 아니오 | S67-51 #2821 | 중 |
 | A16 | ai-assist/library-fill.ts:39-41 | 내 분류를 못 읽을 때의 기본 분류 `교섭·투쟁·교육·선전·정책·회의·기타` | 모두 | C1과 같은 일반 기본값 | 아니오 | 후속(C1과 함께) | 상 |
-| A17 | ai-assist/library-fill.ts:237-244 | 예 "국토교통부, 공공운수노조", "A 지부 임금교섭 요구안", 분류 기준 성명·교섭·투쟁 지침 | 모두 | 예시 중립화. 분류 기준은 "내 목록에 그 이름이 있을 때만" | 아니오 | S67-51 #2823 | 중 |
+| A17 | ai-assist/library-fill.ts:237-244 | 예 "국토교통부, A노조", "A 지부 임금교섭 요구안", 분류 기준 성명·교섭·투쟁 지침 | 모두 | 예시 중립화. 분류 기준은 "내 목록에 그 이름이 있을 때만" | 아니오 | S67-51 #2823 | 중 |
 | A18 | ai-assist/ledger-auto.ts:58,89-93 | 활동 분류 이름 `negotiation:"교섭" press:"언론" assembly:"국회" struggle:"투쟁"`, 교섭이면 최소 S2 | 모두(자동 원장) | 분류 이름은 S67-44 사람별 이름을 읽음. 민감도 바닥 규칙은 값(`negotiation`)에 걸려 있어 유지 | 아니오 | S67-44 뒤 | 중 |
 | A19 | ai-assist/ledger-auto.ts:142-160, ledger-candidates.ts:49-55 | "상대 기관과의 교섭", "외국 노조·사용자 단체", S3 "조합원·제3자 개인정보" | 모두 | "상대와의 협상·협의", "구성원·제3자" | 아니오 | S67-51 #2821 | 중 |
 | A20 | ai-assist/ledger-weekly.ts:51 | 기본 절 이름 `struggle:"투쟁 사업"` | 바탕 | 내 양식 제목(form-names) 참조 | 아니오 | 후속 | 하 |
@@ -60,7 +60,7 @@
 | B9 | app/weekly-hwpx/delta.mjs:7,63-83, draft.mjs:5-7,34 | 팀 확정본의 '담당 팀원' 칸에서 내 이름으로 내 줄만 고름 | 바탕 | 팀이 없으면 이 길을 타지 않음(지금도). 유지 | 아니오 | 유지 | 하 |
 | B10 | app/weekly-hwpx/template.mjs:9,144,211 `CREATOR='노동조합+'`, journal-hwpx.js:412,430 | 한글 파일 만든이 정보에 앱 이름 | 모두 | 앱 이름 상수(얼굴) 참조 | 아니오 | **S67-49** | 하 |
 | B11 | app/journal-weekly.js:126-127, weekly-own-form-model.mjs:23-28 | 휴가 낱말, 칸 이름 짐작의 '지회·지부·분회' | 모두 | 일반 낱말과 함께 있어 무해. 유지 | 아니오 | 유지 | 하 |
-| B12 | app/journal-data.js:185,418, report-calendar.mjs | 주석의 '공공운수노조' 달력·'철도→지하철' 순서 | 없음 | 코드는 이미 사람별(`view_prefs.report_calendar`·`org_order`). 주석만 | 아니오 | S67-43 | 하 |
+| B12 | app/journal-data.js:185,418, report-calendar.mjs | 주석의 'A노조' 달력·'철도→지하철' 순서 | 없음 | 코드는 이미 사람별(`view_prefs.report_calendar`·`org_order`). 주석만 | 아니오 | S67-43 | 하 |
 
 ## C. 담당 대상·프로젝트·분류·자료실
 
@@ -102,11 +102,11 @@
 | --- | --- | --- |
 | collector-feed/telegram.ts:51-58, family.ts:35, context.ts:30-31 `OWN_ORG`, call-analysis.ts:134 | 운영자 소속·직책·이름, 업무 낱말(의원실·기자·지부·연맹·국회) | 서버 `app_operator_features`(telegram·calls·family) |
 | ai-assist/call-refill.ts:80-84, journal-memorable.ts:124-128 | 통화 예시, "남의 단체 성명" | `hasFeature(calls/telegram)` |
-| ai-assist/hwp-convert.ts:63 | "공공운수노조 본부 문서" | `ppwu_forms` 기능 |
-| ai-assist/home-day-picks.ts:155, now-detail.ts:285, _shared/now-detail-build.ts:269-288 | 뉴스 고르기·시사점 칸(공공운수노조 운동·한국 노동운동) | `outside` 기능(now-detail은 재료가 운영자 작업공간에만 있음 — 일반에 열 때 시사점 칸을 사람별로) |
+| ai-assist/hwp-convert.ts:63 | "A노조 본부 문서" | `ppwu_forms` 기능 |
+| ai-assist/home-day-picks.ts:155, now-detail.ts:285, _shared/now-detail-build.ts:269-288 | 뉴스 고르기·시사점 칸(A노조 운동·한국 노동운동) | `outside` 기능(now-detail은 재료가 운영자 작업공간에만 있음 — 일반에 열 때 시사점 칸을 사람별로) |
 | outside-feed/*, _shared/outside-catalog.ts, outside-tidy.ts, news-rank.ts, news-catalog.ts, news-feed, phone-push/now-line.ts | 노동·진보 단체 출처, 노동 낱말 등급, '새 성명' | `outside` 기능 |
 | drive-summary/core.mjs:13,31-36, ledger-export.mjs | 작업공간 이름 고정, 조직 정렬 순서에 특정 노조·회사 이름 | 운영자 작업공간 고정(여럿이 쓰게 되면 각자 담당 순서로 — 후속) |
-| app/feed-model.mjs:153-191, call-feed.js | `OWN_ORG='공공운수노조'`, 조직 꼴 낱말 | 메뉴 기능 calls |
+| app/feed-model.mjs:153-191, call-feed.js | `OWN_ORG='A노조'`, 조직 꼴 낱말 | 메뉴 기능 calls |
 | app/tg-mark-model.mjs, forget-list.js:51, home-summary.js:26,73 | 텔레그램 일정 낱말, '소식(텔레그램/통화)' | telegram·family 기능 |
 | app/now-model.mjs, news-colors.mjs, notice-outside*.js, outside-statements*.js | News 탭·묶음·공대위 | outside 기능 |
 | app/ledger-import-model.mjs, ledger-fix.js, ledger-candidate-model.mjs | 원장 고정 목록(교섭 논거·교섭자료·상대측 발언) | 원장 메뉴는 모두에게서 뺌(menu-model.mjs:33) |
