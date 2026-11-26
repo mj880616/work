@@ -2083,7 +2083,7 @@ for (const width of Q3_WIDTHS) for (const c of MENU_FINDS) test(`Q3 ${c.name} ${
 });
 
 // ---------- D3 끌기 중 끝에 가면 저절로 스크롤(S70-75 STD-끌기자동스크롤) ----------
-// 명진 11/26 08:55 "어디서든 파일이든 노트든 뭐든 드래그하면서 스크롤 되어야한다고 모든화면에서": 긴 목록에서 끌어 칸 끝에 대고 있으면 그 칸이 저절로 굴러,
+// 사용자 11/26 08:55 "어디서든 파일이든 노트든 뭐든 드래그하면서 스크롤 되어야한다고 모든화면에서": 긴 목록에서 끌어 칸 끝에 대고 있으면 그 칸이 저절로 굴러,
 // 처음엔 화면 밖이던 자리에 놓을 수 있다(PC 1280 마우스 + 폰 390 손가락). 끄는 방법(helpers/drag-edge.mjs)은 화면마다 같다.
 // 새 끌기 화면이 생기면 DRAG_SCROLL_SCREENS에 한 줄 더한다: open(page, width) → {mode, from, to, box(굴러갈 칸, 없으면 화면), dir, dy, done(놓은 결과), errors}.
 const fileItem = o => ({ parent_id: null, is_folder: false, mime: null, size_bytes: 1000, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null, source: 'od', ...o });

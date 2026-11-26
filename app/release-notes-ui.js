@@ -15,7 +15,7 @@ import {askConfirm,notify} from './small-notice.js';
 import {registerScreenFind,refreshScreenFind,toolsBox} from './screen-find.js';
 
 // UI-업데이트기록찾기(요청함 11/02): 치는 대로 이 화면 안에서만 거르고(서버 호출 없음) 낱말을 칠한다.
-// S71-31(명진 11/26 "낱말로 찾기랑 직접 쓰기 한줄로 / 낱말로 찾기는 찾기로"): 화면 안 찾기 칸은 없애고 맨 위 칸 '업데이트 기록에서 찾기'(용어 기준표)가 겸한다.
+// S71-31(사용자 11/26 "낱말로 찾기랑 직접 쓰기 한줄로 / 낱말로 찾기는 찾기로"): 화면 안 찾기 칸은 없애고 맨 위 칸 '업데이트 기록에서 찾기'(용어 기준표)가 겸한다.
 // 찾는 동안은 맞는 줄만 펼쳐 보인다. 목록은 20개씩 그리고, 아래로 내려 [이전 기록 더 보기]가 보이면 다음 20개를 더 그린다.
 const el=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!=null)node.textContent=text;return node};
 function marked(tag,className,text,words){
@@ -131,7 +131,7 @@ function openSend({versions=[],item=null,trigger}={}){
       return true;
     }});
 }
-// S71-31(명진 11/26 "이용자에게 보이는 시작날짜랑 바꾸기 삭제 불필요" / "보낸 소식 260 이용자에게 보이는 그대로도 삭제"):
+// S71-31(사용자 11/26 "이용자에게 보이는 시작날짜랑 바꾸기 삭제 불필요" / "보낸 소식 260 이용자에게 보이는 그대로도 삭제"):
 // 위쪽 시작 날짜 줄·[바꾸기] 창과 접히는 '보낸 소식 N · 이용자에게 보이는 그대로' 줄을 없앴다. 기록에서 나간 소식은 기록 줄 버튼([보냄]/[다시 보내기])이 맡고,
 // 기록 줄에 없는 소식(직접 쓴 것)만 목록 위에 줄로 남겨 [수정]·[거두기]·[다시 보내기]를 그대로 둔다. [+] 직접 쓰기는 맨 위 줄 단추 자리.
 const addBox=toolsBox('updates','updates');
