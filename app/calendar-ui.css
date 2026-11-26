@@ -400,3 +400,12 @@ html.cal-drag-on,html.cal-drag-on *{user-select:none!important;-webkit-user-sele
   #calendarView .cal-cell:hover .cmv-date-plus{opacity:1;pointer-events:auto}
   #calendarView .cmv-date-plus:hover{color:var(--kptu-ink);background:var(--kptu-surface-subtle)}
 }
+/* S70-67 SEARCH-비슷한것찾기: '일정에서 찾기'로 지금 보기 밖(다른 달)에서 맞은 일정. 한 줄씩 촘촘히, 누르면 그 날로. */
+.cal-find-more{display:flex;flex-direction:column;margin:0 0 6px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface)}
+.cal-find-more[hidden]{display:none}
+.cfm-head{padding:3px 10px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.cfm-row{display:flex;align-items:baseline;gap:8px;min-height:30px;padding:4px 10px;border:0;border-top:var(--ds-line-width,.5px) solid var(--ds-line);background:none;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer}
+.cfm-row:hover{background:var(--kptu-surface-subtle)}
+.cfm-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.cfm-day{flex:none;min-width:5.5em;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+.cfm-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

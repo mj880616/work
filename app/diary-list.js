@@ -12,6 +12,7 @@ import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 //   못 읽으면 일기만). 그런 줄은 📌·★·밀기가 없고(일기 한 편 단위 표시), 누르면 그날 창이 열린다.
 // - 기기 저장 없음: 펼친 달·찾기 글자·밀어 둔 줄은 메모리만, 고정·별표는 서버(일기 행 metadata).
 import {readDiaryList, setDiaryMark, diaryPhotos, photoElement, ownerScope} from './diary-data.js';
+import {findFor} from './screen-find.js'; // S70-67 SEARCH-비슷한것찾기: 공용 판정
 import {buildDiaryList, withDoneDays, rowText, dayLabel, diaryPinnedAt, diaryStarredAt, MARK_KEYS} from './diary-list-model.mjs';
 import {odPhotos, odPhotoElement, odTakeWarmMonth} from './diary-onedrive.js';
 import {swipeIntent, swipeOffset, swipeSettle, swipeOpenOffset, swipeEdge} from './tg-day-model.mjs';
@@ -76,7 +77,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     observer?.disconnect();
     if (state.error) { note.textContent = ''; body.innerHTML = failHtml({retry: 'data-diary-lv-retry'}); return; }
     if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); return; }
-    const list = buildDiaryList(withDoneDays(state.rows, state.done), {filter:state.filter, query:state.query, opened:state.opened});
+    const list = buildDiaryList(withDoneDays(state.rows, state.done), {filter:state.filter, query:state.query, opened:state.opened, find:state.query.trim() ? findFor('diary', state.query) : null});
     const empty = !list.total ? (state.query ? '맞는 하루 기록 없음' : state.filter === 'star' ? '별표 하루 기록 없음' : '없음') : '';
     note.textContent = state.note || (state.truncated ? '최근 하루 기록 1,000편만 보여요.' : '');
     const parts = [];
@@ -201,7 +202,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     setFilter(filter) { state.filter = filter === 'star' ? 'star' : 'all'; state.opened = {}; paint(); },
     get filter() { return state.filter; },
     // 맨 위 칸 '하루 기록에서 찾기'(diary.js)가 친 글자. 같은 글자면 다시 그리지 않는다. 메모리만.
-    setQuery(q) { const next = String(q ?? ''); if (next === state.query) return; state.query = next; state.opened = {}; paint(); },
+    setQuery(q, {again} = {}) { const next = String(q ?? ''); if (next === state.query && !again) return; state.query = next; state.opened = {}; paint(); },
     get query() { return state.query; },
     // 그날 일기에서 돌아왔을 때 그 줄로.
     focusDay(day) { const b = host.querySelector(`[data-diary-lv-open="${CSS.escape(day)}"]`); if (b) { b.scrollIntoView({block:'nearest'}); b.focus({preventScroll:true}); } },

@@ -49,7 +49,7 @@ import {addDays} from './feed-model.mjs';
 // FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화] — 누르면 서버가 수집기를 한 번 깨우고, 이 화면의 load()로 1~3분 새 줄을 다시 읽는다(feed-pull.js).
 import {createFeedPull} from './feed-pull.js';
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
-import {registerScreenFind, refreshScreenFind} from './screen-find.js';
+import {registerScreenFind, refreshScreenFind, finderOf} from './screen-find.js';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -378,7 +378,9 @@ function roomRowHtml(g, {pin = false} = {}) {
 // S70-57 UI-검색창하나로: 맨 위 칸 '텔레그램 소식에서 찾기'. 방·날 목록에서는 보이는 줄을 방 이름·줄 글로 거른다(메모리만, 서버 검색 없음).
 // 방 상세 안에서는 같은 칸이 그 방 찾기(서버 읽기 runFind, Enter 때)를 맡는다 — 옛 방 안 '이 방에서 찾기' 칸은 뺐다.
 let listText = '', listQ = '';
-const hitText = (...parts) => !listQ || parts.filter(v => typeof v === 'string').join(' ').toLowerCase().includes(listQ);
+// S70-67 SEARCH-비슷한것찾기: 목록 거르기는 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말). 방 안 서버 찾기는 그대로.
+const tgFinder = finderOf('telegram', () => listText);
+const hitText = (...parts) => !listQ || !!tgFinder().hit(...parts.filter(v => typeof v === 'string'));
 const lineHit = l => hitText(l.room_label, lineText(lineView(l), state.titles));
 const groupHit = g => !listQ || hitText(g.room_label) || g.lines.some(lineHit);
 const pinHit = p => (p.last ? lineHit(p.last) : hitText(p.room_label));
@@ -387,15 +389,16 @@ registerScreenFind('telegram', {
   // 목록(날짜별·방별)이 보일 때와 방 상세. 보관함·휴지통·보낸 사람 이름 칸, 폰의 날 상세(목록이 가려짐)는 아님.
   active: () => window.KPTURouter?.current === 'telegram' && state.mode === 'live' && state.loaded && !state.missing && !state.error && (pc.matches || !state.sel),
   value: () => (state.rsel ? state.find.q : listQ ? listText : ''),
-  apply: (raw, {submit = false} = {}) => {
+  apply: (raw, {submit = false, again = false} = {}) => {
     const v = String(raw ?? '');
     if (state.rsel) {
+      if (again) return; // 방 안은 서버 찾기(Enter) — 비슷한 말 다시 거르기는 목록 몫
       state.find.q = v;
       if (!v.trim()) { if ((state.find.rows || state.find.error) && !state.find.busy) { state.find = freshFind(); state.found = ''; paintDetail(); } return; }
       if (submit) void runFind();
       return;
     }
-    listText = v; const q = v.trim().toLowerCase(); if (q === listQ) return; listQ = q; paintList();
+    listText = v; const q = v.trim().toLowerCase(); if (q === listQ && !again) return; listQ = q; paintList();
   },
 });
 function roomListHtml() {

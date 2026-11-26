@@ -7,6 +7,7 @@
 // 저장하는 것 없음(최근 검색어 기억 안 함, 결정 7). 로그인이 바뀌면 메모리를 비운다.
 // FEAT-1029묶음 ① WORK ON+에 물어보기(docs/design/ask-web2.md 1절): 질문처럼 보이면 결과 맨 위 [WORK ON+에 물어보기 ↵] 줄, 누르거나 Enter면 답 상자.
 //   답 상자·최근 물어본 것도 이 모듈의 paint가 그린다(규칙은 ask-web2-model.mjs, 서버 호출은 global-search-data.js). AI는 누를 때만 부른다.
+import {compileFind, markParts} from './find-match-model.mjs';
 import {parseQuery, QUERY_MESSAGES, errorMessage, highlightParts, buildGroups, chipOptions, countLabel, GROUPS, groupOf, serverKindOf,
   groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent} from './global-search-model.mjs';
 import * as data from './global-search-data.js';
@@ -57,9 +58,13 @@ function icon(name, cls = 'gs-icon') {
   path.setAttribute('d', ICON[name] || ICON.search); svg.append(path); return svg;
 }
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+// S70-67 SEARCH-비슷한것찾기: 형광은 공용 판정의 맞은 부분(정확히 같은 글자 + 띄어쓰기·초성·오타로 맞은 글자). 낱말 묶음마다 한 번만 만든다.
+let markFind = null;
+const findFor = words => { const k = (words || []).join(' '); if (markFind?.text !== k) markFind = compileFind(k); return markFind; };
 function marked(text, words, cls) {
   const box = el('span', cls);
-  for (const part of highlightParts(text, words)) box.append(part.mark ? el('mark', 'gs-mark', part.text) : document.createTextNode(part.text));
+  const parts = markParts(text, findFor(words));
+  for (const part of (parts.some(p => p.mark) ? parts : highlightParts(text, words))) box.append(part.mark ? el('mark', 'gs-mark', part.text) : document.createTextNode(part.text));
   return box;
 }
 

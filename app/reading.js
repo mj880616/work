@@ -39,7 +39,7 @@ import {createMemoThread, memoRowHtml} from './memo-thread.js';
 import {memoRows} from './memo-model.mjs';
 import {memosNow, memoState, loadMemos, onMemos, memoExists} from './memo-store.js';
 import {openMemoSource} from './memo-open.js';
-import {registerScreenFind, refreshScreenFind} from './screen-find.js';
+import {registerScreenFind, refreshScreenFind, finderOf} from './screen-find.js';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
@@ -75,12 +75,15 @@ const entriesNow = () => entriesOf(state.rows);
 // S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸이 '저장한 글에서 찾기' — 지금 탭 목록을
 // 제목·매체(밑줄 탭은 밑줄 글·메모·글 제목, 메모 탭은 글 제목·메모)로 거른다. 이 화면 메모리만(서버 검색 없음).
 let findText = '', findQuery = '';
-const found = (...texts) => !findQuery || texts.some(t => String(t || '').toLowerCase().includes(findQuery));
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말), 맞은 정도 순, 맞은 부분 굵게.
+const finder = finderOf('reading', () => findText);
+const ranked = (list, texts) => (findQuery ? finder().rank(list, texts) : list);
 registerScreenFind('reading', {
   label: '저장한 글에서 찾기',
   active: () => window.KPTURouter?.current === 'reading' && !!view() && !view().classList.contains('hidden') && !view().querySelector('[data-rd-list]')?.hidden,
   value: () => (findQuery ? findText : ''),
-  apply: raw => { findText = String(raw ?? ''); const next = findText.trim().toLowerCase(); if (next === findQuery) return; findQuery = next; drawList(); },
+  marks: '#readingView [data-rd-list]',
+  apply: (raw, {again} = {}) => { findText = String(raw ?? ''); const next = findText.trim().toLowerCase(); if (next === findQuery && !again) return; findQuery = next; drawList(); },
 });
 // News에서 열 수 있는 줄의 원래 글({type,id}) — News 기능 키가 있을 때만.
 const newsLinkOf = id => (state.newsOn ? linkOf(rowOf(id)) : null);
@@ -206,9 +209,9 @@ function drawList() {
   renderFilterChips(switchHost, {options: filterOptions(entries, marks ? marks.length : null, memoState().ready ? myMemos().length : null), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
     onChange: v => { setFilter(v); drawList(); }});
   head.insertBefore(switchHost, add);
-  if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks && marks.filter(h => found(h.quote, h.memo, h.source_title)))); box.replaceChildren(...parts); return; }
+  if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks && ranked(marks, h => [h.quote, h.memo, h.source_title]))); box.replaceChildren(...parts); return; }
   if (keepFilter(state.filter) === 'memos') { parts.push(memosEl()); box.replaceChildren(...parts); return; }
-  const shown = filterEntries(entries, state.filter, state.open || '').filter(e => { const l = lineOf(e.row); return found(l.title, l.site); });
+  const shown = ranked(filterEntries(entries, state.filter, state.open || ''), e => { const l = lineOf(e.row); return [l.title, l.site]; });
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
   for (const e of shown) list.append(rowEl(e));
@@ -244,7 +247,7 @@ function memosEl() {
   const st = memoState();
   if (!st.loaded) { void loadMemos(); list.insertAdjacentHTML('beforeend', waitHtml({rows: 3, h: 40})); return list; }
   if (!st.ready) { list.append(emptyEl(st.missing ? '메모는 준비 중이에요.' : '메모를 읽지 못했어요.')); return list; }
-  const rows = myMemos().filter(m => found(readingMemoTitle(m), m.quote, m.body));
+  const rows = ranked(myMemos(), m => [readingMemoTitle(m), m.quote, m.body]);
   if (!rows.length) list.append(emptyEl(emptyText('memos', 0)));
   else list.insertAdjacentHTML('beforeend', `<div class="memo-lines">${rows.map(m => memoRowHtml(m, {titleOf: readingMemoTitle, exists: readingMemoExists})).join('')}</div>`);
   return list;

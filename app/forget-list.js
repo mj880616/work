@@ -23,6 +23,7 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {seoulDateKey} from './meeting-time.js';
+import {compileFind} from './find-match-model.mjs'; // S70-67 SEARCH-비슷한것찾기: 공용 판정(화면에서는 screen-find.js findFor, 순수 시험에서는 같은 규칙 그대로)
 import {dueLabel} from './task-due.mjs';
 import {readInboxCandidates, dismissCandidate, reopenCandidate, markDone, markTasked, markNotMine, undoNotMine, candidateToTask, validateTaskDraft,
   notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText, autoDone, AUTO_DONE_LABEL, starredCandidate, bundleDay} from './todo-radar-data.js';
@@ -145,8 +146,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const lockOf = feature => !!win.KPTUFeatureLock?.hides?.(feature) && !!win.KPTUFeatureLock?.settings?.();
     const locked = {telegram: lockOf('telegram'), call: lockOf('calls')};
     let hidden = 0;
-    // 찾기: 줄 글(요청·제안 글, 아래 작은 줄)에 찾는 글자가 든 줄만(대소문자 무시). 잠긴 줄 수 세기는 그대로.
-    const q = query.trim().toLowerCase(), hit = (...parts) => !q || parts.filter(Boolean).join(' ').toLowerCase().includes(q);
+    // 찾기: 줄 글(요청·제안 글, 아래 작은 줄)이 맞는 줄만 — 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말, S70-67). 잠긴 줄 수 세기는 그대로.
+    const q = query.trim().toLowerCase(), find = q ? (win.KPTUScreenFind?.findFor?.('forget', query) || compileFind(query)) : null, hit = (...parts) => !find || !!(find.hit || find.best)(...parts.filter(Boolean));
     // FORGET-기본이미함(S70-20b): 처리 전 업무 제안 중 ★(마감·직접 부름)는 맨 위에 한 줄씩, 어제 들어온 나머지는 '어제 들어온 요청 n개' 한 줄 묶음.
     // 묶음은 그냥 두면 서버 예약(app_forget_auto_expire)이 다음 날 0시(서울)에 '이미 함(지남)'으로 옮긴다 — 화면은 묶어 보이기만 한다.
     const stars = [], bundle = [], today = seoulDateKey();
@@ -668,7 +669,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   });
   const api = {refresh, paint, setView, view: () => view, source: () => src,
     // S70-57: 맨 위 칸 '잊지 말기에서 찾기'(basket.js registerScreenFind)가 부른다. 같은 글자면 다시 그리지 않는다.
-    query: () => query, setQuery: raw => { const next = String(raw ?? ''); if (next === query) return; query = next; paint(); },
+    query: () => query, setQuery: (raw, {again} = {}) => { const next = String(raw ?? ''); if (next === query && !again) return; query = next; paint(); },
     // 처리 안 한 줄 수(연결 안 된 업데이트 포함, 홈 한 줄과 같은 기준 — 상대 약속은 세지 않음). 모르면 null.
     // FORGET-소식합치기(명진 '넣어'): 처리 전 소식도 센다.
     openCount: count => cState === 'ok' && Number.isInteger(count) ? candidatesFor('open', rows, taskTitles()).length + (fOn ? notes.length : 0) + (nOn ? openNews(news, nPicks).length : 0) + count : null};

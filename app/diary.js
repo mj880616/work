@@ -103,7 +103,8 @@ let findText = '';
 registerScreenFind('diary', {label:'하루 기록에서 찾기',
   active:() => window.KPTURouter?.current === 'diary' && !selected && !edit,
   value:() => (listView.query ? findText : ''),
-  apply:raw => { findText = String(raw ?? ''); listView.setQuery(findText); if (findText.trim() && viewMode() !== 'list') { chosenView = 'list'; renderList(); } }});
+  marks:'#diaryRoot [data-diary-lv-body] .diary-lv-row',
+  apply:(raw, {again} = {}) => { findText = String(raw ?? ''); listView.setQuery(findText, {again}); if (findText.trim() && viewMode() !== 'list') { chosenView = 'list'; renderList(); } }});
 
 // JOURNAL-오늘한일달력 (S50-29, 요청함 11/02 13:17 덧붙임): 일기를 안 쓴 날도 그날 '오늘 한 일'이 있으면 달력 칸에 빈 동그라미, 이 달 목록에
 // 그 날짜 줄('한 일 · 첫 줄')이 나온다. 홈에서 넣은 같은 자료를 읽기만(work-day-lines.js readDoneBetween — 두 벌 저장 없음, 메모리에만).

@@ -41,7 +41,7 @@ import {EDIT_LABEL,EDITED_TAG,REDO_ASK,REVERT_ASK,REVERT_LABEL,applyEdits,editFi
 import {openRowMenu,appMenuPoint} from './row-menu.js';
 import {textSizeHtml,paintTextSize} from './text-size.js';
 import {createNoteDoc} from './basket-data.js';
-import {registerScreenFind,refreshScreenFind} from './screen-find.js';
+import {registerScreenFind,refreshScreenFind,finderOf} from './screen-find.js';
 
 const rt=()=>window.KPTURuntime;
 const ws=()=>rt()?.context?.read?.()?.workspace?.id||'';
@@ -67,11 +67,12 @@ const view=()=>document.getElementById('briefView');
 // S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸이 '브리핑 룸에서 찾기' — 목록 줄을
 // 자료 이름·파일 이름·한 줄 요지로 거른다. 이 화면 메모리만(서버 검색 없음). 폰에서 보기가 목록 대신일 때는 찾기가 아니다.
 let findText='',findQuery='';
-const found=row=>!findQuery||[docName(row.doc),row.doc.file_name,row.state.kind==='done'?row.state.text:''].some(t=>String(t||'').toLowerCase().includes(findQuery));
-registerScreenFind('brief',{label:'브리핑 룸에서 찾기',
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말), 맞은 정도 순, 맞은 부분 굵게.
+const finder=finderOf('brief',()=>findText),rowTexts=row=>[docName(row.doc),row.doc.file_name,row.state.kind==='done'?row.state.text:''];
+registerScreenFind('brief',{label:'브리핑 룸에서 찾기',marks:'#briefView [data-br-list]',
   active:()=>window.KPTURouter?.current==='brief'&&!!view()&&!view().classList.contains('hidden')&&!view().querySelector('[data-br-list]')?.hidden,
   value:()=>findQuery?findText:'',
-  apply:raw=>{findText=String(raw??'');const next=findText.trim().toLowerCase();if(next===findQuery)return;findQuery=next;drawList()}});
+  apply:(raw,{again}={})=>{findText=String(raw??'');const next=findText.trim().toLowerCase();if(next===findQuery&&!again)return;findQuery=next;drawList()}});
 const wide=()=>window.matchMedia?.('(min-width: 761px)').matches;
 const here=()=>window.KPTURouter?.current==='brief'&&!document.hidden;
 
@@ -137,7 +138,7 @@ function drawList(){
   if(pick.active)head.replaceChildren(...pickBar(rowsNow));
   const drop=el('p','br-drop',`여기에 파일을 놓아도 돼요 · 자료실 '${BRIEF_FOLDER}' 폴더에 함께 저장돼요`);drop.dataset.brDrop='1';
   if(state.failed&&!state.docs.length){box.replaceChildren(head,drop);box.insertAdjacentHTML('beforeend',failHtml({retry:'data-br-retry'}));return}
-  const rows=rowsNow.filter(found);
+  const rows=findQuery?finder().rank(rowsNow,rowTexts):rowsNow;
   const list=el('div','br-rows');if(pick.active)list.classList.add('br-picking');list.dataset.textSizeTarget='';
   for(const row of rows){
     const r=el('div','br-row');r.dataset.brOpen=row.doc.id;r.tabIndex=row.state.kind==='done'?0:-1;r.setAttribute('role',row.state.kind==='done'?'button':'group');

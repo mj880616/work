@@ -80,7 +80,7 @@ import {setFolderOrderLook, photoFolderRows, photoFolderTrail, photoSubfolders, 
   validAlbumView, stepAlbumView, albumPeriod, ALBUM_VIEW_TEXT, gdriveFolderTree, folderCountText, GDRIVE_TOP} from './photos-model.mjs';
 import {notify, askConfirm, askChoice} from './small-notice.js';
 import {viewPrefs, validValue} from './view-prefs.js';
-import {registerScreenFind, toolsBox} from './screen-find.js';
+import {registerScreenFind, toolsBox, finderOf} from './screen-find.js';
 import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
@@ -144,14 +144,16 @@ let tab = 'all', filter = 'all', colsSaved = null, prefsRead = false, sort = DEF
 // S70-57: 맨 위 칸 '사진에서 찾기' = 보이는 사진 칸(그림 이름)·앨범 이름 거르기. 화면 메모리만(새 서버 찾기 없음).
 // photoQ = 다듬은 소문자 글자(빈 글자 = 거르지 않음), photoQRaw = 칸에 친 그대로.
 let photoQ = '', photoQRaw = '';
-const hitText = text => !photoQ || String(text ?? '').toLowerCase().includes(photoQ);
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말).
+const photoFinder = finderOf('photos', () => photoQRaw);
+const hitText = text => !photoQ || !!photoFinder().hit(String(text ?? ''));
 const photoHit = item => hitText(item?.name);
 // [달력]·월·연 보기는 그림 칸이 없어 치면 [사진] 일 보기로 바꿔 맞는 칸을 보인다(기억해 둔 크기 단계는 그대로 — 저장하지 않음).
 registerScreenFind('photos', {label:'사진에서 찾기', active:() => window.KPTURouter?.current === 'photos', value:() => photoQRaw,
-  apply:raw => {
+  apply:(raw, {again} = {}) => {
     photoQRaw = String(raw ?? '');
     const q = photoQRaw.trim().toLowerCase();
-    if (q === photoQ) return;
+    if (q === photoQ && !again) return;
     photoQ = q;
     if (q && tab === 'calendar') { level = 'day'; setTab('all'); return; }
     if (q && tab === 'all' && level !== 'day') { level = 'day'; render(); return; }

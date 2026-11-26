@@ -119,3 +119,8 @@
 html[data-screen-find] .app-topline .topline-search{min-width:140px}
 /* 옮겨 온 단추는 공용 6가지(⋯ = icon-btn, 고르기·만들기 = secondary)를 그대로 쓰고, 여기서는 상단 줄 높이에 맞춘 크기·자리만. */
 .sf-tools .sf-chip{max-width:11em;overflow:hidden;text-overflow:ellipsis}
+/* SEARCH-비슷한것찾기(S70-67): 맨 위 칸 찾기에서 맞은 부분(screen-find.js가 CSS Custom Highlight로 칠함 — 글은 그대로, 굵게 보이게만)과
+   '비슷한 말로도 찾았어요' 한 줄(맨 위 칸 바로 아래 작은 줄, 누를 것 없음). */
+::highlight(kptu-find){color:var(--kptu-ink);background-color:color-mix(in srgb,var(--kptu-primary-ink) 14%,transparent);text-shadow:.35px 0 0 currentColor,-.35px 0 0 currentColor}
+.sf-also{position:fixed;z-index:55;box-sizing:border-box;margin:0;padding:2px 8px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;box-shadow:var(--kptu-shadow-float)}
+.sf-also[hidden]{display:none}

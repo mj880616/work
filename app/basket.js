@@ -426,7 +426,7 @@ void forget.refresh();
 registerScreenFind('forget',{label:'잊지 말기에서 찾기',
   active:()=>window.KPTURouter?.current==='basket'&&kind==='memo'&&!list.hidden,
   value:()=>forget.query(),
-  apply:raw=>forget.setQuery(raw)});
+  apply:(raw,opt={})=>forget.setQuery(raw,opt)});
 // FAMILY-기억알림: 맨 위 '가족 · 기억할 것' 칸(family-remind.js가 유일한 renderer — 가족 노트가 없거나 비면 칸 없음). 이 파일은 칸 자리만 둔다.
 let famRemind=null;
 const refreshFamRemind=()=>import('./family-remind.js').then(m=>{famRemind||=m.mountFamilyRemind(root.querySelector('[data-fam-remind]'),{rt});return famRemind.refresh();}).catch(()=>{});

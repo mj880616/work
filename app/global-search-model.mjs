@@ -2,6 +2,7 @@
 // 검색어 나누기·검사(서버 app_search_records와 같은 규칙), 형광 구간, Google 일정·할 일 거르기, 묶음 합치기·정렬,
 // 오류 코드 → 안내 글. 화면(global-search.js)과 자료(global-search-data.js)가 함께 쓴다.
 import {word} from './brand/brand.mjs';
+import {compileFind} from './find-match-model.mjs'; // S70-67 SEARCH-비슷한것찾기: 브라우저가 찾는 묶음(일정·할 일)은 공용 글자 비슷 찾기
 
 export const MIN_WORD = 2, MAX_WORDS = 6, MAX_WORD = 100, MAX_QUERY = 200, CAP = 200, PREVIEW = 3, PAGE = 20, SNIPPET_RADIUS = 40;
 // 서버 종류(설계 7절). 일기는 어디에도 없다(서버 허용 목록이 최종 경계).
@@ -71,7 +72,10 @@ export function errorMessage(error) {
 }
 
 const lower = s => String(s ?? '').toLowerCase();
-const includesAll = (text, words) => { const t = lower(text); return words.every(w => t.includes(lower(w))); };
+// 브라우저 쪽 맞추기(일정·할 일): 공용 판정(띄어쓰기 무시·오타·초성·앞부분). 낱말 묶음마다 한 번만 만든다.
+const finds = new Map();
+const findOf = words => { const k = (words || []).join(' '); let f = finds.get(k); if (!f) { if (finds.size > 50) finds.clear(); f = compileFind(k); finds.set(k, f); } return f; };
+const includesAll = (text, words) => !!findOf(words).test(String(text ?? ''));
 
 // 형광 구간: text를 [{text, mark}] 조각으로 나눈다(겹치는 구간은 합침, 대소문자 무시). 화면은 조각마다 textContent로 그린다.
 export function highlightParts(text, words) {

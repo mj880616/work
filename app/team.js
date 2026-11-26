@@ -24,7 +24,7 @@ let renderFilterChips,defaultReportAt,isPhotoFile,paintLocalPhotos,REPORT_VIEW_O
 import {within, isLoadTimeout} from './load-deadline.js';
 import {SPLIT_QUERY} from './screen-width.mjs'; // FOLD-넓은화면 2차: 사업 보고 '목록 | 결과' 칸 나누기 폭은 공용 판정 한 곳(600px~)
 import {word} from './brand/brand.mjs';
-import {registerScreenFind,refreshScreenFind} from './screen-find.js'; // S70-57 UI-메뉴별검색: 맨 위 칸 '사업 관리에서 찾기'
+import {registerScreenFind,refreshScreenFind,finderOf} from './screen-find.js'; // S70-57 UI-메뉴별검색: 맨 위 칸 '사업 관리에서 찾기'
 // FOLD-넓은화면 2차(S59-19, 요청함 11/06 01:18 ④): meetingPc = 칸 나누기(공용 판정 600px~ — 펼친 폴드·PC), meetingWide = [회의] 칸 세 칸(종류 | 차수 | 결과)을 쓰는 PC(1200px~, 홈 두 단·잊지 말기와 같은 경계),
 // meetingFramePc = 앱 틀이 PC(761px~)인지(아니면 폰 틀: 결과 칸은 아래 하단바만큼 짧게 붙는다, follow-pane.js narrow).
 // 폴드 펼침(600~1199px)은 칸 칩과 상관없이 '날짜·이름 목록 | 결과' 두 칸(meeting-columns.js listHtml — PC [전체]·다른 칸 칩과 같은 부품)이고, 회의명은 위 [종류 ▾] 상자의 '회의명' 묶음으로 거른다(폰과 같음).
@@ -402,10 +402,13 @@ function reportRows(){return findMatch(weekMatch(areaMatch(filterByReportKind(me
 // S70-57 UI-메뉴별검색(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸 '사업 관리에서 찾기' 글자(화면 메모리만).
 // 거르기는 그리기 전 자료 한 곳(reportRows·meetingColumnList)에서 — 목록·세 칸·폰 줄·달력·사진 보기가 모두 같은 거른 줄을 그린다. 새 서버 검색 없음.
 let reportFind='';
-function findMatch(list){const q=reportFind.trim().toLowerCase();if(!q)return list;return list.filter(m=>[m.title,m.series_name,m.location,m.next_plan].map(v=>String(v??'')).join(' ').toLowerCase().includes(q))}
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말·기간). 줄 순서는 지금 보기(날짜·종류) 그대로.
+const reportFinder=finderOf('meetings',()=>reportFind);
+function findMatch(list){if(!reportFind.trim())return list;const f=reportFinder();return list.filter(m=>!!f.hitAt(m.meeting_at?seoulDateKey(m.meeting_at):'',m.title,m.series_name,m.location,m.next_plan))}
 // 세 번째 칸에서 고치던 내용이 있으면 다른 줄로 갈 때처럼 먼저 묻고(leaveReport), 멈추면 칸 글자를 지금 거르기 글자로 되돌린다.
 registerScreenFind('meetings',{label:word('사업 관리에서 찾기'),active:()=>window.KPTURouter?.current==='meetings',value:()=>reportFind,
-  apply:raw=>{const next=String(raw??'');if(next===reportFind)return;if(!leaveReport(()=>{reportFind=next;renderMeetings({resetList:true})}))refreshScreenFind()}});
+  marks:'#meetingList :is([data-meeting-kind],[data-meeting-round],.meeting-list-row)',
+  apply:(raw,{again}={})=>{const next=String(raw??'');if(next===reportFind&&!again)return;if(!leaveReport(()=>{reportFind=next;renderMeetings({resetList:true})}))refreshScreenFind()}});
 // MTG-기본종류전체(요청함 방 추천): 화면 안에서 고른 종류 거르기는 사업 보고에 머무는 동안만. 다른 화면으로 가면 [종류 전체]로 돌아가
 // 메뉴로 다시 들어올 때마다 전체로 시작한다(새로고침은 주소의 chip으로 제자리).
 function resetReportChip(){if(reportChip===DEFAULT_CHIP)return;reportChip=DEFAULT_CHIP;meetingSelectedId=null;if(teamViewLoaded.has('meetings')&&reportKitLoaded)renderMeetings({resetList:true})}
