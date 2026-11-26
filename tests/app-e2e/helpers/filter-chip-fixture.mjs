@@ -52,6 +52,8 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    // S70-73 LIB-드라이브자동등록: 자료실을 열 때 보내는 자동 등록 부탁(JSON). 기본은 새 자료 없음, state.autoAdded = 서버가 넣은 자료 행들.
+    if(path==='/functions/v1/library-files'&&body?.action==='drive-auto'){(state.autoCalls||(state.autoCalls=[])).push(body);const rows=state.autoAdded||[];state.autoAdded=[];state.docs.push(...rows);return ok({ok:true,added:rows.length,placed:0,failed:0,more:false})}
     if(path==='/functions/v1/library-files'){
       const raw=(req.postDataBuffer()||Buffer.from('')).toString('utf8');
       const field=name=>raw.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1]??null;

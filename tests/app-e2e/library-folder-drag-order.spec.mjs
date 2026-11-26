@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {treeEnter} from './helpers/tree-enter.mjs';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
 // LIB-폴더끌어순서(S61-14): 자료실 폴더를 끌어 위치·순서 바꾸기. 폴더 줄 위쪽 끝 = 그 앞, 아래쪽 끝 = 그 뒤(가는 선), 가운데 = 안으로.
@@ -43,7 +44,7 @@ test.describe('PC 1280 자료실 폴더 끌어 순서',()=>{
     await expect.poll(()=>topOrder(s)).toEqual(['pub','pol','box']);
     // 다른 단: 정책 자료 안의 '하위'를 공공팀 아래쪽 끝에 → 맨 위 단으로 옮기며 공공팀 바로 뒤.
     // S69-28 LIB-한칸탐색기: '하위'는 정책 자료 안(오른쪽은 그 폴더에 들어가야 보임), 공공팀은 왼쪽 나무 줄.
-    await page.locator(navRow('pol')).click();await expect(page.locator(head('f:sub'))).toBeVisible();
+    await treeEnter(page.locator(navRow('pol')));await expect(page.locator(head('f:sub'))).toBeVisible(); // T10: 이름 = 오른쪽 그 폴더, 꺾쇠로 펼침(treeEnter)
     r=await dragTo(page,head('f:sub'),navRow('pub'),{edge:'bottom',rect:'.ft-row'});expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-after');
     await expect.poll(()=>s.folders.find(f=>f.id==='sub').parent_id).toBeNull();
     await expect.poll(()=>topOrder(s)).toEqual(['pub','sub','pol','box']);

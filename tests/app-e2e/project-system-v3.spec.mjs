@@ -1118,9 +1118,10 @@ test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 
   expect(state.trash.calls.map(c=>c.fn)).toContain('app_trash_purge');
 });
 
-// UI-줄밀기 Raindrop식 2/2(S68-26b): 폰 휴지통 줄 — 왼쪽 밀기 [되돌리기]·[영구 삭제](영구 삭제는 끝까지 밀어도 칸만, 누르면 확인창),
-// 오른쪽 밀기 [선택] → 'n개 선택됨 · [되돌리기]'. 상위가 휴지통인 줄은 [영구 삭제]만. PC는 밀기 없음.
-test('TRASH 줄 밀기 412: 왼쪽 밀기 [되돌리기]·[영구 삭제] 칸, 오른쪽 밀기 [선택] → 여러 개 되돌리기',async({page})=>{
+// UI-줄밀기 Raindrop식 2/2(S68-26b): 폰 휴지통 줄 — 왼쪽 밀기 [되살리기]·[영구 삭제](영구 삭제는 끝까지 밀어도 칸만, 누르면 확인창),
+// 오른쪽 밀기 = 그 줄이 바로 골라짐(S70-64) → 'n개 선택됨 · [되살리기]'. 상위가 휴지통인 줄은 [영구 삭제]만. PC는 밀기 없음.
+// S70-65 UI-밀기메뉴통일: 휴지통에서 꺼내기 이름은 용어 기준표대로 '되살리기'(밀기 칸·선택 막대·줄 끝 단추 모두).
+test('TRASH 줄 밀기 412: 왼쪽 밀기 [되살리기]·[영구 삭제] 칸, 오른쪽 밀기 = 고르기 → 여러 개 되살리기',async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width:412,height:900});
   const state=baseState();
@@ -1150,23 +1151,26 @@ test('TRASH 줄 밀기 412: 왼쪽 밀기 [되돌리기]·[영구 삭제] 칸, �
   await expect(ends).toHaveCount(2);
   await expect(ends.nth(0)).toHaveAttribute('data-row-swipe-key','restore');
   await expect(ends.nth(1)).toHaveAttribute('data-row-swipe-key','purge');
+  await expect(ends.locator('.row-swipe-tx')).toHaveText(['되살리기','영구 삭제']);
+  await expect(list.locator('[data-ps3-trash-row="solo-1"] [data-ps3-trash-restore]')).toHaveText('되살리기');
   expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
   await tap(list.locator('[data-row-swipe-key="purge"]'));
   expect((await askWithNote(page,false)).join(' ')).toContain('영구 삭제할까요');
   expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
-  // [되돌리기] 칸 = 줄 끝 [되돌리기]와 같은 길.
+  // [되살리기] 칸 = 줄 끝 [되살리기]와 같은 길.
   await tick();await swipe('solo-1',-60);
   await tap(list.locator('[data-row-swipe-key="restore"]'));
   await expect.poll(()=>state.spaces.some(x=>x.id==='solo-1')).toBe(true);
   await expect(list.locator('[data-ps3-trash-row]')).toHaveCount(3);
-  // 오른쪽 밀기 [선택] → 'n개 선택됨 · [되돌리기]'(상위가 휴지통인 줄은 건너뜀).
+  // 오른쪽 밀기 = 그 줄이 바로 골라진다(S70-64, 칸이 열려 남지 않음) → 'n개 선택됨 · [되살리기]'(상위가 휴지통인 줄은 건너뜀).
   await tick();await swipe('solo-2',320);
   const bar=page.locator('#ps3ArchiveModal .row-swipe-pickbar');
   await expect(bar).toBeVisible();
+  await expect(list.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
   await list.locator('[data-ps3-trash-row="main-1"]').click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
-  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['되돌리기']);
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['되살리기']);
   await bar.locator('[data-row-pick-act="restore"]').click();
   await expect.poll(()=>['main-1','solo-2'].every(id=>state.spaces.some(x=>x.id===id))).toBe(true);
   await expect(bar).toBeHidden();

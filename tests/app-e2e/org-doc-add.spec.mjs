@@ -27,7 +27,7 @@ async function fixture(page,width){
   if(method==='PATCH'){const body=req.postDataJSON();state.patches.push({table,body});rows.forEach(r=>Object.assign(r,body))}
   return route.fulfill({json:rows});
  });
- await page.route(SB+'/functions/v1/library-files',route=>{
+ await page.route(SB+'/functions/v1/library-files',route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
   state.uploads++;
   tables.app_documents.push({id:'new-doc',workspace_id:'w',title:'합성',file_name:'a.pdf',mime_type:'application/pdf',category:'기타',organization_id:null,created_at:stamp});
   return route.fulfill({json:{document:{id:'new-doc',title:'합성',project_id:null}}});
@@ -80,7 +80,7 @@ test('조직 상세 자료 [+]: 저장하면 창이 바로 닫히고, 올리는 
  const state=await fixture(page,412);
  let release;const hold=new Promise(r=>{release=r});const names=[];
  await page.unroute(SB+'/functions/v1/library-files');
- await page.route(SB+'/functions/v1/library-files',async route=>{
+ await page.route(SB+'/functions/v1/library-files',async route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
   const n=++state.uploads;names.push(n);if(n===1)await hold;
   const id='new-doc-'+n;state.tables.app_documents.push({id,workspace_id:'w',title:'합성'+n,file_name:'a'+n+'.pdf',mime_type:'application/pdf',category:'기타',organization_id:null,created_at:stamp});
   return route.fulfill({json:{document:{id,title:'합성'+n,project_id:null}}});

@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {treeEnter} from './helpers/tree-enter.mjs';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {chooseBasketKind} from './helpers/basket-kind.mjs';
@@ -36,7 +37,7 @@ for(const width of [884,720])test(`자료실 한 칸 ${width}(폴드 펼침): �
   const nav=page.locator('#libraryFolderNav');
   await expect(nav.locator(`[data-lu-nav="${U(3)}"]`)).toBeVisible();
   // 하위 폴더도 보이게 펼친다(들여쓰기만큼 더 좁다).
-  await nav.locator(`[data-lu-nav="${U(2)}"]`).click();
+  await treeEnter(nav.locator(`[data-lu-nav="${U(2)}"]`)); // T10: 넓은 화면 나무는 이름 + 꺾쇠로 펼침
   await expect(nav.locator(`[data-lu-nav="${U(5)}"]`)).toBeVisible();
   const rows=await namesReadable(nav,'.ft-folder .ft-name');
   // 짧은 이름은 통째로 보인다.
@@ -85,7 +86,7 @@ for(const [width,label] of [[884,'폴드 펼침'],[390,'폰']])test(`노트 ${la
   await chooseBasketKind(page,'note');
   const scope=width>760?page.locator('[data-nx-tree]'):page.locator('#noteRows');
   await expect(scope.locator(`[data-nx-folder="${U(12)}"]`)).toBeVisible();
-  await scope.locator(`[data-nx-folder="${U(12)}"] .ft-main`).click();
+  await treeEnter(scope.locator(`[data-nx-folder="${U(12)}"] .ft-main`)); // T10: 넓은 화면 나무는 이름 + 꺾쇠, 폰은 이름 한 번
   await expect(scope.locator(`[data-nx-folder="${U(13)}"]`)).toBeVisible();
   await namesReadable(scope,'.ft-folder .ft-name');
   await page.screenshot({path:test.info().outputPath(`notes-${width}.png`)});

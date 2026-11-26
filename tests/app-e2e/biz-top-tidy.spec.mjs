@@ -86,11 +86,11 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   await open(page, state, width);
   const vp = page.viewportSize();
   const pc = width >= 761;
-  // ① 첫 줄: 오른쪽 [녹음][+][⋯](모든 폭 작은 아이콘) 모두 같은 가운데 높이. 폰은 제목 '사업 관리'가 왼쪽에 보인다.
-  const line1 = await mids(page, '#meetingsView .report-top-line .report-head-actions > :not([hidden])' + (width < 761 ? ', #meetingsView .report-top-title' : ''));
+  // ① 첫 줄: 오른쪽 [녹음][+][⋯](모든 폭 작은 아이콘) 모두 같은 가운데 높이. 폰 제목 '사업 관리'는 S70-57부터 앱 머리 줄(찾기 돋보기와 함께).
+  const line1 = await mids(page, '#meetingsView .report-top-line .report-head-actions > :not([hidden])');
   expect(line1.length).toBeGreaterThanOrEqual(2);
   expect(Math.max(...line1.map(x => x.mid)) - Math.min(...line1.map(x => x.mid))).toBeLessThanOrEqual(3);
-  if (width < 761) await expect(page.locator('#meetingsView .report-top-title')).toBeVisible();
+  if (width < 761) await expect(page.locator('#appView > .mobile-shell-header [data-mobile-view-name]')).toHaveText('사업 관리');
   await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
   await expect(page.locator('#meetingsView .report-top-line #newMeetingBtn')).toBeVisible();
   await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
@@ -102,11 +102,11 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   expect(line2.length).toBeGreaterThanOrEqual(inChip ? 1 : 2);
   expect(Math.max(...line2.map(x => x.mid)) - Math.min(...line2.map(x => x.mid))).toBeLessThanOrEqual(3);
   if (pc) { expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line2.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)) - 32); }
-  // S67-64 UI-윗줄한줄(명진 11/21 시안 D3): 폰도 한 줄 — [아이콘][사업 관리][고르기(넘치면 줄 안에서 가로 밀기)] … [+][⋯].
+  // S67-64 UI-윗줄한줄(명진 11/21 시안 D3): 폰도 한 줄 — [고르기(넘치면 칩 하나)] … [+][⋯]. 아이콘·이름은 S70-57부터 그 위 앱 머리 줄.
   else {
     expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3);
     const [bar, add] = await Promise.all([page.locator(inChip ? '#reportFilterChip' : '#meetingsView .report-kind-bar').boundingBox(), page.locator('#newMeetingBtn').boundingBox()]);
-    expect(bar.x).toBeGreaterThan((await page.locator('#meetingsView .report-top-title').boundingBox()).x);
+    expect(bar.y).toBeGreaterThanOrEqual((await page.locator('#appView > .mobile-shell-header').boundingBox()).y + 20);
     expect(bar.x + bar.width).toBeLessThanOrEqual(add.x);
   }
   // 녹음·추가는 모든 폭에서 글자 없는 작은 아이콘(이름은 화면 읽기용).

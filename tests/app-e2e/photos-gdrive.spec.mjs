@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // S46-24 ④ 사진 화면 구글 드라이브 칸(지어낸 서버: app_my_features·gdrive-photos·onedrive-photos, 네트워크 없음, 그림은 1×1).
 // - S62-11: 운영자 기능(gdrive_photos)이 없는 작업공간도 칩이 보이고, Drive 연결 전이면 '연결 전 · [연결]'.
 // - PC 1440: 칩 켜기(서버 view_prefs) → [폴더] '구글 드라이브' 묶음에서 폴더 스위치 켜기(folder-toggle) → [사진]에 찍은 날 순서로 섞임
@@ -85,7 +86,7 @@ async function openPhotos(page, width) {
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
-const gdBtn = page => page.locator('#photosRoot [data-photos-src="gdrive"]');
+const gdBtn = page => page.locator('[data-sf-tools="photos"] [data-photos-src="gdrive"]');
 // S46-29: 문제 표시 점(::before)은 10px 이하, 칩의 누르는 영역(::after, base-ui.css)은 44px 이상. 두 가상 요소가 겹치면 점이 44px 원이 된다.
 const gdMarks = page => gdBtn(page).evaluate(b => {
   const d = getComputedStyle(b, '::before'), a = getComputedStyle(b, '::after');
@@ -145,7 +146,7 @@ test.describe('PC 1440', () => {
     await expect(bodyEl.locator('[data-photos-gf-open="root"] .ft-num')).toHaveText('3');
     // 폴더를 누르면 나무는 그대로, 오른쪽 칸에 위치 줄·장수·그 폴더 사진, 나무에서 하위 폴더가 펼쳐짐.
     // S69-38 UI-탐색기나무누르기: 이름 누르기 = 그 폴더 열기 + 펼침(우클릭 [이 폴더로 들어가기]와 같은 곳), 오른쪽에 하위 폴더 줄.
-    await bodyEl.locator('[data-photos-fx-tree] [data-photos-gf-open="GF1"]').click();
+    await treeEnter(bodyEl.locator('[data-photos-fx-tree] [data-photos-gf-open="GF1"]'));
     await expect(bodyEl.locator('[data-photos-fx-tree] [data-photos-gf="GF1"]')).toHaveClass(/ft-current/);
     await expect(bodyEl.locator('[data-photos-gd-folder] [data-photos-gf-open="GF11"]')).toBeVisible();
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toContainText('구글 드라이브');

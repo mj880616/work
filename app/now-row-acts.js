@@ -1,9 +1,9 @@
-import {bindRowSwipe, PICK} from './row-swipe.js';
+import {bindRowSwipe, PICK, EDIT} from './row-swipe.js';
 import {notify} from './small-notice.js';
 import {setMark, setSaved, sendSignal, unstar, restoreStar, removeMine, restoreMine} from './now-marks.js';
 import {openRowMenu, appMenuPoint} from './row-menu.js';
 // NOW-줄밀기(S49-3, 명진 11/03 08:55): Now 글 줄(사회운동·뉴스·보관)의 밀기·마우스 단추를 한 곳에서. 공용 줄 밀기(row-swipe.js)를 그대로 쓴다.
-// S68-26부터 왼쪽 밀기 = 칸 [보관]·[숨기기](사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at — 끝까지 밀면 숨기기), 오른쪽 밀기 = [선택](여러 개).
+// S68-26부터 왼쪽 밀기 = 칸 [보관]·[숨기기](사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at — 끝까지 밀어도 칸만, 누를 때만 숨김 S70-60), 오른쪽 밀기 = [선택](여러 개).
 // 보관(= 별표, 두 쪽 같음 — S67-09)된 줄은 [보관] 칸이 [보관 풀기]. [보관] 탭은 칸 [보관 풀기]. 저장은 모두 서버(상세와 같은 now-marks.js), 누른 일마다 환류 기록. 알림 '숨겼어요 [되돌리기]'.
 // PC·중간 폭은 밀기 대신 줄 위에 마우스를 올리면(또는 키보드 초점) 작은 [보관][숨기기]([보관] 탭은 [보관 풀기]).
 // S67-11 NEWS-보관빼기(명진 11/19): 줄 오른쪽 ★(news-row.mjs, data-now-act="unstar")·밀기·마우스 단추·⋯·우클릭의 '보관 풀기'는 모두 dropSaved 하나 —
@@ -96,19 +96,19 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
   const editable = item => !!onEdit && !!canEdit(item);
   const menuItems = item => rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item), canEdit: editable(item)});
   // UI-줄밀기 Raindrop식(S68-26, 명진 11/22): 왼쪽으로 밀기 = 오른쪽 끝 칸 [보관]/[보관 풀기]·[숨기기](내가 넣은 기사는 [삭제]).
-  // 끝까지 밀면 맨 끝 [숨기기]를 바로(삭제면 칸만 열림). 오른쪽으로 밀기 = [선택] → 'n개 선택됨 · [보관][숨기기]'([보관] 탭은 [보관 풀기]).
+  // 끝까지 밀어도 칸만 열린다(S70-60) — 일은 칸을 누를 때만. 오른쪽으로 밀기 = [선택] → 'n개 선택됨 · [보관][숨기기]'([보관] 탭은 [보관 풀기]).
   const attr = (/^\[([a-z0-9-]+)\]$/.exec(row) || [])[1];
   const swipe = bindRowSwipe(host, {row, enabled,
     actions: el => {
       const item = itemOf(el); if (!item) return null;
       const del = canDelete(item) ? {key: 'delete', label: saved || isSaved(item) ? DELETE_BOTH_LABEL : DELETE_LABEL, tone: 'danger'} : null;
       const start = attr ? PICK : null;
-      const edit = editable(item) ? [{key: 'edit', label: EDIT_LABEL, tone: 'move', icon: 'edit'}] : [];
+      const edit = editable(item) ? [EDIT] : [];
       if (saved) return {start, end: [...edit, {key: 'release', label: RELEASE_LABEL, tone: 'info'}, del].filter(Boolean)};
       return {start, end: [...edit, {key: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL, tone: 'info'}, del || {key: 'hide', label: HIDE_LABEL, tone: 'muted'}]};
     },
     run: (key, el) => { const item = itemOf(el); if (item) run(key, item); },
-    select: attr ? {attr, label: '선택한 글', acts: () => saved ? [{key: 'release', label: RELEASE_LABEL}] : [{key: 'save', label: SAVE_LABEL}, {key: 'hide', label: HIDE_LABEL}],
+    select: attr ? {attr, label: '선택한 글', acts: () => saved ? [{key: 'release', label: RELEASE_LABEL, danger: true}] : [{key: 'save', label: SAVE_LABEL}, {key: 'hide', label: HIDE_LABEL}],
       run: (key, ids) => runMany(key, ids.map(id => host.querySelector(`${row.slice(0, -1)}="${CSS.escape(id)}"]`)).map(el => el && itemOf(el)).filter(Boolean))} : null});
   // 고른 글 여러 개를 한 번에: 하나씩 같은 서버 길(now-marks.js)로 하고, 알림은 하나 'n개 …했어요 [되돌리기]'(되돌리면 고른 것 모두 원래대로).
   async function runMany(key, items) {

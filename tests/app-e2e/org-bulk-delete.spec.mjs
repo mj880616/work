@@ -18,8 +18,7 @@ for(const width of [412,1280])test(`여러 곳 선택 → 확인 창 개수 → 
   await expect(rowOf(page,'공항철도지부')).toHaveCount(1);
   const before=await names(page);
   await startPick(page);
-  // 선택 중: 줄 ⋯·참고 묶음 입구는 빠지고, 줄마다 선택 칸. 선택 0곳이면 [삭제]는 꺼짐.
-  await expect(page.locator('#soOrganizationList [data-so-row-more]')).toHaveCount(0);
+  // 선택 중: 참고 묶음 입구는 빠지고, 줄마다 선택 칸. 선택 0곳이면 [삭제]는 꺼짐. (줄 ⋯는 S71-08부터 늘 없다.)
   await expect(page.locator('#soOrganizationList .so-reference-entry')).toHaveCount(0);
   await expect(page.locator('#soOrganizationList .so-pick-count')).toHaveText('0곳 선택됨');
   await expect(page.locator('#soOrganizationList [data-so-pick-delete]')).toBeDisabled();
@@ -74,7 +73,7 @@ test('취소·Esc는 지우지 않고 선택만 끝냄, 모두 선택은 전부'
   await expect(page.locator('#soOrganizationList .so-pick-count')).toHaveText('1곳 선택됨');
   await page.locator('#soOrganizationList [data-so-pick-stop]').click();
   await expect(page.locator('#soOrganizationList .so-pick-bar')).toHaveCount(0);
-  await expect(page.locator('#soOrganizationList [data-so-row-more]').first()).toBeAttached();
+  await expect(page.locator('#soOrganizationList [data-so-pick]')).toHaveCount(0);
   // Esc로도 끝난다.
   await startPick(page);await rowOf(page,'서해선지부').locator('[data-so-org]').focus();await page.keyboard.press('Escape');
   await expect(page.locator('#soOrganizationList .so-pick-bar')).toHaveCount(0);
