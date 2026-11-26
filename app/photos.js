@@ -1137,9 +1137,13 @@ function railWake(ms = RAIL_AWAKE_MS) {
   if (!railDrag && !railHover) railSleepT = setTimeout(() => rail.classList.remove('is-awake'), ms);
 }
 // 맨 위 줄(폰 앱 머리 줄·PC 상단 줄) 아래 끝. S71-25: 화면 안 도구 줄이 없어져 그 줄 대신 맨 위 줄을 잰다.
+// 위 버튼 줄 아래끝. S71-59 UI-화면메뉴안으로: PC 틀은 단추 줄이 맨 위 줄이 아니라 화면 안 첫 줄(screen-tools.js lineSlot)이라
+// 그 줄 아래끝 — 그 줄이 스크롤로 맨 위 줄 밑으로 들어가면 맨 위 줄 아래끝(둘 중 아래 것).
 function headEdge() {
-  const h = srcBox.closest('.mobile-shell-header, .app-topline');
-  return h && h.getClientRects().length ? h.getBoundingClientRect().bottom : 0;
+  const h = srcBox.closest('.mobile-shell-header, .app-topline, [data-screen-tools="line"]');
+  const top = document.querySelector('#appView>.app-topline');
+  const bottom = el => (el && el.getClientRects().length ? el.getBoundingClientRect().bottom : 0);
+  return Math.max(bottom(h), h && h !== top && h.matches('[data-screen-tools="line"]') ? bottom(top) : 0);
 }
 function placeRail() {
   rail.style.top = `${Math.round(headEdge() + 4)}px`;
