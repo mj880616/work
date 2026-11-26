@@ -86,7 +86,7 @@ async function openPhotos(page, width) {
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
-const gdBtn = page => page.locator('#photosRoot [data-photos-src="gdrive"]');
+const gdBtn = page => page.locator('[data-sf-tools="photos"] [data-photos-src="gdrive"]');
 // S46-29: 문제 표시 점(::before)은 10px 이하, 칩의 누르는 영역(::after, base-ui.css)은 44px 이상. 두 가상 요소가 겹치면 점이 44px 원이 된다.
 const gdMarks = page => gdBtn(page).evaluate(b => {
   const d = getComputedStyle(b, '::before'), a = getComputedStyle(b, '::after');

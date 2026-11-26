@@ -159,9 +159,9 @@ test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니�
   await expect(detail(page)).toHaveCount(0);
   await bar.locator('[data-row-pick-stop]').click();
   await expect(bar).toBeHidden();
-  // ④ 줄 밖(맨 위 제목 줄)에서 왼쪽으로 밀면 옆 탭.
+  // ④ 줄 밖(맨 위 머리 줄)에서 왼쪽으로 밀면 옆 탭.
   await tick(page);
-  const head = list.locator('.rd-head .rd-title');
+  const head = list.locator('.rd-head'); // S70-57: 머리 줄 제목 없음(이름은 앱 머리 줄) — 머리 줄 빈 곳
   await head.evaluate(el => el.scrollIntoView({ block: 'center' }));
   const h = await head.boundingBox();
   await finger(page, cdp, path(h.x + h.width / 2 + 60, h.y + h.height / 2, -160, 0));

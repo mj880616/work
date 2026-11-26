@@ -91,7 +91,7 @@ test('PC: 보드 없음 = [+ 새 보드]와 빈 안내([전체] 없음) → 새 
   await expect(onRow).toHaveAttribute('data-nbb-on', '');
   await expect(onRow.locator('.nbb-dot')).toBeVisible();
   expect(await onRow.evaluate(el => getComputedStyle(el).opacity)).toBe('1');
-  await expect(onRow).toHaveAttribute('title', /보드에 있음 · 누르면 그 자리로/);
+  await expect(onRow).not.toHaveAttribute('title', /./); // S70-79: 쓰는 법 안내 title 없음
   // 끌어 놓기로만 붙는다(놓은 자리마다).
   await side.locator('[data-nbb-note="n2"]').dragTo(page.locator('[data-nb-scroll]'), { targetPosition: { x: 600, y: 300 } });
   await side.locator('[data-nbb-note="n3"]').dragTo(page.locator('[data-nb-scroll]'), { targetPosition: { x: 400, y: 460 } });
@@ -295,5 +295,44 @@ test('S69-83: 화면 기억에 옛 값 [전체](all)가 남아 있어도 무시�
   await expect(page.locator('[data-nb-empty]')).toHaveText('왼쪽 노트를 끌어다 놓으세요');
   // 옛 metadata.board 자리가 있는 노트(n1)도 이 보드에 붙지 않았으면 판에 없다.
   await expect(cards(page)).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+// NOTE-보드목록음영(S70-79, 명진 11/26 09:02 "노트 보드화면에서 노트위에 커서 올리면 또 회색 노란 색 배경 음영"):
+// PC 보드 왼쪽 노트 목록 줄에 마우스를 올리면 — 줄 바탕은 다른 목록(노트·[파일] 폴더 나무 .ft-main·.nx-main)과 같은 공용 마우스 올림 색
+// (--kptu-surface-subtle) 하나, 커서 밑에 노란(밑줄·형광펜·끌기 조각) 칸이 없고, 쓰는 법 안내 title 말풍선이 없다(이름 칸 title = 전체 이름만, 표준 L2).
+test('PC 1280: 보드 노트 목록 줄 마우스 올림 = 공용 색 하나 · 노란 칸 없음 · 안내 title 없음', async ({ page }) => {
+  const id = 'b1a2b3c4';
+  const { errors } = await fixture(page, 1280, { note_view: 'board', note_boards: [{ id, name: '교섭' }], note_board: id });
+  const side = page.locator('[data-nbb-side]');
+  await side.locator('[data-nbb-folder]', { hasText: '폴더 없음' }).click();
+  const row = side.locator('[data-nbb-note="n2"]');
+  await expect(row).toBeVisible();
+  // 안내 말풍선 없음: 줄·보드 칸·목록 어디에도 쓰는 법 title이 없다. 이름 칸은 전체 이름.
+  await expect(row).not.toHaveAttribute('title', /./);
+  await expect(row.locator('.nbb-name')).toHaveAttribute('title', '나 노트');
+  await expect(chip(page, '교섭')).not.toHaveAttribute('title', /./);
+  expect(await side.evaluate(el => [...el.querySelectorAll('[title]')].map(x => x.title).filter(t => /끌어|누르면|우클릭|놓으면/.test(t)))).toEqual([]);
+  const bb = await row.boundingBox();
+  await page.mouse.move(bb.x + 4, bb.y + 4);
+  await page.mouse.move(bb.x + 30, bb.y + bb.height / 2, { steps: 4 });
+  await page.waitForTimeout(250);
+  const look = await page.evaluate(({ x, y }) => {
+    const probe = document.createElement('div'); probe.style.background = 'var(--kptu-surface-subtle)';
+    document.querySelector('#appView').append(probe); const common = getComputedStyle(probe).backgroundColor; probe.remove();
+    const r = document.querySelector('[data-nbb-side] [data-nbb-note="n2"]');
+    const clear = c => c === 'rgba(0, 0, 0, 0)' || c === 'transparent';
+    const sideBg = getComputedStyle(document.querySelector('[data-nbb-side]')).backgroundColor;
+    // 커서 자리에 겹친 칸: 줄(공용 색)·목록 칸 바탕 말고 다른 바탕이 없어야 한다.
+    const stack = document.elementsFromPoint(x, y).filter(e => e.closest('[data-nbb-side]') || e.matches('.td-ghost,mark'))
+      .map(e => getComputedStyle(e).backgroundColor).filter(c => !clear(c));
+    const inner = [...r.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundColor).filter(c => !clear(c));
+    return { common, row: getComputedStyle(r).backgroundColor, sideBg, stack, inner,
+      marks: document.querySelectorAll('[data-nbb-side] mark, mark.hl-mark, .td-ghost, [data-drag-ghost]').length };
+  }, { x: bb.x + 30, y: bb.y + bb.height / 2 });
+  expect(look.row).toBe(look.common);
+  expect(look.inner).toEqual([]);
+  expect(look.marks).toBe(0);
+  expect(look.stack.filter(c => c !== look.common && c !== look.sideBg)).toEqual([]);
   expect(errors).toEqual([]);
 });

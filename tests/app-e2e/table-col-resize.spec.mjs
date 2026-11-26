@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { screenFind } from './helpers/screen-find.mjs';
 // S51-33 UI-칸너비끌기(요청함 11/06 22:33 "이거 이름 위치 바뀐 날 이런거 드래그해서 너비 조절 가능하게", 시안 docs/design/mockups/table-column-resize.html):
 // 머리줄 칸 사이 가는 세로 금을 끌면 금 왼쪽 칸 너비가 바뀐다(이름 칸 포함). 끄는 동안 표 아래까지 안내선, 금 두 번 누르기 = 글자 길이에 맞춤.
 // 너비는 서버(view_prefs.col_widths.files)에만, 폰·폴드 펼침·PC 따로(_p·_f·꼬리 없음). 칸 합이 넓으면 목록만 옆으로 밀어 본다. 이름은 모두 가짜.
@@ -112,7 +113,7 @@ test('PC 1440: 찾기 결과에도 같은 머리줄(이름·위치·바뀐 날·
   expect(Math.abs((await nameWidth(page)) - (before - 60))).toBeLessThan(4);
   await expect.poll(() => prefs.value?.col_widths?.files?.name ?? 0).toBeGreaterThan(0);
   expect(prefs.value.col_widths.files.name_f).toBeUndefined();
-  await root(page).locator('[data-fx-search]').fill('가짜');
+  await (await screenFind(page)).fill('가짜');
   await expect(root(page).locator('[data-fx-list] .fx-row').first()).toBeVisible();
   await expect(head(page).locator('[data-col-grip]')).toHaveCount(4);
   await expect(head(page)).toContainText('위치');

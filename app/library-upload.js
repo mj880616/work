@@ -58,7 +58,7 @@ const luErrorNotice=message=>notify(message,{error:true});
 import {takeLibraryDocumentRequest,takeLibrarySelectionRequest} from './basket-library-send.js';
 import {isHwpName,requestHwpEdit} from './hwp-drive.js';
 import {pressFile,downloadFile,openInDrive,canOpenInDrive,fileAttrs,driveOpenUrl} from './file-actions.js';
-import {registerScreenFind,refreshScreenFind,toolsBox} from './screen-find.js'; // S70-54 UI-검색창하나로
+import {registerScreenFind,refreshScreenFind,toolsBox,findFor} from './screen-find.js'; // S70-54 UI-검색창하나로
 import {takeLibraryUploadRequest} from './library-upload-request.js';
 import {normalizeUploadMeeting,uploadMeetingLabel} from './library-upload-meeting.mjs';
 import {isPhotoFile,photoUploadFields} from './activity-photo-model.mjs';
@@ -165,8 +165,9 @@ let luQuery='';// S70-54 UI-검색창하나로: 자료실 찾기 글자(맨 위 
 // [결과 n개 모두 선택]은 맨 위 줄 단추 자리(screen-find.js 상자)에 산다. 본문 첫 줄(.lu-search-row)은 [사업영역 ▾][분류 ▾] 고르기만.
 const luTools=toolsBox('library','library');
 {const actions=document.querySelector('#libraryView .lu-head-actions');if(actions)luTools.append(actions)}
-registerScreenFind('library',{label:'자료실에서 찾기',foot:()=>document.querySelector('#libraryListCard'),active:()=>window.KPTURouter?.current==='library',value:()=>luQuery,
-  apply:raw=>{const next=String(raw??'');if(next===luQuery)return;luQuery=next;luRenderLibrary()}});
+// S70-67 SEARCH-비슷한것찾기: 자료 거르기(luRenderLibraryNow)는 공용 판정(findFor — 띄어쓰기 무시·오타·초성·앞부분, 비슷한 말·기간), 맞은 부분 굵게.
+registerScreenFind('library',{label:'자료실에서 찾기',active:()=>window.KPTURouter?.current==='library',value:()=>luQuery,marks:'#documentList [data-lu-document]',
+  apply:(raw,{again}={})=>{const next=String(raw??'');if(next===luQuery&&!again)return;luQuery=next;luRenderLibrary()}});
 function luPushRecentFolder(id){luRecentFolders=rememberFolder(luRecentFolders,id);luViewPending.add('recent');clearTimeout(luViewTimer);luViewTimer=setTimeout(luFlushView,400)}
 // 걸러 보는 중인지 가를 때 비교하는 '들어올 때의 칩 상태'(고른 칩이 이것과 다르면 맞는 자료가 든 토글을 펼친다).
 let luBaselineOff=new Set(LU_DEFAULT_OFF);
@@ -1271,7 +1272,7 @@ document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [
 // 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기](PC 우클릭 같은 메뉴)만. 자료 줄 누르기·두 번 누르기는 그대로.
 // UI-폴더펼치면위로(S61-7): 다시 그리는 앞뒤를 공용 부품(ftKeepPlace)으로 감싼다 — 왼쪽 나무·두 칸 칸 안을 내려 둔 자리가 그대로 남는다.
 function luRenderLibrary(){const card=document.querySelector('#libraryListCard');return card?ftKeepPlace(card,luRenderLibraryNow):luRenderLibraryNow()}
-function luRenderLibraryNow(){const box=document.querySelector('#documentList');if(!box)return;luRenderTwoToggle();const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';const menuSpots=[luMenuSpot(luActiveMenu?.trigger),luMenuSpot(luFolderUi?.menuTrigger)];luApplyPlaceFolder();luRenderGroupBy();luRenderProjectFilter();luRenderOrganizationFilter();const q=luQuery.trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
+function luRenderLibraryNow(){const box=document.querySelector('#documentList');if(!box)return;luRenderTwoToggle();const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';const menuSpots=[luMenuSpot(luActiveMenu?.trigger),luMenuSpot(luFolderUi?.menuTrigger)];luApplyPlaceFolder();luRenderGroupBy();luRenderProjectFilter();luRenderOrganizationFilter();const q=luQuery.trim().toLowerCase(),luFind=findFor('library',luQuery),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||!!luFind.hitAt(String(d.document_date||d.created_at||'').slice(0,10),d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' '))));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
 luSyncSearchPickAll(q,matches);
 const filtering=luFiltering(q,pid),signature=filtering?JSON.stringify([q,[...luCategoryOff].sort(),luCategorySub,luOrganization?.id||'',pid,luGroupBy]):'-';if(signature!==luFilterSignature){luFilterOpen.clear();luFilterSignature=signature}
 if(luGroupBy==='organization'&&!luOrganizations)luLoadOrganizations();
