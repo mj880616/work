@@ -67,8 +67,8 @@ const DEFAULT_ON = ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'n
   'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt'];
 // S69 NEWS-사설칼럼: 신문 사설·칼럼 피드(실측 점검으로 열리는 것만). 기본 켬·다 받기·본문 안 읽음은 같고 묶음만 'opinion'.
 const OPINION_ON = ['news-khan-opinion', 'news-hani-opinion', 'news-chosun-opinion', 'news-segye-opinion', 'news-hankyung-opinion'];
-// S71-70 NEWS-수집처더하기(사용자 2026-11-26 "지금 니가 언급한 곳들 다 가져와"): 새 두 곳(참세상·미디어오늘)은 위와 같은 규칙,
-// 앞서 있던 두 곳(매일노동뉴스·프레시안)은 기본 켬으로만 바꿈(수집 때 본문 읽기 규칙 extract는 그대로).
+// S71-70 NEWS-수집처더하기(사용자 2026-11-26 "지금 니가 언급한 곳들 다 가져와"): 새 두 곳은 위와 같은 규칙,
+// 앞서 있던 두 곳은 기본 켬으로만 바꿈(수집 때 본문 읽기 규칙 extract는 그대로).
 const ADDED_ON = ['news-newscham', 'news-mediatoday'];
 const TURNED_ON = ['news-labortoday', 'news-pressian'];
 
@@ -197,7 +197,7 @@ const NEW_RSS = {
   'news-redian': ['https://www.redian.org/rss/allArticle.xml', ['www.redian.org', 'redian.org']],
   'news-mt': ['https://rss.mt.co.kr/mt_news.xml', ['rss.mt.co.kr', 'www.mt.co.kr', 'mt.co.kr']],
 };
-// S71-70: 미디어오늘은 분야 목록 쪽(HTML)으로 다시 넣었다(같은 키 — 예전 켬·끔 줄이 그대로 이어진다).
+// S71-70: news-mediatoday는 분야 목록 쪽(HTML)으로 다시 넣었다(같은 키 — 예전 켬·끔 줄이 그대로 이어진다).
 const REMOVED = ['news-edaily', 'news-kyeonggi', 'news-kyeongin', 'news-newsone', 'news-busan', 'news-kookje', 'news-yeongnam'];
 const outside = w => w.calls.filter(c => !c.url.startsWith(SB));
 const posted = w => w.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).flatMap(c => c.body);
@@ -453,12 +453,12 @@ test('언론 거르기: 종합지 섹션 피드에서 주식·날씨·관련 없
   assert.deepEqual(posted(w).map(r => r.title).sort(), ['합성 동네 화재', '합성 철도 파업 기사']);
 });
 
-// S71-70 NEWS-수집처더하기·분야: 새 두 곳. 글·쪽 모양은 실측 점검에서 본 꼴을 본뜬 가짜(제목·주소 번호 모두 지어냄).
+// S71-70 NEWS-수집처더하기·분야: 새 두 곳(예시 매체 D·E). 글·쪽 모양은 실측 점검에서 본 꼴을 본뜬 가짜(제목·주소 번호 모두 지어냄).
 const listPage = (rows, side = '') => `<html><body><nav><a href="/news/articleList.html?sc_section_code=S1N5&view_type=sm">문화</a></nav>
 <section id="section-list"><ul class="type1">${rows.map(([id, title]) => `<li><a href="/news/articleView.html?idxno=${id}" class="thumb"><img src="/x.jpg" alt=""></a>
 <h4 class="titles"><a href="/news/articleView.html?idxno=${id}">${title}</a></h4><span class="byline"><em>가짜기자</em><em>2026.11.08 10:00</em></span></li>`).join('')}</ul></section>${side}</body></html>`;
 
-test('미디어오늘(분야 목록 쪽): 피드(/rss/)는 robots 금지 그대로 읽지 않고, 허용된 분야 목록 쪽 네 곳만 읽어 분야별로 받는다', async () => {
+test('news-mediatoday(분야 목록 쪽): 피드(/rss/)는 robots 금지 그대로 읽지 않고, 허용된 분야 목록 쪽 네 곳만 읽어 분야별로 받는다', async () => {
   const s = C.newsSourceByKey('news-mediatoday');
   assert.equal(s.mode, 'html');
   assert.deepEqual(s.sections, ['politics', 'economy', 'society', 'opinion']);
@@ -478,11 +478,11 @@ test('미디어오늘(분야 목록 쪽): 피드(/rss/)는 robots 금지 그대�
   assert.equal(out.status, 'ok');
   // 정치·경제는 관련 있는 글만(지금 규칙 그대로), 사회·칼럼·사설은 전부.
   assert.deepEqual(posted(w).map(r => [r.url, r.title, r.publisher]).sort(), [
-    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=102', '공공기관 통폐합 국회 논의', '미디어오늘'],
-    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=202', '가스 민영화 논란', '미디어오늘'],
-    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=301', '가짜 방송사 기자 징계', '미디어오늘'],
-    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=302', '가짜 노조 파업 돌입', '미디어오늘'],
-    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=401', '[사설] 가짜 정책의 문제', '미디어오늘'],
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=102', '공공기관 통폐합 국회 논의', s.name],
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=202', '가스 민영화 논란', s.name],
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=301', '가짜 방송사 기자 징계', s.name],
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=302', '가짜 노조 파업 돌입', s.name],
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=401', '[사설] 가짜 정책의 문제', s.name],
   ].sort());
   const urls = [...new Set(outside(w).map(c => c.url))];
   assert.deepEqual(urls.sort(), ['https://www.mediatoday.co.kr/robots.txt', ...s.lists].sort(), '읽은 주소는 robots.txt와 분야 목록 쪽 넷뿐(글 쪽·피드·문화 목록은 안 읽음)');
@@ -494,7 +494,7 @@ test('미디어오늘(분야 목록 쪽): 피드(/rss/)는 robots 금지 그대�
   assert.ok(!outside(w2).some(c => s.lists.includes(c.url)), '막힌 목록 쪽은 요청하지 않음');
 });
 
-test('참세상(노동·사회운동 전문 매체): 자기 피드 하나, 분야 상관없이 전부 받는다', async () => {
+test('news-newscham(노동·사회운동 전문 매체): 자기 피드 하나, 분야 상관없이 전부 받는다', async () => {
   const s = C.newsSourceByKey('news-newscham');
   assert.deepEqual([s.mode, s.lists, s.hosts, s.beat, s.take, s.on, s.extract, s.region], ['rss', ['https://newscham.net/feed/'], ['newscham.net'], 'labor', 'all', true, false, 'domestic']);
   const feed = rssOf([rItem('가짜 공장 노동자 집회', 'https://newscham.net/123451/'), rItem('가짜 영화제 개막', 'https://newscham.net/123452/'),
