@@ -1104,6 +1104,9 @@ jobs:
       - name: Check article link share (S71-69 SHARE-글공유, synthetic)
         run: node --test tests/link-share.test.mjs
 
+      - name: Check note share choices (S71-69 SHARE-글공유 ②, synthetic)
+        run: node --test tests/note-share-model.test.mjs
+
       - name: Check photo menu names and release after send (S49-9 PHOTO-메뉴항목통일, synthetic)
         run: node --test tests/photo-menu-items.test.mjs
 
