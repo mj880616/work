@@ -5,7 +5,6 @@ import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-import {pickBasketView,expectBasketView,forgetViewButton} from './helpers/forget-view.mjs';
 
 // UI-바구니거르기 → S52-20: 정리함 보기는 [처리 전 ▾] 하나(처리 전 = 미분류, 연결 완료 = 분류, 무시 = 보류) + 연결 완료 아래 분류된 곳 칩 [전체][담당조직][프로젝트][자료실][할 일].
 // 분류된 곳은 이미 읽는 것만으로 정한다: 확정 연결 기록(app_record_links)의 대상 종류, [자료로 넣기](app_documents.project_id,
@@ -65,60 +64,7 @@ async function enter(page,width){
  await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('#basketView [data-basket-row]').first()).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText('');
 }
 
-for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[처리 전 ▾] views (처리 전·연결 완료·무시) and the 연결 완료 place chips ${width} ${scheme}`,async({page},info)=>{
- const f=await fixture(page,{width,scheme});await enter(page,width);
- // ① one view button, default 처리 전 (= 미분류). The old segment chips are gone.
- const seg=forgetViewButton(page);
- await expect(seg).toHaveText('처리 전 ▾');await expectBasketView(page,'unclassified');
- await expect(page.locator('#basketView [data-basket-filter]')).toHaveCount(0);
- expect(await shown(page)).toEqual([PLAIN,SUGGEST]);
- await expect(page.locator(`[data-basket-row-item="${SUGGEST}"]`)).toContainText('정리 제안 있음');
- await expect(page.locator('[data-basket-place-filter]')).toBeHidden();
- await capture(page,info,`basket-unclassified-${width}-${scheme}`);
-
- // ② [분류] → one row of place chips right below; every place filters by where the memo went.
- await pickBasketView(page,'classified');
- const places=page.locator('[data-basket-place-filter]');await expect(places).toBeVisible();
- await expect(places).toHaveAttribute('role','radiogroup');await expect(places).toHaveAttribute('aria-label','분류된 곳');
- await expect(places.getByRole('radio')).toHaveText(['전체','담당조직','사업영역','자료실','할 일','업무일지']);
- await expect(places.locator('[aria-checked="true"]')).toHaveText('전체');
- // It sits right under the segment row, and above the list.
- const segBox=await seg.boundingBox(),placeBox=await places.boundingBox(),listBox=await page.locator('#basketView [data-basket-rows]').boundingBox();
- expect(placeBox.y).toBeGreaterThan(segBox.y+segBox.height-1);expect(placeBox.y+placeBox.height).toBeLessThanOrEqual(listBox.y+1);
- expect(await shown(page)).toEqual([ORG,PROJ,FILED,TASK,DOC]);
- // Each row names where it went in one line (existing link chips, "○○ · 자료", tasks).
- await expect(page.locator(`[data-basket-row-item="${ORG}"] .nbx-below`)).toContainText('합성 한빛지부');
- await expect(page.locator(`[data-basket-row-item="${PROJ}"] .nbx-below`)).toContainText('합성 임단협');
- await expect(page.locator(`[data-basket-row-item="${FILED}"] .nbx-below`)).toContainText('합성 임단협 · 자료');
- await expect(page.locator(`[data-basket-row-item="${TASK}"] .nbx-below`)).toHaveText('할 일 1개');
- await expect(page.locator(`[data-basket-row-item="${TASK}"]`)).toContainText('할 일 만듦');
- await expect(page.locator(`[data-basket-row-item="${DOC}"] .nbx-below`)).toContainText('합성 공문');
- await capture(page,info,`basket-classified-${width}-${scheme}`);
- for(const [label,want] of [['담당조직',[ORG]],['사업영역',[PROJ,FILED]],['자료실',[FILED,DOC]],['할 일',[TASK]],['전체',[ORG,PROJ,FILED,TASK,DOC]]]){
-  await tap(page,places.getByRole('radio',{name:label,exact:true}),width);
-  await expect(places.locator('[aria-checked="true"]')).toHaveText(label);
-  await expect.poll(()=>shown(page),label).toEqual(want);
-  if(label==='사업영역')await capture(page,info,`basket-classified-project-${width}-${scheme}`);
- }
- // Keyboard: arrows move along the place chips (shared filter-chips.js).
- await places.locator('[aria-checked="true"]').focus();await page.keyboard.press('ArrowRight');
- await expect(places.locator('[aria-checked="true"]')).toHaveText('담당조직');await expect.poll(()=>shown(page)).toEqual([ORG]);
-
- // ③ [보류] = archived memos; place chips hide; choosing a segment resets the place to [전체].
- await pickBasketView(page,'archived');await expect(places).toBeHidden();
- expect(await shown(page)).toEqual([HELD]);
- await pickBasketView(page,'classified');await expect(places.locator('[aria-checked="true"]')).toHaveText('전체');
- // Leaving and coming back starts again at [미분류] (no stored choice).
- await page.evaluate(()=>window.KPTURouter.go('home'));await enter(page,width);
- await expectBasketView(page,'unclassified');await expect(places).toBeHidden();expect(await shown(page)).toEqual([PLAIN,SUGGEST]);
- // Opening a memo hides both rows; closing brings the list back.
- await pickBasketView(page,'classified');await tap(page,page.locator(`[data-basket-row="${TASK}"]`),width);
- await expect(page.locator('[data-basket-read-text]')).toBeVisible();await expect(places).toBeHidden();await expect(seg).toBeHidden();
- await expect(page.locator('[data-basket-detail] .basket-note-meta')).toContainText('할 일 만듦');
- await tap(page,page.locator('[data-basket-close]'),width);await expect(places).toBeVisible();await expectBasketView(page,'classified');
- expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
-});
+// S71-58 FORGET-처리전만(사용자 결정 2026-11-26): [처리 전 ▾] 보기와 연결 완료 아래 분류된 곳 칩은 없앴다 — 그 시험도 함께 지웠다(목록은 늘 처리 전, forget-pending-only.spec.mjs).
 
 // ⑤ 자료실: the [일반 자료|회의자료만] row is gone; the project and category chip rows stay; [회의] narrows to meeting documents.
 for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library has no [일반 자료|회의자료만] row and [회의] shows meeting documents ${width} ${scheme}`,async({page},info)=>{
@@ -149,18 +95,15 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-// STAB-간헐3: a view change while the list is still loading must not say "없음"; the row appears once the read answers.
-test('a view change during the first basket read keeps the loading line and then shows the memo',async({page})=>{
+// STAB-간헐3: while the list is still loading it must not say "없음"; the row appears once the read answers (S71-58: no view menu any more).
+test('the first basket read keeps the loading line and then shows the memo',async({page})=>{
  const f=await fixture(page,{width:1280});
  let release;const gate=new Promise(resolve=>{release=resolve});
  await page.route(SB+'/rest/v1/app_notes?**',async route=>{await gate;return route.fallback();});
  await page.evaluate(()=>window.KPTURouter.go('basket'));
  const status=page.locator('[data-basket-list-status]');
  await expect(status.locator('[data-wait]')).toHaveCount(1);await expect(status).toHaveText('');
- for(const segment of ['classified','unclassified']){
-  await pickBasketView(page,segment);
-  await expect(status.locator('[data-wait]')).toHaveCount(1);await expect(page.locator('#basketView [data-forget-empty]')).toHaveCount(0);
- }
+ await expect(page.locator('#basketView [data-forget-empty]')).toHaveCount(0);
  release();
  await expect(page.locator(`[data-basket-row="${PLAIN}"]`)).toBeVisible();
  await expect(page.locator('#basketView [data-basket-row]')).toHaveCount(2);await expect(page.locator('[data-basket-list-status]')).toHaveText('');

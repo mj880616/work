@@ -1,5 +1,5 @@
 import {toggleLibraryCategory} from './helpers/library-categories.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
@@ -150,8 +150,7 @@ test('overwrite asks once, says both sides change for a shared file, and sends t
 for(const width of [390,1280])test(`a basket HWPX attachment is saved as a new HWP attachment of the same note, never overwritten ${width}`,async({page})=>{
   const f=await fixture(page,width);
   await page.evaluate(()=>window.KPTURouter.go('basket'));
-  await showBasketRow(page,NOTE);
-  await press(page,page.locator(`[data-basket-row="${NOTE}"]`),width);
+  await openBasketNote(page,NOTE,l=>press(page,l,width));
   await expect(page.locator('[data-basket-hwp="drive-jpg"]')).toHaveCount(0);
   await press(page,page.getByRole('button',{name:'안건.hwpx 수정'}),width);
   await expect(status(page)).toHaveText('안건.hwpx · 1쪽을 열었어요. HWPX 원본은 새 HWP 파일로만 저장해요. 수정한 뒤 [새 파일로 저장]을 누르세요.',{timeout:60000});

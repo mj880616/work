@@ -3,7 +3,7 @@ import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
 
 // LIB-조직프로젝트자료종류: 담당조직·프로젝트 상세 [자료]의 종류 표시와 종류 칩 거르기. 합성 자료만 쓴다.
 // Supabase REST·RPC·Edge 경계만 합성이고 화면은 실제 앱이다. 서버 함수(app_document_category_*)의 동작은 migration 문서대로 흉내 낸다.
@@ -118,8 +118,8 @@ async function fixture(page,{width=390,scheme='light',docs=seedDocs(),categories
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 async function openNote(page,id,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,id);
- await tap(page,page.locator(`[data-basket-row="${id}"]`),width);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,id,width<761?l=>l.tap():null);
+ 
  const detail=page.locator('[data-basket-detail]');await expect(detail.locator('[data-basket-attachments]')).not.toBeEmpty();return detail;
 }
 async function pick(page,detail,kind,name,width){

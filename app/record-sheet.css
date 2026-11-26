@@ -33,6 +33,9 @@
 .record-file-name .file-kind{flex:none;padding:0 4px;border-radius:4px;background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:11px;line-height:18px}
 .record-file-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .record-files-more{color:var(--kptu-muted);font-size:var(--kptu-text-meta,12px)}
+/* UI-기록줄균일(S70-85): 접힌 기록 줄의 파일 개수(클립 + 수). 펼친 줄·다른 곳에서는 보이지 않는다(보이는 곳은 각 목록 CSS가 연다). */
+.record-files-count{display:none;align-items:center;gap:2px;height:var(--kptu-rec-lh,20px);color:var(--kptu-muted);font-size:var(--kptu-text-meta,12px);font-variant-numeric:tabular-nums}
+.record-files-count svg{display:block}
 /* UI-기록카드하나로(S70-42): 기록 줄 첨부의 사진은 접는 줄 없이 작은 정사각 그림(--record-thumb) 가로 줄, 넘치면 [+n]. */
 .record-files{--record-thumb:40px}
 .record-photos{display:flex;align-items:center;gap:6px;flex:1 0 100%;min-width:0}

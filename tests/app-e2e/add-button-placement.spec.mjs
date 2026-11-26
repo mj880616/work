@@ -179,7 +179,9 @@ for(const width of [390,1440]){
       const notWarm=()=>page.evaluate(urls=>{const warm=new Set([...document.querySelectorAll('link[rel="modulepreload"][data-kptu-warm]')].map(l=>new URL(l.href).pathname));return urls.filter(u=>!warm.has(new URL(u).pathname))},calendarUiRequests);
       expect(await calendarUiRan()).toEqual({ready:false,loaded:false});
       expect(await notWarm()).toEqual([]);
-      calendarUiRequests.length=0;
+      // 새로고침 직전에 옛 문서의 쉬는 틈 미리 받기가 calendar-mobile-ui.js를 걸 수 있다(옛 문서의 warm 링크는 새 문서에 없음).
+      // 그래서 비우는 때를 '새로고침 전'이 아니라 '새 문서로 바뀐 때(main frame 이동)'로 잡아, 새 문서가 건 요청만 센다.
+      page.on('framenavigated',frame=>{if(frame===page.mainFrame())calendarUiRequests.length=0});
       await page.reload();
       await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
       await expect(page.locator('#tasksView')).toBeVisible();

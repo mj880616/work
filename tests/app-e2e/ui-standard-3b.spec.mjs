@@ -72,7 +72,7 @@ test('폰 하단 탭 6칸: 탭 아이콘 색, [메뉴] 탭이 메뉴 창을 열�
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
  // MULTI-하단바기본노트: 잊지 말기는 [메뉴] 창 맨 앞, 노트는 하단바로. S68-37: 조직 관리·사업 관리는 읽을 거리 다음.
- await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','읽을 거리','통화','텔레그램 소식','아스날']);
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','읽을 거리','통화','텔레그램 소식','아스날']);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await page.locator('#mobileMenu [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#mobileMenu')).toBeHidden();
  await menuTab.click();await page.locator('#mobileMenu [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [aria-current="page"]')).toHaveCount(0);
@@ -227,7 +227,7 @@ test('정리함: 처리할 것이 없으면 회색 한 줄 "없음"(공용 없�
  await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-view="basket"]').click();await loaded(page,'basket');
  const empty=page.locator('#basketView [data-forget-empty]');await expect(empty).toHaveText('없음');
  await expect(empty).toHaveCSS('text-align',/^(start|left)$/);
- await expect(page.locator('[data-sf-tools="forget"] [data-forget-view-open]')).toHaveText('처리 전 ▾');
+ await expect(page.locator('[data-forget-view-open]')).toHaveCount(0); // S71-58 FORGET-처리전만: 보기 단추 없음
  expect(errors).toEqual([]);
 });
 

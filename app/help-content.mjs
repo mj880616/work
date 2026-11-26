@@ -21,14 +21,15 @@ export const PRIVACY_LINES = Object.freeze([
 export const GROUPS = Object.freeze([
   {id: 'main', label: '많이 쓰는 곳', topics: ['team', 'meetings', 'brief']},
   {id: 'common', label: '어디서나', topics: ['basics']},
-  {id: 'daily', label: '매일', topics: ['home', 'basket', 'calendar', 'note', 'reading']},
-  {id: 'docs', label: '자료', topics: ['library', 'files', 'photos', 'hwp', 'outside']},
+  // S71-61 HWP-노트안으로: HWP 편집은 노트 안 화면이라 쓰는 법도 노트 바로 아래 줄.
+  {id: 'daily', label: '매일', topics: ['home', 'basket', 'calendar', 'note', 'hwp', 'reading']},
+  {id: 'docs', label: '자료', topics: ['library', 'files', 'photos', 'outside']},
   {id: 'operator', label: '운영자', topics: ['calls', 'telegram', 'arsenal']},
   {id: 'account', label: '계정', topics: ['profile', 'appdl', 'privacy']},
 ]);
 
 // 메뉴가 아닌 쓰는 법 줄(계정 칸)의 이름. 메뉴 줄 이름은 menu-model.mjs에서 읽는다.
-const OWN_LABELS = Object.freeze({basics: '공통 동작', profile: '내 프로필', appdl: '앱 내려받기', privacy: '내 기록은 누가 보나'});
+const OWN_LABELS = Object.freeze({basics: '공통 동작', hwp: 'HWP 편집', profile: '내 프로필', appdl: '앱 내려받기', privacy: '내 기록은 누가 보나'}); // hwp: S71-61부터 메뉴가 아님(노트 안)
 
 // 줄마다: short(목차 한 줄) · lead(한 문장) · when(이럴 때 쓰세요) · steps(따라하기 1~4줄) · notes(알아 둘 것) · extra(서버 기능 목록에 그 기능이 있을 때만 보이는 알아 둘 것)
 // · links(다른 메뉴와 이어지는 곳) · shots(화면 그림: app/help-shots/<file>, alt, h=그림 높이(폭은 390)) · open(이 메뉴 열기 — 라우터 화면 이름, note는 노트 쪽).
@@ -140,8 +141,8 @@ const TOPICS = {
   },
   hwp: {
     short: '한글 파일을 열어 수정·저장',
-    lead: '한글(HWP) 파일을 브라우저에서 열어 수정하고 저장하는 곳이에요.',
-    steps: ['[파일 ▾] › [파일 선택]으로 한글 파일을 열어요.', '글을 수정해요.', '[저장 ▾]에서 [내 기기에 저장]하거나 [자료실에 업로드]를 눌러요.'],
+    lead: '한글(HWP) 파일을 브라우저에서 열어 수정하고 저장하는 곳이에요. 노트 안에 있어요.',
+    steps: ['노트 화면 ⋯ › [HWP 편집]으로 열어요. 자료실·파일에서 한글 파일 [수정]을 눌러도 여기로 열려요.', '[파일 ▾] › [파일 선택]으로 한글 파일을 열고 글을 수정해요.', '노트 ⋯ › [이 노트를 HWP로]를 누르면 그 노트 글로 서식 문서를 만들어요.', '[저장 ▾]에서 [내 기기에 저장]하거나 [자료실에 업로드]를 눌러요.'],
     shots: [shot('hwp.webp', 'HWP 편집 화면: 맨 위 [파일 ▾]·[저장 ▾]과 빈 문서')],
     open: 'hwp',
   },

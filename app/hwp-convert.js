@@ -76,7 +76,8 @@ export function closeConvertDialog(){
   if(area)area.value='';
 }
 // onMake({docType,text,progress(text),cancelled()}) → Promise<{ok:true}|{ok:false,message}>. 성공하면 창이 닫히고, 실패하면 창에 안내가 보이고 글은 그대로 남는다.
-export function openConvertDialog({onMake,docType='report'}){
+// S71-61: text = 처음 글 칸에 넣어 둘 글(노트 ⋯ [이 노트를 HWP로]). 없으면 빈 칸(붙여 넣기).
+export function openConvertDialog({onMake,docType='report',text=''}){
   const root=ensure();
   const area=root.querySelector('#hwpConvertText'),count=root.querySelector('#hwpConvertCount'),note=root.querySelector('#hwpConvertStatus');
   const make=root.querySelector('[data-hwp-convert-make]'),cancel=root.querySelector('[data-hwp-convert-cancel]');
@@ -96,7 +97,7 @@ export function openConvertDialog({onMake,docType='report'}){
   // 이 창을 다시 열 때마다 이벤트를 새로 붙이므로(파일 하나로 여러 번 열림) 이전 붙임은 AbortController로 한꺼번에 뗀다.
   root.__abort?.abort();
   const abort=new AbortController();root.__abort=abort;const opts={signal:abort.signal};
-  area.value='';say('');type=docType;paintChips();
+  area.value=cleanPasted(text);say('');type=docType;paintChips();
   chips.forEach(chip=>chip.addEventListener('click',()=>{if(busy)return;type=chip.dataset.docType;paintChips()},opts));
   area.addEventListener('input',()=>{say('');paint()},opts);
   async function readDropped(file){
