@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S52-06 PHOTO-폰지우기안전장치(명진 11/07 '모두 추천대로'): 폰 폴더째 [삭제]는 백업을 확인하지 못하면 체크해야만 폰 휴지통으로.
-// S71-25 PHOTO-정리삭제(명진 "폰 정리 기능 조악해서 잘 안씀 기능 자체를 삭제"): [정리] 칸(잡동사니·공간 비우기·크게 보기 한 장 지우기)은 지웠다 —
+// S52-06 PHOTO-폰지우기안전장치(사용자 11/07 '모두 추천대로'): 폰 폴더째 [삭제]는 백업을 확인하지 못하면 체크해야만 폰 휴지통으로.
+// S71-25 PHOTO-정리삭제(사용자 "폰 정리 기능 조악해서 잘 안씀 기능 자체를 삭제"): [정리] 칸(잡동사니·공간 비우기·크게 보기 한 장 지우기)은 지웠다 —
 // 그 길의 시험도 함께 지웠고, 폴더째 삭제는 [정리]가 읽어 둔 백업 수 없이 늘 '확인하지 못함' + 체크해야만.
 // 네트워크 없음(지어낸 서버·지어낸 앱 다리), 사진은 1×1 그림. 폰 휴지통 = 안드로이드 휴지통(앱 다리 photos:trash, 30일 되살림).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
