@@ -322,7 +322,10 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 //   row. on = start with it on; onToggle is told when the switch is pressed (the opener keeps the choice on the server). Off = the plain text.
 // slash: '/' on an empty line opens the list of blocks to put in (default: where shortcuts are on — notes and their big window).
 export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts, noteLinks = null, tasks = null} = {}) {
-  const pm = await loadEditorLib();
+  // Every part this editor loads is loaded here, before the body is put on screen: once the person can see and type in it,
+  // createDocEditor has nothing left to wait for, so the opener has its field at once (no gap in which a press or the typed text
+  // finds no field — [큰 창에서 수정] doing nothing, a big window's save ignored).
+  const [pm, noteLinkLib] = await Promise.all([loadEditorLib(), noteLinks ? import('./ed-note-link.js') : null]);
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
   const start = cleanDoc(value) || emptyDoc();
@@ -987,8 +990,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
   // S69-98 NOTE-에버노트 ⑧ 노트 연결: '[[' → 노트 고르기 목록 → 그 노트 링크. 노트(noteLinks를 주는 곳)에만 붙는다.
   if (noteLinks) {
-    const {mountNoteLink} = await import('./ed-note-link.js');
-    noteLinkPart = mountNoteLink({pm, view, schema, bar, noteLinks, changed: () => syncBox()});
+    noteLinkPart = noteLinkLib.mountNoteLink({pm, view, schema, bar, noteLinks, changed: () => syncBox()});
   }
   // NOTE-글폭(S61-21): 글 줄 폭 묶음은 바로(.line-w), 손잡이는 부품을 불러온 뒤 붙인다(공유 페이지 편집기는 부르지 않음).
   let lineGrip = null, lineGone = false;
