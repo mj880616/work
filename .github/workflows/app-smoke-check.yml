@@ -1102,6 +1102,9 @@ jobs:
       - name: Check photo menu names and release after send (S49-9 PHOTO-메뉴항목통일, synthetic)
         run: node --test tests/photo-menu-items.test.mjs
 
+      - name: Check photo description sheet (S71-62 PHOTO-설명, synthetic)
+        run: node --test tests/photo-desc.test.mjs
+
       - name: Check send to diary (S48-56 노트·업데이트·사진 → 일기, synthetic)
         run: node --test tests/diary-send.test.mjs
 
