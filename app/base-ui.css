@@ -326,6 +326,11 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-selbar[hidden]{display:none}
 .kptu-selbar .kptu-sb-count{flex:0 1 auto;min-width:0;margin:0 auto 0 2px;padding:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--kptu-primary-text);font-size:var(--ds-compact-text,13px);font-weight:600}
 .kptu-selbar.kptu-sb-measure .kptu-sb-count{flex-shrink:0;max-width:55%}
+/* S70-64b(명진 11/26 07:46 "그만은 필요없어"): 고르기 막대는 [✕]·'n개 선택됨' 글자 없이 단추만(전체 선택 맨 왼쪽 … 삭제 맨 끝).
+   고른 개수는 화면 읽기 프로그램에만(role=status) — 눈에 보이는 칸을 차지하지 않는다. 끄는 중 '옮기는 중 N개'처럼 보여야 하는 글은 이 표시를 뺀다. */
+.kptu-selbar .kptu-sb-count.kptu-sb-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.kptu-selbar:has(>.kptu-sb-count.kptu-sb-sr) .kptu-sb-acts{flex:1 1 auto;justify-content:flex-end}
+:is(#appView,.modal) .kptu-selbar:has(>.kptu-sb-count.kptu-sb-sr) .kptu-sb-acts>button.kptu-sb-act[role="checkbox"]{margin-right:auto}
 .kptu-selbar .kptu-sb-note{margin-left:4px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
 .kptu-selbar .kptu-actbar,.kptu-selbar .kptu-sb-acts{display:flex;flex:none;flex-wrap:nowrap;justify-content:flex-end;align-items:center;gap:2px;min-width:0;margin:0}
 :is(#appView,.modal) .kptu-selbar button.kptu-sb-act{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;width:auto;min-width:30px;max-width:none;height:30px;min-height:0;margin:0;padding:0 6px;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;box-shadow:none;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:400;line-height:1;white-space:nowrap;word-break:normal;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}

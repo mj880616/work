@@ -15,6 +15,8 @@ import {openRowMenu, appMenuPoint} from './row-menu.js';
 // S68-34(명진 11/23 02:32·02:41): 화면 이름이 'News → 읽을 거리', '읽을 거리 → 저장한 글'로 바뀌어 단추는 [저장]·[삭제](= 저장한 글에서 빼기, 기사는 그대로).
 //   접근성 이름·되돌리기 기록은 RELEASE_ARIA '저장한 글에서 삭제'. 내가 넣은 기사(canDelete)를 저장까지 해 둔 줄은 [삭제]가 둘이 되므로
 //   기사 자체 삭제 쪽을 '기사 삭제'(DELETE_BOTH_LABEL)로 부른다(docs/design/ui-words.md).
+// 고르기 막대의 [삭제] = 숨기기(S70-64b). 줄 밀기·⋯의 [숨기기] 글자는 그대로.
+export const PICK_HIDE_LABEL = '삭제';
 export const HIDE_LABEL = '숨기기', SAVE_LABEL = '저장', EDIT_LABEL = '수정', RELEASE_LABEL = '삭제', RELEASE_ARIA = '저장한 글에서 삭제', DELETE_LABEL = '삭제', DELETE_BOTH_LABEL = '기사 삭제';
 // S69-03(명진 11/24 06:48 "저장된 글에서 저장 버튼이 눌린 것 표현한 것이었다면 글자도 저장됨v 이런식으로 바뀌면 인정"): 글 상세 아래 줄의
 //   저장 단추는 켜고 끄는 단추(aria-pressed)라 눌린 상태 글자는 '저장됨 ✓'([관심 없음 ✓]와 같은 꼴). 누르면 저장한 글에서 삭제(5초 [되돌리기]).
@@ -96,7 +98,9 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
   const editable = item => !!onEdit && !!canEdit(item);
   const menuItems = item => rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item), canEdit: editable(item)});
   // UI-줄밀기 Raindrop식(S68-26, 명진 11/22): 왼쪽으로 밀기 = 오른쪽 끝 칸 [보관]/[보관 풀기]·[숨기기](내가 넣은 기사는 [삭제]).
-  // 끝까지 밀어도 칸만 열린다(S70-60) — 일은 칸을 누를 때만. 오른쪽으로 밀기 = [선택] → 'n개 선택됨 · [보관][숨기기]'([보관] 탭은 [보관 풀기]).
+  // 끝까지 밀어도 칸만 열린다(S70-60) — 일은 칸을 누를 때만. 오른쪽으로 밀기 = 여러 개 선택.
+  // S70-64b(명진 11/26 07:46 "전체선택 저장 삭제 만 있음 될 듯? 읽을 거리 선택 메뉴에서는"): 막대 = [전체 선택][저장][삭제].
+  //   막대 [삭제]는 숨기기와 같다(숨긴 글은 ⋯ [숨긴 글]에서 다시 보이기). [저장한 글] 탭은 [전체 선택][삭제](저장 빼기).
   const attr = (/^\[([a-z0-9-]+)\]$/.exec(row) || [])[1];
   const swipe = bindRowSwipe(host, {row, enabled,
     actions: el => {
@@ -108,7 +112,7 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
       return {start, end: [...edit, {key: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL, tone: 'info'}, del || {key: 'hide', label: HIDE_LABEL, tone: 'muted'}]};
     },
     run: (key, el) => { const item = itemOf(el); if (item) run(key, item); },
-    select: attr ? {attr, label: '선택한 글', acts: () => saved ? [{key: 'release', label: RELEASE_LABEL, danger: true}] : [{key: 'save', label: SAVE_LABEL}, {key: 'hide', label: HIDE_LABEL}],
+    select: attr ? {attr, label: '선택한 글', acts: () => saved ? [{key: 'release', label: RELEASE_LABEL, danger: true}] : [{key: 'save', label: SAVE_LABEL}, {key: 'hide', label: PICK_HIDE_LABEL, danger: true}],
       run: (key, ids) => runMany(key, ids.map(id => host.querySelector(`${row.slice(0, -1)}="${CSS.escape(id)}"]`)).map(el => el && itemOf(el)).filter(Boolean))} : null});
   // 고른 글 여러 개를 한 번에: 하나씩 같은 서버 길(now-marks.js)로 하고, 알림은 하나 'n개 …했어요 [되돌리기]'(되돌리면 고른 것 모두 원래대로).
   async function runMany(key, items) {
