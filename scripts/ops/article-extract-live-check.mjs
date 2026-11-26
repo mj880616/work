@@ -122,11 +122,11 @@ async function checkNews(source, nowMs) {
   const urls = [];
   for (const list of source.lists) {
     if (urls.length >= PER_SOURCE && !DIAG) break;
-    let got = await catalog.get(list, ACCEPT_FEED);
+    let got = await catalog.get(list, N.listAccept(source));
     // 점검용만: robots.txt가 이 러너에서 안 열리면(일시 오류·러너 지역 차단 — '막음'이 아님) 글 주소를 얻으려고 피드만 한 번 더 읽는다.
     //   운영 수집은 그대로 robots를 지킨다. robots가 '막음'(robots·robots_denied)이면 다시 읽지 않는다.
     if (!got.ok && got.code === "robots_unreachable") {
-      got = await page.get(list, ACCEPT_FEED);
+      got = await page.get(list, N.listAccept(source));
       row.list = got.ok ? "robots_unreachable(피드만)" : `robots_unreachable/${got.code}`;
     }
     if (!got.ok) { if (!row.list.startsWith("robots_unreachable")) row.list = got.code; continue; }
@@ -140,7 +140,8 @@ async function checkNews(source, nowMs) {
       const t = got.text;
       row.feed += ` refresh=${/http-equiv\s*=\s*["']?refresh/i.test(t) ? 1 : 0} jsnav=${/location\.(href|replace)|window\.location/.test(t) ? 1 : 0} cookie=${/document\.cookie/.test(t) ? 1 : 0} scripts=${(t.match(/<script\b/gi) ?? []).length} bot=${looksLikeBotCheck(t) ? 1 : 0}`;
     }
-    const parsed = parseFeed(N.parseSource(source, xml), xml, nowMs, 50);
+    // S71-70: 분야 목록 쪽(mode html) 매체도 운영 수집기와 같은 목록 해석(listItems).
+    const parsed = N.listItems(source, xml, got.url, nowMs, 50);
     // S71-70 분야 진단: 피드마다 글 분야 칸(category) 이름별 글 수와 기사 주소 첫 경로 조각별 글 수(제목·주소 전체는 쓰지 않음).
     if (DIAG) row.sections = [...(row.sections ?? []), `${list.replace(/^https:\/\/[^/]+/, "")} ⇒ cat[${tally(parsed.map((it) => it.category ?? "-"), true)}] path[${tally(parsed.map((it) => firstSeg(it.url)))}]`];
     for (const it of parsed) {
@@ -258,9 +259,8 @@ if (DIAG) {
 // ---- 새 수집처 후보 피드(S71-70, 점검용만) -------------------------------------------------------------------------------
 // 카탈로그에 넣기 전에 후보 주소가 이 러너에서 열리는지·robots가 허용하는지(운영 수집기와 같은 robots 판정)·글 분야 칸이 있는지를 숫자로만 본다.
 // 카탈로그 밖 주소라 운영 수집기는 읽지 않는다. 주소는 이 목록에 적힌 것뿐(호스트 고정, https만).
-const CANDIDATE_FEEDS = [
-  "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N2&view_type=sm",
-];
+// 11/26 S71-70에서 참세상(www 없는 주소의 피드)·미디어오늘(피드는 robots 금지, 분야 목록 쪽은 허용)을 이 줄로 확인했다. 새 후보가 생기면 여기 주소만 더한다.
+const CANDIDATE_FEEDS = ["https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N2&view_type=sm"];
 async function checkCandidate(list) {
   const host = new URL(list).host;
   const base = { doFetch: fetch, sleep, log: quiet, userAgent: N.USER_AGENT, robotsAgent: N.ROBOTS_AGENT, gapMs: N.GAP_MS, now: Date.now };

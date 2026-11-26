@@ -153,16 +153,18 @@ test('빠진 키를 알려 주는 검사 자체가 동작한다: 가짜 카탈�
 
 // S58-5 새 매체(NEWS-못넣은곳대안): 각자 고유색. S59-1: 길이 있는 6곳만 남고(자기 RSS), 길이 없어 카탈로그에서 뺀 8곳은 표·토큰에서도 뺐다.
 const NEW_NEWS_6 = ['news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt'];
-const REMOVED_NEWS_8 = ['news-mediatoday', 'news-busan', 'news-newsone', 'news-edaily', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
+const ADDED_NEWS_2 = ['news-newscham', 'news-mediatoday'];
+// S71-70: 미디어오늘은 분야 목록 쪽으로 다시 넣어 고유색도 되살렸다(아래 ADDED_NEWS_2).
+const REMOVED_NEWS_8 = ['news-busan', 'news-newsone', 'news-edaily', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
 test('새 언론 6곳: 고정 표 뒤쪽(앞 매체 차례 그대로), 막대는 한 색, 글자·막대 토큰이 밝은·어두운 화면에 있다 — 뺀 8곳은 표·토큰에 없다', () => {
   assert.deepEqual([...FIXED_NEWS].slice(0, 3), ['news-labortoday', 'news-beminor', 'news-pressian']);
   assert.deepEqual([...FIXED_NEWS].slice(19, 22), ['news-psi', 'news-itf', 'news-labourstart']);
-  assert.deepEqual([...FIXED_NEWS].slice(22), NEW_NEWS_6);
+  assert.deepEqual([...FIXED_NEWS].slice(22), [...NEW_NEWS_6, ...ADDED_NEWS_2]);
   for (const k of REMOVED_NEWS_8) {
     assert.ok(!FIXED_NEWS.includes(k), k);
     assert.doesNotMatch(css, new RegExp(`--ds-news-id-${k}[:-]`), `${k} 토큰이 남음`);
   }
-  for (const k of NEW_NEWS_6) {
+  for (const k of [...NEW_NEWS_6, ...ADDED_NEWS_2]) {
     assert.equal(newsColor({source_key: k}, []), `var(--ds-news-id-${k})`);
     assert.equal(newsBar({source_key: k}, []), `var(--ds-news-id-${k}-bar)`);
     for (const part of [lightPart, darkPart]) assert.match(tok(part, `ds-news-id-${k}-bar`) || '', /^#[0-9a-f]{6}$/, `${k} 막대는 한 색`);

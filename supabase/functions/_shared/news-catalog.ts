@@ -10,6 +10,9 @@
 //   부산일보·국제신문·영남일보). 그 매체의 이미 받은 글·켬 설정 줄(app_outside_sources)은 지우지 않는다 — 카탈로그 밖 키는 수집기·화면이 건너뛴다.
 //   키워드는 밖에서 새로 찾지 않고 이미 받은 글에서 글자를 맞춘다(news-feed runKeywords, matchedKeywords).
 // 새 매체는 여기 한 줄 더하는 작은 PR로만 넣는다(Edge 재배포 정지 지점).
+// S71-70(사용자 2026-11-26 "한겨레도 같이좀 수집해봐 … 프레시안 이런데들도" / "지금 니가 언급한 곳들 다 가져와"): 매일노동뉴스·프레시안을 기본 켬으로,
+//   참세상(자기 피드)·미디어오늘(피드는 robots 금지 그대로 — 허용된 분야 목록 쪽, mode "html")을 더했다. 한겨레는 이미 기본 켬(사회·경제·정치 + 사설·칼럼).
+//   확인은 원문 점검(article-extract-live-check, GitHub 러너, 운영과 같은 robots 판정)의 '새 수집처 후보' 줄 [사실, 11/26].
 import type { OutsideSource } from "./outside-catalog.ts";
 
 // take: 'all'(그 매체 글을 키워드 상관없이 전부 받음) / 'keywords'(키워드 목록에 글자가 맞는 글만 — 종합지·방송사, NEWS-매체늘리기).
@@ -39,7 +42,7 @@ export type NewsSource = OutsideSource & { region: "domestic" | "foreign" | "opi
 const article = () => "article" as const;
 
 export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
-  { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all",
+  { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all", on: true,
     // 본문 칸: 엔디소프트 기사 쪽 `#article-view-content-div`(못 찾으면 흔한 본문 칸·<article> 순서). 유료 기사는 page.ts가 앞부분만(유료벽 넘지 않음).
     // @2(S51-9): 흔한 유료벽 검사를 좁힘(page.ts) — 이 매체는 유료벽 검사를 그대로 받는다(유료 기사 있음 [추정]).
     // @3(S51-15): 공용 추출기 고침(닫는 꼬리표가 없는 빼는 칸이 뒤 본문을 모두 지우던 것, 본문 앞 공유 줄) — lead/no_body 3건을 다시 뽑기(P2c)로 다시 본다.
@@ -51,7 +54,7 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     extract: { version: 2, free: true, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
     bodyClass: /^article-view-content-div$/,
     lists: ["https://www.beminor.com/rss/allArticle.xml"], hosts: ["www.beminor.com", "beminor.com"], kindOf: article },
-  { key: "news-pressian", name: "프레시안", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", mixedAs: "society",
+  { key: "news-pressian", name: "프레시안", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", mixedAs: "society", on: true,
     // @2(S51-9): 11/06 probe에서 lead/paywall(블록 1·글자 14)로 잘못 들어감 — 프레시안은 유료벽이 없다(CC 확인) → free.
     // 본문 칸 `div.article_body`를 단체 본문 칸으로 고정 [추정 — 실측 못 함, 없으면 예전처럼 <article>·흔한 본문 칸 순서].
     // @3(S51-15): @2 배포 뒤 30건이 모두 lead/no_body(사이트는 열림) — 본문 칸 `article_body`에서 본문을 못 뽑음 [사실: CC 운영 확인 / 까닭은 추정].
@@ -220,6 +223,25 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     // 수집기는 허용 호스트(https) 안의 넘김만 따라가고, 따라간 끝이 404면 robots.txt가 없는 것(전부 허용)으로 본다(feed-fetch readRobots, 표준 RFC 9309). 하루 글이 많다(약 560건).
     extract: false,
     lists: ["https://rss.mt.co.kr/mt_news.xml"], hosts: ["rss.mt.co.kr", "www.mt.co.kr", "mt.co.kr"], kindOf: article },
+  // ---- 6차(S71-70 NEWS-수집처더하기·분야, 11/26). 맨 끝 앞에 둔다(앞선 매체 키 순서·돌려쓰기 색 칸 그대로).
+  { key: "news-newscham", name: "참세상", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all", on: true,
+    // 민중언론(노동·사회운동 전문) → 노동 전문지처럼 거르지 않고 전부(beat labor), '언론' 탭.
+    // 홈 머리 공식 피드 링크 https://newscham.net/feed/ [사실: 원문 점검 11/26 — 워드프레스 피드, application/rss+xml·글 10건·글 링크 newscham.net].
+    // robots `*` 묶음은 /wp/wp-admin/만 금지 [사실]. www.newscham.net 은 러너에서 robots를 못 읽음(robots_unreachable) — 주소는 www 없는 쪽만.
+    extract: false,
+    lists: ["https://newscham.net/feed/"], hosts: ["newscham.net"], kindOf: article },
+  { key: "news-mediatoday", name: "미디어오늘", group: "movement", region: "domestic", lang: "ko", mode: "html", take: "all", on: true,
+    sections: ["politics", "economy", "society", "opinion"],
+    // 피드(/rss/)는 그쪽 robots.txt가 막는다 [사실: 11/11·11/26 원문 점검 'robots'] — 우회하지 않는다. 분야 목록 쪽(/news/articleList.html)은 robots가 허용 [사실: 11/26].
+    // 매체가 보이는 분야 코드 [사실: 목록 쪽 메뉴]: S1N2 정치 · S1N3 경제 · S1N4 사회(노동·언론·인권 등 하위 분야 포함) · S1N8 오피니언(사설·연재). 문화·IT/과학·세계는 읽지 않는다.
+    // 목록 쪽에는 소개 글·피드 날짜가 없어 제목·주소만 받는다(받은 날로 정렬). 글 쪽은 수집 때 읽지 않는다(extract:false, 다른 종합지와 같음).
+    extract: false,
+    lists: ["https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N2&view_type=sm", "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N3&view_type=sm",
+      "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N4&view_type=sm", "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N8&view_type=sm"],
+    hosts: ["www.mediatoday.co.kr", "mediatoday.co.kr"],
+    item: /^https:\/\/(www\.)?mediatoday\.co\.kr\/news\/articleView\.html\?idxno=\d{1,9}$/,
+    canon: (u) => `https://www.mediatoday.co.kr/news/articleView.html?idxno=${u.searchParams.get("idxno")}`,
+    kindOf: article },
   // ---- 사설·칼럼(S69 NEWS-사설칼럼 — 맨 끝에 둔다: 앞선 매체의 키 순서·돌려쓰기 색 칸이 그대로, 명진 11/24 "주요 신문 사설 칼럼도 추가해줘요"). region "opinion" — 화면 '사설·칼럼' 묶음.
   //   규칙은 종합지와 같다: take 'all'·기본 켬·extract:false(수집 때 글 쪽은 읽지 않음 — 제목·소개·날짜·링크만, 사람이 열 때 읽기는 다른 매체와 같다).
   //   거르기(news-rank.ts): 섹션 "opinion"은 사회 섹션과 같은 등급 2(노동 낱말이 있으면 1, 부고·운세 같은 꼬리표는 그대로 뺀다).

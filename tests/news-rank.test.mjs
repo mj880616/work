@@ -61,7 +61,7 @@ test('카탈로그: 노동 전문지는 beat=labor, 종합지 섹션은 lists와
       assert.equal(s.sections.length, s.lists.length, s.key);
       s.lists.forEach((l, i) => {
         if (s.region === 'opinion') { assert.equal(listSection(s, l), 'opinion', `${s.key} ${l}`); return; }
-        const want = /society|national|50400012|sectionId=03/.test(l) ? 'society' : /economy|30100041|sectionId=02/.test(l) ? 'economy' : 'politics';
+        const want = /society|national|50400012|sectionId=03|S1N4/.test(l) ? 'society' : /economy|30100041|sectionId=02|S1N3/.test(l) ? 'economy' : /S1N8/.test(l) ? 'opinion' : 'politics';
         assert.equal(listSection(s, l), want, `${s.key} ${l}`);
       });
     } else {
