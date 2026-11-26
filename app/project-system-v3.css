@@ -221,7 +221,6 @@ div.ps3-rec-line{cursor:auto} /* S71-57: 잊지 말기에서 온 기록 줄은 �
 .ps3-rec-basket [data-link-summary-form] label{display:block;min-width:0}
 .ps3-rec-basket [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:vertical}
 .ps3-rec-basket [data-link-summary-original]>summary{min-height:44px;align-content:center;cursor:pointer}
-.ps3-rec-basket .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;max-width:100%}
 .ps3-rec-basket [data-link-summary-status]:empty{display:none}
 .ps3-rec-basket [data-link-summary-latest]{overflow-wrap:anywhere}
 .ps3-rec-basket [data-link-summary-form] .basket-link-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
@@ -279,8 +278,6 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 .ps3-meetings-more>summary{list-style:none;cursor:pointer}
 .ps3-meetings-more>summary::-webkit-details-marker{display:none}
 /* UI-기록아이콘: 기록 줄 앞 업데이트·노트 아이콘(글자색 선 그림, 🧺 대신). */
-.ps3-rec-mark{display:inline-flex;vertical-align:-2px;color:var(--kptu-muted)}
-.ps3-rec-mark svg{display:block}
 /* PRJ-순서바꾸기: PC drag of a list row onto a row of the same level — the line shows where it lands. */
 .ps3-plist .kptu-list-row[draggable="true"]{cursor:grab}
 .ps3-plist .kptu-list-row.ps3-dragging{opacity:.5}
