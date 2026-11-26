@@ -10,10 +10,7 @@
 #appView #outsideView .os-chip::after{ content:""; position:absolute; left:-2px; right:-2px; top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); }
 #appView #outsideView .os-chip[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 #appView #outsideView .os-chip:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
-#appView #outsideView .os-more{ position:relative; flex:none; display:inline-grid; place-items:center; width:var(--ds-compact-height,32px); height:var(--ds-chip-row-height,26px); min-height:0; margin:0 0 0 auto; padding:0;
-  color:var(--kptu-muted); background:transparent; border:0; border-radius:var(--ds-radius-control,6px); box-shadow:none; cursor:pointer; }
-#appView #outsideView .os-more::after{ content:""; position:absolute; inset:calc((var(--ds-chip-row-height,26px) - var(--kptu-touch-target,44px)) / 2) -6px; }
-#appView #outsideView .os-more:hover{ background:var(--kptu-surface-subtle); }
+/* S71-59: 옛 화면 안 ⋯(.os-more) 모양 규칙은 지웠다 — ⋯는 S70-54부터 단추 상자(.sf-tools)의 공용 icon-btn이고, PC 틀에서 화면 안(탭 줄 끝)으로 돌아와도 같은 모양. */
 
 #appView #outsideView .os-text-btn{ align-self:flex-start; min-height:0; height:var(--ds-compact-height-sm,28px); margin:6px 0 0; padding:0 8px; font:inherit; font-size:var(--ds-text-meta,12px);
   color:var(--kptu-ink); background:transparent; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); box-shadow:none; cursor:pointer; }
