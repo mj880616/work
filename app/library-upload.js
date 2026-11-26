@@ -165,7 +165,7 @@ let luQuery='';// S70-54 UI-검색창하나로: 자료실 찾기 글자(맨 위 
 // [결과 n개 모두 선택]은 맨 위 줄 단추 자리(screen-find.js 상자)에 산다. 본문 첫 줄(.lu-search-row)은 [사업영역 ▾][분류 ▾] 고르기만.
 const luTools=toolsBox('library','library');
 {const actions=document.querySelector('#libraryView .lu-head-actions');if(actions)luTools.append(actions)}
-registerScreenFind('library',{label:'자료실에서 찾기',foot:()=>document.querySelector('#libraryListCard'),active:()=>window.KPTURouter?.current==='library',value:()=>luQuery,
+registerScreenFind('library',{label:'자료실에서 찾기',active:()=>window.KPTURouter?.current==='library',value:()=>luQuery,
   apply:raw=>{const next=String(raw??'');if(next===luQuery)return;luQuery=next;luRenderLibrary()}});
 function luPushRecentFolder(id){luRecentFolders=rememberFolder(luRecentFolders,id);luViewPending.add('recent');clearTimeout(luViewTimer);luViewTimer=setTimeout(luFlushView,400)}
 // 걸러 보는 중인지 가를 때 비교하는 '들어올 때의 칩 상태'(고른 칩이 이것과 다르면 맞는 자료가 든 토글을 펼친다).

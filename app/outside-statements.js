@@ -881,7 +881,6 @@ root?.addEventListener('toggle', event => {
 let findText = '';
 registerScreenFind('outside', {
   label: '읽을 거리에서 찾기',
-  foot: () => mainBox, // '전체에서 「…」 찾기 →' 줄은 목록 칸(#nowMain) 맨 아래
   active: () => window.KPTURouter?.current === 'outside' && state.mode === 'list' && !(PHONE.matches && root?.dataset.detail === 'open')
     && !(state.tab === 'media' && document.getElementById('newsRoot')?.dataset.mode && document.getElementById('newsRoot').dataset.mode !== 'list'),
   value: () => (state.query ? findText : ''),

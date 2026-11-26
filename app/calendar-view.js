@@ -4,6 +4,8 @@ import {renderWeek,resetWeekScroll} from './calendar-week-view.js';
 import {dayItems,calendarDateKey} from './calendar-day-items.js';
 import {dayKey,ranges} from './home-read-model.js';
 import {viewPrefs} from './view-prefs.js';
+// S70-57 UI-검색창하나로(명진 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일"): 맨 위 칸 '일정에서 찾기'.
+import {registerScreenFind} from './screen-find.js';
 // Owns view choice, list/week ranges and list pagination. The choice is remembered on the server (view-prefs.js, profile view_prefs).
 const desktop=matchMedia('(min-width:761px)');
 const today=()=>seoulDayStart(new Date());
@@ -33,9 +35,17 @@ function writePlace(first){
   const isDefault=view==='month'?f.year===t.year&&f.month===t.month:seoulDateKey(first)===seoulDateKey(view==='week'?thisWeek():today());
   window.KPTURouter?.setPlace?.('calendar',{date:isDefault?null:seoulDateKey(first)});
 }
+// 맨 위 칸 '일정에서 찾기' = 지금 보기(목록·주간·월간)의 Google 일정·할 일을 제목으로 거른다. 걸러 내기는 그리기 직전 이 한 곳(render)에서만 하고
+// 월간 칸의 할 일(calendar-month-view.js가 setTasks로 받은 목록)은 같은 판정(options.taskFind)을 넘겨 거른다. 서버 검색 없음, 글자는 메모리만.
+let findQuery='',findText='';
+const findHit=x=>!findQuery||String(x?.title||'').toLowerCase().includes(findQuery);
+const found=next=>findQuery?{...next,googleEvents:(next.googleEvents||[]).filter(findHit),taskFind:findHit}:next;
+const shownTasks=()=>findQuery?tasks.filter(findHit):tasks;
+registerScreenFind('calendar',{label:'일정에서 찾기',active:()=>{const v=document.querySelector('#calendarView');return !!v&&!v.classList.contains('hidden')},value:()=>findQuery?findText:'',
+  apply:raw=>{findText=String(raw??'');const next=findText.trim().toLowerCase();if(next===findQuery)return;findQuery=next;paint()}});
 function render(next){
   if(applyPlace())return;
-  options=next;
+  next=found(next);options=next;
   const grid=document.querySelector('#calendarGrid'),list=document.querySelector('#calendarList'),week=document.querySelector('#calendarWeek');if(!grid||!list||!week)return;
   grid.classList.toggle('hidden',view!=='month');list.classList.toggle('hidden',view!=='list');week.classList.toggle('hidden',view!=='week');grid.closest('#calendarView')?.classList.toggle('calendar-list-active',view!=='month');
   if(view!=='list')stopList();
@@ -51,8 +61,8 @@ function render(next){
   title.setAttribute('aria-label',label);
   title.innerHTML=`<span class="calendar-title-full" aria-hidden="true">${full}</span><span class="calendar-title-compact" aria-hidden="true">${year}<span class="calendar-title-month">${seoulParts(first).month+1}월</span></span>`;
   if(view==='month')return window.KPTUCalendarMonthView?.render(next);
-  if(view==='week')return renderWeek(next,{start:weekStart,tasks});
-  renderList(next,{start,days,tasks,busy,error,more});
+  if(view==='week')return renderWeek(next,{start:weekStart,tasks:shownTasks()});
+  renderList(next,{start,days,tasks:shownTasks(),busy,error,more});
 }
 const paint=()=>window.__KPTU_RENDER_CALENDAR__?.();
 function reset(){revision++;pendingDays=0;days=14;busy=false;error=false}
@@ -68,7 +78,7 @@ function showDay(day){
   reset();paint();window.KPTUCalendarPersistence?.refresh();return true;
 }
 async function more(){if(view!=='list'||busy)return;pendingDays=pendingDays||(error?days:days+14);busy=true;error=false;paint();await window.KPTUCalendarPersistence?.refresh({appendPage:true})}
-window.KPTUCalendarView={render,range,move,showDay,begin,finish,cancel:()=>{revision++;pendingDays=0;busy=false;error=false;paint()},current:()=>view,setTasks:list=>{tasks=list;if(view!=='month')paint()},dayItems:date=>options?dayItems(options,date,tasks):[]};
+window.KPTUCalendarView={render,range,move,showDay,begin,finish,cancel:()=>{revision++;pendingDays=0;busy=false;error=false;paint()},current:()=>view,setTasks:list=>{tasks=list;if(view!=='month')paint()},dayItems:date=>options?dayItems(options,date,shownTasks()):[]};
 document.querySelectorAll('[data-calendar-view]').forEach(b=>b.addEventListener('click',()=>select(b.dataset.calendarView)));
 document.querySelector('#calendarTodayBtn')?.addEventListener('click',()=>{if(view!=='month'){if(view==='week'){weekStart=thisWeek();resetWeekScroll()}else start=today();reset();paint();window.KPTUCalendarPersistence?.refresh()}else window.__KPTU_CALENDAR_TODAY__?.()});
 

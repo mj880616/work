@@ -115,8 +115,8 @@ async function pickPhoneOne(page) {
   else { await page.locator('#mobileMenuTab').click(); await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click(); }
   await expect(page.locator('#photosView')).toBeVisible();
   await expect(cellOf(page, 'O1')).toBeVisible({ timeout: 15000 });
-  await root(page).locator('[data-photos-src="onedrive"]').click();
-  await expect(root(page).locator('[data-photos-src="onedrive"]')).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]').click();
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]')).toHaveAttribute('aria-pressed', 'false');
   await expect(cellOf(page, 'ph:1')).toBeVisible({ timeout: 15000 });
   await hold(page, cellOf(page, 'ph:1'));
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');

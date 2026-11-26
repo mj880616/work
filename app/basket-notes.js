@@ -209,7 +209,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   let findText = '';
   registerScreenFind('notes', {
     label: '노트에서 찾기',
-    foot: () => list, // '전체에서 「…」 찾기 →' 줄은 노트 목록 칸 맨 아래
     active: () => window.KPTURouter?.current === 'basket' && host.closest('#basketView')?.dataset.kind === 'note' && !host.hidden && !list.hidden,
     value: () => (query ? findText : ''),
     apply: raw => { findText = String(raw ?? ''); const next = findText.trim().toLowerCase(); if (next === query) return; query = next; renderList(); },

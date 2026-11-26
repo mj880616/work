@@ -114,8 +114,8 @@ const sentOf = (page, re) => page.evaluate(src => window.__photoSent.filter(m =>
 async function phoneOnly(page) {
   await openPhotos(page, 412);
   await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
-  await root(page).locator('[data-photos-src="onedrive"]').click();
-  await expect(root(page).locator('[data-photos-src="onedrive"]')).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]').click();
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]')).toHaveAttribute('aria-pressed', 'false');
   await expect.poll(() => ids(page)).toEqual(['ph:2', 'ph:1', 'K9']);
 }
 
