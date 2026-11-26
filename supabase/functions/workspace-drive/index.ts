@@ -104,7 +104,8 @@ function libraryDb(auth:string,own:string){
   return {
     // S70-76: 서버는 한 번에 1000줄까지만 돌려준다(LIB-연결줄다읽기와 같음). 잘리면 폴더 안 자료가 '폴더 밖'으로 읽혀 드라이브에서 자료실 맨 위로 옮겨지므로 끝까지 이어 읽는다.
     folders:()=>restPages(auth,`app_library_folders?${w}&select=id,parent_id,name,sort_order,drive_folder_id&order=id.asc`),
-    items:()=>restPages(auth,`app_library_folder_items?${w}&select=document_id,folder_id&order=document_id.asc`),
+    // S71-05: 옮긴 시각(moved_at)도 읽어 드라이브에서 사람이 옮긴 것을 덮지 않는다(library-mirror followTarget). 칸이 없으면(DB 적용 전) 지금처럼 앱 기준.
+    items:async()=>{try{return await restPages(auth,`app_library_folder_items?${w}&select=document_id,folder_id,moved_at&order=document_id.asc`)}catch(e){if((e as any)?.status!==400)throw e;return await restPages(auth,`app_library_folder_items?${w}&select=document_id,folder_id&order=document_id.asc`)}},
     documents:()=>restPages(auth,`app_documents?${w}&file_id=not.is.null&select=id,file_id&order=id.asc`),
     setDrive:(id:string,drive:string|null,expect:string|null)=>userRest(auth,'rpc/app_library_folder_set_drive',{method:'POST',body:JSON.stringify({p_id:id,p_drive:drive,p_expect:expect})}),
     renameFolder:async(id:string,name:string)=>changed(await userRest(auth,`${one(id)}&select=id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({name})})),
