@@ -4,7 +4,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 import {mrdMenu} from './helpers/meeting-open.mjs';
 import {openFolds} from './helpers/area-org-picker.mjs';
-// S71-73 ORG-사업보고줄메뉴삭제(사용자 결정 2026-11-26, standard-interactions.md R3): 조직·사업영역 상세 '사업 보고' 줄에는 ⋯가 없다
+// S71-73 ORG-사업보고줄메뉴삭제(사용자 결정 2026-11-26, standard-interactions.md L6): 조직·사업영역 상세 '사업 보고' 줄에는 ⋯가 없다
 // (연결 해제만 있던 메뉴). 연결을 풀 때는 사업 보고를 열고 [수정] › [연결할 곳]에서 이 조직을 빼고 저장 → 조직 상세에서 사라진다.
 // 모든 이름·번호는 합성 값.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';

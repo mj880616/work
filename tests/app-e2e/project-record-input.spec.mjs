@@ -135,10 +135,10 @@ test('PRJ-기록입력 old records and items have no line to edit or delete, and
   const before={progress:structuredClone(state.tables.app_project_progress_updates),workstreams:structuredClone(state.tables.app_project_workstreams)};
   await expect(lines(page)).toHaveCount(1);
   await expect(page.locator('#ps3-progress [data-ps3-record],#ps3-progress [data-ps3-record-kind="item"],[data-ps3-edit-record]')).toHaveCount(0);
-  // 남은 줄은 연결 기록 줄이다. S71-71 R1(사용자 결정 2026-11-26): 그 ⋯는 모든 기록 줄과 같은 [수정][메모][삭제]이고, 옛 진행 기록·항목을 고치는 길은 아니다.
+  // 남은 줄의 ⋯ 메뉴는 연결 기록 메뉴(S71-71 기록 ⋯ 한 벌 [수정][메모][삭제] — 그 연결 기록만 다룬다). 옛 진행 기록을 고치는 길은 없다.
   await lines(page).first().getByRole('button',{name:'기록 메뉴',exact:true}).click();
   const menu=page.locator('#ps3RecordMenu');await expect(menu).toBeVisible();
-  await expect(menu.getByRole('button')).toHaveText(['수정','메모','삭제']);
+  await expect(menu.getByRole('button')).toHaveText([/^수정$/,/^메모( \d+)?$/,/^삭제$/]);
   await page.keyboard.press('Escape');await expect(menu).toBeHidden();
   await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
   // 상세는 두 표를 그대로 읽어 오고, 쓰지 않는다.

@@ -2215,3 +2215,32 @@ for (const [name, width, open] of DRAG_SCROLL_SCREENS) test.describe(`D3 ${name}
     expect(s.errors).toEqual([]);
   });
 });
+
+// ---------- B1 뒤로가기 = 직전 화면(S71-76 NAV-뒤로가기직전화면) ----------
+// 2026-11-26 23:42 사용자 보고(노트 › 저장한 글에서 연 글에서 폰 뒤로가기가 읽을 거리로 감 — 직전 화면 규칙 위반):
+// 한 화면 줄이 다른 화면 항목을 열면, 뒤로가기 한 번 = 그 줄이 있던 화면·같은 목록·같은 자리(스크롤). 도착 화면 목록에 멈추지 않는다.
+// 폰 390·PC 1280 모두 history.back(폰 앱·삼성 인터넷 뒤로 키와 같은 길). 길 표는 helpers/back-prev/index.mjs 하나.
+import { BACK_PATHS, backPress } from './helpers/back-prev/index.mjs';
+test.describe('B1 뒤로가기 = 직전 화면', () => {
+test.use({ hasTouch: true });
+for (const path of BACK_PATHS) for (const width of path.widths) test(`B1 ${path.name} ${width}: 뒤로가기 한 번 = 직전 화면 그 목록 그 자리`, async ({ page }) => {
+  const s = await path.boot(page, width);
+  const row = path.row(page);
+  await row.scrollIntoViewIfNeeded();
+  await expect(row).toBeInViewport();
+  const at = await page.evaluate(() => navigation.currentEntry.index), url = page.url();
+  const y = async () => Math.round((await row.boundingBox()).y);
+  const before = await y();
+  await backPress(row, width);
+  await path.arrived(page);
+  await page.evaluate(() => history.back());
+  await expect.poll(() => page.evaluate(() => window.KPTURouter.current)).toBe(path.view);
+  await expect(path.list(page)).toBeAttached();
+  await expect(row).toBeVisible();
+  expect(await page.evaluate(() => navigation.currentEntry.index)).toBe(at);
+  expect(page.url()).toBe(url);
+  await expect.poll(y).toBe(before);
+  expect(s.writes).toEqual([]);
+  expect(s.errors).toEqual([]);
+});
+});
