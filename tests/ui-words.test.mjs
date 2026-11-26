@@ -31,6 +31,10 @@ test('검사기: 주석·코드 이름은 빼고 화면 글자만 센다', () =>
   const old = "a = '읽을 거리로'; b = '읽을 거리에서 빼기'; c = '보관 풀기'; d = '저장 풀기'; e = '저장 취소'; f = '저장한 글에서 삭제';";
   assert.deepEqual(countFile('app/x.js', old).map(h => h.word), ['읽을 거리로', '읽을 거리에서 빼기', '보관 풀기', '저장 풀기', '저장 취소']);
   assert.deepEqual(countFile('app/release-notes/20261123-0230-x.json', '{"changes":["읽을 거리로 보내요"]}'), []);
+  // S70-62(11/26 명진 "보관은 저장으로 통일"): 글 저장 화면 파일에서는 '보관' 자체를 센다. 다른 화면의 다른 뜻 '보관'(사업영역 보관 등)은 세지 않는다.
+  assert.deepEqual(countFile('app/reading.js', "a = '보관한 글'; // 보관 주석").map(h => h.word), ['보관']);
+  assert.deepEqual(countFile('app/now-hidden.js', "a = '보관'").map(h => h.word), ['보관']);
+  assert.deepEqual(countFile('app/project-system-v3.js', "a = '보관'"), []);
 });
 
 test('재발 방지: 고치기·편집·지우기·버리기 등 바꾸기로 한 말이 기준표보다 늘지 않는다', () => {

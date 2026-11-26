@@ -51,9 +51,9 @@ test('Now 뉴스 412: 왼쪽 끝까지 밀어도 칸만 열림(S70-60), [숨기�
   await openNews(page, 412);
   await expect(item(page, 'c1')).toBeVisible();
 
-  // UI-스와이프메뉴만(S70-60): 끝까지 밀어도 숨기지 않고 [저장][숨기기] 칸만 펼쳐진다.
+  // UI-스와이프메뉴만(S70-60): 끝까지 밀어도 숨기지 않고 [수정][저장][숨기기] 칸만 펼쳐진다.
   await swipe(item(page, 'c1'), -320);
-  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]')).toHaveText(['저장', '숨기기']);
+  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]')).toHaveText(['수정', '저장', '숨기기']);
   await page.waitForTimeout(500);
   await expect(item(page, 'c1')).toHaveCount(1);
   expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method !== 'GET')).toHaveLength(0);
@@ -89,15 +89,18 @@ test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높
   const { errors, server } = await start(page, 412);
   await openNews(page, 412);
   await expect(item(page, 'c1')).toBeVisible();
-  // 왼쪽 조금: 오른쪽 끝에 칸 두 개, 맨 오른쪽이 [숨기기], 칸 높이 = 줄 높이.
+  // 왼쪽 조금: 오른쪽 끝에 칸 세 개 [수정][저장][숨기기](S70-62), 맨 오른쪽이 [숨기기], 칸 높이 = 줄 높이.
   await swipe(item(page, 'c1'), -50);
   const cells = page.locator('#newsRoot [data-row-swipe-act="end"]');
-  await expect(cells).toHaveCount(2);
-  await expect(cells).toHaveText(['저장', '숨기기']);
-  const rowBox = await item(page, 'c1').boundingBox(), cellBox = await cells.nth(1).boundingBox();
+  await expect(cells).toHaveCount(3);
+  await expect(cells).toHaveText(['수정', '저장', '숨기기']);
+  const rowBox = await item(page, 'c1').boundingBox(), cellBox = await cells.nth(2).boundingBox();
   expect(Math.abs(cellBox.height - rowBox.height)).toBeLessThan(2);
   expect(cellBox.x + cellBox.width).toBeGreaterThan(rowBox.x + rowBox.width - 2);
   expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method !== 'GET')).toHaveLength(0);
+  // 열린 줄을 한 번 누르면 칸이 닫힌다(S70-62: 칸이 셋).
+  await touchTap(item(page, 'c1').locator('.nw-title'));
+  await expect(cells).toHaveCount(0);
   // 오른쪽 끝까지: [선택] 칸만 → 누르면 그 줄이 골라진 채로 고르기 줄. 다른 줄을 눌러 더 고른다(열리지 않음).
   await swipePick(page, item(page, 'c1'));
   const bar = page.locator('#newsRoot .row-swipe-pickbar');
@@ -163,7 +166,7 @@ test('Now 뉴스 412: 실제 손가락처럼(포인터 + 터치 함께) 글 줄 
   // 글 줄 위 왼쪽 조금: 칸만 열리고 탭은 그대로.
   await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000));
   await both(item(page, 'k1'), -60);
-  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]')).toHaveCount(2);
+  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]')).toHaveCount(3);
   await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');
   // 줄 밖(탭 줄)에서 밀면 탭이 넘어간다.
   const tabs = page.locator('#outsideRoot [data-os-tabs]');
@@ -179,7 +182,9 @@ test('Now 뉴스 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러
   const { errors, server } = await start(page, 1440);
   await openNews(page, 1440);
   const c1 = item(page, 'c1');
-  await expect(c1.locator('[data-now-act]')).toHaveCount(2);
+  // S70-62: 마우스 단추도 밀기 칸과 같은 [수정][저장][숨기기].
+  await expect(c1.locator('[data-now-act]')).toHaveCount(3);
+  await expect(c1.locator('.now-hov [data-now-act]')).toHaveText(['수정', '저장', '숨기기']);
   await expect(c1.locator('[data-now-act="save"]')).toBeHidden();
   await c1.hover();
   await expect(c1.locator('[data-now-act="save"]')).toBeVisible();
