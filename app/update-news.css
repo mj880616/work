@@ -8,21 +8,19 @@
 .un-date{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .un-lines{margin:2px 0 0;padding-left:18px;overflow-wrap:anywhere}
 .un-item.is-withdrawn{opacity:.55}
-/* 운영자 '업데이트 기록' 화면(#updatesView) 위: 시작 날짜 줄·[+ 직접 쓰기]·접히는 '보낸 소식'. 기록 줄 오른쪽 '보냄'·[보내기]. */
-#updatesView .un-admin{margin:0 0 6px}
+/* 운영자 '업데이트 기록' 화면(#updatesView). S71-31: 위쪽 시작 날짜 줄·접히는 '보낸 소식' 줄 없앰 — 기록 줄에 없는 소식(직접 쓴 것)만 목록 위 줄로.
+   [+](직접 쓰기)는 맨 위 줄 단추 자리(.sf-tools)의 글자 없는 작은 아이콘 — 자료실 [+](#newDocumentBtn)와 같은 크기·그림. 기록 줄 오른쪽 '보냄'·[보내기]. */
+#updatesView .un-admin{margin:0}
+#updatesView .un-admin .un-item:last-child{border-bottom:0}
 #updatesView .un-admin[hidden]{display:none}
-#updatesView .un-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 4px}
-#updatesView .un-cut{display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0;font-size:var(--ds-text-row)}
-#updatesView .un-sent{border-top:.5px solid var(--kptu-border)}
-#updatesView .un-sent-head{display:flex;align-items:center;gap:4px;min-height:var(--ds-compact-height,32px);cursor:pointer;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium,600)}
-#updatesView .un-sent .un-list{border-top:0}
-#updatesView .un-cutline{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#updatesView .un-cutline::before,#updatesView .un-cutline::after{content:"";flex:1;border-top:1px dashed var(--kptu-border)}
+.sf-tools .un-add{position:relative;box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:var(--ds-compact-height,32px);min-width:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);line-height:1}
+.sf-tools .un-add[hidden]{display:none}
+.sf-tools .un-add:hover{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.sf-tools .un-add::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.sf-tools .un-add:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+.sf-tools .un-add::before{content:"";display:block;width:18px;height:18px;background:currentColor;-webkit-mask:var(--ds-fab-plus) center / 18px 18px no-repeat;mask:var(--ds-fab-plus) center / 18px 18px no-repeat}
 #updatesView .rn-send.rn-sent{background:transparent;border-color:var(--ds-line,var(--kptu-border));color:var(--kptu-muted)}
 #updatesView .rn-send{flex:none;margin-left:auto}
 .sfm .un-bundle{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
 .sfm .un-chips{display:contents}
 .sfm .un-adder{min-width:0;max-width:100%;height:32px;border:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-meta,12px)}
-/* UPDATE-소식안보임: 시작 날짜가 없거나 소식이 시작 날짜 앞이라 이용자에게 안 보일 때 한 줄(목록 위·보내기 창). 톤다운 경고색, 굵게 하지 않음. */
-.un-notice{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:0 0 4px;padding:4px 8px;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-warning-soft,var(--kptu-primary-soft));color:var(--kptu-ink);font-size:var(--ds-text-row,13px)}
-.un-notice>span{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}

@@ -1,21 +1,12 @@
 /* S68-09 READ-읽을거리함: 읽을 거리(?view=reading, reading.js). 촘촘한 한 줄 목록·글 보기. 새 색 없음(기존 토큰만), 큰 카드 없음. */
 #readingView .rd-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:0;min-width:0}
-#readingView .rd-head{display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px);margin-bottom:var(--ds-view-tabs-below)} /* S70-24: 머리줄(보기 탭)과 목록 첫 줄 사이 공용 간격 */
-#readingView .rd-head .rd-title{margin:0;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#readingView .rd-head .rd-add{margin-left:auto;flex:none}
 #readingView .rd-form{display:flex;gap:6px;align-items:center;margin:2px 0 4px}
 #readingView .rd-url{flex:1 1 auto;min-width:0;height:var(--ds-compact-height,32px);padding:0 8px;border:.5px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface,transparent);color:var(--kptu-ink);font-size:var(--ds-text-row)}
-/* S68-48 READ-보기탭아래: [안 읽음|전체|밑줄]은 공용 ⑤(.ds-seg) — 여기서는 자리만. PC 틀(761px~)은 제목 줄 오른쪽([+ 추가] 앞),
-   폰·펼친 폴드(~760px)는 ui-standard.css 공용 폰 전환 줄 규칙이 하단바 바로 위 가운데로 옮긴다(위쪽 칩 줄 없음). */
-#readingView .rd-head .rd-switch{margin-left:auto;flex:0 1 auto;min-width:0}
-#readingView .rd-head .rd-switch + .rd-add{margin-left:0}
-@media(max-width:760px){#readingView .rd-head .rd-switch + .rd-add{margin-left:auto}}
-/* S70-40b ④ READ-목록머리(5절 ② (가)): PC 틀(761px~)은 위 줄(app-topline)이 화면 이름을 보이므로 머리 줄 제목을 빼고(중복 제목 없음)
-   보기 탭을 맨 앞, ＋(⑥ 아이콘)를 줄 끝에 둔다 — 좁은 왼쪽 칸(22em)에서도 탭이 잘리지 않는다. */
+/* S68-48 READ-보기탭아래: [전체|안 읽음|밑줄|메모]는 공용 ⑤(.ds-seg) — 여기서는 자리만. 폰·펼친 폴드(~760px)는 ui-standard.css 공용 폰 전환 줄 규칙이
+   하단바 바로 위 가운데로 옮긴다(위쪽 칩 줄 없음). S71-26 SAVED-머리한줄: ＋는 화면 이름 줄 찾기 오른쪽(reading.js toolsBox)이라 목록 머리 줄(.rd-head)은 없다 —
+   PC 틀(761px~)은 탭이 목록 맨 위 한 줄(왼쪽 정렬). */
 @media(min-width:761px){
-  #readingView [data-rd-list] .rd-head > .rd-title{display:none}
-  #readingView [data-rd-list] .rd-head .rd-switch{margin-left:0}
-  #readingView [data-rd-list] .rd-head .rd-switch + .rd-add{margin-left:auto}
+  #readingView [data-rd-list]>.rd-switch{display:flex;margin-bottom:calc(var(--ds-view-tabs-below) - var(--ds-seg-hit))} /* 누르는 범위(위아래 --ds-seg-hit)를 뺀 보이는 칸 아래가 옛 머리 줄과 같은 간격 */
 }
 #readingView .rd-rows{border-top:.5px solid var(--kptu-border)}
 #readingView .rd-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;gap:1px 6px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row);cursor:pointer}
@@ -41,10 +32,11 @@
 #readingView .rd-prose p{margin:0 0 8px;white-space:pre-line}
 #readingView .rd-faint{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #readingView [hidden]{display:none}
-/* 761px~(폴드 펼침·PC): 왼쪽 목록, 오른쪽 글(같은 내용). */
-@media(min-width:761px){
-  #readingView.rd-reading .rd-wrap{grid-template-columns:minmax(0,22em) minmax(0,1fr)}
-  #readingView.rd-reading .rd-detail{padding-left:12px;margin-left:12px;border-left:.5px solid var(--kptu-border)}
+/* S70-58 READ-두칸보기: 칸 나누기 폭(600px~ — 폴드 펼침·PC, screen-width.mjs)은 왼쪽 목록 | 오른쪽 글. 칸 비율은 공용 split-resize.js가
+   --ds-split-list/--ds-split-detail(fr)로 정한다(기본 1 : 2, 서버 split_ratio.reading). 오른쪽 칸은 follow-pane.js가 화면 위에 붙인다(그 칸만 스크롤). */
+@media(min-width:600px){
+  #readingView.rd-reading .rd-wrap{grid-template-columns:minmax(0,var(--ds-split-list,1fr)) minmax(0,var(--ds-split-detail,2fr));column-gap:12px;align-items:start;--ds-split-list-min:200px;--ds-split-detail-min:320px}
+  #readingView.rd-reading .rd-detail{padding-left:12px;border-left:.5px solid var(--kptu-border)}
 }
 @media(max-width:760px){#readingView .rd-row{padding:7px 0}#readingView .rd-meta{max-width:9em}}
 /* S68-24 News에서 보관한 글 줄(꼬리표 'News', 점 없음 — 안 읽음 셈에 들지 않음). 출처 꼬리표는 사업영역 꼬리표보다 옅게. */

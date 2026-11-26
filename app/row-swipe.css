@@ -2,7 +2,7 @@
    줄은 바탕색을 가진 채 옆으로 밀리고, 그 뒤에 줄 높이만큼 꽉 찬 칸들이 있다(64px 칸, 그림 + 아래 작은 글자 11px).
    색은 먹색 톤 앱에 맞춘 차분한 바탕(토큰 색을 바탕에 22%만 섞음): 회색(공유·숨기기 등) · 차분한 보라(옮기기) · 차분한 빨강(삭제) · 노랑(고르기). 값은 --kptu-*·--ds-* 토큰만. */
 @media(max-width:760px){
-  :is(#basketRows [data-basket-row-item],#noteRows [data-nx-note],[data-nx-recent] [data-nx-note],.inbox-todo-list > [data-inbox-todo-row],#gtTaskBody .gt-row[data-google-task],.os-list [data-nw-key],.nc-list [data-nc-item],.now-saved-list [data-ns-row],#readingView .rd-row[data-rd-pick],#documentList .lu-row[data-lu-document],#ps3ArchiveList [data-ps3-trash-row],#calendarList .clv-event[data-google-event]){ touch-action:pan-y; }
+  :is(#basketRows [data-basket-row-item],#noteRows [data-nx-note],[data-nx-recent] [data-nx-note],.inbox-todo-list > [data-inbox-todo-row],#gtTaskBody .gt-row[data-google-task],.os-list [data-nw-key],.nc-list [data-nc-item],.now-saved-list [data-ns-row],#readingView .rd-row[data-rd-pick],#documentList .lu-row[data-lu-document],#ps3ArchiveList [data-ps3-trash-row],#calendarList .clv-event[data-google-event],[data-fx-tree] .ft-row.fx-titem,#wdUpdates :is([data-wd-up],[data-basket-link]),#ps3Body [data-ps3-records] > [data-basket-link]){ touch-action:pan-y; }
   /* S68-50: 열린 칸 위에서 시작한 좌우 밀기도 줄 밀기로 받는다(브라우저가 가로 밀기를 가져가 손동작이 끊기지 않게). */
   .row-swipe-acts,.row-swipe-act{ touch-action:pan-y; }
 }
@@ -26,7 +26,7 @@
 .row-swipe-tone-move{ --rs-c:var(--ds-project-purple); }
 .row-swipe-act:focus-visible{ outline:2px solid var(--kptu-info); outline-offset:-2px; }
 @media(prefers-reduced-motion:reduce){ .row-swipe-row{ transition:none; } }
-/* 여러 개 고르기 줄(오른쪽 밀기 [고르기]): 목록 바로 위에 붙는 콤팩트한 한 줄. 버튼 칸은 공용 고르기 줄(base-ui.css .kptu-actbar-text, 노트·자료실 고르기 줄과 같음). */
-.row-swipe-pickbar:not([hidden]){ position:sticky; top:var(--kptu-stick-top,0px); z-index:3; display:flex; align-items:center; gap:6px; margin:2px 0 4px; padding:2px 6px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-bg); font-size:13px; }
-.row-swipe-pick-count{ flex:none; color:var(--kptu-ink); white-space:nowrap; }
+/* 여러 개 고르기 막대(오른쪽 밀기, S70-64): 모양은 공용 고르기 막대(base-ui.css .kptu-selbar — [✕] 'n개 선택됨' · [전체 선택] · … · [삭제] 맨 끝, 한 줄).
+   여기서는 목록 위에 붙어 따라오는 자리만 정한다(하단바·하단 칩과 겹치지 않게 위쪽). 단추 모양은 base-ui.css 한 곳(앱 화면 밖 창 — 사업 관리 휴지통 창 — 도 같은 규칙). */
+.row-swipe-pickbar:not([hidden]){ position:sticky; top:var(--kptu-stick-top,0px); z-index:3; margin:2px 0 4px; }
 [data-row-picking] [data-row-swipe-act]{ display:none; }

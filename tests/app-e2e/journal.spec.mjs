@@ -504,6 +504,42 @@ test('다른 기기가 먼저 쓴 날(409)은 그 행을 읽어 그 줄들 뒤�
  expect(f.errors).toEqual([]);
 });
 
+// UI-입력칸자동높이(STD-INPUT-01, 사용자 결정 2026-11-26): '오늘 한 일' 칸은 글만큼 아래로 늘어난다 — 안쪽 스크롤 없음·첫 줄 보임,
+// 화면 높이 절반을 넘으면 그때부터만 칸 안 스크롤. [저장]은 칸 오른쪽 그대로. 고치기 칸도 같다.
+const fieldBox=loc=>loc.evaluate(el=>{const r=el.getBoundingClientRect(),cs=getComputedStyle(el);return {h:Math.round(r.height),top:r.top,right:r.right,scrollTop:el.scrollTop,inner:el.scrollHeight-el.clientHeight,overflow:cs.overflowY,screen:innerHeight};});
+for(const width of [390,1280])test(`홈 ${width}: 오늘 한 일 칸은 다섯 줄 글만큼 늘고, 화면 절반에서 멈춘 뒤에만 칸 안 스크롤`,async({page})=>{
+ await fixture(page,{width,height:900});await openJournal(page,width);
+ const input=page.locator('#journalRoot [data-journal-input]'),save=page.locator('#journalRoot [data-journal-save]');
+ await expect(input).toBeVisible();
+ const start=await fieldBox(input);
+ // 다섯 줄쯤 되는 한 줄 글(줄바꿈 없음, 300자 안).
+ const five='가나다라마바사아자차카타파하 '.repeat(width<=760?9:20).slice(0,width<=760?130:290);
+ await input.click();await input.pressSequentially(five.slice(0,20));await input.fill(five);
+ const grown=await fieldBox(input);
+ expect(grown.h).toBeGreaterThan(start.h+30);
+ expect(grown.inner,JSON.stringify(grown)).toBeLessThanOrEqual(1);
+ expect(grown.scrollTop).toBe(0);
+ // [저장]은 칸 오른쪽 그대로.
+ const btn=await save.boundingBox();expect(btn.x).toBeGreaterThanOrEqual(grown.right-1);
+ // 지우면 처음 높이로.
+ await input.fill('');expect((await fieldBox(input)).h).toBe(start.h);
+ // 화면 절반을 넘는 글(300자를 넘는 긴 글, 저장은 거절되지만 칸 모양은 같다): 절반에서 멈추고 그때부터 칸 안 스크롤.
+ await page.setViewportSize({width,height:420});
+ await input.fill('가'.repeat(900));
+ const capped=await fieldBox(input);
+ expect(capped.h).toBeLessThanOrEqual(Math.round(capped.screen/2)+1);
+ expect(capped.inner).toBeGreaterThan(0);expect(capped.overflow).toBe('auto');
+});
+test('홈 390: 저장한 줄 고치기 칸도 글만큼 늘어난다',async({page})=>{
+ const f=await fixture(page,{width:390});
+ f.rows.push({id:'k9',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'가나다라마바사 '.repeat(30).trim().slice(0,240),occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
+ await openJournal(page,390);
+ await lineTexts(page).first().click();
+ const box=page.locator('#journalRoot [data-journal-edit-input]');await expect(box).toBeVisible();
+ const r=await fieldBox(box);
+ expect(r.h).toBeGreaterThan(80);expect(r.inner,JSON.stringify(r)).toBeLessThanOrEqual(1);
+});
+
 test('줄마다 300자: 301자·줄바꿈·빈 줄은 저장하지 않고 이유를 보여 준다',async({page})=>{
  const f=await fixture(page);await openJournal(page,390);
  const input=page.locator('#journalRoot [data-journal-input]'),line=page.locator('#journalRoot [data-journal-line-status]'),save=page.locator('#journalRoot [data-journal-save]');
@@ -1291,7 +1327,8 @@ async function hwpxFixture(page,options={}){
   const file=options.rawFiles?.[body.document_id]??files[body.document_id]??bytes,fileName=file===bytes?'team.hwpx':`${body.document_id}.hwpx`;
   return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
- await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
+ await page.route(SB+'/functions/v1/library-files',r=>{if(/^\{"action":"drive-auto"\}$/.test(r.request().postData()||''))return r.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
  // WEEKLY-기본HWP: [확정하고 한글 파일 받기]·[확정 없이 파일만 받기]는 만든 .hwpx를 숨은 칸막이 엔진(hwp-frame.js)으로 .hwp로 바꾼다.
  // 기본은 가짜 엔진(fakeEngine — 빨리·늘 같게), engine:'real' = 진짜 엔진(servePagesCors는 시험이 부른다), 'broken' = 엔진이 뜨지 않음(.hwpx로 받고 알림).
  if(options.engine!=='real')await page.route(u=>u.pathname.endsWith('/app/hwp-frame.js'),r=>r.fulfill({contentType:'text/javascript; charset=utf-8',body:fakeEngine(options.engine==='broken')}));
@@ -1711,7 +1748,8 @@ test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 업�
  const uploads=[],catAdds=[],SRC='0b8f5a3e-1111-4222-8333-444455556666';
  await page.route(SB+'/rest/v1/rpc/app_document_category_add',r=>{catAdds.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,categories:['교섭','투쟁','교육','선전','정책','회의','노조 서식','기타'],documents:0}});});
  await page.unroute(SB+'/functions/v1/library-files');
- await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());uploads.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:SRC,title:body.title}}});});
+ await page.route(SB+'/functions/v1/library-files',r=>{if(/^\{"action":"drive-auto"\}$/.test(r.request().postData()||''))return r.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+const body=multipartBody(r.request());uploads.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:SRC,title:body.title}}});});
  await openJournal(page,1280);await openWeekly(page);
  // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 자료실에 바탕이 없으면 [주간 보고]는 백지 + 한 줄 [파일 올리기] — 다른 팀 양식(항목 이름·표 칸)은 하나도 안 보인다.
  const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
@@ -4010,7 +4048,8 @@ for(const width of [412,1280])test(`S67-29 상집 논의 요청 한글 파일: �
  const f=await hwpxFixture(page,{width,rawFiles:{'doc-new':doc}});
  // 두 번째 올리기(구형 .hwp)는 다른 자료 id로 답한다.
  await page.unroute(SB+'/functions/v1/library-files');
- let n=0;await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());f.sent.library.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:n++?'doc-old':'doc-new',title:body.title,file_name:body.file?.file}}});});
+ let n=0;await page.route(SB+'/functions/v1/library-files',r=>{if(/^\{"action":"drive-auto"\}$/.test(r.request().postData()||''))return r.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+const body=multipartBody(r.request());f.sent.library.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:n++?'doc-old':'doc-new',title:body.title,file_name:body.file?.file}}});});
  await page.unroute(SB+'/functions/v1/document-actions');
  await page.route(SB+'/functions/v1/document-actions',r=>{
   const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};

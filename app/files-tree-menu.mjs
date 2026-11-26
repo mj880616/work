@@ -18,10 +18,14 @@
 export const TREE_MENU_LABEL = Object.freeze({
   goto: GOTO_FOLDER_LABEL, select: '선택', open: '열기', only: '이 폴더로 들어가기', mkdir: '새 폴더', upload: '업로드', copy: '복사', move: '옮기기', tocloud: '클라우드에 복사',
   rename: '이름 바꾸기', color: '색', up: '위로', down: '아래로', star: '별표', unstar: '별표 빼기', trash: '휴지통',
-  tolib: '자료실로 보내기', libview: '자료실에서 보기', pin: '위에 고정', unpin: '고정 풀기', path: '경로 복사', zip: '여러 개 받기'
+  tolib: '자료실로 보내기', libview: '자료실에서 보기', pin: '위에 고정', unpin: '고정 풀기', path: '경로 복사', zip: '여러 개 받기',
+  ext: '새 창에서 열기', pcopen: '이 PC에서 열기', reveal: '탐색기에서 위치', save: '받기', share: '공유'
 });
 import {GOTO_FOLDER_LABEL} from './goto-folder.mjs';
 const CLOUD = ['od', 'gd'];
+// S70-72: 옮겨 온 항목의 작은 그림(공용 ROW_MENU_ICON에 없는 id만 여기서 준다 — 열기 꼴·받기 화살표·내보내기·폴더 위치).
+const OPEN_ICO = 'M6.5 3H3v10h10V9.5M9 3h4v4M13 3L7.5 8.5';
+const DETAIL_ICON = Object.freeze({ext: OPEN_ICO, pcopen: OPEN_ICO, save: 'M8 2.5v7M5 6.5l3 3 3-3M3 11.5v2h10v-2', share: 'M8 10V2.5M5 5.5l3-3 3 3M3.5 8v5.5h9V8', reveal: 'M2 4.5h4l1.5 1.5H14v7H2zM9 10.5h3'});
 const SECOND = ['pin', 'unpin', 'star', 'unstar', 'color', 'up', 'down']; // 둘째 묶음은 이 순서(요청함 원문 '별표·색·위로·아래로', S52-41 고정이 맨 앞)
 // row: 나무 줄의 원래 줄(source·is_folder·starred), opt: phoneWrite(폰에 쓸 수 있나)·pcWrite(내 PC 문이 복사·옮기기를 앎), sibIndex·sibCount(같은 부모 안 폴더 순서, 모르면 -1·0).
 // pinned(S52-41 FILES-폴더고정): 폴더를 고정할 수 있으면 true(고정됨)·false(안 됨), 고정할 수 없는 곳이면 null(항목 없음).
@@ -29,8 +33,11 @@ const SECOND = ['pin', 'unpin', 'star', 'unstar', 'color', 'up', 'down']; // 둘
 // copyPath(S52-43 ③ FILES-관리자마무리): 화면이 클립보드에 위치를 넣을 수 있으면 첫 묶음 끝에 [경로 복사](내 PC는 실제 경로, 그 밖은 '원드라이브 › 문서 › 이름').
 // select(S70-30 FILES-선택드래그, 명진 11/24 "파일에 선택 만들어줘"): 화면이 그 줄을 고를 수 있으면 첫 묶음 맨 위 [선택](파일은 맨 위·최근은 [폴더로 가기] 다음, 폴더는 [이 폴더로 들어가기] 다음)
 //   = 그 줄을 고른 상태로 고르기 막대(자료실 ⋯·노트 ⋯의 [선택]과 같은 글자·자리, 고르기는 공용 select-mode.js holdPick).
+// detail(S70-72 FILES-상세칸정리, 명진 11/26 08:50 "우클릭하면 메뉴가 나오기 때문에 … 상세화면에서 메뉴가 불필요"): PC 넓은 폭 오른쪽 상세 칸의 동작 줄을 지우며
+//   그 칸에만 있던 동작을 파일 줄 메뉴로 옮긴다 — 첫 묶음 [열기] 다음에 클라우드 파일은 [새 창에서 열기]·[받기]·(share면)[공유], 이 폰 파일은 [받기]·(share면)[공유],
+//   내 PC 파일은 [이 PC에서 열기]·[탐색기에서 위치]. 폴더 줄에는 없다. share = 화면이 공유 창을 띄울 수 있나.
 // goto(S61-12 LIB-최근폴더로가기): '최근' 상자 파일 줄이면 맨 위 [폴더로 가기](그 파일이 든 폴더로 들어가 그 줄 강조). 폴더 줄에는 없다.
-export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit = false, sibIndex = -1, sibCount = 0, pinned = null, copyPath = false, zip = false, goto = false, select = false} = {}) {
+export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit = false, sibIndex = -1, sibCount = 0, pinned = null, copyPath = false, zip = false, goto = false, select = false, detail = false, share = false} = {}) {
   if (!row || !row.source) return [];
   const folder = !!row.is_folder, ids = goto && !folder ? ['goto'] : [];
   let off = '';
@@ -59,6 +66,10 @@ export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit 
     } else ids.push('open', row.library_doc_id && row.source === 'gd' ? 'libview' : 'tolib', 'copy', 'move', 'rename');
     ids.push(row.starred ? 'unstar' : 'star', 'trash');
   }
+  if (detail && !folder && ids.includes('open')) {
+    const extra = row.source === 'pc' ? ['pcopen', 'reveal'] : [...(CLOUD.includes(row.source) ? ['ext'] : []), 'save', ...(share ? ['share'] : [])];
+    ids.splice(ids.indexOf('open') + 1, 0, ...extra);
+  }
   // 폴더는 첫 줄 [이 폴더로 들어가기](T5) 바로 다음, 파일은 맨 위([폴더로 가기]가 있으면 그다음).
   if (select && ids.length) ids.splice(ids[0] === 'goto' || ids[0] === 'only' ? 1 : 0, 0, 'select');
   if (folder && typeof pinned === 'boolean') ids.push(pinned ? 'unpin' : 'pin');
@@ -67,6 +78,6 @@ export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit 
   const group = id => (SECOND.includes(id) ? 2 : id === 'trash' ? 3 : 1);
   const rank = (id, i) => (group(id) === 2 ? SECOND.indexOf(id) : i);
   const sorted = ids.map((id, i) => ({id, i})).sort((a, b) => group(a.id) - group(b.id) || rank(a.id, a.i) - rank(b.id, b.i)).map(x => x.id);
-  return sorted.map((id, i) => ({id, label: TREE_MENU_LABEL[id], ...(id === 'trash' ? {last: true, ...(off ? {off} : {})} : {}), ...(id === 'color' ? {popup: true} : {}),
+  return sorted.map((id, i) => ({id, label: TREE_MENU_LABEL[id], ...(DETAIL_ICON[id] ? {icon: DETAIL_ICON[id]} : {}), ...(id === 'trash' ? {last: true, ...(off ? {off} : {})} : {}), ...(id === 'color' ? {popup: true} : {}),
     ...(i && group(id) === 2 && group(sorted[i - 1]) !== 2 ? {sep: true} : {})}));
 }

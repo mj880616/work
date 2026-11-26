@@ -4,6 +4,7 @@
 import {test,expect} from '@playwright/test';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {startRecord,readRecItem,recMenuItem} from './helpers/report-rec.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -92,27 +93,20 @@ const recCalls=(calls,action)=>calls.filter(c=>c.action===action);
 // 전사·서버 정리·요약 호출이 하나도 없다(S61-5).
 const noTranscribe=calls=>{expect(calls.filter(c=>['transcribe','upload','job_start','job_retry','job_read','job_list','attach','draft'].includes(c.action))).toEqual([])};
 
-test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 같은 번호로 재시도 → [멈추고 저장] → 자료실 저장 띠(파일 이름·내려받기·Drive에서 열기), 전사 호출 0번',async({page})=>{
+test('PC: [+] › [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 같은 번호로 재시도 → [멈추고 저장] → 자료실 저장 띠(파일 이름·내려받기·Drive에서 열기), 전사 호출 0번',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:1440,height:900});
   const calls=await signIn(page);
-  const rec=page.locator('#reportRecordBtn'),add=page.locator('#newMeetingBtn'),more=page.locator('#reportMore');
-  await expect(rec).toBeVisible();
-  await expect(rec).toHaveText('녹음');
-  // 위쪽 줄 [녹음][+ 사업 보고][⋯]: 작고 낮은 버튼(32px), 같은 줄.
-  const [r,a,m]=await Promise.all([rec.boundingBox(),add.boundingBox(),more.boundingBox()]);
-  expect(r.height).toBeCloseTo(32,0);
-  expect(r.x+r.width).toBeLessThanOrEqual(a.x);
-  expect(a.x+a.width).toBeLessThanOrEqual(m.x);
-  expect(Math.abs((r.y+r.height/2)-(a.y+a.height/2))).toBeLessThanOrEqual(1);
+  // BIZ-머리한줄(S71-23): [녹음]은 사업 관리 첫 줄 [+] 메뉴 줄(첫 줄에는 [+] 하나).
+  await expect(page.locator('#reportRecordBtn, #reportMore')).toHaveCount(0);
+  expect(await readRecItem(page)).toEqual({text:'녹음',disabled:false,pressed:'false'});
   await expect.poll(()=>recCalls(calls,'rec_pending').length).toBe(1);
 
-  await rec.click();
+  await startRecord(page);
   const band=page.locator('#recBand');
   await expect(band).toBeVisible();
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
-  await expect(rec).toHaveText('녹음 중');
-  await expect(rec).toBeDisabled();
+  expect(await readRecItem(page)).toEqual({text:'녹음 중',disabled:true,pressed:'true'});
   expect(recCalls(calls,'rec_start')[0].body).toEqual({workspace_id:'rec-ws',mime:'audio/webm'});
   // 옛 서버(piece_seconds 300)면 화면도 5분 조각으로 보낸다(화면이 먼저 배포돼도 옛 서버 조각 상한 16을 넘지 않음).
   expect(await page.evaluate(()=>window.__fakeRec.slices())).toEqual([300000]);
@@ -190,7 +184,7 @@ for(const width of [412,760]){
   test(`폰 ${width}px: [녹음]과 '이어서 저장'이 없고 녹음 서버를 부르지 않는다`,async({page})=>{
     await page.setViewportSize({width,height:900});
     const calls=await signIn(page,{pending:[{session_id:'s',started_at:'2026-10-29T05:30:00Z',duration_sec:60,segments:[]}]});
-    await expect(page.locator('#reportRecordBtn')).toBeHidden();
+    expect(await readRecItem(page)).toBeNull();
     await expect(page.locator('#recPendingLine')).toBeHidden();
     await expect(page.locator('#recBand')).toBeHidden();
     await page.waitForTimeout(500);
@@ -203,7 +197,7 @@ test('PC: 서버가 1분 조각을 알려 주면 1분 간격으로 보내고, �
   test.setTimeout(60000);
   await page.setViewportSize({width:1440,height:900});
   const calls=await signIn(page,{pieceFails:0,rec:{piece_seconds:60,segment_seconds:3540,max_pieces:4}});
-  await page.locator('#reportRecordBtn').click();
+  await startRecord(page);
   const band=page.locator('#recBand');
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   expect(await page.evaluate(()=>window.__fakeRec.slices())).toEqual([60000]);
@@ -238,7 +232,7 @@ test('PC: 녹음 띠 [삭제] → 띠·마이크 꺼짐·저장 없음 → 위�
   const pending=calls=>calls.some(c=>c.action==='rec_restore')?[{session_id:LIVE,started_at:'2026-10-30T01:00:00Z',duration_sec:60,
     segments:[{segment_no:1,status:'closed',job_id:null,job_status:null,duration_sec:60}]}]:[];
   const calls=await signIn(page,{pending,pieceFails:0});
-  await page.locator('#reportRecordBtn').click();
+  await startRecord(page);
   const band=page.locator('#recBand');
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   // [일시정지] [멈추고 저장] [버리기] 순서, 같은 크기, [버리기]는 빨강 글자.
@@ -255,7 +249,7 @@ test('PC: 녹음 띠 [삭제] → 띠·마이크 꺼짐·저장 없음 → 위�
   await drop.click();
   await expect(band).toBeHidden();
   expect(await page.evaluate(()=>window.__fakeRec.track.stopped)).toBe(true);
-  await expect(page.locator('#reportRecordBtn')).toHaveText('녹음');
+  expect((await readRecItem(page))?.text).toBe('녹음');
   // 녹음기가 내놓은 마지막 조각까지 올린 뒤 서버에 버리기(조각은 서버가 Drive 휴지통으로).
   await expect.poll(()=>recCalls(calls,'rec_discard').map(c=>c.body)).toEqual([{session_id:LIVE}]);
   expect(recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1']);
@@ -379,7 +373,7 @@ test('PC: 녹음 중 새로고침·창 닫기는 먼저 \'나가시겠어요?\' 
   await signIn(page,{pieceFails:0});
   const asks=()=>page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented});
   expect(await asks()).toBe(false);
-  await page.locator('#reportRecordBtn').click();
+  await startRecord(page);
   await expect(page.locator('#recBand .rec-label')).toHaveText('녹음 중');
   expect(await asks()).toBe(true);
   await page.locator('#recBand').getByRole('button',{name:'일시정지'}).click();
@@ -391,7 +385,7 @@ test('PC: 화면 숨김·마이크 끊김 → 일시 정지됨(조각은 서버�
   test.setTimeout(60000);
   await page.setViewportSize({width:1440,height:900});
   const calls=await signIn(page,{pieceFails:0,rec:{piece_seconds:60,max_pieces:60,segment_seconds:3540}});
-  await page.locator('#reportRecordBtn').click();
+  await startRecord(page);
   const band=page.locator('#recBand');
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   await page.evaluate(()=>window.__fakeRec.emit()); // 조각 1

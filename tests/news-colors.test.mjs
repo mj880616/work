@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {FIXED_OUTSIDE, FIXED_NEWS, FAMILIES, SHADES, colorVar, outsideColor, outsideBar, newsColor, newsBar, postTag, newsTag, tagLabel, tagStyle, shadeOf, baseKey} from '../app/news-colors.mjs';
-import {rowHtml, dayHtml} from '../app/news-row.mjs';
+import {rowHtml, dayHtml, daysListHtml, leadText} from '../app/news-row.mjs';
 // S51-8 NEWS-전면개편 P4b: News 목록 색·꼬리표는 news-colors.mjs 하나, 값은 theme-tokens.css 토큰(밝은·어두운 화면 둘 다).
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const css = readFileSync(new URL('../app/theme-tokens.css', import.meta.url), 'utf8');
@@ -55,6 +55,30 @@ test('줄 글자: 바깥 글자는 esc, 읽음·안 읽음·모름, 별표, 색 
   assert.match(rowHtml({...base, hit: '<철도>'}, esc), /<span class="now-hit">&lt;철도&gt;<\/span>/);
   assert.match(dayHtml('오늘', '', 6, esc), /오늘 · 새 글 6/);
   assert.doesNotMatch(dayHtml('어제', '', 0, esc), /새 글/);
+});
+
+// S71-27 NEWS-머리한줄: 맨 위 '오늘' 묶음만 머리 없이(새 글 수는 화면 첫 줄), 아래 날짜 묶음 머리는 그대로. 맨 위가 다른 묶음이거나 lead=false면 모두 그대로.
+test('daysListHtml: 맨 위 오늘 묶음 머리만 빼고 그 새 글 수를 돌려준다', () => {
+  const g = [{label: '오늘', rows: '<i>a</i>', unread: 3}, {label: '어제', rows: '<i>b</i>', unread: 1}];
+  const d = daysListHtml(g, esc);
+  assert.equal(d.lead, 3);
+  assert.doesNotMatch(d.html, /오늘 · 새 글/);
+  assert.match(d.html, /^<section class="nw-day nw-day-lead" aria-label="오늘"><div class="nw-card"><i>a<\/i><\/div><\/section>/);
+  assert.match(d.html, /<h3 class="nw-day-head">어제 · 새 글 1<\/h3>/);
+  // 맨 위가 관심 주제(또는 어제)면 아무 머리도 빼지 않는다.
+  const lifted = daysListHtml([{label: '관심 주제', rows: '', unread: 1}, ...g], esc);
+  assert.equal(lifted.lead, null);
+  assert.match(lifted.html, /오늘 · 새 글 3/);
+  assert.equal(daysListHtml([g[1]], esc).lead, null);
+  // 목록 맨 위가 아닌 곳(국제 접기 안쪽 등)은 lead=false — 그대로.
+  const inner = daysListHtml(g, esc, {lead: false});
+  assert.equal(inner.lead, null);
+  assert.match(inner.html, /오늘 · 새 글 3/);
+  assert.deepEqual(daysListHtml(null, esc), {html: '', lead: null});
+  assert.equal(daysListHtml([{label: '오늘', rows: '', unread: 0}], esc).lead, 0);
+  assert.equal(leadText(40), '새 글 40');
+  assert.equal(leadText(0), '');
+  assert.equal(leadText(null), '');
 });
 
 // NEWS-정당색 → NEWS-고유색: 키별 고정 색 표(정당 4곳·금속노조·공공운수노조). 이름 글자·막대 토큰 두 개, 나머지 색은 그대로.
@@ -129,16 +153,18 @@ test('빠진 키를 알려 주는 검사 자체가 동작한다: 가짜 카탈�
 
 // S58-5 새 매체(NEWS-못넣은곳대안): 각자 고유색. S59-1: 길이 있는 6곳만 남고(자기 RSS), 길이 없어 카탈로그에서 뺀 8곳은 표·토큰에서도 뺐다.
 const NEW_NEWS_6 = ['news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt'];
-const REMOVED_NEWS_8 = ['news-mediatoday', 'news-busan', 'news-newsone', 'news-edaily', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
+const ADDED_NEWS_2 = ['news-newscham', 'news-mediatoday'];
+// S71-70: news-mediatoday는 분야 목록 쪽으로 다시 넣어 고유색도 되살렸다(아래 ADDED_NEWS_2).
+const REMOVED_NEWS_8 = ['news-busan', 'news-newsone', 'news-edaily', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
 test('새 언론 6곳: 고정 표 뒤쪽(앞 매체 차례 그대로), 막대는 한 색, 글자·막대 토큰이 밝은·어두운 화면에 있다 — 뺀 8곳은 표·토큰에 없다', () => {
   assert.deepEqual([...FIXED_NEWS].slice(0, 3), ['news-labortoday', 'news-beminor', 'news-pressian']);
   assert.deepEqual([...FIXED_NEWS].slice(19, 22), ['news-psi', 'news-itf', 'news-labourstart']);
-  assert.deepEqual([...FIXED_NEWS].slice(22), NEW_NEWS_6);
+  assert.deepEqual([...FIXED_NEWS].slice(22), [...NEW_NEWS_6, ...ADDED_NEWS_2]);
   for (const k of REMOVED_NEWS_8) {
     assert.ok(!FIXED_NEWS.includes(k), k);
     assert.doesNotMatch(css, new RegExp(`--ds-news-id-${k}[:-]`), `${k} 토큰이 남음`);
   }
-  for (const k of NEW_NEWS_6) {
+  for (const k of [...NEW_NEWS_6, ...ADDED_NEWS_2]) {
     assert.equal(newsColor({source_key: k}, []), `var(--ds-news-id-${k})`);
     assert.equal(newsBar({source_key: k}, []), `var(--ds-news-id-${k}-bar)`);
     for (const part of [lightPart, darkPart]) assert.match(tok(part, `ds-news-id-${k}-bar`) || '', /^#[0-9a-f]{6}$/, `${k} 막대는 한 색`);

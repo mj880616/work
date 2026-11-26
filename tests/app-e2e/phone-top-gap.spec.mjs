@@ -40,14 +40,18 @@ test('home top has no empty header gap, and the header comes back on other tabs'
   await open(page,'home');
   const head=page.locator('#appView>.mobile-shell-header');
   await expect(page.locator('#homeView [data-journal-title]')).toBeVisible();
+  // S71-41 HOME-머리한줄(사용자 요청 11/26): 홈에는 머리줄(예전 '전체 검색' 칸 줄)이 없고,
+  // 날짜 제목 줄이 맨 위 첫 줄이며 그 끝에 돋보기. 빈 머리줄 같은 틈이 끼지 않는다.
   await expect(head).toBeHidden();
-  // 날짜 제목이 main 위 여백(8px) 바로 아래에 붙는다(빈 머리줄 56px이 끼면 60px 넘게 내려간다).
-  expect((await page.locator('#homeView [data-journal-title]').boundingBox()).y).toBeLessThan(24);
+  const find=page.locator('#homeView [data-journal-find]');
+  await expect(find).toBeVisible();
+  const homeTop=async()=>{const f=await find.boundingBox(),t=await page.locator('#homeView [data-journal-title]').boundingBox();return {top:t.y,same:Math.abs((f.y+f.height/2)-(t.y+t.height/2))}};
+  {const {top,same}=await homeTop();expect(top).toBeLessThan(24);expect(same).toBeLessThanOrEqual(2);}
   await go(page,'basket');
   await expect(head).toBeVisible();await expect(head.locator('[data-mobile-view-name]')).toHaveText('잊지 말기');
   await go(page,'home');
   await expect(head).toBeHidden();
-  expect((await page.locator('#homeView [data-journal-title]').boundingBox()).y).toBeLessThan(24);
+  {const {top,same}=await homeTop();expect(top).toBeLessThan(24);expect(same).toBeLessThanOrEqual(2);}
 });
 for(const view of ['basket','calendar','meetings','team','photos','diary','library','profile','search','outside'])test(`${view} starts right under the top at 412px phone app`,async({page})=>{
   await open(page,'home',{features:view==='outside'?['outside']:[]});

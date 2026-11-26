@@ -79,9 +79,16 @@ for (const width of [412, 880, 1280]) {
     const { s, errors, ws } = await fixture(page, width);
     const list = width < 600 ? page.locator('#noteRows') : page.locator('[data-nx-tree]');
     // NOTE-News에서글자빼기: 구분 줄은 글자 없는 얇은 줄만. 노트 화면 어디에도 'News에서' 글자가 없다(줄마다 출처 꼬리표는 그대로).
-    await expect(list.locator('.nnm-sep')).toHaveCount(1);
-    await expect(list.locator('.nnm-sep')).toHaveText('');
-    expect(await list.locator('.nnm-sep').evaluate(el => parseFloat(getComputedStyle(el).borderTopWidth) > 0 && el.getBoundingClientRect().height <= 2)).toBeTruthy();
+    // S70-82 NOTE-폴더디자인통일: 폴드·PC 왼쪽 나무는 [파일] 나무처럼 상자로 나눈다 — 구분 줄 대신 따로 선 상자(폴더 상자 | 밑줄·메모·저장한 글 상자).
+    if (width < 600) {
+      await expect(list.locator('.nnm-sep')).toHaveCount(1);
+      await expect(list.locator('.nnm-sep')).toHaveText('');
+      expect(await list.locator('.nnm-sep').evaluate(el => parseFloat(getComputedStyle(el).borderTopWidth) > 0 && el.getBoundingClientRect().height <= 2)).toBeTruthy();
+    } else {
+      await expect(list.locator('.nnm-sep')).toHaveCount(0);
+      await expect(list.locator('[data-nx-box="more"] .nx-news-item')).toHaveCount(3);
+      await expect(list.locator('[data-nx-box="folders"] .nx-news-item')).toHaveCount(0);
+    }
     await expect(page.locator('#basketView')).not.toContainText('News에서');
     expect(await page.locator('#basketView [aria-label*="News"]').count()).toBe(0);
     await expect(navRow(page, 'news-hl', width)).toContainText('밑줄');
@@ -90,7 +97,7 @@ for (const width of [412, 880, 1280]) {
     // 구분 줄과 줄들(밑줄·메모·저장한 글)은 '폴더 없음' 아래, [+ 새 폴더] 위.
     const order = await list.evaluate(el => [...el.querySelectorAll('.nx-outside, .nnm-sep, .nx-news-item, .nx-new-folder')].map(x => x.className.includes('nx-outside') ? 'out' : x.className.includes('nnm-sep') ? 'sep' : x.className.includes('nx-new-folder') ? 'new' : x.dataset.nxMemoItem !== undefined ? 'memo' : x.dataset.nxNewsItem));
     // S69-94: 밑줄 바로 아래 '메모' 한 줄(노트 [메모] 보기로 감).
-    expect(order.filter(x => x !== 'new')).toEqual(['out', 'sep', 'news-hl', 'memo', 'news-saved']);
+    expect(order.filter(x => x !== 'new')).toEqual(width < 600 ? ['out', 'sep', 'news-hl', 'memo', 'news-saved'] : ['out', 'news-hl', 'memo', 'news-saved']);
     if (SHOTS && width === 412) await page.screenshot({ path: SHOTS + '412-1-folder-list.png' });
     if (SHOTS24) await page.screenshot({ path: SHOTS24 + `note-folder-list-${width}.png` });
     // 읽기는 내 작업공간 것만(서버 RLS 그대로 + 작업공간 조건): 밑줄·보관 읽기가 모두 workspace_id=eq.<내 것>.
@@ -266,9 +273,9 @@ for (const width of [412, 880, 1280]) {
   test(`${width}: 폴더 없는 새 계정 — '최근' 없음(폰은 '폴더 없음'·구분 줄도 없음) + 밑줄·보관한 글 두 줄, 'News에서' 글자 없음`, async ({ page }) => {
     await fixture(page, width, { fresh: true });
     const list = width < 600 ? page.locator('#noteRows') : page.locator('[data-nx-tree]');
-    // 폰: 두 줄은 따로 선 상자라 구분 줄 없음(상자 맨 위 줄 두 겹 없음). 폴드·PC 나무: '폴더 없음' 아래 글자 없는 얇은 줄.
-    await expect(list.locator('.nnm-sep')).toHaveCount(width < 600 ? 0 : 1);
-    if (width >= 600) await expect(list.locator('.nnm-sep')).toHaveText('');
+    // 폰: 두 줄은 따로 선 상자라 구분 줄 없음(상자 맨 위 줄 두 겹 없음). 폴드·PC 나무도 S70-82부터 [파일] 나무처럼 따로 선 상자(구분 줄 없음).
+    await expect(list.locator('.nnm-sep')).toHaveCount(0);
+    if (width >= 600) await expect(list.locator('[data-nx-box="more"] [data-nx-news-item]')).toHaveCount(2);
     await expect(list.locator('[data-nx-news-item]')).toHaveCount(2);
     await expect(page.locator('#basketView')).not.toContainText('News에서');
     // 폰(한 화면씩): 폴더가 없으면 노트 목록 그대로라 '폴더 없음' 줄 없음. 폴드 펼침·PC 나무: '폴더 없음' 줄 하나(오른쪽 칸에 그 노트).

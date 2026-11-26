@@ -32,7 +32,9 @@ export const ITEMS = Object.freeze([
   // NOTE-게시 ③(명진 11/24 21:41 "별도 메뉴에서 공유 페이지 삭제"): [공유 페이지] 메뉴·화면은 없다. 공유는 노트 ⋯ [공유 링크 만들기]로 하고,
   // 옛 주소 ?view=pages는 라우터 별칭으로 노트를 연다. 저장된 메뉴 순서의 'pages'는 모르는 이름이라 버려진다. 표·데이터·받는 화면(share/)은 그대로.
   {id: 'team', label: word('조직 관리'), view: 'team', icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
-  {id: 'hwp', label: 'HWP 편집', view: 'hwp', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7'},
+  // S71-61 HWP-노트안으로(2026-11-26 사용자 결정 "노트 안에서만 열게 하자"): [HWP 편집]은 메뉴 항목이 아니다(PC 왼쪽 메뉴·폰 하단바·[메뉴] 창·메뉴 수정 어디에도 없음).
+  // 노트 화면 ⋯ [HWP 편집]·노트 ⋯ [이 노트를 HWP로]와 자료실·파일의 한글 [편집]으로만 연다. 화면·주소 ?view=hwp는 그대로다.
+  // 저장된 메뉴 순서의 'hwp'는 모르는 이름이라 버려진다(normalizeLayout — 저장값은 손대지 않음).
   // MULTI-처음쓰는사람 ④(명진 11/13 16:25 "원장도 빼, 나한테도 불필요"): [원장]은 모든 계정의 메뉴 목록에서 뺐다.
   // LEDGER-화면에서빼기(2026-11-25): 원장 화면 자체를 없앴다(옛 주소는 홈). 저장된 메뉴 순서의 'ledger'는 모르는 이름이라 버려진다.
   {id: 'photos', label: '사진', view: 'photos', icon: 'M3 6h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01'},
@@ -58,11 +60,11 @@ export const BAR_MAX = 5;
 // S68-37(명진 11/23 08:00·08:01 "자료실 사진"): 처음 하단바는 홈·노트·일정·자료실·사진. 빠진 조직 관리·사업 관리(얼굴 단어표 이름)는
 // 위 메뉴 잊지 말기·읽을 거리 다음. 저장된 순서가 있는 사람(운영자 포함)은 그대로다.
 export const DEFAULT_BAR = Object.freeze(['home', 'note', 'calendar', 'library', 'photos']);
-export const DEFAULT_REST = Object.freeze(['basket', 'reading', 'team', 'meetings', 'files', 'brief', 'hwp', 'outside']);
+export const DEFAULT_REST = Object.freeze(['basket', 'reading', 'team', 'meetings', 'files', 'brief', 'outside']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // 저장된 순서에 빠진 항목을 끼워 넣을 자리의 기준(placeMissing). S68-37 전 기본 위 메뉴 순서 그대로 둔다:
 // 처음 구성(DEFAULT_BAR·DEFAULT_REST)이 바뀌어도 저장값이 있는 사람의 메뉴 모양은 한 칸도 달라지지 않게(파일 = 자료실 바로 아래 F5 등).
-const PLACE_ORDER = Object.freeze(['basket', 'reading', 'library', 'files', 'brief', 'hwp', 'photos', 'outside']);
+const PLACE_ORDER = Object.freeze(['basket', 'reading', 'library', 'files', 'brief', 'photos', 'outside']);
 // 서버 저장 모양은 그대로 {bar, rest}(DB 검사가 다른 칸 이름을 받지 않는다). 아래 칸은 rest 안 이 표시 뒤에 이어 담는다:
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
 // 지금까지 보이던 모양 그대로 옮겨 담는다. 'bottom'은 메뉴 항목 이름이 아니라서 옛 화면은 그냥 버리고 읽는다.

@@ -242,20 +242,16 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView :is(#diaryView,#photosView) .diary-od-keep{ display:flex; align-items:center; gap:4px; margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView :is(#diaryView,#photosView) .diary-od-keep-clear{ min-height:var(--kptu-touch-target,44px); margin:0; padding:0 4px; color:var(--kptu-primary-ink); background:transparent; border:0; box-shadow:none; font:inherit; text-decoration:underline; }
 
-/* JOURNAL-일기목록: 위 줄 [달력|목록] … [전체|★] 🔍 [+ 일기]. 두 묶음 버튼은 사진 [전체|별표]와 같은 .diary-source 모양을 그대로 쓴다. */
+/* JOURNAL-일기목록: 위 줄 [달력|목록] … [전체|★] [+ 일기](찾기는 맨 위 칸 '하루 기록에서 찾기', S70-57). 두 묶음 버튼은 사진 [전체|별표]와 같은 .diary-source 모양을 그대로 쓴다. */
 #appView #diaryView .diary-head{ flex-wrap:wrap; justify-content:flex-start; }
 #appView #diaryView .diary-head > [data-diary-new]{ margin-left:auto; }
 #appView #diaryView .diary-head .diary-source{ align-self:center; }
 #appView #diaryView .diary-lv-tools{ display:flex; align-items:center; gap:6px; }
 #appView #diaryView .diary-lv-tools[hidden], #appView #diaryView .diary-month[hidden]{ display:none; }
-#appView #diaryView .diary-lv-find[aria-pressed="true"]{ background:var(--ds-kind-other-soft); color:var(--ds-kind-other-ink); }
 
 /* 목록: 작고 촘촘하게. 달 머리줄 '2026년 10월 · 9', 줄은 40px 그림 + 날짜·제목 + 본문 첫 줄 + ☆ ⋯. */
 #appView #diaryView .diary-all{ display:flex; flex-direction:column; gap:6px; }
 #appView #diaryView .diary-all[hidden]{ display:none; }
-#appView #diaryView .diary-lv-search{ display:flex; align-items:center; gap:6px; }
-#appView #diaryView .diary-lv-search[hidden]{ display:none; }
-#appView #diaryView .diary-lv-search input{ flex:1 1 auto; min-width:0; height:var(--ds-compact-height); padding:0 8px; font:inherit; font-size:var(--ds-compact-text); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
 #appView #diaryView .diary-lv-note{ margin:0; color:var(--kptu-muted); font-size:var(--ds-compact-text); }
 #appView #diaryView .diary-lv-note:empty{ display:none; }
 #appView #diaryView .diary-lv-body{ display:flex; flex-direction:column; gap:4px; }
@@ -265,16 +261,9 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-lv-head i{ margin-left:auto; font-style:normal; }
 #appView #diaryView h4.diary-lv-head{ cursor:default; }
 #appView #diaryView .diary-lv-rows{ display:flex; flex-direction:column; }
-#appView #diaryView .diary-lv-swipe{ position:relative; overflow:hidden; border-bottom:var(--ds-line-width) solid var(--ds-line); }
-#appView #diaryView .diary-lv-row{ position:relative; z-index:1; display:flex; align-items:center; gap:2px; background:var(--kptu-surface); touch-action:pan-y; transition:transform .18s ease; }
-#appView #diaryView .diary-lv-row.is-drag{ transition:none; }
-#appView #diaryView .diary-lv-swipe[data-side="start"] > .diary-lv-row{ transform:translateX(64px); }
-#appView #diaryView .diary-lv-swipe[data-side="end"] > .diary-lv-row{ transform:translateX(-64px); }
-#appView #diaryView .diary-lv-acts{ position:absolute; top:0; bottom:0; display:flex; }
-#appView #diaryView .diary-lv-acts-start{ left:0; }
-#appView #diaryView .diary-lv-acts-end{ right:0; }
-#appView #diaryView .diary-lv-act{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; width:64px; min-height:0; height:auto; margin:0; padding:0; border:0; border-radius:0; font:inherit; font-size:11px; cursor:pointer; background:var(--kptu-warning-soft); color:var(--kptu-warning); }
-#appView #diaryView .diary-lv-acts-start .diary-lv-act{ background:var(--kptu-info-soft); color:var(--kptu-info); }
+/* S70-65: 줄 밀기는 공용 row-swipe.js·row-swipe.css(칸·움직임). 여기는 줄 모양만. */
+#appView #diaryView .diary-lv-swipe{ position:relative; border-bottom:var(--ds-line-width) solid var(--ds-line); background:var(--kptu-surface); touch-action:pan-y; }
+#appView #diaryView .diary-lv-row{ position:relative; z-index:1; display:flex; align-items:center; gap:2px; background:var(--kptu-surface); touch-action:pan-y; }
 #appView #diaryView .diary-lv-open{ display:flex; align-items:center; gap:8px; flex:1 1 auto; min-width:0; min-height:48px; height:auto; margin:0; padding:4px; text-align:left; font:inherit; color:var(--kptu-ink); background:transparent; border:0; border-radius:0; box-shadow:none; cursor:pointer; }
 #appView #diaryView .diary-lv-thumb{ position:relative; flex:0 0 40px; width:40px; height:40px; overflow:hidden; border-radius:var(--ds-radius-control); background:var(--kptu-surface-subtle); }
 #appView #diaryView .diary-lv-thumb:not(.has-photo){ visibility:hidden; }

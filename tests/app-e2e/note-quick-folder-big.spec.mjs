@@ -71,7 +71,7 @@ for (const width of [412, 1280]) for (const picked of [true, false]) {
     await expect(page.locator('[data-note-view="list"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-nx-note="n1"][data-s6606="kept"]')).toHaveCount(1);
     expect(await page.evaluate(() => window.__s6606)).toBe(0);
-    await expect(q(page, '[data-quick-folder]')).toContainText(picked ? '00. 잊지' : '폴더 없음');
+    await expect(q(page, '[data-quick-folder]')).toHaveAccessibleName(picked ? /^폴더: 00\. 잊지/ : '폴더: 폴더 없음'); // NOTE-입력줄높이: 폴더 없음은 아이콘만
     expect(f.errors).toEqual([]);
   });
 }

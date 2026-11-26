@@ -13,8 +13,10 @@ test('소식 종류 promise: 처리 전 할 일·빨간 숫자에서 빠지고 �
   assert.deepEqual(rows.map(r => r.kind), ['promise', 'task', '', 'promise']);
   assert.deepEqual(m.openNews(rows, true).map(r => r.id), ['b'], 'promise lines are not counted as open');
   assert.deepEqual(m.promiseNews(rows).map(r => r.id), ['a'], 'only open promise lines');
-  assert.deepEqual(fl.newsFor('open', rows, true).map(r => r.id), ['b']);
-  assert.deepEqual(fl.newsFor('dismissed', rows, true).map(r => r.id), ['d'], 'a dismissed promise line stays in 무시 (undo path)');
+  // FORGET-처리전만(S71-58): 잊지 말기 목록은 처리 전 소식만 openNews로 그린다(보기 거르기 newsFor는 없앴다).
+  const src = readFileSync('app/forget-list.js', 'utf8');
+  assert.match(src, /for \(const r of openNews\(news, nPicks\)\)/);
+  assert.doesNotMatch(src, /newsFor|NEWS_VIEW/);
 });
 
 

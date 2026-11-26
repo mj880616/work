@@ -215,3 +215,15 @@ CORS는 기존과 같고 공개 주소·새 권한은 없다. 이 동작을 모�
 `POST ?action=photo-orphans` `{action, dry_run:true}`: 읽기 전용. 바구니 폴더의 이미지 중 어떤 기록도 두지 않는 **정리 후보** 목록(1시간 안에 올린 파일 제외, 500개까지)을 돌려준다. 아무것도 쓰지 않는다.
 후보를 실제로 휴지통에 보내는 일은 사람이 목록을 확인한 뒤 같은 `photo-prune`에 id를 넘겨 한다(서버가 다시 한 번 참조를 확인).
 휴지통 이동 코드는 `_shared/drive-trash.ts` 한 곳을 `note-delete.ts`와 함께 쓴다. 원드라이브 사진은 이 동작과 무관하다.
+
+## 보드 사진 폴더(S71-49 NOTE-보드사진) — 배포 대기
+
+노트 보드에 넣는 사진은 화면이 업로드 양식에 `place=board`를 더해 보낸다(폴더 id는 보내지 않는다). 서버는 `note_id` 행의 `kind`가
+`note`이고 `place=board`일 때만, 이 작업공간의 `app_drive_settings.root_folder_id`(맨 위 앱 폴더, 서버 키로 이 작업공간 행만 읽음)를
+Drive에서 확인하고(내 것·휴지통 아님·폴더) 그 바로 아래 **보드 사진** 폴더를 `ensurePrivateChildFolder`로 찾거나 만든다(이름 상수
+`_shared/brand-folders.mjs` `BOARD_PHOTO_FOLDER_NAME`, 같은 이름 폴더가 있으면 그것). 요청에 든 `folder_id`·`parent` 같은 값은 읽지 않는다.
+맨 위 앱 폴더 id가 없거나(아직 자료실을 안 쓴 사람), 없어졌거나, 휴지통·남의 것이거나, '보드 사진'이 공유돼 있거나 공유 상태를 못 읽으면
+예전처럼 **노트 첨부**에 올린다(맨 위 앱 폴더를 여기서 만들지 않는다 — `app-folders.mjs` 규칙). `place`가 `board`가 아닌 값이면 400 `place_invalid`.
+업데이트·일기 행은 `place=board`여도 지금처럼 바구니 맨 위. 권한은 만들거나 지우지 않는다. 사진 글자 읽기(OCR)는 사진이 '노트 첨부'에 없을 때만
+'보드 사진'을 찾기만 해서(만들지 않음) 거기서 읽는다. 이미 올린 보드 사진은 옮기지 않는다. DB·JWT 정책(verify_jwt=false 유지, 코드 인증) 변경 없음.
+검사: `tests/security/basket-files-board-photo.test.mjs`, `tests/security/basket-ocr.test.mjs` 'board photo …'.

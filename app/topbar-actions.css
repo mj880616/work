@@ -69,12 +69,22 @@
    screen-width.mjs 600px)은 제목만 있던 큰 줄(44px + 아래 12px) 대신 '제목 · 찾기' 낮은 한 줄(36px + 아래 8px)이다. PC 틀(761px~) 위 한 줄과 같은 구성이고,
    찾기는 폰 메뉴 창 맨 위와 같은 입구(global-search.js mountMenuEntry — 누르면 화면 전체 검색)다. 접은 폰(600px 미만)은 그대로(입구는 메뉴 창).
    화면 첫 줄이 제목을 보이는 화면(사업 보고·자료실·사진·공유 페이지, ui-standard.css)은 지금처럼 이 줄이 없다. 검색 화면 자신은 검색칸이 있어 입구를 두지 않는다. */
+/* S70-57(사용자 11/26 "전체 검색은 홈에만"): 머리 줄 '전체 검색' 칸은 전체 검색 화면에서만 보인다(S71-41: 홈 입구는 날짜 줄 끝 돋보기). 다른 화면은 그 화면 찾기 칸(아래). */
 .mobile-shell-search{display:none}
 @media(min-width:600px) and (max-width:760px){
   .mobile-shell-header{min-height:36px;margin-bottom:8px}
   .mobile-shell-header>[data-mobile-view-name]{flex:none;white-space:nowrap}
-  .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}
-  html:has(#searchView:not(.hidden)) .mobile-shell-search{display:none}
+}
+/* S71-07 SEARCH-누른자리그대로(사용자 요청 11/26): 전체 검색 화면 머리 줄은
+   이름('검색')·아이콘 없이 '전체 검색' 칸 한 칸이다. 결과·안내만 아래에 뜬다.
+   S71-41 HOME-머리한줄(사용자 요청 11/26): 홈에는 이 칸 줄이 없다(머리 줄 자체를 두지 않음,
+   topbar-actions.js). 홈 날짜 머리줄 끝 돋보기를 누르면 이 화면의 이 칸(홈 날짜 줄과 같은 첫 줄 자리)에 바로 커서가 간다. */
+@media(max-width:760px){
+  html:has(#searchView:not(.hidden)) .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}
+  html:has(#searchView:not(.hidden)) .mobile-shell-header{min-height:36px;margin-bottom:8px}
+  html:has(#searchView:not(.hidden)) .mobile-shell-header>:is(.head-mark,[data-mobile-view-name]){display:none}
+  /* 전체 검색 화면은 결과를 내려도 칸이 위에 남는다(예전 화면 안 검색 줄처럼 붙박이). */
+  html:has(#searchView:not(.hidden)) #appView>.mobile-shell-header{position:sticky;top:var(--kptu-stick-top,0px);z-index:2;background:var(--kptu-bg)}
 }
 
 /* UI-검색창하나로(S70-54, 설계 docs/design/one-search-bar.md): 지금 화면에 화면 찾기가 있으면(html[data-screen-find], 주인 screen-find.js) 앱 머리 줄의
@@ -104,8 +114,6 @@
 .menu-edit-card h2{font-size:var(--ds-text-title,15px);margin:0}
 .menu-edit-actions{display:flex;gap:6px}
 .menu-edit-actions button{min-height:28px;padding:0 10px;font-size:var(--ds-text-row,13px)}
-.me-group h3{margin:8px 0 4px;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted)}
-.me-group h3 small{font-weight:400;margin-left:4px}
 .me-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);overflow:hidden}
 .me-row{display:flex;align-items:center;gap:6px;min-height:28px;padding:0 8px 0 2px;border-top:1px solid var(--kptu-border);background:transparent}
 .me-row:first-child{border-top:0}
@@ -120,22 +128,20 @@
 #menuEditModal .me-row .me-name-in::placeholder{color:var(--kptu-muted);opacity:.8}
 #menuEditModal .me-row .me-name-in:focus{outline:none;border-color:var(--kptu-primary-ink)}
 #menuEditModal .me-row .me-name-in[aria-invalid="true"]{border-color:var(--kptu-danger)}
-.me-cols{display:flex;flex-direction:column;gap:8px}
-.me-lists{flex:1 1 auto;min-width:0}
-/* MENU-세칸: PC 왼쪽 메뉴 미리보기. 위 메뉴 … 빈 공간 … 선 … 아래 붙는 메뉴. 작고 흐리게. */
-.me-preview{margin:0;flex:0 0 auto}
-.me-preview figcaption{margin:8px 0 4px;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted)}
-.me-pv-box{display:flex;flex-direction:column;min-height:180px;padding:4px 0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-surface-subtle)}
-.me-pv-box ol{list-style:none;margin:0;padding:0}
-.me-pv-box li{padding:2px 8px;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-ink)}
-.me-pv-gap{flex:1 1 auto;min-height:12px}
-.me-pv-tail{border-top:1px solid var(--kptu-border);padding-top:2px}
-@media (min-width:761px){
-  .menu-edit-card{width:min(600px,calc(100vw - 24px))}
-  .me-cols{flex-direction:row;align-items:stretch;gap:12px}
-  .me-preview{width:170px;display:flex;flex-direction:column}
-  .me-pv-box{flex:1 1 auto}
-}
+/* S71-32 NAV-메뉴수정하나로: 하단바·위 메뉴·아래 붙는 메뉴·숨긴 메뉴를 테두리 하나 안의 목록 하나로. 칸 사이는 가는 줄 + 작은 회색 글. PC 미리보기 상자 없음. */
+.me-one{border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);overflow:hidden;margin-top:6px}
+.me-one .me-list{border:0}
+.me-one .me-list:empty{min-height:22px}
+.me-bar-line{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:1px 8px 1px 38px;border-top:1px solid var(--kptu-muted);font-size:11px;line-height:16px;color:var(--kptu-muted)}
+.me-bar-line small{font-size:11px}
+.me-sub{margin:0;padding:3px 8px 1px 38px;border-top:1px solid var(--kptu-border);font-size:11px;line-height:15px;color:var(--kptu-muted);list-style:none}
+.me-more{margin-top:8px}
+.me-more>summary{cursor:pointer;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted);padding:2px 0}
+.me-more>summary small{font-weight:400;margin-left:4px}
+.me-more .me-list{margin-top:4px}
+.me-words .me-sub{padding-left:8px}
+.me-hint{flex:0 0 5.2em;padding-left:6px;font-size:11px;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#menuEditModal .me-word-row .me-name-in{margin-left:0}
 .me-note{margin:8px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
 .re-active,.re-active *{user-select:none;-webkit-user-select:none}
 .re-dragging{opacity:.45}
@@ -170,11 +176,30 @@ a.account-action{text-decoration:none;box-sizing:border-box}
 #themeModal.theme-anchored .theme-panel{position:fixed;overflow:auto;padding:var(--kptu-space-2,8px);box-shadow:var(--kptu-shadow-float)}
 
 /* UI-화면이름줄도구(S70-53 ORG-머리줄한줄): 화면 이름 줄 오른쪽 끝의 그 화면 만들기·⋯ 자리(screen-tools.js가 채움 — 지금은 조직 관리 #soTeamTools).
-   폰·폴드(~760px)는 앱 머리 줄 [아이콘 · 이름 · (폴드: 찾기)] 오른쪽 끝, PC 틀(761px~)은 맨 위 줄 검색 칸 오른쪽(desktop-ui.css .app-topline 안 같은 칸).
+   폰·폴드(~760px)는 앱 머리 줄 [아이콘 · 이름 · (폴드: 찾기)] 오른쪽 끝. PC 틀(761px~)은 S71-59부터 화면 안 첫 줄 오른쪽 끝(아래 .screen-line-slot).
    찾기 칸은 남은 폭만 쓰므로 단추가 있으면 그만큼 짧아진다. 화면 안 원래 자리(그 화면이 안 보일 때)에서는 보이지 않는다. */
 .screen-tools-slot{display:flex;align-items:center;flex:none;min-width:0;margin-left:auto}
 .screen-tools-slot:empty{display:none}
 /* S70-54: 화면 찾기 단추 상자(screen-find.js .sf-tools)는 다른 화면일 때 숨긴 채 이 자리에 남는다 — 보이는 것이 없으면 자리째 없앤다(줄 간격이 남지 않게). */
 .screen-tools-slot:not(:has(>:not([hidden]))){display:none}
 .screen-tools{display:flex;align-items:center;flex:none}
+/* S71-59 UI-화면메뉴안으로(2026-11-26 사용자 결정): PC 틀(761px~)의 화면 전용 단추·⋯ 자리 = 그 화면 안 첫 줄 오른쪽 끝(screen-tools.js lineSlot,
+   첫 줄 표도 거기 한 곳). 맨 위 줄은 앱 전체 것만. line = 가로 줄 끝(margin-left:auto), grid = 격자 첫 줄을 차지하는 탭 옆 같은 줄 오른쪽 끝,
+   own = 첫 줄이 없는 화면의 맨 위 한 줄(오른쪽 맞춤). 보이는 것이 없으면(폰 틀·다른 화면 상자만) 자리째 없다. */
+.screen-line-slot{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex:none;min-width:0;margin-left:auto}
+.screen-line-slot:not(:has(>:not([hidden]):not(.screen-tools:not([data-screen-tools-placed])))){display:none}
+.screen-line-slot[data-screen-line-mode="own"]{margin:0 0 var(--kptu-space-2,8px)}
+@media(min-width:761px){
+  #appView [data-screen-line-anchor]{grid-row:1;justify-self:start}
+  #appView .screen-line-slot[data-screen-line-mode="grid"]{grid-row:1;grid-column:1 / -1;justify-self:end;align-self:center}
+}
+/* S71-27 NEWS-머리한줄: 화면 이름 바로 뒤 작은 회색 글('읽을 거리 · 새 글 40', screen-find.js noteBox). 폰·폴드는 머리 줄 이름 뒤, PC 틀은 맨 위 줄 위치 뒤.
+   보이는 글자가 없으면 자리째 없다(줄 간격이 남지 않게). 폰에서 찾기 칸을 펼치면(.sf-open) 이름과 함께 비켜 준다. */
+.screen-note-slot{display:flex;align-items:center;flex:none;min-width:0}
+.screen-note-slot:not(:has(>.sf-note:not([hidden]):not(:empty))){display:none}
+.sf-note{font-size:12px;font-weight:var(--ds-weight-regular,400);line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
+.sf-note[hidden],.sf-note:empty{display:none}
+.mobile-shell-header>.screen-note-slot{margin-left:-4px}
+.app-topline .screen-note-slot{margin-left:8px}
+.mobile-shell-header.sf-open>.screen-note-slot{display:none}
 .screen-tools:not([data-screen-tools-placed]){display:none}

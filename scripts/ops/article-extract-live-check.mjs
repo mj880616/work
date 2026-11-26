@@ -99,6 +99,18 @@ function cell(ex) {
   if (ex.state === "image_only") return "img";
   return `fail:${ex.reason ?? "-"}`;
 }
+// 분야 진단 도움: 값별 개수 상위 10개("값:수"), 주소 첫 경로 조각(숫자·긴 조각은 # — 기사 번호를 쓰지 않음).
+//   분야 칸 값은 섹션 이름만 남기려고 2번 넘게 나온 짧은 값(12자 안쪽)만 그대로 쓰고 나머지는 '기타'로 묶는다(꼬리표 낱말이 그대로 나가지 않게).
+function tally(values, sectionOnly = false) {
+  const m = new Map();
+  for (const v of values) { const k = String(v).replace(/[|\n\r]/g, " ").trim().slice(0, 24) || "-"; m.set(k, (m.get(k) ?? 0) + 1); }
+  const out = new Map();
+  for (const [k, n] of m) { const key = sectionOnly && (n < 2 || [...k].length > 12) ? "기타" : k; out.set(key, (out.get(key) ?? 0) + n); }
+  return [...out].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, n]) => `${k}:${n}`).join(",");
+}
+function firstSeg(url) {
+  try { const segs = new URL(url).pathname.split("/").filter(Boolean).slice(0, 2).map((x) => /\d{3,}|^.{25,}$/.test(x) ? "#" : x); return "/" + segs.join("/"); } catch { return "-"; }
+}
 const paras = (ex) => (ex?.blocks ?? []).filter((b) => b.t === "p" || b.t === "quote").length;
 
 // ---- 뉴스 매체 -----------------------------------------------------------------------------------------------------
@@ -109,12 +121,12 @@ async function checkNews(source, nowMs) {
   const row = { group: "news", key: source.key, name: source.name, extract: source.extract === false ? "X" : `v${source.extract?.version ?? 1}`, list: "ok", posts: [] };
   const urls = [];
   for (const list of source.lists) {
-    if (urls.length >= PER_SOURCE) break;
-    let got = await catalog.get(list, ACCEPT_FEED);
+    if (urls.length >= PER_SOURCE && !DIAG) break;
+    let got = await catalog.get(list, N.listAccept(source));
     // 점검용만: robots.txt가 이 러너에서 안 열리면(일시 오류·러너 지역 차단 — '막음'이 아님) 글 주소를 얻으려고 피드만 한 번 더 읽는다.
     //   운영 수집은 그대로 robots를 지킨다. robots가 '막음'(robots·robots_denied)이면 다시 읽지 않는다.
     if (!got.ok && got.code === "robots_unreachable") {
-      got = await page.get(list, ACCEPT_FEED);
+      got = await page.get(list, N.listAccept(source));
       row.list = got.ok ? "robots_unreachable(피드만)" : `robots_unreachable/${got.code}`;
     }
     if (!got.ok) { if (!row.list.startsWith("robots_unreachable")) row.list = got.code; continue; }
@@ -128,10 +140,14 @@ async function checkNews(source, nowMs) {
       const t = got.text;
       row.feed += ` refresh=${/http-equiv\s*=\s*["']?refresh/i.test(t) ? 1 : 0} jsnav=${/location\.(href|replace)|window\.location/.test(t) ? 1 : 0} cookie=${/document\.cookie/.test(t) ? 1 : 0} scripts=${(t.match(/<script\b/gi) ?? []).length} bot=${looksLikeBotCheck(t) ? 1 : 0}`;
     }
-    for (const it of parseFeed(N.parseSource(source, xml), xml, nowMs, 20)) {
+    // S71-70: 분야 목록 쪽(mode html) 매체도 운영 수집기와 같은 목록 해석(listItems).
+    const parsed = N.listItems(source, xml, got.url, nowMs, 50);
+    // S71-70 분야 진단: 피드마다 글 분야 칸(category) 이름별 글 수와 기사 주소 첫 경로 조각별 글 수(제목·주소 전체는 쓰지 않음).
+    if (DIAG) row.sections = [...(row.sections ?? []), `${list.replace(/^https:\/\/[^/]+/, "")} ⇒ cat[${tally(parsed.map((it) => it.category ?? "-"), true)}] path[${tally(parsed.map((it) => firstSeg(it.url)))}]`];
+    for (const it of parsed) {
+      if (urls.length >= PER_SOURCE) break;
       const clean = cleanArticleUrl(it.url);
       if (clean && allowedUrl(source, clean) && !urls.includes(clean)) urls.push(clean);
-      if (urls.length >= PER_SOURCE) break;
     }
     if (!row.list.startsWith("robots_unreachable")) row.list = "ok";
   }
@@ -240,9 +256,54 @@ if (DIAG) {
     console.log(`${r.key} | ${i + 1} | ${p.res} | ${h.bytes} | ${h.textAll} | ${h.json} | ${h.amp} | ${h.nextData} | ${h.pTags} | ${h.bot} | ${p.top} | ${p.scripts ?? "-"}`);
   });
 }
+// ---- 새 수집처 후보 피드(S71-70, 점검용만) -------------------------------------------------------------------------------
+// 카탈로그에 넣기 전에 후보 주소가 이 러너에서 열리는지·robots가 허용하는지(운영 수집기와 같은 robots 판정)·글 분야 칸이 있는지를 숫자로만 본다.
+// 카탈로그 밖 주소라 운영 수집기는 읽지 않는다. 주소는 이 목록에 적힌 것뿐(호스트 고정, https만).
+// 11/26 S71-70에서 참세상(www 없는 주소의 피드)·미디어오늘(피드는 robots 금지, 분야 목록 쪽은 허용)을 이 줄로 확인했다. 새 후보가 생기면 여기 주소만 더한다.
+const CANDIDATE_FEEDS = [];
+async function checkCandidate(list) {
+  const host = new URL(list).host;
+  const base = { doFetch: fetch, sleep, log: quiet, userAgent: N.USER_AGENT, robotsAgent: N.ROBOTS_AGENT, gapMs: N.GAP_MS, now: Date.now };
+  const reader = makeFeedReader({ ...base, allow: (raw) => { try { const u = new URL(raw); return u.protocol === "https:" && u.host === host && !u.port && !u.username ? u : null; } catch { return null; } } });
+  const got = await reader.get(list, ACCEPT_FEED);
+  if (!got.ok) return `${list} ⇒ ${got.code}`;
+  const rawItems = (got.text.match(/<(item|entry)\b/gi) ?? []).length;
+  if (!rawItems) {
+    const t = got.text;
+    const feeds = [...t.matchAll(/<link\b[^>]*type\s*=\s*["']application\/(?:rss|atom)\+xml["'][^>]*>/gi)].map((m) => /href\s*=\s*["']([^"']+)["']/i.exec(m[0])?.[1] ?? "-").slice(0, 4);
+    const arts = (t.match(/articleView\.html\?idxno=\d+/g) ?? []).length;
+    // 분야 목록 쪽 링크(엔디소프트 sc_section_code·sc_sub_section_code)와 그 이름 — 매체가 화면에 보이는 분야 이름만.
+    const secs = [...new Set([...t.matchAll(/sc_(?:sub_)?section_code=(S\dN\d{1,3})[^"'>]*["'][^>]*>\s*([^<]{1,14})</g)].map((m) => `${m[1]}=${m[2].trim()}`))].slice(0, 40);
+    if (/robots\.txt$/.test(list)) return `${list} ⇒ robots.txt ${t.split(/\r?\n/).filter((l) => /^(user-agent|disallow|allow)\s*:/i.test(l.trim())).slice(0, 30).join(" ; ")}`;
+    // 글 링크 모양(글자 없이): 앞 글 3개의 링크마다 바로 앞 여는 칸 tag.class · 링크 class · 링크 글자 수, 그리고 날짜 꼴 글자가 링크 뒤 300자 안에 있는지.
+    const ids = [...new Set([...t.matchAll(/articleView\.html\?idxno=(\d+)/g)].map((m) => m[1]))];
+    const shape = ids.slice(0, 3).map((id) => [...t.matchAll(new RegExp(`(<[a-z0-9]+\\b[^>]*>)\\s*<a\\b([^>]*idxno=${id}[^>]*)>([\\s\\S]*?)<\\/a>`, "g"))].map((m) => {
+      const pc = /^<([a-z0-9]+)[^>]*?(?:class\s*=\s*["']([^"']*)["'])?/i.exec(m[1]);
+      const ac = /class\s*=\s*["']([^"']*)["']/i.exec(m[2])?.[1] ?? "";
+      const after = t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 300);
+      return `${pc?.[1] ?? "?"}.${(pc?.[2] ?? "").split(/\s+/)[0]}>a.${ac.split(/\s+/)[0]}:${chars(htmlToText(m[3]).trim())}${/\d{4}[.-]\d{2}[.-]\d{2}\s+\d{2}:\d{2}/.test(after) ? ":date" : ""}`;
+    }).join(" ")).join(" ‖ ");
+    const total = ids.length;
+    if (secs.length) return `${list} ⇒ ok(html) ids=${total} shape=[${shape}]`;
+    if (secs.length) return `${list} ⇒ ok(html) articleLinks=${arts} sections=[${secs.join(",")}]`;
+    return `${list} ⇒ ok(html) type=${(got.contentType ?? "-").split(";")[0]} bytes=${t.length} feedlinks=[${feeds.join(",")}] articleLinks=${arts} bot=${looksLikeBotCheck(t) ? 1 : 0}`;
+  }
+  const pseudo = { key: "candidate", name: "-", group: "movement", lang: "ko", mode: "rss", lists: [list], hosts: [host, host.replace(/^www\./, "")], kindOf: () => "article" };
+  const parsed = parseFeed(pseudo, got.text, nowMs, 50);
+  return `${list} ⇒ ok type=${(got.contentType ?? "-").split(";")[0]} items=${rawItems} parsed=${parsed.length} cat[${tally(parsed.map((it) => it.category ?? "-"), true)}] path[${tally(parsed.map((it) => firstSeg(it.url)))}]`;
+}
+if (DIAG) {
+  console.log("\n## 분야 진단(피드마다 분야 칸·주소 경로 — 글 내용 없음)");
+  for (const r of rows) for (const line of r.sections ?? []) console.log(`${r.key} | ${line}`);
+  console.log("\n## 새 수집처 후보 피드(점검용)");
+  const cand = [];
+  for (const list of CANDIDATE_FEEDS) { try { cand.push(await checkCandidate(list)); } catch (e) { cand.push(`${list} ⇒ error:${String(e?.message ?? e).slice(0, 40)}`); } }
+  for (const line of cand) console.log(line);
+  lines.push("", "### 새 수집처 후보 피드(점검용)", "", ...cand.map((l) => `- ${l.replace(/\|/g, "/")}`), "", "### 분야 진단", "", ...rows.flatMap((r) => (r.sections ?? []).map((l) => `- ${r.key}: ${l.replace(/\|/g, "/")}`)));
+}
 const summary = env("GITHUB_STEP_SUMMARY", "");
 if (summary) {
-  const text = table + "\n";
+  const text = lines.join("\n") + "\n";
   if (globalThis.Deno) await Deno.writeTextFile(summary, text, { append: true });
   else (await import("node:fs")).appendFileSync(summary, text);
 }

@@ -28,7 +28,7 @@ export async function openNoteQuick({anchor, reanchor = null, text = '', title =
   panel.className = 'note-quick'; panel.dataset.noteQuick = '';
   panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', '노트로 넣기'); panel.tabIndex = -1;
   panel.innerHTML = '<div class="nq-row" data-nq-row></div><div class="nq-tail" data-nq-tail hidden></div>'
-    + '<label class="a11y-only" for="nqText">더할 글</label><textarea id="nqText" class="nq-text" data-nq-text rows="2" autocomplete="off" placeholder="노트에 넣을 글"></textarea>'
+    + '<label class="a11y-only" for="nqText">더할 글</label><textarea data-autogrow id="nqText" class="nq-text" data-nq-text rows="2" autocomplete="off" placeholder="노트에 넣을 글"></textarea>'
     + '<p class="nq-status" data-nq-status role="status"></p>'
     + '<div class="nq-foot"><button type="button" class="ghost nq-big" data-nq-big>크게 수정 ↗</button>'
     + '<button type="button" class="secondary" data-nq-cancel>취소</button><button type="button" class="primary" data-nq-save>저장</button></div>';

@@ -18,6 +18,7 @@ import { openWeekPick } from './task-week-pick.js'; // S46-30 [다음주] 요일
 // 첫 화면 전에 받지 않도록 [할 일]에서 클립이 보일 때 미리 받기 시작하고, 저장 때 그 받기를 기다린다(taskFilesModule).
 import { taskFilesAvailable, taskFilesKnown, onTaskFilesReady, MAX_TASK_FILES } from './task-files-ready.js';
 import {word} from './brand/brand.mjs';
+import {folderShapeHtml} from './folder-look-model.mjs';
 let taskFilesFlight=null;
 const taskFilesModule=()=>taskFilesFlight||=import('./task-files.js').catch(e=>{taskFilesFlight=null;throw e;});
 
@@ -38,13 +39,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // BASKET-업데이트통합 PR 1: the home box has two modes, [업데이트 ▾] and [할 일]. [업데이트] with no place chosen is the old
   // [바구니] (a basket note, attachments allowed); with an organization or a project chosen it is that place's record, saved
   // through the same existing paths as before. toBasket() is that one rule; data-mode shows the effective kind (basket/update/task).
-  let mode='update',saving=false,expanded=false,focusIn=false,keyboardSeen=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]},bundleChoices=[];
+  let mode='update',saving=false,expanded=false,focusIn=false,keyboardSeen=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
   { const saved=basketOnly||taskOnly?null:viewPrefs.get('home_quick_mode'); mode=saved==='task'?'task':'update'; }
   if(taskOnly)mode='task';
   if(noteOnly)mode='note';
   // NOTE-추가폴더표시: the note input's [폴더 ▾] shows the folder a new note goes into (null = 폴더 없음). The note list owns the
   // choice and its picker (onFolder opens it under this button); setFolder() only paints the name here and in the placeholder.
-  let folderName=null;
+  let folderName=null,folderColor=null;
   // HOME-입력칸두모양(S61-44, 명진 11/14 12:44 '한 줄·두 줄·세 줄 왔다 갔다' → 12:50 'ㄱ'): the phone home box (≤760) has only two
   // shapes, both drawn by paint() into one attribute (data-quick-shape, ui-standard.css): one row [종류 ▾][입력칸][잊지 말기 n], and in
   // [할 일] — only while the input has text or focus — the date row on top of it. The [업데이트 | 할 일] row is never shown there; the
@@ -63,8 +64,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   const takesFiles=()=>noteOnly||mode==='update'||(mode==='task'&&taskFilesOn);
   // UPD-여러곳고르기: places is the list chosen on the 기록할 곳 sheet (in the order picked; empty is the basket).
   const currentPlaces=()=>places.map(p=>({...p}));
-  // The lists the 기록할 곳 sheet offers (REF-참고묶음: with the reference bundles at the bottom).
-  const placeChoices=()=>({projects:projectChoices,orgs:orgChoices,bundles:bundleChoices});
+  // The lists the 기록할 곳 sheet offers.
+  const placeChoices=()=>({projects:projectChoices,orgs:orgChoices});
   const setPlaces=list=>{places=placeList(list);};
   let taskAttempt=null,taskRequest=null,taskSequence=0,taskReading=false,taskSessionEpoch=window.KPTURuntime.session.epoch();
   let upload = createUploadBatch(),pickError='';
@@ -72,23 +73,18 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // [잊지 말기 n] chip slot on the right. This box only places the empty slot; home-summary.js is its one renderer (home view only —
   // the basket·note·task boxes remove the whole head row).
   // HOME-빠른입력정리: the task options row sits above the mode buttons, and the organization picker is the ▾ right of [업데이트].
-  box.innerHTML=word`<div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="사업영역" aria-haspopup="dialog" aria-expanded="false">사업영역 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="after">모레</button><button type="button" data-quick-day="week" aria-haspopup="true">다음주</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div></div><div class="home-quick-head"><div class="home-quick-modes ds-seg" role="group" aria-label="입력 종류"><span class="home-quick-update-split ds-seg-group"><button type="button" class="ds-seg-btn" data-quick-mode="update">잊지 말기</button><button type="button" class="ds-seg-btn" data-quick-org aria-label="기록할 곳 선택" aria-haspopup="dialog" aria-expanded="false">▾</button></span><button type="button" class="ds-seg-btn" data-quick-mode="task">할 일</button></div><span class="home-forget-slot" data-home-summary role="group" aria-label="잊지 말기"></span></div><div class="home-quick-entry"><button type="button" class="home-quick-kind" data-quick-kind hidden></button><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea><button type="button" class="home-quick-big" data-quick-big aria-label="큰 창에서 쓰기" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="home-quick-detail" data-quick-detail aria-label="상세 설정으로 추가" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><button type="button" class="home-quick-folder" data-quick-folder aria-haspopup="dialog" aria-expanded="false" hidden>폴더 없음 ▾</button><button type="button" class="home-quick-save" data-quick-save data-enter-save-submit>추가</button></div><p class="home-quick-hint" data-quick-hint role="status"></p><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-status role="status"></div>`;
+  box.innerHTML=word`<div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="사업영역" aria-haspopup="dialog" aria-expanded="false">사업영역 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="after">모레</button><button type="button" data-quick-day="week" aria-haspopup="true">다음주</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div></div><div class="home-quick-head"><div class="home-quick-modes ds-seg" role="group" aria-label="입력 종류"><span class="home-quick-update-split ds-seg-group"><button type="button" class="ds-seg-btn" data-quick-mode="update">잊지 말기</button><button type="button" class="ds-seg-btn" data-quick-org aria-label="기록할 곳 선택" aria-haspopup="dialog" aria-expanded="false">▾</button></span><button type="button" class="ds-seg-btn" data-quick-mode="task">할 일</button></div><span class="home-forget-slot" data-home-summary role="group" aria-label="잊지 말기"></span></div><div class="home-quick-entry"><button type="button" class="home-quick-kind" data-quick-kind hidden></button><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea><button type="button" class="home-quick-big" data-quick-big aria-label="큰 창에서 쓰기" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="home-quick-detail" data-quick-detail aria-label="상세 설정으로 추가" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><button type="button" class="home-quick-folder" data-quick-folder aria-haspopup="dialog" aria-expanded="false" aria-label="폴더: 폴더 없음" hidden></button><button type="button" class="home-quick-save" data-quick-save data-enter-save-submit>추가</button></div><p class="home-quick-hint" data-quick-hint role="status"></p><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-status role="status"></div>`;
   const input=box.querySelector('[data-quick-input]'),options=box.querySelector('[data-quick-options]'),status=box.querySelector('[data-quick-status]'),hint=box.querySelector('[data-quick-hint]'),orgSelect=box.querySelector('[data-quick-org]'),projectSelect=box.querySelector('[data-quick-project]'),date=box.querySelector('[data-quick-date]');
   const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:idPrefix==='home'?'quickBasketFiles':idPrefix+'QuickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,pasteTarget:input,isActive:()=>takesFiles(),getBatch:()=>upload,isBusy:()=>saving,onError:message=>{status.textContent=message;pickError=message.startsWith('사진을 못 받았어요')?message:'';},onChange:()=>{status.textContent='';pickError='';paint();}});
-  // UI-PC바구니첨부버튼: on PC the same picker part sits outside the input, just left of [추가], as [📎 첨부].
-  // The phone keeps it inside the input's left edge. Moving the node keeps focus order the same as what is seen.
-  const pickerHost=box.querySelector('[data-quick-file-picker]'),pickerWide=window.matchMedia('(min-width:761px)');
-  const placePicker=()=>{if(pickerWide.matches)box.querySelector('[data-quick-save]').before(pickerHost);else box.querySelector('.home-quick-input-wrap').prepend(pickerHost);};
-  pickerWide.addEventListener('change',placePicker);placePicker();
-  // NOTE-추가폴더표시: [폴더 ▾] sits right after the input on a wide screen (input → [폴더 ▾] → [📎 첨부] → [추가], each 8px apart).
-  // S52-34 UI-전체정리(노트): on a phone it is in the same row too (input → [폴더 ▾] → [추가]), so the docked box is one row, not two.
+  // NOTE-입력줄높이(S71-67, 사용자 결정 2026-11-26 'B인데 위로 화살표는 추가로'): the clip is the input's own left icon at every width
+  // (the PC [📎 첨부] outside the input is gone — the markup already puts the picker part inside the input wrap, so nothing moves).
+  // One row = [입력칸(📎 … ⤢)] [폴더 아이콘](노트만) [추가]; the three are one height (ui-standard.css 'NOTE-입력줄높이', --quick-row-h).
+  const pickerWide=window.matchMedia('(min-width:761px)');
+  pickerWide.addEventListener('change',()=>paint());
+  // The note input's folder button is a square folder icon (+ the chosen folder's short name), right after the input.
   const folderBtn=box.querySelector('[data-quick-folder]');
   if(!noteOnly)folderBtn.remove();
-  else{
-    const placeFolder=()=>{if(pickerWide.matches)pickerHost.before(folderBtn);else box.querySelector('[data-quick-save]').before(folderBtn);};
-    pickerWide.addEventListener('change',()=>{placeFolder();paint();});placeFolder();
-    folderBtn.onclick=()=>{if(saving)return;onFolder?.(folderBtn);};
-  }
+  else folderBtn.onclick=()=>{if(saving)return;onFolder?.(folderBtn);};
   // MD-표시보완: a pasted complete HTML document (ChatGPT HTML) becomes a .html attachment of this memo through the
   // same upload path as the clip; the text keeps a short mark. Nothing is saved until [추가].
   input.addEventListener('paste',e=>{
@@ -120,7 +116,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     pickerFiles.render();
     // BIZ-저장먼저닫기 2차(S59-10): the files of a save always go to the update's or note's own line behind (the input gets a fresh batch
     // at once), so the input never holds a saved or unconfirmed batch and never locks.
-    if(noteOnly){const f=box.querySelector('[data-quick-folder]'),label=folderName||'폴더 없음';f.hidden=false;const name=document.createElement('span');name.className='home-quick-folder-name';name.textContent=[...label].length>8?[...label].slice(0,8).join('')+'…':label;f.replaceChildren(name,' ▾');/* NOTE-큰창잘림: 좁으면 이름만 '…'로 줄고 ▾는 늘 보인다(basket.css) */f.title='노트를 넣을 폴더: '+label;f.setAttribute('aria-label','노트를 넣을 폴더: '+label+'. 누르면 다른 폴더를 선택합니다');}
+    if(noteOnly){
+      // NOTE-입력줄높이: 폴더 없음 = 정사각 폴더 아이콘만, 고른 폴더 = 그 폴더 색 아이콘 + 작은 이름(넘치면 CSS가 '…'로 줄임).
+      const f=folderBtn,label=folderName||'폴더 없음';f.hidden=false;f.toggleAttribute('data-quick-folder-on',!!folderName);
+      const ico=document.createElement('span');ico.className='home-quick-folder-ico fl-ico';ico.setAttribute('aria-hidden','true');ico.innerHTML=folderShapeHtml('closed');
+      if(folderName&&folderColor)ico.dataset.fc=String(folderColor);
+      if(folderName){const name=document.createElement('span');name.className='home-quick-folder-name';name.textContent=folderName;f.replaceChildren(ico,name);}else f.replaceChildren(ico);
+      f.title='노트를 넣을 폴더: '+label;f.setAttribute('aria-label','폴더: '+label);}
     box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel(placeChoices(),places);
     input.placeholder=noteOnly?(folderName?(pickerWide.matches?`${folderName}에 노트 추가`:'노트 추가'):'노트를 입력하세요'):mode==='task'?'할 일을 입력하세요':toBasket()?'잊지 말기에 남길 것':(targetName||word('담당조직'))+' 기록을 입력하세요';
     const filesWait=!takesFiles()&&taskFilesWait&&mode==='task';
@@ -155,7 +157,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       // epoch and clear the flight). Read again for the new epoch and finish with that: returning here would let the sheet open with empty lists.
       if(run!==choiceEpoch){if(choicesFlight===flight)choicesFlight=null;return choices();}
       if(!read)return;
-      projectChoices=read.projects;orgChoices=read.orgs;bundleChoices=read.bundles||[];
+      projectChoices=read.projects;orgChoices=read.orgs;
       if(!projectChoices.some(x=>x.project.id===project))project='';
       places=keepPlaces(placeChoices(),places);
       paint();picker.render();
@@ -485,5 +487,6 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     // The note list's write window hands unsaved text back here (and clears it after a save there).
     setText:value=>{input.value=String(value??'');paint();},focus:()=>input.focus({preventScroll:true}),
     // The folder a new note goes into, as the note list decides it (null = 폴더 없음).
-    setFolder:name=>{folderName=name||null;paint();}};
+    // color: the folder's color number (1~8) or null — the icon takes that folder's color (folder-look.css [data-fc]).
+    setFolder:(name,color=null)=>{folderName=name||null;folderColor=folderName?color:null;paint();}};
 }

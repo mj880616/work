@@ -55,7 +55,7 @@ const root = page => page.locator('#photosRoot');
 async function openFolders(page) {
   await clickView(page, 'photos');
   await expect(page.locator('#photosView')).toBeVisible();
-  await root(page).locator('[data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   // 화면 모듈과 폴더 나무를 처음 읽는 시간까지 넉넉히 기다린다(바쁜 러너).
   await expect(root(page).locator('[data-photos-folder="S1"]').first()).toBeVisible({ timeout: 20000 });
 }

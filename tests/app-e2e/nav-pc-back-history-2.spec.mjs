@@ -13,6 +13,7 @@ import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {installBusinessNowServer} from './helpers/business-now-server.mjs';
+import {treeEnter} from './helpers/tree-enter.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const topBack=page=>page.locator('[data-history-step="back"]');
@@ -120,8 +121,8 @@ test('PC 1280 자료실 폴더: C → N 에서 ‹ = C, ‹ = 자료실(맨 위)
  const {s,errors}=await bootLibrary(page,1280,{folders:LIB_FOLDERS,items:LIB_ITEMS});
  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
  await libNav(page).locator('[data-lu-nav-tog="fa"]').click();await expect(libNav(page).locator('[data-lu-nav="fc"]')).toBeVisible(); // 그림 = 펼치기만(들어가지 않음)
- await libNav(page).locator('[data-lu-nav="fc"]').click();await expect.poll(()=>libHere(page)).toBe('가상 C');
- await libNav(page).locator('[data-lu-nav="fn"]').click();await expect.poll(()=>libHere(page)).toBe('가상 N');
+ await treeEnter(libNav(page).locator('[data-lu-nav="fc"]'));await expect.poll(()=>libHere(page)).toBe('가상 C');
+ await treeEnter(libNav(page).locator('[data-lu-nav="fn"]'));await expect.poll(()=>libHere(page)).toBe('가상 N');
  await expect(page).toHaveURL(/[?&]folder=fn(?:&|$)/);
  await topBack(page).click();await expect.poll(()=>libHere(page)).toBe('가상 C');await shot(page,'3-library-folder-back-C');await expect(page).toHaveURL(/[?&]folder=fc(?:&|$)/);
  await page.goBack();await expect.poll(()=>libHere(page)).toBe('');await expect.poll(()=>libTops(page)).toEqual(['f:fa','f:fn']);await expect(page).not.toHaveURL(/[?&]folder=/);
@@ -176,12 +177,12 @@ test('PC 1280 사진 폴더: 2026 → 제주 에서 ‹ = 2026, ‹ = [사진], 
  const errors=watchErrors(page);
  await photosFixture(page,1280);
  await clickView(page,'photos');await expect(page.locator('#photosView')).toBeVisible();
- const chip=page.locator('#photosRoot [data-photos-view]');
+ const chip=page.locator('[data-sf-tools="photos"] [data-photos-view]');
  await chip.selectOption('folders');await expect(chip).toHaveValue('folders');
  await expect(photoTree(page).locator('.ft-name')).toHaveText(['카메라','2026','여행']);
- await photoTree(page).locator('[data-photos-fx-open="S1"]').click();await photoAt(page,'S1');
+ await treeEnter(photoTree(page).locator('[data-photos-fx-open="S1"]'));await photoAt(page,'S1');
  await photoTree(page).locator('[data-photos-fx-tog="S2"]').click();
- await photoTree(page).locator('[data-photos-fx-open="S21"]').click();await photoAt(page,'S21');
+ await treeEnter(photoTree(page).locator('[data-photos-fx-open="S21"]'));await photoAt(page,'S21');
  await expect(page).toHaveURL(/[?&]pf=o(?::|%3A)S21(?:&|$)/);
  await topBack(page).click();await photoAt(page,'S1');await shot(page,'4-photos-folder-back-2026');await expect(chip).toHaveValue('folders');
  await page.goBack();await expect(chip).toHaveValue('all');
