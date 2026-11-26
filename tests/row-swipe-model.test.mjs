@@ -48,27 +48,14 @@ test('칸 여러 개: 멈춘 자리는 칸 수만큼, 밀수록 칸이 함께 �
   assert.equal(cellWidth(-100, 3), SWIPE_BTN); assert.equal(cellWidth(-300, 3), 100); assert.equal(cellWidth(0, 2), SWIPE_BTN);
   assert.equal(pickedLabel(3), '3개 선택됨');
 });
-test('S70-60 UI-스와이프메뉴만: 끝까지 밀어도(어느 쪽·어떤 칸이든) 칸만 열고 바로 실행하지 않는다', () => {
-  const del = {key:'delete', label:'삭제', tone:'danger'}, hide = {key:'hide', label:'숨기기', tone:'muted'}, save = {key:'save', label:'보관'}, release = {key:'release', label:'삭제', tone:'info'};
-  for (const end of [[save, del], [save, hide], [release, null], [hide]]) {
-    const has = sides({start:{key:'other'}, end});
-    assert.deepEqual(Object.keys(has).sort(), ['end', 'start']); // 끝까지 밀기 허용 값(startFull·endFull)은 없다
-    for (const w of [360, 390, 412, 880]) {
-      for (const x of [-w, -w * 0.6, -200, -140]) assert.deepEqual(rowSettle(x, has, w), {side:'end'});
-      for (const x of [w, w * 0.6, 200, 140]) assert.deepEqual(rowSettle(x, has, w), {side:'start'});
-    }
-  }
-  assert.deepEqual(sides({start:null, end:null}), {start:0, end:0});
-  assert.equal(rowOffset(-80, 0, sides({start:{key:'select'}, end:null}), 400), 0);
-});
-test('S70-64 오른쪽 밀기 = 고르기만: 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 바로 고른다(목록의 일은 하지 않음)', () => {
+test('S70-64 오른쪽 밀기 = 고르기만: 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 바로 고른다', () => {
   const w = 412, has = sides({start:{key:'select'}, end:[{key:'delete', label:'삭제', tone:'danger'}]});
   assert.deepEqual(has, {start:1, end:1, startPick:true});
   assert.deepEqual(rowSettle(40, has, w), {side:'start', pick:true}); // 조금(반 칸 넘게)만 밀어도 고르기
   assert.deepEqual(rowSettle(20, has, w), {side:''}); // 반 칸이 안 되면 제자리
   assert.deepEqual(rowSettle(300, has, w), {side:'start', pick:true});
-  assert.deepEqual(rowSettle(-w, has, w), {side:'end'}); // 왼쪽은 끝까지 밀어도 칸만
-  assert.equal(sides({start:{key:'other'}, end:null}).startPick, undefined); // [선택]이 아닌 옛 칸은 옛 규칙
+  assert.equal(sides({start:{key:'other'}, end:null}).startPick, undefined); // [선택]이 아닌 옛 칸은 옛 규칙(칸만 열림)
+  assert.deepEqual(rowSettle(300, sides({start:{key:'other'}, end:null}), w), {side:'start'});
   // 열린 왼쪽 칸을 되미는 짧은 밀기는 닫기만(고르지 않음).
   const open1 = openOffset('end', 1);
   assert.deepEqual(rowSettle(open1 + 40, has, w, open1), {side:''});
@@ -76,14 +63,25 @@ test('S70-64 오른쪽 밀기 = 고르기만: 반 칸 넘게 밀고 떼면 칸�
   assert.match(swipe, /start:select && a\.start \? PICK : null/); // 오른쪽 밀기에는 다른 동작을 두지 않는다
   assert.match(swipe, /sbAllHtml\(\{attrs:'data-row-pick-all', on:all/); // [전체 선택] 켜짐(체크 표시)
   assert.match(swipe, /if \(!pick\.size\) stopPicking\(\)/); // 0개면 고르기 끝
-  assert.match(swipe, /if \(now\) \{ fire\(d\.state, PICK\.key\); return; \}/); // 손을 뗄 때 부르는 일은 고르기 시작뿐
+  assert.match(swipe, /if \(picked\) \{[^\n]*startPick\(d\.el\)/); // 손을 떼는 순간 고르기(데이터 일은 하지 않음)
 });
-test('S70-60: 칸 순서는 그대로, 손을 뗄 때는 칸을 열거나 닫기만(고르기 시작 빼고) — 일은 칸을 누를 때(click)만', () => {
-  const release = {key:'release', label:'삭제', tone:'info'}, hide = {key:'hide', label:'숨기기', tone:'muted'};
+test('S70-60 UI-스와이프메뉴만: 왼쪽으로 끝까지 밀어도(어떤 칸이든) 칸만 열고 바로 실행하지 않는다', () => {
+  const del = {key:'delete', label:'삭제', tone:'danger'}, hide = {key:'hide', label:'숨기기', tone:'muted'}, save = {key:'save', label:'보관'}, release = {key:'release', label:'삭제', tone:'info'};
+  for (const end of [[save, del], [save, hide], [release, null], [hide]]) {
+    const has = sides({start:{key:'select'}, end});
+    assert.deepEqual(Object.keys(has).sort(), ['end', 'start', 'startPick']); // 끝까지 밀기 허용 값(startFull·endFull)은 없다
+    for (const w of [360, 390, 412, 880]) {
+      for (const x of [-w, -w * 0.6, -200, -140]) assert.deepEqual(rowSettle(x, has, w), {side:'end'});
+      for (const x of [w, w * 0.6, 200, 140]) assert.deepEqual(rowSettle(x, has, w), {side:'start', pick:true}); // 오른쪽은 고르기(S70-64)
+    }
+  }
+  assert.deepEqual(sides({start:null, end:null}), {start:0, end:0});
+  assert.equal(rowOffset(-80, 0, sides({start:{key:'select'}, end:null}), 400), 0);
   assert.equal(isDanger(release), false); // 칸 순서(위험한 칸은 맨 오른쪽)는 그대로
   assert.deepEqual(endCells([release, hide]).map(a => a.key), ['release', 'hide']);
+  // 공용 부품: 손을 뗄 때는 칸을 열거나 닫기만, 일은 칸을 누를 때(click)만.
   const swipe = read('row-swipe.js');
-  assert.doesNotMatch(swipe, /run:now|fire\(d\.state, side/);
+  assert.doesNotMatch(swipe, /run:now|fire\(d\.state/);
   assert.match(swipe, /fire\(open, b\.dataset\.rowSwipeKey\)/);
 });
 test('S68-50: 열린 줄은 닫는 쪽으로 반 칸(32px)만 되밀어도 닫힌다, 더 밀면 반대쪽', () => {

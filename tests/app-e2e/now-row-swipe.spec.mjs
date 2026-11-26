@@ -35,11 +35,12 @@ async function touchTap(locator) {
   await locator.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
   await locator.dispatchEvent('click');
 }
-// S70-64(이 PR이 #3127 위에 합침): 오른쪽 밀기 = 칸 없이 그 줄이 바로 골라진다(고르기 막대·그 화면 고르기 모드).
+// S70-64 W1(결정 장부 W3): 오른쪽 밀기는 선택만 — 손을 떼면 [선택] 칸을 열어 두지 않고 바로 그 줄이 선택된다(막대가 뜬다).
+// 민 뒤 목록이 다시 그려져 손동작이 빠졌으면 막대가 뜰 때까지 다시 민다(선택 중에는 줄 밀기가 꺼져 있어 두 번 골라지지 않음).
 async function swipePick(page, locator) {
   await expect(async () => {
     await swipe(locator, 320);
-    await expect(page.locator('#newsRoot .row-swipe-pickbar')).toBeVisible({ timeout: 1000 });
+    await expect(page.locator('.row-swipe-pickbar:visible, .kptu-selbar:visible').first()).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
   await expect(page.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
 }
@@ -150,7 +151,7 @@ test('Now 뉴스 412: 실제 손가락처럼(포인터 + 터치 함께) 글 줄 
     pt('pointerup', x + dx); tc('touchend', x + dx);
     return true;
   }, { dx, onRow })).toBe(true)).toPass({ timeout: 10000 });
-  // 글 줄 위 오른쪽 끝까지: 칸 없이 그 줄이 골라지고(S70-64) 탭은 그대로.
+  // 글 줄 위 오른쪽 끝까지: 바로 그 줄 선택(S70-64 W1, [선택] 칸이 남지 않음), 탭은 그대로.
   await expect(item(page, 'k1')).toBeVisible();
   await expect(async () => {
     await both(item(page, 'c1'), 320);

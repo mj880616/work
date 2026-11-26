@@ -7,11 +7,13 @@ import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 // - 📌 고정·★ 별표: ☆ 누르기, ⋯ 메뉴, 폰은 줄 밀기 — S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안)로 따로 만든 밀기를 공용 줄 밀기(row-swipe.js)로 옮겼다:
 //   왼쪽으로 밀면 [고정][별표][수정](끝까지 밀어도 칸만), 오른쪽으로 밀면 다른 목록처럼 그 줄이 골라진 채 '여러 개 고르기'([별표]·[고정] 한꺼번에).
 //   [수정] = 그날 하루 기록 창 열기(⋯ [열기]와 같은 길 — 하루 기록은 그 창에서 고친다).
-// - 🔍 찾기: 불러온 일기 글 안에서 찾는다. 전체 검색(app_search_records)은 일기를 일부러 빼 두었으므로(search_records 결정) 그 길을 넓히지 않는다.
+// - 찾기: 불러온 일기 글 안에서 찾는다. 전체 검색(app_search_records)은 일기를 일부러 빼 두었으므로(search_records 결정) 그 길을 넓히지 않는다.
+//   S70-57 UI-검색창하나로: 옛 목록 위 찾기 줄([data-diary-lv-q])은 없앴고, 맨 위 칸 '하루 기록에서 찾기'(diary.js 등록)가 setQuery로 같은 걸러 내기를 쓴다.
 // - JOURNAL-오늘한일달력 (S50-29): 일기를 안 쓴 날도 홈에서 넣은 '오늘 한 일'이 있으면 그 날짜 줄이 나온다(work-day-lines.js로 읽기만,
 //   못 읽으면 일기만). 그런 줄은 📌·★·밀기가 없고(일기 한 편 단위 표시), 누르면 그날 창이 열린다.
 // - 기기 저장 없음: 펼친 달·찾기 글자·밀어 둔 줄은 메모리만, 고정·별표는 서버(일기 행 metadata).
 import {readDiaryList, setDiaryMark, diaryPhotos, photoElement, ownerScope} from './diary-data.js';
+import {findFor} from './screen-find.js'; // S70-67 SEARCH-비슷한것찾기: 공용 판정
 import {buildDiaryList, withDoneDays, rowText, dayLabel, diaryPinnedAt, diaryStarredAt, MARK_KEYS} from './diary-list-model.mjs';
 import {odPhotos, odPhotoElement, odTakeWarmMonth} from './diary-onedrive.js';
 import {bindRowSwipe, PICK, EDIT} from './row-swipe.js';
@@ -22,11 +24,11 @@ import {iconHtml} from './tree-icons.js';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 export function createDiaryList({host, rt = window.KPTURuntime, odReady = async () => false, onOpen = () => {}, onMarked = () => {}}) {
-  const state = {owner:'', loaded:false, loading:null, error:'', rows:[], done:null, truncated:false, filter:'all', query:'', search:false, opened:{}, busy:new Set(), note:'', epoch:0};
+  const state = {owner:'', loaded:false, loading:null, error:'', rows:[], done:null, truncated:false, filter:'all', query:'', opened:{}, busy:new Set(), note:'', epoch:0};
   const odCache = new Map(); // 'YYYY-MM' → Promise<odMonth|null>
   let observer = null;
-  host.innerHTML = '<div class="diary-lv-search" data-diary-lv-search hidden><input type="search" data-diary-lv-q placeholder="하루 기록 글에서 찾기" aria-label="하루 기록 찾기" enterkeyhint="search" autocomplete="off"><button type="button" class="mini" data-diary-lv-search-close aria-label="찾기 닫기">×</button></div><p class="diary-lv-note" data-diary-lv-note role="status"></p><div class="diary-lv-body" data-diary-lv-body></div>';
-  const body = host.querySelector('[data-diary-lv-body]'), note = host.querySelector('[data-diary-lv-note]'), searchRow = host.querySelector('[data-diary-lv-search]'), input = host.querySelector('[data-diary-lv-q]');
+  host.innerHTML = '<p class="diary-lv-note" data-diary-lv-note role="status"></p><div class="diary-lv-body" data-diary-lv-body></div>';
+  const body = host.querySelector('[data-diary-lv-body]'), note = host.querySelector('[data-diary-lv-note]');
   const rowOf = day => state.rows.find(row => row.journal_day === day) || null;
   const scopeNow = () => ownerScope(rt);
 
@@ -72,10 +74,9 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   function paintNow() {
     if (host.hidden) return;
     observer?.disconnect();
-    searchRow.hidden = !state.search;
     if (state.error) { note.textContent = ''; body.innerHTML = failHtml({retry: 'data-diary-lv-retry'}); return; }
     if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); return; }
-    const list = buildDiaryList(withDoneDays(state.rows, state.done), {filter:state.filter, query:state.query, opened:state.opened});
+    const list = buildDiaryList(withDoneDays(state.rows, state.done), {filter:state.filter, query:state.query, opened:state.opened, find:state.query.trim() ? findFor('diary', state.query) : null});
     const empty = !list.total ? (state.query ? '맞는 하루 기록 없음' : state.filter === 'star' ? '별표 하루 기록 없음' : '없음') : '';
     note.textContent = state.note || (state.truncated ? '최근 하루 기록 1,000편만 보여요.' : '');
     const parts = [];
@@ -157,25 +158,16 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     else if (d.diaryLvMore) menu.open(b);
     else if (d.diaryLvMonth) { const now = b.getAttribute('aria-expanded') === 'true'; state.opened[d.diaryLvMonth] = !now; paint(); host.querySelector(`[data-diary-lv-month="${CSS.escape(d.diaryLvMonth)}"]`)?.focus({preventScroll:true}); }
     else if (b.hasAttribute('data-diary-lv-retry')) load({force:true});
-    else if (b.hasAttribute('data-diary-lv-search-close')) setSearch(false);
   });
-  input.addEventListener('input', () => { state.query = input.value; state.opened = {}; paint(); });
-  input.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); setSearch(false); } });
-
-  function setSearch(on) {
-    state.search = on;
-    if (!on && state.query) { state.query = ''; input.value = ''; state.opened = {}; }
-    paint();
-    if (on) input.focus();
-  }
   return {
     show() { host.hidden = false; if (state.owner !== scopeNow()) reset(); paint(); load(); },
     hide() { host.hidden = true; observer?.disconnect(); swipe.close(); swipe.stopPicking(); },
     reload() { if (state.owner !== scopeNow()) reset(); return load({force:true}); },
     setFilter(filter) { state.filter = filter === 'star' ? 'star' : 'all'; state.opened = {}; paint(); },
     get filter() { return state.filter; },
-    toggleSearch() { setSearch(!state.search); },
-    get searching() { return state.search; },
+    // 맨 위 칸 '하루 기록에서 찾기'(diary.js)가 친 글자. 같은 글자면 다시 그리지 않는다. 메모리만.
+    setQuery(q, {again} = {}) { const next = String(q ?? ''); if (next === state.query && !again) return; state.query = next; state.opened = {}; paint(); },
+    get query() { return state.query; },
     // 그날 일기에서 돌아왔을 때 그 줄로.
     focusDay(day) { const b = host.querySelector(`[data-diary-lv-open="${CSS.escape(day)}"]`); if (b) { b.scrollIntoView({block:'nearest'}); b.focus({preventScroll:true}); } },
     // 일기 화면(달력 쪽)에서 바뀐 행을 목록에도 반영한다(없던 날이면 다음 reload 때).

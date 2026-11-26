@@ -7,6 +7,7 @@
 // 저장하는 것 없음(최근 검색어 기억 안 함, 결정 7). 로그인이 바뀌면 메모리를 비운다.
 // FEAT-1029묶음 ① WORK ON+에 물어보기(docs/design/ask-web2.md 1절): 질문처럼 보이면 결과 맨 위 [WORK ON+에 물어보기 ↵] 줄, 누르거나 Enter면 답 상자.
 //   답 상자·최근 물어본 것도 이 모듈의 paint가 그린다(규칙은 ask-web2-model.mjs, 서버 호출은 global-search-data.js). AI는 누를 때만 부른다.
+import {compileFind, markParts} from './find-match-model.mjs';
 import {parseQuery, QUERY_MESSAGES, errorMessage, highlightParts, buildGroups, chipOptions, countLabel, GROUPS, groupOf, serverKindOf,
   groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent} from './global-search-model.mjs';
 import * as data from './global-search-data.js';
@@ -57,9 +58,14 @@ function icon(name, cls = 'gs-icon') {
   path.setAttribute('d', ICON[name] || ICON.search); svg.append(path); return svg;
 }
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+// S70-67 SEARCH-비슷한것찾기: 형광은 글자 그대로 맞은 낱말, 없으면 공용 판정의 맞은 부분(띄어쓰기·초성·오타). 낱말 묶음마다 한 번만 만든다.
+let markFind = null;
+const findFor = words => { const k = (words || []).join(' '); if (markFind?.text !== k) markFind = compileFind(k); return markFind; };
 function marked(text, words, cls) {
   const box = el('span', cls);
-  for (const part of highlightParts(text, words)) box.append(part.mark ? el('mark', 'gs-mark', part.text) : document.createTextNode(part.text));
+  // 글자 그대로 맞은 낱말이 있으면 지금처럼 낱말마다 형광, 없을 때만(띄어쓰기·초성·오타로 맞음) 공용 판정의 구간.
+  const exact = highlightParts(text, words);
+  for (const part of (exact.some(p => p.mark) ? exact : markParts(text, findFor(words)))) box.append(part.mark ? el('mark', 'gs-mark', part.text) : document.createTextNode(part.text));
   return box;
 }
 
@@ -467,7 +473,10 @@ async function openView(target) {
 }
 
 // ---------- 전용 화면(#searchView) ----------
-let view = null, viewInput = null, viewBody = null;
+// SEARCH-누른자리그대로(S71-07, 명진 11/26 13:51 "노트에서처럼 검색창 클릭하고 검색 화면에서 검색창 위치가 같아야 함"): 폰 틀(~760px)에는
+// 이 화면 안 검색 줄(← · 칸)이 없다. 칸은 앱 머리 줄 '전체 검색' 칸(#gsHeadInput) 하나이고, 홈에서 누른 그 칸이 같은 자리·같은 크기로 이 화면에서도
+// 입력 칸이다(결과·안내만 아래 #searchView 본문에). 뒤로는 기기 뒤로가기·Esc(빈 칸). PC 틀은 상단 줄 칸 하나 + 이 화면 제목 줄(← · '검색 결과').
+let view = null, viewBody = null;
 function installView() {
   if (view) return view;
   const app = document.querySelector('#appView'); if (!app) return null;
@@ -475,9 +484,8 @@ function installView() {
   const bar = el('div', 'gs-view-bar');
   const back = el('button', 'gs-back'); back.type = 'button'; back.setAttribute('aria-label', '검색 닫기'); back.append(el('span', null, '←')); back.firstChild.setAttribute('aria-hidden', 'true');
   back.addEventListener('click', () => { if (!router()?.back?.()) router()?.go?.('home', {source: 'delegated'}); });
-  viewInput = makeInput('gsViewInput', 'gs-view-input');
   const head = el('h2', 'gs-view-title', '검색 결과');
-  bar.append(back, viewInput.wrap, head);
+  bar.append(back, head);
   viewBody = el('div', 'gs-view-body');
   view.append(bar, viewBody);
   app.append(view);
@@ -491,7 +499,7 @@ function enterView() {
   else if (kind && kind !== state.kind && GROUPS.some(g => g.key === kind)) chooseKind(kind);
   syncAddress();
   paintAll();
-  if (!PC.matches) requestAnimationFrame(() => { viewInput.input.focus({preventScroll: true}); });
+  if (!PC.matches && headInput && document.activeElement !== headInput.input) requestAnimationFrame(() => { if (router()?.current === 'search') headInput.input.focus({preventScroll: true}); });
 }
 function showAll(key) {
   state.kind = key; state.kindRows = null;
@@ -532,7 +540,7 @@ function makeInput(id, cls) {
   const entry = {wrap, input};
   inputs.add(entry);
   input.addEventListener('input', () => {
-    if (scoped(input)) { scope.apply(input.value); scopeSent = input.value; paintAllLine(); return; }
+    if (scoped(input)) { entry.sent = input.value; scope.apply(input.value); return; }
     if (input === sfInput?.input) return;
     setText(input.value); if (input === slotInput?.input && router()?.current !== 'search') openPanel();
   });
@@ -541,7 +549,7 @@ function makeInput(id, cls) {
 }
 function syncInputs() { for (const {input} of inputs) if (!scoped(input) && input !== sfInput?.input && input.value !== state.text && document.activeElement !== input) input.value = state.text; }
 function hostFor(input) { return input === slotInput?.input && router()?.current !== 'search' ? panelBody : viewBody; }
-function inputFor(host) { return host === panelBody ? slotInput?.input : host === viewBody ? (PC.matches && slotInput ? slotInput.input : viewInput?.input) : null; }
+function inputFor(host) { return host === panelBody ? slotInput?.input : host === viewBody ? (PC.matches && slotInput ? slotInput.input : headInput?.input) : null; }
 function onKey(e, input) {
   const host = hostFor(input);
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -557,7 +565,9 @@ function onKey(e, input) {
   }
   if (e.key === 'Escape') {
     if (host === panelBody && panelOpen) { e.preventDefault(); e.stopPropagation(); void closePanel(); return; }
-    if (input.value) { e.preventDefault(); input.value = ''; setText(''); }
+    if (input.value) { e.preventDefault(); input.value = ''; setText(''); return; }
+    // 폰 틀 머리 줄 칸(S71-07): 빈 칸에서 Esc = 뒤로(전체 검색 화면을 닫고 이전 화면 — 기기 뒤로가기와 같음).
+    if (input === headInput?.input && router()?.current === 'search') { e.preventDefault(); input.blur(); if (!router()?.back?.()) router()?.go?.('home', {source: 'delegated'}); }
   }
 }
 
@@ -738,16 +748,14 @@ document.addEventListener('click', e => {
   e.preventDefault(); activate(option);
 });
 
-// ---------- 화면 찾기(UI-검색창하나로 S70-54, 설계 docs/design/one-search-bar.md) ----------
+// ---------- 화면 찾기(UI-검색창하나로 S70-54 → S70-57, 설계 docs/design/one-search-bar.md) ----------
+// 2026-11-26 명진: "전체 검색은 홈에만 있으면 됨 / 메뉴별 검색창은 그 메뉴에서 찾기로 통일 / 검색창은 하나로만".
 // 지금 화면에 등록된 찾기(screen-find.js)가 있으면 맨 위 칸(PC 상단 줄 #gsTopInput, 폰 틀 앱 머리 줄 #gsScreenInput)은 그 화면 찾기다:
 // 안내글은 그 화면 것('노트에서 찾기'), 치면 그 화면이 원래 쓰던 걸러 내기 함수(apply), Enter는 화면 몫(apply(q, {submit: true})).
-// 걸러진 목록 아래 끝에 한 줄 '전체에서 「…」 찾기 →'(그 화면이 정한 자리 spec.foot(), 그리기는 여기) = 같은 낱말로 전체 검색 화면.
-// 목록 위를 덮는 펼침 창은 쓰지 않는다(폰에서 아래 고르기·줄을 누르려다 그 줄을 누르지 않게). 전체 검색 글자와 섞지 않는다.
+// '전체 검색'은 홈(과 전체 검색 화면 자신)에서만이다. 찾기가 등록되지 않은 다른 화면(내 프로필·쓰는 법 등)은 맨 위 칸 자체가 없다(hidden).
 // 폰(600px 미만)은 머리 줄이 좁아 돋보기 하나 → 누르면 화면 이름 자리에 칸이 펼쳐진다(비운 채 머리 줄 밖을 누르거나 Esc면 다시 돋보기).
-let scope = null, scopeKeyNow = null, scopeSent = '', sfInput = null, sfOpen = null;
-const allLine = el('button', 'gs-all-line');
-allLine.type = 'button'; allLine.id = 'gsAllLine'; allLine.dataset.gsAll = ''; allLine.hidden = true;
-allLine.addEventListener('click', () => void goAll(scopeSent));
+let scope = null, scopeKeyNow = null, sfInput = null, sfOpen = null;
+const ALL_VIEWS = new Set(['home', 'search']);
 function scoped(input) { return !!scope && !!input && (input === slotInput?.input || input === sfInput?.input); }
 const shellHead = () => sfInput?.wrap.closest('.mobile-shell-header');
 function mountScreenFind() {
@@ -761,9 +769,12 @@ function mountScreenFind() {
 function openPhoneFind() { shellHead()?.classList.add('sf-open'); sfInput?.input.focus({preventScroll: true}); }
 function closePhoneFind() { shellHead()?.classList.remove('sf-open'); }
 function syncScope(next) {
-  scope = router()?.current === 'search' ? null : next;
+  const current = router()?.current;
+  scope = current === 'search' ? null : next;
   const key = scope?.key || null, moved = key !== scopeKeyNow;
   const label = scope ? scope.label : '전체 검색';
+  // 맨 위 칸이 아무 찾기도 아닌 화면(홈·전체 검색 밖이면서 화면 찾기 없음)은 칸을 두지 않는다.
+  if (slotInput) slotInput.wrap.hidden = !scope && !ALL_VIEWS.has(current || 'home');
   for (const entry of [slotInput, sfInput]) {
     if (!entry) continue;
     const {input, wrap} = entry;
@@ -773,40 +784,21 @@ function syncScope(next) {
     if (scope) input.removeAttribute('aria-controls'); else if (entry === slotInput) input.setAttribute('aria-controls', 'gsList-panel');
     // 화면이 스스로 찾기 글자를 바꿨으면(다른 화면이 걸러 열기·로그인 바뀜 등) 칸에 커서가 있어도 맞춘다.
     const want = scope ? String(scope.value() ?? '') : entry === sfInput ? '' : state.text;
-    if (moved || document.activeElement !== input || (scope && input.value !== want && input.value === scopeSent)) input.value = want;
+    if (moved || document.activeElement !== input || (scope && input.value !== want && input.value === entry.sent)) input.value = want;
+    entry.sent = scope ? want : '';
   }
   if (sfOpen) sfOpen.setAttribute('aria-label', label);
   if (scope && panelOpen) void closePanel();
   if (moved) shellHead()?.classList.toggle('sf-open', !!scope && !!sfInput?.input.value);
-  scopeKeyNow = key; scopeSent = scope ? String(scope.value() ?? '') : '';
-  paintAllLine();
-}
-// '전체에서 「…」 찾기 →' 한 줄: 화면이 정한 자리(목록 아래 끝)에 붙인다. 화면이 목록을 다시 그려 떨어졌으면 다음 맞출 때 다시 붙인다.
-function paintAllLine() {
-  const q = scopeSent.trim();
-  const spot = q && scope?.foot ? scope.foot() : null;
-  if (!spot) { allLine.hidden = true; return; }
-  allLine.textContent = `전체에서 「${q}」 찾기 →`;
-  if (allLine.parentElement !== spot || allLine !== spot.lastElementChild) spot.append(allLine);
-  allLine.hidden = false;
+  scopeKeyNow = key;
 }
 function scopeKey(e, input) {
   if (e.isComposing) return;
-  if (e.key === 'Enter') { e.preventDefault(); scope.apply(input.value, {submit: true}); paintAllLine(); return; }
+  if (e.key === 'Enter') { e.preventDefault(); scope.apply(input.value, {submit: true}); return; }
   if (e.key === 'Escape') {
-    if (input.value) { e.preventDefault(); input.value = ''; scope.apply(''); scopeSent = ''; paintAllLine(); return; }
+    if (input.value) { e.preventDefault(); input.value = ''; scope.apply(''); return; }
     if (input === sfInput?.input) { input.blur(); closePhoneFind(); }
   }
-}
-// '전체에서 「…」 찾기': 지금 전체 검색 화면(?view=search&q=…)으로. 화면 찾기 글자는 그 화면에 그대로 남는다.
-async function goAll(raw) {
-  const q = String(raw ?? '').trim();
-  if (!q) return;
-  state.kind = 'all';
-  await window.KPTUViewLoader?.load?.('search');
-  const u = new URL(location.href); u.searchParams.set('q', q); u.searchParams.delete('kind');
-  history.replaceState(history.state, '', u.pathname + u.search + u.hash);
-  router()?.go?.('search', {source: 'delegated'});
 }
 document.addEventListener('pointerdown', e => {
   // 폰: 비운 칸은 머리 줄 밖을 누르면 다시 돋보기(포커스가 저절로 옮겨 가는 것으로는 접지 않는다 — 화면이 다시 그리며 커서를 옮겨도 칸은 그대로).
@@ -821,23 +813,32 @@ function focusScreenFind() {
   return true;
 }
 
-// ---------- 폰 메뉴 창 맨 위 검색칸(입구) ----------
-// FOLD-넓은화면 A(S57-21): 입구 자리는 둘이다 — 폰 메뉴 창 맨 위, 그리고 폴드 펼침(600~760px, 폰 틀)의 앱 머리 한 줄(제목 오른쪽, topbar-actions.css).
-// 둘 다 같은 버튼·같은 길(화면 전체 검색)이다. 머리 한 줄의 입구는 그 폭에서만 보인다(접은 폰은 메뉴 창, PC 틀은 상단 줄 검색칸).
+// ---------- 폰 틀 머리 줄 '전체 검색' 칸 ----------
+// S70-57(명진 11/26 "전체 검색은 홈에만"): 칸은 폰 틀(~760px) 앱 머리 줄 하나이고 홈과 전체 검색 화면에서만 보인다(topbar-actions.css). PC 틀은 상단 줄 검색칸.
+// S71-07 SEARCH-누른자리그대로: 누르는 단추가 아니라 처음부터 입력 칸이다. 홈에서 누르면(포커스) 그 칸 그대로 전체 검색 화면으로 가고(결과·안내는 아래),
+// 칸은 자리·크기가 바뀌지 않는다(노트 '노트에서 찾기'와 같은 머리 줄 칸 — 같은 makeInput 부품). 홈으로 돌아오면 칸은 비운 원래 상태.
+let headInput = null;
 function mountMenuEntry() {
-  for (const host of document.querySelectorAll('[data-search-entry]')) {
-    if (host.childElementCount) continue;
-    const button = el('button', 'gs-menu-entry'); button.type = 'button'; button.setAttribute('aria-label', '전체 검색 열기');
-    button.append(icon('search', 'gs-field-icon'), el('span', null, '전체 검색'));
-    // topbar-actions.js가 메뉴 판을 먼저 닫고 이 버튼을 다시 누른다(메뉴 판 규칙).
-    button.addEventListener('click', async () => {
-      if (window.KPTUMobileMenu?.isOpen?.()) return;
-      await window.KPTUViewLoader?.load?.('search');
-      router()?.go?.('search', {source: 'delegated'});
-    });
-    host.append(button);
-  }
+  const host = document.querySelector('[data-search-entry]');
+  if (!host || headInput) return;
+  headInput = makeInput('gsHeadInput', 'gs-menu-entry');
+  headInput.input.setAttribute('aria-controls', 'gsList-view');
+  headInput.input.addEventListener('focus', () => { if (!PC.matches && router()?.current !== 'search') void openSearchView(); });
+  host.append(headInput.wrap);
 }
+async function openSearchView() {
+  await window.KPTUViewLoader?.load?.('search');
+  if (router()?.current !== 'search') router()?.go?.('search', {source: 'delegated'});
+}
+// 전체 검색 화면에서 다른 화면(뒤로가기로 홈 등)으로 가면 머리 줄 칸은 처음 상태(빈 칸·커서 없음)로 돌아간다. PC 틀은 상단 줄 칸이 화면을 넘어 이어지므로 그대로.
+let lastView = null;
+window.addEventListener('kptu:view-changed', e => {
+  const next = e.detail?.view || null, was = lastView; lastView = next;
+  if (was !== 'search' || next === 'search' || PC.matches || !headInput) return;
+  if (document.activeElement === headInput.input) headInput.input.blur();
+  if (state.text) setText('');
+  headInput.input.value = '';
+});
 
 window.addEventListener('kptu:session-changed', () => { seq++; askSeq++; recentSeq++; askSources.clear(); clearTimeout(timer); state = fresh(); kindServer = []; rowsByKey.clear(); for (const {input} of inputs) input.value = ''; void closePanel(); paintAll(); });
 

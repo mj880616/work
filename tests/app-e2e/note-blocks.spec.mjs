@@ -38,9 +38,14 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
     test.use({viewport, hasTouch: touch, isMobile: touch});
     const press = l => (touch ? l.tap() : l.click());
     // Shows the handle beside a block: a mouse hovers it, a phone puts the cursor in it.
+    // S71-11: 블록 편집이 켜져 있으면 손잡이는 처음부터 커서 자리(첫 문단) 옆에 보인다. 폰은 누른 뒤 편집기가 커서를 옮겨야
+    // (selectionchange — 브라우저가 조금 뒤에 알림) 손잡이가 그 블록으로 간다. 그래서 '보인다'가 아니라 '그 블록 옆에 섰다'
+    // (손잡이의 data-ed-block = 그 블록의 맨 위 순번)를 기다린다. 아니면 첫 문단을 끌어 제자리에 놓아 순서가 그대로다.
     const reach = async (page, block) => {
       if (touch) await block.tap(); else { await block.click(); await block.hover(); }
       await expect(page.locator('.ed-grip')).toBeVisible();
+      const index = await block.evaluate(el => { while (el.parentElement && !el.parentElement.classList.contains('ed-input')) el = el.parentElement; return [...el.parentElement.children].indexOf(el); });
+      await expect(page.locator('.ed-grip')).toHaveAttribute('data-ed-block', String(index));
     };
 
     test('끈 상태가 기본: 손잡이 없음 · [블록]으로 켜면 손잡이 보임 · 끄면 사라짐', async ({page}) => {

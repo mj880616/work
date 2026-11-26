@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // LIB-외줄합치기없애기(명진 2026-11-26 08:43 '합치기를 없애기'): 파일 없이 하위 폴더 하나만 든 폴더도 '가 › 나'로 접지 않는다.
 // 어디서나(PC 한 칸 탐색기 왼쪽·오른쪽, PC 두 칸, 폰) '07. 사업 · 폴더 1'(그 폴더 자신의 개수)로 보이고, 누르면 안에 '2026 사업'이 나온다. 이름은 지어낸 것.
 const FOLDERS=[
@@ -46,7 +47,7 @@ test('PC 1280 한 칸 탐색기: 왼쪽·오른쪽 모두 "07. 사업 · 폴더 
   await page.locator(head('f:s1')).click();
   await expect(page.locator('#documentList details[data-lu-node="f:s1"]')).not.toHaveAttribute('open','');
   // 왼쪽 나무로 들어가기도 그대로: 오른쪽에 '2026 사업' 한 줄.
-  await page.locator('#libraryFolderNav [data-lu-nav="s1"]').click();
+  await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="s1"]'));
   await expect(page.locator('#libraryPath')).toContainText('07. 사업');
   await plainRow(page,'f:s2','2026 사업','폴더 3');
   await noChainLeft(page);

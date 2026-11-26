@@ -1,14 +1,18 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-// MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정): 조직 보고 맨 위 [+ 담당조직](이름·종류 두 칸)과 조직 줄 ⋯
-// [이름 바꾸기]·[쟁의 단계]·[담당 조직에서 제외]/[담당 조직으로 추가]·[삭제]. 두 계정: 막 가입한 다른 담당자(?orgs=none)와 명진(?orgs=order).
+// MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정): 조직 보고 맨 위 [+ 담당조직](이름·종류 두 칸)과 그 조직 메뉴
+// [이름 바꾸기]·[담당 조직에서 제외]/[담당 조직으로 추가]·[삭제]. ORG-목록줄메뉴없음(S71-08): 메뉴는 목록 줄 ⋯가 아니라 줄을 눌러 연 상세 맨 위 ⋯. 두 계정: 막 가입한 다른 담당자(?orgs=none)와 명진(?orgs=order).
 // 값은 화면 기억 org_order 하나(window.__orgOrderPrefs 대역), 서버는 가짜(저장 요청만 확인). 이름은 모두 합성 값.
 const base=`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html`;
 const SHOTS=process.env.S61_39_SHOTS; // 화면 사진: docs/design/screens/s61-39/
 const menuLabels=page=>page.locator('#soTeamMenu button').allTextContents().then(xs=>xs.map(x=>x.trim()));
 const rowOf=(page,name)=>page.locator('#soOrganizationList .so-row').filter({has:page.locator('.kptu-list-name',{hasText:new RegExp(`^${name.replace(/[()]/g,'\\$&')}$`)})});
 async function openRowMenu(page,name){
-  const row=rowOf(page,name);await row.hover();await row.locator('[data-so-row-more]').click();
+  // 폰은 상세가 목록을 덮는 창이라, 이미 그 조직 상세가 열려 있으면 그대로 그 ⋯를 누른다(이름을 바꾼 뒤 제목도 새 이름).
+  const shown=await page.locator('#wdModal').isVisible()&&(await page.locator('#wdTitle').textContent())===name;
+  if(!shown)await rowOf(page,name).locator('[data-so-org]').click();
+  await expect(page.locator('#wdTitle')).toHaveText(name);
+  const more=page.locator('#wdOrgMore');await expect(more).toBeVisible();await more.click();
   const menu=page.locator('#soTeamMenu');await expect(menu).toBeVisible();return menu;
 }
 
@@ -31,7 +35,7 @@ for(const width of [412,760,1280])test(`새 담당자: [+ 담당조직]으로 �
   await expect(rowOf(page,'가상병원지부')).toHaveCount(1);await expect(page.locator('.so-group-heading')).toHaveCount(0);
   // 이름 바꾸기: 같은 창, 제목만 다르고 이름이 채워져 있음. 다른 이름·설명은 보내지 않는다.
   let menu=await openRowMenu(page,'가상병원지부');
-  expect(await menuLabels(page)).toEqual(['이름 바꾸기','쟁의 단계','담당 조직에서 제외','삭제']);
+  expect(await menuLabels(page)).toEqual(['이름 바꾸기','담당 조직에서 제외','삭제']);
   if(SHOTS)await page.screenshot({path:`${SHOTS}/row-menu-${width}.png`});
   await menu.getByRole('button',{name:'이름 바꾸기'}).click();
   await expect(page.locator('#soEditHeading')).toHaveText('이름 바꾸기');await expect(page.locator('#soEditName')).toHaveValue('가상병원지부');
@@ -46,7 +50,7 @@ for(const width of [412,760,1280])test(`새 담당자: [+ 담당조직]으로 �
   expect(await page.evaluate(()=>window.__orgOrderPrefs.org_order)).toEqual({groups:[],hidden:['가상의료지부']});
   if(SHOTS)await page.screenshot({path:`${SHOTS}/excluded-${width}.png`});
   menu=await openRowMenu(page,'가상의료지부');
-  expect(await menuLabels(page)).toEqual(['이름 바꾸기','쟁의 단계','담당 조직으로 추가','삭제']);
+  expect(await menuLabels(page)).toEqual(['이름 바꾸기','담당 조직으로 추가','삭제']);
   await menu.getByRole('button',{name:'담당 조직으로 추가'}).click();
   await expect(page.locator('.so-excluded-group')).toHaveCount(0);
   expect(await page.evaluate(()=>window.__orgOrderPrefs.org_order)).toEqual({groups:[],hidden:[]});

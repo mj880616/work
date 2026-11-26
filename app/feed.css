@@ -182,7 +182,8 @@
 /* CALL-목록상세정리: 폰에서 '‹ 통화'·'‹ 업무 통화'·'‹ 소식'이 보일 때는 맨 위 화면 이름('통화')을 감춰 한 줄만 남긴다(바구니 상세와 같은 방식, ui-standard.css). */
 @media(max-width:760px){
   html:has(#callsView:not(.hidden) :is([data-cf-back],[data-cf-box="work"])) #appView > .mobile-shell-header,
-  html:has(#telegramView:not(.hidden) :is([data-tg-back],[data-tg-shelf-back])) #appView > .mobile-shell-header{ display:none; }
+  html:has(#telegramView:not(.hidden) :is([data-tg-back]:not([data-tg-roomback]),[data-tg-shelf-back])) #appView > .mobile-shell-header{ display:none; }
+  /* S70-57: 방 상세(‹ 소식에 data-tg-roomback)는 머리 줄을 남긴다 — 그 줄의 맨 위 칸이 '텔레그램 소식에서 찾기'(그 방 찾기)다. */
   /* UI-화면정리 C(B① 위쪽 빈 띠): 이름을 감춘 머리줄이 빈 채로 남고 그 아래에 '‹ 통화'·'‹ 소식' 줄이 따로 있어 위쪽 70~80px이 비었다.
      UI-머리줄겹침(2026-10-30): 빈 위 머리줄을 위에서 접고(display:none), '‹' 줄은 음수 여백 없이 제자리에서 첫 줄이 된다(위에 다른 칸이 있으면 그 아래). */
   #appView .feed-view .feed-pane > .feed-detail-head:first-child,
@@ -274,12 +275,9 @@
 #telegramView .feed-vsw{margin-right:4px}
 #telegramView .feed-rday + .feed-rday{margin-top:6px;border-top:var(--ds-line-width) solid var(--kptu-border)}
 #telegramView .feed-rday-head{margin:0;font-weight:var(--ds-weight-medium,500)}
-/* S67-45 TG-방상세요약먼저: 방 상세는 날마다 요약만, 상자 오른쪽 위 작은 [소식 n]·[원문 n]으로 그날 소식 줄·원문을 펼친다. 위쪽 작은 찾기 칸과 찾은 소식 줄. */
+/* S67-45 TG-방상세요약먼저: 방 상세는 날마다 요약만, 상자 오른쪽 위 작은 [소식 n]·[원문 n]으로 그날 소식 줄·원문을 펼친다. 위쪽 찾은 소식 줄(찾을 글자는 맨 위 칸, S70-57). */
 #telegramView .feed-rexp{color:var(--kptu-link);font-size:var(--ds-text-meta);white-space:nowrap}
 #telegramView .feed-rexp[aria-expanded="true"]{color:var(--kptu-ink);font-weight:var(--ds-weight-medium)}
-#telegramView .feed-find{display:flex;align-items:center;gap:6px;margin:2px 0 4px}
-#telegramView .feed-find-input{flex:1 1 auto;min-width:0;height:var(--ds-compact-height);margin:0;padding:0 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);box-sizing:border-box}
-#telegramView .feed-find-go,#telegramView .feed-find-x{flex:none}
 #telegramView .feed-found{margin:0 0 6px;padding-bottom:2px;box-shadow:inset 0 -1px 0 var(--kptu-border)}
 #telegramView .feed-found-n{margin:2px 0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
 #telegramView .feed-found-row{display:flex;align-items:baseline;gap:8px;width:100%;padding:6px 4px;color:var(--kptu-ink);font-size:var(--ds-text-row);text-align:left;box-shadow:inset 0 1px 0 var(--kptu-border)}

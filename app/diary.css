@@ -242,20 +242,16 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView :is(#diaryView,#photosView) .diary-od-keep{ display:flex; align-items:center; gap:4px; margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView :is(#diaryView,#photosView) .diary-od-keep-clear{ min-height:var(--kptu-touch-target,44px); margin:0; padding:0 4px; color:var(--kptu-primary-ink); background:transparent; border:0; box-shadow:none; font:inherit; text-decoration:underline; }
 
-/* JOURNAL-일기목록: 위 줄 [달력|목록] … [전체|★] 🔍 [+ 일기]. 두 묶음 버튼은 사진 [전체|별표]와 같은 .diary-source 모양을 그대로 쓴다. */
+/* JOURNAL-일기목록: 위 줄 [달력|목록] … [전체|★] [+ 일기](찾기는 맨 위 칸 '하루 기록에서 찾기', S70-57). 두 묶음 버튼은 사진 [전체|별표]와 같은 .diary-source 모양을 그대로 쓴다. */
 #appView #diaryView .diary-head{ flex-wrap:wrap; justify-content:flex-start; }
 #appView #diaryView .diary-head > [data-diary-new]{ margin-left:auto; }
 #appView #diaryView .diary-head .diary-source{ align-self:center; }
 #appView #diaryView .diary-lv-tools{ display:flex; align-items:center; gap:6px; }
 #appView #diaryView .diary-lv-tools[hidden], #appView #diaryView .diary-month[hidden]{ display:none; }
-#appView #diaryView .diary-lv-find[aria-pressed="true"]{ background:var(--ds-kind-other-soft); color:var(--ds-kind-other-ink); }
 
 /* 목록: 작고 촘촘하게. 달 머리줄 '2026년 10월 · 9', 줄은 40px 그림 + 날짜·제목 + 본문 첫 줄 + ☆ ⋯. */
 #appView #diaryView .diary-all{ display:flex; flex-direction:column; gap:6px; }
 #appView #diaryView .diary-all[hidden]{ display:none; }
-#appView #diaryView .diary-lv-search{ display:flex; align-items:center; gap:6px; }
-#appView #diaryView .diary-lv-search[hidden]{ display:none; }
-#appView #diaryView .diary-lv-search input{ flex:1 1 auto; min-width:0; height:var(--ds-compact-height); padding:0 8px; font:inherit; font-size:var(--ds-compact-text); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
 #appView #diaryView .diary-lv-note{ margin:0; color:var(--kptu-muted); font-size:var(--ds-compact-text); }
 #appView #diaryView .diary-lv-note:empty{ display:none; }
 #appView #diaryView .diary-lv-body{ display:flex; flex-direction:column; gap:4px; }

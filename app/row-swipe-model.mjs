@@ -3,7 +3,7 @@
 // 화면 왼쪽 가장자리 24px 안에서 시작한 밀기는 무시한다(뒤로가기 손동작과 겹침 방지. 오른쪽 끝은 막지 않음 — S68-53). 버튼 한 칸은 64px.
 // UI-줄밀기 Raindrop식(S68-26, 명진 11/22 21:31 "좌우 스와이프. 이것도 곳곳에 따라해"):
 // - 왼쪽으로 밀기(end) = 오른쪽 끝에 단추 여러 칸(최대 3). 왼쪽부터 덜 위험한 것 → 맨 오른쪽 위험한 것(삭제). 칸은 줄 높이만큼 꽉 찬다.
-// - 오른쪽으로 밀기(start) = 그 줄이 골라진 채로 '여러 개 고르기'(S70-64, 칸을 열어 두지 않음).
+// - 오른쪽으로 밀기(start) = 그 줄이 골라진 채로 '여러 개 고르기'(S70-64 W3: 칸을 열어 두지 않고 바로 고르기 — 아래 startPick).
 // - 밀고 떼면(첫 칸 폭의 절반 이상) 칸만 보이고 멈춘다. 얼마나 멀리 밀든(끝까지 밀어도) 어떤 칸도 바로 실행하지 않는다 — 일은 펼쳐진 칸을 눌렀을 때만.
 //   UI-스와이프메뉴만(S70-60, 명진 11/26 07:29 "왼쪽으로 스와이프를 끝까지 한다고 해서 숨겨지면 안 돼 … 메뉴가 펼쳐지고 … 그 메뉴를 눌렀을 때 돼야 돼"):
 //   전의 '끝까지 쭉 밀면 맨 끝 칸 바로 실행(full swipe, 삭제 칸만 예외)'을 없앴다. 칸이 여러 개라 끝까지 밀기 실행은 오작동이 잦았다.
@@ -50,16 +50,16 @@ export function rowOffset(dx, open = 0, has = {start:true, end:true}, rowWidth =
   const x = (Number(open) || 0) + (Number(dx) || 0), max = Math.max(SWIPE_BTN, Number(rowWidth) || 0);
   return Math.max(count(has.end) ? -max : 0, Math.min(count(has.start) ? max : 0, x)) + 0;
 }
-// 손을 뗀 자리 → {side:'start'|'end'|'', pick?}: 그쪽 칸을 열어 둘지(''이면 닫음). 바로 실행은 없다(S70-60) — 칸은 누를 때만 실행된다.
-// pick:true는 오른쪽 밀기 고르기 시작(S70-64)뿐이다.
+// 손을 뗀 자리 → {side:'start'|'end'|''}: 그쪽 칸을 열어 둘지(''이면 닫음). 바로 실행은 없다(S70-60) — 칸은 누를 때만 실행된다.
 // from: 손을 대기 전 줄 자리(열려 있던 줄이면 그 칸 폭만큼). 열린 줄을 닫는 쪽으로 반 칸(32px) 넘게 밀면 닫는다(S68-50) —
 // 전에는 칸 3개(192px)가 열린 줄을 닫으려면 160px 넘게 되밀어야 해서, 짧게 밀면 다시 열린 채로 남았다.
 export function rowSettle(offset, has = {start:true, end:true}, rowWidth = 360, from = 0) {
   const x = Number(offset) || 0, s = count(has.start), e = count(has.end), was = Number(from) || 0, half = SWIPE_BTN / 2;
+  // 고르기(startPick, S70-64 W3): 반 칸 넘게 오른쪽으로 밀면 칸을 열지 않고 바로 고른다(pick). 열린 왼쪽 칸을 닫는 되밀기는 닫기가 먼저.
+  // 고르기는 데이터 일을 하지 않으므로 S70-60(밀기로는 일을 바로 하지 않음)과 겹치지 않는다.
+  if (s && has.startPick && x >= half && !(was < 0 && x < half)) return {side:'start', pick:true};
   if (was < 0 && x >= was + half && x < half) return {side:''};
   if (was > 0 && x <= was - half && x > -half) return {side:''};
-  // 고르기(startPick, S70-64): 오른쪽으로 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 그 줄을 고른다({pick:true}) — 고르기 시작일 뿐 목록의 일은 하지 않는다.
-  if (s && has.startPick && x >= half) return {side:'start', pick:true};
   if (s && x >= half) return {side:'start'};
   if (e && x <= -half) return {side:'end'};
   return {side:''};

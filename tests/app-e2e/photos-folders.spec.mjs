@@ -4,6 +4,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
 import { folderSheet, sheetRow, sheetGo, pickInSheet } from './helpers/folder-sheet.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더](원드라이브 폴더 나무·폴더 안 사진·여러 장 옮기기·끌어 놓기·되돌리기·우클릭/⋯ 메뉴·새 폴더)와
 // [앨범](#태그: 새 앨범에 넣기·앨범 카드·앨범 사진·앨범에서 빼기). 지어낸 Supabase: onedrive-photos(Edge)·app_photo_tags·app_photo_tag_items·app_diary_stars.
 // 폭: 폰 412(한 화면씩)·폴드 펼침 884(한 화면씩)·PC 1440(왼쪽 나무 + 오른쪽 격자).
@@ -109,10 +110,10 @@ for (const width of [412, 884, 1440]) {
       await tree.locator('[data-photos-fx-tog="S2"]').click();
       await expect(tree.locator('.ft-name')).toHaveText(['카메라', '2026', '여행', '제주']);
       // S69-38 UI-탐색기나무누르기: 이름 누르기 = 그 폴더 열기 + 펼침(하위 폴더가 있는 여행도), 오른쪽에 하위 폴더 줄(제주). 우클릭 [이 폴더로 들어가기]도 같은 곳.
-      await tree.locator('[data-photos-fx-open="S2"]').click();
+      await treeEnter(tree.locator('[data-photos-fx-open="S2"]'));
       await expect(tree.locator('[data-photos-folder="S2"]')).toHaveClass(/ft-current/);
       await expect(root(page).locator('.photos-fx-pane [data-photos-fx-open="S21"]')).toBeVisible();
-      await tree.locator('[data-photos-fx-open="S1"]').click();
+      await treeEnter(tree.locator('[data-photos-fx-open="S1"]'));
       await expect(tree.locator('[data-photos-folder="S1"]')).toHaveClass(/ft-current/);
       await path(page).locator('[data-photos-fx-at]').first().click();
       await expect(tree.locator('[data-photos-folder="S1"]')).not.toHaveClass(/ft-current/);
@@ -234,7 +235,7 @@ test('사진 [폴더] PC 1280: 사진 옮긴 뒤 Ctrl+Z → 원래 폴더로, �
   await openPhotos(page);
   await root(page).locator('[data-photos-view]').selectOption('folders');
   const tree = root(page).locator('[data-photos-fx-tree]');
-  await tree.locator('[data-photos-fx-open="S1"]').click();
+  await treeEnter(tree.locator('[data-photos-fx-open="S1"]'));
   await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
   await items(page).nth(2).click({ button: 'right' });
   await page.locator('#photosPhotoMenu').locator('button', { hasText: '선택' }).click();
