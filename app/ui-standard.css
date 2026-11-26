@@ -745,12 +745,6 @@
 
 /* ③ 전환·필터 한 줄: 바구니 [업데이트 | 노트] 오른쪽에 [미분류·분류·보류](넘치면 다음 줄). 목록이 숨으면(노트·읽기·분류 창) 필터도 숨는다. */
 #appView #basketView .basket-filters[hidden]{ display:none; }
-/* UI-바구니거르기: [분류]를 고르면 바로 아래 한 줄에 분류된 곳 칩 [전체·담당조직·프로젝트·자료실·할 일](공용 filter-chips.js, 자료실·회의와 같은 알약).
-   넘치면 두 줄 + [더보기](UI-칩줄두줄). 목록이 숨으면(노트·읽기·분류 창) 함께 숨는다. */
-#appView #basketView > .basket-place-filter:not([hidden]){ width:auto; max-width:100%; margin:-8px 0 4px; background:transparent; border-radius:0; }
-#appView #basketView:has(> [data-basket-list][hidden]) > .basket-place-filter{ display:none; }
-/* UI-바구니거르기2: 그 아래 한 줄 더 — [담당조직]·[프로젝트]는 이름 칩, [자료실]은 분류 7개 칩. 같은 알약·두 줄 + [더보기]. 위 줄과 붙인다. */
-#appView #basketView > .basket-place-filter.basket-sub-filter:not([hidden]){ margin-top:-4px; }
 #appView #basketView .basket-chip[data-chip-kind="task"] .basket-chip-dot{ background:var(--ds-kind-task-ink); }
 /* 자료실: 검색칸 아래 거르기 줄(프로젝트·세부·종류)은 한 줄에 하나씩 차례로 쌓는다(UI-PC자료실 거르기 줄, library-upload.css). */
 #appView #libraryView .library-filter-toolbar{ gap:0 12px; }
@@ -958,19 +952,16 @@
 }
 
 /* UI-PC바구니첨부버튼(2026-10-20): 첨부는 알아보기 쉬운 버튼 [📎 첨부](공용 버튼 ③ 흰 바탕 + 0.5px 테두리, 높이 --ds-control-height).
-   PC 홈·바구니 빠른 입력에서는 입력칸 밖 [추가] 바로 왼쪽(home-quick.js가 자리를 옮긴다). 수정 화면은 아래 UI-업데이트편집한줄 버튼 줄.
-   폰 빠른 입력은 지금처럼 입력칸 안 왼쪽 아이콘(글자 숨김). */
-#appView #basketView .basket-edit-actions [data-basket-file-picker],
-#appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker]{ position:relative; top:auto; left:auto; width:auto; height:auto; flex:0 0 auto; }
-#appView #basketView .basket-edit-actions .basket-clip,
-#appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker] .basket-clip{
+   (NOTE-입력줄높이 S71-67, 2026-11-26 사용자 결정: 빠른 입력 줄의 첨부는 PC에서도 입력칸 안 왼쪽 클립 — 아래 'NOTE-입력줄높이'. 이 규칙은 수정 화면 버튼 줄만.)
+   빠른 입력은 폰·PC 모두 입력칸 안 왼쪽 아이콘(글자 숨김). */
+#appView #basketView .basket-edit-actions [data-basket-file-picker]{ position:relative; top:auto; left:auto; width:auto; height:auto; flex:0 0 auto; }
+#appView #basketView .basket-edit-actions .basket-clip{
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px; width:auto; min-width:var(--kptu-touch-target,44px);
   height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:0 var(--ds-control-pad-x);
   font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; white-space:nowrap;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none;
 }
-#appView #basketView .basket-edit-actions .basket-clip:hover,
-#appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker] .basket-clip:hover{ background:var(--kptu-primary-soft); }
+#appView #basketView .basket-edit-actions .basket-clip:hover{ background:var(--kptu-primary-soft); }
 #appView :is(#homeView,#basketView) .basket-clip .basket-clip-icon{ flex:0 0 auto; color:var(--kptu-link); }
 #appView :is(#homeView,#basketView) .basket-clip .basket-clip-count{ top:-6px; right:-6px; }
 #appView :is(#homeView,#basketView) .home-quick-input-wrap .basket-clip .basket-clip-label{ display:none; }
@@ -1074,8 +1065,7 @@ body:has(.basket-photo-view) > :is(.kptu-ask,.kptu-notice,.kptu-undo-notice,.toa
    일정 머리줄([+ 일정 등록]·화살표)은 이번에 제외(다른 작업과 겹침). 바구니 업데이트 입력칸(여러 줄 72px)과 일지 입력칸(2줄)은 높이 그대로. */
 @media(min-width:761px){
   #appView #homeView .journal-line-row button[data-journal-save],
-  #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save,
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* 한 줄 입력칸: 글줄 21px + 위 7px·아래 6px + 테두리(화면에 1px씩) = 36px. 홈은 길게 쓰면 지금처럼 늘어나고 5줄에서 멈춘다(home-quick.js). */
   #appView :is(#homeView,#tasksView) .home-quick[data-home-quick] [data-quick-input]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:7px; padding-bottom:6px; }
   #appView :is(#homeView,#basketView) .home-quick .home-quick-big,#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
@@ -1086,7 +1076,6 @@ body:has(.basket-photo-view) > :is(.kptu-ask,.kptu-notice,.kptu-undo-notice,.toa
   #appView #pagesView .sp-root button.secondary:not(.icon-btn){ position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); }
   #appView #pagesView .sp-root :is(button.primary,button.secondary):not(.icon-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
   #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save::after,
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip::after,
   #appView :is(#homeView,#basketView) .home-quick .home-quick-big::after,#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
 }
 
@@ -1194,15 +1183,7 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 }
 
 /* TASK-추가창파일(2026-10-22): [할 일] 화면 입력칸과 홈 [할 일] 모드에도 바구니와 같은 클립(첨부)이 생긴다(할 일 첨부 표가 답할 때만).
-   폰은 입력칸 안 왼쪽 아이콘(글자는 그 오른쪽부터), PC(761px~)는 입력칸 밖 [추가] 바로 왼쪽 [📎 첨부] 버튼 — 바구니와 같은 모양. */
-#appView #tasksView .home-quick .home-quick-entry > [data-quick-file-picker]{ position:relative; top:auto; left:auto; width:auto; height:auto; flex:0 0 auto; }
-#appView #tasksView .home-quick .home-quick-entry > [data-quick-file-picker] .basket-clip{
-  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px; width:auto; min-width:var(--kptu-touch-target,44px);
-  height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:0 var(--ds-control-pad-x);
-  font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; white-space:nowrap;
-  color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none;
-}
-#appView #tasksView .home-quick .home-quick-entry > [data-quick-file-picker] .basket-clip:hover{ background:var(--kptu-primary-soft); }
+   폰·PC 모두 입력칸 안 왼쪽 아이콘(글자는 그 오른쪽부터) — NOTE-입력줄높이(S71-67). */
 #appView #tasksView .basket-clip .basket-clip-icon{ flex:0 0 auto; color:var(--kptu-link); }
 #appView #tasksView .basket-clip .basket-clip-count{ top:-6px; right:-6px; }
 #appView #tasksView .home-quick-input-wrap [data-quick-file-picker]{ position:absolute; top:1px; left:1px; z-index:1; }
@@ -1210,13 +1191,9 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 #appView #tasksView .home-quick-input-wrap .basket-clip .basket-clip-count{ top:2px; right:0; }
 /* UI-입력칸첨부간격(2026-10-30): 폰(~760px)에서 클립이 입력칸 안 왼쪽에 있을 때 글자 시작 자리는 이 한 규칙이 정한다(홈 업데이트·할 일,
    정리함 업데이트, 노트, [할 일] 화면 모두). 클립 칸(왼쪽 1px + 44px) 오른쪽 끝에서 8px 띄운다. 전에는 화면·모드마다 44px·46px이라 글자가 클립 칸에 붙었다.
-   PC(761px~)는 클립이 입력칸 밖([추가] 왼쪽)이라 이 규칙이 닿지 않는다(home-quick.js가 자리를 옮김). */
+   PC(761px~)도 같다(NOTE-입력줄높이 S71-67: 클립은 늘 입력칸 안). */
 #appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-input-wrap:has(> [data-quick-file-picker]:not([hidden])) [data-quick-input]{ padding-left:calc(1px + var(--kptu-touch-target,44px) + 8px); }
 #appView #tasksView .home-quick [data-quick-basket-options]{ min-width:0; }
-@media(min-width:761px){
-  #appView #tasksView .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip{ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
-  #appView #tasksView .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-}
 /* UI-버튼기준(2026-10-22 사용자 결정): 안내·상태 줄 안의 보조 버튼은 글자 버튼. 일정 '최신 아님 · 마지막 확인 HH:MM [다시 시도]' 줄이 위
    화면별 기본 버튼 규칙(높이 46px·테두리)을 그대로 받아 안내 글자보다 커 보였다. 안내 글자 옆 작은 글자 버튼(보이는 높이 --ds-compact-height-sm 28px·
    12px·테두리 없음)으로 줄이고, 누르는 범위는 base-ui.css의 ::after가 44px로 지킨다. 한 줄 모양은 data-freshness.js가 쓰는 .data-freshness 줄만. */
@@ -1848,6 +1825,44 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   #appView #homeView .journal-head > .journal-day-title{ font-size:var(--ds-text-head); }
 }
 
+/* ===== NOTE-입력줄높이(S71-67, 2026-11-26 사용자 결정 — 시안 B 변형 'B인데 위로 화살표는 추가로'): 빠른 입력 줄(home-quick.js 한 부품 —
+   홈·잊지 말기·노트·[할 일])은 한 줄 = [입력칸(안 왼쪽 클립 = 첨부, 안 오른쪽 ⤢ = 크게)] [폴더 아이콘](노트만) [추가](글자·진한 바탕).
+   세 칸은 폰·폴드·PC 모두 같은 높이 하나(--ds-quick-row-height 40px). 칸 안 클립·⤢는 칸 안쪽 높이(40 - 2), 누르는 범위는 ::after로 44px.
+   홈은 길게 쓰면 지금처럼 글만큼 늘고(home-quick.js size, 5줄까지) 단추는 첫 줄 옆에 그대로 있다. 다른 화면 CSS는 이 높이를 따로 정하지 않는다. */
+#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry{ align-items:flex-start; gap:6px; }
+#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry [data-quick-input]{
+  box-sizing:border-box; height:var(--ds-quick-row-height); min-height:var(--ds-quick-row-height); padding-top:9px; padding-bottom:8px; line-height:21px; font-size:14px;
+}
+/* 늘지 않는 칸(잊지 말기·노트·[할 일]): 한 줄 고정, 넘치는 글은 칸 안에서 넘긴다(반쪽 줄이 보이지 않게 줄 높이 = 칸 안 높이). */
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry [data-quick-input]{ resize:none; max-height:var(--ds-quick-row-height); padding-top:0; padding-bottom:0; line-height:calc(var(--ds-quick-row-height) - 2px); }
+#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry :is(.home-quick-save,.home-quick-folder,.home-quick-kind:not([hidden])){
+  box-sizing:border-box; position:relative; flex:0 0 auto; align-self:flex-start; height:var(--ds-quick-row-height); min-height:var(--ds-quick-row-height); max-height:none; margin:0;
+}
+#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry .home-quick-save{
+  min-width:0; padding:0 14px; font-size:13px; font-weight:var(--ds-weight-medium,500); line-height:1;
+  color:var(--kptu-on-primary); background:var(--kptu-primary); border:0; border-radius:var(--ds-radius-control);
+}
+/* 폴더 단추: 폴더 없음 = 정사각 아이콘(공용 폴더 그림·기본 폴더 색), 고른 폴더 = 그 폴더 색 아이콘 + 작은 이름(넘치면 '…'). */
+#appView #basketView .home-quick[data-home-quick] .home-quick-entry .home-quick-folder{
+  display:inline-flex; align-items:center; justify-content:center; gap:4px; width:auto; min-width:var(--ds-quick-row-height); max-width:9em; padding:0 10px;
+  font-family:inherit; font-size:12px; font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; color:var(--kptu-muted);
+  background:var(--kptu-surface); border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-radius-control);
+}
+#appView #basketView .home-quick[data-home-quick] .home-quick-entry .home-quick-folder:not([data-quick-folder-on]){ width:var(--ds-quick-row-height); padding:0; }
+#appView #basketView .home-quick[data-home-quick] .home-quick-entry .home-quick-folder[hidden]{ display:none; }
+#appView #basketView .home-quick[data-home-quick] .home-quick-entry .home-quick-folder:hover{ background:var(--kptu-primary-soft); }
+#appView #basketView .home-quick .home-quick-folder .home-quick-folder-ico{ flex:0 0 auto; }
+#appView #basketView .home-quick .home-quick-folder .home-quick-folder-ico svg{ width:18px; height:18px; }
+#appView #basketView .home-quick .home-quick-folder .home-quick-folder-name{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media(max-width:760px){ #appView #basketView .home-quick[data-home-quick] .home-quick-entry .home-quick-folder{ max-width:6.5em; } }
+/* 칸 안 클립(첨부)·⤢(크게): 폭 44px · 높이는 칸 안쪽(40 - 2), 누르는 범위 44px. 글자 시작 자리는 위 'UI-입력칸첨부간격' 규칙 하나. */
+#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-input-wrap > [data-quick-file-picker]{ position:absolute; top:1px; left:1px; z-index:1; width:var(--kptu-touch-target,44px); height:calc(var(--ds-quick-row-height) - 2px); flex:none; }
+#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-input-wrap > [data-quick-file-picker] .basket-clip{ position:relative; width:var(--kptu-touch-target,44px); min-width:0; height:calc(var(--ds-quick-row-height) - 2px); min-height:0; padding:0; border:0; background:transparent; }
+#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-input-wrap :is(.home-quick-big,.home-quick-detail){ top:1px; right:1px; width:var(--kptu-touch-target,44px); min-width:0; height:calc(var(--ds-quick-row-height) - 2px); min-height:0; }
+#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry :is(.home-quick-save,.home-quick-folder,.home-quick-kind:not([hidden]),.home-quick-big,.home-quick-detail,.basket-clip)::after{
+  content:""; position:absolute; inset:auto; left:calc(50% - max(50%, var(--kptu-touch-target,44px) / 2)); right:auto; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:max(100%, var(--kptu-touch-target,44px)); min-width:0; height:var(--kptu-touch-target,44px);
+}
+
 /* ===== UI-설정줄(S71-36 PROFILE-설정화면, 줄 단추는 ③ 글자 버튼(row-act) 규칙(#profileView 포함)보다 이기도록 :not(#sl-none)으로 id 하나만큼 높인다.
     사용자 11/26 시안 확정 'ㅇㅋ'): 설정 화면의 줄 하나 — 안드로이드 설정처럼 '한 줄 메뉴 → 들어가면 상세'.
    글자는 app/settings-list.mjs 하나가 만든다. 줄 = 이름(+ 회색 설명 한 줄) · 오른쪽 작은 회색 요약 · 끝(› / 스위치 / ↗ / 작은 동작).
@@ -2081,6 +2096,3 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 
 /* S67-25: '잠김' 한 줄(잊지 말기·밑줄 등 어디서든) — 테두리 칸 안에서 글자가 벽에 붙지 않게 안쪽 여백. */
 .forget-locked{margin:0;padding:.5em var(--ds-row-pad-x)}
-
-
-

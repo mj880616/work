@@ -1,6 +1,5 @@
 import {test,expect} from '@playwright/test';
 import {openHome, openQuickBox } from './helpers/home-entry.mjs';
-import {pickBasketView} from './helpers/forget-view.mjs';
 import {pressRowAct} from './helpers/nbx-act.mjs';
 // JOURNAL-챙길것 / AI-서버연동 S5 → HOME-업무일지홈(2026-10-30): 홈·업무일지의 '챙길 것' 상자는 화면째 없앴다. 남은 것:
 // ① 그날 이 탭에서 홈을 처음 열 때 서버에 한 번 찾기(D7, home-summary.js → todo-radar.js autoFindToday)
@@ -126,9 +125,8 @@ for(const width of [390,1280])test(`정리함: the suggested due is in the small
  expect(creates).toEqual([{action:'create',task_id:null,title:'가상 의견 제출',notes:'',due:'2026-10-09',links:[]},{action:'create',task_id:null,title:'가상 조직 회신',notes:'',due:'2026-10-06',links:[{organization_id:ORG}]}]);
  await expect.poll(()=>f.calls.patch.map(p=>[p.query.status,p.body.status])).toEqual([['eq.open','tasked'],['eq.open','tasked']]);
  expect(f.calls.patch[0].body).toMatchObject({task_due:'2026-10-09'});
- await pickBasketView(page,'tasked');
- await expect(line(page,1).locator('.nbx-done')).toHaveText('할 일로 보냄 · 10.9');
- await expect(line(page,2).locator('.nbx-done')).toHaveText('할 일로 보냄 · 10.6');
+ // S71-58 FORGET-처리전만: 보낸 줄은 목록에서 빠지고 보냄 보기는 없다.
+ await expect(line(page,2)).toHaveCount(0);
  expect(await noWideScroll(page)).toBe(true);
  expect(f.errors).toEqual([]);
 });
@@ -144,7 +142,6 @@ test('정리함: [×] moves the row to 무시 with a 5 s [되돌리기] that bri
  await expect(line(page,2)).toBeVisible();
  await expect.poll(()=>f.calls.patch.length).toBe(2);
  expect(f.calls.patch[1]).toMatchObject({query:{status:'eq.dismissed'},body:{status:'open',decided_at:null}});
- await pickBasketView(page,'dismissed');await expect(line(page,2)).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });
 

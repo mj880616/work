@@ -81,7 +81,7 @@ export function mountOwnDraft(host, {rt} = {}) {
   function editor(tag, value, label, commit) {
     const input = el(tag, 'journal-own-draft-input');
     if (tag === 'input') input.type = 'text';
-    else input.rows = Math.min(12, Math.max(3, value.split('\n').length + 1));
+    else { input.rows = 3; input.dataset.autogrow = ''; } // UI-입력칸자동높이: 세 줄에서 시작해 글만큼(공용 auto-grow.js, 열 때 초점이 들어오며 맞춤)
     input.value = value; input.setAttribute('aria-label', label);
     let done = false;
     const finish = ok => { if (done) return; done = true; commit(ok ? input.value : null); };

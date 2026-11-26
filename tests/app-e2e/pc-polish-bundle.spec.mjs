@@ -68,7 +68,7 @@ test('UI-PC다듬기묶음 ① PC 1280: 사이드바 맨 아래 쪽은 [HWP 편�
  // UI-자주가는링크: '자주 가는 링크 ›' 줄이 맨 끝. CALL·TG: 그 바로 위(빈 공간 아래)에 [통화]·[텔레그램 소식].
  // S69-71: '쓰는 법'은 계정 메뉴 안이라 맨 끝은 자주 가는 링크.
  // S68-37: [사진]은 새 계정 하단바 칸이라 PC 왼쪽 메뉴 위쪽(자료실 다음)에 있다.
- expect(items.at(-6)).toBe('HWP 편집');expect(items).not.toContain('공유 페이지');expect(items).not.toContain('원장');expect(items.at(-5)).toBe('읽을 거리');expect(items.indexOf('사진')).toBe(items.indexOf('자료실')+1);expect(items.slice(-4,-1)).toEqual(['통화','텔레그램 소식','아스날']);expect(items.at(-1)).toMatch(/^자주 가는 링크/);expect(items).not.toContain('쓰는 법');expect(items).not.toContain('쓰기');
+ expect(items.at(-6)).toBe('브리핑 룸');expect(items).not.toContain('HWP 편집');/* S71-61: HWP 편집은 노트 안 */expect(items).not.toContain('공유 페이지');expect(items).not.toContain('원장');expect(items.at(-5)).toBe('읽을 거리');expect(items.indexOf('사진')).toBe(items.indexOf('자료실')+1);expect(items.slice(-4,-1)).toEqual(['통화','텔레그램 소식','아스날']);expect(items.at(-1)).toMatch(/^자주 가는 링크/);expect(items).not.toContain('쓰는 법');expect(items).not.toContain('쓰기');
  await expect(page.locator('[data-menu-write]')).toHaveCount(0);
  await openWriteFromEntry(page,1280);
  await expect(page.locator('#edWindow')).toBeVisible({timeout:10000});
@@ -78,7 +78,7 @@ test('UI-PC다듬기묶음 ① PC 1280: 사이드바 맨 아래 쪽은 [HWP 편�
 test('UI-PC다듬기묶음 ① 폰 390: ☰ 메뉴에 [쓰기]가 없고 회의부터 시작',async({page})=>{
  await boot(page,390);
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','HWP 편집','읽을 거리','통화','텔레그램 소식','아스날']); // S68-37
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['잊지 말기','저장한 글','조직 관리','사업 관리','파일','브리핑 룸','읽을 거리','통화','텔레그램 소식','아스날']); // S68-37 · S71-61
 });
 
 for(const width of [1024,1280,1440,1920])test(`UI-PC다듬기묶음 ② PC ${width}: [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 높이, 누르는 범위 44`,async({page})=>{
