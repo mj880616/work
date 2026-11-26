@@ -106,7 +106,7 @@ for (const width of [390, 700]) {
 }
 
 // S67-75 UI-걸러보기칩하나(명진 11/21 18:33 A안): 좁은 폰에서 고르기 상자 네 개가 줄에 다 안 들어가면 가로로 밀지 않고 칩 하나로 묶는다(PR 2847의 밀기·끝 흐림은 걷어냄).
-// BIZ-머리한줄(S71-23): 고르기·건수·[+]는 앱 머리 줄 안(이름 뒤) — 320에서도 줄이 늘지 않고 [+]·찾기가 줄 안에 있다.
+// BIZ-머리한줄(S71-23): 고르기·건수·[+]는 앱 머리 줄 안(이름 뒤) — 320에서도 줄이 늘지 않고 찾기·[+]가 줄 안에 있다.
 test('narrow phone: the 사업 관리 boxes stay on one line (or fold into one chip), the line does not grow', async ({ page }) => {
   await open(page, 'view=meetings', { width: 320 });
   await expect(page.locator('#newMeetingBtn')).toBeVisible();
@@ -119,11 +119,11 @@ test('narrow phone: the 사업 관리 boxes stay on one line (or fold into one c
   expect(Math.round(c.height)).toBeLessThanOrEqual(34);
   if (inChip) expect(await chip.evaluate(el => { const t = el.querySelector('.report-filter-chip-text'); return t.scrollWidth <= t.clientWidth + 1; })).toBe(true);
   else expect(await page.locator('#reportFilterBar').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-  // [+]·찾기는 줄 밖으로 나가지 않는다.
+  // 찾기·[+]는 줄 밖으로 나가지 않는다. 순서는 … 찾기 · [+](SAVED-머리한줄, S71-43 — [+]가 맨 오른쪽).
   const add = await box(page.locator('#newMeetingBtn')), find = await box(page.locator('#appView > .mobile-shell-header .mobile-shell-find'));
-  expect(c.right).toBeLessThanOrEqual(add.left + 0.5);
-  expect(find.left).toBeGreaterThanOrEqual(add.right - 0.5);
-  expect(find.right).toBeLessThanOrEqual(320);
+  expect(c.right).toBeLessThanOrEqual(find.left + 0.5);
+  expect(add.left).toBeGreaterThanOrEqual(find.right - 0.5);
+  expect(add.right).toBeLessThanOrEqual(320);
   expect(Math.abs(add.mid - title.mid)).toBeLessThanOrEqual(4);
   expect(await noPageScroll(page)).toBe(true);
 });

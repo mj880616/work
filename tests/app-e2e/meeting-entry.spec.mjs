@@ -581,7 +581,11 @@ for(const width of [320,360,390,760]){
     const [t,b,s,btn]=await Promise.all([top.boundingBox(),bar.boundingBox(),select.boundingBox(),button.boundingBox()]);
     expect(s.height).toBeCloseTo(32,0);
     expect(s.x).toBeCloseTo(b.x,0);
-    expect(btn.x+btn.width).toBeCloseTo(t.x+t.width,0);
+    // 폰·폴드: 머리 줄 오른쪽 끝 순서 … n건 ……… 찾기 · [+](SAVED-머리한줄, S71-43) — [+]는 #reportTop 밖, 찾기 오른쪽 줄 맨 끝.
+    if(width<=760){const [head,find]=await Promise.all([page.locator('#appView > .mobile-shell-header').boundingBox(),page.locator('#appView > .mobile-shell-header > .mobile-shell-find').boundingBox()]);
+      expect(t.x+t.width).toBeLessThanOrEqual(find.x+0.5);expect(find.x+find.width).toBeLessThanOrEqual(btn.x+0.5);
+      expect(btn.x+btn.width).toBeLessThanOrEqual(head.x+head.width+0.5);expect(head.x+head.width-(btn.x+btn.width)).toBeLessThanOrEqual(16)}
+    else expect(btn.x+btn.width).toBeCloseTo(t.x+t.width,0);
     expect(s.y+s.height/2).toBeCloseTo(btn.y+btn.height/2,0);
     expect(b.x+b.width).toBeLessThanOrEqual(btn.x);
     expect(b.height).toBeLessThanOrEqual(48);
