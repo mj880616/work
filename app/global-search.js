@@ -7,9 +7,9 @@
 // 저장하는 것 없음(최근 검색어 기억 안 함, 결정 7). 로그인이 바뀌면 메모리를 비운다.
 // FEAT-1029묶음 ① WORK ON+에 물어보기(docs/design/ask-web2.md 1절): 질문처럼 보이면 결과 맨 위 [WORK ON+에 물어보기 ↵] 줄, 누르거나 Enter면 답 상자.
 //   답 상자·최근 물어본 것도 이 모듈의 paint가 그린다(규칙은 ask-web2-model.mjs, 서버 호출은 global-search-data.js). AI는 누를 때만 부른다.
-import {compileFind, markParts} from './find-match-model.mjs';
+import {compileFind, markParts, wantsMeaning, looksSentence} from './find-match-model.mjs';
 import {parseQuery, QUERY_MESSAGES, errorMessage, highlightParts, buildGroups, chipOptions, countLabel, GROUPS, groupOf, serverKindOf,
-  groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent} from './global-search-model.mjs';
+  groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent, mergeServerGroups} from './global-search-model.mjs';
 import * as data from './global-search-data.js';
 import {iconNode} from './tree-icons.js';
 import {waitEl, waitInlineEl, emptyEl} from './wait-state.js';
@@ -25,7 +25,9 @@ import {openCallSource, openTelegramSource} from './source-open.js';
 import * as lock from './feature-lock.js';
 import {word} from './brand/brand.mjs';
 // UI-검색창하나로(S70-54): 지금 화면에 화면 찾기가 있으면 맨 위 칸이 그 찾기를 겸한다(등록표·단추 자리 주인은 screen-find.js).
-import {onScreenFind} from './screen-find.js';
+import {onScreenFind, askMeaning} from './screen-find.js';
+// S71-15 SEARCH-결과원문으로: 결과를 눌러 연 원문 자리에서 찾은 낱말 칠하기(공용 판정).
+import {revealFound} from './found-mark.js';
 
 (() => {
 'use strict';
@@ -37,7 +39,7 @@ const router = () => window.KPTURouter;
 let state = fresh();
 let seq = 0, timer = 0;
 function fresh() {
-  return {text: '', words: [], hint: '', phase: 'idle', error: '', groups: null, server: null, kind: 'all',
+  return {text: '', words: [], also: [], hint: '', phase: 'idle', error: '', groups: null, server: null, kind: 'all',
     kindRows: null, kindTotal: 0, kindCapped: false, kindOffset: 0, kindMore: false, kindBusy: false, local: null,
     ask: idleAsk(), recent: null};
 }
@@ -59,12 +61,13 @@ function icon(name, cls = 'gs-icon') {
 }
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 // S70-67 SEARCH-비슷한것찾기: 형광은 글자 그대로 맞은 낱말, 없으면 공용 판정의 맞은 부분(띄어쓰기·초성·오타). 낱말 묶음마다 한 번만 만든다.
-let markFind = null;
-const findFor = words => { const k = (words || []).join(' '); if (markFind?.text !== k) markFind = compileFind(k); return markFind; };
+// S71-15: 비슷한 말로 넓혀 찾았으면(state.also) 그 말도 칠한다.
+let markFind = null, markKey = '';
+const findFor = words => { const k = (words || []).join(' ') + '|' + state.also.join(' '); if (markKey !== k) { markKey = k; markFind = compileFind((words || []).join(' '), {also: state.also}); } return markFind; };
 function marked(text, words, cls) {
   const box = el('span', cls);
   // 글자 그대로 맞은 낱말이 있으면 지금처럼 낱말마다 형광, 없을 때만(띄어쓰기·초성·오타로 맞음) 공용 판정의 구간.
-  const exact = highlightParts(text, words);
+  const exact = highlightParts(text, [...(words || []), ...state.also]);
   for (const part of (exact.some(p => p.mark) ? exact : markParts(text, findFor(words)))) box.append(part.mark ? el('mark', 'gs-mark', part.text) : document.createTextNode(part.text));
   return box;
 }
@@ -79,13 +82,13 @@ function setText(text) {
   if (state.text.trim()) { void data.loadEvents().then(repaintLocal); void data.loadTasks().then(repaintLocal); }
   if (parsed.error) {
     seq++;
-    Object.assign(state, {words: [], groups: null, server: null, phase: state.text.trim() ? 'hint' : 'idle',
+    Object.assign(state, {words: [], also: [], groups: null, server: null, phase: state.text.trim() ? 'hint' : 'idle',
       hint: state.text.trim() ? QUERY_MESSAGES[parsed.error] : '', error: '', kindRows: null});
     paintAll(); return;
   }
   state.hint = '';
   if (parsed.words.join(' ') === state.words.join(' ') && state.phase === 'ready') { paintAll(); return; }
-  state.phase = 'loading'; state.words = parsed.words; paintAll();
+  state.phase = 'loading'; state.words = parsed.words; state.also = []; paintAll();
   timer = setTimeout(() => run(parsed.query), DEBOUNCE);
 }
 async function run(query) {
@@ -102,6 +105,35 @@ async function run(query) {
     if (mine !== seq) return;
     state.phase = 'error'; state.error = errorMessage(e); state.groups = null;
   }
+  if (mine === seq) { paintAll(); if (state.phase === 'ready') void widen(query, mine); }
+}
+// S71-15 SEARCH-비슷한말전체검색(명진 11/26 15:34 "유사한 의미의 다른 단어를 검색해도 야간 총회가 나왔으면"): 화면 찾기와 같은 규칙·같은 길.
+// 결과가 3개 미만이거나 문장이면 서버 AI 찾기 풀이(screen-find.js askMeaning — ai-assist find_expand, 친 글 하나만 보냄)로 비슷한 말을 받아
+// 검색어와 비슷한 말 4개까지로 서버 검색을 다시 해 합친다(같은 줄은 한 번). 맨 위에 '비슷한 말로도 찾았어요: …' 한 줄. AI를 못 쓰면 지금 결과 그대로.
+const ALSO_MAX = 4, ALSO_PER = 50;
+const squash = t => String(t ?? '').replace(/\s+/g, '').toLowerCase();
+async function widen(query, mine) {
+  const found = (state.groups || []).reduce((n, g) => n + (g.total || 0), 0);
+  if (!wantsMeaning(query, looksSentence(query) ? 0 : found)) return;
+  const ask = askMeaning(query);
+  if (!ask) return;
+  const got = await ask;
+  if (mine !== seq || state.phase !== 'ready' || !got?.words?.length) return;
+  const seen = new Set([squash(query)]), alts = [];
+  for (const w of got.words) {
+    const p = parseQuery(w);
+    if (p.error || seen.has(squash(p.query))) continue;
+    seen.add(squash(p.query)); alts.push(p.query);
+    if (alts.length >= ALSO_MAX) break;
+  }
+  if (!alts.length) return;
+  let rs;
+  try { rs = await Promise.all([query, ...alts].map(q => data.searchRecords(q, {per: ALSO_PER}))); } catch { return; }
+  if (mine !== seq) return;
+  state.server = mergeServerGroups(rs.map(r => r.groups));
+  state.also = alts;
+  rebuild();
+  if (state.kind !== 'all') await loadKind(state.kind, {reset: true, mine});
   if (mine === seq) paintAll();
 }
 function rebuild() {
@@ -116,7 +148,11 @@ let kindServer = [];
 async function loadKind(key, {reset = false, mine = seq} = {}) {
   const kind = serverKindOf(key);
   if (reset) { kindServer = []; state.kindOffset = 0; state.kindMore = false; state.kindTotal = 0; state.kindCapped = false; }
-  if (kind && state.words.length) {
+  if (kind && state.also.length) {
+    // 비슷한 말로 넓혀 찾은 뒤에는 이미 합쳐 받은 줄(종류마다 낱말당 50줄까지)을 그대로 보인다.
+    const g = state.server?.get?.(kind);
+    kindServer = g?.items || []; state.kindOffset = kindServer.length; state.kindTotal = g?.total || 0; state.kindCapped = !!g?.capped; state.kindMore = false;
+  } else if (kind && state.words.length) {
     state.kindBusy = true; paintAll();
     try {
       const r = await data.searchRecords(state.words.join(' '), {per: PAGE, kind, offset: state.kindOffset});
@@ -181,6 +217,7 @@ function paint(host, where) {
   if (state.phase === 'loading') searching();
   else if (state.phase === 'error') statusLine.textContent = state.error;
   box.append(statusLine);
+  if (state.phase === 'ready' && state.also.length) { const also = el('p', 'gs-also', `비슷한 말로도 찾았어요: ${state.also.join(' · ')}`); also.dataset.gsAlso = '1'; box.append(also); }
   const list = el('div', 'gs-list'); list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', '검색 결과');
   list.id = `gsList-${where}`;
   if (state.groups) {
@@ -441,7 +478,7 @@ let opening = 0;
 function openItem(item) { return openView(openTarget(item)); }
 async function openView(target) {
   if (!target) return;
-  const mine = ++opening;
+  const mine = ++opening, find = {words: [...state.words], also: [...state.also]}; // 창을 닫기 전에 찾은 낱말을 받아 둔다
   await closePanel();
   const r = router(); if (!r) return;
   const loader = window.KPTUViewLoader;
@@ -458,7 +495,12 @@ async function openView(target) {
     else if (target.view === 'tasks') { requestTaskOpen(target.id); await r.openFrom('tasks'); }
     else if (target.view === 'journal') await r.openFrom('journal', () => { if (target.day) window.KPTUJournal?.show?.(target.day); });
     else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({id: target.id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창
-    else if (target.view === 'team') await r.openFrom('team', () => window.KPTUWorkplace?.open?.(target.id));
+    else if (target.view === 'team') await r.openFrom('team', async () => {
+      // S71-15 SEARCH-결과원문으로: 조직 기록·타임라인 결과는 그 기록 하나로(펴고·가운데·찾은 낱말 칠). 조직 결과는 조직만.
+      if (!target.record) return window.KPTUWorkplace?.open?.(target.id);
+      if (!window.KPTUWorkplace?.openRecord) await window.KPTUWorkplace?.load?.();
+      return window.KPTUWorkplace?.openRecord?.(target.id, target.record, find);
+    });
     else if (target.view === 'meetings') await r.openFrom('meetings', async () => {
       await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
       await window.KPTUMeetingRoundDetail?.open?.(target.id);
@@ -469,6 +511,8 @@ async function openView(target) {
       await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
       window.KPTUCalendarEvents?.open?.(target.id, target.calendarId);
     });
+    // S71-15: 조직 기록(위)·통화·텔레그램(자기 원문 화면) 밖의 종류도 연 원문 자리에서 찾은 낱말을 칠하고 보이게 맞춘다.
+    if (mine === opening && !['team', 'calls', 'telegram'].includes(target.view)) void revealFound(find.words, {also: find.also, view: target.view});
   } catch (e) { console.error('search open', e?.name || 'Error'); }
 }
 

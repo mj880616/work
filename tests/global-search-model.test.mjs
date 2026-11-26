@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseQuery, errorMessage, highlightParts, snippetAround, filterEvents, filterTasks, cleanServer, buildGroups, chipOptions,
-  countLabel, openTarget, dateLabel, placeLabel, eventRanges, byRecent, GROUPS, CAP
+  countLabel, openTarget, dateLabel, placeLabel, eventRanges, byRecent, GROUPS, CAP, mergeServerGroups
 } from '../app/global-search-model.mjs';
 
 test('parseQuery follows the server rules (2+ letters, 1~6 words, 200 chars, no control characters)', () => {
@@ -134,7 +134,10 @@ test('openTarget picks the screen from the source field', () => {
   assert.deepEqual(openTarget({source: 'meeting', id: 'm'}), {view: 'meetings', id: 'm'});
   assert.deepEqual(openTarget({source: 'progress', id: 'x', project_id: 'p'}), {view: 'projects', id: 'p'});
   assert.deepEqual(openTarget({source: 'milestone', id: 'x', project_id: 'p'}), {view: 'projects', id: 'p'});
-  assert.deepEqual(openTarget({source: 'org_update', id: 'x', organization_id: 'o'}), {view: 'team', id: 'o'});
+  // S71-15 SEARCH-결과원문으로: 조직 기록·타임라인은 그 기록 하나로.
+  assert.deepEqual(openTarget({source: 'org_update', id: 'x', organization_id: 'o'}), {view: 'team', id: 'o', record: {kind: 'update', id: 'x'}});
+  assert.deepEqual(openTarget({source: 'org_timeline', id: 't', organization_id: 'o'}), {view: 'team', id: 'o', record: {kind: 'timeline', id: 't'}});
+  assert.equal(openTarget({source: 'org_timeline', id: 't'}), null);
   assert.deepEqual(openTarget({source: 'organization', id: 'o'}), {view: 'team', id: 'o'});
   assert.deepEqual(openTarget({source: 'google_task', id: 't'}), {view: 'tasks', id: 't'});
   assert.deepEqual(openTarget({source: 'google_event', id: 'e', calendar_id: 'c'}), {view: 'calendar', id: 'e', calendarId: 'c'});
@@ -252,4 +255,20 @@ test('SEARCH-선택옮기기 ④: 정리 전 꼬리표 글자는 값만 · 로 �
   assert.equal(tidySnippet('앞 글 {종류:회의자료} 뒤 글'), '앞 글 회의자료 뒤 글');
   assert.equal(tidySnippet('그냥 {괄호} 글'), '그냥 {괄호} 글');
   assert.equal(tidySnippet(null), null);
+});
+
+test('mergeServerGroups (S71-15 비슷한 말): same row once, newest first, exact count when all rows came, otherwise rows + the largest missing', () => {
+  const it = (id, at, source = 'note') => ({id, source, occurred_at: at});
+  const a = new Map([['note', {kind: 'note', total: 2, capped: false, items: [it('n1', '2026-10-02'), it('n2', '2026-10-01')]}],
+    ['document', {kind: 'document', total: 60, capped: false, items: Array.from({length: 50}, (_, i) => it('d' + i, '2026-09-01', 'document'))}]]);
+  const b = new Map([['note', {kind: 'note', total: 2, capped: false, items: [it('n2', '2026-10-01'), it('n3', '2026-10-05')]}],
+    ['document', {kind: 'document', total: 1, capped: false, items: [it('dx', '2026-11-01', 'document')]}]]);
+  const m = mergeServerGroups([a, b]);
+  assert.deepEqual(m.get('note').items.map(x => x.id), ['n3', 'n1', 'n2']);
+  assert.equal(m.get('note').total, 3);
+  assert.equal(m.get('note').complete, true);
+  assert.equal(m.get('document').items[0].id, 'dx');
+  assert.equal(m.get('document').total, 51 + 10);
+  assert.equal(m.get('document').complete, false);
+  assert.equal(m.has('meeting'), false);
 });
