@@ -24,6 +24,7 @@ async function boot(page,{width,place,mirror=[],topFiles=null,check=null}){
     if(path==='/functions/v1/workspace-drive'&&url.searchParams.get('action')==='drive-mirror'){const b=(()=>{try{return req.postDataJSON()}catch{return null}})();state.mirrorAsks.push(b);return ok(state.mirror.length?state.mirror.shift():{ok:true,state:'aligned',folders_made:0,folders_fixed:0,files_moved:0,cant:0,pending:0,more:false,stopped:false})}
     if(path==='/functions/v1/workspace-drive'&&check&&url.searchParams.get('action')==='drive-check'){const b=req.postDataJSON();state.checkAsks=(state.checkAsks||[]);state.checkAsks.push(b);return ok(check(b))}
     if(path==='/functions/v1/workspace-drive'){state.asks.push({method:req.method(),query:url.search,body:req.postData()});return ok(url.searchParams.get('action')==='drive-place'?{ok:true,place}:{error:'Unknown action'},url.searchParams.get('action')==='drive-place'?200:400)}
+    if(path==='/functions/v1/library-files'&&/^\{"action":"drive-auto"\}$/.test(req.postData()||''))return ok({ok:true,added:0}); // S70-73: 자료실을 열 때 자동 등록 부탁(이 시험과 무관)
     if(path==='/functions/v1/library-files'&&topFiles&&req.method()==='POST'){const b=req.postDataJSON();state.topAsks=(state.topAsks||[]);state.topAsks.push(b);return ok(topFiles(b))}
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
