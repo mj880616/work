@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// S70-83 READ-저장한글폴더(명진 11/26 09:28 "저장한 글 pc에서도 왼쪽은 목록 오른쪽은 글내용 이렇게 바뀌어야하고 / 저장한 글에도 폴더개념이 들어가야함"):
+// S70-83 READ-저장한글폴더(사용자 결정 2026-11-26 — PC도 목록|글 두 칸, 저장한 글에 폴더):
 // ① PC 1280·1600·폴드 펼침 690 = 왼쪽 목록 | 오른쪽 글 두 칸(경계 손잡이 있음), 폰 390 = 한 칸.
 // ② 왼쪽 위 폴더 상자는 [파일]과 같은 공용 상자·줄(folder-tree-ui.mjs .ft-box·.ft-row.ft-folder). ＋ = 새 폴더(서버 app_reading_folders 저장).
 // ③ 글을 끌어 폴더에 놓기(PC) · 글 ⋯ [폴더로 옮기기](공용 옮길 곳 창) = 서버 folder_id 한 번. 폴더를 누르면 그 글만, 다시 누르면 전체, '폴더 없음' = 폴더 없는 글.
