@@ -195,6 +195,11 @@
 @media (min-width:761px){
   #appView{--follow-top:calc(var(--kptu-stick-top) + 8px)}
   .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:calc(100vh - var(--follow-top,12px) - 12px);max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto}
+  /* UI-두칸높이(2026-11-26 사용자 결정): 칸은 고정 숫자로 묶이지 않는다 — 높이 = 지금 자리에서 창 아래 끝까지(--follow-max, follow-pane.js가 칸마다 잼).
+     내용이 짧아도 칸 아래 빈 화면이 남지 않고, 길면 그 칸 안에서만 스크롤. 폴드 펼침(narrow)은 아래 규칙 그대로. */
+  .kptu-follow-pane:not(.kptu-follow-narrow){min-height:var(--follow-max,0px)}
+  /* 윗선 맞춤: under를 준 칸은 위끝이 왼쪽 목록 머리 줄 아래 끝(--follow-offset, follow-pane.js가 잼)에 온다. */
+  .kptu-follow-pane[data-follow-under]:not(.kptu-follow-narrow){margin-top:var(--follow-offset,0px)}
   .kptu-follow-pane .modal-action-footer{bottom:0}
 }
 /* S51-13 TODO-폴드목록상세: 폴드 펼침(600~760px)에서 follow-pane.js가 narrow로 붙인 칸도 같은 모양(최대 높이는 아래 떠 있는 줄만큼 뺀 값, JS). */

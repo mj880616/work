@@ -196,7 +196,8 @@ export function yearTicks(bar) {
 }
 // PHOTO-연도막대겹침(S49-45): 막대 높이(px)에 맞춰 연도 글자를 글자끼리 겹치지 않게 거른다.
 // 위(최신)부터 훑어 앞 글자와 minGap px 이상 떨어진 해만 남기고 나머지는 생략한다. 글자는 막대 안(위·아래 끝 반 글자씩 안쪽)에 들어오게 누른다.
-export const RAIL_YEAR_GAP = 16, RAIL_YEAR_LABEL_H = 12;
+// S71-64(사용자 11/26 22:38 스크린샷: 2022/2021·2016/2015/2014가 붙어 보임): 글자 높이 12px에 간격 16px이면 글자 사이 4px뿐이라 붙어 보였다 → 24px(사이 12px).
+export const RAIL_YEAR_GAP = 24, RAIL_YEAR_LABEL_H = 12;
 export function yearLabels(bar, heightPx, minGap = RAIL_YEAR_GAP, labelH = RAIL_YEAR_LABEL_H) {
   if (!(heightPx > labelH)) return [];
   const half = labelH / 2, out = [];

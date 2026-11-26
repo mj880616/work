@@ -2,6 +2,7 @@
 // - [블록 모드]는 [문단 ▾] 묶음 안이 아니라 편집 막대 위에 바로 보이는 작은 아이콘 단추다(눌린 상태 표시, 폰 막대도 같은 자리).
 // - 노트 상세 고치기·그 큰 창(크게 쓰기)·새 노트 입력칸의 ⤢ 큰 창 모두에 있다. 누르면 손잡이 ⋮⋮가 생기고, 다시 누르면 사라진다.
 // - 새 노트는 저장 전에는 내 기본값(view_prefs.note_blocks)으로 켜고 끄고, 저장하면 그 노트에 기억한다(metadata.block_edit).
+// - S71-66(P6): 폰 390(손가락)에서 같은 자리 ⠿는 [블록 메뉴] — 커서 블록의 블록 메뉴를 열고 닫는다(손잡이·켜고 끄기 없음).
 // - [문단 ▾] 펼침 목록은 항목 수만큼 펼쳐 스크롤 막대 없이 모든 항목이 보인다(화면을 넘을 때만 스크롤).
 import {test, expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
@@ -47,7 +48,7 @@ async function checkBar(page, scope, {touch}) {
   const bar = scope.locator('.ed-bar').first();
   const toggle = bar.locator('.ed-tools > [data-ed-cmd="blocks"]');
   await expect(toggle).toBeVisible();
-  await expect(toggle).toHaveAccessibleName('블록 모드');
+  await expect(toggle).toHaveAccessibleName(touch ? '블록 메뉴' : '블록 모드');
   // 작은 아이콘 단추: 막대의 다른 단추(↶)와 같은 높이, 글자 없이 아이콘만.
   const box = await toggle.boundingBox(), undo = await bar.locator('.ed-tools > [data-ed-cmd="undo"]').boundingBox();
   expect(Math.abs(box.height - undo.height)).toBeLessThanOrEqual(1);
@@ -58,6 +59,21 @@ async function checkBar(page, scope, {touch}) {
   const barBox = await bar.locator('.ed-tools').boundingBox();
   expect(box.x + box.width).toBeLessThanOrEqual(barBox.x + barBox.width + 1);
   expect(await toggle.evaluate(el => !!el.closest('[data-ed-panel]'))).toBe(false);
+  if (touch) {
+    // P6: 폰은 손잡이가 없고, ⠿를 누르면 커서 블록의 블록 메뉴가 열리고 다시 누르면 닫힌다(켜고 끄기 아님).
+    await expect(toggle).toHaveAttribute('aria-haspopup', 'menu');
+    expect(await toggle.getAttribute('aria-pressed')).toBe(null);
+    const para = scope.locator('.ProseMirror p').first();
+    await para.tap();
+    await press(toggle);
+    const menu = scope.locator('.ed-block-menu');
+    await expect(menu).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await press(toggle);
+    await expect(menu).toBeHidden();
+    await expect(scope.locator('.ed-grip')).toHaveCount(0);
+    return;
+  }
   const before = await toggle.getAttribute('aria-pressed');
   const editor = scope.locator('.ed-editor').first();
   await press(toggle);
@@ -126,18 +142,20 @@ for (const width of [1280, 390]) test.describe(`폭 ${width}`, () => {
     await expect(win.locator('.ProseMirror')).toBeVisible();
     await checkParaList(page, win, {touch});
     await checkBar(page, win, {touch});
-    // 다시 켜서 저장: 새 노트에 block_edit=true로 기억, 내 기본값도 켬.
+    // 다시 켜서 저장: 새 노트에 block_edit=true로 기억, 내 기본값도 켬(PC — 폰은 켜고 끄기가 없다, P6).
     const toggle = win.locator('.ed-bar .ed-tools > [data-ed-cmd="blocks"]');
-    if (touch) await toggle.tap(); else await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(() => prefs.value?.note_blocks).toBe(true);
+    if (!touch) {
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      await expect.poll(() => prefs.value?.note_blocks).toBe(true);
+    }
     const text = win.locator('.ProseMirror');
     if (touch) await text.tap(); else await text.click();
     await page.keyboard.insertText('새 블록 노트');
     const save = win.getByRole('button', {name: '새 노트로 저장'});
     if (touch) await save.tap(); else await save.click();
     await expect.poll(() => posts.length).toBe(1);
-    expect(posts[0].metadata?.block_edit).toBe(true);
+    if (!touch) expect(posts[0].metadata?.block_edit).toBe(true);
     // 다음 새 노트 창은 내 기본값(켬)으로 열린다.
     await expect(win).toBeHidden();
     expect(errors).toEqual([]);
