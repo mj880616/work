@@ -1,7 +1,7 @@
 // S69-97 NOTE-에버노트 ①②③ (명진 11/25 03:19~03:23 "좋아 모두 다 넣어!"). 합성 데이터만, 구글 할 일은 가짜 서버(google-tasks 함수 자리).
 // ① 노트 체크칸 → [구글 할 일로] → 구글 할 일이 생기고 연결이 저장된다 → 구글에서 끝내면 노트 체크(읽기·편집)가 맞춰진다 → 노트에서 체크를 풀면 구글도 풀린다.
 // ② 노트 ⋯ [알림 걸기…] → 빠른 고르기로 예약(metadata.alarm, updated_at 그대로) → 읽기 머리 줄 → 줄을 눌러 [알림 끄기].
-// ③ 노트 ⋯ [서식으로 저장] → 서버 표에 저장 → 목록 ⋯ [서식으로 새 노트] → 그 서식을 골라 새 노트 창에 글·제목이 들어간다(기본 서식도 고를 수 있다).
+// ③ 노트 ⋯ [서식으로 저장] → 서버 표에 저장 → 목록 ⋯ [서식으로 새 노트] → 그 서식을 골라 새 노트 창에 글·제목이 들어간다. 앱이 미리 넣은 기본 서식은 없고(S71-65), 서식 넣기는 도구 줄 [넣기 ▾] › [서식].
 import {test, expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
@@ -140,7 +140,7 @@ for (const width of [1280, 390]) {
     expect(s.errors).toEqual([]);
   });
 
-  test(`③ 서식으로 저장 → 서식으로 새 노트(내 서식·기본 서식) ${width}`, async ({page}) => {
+  test(`③ 서식으로 저장 → 서식으로 새 노트 · 넣기 ▾ › 서식(내 서식만, 기본 서식 없음) ${width}`, async ({page}) => {
     test.setTimeout(60000);
     await page.setViewportSize({width, height: 900});
     const s = await setup(page);
@@ -155,7 +155,7 @@ for (const width of [1280, 390]) {
     expect(s.templates[0].workspace_id).toBeTruthy();
     expect(s.templates[0].doc.doc.content[1].attrs).toEqual({marker: 'check'});
     await expect(page.locator('#toast')).toContainText("'내 할 일 틀' 서식으로 저장했어요.");
-    // 목록 ⋯ [서식으로 새 노트]: 새 노트 창이 열리고 고르기창이 바로 뜬다.
+    // 목록 ⋯ [서식으로 새 노트]: 새 노트 창이 열리고 고르기창이 바로 뜬다. 고르기창에는 내 서식만(앱이 미리 넣은 서식 없음).
     await page.evaluate(() => window.KPTURouter.go('home'));
     await page.evaluate(() => window.KPTURouter.go('basket'));
     await chooseBasketKind(page, 'note');
@@ -163,17 +163,61 @@ for (const width of [1280, 390]) {
     await press(page.locator('[data-note-folder-more]'));
     await press(page.locator('#noteDocMenu [data-nx-form-new]'));
     await expect(edWin(page)).toBeVisible();
-    const mine = page.locator('.kptu-ask .kptu-ask-pick').filter({hasText: '내 할 일 틀'});
-    await expect(page.locator('.kptu-ask .kptu-ask-pick').filter({hasText: '회의록'})).toBeVisible();
-    await press(mine);
+    const picks = page.locator('.kptu-ask .kptu-ask-pick');
+    await expect(picks.filter({hasText: '내 할 일 틀'})).toBeVisible();
+    for (const gone of ['회의록', '주간 계획', '통화 기록', '기본 서식']) await expect(page.locator('.kptu-ask')).not.toContainText(gone);
+    await press(picks.filter({hasText: '내 할 일 틀'}));
     await expect(edWinText(page).locator('li')).toHaveText(['보고서 쓰기', '전화하기']);
     await expect(page.locator('#edWindow [data-edw-title]')).toHaveValue('내 할 일 틀');
-    // 창 제목 줄 [서식 ▾]로 기본 서식을 하나 더 넣으면 쓴 글 뒤에 붙는다.
-    await press(page.locator('#edWindow [data-edw-form]'));
-    await press(page.locator('.kptu-ask .kptu-ask-pick').filter({hasText: '통화 기록'}));
-    await expect(edWinText(page).locator('.ed-h')).toContainText(['누구와', '언제', '나눈 이야기', '다음에 할 일']);
-    await expect(edWinText(page).locator('li').first()).toHaveText('보고서 쓰기');
+    // 제목 줄에는 [서식 ▾]가 없고, 위 도구 줄 [넣기 ▾] 안 [서식]으로 한 번 더 넣으면 쓴 글 뒤에 붙는다.
+    await expect(page.locator('#edWindow [data-edw-form]')).toHaveCount(0);
+    await expect(page.locator('#edWindow [data-ed-panel="gInsert"] [data-ed-cmd="form"]')).toHaveText('서식');
+    await edCmd(edWin(page), 'form', {tap: touch});
+    await expect(picks).toHaveCount(2); // 내 서식 하나 + [내 서식 삭제…]
+    await press(picks.filter({hasText: '내 할 일 틀'}));
+    await expect(edWinText(page).locator('li')).toHaveText(['보고서 쓰기', '전화하기', '보고서 쓰기', '전화하기']);
     expect(s.errors).toEqual([]);
+  });
+
+  test(`④ 내 서식이 없으면 안내 한 줄(⋯ 서식으로 새 노트 · 넣기 ▾ › 서식) ${width}`, async ({page}) => {
+    await page.setViewportSize({width, height: 900});
+    const s = await setup(page);
+    await page.evaluate(() => window.KPTURouter.go('basket'));
+    await chooseBasketKind(page, 'note');
+    await press(page.locator('[data-note-folder-more]'));
+    await press(page.locator('#noteDocMenu [data-nx-form-new]'));
+    await expect(page.locator('#toast')).toContainText('노트 ⋯ [서식으로 저장]으로 내 서식을 만들어요');
+    await expect(edWin(page)).toBeHidden();
+    await press(page.locator('[data-note-list] [data-quick-big]'));
+    await expect(edWin(page)).toBeVisible();
+    await edCmd(edWin(page), 'form', {tap: touch});
+    const ask = page.locator('.kptu-ask');
+    await expect(ask).toContainText('노트 ⋯ [서식으로 저장]으로 내 서식을 만들어요');
+    await expect(ask.locator('.kptu-ask-pick')).toHaveCount(0);
+    for (const gone of ['회의록', '주간 계획', '통화 기록']) await expect(ask).not.toContainText(gone);
+    expect(s.errors).toEqual([]);
+  });
+}
+for (const width of [344, 390, 717, 1280]) {
+  test(`⑤ 새 노트 창 제목 줄: 제목 칸 + 폴더 단추만, 빈칸·글자 깨짐 없음 ${width}`, async ({page}) => {
+    await page.setViewportSize({width, height: 800});
+    await setup(page);
+    await page.evaluate(() => window.KPTURouter.go('basket'));
+    await chooseBasketKind(page, 'note');
+    await page.locator('[data-note-list] [data-quick-big]').click();
+    const row = page.locator('#edWindow .edw-title-row');
+    await expect(row).toBeVisible();
+    await expect(page.locator('#edWindow [data-edw-form]')).toHaveCount(0);
+    const got = await row.evaluate(r => {
+      const kids = [...r.children].filter(el => getComputedStyle(el).display !== 'none' && !el.classList.contains('a11y-only'));
+      const box = r.getBoundingClientRect(), pad = parseFloat(getComputedStyle(r).paddingRight) || 0;
+      const folder = r.querySelector('[data-edw-folder]'), fb = folder?.getBoundingClientRect(), lh = parseFloat(getComputedStyle(folder).lineHeight) || 20;
+      return {kinds: kids.map(el => el.dataset.edwTitle !== undefined ? 'title' : el.dataset.edwFolder !== undefined ? 'folder' : el.tagName), gap: box.right - pad - fb.right, oneLine: fb.height < lh * 1.8 + 12, input: r.querySelector('[data-edw-title]').getBoundingClientRect().width};
+    });
+    expect(got.kinds).toEqual(['title', 'folder']);
+    expect(Math.abs(got.gap)).toBeLessThan(2);
+    expect(got.oneLine).toBe(true);
+    expect(got.input).toBeGreaterThan(width < 400 ? 150 : 300);
   });
 }
 });

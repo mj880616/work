@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, emptyHtml, barHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
 // SEC-기능PIN잠금 노트 폴더(S67-14): 잠근 폴더(하위 폴더 포함)의 노트는 줄·포스트잇·태그·메모·검색 결과에서 제목·내용 대신 '잠김'. 판정은 feature-lock.js 한 곳.
@@ -43,6 +43,7 @@ import { createSelectMode } from './select-mode.js';
 import { bindSelectKeys, renameTarget, confirmDelete, deleteNeedsConfirm } from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
 import { notify, askConfirm, askText } from './small-notice.js';
 import { requestNewsItem } from './news-request.mjs';
+import { openOnScreen } from './source-open.js';
 import { createNoteNewsMarks, isNewsAt } from './note-news-marks.js';
 // S69-27 노트 휴지통: [폴더] 보기 나무 맨 아래 '휴지통 N'(그리기 주인 note-trash.js). 끄는 동안 따라오는 조각은 공용 drag-ghost.js.
 import { createNoteTrash, NOTE_TRASH, isTrashAt } from './note-trash.js';
@@ -903,7 +904,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   async function refresh() {
     if (busy) return;
     const run = ++epoch, owner = scope();
-    status.innerHTML = waitInlineHtml(); host.querySelector('[data-note-retry]').hidden = true;
+    // S71-74 UI-덮어쓰기땜질없애기(사용자 11/26 "노트 탭 누르면 화면 깜빡임 / 옛 화면 위를 현재 화면이 덮어씀"): 읽는 동안 목록 위에
+    // '…' 한 줄(글줄 기다림)을 두지 않는다. 그 줄이 최근·폴더 목록을 한 줄 밀었다가 다 읽으면 사라져 목록이 위로 올라붙었다(PR 610 '불러오는 중…' 줄 → PR 1447 '…').
+    // 이미 그린 목록이 있으면 그대로 두고 맨 위 막대만(높이 0 — barHtml), 처음 읽을 때는 목록 자리에 회색 빈 줄(waitHtml) — 다 읽으면 그 자리에 목록이 한 번 그려진다.
+    status.innerHTML = loaded ? barHtml() : waitHtml({rows:3, h:36}); host.querySelector('[data-note-retry]').hidden = true;
     marksRun = run;
     try {
       // S69-27: 휴지통 수도 같이 기다려 한 번만 그린다(늦게 와서 다시 그리면 막 잡은 줄이 떨어져 나간다 — STAB-노트폴더끌기시험과 같은 까닭).
@@ -1071,7 +1075,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const hash = tagChipsHtml(tagsOfNote(selected), {addOpen:!!readPick?.isOpen()});
     box.innerHTML = `${folder ? `<span class="note-meta-folder" data-note-meta-folder>폴더 ${esc(folder)}</span>` : ''}<span class="note-meta-tags" data-note-meta-tags>${hash}</span>${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '분류 완료' : '연결 없음')}</span></span>`}<time>수정한 날 ${esc(day(selected.updated_at))}</time>${newsItemOf(selected) ? '<button type="button" class="note-meta-news" data-note-news>기사로 가기</button>' : ''}`;
     // NEWS-클리핑 C2: 뉴스 클리핑 기사 메모(metadata.news_item_id)인 노트는 [기사로 가기] → 뉴스 클리핑 화면에 그 기사를 연다.
-    box.querySelector('[data-note-news]')?.addEventListener('click', () => { if (requestNewsItem(newsItemOf(selected))) window.KPTURouter?.go?.('news', {source:'delegated'}); });
+    box.querySelector('[data-note-news]')?.addEventListener('click', () => { if (requestNewsItem(newsItemOf(selected))) void openOnScreen('outside'); });
     // UI-일기손질 ⑥: each attachment is the shared file line (meeting-compact.js) with a small [Drive에서 열기] at its end.
     // NOTE-파일붙이기: and a ⋯ after it whose one item, [빼기], takes the file off this note (the Drive file stays).
     // FILE-누르면동작: pressing the line acts by kind (file-actions.js); the small [Drive에서 열기] stays and the ⋯ holds [Drive에서 열기] [내려받기] [빼기].
@@ -1623,6 +1627,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (owner === scope()) report(error?.code === 'note_changed' ? error.message : error?.message && /[가-힣]/.test(error.message) ? error.message : '알림을 저장하지 못했어요. 다시 해 주세요.');
     }
   }
+  // S71-65 ⋯ [서식으로 새 노트]: 내 서식이 하나도 없으면 창을 열지 않고 안내 한 줄(앱이 미리 넣은 서식은 없다). 읽지 못하면 창을 열어 고르기 창이 그 사실을 말한다.
+  async function openFormNew() {
+    const owner = scope();
+    const [{listTemplates}, {TEMPLATE_EMPTY_HINT}] = await Promise.all([import('./note-templates.js'), import('./note-templates-model.mjs')]);
+    const mine = await listTemplates({rt});
+    if (owner !== scope()) return;
+    if (mine.ok && !mine.rows.length) { showToast(TEMPLATE_EMPTY_HINT); return; }
+    void openNew('', null, null, {formFirst:true});
+  }
   // S69-97 노트 서식: 이 노트 글(옛 글은 바꾼 모양)을 이름 붙여 내 서식으로 저장(note-templates.js, 서버 표).
   async function saveForm(note, trigger) {
     if (!note || busy) return;
@@ -1631,7 +1644,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const [{saveAsTemplate}, doc] = await Promise.all([import('./note-templates.js'), startValue(note)]);
       const result = await saveAsTemplate(trigger, {name:note.title, doc, rt});
       if (!result || owner !== scope()) return;
-      if (result.ok) showToast(`'${result.name}' 서식으로 저장했어요. 새 노트 창 [서식]에서 선택해 쓸 수 있어요.`); else report(result.message);
+      if (result.ok) showToast(`'${result.name}' 서식으로 저장했어요. 새 노트 창 [넣기] 안 [서식]에서 선택해 쓸 수 있어요.`); else report(result.message);
     } catch { if (owner === scope()) report('서식을 저장하지 못했어요. 다시 해 주세요.'); }
   }
   async function pin(target = selected) {
@@ -2161,7 +2174,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-up')) enter(folderById(at)?.parent_id || null);
       else if (b.hasAttribute('data-nx-new-in')) void newFolder(id);
       else if (b.hasAttribute('data-nx-rename')) void renameFolder(id);
-      else if (b.hasAttribute('data-nx-form-new')) void openNew('', null, null, {formFirst:true});
+      else if (b.hasAttribute('data-nx-form-new')) void openFormNew();
       else if (b.hasAttribute('data-nx-sort')) setNoteSort(noteSort === 'manual' ? 'changed' : 'manual');
       else if (b.hasAttribute('data-nl-cols-open')) openMenu(from.trigger, null, 'cols');
       else if (b.dataset.nlSort && NOTE_LIST_SORT_KEYS.includes(b.dataset.nlSort)) setListSort(nextSort(listSort(), b.dataset.nlSort, {descFirst:LIST_SORT_DESC_FIRST}));
@@ -2371,8 +2384,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     sinkToRow(from, row, host.querySelectorAll('[data-nx-recent] .ft-box, #noteRows > .ft-box'));
   }
   // 폰 폴더 화면은 라우터 한 겹: 갤럭시 뒤로가기 = 첫 화면 폴더 목록(선택 모드·열린 노트 겹이 있으면 그것부터 닫힘).
+  // S71-76 NAV-뒤로가기직전화면: 다른 화면으로 갔다가(라우터는 화면을 옮길 때 이 화면 겹을 잊는다) 뒤로가기·앞으로로 이 폴더 칸에 돌아오면
+  // 라우터가 reopen을 부른다. 폴더 화면이 그대로 그려져 있으면(at 그대로) 옛 겹 손잡이를 버리고 같은 칸에 겹만 다시 세운다(다시 그리지 않아 스크롤 그대로).
+  function reopenFolder(id) {
+    if (at === id && !wideList.matches) { folderLayer = null; syncFolderLayer(); return; }
+    enter(id);
+  }
   function syncFolderLayer() {
-    if (at !== null && !folderLayer) { const folderId = at; folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); const back = treeScroll || (wideList.matches ? null : {y:null, id:at}), from = focusHeadTop(); treeScroll = null; at = null; renderList(); restoreTree(back, from); return true; }, reopen: () => enter(folderId)}) || null; }
+    if (at !== null && !folderLayer) { const folderId = at; folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); const back = treeScroll || (wideList.matches ? null : {y:null, id:at}), from = focusHeadTop(); treeScroll = null; at = null; renderList(); restoreTree(back, from); return true; }, reopen: () => reopenFolder(folderId)}) || null; }
     else if (at === null && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
   }
   // UI-목록공용키(S70-18, N2·N3·N4): 목록 칸 Ctrl+A·Delete·F2는 공용 키 부품(select-keys.js)이 정하고, 할 일은 이 화면 길 그대로 —
