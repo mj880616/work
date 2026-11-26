@@ -862,7 +862,8 @@ function fileRow(file){
 // The large photo: shared view (photo-view.js) with ×, Esc and phone Back (one router layer), as the diary does.
 function openPhoto(fileId,trigger){
   const file=selected?.attachments?.find(f=>f.drive_file_id===fileId);if(!file)return;
-  openPhotoView({row:selected,file,trigger,rt});
+  // PHOTO-크게보기넘기기(S71-72): 이 잊지 말기 줄에 붙은 사진(작은 그림이 있는 것과 같은 판정)끼리 넘긴다.
+  openPhotoView({row:selected,file,files:(selected.attachments||[]).filter(f=>isPhoto(f)&&f.drive_file_id),trigger,rt});
 }
 const closePhoto=closePhotoView;
 async function sendToLibrary(fileId) {

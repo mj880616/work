@@ -56,6 +56,9 @@ export function dragEnd(dy = 0) {
 // PHOTO-크게보기밀기(S57-2): 가로로 끌다 놓을 때. 거리는 빠른 손짓과 같은 SWIPE_MIN(dragEnd의 가로판).
 // 앞뒤 사진이 없는 쪽(hasPrev/hasNext가 false)으로 끌었으면 넘기지 않고 제자리('back').
 export const STEP_DIST = SWIPE_MIN;
+// PHOTO-크게보기넘기기(S71-72): 화면 왼쪽·오른쪽 끝 BACK_EDGE px 안에서 시작한 밀기는 폰 뒤로가기 몸짓 몫이라 사진을 넘기지 않는다.
+export const BACK_EDGE = 20;
+export const fromScreenEdge = (x, width) => Number.isFinite(x) && Number.isFinite(width) && width > 0 && (x <= BACK_EDGE || x >= width - BACK_EDGE);
 export function dragEndX(dx = 0, {hasPrev = true, hasNext = true} = {}) {
   if (!Number.isFinite(dx)) return 'back';
   if (-dx >= STEP_DIST) return hasNext ? 'next' : 'back';
