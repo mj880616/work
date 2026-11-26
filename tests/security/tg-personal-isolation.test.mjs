@@ -19,6 +19,8 @@ const ALLOWED=new Set([
  'tests/security/ai-assist-ask-web2.test.mjs',
  // 읽을 거리(S68-09): 검색 함수가 이 표를 읽지 않음을 확인하는 확인 SQL·시험만(읽는 코드 아님).
  'docs/20261122100000_reading_items.postcheck.sql','tests/auth-handoff/reading-items-db.test.mjs',
+ // S71-15 SEARCH-띄어쓰기무시: 검색 함수가 개인 텔레그램 표를 읽지 않는지 보는 사후 확인·시험(이름만 나옴).
+ 'docs/20261126180000_search_space_insensitive.postcheck.sql','tests/auth-handoff/search-space-insensitive-db.test.mjs',
  'tests/auth-handoff/tg-personal-days.test.mjs','tests/auth-handoff/package.json','tests/security/tg-personal-isolation.test.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);

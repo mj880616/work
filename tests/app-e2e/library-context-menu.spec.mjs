@@ -36,6 +36,9 @@ test.describe('자료실 PC 오른쪽 클릭 1280',()=>{
     await expect(page.locator('#libraryFolderTitle')).toHaveText('안에 폴더 만들기');
     await page.locator('#libraryFolderName').fill('가상 새것');await page.locator('#libraryFolderSave').click();
     await expect.poll(()=>s.folders.find(f=>f.name==='가상 새것')?.parent_id).toBe('fa');
+    // STAB(S70-74): 가짜 서버가 저장을 받은 뒤에도 앱이 응답을 받아 창을 닫기 전까지는 창이 화면을 덮어 우클릭이 창에 간다.
+    // 창이 닫힌 뒤에 다음 우클릭을 한다(서버 응답이 늦으면 창이 덮은 채로 우클릭해 메뉴가 안 뜨던 간헐 실패).
+    await expect(page.locator('#libraryFolderModal')).toBeHidden();
     // 목록 상자 안 빈 자리(마지막 줄 아래)도 같은 메뉴, [모두 선택] = 지금 폴더 파일 모두.
     const lb=await page.locator('#documentList').boundingBox(),cb=await page.locator('#libraryListCard').boundingBox();
     expect(cb.y+cb.height-6).toBeGreaterThan(lb.y+lb.height);

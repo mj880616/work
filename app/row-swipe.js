@@ -25,7 +25,7 @@ const SKIP = 'input,textarea,select,[contenteditable],[data-row-swipe-act]';
 export const PICK = Object.freeze({key:'select', label:'선택', tone:'pick', icon:'pick'});
 // 이름이 같은 일은 같은 그림(그 목록이 icon을 주지 않았을 때).
 const ICON = {select:'pick', delete:'trash', move:'move', share:'share', hide:'hide', save:'archive', release:'undo', unstar:'undo', toggle:'done', done:'done',
-  hold:'archive', unhold:'undo', pin:'pin', dismiss:'hide', edit:'edit', rename:'rename', 'to-task':'task', more:'more', star:'star', restore:'undo', purge:'trash'};
+  hold:'archive', unhold:'undo', pin:'pin', dismiss:'hide', edit:'edit', rename:'rename', 'to-task':'task', more:'more', star:'star', restore:'undo', purge:'trash', unhide:'show'};
 // S70-65 UI-밀기메뉴통일(2026-11-26 08:16 명진 가안): 왼쪽 밀기 칸은 [주 동작][수정][숨기기·삭제] 세 칸. 같은 일은 같은 이름·그림 —
 // 목록은 아래 칸을 그대로 쓰고 주 동작만 제 것으로 준다. 수정 칸 이름은 용어 기준표(docs/design/ui-words.md)의 '수정', 파일은 '이름 바꾸기'.
 export const EDIT = Object.freeze({key:'edit', label:'수정', tone:'info', icon:'edit'});

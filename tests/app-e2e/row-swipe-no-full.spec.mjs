@@ -19,7 +19,7 @@ import { openMeetingResult } from './helpers/meeting-open.mjs';
 // 어떤 일도 하지 않는다(숨기기·삭제·저장·보관·선택 시작 없음, 서버 쓰기 요청 없음). 일은 펼쳐진 칸을 눌렀을 때만 한다.
 // 기준표: docs/design/standard-interactions.md 8절 P5·W1·W2. 새 화면에 줄 밀기를 붙이면 아래 SCREENS 표에 한 줄 더한다.
 // UI-밀기메뉴통일(S70-65, 명진 11/26 08:16 가안 [주 동작][수정][숨기기·삭제]): 화면마다 왼쪽 밀기 칸 이름·순서(labels)가 표와 같은지,
-// [수정]·[이름 바꾸기]·[할 일로] 같은 가운데 칸(mid)을 누르면 ⋯ 메뉴와 같은 일이 되는지도 본다(labels가 null인 화면은 다른 작업 몫 — S70-62).
+// [수정]·[이름 바꾸기]·[할 일로] 같은 가운데 칸(mid)을 누르면 ⋯ 메뉴와 같은 일이 되는지도 본다(읽을 거리 기사 줄·저장한 글은 S70-62).
 // 오른쪽 밀기는 그 줄이 바로 골라지는 고르기(S70-64) — 칸이 열려 남지 않고, 서버 쓰기도 없다.
 // (휴지통 줄은 project-system-v3.spec.mjs 'TRASH 줄 밀기'가 같은 규칙을 본다 — 그 화면 흉내 서버가 그 파일 안에만 있다.)
 // 서버는 모두 흉내, 글·이름은 모두 지어낸 것.
@@ -65,7 +65,10 @@ async function nowNews(page) {
   await openNews(page, W);
   const row = page.locator('#newsRoot [data-nc-item="c1"]');
   await expect(row).toBeVisible();
-  return { row, list: page.locator('#newsRoot'), picked: page.locator('#newsRoot .row-swipe-pickbar'), act: { key: 'hide', done: async () => expect(row).toHaveCount(0) } };
+  // S70-62 READ-밀기메뉴: 읽을 거리 기사 줄 = [수정][저장][숨기기].
+  return { row, list: page.locator('#newsRoot'), picked: page.locator('#newsRoot .row-swipe-pickbar'), labels: ['수정', '저장', '숨기기'],
+    mid: { key: 'edit', done: async () => expect(page.locator('#outsideRoot [data-now-detail] [data-nd-hand-form]')).toBeVisible() },
+    act: { key: 'hide', done: async () => expect(row).toHaveCount(0) } };
 }
 async function reading(page) {
   const id = n => `a6900000-0000-4000-8000-00000000000${n}`;
@@ -88,8 +91,10 @@ async function reading(page) {
   await list.locator('.rd-switch [data-filter-value="all"]').click();
   const row = list.locator(`.rd-row[data-rd-open="${id(1)}"]`);
   await expect(row).toBeVisible();
-  return { row, list, picked: page.locator('#readingView .row-swipe-pickbar'),
-    act: { key: 'read', done: async () => expect.poll(() => rows[0].read_at).toBeTruthy() } };
+  // S70-62 READ-밀기메뉴: 저장한 글 줄 = [수정][삭제]. [삭제]는 되돌리기가 없는 줄이라 확인 한 번(K1).
+  return { row, list, picked: page.locator('#readingView .row-swipe-pickbar'), labels: ['수정', '삭제'],
+    mid: { key: 'edit', done: async () => expect(page.locator('#readingView [data-rd-edit-form]')).toBeVisible() },
+    act: { key: 'delete', done: async () => expect(page.locator('.kptu-ask')).toContainText('이 글을 삭제할까요?') } };
 }
 async function library(page) {
   await librarySetup(page, W);
@@ -324,7 +329,7 @@ for (const [name, open] of SCREENS) {
 }
 
 // S70-65 W2: 가운데 칸([수정]·[이름 바꾸기]·[할 일로])과 [⋯]을 누르면 ⋯ 메뉴와 같은 일이 열린다(화면마다 새로 열어 본다).
-const MIDS = [['파일', filesTree, 'mid'], ['자료실', library, 'mid'], ['일정 목록', calendarList, 'mid'], ['업데이트', updates, 'mid'], ['노트', notes, 'mid'],
+const MIDS = [['Now 뉴스', nowNews, 'mid'], ['저장한 글', reading, 'mid'], ['파일', filesTree, 'mid'], ['자료실', library, 'mid'], ['일정 목록', calendarList, 'mid'], ['업데이트', updates, 'mid'], ['노트', notes, 'mid'],
   ['할 일', tasks, 'mid'], ['잊지 말기 후보', todoCandidates, 'mid'], ['잊지 말기 후보', todoCandidates, 'more']];
 for (const [name, open, which] of MIDS) {
   test(`W2 ${name} 폰 ${W}: 왼쪽 밀기 ${which === 'more' ? '[⋯]' : '가운데 칸'}을 누르면 ⋯ 메뉴와 같은 일`, async ({ page }) => {
