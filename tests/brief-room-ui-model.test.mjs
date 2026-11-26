@@ -93,6 +93,12 @@ test('delete kinds: brief only / with document, confirm and result lines', () =>
   assert.deepEqual({ ...m.DELETE_KINDS }, { brief: '브리핑만 삭제', doc: '자료까지 삭제' });
   assert.equal(m.deleteConfirm('brief', 1, '예시 자료').text, '“예시 자료” 브리핑만 삭제할까요?');
   assert.match(m.deleteConfirm('brief', 1, '예시 자료').note, /자료실에 그대로/);
+  // 밀기·우클릭 [삭제](auto): 브리핑 + 자료, 자료실에 있던 자료는 브리핑만(자료 보존)
+  assert.equal(m.deleteConfirm('auto', 1, '예시 자료').text, '“예시 자료” 브리핑과 자료를 삭제할까요?');
+  assert.match(m.deleteConfirm('auto', 1, '예시 자료').note, /휴지통/);
+  assert.equal(m.deleteConfirm('auto', 1, '예시 자료', { keep: 1 }).text, '“예시 자료” 브리핑을 삭제할까요?');
+  assert.match(m.deleteConfirm('auto', 1, '예시 자료', { keep: 1 }).note, /자료는 지우지 않고/);
+  assert.match(m.deleteConfirm('auto', 3, '', { keep: 1 }).note, /1개는 지우지 않아요/);
   assert.equal(m.deleteConfirm('doc', 3).text, '3개 자료까지 삭제할까요?');
   assert.match(m.deleteConfirm('doc', 3).note, /휴지통/);
   assert.equal(m.deleteConfirm('doc', 1).ok, '삭제');
