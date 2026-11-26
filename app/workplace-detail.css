@@ -256,7 +256,7 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 #wdUpdates .kptu-rec-fold :is(.wd-rowtop,.basket-link-line){display:grid;grid-template-columns:4.6em minmax(0,1fr) 38px;grid-template-rows:var(--kptu-rec-lh) auto;column-gap:8px;row-gap:0;align-items:start}
 @media(max-width:650px){#wdUpdates .kptu-rec-fold :is(.wd-rowtop,.basket-link-line){grid-template-columns:3.9em minmax(0,1fr) 38px}}
 #wdUpdates .kptu-rec-fold :is(.wd-log-day,.basket-link-day){grid-column:1;grid-row:1;padding-top:0;line-height:var(--kptu-rec-lh)}
-#wdUpdates .kptu-rec-fold :is(.wd-log-main,.basket-link-main){grid-column:2;grid-row:1/span 2;min-width:0;min-height:calc(var(--kptu-rec-lh) * 2)}
+#wdUpdates .kptu-rec-fold :is(.wd-log-main,.basket-link-main){grid-column:2;grid-row:1/span 2;min-width:0;min-height:var(--kptu-rec-body)}
 #wdUpdates .kptu-rec-fold :is(.wd-up-more,.basket-link-more){grid-column:3;grid-row:1;width:44px;height:44px;min-height:44px;margin:-9px -6px 0 0}
 #wdUpdates .kptu-rec-fold .kptu-rec-fold-btn{grid-column:3;grid-row:2;justify-self:start;margin-left:6px}
 #wdUpdates .kptu-rec-fold :is(.wd-log-main>p,.wd-log-main>.wd-doc,[data-link-summary-text]){margin:0;font-size:var(--ds-text-row,13px);color:var(--kptu-ink)}

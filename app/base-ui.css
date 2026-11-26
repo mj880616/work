@@ -245,12 +245,13 @@ body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-
 .kptu-title-line>:not(:first-child){flex:none;margin-top:-4px}
 
 /* PRJ-화면다듬기 → UI-기록줄균일(S70-85): 기록 목록 줄 접기 공용 모양(text-clamp.js). 접힌 본문 = 두 줄(넘치면 말줄임), 펼침 = .is-open.
-   줄(.kptu-rec-fold)마다 본문 줄 높이 --kptu-rec-lh 하나로 두 줄 높이를 정한다(한 줄짜리도 같은 높이 — 각 목록 CSS가 본문 칸 최소 높이로 맞춤).
+   줄(.kptu-rec-fold)마다 본문 줄 높이 --kptu-rec-lh 하나로 두 줄 높이를 정한다. 본문 칸 높이 --kptu-rec-body = 두 줄과 누르는 칸(44px) 중 큰 쪽
+   (한 줄짜리도 같은 높이 — 각 목록 CSS가 본문 칸 최소 높이로 맞춤).
    꺾쇠(.kptu-rec-fold-btn, 공용 .kptu-chev)는 ⋯ 바로 아래 한 줄 높이 안 — 자리는 각 목록 CSS가 정한다. ⋯는 44px 그대로(줄 위 여백까지 덮음),
    꺾쇠는 그 아래쪽 위에 겹쳐 놓여(z-index) 꺾쇠 자리를 누르면 꺾쇠가 눌린다. 누르는 범위는 ::after로 아래 여백까지(옆으로는 넓히지 않음 — 가로 넘침 없음). */
 .kptu-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
 .kptu-clamp.is-open{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible}
-.kptu-rec-fold{--kptu-rec-lh:20px}
+.kptu-rec-fold{--kptu-rec-lh:20px;--kptu-rec-body:max(calc(var(--kptu-rec-lh) * 2),var(--kptu-touch-target,44px))}
 .kptu-rec-fold .kptu-clamp{margin:0;line-height:var(--kptu-rec-lh)}
 .kptu-rec-fold:not([data-rec-open]) .kptu-clamp{max-height:calc(var(--kptu-rec-lh) * 2)}
 .kptu-rec-fold[data-rec-foldable] .kptu-clamp{cursor:pointer}
