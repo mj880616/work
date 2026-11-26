@@ -58,13 +58,14 @@ function icon(name, cls = 'gs-icon') {
   path.setAttribute('d', ICON[name] || ICON.search); svg.append(path); return svg;
 }
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
-// S70-67 SEARCH-비슷한것찾기: 형광은 공용 판정의 맞은 부분(정확히 같은 글자 + 띄어쓰기·초성·오타로 맞은 글자). 낱말 묶음마다 한 번만 만든다.
+// S70-67 SEARCH-비슷한것찾기: 형광은 글자 그대로 맞은 낱말, 없으면 공용 판정의 맞은 부분(띄어쓰기·초성·오타). 낱말 묶음마다 한 번만 만든다.
 let markFind = null;
 const findFor = words => { const k = (words || []).join(' '); if (markFind?.text !== k) markFind = compileFind(k); return markFind; };
 function marked(text, words, cls) {
   const box = el('span', cls);
-  const parts = markParts(text, findFor(words));
-  for (const part of (parts.some(p => p.mark) ? parts : highlightParts(text, words))) box.append(part.mark ? el('mark', 'gs-mark', part.text) : document.createTextNode(part.text));
+  // 글자 그대로 맞은 낱말이 있으면 지금처럼 낱말마다 형광, 없을 때만(띄어쓰기·초성·오타로 맞음) 공용 판정의 구간.
+  const exact = highlightParts(text, words);
+  for (const part of (exact.some(p => p.mark) ? exact : markParts(text, findFor(words)))) box.append(part.mark ? el('mark', 'gs-mark', part.text) : document.createTextNode(part.text));
   return box;
 }
 
