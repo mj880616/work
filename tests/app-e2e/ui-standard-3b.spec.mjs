@@ -227,7 +227,7 @@ test('정리함: 처리할 것이 없으면 회색 한 줄 "없음"(공용 없�
  await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-view="basket"]').click();await loaded(page,'basket');
  const empty=page.locator('#basketView [data-forget-empty]');await expect(empty).toHaveText('없음');
  await expect(empty).toHaveCSS('text-align',/^(start|left)$/);
- await expect(page.locator('[data-sf-tools="forget"] [data-forget-view-open]')).toHaveText('처리 전 ▾');
+ await expect(page.locator('[data-forget-view-open]')).toHaveCount(0); // S71-58 FORGET-처리전만: 보기 단추 없음
  expect(errors).toEqual([]);
 });
 

@@ -44,7 +44,8 @@ export function lineSlot(view) {
     s.className = 'screen-line-slot'; s.dataset.screenTools = 'line'; s.dataset.screenLineView = view;
     slots.set(view, s);
   }
-  const row = spec.line ? panel.querySelector(spec.line) : null;
+  // 숨은 줄(같은 화면의 다른 쪽 — 정리함 [잊지 말기]일 때 노트 보기 탭 줄)에는 붙이지 않는다: 그때는 화면 맨 위 자기 줄(own).
+  const row = spec.line ? [...panel.querySelectorAll(spec.line)].find(r => !r.closest('[hidden]')) || null : null;
   const anchor = !row && spec.grid ? panel.querySelector(spec.grid) : null;
   if (row) {
     s.dataset.screenLineMode = 'line';

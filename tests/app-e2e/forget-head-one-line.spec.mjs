@@ -1,13 +1,13 @@
 // S71-29 FORGET-머리한줄(사용자 결정 11/26 — 다른 화면처럼 한 줄로):
 // 예전: 1줄 [W] 잊지 말기 · 찾기 / 2줄 (빈 칸) · [처리 전 ▾] · 최신화.
 // 지금: 한 줄 [W] 잊지 말기 · [처리 전 ▾] · (빈 칸) · 최신화(↻, aria-label '최신화') · 찾기. 따로 된 둘째 줄은 그리지 않는다(숨김 아님).
-// 폰·폴드는 앱 머리 줄, PC 틀은 맨 위 줄(찾기 칸 오른쪽, 다른 화면과 같은 단추 자리). [처리 전 ▾] 보기 메뉴·최신화(찾기 다시)는 예전 그대로 동작한다.
+// 폰·폴드는 앱 머리 줄, PC 틀은 맨 위 줄(찾기 칸 오른쪽, 다른 화면과 같은 단추 자리). 최신화(찾기 다시)는 예전 그대로 동작한다.
+// S71-58 FORGET-처리전만(사용자 결정 11/26): [처리 전 ▾]는 없앴다 → 한 줄 = [W] 잊지 말기 · (빈 칸) · ↻ · 찾기.
 // 서버는 흉내(openHome 기본: 후보 없음, ai-assist todo_radar는 건너뜀 답). 글·이름은 지어낸 것.
 import {test, expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 
 const tools = page => page.locator('[data-sf-tools="forget"]');
-const viewButton = page => tools(page).locator('[data-forget-view-open]');
 const findButton = page => tools(page).locator('[data-inbox-find]');
 
 async function openForget(page, width) {
@@ -21,12 +21,12 @@ async function openForget(page, width) {
   });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();
-  await expect(viewButton(page)).toBeVisible();
+  await expect(findButton(page)).toBeVisible();
   return {radar};
 }
 const box = loc => loc.evaluate(el => { const r = el.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height, right: r.right, bottom: r.bottom, mid: r.y + r.height / 2}; });
 
-for (const width of [344, 390, 690]) test(`폰·폴드 ${width}: 앱 머리 줄 한 줄 = [W] 잊지 말기 · [처리 전 ▾] · (빈 칸) · ↻ · 찾기, 따로 된 둘째 줄 없음`, async ({page}) => {
+for (const width of [344, 390, 690]) test(`폰·폴드 ${width}: 앱 머리 줄 한 줄 = [W] 잊지 말기 · (빈 칸) · ↻ · 찾기, 따로 된 둘째 줄 없음`, async ({page}) => {
   const f = await openForget(page, width);
   const head = page.locator('#appView > .mobile-shell-header');
   // 단추는 앱 머리 줄 안(화면 안이 아님). 옛 둘째 줄은 그리지 않는다.
@@ -37,18 +37,18 @@ for (const width of [344, 390, 690]) test(`폰·폴드 ${width}: 앱 머리 줄 
   await expect(findButton(page).locator('svg')).toHaveCount(1);
   await expect(findButton(page)).toHaveText('');
   const name = await box(head.locator('[data-mobile-view-name]'));
-  const view = await box(viewButton(page)), find = await box(findButton(page)), h = await box(head);
+  await expect(page.locator('[data-forget-view-open]')).toHaveCount(0);
+  const find = await box(findButton(page)), h = await box(head);
   const search = await box(head.locator('[data-screen-find-slot] > :is(.sf-open, .gs-field):visible').first());
   // 한 줄 높이(머리 줄 44px 이하), 모두 같은 줄 가운데.
   expect(h.h).toBeLessThanOrEqual(44);
-  for (const b of [name, view, find, search]) { expect(Math.abs(b.mid - name.mid)).toBeLessThanOrEqual(3); expect(b.y).toBeGreaterThanOrEqual(h.y - 1); expect(b.bottom).toBeLessThanOrEqual(h.bottom + 1); }
-  // 차례: 이름 → [처리 전 ▾] → ↻ → 찾기. ↻ 바로 뒤가 찾기(머리줄 규칙 '… · 찾기').
-  expect(view.x).toBeGreaterThan(name.right - 1);
-  expect(find.x).toBeGreaterThan(view.right - 1);
+  for (const b of [name, find, search]) { expect(Math.abs(b.mid - name.mid)).toBeLessThanOrEqual(3); expect(b.y).toBeGreaterThanOrEqual(h.y - 1); expect(b.bottom).toBeLessThanOrEqual(h.bottom + 1); }
+  // 차례: 이름 → ↻ → 찾기. ↻ 바로 뒤가 찾기(머리줄 규칙 '… · 찾기').
+  expect(find.x).toBeGreaterThan(name.right - 1);
   expect(search.x).toBeGreaterThan(find.right - 1);
   expect(search.x - find.right).toBeLessThanOrEqual(12);
-  // 접은 폰은 [처리 전 ▾]와 ↻ 사이가 빈 칸(↻는 돋보기 바로 앞, 오른쪽 끝 쪽).
-  if (width < 600) { expect(find.x - view.right).toBeGreaterThan(24); expect(h.right - search.right).toBeLessThanOrEqual(4); }
+  // 접은 폰은 이름과 ↻ 사이가 빈 칸(↻는 돋보기 바로 앞, 오른쪽 끝 쪽).
+  if (width < 600) { expect(find.x - name.right).toBeGreaterThan(24); expect(h.right - search.right).toBeLessThanOrEqual(4); }
   // 아이콘 단추 크기: 보이는 32px, 누르는 범위 44px(다른 머리 줄 아이콘 단추와 같음).
   expect(Math.round(find.w)).toBe(32); expect(Math.round(find.h)).toBe(32);
   expect(await findButton(page).evaluate(el => getComputedStyle(el, '::after').height)).toBe('44px');
@@ -57,13 +57,6 @@ for (const width of [344, 390, 690]) test(`폰·폴드 ${width}: 앱 머리 줄 
   expect(list.y).toBeGreaterThanOrEqual(h.bottom);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
-  // [처리 전 ▾]: 첫 줄에서 보기 메뉴가 열리고, 고르면 이름이 바뀐다.
-  await viewButton(page).click();
-  const menu = page.locator('#forgetViewMenu');
-  await expect(menu).toBeVisible();
-  await menu.getByRole('menuitemradio', {name: '보냄', exact: true}).click();
-  await expect(viewButton(page)).toHaveText('보냄 ▾');
-  await expect(viewButton(page)).toHaveAttribute('data-forget-current', 'tasked');
   // 최신화: 첫 줄에서 누르면 찾기를 다시 한다(같은 길 — ai-assist todo_radar).
   const before = f.radar.length;
   await expect(findButton(page)).toBeEnabled();
@@ -79,21 +72,17 @@ for (const width of [344, 390, 690]) test(`폰·폴드 ${width}: 앱 머리 줄 
   }
 });
 
-test('PC 1280: 맨 위 줄 한 줄 — 찾기 칸 오른쪽 [처리 전 ▾] · ↻, 화면 안 둘째 줄 없음, 동작 그대로', async ({page}) => {
+// S71-59 UI-화면메뉴안으로(main): PC 맨 위 줄은 앱 전체 것만 — 화면 단추(↻)는 화면 안 첫 줄 오른쪽 끝(잊지 말기는 첫 줄이 없어 화면 맨 위 자기 줄).
+test('PC 1280: ↻는 화면 안 첫 줄 오른쪽 끝(맨 위 줄 아님), 옛 둘째 줄 없음, 동작 그대로', async ({page}) => {
   const f = await openForget(page, 1280);
   const top = page.locator('#appView > .app-topline');
-  await expect(top.locator('[data-sf-tools="forget"]')).toBeVisible();
+  await expect(top.locator('[data-sf-tools="forget"]')).toHaveCount(0);
+  await expect(page.locator('#basketView [data-sf-tools="forget"]')).toBeVisible();
   await expect(page.locator('#basketView .forget-head, #basketView .basket-switch-row, #basketView [data-forget-view-open]')).toHaveCount(0);
-  const t = await box(top), view = await box(viewButton(page)), find = await box(findButton(page));
-  const search = await box(top.locator('[data-search-slot]'));
-  for (const b of [view, find, search]) expect(Math.abs(b.mid - t.mid)).toBeLessThanOrEqual(3);
-  expect(view.x).toBeGreaterThan(search.right - 1);
-  expect(find.x).toBeGreaterThan(view.right - 1);
+  const panel = await box(page.locator('#basketView')), find = await box(findButton(page));
+  expect(panel.right - find.right).toBeLessThanOrEqual(24);
   const list = await box(page.locator('#basketView [data-forget-section]'));
-  expect(list.y).toBeGreaterThanOrEqual(t.bottom);
-  await viewButton(page).click();
-  await page.locator('#forgetViewMenu').getByRole('menuitemradio', {name: '무시', exact: true}).click();
-  await expect(viewButton(page)).toHaveAttribute('data-forget-current', 'dismissed');
+  expect(list.y).toBeGreaterThanOrEqual(find.bottom - 1);
   const before = f.radar.length;
   await findButton(page).click();
   await expect.poll(() => f.radar.length).toBeGreaterThan(before);

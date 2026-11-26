@@ -3,7 +3,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
-import { pickBasketView } from './helpers/forget-view.mjs';
+import { openBasketUpdate } from './helpers/forget-view.mjs';
 // BUG-바구니연결해제: the same disconnect on four screens — organization detail, project detail, basket list, note screen.
 // One confirmation ("○○ 연결을 해제할까요? 메모는 남아요"), one owner-RLS row delete, then 5 seconds of [되돌리기]
 // that re-links through the existing app_basket_confirm_links RPC.
@@ -119,35 +119,14 @@ async function basket(page){
   return r.fulfill({json:{ok:true,created:1,existing:0}});});
  return {errors,deleted,confirmed,links};
 }
-async function openList(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);await pickBasketView(page,'classified');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();return page.locator('[data-basket-row-item="n"]');}
+// S71-58 FORGET-처리전만: 연결된(처리한) 업데이트는 잊지 말기 목록에 없다 — 줄 칩 ×도 없다. 상세는 다른 화면이 여는 것과 같은 요청 길로 연다.
+async function openList(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();await expect(page.locator('[data-basket-row="n"]')).toHaveCount(0);}
 // The × paints 24px but answers anywhere in a 44px square around its center.
 async function hitArea(locator){return locator.evaluate(el=>{const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;return [[-21,0],[21,0],[0,-21],[0,21]].every(([dx,dy])=>el.contains(document.elementFromPoint(cx+dx,cy+dy)));});}
 
-for(const scheme of ['light','dark'])for(const width of [390,1280])test(`basket list: organization/project chips have × (44px, "○○ 연결 해제"), one confirmation, [되돌리기] (${scheme}) ${width}`,async({page},info)=>{
- await page.emulateMedia({colorScheme:scheme});await page.setViewportSize({width,height:900});const f=await basket(page),row=await openList(page,width);
- const orgX=row.getByRole('button',{name:'합성 조직 연결 해제'}),projectX=row.getByRole('button',{name:'테스트 프로젝트 연결 해제'});
- await expect(orgX).toBeVisible();await expect(projectX).toBeVisible();await expect(row.locator('[data-chip-kind="meeting"] button')).toHaveCount(0);await expect(row).toContainText('합성 회의');
- expect(await hitArea(orgX)).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- if(width===390)await page.screenshot({path:shot(info,`basket-list-390-${scheme}.png`)});
- await tap(page,orgX,width);const messages=await accept(page);
- await expect(orgX).toHaveCount(0);expect(messages).toEqual(['합성 조직 연결을 해제할까요? 업데이트는 남아요']);await expect(projectX).toBeVisible();
- expect(f.deleted).toEqual([{id:'eq.l1',workspace_id:expect.any(String),select:'id'}]);
- const notice=undo(page);await expect(notice).toBeVisible();await expect(notice).toContainText('합성 조직 연결을 해제했어요. 업데이트는 남아요.');
- if(width===390)await page.screenshot({path:shot(info,`basket-list-undo-390-${scheme}.png`)});
- await tap(page,notice.getByRole('button',{name:'되돌리기'}),width);await expect(notice).toContainText('연결을 되돌렸어요.');
- await expect(row.getByRole('button',{name:'합성 조직 연결 해제'})).toBeVisible();
- expect(f.confirmed).toEqual([{p_note_id:'n',p_note_updated_at:'2026-10-06T01:30:00Z',p_targets:[{kind:'organization',target_id:'o',reason:'직접 연결',summary:'조직 요약'}]}]);expect(f.errors).toEqual([]);
-});
-
-test('basket list: cancelling the confirmation keeps the chip and focus on ×',async({page})=>{
- const f=await basket(page),row=await openList(page,1280),orgX=row.getByRole('button',{name:'합성 조직 연결 해제'});
- await orgX.click();await answerAsk(page,false);await expect(orgX).toBeFocused();await expect(orgX).toBeEnabled();await expect(undo(page)).toHaveCount(0);
- expect(f.deleted).toEqual([]);expect(f.errors).toEqual([]);
-});
-
 for(const scheme of ['light','dark'])for(const width of [390,1280])test(`note screen: chip × disconnects, the notice ends after 5 seconds, the list matches (${scheme}) ${width}`,async({page},info)=>{
  await page.emulateMedia({colorScheme:scheme});await page.setViewportSize({width,height:900});const f=await basket(page);await openList(page,width);
- await tap(page,page.locator('[data-basket-row="n"]'),width);const state=page.locator('[data-basket-detail] [data-basket-state]');await expect(page.locator('[data-basket-read-text]')).toBeVisible();
+ await openBasketUpdate(page,'n');const state=page.locator('[data-basket-detail] [data-basket-state]');await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  const projectX=state.getByRole('button',{name:'테스트 프로젝트 연결 해제'});await expect(projectX).toBeVisible();await expect(state.getByRole('button',{name:'합성 조직 연결 해제'})).toBeVisible();
  await expect(state.getByRole('button',{name:/테스트 프로젝트$/})).toBeVisible();expect(await hitArea(projectX)).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -157,20 +136,19 @@ for(const scheme of ['light','dark'])for(const width of [390,1280])test(`note sc
  await expect(undo(page)).toBeVisible();await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  if(width===390)await page.screenshot({path:shot(info,`note-undo-390-${scheme}.png`)});
  await expect(undo(page)).toHaveCount(0,{timeout:7000});expect(f.confirmed).toEqual([]);
- await page.locator('[data-basket-close]').click();const row=page.locator('[data-basket-row-item="n"]');
- await expect(row.getByRole('button',{name:'테스트 프로젝트 연결 해제'})).toHaveCount(0);await expect(row.getByRole('button',{name:'합성 조직 연결 해제'})).toBeVisible();expect(f.errors).toEqual([]);
+ await expect(state.getByRole('button',{name:'합성 조직 연결 해제'})).toBeVisible();expect(f.errors).toEqual([]);
 });
 
 test('note screen: tapping a chip opens that project; its 🧺 line opens back the note',async({page})=>{
- const f=await basket(page);await openList(page,1280);await page.locator('[data-basket-row="n"]').click();
+ const f=await basket(page);await openList(page,1280);await openBasketUpdate(page,'n');
  await page.locator('[data-basket-state] [data-basket-chip-open="l2"]').click();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();await expectProjectTitle(page,'테스트 프로젝트',{contains:true});expect(f.deleted).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('a disconnect in an open detail re-reads the basket list underneath (shared event)',async({page})=>{
- const f=await basket(page),row=await openList(page,1280);await expect(row.getByRole('button',{name:'합성 조직 연결 해제'})).toBeVisible();
- f.links.splice(0,1);await page.evaluate(()=>dispatchEvent(new Event('kptu:basket-links-changed')));
- await expect(row.getByRole('button',{name:'합성 조직 연결 해제'})).toHaveCount(0);await expect(row.getByRole('button',{name:'테스트 프로젝트 연결 해제'})).toBeVisible();expect(f.errors).toEqual([]);
+test('a disconnect elsewhere re-reads the basket list underneath (shared event): a note with no link left comes back to 처리 전',async({page})=>{
+ const f=await basket(page);await openList(page,1280);
+ f.links.splice(0);await page.evaluate(()=>dispatchEvent(new Event('kptu:basket-links-changed')));
+ await expect(page.locator('[data-basket-row="n"]')).toBeVisible();expect(f.errors).toEqual([]);
 });
 
 // Report captures of the two detail screens inside the real app shell, light and dark, at 390.
