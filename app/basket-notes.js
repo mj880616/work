@@ -674,7 +674,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (at && at !== OUTSIDE && !isPaneAt(at) && !folderById(at)) at = null;
     placeDetail();
     if (!wideList.matches) syncFolderLayer();
-    quick.setFolder(folderName(addTarget()));
+    quick.setFolder(folderName(addTarget()), colorOf(folderById(addTarget())));
     const wide = wideList.matches, tree = host.querySelector('[data-nx-tree]'), rowsBox = host.querySelector('[data-note-rows]'), recentBox = host.querySelector('[data-nx-recent]');
     noteFind = query ? findFor('notes', findText) : null;
     const m = query ? matches : null;
@@ -1723,13 +1723,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 입력 줄·크게 쓰기 창의 [폴더 ▾]: 새 노트가 들어갈 폴더를 정한다(옮기지 않음).
   function openAddPicker(trigger) {
     if (!foldersReady) { addPick = null; quick.setFolder(null); notReady(); return; }
-    sheet({anchor:trigger, title:'노트를 넣을 폴더', current:addTarget(), choose:true, onGo:id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); }});
+    sheet({anchor:trigger, title:'노트를 넣을 폴더', current:addTarget(), choose:true, onGo:id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget()), colorOf(folderById(addTarget()))); bigWriter?.paint?.(); }});
   }
   // NOTE-폴더메뉴새노트: 폴더 ⋯ [새 노트] = 입력 줄 [폴더 ▾]에서 그 폴더를 고른 것과 같게 한 뒤, 입력 줄의 [크게]로 기존 새 노트 창을 연다
   // (쓰던 글·파일도 그대로 넘어감). 저장은 noteAdded → addTarget 그대로 — 새 저장 길 없음.
   function newNoteIn(id) {
     if (!id || !folderById(id)) return;
-    addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.();
+    addPick = {at, folder:id}; quick.setFolder(folderName(addTarget()), colorOf(folderById(addTarget()))); bigWriter?.paint?.();
     host.querySelector('[data-note-list] [data-quick-big]')?.click();
   }
   // The big edit window's [폴더 ▾]: the same folder sheet; the window writes the change after its text save (moveFromWindow).
