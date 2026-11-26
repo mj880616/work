@@ -9,11 +9,11 @@ const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-not
 // 담당 여부 저장(app_suborganization_assignees·app_profile_workplaces)·서버 함수는 그대로다 — 이 화면이 더는 쓰지 않을 뿐, 자료는 지우지 않는다.
 const rt=window.KPTURuntime;
 let user=null,workspaceId=null;
-// S71-34 PROFILE-이름만(명진 11/26 "기본 정보는 이름(닉네임) 말고 나머지는 수집 x 창도 없애"): 기본 정보 칸은 이름(닉네임) 하나다.
-// 소속·부서·직책은 화면에서 받지도 읽지도 보내지도 않는다. 이미 저장된 값과 DB 칸(app_profiles.union_name·department_name·job_title)은 지우지 않는다(명진 결정 대기).
+// S71-34 PROFILE-이름만(사용자 11/26 "기본 정보는 이름(닉네임) 말고 나머지는 수집 x 창도 없애"): 기본 정보 칸은 이름(닉네임) 하나다.
+// 소속·부서·직책은 화면에서 받지도 읽지도 보내지도 않는다. 이미 저장된 값과 DB 칸(app_profiles.union_name·department_name·job_title)은 지우지 않는다(사용자 결정 대기).
 const EMPTY_SAVED={name:''};
 let saved={...EMPTY_SAVED},saving=false,bound=false;
-// PROFILE-바뀜것없음글자빼기(명진 확정): 바뀐 게 없으면 상태 글자 없음 + [저장] 흐리게. 고쳤을 때만 'n곳 바뀜, 저장 안 됨'. 저장 직후 잠깐 '저장됨'.
+// PROFILE-바뀜것없음글자빼기(사용자 확정): 바뀐 게 없으면 상태 글자 없음 + [저장] 흐리게. 고쳤을 때만 'n곳 바뀜, 저장 안 됨'. 저장 직후 잠깐 '저장됨'.
 let justSaved=0,justSavedTimer=null;const SAVED_MS=2000;
 const api=(path,options={})=>rt.api(path,options);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -50,7 +50,7 @@ async function load(){
   void loadHomeOff();
   return true;
 }
-// S71-34 PROFILE-주간캘린더칸삭제(명진 11/26): '주간 정리 일정 캘린더' 칸은 없앴다. 주간 정리는 모든 캘린더 일정을 읽고, 이미 저장된 값
+// S71-34 PROFILE-주간캘린더칸삭제(사용자 11/26): '주간 정리 일정 캘린더' 칸은 없앴다. 주간 정리는 모든 캘린더 일정을 읽고, 이미 저장된 값
 // (view_prefs.report_calendar)은 서버에 그대로 두어 업무 캘린더로 계속 쓴다(report-calendar.mjs). 화면에서 바꾸는 길은 없다.
 // APP-폰알림 N4: '폰 알림' 칸(종류별 켜고 끄기·조용한 시간·시험 알림·등록된 폰)은 따로 바로 저장한다(phone-push-settings.js). 칸 자리는 '계정' 칸 앞, 한 번만 붙인다.
 let pushSettings=null;
