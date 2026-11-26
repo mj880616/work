@@ -20,7 +20,7 @@ function makeState(words = null) {
   const meeting = (n, title, kind, area = null) => ({ id: ID(n), workspace_id: workspace.id, title, series_name: title, round_no: null, meeting_at: today, activity_kind: kind, created_by: user.id, notes: '', decisions: '', transcript_text: '', project_id: area });
   return {
     words,
-    // 사업영역이 달린 보고가 있어야 [사업영역 전체 ▾]가 보인다(명진 화면과 같은 네 칩).
+    // 사업영역이 달린 보고가 있어야 [사업영역 전체 ▾]가 보인다(사용자 화면과 같은 네 칩).
     spaces: [{ id: 'area-1', workspace_id: workspace.id, name: '합성 사업', description: null, parent_id: null, status: 'active', visibility: 'private', owner_id: user.id, sort_order: 10, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', metadata: { project_system: 'v2', management_version: 2 } }],
     meetings: [meeting(901, '○○ 대표자 회의', 'meeting', 'area-1'), meeting(902, '□□ 실무 회의', 'meeting', 'area-1'), meeting(903, '◇◇ 결의대회', 'struggle')],
   };
