@@ -58,29 +58,28 @@ const enter = async (page, id, width) => {
   await tap(page.locator(`[data-nx-folder-more="${id}"]`).first());
   await tap(page.locator('#noteDocMenu [data-nx-enter]'));
 };
-// 버튼 안 글자가 버튼 밖으로 나가지 않고, ▾가 버튼 안에 보이는가 + 이름 칸이 '…'로 줄었는가.
+// NOTE-입력줄높이(S71-67): 입력 줄 폴더 단추 = 폴더 아이콘 + (고른 폴더면) 작은 이름. 이름은 단추 안에서 '…'로 줄고, 아이콘은 늘 보인다(▾ 없음).
 const measure = btn => btn.evaluate(b => {
-  const box = b.getBoundingClientRect(), name = b.querySelector('.home-quick-folder-name');
-  const tail = [...b.childNodes].find(n => n.nodeType === 3);
-  const r = document.createRange(); r.selectNodeContents(tail); const t = r.getBoundingClientRect();
+  const box = b.getBoundingClientRect(), name = b.querySelector('.home-quick-folder-name'), ico = b.querySelector('.home-quick-folder-ico').getBoundingClientRect();
   const n = name.getBoundingClientRect();
-  return { arrowInside: t.left >= box.left && t.right <= box.right + 0.5 && t.width > 0, nameInside: n.left >= box.left - 0.5,
+  return { iconInside: ico.left >= box.left && ico.right <= box.right + 0.5 && ico.width > 0, nameInside: n.left >= box.left - 0.5 && n.right <= box.right + 0.5,
     nameCut: name.scrollWidth > name.clientWidth + 1, inScreen: box.right <= document.documentElement.clientWidth + 0.5 };
 });
-for (const width of [360, 412, 1280]) test(`노트 입력 줄 [폴더 ▾]: 긴 이름은 이름만 '…', ▾는 늘 보임 ${width}`, async ({ page }) => {
+for (const width of [360, 412, 1280]) test(`노트 입력 줄 폴더 단추: 긴 이름은 이름만 '…', 아이콘은 늘 보임 ${width}`, async ({ page }) => {
   const f = await fixture(page, width);
   const btn = page.locator('[data-note-list] [data-quick-folder]'), input = page.locator('[data-note-list] [data-quick-input]');
   await enter(page, U(1), width);
-  await expect(btn).toHaveText('가족 ▾');
-  expect(await measure(btn)).toEqual({ arrowInside: true, nameInside: true, nameCut: false, inScreen: true });
+  await expect(btn).toHaveAccessibleName('폴더: 가족');
+  await expect(btn).toHaveText('가족');
+  expect(await measure(btn)).toEqual({ iconInside: true, nameInside: true, nameCut: false, inScreen: true });
   await expect(input).toHaveAttribute('placeholder', width < 761 ? '노트 추가' : '가족에 노트 추가');
   // 같은 칸의 [폴더 ▾] 고르기 창에서 긴 이름 폴더를 고른다.
   await (width < 761 ? btn.tap() : btn.click());
   // S69-62: [파일] '옮길 곳' 창과 같은 창 — 줄 누르기 = 고르기, [이 폴더로 정하기]로 정한다.
   await pickInSheet(page, ['노동조합 교섭 자료함']);
-  await expect(btn).toHaveText('노동조합 교섭 … ▾');
+  await expect(btn).toHaveAccessibleName('폴더: 노동조합 교섭 자료함');
   const m = await measure(btn);
-  expect(m).toEqual({ arrowInside: true, nameInside: true, nameCut: width < 761, inScreen: true });
+  expect(m).toEqual({ iconInside: true, nameInside: true, nameCut: true, inScreen: true });
   await expect(input).toHaveAttribute('placeholder', width < 761 ? '노트 추가' : '노동조합 교섭 자료함에 노트 추가');
   // 입력칸은 폰에서도 글 쓸 자리가 남는다(버튼이 칸을 밀어내지 않음).
   expect((await input.boundingBox()).width).toBeGreaterThan(width < 761 ? 110 : 300);

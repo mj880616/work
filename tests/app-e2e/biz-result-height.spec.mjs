@@ -56,7 +56,8 @@ test('PC 1280: 보고를 열면 주간보고가 접히고 결과 칸은 화면 �
   expect(errors).toEqual([]);
 });
 
-test('PC 1280: 결과가 짧으면 칸도 짧다(빈 칸으로 화면 끝까지 늘이지 않음)',async({page})=>{
+// UI-두칸높이(2026-11-26 사용자 결정, S71-60): 앞 규칙('결과가 짧으면 칸도 짧다')을 바꿨다 — 칸 높이를 내용·고정 숫자로 묶지 않고 창 끝까지 쓴다(칸 안 스크롤은 없음).
+test('PC 1280: 결과가 짧아도 칸은 창 아래 끝까지(칸 안 스크롤 없음)',async({page})=>{
   await open(page);
   await page.locator('#meetingList .mcol-kinds [data-meeting-kind]').filter({hasText:'합성 집행위'}).click();
   await page.locator('#meetingList [data-meeting-round="m-b"]').click();
@@ -64,5 +65,5 @@ test('PC 1280: 결과가 짧으면 칸도 짧다(빈 칸으로 화면 끝까지 
   await expect(pane.locator('#meetingRoundDetailModal.mrd-docked')).toBeVisible();
   await expect.poll(()=>off(page)).toBeLessThanOrEqual(1);
   const m=await pane.evaluate(e=>({gap:innerHeight-12-e.getBoundingClientRect().bottom,over:e.scrollHeight-e.clientHeight}));
-  expect(m.over).toBeLessThanOrEqual(1);expect(m.gap).toBeGreaterThan(40);
+  expect(m.over).toBeLessThanOrEqual(1);expect(Math.abs(m.gap)).toBeLessThanOrEqual(2);
 });
