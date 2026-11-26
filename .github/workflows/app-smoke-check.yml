@@ -108,6 +108,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -417,6 +418,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -1002,7 +1004,7 @@ jobs:
         run: node --test tests/drive-summary-refresh.test.mjs
 
       - name: Check pinned HWP editor files
-        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs
+        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs tests/hwp-into-note.test.mjs
 
       - name: Check HWP union-style template and style shortcuts
         run: node --test tests/hwp-union-style.test.mjs
