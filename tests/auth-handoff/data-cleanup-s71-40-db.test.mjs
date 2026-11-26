@@ -1,9 +1,10 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials. All data synthetic (no real organization, person or title).
 // S71-40 DATA-정리두가지:
-//  (가) 20261126201000_org_others_to_trash — 운영자 작업공간의 '그 외' 조직(활성·휴지통 밖·담당 아님) 중 참조 기록이 없는 조직만 휴지통으로(백업 표에 사본).
+//  (가) 20261126201000_org_others_to_trash — 운영자 작업공간의 '그 외' 조직(활성·휴지통 밖·담당 아님)을 기록이 붙어 있어도 모두 휴지통으로(백업 표에 사본).
+//      S71-44(사용자 결정 "다 삭제"): 기록 줄은 지우지도 바꾸지도 않음 — 같은 transaction 사후 확인이 기록 표 23곳을 본다.
 //  (나) 20261126202000_profile_affiliation_clear — 모든 프로필의 소속·부서·직책 비우기(이름 그대로, 백업 표에 옛 값).
-// 승인형 DB workflow 실행기로 plan·dry-run·apply를 시험하고, 담당 조직·참조 있는 조직·비활성·남의 작업공간 조직은 안 바뀌는지,
-// 모르는 외래 키·운영자 작업공간 둘·78곳 넘음·프로필 트리거가 담당 표를 바꾸면 멈추는지, 백업 표가 닫혀 있는지, rollback으로 돌아오는지 본다.
+// 승인형 DB workflow 실행기로 plan·dry-run·apply를 시험하고, 기록 붙은 조직도 휴지통에 가는지·기록 줄은 그대로인지, 담당 조직·비활성·남의 작업공간 조직은 안 바뀌는지,
+// 조직 갱신이 기록 줄을 바꾸거나 지우면 멈추는지, 모르는 외래 키·운영자 작업공간 둘·78곳 넘음·프로필 트리거가 담당 표를 바꾸면 멈추는지, 백업 표가 닫혀 있는지, rollback으로 돌아오는지 본다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';
@@ -102,14 +103,17 @@ test('S71-40 DATA-정리두가지: (가) 그 외 조직 휴지통 · (나) 프�
    const run=(mode,rid)=>runMigrationPlan(plan(mode,rid),query,{saveSnapshot:async()=>{}});
    const state=async()=>(await pool.query('select id,workspace_id,name,active,deleted_at from public.app_suborganizations order by id')).rows;
    const refRows=async()=>(await pool.query(`select ${REF_TABLES.map(([t])=>`(select count(*) from public.${t})`).join('||\':\'||')}||':'||(select count(*) from public.app_journal_memorable) v`)).rows[0].v;
-   const beforeOrgs=await state(),beforeRefs=await refRows(),before=(await pool.query(snapshot)).rows,beforeCheck=(await pool.query(precheck)).rows,pre=items(beforeCheck);
+   // 기록 표 23곳 줄 전체(내용·xmin까지): 적용·rollback이 기록 줄을 하나도 바꾸지 않았는지 본다.
+   const refDump=async()=>(await pool.query(`select ${[...REF_TABLES.map(([t])=>t),'app_journal_memorable'].map(t=>`(select coalesce(jsonb_agg(to_jsonb(x)||jsonb_build_object('xmin',x.xmin::text) order by x.id),'[]') from public.${t} x)`).join('||')} v`)).rows[0].v;
+   const beforeOrgs=await state(),beforeRefs=await refRows(),beforeDump=await refDump(),before=(await pool.query(snapshot)).rows,beforeCheck=(await pool.query(precheck)).rows,pre=items(beforeCheck);
 
    await t2.test('precheck: yes/no items as expected, counts only',()=>{
     assert.equal(pre['prerequisite recorded'],'예');assert.equal(pre['new migration absent'],'예');assert.equal(pre['backup table absent'],'예');
     assert.equal(pre['RLS enabled'],'예');assert.equal(pre['anon or public table privilege'],'아니오');assert.equal(pre['operator workspace one owner'],'예');
     assert.equal(pre['fk list as expected'],'예');assert.equal(pre['fk count'],'22');
-    assert.equal(pre['other orgs'],'5');assert.equal(pre['other orgs with records'],'2');assert.equal(pre['other orgs to trash'],'3');
-    assert.equal(pre['other orgs in suborganization_updates'],'1');assert.equal(pre['other orgs in journal_memorable names'],'1');
+    assert.equal(pre['other orgs'],'5');assert.equal(pre['other orgs to trash'],'5');assert.equal(pre['other orgs with records'],'2');
+    assert.equal(pre['ref rows total'],'2');assert.equal(pre['ref rows in suborganization_updates'],'1');assert.equal(pre['ref rows in journal_memorable names'],'1');
+    assert.equal(pre['ref rows in documents'],'0');
     assert.equal(pre['other orgs inactive untouched'],'1');assert.equal(pre['assigned orgs'],'2');assert.equal(pre['orgs in trash'],'1');
     assert.ok(beforeCheck.length<=64);
     assert.ok(beforeCheck.every(r=>/^(예|아니오|\d+|[0-9a-f]{32})$/.test(r.value)),JSON.stringify(beforeCheck));
@@ -133,14 +137,31 @@ test('S71-40 DATA-정리두가지: (가) 그 외 조직 휴지통 · (나) 프�
     for(const [breakIt,fixIt] of attempts){await pool.query(breakIt);try{await mustStop(migration,/ORG_OTHERS_TO_TRASH_PREREQUISITE_CHANGED/,breakIt);}finally{await pool.query(fixIt);}}
     assert.deepEqual(await state(),beforeOrgs);assert.deepEqual((await pool.query(precheck)).rows,beforeCheck);
    });
-   await t2.test('apply moves only the three free others to trash; assigned, referenced, inactive, already trashed and other workspace untouched',async()=>{
+   await t2.test('an organization update that changes or deletes a record row stops the whole move',async()=>{
+    const probes=[
+     "update public.app_suborganization_updates set organization_id=organization_id where organization_id=new.id",
+     "delete from public.app_suborganization_updates where organization_id=new.id",
+     "update public.app_journal_memorable set org_name=org_name where org_name=new.name",
+     "delete from public.app_journal_memorable where org_name=new.name",
+    ];
+    for(const body of probes){
+     await pool.query(`create function public.s71_org_probe() returns trigger language plpgsql as $$ begin ${body}; return new; end $$;
+      create trigger s71_org_probe after update on public.app_suborganizations for each row execute function public.s71_org_probe();`);
+     try{await mustStop(migration,/ORG_OTHERS_TO_TRASH_POSTCHECK_FAILED/,body);}
+     finally{await pool.query('drop trigger s71_org_probe on public.app_suborganizations; drop function public.s71_org_probe();');}
+    }
+    assert.deepEqual(await state(),beforeOrgs);assert.deepEqual(await refDump(),beforeDump);assert.deepEqual((await pool.query(precheck)).rows,beforeCheck);
+   });
+   await t2.test('apply moves all five others to trash, with records too; record rows, assigned, inactive, already trashed and other workspace untouched',async()=>{
     const apply=await run('apply','9932');assert.equal(apply.ok,true,apply.summary);
     const after=new Map((await state()).map(o=>[o.id,o])),was=new Map(beforeOrgs.map(o=>[o.id,o]));
-    for(const k of ['free1','free2','free3'])assert.ok(after.get(ORGS[k]).deleted_at,k);
-    for(const k of ['assignee','workplace','withUpdate','withMemorable','inactive','trashed','otherWs'])assert.deepEqual(after.get(ORGS[k]),was.get(ORGS[k]),k);
-    assert.equal(after.size,was.size,'줄은 지우지 않음');assert.equal(await refRows(),beforeRefs,'참조 줄 그대로');
-    const backup=(await pool.query('select organization_id,workspace_id,row_data from public.app_cleanup_s71_40_orgs order by organization_id')).rows;
-    assert.deepEqual(backup.map(b=>b.organization_id),[ORGS.free1,ORGS.free2,ORGS.free3]);
+    for(const k of ['free1','free2','free3','withUpdate','withMemorable']){assert.ok(after.get(ORGS[k]).deleted_at,k);assert.deepEqual({...after.get(ORGS[k]),deleted_at:null},was.get(ORGS[k]),k+' 다른 칸 그대로');}
+    for(const k of ['assignee','workplace','inactive','trashed','otherWs'])assert.deepEqual(after.get(ORGS[k]),was.get(ORGS[k]),k);
+    assert.equal(after.size,was.size,'줄은 지우지 않음');assert.equal(await refRows(),beforeRefs,'참조 줄 수 그대로');
+    assert.deepEqual(await refDump(),beforeDump,'기록 줄 내용·xmin 그대로(이번에 바뀐 줄 없음)');
+    assert.equal((await one(`select count(*)::int n from public.app_suborganization_updates where organization_id='${ORGS.withUpdate}'`)).n,1,'휴지통 조직을 계속 가리킴');
+    const backup=(await pool.query('select organization_id,workspace_id,ref_rows::int ref_rows,row_data from public.app_cleanup_s71_40_orgs order by organization_id')).rows;
+    assert.deepEqual(backup.map(b=>[b.organization_id,b.ref_rows]),[[ORGS.free1,0],[ORGS.free2,0],[ORGS.free3,0],[ORGS.withUpdate,1],[ORGS.withMemorable,1]]);
     assert.ok(backup.every(b=>b.workspace_id===WS_A&&b.row_data.deleted_at===null&&b.row_data.id===b.organization_id));
     await closed('app_cleanup_s71_40_orgs');
     const post=items((await pool.query(postcheck)).rows);
@@ -150,7 +171,7 @@ test('S71-40 DATA-정리두가지: (가) 그 외 조직 휴지통 · (나) 프�
    await t2.test('rollback restores the moved organizations (a purged one from its backup row) and drops the backup table; re-apply works',async()=>{
     await pool.query('delete from public.app_suborganizations where id=$1',[ORGS.free3]);
     await pool.query(rollbackSQL);
-    assert.deepEqual(await state(),beforeOrgs);
+    assert.deepEqual(await state(),beforeOrgs);assert.deepEqual(await refDump(),beforeDump,'rollback도 기록 줄을 건드리지 않음');
     assert.equal((await one("select to_regclass('public.app_cleanup_s71_40_orgs') is null v")).v,true);
     assert.equal((await one("select count(*)::int n from supabase_migrations.schema_migrations where version='20261126201000'")).n,0);
     assert.deepEqual((await pool.query(precheck)).rows,beforeCheck);

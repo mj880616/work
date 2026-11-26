@@ -1,22 +1,26 @@
 begin;
--- S71-40 DATA-정리두가지 (가) (사용자 결정 2026-11-26 18:11 "지워"): 운영자 작업공간의 '그 외 조직'을 휴지통으로 옮긴다.
+-- S71-40 DATA-정리두가지 (가) (사용자 결정 2026-11-26 18:11 "지워", 19:37 "걍 다 삭제하라고" — S71-44로 고침): 운영자 작업공간의 '그 외 조직'을 기록이 붙어 있어도 모두 휴지통으로 옮긴다.
 -- '그 외 조직' = 내 프로필 '관리 대상 현황'에서 담당으로 체크되지 않은 조직(화면 기준 78곳):
 --   그 작업공간의 조직 중 휴지통에 없고(deleted_at 없음), 활성(active가 false가 아님)이고,
 --   담당 표 두 곳(app_suborganization_assignees·app_profile_workplaces) 어디에도 줄이 없는 조직.
 --   담당 조직(체크된 곳)은 WHERE에서 빠지고, 사후 확인이 담당 조직 줄이 이번 transaction에서 바뀌지 않았는지 다시 본다.
 --   비활성 조직(화면 목록에 안 나옴)은 건드리지 않는다(사전 확인에 개수만).
 -- 지우는 방법 = 앱의 [삭제]와 같은 휴지통 옮기기(app_suborganizations.deleted_at = now(), 20261025100000 trash_org_report_db).
---   줄은 지우지 않으므로 외래 키 cascade·set null이 일어나지 않고, 앱 휴지통에서 하나씩 되살릴 수 있다. 영구 삭제는 이 파일에서 하지 않는다.
--- 참조 기록이 있는 조직은 옮기지 않는다(안전 우선): 아래 23곳(외래 키 22곳 + 이름으로 잇는 텔레그램 기억할 일 1곳) 중 한 곳에라도 그 조직을 가리키는 줄이 있으면 남긴다.
---   운영의 app_suborganizations 외래 키 목록이 이 파일이 아는 22곳과 하나라도 다르면 아무것도 바꾸지 않고 멈춘다(모르는 표의 기록을 놓치지 않게).
+--   조직 줄은 지우지 않으므로 외래 키 cascade·set null이 일어나지 않고, 앱 휴지통에서 하나씩 되살릴 수 있다. 영구 삭제(행 delete)는 이 파일에서 하지 않는다
+--   (영구 삭제하면 cascade로 주요 인물·분쟁 단계·주간 요약 등이 지워지고 set null 칸이 비워진다).
+-- 조직을 가리키는 기록 줄(아래 외래 키 22곳 + 이름으로 잇는 텔레그램 기억할 일 1곳)은 지우지도 바꾸지도 않는다:
+--   표를 share 잠금으로 막고, 같은 transaction 사후 확인이 23곳 모두 '이번 transaction이 바꾼 줄(xmin) 없음'을 본다. 하나라도 있으면 전체 취소.
+--   운영의 app_suborganizations 외래 키 목록이 이 파일이 아는 22곳과 하나라도 다르면 아무것도 바꾸지 않고 멈춘다(모르는 표의 기록이 바뀌는지 볼 수 없게 되지 않도록).
 --   멈추면 snapshot artifact의 'fk' 줄(표·칸 이름, 카탈로그만)을 보고 목록을 더한 새 PR로 다시 한다.
+-- 백업 표의 ref_rows = 옮길 때 그 조직을 가리키는 기록 줄 수(23곳 합, 개수만 — 기록 내용은 복사하지 않음). 사후 확인이 같은 수를 다시 세어
+--   이번에 지워진 기록 줄이 없는지 본다(지운 줄은 xmin으로 안 보이므로).
 -- 작업공간 id는 파일에 쓰지 않는다: 서버 운영자 허용 표(app_operator_features, feature 'telegram')의 작업공간이 정확히 하나이고 주인이 한 명일 때만 진행한다.
 -- 옮기기 전 같은 transaction 안에서 옮길 조직 줄 전체(jsonb)를 백업 표 public.app_cleanup_s71_40_orgs에 복사한다(RLS 켬·정책 없음·API 역할 권한 없음).
 --   승인형 DB workflow 확장 규칙은 public 표만 받으므로 private 스키마가 아니라 public에 두고 권한을 모두 걷는다(anon·authenticated·service_role 모두 못 읽음).
 -- 그 외 조직이 78곳보다 많으면(화면과 다름) 멈춘다. 다른 표·칸·권한·정책·함수·트리거는 바꾸지 않는다.
 -- 적용은 커맨드센터가 docs/ops-db-workflow.md "승인 한 번 흐름"으로만 한다. 이 브랜치는 적용 직전 정지.
 -- 출력: 사전·사후 확인은 개수·예/아니오·해시만(조직 이름·기록 내용은 읽어 보이지 않음, AGENTS.md 3절).
--- 되돌리기: 짝 rollback(SQL Editor 전용) — 백업 표의 조직을 휴지통에서 꺼내고(영구 삭제됐으면 백업 줄로 다시 넣음) 백업 표·기록 1행을 지운다.
+-- 되돌리기: 짝 rollback(SQL Editor 전용) — 백업 표의 조직을 휴지통에서 꺼내고(영구 삭제됐으면 조직 줄만 백업으로 다시 넣음) 백업 표·기록 1행을 지운다.
 -- 짝: docs/20261126201000_org_others_to_trash.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
@@ -77,47 +81,48 @@ begin
 end
 $$;
 
--- 백업 표: 옮길 조직 줄 전체 사본. 외래 키 없음(조직이 나중에 영구 삭제돼도 사본은 남는다). RLS 켬·정책 없음·API 역할 권한 없음.
+-- 백업 표: 옮길 조직 줄 전체 사본(+ 가리키는 기록 줄 수). 외래 키 없음(조직이 나중에 영구 삭제돼도 사본은 남는다). RLS 켬·정책 없음·API 역할 권한 없음.
 create table public.app_cleanup_s71_40_orgs (
   organization_id uuid primary key,
   workspace_id uuid not null,
   moved_at timestamptz not null default now(),
+  ref_rows bigint not null,
   row_data jsonb not null
 );
 alter table public.app_cleanup_s71_40_orgs enable row level security;
 revoke all on table public.app_cleanup_s71_40_orgs from public, anon, authenticated, service_role;
 
-insert into public.app_cleanup_s71_40_orgs (organization_id, workspace_id, row_data)
-select o.id, o.workspace_id, to_jsonb(o)
+insert into public.app_cleanup_s71_40_orgs (organization_id, workspace_id, ref_rows, row_data)
+select o.id, o.workspace_id,
+       (select count(*) from public.app_suborganization_updates x where x.organization_id = o.id) +
+       (select count(*) from public.app_suborganization_timeline x where x.organization_id = o.id) +
+       (select count(*) from public.app_suborganization_weekly_reports x where x.organization_id = o.id) +
+       (select count(*) from public.app_suborganization_status_items x where x.organization_id = o.id) +
+       (select count(*) from public.app_suborganization_affiliations x where x.organization_id = o.id) +
+       (select count(*) from public.app_suborganization_dispute_stages x where x.organization_id = o.id) +
+       (select count(*) from public.app_event_suborganizations x where x.organization_id = o.id) +
+       (select count(*) from public.app_record_links x where x.organization_id = o.id) +
+       (select count(*) from public.app_documents x where x.organization_id = o.id) +
+       (select count(*) from public.app_todo_candidates x where x.organization_id = o.id) +
+       (select count(*) from public.app_ledger_organizations x where x.suborganization_id = o.id) +
+       (select count(*) from public.app_weekly_org_summaries x where x.organization_id = o.id) +
+       (select count(*) from public.app_feed_items x where x.organization_id = o.id) +
+       (select count(*) from public.app_calendar_work_refs x where x.organization_id = o.id) +
+       (select count(*) from public.app_org_key_people x where x.organization_id = o.id) +
+       (select count(*) from public.app_org_key_people_briefs x where x.organization_id = o.id) +
+       (select count(*) from public.app_pre_meeting_sheets x where x.organization_id = o.id) +
+       (select count(*) from public.app_org_status_rows x where x.organization_id = o.id) +
+       (select count(*) from public.app_weekly_org_lines x where x.organization_id = o.id) +
+       (select count(*) from public.app_library_folders x where x.organization_id = o.id) +
+       (select count(*) from public.app_journal_memorable x where x.workspace_id = o.workspace_id and x.org_name = o.name),
+       to_jsonb(o)
   from public.app_suborganizations o
  where o.workspace_id in (select f.workspace_id from public.app_operator_features f where f.feature = 'telegram')
    and o.deleted_at is null
    and coalesce(o.active, true)
-   -- 담당 조직은 빼기(체크된 곳).
+   -- 담당 조직은 빼기(체크된 곳). 기록이 붙은 조직도 옮긴다(사용자 결정 19:37).
    and not exists (select 1 from public.app_suborganization_assignees x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_profile_workplaces x where x.organization_id = o.id)
-   -- 참조 기록이 있는 조직은 빼기.
-   and not exists (select 1 from public.app_suborganization_updates x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_suborganization_timeline x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_suborganization_weekly_reports x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_suborganization_status_items x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_suborganization_affiliations x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_suborganization_dispute_stages x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_event_suborganizations x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_record_links x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_documents x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_todo_candidates x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_ledger_organizations x where x.suborganization_id = o.id)
-   and not exists (select 1 from public.app_weekly_org_summaries x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_feed_items x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_calendar_work_refs x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_org_key_people x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_org_key_people_briefs x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_pre_meeting_sheets x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_org_status_rows x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_weekly_org_lines x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_library_folders x where x.organization_id = o.id)
-   and not exists (select 1 from public.app_journal_memorable x where x.workspace_id = o.workspace_id and x.org_name = o.name);
+   and not exists (select 1 from public.app_profile_workplaces x where x.organization_id = o.id);
 
 update public.app_suborganizations o
    set deleted_at = now()
@@ -125,11 +130,34 @@ update public.app_suborganizations o
    and o.id in (select b.organization_id from public.app_cleanup_s71_40_orgs b);
 
 -- 사후 확인(같은 transaction): 백업한 조직은 모두 휴지통에, 이번에 바뀐 조직 줄 수 = 백업 줄 수, 담당 조직·담당 표·프로필 줄은 이번에 바뀌지 않음,
+-- 조직을 가리키는 기록 표 23곳(외래 키 22곳 + 기억할 일)의 줄이 이번에 하나도 바뀌지 않음(xmin = 이번 transaction인 줄 없음, 지운 줄은 조직마다 ref_rows를 다시 세어),
 -- 백업 표 RLS 켜짐·API 역할 권한 없음. 다르면 전체 취소.
 do $$
 begin
   if exists (select 1 from public.app_cleanup_s71_40_orgs b
              where not exists (select 1 from public.app_suborganizations o where o.id = b.organization_id and o.deleted_at = b.moved_at))
+     or exists (select 1 from public.app_cleanup_s71_40_orgs b join public.app_suborganizations o on o.id = b.organization_id
+                where b.ref_rows <> (select count(*) from public.app_suborganization_updates x where x.organization_id = o.id) +
+                  (select count(*) from public.app_suborganization_timeline x where x.organization_id = o.id) +
+                  (select count(*) from public.app_suborganization_weekly_reports x where x.organization_id = o.id) +
+                  (select count(*) from public.app_suborganization_status_items x where x.organization_id = o.id) +
+                  (select count(*) from public.app_suborganization_affiliations x where x.organization_id = o.id) +
+                  (select count(*) from public.app_suborganization_dispute_stages x where x.organization_id = o.id) +
+                  (select count(*) from public.app_event_suborganizations x where x.organization_id = o.id) +
+                  (select count(*) from public.app_record_links x where x.organization_id = o.id) +
+                  (select count(*) from public.app_documents x where x.organization_id = o.id) +
+                  (select count(*) from public.app_todo_candidates x where x.organization_id = o.id) +
+                  (select count(*) from public.app_ledger_organizations x where x.suborganization_id = o.id) +
+                  (select count(*) from public.app_weekly_org_summaries x where x.organization_id = o.id) +
+                  (select count(*) from public.app_feed_items x where x.organization_id = o.id) +
+                  (select count(*) from public.app_calendar_work_refs x where x.organization_id = o.id) +
+                  (select count(*) from public.app_org_key_people x where x.organization_id = o.id) +
+                  (select count(*) from public.app_org_key_people_briefs x where x.organization_id = o.id) +
+                  (select count(*) from public.app_pre_meeting_sheets x where x.organization_id = o.id) +
+                  (select count(*) from public.app_org_status_rows x where x.organization_id = o.id) +
+                  (select count(*) from public.app_weekly_org_lines x where x.organization_id = o.id) +
+                  (select count(*) from public.app_library_folders x where x.organization_id = o.id) +
+                  (select count(*) from public.app_journal_memorable x where x.workspace_id = o.workspace_id and x.org_name = o.name))
      or (select count(*) from public.app_suborganizations o where o.xmin = pg_catalog.pg_current_xact_id()::xid)
         <> (select count(*) from public.app_cleanup_s71_40_orgs)
      or exists (select 1 from public.app_suborganizations o
@@ -138,8 +166,28 @@ begin
                        or exists (select 1 from public.app_profile_workplaces x where x.organization_id = o.id)))
      or exists (select 1 from public.app_suborganization_assignees x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
      or exists (select 1 from public.app_profile_workplaces x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
-     or exists (select 1 from public.app_profiles x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_suborganization_updates x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_suborganization_timeline x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_suborganization_weekly_reports x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_suborganization_status_items x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_suborganization_affiliations x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_suborganization_dispute_stages x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_event_suborganizations x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_record_links x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_documents x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_todo_candidates x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
      or exists (select 1 from public.app_ledger_organizations x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_weekly_org_summaries x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_feed_items x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_calendar_work_refs x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_org_key_people x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_org_key_people_briefs x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_pre_meeting_sheets x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_org_status_rows x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_weekly_org_lines x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_library_folders x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_journal_memorable x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
+     or exists (select 1 from public.app_profiles x where x.xmin = pg_catalog.pg_current_xact_id()::xid)
      or exists (select 1 from pg_class where oid = 'public.app_cleanup_s71_40_orgs'::regclass and not relrowsecurity)
      or exists (select 1 from pg_policy where polrelid = 'public.app_cleanup_s71_40_orgs'::regclass)
      or has_table_privilege('anon', 'public.app_cleanup_s71_40_orgs', 'select,insert,update,delete,truncate,references,trigger')
@@ -151,5 +199,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261126201000', 'org_others_to_trash', array['S71-40 DATA (a): operator workspace organizations that are active, not in trash, not assigned (assignees/profile_workplaces) and referenced by none of 22 FK tables or journal memorable names are copied to public.app_cleanup_s71_40_orgs (RLS on, no policy, no API grants) and moved to trash (deleted_at = now()); stops if the FK list differs or more than 78 such organizations; no row deleted, no other table, grant, policy, function or trigger change']);
+values ('20261126201000', 'org_others_to_trash', array['S71-40 DATA (a), S71-44 revision: all operator workspace organizations that are active, not in trash and not assigned (assignees/profile_workplaces), with or without records, are copied to public.app_cleanup_s71_40_orgs (RLS on, no policy, no API grants) and moved to trash (deleted_at = now()); stops if the FK list differs, more than 78 such organizations, or any row of the 22 FK tables, journal memorable, assignee or profile tables changes in this transaction; no row deleted, no other table, grant, policy, function or trigger change']);
 commit;

@@ -1,6 +1,7 @@
 -- SELECT only. Counts, yes/no and hashes; no organization name, id or record text. Run before dry-run/apply (also the dry-run before/after comparison).
--- 'other orgs' = 운영자 작업공간의 활성·휴지통 밖·담당 아님 조직(화면 '그 외', 78곳 기준). 'other orgs with records'는 참조 기록이 있어 이번에 옮기지 않는 조직 수,
--- 'other orgs to trash'는 이번에 휴지통으로 옮길 조직 수. 'other orgs in <표>'는 표마다 그 표에 기록이 있는 '그 외' 조직 수(한 조직이 여러 표에 셀 수 있음).
+-- 'other orgs' = 운영자 작업공간의 활성·휴지통 밖·담당 아님 조직(화면 '그 외', 78곳 기준). 이번에 기록이 붙어 있어도 모두 휴지통으로 간다(S71-44, 사용자 결정 19:37).
+-- 'other orgs to trash'는 이번에 휴지통으로 옮길 조직 수(= other orgs), 'other orgs with records'는 그중 기록이 붙은 채로 휴지통에 가는 조직 수.
+-- 'ref rows in <표>'는 표마다 '그 외' 조직을 가리키는 기록 줄 수(개수만, 내용은 읽지 않음). 이 줄들은 지우지도 바꾸지도 않으며 사후 확인의 같은 이름 값과 같아야 한다.
 -- 'fk list as expected'가 아니오면 migration이 시험 적용(dry-run)에서 멈춘다. 그때 snapshot의 'fk' 줄로 목록을 고친다(여기서 멈추지 않는 것은 snapshot을 남기기 위해서다).
 -- 나머지 행 수·해시는 사후 확인과 같은 값이어야 한다(담당 조직·조직 줄 수·담당 표 줄 수 그대로).
 -- expect: prerequisite recorded = 예
@@ -14,7 +15,8 @@
 -- expect: other orgs = 0~78
 -- expect: other orgs with records = 기록
 -- expect: other orgs to trash = 기록
--- expect: other orgs in * = 기록
+-- expect: ref rows in * = 기록
+-- expect: ref rows total = 기록
 -- expect: other orgs inactive untouched = 기록
 -- expect: assigned orgs = 기록
 -- expect: orgs in trash = 기록
@@ -32,32 +34,29 @@ other as (
      and not exists (select 1 from public.app_profile_workplaces x where x.organization_id = o.id)),
 refs as (
   select o.id,
-    exists (select 1 from public.app_suborganization_updates x where x.organization_id = o.id) as updates,
-    exists (select 1 from public.app_suborganization_timeline x where x.organization_id = o.id) as timeline,
-    exists (select 1 from public.app_suborganization_weekly_reports x where x.organization_id = o.id) as weekly_reports,
-    exists (select 1 from public.app_suborganization_status_items x where x.organization_id = o.id) as status_items,
-    exists (select 1 from public.app_suborganization_affiliations x where x.organization_id = o.id) as affiliations,
-    exists (select 1 from public.app_suborganization_dispute_stages x where x.organization_id = o.id) as dispute_stages,
-    exists (select 1 from public.app_event_suborganizations x where x.organization_id = o.id) as events,
-    exists (select 1 from public.app_record_links x where x.organization_id = o.id) as record_links,
-    exists (select 1 from public.app_documents x where x.organization_id = o.id) as documents,
-    exists (select 1 from public.app_todo_candidates x where x.organization_id = o.id) as todo_candidates,
-    exists (select 1 from public.app_ledger_organizations x where x.suborganization_id = o.id) as ledger,
-    exists (select 1 from public.app_weekly_org_summaries x where x.organization_id = o.id) as weekly_summaries,
-    exists (select 1 from public.app_feed_items x where x.organization_id = o.id) as feed_items,
-    exists (select 1 from public.app_calendar_work_refs x where x.organization_id = o.id) as calendar_refs,
-    exists (select 1 from public.app_org_key_people x where x.organization_id = o.id) as key_people,
-    exists (select 1 from public.app_org_key_people_briefs x where x.organization_id = o.id) as key_people_briefs,
-    exists (select 1 from public.app_pre_meeting_sheets x where x.organization_id = o.id) as pre_meeting_sheets,
-    exists (select 1 from public.app_org_status_rows x where x.organization_id = o.id) as status_rows,
-    exists (select 1 from public.app_weekly_org_lines x where x.organization_id = o.id) as weekly_lines,
-    exists (select 1 from public.app_library_folders x where x.organization_id = o.id) as library_folders,
-    exists (select 1 from public.app_journal_memorable x where x.workspace_id = o.workspace_id and x.org_name = o.name) as memorable_names
+    (select count(*) from public.app_suborganization_updates x where x.organization_id = o.id) as suborganization_updates,
+    (select count(*) from public.app_suborganization_timeline x where x.organization_id = o.id) as suborganization_timeline,
+    (select count(*) from public.app_suborganization_weekly_reports x where x.organization_id = o.id) as suborganization_weekly_reports,
+    (select count(*) from public.app_suborganization_status_items x where x.organization_id = o.id) as suborganization_status_items,
+    (select count(*) from public.app_suborganization_affiliations x where x.organization_id = o.id) as suborganization_affiliations,
+    (select count(*) from public.app_suborganization_dispute_stages x where x.organization_id = o.id) as suborganization_dispute_stages,
+    (select count(*) from public.app_event_suborganizations x where x.organization_id = o.id) as event_suborganizations,
+    (select count(*) from public.app_record_links x where x.organization_id = o.id) as record_links,
+    (select count(*) from public.app_documents x where x.organization_id = o.id) as documents,
+    (select count(*) from public.app_todo_candidates x where x.organization_id = o.id) as todo_candidates,
+    (select count(*) from public.app_ledger_organizations x where x.suborganization_id = o.id) as ledger_organizations,
+    (select count(*) from public.app_weekly_org_summaries x where x.organization_id = o.id) as weekly_org_summaries,
+    (select count(*) from public.app_feed_items x where x.organization_id = o.id) as feed_items,
+    (select count(*) from public.app_calendar_work_refs x where x.organization_id = o.id) as calendar_work_refs,
+    (select count(*) from public.app_org_key_people x where x.organization_id = o.id) as org_key_people,
+    (select count(*) from public.app_org_key_people_briefs x where x.organization_id = o.id) as org_key_people_briefs,
+    (select count(*) from public.app_pre_meeting_sheets x where x.organization_id = o.id) as pre_meeting_sheets,
+    (select count(*) from public.app_org_status_rows x where x.organization_id = o.id) as org_status_rows,
+    (select count(*) from public.app_weekly_org_lines x where x.organization_id = o.id) as weekly_org_lines,
+    (select count(*) from public.app_library_folders x where x.organization_id = o.id) as library_folders,
+    (select count(*) from public.app_journal_memorable x where x.workspace_id = o.workspace_id and x.org_name = o.name) as journal_memorable_names
   from other o),
-flag as (
-  select r.*, (updates or timeline or weekly_reports or status_items or affiliations or dispute_stages or events or record_links
-    or documents or todo_candidates or ledger or weekly_summaries or feed_items or calendar_refs or key_people or key_people_briefs
-    or pre_meeting_sheets or status_rows or weekly_lines or library_folders or memorable_names) as any_ref from refs r),
+flag as (select r.*, (suborganization_updates + suborganization_timeline + suborganization_weekly_reports + suborganization_status_items + suborganization_affiliations + suborganization_dispute_stages + event_suborganizations + record_links + documents + todo_candidates + ledger_organizations + weekly_org_summaries + feed_items + calendar_work_refs + org_key_people + org_key_people_briefs + pre_meeting_sheets + org_status_rows + weekly_org_lines + library_folders + journal_memorable_names) as total from refs r),
 assigned as (
   select o.id from public.app_suborganizations o
    where o.workspace_id in (select workspace_id from ws) and o.deleted_at is null
@@ -90,29 +89,30 @@ union all select 'fk list as expected', case when (select count(*) from fk) = 22
     'app_weekly_org_lines.organization_id', 'app_library_folders.organization_id'])) then '예' else '아니오' end
 union all select 'fk count', (select count(*) from fk)::text
 union all select 'other orgs', (select count(*) from other)::text
-union all select 'other orgs with records', (select count(*) from flag where any_ref)::text
-union all select 'other orgs to trash', (select count(*) from flag where not any_ref)::text
-union all select 'other orgs in suborganization_updates', (select count(*) from flag where updates)::text
-union all select 'other orgs in suborganization_timeline', (select count(*) from flag where timeline)::text
-union all select 'other orgs in suborganization_weekly_reports', (select count(*) from flag where weekly_reports)::text
-union all select 'other orgs in suborganization_status_items', (select count(*) from flag where status_items)::text
-union all select 'other orgs in suborganization_affiliations', (select count(*) from flag where affiliations)::text
-union all select 'other orgs in suborganization_dispute_stages', (select count(*) from flag where dispute_stages)::text
-union all select 'other orgs in event_suborganizations', (select count(*) from flag where events)::text
-union all select 'other orgs in record_links', (select count(*) from flag where record_links)::text
-union all select 'other orgs in documents', (select count(*) from flag where documents)::text
-union all select 'other orgs in todo_candidates', (select count(*) from flag where todo_candidates)::text
-union all select 'other orgs in ledger_organizations', (select count(*) from flag where ledger)::text
-union all select 'other orgs in weekly_org_summaries', (select count(*) from flag where weekly_summaries)::text
-union all select 'other orgs in feed_items', (select count(*) from flag where feed_items)::text
-union all select 'other orgs in calendar_work_refs', (select count(*) from flag where calendar_refs)::text
-union all select 'other orgs in org_key_people', (select count(*) from flag where key_people)::text
-union all select 'other orgs in org_key_people_briefs', (select count(*) from flag where key_people_briefs)::text
-union all select 'other orgs in pre_meeting_sheets', (select count(*) from flag where pre_meeting_sheets)::text
-union all select 'other orgs in org_status_rows', (select count(*) from flag where status_rows)::text
-union all select 'other orgs in weekly_org_lines', (select count(*) from flag where weekly_lines)::text
-union all select 'other orgs in library_folders', (select count(*) from flag where library_folders)::text
-union all select 'other orgs in journal_memorable names', (select count(*) from flag where memorable_names)::text
+union all select 'other orgs to trash', (select count(*) from flag)::text
+union all select 'other orgs with records', (select count(*) from flag where total > 0)::text
+union all select 'ref rows total', coalesce((select sum(total) from flag), 0)::text
+union all select 'ref rows in suborganization_updates', coalesce((select sum(suborganization_updates) from flag), 0)::text
+union all select 'ref rows in suborganization_timeline', coalesce((select sum(suborganization_timeline) from flag), 0)::text
+union all select 'ref rows in suborganization_weekly_reports', coalesce((select sum(suborganization_weekly_reports) from flag), 0)::text
+union all select 'ref rows in suborganization_status_items', coalesce((select sum(suborganization_status_items) from flag), 0)::text
+union all select 'ref rows in suborganization_affiliations', coalesce((select sum(suborganization_affiliations) from flag), 0)::text
+union all select 'ref rows in suborganization_dispute_stages', coalesce((select sum(suborganization_dispute_stages) from flag), 0)::text
+union all select 'ref rows in event_suborganizations', coalesce((select sum(event_suborganizations) from flag), 0)::text
+union all select 'ref rows in record_links', coalesce((select sum(record_links) from flag), 0)::text
+union all select 'ref rows in documents', coalesce((select sum(documents) from flag), 0)::text
+union all select 'ref rows in todo_candidates', coalesce((select sum(todo_candidates) from flag), 0)::text
+union all select 'ref rows in ledger_organizations', coalesce((select sum(ledger_organizations) from flag), 0)::text
+union all select 'ref rows in weekly_org_summaries', coalesce((select sum(weekly_org_summaries) from flag), 0)::text
+union all select 'ref rows in feed_items', coalesce((select sum(feed_items) from flag), 0)::text
+union all select 'ref rows in calendar_work_refs', coalesce((select sum(calendar_work_refs) from flag), 0)::text
+union all select 'ref rows in org_key_people', coalesce((select sum(org_key_people) from flag), 0)::text
+union all select 'ref rows in org_key_people_briefs', coalesce((select sum(org_key_people_briefs) from flag), 0)::text
+union all select 'ref rows in pre_meeting_sheets', coalesce((select sum(pre_meeting_sheets) from flag), 0)::text
+union all select 'ref rows in org_status_rows', coalesce((select sum(org_status_rows) from flag), 0)::text
+union all select 'ref rows in weekly_org_lines', coalesce((select sum(weekly_org_lines) from flag), 0)::text
+union all select 'ref rows in library_folders', coalesce((select sum(library_folders) from flag), 0)::text
+union all select 'ref rows in journal_memorable names', coalesce((select sum(journal_memorable_names) from flag), 0)::text
 union all select 'other orgs inactive untouched', (select count(*) from public.app_suborganizations o
    where o.workspace_id in (select workspace_id from ws) and o.deleted_at is null and not coalesce(o.active, true)
      and not exists (select 1 from public.app_suborganization_assignees x where x.organization_id = o.id)
