@@ -78,8 +78,11 @@ test('SEARCH-띄어쓰기무시 DB: whitespace-insensitive words, literal specia
     assert.match(code,/grant execute on function public\.app_search_records\(text, text\[\], integer, integer, text\) to authenticated;/);
    }
    const code=F.migration.replace(/--.*$/gm,'');
-   assert.doesNotMatch(code,/app_call_personal|app_tg_personal|f\.raw_text|'diary'|ilike all/);
-   assert.equal((code.match(/~\* all \(v_rx\)/g)||[]).length,12);
+   assert.doesNotMatch(code,/app_call_personal|app_tg_personal|f\.raw_text|'diary'/);
+   // 함수 본문(사후 확인 DO의 'not like ilike all' 글자는 빼고)에는 ILIKE 맞추기가 남지 않는다.
+   const body=code.slice(code.indexOf('create or replace function public.app_search_records'),code.indexOf('revoke all on function public.app_search_records'));
+   assert.doesNotMatch(body,/ilike/i);
+   assert.equal((body.match(/~\* all \(v_rx\)/g)||[]).length,12);
    assert.match(F.migration,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\nvalues \('20261126180000', 'search_space_insensitive'/);
    for(const mode of ['apply','dry-run']){const p=plan(mode,'1');assert.equal(p.rules,'expanded');assert.equal(p.flow,'full');}
    assert.throws(()=>plan('rollback','1'));
