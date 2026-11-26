@@ -57,7 +57,7 @@ test('quick task next-week day list and 모레',async({page})=>{
 // BASKET-업데이트통합 PR 1: [업데이트] with no place saves to the basket; picking a place in ▾ saves that place's record.
 test('quick update with a chosen organization preserves multiline and saves without home record reads',async({page})=>{
  const {requests}=await openHome(page);await pickQuickMode(page,'task');await pickQuickMode(page,'task');const q=quick(page),input=q.locator('[data-quick-input]');
- await pickQuickMode(page,'update');await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height',page.viewportSize().width>=761?'120px':'130px'); // UI-버튼크기: 5줄에서 멈춤(UI-PC버튼36: PC는 36px 한 줄에서 시작해 120px)
+ await pickQuickMode(page,'update');await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height','124px'); // UI-버튼크기: 5줄에서 멈춤(NOTE-입력줄높이 S71-67: 폰·PC 모두 40px 한 줄에서 시작해 124px)
  await input.press('Enter');await expect(input).toHaveValue('1\n2\n3\n4\n5\n6\n7\n');await input.fill('첫 줄\n둘째 줄');
  await pickQuickMode(page,'task');await expect(input).toHaveValue('첫 줄\n둘째 줄');await pickQuickMode(page,'update');
  await pickQuickMode(page,'org');await expect(page.getByRole('dialog')).toBeVisible();
