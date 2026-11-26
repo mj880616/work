@@ -1,5 +1,4 @@
 /* Canonical authenticated task list. */
-#tasksView>.toolbar{display:none!important}
 #taskList.tl-task-list{display:grid;gap:var(--kptu-space-4,16px)}
 .tl-task-section{background:var(--kptu-surface,#fff);border:1px solid var(--kptu-border,#e5e9ed);border-radius:var(--kptu-radius-lg,12px);padding:var(--kptu-space-3,12px) var(--kptu-space-4,16px);min-width:0}
 .tl-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--kptu-space-2,8px)}
