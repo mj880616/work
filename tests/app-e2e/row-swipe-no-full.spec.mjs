@@ -306,8 +306,9 @@ for (const [name, open] of SCREENS) {
     await expect(pickCell).toHaveCount(0);
     expect(writes, '오른쪽 끝까지 밀기만으로 서버 쓰기').toEqual([]);
     await expect(page.locator('.kptu-ask')).toHaveCount(0);
-    // 선택 끝내기: S70-64b — 막대에 [✕]·[그만]이 없다. 어느 화면이든 Esc(폰은 뒤로가기)로 고르기만 끝(창·화면은 그대로).
-    await page.keyboard.press('Escape');
+    // 선택 끝내기: S70-64b — 줄 고르기·노트·자료실 막대에는 [✕]·[그만]이 없어 Esc(폰은 뒤로가기)로 고르기만 끝(창·화면은 그대로).
+    //   [파일] 막대는 아직 ✕가 있다(S70-64c 몫) — 그 화면은 stop으로 그 ✕를 누른다.
+    if (s.stop) await s.stop(); else await page.keyboard.press('Escape');
     await expect(s.picked).toBeHidden();
 
     // ④ 왼쪽 칸 하나를 누르면 그때 그 일을 한다(그 목록의 기존 길).
