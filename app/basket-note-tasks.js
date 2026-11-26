@@ -84,7 +84,7 @@ export async function readTaskSourceNotes({rt=window.KPTURuntime,expectedSession
 // One-shot in-app hand-offs between the task view and the basket. Each is
 // bound to the signed-in user and workspace and expires quickly.
 const REQUEST_MS=60*1000;
-const requests={note:null,notedoc:null,task:null,kind:null};
+const requests={note:null,notedoc:null,task:null,kind:null,topic:null};
 const put=(kind,id,rt)=>{const scope=scopeOf(rt);requests[kind]=id&&scope?{id,scope,at:Date.now()}:null;};
 const take=(kind,rt)=>{const value=requests[kind];requests[kind]=null;return value&&value.scope===scopeOf(rt)&&Date.now()-value.at<REQUEST_MS?value.id:null;};
 export const requestBasketNote=(id,rt=window.KPTURuntime)=>put('note',id,rt);
@@ -95,6 +95,9 @@ export const takeNoteDocRequest=(rt=window.KPTURuntime)=>take('notedoc',rt);
 // UI-PC메모노트: the PC sidebar's [업데이트]·[노트] under [바구니] open that side of the basket.
 export const requestBasketKind=(kind,rt=window.KPTURuntime)=>put('kind',kind,rt);
 export const takeBasketKindRequest=(rt=window.KPTURuntime)=>take('kind',rt);
+// S71-54 NOTE-주제재료잇기: 자료실 자료 ⋯ '이어진 생각지도 주제' → 노트 › 보드의 그 주제(보드 id · 주제 id).
+export const requestBoardTopic=(topic,rt=window.KPTURuntime)=>put('topic',topic&&typeof topic.board==='string'&&typeof topic.text==='string'?{board:topic.board,text:topic.text}:null,rt);
+export const takeBoardTopicRequest=(rt=window.KPTURuntime)=>take('topic',rt);
 export const requestTaskOpen=(id,rt=window.KPTURuntime)=>put('task',id,rt);
 export const takeTaskOpenRequest=(rt=window.KPTURuntime)=>take('task',rt);
 export const basketNoteHref=id=>`./?view=basket&note=${encodeURIComponent(id)}`;

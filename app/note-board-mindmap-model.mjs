@@ -6,7 +6,12 @@
 // - S69-88(명진 11/25 02:46 "크기 조절 … 높이 폭 모두", "이동도 자유롭고 파워포인트처럼"): 손으로 정한 높이(h, 비면 글 길이만큼 — 글이 더 길면
 //   상자가 글만큼 커진다: 최소 높이), 손으로 옮겨 둔 가지(pinned — 자기 x·y를 쓰고 자동 배치가 덮어쓰지 않음, 그 아래 가지는 그 자리에서 자동, 가지 선은 따라감).
 // - S69-91 ①: 종류에 글자(label)·도형(shape) — 늘 혼자 선 칸(가지가 아님, 자기 x·y). 도형 모양 6가지·색 -1(없음)·8·9, 꾸미기 칸은 note-board-decor-model.mjs.
+// - S71-51(사용자 결정 2026-11-26 "텍스트, 첨부한 사진, 심지어는 첨부한 파일 도 다 뻗을 수 있었으면", "관계망 형성이 되어야해", 주제·도형 합치기):
+//   보드 위 모든 칸이 가지를 뻗는다 — 상자(옛 '주제')·글자·도형 모두 부모도 가지도 되고, 노트 카드(사진 카드 포함)는 부모가 된다.
+//   카드 부모는 서버 칸 parent_note(migration 20261126230000_note_board_branch_all), 화면 나무에서는 parent_id 하나로 합쳐 본다(parent_card = 부모가 카드).
+//   카드는 나무에 kind 'card'인 뿌리로만 들어간다(cardNode — 자리·크기는 카드 자리, 그리기는 카드 쪽). 그 칸이 아직 없는 서버면 buildTree(..., {free:false})로 옛 규칙.
 // - 기기 저장 없음. 서버 check와 같은 범위만 받는다(migration 20261125000000_note_board_mindmap, 20261125020000_note_board_box_size, 20261125040000_note_board_decor).
+import { clampCoord } from './note-board-coord.mjs';
 import { FREE_KINDS, SHAPE_KINDS, decorShape } from './note-board-decor-model.mjs';
 
 export const NODE_COLORS = Object.freeze([
@@ -16,6 +21,10 @@ export const NODE_COLORS = Object.freeze([
 export const NODE_SHAPES = Object.freeze(['round', 'rect', 'pill', 'plain']);
 export const SHAPE_NAMES = Object.freeze({round:'둥근 상자', rect:'네모 상자', pill:'알약', plain:'글만'});
 export const NODE_KINDS = Object.freeze(['topic', 'sticky', ...FREE_KINDS]);
+export const CARD_KIND = 'card'; // 나무 안 노트 카드(서버 글 상자 줄이 아님)
+// 노트 카드를 나무의 뿌리 칸으로(그 아래 가지를 배치하려고). 자리는 카드 자리 {x, y}.
+export const cardNode = (id, place) => ({id, kind:CARD_KIND, parent_id:null, parent_card:false, ord:0, side:null, collapsed:false, pinned:false, x:place?.x || 0, y:place?.y || 0});
+export const isCardNode = n => n?.kind === CARD_KIND;
 const ALL_SHAPES = Object.freeze([...new Set(['round', 'rect', 'pill', 'plain', ...SHAPE_KINDS])]);
 export const FONT_MIN = 1, FONT_MAX = 4, FONT_DEFAULT = 2, ROOT_FONT = 3;
 export const FONT_PX = Object.freeze({1:12, 2:14, 3:17, 4:21});
@@ -25,20 +34,23 @@ export const H_MIN = 30, H_MAX = 1200; // 손으로 정한 높이(서버 check�
 export const AUTO_MAX = 260;
 export const ORD_MAX = 1000000, ORD_STEP = 1024;
 export const HGAP = 44, VGAP = 12;
-const COORD = 100000;
 
 const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
-const at = v => (Number.isFinite(v) ? Math.max(0, Math.min(COORD, Math.round(v))) : 0);
+const at = clampCoord; // S71-52: 음수 좌표도(note-board-coord.mjs)
 
 // 서버 줄(글 상자 기본 칸은 note-board-links-model.mjs parseText가 이미 거름) + 생각 지도 칸. 칸이 없으면(옛 서버) 기본값.
 export function nodeShape(base, row = {}) {
   if (!base) return null;
-  const kind = NODE_KINDS.includes(row.kind) ? row.kind : 'topic', free = FREE_KINDS.includes(kind);
-  const parent = !free && typeof row.parent_id === 'string' && row.parent_id && row.parent_id !== base.id ? row.parent_id : null;
+  const kind = NODE_KINDS.includes(row.kind) ? row.kind : 'topic';
+  const ok = v => typeof v === 'string' && v && v !== base.id;
+  // S71-51: 부모는 글 상자(parent_id) 또는 노트 카드(parent_note) — 서버는 둘 중 하나만 받는다. 화면 줄이 이미 합친 값(parent_card)이면 그대로.
+  const card = ok(row.parent_note) && !ok(row.parent_id);
+  const parent = card ? row.parent_note : ok(row.parent_id) ? row.parent_id : null;
   return {
     ...base,
     ...decorShape(row),
     parent_id:parent,
+    parent_card:!!parent && (card || row.parent_card === true),
     ord:int(row.ord, 0, ORD_MAX) ?? 0,
     side:row.side === -1 || row.side === 1 ? row.side : null,
     kind,
@@ -53,11 +65,13 @@ export function nodeShape(base, row = {}) {
 }
 
 // 나무 만들기: 부모가 없거나(다른 보드·지워짐) 고리(서로가 서로의 부모)면 뿌리로 본다. 형제는 ord → id 순.
-export function buildTree(nodes) {
+// free: 모든 칸 가지(S71-51 서버 칸이 있을 때). 거짓이면 옛 규칙 — 글자·도형·카드는 가지도 부모도 되지 않는다(S69-91).
+// 카드 칸(cardNode)은 늘 뿌리다(카드 자리는 카드 쪽이 정한다).
+export function buildTree(nodes, {free = true} = {}) {
   const byId = new Map(nodes.map(n => [n.id, n]));
   const parentOf = new Map();
-  // S69-91: 글자·도형은 가지도 부모도 되지 않는다(늘 혼자 선 칸).
-  for (const n of nodes) if (n.parent_id && byId.has(n.parent_id) && !FREE_KINDS.includes(n.kind) && !FREE_KINDS.includes(byId.get(n.parent_id).kind)) parentOf.set(n.id, n.parent_id);
+  const fixed = n => !free && (FREE_KINDS.includes(n.kind) || n.kind === CARD_KIND);
+  for (const n of nodes) if (n.parent_id && byId.has(n.parent_id) && n.kind !== CARD_KIND && !fixed(n) && !fixed(byId.get(n.parent_id))) parentOf.set(n.id, n.parent_id);
   // 고리 끊기: 위로 올라가다 자기를 다시 만나면 그 줄을 뿌리로.
   for (const n of nodes) {
     const seen = new Set([n.id]);

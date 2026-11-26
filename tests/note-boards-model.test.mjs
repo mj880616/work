@@ -75,7 +75,7 @@ test('붙이기·옮기기·빼기는 다른 metadata 키를 그대로 두고, �
 test('끌어 놓은 곳에 칸 가운데, 맨 위 순서. 누르기·고르기는 붙은 칸과 겹치지 않는 빈 곳', () => {
   const places = new Map([['a', {...P(0, 0, 4), saved:true}], ['b', {...P(300, 0, 9), saved:true}]]);
   assert.deepEqual(dropPlace('n', {x:400, y:300}, places), {x:400 - CARD_W / 2, y:300 - CARD_H / 2, r:tiltFor('n'), z:10});
-  assert.deepEqual(dropPlace('n', {x:10, y:10}, new Map()), {x:0, y:0, r:tiltFor('n'), z:0}, '판 밖으로 나가지 않음');
+  assert.deepEqual(dropPlace('n', {x:10, y:10}, new Map()), {x:10 - CARD_W / 2, y:10 - CARD_H / 2, r:tiltFor('n'), z:0}, 'S71-52: 판은 음수 쪽으로도 뻗는다');
   const on = [note('a', {boards:{b1a2b3c4:P(24, 24, 2)}})], add = [note('n1'), note('n2')];
   const set = new Set(['n1', 'n2']);
   const layout = layoutBoard([...on, ...add], () => null, n => (set.has(n.id) ? null : boardPlaceOf(n, 'b1a2b3c4')));

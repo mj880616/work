@@ -9,17 +9,19 @@ import { createBoardLinks } from '../app/note-board-links-data.js';
 
 const node = (id, over = {}) => nodeShape(parseText({id, board_id:'all', body:over.body ?? id, x:over.x ?? 0, y:over.y ?? 0, kind:over.kind}), over);
 
-test('글자·도형: 늘 혼자 선 칸(부모를 적어도 뿌리), 도형만 빈 글, 모양·색 범위', () => {
+test('글자·도형: S71-51부터 가지가 될 수 있음(서버 칸 없으면 옛 규칙 = 뿌리), 도형만 빈 글, 모양·색 범위', () => {
   const label = node('l', {kind:'label', parent_id:'p'}), shape = node('s', {kind:'shape', body:'', shape:'diamond', color:NONE});
-  assert.equal(label.parent_id, null); assert.equal(label.shape, 'plain'); assert.ok(isFree(label));
+  assert.equal(label.parent_id, 'p'); assert.equal(label.shape, 'plain'); assert.ok(isFree(label));
   assert.equal(shape.body, ''); assert.equal(shape.shape, 'diamond'); assert.equal(shape.color, -1); assert.ok(isFree(shape));
   assert.equal(parseText({id:'t', board_id:'all', body:'', x:0, y:0, kind:'topic'}), null, '주제는 빈 글 안 됨');
   assert.equal(parseText({id:'t', board_id:'all', body:'', x:0, y:0, kind:'label'}), null, '글자는 빈 글 안 됨');
   assert.equal(node('s2', {kind:'shape', body:'', shape:'star'}).shape, 'rect');
   assert.equal(node('c', {color:10}).color, null);
   assert.equal(isFree(node('t')), false);
-  const tree = buildTree([node('r'), {...label, parent_id:'r'}]); // 화면이 받은 줄이 가지라도 글자는 뿌리
-  assert.ok(tree.roots.some(n => n.id === 'l'));
+  const old = buildTree([node('r'), {...label, parent_id:'r'}], {free:false}); // 옛 서버(가지 칸 없음): 글자는 뿌리
+  assert.ok(old.roots.some(n => n.id === 'l'));
+  const now = buildTree([node('r'), {...label, parent_id:'r'}, {...shape, parent_id:'l'}]); // 모든 칸 가지: 상자 → 글자 → 도형
+  assert.equal(now.parentOf.get('l'), 'r'); assert.equal(now.parentOf.get('s'), 'l');
 });
 
 test('꾸미기 칸: 범위 밖은 기본, 색은 테마 변수로만(하드코딩 색 없음)', () => {
@@ -60,7 +62,8 @@ test('넣은 선: 양 끝 = 판 위 점, 끝을 상자에 붙이기·떼기, 꺾
   assert.equal(typeof nearestSide({x:0, y:0, w:0, h:0}, {x:5, y:0}), 'string');
   // 끝을 상자에 붙이면 점 칸은 비고, 떼면 점만
   assert.deepEqual(endPatch('to', 'text', 't1'), {to_note:null, to_text:'t1', to_x:null, to_y:null, to_side:null});
-  assert.deepEqual(endPatch('from', 'point', {x:-5, y:12.4}), {from_note:null, from_text:null, from_x:0, from_y:12, from_side:null});
+  assert.deepEqual(endPatch('from', 'point', {x:-5, y:12.4}), {from_note:null, from_text:null, from_x:-5, from_y:12, from_side:null}); // S71-52: 음수 좌표도
+  assert.equal(endPatch('to', 'point', {x:2e6, y:0}).to_x, 1000000);
   const half = parseLink({id:'h', board_id:'all', from_text:'t1', to_x:5, to_y:6});
   assert.ok(half && !isPointEnd(half, 'from') && isPointEnd(half, 'to'));
   const flipped = {...half, ...flipPatch(half)};

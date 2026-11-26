@@ -56,6 +56,8 @@ test('PC: 다시 지운 뒤 Ctrl+Z = 되돌리기, 주제 하나만 고른 채 D
   await pickTwo(page);
   await page.keyboard.press('Delete');
   await expect(nbNode(page, '첫 주제')).toHaveCount(0);
+  // 되돌리기는 서버가 지운 뒤에 생긴다(알림 [되돌리기]가 뜬 뒤) — 그 전에 누른 Ctrl+Z는 되돌릴 것이 없다(바쁜 CI에서 간헐 실패하던 순서 문제).
+  await expect(page.getByRole('button', { name: '되돌리기' })).toBeVisible();
   await page.locator('[data-nb-scroll]').focus().catch(() => {});
   await page.keyboard.press('Control+z');
   await expect(nbNode(page, '첫 주제')).toHaveCount(1);
