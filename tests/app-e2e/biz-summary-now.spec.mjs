@@ -43,7 +43,7 @@ async function open(page,s,width,{records=[]}={}){
 async function step(page,box,dir){
   const own=box.locator(`[data-week-step="${dir}"]`);
   if(await own.count())return own.click();
-  return page.locator(`#reportWeekFilter [data-report-week="${dir<0?'prev':'next'}"]`).click();
+  return page.locator(`#bizWeekBox [data-report-week="${dir<0?'prev':'next'}"]`).click();
 }
 const rowOf=(box,name)=>box.locator('.biz-sum-table tbody tr',{has:box.page().locator('td:nth-child(1), td:nth-child(2)',{hasText:name})}).first();
 const noOverflow=page=>page.evaluate(()=>document.documentElement.scrollWidth-innerWidth<=1);

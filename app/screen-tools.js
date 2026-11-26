@@ -5,8 +5,9 @@
 // 이 모듈은 자리만 옮긴다. 단추를 그리는 곳·누름 처리는 그 화면 모듈 그대로(document 위임이라 자리가 바뀌어도 같다).
 // 그 화면이 보일 때만 자리에 들어가고, 다른 화면이면 화면 안 원래 자리(home)로 돌아가 숨는다(.screen-tools는 자리에 있을 때만 보임 — topbar-actions.css).
 // 빈 곳 우클릭(context-menu.js)은 data-screen-tools-for(화면 칸 id)로 이 화면 ⋯를 찾는다.
+// BIZ-머리한줄(S71-23): {wide:false}면 폰·폴드 틀에서만 앱 머리 줄로 가고, PC 틀에서는 화면 안 원래 자리에 그대로 보인다(사업 관리 첫 줄 — PC는 화면 안 한 줄).
 const PC = '(min-width:761px)';
-const tools = new Map(); // view → {el, home}
+const tools = new Map(); // view → {el, home, wide}
 let active = null, bound = false;
 const panelId = view => view + 'View';
 const shown = view => {const p = document.getElementById(panelId(view)); return !!p && !p.classList.contains('hidden')};
@@ -14,7 +15,7 @@ const slot = () => document.querySelector(window.matchMedia(PC).matches ? '[data
 function place() {
   for (const [view, t] of tools) {
     if (!t.el.isConnected && !t.home.isConnected) {tools.delete(view); continue}
-    const on = active ? active === view : shown(view), target = on ? slot() : t.home;
+    const on = (active ? active === view : shown(view)) && (t.wide || !window.matchMedia(PC).matches), target = on ? slot() : t.home;
     if (!target) continue;
     if (t.el.parentElement !== target) target.append(t.el);
     t.el.toggleAttribute('data-screen-tools-placed', on);
@@ -25,9 +26,9 @@ function bind() {
   window.addEventListener('kptu:view-changed', e => {active = e.detail?.view || null; place()});
   window.matchMedia(PC).addEventListener?.('change', place);
 }
-export function mountScreenTools(view, el) {
+export function mountScreenTools(view, el, {wide = true} = {}) {
   if (!view || !el?.parentElement) return;
-  if (!tools.has(view)) tools.set(view, {el, home: el.parentElement});
+  if (!tools.has(view)) tools.set(view, {el, home: el.parentElement, wide});
   el.dataset.screenToolsFor = panelId(view);
   bind(); place();
 }

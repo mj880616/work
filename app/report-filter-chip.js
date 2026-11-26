@@ -1,5 +1,5 @@
 // S67-75 UI-걸러보기칩하나(2026-11-21 명진 18:33 A안, 16:18 "사업영역 전체 박스 짤림" → PR 2847 흐림은 18:27 "이게 의도된 거라고?"로 걷어냄).
-// 폰(~760px) 사업 관리 윗줄 = [아이콘][사업 관리][걸러보기 칩 하나 ▾] … [+][⋯]. 고르기 상자 네 개(종류·사업영역·기간·보기)가 그 줄에
+// 폰(~760px) 사업 관리 윗줄(앱 머리 줄, BIZ-머리한줄 S71-23) = [아이콘][사업 관리][걸러보기 칩 하나 ▾] n건 … [+][찾기]. 고르기 상자 네 개(종류·사업영역·기간·보기)가 그 줄에
 // 다 들어가지 않을 때만 칩 하나로 묶고, 다 들어가면(폴드 펼침 등) 지금처럼 네 개 그대로다. 넓은 화면(761px~)은 늘 네 개.
 // - 상태 주인은 그대로 team.js다: 값은 네 <select>(#reportKindSelect·#reportAreaSelect·#reportPeriodPick 안 [data-report-period]·#reportViewSelect)에
 //   있고, 고르면 그 상자의 change → team.js가 반영·저장한다. 이 모듈은 상자를 읽어 칩 글자를 쓰고(team.js가 상자를 그린 뒤 paint()를 부름),
@@ -12,7 +12,8 @@ import {filterChipText,selectedLabel,FILTER_CHIP_ALL} from './report-filter-chip
 
 const KEY='kptuReportFilter';
 const $=s=>document.querySelector(s);
-const topEl=()=>$('#meetingsView .report-top'),barEl=()=>$('#meetingsView .report-kind-bar'),chipEl=()=>$('#reportFilterChip');
+// BIZ-머리한줄(S71-23): 첫 줄은 #reportTop 하나(폰·폴드는 앱 머리 줄로 옮겨 가므로 #meetingsView 안이라고 가정하지 않는다).
+const topEl=()=>$('#reportTop'),barEl=()=>$('#reportFilterBar'),chipEl=()=>$('#reportFilterChip'),panelOpen=()=>!!$('#reportWeekFilter .report-period-panel');
 let open=null,seq=0,lastWidth=-1;
 
 const shownSel=s=>!!s&&!s.hidden&&!s.closest('[hidden]');
@@ -23,24 +24,16 @@ function parts(){
 }
 
 // 상자 네 개가 이 줄에 다 들어가는지 실제로 재고(칩을 숨기고 네 개를 놓아 봄) 칩 하나 / 네 개를 정한다. 같은 틀 안 계산이라 깜빡임 없음.
-// S71-10(명진 11/26 14:41 '한 줄에 우겨넣고 싶어'): 주 줄(‹ 날짜 › · n건)도 모든 폭에서 이 첫 줄 안에 선다. 줄이 넘치면 차례로
-// ① 요일을 뺀 날짜(is-week-short, '11.23~11.29') ② 건수를 짧게(is-week-tight, '3건', 줄 안 틈·‹ › 폭도 좁힘) ③ 그래도 넘치면 고르기 칩·상자가 줄어 끝 말줄임(is-week-squeeze).
-// 단계는 같은 틀 안에서 실제 폭을 재어 정한다(깜빡임 없음). 기간 정하기·주차 고르기 창이 열려 있으면 그 창이 아래 한 줄을 다 쓰므로 재지 않는다.
-const WEEK_STEPS=['is-week-short','is-week-tight','is-week-squeeze'];
-function fitWeek(top){
-  const week=top.querySelector(':scope > .report-week-bar');
-  if(!week||week.hidden||!week.getClientRects().length)return;
-  for(const step of WEEK_STEPS){if(top.scrollWidth<=top.clientWidth+1)return;top.classList.add(step)}
-}
+// BIZ-머리한줄(S71-23): 주 넘기기는 아래 '주간 보고' 상자 제목 줄로 옮겼다. 첫 줄은 [고르기] · n건 ……… [+]뿐이라 줄이는 단계는 하나 —
+// 넘치면(긴 사업영역 이름 등) 칩 글자가 끝 말줄임(CSS, 칩 자리가 줄어듦). 예전 S71-10 단계(요일 빼기·건수 짧게)는 거뒀다.
 function layout(){
   const top=topEl(),bar=barEl(),chip=chipEl();if(!top||!bar||!chip)return;
   if(open){if(isWide())close(false,false);else place();return}
   // 기간 정하기·주차 고르기 창이 열려 있는 동안은 연 순간의 모양(칩 하나/상자 네 개, 줄인 단계)을 그대로 둔다 — 주 줄이 아래로 내려가
   // 고르기 자리가 넓어졌다고 칩이 상자 네 개로 바뀌면 누른 자리가 움직인다. 창이 닫히면(team.js가 다시 그림) 다시 잰다.
-  if(top.querySelector(':scope > .report-week-bar .report-period-panel'))return;
-  top.classList.remove('is-filter-one',...WEEK_STEPS);chip.hidden=true;
+  if(panelOpen())return;
+  top.classList.remove('is-filter-one');chip.hidden=true;
   if(!isWide()&&bar.getClientRects().length&&bar.scrollWidth>bar.clientWidth+1){top.classList.add('is-filter-one');chip.hidden=false}
-  fitWeek(top);
 }
 function place(){const bar=barEl(),chip=chipEl();if(open&&bar&&chip)placeAnchored(bar,chip,{maxWidth:280,maxHeight:360,minHeight:120,bottomInset:bottomInset()})}
 

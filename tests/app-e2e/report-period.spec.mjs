@@ -136,7 +136,7 @@ test('기간 설정: 달력으로 시작·끝 날을 선택하면 그 기간 보
   await expect(page2.locator('#meetingList')).toContainText('지난 회의');
   await expect(page2.locator('#meetingList')).not.toContainText('○○ 대표자 회의');
   // × 로 지우면 주간 보기로 돌아가고 기억도 비운다.
-  await page2.locator('#reportWeekFilter [data-report-week="clear"]').click();
+  await page2.locator('#reportCount [data-report-week="clear"]').click();
   await expect(period(page2)).toHaveValue('week');
   await context2.close();
 });

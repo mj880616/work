@@ -572,26 +572,25 @@ for(const width of [320,360,390,760]){
     // S67-64 UI-윗줄한줄(명진 11/21 D3): 폰(~760px)은 첫 줄과 고르기 줄이 한 줄(.report-top) — [아이콘][사업 관리][고르기 …][+][⋯]. .report-top-line은 자리만 내준다.
     // S67-75 UI-걸러보기칩하나(명진 A안): 고르기 상자들이 줄에 다 안 들어가는 폭은 칩 하나(#reportFilterChip)가 그 자리다.
     const inChip=await reportBoxesInChip(page),chip=page.locator('#reportFilterChip');
-    const top=page.locator('#meetingsView .report-top'),bar=inChip?chip:page.locator('#meetingsView .report-kind-bar');
-    const select=inChip?chip:page.locator('#reportKindSelect'),button=page.locator('#newMeetingBtn'),more=page.locator('#reportMore');
+    // BIZ-머리한줄(S71-23): 폰·폴드는 첫 줄(#reportTop)이 앱 머리 줄 안 — [W][사업 관리][고르기 …] n건 [+] 찾기. 줄 끝 [+] 하나(⋯·녹음 없음).
+    const top=page.locator('#reportTop'),bar=inChip?chip:page.locator('#reportFilterBar');
+    const select=inChip?chip:page.locator('#reportKindSelect'),button=page.locator('#newMeetingBtn');
     await expect(page.locator('#meetingTypeFilter,#reportAreaFilter,#reportFilterBtn,#meetingsView .meeting-toolbar')).toHaveCount(0);
-    await expect(page.locator('#reportKindFilter')).toBeHidden();
+    await expect(page.locator('#reportKindFilter')).toBeHidden();await expect(page.locator('#reportMore')).toHaveCount(0);
     await expect(button).toBeVisible();await expect(select).toBeVisible();
-    const [t,b,s,btn,m]=await Promise.all([top.boundingBox(),bar.boundingBox(),select.boundingBox(),button.boundingBox(),more.boundingBox()]);
+    const [t,b,s,btn]=await Promise.all([top.boundingBox(),bar.boundingBox(),select.boundingBox(),button.boundingBox()]);
     expect(s.height).toBeCloseTo(32,0);
     expect(s.x).toBeCloseTo(b.x,0);
-    expect(m.x+m.width).toBeCloseTo(t.x+t.width,0);
-    expect(m.y+m.height/2).toBeCloseTo(btn.y+btn.height/2,0);
+    expect(btn.x+btn.width).toBeCloseTo(t.x+t.width,0);
     expect(s.y+s.height/2).toBeCloseTo(btn.y+btn.height/2,0);
     expect(b.x+b.width).toBeLessThanOrEqual(btn.x);
     expect(b.height).toBeLessThanOrEqual(48);
     if(width<=760){
       // 폰: [+]는 떠 있는 동그라미가 아니라 맨 윗줄 오른쪽 32px 작은 아이콘.
       expect(await button.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');expect(btn.width).toBe(32);expect(btn.height).toBe(32);
-      await expect(button).toHaveAttribute('aria-label','사업 보고 등록');
+      await expect(button).toHaveAttribute('aria-label','사업 관리 추가');
     }else{
-      expect(btn.height).toBeCloseTo(32,0);/* BIZ-버튼줄정리: 채운 [+ 사업 보고]는 작고 낮게 32px, 그 오른쪽 줄 끝이 ⋯ */
-      expect(btn.x+btn.width).toBeLessThanOrEqual(m.x);
+      expect(btn.height).toBeCloseTo(32,0);/* BIZ-머리한줄: 작은 [+] 하나가 줄 끝 */
       expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
     }
     // FOLD-넓은화면 2차(S59-19): 760(펼친 폴드, 폰 틀)은 '날짜·이름 목록 | 결과' 두 칸 — 위 두 줄은 폰과 같고, 줄 모양은 두 칸 목록(fold-org-biz-list-detail.spec.mjs)이 본다.

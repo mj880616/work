@@ -36,7 +36,7 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   // [한 줄] 칩은 한 줄 업데이트가 생기기 전에는 없다.
   await expect(chip(page,'한 줄')).toHaveCount(0);
   await pickReportKind(page,'전체');
-  await page.locator('#newMeetingBtn').click();
+  await page.locator('#newMeetingBtn').click();await page.locator('#reportAddMenu [data-report-new]').click();
   const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();
   const first=sheet.locator('[data-sheet-content] > button').first();
   await expect(first).toHaveAttribute('data-report-oneline','');await expect(first).toContainText('한 줄 업데이트');
@@ -80,7 +80,7 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   if(width<=884)expect(await noSideScroll(page)).toBe(true);
   // [한 줄] 칩: 그 칸만. MTG-더하기늘고르기(11/14 명진): [+]는 거르기와 상관없이 늘 고르기 창 — 맨 위 [한 줄 업데이트]로 한 줄 창. Esc로 닫힌다.
   await pickReportKind(page,'한 줄');
-  await page.locator('#newMeetingBtn').click();
+  await page.locator('#newMeetingBtn').click();await page.locator('#reportAddMenu [data-report-new]').click();
   await expect(sheet).toBeVisible();await sheet.locator('[data-report-oneline]').click();
   await expect(dialog).toBeVisible();await expect(sheet).toBeHidden();
   await expect(dialog.locator('[data-ol-text]')).toHaveValue('');
@@ -93,7 +93,7 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
 test('412: 칸 칩([회의])에서도 [+]는 고르기 창([회의] 줄 표시) → [회의]로 쓰기 창',async({page})=>{
   const s=state();await open(page,s,412);
   await pickReportKind(page,'회의');
-  await page.locator('#newMeetingBtn').click();
+  await page.locator('#newMeetingBtn').click();await page.locator('#reportAddMenu [data-report-new]').click();
   const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();
   await expect(sheet.locator('[data-sheet-value="meeting"]')).toHaveAttribute('aria-pressed','true');
   await expect(sheet.locator('[data-sheet-value="meeting"]')).toBeFocused();
