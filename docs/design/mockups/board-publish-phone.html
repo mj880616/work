@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>보드 게시본 보는 화면 시안 — 폰</title>
+<!-- S71-55 NOTE-생각지도게시 시안. 가짜 글만(실제 사람·단체·업무 없음). 앱 코드 아님. 설계: docs/design/board-publish.md -->
+<style>
+:root{--bg:#f3f1ea;--surface:#fffefa;--subtle:#f7f5ee;--border:#e2ddd0;--ink:#22262b;--muted:#77736a;--primary:#5c6a35;--soft:#eef0e1;
+--p0:#dcebdc;--p1:#d8e6f0;--p2:#e6def0;--p3:#f2ddd6;--p4:#d4ebe6;--p5:#f0dbe4;--rel:#8a6d9e;--hit:#f3e3a8}
+@media (prefers-color-scheme:dark){:root{--bg:#1d1f1c;--surface:#262924;--subtle:#2c2f2a;--border:#3a3e37;--ink:#e6e3da;--muted:#a19d92;--primary:#b7c48a;--soft:#33382b;
+--p0:#33443a;--p1:#2f3d48;--p2:#3d3747;--p3:#4a3a34;--p4:#2f4441;--p5:#473640;--rel:#c3a6d6;--hit:#6b5a22}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif}
+header.pg{padding:12px 16px 4px}h1{font-size:15px;margin:0 0 3px}.lead{color:var(--muted);font-size:12px;margin:0 0 8px}
+.dev{margin:0 16px 24px;background:var(--surface);border:.5px solid var(--border);border-radius:8px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.pc{height:680px;max-width:1280px}.ph{width:390px;height:780px;border-radius:22px;border-width:1px}
+.top{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:.5px solid var(--border);background:var(--surface);z-index:3}
+.top b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.btn{font:inherit;font-size:12px;border:.5px solid var(--border);background:var(--subtle);color:var(--ink);border-radius:5px;padding:3px 8px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--primary)}.btn.on{background:var(--soft);border-color:var(--primary)}
+.find{font:inherit;font-size:12px;border:.5px solid var(--border);background:var(--subtle);color:var(--ink);border-radius:5px;padding:3px 7px;width:170px}
+.cnt{font-size:11px;color:var(--muted);white-space:nowrap}
+.body{flex:1;display:flex;min-height:0;position:relative}
+.stage{flex:1;position:relative;overflow:hidden;cursor:grab;touch-action:none;background:
+ radial-gradient(circle,var(--border) .6px,transparent .7px) 0 0/22px 22px}
+.stage.drag{cursor:grabbing}
+.plane{position:absolute;left:0;top:0;transform-origin:0 0}
+.plane svg{position:absolute;left:0;top:0;overflow:visible}
+.t{position:absolute;padding:5px 10px;border-radius:9px;border:.5px solid var(--border);background:var(--surface);white-space:nowrap;cursor:pointer;
+ transition:box-shadow .2s;font-size:13px;user-select:none}
+.t.root{border:1.5px solid var(--primary);font-size:17px;font-weight:600;padding:8px 16px;border-radius:12px}
+.t.d1{font-size:15px;font-weight:600}.t.d3{font-size:12px}
+.t.hit{box-shadow:0 0 0 3px var(--hit)}.t.sel{box-shadow:0 0 0 2px var(--primary)}
+.t .mats{display:flex;gap:4px;margin-top:4px}
+.chip{font-size:11px;font-weight:400;border:.5px solid var(--border);background:var(--subtle);border-radius:10px;padding:0 7px;cursor:pointer;color:var(--ink)}
+.chip:hover{border-color:var(--primary)}
+.fold{position:absolute;width:16px;height:16px;border-radius:50%;border:.5px solid var(--border);background:var(--surface);font-size:10px;line-height:15px;text-align:center;cursor:pointer;color:var(--muted)}
+.far .t.d2 .lbl,.far .t.d3 .lbl,.far .t .mats{visibility:hidden}
+.far .t.d2,.far .t.d3{min-width:14px;min-height:10px;padding:3px}
+.far .t.d3{opacity:.5}
+.far .fold{display:none}
+.zoom{position:absolute;right:10px;bottom:10px;display:flex;gap:3px;align-items:center;background:var(--surface);border:.5px solid var(--border);border-radius:6px;padding:3px;z-index:2}
+.zoom span{font-size:11px;color:var(--muted);min-width:38px;text-align:center}
+.mini{position:absolute;right:10px;bottom:46px;width:170px;height:110px;background:var(--surface);border:.5px solid var(--border);border-radius:6px;overflow:hidden;z-index:2}
+.mini svg{width:100%;height:100%}.mini.shut{display:none}
+.lvl{position:absolute;left:10px;bottom:10px;font-size:11px;color:var(--muted);background:var(--surface);border:.5px solid var(--border);border-radius:6px;padding:3px 8px;z-index:2}
+.side{width:330px;border-left:.5px solid var(--border);background:var(--surface);display:none;flex-direction:column;z-index:2}
+.side.open{display:flex}
+.side .hd{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:.5px solid var(--border)}
+.side .hd b{flex:1;font-size:13px}.side .bd{padding:10px 12px;overflow:auto;font-size:13px}
+.side .k{font-size:11px;color:var(--muted)}
+.side p{margin:0 0 8px}
+.ph .side{position:absolute;left:0;right:0;bottom:0;width:auto;height:52%;border-left:0;border-top:.5px solid var(--border);border-radius:14px 14px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.12)}
+.ph .side .grip{width:36px;height:4px;border-radius:2px;background:var(--border);margin:6px auto 0}
+.foot{font-size:11px;color:var(--muted);padding:4px 10px;border-top:.5px solid var(--border);background:var(--surface)}
+.menu{position:absolute;right:8px;top:36px;background:var(--surface);border:.5px solid var(--border);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);z-index:5;display:none;min-width:170px}
+.menu.open{display:block}.menu button{display:block;width:100%;text-align:left;font:inherit;font-size:12px;background:none;border:0;color:var(--ink);padding:6px 10px;cursor:pointer}
+.menu button:hover{background:var(--subtle)}
+.toast{position:absolute;left:50%;bottom:60px;transform:translateX(-50%);background:var(--ink);color:var(--surface);font-size:12px;padding:5px 10px;border-radius:6px;opacity:0;transition:opacity .2s;z-index:6;pointer-events:none}
+.toast.show{opacity:.92}
+.note{margin:0 16px 30px;font-size:12px;color:var(--muted);max-width:900px}
+.note li{margin:2px 0}
+</style>
+</head>
+<body>
+<header class="pg"><h1>보드 게시본 보는 화면 시안 — 폰</h1><p class="lead">폰 390 · 한 손가락 끌기·두 손가락 확대(이 시안은 PC에서도 마우스 끌기·Ctrl+휠). 재료 칩을 누르면 아래에서 칸이 올라온다. 미니맵은 ▦로 편다.</p></header>
+<div class="dev ph">
+<div class="top"><b>동네 숲 가꾸기 구상</b><button class="btn" data-a="findopen" aria-label="찾기">찾기</button><button class="btn" data-a="fit">전체 보기</button><button class="btn" data-a="more" aria-label="더 보기">⋯</button></div>
+<div class="top" style="padding-top:0;border-bottom:0;position:absolute;top:34px;left:0;right:0;background:transparent"><input class="find" placeholder="주제 찾기" style="display:none;width:100%"><span class="cnt"></span></div>
+<div class="menu"><button data-a="here">이 자리 링크 복사</button><button data-a="far">멀리 보기</button><button data-a="near">가까이 보기</button></div>
+<div class="body">
+<div class="stage" aria-label="개념지도 판"><div class="plane"></div>
+<div class="lvl"></div>
+<div class="mini shut"><svg aria-label="미니맵"></svg></div>
+<div class="zoom"><button class="btn" data-a="mini" aria-label="미니맵">▦</button><button class="btn" data-a="out" aria-label="축소">－</button><span>100%</span><button class="btn" data-a="in" aria-label="확대">＋</button></div>
+</div>
+<div class="side"><div class="grip"></div><div class="hd"><b></b><button class="btn x">닫기</button></div><div class="bd"></div></div>
+</div>
+<div class="foot">11월 26일 기준 · WORK ON+로 만듦</div>
+<div class="toast"></div>
+</div>
+<ul class="note">
+<li>슬라이드·발표 모드 없음 — 한 장의 판을 자유롭게 옮기고 키운다(사용자 결정).</li>
+<li>재료 칩: 📝 노트 · 📎 자료실 자료 · 🔗 웹 링크. 기본은 제목만, 주인이 '내용 포함'을 켠 것만 내용이 열린다.</li>
+<li>받는 사람이 접은 가지는 저장하지 않는다(새로 열면 주인이 게시한 모양).</li>
+</ul>
+<script>
+const PHONE = true;
+// 가짜 자료 — 실제 이름·단체·업무 없음
+const T = [
+ {id:'r',p:null,x:0,y:0,t:'동네 숲 가꾸기 구상',d:0},
+ {id:'a',p:'r',t:'왜 하나',d:1,side:-1},{id:'a1',p:'a',t:'쉼터가 모자람',d:2},{id:'a2',p:'a',t:'아이들 놀 곳',d:2,mats:[['n','설문 정리 노트']]},{id:'a3',p:'a',t:'여름 더위',d:2},
+ {id:'a31',p:'a3',t:'그늘 지도',d:3,mats:[['u','기상 자료 사이트']]},{id:'a32',p:'a3',t:'열섬 측정',d:3},
+ {id:'b',p:'r',t:'어디에',d:1,side:-1},{id:'b1',p:'b',t:'빈터 세 곳',d:2,mats:[['f','후보지 사진 묶음.pdf']]},{id:'b2',p:'b',t:'학교 뒤뜰',d:2},{id:'b3',p:'b',t:'강가 산책로',d:2},
+ {id:'c',p:'r',t:'누가',d:1,side:1},{id:'c1',p:'c',t:'주민 모임',d:2},{id:'c11',p:'c1',t:'달마다 한 번',d:3},{id:'c12',p:'c1',t:'역할 나누기',d:3,mats:[['n','역할표 노트']]},{id:'c2',p:'c',t:'가상 학교 동아리',d:2},{id:'c3',p:'c',t:'자원봉사 모집',d:2},
+ {id:'e',p:'r',t:'어떻게',d:1,side:1},{id:'e1',p:'e',t:'나무 고르기',d:2,mats:[['n','수종 비교 노트'],['u','도감 링크']]},{id:'e11',p:'e1',t:'토종 나무',d:3},{id:'e12',p:'e1',t:'물 적게',d:3},
+ {id:'e2',p:'e',t:'돈',d:2},{id:'e21',p:'e2',t:'작은 기금',d:3,mats:[['f','예산 초안.pdf']]},{id:'e22',p:'e2',t:'물품 나눔',d:3},{id:'e3',p:'e',t:'돌보기 순번',d:2},
+ {id:'g',p:'r',t:'다음 걸음',d:1,side:1},{id:'g1',p:'g',t:'시범 한 곳',d:2},{id:'g2',p:'g',t:'석 달 뒤 돌아보기',d:2},
+];
+const REL = [['a2','b2','아이들 → 학교 뒤뜰'],['a31','b3','그늘 필요'],['e3','c3','순번 = 봉사']];
+const MAT = {
+ '설문 정리 노트':{k:'노트 · 내용 포함',body:['가상 설문 응답 40건을 정리했다.','가장 많이 나온 말: "앉아 쉴 그늘".','아이 있는 집은 놀이터보다 흙 놀이 자리를 원함.']},
+ '역할표 노트':{k:'노트 · 제목만 공개',body:null},
+ '수종 비교 노트':{k:'노트 · 내용 포함',body:['토종·물 적게 드는 나무 위주로 다섯 가지를 비교.','첫해 물주기 횟수가 가장 큰 차이.']},
+ '후보지 사진 묶음.pdf':{k:'자료실 자료 · 사본 포함',file:'PDF · 3쪽 · 2.1MB'},
+ '예산 초안.pdf':{k:'자료실 자료 · 제목만 공개',file:null},
+ '기상 자료 사이트':{k:'웹 링크',url:'https://example.org/weather'},
+ '도감 링크':{k:'웹 링크',url:'https://example.org/trees'},
+};
+const byId = Object.fromEntries(T.map(t=>[t.id,t]));
+T.forEach(t=>{t.kids=T.filter(k=>k.p===t.id);});
+const folded = new Set();
+// 간단 자동 배치(시안용): 뿌리 양쪽으로 가지를 펼친다
+function layout(){
+  const GX=[0,210,190,170], GY=34;
+  let rowL=0,rowR=0;
+  const vis=t=>!folded.has(t.id);
+  function place(t,side,depth,rowRef){
+    const kids = vis(t)?t.kids:[];
+    if(!kids.length){ const hh=GY+(t.mats?24:0); t.y=rowRef.v+hh/2; rowRef.v+=hh; }
+    else { kids.forEach(k=>place(k,side,depth+1,rowRef)); t.y=(kids[0].y+kids[kids.length-1].y)/2; }
+    t.x=side*GX.slice(1,depth+1).reduce((a,b)=>a+b,0);
+    t.side=side; t.hidden=false;
+  }
+  const L={v:0},R={v:0};
+  byId.r.kids.forEach(k=>place(k,k.side,1,k.side<0?L:R));
+  const midL=L.v/2, midR=R.v/2;
+  T.forEach(t=>{ if(t.id!=='r'&&t.side<0) t.y-=midL; else if(t.id!=='r') t.y-=midR; });
+  byId.r.x=0;byId.r.y=0;
+  T.forEach(t=>t.hidden=false);
+  (function hide(t,h){t.hidden=h;t.kids.forEach(k=>hide(k,h||folded.has(t.id)));})(byId.r,false);
+}
+const stage=document.querySelector('.stage'), plane=document.querySelector('.plane');
+let view={x:0,y:0,s:1}, boxes={};
+function draw(){
+  layout();
+  plane.innerHTML='';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');plane.appendChild(svg);
+  boxes={};
+  T.forEach(t=>{ if(t.hidden) return;
+    const el=document.createElement('div'); el.className='t d'+t.d+(t.d===0?' root':''); el.dataset.id=t.id;
+    const l=document.createElement('div'); l.className='lbl'; l.textContent=t.t; el.appendChild(l);
+    if(t.mats){ const m=document.createElement('div'); m.className='mats';
+      t.mats.forEach(([k,n])=>{const c=document.createElement('span');c.className='chip';c.textContent=(k==='n'?'📝 ':k==='f'?'📎 ':'🔗 ')+n;c.dataset.mat=n;m.appendChild(c);});
+      el.appendChild(m);}
+    el.style.background = t.d===0?'var(--surface)':'var(--p'+(['a','b','c','e','g'].indexOf(rootOf(t))%6)+')';
+    plane.appendChild(el);
+    const w=el.offsetWidth,h=el.offsetHeight;
+    const left = t.d===0? -w/2 : (t.side<0? t.x-w : t.x);
+    el.style.left=left+'px'; el.style.top=(t.y-h/2)+'px';
+    boxes[t.id]={l:left,r:left+w,t:t.y-h/2,b:t.y+h/2,cy:t.y,w,h};
+    if(t.kids.length && t.d>0){ const f=document.createElement('div'); f.className='fold'; f.dataset.fold=t.id;
+      f.textContent=folded.has(t.id)?String(count(t)):'−';
+      f.style.left=(t.side<0? left-20 : left+w+4)+'px'; f.style.top=(t.y-8)+'px'; plane.appendChild(f);}
+  });
+  let path='';
+  T.forEach(t=>{ if(t.hidden||!t.p) return; const a=boxes[t.p],b=boxes[t.id]; if(!a||!b) return;
+    const x1=t.side<0?a.l:a.r, x2=t.side<0?b.r:b.l, mx=(x1+x2)/2;
+    path+=`<path d="M${x1} ${a.cy} C${mx} ${a.cy} ${mx} ${b.cy} ${x2} ${b.cy}" stroke="var(--border)" stroke-width="1.6" fill="none"/>`; });
+  REL.forEach(([f,to,lab],i)=>{ const a=boxes[f],b=boxes[to]; if(!a||!b) return;
+    const x1=(a.l+a.r)/2,y1=a.cy,x2=(b.l+b.r)/2,y2=b.cy,my=Math.min(y1,y2)-80-i*20;
+    path+=`<path data-rel="${i}" d="M${x1} ${y1} Q${(x1+x2)/2} ${my} ${x2} ${y2}" stroke="var(--rel)" stroke-width="1.4" stroke-dasharray="5 4" fill="none" style="cursor:pointer;pointer-events:stroke"/>`
+      +`<path data-rel="${i}" d="M${x1} ${y1} Q${(x1+x2)/2} ${my} ${x2} ${y2}" stroke="transparent" stroke-width="14" fill="none" style="cursor:pointer;pointer-events:stroke"/>`
+      +`<text x="${(x1+x2)/2}" y="${(y1+y2)/4+my/2-4}" font-size="11" fill="var(--rel)" text-anchor="middle" class="rlbl">${lab}</text>`; });
+  svg.innerHTML=path;
+  plane.prepend(svg);
+  mini(); apply();
+}
+const rootOf=t=>{while(t.p&&t.p!=='r') t=byId[t.p]; return t.id;};
+const count=t=>t.kids.reduce((n,k)=>n+1+count(k),0);
+function bounds(){ const v=Object.values(boxes); return {l:Math.min(...v.map(b=>b.l))-40,r:Math.max(...v.map(b=>b.r))+40,t:Math.min(...v.map(b=>b.t))-120,b:Math.max(...v.map(b=>b.b))+40}; }
+function apply(anim){
+  plane.style.transition=anim?'transform .45s ease':'none';
+  plane.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;
+  stage.classList.toggle('far', view.s<0.7);
+  document.querySelector('.zoom span').textContent=Math.round(view.s*100)+'%';
+  document.querySelector('.lvl').textContent=view.s<0.7?'멀리 보기 · 큰 가지 글만':'가까이 보기 · 모든 글';
+  miniView();
+}
+function fit(anim){ const b=bounds(), W=stage.clientWidth,H=stage.clientHeight; const s=Math.min(W/(b.r-b.l),H/(b.b-b.t),1.2);
+  view={s,x:(W-(b.r-b.l)*s)/2-b.l*s,y:(H-(b.b-b.t)*s)/2-b.t*s}; apply(anim); }
+function goTo(id,s){ const b=boxes[id]; if(!b) return; const W=stage.clientWidth,H=stage.clientHeight; s=s||Math.max(view.s,1);
+  view={s,x:W/2-(b.l+b.w/2)*s,y:H/2-b.cy*s}; apply(true); }
+function zoomAt(f,cx,cy){ const s=Math.min(3,Math.max(.15,view.s*f)); view.x=cx-(cx-view.x)*s/view.s; view.y=cy-(cy-view.y)*s/view.s; view.s=s; apply(); }
+// 미니맵
+let mb=null;
+function mini(){ const m=document.querySelector('.mini svg'); const b=bounds(); mb=b;
+  m.setAttribute('viewBox',`${b.l} ${b.t} ${b.r-b.l} ${b.b-b.t}`);
+  m.innerHTML=Object.entries(boxes).map(([id,x])=>`<rect x="${x.l}" y="${x.t}" width="${x.w}" height="${x.h}" rx="4" fill="var(--p${(['a','b','c','e','g'].indexOf(rootOf(byId[id]))+6)%6})" stroke="var(--border)"/>`).join('')+'<rect class="vw" fill="none" stroke="var(--primary)" stroke-width="6"/>'; }
+function miniView(){ const r=document.querySelector('.mini .vw'); if(!r) return; const W=stage.clientWidth,H=stage.clientHeight;
+  r.setAttribute('x',-view.x/view.s);r.setAttribute('y',-view.y/view.s);r.setAttribute('width',W/view.s);r.setAttribute('height',H/view.s); }
+document.querySelector('.mini').addEventListener('pointerdown',e=>{ const m=e.currentTarget.getBoundingClientRect();
+  const px=mb.l+(e.clientX-m.left)/m.width*(mb.r-mb.l), py=mb.t+(e.clientY-m.top)/m.height*(mb.b-mb.t);
+  const W=stage.clientWidth,H=stage.clientHeight; view.x=W/2-px*view.s; view.y=H/2-py*view.s; apply(true); e.stopPropagation(); });
+// 끌기·두 손가락
+const pts=new Map(); let last=null, moved=0, pinch=null;
+stage.addEventListener('pointerdown',e=>{ if(e.target.closest('.zoom,.mini,.lvl')) return; stage.setPointerCapture(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); moved=0; stage.classList.add('drag');
+  if(pts.size===2){ const [a,b]=[...pts.values()]; pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:view.s}; } });
+stage.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)) return; const p=pts.get(e.pointerId); const dx=e.clientX-p.x, dy=e.clientY-p.y; pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pts.size===2&&pinch){ const [a,b]=[...pts.values()]; const r=stage.getBoundingClientRect(); const d=Math.hypot(a.x-b.x,a.y-b.y); zoomAt(pinch.s*d/pinch.d/view.s,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top); return; }
+  moved+=Math.abs(dx)+Math.abs(dy); view.x+=dx; view.y+=dy; apply(); });
+const up=e=>{ pts.delete(e.pointerId); if(pts.size<2) pinch=null; if(!pts.size) stage.classList.remove('drag'); };
+stage.addEventListener('pointerup',e=>{ const wasTap=moved<6&&pts.size===1; up(e); if(wasTap) tap(e); });
+stage.addEventListener('pointercancel',up);
+stage.addEventListener('wheel',e=>{ e.preventDefault(); const r=stage.getBoundingClientRect();
+  if(e.ctrlKey||e.metaKey) zoomAt(Math.exp(-e.deltaY/300),e.clientX-r.left,e.clientY-r.top);
+  else { view.x-=e.shiftKey?e.deltaY:e.deltaX; view.y-=e.shiftKey?0:e.deltaY; apply(); } },{passive:false});
+function tap(e){ const el=document.elementFromPoint(e.clientX,e.clientY);
+  const chip=el?.closest?.('.chip'); if(chip){ openMat(chip.dataset.mat); return; }
+  const f=el?.closest?.('.fold'); if(f){ const id=f.dataset.fold; folded.has(id)?folded.delete(id):folded.add(id); draw(); return; }
+  const rel=el?.closest?.('[data-rel]'); if(rel){ const [a,b]=REL[+rel.dataset.rel]; const near=[a,b].map(id=>boxes[id]);
+    const W=stage.clientWidth; const ax=near[0].l*view.s+view.x; const tgt=(ax>0&&ax<W)?b:a; toast('관계선 → '+byId[tgt].t); goTo(tgt); return; }
+  const t=el?.closest?.('.t'); if(t){ document.querySelectorAll('.t.sel').forEach(x=>x.classList.remove('sel')); t.classList.add('sel'); goTo(t.dataset.id,Math.max(view.s,1.1)); }
+}
+// 재료 옆 칸
+const side=document.querySelector('.side');
+function openMat(n){ const m=MAT[n]; side.querySelector('.hd b').textContent=n; const bd=side.querySelector('.bd'); bd.innerHTML='';
+  const k=document.createElement('p');k.className='k';k.textContent=m.k;bd.appendChild(k);
+  if(m.body) m.body.forEach(s=>{const p=document.createElement('p');p.textContent=s;bd.appendChild(p);});
+  else if(m.file){ const p=document.createElement('p');p.textContent=m.file;bd.appendChild(p); const b=document.createElement('button');b.className='btn';b.textContent='내려받기';bd.appendChild(b);}
+  else if(m.url){ const p=document.createElement('p');p.textContent=m.url;bd.appendChild(p); const b=document.createElement('button');b.className='btn';b.textContent='새 탭에서 열기';bd.appendChild(b);}
+  else { const p=document.createElement('p');p.textContent='만든 사람이 제목만 공개했어요.';bd.appendChild(p);}
+  side.classList.add('open'); }
+side.querySelector('.x').addEventListener('click',()=>side.classList.remove('open'));
+// 찾기
+const find=document.querySelector('.find'); let hits=[],hi=-1;
+function doFind(){ const q=find.value.trim(); document.querySelectorAll('.t.hit').forEach(x=>x.classList.remove('hit'));
+  hits=q?T.filter(t=>!t.hidden&&t.t.includes(q)).map(t=>t.id):[]; hi=-1; document.querySelector('.cnt').textContent=q?hits.length+'개':'';
+  hits.forEach(id=>plane.querySelector(`[data-id="${id}"]`)?.classList.add('hit')); if(hits.length) next(1); }
+function next(d){ if(!hits.length) return; hi=(hi+d+hits.length)%hits.length; document.querySelector('.cnt').textContent=(hi+1)+'/'+hits.length; goTo(hits[hi],Math.max(view.s,1)); }
+find.addEventListener('input',doFind); find.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key==='ArrowDown'){e.preventDefault();next(1);} if(e.key==='ArrowUp'){e.preventDefault();next(-1);} });
+// 단추
+document.querySelector('[data-a=fit]').onclick=()=>fit(true);
+document.querySelector('[data-a=in]').onclick=()=>zoomAt(1.25,stage.clientWidth/2,stage.clientHeight/2);
+document.querySelector('[data-a=out]').onclick=()=>zoomAt(.8,stage.clientWidth/2,stage.clientHeight/2);
+document.querySelector('[data-a=mini]').onclick=e=>{document.querySelector('.mini').classList.toggle('shut');e.currentTarget.classList.toggle('on');};
+const menu=document.querySelector('.menu');
+document.querySelector('[data-a=more]').onclick=e=>{e.stopPropagation();menu.classList.toggle('open');};
+document.addEventListener('click',e=>{ if(!e.target.closest('.menu')) menu.classList.remove('open'); });
+menu.querySelector('[data-a=here]').onclick=()=>{menu.classList.remove('open');toast('이 자리 링크를 복사했어요(…#t=…&at='+Math.round(-view.x)+','+Math.round(-view.y)+','+view.s.toFixed(2)+')');};
+menu.querySelector('[data-a=far]').onclick=()=>{menu.classList.remove('open');zoomAt(.5/view.s,stage.clientWidth/2,stage.clientHeight/2);};
+menu.querySelector('[data-a=near]').onclick=()=>{menu.classList.remove('open');zoomAt(1.1/view.s,stage.clientWidth/2,stage.clientHeight/2);};
+const ph=document.querySelector('[data-a=findopen]'); if(ph) ph.onclick=()=>{find.style.display=find.style.display==='none'?'':'none'; if(find.style.display!=='none') find.focus();};
+document.addEventListener('keydown',e=>{ if(e.target===find) return; if(e.key==='0') fit(true); if(e.key==='+'||e.key==='=') zoomAt(1.25,stage.clientWidth/2,stage.clientHeight/2); if(e.key==='-') zoomAt(.8,stage.clientWidth/2,stage.clientHeight/2); if(e.key==='Escape') side.classList.remove('open'); });
+let tt; function toast(s){const t=document.querySelector('.toast');t.textContent=s;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1800);}
+draw(); fit(false);
+</script>
+</body>
+</html>
