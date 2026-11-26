@@ -105,9 +105,10 @@ for(const width of [390,1440]){
       {const bar=page.locator('.sf-tools[data-sf-tools="library"]');/* S70-54: [+]·⋯는 맨 위 줄 단추 자리(검색 칸 오른쪽) */await expect(bar.locator('.lu-head-actions > #newDocumentBtn')).toBeVisible();
         expect(await page.locator('#newDocumentBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
         const [b,btn,more]=await bar.evaluate(el=>[el,el.querySelector('#newDocumentBtn'),document.querySelector('#libraryTopMenuBtn')].map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}}));/* STAB-간헐묶음: 세 상자를 한 번에(같은 프레임) 재서 움직이는 중 따로 재는 어긋남을 없앤다 */
-        expect(btn.x+btn.width).toBeLessThanOrEqual(more.x);expect(more.x+more.width).toBeCloseTo(b.x+b.width,0);expect(Math.abs((btn.y+btn.height/2)-(more.y+more.height/2))).toBeLessThan(2);
+        /* S71-28: [+]가 맨 오른쪽(⋯ 다음). PC는 단추 상자 끝 = [+] 끝, 폰은 상자를 머리 줄 칸으로 풀어(display:contents) [+]가 머리 줄 맨 끝 */
+        expect(more.x+more.width).toBeLessThanOrEqual(btn.x);if(width>760)expect(btn.x+btn.width).toBeCloseTo(b.x+b.width,0);else{const h=await page.locator('#appView>.mobile-shell-header').boundingBox();expect(btn.x+btn.width).toBeCloseTo(h.x+h.width,0)}expect(Math.abs((btn.y+btn.height/2)-(more.y+more.height/2))).toBeLessThan(2);
         await expect(page.locator('#newDocumentBtn')).toHaveAttribute('aria-label','자료 등록');expect((await page.locator('#newDocumentBtn').innerText()).trim()).toBe('')}
-      await expect(page.locator('#manageLibraryBtn')).toHaveCount(0);await expect(page.locator('#libraryView .lu-pick-row > #libraryCategoryPick')).toBeVisible();
+      await expect(page.locator('#manageLibraryBtn')).toHaveCount(0);await expect(page.locator(width>760?'#libraryView .lu-pick-row > #libraryCategoryPick':'.sf-tools[data-sf-tools="library"] .lu-pick-row > #libraryCategoryPick')).toBeVisible();
       await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
       await page.locator('#newDocumentBtn').click();
       await expect(page.locator('#documentModal')).toBeVisible();

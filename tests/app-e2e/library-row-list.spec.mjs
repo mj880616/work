@@ -158,7 +158,7 @@ for(const width of [390,1440]){
     else{await expect(title).toHaveCSS('white-space','nowrap');await expect(title).toHaveCSS('text-overflow','ellipsis');expect(await title.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true)}
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
-    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['libraryCategoryPick']);expect(await page.locator('.sf-tools[data-sf-tools="library"] button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);// LIB-위쪽한줄 → S70-54: 본문 첫 줄 [분류 ▾], [+]·⋯는 맨 위 줄 단추 자리, 분류 수정은 [분류 ▾] 창 안.
+    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);/* S71-28: 폰은 고르기도 머리 줄 단추 상자, [+]는 맨 오른쪽 */expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(width<761?[]:['libraryCategoryPick']);expect(await page.locator('.sf-tools[data-sf-tools="library"] button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(width<761?['libraryCategoryPick','libraryTopMenuBtn','newDocumentBtn']:['libraryTopMenuBtn','newDocumentBtn']);// LIB-위쪽한줄 → S70-54: 본문 첫 줄 [분류 ▾], [+]·⋯는 맨 위 줄 단추 자리, 분류 수정은 [분류 ▾] 창 안.
     await expect(page.locator('#manageLibraryBtn')).toHaveCount(0);
     await openLibraryCategoryEditor(page);await expect(page.locator('#libraryManageModal')).toBeVisible();
     await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
@@ -189,7 +189,7 @@ for(const width of [390,1440]){
     const panel=await page.locator('.lu-more-panel').boundingBox();expect(panel.x).toBeGreaterThanOrEqual(0);expect(panel.x+panel.width).toBeLessThanOrEqual(width);expect(panel.y+panel.height).toBeLessThanOrEqual(900);
     await page.keyboard.press('Escape');await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
-    await menu(page);/* 메뉴 밖 누르기: LIB-위쪽한줄로 폰은 찾기 칸이 접혀 있어 위 줄 왼쪽 빈 곳을 누른다 */await page.locator('#libraryView .lu-search-row').click({position:{x:1,y:1}});await expect(page.locator('.lu-more-panel')).toBeHidden();
+    await menu(page);/* 메뉴 밖 누르기: LIB-위쪽한줄로 폰은 찾기 칸이 접혀 있어 위 줄 왼쪽 빈 곳을 누른다 */await page.locator('#libraryListCard').click({position:{x:2,y:2}})/* S71-28: 폰·폴드는 본문 첫 줄이 없어(고르기도 머리 줄) 목록 칸 모서리 빈 곳을 누른다 */;await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
     await menu(page);await page.goBack();await expect(page.locator('.lu-more-panel')).toBeHidden();await expect(page).toHaveURL(url);
     // D-3c pseudo-element: click 4px outside the visible 32px icon.

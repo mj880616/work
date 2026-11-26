@@ -15,7 +15,7 @@ const root = page => page.locator('#filesRoot');
 const tree = page => root(page).locator('[data-fx-tree]');
 const pane = (page, i) => root(page).locator(`[data-fx-pane-i="${i}"]`);
 const list = page => pane(page, 0).locator('[data-fx-list]');
-const chip = page => root(page).locator('[data-fx-src="pc"]');
+const chip = page => page.locator('[data-fx-src="pc"]');
 const SHOTS = process.env.FILES_PC_SHOTS || '';
 const shot = async (page, name) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/${name}.png` }); } };
 
@@ -209,7 +209,7 @@ test.describe('윈도우 PC 1440', () => {
   test("두 칸: 칸마다 '내 PC'를 선택할 수 있다(왼쪽 내 PC · 오른쪽 원드라이브), 내 PC로 보내기는 막고 안내(단추 흐림·F5 안내)", async ({ page }) => {
     test.setTimeout(90000);
     const { errors } = await begin(page);
-    await root(page).locator('[data-fx-two]').click();
+    await page.locator('button[data-fx-two]').click();
     await expect(pane(page, 1)).toBeVisible();
     await root(page).locator('[data-fx-tree-tog]').click(); // S52-41 ③: 두 칸이면 나무는 접혀 있다
     // 왼쪽 칸(지금 칸)에서 나무 '내 PC' → C:.
@@ -267,7 +267,7 @@ test.describe('윈도우 PC 1440', () => {
 
 // S52-41 FILES-내PC클라우드옮기기: 0.4.0 문. 왼쪽 칸 내 PC › C: › 문서, 오른쪽 칸 원드라이브 › 가짜 문서함.
 async function twoPanes(page) {
-  await root(page).locator('[data-fx-two]').click();
+  await page.locator('button[data-fx-two]').click();
   await expect(pane(page, 1)).toBeVisible();
   await root(page).locator('[data-fx-tree-tog]').click(); // S52-41 ③: 두 칸이면 나무는 접혀 있다
   await pane(page, 0).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
@@ -537,7 +537,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
   test('두 칸: 내 PC 줄을 반대 칸 내 PC 폴더로 끌어 놓으면 [복사][옮기기] → 옮기기, 같은 칸 폴더에 놓으면 묻지 않고 옮기기, Ctrl+C → [여기에 복사]는 같은 이름이면 한 번 묻고 이름 (2)', async ({ page }) => {
     test.setTimeout(150000);
     const { errors, server, st } = await begin(page, { edit: true });
-    await root(page).locator('[data-fx-two]').click();
+    await page.locator('button[data-fx-two]').click();
     await expect(pane(page, 1)).toBeVisible();
     await root(page).locator('[data-fx-tree-tog]').click();
     await pane(page, 0).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });

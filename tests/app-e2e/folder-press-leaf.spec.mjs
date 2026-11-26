@@ -23,7 +23,7 @@ const EMPTY = () => ({ source: 'od', item_id: 'OD!19', parent_id: 'OD!1', name: 
 // S69-38: 그 자리 펼치기는 두 칸 칸 안 목록에만 남는다 — 두 칸 왼쪽 칸에서 본다(한 칸 탐색기는 explorer-tree-press.spec.mjs).
 async function twoPanes(page, width) {
   await openFiles(page, width, { two: true });
-  const two = files(page).locator('[data-fx-two]');
+  const two = page.locator('button[data-fx-two]');
   if ((await two.getAttribute('aria-pressed')) !== 'true') await two.click();
   await expect(files(page).locator('[data-fx-pane-i="1"]')).toHaveCount(1);
   const pane = files(page).locator('[data-fx-pane-i="0"]');
@@ -77,7 +77,7 @@ for (const width of [884, 1280]) test(`[파일] ${width} 두 칸: 칸 안 목록
   await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect(crumb).toContainText('가짜 빈 폴더');
   // 한 칸으로 돌아와도 탐색기 오른쪽 하위 폴더 누르기 = 그 자리 펼치기·접기(S69-68, 위치 줄 그대로). 들어가기는 왼쪽 나무.
-  await files(page).locator('[data-fx-one]').click();
+  await page.locator('button[data-fx-one]').click();
   await expect(files(page).locator('[data-fx-pane-i="1"]')).toHaveCount(0);
   const one = files(page).locator('[data-fx-pane-i="0"] [data-fx-list]'), crumb1 = files(page).locator('[data-fx-crumb] .fx-crumb-now');
   await treeEnter(files(page).locator('[data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main'));

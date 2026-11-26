@@ -26,7 +26,7 @@ test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나�
   const { errors, server, prefs } = await begin(page, 884, { files_two: { pc: { fold: true } } });
   await openFiles(page, 884, { two: true });
   await expect(root(page)).toHaveAttribute('data-fx-two', 'fold');
-  await expect(root(page).locator('[data-fx-two]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('button[data-fx-two]')).toHaveAttribute('aria-pressed', 'true');
   await expect(pane(page, 1)).toBeVisible();
   // 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾. 왼쪽 = 첫 저장소 맨 위(원드라이브), 오른쪽 = 다른 저장소 맨 위(구글 드라이브).
   await expect(root(page).locator('[data-fx-tree]')).toBeHidden();
@@ -69,7 +69,7 @@ test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나�
   await expect(root(page).locator('[data-fx-xfer] b')).toHaveText('1/1 보내는 중');
   server.jobsHold = false;
   // 두 칸 끄기 → 한 칸(오른쪽 칸 자리는 없어지고 나무가 돌아옴), 서버에 이 기기·이 폭 칸으로 기억. S69-38: 붙은 [한 칸 | 두 칸]의 [한 칸].
-  await root(page).locator('[data-fx-one]').click();
+  await page.locator('button[data-fx-one]').click();
   await expect(pane(page, 1)).toHaveCount(0);
   await expect(root(page).locator('[data-fx-tree]')).toBeVisible();
   await expect.poll(() => prefs.value?.files_two).toEqual({ pc: { fold: false } });
@@ -81,9 +81,9 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
   test.setTimeout(120000);
   const { errors, server, prefs } = await begin(page, 1440);
   await openFiles(page, 1440);
-  await expect(root(page).locator('[data-fx-two]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('button[data-fx-two]')).toHaveAttribute('aria-pressed', 'false');
   await expect(pane(page, 1)).toHaveCount(0);
-  await root(page).locator('[data-fx-two]').click();
+  await page.locator('button[data-fx-two]').click();
   await expect(root(page)).toHaveAttribute('data-fx-two', 'wide');
   await expect.poll(() => prefs.value?.files_two).toEqual({ pc: { wide: true } });
   // S52-41 ③ FILES-두칸나무접기(명진 결정 (가)): 두 칸이면 나무는 접혀 있고 맨 위 ◫로 연다(서버 files_tree에 기억).
@@ -158,7 +158,7 @@ test('폰 412: 기본은 한 칸(폴드·PC 칸 값은 폰에 쓰지 않음) —
   const { errors } = await begin(page, 412, { files_two: { phone: { fold: true, wide: true } } });
   await openFiles(page, 412);
   await expect(root(page).locator('[data-fx-tree]')).toBeVisible(); // S50-33: 폰 첫 화면은 나무
-  await expect(root(page).locator('[data-fx-two]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('button[data-fx-two]')).toHaveAttribute('aria-pressed', 'false');
   await expect(pane(page, 1)).toHaveCount(0);
   await expect(root(page)).not.toHaveAttribute('data-fx-two', /.+/);
   await shot(page, 'files-one-412');
@@ -172,9 +172,9 @@ test('폰 412: [두 칸 보기] → 위·아래 두 칸 · 칸마다 ▾ · 지�
   const { errors, server, prefs } = await begin(page, 412);
   await openFiles(page, 412);
   await expect(root(page).locator('[data-fx-tree]')).toBeVisible();
-  await root(page).locator('[data-fx-two]').click();
+  await page.locator('button[data-fx-two]').click();
   await expect(root(page)).toHaveAttribute('data-fx-two', 'phone');
-  await expect(root(page).locator('[data-fx-two]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('button[data-fx-two]')).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => prefs.value?.files_two?.phone).toEqual({ narrow: true });
   // 위 칸 = 첫 저장소 맨 위(원드라이브), 아래 칸 = 다른 저장소 맨 위(구글 드라이브). 위아래로 쌓이고 폭은 화면 가득.
   await expect(pane(page, 0).locator('.fx-ptop .fx-psrc-name')).toHaveText('원드라이브');
@@ -209,7 +209,7 @@ test('폰 412: [두 칸 보기] → 위·아래 두 칸 · 칸마다 ▾ · 지�
   server.jobsHold = false;
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   // [한 칸 보기] → 폰 한 칸: 지금 칸(위)의 폴더 목록, ‹ 한 번에 나무.
-  await root(page).locator('[data-fx-one]').click();
+  await page.locator('button[data-fx-one]').click();
   await expect(pane(page, 1)).toHaveCount(0);
   await expect.poll(() => prefs.value?.files_two?.phone).toEqual({ narrow: false });
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');

@@ -111,7 +111,7 @@ test('[파일] 두 칸 884: 칸 안을 내려 폴더를 펼치고 접어도 그 
   const { errors, server } = await start(page, 884);
   manyFolders(server, 'OD!1');
   await openFiles(page, 884, { two: true });
-  const b = page.locator('#filesRoot [data-fx-two]');
+  const b = page.locator('button[data-fx-two]');
   if ((await b.getAttribute('aria-pressed')) !== 'true') await b.click();
   const col = page.locator('#filesRoot [data-fx-pane-i="0"]');
   await col.locator('[data-fx-row="od:OD!1"]').click({ button: 'right' });
