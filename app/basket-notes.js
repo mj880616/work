@@ -391,7 +391,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const cell = key => {
       if (key === 'folder') {
         const fid = r.path ? folderOf(note) : null, full = fid ? folderPath(folders, fid).map(f => f.name).join(' › ') : '';
-        return r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''} title="${esc(full || r.path)}">${esc(r.path)}</span>` : '';
+        return r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''} title="${esc(full || r.path)}">${esc(r.path)}</span>` : '';
       }
       if (key === 'tags') return hidden || importing ? '' : listTagsHtml(note);
       if (key === 'clip') return note.attachments?.length && !hidden ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}<span class="nl-num" aria-hidden="true">${note.attachments.length}</span></span>` : '';
@@ -411,7 +411,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // ①-2: 머리 칸 = 공용 head-sort.mjs headCellHtml(누르면 그 칸 정렬, 다시 누르면 반대, ▲/▼·aria-sort). 태그·공유 칸은 정렬하지 않는다. 너비 손잡이는 버튼 밖이라 끌어도 정렬되지 않는다.
   const LIST_HEAD_SORT = {title:'title', folder:'folder', day:'changed', made:'created', clip:'clip', memo:'memo', chars:'chars'};
   const COLS_BTN = `<button type="button" class="icon-btn nl-cols-btn" data-nl-cols-menu aria-label="보일 칸" title="보일 칸" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
-  const listHeadHtml = (cols = listCols()) => { const cur = listSort(), all = [['title', LIST_COL_NAMES.title], ...cols.map(k => [k, LIST_COL_NAMES[k]])]; return `<div class="nl-head" data-nl-head role="row" aria-label="노트 목록 칸">`
+  const listHeadHtml = (cols = listCols(), {cur:shown} = {}) => { const cur = shown === undefined ? listSort() : shown, all = [['title', LIST_COL_NAMES.title], ...cols.map(k => [k, LIST_COL_NAMES[k]])]; return `<div class="nl-head" data-nl-head role="row" aria-label="노트 목록 칸">`
     + all.map(([key, label], i) => headCellHtml({key:LIST_HEAD_SORT[key] || key, label, cur, sortable:!!LIST_HEAD_SORT[key], extra:i < all.length - 1 ? gripHtml(key, label) : ''})
       .replace('<span role="columnheader"', `<span data-nl-col="${key}" role="columnheader"`)).join('') + COLS_BTN + '</div>'; };
   // 금 두 번 누르기 = 그 칸 글자 길이에 맞춤: 줄마다 그 칸 안 글자 폭 중 가장 긴 것(잘린 제목·꼬리표는 scrollWidth로).
@@ -419,6 +419,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function mountListCols(rowsBox) {
     bindHeadSort(rowsBox, key => {
       const again = document.activeElement?.closest?.('[data-head-sort]')?.dataset.headSort === key;
+      // S70-82: [폴더] 보기가 '내가 정한 순서'일 때 머리를 누르면 그 칸 정렬로 바꾼다(머리 정렬이 바로 보이게 — 순서 값은 지우지 않는다).
+      if (view === 'folder' && noteSort === 'manual') setNoteSort('changed');
       setListSort(nextSort(listSort(), key, {descFirst:LIST_SORT_DESC_FIRST}));
       // 다시 그린 뒤에도 초점은 그 머리 칸(키보드로 이어서 누를 수 있게).
       if (again) rowsBox.querySelector(`[data-nl-head] [data-head-sort="${key}"]`)?.focus({preventScroll:true});
@@ -688,16 +690,25 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // '폴더 없음'은 지금처럼 맨 아래 한 줄(누르면 오른쪽에 그 노트들) — 폴더가 아니라 나무 안에 펼치지 않는다(폰에서 펼쳐 둔 것도 여기서는 닫힌 채).
       const left = treeRows({folders, notes, folderOf, root:null, isOpen:id => id !== OUTSIDE && openSet.has(id), sort:sortList, limit}).filter(r => r.type !== 'outside' && r.parent !== OUTSIDE);
       const outCount = notes.filter(n => folderOf(n) === null).length;
-      tree.innerHTML = (showRecent() ? recentTreeRowHtml() : '') + left.map(r => r.type === 'note' ? rowHtml({...r, tree:true, side:true}) : rowHtml(r, {tree:true})).join('') + outsideRowHtml({count:outCount}, {tree:true}) + (pick.active ? '' : newsMarks.navHtml({tree:true, at}) + noteTrash.navHtml({tree:true, at})) + newFolderRowHtml();
+      // NOTE-폴더디자인통일(S70-82, 명진 11/26 09:27 "파일쪽에 맞춰서"): 왼쪽 나무도 [파일] 왼쪽 나무처럼 둥근 상자(ftBoxHtml)로 묶는다 —
+      // '최근' 상자 · 폴더 상자(폴더들 + '폴더 없음', 맨 위 단계 사이 구분선) · 밑줄·메모·저장한 글·휴지통 상자. 줄은 그대로 공용 줄이다.
+      const special = pick.active ? '' : newsMarks.navHtml({tree:true, at, sep:false}) + noteTrash.navHtml({tree:true, at});
+      tree.innerHTML = (showRecent() ? ftBoxHtml({body:recentTreeRowHtml(), label:RECENT_NAME, attrs:{'data-nx-box':'recent'}}) : '')
+        + ftBoxHtml({body:left.map(r => r.type === 'note' ? rowHtml({...r, tree:true, side:true}) : rowHtml(r, {tree:true})).join('') + outsideRowHtml({count:outCount}, {tree:true}), label:'노트 폴더', attrs:{'data-nx-box':'folders'}})
+        + (special ? ftBoxHtml({body:special, label:'밑줄·메모·휴지통', attrs:{'data-nx-box':'more'}}) : '') + newFolderRowHtml();
       followPane(tree, {top:8, reset:false}); // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다(따로 스크롤 없음).
       // NOTE-최근5개: PC 처음(at null)은 오른쪽에 최근 5개(폴더가 있을 때). 찾는 중이면 지금처럼 맞는 노트 전부.
       // S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09 '오른쪽에서든 왼쪽이든 폴더를 클릭하면 폴더가 펼쳐지는거야'): 폴더 안이면 하위 폴더 줄도 그 자리에서 펼친다
       // (폰 나무와 같은 treeRows — 안의 하위 폴더·노트가 들여 보이고, 빈 폴더는 '빈 폴더' 한 줄). 펼침은 paneOpen(왼쪽 나무와 따로).
       const inFolder = !m && folderAt();
+      // NOTE-폴더디자인통일(S70-82, 명진 11/26 "파일쪽에 맞춰서"): 오른쪽 노트 목록도 [파일] 오른쪽 목록처럼 머리 줄(누르면 정렬·칸 너비 끌기) + 칸 줄.
+      // 머리·칸·정렬·너비는 [목록] 보기와 같은 것 하나(보일 칸 view_prefs.note_cols, 정렬 note_list_sort, 너비 col_widths.notes) — 따로 두지 않는다.
+      // 폴더 줄은 [파일]처럼 늘 위(하위 폴더 먼저), 노트만 머리 정렬을 따른다. '내가 정한 순서'(⋯ 메뉴)일 때는 그 순서 그대로(머리는 정렬 표시 없음).
+      const manual = noteSort === 'manual', paneSort = manual ? sortList : paneListSort;
       const pc = !m && isPaneAt(at) ? [] : !m && at === null && showRecent() ? recentRows({folders, notes, folderOf})
-        : inFolder ? treeRows({folders, notes, folderOf, root:inFolder, isOpen:id => paneOpen.has(id), sort:sortList, emptyRows:true}).map(r => ({...r, tree:true}))
-        : paneRows({folders, notes, folderOf, at, matches:m, sort:sortList});
-      rowsBox.innerHTML = pc.map(r => rowHtml(r)).join('');
+        : inFolder ? treeRows({folders, notes, folderOf, root:inFolder, isOpen:id => paneOpen.has(id), sort:paneSort, emptyRows:true}).map(r => ({...r, tree:true}))
+        : paneRows({folders, notes, folderOf, at, matches:m, sort:paneSort});
+      paintPaneCols(rowsBox, pc, {manual});
       recentBox.hidden = true; recentBox.replaceChildren();
     } else {
       tree.hidden = true; tree.replaceChildren();
@@ -761,6 +772,23 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     rowsBox.innerHTML = rows.length ? listHeadHtml(cols) + rows.map(r => rowHtml({...r, cols})).join('') : pubOnly ? emptyHtml('맞는 노트 없음') : '';
     paintMemos = null;
     if (cols.includes('tags')) { fitListTags(rowsBox); watchListTags(rowsBox); } else tagFit?.disconnect();
+  }
+  // NOTE-폴더디자인통일(S70-82): [폴더] 보기 넓은 화면 오른쪽 목록 = [목록] 보기와 같은 머리 줄·칸(listHeadHtml·listCellsHtml·mountListCols 한 곳).
+  // 고정한 노트는 지금처럼 맨 위, 그다음 머리 정렬. 머리 줄은 [파일]처럼 줄이 하나라도 있으면 늘 있다(하위 폴더만 있어도) — 폴더를 펼쳐
+  // 노트가 나타날 때 머리가 새로 끼어 줄이 밀리지 않게(두 번 누르기가 다른 줄에 떨어지지 않게, 표준 T8).
+  function paneListSort(list) {
+    const by = byListSort(listSort());
+    return list.slice().sort((a, b) => (!!notePinnedAt(b) - !!notePinnedAt(a)) || by(a, b));
+  }
+  function paintPaneCols(rowsBox, rows, {manual = false} = {}) {
+    const cols = listCols(), hasNotes = rows.some(r => r.type === 'note');
+    mountListCols(rowsBox);
+    paintMemos = cols.includes('memo') ? memoCounts() : null;
+    if (rowsBox.style.getPropertyValue('--nl-grid') !== listGrid(cols)) rowsBox.style.setProperty('--nl-grid', listGrid(cols));
+    const head = rows.length ? listHeadHtml(cols, {cur:manual ? null : undefined}) : '';
+    rowsBox.innerHTML = head + rows.map(r => rowHtml(r.type === 'note' ? {...r, cols} : r)).join('');
+    paintMemos = null;
+    if (hasNotes && cols.includes('tags')) { fitListTags(rowsBox); watchListTags(rowsBox); } else tagFit?.disconnect();
   }
   // S69-97 노트 알림: 걸려 있으면 읽기 머리 한 줄 '알림 11/27(금) 09:00'(지난 것은 '지난 알림 …'), 누르면 고르기창.
   function paintAlarm() {
