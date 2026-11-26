@@ -413,9 +413,10 @@ export function createOcrHandler(
       }
       // S71-49: a photo put on a note board is in "보드 사진" inside the top app folder (handler.ts place=board). It is looked up
       // only when the photo is not in "노트 첨부"; found only (existingOnly), never created, with the same private check.
+      const photo = file; // narrowed here; a closure would lose the narrowing (TS2345)
       const inFolder = async (id: string) => {
         try {
-          return await drive.source(file, id, token);
+          return await drive.source(photo, id, token);
         } catch (e) {
           if (!(e instanceof OcrError && e.code === "OCR_IDENTITY_INVALID")) throw e;
           return null;
