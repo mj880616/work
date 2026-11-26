@@ -69,6 +69,7 @@ import { linkGeometry, dragPath, linkBox, nearestSide, rectOf, flipPatch, valida
   LABEL_MAX, LINK_LIMIT, TEXT_MAX, TEXT_LIMIT, SIDES, ENDS_NAMES } from './note-board-links-model.mjs';
 import { buildTree, descendants, childrenOf, canAttach, layoutMindmap, branchPath, branchTone, dropTarget, nearestRect, ordAt, neighbor, lighterSide, stepFont,
   NODE_COLORS, NODE_SHAPES, SHAPE_NAMES, FONT_DEFAULT, ROOT_FONT, FONT_MIN, FONT_MAX } from './note-board-mindmap-model.mjs';
+import { bandOf, reachOf, inside, distTo, pickHover, HOVER_LEAVE_MS } from './hover-band.mjs';
 import { HANDLES, HANDLE_NAMES, FRAME_LIMITS, SNAP_PX, resizeRect, snapMove, arrowStep, sizePatch } from './note-board-frame-model.mjs';
 import { cardLabel, placeFields } from './note-board-model.mjs';
 import { isPointEnd, pointRect, endPatch, SHAPE_NAMES as LINE_SHAPE_NAMES } from './note-board-links-model.mjs';
@@ -1415,9 +1416,37 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     else setView({...view, x:view.x - e.deltaX, y:view.y - e.deltaY});
   }, {passive:false});
   // 마우스를 올린 카드: ×·⋯·손잡이를 보인다(터치는 고르기로만). 기기 hover 판정 대신 실제 마우스 움직임으로.
-  let hoverCard = null;
-  scroll.addEventListener('pointerover', e => { if (e.pointerType !== 'mouse') return; const card = e.target.closest?.('[data-nb-card],[data-nb-text]'); if (card === hoverCard) return; hoverCard?.classList.remove('nb-hover'); hoverCard = card; card?.classList.add('nb-hover'); });
-  scroll.addEventListener('pointerleave', () => { hoverCard?.classList.remove('nb-hover'); hoverCard = null; });
+  // S71-48(B2): 손잡이(연결점 동그라미·⋯·×)는 상자 밖에 떠 있으므로, 보이는 동안은 '상자 + 보이는 손잡이를 둘러싼 띠' 안이면 계속 올린 것으로 본다
+  // (상자 테두리만 보던 판정은 동그라미로 가는 틈에서 끊겼다). 띠가 이웃 상자와 겹치면 커서에 가까운 상자 것만, 띠 밖이면 HOVER_LEAVE_MS 뒤 내림. 계산은 hover-band.mjs.
+  const HOVER_SEL = '[data-nb-card],[data-nb-text]', HOVER_PARTS = '.nb-h,.nb-more,.nb-x';
+  let hoverCard = null, hoverOff = 0;
+  const setHover = el => {
+    clearTimeout(hoverOff); hoverOff = 0;
+    if (el === hoverCard) return;
+    hoverCard?.classList.remove('nb-hover'); hoverCard = el; el?.classList.add('nb-hover');
+  };
+  const leaveHover = () => {
+    if (!hoverCard || hoverOff) return;
+    hoverOff = setTimeout(() => { hoverOff = 0; hoverCard?.classList.remove('nb-hover'); hoverCard = null; }, HOVER_LEAVE_MS);
+  };
+  const hoverAt = e => {
+    if (!hoverCard?.isConnected) hoverCard = null;
+    const direct = e.target instanceof Element ? e.target.closest(HOVER_SEL) : null;
+    if (direct || !hoverCard) { if (direct) setHover(direct); else leaveHover(); return; }
+    const point = {x:e.clientX, y:e.clientY}, rect = hoverCard.getBoundingClientRect();
+    const band = bandOf(rect, [...hoverCard.querySelectorAll(HOVER_PARTS)].map(h => h.getBoundingClientRect()));
+    if (!inside(point, band)) { leaveHover(); return; }
+    const reach = reachOf(rect, band), others = [];
+    for (const el of box.querySelectorAll(HOVER_SEL)) {
+      if (el === hoverCard) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width && distTo(point, r) <= reach) others.push({key:el, rect:r});
+    }
+    setHover(pickHover({point, current:{key:hoverCard, rect, band}, others}));
+  };
+  scroll.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' && !e.buttons) hoverAt(e); });
+  scroll.addEventListener('pointerover', e => { if (e.pointerType === 'mouse') hoverAt(e); });
+  scroll.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') leaveHover(); });
   // 끈 뒤·꾹 누른 뒤·두 손가락 뒤의 클릭은 열기가 아니다(×·⋯는 끈 바로 뒤에도 누를 수 있다).
   box.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nb-card] .nb-open')) { e.preventDefault(); e.stopPropagation(); } }, true);
   box.addEventListener('contextmenu', e => { if (drag?.touch || tdrag?.touch || wire || rz || pinch || Date.now() < suppressUntil) { e.preventDefault(); return; } const card = e.target.closest?.('[data-nb-card]'); if (card) select(card.dataset.nbCard); }, true);
