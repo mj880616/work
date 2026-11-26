@@ -25,12 +25,19 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S70-35 NOTE-목록표머리 ①-2: DB(20261125100000, 같은 PR) note_list_sort를 화면 허용 목록에도 더했다(적용 전에는 정렬 기억만 이번 접속). DB에만 있는 칸은 없다.
 // S70-35 NOTE-목록표머리 ②: DB(20261125110000, 같은 PR) note_cols를 화면 허용 목록에도 더했다(적용 전에는 보일 칸 기억만 이번 접속). DB에만 있는 칸은 없다.
 // S70-72 FILES-상세칸정리: DB(20261126090000, 같은 PR, #3124 reading_split 뒤) files_prev_shut을 화면 허용 목록에도 더했다(적용 전에는 접음 기억만 이번 접속). DB에만 있는 칸은 없다.
+// S70-84 BRIEF-두칸폴더: DB(20261126120000, 같은 PR, #3138 files_prev_shut 뒤) brief_sort·split_ratio.brief를 화면 허용 목록에도 더했다(적용 전에는 정렬·폭 기억만 이번 접속). DB에만 있는 칸은 없다.
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, UI-폴더줄크기 row_size·NOTE-목록표머리 note_list_sort 판 위에 NOTE-목록표머리 note_cols·READ-두칸보기 reading·FILES-상세칸정리 files_prev_shut)와 같다', () => {
-  const sql = read('supabase/migrations/20261126090000_profile_view_prefs_files_prev_shut.sql');
+test('허용 칸이 DB 검사(마지막 migration, UI-폴더줄크기 row_size·NOTE-목록표머리 note_list_sort 판 위에 NOTE-목록표머리 note_cols·READ-두칸보기 reading·FILES-상세칸정리 files_prev_shut·BRIEF-두칸폴더 brief_sort)와 같다', () => {
+  const sql = read('supabase/migrations/20261126120000_profile_view_prefs_brief_room.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 64);
+  assert.equal(KEYS.length, 65);
+  // brief_sort 허용 칸(key)이 DB 검사 목록과 같다(files_sort와 같은 네 칸). split_ratio 화면 이름 brief도 DB가 안다.
+  const briefKeys = [...sql.match(/view_prefs -> 'brief_sort' ->> 'key'\) in \(([^)]*)\)/)[1].matchAll(/'([a-z]+)'/g)].map(m => m[1]);
+  assert.deepEqual(briefKeys, ['name', 'modified', 'size', 'kind']);
+  for (const key of briefKeys) for (const dir of ['asc', 'desc']) assert.equal(validValue('brief_sort', {key, dir}), true, key + dir);
+  for (const v of [null, {}, 'name', {key: 'name'}, {key: 'path', dir: 'asc'}, {key: 'name', dir: 'up'}, {key: 'name', dir: 'asc', x: 1}]) assert.equal(validValue('brief_sort', v), false, JSON.stringify(v));
+  assert.match(sql, /@\.key == "reading" \|\| @\.key == "brief"\)\)/);
   assert.match(sql, /jsonb_typeof\(view_prefs -> 'files_prev_shut'\) = 'boolean'/);
   for (const v of [true, false]) assert.equal(validValue('files_prev_shut', v), true);
   for (const v of [null, 'true', 1, 0, {}, [true]]) assert.equal(validValue('files_prev_shut', v), false, JSON.stringify(v));
