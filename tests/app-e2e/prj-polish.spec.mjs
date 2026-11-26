@@ -72,10 +72,10 @@ for(const width of [390,1280]){
   // No box inside the dialog box.
   expect(await page.locator('#ps3-progress').evaluate(e=>{const s=getComputedStyle(e);return [s.borderTopWidth,s.borderLeftWidth,s.paddingLeft]})).toEqual(['0px','0px','0px']);
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);
-  // A tap on a text that is not cut opens the line as before: a card over the detail on a phone, the basket on a PC.
+  // S71-57 RECORD-잊지말기연결표시삭제: 잊지 말기에서 온 기록은 잘리지 않은 글을 눌러도 아무 데도 가지 않는다(폰 기록 창·잊지 말기 없음).
   await mid.click();
-  if(width<761)await expect(page.locator('#kptuRecordSheet')).toBeVisible();
-  else await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
+  await expect(page.locator('#kptuRecordSheet:not(.hidden)')).toHaveCount(0);await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  expect(await page.evaluate(()=>window.KPTURouter.current)).not.toBe('basket');
  });
 
  test(`조직 상세 기록: 두 줄 + 글 누르기·꺾쇠가 그 기록만 펼치고 다시 누르면 접힘 ${width}`,async({page})=>{

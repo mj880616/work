@@ -18,7 +18,7 @@ for(const width of [412,1280])test(`여러 곳 선택 → 확인 창 개수 → 
   await expect(rowOf(page,'공항철도지부')).toHaveCount(1);
   const before=await names(page);
   await startPick(page);
-  // 선택 중: 참고 묶음 입구는 빠지고, 줄마다 선택 칸. 선택 0곳이면 [삭제]는 꺼짐. (줄 ⋯는 S71-08부터 늘 없다.)
+  // 선택 중: 참고 묶음 입구는 없고(S71-22에서 지움), 줄마다 선택 칸. 선택 0곳이면 [삭제]는 꺼짐. (줄 ⋯는 S71-08부터 늘 없다.)
   await expect(page.locator('#soOrganizationList .so-reference-entry')).toHaveCount(0);
   await expect(page.locator('#soOrganizationList .so-pick-count')).toHaveText('0곳 선택됨');
   await expect(page.locator('#soOrganizationList [data-so-pick-delete]')).toBeDisabled();

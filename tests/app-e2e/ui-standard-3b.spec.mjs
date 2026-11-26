@@ -126,7 +126,7 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
   const button=page.locator(id);await expect(button).toBeVisible();expect(await button.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
   if(text!==null)await expect(button).toHaveText(text);
  }
- await page.locator('.app-nav [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrgLink')).toHaveCount(0);
+ await page.locator('.app-nav [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#soTeamMore')).toBeVisible();await expect(page.locator('#soAddOrg,#soAddOrgLink')).toHaveCount(0);
  expect(errors).toEqual([]);
 });
 
@@ -184,12 +184,16 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
  expect(errors).toEqual([]);
 });
 
-test('담당조직: 폰에도 맨 위 [+ 담당조직] 하나, 옛 글자 링크는 없음(MULTI-다른담당자맞춤 ①)',async({page})=>{
+// S71-35 ORG-조직관리로모으기: 맨 위 [+ 담당조직]은 없앴다 — 추가는 ⋯ 맨 위 '새 담당조직'.
+test('담당조직: 폰 맨 위에 [+ 담당조직]은 없고 ⋯ 맨 위 \'새 담당조직\'이 추가 창을 연다, 옛 글자 링크는 없음',async({page})=>{
  const {errors}=await boot(page,390);
  // S68-37: 새 계정 하단바에는 조직 관리 칸이 없어 [메뉴] 창에서 연다.
  await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-view="team"]').click();await loaded(page,'team');
- await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrgLink,.so-add-link')).toHaveCount(0);
+ await expect(page.locator('#soAddOrg,#soAddOrgLink,.so-add-link')).toHaveCount(0);
  await expect(page.locator('#soOrganizationList')).toBeVisible();
+ await page.locator('#soTeamMore').click();const menu=page.locator('#soTeamMenu');await expect(menu).toBeVisible();
+ await expect(menu.locator('button').first()).toHaveText('새 담당조직');
+ await menu.getByRole('button',{name:'새 담당조직'}).click();await expect(page.locator('#soEditModal')).toBeVisible();await expect(page.locator('#soEditHeading')).toHaveText('담당조직 추가');
  expect(errors).toEqual([]);
 });
 
@@ -223,7 +227,7 @@ test('정리함: 처리할 것이 없으면 회색 한 줄 "없음"(공용 없�
  await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-view="basket"]').click();await loaded(page,'basket');
  const empty=page.locator('#basketView [data-forget-empty]');await expect(empty).toHaveText('없음');
  await expect(empty).toHaveCSS('text-align',/^(start|left)$/);
- await expect(page.locator('#basketView [data-forget-view-open]')).toHaveText('처리 전 ▾');
+ await expect(page.locator('[data-sf-tools="forget"] [data-forget-view-open]')).toHaveText('처리 전 ▾');
  expect(errors).toEqual([]);
 });
 

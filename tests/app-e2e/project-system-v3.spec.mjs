@@ -950,13 +950,13 @@ test('V3 more menu and record lines use native keyboard disclosure behavior',asy
   await expect(menu).toHaveAttribute('open','');
   await page.locator('#ps3Title,#ps3Summary').first().click();
   await expect(menu).not.toHaveAttribute('open','');
-  // Each linked record line is a keyboard link (opens the update) followed by its ⋯ button (opens the record menu).
+  // Each linked record line is plain text (S71-57: a record from 잊지 말기 opens nothing), so Tab goes ⋯ → next ⋯ (opens the record menu).
   // MTG-프로젝트합치기 3단계: 맨 위 입력칸·⤢가 없어져 첫 기록 줄에서 시작한다(입력칸 → ⤢ → [기록] 순서 검사는 기능과 함께 없앴다).
   await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big],#ps3-progress [data-ps3-record]')).toHaveCount(0);
   const first=page.locator('[data-ps3-record-menu="basket:kb-first"]'),second=page.locator('[data-ps3-record-menu="basket:kb-second"]');
   await first.focus();
   await expect(first).toBeFocused();
-  await page.keyboard.press('Tab');await expect(page.locator('[data-basket-link="kb-second"] a.ps3-rec-line')).toBeFocused();
+  await expect(page.locator('[data-basket-link="kb-second"] a')).toHaveCount(0);
   await page.keyboard.press('Tab');await expect(second).toBeFocused();
   await page.keyboard.press('Enter');await expect(page.locator('#ps3RecordMenu button').first()).toBeFocused();
   // Tab stays inside the menu and wraps: Shift+Tab from the first item reaches the last.
@@ -1503,7 +1503,7 @@ test('PRJ linked record lines fit 390px and 1280px with 44px targets',async({pag
   await expect(item.locator('[data-ps3-progress-ws],[data-ps3-record]')).toHaveCount(0);
   for(const width of [390,1280]){
     await page.setViewportSize({width,height:844});
-    const layout=await record.evaluate(el=>{const r=x=>x.getBoundingClientRect(),list=el.closest('[data-ps3-records]');return {row:r(el).width,list:r(list).width,line:{w:r(el.querySelector('a.ps3-rec-line')).width,h:r(el.querySelector('a.ps3-rec-line')).height},buttons:[...el.querySelectorAll('button')].map(b=>({w:r(b).width,h:r(b).height})),overflow:document.documentElement.scrollWidth-innerWidth}});
+    const layout=await record.evaluate(el=>{const r=x=>x.getBoundingClientRect(),list=el.closest('[data-ps3-records]');return {row:r(el).width,list:r(list).width,line:{w:r(el.querySelector('.ps3-rec-line')).width,h:r(el.querySelector('.ps3-rec-line')).height},buttons:[...el.querySelectorAll('button')].map(b=>({w:r(b).width,h:r(b).height})),overflow:document.documentElement.scrollWidth-innerWidth}});
     expect(layout.overflow).toBeLessThanOrEqual(1);
     expect(Math.round(layout.row)).toBe(Math.round(layout.list));
     expect(layout.line.h).toBeGreaterThanOrEqual(44);expect(layout.line.w).toBeGreaterThan(width>500?300:250);
@@ -1543,7 +1543,7 @@ for(const width of [390,1440])for(const fallback of [false,true])test(`D-3e reco
   const geometry=await trigger.evaluate(b=>{const r=b.getBoundingClientRect(),row=b.closest('[data-basket-link]').getBoundingClientRect(),list=b.closest('[data-ps3-records]').getBoundingClientRect();return {w:r.width,h:r.height,right:Math.round(r.right),rowRight:Math.round(row.right),row:Math.round(row.width),list:Math.round(list.width)}});
   expect(page.viewportSize().width).toBe(width);expect(geometry.row).toBe(geometry.list);expect(geometry.right).toBe(geometry.rowRight);expect(geometry.w).toBeGreaterThanOrEqual(44);expect(geometry.h).toBeGreaterThanOrEqual(44);
   const r=await trigger.boundingBox();await page.mouse.click(r.x+r.width-4,r.y+4);await expect(panel).toBeVisible();
-  await expect(panel.locator('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정']);
+  await expect(panel.locator('button')).toHaveText(['연결 해제','요약 수정']); // S71-57: [업데이트 열기] 없음
   for(const button of await panel.locator('button').all())expect((await button.boundingBox()).height).toBe(44);
   const rect=await panel.boundingBox();expect(rect.x).toBeGreaterThanOrEqual(0);expect(rect.x+rect.width).toBeLessThanOrEqual(width);
   await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(page.locator('#ps3DetailModal')).toBeVisible();

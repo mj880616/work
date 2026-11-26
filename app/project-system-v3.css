@@ -204,7 +204,8 @@
 .ps3-rec-list>.ps3-rec{min-width:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 .ps3-rec-list>.ps3-rec:first-child{border-top:0}
 .ps3-rec-line{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:baseline;width:100%;min-height:var(--kptu-touch-target);box-sizing:border-box;padding:11px 0;border:0;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);line-height:1.45;text-align:left;text-decoration:none;cursor:pointer}
-.ps3-rec-line:hover{background:var(--kptu-surface-subtle)}
+.ps3-rec-line:not(div):hover{background:var(--kptu-surface-subtle)}
+div.ps3-rec-line{cursor:auto} /* S71-57: 잊지 말기에서 온 기록 줄은 어디로도 가지 않는 글 */
 .ps3-rec-line:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
 .ps3-rec-line time{min-width:3.4em;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint);white-space:nowrap}
 .ps3-rec-text{min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}

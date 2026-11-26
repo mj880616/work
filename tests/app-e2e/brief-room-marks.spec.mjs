@@ -6,6 +6,7 @@
 // 자료 이름·문장은 모두 예시. 서버는 흉내(표 읽기는 owner RLS REST).
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { briefMore, briefTopMenu } from './helpers/brief-head.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const D = n => `d0000000-0000-4000-8000-00000000000${n}`;
@@ -152,9 +153,15 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     const { prefs } = await open(page);
     await page.evaluate(() => window.KPTURouter.go('brief'));
     await expect(page.locator('#briefView .br-row')).toHaveCount(1);
-    // 목록만 보일 때: 목록 머리 줄 끝에 하나.
-    const listCtl = page.locator('#briefView [data-br-list] .br-head [data-text-size-ctl]');
-    await expect(listCtl).toBeVisible();
+    // 목록만 보일 때(폰): S71-30 머리 [⋯] 메뉴 안에 하나(목록 칸에는 없음). S70-84: 두 칸 폭(600px~)은 맨 위 다 된 브리핑이 오른쪽에 바로 열려 보기 머리 줄에 하나 — ⋯에는 없음.
+    await expect(page.locator('#briefView [data-br-list] [data-text-size-ctl]')).toHaveCount(0);
+    await briefMore(page).click();
+    const listCtl = briefTopMenu(page).locator('[data-text-size-ctl]');
+    await expect(briefTopMenu(page)).toBeVisible();
+    if (width < 600) await expect(listCtl).toBeVisible();
+    else await expect(listCtl).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(briefTopMenu(page)).toBeHidden();
     await page.locator('#briefView .br-row').first().click();
     await expect(body(page).locator('.br-items li').first()).toContainText(LINE1);
     // 보기가 열리면 글자 크기 단추는 보기 머리 줄 하나뿐.

@@ -12,9 +12,11 @@ import {viewPrefs} from './view-prefs.js';
 import {putNotice, removeNotice} from './notice-bar.js';
 import {formatSeoulTime} from './meeting-time.js';
 import {waitHtml, failHtml} from './wait-state.js';
+import {groupHtml, switchRow, actionRow, navRow, linkRow, noteHtml} from './settings-list.mjs';
 
 const ENDPOINT = '/functions/v1/record-backup';
 const AUTO_EVERY_DAYS = 7, START_DELAY_MS = 120000, INTRO_KEY = 'record-backup-intro', DONE_KEY = 'record-backup-done';
+const SAFE_URL = /^https:\/\/drive\.google\.com\/drive\/folders\/[A-Za-z0-9_-]{10,200}$/;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 // 맨 위 폴더 이름: 서버가 알려 준 실제 이름(짧은 글자만), 없으면 기본 이름.
 export const DEFAULT_FOLDER = 'WORK ON+ 백업';
@@ -65,24 +67,34 @@ function doneLine(r) {
   putNotice(DONE_KEY, {priority: 70, element: el});
 }
 
-/** ① 내 프로필 '내 기록 백업' 칸. host 안을 이 함수만 그린다. */
-export function mountRecordBackup(host, {rt = window.KPTURuntime} = {}) {
+/** ① 내 프로필 '내 기록 백업' 장. host 안을 이 함수만 그린다(공용 설정 줄).
+ *  매주 자동 백업 스위치(서버 화면 기억) / '백업할 것' 종류마다 개수 + 스위치(고른 것은 이 화면 메모리 — 저장 칸은 DB 검사가 auto·intro만 받아 없음) /
+ *  지금 백업(마지막 시각) / 백업 폴더 열기 ↗ / 이미 있는 것 한 줄. 첫 화면 요약은 마지막 백업 날짜(onSummary). */
+export function mountRecordBackup(host, {rt = window.KPTURuntime, onSummary} = {}) {
   let status = null, failed = false, busy = false, picked = null, result = null, error = '';
+  // 첫 화면 요약은 '마지막 11/26'처럼 짧게(서울 날짜).
+  const day = at => { const p = new Intl.DateTimeFormat('ko-KR', {timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric'}).formatToParts(new Date(at)); return `${p.find(x => x.type === 'month')?.value}/${p.find(x => x.type === 'day')?.value}`; };
+  function summary() {
+    if (!status) return;
+    onSummary?.({text: !status.connected ? '드라이브 연결 전' : status.last_at ? `마지막 ${day(status.last_at)}` : '아직 없음'});
+  }
   function render() {
     const p = prefs();
-    if (!status) { host.innerHTML = `<div class="rb-head"><h3>내 기록 백업</h3></div>${failed ? failHtml({retry: 'data-rb-retry'}) : waitHtml({rows: 4})}`; return; }
+    if (!status) { host.innerHTML = failed ? failHtml({retry: 'data-rb-retry'}) : waitHtml({rows: 4}); return; }
+    summary();
     const kinds = status.kinds.filter(k => k.key !== 'personal' || k.count > 0);
     picked ??= new Set(kinds.map(k => k.key));
-    const rows = kinds.map(k => `<label class="rb-row"><input type="checkbox" data-rb-kind="${esc(k.key)}"${picked.has(k.key) ? ' checked' : ''}${busy ? ' disabled' : ''}><span>${esc(k.label)}</span><span class="rb-r">${k.note ? esc(k.note) : Number(k.count).toLocaleString('ko-KR')}</span></label>`).join('');
-    const last = status.last_at ? `마지막 ${esc(when(status.last_at))}` : '아직 없음';
-    const foot = status.connected
-      ? `<button type="button" class="primary" data-rb-run${busy || !picked.size ? ' disabled' : ''}>${busy ? '백업 중…' : '지금 백업'}</button>`
-      : `<span class="rb-warn">구글 드라이브를 먼저 연결해 주세요</span><button type="button" class="secondary" data-rb-connect>드라이브 연결</button>`;
-    const done = result ? `<div class="rb-done" role="status">${esc(doneText(result))} <a class="rb-btn" href="${esc(result.folder_url)}" target="_blank" rel="noopener">드라이브에서 보기</a></div>` : '';
-    host.innerHTML = `<div class="rb-head"><h3>내 기록 백업</h3><span class="rb-last">${last}</span></div>
-<p class="rb-note">내 기록은 나만 볼 수 있어요. 내 구글 드라이브 '${esc(folderName(status.folder_name))}' 폴더에 받아 두세요.</p>${done}
-<div class="rb-list">${rows}<label class="rb-row rb-auto"><span>매주 자동으로 (앱을 열 때)</span><input type="checkbox" role="switch" class="rb-switch" data-rb-auto${p.auto ? ' checked' : ''} aria-label="매주 자동 백업"></label></div>
-${error ? `<p class="rb-error" role="alert">${esc(error)}</p>` : ''}<div class="rb-foot"><span class="rb-s">자료실 파일은 이미 내 드라이브에 있어요 · 최근 ${esc(status.keep_weeks || 4)}주만 남겨요</span>${foot}</div>`;
+    const weeks = status.keep_weeks || 4;
+    const auto = groupHtml([switchRow({label: '매주 자동 백업', desc: `앱을 열 때 · 최근 ${weeks}주만 남겨요`, checked: p.auto, attrs: {'data-rb-auto': true}, ariaLabel: '매주 자동 백업'})]);
+    const list = groupHtml(kinds.map(k => switchRow({label: k.label, desc: k.note ? k.note : Number(k.count).toLocaleString('ko-KR'), checked: picked.has(k.key), disabled: busy, attrs: {'data-rb-kind': k.key}})), {title: '백업할 것'});
+    const last = status.last_at ? `마지막 ${when(status.last_at)}` : '아직 없음';
+    const folderUrl = result?.root_url || status.folder_url;
+    const run = status.connected
+      ? actionRow({label: busy ? '백업 중…' : '지금 백업', desc: last, descAttrs: {class: 'rb-last'}, disabled: busy || !picked.size, busy, attrs: {'data-rb-run': true}})
+      : navRow({label: '드라이브 연결', desc: '구글 드라이브를 먼저 연결해 주세요', attrs: {'data-rb-connect': true}});
+    const open = status.connected && SAFE_URL.test(folderUrl || '') ? linkRow({label: '백업 폴더 열기', desc: `내 드라이브 › ${folderName(status.folder_name)}`, href: folderUrl, attrs: {'data-rb-folder': true}}) : '';
+    const done = result ? `<p class="sl-status rb-done" role="status">${esc(doneText(result))}</p>` : '';
+    host.innerHTML = `${auto}${list}${done}${error ? `<p class="sl-status sl-error rb-error" role="alert">${esc(error)}</p>` : ''}${groupHtml([run, open])}${noteHtml('일정·할 일은 구글에, 자료실 파일은 내 드라이브에 이미 있어요')}`;
   }
   host.addEventListener('change', e => {
     const kind = e.target.closest?.('[data-rb-kind]');
