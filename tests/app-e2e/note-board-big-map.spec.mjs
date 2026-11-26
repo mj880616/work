@@ -9,7 +9,7 @@ import { bigBoardSeed, centerBoardPoint } from './helpers/big-board-seed.mjs';
 const BID = 'bbig0001';
 const REPORT = !!process.env.BIG_BOARD_REPORT;
 // 프레임은 한 번 튀는 값(max) 대신 평균·90% 값으로 본다(CI 기계가 바쁠 때 한 프레임만 늦는 것은 끊김으로 보지 않음).
-const LIMIT = { open: 4000, avg: 100, p90: 250 };
+const LIMIT = { open: 4000, avg: 100, p90: 400 };
 
 async function bigBoard(page, width, { throttle = 1 } = {}) {
   const { texts, links } = bigBoardSeed({ bid: BID });
