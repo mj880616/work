@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // S69(명진 11/24): 자료실 한 칸 탐색기(왼쪽 나무 | 오른쪽 그 폴더 내용)에서
 // ① "드래그가 저 창 안에서만 되는데 창 밖에서도 창 안으로" · "이 드래그가 어느곳에서든 자유롭게" — 사각형 고르기를 카드 아래 빈 바탕·왼쪽 나무 칸 빈 곳에서도 시작,
 //    사각형은 칸 경계에 갇히지 않고 오른쪽 목록 줄(자료 줄·하위 폴더 줄)에 닿은 것을 고른다. 줄 위 시작 = 끌어 옮기기 그대로, 단추 위 시작 = 사각형 없음.
@@ -122,7 +123,7 @@ test('PC 1280 한 칸: 고르는 중 ✓ 줄·폴더 줄을 다시 누르면 풀
   test.setTimeout(60000);
   const {errors}=await boot(page);
   // '가상 묶음 0'에 들어가 a1만 고른 뒤(Ctrl+클릭) 맨 위로 — 묶음 0 칸은 '−'(일부).
-  await page.locator('#libraryFolderNav [data-lu-nav="f0"]').click();
+  await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="f0"]'));
   await expect(page.locator(docRow('a1'))).toBeVisible();
   await page.locator(docRow('a1')+' .lu-row-title').click({modifiers:['Control']});
   await expect(count(page)).toHaveText('1개 선택됨');
