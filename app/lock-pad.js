@@ -47,13 +47,16 @@ export function padTyped(host, {digits = 0, msg = ''} = {}) {
 // (키보드 Enter·Space로 누른 click은 detail 0이라 그대로 받는다).
 const KEY = 'button[data-lk-key],button[data-lk-back]';
 const keyOf = button => button.dataset.lkKey || 'back';
+// 돌려주는 함수는 같은 받기(잠금 화면이 맨 위 겹으로 덮는 동안 사건을 직접 넘길 때 쓴다, lock-ui.js shield).
 export function onPadKeys(host, press) {
-  host?.addEventListener('pointerdown', event => {
+  const down = event => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const b = event.target.closest?.(KEY);
     if (!b || b.disabled || !host.contains(b)) return;
     press(keyOf(b));
-  });
+  };
+  host?.addEventListener('pointerdown', down);
+  return down;
 }
 // 숫자·지우기 칸의 click: 손가락·마우스로 누른 것(detail > 0)은 이미 pointerdown에서 받았으므로 '' (무시), 키보드로 누른 것은 그 칸.
 // 숫자 칸이 아니면 null(다른 단추로 처리).
