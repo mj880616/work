@@ -56,6 +56,7 @@ async function boot(page,width){
       state.docs=state.docs.filter(d=>d.id!==req.postDataJSON().document_id);
       return ok(state.deletePayload);
     }
+    if(path==='/functions/v1/library-files'&&/^\{"action":"drive-auto"\}$/.test(req.postData()||''))return route.fulfill({status:200,json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     if(['/functions/v1/library-files','/functions/v1/meeting-files'].includes(path)){
       const raw=req.postDataBuffer().toString('utf8');
       state.uploads.push({path,raw});

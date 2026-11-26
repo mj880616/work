@@ -40,7 +40,7 @@ import {readTelegramAsks} from './todo-radar-data.js';
 //   그 방의 날짜를 최근부터 이어서(날짜 머리·그날 요약·소식 줄, 원문은 접어 둠) 보인다. 아래로 내리면 옛 날짜를 이어 불러온다(날짜별과 같은 읽기 길).
 //   고른 보기는 서버 화면 기억(view_prefs.tg_view)뿐이고, 새로고침 제자리는 주소(?by=room&room=…)로 한다. 기기 저장 없음.
 import {viewPrefs} from './view-prefs.js';
-import {tgViewOf, roomGroups, roomDays, roomPage, roomDayText, ROOM_DAY_PAGE, roomFindNeedle, roomFindFilter, roomFindSnippet, ROOM_FIND_MAX, ROOM_FIND_LIMIT} from './tg-room-view-model.mjs';
+import {tgViewOf, roomGroups, roomDays, roomPage, roomDayText, ROOM_DAY_PAGE, roomFindNeedle, roomFindFilter, roomFindSnippet, ROOM_FIND_LIMIT} from './tg-room-view-model.mjs';
 // S67-45 TG-방상세요약먼저: 방 상세(방별)는 날마다 날짜 머리 + 그날 요약 상자만 이어서 보이고, 그날 소식 줄은 상자의 작은 [소식 n](state.rexp, 메모리만),
 //   원문은 [원문 n](그날 소식 원문 모두) 또는 소식 줄 누르기(state.open)로 펼친다. 위쪽 작은 찾기는 그 방 소식의 원문·요약·제목을 서버(소유자 읽기 표)에서 찾고,
 //   찾은 줄을 누르면 그날까지 불러와 펼치고 그 소식 원문으로 옮긴다(불러올 수 있는 120일 안).
@@ -49,6 +49,7 @@ import {addDays} from './feed-model.mjs';
 // FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화] — 누르면 서버가 수집기를 한 번 깨우고, 이 화면의 load()로 1~3분 새 줄을 다시 읽는다(feed-pull.js).
 import {createFeedPull} from './feed-pull.js';
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
+import {registerScreenFind, refreshScreenFind, finderOf} from './screen-find.js';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -298,6 +299,7 @@ function paint() {
   mountSplitResize({container:$('#tgSplit'), name:'telegram', inherit:'tasks', label:'텔레그램 소식과 방 상세 칸 폭 조절', list:() => $('#tgList'), pane:() => $('#tgDetail'), active:() => pc.matches && !!(state.sel || state.rsel) && !view()?.classList.contains('hidden')});
   // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 방 상세 칸은 화면에 붙어 따라오고, 다른 방·날을 고르면 머리부터 보인다.
   if (wide && open) { const key = state.rsel ? 'room:' + state.rsel : rdKey(state.sel.room, state.sel.day); followPane($('#tgDetail'), {reset: followed !== key}); followed = key; }
+  refreshScreenFind();
 }
 const TG_WAIT = '\u0000wait'; // UI-기다림표시통일 2차: 이전 날을 찾는 동안은 글자 없는 회색 칸
 const statusHtml = () => state.status === TG_WAIT ? waitInlineHtml() : esc(state.status);
@@ -373,16 +375,43 @@ function roomRowHtml(g, {pin = false} = {}) {
   const fresh = state.seen ? g.lines.some(x => isUnseen(x, state.seen)) : null, dot = fresh ? '<span class="feed-unseen" data-tg-unseen aria-hidden="true"></span><span class="a11y-only">안 본 것</span>' : '';
   return swipeRow(key, 'room', l.room_key, l.day, `<div class="feed-rd feed-r${roomTone(l.room_key)}${on ? ' is-selected' : ''}${ask ? ' is-ask' : ''}${fresh === false ? ' is-seen' : ''}" data-tg-rd="${esc(key)}" data-tg-roomrow="${esc(g.room_key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(g.room_label))}</span><button type="button" class="feed-rdb" data-tg-roomopen="${esc(g.room_key)}"${on ? ' aria-current="true"' : ''}><span class="feed-rn">${pin ? PIN_MARK : ''}${esc(g.room_label)}${dot}</span><span class="feed-rl">${esc(text)}</span>${ask ? `<span class="feed-ask" data-tg-ask>${esc(ask)}</span>` : ''}<span class="feed-ft"><span data-tg-roomday>${esc(roomDayText(l.day))} · ${g.days}일</span></span></button><button type="button" class="feed-hov" data-tg-rdmore="${esc(key)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc(g.room_label)} 메뉴">${MORE}</button></div>`);
 }
+// S70-57 UI-검색창하나로: 맨 위 칸 '텔레그램 소식에서 찾기'. 방·날 목록에서는 보이는 줄을 방 이름·줄 글로 거른다(메모리만, 서버 검색 없음).
+// 방 상세 안에서는 같은 칸이 그 방 찾기(서버 읽기 runFind, Enter 때)를 맡는다 — 옛 방 안 '이 방에서 찾기' 칸은 뺐다.
+let listText = '', listQ = '';
+// S70-67 SEARCH-비슷한것찾기: 목록 거르기는 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말). 방 안 서버 찾기는 그대로.
+const tgFinder = finderOf('telegram', () => listText);
+const hitText = (...parts) => !listQ || !!tgFinder().hit(...parts.filter(v => typeof v === 'string'));
+const lineHit = l => hitText(l.room_label, lineText(lineView(l), state.titles));
+const groupHit = g => !listQ || hitText(g.room_label) || g.lines.some(lineHit);
+const pinHit = p => (p.last ? lineHit(p.last) : hitText(p.room_label));
+registerScreenFind('telegram', {
+  label: '텔레그램 소식에서 찾기',
+  // 목록(날짜별·방별)이 보일 때와 방 상세. 보관함·휴지통·보낸 사람 이름 칸, 폰의 날 상세(목록이 가려짐)는 아님.
+  active: () => window.KPTURouter?.current === 'telegram' && state.mode === 'live' && state.loaded && !state.missing && !state.error && (pc.matches || !state.sel),
+  value: () => (state.rsel ? state.find.q : listQ ? listText : ''),
+  apply: (raw, {submit = false, again = false} = {}) => {
+    const v = String(raw ?? '');
+    if (state.rsel) {
+      if (again) return; // 방 안은 서버 찾기(Enter) — 비슷한 말 다시 거르기는 목록 몫
+      state.find.q = v;
+      if (!v.trim()) { if ((state.find.rows || state.find.error) && !state.find.busy) { state.find = freshFind(); state.found = ''; paintDetail(); } return; }
+      if (submit) void runFind();
+      return;
+    }
+    listText = v; const q = v.trim().toLowerCase(); if (q === listQ && !again) return; listQ = q; paintList();
+  },
+});
 function roomListHtml() {
   const folder = state.filter ? '' : state.folder, all = liveLines(allLines(), {folder});
   const pinned = state.filter ? [] : pinnedRooms(state.rooms, allLines(), {folder:state.folder});
   const kept = new Set(filterLines(all, state.filter, {byLine:state.asks?.byLine, seen:state.seen}).map(l => l.room_key)); if (state.rsel) kept.add(state.rsel);
-  const pinKeys = new Set(pinned.map(p => p.room_key)), groups = roomGroups(all.filter(l => kept.has(l.room_key) && !pinKeys.has(l.room_key)));
+  const pinKeys = new Set(pinned.map(p => p.room_key)), groups = roomGroups(all.filter(l => kept.has(l.room_key) && !pinKeys.has(l.room_key))).filter(groupHit);
   const pinGroup = p => roomGroups(all.filter(l => l.room_key === p.room_key))[0];
-  const top = pinned.length ? `<div class="feed-pinrooms" data-tg-pinrooms role="group" aria-label="고정한 방">${pinned.map(p => { const g = pinGroup(p); return g ? roomRowHtml(g, {pin:true}) : pinRowHtml(p); }).join('')}</div>` : '';
+  const pinShown = pinned.map(p => ({p, g:pinGroup(p)})).filter(({p, g}) => (g ? groupHit(g) : pinHit(p)));
+  const top = pinShown.length ? `<div class="feed-pinrooms" data-tg-pinrooms role="group" aria-label="고정한 방">${pinShown.map(({p, g}) => (g ? roomRowHtml(g, {pin:true}) : pinRowHtml(p))).join('')}</div>` : '';
   // TG-보기바꿈높이같게: 날짜별의 날짜 머리 줄과 같은 자리·높이의 빈 머리 줄(글자 없음). [날짜별]↔[방별]을 바꿔도 첫 방 줄이 같은 높이에서 시작한다.
   const head = '<div class="feed-day feed-day-center" data-tg-roomhead aria-hidden="true">&nbsp;</div>';
-  return top + (groups.length ? `${head}<div class="feed-rooms" data-tg-rooms>${groups.map(g => roomRowHtml(g)).join('')}</div>` : pinned.length ? '' : emptyHtml('없음', {attrs:'data-tg-empty="none"'}));
+  return top + (groups.length ? `${head}<div class="feed-rooms" data-tg-rooms>${groups.map(g => roomRowHtml(g)).join('')}</div>` : pinShown.length ? '' : listQ ? emptyHtml('맞는 소식 없음') : pinned.length ? '' : emptyHtml('없음', {attrs:'data-tg-empty="none"'}));
 }
 // 보관함의 방 한 줄: 방 이름 · 최근 날 · 한 줄 · [꺼내기]. 줄을 누르면 가장 최근 날의 방 상세가 열린다.
 function archiveRowHtml(r) {
@@ -420,10 +449,10 @@ function paintListNow() {
   if (byNow() === 'room') { box.innerHTML = headHtml() + pinbar + `<div class="feed-feed">${roomListHtml()}</div>${older}` + tail; fitFolderChips(box); return; }
   // TG-방고정: 거르기 칸(요청·안 본 것)을 고른 동안은 고정 칸 없이 거른 줄만 보인다.
   const pinned = state.filter ? [] : pinnedRooms(state.rooms, [...state.lines, ...state.pinLines], {folder:state.folder});
-  const lines = withoutPinned(filterLines(liveLines(state.lines, {folder:state.filter ? '' : state.folder}), state.filter, {byLine:state.asks?.byLine, seen:state.seen, keep:selKey()}), pinned);
-  const groups = groupLines(lines);
-  const top = pinned.length ? `<div class="feed-pinrooms" data-tg-pinrooms role="group" aria-label="고정한 방">${pinned.map(pinRowHtml).join('')}</div>` : '';
-  const feed = top + (groups.length ? groups.map(g => `<div class="feed-day feed-day-center" data-tg-day="${esc(g.day)}">${esc(dayLabel(g.day))}</div>${g.rows.map(l => rowHtml(l)).join('')}`).join('') : pinned.length ? '' : emptyHtml('없음', {attrs: 'data-tg-empty="none"'}));
+  const lines = withoutPinned(filterLines(liveLines(state.lines, {folder:state.filter ? '' : state.folder}), state.filter, {byLine:state.asks?.byLine, seen:state.seen, keep:selKey()}), pinned).filter(lineHit);
+  const groups = groupLines(lines), pinShown = pinned.filter(pinHit);
+  const top = pinShown.length ? `<div class="feed-pinrooms" data-tg-pinrooms role="group" aria-label="고정한 방">${pinShown.map(pinRowHtml).join('')}</div>` : '';
+  const feed = top + (groups.length ? groups.map(g => `<div class="feed-day feed-day-center" data-tg-day="${esc(g.day)}">${esc(dayLabel(g.day))}</div>${g.rows.map(l => rowHtml(l)).join('')}`).join('') : pinShown.length ? '' : listQ ? emptyHtml('맞는 소식 없음') : pinned.length ? '' : emptyHtml('없음', {attrs: 'data-tg-empty="none"'}));
   box.innerHTML = headHtml() + pinbar + `<div class="feed-feed">${feed}</div>${older}` + tail;
   fitFolderChips(box);
 }
@@ -511,7 +540,8 @@ function paintRoomDetail(box) {
   const room = state.rsel, days = roomDays(allLines(), room), page = roomPage(days, state.rshown, {end:state.end});
   const latest = days[0] ? lineAt(room, days[0]) : null, label = labelOfRoom(room);
   const first = days[0] ? daySum(room, days[0], state.dcache.get(rdKey(room, days[0]))).sum : null;
-  const back = pc.matches ? '' : '<button type="button" class="back-text" data-tg-back>‹ 소식</button>';
+  // 방 상세의 '‹ 소식'은 data-tg-roomback도 단다: 폰에서도 맨 위 머리 줄(화면 찾기 칸)을 감추지 않는다(feed.css).
+  const back = pc.matches ? '' : '<button type="button" class="back-text" data-tg-back data-tg-roomback>‹ 소식</button>';
   const head = `<div class="feed-detail-head">${back}<span class="feed-detail-name feed-r${roomTone(room)}"><span class="feed-rn">${esc(label)}</span></span>${openLinkHtml(latest, first, room)}</div>`;
   const note = state.note ? `<p class="feed-notice" role="status" data-tg-note>${esc(state.note)}</p>` : '';
   const dayHtml = day => { const d = state.dcache.get(rdKey(room, day)), {sum, dedit} = daySum(room, day, d); return `<section class="feed-rday" data-tg-rday="${esc(rdKey(room, day))}" aria-label="${esc(dayLabel(day))}"><h3 class="feed-day feed-rday-head">${esc(dayLabel(day))}</h3>${dayBodyHtml(room, day, d, sum, dedit, {fold:true})}</section>`; };
@@ -528,24 +558,23 @@ function paintRoomDetail(box) {
   if (tail && !state.rstop && 'IntersectionObserver' in window) { roomSeen = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { roomSeen?.disconnect(); roomSeen = null; void moreRoomDays(); } }, {rootMargin:'0px 0px 200px 0px'}); roomSeen.observe(tail); }
 }
 
-const KEEP_FOCUS = ['data-tg-find-input', 'data-tg-open', 'data-tg-rexp', 'data-tg-rraw', 'data-tg-found-go', 'data-tg-find-go'];
+const KEEP_FOCUS = ['data-tg-open', 'data-tg-rexp', 'data-tg-rraw', 'data-tg-found-go'];
 function keptFocus(box) {
   const el = document.activeElement; if (!el || !box.contains(el)) return null;
   const attr = KEEP_FOCUS.find(a => el.hasAttribute(a)); if (!attr) return null;
-  const sel = `[${attr}${el.getAttribute(attr) ? `="${CSS.escape(el.getAttribute(attr))}"` : ''}]`, range = attr === 'data-tg-find-input' ? [el.selectionStart, el.selectionEnd] : null;
-  return () => { const n = box.querySelector(sel); if (!n) return; n.focus({preventScroll:true}); if (range) try { n.setSelectionRange(range[0], range[1]); } catch {} };
+  const sel = `[${attr}${el.getAttribute(attr) ? `="${CSS.escape(el.getAttribute(attr))}"` : ''}]`;
+  return () => box.querySelector(sel)?.focus({preventScroll:true});
 }
-// S67-45 방 상세 찾기 칸(머리 바로 아래 한 줄)과 찾은 소식 줄. 찾은 줄을 누르면 goFound.
+// S67-45 방 상세 찾은 소식 줄(머리 바로 아래). 찾을 글자는 맨 위 칸(S70-57 화면 찾기, Enter = runFind, 비우면 닫힘). 찾은 줄을 누르면 goFound.
 function findHtml() {
   const f = state.find, rows = f.rows;
-  const input = `<div class="feed-find" data-tg-find role="search"><input type="search" class="feed-find-input" data-tg-find-input value="${esc(f.q)}" placeholder="이 방에서 찾기" aria-label="이 방 소식에서 찾기" maxlength="${ROOM_FIND_MAX}" enterkeyhint="search" autocomplete="off" data-enter-field="off"><button type="button" class="secondary feed-find-go" data-tg-find-go${f.busy ? ' disabled' : ''}>찾기</button>${rows || f.error ? '<button type="button" class="icon-btn feed-find-x" data-tg-find-close aria-label="찾기 닫기">✕</button>' : ''}</div>`;
-  if (f.busy) return input + `<div class="feed-found">${waitInlineHtml()}</div>`;
-  if (f.error) return input + `<p class="feed-status" role="status" data-tg-find-status>${esc(f.error)}</p>`;
-  if (!rows) return input;
-  if (!rows.length) return input + emptyHtml('찾은 소식 없음', {attrs:'data-tg-find-status'});
+  if (f.busy) return `<div class="feed-found">${waitInlineHtml()}</div>`;
+  if (f.error) return `<p class="feed-status" role="status" data-tg-find-status>${esc(f.error)}</p>`;
+  if (!rows) return '';
+  if (!rows.length) return emptyHtml('찾은 소식 없음', {attrs:'data-tg-find-status'});
   const list = rows.map(r => `<button type="button" class="row-act feed-found-row${state.found === r.id ? ' is-found' : ''}" data-tg-found-go="${esc(r.id)}"><span class="feed-at">${esc(roomDayText(r.day))} ${esc(hhmm(r.occurred_at))}</span><span class="feed-tx">${esc(roomFindSnippet(r, f.needle))}</span></button>`).join('');
   const more = rows.length >= ROOM_FIND_LIMIT ? ` · 최근 ${ROOM_FIND_LIMIT}개만` : '';
-  return input + `<div class="feed-found" data-tg-found role="group" aria-label="찾은 소식"><p class="feed-found-n" role="status" data-tg-find-status>찾은 소식 ${rows.length}${more}</p>${list}</div>`;
+  return `<div class="feed-found" data-tg-found role="group" aria-label="찾은 소식"><p class="feed-found-n" role="status" data-tg-find-status>찾은 소식 ${rows.length}${more}</p>${list}</div>`;
 }
 const findFloor = () => addDays(kstDay(), -(LIST_MAX_DAYS - 1));
 async function runFind() {
@@ -557,7 +586,6 @@ async function runFind() {
   catch { if (me !== run || state.find !== f) return; f.rows = null; f.error = '찾지 못했어요. 다시 시도해 주세요.'; }
   f.busy = false; paintDetail();
 }
-function closeFind() { state.find = freshFind(); state.found = ''; paintDetail(); $('#tgDetail [data-tg-find-input]')?.focus({preventScroll:true}); }
 // 찾은 소식으로: 그날이 아직 안 읽혔으면 이전 기간을 읽어 가며(120일 안) 찾고, 그날까지 그려 소식 줄을 펼친 뒤 그 원문을 펼쳐 그 자리로 옮긴다.
 let jump = '';
 async function goFound(id) {
@@ -1255,8 +1283,6 @@ function bind() {
     else if (b.hasAttribute('data-tg-rolder')) void moreRoomDays();
     else if (d.tgRexp) toggleDayItems(d.tgRexp);
     else if (d.tgRraw) toggleDayRaws(d.tgRraw);
-    else if (b.hasAttribute('data-tg-find-go')) { const el = $('#tgDetail [data-tg-find-input]'); if (el) state.find.q = el.value; void runFind(); }
-    else if (b.hasAttribute('data-tg-find-close')) closeFind();
     else if (d.tgFoundGo) void goFound(d.tgFoundGo);
     else if (d.tgPinOpen) { const r = itemOf(d.tgPinOpen); if (r) { if (roomMode()) openRoom(r.room_key, {picked:true}); else select(r.room_key, r.day, r.id, {picked:true}); } }
     else if (d.tgNav) void navDay(d.tgNav);
@@ -1288,18 +1314,12 @@ function bind() {
     else if (b.hasAttribute('data-tg-link-cancel')) { state.link = null; paintDetail(); }
     else if (b.hasAttribute('data-tg-link-save')) void saveLink();
   });
-  root.addEventListener('keydown', e => {
-    if (!e.target.matches?.('[data-tg-find-input]') || e.isComposing) return;
-    if (e.key === 'Enter') { e.preventDefault(); state.find.q = e.target.value; void runFind(); }
-    else if (e.key === 'Escape' && (state.find.rows || state.find.error || state.find.q)) { e.preventDefault(); e.stopPropagation(); closeFind(); }
-  });
   root.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.closest?.('[data-tg-sbox],[data-tg-sman],[data-tg-fedit],[data-tg-se]') && !e.defaultPrevented) { e.preventDefault(); if (e.target.closest('[data-tg-fedit]')) cancelFolderEdit(); else if (e.target.closest('[data-tg-se]')) cancelSumEdit(); else cancelPanel(); } });
   root.addEventListener('change', e => {
     if (e.target.matches('[data-tg-sman-to]') && state.sman) { state.sman.to = e.target.value; paintList(); $('#tgList [data-tg-sman-to]')?.focus({preventScroll:true}); return; }
   });
   root.addEventListener('input', e => {
     if (e.target.matches('[data-tg-fedit-input]') && state.fedit) state.fedit.value = e.target.value;
-    if (e.target.matches('[data-tg-find-input]')) { state.find.q = e.target.value; if (!e.target.value.trim() && (state.find.rows || state.find.error) && !state.find.busy) { state.find = freshFind(); state.found = ''; paintDetail(); } }
     if (e.target.matches('[data-tg-link-text]') && state.link) state.link.summary = e.target.value;
     if (e.target.matches('[data-tg-se-text]') && state.se) state.se.value = e.target.value;
     if (e.target.matches('[data-tg-se-head]') && state.se) state.se.headline = e.target.value;

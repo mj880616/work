@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
-import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, fullDistance, SWIPE_BTN, endCells, sides, cellWidth, isDanger, holdFull, pickedLabel, SWIPE_END_MAX} from '../app/row-swipe-model.mjs';
+import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, SWIPE_BTN, endCells, sides, cellWidth, isDanger, pickedLabel, SWIPE_END_MAX} from '../app/row-swipe-model.mjs';
 import * as tg from '../app/tg-day-model.mjs';
 const read = f => readFileSync(new URL('../app/' + f, import.meta.url), 'utf8');
 
@@ -24,15 +24,12 @@ test('버튼 없는 쪽으로는 움직이지 않고, 줄 폭보다 더 가지 �
   assert.equal(rowOffset(900, 0, {start:true, end:true}, 400), 400);
   assert.equal(rowOffset(-30, -64, {start:true, end:true}, 400), -94);
 });
-test('조금 밀면 버튼만 보이고 멈춤, 끝까지 밀면 바로 실행, 덜 밀면 닫힘', () => {
+test('밀면 칸만 보이고 멈춤, 덜 밀면 닫힘 — 바로 실행 값은 없다', () => {
   const has = {start:true, end:true}, w = 400;
-  assert.equal(fullDistance(w), 180); assert.equal(fullDistance(200), 140);
-  assert.deepEqual(rowSettle(-40, has, w), {side:'end', run:false});
-  assert.deepEqual(rowSettle(40, has, w), {side:'start', run:false});
-  assert.deepEqual(rowSettle(-200, has, w), {side:'end', run:true});
-  assert.deepEqual(rowSettle(190, has, w), {side:'start', run:true});
-  assert.deepEqual(rowSettle(20, has, w), {side:'', run:false});
-  assert.deepEqual(rowSettle(-300, {start:true, end:false}, w), {side:'', run:false});
+  assert.deepEqual(rowSettle(-40, has, w), {side:'end'});
+  assert.deepEqual(rowSettle(40, has, w), {side:'start'});
+  assert.deepEqual(rowSettle(20, has, w), {side:''});
+  assert.deepEqual(rowSettle(-300, {start:true, end:false}, w), {side:''});
   assert.equal(openOffset('start'), SWIPE_BTN); assert.equal(openOffset('end'), -SWIPE_BTN); assert.equal(openOffset(''), 0);
 });
 test('Raindrop식: 왼쪽 밀기 칸은 최대 3개, 삭제는 늘 맨 오른쪽, 옛 한 칸 모양도 받는다', () => {
@@ -51,36 +48,33 @@ test('칸 여러 개: 멈춘 자리는 칸 수만큼, 밀수록 칸이 함께 �
   assert.equal(cellWidth(-100, 3), SWIPE_BTN); assert.equal(cellWidth(-300, 3), 100); assert.equal(cellWidth(0, 2), SWIPE_BTN);
   assert.equal(pickedLabel(3), '3개 선택됨');
 });
-test('끝까지 밀기: 맨 오른쪽이 삭제가 아니면 바로 실행, 삭제면 바로 지우지 않고 칸만 연다', () => {
-  const w = 400, del = {key:'delete', label:'삭제', tone:'danger'}, hide = {key:'hide', label:'숨기기'}, save = {key:'save', label:'보관'};
-  const withDel = sides({start:{key:'select'}, end:[save, del]}), withHide = sides({start:{key:'select'}, end:[save, hide]});
-  assert.deepEqual(withDel, {start:1, end:2, startFull:true, endFull:false});
-  assert.deepEqual(rowSettle(-300, withDel, w), {side:'end', run:false});
-  assert.deepEqual(rowSettle(-300, withHide, w), {side:'end', run:true});
-  assert.deepEqual(rowSettle(300, withDel, w), {side:'start', run:true});
-  assert.deepEqual(rowSettle(-40, withDel, w), {side:'end', run:false});
-  assert.deepEqual(sides({start:null, end:null}), {start:0, end:0, startFull:false, endFull:false});
+test('S70-60 UI-스와이프메뉴만: 끝까지 밀어도(어느 쪽·어떤 칸이든) 칸만 열고 바로 실행하지 않는다', () => {
+  const del = {key:'delete', label:'삭제', tone:'danger'}, hide = {key:'hide', label:'숨기기', tone:'muted'}, save = {key:'save', label:'보관'}, release = {key:'release', label:'삭제', tone:'info'};
+  for (const end of [[save, del], [save, hide], [release, null], [hide]]) {
+    const has = sides({start:{key:'select'}, end});
+    assert.deepEqual(Object.keys(has).sort(), ['end', 'start']); // 끝까지 밀기 허용 값(startFull·endFull)은 없다
+    for (const w of [360, 390, 412, 880]) {
+      for (const x of [-w, -w * 0.6, -200, -140]) assert.deepEqual(rowSettle(x, has, w), {side:'end'});
+      for (const x of [w, w * 0.6, 200, 140]) assert.deepEqual(rowSettle(x, has, w), {side:'start'});
+    }
+  }
+  assert.deepEqual(sides({start:null, end:null}), {start:0, end:0});
   assert.equal(rowOffset(-80, 0, sides({start:{key:'select'}, end:null}), 400), 0);
-});
-test('S68-50: 이름이 \'삭제\'인 칸(News [저장한 글]의 차분한 색 [삭제])도 끝까지 밀면 칸만 열린다 — 삭제는 직접 누를 때만', () => {
-  const release = {key:'release', label:'삭제', tone:'info'}, hide = {key:'hide', label:'숨기기', tone:'muted'}, save = {key:'save', label:'저장', tone:'info'};
-  assert.equal(holdFull(release), true); assert.equal(holdFull({key:'purge', label:'영구 삭제', tone:'danger'}), true); assert.equal(holdFull(hide), false);
   assert.equal(isDanger(release), false); // 칸 순서(위험한 칸은 맨 오른쪽)는 그대로
-  const saved = sides({start:{key:'select'}, end:[release, null]});
-  assert.equal(saved.endFull, false);
-  assert.deepEqual(rowSettle(-300, saved, 400), {side:'end', run:false});
-  assert.equal(sides({start:{key:'select'}, end:[release, hide]}).endFull, true); // 맨 끝이 [숨기기]면 그대로 바로
   assert.deepEqual(endCells([release, hide]).map(a => a.key), ['release', 'hide']);
-  assert.match(read('now-row-acts.js'), /RELEASE_LABEL = '삭제'/);
+  // 공용 부품: 손을 뗄 때는 칸을 열거나 닫기만, 일은 칸을 누를 때(click)만.
+  const swipe = read('row-swipe.js');
+  assert.doesNotMatch(swipe, /run:now|fire\(d\.state/);
+  assert.match(swipe, /fire\(open, b\.dataset\.rowSwipeKey\)/);
 });
 test('S68-50: 열린 줄은 닫는 쪽으로 반 칸(32px)만 되밀어도 닫힌다, 더 밀면 반대쪽', () => {
-  const has = {start:1, end:3, startFull:true, endFull:false}, w = 412, open3 = openOffset('end', 3);
-  assert.deepEqual(rowSettle(open3 + 60, has, w, open3), {side:'', run:false});
-  assert.deepEqual(rowSettle(open3 + 20, has, w, open3), {side:'end', run:false});
-  assert.deepEqual(rowSettle(open3 - 40, has, w, open3), {side:'end', run:false});
-  assert.deepEqual(rowSettle(open3 + 260, has, w, open3), {side:'start', run:false});
-  assert.deepEqual(rowSettle(SWIPE_BTN - 40, has, w, SWIPE_BTN), {side:'', run:false});
-  assert.deepEqual(rowSettle(-120, has, w), {side:'end', run:false}); // 닫힌 줄에서 시작하면 전과 같다
+  const has = {start:1, end:3}, w = 412, open3 = openOffset('end', 3);
+  assert.deepEqual(rowSettle(open3 + 60, has, w, open3), {side:''});
+  assert.deepEqual(rowSettle(open3 + 20, has, w, open3), {side:'end'});
+  assert.deepEqual(rowSettle(open3 - 40, has, w, open3), {side:'end'});
+  assert.deepEqual(rowSettle(open3 + 260, has, w, open3), {side:'start'});
+  assert.deepEqual(rowSettle(SWIPE_BTN - 40, has, w, SWIPE_BTN), {side:''});
+  assert.deepEqual(rowSettle(-120, has, w), {side:'end'}); // 닫힌 줄에서 시작하면 전과 같다
 });
 test('S68-50: 줄 밀기 중 터치 움직임은 막고(다음 누름이 삼켜지지 않게), 열린 칸 위 밀기·열린 채 다른 곳 누름은 닫기만', () => {
   const swipe = read('row-swipe.js');

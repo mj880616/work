@@ -921,7 +921,7 @@ function paintTrashList(box){
  const note=pending.length?`<p class="muted" data-ps3-trash-pending>${esc(pending.join('·'))} 휴지통은 준비 중입니다.</p>`:'';
  box.innerHTML=(trash.rows.length?`<div class="ps3-plist">${trash.rows.map(trashRowHtml).join('')}</div>`:empty())+note
 }
-// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 휴지통 줄 — 왼쪽으로 밀면 [되돌리기](줄 끝 단추와 같은 restoreFromTrash, 끝까지 밀면 바로)·[영구 삭제]
+// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 휴지통 줄 — 왼쪽으로 밀면 [되돌리기](줄 끝 단추와 같은 restoreFromTrash, 끝까지 밀어도 칸만 — S70-60)·[영구 삭제]
 // (⋯ [영구 삭제]와 같은 purgeFromTrash, 되돌릴 수 없어 끝까지 밀어도 칸만 열리고 누르면 한 번 묻는다). 상위가 휴지통에 있는 줄은 [영구 삭제]만.
 // 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [되돌리기]'(하나씩 차례로 같은 길). 영구 삭제는 줄마다 묻는 길이라 여러 개 선택에 두지 않는다.
 let trashSwipe=null;

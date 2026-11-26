@@ -46,7 +46,8 @@ async function open(page, query, { width = 390, dark = false, theme = null } = {
 // 화면마다: 주소, 윗줄 이름 칸, 보이는 이름, 그 줄의 아이콘.
 const SCREENS = [
   { key: 'home', query: 'view=home', panel: '#homeView', name: '#journalRoot [data-journal-title]', mark: '#journalRoot .journal-head > .head-mark' },
-  { key: 'meetings', query: 'view=meetings', panel: '#meetingsView', name: '#meetingsView .report-top-title', text: '사업 관리', mark: '#meetingsView .report-top-line > .head-mark' },
+  // S70-57: 사업 관리도 앱 머리 줄(아이콘·이름·찾기 돋보기 — 맨 위 칸 하나로)을 쓴다. 화면 첫 줄은 고르기·[+]·[⋯].
+  { key: 'meetings', query: 'view=meetings', panel: '#meetingsView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '사업 관리', mark: '#appView > .mobile-shell-header > .head-mark' },
   { key: 'team', query: 'view=team', panel: '#teamView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '조직 관리', mark: '#appView > .mobile-shell-header > .head-mark' },
   { key: 'calendar', query: 'view=calendar', panel: '#calendarView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '일정', mark: '#appView > .mobile-shell-header > .head-mark' },
   { key: 'note', query: 'view=basket&pane=note', panel: '#basketView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '노트', mark: '#appView > .mobile-shell-header > .head-mark' },
@@ -78,13 +79,14 @@ for (const width of [390, 700]) {
       // 아이콘은 이 화면에 하나뿐(다른 줄에 두 번 나오지 않음).
       await expect(page.locator('.head-mark:visible')).toHaveCount(1);
       if (s.key === 'meetings') {
-        // 걸러보기 칩([종류 전체 ▾]·[목록 ▾])과 [+]·[⋯]가 제목과 같은 줄.
-        for (const sel of ['#reportKindSelect', '#reportViewSelect', '#newMeetingBtn', '#reportMore']) {
-          const b = await box(page.locator(sel));
-          expect(Math.abs(b.mid - n.mid), sel).toBeLessThanOrEqual(4);
-        }
+        // 걸러보기 칩([종류 전체 ▾]·[목록 ▾])과 [+]·[⋯]는 앱 머리 줄 아래 한 줄.
         const kind = await box(page.locator('#reportKindSelect')), add = await box(page.locator('#newMeetingBtn'));
-        expect(kind.left).toBeGreaterThan(n.right);
+        for (const sel of ['#reportViewSelect', '#reportMore']) {
+          const b = await box(page.locator(sel));
+          expect(Math.abs(b.mid - add.mid), sel).toBeLessThanOrEqual(4);
+        }
+        expect(Math.abs(kind.mid - add.mid)).toBeLessThanOrEqual(4);
+        expect(kind.top).toBeGreaterThan(n.bottom);
         expect(add.left).toBeGreaterThan((await box(page.locator('#reportViewSelect'))).right);
       }
       if (s.key === 'home') {
@@ -104,16 +106,20 @@ for (const width of [390, 700]) {
 }
 
 // S67-75 UI-걸러보기칩하나(명진 11/21 18:33 A안): 좁은 폰에서 고르기 상자 네 개가 줄에 다 안 들어가면 가로로 밀지 않고 칩 하나로 묶는다(PR 2847의 밀기·끝 흐림은 걷어냄).
-test('narrow phone: the 사업 관리 boxes fold into one chip on the line, the line does not grow', async ({ page }) => {
+// S70-57: 이름이 앱 머리 줄로 올라가 이 계정(사업영역 상자 없음)은 320에서도 상자가 다 들어갈 수 있다 — 칩인지 상자인지는 실제 폭이 정하고(칩은 topbar-chip-clip.spec.mjs),
+// 여기서는 어느 쪽이든 줄이 늘지 않고 [+]·[⋯]와 한 줄인 것을 본다.
+test('narrow phone: the 사업 관리 boxes stay on one line (or fold into one chip), the line does not grow', async ({ page }) => {
   await open(page, 'view=meetings', { width: 320 });
-  const chip = page.locator('#reportFilterChip');
-  await expect(chip).toBeVisible();
-  await expect(page.locator('#meetingsView .report-kind-bar')).toBeHidden();
-  const title = await box(page.locator('#meetingsView .report-top-title'));
-  const c = await box(chip);
+  await expect(page.locator('#newMeetingBtn')).toBeVisible();
+  await page.waitForTimeout(150);
+  const chip = page.locator('#reportFilterChip'), inChip = await chip.isVisible();
+  await expect(page.locator('#meetingsView .report-kind-bar'))[inChip ? 'toBeHidden' : 'toBeVisible']();
+  const title = await box(page.locator('#newMeetingBtn'));
+  const c = await box(inChip ? chip : page.locator('#meetingsView .report-kind-bar'));
   expect(Math.abs(c.mid - title.mid)).toBeLessThanOrEqual(4);
   expect(Math.round(c.height)).toBeLessThanOrEqual(34);
-  expect(await chip.evaluate(el => { const t = el.querySelector('.report-filter-chip-text'); return t.scrollWidth <= t.clientWidth + 1; })).toBe(true);
+  if (inChip) expect(await chip.evaluate(el => { const t = el.querySelector('.report-filter-chip-text'); return t.scrollWidth <= t.clientWidth + 1; })).toBe(true);
+  else expect(await page.locator('#meetingsView .report-kind-bar').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   // [+]·[⋯]는 줄 밖으로 나가지 않는다.
   const more = await box(page.locator('#reportMore')), add = await box(page.locator('#newMeetingBtn'));
   expect(c.right).toBeLessThanOrEqual(add.left + 0.5);
@@ -124,7 +130,7 @@ test('narrow phone: the 사업 관리 boxes fold into one chip on the line, the 
 
 test('pressing the icon goes home', async ({ page }) => {
   await open(page, 'view=meetings');
-  await page.locator('#meetingsView .report-top-line > .head-mark').click();
+  await page.locator('#appView > .mobile-shell-header > .head-mark').click();
   await expect(page.locator('#homeView')).toBeVisible();
   await expect(page.locator('#meetingsView')).toBeHidden();
   await expect(page).toHaveURL(/view=home|\/app\/(\?|$)/);

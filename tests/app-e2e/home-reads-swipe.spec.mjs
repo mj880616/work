@@ -92,9 +92,12 @@ async function swipe(locator, dx) {
 // UI-줄밀기 Raindrop식(S68-26): 왼쪽으로 조금 밀면 오른쪽 끝 칸 [보관]·[숨기기]가 열린 채 멈춘다 → 그 칸을 누른다.
 // 누르기는 그 칸에 바로 보낸다(Playwright click의 '보이게 스크롤'이 스크롤 이벤트를 내 열린 칸을 닫지 않게 — 손가락은 스크롤하지 않고 누른다).
 async function swipeTap(page, locator, key) {
-  await swipe(locator, -50);
   const b = page.locator(`[data-row-swipe-key="${key}"]`);
-  await expect(b).toBeVisible();
+  // 민 뒤 목록이 다시 그려지면(늦게 온 읽기) 열린 칸도 닫히므로, 칸이 보일 때까지 다시 민다.
+  await expect(async () => {
+    await swipe(locator, -50);
+    await expect(b).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
   await touchTap(b);
 }
 // 손가락 한 번 누르기(누름 → click). 밀기 뒤 따라오는 click을 삼키는 규칙은 다음 누름에서 풀린다.
@@ -104,12 +107,20 @@ async function touchTap(locator) {
 }
 const shown = page => page.locator('#journalRoot [data-journal-read]');
 
-test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되돌리기], 왼쪽으로 조금 밀어 [보관] 칸(별표)', async ({ page }) => {
+test('폰 412: 왼쪽 끝까지 밀어도 칸 [보관][숨기기]만 열림(S70-60), [숨기기]를 누르면 숨김(뉴스 글 hidden_at)·알림 [되돌리기], [보관] 칸(별표)', async ({ page }) => {
   test.setTimeout(90000);
   const f = await boot(page, 412, 900);
   await expect(reads(page).locator('.journal-head-count')).toHaveText('3');
   await expect(page.locator('#journalRoot [data-journal-read]:visible')).toHaveCount(2); // 처음 둘만 펼침, 하나는 '1개 더' 안
+  // UI-스와이프메뉴만(S70-60, 명진 11/26): 끝까지 밀어도 숨기지 않고 칸만 펼쳐진다. 숨기기는 [숨기기]를 눌렀을 때만.
   await swipe(item(page, 1), -320);
+  await expect(page.locator('[data-row-swipe-key="hide"]')).toBeVisible();
+  await expect(page.locator('[data-row-swipe-key="save"]')).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(item(page, 1)).toHaveCount(1);
+  expect(f.patches).toEqual([]);
+  expect(f.keeps).toEqual([]);
+  await touchTap(page.locator('[data-row-swipe-key="hide"]'));
   await expect(item(page, 1)).toHaveCount(0);
   await expect(reads(page).locator('.journal-head-count')).toHaveText('2');
   expect(f.patches.at(-1).id).toBe(uid(1));
@@ -167,7 +178,7 @@ test('폰 412: 처리 표시를 읽는 중에도 한 글만 빠지고 칸은 그
   await expect(item(page, 4)).toBeAttached();
   await expect(reads(page).locator('.journal-head-count')).toHaveText('3');
   // ③ [되돌리기]는 그 한 글만 되살린다.
-  await swipe(item(page, 2), -320);
+  await swipeTap(page, item(page, 2), 'hide');
   await expect(item(page, 2)).toHaveCount(0);
   await expect(reads(page).locator('.journal-head-count')).toHaveText('2');
   await page.locator('#kptuNotice .kptu-notice-undo').click();
@@ -188,7 +199,7 @@ test('폰 412: 처리한 글은 새로 고침·다른 기기에서도 빠져 있
   expect(f.reads[0]).toEqual([uid(1), uid(2), uid(3)]);
 
   // 이 기기에서 밀어 처리 → 새로 고침해도 그대로 빠져 있다(기기 저장이 아니라 서버 표시).
-  await swipe(item(page, 1), -320);
+  await swipeTap(page, item(page, 1), 'hide');
   await expect(item(page, 1)).toHaveCount(0);
   await expect.poll(() => f.patches.length).toBe(1);
   await page.reload();
@@ -212,14 +223,14 @@ test('폰 412: 접힌 \'1개 더\' 안 글도 같은 밀기, 다 처리하면 \'
   await more.locator('summary').click();
   await expect(item(page, 3)).toBeVisible();
 
-  await swipe(item(page, 3), -320);
+  await swipeTap(page, item(page, 3), 'hide');
   await expect(item(page, 3)).toHaveCount(0);
   expect(f.patches.at(-1)).toMatchObject({ id: uid(3) });
   expect(f.patches.at(-1).body.hidden_at).toBeTruthy();
   await expect(more).toHaveCount(0); // 남은 둘이 모두 펼쳐 보인다
   await expect(shown(page)).toHaveCount(2);
 
-  await swipe(item(page, 1), -320);
+  await swipeTap(page, item(page, 1), 'hide');
   await swipeTap(page, item(page, 2), 'save');
   await expect(shown(page)).toHaveCount(0);
   await expect(reads(page)).toBeVisible();

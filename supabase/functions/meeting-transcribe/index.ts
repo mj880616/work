@@ -3,7 +3,7 @@
 //
 // action(모두 POST, 쿼리 ?action=):
 //   config     {workspace_id}            → 준비 여부(열쇠 있음)·이번 달 금액·상한. 끊긴 작업·30일 지난 녹음 정리도 여기서 한다.
-//   upload     몸통 = 녹음 파일 그대로     → 명진 Drive '웹2/회의자료/회의 녹음' 폴더에 올리고 작업 한 행(uploaded). 머리글
+//   upload     몸통 = 녹음 파일 그대로     → Drive '자료실/회의 녹음' 폴더(자료실 드라이브 폴더 바로 아래, S71-02)에 올리고 작업 한 행(uploaded). 머리글
 //              x-workspace-id, x-file-name(encodeURIComponent), x-duration-sec(화면이 잰 길이, 없을 수 있음), Content-Length 필수.
 //   transcribe {job_id}                  → Drive에서 읽어 Gemini Files에 올리고 전사(통화 전사와 같은 설정) → 글을 이 응답으로만 돌려준다.
 //              작업 행은 진행 중 → 끝/실패. 이 함수는 전사 글을 저장하지 않는다. 화면이 그 글을 회의 입력 창의 '회의록 전문' 칸
@@ -53,8 +53,9 @@ import { CHUNK_SECONDS, SPLIT_MAX_BYTES, chunkRanges, halveRange, openAudio, rea
 import { withWebCors } from "../_shared/web-cors.ts";
 import { WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog } from "../_shared/safe-error.ts";
-import { ROOT_FOLDER_NAME } from '../_shared/brand-folders.mjs'; // S69-20: 새 사용자 맨 위 드라이브 폴더 이름
 import { gatherIntoNewRoot } from '../_shared/gather-folders.mjs'; // S70-29: 맨 위 앱 폴더 처음 만들 때 앱 폴더 모으기
+// S71-02 MTG-회의자료폴더없애기: '회의 녹음'은 자료실 드라이브 폴더 바로 아래('회의자료' 폴더는 만들지 않음). 규칙은 _shared/meeting-drive-place.mjs 한 곳.
+import { PlaceFail, meetingRecordingFolder } from '../_shared/meeting-drive-place.mjs';
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
 import { outputText } from '../_shared/openai-responses.ts';
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig } from '../_shared/fcm-send.ts';
@@ -83,7 +84,6 @@ const admin = createClient(SB, SERVICE, { auth: { persistSession: false } });
 const GEM = 'https://generativelanguage.googleapis.com';
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 const FOLDER = 'application/vnd.google-apps.folder';
-const RECORDING_FOLDER = '회의 녹음';
 const TABLE = 'app_meeting_transcribe_jobs';
 const REC_TABLE = 'app_meeting_recordings';
 // S61-36 REC-상세녹음: 녹음(session) 하나가 어느 회의 것인지(회의 상세 [녹음]으로 시작한 것만). Edge만 읽고 넣는다(화면 권한 없음).
@@ -158,23 +158,31 @@ async function createFolder(token: string, name: string, parent?: string) {
   if (!r.ok || !d?.id) throw new Fail('drive_failed');
   return d.id as string;
 }
-// '맨 위 앱 폴더/회의자료' 폴더(새 사용자 맨 위는 'WORK ON+', S69-20)(meeting-files의 ensureMeetingsRoot와 같은 규칙·같은 설정 칸) 아래 '회의 녹음' 폴더.
+// 자료실 드라이브 폴더(app_drive_settings.library_folder_id) 바로 아래 '회의 녹음' 폴더 — 화면 자료실 맨 위 '회의 녹음' 폴더(recordingLibraryFolder)와 같은 자리.
+// 자료실 폴더가 없는 새 사용자는 자료실 폴더를 만드는 기존 길과 같은 모양으로 만든다. 예전 자리('회의자료/회의 녹음')만 있으면 그 폴더를 읽기만 하고 계속 쓴다.
 async function recordingFolder(workspaceId: string, token: string, create: boolean): Promise<string | null> {
-  const { data: s } = await admin.from('app_drive_settings').select('root_folder_id,meetings_folder_id').eq('workspace_id', workspaceId).maybeSingle();
-  let meetings = s?.meetings_folder_id as string | undefined;
-  if (!meetings) {
-    if (!create) return null;
-    let root = s?.root_folder_id as string | undefined;
-    if (!root) {
-      root = await createFolder(token, ROOT_FOLDER_NAME);
-      await admin.from('app_drive_settings').upsert({ workspace_id: workspaceId, root_folder_id: root, updated_at: new Date().toISOString() });
-      // S70-29: 맨 위 앱 폴더를 처음 만들면 앱 폴더 모으기를 한 번(_shared/gather-folders.mjs, 실패해도 멈추지 않음).
-      await gatherIntoNewRoot({ drive: (url: string, init: RequestInit = {}) => fetch(url, { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) }), rootId: root });
-    }
-    meetings = await createFolder(token, '회의자료', root);
-    await admin.from('app_drive_settings').upsert({ workspace_id: workspaceId, meetings_folder_id: meetings, updated_at: new Date().toISOString() });
+  const drive = (url: string, init: RequestInit = {}) => fetch(url, { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
+  const ctx = {
+    drive,
+    gather: (rootId: string) => gatherIntoNewRoot({ drive, rootId }),
+    db: {
+      settings: async () => {
+        const { data, error } = await admin.from('app_drive_settings').select('root_folder_id,library_folder_id,meetings_folder_id').eq('workspace_id', workspaceId).maybeSingle();
+        if (error) throw new Fail('drive_failed');
+        return data;
+      },
+      save: async (patch: Record<string, string>) => {
+        const { error } = await admin.from('app_drive_settings').upsert({ workspace_id: workspaceId, ...patch, updated_at: new Date().toISOString() });
+        if (error) throw new Fail('drive_failed');
+      },
+    },
+  };
+  try {
+    return await meetingRecordingFolder(ctx, { create });
+  } catch (e) {
+    if (e instanceof PlaceFail) throw new Fail('drive_failed');
+    throw e;
   }
-  return await childFolder(token, meetings, RECORDING_FOLDER, create);
 }
 // 폴더 바로 아래 같은 이름 폴더(가장 먼저 만든 것). 없으면 create일 때만 만든다. name은 코드의 고정 이름만.
 async function childFolder(token: string, parent: string, name: string, create: boolean): Promise<string | null> {

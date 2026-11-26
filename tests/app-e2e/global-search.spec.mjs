@@ -184,25 +184,19 @@ test('PC: a query that looks like HTML is shown as text, never injected; server 
  expect(alerted).toBe(false);expect(errors).toEqual([]);
 });
 
-test('Phone 390: the menu sheet has a search field at the top; it opens a full-screen search with ← and no home field',async({page})=>{
+test('Phone 390: the home header has the one search entry (not the menu sheet); it opens a full-screen search with ← and no home field',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  const calls=[];
  await openHome(page,{beforeLoad:()=>routeSearch(page,calls)});
  await expect(page.locator('#homeView input[type="search"]')).toHaveCount(0);
  await expect(page.locator('[data-search-slot]')).toBeHidden();
- await page.locator('#mobileMenuTab').click();
- const entry=page.locator('#mobileMenu .gs-menu-entry');
+ // S70-57(명진 11/26 "전체 검색은 홈에만"): 입구는 홈 앱 머리 줄 하나. 메뉴 창에는 없다.
+ const entry=page.locator('#appView > .mobile-shell-header .gs-menu-entry');
  await expect(entry).toBeVisible();
- // 메뉴 창 메뉴 칸 바로 위(S68-36: 계정 묶음 아래, 타일들보다 위). 창이 올라오는 움직임(.2s)이 끝난 뒤 두 칸의 자리를 한 번에 잰다
- // (움직이는 중에 따로 재면 재는 순간이 달라 위·아래가 뒤집혀 보인다).
- await page.waitForFunction(()=>document.querySelector('#mobileMenu .mobile-menu-panel')?.getAnimations().length===0);
- const {e,t}=await page.evaluate(()=>({
-  e:document.querySelector('#mobileMenu .gs-menu-entry').getBoundingClientRect().y,
-  t:document.querySelector('#mobileMenu nav button').getBoundingClientRect().y,
- }));
- expect(e).toBeLessThan(t);
+ await page.locator('#mobileMenuTab').click();
+ await expect(page.locator('#mobileMenu .gs-menu-entry')).toHaveCount(0);
+ await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();
  await entry.click();
- await expect(page.locator('#mobileMenu')).toBeHidden();
  await expect(page.locator('#searchView')).toBeVisible();
  const input=page.locator('#searchView .gs-view-input input');
  await expect(input).toBeFocused();
