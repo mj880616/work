@@ -46,9 +46,9 @@ for (const width of [390, 1280]) {
     // 목록 안에는 ＋도, ＋만 있던 머리 줄도 없다(그리지 않음).
     await expect(page.locator('#readingView [data-rd-add]')).toHaveCount(0);
     await expect(page.locator('#readingView .rd-head')).toHaveCount(0);
-    // 폰: 화면 이름 줄 바로 아래가 첫 글 줄(사이에 따로 한 줄이 없다).
+    // 폰: 화면 이름 줄 바로 아래가 목록 첫 내용(사이에 따로 한 줄이 없다). S70-83: 목록 위 폴더 상자가 있으면 그 상자가 첫 내용.
     if (width <= 760) {
-      const [h, r] = await Promise.all([box(line), box(page.locator('#readingView .rd-row').first())]);
+      const [h, r] = await Promise.all([box(line), box(page.locator('#readingView [data-rd-folders] .ft-box, #readingView .rd-row').first())]);
       expect(r.y - (h.y + h.height), '머리 줄과 첫 줄 사이').toBeLessThan(24);
     }
     // ＋ → 글 저장 칸 열림, 다시 ＋ → 닫힘.
