@@ -112,9 +112,11 @@ test('note board cells db: table and file cells, same workspace only, owner only
    await assert.rejects(owner(c=>c.query(insFile,[WS_A,DOC_B,null,null,null])),/row-level security/);
    await assert.rejects(owner(c=>c.query(insFile,[WS_A,null,NOTE_B,'fileB_1',null])),/row-level security/);
    await assert.rejects(owner(c=>c.query(insFile,[WS_A,null,NOTE_A,'fileB_1',null])),/row-level security/);
-   const bad=[['가리키는 곳 없음',[WS_A,null,null,null,null]],['둘 다',[WS_A,DOC_A,NOTE_A,'fileA_1',null]],['드라이브 번호만',[WS_A,DOC_A,null,'fileA_1',null]],
-    ['노트만',[WS_A,null,NOTE_A,null,null]],['틀린 드라이브 번호',[WS_A,null,NOTE_A,'a/b',null]]];
+   const bad=[['가리키는 곳 없음',[WS_A,null,null,null,null]],['둘 다',[WS_A,DOC_A,NOTE_A,'fileA_1',null]],['드라이브 번호만',[WS_A,DOC_A,null,'fileA_1',null]]];
    for(const [why,v] of bad)await assert.rejects(owner(c=>c.query(insFile,v)),{code:'23514'},why);
+   // 노트만·틀린 드라이브 번호: 그 노트 첨부 목록에 없으므로 좁히기 정책이 먼저 거절한다(검사 칸도 막음 — 어느 쪽이든 들어가지 않음).
+   for(const [why,v] of [['노트만',[WS_A,null,NOTE_A,null,null]],['틀린 드라이브 번호',[WS_A,null,NOTE_A,'a/b',null]]])
+    await assert.rejects(owner(c=>c.query(insFile,v)),e=>e.code==='23514'||/row-level security/.test(e.message),why);
    // 파일이 아닌 칸은 가리키는 곳이 없다
    await assert.rejects(owner(c=>c.query("insert into public.app_note_board_texts(workspace_id,board_id,body,x,y,file_doc) values ($1,'bcel0001','상자',0,0,$2)",[WS_A,DOC_A])),{code:'23514'});
    // 가리키는 곳은 고치지 못한다(지우고 다시 넣음)
