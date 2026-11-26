@@ -57,8 +57,8 @@
 | ID | 기대 동작 | 시험 방법 | 공용 부품 |
 | --- | --- | --- | --- |
 | Z1 | 카드·칸은 내용만큼 늘어난다. 고정 높이로 잘리지 않는다. | 긴 내용을 넣고 칸 높이가 커지는지, 넘친 글이 숨지 않는지 본다. | 화면 CSS. 2026-11-25 명진 결정: 노트 보드 카드는 예외로 크기 고정을 유지한다(S68-38 설계). |
-| Z2 | 칸 경계(폭)와 높이를 끌어 바꾼다. 두 번 누르면 기본값이다. | 경계를 끌어 폭이 바뀌고 다시 열어도 같은지 본다. | `split-resize.js`, `col-resize.js` |
-| Z3 | 폰 360·412, PC 1280에서 가로로 넘치거나 겹치지 않는다. | `scrollWidth - clientWidth ≤ 1`을 본다. 글 보기 화면(저장한 글·읽을 거리 글 보기, `standard-interactions.spec.mjs` DOC_SCREENS — `helpers/doc-view.mjs`)은 제목이 잘리지 않는지도 본다. | 글 보기 머리는 공용 `ui-standard.css` `.ds-doc-*`(S70-40b) |
+| Z2 | 칸 경계(폭)와 높이를 끌어 바꾼다. 두 번 누르면 기본값이다. | 경계를 끌어 폭이 바뀌고 다시 열어도 같은지 본다. '목록 \| 글' 두 칸 화면(저장한 글·읽을 거리, 펼친 폴드 690·PC 1280)은 `standard-interactions.spec.mjs` Z2 표(`helpers/doc-view.mjs` DOC_SPLITS)가 끌기·서버 기억·새로고침 유지·두 번 누르면 기본을 본다. | `split-resize.js`, `col-resize.js`. S70-58 READ-두칸보기: 두 칸은 칸 나누기 폭(600px~, `screen-width.mjs`)부터, 처음 들어오면 맨 위 글을 오른쪽에(읽음으로 치지 않음) |
+| Z3 | 폰 360·412, 펼친 폴드 690, PC 1280에서 가로로 넘치거나 겹치지 않는다. | `scrollWidth - clientWidth ≤ 1`을 본다. 글 보기 화면(저장한 글·읽을 거리 글 보기, `standard-interactions.spec.mjs` DOC_SCREENS — `helpers/doc-view.mjs`)은 제목이 잘리지 않는지도 본다. | 글 보기 머리는 공용 `ui-standard.css` `.ds-doc-*`(S70-40b) |
 
 ## 5. 지우기 (R)
 

@@ -25,7 +25,8 @@ export const QUICK_MODES = Object.freeze(['update', 'task']);
 // (migration 20261029010000_profile_view_prefs_split_screens. 적용 전에는 새 이름 쓰기가 400이라 이 화면은 그 DB 적용 뒤 merge).
 // UI-칸폭끌기전수(요청함 10/30 10:29): 사진 폴더·아스날·노트 폴더·노트 보드 넷을 더함(migration 20261031030000_profile_view_prefs_split_more).
 // 적용 전에는 새 이름 쓰기가 400이라 칸 폭은 rejectable로 보내 그 칸만 되돌린다(다른 화면 기억은 그대로 저장, 새로고침하면 기본 폭).
-export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3', 'photos', 'arsenal', 'notes', 'noteboard', 'now', 'files', 'library']);
+export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3', 'photos', 'arsenal', 'notes', 'noteboard', 'now', 'files', 'library', 'reading']);
+// S70-58 READ-두칸보기: 저장한 글 목록 | 글 칸 비율 reading(migration 20261126063000_profile_view_prefs_reading_split). 적용 전에는 쓰기가 400이라 rejectable로 그 칸만 되돌린다.
 const LEGACY_SPLIT_SCREENS = ['tasks', 'projects', 'team', 'reports']; // 옛 기기 저장 키가 있던 화면(새 이름은 기기에 쓴 적 없음)
 export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사업 보고 [목록|달력|사진] (ACT-사진 6단계). 일정 탭 calendar_view와 다른 칸
 // MENU-HOME-편집: menu_layout = {bar, rest} (하단바 칸·그 밖 메뉴의 순서, 항목 이름 목록), home_cards = 홈에 보이는 칸의 이름 순서. 항목 이름의 뜻(어느 메뉴·어느 칸인지)은
