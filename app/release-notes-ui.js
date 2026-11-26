@@ -110,7 +110,7 @@ function openSend({versions=[],item=null,trigger}={}){
     foot:'로그인한 모든 이용자에게 보여요. 보낸 뒤에도 수정하거나 거둘 수 있어요.',
     fill(body){
       title=el('input');Object.assign(title,{type:'text',placeholder:'제목(선택)',maxLength:80});title.setAttribute('aria-label','제목(선택)');
-      area=el('textarea');area.setAttribute('aria-label','보낼 글(줄마다 한 가지)');area.addEventListener('input',()=>{edited=true});
+      area=el('textarea');area.dataset.autogrow='';area.setAttribute('aria-label','보낼 글(줄마다 한 가지)');area.addEventListener('input',()=>{edited=true});
       body.append(title,area);
       if(item){title.value=item.title||'';area.value=(item.lines||[]).map(line=>'· '+line).join('\n');picked=[...(item.sources||[])];edited=true}
       const opt=el('label','sfm-opt');const box=el('input');box.type='checkbox';box.onchange=()=>{withChecks=box.checked;regen()};

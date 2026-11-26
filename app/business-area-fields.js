@@ -24,7 +24,7 @@ export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
   if(!host)return null;
   host.classList.add('biz-area-fields');host.hidden=true;
   host.innerHTML=word`<label>사업영역<button type="button" class="secondary field-btn" data-biz-area-pick aria-haspopup="dialog">꼬리표 없음</button></label>${material?word(`<div class="biz-area-suggest"><button type="button" class="secondary" data-biz-area-ai>사업영역 추천</button><span class="biz-area-sugs" data-biz-area-sugs role="status" aria-live="polite"></span></div>`):''}
-<details class="biz-next-plan" data-biz-plan-box><summary>다음 할 일 <span class="optional" data-biz-plan-count></span></summary><textarea rows="3" maxlength="${NEXT_PLAN_MAX}" data-biz-plan aria-label="다음 할 일" placeholder="한 줄에 하나 — 주간 보고 '이후 계획'에 들어가요"></textarea></details>`;
+<details class="biz-next-plan" data-biz-plan-box><summary>다음 할 일 <span class="optional" data-biz-plan-count></span></summary><textarea data-autogrow rows="3" maxlength="${NEXT_PLAN_MAX}" data-biz-plan aria-label="다음 할 일" placeholder="한 줄에 하나 — 주간 보고 '이후 계획'에 들어가요"></textarea></details>`;
   const button=host.querySelector('[data-biz-area-pick]'),box=host.querySelector('[data-biz-plan-box]'),plan=host.querySelector('[data-biz-plan]'),count=host.querySelector('[data-biz-plan-count]');
   let area='',none=false,legacy=false,touched=false,base='',ready=false,noneReady=false,editing=false,run=0;
   const paintCount=()=>{const n=nextPlanLines(plan.value).length;count.textContent=n?`${n}줄`:''};

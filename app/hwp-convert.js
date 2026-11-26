@@ -55,7 +55,7 @@ function markup(){
   return word`<div id="${ID}" data-kptu-history-all="1" class="modal hidden hwp-convert" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="hwpConvertTitle"><div class="modal-card small-card hwp-convert-card">
 <div class="modal-head"><h2 id="hwpConvertTitle">노조 서식으로 만들기</h2><button type="button" class="icon-btn" data-close="${ID}" aria-label="닫기">×</button></div>
 <div class="hwp-convert-types" role="group" aria-label="문서 종류">${DOC_TYPES.map((row,i)=>`<button type="button" class="hwp-convert-chip" data-doc-type="${row.id}" aria-pressed="${i===0}">${esc(row.label)}</button>`).join('')}</div>
-<label class="hwp-convert-field"><span>글</span><textarea id="hwpConvertText" rows="11" spellcheck="false" placeholder="마크다운이나 일반 글을 붙여 넣거나, 글 파일(.md·.txt)을 여기에 끌어 놓으세요."></textarea></label>
+<label class="hwp-convert-field"><span>글</span><textarea data-autogrow id="hwpConvertText" rows="11" spellcheck="false" placeholder="마크다운이나 일반 글을 붙여 넣거나, 글 파일(.md·.txt)을 여기에 끌어 놓으세요."></textarea></label>
 <p class="hwp-convert-meta"><span id="hwpConvertCount" aria-live="off">0 / ${CONVERT_MAX_CHARS.toLocaleString('ko-KR')}자</span></p>
 <p id="hwpConvertStatus" class="hwp-convert-status" role="status" aria-live="polite"></p>
 <div class="hwp-convert-foot"><button type="button" class="secondary" data-hwp-convert-cancel>취소</button><button type="button" class="primary" data-hwp-convert-make>만들기</button></div>
