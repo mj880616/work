@@ -134,7 +134,7 @@
 @media (max-width:599px) {
   /* S50-33 → S70-57: 찾기는 앱 머리 줄 맨 위 칸('파일에서 찾기')이라 첫 줄 = 출처 단추 …… [한 칸 | 두 칸](그림만, 칸 34px 둘, 오른쪽 끝).
      둘째 줄은 그대로 위치 길(‹ 원드라이브 › Pictures)·정렬·[새 폴더]·[올리기] — 줄 나눔(::before, 높이 0)이 두 줄을 가른다. */
-  .fx-top { flex-wrap:wrap; row-gap:2px; min-height:0; padding:4px 0 3px; }
+  .fx-top { flex-wrap:wrap; row-gap:6px; min-height:0; padding:0 0 3px; } /* row-gap 6px: 첫 줄 출처 칩의 누르는 범위(44px)가 둘째 줄 위치 길 [‹]를 덮지 않게(위 여백 4px를 줄 사이로 옮겨 높이는 그대로) */
   .fx-top::before { content:""; order:3; flex:0 0 100%; height:0; }
   #appView #filesView .fx-view-seg { margin-left:auto; }
   #appView #filesView .fx-view-seg .ds-seg-btn { min-width:34px; width:34px; }
