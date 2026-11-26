@@ -103,14 +103,14 @@ for (const width of [412, 390]) {
       await expect(cells(list), `${v}: 가운데 시작`).toHaveCount(2);
       await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
       await expect(cells(list)).toHaveCount(0);
-      // ④ 오른쪽 밀기: 바로 그 줄 선택(S70-64 W1, [선택] 칸이 남지 않음) → '1개 선택됨', 탭 그대로.
+      // ④ 오른쪽 밀기: 바로 그 줄 선택(S70-64 W3, [선택] 칸이 남지 않음) → '1개 선택됨', 탭 그대로.
       await tick(page);
       await finger(page, cdp, path(b.x + 40, b.y + b.height / 2, 300, 0));
       const bar = page.locator('#readingView .row-swipe-pickbar');
       await expect(list.locator('[data-row-swipe-key="select"]'), `${v}: 오른쪽 밀기는 칸을 남기지 않음`).toHaveCount(0);
       await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
-      await bar.locator('[data-row-pick-stop]').click();
+      await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
       await expect(bar).toBeHidden();
     }
     // S69-04: [밑줄] 탭은 글 줄이 아니라 밑줄 줄(노트 › 밑줄과 같은 부품 .nh-row) — 글 줄 밀기 대상이 아니다.

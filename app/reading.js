@@ -198,7 +198,7 @@ function drawList() {
       const bm = el('p', 'rd-line rd-bm');
       bm.dataset.rdBm = '1';
       const a = el('a', 'rd-bm-link', `${APP_NAME} 저장`);
-      a.href = bookmarklet(); a.dataset.rdBmLink = '1'; a.title = '즐겨찾기 막대로 끌어 놓기';
+      a.href = bookmarklet(); a.dataset.rdBmLink = '1';
       bm.append('크롬 버튼: ', a, ' ', btn('mini', '한 줄 복사', {rdBmCopy: '1'}));
       parts.push(bm);
     }
@@ -657,7 +657,7 @@ function bindSwipe(box) {
 }
 
 // S70-62부터 왼쪽 밀기 칸은 [수정][삭제](아래). 옛 설명 — UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로],
-// 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [읽음][삭제]'. News에서 보낸 줄도 같은 단추(S68-29).
+// 오른쪽으로 밀면 여러 개 선택(막대 '[전체 선택][삭제]' 두 칸, S70-64b — 읽음은 줄 밀기·⋯로). News에서 보낸 줄도 같은 단추(S68-29).
 // 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·removeAny). S68-31(명진 11/23 02:24 "삭제가 필요 가능한 경우 왼쪽으로 밀 때 삭제도"):
 // 왼쪽 밀기 맨 끝에 [삭제] — ⋯ [삭제]와 같은 removeAny(직접 넣은 줄은 묻고 지우기, News에서 보낸 줄은 5초 [되돌리기]). 끝까지 밀어도 칸만 열린다.
 function bindRows(box) {
@@ -678,12 +678,9 @@ function bindRows(box) {
       if (key === 'edit') void startEdit(id);
       else if (key === 'delete') void removeAny(id, box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || el);
     },
-    // 고른 줄: [읽음]은 하나씩 차례로(⋯와 같은 길), [삭제]는 removeMany(⋯ 삭제와 같은 규칙, 묻기·알림은 한 번).
-    select: {attr: 'data-rd-pick', label: '선택한 글', acts: () => [{key: 'read', label: '읽음'}, {key: 'delete', label: '삭제', danger: true}],
-      run: async (key, ids) => {
-        if (key === 'delete') { await removeMany(ids); return; }
-        for (const id of ids) { const row = rowOf(id); if (row && !row.read_at) await toggleRead(id, true); }
-      }}});
+    // 고른 줄: [삭제]는 removeMany(⋯ 삭제와 같은 규칙, 묻기·알림은 한 번).
+    select: {attr: 'data-rd-pick', label: '선택한 글', acts: () => [{key: 'delete', label: '삭제', danger: true}],
+      run: async (key, ids) => { if (key === 'delete') await removeMany(ids); }}});
 }
 
 function bind() {
