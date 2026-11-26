@@ -90,7 +90,8 @@ for(const width of [1440,884,390])test(`분류: 기본은 회의만 꺼짐, 여�
   const hint=page.locator('.lu-off-hint');await expect(hint).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');await expect(hint).toHaveAttribute('role','status');
   await hint.getByRole('button',{name:'켜기'}).click();await expect(pick(page)).toHaveText('분류: 전체');await expect(page.locator('[data-lu-document="meeting"]')).toBeVisible();await expect(hint).toHaveCount(0);
   // 검색어가 없으면 안내도 없다.
-  await toggleLibraryCategory(page,'회의');await (await screenFind(page)).fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);
+  // S71-28: 폰(600px 미만)은 찾기 칸을 펼친 동안 칸이 고르기 자리를 쓴다 — 비우고 접은 뒤 [분류 ▾]를 고른다.
+  {const find=await screenFind(page);await find.fill('');if(width<600){await find.press('Escape');await expect(find).toBeHidden()}}await toggleLibraryCategory(page,'회의');await expect(page.locator('.lu-off-hint')).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
