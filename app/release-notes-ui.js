@@ -49,7 +49,7 @@ function noteRow(item,current,words){
   }
   if(item.checks.length){
     const check=el('p','rn-check');
-    check.append(el('span','rn-check-label','폰에서 볼 것'),document.createTextNode(' '));
+    check.append(el('span','rn-check-label','확인할 것'),document.createTextNode(' '));
     item.checks.forEach((line,i)=>{if(i)check.append(document.createTextNode(' · '));check.append(marked('span',null,line,words))});
     body.append(check);
   }
@@ -92,7 +92,7 @@ function refreshMarks(){
 const failLine=error=>/OPERATOR_FEATURE_REQUIRED|42501/.test(String(error?.message||error))?'운영자만 보낼 수 있어요':'보내지 못했어요. 잠시 뒤 다시 해 주세요';
 async function afterWrite(text){await loadAdmin();refreshMarks();notify(text,{record:false})}
 
-// 보내기 창: 기록 줄에서 열면 그 기록 글이 채워진다('폰에서 볼 것'은 기본으로 뺌). [+ 다른 기록 묶기]로 여러 기록을 한 소식으로. 보내기 전에 문구를 고친다.
+// 보내기 창: 기록 줄에서 열면 그 기록 글이 채워진다('확인할 것'은 기본으로 뺌). [+ 다른 기록 묶기]로 여러 기록을 한 소식으로. 보내기 전에 문구를 고친다.
 // item이 있으면 직접 쓴 소식 수정(기록 줄에 없는 소식 줄의 [수정]).
 // S71-31: 시작 날짜는 화면에서 정하지 않는다(서버에 저장된 값이 그대로 쓰인다) — 창 안 '시작 날짜도 정하기' 칸을 뺐다.
 function openSend({versions=[],item=null,trigger}={}){
@@ -114,7 +114,7 @@ function openSend({versions=[],item=null,trigger}={}){
       body.append(title,area);
       if(item){title.value=item.title||'';area.value=(item.lines||[]).map(line=>'· '+line).join('\n');picked=[...(item.sources||[])];edited=true}
       const opt=el('label','sfm-opt');const box=el('input');box.type='checkbox';box.onchange=()=>{withChecks=box.checked;regen()};
-      opt.append(box,document.createTextNode("'폰에서 볼 것' 줄도 같이 보내기"));
+      opt.append(box,document.createTextNode("'확인할 것' 줄도 같이 보내기"));
       chips=el('div','un-chips');adder=el('select','un-adder');adder.setAttribute('aria-label','다른 기록 묶기');
       adder.onchange=()=>{if(adder.value&&!picked.includes(adder.value)){const v=adder.value;picked.push(v);if(edited){const add=draftLines([news.notes.find(n=>n.v===v)].filter(Boolean),{withChecks});area.value=[area.value.trim(),...add.map(l=>'· '+l)].filter(Boolean).join('\n')}paintChips();regen()}};
       const bundle=el('div','un-bundle');bundle.append(chips,adder);
