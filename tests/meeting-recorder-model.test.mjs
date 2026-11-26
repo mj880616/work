@@ -162,7 +162,10 @@ test('화면 연결(정적): 앱 껍데기 한 곳이 주인, 기기 저장 없�
   const loader=read('app/loader-v2.js');
   assert.match(loader,/import\('\.\/meeting-recorder\.js'\)/);
   const html=read('app/index.html');
-  assert.match(html,/<div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음<\/button><button id="newMeetingBtn"/);
+  // BIZ-머리한줄(S71-23): [녹음]은 사업 관리 첫 줄 [+] 메뉴 줄 — 모양(보임·꺼짐·글자)은 이 모듈의 recordItem 하나가 정하고 메뉴는 읽기만.
+  assert.doesNotMatch(html,/id="reportRecordBtn"/);
+  assert.match(src,/function recordItem\(\)\{/);
+  assert.match(src,/recordItem,startRecord:\(\)=>start\(\)/);
   assert.match(html,/id="recPendingLine"[^>]*hidden/);
   assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),/document\.|fetch\(/);
   assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),deviceStore);

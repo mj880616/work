@@ -1513,7 +1513,7 @@ button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
 /* ▾ 그림은 base-ui.css 칸 기본(select{background:…} 줄임 표기)보다 한 단계 강하게 둔다(S52-22에서 발견: :where 강도 0이라 ▾가 어디서도 그려지지 않았다).
    화면이 #id로 바탕을 따로 정한 상자는 그 규칙이 그대로 이긴다. 오른쪽 여백 26px은 아래 ③ 규칙.
    S56-11: 고르기 창을 여는 단추라도 '고르기 상자' 자리에 놓이면 같은 ▾ 그림을 쓴다(자료실 [분류 ▾] — 옆 [폴더 ▾]와 한 모양). 쉼표 목록이라 select 쪽 강도는 그대로다. */
-select:not([multiple],[size]),#libraryView button.lu-cat-pick,#meetingsView button.report-filter-chip{
+select:not([multiple],[size]),#libraryView button.lu-cat-pick,#reportTop button.report-filter-chip{
   background-image:linear-gradient(45deg,transparent 50%,var(--kptu-muted) 50%),linear-gradient(135deg,var(--kptu-muted) 50%,transparent 50%);
   background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%; background-size:4px 4px,4px 4px; background-repeat:no-repeat;
 }
@@ -1550,7 +1550,7 @@ li:where(:has(> label > input:is([type="checkbox"],[type="radio"]))){ list-style
 button.icon-btn:is([aria-label$="닫기"],[data-close]){ border-color:transparent; background:transparent; color:var(--kptu-muted); }
 button.icon-btn:is([aria-label$="닫기"],[data-close]):hover{ color:var(--kptu-ink); }
 /* ③ 고르기 상자 ▾ 자리: 화면 규칙이 padding을 정해도 글자가 ▾ 밑으로 들어가지 않게 오른쪽 여백만 한 곳에서 고정한다. */
-select:not([multiple],[size],[hidden]),#libraryView button.lu-cat-pick,#meetingsView button.report-filter-chip{ padding-right:26px !important; }
+select:not([multiple],[size],[hidden]),#libraryView button.lu-cat-pick,#reportTop button.report-filter-chip{ padding-right:26px !important; }
 /* S67-75: 고르기 상자 자리에 놓인 '여러 상자를 여는 칩'(사업 관리 폰 윗줄 걸러보기 칩)은 고르기 상자와 같은 높이·테두리·모서리·바탕, 고른 게 있으면 진한 선. */
 button.report-filter-chip{ height:var(--ds-compact-height); min-height:var(--ds-compact-height); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background-color:var(--ds-select-bg,var(--kptu-surface)); }
 button.report-filter-chip.is-on{ border-color:var(--ds-select-line,var(--kptu-border-strong)); } /* S56-11: ▾ 그림을 쓰는 고르기 단추도 같은 여백 */
@@ -1817,8 +1817,8 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
 
 /* ===== S67-64 UI-윗줄한줄(2026-11-21 명진 08:12·08:25, 시안 D3 + D2 제목 글씨): 폰(~760px) 화면 윗줄은 한 줄 =
    [WORK ON 아이콘 20px(누르면 홈)] [화면 이름 15px·500, 테두리·칩 없는 글자] [그 화면의 걸러보기 칩(있을 때만. 사업 관리는 다 안 들어가면 칩 하나로 묶음 — 아래 S67-75)] … [+]·[⋯].
-   아이콘 글자는 head-mark.mjs 하나(앱 머리줄·사업 관리 첫 줄은 index.html, 홈은 journal.js). 줄을 그리는 주인은 그대로다:
-   앱 머리줄 = topbar-actions.js(일정·노트·조직 관리 등), 사업 관리 첫 줄 = index.html의 .report-top(같은 요소를 PC처럼 한 줄로 놓음), 홈 = journal.js 머리줄.
+   아이콘 글자는 head-mark.mjs 하나(앱 머리줄은 index.html, 홈은 journal.js). 줄을 그리는 주인은 그대로다:
+   앱 머리줄 = topbar-actions.js(일정·노트·조직 관리·사업 관리 등 — 사업 관리 고르기·건수·[+]는 그 줄 도구 칸으로 옮겨 온 #reportTop), 홈 = journal.js 머리줄.
    PC 틀(761px~)은 사이드바 맨 위 아이콘·위쪽 경로 줄이 같은 일을 하므로 아이콘을 두지 않는다(부품 자신의 보이는 폭 규칙). */
 .head-mark{ display:none; }
 @media(max-width:760px){
@@ -1830,30 +1830,22 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   /* 앱 머리줄: 아이콘·이름을 왼쪽에 붙인다(전에는 이름 하나라 양끝 맞춤). 폴드 펼침의 찾기 입구는 남은 폭을 그대로 쓴다. */
   #appView > .mobile-shell-header{ justify-content:flex-start; gap:8px; }
   #appView > .mobile-shell-header > [data-mobile-view-name]{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  /* 사업 관리: 첫 줄([녹음][+][⋯] — 아이콘·이름은 S70-57부터 앱 머리 줄)과 고르기 줄(종류 전체 ▾·목록 ▾ 등)을 PC(meeting-ui.css BIZ-위쪽정돈PC)처럼 한 줄로 놓는다.
-     .report-top-line은 자리만 내주고(display:contents) 그 안 요소가 .report-top 줄에 바로 선다.
-     S71-10(명진 11/26 14:41 '한 줄에 우겨넣고 싶어'): 주 줄(‹ 11.23(월)~11.29(일) › · n건)도 같은 한 줄 = [고르기(칩)] [‹ 날짜 › · n건] … [녹음][+][⋯].
-     넘치면 report-filter-chip.js가 재어 .is-week-short(요일 빼기) → .is-week-tight(건수 짧게) → .is-week-squeeze(칩 끝 말줄임)를 붙인다.
-     기간 정하기·주차 고르기 창이 열리면 그 창(과 주 줄)만 아래 한 줄을 다 쓴다. */
-  #appView #meetingsView .report-top{ display:flex; flex-wrap:nowrap; align-items:center; gap:4px 8px; min-width:0; margin-bottom:var(--kptu-space-1); }
-  #appView #meetingsView .report-top:has(.report-period-panel){ flex-wrap:wrap; }
-  #appView #meetingsView .report-top > .report-top-line{ display:contents; }
-  /* S67-75 UI-걸러보기칩하나(명진 11/21 18:33 A안, PR 2847 끝 흐림은 걷어냄): 고르기 상자 네 개(종류·사업영역·기간·보기)가 이 줄에 다 들어가면
-     지금처럼 네 개(남은 폭을 다 씀), 다 안 들어가면 칩 하나 [전체 ▾]·[고른 값 · 고른 값 ▾]로 묶는다. 어느 쪽인지는 report-filter-chip.js가
-     실제 폭으로 재서 .report-top에 .is-filter-one을 붙인다. 칩 글자는 길면 끝 말줄임, ▾는 칩 오른쪽 바탕 그림이라 늘 보인다(칩이 잘리는 일 없음).
-     칩을 누르면 상자 줄(.report-kind-bar) 자체가 칩 바로 아래 작은 창(.is-filter-panel, 맨 위 층 popover)이 된다 — 값·동작은 그 상자 그대로. */
-  #appView #meetingsView .report-top > .report-kind-bar{ order:1; flex:0 1 auto; min-width:0; margin:0; flex-wrap:nowrap; overflow:hidden; }
-  /* 칩은 줄어들지 않는다(meeting-ui.css의 줄어드는 규칙보다 강하게) — 다 안 들어가면 줄이는 대신 칩 하나로 묶는다. */
-  #appView #meetingsView .report-top > .report-kind-bar > :is(select.report-top-select,.report-period-host){ flex:none; }
-  /* 칩 자리(.report-filter-slot)는 칩 글자만큼. 주 줄까지 다 줄여도 넘칠 때(.is-week-squeeze)만 줄어들어 칩 안 글자 끝이 …(줄이 넘어가지 않음).
-     칩을 쓰지 않을 때(상자 네 개)는 자리도 없다(meeting-ui.css .report-filter-slot:has(>[hidden])). */
-  #appView #meetingsView .report-top-line > .report-filter-slot{ order:1; flex:none; min-width:0; display:flex; }
-  #appView #meetingsView .report-top.is-week-squeeze > .report-top-line > .report-filter-slot{ flex:0 1 auto; }
-  #appView #meetingsView .report-filter-slot > .report-filter-chip{ flex:0 1 auto; min-width:0; max-width:100%; }
-  #appView #meetingsView .report-top.is-filter-one > .report-kind-bar:not(.is-filter-panel){ display:none; }
-  #appView #meetingsView .report-top-line > .report-head-actions{ order:3; flex:none; margin-left:auto; }
-  #appView #meetingsView .report-top > .report-week-bar{ order:2; flex:none; min-width:0; margin:0; }
-  #appView #meetingsView .report-top > .report-week-bar:has(.report-period-panel){ order:4; flex:1 1 100%; }
+  /* 사업 관리 BIZ-머리한줄(S71-23, 사용자 11/26 "시안 한줄 좋아"): 앱 머리 줄 하나 = [W] 사업 관리 · [전체 ▾] · n건 ……… 찾기 · [+].
+     오른쪽 끝 순서는 SAVED-머리한줄(S71-26) '… · 찾기 · [+]'(+가 맨 오른쪽, S71-43에서 맞춤).
+     첫 줄(#reportTop)은 screen-tools.js가 이 화면이 보일 때만 머리 줄 도구 칸으로 옮기고({wide:false} — PC는 화면 안), [+] 묶음(.report-head-actions)은
+     {end}로 그 칸 안 #reportTop 바로 뒤에 따로 놓는다. 도구 칸은 상자 없이(display:contents) 두 칸을 머리 줄에 바로 세워 찾기를 그 사이에 둔다:
+     #reportTop(order 1, 이름 바로 뒤에서 남은 폭) · 찾기(order 2, 돋보기·폴드 펼침의 찾기 칸) · [+](order 3, 줄 맨 끝).
+     고르기 상자들이 다 안 들어가면 칩 하나 [전체 ▾](report-filter-chip.js가 #reportTop 폭을 재어 .is-filter-one), 칩 글자가 길면 끝 말줄임 — 줄은 넘어가지 않는다.
+     돋보기를 눌러 찾기 칸이 펴진 동안은 찾기 칸이 남은 폭을 쓰고 #reportTop은 글자만큼(칩이 먼저 줄어듦). */
+  #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .screen-tools-slot{ display:contents; }
+  #appView > .mobile-shell-header > .screen-tools-slot > #reportTop{ order:1; flex:1 20 auto; min-width:96px; margin-left:0; } /* 칩 최소 56 + 건수 */
+  #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .mobile-shell-find{ order:2; flex:none; }
+  #appView > .mobile-shell-header > .screen-tools-slot > .report-head-actions{ order:3; flex:none; margin-left:0; }
+  @media(min-width:600px){ #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .mobile-shell-find{ flex:1 1 120px; min-width:120px; } } /* 폴드 펼침: 찾기 칸이 펼쳐진 폭 — 고르기 상자들이 먼저 자리를 쓰고(다 들어가면 네 개 그대로) 찾기 칸은 남은 폭(120px 이상) */
+  /* 이름은 거의 줄지 않는다(#reportTop이 20배 먼저 줄어 고르기 칩 글자가 먼저 …). 사람이 고친 아주 긴 이름만 칩 최소 폭·찾기·[+]를 지키고 남은 만큼 … */
+  #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > [data-mobile-view-name]{ flex:0 1 auto; }
+  #appView > .mobile-shell-header.sf-open > .screen-tools-slot > #reportTop{ flex:none; }
+  #appView > .mobile-shell-header.sf-open:has(> .screen-tools-slot > #reportTop) > .mobile-shell-find{ flex:1 1 auto; }
   /* 홈: 날짜 머리줄 첫 줄 = [아이콘] [날짜 글자(화면 이름 자리)] … [하루|주간 보고]. 날짜 7칸 줄은 그 아래 그대로. */
   #appView #homeView .journal-head > .head-mark{ order:-3; }
   #appView #homeView .journal-head > .journal-day-title{ font-size:var(--ds-text-head); }
