@@ -1631,18 +1631,18 @@ button.report-filter-chip.is-on{ border-color:var(--ds-select-line,var(--kptu-bo
 .ps3-fold>.ps3-fold-summary::before,#appView #arsenalView .ars-sec summary::before,#appView #pagesView .sp-box-summary::before,
 .tl-status-group>summary span::before,.mrd-special-fold>summary h3::before,
 /* 이름 뒤 꺾쇠(::after) */
-.ps3-fold>summary:not(.ps3-fold-summary)::after,#appView #photosView .photos-tidy-row>summary .photos-tidy-see::after{
+.ps3-fold>summary:not(.ps3-fold-summary)::after{
   content:""; display:inline-block; flex:none; box-sizing:border-box; width:1em; height:1em; margin:0 4px 0 0; padding:0; vertical-align:-.15em;
   font-size:inherit; background:currentColor; color:var(--kptu-muted);
   -webkit-mask:var(--kptu-chev-mask) center / contain no-repeat; mask:var(--kptu-chev-mask) center / contain no-repeat; transform:none; transition:transform .14s ease; }
-.ps3-fold>summary:not(.ps3-fold-summary)::after,#appView #photosView .photos-tidy-row>summary .photos-tidy-see::after{ margin:0 0 0 4px; }
+.ps3-fold>summary:not(.ps3-fold-summary)::after{ margin:0 0 0 4px; }
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
     .biz-next-plan,.biz-untagged,.pd-quotes,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,
     #appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold,#appView #homeView details.journal-fill-more)[open]>summary::before,
 .ps3-fold[open]>.ps3-fold-summary::before,#appView #arsenalView .ars-sec[open] summary::before,#appView #pagesView .sp-box[open]>.sp-box-summary::before,
 .tl-status-group[open]>summary span::before,.mrd-special-fold[open]>summary h3::before,
-.ps3-fold[open]>summary:not(.ps3-fold-summary)::after,#appView #photosView .photos-tidy-row[open]>summary .photos-tidy-see::after{ transform:rotate(180deg); }
+.ps3-fold[open]>summary:not(.ps3-fold-summary)::after{ transform:rotate(180deg); }
 @media (prefers-reduced-motion:reduce){ .kptu-chev{ transition:none; } }
 
 /* ===== UI-점검1030손질(2026-10-30 사이트 점검 실측 C4): 체크칸 줄 누르는 범위 =====

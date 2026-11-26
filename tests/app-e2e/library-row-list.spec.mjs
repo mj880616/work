@@ -189,7 +189,7 @@ for(const width of [390,1440]){
     const panel=await page.locator('.lu-more-panel').boundingBox();expect(panel.x).toBeGreaterThanOrEqual(0);expect(panel.x+panel.width).toBeLessThanOrEqual(width);expect(panel.y+panel.height).toBeLessThanOrEqual(900);
     await page.keyboard.press('Escape');await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
-    await menu(page);/* 메뉴 밖 누르기: LIB-위쪽한줄로 폰은 찾기 칸이 접혀 있어 위 줄 왼쪽 빈 곳을 누른다 */await page.locator('#libraryListCard').click({position:{x:2,y:2}})/* S71-28: 폰·폴드는 본문 첫 줄이 없어(고르기도 머리 줄) 목록 칸 모서리 빈 곳을 누른다 */;await expect(page.locator('.lu-more-panel')).toBeHidden();
+    await menu(page);/* 메뉴 밖 누르기: S71-28 — 폰은 열린 메뉴가 목록 칸 위를 덮으므로 머리 줄 화면 이름(누르면 아무 일 없음)을 누른다 */await (width<761?page.locator('#appView>.mobile-shell-header [data-mobile-view-name]').click():page.locator('#libraryListCard').click({position:{x:2,y:2}}));await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
     await menu(page);await page.goBack();await expect(page.locator('.lu-more-panel')).toBeHidden();await expect(page).toHaveURL(url);
     // D-3c pseudo-element: click 4px outside the visible 32px icon.
