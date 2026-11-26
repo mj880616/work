@@ -1839,12 +1839,12 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   box-sizing:border-box; height:var(--ds-quick-row-height); min-height:var(--ds-quick-row-height); padding-top:9px; padding-bottom:8px; line-height:21px; font-size:14px;
 }
 /* 늘지 않는 칸(잊지 말기·노트·[할 일]): 한 줄 고정, 넘치는 글은 칸 안에서 넘긴다(반쪽 줄이 보이지 않게 줄 높이 = 칸 안 높이). */
-#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry [data-quick-input]{ max-height:var(--ds-quick-row-height); padding-top:0; padding-bottom:0; line-height:calc(var(--ds-quick-row-height) - 2px); }
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry [data-quick-input]{ resize:none; max-height:var(--ds-quick-row-height); padding-top:0; padding-bottom:0; line-height:calc(var(--ds-quick-row-height) - 2px); }
 #appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry :is(.home-quick-save,.home-quick-folder,.home-quick-kind:not([hidden])){
   box-sizing:border-box; position:relative; flex:0 0 auto; align-self:flex-start; height:var(--ds-quick-row-height); min-height:var(--ds-quick-row-height); max-height:none; margin:0;
 }
 #appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry .home-quick-save{
-  min-width:0; padding:0 14px; font-size:13px; font-weight:var(--ds-weight-strong,700); line-height:1;
+  min-width:0; padding:0 14px; font-size:13px; font-weight:var(--ds-weight-medium,500); line-height:1;
   color:var(--kptu-on-primary); background:var(--kptu-primary); border:0; border-radius:var(--ds-radius-control);
 }
 /* 폴더 단추: 폴더 없음 = 정사각 아이콘(공용 폴더 그림·기본 폴더 색), 고른 폴더 = 그 폴더 색 아이콘 + 작은 이름(넘치면 '…'). */
