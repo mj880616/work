@@ -946,7 +946,8 @@ function onClick(event) {
   if (b.matches('[data-os-retry]')) { load().catch(() => {}); paint(); }
 }
 root?.addEventListener('click', onClick);
-tools.addEventListener('click', onClick);
+// S71-59: PC 틀은 상자가 화면 안 탭 줄 옆(root 안)이라 위 root 처리가 받는다 — 두 번 받지 않게 root 밖(폰 머리 줄)일 때만.
+tools.addEventListener('click', e => { if (!root?.contains(tools)) onClick(e); });
 // 매체 묶음 펼침·접힘을 기억. [언론] 칸(news-clipping.js)도 이 화면 안이라 같이 잡힌다.
 // 누른 순간(클릭·Enter·Space 모두 click)에 바로 적는다 — toggle 알림은 늦게 와서 그사이 목록을 다시 그리면 떨어진 줄에 가 버린다.
 // toggle(거품 없음 → 잡기 단계)은 그 밖의 길(브라우저 찾기로 열림 등)을 맞춘다.
