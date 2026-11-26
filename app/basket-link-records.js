@@ -102,23 +102,21 @@ export async function updateLinkSummary(id,expected,summary,rt=window.KPTURuntim
     return {ok:false,error:'RESULT_UNKNOWN'};
   }
 }
-// UI-기록아이콘(2026-10-18 결정): the mark in front of a linked record tells an update (바구니 업데이트) from a note (노트).
-// Two small line icons drawn in the text color replace the old 🧺; other marks (e.g. a meeting result's 🗒) stay as they are.
-const UPDATE_ICON='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5 6.5h6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+// UI-기록아이콘(2026-10-18 결정): a note linked to a record keeps its small note icon (노트 연결).
+// RECORD-잊지말기연결표시삭제(S71-57, 사용자 결정 2026-11-26 "기록이 되버렸으면 걍 이젠 기록인거임"): 잊지 말기에서 온 기록은
+// 출처 표시(말풍선 아이콘·'잊지 말기 연결')도, 잊지 말기 원문으로 가는 이동도 없다. 지난 기록 전부 같다(화면 규칙, 연결 데이터는 그대로).
 const NOTE_ICON='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M3.5 2.5h6l3 3v8h-9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 2.5v3h3M5.5 8.5h5M5.5 11h3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 export const isNoteRecord=row=>row?.note_kind==='note';
-// ORG-기록첨부표시이름 ①(S61-6): 기록 입력칸에서 바로 올린 업데이트(연결 origin 'record_input')는 일반 기록처럼 이름표·표시 없이 날짜만.
-// 잊지 말기에서 옮긴 연결('basket')과 표시가 없는 지난 연결(null)은 지금처럼 '잊지 말기 연결'. 노트 연결은 늘 '노트 연결'.
-export const isDirectRecord=row=>!isNoteRecord(row)&&row?.origin==='record_input';
-export const recordMenuLabel=row=>isDirectRecord(row)?'기록 메뉴':'잊지 말기 기록 메뉴';
-export function recordMark(row,className='record-mark'){const note=isNoteRecord(row);return `<span class="${className}" data-record-mark="${note?'note':'update'}" role="img" aria-label="${note?'노트':'잊지 말기 업데이트'}">${note?NOTE_ICON:UPDATE_ICON}</span>`;}
+// 노트가 아닌 연결 기록(입력칸에서 바로 올린 것·잊지 말기에서 옮긴 것·만든 곳 표시가 없는 지난 것)은 모두 일반 기록: 날짜·글·사진·파일만.
+// 노트 연결은 늘 '노트 연결'(표시 아이콘, 누르면 노트).
+export function noteMark(className='record-mark'){return `<span class="${className}" data-record-mark="note" role="img" aria-label="노트">${NOTE_ICON}</span>`;}
 // A note record shows the summary written when it was linked, else the note's title, else its opening text.
 // BUG-미리보기기호: every line is shown as plain letters (no #·|·** marks, no &#x20; entities); the stored text is unchanged.
 export const recordText=row=>recordLocked(row)?LOCKED_RECORD_TEXT:row.summary!=null?previewText(row.summary):(isNoteRecord(row)&&String(row.title||'').trim()?previewText(row.title):noteExcerpt(row.raw_text));
 // ORG-기록첨부표시이름(S61-2): 목록 줄에 보이는 글. 요약·글이 없고 사진·파일만 있는 기록은 '사진 3장'·'파일 2개'(readLinkRecords withFiles의 attachments), 그것도 없으면 '요약 없음'.
 export const recordShownText=row=>recordText(row)||attachmentsLabel(row?.attachments)||'요약 없음';
-// BUG-바구니연결해제: the whole line opens the original note; the ⋯ at its end holds
-// [메모 열기]·[연결 해제]·[요약 수정]·[원문 삭제] (a note line too since ORG-연결노트삭제).
+// A note line opens the note; its ⋯ holds [노트 열기]·[연결 해제]·[요약 수정]·[원문 삭제]. A plain record line is text only
+// (no link); its ⋯ holds [연결 해제]·[요약 수정]·[원문 삭제] (S71-57: no [업데이트 열기]).
 // BUG-미리보기기호: the written text a record's [더보기] opens as headings and tables (only when it carries marks the line removed).
 const recordSourceText=row=>recordLocked(row)?LOCKED_RECORD_TEXT:row.summary!=null?row.summary:(isNoteRecord(row)&&String(row.title||'').trim()?row.title:row.raw_text);
 export const recordMarkdownSource=row=>markdownSource(recordSourceText(row));
@@ -129,8 +127,8 @@ export const recordWrittenSource=row=>{const text=recordSourceText(row);return !
 // 본문 = 글(또는 사진만인 기록의 한 줄) + 그 아래 extra(기록 띠: 작은 사진·파일 이름, record-files.js). 긴 날짜·시각은 날짜 칸 title로만.
 export function linkRecordHtml(row,{extra=''}={}){
   const ok=Number.isFinite(Date.parse(row.occurred_at)),date=ok?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'',day=ok?dayCell(row):'';
-  const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><span class="basket-link-day"><time${ok?` datetime="${escape(new Date(row.occurred_at).toISOString())}" title="${escape(date)}"`:''}>${escape(day)}</time></span><div class="basket-link-main"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}">${isDirectRecord(row)?'':`<small>${recordMark(row,'basket-link-mark')}<span class="basket-link-kind"> ${note?'노트 연결':'잊지 말기 연결'}</span></small>`}<p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordShownText(row))}</p></a>${extra}</div><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="${recordMenuLabel(row)}" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  const kind=row.organization_id?'organization':'project',note=isNoteRecord(row);
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><span class="basket-link-day"><time${ok?` datetime="${escape(new Date(row.occurred_at).toISOString())}" title="${escape(date)}"`:''}>${escape(day)}</time></span><div class="basket-link-main">${note?`<a class="basket-link-open" href="./?view=basket" data-basket-link-open="${escape(row.note_id)}"><small>${noteMark('basket-link-mark')}<span class="basket-link-kind"> 노트 연결</span></small>`:'<div class="basket-link-open">'}<p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordShownText(row))}</p>${note?'</a>':'</div>'}${extra}</div><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
 // One menu panel for every mounted record host (created on first use inside the open dialog).
@@ -138,11 +136,11 @@ const mountedHosts=new Map();let linkMenu=null;
 const hostOf=trigger=>[...mountedHosts.keys()].find(host=>host.contains(trigger));
 function recordMenu(host){
   if(linkMenu)return linkMenu;
-  linkMenu=createAnchoredMenu({id:'basketLinkMenu',className:'basket-link-menu',label:'잊지 말기 기록 관리',historyKey:'kptuBasketLinkMenu',parent:host.closest('.modal')||document.body,
+  linkMenu=createAnchoredMenu({id:'basketLinkMenu',className:'basket-link-menu',label:'기록 관리',historyKey:'kptuBasketLinkMenu',parent:host.closest('.modal')||document.body,
     key:trigger=>trigger.dataset.basketLinkMenu,canOpen:trigger=>!!hostOf(trigger)&&!trigger.disabled,
     // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제]·[요약 수정]. UI-연결요약수정: [요약 수정] changes only this link's summary.
-    // ORG-연결노트삭제(2026-11-12 명진 지시): 노트 줄에도 업데이트와 같은 자리·이름의 [원문 삭제](맨 아래, 위험 색). 노트 화면 [삭제]와 같은 휴지통 길.
-    render:id=>([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button>')+'<button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button>'+'<button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
+    // ORG-연결노트삭제: 노트 줄에도 같은 자리·이름의 [원문 삭제](맨 아래, 위험 색). S71-57: 일반 기록 줄에는 [업데이트 열기]가 없다.
+    render:id=>([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button>':'')+'<button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button>'+'<button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
     onAction:(button,active)=>{const host=hostOf(active.trigger);mountedHosts.get(host)?.(button.dataset.basketLinkAction,active.id);}});
   return linkMenu;
 }
@@ -276,18 +274,18 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
   function action(name,id){
     const row=rowsFor('basketLink',id)[0];if(!row||!isCurrent())return;
     const noteRow=row.dataset.basketLinkNoteKind==='note';
-    if(name==='open'){openNote(row.dataset.basketLinkNote,noteRow?'note':'basket');return;}
+    if(name==='open'){if(noteRow)openNote(row.dataset.basketLinkNote);return;}
     if(name==='summary'){open(id);return;}
     if(name==='disconnect'||name==='note-delete')void act(id,name==='note-delete');
   }
-  // UI-모바일업데이트겹쳐보기: a tap on the line itself passes {line,linkId,trigger}, so a phone can show the record over the detail
-  // (record-sheet.js) instead of leaving; the ⋯ [업데이트 열기]/[노트 열기] passes nothing and still opens the full view.
-  function openNote(noteId,kind='basket',info=null){if(onOpenNote&&noteId)onOpenNote(noteId,kind,info);else if(noteId)location.href=kind==='note'?'./?view=basket':`./?view=basket&note=${encodeURIComponent(noteId)}`;}
+  // UI-모바일업데이트겹쳐보기: a tap on a note line itself passes {line,linkId,trigger}, so a phone can show the note over the detail
+  // (record-sheet.js) instead of leaving; the ⋯ [노트 열기] passes nothing and still opens the full view. Only note lines open anything.
+  function openNote(noteId,info=null){if(onOpenNote&&noteId)onOpenNote(noteId,info);else if(noteId)location.href='./?view=basket';}
   function click(event){
     const link=event.target.closest?.('a[data-basket-link-open]');
     if(link&&host.contains(link)){
       if(!onOpenNote||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-      event.preventDefault();const row=link.closest('[data-basket-link]');if(isCurrent())openNote(link.dataset.basketLinkOpen,row?.dataset.basketLinkNoteKind==='note'?'note':'basket',{line:true,linkId:row?.dataset.basketLink||null,trigger:link});return;
+      event.preventDefault();const row=link.closest('[data-basket-link]');if(isCurrent())openNote(link.dataset.basketLinkOpen,{line:true,linkId:row?.dataset.basketLink||null,trigger:link});return;
     }
     const button=event.target.closest?.('button');if(!button||!host.contains(button))return;
     if(button.dataset.basketLinkMenu){if(!button.disabled)recordMenu(host).open(button);return;}

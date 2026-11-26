@@ -63,7 +63,8 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['pc-1280', 1280,
     const calls = await open(page);
     await row(page, D(1)).locator('[data-br-more]').click();
     const menu = page.locator('#brRowMenu');
-    await expect(menu.locator('button')).toHaveText(['선택', '브리핑만 삭제', '자료까지 삭제']);
+    // S70-84: [폴더로 옮기기…](브리핑 폴더 — 공용 '옮길 곳' 창)가 [선택] 다음에.
+    await expect(menu.locator('button')).toHaveText(['선택', '폴더로 옮기기…', '브리핑만 삭제', '자료까지 삭제']);
     await page.screenshot({ path: `docs/design/screens/s63-08/${label}-menu.png`, fullPage: false });
     await menu.locator('[data-br-act="brief"]').click();
     await expect(page.locator('.kptu-ask-text')).toHaveText('“예시 계획 자료” 브리핑만 삭제할까요?');

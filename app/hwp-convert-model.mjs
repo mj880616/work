@@ -91,3 +91,12 @@ export const textState = text => {
   const count = chars(trimmed);
   return {count, empty: !trimmed, tooLong: count > CONVERT_MAX_CHARS, text: trimmed};
 };
+
+// S71-61 HWP-노트안으로: 노트 ⋯ [이 노트를 HWP로]가 [노조 서식으로 만들기] 글 칸에 넣을 글. 제목이 본문 첫 줄과 다르면 맨 위 한 줄로 둔다.
+// 본문은 노트의 글자판(raw_text) 그대로 — 새 저장·새 변환 없이 붙여 넣은 글과 같은 길(runConvert)로 간다. 글이 없으면 ''.
+export function noteConvertText(note) {
+  const raw = cleanPasted(note?.title).trim(), title = raw === '노트' || raw === '제목 없음' ? '' : raw, body = cleanPasted(note?.raw_text).trim();
+  if (!body) return title;
+  const first = body.split('\n', 1)[0].replace(/^#+\s*/, '').trim();
+  return title && first !== title ? `${title}\n\n${body}` : body;
+}

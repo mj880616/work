@@ -216,18 +216,21 @@ const SPOTS = {
   ],
   // A(S70-28): 머리 줄 '새로 만들기' 단추(data-ctx-screen-item)를 빈 곳 우클릭 메뉴로.
   '하루 기록': [{ name: '하루 기록 머리 줄', sel: '#diaryView .diary-week-head', want: 'app', labels: ['하루 기록 쓰기'] }],
-  // S70-57: 사진 화면 첫 줄 제목 묶음(.photos-head)은 없앴다(이름·찾기·출처는 맨 위 줄) — 머리 줄 = 도구 줄의 빈 곳.
-  '사진': [{ name: '사진 머리 줄', sel: '#photosView .photos-bar', want: 'app', gap: SCREEN_GAP, at: 600 }],
-  '잊지 말기': [{ name: '잊지 말기 머리 줄', sel: '#basketView .forget-head', want: 'app', gap: SCREEN_GAP, at: 200 }],
-  // S70-40b ④: PC 틀은 목록 머리 줄 제목이 없다(위 줄에 화면 이름) — 머리 줄 탭 오른쪽 빈 곳. S70-28: 그 우클릭 메뉴에 '글 추가'.
-  '저장한 글': [{ name: '저장한 글 머리 줄', sel: '#readingView [data-rd-list] .rd-head', want: 'app', labels: ['글 추가'], at: 300 }, { name: '저장한 글 빈 곳', sel: '#readingView .wait-empty', want: 'app', labels: ['글 추가'] }],
+  // S71-25 PHOTO-머리한줄: 화면 안 도구 줄(.photos-bar)은 없다. 맨 위 줄 ⋯(사진 메뉴, data-ctx="screen")가 생겨 사진 본문 빈 곳 우클릭 = 그 ⋯ 메뉴.
+  '사진': [{ name: '사진 본문 빈 곳', sel: '#photosView [data-photos-body]', want: 'app', at: 600 }],
+  // S71-29 FORGET-머리한줄: 화면 안 머리 줄(.forget-head)은 없다 — 최신화는 맨 위 줄 단추 상자라 지킬 빈 곳이 남지 않는다(목록은 전수 조사가 본다).
+  // S70-40b ④: PC 틀은 목록 머리 줄 제목이 없다(위 줄에 화면 이름). S71-26: ＋가 맨 위 줄로 가 목록 머리 줄(.rd-head)도 없다 — 목록 첫 줄(보기 탭) 오른쪽 빈 곳.
+  // S70-28: 그 우클릭 메뉴에 '글 추가'(＋는 맨 위 줄 단추 상자 — data-screen-tools-for로 찾는다).
+  '저장한 글': [{ name: '저장한 글 첫 줄', sel: '#readingView [data-rd-list]', want: 'app', labels: ['글 추가'], at: 300 }, { name: '저장한 글 빈 곳', sel: '#readingView .wait-empty', want: 'app', labels: ['글 추가'] }],
   '조직 관리': [
     { name: '조직 카드', sel: '#teamView article.so-card', want: 'app' },
     { name: '조직 기록 줄', sel: '#teamView .wd-log-row', want: 'app' },
     { name: '조직 기록 입력 칸', sel: '#teamView textarea', want: 'browser' },
   ],
-  '사업 관리': [{ name: '사업 관리 머리 줄', sel: '#meetingsView .report-top-line', want: 'app', at: 300 }],
-  '브리핑 룸': [{ name: '브리핑 룸 제목', sel: '#briefView .br-title', want: 'app', gap: 'S70-27 브리핑 룸' }],
+  // BIZ-머리한줄(S71-23): 첫 줄(PC 화면 안 #reportTop)은 ⋯ 대신 [+](data-ctx-screen-item '추가') — 빈 곳 우클릭은 그 단추 메뉴.
+  '사업 관리': [{ name: '사업 관리 머리 줄', sel: '#reportTop', want: 'app', labels: ['추가'], at: 300 }],
+  // S71-30 BRIEF-머리한줄: 목록 머리 줄(제목)은 없고 화면 ⋯는 맨 위 줄 — 빈 곳 우클릭 = 그 ⋯ 메뉴.
+  '브리핑 룸': [{ name: '브리핑 룸 빈 곳', sel: '#briefView [data-br-list]', want: 'app' }],
   '텔레그램 소식': [{ name: '텔레그램 머리 줄', sel: '#telegramView .feed-head-sub', want: 'app' }],
   '아스날': [{ name: '아스날 경기 글', sel: '#arsenalView .ars-verdict', want: 'app', gap: 'S70-16 고른 글 메뉴(읽기 글) + 화면 머리 ⋯ 없음' }],
 };
@@ -319,12 +322,12 @@ test('S70-28 전수 1280: 통화 화면', async ({ page }, testInfo) => {
 });
 
 // A(S70-28): 빈 곳 메뉴 항목을 고르면 그 머리 줄 단추를 그대로 누른 것과 같다(같은 단추에서 만든 목록).
-test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 머리 줄 [+ 추가]', async ({ page }) => {
+test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 맨 위 줄 ＋', async ({ page }) => {
   await page.setViewportSize({ width: W, height: 900 });
   await instrument(page);
   await openHome(page);
   await clickView(page, 'reading');
-  const add = page.locator('#readingView [data-rd-add]');
+  const add = page.locator('#appView>.app-topline [data-rd-add]'); // S71-26: ＋는 맨 위 줄 검색 칸 오른쪽
   await expect(add).toHaveAttribute('aria-expanded', 'false');
   const empty = page.locator('#readingView .wait-empty');
   await expect(empty).toBeVisible(); // 목록 읽기가 끝나 빈 안내가 그려진 뒤
@@ -334,15 +337,15 @@ test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 머리 줄 [
   const r = await rightClickAt(page, Math.round(b.x + 30), Math.round(b.y + b.height / 2));
   expect(r.result).toBe('app');
   await page.locator('#rowMenu').getByRole('button', { name: '글 추가', exact: true }).click();
-  await expect(page.locator('#readingView [data-rd-add]')).toHaveAttribute('aria-expanded', 'true');
+  await expect(add).toHaveAttribute('aria-expanded', 'true');
   // 입력 칸은 브라우저 메뉴 그대로.
   const input = page.locator('#readingView input:visible').first();
   await expect(input).toBeVisible();
   const ib = await input.boundingBox();
   expect((await rightClickAt(page, Math.round(ib.x + 20), Math.round(ib.y + ib.height / 2))).result).toBe('browser');
   // Shift+F10(메뉴 키)도 같은 메뉴.
-  // S70-40b ④ 뒤: PC 틀은 머리 줄 제목(.rd-title)을 그리지 않으므로 머리 줄 자체에 초점.
-  await page.locator('#readingView [data-rd-list] .rd-head').evaluate(el => { el.tabIndex = -1; el.focus(); });
+  // S70-40b ④ 뒤: PC 틀은 머리 줄 제목(.rd-title)을 그리지 않는다. S71-26: 목록 머리 줄도 없어 목록 칸 자체에 초점.
+  await page.locator('#readingView [data-rd-list]').evaluate(el => { el.tabIndex = -1; el.focus(); });
   await page.evaluate(() => { window.__ctxBy = []; });
   await page.keyboard.press('Shift+F10');
   await expect(page.locator('#rowMenu')).toBeVisible();

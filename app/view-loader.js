@@ -38,7 +38,6 @@ const routeStyles={
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./home-quick.css','./ui-standard.css'],
   search:['./filter-chips.css','./global-search.css','./folder-look.css','./folder-tree.css','./ui-standard.css'],
-  reference:['./reference-bundles.css','./ui-standard.css'],
   calls:['./choice-sheet.css','./feed.css','./area-org-picker.css','./ui-standard.css'],
   telegram:['./choice-sheet.css','./feed.css','./row-swipe.css','./od-link.css','./area-org-picker.css','./folder-look.css','./folder-tree.css','./news-mark-rows.css','./memo-thread.css','./ui-standard.css'],
   photos:['./diary.css','./od-link.css','./source-chips.css','./photos.css','./folder-tree.css','./folder-look.css','./basket-picker.css','./folder-dest-sheet.css','./ui-standard.css'],
@@ -52,7 +51,7 @@ const routeStyles={
   signups:['./signups.css','./ui-standard.css'],
   // SEC-기능PIN잠금 ②: 잠금 화면(설정 목록·숫자 판).
   lock:['./lock.css','./ui-standard.css'],
-  brief:['./feed.css','./news-mark-rows.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./od-link.css','./ui-standard.css'],
+  brief:['./feed.css','./news-mark-rows.css','./files.css','./folder-tree.css','./folder-dest-sheet.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./od-link.css','./row-swipe.css','./ui-standard.css'],
   // S68-09 READ-읽을거리함: 읽을 거리 목록·글 보기(줄 메뉴는 feed.css 공용 작은 메뉴).
   reading:['./feed.css','./choice-sheet.css','./area-org-picker.css','./filter-chips.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./reading.css','./memo-thread.css','./od-link.css','./ui-standard.css'],
   // HELP-메뉴안쓰는법: 쓰는 법 화면. 앱 내려받기 탭·단계는 빈 화면 안내와 같은 모양(first-use.css).
@@ -164,15 +163,13 @@ async function organizations(){
 // HOME-업무일지홈: 홈은 업무일지 화면이다(journal.js가 #homeView 안 #journalRoot의 유일한 renderer). 옛 홈 칸 화면은 코드째 삭제.
 async function home(){ await module('./journal.js'); return {ok:true} }
 async function basket(){ await module('./basket.js'); return {ok:true} }
-// HWP-편집기(☰ 메뉴·사이드바 [HWP 편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
+// HWP-편집기(S71-61부터 노트 화면 ⋯ [HWP 편집]·노트 ⋯ [이 노트를 HWP로]·자료실 [편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
 async function diary(){ await module('./diary.js'); return {ok:true} }
 async function hwpLab(){ await module('./hwp-lab.js','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 // UI-프로필입구: [계정 ▾] → [내 프로필]. Like hwp, it stays out of loadAll; the module installs #profileView and loads its data on first open.
 async function profile(){ await organizationOrder(); await module('./profile-settings.js','__KPTU_PROFILE_SETTINGS_READY__'); return {ok:true} }
 // SEARCH-전체검색: 상단 줄 검색칸·결과 창·검색 결과 화면(?view=search)·폰 메뉴 검색 입구. loader-v2가 첫 화면 뒤에 한 번 불러온다.
 async function search(){ await module('./global-search.js','__KPTU_GLOBAL_SEARCH_READY__'); return {ok:true} }
-// REF-참고묶음 화면 2: 참고 묶음(?view=reference, 입구는 담당조직 목록 맨 아래·바구니 "참고" 칩). loadAll에 넣지 않고 처음 열 때만 불러온다.
-async function reference(){ await module('./reference-bundles.js'); return {ok:true} }
 // CALL-통화메뉴·TG-소식메뉴: [통화](?view=calls)·[텔레그램 소식](?view=telegram), 사이드바 맨 아래·폰 메뉴 판. loadAll에 넣지 않고 열 때만 불러온다.
 async function calls(){ await organizationOrder(); await module('./call-feed.js'); return {ok:true} }
 async function telegram(){ await organizationOrder(); await module('./telegram-feed.js'); return {ok:true} }
@@ -211,7 +208,7 @@ async function reading(){ await module('./reading.js'); return {ok:true} }
 // SEC-기능PIN잠금 ②: [잠금](?view=lock, 계정 메뉴) — 잠긴 기능을 열 때도 문지기(feature-lock.js)가 이 화면으로 보낸다. 열 때만 불러온다(모듈이 #lockView를 만든다).
 async function lock(){ await module('./lock-ui.js'); return {ok:true} }
 async function help(){ await module('./help.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,search,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages)은 없앴다 — 노트(정리함 노트 쪽, 라우터 ALIAS_SUB)를 연다.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home',pages:'basket'};
@@ -258,7 +255,6 @@ const warmModules={
   library:/*static-chain*/['./library-upload.js'],
   meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js','./meeting-from-files.js'],
   team:/*static-chain*/['./suborganizations.js','./workplace-detail.js'],
-  reference:/*static-chain*/['./reference-bundles.js'],
   calls:/*static-chain*/['./call-feed.js'],
   telegram:/*static-chain*/['./telegram-feed.js'],
   photos:/*static-chain*/['./photos.js'],

@@ -11,7 +11,8 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // 밝은·어두운 테마, 폰 412·PC 1280에서 화면 사진의 점 색으로도 확인한다. 서버는 흉내(이름·글은 모두 가짜).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const SHOTS = process.env.UI_BOTTOM_BAR_SHOTS || '';
-const FILE = { 노트: 'note', 업데이트: 'update', 일기: 'diary', 프로필: 'profile' };
+// S71-36 PROFILE-설정화면: 내 프로필에는 아래 저장 줄이 없다(바꾸면 바로 저장) — 프로필은 이 시험에서 뺐다.
+const FILE = { 노트: 'note', 업데이트: 'update', 일기: 'diary' };
 const AT = '2026-10-05T01:00:00Z';
 const long = Array.from({ length: 40 }, (_, i) => `${i + 1}번째 줄 가짜 글을 길게 적어 봅니다`).join('\n');
 const rows = () => [
@@ -51,11 +52,6 @@ const SCREENS = {
     await page.locator('[data-basket-row="u1"]').click();
     await noteAction(page, '[data-basket-edit]');
     return page.locator('[data-basket-detail] [data-basket-edit-actions]');
-  },
-  async 프로필(page) {
-    await page.evaluate(() => window.KPTURouter.go('profile'));
-    await expect(page.locator('#profileView')).toBeVisible();
-    return page.locator('#profileView .ps-actions');
   },
   async 일기(page) {
     await page.evaluate(() => window.KPTURouter.go('diary'));

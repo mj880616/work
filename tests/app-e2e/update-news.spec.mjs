@@ -1,6 +1,6 @@
 // UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 + 명진 11/15 13:37): 이용자 '업데이트 소식'·운영자 보내기.
 // - 이용자: 계정 메뉴 '업데이트 소식' → 운영자가 보낸 소식만(서버 app_update_news_list). 점·숫자·새 소식 창 없음. 열면 읽음만 남김(app_update_news_seen).
-// - 운영자: 업데이트 기록 줄마다 [보내기] → 그 기록 글이 채워진 창('폰에서 볼 것'은 기본 빼기, 넣기 고를 수 있음, 다른 기록 묶기) → 서버 save.
+// - 운영자: 업데이트 기록 줄마다 [보내기] → 그 기록 글이 채워진 창('확인할 것'은 기본 빼기, 넣기 고를 수 있음, 다른 기록 묶기) → 서버 save.
 // 서버는 page.route로 흉내 낸다. 화면 사진은 docs/design/screens/s62-19/에 남긴다(폰 412·폴드 펼침 880·PC 1280).
 import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
@@ -95,7 +95,7 @@ test('이용자: 소식이 없으면 한 줄',async({page})=>{
   await expect(page.locator('#whatsnewView [data-wait-empty]')).toHaveText('아직 소식이 없어요',{timeout:15000});
 });
 
-for(const width of [390,880,1280])test(`운영자: 기록 줄 [보내기] → 글 채워진 창(폰에서 볼 것 기본 빼기·묶기) → 서버로 (${width}px)`,async({page})=>{
+for(const width of [390,880,1280])test(`운영자: 기록 줄 [보내기] → 글 채워진 창(확인할 것 기본 빼기·묶기) → 서버로 (${width}px)`,async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width,height:900});
   const calls=await boot(page,{operator:true,view:'updates'});
@@ -125,9 +125,9 @@ for(const width of [390,880,1280])test(`운영자: 기록 줄 [보내기] → �
   await expect(area).toHaveValue('· 게시판 글을 날짜순으로 모아 보여 줘요');
   await modal.locator('.un-adder').selectOption('11/15-3');
   await expect(area).toHaveValue('· 게시판 글을 날짜순으로 모아 보여 줘요\n· 사진 화면에 내 구글 드라이브 칸이 생겼어요\n· 메뉴에 [파일]이 생겼어요');
-  await modal.getByLabel("'폰에서 볼 것' 줄도 같이 보내기").check();
+  await modal.getByLabel("'확인할 것' 줄도 같이 보내기").check();
   await expect(area).toHaveValue(/사진 열어 보기$/);
-  await modal.getByLabel("'폰에서 볼 것' 줄도 같이 보내기").uncheck();
+  await modal.getByLabel("'확인할 것' 줄도 같이 보내기").uncheck();
   await modal.getByLabel('제목(선택)').fill('사진·파일');
   await area.fill('· 사진 화면에 내 구글 드라이브 칸이 생겼어요\n· 메뉴에 [파일]이 생겼어요\n\n');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);

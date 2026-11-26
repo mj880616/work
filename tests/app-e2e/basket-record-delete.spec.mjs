@@ -1,6 +1,6 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-import {noteAction,showBasketRow} from './helpers/basket-more.mjs';
+import {noteAction,openBasketNote} from './helpers/basket-more.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {linkAction} from './helpers/basket-link-menu.mjs';
 import {noteTrash} from './helpers/note-trash.mjs';
@@ -10,7 +10,7 @@ test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // BUG-바구니연결해제: one wording on every screen, naming the place. Actions live in the line's ⋯ (helpers/basket-link-menu.mjs).
 const DISCONNECT={organization:'합성 담당조직 연결을 해제할까요? 업데이트는 남아요'};
-const more=row=>row.getByRole('button',{name:'잊지 말기 기록 메뉴'});
+const more=row=>row.getByRole('button',{name:'기록 메뉴',exact:true});
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 // basket-files note-delete model: trash count comes from the test, the note and its links go away like the real cascade.
 const CORS={'access-control-allow-origin':'*','access-control-allow-headers':'authorization, x-client-info, apikey, content-type','access-control-allow-methods':'GET, POST, OPTIONS'};
@@ -77,10 +77,10 @@ test('organization original delete before the database is ready explains and sen
  await expect(host.locator('[data-basket-link]')).toHaveCount(3);expect(await deletes(page)).toEqual([]);expect(page.__posts).toEqual([]);expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`project basket rows open the memo and offer no summary edit or original delete ${width}`,async({page})=>{
+for(const width of [390,1280])test(`project basket rows are plain records (no link to the memo) and offer no summary edit or original delete ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const errors=await ready(page),host=await open(page,'project'),{link}=await ids(page);
  await expect(host.getByRole('button',{name:'연결 해제'})).toHaveCount(0);await expect(host.getByRole('button',{name:'원문 삭제'})).toHaveCount(0);await expect(host.locator('[data-link-disconnect],[data-link-note-delete],[data-link-summary-edit]')).toHaveCount(0);
- await expect(host.locator(`[data-basket-link="${link}"] a`)).toHaveAttribute('href',/view=basket&note=/);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await expect(host.locator(`[data-basket-link="${link}"] a`)).toHaveCount(0); // S71-57: 잊지 말기로 가는 링크 없음expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(await deletes(page)).toEqual([]);expect(page.__posts).toEqual([]);expect(await page.evaluate(()=>window.__detailState.links.length)).toBe(3);expect(errors).toEqual([]);
 });
 
@@ -133,7 +133,7 @@ async function basket(page,{fail=0,mode='ok'}={}){
  await page.route(SB+'/rest/v1/app_record_links?**',r=>{const u=new URL(r.request().url()),q=u.searchParams.get('note_id');if(!q)return r.fallback();const wanted=q.startsWith('eq.')?[q.slice(3)]:q.slice(4,-1).split(',');return r.fulfill({json:links.filter(l=>wanted.includes(l.note_id)&&(!u.searchParams.get('status')||l.status==='confirmed'))});});
  return {notes,links,writes,posts,errors,trash};
 }
-async function openNote(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);await showBasketRow(page,'n');await tap(page,page.locator('[data-basket-row="n"]'),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();}
+async function openNote(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);await openBasketNote(page,'n',width<761?l=>l.tap():null);await expect(page.locator('[data-basket-read-text]')).toBeVisible();}
 
 // TRASH-다른삭제 5단계: 업데이트 [삭제]는 휴지통으로 간다. 확인창 글, '휴지통으로 옮겼어요 · 되돌리기' 한 줄, 되돌리면 목록에 다시 나타남.
 const CONFIRM='업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 1곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.';
@@ -154,8 +154,9 @@ for(const width of [390,1280])test(`basket read view moves the update to the tra
  await notice.getByRole('button',{name:'되돌리기'}).click();
  await expect(notice).toContainText('되돌렸습니다.');
  expect(f.trash.rpc.filter(r=>r.fn==='app_trash_restore')).toEqual([{fn:'app_trash_restore',kind:'note',id:'n'}]);
- await pickBasketView(page,'classified');await expect(page.locator('[data-basket-row="n"]')).toHaveCount(1);expect(f.trash.trash).toEqual([]);expect(f.links.length).toBe(1);
- // UI-바구니거르기 → S52-20: the kept memo (no link) sits in 처리 전 (= 미분류). Checked after the undo (the view menu takes a moment, the notice would time out).
+ // S71-58 FORGET-처리전만: 되살린 메모는 연결이 있어(처리한 것) 처리 전 목록에는 없다.
+ await expect(page.locator('[data-basket-row="n"]')).toHaveCount(0);expect(f.trash.trash).toEqual([]);expect(f.links.length).toBe(1);
+ // UI-바구니거르기 → S52-20: the kept memo (no link) sits in 처리 전 (= 미분류).
  await pickBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="keep"]')).toBeVisible();
  if(width===390)await page.screenshot({path:info.outputPath('basket-delete-result-390.png')});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);

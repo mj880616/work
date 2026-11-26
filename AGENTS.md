@@ -88,6 +88,11 @@
 
 - 토큰·키 값을 명령어 인자에 넣지 않는다. gh가 있으면 gh를 우선 사용한다.
 
+### 공개 금지 낱말과 커밋 작성자
+
+- **커밋 작성자 메일은 GitHub noreply 주소(`<번호>+<계정>@users.noreply.github.com`)만 쓴다.** 개인 메일을 `git config user.email`에 두지 않는다(SEC-공개저장소청소 ②, 2026-11-26 사용자 결정).
+- 코드·문서·시험 자료·커밋 메시지·PR 제목과 본문에 실제 사람 이름·실제 단체 이름·업무 내용·요청 원문·가족 이야기를 쓰지 않는다. 출처 표시는 '사용자 결정'·'운영자', 시험 자료는 가짜 이름(예: A노조·가상지부)으로 쓴다. CI `public-words-check`가 새로 더한 줄·커밋·PR 글을 비밀값 낱말 목록으로 본다(`scripts/check-public-words.mjs`, 낱말 목록은 저장소에 두지 않는다).
+
 ## 4. 조사와 수정
 
 - 기존 구조와 source of truth(실제 데이터, 인증/DB 상태, 지정된 원장)를 확인한 뒤 수정한다. Inspect the relevant call path and data flow first: UI, routes, APIs/RPCs, database policies, storage rules, authentication/session handling, shared authorization logic, and related tests.
@@ -195,7 +200,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - 진행 중에는 원인 발견, 예상과 다른 구조, 보안·데이터 손실 위험, 요구사항 충돌, 테스트 실패를 우선 알린다.
 - 요청과 구현이 다르면 차이를 명시한다.
 - 사용자 할 일과 사용자 결정 항목은 채팅 보고와 별도로 PR 댓글로도 올린다(터미널 복사 시 잘림 방지).
-- **업데이트 기록**(2026-10-27 사용자 결정, UI-업데이트안내): 앱 화면·동작이 바뀌는 PR은 `app/release-notes/YYYYMMDD-HHMM-작업이름.json` 파일 1개를 더한다(`{"date":"YYYY-MM-DD","changes":["바뀐 점"],"checks":["폰에서 볼 것"]}`, 한 줄 100자·각 3줄까지). 일상어로만 쓰고 개발 용어·작업 이름·사람 이름·단체 이름·업무 내용·주소는 쓰지 않는다(공개 저장소에 남는다. 2026-11-15 사용자 결정: 기록 화면은 운영자만 본다. 2026-11-23 사용자 결정 '기본 자동·수동 회수': 새 기록은 main에 배포되면 서버가 기록 하나당 이용자 '업데이트 소식' 하나로 자동으로 보내고(`changes` 줄만, `checks`는 빼고), 운영자는 소식마다 거두거나 다시 보낸다. 그러니 `changes`는 이용자가 그대로 읽을 글로 쓴다). 문서·원장·내부 정리만 바뀐 PR은 쓰지 않는다. 모양은 `app/release-notes-model.mjs`와 Pages 빌드 검사가 본다.
+- **업데이트 기록**(2026-10-27 사용자 결정, UI-업데이트안내): 앱 화면·동작이 바뀌는 PR은 `app/release-notes/YYYYMMDD-HHMM-작업이름.json` 파일 1개를 더한다(`{"date":"YYYY-MM-DD","changes":["바뀐 점"],"checks":["확인할 것"]}`, 한 줄 100자·각 3줄까지). 일상어로만 쓰고 개발 용어·작업 이름·사람 이름·단체 이름·업무 내용·주소는 쓰지 않는다(공개 저장소에 남는다. 2026-11-15 사용자 결정: 기록 화면은 운영자만 본다. 2026-11-23 사용자 결정 '기본 자동·수동 회수': 새 기록은 main에 배포되면 서버가 기록 하나당 이용자 '업데이트 소식' 하나로 자동으로 보내고(`changes` 줄만, `checks`는 빼고), 운영자는 소식마다 거두거나 다시 보낸다. 그러니 `changes`는 이용자가 그대로 읽을 글로 쓴다). 문서·원장·내부 정리만 바뀐 PR은 쓰지 않는다. 모양은 `app/release-notes-model.mjs`와 Pages 빌드 검사가 본다.
 
 ### 완료보고 양식
 

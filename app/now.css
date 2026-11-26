@@ -24,9 +24,7 @@
 }
 /* 펼친 폴드(약 690px): 칸 최소 폭을 좁혀(공용 기본 240·360px) 두 칸이 기본 2 : 3(outside-statements.js mountSplit)으로 들어오게. */
 @media (min-width:600px) and (max-width:760px){ #appView #outsideView .os.now{ --ds-split-list-min:220px; --ds-split-detail-min:280px; } }
-@media (min-width:761px){
-  #appView #outsideView .now-detail{ position:sticky; top:var(--follow-top,8px); max-height:calc(100vh - var(--follow-top,8px) - 8px); overflow:auto; }
-}
+/* PC 오른쪽 글 칸의 붙기·높이는 공용 follow-pane(.kptu-follow-pane, desktop-ui.css UI-두칸높이) 한 곳이 정한다(outside-statements.js openDetail). */
 @media(max-width:599px){ #appView #outsideView .os.now[data-detail="open"] > .os-tabs{ display:none; } }
 #appView #outsideView :is([data-now-panel-all],[data-now-panel-news],.now-interests)[hidden]{ display:none; }
 
@@ -34,6 +32,8 @@
    위 줄: 찾기 칸 하나 + [매체: 전체 ▾] + ⋯. 줄: 날짜 묶음 머리 → 흰 상자(--kptu-surface) 안 줄(왼쪽 매체 색 띠 · 제목 · 매체 이름 같은 색 · 꼬리표 · 시각 · ★).
    색은 news-colors.mjs가 고른 토큰(--nw-c, --nw-tag-*)만. 안 읽은 글 굵게(is-new), 읽은 글 흐리게(is-read), 아직 모르면 보통. */
 #appView #outsideView .nw-day-head{ margin:8px 0 4px; padding:0 4px; font-size:11px; font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); }
+/* S71-27: 맨 위 '오늘' 묶음은 머리 없이(새 글 수는 화면 첫 줄) — 첫 상자는 목록 맨 위에 바로 붙되 아래 묶음 머리와 같은 4px만 띄운다. */
+#appView #outsideView .nw-day-lead{ margin-top:4px; }
 #appView #outsideView .nw-card{ background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:12px; overflow:hidden; }
 #appView #outsideView .nw-row{ display:flex; gap:9px; min-width:0; padding:9px 11px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
 #appView #outsideView .nw-card > .nw-row:first-child,#appView #outsideView .nc-tree-item:first-of-type .nw-row{ border-top:0; }
