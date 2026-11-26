@@ -20,6 +20,7 @@ import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit
 import {clipboardFiles} from './paste-files.mjs';
 import {draftOf, editBlocks, editView, sameBlocks, lostMarks, lostNote, textRows, EDIT_LABEL} from './body-edit-model.mjs';
 import {readEdit, saveEdit as saveEditRow, dropEdit, marksOf, dropMarks} from './body-edit-data.js';
+import {fitAll} from './auto-grow.js';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
 // - 위에서 아래(S52-12 NEWS-원문먼저번역, 시안 docs/design/mockups/news-detail-translate.html): 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [원문 전체]
@@ -242,7 +243,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       const n = i + 1;
       const body = b.t === 'img'
         ? `<figure class="nd-edit-img"><img src="${esc(b.src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">${b.cap ? `<figcaption>${esc(b.cap)}</figcaption>` : ''}</figure>`
-        : `<textarea class="nd-edit-text${b.t === 'h' ? ' nd-edit-h' : ''}" data-nd-edit-text="${i}" rows="${textRows(b.text)}" aria-label="${n}번째 문단"${dis}>${esc(b.text)}</textarea>`;
+        : `<textarea data-autogrow class="nd-edit-text${b.t === 'h' ? ' nd-edit-h' : ''}" data-nd-edit-text="${i}" rows="${textRows(b.text)}" aria-label="${n}번째 문단"${dis}>${esc(b.text)}</textarea>`;
       return `<li class="nd-edit-row" data-nd-edit-row="${i}"><input type="checkbox" class="nd-edit-pick" data-nd-edit-pick="${i}" aria-label="${n}번째 ${b.t === 'img' ? '사진' : '문단'} 선택"${e.sel.has(i) ? ' checked' : ''}${dis}>${body}<button type="button" class="icon-btn nd-edit-x" data-nd-edit-x="${i}" aria-label="${n}번째 ${b.t === 'img' ? '사진' : '문단'} 삭제"${dis}><span aria-hidden="true">×</span></button></li>`;
     };
     return `<form class="nd-edit" data-nd-edit-form aria-label="원문 수정"><div class="nd-edit-bar" data-nd-edit-bar>${editBarHtml()}</div>
@@ -320,7 +321,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // MENU-자리나머지: 원문 ⋯ 메뉴를 연 채 원문 칸·상세가 다시 그려져도(원문 읽기 끝·번역·글자 크기) 열린 메뉴는 새 ⋯에 붙고, ⋯가 없어지면 닫힌다(공용 keepMenus).
   var ndMenus = []; // 메뉴는 아래에서 만든다
   const keepOb = paintNow => keepMenus(ndMenus, {attrs: ['data-nd-ob-more'], root: box || document}, paintNow);
-  function paintBody() { keepOb(() => { const el = cur && part('[data-nd-body]'); if (el) { el.innerHTML = bodyHtml(); marksNow(); fillOwn(el); } }); }
+  function paintBody() { keepOb(() => { const el = cur && part('[data-nd-body]'); if (el) { el.innerHTML = bodyHtml(); marksNow(); fillOwn(el); if (cur.edit?.open) fitAll(el); } }); } // S71-68 ②: 원문 수정 칸은 열자마자 글 전체가 보이게(공용 늘어나는 칸)
   // 저장한 밑줄 칠하기(원문 그대로 볼 때만). [밑줄] 탭에서 연 밑줄이 칠해지면 그 자리로 한 번 옮긴다.
   function marksNow() {
     const z = cur && !cur.tr.on ? part('[data-nd-prose]') : null;
