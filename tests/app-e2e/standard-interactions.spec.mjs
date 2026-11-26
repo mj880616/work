@@ -21,6 +21,8 @@ import { start as startNews, openNews } from './helpers/news-server.mjs';
 const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
 import { askBox, dragAsk, askTextSpot } from './helpers/confirm-drag.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
+import { dragPastEdge } from './helpers/drag-edge.mjs';
+import { phoneFolder } from './helpers/files-server.mjs';
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
 // 이름은 모두 지어낸 것이다. 서버 쓰기는 없다(가짜 서버).
@@ -2078,4 +2080,92 @@ for (const width of Q3_WIDTHS) for (const c of MENU_FINDS) test(`Q3 ${c.name} ${
   await expect.poll(async () => { if (c.settle) await c.settle(page); return c.rows(page).count(); }).toBe(c.after);
   q3Same(before, await q3Box(find), '친 뒤');
   expect(errors).toEqual([]);
+});
+
+// ---------- D3 끌기 중 끝에 가면 저절로 스크롤(S70-75 STD-끌기자동스크롤) ----------
+// 명진 11/26 08:55 "어디서든 파일이든 노트든 뭐든 드래그하면서 스크롤 되어야한다고 모든화면에서": 긴 목록에서 끌어 칸 끝에 대고 있으면 그 칸이 저절로 굴러,
+// 처음엔 화면 밖이던 자리에 놓을 수 있다(PC 1280 마우스 + 폰 390 손가락). 끄는 방법(helpers/drag-edge.mjs)은 화면마다 같다.
+// 새 끌기 화면이 생기면 DRAG_SCROLL_SCREENS에 한 줄 더한다: open(page, width) → {mode, from, to, box(굴러갈 칸, 없으면 화면), dir, dy, done(놓은 결과), errors}.
+const fileItem = o => ({ parent_id: null, is_folder: false, mime: null, size_bytes: 1000, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null, source: 'od', ...o });
+async function filesDragScroll(page, width) {
+  const { errors, server } = await startFiles(page, width);
+  for (let i = 0; i < 40; i++) server.items.push(fileItem({ item_id: 'OD!F' + i, name: '가상 폴더 ' + String(i).padStart(2, '0'), is_folder: true, size_bytes: null }));
+  const wide = width >= 761;
+  await openFiles(page, width, { two: wide });
+  let root = '#filesRoot';
+  if (wide) {
+    const t = page.locator('#filesRoot [data-fx-two]');
+    if ((await t.getAttribute('aria-pressed')) !== 'true') await t.click();
+    root = '#filesRoot [data-fx-pane-i="0"]';
+  } else await phoneFolder(page, 'od');
+  // 이름순이라 '가상 폴더 00'이 맨 위, '가짜 사진함'(OD!2)이 맨 아래.
+  const row = id => page.locator(`${root} [data-fx-row="od:${id}"]`).first();
+  await expect(row('OD!F0')).toBeVisible();
+  const box = wide ? row('OD!F0').locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," fx-listcol ")][1]') : null;
+  const moved = () => server.calls.filter(c => c.what === 'edge' && c.action === 'move').map(c => JSON.stringify(c.body));
+  return { errors, mode: wide ? 'html' : 'touch', from: row('OD!F0'), to: row('OD!2'), box, dir: 'down',
+    done: async () => {
+      // 손가락으로 놓으면 [복사][옮기기]를 고른다(PC 같은 칸 놓기는 바로 옮김).
+      if (!wide) await page.locator('#filesRoot [data-fx-dropask] [data-fx-drop-go="move"]').click();
+      await expect.poll(() => moved().some(b => b.includes('OD!F0') && b.includes('OD!2'))).toBe(true);
+    } };
+}
+async function notesDragScroll(page, width) {
+  await page.setViewportSize({ width, height: 800 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page);
+  await installViewPrefsServer(page);
+  const row = (id, title) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title, occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-10T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: {} });
+  const rows = Array.from({ length: 40 }, (_, i) => row('n' + String(i).padStart(2, '0'), '가상 노트 ' + String(i).padStart(2, '0')));
+  const folders = Array.from({ length: 40 }, (_, i) => ({ id: U(100 + i), workspace_id: 'w', parent_id: null, name: '가상 폴더 ' + String(i).padStart(2, '0'), sort_order: 1024 * (i + 1), created_at: '2026-10-01T00:00:00Z' }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => {
+    const req = r.request(), q = new URL(req.url()).searchParams;
+    if (q.has('metadata->>family_list')) return r.fulfill({ json: [] });
+    const pick = x => !q.get('id') || 'eq.' + x.id === q.get('id');
+    if (req.method() === 'GET') return r.fulfill({ json: structuredClone(rows.filter(pick)).slice(Number(q.get('offset') || 0)) });
+    if (req.method() === 'PATCH') { const hit = rows.filter(x => 'eq.' + x.id === q.get('id')); hit.forEach(x => Object.assign(x, structuredClone(req.postDataJSON()))); return r.fulfill({ json: structuredClone(hit) }); }
+    return r.fulfill({ status: 500, json: {} });
+  });
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.request().method() === 'GET' ? r.fulfill({ json: structuredClone(folders) }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
+  await page.evaluate(() => window.KPTURouter.go('basket'));
+  await chooseBasketKind(page, 'note');
+  const folderOf = id => rows.find(r => r.id === id)?.metadata?.folder_id || null;
+  if (width >= 761) {
+    // PC: 오른쪽 목록의 노트 → 왼쪽 폴더 나무(따로 굴러가는 칸) 맨 아래 폴더.
+    const tree = page.locator('[data-nx-tree]');
+    await expect(tree.locator(`[data-nx-folder="${U(139)}"]`)).toHaveCount(1);
+    return { errors, mode: 'mouse', from: page.locator('#noteRows [data-nx-note="n00"]').first(), to: tree.locator(`[data-nx-folder="${U(139)}"]`).first(), box: tree, dir: 'down',
+      done: () => expect.poll(() => folderOf('n00')).toBe(U(139)) };
+  }
+  // 폰: 첫 화면 나무 맨 아래 '폴더 없음'을 그 자리에서 펼쳐, 맨 아래 노트를 길게 눌러 화면 맨 위 폴더로.
+  await page.locator('#noteRows [data-nx-outside] .ft-main').first().click();
+  const last = page.locator('#noteRows [data-nx-note="n39"]').first();
+  await expect(last).toHaveCount(1);
+  return { errors, mode: 'touch', from: last, to: page.locator(`#noteRows [data-nx-folder="${U(100)}"]`).first(), box: null, dir: 'up',
+    done: () => expect.poll(() => folderOf('n39')).toBe(U(100)) };
+}
+// 줄 순서 바꾸기(조직 묶음 손잡이 ⋮⋮): 맨 아래 묶음을 맨 위 묶음 앞으로. 시험 화면에는 앱 머리줄이 없다.
+async function orderDragScroll(page, width) {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.setViewportSize({ width, height: 560 });
+  await page.goto(`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html?orgs=order`);
+  const card = name => page.locator(`#soOrganizationList .so-org-group[data-so-group="${name}"]`);
+  await expect(card('민간도시철도')).toHaveCount(1);
+  return { errors, mode: width >= 761 ? 'mouse' : 'touch', hold: 0, from: card('민간도시철도').locator('[data-so-grip="group"]'), to: card('철도').locator('.so-group-heading'), box: null, dir: 'up', dy: -6,
+    done: () => expect.poll(() => page.evaluate(() => window.__orgOrderPrefs.org_order?.groups?.map(g => g.name) || null)).toEqual(['민간도시철도', '철도', '지하철', '민자철도']) };
+}
+const DRAG_SCROLL_SCREENS = [['파일(PC 두 칸)', 1280, filesDragScroll], ['파일', 390, filesDragScroll], ['노트 → 폴더', 1280, notesDragScroll], ['노트 → 폴더', 390, notesDragScroll],
+  ['줄 순서(조직 묶음)', 1280, orderDragScroll], ['줄 순서(조직 묶음)', 390, orderDragScroll]];
+for (const [name, width, open] of DRAG_SCROLL_SCREENS) test.describe(`D3 ${name} ${width}`, () => {
+  if (width < 761) test.use({ hasTouch: true });
+  test(`D3 ${name} ${width}: 끌어 칸 끝에 대고 있으면 저절로 굴러 화면 밖 자리에 놓는다`, async ({ page }) => {
+    test.setTimeout(60000);
+    const s = await open(page, width);
+    await dragPastEdge(page, s);
+    await s.done();
+    expect(s.errors).toEqual([]);
+  });
 });
