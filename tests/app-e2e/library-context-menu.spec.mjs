@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // S70-09 LIB-PC우클릭(2026-11-25 명진 "이런데가 딱 새 폴더 만들기 이런걸 우클릭해서 하고싶은 곳인데 작동안험"): PC(마우스) 자료실 오른쪽 클릭은
 // 윈도우 탐색기처럼 앱 메뉴 — 빈 곳(목록 상자 아래 남는 자리 포함) = [새 폴더][파일 올리기]…[모두 선택](지금 폴더), 파일 줄 = 그 줄 ⋯ 메뉴,
 // 여러 개 고른 뒤 고른 줄 = 고른 것 전체 메뉴, 왼쪽 나무 폴더 줄 = 그 폴더 ⋯ 메뉴. 글 입력칸 위는 크롬 메뉴 그대로(앱 메뉴 없음·막지 않음).
@@ -16,7 +17,7 @@ test.describe('자료실 PC 오른쪽 클릭 1280',()=>{
   test.use({hasTouch:false});
   test('목록 아래 빈 곳 = [새 폴더][파일 업로드][모두 선택], [새 폴더]는 지금 폴더 안',async({page},info)=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
-    await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
+    await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));
     await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(4);
     await page.screenshot({path:info.outputPath('library-pc-before-right-click.png')});
     await watch(page);
@@ -35,6 +36,9 @@ test.describe('자료실 PC 오른쪽 클릭 1280',()=>{
     await expect(page.locator('#libraryFolderTitle')).toHaveText('안에 폴더 만들기');
     await page.locator('#libraryFolderName').fill('가상 새것');await page.locator('#libraryFolderSave').click();
     await expect.poll(()=>s.folders.find(f=>f.name==='가상 새것')?.parent_id).toBe('fa');
+    // STAB(S70-74): 가짜 서버가 저장을 받은 뒤에도 앱이 응답을 받아 창을 닫기 전까지는 창이 화면을 덮어 우클릭이 창에 간다.
+    // 창이 닫힌 뒤에 다음 우클릭을 한다(서버 응답이 늦으면 창이 덮은 채로 우클릭해 메뉴가 안 뜨던 간헐 실패).
+    await expect(page.locator('#libraryFolderModal')).toBeHidden();
     // 목록 상자 안 빈 자리(마지막 줄 아래)도 같은 메뉴, [모두 선택] = 지금 폴더 파일 모두.
     const lb=await page.locator('#documentList').boundingBox(),cb=await page.locator('#libraryListCard').boundingBox();
     expect(cb.y+cb.height-6).toBeGreaterThan(lb.y+lb.height);
@@ -47,7 +51,7 @@ test.describe('자료실 PC 오른쪽 클릭 1280',()=>{
 
   test('파일 줄 = 그 줄 ⋯ 메뉴, 여러 개 고른 뒤 고른 줄 = 고른 것 전체 메뉴',async({page})=>{
     const {errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
-    await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
+    await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));
     const row=id=>page.locator(`#documentList [data-lu-document="${id}"]`);
     await row('d1').locator('[data-lu-menu]').click();
     await expect(page.locator('#luMorePanel')).toBeVisible();

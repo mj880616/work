@@ -19,7 +19,7 @@ async function openSheet(page){
 
 for(const width of [390,412]){
   for(const who of ['운영자','일반 사용자']){
-    test(`메뉴 창 순서 (${width}px · ${who}): 설정 묶음 → 운영 줄 → 검색 → 메뉴 칸`,async({page})=>{
+    test(`메뉴 창 순서 (${width}px · ${who}): 설정 묶음 → 운영 줄 → 메뉴 칸`,async({page})=>{
       test.setTimeout(90000);
       const operator=who==='운영자';
       await page.setViewportSize({width,height:844});
@@ -28,8 +28,9 @@ for(const width of [390,412]){
       const panel=await openSheet(page);
       const settings=page.locator('#mobileMenu .mobile-menu-settings'),ops=page.locator('#mobileMenu .mobile-menu-ops');
 
-      // 위에서 아래로: 설정 묶음 → 운영 줄 → 전체 검색 → 메뉴 칸. 메뉴 칸 아래 끝이 하단바 바로 위.
-      const tops=await Promise.all(['.mobile-menu-settings','.mobile-menu-ops','.gs-menu-entry','nav[aria-label="더 보기"]'].map(s=>rect(page.locator('#mobileMenu '+s)).then(r=>r.top)));
+      // 위에서 아래로: 설정 묶음 → 운영 줄 → 메뉴 칸. 메뉴 칸 아래 끝이 하단바 바로 위. S70-57: 전체 검색 입구는 홈 머리 줄로(메뉴 창에는 없음).
+      await expect(page.locator('#mobileMenu .gs-menu-entry')).toHaveCount(0);
+      const tops=await Promise.all(['.mobile-menu-settings','.mobile-menu-ops','nav[aria-label="더 보기"]'].map(s=>rect(page.locator('#mobileMenu '+s)).then(r=>r.top)));
       for(let i=1;i<tops.length;i++)expect(tops[i-1]).toBeLessThan(tops[i]);
       const nav=await rect(page.locator('#mobileMenu nav')),bar=await rect(page.locator('.mobile-tabs'));
       expect(bar.top-nav.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-nav.bottom).toBeLessThanOrEqual(24);

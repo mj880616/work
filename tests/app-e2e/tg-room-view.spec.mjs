@@ -6,6 +6,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {installTgServer,telegramRows,F,T} from './helpers/tg-room-day-server.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const A6='room-a|2026-10-06',A5='room-a|2026-10-05',A0='room-a|2026-09-20';
 
@@ -185,7 +186,7 @@ for(const width of [1440,884,412])test.describe(`보기 바꿈 높이 ${width}`,
  });
 });
 
-// S67-45 TG-방상세요약먼저(요청함 11/20 21:33): 방 상세 위 작은 찾기 — 그 방 소식의 원문·요약·제목을 서버(소유자 읽기 표)에서 찾고,
+// S67-45 TG-방상세요약먼저(요청함 11/20 21:33): 방 상세 찾기(S70-57부터 찾을 글자는 맨 위 칸 '텔레그램 소식에서 찾기', 방 안 칸은 없음) — 그 방 소식의 원문·요약·제목을 서버(소유자 읽기 표)에서 찾고,
 // 찾은 줄을 누르면 그날을 펼쳐 그 소식 원문으로 옮긴다. 옛 날(불러온 14일 밖)이면 그날까지 이어 불러온다. 캡처는 KPTU_SHOTS가 있을 때만.
 const SHOTS45=process.env.KPTU_SHOTS?'docs/design/screens/s67-45/':'';
 for(const width of [1440,412])test.describe(`방 상세 찾기 ${width}`,()=>{
@@ -198,8 +199,9 @@ for(const width of [1440,412])test.describe(`방 상세 찾기 ${width}`,()=>{
   await press(page,view.locator('[data-tg-roomrow="room-a"] [data-tg-roomopen]'),width);
   await expect(detail.locator(`[data-tg-rday="${A6}"] [data-tg-daybox]`)).toContainText('교섭이 다음 주 화요일로 미뤄졌다.');
   if(SHOTS45)await page.screenshot({path:`${SHOTS45}room-days-${width}.png`});
-  const input=detail.locator('[data-tg-find-input]');
-  await expect(input).toHaveAttribute('placeholder','이 방에서 찾기');
+  await expect(detail.locator('input')).toHaveCount(0);
+  const input=await screenFind(page);
+  await expect(input).toHaveAttribute('placeholder','텔레그램 소식에서 찾기');
   // 원문에만 있는 글자.
   await input.fill('두 시로');await input.press('Enter');
   const found=detail.locator('[data-tg-found] [data-tg-found-go]');
@@ -223,10 +225,10 @@ for(const width of [1440,412])test.describe(`방 상세 찾기 ${width}`,()=>{
   const old=detail.locator(`[data-tg-di="${T.aOld}"]`);
   await expect(old.locator('[data-tg-raw]')).toContainText('옛 공지',{timeout:15000});
   await expect(old).toBeInViewport();
-  // 없는 글자는 한 줄, ✕로 닫는다.
+  // 없는 글자는 한 줄, 칸을 비우면 닫힌다.
   await input.fill('없는 글자');await input.press('Enter');
   await expect(detail.locator('[data-tg-find-status]')).toHaveText('찾은 소식 없음');
-  await press(page,detail.locator('[data-tg-find-close]'),width);
+  await input.fill('');
   await expect(detail.locator('[data-tg-find-status]')).toHaveCount(0);
   await expect(input).toHaveValue('');
   if(width<761){await page.goBack();await expect(view.locator('#tgList')).toBeVisible();await expect(detail).toBeHidden();}

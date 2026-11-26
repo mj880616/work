@@ -57,7 +57,8 @@ async function fixture(page,width,{open,library,basket,overwrite}={}){
     if(open)return open(route,body);
     return body.document_id?opened(route,HWP,info()):opened(route,HWPX,info({source:'basket',file_name:'안건.hwpx',format:'hwpx',size:HWPX.length,can_overwrite:false}));
   });
-  await page.route(SB+'/functions/v1/library-files',route=>{const body=multipart(route.request());sent.library.push(body);return library?library(route,body):route.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}})});
+  await page.route(SB+'/functions/v1/library-files',route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({headers:cors,json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+    const body=multipart(route.request());sent.library.push(body);return library?library(route,body):route.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}})});
   await page.route(SB+'/functions/v1/basket-files',route=>{const body=multipart(route.request());sent.basket.push(body);return basket?basket(route,body):route.fulfill({headers:cors,json:{ok:true,note_id:NOTE,attachments:[...attachments,{drive_file_id:'drive-new',file_name:body.file.file,mime_type:'application/x-hwp',size_bytes:100}]}})});
   return {sent,errors,external};
 }

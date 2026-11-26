@@ -76,9 +76,10 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // The sheet sits right on top of the tab bar, full width, rounded top.
  await expect.poll(async()=>{const [sheet,tabs]=await Promise.all([rect(panel),rect(page.locator('.mobile-tabs'))]);return Math.abs(sheet.bottom-tabs.top)<=1&&sheet.left===0&&Math.round(sheet.right)===390;}).toBe(true);
  await expect(grip).toBeFocused();await expect(grip).toHaveAccessibleName('메뉴 닫기');
- // S68-36 메뉴 창 정리(명진 11/23 확정): 위에서부터 설정 링크 묶음 → 운영 줄 → 전체 검색 → 메뉴 칸(맨 아래, 하단바 바로 위).
- const tops=await page.evaluate(()=>['.mobile-menu-settings','.mobile-menu-ops','.gs-menu-entry','nav[aria-label="더 보기"]'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
- expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);expect(tops[2]).toBeLessThan(tops[3]);
+ // S68-36 메뉴 창 정리(명진 11/23 확정): 위에서부터 설정 링크 묶음 → 운영 줄 → 메뉴 칸(맨 아래, 하단바 바로 위). S70-57: 전체 검색 입구는 홈 머리 줄로(메뉴 창에는 없음).
+ await expect(page.locator('#mobileMenu .gs-menu-entry')).toHaveCount(0);
+ const tops=await page.evaluate(()=>['.mobile-menu-settings','.mobile-menu-ops','nav[aria-label="더 보기"]'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
+ expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
  { const nav=await rect(page.locator('#mobileMenu nav')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-nav.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-nav.bottom).toBeLessThanOrEqual(24); }
  // 메뉴 줄 2열(MULTI-하단바기본노트: 노트는 하단바, 잊지 말기가 맨 앞. S68-37: 자료실·사진은 하단바, 조직 관리·사업 관리는 읽을 거리 다음): 잊지 말기·읽을 거리 / 조직 관리·사업 관리 / 파일·브리핑 룸 / HWP 편집·News(원장 메뉴 빠짐, MULTI-처음쓰는사람 ④), 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail) = 6줄(BRIEF-브리핑룸 ③).
  const tiles=page.locator('#mobileMenu nav button:visible');
@@ -94,10 +95,9 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  const red=await account.locator('[data-kptu-logout]').evaluate(el=>getComputedStyle(el).color),danger=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(red).toBe(danger);
  await expect(account).toHaveAttribute('aria-label','계정');await expect(page.locator('#mobileMenu h2')).toHaveCount(0);
- // Keyboard: Tab goes in screen order — grip → settings links (내 프로필 first) … → 운영 줄 → 로그아웃 → search field → the menu rows; Esc closes and returns to the [메뉴] tab.
+ // Keyboard: Tab goes in screen order — grip → settings links (내 프로필 first) … → 운영 줄 → 로그아웃 → the menu rows; Esc closes and returns to the [메뉴] tab.
  await grip.focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu [data-profile-open]')).toBeFocused();
- await page.locator('#mobileMenu [data-kptu-logout]').focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu .gs-menu-entry')).toBeFocused();
- await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
+ await page.locator('#mobileMenu [data-kptu-logout]').focus();await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(tab).toBeFocused();await expect(tab).toHaveAttribute('aria-expanded','false');
  // 닫으면 지금 보는 화면(자료실) 하나만 진하다.
  await expect(marks).toHaveCount(1);await expect(marks).toContainText('자료실');await expect(tab).not.toHaveAttribute('aria-current','page');

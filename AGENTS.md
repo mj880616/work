@@ -102,6 +102,7 @@
 - UI 변경: 기존 컴포넌트를 재사용하고, 모바일·데스크톱을 함께 확인한다. 키보드·터치 접근성을 유지하고, 요청 없는 대규모 디자인 변경을 하지 않는다.
 - 목록·나무·고르기·끌기 화면은 `docs/design/standard-interactions.md` 기준표를 모두 지킨다(2026-11-24 명진 요청). 새 화면은 `tests/app-e2e/standard-interactions.spec.mjs` 화면 표에 더한다.
 - 화면 글자(버튼·메뉴·안내·알림)는 `docs/design/ui-words.md` 용어 기준표를 따른다.
+- 명진에게 묻기 전에 결정 장부(동작 `docs/design/standard-interactions.md`, 모양 `docs/design-decisions.md`, 글자 `docs/design/ui-words.md`)를 먼저 찾는다. 확정 동작을 만드는 PR은 그 ID의 시험을 넣는다. 같은 영역(폴더·목록·끌기 / 밀기·막대·메뉴 / 글 읽기 / 노트 / 찾기 / 자료실 서버 등)은 한 번에 한 작업만 돈다(2026-11-26 명진 결정, `docs/command-center-ops.md` 1-1~1-3절).
 - Do not independently change Supabase schemas, RLS, existing data, visibility policy, URL structure, or Edge Function authentication boundaries. Record a proposal instead. Do not add product features or redesign the application as part of stabilization work.
 
 ### 범위

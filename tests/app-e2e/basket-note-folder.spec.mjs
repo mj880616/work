@@ -91,7 +91,7 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
     // PC: folders only in the left tree (none on the right). NOTE-최근5개: the tree starts with '최근' (picked first), the right shows
     // the latest changed notes of every folder with '최근 · 3' above and the folder name on the row.
     await expect(page.locator('#noteRows [data-nx-folder]')).toHaveCount(0);
-    await expect(page.locator('[data-nx-tree] > *').first()).toHaveAttribute('data-nx-recent-item', '');
+    await expect(page.locator('[data-nx-tree] .ft-row').first()).toHaveAttribute('data-nx-recent-item', '');
     await expect(page.locator('[data-nx-tree] [data-nx-recent-item]')).toHaveClass(/ft-current/);
     await expect(here(page)).toHaveText('최근 · 3');
     await expect(page.locator('[data-nx-tree] [data-nx-new-top]')).toHaveText('+ 새 폴더');
@@ -117,7 +117,7 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   await showOutside(page, width);
   // Row ⋯: [선택] first, [복사] in the menu, then [폴더로 옮기기] opens the shared folder list; the note gets the folder id and name, nothing else changes.
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
-  await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', '공유 링크 만들기', '하루 기록으로 보내기', '삭제']);
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', '공유 링크 만들기', '알림 걸기…', '서식으로 저장', '하루 기록으로 보내기', '삭제']);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await expect(picker(page)).toBeVisible();
   await pickInSheet(page, ['회의']);

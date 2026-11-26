@@ -54,7 +54,7 @@ async function checkPlace(page, { side }) {
     const s = await box(page.locator('[data-nbb-side]'));
     expect(xOverlap(bar, s), '노트 목록 칸과 가로로 겹치지 않음').toBe(0);
     // 왼쪽 칸은 '노트 목록' 머리부터 — 그 위에 보드 고르기 줄이 없다.
-    const head = await box(page.locator('[data-nbb-side] .nbb-side-head'));
+    const head = await box(page.locator('[data-nbb-side] .ft-box-head'));
     expect(head.y - s.y).toBeLessThanOrEqual(12);
     expect(s.y, '노트 목록 칸은 보드 칸 줄과 같은 높이에서 시작').toBeLessThanOrEqual(bar.y + 1);
   }

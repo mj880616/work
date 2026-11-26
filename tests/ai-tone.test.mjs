@@ -92,6 +92,7 @@ const EXCLUDED = new Map([
   ['ai-assist/overlap.ts', '두 기록이 같은 활동인지 가리는 판정 이유 한 문장(요약이 아님)'],
   ['ai-assist/call-refill.ts', '통화 제목·조직·상대 칸 채우기(핵심내용 요약은 쓰지 않음)'],
   ['ai-assist/business-area.ts', '사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관(사업요약표 진행 칸 한 줄은 S49-39에서 없앰)'],
+  ['ai-assist/find-expand.ts', '검색 글을 찾을 낱말·기간으로만 바꿈(낱말 목록과 날짜만 답함, 문장 아님 — SEARCH-비슷한것찾기)'],
   ['ai-assist/note-title.ts', '노트 목록의 짧은 명사형 제목(제목, 문장 아님 — 10/28 09:24 말투 규칙과 무관)'],
   ['ai-assist/record-one-line.ts', '조직 기록 표의 개조식 한 줄(명사형 요약, 문장 아님 — 말투 규칙과 무관, RECORD-한줄AI요약)'],
   ['ai-assist/library-sort.ts', '받는 폴더 자료를 나눌 폴더 번호·새 폴더 이름과 짧은 까닭(폴더 고르기, 요약 문장 아님 — LIB-받는폴더나누기)'],
