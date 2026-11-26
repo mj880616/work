@@ -144,10 +144,10 @@ async function remove(kind,id,{rt,isCurrent,confirmText,write,confirmed=false,as
   pending.add(key);
   const owner=scope(rt),current=()=>owner===scope(rt)&&isCurrent();
   const notify=()=>{if(owner===scope(rt))window.dispatchEvent(new Event('kptu:basket-links-changed'));};
-  const text=kind==='note'?{failed:RECORD_DELETE_TEXT.NOTE_FAILED,missing:RECORD_DELETE_TEXT.NOTE_MISSING,deleted:RECORD_DELETE_TEXT.NOTE_DELETED}:{failed:RECORD_DELETE_TEXT.DISCONNECT_FAILED,missing:RECORD_DELETE_TEXT.DISCONNECT_MISSING,deleted:''};
+  const text=kind==='note'?{failed:RECORD_DELETE_TEXT.NOTE_FAILED,missing:RECORD_DELETE_TEXT.NOTE_MISSING,deleted:RECORD_DELETE_TEXT.NOTE_DELETED}:kind==='record'?{failed:RECORD_LINK_TEXT.failed,missing:RECORD_LINK_TEXT.missing,deleted:''}:{failed:RECORD_DELETE_TEXT.DISCONNECT_FAILED,missing:RECORD_DELETE_TEXT.DISCONNECT_MISSING,deleted:''};
   try{
     let workspaceId;try{workspaceId=workspaceOf(rt);}catch{return {status:'stale'};}
-    const expectedSessionEpoch=sessionEpoch(rt),path=kind==='note'?noteDeletePath(id,workspaceId):recordLinkDeletePath(id,workspaceId);
+    const expectedSessionEpoch=sessionEpoch(rt),path=kind==='note'?noteDeletePath(id,workspaceId):recordLinkDeletePath(id,workspaceId); // 'record'도 같은 연결 줄 지우기
     const message=await confirmText();
     if(!current())return {status:'stale'};
     if(message.status){if(message.status==='missing')notify();return message;}
@@ -174,9 +174,9 @@ async function remove(kind,id,{rt,isCurrent,confirmText,write,confirmed=false,as
 }
 
 // RECORD-기록하나로(S71-71): record=true = 조직·사업 기록 줄 [삭제] — 같은 연결 줄 하나 지우기를 '기록 삭제'로 묻고 알린다(원문은 그대로).
-export const RECORD_LINK_TEXT=Object.freeze({confirm:'이 기록을 삭제할까요?',done:'기록을 삭제했어요.'});
+export const RECORD_LINK_TEXT=Object.freeze({confirm:'이 기록을 삭제할까요?',done:'기록을 삭제했어요.',failed:'기록을 삭제하지 못했어요. 다시 시도해 주세요.',missing:'이미 삭제된 기록이에요. 목록을 다시 불러왔어요.'});
 export function disconnectRecordLink(linkId,{name='',rt=window.KPTURuntime,isCurrent=()=>true,anchor=globalThis.document?.activeElement,record=false,ask=askFor(record?'record':'link',anchor)}={}){
-  return remove('link',linkId,{rt,isCurrent,ask,confirmText:async()=>({text:record?RECORD_LINK_TEXT.confirm:disconnectConfirmText(name)})});
+  return remove(record?'record':'link',linkId,{rt,isCurrent,ask,confirmText:async()=>({text:record?RECORD_LINK_TEXT.confirm:disconnectConfirmText(name)})});
 }
 
 // Undo re-links the same place with the same summary through the existing confirm-links RPC (owner RLS, INVOKER).

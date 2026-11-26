@@ -5,6 +5,7 @@ import {expectProjectTitle} from './helpers/screen-title.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import { openBasketUpdate } from './helpers/forget-view.mjs';
 // BUG-바구니연결해제: the same disconnect on four screens — organization detail, project detail, basket list, note screen.
+// S71-71 RECORD-기록하나로: on the two detail screens it is the record's ⋯ [삭제] ('이 기록을 삭제할까요?' · '기록을 삭제했어요.'); the update stays.
 // One confirmation ("○○ 연결을 해제할까요? 메모는 남아요"), one owner-RLS row delete, then 5 seconds of [되돌리기]
 // that re-links through the existing app_basket_confirm_links RPC.
 test.use({hasTouch:true});
@@ -29,20 +30,20 @@ const deletes=page=>page.evaluate(()=>(window.__detailState.deletes||[]).map(pat
 const confirms=page=>page.evaluate(()=>window.__detailState.confirms||[]);
 const menuItems=(page,id)=>page.locator(`#${id} button`).allTextContents();
 
-for(const width of [390,1280])test(`organization detail: ⋯ disconnects with one confirmation, [되돌리기] re-links ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`organization detail: ⋯ [삭제] removes only the record (link) with one confirmation, [되돌리기] re-links ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const {errors,host,ids}=await ready(page,'organization'),row=host.locator(`[data-basket-link="${ids.link}"]`);
  const more=row.getByRole('button',{name:'기록 메뉴',exact:true});
  const box=await more.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await tap(page,more,width);await expect(page.locator('#basketLinkMenu')).toBeVisible();
- expect(await menuItems(page,'basketLinkMenu')).toEqual(['연결 해제','요약 수정','원문 삭제']); // S71-57: [업데이트 열기] 없음
+ expect(await menuItems(page,'basketLinkMenu')).toEqual(['수정','메모','삭제']); // S71-71 RECORD-기록하나로: 기록 ⋯ 한 벌
  if(width===390)await page.screenshot({path:info.outputPath('org-menu-390.png')});
- await tap(page,page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}),width);const messages=await accept(page);
- await expect(row).toHaveCount(0);expect(messages).toEqual(['합성 담당조직 연결을 해제할까요? 업데이트는 남아요']);
+ await tap(page,page.locator('#basketLinkMenu').getByRole('button',{name:'삭제',exact:true}),width);const messages=await accept(page);
+ await expect(row).toHaveCount(0);expect(messages).toEqual(['이 기록을 삭제할까요?']);
  expect(await deletes(page)).toEqual([{table:'app_record_links',params:{id:'eq.'+ids.link,workspace_id:'eq.detail-workspace',select:'id'}}]);
  expect(await page.evaluate(n=>window.__detailState.notes.some(x=>x.id===n),ids.note)).toBe(true);
  // The notice sits inside the open dialog so its focus loop reaches [되돌리기].
- const notice=page.locator('#wdModal [data-undo-notice]');await expect(notice).toBeVisible();await expect(notice).toContainText('합성 담당조직 연결을 해제했어요. 업데이트는 남아요.');
+ const notice=page.locator('#wdModal [data-undo-notice]');await expect(notice).toBeVisible();await expect(notice).toContainText('기록을 삭제했어요.');
  if(width===390)await page.screenshot({path:info.outputPath('org-undo-390.png')});
  await tap(page,notice.getByRole('button',{name:'되돌리기'}),width);
  await expect(notice).toContainText('연결을 되돌렸어요.');await expect(host.locator('[data-basket-link]')).toHaveCount(2);await expect(host).toContainText('연결 요약');
@@ -60,23 +61,23 @@ test('organization detail: tapping a record line that came from 잊지 말기 go
 
 test('organization detail: cancelling the confirmation changes nothing and returns focus to ⋯',async({page})=>{
  const {errors,host,ids}=await ready(page,'organization'),row=host.locator(`[data-basket-link="${ids.link}"]`),more=row.getByRole('button',{name:'기록 메뉴',exact:true});
- await more.click();await page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}).click();await answerAsk(page,false);
+ await more.click();await page.locator('#basketLinkMenu').getByRole('button',{name:'삭제',exact:true}).click();await answerAsk(page,false);
  await expect(more).toBeFocused();await expect(more).toBeEnabled();await expect(host.locator('[data-basket-link]')).toHaveCount(2);await expect(undo(page)).toHaveCount(0);
  expect(await deletes(page)).toEqual([]);expect(await page.evaluate(()=>window.__linkEvents)).toBe(0);expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`project detail: ⋯ holds [연결 해제]·[요약 수정]; the notice ends after 5 seconds ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`project detail: ⋯ holds [수정][메모][삭제]; the notice ends after 5 seconds ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const {errors,host,ids}=await ready(page,'project'),row=host.locator(`[data-basket-link="${ids.link}"]`);
  await expect(row.locator('a')).toHaveCount(0);
  const more=row.getByRole('button',{name:'기록 메뉴',exact:true}),box=await more.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
  await expect(host.locator('[data-link-summary-edit],[data-link-note-delete]')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await tap(page,more,width);await expect(page.locator('#ps3RecordMenu')).toBeVisible();expect(await menuItems(page,'ps3RecordMenu')).toEqual(['연결 해제','요약 수정']);
+ await tap(page,more,width);await expect(page.locator('#ps3RecordMenu')).toBeVisible();expect(await menuItems(page,'ps3RecordMenu')).toEqual(['수정','메모','삭제']);
  if(width===390)await page.screenshot({path:info.outputPath('project-menu-390.png')});
- await tap(page,page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}),width);const messages=await accept(page);
- await expect(row).toHaveCount(0);expect(messages).toEqual(['합성 프로젝트 연결을 해제할까요? 업데이트는 남아요']);await expect(host.locator('[data-basket-link]')).toHaveCount(1);
+ await tap(page,page.locator('#ps3RecordMenu').getByRole('button',{name:'삭제',exact:true}),width);const messages=await accept(page);
+ await expect(row).toHaveCount(0);expect(messages).toEqual(['이 기록을 삭제할까요?']);await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  expect(await deletes(page)).toEqual([{table:'app_record_links',params:{id:'eq.'+ids.link,workspace_id:'eq.detail-workspace',select:'id'}}]);
- const notice=page.locator('#ps3DetailModal [data-undo-notice]');await expect(notice).toBeVisible();await expect(notice).toContainText('합성 프로젝트 연결을 해제했어요.');
+ const notice=page.locator('#ps3DetailModal [data-undo-notice]');await expect(notice).toBeVisible();await expect(notice).toContainText('기록을 삭제했어요.');
  if(width===390)await page.screenshot({path:info.outputPath('project-undo-390.png')});
  // No undo: after 5 seconds the notice goes away and nothing is re-linked.
  await expect(notice).toHaveCount(0,{timeout:7000});expect(await confirms(page)).toEqual([]);await expect(host.locator('[data-basket-link]')).toHaveCount(1);expect(errors).toEqual([]);
@@ -84,15 +85,15 @@ for(const width of [390,1280])test(`project detail: ⋯ holds [연결 해제]·[
 
 test('project detail: [되돌리기] re-links the same project with its summary; a cancelled confirmation sends nothing',async({page})=>{
  const {errors,host,ids}=await ready(page,'project'),row=host.locator(`[data-basket-link="${ids.link}"]`),more=row.getByRole('button',{name:'기록 메뉴',exact:true});
- await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await answerAsk(page,false);
+ await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'삭제',exact:true}).click();await answerAsk(page,false);
  await expect(more).toBeFocused();expect(await deletes(page)).toEqual([]);await expect(undo(page)).toHaveCount(0);
- await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(row).toHaveCount(0);
+ await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'삭제',exact:true}).click();await accept(page);await expect(row).toHaveCount(0);
  await page.locator('#ps3DetailModal [data-undo-notice]').getByRole('button',{name:'되돌리기'}).click();
  await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toContainText('연결을 되돌렸어요.');await expect(host.locator('[data-basket-link]')).toHaveCount(2);await expect(host).toContainText('연결 요약');
  expect(await confirms(page)).toEqual([{p_note_id:ids.note,p_note_updated_at:'2026-10-11T01:30:00Z',p_targets:[{kind:'project',target_id:ids.project,reason:'직접 연결',summary:'연결 요약'}]}]);
  // A refused undo (here: the note was archived meanwhile) is said plainly and changes nothing.
  await page.evaluate(()=>{window.__detailState.confirmError='NOTE_ARCHIVED'});const again=host.locator('[data-basket-link]').first();
- await again.getByRole('button',{name:'기록 메뉴',exact:true}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(host.locator('[data-basket-link]')).toHaveCount(1);
+ await again.getByRole('button',{name:'기록 메뉴',exact:true}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'삭제',exact:true}).click();await accept(page);await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  await page.locator('#ps3DetailModal [data-undo-notice]').getByRole('button',{name:'되돌리기'}).click();
  await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toContainText('보류한 업데이트라 연결을 되돌리지 못했어요.');await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  await host.locator('[data-basket-link] .ps3-rec-text').first().click();await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(await page.evaluate(()=>window.__went)).toEqual([]);
@@ -158,7 +159,7 @@ for(const scheme of ['light','dark'])test(`detail screens in the app: ⋯ menu a
  const org=page.locator('#wdUpdates [data-basket-link="l1"]');await expect(org).toBeVisible();await expect(org).toContainText('조직 요약');
  await org.getByRole('button',{name:'기록 메뉴',exact:true}).click();await expect(page.locator('#basketLinkMenu')).toBeVisible();
  await page.screenshot({path:shot(info,`org-menu-390-${scheme}.png`)});
- await page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(org).toHaveCount(0);
+ await page.locator('#basketLinkMenu').getByRole('button',{name:'삭제',exact:true}).click();await accept(page);await expect(org).toHaveCount(0);
  await expect(page.locator('#wdModal [data-undo-notice]')).toBeVisible();await page.screenshot({path:shot(info,`org-undo-390-${scheme}.png`)});
  await page.locator('#wdModal [data-undo-notice]').getByRole('button',{name:'되돌리기'}).click();await expect(page.locator('#wdUpdates [data-basket-link]')).toHaveCount(1);
  await page.locator('[data-wd-close="wdModal"]').click();await expect(page.locator('#wdModal')).toBeHidden();
@@ -166,7 +167,7 @@ for(const scheme of ['light','dark'])test(`detail screens in the app: ⋯ menu a
  const project=page.locator('#ps3-progress [data-basket-link="l2"]');await expect(project).toBeVisible();
  await project.getByRole('button',{name:'기록 메뉴',exact:true}).click();await expect(page.locator('#ps3RecordMenu')).toBeVisible();
  await page.screenshot({path:shot(info,`project-menu-390-${scheme}.png`)});
- await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(project).toHaveCount(0);
+ await page.locator('#ps3RecordMenu').getByRole('button',{name:'삭제',exact:true}).click();await accept(page);await expect(project).toHaveCount(0);
  await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toBeVisible();await page.screenshot({path:shot(info,`project-undo-390-${scheme}.png`)});
  expect(f.deleted.map(d=>d.id)).toEqual(['eq.l1','eq.l2']);expect(f.confirmed).toHaveLength(1);expect(f.errors).toEqual([]);
 });
