@@ -1524,10 +1524,8 @@ function luOnHeadClick(e){const head=e.target.closest('summary.lu-node-head');if
   //  들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]만. 전의 'S69-28 폰 이름 누르기 = 그 폴더 내용'·'OPS-빠진일2차 1 하위 없는 폴더 = 한 번에 열기'는 없앴다.
   // 탐색기 칸은 접힌 폴더 안을 그려 두지 않으므로(library-tree.js lazy) 펼침·접힘을 칸 펼침(luXOpen — 나무 luOpened·luNavOpen과 따로)에 적고 다시 그린다
   // (자리는 공용 ftKeepPlace가 지킨다). 이름 바꾸는 중(입력칸)에는 손대지 않는다.
-  if(d.closest('[data-lu-enter]')){if(head.querySelector('input'))return;e.preventDefault();if(next){luXOpen.add(key);for(const k of String(d.dataset.luChain||'').split(' ').filter(Boolean))luXOpen.add(k)}else luXOpen.delete(key);luRenderLibrary();document.querySelector(`#documentList details[data-lu-node="${CSS.escape(key)}"] > summary`)?.focus({preventScroll:true});return}
-  if(luFilterSignature!=='-')luFilterOpen.set(key,next);else if(next)luOpened.add(key);else luOpened.delete(key);
-  // SEARCH-선택옮기기 ⑦: '공공팀 › 회의 › 집행위'로 줄여 보이던 외줄 폴더를 펼치면 이어진 폴더도 함께 펼친다(각 폴더의 toggle을 luOnToggle이 그대로 기록).
-  if(next)for(const k of String(d.dataset.luChain||'').split(' ').filter(Boolean)){const x=luNodeEl(k);if(x&&!x.open)x.open=true}}
+  if(d.closest('[data-lu-enter]')){if(head.querySelector('input'))return;e.preventDefault();if(next)luXOpen.add(key);else luXOpen.delete(key);luRenderLibrary();document.querySelector(`#documentList details[data-lu-node="${CSS.escape(key)}"] > summary`)?.focus({preventScroll:true});return}
+  if(luFilterSignature!=='-')luFilterOpen.set(key,next);else if(next)luOpened.add(key);else luOpened.delete(key);}
 // 한 자료가 든 토글을 위 단까지 펼치고 그 토글의 자료를 모두 보인다(다른 화면에서 그 자료로 올 때).
 function luRevealInTree(id){if(luInFolder&&!luVisibleIds().includes(id)){luInFolder=null;luRenderLibrary()}const path=pathTo(luLastTree,id);if(!path.length)return;if(luTwoActive()){luTwo.reveal(path);return}for(const k of path){if(luFilterSignature!=='-')luFilterOpen.set(k,true);else luOpened.add(k)}luShowAll.add(path.at(-1));luRenderLibrary()}
 // Account-menu pattern: consume the menu history entry before opening a successor.
