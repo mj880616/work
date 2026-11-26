@@ -210,13 +210,13 @@ for(const [width,height] of FOLD){
   await kind.selectOption(all);
   await expect(bizList(page).locator('[data-meeting-round]')).toHaveCount(3);
   // ‹ 주 넘기기: 지난주 보고 하나가 목록·결과 칸에(두 칸 그대로), › 로 돌아오면 이번 주.
-  const prev=page.locator('#reportWeekFilter [data-report-week="prev"]');
+  const prev=page.locator('#bizWeekBox [data-report-week="prev"]');
   await prev.click();
   await expect(bizList(page).locator('[data-meeting-round]')).toHaveCount(1);
   await expect(bizRow(page,'m-d')).toHaveAttribute('aria-current','true');
   await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id','m-d');
   await expect(bizList(page).locator('.mcol-layout.mcol-two')).toBeVisible();
-  const next=page.locator('#reportWeekFilter [data-report-week="next"]');
+  const next=page.locator('#bizWeekBox [data-report-week="next"]');
   await next.click();
   await expect(bizList(page).locator('[data-meeting-round]')).toHaveCount(3);
   expect(await sideways(page)).toBeLessThanOrEqual(1);

@@ -114,9 +114,9 @@ test('PC: 사업영역 창 안 고르기는 기록이 아니고, ‹ 는 창부�
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
  await show(page,'meetings');
- const label=page.locator('#reportWeekFilter .report-week-label');
+ const label=page.locator('#bizWeekBox .biz-week-nav .report-week-label');
  await expect(label).toBeVisible();const thisWeek=await label.textContent();
- await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
+ await page.locator('#bizWeekBox [data-report-week="prev"]').click();
  await expect(label).not.toHaveText(thisWeek);
  await expect(back(page)).toBeEnabled();await expect(forward(page)).toBeDisabled();
  await clickView(page,'projects');await expect(page.locator('#areaWindow')).toBeVisible();

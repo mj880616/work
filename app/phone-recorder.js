@@ -1,8 +1,8 @@
-// MTG-폰녹음(요청함 10/30 10:56): 폰 앱(웹2 앱 0.3.3+) 안에서만 사업 보고 위쪽 줄 [녹음]·녹음 띠·'끝나지 않은 녹음' 줄을 그린다.
+// MTG-폰녹음(요청함 10/30 10:56): 폰 앱(웹2 앱 0.3.3+) 안에서만 사업 관리 첫 줄 [+] 메뉴의 [녹음](BIZ-머리한줄 S71-23부터)·녹음 띠·'끝나지 않은 녹음' 줄을 그린다.
 // 녹음은 앱이 한다(화면이 꺼지거나 다른 앱을 써도 계속, 알림줄 '녹음 중 12:34 [일시정지][멈추고 …]'). 순서·서버 호출은 phone-recorder-core.mjs.
 // S61-5 REC-전사삭제(명진 11/13): 멈추면 녹음 파일을 자료실 '회의 녹음' 폴더에 저장하고 띠에 파일 이름 · [내려받기] · [Drive에서 열기]. 전사·요약은 없다.
-// - 주인: 이 모듈 하나가 #phoneRecordBtn·#phoneRecBand·#phoneRecPendingLine을 그린다(노트북 녹음 meeting-recorder.js가 그리는 버튼·띠와 따로).
-// - 앱 다리(KPTUAppShell, 허용 Origin 최상위 화면에만 보임)에 'rec:hello'를 보내 답이 와야(0.3.3+) [녹음]이 보인다. 웹 브라우저·옛 앱에서는 아무것도 보이지 않는다.
+// - 주인: 이 모듈 하나가 [+] 메뉴 [녹음] 줄의 모양(recordItem — team.js가 메뉴를 열 때 읽음)·#phoneRecBand·#phoneRecPendingLine을 정한다(노트북 녹음 meeting-recorder.js와 따로).
+// - 앱 다리(KPTUAppShell, 허용 Origin 최상위 화면에만 보임)에 'rec:hello'를 보내 답이 와야(0.3.3+) [+] 메뉴에 [녹음]이 보인다. 웹 브라우저·옛 앱에서는 아무것도 보이지 않는다.
 // - 기기 저장 없음(웹): 녹음 조각은 앱 전용 공간에만 있고 올린 뒤 앱이 지운다. 이 화면은 브라우저 저장 공간을 쓰지 않는다.
 import {createPhoneRecorder} from './phone-recorder-core.mjs';
 import {clockText,stepParts,pendingText,savedFilesHtml,savedBandHeight} from './meeting-recorder-model.mjs';
@@ -23,10 +23,8 @@ export function mountPhoneRecorder(win=window){
   const rt=()=>win.KPTURuntime;
   const ws=()=>rt()?.context?.read?.()?.workspace?.id||'';
   const send=t=>{try{bridge.postMessage(t)}catch{/* 다리가 사라진 화면 */}};
-  // 사업 보고 위쪽 줄 [녹음]([+ 사업 보고] 왼쪽, 노트북 [녹음]과 같은 자리)과 '끝나지 않은 녹음' 줄을 이 모듈이 한 번 붙인다(index.html은 노트북 것만 둔다).
+  // '끝나지 않은 녹음' 줄을 이 모듈이 한 번 붙인다(index.html은 노트북 것만 둔다). [녹음]은 [+] 메뉴 줄이라 붙일 단추가 없다(BIZ-머리한줄).
   function mountSlots(){
-    const add=$('#newMeetingBtn');
-    if(add&&!$('#phoneRecordBtn')){const b=doc.createElement('button');b.id='phoneRecordBtn';b.className='secondary';b.type='button';b.hidden=true;b.textContent='녹음';add.before(b)}
     const list=$('#meetingList');
     if(list&&!$('#phoneRecPendingLine')){const d=doc.createElement('div');d.id='phoneRecPendingLine';d.className='rec-pending';d.hidden=true;list.before(d)}
   }
@@ -97,14 +95,6 @@ export function mountPhoneRecorder(win=window){
     if(label.textContent!==l)label.textContent=l;
     if(time.textContent!==t)time.textContent=t;
     setHtml(el.querySelector('.rec-note'),m);setHtml(el.querySelector('.rec-actions'),a);
-    const btn=$('#phoneRecordBtn');
-    if(btn){
-      btn.hidden=!view.supported;
-      const live=state==='recording'||state==='paused'||state==='starting';
-      btn.disabled=!['idle','saved','error'].includes(state)||view.busy;
-      btn.textContent=live?'녹음 중':'녹음';
-      btn.setAttribute('aria-pressed',String(live));
-    }
     const line=$('#phoneRecPendingLine');
     if(line){
       const list=view.pending||[];
@@ -134,7 +124,6 @@ export function mountPhoneRecorder(win=window){
   }
 
   doc.addEventListener('click',e=>{
-    if(e.target.closest('#phoneRecordBtn')){e.preventDefault();void core.start();return}
     const r=e.target.closest('[data-prec-resume]');
     if(r){e.preventDefault();core.resume(r.dataset.precResume);return}
     const d=e.target.closest('[data-prec-discard]');
@@ -146,7 +135,10 @@ export function mountPhoneRecorder(win=window){
   win.addEventListener('kptu:session-changed',e=>{if(!e.detail?.session)core.reset()});
   win.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){mountSlots();paint();void core.loadPending()}});
 
-  const api={state:()=>core.view.state,core};
+  // [+] 메뉴 [녹음] 줄(team.js가 메뉴를 열 때 읽음): 앱이 녹음을 할 수 있을 때만 보이고, 녹음 중·저장 중에는 꺼진다(예전 첫 줄 [녹음] 단추와 같은 규칙).
+  const recordItem=()=>{const view=core.view,state=view.state,live=state==='recording'||state==='paused'||state==='starting';
+    return {shown:!!view.supported,disabled:!['idle','saved','error'].includes(state)||!!view.busy,label:live?'녹음 중':'녹음',pressed:live}};
+  const api={state:()=>core.view.state,core,recordItem,startRecord:()=>void core.start()};
   win.KPTUPhoneRecorder=api;
   void core.hello();
   return api;
