@@ -3,8 +3,8 @@
 //    (Enter = new line, Ctrl+Enter or [저장] saves with an owner-RLS PATCH limited to the row and organization), [삭제] asks once more.
 // B: on a phone a tapped linked record comes up as a card over project/organization detail; ✕, swipe down and back close it,
 //    and the detail stays open where it was. A wide screen keeps the full open (basket view).
-//    S71-57 RECORD-잊지말기연결표시삭제: 잊지 말기에서 온 기록 줄은 이제 아무 데도 가지 않으므로(record-no-basket-origin.spec.mjs),
-//    여기 B 시험은 노트에서 이은 기록 줄(같은 기록 창, [노트 열기])로 본다.
+//    S71-71 RECORD-기록하나로: 기록 줄은 어디서 왔든(노트에서 이은 줄도) 눌러도 아무 데도 가지 않는다. 기록 창(카드)은 ⋯ [메모]로 열리고
+//    (기록 글 + 메모 칸, 원문·[노트 열기] 없음) ✕·뒤로가기·끌어 내리기·Esc로 그 자리에서 닫힌다.
 import {test,expect} from '@playwright/test';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
@@ -18,13 +18,13 @@ const menu=page=>page.locator('#wdUpMenu');
 const shot=async(page,name)=>{if(shots)await page.screenshot({path:`${shots}/${name}.png`})};
 
 for(const [label,width] of [['pc',1280],['phone',390]]){
- test(`organization record: ⋯ holds 수정·삭제 and edits in place with Enter newline and Ctrl+Enter save (${label})`,async({page})=>{
+ test(`organization record: ⋯ holds 수정·메모·삭제 and edits in place with Enter newline and Ctrl+Enter save (${label})`,async({page})=>{
   await page.setViewportSize({width,height:900});await ready(page);await openOrg(page);
   const row=page.locator('#wdUpdates [data-wd-up="old-log"]');
   await expect(row.locator('[data-wd-up-del],.wd-danger')).toHaveCount(0);
   const more=row.locator('[data-wd-up-menu]');await expect(more).toHaveAccessibleName('기록 메뉴');
   const mb=await more.boundingBox(),rb=await row.boundingBox();expect(mb.height).toBeLessThanOrEqual(48);expect(mb.x+mb.width).toBeGreaterThan(rb.x+rb.width-60);expect(mb.y).toBeLessThan(rb.y+30);
-  await more.click();await expect(menu(page).locator('button')).toHaveText(['수정','날짜 수정','메모','삭제']);await shot(page,`org-record-menu-${label}`);
+  await more.click();await expect(menu(page).locator('button')).toHaveText(['수정','메모','삭제']); // S71-71: 날짜는 [수정] 칸 안await shot(page,`org-record-menu-${label}`);
   await menu(page).getByRole('button',{name:'수정',exact:true}).click();
   const input=row.locator('[data-wd-up-input]');await expect(input).toBeFocused();await expect(input).toHaveValue('기존 조직 기록');
   await input.press('End');await input.press('Enter');await input.pressSequentially('둘째 줄');
@@ -76,27 +76,31 @@ test('organization record delete asks once more and only deletes after yes',asyn
  const del=await page.evaluate(()=>window.__detailState.calls.filter(c=>c.method==='DELETE').map(c=>c.path));expect(del).toHaveLength(1);expect(del[0]).toContain('app_suborganization_updates?id=eq.old-log');
 });
 
-test('phone: organization linked record opens as a card over the detail; ✕, back and swipe close it in place',async({page})=>{
+const memoItem=(page,menuId)=>page.locator(menuId).getByRole('button',{name:/^메모( \d+)?$/});
+test('phone: organization linked record ⋯ [메모] opens the record card over the detail; ✕, back and swipe close it in place',async({page})=>{
  await page.setViewportSize({width:390,height:844});await ready(page,'?history=1');await asNotes(page);await openOrg(page);
  await expect(page.locator('#wdModal')).toHaveAttribute('data-kptu-history-open','1');
  const modal=page.locator('#wdModal');await modal.evaluate(el=>{el.scrollTop=Math.min(120,el.scrollHeight)});const before=await modal.evaluate(el=>el.scrollTop);
- const line=page.locator('#wdUpdates [data-basket-link] a[data-basket-link-open]').first();
+ const row=page.locator('#wdUpdates [data-basket-link]').first(),more=row.locator('[data-basket-link-menu]');
  const sheet=page.locator('#kptuRecordSheet');
- await line.click();await expect(sheet).toBeVisible();await expect(modal).toBeVisible();
- await expect(sheet.locator('[data-record-sheet-text]')).toHaveText('보관 원문 <script> 합성 내용');
- await expect(sheet).toContainText('합성 담당조직');await expect(sheet.getByRole('button',{name:'노트 열기'})).toBeVisible();
- expect(await page.evaluate(()=>window.__went)).toEqual([]);
+ // 줄 글을 눌러도 카드·노트로 가지 않는다
+ await expect(row.locator('a')).toHaveCount(0);await row.locator('[data-link-summary-text]').click();await page.waitForTimeout(150);
+ await expect(sheet).toHaveCount(0);expect(await page.evaluate(()=>window.__went)).toEqual([]);
+ const openCard=async()=>{await more.click();await memoItem(page,'#basketLinkMenu').click();await expect(sheet).toBeVisible();};
+ await openCard();await expect(modal).toBeVisible();
+ await expect(sheet).toContainText('합성 담당조직');await expect(sheet.getByRole('button',{name:'노트 열기'})).toHaveCount(0);
+ await expect(sheet.locator('[data-record-sheet-memos]')).toHaveCount(1);
  const box=await sheet.locator('[data-record-sheet-card]').boundingBox();expect(box.y+box.height).toBeLessThanOrEqual(844+1);expect(box.width).toBeGreaterThan(380);
  await shot(page,'org-record-sheet-phone');
- await sheet.getByRole('button',{name:'닫기'}).click();await expect(sheet).toBeHidden();await expect(modal).toBeVisible();await expect(line).toBeFocused();
+ await sheet.getByRole('button',{name:'닫기'}).click();await expect(sheet).toBeHidden();await expect(modal).toBeVisible();await expect(more).toBeFocused();
  expect(await modal.evaluate(el=>el.scrollTop)).toBe(before);
  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('wdModal');
  // Phone back closes the card first; the detail and its history entry stay.
- await line.click();await expect(sheet).toBeVisible();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('kptuRecordSheet');
+ await openCard();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('kptuRecordSheet');
  await page.evaluate(()=>history.back());await expect(sheet).toBeHidden();await expect(modal).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('wdModal');
  // Swipe the card's top down: a short pull snaps back, a long one closes.
- await line.click();await expect(sheet).toBeVisible();const grab=await sheet.locator('[data-record-sheet-grab]').boundingBox();
+ await openCard();const grab=await sheet.locator('[data-record-sheet-grab]').boundingBox();
  const x=grab.x+40,y=grab.y+12;
  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x,y+30,{steps:4});await page.mouse.up();await expect(sheet).toBeVisible();
  const head=sheet.locator('[data-record-sheet-grab]');await expect.poll(async()=>Math.round((await head.boundingBox()).y)).toBe(Math.round(grab.y));
@@ -104,28 +108,25 @@ test('phone: organization linked record opens as a card over the detail; ✕, ba
  await expect(sheet).toBeHidden();await expect(modal).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('wdModal');
  expect(await page.evaluate(()=>window.__went)).toEqual([]);
- // [노트 열기] hands over to the existing full open once the card is gone.
- await line.click();await sheet.getByRole('button',{name:'노트 열기'}).click();
- await expect(sheet).toBeHidden();await expect(modal).toBeHidden();await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);
 });
 
-test('phone: project linked record opens as a card over project detail and Esc closes it',async({page})=>{
+test('phone: project linked record ⋯ [메모] opens the record card over project detail and Esc closes it',async({page})=>{
  await page.setViewportSize({width:390,height:844});await ready(page,'?history=1');await asNotes(page);await openProject(page);
  const modal=page.locator('#ps3DetailModal'),sheet=page.locator('#kptuRecordSheet');
- const line=page.locator('#ps3-progress [data-ps3-basket-note]').first();
- await line.click();await expect(sheet).toBeVisible();await expect(modal).toBeVisible();await expect(sheet).toContainText('합성 프로젝트');
- await expect(sheet.locator('[data-record-sheet-text]')).toHaveText('보관 원문 <script> 합성 내용');
- expect(await page.evaluate(()=>window.__went)).toEqual([]);
+ const row=page.locator('#ps3-progress [data-ps3-records]>[data-basket-link]').first(),more=row.locator('[data-ps3-record-menu]');
+ await row.locator('.ps3-rec-text').click();await page.waitForTimeout(150);await expect(sheet).toHaveCount(0);expect(await page.evaluate(()=>window.__went)).toEqual([]);
+ await more.click();await memoItem(page,'#ps3RecordMenu').click();await expect(sheet).toBeVisible();await expect(modal).toBeVisible();await expect(sheet).toContainText('합성 프로젝트');
+ await expect(sheet.getByRole('button',{name:'노트 열기'})).toHaveCount(0);
  await shot(page,'project-record-sheet-phone');
- await page.keyboard.press('Escape');await expect(sheet).toBeHidden();await expect(modal).toBeVisible();await expect(line).toBeFocused();
- await line.click();await expect(sheet).toBeVisible();await page.evaluate(()=>history.back());await expect(sheet).toBeHidden();await expect(modal).toBeVisible();
- await line.click();await sheet.getByRole('button',{name:'노트 열기'}).click();await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(modal).toBeHidden();
+ await page.keyboard.press('Escape');await expect(sheet).toBeHidden();await expect(modal).toBeVisible();
+ await more.click();await memoItem(page,'#ps3RecordMenu').click();await expect(sheet).toBeVisible();await page.evaluate(()=>history.back());await expect(sheet).toBeHidden();await expect(modal).toBeVisible();
+ expect(await page.evaluate(()=>window.__went)).toEqual([]);
 });
 
-test('wide screen keeps the full open for a linked record (no card)',async({page})=>{
+test('wide screen: tapping a linked record line goes nowhere (no card, no note)',async({page})=>{
  await page.setViewportSize({width:1280,height:900});await ready(page);await asNotes(page);await openOrg(page);
- await page.locator('#wdUpdates [data-basket-link] a[data-basket-link-open]').first().click();
- await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(page.locator('#kptuRecordSheet')).toHaveCount(0);
- await ready(page);await asNotes(page);await openProject(page);await page.locator('#ps3-progress [data-ps3-basket-note]').first().click();
- await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(page.locator('#kptuRecordSheet')).toHaveCount(0);
+ await page.locator('#wdUpdates [data-basket-link] [data-link-summary-text]').first().click();await page.waitForTimeout(150);
+ expect(await page.evaluate(()=>window.__went)).toEqual([]);await expect(page.locator('#kptuRecordSheet')).toHaveCount(0);
+ await ready(page);await asNotes(page);await openProject(page);await page.locator('#ps3-progress [data-ps3-records]>[data-basket-link] .ps3-rec-text').first().click();await page.waitForTimeout(150);
+ expect(await page.evaluate(()=>window.__went)).toEqual([]);await expect(page.locator('#kptuRecordSheet')).toHaveCount(0);
 });

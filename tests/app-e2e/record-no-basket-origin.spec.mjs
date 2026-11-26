@@ -37,7 +37,7 @@ for(const kind of ['organization','project'])for(const width of [390,1280])test(
  }
  await rows.first().getByRole('button',{name:'기록 메뉴',exact:true}).click();await expect(menu).toBeVisible();
  const items=await menu.locator('button').allTextContents();
- expect(items).not.toContain('업데이트 열기');expect(items).toContain('연결 해제');expect(items).toContain('요약 수정');
+ expect(items).toEqual(['수정','메모','삭제']); // S71-71 RECORD-기록하나로: 기록 ⋯ 한 벌
  expect(await page.evaluate(()=>window.__detailState.calls.filter(x=>x.method!=='GET'))).toEqual([]); // 연결 데이터는 그대로
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(errors).toEqual([]);
