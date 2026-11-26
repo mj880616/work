@@ -86,11 +86,11 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   await open(page, state, width);
   const vp = page.viewportSize();
   const pc = width >= 761;
-  // ① 첫 줄: 오른쪽 [녹음][+][⋯](모든 폭 작은 아이콘) 모두 같은 가운데 높이. 폰은 제목 '사업 관리'가 왼쪽에 보인다.
-  const line1 = await mids(page, '#meetingsView .report-top-line .report-head-actions > :not([hidden])' + (width < 761 ? ', #meetingsView .report-top-title' : ''));
+  // ① 첫 줄: 오른쪽 [녹음][+][⋯](모든 폭 작은 아이콘) 모두 같은 가운데 높이. 폰 제목 '사업 관리'는 S70-57부터 앱 머리 줄(찾기 돋보기와 함께).
+  const line1 = await mids(page, '#meetingsView .report-top-line .report-head-actions > :not([hidden])');
   expect(line1.length).toBeGreaterThanOrEqual(2);
   expect(Math.max(...line1.map(x => x.mid)) - Math.min(...line1.map(x => x.mid))).toBeLessThanOrEqual(3);
-  if (width < 761) await expect(page.locator('#meetingsView .report-top-title')).toBeVisible();
+  if (width < 761) await expect(page.locator('#appView > .mobile-shell-header [data-mobile-view-name]')).toHaveText('사업 관리');
   await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
   await expect(page.locator('#meetingsView .report-top-line #newMeetingBtn')).toBeVisible();
   await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
@@ -102,11 +102,11 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   expect(line2.length).toBeGreaterThanOrEqual(inChip ? 1 : 2);
   expect(Math.max(...line2.map(x => x.mid)) - Math.min(...line2.map(x => x.mid))).toBeLessThanOrEqual(3);
   if (pc) { expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line2.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)) - 32); }
-  // S67-64 UI-윗줄한줄(명진 11/21 시안 D3): 폰도 한 줄 — [아이콘][사업 관리][고르기(넘치면 줄 안에서 가로 밀기)] … [+][⋯].
+  // S67-64 UI-윗줄한줄(명진 11/21 시안 D3): 폰도 한 줄 — [고르기(넘치면 칩 하나)] … [+][⋯]. 아이콘·이름은 S70-57부터 그 위 앱 머리 줄.
   else {
     expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3);
     const [bar, add] = await Promise.all([page.locator(inChip ? '#reportFilterChip' : '#meetingsView .report-kind-bar').boundingBox(), page.locator('#newMeetingBtn').boundingBox()]);
-    expect(bar.x).toBeGreaterThan((await page.locator('#meetingsView .report-top-title').boundingBox()).x);
+    expect(bar.y).toBeGreaterThanOrEqual((await page.locator('#appView > .mobile-shell-header').boundingBox()).y + 20);
     expect(bar.x + bar.width).toBeLessThanOrEqual(add.x);
   }
   // 녹음·추가는 모든 폭에서 글자 없는 작은 아이콘(이름은 화면 읽기용).
@@ -116,14 +116,15 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   const selH = (await mids(page, '#meetingsView .report-kind-bar select.report-top-select')).map(x => Math.round(x.h));
   expect(new Set(selH).size).toBe(1);
   if (inChip) { expect(Math.round((await page.locator('#reportFilterChip').boundingBox()).height)).toBe(selH[0]); await closeReportBoxes(page); }
-  // ③ 셋째 줄: ‹ 11.9(월)~11.15(일) › · n건 — 폰은 둘째 줄 아래, PC는 같은 한 줄(고르기와 아이콘 사이).
+  // ③ 주 줄: ‹ 11.9(월)~11.15(일) › · n건 — 모든 폭에서 같은 한 줄(고르기와 아이콘 사이, S71-10).
   const nav = page.locator('#reportWeekFilter .report-week-nav');
   await expect(nav.locator('.report-week-label')).toContainText(/\(월\)~.*\(일\)/);
   await expect(nav.locator('.report-week-count')).toContainText(/· \d+건/);
   const line3 = await mids(page, '#reportWeekFilter .report-week-nav > *');
   expect(Math.max(...line3.map(x => x.mid)) - Math.min(...line3.map(x => x.mid))).toBeLessThanOrEqual(3);
-  if (pc) { expect(Math.abs(line3[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line3.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right))); }
-  else expect(Math.min(...line3.map(x => x.top))).toBeGreaterThanOrEqual(Math.max(...line2.map(x => x.bottom)) - 1);
+  // S71-10(명진 11/26 '한 줄에 우겨넣고 싶어'): 폰도 PC처럼 주 줄이 첫 줄 안 — 고르기(칩) 오른쪽, [녹음][+][⋯] 왼쪽.
+  expect(Math.abs(line3[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line3.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)));
+  expect(Math.min(...line3.map(x => x.right))).toBeGreaterThan(Math.max(...line2.map(x => x.right)));
   // 주 고르기는 이 화면에 하나(‹ › 짝 하나, 안쪽 [이번 주 ▾] 아닌 주 고르기 부품 없음).
   await expect(page.locator('#meetingsView [data-report-week="prev"]')).toHaveCount(1);
   await expect(page.locator('#meetingsView [data-report-week="next"]')).toHaveCount(1);

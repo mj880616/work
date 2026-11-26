@@ -32,14 +32,14 @@ test('파일 1280: 목록 줄 우클릭 → 그 줄 메뉴(고르기 아님), �
   await expect(page.locator('#filesRoot [data-fx-row="od:OD!1"][aria-pressed="true"], #filesRoot .fx-picked')).toHaveCount(0);
   await menu(page).getByRole('button',{name:'이 폴더로 들어가기',exact:true}).click();
   await expect(page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
-  // 파일 줄: [선택](S70-30)[열기][자료실로 보내기][복사][옮기기][이름 바꾸기][경로 복사][별표] … [휴지통] (FILES-자료실로보내기 S52-26, S52-43 ③ 경로 복사)
+  // 파일 줄: [선택](S70-30)[열기][새 창에서 열기][받기](S70-72 상세 칸에서 옮김 — 공유 창이 없는 브라우저라 [공유]는 없음)[자료실로 보내기][복사][옮기기][이름 바꾸기][경로 복사][별표] … [휴지통] (FILES-자료실로보내기 S52-26, S52-43 ③ 경로 복사)
   await rightAt(page,page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!11"]'));
-  expect(await labels(menu(page))).toEqual(['선택','열기','자료실로 보내기','복사','옮기기','이름 바꾸기','경로 복사','별표','휴지통']);
+  expect(await labels(menu(page))).toEqual(['선택','열기','새 창에서 열기','받기','자료실로 보내기','복사','옮기기','이름 바꾸기','경로 복사','별표','휴지통']);
   await page.keyboard.press('Escape');await expect(menu(page)).toBeHidden();
   expect(errors).toEqual([]);
 });
 
-test('News 1440: 글 줄 우클릭 → [보관][숨기기](줄 위 단추와 같음), [숨기기] 실행',async({page})=>{
+test('News 1440: 글 줄 우클릭 → [수정][저장][숨기기](줄 위 단추와 같음, S70-62), [숨기기] 실행',async({page})=>{
   test.setTimeout(90000);
   const {errors,server}=await startNews(page,1440);
   await openNews(page,1440);
@@ -48,7 +48,7 @@ test('News 1440: 글 줄 우클릭 → [보관][숨기기](줄 위 단추와 같
   await keepLog(page);
   await rightAt(page,c1.locator('.nw-title'));
   await expect(menu(page)).toBeVisible();
-  expect(await labels(menu(page))).toEqual(['저장','숨기기']);
+  expect(await labels(menu(page))).toEqual(['수정','저장','숨기기']);
   expect(await page.evaluate(()=>window.__kept)).toEqual([false]);
   await menu(page).getByRole('button',{name:'숨기기'}).click();
   await expect(page.locator('#newsRoot [data-nc-item="c1"]')).toHaveCount(0);

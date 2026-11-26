@@ -41,6 +41,7 @@ import {EDIT_LABEL,EDITED_TAG,REDO_ASK,REVERT_ASK,REVERT_LABEL,applyEdits,editFi
 import {openRowMenu,appMenuPoint} from './row-menu.js';
 import {textSizeHtml,paintTextSize} from './text-size.js';
 import {createNoteDoc} from './basket-data.js';
+import {registerScreenFind,refreshScreenFind,finderOf} from './screen-find.js';
 
 const rt=()=>window.KPTURuntime;
 const ws=()=>rt()?.context?.read?.()?.workspace?.id||'';
@@ -63,6 +64,15 @@ const roomRows=()=>listRows({docs:state.docs,folderIds:roomIds(),briefs:state.br
 const pick=createSelectMode({layer:'brief-select',onBack:()=>draw(),canLeave:()=>!state.busy});
 const docName=d=>String(d?.title||d?.file_name||'이름 없는 자료');
 const view=()=>document.getElementById('briefView');
+// S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸이 '브리핑 룸에서 찾기' — 목록 줄을
+// 자료 이름·파일 이름·한 줄 요지로 거른다. 이 화면 메모리만(서버 검색 없음). 폰에서 보기가 목록 대신일 때는 찾기가 아니다.
+let findText='',findQuery='';
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말), 맞은 정도 순, 맞은 부분 굵게.
+const finder=finderOf('brief',()=>findText),rowTexts=row=>[docName(row.doc),row.doc.file_name,row.state.kind==='done'?row.state.text:''];
+registerScreenFind('brief',{label:'브리핑 룸에서 찾기',marks:'#briefView [data-br-list]',
+  active:()=>window.KPTURouter?.current==='brief'&&!!view()&&!view().classList.contains('hidden')&&!view().querySelector('[data-br-list]')?.hidden,
+  value:()=>findQuery?findText:'',
+  apply:(raw,{again}={})=>{findText=String(raw??'');const next=findText.trim().toLowerCase();if(next===findQuery&&!again)return;findQuery=next;drawList()}});
 const wide=()=>window.matchMedia?.('(min-width: 761px)').matches;
 const here=()=>window.KPTURouter?.current==='brief'&&!document.hidden;
 
@@ -128,7 +138,7 @@ function drawList(){
   if(pick.active)head.replaceChildren(...pickBar(rowsNow));
   const drop=el('p','br-drop',`여기에 파일을 놓아도 돼요 · 자료실 '${BRIEF_FOLDER}' 폴더에 함께 저장돼요`);drop.dataset.brDrop='1';
   if(state.failed&&!state.docs.length){box.replaceChildren(head,drop);box.insertAdjacentHTML('beforeend',failHtml({retry:'data-br-retry'}));return}
-  const rows=rowsNow;
+  const rows=findQuery?finder().rank(rowsNow,rowTexts):rowsNow;
   const list=el('div','br-rows');if(pick.active)list.classList.add('br-picking');list.dataset.textSizeTarget='';
   for(const row of rows){
     const r=el('div','br-row');r.dataset.brOpen=row.doc.id;r.tabIndex=row.state.kind==='done'?0:-1;r.setAttribute('role',row.state.kind==='done'?'button':'group');
@@ -182,12 +192,13 @@ function detailShown(){const b=state.open?state.briefs.get(state.open):null;retu
 function drawDetail(){
   const box=view()?.querySelector('[data-br-detail]'),listBox=view()?.querySelector('[data-br-list]');if(!box)return;
   const doc=state.docs.find(d=>d.id===state.open),b=doc?state.briefs.get(doc.id):null;
-  if(!doc||b?.status!=='done'||!b.brief){state.editing=null;box.hidden=true;box.replaceChildren();if(listBox)listBox.hidden=false;view()?.classList.remove('br-reading');return}
+  if(!doc||b?.status!=='done'||!b.brief){state.editing=null;box.hidden=true;box.replaceChildren();if(listBox)listBox.hidden=false;view()?.classList.remove('br-reading');refreshScreenFind();return}
   if(state.editing&&state.editing.doc!==doc.id)state.editing=null;
   // 고치는 중에는 4초마다 다시 그리기·창 크기·밑줄 알림이 와도 칸을 새로 만들지 않는다(쓰던 글·커서 그대로).
   if(state.editing&&box.dataset.brDoc===doc.id&&box.querySelector('[data-br-form]')){if(listBox)listBox.hidden=!wide();return}
   view()?.classList.add('br-reading');
   if(listBox)listBox.hidden=!wide();
+  refreshScreenFind();
   const bar=el('div','br-head');
   if(!wide()){const back=btn('br-back icon-btn','‹',{brBack:'1'});back.setAttribute('aria-label','목록으로');bar.append(back)}
   bar.append(el('h2','br-title br-doc',String(doc.title||doc.file_name||'')));

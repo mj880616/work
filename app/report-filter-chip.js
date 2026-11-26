@@ -23,12 +23,24 @@ function parts(){
 }
 
 // 상자 네 개가 이 줄에 다 들어가는지 실제로 재고(칩을 숨기고 네 개를 놓아 봄) 칩 하나 / 네 개를 정한다. 같은 틀 안 계산이라 깜빡임 없음.
+// S71-10(명진 11/26 14:41 '한 줄에 우겨넣고 싶어'): 주 줄(‹ 날짜 › · n건)도 모든 폭에서 이 첫 줄 안에 선다. 줄이 넘치면 차례로
+// ① 요일을 뺀 날짜(is-week-short, '11.23~11.29') ② 건수를 짧게(is-week-tight, '3건', 줄 안 틈·‹ › 폭도 좁힘) ③ 그래도 넘치면 고르기 칩·상자가 줄어 끝 말줄임(is-week-squeeze).
+// 단계는 같은 틀 안에서 실제 폭을 재어 정한다(깜빡임 없음). 기간 정하기·주차 고르기 창이 열려 있으면 그 창이 아래 한 줄을 다 쓰므로 재지 않는다.
+const WEEK_STEPS=['is-week-short','is-week-tight','is-week-squeeze'];
+function fitWeek(top){
+  const week=top.querySelector(':scope > .report-week-bar');
+  if(!week||week.hidden||!week.getClientRects().length)return;
+  for(const step of WEEK_STEPS){if(top.scrollWidth<=top.clientWidth+1)return;top.classList.add(step)}
+}
 function layout(){
   const top=topEl(),bar=barEl(),chip=chipEl();if(!top||!bar||!chip)return;
   if(open){if(isWide())close(false,false);else place();return}
-  top.classList.remove('is-filter-one');chip.hidden=true;
-  if(isWide()||!bar.getClientRects().length)return;
-  if(bar.scrollWidth>bar.clientWidth+1){top.classList.add('is-filter-one');chip.hidden=false}
+  // 기간 정하기·주차 고르기 창이 열려 있는 동안은 연 순간의 모양(칩 하나/상자 네 개, 줄인 단계)을 그대로 둔다 — 주 줄이 아래로 내려가
+  // 고르기 자리가 넓어졌다고 칩이 상자 네 개로 바뀌면 누른 자리가 움직인다. 창이 닫히면(team.js가 다시 그림) 다시 잰다.
+  if(top.querySelector(':scope > .report-week-bar .report-period-panel'))return;
+  top.classList.remove('is-filter-one',...WEEK_STEPS);chip.hidden=true;
+  if(!isWide()&&bar.getClientRects().length&&bar.scrollWidth>bar.clientWidth+1){top.classList.add('is-filter-one');chip.hidden=false}
+  fitWeek(top);
 }
 function place(){const bar=barEl(),chip=chipEl();if(open&&bar&&chip)placeAnchored(bar,chip,{maxWidth:280,maxHeight:360,minHeight:120,bottomInset:bottomInset()})}
 

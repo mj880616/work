@@ -260,6 +260,8 @@ body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-
 .kptu-rec-fold-btn::after{content:"";position:absolute;left:0;right:0;top:0;bottom:-9px}
 .kptu-rec-fold-btn:hover{background:var(--kptu-surface-subtle)}
 .kptu-rec-fold-btn:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+/* SEARCH-결과원문으로(S71-15): 전체 검색 결과를 눌러 연 원문 자리의 찾은 낱말(found-mark.js, 화면 찾기 kptu-find와 같은 색) */
+::highlight(kptu-found){color:var(--kptu-ink);background-color:color-mix(in srgb,var(--kptu-primary-ink) 18%,transparent);text-shadow:.35px 0 0 currentColor,-.35px 0 0 currentColor}
 /* CAL-저장본먼저: one small line on screens that show this device's saved copy first (data-freshness.js draws it):
    새로 불러오는 중 / 최신 아님 · 마지막 확인 HH:MM [다시 시도]. Muted while refreshing, danger ink when not the latest. */
 .data-freshness{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:4px 0;font-size:var(--ds-text-meta,13px);color:var(--kptu-muted)}
@@ -335,6 +337,11 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-selbar[hidden]{display:none}
 .kptu-selbar .kptu-sb-count{flex:0 1 auto;min-width:0;margin:0 auto 0 2px;padding:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--kptu-primary-text);font-size:var(--ds-compact-text,13px);font-weight:600}
 .kptu-selbar.kptu-sb-measure .kptu-sb-count{flex-shrink:0;max-width:55%}
+/* S70-64b(명진 11/26 07:46 "그만은 필요없어"): 고르기 막대는 [✕]·'n개 선택됨' 글자 없이 단추만(전체 선택 맨 왼쪽 … 삭제 맨 끝).
+   고른 개수는 화면 읽기 프로그램에만(role=status) — 눈에 보이는 칸을 차지하지 않는다. 끄는 중 '옮기는 중 N개'처럼 보여야 하는 글은 이 표시를 뺀다. */
+.kptu-selbar .kptu-sb-count.kptu-sb-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.kptu-selbar:has(>.kptu-sb-count.kptu-sb-sr) .kptu-sb-acts{flex:1 1 auto;justify-content:flex-end}
+:is(#appView,.modal) .kptu-selbar:has(>.kptu-sb-count.kptu-sb-sr) .kptu-sb-acts>button.kptu-sb-act[role="checkbox"]{margin-right:auto}
 .kptu-selbar .kptu-sb-note{margin-left:4px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
 .kptu-selbar .kptu-actbar,.kptu-selbar .kptu-sb-acts{display:flex;flex:none;flex-wrap:nowrap;justify-content:flex-end;align-items:center;gap:2px;min-width:0;margin:0}
 :is(#appView,.modal) .kptu-selbar button.kptu-sb-act{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;width:auto;min-width:30px;max-width:none;height:30px;min-height:0;margin:0;padding:0 6px;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;box-shadow:none;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:400;line-height:1;white-space:nowrap;word-break:normal;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -480,7 +487,9 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 @media (max-width:760px){.share-target-dialog{margin:12px auto auto}}
 /* FILES-폰보기끌기 ③(S51-20): 꾹 눌러 끄는 동안 손가락을 따라가는 조각(touch-drag.js). 위치는 부품이 transform으로만 바꾼다.
    S69-27: 마우스·손가락으로 끄는 줄도 같은 조각(drag-ghost.js — reorder-drag.js ghost, 브라우저 끌기 setDragImage). 반투명. */
-.td-ghost{position:fixed;left:0;top:0;z-index:70;opacity:.88;max-width:min(60vw,240px);padding:5px 10px;border:1px solid var(--kptu-primary);border-radius:8px;background:var(--kptu-surface);color:var(--kptu-ink);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:var(--kptu-shadow-float);pointer-events:none;rotate:-3deg}
+.td-ghost{position:fixed;left:0;top:0;z-index:70;opacity:.88;max-width:min(60vw,240px);padding:3px 8px;border:1px solid var(--kptu-border-strong,var(--kptu-border));border-radius:6px;background:var(--kptu-surface);color:var(--kptu-ink);font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:var(--kptu-shadow-float);pointer-events:none;user-select:none;-webkit-user-select:none}
+/* S70-79 STD-끌기모양: 끄는 줄(브라우저 끌기)은 글자가 선택되지 않는다(끌기 시작할 때 줄 글자가 파랗게 칠해지지 않게). 글 고치는 칸은 제외. */
+[draggable="true"]:not([contenteditable]):not(input):not(textarea){-webkit-user-select:none;user-select:none}
 
 /* S51-24 UI-빈칸손짓: 손짓을 받는 칸은 내용이 끝난 아래 빈 곳까지(아래 바 바로 위까지) 채운다. 높이(inline min-height)와
    아래 여백 당김(감싼 칸들의 아래 여백이 아래 바 자리보다 많으면 그만큼, 화면이 더 길어지지 않게)은 gesture-fill.js가 잰다.

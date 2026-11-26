@@ -350,7 +350,7 @@ test('조직 관리 빈 곳 우클릭은 이름 줄로 옮긴 화면 ⋯ 메뉴�
 // UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 고르지 않은 조직 줄 우클릭 = [열기] ─ 그 조직 일(MULTI-다른담당자맞춤 ①: 이름 바꾸기·담당 조직에서 제외 ─ 삭제) ─ [쟁의 단계 관리].
 // [열기]는 그 조직을 오른쪽 상세로. 고른 줄 우클릭·⋯ 그냥 누르기는 지금 메뉴 그대로, 폰 폭은 공용 규칙대로 메뉴를 띄우지 않는다.
 const menuLabels=page=>page.locator('#soTeamMenu button').allTextContents();
-test('조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관리], [열기]는 오른쪽 상세를 그 조직으로 1280px',async({page})=>{
+test('C9 조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관리], [열기]는 오른쪽 상세를 그 조직으로 1280px',async({page})=>{
  const {errors}=await fixture(page,{width:1280});
  await clickView(page,'team');
  await expect(row(page,'ob')).toBeVisible();
@@ -369,9 +369,9 @@ test('조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관
  await expect(menu).toBeHidden();
  await expect(page.locator('#wdTitle')).toHaveText(orgs.find(o=>o.id===target).name);
  await expect(row(page,target)).toHaveClass(/is-selected/);
- // 고른 줄 우클릭 = 그 줄의 ⋯ 메뉴(MULTI-다른담당자맞춤 ①: 줄마다 ⋯가 생겨 공용 우클릭이 그 ⋯를 연다)
+ // C9 ORG-목록줄메뉴없음(S71-08): 줄 ⋯가 없어도 고른 줄 우클릭 = 그 조직 메뉴([열기]만 빠짐 — 이미 오른쪽에 열려 있음)
  await row(page,target).click({button:'right',position:{x:80,y:box.height/2}});
- await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['이름 바꾸기','쟁의 단계','담당 조직에서 제외','삭제']);
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['이름 바꾸기','담당 조직에서 제외','삭제','쟁의 단계 관리']);
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  // 다른 줄 우클릭 → [열기] 붙음, 메뉴가 열린 채로 또 다른 줄을 우클릭해도 그 줄 기준
  const other=target==='oa'?'ob':'oa';
@@ -400,7 +400,7 @@ test('조직 줄 우클릭: 폰 폭(412)은 메뉴를 띄우지 않는다',async
 });
 
 // ORG-목록단계칩위치(2026-11-25 명진 "쟁의권확보 종료 교섭 중 이런게 우측 끝에 붙어야"): 단계 칩은 줄 오른쪽 끝 › 바로 앞.
-// 줄 끝 = [칩 ·8· › ·8· ⋯ ·8· 줄 끝](› 는 글자 폭만큼). 묶음 머리줄 'N곳' 오른쪽 끝은 줄 › 오른쪽 끝과 같은 세로줄.
+// 줄 끝 = [칩 ·8· › ·(머리줄 ⋯ 자리)· 줄 끝](› 는 글자 폭만큼, 줄 ⋯는 S71-08에서 지움). 묶음 머리줄 'N곳' 오른쪽 끝은 줄 › 오른쪽 끝과 같은 세로줄.
 // 폰 폭 · PC 좁은 목록 칸(1280) · PC 넓은 목록 칸(1920). 폴드 폭(600~1023)은 칩을 그리지 않는다(위 시험).
 for(const width of [390,1280,1920])test(`목록 줄 단계 칩이 줄 오른쪽 끝 › 바로 앞 ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
@@ -408,15 +408,16 @@ for(const width of [390,1280,1920])test(`목록 줄 단계 칩이 줄 오른쪽 
  await clickView(page,'team');
  await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
  const rows=await page.evaluate(()=>{const r=el=>el.getBoundingClientRect();const head=document.querySelector('#soOrganizationList .so-group-heading');
-  return [...document.querySelectorAll('#soOrganizationList .so-row')].map(row=>{const tag=r(row.querySelector('.so-stage-tag')),chev=r(row.querySelector('.kptu-list-chevron')),more=r(row.querySelector('.so-row-more')),box=r(row);
-   return {tagToChev:chev.left-tag.right,chevW:chev.width,chevToMore:more.left-chev.right,moreToEnd:box.right-more.right,countVsChev:head?Math.abs(r(head.querySelector('.so-group-count')).right-chev.right):0}})});
+  return [...document.querySelectorAll('#soOrganizationList .so-row')].map(row=>{const tag=r(row.querySelector('.so-stage-tag')),chev=r(row.querySelector('.kptu-list-chevron')),box=r(row);
+   return {tagToChev:chev.left-tag.right,chevW:chev.width,chevToEnd:box.right-chev.right,rowMenus:row.querySelectorAll('.more-dots').length,countVsChev:head?Math.abs(r(head.querySelector('.so-group-count')).right-chev.right):0}})});
  // 바꾸기 전·후 사진(PR 본문용): ORG_CHIP_SHOTS=폴더
  if(process.env.ORG_CHIP_SHOTS)await page.locator('#soOrganizationList').screenshot({path:`${process.env.ORG_CHIP_SHOTS}/org-chip-${width}.png`});
  expect(rows).toHaveLength(orgs.length);
  for(const x of rows){
   expect(x.tagToChev,'칩 → ›').toBeGreaterThanOrEqual(0);expect(x.tagToChev,'칩 → ›').toBeLessThanOrEqual(8.5);
   expect(x.chevW,'› 폭').toBeLessThanOrEqual(12);
-  expect(x.chevToMore,'› → ⋯').toBeLessThanOrEqual(8.5);expect(x.moreToEnd,'⋯ → 줄 끝').toBeLessThanOrEqual(8.5);
+  // ORG-목록줄메뉴없음(S71-08): 줄 ⋯는 없고, › 오른쪽은 머리줄 ⋯ 자리만큼(8 + 32 + 8) 비어 'N곳' 끝과 맞는다.
+  expect(x.rowMenus,'줄 ⋯ 없음').toBe(0);expect(x.chevToEnd,'› → 줄 끝').toBeLessThanOrEqual(48.5);
   expect(x.countVsChev,"머리줄 'N곳' 끝 = › 끝").toBeLessThanOrEqual(1);
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

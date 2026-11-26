@@ -43,7 +43,7 @@ export function mountHeightResize(o) {
   const handle = document.createElement('div');
   handle.className = 'height-resize-handle'; handle.tabIndex = 0; handle.hidden = true;
   handle.setAttribute('role', 'separator'); handle.setAttribute('aria-orientation', 'horizontal');
-  handle.setAttribute('aria-label', o.label || '높이 조절'); handle.title = '끌어서 높이 조절 · 두 번 누르면 내용만큼';
+  handle.setAttribute('aria-label', o.label || '높이 조절');
   host.append(handle);
   if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
   const stored = () => heightOf(colsFor(viewPrefs.getCols(o.name), [o.key], device())[o.key]);

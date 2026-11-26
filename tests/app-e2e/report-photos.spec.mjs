@@ -50,7 +50,7 @@ async function fixture(page,width,{docsFail=false,photoFail=false}={}){
   if(m.startsWith('eq.'))log.perRow.push(m);
   return route.fallback();
  });
- await page.route(SB+'/functions/v1/library-files?**',route=>{
+ await page.route(SB+'/functions/v1/library-files?**',route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
   const req=route.request(),q=new URL(req.url()).searchParams;
   if(req.method()!=='GET'||q.get('action')!=='photo')return route.fallback();
   log.photos.push({document_id:q.get('document_id'),size:q.get('size')});log.auth.push(String(req.headers().authorization||'').startsWith('Bearer '));

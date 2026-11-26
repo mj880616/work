@@ -100,7 +100,7 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, { width });
     await openPhotos(page, width);
     await expect(root(page).locator('[data-photos-view] option')).toHaveText(['사진', '달력', '폴더', '앨범', '휴지통']);
-    await expect(root(page).locator('[data-od-link]')).toBeVisible();
+    await expect(page.locator('[data-sf-tools="photos"] [data-od-link]')).toBeVisible();
     await expect(items(page)).toHaveCount(7);
     await expect(root(page).locator('.photos-day b')).toHaveText(['10월 5일 (월)', '10월 2일 (금)', '9월 20일 (일)', '8월 15일 (토)']);
     await expect(root(page).locator('.photos-day').first()).toContainText('· 3장');
@@ -365,7 +365,7 @@ test('사진 메뉴: 원드라이브 아이콘은 공식 아이콘 원래 색, �
   const f = await fixture(page, { width: 412 });
   await openPhotos(page, 412);
   await expect(items(page)).toHaveCount(7);
-  const link = root(page).locator('[data-od-link]');
+  const link = page.locator('[data-sf-tools="photos"] [data-od-link]');
   await expect(link).toBeVisible();
   await expect(link.locator('svg.brand-ic-onedrive path')).toHaveCount(4);
   await expect(link.locator('svg.brand-ic-onedrive path').nth(1)).toHaveAttribute('fill', '#0078d4');
@@ -381,7 +381,7 @@ test('사진 메뉴: 원드라이브 설정 창(하위 폴더)을 하루 기록�
   await openPhotos(page, 390);
   await expect(items(page)).toHaveCount(7);
   // PHOTO-출처 ①: 연결된 뒤 원드라이브 아이콘 누르기 = 켜기/끄기, 연결 메뉴는 꾹 누르기(PC 우클릭).
-  await root(page).locator('[data-od-link]').click({ button: 'right' });
+  await page.locator('[data-sf-tools="photos"] [data-od-link]').click({ button: 'right' });
   const menu = page.locator('#photosOdMenu');
   await expect(menu).toBeVisible();
   await menu.locator('button', { hasText: '하위 폴더 켜고 끄기' }).click();

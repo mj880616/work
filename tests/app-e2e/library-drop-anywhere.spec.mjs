@@ -86,7 +86,8 @@ test('자료실 1440: 올리는 동안 공용 올리는 중 줄(막대·%)이 �
   test.setTimeout(60000);
   const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,items:ITEMS,group:'폴더'});
   let release;const gate=new Promise(res=>{release=res});
-  await page.route(`${SB}/functions/v1/library-files`,async route=>{await gate;await route.fallback()});
+  await page.route(`${SB}/functions/v1/library-files`,async route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+await gate;await route.fallback()});
   await dropAt(page,'#libraryFolderNav [data-lu-nav="fn"]',['big.pdf']);
   const row=page.locator('#libraryUploadRows .up-row');
   await expect(row).toHaveCount(1);
