@@ -1248,6 +1248,9 @@ jobs:
       - name: Check phone widget logout line (APP-폰앱새로 ③)
         run: node --test tests/phone-widget-line.test.mjs
 
+      - name: Check shared settings rows (UI-설정줄, S71-36 PROFILE-설정화면)
+        run: node --test tests/settings-list.test.mjs
+
       - name: Check phone widget auto login bridge (APP-폰앱새로 ③)
         run: node --test tests/phone-widget-auth.test.mjs
 

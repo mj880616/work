@@ -19,7 +19,8 @@ async function fixture(page,{width,reply=month()}){
     sent.push(body);
     return typeof reply==='number'?route.fulfill({status:reply,json:{ok:false,error:'usage_unavailable'}}):route.fulfill({json:reply});
   });
-  await page.reload();
+  // S71-36: 운영자 기능 답을 정한 뒤 '사용 현황' 장(?view=profile&pane=status)을 연다(먼저 열면 운영자 아님으로 읽어 첫 화면으로 돌아간다).
+  await page.goto(new URL('?view=profile&pane=status',page.url()).href);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#profileView')).toBeVisible();
   return {sent,line:page.locator('#psStatusPanel [data-ps-ai-cap]')};
@@ -40,7 +41,7 @@ for(const width of [412,1280])test(`한도를 다 쓰면 다음 달 1일 안내 
   await expect(line).toHaveText('이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.');
   await expect(line).toHaveAttribute('data-capped','');
   await expect(page.locator('#psStatusPanel')).toBeVisible();
-  await expect(page.locator('#psStatusPanel > h3')).toHaveText('사용 현황');
+  await expect(page.locator('#profileView [data-ps-page="status"] .sl-page-title')).toHaveText('사용 현황');
   if(SHOT){await line.scrollIntoViewIfNeeded();await page.locator('#psStatusPanel').screenshot({path:`${SHOT}/profile-ai-capped-${width}.png`});}
 });
 

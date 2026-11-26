@@ -815,7 +815,7 @@
 .file-line.unknown .file-line-state{color:var(--kptu-warning)}
 /* UI-올리기진행표시 ②: 끝없이 도는 줄(.file-line-progress)은 지웠다. 올리는 동안은 공용 막대(.up-inline, upload-progress.js)가 실제 보낸 양을 그린다. */
 .modal .file-line .file-line-x{position:relative;z-index:1;flex:none;display:inline-grid;place-items:center;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:var(--kptu-touch-target,44px);margin:-4px -6px -4px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:18px;line-height:1}
-.modal .file-line .file-line-x:hover{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.modal .file-line .file-line-x:hover{background:var(--kptu-surface-subtle)}
 .modal .file-line .file-line-x:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 /* 올라간 회의자료: 줄을 누르면 내려받기(×는 따로). */
 .modal .file-line .file-line-open{position:absolute;top:0;bottom:0;left:0;right:var(--kptu-touch-target,44px);width:auto;height:auto;min-width:0;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;cursor:pointer}
@@ -837,7 +837,7 @@
 .file-line .file-line-more[open]{z-index:3}
 .file-line .file-line-more>summary{list-style:none;cursor:pointer;display:grid;place-items:center;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);margin:-4px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:18px;line-height:1}
 .file-line .file-line-more>summary::-webkit-details-marker{display:none}
-.file-line .file-line-more>summary:hover{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.file-line .file-line-more>summary:hover{background:var(--kptu-surface-subtle)}
 .file-line .file-line-more>summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .file-line .file-line-more-panel,.record-photo-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:8;min-width:148px;display:grid;padding:4px;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:var(--kptu-shadow-float)}
 .file-line .file-line-more-panel button,.record-photo-panel button{min-height:44px;height:auto;width:auto;margin:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);padding:0 12px;text-align:left;font-size:var(--kptu-text-meta);font-weight:600;white-space:nowrap}
@@ -1863,6 +1863,52 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   #appView #homeView .journal-head > .journal-day-title{ font-size:var(--ds-text-head); }
 }
 
+/* ===== UI-설정줄(S71-36 PROFILE-설정화면, 줄 단추는 ③ 글자 버튼(row-act) 규칙(#profileView 포함)보다 이기도록 :not(#sl-none)으로 id 하나만큼 높인다.
+    사용자 11/26 시안 확정 'ㅇㅋ'): 설정 화면의 줄 하나 — 안드로이드 설정처럼 '한 줄 메뉴 → 들어가면 상세'.
+   글자는 app/settings-list.mjs 하나가 만든다. 줄 = 이름(+ 회색 설명 한 줄) · 오른쪽 작은 회색 요약 · 끝(› / 스위치 / ↗ / 작은 동작).
+   줄 높이 44px(누르는 범위 그대로), 묶음은 공용 상자(0.5px 선·모서리 12px), 큰 단추·카드 없음. 위험 줄은 빨간 글자. 화면 CSS는 자리만 정한다. */
+.sl-page{display:flex;flex-direction:column;max-width:560px}
+.sl-page-head{display:flex;align-items:center;gap:2px;min-height:var(--kptu-touch-target,44px);margin:0 0 2px -6px}
+.sl-page-head .sl-back{font-size:22px;line-height:1}
+.sl-page-title{margin:0;font-size:var(--ds-text-head,15px);font-weight:var(--ds-weight-medium,500);line-height:1.4}
+.sl-group-title{padding:12px 4px 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);line-height:1.4}
+.sl-group{display:flex;flex-direction:column;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-box,12px);background:var(--kptu-surface);overflow:hidden}
+.sl-group + .sl-group{margin-top:8px}
+.sl-group .sl-row,.sl-group :is(button,a,summary,label).sl-row:not(#sl-none){position:relative;display:flex;align-items:center;gap:8px;box-sizing:border-box;width:100%;min-height:var(--kptu-touch-target,44px);margin:0;padding:6px 12px;border:0;border-radius:0;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);line-height:1.4;text-align:left;text-decoration:none;cursor:default}
+.sl-group button.row-act.sl-row:not(#sl-none)::after{content:none}
+/* 줄 사이 가는 선: 줄 단추의 border:0(위 규칙)보다 이기도록 클래스 둘 + id 하나만큼. */
+.sl-group.sl-group > :not(:first-child):not(#sl-none),.sl-fold-body.sl-fold-body > :not(:first-child):not(#sl-none){border-top:var(--ds-line-width,.5px) solid var(--ds-line)}
+.sl-group :is(button.sl-row,a.sl-row,summary.sl-row,label.sl-row){cursor:pointer}
+.sl-group :is(button.sl-row,a.sl-row,summary.sl-row,label.sl-row):not(#sl-none):is(:hover,:focus-visible){background:var(--kptu-surface-subtle)}
+.sl-group :is(button.sl-row,a.sl-row,summary.sl-row):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.sl-group button.sl-row:not(#sl-none):disabled{opacity:.5;cursor:default}
+.sl-text{display:flex;flex-direction:column;flex:1 1 auto;min-width:0}
+.sl-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sl-desc{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);line-height:1.4;overflow-wrap:anywhere}
+.sl-sum{flex:0 1 auto;min-width:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+.sl-sum:empty{display:none}
+.sl-end{flex:none;color:var(--kptu-faint);font-size:16px;line-height:1}
+.sl-group .sl-row.sl-danger:not(#sl-none),.sl-danger .sl-label{color:var(--kptu-danger)}
+.sl-fold > summary{list-style:none}
+.sl-fold > summary::-webkit-details-marker{display:none}
+.sl-fold[open] > summary .sl-chev{transform:rotate(90deg)}
+.sl-fold-body{border-top:var(--ds-line-width,.5px) solid var(--ds-line);background:var(--kptu-surface-subtle)}
+.sl-group .sl-fold-body .sl-row:not(#sl-none){padding-left:20px}
+.sl-note{margin:6px 4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);line-height:1.5}
+.sl-status{min-height:0;margin:0 4px 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+.sl-status:empty{display:none}
+.sl-error{color:var(--kptu-danger)}
+/* 스위치: 줄 끝 작은 알약(34×20). 체크칸 하나라 키보드·읽어 주기는 기기 그대로. */
+.sl-group input.sl-switch{appearance:none;-webkit-appearance:none;flex:none;position:relative;width:34px;height:20px;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-pill,999px);background:var(--ds-line);box-shadow:none;cursor:pointer;transition:background .15s}
+.sl-group input.sl-switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:var(--kptu-radius-pill,999px);background:var(--kptu-surface);transition:transform .15s}
+.sl-group input.sl-switch:checked{background:var(--ds-select-ink,var(--kptu-ink))}
+.sl-group input.sl-switch:checked::after{transform:translateX(14px)}
+.sl-group input.sl-switch:disabled{opacity:.5;cursor:default}
+.sl-group input.sl-switch:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
+/* 줄 안의 작은 입력(이름 칸·시각 칸): 공용 칸 모양 그대로, 자리만. */
+.sl-group .sl-row > input:not(.sl-switch){flex:1 1 auto;min-width:0;height:var(--ds-compact-height);min-height:var(--ds-compact-height);font-size:var(--ds-text-row,13px)}
+.sl-group .sl-row > input[type=time]{flex:0 1 7.5em}
+
 /* ===== UI-요청상자통일(S52-09, 요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html 명진 'ㅇ') =====
    홈 '나한테 온 요청'·'잊지 말기' 상자와 정리함 '나한테 온 요청' 상자가 함께 쓰는 공용 부품(app/notice-box.mjs) 한 곳의 모양.
    같은 둥근 상자·머리 줄·줄·버튼, 색만 tone(ask = 톤다운 파랑 --kptu-info, forget = 톤다운 노랑 --kptu-warning). 버튼 모양은 'UI-버튼6가지'
@@ -2042,5 +2088,6 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 
 /* S67-25: '잠김' 한 줄(잊지 말기·밑줄 등 어디서든) — 테두리 칸 안에서 글자가 벽에 붙지 않게 안쪽 여백. */
 .forget-locked{margin:0;padding:.5em var(--ds-row-pad-x)}
+
 
 

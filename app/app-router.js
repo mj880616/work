@@ -30,7 +30,8 @@
   // The router owns the address and the history entries of it; the screen (basket.js) owns what is drawn and is told through the view hook
   // (detail.sub) and, for a back/forward step inside the same screen, kptu:sub-changed.
   // NAV-새로고침제자리: [노트] is a side of the same screen too (?view=basket&pane=note), so a reload on the note side stays there.
-  const SUB_PARAMS={basket:{param:'pane',values:['todo','note']}};
+  // S71-36 PROFILE-설정화면: 내 프로필의 장(이름·홈 칸·알림 설정 …)도 한 겹 아래 쪽이다(?view=profile&pane=push). 뒤로가기 = 내 프로필.
+  const SUB_PARAMS={basket:{param:'pane',values:['todo','note']},profile:{param:'pane',values:['name','home','push','backup','drive','mcp','account','status','org','groups']}};
   // NAV-새로고침제자리: the place inside a screen (an open note, the folder entered, the day picked) is written to the address as
   // the screen's own parameters, so a reload (pull-to-refresh) opens the same place. Each screen lists its keys here and writes them
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back

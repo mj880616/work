@@ -253,13 +253,23 @@ test('girok 빌드 + 바탕 없음(기본 사용자) + 고친 이름 없음: 화
 });
 
 // S67-57: 내 프로필의 기본 정보·담당 칸·내 묶음(명진 캡처의 칸들). 칸이 모두 그려질 때까지 기다린다(S71-34: 주간 캘린더 칸은 없앴다).
-const PROFILE_PANELS = '#profileView .ps-panel:first-child, #psWorkplacePanel, #psCollabPanel';
+// S71-36 PROFILE-설정화면: 첫 화면은 한 줄 메뉴, 칸들은 각 장(이름·담당조직 현황·내 묶음) 안 — 장마다 들어가 보이는 글자를 본다.
 async function openProfile(page) {
   await page.evaluate(() => window.KPTURouter.go('profile'));
-  await expect(page.locator('#profileView')).toBeVisible();
-  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toBeVisible();
-  await expect(page.locator('#psWorkplacePanel h3')).toBeVisible();
+  await expect(page.locator('#psRoot [data-ps-open="groups"]')).toBeVisible();
   await page.waitForLoadState('networkidle');
+}
+async function enter(page, key) {
+  if (!(await page.locator('#psRoot').isVisible())) await page.locator('#profileView .ps-page:not([hidden]) [data-ps-back]').click();
+  await page.locator(`#psRoot [data-ps-open="${key}"]`).click();
+  await expect(page.locator(`#profileView [data-ps-page="${key}"]`)).toBeVisible();
+}
+// 첫 화면 + 이름·담당조직 현황·내 묶음 장에 보이는 글자 전부.
+async function profileTexts(page) {
+  const all = [...await shownTexts(page, '#psRoot')];
+  for (const key of ['name', 'org', 'groups']) { await enter(page, key); all.push(...await shownTexts(page, `#profileView [data-ps-page="${key}"]`)); }
+  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toBeVisible();
+  return all;
 }
 
 test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·담당 칸·주간 캘린더·내 묶음에 노조 색 글자가 없다', async ({ page }, testInfo) => {
@@ -268,11 +278,11 @@ test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·담당 �
   await page.setViewportSize({ width: 412, height: 915 });
   await boot(page);
   await openProfile(page);
-  await expect(page.locator('#profileView .ps-fields input')).toHaveCount(1);
-  await expect(page.locator('#psName')).toHaveAttribute('placeholder', '이름 (닉네임 써도 돼요)');
+  await expect(page.locator('#profileView [data-ps-page="name"] input')).toHaveCount(1);
+  await expect(page.locator('#profileView [data-ps-page="name"] .sl-note')).toHaveText('닉네임 써도 돼요');
   await expect(page.locator('#psReportPanel')).toHaveCount(0);
+  const bad = (await profileTexts(page)).filter(t => FORBIDDEN.test(t));
   await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toHaveText('+ 소속 묶음 만들기');
-  const bad = (await shownTexts(page, PROFILE_PANELS)).filter(t => FORBIDDEN.test(t));
   expect(bad, '내 프로필: 기록+ 화면에 노조 색 글자').toEqual([]);
   await page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]').click();
   await expect(page.locator('#psCollabPanel .cg-form-title')).toHaveText('소속 묶음 만들기');
@@ -290,10 +300,13 @@ test('girok 빌드 + 명진(바탕 nojo + 15칸): 내 프로필 글자가 지금
   await page.setViewportSize({ width: 1280, height: 900 });
   await boot(page, MINJIN);
   await openProfile(page);
-  await expect(page.locator('#profileView .ps-fields input')).toHaveCount(1);
+  await expect(page.locator('#profileView [data-ps-page="name"] input')).toHaveCount(1);
   await expect(page.locator('#psName')).toHaveAttribute('aria-label', '이름');
   await expect(page.locator('#psReportPanel')).toHaveCount(0);
+  await expect(page.locator('#psRoot [data-ps-open="org"] .sl-label')).toHaveText('담당조직 현황');
+  await enter(page, 'org');
   await expect(page.locator('#psWorkplacePanel h3')).toHaveText('담당조직 현황');
+  await enter(page, 'groups');
   await expect(page.locator('#psCollabPanel .cg-muted').first()).toHaveText('같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.');
   await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="dept"]')).toHaveText('+ 부서 묶음 만들기');
   await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toHaveText('+ 노조 묶음 만들기');

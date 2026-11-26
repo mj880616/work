@@ -63,9 +63,7 @@ const SHORT_OR_OTHER = {
   'markdown-render.mjs': '글 안 할 일 표시(읽기 전용)',
   'suborganizations.js': '일정의 관련 담당조직은 내 담당만(짧음), 담당자 선택은 사람 몇 명',
   'task-row-view.js': '할 일 완료 체크',
-  'mcp-read-settings.js': "'Claude 읽기 연결' 켜기 스위치 하나 — 고르는 목록이 아님",
-  'home-off.js': "내 프로필 '홈 칸' 켜기 스위치(끌 수 있는 홈 칸 몇 개) — 고르는 목록이 아님",
-  'record-backup.js': "'내 기록 백업' 종류 체크(서버가 정한 몇 개, 시안 backup-export.html) — 고르는 목록이 아니라 백업할 종류 켜기",
+  'settings-list.mjs': "공용 설정 줄(UI-설정줄, S71-36)의 스위치 한 칸 — 설정 화면의 켜기·끄기(알림 종류·홈 칸·백업할 것·Claude 연결)이지 고르는 목록이 아님",
 };
 const walk = dir => readdirSync(dir).flatMap(name => { const p = join(dir, name); return statSync(p).isDirectory() ? walk(p) : [p]; });
 const files = walk(APP).map(p => relative(APP, p).split('\\').join('/')).filter(f => /\.(m?js)$/.test(f) && !SKIP.test(f));

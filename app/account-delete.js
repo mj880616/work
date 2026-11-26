@@ -5,12 +5,13 @@
 // - 끝나면 서버가 모든 로그인을 끊고, 이 화면은 평소 로그아웃 길(KPTUTeamAuth.logout)로 로그인 화면에 간다.
 // 기기 저장 없음. 창은 뒤로가기로 닫힌다(KPTURouter.layer).
 import {waitInlineHtml} from './wait-state.js';
+import {groupHtml, actionRow} from './settings-list.mjs';
 
 const ENDPOINT = '/functions/v1/account-delete';
 export const CONFIRM_WORD = '삭제';
 export const REFUSAL_TEXT = {
   ACCOUNT_OPERATOR_KEEP: '운영자 계정은 여기서 삭제할 수 없어요.',
-  ACCOUNT_GROUP_ADMIN_MOVE: "내가 관리자인 묶음에 다른 사람이 있어요. 위 '내 묶음'에서 관리자를 넘기거나 묶음을 나간 뒤 다시 해 주세요.",
+  ACCOUNT_GROUP_ADMIN_MOVE: "내가 관리자인 묶음에 다른 사람이 있어요. '내 묶음'에서 관리자를 넘기거나 묶음을 나간 뒤 다시 해 주세요.",
   ACCOUNT_WORKSPACE_SHARED: '이 작업공간에 다른 관리자가 있어 여기서 삭제할 수 없어요. 운영자에게 문의해 주세요.',
   ACCOUNT_WORKSPACE_REQUIRED: '삭제할 작업공간이 없어요.',
   ACCOUNT_DELEGATED_REFUSED: '이 로그인으로는 삭제할 수 없어요. 앱에서 직접 로그인한 뒤 해 주세요.',
@@ -128,11 +129,10 @@ export function openAccountDelete(trigger, {rt = window.KPTURuntime} = {}) {
   return true;
 }
 
-/** 내 프로필 '계정' 칸에 [계정 삭제] 버튼 하나를 붙인다(한 번만). */
+/** 내 프로필 '계정' 장의 따로 떨어진 묶음에 [계정 삭제] 줄 하나(빨간 글자, 공용 설정 줄)를 그린다(한 번만). 누르면 위 확인 창. */
 export function mountAccountDelete(host, opts = {}) {
   if (!host || host.querySelector('[data-account-delete]')) return;
-  const button = document.createElement('button');
-  button.type = 'button'; button.className = 'secondary'; button.dataset.accountDelete = ''; button.textContent = '계정 삭제';
+  host.innerHTML = groupHtml([actionRow({label: '계정 삭제', desc: '내 기록이 모두 삭제돼요', danger: true, attrs: {'data-account-delete': true}})]);
+  const button = host.querySelector('[data-account-delete]');
   button.addEventListener('click', () => openAccountDelete(button, opts));
-  host.append(button);
 }

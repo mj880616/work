@@ -25,7 +25,8 @@ async function fixture(page,{copy=status({last_success_at:'2026-10-05T21:17:00.0
   });
   // MULTI-다른담당자맞춤 ④: 수집·사용량 줄은 서버 운영자 기능(app_my_features)이 있는 작업공간에서만 그린다.
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',route=>route.fulfill({json:features}));
-  await page.reload();
+  // S71-36: 운영자 기능 답을 정한 뒤 '사용 현황' 장(?view=profile&pane=status)을 연다(먼저 열면 운영자 아님으로 읽어 첫 화면으로 돌아간다).
+  await page.goto(new URL('?view=profile&pane=status',page.url()).href);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#profileView')).toBeVisible();
   return {calls,card:page.locator('#psStatusPanel [data-ps-collect]')};

@@ -73,7 +73,7 @@ test('내가 바꾼 이름은 첫 화면부터 메뉴·앱 바탕에 보이고, 
 
   await page.goto(testOrigin+'/app/?view=profile');
   await expect(page.locator('#profileView')).toBeVisible({timeout:20000});
-  await expect(page.locator('#profileView .ps-panel').first()).toBeVisible();
+  await expect(page.locator('#psRoot [data-ps-open]').first()).toBeVisible(); // S71-36: 첫 화면은 한 줄 메뉴
   await page.waitForLoadState('networkidle');
   await expect(page.locator('#psCustomWordsPanel, #profileView .cw-fold, #profileView [data-cw-slot]')).toHaveCount(0);
   await expect(page.locator('#profileView')).not.toContainText('이름 바꾸기');

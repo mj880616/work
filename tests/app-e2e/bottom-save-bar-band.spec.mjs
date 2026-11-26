@@ -53,9 +53,10 @@ const SCREENS = {
     return page.locator('[data-basket-detail] [data-basket-edit-actions]');
   },
   async 프로필(page) {
-    await page.evaluate(() => window.KPTURouter.go('profile'));
-    await expect(page.locator('#profileView')).toBeVisible();
-    return page.locator('#profileView .ps-actions');
+    // S71-36 PROFILE-설정화면: 저장 줄은 '담당조직 현황' 장 하나에만 남았다.
+    await page.evaluate(() => window.KPTURouter.go('profile', {sub: 'org'}));
+    await expect(page.locator('#profileView [data-ps-page="org"]')).toBeVisible();
+    return page.locator('#profileView [data-ps-page="org"] .ps-actions');
   },
   async 일기(page) {
     await page.evaluate(() => window.KPTURouter.go('diary'));
