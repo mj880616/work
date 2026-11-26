@@ -254,12 +254,18 @@ test('girok 빌드 + 바탕 없음(기본 사용자) + 고친 이름 없음: 화
 
 // S67-57: 내 프로필의 기본 정보 칸(사용자 캡처의 칸들). S71-34: 주간 캘린더 칸은 없앴다.
 // S71-35 ORG-조직관리로모으기: '담당조직 현황'·'내 묶음' 칸은 내 프로필에서 없앴다 — 내 묶음은 조직 관리 목록 아래 접힌 칸, 만들기는 조직 관리 ⋯ 안.
-const PROFILE_PANELS = '#profileView .ps-panel:first-child';
+// S71-36 PROFILE-설정화면: 첫 화면은 한 줄 메뉴, 이름 칸은 '이름' 장 안 — 첫 화면과 이름 장에 보이는 글자를 본다.
 async function openProfile(page) {
   await page.evaluate(() => window.KPTURouter.go('profile'));
-  await expect(page.locator('#profileView')).toBeVisible();
-  await expect(page.locator('#psName')).toBeVisible();
+  await expect(page.locator('#psRoot [data-ps-open="name"]')).toBeVisible();
   await page.waitForLoadState('networkidle');
+}
+async function profileTexts(page) {
+  const all = [...await shownTexts(page, '#psRoot')];
+  await page.locator('#psRoot [data-ps-open="name"]').click();
+  await expect(page.locator('#psName')).toBeVisible();
+  all.push(...await shownTexts(page, '#profileView [data-ps-page="name"]'));
+  return all;
 }
 const COLLAB = '#soOrganizationList details.so-collab';
 async function openCollab(page) {
@@ -281,10 +287,10 @@ test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·조직 �
   await page.setViewportSize({ width: 412, height: 915 });
   await boot(page);
   await openProfile(page);
-  await expect(page.locator('#profileView .ps-fields input')).toHaveCount(1);
-  await expect(page.locator('#psName')).toHaveAttribute('placeholder', '이름 (닉네임 써도 돼요)');
+  await expect(page.locator('#profileView [data-ps-page="name"] input')).toHaveCount(1);
+  await expect(page.locator('#profileView [data-ps-page="name"] .sl-note')).toHaveText('닉네임 써도 돼요');
   await expect(page.locator('#psReportPanel, #psWorkplacePanel, #psCollabPanel')).toHaveCount(0);
-  const bad = (await shownTexts(page, PROFILE_PANELS)).filter(t => FORBIDDEN.test(t));
+  const bad = (await profileTexts(page)).filter(t => FORBIDDEN.test(t));
   expect(bad, '내 프로필: 기록+ 화면에 노조 색 글자').toEqual([]);
   await openCollab(page);
   await menuCreate(page, '소속 묶음 만들기');
@@ -303,7 +309,7 @@ test('girok 빌드 + 사용자(바탕 nojo + 15칸): 내 프로필·내 묶음 �
   await page.setViewportSize({ width: 1280, height: 900 });
   await boot(page, MINJIN);
   await openProfile(page);
-  await expect(page.locator('#profileView .ps-fields input')).toHaveCount(1);
+  await expect(page.locator('#profileView [data-ps-page="name"] input')).toHaveCount(1);
   await expect(page.locator('#psName')).toHaveAttribute('aria-label', '이름');
   await expect(page.locator('#psReportPanel, #psWorkplacePanel, #psCollabPanel')).toHaveCount(0);
   await openCollab(page);

@@ -74,7 +74,7 @@ function close({silent=false}={}){
   if(!silent&&w.dataset.kptuHistoryOpen==='1'&&history.state?.kptuOverlay==='areaWindow')window.addEventListener('popstate',()=>queueMicrotask(dropPlace),{once:true});
   if(!silent)queueMicrotask(dropPlace);
   w.classList.add('hidden');w.setAttribute('aria-hidden','true');document.documentElement.classList.remove('area-window-open');
-  window.KPTUA11y?.dialog.deactivate(w,{restoreFocus:!silent,fallbackFocus:'#reportMore'});
+  window.KPTUA11y?.dialog.deactivate(w,{restoreFocus:!silent,fallbackFocus:'#newMeetingBtn'});
   window.KPTUProjects?.place?.(); // 창이 닫힌 뒤에 상세를 칸에서 내린다(칸은 창이 떠 있을 때만)
   window.dispatchEvent(new CustomEvent('kptu:area-window',{detail:{open:false}}));
   return true;

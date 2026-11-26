@@ -33,7 +33,7 @@ async function fixture(page,{width=1280,status=stalled,google='ok',prefs=null,wa
   expect(calls.filter(a=>a==='status')).toHaveLength(0);
   await expect(page.locator('#noticeBar [data-notice="collect"]')).toHaveCount(0);
   if(warm){
-    await page.evaluate(()=>window.KPTURouter.go('profile'));
+    await page.evaluate(()=>window.KPTURouter.go('profile',{sub:'status'}));
     await expect(page.locator('#psStatusPanel')).toBeVisible({timeout:15000});
     await expect.poll(()=>calls.filter(a=>a==='status').length).toBe(1);
     await page.evaluate(()=>window.KPTURouter.go('calendar'));
@@ -77,7 +77,7 @@ test('collection stall ✕ hides it for today on the server (view_prefs.collect_
   expect(await leftoverDeviceKeys(page)).toEqual([]);
   // 다른 기기·새로고침: 서버 값이 오늘이라 안 뜬다.
   await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
-  await page.evaluate(()=>window.KPTURouter.go('profile'));await expect(page.locator('#psStatusPanel [data-collect="copy"]')).toBeVisible({timeout:15000});
+  await page.evaluate(()=>window.KPTURouter.go('profile',{sub:'status'}));await expect(page.locator('#psStatusPanel [data-collect="copy"]')).toBeVisible({timeout:15000});
   await page.evaluate(()=>window.KPTURouter.go('calendar'));await page.waitForTimeout(300);
   await expect(page.locator('#noticeBar')).toHaveCount(0);
 });

@@ -60,7 +60,7 @@ async function open(page, state, width, view = 'meetings') {
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 15000 });
 }
 
-const BAR = '#meetingsView .report-kind-bar', CHIP = '#reportFilterChip';
+const BAR = '#reportFilterBar', CHIP = '#reportFilterChip';
 const box = e => { const b = e.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width }; };
 // 칩·상자 줄의 자리, 칩 글자가 칩 안에 다 들어갔는지(말줄임 포함), ▾ 자리(오른쪽 여백).
 const chipState = page => page.evaluate(([barSel, chipSel]) => {
@@ -85,12 +85,13 @@ for (const width of [320, 360, 412]) {
     await expect(chip).toHaveText('전체');
     await expect(page.locator('#reportAreaSelect')).toBeHidden();
     await expect(page.locator('#meetingList')).toContainText('◇◇ 결의대회');
-    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox(), head = await page.locator('#appView > .mobile-shell-header').boundingBox();
+    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#appView > .mobile-shell-header .mobile-shell-find').boundingBox(), head = await page.locator('#appView > .mobile-shell-header').boundingBox();
     let s = await chipState(page);
-    // 한 줄: 칩은 [+] 왼쪽에서 끝나고, [+]·[⋯]는 화면 안. 칩은 통째로 보인다(글자 잘림·말줄임 없음, ▾ 자리 있음).
-    // S70-57: 이름 '사업 관리'는 앱 머리 줄(찾기 돋보기와 함께) — 칩 줄은 그 아래.
+    // 한 줄: 칩은 [+] 왼쪽에서 끝나고, [+]·찾기는 화면 안. 칩은 통째로 보인다(글자 잘림·말줄임 없음, ▾ 자리 있음).
+    // BIZ-머리한줄(S71-23): 칩·[+]는 앱 머리 줄 안(이름 '사업 관리' 뒤, 찾기 앞).
     expect(s.bar).toBeNull();
-    expect(s.chip.top).toBeGreaterThanOrEqual(head.y + head.height);
+    expect(s.chip.top).toBeGreaterThanOrEqual(head.y - 0.5);
+    expect(s.chip.bottom).toBeLessThanOrEqual(head.y + head.height + 0.5);
     expect(s.chip.right).toBeLessThanOrEqual(add.x + 0.5);
     expect(more.x + more.width).toBeLessThanOrEqual(width);
     expect(Math.abs((s.chip.top + s.chip.bottom) / 2 - (add.y + add.height / 2))).toBeLessThanOrEqual(2);
@@ -150,7 +151,7 @@ for (const width of [320, 360, 412]) {
     expect(await noPageScroll(page)).toBe(true);
   });
 
-  test(`phone ${width}: a long chip label (several picks) ends with … inside the line and keeps ▾, [+] and [⋯] in place`, async ({ page }) => {
+  test(`phone ${width}: a long chip label (several picks) ends with … inside the line and keeps ▾, [+] and find in place`, async ({ page }) => {
     await open(page, makeState(), width);
     const chip = page.locator(CHIP);
     await expect(chip).toBeVisible({ timeout: 10000 });
@@ -160,7 +161,7 @@ for (const width of [320, 360, 412]) {
       await expect(page.locator('#reportAreaSelect')).toBeHidden();
     }
     await expect(chip).toHaveText(/ · .* · 전체 기간$/);
-    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox();
+    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#appView > .mobile-shell-header .mobile-shell-find').boundingBox();
     const s = await chipState(page);
     expect(s.chip.right).toBeLessThanOrEqual(add.x + 0.5);
     expect(more.x + more.width).toBeLessThanOrEqual(width);
@@ -170,17 +171,20 @@ for (const width of [320, 360, 412]) {
   });
 }
 
+// BIZ-머리한줄(S71-23): 폴드 펼침(700)은 고르기·건수·[+]가 앱 머리 줄 안에서 찾기 칸과 폭을 나눠, 다 안 들어가면 칩 하나(넘침 없음).
+// PC 틀(880)은 화면 안 첫 줄이라 네 개 그대로.
 for (const width of [700, 880]) {
-  test(`${width < 600 ? 'phone' : 'fold open'} ${width}: all four boxes fit in the line, so they stay four (no chip)`, async ({ page }) => {
+  test(`fold open ${width}: the boxes stay on one line — four when they fit (PC frame 880), one chip otherwise, never overflowing`, async ({ page }) => {
     await open(page, makeState(), width);
-    await expect(page.locator('#reportAreaSelect')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#reportAreaSelect:visible, #reportFilterChip:visible').first()).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(150);
     const s = await chipState(page);
-    expect(s.chip).toBeNull();
-    expect(s.selects.length).toBe(4);
-    expect(s.bar.sw).toBeLessThanOrEqual(s.bar.cw + 1);
+    if (width >= 761) { expect(s.chip).toBeNull(); expect(s.selects.length).toBe(4); }
+    if (!s.chip) {
+      expect(s.bar.sw).toBeLessThanOrEqual(s.bar.cw + 1);
+      for (const c of s.selects) { expect(c.left).toBeGreaterThanOrEqual(s.bar.left - 0.5); expect(c.right).toBeLessThanOrEqual(s.bar.right + 1); }
+    } else expect(s.textCut).toBe(false);
     expect(s.mask).toBe('none');
-    for (const c of s.selects) { expect(c.left).toBeGreaterThanOrEqual(s.bar.left - 0.5); expect(c.right).toBeLessThanOrEqual(s.bar.right + 1); }
     expect(await noPageScroll(page)).toBe(true);
   });
 }
@@ -201,7 +205,7 @@ test('phone 360 → wide: folding the window open while the chip window is open 
 });
 
 for (const width of [360, 412]) {
-  test(`phone ${width}: long names a person gave (custom_words, up to 20 letters) keep the chip, [+]·[⋯] on the line and the page from scrolling sideways`, async ({ page }) => {
+  test(`phone ${width}: long names a person gave (custom_words, up to 20 letters) keep the chip, [+]·find on the line and the page from scrolling sideways`, async ({ page }) => {
     const state = makeState(LONG_WORDS);
     await open(page, state, width);
     const title = page.locator('#appView > .mobile-shell-header [data-mobile-view-name]'); // S70-57: 이름은 앱 머리 줄
@@ -211,11 +215,10 @@ for (const width of [360, 412]) {
     await expect(page.locator('#reportAreaSelect')).toHaveText(new RegExp(LONG_WORDS.area));
     await page.keyboard.press('Escape');
     await page.waitForTimeout(150);
-    const t = await title.boundingBox(), add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox();
+    const t = await title.boundingBox(), add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#appView > .mobile-shell-header .mobile-shell-find').boundingBox();
     const s = await chipState(page);
-    // 아주 긴 이름은 앱 머리 줄 끝에서 …(찾기 돋보기 자리를 지킴). 칩·버튼은 그 아래 한 줄, 화면 안.
-    expect(t.x + t.width).toBeLessThanOrEqual(width);
-    expect(s.chip.top).toBeGreaterThanOrEqual(t.y + t.height);
+    // 아주 긴 이름은 앱 머리 줄에서 …(칩 최소 폭·[+]·찾기 돋보기 자리를 지킴). BIZ-머리한줄: 칩·버튼도 같은 머리 줄, 화면 안.
+    expect(t.x + t.width).toBeLessThanOrEqual(s.chip.left + 0.5);
     expect(s.chip.right).toBeLessThanOrEqual(add.x + 0.5);
     expect(s.chip.width).toBeGreaterThan(40);
     expect(more.x + more.width).toBeLessThanOrEqual(width);

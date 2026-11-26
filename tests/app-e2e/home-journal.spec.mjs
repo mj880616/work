@@ -146,12 +146,12 @@ for (const [width, height] of WIDTHS) {
     await expect(page.locator('#homeView :is(.home-collect,.home-ai-usage,[data-ps-collect],[data-ps-ai-usage],[data-home-ai-usage],[data-home-collect-alert])')).toHaveCount(0);
     await expect(page.locator('#homeView')).not.toContainText('마지막 수집 시각');
     await expect(page.locator('#mobileMenu [data-menu-collect]')).toHaveCount(0);
-    await page.evaluate(() => window.KPTURouter.go('profile', {source: 'delegated'}));
+    await page.evaluate(() => window.KPTURouter.go('profile', {source: 'delegated', sub: 'status'}));
     await expect(page.locator('#profileView')).toBeVisible();
     const panel = page.locator('#psStatusPanel');
     await expect(panel).toBeAttached();
-    // MULTI-다른담당자맞춤 ⑥: 칸 이름 '사용 현황', '연락 없는 조직' 기준은 조직 보고 ⋯로 옮겼다.
-    await expect(panel.locator('h3').first()).toHaveText('사용 현황');
+    // MULTI-다른담당자맞춤 ⑥: 이름 '사용 현황'(S71-36: 내 프로필의 '사용 현황' 장 머리), '연락 없는 조직' 기준은 조직 보고 ⋯로 옮겼다.
+    await expect(page.locator('#profileView [data-ps-page="status"] .sl-page-title')).toHaveText('사용 현황');
     await expect(panel.locator('[data-ps-collect]')).toBeAttached();
     await expect(panel.locator('[data-ps-ai-usage]')).toBeAttached();
     await expect(panel.locator('[data-ps-quiet]')).toHaveCount(0);

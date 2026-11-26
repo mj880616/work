@@ -112,9 +112,13 @@ test('운영자: 내 프로필 폰 알림에 새 가입 칩(기본 켬)',async({
   test.setTimeout(60000);
   await page.setViewportSize({width:412,height:860});
   await boot(page,{operator:true,view:'profile'});
+  // S71-36 PROFILE-설정화면: '알림 설정' 장의 종류 줄(이름 + 회색 설명 + 스위치).
+  await page.locator('#psRoot [data-ps-open="push"]').click({timeout:15000});
   const chip=page.locator('#psPushPanel [data-ps-push-kind="signup"]');
-  await expect(chip).toHaveText('새 가입',{timeout:15000});
-  await expect(chip).toHaveAttribute('aria-pressed','true');
+  const row=page.locator('#psPushPanel label:has([data-ps-push-kind="signup"])');
+  await expect(row.locator('.sl-label')).toHaveText('새 가입',{timeout:15000});
+  await expect(row.locator('.sl-desc')).toHaveText('운영자만 · 새 사람이 가입하면');
+  await expect(chip).toBeChecked();
   await chip.scrollIntoViewIfNeeded();
   await page.screenshot({path:`${SHOTS}signups-chip-412.png`});
 });

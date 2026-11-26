@@ -2,10 +2,12 @@ import {expect} from '@playwright/test';
 // S67-75 UI-걸러보기칩하나(2026-11-21 사용자 A안): 폰 사업 관리 윗줄의 고르기 상자 네 개(종류·사업영역·기간·보기)는 줄에 다 안 들어가면
 // 칩 하나(#reportFilterChip)로 묶이고, 상자는 그 칩이 여는 작은 창에 있다. 하나를 고르면 반영되고 창은 닫힌다.
 // 시험은 사람이 하듯: 칩이 보이면 칩을 눌러 창을 열고 상자에서 고른다. 다 들어가는 폭(폴드 펼침·PC)은 칩이 없어 그대로 고른다.
-const CHIP='#reportFilterChip',BAR='#meetingsView .report-kind-bar';
+const CHIP='#reportFilterChip',BAR='#reportFilterBar'; // BIZ-머리한줄(S71-23): 첫 줄은 폰·폴드에서 앱 머리 줄로 가므로 #meetingsView 안이라고 가정하지 않는다
 // 칩 하나인지(상자가 창 안에 있는지). 칩과 상자 줄 중 하나가 보일 때까지 기다린 뒤 판단한다.
+// BIZ-머리한줄(S71-23): 첫 줄이 앱 머리 줄로 옮겨 간 직후 한 그림 차례 동안 상자 네 개가 넘친 채 보일 수 있다(다음 차례에 칩으로 묶음) —
+// 상자 쪽은 줄에 다 들어가 있을 때만 '네 개'로 본다(openReportBoxes와 같은 기준).
 export async function reportBoxesInChip(page){
-  await expect(page.locator(`${CHIP}:visible, ${BAR}:visible`).first()).toBeVisible();
+  await expect.poll(async()=>await page.locator(CHIP).isVisible()||(await page.locator(BAR).isVisible()&&await barFits(page))).toBe(true);
   return page.locator(CHIP).isVisible();
 }
 // 네 개가 줄에 다 들어가는지(화면이 칩으로 묶는 기준과 같음, report-filter-chip.js layout). 넓은 화면(761px~)은 늘 네 개.

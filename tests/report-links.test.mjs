@@ -129,7 +129,7 @@ test('주간보고·업무일지 줄: 회의가 아닌 칸은 [칸 이름]을 �
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('화면 문구: 입력·결과 창과 프로젝트·조직 화면은 사업 보고 기준(회의 칸 이름 \'회의\'는 유지)', () => {
   const html=read('app/index.html');
-  assert.match(html,/id="meetingModalTitle">사업 보고</);assert.match(html,/>\+ 사업 보고</);assert.match(html,/id="meetingPlaces"/);
+  assert.match(html,/id="meetingModalTitle">사업 보고</);assert.match(read('app/team.js'),/data-report-new>새 사업 보고</); // BIZ-머리한줄(S71-23): [+] 메뉴 '새 사업 보고'assert.match(html,/id="meetingPlaces"/);
   assert.doesNotMatch(html,/회의 결과 저장|\+ 회의 결과|<label>회의명<input id="meetingTitle"/);
   const ps=read('app/project-system-v3.js');assert.match(ps,/<h3>사업 보고 \$\{count/);assert.doesNotMatch(ps,/<h3>회의 \$\{count/);
   const wd=read('app/workplace-detail.js');assert.match(wd,/id="wdReports"/);assert.match(wd,/<h3>사업 보고 </);

@@ -43,13 +43,15 @@ for(const width of [412,690,840,1280])test(`${width}: 사업영역이 없으면 
   const box=page.locator('#bizWeekBox'),hint=box.locator('.biz-week-none');
   await expect(hint).toBeVisible();await expect(hint).toContainText(HINT);
   const add=hint.getByRole('button',{name:'+ 사업 만들기'});await expect(add).toBeVisible();
-  // 제목 줄(접기)·표·아래 [주간 정리에서 보기 ›] 없음, 아래 목록 '없음'도 없음
-  await expect(box.locator('.biz-week-title')).toBeHidden();await expect(box.locator('[data-bw-journal]')).toHaveCount(0);
+  // 제목 줄(접기)·표·아래 [주간 정리에서 보기 ›] 없음, 아래 목록 '없음'도 없음.
+  // BIZ-머리한줄(S71-23): 주 넘기기 ‹ ›는 이 상자 제목 줄에만 있으므로, 보고가 있으면 접기 없이 ‹ 날짜 ›만 남는다(목록이 그 주를 따름).
+  await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveCount(0);await expect(box.locator('[data-bw-journal]')).toHaveCount(0);
+  const withNav=await box.locator('.biz-week-nav').count();
   await expect(page.locator('#meetingList')).not.toContainText('없음');
   await page.waitForTimeout(400); // 늦은 그리기가 표로 바꾸지 않는지
   expect(await page.evaluate(()=>window.__seen)).toEqual({skel:0,table:0,heading:0});
   // 칸 높이는 한 줄(낮게)
-  expect((await box.boundingBox()).height).toBeLessThanOrEqual(width<600?96:64);
+  expect((await box.boundingBox()).height).toBeLessThanOrEqual((width<600?96:64)+(withNav?40:0));
   if(SHOTS)await page.screenshot({path:`${SHOTS}/biz-none-${width}.png`});
   await add.click();
   await expect(page.locator('#areaWindow')).toBeVisible();

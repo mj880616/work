@@ -11,7 +11,7 @@ import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const WEEK_A='10.5(월)~10.11(일)',WEEK_B='9.28(월)~10.4(일)';
+const WEEK_A='10.5~10.11',WEEK_B='9.28~10.4';
 
 // 주 A(10.5~10.11): 안 단 보고 1건(m-1) + 단 보고 1건(m-2). 주 B(9.28~10.4): 단 보고 1건(m-3)뿐.
 function state(){
@@ -29,11 +29,11 @@ async function open(page,s,width,url='/app/?view=reports'){
   await signIn(page,testOrigin+url);await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await expect(page.locator('#meetingsView')).toBeVisible();
 }
-const weekLabel=page=>page.locator('#reportWeekFilter .report-week-label');
+const weekLabel=page=>page.locator('#bizWeekBox .biz-week-nav .report-week-label');
 const win=page=>page.locator('#areaWindow');
 async function openAreas(page){
-  await page.locator('#meetingsView #reportMore:visible').click();
-  await page.locator('#reportMoreMenu [data-report-areas]:visible').click();
+  await page.locator('#newMeetingBtn:visible').click(); // BIZ-머리한줄: 사업영역 관리는 [+] 메뉴 구분선 아래
+  await page.locator('#bizAddMenu [data-report-areas]:visible').click();
   await expect(win(page)).toBeVisible();
   await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="top-a"]')).toBeVisible();
 }

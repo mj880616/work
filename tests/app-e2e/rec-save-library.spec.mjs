@@ -6,6 +6,7 @@
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {signInWithSession} from './helpers/session-login.mjs';
+import {startRecord,readRecItem,recMenuItem} from './helpers/report-rec.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -102,7 +103,7 @@ test('PC 1280: [녹음] → [멈추고 저장] → 자료실 \'회의 녹음\' �
   });
   const calls=await mock(page,'webm');
   await signIn(page);
-  await page.locator('#reportRecordBtn').click();
+  await startRecord(page);
   const band=page.locator('#recBand');
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   await expect(band.getByRole('button',{name:'멈추고 저장'})).toBeVisible();
