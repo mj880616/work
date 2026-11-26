@@ -1145,9 +1145,9 @@ for (const [screen, boot] of TEXT_BAR_SCREENS) {
       if (width <= 760) return;
       const before = await textBarBox(selectBar(page)), grip = await textBarBox(selectBar(page).locator('.hl-bar-label'));
       await page.mouse.move(grip.x + 6, grip.y + grip.h / 2); await page.mouse.down();
-      await page.mouse.move(grip.x + 46, grip.y + grip.h / 2 + 50, { steps: 5 }); await page.mouse.up();
+      await page.mouse.move(grip.x + 6 - 40, grip.y + grip.h / 2 + 50, { steps: 5 }); await page.mouse.up(); // 왼쪽으로(막대가 글 칸 오른쪽 끝까지 찰 수 있음, S70-80)
       const after = await textBarBox(selectBar(page));
-      expect(Math.round(after.x - before.x)).toBe(40);
+      expect(Math.round(after.x - before.x)).toBe(-40);
       const btn = await textBarBox(selectBar(page).getByRole('button', { name: '복사', exact: true }));
       await page.mouse.move(btn.x + btn.w / 2, btn.y + btn.h / 2); await page.mouse.down();
       await page.mouse.move(btn.x + btn.w / 2 + 40, btn.y + 30, { steps: 4 }); await page.mouse.up();

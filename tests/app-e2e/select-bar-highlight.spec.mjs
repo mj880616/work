@@ -51,10 +51,11 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
       const grip = await box(bar(page).locator('.hl-bar-label'));
       await page.mouse.move(grip.x + 6, grip.y + grip.h / 2);
       await page.mouse.down();
-      await page.mouse.move(grip.x + 66, grip.y + grip.h / 2 + 90, { steps: 6 });
+      // S70-80: 막대가 글 칸 폭(오른쪽 끝 가까이)에 뜰 수 있어 왼쪽 아래로 끈다(오른쪽은 화면 끝에 막힘).
+      await page.mouse.move(grip.x + 6 - 60, grip.y + grip.h / 2 + 90, { steps: 6 });
       await page.mouse.up();
       const moved = await box(bar(page));
-      expect(Math.round(moved.x - before.x)).toBe(60);
+      expect(Math.round(moved.x - before.x)).toBe(-60);
       expect(Math.round(moved.y - before.y)).toBe(90);
       await expect(bar(page)).toBeVisible();
       const copy = await box(bar(page).getByRole('button', { name: '복사', exact: true }));
