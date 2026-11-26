@@ -12,8 +12,10 @@
    ORG-기록첨부이름반영(S60-14): 첨부 이름 끝 ✎(.fr-edit)도 공용 모양(file-rename.css, 테두리 없는 흐린 연필) 그대로 — 이 규칙이 테두리 단추로 덮어썼다.
    UI-이름고치기단추(S69-100): 이름 고치는 칸의 [이름 추천 받기][저장][취소](.fr-acts)도 공용 ② 작은 버튼 그대로 — 이 규칙이 44px 상자로 덮어썼다.
    NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로.
-   S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로. */
-#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .nbb-bg *, .up-rows *, .ds-seg-btn, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+   S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로.
+   S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게).
+   S71-50: 보드 메뉴 안 배경색 칸(.nbb-bg, 공용 ui-swatch)도 공용 모양 그대로. */
+#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .nbb-bg *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
