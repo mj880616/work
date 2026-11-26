@@ -429,7 +429,9 @@ function renderMeetingRows(box){renderMeetingTypeOptions();const chip=reportChip
 // 창을 아직 못 불러왔으면 이 한 줄이 보이고, 창이 준비되면(kptu:report-detail-ready) 바로 바뀐다.
 const meetingResult=()=>`<div class="mcol-wait" data-mcol-pending>${waitHtml({rows:5})}</div>`;
 function undockReport(){window.KPTUMeetingRoundDetail?.undock?.()}
-function dockReport(){const slot=$('#meetingList #mcolResult'),id=slot?.dataset.meetingResult,api=window.KPTUMeetingRoundDetail;if(!slot||!id||!api?.dock)return;void api.dock(slot,id)}
+// S71-73: 다른 화면(조직·사업 상세 등) 위에 창으로 떠 있는 사업 보고는, 안 보이는 사업 보고 화면 칸이 다시 그려져도(저장 뒤 목록 다시 읽기) 가져가지 않는다.
+// 가져가면 창이 사라지고 저장 뒤 알림(kptu:meetings-changed)이 끊겨 아래 상세가 옛 연결을 보인다. 창을 닫으면 kptu:report-pane-free로 다시 앉힌다.
+function dockReport(){const slot=$('#meetingList #mcolResult'),id=slot?.dataset.meetingResult,api=window.KPTUMeetingRoundDetail;if(!slot||!id||!api?.dock)return;const open=document.querySelector('#meetingRoundDetailModal');if(open&&open.parentElement!==slot&&!open.classList.contains('hidden')&&!slot.getClientRects().length)return;void api.dock(slot,id)}
 for(const name of ['kptu:report-detail-ready','kptu:report-pane-free'])window.addEventListener(name,()=>{if(meetingPc?.matches&&teamViewLoaded.has('meetings'))dockReport()});
 // UI-상단줄제목: the 사업 보고 shown on the right goes to the PC top line's place (kptu:where-item, topbar-actions.js), named like the result head (name + round); null when none.
 function meetingWhere(m){const round=m&&(reportKindOf(m)===DEFAULT_KIND||hasRound(m)||meetingShortName(m))?roundLabel(m):'';window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'meetings',name:m?[meetingName(m)||'이름 없음',round].filter(Boolean).join(' '):null,trail:m?[{name:reportChip===ALL_KINDS?'전체':reportKindLabel(reportChip),step:'chip:'+reportChip}]:[]}}))}
