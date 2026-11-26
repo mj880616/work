@@ -62,7 +62,7 @@ test('PC 1280 ① 카드 아래 테두리 끌기 = 높이(서버 기억·다시 
   await page.mouse.move(from.x+20,last.y+last.height/2,{steps:6});await page.mouse.up();
   await expect(page.locator('#librarySelectBar')).toBeVisible();
   await expect(page.locator('#librarySelectCount')).toHaveText(/[1-9]개 선택됨/);
-  await page.locator('#librarySelectCancel').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕] 대신 Esc
   // 늘린 빈 곳에 파일을 놓으면 지금 보는 폴더(가상 일)로 올라간다.
   const blank=await page.locator('#documentList [data-lu-document]').last().boundingBox();
   const r=await dropFileAt(page,blank.x+blank.width/2,(blank.y+blank.height+cb)/2,'new.pdf');

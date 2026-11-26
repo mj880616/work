@@ -142,7 +142,7 @@ test('읽을 거리 412: 왼쪽 밀기 [삭제] — ⋯ 삭제와 같이 묻고,
   expect(errors).toEqual([]);
 });
 
-test('읽을 거리 412: 오른쪽 밀기 [선택] → n개 선택됨 · [읽음][삭제], [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
+test('저장한 글 412: 오른쪽 밀기 = 선택, 막대는 [전체 선택][삭제] 두 칸(✕·개수 글자 없음), Esc로 끝', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors, list } = await openReading(page, 412);
   await swipe(rdRow(list, RA), 320);
@@ -153,17 +153,17 @@ test('읽을 거리 412: 오른쪽 밀기 [선택] → n개 선택됨 · [읽음
   await rdRow(list, RC).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(page.locator('#readingView [data-rd-detail] .rd-title')).toHaveCount(0);
-  // S68-29: 고르기 단추는 [읽음][삭제](News에서 보낸 줄도 같은 단추).
-  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
-  await bar.locator('[data-row-pick-act="read"]').click();
-  await expect.poll(() => s.patches.map(p => p.id).sort()).toEqual([RA, RC].sort());
-  expect(s.patches.every(p => p.body.read_at)).toBe(true);
+  // S70-64b: 고르기 단추는 [삭제] 하나(+ 맨 앞 [전체 선택]). 읽음은 줄 밀기·⋯로(News에서 보낸 줄도 같은 단추).
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['삭제']);
+  await expect(bar.locator('[data-row-pick-stop]')).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await expect(bar).toBeHidden();
-  // [그만]: 선택을 끝내면 선택 줄이 사라진다.
+  expect(s.patches).toEqual([]);
+  // Esc: 선택을 끝내면 선택 줄이 사라진다(다시 해도 같다).
   await tick(page);
   await swipe(rdRow(list, RB), 320);
   await expect(bar).toBeVisible();
-  await bar.locator('[data-row-pick-stop]').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await expect(bar).toBeHidden();
   expect(s.deletes).toEqual([]);
   expect(errors).toEqual([]);
@@ -209,7 +209,7 @@ test('읽을 거리 412: 줄 위 좌우 밀기는 칩을 넘기지 않고, 줄 �
   await both(rdRow(list, RB), 320);
   await expect(page.locator('#readingView .row-swipe-pickbar')).toBeVisible();
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
-  await page.locator('#readingView [data-row-pick-stop]').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await tick(page);
   await both(list.locator('.rd-head'), -160);
   await expect(allChip).toHaveAttribute('aria-checked', 'false');

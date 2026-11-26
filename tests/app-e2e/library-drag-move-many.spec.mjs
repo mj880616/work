@@ -50,12 +50,13 @@ test('PC 1440 한 칸: 자료 1140개 — 폴더 밖 개수가 맞고, 폴더 �
   await page.locator('#librarySelectAll').click();
   await expect(page.locator('#librarySelectCount')).toContainText(String(N_OUT));
   const r=await dragWithBar(page,'#documentList [data-lu-document="o8"]',nav('fb'));
-  // ③ 끄기 전 막대 = 여섯 단추, 끄는 동안 = '옮기는 중 40개' + [✕]만(다른 단추는 화면에 없음), 전체 칩도 없음.
-  // UI-고르기막대(S69-85): [취소]는 왼쪽 [✕](선택 끝내기), 바꾸기 셋은 ⋯ 안(막대에 보이지 않게 남음).
-  expect(r.before.acts).toEqual(expect.arrayContaining(['사업영역 바꾸기','폴더로 옮기기','삭제','선택 끝내기']));
+  // ③ 끄기 전 막대 = 단추들, 끄는 동안 = '옮기는 중 40개' 글만(다른 단추는 화면에 없음), 전체 칩도 없음.
+  // UI-고르기막대(S69-85): 바꾸기 셋은 ⋯ 안(막대에 보이지 않게 남음). S70-64b: [✕](선택 끝내기)는 없다 — 끄는 중 그만두기는 Esc·바깥에 놓기.
+  expect(r.before.acts).toEqual(expect.arrayContaining(['사업영역 바꾸기','폴더로 옮기기','삭제','전체 선택']));
+  expect(r.before.acts).not.toContain('선택 끝내기');
   expect(r.allowed).toBe(true);
   expect(r.during.count).toBe(`옮기는 중 ${N_OUT}개`);
-  expect(r.during.acts).toEqual(['선택 끝내기']);
+  expect(r.during.acts).toEqual([]);
   // ① 모두 옮겨졌다(겹쳤던 o0 포함), 실패 없음.
   await expect.poll(()=>Array.from({length:N_OUT},(_,i)=>folderOf(s,'o'+i)).every(f=>f==='fb')).toBe(true);
   await expect(line(page)).toContainText(`옮겼어요 ${N_OUT}개 → 가상 받을곳 폴더`);

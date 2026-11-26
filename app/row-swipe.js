@@ -14,7 +14,7 @@ import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, cellWidth, end
 import {partStyles} from './part-styles.js';
 import {iconSvg} from './tree-icons.js';
 import {createSelectMode} from './select-mode.js';
-import {sbActHtml, sbCloseHtml, sbAllHtml} from './select-bar-model.mjs';
+import {sbActHtml, sbAllHtml} from './select-bar-model.mjs';
 import {fitSelectBar} from './select-bar.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('row-swipe');
@@ -79,10 +79,10 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
   // UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와
   //   복수 또는 일괄 삭제 / 전테선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제 / 다 이런식으로 왼쪽에서 오른쪽으로 스와이프 하는 건"):
   // - 줄을 오른쪽으로 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 그 줄이 골라진 채 고르기 상태가 된다. 고르기 중 줄 누르기 = 고름/풀림.
-  // - 위 고르기 막대(공용 .kptu-selbar 모양, S8): [✕] 'n개 선택됨' · [전체 선택](켜면 네모 안 체크 + 화면 목록 전체, 다시 누르면 모두 풀림)
-  //   · 그 목록의 다른 일 · [삭제](맨 끝, 그 목록의 일괄 지우기 — 되돌리기가 있으면 바로, 없으면 확인 한 번은 그 목록 길이 정한다).
-  //   지우기가 없는 목록은 [삭제] 자리에 그 목록의 일괄 동작(무시·숨기기 등)이 온다.
-  // - 고른 것이 0개가 되거나 ✕·Esc·뒤로가기(화면을 떠나지 않음)면 고르기가 끝난다.
+  // - 위 고르기 막대(공용 .kptu-selbar 모양): [전체 선택](켜면 네모 안 체크 + 화면 목록 전체, 다시 누르면 모두 풀림) · [삭제](맨 끝, 그 목록의
+  //   일괄 지우기 — 되돌리기가 있으면 바로, 없으면 확인 한 번은 그 목록 길이 정한다). 읽을 거리만 [저장]이 하나 더(S70-64b).
+  //   지우기 길이 없는 목록은 [삭제] 자리에 그 목록의 일괄 동작 하나(무시·보고할 일정·되돌리기)가 온다.
+  // - 고른 것이 0개가 되거나 Esc(PC)·뒤로가기(폰, 화면을 떠나지 않음)면 고르기가 끝난다. [✕]·'n개 선택됨' 글자는 없다(S70-64b).
   // 그 목록에 이미 고르기 장치가 있으면(select.open) 그것을 연다. 없으면 이 부품의 공용 고르기: 위쪽 고르기 막대 + 고른 줄 표시.
   // 고른 줄 표시는 줄 id 속성을 가리키는 모양 한 벌(<style>)로 그린다 — 목록이 줄을 다시 그려도 그대로 보이고, 목록 그리기에 끼어들지 않는다.
   let bar = null, look = null, running = false;
@@ -115,14 +115,14 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
     // 지우는 칸(danger)은 맨 끝. 그림: 이름이 같은 일은 같은 그림(줄 밀기 칸과 같은 표).
     const ordered = [...acts.filter(a => !a.danger), ...acts.filter(a => a.danger)];
     const act = a => sbActHtml({attrs:`data-row-pick-act="${esc(a.key)}"${off ? ' disabled' : ''}`, icon:a.danger ? 'trash' : '', label:a.label, danger:!!a.danger, rank:a.danger ? 0 : 10});
-    b.innerHTML = sbCloseHtml(`data-row-pick-stop${running ? ' disabled' : ''}`, '선택 끝내기')
-      + `<span class="kptu-sb-count row-swipe-pick-count" aria-live="polite">${esc(pickedLabel(pick.size))}</span>`
+    // S70-64b(명진 11/26 07:46 "그만은 필요없어 폰 뒤로가기 버튼 누르면 되고 Pc는 esc가 그거야"): 막대에는 [✕]·'n개 선택됨' 글자를 두지 않는다.
+    //   끝내기는 뒤로가기·Esc·[전체 선택] 다시 누르기·마지막 줄 풀기. 고른 개수는 화면 읽기 프로그램에만 알린다(kptu-sb-sr, 눈에는 안 보임).
+    b.innerHTML = `<span class="kptu-sb-count kptu-sb-sr row-swipe-pick-count" role="status" aria-live="polite">${esc(pickedLabel(pick.size))}</span>`
       + `<span class="kptu-sb-acts row-swipe-pick-acts">${sbAllHtml({attrs:'data-row-pick-all', on:all, disabled:running || !shown.length})}${ordered.map(act).join('')}</span>`;
     fitSelectBar(b);
   }
   async function onBar(e) {
     const b = e.target.closest?.('button'); if (!b || !picking()) return;
-    if (b.hasAttribute('data-row-pick-stop')) { stopPicking(); return; }
     // [전체 선택]: 화면 목록이 모두 골라져 있으면 모두 풀고(0개 → 고르기 끝), 아니면 모두 고른다.
     if (b.hasAttribute('data-row-pick-all')) { pick.toggle(shownIds(), {anchor:false}); if (!pick.size) stopPicking(); else paintPick(); return; }
     const key = b.dataset.rowPickAct; if (!key || running) return;

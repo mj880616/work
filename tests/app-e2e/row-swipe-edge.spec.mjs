@@ -109,7 +109,7 @@ for (const width of [412, 390]) {
       const bar = page.locator('#readingView .row-swipe-pickbar');
       await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
-      await bar.locator('[data-row-pick-stop]').click();
+      await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
       await expect(bar).toBeHidden();
     }
     // S69-04: [밑줄] 탭은 글 줄이 아니라 밑줄 줄(노트 › 밑줄과 같은 부품 .nh-row) — 글 줄 밀기 대상이 아니다.

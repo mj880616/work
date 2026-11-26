@@ -273,7 +273,7 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
   await expect(bar).toBeVisible();
   await row(page, T_N2).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
-  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['삭제']); // S70-64b: [전체 선택][삭제] 두 칸
   await bar.locator('[data-row-pick-act="delete"]').click();
   await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('2개 삭제했어요');
   await expect(page.locator('.kptu-ask')).toHaveCount(0);

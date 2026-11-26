@@ -371,7 +371,8 @@ test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유
 });
 
 // UI-고르기막대(S69-85, 명진 11/25 "두줄로 삐져나오지 않게"): 노트 고르기 막대도 파일·자료실과 같은 공용 막대 — 늘 한 줄(높이 = 목록 줄 하나 이하),
-// 왼쪽 [✕] 'N개 선택됨', 오른쪽 테두리 없는 [전체 선택][폴더로 옮기기][삭제](삭제는 맨 끝·글자색만 경고색), 좁으면 아이콘만 → ⋯.
+// 테두리 없는 [전체 선택][폴더로 옮기기][삭제](삭제는 맨 끝·글자색만 경고색), 좁으면 아이콘만 → ⋯.
+// S70-64b: [✕]·'N개 선택됨' 글자는 없다(개수는 화면 읽기에만). 맨 왼쪽은 [전체 선택].
 for (const width of [390, 768, 1280]) test(`UI-고르기막대: 노트 선택 막대 한 줄 ${width}`, async ({ page }) => {
   const { mkdirSync } = await import('node:fs');
   const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
@@ -387,18 +388,20 @@ for (const width of [390, 768, 1280]) test(`UI-고르기막대: 노트 선택 �
     const mids = kids.map(x => { const r = x.getBoundingClientRect(); return r.top + r.height / 2; });
     const buttons = kids.filter(x => x.matches('button'));
     return { height: b.height, spread: Math.max(...mids) - Math.min(...mids), outside: kids.filter(x => x.getBoundingClientRect().right > b.right + 1).length,
-      first: buttons[0]?.getAttribute('aria-label'), last: buttons.at(-1)?.matches('[data-nx-sel-delete]'),
+      first: (buttons[0]?.querySelector('.kptu-act-tx')?.textContent || buttons[0]?.getAttribute('aria-label') || '').trim(), close: !!el.querySelector('.kptu-sb-close'), last: buttons.at(-1)?.matches('[data-nx-sel-delete]'),
       danger: getComputedStyle(el.querySelector('[data-nx-sel-delete]')).color, ink: getComputedStyle(el.querySelector('[data-nx-sel-all]')).color,
       borders: buttons.map(x => getComputedStyle(x).borderTopWidth) };
   });
   expect(m.height, '한 줄 높이').toBeLessThanOrEqual(40);
   expect(m.spread, '칸이 모두 한 줄').toBeLessThanOrEqual(2);
   expect(m.outside).toBe(0);
-  expect(m.first).toBe('선택 끝내기');
+  expect(m.first).toBe('전체 선택');
+  expect(m.close, '✕ 없음').toBe(false);
   expect(m.last, '삭제는 맨 끝').toBe(true);
   expect(m.danger, '삭제만 경고색').not.toBe(m.ink);
   expect(m.borders.every(w => w === '0px')).toBe(true);
-  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨'); // 화면 읽기용(눈에는 안 보임)
+  await expect(page.locator('[data-nx-select-count]')).toHaveClass(/kptu-sb-sr/);
   await page.screenshot({ path: `${DIR}/s69-85-notes-${width}.png` });
   process.stdout.write(`::notice title=select-bar notes ${width}::${JSON.stringify(m)}\n`);
   await page.keyboard.press('Escape');

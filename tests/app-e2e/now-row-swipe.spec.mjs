@@ -85,10 +85,10 @@ test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높
   const bar = page.locator('#newsRoot .row-swipe-pickbar');
   await expect(bar).toBeVisible();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
-  // S70-64: 공용 고르기 막대 — [✕] 'n개 선택됨' · [전체 선택](꺼짐) · 그 목록의 일 [저장][숨기기].
-  await expect(bar.locator('[data-row-pick-stop]')).toHaveAttribute('aria-label', '선택 끝내기');
+  // S70-64b(명진 11/26 07:46): 읽을 거리 고르기 막대 = [전체 선택][저장][삭제](삭제 = 숨기기). [✕]·[그만]·개수 글자 없음.
+  await expect(bar.locator('[data-row-pick-stop]')).toHaveCount(0);
   await expect(bar.locator('[data-row-pick-all]')).toHaveAttribute('aria-checked', 'false');
-  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['저장', '숨기기']);
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['저장', '삭제']);
   await touchTap(item(page, 'k1').locator('.nw-title'));
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(page.locator('#newsRoot [data-nc-detail]:visible, #newsRoot .nc-detail:visible')).toHaveCount(0);
@@ -100,9 +100,9 @@ test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높
   await page.locator('#kptuNotice .kptu-notice-undo').click();
   await expect(item(page, 'c1')).toBeVisible();
   await expect(item(page, 'k1')).toBeVisible();
-  // [그만]: 선택을 끝내면 선택 줄이 사라진다(선택 상태는 화면 메모리만).
+  // Esc(폰은 뒤로가기): 선택을 끝내면 선택 줄이 사라진다(선택 상태는 화면 메모리만).
   await swipe(item(page, 'c1'), 320);
-  await bar.locator('[data-row-pick-stop]').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await expect(bar).toBeHidden();
   expect(errors).toEqual([]);
 });
@@ -140,7 +140,7 @@ test('Now 뉴스 412: 실제 손가락처럼(포인터 + 터치 함께) 글 줄 
     await expect(page.locator('#newsRoot .row-swipe-pickbar')).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
   await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');
-  await page.locator('#newsRoot [data-row-pick-stop]').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕] 없음 — Esc로 끝
   // 글 줄 위 왼쪽 조금: 칸만 열리고 탭은 그대로.
   await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000));
   await both(item(page, 'k1'), -60);

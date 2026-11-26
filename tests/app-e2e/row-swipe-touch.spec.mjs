@@ -152,7 +152,7 @@ test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니�
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');
   await expect(detail(page)).toHaveCount(0);
-  await bar.locator('[data-row-pick-stop]').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await expect(bar).toBeHidden();
   // ④ 줄 밖(맨 위 제목 줄)에서 왼쪽으로 밀면 옆 탭.
   await tick(page);

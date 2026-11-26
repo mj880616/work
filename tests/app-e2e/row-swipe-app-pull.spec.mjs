@@ -110,7 +110,7 @@ for (const width of [412, 360]) {
     const bar = page.locator('#readingView .row-swipe-pickbar');
     await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
     expect(r).toEqual({ pull: ['pull:on', 'pull:off'], cancels: 0 });
-    await bar.locator('[data-row-pick-stop]').click();
+    await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
     await expect(bar).toBeHidden();
     // ④ 맨 위에서 아래로 당기기: 줄은 움직이지 않고, 앱에는 pull:on만(당겨서 새로고침은 그대로 앱 몫).
     await page.evaluate(() => window.scrollTo(0, 0));
