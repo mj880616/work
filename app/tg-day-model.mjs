@@ -187,31 +187,18 @@ export const pinsWithoutLine = (rooms, lines) => pinnedRooms(rooms, lines).filte
 // 방 표의 상태를 줄에 입힌다(줄이 가진 값보다 방 표가 기준).
 export const withRoomState = (lines, rooms) => (lines || []).map(l => { const r = rooms?.get(l.room_key); return r ? {...l, folder_id:r.folder_id || null, archived_at:r.archived_at || null} : l; });
 
-// ---------- 밀기 (폰, 터치만). 가로로 충분히 밀었을 때만 반응한다. 오른쪽으로 밀면 왼쪽에 두 버튼(폴더로·보관, 64px씩 128px),
-// 왼쪽으로 밀면 오른쪽에 한 버튼(삭제 64px). 화면 왼쪽 가장자리 24px 안에서 시작한 밀기는 무시한다(뒤로가기 제스처와 겹침 방지. 오른쪽 끝은 막지 않음 — S68-53).
-// UI-목록밀기: 손동작 기준(시작 12px·가장자리 24px·버튼 64px)은 다른 목록 밀기와 같은 공용 셈(row-swipe-model.mjs)에서 가져온다.
+// ---------- 밀기 (폰, 터치만) — S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): 텔레그램 소식 줄도 공용 줄 밀기(row-swipe.js)를 쓴다.
+// 왼쪽으로 밀면 오른쪽 끝에 칸(64px씩, 끝까지 밀어도 칸만). 화면 왼쪽 가장자리 24px 안에서 시작한 밀기는 무시한다(공용 셈 row-swipe-model.mjs).
+// 소식에는 여러 개 고르기가 없어 오른쪽 밀기는 없다. 손동작 기준(시작 12px·가장자리 24px·버튼 64px)은 공용 셈 그대로 내보낸다.
 export {SWIPE_BTN, SWIPE_START, SWIPE_EDGE, swipeIntent, swipeEdge};
-// allow: 각 쪽 버튼 수 {start, end}(0 = 그쪽 버튼 없음).
-export const swipeWidths = allow => ({start:(Number(allow?.start) || 0) * SWIPE_BTN, end:(Number(allow?.end) || 0) * SWIPE_BTN});
-export function swipeOffset(dx, open = 0, allow = {start:2, end:1}) {
-  const w = swipeWidths(allow), x = (Number(open) || 0) + (Number(dx) || 0);
-  return Math.max(-w.end, Math.min(w.start, x)) + 0;
-}
-// 손을 뗀 자리 → 'start' | 'end' | ''(닫힘): 열 폭의 절반 이상 밀렸으면 열린 채로 둔다.
-export function swipeSettle(offset, allow = {start:2, end:1}) {
-  const w = swipeWidths(allow);
-  return w.start && offset >= w.start / 2 ? 'start' : w.end && offset <= -w.end / 2 ? 'end' : '';
-}
-export const swipeOpenOffset = (side, allow = {start:2, end:1}) => { const w = swipeWidths(allow); return side === 'start' ? w.start : side === 'end' ? -w.end : 0; };
-// 보는 자리마다 밀었을 때의 버튼. live: 폴더로·보관(오른쪽 밀기) / 삭제(왼쪽 밀기), archive: 꺼내기(오른쪽 밀기).
+// 보는 자리마다 왼쪽 밀기 칸(왼쪽부터). live(날짜별 한 줄): 폴더로·수정(그날 요약 수정 — 고칠 수 있을 때만)·삭제(그 날 한 줄),
+// room(방별의 방 한 줄 — 방 전체라 '이 날 한 줄 삭제'가 없다): 폴더로·보관, archive(보관함): 꺼내기. 빠진 [보관]은 ⋯ [보관].
 export const SWIPE_ACTIONS = Object.freeze({
-  live:{start:['folder', 'archive'], end:['trash']},
-  archive:{start:['unarchive'], end:[]},
-  // TG-방별보기: 방별 목록의 방 한 줄은 방 전체라 '이 날 한 줄 삭제'가 없다.
-  room:{start:['folder', 'archive'], end:[]},
+  live:Object.freeze(['folder', 'edit', 'trash']),
+  room:Object.freeze(['folder', 'archive']),
+  archive:Object.freeze(['unarchive']),
 });
-export const ACTION_LABEL = Object.freeze({folder:'폴더로', archive:'보관', trash:'삭제', unarchive:'꺼내기'});
-export const allowOf = mode => { const a = SWIPE_ACTIONS[mode] || {start:[], end:[]}; return {start:a.start.length, end:a.end.length}; };
+export const ACTION_LABEL = Object.freeze({folder:'폴더로', edit:'수정', archive:'보관', trash:'삭제', unarchive:'꺼내기'});
 
 // ---------- TG-요약고치기 (docs/design/tg-summary-edit.md): 명진이 손으로 고친 요약은 AI 값과 따로 서버에 있다(app_feed_summary_edits).
 // 화면은 AI 값 위에 고친 값을 입혀 보여 줄 뿐이고 AI 값은 지우지 않는다. [AI 원래 요약으로]는 고친 값을 비워 AI 값이 다시 보이게 한다.

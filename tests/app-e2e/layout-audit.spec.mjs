@@ -77,40 +77,5 @@ for (const [name] of SCREENS) for (const width of WIDTHS) test(`LA ${name} ${wid
   expect(errors).toEqual([]);
 });
 
-// UI-간격기준 A(S70-42, 명진 11/25 15:08 "여기도 자료실에서 선택 자료넣기랑 그 아래랑 여백 없고"): 머리줄 단추 줄 바로 아래 놓기 칸·안내 줄은
-// 단추 아래 끝에서 --ds-gap-bar 이상 떨어진다(위 일반 검사의 최소 4px보다 엄격한 기준 토큰 값). 화면 표: [화면, 여는 길, 머리줄 단추, 아래 칸].
-const SBASE = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-const openBrief = async page => { // 가짜 서버: 지어낸 자료 하나에 다 된 브리핑 하나(brief-room-delete.spec.mjs와 같은 길)
-  const D1 = 'd0000000-0000-4000-8000-000000000001';
-  const brief = { v: 1, lead: '예시 한 줄 요지.', touches: [], todos: [], conflicts: [], quotes: [] };
-  await openHome(page, { beforeLoad: async () => {
-    await page.route(SBASE + '/rest/v1/app_document_briefs**', r => new URL(r.request().url()).searchParams.get('status') === 'eq.done'
-      ? r.fulfill({ json: [{ document_id: D1, lead: brief.lead }] })
-      : r.fulfill({ json: [{ id: 'b1', document_id: D1, status: 'done', stage: 'done', step_no: 9, step_total: 9, brief, created_at: '2026-10-05T00:00:00Z', updated_at: '2026-10-05T00:10:00Z', finished_at: '2026-10-05T00:10:00Z' }] }));
-    await page.route(SBASE + '/rest/v1/app_library_folders**', r => r.fulfill({ json: r.request().method() === 'GET' ? [{ id: 'f-brief' }] : [] }));
-    await page.route(SBASE + '/rest/v1/app_library_folder_items**', r => r.fulfill({ json: [{ document_id: D1 }] }));
-    await page.route(SBASE + '/rest/v1/app_documents?**', r => {
-      if (r.request().method() !== 'GET' || !new URL(r.request().url()).searchParams.get('id')?.startsWith('in.')) return r.fallback();
-      return r.fulfill({ json: [{ id: D1, workspace_id: 'w', category: '기타', visibility: 'private', title: '예시 계획 자료', file_name: '예시 계획.pdf', mime_type: 'application/pdf', file_id: 'FILE_aaaaaaaaaa', created_at: '2026-10-06T00:50:00Z' }] });
-    });
-  } });
-  await page.evaluate(() => window.KPTURouter.go('brief'));
-};
-const BAR_BELOW = [
-  ['브리핑 룸', openBrief, '#briefView .br-head button', '#briefView .br-drop'],
-];
-for (const [name, go, buttons, below] of BAR_BELOW) for (const width of WIDTHS) test(`LA ${name} ${width}: 머리줄 단추와 아래 칸 사이 ≥ --ds-gap-bar`, async ({ page }) => {
-  await page.setViewportSize({ width, height: 900 });
-  await go(page);
-  await expect(page.locator(below)).toBeVisible();
-  const r = await page.evaluate(({ buttons, below }) => {
-    const btn = [...document.querySelectorAll(buttons)].filter(b => b.getBoundingClientRect().height > 0);
-    const low = Math.max(...btn.map(b => b.getBoundingClientRect().bottom));
-    const probe = document.createElement('div'); probe.style.height = 'var(--ds-gap-bar)'; document.body.append(probe);
-    const token = probe.getBoundingClientRect().height; probe.remove();
-    return { gap: document.querySelector(below).getBoundingClientRect().top - low, token, n: btn.length };
-  }, { buttons, below });
-  expect(r.n).toBeGreaterThan(0);
-  expect(r.token).toBeGreaterThan(0);
-  expect(r.gap).toBeGreaterThanOrEqual(r.token - 0.5);
-});
+// UI-간격기준 A(S70-42)의 '머리줄 단추 줄 바로 아래 놓기 칸' 검사는 그 모양이 있던 유일한 화면(브리핑 룸)에서 S71-30 BRIEF-머리한줄·놓기안내삭제
+// (명진 11/26 17:38)로 머리줄 단추 줄과 점선 안내 줄이 모두 없어져 뺐다. 브리핑 룸 머리 한 줄은 brief-room-head.spec.mjs가 본다.

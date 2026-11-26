@@ -14,7 +14,7 @@ import {reportFilterSelect,reportFilterPicked,reportFilterLabels,pickReportFilte
 import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 
 import {addReport} from './helpers/report-add.mjs';
-import {reportBoxesInChip} from './helpers/report-boxes.mjs';
+import {reportBoxesInChip,openReportBoxes,closeReportBoxes} from './helpers/report-boxes.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -297,7 +297,7 @@ test('meeting material upload attempts every selected file and reports partial f
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
   // MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기와 같은 library-files 요청으로 올린다(meeting_id 칸으로 연결).
-  await page.route(`${SB}/functions/v1/library-files**`,async route=>{
+  await page.route(`${SB}/functions/v1/library-files**`,async route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     uploadCount++;
     if(uploadCount===2)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'upload failed'})});
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,document:{id:'00000000-0000-4000-8000-00000000000'+uploadCount,meeting_id:'meeting-files'}})});
@@ -333,8 +333,8 @@ test.describe('meeting list rows below PC width',()=>{
 test.use({viewport:{width:599,height:900}}); // FOLD-넓은화면 2차(S59-19): 한 줄 목록 + 보고 창은 칸 나누기(600px~, 펼친 폴드는 '목록 | 결과' 두 칸) 아래 폭 — 그 가장 넓은 폭(전에는 760)
 test('meeting list uses canonical meeting names without title-series duplication',async({page})=>{
   await signIn(page);
-  // S52-22 TEAM-맨위한줄: 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음.
-  await expect(reportFilterSelect(page,'name')).toBeVisible();
+  // S52-22 TEAM-맨위한줄: 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음. S71-10: 주 줄이 첫 줄에 들어가 이 폭(599)도 칩 하나일 수 있다 — 칩이면 창을 열어 본다.
+  await openReportBoxes(page,reportFilterSelect(page,'name'));await closeReportBoxes(page);
   expect(await reportFilterLabels(page,'name')).toEqual(expect.arrayContaining(['전체','궤도협의회','회의명 미지정']));
   await pickReportFilter(page,'name',{label:'궤도협의회'});
   expect(await reportFilterPicked(page,'name')).toBe('궤도협의회');
@@ -572,26 +572,29 @@ for(const width of [320,360,390,760]){
     // S67-64 UI-윗줄한줄(명진 11/21 D3): 폰(~760px)은 첫 줄과 고르기 줄이 한 줄(.report-top) — [아이콘][사업 관리][고르기 …][+][⋯]. .report-top-line은 자리만 내준다.
     // S67-75 UI-걸러보기칩하나(명진 A안): 고르기 상자들이 줄에 다 안 들어가는 폭은 칩 하나(#reportFilterChip)가 그 자리다.
     const inChip=await reportBoxesInChip(page),chip=page.locator('#reportFilterChip');
-    const top=page.locator('#meetingsView .report-top'),bar=inChip?chip:page.locator('#meetingsView .report-kind-bar');
-    const select=inChip?chip:page.locator('#reportKindSelect'),button=page.locator('#newMeetingBtn'),more=page.locator('#reportMore');
+    // BIZ-머리한줄(S71-23): 폰·폴드는 첫 줄(#reportTop)이 앱 머리 줄 안 — [W][사업 관리][고르기 …] n건 찾기 [+]. 줄 끝 [+] 하나(⋯·녹음 없음).
+    const top=page.locator('#reportTop'),bar=inChip?chip:page.locator('#reportFilterBar');
+    const select=inChip?chip:page.locator('#reportKindSelect'),button=page.locator('#newMeetingBtn');
     await expect(page.locator('#meetingTypeFilter,#reportAreaFilter,#reportFilterBtn,#meetingsView .meeting-toolbar')).toHaveCount(0);
-    await expect(page.locator('#reportKindFilter')).toBeHidden();
+    await expect(page.locator('#reportKindFilter')).toBeHidden();await expect(page.locator('#reportMore')).toHaveCount(0);
     await expect(button).toBeVisible();await expect(select).toBeVisible();
-    const [t,b,s,btn,m]=await Promise.all([top.boundingBox(),bar.boundingBox(),select.boundingBox(),button.boundingBox(),more.boundingBox()]);
+    const [t,b,s,btn]=await Promise.all([top.boundingBox(),bar.boundingBox(),select.boundingBox(),button.boundingBox()]);
     expect(s.height).toBeCloseTo(32,0);
     expect(s.x).toBeCloseTo(b.x,0);
-    expect(m.x+m.width).toBeCloseTo(t.x+t.width,0);
-    expect(m.y+m.height/2).toBeCloseTo(btn.y+btn.height/2,0);
+    // 폰·폴드: 머리 줄 오른쪽 끝 순서 … n건 ……… 찾기 · [+](SAVED-머리한줄, S71-43) — [+]는 #reportTop 밖, 찾기 오른쪽 줄 맨 끝.
+    if(width<=760){const [head,find]=await Promise.all([page.locator('#appView > .mobile-shell-header').boundingBox(),page.locator('#appView > .mobile-shell-header > .mobile-shell-find').boundingBox()]);
+      expect(t.x+t.width).toBeLessThanOrEqual(find.x+0.5);expect(find.x+find.width).toBeLessThanOrEqual(btn.x+0.5);
+      expect(btn.x+btn.width).toBeLessThanOrEqual(head.x+head.width+0.5);expect(head.x+head.width-(btn.x+btn.width)).toBeLessThanOrEqual(16)}
+    else expect(btn.x+btn.width).toBeCloseTo(t.x+t.width,0);
     expect(s.y+s.height/2).toBeCloseTo(btn.y+btn.height/2,0);
     expect(b.x+b.width).toBeLessThanOrEqual(btn.x);
     expect(b.height).toBeLessThanOrEqual(48);
     if(width<=760){
       // 폰: [+]는 떠 있는 동그라미가 아니라 맨 윗줄 오른쪽 32px 작은 아이콘.
       expect(await button.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');expect(btn.width).toBe(32);expect(btn.height).toBe(32);
-      await expect(button).toHaveAttribute('aria-label','사업 보고 등록');
+      await expect(button).toHaveAttribute('aria-label','사업 관리 추가');
     }else{
-      expect(btn.height).toBeCloseTo(32,0);/* BIZ-버튼줄정리: 채운 [+ 사업 보고]는 작고 낮게 32px, 그 오른쪽 줄 끝이 ⋯ */
-      expect(btn.x+btn.width).toBeLessThanOrEqual(m.x);
+      expect(btn.height).toBeCloseTo(32,0);/* BIZ-머리한줄: 작은 [+] 하나가 줄 끝 */
       expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
     }
     // FOLD-넓은화면 2차(S59-19): 760(펼친 폴드, 폰 틀)은 '날짜·이름 목록 | 결과' 두 칸 — 위 두 줄은 폰과 같고, 줄 모양은 두 칸 목록(fold-org-biz-list-detail.spec.mjs)이 본다.

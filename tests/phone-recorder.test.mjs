@@ -191,7 +191,7 @@ test('화면 연결: 폰 앱에서만 불러오고, 노트북 녹음과 따로 �
   const loader = readFileSync(new URL('../app/loader-v2.js', import.meta.url), 'utf8');
   assert.match(loader, /if\(\/KPTUAndroid\/i\.test\(navigator\.userAgent\|\|''\)\)import\('\.\/phone-recorder\.js'\)/);
   const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
-  // [녹음] 자리: [+ 사업 보고]·사업 보고 목록이 index.html에 있어야 이 모듈이 그 앞에 붙인다.
+  // [녹음]은 사업 관리 첫 줄 [+] 메뉴 줄(BIZ-머리한줄 S71-23) — 이 모듈은 단추를 붙이지 않고 recordItem으로 모양만 알려 준다.
   assert.match(html, /<button id="newMeetingBtn"/);
   assert.match(html, /<div id="meetingList"/);
   for (const f of ['phone-recorder.js', 'phone-recorder-core.mjs']) {
@@ -204,7 +204,8 @@ test('화면 연결: 폰 앱에서만 불러오고, 노트북 녹음과 따로 �
   const ui = readFileSync(new URL('../app/phone-recorder.js', import.meta.url), 'utf8');
   assert.match(ui, /\/KPTUAndroid\/i\.test/);
   assert.match(ui, /__rec\//);
-  assert.match(ui, /b\.id='phoneRecordBtn'[^\n]*add\.before\(b\)/);
+  assert.doesNotMatch(ui, /phoneRecordBtn/);
+  assert.match(ui, /const api=\{state:\(\)=>core\.view\.state,core,recordItem,startRecord:/);
   assert.match(ui, /d\.id='phoneRecPendingLine'[^\n]*list\.before\(d\)/);
   // S61-5 REC-전사삭제: 초안 창·서버 정리 띠로 넘기는 길이 없고, 저장 끝 띠에 파일 줄([내려받기]·[Drive에서 열기]).
   for (const gone of ['KPTUReportEntry', 'KPTUMeetingTranscriptDraft', 'KPTUMeetingRecorder', 'openDraft', 'watchServer', '멈추고 정리']) assert.ok(!ui.includes(gone), gone);

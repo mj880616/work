@@ -7,12 +7,15 @@ import {shortDate,PAGE_SIZE,searchNotes,searchWords} from './release-notes-model
 import {highlightParts} from './global-search-model.mjs';
 import {readReleaseNotes,canReadReleaseNotes} from './release-notes-read.js';
 import {waitHtml,failHtml,emptyHtml} from './wait-state.js';
-import {draftLines,linesFromText,draftProblem,withdrawPlan,withdrawNote,WITHDRAW_TEXT,noteState,resendPlan,resendNote,RESEND_TEXT,cutIndex,shortDay,seoulToday,startGapText,sendStartHint} from './update-news-model.mjs';
+import {draftLines,linesFromText,draftProblem,withdrawPlan,withdrawNote,WITHDRAW_TEXT,noteState,resendPlan,resendNote,RESEND_TEXT,looseNews} from './update-news-model.mjs';
 import {newsRow} from './update-news-ui.js';
 import {openFormModal} from './small-form-modal.js';
 import {askConfirm,notify} from './small-notice.js';
+// S71-31 RELNOTE-머리줄정리: 찾기는 맨 위 칸이 겸하고(폰은 머리 줄 돋보기를 누르면 그 자리에서 칸이 열림), [+](직접 쓰기)는 맨 위 줄 단추 자리(screen-find.js).
+import {registerScreenFind,refreshScreenFind,toolsBox} from './screen-find.js';
 
-// UI-업데이트기록찾기(요청함 11/02): 목록 위 검색 칸 하나. 치는 대로 이 화면 안에서만 거르고(서버 호출 없음) 낱말을 칠한다.
+// UI-업데이트기록찾기(요청함 11/02): 치는 대로 이 화면 안에서만 거르고(서버 호출 없음) 낱말을 칠한다.
+// S71-31(명진 11/26 "낱말로 찾기랑 직접 쓰기 한줄로 / 낱말로 찾기는 찾기로"): 화면 안 찾기 칸은 없애고 맨 위 칸 '업데이트 기록에서 찾기'(용어 기준표)가 겸한다.
 // 찾는 동안은 맞는 줄만 펼쳐 보인다. 목록은 20개씩 그리고, 아래로 내려 [이전 기록 더 보기]가 보이면 다음 20개를 더 그린다.
 const el=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!=null)node.textContent=text;return node};
 function marked(tag,className,text,words){
@@ -46,7 +49,7 @@ function noteRow(item,current,words){
   }
   if(item.checks.length){
     const check=el('p','rn-check');
-    check.append(el('span','rn-check-label','폰에서 볼 것'),document.createTextNode(' '));
+    check.append(el('span','rn-check-label','확인할 것'),document.createTextNode(' '));
     item.checks.forEach((line,i)=>{if(i)check.append(document.createTextNode(' · '));check.append(marked('span',null,line,words))});
     body.append(check);
   }
@@ -87,19 +90,13 @@ function refreshMarks(){
   paintNews();
 }
 const failLine=error=>/OPERATOR_FEATURE_REQUIRED|42501/.test(String(error?.message||error))?'운영자만 보낼 수 있어요':'보내지 못했어요. 잠시 뒤 다시 해 주세요';
-// UPDATE-소식안보임(요청함 11/16): 시작 날짜가 없거나 소식이 시작 날짜 앞이면 이용자에게 안 보인다(서버 규칙 그대로). 그 사실을 한 줄로.
-function startNotice(text){
-  const line=el('p','un-notice');line.setAttribute('role','status');line.dataset.unNotice='';
-  const fix=el('button','mini','시작 날짜 정하기');fix.type='button';fix.dataset.unStart='notice';
-  line.append(el('span',null,text),fix);
-  return line;
-}
 async function afterWrite(text){await loadAdmin();refreshMarks();notify(text,{record:false})}
 
-// 보내기 창: 기록 줄에서 열면 그 기록 글이 채워진다('폰에서 볼 것'은 기본으로 뺌). [+ 다른 기록 묶기]로 여러 기록을 한 소식으로. 보내기 전에 문구를 고친다.
+// 보내기 창: 기록 줄에서 열면 그 기록 글이 채워진다('확인할 것'은 기본으로 뺌). [+ 다른 기록 묶기]로 여러 기록을 한 소식으로. 보내기 전에 문구를 고친다.
+// item이 있으면 직접 쓴 소식 수정(기록 줄에 없는 소식 줄의 [수정]).
+// S71-31: 시작 날짜는 화면에서 정하지 않는다(서버에 저장된 값이 그대로 쓰인다) — 창 안 '시작 날짜도 정하기' 칸을 뺐다.
 function openSend({versions=[],item=null,trigger}={}){
-  let picked=[...versions],edited=false,withChecks=false,startBox=null;
-  const today=seoulToday(),hint=item?null:sendStartHint(news.admin?.start_on||'',today);
+  let picked=[...versions],edited=false,withChecks=false;
   const notesOf=()=>picked.map(v=>news.notes.find(n=>n.v===v)).filter(Boolean);
   let title,area,chips,adder;
   const regen=()=>{if(!edited)area.value=draftLines(notesOf(),{withChecks}).map(line=>'· '+line).join('\n')};
@@ -113,73 +110,44 @@ function openSend({versions=[],item=null,trigger}={}){
     foot:'로그인한 모든 이용자에게 보여요. 보낸 뒤에도 수정하거나 거둘 수 있어요.',
     fill(body){
       title=el('input');Object.assign(title,{type:'text',placeholder:'제목(선택)',maxLength:80});title.setAttribute('aria-label','제목(선택)');
-      area=el('textarea');area.setAttribute('aria-label','보낼 글(줄마다 한 가지)');area.addEventListener('input',()=>{edited=true});
+      area=el('textarea');area.dataset.autogrow='';area.setAttribute('aria-label','보낼 글(줄마다 한 가지)');area.addEventListener('input',()=>{edited=true});
       body.append(title,area);
       if(item){title.value=item.title||'';area.value=(item.lines||[]).map(line=>'· '+line).join('\n');picked=[...(item.sources||[])];edited=true}
       const opt=el('label','sfm-opt');const box=el('input');box.type='checkbox';box.onchange=()=>{withChecks=box.checked;regen()};
-      opt.append(box,document.createTextNode("'폰에서 볼 것' 줄도 같이 보내기"));
+      opt.append(box,document.createTextNode("'확인할 것' 줄도 같이 보내기"));
       chips=el('div','un-chips');adder=el('select','un-adder');adder.setAttribute('aria-label','다른 기록 묶기');
       adder.onchange=()=>{if(adder.value&&!picked.includes(adder.value)){const v=adder.value;picked.push(v);if(edited){const add=draftLines([news.notes.find(n=>n.v===v)].filter(Boolean),{withChecks});area.value=[area.value.trim(),...add.map(l=>'· '+l)].filter(Boolean).join('\n')}paintChips();regen()}};
       const bundle=el('div','un-bundle');bundle.append(chips,adder);
       if(!item)body.append(opt);
       body.append(bundle);
-      // 새로 보낼 때 이 소식이 이용자에게 안 보이면 안내 한 줄 + '시작 날짜도 정하기' 칸(없으면 기본 켬, 뒤로 정해져 있으면 기본 끔).
-      if(hint){
-        const note=el('p','un-notice');note.setAttribute('role','status');note.dataset.unNotice='send';note.textContent=hint.text;
-        const fix=el('label','sfm-opt');startBox=el('input');startBox.type='checkbox';startBox.checked=hint.checked;startBox.dataset.unSendStart='';
-        fix.append(startBox,document.createTextNode(hint.option));
-        body.append(note,fix);
-      }
       paintChips();regen();
-      return item?'textarea':'textarea';
+      return 'textarea';
     },
     async onSubmit(){
       const lines=linesFromText(area.value),problem=draftProblem({title:title.value,lines});
       if(problem)return problem;
       try{await rpc('app_update_news_save',{p_id:item?.id??null,p_title:title.value.trim()||null,p_lines:lines,p_sources:picked.slice(0,30)})}catch(error){return failLine(error)}
-      let done=item?'수정했어요':'보냈어요';
-      if(startBox?.checked){
-        try{await rpc('app_update_news_set_start',{p_start:today});done='보냈어요. 시작 날짜도 오늘로 정했어요'}
-        catch{done='보냈지만 시작 날짜는 정하지 못했어요. [시작 날짜 정하기]로 다시 해 주세요'}
-      }
-      void afterWrite(done);
+      void afterWrite(item?'수정했어요':'보냈어요');
       return true;
     }});
 }
-function openStart(trigger){
-  let input;
-  const has=!!news.admin?.start_on;
-  openFormModal({id:'updateNewsStart',title:'이용자에게 보이는 시작 날짜',okLabel:has?'바꾸기':'정하기',trigger,
-    foot:'이 날짜(0시) 이후 보낸 소식만 이용자에게 보여요. 가입일과는 상관없어요.',
-    fill(body){input=el('input');input.type='date';input.setAttribute('aria-label','시작 날짜');input.value=news.admin?.start_on||seoulToday();body.append(input);return 'input'},
-    async onSubmit(){
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(input.value))return '날짜를 정해 주세요';
-      try{await rpc('app_update_news_set_start',{p_start:input.value})}catch(error){return failLine(error)}
-      void afterWrite(has?'시작 날짜를 바꿨어요':'시작 날짜를 정했어요');
-      return true;
-    }});
-}
+// S71-31(명진 11/26 "이용자에게 보이는 시작날짜랑 바꾸기 삭제 불필요" / "보낸 소식 260 이용자에게 보이는 그대로도 삭제"):
+// 위쪽 시작 날짜 줄·[바꾸기] 창과 접히는 '보낸 소식 N · 이용자에게 보이는 그대로' 줄을 없앴다. 기록에서 나간 소식은 기록 줄 버튼([보냄]/[다시 보내기])이 맡고,
+// 기록 줄에 없는 소식(직접 쓴 것)만 목록 위에 줄로 남겨 [수정]·[거두기]·[다시 보내기]를 그대로 둔다. [+] 직접 쓰기는 맨 위 줄 단추 자리.
+const addBox=toolsBox('updates','updates');
+addBox.innerHTML='<button type="button" class="icon-btn un-add" data-un-write aria-label="직접 쓰기" title="직접 쓰기"></button>';
 function paintNews(){
   const box=news.root?.querySelector('[data-un-admin]');
+  const add=addBox.querySelector('[data-un-write]');
+  if(add)add.hidden=!news.admin;
   if(!box)return;
   const admin=news.admin;
-  if(!admin){box.hidden=true;return}
+  const loose=admin?looseNews(admin.items,news.notes):[];
+  if(!loose.length){box.hidden=true;box.replaceChildren();return}
   box.hidden=false;
-  const cut=el('div','un-cut');
-  cut.append(document.createTextNode('이용자에게 보이는 시작 날짜 '),el('b',null,admin.start_on?shortDay(admin.start_on):'정하지 않음'));
-  const change=el('button','mini','바꾸기');change.type='button';change.dataset.unStart='';cut.append(change);
-  const write=el('button','mini primary','+ 직접 쓰기');write.type='button';write.dataset.unWrite='';
-  const bar=el('div','un-bar');bar.append(cut,write);
-  const items=admin.items,at=cutIndex(items,admin.start_on);
-  // 거두기·다시 보내기 뒤 다시 그려도 펼친 상태는 그대로(폰에서 목록이 접혀 버리지 않게).
-  const wasOpen=box.querySelector('.un-sent')?.open;
-  const sent=el('details','un-sent');sent.open=wasOpen??window.matchMedia?.('(min-width:900px)').matches??false;
-  const summary=el('summary','un-sent-head');summary.append(el('span',null,'보낸 소식 '),el('span','un-date',String(items.filter(i=>!i.withdrawn_at).length)),el('span','un-date',' · 이용자에게 보이는 그대로'));
   const list=el('div','un-list');
-  items.forEach((item,i)=>{
-    if(i===at&&admin.start_on)list.append(el('div','un-cutline',`여기부터 위만 이용자에게 보임 (시작 날짜 ${shortDay(admin.start_on)})`));
+  for(const item of loose){
     const extra=[];
-    if(item.auto)extra.push(el('span','un-date','자동'));
     if(item.withdrawn_at){
       const again=el('button','mini','다시 보내기');again.type='button';again.dataset.unResend=item.id;
       extra.push(el('span','un-date','거둠'),again);
@@ -191,11 +159,8 @@ function paintNews(){
     }
     const row=newsRow(item,extra);if(item.withdrawn_at)row.classList.add('is-withdrawn');
     list.append(row);
-  });
-  if(!items.length)list.append(el('p','un-date','아직 보낸 소식이 없어요'));
-  sent.append(summary,list);
-  const gap=startGapText(items,admin.start_on);
-  box.replaceChildren(...[bar,gap?startNotice(gap):null,sent].filter(Boolean));
+  }
+  box.replaceChildren(list);
 }
 async function onNewsClick(event){
   const send=event.target.closest?.('[data-rn-send]');
@@ -207,7 +172,6 @@ async function onNewsClick(event){
     openSend({versions:[v],trigger:send});return true;
   }
   if(event.target.closest?.('[data-un-write]')){openSend({trigger:event.target});return true}
-  if(event.target.closest?.('[data-un-start]')){openStart(event.target);return true}
   const edit=event.target.closest?.('[data-un-edit]');
   if(edit){const item=news.admin?.items.find(i=>i.id===edit.dataset.unEdit);if(item)openSend({item,trigger:edit});return true}
   const again=event.target.closest?.('[data-un-resend]');
@@ -239,9 +203,6 @@ function draw(){
     if(!list.notes.length){root.innerHTML=emptyHtml();return}
     news.notes=list.notes;
     const all=list.notes.map(note=>({note,changes:note.changes,checks:note.checks}));
-    const search=el('input','rn-search');
-    Object.assign(search,{type:'search',placeholder:'낱말로 찾기',autocomplete:'off',enterKeyHint:'search'});
-    search.setAttribute('aria-label','업데이트 기록 찾기');
     const count=el('p','rn-count');count.setAttribute('role','status');count.hidden=true;
     const box=el('div','rn-list');
     const more=el('button','rn-more mini','이전 기록 더 보기');more.type='button';
@@ -251,27 +212,35 @@ function draw(){
       shown=Math.min(items.length,shown+PAGE_SIZE);more.hidden=shown>=items.length;
     };
     const apply=()=>{
-      words=searchWords(search.value);
-      items=searchNotes(list.notes,search.value)??all;
+      words=searchWords(find.text);
+      items=searchNotes(list.notes,find.text)??all;
       shown=0;box.replaceChildren();
       count.hidden=!words.length;
       count.textContent=words.length?(items.length?`찾은 기록 ${items.length}개`:'찾는 기록이 없어요'):'';
       page();
     };
-    search.addEventListener('input',apply);
+    find.apply=apply;
     more.addEventListener('click',page);
     observer?.disconnect();
     observer=typeof IntersectionObserver==='function'?new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&!more.hidden)page()},{rootMargin:'0px 0px 120px 0px'}):null;
     observer?.observe(more);
     page();
     const admin=el('div','un-admin');admin.dataset.unAdmin='';
-    root.replaceChildren(admin,search,count,box,more);
+    root.replaceChildren(admin,count,box,more);
     paintNews();
+    if(find.text)apply();
+    refreshScreenFind();
   }).finally(()=>{drawing=null});
   return drawing;
 }
 
+// 맨 위 칸 찾기: 목록을 그린 뒤에만(운영자가 아니거나 못 읽었으면 칸이 이 화면 찾기가 아니다). 글자는 이 탭 메모리만.
+const find={text:'',apply:null};
+registerScreenFind('updates',{label:'업데이트 기록에서 찾기',active:()=>window.KPTURouter?.current==='updates'&&!!find.apply,value:()=>find.text,
+  apply:raw=>{const next=String(raw??'');if(next===find.text)return;find.text=next;find.apply?.()}});
+
 install();
 document.querySelector('#updatesView')?.addEventListener('click',event=>{if(event.target.closest?.('[data-rn-retry]')){void draw();return}void onNewsClick(event)});
+addBox.addEventListener('click',event=>{void onNewsClick(event)});
 window.KPTURouter?.on?.('updates',()=>draw());
 void draw();

@@ -30,7 +30,7 @@ import {plainToDocKeep} from './ed-markdown.mjs';
 import {createDiaryList} from './diary-list.js';
 import {doneLine, inDiaryPhoto} from './diary-list-model.mjs';
 import {viewPrefs} from './view-prefs.js';
-import {iconSvg, iconHtml} from './tree-icons.js';
+import {iconHtml} from './tree-icons.js';
 import {photoContextLine} from './diary-context-model.mjs';
 // OD-연결아이콘: 원드라이브 연결 표시는 [오늘] 오른쪽 아이콘 하나 + 드롭다운(공용 부품, 사진 메뉴도 같은 부품).
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
@@ -40,6 +40,8 @@ import {phonePhotos} from './phone-photos.js';
 import {readDeviceSources} from './photo-sources-device.js';
 import {phoneHideList} from './phone-folders-sync.js';
 import {dayEndMs, phoneDayItems} from './time-photos-model.mjs';
+// S70-57 UI-검색창하나로(명진 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일 / 검색창은 하나로만"): 목록 보기의 찾기는 맨 위 칸 '하루 기록에서 찾기'.
+import {registerScreenFind, refreshScreenFind} from './screen-find.js';
 
 (() => {
 if (window.KPTUDiary) return;
@@ -50,7 +52,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;',
 const longDay = day => formatSeoulTime(day, {month:'long', day:'numeric', weekday:'long'});
 const shortDay = day => formatSeoulTime(day, {month:'long', day:'numeric'});
 
-root.innerHTML = `<div class="diary-head"><div class="diary-source diary-views ds-seg" role="group" aria-label="하루 기록 보기"><button type="button" class="ds-seg-btn" data-diary-view="calendar" aria-pressed="true">달력</button><button type="button" class="ds-seg-btn" data-diary-view="list" aria-pressed="false">목록</button></div><div class="diary-month-od"><div class="diary-month"><button type="button" class="mini" data-diary-prev aria-label="이전 달">‹</button><b data-diary-title aria-live="polite"></b><button type="button" class="mini" data-diary-next aria-label="다음 달">›</button><button type="button" class="mini" data-diary-today>오늘</button></div>${odLinkButtonHtml()}</div><div class="diary-lv-tools" data-diary-lv-tools hidden><div class="diary-source ds-seg" role="group" aria-label="하루 기록 선택"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all" aria-pressed="true">전체</button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star" aria-pressed="false" aria-label="별표한 하루 기록만">★</button></div><button type="button" class="mini diary-lv-find" data-diary-lv-find aria-pressed="false" aria-label="하루 기록 찾기">${iconSvg('search', {size: 15})}</button></div><button type="button" id="newDiaryBtn" class="primary" data-diary-new data-ctx-screen-item="하루 기록 쓰기" aria-label="하루 기록 쓰기">+ 하루 기록</button></div>
+root.innerHTML = `<div class="diary-head"><div class="diary-source diary-views ds-seg" role="group" aria-label="하루 기록 보기"><button type="button" class="ds-seg-btn" data-diary-view="calendar" aria-pressed="true">달력</button><button type="button" class="ds-seg-btn" data-diary-view="list" aria-pressed="false">목록</button></div><div class="diary-month-od"><div class="diary-month"><button type="button" class="mini" data-diary-prev aria-label="이전 달">‹</button><b data-diary-title aria-live="polite"></b><button type="button" class="mini" data-diary-next aria-label="다음 달">›</button><button type="button" class="mini" data-diary-today>오늘</button></div>${odLinkButtonHtml()}</div><div class="diary-lv-tools" data-diary-lv-tools hidden><div class="diary-source ds-seg" role="group" aria-label="하루 기록 선택"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all" aria-pressed="true">전체</button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star" aria-pressed="false" aria-label="별표한 하루 기록만">★</button></div></div><button type="button" id="newDiaryBtn" class="primary" data-diary-new data-ctx-screen-item="하루 기록 쓰기" aria-label="하루 기록 쓰기">+ 하루 기록</button></div>
 <p class="diary-status" data-diary-status role="status"></p><button type="button" class="secondary" data-diary-retry hidden>다시 시도</button>
 <section class="diary-od" data-diary-od hidden aria-label="원드라이브 사진"></section><div class="diary-cal" data-diary-cal><div class="diary-week-head" aria-hidden="true">${['일','월','화','수','목','금','토'].map((d, i) => `<span${i === 0 ? ' class="sunday"' : i === 6 ? ' class="saturday"' : ''}>${d}</span>`).join('')}</div><div class="diary-days" data-diary-days></div></div>
 <section class="diary-list" data-diary-list hidden aria-label="이 달 하루 기록 목록"></section>
@@ -94,6 +96,15 @@ const allHost = $('[data-diary-all]');
 const listView = createDiaryList({host:allHost, rt, odReady:() => ensureOdStatus().then(() => !!(od.connected && od.folder && odShowOn())),
   onOpen:day => openFromList(day),
   onMarked:saved => { const row = rows.get(saved.journal_day); if (row && row.id === saved.id) rows.set(saved.journal_day, {...row, metadata:saved.metadata, updated_at:saved.updated_at}); }});
+// 맨 위 칸 = 목록 보기의 하루 기록 글 찾기(diary-list.js setQuery → buildDiaryList query, 옛 [data-diary-lv-q] 칸과 같은 걸러 내기).
+// 하루 기록 화면이면 달력 보기에서도 쓰인다(S70-57 '모든 메뉴에 찾기 하나'): 달력에서 치면 이번 접속만 [목록] 보기로 바꿔 결과를 보인다
+// (서버 보기 기억은 바꾸지 않음). 그날 창·쓰는 중에는 목록이 없어 쓰이지 않는다. 찾기 글자는 메모리만.
+let findText = '';
+registerScreenFind('diary', {label:'하루 기록에서 찾기',
+  active:() => window.KPTURouter?.current === 'diary' && !selected && !edit,
+  value:() => (listView.query ? findText : ''),
+  marks:'#diaryRoot [data-diary-lv-body] .diary-lv-row',
+  apply:(raw, {again} = {}) => { findText = String(raw ?? ''); listView.setQuery(findText, {again}); if (findText.trim() && viewMode() !== 'list') { chosenView = 'list'; renderList(); } }});
 
 // JOURNAL-오늘한일달력 (S50-29, 요청함 11/02 13:17 덧붙임): 일기를 안 쓴 날도 그날 '오늘 한 일'이 있으면 달력 칸에 빈 동그라미, 이 달 목록에
 // 그 날짜 줄('한 일 · 첫 줄')이 나온다. 홈에서 넣은 같은 자료를 읽기만(work-day-lines.js readDoneBetween — 두 벌 저장 없음, 메모리에만).
@@ -166,13 +177,13 @@ function applyView() {
   $('.diary-month').hidden = listMode;
   $('[data-diary-lv-tools]').hidden = !listMode;
   root.querySelectorAll('[data-diary-lv-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.diaryLvFilter === listView.filter)));
-  $('[data-diary-lv-find]').setAttribute('aria-pressed', String(listView.searching));
   if (!edit) cal.hidden = listMode;
   const showAll = listMode && !selected && !edit;
   if (showAll && allHost.hidden) { listView.show(); if (listDirty) { listDirty = false; listView.reload(); } if (lastListDay) { const day = lastListDay; lastListDay = null; requestAnimationFrame(() => listView.focusDay(day)); } }
   else if (!showAll && !allHost.hidden) listView.hide();
   // 목록 보기의 상태 줄은 목록 칸이 맡는다(달력의 '이 달에는 아직 일기가 없어요'를 보이지 않게).
   if (!edit) status.hidden = listMode && !selected;
+  refreshScreenFind();
   return listMode;
 }
 function setView(next) {
@@ -283,7 +294,7 @@ days.addEventListener('contextmenu', e => {
 });
 function selectDay(day, {focus = false} = {}) {
   doneRead = {key:'', p:null};
-  selected = day; source = 'all';
+  selected = day; source = 'all'; refreshScreenFind(); // 그날 창 = 목록 없음 → 맨 위 찾기 칸 꺼짐
   days.querySelectorAll('[data-diary-day]').forEach(cell => { const on = cell.dataset.diaryDay === day; cell.setAttribute('aria-pressed', String(on)); cell.classList.toggle('ds-day-sel', on); });
   renderDetail();
   // NAV-PC앞뒤통일: › (or the browser's forward) over the day's entry opens the same day again (reopen).
@@ -647,6 +658,7 @@ async function openEditor(day, {line = '', onSaved = null} = {}) {
   edit = {day, row, pending:[], dropped:[], createdHere:false, pump:null, current:null, waiting:false, discarded:false, keepUploads:false, owner:ownerScope(rt), busy:false, comments:photoComments(row), startComments:photoComments(row),
     host:document.createElement('div'), field:null, baseJson:'', startDoc:diaryStartDoc(row), baseRaw:row ? row.raw_text : null, baseDoc:row ? row.doc ?? null : null, hadRow:!!row};
   edit.host.className = 'diary-doc-host'; edit.host.dataset.diaryText = '';
+  refreshScreenFind(); // 쓰는 중 = 목록 없음 → 맨 위 찾기 칸 꺼짐
   // 채운 줄은 '바뀐 글'로 센다(처음 글 = 원래 일기, 채운 줄은 편집기가 뜬 뒤 넣음 — 그대로 [저장]만 눌러도 저장된다).
   if (String(line).trim()) edit.pendingMerge = joinDiaryDocs(edit.startDoc, plainToDocKeep(String(line).trim()));
   edit.onSaved = typeof onSaved === 'function' ? onSaved : null;
@@ -1251,7 +1263,6 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-list-day]')) return selectDay(button.dataset.diaryListDay, {focus:true});
   if (button.matches('[data-diary-view]')) return setView(button.dataset.diaryView);
   if (button.matches('[data-diary-lv-filter]')) { listView.setFilter(button.dataset.diaryLvFilter); return applyView(); }
-  if (button.matches('[data-diary-lv-find]')) { listView.toggleSearch(); return applyView(); }
   if (button.matches('[data-diary-prev]')) return moveMonth(-1);
   if (button.matches('[data-diary-next]')) return moveMonth(1);
   if (button.matches('[data-diary-today]')) return goToday();

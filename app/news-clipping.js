@@ -13,7 +13,7 @@ import {FIND_LIMIT, FIND_EMPTY, FIND_SHORT, sinceIso, mergeFound} from './news-f
 import {newsPage} from './feed-shared-model.mjs';
 import {sortByName} from './name-order.mjs';
 import {ensureReads, onReads, readState} from './news-reads.js';
-import {dayHtml} from './news-row.mjs';
+import {dayHtml, daysListHtml} from './news-row.mjs';
 import {liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {bindNowRows, hoverActsHtml, dropSaved} from './now-row-acts.js';
 import {canDeleteNews, setSaved} from './now-marks.js';
@@ -124,7 +124,7 @@ const find = createFind({
 });
 const found = () => (find.active() && Array.isArray(find.get().result) ? find.get().result : []);
 // 목록 줄: 제목 중심(껍데기 rowOf). 마우스 단추 [보관][숨기기]는 PC·중간 폭에서만(폰은 줄 밀기).
-const itemHtml = it => now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-item', acts: hoverActsHtml({isSaved: !!it.starred_at, canDelete: canDeleteNews(it)})}) || '';
+const itemHtml = it => now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-item', acts: hoverActsHtml({isSaved: !!it.starred_at, canDelete: canDeleteNews(it), canEdit: true})}) || '';
 // 별표 폴더 칸의 줄: 같은 줄 + ☆(별표 빼기)·[폴더] 단추.
 function treeItemHtml(it) {
   const starred = !!it.starred_at, fid = itemFolderId(it, state.folders), note = state.notes.get(it.id);
@@ -135,6 +135,9 @@ function treeItemHtml(it) {
 
 const unreadOf = items => items.filter(it => readState({type: 'news', id: it.id}) === false).length;
 const rowsHtml = items => (now()?.foldedHtml ? now().foldedHtml(items.map(row => ({type: 'news', row})), e => itemHtml(e.row)) : items.map(itemHtml).join(''));
+// S71-27 NEWS-머리한줄: 목록 맨 위 '오늘' 묶음은 머리 없이 — 그 새 글 수는 껍데기 첫 줄(KPTUNow.lead)이 보인다. 아래 날짜 묶음 머리는 그대로.
+let lead = null;
+const daysOf = groups => { const d = daysListHtml(groups.map(g => ({label: g.label, rows: rowsHtml(g.items), unread: unreadOf(g.items)})), esc); lead = d.lead; return d.html; };
 // 찾은 기사: 날짜 묶음(받은 날)만 — 관심 주제 위 칸은 목록에서만.
 function findHtml() {
   const f = find.get();
@@ -143,9 +146,10 @@ function findHtml() {
   if (!f.done) return waitHtml({rows: 4, h: 44});
   const list = found();
   if (!list.length) return emptyHtml(FIND_EMPTY, {attrs: 'data-nc-empty'});
-  return groupItems(list, Date.now()).map(g => dayHtml(g.label, rowsHtml(g.items), unreadOf(g.items), esc)).join('');
+  return daysOf(groupItems(list, Date.now()));
 }
 function listHtml() {
+  lead = null;
   if (find.active()) return findHtml();
   if (!state.loaded) return state.failed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 6, h: 44});
   const list = state.items;
@@ -153,11 +157,9 @@ function listHtml() {
   if (!list.length) return `${emptyHtml('기사 없음', {attrs: 'data-nc-empty'})}${more}`;
   // NEWS-도배막기(A + C): 관심 주제에 걸린 최근 기사는 위 칸에 먼저, 같은 매체가 연달아 나오면 '○○ 외 N건'으로 묶는다.
   // 규칙·펼침 기억은 껍데기 하나(KPTUNow.hitOf·foldedHtml, news-fold.mjs) — [전체]·[사회운동]과 같은 길.
-  const ts = Date.now(), rows = rowsHtml;
+  const ts = Date.now();
   const {top, rest} = liftRelated(list, it => !!now()?.hitOf?.('news', it), it => Date.parse(it?.created_at || ''), ts);
-  const head = top.length ? dayHtml(LIFT_LABEL, rows(top), unreadOf(top), esc) : '';
-  const days = groupItems(rest, ts).map(g => dayHtml(g.label, rows(g.items), unreadOf(g.items), esc)).join('');
-  return head + days + more;
+  return daysOf([...(top.length ? [{label: LIFT_LABEL, items: top}] : []), ...groupItems(rest, ts)]) + more;
 }
 
 // 별표 폴더 칸: 폴더 트리(폴더 → 안 폴더·기사 들여쓰기, 맨 아래 '폴더 없음'). 폴더 줄 ⋯ = 안에 폴더·이름 바꾸기·지우기.
@@ -239,7 +241,7 @@ function paintNow() {
   if (state.mode === 'keywords') { panel.innerHTML = keywordsHtml(); list.replaceChildren(); }
   else if (state.mode === 'sources') { panel.innerHTML = sourcesHtml(); list.replaceChildren(); }
   else if (state.mode === 'folders') { panel.innerHTML = panelHead('별표 폴더', state.loaded ? `${state.items.length}` : '') + treeHtml(); list.replaceChildren(); }
-  else { list.innerHTML = listHtml(); panel.replaceChildren(); now()?.listed?.(); }
+  else { list.innerHTML = listHtml(); panel.replaceChildren(); now()?.lead?.(lead); now()?.listed?.(); }
 }
 // 읽음 표시가 오거나 바뀌면 이 칸을 다시 그린다(목록·별표 폴더 칸만).
 onReads(() => { if (state.mode === 'list' || state.mode === 'folders') paint(); else if (state.mode === 'keywords') paintKeywordHits(); });
@@ -519,6 +521,8 @@ bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemO
   enabled: () => state.mode === 'list',
   isSaved: item => !!itemById(item.id)?.starred_at,
   canDelete: item => canDeleteNews(itemById(item.id)),
+  // S70-62: 줄 [수정] = 그 기사 글 보기 + 기존 ⋯ [수정] 창(껍데기 KPTUNow.edit — 다른 탭과 같은 길).
+  canEdit: item => !!itemById(item.id), onEdit: item => { const it = itemById(item.id); if (it) window.KPTUNow?.edit?.(item, window.KPTUNow.describe('news', it)); },
   changed: rowChanged});
 async function putInFolder(id, folderId) {
   const w = workspaceOf(), it = state.items.find(x => x.id === id), scope = state.scope;

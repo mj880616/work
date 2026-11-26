@@ -38,7 +38,7 @@ async function mockApp(page,{check={ok:true},checkStatus=200,del={ok:true,files_
 
 async function openProfile(page,width){
   await page.setViewportSize({width,height:900});
-  await page.goto(testOrigin+'/app/?view=profile');
+  await page.goto(testOrigin+'/app/?view=profile&pane=account'); // S71-36: 계정 삭제는 '계정' 장
   await enterLogin(page);
   await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
   await signInWithSession(page,user.email);
@@ -50,9 +50,10 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
     test.setTimeout(60000);
     const calls=await mockApp(page);
     await openProfile(page,width);
-    const entry=page.locator('#profileView .ps-account-actions [data-account-delete]');
-    await expect(entry).toHaveText('계정 삭제');
-    await expect(entry).toHaveClass(/secondary/);
+    const entry=page.locator('#profileView [data-ps-page="account"] [data-account-delete]');
+    // S71-36 PROFILE-설정화면: '계정' 장 따로 떨어진 묶음의 빨간 줄(공용 설정 줄) — 이름 + 설명 한 줄.
+    await expect(entry.locator('.sl-label')).toHaveText('계정 삭제');
+    await expect(entry).toHaveClass(/sl-danger/);
     await entry.click();
     const dialog=page.locator('#accountDeleteDialog');
     await expect(dialog).toBeVisible();

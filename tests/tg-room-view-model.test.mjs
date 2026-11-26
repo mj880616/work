@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {TG_VIEWS, tgViewOf, roomGroups, roomDays, roomPage, roomDayText, ROOM_DAY_PAGE} from '../app/tg-room-view-model.mjs';
 import {TG_VIEWS as PREF_TG_VIEWS, validValue} from '../app/view-prefs.js';
-import {SWIPE_ACTIONS, allowOf} from '../app/tg-day-model.mjs';
+import {SWIPE_ACTIONS} from '../app/tg-day-model.mjs';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const L = (room, day, last_at, o = {}) => ({room_key:room, room_label:'방 ' + room, day, last_at, item_count:1, raw_count:1, headline:'', day_hidden_at:null, archived_at:null, folder_id:null, ...o});
@@ -43,8 +43,7 @@ test('방 줄 날짜는 "10.30 (금)" 모양', () => {
 });
 
 test('방별의 방 한 줄 밀기는 폴더로·보관만(이 날 한 줄 삭제 없음)', () => {
-  assert.deepEqual(SWIPE_ACTIONS.room, {start:['folder', 'archive'], end:[]});
-  assert.deepEqual(allowOf('room'), {start:2, end:0});
+  assert.deepEqual(SWIPE_ACTIONS.room, ['folder', 'archive']);
 });
 
 test('화면 연결: 고른 보기는 서버 화면 기억(tg_view) 하나, 주소는 by·room, 기기 저장 없음', () => {
@@ -53,5 +52,5 @@ test('화면 연결: 고른 보기는 서버 화면 기억(tg_view) 하나, 주�
   assert.match(router, /telegram:\['by','room','rday'\]/);
   assert.doesNotMatch(js, new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|')));
   // 방 상세의 날 읽기는 날짜별과 같은 길(readRoomDay)이고 새 서버 읽기는 없다.
-  assert.match(js, /async function loadDay\(room, day\)[\s\S]{0,300}readRoomDay\(room, day, rt\)/);
+  assert.match(js, /async function loadDay\(room, day\)[\s\S]{0,600}readRoomDay\(room, day, rt\)/);
 });

@@ -22,6 +22,8 @@ test('selectedLabel reads the chosen option, a hidden first option included', ()
 test('the #2847 fade on the 사업 관리 chip line is gone, and the chip sits on the top line', () => {
   const css = readFileSync('app/ui-standard.css', 'utf8'), html = readFileSync('app/index.html', 'utf8');
   assert.doesNotMatch(css, /rk-chip-fade|--rk-fade-|animation-timeline/);
-  assert.match(html, /<h2 class="report-top-title">사업 관리<\/h2><span class="report-filter-slot"><button id="reportFilterChip" class="report-filter-chip" type="button"[^>]*aria-controls="reportFilterBar" hidden>/);
+  // S70-57: 첫 줄 아이콘·제목은 앱 머리 줄로 옮겨(찾기 돋보기와 함께) 칩 자리가 첫 줄 맨 앞이다.
+  // BIZ-머리한줄(S71-23): 첫 줄은 #reportTop 하나(폰·폴드는 앱 머리 줄로 옮겨 감).
+  assert.match(html, /<div id="reportTop" class="toolbar report-top-line"><span class="report-filter-slot"><button id="reportFilterChip" class="report-filter-chip" type="button"[^>]*aria-controls="reportFilterBar" hidden>/);
   assert.match(html, /<div id="reportFilterBar" class="toolbar report-kind-bar">/);
 });

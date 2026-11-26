@@ -165,8 +165,9 @@ export function linkGeometry(a, b, {from_side = null, to_side = null, shape = 'l
   return {from:{...p, side:s1}, to:{...q, side:s2}, d:`M${r1(p.x)} ${r1(p.y)}C${r1(c1.x)} ${r1(c1.y)} ${r1(c2.x)} ${r1(c2.y)} ${r1(q.x)} ${r1(q.y)}`, mid};
 }
 // 끌고 있는 선(손잡이 → 손가락 자리): 끝 변이 없으니 시작 변 방향으로 뻗는 곡선.
-export function dragPath(a, side, point) {
-  const p = sidePoint(a, side), n = NORMAL[side], k = reach(p, point);
+// from(선택): 선을 시작할 점(S70-77 — 누른 연결점 동그라미 가운데). 없으면 그 변 가운데.
+export function dragPath(a, side, point, from = null) {
+  const p = from && Number.isFinite(from.x) && Number.isFinite(from.y) ? from : sidePoint(a, side), n = NORMAL[side], k = reach(p, point);
   return `M${r1(p.x)} ${r1(p.y)}C${r1(p.x + n.x * k)} ${r1(p.y + n.y * k)} ${r1(point.x)} ${r1(point.y)} ${r1(point.x)} ${r1(point.y)}`;
 }
 // 선이 차지하는 대략의 칸(화면 밖 선 그리기 생략용): 두 카드와 곡선 손잡이를 다 덮는 사각형.

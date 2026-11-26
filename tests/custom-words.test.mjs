@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import test from 'node:test';
 import { FACES, wordIn } from '../app/brand/faces.mjs';
 import { SLOTS, SLOT_IDS, NAME_MAX, defaultName, cleanName, parseCustomWords, buildSaveValue, applyCustomWords } from '../app/brand/custom-words-model.mjs';
@@ -142,7 +142,11 @@ test('시작 순서: 고친 이름 약속은 소유자 확인에 묶이고, word
   const block = loader.slice(promiseAt, loader.indexOf(';\n', loader.indexOf('Promise.resolve(null)', promiseAt)));
   assert.match(block, /member\.rows\[0\]\?\.role==='owner'/, '소유자만 읽는다(비구성원은 데이터 요청 없음)');
   assert.match(block, /select=custom_words&limit=1/);
-  assert.match(block, /setTimeout\(\(\)=>resolve\(null\),3500\)/, '늦으면 기본 이름으로 연다');
+  // S71-32: 고친 이름은 소속 확인과 같은 기다림(15초)으로 받는다 — 3초 남짓에 끊겨 그 접속 내내 기본 이름으로 굳던 원인(사용자 폰).
+  assert.match(loader, /const BOOT_WORDS_MS=15000;/);
+  assert.match(block, /timeoutMs:BOOT_WORDS_MS\}/);
+  assert.match(block, /setTimeout\(\(\)=>resolve\(null\),BOOT_WORDS_MS\+500\)/, '서버가 끝내 답하지 않을 때만 기본 이름으로 연다');
+  assert.doesNotMatch(block, /timeoutMs:3000|3500/, '짧게 끊지 않는다');
   // S67-62: 바탕 낱말 묶음은 같은 소유자 확인 뒤 서버 기능 목록(GET)에서만 — 그 답은 my-features.js 첫 물음이 그대로 쓴다(두 번 묻지 않음).
   assert.match(block, /window\.__KPTU_BOOT_FEATURES__=\{userId:bootUserId,promise:window\.KPTURuntime\.api\('\/rest\/v1\/rpc\/app_my_features'/);
   assert.match(block, /\.then\(\(\[custom_words,features\]\)=>\(\{custom_words,features\}\)\)/);
@@ -167,24 +171,26 @@ test('시작 순서: 고친 이름 약속은 소유자 확인에 묶이고, word
 });
 
 test('저장은 서버뿐: 주소·쿠키로 고친 이름을 정하는 길이 없다(기기 저장소는 browser-storage-audit.yml이 app/ 전체에서 막는다)', () => {
-  for (const file of ['app/brand/custom-words.mjs', 'app/brand/custom-words-model.mjs', 'app/brand/custom-words-shell.mjs', 'app/custom-words-boot.js', 'app/custom-words-panel.js', 'app/custom-words-store.js', 'app/menu-edit.js']) {
+  for (const file of ['app/brand/custom-words.mjs', 'app/brand/custom-words-model.mjs', 'app/brand/custom-words-shell.mjs', 'app/custom-words-boot.js', 'app/custom-words-store.js', 'app/menu-edit.js']) {
     const source = read(file).replace(/^\s*\/\/.*$/gm, '');
     assert.doesNotMatch(source, /document\.cookie|URLSearchParams|location\.(search|hash)/, file);
   }
   const words = read('app/brand/custom-words.mjs').replace(/^\s*\/\/.*$/gm, '');
   assert.match(words, /globalThis\.__KPTU_CUSTOM_WORDS__/);
   assert.doesNotMatch(words, /fetch\(|api\(/, '읽기는 loader 한 곳');
-  // S67-71: 읽기·쓰기는 custom-words-store.js 한 곳. 내 프로필 '이름 바꾸기'와 '메뉴 수정' 창이 같이 쓴다(중복 구현 없음).
+  // S67-71: 읽기·쓰기는 custom-words-store.js 한 곳. S71-32: 고치는 화면은 '메뉴 수정' 창 하나(내 프로필 '이름 바꾸기' 상자 없앰).
   const store = read('app/custom-words-store.js');
   assert.match(store, /\/rest\/v1\/app_profiles\?user_id=eq\.\$\{encodeURIComponent\(userId\)\}`/);
   assert.match(store, /method: 'PATCH', prefer: 'return=representation', body: \{custom_words: value\}/);
-  assert.match(store, /buildSaveValue\(face, \{\.\.\.saved, \[slotId\]/, '칸 하나 저장도 같은 규칙(buildSaveValue)');
-  for (const file of ['app/custom-words-panel.js', 'app/menu-edit.js']) {
+  assert.match(store, /const merged = \{\.\.\.saved\};/, '고친 칸만 갈아 끼우고 다른 칸은 서버 값 그대로');
+  assert.match(store, /buildSaveValue\(face, merged\)/, '같은 규칙(buildSaveValue)');
+  for (const file of ['app/menu-edit.js']) {
     const source = read(file);
     assert.match(source, /from '\.\/custom-words-store\.js'/, file);
     assert.doesNotMatch(source, /app_profiles|method: 'PATCH'/, `${file}: 서버 길을 따로 쓰지 않는다`);
   }
-  assert.match(read('app/profile-settings.js'), /import\('\.\/custom-words-panel\.js'\)\.then\(m=>m\.mountCustomWords\(host,\{rt\}\)\)/);
+  assert.doesNotMatch(read('app/profile-settings.js'), /custom-words-panel|psCustomWordsPanel|이름 바꾸기/, '내 프로필에 이름 바꾸기 상자 없음');
+  assert.equal(existsSync(new URL('../app/custom-words-panel.js', import.meta.url)), false, '옛 상자 코드 없음');
 });
 
 test('운영자 이름 SQL: 코드에 계정을 넣지 않고 운영자 허용 표로 대상 한 명을 고른다', () => {
@@ -233,22 +239,21 @@ test('소속·주간 자리: WORK ON 기본은 노조 색 없음, 명진(바탕 
   assert.ok(!SLOT_IDS.includes('affiliation') && !SLOT_IDS.includes('weekly'), '이름 칸은 15칸 그대로');
 });
 
-test('내 프로필·묶음·주간 캘린더 칸 글자는 소속·주간 칸 자리로만 부른다', () => {
+test('내 프로필·묶음 칸 글자는 소속 칸 자리로만 부른다(S71-34: 프로필 소속·부서·직책·주간 캘린더 칸은 없음)', () => {
   const words = read('app/profile-words.mjs');
   assert.match(words, /UNION_WORD = word\('노조', 'group'\)/);
   assert.match(words, /UNION_LABEL = `\$\{UNION_WORD\}명`/);
-  assert.match(words, /REPORT_CALENDAR_TITLE = `\$\{WEEKLY_WORD\} 일정 캘린더`/);
+  assert.doesNotMatch(words, /REPORT_CALENDAR_TITLE/);
   const profile = read('app/profile-settings.js');
-  assert.match(profile, /placeholder="\$\{UNION_LABEL\} \(예: \$\{word\('○○노동조합 ○○지부','example'\)\}\)" aria-label="\$\{UNION_LABEL\}"/);
-  assert.match(profile, /placeholder="부서명 \(예: \$\{word\('○○사업팀','example'\)\}\)"/);
-  assert.match(profile, /placeholder="직책 \(예: \$\{word\('국장','example'\)\}\)"/);
-  assert.match(profile, /aria-label="\$\{REPORT_CALENDAR_TITLE\}"/);
+  assert.doesNotMatch(profile, /psUnion|psDept|psTitle|psReportPanel|UNION_LABEL|REPORT_CALENDAR_TITLE/);
   const groups = read('app/collab-groups.js');
-  assert.match(groups, /\+ \$\{KIND_NAME\.union\} 만들기/);
+  // S71-35: [+ 부서·노조 묶음 만들기] 단추는 조직 관리 ⋯ 안으로 옮겼다(같은 KIND_NAME 글자).
+  assert.doesNotMatch(groups, /data-cg="new"/);
+  assert.match(read('app/suborganizations.js'), /\$\{KIND_NAME\.union\} 만들기/);
   assert.match(groups, /<span>\$\{UNION_LABEL\}<\/span>/);
   assert.match(read('app/collab-groups-model.mjs'), /union: `\$\{UNION_WORD\} 묶음`/);
   // 고정 글자에 노조 낱말이 남지 않는다(주석 빼고).
-  for (const file of ['app/profile-settings.js', 'app/collab-groups.js', 'app/collab-groups-model.mjs', 'app/report-settings.js', 'app/report-settings-model.mjs', 'app/report-calendar.mjs']) {
+  for (const file of ['app/profile-settings.js', 'app/collab-groups.js', 'app/collab-groups-model.mjs', 'app/report-calendar.mjs', 'app/suborganizations.js']) {
     const code = read(file).replace(/^\s*\/\/.*$/gm, '').replace(/\/\/ [^'"`\n]*$/gm, '');
     assert.doesNotMatch(code, /'노조명|"노조명|>노조명|노조 묶음 만들기|주간 보고 일정 캘린더/, file);
   }

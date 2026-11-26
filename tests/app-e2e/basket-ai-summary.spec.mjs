@@ -1,10 +1,10 @@
 import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {linkAction} from './helpers/basket-link-menu.mjs';
-// AI-서버연동 S4: [AI 요약] next to the basket link summary box and the organization '요약 수정' box.
+// AI-서버연동 S4: [AI 요약] next to the basket link summary box and the organization record [수정] box (S71-71, was '요약 수정').
 // ai-assist is mocked. Synthetic IDs and text only; nothing here calls a real server.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-06T01:00:00Z';
@@ -59,8 +59,8 @@ async function fixture(page,{note:over={}}={}){
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 async function openLink(page,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
- await tap(page,page.locator(`[data-basket-row="${n}"]`),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,n,width<761?l=>l.tap():null);
+ await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  const detail=page.locator('[data-basket-detail]');
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
  await tap(page,detail.locator('[data-manual-pick="organization"]'),width);
@@ -146,13 +146,13 @@ test('a late AI answer for a removed pick or a cancelled panel changes nothing',
 
 test('an AI-excluded update never opens the link panel, so there is no [요약 만들기]',async({page})=>{
  const f=await fixture(page,{note:{ai_export_allowed:false}});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);await page.locator(`[data-basket-row="${n}"]`).click();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,n);
  const detail=page.locator('[data-basket-detail]');await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  await detail.getByRole('button',{name:'연결하기'}).click();await expect(detail.locator('[data-basket-status]')).toContainText('AI 제외로 표시된 업데이트');
  await expect(detail.locator('[data-manual-link]')).toHaveCount(0);await expect(page.locator('[data-manual-ai-run]')).toHaveCount(0);expect(f.ai).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// '요약 수정' in organization detail (the shared summary editor), on the detail fixture.
+// [수정] in organization detail (the shared summary editor, S71-71), on the detail fixture.
 const detailFixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',FN='https://fixture.invalid/functions/v1/ai-assist';
 async function detailReady(page,note={}){
  await page.goto(detailFixture);await expect.poll(()=>page.evaluate(()=>window.__detailReady===true)).toBe(true);
@@ -162,7 +162,7 @@ async function detailReady(page,note={}){
  await page.evaluate(()=>window.KPTUWorkplace.open(window.__detailState.ids.org));
  return {ai,queue};
 }
-const editRow=async(page,which)=>{const id=await page.evaluate(w=>window.__detailState.ids[w],which),row=page.locator(`#wdUpdates [data-basket-link="${id}"]`);await linkAction(row,'요약 수정');return row;};
+const editRow=async(page,which)=>{const id=await page.evaluate(w=>window.__detailState.ids[w],which),row=page.locator(`#wdUpdates [data-basket-link="${id}"]`);await linkAction(row,'수정');return row;};
 
 for(const width of [390,1280])test(`요약 수정: the current summary stays; the proposal needs [이걸로 바꾸기], then [저장] saves ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await detailReady(page),row=await editRow(page,'link'),input=row.locator('[data-link-summary-input]');
@@ -176,10 +176,13 @@ for(const width of [390,1280])test(`요약 수정: the current summary stays; th
  const writes=await page.evaluate(()=>window.__detailState.calls.filter(x=>x.method!=='GET'));expect(writes).toHaveLength(1);expect(writes[0].body).toEqual({p_link_id:await page.evaluate(()=>window.__detailState.ids.link),p_expected_summary:'연결 요약',p_summary:AI_TEXT});
 });
 
-test('요약 수정: an empty summary (NULL) is filled at once and not saved until [저장]',async({page})=>{
- await detailReady(page);const row=await editRow(page,'nullLink'),input=row.locator('[data-link-summary-input]');await expect(input).toHaveValue('');
- await row.getByRole('button',{name:'요약 만들기'}).click();await expect(input).toHaveValue(AI_TEXT);
- await expect(row.locator('[data-link-summary-ai-status]')).toHaveText('AI 요약을 칸에 넣었어요. 아직 저장 전이에요. 수정한 뒤 [저장]을 눌러 주세요.');
+// S71-71 RECORD-기록하나로: 요약이 비어 있는(NULL) 기록의 [수정] 칸은 그 기록에 보이는 글(원래 글 앞부분이 아니라 글 전체)로 시작한다.
+// 그래서 AI 요약은 칸을 덮지 않고 제안으로 오고([이걸로 바꾸기]), [저장] 전에는 아무것도 쓰지 않는다.
+test('수정: an empty summary (NULL) starts from the record text; the AI proposal waits for [이걸로 바꾸기] and nothing is saved',async({page})=>{
+ await detailReady(page);const row=await editRow(page,'nullLink'),input=row.locator('[data-link-summary-input]');
+ const start=await input.inputValue();expect(start.trim().length).toBeGreaterThan(0);
+ await row.getByRole('button',{name:'요약 만들기'}).click();const proposal=row.locator('[data-link-summary-ai-proposal]');await expect(proposal).toContainText(AI_TEXT);await expect(input).toHaveValue(start);
+ await proposal.getByRole('button',{name:'이걸로 바꾸기'}).click();await expect(input).toHaveValue(AI_TEXT);
  expect(await page.evaluate(()=>window.__detailState.calls.filter(x=>x.method!=='GET'))).toEqual([]);
 });
 

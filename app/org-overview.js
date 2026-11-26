@@ -55,6 +55,8 @@ function install() {
   // PC 좌우 격자에서 소탭 줄이 맨 위 한 줄을 갖고 목록·상세 칸은 그 아래 같은 줄에 머문다(suborganizations.css .so-has-tabs).
   section.classList.add('so-has-tabs');
   st.tabs = section.querySelector('#soTeamTabs');
+  // S71-59 UI-화면메뉴안으로: 탭 줄이 생겼으니 PC 틀 화면 단추(⋯)를 이 줄 오른쪽 끝으로(자리 표·옮기기는 공용 screen-tools.js).
+  import('./screen-tools.js').then(m => m.placeScreenTools()).catch(err => console.error('screen tools', err?.name || 'Error'));
   st.panel = section.querySelector('#soOverview');
   st.tabs.addEventListener('click', e => { const b = e.target.closest?.('[data-so-view]'); if (b) setView(b.dataset.soView, {focus: false}); });
   st.tabs.addEventListener('keydown', e => {

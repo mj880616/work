@@ -31,7 +31,8 @@ async function orgFixture(page,width,height){
  await page.setViewportSize({width,height});
  const errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page);
- page.on('request',req=>{if(req.url().startsWith(SB+'/rest/')&&!['GET','HEAD','OPTIONS'].includes(req.method()))writes.push(req.method()+' '+new URL(req.url()).pathname)});
+ // S71-35: 조직 관리 '내 묶음' 칸의 내 묶음 목록(app_collab_my_groups)은 POST로 묻는 읽기라 쓰기에서 뺀다.
+ page.on('request',req=>{if(req.url().startsWith(SB+'/rest/')&&!['GET','HEAD','OPTIONS'].includes(req.method())&&!req.url().includes('/rpc/app_collab_my_groups'))writes.push(req.method()+' '+new URL(req.url()).pathname)});
  const updates=Array.from({length:4},(_,i)=>({id:'u-'+i,organization_id:'oa',raw_text:'합성 기록 '+i,detail_text:null,occurred_at:`2026-09-2${8-i}T01:00:00Z`}));
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return route.fulfill({json:id?orgs.filter(o=>'eq.'+o.id===id):orgs})});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return route.fulfill({json:q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner}))})});
@@ -209,13 +210,13 @@ for(const [width,height] of FOLD){
   await kind.selectOption(all);
   await expect(bizList(page).locator('[data-meeting-round]')).toHaveCount(3);
   // ‹ 주 넘기기: 지난주 보고 하나가 목록·결과 칸에(두 칸 그대로), › 로 돌아오면 이번 주.
-  const prev=page.locator('#reportWeekFilter [data-report-week="prev"]');
+  const prev=page.locator('#bizWeekBox [data-report-week="prev"]');
   await prev.click();
   await expect(bizList(page).locator('[data-meeting-round]')).toHaveCount(1);
   await expect(bizRow(page,'m-d')).toHaveAttribute('aria-current','true');
   await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id','m-d');
   await expect(bizList(page).locator('.mcol-layout.mcol-two')).toBeVisible();
-  const next=page.locator('#reportWeekFilter [data-report-week="next"]');
+  const next=page.locator('#bizWeekBox [data-report-week="next"]');
   await next.click();
   await expect(bizList(page).locator('[data-meeting-round]')).toHaveCount(3);
   expect(await sideways(page)).toBeLessThanOrEqual(1);

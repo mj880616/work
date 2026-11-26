@@ -1,0 +1,15 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>입력칸 자동 높이 시험</title>
+<link rel="stylesheet" href="/app/base-ui.css">
+<style>body{margin:0;padding:12px;font:15px/1.5 sans-serif}textarea{display:block;width:100%;box-sizing:border-box;margin:0 0 12px;padding:6px 8px;font:inherit;line-height:1.5;border:1px solid #888}
+.capped{max-height:120px}.modal.hidden{display:none}</style></head><body>
+<!-- 앱의 여러 줄 칸 모양 셋: 세 줄에서 시작(고치기 창 설명), 열두 줄에서 시작(붙여 넣기 칸), CSS 상한이 있는 칸(노트 빠른 입력). -->
+<textarea id="three" rows="3" data-autogrow></textarea>
+<textarea id="twelve" rows="12" data-autogrow></textarea>
+<textarea id="capped" class="capped" rows="2" data-autogrow></textarea>
+<textarea id="oneline" rows="2" data-autogrow data-keep-breaks data-enter-field="single"></textarea>
+<div id="dlg" class="modal hidden" role="dialog" aria-modal="true" aria-label="고치기"><div class="modal-card"><textarea id="prefilled" rows="3" data-autogrow></textarea><button type="button">저장</button></div></div>
+<script type="module">
+await import('/app/accessibility-dialog.js');
+await import('/app/auto-grow.js');
+window.__ready=true;
+</script></body></html>

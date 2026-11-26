@@ -26,9 +26,10 @@ test('names are cleaned like the server and shown as union + dept + kind', () =>
   assert.equal(groupMeta({my_role: 'member', members: [{}], requests: [{}]}), '멤버 · 1명');
 });
 
-test('create form: profile values as defaults, union kind sends no dept, consent always true', () => {
-  const d = createDefaults('dept', {union_name: ' 가상노조 ', department_name: '정책실'});
-  assert.deepEqual(d, {kind: 'dept', union: '가상노조', dept: '정책실'});
+test('create form: empty defaults (S71-34 프로필은 소속·부서를 받지 않음), union kind sends no dept, consent always true', () => {
+  assert.deepEqual(createDefaults('dept'), {kind: 'dept', union: '', dept: ''});
+  assert.deepEqual(createDefaults('union', {union_name: '가상노조', department_name: '정책실'}), {kind: 'union', union: '', dept: ''});
+  const d = {kind: 'dept', union: '가상노조', dept: '정책실'};
   assert.equal(createReady({kind: 'dept', union: '가상노조', dept: ''}), false);
   assert.equal(createReady({kind: 'union', union: '가상노조', dept: ''}), true);
   assert.deepEqual(createArgs({kind: 'union', union: ' 가상노조', dept: '정책실'}), {p_kind: 'union', p_union_name: '가상노조', p_dept_name: null, p_agree: true});
@@ -37,14 +38,14 @@ test('create form: profile values as defaults, union kind sends no dept, consent
   assert.match(CREATED_TEXT.dept, /같은 이름 묶음이 이미 있으면/);
 });
 
-test('invite link: profile view + join param only for a 64-hex token; read once and removed from the address', () => {
+test('invite link: team view (S71-35) + join param only for a 64-hex token; read once and removed from the address', () => {
   const url = inviteUrl('https://example.test/app/', TOKEN);
-  assert.equal(url, `https://example.test/app/?view=profile&join=${TOKEN}`);
+  assert.equal(url, `https://example.test/app/?view=team&join=${TOKEN}`);
   assert.equal(inviteUrl('https://example.test/app/', 'short'), '');
   assert.equal(tokenFromUrl(url), TOKEN);
   assert.equal(tokenFromUrl('https://example.test/app/?view=profile&join=xyz'), 'bad');
   assert.equal(tokenFromUrl('https://example.test/app/?view=profile'), '');
-  assert.equal(urlWithoutToken(url + '#x'), '/app/?view=profile#x');
+  assert.equal(urlWithoutToken(url + '#x'), '/app/?view=team#x');
   assert.equal(inviteSummary({kind: 'dept', union_name: '가상노조', dept_name: '정책실', admin_name: '가상 관리자', admin_title: '부장', member_count: 3}), '가상노조 정책실 부서 · 가상 관리자 부장 외 2명');
 });
 

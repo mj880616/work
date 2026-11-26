@@ -4,10 +4,9 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import {noteTrash} from './helpers/note-trash.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
-// ORG-연결노트삭제(2026-11-12 명진 지시): 조직 창·사업영역 상세 기록 목록의 노트 연결 줄 ⋯에 업데이트와 같은 [원문 삭제](맨 아래, 위험 색).
-// 누르면 한 번 묻고('노트를 삭제할까요? 휴지통으로 가요. 이 기록 줄도 빠져요' + 다른 곳 n군데), 노트 화면 [삭제]와 같은 휴지통 길
-// (owner-RLS DELETE 한 번 → 서버 가로채기가 휴지통 표시)로 보낸 뒤 '노트를 삭제했어요 · 되돌리기'. 되돌리면 노트와 기록 줄이 다시 보인다.
-// 예전 basket-files note-delete 서버 길은 쓰지 않는다. 이름·글은 모두 합성 값이다.
+// ORG-연결노트삭제(2026-11-12)는 노트 연결 줄 ⋯에 [원문 삭제](노트를 휴지통으로)를 두었다. S71-71 RECORD-기록하나로(사용자 결정 2026-11-26
+// "업데이트고 잊지말기고 원문이고 뭐고 없어 걍 메뉴도 다 통일"): 노트에서 연결된 기록 줄도 ⋯ = [수정][메모][삭제]이고, [삭제]는 그 기록(연결 줄)만
+// 지운다('이 기록을 삭제할까요?' · '기록을 삭제했어요 · 되돌리기'). 노트는 휴지통에 가지 않고 그대로다. 이름·글은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z';
 const SHOTS=process.env.S61_18_SHOTS?'docs/design/screens/s61-18/':'';
 const update={id:'20000000-0000-4000-8000-0000000000aa',workspace_id:'w',kind:'basket',title:null,occurred_at:stamp,updated_at:stamp,created_at:stamp,raw_text:'합성 업데이트 원문',ai_export_allowed:true,archived_at:null,attachments:[],metadata:{}};
@@ -37,7 +36,7 @@ async function fixture(page,{width}){
   if(req.method()!=='GET'){state.writes.push(req.method()+' '+req.url());return route.fulfill({json:[]})}
   let rows=notes;if(k?.startsWith('eq.'))rows=rows.filter(x=>x.kind===k.slice(3));if(id?.startsWith('eq.'))rows=rows.filter(x=>x.id===id.slice(3));return list(route,rows)});
  await page.route(SB+'/rest/v1/app_record_links**',route=>{
-  const req=route.request(),q=new URL(req.url()).searchParams;if(req.method()!=='GET'){state.writes.push(req.method()+' '+req.url());return route.fulfill({json:[]})}
+  const req=route.request(),q=new URL(req.url()).searchParams;if(req.method()!=='GET'){state.writes.push(req.method()+' '+req.url());if(req.method()==='DELETE'){const id=(q.get('id')||'').slice(3),i=state.links.findIndex(l=>l.id===id);return route.fulfill({json:i<0?[]:state.links.splice(i,1).map(l=>({id:l.id}))})}return route.fulfill({json:[]})}
   if(q.has('google_task_id'))return route.fulfill({json:[]});
   const kinds=(q.get('note.kind')||'').replace(/^eq\./,'').replace(/^in\.\(|\)$/g,'').split(',').filter(Boolean);
   // app_notes!inner: 휴지통에 간 노트(목록에 없음)의 연결 줄은 오지 않는다.
@@ -51,51 +50,34 @@ async function fixture(page,{width}){
  await page.route(SB+'/functions/v1/basket-files?action=note-delete',route=>{state.posts.push(route.request().postData());return route.fulfill({status:500,json:{}})});
  return state;
 }
-const CONFIRM='노트를 삭제할까요?\n휴지통으로 가요. 이 기록 줄도 빠져요.\n다른 곳 1군데에도 연결돼 있어요.';
 test.use({hasTouch:true}); // 폰 폭은 손가락 누르기(tap)로 연다.
 const press=(locator,width)=>width<761?locator.tap():locator.click();
+const linkDeletes=f=>f.writes.filter(w=>w.startsWith('DELETE ')&&w.includes('/app_record_links'));
 
-for(const width of [1280,412])test(`organization ${width}: a note line's ⋯ [원문 삭제] asks once, sends the note to the trash, and undo brings the note and the line back`,async({page})=>{
+for(const width of [1280,412])test(`organization ${width}: a note line's ⋯ is [수정][메모][삭제]; [삭제] removes only that record and the note stays`,async({page})=>{
  const f=await fixture(page,{width});
  await clickView(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();
  const modal=page.locator('#wdModal'),row=modal.locator('[data-basket-link="l-note-o"]');await expect(row).toBeVisible();
+ await expect(row.locator('a,[data-record-mark]')).toHaveCount(0);await expect(row).not.toContainText('노트 연결');
  const menu=page.locator('#basketLinkMenu');
- // The update line keeps its menu; the note line now has the same [원문 삭제] at the bottom, in the danger color.
- await press(modal.locator('[data-basket-link="l-up"] [data-basket-link-menu]'),width);await expect(menu.getByRole('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정','원문 삭제']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
- await press(row.locator('[data-basket-link-menu]'),width);await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정','원문 삭제']);
- const del=menu.getByRole('button',{name:'원문 삭제',exact:true});await expect(del).toHaveClass(/basket-link-danger/);
- if(SHOTS)await page.screenshot({path:`${SHOTS}org-note-menu-${width}.png`});
- // Cancel sends nothing and keeps the line.
- await press(del,width);expect(await answerAsk(page,false)).toBe(CONFIRM);
- await expect(row).toBeVisible();expect(f.deletes).toEqual([]);
- await press(row.locator('[data-basket-link-menu]'),width);await press(menu.getByRole('button',{name:'원문 삭제',exact:true}),width);
- const ask=page.locator('.kptu-ask');await ask.waitFor({state:'visible'});if(SHOTS)await page.screenshot({path:`${SHOTS}org-note-ask-${width}.png`});
- expect(await answerAsk(page,true)).toBe(CONFIRM);
- await expect(row).toHaveCount(0);await expect(modal.locator('[data-basket-link="l-up"]')).toBeVisible();
- const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('노트를 삭제했어요.');await expect(notice.getByRole('button',{name:'되돌리기'})).toBeVisible();
- if(SHOTS)await page.screenshot({path:`${SHOTS}org-note-deleted-${width}.png`});
- // The same server path as the note screen: one owner-RLS DELETE of this note in this workspace, never the old note-delete function.
- expect(f.deletes).toEqual([{id:'eq.'+note.id,workspace_id:'eq.w',select:'id'}]);expect(f.posts).toEqual([]);expect(f.trash.trash.map(n=>n.id)).toEqual([note.id]);
- await notice.getByRole('button',{name:'되돌리기'}).click();await expect(notice).toContainText('되돌렸습니다.');
- expect(f.trash.rpc.filter(r=>r.fn==='app_trash_restore')).toEqual([{fn:'app_trash_restore',kind:'note',id:note.id}]);
- await expect(modal.locator('[data-basket-link="l-note-o"]')).toBeVisible();
- expect(f.writes).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(f.errors).toEqual([]);
+ for(const id of ['l-up','l-note-o']){await press(modal.locator(`[data-basket-link="${id}"] [data-basket-link-menu]`),width);await expect(menu.getByRole('button')).toHaveText([/^수정$/,/^메모( \d+)?$/,/^삭제$/]);await page.keyboard.press('Escape');await expect(menu).toBeHidden();}
+ await press(row.locator('[data-basket-link-menu]'),width);const del=menu.getByRole('button',{name:'삭제',exact:true});await expect(del).toHaveClass(/basket-link-danger/);
+ await press(del,width);expect(await answerAsk(page,false)).toBe('이 기록을 삭제할까요?');await expect(row).toBeVisible();
+ await press(row.locator('[data-basket-link-menu]'),width);await press(menu.getByRole('button',{name:'삭제',exact:true}),width);expect(await answerAsk(page,true)).toBe('이 기록을 삭제할까요?');
+ await expect(page.locator('[data-undo-notice]')).toContainText('기록을 삭제했어요.');
+ await expect.poll(()=>linkDeletes(f).length).toBe(1);expect(linkDeletes(f)[0]).toContain('id=eq.l-note-o');
+ expect(f.deletes).toEqual([]);expect(f.posts).toEqual([]);expect(f.trash.trash).toEqual([]);expect(f.notes.some(n=>n.id===note.id)).toBe(true);
+ expect(f.errors).toEqual([]);
 });
 
-for(const width of [1280,412])test(`project ${width}: a note record's ⋯ [원문 삭제] uses the same trash path and undo`,async({page})=>{
+for(const width of [1280,412])test(`project ${width}: a note record's ⋯ is [수정][메모][삭제] and never opens or deletes the note`,async({page})=>{
  const f=await fixture(page,{width});
  await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
- await expectProjectTitle(page,'합성 정책 사업');
+ await expectProjectTitle(page,'합성 정책 사업',{contains:true});
  const records=page.locator('#ps3-progress [data-ps3-records]'),row=records.locator('[data-basket-link="l-note"]'),menu=page.locator('#ps3RecordMenu');
- await expect(row).toBeVisible();await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');
- await press(row.locator('[data-ps3-record-menu]'),width);await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정','원문 삭제']);
- await expect(menu.getByRole('button',{name:'원문 삭제',exact:true})).toHaveClass(/ps3-record-danger/);
- if(SHOTS)await page.screenshot({path:`${SHOTS}project-note-menu-${width}.png`});
- await press(menu.getByRole('button',{name:'원문 삭제',exact:true}),width);expect(await answerAsk(page,true)).toBe(CONFIRM);
- await expect(row).toHaveCount(0);await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('0');
- const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('노트를 삭제했어요.');
- expect(f.deletes).toEqual([{id:'eq.'+note.id,workspace_id:'eq.w',select:'id'}]);expect(f.posts).toEqual([]);
- await notice.getByRole('button',{name:'되돌리기'}).click();await expect(notice).toContainText('되돌렸습니다.');
- await expect(records.locator('[data-basket-link="l-note"]')).toBeVisible();await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');
- expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+ await expect(row).toBeVisible();await expect(row.locator('a,[data-record-mark]')).toHaveCount(0);
+ await press(row.locator('[data-ps3-record-menu]'),width);await expect(menu.getByRole('button')).toHaveText([/^수정$/,/^메모( \d+)?$/,/^삭제$/]);
+ await expect(menu.getByRole('button',{name:'삭제',exact:true})).toHaveClass(/ps3-record-danger/);await page.keyboard.press('Escape');
+ const view=await page.evaluate(()=>window.KPTURouter.current);await row.locator('.ps3-rec-text').click();await page.waitForTimeout(150);expect(await page.evaluate(()=>window.KPTURouter.current)).toBe(view);await expect(page.locator('#kptuRecordSheet:not(.hidden)')).toHaveCount(0);
+ expect(f.deletes).toEqual([]);expect(f.posts).toEqual([]);expect(f.errors).toEqual([]);
 });

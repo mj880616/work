@@ -47,9 +47,11 @@ jobs:
           test ! -f app/profile-workplace-sync.js
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed profile stylesheet returned to production'; exit 1; fi
           if grep -q "profile-settings.js" app/loader-v2.js; then echo 'removed profile view returned to production'; exit 1; fi
-          grep -q "id=\"psSave\"" app/profile-settings.js
-          grep -q "ps-legacy-chip" app/profile-settings.js
-          grep -q "산하조직 연결 전" app/profile-settings.js
+          # S71-36 PROFILE-설정화면(2026-11-26 사용자 시안 확정): 첫 화면은 한 줄 메뉴(공용 설정 줄), 맨 아래 큰 [저장]은 없다(바꾸면 바로 저장).
+          grep -q "settings-list.mjs" app/profile-settings.js
+          if grep -q "id=\"psSave\"" app/profile-settings.js; then echo 'profile big save button returned'; exit 1; fi
+          # S71-35 ORG-조직관리로모으기(2026-11-26 사용자): '담당조직 현황' 체크 칸·'내 묶음' 칸은 내 프로필에서 없앴다(조직 관리로 옮김).
+          if grep -Eq "psWorkplaceList|psCollabPanel|ps-legacy-chip|collab-groups.js" app/profile-settings.js; then echo 'removed profile org/collab panel returned'; exit 1; fi
           # 화면정리 A1(2026-10-28): 로그아웃은 메뉴(계정) 한 곳에만 — 프로필 화면 안에 다시 두지 않는다.
           if grep -q "id=\"psLogout\"" app/profile-settings.js; then echo "profile logout duplicated in the profile view"; exit 1; fi
           if grep -Eq "profile-workplace-edit-mode|profile-workplace-legacy|profile-workplace-sync" app/loader-v2.js; then

@@ -52,7 +52,7 @@ for (const width of [412, 1280]) test.describe(`다시 그려도 메뉴 자리 $
     const errors = await photosFixture(page, width);
     await clickView(page, 'photos');
     await expect(page.locator('#photosView')).toBeVisible();
-    await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
     const more = page.locator('#photosRoot [data-photos-fx-more="S2"]').first(), panel = page.locator('#photosFolderMenu');
     await more.click();
     await expect(panel).toBeVisible();

@@ -1,9 +1,9 @@
-import {bindRowSwipe, PICK} from './row-swipe.js';
+import {bindRowSwipe, PICK, EDIT} from './row-swipe.js';
 import {notify} from './small-notice.js';
 import {setMark, setSaved, sendSignal, unstar, restoreStar, removeMine, restoreMine} from './now-marks.js';
 import {openRowMenu, appMenuPoint} from './row-menu.js';
 // NOW-줄밀기(S49-3, 명진 11/03 08:55): Now 글 줄(사회운동·뉴스·보관)의 밀기·마우스 단추를 한 곳에서. 공용 줄 밀기(row-swipe.js)를 그대로 쓴다.
-// S68-26부터 왼쪽 밀기 = 칸 [보관]·[숨기기](사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at — 끝까지 밀면 숨기기), 오른쪽 밀기 = [선택](여러 개).
+// S68-26부터 왼쪽 밀기 = 칸 [보관]·[숨기기](사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at — 끝까지 밀어도 칸만, 누를 때만 숨김 S70-60), 오른쪽 밀기 = [선택](여러 개).
 // 보관(= 별표, 두 쪽 같음 — S67-09)된 줄은 [보관] 칸이 [보관 풀기]. [보관] 탭은 칸 [보관 풀기]. 저장은 모두 서버(상세와 같은 now-marks.js), 누른 일마다 환류 기록. 알림 '숨겼어요 [되돌리기]'.
 // PC·중간 폭은 밀기 대신 줄 위에 마우스를 올리면(또는 키보드 초점) 작은 [보관][숨기기]([보관] 탭은 [보관 풀기]).
 // S67-11 NEWS-보관빼기(명진 11/19): 줄 오른쪽 ★(news-row.mjs, data-now-act="unstar")·밀기·마우스 단추·⋯·우클릭의 '보관 풀기'는 모두 dropSaved 하나 —
@@ -15,7 +15,9 @@ import {openRowMenu, appMenuPoint} from './row-menu.js';
 // S68-34(명진 11/23 02:32·02:41): 화면 이름이 'News → 읽을 거리', '읽을 거리 → 저장한 글'로 바뀌어 단추는 [저장]·[삭제](= 저장한 글에서 빼기, 기사는 그대로).
 //   접근성 이름·되돌리기 기록은 RELEASE_ARIA '저장한 글에서 삭제'. 내가 넣은 기사(canDelete)를 저장까지 해 둔 줄은 [삭제]가 둘이 되므로
 //   기사 자체 삭제 쪽을 '기사 삭제'(DELETE_BOTH_LABEL)로 부른다(docs/design/ui-words.md).
-export const HIDE_LABEL = '숨기기', SAVE_LABEL = '저장', RELEASE_LABEL = '삭제', RELEASE_ARIA = '저장한 글에서 삭제', DELETE_LABEL = '삭제', DELETE_BOTH_LABEL = '기사 삭제';
+// 고르기 막대의 [삭제] = 숨기기(S70-64b). 줄 밀기·⋯의 [숨기기] 글자는 그대로.
+export const PICK_HIDE_LABEL = '삭제';
+export const HIDE_LABEL = '숨기기', SAVE_LABEL = '저장', EDIT_LABEL = '수정', RELEASE_LABEL = '삭제', RELEASE_ARIA = '저장한 글에서 삭제', DELETE_LABEL = '삭제', DELETE_BOTH_LABEL = '기사 삭제';
 // S69-03(명진 11/24 06:48 "저장된 글에서 저장 버튼이 눌린 것 표현한 것이었다면 글자도 저장됨v 이런식으로 바뀌면 인정"): 글 상세 아래 줄의
 //   저장 단추는 켜고 끄는 단추(aria-pressed)라 눌린 상태 글자는 '저장됨 ✓'([관심 없음 ✓]와 같은 꼴). 누르면 저장한 글에서 삭제(5초 [되돌리기]).
 //   줄 밀기·마우스 단추·⋯·우클릭은 하는 일 이름이라 그대로 [삭제].
@@ -48,26 +50,34 @@ export async function deleteMine(item, {changed = () => {}} = {}) {
 }
 
 // 줄에 넣는 마우스 단추(밀기를 못 하는 기기용). 폰 폭에서는 CSS가 감춘다. canDelete: 내가 넣은 기사면 [숨기기] 대신 [삭제]([보관] 탭은 [보관 풀기] 뒤에).
-export function hoverActsHtml({saved = false, isSaved = false, canDelete = false} = {}) {
-  const btn = ({id, label, aria}) => `<button type="button" class="now-hov-btn" data-now-act="${id}"${aria ? ` aria-label="${aria}" title="${aria}"` : ''}>${label}</button>`;
-  return `<span class="now-hov" role="group" aria-label="이 글 처리">${rowMenuItems({saved, isSaved, canDelete}).map(btn).join('')}</span>`;
+export function hoverActsHtml({saved = false, isSaved = false, canDelete = false, canEdit = false} = {}) {
+  return hoverButtonsHtml(rowMenuItems({saved, isSaved, canDelete, canEdit}));
 }
-// 줄 ⋯·우클릭 메뉴 항목(밀기·단추와 같은 이름).
-export function rowMenuItems({saved = false, isSaved = false, canDelete = false} = {}) {
+// 마우스 단추 묶음 하나(같은 모양). attr: 누른 단추를 알아볼 칸 이름(숨긴 글 칸은 'data-nhd-act' — now-hidden.js). 글자는 이 파일·부르는 쪽이 정한 고정 글자.
+export function hoverButtonsHtml(items, {attr = 'data-now-act'} = {}) {
+  const btn = ({id, label, aria}) => `<button type="button" class="now-hov-btn" ${attr}="${id}"${aria ? ` aria-label="${aria}" title="${aria}"` : ''}>${label}</button>`;
+  return `<span class="now-hov" role="group" aria-label="이 글 처리">${items.map(btn).join('')}</span>`;
+}
+// 줄 ⋯·우클릭 메뉴 항목(밀기·단추와 같은 이름). canEdit: 맨 앞 [수정](S70-62 — 읽을 거리 줄 = [수정][저장][숨기기]).
+export function rowMenuItems({saved = false, isSaved = false, canDelete = false, canEdit = false} = {}) {
   const del = canDelete ? [{id: 'delete', label: saved || isSaved ? DELETE_BOTH_LABEL : DELETE_LABEL}] : [];
-  if (saved) return [{id: 'release', label: RELEASE_LABEL, aria: RELEASE_ARIA}, ...del];
-  return [isSaved ? {id: 'save', label: RELEASE_LABEL, aria: RELEASE_ARIA} : {id: 'save', label: SAVE_LABEL}, ...(del.length ? del : [{id: 'hide', label: HIDE_LABEL}])];
+  const edit = canEdit ? [{id: 'edit', label: EDIT_LABEL}] : [];
+  if (saved) return [...edit, {id: 'release', label: RELEASE_LABEL, aria: RELEASE_ARIA}, ...del];
+  return [...edit, isSaved ? {id: 'save', label: RELEASE_LABEL, aria: RELEASE_ARIA} : {id: 'save', label: SAVE_LABEL}, ...(del.length ? del : [{id: 'hide', label: HIDE_LABEL}])];
 }
 
 // titleOf: 우클릭 메뉴 머리에 보일 줄 제목(기본은 News 줄의 .nw-title — 다른 화면이 같은 줄 밀기를 쓸 때 줄 제목 위치를 알려 준다: 홈 읽을 만한 글).
 const nwTitle = el => el.querySelector('.nw-title')?.textContent || '';
-export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete = () => false, saved = false, changed = () => {}, enabled = () => true, titleOf = nwTitle} = {}) {
+// S70-62 READ-밀기메뉴(명진 11/26 07:41 "읽을 거리에서는 수정 저장 숨기기"): canEdit(item)이 참인 줄은 밀기 칸·⋯·우클릭 맨 앞에 [수정] — onEdit(item)
+//   (부르는 화면이 그 글 보기를 열고 기존 ⋯ [수정] 창을 연다. 새 수정 창 없음). 넘기지 않은 화면(홈·노트)은 전처럼.
+export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete = () => false, canEdit = () => false, onEdit = null, saved = false, changed = () => {}, enabled = () => true, titleOf = nwTitle} = {}) {
   if (!host) return {close() {}};
   const fail = () => notify('저장하지 못했어요 · 잠시 뒤 다시', {error: true});
   const busy = new Set(); // 같은 글을 빠르게 두 번 눌러도 한 번만
   // 하나를 하고 되돌리기 길을 알림에 건다.
   async function run(key, item) {
     const id = item.type + ':' + item.id;
+    if (key === 'edit') { if (onEdit && editable(item)) onEdit(item); return; }
     if (busy.has(id)) return;
     busy.add(id);
     try {
@@ -85,20 +95,24 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
     } catch { fail(); }
     finally { busy.delete(id); }
   }
-  const menuItems = item => rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item)});
+  const editable = item => !!onEdit && !!canEdit(item);
+  const menuItems = item => rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item), canEdit: editable(item)});
   // UI-줄밀기 Raindrop식(S68-26, 명진 11/22): 왼쪽으로 밀기 = 오른쪽 끝 칸 [보관]/[보관 풀기]·[숨기기](내가 넣은 기사는 [삭제]).
-  // 끝까지 밀면 맨 끝 [숨기기]를 바로(삭제면 칸만 열림). 오른쪽으로 밀기 = [선택] → 'n개 선택됨 · [보관][숨기기]'([보관] 탭은 [보관 풀기]).
+  // 끝까지 밀어도 칸만 열린다(S70-60) — 일은 칸을 누를 때만. 오른쪽으로 밀기 = 여러 개 선택.
+  // S70-64b(명진 11/26 07:46 "전체선택 저장 삭제 만 있음 될 듯? 읽을 거리 선택 메뉴에서는"): 막대 = [전체 선택][저장][삭제].
+  //   막대 [삭제]는 숨기기와 같다(숨긴 글은 ⋯ [숨긴 글]에서 다시 보이기). [저장한 글] 탭은 [전체 선택][삭제](저장 빼기).
   const attr = (/^\[([a-z0-9-]+)\]$/.exec(row) || [])[1];
   const swipe = bindRowSwipe(host, {row, enabled,
     actions: el => {
       const item = itemOf(el); if (!item) return null;
       const del = canDelete(item) ? {key: 'delete', label: saved || isSaved(item) ? DELETE_BOTH_LABEL : DELETE_LABEL, tone: 'danger'} : null;
       const start = attr ? PICK : null;
-      if (saved) return {start, end: [{key: 'release', label: RELEASE_LABEL, tone: 'info'}, del]};
-      return {start, end: [{key: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL, tone: 'info'}, del || {key: 'hide', label: HIDE_LABEL, tone: 'muted'}]};
+      const edit = editable(item) ? [EDIT] : [];
+      if (saved) return {start, end: [...edit, {key: 'release', label: RELEASE_LABEL, tone: 'info'}, del].filter(Boolean)};
+      return {start, end: [...edit, {key: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL, tone: 'info'}, del || {key: 'hide', label: HIDE_LABEL, tone: 'muted'}]};
     },
     run: (key, el) => { const item = itemOf(el); if (item) run(key, item); },
-    select: attr ? {attr, label: '선택한 글', acts: () => saved ? [{key: 'release', label: RELEASE_LABEL}] : [{key: 'save', label: SAVE_LABEL}, {key: 'hide', label: HIDE_LABEL}],
+    select: attr ? {attr, label: '선택한 글', acts: () => saved ? [{key: 'release', label: RELEASE_LABEL, danger: true}] : [{key: 'save', label: SAVE_LABEL}, {key: 'hide', label: PICK_HIDE_LABEL, danger: true}],
       run: (key, ids) => runMany(key, ids.map(id => host.querySelector(`${row.slice(0, -1)}="${CSS.escape(id)}"]`)).map(el => el && itemOf(el)).filter(Boolean))} : null});
   // 고른 글 여러 개를 한 번에: 하나씩 같은 서버 길(now-marks.js)로 하고, 알림은 하나 'n개 …했어요 [되돌리기]'(되돌리면 고른 것 모두 원래대로).
   async function runMany(key, items) {
