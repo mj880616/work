@@ -4,7 +4,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S67-64 UI-윗줄한줄(2026-11-21 명진 08:12·08:25, 시안 D3 + D2 제목 글씨) + 기본 색 먹(08:15).
+// S67-64 UI-윗줄한줄(2026-11-21 사용자 08:12·08:25, 시안 D3 + D2 제목 글씨) + 기본 색 먹(08:15).
 // 폰(~760px) 다섯 화면(홈·사업 관리·조직 관리·일정·노트)의 윗줄 = [WORK ON 아이콘 20px] [화면 이름 15px·500] [걸러보기 칩(있을 때만)] … [+]·[⋯] 한 줄.
 // 칩이 넘치면 그 줄 안에서 가로로 밀린다(줄 높이 그대로). 아이콘을 누르면 홈. PC 틀(761px~)에는 아이콘이 없다(사이드바 맨 위 아이콘).
 // 기본 강조색은 먹 #22262b(위 글자 #f3f1ea, 연한 고른 바탕 #e7e5df), 어두운 화면은 뒤집은 #f3f1ea.
@@ -107,7 +107,7 @@ for (const width of [390, 700]) {
   }
 }
 
-// S67-75 UI-걸러보기칩하나(명진 11/21 18:33 A안): 좁은 폰에서 고르기 상자 네 개가 줄에 다 안 들어가면 가로로 밀지 않고 칩 하나로 묶는다(PR 2847의 밀기·끝 흐림은 걷어냄).
+// S67-75 UI-걸러보기칩하나(사용자 11/21 18:33 A안): 좁은 폰에서 고르기 상자 네 개가 줄에 다 안 들어가면 가로로 밀지 않고 칩 하나로 묶는다(PR 2847의 밀기·끝 흐림은 걷어냄).
 // BIZ-머리한줄(S71-23): 고르기·건수·[+]는 앱 머리 줄 안(이름 뒤) — 320에서도 줄이 늘지 않고 찾기·[+]가 줄 안에 있다.
 test('narrow phone: the 사업 관리 boxes stay on one line (or fold into one chip), the line does not grow', async ({ page }) => {
   await open(page, 'view=meetings', { width: 320 });

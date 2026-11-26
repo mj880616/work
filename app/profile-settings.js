@@ -95,7 +95,7 @@ async function load(){
   void loadHomeOff();
   return true;
 }
-// S71-34 PROFILE-주간캘린더칸삭제(명진 11/26): '주간 정리 일정 캘린더' 칸은 없앴다. 주간 정리는 모든 캘린더 일정을 읽고, 이미 저장된 값
+// S71-34 PROFILE-주간캘린더칸삭제(사용자 11/26): '주간 정리 일정 캘린더' 칸은 없앴다. 주간 정리는 모든 캘린더 일정을 읽고, 이미 저장된 값
 // (view_prefs.report_calendar)은 서버에 그대로 두어 업무 캘린더로 계속 쓴다(report-calendar.mjs). 화면에서 바꾸는 길은 없다.
 // 아래 장들은 각 모듈이 그 자리(host) 안을 그리고 바로 서버에 저장한다. 첫 화면 요약은 onSummary로 받는다.
 const mounted=new Map();

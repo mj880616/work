@@ -44,7 +44,7 @@ test('폰 390: 종류는 맨 위 [종류 ▾] 선택 상자 하나(칩 줄 없�
   // S67-75 UI-걸러보기칩하나: 390은 고르기 상자들이 칩 하나로 묶인다 — 칩을 눌러 창에서 상자를 본다.
   const kind=page.locator('#reportKindSelect');await openReportBoxes(page);await expect(kind).toBeVisible();
   await expect(kind.locator(':scope > option')).toHaveText(['종류',...CHIPS.slice(1)]);
-  // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체] — 모든 칸이 보이고 회의명 묶음은 없다.
+  // MTG-기본종류전체(11/15 사용자): 처음은 [종류 전체] — 모든 칸이 보이고 회의명 묶음은 없다.
   await expect(kind).toHaveValue('kind:all');
   await closeReportBoxes(page);
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(6);
@@ -109,7 +109,7 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 
   await expect.poll(()=>s.meetingWrites.at(-1)?.activity_kind).toBe('assembly');
   expect(s.meetingWrites.at(-1)).toMatchObject({series_name:'합성 의원실 면담',transcript_text:'합성 면담 결과'});
   await expect(page.locator('#meetingModal')).toBeHidden();
-  // MTG-더하기늘고르기(11/14 명진): 칩을 고른 채여도 [+]는 늘 고르기 창, 고른 칩의 줄이 표시된다.
+  // MTG-더하기늘고르기(11/14 사용자): 칩을 고른 채여도 [+]는 늘 고르기 창, 고른 칩의 줄이 표시된다.
   await pickReportKind(page,'교육');await page.locator('#newMeetingBtn').click();await page.locator('#bizAddMenu [data-report-new]').click();
   await expect(sheet).toBeVisible();await expect(sheet.locator('[data-sheet-value="education"]')).toHaveAttribute('aria-pressed','true');
   await sheet.locator('[data-sheet-value="education"]').click();
@@ -124,7 +124,7 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 
   expect(errors).toEqual([]);
 });
 
-// BIZ-위쪽정돈PC(명진 11/09 10:52 A): PC도 종류 칩 줄 없이 폰과 같은 [종류 ▾] 상자 하나.
+// BIZ-위쪽정돈PC(사용자 11/09 10:52 A): PC도 종류 칩 줄 없이 폰과 같은 [종류 ▾] 상자 하나.
 test('PC 1280: 종류는 [종류 ▾] 상자 하나(칩 줄 없음) / [회의] 3단, 다른 칸·[전체] 2단(목록 | 결과), 결과에 칸 표시',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,1280);
