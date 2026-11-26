@@ -676,6 +676,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     placeDetail();
     if (!wideList.matches) syncFolderLayer();
     quick.setFolder(folderName(addTarget()), colorOf(folderById(addTarget())));
+    let followTree = false;
     const wide = wideList.matches, tree = host.querySelector('[data-nx-tree]'), rowsBox = host.querySelector('[data-note-rows]'), recentBox = host.querySelector('[data-nx-recent]');
     noteFind = query ? findFor('notes', findText) : null;
     const m = query ? matches : null;
@@ -704,7 +705,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       tree.innerHTML = (showRecent() ? ftBoxHtml({body:recentTreeRowHtml(), label:RECENT_NAME, attrs:{'data-nx-box':'recent'}}) : '')
         + ftBoxHtml({body:left.map(r => r.type === 'note' ? rowHtml({...r, tree:true, side:true}) : rowHtml(r, {tree:true})).join('') + outsideRowHtml({count:outCount}, {tree:true}), label:'노트 폴더', attrs:{'data-nx-box':'folders'}})
         + (special ? ftBoxHtml({body:special, label:'밑줄·메모·휴지통', attrs:{'data-nx-box':'more'}}) : '') + newFolderRowHtml();
-      followPane(tree, {top:8, reset:false}); // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다(따로 스크롤 없음).
+      followTree = true; // 나무 칸 높이는 맨 끝에서 잰다(아래 followPane)
       // NOTE-최근5개: PC 처음(at null)은 오른쪽에 최근 5개(폴더가 있을 때). 찾는 중이면 지금처럼 맞는 노트 전부.
       // S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09 '오른쪽에서든 왼쪽이든 폴더를 클릭하면 폴더가 펼쳐지는거야'): 폴더 안이면 하위 폴더 줄도 그 자리에서 펼친다
       // (폰 나무와 같은 treeRows — 안의 하위 폴더·노트가 들여 보이고, 빈 폴더는 '빈 폴더' 한 줄). 펼침은 paneOpen(왼쪽 나무와 따로).
@@ -753,12 +754,18 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       {el:() => nxBody.querySelector(':scope>.nx-pane:not([hidden])') || nxBody.querySelector(':scope>[data-note-detail]:not([hidden])'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:70}],
       query:SPLIT_QUERY, active:() => wideList.matches && view === 'folder' && nxBody.isConnected && !!nxBody.querySelector(':scope>[data-nx-tree]')?.getClientRects().length});
     host.querySelector('[data-nx-count]').textContent = loaded ? `노트 · ${notes.length}` : '';
-    if (!loaded) return;
-    // UI-일기손질 ⑤: an empty note list stays empty (no guide sentence); only a search with no hit says so.
-    const hits = query ? notes.filter(matches).length : notes.length;
-    // [태그]·[메모] 보기는 자기 칸이 빈 줄을 말한다(태그 없음·메모 없음).
-    status.innerHTML = query && !hits && view !== 'tag' && view !== 'comment' && view !== 'calendar' && !(view === 'folder' && newsMarks.hits(query)) ? emptyHtml('맞는 노트 없음') : '';
-    status.toggleAttribute('data-basket-empty', !hits);
+    if (loaded) {
+      // UI-일기손질 ⑤: an empty note list stays empty (no guide sentence); only a search with no hit says so.
+      const hits = query ? notes.filter(matches).length : notes.length;
+      // [태그]·[메모] 보기는 자기 칸이 빈 줄을 말한다(태그 없음·메모 없음).
+      status.innerHTML = query && !hits && view !== 'tag' && view !== 'comment' && view !== 'calendar' && !(view === 'folder' && newsMarks.hits(query)) ? emptyHtml('맞는 노트 없음') : '';
+      status.toggleAttribute('data-basket-empty', !hits);
+    }
+    // UI-칸안스크롤하나로: PC 나무는 화면에 붙어 따라온다(따로 스크롤 없음). 칸 높이(창 끝까지)는 나무 위쪽 줄(읽는 중 빈 줄·위치 줄·선택 막대)이
+    // 다 정해진 뒤 맨 끝에서 잰다. 원인(사실, TEST-노트폴더끌기굴리기안정화): 나무를 그리자마자 재면 처음 읽은 뒤 목록 위 회색 빈 줄(약 128px)이
+    // 아직 남아 나무 위치를 그만큼 아래로 보고 높이를 짧게 정했고, 바로 뒤 빈 줄을 치워 나무가 올라가도 높이는 다음 그림 틀까지 짧았다
+    // (그 사이 나무 아래 끝에 대고 끌면 끝이 아닌 자리라 저절로 굴러가지 않았다 — D3).
+    if (followTree) followPane(tree, {top:8, reset:false});
   }
   // NOTE-읽생기아이디어 ② [태그]: 위에 태그 칩(노트 수 많은 순), 아래 고른 태그의 노트(목록 보기와 같은 한 줄). 처음은 가장 많은 태그.
   // S67-48: 칩은 눌러 켜고 끈다 — 여러 개를 켜면 그 태그가 모두 붙은 노트만(그리고). 다 끄면 태그가 하나라도 있는 노트 전부. 폴더와 상관없이 모은다.
