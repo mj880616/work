@@ -83,7 +83,7 @@ test('[파일] and [사진] appear only where the opener gives them; notes give 
   assert.match(ed, /const pickFiles = \(\) => pickFrom\('', chosen => files \? filesIn\(chosen\) : chosen\.length && onFiles\?\.\(chosen\)\);/);
   assert.match(ed, /if \(key === 'photo' && !photos\) continue;/);
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
-  assert.match(notes, /mountEditField\(host, selected, \{photos:photosFor\(id\), files:filesFor\(id\), lead:f\.title\.closest\('label'\), blocks:blocksFor\(id\), noteLinks:linksFor\(id\)\}\)/); // NOTE-제목서식줄고정: 제목 칸은 lead · NOTE-노션편집 ①(나): blocks · S69-98 ⑧: noteLinks('[[' 노트 연결)
+  assert.match(notes, /mountEditField\(host, selected, \{photos:photosFor\(id\), files:filesFor\(id\), lead:f\.title\.closest\('label'\), blocks:blocksFor\(id\), noteLinks:linksFor\(id\), tasks:noteTaskProvider\(id, \{rt\}\)\}\)/); // NOTE-제목서식줄고정: 제목 칸은 lead · NOTE-노션편집 ①(나): blocks · S69-98 ⑧: noteLinks('[[' 노트 연결)
   assert.match(notes, /const filesFor = id => noteFiles\(\{getNote:\(\) => selected\?\.id === id \? selected : null, upload:noteUpload\(id\)\}\)/);
   // A new note: [사진]·[파일] wait in the window until the save (note-pending-media.mjs), never a throwing stand-in.
   const win = readFileSync(new URL('../app/note-window.js', import.meta.url), 'utf8');

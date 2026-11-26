@@ -13,9 +13,9 @@ class PushRulesTest {
 
     @Test
     fun knownKindsMatchTheServerList() {
-        // app_push_log.kind 검사 제약과 같은 열한 가지(2절 일곱 종류 + 조용한 시간 묶음 + 시험 + 잊지 말기 + 새 가입, migration 20261115234500).
+        // app_push_log.kind 검사 제약과 같은 열두 가지(2절 일곱 종류 + 조용한 시간 묶음 + 시험 + 잊지 말기 + 새 가입 + 노트 알림, migration 20261125120000).
         assertEquals(
-            listOf("task_due", "commitment", "meeting_done", "collect_stall", "morning", "evening", "next_week", "quiet_digest", "test", "family", "signup"),
+            listOf("task_due", "commitment", "meeting_done", "collect_stall", "morning", "evening", "next_week", "quiet_digest", "test", "family", "signup", "note"),
             PushRules.KINDS.keys.toList(),
         )
         assertTrue(PushRules.urgent("task_due"))
@@ -24,6 +24,7 @@ class PushRulesTest {
         assertFalse(PushRules.urgent("evening"))
         assertFalse(PushRules.urgent("family"))
         assertFalse(PushRules.urgent("signup"))
+        assertFalse(PushRules.urgent("note"))
         assertEquals("push_task_due", PushRules.channelId("task_due"))
     }
 
@@ -163,5 +164,23 @@ class PushRulesTest {
         val long = PushRules.message(mapOf("kind" to "family", "title" to "t", "body" to "가".repeat(400)))!!
         assertEquals(PushRules.MAX_BODY, long.body.codePointCount(0, long.body.length))
         assertTrue(long.body.endsWith("…"))
+    }
+
+    // S69-97 노트 알림: 제목만(본문 버림 → 잠금 화면 숨김), 보통, 누르면 그 노트. 노트마다 알림 번호가 다르다.
+    @Test
+    fun noteAlarmTitleOnlyOpensThatNote() {
+        val a = "e0000000-0000-4000-8000-000000000001"
+        val b = "e0000000-0000-4000-8000-000000000002"
+        val m = PushRules.message(mapOf("kind" to "note", "title" to "노트 다시 보기", "body" to "가짜 본문", "open" to "/work/app/?view=basket&pane=note&doc=$a"))!!
+        assertEquals("노트 알림", PushRules.KINDS["note"])
+        assertEquals("노트 다시 보기", m.title)
+        assertEquals("", m.body)
+        assertFalse(m.showOnLock)
+        assertFalse(m.urgent)
+        assertEquals("push_note", m.channel)
+        assertEquals("https://" + ShellRules.WEB2_HOST + "/work/app/?view=basket&pane=note&doc=$a", PushRules.openUrl(m.open))
+        assertNull(PushRules.noticeTag(m.open))
+        val other = PushRules.message(mapOf("kind" to "note", "title" to "노트 다시 보기", "open" to "/work/app/?view=basket&pane=note&doc=$b"))!!
+        assertNotEquals(PushRules.notifyId(m), PushRules.notifyId(other))
     }
 }

@@ -173,6 +173,7 @@ on:
       - 'tests/ed-blocks-model.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
+      - 'tests/note-evernote-model.test.mjs'
       - 'tests/note-link-import-model.test.mjs'
       - 'tests/ed-paste-markdown.test.mjs'
       - 'tests/ed-paste-paragraphs.test.mjs'
@@ -476,6 +477,7 @@ on:
       - 'tests/ed-blocks-model.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
+      - 'tests/note-evernote-model.test.mjs'
       - 'tests/note-link-import-model.test.mjs'
       - 'tests/ed-paste-markdown.test.mjs'
       - 'tests/ed-paste-paragraphs.test.mjs'
@@ -1039,6 +1041,9 @@ jobs:
 
       - name: Unified editor pin, saved form and text export unit tests (ED-통합편집기)
         run: node --test tests/ed-editor.test.mjs tests/ed-now-text.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs tests/ed-photo-row-file.test.mjs tests/ed-blocks-model.test.mjs tests/note-pending-media.test.mjs tests/note-import-model.test.mjs tests/note-link-import-model.test.mjs
+
+      - name: Note evernote-style model unit tests (S69-97 NOTE-알림·서식)
+        run: node --test tests/note-evernote-model.test.mjs
 
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
