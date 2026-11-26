@@ -3,7 +3,8 @@ import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 // PRJ-화면다듬기(2026-10-22 사용자 결정): (1) 프로젝트 목록 오른쪽 "일정 없음" 대신 "최근 기록 10.21", 기록이 없으면 빈칸
-// (2) 상세 기록 칸의 [크게]는 입력 칸 안 ⤢ 아이콘(MTG-프로젝트합치기 3단계에서 입력칸과 함께 없어짐) (3) 진행 기록·조직 기록은 4줄까지만, 잘린 글을 누르면(조직은 [더보기]) 펼침
+// (2) 상세 기록 칸의 [크게]는 입력 칸 안 ⤢ 아이콘(MTG-프로젝트합치기 3단계에서 입력칸과 함께 없어짐) (3) 진행 기록·조직 기록은 잘린 글을 누르면 펼침
+// (UI-기록줄균일 S70-85: 4줄 → 두 줄, 조직의 [더보기]/[펼치기] 글자 줄 → 글 누르기·⋯ 아래 꺾쇠, 다시 누르면 접힘. 줄 높이 같음은 record-row-uniform.spec.mjs)
 // (4) 상세 안 겹상자 테두리 제거. DB·Edge 변경 없음.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -50,7 +51,7 @@ for(const width of [390,1280]){
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);
  });
 
- test(`프로젝트 상세: 입력 칸·⤢ 없음, 기록은 4줄, 겹상자 없음 ${width}`,async({page})=>{
+ test(`프로젝트 상세: 입력 칸·⤢ 없음, 기록은 두 줄, 겹상자 없음 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="p"]').click();
   await expectProjectDetail(page,'p');
@@ -59,14 +60,15 @@ for(const width of [390,1280]){
   // MTG-프로젝트합치기 결정 ⑥: 옛 진행 기록(r-long·r-mid)은 읽어 와도 그리지 않는다. 4줄 자르기는 연결 줄에서 본다.
   await expect(page.locator('#ps3-progress [data-ps3-record]')).toHaveCount(0);
   await expect(page.locator('[data-basket-link="l-long"]')).toBeVisible();
-  // 4 lines, then the first tap opens that record only (the line does not open); the second tap is the old behaviour (opens the line).
+  // 2 lines (S70-85), a tap on a cut text opens that record only (the line does not open); a second tap folds it again.
   const long=page.locator('[data-basket-link="l-long"] .ps3-rec-text'),mid=page.locator('[data-basket-link="l-mid"] .ps3-rec-text');
   const lh=await long.evaluate(e=>parseFloat(getComputedStyle(e).lineHeight));
-  const h1=(await long.boundingBox()).height;expect(h1).toBeLessThanOrEqual(lh*4+2);expect(h1).toBeGreaterThanOrEqual(lh*4-2);
+  const h1=(await long.boundingBox()).height;expect(h1).toBeLessThanOrEqual(lh*2+2);expect(h1).toBeGreaterThanOrEqual(lh*2-2);
   const hm=(await mid.boundingBox()).height;
   await long.click();await expect(long).toHaveClass(/is-open/);expect((await long.boundingBox()).height).toBeGreaterThan(lh*10);
   await expect(page.locator('#ps3RecordMenu')).toBeHidden();await expect(page.locator('#kptuRecordSheet')).toBeHidden();await expect(page.locator('#ps3DetailModal')).toBeVisible();
   expect((await mid.boundingBox()).height).toBeCloseTo(hm,0);await expect(mid).not.toHaveClass(/is-open/);
+  await long.click();await expect(long).not.toHaveClass(/is-open/);expect((await long.boundingBox()).height).toBeCloseTo(h1,0);
   // No box inside the dialog box.
   expect(await page.locator('#ps3-progress').evaluate(e=>{const s=getComputedStyle(e);return [s.borderTopWidth,s.borderLeftWidth,s.paddingLeft]})).toEqual(['0px','0px','0px']);
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);
@@ -76,20 +78,21 @@ for(const width of [390,1280]){
   else await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
  });
 
- test(`조직 상세 기록: 4줄 + [더보기]가 그 기록만 펼치고 [접기]로 접힘 ${width}`,async({page})=>{
+ test(`조직 상세 기록: 두 줄 + 글 누르기·꺾쇠가 그 기록만 펼치고 다시 누르면 접힘 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   await clickView(page,'team');await page.locator('[data-so-org="o"]').first().click();
   await expect(page.locator('#wdModal')).toBeVisible();
   const long=page.locator('[data-wd-up="u-long"] .wd-log-main p').first(),short=page.locator('[data-wd-up="u-short"]');
   await expect(long).toHaveClass(/kptu-clamp/);
-  const more=page.locator('[data-wd-up="u-long"] .kptu-clamp-more');await expect(more).toHaveText('펼치기');
-  await expect(short.locator('.kptu-clamp-more')).toHaveCount(0);
+  await expect(page.locator('#wdUpdates .kptu-clamp-more')).toHaveCount(0);
+  const chev=page.locator('[data-wd-up="u-long"] [data-rec-fold]');await expect(chev).toHaveAttribute('aria-expanded','false');
+  await expect(short.locator('[data-rec-fold]')).toHaveCount(0);
   const lh=await long.evaluate(e=>parseFloat(getComputedStyle(e).lineHeight));
-  expect((await long.boundingBox()).height).toBeLessThanOrEqual(lh*4+2);
-  await more.click();await expect(long).toHaveClass(/is-open/);await expect(more).toHaveText('접기');await expect(more).toHaveAttribute('aria-expanded','true');
+  expect((await long.boundingBox()).height).toBeLessThanOrEqual(lh*2+2);
+  await long.click();await expect(long).toHaveClass(/is-open/);await expect(chev).toHaveAttribute('aria-label','접기');await expect(chev).toHaveAttribute('aria-expanded','true');
   expect((await long.boundingBox()).height).toBeGreaterThan(lh*10);
-  await more.click();await expect(long).not.toHaveClass(/is-open/);await expect(more).toHaveText('펼치기');
-  expect((await long.boundingBox()).height).toBeLessThanOrEqual(lh*4+2);
+  await chev.click();await expect(long).not.toHaveClass(/is-open/);await expect(chev).toHaveAttribute('aria-label','펼치기');
+  expect((await long.boundingBox()).height).toBeLessThanOrEqual(lh*2+2);
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);
  });
 }

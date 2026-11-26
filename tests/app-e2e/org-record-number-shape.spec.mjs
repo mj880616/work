@@ -46,7 +46,7 @@ test('손으로 쓴 번호·들여쓰기·빈 줄은 접힌 줄에서도 펼친 
  await expect(text).toBeVisible();
  // RECORD-한줄: 접힌 줄은 기록 한 줄(첫 줄 + …). 번호 모양 "2."은 그대로(목록 표시로 걷어내지 않음).
  expect(await text.evaluate(el=>el.textContent)).toBe('2. 노조 주요 요구안…');
- await rec.locator('.kptu-clamp-more').click();
+ await rec.locator('[data-rec-fold]').click();
  await expect(text).toHaveClass(/is-open/);
  // Opened: still the written letters, never read as a markdown list.
  await expect(text.locator('ol,ul,li')).toHaveCount(0);await expect(text).not.toHaveClass(/md-body/);

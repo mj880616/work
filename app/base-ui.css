@@ -244,11 +244,21 @@ body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-
 .kptu-title-line>:first-child{flex:1 1 auto;min-width:0;margin:0;overflow-wrap:anywhere}
 .kptu-title-line>:not(:first-child){flex:none;margin-top:-4px}
 
-/* PRJ-화면다듬기: one 4-line text clamp (text-clamp.js). Open = .is-open; the organization record list adds a [더보기]/[접기] button under the text. */
-.kptu-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}
+/* PRJ-화면다듬기 → UI-기록줄균일(S70-85): 기록 목록 줄 접기 공용 모양(text-clamp.js). 접힌 본문 = 두 줄(넘치면 말줄임), 펼침 = .is-open.
+   줄(.kptu-rec-fold)마다 본문 줄 높이 --kptu-rec-lh 하나로 두 줄 높이를 정한다(한 줄짜리도 같은 높이 — 각 목록 CSS가 본문 칸 최소 높이로 맞춤).
+   꺾쇠(.kptu-rec-fold-btn, 공용 .kptu-chev)는 ⋯ 바로 아래 한 줄 높이 안 — 자리는 각 목록 CSS가 정한다. ⋯는 44px 그대로(줄 위 여백까지 덮음),
+   꺾쇠는 그 아래쪽 위에 겹쳐 놓여(z-index) 꺾쇠 자리를 누르면 꺾쇠가 눌린다. 누르는 범위는 ::after로 아래 여백까지(옆으로는 넓히지 않음 — 가로 넘침 없음). */
+.kptu-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
 .kptu-clamp.is-open{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible}
-.kptu-clamp-more{display:inline-flex;align-items:center;min-height:44px;margin:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
-.kptu-clamp-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:var(--kptu-radius-md)}
+.kptu-rec-fold{--kptu-rec-lh:20px}
+.kptu-rec-fold .kptu-clamp{margin:0;line-height:var(--kptu-rec-lh)}
+.kptu-rec-fold:not([data-rec-open]) .kptu-clamp{max-height:calc(var(--kptu-rec-lh) * 2)}
+.kptu-rec-fold[data-rec-foldable] .kptu-clamp{cursor:pointer}
+.kptu-rec-fold-btn{position:relative;display:grid;place-items:center;box-sizing:border-box;width:32px;height:var(--kptu-rec-lh);min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:13px;line-height:1;cursor:pointer}
+.kptu-rec-fold-btn{z-index:1}
+.kptu-rec-fold-btn::after{content:"";position:absolute;left:0;right:0;top:0;bottom:-9px}
+.kptu-rec-fold-btn:hover{background:var(--kptu-surface-subtle)}
+.kptu-rec-fold-btn:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 /* CAL-저장본먼저: one small line on screens that show this device's saved copy first (data-freshness.js draws it):
    새로 불러오는 중 / 최신 아님 · 마지막 확인 HH:MM [다시 시도]. Muted while refreshing, danger ink when not the latest. */
 .data-freshness{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:4px 0;font-size:var(--ds-text-meta,13px);color:var(--kptu-muted)}
