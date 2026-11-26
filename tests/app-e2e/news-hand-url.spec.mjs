@@ -77,7 +77,7 @@ for (const width of [412, 1280]) {
     expect(server.items.find(i => i.id === 'x1').url).toBe('https://www.example.org/real-article-1');
     // 다시 [수정]을 열면 새 주소가 칸에 있고, 그대로 저장하면 url은 보내지 않는다.
     await nd.locator('[data-nd-ob-more]').click();
-    await page.locator('#ndObMenu [data-nd-menu="hand"]').click();
+    await page.locator('#ndObMenu [data-nd-menu="edit"]').click(); await page.locator('#outsideRoot [data-nd-edit-info]').click(); // S71-68 ②: ⋯ [수정] = 문단 수정 칸, 기사 정보·본문 직접 넣기 칸은 그 안 [제목·정보]
     await expect(form.locator('[data-nd-hand-in="url"]')).toHaveValue('https://www.example.org/real-article-1');
     await form.locator('[data-nd-hand-in="title"]').fill('가짜 제목 둘');
     await form.locator('button[type="submit"]').click();

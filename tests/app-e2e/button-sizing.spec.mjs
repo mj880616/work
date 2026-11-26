@@ -94,7 +94,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);
  for(const [name,selectors]of Object.entries(listButtons)){
   await view(page,name);await view(original,name);
-  if(name==='calendar')for(const p of [page,original])await p.locator('.calendar-google-panel').evaluate(el=>el.open=true);
+  if(name==='calendar')for(const p of [page,original])await p.locator('.calendar-google-panel').evaluate(el=>{el.hidden=false;el.open=true}); // CAL-머리한줄: 지금은 hidden 하나, 옛 판(original)은 details
   for(const selector of selectors){
    if(selector==='#ps3ArchiveBtn'){
     const el=page.locator(selector);await expect(el).toHaveText('보관 1');const after=await size(el);
@@ -177,6 +177,7 @@ for(const width of [390,1440])test('D-button project and organization detail and
  await page.locator('#ps3Menu .ps3-more>summary').click();
  // ⋯ 메뉴 안 항목은 버튼 모양이 아닌 메뉴(옛 크기 그대로). 창 안 [저장]·[삭제]는 새 기준.
  for(const selector of ['[data-ps3-toggle-done]','[data-ps3-edit-project]','[data-ps3-archive-project]','[data-ps3-delete-project]'])await standard(page,selector);
+ await page.keyboard.press('Escape');await expect(page.locator('#ps3Menu .ps3-more')).not.toHaveAttribute('open','');// STD-메뉴바깥닫기: 메뉴를 연 채 바깥(아래 탭)을 누르면 닫기만 하므로 먼저 닫는다
  await closeProjectDetail(page);
  await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave',32);/* ORG-PC상세정리 → UI-전수디자인점검 F08: 담당조직 상세 [저장]은 PC 칸·폰 창 모두 작은 버튼 32px */
  await closeOrganizationDetail(page);

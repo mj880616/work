@@ -111,7 +111,7 @@ test('읽은 기사 ⋯ [수정] 1280: 같은 입력 칸에 지금 값, [취소]
   await expect(nd.locator('[data-nd-prose] p')).toHaveCount(2);
   await expect(nd.locator('[data-nd-hand]')).toHaveCount(0);
   await nd.locator('[data-nd-ob-more]').click();
-  await page.locator('#ndObMenu [data-nd-menu="hand"]').click();
+  await page.locator('#ndObMenu [data-nd-menu="edit"]').click(); await page.locator('#outsideRoot [data-nd-edit-info]').click(); // S71-68 ②: ⋯ [수정] = 문단 수정 칸, 기사 정보·본문 직접 넣기 칸은 그 안 [제목·정보]
   const form = nd.locator('[data-nd-hand-form]');
   await expect(form.locator('[data-nd-hand-in="title"]')).toHaveValue('가짜 채널 기사');
   await expect(form.locator('[data-nd-hand-in="publisher"]')).toHaveValue('가짜노동신문');
@@ -121,7 +121,7 @@ test('읽은 기사 ⋯ [수정] 1280: 같은 입력 칸에 지금 값, [취소]
   await expect(nd.locator('[data-nd-prose] p')).toHaveCount(2);
   // 제목만 바꿔 저장 → 본문은 보내지 않음(서버가 읽어 둔 본문 그대로).
   await nd.locator('[data-nd-ob-more]').click();
-  await page.locator('#ndObMenu [data-nd-menu="hand"]').click();
+  await page.locator('#ndObMenu [data-nd-menu="edit"]').click(); await page.locator('#outsideRoot [data-nd-edit-info]').click(); // S71-68 ②: ⋯ [수정] = 문단 수정 칸, 기사 정보·본문 직접 넣기 칸은 그 안 [제목·정보]
   await form.locator('[data-nd-hand-in="title"]').fill('바로잡은 가짜 제목');
   await form.locator('button[type="submit"]').click();
   await expect(nd.locator('.nd-title')).toHaveText('바로잡은 가짜 제목');

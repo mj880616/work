@@ -18,7 +18,7 @@ import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, setT
 import {OUTSIDE, OUTSIDE_NAME, NAME_MAX, keepFolder, folderOfRow, inFolder, folderRows, sortFolders, nextSort, folderName, nameTaken} from './reading-folders-model.mjs';
 import {ftBoxHtml, ftFolderRowHtml} from './folder-tree-ui.mjs';
 import {setDragGhostImage} from './drag-ghost.js';
-import {loadHighlights, highlightsNow, sourceHighlights, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu} from './text-highlights.js';
+import {loadHighlights, highlightsNow, sourceHighlights, sourceMarks, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu, markActions} from './text-highlights.js';
 import {highlightRowHtml} from './now-highlights.js';
 import {sourceTag} from './text-highlights-model.mjs';
 import {visibleMarks, marksNewsOn} from './note-news-marks-model.mjs';
@@ -519,7 +519,7 @@ function drawDetail() {
   }
   // News에서 온 줄은 그 기사·성명에 News에서 그은 밑줄도 같이 칠한다(같은 원문 사본 — 글자로 찾아 칠함).
   const lk = linkOf(row);
-  const marks = [...sourceHighlights('reading', row.id), ...(lk ? sourceHighlights(lk.type, lk.id) : [])];
+  const marks = [...sourceMarks('reading', row.id), ...(lk ? sourceMarks(lk.type, lk.id) : [])]; // S70-80: 밑줄 + 형광펜(글 안 표시)
   const prose = el('div', 'rd-prose');
   prose.dataset.rdProse = '1';
   prose.dataset.textSizeTarget = '';
@@ -912,7 +912,7 @@ function bind() {
   if (listBox) { bindSwipe(v); bindRows(listBox); bindFolderDrag(listBox); }
   detailBox = v.querySelector('[data-rd-detail]');
   bindMarks(detailBox);
-  bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection});
+  bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection, marks: markActions}); // S70-80: 형광펜 켬
   onHighlights(() => { if (window.KPTURouter?.current === 'reading') draw(); });
   // 노트 폴더 잠금이 풀리거나 잠기면 [밑줄] 탭의 노트 밑줄이 바뀐다(노트 › 밑줄과 같게).
   window.addEventListener('kptu:feature-lock-changed', () => { if (window.KPTURouter?.current === 'reading') drawList(); });

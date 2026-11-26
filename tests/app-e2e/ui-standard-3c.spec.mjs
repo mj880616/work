@@ -272,7 +272,7 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
 test('일정 [Google Calendar] 설정 칸 버튼도 같은 기준(옛 !important 크기 정리)',async({page})=>{
  const {errors}=await boot(page,1280);
  await view(page,'calendar');
- await page.locator('.calendar-google-panel').evaluate(el=>el.open=true);
+ await page.locator('.calendar-google-panel').evaluate(el=>el.hidden=false); // CAL-머리한줄: 칸 열기(hidden 하나)
  const button=await look(page.locator('#googleConnectBtn'));
  expect([button.height,button.fontSize,button.fontWeight,button.radius]).toEqual([32,'13px','500','8px']);/* UI-버튼전수조사: 설정 칸 [연결]은 보조 32px */
  expect(await page.locator('#calendarCompactStyle').evaluate(el=>/#googleConnectBtn\{[^}]*!important/.test(el.textContent))).toBe(false);

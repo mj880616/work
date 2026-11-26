@@ -11,11 +11,12 @@ import {swatchHtml, setSwatchOn} from './color-swatch.mjs';
 // - 줄 버튼을 누르는 사이 폰이 고른 글을 풀어도, 줄이 뜰 때 받아 둔 글자·자리로 실행한다(이 탭 메모리만, 서버 저장은 onSave·marks가 맡는다).
 // - 모양은 공용 고르기 줄(base-ui.css .kptu-actbar-text · .kptu-act, app/action-bar.mjs). 줄은 하나(문서에 한 번만 만든다).
 // S70-16 UI-고른글메뉴·형광펜(명진 2026-11-25 09:51·09:54, 시안 docs/design/mockups/highlight-underline-options.html):
-// - 자리: 고른 글과 앞뒤 줄을 가리지 않는 곳. PC(넓은 화면)는 글 칸 옆 여백 → 고른 글 위(한 줄 띄움) → 아래(한 줄 띄움), 순수 계산은 select-bar-place-model.mjs.
-//   폰은 하단바 바로 위 고정 줄(base-ui.css .hl-bar 기본 자리). 마우스로 끌어 고르는 동안(누른 채)에는 뜨지 않고 뗀 뒤 뜬다.
+// - 자리: 고른 글과 앞뒤 줄을 가리지 않는 곳. 순수 계산은 select-bar-place-model.mjs. 마우스로 끌어 고르는 동안(누른 채)에는 뜨지 않고 뗀 뒤 뜬다.
+//   S70-80(11/26): 옛 '글 칸 옆 여백' 자리는 두 칸 보기에서 목록 칸 위에 떠서 없앴다. PC = 고른 글 위(한 줄 띄움) → 아래, 폰 = 아래(손잡이 자리 띄움) → 위.
+//   둘 다 안 되면 하단바 바로 위 고정 줄(base-ui.css .hl-bar 기본 자리).
 // - 끌어 옮기기(PC 마우스 왼쪽): 줄의 빈 곳·'선택한 글' 글자를 잡고 끌면 따라 움직인다(공용 dragByTitle — 단추 위에서는 끌기 아님, 화면 밖으로 안 나감).
 //   옮긴 자리는 같은 글 칸을 읽는 동안만 쓴다(다른 글·다른 화면이면 잊음, 어디에도 저장하지 않음).
-// - 형광펜: marks(text-highlights.js markActions)를 준 글 칸에서만 [형광펜]과 색 점 다섯이 보인다. [형광펜] = 마지막 색, 점 = 그 색으로 칠함.
+// - 형광펜: marks(text-highlights.js markActions)를 준 글 칸에서만 [형광펜]과 색 점 다섯이 보인다(S70-80: 읽을 거리·저장한 글·노트·브리핑 룸·텔레그램 모두 켬). [형광펜] = 마지막 색, 점 = 그 색으로 칠함.
 //   이미 칠한 곳을 고르면 점은 '색 바꾸기', [삭제]가 보인다.
 
 const zones = []; // {container, zone, source, onSave, onNote, onReply, marks}
@@ -88,17 +89,23 @@ function barWidth(b) {
   const label = b.querySelector('.hl-bar-label')?.offsetWidth || 0, close = b.querySelector('.hl-bar-close')?.offsetWidth || 0;
   return Math.min(Math.ceil(label + close + acts * 64 + dots + 28), 640, vw - 16);
 }
+const WRAP_MIN = 300; // 이보다 좁은 글 칸이면 접지 않고 화면 안에만 둔다
 function place() {
   const b = bar;
   if (!b || b.hidden || !picked) return;
   // 사람이 끌어 옮긴 줄은 그 자리 그대로(창 크기가 바뀌면 화면 안으로만).
   if (b.dataset.anchorMoved) { keepInside(b, 8, bottomInset()); return; }
   clearAnchored(b);
-  if (!isWide()) { phoneSpot(b); return; } // 폰: 하단바 바로 위 고정 줄(CSS 기본 자리) — 고른 글·다음 줄을 가리지 않는다
-  const w = barWidth(b);
+  const wide = isWide(), vw = document.documentElement.clientWidth;
+  const col = picked.zoneEl?.getBoundingClientRect?.() || null;
+  // S70-80: 폰도 같은 자리 계산(고른 글 아래 → 위). 폭은 CSS 기본 폭(화면 − 16px, 480px까지) 그대로.
+  // PC 두 칸 보기에서 글 칸이 막대보다 좁으면 막대를 글 칸 폭으로 두 줄로 접는다(옆 목록 칸으로 넘어가지 않게, base-ui.css .hl-bar[data-wrap]).
+  delete b.dataset.wrap;
+  let w = wide ? barWidth(b) : Math.min(vw - 16, 480);
+  if (wide && col && w > col.width && col.width >= WRAP_MIN) { b.dataset.wrap = '1'; w = Math.floor(col.width); }
   b.style.width = w + 'px';
   const h = Math.ceil(b.offsetHeight) || 36;
-  if (movedSpot && movedSpot.zoneEl === picked.zoneEl && movedSpot.zoneEl.isConnected) {
+  if (wide && movedSpot && movedSpot.zoneEl === picked.zoneEl && movedSpot.zoneEl.isConnected) {
     Object.assign(b.style, {left: movedSpot.left + 'px', top: movedSpot.top + 'px', bottom: 'auto'});
     b.dataset.anchorSide = 'moved'; b.dataset.anchorMoved = '1';
     keepInside(b, 8, bottomInset());
@@ -106,24 +113,12 @@ function place() {
     return;
   }
   const sel = selBox();
-  const col = picked.zoneEl?.getBoundingClientRect?.() || null;
-  const spot = pickBarSpot({sel, col, bar: {w, h}, view: {w: document.documentElement.clientWidth, h: window.innerHeight - bottomInset()}, line: lineHeight(picked.zoneEl)});
+  const spot = pickBarSpot({sel, col, bar: {w, h}, view: {w: vw, h: window.innerHeight - bottomInset()}, line: lineHeight(picked.zoneEl),
+    order: wide ? 'above' : 'below', handle: wide ? 0 : 24});
   if (!spot) { fallback(b); follow(); return; } // 고른 글이 화면을 거의 다 덮음·화면 밖 — 화면 아래 가운데
   Object.assign(b.style, {left: spot.left + 'px', top: spot.top + 'px', bottom: 'auto', width: w + 'px'});
   b.dataset.anchorSide = spot.side;
   delete b.dataset.scrollBelow;
-  follow();
-}
-// 폰: 하단바 위 고정 줄이 고른 글(앞뒤 한 줄 포함)을 덮으면 고른 글 위(한 줄 띄움)로 올린다. 위에도 자리가 없으면 고정 줄 그대로.
-function phoneSpot(b) {
-  const sel = selBox();
-  if (sel) {
-    const line = lineHeight(picked.zoneEl), r = b.getBoundingClientRect();
-    if (r.top < sel.bottom + line && sel.top - line < r.bottom) {
-      const top = sel.top - line - r.height;
-      if (top >= 8) { Object.assign(b.style, {left: '8px', top: top + 'px', bottom: 'auto', width: (document.documentElement.clientWidth - 16) + 'px'}); b.dataset.anchorSide = 'top'; }
-    }
-  }
   follow();
 }
 function follow() {
@@ -131,7 +126,7 @@ function follow() {
   stopFollow = followAnchor(bar, {getBoundingClientRect: () => selBox() || picked?.zoneEl?.getBoundingClientRect?.() || {top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0}}, {place, lost: () => { if (bar && !bar.dataset.anchorMoved) fallback(bar); }});
 }
 function unfollow() { stopFollow?.(); stopFollow = null; }
-function hide() { clearTimeout(hideTimer); picked = null; unfollow(); if (bar) { bar.hidden = true; clearAnchored(bar); } }
+function hide() { clearTimeout(hideTimer); picked = null; unfollow(); if (bar) { bar.hidden = true; clearAnchored(bar); delete bar.dataset.wrap; } }
 function forgetMove() { movedSpot = null; hide(); }
 function zoneOf(node) {
   const el = node?.nodeType === 1 ? node : node?.parentElement;

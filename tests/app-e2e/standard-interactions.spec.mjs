@@ -9,7 +9,7 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { pinch } from './helpers/pinch.mjs';
-import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
+import { boardFixture, nbNode, nbBox, nbCenter, nbBlank } from './helpers/note-board-fixture.mjs';
 import { DOC_SCREENS, DOC_SPLITS } from './helpers/doc-view.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
 import { screenFindLocator } from './helpers/screen-find.mjs';
@@ -1145,9 +1145,9 @@ for (const [screen, boot] of TEXT_BAR_SCREENS) {
       if (width <= 760) return;
       const before = await textBarBox(selectBar(page)), grip = await textBarBox(selectBar(page).locator('.hl-bar-label'));
       await page.mouse.move(grip.x + 6, grip.y + grip.h / 2); await page.mouse.down();
-      await page.mouse.move(grip.x + 46, grip.y + grip.h / 2 + 50, { steps: 5 }); await page.mouse.up();
+      await page.mouse.move(grip.x + 6 - 40, grip.y + grip.h / 2 + 50, { steps: 5 }); await page.mouse.up(); // 왼쪽으로(막대가 글 칸 오른쪽 끝까지 찰 수 있음, S70-80)
       const after = await textBarBox(selectBar(page));
-      expect(Math.round(after.x - before.x)).toBe(40);
+      expect(Math.round(after.x - before.x)).toBe(-40);
       const btn = await textBarBox(selectBar(page).getByRole('button', { name: '복사', exact: true }));
       await page.mouse.move(btn.x + btn.w / 2, btn.y + btn.h / 2); await page.mouse.down();
       await page.mouse.move(btn.x + btn.w / 2 + 40, btn.y + 30, { steps: 4 }); await page.mouse.up();
@@ -1597,6 +1597,104 @@ for (const [name, open] of CONFIRM_DRAG_SCREENS) test(`D7 ${name} PC 1280: 확�
   expect(s.errors).toEqual([]);
 });
 
+// ---------- C8 메뉴 닫기(STD-메뉴바깥닫기, S70-78) ----------
+// 2026-11-26 명진 "우클릭해서 이 메뉴온 다음에 빈 공간에 좌클릭하면 메뉴 없어져야해". 우클릭 메뉴·⋯ 메뉴·작은 창은
+// ① 바깥 누름(왼쪽·오른쪽) = 닫기만(그 누름은 새 상자·고르기·다른 메뉴를 만들지 않음) ② Esc·뒤로가기 = 닫기 ④ 새 메뉴가 열리면 앞 메뉴 닫힘.
+// 공용 지킴이 app/menu-dismiss.js 한 곳. 새 메뉴 화면은 MENU_SCREENS에 한 줄 더한다({panel 메뉴, open 여는 손짓, blank 빈 곳, quiet 다른 동작 없음 확인}).
+const C8_BID = 'bs70078';
+const C8_SEED = [{ id: 'T1', board_id: C8_BID, body: '가 주제', x: 40, y: 380 }, { id: 'T2', board_id: C8_BID, body: '나 주제', x: 230, y: 380 }];
+async function c8Board(page, width) {
+  const f = await boardFixture(page, width, { bid: C8_BID, seed: C8_SEED, links: [{ id: 'L1', board_id: C8_BID, from_text: 'T1', to_text: 'T2' }] });
+  await expect(nbNode(page, '가 주제')).toHaveCount(1);
+  const writes = () => f.textCalls.filter(c => c.method !== 'GET').length + f.linkCalls.filter(c => c.method !== 'GET').length;
+  // 다른 동작 없음: 쓰기 요청·새 글 칸·새로 고른 것·다른 메뉴가 생기지 않는다(sel0: 바깥 누름 전 고른 상자 수 — 상자 우클릭은 그 상자를 고른 채 연다).
+  const picked = () => page.locator('[data-nb-texts] .nb-sel, [data-nb-cards] .nb-sel').count();
+  const quiet = async (sel0 = 0) => {
+    expect(writes()).toBe(0);
+    await expect(page.locator('[data-nb-text-edit]')).toHaveCount(0);
+    await expect(page.locator('[data-nb-selbar]')).toBeHidden();
+    expect(await picked()).toBeLessThanOrEqual(sel0);
+    await expect(page.locator('#rowMenu:visible, #noteDocMenu:visible, .nb-link-menu:visible')).toHaveCount(0);
+  };
+  return { ...f, quiet, picked };
+}
+const lineMid = page => page.locator('[data-nb-hit]').first().evaluate(el => { const p = el.getPointAtLength(el.getTotalLength() / 2), m = el.getScreenCTM(); return { x: p.x * m.a + m.e, y: p.y * m.d + m.f }; });
+const MENU_SCREENS = [
+  // PC: 보드 빈 곳 우클릭 = 판 메뉴([새 노트 쓰기][PDF로 내보내기][HTML로 내보내기]) — 명진이 보낸 사진의 메뉴
+  ['노트 보드 빈 곳 우클릭 메뉴', [1280], page => page.locator('#noteDocMenu'), async page => { const p = await nbBlank(page); await page.mouse.click(p.x, p.y, { button: 'right' }); await expect(page.locator('#noteDocMenu')).toContainText('새 노트 쓰기'); }],
+  // PC: 상자 우클릭 = 공용 줄 메뉴(row-menu.js → anchored-menu.js)
+  ['노트 보드 상자 우클릭 메뉴', [1280], page => page.locator('#rowMenu'), async page => { const c = await nbCenter(nbNode(page, '가 주제')); await page.mouse.click(c.x, c.y, { button: 'right' }); }],
+  // 폰·PC: 목록 ⋯ 메뉴(보드 위 머리 줄)
+  ['노트 보드 ⋯ 메뉴', [390, 1280], page => page.locator('#noteDocMenu'), async page => { await page.locator('[data-note-folder-more]').click(); }],
+  // 폰·PC: 선 누르기 = 선 작은 창
+  ['노트 보드 선 작은 창', [390, 1280], page => page.locator('.nb-link-menu'), async page => { const m = await lineMid(page); await page.mouse.click(m.x, m.y); }],
+];
+for (const [name, widths, panelOf, open] of MENU_SCREENS) for (const width of widths) test.describe(`C8 ${name} ${width}`, () => {
+  test('빈 곳 왼쪽 누르기 = 닫힘, 새 상자·고르기·다른 메뉴 없음', async ({ page }) => {
+    const b = await c8Board(page, width);
+    await open(page); await expect(panelOf(page)).toBeVisible();
+    let sel0 = await b.picked();
+    const p = await nbBlank(page);
+    await page.mouse.click(p.x, p.y);
+    await expect(panelOf(page)).toBeHidden();
+    await b.quiet(sel0);
+    // 두 번째 누름부터는 보통 동작(빈 곳 두 번 누르기 = 새 글 상자)
+    await page.mouse.dblclick(p.x, p.y);
+    await expect(page.locator('[data-nb-text-edit]')).toHaveCount(1);
+    expect(b.errors).toEqual([]);
+  });
+  test('빈 곳 두 번 누르기·상자 위 누르기도 닫기만', async ({ page }) => {
+    const b = await c8Board(page, width);
+    await open(page); await expect(panelOf(page)).toBeVisible();
+    let sel0 = await b.picked();
+    const p = await nbBlank(page);
+    await page.mouse.dblclick(p.x, p.y); // 첫 누름이 닫고, 그 손짓의 두 번 누르기는 새 상자를 만들지 않는다
+    await expect(panelOf(page)).toBeHidden();
+    await page.waitForTimeout(500);
+    await b.quiet(sel0);
+    await open(page); await expect(panelOf(page)).toBeVisible();
+    sel0 = await b.picked();
+    const c = await nbCenter(nbNode(page, '나 주제'));
+    await page.mouse.click(c.x, c.y, width > 600 ? { button: 'right' } : {}); // 오른쪽 누름도 닫기만(새 메뉴·고르기 없음)
+    await expect(panelOf(page)).toBeHidden();
+    await b.quiet(sel0);
+    expect(b.errors).toEqual([]);
+  });
+  test('Esc·뒤로가기 = 닫힘(화면·주소 그대로)', async ({ page }) => {
+    const b = await c8Board(page, width);
+    await open(page); await expect(panelOf(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(panelOf(page)).toBeHidden();
+    await expect(page.locator('[data-note-board]')).toBeVisible();
+    const url = page.url();
+    await open(page); await expect(panelOf(page)).toBeVisible();
+    const sel0 = await b.picked();
+    await page.goBack();
+    await expect(panelOf(page)).toBeHidden();
+    await expect(page.locator('[data-note-board]')).toBeVisible();
+    expect(page.url()).toBe(url);
+    await b.quiet(sel0);
+    expect(b.errors).toEqual([]);
+  });
+});
+// ④ 한 번에 하나: 선 작은 창을 연 채 ⋯ 메뉴를 열면 선 창은 닫힌다(PC는 상자 우클릭 메뉴 → ⋯도).
+for (const width of [390, 1280]) test(`C8 노트 보드 ${width}: 두 번째 메뉴가 열리면 첫 메뉴는 닫힌다`, async ({ page }) => {
+  const b = await c8Board(page, width);
+  const m = await lineMid(page); await page.mouse.click(m.x, m.y);
+  await expect(page.locator('.nb-link-menu')).toBeVisible();
+  await page.locator('[data-note-folder-more]').click();
+  await expect(page.locator('#noteDocMenu')).toBeVisible();
+  await expect(page.locator('.nb-link-menu')).toBeHidden();
+  if (width > 600) {
+    await page.keyboard.press('Escape'); await expect(page.locator('#noteDocMenu')).toBeHidden();
+    const c = await nbCenter(nbNode(page, '가 주제')); await page.mouse.click(c.x, c.y, { button: 'right' });
+    await expect(page.locator('#rowMenu')).toBeVisible();
+    await page.locator('[data-note-folder-more]').click();
+    await expect(page.locator('#noteDocMenu')).toBeVisible();
+    await expect(page.locator('#rowMenu')).toBeHidden();
+  }
+  expect(b.errors).toEqual([]);
+});
 // ---------- W3 오른쪽 밀기 = 여러 개 고르기(S70-64 UI-오른쪽밀기고르기, 기준표 8절 W3) ----------
 // 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와 복수 또는 일괄 삭제
 // / 전테선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제 / 다 이런식으로 왼쪽에서 오른쪽으로 스와이프 하는 건".
