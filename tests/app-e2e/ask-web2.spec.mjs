@@ -76,8 +76,8 @@ for(const width of [412,884]){
     await page.setViewportSize({width,height:900});
     const asks=[];
     await openHome(page,{beforeLoad:()=>routes(page,{asks,recent:[{...ANSWER,ai_status:'ok',status:undefined}]})});
-    // 폰(412)은 홈 머리 줄 '전체 검색' 입구(S70-57: 전체 검색은 홈에만). 884(접은 폴드 펼침 폭)는 같은 전체 화면 검색을 화면 이동으로 연다.
-    if(await page.locator('#appView > .mobile-shell-header .gs-menu-entry').isVisible()){await page.locator('#appView > .mobile-shell-header .gs-menu-entry').click();}
+    // 폰(412)은 홈 날짜 줄 끝 돋보기(S70-57: 전체 검색은 홈에만, S71-41 HOME-머리한줄). 884(접은 폴드 펼침 폭)는 같은 전체 화면 검색을 화면 이동으로 연다.
+    if(await page.locator('#homeView [data-journal-find]').isVisible()){await page.locator('#homeView [data-journal-find]').click();}
     else await page.evaluate(async()=>{await window.KPTUViewLoader.load('search');window.KPTURouter.go('search',{source:'delegated'});});
     const view=page.locator('#searchView'),input=page.locator(width>760?'#gsTopInput':'#gsHeadInput'); // S71-07: 폰 틀은 머리 줄 칸 그대로
     await expect(view).toBeVisible();

@@ -1,9 +1,12 @@
 // HELP-메뉴안쓰는법(시안 docs/design/mockups/help-howto.html, 사용자 확정 11/16 10:18 "모두 추천대로"): '쓰는 법' 화면(?view=help). #helpView의 유일한 그리기 주인.
 // 입구: 계정 › 쓰는 법('앱 정보' 바로 아래, PC 계정 메뉴 · 폰 [메뉴] 창 계정 줄, S69-71), 각 화면 ⋯ 메뉴 맨 아래 '쓰는 법', 빈 화면 안내 [쓰는 법 보기](help-link.js).
-// 폰(~760px): 한 줄 요약 → 찾기 → 묶음별 메뉴 한 줄(누르면 3~4줄 + [○○ 열기]로 펼침, <details>) → 계정 칸('내 기록은 누가 보나'·문의 메일).
+// HELP-머리한줄(S71-33, 명진 11/26 "맨위 안내멘트 지우고 검색창을 제목줄로 올려 돋보기로"): 화면 위 안내 글·화면 안 찾기 칸 줄은 그리지 않는다.
+// 찾기는 맨 위 칸 하나가 겸한다(screen-find.js 등록 — PC 맨 위 줄 칸 '쓰는 법에서 찾기', 폰은 머리 줄 [W] 쓰는 법 · 돋보기 → 누르면 그 자리에 칸).
+// 폰(~760px): 묶음별 메뉴 한 줄(누르면 3~4줄 + [○○ 열기]로 펼침, <details>) → 계정 칸('내 기록은 누가 보나'·문의 메일).
 // 폴드·PC(761px~): 왼쪽 목차 | 오른쪽 내용. 목차는 그 사람 서버 기능 목록으로 정한다 — 운영자 기능이 없는 사람에게는 운영자 메뉴 줄 자체가 없다(숨김 아님).
 // 펼친 줄은 주소(?view=help&topic=…)에만 적는다(새로고침 그 자리, 기기 저장 없음). 글은 help-content.mjs 한 곳, 글자는 textContent로만 넣는다.
-import {SUMMARY, CONTACT, PRIVACY_URL, TERMS_URL, PRIVACY_LINES, helpGroups, matchTopic, topic as helpTopic} from './help-content.mjs';
+import {CONTACT, PRIVACY_URL, TERMS_URL, PRIVACY_LINES, helpGroups, matchTopic, notesFor, shotUrl, topic as helpTopic} from './help-content.mjs';
+import {registerScreenFind, refreshScreenFind} from './screen-find.js';
 import {takeHelpTopic} from './help-link.js';
 import {emptyEl} from './wait-state.js';
 
@@ -22,15 +25,15 @@ function list(title, items, tag = 'ul') {
   const box = el(tag, 'hp-ls'); items.forEach(text => box.append(el('li', null, text)));
   return [el('p', 'hp-sub', title), box];
 }
-// 예시 화면: 지어낸 이름으로 그린 작은 화면 한 장(사진 대신 앱 글자·색으로 그려 어두운 화면 색에서도 맞음).
-function example(ex, label) {
-  if (!ex) return null;
-  const fig = el('figure', 'hp-ex'); fig.dataset.hpEx = '';
-  const screen = el('div', 'hp-ex-screen'); screen.setAttribute('aria-hidden', 'true');
-  screen.append(el('div', 'hp-ex-bar', ex.title));
-  const ul = el('ul', 'hp-ex-rows'); ex.rows.forEach(r => ul.append(el('li', null, r))); screen.append(ul);
-  fig.append(screen, el('figcaption', 'hp-ex-cap', `예시 화면 — ${label}(지어낸 이름)`));
-  return fig;
+// 화면 그림(HELP-그림 S71-33): 지어낸 자료로 띄운 폰 화면 캡처(app/help-shots/, tests/app-e2e/help-shots/capture.mjs). 그림마다 alt 글.
+function shots(list) {
+  if (!list?.length) return null;
+  const box = el('div', 'hp-shots'); box.dataset.hpShots = '';
+  for (const s of list) {
+    const img = el('img', 'hp-shot'); img.src = shotUrl(s.file); img.alt = s.alt; img.width = 390; img.height = s.h; img.loading = 'lazy'; img.decoding = 'async';
+    box.append(img);
+  }
+  return box;
 }
 function openButton(t) {
   if (!t.open) return null;
@@ -58,8 +61,8 @@ function bodyNodes(t, {withLead = true} = {}) {
     void import('./app-download-guide.js').then(m => slot.replaceChildren(m.appGuideEl())).catch(() => { slot.textContent = '안내를 불러오지 못했어요.'; });
     return out;
   }
-  out.push(...list('이럴 때 쓰세요', t.when), ...list('따라하기', t.steps, 'ol'), ...list('알아 둘 것', t.notes));
-  const ex = example(t.ex, t.label); if (ex) out.push(ex);
+  const pics = shots(t.shots); if (pics) out.push(pics);
+  out.push(...list('이럴 때 쓰세요', t.when), ...list('따라하기', t.steps, 'ol'), ...list('알아 둘 것', notesFor(t, state.features)));
   if (t.links?.length) {
     out.push(el('p', 'hp-sub', '다른 메뉴와 이어지는 곳'));
     const ul = el('ul', 'hp-links'); t.links.forEach(([a, b]) => { const li = el('li'); li.append(el('span', 'hp-chip', a), el('span', 'hp-arrow', '→'), el('span', 'hp-chip', b)); li.children[1].setAttribute('aria-hidden', 'true'); ul.append(li); });
@@ -71,12 +74,6 @@ function bodyNodes(t, {withLead = true} = {}) {
 
 function groups() {
   return helpGroups(state.features).map(g => ({...g, topics: g.topics.filter(t => matchTopic(t, state.query))})).filter(g => g.topics.length);
-}
-function head() {
-  const top = el('div', 'hp-top');
-  const find = el('input', 'hp-find'); find.type = 'search'; find.placeholder = '쓰는 법에서 찾기'; find.setAttribute('aria-label', '쓰는 법에서 찾기'); find.value = state.query; find.dataset.hpFind = ''; find.maxLength = 40;
-  top.append(el('p', 'hp-sum', SUMMARY), find);
-  return top;
 }
 function drawNarrow(box, gs) {
   const listBox = el('div', 'hp-list'); listBox.dataset.hpList = '';
@@ -114,12 +111,10 @@ function drawWide(box, gs) {
 }
 function draw() {
   const box = root(); if (!box) return;
-  const focusFind = document.activeElement?.matches?.('[data-hp-find]');
   const gs = groups();
-  box.replaceChildren(head());
+  box.replaceChildren();
   if (!gs.length) box.append(emptyEl('찾는 글이 없어요'));
   else if (WIDE.matches) drawWide(box, gs); else drawNarrow(box, gs);
-  if (focusFind) { const f = box.querySelector('[data-hp-find]'); f?.focus(); f?.setSelectionRange?.(f.value.length, f.value.length); }
   state.painted = true;
 }
 function select(id, {scroll = false} = {}) {
@@ -130,7 +125,7 @@ function select(id, {scroll = false} = {}) {
 }
 
 async function enter() {
-  state.query = '';
+  state.query = ''; refreshScreenFind();
   try { const {myFeaturesOrNull} = await import('./my-features.js'); state.features = await myFeaturesOrNull(); } catch { state.features = null; }
   // 기능 목록을 읽은 뒤에 펼칠 줄을 정한다(들어오기 신호가 두 번 와도 둘째는 첫째가 주소에 적은 줄을 그대로 읽는다).
   const asked = takeHelpTopic() || window.KPTURouter?.place?.('help')?.topic || '';
@@ -154,10 +149,18 @@ function bind() {
       state.selected = d.dataset.hpTopic; window.KPTURouter?.setPlace?.('help', {topic: state.selected});
     } else if (state.selected === d.dataset.hpTopic) { state.selected = ''; window.KPTURouter?.setPlace?.('help', {topic: null}); }
   }, true);
-  v.addEventListener('input', e => { if (e.target.matches?.('[data-hp-find]')) { state.query = e.target.value; draw(); } });
   WIDE.addEventListener?.('change', () => { if (state.painted) draw(); });
 }
 
 install(); bind();
+// 찾기 = 맨 위 칸 하나(용어 기준표 '<메뉴>에서 찾기'). 치는 대로 이 화면 목록만 거른다(서버 호출 없음, 예전 화면 안 칸과 같은 matchTopic).
+const helpShown = () => window.KPTURouter?.current === 'help' && !document.getElementById('helpView')?.classList.contains('hidden');
+registerScreenFind('help', {
+  label: '쓰는 법에서 찾기',
+  meaning: false,
+  active: helpShown,
+  value: () => state.query,
+  apply: q => { const next = String(q ?? ''); if (next === state.query) return; state.query = next; draw(); },
+});
 window.KPTURouter?.on?.('help', () => { void enter(); });
 void enter();

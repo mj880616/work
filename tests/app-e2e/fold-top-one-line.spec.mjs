@@ -24,11 +24,10 @@ for (const [width, height] of FOLD) {
     page.on('pageerror', e => errors.push(e.message));
     await page.setViewportSize({ width, height });
     await openHome(page);
-    // S70-57(사용자 11/26 "전체 검색은 홈에만"): 홈 머리 줄은 이름·아이콘 없이 '전체 검색' 입구 한 칸(36px + 아래 8px).
-    const entry = page.locator('#appView > .mobile-shell-header .gs-menu-entry');
+    // S70-57(사용자 11/26 "전체 검색은 홈에만") → S71-41 HOME-머리한줄: 홈에는 앱 머리 줄이 없고, '전체 검색' 입구는 날짜 줄 끝 돋보기 하나(36px).
+    const entry = page.locator('#homeView [data-journal-find]');
     await expect(entry).toBeVisible({ timeout: 15000 });
-    { const m = await head(page); expect(m.shown).toBe(true); expect(Math.round(m.h)).toBe(36); expect(m.gap).toBe(8); expect(m.name.text).toBe('');
-      expect(Math.abs(m.entry.right - m.right)).toBeLessThanOrEqual(1); expect(m.entry.h).toBe(36); }
+    { const m = await head(page); expect(m.shown).toBe(false); const b = await entry.boundingBox(); expect(b.height).toBe(36); }
     for (const [view, title] of VIEWS) {
       await go(page, view);
       // 다른 화면은 입구 대신 그 화면 찾기 칸('<메뉴>에서 찾기', + 오른쪽 옮겨 온 단추)이 같은 자리·같은 높이다(S70-54·S70-57).
@@ -47,20 +46,22 @@ for (const [width, height] of FOLD) {
       expect(f.fh, view).toBe(36);
       expect(f.docW, view).toBeLessThanOrEqual(f.vw);
     }
-    // 홈 칸: 키보드로 닿으면(포커스) 화면 전체 검색으로 간다. S71-07 SEARCH-누른자리그대로(Q3): 검색 화면도 같은 머리 줄 칸 하나(같은 자리·같은 크기),
-    // 화면 안 두 번째 칸 없음. 뒤로 가면 홈.
+    // 홈 돋보기: 누르면 화면 전체 검색으로 가고 머리 줄 '전체 검색' 칸에 바로 커서(S71-07 Q3 — 화면 안 두 번째 칸 없음). 칸은 돋보기가 있던 첫 줄 자리
+    // (S71-41), 높이 36px + 아래 8px. 뒤로 가면 홈(머리 줄 없음).
     await go(page, 'home');
-    const input = page.locator('#gsHeadInput');
-    await expect(input).toHaveAccessibleName('전체 검색');
+    await expect(entry).toHaveAccessibleName('전체 검색');
     const before = await entry.boundingBox();
-    await input.focus();
+    await entry.click();
+    const input = page.locator('#gsHeadInput');
     await expect(page.locator('#searchView')).toBeVisible();
     await expect(input).toBeFocused();
     await expect(page.locator('#searchView input')).toHaveCount(0);
-    expect(await entry.boundingBox()).toEqual(before);
+    { const b = await input.boundingBox(); expect(Math.abs((b.y + b.height / 2) - (before.y + before.height / 2))).toBeLessThanOrEqual(2); expect(b.height).toBe(36);
+      const m = await head(page); expect(m.shown).toBe(true); expect(Math.round(m.h)).toBe(36); expect(m.gap).toBe(8); }
     await page.goBack();
     await expect(page.locator('#homeView')).toBeVisible();
     await expect(entry).toBeVisible();
+    await expect(input).toBeHidden();
     expect(errors).toEqual([]);
   });
 

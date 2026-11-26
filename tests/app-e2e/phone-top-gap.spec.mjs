@@ -40,17 +40,18 @@ test('home top has no empty header gap, and the header comes back on other tabs'
   await open(page,'home');
   const head=page.locator('#appView>.mobile-shell-header');
   await expect(page.locator('#homeView [data-journal-title]')).toBeVisible();
-  // S70-57(사용자 11/26 "전체 검색은 홈에만"): 홈 머리줄은 이름·아이콘 없이 '전체 검색' 입구 한 칸(36px + 아래 8px)뿐 — 빈 칸이 아니다.
-  await expect(head).toBeVisible();await expect(head.locator('[data-mobile-view-name]')).toHaveText('');await expect(head.locator('.head-mark')).toBeHidden();
-  await expect(head.locator('.gs-menu-entry')).toBeVisible();
-  const homeTop=async()=>{const e=await head.locator('.gs-menu-entry').boundingBox(),t=await page.locator('#homeView [data-journal-title]').boundingBox();return {entry:e.y,gap:t.y-(e.y+e.height)}};
-  // 입구는 맨 위 여백 바로 아래, 날짜 제목은 입구 바로 아래(예전 빈 머리줄 56px 같은 틈이 끼지 않는다).
-  {const {entry,gap}=await homeTop();expect(entry).toBeLessThan(24);expect(gap).toBeLessThan(24);}
+  // S71-41 HOME-머리한줄(사용자 요청 11/26): 홈에는 머리줄(예전 '전체 검색' 칸 줄)이 없고,
+  // 날짜 제목 줄이 맨 위 첫 줄이며 그 끝에 돋보기. 빈 머리줄 같은 틈이 끼지 않는다.
+  await expect(head).toBeHidden();
+  const find=page.locator('#homeView [data-journal-find]');
+  await expect(find).toBeVisible();
+  const homeTop=async()=>{const f=await find.boundingBox(),t=await page.locator('#homeView [data-journal-title]').boundingBox();return {top:t.y,same:Math.abs((f.y+f.height/2)-(t.y+t.height/2))}};
+  {const {top,same}=await homeTop();expect(top).toBeLessThan(24);expect(same).toBeLessThanOrEqual(2);}
   await go(page,'basket');
   await expect(head).toBeVisible();await expect(head.locator('[data-mobile-view-name]')).toHaveText('잊지 말기');
   await go(page,'home');
-  await expect(head.locator('[data-mobile-view-name]')).toHaveText('');
-  {const {entry,gap}=await homeTop();expect(entry).toBeLessThan(24);expect(gap).toBeLessThan(24);}
+  await expect(head).toBeHidden();
+  {const {top,same}=await homeTop();expect(top).toBeLessThan(24);expect(same).toBeLessThanOrEqual(2);}
 });
 for(const view of ['basket','calendar','meetings','team','photos','diary','library','profile','search','outside'])test(`${view} starts right under the top at 412px phone app`,async({page})=>{
   await open(page,'home',{features:view==='outside'?['outside']:[]});
