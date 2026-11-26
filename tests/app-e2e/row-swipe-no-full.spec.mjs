@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { start as newsStart, openNews } from './helpers/news-server.mjs';
+import { start as filesStart, openFiles } from './helpers/files-server.mjs';
 import { setup as librarySetup, openLibrary } from './helpers/library-multi-delete-scenario.mjs';
 import { server as planServer, installServer as installPlanServer } from './helpers/report-plan-marks-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -16,7 +17,10 @@ import { openMeetingResult } from './helpers/meeting-open.mjs';
 // 스와이프 메뉴가 여러 개 있기 때문에 일단 메뉴가 펼쳐지고 스와이프 작동은 그 메뉴를 눌렀을 때 돼야 돼"):
 // 공용 줄 밀기(app/row-swipe.js)를 쓰는 모든 폰 목록에서, 줄을 왼쪽·오른쪽으로 끝까지 밀었다 놓으면 칸(메뉴)만 펼쳐지고
 // 어떤 일도 하지 않는다(숨기기·삭제·저장·보관·선택 시작 없음, 서버 쓰기 요청 없음). 일은 펼쳐진 칸을 눌렀을 때만 한다.
-// 기준표: docs/design/standard-interactions.md 8절 P5. 새 화면에 줄 밀기를 붙이면 아래 SCREENS 표에 한 줄 더한다.
+// 기준표: docs/design/standard-interactions.md 8절 P5·W1·W2. 새 화면에 줄 밀기를 붙이면 아래 SCREENS 표에 한 줄 더한다.
+// UI-밀기메뉴통일(S70-65, 명진 11/26 08:16 가안 [주 동작][수정][숨기기·삭제]): 화면마다 왼쪽 밀기 칸 이름·순서(labels)가 표와 같은지,
+// [수정]·[이름 바꾸기]·[할 일로] 같은 가운데 칸(mid)을 누르면 ⋯ 메뉴와 같은 일이 되는지도 본다(읽을 거리 기사 줄·저장한 글은 S70-62).
+// 오른쪽 밀기는 그 줄이 바로 골라지는 고르기(S70-64) — 칸이 열려 남지 않고, 서버 쓰기도 없다.
 // (휴지통 줄은 project-system-v3.spec.mjs 'TRASH 줄 밀기'가 같은 규칙을 본다 — 그 화면 흉내 서버가 그 파일 안에만 있다.)
 // 서버는 모두 흉내, 글·이름은 모두 지어낸 것.
 test.use({ timezoneId: 'Asia/Seoul' });
@@ -25,7 +29,8 @@ const BASE = process.env.APP_E2E_ORIGIN || 'http://127.0.0.1:8123';
 const W = 390, H = 844;
 
 // ---------- 화면 열기 ----------
-// 각 화면: {row: 밀 줄, list: 줄 밀기 칸이 생기는 목록, picked: [선택] 칸을 누른 뒤 보이는 선택 막대, act: 왼쪽 칸 하나를 누르면 일어날 일}
+// 각 화면: {row: 밀 줄, list: 줄 밀기 칸이 생기는 목록, picked: 오른쪽으로 밀어 고른 뒤 보이는 선택 막대(null = 오른쪽 밀기 없음),
+//   labels: 왼쪽 밀기 칸 글자(왼쪽부터), mid: 가운데 칸 하나를 누르면 열리는 것, act: 왼쪽 칸 하나를 누르면 일어날 일}
 async function homeReads(page) {
   const uid = n => `00000000-0000-4000-8000-00000000000${n}`;
   const READS = [1, 2, 3].map(n => ({ id: uid(n), title: `가상 소식 ${n}`, what: `가상 일 ${n}`, why: `담당 가상지부 ${n}`, source: '가상신문', at: '2026-10-06T00:10:00Z', url: `https://news.example.test/${n}` }));
@@ -60,7 +65,10 @@ async function nowNews(page) {
   await openNews(page, W);
   const row = page.locator('#newsRoot [data-nc-item="c1"]');
   await expect(row).toBeVisible();
-  return { row, list: page.locator('#newsRoot'), picked: page.locator('#newsRoot .row-swipe-pickbar'), act: { key: 'hide', done: async () => expect(row).toHaveCount(0) } };
+  // S70-62 READ-밀기메뉴: 읽을 거리 기사 줄 = [수정][저장][숨기기].
+  return { row, list: page.locator('#newsRoot'), picked: page.locator('#newsRoot .row-swipe-pickbar'), labels: ['수정', '저장', '숨기기'],
+    mid: { key: 'edit', done: async () => expect(page.locator('#outsideRoot [data-now-detail] [data-nd-hand-form]')).toBeVisible() },
+    act: { key: 'hide', done: async () => expect(row).toHaveCount(0) } };
 }
 async function reading(page) {
   const id = n => `a6900000-0000-4000-8000-00000000000${n}`;
@@ -83,8 +91,10 @@ async function reading(page) {
   await list.locator('.rd-switch [data-filter-value="all"]').click();
   const row = list.locator(`.rd-row[data-rd-open="${id(1)}"]`);
   await expect(row).toBeVisible();
-  return { row, list, picked: page.locator('#readingView .row-swipe-pickbar'),
-    act: { key: 'read', done: async () => expect.poll(() => rows[0].read_at).toBeTruthy() } };
+  // S70-62 READ-밀기메뉴: 저장한 글 줄 = [수정][삭제]. [삭제]는 되돌리기가 없는 줄이라 확인 한 번(K1).
+  return { row, list, picked: page.locator('#readingView .row-swipe-pickbar'), labels: ['수정', '삭제'],
+    mid: { key: 'edit', done: async () => expect(page.locator('#readingView [data-rd-edit-form]')).toBeVisible() },
+    act: { key: 'delete', done: async () => expect(page.locator('.kptu-ask')).toContainText('이 글을 삭제할까요?') } };
 }
 async function library(page) {
   await librarySetup(page, W);
@@ -92,7 +102,9 @@ async function library(page) {
   const list = page.locator('#documentList');
   const row = list.locator('.lu-row[data-lu-document="n1"]');
   await expect(row).toBeVisible();
-  return { row, list, picked: page.locator('#librarySelectBar'), act: { key: 'delete', done: async () => expect(row).toHaveCount(0) } };
+  return { row, list, picked: page.locator('#librarySelectBar'), labels: ['옮기기', '이름 바꾸기', '삭제'],
+    mid: { key: 'rename', done: async () => expect(list.locator('.lu-rename-input, .fr-input').first()).toBeVisible() },
+    act: { key: 'delete', done: async () => expect(row).toHaveCount(0) } };
 }
 async function calendarList(page) {
   await page.clock.setFixedTime(new Date('2026-11-10T00:00:00Z'));
@@ -108,7 +120,9 @@ async function calendarList(page) {
   await expect(row).toBeVisible();
   // 목록은 연 뒤 한 번 더 다시 그려진다(늦게 온 읽기). 다시 그리면 열린 칸도 닫히므로 그 뒤에 민다.
   await page.waitForTimeout(2000);
-  return { row, list, picked: page.locator('.row-swipe-pickbar:visible').first(), act: { key: 'plan-on', done: async () => expect.poll(() => state.planWrites.length).toBe(1) } };
+  return { row, list, picked: page.locator('.row-swipe-pickbar:visible').first(), labels: ['보고할 일정', '수정', '삭제'],
+    mid: { key: 'edit', done: async () => expect(page.locator('#ciGoogleModal')).toBeVisible() },
+    act: { key: 'plan-on', done: async () => expect.poll(() => state.planWrites.length).toBe(1) } };
 }
 // 잊지 말기(업데이트)·노트: 같은 app_notes 흉내(detail-head-menu-swipe.spec.mjs와 같은 모양).
 async function notesServer(page, rows) {
@@ -134,7 +148,8 @@ async function updates(page) {
   await page.evaluate(() => window.KPTURouter.go('basket'));
   const row = page.locator(`[data-basket-row="${A}"]`);
   await expect(row).toBeVisible();
-  return { row, list: page.locator('#basketRows'), picked: page.locator('.row-swipe-pickbar:visible').first(),
+  return { row, list: page.locator('#basketRows'), picked: page.locator('.row-swipe-pickbar:visible').first(), labels: ['보류로', '수정', '삭제'],
+    mid: { key: 'edit', done: async () => expect(page.locator('[data-basket-detail] textarea:visible').first()).toBeVisible() },
     act: { key: 'hold', done: async () => expect.poll(() => rows.find(x => x.id === A)?.archived_at).toBeTruthy() } };
 }
 async function notes(page) {
@@ -148,7 +163,8 @@ async function notes(page) {
   const el = page.locator('[data-note-row="n-one"]');
   await expect(el).toBeVisible();
   return { row: el, list: page.locator('[data-note-list]'), picked: page.locator('[data-nx-select-bar]'), stop: () => page.locator('[data-nx-select-bar]').getByRole('button', { name: '선택 끝내기' }).click(),
-    act: { key: 'pin', done: async () => expect.poll(() => rows.find(x => x.id === 'n-one')?.metadata?.pinned_at).toBeTruthy() } };
+    labels: ['옮기기', '수정', '삭제'], mid: { key: 'edit', done: async () => expect(page.locator('[data-note-editor]:visible')).toHaveCount(1) },
+    act: { key: 'delete', done: async () => expect(el).toHaveCount(0) } };
 }
 async function tasks(page) {
   const list = [{ id: 'a', title: '할 일 a', taskListId: '@default', taskListTitle: '내 할 일', due: null, status: 'needsAction', notes: '' }, { id: 'b', title: '할 일 b', taskListId: '@default', taskListTitle: '내 할 일', due: null, status: 'needsAction', notes: '' }];
@@ -164,7 +180,9 @@ async function tasks(page) {
   await page.evaluate(() => window.KPTURouter.go('tasks'));
   const row = page.locator('#gtTaskBody .gt-row[data-google-task="a"]');
   await expect(row).toBeVisible();
-  return { row, list: page.locator('#gtTaskBody'), picked: page.locator('.row-swipe-pickbar:visible').first(), act: { key: 'toggle', done: async () => expect.poll(() => done.length).toBeGreaterThan(0) } };
+  return { row, list: page.locator('#gtTaskBody'), picked: page.locator('.row-swipe-pickbar:visible').first(), labels: ['완료', '수정', '삭제'],
+    mid: { key: 'edit', done: async () => expect(page.locator('#gtTaskModal')).toBeVisible() },
+    act: { key: 'toggle', done: async () => expect.poll(() => done.length).toBeGreaterThan(0) } };
 }
 // 챙길 것(보고 상세 '잊지 말기 후보' 줄, s59-20-small-fixes.spec.mjs와 같은 흉내).
 async function todoCandidates(page) {
@@ -191,12 +209,29 @@ async function todoCandidates(page) {
   const list = page.locator('#mrdTodoCand').filter({ visible: true });
   const row = list.locator(`[data-inbox-todo-row="${cid(1)}"], [data-inbox-todo-row]`).first();
   await expect(row).toBeVisible();
-  return { row, list, picked: page.locator('.row-swipe-pickbar:visible').first(), act: { key: 'dismiss', done: async () => expect.poll(() => s.patches.length).toBeGreaterThan(0) } };
+  return { row, list, picked: page.locator('.row-swipe-pickbar:visible').first(), labels: ['할 일로', '⋯', '무시'],
+    mid: { key: 'to-task', done: async () => expect(list.locator('[data-inbox-todo-edit]')).toBeVisible() },
+    more: { key: 'more', done: async () => expect(page.locator('#inboxTodoRowMenu')).toBeVisible() },
+    act: { key: 'dismiss', done: async () => expect.poll(() => s.patches.length).toBeGreaterThan(0) } };
+}
+
+// [파일] 화면(S70-65에서 붙임): 폰 나무의 원드라이브·구글 드라이브 파일 줄. 흉내 서버는 files-server.mjs(같은 화면 시험들이 쓰는 것).
+async function filesTree(page) {
+  await filesStart(page, W);
+  await openFiles(page, W);
+  const tree = page.locator('#filesRoot [data-fx-tree]');
+  await expect(tree.locator('[data-fx-box="recent"]')).toBeVisible();
+  await expect(tree.locator('kptu-wait')).toHaveCount(0);
+  const row = tree.locator('.ft-row.fx-titem:has([data-fx-tfile^="od:"]), .ft-row.fx-titem:has([data-fx-tfile^="gd:"])').first();
+  await expect(row).toBeVisible();
+  return { row, list: tree, picked: page.locator('#filesRoot [data-fx-bar]'), stop: () => page.locator('#filesRoot [data-fx-bar] [data-fx-unpick]').click(), labels: ['옮기기', '이름 바꾸기', '삭제'],
+    mid: { key: 'rename', done: async () => { await expect(page.locator('.kptu-ask input:visible')).toBeVisible(); await page.keyboard.press('Escape'); } },
+    act: { key: 'move', done: async () => expect(page.locator('#filesRoot .fx-dest:visible, [data-fx-dest]:visible, dialog[open]').first()).toBeVisible() } };
 }
 
 const SCREENS = [
   ['홈 읽을 만한 글', homeReads], ['Now 뉴스', nowNews], ['저장한 글', reading], ['자료실', library], ['일정 목록', calendarList],
-  ['잊지 말기', updates], ['노트', notes], ['할 일', tasks], ['챙길 것 후보', todoCandidates],
+  ['업데이트', updates], ['노트', notes], ['할 일', tasks], ['잊지 말기 후보', todoCandidates], ['파일', filesTree],
 ];
 
 // ---------- 손동작 ----------
@@ -262,27 +297,21 @@ for (const [name, open] of SCREENS) {
     expect(writes, '왼쪽 끝까지 밀기만으로 서버 쓰기').toEqual([]);
     await expect(page.locator('.kptu-ask')).toHaveCount(0);
     await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-undo:visible, [data-undo-notice]:not([hidden]) [data-undo-action]:visible')).toHaveCount(0);
+    // S70-65: 칸 이름·순서가 표와 같다(가안 [주 동작][수정][숨기기·삭제]).
+    if (s.labels) await expect(ends.locator('.row-swipe-tx')).toHaveText(s.labels);
 
     // ② 열린 줄을 누르면 닫히기만 한다.
     await touchTap(s.row);
     await expect(ends).toHaveCount(0);
     expect(writes).toEqual([]);
 
-    // ③ 오른쪽으로 끝까지 → [선택] 칸만. 선택은 아직 시작되지 않는다.
+    // ③ 오른쪽으로 끝까지 → 칸을 열어 두지 않고 그 줄이 골라진다(S70-64 오른쪽 밀기 = 여러 개 고르기). 서버 쓰기·묻는 창 없음.
     await tick(page);
-    await swipeOpen(s.row, W + 40, pickCell);
-    await page.waitForTimeout(600);
-    await expect(s.picked).toBeHidden();
+    await expect(async () => { await swipe(s.row, W + 40); await expect(s.picked).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
+    await expect(pickCell).toHaveCount(0);
     expect(writes, '오른쪽 끝까지 밀기만으로 서버 쓰기').toEqual([]);
-    // [선택] 칸을 누르면 그때 선택이 시작된다.
-    // (민 뒤 목록이 다시 그려져 칸이 사라졌으면 열고 누르기를 통째로 다시 한다.)
-    await expect(async () => {
-      await swipeOpen(s.row, W + 40, pickCell);
-      await touchTap(pickCell);
-      await expect(s.picked).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
-    expect(writes).toEqual([]);
-    // 선택 끝내기: 공용 선택 줄은 [그만], 화면 고유 선택 막대는 그 화면의 끝내기(노트) 또는 Esc(자료실).
+    await expect(page.locator('.kptu-ask')).toHaveCount(0);
+    // 선택 끝내기: 공용 선택 줄은 [✕], 화면 고유 선택 막대는 그 화면의 끝내기(노트) 또는 Esc(자료실·파일).
     const quit = page.locator('.row-swipe-pickbar:visible [data-row-pick-stop]');
     if (s.stop) await s.stop(); else if (await quit.count()) await quit.click(); else await page.keyboard.press('Escape');
     await expect(s.picked).toBeHidden();
@@ -295,6 +324,26 @@ for (const [name, open] of SCREENS) {
     await touchTap(cell);
     await s.act.done();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(errors).toEqual([]);
+  });
+}
+
+// S70-65 W2: 가운데 칸([수정]·[이름 바꾸기]·[할 일로])과 [⋯]을 누르면 ⋯ 메뉴와 같은 일이 열린다(화면마다 새로 열어 본다).
+const MIDS = [['Now 뉴스', nowNews, 'mid'], ['저장한 글', reading, 'mid'], ['파일', filesTree, 'mid'], ['자료실', library, 'mid'], ['일정 목록', calendarList, 'mid'], ['업데이트', updates, 'mid'], ['노트', notes, 'mid'],
+  ['할 일', tasks, 'mid'], ['잊지 말기 후보', todoCandidates, 'mid'], ['잊지 말기 후보', todoCandidates, 'more']];
+for (const [name, open, which] of MIDS) {
+  test(`W2 ${name} 폰 ${W}: 왼쪽 밀기 ${which === 'more' ? '[⋯]' : '가운데 칸'}을 누르면 ⋯ 메뉴와 같은 일`, async ({ page }) => {
+    test.setTimeout(120000);
+    await page.setViewportSize({ width: W, height: H });
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    const s = await open(page);
+    const c = s[which], cell = s.list.locator(`[data-row-swipe-key="${c.key}"]`);
+    await swipeOpen(s.row, -(W + 40), cell);
+    await expect(s.list.locator('[data-row-swipe-act="end"] .row-swipe-tx')).toHaveText(s.labels);
+    await touchTap(cell);
+    await c.done();
+    await expect(s.list.locator('[data-row-swipe-act="end"]')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 }

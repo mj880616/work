@@ -82,7 +82,7 @@ for (const width of [412, 390]) {
       const sx = b.x + b.width - 4;
       expect(sx).toBeGreaterThan(width - 24);
       await finger(page, cdp, path(sx, b.y + b.height / 2, -120, 0));
-      await expect(cells(list), `${v}: 오른쪽 끝 시작`).toHaveCount(3);
+      await expect(cells(list), `${v}: 오른쪽 끝 시작`).toHaveCount(2);
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
       await expect(detail(page)).toHaveCount(0);
       await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]); // 열린 줄을 누르면 닫기만
@@ -91,7 +91,7 @@ for (const width of [412, 390]) {
       await tick(page);
       const more = await box(first.locator('[data-rd-more]'));
       await finger(page, cdp, path(more.x + more.width * 0.75, more.y + more.height / 2, -120, 0));
-      await expect(cells(list), `${v}: ⋯ 위 시작`).toHaveCount(3);
+      await expect(cells(list), `${v}: ⋯ 위 시작`).toHaveCount(2);
       await expect(menu).toHaveCount(0);
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
       await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
@@ -100,18 +100,14 @@ for (const width of [412, 390]) {
       await tick(page);
       b = await box(rows(list).last());
       await finger(page, cdp, path(b.x + b.width / 2, b.y + b.height / 2, -100, 0));
-      await expect(cells(list), `${v}: 가운데 시작`).toHaveCount(3);
+      await expect(cells(list), `${v}: 가운데 시작`).toHaveCount(2);
       await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
       await expect(cells(list)).toHaveCount(0);
-      // ④ 오른쪽 밀기: [선택] 칸만 펼쳐짐(S70-60) → 칸을 누르면 '1개 선택됨', 탭 그대로.
+      // ④ 오른쪽 밀기: 바로 그 줄 선택(S70-64 W1, [선택] 칸이 남지 않음) → '1개 선택됨', 탭 그대로.
       await tick(page);
       await finger(page, cdp, path(b.x + 40, b.y + b.height / 2, 300, 0));
       const bar = page.locator('#readingView .row-swipe-pickbar');
-      const pick = list.locator('[data-row-swipe-key="select"]');
-      await expect(pick, `${v}: 오른쪽 밀기 [선택] 칸`).toBeVisible();
-      await expect(bar).toBeHidden();
-      const pb = await pick.boundingBox();
-      await finger(page, cdp, [[pb.x + pb.width / 2, pb.y + pb.height / 2]]);
+      await expect(list.locator('[data-row-swipe-key="select"]'), `${v}: 오른쪽 밀기는 칸을 남기지 않음`).toHaveCount(0);
       await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
       await bar.locator('[data-row-pick-stop]').click();
@@ -158,7 +154,7 @@ test('자료실 390 실제 손가락: 줄 오른쪽 끝에서 시작한 왼쪽 �
   const b = await box(row);
   // 자료실 줄은 나무 안쪽으로 들여 있어 화면 끝까지 닿지 않는다 — 줄 오른쪽 끝(⋯ 자리)에서 시작한다.
   await finger(page, cdp, path(b.x + b.width - 4, b.y + b.height / 2, -120, 0));
-  await expect(list.locator('[data-row-swipe-act="end"]')).toHaveCount(2);
+  await expect(list.locator('[data-row-swipe-act="end"]')).toHaveCount(3); // S70-65 가안 [옮기기][이름 바꾸기][삭제]
   await expect(list.locator('[data-lu-document]')).toHaveCount(5);
   expect(state.deletes).toEqual([]);
   expect(state.errors).toEqual([]);

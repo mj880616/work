@@ -154,15 +154,18 @@ test('폰 390은 머리 줄 없이 아래 작은 줄', async ({ page }) => {
   expect(s.errors).toEqual([]);
 });
 
-test('[태그]·[폴더] 보기 줄은 지금 모양 그대로(칸 줄 아님)', async ({ page }) => {
+// [태그] 보기는 지금 모양 그대로(칸 줄 아님). [폴더] 보기 넓은 화면 오른쪽 목록은 S70-82(NOTE-폴더디자인통일, 명진 11/26 "파일쪽에 맞춰서")부터
+// [목록]과 같은 머리 줄·칸 줄(같은 보일 칸) — 자세한 것은 note-folder-unify.spec.mjs.
+test('[태그] 보기 줄은 지금 모양 그대로(칸 줄 아님), [폴더] 보기 오른쪽은 [목록]과 같은 머리·칸 줄', async ({ page }) => {
   const s = await fixture(page, 1280);
   await page.locator('#basketView [data-note-view="tag"]').click();
   await expect(rowsBox(page).locator('.nx-note').first()).toBeVisible();
   await expect(rowsBox(page).locator('.nl-cols')).toHaveCount(0);
   await expect(head(page)).toHaveCount(0);
   await page.locator('#basketView [data-note-view="folder"]').click();
-  await expect(rowsBox(page).locator('.nl-cols')).toHaveCount(0);
-  await expect(head(page)).toHaveCount(0);
+  await expect(rowsBox(page).locator('.nx-note').first()).toBeVisible();
+  await expect(head(page)).toHaveCount(1);
+  expect(await rowsBox(page).locator('.nx-note:not(.nl-cols)').count()).toBe(0);
   expect(s.errors).toEqual([]);
 });
 

@@ -16,7 +16,7 @@ test('C2 사업 보고 위쪽: 종류 칩 줄 없음, PC(761px~)는 위쪽 한 �
   assert.doesNotMatch(html, /id="reportKindFilter"|id="reportNameSelect"/);
   assert.match(html, /<div class="report-top"><div class="toolbar report-top-line">/);
   assert.doesNotMatch(css, /#reportKindFilter|#reportNameSelect/);
-  assert.match(css, /@media\(min-width:761px\)\{\s*#appView #meetingsView \.report-top\{display:flex;flex-wrap:wrap;/);
+  assert.match(css, /@media\(min-width:761px\)\{\s*#appView #meetingsView \.report-top\{display:flex;flex-wrap:nowrap;/);  // S71-10: 폭이 모자라도 줄을 넘기지 않음(주 줄 한 줄)
 });
 
 test('C4 체크칸 줄(내 프로필·원장)은 줄 전체 + 위아래 44px이 누르는 곳', () => {

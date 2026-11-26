@@ -48,14 +48,31 @@ test('칸 여러 개: 멈춘 자리는 칸 수만큼, 밀수록 칸이 함께 �
   assert.equal(cellWidth(-100, 3), SWIPE_BTN); assert.equal(cellWidth(-300, 3), 100); assert.equal(cellWidth(0, 2), SWIPE_BTN);
   assert.equal(pickedLabel(3), '3개 선택됨');
 });
-test('S70-60 UI-스와이프메뉴만: 끝까지 밀어도(어느 쪽·어떤 칸이든) 칸만 열고 바로 실행하지 않는다', () => {
+test('S70-64 오른쪽 밀기 = 고르기만: 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 바로 고른다', () => {
+  const w = 412, has = sides({start:{key:'select'}, end:[{key:'delete', label:'삭제', tone:'danger'}]});
+  assert.deepEqual(has, {start:1, end:1, startPick:true});
+  assert.deepEqual(rowSettle(40, has, w), {side:'start', pick:true}); // 조금(반 칸 넘게)만 밀어도 고르기
+  assert.deepEqual(rowSettle(20, has, w), {side:''}); // 반 칸이 안 되면 제자리
+  assert.deepEqual(rowSettle(300, has, w), {side:'start', pick:true});
+  assert.equal(sides({start:{key:'other'}, end:null}).startPick, undefined); // [선택]이 아닌 옛 칸은 옛 규칙(칸만 열림)
+  assert.deepEqual(rowSettle(300, sides({start:{key:'other'}, end:null}), w), {side:'start'});
+  // 열린 왼쪽 칸을 되미는 짧은 밀기는 닫기만(고르지 않음).
+  const open1 = openOffset('end', 1);
+  assert.deepEqual(rowSettle(open1 + 40, has, w, open1), {side:''});
+  const swipe = read('row-swipe.js');
+  assert.match(swipe, /start:select && a\.start \? PICK : null/); // 오른쪽 밀기에는 다른 동작을 두지 않는다
+  assert.match(swipe, /sbAllHtml\(\{attrs:'data-row-pick-all', on:all/); // [전체 선택] 켜짐(체크 표시)
+  assert.match(swipe, /if \(!pick\.size\) stopPicking\(\)/); // 0개면 고르기 끝
+  assert.match(swipe, /if \(picked\) \{[^\n]*startPick\(d\.el\)/); // 손을 떼는 순간 고르기(데이터 일은 하지 않음)
+});
+test('S70-60 UI-스와이프메뉴만: 왼쪽으로 끝까지 밀어도(어떤 칸이든) 칸만 열고 바로 실행하지 않는다', () => {
   const del = {key:'delete', label:'삭제', tone:'danger'}, hide = {key:'hide', label:'숨기기', tone:'muted'}, save = {key:'save', label:'보관'}, release = {key:'release', label:'삭제', tone:'info'};
   for (const end of [[save, del], [save, hide], [release, null], [hide]]) {
     const has = sides({start:{key:'select'}, end});
-    assert.deepEqual(Object.keys(has).sort(), ['end', 'start']); // 끝까지 밀기 허용 값(startFull·endFull)은 없다
+    assert.deepEqual(Object.keys(has).sort(), ['end', 'start', 'startPick']); // 끝까지 밀기 허용 값(startFull·endFull)은 없다
     for (const w of [360, 390, 412, 880]) {
       for (const x of [-w, -w * 0.6, -200, -140]) assert.deepEqual(rowSettle(x, has, w), {side:'end'});
-      for (const x of [w, w * 0.6, 200, 140]) assert.deepEqual(rowSettle(x, has, w), {side:'start'});
+      for (const x of [w, w * 0.6, 200, 140]) assert.deepEqual(rowSettle(x, has, w), {side:'start', pick:true}); // 오른쪽은 고르기(S70-64)
     }
   }
   assert.deepEqual(sides({start:null, end:null}), {start:0, end:0});
@@ -99,7 +116,8 @@ test('목록마다 공용 부품을 붙이고, 오른쪽 밀기는 [고르기], 
   for (const src of [basket, notes, todos, tasks, now]) assert.match(src, /start:PICK|start = attr \? PICK/);
   // S68-31(명진 11/23 02:24): ⋯에 [삭제]가 있는 할 일은 줄 밀기 맨 끝에도 [삭제] — ⋯와 같은 queueDelete(5초 되돌리기)만 부른다.
   const taskSwipe = tasks.slice(tasks.indexOf('bindRowSwipe(body'), tasks.indexOf('bindRowSwipe(body') + 700);
-  assert.match(taskSwipe, /\{key:'delete',label:'삭제',tone:'danger'\}\]/);
+  assert.match(taskSwipe, /,EDIT,DELETE\]\}/); // S70-65 가안 [완료][수정][삭제]: 공용 칸(EDIT·DELETE)
+  assert.match(taskSwipe, /else if\(key==='edit'\)openEditor\(t,/); // [수정] = 줄 제목 누르기와 같은 수정 창
   assert.match(taskSwipe, /else if\(key==='delete'\)queueDelete\(t\.id\)/);
   assert.match(tasks, /else queueDelete\(active\.id\)/); // ⋯ [삭제]와 같은 함수
   // 챙길 것은 ⋯에 삭제가 없으므로 줄 밀기에도 두지 않는다.

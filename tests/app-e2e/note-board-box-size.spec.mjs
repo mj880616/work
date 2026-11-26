@@ -111,7 +111,8 @@ test('PC: 고른 상자 손잡이 8개 — 모서리·변·왼쪽 위(반대편 
   expect(mid.width).toBeGreaterThan(b0.width + 40); expect(mid.height).toBeGreaterThan(b0.height + 15);
   await page.mouse.up();
   await expect.poll(() => rowBy(textRows, '가운데 주제').w).toBeGreaterThan(0);
-  const r1 = rowBy(textRows, '가운데 주제');
+  // S71-16: 서버 흉내 줄은 PATCH마다 그 자리에서 바뀐다 — 다음 끌기와 견줄 값은 지금 값을 복사해 둔다(같은 줄을 가리키면 다음 저장이 먼저 오면 기준도 같이 커진다).
+  const r1 = { ...rowBy(textRows, '가운데 주제') };
   expect(near(r1.w, Math.round(b0.width / z + 60 / z), 3)).toBe(true); expect(near(r1.h, Math.round(b0.height / z + 30 / z), 3)).toBe(true);
   // 오른쪽 변 = 폭만(높이 그대로).
   const b1 = await box(root), e = await center(root.locator('[data-nb-resize="e"]'));

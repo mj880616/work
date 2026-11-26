@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
+import {treeEnter} from './helpers/tree-enter.mjs';
 // S69-28 LIB-한칸탐색기 · LIB-보기두칸 · 깨짐 고치기(명진 11/24): 자료실 폴더 묶기 한 칸 = 윈도우 탐색기처럼 왼쪽 폴더 나무 | 오른쪽 그 폴더 내용.
 // ① 나무를 길게 펼치면 흰 카드가 같이 늘어나고(나무 칸 안 스크롤 없음) 접으면 다시 줄어든다.
 // ② 왼쪽 폴더 → 오른쪽은 그 폴더 바로 안의 하위 폴더 줄 + 자료 줄만(나무를 다시 그리지 않음, 지금 폴더 제목 줄 없음).
@@ -57,7 +58,7 @@ test.describe('PC 1280 한 칸 탐색기',()=>{
     await expect(page.locator('#documentList [data-lu-document="d3"]')).toBeVisible();
     await expect(page.locator('#documentList [data-lu-node="x:out"]')).toHaveCount(0);
     // 왼쪽 '가상 묶음 1' 이름 누르기 = 그 폴더 내용.
-    await page.locator(nav('t1')).click();
+    await treeEnter(page.locator(nav('t1')));
     await expect(page.locator('#libraryPath')).toContainText('가상 묶음 1');
     expect(await rightKeys(page)).toEqual(Array.from({length:KIDS},(_,j)=>`f:c1_${j}`));
     expect(await rightDocs(page)).toEqual(['d4']); // 손주 폴더 안 자료(d1·d2)는 보이지 않는다
@@ -75,7 +76,7 @@ test.describe('PC 1280 한 칸 탐색기',()=>{
     await c12.locator(':scope > summary').click();
     await expect(c12).not.toHaveAttribute('open','');
     // 들어가기는 왼쪽 나무. 왼쪽 나무는 그 폴더까지 펼치고 강조.
-    await page.locator(nav('c1_2')).click();
+    await treeEnter(page.locator(nav('c1_2')));
     await expect(page.locator('#libraryPath')).toContainText('가상 칸 1-2');
     expect(await rightKeys(page)).toEqual(['f:g1']);
     expect((await rightDocs(page)).sort()).toEqual(['d1','d2']);
@@ -123,7 +124,7 @@ test.describe('PC 1280 한 칸 탐색기',()=>{
     await page.locator('#documentList [data-lu-document="d3"]').dragTo(page.locator(nav('t2')));
     await expect.poll(()=>s.items.find(x=>x.document_id==='d3')?.folder_id||null).toBe('t2');
     await expect(page.locator('#documentList [data-lu-document="d3"]')).toBeHidden(); // 옮긴 자료는 접힌 '가상 묶음 2' 안(보이지 않음)
-    await page.locator(nav('t2')).click();
+    await treeEnter(page.locator(nav('t2')));
     await page.locator('#documentList [data-lu-document="d3"]').dragTo(page.locator('#documentList details[data-lu-node="f:c2_4"] > summary'));
     await expect.poll(()=>s.items.find(x=>x.document_id==='d3')?.folder_id||null).toBe('c2_4');
     expect(errors).toEqual([]);
