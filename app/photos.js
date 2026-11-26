@@ -147,10 +147,10 @@ srcBox.innerHTML = `<select class="photos-view-select" data-photos-view aria-lab
   + `<button type="button" class="photos-head-ic photos-head-more" data-photos-head-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="사진 메뉴" title="사진 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button>`;
 const h$ = sel => srcBox.querySelector(sel);
 let srcMenu = null, headMenu = null; // 가져올 곳·⋯ 메뉴는 아래(다른 작은 메뉴들 뒤)에서 만든다. 그 전 처음 그리기에서는 건너뛴다.
-root.innerHTML = `<div class="photos-sel kptu-selbar" data-photos-sel role="toolbar" aria-label="선택한 사진" hidden>${sbCloseHtml('data-photos-sel-off', '선택 끝내기')}<span class="kptu-sb-count" data-photos-sel-count>0개 선택됨</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act role="group" aria-label="선택한 사진" hidden>${photoActButtons(PHOTO_MENUS.selectBar, id => `data-photos-act-${id}`)}</div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-trash-act role="group" aria-label="선택한 휴지통 사진" hidden><button type="button" class="kptu-act" data-photos-restore>${actInner(ACT_ICON.restore,'되살리기')}</button><button type="button" class="kptu-act kptu-act-danger" data-photos-purge>${actInner(ACT_ICON.delete,'바로 삭제')}</button></div>`;
+root.innerHTML = `<div class="photos-sel kptu-selbar" data-photos-sel role="toolbar" aria-label="선택한 사진" hidden>${sbCloseHtml('data-photos-sel-off', '선택 끝내기')}<span class="kptu-sb-count" data-photos-sel-count>0개 선택됨</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-mark" data-photos-rail-mark aria-hidden="true" hidden></span><span class="photos-rail-bubble" data-photos-rail-bubble aria-hidden="true" hidden></span></div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act role="group" aria-label="선택한 사진" hidden>${photoActButtons(PHOTO_MENUS.selectBar, id => `data-photos-act-${id}`)}</div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-trash-act role="group" aria-label="선택한 휴지통 사진" hidden><button type="button" class="kptu-act" data-photos-restore>${actInner(ACT_ICON.restore,'되살리기')}</button><button type="button" class="kptu-act kptu-act-danger" data-photos-purge>${actInner(ACT_ICON.delete,'바로 삭제')}</button></div>`;
 const $ = sel => root.querySelector(sel);
 const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), odHost = $('[data-photos-od]');
-const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]');
+const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]'), railMark = $('[data-photos-rail-mark]');
 
 const OD_NONE = {configured:false, connected:false, folder:null, canDelete:false};
 let owner = ownerScope(rt), run = 0;
@@ -947,7 +947,7 @@ function loadUp() {
 }
 // 목록 위쪽에 칸이 더해질 때 보던 칸(맨 위 줄 아래 처음 보이는 칸)이 화면에서 같은 자리에 있게 스크롤을 옮긴다.
 function keepAnchor(fn) {
-  const edge = headEdge();
+  const edge = Math.max(0, headEdge());
   let a = null;
   for (const c of body.querySelectorAll('[data-photos-id]')) { const top = c.getBoundingClientRect().top; if (top + c.offsetHeight > edge) { a = {id:c.dataset.photosId, top}; break; } }
   fn();
@@ -1284,7 +1284,7 @@ function paintRail() {
   const on = tab === 'all' && level === 'day' && anyUse() && bar.length > 1 && !select.active && listSort() === DEFAULT_SORT;
   rail.hidden = !on;
   rail.querySelectorAll('.photos-rail-year').forEach(el => el.remove());
-  if (!on) { rail.classList.remove('is-awake'); return; }
+  if (!on) { rail.classList.remove('is-awake'); markOff(); return; }
   placeRail();
   // PHOTO-연월이동 A: 막대 옆 연도 눈금(해마다 한 번, 그 해 가장 최근 달 자리). 눈금은 읽어 주는 말에서 뺀다. 겹치는 해는 생략(yearLabels).
   const h = rail.getBoundingClientRect().height;
@@ -1294,12 +1294,26 @@ function paintRail() {
   railAt(bar.indexOf(at));
   railWake(RAIL_AWAKE_MS + 700);
 }
-// 손잡이를 막대 위 y(px)에 둔다(위·아래 끝에서 삐져나오지 않게).
-const thumbTo = px => { const h = rail.getBoundingClientRect().height; thumb.style.top = `${Math.round(Math.max(0, Math.min(Math.max(0, h - RAIL_THUMB_H), px - RAIL_THUMB_H / 2)))}px`; };
+// 손잡이를 막대 위 y(px)에 둔다(위·아래 끝에서 삐져나오지 않게). 위치 줄·연월 이름표는 손잡이 가운데 높이.
+const thumbTo = px => {
+  const h = rail.getBoundingClientRect().height, top = Math.round(Math.max(0, Math.min(Math.max(0, h - RAIL_THUMB_H), px - RAIL_THUMB_H / 2)));
+  thumb.style.top = `${top}px`; railMark.style.top = bubble.style.top = `${top + RAIL_THUMB_H / 2}px`;
+};
+// S71-64 시안 B(사용자 11/26 22:38 "현재 위치표시가 … 조금 더 오비우스하게 가로로" · 22:39 "B"): 넘기는 동안(손가락·휠·막대 끌기)
+// 화면 오른쪽 끝에서 화면 폭 1/6 길이 가로 줄(CSS)과 그 왼쪽 '2018년 3월' 이름표(bubble)가 지금 위치 높이에 뜬다. 멈추면 MARK_MS 뒤 사라짐(끄는 동안은 그대로).
+const MARK_MS = 1000;
+let markT = 0;
+function markOn() {
+  if (rail.hidden) return;
+  railMark.hidden = false; bubble.hidden = !bubble.textContent;
+  clearTimeout(markT);
+  if (!railDrag) markT = setTimeout(markOff, MARK_MS);
+}
+function markOff() { clearTimeout(markT); if (railDrag) return; railMark.hidden = true; bubble.hidden = true; }
 // 막대 손잡이 자리와 읽어 주는 값(달 순서 0 = 최신 달).
 function railAt(k) {
   const m = bar[k]; if (!m) return;
-  thumbTo(m.from * rail.getBoundingClientRect().height);
+  thumbTo(m.from * rail.getBoundingClientRect().height); bubble.textContent = monthLabelKo(m.key);
   rail.setAttribute('aria-valuemax', String(bar.length - 1)); rail.setAttribute('aria-valuenow', String(k)); rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
 let railDrag = null;
@@ -1307,16 +1321,15 @@ const railMonth = y => { const r = rail.getBoundingClientRect(); return monthAt(
 function showBubble(m, y) {
   if (!m) return;
   const r = rail.getBoundingClientRect();
-  bubble.hidden = false; bubble.textContent = monthLabelKo(m.key); bubble.style.top = `${Math.max(0, Math.min(r.height - 32, y - r.top - 16))}px`;
-  thumbTo(y - r.top);
+  bubble.textContent = monthLabelKo(m.key); thumbTo(y - r.top); markOn();
   rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
 const railPoint = e => { const m = railMonth(e.clientY); if (m && railDrag && m.key !== railDrag.key) navigator.vibrate?.(6); railDrag = m; showBubble(m, e.clientY); };
 rail.addEventListener('pointerdown', e => { e.preventDefault(); rail.setPointerCapture?.(e.pointerId); rail.classList.add('is-drag'); railWake(); railPoint(e); });
 rail.addEventListener('pointermove', e => { if (railDrag) railPoint(e); });
-const railEnd = () => { const m = railDrag; railDrag = null; bubble.hidden = true; rail.classList.remove('is-drag'); if (m) jumpMonth(m.key); railWake(); };
+const railEnd = () => { const m = railDrag; railDrag = null; rail.classList.remove('is-drag'); markOn(); if (m) jumpMonth(m.key); railWake(); };
 rail.addEventListener('pointerup', railEnd);
-rail.addEventListener('pointercancel', () => { railDrag = null; bubble.hidden = true; rail.classList.remove('is-drag'); railWake(); });
+rail.addEventListener('pointercancel', () => { railDrag = null; rail.classList.remove('is-drag'); markOn(); railWake(); });
 rail.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); }); // 막대 위 누르기는 아래 사진을 열지 않는다
 rail.addEventListener('pointerenter', e => { if (e.pointerType !== 'mouse') return; railHover = true; railWake(); });
 rail.addEventListener('pointerleave', () => { railHover = false; railWake(); });
@@ -1326,14 +1339,15 @@ let railScrollRaf = 0;
 function railSync() {
   railScrollRaf = 0;
   if (rail.hidden || railDrag || !bar.length) return;
-  const edge = headEdge();
+  // S71-64: 폰 틀 머리 줄은 스크롤하면 화면 위로 올라가 bottom이 음수가 된다 → 화면 맨 위(0)보다 위는 보지 않는다(전에는 맨 첫 날을 '지금 달'로 잡았다).
+  const edge = Math.max(0, headEdge());
   const days = body.querySelectorAll('[data-photos-day]');
   let key = '';
   for (const d of days) { if (d.getBoundingClientRect().bottom > edge + 1) { key = String(d.dataset.photosDay).slice(0, 7); break; } }
   const k = bar.findIndex(m => m.key === key);
   if (k >= 0) railAt(k);
 }
-window.addEventListener('scroll', () => { if (rail.hidden || railDrag) return; railWake(); if (!railScrollRaf) railScrollRaf = requestAnimationFrame(railSync); }, {passive:true, capture:true});
+window.addEventListener('scroll', () => { if (rail.hidden || railDrag) return; railWake(); markOn(); if (!railScrollRaf) railScrollRaf = requestAnimationFrame(railSync); }, {passive:true, capture:true});
 window.addEventListener('resize', () => { if (!rail.hidden) paintRail(); });
 rail.addEventListener('keydown', e => {
   if (!['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key) || !bar.length) return;
