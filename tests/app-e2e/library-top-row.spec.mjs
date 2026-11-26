@@ -73,9 +73,10 @@ for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 �
     await find.fill('결의');expect(await shownDocs(page)).toEqual(['a-2']);
     await find.press('Escape');await expect(find).toHaveValue('');
     expect(await shownDocs(page)).toEqual(['a-1','a-2','n-1']);
-    // 찾기 칸이 펼쳐진 동안은 칸이 이름·고르기 자리를 쓴다(S71-28). 비운 채 Esc면 접히고 고르기가 돌아온다.
-    await expect(page.locator('#libraryGroupBy')).toBeHidden();
-    await find.press('Escape');await expect(find).toBeHidden();await expect(page.locator('#libraryGroupBy')).toBeVisible();
+    // 찾기 칸이 펼쳐진 동안은 칸이 이름 자리를 쓰고, 고르기는 그동안만 칸 아래로 내려가 그대로 쓸 수 있다(S71-28). 비운 채 Esc면 접히고 다시 한 줄.
+    {const gb=await page.locator('#libraryGroupBy').boundingBox(),f2=await find.boundingBox();expect(gb.y).toBeGreaterThanOrEqual(f2.y+f2.height-1)}
+    await find.press('Escape');await expect(find).toBeHidden();
+    {const gb=await page.locator('#libraryGroupBy').boundingBox(),nb=await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();expect(Math.abs((gb.y+gb.height/2)-(nb.y+nb.height/2))).toBeLessThan(3)}
   }else{
     // PC·펼친 폴드: 상단 줄 [자료실에서 찾기 ……][⋯][+] 같은 줄([+] 맨 오른쪽, S71-28).
     const find=await screenFind(page);await expect(find).toHaveAttribute('placeholder','자료실에서 찾기');

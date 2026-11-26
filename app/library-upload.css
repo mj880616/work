@@ -534,7 +534,7 @@
 /* S71-28 FILES-머리한줄(명진 11/26 "자료실도"): 폰·폴드(~760px)는 앱 머리 줄 한 줄 = [W] 자료실 · [폴더 ▾] · [분류 ▾] …… ⋯ · 찾기 · [+]
    ([+]는 맨 오른쪽, 11/26 명진 '…찾기 · [+]'). 고르기 줄(.lu-pick-row)은 library-upload.js luPlacePicks가 머리 줄 단추 상자(.sf-tools)로 옮긴다 — 본문 둘째 줄 없음.
    상자·[⋯ +] 묶음은 머리 줄 칸으로 풀어(display:contents) 찾기 칸(.mobile-shell-find)과 자리 순서만 맞춘다(그리기·누르기는 그대로).
-   [분류 ▾]는 지금 고른 값만 보인다(읽기 이름은 '분류: …'). 좁으면 고르기 상자 글자가 먼저 '…'로 준다. 폰(600px 미만)에서 찾기 칸을 펼치면 칸이 이름·고르기 자리를 쓴다. */
+   [분류 ▾]는 지금 고른 값만 보인다(읽기 이름은 '분류: …'). 좁으면 고르기 상자 글자가 먼저 '…'로 준다. 폰(600px 미만)에서 찾기 칸을 펼치면 칸이 이름 자리를 쓰고 고르기는 그동안만 아래 칸으로 내려간다. */
 @media(max-width:760px){
   html[data-screen-find="library"] #appView>.mobile-shell-header{gap:4px}
   html[data-screen-find="library"] #appView>.mobile-shell-header>.head-mark{margin-right:4px}
@@ -553,7 +553,10 @@
 }
 @media(max-width:599px){
   html[data-screen-find="library"] .mobile-shell-header:not(.sf-open)>.mobile-shell-find{flex:0 0 auto}
-  html[data-screen-find="library"] .mobile-shell-header.sf-open .sf-tools .lu-pick-row{display:none}
+  /* 찾기 칸을 펼친 동안(폰): 칸이 이름 자리를 쓰고, 고르기는 그동안만 머리 줄 아래 칸으로 내려가 찾으면서도 분류·묶기를 바꿀 수 있다. 접으면 다시 한 줄. */
+  html[data-screen-find="library"] .mobile-shell-header.sf-open{flex-wrap:wrap;row-gap:4px}
+  html[data-screen-find="library"] .mobile-shell-header.sf-open>.mobile-shell-find{flex:1 1 0;min-width:0} /* 칸은 남은 폭만 — [+]가 아래로 밀리지 않게 */
+  html[data-screen-find="library"] .mobile-shell-header.sf-open .sf-tools .lu-pick-row{order:5;flex:1 1 100%}
 }
 /* LIB-위쪽한줄: [분류 ▾] 창 줄 끝 자료 수(0도 보임, 소분류 줄은 없음) — 공용 고르기 창 줄 오른쪽 끝 작은 보조 글자. */
 .home-choice-sheet.lu-cat-sheet .lu-cat-sheet-count{flex:none;margin-left:auto;padding-left:8px;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
