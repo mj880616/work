@@ -408,21 +408,25 @@ test('맨 위 앱 폴더를 처음 만들 때 저절로: gatherIntoNewRoot가 �
   assert.equal(await gatherIntoNewRoot({ drive: null, rootId: ROOT }), null);
 });
 
-test('서버가 맨 위 앱 폴더를 새로 만드는 네 곳 모두 만든 바로 뒤 gatherIntoNewRoot를 부른다(그 밖에는 부르지 않음)', () => {
+test('서버가 맨 위 앱 폴더를 새로 만드는 곳 모두 만든 바로 뒤 gatherIntoNewRoot를 부른다(그 밖에는 부르지 않음)', () => {
   const base = fileURLToPath(new URL('../supabase/functions/', import.meta.url));
   const read = f => readFileSync(join(base, f), 'utf8');
-  for (const f of ['workspace-drive/index.ts', 'library-files/index.ts', 'meeting-files/index.ts']) {
+  for (const f of ['workspace-drive/index.ts', 'library-files/index.ts']) {
     const src = read(f);
     assert.match(src, /root_folder_id:d\.id,updated_at:new Date\(\)\.toISOString\(\)\}\);await gatherIntoNewRoot\(\{drive:tokenDrive\(token\),rootId:d\.id\}\);return d\.id/, f);
     assert.match(src, /import \{[^}]*gatherIntoNewRoot[^}]*\} from '\.\.\/_shared\/gather-folders\.mjs'/, f);
   }
-  const mt = read('meeting-transcribe/index.ts');
-  assert.match(mt, /root_folder_id: root, updated_at: new Date\(\)\.toISOString\(\) \}\);\n\s*\/\/ S70-29[^\n]*\n\s*await gatherIntoNewRoot\(\{ drive: [^\n]*rootId: root \}\);/);
-  // 맨 위 앱 폴더(root_folder_id)를 새로 적는 곳은 이 네 곳뿐 — 다른 곳이 생기면 이 시험이 알린다.
+  // S71-02: 회의 두 함수(meeting-files·meeting-transcribe)는 드라이브 자리 규칙 _shared/meeting-drive-place.mjs 한 곳이 맨 위 앱 폴더를 만들고
+  // 바로 뒤 부르는 쪽이 넣은 gather(= gatherIntoNewRoot)를 부른다(시험 tests/security/meeting-drive-place.test.mjs '새 사용자').
+  const place = read('_shared/meeting-drive-place.mjs');
+  assert.match(place, /root = await createFolder\(ctx\.drive, ROOT_FOLDER_NAME, null\);\n\s*await ctx\.db\.save\(\{ root_folder_id: root \}\);\n\s*try \{ await ctx\.gather\?\.\(root\); \}/);
+  assert.match(read('meeting-files/index.ts'), /gather:\(rootId:string\)=>gatherIntoNewRoot\(\{drive,rootId\}\)/);
+  assert.match(read('meeting-transcribe/index.ts'), /gather: \(rootId: string\) => gatherIntoNewRoot\(\{ drive, rootId \}\)/);
+  // 맨 위 앱 폴더(root_folder_id)를 새로 적는 곳은 이 셋뿐 — 다른 곳이 생기면 이 시험이 알린다.
   const writers = [];
-  const walk = d => { for (const n of readdirSync(join(base, d), { withFileTypes: true })) { const p = join(d, n.name); if (n.isDirectory()) walk(p); else if (/\.(ts|mjs)$/.test(n.name) && /upsert\(\{\s*workspace_id:\s*workspaceId,\s*root_folder_id/.test(read(p))) writers.push(p); } };
+  const walk = d => { for (const n of readdirSync(join(base, d), { withFileTypes: true })) { const p = join(d, n.name); if (n.isDirectory()) walk(p); else if (/\.(ts|mjs)$/.test(n.name) && /upsert\(\{\s*workspace_id:\s*workspaceId,\s*root_folder_id|save\(\{\s*root_folder_id/.test(read(p))) writers.push(p); } };
   walk('.');
-  assert.deepEqual(writers.sort(), ['library-files/index.ts', 'meeting-files/index.ts', 'meeting-transcribe/index.ts', 'workspace-drive/index.ts']);
+  assert.deepEqual(writers.sort(), ['_shared/meeting-drive-place.mjs', 'library-files/index.ts', 'workspace-drive/index.ts']);
 });
 
 test('화면: 자료실 위 줄·내 프로필 칸 모두 [한곳으로 모으기] 버튼이 없고(S70-29), 내 프로필 칸은 위치와 [열기 ↗]만', async () => {

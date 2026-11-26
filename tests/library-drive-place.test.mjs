@@ -56,7 +56,11 @@ test('② 새 사용자 맨 위 폴더 이름은 WORK ON+ — 노조·팀 이름
     const src = readFileSync(new URL(`../supabase/functions/${fn}/index.ts`, import.meta.url), 'utf8');
     assert.ok(!src.includes('공공기관사업팀 Workspace'), fn);
     assert.ok(!/createFolder\(token, '웹2'\)|name:'웹2'/.test(src), fn);
-    assert.ok(src.includes('ROOT_FOLDER_NAME'), fn);
+    // S71-02: 회의 두 함수는 맨 위 앱 폴더를 공용 회의 드라이브 자리 규칙(_shared/meeting-drive-place.mjs)으로 만든다.
+    const place = fn.startsWith('meeting-') ? readFileSync(new URL('../supabase/functions/_shared/meeting-drive-place.mjs', import.meta.url), 'utf8') : src;
+    if (fn.startsWith('meeting-')) assert.ok(src.includes('meeting-drive-place.mjs'), fn);
+    assert.ok(place.includes('ROOT_FOLDER_NAME'), fn);
+    assert.ok(!/['"]공공기관사업팀 Workspace['"]|name:'웹2'/.test(place), fn);
     // 이미 있는 사람은 저장된 id로 찾고 새로 만들지 않는다(이름을 바꾸는 요청 없음).
     assert.ok(src.includes('root_folder_id'), fn);
   }
