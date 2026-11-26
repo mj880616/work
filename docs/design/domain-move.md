@@ -4,8 +4,8 @@
 - 요청 원문: Drive 'Web2 요청함' 2026-10-28 01:08 주소 이전 ①②③④와 07:30 추가(원드라이브 돌아올 주소).
 - 기준 문서: [`docs/bokdoong-domain.md`](../bokdoong-domain.md)(지금 주소 구조), [`docs/web2-expand-deploy-verify-contract.md`](../web2-expand-deploy-verify-contract.md)(Expand → Deploy → Verify → Contract 원칙), [`docs/design/diary-onedrive.md`](diary-onedrive.md) 10.4(원드라이브 돌아올 주소).
 - 시안: [`mockups/domain-move.html`](mockups/domain-move.html)(옛 주소 안내 한 줄, 다시 로그인 안내, 아스날 메뉴 자리).
-- 순서(명진 결정 01:08): ① 주소 이전 → ② 아스날 메뉴 → ③ 노트에 읽생기 아이디어 → ④ Web1 삭제. 읽생기 사이트 닫기(③의 ⑥)는 '바로' 요청이라 ③-0으로 따로 떼어 언제든 할 수 있게 했다.
-- 표시: **⏸ 결정 대기** = 커맨드센터 승인·명진 결정 전에는 하지 않음. 모든 운영 단계는 ⏸이다. 2026-11-25 S70-50: 1.2·4.5절 상태 칸을 원장·실행 기록으로 고쳤다(⏸ 남은 칸은 2·3절).
+- 순서(사용자 결정 01:08): ① 주소 이전 → ② 아스날 메뉴 → ③ 노트에 읽생기 아이디어 → ④ Web1 삭제. 읽생기 사이트 닫기(③의 ⑥)는 '바로' 요청이라 ③-0으로 따로 떼어 언제든 할 수 있게 했다.
+- 표시: **⏸ 결정 대기** = 커맨드센터 승인·사용자 결정 전에는 하지 않음. 모든 운영 단계는 ⏸이다. 2026-11-25 S70-50: 1.2·4.5절 상태 칸을 원장·실행 기록으로 고쳤다(⏸ 남은 칸은 2·3절).
 
 ## 0. 지금 구조에서 확인한 사실 (2026-10-28 main `2be017bd`)
 
@@ -41,16 +41,16 @@
 | 단계 | 할 일 | 누가 | 상태 |
 | --- | --- | --- | --- |
 | E1 코드 | Edge 허용 주소에 `https://bokdoong.com` **추가만**: `public-policy-drive`(Web2 자료실 올리기·지우기가 씀), `auth-handoff`(Web2 로그인 전달), `public-page-edit`·`pc0921-board`(Web2 안 Web1 편집, ④까지). 지금 주소는 지우지 않음 | 작업 세션 PR | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
-| E2 Edge 배포 | E1 함수 4개를 승인형 workflow로 하나씩, `verify_jwt=keep`(넷 다 false 유지, `docs/web2-env6b-edge-source.md` 5절) | 커맨드센터 시작 → 명진 승인 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
-| E3 로그인 주소 | Supabase Auth **Redirect URLs에 bokdoong.com 줄 추가**(1.4-가). Site URL은 아직 그대로 | 명진(화면) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
-| E4 원드라이브 | Azure 앱 등록에 **새 돌아올 주소 추가**(1.4-나). 옛 주소는 지우지 않음. 비밀값은 아직 그대로 | 명진(화면) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| E2 Edge 배포 | E1 함수 4개를 승인형 workflow로 하나씩, `verify_jwt=keep`(넷 다 false 유지, `docs/web2-env6b-edge-source.md` 5절) | 커맨드센터 시작 → 사용자 승인 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| E3 로그인 주소 | Supabase Auth **Redirect URLs에 bokdoong.com 줄 추가**(1.4-가). Site URL은 아직 그대로 | 사용자(화면) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| E4 원드라이브 | Azure 앱 등록에 **새 돌아올 주소 추가**(1.4-나). 옛 주소는 지우지 않음. 비밀값은 아직 그대로 | 사용자(화면) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
 | E5 Worker | `bokdoong.com/work/app/**`에서도 Web2가 열리게(포털 `/`는 아직 그대로, desk도 그대로) + 1.1절 캐시 동작 | 작업 세션 PR → 커맨드센터 승인 merge(자동 배포) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
-| V1 확인 | 새 주소에서 Google 로그인, 앱 열기·뒤로가기, 자료실 올리기, 일정 연결 다시 하기, 공유 링크 만들기, 폴드·PC. 옛 desk도 여전히 되는지 | 커맨드센터 + 명진 폰 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| V1 확인 | 새 주소에서 Google 로그인, 앱 열기·뒤로가기, 자료실 올리기, 일정 연결 다시 하기, 공유 링크 만들기, 폴드·PC. 옛 desk도 여전히 되는지 | 커맨드센터 + 사용자 폰 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
 | D1 코드 | Worker: `bokdoong.com/` → Web2, desk·work의 `/work/app/**` → bokdoong.com. `public-policy-drive`의 돌아갈 화면 주소(`DRIVE_APP_URL`·`CALENDAR_APP_URL`) → bokdoong.com. 시험·확인 스크립트(`tests/domain/bokdoong-router.test.mjs`, `scripts/cloudflare-check-urls.mjs`, `scripts/check-pages-build.mjs`, worker 배포 workflow 확인 주소) 갱신 | 작업 세션 PR 2개(Worker / Edge) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
-| D2 배포 | Edge `public-policy-drive` 배포 → Worker PR merge(자동 배포) | 커맨드센터 → 명진 승인 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
-| D3 원드라이브 비밀값 | `ONEDRIVE_REDIRECT_URI`를 새 주소로(1.4-다). D2 직후 | 명진(화면) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
-| V2 확인 | 옛 즐겨찾기(desk·work) → 새 주소, 다시 로그인 1회, 원드라이브 다시 연결, 사진 보기, 공유 링크(옛·새) 열림, 안드로이드·윈도우 앱(github.io) 그대로, 앱 다시 설치(아이콘 바꾸기 재설치와 한 번에) | 커맨드센터 + 명진 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
-| C1 정리(30일 뒤 추천) | `personal/portal/` 삭제, Worker의 포털·favicon 분기 삭제, Supabase Site URL을 새 주소로, Redirect URLs의 desk·work Web2 줄 삭제, Azure 옛 주소 삭제, Edge 허용 주소에서 desk 삭제, `basket-pc` 바로가기 주소 다음 판에 새 주소, AGENTS.md 1절 폰 진단 주소·`docs/bokdoong-domain.md` 갱신 | 작업 세션 PR + 명진 화면 | 남음 — `personal/portal/`·포털 분기 그대로(사실). bokdoong.com은 뒤에 이전 안내로 바뀜(DOMAIN-bokdoong이전안내). CC가 블로그 주소 단계와 묶어 정리(Cloudflare는 정지 지점, `docs/qa/stalled-audit-20261125.md` B7) |
+| D2 배포 | Edge `public-policy-drive` 배포 → Worker PR merge(자동 배포) | 커맨드센터 → 사용자 승인 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| D3 원드라이브 비밀값 | `ONEDRIVE_REDIRECT_URI`를 새 주소로(1.4-다). D2 직후 | 사용자(화면) | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| V2 확인 | 옛 즐겨찾기(desk·work) → 새 주소, 다시 로그인 1회, 원드라이브 다시 연결, 사진 보기, 공유 링크(옛·새) 열림, 안드로이드·윈도우 앱(github.io) 그대로, 앱 다시 설치(아이콘 바꾸기 재설치와 한 번에) | 커맨드센터 + 사용자 | 완료(DOMAIN-주소이전 운영 반영, 원장 행 기준) |
+| C1 정리(30일 뒤 추천) | `personal/portal/` 삭제, Worker의 포털·favicon 분기 삭제, Supabase Site URL을 새 주소로, Redirect URLs의 desk·work Web2 줄 삭제, Azure 옛 주소 삭제, Edge 허용 주소에서 desk 삭제, `basket-pc` 바로가기 주소 다음 판에 새 주소, AGENTS.md 1절 폰 진단 주소·`docs/bokdoong-domain.md` 갱신 | 작업 세션 PR + 사용자 화면 | 남음 — `personal/portal/`·포털 분기 그대로(사실). bokdoong.com은 뒤에 이전 안내로 바뀜(DOMAIN-bokdoong이전안내). CC가 블로그 주소 단계와 묶어 정리(Cloudflare는 정지 지점, `docs/qa/stalled-audit-20261125.md` B7) |
 
 일상어 3줄 (단계별):
 
@@ -86,7 +86,7 @@
 
 D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확인해 빠진 곳이 없음을 본문에 적는다.
 
-### 1.4 명진이 화면에서 바꾸는 단계 (비밀번호·값은 채팅에 보내지 않음)
+### 1.4 사용자가 화면에서 바꾸는 단계 (비밀번호·값은 채팅에 보내지 않음)
 
 가. **Supabase 로그인 돌아올 주소 추가 (E3)**
 1. Supabase 대시보드 로그인 → 이 프로젝트 선택.
@@ -114,7 +114,7 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 마. **Google Cloud (확인만)**
 - OAuth 클라이언트의 **승인된 리디렉션 URI**가 Supabase 주소(`…supabase.co/…`)뿐이면 바꿀 것 없음. `desk.bokdoong.com`이 적혀 있으면 커맨드센터에 알려 주면 같은 방식으로 추가 단계를 준다.
 
-### 1.5 미리 알려 둘 것 (명진)
+### 1.5 미리 알려 둘 것 (사용자)
 
 - 새 주소에서 **한 번 다시 로그인**. 원드라이브는 **한 번 다시 연결**.
 - 폰·PC에 설치한 웹2 앱은 **새 주소로 다시 설치**(10/27 17:49 아이콘 바꾸기 재설치와 한 번에). 옛 앱 아이콘도 열면 새 주소로 넘어간다.
@@ -138,14 +138,14 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 ### 3.0 ③-0 읽생기 사이트 닫기 (요청 '바로', ①과 독립)
 
 - 대상은 **다른 저장소**(`read-think-write`의 화면·`rtw-router` Worker·글 추가 통로 `rtw-personal-write`)다. 이 저장소 작업 세션 범위 밖이라 커맨드센터가 그 저장소용 작업을 따로 띄운다.
-- 순서: ① 비밀값 확인 — `OPENAI_API_KEY` 등은 **지우지 않는다**(0절 6번, 프로젝트 공용). ② `read.bokdoong.com`은 '더 이상 운영하지 않는 페이지입니다' 한 줄로(Worker 변경, ⏸). ③ `rtw-personal-write`는 함수 삭제(AGENTS.md 1절: 커맨드센터 승인 뒤 명진이 대시보드에서) 또는 항상 거절하는 판으로 재배포 중 택일(질문 Q6). ④ `rtw_*` 표·데이터(지인 글 포함)·Auth 사용자는 **보존**.
+- 순서: ① 비밀값 확인 — `OPENAI_API_KEY` 등은 **지우지 않는다**(0절 6번, 프로젝트 공용). ② `read.bokdoong.com`은 '더 이상 운영하지 않는 페이지입니다' 한 줄로(Worker 변경, ⏸). ③ `rtw-personal-write`는 함수 삭제(AGENTS.md 1절: 커맨드센터 승인 뒤 사용자가 대시보드에서) 또는 항상 거절하는 판으로 재배포 중 택일(질문 Q6). ④ `rtw_*` 표·데이터(지인 글 포함)·Auth 사용자는 **보존**.
 - 일상어 3줄 — 바뀌나: 읽생기 사이트가 한 줄 안내만 보이고 ChatGPT 글 추가가 막힘. / 잘못되면: 비밀값을 잘못 건드리면 Web2 AI가 멈춤(그래서 비밀값은 손대지 않음). / 되돌리기: Worker 이전 버전, 함수는 저장소 원본 재배포. 데이터는 지우지 않으므로 그대로.
 
 ### 3.1 노트 기능 (설계·시안 먼저 — 별도 상세 설계 PR)
 
 | 단계 | 할 일 | 상태 |
 | --- | --- | --- |
-| 상세 설계 | 댓글(유형 생각·질문·인용, 유형 편집), 인용 댓글(본문 문장 선택), 댓글 모아 보기, 해시태그(폴더 유지, `[폴더/해시태그/댓글]` 칩), 주소로 가져오기, AI 읽기 → 시안 HTML로 명진 확인 | ⏸ 커맨드센터가 세션 띄움 |
+| 상세 설계 | 댓글(유형 생각·질문·인용, 유형 편집), 인용 댓글(본문 문장 선택), 댓글 모아 보기, 해시태그(폴더 유지, `[폴더/해시태그/댓글]` 칩), 주소로 가져오기, AI 읽기 → 시안 HTML로 사용자 확인 | ⏸ 커맨드센터가 세션 띄움 |
 | E1 DB | 새 표만 추가(기존 표 권한 넓히지 않음): 댓글·댓글 유형·노트 해시태그. 주인만 읽고 쓰기(`private.app_is_workspace_owner`), 짝 파일 5개, 승인형 DB workflow | ⏸ 정지 지점 |
 | E2 Edge | 주소로 가져오기: 서버가 바깥 페이지를 읽음 — http·https만, 크기·시간 상한, 내부·사설 주소 차단, 넘김 횟수 상한. AI 읽기: 기존 `ai-assist`에 동작 추가(월 AI 상한 안, AI 사용량 줄에 표시, '~함. ~임.' 말투), 결과는 그 노트 댓글로 | ⏸ 정지 지점 |
 | D1 화면 | 노트 읽기 화면 댓글 줄·댓글 쓰기, 목록 칩, 검색에 해시태그·댓글 포함. 저장 버튼 자리는 10/27 16:02 규칙 | ⏸ |
@@ -159,10 +159,10 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 | 순서 | 범위 | 상태 |
 | --- | --- | --- |
 | 1단계 | ① 댓글(유형 생각·질문·인용, 본문 문장 고르면 인용) + 노트 목록 [댓글] 모아 보기(유형 칩) ② 해시태그(본문 `#낱말` → [태그] 모아 보기, 노트 머리 `#태그`) + 검색에 댓글 포함. DB는 새 표 `app_note_comments` 하나(`20261102203000`, owner만, anon 없음). 해시태그는 표 없이 노트 본문에서 읽음 | S48-20 PR |
-| 2단계 | 댓글 유형 더하기·이름 바꾸기·지우기(명진 설정). `kind`가 글자(1~20자)라 댓글 표는 그대로, 유형 목록만 사람별 설정으로 | 대기 |
+| 2단계 | 댓글 유형 더하기·이름 바꾸기·지우기(사용자 설정). `kind`가 글자(1~20자)라 댓글 표는 그대로, 유형 목록만 사람별 설정으로 | 대기 |
 | 3단계 | ④ 주소로 가져오기(E2 Edge: http·https만, 크기·시간·넘김 상한, 내부·사설 주소 차단) | 대기 |
 | 4단계 | ⑤ AI 읽기(기존 `ai-assist`에 동작 추가, 결과는 그 노트 댓글로 — 서버가 넣으므로 그때 service_role 넣기 권한 또는 owner 확인 함수를 따로 설계) | 대기 |
-| 5단계 | ③-0 읽생기 사이트 닫기(3.0절, 다른 저장소). **되돌릴 수 없는 일이라 명진 결정 뒤에만** | 명진 결정 대기 |
+| 5단계 | ③-0 읽생기 사이트 닫기(3.0절, 다른 저장소). **되돌릴 수 없는 일이라 사용자 결정 뒤에만** | 사용자 결정 대기 |
 
 - 1단계에서 폴더는 그대로 두고 [폴더·목록·포스트잇] 옆에 [태그]·[댓글]을 더했다(서버에 기억하는 보기는 세 가지 그대로). 폴드 접은 폭(~380px)은 보기 단추 줄이 검색 칸 아래로 내려간다.
 - 일상어 3줄(E1 DB) — 바뀌나: 노트에 댓글·해시태그를 저장할 새 칸이 생김(기존 노트는 그대로). / 잘못되면: 새 기능만 저장 실패, 기존 노트 영향 없음. / 되돌리기: 새 표만 지우는 rollback SQL(적용 전에 준비).
@@ -171,13 +171,13 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 
 ### 4.1 삭제 전 되돌릴 이름표
 
-- 삭제 PR merge **직전**의 main 커밋에 이름표 `web1-last-YYYYMMDD`(실행 날짜)를 단다. 되돌리기 = 그 이름표에서 필요한 폴더만 되살리는 PR. 저장소 지난 기록은 지우지 않는다(공개 저장소라 기록은 남음 — 명진 안내 완료).
+- 삭제 PR merge **직전**의 main 커밋에 이름표 `web1-last-YYYYMMDD`(실행 날짜)를 단다. 되돌리기 = 그 이름표에서 필요한 폴더만 되살리는 PR. 저장소 지난 기록은 지우지 않는다(공개 저장소라 기록은 남음 — 사용자 안내 완료).
 - C1(포털) 때도 같은 방식 `portal-last-YYYYMMDD`.
 - 이름표는 커맨드센터가 삭제 승인 때 단다(이 설계 PR에서는 달지 않음).
 
 ### 4.2 지우기 전 먼저 할 것
 
-1. **성명·보도자료 대조**: 원장 PRESS-자료실편입이 '진행중(가져오기 → 대조 → Contract)'. `press/` 47건과 자료실 '성명·보도자료' 건수·제목을 대조표로 확인 → 맞으면 원장 상태를 고치는 안을 PR 본문 '원장 반영'에 적음. 안 맞으면 대조만 하고 빠진 것은 명진에게 보고.
+1. **성명·보도자료 대조**: 원장 PRESS-자료실편입이 '진행중(가져오기 → 대조 → Contract)'. `press/` 47건과 자료실 '성명·보도자료' 건수·제목을 대조표로 확인 → 맞으면 원장 상태를 고치는 안을 PR 본문 '원장 반영'에 적음. 안 맞으면 대조만 하고 빠진 것은 사용자에게 보고.
 2. **Web2가 Web1을 빌려 쓰는 곳 정리**(먼저 Web2 쪽 PR):
    - `app/web1-board.js`·`web1-board.css`(사업 게시판이 Web1 페이지를 띄움), `app/web1-page-capabilities.js`, `app/web1-admin-auth.js`, `app/public-page-editor.js`, `app/forum-flow-polish.js`·`.css`, `app/legacy/editable-page.js` → 메뉴·화면째 삭제(숨기지 않음).
    - 실행 세션이 `grep`(`/work/` 중 `/work/app/` 밖, `../` 상대경로, `work.bokdoong.com`)으로 다시 전수 확인.
@@ -198,8 +198,8 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 ### 4.4 지우는 것
 
 - 페이지: 루트 `index.html`(Web1 입구), `press/`, `2in1/`, `workforce/`, `rail-council/`, `private-rail/`, `p/`, `s/`, `public-policy/`, `sanbyeol/`, `wedding/`, `review/`, `workspace/`, `assets/`(Web1 전용 — 실행 세션이 Web2·share가 안 쓰는지 확인).
-- 관문·명령·검사: `publication-gate.yml`, `publication-auto-merge.yml`, `sync-public-page-meta.yml`, `web1-editor-auth-check.yml`, `web1-file-dropzone.yml`, `private-rail-forum-state-e2e.yml`, `.claude/commands/게시반영.md`, Web1 전용 `scripts/`(`generate-public-pages.mjs`, `compare-pages.mjs` 등)·`tests/`. 필수 검사 설정에 걸린 것이 있으면 GitHub 규칙 변경이 함께 필요(명진 화면, ⏸).
-- Edge 함수(Web1 전용, 대시보드 삭제는 명진): `public-page-edit`, `pc0921-board`, `pc0914-checklist`, `pc0914-storage-test`, `pc-file-test`, `rail-1007-page`, `rail-1007-page-v2`, `wedding-mc-shared`, `kptu-board-probe`(실행 세션이 Web2 사용처 없음을 다시 확인). **`public-policy-drive`는 Web2 자료실·Google 연결이 쓰므로 남김.**
+- 관문·명령·검사: `publication-gate.yml`, `publication-auto-merge.yml`, `sync-public-page-meta.yml`, `web1-editor-auth-check.yml`, `web1-file-dropzone.yml`, `private-rail-forum-state-e2e.yml`, `.claude/commands/게시반영.md`, Web1 전용 `scripts/`(`generate-public-pages.mjs`, `compare-pages.mjs` 등)·`tests/`. 필수 검사 설정에 걸린 것이 있으면 GitHub 규칙 변경이 함께 필요(사용자 화면, ⏸).
+- Edge 함수(Web1 전용, 대시보드 삭제는 사용자): `public-page-edit`, `pc0921-board`, `pc0914-checklist`, `pc0914-storage-test`, `pc-file-test`, `rail-1007-page`, `rail-1007-page-v2`, `wedding-mc-shared`, `kptu-board-probe`(실행 세션이 Web2 사용처 없음을 다시 확인). **`public-policy-drive`는 Web2 자료실·Google 연결이 쓰므로 남김.**
 - 옛 주소 처리: Worker가 `work.bokdoong.com`에서 `/work/share/` 밖 모든 경로에 '더 이상 운영하지 않는 페이지입니다' 한 줄(검색 제외). github.io 주소용으로 루트 `404.html`에도 같은 한 줄.
 - 문서: AGENTS.md 5절 Web1 문단, `docs/bokdoong-domain.md`, `docs/web1-public-page-withdrawal.md` 갱신.
 
@@ -211,7 +211,7 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 | E2 | Web2가 Web1 빌려 쓰는 화면 삭제 PR(4.2-2) | 완료(#1545) |
 | D1 | 이름표 → Worker 안내 한 줄 + 404.html PR(커맨드센터 승인 merge) | 완료(WEB1-페이지삭제 #2266) |
 | V1 | 공유 링크(옛·새)·Web2 전체·바깥에 보낸 Web1 링크 몇 개가 한 줄 안내로 | 확인 필요(확인 기록 없음) |
-| C1 | Web1 파일·관문·검사 삭제 PR, Edge 함수 삭제(명진 대시보드), 문서 갱신 | 일부 완료(C1-b 파일·관문·검사 삭제 #2265·#2266). 남음: C1-c Edge 삭제·C1-d Auth Redirect 정리(12/10 이후, WEB1-Edge정리 행) |
+| C1 | Web1 파일·관문·검사 삭제 PR, Edge 함수 삭제(사용자 대시보드), 문서 갱신 | 일부 완료(C1-b 파일·관문·검사 삭제 #2265·#2266). 남음: C1-c Edge 삭제·C1-d Auth Redirect 정리(12/10 이후, WEB1-Edge정리 행) |
 
 일상어 3줄:
 
@@ -221,7 +221,7 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 
 ## 5. 이 설계 뒤 작업 순서 (커맨드센터용)
 
-1. ①-E1 Edge 허용 주소 PR → E2 배포 → E3·E4 명진 화면 → E5 Worker PR.
+1. ①-E1 Edge 허용 주소 PR → E2 배포 → E3·E4 사용자 화면 → E5 Worker PR.
 2. ②-E1 아스날 화면 PR(①-E5 뒤, 노트 #1392와 다른 파일).
 3. V1 → ①·② D1(Worker 한 번, Edge 한 번) → D3 → V2.
 4. ③-0 읽생기 닫기(다른 저장소, 언제든) / ③ 상세 설계(#1392 뒤).
