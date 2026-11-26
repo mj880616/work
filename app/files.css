@@ -87,6 +87,10 @@
 .fx-pv-head { display:flex; align-items:center; gap:4px; min-width:0; }
 .fx-pv-nm { font-weight:500; word-break:break-all; }
 .fx-back { display:none; font-size:16px; }
+/* S70-72 FILES-상세칸정리: PC 넓은 폭 오른쪽 상세 칸 머리 끝 [›] 접기 · 접으면 얇은 띠에 [‹] 펼치기만(목록이 넓어짐). 접힘은 서버 view_prefs.files_prev_shut. */
+.fx-pv-fold { flex:none; margin-left:auto; width:24px; height:24px; padding:0; border:0; border-radius:var(--kptu-radius-sm); background:none; color:var(--kptu-muted); font:inherit; font-size:16px; line-height:1; cursor:pointer; }
+.fx-pv-fold:hover { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
+.fx[data-fx-prev-shut] .fx-prev { flex:0 0 28px; width:28px; padding:6px 2px; overflow:hidden; }
 .fx-pv-view { margin:8px 0; }
 .fx-pv-imgbox { min-height:180px; border-radius:var(--kptu-radius-sm); }
 .fx-pv-img { display:block; max-width:100%; max-height:60vh; margin:0 auto; border:.5px solid var(--kptu-border); border-radius:var(--kptu-radius-sm); }
