@@ -1,20 +1,10 @@
-// S69-97 노트 서식(NOTE-에버노트 ③, 설계 docs/design/note-evernote.md 4절): 기본 서식과 서식 이름 검사(화면 없음).
-// 기본 서식 셋은 코드에만 있다(저장하지 않음, 고칠 수 없음). 내 서식은 서버 표 app_note_templates(주인만, migration 20261125131000).
-// WORK ON+ 원칙: 기본 서식 글은 누구나 쓰는 일반 문구(특정 단체·업무 색 낱말 없음).
+// S69-97 노트 서식(NOTE-에버노트 ③, 설계 docs/design/note-evernote.md 4절): 서식 이름 검사와 서식을 노트 글에 넣기(화면 없음).
+// 서식은 사람이 저장한 내 서식뿐이다(서버 표 app_note_templates, 주인만, migration 20261125131000).
+// S71-65(사용자 결정 2026-11-26): 앱이 미리 넣어 두던 서식 셋은 없앴다.
 export const TEMPLATE_NAME_MAX = 40;
 export const TEMPLATE_MAX = 50; // 한 사람이 저장하는 서식 수(화면이 지킨다)
-
-const p = text => ({type: 'paragraph', attrs: {style: 'body2'}, content: text ? [{type: 'text', text}] : []});
-const h = text => ({type: 'heading', attrs: {level: 2}, content: [{type: 'text', text}]});
-const bullets = (...items) => ({type: 'bullet_list', content: items.map(t => ({type: 'list_item', content: [p(t)]}))});
-const checks = (...items) => ({type: 'bullet_list', attrs: {marker: 'check'}, content: items.map(t => ({type: 'list_item', content: [p(t)]}))});
-const ed1 = (...content) => ({v: 'ed1', doc: {type: 'doc', content}});
-
-export const BUILTIN_TEMPLATES = [
-  {key: 'meeting', name: '회의록', doc: ed1(h('일시·장소'), p(''), h('참석'), p(''), h('안건'), bullets(''), h('논의'), p(''), h('정한 것'), bullets(''), h('할 일'), checks(''))},
-  {key: 'week', name: '주간 계획', doc: ed1(h('이번 주 목표'), bullets(''), h('월'), p(''), h('화'), p(''), h('수'), p(''), h('목'), p(''), h('금'), p(''), h('할 일'), checks(''), h('돌아보기'), p(''))},
-  {key: 'call', name: '통화 기록', doc: ed1(h('누구와'), p(''), h('언제'), p(''), h('나눈 이야기'), bullets(''), h('다음에 할 일'), checks(''))},
-];
+// 내 서식이 하나도 없을 때 고르기 창·노트 목록 ⋯ [서식으로 새 노트]가 함께 쓰는 안내 한 줄.
+export const TEMPLATE_EMPTY_HINT = '노트 ⋯ [서식으로 저장]으로 내 서식을 만들어요.';
 
 export function checkTemplateName(name) {
   const v = String(name ?? '').trim();
