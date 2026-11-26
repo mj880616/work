@@ -132,7 +132,7 @@
 #menuEditModal .me-row .me-name-in[aria-invalid="true"]{border-color:var(--kptu-danger)}
 /* S71-32 NAV-메뉴수정하나로: 하단바·위 메뉴·아래 붙는 메뉴·숨긴 메뉴를 테두리 하나 안의 목록 하나로. 칸 사이는 가는 줄 + 작은 회색 글. PC 미리보기 상자 없음. */
 .me-one{border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);overflow:hidden;margin-top:6px}
-.me-one .me-list{border:0;border-radius:0}
+.me-one .me-list{border:0}
 .me-one .me-list:empty{min-height:22px}
 .me-bar-line{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:1px 8px 1px 38px;border-top:1px solid var(--kptu-muted);font-size:11px;line-height:16px;color:var(--kptu-muted)}
 .me-bar-line small{font-size:11px}
