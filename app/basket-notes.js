@@ -26,7 +26,7 @@ import { formatSeoulTime, seoulDateKey } from './meeting-time.js';
 // note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, noteBlockEdit, setNoteBlockEdit } from './basket-data.js';
+import { createNoteDoc, readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, noteBlockEdit, setNoteBlockEdit } from './basket-data.js';
 // NOTE-탐색기(2026-10-28 09:24·10:34·11:01): 폴더 안 폴더(app_note_folders, 100단), 한 줄 노트, 끌어 옮기기·선택 모드·되돌리기.
 import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder, setNoteFolderColor } from './note-folders-data.js';
 // FOLDER-순서·색 ②(S49-38): 폴더 색·끌기 순서 공용 부품(folder-look-model.mjs 계산, folder-look.js 그림, reorder-drag.js 끌기).
@@ -584,6 +584,25 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
           const ok = await boardLinks.restore(snap, onBoard);
           return back && ok ? true : {status:'failed', message:'일부는 되돌리지 못했어요.'};
         };
+      },
+      // S70-77 상자 [노트로 만들기]: 상자 글(첫 줄 = 제목, 나머지 = 본문)로 새 노트 → 상자 자리에 그 노트 카드 → 상자에 붙은 선은 카드로 옮겨 붙이고
+      // (가지였으면 위 상자 → 카드 선 하나) → 상자 지우기. 모두 owner 길 그대로(노트 만들기·보드 자리·선 고치기·상자 지우기), 새 표·권한 없음.
+      onTextToNote:async ({id, body, at, parent}) => {
+        if (pick.active || busy) return;
+        const boardId = boards.current(); if (!boardId) return;
+        const lines = String(body || '').split(/\r?\n/), first = lines.findIndex(l => l.trim());
+        if (first < 0) return;
+        const title = [...lines[first].trim()].slice(0, 200).join(''), rest = lines.slice(first + 1).join('\n').trim();
+        let row;
+        try { row = await createNoteDoc({title, raw_text:rest}, rt); } catch (e) { showToast(e?.message || '노트를 만들지 못했어요.'); return; }
+        notes = [...notes.filter(n => n.id !== row.id), row];
+        if (boards.current() !== boardId) { showToast('노트를 만들었어요.'); return; }
+        boards.attach([row.id], at);
+        const touching = boardLinks.forBoard(boardId).filter(l => !l.pending && (l.from_text === id || l.to_text === id));
+        await Promise.all(touching.map(l => boardLinks.update(l.id, l.from_text === id ? {from_note:row.id, from_text:null} : {to_note:row.id, to_text:null})));
+        if (parent) await boardLinks.add({board_id:boardId, from_text:parent, to_note:row.id, shape:'line'});
+        await boardLinks.removeMany({textIds:[id], boardId});
+        showToast('노트로 만들었어요.');
       },
       canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(),
       // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
