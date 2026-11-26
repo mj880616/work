@@ -38,9 +38,17 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
     test.use({viewport, hasTouch: touch, isMobile: touch});
     const press = l => (touch ? l.tap() : l.click());
     // Shows the handle beside a block: a mouse hovers it, a phone puts the cursor in it.
+    // 손잡이는 처음 열 때부터 첫 블록 옆에 보인다. 그래서 '보인다'만 기다리면 누른 블록으로 옮겨 가기 전(편집기가 커서를 읽기 전)에
+    // 다음 동작이 시작되어 앞 블록을 끌 수 있다(바쁜 CI에서 순서가 그대로 남던 간헐 실패). 손잡이가 그 블록 줄 높이에 선 것을 확인한다.
     const reach = async (page, block) => {
       if (touch) await block.tap(); else { await block.click(); await block.hover(); }
       await expect(page.locator('.ed-grip')).toBeVisible();
+      await expect.poll(() => block.evaluate(el => {
+        const g = [...document.querySelectorAll('.ed-grip')].find(x => !x.hidden);
+        if (!g) return false;
+        const r = el.getBoundingClientRect(), gr = g.getBoundingClientRect(), y = gr.top + gr.height / 2;
+        return y >= r.top - 2 && y <= r.bottom + 2;
+      })).toBe(true);
     };
 
     test('끈 상태가 기본: 손잡이 없음 · [블록]으로 켜면 손잡이 보임 · 끄면 사라짐', async ({page}) => {
