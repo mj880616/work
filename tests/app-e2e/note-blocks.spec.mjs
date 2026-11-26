@@ -33,7 +33,8 @@ async function touchDrag(page, toY, scope = '') {
   }, [toY, scope]);
 }
 
-for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, false], ['폰 390', {width: 390, height: 844}, true]]) {
+// S71-11 임시(반복 확인용, 다음 커밋에서 되돌림): 폰 묶음 20번.
+for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, false], ...Array.from({length: 20}, (_, i) => [`폰 390 #${i + 1}`, {width: 390, height: 844}, true])]) {
   test.describe(label, () => {
     test.use({viewport, hasTouch: touch, isMobile: touch});
     const press = l => (touch ? l.tap() : l.click());
