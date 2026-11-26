@@ -54,7 +54,7 @@ function install(){
   modes.insertAdjacentHTML('afterend',`<section id="mffPanel" class="mff-panel" data-enter-save aria-label="파일·글로 회의 만들기">
 <section class="mtg-group" aria-labelledby="mffFilesHead"><div class="mtg-group-head"><h3 id="mffFilesHead">파일</h3><button id="mffPick" class="mtg-add-plus icon-btn" type="button" aria-label="회의자료·회의결과 파일 선택">+</button><input id="mffFiles" type="file" multiple accept=".hwp,.hwpx,.pdf" hidden></div>
 </section>
-<label class="mff-text-label">회의 결과 글 <span class="optional">붙여 넣기</span><textarea id="mffText" rows="5" placeholder="회의 결과 글을 붙여 넣으세요. 회의가 여럿이면 회의 제목 줄(예: 제5차 중앙집행위원회 결과 2025.10.15)로 나눠요."></textarea></label>
+<label class="mff-text-label">회의 결과 글 <span class="optional">붙여 넣기</span><textarea data-autogrow id="mffText" rows="5" placeholder="회의 결과 글을 붙여 넣으세요. 회의가 여럿이면 회의 제목 줄(예: 제5차 중앙집행위원회 결과 2025.10.15)로 나눠요."></textarea></label>
 <div id="mffList" class="mff-list" aria-live="polite"></div>
 <datalist id="mffKinds"></datalist>
 <div class="modal-action-footer mff-footer"><div id="mffStatus" class="status" role="status"></div><button id="mffCreate" data-enter-save-submit class="primary wide" type="button" disabled>만들기</button></div>

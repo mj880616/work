@@ -42,12 +42,18 @@ async function openPicker(page, phone) {
   await expect(picker(page)).toBeVisible();
 }
 // 손가락 하나로 목록 안에서 위로 밀기(CDP 터치 입력 — 브라우저의 실제 터치 스크롤 길).
+// TEST-옮기기창굴리기안정화: 손을 뗀 뒤에도 목록은 관성으로 0.5초 안팎 더 굴러간다. 예전에는 150ms만 기다려, 관성이 도는 중에 읽은
+// '아직 맨 아래 아님'과 바로 뒤에 읽은 '맨 아래 도착'이 엇갈리면 이미 끝까지 간 목록을 또 밀고 '안 내려갔다'로 깨졌다(CI 폴드 펼침 750→750).
+// 이제 목록의 scrollend(관성까지 끝난 뒤 한 번 오는 브라우저 신호)를 기다린 뒤 돌아온다. 시간으로 기다리지 않는다.
 async function swipeUp(page, x, y, dy) {
+  await page.evaluate(() => { const l = document.querySelector('dialog[data-fd-sheet][open] .fx-dest-tree'); window.__treeScrollEnd = new Promise(r => l.addEventListener('scrollend', () => r(true), { once: true })); });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 0 }] });
   for (let i = 1; i <= 10; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - dy * i / 10, id: 0 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
+  // 목록이 굴러갔다면 scrollend가 온다. 안 오면(목록이 아예 안 움직임) 기다림이 끝나지 않으므로 5초 뒤 false로 돌아와 아래 검사가 깨진다.
+  expect(await page.evaluate(() => Promise.race([window.__treeScrollEnd, new Promise(r => setTimeout(() => r(false), 5000))])), '밀기 뒤 목록 굴림이 끝남(scrollend)').toBe(true);
 }
 const listState = page => page.evaluate(() => { const l = document.querySelector('dialog[data-fd-sheet][open] .fx-dest-tree'); return { top: l.scrollTop, max: l.scrollHeight - l.clientHeight }; });
 
@@ -64,11 +70,11 @@ for (const [name, width, height] of [['폰', 390, 800], ['폴드 접힘', 344, 8
   expect((await listState(page)).max).toBeGreaterThan(0);
   const docBefore = await page.evaluate(() => scrollY);
   const box = await tree(page).boundingBox();
-  for (let i = 0; i < 12 && (await listState(page)).top < (await listState(page)).max - 1; i++) {
-    const before = (await listState(page)).top;
+  for (let i = 0; i < 12; i++) {
+    const before = await listState(page); // 앞 밀기의 관성까지 멈춘 뒤의 자리(swipeUp이 scrollend를 기다림)
+    if (before.top >= before.max - 1) break;
     await swipeUp(page, Math.round(box.x + box.width / 2), Math.round(box.y + box.height - 16), Math.min(250, box.height - 40));
-    await page.waitForTimeout(150);
-    expect((await listState(page)).top).toBeGreaterThan(before); // 밀 때마다 실제로 내려간다(0으로 돌아가지 않음)
+    expect((await listState(page)).top).toBeGreaterThan(before.top); // 밀 때마다 실제로 내려간다(0으로 돌아가지 않음)
   }
   const s = await listState(page);
   expect(s.top).toBeGreaterThanOrEqual(s.max - 1);

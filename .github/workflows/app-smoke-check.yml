@@ -108,6 +108,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -418,6 +419,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -1010,7 +1012,7 @@ jobs:
         run: node --test tests/drive-summary-refresh.test.mjs
 
       - name: Check pinned HWP editor files
-        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs
+        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs tests/hwp-into-note.test.mjs
 
       - name: Check HWP union-style template and style shortcuts
         run: node --test tests/hwp-union-style.test.mjs
@@ -1311,10 +1313,13 @@ jobs:
       - name: Check UI words standard ratchet (UI-용어통일)
         run: node --test tests/ui-words.test.mjs tests/ui-words-upload.test.mjs
 
-      - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
+      - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·확인할 것 빼기·시작 날짜)
         run: node --test tests/update-news-model.test.mjs
       - name: Check day record screen words (DIARY-이름하루기록)
         run: node --test tests/ui-words-day-record.test.mjs
+
+      - name: Check release notes checks label words (UPD-확인할것)
+        run: node --test tests/ui-words-checks-label.test.mjs
 
       - name: Check quick input kind words (HOME-입력종류업데이트글자잊지말기)
         run: node --test tests/ui-words-quick-kind.test.mjs

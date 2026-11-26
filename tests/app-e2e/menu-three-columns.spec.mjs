@@ -21,11 +21,11 @@ const pcSide=page=>page.evaluate(()=>{
   const nav=document.querySelector('#appNav'),spacer=nav.querySelector('.sidebar-spacer');
   const below=id=>!!(spacer.compareDocumentPosition(nav.querySelector(`.nav-btn[data-view="${id}"]`))&Node.DOCUMENT_POSITION_FOLLOWING);
   const feed=[...nav.querySelectorAll('.nav-btn.nav-feed')].map(el=>el.dataset.view);
-  return {hwp:below('hwp'),calls:below('calls'),feed,first:nav.querySelector('.nav-feed-first')?.dataset.view||''};
+  return {moved:below('brief'),calls:below('calls'),feed,first:nav.querySelector('.nav-feed-first')?.dataset.view||''};
 });
 
 for(const width of [1440,884,412]){
-  test(`메뉴 편집 세 칸 (${width}px): HWP 편집을 아래 칸으로 끌고 통화를 위 메뉴로, 새로고침에도 그대로, [처음대로]`,async({page})=>{
+  test(`메뉴 편집 세 칸 (${width}px): 브리핑 룸을 아래 칸으로 끌고(S71-61: HWP 편집은 메뉴가 아님) 통화를 위 메뉴로, 새로고침에도 그대로, [처음대로]`,async({page})=>{
     test.setTimeout(90000);
     await page.setViewportSize({width,height:900});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -38,33 +38,33 @@ for(const width of [1440,884,412]){
     expect(await ids(page,'tail')).toEqual(['calls','telegram','arsenal']);
     await expect(modal(page).locator('[data-menu-edit-preview]')).toHaveCount(0); // S71-32: PC 왼쪽 메뉴 미리보기 상자 없음(같은 순서라 겹쳤다)
 
-    // 끌기: 위 메뉴 [HWP 편집]의 ⠿을 잡아 아래 칸 맨 위로. S68-37: [사진]은 새 계정 하단바 칸이라 위 메뉴 줄을 쓴다.
-    const handle=list(page,'rest').locator('[data-reorder-id="hwp"] [data-reorder-handle]');
+    // 끌기: 위 메뉴 [브리핑 룸]의 ⠿을 잡아 아래 칸 맨 위로. S68-37: [사진]은 새 계정 하단바 칸이라 위 메뉴 줄을 쓴다.
+    const handle=list(page,'rest').locator('[data-reorder-id="brief"] [data-reorder-handle]');
     await handle.scrollIntoViewIfNeeded();
     const from=await handle.boundingBox(),to=await list(page,'tail').locator('[data-reorder-id]').first().boundingBox();
     await page.mouse.move(from.x+from.width/2,from.y+from.height/2);await page.mouse.down();
     await page.mouse.move(from.x+from.width/2,from.y+from.height/2+10,{steps:3});
     await page.mouse.move(from.x+from.width/2,to.y+3,{steps:6});await page.mouse.up();
-    await expect.poll(()=>ids(page,'tail')).toEqual(['hwp','calls','telegram','arsenal']);
+    await expect.poll(()=>ids(page,'tail')).toEqual(['brief','calls','telegram','arsenal']);
 
     // 키보드: [통화] ⠿에서 위 화살표 두 번 = 아래 칸 맨 위를 넘어 위 메뉴 맨 아래로.
     const calls=list(page,'tail').locator('[data-reorder-id="calls"] [data-reorder-handle]');
     await calls.focus();await page.keyboard.press('ArrowUp');
-    await expect.poll(()=>ids(page,'tail')).toEqual(['calls','hwp','telegram','arsenal']);
+    await expect.poll(()=>ids(page,'tail')).toEqual(['calls','brief','telegram','arsenal']);
     await page.keyboard.press('ArrowUp');
-    await expect.poll(()=>ids(page,'tail')).toEqual(['hwp','telegram','arsenal']);
+    await expect.poll(()=>ids(page,'tail')).toEqual(['brief','telegram','arsenal']);
     expect((await ids(page,'rest')).at(-1)).toBe('calls');
 
     // 서버 저장 모양은 {bar, rest}뿐이고 아래 칸은 rest 안 'bottom' 표시 뒤(DB 검사가 받는 모양 그대로).
-    const saved=['basket','reading','team','meetings','files','brief','outside','calls','bottom','hwp','telegram','arsenal'];
+    const saved=['basket','reading','team','meetings','files','outside','calls','bottom','brief','telegram','arsenal'];
     await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(saved);
     expect(Object.keys(prefs.value.menu_layout).sort()).toEqual(['bar','rest']);
     await modal(page).locator('[data-close="menuEditModal"]').click();
     await expect(modal(page)).toBeHidden();
 
     const check=async()=>{
-      await expect.poll(()=>sheetOrder(page)).toEqual(['basket','reading','team','meetings','files','brief','outside','calls','LINE','hwp','telegram','arsenal']);
-      await expect.poll(()=>pcSide(page)).toEqual({hwp:true,calls:false,feed:['hwp','telegram','arsenal'],first:'hwp'});
+      await expect.poll(()=>sheetOrder(page)).toEqual(['basket','reading','team','meetings','files','outside','calls','LINE','brief','telegram','arsenal']);
+      await expect.poll(()=>pcSide(page)).toEqual({moved:true,calls:false,feed:['brief','telegram','arsenal'],first:'brief'});
     };
     await check();
     // 새로고침(다른 기기와 같은 길: 서버에서 다시 읽음)해도 그대로.
@@ -76,10 +76,10 @@ for(const width of [1440,884,412]){
     await openEdit(page,width);
     await modal(page).locator('[data-menu-edit-reset]').click();
     await expect.poll(()=>ids(page,'tail')).toEqual(['calls','telegram','arsenal']);
-    expect(await ids(page,'rest')).toEqual(['basket','reading','team','meetings','files','brief','hwp','outside']);
+    expect(await ids(page,'rest')).toEqual(['basket','reading','team','meetings','files','brief','outside']);
     await expect.poll(()=>prefs.value?.menu_layout??null).toBeNull();
     await modal(page).locator('[data-close="menuEditModal"]').click();
-    await expect.poll(()=>pcSide(page)).toEqual({hwp:false,calls:true,feed:['calls','telegram','arsenal'],first:'calls'});
+    await expect.poll(()=>pcSide(page)).toEqual({moved:false,calls:true,feed:['calls','telegram','arsenal'],first:'calls'});
     expect((await sheetOrder(page)).slice(-4)).toEqual(['LINE','calls','telegram','arsenal']);
     expect(errors).toEqual([]);
   });
