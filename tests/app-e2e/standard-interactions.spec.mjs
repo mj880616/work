@@ -1579,7 +1579,7 @@ for (const [name, open] of CONFIRM_DRAG_SCREENS) test(`D7 ${name} PC 1280: 확�
   expect(s.errors).toEqual([]);
 });
 
-// ---------- W1 오른쪽 밀기 = 여러 개 고르기(S70-64 UI-오른쪽밀기고르기, 기준표 8절 W1) ----------
+// ---------- W3 오른쪽 밀기 = 여러 개 고르기(S70-64 UI-오른쪽밀기고르기, 기준표 8절 W3) ----------
 // 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와 복수 또는 일괄 삭제
 // / 전테선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제 / 다 이런식으로 왼쪽에서 오른쪽으로 스와이프 하는 건".
 // 공용 줄 밀기(row-swipe.js)를 쓰는 목록마다 같은 검사: 오른쪽 밀기 → 그 줄 고름(칸이 열려 남지 않음) · 줄 눌러 더 고르기 ·
@@ -1670,7 +1670,7 @@ async function readingSwipe(page) {
   };
 }
 const SWIPE_PICK_SCREENS = [['할 일', tasksSwipe], ['저장한 글', readingSwipe]];
-for (const [name, open] of SWIPE_PICK_SCREENS) test(`W1 ${name} 폰 390: 오른쪽 밀기 = 고르기, 줄 눌러 더 고르기, [전체 선택] 켜고 끄기(체크), 뒤로가기로 끝, [삭제] 일괄`, async ({ page }) => {
+for (const [name, open] of SWIPE_PICK_SCREENS) test(`W3 ${name} 폰 390: 오른쪽 밀기 = 고르기, 줄 눌러 더 고르기, [전체 선택] 켜고 끄기(체크), 뒤로가기로 끝, [삭제] 일괄`, async ({ page }) => {
   test.setTimeout(120000);
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   const s = await open(page);
@@ -1730,7 +1730,7 @@ for (const [name, open] of SWIPE_PICK_SCREENS) test(`W1 ${name} 폰 390: 오른�
 // 고르기 막대 화면 표(폰 390). 막대에는 [✕]·'n개 선택됨'·[그만] 글자가 없고, 칸 이름·개수가 규칙과 같다. 뒤로가기(폰)·Esc(PC 자판)로 고르기만 끝(화면·주소 그대로).
 //   줄 고르기 목록(row-swipe.js) = [전체 선택][삭제], 읽을 거리 = [전체 선택][저장][삭제].
 //   노트·자료실은 그 화면의 고르기 모드(꾹 누르기·오른쪽 밀기가 같은 막대) — 맨 앞 [전체 선택]·맨 끝 [삭제], 가운데 [폴더로 옮기기] 등은 그 화면 것(PR 본문 '요청과 다른 점').
-// 막대가 있는 화면이 늘면 아래 표에 한 줄 더한다(docs/design/standard-interactions.md W2).
+// 막대가 있는 화면이 늘면 아래 표에 한 줄 더한다(docs/design/standard-interactions.md W3 막대 화면 표).
 const barNames = bar => bar.evaluate(el => [...el.querySelectorAll('button.kptu-sb-act:not(.kptu-sb-more)')].filter(b => !b.hidden)
   .map(b => (b.querySelector('.kptu-act-tx')?.textContent || b.getAttribute('aria-label') || '').trim()));
 async function newsSwipe(page) {
@@ -1750,9 +1750,9 @@ const BAR_SCREENS = [
   ['읽을 거리', newsSwipe],
   ['자료실', holdOf(libraryRows, '폴더로 옮기기')],
 ];
-test.describe('W2 고르기 막대 화면 표 폰 390', () => {
+test.describe('W3 고르기 막대 화면 표 폰 390', () => {
   test.use({ hasTouch: true });
-  for (const [name, open] of BAR_SCREENS) test(`W2 ${name} 390: 막대 칸 이름·개수가 규칙과 같고 '선택됨'·'그만' 글자·✕ 없음, 뒤로가기·Esc로 고르기 끝`, async ({ page }) => {
+  for (const [name, open] of BAR_SCREENS) test(`W3 ${name} 390: 막대 칸 이름·개수가 규칙과 같고 '선택됨'·'그만' 글자·✕ 없음, 뒤로가기·Esc로 고르기 끝`, async ({ page }) => {
     test.setTimeout(120000);
     const s = await open(page);
     const here = () => page.evaluate(() => [location.href, window.KPTURouter?.current]);
@@ -1781,7 +1781,7 @@ test.describe('W2 고르기 막대 화면 표 폰 390', () => {
 });
 // PC 1280: 노트·자료실 고르기도 [✕] 없이 Esc로 끝(커서가 목록 밖 — 문서 바탕 — 에 있어도), 보이는 글에 '선택됨' 없음.
 const PC_BAR_SCREENS = [['자료실', keyLibrary, '#librarySelectBar'], ['노트', keyNotes, '[data-nx-select-bar]']];
-for (const [name, open, barSel] of PC_BAR_SCREENS) test(`W2 ${name} PC 1280: 고르기 막대 ✕·'선택됨' 글자 없음, 맨 앞 [전체 선택]·맨 끝 [삭제], Esc로 끝`, async ({ page }) => {
+for (const [name, open, barSel] of PC_BAR_SCREENS) test(`W3 ${name} PC 1280: 고르기 막대 ✕·'선택됨' 글자 없음, 맨 앞 [전체 선택]·맨 끝 [삭제], Esc로 끝`, async ({ page }) => {
   test.setTimeout(90000);
   const s = await open(page);
   const bar = page.locator(barSel);

@@ -14,8 +14,9 @@ import { testOrigin } from './helpers/test-origin.mjs';
 import { openMeetingResult } from './helpers/meeting-open.mjs';
 // UI-스와이프메뉴만(S70-60, 명진 2026-11-26 07:29 "스와이프 작동할 때 왼쪽으로 스와이프를 끝까지 한다고 해서 숨겨지면 안 돼.
 // 스와이프 메뉴가 여러 개 있기 때문에 일단 메뉴가 펼쳐지고 스와이프 작동은 그 메뉴를 눌렀을 때 돼야 돼"):
-// 공용 줄 밀기(app/row-swipe.js)를 쓰는 모든 폰 목록에서, 줄을 왼쪽·오른쪽으로 끝까지 밀었다 놓으면 칸(메뉴)만 펼쳐지고
-// 어떤 일도 하지 않는다(숨기기·삭제·저장·보관·선택 시작 없음, 서버 쓰기 요청 없음). 일은 펼쳐진 칸을 눌렀을 때만 한다.
+// 공용 줄 밀기(app/row-swipe.js)를 쓰는 모든 폰 목록에서, 줄을 왼쪽으로 끝까지 밀었다 놓으면 칸(메뉴)만 펼쳐지고
+// 어떤 일도 하지 않는다(숨기기·삭제·저장·보관 없음, 서버 쓰기 요청 없음). 일은 펼쳐진 칸을 눌렀을 때만 한다.
+// 오른쪽 밀기는 칸 없이 바로 여러 개 고르기다(기준표 W3, S70-64) — 서버 쓰기는 여전히 없다.
 // 기준표: docs/design/standard-interactions.md 8절 P5. 새 화면에 줄 밀기를 붙이면 아래 SCREENS 표에 한 줄 더한다.
 // (휴지통 줄은 project-system-v3.spec.mjs 'TRASH 줄 밀기'가 같은 규칙을 본다 — 그 화면 흉내 서버가 그 파일 안에만 있다.)
 // 서버는 모두 흉내, 글·이름은 모두 지어낸 것.
@@ -25,7 +26,7 @@ const BASE = process.env.APP_E2E_ORIGIN || 'http://127.0.0.1:8123';
 const W = 390, H = 844;
 
 // ---------- 화면 열기 ----------
-// 각 화면: {row: 밀 줄, list: 줄 밀기 칸이 생기는 목록, picked: [선택] 칸을 누른 뒤 보이는 선택 막대, act: 왼쪽 칸 하나를 누르면 일어날 일}
+// 각 화면: {row: 밀 줄, list: 줄 밀기 칸이 생기는 목록, picked: 오른쪽으로 밀면 보이는 선택 막대, act: 왼쪽 칸 하나를 누르면 일어날 일}
 async function homeReads(page) {
   const uid = n => `00000000-0000-4000-8000-00000000000${n}`;
   const READS = [1, 2, 3].map(n => ({ id: uid(n), title: `가상 소식 ${n}`, what: `가상 일 ${n}`, why: `담당 가상지부 ${n}`, source: '가상신문', at: '2026-10-06T00:10:00Z', url: `https://news.example.test/${n}` }));
@@ -268,19 +269,10 @@ for (const [name, open] of SCREENS) {
     await expect(ends).toHaveCount(0);
     expect(writes).toEqual([]);
 
-    // ③ 오른쪽으로 끝까지 → [선택] 칸만. 선택은 아직 시작되지 않는다.
+    // ③ 오른쪽으로 끝까지 → 칸을 열어 두지 않고 바로 고르기(W3 S70-64: 오른쪽 밀기 = 여러 개 고르기). 고르기는 데이터 일이 아니라 서버 쓰기 없음.
     await tick(page);
-    await swipeOpen(s.row, W + 40, pickCell);
-    await page.waitForTimeout(600);
-    await expect(s.picked).toBeHidden();
-    expect(writes, '오른쪽 끝까지 밀기만으로 서버 쓰기').toEqual([]);
-    // [선택] 칸을 누르면 그때 선택이 시작된다.
-    // (민 뒤 목록이 다시 그려져 칸이 사라졌으면 열고 누르기를 통째로 다시 한다.)
-    await expect(async () => {
-      await swipeOpen(s.row, W + 40, pickCell);
-      await touchTap(pickCell);
-      await expect(s.picked).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    await swipeOpen(s.row, W + 40, s.picked);
+    await expect(pickCell).toHaveCount(0);
     expect(writes).toEqual([]);
     // 선택 끝내기: S70-64b — 막대에 [✕]·[그만]이 없다. 어느 화면이든 Esc(폰은 뒤로가기)로 고르기만 끝(창·화면은 그대로).
     await page.keyboard.press('Escape');
