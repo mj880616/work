@@ -241,21 +241,12 @@
 .lu-folder-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .lu-folder-status.error{color:var(--kptu-danger)}
 .lu-folder-status[hidden]{display:none}
-/* S69-20 ①: 자료실 저장 위치 한 줄(구글 드라이브 · 웹2 › 자료실  열기 ↗) — 작은 회색 글자, 열기만 링크 색 */
-.lu-drive-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);line-height:1.4}
-.lu-drive-line[hidden]{display:none}
-/* S69-22: 같은 줄 끝 작은 글자 버튼 [앱 폴더 모으기] — 모양은 공용 row-act(글자 버튼), 여기서는 줄 글자 크기만 맞춘다 */
-.lu-drive-where{min-width:0;overflow-wrap:anywhere}
-.lu-drive-open{white-space:nowrap;color:var(--kptu-link);text-decoration:none}
-.lu-drive-open:hover,.lu-drive-open:focus-visible{text-decoration:underline}
+/* S71-46 LIB-위치줄삭제: 저장 위치 줄은 없앴다. 목록 맨 위 작은 한 줄은 드라이브에 못 옮겼을 때만(S70-76 '드라이브에 못 옮겼어요 [다시]') — 작은 회색 글자 */
+.lu-drive-note-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);line-height:1.4}
+.lu-drive-note-line[hidden]{display:none}
 .lu-drive-note{color:var(--kptu-muted);white-space:nowrap}
-/* UI-자료실파일모양(S69-85 ②): 폴더 안이면 위치 줄 끝에 작은 [드라이브 ↗] 하나(주소 줄 하나). */
-#appView #libraryView #libraryPath > .lu-drive-here{flex:none;margin-left:auto;padding:0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4}
-#appView #libraryView #libraryPath > .lu-drive-note.lu-drive-here{margin-left:6px}
-.lu-drive-note::before{content:"· ";}
-/* S70-76: 드라이브 쪽이 밀리면 줄 끝 '드라이브에 못 옮겼어요 [다시]' — 공용 글자 버튼(row-act), 여기서는 줄 글자 크기만 */
+/* [다시]: 공용 글자 버튼(row-act), 여기서는 줄 글자 크기만 */
 .lu-drive-retry{flex:none;font-size:var(--ds-text-meta,12px)}
-#appView #libraryView #libraryPath > .lu-drive-retry.lu-drive-here{margin-left:0}
 .lu-folder-hint{margin:4px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
 .lu-folder-hint[hidden],.lu-folder-name[hidden],.lu-folder-targets[hidden]{display:none}
 .lu-folder-targets{display:grid;gap:2px;max-height:50vh;overflow:auto;margin:0 0 8px}

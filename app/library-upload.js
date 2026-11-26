@@ -1,4 +1,4 @@
-import {mountLibraryDriveLine} from './library-drive-line.js'; // S69-20 ①: 자료실 저장 위치 한 줄(구글 드라이브 폴더 열기)
+import {mountLibraryDriveLine} from './library-drive-line.js'; // S69-20 ①·S71-46: 자료실 드라이브 저장 위치(⋯ [드라이브에서 열기])·못 옮겼을 때만 [다시] 한 줄
 import {readDocuments} from './report-list-read.js'; // APP-낭비줄이기 ①: 자료 목록은 쓰는 열만(글자 본문 열 제외)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderFilterChips} from './filter-chips.js';
@@ -769,7 +769,7 @@ if(luBackGone(scope))return;
 if(stopped?.type==='project'){try{await luLoadProjects(true);luRenderUploadProject()}catch{}}
 if(filedId){try{await luLoadFolders()}catch(e){console.error('library folders refresh after upload failed',e)}}
 const unknown=failures.some(f=>f.kind==='unknown');
-if(succeeded&&!luDrive().place())void luDrive().refresh(); // S69-20: 첫 자료를 올려 드라이브 폴더가 막 생겼으면 저장 위치 줄을 보인다
+if(succeeded&&!luDrive().place())void luDrive().refresh(); // S69-20: 첫 자료를 올려 드라이브 폴더가 막 생겼으면 저장 위치를 읽는다(⋯ [드라이브에서 열기])
 if(succeeded||unknown){try{await (folder?.receive?luLoadAll():luLoadDocuments());luRenderLibrary()}catch(e){console.error('library list refresh after upload failed',e)}if(filedId)luFolders().revealFolder(filedId)}
 if(succeeded)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:lastProjectId,...(org?{organization_id:org.id}:{}),...(meeting?{meeting_id:meeting.id}:{})}}));
 // ORG-기록자료폴더: 담당조직 자료로 올렸고 폴더를 따로 고르지 않았으면(받는 폴더 포함) 모으는 폴더 › 그 조직 폴더로(org-files-folder.js, 첫 사용 때 한 줄로 묻는다).
@@ -1115,8 +1115,8 @@ function luLeaveFocus(){if(!luInFolder)return;const back=luTreeBack;luTreeBack=n
 document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [data-lu-path-back]');if(!b)return;e.preventDefault();luFocusUp()});
 // S69-19: 폰 위치 줄(지금 폴더 위 단계들)도 길면 가운데를 '…' 하나로(누르면 가려진 단계 목록, folder-path-more.js).
 function luPhoneAncHtml(steps){const sep='<span class="ft-focus-sep" aria-hidden="true">›</span>',one=f=>`<button type="button" class="ft-btn ft-focus-step" data-lu-path="${luEsc(f.id)}">${luEsc(f.name)}</button>`;const c=collapseSteps(steps,{max:3,tail:1});return(c.hidden.length?[one(c.head[0]),moreStepHtml(c.hidden,{cls:'ft-btn ft-focus-step',attr:'data-lu-path',esc:luEsc,sep:''}),...c.tail.map(one)]:steps.map(one)).map(x=>x+sep).join('')}
-// UI-자료실파일모양(S69-85 ②, 살릴 것 7): 주소 줄은 하나 — 폴더 안이면 위치 줄 끝에 작은 [드라이브 ↗]만 두고 저장 위치 줄(#libraryDriveLine)은 숨긴다(library-drive-line.js render).
-function luRenderPath(box){luRenderPathNow(box);luDrive().render()} // S69-20: 저장 위치 줄도 지금 자리(폴더 안·밖)에 맞춘다
+// S71-46 LIB-위치줄삭제: 위치 줄 끝 [드라이브 ↗]·저장 위치 줄은 없앴다 — 드라이브 폴더 열기는 머리 ⋯ [드라이브에서 열기](폴더 안이면 그 폴더).
+function luRenderPath(box){luRenderPathNow(box)}
 function luRenderPathNow(box){
   let nav=document.querySelector('#libraryPath');
   if(luTwoActive()){nav?.remove();return} // LIB-두칸보기: 두 칸은 칸마다 위치 줄
@@ -1998,11 +1998,12 @@ function luTopMenuHtml(){
     // S70-73(2026-11-26 명진 "자동으로 들어오게해야지 메뉴 없애고"): [드라이브에서 가져오기]도 지웠다 — 자료실을 열 때 서버가 저절로 등록(luStartDriveAuto).
     +(luPick.active?luMenuRow('data-lu-top="select-stop"','선택 끝내기'):luMenuRow('data-lu-top="select"','여러 개 선택'))
     +(luExplorerNow?'':luMenuRow(`data-lu-top="expand"${luExpandNow.count?'':' disabled'}`,luExpandNow.open?'모두 접기':'모두 펴기')) // S69-28: 탐색기 칸은 펼칠 묶음이 없다
+    +(luDrive().openUrl()?luMenuRow('data-lu-top="drive-open"','드라이브에서 열기'):'') // S71-46: 옛 저장 위치 줄 [열기 ↗] — 폴더 안이면 그 폴더의 짝 드라이브 폴더
     +luMenuRow('data-lu-top="help"','쓰는 법'); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'
 }
 function luTopMenuOpen(trigger){
   luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-folder-menu lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
-    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
+    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-open'){const url=luDrive().openUrl();if(url)window.open(url,'_blank','noopener,noreferrer')}else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
   luTopMenu.open(trigger);
 }
 // S55-08 LIB-우클릭메뉴 (2026-11-09 명진 결정): PC(761px~) 폴더 보기에서 빈 자리(왼쪽 나무 빈 곳·'자료실 전체'·'폴더 밖' 줄, 오른쪽 목록의 어느 폴더도 아닌 바탕,

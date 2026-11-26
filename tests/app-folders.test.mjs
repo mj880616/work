@@ -428,13 +428,13 @@ test('서버가 맨 위 앱 폴더를 새로 만드는 곳 모두 만든 바로 
   assert.deepEqual(writers.sort(), ['_shared/meeting-drive-place.mjs', 'library-files/index.ts', 'workspace-drive/index.ts']);
 });
 
-test('화면: 자료실 위 줄·내 프로필 칸 모두 [한곳으로 모으기] 버튼이 없고(S70-29), 내 프로필 칸은 위치와 [열기 ↗]만', async () => {
+test('화면: 자료실(S71-46 위치 줄 없음)·내 프로필 칸 모두 [한곳으로 모으기] 버튼이 없고(S70-29), 내 프로필 칸은 위치와 [열기 ↗]만', async () => {
   const code = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
   assert.doesNotMatch(code('library-drive-line.js'), /lu-drive-gather|앱 폴더 모으기|gather-folders/);
-  const { driveLineHtml } = await import('../app/library-drive-line.js');
-  const html = driveLineHtml({ url: 'https://drive.google.com/drive/folders/abcdefghij12', path: ['웹2', '자료실'] }, v => String(v));
-  assert.match(html, /열기 ↗/);
-  assert.doesNotMatch(html, /<button/);
+  // S71-46: 자료실 저장 위치 줄은 없앴다(드라이브 열기는 자료실 ⋯ — 시험 tests/library-drive-place.test.mjs).
+  const lineMod = await import('../app/library-drive-line.js');
+  assert.equal(lineMod.driveLineHtml, undefined);
+  assert.equal(lineMod.noteLineHtml('', v => String(v)), '', '평소엔 줄 없음');
   const mod = await import('../app/drive-folders-panel.js');
   for (const name of ['gatherAppFolders', 'gatherAskText', 'gatherResultText']) assert.equal(mod[name], undefined, name);
   const { driveFoldersHtml, cleanPlan } = mod;
