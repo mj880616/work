@@ -15,6 +15,7 @@ import {articleShare, SHARE_LABEL} from './link-share-model.mjs';
 import {shareArticleLink} from './link-share.js';
 import {iconHtml} from './tree-icons.js';
 import {notify, askText} from './small-notice.js';
+import {openOnScreen} from './source-open.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
@@ -877,7 +878,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
     if (b.matches('[data-nd-memo-go]')) { const t = part('[data-nd-memos] [data-cm-text]'); part('[data-nd-memos]')?.scrollIntoView({block: 'nearest', behavior: 'smooth'}); t?.focus({preventScroll: true}); return; }
-    if (b.matches('[data-nd-oldmemo-open]')) { if (cur?.memo?.id) { requestNoteDocOpen(cur.memo.id); window.KPTURouter?.go?.('basket', {source: 'delegated'}); } return; }
+    if (b.matches('[data-nd-oldmemo-open]')) { if (cur?.memo?.id) { requestNoteDocOpen(cur.memo.id); void openOnScreen('basket'); } return; }
     if (b.matches('[data-nd-delete]')) { removeCur(); return; }
     if (b.matches('[data-nd-share]')) { void shareArticle(); return; }
     if (b.matches('[data-nd-act]')) { toggle(b.dataset.ndAct); return; }

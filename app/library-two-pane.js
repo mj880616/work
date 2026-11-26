@@ -17,6 +17,7 @@
 // - 그리기 주인은 library-upload.js luRenderLibrary 하나 — 이 부품은 #documentList 안에 넣을 HTML을 만들고, 그린 뒤 틀·폭을 붙인다.
 import {twoPaneFrame} from './two-pane.js';
 import {mountSplitResize} from './split-resize.js';
+import {followPane} from './follow-pane.js';
 import {paneSide} from './files-panes-model.mjs';
 import {ftFolderRowHtml} from './folder-tree-ui.mjs';
 import {folderCountOf} from './library-tree.js';
@@ -25,6 +26,7 @@ import {collapseSteps, moreStepHtml} from './folder-path.mjs';
 import './folder-path-more.js';
 
 const OUT_KEY = 'x:out';
+const framePc = () => globalThis.matchMedia?.('(min-width:761px)').matches ?? true; // 앱 틀이 PC인가(아니면 펼친 폴드 — follow-pane narrow)
 const SORTS = Object.freeze([['date', '날짜순'], ['name', '이름순']]);
 const byName = (a, b) => String(a).localeCompare(String(b), 'ko', {numeric: true});
 
@@ -157,7 +159,8 @@ export function createLibraryTwo(h) {
   // #documentList 안에 넣을 두 칸 HTML. tree = 거르기까지 한 폴더 묶기 나무(폴더 밖 묶음 포함, 들어가기 전 전체).
   function html(tree) {
     lastTree = tree;
-    return `<div class="lu-two" data-lu-two>${paneHtml(0, tree)}${paneHtml(1, tree)}</div><div class="lu-two-bar" data-lu-two-bar hidden></div>`;
+    // UI-두칸높이(S71-60): 옮기기 막대는 두 칸 틀 안 맨 아래 줄 — 틀이 창 아래 끝까지 차도 막대가 화면 밖으로 밀리지 않는다.
+    return `<div class="lu-two" data-lu-two>${paneHtml(0, tree)}${paneHtml(1, tree)}<div class="lu-two-bar" data-lu-two-bar hidden></div></div>`;
   }
   // 이번 그리기에서 두 칸에 보이는 나무 조각(같은 글 원본 묶기·전체 고르기 계산용).
   // 펼친 폴더 안 자료도 그 폴더 묶음으로 넣는다. open: 이번 그리기의 펼침 판정(한 칸 목록과 같은 규칙).
@@ -174,6 +177,8 @@ export function createLibraryTwo(h) {
     const box = root()?.querySelector('[data-lu-two]');
     if (!box) return;
     frame.mark(); paintBar();
+    // UI-두칸높이(2026-11-26 사용자 결정): 두 칸 틀 높이 = 창 남은 높이(공용 follow-pane — 고정 숫자 없음). 칸마다 목록만 그 안에서 굴러간다(library-upload.css).
+    followPane(box, {reset: false, narrow: !framePc()});
     mountSplitResize({container: box, name: 'library', label: '왼쪽 칸과 오른쪽 칸 폭 조절', query: splitQuery, active: () => h.on(), columns: [
       {el: () => box.querySelector('[data-lu-pane-i="0"]'), varName: '--ds-split-library-a', minVar: '--ds-split-library-min', minFallback: 260, share: 50},
       {el: () => box.querySelector('[data-lu-pane-i="1"]'), varName: '--ds-split-library-b', minVar: '--ds-split-library-min', minFallback: 260, share: 50},

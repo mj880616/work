@@ -4,7 +4,6 @@
 .so-team-actions h3{margin:0;font-size:15px}.so-team-actions p{margin:2px 0 0;font-size:10.5px}
 .so-list{display:grid;gap:12px}
 .so-org-group{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
-.so-card-actions,.so-assignees,.so-assignee-chips{display:none!important}
 /* S52-01 ③b: '관련 담당조직'은 한 줄(area-org-picker.js 줄, 누르면 공용 고르기 창). 상자 없이 칸 사이에 둔다. */
 .so-org-box{margin:6px 0}
 .so-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.so-admin-members{display:grid;gap:5px;margin-top:8px}.so-admin-member{display:flex!important;flex-direction:row!important;align-items:center!important;gap:7px!important;margin:0!important}

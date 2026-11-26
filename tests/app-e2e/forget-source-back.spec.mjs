@@ -1,4 +1,4 @@
-// S56-10 FORGET-원문열기·뒤로가기: 잊지 말기(정리함) 소식 줄 → 근거 원문(통화) → 뒤로가기 한 번 → 잊지 말기 같은 보기·거르기·스크롤 자리.
+// S56-10 FORGET-원문열기·뒤로가기: 잊지 말기(정리함) 소식 줄 → 근거 원문(통화) → 뒤로가기 한 번 → 잊지 말기 같은 스크롤 자리(S71-58: 보기·거르기는 없앴다).
 // 폰은 통화 상세가 router layer라 예전에는 뒤로가기를 두 번 눌러야 했다(목록 → 잊지 말기). 라우터 openFrom 한 길로 한 번에 돌아온다.
 // 서버는 모두 흉내이고 이름·글은 지어낸 것이다.
 import {test,expect} from '@playwright/test';
@@ -44,20 +44,14 @@ async function fixture(page,{width}){
   await expect(page.locator('#basketView [data-nbx-row]').first()).toBeVisible();
 }
 const row=(page,n)=>page.locator(`#basketView [data-nbx-row="n:${nid(n)}"]`);
-async function pickSource(page,label){
-  await page.locator('[data-sf-tools="forget"] [data-forget-view-open]').click();
-  await page.locator('#forgetViewMenu').getByRole('menuitemradio',{name:label,exact:true}).click();
-}
 // 뒤로가기: 폰은 안드로이드 앱과 같은 KPTURouter.back(), PC는 브라우저 뒤로.
 // 화면 사진(docs/design/screens/s56-10/): S56_10_SHOTS=1일 때만 찍는다.
 const SHOTS=process.env.S56_10_SHOTS?'docs/design/screens/s56-10/':'';
 const back=(page,width)=>width<761?page.evaluate(()=>window.KPTURouter.back()):page.goBack();
 
 for(const width of [412,1280]){
-  test(`${width}: 소식 줄 출처 › → 통화 원문, 뒤로가기 한 번 → 잊지 말기 같은 거르기·같은 자리`,async({page})=>{
+  test(`${width}: 소식 줄 출처 › → 통화 원문, 뒤로가기 한 번 → 잊지 말기 같은 자리`,async({page})=>{
     await fixture(page,{width});
-    await pickSource(page,'소식');
-    await expect(page.locator('[data-sf-tools="forget"] [data-forget-view-open]')).toHaveText('처리 전 · 소식 ▾');
     // 원문이 있는 줄은 출처 꼬리표 줄 끝에 작은 ›(눌러도 열림).
     const target=row(page,4); // 새 것이 위라 4번째는 목록 아래쪽
     await expect(target.locator('.nbx-meta-open')).toHaveText(/^소식 · 통화.*›$/);
@@ -75,7 +69,6 @@ for(const width of [412,1280]){
     await back(page,width);
     await expect(page.locator('#basketView')).toBeVisible();
     await expect(page.locator('#callsView')).toBeHidden();
-    await expect(page.locator('[data-sf-tools="forget"] [data-forget-view-open]')).toHaveText('처리 전 · 소식 ▾');
     await expect.poll(()=>page.evaluate(()=>Math.round(scrollY))).toBe(y);
     await expect(target).toBeInViewport();
   });

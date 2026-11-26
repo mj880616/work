@@ -104,9 +104,10 @@ test.describe('자료실 PC 오른쪽 클릭 1280',()=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
     await page.getByRole('button',{name:'두 칸'}).click();
     await expect(page.locator('#documentList [data-lu-pane-i]')).toHaveCount(2);
-    const pane=await page.locator('#documentList [data-lu-pane-i="1"]').boundingBox(),card=await page.locator('#libraryListCard').boundingBox();
+    // UI-두칸높이(S71-60): 두 칸 틀이 창 아래 끝까지 차므로 '목록 아래 빈 곳'은 칸 안 맨 아래 빈 자리다(틀 밖 빈 곳은 없어짐).
+    const pane=await page.locator('#documentList [data-lu-pane-i="1"]').boundingBox();
     await watch(page);
-    await page.mouse.click(pane.x+pane.width/2,card.y+card.height+40,{button:'right'});
+    await page.mouse.click(pane.x+pane.width/2,pane.y+pane.height-20,{button:'right'});
     await expect(areaMenu(page)).toBeVisible();
     expect((await lastCtx(page)).prevented).toBe(true);
     await areaMenu(page).getByRole('button',{name:'새 폴더',exact:true}).click();
