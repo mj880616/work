@@ -296,31 +296,42 @@ for(const width of [390,1280])test(`끝 날짜 칸이 아직 없을 때(DB 적�
  expect(errors).toEqual([]);
 });
 
-// S71-35 ORG-조직관리로모으기: 맨 위 [+ 담당조직]은 없앴다(추가는 ⋯ 안 '새 담당조직') — 이름 줄 오른쪽 끝은 ⋯ 하나.
-// ORG-머리줄한줄(S70-53, 2026-11-25 사용자 폴드 사진): ⋯는 모든 폭에서 화면 이름 줄 오른쪽 끝 — 폰·폴드(~760px)는 앱 머리 줄(이름·찾기 오른쪽),
-// PC 틀(761px~)은 맨 위 줄(검색 칸 오른쪽). 목록 위에 따로 한 줄을 차지하지 않는다(목록·상세 칸이 머리 줄 바로 아래에서 시작). 목록 HTML 안에는 없다.
+// S71-35 ORG-조직관리로모으기: 맨 위 [+ 담당조직]은 없앴다(추가는 ⋯ 안 '새 담당조직') — 화면 단추는 ⋯ 하나.
+// ORG-머리줄한줄(S70-53, 2026-11-25 사용자 폴드 사진): 폰·폴드(~760px)는 ⋯가 앱 머리 줄(이름·찾기 오른쪽) 끝 — 목록 위에 따로 한 줄을 차지하지 않는다.
+// S71-59 UI-화면메뉴안으로(2026-11-26 사용자 "위치가 더 '조직관리' 화면 내로 들어와야. 지금은 전체 시스템 메뉴에 있는 느낌"): PC 틀(761px~)은
+// 맨 위 줄이 아니라 화면 안 첫 줄(목록·전체 표 탭 줄) 오른쪽 끝(공용 screen-tools.js lineSlot). 목록 HTML 안에는 없다.
 // 단계 칩은 모든 폭에서 보인다(예전 ORG-담당조직버튼자리폴드 ② '폴드 펼침에서는 칩을 그리지 않음'은 거둠) — 좁으면 이름이 먼저 '…'.
 const S70_53=process.env.S70_53_SHOTS;
-for(const width of [390,412,690,884,900,1280])test(`조직 관리 ⋯는 화면 이름 줄 오른쪽 끝([+ 담당조직] 없음), 따로 한 줄 없음, 단계 칩 보임 ${width}px`,async({page})=>{
+for(const width of [390,412,690,884,900,1280])test(`조직 관리 ⋯ 자리(폰: 화면 이름 줄 끝, PC: 탭 줄 끝)·[+ 담당조직] 없음·단계 칩 보임 ${width}px`,async({page})=>{
  const {errors}=await fixture(page,{width});
  await clickView(page,'team');
  const more=page.locator('#soTeamMore');await expect(page.locator('#soAddOrg')).toHaveCount(0);await expect(more).toBeVisible();await expect(more).toHaveCount(1);
- await expect(page.locator('#soOrganizationList #soTeamMore, #soTeamSection #soAddOrg, #soTeamSection #soTeamMore')).toHaveCount(0);
- const line=page.locator(width>=761?'#appView>.app-topline':'#appView>.mobile-shell-header');
- await expect(line.locator('#soTeamMore')).toHaveCount(1);
+ await expect(page.locator('#soOrganizationList #soTeamMore, #soTeamSection #soAddOrg')).toHaveCount(0);
  await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
- const L=await line.boundingBox(),m=await more.boundingBox(),list=await page.locator('#soOrganizationList').boundingBox();
- // 같은 줄 가운데, 줄 오른쪽 끝 가까이(PC는 [+ 추가]·[계정] 앞).
- for(const b of [m]){expect(Math.abs((b.y+b.height/2)-(L.y+L.height/2))).toBeLessThanOrEqual(3);expect(b.x+b.width).toBeLessThanOrEqual(L.x+L.width+1)}
- if(width<761)expect(L.x+L.width-(m.x+m.width)).toBeLessThanOrEqual(8);
- else{const plus=await page.locator('.app-topline .topline-add').boundingBox();expect(m.x+m.width).toBeLessThanOrEqual(plus.x)}
- // 검색 칸과 겹치지 않는다(검색 칸이 그만큼 짧아짐).
- const search=page.locator('.mobile-shell-search:visible,.topline-search:visible').first();
- if(await search.count()){const s=await search.boundingBox();expect(s.x+s.width).toBeLessThanOrEqual(m.x+1)}
- // 따로 한 줄이 없다: 목록은 머리 줄 바로 아래(줄 아래 간격만), 오른쪽 상세 칸은 목록과 같은 높이.
- expect(list.y-(L.y+L.height)).toBeLessThanOrEqual(width>=761?60:16);
- if(width>=600){const pane=await page.locator('#wdDetailPane').boundingBox();expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1)}
- if(width>=761){const tabs=await page.locator('#soTeamTabs').boundingBox();expect(list.y-(tabs.y+tabs.height)).toBeLessThanOrEqual(12)}
+ const m=await more.boundingBox(),list=await page.locator('#soOrganizationList').boundingBox();
+ if(width<761){
+  const line=page.locator('#appView>.mobile-shell-header');
+  await expect(line.locator('#soTeamMore')).toHaveCount(1);
+  const L=await line.boundingBox();
+  // 같은 줄 가운데, 줄 오른쪽 끝 가까이. 검색 칸과 겹치지 않는다.
+  expect(Math.abs((m.y+m.height/2)-(L.y+L.height/2))).toBeLessThanOrEqual(3);expect(m.x+m.width).toBeLessThanOrEqual(L.x+L.width+1);
+  expect(L.x+L.width-(m.x+m.width)).toBeLessThanOrEqual(8);
+  const search=page.locator('.mobile-shell-search:visible').first();
+  if(await search.count()){const s=await search.boundingBox();expect(s.x+s.width).toBeLessThanOrEqual(m.x+1)}
+  // 따로 한 줄이 없다: 목록은 머리 줄 바로 아래(줄 아래 간격만), 오른쪽 상세 칸은 목록과 같은 높이.
+  expect(list.y-(L.y+L.height)).toBeLessThanOrEqual(16);
+  if(width>=600){const pane=await page.locator('#wdDetailPane').boundingBox();expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1)}
+ }else{
+  // 맨 위 줄에는 없고, 탭 줄(목록·전체 표)과 같은 줄 오른쪽 끝. 탭 줄 아래 바로 목록·상세 칸.
+  await expect(page.locator('#appView>.app-topline #soTeamMore')).toHaveCount(0);
+  await expect(page.locator('#teamView [data-screen-tools="line"] #soTeamMore')).toHaveCount(1);
+  const tabs=await page.locator('#soTeamTabs').boundingBox(),view=await page.locator('#teamView').boundingBox();
+  expect(Math.abs((m.y+m.height/2)-(tabs.y+tabs.height/2))).toBeLessThanOrEqual(6);
+  expect(view.x+view.width-(m.x+m.width)).toBeLessThanOrEqual(12);
+  expect(m.x).toBeGreaterThan(tabs.x+tabs.width);
+  expect(list.y-(tabs.y+tabs.height)).toBeLessThanOrEqual(12);
+  const pane=await page.locator('#wdDetailPane').boundingBox();expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
+ }
  // 칩 · › 는 줄 안, 이름은 '…'로 줄어도 칩은 남는다.
  for(const r of await page.locator('#soOrganizationList .so-row').evaluateAll(rows=>rows.map(row=>{const t=row.querySelector('.so-stage-tag').getBoundingClientRect(),c=row.querySelector('.kptu-list-chevron').getBoundingClientRect(),b=row.getBoundingClientRect();return {w:t.width,in:t.left>=b.left&&c.right<=b.right}})))expect(r.w).toBeGreaterThan(20),expect(r.in).toBe(true);
  if(S70_53)await page.screenshot({path:`${S70_53}/org-head-${width}.png`});
@@ -328,20 +339,22 @@ for(const width of [390,412,690,884,900,1280])test(`조직 관리 ⋯는 화면 
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });
-test('다른 화면으로 가면 조직 관리 ⋯는 이름 줄에서 빠지고, 폭이 바뀌면 맞는 줄로 옮겨 간다(칩은 그대로)',async({page})=>{
+test('다른 화면으로 가면 조직 관리 ⋯는 빠지고, 폭이 바뀌면 맞는 줄로 옮겨 간다(칩은 그대로)',async({page})=>{
+ const pcLine='#teamView [data-screen-tools="line"] #soTeamMore';
  await fixture(page,{width:1280});await clickView(page,'team');
- await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
- await page.setViewportSize({width:884,height:900});await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
+ await expect(page.locator(pcLine)).toBeVisible();
+ await page.setViewportSize({width:884,height:900});await expect(page.locator(pcLine)).toBeVisible();
  await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
  await page.setViewportSize({width:690,height:900});await expect(page.locator('.mobile-shell-header #soTeamMore')).toBeVisible();
  await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
- await page.setViewportSize({width:1280,height:900});await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
+ await page.setViewportSize({width:1280,height:900});await expect(page.locator(pcLine)).toBeVisible();
+ await expect(page.locator('#appView>.app-topline #soTeamMore')).toHaveCount(0);
  await clickView(page,'calendar');
- await expect(page.locator('#soTeamMore')).toBeHidden();await expect(page.locator('.app-topline #soTeamMore, .mobile-shell-header #soTeamMore')).toHaveCount(0);
- await clickView(page,'team');await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
+ await expect(page.locator('#soTeamMore')).toBeHidden();await expect(page.locator(`.app-topline #soTeamMore, .mobile-shell-header #soTeamMore, ${pcLine}`)).toHaveCount(0);
+ await clickView(page,'team');await expect(page.locator(pcLine)).toBeVisible();
 });
-test('조직 관리 빈 곳 우클릭은 이름 줄로 옮긴 화면 ⋯ 메뉴를 연다 1280px',async({page})=>{
- await fixture(page,{width:1280});await clickView(page,'team');await expect(page.locator('.app-topline #soTeamMore')).toBeVisible();
+test('조직 관리 빈 곳 우클릭은 화면 ⋯ 메뉴를 연다 1280px',async({page})=>{
+ await fixture(page,{width:1280});await clickView(page,'team');await expect(page.locator('#teamView [data-screen-tools="line"] #soTeamMore')).toBeVisible();
  const pane=await page.locator('#soOrganizationList').boundingBox();
  await page.mouse.click(pane.x+pane.width/2,pane.y+pane.height+40,{button:'right'});
  await expect(page.locator('#soTeamMenu [data-so-stage-manage]')).toBeVisible();

@@ -134,6 +134,12 @@ export function createBasketHandler(
       ) {
         throw new UploadError(400, "note_id_invalid", "validate");
       }
+      // S71-49 NOTE-보드사진: "place=board" asks for the board photo folder. It is only a wish about which of this caller's own
+      // app folders to use; the folder itself is found by the server (boardPhotoFolder), and any folder id in the request is never read.
+      const place = form.get("place");
+      if (place !== null && place !== "board") {
+        throw new UploadError(400, "place_invalid", "validate");
+      }
       let rawText = "";
       let previous: Attachment[] = [];
       let updatedAt = "";
@@ -185,9 +191,14 @@ export function createBasketHandler(
         token,
       );
       // The update CAS below (updated_at + attachments) refuses the save if the row changed kind after this read.
-      const folder = noteKind === "note"
+      // A board photo (place=board on a note) goes to "보드 사진" inside the top app folder; when that folder cannot be used
+      // (top app folder not known yet, gone, or not private) it stays in "노트 첨부" as before.
+      const board = noteKind === "note" && place === "board"
+        ? await drive.boardPhotoFolder(member.workspace_id, token)
+        : null;
+      const folder = board ?? (noteKind === "note"
         ? await drive.ensurePrivateChildFolder(root, NOTE_FILES_FOLDER, token)
-        : root;
+        : root);
       const attachments = [...previous];
       for (const file of files) {
         stage = "drive_upload";

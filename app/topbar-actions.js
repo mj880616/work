@@ -637,16 +637,16 @@ window.KPTUQuickWrite={open(kind){
   if(kind==='task')return openEventWindow(true);
   return Promise.resolve();
 }};
-async function openScreenNewButton(view,selector){
+async function openScreenNewButton(view,selector,press=b=>b.click()){
   try{
     await window.KPTURouter?.go(view,{source:'delegated'});
     let button=null;
     for(let i=0;i<80&&!button;i++){
-      const found=document.querySelector(`#${view}View ${selector}`);
+      const found=document.querySelector(`#${view}View ${selector}`)||document.querySelector(`[data-screen-tools-for="${view}View"] ${selector}`); // 이름 줄로 옮긴 단추(screen-tools.js, 폰 사업 관리 [+])도 그 화면 것
       if(found&&!found.disabled&&!found.hidden&&found.getClientRects().length)button=found;else await new Promise(resolve=>setTimeout(resolve,100));
     }
     if(!button)throw new Error('missing');
-    button.click();
+    press(button);
   }catch(error){console.error('quick add',error);writeToast('추가 창을 열지 못했어요. 다시 시도해 주세요.')}
 }
 if(addButton){
@@ -658,7 +658,8 @@ if(addButton){
         const kind=button.dataset.toplineAdd;
         if(kind==='update'||kind==='note')void openWriter(kind);
         else if(kind==='diary')void openScreenNewButton('diary','[data-diary-new]');
-        else if(kind==='report')void openScreenNewButton('meetings','#newMeetingBtn');
+        // BIZ-머리한줄(S71-23): 사업 관리 [+]는 메뉴([새 사업 보고][녹음]/[사업영역 관리])라, 여기서는 그 [새 사업 보고]와 같은 길(칸 고르기 → 쓰기 창)을 [+] 자리에서 연다.
+        else if(kind==='report')void openScreenNewButton('meetings','#newMeetingBtn',b=>{if(window.KPTUReportEntry?.pick)window.KPTUReportEntry.pick(b);else b.click()});
         else void openEventWindow(kind==='task');
       }});
     addButton.addEventListener('click',()=>menu.open(addButton));

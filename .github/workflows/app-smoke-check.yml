@@ -836,6 +836,8 @@ jobs:
         run: node --test tests/note-board-decor-model.test.mjs
       - name: Check note board images (S70-32 ② 사진 정보 지우기·칸 크기)
         run: node --test tests/note-board-image-model.test.mjs
+      - name: Check note board paste (S71-49 누른 자리 붙여넣기·글자 칸 한도)
+        run: node --test tests/note-board-paste-model.test.mjs
       - name: Check note board export (S70-32 ③ 범위·PDF 한 쪽)
         run: node --test tests/note-board-export-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
@@ -1252,6 +1254,9 @@ jobs:
 
       - name: Check phone widget logout line (APP-폰앱새로 ③)
         run: node --test tests/phone-widget-line.test.mjs
+
+      - name: Check shared settings rows (UI-설정줄, S71-36 PROFILE-설정화면)
+        run: node --test tests/settings-list.test.mjs
 
       - name: Check phone widget auto login bridge (APP-폰앱새로 ③)
         run: node --test tests/phone-widget-auth.test.mjs

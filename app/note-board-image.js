@@ -41,7 +41,8 @@ export function imageFilesOf(transfer) {
 
 // createNoteBoardImages({rt, notes, boards, toast, rerender}) → add(files, point)
 // notes: {get, set} (basket-notes.js 노트 배열), boards: createNoteBoards 결과(current·attachSized).
-export function createNoteBoardImages({rt = window.KPTURuntime, notes, boards, toast = () => {}, rerender = () => {}, clean = cleanBoardPhoto}) {
+// S71-49: 넣은 뒤 알림에 [되돌리기] 하나 — 이번에 넣은 사진 카드를 모두 보드에서 빼고 그 사진 노트는 휴지통으로(owner RLS 지우기 = 휴지통, 파일은 드라이브에 그대로).
+export function createNoteBoardImages({rt = window.KPTURuntime, notes, boards, toast = () => {}, rerender = () => {}, clean = cleanBoardPhoto, notice = null}) {
   let busy = false;
   async function one(file, at, boardId) {
     const [{createNoteDoc}, {uploadBasketFile}] = await Promise.all([import('./basket-data.js'), import('./basket-upload.js')]);
@@ -49,7 +50,7 @@ export function createNoteBoardImages({rt = window.KPTURuntime, notes, boards, t
     const row = await createNoteDoc({title:photoTitle(file.name), raw_text:''}, rt);
     let result;
     try {
-      const fd = new FormData(); fd.append('file', photo); fd.append('note_id', row.id);
+      const fd = new FormData(); fd.append('file', photo); fd.append('note_id', row.id); fd.append('place', 'board'); // S71-49: 서버가 'WORK ON+ › 보드 사진'을 찾아 넣는다(폴더 id는 보내지 않음)
       result = await uploadBasketFile(fd, photo, rt);
       if (!result?.ok || result.note_id !== row.id || !Array.isArray(result.attachments) || !result.attachments.length) throw new Error('사진을 올리지 못했어요.');
     } catch (e) {
@@ -62,21 +63,34 @@ export function createNoteBoardImages({rt = window.KPTURuntime, notes, boards, t
     if (boards.current() === boardId) boards.attachSized(saved.id, at, imageBoxSize(size?.w, size?.h));
     return saved;
   }
+  async function undoAdd(ids, boardId) {
+    if (boards.current() === boardId) boards.detach(ids);
+    const ws = encodeURIComponent(rt.context.read()?.workspace?.id || ''); if (!ws) return {status:'failed', message:'되돌리지 못했어요.'};
+    let ok = true;
+    for (const id of ids) {
+      try { await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${ws}&select=id`, {method:'DELETE', prefer:'return=representation'}); }
+      catch { ok = false; }
+    }
+    notes.set(list => list.filter(n => !ids.includes(n.id))); rerender();
+    return ok ? true : {status:'failed', message:'일부 사진은 되돌리지 못했어요.'};
+  }
   async function add(files, point) {
     const list = (files || []).filter(isBoardImage);
     if (!list.length) { toast('사진 파일만 넣을 수 있어요.'); return 0; }
     if (busy) { toast('사진을 올리는 중이에요. 끝난 뒤 다시 넣어 주세요.'); return 0; }
     const boardId = boards.current(); if (!boardId) return 0;
-    busy = true; let made = 0, fail = '';
+    busy = true; let made = 0, fail = ''; const ids = [];
     const take = list.slice(0, PHOTO_MAX);
     try {
       for (let i = 0; i < take.length; i++) {
         const at = {x:(point?.x || 0) + i * 24, y:(point?.y || 0) + i * 24};
-        try { await one(take[i], at, boardId); made++; } catch (e) { fail ||= e?.message || '사진을 올리지 못했어요.'; }
+        try { ids.push((await one(take[i], at, boardId)).id); made++; } catch (e) { fail ||= e?.message || '사진을 올리지 못했어요.'; }
       }
     } finally { busy = false; rerender(); }
-    if (fail) toast(made ? `사진 ${made}장을 넣었어요. ${fail}` : fail);
-    else toast(list.length > PHOTO_MAX ? `사진 ${made}장을 넣었어요. 한 번에 ${PHOTO_MAX}장까지예요.` : `사진 ${made}장을 넣었어요.`);
+    const text = fail ? (made ? `사진 ${made}장을 넣었어요. ${fail}` : fail)
+      : list.length > PHOTO_MAX ? `사진 ${made}장을 넣었어요. 한 번에 ${PHOTO_MAX}장까지예요.` : `사진 ${made}장을 넣었어요.`;
+    if (made && notice) notice(text, {label:'사진 넣기', undo:() => undoAdd(ids, boardId)});
+    else toast(text);
     return made;
   }
   return {add, busy:() => busy};

@@ -298,7 +298,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     catch (e) { showToast(e?.message || '내보내지 못했어요. 다시 눌러 주세요.'); }
     finally { exporting = false; }
   }
-  const boardImages = createNoteBoardImages({rt, notes:{get:() => notes, set:fn => { notes = fn(notes); }}, boards, toast:showToast,
+  const boardImages = createNoteBoardImages({rt, notes:{get:() => notes, set:fn => { notes = fn(notes); }}, boards, toast:showToast, notice:notify,
     rerender:() => { if (loaded && !selected && view === 'board') renderList(); }});
   // S69-94: 열린 노트의 메모 칸(memo-thread.js가 그 칸의 유일한 renderer). 메모 목록(memo-store.js)이 바뀌면 [메모] 보기만 다시 그린다.
   const noteComments = createMemoThread();
@@ -624,7 +624,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
       decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
       // S70-32 ②: 사진 끌어 놓기·붙여넣기·[이미지] → 사진 정보를 지우고 사진 한 장뿐인 노트로(노트 첨부, owner만) → 놓은 자리에 붙임.
-      onImages:(files, point) => { if (!busy) void boardImages.add(files, point); }, photoUrl:(noteId, fileId) => diaryPhotoUrl(noteId, fileId, 'large', {rt})});
+      onImages:(files, point) => { if (!busy) void boardImages.add(files, point); }, photoUrl:(noteId, fileId) => diaryPhotoUrl(noteId, fileId, 'large', {rt}),
+      // S71-49 [나]: 사진 카드 두 번 누름(폰은 고른 사진 한 번 더) = 보드 위 크게 보기(공용 photo-view.js — Esc·바깥·뒤로가기로 닫으면 보드 그대로). 노트 화면으로 가지 않는다.
+      onPhotoView:(id, file, trigger) => { const row = notes.find(n => n.id === id); if (row && !busy) openPhotoView({row, file, trigger, rt}); }});
     boards.paint();
     // S69-83: [전체]가 없으므로 보드가 하나도 없으면 판(도구 줄 포함) 대신 빈 안내 한 줄 — 보드 칸 줄의 [+ 새 보드]로 만든다.
     const named = boards.boardView(), none = host.querySelector('[data-nbw-none]');
@@ -2195,7 +2197,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     closeMenu(); calDay = cell.dataset.ntCalCell; renderList();
   });
   // S70-54: 맨 위 줄로 옮긴 목록 머리 ⋯(상자 안)도 같은 메뉴를 연다.
+  // S71-59: PC 틀은 상자가 화면 안 보기 탭 줄(host 안)에 있어 아래 host 누르기 처리가 받는다 — 여기서 또 열면 두 번 눌러 바로 닫힌다.
   tools.addEventListener('click', e => {
+    if (host.contains(tools)) return;
     const b = e.target.closest('[data-note-folder-more]'); if (!b || b.disabled) return;
     if (!busy && (!selected || splitOpen())) openMenu(b, null, pick.active ? 'picked' : 'head');
   });
@@ -2393,7 +2397,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else void askClose(e.target instanceof Element ? e.target : null);
   };
   host.addEventListener('keydown', onListKey);
-  tools.addEventListener('keydown', onListKey);
+  tools.addEventListener('keydown', e => { if (!host.contains(tools)) onListKey(e); }); // S71-59: PC 틀은 상자가 host 안 — host 처리 한 번만
   // S70-64b: 막대에 [✕]가 없으니, 누른 곳(커서)이 노트 칸 밖(문서 바탕 등)이어도 노트 화면이 보이는 동안 Esc = 고르기 끝(자료실·줄 고르기와 같음).
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || e.defaultPrevented || !pick.active || selected || menu || busy) return;

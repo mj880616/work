@@ -14,9 +14,9 @@ const noComments = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
 test('C2 사업 보고 위쪽: 종류 칩 줄 없음, PC(761px~)는 위쪽 한 줄(BIZ-위쪽정돈PC)', () => {
   const html = read('index.html'), css = noComments(read('meeting-ui.css'));
   assert.doesNotMatch(html, /id="reportKindFilter"|id="reportNameSelect"/);
-  assert.match(html, /<div class="report-top"><div class="toolbar report-top-line">/);
+  assert.match(html, /<div class="report-top"><div id="reportTop" class="toolbar report-top-line">/);
   assert.doesNotMatch(css, /#reportKindFilter|#reportNameSelect/);
-  assert.match(css, /@media\(min-width:761px\)\{\s*#appView #meetingsView \.report-top\{display:flex;flex-wrap:nowrap;/);  // S71-10: 폭이 모자라도 줄을 넘기지 않음(주 줄 한 줄)
+  assert.match(css, /#appView #reportTop\{display:flex;flex-direction:row;flex-wrap:nowrap;/);  // BIZ-머리한줄(S71-23): 모든 폭에서 첫 줄 한 줄(넘치지 않고 칩 글자 말줄임)
 });
 
 // S71-35: 내 프로필 '담당조직 현황' 체크 줄(.ps-org-pick)은 없앴다 — 남은 내 프로필 체크 줄은 .ps-calref-check.

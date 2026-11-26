@@ -176,11 +176,30 @@ a.account-action{text-decoration:none;box-sizing:border-box}
 #themeModal.theme-anchored .theme-panel{position:fixed;overflow:auto;padding:var(--kptu-space-2,8px);box-shadow:var(--kptu-shadow-float)}
 
 /* UI-화면이름줄도구(S70-53 ORG-머리줄한줄): 화면 이름 줄 오른쪽 끝의 그 화면 만들기·⋯ 자리(screen-tools.js가 채움 — 지금은 조직 관리 #soTeamTools).
-   폰·폴드(~760px)는 앱 머리 줄 [아이콘 · 이름 · (폴드: 찾기)] 오른쪽 끝, PC 틀(761px~)은 맨 위 줄 검색 칸 오른쪽(desktop-ui.css .app-topline 안 같은 칸).
+   폰·폴드(~760px)는 앱 머리 줄 [아이콘 · 이름 · (폴드: 찾기)] 오른쪽 끝. PC 틀(761px~)은 S71-59부터 화면 안 첫 줄 오른쪽 끝(아래 .screen-line-slot).
    찾기 칸은 남은 폭만 쓰므로 단추가 있으면 그만큼 짧아진다. 화면 안 원래 자리(그 화면이 안 보일 때)에서는 보이지 않는다. */
 .screen-tools-slot{display:flex;align-items:center;flex:none;min-width:0;margin-left:auto}
 .screen-tools-slot:empty{display:none}
 /* S70-54: 화면 찾기 단추 상자(screen-find.js .sf-tools)는 다른 화면일 때 숨긴 채 이 자리에 남는다 — 보이는 것이 없으면 자리째 없앤다(줄 간격이 남지 않게). */
 .screen-tools-slot:not(:has(>:not([hidden]))){display:none}
 .screen-tools{display:flex;align-items:center;flex:none}
+/* S71-59 UI-화면메뉴안으로(2026-11-26 사용자 결정): PC 틀(761px~)의 화면 전용 단추·⋯ 자리 = 그 화면 안 첫 줄 오른쪽 끝(screen-tools.js lineSlot,
+   첫 줄 표도 거기 한 곳). 맨 위 줄은 앱 전체 것만. line = 가로 줄 끝(margin-left:auto), grid = 격자 첫 줄을 차지하는 탭 옆 같은 줄 오른쪽 끝,
+   own = 첫 줄이 없는 화면의 맨 위 한 줄(오른쪽 맞춤). 보이는 것이 없으면(폰 틀·다른 화면 상자만) 자리째 없다. */
+.screen-line-slot{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex:none;min-width:0;margin-left:auto}
+.screen-line-slot:not(:has(>:not([hidden]):not(.screen-tools:not([data-screen-tools-placed])))){display:none}
+.screen-line-slot[data-screen-line-mode="own"]{margin:0 0 var(--kptu-space-2,8px)}
+@media(min-width:761px){
+  #appView [data-screen-line-anchor]{grid-row:1;justify-self:start}
+  #appView .screen-line-slot[data-screen-line-mode="grid"]{grid-row:1;grid-column:1 / -1;justify-self:end;align-self:center}
+}
+/* S71-27 NEWS-머리한줄: 화면 이름 바로 뒤 작은 회색 글('읽을 거리 · 새 글 40', screen-find.js noteBox). 폰·폴드는 머리 줄 이름 뒤, PC 틀은 맨 위 줄 위치 뒤.
+   보이는 글자가 없으면 자리째 없다(줄 간격이 남지 않게). 폰에서 찾기 칸을 펼치면(.sf-open) 이름과 함께 비켜 준다. */
+.screen-note-slot{display:flex;align-items:center;flex:none;min-width:0}
+.screen-note-slot:not(:has(>.sf-note:not([hidden]):not(:empty))){display:none}
+.sf-note{font-size:12px;font-weight:var(--ds-weight-regular,400);line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
+.sf-note[hidden],.sf-note:empty{display:none}
+.mobile-shell-header>.screen-note-slot{margin-left:-4px}
+.app-topline .screen-note-slot{margin-left:8px}
+.mobile-shell-header.sf-open>.screen-note-slot{display:none}
 .screen-tools:not([data-screen-tools-placed]){display:none}
