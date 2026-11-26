@@ -15,6 +15,8 @@ import { checkSplit } from './helpers/split-check.mjs';
 import { screenFindLocator } from './helpers/screen-find.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { readFileSync } from 'node:fs';
+import { visibleText } from './helpers/visible-text.mjs';
+import { start as startNews, openNews } from './helpers/news-server.mjs';
 // 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
 const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
 import { askBox, dragAsk, askTextSpot } from './helpers/confirm-drag.mjs';
@@ -1689,8 +1691,9 @@ for (const [name, open] of SWIPE_PICK_SCREENS) test(`W3 ${name} 폰 390: 오른�
   await expect(bar).toBeVisible();
   await expect(count).toHaveText('1개 선택됨');
   await expect(s.scope.locator('.row-swipe-acts')).toHaveCount(0);
-  // 막대: [✕] · 개수 · [전체 선택](꺼짐 = 빈 네모) · … · [삭제] 맨 끝.
-  await expect(bar.locator('[data-row-pick-stop]')).toHaveAttribute('aria-label', '선택 끝내기');
+  // 막대: [전체 선택](꺼짐 = 빈 네모) · [삭제] 맨 끝. [✕]·'n개 선택됨' 글자는 없다(S70-64b — 개수는 화면 읽기에만).
+  await expect(bar.locator('[data-row-pick-stop], .kptu-sb-close')).toHaveCount(0);
+  expect(await visibleText(bar)).not.toMatch(/선택됨|그만/);
   await expect(all).toHaveAttribute('aria-checked', 'false');
   await expect(all).toHaveAttribute('data-sb-icon', 'box');
   await expect(all).toContainText('전체 선택');
@@ -1731,6 +1734,78 @@ for (const [name, open] of SWIPE_PICK_SCREENS) test(`W3 ${name} 폰 390: 오른�
   expect(errors).toEqual([]);
 });
 
+// S70-64b UI-오른쪽밀기고르기 정정(명진 11/26 07:46 "그만은 필요없어 폰 뒤로가기 버튼 누르면 되고 Pc는 esc가 그거야 / 전체선택 저장 삭제 만 있음 될 듯? 읽을 거리 선택 메뉴에서는"):
+// 고르기 막대 화면 표(폰 390). 막대에는 [✕]·'n개 선택됨'·[그만] 글자가 없고, 칸 이름·개수가 규칙과 같다. 뒤로가기(폰)·Esc(PC 자판)로 고르기만 끝(화면·주소 그대로).
+//   줄 고르기 목록(row-swipe.js) = [전체 선택][삭제], 읽을 거리 = [전체 선택][저장][삭제].
+//   노트·자료실은 그 화면의 고르기 모드(꾹 누르기·오른쪽 밀기가 같은 막대) — 맨 앞 [전체 선택]·맨 끝 [삭제], 가운데 [폴더로 옮기기] 등은 그 화면 것(PR 본문 '요청과 다른 점').
+// 막대가 있는 화면이 늘면 아래 표에 한 줄 더한다(docs/design/standard-interactions.md W3 막대 화면 표).
+const barNames = bar => bar.evaluate(el => [...el.querySelectorAll('button.kptu-sb-act:not(.kptu-sb-more)')].filter(b => !b.hidden)
+  .map(b => (b.querySelector('.kptu-act-tx')?.textContent || b.getAttribute('aria-label') || '').trim()));
+async function newsSwipe(page) {
+  const { errors } = await startNews(page, 390);
+  await openNews(page, 390);
+  const item = id => page.locator(`#newsRoot [data-nc-item="${id}"]`);
+  await expect(item('c1')).toBeVisible();
+  return { errors, bar: page.locator('#newsRoot .row-swipe-pickbar'), start: () => swipeRight(item('c1'), 60), want: ['전체 선택', '저장', '삭제'] };
+}
+const swipeOf = open => async page => { const s = await open(page); const errors = []; page.on('pageerror', e => errors.push(e.message));
+  return { errors, bar: s.scope.locator('.row-swipe-pickbar'), start: () => swipeRight(s.first, 60), want: ['전체 선택', '삭제'] }; };
+const holdOf = (open, middle) => async page => { const s = await open(page, 390);
+  return { errors: s.errors, bar: s.bar, start: async () => { await holdAt(page, s.first); await s.afterHold?.(); }, first: '전체 선택', last: '삭제', middle }; };
+const BAR_SCREENS = [
+  ['할 일', swipeOf(tasksSwipe)],
+  ['저장한 글', swipeOf(readingSwipe)],
+  ['읽을 거리', newsSwipe],
+  ['자료실', holdOf(libraryRows, '폴더로 옮기기')],
+];
+test.describe('W3 고르기 막대 화면 표 폰 390', () => {
+  test.use({ hasTouch: true });
+  for (const [name, open] of BAR_SCREENS) test(`W3 ${name} 390: 막대 칸 이름·개수가 규칙과 같고 '선택됨'·'그만' 글자·✕ 없음, 뒤로가기·Esc로 고르기 끝`, async ({ page }) => {
+    test.setTimeout(120000);
+    const s = await open(page);
+    const here = () => page.evaluate(() => [location.href, window.KPTURouter?.current]);
+    const at = await here();
+    await s.start();
+    await expect(s.bar).toBeVisible();
+    const names = await barNames(s.bar);
+    if (s.want) expect(names, `${name} 막대 칸`).toEqual(s.want);
+    else { expect(names[0]).toBe(s.first); expect(names.at(-1)).toBe(s.last); expect(names).toContain(s.middle); }
+    expect(names).not.toContain('그만');
+    await expect(s.bar.locator('.kptu-sb-close, [data-row-pick-stop]')).toHaveCount(0);
+    expect(await visibleText(s.bar), `${name} 보이는 글`).not.toMatch(/선택됨|그만/);
+    // 폰 뒤로가기 = 고르기만 끝(화면·주소 그대로).
+    await page.goBack();
+    await expect(s.bar).toBeHidden();
+    expect(await here()).toEqual(at);
+    // PC 자판 Esc = 같은 끝내기.
+    await swipeTick(page);
+    await s.start();
+    await expect(s.bar).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(s.bar).toBeHidden();
+    expect(await here()).toEqual(at);
+    expect(s.errors).toEqual([]);
+  });
+});
+// PC 1280: 노트·자료실 고르기도 [✕] 없이 Esc로 끝(커서가 목록 밖 — 문서 바탕 — 에 있어도), 보이는 글에 '선택됨' 없음.
+const PC_BAR_SCREENS = [['자료실', keyLibrary, '#librarySelectBar'], ['노트', keyNotes, '[data-nx-select-bar]']];
+for (const [name, open, barSel] of PC_BAR_SCREENS) test(`W3 ${name} PC 1280: 고르기 막대 ✕·'선택됨' 글자 없음, 맨 앞 [전체 선택]·맨 끝 [삭제], Esc로 끝`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page);
+  const bar = page.locator(barSel);
+  await s.pickTwo();
+  await expect(bar).toBeVisible();
+  const names = await barNames(bar);
+  expect(names[0]).toBe('전체 선택');
+  expect(names.at(-1)).toBe('삭제');
+  await expect(bar.locator('.kptu-sb-close')).toHaveCount(0);
+  expect(await visibleText(bar)).not.toMatch(/선택됨|그만/);
+  await page.evaluate(() => document.activeElement?.blur?.());
+  await page.keyboard.press('Escape');
+  await expect(bar).toBeHidden();
+  expect(await s.picked()).toBe(0);
+  expect(s.errors).toEqual([]);
+});
 // ---------- T10 TREE-탐색기꺾쇠(S70-81b, 명진 2026-11-26 09:25 최종 결정) ----------
 // 넓은 화면 왼쪽 폴더 나무 = 윈도 탐색기: 폴더 아이콘 왼쪽 작은 회색 꺾쇠(접힘 › / 펼침 ⌄, 하위 없으면 없음) 누르기 = 펼치기·접기만(오른쪽 그대로),
 // 폴더 이름 한 번 = 오른쪽에 그 폴더 내용(나무 펼침 그대로), 이름 두 번 누르기 = 펼치기/접기 + 내용, 끄는 중 접힌 폴더 위에 ~1초 머무르면 펼침,
