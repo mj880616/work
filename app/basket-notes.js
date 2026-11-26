@@ -1841,7 +1841,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     pick.hold([key]);
     renderList();
   }
-  const pageScroller = {getBoundingClientRect: () => ({top:0, bottom:window.innerHeight}), scrollBy: (x, y) => window.scrollBy(x, y)};
+  // S70-75 STD-끌기자동스크롤: 끄는 동안 굴릴 칸은 공용 부품이 포인터 아래 가장 안쪽 칸부터 고른다(PC 왼쪽 폴더 나무·오른쪽 목록이 따로 굴러간다).
+  // 원인(사실): 전에는 '화면 전체'를 먼저 굴릴 칸으로 줘서, 화면이 굴러가지 않는 PC에서는 나무 칸 아래 끝에 대도 나무가 움직이지 않았다.
   host.addEventListener('pointerdown', e => { dragPointer = e.pointerType || ''; }, true);
   // S69-27 끄는 모습 보이기: 끄는 줄의 반투명 조각이 마우스·손가락을 따라온다(제목 한 줄, 여러 개 골랐으면 '노트 3개'). 공용 drag-ghost.js.
   const dragLabel = key => {
@@ -1851,7 +1852,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const note = notes.find(n => n.id === items.notes[0]);
     return note ? ghostText(pinLock.noteHidden(note) ? LOCKED : noteLineTitle(note)) : '';
   };
-  mountReorder(host, {whole:true, altStep:true, onStep:(key, dir) => stepKey(key, dir), zones:{resolve:resolveOver}, onHover:showHover, onDrop:handleDrop, onHold:handleHold, scroller:() => pageScroller, ghost:(el, key) => dragLabel(key),
+  mountReorder(host, {whole:true, altStep:true, onStep:(key, dir) => stepKey(key, dir), zones:{resolve:resolveOver}, onHover:showHover, onDrop:handleDrop, onHold:handleHold, ghost:(el, key) => dragLabel(key),
     canDrag:key => (key.startsWith('n:') || key.startsWith('f:')) && canReorder() && !busy, canHold:key => holdKey(key) && !busy});
   host.addEventListener('contextmenu', e => { if (Date.now() < suppressUntil) e.preventDefault(); }, true);
   host.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nx-note],[data-nx-folder]') && !e.target.closest('.basket-row-more,.nx-more')) { e.preventDefault(); e.stopPropagation(); } }, true);
