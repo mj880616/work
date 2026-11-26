@@ -21,6 +21,10 @@ export const FAMILY_KIND = Object.freeze(['family', '잊지 말기']);
 // OPS-새가입알림(S62-25): 운영자(서버 허용 표 dev_inbox)에게만 보이는 종류 '새 가입'. family와 같은 방식 — 기본 켬, 끌 때만 kinds.signup=false
 // (DB 검사 20261115234500_signup_notify가 이 키를 받는다). 알림은 서버가 운영자 작업공간에만 보내므로 칩을 빼는 것은 보안이 아니다.
 export const SIGNUP_KIND = Object.freeze(['signup', '새 가입']);
+// S69-97 노트 알림: 노트에 건 알림(정한 시각)을 서버(phone-push 15분 예약)가 보낸다. 모든 사람에게 보이는 칩. family·signup과 같은 방식 —
+// 기본 켬, 끌 때만 kinds.note=false(DB 검사 20261125130000_note_alarm_push_kind가 이 키를 받는다. 켬일 때는 칸을 만들지 않아
+// DB 변경 전에도 저장 모양이 그대로 통과한다).
+export const NOTE_KIND = Object.freeze(['note', '노트 알림']);
 export const SIGNUP_FEATURE = 'dev_inbox';
 export const DEFAULT_QUIET = Object.freeze({from: '22:00', to: '07:00'});
 export const TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
@@ -35,7 +39,7 @@ export function parsePrefs(raw) {
   for (const key of KIND_KEYS) kinds[key] = typeof given[key] === 'boolean' ? given[key] : true;
   const q = src.quiet && typeof src.quiet === 'object' ? src.quiet : {};
   const quiet = TIME.test(q.from) && TIME.test(q.to) ? {from: q.from, to: q.to} : {...DEFAULT_QUIET};
-  return {kinds, quiet, family: given.family !== false, signup: given.signup !== false};
+  return {kinds, quiet, family: given.family !== false, signup: given.signup !== false, note: given.note !== false};
 }
 
 /** 화면 값 → 저장 값(검사 제약에 맞는 모양만). 시간 모양이 틀리면 null(저장하지 않음). */
@@ -43,13 +47,14 @@ export function serializePrefs(prefs) {
   const p = parsePrefs({kinds: prefs?.kinds});
   const from = prefs?.quiet?.from, to = prefs?.quiet?.to;
   if (!TIME.test(from ?? '') || !TIME.test(to ?? '')) return null;
-  const kinds = {...p.kinds, ...(prefs?.family === false ? {family: false} : {}), ...(prefs?.signup === false ? {signup: false} : {})};
+  const kinds = {...p.kinds, ...(prefs?.family === false ? {family: false} : {}), ...(prefs?.signup === false ? {signup: false} : {}), ...(prefs?.note === false ? {note: false} : {})};
   return {kinds, quiet: {from, to}};
 }
 
 export function toggleKind(prefs, key) {
   if (key === FAMILY_KIND[0]) return {...prefs, family: prefs.family === false};
   if (key === SIGNUP_KIND[0]) return {...prefs, signup: prefs.signup === false};
+  if (key === NOTE_KIND[0]) return {...prefs, note: prefs.note === false};
   if (!KIND_KEYS.includes(key)) return prefs;
   return {...prefs, kinds: {...prefs.kinds, [key]: !prefs.kinds[key]}};
 }
