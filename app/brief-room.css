@@ -9,8 +9,28 @@
 /* UI-간격기준 A(S70-42, 명진 11/25 "자료실에서 선택 자료넣기랑 그 아래랑 여백 없고"): 머리줄 단추 줄과 놓기 칸 사이 = --ds-gap-bar. */
 #briefView .br-drop{margin:var(--ds-gap-bar) 0 4px;padding:4px 8px;border:1px dashed var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView.br-dropping .br-drop{border-color:var(--kptu-primary-ink);color:var(--kptu-ink)}
+/* S70-84 BRIEF-두칸폴더: 목록 줄은 [파일] 목록 줄(files.css .fx-head·.fx-row — 높이·글자·줄선·고른 줄 색 그대로)에 브리핑 상태 칸과 ⋯ 두 칸을 더한 것.
+   칸: 그림 · 이름 · 넣은 날 · 크기 · 종류 · 상태 · ⋯. 목록 칸이 좁으면(두 칸의 왼쪽) 크기·종류 → 넣은 날 순서로 칸을 뺀다(칸 폭 기준 container query). 폴더 줄은 공용 .ft-row. */
+#briefView .br-list{container-type:inline-size;min-width:0}
 #briefView .br-rows{border-top:.5px solid var(--kptu-border)}
-#briefView .br-row{display:grid;grid-template-columns:2.8em minmax(0,1fr) auto auto;gap:1px 6px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row)}
+#briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:20px minmax(0,1fr) var(--br-w-day,76px) var(--br-w-size,56px) var(--br-w-kind,44px) auto 28px;column-gap:8px}
+#briefView .br-rows>.fx-row.br-row{padding-left:calc(8px + var(--br-depth,0) * var(--ft-indent,22px));cursor:default}
+#briefView .br-rows>.fx-row.br-row[role=button]{cursor:pointer}
+#briefView .br-fhead span:nth-child(4){text-align:right}
+#briefView .br-row .fx-size{text-align:right;color:var(--kptu-muted)}
+#briefView .br-row .fx-day,#briefView .br-row .fx-kind{color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#briefView .br-row .fx-sub{display:none}
+#briefView .br-row .br-more{width:28px;height:28px;font-size:16px;border-color:transparent;background:transparent}
+#briefView .br-row .br-start{min-height:24px}
+#briefView .br-rows>.ft-row{border-bottom:.5px solid var(--kptu-border)}
+@container (max-width:380px){
+  #briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:20px minmax(0,1fr) var(--br-w-day,64px) auto 28px}
+  #briefView .br-row :is(.fx-size,.fx-kind),#briefView .br-fhead span:is(:nth-child(4),:nth-child(5)){display:none}
+}
+@container (max-width:220px){
+  #briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:20px minmax(0,1fr) auto 28px}
+  #briefView .br-row .fx-day,#briefView .br-fhead span:nth-child(3){display:none}
+}
 #briefView .br-row[role=button]{cursor:pointer}
 #briefView .br-row.is-open{background:var(--kptu-surface-soft,var(--kptu-primary-soft))}
 #briefView .br-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
@@ -18,7 +38,6 @@
 #briefView .br-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #briefView .br-st{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
 #briefView .br-st-bad{white-space:normal;text-align:right}
-#briefView .br-one{grid-column:2/-1;min-width:0;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #briefView .br-muted{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView .br-meta{margin:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView .br-sec{margin:6px 0 0;padding:6px 0 0;border-top:.5px solid var(--kptu-border)}
@@ -47,17 +66,29 @@
 #briefView .br-pg a{color:var(--kptu-primary-ink);text-decoration:underline}
 #briefView .br-who{color:var(--kptu-ink)}
 #briefView [hidden]{display:none}
-/* 761px~(폴드 펼침·PC): 왼쪽 목록, 오른쪽 브리핑(같은 내용). */
-@media(min-width:761px){
-  #briefView.br-reading .br-wrap{grid-template-columns:minmax(0,22em) minmax(0,1fr)}
-  #briefView.br-reading .br-detail{padding-left:12px;margin-left:12px;border-left:.5px solid var(--kptu-border)}
+/* S70-84: 칸 나누기 폭(600px~ — 폴드 펼침·PC, screen-width.mjs)은 왼쪽 목록 | 오른쪽 브리핑 두 칸. 칸 비율은 공용 split-resize.js가 --ds-split-list/--ds-split-detail(fr)로
+   정한다(기본 2 : 3, 서버 split_ratio.brief). 오른쪽 칸은 follow-pane.js가 화면 위에 붙인다(그 칸만 스크롤). 자료·폴더가 하나도 없으면 한 칸(처음 쓰는 법 안내). */
+@media(min-width:600px){
+  #briefView.br-split .br-wrap{grid-template-columns:minmax(0,var(--ds-split-list,2fr)) minmax(0,var(--ds-split-detail,3fr));column-gap:12px;align-items:start;--ds-split-list-min:240px;--ds-split-detail-min:320px}
+  #briefView.br-split .br-detail{padding-left:12px;border-left:.5px solid var(--kptu-border)}
 }
-@media(max-width:760px){#briefView .br-row{padding:7px 0}}
+/* 폰(~599px): [파일] 폰 줄처럼 두 줄(이름 / 넣은 날 · 크기 · 종류), 머리 줄 없음(정렬 고르기). 상태·⋯는 오른쪽에 두 줄 높이로. */
+@media(max-width:599px){
+  #briefView .br-rows>.fx-row.br-row{grid-template-columns:20px minmax(0,1fr) auto 32px;grid-template-rows:auto auto}
+  #briefView .br-row :is(.fx-day,.fx-size,.fx-kind){display:none}
+  #briefView .br-row .fx-ico{grid-row:1/3}
+  #briefView .br-row .fx-nm{grid-column:2;grid-row:1}
+  #briefView .br-row .fx-sub{display:block;grid-column:2;grid-row:2}
+  #briefView .br-row .br-st{grid-column:3;grid-row:1/3}
+  #briefView .br-row .br-more{grid-column:4;grid-row:1/3;width:32px;height:32px}
+  #briefView .br-head .br-sort{flex:none;height:26px}
+}
 /* BRIEF-브리핑룸삭제(S63-08): 줄 끝 ⋯(공용 icon-btn), 선택 모드(줄 앞 네모 칸·위쪽 줄 [모두 선택] n개 선택됨 [브리핑만 삭제] [자료까지 삭제] [취소]).
    줄 메뉴는 통화·텔레그램과 같은 공용 작은 메뉴(feed.css .feed-menu). 버튼 모양은 공용 6가지 그대로(여기서 정하지 않음). */
 #briefView .br-more{flex:none;color:var(--kptu-muted)}
-#briefView .br-picking .br-row{grid-template-columns:auto 2.8em minmax(0,1fr) auto auto;cursor:pointer}
-#briefView .br-picking .br-one{grid-column:3/-1}
+#briefView .br-picking .br-row{cursor:pointer}
+#briefView .br-picking .br-row>.br-pick{position:absolute;left:2px;top:50%;transform:translateY(-50%)}
+#briefView .br-picking .br-row{position:relative;padding-left:calc(26px + var(--br-depth,0) * var(--ft-indent,22px))}
 #briefView .br-pick{margin:0;width:16px;height:16px}
 #briefView .br-head{flex-wrap:wrap}
 #briefView .br-head .br-count{margin-right:auto;color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
@@ -68,8 +99,8 @@
 #briefView .br-doc+.txs{margin-left:auto}
 #briefView .br-body .br-gist,#briefView .br-body .br-items,#briefView .br-body .br-q,#briefView .br-body .br-sec h3{font-size:calc(var(--ds-text-row) * var(--txs,1))}
 #briefView .br-body .br-ours,#briefView .br-body .br-ref,#briefView .br-body .br-pg,#briefView .br-body .br-sec h3 small{font-size:calc(var(--ds-text-meta) * var(--txs,1))}
-#briefView .br-rows .br-row{font-size:calc(var(--ds-text-row) * var(--txs,1))}
-#briefView .br-rows .br-one,#briefView .br-rows .br-st,#briefView .br-rows .br-k{font-size:calc(var(--ds-text-meta) * var(--txs,1))}
+#briefView .br-rows .br-row .fx-name{font-size:calc(13px * var(--txs,1))}
+#briefView .br-rows .br-st{font-size:calc(var(--ds-text-meta) * var(--txs,1))}
 /* S70-27 BRIEF-손수정: 고친 브리핑 한 줄, 고치는 칸(글 길이만큼 늘어나는 칸, 촘촘하게), 줄 포커스(키보드 ↑↓·Shift+F10) */
 #briefView .br-edited{display:flex;align-items:center;gap:2px}
 #briefView .br-edited .br-revert{color:var(--kptu-primary-ink)}

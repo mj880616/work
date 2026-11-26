@@ -25,8 +25,9 @@ export const QUICK_MODES = Object.freeze(['update', 'task']);
 // (migration 20261029010000_profile_view_prefs_split_screens. 적용 전에는 새 이름 쓰기가 400이라 이 화면은 그 DB 적용 뒤 merge).
 // UI-칸폭끌기전수(요청함 10/30 10:29): 사진 폴더·아스날·노트 폴더·노트 보드 넷을 더함(migration 20261031030000_profile_view_prefs_split_more).
 // 적용 전에는 새 이름 쓰기가 400이라 칸 폭은 rejectable로 보내 그 칸만 되돌린다(다른 화면 기억은 그대로 저장, 새로고침하면 기본 폭).
-export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3', 'photos', 'arsenal', 'notes', 'noteboard', 'now', 'files', 'library', 'reading']);
+export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3', 'photos', 'arsenal', 'notes', 'noteboard', 'now', 'files', 'library', 'reading', 'brief']);
 // S70-58 READ-두칸보기: 저장한 글 목록 | 글 칸 비율 reading(migration 20261126063000_profile_view_prefs_reading_split). 적용 전에는 쓰기가 400이라 rejectable로 그 칸만 되돌린다.
+// S70-84 BRIEF-두칸폴더: 브리핑 룸 목록 | 브리핑 칸 비율 brief(migration 20261126210000_profile_view_prefs_brief_room). 적용 전에는 같은 방식으로 그 칸만 되돌린다.
 const LEGACY_SPLIT_SCREENS = ['tasks', 'projects', 'team', 'reports']; // 옛 기기 저장 키가 있던 화면(새 이름은 기기에 쓴 적 없음)
 export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사업 보고 [목록|달력|사진] (ACT-사진 6단계). 일정 탭 calendar_view와 다른 칸
 // MENU-HOME-편집: menu_layout = {bar, rest} (하단바 칸·그 밖 메뉴의 순서, 항목 이름 목록), home_cards = 홈에 보이는 칸의 이름 순서. 항목 이름의 뜻(어느 메뉴·어느 칸인지)은
@@ -180,7 +181,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut', 'brief_sort']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -246,6 +247,10 @@ export function validValue(key, value) {
     case 'note_blocks': return typeof value === 'boolean';
     // FILES-상세칸정리(S70-72): files_prev_shut = [파일] PC 넓은 폭 오른쪽 상세 칸을 접었나(참)·폈나(거짓, 없으면 펼침). 모든 기기 같음. migration 20261126090000.
     case 'files_prev_shut': return typeof value === 'boolean';
+    // S70-84 BRIEF-두칸폴더: brief_sort = 브리핑 룸 목록 정렬 {key: 이름·넣은 날·크기·종류, dir: 오름·내림}(모든 기기 같음, files_sort와 같은 모양). migration 20261126210000.
+    // 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다. 기본(이름 오름)은 지운다(null).
+    case 'brief_sort': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 2
+      && FILES_SORT_KEYS.includes(value.key) && (value.dir === 'asc' || value.dir === 'desc');
     // S70-35 NOTE-목록표머리 ①-2: note_list_sort = 노트 [목록] 정렬 {key: 제목·폴더·수정일·작성일·첨부·메모·글자 수, dir: 오름·내림}(모든 기기 같음). files_sort와 같은 모양.
     // migration 20261125100000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다. 기본(수정일 내림)은 지운다(null).
     case 'note_list_sort': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 2
@@ -560,6 +565,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     getFilesPrevShut: () => prefs.files_prev_shut === true,
     setFilesPrevShut: on => set('files_prev_shut', on ? true : null, {rejectable: true}),
     getFilesSort: () => prefs.files_sort ?? null,
+    getBriefSort: () => prefs.brief_sort ?? null,
+    setBriefSort: value => set('brief_sort', value && !(value.key === 'name' && value.dir === 'asc') ? {key: value.key, dir: value.dir} : null, {rejectable: true}),
     getNoteListSort: () => prefs.note_list_sort ?? null,
     getNoteCols: () => prefs.note_cols ?? null,
     setNoteCols: value => set('note_cols', value, {rejectable: true}),
