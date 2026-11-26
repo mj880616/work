@@ -27,11 +27,12 @@ for(const width of WIDTHS)test.describe(`메뉴마다 검색 칸 하나 ${width}
       await expect(page.locator('#gsTopInput')).toHaveAttribute('placeholder','전체 검색');
       expect(await visibleFinds(page)).toEqual(['전체 검색']);
     }else{
-      // S71-07: 폰 틀 홈 머리 줄은 처음부터 '전체 검색' 입력 칸(누르면 그 칸 그대로 전체 검색 화면).
-      const entry=page.locator('#appView > .mobile-shell-header #gsHeadInput');
-      await expect(entry).toBeVisible();await expect(entry).toHaveAttribute('placeholder','전체 검색');
-      expect(await visibleFinds(page)).toEqual(['전체 검색']);
+      // S71-41 HOME-머리한줄: 폰 틀 홈은 입력 칸 줄 없이 날짜 줄 끝 돋보기 '전체 검색' 하나 → 누르면 전체 검색 화면 머리 줄 칸 하나(S71-07).
+      const entry=page.locator('#homeView [data-journal-find]');
+      await expect(entry).toBeVisible();await expect(entry).toHaveAccessibleName('전체 검색');
+      expect(await visibleFinds(page)).toEqual([]);
       await entry.click();await expect(page.locator('#searchView')).toBeVisible();
+      await expect(page.locator('#gsHeadInput')).toHaveAttribute('placeholder','전체 검색');
       expect(await visibleFinds(page)).toEqual(['전체 검색']);
     }
     expect(await noOverflow(page)).toBeLessThanOrEqual(1);

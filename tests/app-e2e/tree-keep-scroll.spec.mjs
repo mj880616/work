@@ -198,7 +198,7 @@ for (const width of [1280, 884, 412]) test(`사진 ${width}: 폴더 나무를 �
     return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
   });
   await clickView(page, 'photos');
-  await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   const root = page.locator('#photosRoot');
   const wide = width >= 1200;
   const row = wide ? root.locator('[data-photos-fx-tree] [data-photos-fx-tog="S22"]') : root.locator('[data-photos-ftog="o:S22"]');

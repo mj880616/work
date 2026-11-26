@@ -238,3 +238,53 @@ test('S52-06 폰 원본을 삭제하는 길은 모두 안전장치를 지난다(
   // trashLogged를 부르는 곳은 서버 확인(copyChecked) 또는 안전장치(phoneGate) 결과만 넘긴다.
   for (const m of src.matchAll(/await trashLogged\((g\.list|c\.list|list)\b/g)) assert.ok(m[1]); assert.equal([...src.matchAll(/await trashLogged\(/g)].length, [...src.matchAll(/await trashLogged\((g\.list|c\.list|list)\b/g)].length);
 });
+
+// ---- S71-25 PHOTO-정리삭제: 예전 [정리] 규칙 파일(photo-tidy-model.mjs)에서 지우기 안전장치가 쓰던 짝 찾기만 photo-keep-model.mjs로 옮겼다.
+// 예전 tests/photo-tidy.test.mjs의 짝 시험(S47-16·S53-2·S56-46)을 그대로 여기로(지어낸 자료). ----
+import {copyPairs, backupMap, sameContent, copyCheckPair, keptText, sizeText, totalBytes, COPY_DIST} from '../app/photo-keep-model.mjs';
+import {sameMedia, dimsClash} from '../app/photo-sources-model.mjs';
+const tOd = (id, name, size, t) => ({kind:'od', source:'onedrive', id, key:id, name, size_bytes:size, taken_at:t, day:t.slice(0, 10), video:false, screenshot:false});
+const tPh = (n, name, size, t, folder, extra = {}) => ({kind:'phone', source:'phone', id:`ph:${n}`, phoneId:String(n), key:`ms:${n}`, name, size_bytes:size, taken_at:t, day:t.slice(0, 10), video:false, screenshot:false, folder, ...extra});
+test('삭제 전 사본 짝: 같은 크기 + (같은 이름 또는 찍은 시각)만, 크기를 모르면 짝 없음 · 남긴 사진 안내 · 크기 글', () => {
+  const ODS = [tOd('A', 'IMG_1.jpg', 100, '2026-10-01T01:00:00.000Z'), tOd('B', 'IMG_2.jpg', 200, '2026-10-02T01:00:00.000Z')];
+  const p1 = tPh(1, 'IMG_1.jpg', 100, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/'), p2 = tPh(2, 'IMG_2.jpg', 200, '2026-10-02T01:00:01.000Z', 'DCIM/Camera/');
+  const p3 = tPh(3, 'IMG_3.jpg', 150, '2026-10-03T01:00:00.000Z', 'DCIM/Camera/');
+  const noSize = tPh(40, 'IMG_1.jpg', null, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/'), otherSize = tPh(41, 'IMG_2.jpg', 201, '2026-10-02T01:00:00.000Z', 'DCIM/Camera/');
+  const {pairs, noCopy} = copyPairs([p1, p2, p3, noSize, otherSize], ODS);
+  assert.deepEqual(pairs.map(x => [x.item.id, x.copy.id]), [['ph:1', 'A'], ['ph:2', 'B']]);
+  assert.deepEqual(noCopy.map(x => x.id), ['ph:3', 'ph:40', 'ph:41']);
+  assert.deepEqual(copyPairs([p1], []).pairs, []);
+  assert.equal(keptText(2, 0), '원드라이브에 없음 2장은 남겼어요');
+  assert.equal(keptText(0, 3), '원드라이브 확인 못 한 3장은 남겼어요');
+  assert.equal(keptText(0, 0), '');
+  assert.deepEqual([sizeText(0), sizeText(12_000), sizeText(3_400_000), sizeText(1.2e9)], ['', '12KB', '3.4MB', '1.2GB']);
+  assert.equal(totalBytes([{size_bytes:2e6}, {size_bytes:null}, {size_bytes:3e6}]), 5e6);
+});
+test('S53-2 백업 짝: 가로세로가 다르면 같은 사진 아님, 원드라이브 한 장을 다른 폰 사진 여러 장이 가리키면 짝 없음(삭제하지 않음)', () => {
+  const o = {...tOd('O', 'x.jpg', 25_000_000, '2026-11-01T01:00:00.000Z'), width:4000, height:3000};
+  const p = tPh(1, 'a.jpg', 25_000_000, '2026-11-01T01:00:00.500Z', 'DCIM/Camera/', {width:4000, height:3000});
+  assert.ok(sameMedia(p, o), '크기 + 2초 안');
+  assert.equal(sameMedia({...p, width:4000, height:2000}, o), false, '가로세로가 다르면 아님');
+  assert.equal(dimsClash({width:0, height:0}, o), false, '모르면 따지지 않음');
+  const q = tPh(2, 'b.jpg', 25_000_000, '2026-11-01T01:00:01.500Z', 'DCIM/Camera/', {width:4000, height:3000});
+  assert.deepEqual([...backupMap([p, q], [o]).keys()], []);
+  const r = copyPairs([q], [o], {phItems:[p, q]});
+  assert.deepEqual([r.pairs.length, r.noCopy.map(x => x.id)], [0, ['ph:2']], '삭제할 목록에 q만 있어도 다른 폰 사진 p를 함께 본다');
+  // 두 장이 내용까지 같다고 확인되면(같은 사진 두 번 저장) 둘 다 짝.
+  const h = new Map([['ph:1', 'ff00ff00ff00ff00'], ['ph:2', 'ff00ff00ff00ff00']]);
+  assert.deepEqual([...backupMap([p, q], [o], h).keys()].sort(), ['ph:1', 'ph:2']);
+  assert.deepEqual(copyPairs([p], [o]).pairs.map(x => x.item.id), ['ph:1'], '한 장만 가리키면 그대로 짝');
+  assert.ok(COPY_DIST < 4);
+  assert.equal(sameContent(p, {...p, id:'ph:9'}, new Map([['ph:1', 'ff00ff00ff00ff00'], ['ph:9', 'ff00ff00ff00ff0f']])), false, '4비트 다르면 다른 사진');
+  assert.equal(sameContent(p, {...p, id:'ph:9'}, new Map([['ph:1', 'ff00ff00ff00ff00'], ['ph:9', '']])), false, '해시를 못 만들면 다른 사진으로 본다');
+  // 지우기 짝은 폰 사진 전체를 미리 읽지 않는다(예전 [정리]가 읽어 둔 목록을 쓰던 길은 없다).
+  const src = read('app/photos.js');
+  assert.match(src, /return near \? copyPairs\(phonePart, near\) : null;/);
+  assert.doesNotMatch(src, /tidy\.|photo-tidy|createThumbHasher/);
+});
+test('copyCheckPair: size plus kind, dims and exact taken time; unknown values left out (server answers unsure)', () => {
+  const t = '2026-11-08T01:00:00.000Z';
+  assert.deepEqual(copyCheckPair(tPh(1, 'a.jpg', 1000, t, 'DCIM/Camera/', {width:4000, height:3000, approx:false}), 'O1'), {id:'O1', size:1000, video:false, w:4000, h:3000, taken_at:t});
+  assert.deepEqual(copyCheckPair(tPh(2, 'b.mp4', 9, t, 'DCIM/Camera/', {video:true, width:null, height:null, approx:true}), 'O2'), {id:'O2', size:9, video:true});
+  assert.deepEqual(Object.keys(copyCheckPair(tPh(3, 'c.jpg', 5, t, 'DCIM/Camera/', {width:1, height:1}), 'O3')).sort(), ['h', 'id', 'size', 'taken_at', 'video', 'w']);
+});
