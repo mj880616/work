@@ -1160,7 +1160,7 @@ test('TRASH 줄 밀기 412: 왼쪽 밀기 [되돌리기]·[영구 삭제] 칸, �
   await expect.poll(()=>state.spaces.some(x=>x.id==='solo-1')).toBe(true);
   await expect(list.locator('[data-ps3-trash-row]')).toHaveCount(3);
   // 오른쪽 밀기 [선택] → 'n개 선택됨 · [되돌리기]'(상위가 휴지통인 줄은 건너뜀).
-  // W3(S70-64): 오른쪽으로 밀고 떼면 칸 없이 바로 그 줄이 골라진다(왼쪽 칸은 S70-60 메뉴만 그대로).
+  // S70-64 W1: 오른쪽 밀기 = 바로 그 줄 선택([선택] 칸이 남지 않음).
   await tick();await swipe('solo-2',320);
   const bar=page.locator('#ps3ArchiveModal .row-swipe-pickbar');
   await expect(bar).toBeVisible();

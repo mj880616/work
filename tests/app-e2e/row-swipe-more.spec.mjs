@@ -46,17 +46,14 @@ async function touchTap(locator) {
 }
 const ends = (root) => root.locator('[data-row-swipe-act="end"]');
 const cell = (root, key) => root.locator(`[data-row-swipe-key="${key}"]`);
-// W3(S70-64 UI-오른쪽밀기고르기, 명진 11/26 07:44): 오른쪽으로 밀고 떼면 칸을 열지 않고 바로 그 줄이 골라진다(여러 개 고르기).
-// (S70-60 메뉴만 규칙은 왼쪽 밀기 칸에 그대로 — 고르기는 데이터 일이 아니다.)
-const PICKING = '.row-swipe-pickbar:visible, #librarySelectBar:visible, [data-nx-select-bar]:visible';
+// S70-64 W1(결정 장부 W3): 오른쪽 밀기는 선택만 — 손을 떼면 [선택] 칸을 열어 두지 않고 바로 그 줄이 선택된다(막대가 뜬다).
+// 민 뒤 목록이 다시 그려져 손동작이 빠졌으면 막대가 뜰 때까지 다시 민다(선택 중에는 줄 밀기가 꺼져 있어 두 번 골라지지 않음).
 async function swipePick(page, locator, how = swipe) {
-  const on = page.locator(PICKING).first();
-  // 민 뒤 목록이 다시 그려져 밀기가 닿지 않았으면 고르기가 보일 때까지 다시 민다(고르기 중에는 밀기를 받지 않는다).
   await expect(async () => {
-    if (!(await on.count())) await how(locator, 320);
-    await expect(on).toBeVisible({ timeout: 1000 });
+    await how(locator, 320);
+    await expect(page.locator('.row-swipe-pickbar:visible, .kptu-selbar:visible').first()).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
-  await expect(page.locator('[data-row-swipe-key="select"]')).toHaveCount(0); // [선택] 칸은 열려 남지 않는다
+  await expect(page.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
 }
 // 시험은 시계를 멈춰 두므로 실제처럼 1초 흐르게 한 뒤 다음 손동작을 한다(줄 밀기 시각보다 뒤에 시작한 손동작).
 const tick = async page => { try { await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000)); } catch { /* 시계를 멈추지 않은 시험 */ } };

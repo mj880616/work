@@ -35,12 +35,12 @@ async function touchTap(locator) {
   await locator.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
   await locator.dispatchEvent('click');
 }
-// W3(S70-64): 오른쪽으로 밀고 떼면 칸을 열지 않고 바로 그 줄이 골라진다(여러 개 고르기). 왼쪽 칸은 S70-60 메뉴만 그대로.
+// S70-64 W1(결정 장부 W3): 오른쪽 밀기는 선택만 — 손을 떼면 [선택] 칸을 열어 두지 않고 바로 그 줄이 선택된다(막대가 뜬다).
+// 민 뒤 목록이 다시 그려져 손동작이 빠졌으면 막대가 뜰 때까지 다시 민다(선택 중에는 줄 밀기가 꺼져 있어 두 번 골라지지 않음).
 async function swipePick(page, locator) {
-  const bar = page.locator('#newsRoot .row-swipe-pickbar');
   await expect(async () => {
-    if (!(await bar.isVisible())) await swipe(locator, 320);
-    await expect(bar).toBeVisible({ timeout: 1000 });
+    await swipe(locator, 320);
+    await expect(page.locator('.row-swipe-pickbar:visible, .kptu-selbar:visible').first()).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
   await expect(page.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
 }
@@ -151,10 +151,10 @@ test('Now 뉴스 412: 실제 손가락처럼(포인터 + 터치 함께) 글 줄 
     pt('pointerup', x + dx); tc('touchend', x + dx);
     return true;
   }, { dx, onRow })).toBe(true)).toPass({ timeout: 10000 });
-  // 글 줄 위 오른쪽 끝까지: 칸 없이 바로 고르기(W3), 탭은 그대로.
+  // 글 줄 위 오른쪽 끝까지: 바로 그 줄 선택(S70-64 W1, [선택] 칸이 남지 않음), 탭은 그대로.
   await expect(item(page, 'k1')).toBeVisible();
   await expect(async () => {
-    if (!(await page.locator('#newsRoot .row-swipe-pickbar').isVisible())) await both(item(page, 'c1'), 320);
+    await both(item(page, 'c1'), 320);
     await expect(page.locator('#newsRoot .row-swipe-pickbar')).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
   await expect(page.locator('[data-row-swipe-key="select"]')).toHaveCount(0);

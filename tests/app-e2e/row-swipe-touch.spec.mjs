@@ -144,7 +144,7 @@ test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니�
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');
   await finger(page, cdp, [[p.x - 160, p.y]]);
   await expect(cells(list)).toHaveCount(0);
-  // ③ 오른쪽 끝까지: 칸 없이 바로 그 줄이 골라진 채 '1개 선택됨'(W3 S70-64), 탭은 그대로, 줄은 열리지 않는다.
+  // ③ 오른쪽 끝까지: 바로 그 줄 선택(S70-64 W1 — [선택] 칸이 남지 않음) → '1개 선택됨', 탭은 그대로, 줄은 열리지 않는다.
   p = await center(rowOf(list, 9));
   await finger(page, cdp, path(p.x, p.y, 300, 0));
   const bar = page.locator('#readingView .row-swipe-pickbar');

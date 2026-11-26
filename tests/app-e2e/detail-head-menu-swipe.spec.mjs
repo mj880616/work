@@ -211,15 +211,14 @@ test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제]
   await expect(undo).toBeVisible();
   await undo.click();
   await expect.poll(() => f.trash.restored).toEqual(['n-one']);
-  // 오른쪽 끝까지: 칸 없이 바로 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(W3 S70-64, 새 고르기 줄을 만들지 않음).
-  // 되돌린 뒤 목록이 다시 읽혀 그려지면(밀기 뒤에도 올 수 있음) 밀기가 닿지 않을 수 있어, 고르기가 보일 때까지 다시 민다.
+  // 오른쪽 끝까지: 바로 그 줄 선택(S70-64 W1). 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(새 고르기 줄을 만들지 않음), [선택] 칸은 남지 않는다.
+  // 되돌린 뒤 목록이 다시 읽혀 그려지면 손동작이 빠질 수 있으므로 막대가 뜰 때까지 다시 민다(선택 중에는 줄 밀기가 꺼져 두 번 골라지지 않음).
   const pick = page.locator('[data-note-list] [data-row-swipe-key="select"]');
   const bar = page.locator('[data-nx-select-bar]');
-  // 되돌린 노트가 목록에 다시 그려질 때까지 먼저 기다린다.
   await expect(page.locator('[data-note-row="n-one"]')).toHaveCount(1);
   await expect(page.locator('[data-note-row]')).toHaveCount(2);
   await expect(async () => {
-    if (await bar.isVisible()) return; // 선택 중에는 줄 밀기가 꺼져 다시 밀 수 없다
+    if (await bar.isVisible()) return;
     await swipe(page.locator('[data-note-row="n-two"]'), 320);
     await expect(bar).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 20000 });
