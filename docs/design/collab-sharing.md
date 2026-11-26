@@ -9,11 +9,11 @@
 
 | 문서 | 상태 | 이 문서와의 관계 |
 | --- | --- | --- |
-| `docs/design/collab-plan.md`(PR #2593, 열림) | 기획 초안. 공유 모양 A 보내기(복사본)·B 함께 보기·C 팀 공간. 11/15 11:23 명진 확정 "추천대로" = D1을 A(사람이 눌러 보내는 복사본)로 좁힘, 첫 기능 주간보고 모으기 | **이어 쓴다(대체하지 않음).** A(주간보고 모으기)는 그대로 살아 있다. 이 문서는 11/15 23:04 이후 명진 요청으로 **B(정한 묶음 안에서 함께 보기·쓰기)를 범위를 정해 연다.** C(팀 공간 = 한 작업공간에 여러 사람)는 계속 하지 않는다. #2593의 '조직 목록에서 고르기·명함 승인' 시안은 11/15 21:05 핫픽스로 버려졌고, 묶는 길은 이 문서 3절(초대 링크 + 같은 이름 수락 요청)로 정리한다 |
+| `docs/design/collab-plan.md`(PR #2593, 열림) | 기획 초안. 공유 모양 A 보내기(복사본)·B 함께 보기·C 팀 공간. 11/15 11:23 사용자 확정 "추천대로" = D1을 A(사람이 눌러 보내는 복사본)로 좁힘, 첫 기능 주간보고 모으기 | **이어 쓴다(대체하지 않음).** A(주간보고 모으기)는 그대로 살아 있다. 이 문서는 11/15 23:04 이후 사용자 요청으로 **B(정한 묶음 안에서 함께 보기·쓰기)를 범위를 정해 연다.** C(팀 공간 = 한 작업공간에 여러 사람)는 계속 하지 않는다. #2593의 '조직 목록에서 고르기·명함 승인' 시안은 11/15 21:05 핫픽스로 버려졌고, 묶는 길은 이 문서 3절(초대 링크 + 같은 이름 수락 요청)로 정리한다 |
 | `docs/design/multi-user-audit.md`(D1~D5, 2026-10-29) | 확정 | D1 '작업공간 사이 공유·열람 화면 없음'을 2절 문장으로 바꾼다. D2(운영자 전용 기능 서버 허용 표)·D3·D5는 그대로 |
 | `docs/design/collab-structure-audit.md`·원장 Task 20-DB·22~31 | 옛 협업 구조 제거 진행 예정 | **옛 구조를 되살리지 않는다**(1절 판단). 제거 일정은 그대로 둔다 |
 
-### 명진 요청·결정 모음(요청함 'Web2 요청함 2')
+### 사용자 요청·결정 모음(요청함 'Web2 요청함 2')
 
 | 시각 | 내용 |
 | --- | --- |
@@ -49,12 +49,12 @@
 **① 5절 첫 문단** — 지금: "It is not a shared team database, a collaboration product, or a public site: there is no cross-workspace view."
 → 바꿈:
 
-> It is not a shared team database or a public site. Each workspace stays owner-only. The only cross-workspace paths are (a) a copy that a person sends by pressing a button (COLLAB-함께쓰기, 2026-11-15 명진 확정 "추천대로"), and (b) an item that its owner has turned on for sharing with a group they belong to (COLLAB-묶인사람끼리공유, 2026-11-15·11-16 명진 결정). Sharing is off by default, chosen per item, can be turned off at any time, is visible only to current members of that group, and is enforced only by the server (`private.app_collab_*` functions); there is no other cross-workspace view.
+> It is not a shared team database or a public site. Each workspace stays owner-only. The only cross-workspace paths are (a) a copy that a person sends by pressing a button (COLLAB-함께쓰기, 2026-11-15 사용자 확정 "추천대로"), and (b) an item that its owner has turned on for sharing with a group they belong to (COLLAB-묶인사람끼리공유, 2026-11-15·11-16 사용자 결정). Sharing is off by default, chosen per item, can be turned off at any time, is visible only to current members of that group, and is enforced only by the server (`private.app_collab_*` functions); there is no other cross-workspace view.
 
 **② D1 한국어 문단** — 지금: "한 사람에 작업공간 하나, 작업공간 사이 공유·열람 화면은 만들지 않는다."
 → 바꿈:
 
-> 한 사람에 작업공간 하나는 그대로다. 작업공간 사이에는 **본인이 켠 공유만, 묶인 무리(부서·노조 묶음) 안에서만, 서버 권한으로** 보인다(2026-11-15 명진 "팀원 혹은 같은 노조 사람들끼리 공유 캘린더 공유 / 같은 사업 영역 공유 / 같은 조직 공유 / 자료실 내 공유 폴더 공유", 11-16 명진 결정 "담당조직은 조직 보고 기록까지, 권한은 공유마다 보기만/쓰기까지"). 공유는 항목마다 기본 꺼짐이고 언제든 끈다. 공유 종류는 캘린더·사업 영역·담당조직(조직 보고 포함)·자료실 폴더 네 가지뿐이며, 텔레그램 수집·통화·가족 기록은 어떤 공유로도 열리지 않는다(서버가 거절, 시험으로 지킴). 무리에서 나가면 그 무리 공유물을 못 본다. 운영자도 공유물 내용을 보지 않는다(3절 '남의 기록 안 보기').
+> 한 사람에 작업공간 하나는 그대로다. 작업공간 사이에는 **본인이 켠 공유만, 묶인 무리(부서·노조 묶음) 안에서만, 서버 권한으로** 보인다(2026-11-15 사용자 "팀원 혹은 같은 노조 사람들끼리 공유 캘린더 공유 / 같은 사업 영역 공유 / 같은 조직 공유 / 자료실 내 공유 폴더 공유", 11-16 사용자 결정 "담당조직은 조직 보고 기록까지, 권한은 공유마다 보기만/쓰기까지"). 공유는 항목마다 기본 꺼짐이고 언제든 끈다. 공유 종류는 캘린더·사업 영역·담당조직(조직 보고 포함)·자료실 폴더 네 가지뿐이며, 텔레그램 수집·통화·가족 기록은 어떤 공유로도 열리지 않는다(서버가 거절, 시험으로 지킴). 무리에서 나가면 그 무리 공유물을 못 본다. 운영자도 공유물 내용을 보지 않는다(3절 '남의 기록 안 보기').
 
 **③ sign-up 문단 끝** — 지금: "never let one workspace read or write another workspace's data or Google Drive connection"
 → 바꿈: "never let one workspace read or write another workspace's data except through the group-share functions in `docs/design/collab-sharing.md`, and never let anyone use another person's Google Drive or Calendar connection to read on their behalf"
@@ -159,7 +159,7 @@ public.app_collab_write(p_share uuid, p_op text, p_payload jsonb)  -- 종류별 
 | 끄기·나가기·권한 바꾸기 | ACL에서 그 메일을 지우거나 역할을 바꿈 | 공유하는 사람 토큰(그 사람 자원을 닫는 일이라 허용). 토큰이 끊겼으면 서버가 다시 시도하고, 공유한 사람 화면에 "구글에서 직접 끄기" 안내 |
 
 - `calendar.app.created`가 그 캘린더의 ACL 수정까지 포함하는지 **[확인 필요 — 구현 3단계 첫 작업]**. 안 되면 `calendar`(전체) 대신 사용자가 구글에서 직접 캘린더를 만들어 공유하고 앱은 읽기만 하는 안으로 물러난다(권한 범위를 함부로 넓히지 않음).
-- 구글 권한 범위가 늘면 OAuth 동의 화면 범위 추가와 구글 앱 확인 갱신이 필요하다(`docs/design/google-brand-verification.md`) — 구글 콘솔 로그인은 명진 일.
+- 구글 권한 범위가 늘면 OAuth 동의 화면 범위 추가와 구글 앱 확인 갱신이 필요하다(`docs/design/google-brand-verification.md`) — 구글 콘솔 로그인은 사용자 일.
 - 묶음 멤버 사이에는 구글 공유 때문에 **서로의 구글 메일이 구글 화면에 보인다.** 묶음에 들어갈 때 동의 문장으로 알린다(결정 ①).
 - **공휴일**: 공유와 상관없이 구글의 공개 '대한민국 공휴일' 캘린더를 각자 켜는 버튼을 캘린더 설정에 둔다(추천, 결정 ⑪). 공휴일은 개인 정보가 아니므로 무리끼리 나눌 필요가 없고, 공유 캘린더에 공휴일 일정을 복사하면 원본이 둘이 된다. 공개 캘린더 일정을 지금 범위(`calendar.events`)로 읽을 수 있는지 **[확인 필요]**.
 
@@ -255,7 +255,7 @@ public.app_collab_write(p_share uuid, p_op text, p_payload jsonb)  -- 종류별 
 | 0 | 운영 정의 확인: 4·7절 대상 표의 칸·정책 구조(내용 아님), `app_push_log` 종류 제약 | 읽기 전용 확인만 | — | 결과는 문서 PR |
 | 1 묶기 | 3절 표·RPC, 프로필 노조명·부서명 칸(PROFILE 항목과 줄 세움), 묶음 화면(만들기·초대 링크·같은 이름 요청·멤버·나가기·관리자 넘기기), AGENTS.md 5절 개정(2절), ui-words '부서 묶음·노조 묶음'(메뉴 이름은 '조직 관리'·'사업 관리' 기준) | 새 표 6개·함수(승인형 workflow, 시험 적용 먼저) | 들어오기 요청 폰 알림은 6단계로 미룸(1단계는 앱 안 알림만) | COLLAB-주간보고모으기의 '같은 조직 사람'도 이 묶음을 씀 |
 | 2 공유 표·규칙 | `app_collab_shares`·`app_collab_edits`·`app_collab_can`·share_on/off/permission·`shared_list`·read/write 뼈대(종류 분기는 빈 채), 제외·정적 보안 시험 | 새 표 2개·함수 | — | 화면: 항목 ⋯ [공유] 창(묶음 고르기·보기만/쓰기까지) |
-| 3 캘린더·자료실 | 5·6절, 공휴일 켜기 | — | `google-calendar`·자료실 Drive 함수 배포(하나씩, 되돌리기 ref 기록) | 구글 OAuth 범위 추가·앱 확인 갱신(명진 구글 콘솔 로그인) |
+| 3 캘린더·자료실 | 5·6절, 공휴일 켜기 | — | `google-calendar`·자료실 Drive 함수 배포(하나씩, 되돌리기 ref 기록) | 구글 OAuth 범위 추가·앱 확인 갱신(사용자 구글 콘솔 로그인) |
 | 4 조직·사업 | 7절, read/write의 `org`·`biz_area` 분기, 허용 칸 목록 | 함수 교체 | — | 0단계 결과 필요 |
 | 5 댓글 | `app_collab_comments`·RPC·화면 | 새 표·함수 | — | 백업에 내 댓글 |
 | 6 멘션 알림 | `app_collab_mentions`, 알림 종류 2개(멘션·들어오기 요청) | 표 + `app_push_log` 제약 | `phone-push` 배포 | 폰 앱 변경 없으면 릴리스 없음 |
@@ -263,9 +263,9 @@ public.app_collab_write(p_share uuid, p_op text, p_payload jsonb)  -- 종류별 
 
 - 단계마다 PR 하나, 앞 단계 merge 뒤 시작(같은 파일을 만지므로 줄 세움). DB는 늘 시험 적용 → 적용 → 사후 확인, 실패하면 멈춤. `supabase db push`·`migration repair` 금지(AGENTS.md 7절).
 - 새 정책·함수는 확장 규칙 기준으로 짝 파일(rollback·snapshot 등)을 갖춘다. anon·PUBLIC 권한, RLS 끄기, DEFINER + anon/PUBLIC 실행은 만들지 않는다.
-- 화면이 생기는 단계(1·2·3·5·7)는 요청함 방 시안(폰·폴드 펼침·PC)을 명진이 먼저 보고 정한다.
+- 화면이 생기는 단계(1·2·3·5·7)는 요청함 방 시안(폰·폴드 펼침·PC)을 사용자가 먼저 보고 정한다.
 
-## 13. 명진 결정 — 확정(2026-11-16 09:28 "추천대로")
+## 13. 사용자 결정 — 확정(2026-11-16 09:28 "추천대로")
 
 결정 ①~⑭는 모두 추천안(가)으로 확정했다. 시안은 함께쓰기 3차·쓰는 법 1차(#2702) 그대로 확정.
 

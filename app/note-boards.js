@@ -329,7 +329,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     if (moveToFolder) { e.dataTransfer.setData(FOLDER_DRAG, n.dataset.nbbNote); dragNote = n.dataset.nbbNote; }
     e.dataTransfer.effectAllowed = moveToFolder ? 'copyMove' : 'copy';
     // S69-27 끄는 모습 보이기: 노트 폴더 보기와 같은 반투명 조각(제목 한 줄)이 마우스를 따라온다(공용 drag-ghost.js).
-    setDragGhostImage(e.dataTransfer, n.querySelector('.ft-name')?.textContent || '');
+    setDragGhostImage(e.dataTransfer, n.querySelector('.ft-name')?.textContent || '', document, e);
   });
   side.addEventListener('dragend', () => { dragNote = ''; markDrop(null); });
   side.addEventListener('dragover', e => {

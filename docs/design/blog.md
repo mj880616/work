@@ -1,20 +1,20 @@
-# BLOG-나만의블로그: 노트에서 쓴 글을 차곡차곡 모으는 명진 블로그 (S70-23 설계)
+# BLOG-나만의블로그: 노트에서 쓴 글을 차곡차곡 모으는 사용자 블로그 (S70-23 설계)
 
-명진 요청(2026-11-25 11:00): "노트에서 글 작성 → 공유페이지로 게시 … 이거를 여기서 더해서 항상 공유하는 블로그 구축(나만의 블로그). 블로그 홈페이지 메뉴를 두고, 노트에서 글 써서 블로그에 공개하면 그 블로그에 차곡차곡 글이 게시되는. 블로그는 다른 거 없고 그냥 게시판 목록(여러 개일 수 있음)만 있고, 게시판 클릭하면 글 목록, 글 클릭하면 글 본문. wo+ 안에 블로그를 볼 수 있는 메뉴를 주고, 웹브라우저에서 별도 페이지를 부여해서 그 주소로도 볼 수 있음."
+사용자 요청(2026-11-25 11:00): "노트에서 글 작성 → 공유페이지로 게시 … 이거를 여기서 더해서 항상 공유하는 블로그 구축(나만의 블로그). 블로그 홈페이지 메뉴를 두고, 노트에서 글 써서 블로그에 공개하면 그 블로그에 차곡차곡 글이 게시되는. 블로그는 다른 거 없고 그냥 게시판 목록(여러 개일 수 있음)만 있고, 게시판 클릭하면 글 목록, 글 클릭하면 글 본문. wo+ 안에 블로그를 볼 수 있는 메뉴를 주고, 웹브라우저에서 별도 페이지를 부여해서 그 주소로도 볼 수 있음."
 
-명진 결정(2026-11-25, 이 설계에 반영):
+사용자 결정(2026-11-25, 이 설계에 반영):
 
 - 11:05 "블로그 주소는 bokdoong.com 을 활용" / "bokdoong.com 은 내 개인블로그로만 활용"
 - 11:06 "다른 가입자는 블로그 기능 안줘." / "다른 가입자는 공유 페이지까지만."
 - 11:06 "bokdoong.com 은 내 블로그용으로만 / workonplus.com 은 전체 workonplus 용으로 / nojoplus.com 은 안써 (이건 나중에 노조+ 앱 개발 후 거기에 활용)"
 
-답: **가능하다.** 블로그는 **운영자(명진) 전용 기능**이고, 주소는 **`bokdoong.com` 전체**다. 지금 노트 게시(NOTE-게시 ①②③, `docs/design/note-publish.md`)가 쓰는 공유 페이지 표·사진 거울·익명 읽기 함수 `share-page-read`를 그대로 넓힌다. 새 공개 버킷·anon 권한·RLS 완화 없이, 표 3개 + 서버 허용 표 키 `blog` 하나 + 읽기 함수에 블로그 길 + 밖 화면 하나 + 안 화면 하나다. 그 전에 지금 `bokdoong.com`이 내주는 것을 `workonplus.com` 쪽으로 옮긴다(6절).
+답: **가능하다.** 블로그는 **운영자 전용 기능**이고, 주소는 **`bokdoong.com` 전체**다. 지금 노트 게시(NOTE-게시 ①②③, `docs/design/note-publish.md`)가 쓰는 공유 페이지 표·사진 거울·익명 읽기 함수 `share-page-read`를 그대로 넓힌다. 새 공개 버킷·anon 권한·RLS 완화 없이, 표 3개 + 서버 허용 표 키 `blog` 하나 + 읽기 함수에 블로그 길 + 밖 화면 하나 + 안 화면 하나다. 그 전에 지금 `bokdoong.com`이 내주는 것을 `workonplus.com` 쪽으로 옮긴다(6절).
 
 이번 PR은 설계·시안만이다(앱·DB·Edge·Worker 코드 변경 없음). 시안: [`mockups/blog.html`](mockups/blog.html).
 
 ## 0. 누가 쓰나 (운영자 전용)
 
-- 블로그는 통화·텔레그램·아스날과 같은 **운영자 기능**이다. 서버 허용 표 `public.app_operator_features`에 키 `blog`를 명진 작업공간 한 줄로만 넣는다(SQL로만, 화면·API로 넣는 길 없음, AGENTS 5절). 확인은 `private.app_workspace_has_feature(workspace_id, 'blog')`, 받는 쪽(익명 읽기)은 `public.app_operator_feature_workspace('blog')`(허용된 작업공간이 정확히 하나일 때만 그 id).
+- 블로그는 통화·텔레그램·아스날과 같은 **운영자 기능**이다. 서버 허용 표 `public.app_operator_features`에 키 `blog`를 사용자 작업공간 한 줄로만 넣는다(SQL로만, 화면·API로 넣는 길 없음, AGENTS 5절). 확인은 `private.app_workspace_has_feature(workspace_id, 'blog')`, 받는 쪽(익명 읽기)은 `public.app_operator_feature_workspace('blog')`(허용된 작업공간이 정확히 하나일 때만 그 id).
 - **다른 가입자**: 지금 노트 게시(공유 링크·공유 페이지)까지만 그대로 쓴다. [블로그] 메뉴는 메뉴 목록에서 **빠지고**(`menu-model.mjs`의 `feature: 'blog'` → `withFeatures`가 뺌, 숨김 아님), `?view=blog` 경로는 화면이 열지 않으며, 노트 ⋯의 [블로그에 게시] 줄은 그려지지 않는다. 화면을 우회해 표에 직접 쓰거나 읽기 함수에 블로그 요청을 보내도 **서버가 거절**한다(3절 정책, 4절 읽기).
 - 사람마다 블로그·사람마다 주소 이름은 만들지 않는다. 블로그는 하나, 주소는 `bokdoong.com` 하나다.
 - 허용 표에서 `blog` 줄을 지우면(SQL) 그 순간 쓰기는 정책에서 막히고 밖 주소는 전부 404가 된다(글·게시판·사본은 남음).
@@ -66,16 +66,16 @@
 
 | 표 | 칸 | 권한 |
 | --- | --- | --- |
-| `app_blogs` (작업공간마다 0~1줄, 실제로는 명진 한 줄) | `workspace_id`(unique), `title`, `intro`, `enabled`(기본 false), `indexable`(기본 false), `created_at`·`updated_at` | RLS 켬, authenticated 정책 하나: **`private.app_is_workspace_owner(workspace_id)` 그리고 `private.app_workspace_has_feature(workspace_id, 'blog')`**(using·with check 모두). anon·PUBLIC 없음. service_role은 `workspace_id, title, intro, enabled, indexable` SELECT만 |
+| `app_blogs` (작업공간마다 0~1줄, 실제로는 사용자 한 줄) | `workspace_id`(unique), `title`, `intro`, `enabled`(기본 false), `indexable`(기본 false), `created_at`·`updated_at` | RLS 켬, authenticated 정책 하나: **`private.app_is_workspace_owner(workspace_id)` 그리고 `private.app_workspace_has_feature(workspace_id, 'blog')`**(using·with check 모두). anon·PUBLIC 없음. service_role은 `workspace_id, title, intro, enabled, indexable` SELECT만 |
 | `app_blog_boards` | `id`, `workspace_id`, `blog_id`, `name`(1~40자), `sort`, `public_key`(DB가 만드는 무작위 10자, 주소용) | 같은 정책(주인 + `blog` 허용). 더할 때 같은 작업공간 블로그만. service_role은 `blog_id, name, sort, public_key` SELECT만 |
 | `app_blog_posts` | `id`, `workspace_id`, `board_id`, `page_id`(unique, 공유 페이지 행), `note_id`(unique, on delete set null), `public_key`(무작위 10자), `published_at`, `republished_at` | 같은 정책. 고치기 권한은 `board_id`(게시판 옮기기)·`republished_at`만. 더할 때 게시판·페이지·노트(kind 'note')가 모두 같은 작업공간. service_role은 `board_id, page_id, note_id, public_key, published_at, republished_at` SELECT만 |
 
-- 허용 표: `app_operator_features`의 키 확인 제약 목록에 `'blog'`를 더하고(지금 목록 그대로 + 하나), 명진 작업공간 한 줄을 넣는다. 이 넣기는 migration 안 SQL 한 줄(작업공간은 이미 `calls` 키를 가진 작업공간으로 고름 — 아스날·읽을 거리 키를 넣을 때와 같은 방식, 이름·이메일을 쓰지 않음).
+- 허용 표: `app_operator_features`의 키 확인 제약 목록에 `'blog'`를 더하고(지금 목록 그대로 + 하나), 사용자 작업공간 한 줄을 넣는다. 이 넣기는 migration 안 SQL 한 줄(작업공간은 이미 `calls` 키를 가진 작업공간으로 고름 — 아스날·읽을 거리 키를 넣을 때와 같은 방식, 이름·이메일을 쓰지 않음).
 - **운영자 아닌 사람의 블로그 게시 요청은 서버가 거절한다**: 세 표 모두 정책이 `blog` 허용을 요구하므로, 다른 가입자가 REST로 `app_blogs`·`app_blog_boards`·`app_blog_posts`에 넣거나 고치면 RLS가 막는다(행 0개·42501). 공유 페이지 행(`app_share_pages`) 자체는 링크 게시용으로 지금처럼 누구나 만들 수 있지만, 블로그 글 짝이 없으면 블로그 길로는 절대 나오지 않는다.
 - 공개용 사본은 기존 `app_share_pages.blocks`다(새 사본 표 없음). 블로그 글 페이지는 링크 행을 만들지 않으므로 링크 길(`?t=`·`?s=`)로는 열리지 않는다.
 - 주소에 내부 uuid를 쓰지 않는다. 게시판·글은 `public_key`.
 - 쓰는 길은 기존처럼 owner RLS REST(화면)뿐. 새 RPC·SECURITY DEFINER 함수 없음.
-- 운영자 화면·함수: 블로그는 명진 본인 작업공간 기능이고, 운영 확인은 켠 여부·글 수 같은 숫자만(AGENTS 3절 '남의 기록 안 보기'와 충돌 없음 — 다른 사람 블로그가 없다).
+- 운영자 화면·함수: 블로그는 사용자 본인 작업공간 기능이고, 운영 확인은 켠 여부·글 수 같은 숫자만(AGENTS 3절 '남의 기록 안 보기'와 충돌 없음 — 다른 사람 블로그가 없다).
 - 노조+ 조합원 얼굴에는 블로그 메뉴·경로가 없다(개인 업무 기능 없음, 메뉴·경로 제거 + 서버 거절 원칙).
 - 계정 지우기(`account-delete.md`): 작업공간 cascade로 같이 지워진다.
 
@@ -153,9 +153,9 @@
 | `work.bokdoong.com` 옛 Web1 | 410 그대로 |
 | `nojoplus.com`·`www.nojoplus.com` | **이번에 그대로**(코드 안 바꿈). 그 밖 `/work/**` → `work.bokdoong.com` 302는 거기서 다시 301로 이어져 열림 |
 
-**주의 — 공유 화면은 `workonplus.com/work/share/`로 옮기지 않는다(요청과 다른 점).** 공유 화면이 앱과 같은 출처(`workonplus.com`)에 서면 '공개 화면과 로그인 앱은 주소를 나눈다' 원칙이 깨진다(공유 글을 그리는 화면 결함 하나가 앱 로그인 정보에 닿음). 그래서 새 공유 주소는 **`share.workonplus.com/work/share/`**(앱과 다른 출처, Worker Custom Domain 하나)로 추천한다. 대안은 `work.bokdoong.com/work/share/`를 공유 전용으로 남기는 것이지만, 'bokdoong.com은 블로그용으로만' 결정과 맞지 않아 뺐다. 이 점은 CC가 구현 PR 전에 명진에게 한 줄로 확인한다.
+**주의 — 공유 화면은 `workonplus.com/work/share/`로 옮기지 않는다(요청과 다른 점).** 공유 화면이 앱과 같은 출처(`workonplus.com`)에 서면 '공개 화면과 로그인 앱은 주소를 나눈다' 원칙이 깨진다(공유 글을 그리는 화면 결함 하나가 앱 로그인 정보에 닿음). 그래서 새 공유 주소는 **`share.workonplus.com/work/share/`**(앱과 다른 출처, Worker Custom Domain 하나)로 추천한다. 대안은 `work.bokdoong.com/work/share/`를 공유 전용으로 남기는 것이지만, 'bokdoong.com은 블로그용으로만' 결정과 맞지 않아 뺐다. 이 점은 CC가 구현 PR 전에 사용자에게 한 줄로 확인한다.
 
-301로 하는 이유: 옛 앱·공유·짧은 주소는 다시 `bokdoong.com`으로 돌아올 일이 없다(명진 결정). 다만 브라우저가 301을 오래 기억하므로, 되돌릴 일이 생겨도 이미 다녀간 사람 브라우저는 새 주소로 간다 — 그래서 `bokdoong.com/`(블로그 자리)에는 301을 쓰지 않는다.
+301로 하는 이유: 옛 앱·공유·짧은 주소는 다시 `bokdoong.com`으로 돌아올 일이 없다(사용자 결정). 다만 브라우저가 301을 오래 기억하므로, 되돌릴 일이 생겨도 이미 다녀간 사람 브라우저는 새 주소로 간다 — 그래서 `bokdoong.com/`(블로그 자리)에는 301을 쓰지 않는다.
 
 ### 6-3. 주소를 박아 둔 곳 (영향 목록)
 
@@ -193,7 +193,7 @@ DNS: `bokdoong.com`·`work`·`desk`·`arsenal`은 이미 Worker Custom Domain이
 ## 7. 캐시·갱신
 
 - 읽기 응답 `Cache-Control: no-store`(지금 공유와 같음) → 내리기·끄기가 즉시 반영된다. 화면 파일은 Pages 빌드 해시(`?v=` 손으로 안 씀).
-- 위험: 익명 요청이 늘면 Edge 호출·Worker 무료 한도(하루 10만)를 쓴다. 1단계는 그대로 두고, 지켜볼 숫자(호출 수)만 운영 점검에 더한다. 짧은 캐시(예: 목록 30초)는 "내리면 즉시"와 맞바꾸는 일이라 명진 결정 없이는 넣지 않는다.
+- 위험: 익명 요청이 늘면 Edge 호출·Worker 무료 한도(하루 10만)를 쓴다. 1단계는 그대로 두고, 지켜볼 숫자(호출 수)만 운영 점검에 더한다. 짧은 캐시(예: 목록 30초)는 "내리면 즉시"와 맞바꾸는 일이라 사용자 결정 없이는 넣지 않는다.
 
 ## 8. 검색 엔진 노출 (결정 D)
 
@@ -232,13 +232,13 @@ DNS: `bokdoong.com`·`work`·`desk`·`arsenal`은 이미 Worker Custom Domain이
 | 0-② | 주소 ② about·로그인 링크 | 6-4 ②(앱 PR + 콘솔) | 로그인 화면 링크 시험 | Google 콘솔 |
 | 0-③ | 주소 ③ 301 넘기기 | 6-4 ③ | `bokdoong-router` 301 표 | Worker 배포 |
 | 0-⑥ | 주소 ⑥ 정리 | 6-4 ⑤⑥(폰 앱·바구니 판은 릴리스 때) | `tests/domain/supabase-origin.test.mjs` 등 | Edge 배포 여러 개(하나씩), Supabase Auth |
-| ① | BLOG ① 서버·DB | migration `…_blog_tables`(표 3개 + 허용 키 `blog` + 명진 작업공간 한 줄) + 짝 파일 5개, `share-page-read` 블로그 길(`blog.ts`) | `blog-operator-only`, `blog-tables-no-anon`, `blog-read-private-notes`, `blog-read-uniform-404`, `blog-read-media-scope`, `blog-takedown`(서버 부분), `blog-posts-same-workspace` | **DB migration**(승인형 workflow: 시험 적용 → 적용 → 사후 확인), **Edge 배포** `share-page-read`(되돌리기 ref = 직전 운영 SHA) |
+| ① | BLOG ① 서버·DB | migration `…_blog_tables`(표 3개 + 허용 키 `blog` + 사용자 작업공간 한 줄) + 짝 파일 5개, `share-page-read` 블로그 길(`blog.ts`) | `blog-operator-only`, `blog-tables-no-anon`, `blog-read-private-notes`, `blog-read-uniform-404`, `blog-read-media-scope`, `blog-takedown`(서버 부분), `blog-posts-same-workspace` | **DB migration**(승인형 workflow: 시험 적용 → 적용 → 사후 확인), **Edge 배포** `share-page-read`(되돌리기 ref = 직전 운영 SHA) |
 | ② | BLOG ② 밖 화면·주소 | `blog/` 정적 화면(게시판 → 글 목록 → 본문, PC·폰), Worker `bokdoong.com/` 블로그 경로 | `blog-page-headers`, `bokdoong-router`, `blog.spec`(밖 화면 부분) | Worker 배포(0-③ 뒤) |
 | ③ | BLOG ③ 안 화면 | [블로그] 메뉴(`feature: 'blog'`)·켜기·게시판 관리, 노트 ⋯ [블로그에 게시]·다시 게시·내리기, 노트 휴지통 연동, 업데이트 기록 json | `blog-menu-feature`, `note-blog-publish-model`, `blog.spec` 전체, `standard-interactions` | 없음(Pages 배포만) |
 
-Expand → Deploy → Verify(`docs/web2-expand-deploy-verify-contract.md`): 주소 0-①~③(옛 링크가 계속 열림) → BLOG ①(쓰는 사람 없는 표·길) → ②(빈 블로그도 404로 안전) → ③(명진 손에 닿음) → 0-⑥ 정리. 각 단계 뒤 상태로도 새는 길이 없다. 0-⑥은 BLOG와 앞뒤 상관없이 ④ 확인 뒤 언제든.
+Expand → Deploy → Verify(`docs/web2-expand-deploy-verify-contract.md`): 주소 0-①~③(옛 링크가 계속 열림) → BLOG ①(쓰는 사람 없는 표·길) → ②(빈 블로그도 404로 안전) → ③(사용자 손에 닿음) → 0-⑥ 정리. 각 단계 뒤 상태로도 새는 길이 없다. 0-⑥은 BLOG와 앞뒤 상관없이 ④ 확인 뒤 언제든.
 
-## 12. 명진 결정
+## 12. 사용자 결정
 
 | | 질문 | 추천 |
 | --- | --- | --- |
@@ -247,7 +247,7 @@ Expand → Deploy → Verify(`docs/web2-expand-deploy-verify-contract.md`): 주�
 | D | 검색 엔진 노출 | ★ 기본 안 나오게 + [검색 허용] 스위치 |
 | E | 블로그 이름·소개 한 줄 | ★ 둠(이름 필수, 소개 선택) |
 
-정해진 것(11-25 명진): 주소 = `bokdoong.com` 전체, 블로그 = 명진 전용(다른 가입자는 공유 페이지까지), `workonplus.com` = WORK ON+ 전체, `nojoplus.com` = 이번에 그대로(노조+ 앱 때 사용).
+정해진 것(11-25 사용자): 주소 = `bokdoong.com` 전체, 블로그 = 사용자 전용(다른 가입자는 공유 페이지까지), `workonplus.com` = WORK ON+ 전체, `nojoplus.com` = 이번에 그대로(노조+ 앱 때 사용).
 
 ## 13. 범위 밖 발견사항
 
