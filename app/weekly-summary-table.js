@@ -235,7 +235,7 @@ function factsHtml(items,records){
 }
 function editBox(kind,value,label,max=kind==='owner'?60:2000){
   const input=kind==='owner'?`<input type="text" maxlength="${max}" value="${esc(value)}" data-bp-field aria-label="${esc(label)}">`
-    :`<textarea rows="4" maxlength="${max}" data-bp-field aria-label="${esc(label)}">${esc(value)}</textarea>`;
+    :`<textarea data-autogrow rows="4" maxlength="${max}" data-bp-field aria-label="${esc(label)}">${esc(value)}</textarea>`;
   return `<div class="biz-write">${input}<span class="biz-write-btns"><button type="button" class="mini" data-bp-edit-save>저장</button><button type="button" class="mini secondary" data-bp-edit-cancel>취소</button></span><span class="biz-write-hint">${kind==='owner'?'Enter':'Ctrl+Enter'} 저장 · Esc 취소</span></div>`;
 }
 function progressCell(ref,row,items,records){
