@@ -801,6 +801,10 @@ async function holdAt(page, l) {
   const p = await centerOf(l), cdp = await page.context().newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p.x, y: p.y, id: 0 }] });
   await page.waitForTimeout(700);
+  // S71-16: 손을 떼기 전에 화면이 밀린 시계 일을 다 했는지 확인한다. 바쁜 CI에서 화면 일이 0.5초 넘게 막히면 브라우저는 밀린 꾹 누르기 타이머보다
+  // 손 떼기 입력을 먼저 처리해, 0.7초 누른 손이 짧은 누르기(사진 열기)가 됐다(사람은 고르기 표시를 보고서야 손을 뗀다).
+  // 지금 건 setTimeout(0)이 돌았다 = 그보다 먼저 울릴 차례였던 꾹 누르기 타이머(0.5초)도 이미 돌았다.
+  await page.evaluate(() => new Promise(r => setTimeout(r, 0)));
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
   // 꾹 누른 뒤 따라오는 클릭 하나는 화면이 잠깐 먹는다(꾹 누르기 끝 표시). 사람처럼 잠깐 뒤에 다음 손짓.
