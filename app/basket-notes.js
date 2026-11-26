@@ -72,7 +72,7 @@ import { setUploadRetry, announceDock } from './upload-progress.js';
 import { announceUploaded } from './upload-done.js';
 import { fileLine } from './meeting-compact.js';
 import { deleteAttachment } from './file-trash.js';
-import { pressFile, downloadFile, openInDrive, menuItemsHtml } from './file-actions.js';
+import { pressFile, downloadFile, openInDrive, menuItemsHtml, clickKind } from './file-actions.js';
 import { openPhotoView } from './photo-view.js';
 import { attachmentName } from './attachment-name.mjs';
 import { markRenameHost, openRenameEditor, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기 · FILE-이름고치기연필먹통: ✎ 대신 ⋯ 안 [이름 수정]
@@ -1021,9 +1021,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // FILE-누르면동작: a stored attachment as the shared file shape (file-actions.js).
   const noteFile = (note, fileId) => { const f = (note?.attachments || []).find(x => x.drive_file_id === fileId); return f ? {name: attachmentName(f), mime: f.mime_type, driveId: fileId, noteId: note.id} : null; };
   const fileFail = text => say(text);
+  // PHOTO-크게보기넘기기(S71-72): 첨부 줄의 사진(누르면 크게 보기인 것 — pressFile과 같은 clickKind)끼리 첨부 순서대로 넘긴다.
+  const attachedPhotos = note => (note?.attachments || []).filter(f => f?.drive_file_id && clickKind({name: attachmentName(f), mime: f.mime_type}) === 'photo');
   function pressNoteFile(el) {
     const file = noteFile(selected, el.closest('[data-note-file]')?.dataset.noteFile); if (!file) return;
-    void pressFile(file, {viewPhoto: () => openPhotoView({row: selected, file: selected.attachments.find(x => x.drive_file_id === file.driveId), trigger: el}), onError: fileFail});
+    void pressFile(file, {viewPhoto: () => openPhotoView({row: selected, file: selected.attachments.find(x => x.drive_file_id === file.driveId), files: attachedPhotos(selected), trigger: el}), onError: fileFail});
   }
   host.addEventListener('keydown', e => { const el = e.target.closest?.('[data-note-file] .file-line-main'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pressNoteFile(el); } });
   function showColorChoice() {
@@ -1199,7 +1201,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     text.classList.toggle('basket-read-empty', !raw);
     if (!raw) return showPlainText(text, htmlCount || files ? '' : '본문이 없는 노트입니다.');
     // ED③ 노트: a note saved in the new editor reads its saved form (ed-render: headings, tables, colours, photos of this note).
-    if (paintDoc(text, selected, {rt, onOpen:(file, el) => openPhotoView({row:selected, file, trigger:el}), tasks:noteTaskProvider(selected.id, {rt})})) { noteMarksNow(); return; }
+    if (paintDoc(text, selected, {rt, onOpen:(file, el, files) => openPhotoView({row:selected, file, files, trigger:el}), tasks:noteTaskProvider(selected.id, {rt})})) { noteMarksNow(); return; }
     showPlainText(text, raw);
     // NOTE-마크다운선택: a note with 마크다운 off is shown exactly as written (no list, heading or indent made from its lines).
     text.dataset.noteView = noteMarkdown(selected) ? 'markdown' : 'plain';
