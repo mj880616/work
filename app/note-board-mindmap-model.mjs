@@ -11,6 +11,7 @@
 //   카드 부모는 서버 칸 parent_note(migration 20261126230000_note_board_branch_all), 화면 나무에서는 parent_id 하나로 합쳐 본다(parent_card = 부모가 카드).
 //   카드는 나무에 kind 'card'인 뿌리로만 들어간다(cardNode — 자리·크기는 카드 자리, 그리기는 카드 쪽). 그 칸이 아직 없는 서버면 buildTree(..., {free:false})로 옛 규칙.
 // - 기기 저장 없음. 서버 check와 같은 범위만 받는다(migration 20261125000000_note_board_mindmap, 20261125020000_note_board_box_size, 20261125040000_note_board_decor).
+import { clampCoord } from './note-board-coord.mjs';
 import { FREE_KINDS, SHAPE_KINDS, decorShape } from './note-board-decor-model.mjs';
 
 export const NODE_COLORS = Object.freeze([
@@ -33,10 +34,9 @@ export const H_MIN = 30, H_MAX = 1200; // 손으로 정한 높이(서버 check�
 export const AUTO_MAX = 260;
 export const ORD_MAX = 1000000, ORD_STEP = 1024;
 export const HGAP = 44, VGAP = 12;
-const COORD = 100000;
 
 const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
-const at = v => (Number.isFinite(v) ? Math.max(0, Math.min(COORD, Math.round(v))) : 0);
+const at = clampCoord; // S71-52: 음수 좌표도(note-board-coord.mjs)
 
 // 서버 줄(글 상자 기본 칸은 note-board-links-model.mjs parseText가 이미 거름) + 생각 지도 칸. 칸이 없으면(옛 서버) 기본값.
 export function nodeShape(base, row = {}) {

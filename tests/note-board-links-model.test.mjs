@@ -175,7 +175,8 @@ test('곡선 지나는 점: 상대 위치 ↔ 좌표, 직선 가까우면 직선
   const box = linkBox(a, b, {x:200, y:900}); assert.ok(box.y + box.h > 900);
 });
 test('글 상자: 서버 줄 검사, 글 다듬기(줄바꿈 허용·앞뒤 빈 줄 지움·300자)', () => {
-  assert.deepEqual(parseText({id:'t', board_id:'all', body:'가', x:1.4, y:-3}), {id:'t', board_id:'all', body:'가', x:1, y:0});
+  assert.deepEqual(parseText({id:'t', board_id:'all', body:'가', x:1.4, y:-3}), {id:'t', board_id:'all', body:'가', x:1, y:-3}); // S71-52: 음수 좌표도
+  assert.equal(parseText({id:'t', board_id:'all', body:'가', x:5e6, y:-5e6}).x, 1000000, 'S71-52: 저장 범위 ±1,000,000 안으로');
   for (const bad of [{body:''}, {body:'  '}, {board_id:'X'}, {id:''}]) assert.equal(parseText({id:'t', board_id:'all', body:'가', x:0, y:0, ...bad}), null, JSON.stringify(bad));
   assert.equal(validateText('\n  첫 줄\r\n둘째  \n'), '첫 줄\n둘째'); assert.equal(validateText(' \n '), null); assert.equal(validateText(null), null);
   assert.throws(() => validateText('탭\t글'), /쓸 수 없는/); assert.throws(() => validateText('가'.repeat(TEXT_MAX + 1)), /300자/);

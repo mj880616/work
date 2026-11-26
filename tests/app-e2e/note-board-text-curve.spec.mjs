@@ -193,10 +193,13 @@ test('PC: 상자 만들기·수정·옮기기, 노트↔글 상자 선, 선 끌�
   await page.mouse.move(m3.x, m3.y); await page.mouse.down();
   await page.mouse.move(m3.x + m3.nx * 60, m3.y + m3.ny * 60, { steps: 4 });
   expect(await dOf(page, L2)).toMatch(/Q/);
-  // 끄는 도중에 다른 선의 저장 답이 와서 선을 모두 다시 그려도(끌던 선의 옛 요소가 빠짐) 끌기는 이어진다.
+  // 끄는 도중에 다른 선의 저장 답이 와서 선 목록이 바뀌어도 끌기는 이어진다. S71-52: 선은 통째로 다시 만들지 않는다(같은 요소가 그대로 남음).
   const oldLine = await page.locator(`[data-nb-line="${L2}"]`).elementHandle();
+  const answered = page.waitForResponse(r => r.request().method() === 'PATCH' && r.url().includes('/rest/v1/app_note_board_links'));
   hold.linkPatch = null; release();
-  await expect.poll(() => oldLine.evaluate(el => el.isConnected)).toBe(false);
+  await answered;
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  expect(await oldLine.evaluate(el => el.isConnected)).toBe(true);
   await expect(page.locator(`[data-nb-line="${L2}"]`)).toHaveCount(1);
   expect(await dOf(page, L2)).toMatch(/Q/);
   expect(await dOf(page, L1)).toMatch(/L/);

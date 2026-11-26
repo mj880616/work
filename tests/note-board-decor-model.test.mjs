@@ -62,7 +62,8 @@ test('넣은 선: 양 끝 = 판 위 점, 끝을 상자에 붙이기·떼기, 꺾
   assert.equal(typeof nearestSide({x:0, y:0, w:0, h:0}, {x:5, y:0}), 'string');
   // 끝을 상자에 붙이면 점 칸은 비고, 떼면 점만
   assert.deepEqual(endPatch('to', 'text', 't1'), {to_note:null, to_text:'t1', to_x:null, to_y:null, to_side:null});
-  assert.deepEqual(endPatch('from', 'point', {x:-5, y:12.4}), {from_note:null, from_text:null, from_x:0, from_y:12, from_side:null});
+  assert.deepEqual(endPatch('from', 'point', {x:-5, y:12.4}), {from_note:null, from_text:null, from_x:-5, from_y:12, from_side:null}); // S71-52: 음수 좌표도
+  assert.equal(endPatch('to', 'point', {x:2e6, y:0}).to_x, 1000000);
   const half = parseLink({id:'h', board_id:'all', from_text:'t1', to_x:5, to_y:6});
   assert.ok(half && !isPointEnd(half, 'from') && isPointEnd(half, 'to'));
   const flipped = {...half, ...flipPatch(half)};

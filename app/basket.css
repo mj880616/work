@@ -449,6 +449,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* S69-82 생각 지도 상자(옛 S68-38c 글 상자): 글 길이만큼 가로로 늘고(width:max-content — 폭 0인 판 칸 안에서도 한 글자씩 세로로 쌓이지 않게),
    최대 폭(또는 손으로 정한 폭)에서만 줄바꿈. 모양(둥근/네모/알약/글만)·글자 크기(1~4)·색(노트 색 8가지)은 data-* 하나로. 노트 카드보다 아래 층. */
 .nb-texts { position:absolute; left:0; top:0; width:0; height:0; }
+.nb-lift { position:absolute; left:0; top:0; width:0; height:0; z-index:100002; will-change:transform; } /* S71-52: 가지째 끄는 동안만 — 끄는 상자들을 담아 한 번에 옮김(note-board.js liftDrag) */
+.nb-measure { position:absolute; left:0; top:0; width:0; height:0; visibility:hidden; pointer-events:none; } /* S71-52: 상자 크기만 잠깐 재는 칸(note-board.js renderTexts) */
 .nb-text { --nb-pad:5px 10px; --nb-paper:var(--kptu-surface); position:absolute; box-sizing:border-box; width:max-content; min-width:36px; max-width:260px; padding:var(--nb-pad); border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:8px; background:var(--nb-paper); color:var(--kptu-ink); font-size:14px; line-height:1.35; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:default; }
 .nb-text[style*="width"] { max-width:none; }
 .nb-text[data-font="1"] { font-size:12px; --nb-pad:3px 8px; }
@@ -520,9 +522,10 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nb-text .nb-fold { position:absolute; top:calc(50% - 11px); left:calc(100% + 1px); width:22px; min-width:0; padding:0; z-index:1; }
 #appView #basketView .nb-text[data-side="-1"] .nb-fold { left:auto; right:calc(100% + 1px); }
 .nb-fold-dot { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:16px; height:16px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:50%; background:var(--kptu-surface); color:var(--kptu-muted); font-size:10px; line-height:1; }
-.nb-text:has(.nb-fold) .nb-h-right { right:calc(-14px - var(--nb-h-out)); }
-.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-right { right:calc(-1 * var(--nb-h-out)); }
-.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-left { left:calc(-14px - var(--nb-h-out)); }
+/* S71-52: 접기 동그라미가 있는 상자는 data-fold(그리는 곳이 붙임) — :has()는 판 안 어느 변화에도 모든 손잡이 모양을 다시 계산하게 해 큰 보드를 끊기게 했다. */
+.nb-text[data-fold] .nb-h-right { right:calc(-14px - var(--nb-h-out)); }
+.nb-text[data-side="-1"][data-fold] .nb-h-right { right:calc(-1 * var(--nb-h-out)); }
+.nb-text[data-side="-1"][data-fold] .nb-h-left { left:calc(-14px - var(--nb-h-out)); }
 .nb:not([data-nb-small]) .nb-text.nb-sel:not(.nb-editing,.nb-pending) .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-text:not(.nb-pending,.nb-draft) .nb-h { display:block; }
 .nb:not(.nb-panning,[data-nb-small]) .nb-text.nb-hover:not(.nb-editing,.nb-pending) .nb-h { display:block; }
 /* S69-88 크기 손잡이 8개(파워포인트 글 상자처럼): 고른 상자·카드(글 쓰는 중에도)의 네 모서리·네 변 가운데 작은 네모. 누르는 범위는 손가락 크기(24px).
