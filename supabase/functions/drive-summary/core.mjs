@@ -1,4 +1,5 @@
 import { isDelegatedToken } from '../_shared/delegated-token-guard.mjs';
+import { clientFor, fullDriveClient, refreshAccessToken } from '../_shared/google-oauth-clients.mjs';
 import { FOLDER_NAMES, renameTo } from '../_shared/brand-folders.mjs'; // S69-41: 읽기용 사본 폴더 이름
 import {select} from './project-catalog-model.mjs';
 // Pure rendering + injectable HTTP boundary. Node 24 tests exercise this same code.
@@ -329,13 +330,23 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
     return { organizationAssignees, organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings };
   }
   async function accessToken() {
-    const configs = await dbRows('public_policy_drive_config', { select: 'google_client_id,google_client_secret,google_refresh_token', id: 'eq.1' });
+    // S71-01: id=1의 갱신 열쇠는 운영자 Drive 연결을 옮겨 적은 것. 그 연결이 명진 전용 창구(full)로 받은 것이면 그 창구 앱 값으로 새로 받는다.
+    // full 행은 서버가 운영자 작업공간에만 쓴다(public-policy-drive). 창구 고르기는 공용 도우미 한 곳(_shared/google-oauth-clients.mjs).
+    // 명진 전용 창구 비밀값이 없으면 창구 기록을 읽지 않고 심사용 창구(공용 도우미와 같은 규칙).
+    const envOf = name => env[name];
+    const [configs, fullRows] = await Promise.all([
+      dbRows('public_policy_drive_config', { select: 'google_client_id,google_client_secret,google_refresh_token', id: 'eq.1' }),
+      fullDriveClient(envOf) ? dbRows('app_drive_connection_clients', { select: 'workspace_id', oauth_client: 'eq.full', order: 'workspace_id.asc' }) : [],
+    ]);
     const c = configs[0];
-    if (configs.length !== 1 || !c.google_client_id || !c.google_client_secret || !c.google_refresh_token) throw new SummaryError('DRIVE_CONFIG_MISSING');
-    const token = await checked('https://oauth2.googleapis.com/token', {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: c.google_client_id, client_secret: c.google_client_secret, refresh_token: c.google_refresh_token, grant_type: 'refresh_token' }),
-    }, 'DRIVE_TOKEN_FAILED'); // No scope request, no reconnection or token storage.
+    const client = configs.length === 1 ? clientFor(fullRows.length ? 'full' : 'review', c, envOf) : null;
+    if (!client || !c.google_refresh_token) throw new SummaryError('DRIVE_CONFIG_MISSING');
+    let token;
+    try {
+      const res = await refreshAccessToken((url, init) => fetcher(url, { ...init, signal: AbortSignal.timeout(30000) }), { client, refreshToken: c.google_refresh_token });
+      if (!res.ok) throw new SummaryError('DRIVE_TOKEN_FAILED');
+      token = res.data;
+    } catch { throw new SummaryError('DRIVE_TOKEN_FAILED'); } // No scope request, no reconnection or token storage.
     if (!token.access_token) throw new SummaryError('DRIVE_TOKEN_FAILED');
     return token.access_token;
   }

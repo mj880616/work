@@ -1,6 +1,7 @@
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
 import { callerOwnerWorkspace } from "../_shared/workspace-drive-token.ts";
+import { driveStartPlan, fullDriveAuthUrl, fullDriveClient, grantsFullDrive, reviewAuthUrl, reviewClient, stateClientKind } from "../_shared/google-oauth-clients.mjs";
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // DOMAIN-주소이전 ①-D1: Google 연결 뒤 돌아갈 Web2 화면은 새 주소(bokdoong.com). 허용 주소(ALLOWED_ORIGINS)는 옛 주소도 그대로 받는다.
@@ -154,48 +155,38 @@ async function hasOperatorFeature(workspaceId: string, feature: string) {
   return (await operatorFeatureWorkspace(feature)) === workspaceId;
 }
 
-// S46-24(명진 G1 2026-10-31): 자료실·바구니가 쓰는 drive.file에 더해, 사진 출처 구글 드라이브(Edge gdrive-photos)용 drive(읽기·쓰기)를 요청한다.
-// 동의 화면에서 drive 칸만 끄고 동의해도 연결은 저장되고(drive.file 기능 그대로), 사진 출처만 '권한 없음'으로 돌려보낸다.
-// 이 함수와 기존 Drive 함수들이 부르는 API는 바뀌지 않는다. 쓰기 동작은 gdrive-photos에만 있다.
-// MULTI ②-2·S50-8: 전체 drive(제한 등급)는 사진 출처·파일 탐색기 기능이 허용된 운영자 작업공간에서만 요청했다.
-// S62-11 MULTI-구글드라이브사진모두(명진 11/14 22:11 '가'·11/15 결정 1 '가'): 이제 모든 작업공간이 drive.file + drive를 요청한다(각자 자기 드라이브·자기 작업공간 행).
-const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-const DRIVE_FULL_SCOPE = 'https://www.googleapis.com/auth/drive';
-const DRIVE_SCOPES = [DRIVE_FILE_SCOPE, DRIVE_FULL_SCOPE];
-// Google 토큰 응답의 scope(공백으로 나눈 목록)에 drive 전체 권한이 정확히 들어 있는지. 'drive.file'·'drive.readonly'는 아니다.
-function grantedFullDrive(scope: unknown) {
-  return typeof scope === 'string' && scope.split(/\s+/).includes(DRIVE_FULL_SCOPE);
-}
+// S71-01 AUTH-구글권한나누기(명진 2026-11-26 10:02 'ㄱ'): 구글 창구 둘. 권한 목록·창구 고르기는 _shared/google-oauth-clients.mjs 한 곳.
+// - 모든 사람(심사용 창구, 지금 OAuth 클라이언트): drive.file만. include_granted_scopes 없음(옛 허락이 합쳐지지 않게).
+// - 운영자 작업공간(서버 허용 표 'calls') + 명진 전용 창구 비밀값 있음: 명진 전용 창구로 드라이브 전체(drive)만.
+//   비밀값이 없으면 운영자도 심사용 창구·drive.file 그대로(사진·파일의 구글 칸은 지금처럼 '[Drive 다시 연결]').
+// - 화면이 보낸 값(full·scope·workspace_id 등)은 보지 않는다. 운영자 판정은 시작과 콜백 두 번 모두 서버 허용 표로.
+// S62-11(모든 작업공간 drive 요청)은 이 결정으로 바뀌었다: 운영자가 아니면 drive 전체를 요청하지 않는다.
+const OPERATOR_FEATURE = 'calls';
 
-// S62-11: Drive 전체 권한(drive)은 모든 작업공간이 요청한다(운영자 기능 키 판정 없음). 동의 화면에서 drive 칸만 끄고 동의하면
-// 연결은 drive.file로 저장되고 full_drive=false — 사진·파일의 구글 칸만 '[Drive 다시 연결]'(서버 scope_missing). 작업공간은 늘 로그인 owner 행(화면 값 안 씀).
+// 작업공간 Drive 연결의 창구 기록(app_drive_connection_clients, service_role만). 있으면 고치고 없으면 넣는다(workspace_id는 고칠 권한이 없어 두 단계).
+async function saveConnectionClient(workspaceId: string, kind: 'review' | 'full', now: string) {
+  const changed = await servicePatch(`app_drive_connection_clients?workspace_id=eq.${encodeURIComponent(workspaceId)}`, { oauth_client: kind, updated_at: now }, 'return=representation');
+  if (!Array.isArray(changed) || changed.length !== 1) {
+    await servicePost('app_drive_connection_clients', { workspace_id: workspaceId, oauth_client: kind, updated_at: now });
+  }
+}
 
 async function startDriveAuth(req: Request) {
   const user = await getUser(req);
-  await ownWorkspace(user.id);
+  const workspaceId = await ownWorkspace(user.id);
   const cfg = await getOAuthConfig();
-  const raw = 'drive.' + (startedOnWorkon(req) ? 'won.' : startedOnNewHost(req) ? 'nojo.' : '') + crypto.randomUUID() + crypto.randomUUID();
+  const plan = driveStartPlan({ isOperator: await hasOperatorFeature(workspaceId, OPERATOR_FEATURE), env: (k: string) => Deno.env.get(k) });
+  const raw = 'drive.' + (plan.kind === 'full' ? 'full.' : '') + (startedOnWorkon(req) ? 'won.' : startedOnNewHost(req) ? 'nojo.' : '') + crypto.randomUUID() + crypto.randomUUID();
   const stateHash = await sha256(raw);
   await servicePost('app_google_oauth_states', {
     state_hash: stateHash,
     user_id: user.id,
     expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
   });
-
-  const params = new URLSearchParams({
-    client_id: cfg.google_client_id,
-    redirect_uri: CALLBACK_URL,
-    response_type: 'code',
-    scope: DRIVE_SCOPES.join(' '),
-    access_type: 'offline',
-    prompt: 'consent',
-    state: raw,
-    include_granted_scopes: 'true'
-  });
-  return json(req, {
-    url: 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString(),
-    callback: CALLBACK_URL
-  });
+  const url = plan.kind === 'full'
+    ? fullDriveAuthUrl({ client: plan.client, redirectUri: CALLBACK_URL, state: raw })
+    : reviewAuthUrl({ cfg, redirectUri: CALLBACK_URL, scopes: plan.scopes, state: raw });
+  return json(req, { url, callback: CALLBACK_URL });
 }
 
 function driveRedirect(result: 'connected' | 'error', reason?: string, photos?: 'scope_missing', state?: string | null) {
@@ -264,10 +255,15 @@ Deno.serve(async (req) => {
 
     const row = rows[0];
     const cfg = await getOAuthConfig();
+    // S71-01: 코드는 그것을 내준 창구로만 바꿀 수 있다. state는 서버가 만든 글자(해시가 맞아야 여기까지 옴)라 창구 표시를 믿는다.
+    // 명진 전용 창구인데 비밀값이 없으면(그 사이 지움) 저장하지 않는다.
+    const clientKind = isDriveState ? stateClientKind(state) : 'review';
+    const client = clientKind === 'full' ? fullDriveClient((k: string) => Deno.env.get(k)) : reviewClient(cfg);
+    if (!client) throw new Error('Google OAuth 설정이 없습니다.');
     const tokenBody = new URLSearchParams({
       code,
-      client_id: cfg.google_client_id,
-      client_secret: cfg.google_client_secret,
+      client_id: client.client_id,
+      client_secret: client.client_secret,
       redirect_uri: CALLBACK_URL,
       grant_type: 'authorization_code'
     });
@@ -321,9 +317,15 @@ Deno.serve(async (req) => {
         }
       }
 
+      // 명진 전용 창구 연결은 지금도 운영자 작업공간일 때만 저장한다(시작 뒤 허용 표가 바뀌었으면 거절).
+      const isOperator = await hasOperatorFeature(workspaceId, OPERATOR_FEATURE);
+      if (clientKind === 'full' && !isOperator) {
+        await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
+        return Response.redirect(driveRedirect('error', 'callback_failed', undefined, state), 302);
+      }
       const now = new Date().toISOString();
-      // full_drive는 '구글이 실제로 그 권한을 준' 때만 true(S62-11: 모든 작업공간이 요청).
-      const fullDrive = grantedFullDrive(tokens.scope);
+      // full_drive는 '구글이 실제로 그 권한을 준' 때만 true. 심사용 창구는 drive를 요청하지 않으므로 늘 false.
+      const fullDrive = clientKind === 'full' && grantsFullDrive(tokens.scope);
       // 있으면 고치고 없으면 넣는다(표 권한이 workspace_id 고치기를 주지 않으므로 upsert 대신 두 단계).
       const changed = await servicePatch(`app_drive_connections?workspace_id=eq.${encodeURIComponent(workspaceId)}`, {
         google_refresh_token: tokens.refresh_token,
@@ -340,17 +342,19 @@ Deno.serve(async (req) => {
           updated_at: now
         });
       }
-      // Expand(②-2): 운영자 작업공간이면 옛 자리(id=1)도 같이 갱신한다. 운영자 전용 함수(사진 출처·파일 탐색기·drive-summary)와 Web1이 아직 id=1을 읽는다.
+      // S71-01: 이 연결을 내준 창구를 적는다(갱신 때 같은 창구로). 행이 없으면 심사용 창구로 본다.
+      await saveConnectionClient(workspaceId, clientKind, now);
+      // Expand(②-2): 운영자 작업공간이면 옛 자리(id=1)도 같이 갱신한다. 운영자 전용 함수(drive-summary)가 아직 id=1을 읽는다.
       // 다른 작업공간은 id=1을 절대 쓰지 않는다(명진 Drive 연결을 덮어쓰지 못함).
-      if (await hasOperatorFeature(workspaceId, 'calls')) {
+      if (isOperator) {
         await servicePatch('public_policy_drive_config?id=eq.1', {
           google_refresh_token: tokens.refresh_token,
           updated_at: now
         });
       }
       await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`);
-      // 사진 권한 안내는 전체 권한 칸이 빠졌을 때 모두에게(S62-11: 사진·파일 구글 칸이 모두에게 열림).
-      return Response.redirect(driveRedirect('connected', undefined, !fullDrive ? 'scope_missing' : undefined, state), 302);
+      // 사진 권한 안내는 드라이브 전체를 받을 수 있는 운영자가 받지 못했을 때만(S71-01: 다른 사람은 drive 전체를 요청하지 않는다).
+      return Response.redirect(driveRedirect('connected', undefined, isOperator && !fullDrive ? 'scope_missing' : undefined, state), 302);
     }
 
     let email: string | null = null;

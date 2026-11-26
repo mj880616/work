@@ -256,7 +256,9 @@ test('인증 경계 그대로: 로그인 없으면 401, 작업공간 소유자�
 });
 
 test('Google 요청 범위는 그대로(달력 연결에 Drive 범위를 더하지 않음)', () => {
-  assert.ok(RAW.includes("scope:'openid email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly'"));
+  // S71-01: 범위는 공용 도우미의 심사용 목록 이름으로(달력은 openid·email·calendar.events·calendarlist.readonly 넷).
+  assert.ok(RAW.includes("scopes:[SCOPE.openid,SCOPE.email,SCOPE.calendarEvents,SCOPE.calendarList]"));
+  assert.equal(/include_granted_scopes/.test(RAW.replace(/^\s*\/\/.*$/gm, '')), false);
   assert.equal(/auth\/drive/.test(RAW), false);
   const files = readFileSync(new URL('../../supabase/functions/google-calendar/event-files.ts', import.meta.url), 'utf8');
   assert.equal(/permissions/.test(files.replace(/permissions_unavailable/g, '')), false, 'Drive 공유 설정을 건드리지 않는다');

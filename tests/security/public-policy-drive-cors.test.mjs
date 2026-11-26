@@ -46,7 +46,8 @@ test('Drive OAuth returns to the canonical Web2 library',()=>{
 test('Google OAuth returns to nojoplus.com only when it was started there (exact Origin, state marker)', () => {
   assert.equal(source.includes("const NEW_APP_ORIGIN = 'https://nojoplus.com';"), true);
   assert.equal(source.includes("return req.headers.get('Origin') === NEW_APP_ORIGIN;"), true);
-  assert.equal(source.includes("const raw = 'drive.' + (startedOnWorkon(req) ? 'won.' : startedOnNewHost(req) ? 'nojo.' : '') + crypto.randomUUID() + crypto.randomUUID();"), true);
+  // S71-01: 명진 전용 창구면 앞에 'full.' 칸이 하나 더 붙는다(돌아갈 주소 칸은 그대로).
+  assert.equal(source.includes("const raw = 'drive.' + (plan.kind === 'full' ? 'full.' : '') + (startedOnWorkon(req) ? 'won.' : startedOnNewHost(req) ? 'nojo.' : '') + crypto.randomUUID() + crypto.randomUUID();"), true);
   assert.equal(source.includes("return parts.includes('nojo') ? NEW_APP_ORIGIN : null;"), true);
   // DOMAIN-workonplus 1단계: workonplus.com도 정확한 Origin일 때만 'won' 칸.
   assert.equal(source.includes("const WORKON_APP_ORIGIN = 'https://workonplus.com';"), true);

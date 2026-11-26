@@ -9,7 +9,8 @@ const callback = readFileSync(new URL('../../supabase/functions/public-policy-dr
 test('calendar OAuth state is namespaced independently from Tasks and keeps the web platform', () => {
   assert.match(calendar, /const raw='calendar\.'\+platform\+'/);
   assert.match(tasks, /const raw='tasks\.'\+platform\+'/);
-  assert.match(calendar, /redirect_uri:CALLBACK/);
+  // S71-01: 동의 화면 주소는 공용 도우미(reviewAuthUrl)가 만든다. 돌아올 주소는 그대로 CALLBACK.
+  assert.match(calendar, /reviewAuthUrl\(\{cfg,redirectUri:CALLBACK,/);
 });
 
 test('calendar event creation targets the calendar id supplied by the client', () => {
@@ -26,6 +27,8 @@ test('calendar callback preserves the canonical calendar view for success and fa
 });
 
 test('callback keeps the same redirect_uri for Google authorization and token exchange', () => {
-  const uses = callback.match(/redirect_uri: CALLBACK_URL/g) || [];
-  assert.equal(uses.length, 2);
+  // S71-01: 동의 화면 주소(심사용·명진 전용 창구 두 갈래)는 공용 도우미에 redirectUri로, 토큰 교환은 redirect_uri로. 모두 같은 CALLBACK_URL.
+  assert.equal((callback.match(/redirect_uri: CALLBACK_URL/g) || []).length, 1);
+  assert.equal((callback.match(/redirectUri: CALLBACK_URL/g) || []).length, 2);
+  assert.doesNotMatch(callback, /redirect_uri: (?!CALLBACK_URL)|redirectUri: (?!CALLBACK_URL)/);
 });

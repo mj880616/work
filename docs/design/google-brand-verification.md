@@ -64,3 +64,52 @@
   2. 앱 로고: 저장소 `about/nojoplus-logo-120.png` 파일을 올린다(또는 `https://nojoplus.com/work/about/nojoplus-logo-120.png`에서 받아 올림).
   3. 홈페이지·처리방침·약관 주소는 그대로.
   4. 저장 → 이름·로고가 바뀌면 브랜드 인증을 다시 받는다('인증 센터'). 결과가 나올 때까지 동의 화면에는 옛 이름·로고가 남을 수 있다.
+
+## 구글 창구 둘로 나누기 (AUTH-구글권한나누기, S71-01, 2026-11-26)
+
+- 배경(사실): 구글 OAuth 심사가 멈춤. 구글 메일 11/06·11/18·11/22 — 콘솔에 등록한 권한(tasks·calendar.events)과 앱이 실제로 요청한 권한(drive·tasks.readonly 포함)이 다르다. 요청 권한과 콘솔 권한은 글자까지 같아야 하고(최소 권한), 동의 화면을 영어로 띄운 데모 영상을 다시 내야 한다.
+- `tasks.readonly`는 코드에 없었다. 모든 연결 시작이 `include_granted_scopes=true`였으므로 예전에 허락한 권한이 새 요청에 합쳐져 보였을 가능성이 크다(추정). 이번에 모든 시작에서 뺐다.
+- 명진 결정(2026-11-26 10:02 'ㄱ', CC 추천안): 구글 로그인 창구를 둘로 나눈다. 이 결정은 S62-11(모든 작업공간이 drive 전체 요청)을 바꾼다.
+
+### 새 구조
+
+| 창구 | OAuth 클라이언트 | 누가 | 요청 권한 | 심사 |
+| --- | --- | --- | --- | --- |
+| 심사용 창구(`review`) | 지금 클라이언트(앱 값은 `public_policy_drive_config` id=1) | 모든 사용자 | 아래 표 6개 안에서만, 기능별로 필요한 것만 | 받음 |
+| 명진 전용 창구(`full`) | 새 구글 클라우드 프로젝트의 클라이언트(Edge 비밀값 `GOOGLE_DRIVE_FULL_CLIENT_ID`·`GOOGLE_DRIVE_FULL_CLIENT_SECRET`) | 운영자 작업공간만(서버 허용 표 `calls`, `app_operator_feature_workspace`) | `https://www.googleapis.com/auth/drive` 하나 | 안 받음(동의 화면 '테스트', 시험 사용자 = 명진 계정) |
+
+- 권한 목록·동의 화면 주소·창구 고르기·토큰 새로 받기는 `supabase/functions/_shared/google-oauth-clients.mjs` 한 곳에 있다. `include_granted_scopes`는 어디에도 없다.
+- Drive 연결(`public-policy-drive`): 운영자 + 비밀값 둘 다 있음 → 명진 전용 창구로 `drive`. 그 밖(운영자 아님, 비밀값 없음) → 심사용 창구로 `drive.file`. 화면이 보낸 값은 보지 않는다. 콜백도 운영자인지 다시 확인하고, 연결 행 옆 `app_drive_connection_clients`에 창구(`review`/`full`)를 적는다(행 없음 = `review`).
+- 토큰 새로 받기: `workspace-drive-token.ts`(자료실·회의·문서 등 공용)·`gdrive-photos`·`cloud-files`·`drive-summary`가 모두 같은 도우미로 그 연결을 내준 창구의 앱 값을 쓴다. 비밀값이 없으면 창구 기록을 읽지 않고 심사용 창구로 본다(그때 남은 `full` 연결은 갱신이 실패해 '[Drive 다시 연결]'이 뜨고, 다시 연결하면 심사용 창구로 저장된다).
+- 달력·할 일 연결(`google-calendar`·`google-tasks`)과 그 토큰은 늘 심사용 창구다.
+- 운영자가 아닌 사람: Drive 전체를 요청하지 않으므로 사진의 구글 드라이브 칸·[파일]의 구글 쪽은 새로 연결해서는 열리지 않는다(예전에 `drive`를 허락한 연결은 그 허락이 살아 있는 동안 그대로). 화면 안내 정리는 범위 밖(PR 본문 '범위 밖 발견사항').
+
+### 콘솔에 맞출 권한 목록(심사용 창구 '데이터 액세스')
+
+| 권한 | 쓰는 곳 |
+| --- | --- |
+| `openid` | 로그인·연결 계정 확인 |
+| `email` | 연결한 구글 계정 표시 |
+| `https://www.googleapis.com/auth/calendar.events` | 달력 일정 읽기·쓰기(`google-calendar`, `google-tasks` 연결에도 함께) |
+| `https://www.googleapis.com/auth/calendar.calendarlist.readonly` | 보여 줄 캘린더 고르기 |
+| `https://www.googleapis.com/auth/tasks` | 구글 할 일(`google-tasks`) |
+| `https://www.googleapis.com/auth/drive.file` | 자료실·메모·회의가 만든 파일만(`public-policy-drive`) |
+
+- 이 밖의 권한(`drive`·`drive.readonly`·`tasks.readonly`·`calendar` 전체 등)은 콘솔 목록에서 뺀다. 시험 `tests/security/google-oauth-scopes.test.mjs`가 코드 쪽 목록을 지킨다.
+- 확인 필요(추정): Supabase 로그인(구글 로그인 버튼)이 같은 OAuth 클라이언트를 쓰면 로그인 때 `profile`(`userinfo.profile`)도 요청된다. 콘솔 '데이터 액세스'에 그것도 있어야 하는지, Supabase 구글 로그인 설정의 클라이언트 ID가 위 심사용 창구와 같은지 CC가 콘솔에서 확인한다.
+
+### CC 할 일(순서)
+
+1. DB `20261126100000_drive_connection_clients` 적용(승인형 DB workflow, dry-run 먼저).
+2. 코드 PR merge → Edge 배포(PR 본문 목록 순서대로, 한 번에 하나, 되돌리기 ref 기록).
+3. 새 구글 클라우드 프로젝트 만들기(심사 안 받음): OAuth 동의 화면 'External·테스트' 상태, 시험 사용자에 명진 계정 하나. '데이터 액세스'에 `https://www.googleapis.com/auth/drive` 하나. Drive API 켜기.
+4. 그 프로젝트에 OAuth 클라이언트(웹 애플리케이션) 만들기: 승인된 리디렉션 주소 = `https://<프로젝트>.supabase.co/functions/v1/public-policy-drive/callback`(지금 클라이언트와 같은 주소).
+5. Edge 비밀값 두 개 넣기: `GOOGLE_DRIVE_FULL_CLIENT_ID`, `GOOGLE_DRIVE_FULL_CLIENT_SECRET`(값은 채팅·문서·로그에 쓰지 않는다).
+6. 명진이 앱에서 기존 '[Drive 다시 연결]'을 한 번 누른다(명진 전용 창구로 드라이브 전체 동의). 사진·파일 구글 칸·자료실이 열리는지 실기기 확인.
+7. 심사용 창구 콘솔 '데이터 액세스'를 위 표 6개와 같게 맞춘다(`drive`·`tasks.readonly` 빼기).
+8. 동의 화면을 영어로 띄운 데모 영상 다시 찍기(명진 화면 녹화) → 구글 메일에 답장(명진 보냄, CC가 초안).
+
+### 되돌리기
+
+- Edge 함수를 이전 운영 커밋으로 되돌리면 지금(창구 하나, `include_granted_scopes=true`) 그대로다. 명진 전용 창구로 받은 연결은 이전 코드에서 갱신이 실패하므로 '[Drive 다시 연결]'을 한 번 누른다.
+- DB 표는 남아 있어도 이전 코드는 읽지 않는다(짝 rollback은 기록 1행만 지움).
