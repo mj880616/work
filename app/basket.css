@@ -16,7 +16,7 @@
    S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게).
    S71-50: 보드 배경색 고르기(.nbb-bg)도 공용 색 칸 모양 그대로.
    S71-52 ②: 보드 보기 기능 칸(.nb-vx — 이 가지만 보는 중 줄·찾은 주제 목록·미니맵)도 공용 icon-btn·자기 줄 모양 그대로. */
-#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .nbm-view *, .nbb-bg *, .nb-vx *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .nbb-bg *, .nb-vx *, .nbm-view *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
