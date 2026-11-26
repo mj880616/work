@@ -349,8 +349,8 @@ function openDetail(item, head, opts = {}) {
   if (!autoOpening) markRead(item);
   if (root) root.dataset.detail = 'open'; refreshScreenFind();
   mountSplit();
-  // 폴드 펼침(600~760px, 폰 틀): 오른쪽 칸을 화면 위에 붙이고 그 칸만 스크롤(공용 follow-pane narrow — PC 틀은 now.css가 붙인다).
-  if (PC.matches && !FRAME_PC.matches && detailBox) followPane(detailBox, {narrow: true, reset: !shown});
+  // 오른쪽 칸을 화면 위에 붙인다(공용 follow-pane): 폴드 펼침(600~760px, 폰 틀)은 narrow, PC 틀은 UI-두칸높이(칸 높이 = 창 남은 높이, 2026-11-26) 규칙.
+  if (PC.matches && detailBox) followPane(detailBox, {narrow: !FRAME_PC.matches, reset: !shown});
   // 폰(좁은 화면): 상세가 전체 화면 — 뒤로가기 한 번 = 목록(라우터 겹). PC·폴드 펼침은 오른쪽 칸이라 겹 없음.
   if (!PC.matches) { detailLayer ||= window.KPTURouter?.layer?.open('now-detail', {reopen: () => openDetail(item, head, {from: opts.from}), close: () => { detailLayer = null; closeDetail({fromLayer: true}); return true; }}) || null; window.scrollTo({top: 0, behavior: 'instant'}); }
   // 주소에 연 글(?item=outside:<id>) — 새로고침해도 같은 글. PC에서 맨 위 글을 저절로 연 것은 남기지 않는다.

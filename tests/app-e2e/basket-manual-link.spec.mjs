@@ -1,5 +1,5 @@
 import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
@@ -47,8 +47,8 @@ async function fixture(page,{linked=[]}={}){
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 async function openNote(page,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
- await tap(page,page.locator(`[data-basket-row="${n}"]`),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,n,width<761?l=>l.tap():null);
+ await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  return page.locator('[data-basket-detail]');
 }
 async function pick(page,detail,kind,name,width){

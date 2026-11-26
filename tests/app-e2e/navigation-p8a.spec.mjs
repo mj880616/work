@@ -9,7 +9,7 @@ const app=`${appOrigin}/app/`;
 // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴 줄은 없다(사업영역 관리는 사업 보고 ⋯ 안에서 연다).
 // HOME-업무일지홈: 업무일지는 홈이라 [일정] 아래에 없다.
 // MULTI-하단바기본노트: 메뉴를 바꾸지 않은 계정의 PC 왼쪽 메뉴는 하단바 기본(S68-37: 홈·노트·일정·자료실·사진) 뒤 위 메뉴(잊지 말기부터). 노트 줄은 data-view가 없다.
-const views=['home','calendar','tasks','diary','library','photos','basket','reading','team','meetings','files','brief','hwp','outside','calls','telegram','arsenal'];  // S69-71: '쓰는 법'은 왼쪽 메뉴가 아니라 계정 메뉴 안
+const views=['home','calendar','tasks','diary','library','photos','basket','reading','team','meetings','files','brief','outside','calls','telegram','arsenal']; // S71-61: HWP 편집은 메뉴가 아님(노트 안)  // S69-71: '쓰는 법'은 왼쪽 메뉴가 아니라 계정 메뉴 안
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 

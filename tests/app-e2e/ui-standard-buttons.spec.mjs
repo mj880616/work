@@ -64,10 +64,10 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  // UI-PC버튼36(2026-10-20): PC(≥1024) 빠른 입력 [추가]·입력칸은 입력칸 높이(--kptu-control-height 36px). 토큰 --ds-control-height(46px)는 입력칸 등에 남아 있다(버튼은 UI-버튼전수조사로 36/32px).
  const height=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height')));
  // UI-버튼줄이기 + HOME-모바일정리④: 빠른 입력 [추가]와 홈 입력칸은 폭과 상관없이 36px(--kptu-control-height).
- const quickHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-control-height'))),inputHeight=quickHeight;
+ const quickHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-quick-row-height'))),inputHeight=quickHeight; // NOTE-입력줄높이(S71-67): 빠른 입력 줄 40px
  // HOME-입력칸두모양: 폰 홈 [추가]는 글을 쓰는 동안만 보인다(그 전에는 [잊지 말기] 자리).
  if(width<761)await quick.locator('[data-quick-input]').fill('글');
- expect(height).toBe(46);expect((await look(save)).height).toBe(quickHeight);expect(quickHeight).toBe(36);
+ expect(height).toBe(46);expect((await look(save)).height).toBe(quickHeight);expect(quickHeight).toBe(40);
  const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
  // Home tabs: one height; UI-보기탭한모양(S52-17): 공용 ⑤ 보기 바꾸기 — 고른 칸만 흰 알약(--ds-seg-on, [업데이트 ▾]는 두 칸 묶음이 알약) + 진한 글자, 나머지는 칠하지 않음.
  const pill=locator=>locator.evaluate(el=>getComputedStyle(el.closest('.ds-seg-group')||el).backgroundColor);

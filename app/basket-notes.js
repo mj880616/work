@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, emptyHtml, barHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
 // SEC-기능PIN잠금 노트 폴더(S67-14): 잠근 폴더(하위 폴더 포함)의 노트는 줄·포스트잇·태그·메모·검색 결과에서 제목·내용 대신 '잠김'. 판정은 feature-lock.js 한 곳.
@@ -43,6 +43,7 @@ import { createSelectMode } from './select-mode.js';
 import { bindSelectKeys, renameTarget, confirmDelete, deleteNeedsConfirm } from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
 import { notify, askConfirm, askText } from './small-notice.js';
 import { requestNewsItem } from './news-request.mjs';
+import { openOnScreen } from './source-open.js';
 import { createNoteNewsMarks, isNewsAt } from './note-news-marks.js';
 // S69-27 노트 휴지통: [폴더] 보기 나무 맨 아래 '휴지통 N'(그리기 주인 note-trash.js). 끄는 동안 따라오는 조각은 공용 drag-ghost.js.
 import { createNoteTrash, NOTE_TRASH, isTrashAt } from './note-trash.js';
@@ -96,6 +97,8 @@ import { noteMarkdown } from './note-markdown.mjs';
 import { basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
 import { noteTaskProvider } from './note-gtasks.js'; // S69-97 노트 안 할 일 → 구글 할 일
 import { noteAlarmAt, alarmLabel } from './note-alarm-model.mjs'; // S69-97 노트 알림
+import { requestHwpConvert } from './hwp-drive.js'; // S71-61 HWP-노트안으로: 노트 ⋯ [이 노트를 HWP로] 한 번짜리 넘김
+import { noteConvertText } from './hwp-convert-model.mjs';
 import { alarmLine } from './note-alarm.js';
 // NOTE-읽생기아이디어 1단계: 해시태그(본문 #낱말을 읽어 모음, 따로 저장 없음).
 // S69-94 NOTE-메모통일: 노트 아래 '메모'(옛 댓글 — 생각·질문·인용 구분 없앰)와 [메모] 모아 보기(노트·읽을 거리·저장한 글 모든 메모, 줄을 누르면 그 원문 그 메모로).
@@ -674,7 +677,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (at && at !== OUTSIDE && !isPaneAt(at) && !folderById(at)) at = null;
     placeDetail();
     if (!wideList.matches) syncFolderLayer();
-    quick.setFolder(folderName(addTarget()));
+    quick.setFolder(folderName(addTarget()), colorOf(folderById(addTarget())));
+    let followTree = false;
     const wide = wideList.matches, tree = host.querySelector('[data-nx-tree]'), rowsBox = host.querySelector('[data-note-rows]'), recentBox = host.querySelector('[data-nx-recent]');
     noteFind = query ? findFor('notes', findText) : null;
     const m = query ? matches : null;
@@ -703,7 +707,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       tree.innerHTML = (showRecent() ? ftBoxHtml({body:recentTreeRowHtml(), label:RECENT_NAME, attrs:{'data-nx-box':'recent'}}) : '')
         + ftBoxHtml({body:left.map(r => r.type === 'note' ? rowHtml({...r, tree:true, side:true}) : rowHtml(r, {tree:true})).join('') + outsideRowHtml({count:outCount}, {tree:true}), label:'노트 폴더', attrs:{'data-nx-box':'folders'}})
         + (special ? ftBoxHtml({body:special, label:'밑줄·메모·휴지통', attrs:{'data-nx-box':'more'}}) : '') + newFolderRowHtml();
-      followPane(tree, {top:8, reset:false}); // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다(따로 스크롤 없음).
+      followTree = true; // 나무 칸 높이는 맨 끝에서 잰다(아래 followPane)
       // NOTE-최근5개: PC 처음(at null)은 오른쪽에 최근 5개(폴더가 있을 때). 찾는 중이면 지금처럼 맞는 노트 전부.
       // S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09 '오른쪽에서든 왼쪽이든 폴더를 클릭하면 폴더가 펼쳐지는거야'): 폴더 안이면 하위 폴더 줄도 그 자리에서 펼친다
       // (폰 나무와 같은 treeRows — 안의 하위 폴더·노트가 들여 보이고, 빈 폴더는 '빈 폴더' 한 줄). 펼침은 paneOpen(왼쪽 나무와 따로).
@@ -752,12 +756,18 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       {el:() => nxBody.querySelector(':scope>.nx-pane:not([hidden])') || nxBody.querySelector(':scope>[data-note-detail]:not([hidden])'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:70}],
       query:SPLIT_QUERY, active:() => wideList.matches && view === 'folder' && nxBody.isConnected && !!nxBody.querySelector(':scope>[data-nx-tree]')?.getClientRects().length});
     host.querySelector('[data-nx-count]').textContent = loaded ? `노트 · ${notes.length}` : '';
-    if (!loaded) return;
-    // UI-일기손질 ⑤: an empty note list stays empty (no guide sentence); only a search with no hit says so.
-    const hits = query ? notes.filter(matches).length : notes.length;
-    // [태그]·[메모] 보기는 자기 칸이 빈 줄을 말한다(태그 없음·메모 없음).
-    status.innerHTML = query && !hits && view !== 'tag' && view !== 'comment' && view !== 'calendar' && !(view === 'folder' && newsMarks.hits(query)) ? emptyHtml('맞는 노트 없음') : '';
-    status.toggleAttribute('data-basket-empty', !hits);
+    if (loaded) {
+      // UI-일기손질 ⑤: an empty note list stays empty (no guide sentence); only a search with no hit says so.
+      const hits = query ? notes.filter(matches).length : notes.length;
+      // [태그]·[메모] 보기는 자기 칸이 빈 줄을 말한다(태그 없음·메모 없음).
+      status.innerHTML = query && !hits && view !== 'tag' && view !== 'comment' && view !== 'calendar' && !(view === 'folder' && newsMarks.hits(query)) ? emptyHtml('맞는 노트 없음') : '';
+      status.toggleAttribute('data-basket-empty', !hits);
+    }
+    // UI-칸안스크롤하나로: PC 나무는 화면에 붙어 따라온다(따로 스크롤 없음). 칸 높이(창 끝까지)는 나무 위쪽 줄(읽는 중 빈 줄·위치 줄·선택 막대)이
+    // 다 정해진 뒤 맨 끝에서 잰다. 원인(사실, TEST-노트폴더끌기굴리기안정화): 나무를 그리자마자 재면 처음 읽은 뒤 목록 위 회색 빈 줄(약 128px)이
+    // 아직 남아 나무 위치를 그만큼 아래로 보고 높이를 짧게 정했고, 바로 뒤 빈 줄을 치워 나무가 올라가도 높이는 다음 그림 틀까지 짧았다
+    // (그 사이 나무 아래 끝에 대고 끌면 끝이 아닌 자리라 저절로 굴러가지 않았다 — D3).
+    if (followTree) followPane(tree, {top:8, reset:false});
   }
   // NOTE-읽생기아이디어 ② [태그]: 위에 태그 칩(노트 수 많은 순), 아래 고른 태그의 노트(목록 보기와 같은 한 줄). 처음은 가장 많은 태그.
   // S67-48: 칩은 눌러 켜고 끈다 — 여러 개를 켜면 그 태그가 모두 붙은 노트만(그리고). 다 끄면 태그가 하나라도 있는 노트 전부. 폴더와 상관없이 모은다.
@@ -901,7 +911,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   async function refresh() {
     if (busy) return;
     const run = ++epoch, owner = scope();
-    status.innerHTML = waitInlineHtml(); host.querySelector('[data-note-retry]').hidden = true;
+    // S71-74 UI-덮어쓰기땜질없애기(사용자 11/26 "노트 탭 누르면 화면 깜빡임 / 옛 화면 위를 현재 화면이 덮어씀"): 읽는 동안 목록 위에
+    // '…' 한 줄(글줄 기다림)을 두지 않는다. 그 줄이 최근·폴더 목록을 한 줄 밀었다가 다 읽으면 사라져 목록이 위로 올라붙었다(PR 610 '불러오는 중…' 줄 → PR 1447 '…').
+    // 이미 그린 목록이 있으면 그대로 두고 맨 위 막대만(높이 0 — barHtml), 처음 읽을 때는 목록 자리에 회색 빈 줄(waitHtml) — 다 읽으면 그 자리에 목록이 한 번 그려진다.
+    status.innerHTML = loaded ? barHtml() : waitHtml({rows:3, h:36}); host.querySelector('[data-note-retry]').hidden = true;
     marksRun = run;
     try {
       // S69-27: 휴지통 수도 같이 기다려 한 번만 그린다(늦게 와서 다시 그리면 막 잡은 줄이 떨어져 나간다 — STAB-노트폴더끌기시험과 같은 까닭).
@@ -975,6 +988,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // NOTE-이 폴더 삭제(S67-34): 들어간 폴더의 ⋯에도 폴더 ⋯의 [폴더 삭제]와 같은 길(deleteFolder: 안의 노트·폴더는 한 단 위로, [되돌리기]).
       // 맨 위 '노트'·'폴더 없음'에서는 넣지 않는다(folderAt() 없음).
       ...(folderAt() && canEditFolders() && !(pinLock.notesHidden() && pinLock.folderCovered(folderAt())) ? [['data-nx-delete-folder', '이 폴더 삭제', 'basket-menu-danger']] : []),
+      // S71-61 HWP-노트안으로(2026-11-26 사용자 결정 "노트 안에서만 열게 하자"): HWP 편집은 메뉴가 아니라 노트 화면 ⋯ 안 한 줄(쓰는 법 바로 위).
+      ['data-nx-hwp', 'HWP 편집'],
       ['data-nx-help', '쓰는 법']]; // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래
     return [
       // LIB-최근폴더로가기(S61-12): '최근' 노트 줄(폰 첫 화면 '최근' 상자·PC 처음 '최근' 목록)이면 맨 위 [폴더로 가기].
@@ -999,6 +1014,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(notePub.isReady() ? pubMenu(notePub.stateOf(note.id), {locked:pinLock.noteInLockedFolder(note)}).map(k => [`data-note-pub-${k}`, PUB_LABELS[k]]) : []),
       // S69-97 노트 알림·서식: [알림 걸기…](걸려 있으면 [알림 수정…]) · [서식으로 저장](이 노트 글을 내 서식으로).
       ['data-note-alarm', noteAlarmAt(note) ? '알림 수정…' : '알림 걸기…'], ['data-note-form-save', '서식으로 저장'],
+      ['data-note-to-hwp', '이 노트를 HWP로'], // S71-61: 이 노트 글로 HWP 편집 [노조 서식으로 만들기](노트는 그대로)
       ['data-note-to-diary', '하루 기록으로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
       ['data-note-delete', '삭제', 'basket-menu-danger']];
   };
@@ -1067,7 +1083,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const hash = tagChipsHtml(tagsOfNote(selected), {addOpen:!!readPick?.isOpen()});
     box.innerHTML = `${folder ? `<span class="note-meta-folder" data-note-meta-folder>폴더 ${esc(folder)}</span>` : ''}<span class="note-meta-tags" data-note-meta-tags>${hash}</span>${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '분류 완료' : '연결 없음')}</span></span>`}<time>수정한 날 ${esc(day(selected.updated_at))}</time>${newsItemOf(selected) ? '<button type="button" class="note-meta-news" data-note-news>기사로 가기</button>' : ''}`;
     // NEWS-클리핑 C2: 뉴스 클리핑 기사 메모(metadata.news_item_id)인 노트는 [기사로 가기] → 뉴스 클리핑 화면에 그 기사를 연다.
-    box.querySelector('[data-note-news]')?.addEventListener('click', () => { if (requestNewsItem(newsItemOf(selected))) window.KPTURouter?.go?.('news', {source:'delegated'}); });
+    box.querySelector('[data-note-news]')?.addEventListener('click', () => { if (requestNewsItem(newsItemOf(selected))) void openOnScreen('outside'); });
     // UI-일기손질 ⑥: each attachment is the shared file line (meeting-compact.js) with a small [Drive에서 열기] at its end.
     // NOTE-파일붙이기: and a ⋯ after it whose one item, [빼기], takes the file off this note (the Drive file stays).
     // FILE-누르면동작: pressing the line acts by kind (file-actions.js); the small [Drive에서 열기] stays and the ⋯ holds [Drive에서 열기] [내려받기] [빼기].
@@ -1619,6 +1635,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (owner === scope()) report(error?.code === 'note_changed' ? error.message : error?.message && /[가-힣]/.test(error.message) ? error.message : '알림을 저장하지 못했어요. 다시 해 주세요.');
     }
   }
+  // S71-65 ⋯ [서식으로 새 노트]: 내 서식이 하나도 없으면 창을 열지 않고 안내 한 줄(앱이 미리 넣은 서식은 없다). 읽지 못하면 창을 열어 고르기 창이 그 사실을 말한다.
+  async function openFormNew() {
+    const owner = scope();
+    const [{listTemplates}, {TEMPLATE_EMPTY_HINT}] = await Promise.all([import('./note-templates.js'), import('./note-templates-model.mjs')]);
+    const mine = await listTemplates({rt});
+    if (owner !== scope()) return;
+    if (mine.ok && !mine.rows.length) { showToast(TEMPLATE_EMPTY_HINT); return; }
+    void openNew('', null, null, {formFirst:true});
+  }
   // S69-97 노트 서식: 이 노트 글(옛 글은 바꾼 모양)을 이름 붙여 내 서식으로 저장(note-templates.js, 서버 표).
   async function saveForm(note, trigger) {
     if (!note || busy) return;
@@ -1627,7 +1652,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const [{saveAsTemplate}, doc] = await Promise.all([import('./note-templates.js'), startValue(note)]);
       const result = await saveAsTemplate(trigger, {name:note.title, doc, rt});
       if (!result || owner !== scope()) return;
-      if (result.ok) showToast(`'${result.name}' 서식으로 저장했어요. 새 노트 창 [서식]에서 선택해 쓸 수 있어요.`); else report(result.message);
+      if (result.ok) showToast(`'${result.name}' 서식으로 저장했어요. 새 노트 창 [넣기] 안 [서식]에서 선택해 쓸 수 있어요.`); else report(result.message);
     } catch { if (owner === scope()) report('서식을 저장하지 못했어요. 다시 해 주세요.'); }
   }
   async function pin(target = selected) {
@@ -1711,13 +1736,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 입력 줄·크게 쓰기 창의 [폴더 ▾]: 새 노트가 들어갈 폴더를 정한다(옮기지 않음).
   function openAddPicker(trigger) {
     if (!foldersReady) { addPick = null; quick.setFolder(null); notReady(); return; }
-    sheet({anchor:trigger, title:'노트를 넣을 폴더', current:addTarget(), choose:true, onGo:id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); }});
+    sheet({anchor:trigger, title:'노트를 넣을 폴더', current:addTarget(), choose:true, onGo:id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget()), colorOf(folderById(addTarget()))); bigWriter?.paint?.(); }});
   }
   // NOTE-폴더메뉴새노트: 폴더 ⋯ [새 노트] = 입력 줄 [폴더 ▾]에서 그 폴더를 고른 것과 같게 한 뒤, 입력 줄의 [크게]로 기존 새 노트 창을 연다
   // (쓰던 글·파일도 그대로 넘어감). 저장은 noteAdded → addTarget 그대로 — 새 저장 길 없음.
   function newNoteIn(id) {
     if (!id || !folderById(id)) return;
-    addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.();
+    addPick = {at, folder:id}; quick.setFolder(folderName(addTarget()), colorOf(folderById(addTarget()))); bigWriter?.paint?.();
     host.querySelector('[data-note-list] [data-quick-big]')?.click();
   }
   // The big edit window's [폴더 ▾]: the same folder sheet; the window writes the change after its text save (moveFromWindow).
@@ -2134,6 +2159,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // S67-48: 고치는 중 제목·본문에 #을 직접 써도 아래 태그 칩 줄이 따라온다(잠깐 쉬었다가).
     if (editing && e.target.closest?.('[data-note-editor]') && !e.target.closest('[data-note-edit-tags]')) { clearTimeout(editTagTimer); editTagTimer = setTimeout(paintEditTags, 250); }
   });
+  // S71-61 HWP-노트안으로: HWP 편집은 노트 안 화면(위치 줄 '노트 › HWP 편집', 뒤로 = 이 노트 화면). 새 화면·새 저장 길 없이 기존 화면(?view=hwp)을 연다.
+  const openHwpView = () => { window.KPTURouter?.go?.('hwp', {source:'delegated'}); };
+  // [이 노트를 HWP로]: 노트 글을 HWP 편집 [노조 서식으로 만들기] 글 칸에 넣어 연다(hwp-lab.js startConvert). 저장은 그 화면의 [저장 ▾] 그대로.
+  function noteToHwp(note) {
+    const text = noteConvertText(note);
+    if (!text) { showToast('글이 없는 노트예요.'); return; }
+    if (!requestHwpConvert(text, rt)) { showToast('지금은 HWP로 열 수 없어요. 다시 눌러 주세요.'); return; }
+    openHwpView();
+  }
   // A menu item acts on the note the menu was openSet for (a list row's note need not be open).
   function menuAction(b, from) {
     // S71-50 NOTE-보드배경색: 빈 판 우클릭 메뉴·보드 보기의 화면 ⋯ 메뉴 맨 위 색 고르기.
@@ -2147,6 +2181,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }
     if (from.from === 'board') { if (b.hasAttribute('data-nbb-newnote')) { const input = host.querySelector('[data-note-list] textarea[data-quick-input]'); input?.scrollIntoView({block:'nearest'}); input?.focus({preventScroll:true}); } else if (b.hasAttribute('data-nbb-export-pdf')) void exportThisBoard('pdf'); else if (b.hasAttribute('data-nbb-export-html')) void exportThisBoard('html'); return; }
     if (from.from === 'head' && b.hasAttribute('data-nx-help')) { void import('./help-link.js').then(m => m.openHelp('note')); return; }
+    if (from.from === 'head' && b.hasAttribute('data-nx-hwp')) { openHwpView(); return; }
     if (from.from === 'folder' || from.from === 'head') {
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
       if (b.hasAttribute('data-nx-lock-open')) pinLock.askNotes();
@@ -2157,7 +2192,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-up')) enter(folderById(at)?.parent_id || null);
       else if (b.hasAttribute('data-nx-new-in')) void newFolder(id);
       else if (b.hasAttribute('data-nx-rename')) void renameFolder(id);
-      else if (b.hasAttribute('data-nx-form-new')) void openNew('', null, null, {formFirst:true});
+      else if (b.hasAttribute('data-nx-form-new')) void openFormNew();
       else if (b.hasAttribute('data-nx-sort')) setNoteSort(noteSort === 'manual' ? 'changed' : 'manual');
       else if (b.hasAttribute('data-nl-cols-open')) openMenu(from.trigger, null, 'cols');
       else if (b.dataset.nlSort && NOTE_LIST_SORT_KEYS.includes(b.dataset.nlSort)) setListSort(nextSort(listSort(), b.dataset.nlSort, {descFirst:LIST_SORT_DESC_FIRST}));
@@ -2190,6 +2225,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       onDone: () => { if (!editing && selected?.id === note.id) void reload(); }, onFail: text => say(text)})).catch(() => say('메뉴를 열지 못했어요.'));
     else if (b.hasAttribute('data-note-alarm')) void setAlarm(note, from.trigger);
     else if (b.hasAttribute('data-note-form-save')) void saveForm(note, from.trigger);
+    else if (b.hasAttribute('data-note-to-hwp')) noteToHwp(note);
     else if (b.hasAttribute('data-note-to-diary')) void toDiary(note.id, from.trigger);
     else if (b.hasAttribute('data-note-delete')) void remove(note.id);
   }
@@ -2365,8 +2401,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     sinkToRow(from, row, host.querySelectorAll('[data-nx-recent] .ft-box, #noteRows > .ft-box'));
   }
   // 폰 폴더 화면은 라우터 한 겹: 갤럭시 뒤로가기 = 첫 화면 폴더 목록(선택 모드·열린 노트 겹이 있으면 그것부터 닫힘).
+  // S71-76 NAV-뒤로가기직전화면: 다른 화면으로 갔다가(라우터는 화면을 옮길 때 이 화면 겹을 잊는다) 뒤로가기·앞으로로 이 폴더 칸에 돌아오면
+  // 라우터가 reopen을 부른다. 폴더 화면이 그대로 그려져 있으면(at 그대로) 옛 겹 손잡이를 버리고 같은 칸에 겹만 다시 세운다(다시 그리지 않아 스크롤 그대로).
+  function reopenFolder(id) {
+    if (at === id && !wideList.matches) { folderLayer = null; syncFolderLayer(); return; }
+    enter(id);
+  }
   function syncFolderLayer() {
-    if (at !== null && !folderLayer) { const folderId = at; folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); const back = treeScroll || (wideList.matches ? null : {y:null, id:at}), from = focusHeadTop(); treeScroll = null; at = null; renderList(); restoreTree(back, from); return true; }, reopen: () => enter(folderId)}) || null; }
+    if (at !== null && !folderLayer) { const folderId = at; folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); const back = treeScroll || (wideList.matches ? null : {y:null, id:at}), from = focusHeadTop(); treeScroll = null; at = null; renderList(); restoreTree(back, from); return true; }, reopen: () => reopenFolder(folderId)}) || null; }
     else if (at === null && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
   }
   // UI-목록공용키(S70-18, N2·N3·N4): 목록 칸 Ctrl+A·Delete·F2는 공용 키 부품(select-keys.js)이 정하고, 할 일은 이 화면 길 그대로 —

@@ -5,7 +5,7 @@ import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 // UI-입력칸첨부간격(2026-10-30 요청): 폰 노트 입력칸에서 왼쪽 첨부(클립) 칸과 '노트를 입력하세요' 글자가 붙어 보였다.
 // 클립이 입력칸 안 왼쪽에 있는 폰(~760px)에서는 글자 시작 자리(입력칸 왼쪽 + 테두리 + 왼쪽 여백)가 클립 칸 오른쪽 끝보다
 // 8px 이상 오른쪽이어야 한다(홈 업데이트·할 일, 정리함 업데이트, 노트, [할 일] 화면 모두 같은 규칙 하나).
-// 폴드 펼침(884px)·PC(1440px)는 클립이 입력칸 밖([추가] 왼쪽)이므로 클립이 입력칸과 겹치지 않고 글자 왼쪽 여백이 8px 이상인지 본다.
+// 폴드 펼침(884px)·PC(1440px)도 NOTE-입력줄높이(S71-67)부터 클립이 입력칸 안이라 같은 간격을 본다.
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 
@@ -22,16 +22,11 @@ async function measure(quick) {
     };
   });
 }
+// NOTE-입력줄높이(S71-67, 2026-11-26 사용자 결정): 폴드 펼침·PC도 클립은 입력칸 안 왼쪽 — 모든 폭에서 같은 규칙.
 function expectGap(m, width, where) {
-  if (width < 761) {
-    expect(m.inside, `${where} ${width}: 폰 클립은 입력칸 안`).toBe(true);
-    expect(m.clipLeft, `${where} ${width}`).toBeGreaterThanOrEqual(m.inputLeft);
-    expect(m.textStart - m.clipRight, `${where} ${width}: 글자 시작 − 클립 오른쪽 끝`).toBeGreaterThanOrEqual(8);
-  } else {
-    expect(m.inside, `${where} ${width}: 넓은 화면 클립은 입력칸 밖`).toBe(false);
-    expect(m.clipLeft, `${where} ${width}: 클립이 입력칸과 겹치지 않음`).toBeGreaterThanOrEqual(m.inputRight);
-    expect(m.padding, `${where} ${width}: 글자 왼쪽 여백`).toBeGreaterThanOrEqual(8);
-  }
+  expect(m.inside, `${where} ${width}: 클립은 입력칸 안`).toBe(true);
+  expect(m.clipLeft, `${where} ${width}`).toBeGreaterThanOrEqual(m.inputLeft);
+  expect(m.textStart - m.clipRight, `${where} ${width}: 글자 시작 − 클립 오른쪽 끝`).toBeGreaterThanOrEqual(8);
 }
 
 for (const width of [412, 884, 1440]) test(`quick input text starts at least 8px right of the clip ${width}`, async ({ page }) => {

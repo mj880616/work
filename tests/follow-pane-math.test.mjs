@@ -55,3 +55,16 @@ test('크기 변화는 ResizeObserver 한 곳에서 한 프레임에 한 번 다
   assert.doesNotMatch(js, /ownerDocument\?\.body/);
   assert.doesNotMatch(js, /setTimeout/);
 });
+
+// UI-두칸높이(2026-11-26 사용자 결정, S71-60): 칸 높이는 고정 숫자로 묶지 않는다 — PC는 최대 높이(--follow-max, 지금 자리에서 창 끝까지)를 최소 높이로도 쓴다.
+// 윗선 맞춤(under)은 왼쪽 머리 줄 아래 끝까지 내린 거리(--follow-offset).
+import {underOffset} from '../app/follow-pane.js';
+test('underOffset: 틀 위끝에서 왼쪽 머리 줄 아래 끝까지(음수는 0)', () => {
+  assert.equal(underOffset({underBottom: 92.4, boxTop: 60}), 32);
+  assert.equal(underOffset({underBottom: 50, boxTop: 60}), 0);
+});
+test('PC 붙은 칸: 높이 = 창 끝까지(최소 높이도 --follow-max), 윗선 맞춤은 under를 준 칸만', () => {
+  assert.match(css, /\.kptu-follow-pane:not\(\.kptu-follow-narrow\)\{min-height:var\(--follow-max,0px\)\}/);
+  assert.match(css, /\.kptu-follow-pane\[data-follow-under\]:not\(\.kptu-follow-narrow\)\{margin-top:var\(--follow-offset,0px\)\}/);
+  assert.match(js, /--follow-offset/);
+});

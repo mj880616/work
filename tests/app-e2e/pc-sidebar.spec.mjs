@@ -55,8 +55,8 @@ test('PC 1280: [정리함]은 하위 줄 없는 한 줄, [노트]는 [일정] �
  expect(errors).toEqual([]);
 });
 
-// S71-29 FORGET-머리한줄 + S71-59 UI-화면메뉴안으로: [처리 전 ▾]·최신화(↻)는 PC 틀에서 화면 안 첫 줄(.basket-head) 오른쪽 끝 단추 상자 — 맨 위 줄에는 없고, 따로 된 둘째 줄도 없음.
-test('PC 1280: 정리함 한 화면 — 화면 안 첫 줄 [처리 전 ▾]와 최신화, 그 아래 한 목록(칸 나눔 없음), 옛 ?pane=todo 주소도 같은 목록',async({page})=>{
+// S71-29 FORGET-머리한줄 + S71-59 UI-화면메뉴안으로 + S71-58 FORGET-처리전만: 최신화(↻)는 PC 틀에서 화면 안 첫 줄(.basket-head) 오른쪽 끝 단추 상자 — 맨 위 줄에는 없고, 따로 된 둘째 줄·보기 단추도 없음.
+test('PC 1280: 정리함 한 화면 — 화면 안 첫 줄 최신화, 그 아래 한 목록(칸 나눔 없음), 옛 ?pane=todo 주소도 같은 목록',async({page})=>{
  const errors=await open(page,1280),basket=page.locator('#basketView');
  await nav(page).locator('.nav-btn[data-view="basket"]').click();await expect(basket).toBeVisible();
  const head=basket.locator('.basket-head [data-sf-tools="forget"]'),list=basket.locator('[data-forget-section]');
@@ -65,7 +65,7 @@ test('PC 1280: 정리함 한 화면 — 화면 안 첫 줄 [처리 전 ▾]와 �
  await expect(basket.locator('[data-basket-more]')).toHaveCount(0);await expect(basket.locator('.forget-head,.basket-switch-row')).toHaveCount(0);
  await expect(head).toBeVisible();await expect(list).toBeVisible();
  expect((await head.boundingBox()).y).toBeLessThan((await list.boundingBox()).y);
- await expect(head.locator('[data-forget-view-open]')).toHaveText('처리 전 ▾');
+ await expect(page.locator('[data-forget-view-open]')).toHaveCount(0); // S71-58 FORGET-처리전만: 보기 단추 없음
  await expect(basket.locator('[data-inbox-todo-section],[data-inbox-chip],h3')).toHaveCount(0);
  await page.evaluate(()=>window.KPTURouter.go('basket',{sub:'todo'}));
  await expect(list).toBeVisible();await expect(page).not.toHaveURL(/pane=/);
@@ -171,7 +171,7 @@ test('업무일지 = 홈: 옛 ?view=journal은 홈, 사이드바·폰 전환 줄
  await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','잊지 말기','일정','사업 관리','조직 관리','메뉴']);
  await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current','page');
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','파일','브리핑 룸','HWP 편집','사진','읽을 거리','저장한 글','통화','텔레그램 소식','아스날']);
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','파일','브리핑 룸','사진','읽을 거리','저장한 글','통화','텔레그램 소식','아스날']);
  await expect(nav(page)).toBeHidden();
  expect(errors).toEqual([]);
 });
