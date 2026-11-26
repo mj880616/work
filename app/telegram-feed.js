@@ -293,7 +293,7 @@ function paint() {
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'telegram', name:wide && open ? name || null : null}}));
   mountSplitResize({container:$('#tgSplit'), name:'telegram', inherit:'tasks', label:'텔레그램 소식과 방 상세 칸 폭 조절', list:() => $('#tgList'), pane:() => $('#tgDetail'), active:() => pc.matches && !!(state.sel || state.rsel) && !view()?.classList.contains('hidden')});
   // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 방 상세 칸은 화면에 붙어 따라오고, 다른 방·날을 고르면 머리부터 보인다.
-  if (wide && open) { const key = state.rsel ? 'room:' + state.rsel : rdKey(state.sel.room, state.sel.day); followPane($('#tgDetail'), {reset: followed !== key}); followed = key; }
+  if (wide && open) { const key = state.rsel ? 'room:' + state.rsel : rdKey(state.sel.room, state.sel.day); followPane($('#tgDetail'), {reset: followed !== key, under: () => $('#tgList > .feed-head')}); followed = key; }
   refreshScreenFind();
 }
 const TG_WAIT = '\u0000wait'; // UI-기다림표시통일 2차: 이전 날을 찾는 동안은 글자 없는 회색 칸
