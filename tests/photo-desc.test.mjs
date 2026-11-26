@@ -25,9 +25,10 @@ test('E1 저장 단추: 바꾸기는 처음 글과 다를 때, 붙이기는 글�
   assert.equal(canSave({mode: 'set', text: '가'.repeat(501)}), false);
 });
 
-test('E1 설명 글은 글자로만 그린다(innerHTML에 넣지 않음), 기기 저장 없음, 태그 칸 없음', () => {
+test('E1 설명 글은 글자로만 그린다(innerHTML에 넣지 않음), 서버 함수로만 저장, 태그 칸 없음', () => {
   const ui = read('app/photo-desc.js'), photos = read('app/photos.js');
-  assert.doesNotMatch(ui, /localStorage|sessionStorage|indexedDB/);
+  // 기기 저장 금지는 저장소 전체 검사(audit)가 본다. 여기서는 서버 함수로만 읽고 쓰는지 본다.
+  assert.match(ui, /gdDescGet, gdDescSet, gdDescWords/);
   assert.match(ui, /textContent: w/, '칩 글자는 textContent');
   // innerHTML에 끼우는 값은 고정 글(DESC_MAX)·기다림 표시뿐 — 설명·낱말은 끼우지 않는다.
   const slots = [...ui.matchAll(/\$\{([^}]+)\}/g)].map(m => m[1].trim());
@@ -40,5 +41,5 @@ test('E1 설명 글은 글자로만 그린다(innerHTML에 넣지 않음), 기�
   // 크게 보기 한 줄은 photo-strip의 caption(textContent)으로만.
   assert.match(photos, /caption:item => \{ descFetch\(item\); return descOf\(item\); \}/);
   assert.match(read('app/photo-strip.js'), /captionEl\.textContent = caption\(item\) \|\| ''/);
-  assert.doesNotMatch(photos.split('\n').filter(l => /descOf|descById/.test(l)).join('\n'), /localStorage|innerHTML/);
+  assert.doesNotMatch(photos.split('\n').filter(l => /descOf|descById/.test(l)).join('\n'), /innerHTML/);
 });
