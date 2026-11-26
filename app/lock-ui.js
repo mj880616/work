@@ -72,7 +72,8 @@ const appGate = () => lock.appLocked();
 // 나머지 문서 전체를 inert로 만든다 — 아래 글자는 보이지도, 접근성 나무에 읽히지도, 눌리지도 않고 초점(Tab)은 판 안에서만 돈다.
 // 아래 창은 닫거나 숨기지 않는다(쓰던 글·스크롤 그대로, A1). 풀려서 다른 화면으로 가면 close() — 브라우저가 초점을 쓰던 칸으로 돌려준다.
 // 겹을 열고 닫는 곳은 여기 하나(draw·화면 바뀜·겹이 저절로 닫힘이 모두 이것만 부른다).
-let settling = false;
+// 덮기 전에 초점이 있던 칸(쓰던 글 칸 등)은 여기서 기억해 풀 때 돌려준다(브라우저마다 dialog close의 초점 돌려주기가 달라 직접 한다).
+let settling = false, returnFocus = null;
 function syncLayer() {
   const section = document.getElementById('lockView'), box = layer(), host = root();
   if (!section || !box || !host) return;
@@ -80,12 +81,17 @@ function syncLayer() {
   settling = true;
   try {
     if (cover) {
+      if (!box.open) { const was = document.activeElement; returnFocus = was && was !== document.body && !box.contains(was) ? was : null; }
       if (host.parentNode !== box) box.append(host);
       if (!box.open) box.showModal();
       if (!box.contains(document.activeElement)) box.focus({preventScroll: true});
     } else {
+      const back = box.open ? returnFocus : null;
       if (box.open) box.close();
+      returnFocus = null;
       if (host.parentNode !== section) section.prepend(host);
+      const now = document.activeElement;
+      if (back?.isConnected && (!now || now === document.body || now === box || box.contains(now))) back.focus({preventScroll: true});
     }
   } finally { settling = false; }
 }
