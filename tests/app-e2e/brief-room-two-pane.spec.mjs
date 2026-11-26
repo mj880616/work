@@ -8,6 +8,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { pickInSheet, folderSheet } from './helpers/folder-sheet.mjs';
+import { briefMore, briefTopMenu, briefTools, briefAdd, briefAddMenu } from './helpers/brief-head.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const D = n => `d0000000-0000-4000-8000-00000000000${n}`;
@@ -117,7 +118,11 @@ test('폰 390: 한 칸(목록 → 보기, 뒤로 = 목록), 줄 높이 = [파일
   await expect(list(page)).not.toContainText(LEAD);
   const h = await fileRowHeight(page);
   expect(Math.round((await row(page, 2).boundingBox()).height)).toBe(Math.round(h));
-  await list(page).locator('select[data-br-sort]').selectOption('modified:desc');
+  // S71-30: 폰 정렬 고르기는 머리 [⋯] 메뉴 안(목록 칸 머리 줄은 없음).
+  await expect(list(page).locator('select[data-br-sort]')).toHaveCount(0);
+  await briefMore(page).click();
+  await briefTopMenu(page).locator('select[data-br-sort]').selectOption('modified:desc');
+  await page.keyboard.press('Escape');
   await expect(list(page).locator('.br-row .fx-name')).toHaveText(['예시 연구 보고서', '가 예시 계획', '나 예시 공문']);
   await row(page, 3).click();
   await expect(detail(page)).toBeVisible();
@@ -179,3 +184,152 @@ for (const [label, width, height] of [['pc-1280', 1280, 860], ['phone-390', 390,
     await page.screenshot({ path: `docs/design/screens/s70-84/${label}-folders.png`, fullPage: false });
   });
 }
+
+// ---------- S71-30 BRIEF-머리한줄·놓기안내삭제·밀기(명진 11/26 17:38 "여기에 파일을 놓아듀 돼요 이 안내멘트 삭제 / 브리핑 요약 삭제하고 파일 제목으로만
+// 자료실 파일처럼 한줄로 / 좌우로 스와이프 기능 넣는거 요청했는데 어케됨") ----------
+// ① 머리는 한 줄: 화면 안 머리 줄([자료실에서 선택][자료 넣기][−|+])·점선 놓기 안내 줄이 없고, 맨 위 줄(폰·폴드 '브리핑 룸 · 찾기', PC 상단 줄) 끝에 [⋯][+] 둘 — [+]가 맨 오른쪽.
+// ② [+] 작은 메뉴 = 자료실에서 선택 · 파일 업로드. ③ [⋯] = (폰) 정렬 · 글자 크기 [−][+](메뉴를 닫지 않고 한 단계씩) · 쓰는 법. 보기가 열려 있으면 글자 크기는 보기 머리 줄 하나뿐.
+// ④ 목록 줄은 이름 한 줄(+ 폰은 [파일] 폰 줄처럼 날짜·크기·종류 작은 줄), 요약 줄 없음. ⑤ 파일을 끌어 오는 동안만 목록에 놓을 곳 점선.
+for (const [label, width, height] of [['phone-390', 390, 844], ['fold-690', 690, 900], ['pc-1280', 1280, 860]]) {
+  test(`S71-30 머리 한 줄 [⋯][+]·[+] 두 항목·⋯ 안 글자 크기·점선 안내 없음·요약 줄 없음 (${label})`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    await open(page);
+    // ① 화면 안 머리 줄·안내 줄 없음.
+    await expect(list(page).locator('.br-head')).toHaveCount(0);
+    await expect(page.locator('#briefView .br-drop, #briefView [data-br-pick-lib], #briefView [data-br-add]')).toHaveCount(0);
+    await expect(page.locator('#briefView')).not.toContainText('여기에 파일을 놓아도');
+    await expect(list(page).locator('[data-text-size-ctl]')).toHaveCount(0);
+    // 맨 위 줄 끝 [⋯][+](+ 맨 오른쪽), 화면 이름·찾기와 한 줄.
+    const tools = briefTools(page);
+    await expect(tools).toBeVisible();
+    await expect(tools.locator('button')).toHaveCount(2);
+    await expect(tools.locator('button').last()).toHaveAttribute('data-br-top-add', '');
+    const slot = width <= 760 ? '.mobile-shell-header [data-screen-tools="head"]' : '.app-topline [data-screen-tools="top"]';
+    await expect(page.locator(`${slot} .sf-tools[data-sf-tools="brief"]`)).toBeVisible();
+    const line = await page.locator(width <= 760 ? '.mobile-shell-header' : '.app-topline').boundingBox();
+    for (const b of await tools.locator('button').all()) {
+      const r = await b.boundingBox();
+      expect(r.y).toBeGreaterThanOrEqual(line.y - 1); expect(r.y + r.height).toBeLessThanOrEqual(line.y + line.height + 1);
+      expect(r.height).toBeLessThanOrEqual(34);
+    }
+    const [more, plus] = [await tools.locator('[data-br-top-more]').boundingBox(), await briefAdd(page).boundingBox()];
+    expect(plus.x).toBeGreaterThan(more.x);
+    if (width <= 760) {
+      const name = await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();
+      expect(Math.abs((name.y + name.height / 2) - (plus.y + plus.height / 2))).toBeLessThanOrEqual(4);
+    }
+    // ④ 요약 줄 없음 — 이름 한 줄.
+    await expect(list(page)).not.toContainText(LEAD);
+    await expect(list(page).locator('.br-one')).toHaveCount(0);
+    for (const n of [1, 2, 3]) {
+      const nm = row(page, n).locator('.fx-name');
+      expect(await nm.evaluate(el => getComputedStyle(el).whiteSpace)).toBe('nowrap');
+    }
+    // ② [+] 작은 메뉴 두 항목.
+    await briefAdd(page).click();
+    await expect(briefAddMenu(page)).toBeVisible();
+    await expect(briefAddMenu(page).getByRole('button')).toHaveText(['자료실에서 선택', '파일 업로드']);
+    await page.keyboard.press('Escape');
+    await expect(briefAddMenu(page)).toBeHidden();
+    // ③ [⋯]: 폰은 정렬 + 글자 크기, 두 칸 폭(보기가 오른쪽에 열림)은 글자 크기 없음(보기 머리 줄 하나).
+    await briefMore(page).click();
+    const menu = briefTopMenu(page);
+    await expect(menu).toBeVisible();
+    await expect(menu.locator('[data-br-top-act="help"]')).toHaveText('쓰는 법');
+    if (width < 600) {
+      await expect(menu.locator('select[data-br-sort]')).toBeVisible();
+      const ctl = menu.locator('[data-text-size-ctl]');
+      await expect(ctl).toBeVisible();
+      await ctl.getByRole('button', { name: '글자 크게' }).click();
+      await expect(menu).toBeVisible(); // 메뉴는 열린 채
+      await expect(list(page).locator('.br-rows')).toHaveAttribute('data-text-size', 'l');
+      await ctl.getByRole('button', { name: '글자 작게' }).click();
+      await expect(list(page).locator('.br-rows')).toHaveAttribute('data-text-size', 'm');
+    } else {
+      await expect(menu.locator('select[data-br-sort]')).toHaveCount(0);
+      await expect(menu.locator('[data-text-size-ctl]')).toHaveCount(0);
+      await expect(page.locator('#briefView [data-text-size-ctl]:visible')).toHaveCount(1);
+    }
+    await page.screenshot({ path: `docs/design/screens/s71-30/${label}-menu.png`, fullPage: false });
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    // ⑤ 파일을 끌어 오는 동안만 놓을 곳 표시.
+    await page.evaluate(() => { const dt = new DataTransfer(); dt.items.add(new File(['x'], '예시.pdf', { type: 'application/pdf' })); document.querySelector('#briefView .br-list').dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt })); });
+    await expect(page.locator('#briefView')).toHaveClass(/br-dropping/);
+    expect(await list(page).evaluate(el => getComputedStyle(el).outlineStyle)).toBe('dashed');
+    await page.evaluate(() => { const v = document.querySelector('#briefView'); v.dispatchEvent(new DragEvent('dragleave', { bubbles: true })); });
+    await expect(page.locator('#briefView')).not.toHaveClass(/br-dropping/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: `docs/design/screens/s71-30/${label}-head.png`, fullPage: false });
+    expect(errors).toEqual([]);
+  });
+}
+
+// S71-30 BRIEF-밀기(폰 390): 줄 밀기 공용 부품(row-swipe.js). 왼쪽 밀기 = 메뉴 칸만 [옮기기][⋯][삭제](끝까지 밀어도 바로 하지 않음 — P5·W1),
+// [⋯] = 그 줄 ⋯ 메뉴, [삭제] = ⋯ [브리핑만 삭제]와 같은 길(확인 한 번). 오른쪽 밀기 = 여러 개 선택(공용 고르기 막대, 다른 칸 없음 — W3).
+async function swipeRow(locator, dx) {
+  await expect(async () => {
+    const sent = await locator.evaluate((el, dx) => {
+      if (!el.isConnected) return false;
+      const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + Math.min(r.height / 2, 20);
+      const fire = (type, cx) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: cx, clientY: y }));
+      fire('pointerdown', x); for (let i = 1; i <= 12; i++) fire('pointermove', x + dx * i / 12); fire('pointerup', x + dx);
+      return true;
+    }, dx);
+    expect(sent).toBe(true);
+  }).toPass({ timeout: 10000 });
+}
+test('S71-30 폰 390: 브리핑 룸 줄 왼쪽 밀기 = 메뉴 칸 [옮기기][⋯][삭제], 오른쪽 밀기 = 여러 개 선택', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  const { db } = await open(page);
+  const briefDeletes = [];
+  await page.route(SB + '/rest/v1/rpc/app_document_brief_delete', r => { briefDeletes.push(r.request().postDataJSON()); return r.fulfill({ status: 204, body: '' }); });
+  const ends = list(page).locator('[data-row-swipe-act="end"]');
+  // 끝까지 밀어도 칸만 펼쳐진다.
+  await expect(async () => { await swipeRow(row(page, 2), -430); await expect(ends.first()).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
+  await expect(ends.locator('.row-swipe-tx')).toHaveText(['옮기기', '⋯', '삭제']);
+  await page.waitForTimeout(400);
+  await expect(page.locator('.kptu-ask')).toHaveCount(0);
+  expect(briefDeletes).toEqual([]);
+  // [⋯] = 그 줄 ⋯ 메뉴.
+  await list(page).locator('[data-row-swipe-key="more"]').click();
+  await expect(page.locator('#brRowMenu')).toBeVisible();
+  await expect(page.locator('#brRowMenu button')).toContainText(['선택', '폴더로 옮기기…', '브리핑만 삭제', '자료까지 삭제']);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#brRowMenu')).toBeHidden();
+  // [삭제] = 브리핑만 삭제(확인 한 번) — 취소하면 그대로.
+  await expect(async () => { await swipeRow(row(page, 2), -200); await expect(ends.first()).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
+  await list(page).locator('[data-row-swipe-key="delete"]').click();
+  const ask = page.locator('.kptu-ask');
+  await expect(ask).toContainText('브리핑만 삭제할까요?');
+  await ask.locator('.kptu-ask-actions button').first().click();
+  await expect(ask).toHaveCount(0);
+  expect(briefDeletes).toEqual([]);
+  // [옮기기] = 공용 '옮길 곳' 창.
+  await expect(async () => { await swipeRow(row(page, 3), -200); await expect(ends.first()).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
+  await list(page).locator('[data-row-swipe-key="move"]').click();
+  await expect(folderSheet(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  // 오른쪽 밀기 = 그 줄이 골라진 채 여러 개 선택(칸이 열려 남지 않음), 막대 [전체 선택][옮기기][브리핑만 삭제].
+  const bar = page.locator('#briefView .row-swipe-pickbar');
+  await swipeRow(row(page, 1), 80);
+  await expect(bar).toBeVisible();
+  await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
+  await expect(list(page).locator('.row-swipe-acts')).toHaveCount(0);
+  await expect(bar.locator('[data-row-pick-all]')).toContainText('전체 선택');
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['옮기기', '브리핑만 삭제']);
+  await row(page, 3).click();
+  await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
+  await expect(detail(page)).toBeHidden(); // 고르는 중 줄 누르기는 열지 않는다
+  await bar.locator('[data-row-pick-act="delete"]').click();
+  await expect(ask).toContainText('2개');
+  await ask.locator('.kptu-ask-actions button').nth(1).click(); // [삭제](확인 쪽)
+  await expect.poll(() => briefDeletes.map(b => b.p_document_id).sort()).toEqual([D(1), D(3)].sort());
+  await expect(bar).toBeHidden();
+  expect(db.writes.filter(w => w.table === 'items' && w.method === 'DELETE').length).toBe(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: 'docs/design/screens/s71-30/phone-390-swipe.png', fullPage: false });
+  expect(errors).toEqual([]);
+});
