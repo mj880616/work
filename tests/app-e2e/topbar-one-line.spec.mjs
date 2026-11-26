@@ -79,15 +79,15 @@ for (const width of [390, 700]) {
       // 아이콘은 이 화면에 하나뿐(다른 줄에 두 번 나오지 않음).
       await expect(page.locator('.head-mark:visible')).toHaveCount(1);
       if (s.key === 'meetings') {
-        // 걸러보기 칩([종류 전체 ▾]·[목록 ▾])과 [+]·[⋯]는 앱 머리 줄 아래 한 줄.
-        const kind = await box(page.locator('#reportKindSelect')), add = await box(page.locator('#newMeetingBtn'));
-        for (const sel of ['#reportViewSelect', '#reportMore']) {
-          const b = await box(page.locator(sel));
-          expect(Math.abs(b.mid - add.mid), sel).toBeLessThanOrEqual(4);
-        }
-        expect(Math.abs(kind.mid - add.mid)).toBeLessThanOrEqual(4);
-        expect(kind.top).toBeGreaterThan(n.bottom);
-        expect(add.left).toBeGreaterThan((await box(page.locator('#reportViewSelect'))).right);
+        // BIZ-머리한줄(S71-23): 고르기(칩 [전체 ▾] 또는 상자들) · n건 · [+]가 이 앱 머리 줄 안 — 이름 뒤, 찾기 앞. 둘째 줄 없음.
+        const chip = page.locator('#reportFilterChip'), inChip = await chip.isVisible();
+        const kind = await box(inChip ? chip : page.locator('#reportFilterBar')), add = await box(page.locator('#newMeetingBtn'));
+        for (const b of [kind, add]) expect(Math.abs(b.mid - n.mid)).toBeLessThanOrEqual(4);
+        expect(kind.left).toBeGreaterThanOrEqual(n.right);
+        expect(add.left).toBeGreaterThanOrEqual(kind.right);
+        // 건수는 보고가 있을 때만(이 계정은 보고가 없을 수 있음) — 있으면 고르기와 [+] 사이 같은 줄.
+        if (await page.locator('#reportCount').isVisible()) { const count = await box(page.locator('#reportCount')); expect(Math.abs(count.mid - n.mid)).toBeLessThanOrEqual(4); expect(count.left).toBeGreaterThanOrEqual(kind.right); expect(add.left).toBeGreaterThanOrEqual(count.right); }
+        await expect(page.locator('#reportMore')).toHaveCount(0);
       }
       if (s.key === 'home') {
         // 홈: [하루|주간 보고] · 찾기(돋보기)가 같은 줄, 돋보기가 오른쪽 끝(S71-41 HOME-머리한줄).
@@ -108,25 +108,25 @@ for (const width of [390, 700]) {
 }
 
 // S67-75 UI-걸러보기칩하나(명진 11/21 18:33 A안): 좁은 폰에서 고르기 상자 네 개가 줄에 다 안 들어가면 가로로 밀지 않고 칩 하나로 묶는다(PR 2847의 밀기·끝 흐림은 걷어냄).
-// S70-57: 이름이 앱 머리 줄로 올라가 이 계정(사업영역 상자 없음)은 320에서도 상자가 다 들어갈 수 있다 — 칩인지 상자인지는 실제 폭이 정하고(칩은 topbar-chip-clip.spec.mjs),
-// 여기서는 어느 쪽이든 줄이 늘지 않고 [+]·[⋯]와 한 줄인 것을 본다.
+// BIZ-머리한줄(S71-23): 고르기·건수·[+]는 앱 머리 줄 안(이름 뒤) — 320에서도 줄이 늘지 않고 찾기·[+]가 줄 안에 있다.
 test('narrow phone: the 사업 관리 boxes stay on one line (or fold into one chip), the line does not grow', async ({ page }) => {
   await open(page, 'view=meetings', { width: 320 });
   await expect(page.locator('#newMeetingBtn')).toBeVisible();
   await page.waitForTimeout(150);
   const chip = page.locator('#reportFilterChip'), inChip = await chip.isVisible();
-  await expect(page.locator('#meetingsView .report-kind-bar'))[inChip ? 'toBeHidden' : 'toBeVisible']();
-  const title = await box(page.locator('#newMeetingBtn'));
-  const c = await box(inChip ? chip : page.locator('#meetingsView .report-kind-bar'));
+  await expect(page.locator('#reportFilterBar'))[inChip ? 'toBeHidden' : 'toBeVisible']();
+  const title = await box(page.locator('#appView > .mobile-shell-header [data-mobile-view-name]'));
+  const c = await box(inChip ? chip : page.locator('#reportFilterBar'));
   expect(Math.abs(c.mid - title.mid)).toBeLessThanOrEqual(4);
   expect(Math.round(c.height)).toBeLessThanOrEqual(34);
   if (inChip) expect(await chip.evaluate(el => { const t = el.querySelector('.report-filter-chip-text'); return t.scrollWidth <= t.clientWidth + 1; })).toBe(true);
-  else expect(await page.locator('#meetingsView .report-kind-bar').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-  // [+]·[⋯]는 줄 밖으로 나가지 않는다.
-  const more = await box(page.locator('#reportMore')), add = await box(page.locator('#newMeetingBtn'));
-  expect(c.right).toBeLessThanOrEqual(add.left + 0.5);
-  expect(more.right).toBeLessThanOrEqual(320);
-  expect(Math.abs(more.mid - title.mid)).toBeLessThanOrEqual(4);
+  else expect(await page.locator('#reportFilterBar').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  // 찾기·[+]는 줄 밖으로 나가지 않는다. 순서는 … 찾기 · [+](SAVED-머리한줄, S71-43 — [+]가 맨 오른쪽).
+  const add = await box(page.locator('#newMeetingBtn')), find = await box(page.locator('#appView > .mobile-shell-header .mobile-shell-find'));
+  expect(c.right).toBeLessThanOrEqual(find.left + 0.5);
+  expect(add.left).toBeGreaterThanOrEqual(find.right - 0.5);
+  expect(add.right).toBeLessThanOrEqual(320);
+  expect(Math.abs(add.mid - title.mid)).toBeLessThanOrEqual(4);
   expect(await noPageScroll(page)).toBe(true);
 });
 

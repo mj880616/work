@@ -8,6 +8,7 @@ import {settingsState, toolLabel, statusLabel, monthStartIso, COUNT_CAP, countTe
 import {formatSeoulTime} from './meeting-time.js';
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {askConfirm} from './small-notice.js';
+import {groupHtml, switchRow, infoRow, foldRow, actionRow, noteHtml} from './settings-list.mjs';
 
 const SETTINGS = '/rest/v1/app_mcp_settings';
 const LOG = '/rest/v1/app_mcp_read_log';
@@ -15,26 +16,30 @@ const RECENT = 10;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const when = at => formatSeoulTime(at, {month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'});
 
-/** host 안을 이 함수만 그린다. host는 처음엔 hidden이고, 설정 행이 있을 때만 보인다. */
-export function mountMcpReadSettings(host, {rt = window.KPTURuntime, now = () => new Date()} = {}) {
-  let settings = null, recent = null, month = null, logFailed = false, busy = false, error = '', loading = null;
+/** host 안을 이 함수만 그린다. 설정 행이 없으면 장이 비고 첫 화면 줄도 없다(onSummary show:false). */
+export function mountMcpReadSettings(host, {rt = window.KPTURuntime, now = () => new Date(), onSummary} = {}) {
+  let settings = null, recent = null, month = null, logFailed = false, busy = false, error = '', loading = null, loaded = false;
 
+  // 장 안: 연결 켜기 스위치 / 이번 달 읽은 횟수 / 읽지 않는 것 한 줄 / 최근 읽은 기록 ›(접기) / 따로 떨어진 묶음의 모든 연결 끊기(빨간 글자).
   function render() {
-    if (!settings) { host.hidden = true; host.innerHTML = ''; return; }
-    host.hidden = false;
+    if (!settings) { host.innerHTML = ''; if (loaded) onSummary?.({show: false}); return; }
     const s = settings;
-    const state = s.enabled ? '켜짐' : '꺼짐';
-    const cut = s.revokedBefore ? `<span class="mr-s">마지막으로 모두 끊은 때 ${esc(when(s.revokedBefore))}</span>` : '';
+    onSummary?.({text: s.enabled ? '켜짐' : '꺼짐'});
     let log;
     if (logFailed) log = failHtml({retry: 'data-mr-retry'});
     else if (!recent) log = waitHtml({rows: 2});
     else if (!recent.length) log = emptyHtml();
-    else log = `<ol class="mr-log">${recent.map(r => `<li><span class="mr-t">${esc(when(r.called_at))}</span><span class="mr-tool">${esc(toolLabel(r.tool))}</span><span class="mr-r mr-${esc(r.status)}">${esc(statusLabel(r.status))}${Number(r.result_count) > 0 ? ` · ${Number(r.result_count).toLocaleString('ko-KR')}건` : ''}</span></li>`).join('')}</ol>`;
-    host.innerHTML = `<div class="mr-head"><h3>Claude 읽기 연결</h3><span class="mr-month">${month == null ? '' : `이번 달 ${esc(countText(month))}`}</span></div>
-<p class="mr-note">claude.ai의 Claude가 내 기록을 읽기만 해요. 하루 기록·통화·녹음·정리함 원문·가족 방은 읽지 않아요.</p>
-<div class="mr-list"><label class="mr-row"><span>연결 켜기</span><span class="mr-r">${state}</span><input type="checkbox" role="switch" class="mr-switch" data-mr-enabled${s.enabled ? ' checked' : ''}${busy ? ' disabled' : ''} aria-label="Claude 읽기 연결 켜기"></label></div>
-<div class="mr-sub"><span class="mr-sub-h">최근 읽은 기록</span>${log}</div>
-${error ? `<p class="mr-error" role="alert">${esc(error)}</p>` : ''}<div class="mr-foot">${cut}<button type="button" class="secondary" data-mr-revoke${busy ? ' disabled' : ''}>모든 연결 끊기</button></div>`;
+    else log = `<ol class="mr-log">${recent.map(r => infoRow({label: toolLabel(r.tool), desc: when(r.called_at), sum: `${statusLabel(r.status)}${Number(r.result_count) > 0 ? ` · ${Number(r.result_count).toLocaleString('ko-KR')}건` : ''}`, sumAttrs: {class: `mr-r mr-${r.status}`}})).map(row => `<li>${row}</li>`).join('')}</ol>`;
+    const wasOpen = !!host.querySelector('[data-mr-log][open]');
+    host.innerHTML = groupHtml([
+      switchRow({label: '연결 켜기', desc: 'claude.ai의 Claude가 내 기록을 읽기만 해요', checked: s.enabled, disabled: busy, attrs: {'data-mr-enabled': true}, ariaLabel: 'Claude 읽기 연결 켜기'}),
+      infoRow({label: '이번 달 읽은 횟수', sum: month == null ? '' : countText(month), sumAttrs: {'data-mr-month': true}}),
+    ]) + noteHtml('하루 기록·통화·녹음·정리함 원문·가족 방은 읽지 않아요')
+      + (error ? `<p class="sl-status sl-error mr-error" role="alert">${esc(error)}</p>` : '')
+      + groupHtml([
+        foldRow({label: '최근 읽은 기록', sum: recent ? (recent.length ? `${recent.length}줄` : '없음') : '', body: log, attrs: {'data-mr-log': true}, open: wasOpen}),
+        actionRow({label: '모든 연결 끊기', desc: s.revokedBefore ? `마지막으로 모두 끊은 때 ${when(s.revokedBefore)}` : '', danger: true, disabled: busy, attrs: {'data-mr-revoke': true}}),
+      ]);
   }
 
   async function patch(body) {
@@ -80,7 +85,8 @@ ${error ? `<p class="mr-error" role="alert">${esc(error)}</p>` : ''}<div class="
       try {
         // 이 칸은 allowed_client_id를 읽지도 고치지도 않는다(동의 화면만 비교용으로 읽어 본다).
         settings = settingsState(await rt.api(`${SETTINGS}?select=workspace_id,enabled,revoked_before&limit=1`, {singleFlight: false}));
-      } catch { settings = null; } // 표가 아직 없거나(적용 전) 읽기 실패 → 칸 없음
+      } catch { settings = null; } // 표가 아직 없거나(적용 전) 읽기 실패 → 첫 화면 줄 없음
+      loaded = true;
       render();
       if (settings) await loadLog();
     })().finally(() => { loading = null; });
