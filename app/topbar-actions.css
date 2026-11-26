@@ -75,13 +75,18 @@
   .mobile-shell-header{min-height:36px;margin-bottom:8px}
   .mobile-shell-header>[data-mobile-view-name]{flex:none;white-space:nowrap}
 }
+/* S71-07 SEARCH-누른자리그대로(명진 11/26 13:51 "노트에서처럼 검색창 클릭하고 검색 화면에서 검색창 위치가 같아야 함"): 전체 검색 화면도 홈과 같은 머리 줄이다 —
+   이름('검색')·아이콘 없이 '전체 검색' 칸 한 칸. 그래서 홈에서 누른 칸이 같은 자리·같은 크기로 입력 칸이 되고, 결과·안내만 아래에 뜬다. */
 @media(max-width:760px){
-  html:has(#homeView:not(.hidden)) .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}
-  html:has(#homeView:not(.hidden)) .mobile-shell-header{min-height:36px;margin-bottom:8px}
-  /* 홈은 본문 날짜 줄에 이미 아이콘이 있다 — 머리 줄은 '전체 검색' 입구 하나만(아이콘 두 번 없음). */
-  html:has(#homeView:not(.hidden)) .mobile-shell-header>.head-mark{display:none}
-  /* 홈에서 자판이 열려 있으면(글 쓰는 중) 빠른 입력·아래 탭처럼 이 입구 줄도 접는다 — 쓰는 칸이 자판 위로 올라올 자리(예전 홈과 같은 높이). */
-  html:has(#homeView:not(.hidden)) body.kptu-mobile-keyboard #appView>.mobile-shell-header{display:none}
+  html:is(:has(#homeView:not(.hidden)),:has(#searchView:not(.hidden))) .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}
+  html:is(:has(#homeView:not(.hidden)),:has(#searchView:not(.hidden))) .mobile-shell-header{min-height:36px;margin-bottom:8px}
+  /* 홈은 본문 날짜 줄에 이미 아이콘이 있다 — 머리 줄은 '전체 검색' 칸 하나만(아이콘 두 번 없음). 전체 검색 화면도 같은 모양(칸이 움직이지 않게). */
+  html:is(:has(#homeView:not(.hidden)),:has(#searchView:not(.hidden))) .mobile-shell-header>:is(.head-mark,[data-mobile-view-name]){display:none}
+  /* 홈에서 자판이 열려 있으면(글 쓰는 중) 빠른 입력·아래 탭처럼 이 칸 줄도 접는다 — 쓰는 칸이 자판 위로 올라올 자리(예전 홈과 같은 높이).
+     머리 줄 '전체 검색' 칸 자신에 커서가 있을 때는 접지 않는다(누른 칸이 사라지면 안 됨). */
+  /* 전체 검색 화면은 결과를 내려도 칸이 위에 남는다(예전 화면 안 검색 줄처럼 붙박이). 처음 자리는 홈과 같다. */
+  html:has(#searchView:not(.hidden)) #appView>.mobile-shell-header{position:sticky;top:var(--kptu-stick-top,0px);z-index:2;background:var(--kptu-bg)}
+  html:has(#homeView:not(.hidden)):not(:has(#gsHeadInput:focus)) body.kptu-mobile-keyboard #appView>.mobile-shell-header{display:none}
 }
 
 /* UI-검색창하나로(S70-54, 설계 docs/design/one-search-bar.md): 지금 화면에 화면 찾기가 있으면(html[data-screen-find], 주인 screen-find.js) 앱 머리 줄의
