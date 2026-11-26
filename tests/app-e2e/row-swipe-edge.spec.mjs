@@ -154,7 +154,7 @@ test('자료실 390 실제 손가락: 줄 오른쪽 끝에서 시작한 왼쪽 �
   const b = await box(row);
   // 자료실 줄은 나무 안쪽으로 들여 있어 화면 끝까지 닿지 않는다 — 줄 오른쪽 끝(⋯ 자리)에서 시작한다.
   await finger(page, cdp, path(b.x + b.width - 4, b.y + b.height / 2, -120, 0));
-  await expect(list.locator('[data-row-swipe-act="end"]')).toHaveCount(2);
+  await expect(list.locator('[data-row-swipe-act="end"]')).toHaveCount(3); // S70-65 가안 [옮기기][이름 바꾸기][삭제]
   await expect(list.locator('[data-lu-document]')).toHaveCount(5);
   expect(state.deletes).toEqual([]);
   expect(state.errors).toEqual([]);

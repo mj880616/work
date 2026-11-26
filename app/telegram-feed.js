@@ -23,13 +23,13 @@ import {copyText} from './copy-text.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 import {askConfirm} from './small-notice.js';
 import {bindSelectZone} from './text-select-bar.js';
+import {bindRowSwipe, EDIT, DELETE} from './row-swipe.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
 import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} from './tg-sender-data.js';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
   firstWindow, olderWindow, reachedEnd, chunksOf, cleanFolderName, FOLDER_ERROR_TEXT, archivedRooms, withRoomState, pinnedRooms, withoutPinned, pinsWithoutLine,
-  swipeIntent, swipeEdge, swipeOffset, swipeSettle, swipeOpenOffset, allowOf, SWIPE_ACTIONS, ACTION_LABEL,
-  LOAD_PLAN, SUMEDIT, SUMEDIT_TEXT, editMap, itemTarget, dayTarget, itemSummary, isItemEdited, applyLineEdit, dayEdit, cleanSummaryInput, cleanDayInput, dayPatch, sumEditErrorText, linesToText, rawFoldable, rawMoreKey} from './tg-day-model.mjs';
+  SWIPE_ACTIONS, ACTION_LABEL, LOAD_PLAN, SUMEDIT, SUMEDIT_TEXT, editMap, itemTarget, dayTarget, itemSummary, isItemEdited, applyLineEdit, dayEdit, cleanSummaryInput, cleanDayInput, dayPatch, sumEditErrorText, linesToText, rawFoldable, rawMoreKey} from './tg-day-model.mjs';
 // TG-요청강조: 나한테 온 요청(챙길 것 후보의 ask_me 결과 재사용) 노란 띠·꼬리표와 [나한테 온 요청 n] 칸, 담당조직·일정 회색 꼬리표(tg-mark-model.mjs).
 // TG-방고정(시안 A): 방 줄 메뉴 맨 위 [고정]/[고정 풀기]. 고정한 방은 날짜 줄 위 맨 위 칸에 📌와 함께 그 방의 가장 최근 날 한 줄로 늘 보이고 아래 날짜 묶음에는 다시 나오지 않는다.
 //   고정·순서는 서버(app_feed_rooms.pinned_at, DB 함수 app_feed_room_pin)에만 둔다. 보관한 방은 고정에서 빠진다. 칸이 아직 없으면 [고정]을 감춘다.
@@ -56,18 +56,10 @@ const $ = sel => document.querySelector(sel);
 const pc = window.matchMedia('(min-width:761px)');
 const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 const UNDO_MS = 8000;
-// 버튼 안 그림(글자색을 따라가는 선 그림, 색은 CSS 토큰).
-const svg = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
-const ICON = {
-  folder:svg('<path d="M3.5 7.5h6l2 2h9v9h-17z"/>'),
-  archive:svg('<path d="M3.5 7h17v4h-17z"/><path d="M5.5 11v8h13v-8"/><path d="M10 15h4"/>'),
-  unarchive:svg('<path d="M4 9h10a5 5 0 010 10H8"/><path d="M8 5L4 9l4 4"/>'),
-  trash:svg('<path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/>'),
-};
 
-// state.mode: live (방·날 목록) | archive (보관함) | trash (휴지통) | senders (보낸 사람 이름). state.folder: 칸 줄에서 고른 폴더('' = 전체). state.swipe: 열려 있는 줄 {key, side}. state.sel: 열린 방 상세 {room, day}. state.open: 원문을 펼친 소식 ID.
+// state.mode: live (방·날 목록) | archive (보관함) | trash (휴지통) | senders (보낸 사람 이름). state.folder: 칸 줄에서 고른 폴더('' = 전체). state.sel: 열린 방 상세 {room, day}. state.open: 원문을 펼친 소식 ID.
 let state = fresh(), run = 0, layer = null, shelfLayer = null, editLayer = null, undo = null, undoTimer = 0, followed = null;
-function fresh() { return {owner:'', loaded:false, missing:false, error:'', lines:[], from:'', end:false, titles:new Map(), pins:[], trashed:[], trashedDays:[], folders:[], rooms:new Map(), folder:'', swipe:null, fedit:null, mode:'live', days:[], orgs:[], mine:new Set(), sel:null, open:new Set(), more:new Set(), dcache:new Map(), raw:new Map(), link:null, senders:null, sidx:null, sedit:null, sman:null, edits:null, se:null, note:'', status:'', busy:false, asks:null, markRows:[], marks:new Map(), filter:'', seen:null, pinReady:false, pinLines:[], by:'', rsel:'', rshown:ROOM_DAY_PAGE, rbusy:false, rstop:false, placed:false, rexp:new Set(), find:freshFind(), found:''}; }
+function fresh() { return {owner:'', loaded:false, missing:false, error:'', lines:[], from:'', end:false, titles:new Map(), pins:[], trashed:[], trashedDays:[], folders:[], rooms:new Map(), folder:'', fedit:null, mode:'live', days:[], orgs:[], mine:new Set(), sel:null, open:new Set(), more:new Set(), dcache:new Map(), raw:new Map(), link:null, senders:null, sidx:null, sedit:null, sman:null, edits:null, se:null, note:'', status:'', busy:false, asks:null, markRows:[], marks:new Map(), filter:'', seen:null, pinReady:false, pinLines:[], by:'', rsel:'', rshown:ROOM_DAY_PAGE, rbusy:false, rstop:false, placed:false, rexp:new Set(), find:freshFind(), found:''}; }
 function freshFind() { return {q:'', needle:'', busy:false, rows:null, error:''}; }
 
 function install() {
@@ -243,9 +235,12 @@ async function reloadSenders() {
 }
 async function ensureDetail() { const sel = state.sel; if (sel) await loadDay(sel.room, sel.day); }
 // 방·날 하나의 소식·요약을 읽어 둔다(날짜별 상세와 방별 상세가 같이 쓴다). 다 읽으면 그 날이 아직 보이는 동안만 다시 그린다.
+// 읽는 중인 날은 같은 읽기(약속)를 돌려준다 — 기다려야 하는 곳(줄 밀기 [수정] → 요약 수정 칸)이 같은 읽기를 한 번만 기다린다.
 async function loadDay(room, day) {
-  const key = rdKey(room, day); if (state.dcache.get(key)?.items || state.dcache.get(key)?.loading) return;
-  state.dcache.set(key, {loading:true}); const me = run;
+  const key = rdKey(room, day), was = state.dcache.get(key); if (was?.items) return; if (was?.loading) return was.wait;
+  const me = run, box = {loading:true}; state.dcache.set(key, box); box.wait = loadDayNow(room, day, key, me); return box.wait;
+}
+async function loadDayNow(room, day, key, me) {
   try { const d = await readRoomDay(room, day, rt); if (me !== run) return; state.dcache.set(key, d); }
   catch { if (me !== run) return; state.dcache.set(key, {error:true}); }
   if (selKey() === key || state.rsel === room) paintDetail();
@@ -347,12 +342,9 @@ function headHtml() {
   const more = ready ? `<button type="button" class="feed-more" data-tg-head-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button>` : '';
   return `<div class="feed-head"><span class="feed-head-title screen-title" aria-hidden="true">텔레그램 소식</span><span class="feed-head-sub" data-tg-today>${ready ? esc(telegramHeadText(today) + failed) : ''}</span>${ready ? pull.button() : ''}${more}</div>${ready ? pull.line() + chipsHtml() + feditHtml() : ''}`;
 }
-// 줄 밀기: 버튼은 닫혀 있으면 보이지도 눌리지도 않는다. mode: live | archive.
-const actBtn = (side, kind, open) => `<button type="button" class="feed-act feed-act-${kind}" data-tg-act-btn="${side}" data-tg-kind="${kind}" tabindex="-1"${open === side ? '' : ' aria-hidden="true"'} aria-label="${ACTION_LABEL[kind]}">${ICON[kind === 'unarchive' ? 'unarchive' : kind]}<span>${ACTION_LABEL[kind]}</span></button>`;
+// 줄 밀기(S70-65 UI-밀기메뉴통일, 명진 11/26 08:16 가안): 칸은 공용 줄 밀기(row-swipe.js)가 그린다. 여기는 줄 틀(방·날·보는 자리)만.
 function swipeRow(key, mode, room, day, inner) {
-  const acts = SWIPE_ACTIONS[mode], open = state.swipe?.key === key ? state.swipe.side : '';
-  const group = side => (acts[side].length ? `<div class="feed-acts feed-acts-${side}">${acts[side].map(k => actBtn(side, k, open)).join('')}</div>` : '');
-  return `<div class="feed-swipe${acts.start.length > 1 ? ' is-two' : ''}" data-tg-swipe="${esc(key)}" data-mode="${mode}" data-room="${esc(room)}" data-day="${esc(day)}"${open ? ` data-side="${open}"` : ''}>${group('start')}${group('end')}${inner}</div>`;
+  return `<div class="feed-swipe" data-tg-swipe="${esc(key)}" data-mode="${mode}" data-room="${esc(room)}" data-day="${esc(day)}">${inner}</div>`;
 }
 // pin: 맨 위 '고정한 방' 칸의 줄(이름 앞 📌, 이름 뒤 그 줄의 날짜).
 function rowHtml(l, {pin = false} = {}) {
@@ -427,7 +419,7 @@ function trashDayRowHtml(d) {
   return `<div class="feed-rd feed-r${roomTone(d.room_key)}" data-tg-tdrow="${esc(key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(labelOfRoom(d.room_key)))}</span><div class="feed-rdb"><span class="feed-rn">${esc(labelOfRoom(d.room_key))}</span><span class="feed-rl">${esc(dayLabel(d.day))} 하루 전체</span></div><button type="button" class="feed-small" data-tg-restore-day="${esc(key)}">되살리기</button></div>`;
 }
 // FILES-다시그리기메뉴자리: 20초 재조회 등으로 목록·상세를 다시 그려도 열린 ⋯ 메뉴는 같은 줄의 새 칸에 붙는다(공용 keepMenus).
-let tgMenus = []; const TG_SPOT = {attrs:['data-tg-rdmore', 'data-tg-act-btn', 'data-tg-more', 'data-tg-head-more', 'data-tg-person-more', 'data-tg-folder-more'], zones:['#tgList', '#tgDetail', '[data-tg-swipe]']};
+let tgMenus = []; const TG_SPOT = {attrs:['data-tg-rdmore', 'data-tg-more', 'data-tg-head-more', 'data-tg-person-more', 'data-tg-folder-more'], zones:['#tgList', '#tgDetail', '[data-tg-swipe]']};
 function paintList() { return keepMenus(tgMenus, TG_SPOT, paintListNow); }
 function paintDetailNow() { return keepMenus(tgMenus, TG_SPOT, paintDetailNow); }
 function paintListNow() {
@@ -822,7 +814,7 @@ function setBy(by) {
   if (byNow() === by || state.busy) return;
   if (state.link && !dropLink(() => setBy(by))) return;
   if (state.sel || state.rsel) closeDetail({quiet:true});
-  state.by = by; state.swipe = null; state.fedit = null; state.status = '';
+  state.by = by; closeSwipe(); state.fedit = null; state.status = '';
   viewPrefs.set('tg_view', by, {rejectable:true}); void viewPrefs.flush?.();
   window.KPTURouter?.setPlace?.('telegram', {by, room:null, rday:null});
   paint(); $(`#tgList [data-tg-by="${by}"]`)?.focus({preventScroll:true});
@@ -907,7 +899,7 @@ const isPinned = room => { const r = roomRow(room); return !!r.pinned_at && !r.a
 const folderName = id => state.folders.find(f => f.id === id)?.name || '';
 const ROOM_FAIL = {...MOVE_FAIL, GONE:'이 방을 찾지 못했어요. 목록을 다시 불러왔어요.'};
 const PIN_FAIL = {...ROOM_FAIL, ARCHIVED:'보관한 방은 고정할 수 없어요.', PIN_LIMIT:'방은 20곳까지 고정할 수 있어요.', UNAVAILABLE:'방 고정은 아직 준비 중이에요.'};
-function applyRooms(rooms) { state.rooms = rooms; state.lines = withRoomState(state.lines, rooms); state.swipe = null; }
+function applyRooms(rooms) { state.rooms = rooms; state.lines = withRoomState(state.lines, rooms); closeSwipe(); }
 // 방의 폴더·보관을 정하고 되돌리기 줄을 건다(guarded 안에서 부른다). 성공하면 true.
 // TG-방고정: 고정한 방을 보관하면 고정도 푼다(보관한 방은 고정에서 빠짐). 그 보관을 되돌리면(repin) 다시 고정한다(맨 끝 순서).
 async function roomCore(room, folder, archived, text, current, isUndo = false, repin = false) {
@@ -961,7 +953,7 @@ function trashDay(room, day) {
     const at = new Date().toISOString();
     state.lines = state.lines.map(l => (l.room_key === room && l.day === day ? {...l, day_hidden_at:at} : l));
     state.trashedDays = [{room_key:room, day, hidden_at:at}, ...state.trashedDays.filter(d => !(d.room_key === room && d.day === day))];
-    state.swipe = null; state.status = '';
+    closeSwipe(); state.status = '';
     if (state.sel?.room === room && state.sel.day === day) closeDetail({quiet:true});
     setUndo('삭제했어요', () => restoreDay(room, day, true));
   });
@@ -975,7 +967,7 @@ function restoreDay(room, day, fromUndo = false) {
 }
 // ---------- 폴더 만들기·이름 바꾸기·지우기
 function startFolderEdit(kind, extra = {}) {
-  state.swipe = null; if (state.mode !== 'live') return;
+  closeSwipe(); if (state.mode !== 'live') return;
   state.fedit = {kind, value:kind === 'rename' ? folderName(state.folder) : '', id:state.folder, room:'', status:'', busy:false, ...extra};
   paintList(); const box = $('#tgList [data-tg-fedit]'); box?.scrollIntoView?.({block:'nearest'}); ($('#tgList [data-tg-fedit-input]') || $('#tgList [data-tg-fedit-save]'))?.focus({preventScroll:true});
 }
@@ -1187,52 +1179,29 @@ const femenu = createAnchoredMenu({id:'tgFolderMenu', className:'feed-menu', lab
   render:() => '<button type="button" data-tg-fact="rename">이름 바꾸기</button><button type="button" class="feed-menu-danger" data-tg-fact="delete">폴더 삭제 <span class="feed-faint">방은 그대로</span></button>',
   onAction:button => { if (state.folder) startFolderEdit(button.dataset.tgFact === 'rename' ? 'rename' : 'delete'); }});
 tgMenus = [menu, pmenu, rmenu, fmenu, femenu];
-const hold = createFeedHold({menu:rmenu, itemSelector:'[data-tg-rd]', moreSelector:'[data-tg-rdmore]', skipSelector:'[data-tg-act-btn],[data-tg-unarchive],[data-tg-unpin]', busy:() => state.busy, isPhone:() => !pc.matches});
+const hold = createFeedHold({menu:rmenu, itemSelector:'[data-tg-rd]', moreSelector:'[data-tg-rdmore]', skipSelector:'[data-row-swipe-act],[data-tg-unarchive],[data-tg-unpin]', busy:() => state.busy, isPhone:() => !pc.matches});
 
-// 줄 밀기(폰, 터치만): 가로로 분명히 밀었을 때만 반응하고 세로 스크롤·화면 왼쪽 가장자리 시작은 건드리지 않는다. 열린 줄은 하나뿐.
-const swipeEl = key => [...view()?.querySelectorAll('[data-tg-swipe]') || []].find(el => el.dataset.tgSwipe === key) || null;
-function syncSwipe(wrap, side) {
-  if (side) wrap.dataset.side = side; else delete wrap.dataset.side;
-  const inner = wrap.querySelector(':scope > .feed-rd'); if (inner) inner.style.transform = '';
-  for (const b of wrap.querySelectorAll('[data-tg-act-btn]')) { const on = b.dataset.tgActBtn === side; if (on) b.removeAttribute('aria-hidden'); else b.setAttribute('aria-hidden', 'true'); b.tabIndex = on ? 0 : -1; }
+// 줄 밀기(폰, 터치만 — 공용 row-swipe.js, S70-65): 왼쪽으로 밀면 날짜별 줄 [폴더로][수정][삭제](수정 = 그날 요약 수정, 요약을 고칠 수 있을 때만),
+// 방별 줄 [폴더로][보관](방 전체라 '이 날 한 줄 삭제'가 없다), 보관함 줄 [꺼내기]. 끝까지 밀어도 칸만 열린다. 빠진 [보관]은 ⋯ [보관].
+// 텔레그램 소식에는 여러 개 고르기가 없어 오른쪽 밀기는 없다.
+const TG_CELL = Object.freeze({folder:{tone:'move', icon:'move'}, edit:EDIT, archive:{tone:'muted', icon:'archive'}, trash:DELETE, unarchive:{tone:'warning', icon:'undo'}});
+let swipe = null;
+function swipeActs(el) {
+  if (state.busy) return null;
+  const mode = el.dataset.mode, day = el.dataset.day; if (!el.dataset.room || !SWIPE_ACTIONS[mode]) return null;
+  const on = k => (k === 'edit' ? editsOn() && !!day : k === 'trash' ? !!day : true);
+  return {start:null, end:SWIPE_ACTIONS[mode].filter(on).map(k => ({...TG_CELL[k], key:k === 'trash' ? 'delete' : k, label:ACTION_LABEL[k]}))};
 }
-function closeSwipe() {
-  const open = state.swipe; if (!open) return; state.swipe = null;
-  const el = swipeEl(open.key); if (el) syncSwipe(el, '');
+function swipeRun(key, el) {
+  const room = el.dataset.room, day = el.dataset.day; if (!room || state.busy) return;
+  if (key === 'folder') fmenu.open(el.querySelector('.feed-rdb') || el);
+  else if (key === 'archive') void moveRoom(room, roomRow(room).folder_id, true, '보관했어요');
+  else if (key === 'unarchive') void moveRoom(room, roomRow(room).folder_id, false, '꺼냈어요');
+  else if (key === 'delete' && day) void trashDay(room, day);
+  else if (key === 'edit' && day) { const k = rdKey(room, day); select(room, day, '', {picked:true}); void loadDay(room, day).then(() => { if (selKey() === k) startSumEdit('day', k); }); }
 }
-let drag = null, swallow = false;
-function bindSwipe(root) {
-  root.addEventListener('pointerdown', e => {
-    swallow = false;
-    if (e.pointerType !== 'touch' || state.busy) return;
-    const inner = e.target.closest('.feed-swipe > .feed-rd'); if (!inner || e.target.closest('[data-tg-act-btn]')) return;
-    const wrap = inner.parentElement, key = wrap.dataset.tgSwipe;
-    if (state.swipe && state.swipe.key !== key) closeSwipe();
-    if (swipeEdge(e.clientX, innerWidth)) return;
-    const mode = wrap.dataset.mode, allow = allowOf(mode), open = state.swipe?.key === key ? swipeOpenOffset(state.swipe.side, allow) : 0;
-    drag = {id:e.pointerId, x:e.clientX, y:e.clientY, wrap, inner, key, allow, open, dx:0, on:false};
-  });
-  root.addEventListener('pointermove', e => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    if (!drag.on) {
-      const intent = swipeIntent(dx, dy); if (intent === 'wait') return;
-      if (intent === 'scroll') { drag = null; return; }
-      drag.on = true; drag.inner.classList.add('is-drag'); try { drag.inner.setPointerCapture(e.pointerId); } catch {}
-    }
-    drag.dx = dx; drag.inner.style.transform = `translateX(${swipeOffset(dx, drag.open, drag.allow)}px)`;
-  });
-  const end = e => {
-    if (!drag || e.pointerId !== drag.id) return; const d = drag; drag = null;
-    if (!d.on) return;
-    swallow = true; d.inner.classList.remove('is-drag');
-    const side = e.type === 'pointercancel' ? (state.swipe?.key === d.key ? state.swipe.side : '') : swipeSettle(swipeOffset(d.dx, d.open, d.allow), d.allow);
-    state.swipe = side ? {key:d.key, side} : null; syncSwipe(d.wrap, side);
-  };
-  root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
-  // 밀고 손을 뗄 때 따라오는 click은 삼킨다(줄이 열리는 것을 막는다).
-  window.addEventListener('click', e => { if (swallow && root.contains(e.target)) { swallow = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
-}
+const closeSwipe = () => swipe?.close();
+function bindSwipe(root) { swipe = bindRowSwipe(root, {row:'[data-tg-swipe]', enabled:() => !state.busy, actions:swipeActs, run:swipeRun}); }
 
 // [이전 날 더 보기]: 누르거나, 날짜별 목록을 아래 끝까지 내리면(TG-불러오기속도) 이전 14일을 더 읽는다. 처음 그린 채로는 부르지 않고 스크롤할 때만 본다.
 let olderBusy = false;
@@ -1258,15 +1227,7 @@ function bind() {
   root.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || b.disabled || !root.contains(b)) return;
     const d = b.dataset;
-    if (state.swipe && !b.closest('[data-tg-act-btn]')) { const was = state.swipe.key; closeSwipe(); if (d.tgRdopen && b.closest('[data-tg-swipe]')?.dataset.tgSwipe === was) return; }
-    if (d.tgActBtn) {
-      const w = b.closest('[data-tg-swipe]'), room = w?.dataset.room, day = w?.dataset.day, kind = d.tgKind; if (!room) return;
-      if (kind === 'folder') fmenu.open(b);
-      else if (kind === 'archive') { closeSwipe(); void moveRoom(room, roomRow(room).folder_id, true, '보관했어요'); }
-      else if (kind === 'unarchive') { closeSwipe(); void moveRoom(room, roomRow(room).folder_id, false, '꺼냈어요'); }
-      else if (kind === 'trash' && day) { closeSwipe(); void trashDay(room, day); }
-    }
-    else if (d.tgUnpin) void pinRoom(d.tgUnpin, false);
+    if (d.tgUnpin) void pinRoom(d.tgUnpin, false);
     else if (d.tgUnarchive) void moveRoom(d.tgUnarchive, roomRow(d.tgUnarchive).folder_id, false, '꺼냈어요');
     else if (d.tgRdmore) rmenu.open(b);
     else if (b.hasAttribute('data-tg-folder-more')) femenu.open(b);
@@ -1336,7 +1297,7 @@ window.addEventListener('kptu:view-changed', e => {
     if (state.loaded && byNow() === 'room') window.KPTURouter?.setPlace?.('telegram', {by:'room', room:state.rsel || null});
     return;
   }
-  layer = null; shelfLayer = null; editLayer = null; state.link = null; state.sedit = null; state.sman = null; state.fedit = null; state.se = null; state.swipe = null; state.mode = 'live'; menu.close?.(null, true); pmenu.close?.(null, true); rmenu.close?.(null, true); fmenu.close?.(null, true); femenu.close?.(null, true);
+  layer = null; shelfLayer = null; editLayer = null; state.link = null; state.sedit = null; state.sman = null; state.fedit = null; state.se = null; closeSwipe(); state.mode = 'live'; menu.close?.(null, true); pmenu.close?.(null, true); rmenu.close?.(null, true); fmenu.close?.(null, true); femenu.close?.(null, true);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'telegram', name:null}}));
 });
 window.addEventListener('kptu:session-changed', () => { run++; layer = null; shelfLayer = null; editLayer = null; undo = null; clearTimeout(undoTimer); state = fresh(); if (view()) paint(); });

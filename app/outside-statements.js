@@ -6,6 +6,8 @@ import {createMovePicker} from './library-move-picker.js';
 import {GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, ownSourceRows, groupPosts, postView, sourceState, feedWhen, intlSplitOn, splitIntl, INTL_LABEL} from './outside-statements-model.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {mountSplitResize} from './split-resize.js';
+import {SPLIT_QUERY, NARROW_QUERY} from './screen-width.mjs';
+import {followPane} from './follow-pane.js';
 import {hasNewsItem, takeNewsTab, takeNewsOpen} from './news-request.mjs';
 import {itemView, whenOf} from './news-clipping-model.mjs';
 import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, openTabFor, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, tabForItem} from './now-model.mjs';
@@ -191,7 +193,11 @@ function reloadLists() {
 }
 
 // ---------- 상세·보관·관심 주제(공용 부품, 각 칸의 그리기 주인) ----------
-const PC = window.matchMedia('(min-width:761px)');
+// S70-58 READ-두칸보기(명진 11/26 "왼쪽 목록 오른쪽 본문 · 드래그 폭 조절 · 폴드 펼침"): 목록 | 상세 두 칸은 앱 공용 칸 나누기 폭(screen-width.mjs, 600px~ —
+// 조직 관리·자료실과 같은 값)부터. 그 아래(폰·접은 폴드)만 한 칸(누르면 상세 전체 화면, 뒤로 = 목록). PHONE(~760px)은 폰 틀 판정(메뉴 창 기록)에만 남는다.
+const PC = window.matchMedia(SPLIT_QUERY);
+const NARROW = window.matchMedia(NARROW_QUERY);
+const FRAME_PC = window.matchMedia('(min-width:761px)'); // 앱 틀이 PC인가(아니면 폴드 펼침 — 상세 칸 붙이기를 follow-pane narrow로)
 const PHONE = window.matchMedia('(max-width:760px)');
 const DESK = window.matchMedia('(min-width:1200px)'); // PC: 탭 줄이 위(밀기는 탭 줄 위에서만). 폰·폴드 펼침은 줄 밖 어디서나 밀어 탭 이동.
 const mainBox = root?.querySelector('#nowMain'), detailBox = root?.querySelector('[data-now-detail]');
@@ -302,6 +308,8 @@ function openDetail(item, head, opts = {}) {
   if (!autoOpening) markRead(item);
   if (root) root.dataset.detail = 'open'; refreshScreenFind();
   mountSplit();
+  // 폴드 펼침(600~760px, 폰 틀): 오른쪽 칸을 화면 위에 붙이고 그 칸만 스크롤(공용 follow-pane narrow — PC 틀은 now.css가 붙인다).
+  if (PC.matches && !FRAME_PC.matches && detailBox) followPane(detailBox, {narrow: true, reset: !shown});
   // 폰(좁은 화면): 상세가 전체 화면 — 뒤로가기 한 번 = 목록(라우터 겹). PC·폴드 펼침은 오른쪽 칸이라 겹 없음.
   if (!PC.matches) { detailLayer ||= window.KPTURouter?.layer?.open('now-detail', {reopen: () => openDetail(item, head, {from: opts.from}), close: () => { detailLayer = null; closeDetail({fromLayer: true}); return true; }}) || null; window.scrollTo({top: 0, behavior: 'instant'}); }
   // 주소에 연 글(?item=outside:<id>) — 새로고침해도 같은 글. PC에서 맨 위 글을 저절로 연 것은 남기지 않는다.
@@ -352,11 +360,15 @@ async function openRelated(r) {
 }
 function mountSplit() {
   if (!root) return;
-  mountSplitResize({container: root, name: 'now', label: '목록과 상세 칸 폭 조절', columns: [
-    {el: () => mainBox, varName: '--ds-split-list', minVar: '--ds-split-list-min', minFallback: 320, share: 3, id: 'nowMain'},
-    {el: () => detailBox, varName: '--ds-split-detail', minVar: '--ds-split-detail-min', minFallback: 320, share: 2},
+  // S70-58: 기본 몫은 PC 틀 3 : 2(목록 넓게), 펼친 폴드(약 690px) 2 : 3(글 칸이 너무 좁지 않게 — 폴드 칸 최소 폭은 now.css). 끈 폭은 같은 서버 값(split_ratio.now) 하나.
+  const fold = !FRAME_PC.matches;
+  mountSplitResize({container: root, name: 'now', label: '목록과 상세 칸 폭 조절', query: SPLIT_QUERY, columns: [
+    {el: () => mainBox, varName: '--ds-split-list', minVar: '--ds-split-list-min', minFallback: 320, share: fold ? 2 : 3, id: 'nowMain'},
+    {el: () => detailBox, varName: '--ds-split-detail', minVar: '--ds-split-detail-min', minFallback: 320, share: fold ? 3 : 2},
   ], active: () => PC.matches && (root.dataset.detail === 'open' || root.dataset.detail === 'empty') && root.isConnected && !document.getElementById('outsideView')?.classList.contains('hidden')});
 }
+// 폴드를 펼치거나 창을 넓혀 두 칸 폭이 되면: 경계를 붙이고, 열린 글이 없으면 맨 위 글을 오른쪽에(탭마다 한 번 — autoOpenTop 규칙 그대로).
+PC.addEventListener?.('change', () => { if (!PC.matches || window.KPTURouter?.current !== 'outside') return; mountSplit(); autoOpenTop(); });
 
 // ---------- 관심 주제 칸(같은 화면 안, 뒤로가기 한 번 = 목록) ----------
 function openInterests() {
@@ -885,7 +897,7 @@ let findText = '';
 registerScreenFind('outside', {
   label: '읽을 거리에서 찾기',
   meaning: false, // 문장은 이 화면의 Enter 문장 찾기(서버)가 이미 맡는다 — AI 찾기 풀이를 겹쳐 부르지 않는다
-  active: () => window.KPTURouter?.current === 'outside' && state.mode === 'list' && !(PHONE.matches && root?.dataset.detail === 'open')
+  active: () => window.KPTURouter?.current === 'outside' && state.mode === 'list' && !(NARROW.matches && root?.dataset.detail === 'open')
     && !(state.tab === 'media' && document.getElementById('newsRoot')?.dataset.mode && document.getElementById('newsRoot').dataset.mode !== 'list'),
   value: () => (state.query ? findText : ''),
   apply: (raw, {submit = false} = {}) => { findText = String(raw ?? ''); setQuery(findText, {submit}); },
@@ -907,7 +919,7 @@ const SWIPE_SKIP = '.now-row, input, textarea, select, [data-os-search], .now-de
 root?.addEventListener('touchstart', e => {
   swipe = null;
   if (DESK.matches && !e.target.closest('[data-os-tabs]')) return;
-  if (state.mode !== 'list' || (PHONE.matches && root.dataset.detail === 'open') || e.touches.length !== 1 || e.target.closest(SWIPE_SKIP)) return;
+  if (state.mode !== 'list' || (NARROW.matches && root.dataset.detail === 'open') || e.touches.length !== 1 || e.target.closest(SWIPE_SKIP)) return;
   const p = e.touches[0]; swipe = {x: p.clientX, y: p.clientY, t: Date.now()};
 }, {passive: true});
 root?.addEventListener('touchend', e => {
