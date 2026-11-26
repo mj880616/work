@@ -423,8 +423,17 @@ for (const width of [344, 390, 690, 1280]) {
     expect(lb.x - (nb.x + nb.width)).toBeLessThan(16);
     expect(mb.x).toBeGreaterThan(lb.x + lb.width);
     // 한 줄: 이름·새 글·[매체 ▾]·⋯의 세로 가운데가 같은 줄, 머리 줄 높이는 한 줄(48px 이하), 오른쪽 끝이 화면 밖으로 넘지 않음.
+    // S71-59 UI-화면메뉴안으로: PC 틀은 [매체 ▾]·⋯가 맨 위 줄이 아니라 화면 안 탭 줄(전체·사회운동·언론·밑줄·메모) 오른쪽 끝.
     const mid = b => b.y + b.height / 2;
-    for (const b of [lb, mb, more]) expect(Math.abs(mid(b) - mid(nb))).toBeLessThan(6);
+    if (width <= 760) for (const b of [lb, mb, more]) expect(Math.abs(mid(b) - mid(nb))).toBeLessThan(6);
+    else {
+      expect(Math.abs(mid(lb) - mid(nb))).toBeLessThan(6);
+      await expect(page.locator('[data-app-topline] :is([data-nw-media],[data-os-more])')).toHaveCount(0);
+      const tabs = await page.locator('#outsideRoot > .os-tabs').boundingBox(), view = await page.locator('#outsideView').boundingBox();
+      for (const b of [mb, more]) expect(Math.abs(mid(b) - mid(tabs))).toBeLessThan(6);
+      expect(mb.x).toBeGreaterThan(tabs.x + tabs.width);
+      expect(view.x + view.width - (more.x + more.width)).toBeLessThanOrEqual(12);
+    }
     expect((await line.boundingBox()).height).toBeLessThanOrEqual(48);
     expect(more.x + more.width).toBeLessThanOrEqual(width);
     expect(await lead.evaluate(el => getComputedStyle(el).fontSize)).toBe('12px');

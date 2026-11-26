@@ -59,7 +59,7 @@ async function openWebPhotos(page, width) {
 // 맨 위 줄 모양: 보이는 칸마다 위·아래·왼쪽·이름. 줄 = 폰은 앱 머리 줄, PC는 상단 줄.
 const lineShape = page => page.evaluate(() => {
   const box = document.querySelector('[data-sf-tools="photos"]');
-  const line = box.closest('.mobile-shell-header, .app-topline');
+  const line = box.closest('.mobile-shell-header, .app-topline, [data-screen-tools="line"]');
   const lr = line.getBoundingClientRect();
   const seen = el => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 1 && r.height > 1; };
   const name = el => el.matches('[data-photos-view]') ? 'view' : el.matches('[data-photos-filter]') ? 'filter' : el.matches('[data-photos-sort]') ? 'sort'
