@@ -39,6 +39,9 @@ export function ftMoreButtonHtml({attrs = {}, label = '메뉴', className = ''} 
   return `<button type="button" class="ft-btn ft-dots${className ? ' ' + className : ''}"${attrsHtml(attrs)} aria-label="${esc(label)}" aria-haspopup="true" aria-expanded="false">${MORE_DOTS}</button>`;
 }
 
+// 줄 단추(.ft-main) 하나 — 폴더 줄·항목 줄이 같이 쓴다(모양은 folder-tree.css .ft-main 한 곳). attrs: 이미 만든 속성 글자, inner: 안 HTML.
+const ftMainHtml = ({cls = '', attrs = '', inner = ''}) => `<button type="button" class="ft-btn ft-main${cls}"${attrs}>${inner}</button>`;
+
 // 폴더 줄 하나.
 //  name·count(회색 개수, 숫자 또는 짧은 글자)·countLabel(읽기 프로그램용)·depth(0 = 맨 위 단계 → 구분선·굵은 이름)·open·hasContent(펼칠 것이 있나)
 //  color(1~8)·off(꺼 둔 폴더: 흐리게 + '끔')·current(지금 고른 폴더)·picked(선택 모드에서 고름)·lead(앞에 붙일 HTML, 선택 칸 등)
@@ -64,8 +67,21 @@ export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0,
     ? `<button type="button" class="ft-btn ft-tog"${attrsHtml(toggle.attrs)} aria-expanded="${shown}" aria-label="${esc(toggle.label || `${name} ${shown ? '접기' : '펼치기'}`)}">${ico}</button>`
     : `<span class="ft-tog ft-tog-none">${ico}</span>`;
   return `<div class="${cls}"${attrsHtml(rowAttrs)} style="--ft-depth:${ftDepth(depth)}"${tree ? ' role="treeitem"' : ''}>${tog}`
-    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name" title="${esc(name)}">${esc(name)}${nameTail}</span>${num}${tag ? `<span class="ft-tag">${esc(tag)}</span>` : ''}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
+    + ftMainHtml({cls:mainClass ? ' ' + esc(mainClass) : '', attrs:`${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}`,
+      inner:`${lead}${toggle ? '' : ico}<span class="ft-name" title="${esc(name)}">${esc(name)}${nameTail}</span>${num}${tag ? `<span class="ft-tag">${esc(tag)}</span>` : ''}${off ? '<span class="ft-offtag">끔</span>' : ''}`})
     + `${after}${more ? ftMoreButtonHtml(more) : ''}</div>`;
+}
+
+// NOTE-폴더디자인통일(S70-82, 명진 11/26 09:27 "노트메뉴 안에 보드쪽, 폴더쪽 디자인이 살짝 달라 … 파일쪽에 맞춰서"): 폴더 안 항목(노트 등) 줄 한 곳.
+// 폴더 줄과 같은 들여쓰기·글자·누름 모양(.ft-main), 높이는 하위 폴더 줄과 같은 --ft-sub-h(좁은 왼쪽 나무), 이름은 폴더 그림 자리만큼 들여 폴더 이름과 줄이 맞는다.
+//  name·title(이름 칸 마우스 올림 = 전체 이름, 표준 L2)·depth·tail(이름 뒤 작은 글자 HTML — 부르는 쪽이 이스케이프한 것)·rowAttrs·mainAttrs·more(⋯)
+//  current(지금 연 것)·picked(고른 줄, [파일]과 같은 표시)·off(고를 수 없음: 흐리게)·pressed(고르기 창의 aria-pressed, null이면 없음)·className.
+export function ftItemRowHtml({name, title = name, depth = 0, tail = '', rowAttrs = {}, mainAttrs = {}, more = null, current = false, picked = false, off = false, pressed = null, className = ''}) {
+  const cls = ['ft-row', 'ft-item', 'ft-leaf', current ? 'ft-current' : '', picked ? 'ft-picked' : '', off ? 'ft-off' : '', className].filter(Boolean).join(' ');
+  return `<div class="${cls}"${attrsHtml(rowAttrs)} style="--ft-depth:${ftDepth(depth)}">`
+    + ftMainHtml({attrs:`${attrsHtml(mainAttrs)}${pressed === null ? '' : ` aria-pressed="${!!pressed}"`}${off ? ' aria-disabled="true"' : ''}${current ? ' aria-current="true"' : ''}`,
+      inner:`<span class="ft-name" title="${esc(title)}">${esc(name)}</span>${tail}`})
+    + `${more ? ftMoreButtonHtml(more) : ''}</div>`;
 }
 
 // 'n개 더 보기' 줄(펼친 폴더 안 파일이 FT_PREVIEW개를 넘을 때). attrs: 누르면 그 폴더를 다 보이게 하는 data 이름과 값.
