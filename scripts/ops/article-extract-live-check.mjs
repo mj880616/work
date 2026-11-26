@@ -259,8 +259,7 @@ if (DIAG) {
 // 카탈로그에 넣기 전에 후보 주소가 이 러너에서 열리는지·robots가 허용하는지(운영 수집기와 같은 robots 판정)·글 분야 칸이 있는지를 숫자로만 본다.
 // 카탈로그 밖 주소라 운영 수집기는 읽지 않는다. 주소는 이 목록에 적힌 것뿐(호스트 고정, https만).
 const CANDIDATE_FEEDS = [
-  "https://newscham.net/feed/", "https://newscham.net/robots.txt",
-  "https://www.mediatoday.co.kr/rss/allArticle.xml", "https://www.mediatoday.co.kr/news/articleList.html?view_type=sm",
+  "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N2&view_type=sm",
 ];
 async function checkCandidate(list) {
   const host = new URL(list).host;
@@ -276,6 +275,16 @@ async function checkCandidate(list) {
     // 분야 목록 쪽 링크(엔디소프트 sc_section_code·sc_sub_section_code)와 그 이름 — 매체가 화면에 보이는 분야 이름만.
     const secs = [...new Set([...t.matchAll(/sc_(?:sub_)?section_code=(S\dN\d{1,3})[^"'>]*["'][^>]*>\s*([^<]{1,14})</g)].map((m) => `${m[1]}=${m[2].trim()}`))].slice(0, 40);
     if (/robots\.txt$/.test(list)) return `${list} ⇒ robots.txt ${t.split(/\r?\n/).filter((l) => /^(user-agent|disallow|allow)\s*:/i.test(l.trim())).slice(0, 30).join(" ; ")}`;
+    // 글 링크 모양(글자 없이): 앞 글 3개의 링크마다 바로 앞 여는 칸 tag.class · 링크 class · 링크 글자 수, 그리고 날짜 꼴 글자가 링크 뒤 300자 안에 있는지.
+    const ids = [...new Set([...t.matchAll(/articleView\.html\?idxno=(\d+)/g)].map((m) => m[1]))];
+    const shape = ids.slice(0, 3).map((id) => [...t.matchAll(new RegExp(`(<[a-z0-9]+\\b[^>]*>)\\s*<a\\b([^>]*idxno=${id}[^>]*)>([\\s\\S]*?)<\\/a>`, "g"))].map((m) => {
+      const pc = /^<([a-z0-9]+)[^>]*?(?:class\s*=\s*["']([^"']*)["'])?/i.exec(m[1]);
+      const ac = /class\s*=\s*["']([^"']*)["']/i.exec(m[2])?.[1] ?? "";
+      const after = t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 300);
+      return `${pc?.[1] ?? "?"}.${(pc?.[2] ?? "").split(/\s+/)[0]}>a.${ac.split(/\s+/)[0]}:${chars(htmlToText(m[3]).trim())}${/\d{4}[.-]\d{2}[.-]\d{2}\s+\d{2}:\d{2}/.test(after) ? ":date" : ""}`;
+    }).join(" ")).join(" ‖ ");
+    const total = ids.length;
+    if (secs.length) return `${list} ⇒ ok(html) ids=${total} shape=[${shape}]`;
     if (secs.length) return `${list} ⇒ ok(html) articleLinks=${arts} sections=[${secs.join(",")}]`;
     return `${list} ⇒ ok(html) type=${(got.contentType ?? "-").split(";")[0]} bytes=${t.length} feedlinks=[${feeds.join(",")}] articleLinks=${arts} bot=${looksLikeBotCheck(t) ? 1 : 0}`;
   }
