@@ -113,6 +113,11 @@
 .ft-empty-row > .wait-empty { margin:0; }
 /* 폴더 안 파일(노트·사진·자료) 줄: 화면의 줄 모양은 그대로 두고 들여쓰기만 이 규칙(폴더 그림 자리만큼 더). */
 .ft-item { --ft-item-pad:calc(12px + var(--ft-depth,0) * var(--ft-indent)); }
+/* NOTE-폴더디자인통일(S70-82): 공용 항목 줄(folder-tree-ui.mjs ftItemRowHtml — 노트 보드 왼쪽 목록·노트 고르기 창). 높이는 하위 폴더 줄과 같은 단계 값,
+   이름은 폴더 그림 자리만큼 들여(빈 폴더·n개 더 보기 줄과 같은 자리) 폴더 이름과 세로로 맞는다. 고르기 창의 고른 줄은 [파일]과 같은 표시(.ft-picked). */
+.ft-leaf > .ft-main { min-height:var(--ft-sub-h); padding-left:calc(12px + var(--ft-depth,0) * var(--ft-indent) + var(--ft-ico) + var(--ft-gap)); }
+.ft-leaf > .ft-main[aria-pressed="true"] { background:var(--kptu-primary-soft); box-shadow:var(--kptu-shadow-select); }
+.ft-leaf.ft-off > .ft-main { cursor:default; }
 /* 두 손가락 손짓을 받는 칸: 브라우저 확대 대신 이 칸의 손짓(folder-pinch.js = 줄 크기 단계, S69-99). 한 손가락 위아래·옆 밀기는 그대로. */
 .ft-pinch { touch-action:pan-x pan-y; }
 /* [‹] 나무로 돌아가기 단추(사진 위치 줄). '그 폴더만' 상자 위치 줄 안에서는 아래 .ft-focus-anc 모양. */
