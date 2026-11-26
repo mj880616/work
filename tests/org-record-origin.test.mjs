@@ -18,7 +18,7 @@ test('linkRecordHtml: 노트가 아닌 연결은 만든 곳과 상관없이 날�
     assert.match(html,/aria-label="기록 메뉴"/);assert.match(html,/합성 기록 글/);
   }
   const note=linkRecordHtml(row({origin:'record_input',note_kind:'note',title:'합성 노트'}));
-  assert.match(note,/노트 연결<\/small>/);assert.match(note,/data-record-mark="note"/);assert.match(note,/<a class="basket-link-open" href="\.\/\?view=basket" data-basket-link-open="n">/);
+  assert.match(note,/노트 연결<\/span><\/small>/);assert.match(note,/data-record-mark="note"/);assert.match(note,/<a class="basket-link-open" href="\.\/\?view=basket" data-basket-link-open="n">/);
   assert.match(note,/aria-label="기록 메뉴"/);
 });
 
