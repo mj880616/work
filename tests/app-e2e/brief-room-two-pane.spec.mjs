@@ -152,6 +152,7 @@ for (const [label, width, height] of [['phone-390', 390, 844]]) {
     // 막대 [옮기기]를 누르면 일이 끝난 뒤 고르기가 저절로 끝난다(막대는 지우지 않고 숨김) — 끝난 것(숨김 + 고르기 뒤로가기 정리)을 보고 다음 단계로.
     await expect(page.locator('#briefView .row-swipe-pickbar')).toBeHidden();
     await expect.poll(() => page.evaluate(() => document.querySelector('#briefView [data-row-picking]') === null)).toBe(true);
+    await page.waitForTimeout(600); // 고르기 한 겹의 뒤로가기(history.back)가 늦게 도착해 다음에 여는 창을 닫지 않게 먼저 보낸다
     // 폴더는 '브리핑 요청함' 아래 자료실 폴더로 만들어지고, 자료 연결 줄 하나가 그 폴더로 바뀐다.
     await expect.poll(() => db.folders.find(f => f.name === '예시 회의')?.parent_id).toBe('f-brief');
     const made = db.folders.find(f => f.name === '예시 회의');
