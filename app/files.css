@@ -390,14 +390,17 @@
 
 /* S71-28 FILES-머리한줄(명진 11/26 "파일도 한줄로"): 폰(600px 미만) 앱 머리 줄 한 줄 = [W] 파일 · 출처 아이콘(작게) …… [□|⊟] · 찾기.
    출처·보기 단추는 files.js placeFxHead가 머리 줄 단추 상자(.sf-tools[data-sf-tools="files"])로 옮긴다. 상자 자리를 찾기 칸(.mobile-shell-find) 앞에 두고,
-   찾기 칸을 펼치면(.sf-open) 칸이 이름·단추 자리를 다 쓴다(이름 자리와 같은 규칙). 크기는 지금 둘째 줄 그대로(출처 28px · 보기 칸 34px 둘). */
+   찾기 칸을 펼치면(.sf-open) 칸이 이름 자리와 남는 폭을 쓴다(단추는 그대로). 크기는 지금 둘째 줄 그대로(출처 28px · 보기 칸 34px 둘). */
 @media (max-width:599px) {
   html[data-screen-find="files"] #appView>.mobile-shell-header { gap:4px; }
   html[data-screen-find="files"] #appView>.mobile-shell-header>.head-mark { margin-right:4px; }
   html[data-screen-find="files"] .mobile-shell-header>.screen-tools-slot { order:1; flex:1 1 auto; margin-left:0; }
   html[data-screen-find="files"] .mobile-shell-header>.mobile-shell-find { order:2; flex:0 0 auto; }
-  html[data-screen-find="files"] .mobile-shell-header.sf-open>.mobile-shell-find { flex:1 1 auto; }
-  html[data-screen-find="files"] .mobile-shell-header.sf-open>.screen-tools-slot { display:none; }
+  /* 찾기 칸을 펼친 동안: 칸이 이름 자리와 남는 폭을 쓰고, 출처·보기 단추는 같은 줄에 그대로(찾으면서 출처를 켜고 끔). 줄 수가 그대로라 접을 때 목록이 움직이지 않는다. */
+  html[data-screen-find="files"] .mobile-shell-header.sf-open>.mobile-shell-find { flex:1 1 0; min-width:64px; }
+  html[data-screen-find="files"] .mobile-shell-header.sf-open>.screen-tools-slot { flex:0 1 auto; }
+  html[data-screen-find="files"] #appView>.mobile-shell-header.sf-open .sf-tools[data-sf-tools="files"] { flex:0 1 auto; }
+  html[data-screen-find="files"] #appView>.mobile-shell-header.sf-open .sf-tools[data-sf-tools="files"] .fx-view-seg { margin-left:0; }
   #appView .sf-tools[data-sf-tools="files"] { flex:1 1 auto; gap:4px; }
   #appView :is(#filesView, .sf-tools[data-sf-tools="files"]) .fx-srcs [data-src-chip] { min-width:28px; width:28px; height:28px; min-height:28px; padding:0; }
   #appView .sf-tools[data-sf-tools="files"] .fx-view-seg { margin-left:auto; }
