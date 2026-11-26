@@ -834,7 +834,7 @@ test.describe('D5 폴드 880 손가락', () => {
     const folders = [libFolder('fa', 'top-a', { name: '가상 A', sort_order: 1024 }), libFolder('fb', 'top-b', { name: '가상 B', sort_order: 2048 }), libFolder('fc', 'top-c', { name: '가상 C', sort_order: 3072 })];
     const { s, errors } = await bootLibrary(page, 880, { folders, items: [{ document_id: 'a-1', folder_id: 'fa' }], group: '폴더' });
     const nav = id => page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`);
-    await nav('fa').click();
+    await treeEnter(nav('fa'));
     const docRow = page.locator('#documentList [data-lu-document="a-1"]');
     await expect(docRow).toBeVisible();
     await touchDrag(page, docRow, nav('fb'), { hold: 700 });

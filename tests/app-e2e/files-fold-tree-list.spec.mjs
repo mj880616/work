@@ -3,6 +3,7 @@ import { start, openFiles } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // FILES-폴드나무목록(S51-18, 요청함 11/06 01:13 · 명진 01:14 'ㅇ', 시안 docs/design/mockups/files-fold-tree-list.html):
 // 펼친 갤럭시 Z 폴드는 CSS 폭이 약 673~884px(폰 앱 WebView·삼성 인터넷 기본 배율). 옛 판정(760px 이하 = 폰)은 이 폭을 폰으로 잡아
 // 나무만 화면 가득 → 폴더를 누르면 목록만 나왔다. 공용 판정(app/screen-width.mjs, 600px~)으로 고친 뒤:
@@ -33,13 +34,13 @@ for (const width of [700, 768, 884, 1280]) test(`파일 ${width}: 왼쪽 나무 
   const crumb = root(page).locator('[data-fx-crumb] .fx-crumb-now');
   const enterVia = async btn => { await btn.locator('xpath=..').locator('[data-fx-tmenu]').click(); await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click(); };
   const name0 = await go.first().locator('.ft-name').textContent();
-  await go.first().click();
+  await treeEnter(go.first());
   await expect(tree).toBeVisible();
   await expect(crumb).toHaveText(name0);
   await expect(go.first().locator('xpath=..')).toHaveClass(/ft-current/);
   await expect(go.first().locator('xpath=..').locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'true');
   const name1 = await go.nth(1).locator('.ft-name').textContent();
-  await go.nth(1).click();
+  await treeEnter(go.nth(1));
   await expect(crumb).toHaveText(name1);
   await expect(tree).toBeVisible();
   await enterVia(go.first());

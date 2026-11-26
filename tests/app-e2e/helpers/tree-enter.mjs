@@ -14,7 +14,10 @@ const settle = main => main.evaluate(m => new Promise(done => {
   function end() { ob.disconnect(); clearTimeout(t); clearTimeout(stop); done(); }
 })).catch(() => {});
 
+// options.tap = 손가락 누르기(locator.tap), 나머지는 click 옵션.
 export async function treeEnter(main, options = {}) {
+  const { tap = false, ...opts } = options;
+  const press = () => (tap ? main.tap(opts) : main.click(opts));
   await main.waitFor();
   await settle(main);
   const need = await main.evaluate(m => {
@@ -32,10 +35,10 @@ export async function treeEnter(main, options = {}) {
     const tog = r.querySelector(':scope > button.ft-tog[aria-expanded]');
     return tog?.getAttribute('aria-expanded') === 'true' ? 1 : 2;
   });
-  await main.click(options);
+  await press();
   if (need > 1) {
     await settle(main);
-    await main.click(options);
+    await press();
   }
   return need;
 }
