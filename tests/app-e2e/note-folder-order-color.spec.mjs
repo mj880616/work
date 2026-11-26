@@ -102,22 +102,23 @@ test.describe('PC 1440', () => {
     expect(f.errors).toEqual([]);
   });
 
-  // S69-38 UI-탐색기나무누르기(명진 11/24): 나무 폴더 이름 누르기 = 오른쪽이 그 폴더 + 펼침(다시 눌러도 접지 않음). 폴더 그림·←/→ = 펼침·접힘만(오른쪽 그대로).
+  // TREE-탐색기꺾쇠(T10, 명진 11/26): 나무 폴더 이름 누르기 = 오른쪽이 그 폴더(펼침 그대로), 두 번 = + 펼치기/접기. 꺾쇠·←/→ = 펼침·접힘만(오른쪽 그대로).
   // ⋯ [이 폴더로 들어가기]도 같은 곳.
-  test('폴더 이름을 누르면 그 폴더 열기 + 펼침, 그림·←/→는 펼침·접힘만(오른쪽 그대로), ⋯ 메뉴로도 들어가기', async ({ page }) => {
+  test('T10 폴더 이름을 누르면 그 폴더 열기(두 번 = + 펼침), 꺾쇠·←/→는 펼침·접힘만(오른쪽 그대로), ⋯ 메뉴로도 들어가기', async ({ page }) => {
     const f = await fixture(page, 1440, { child: true });
     const main = page.locator(`[data-nx-tree] [data-nx-open="${U(1)}"]`), tog = page.locator(`[data-nx-tree] [data-nx-tog="${U(1)}"]`);
     const child = page.locator(`[data-nx-tree] [data-nx-folder="${U(3)}"]`), noteRows = () => noteOrder(page);
-    // TREE-펼치기먼저(S70-81): 첫 누르기 = 펼치기만, 다시 = 그 폴더 열기, 지금 폴더 이름을 또 눌러도 접지 않음(접기는 그림·←).
+    // TREE-탐색기꺾쇠(T10): 이름 한 번 = 그 폴더 열기(나무 펼침 그대로), 다시 눌러도 그대로, 두 번 누르기 = 펼침. 펼치기·접기는 꺾쇠·←/→.
     const row = page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"]`);
-    await main.click();
-    await expect(child).toBeVisible(); await expect(tog).toHaveAttribute('aria-expanded', 'true');
-    await expect(row).not.toHaveClass(/ft-current/);
     await main.click();
     await expect(row).toHaveClass(/ft-current/);
     await expect.poll(noteRows).toEqual(['n1', 'n2', 'n3']);
     await expect(main).toBeFocused();
+    await expect(child).toHaveCount(0); await expect(tog).toHaveAttribute('aria-expanded', 'false');
+    await page.waitForTimeout(700); // 두 번 누르기로 세지 않게 띄어 누른다
     await main.click();
+    await expect(tog).toHaveAttribute('aria-expanded', 'false');
+    await main.dblclick();
     await expect(child).toBeVisible(); await expect(tog).toHaveAttribute('aria-expanded', 'true');
     await tog.click();
     await expect(child).toHaveCount(0); await expect(tog).toHaveAttribute('aria-expanded', 'false');

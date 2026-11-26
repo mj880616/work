@@ -82,12 +82,12 @@ for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더',scheme:'dark'});
     await pickColor(page,'f:fa','청록',width);await expect(mark(page,'f:fa')).toHaveAttribute('data-fc','4');
     expect(await colorOfMark(mark(page,'f:fa'))).toBe(RGB.dark[4]);
-    // S69-28 LIB-한칸탐색기: 넓은 화면은 가상 A에 들어가야 안의 가상 C 줄이 보인다. 가상 A 색은 왼쪽 나무 줄 그림.
+    // S69-28 LIB-한칸탐색기: 넓은 화면은 가상 A에 들어가야 안의 가상 C 줄이 보인다. 가상 A 색은 왼쪽 나무 줄 그림(T10: 그림은 이름 단추 안, 꺾쇠 오른쪽).
     const wide=width>=600;
     if(wide)await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));else await expandLibraryTree(page);
     await pickColor(page,'f:fc','벽돌',width);
     await expect(mark(page,'f:fc')).toHaveAttribute('data-fc','1');
-    if(wide)await expect(page.locator('#libraryFolderNav [data-lu-nav-tog="fa"] [data-fc="4"]').first()).toBeAttached();else await expect(mark(page,'f:fa')).toHaveAttribute('data-fc','4');
+    if(wide)await expect(page.locator('#libraryFolderNav [data-lu-nav="fa"] [data-fc="4"]').first()).toBeAttached();else await expect(mark(page,'f:fa')).toHaveAttribute('data-fc','4');
     expect(s.colorCalls.map(c=>c.p_id)).toEqual(['fa','fc']);expect(errors).toEqual([]);
   });
 
