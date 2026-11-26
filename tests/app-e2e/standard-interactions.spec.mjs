@@ -1090,7 +1090,8 @@ test.describe('S10 고르기 중 폴더 줄 누르기', () => {
 // 화면 표는 P4의 HOLD_SCREENS(폰 390·폴드 880·PC 1280 손가락)를 그대로 쓴다 — 새 고르기 화면은 거기에 더하면 이 시험도 함께 돈다.
 test.describe('S11 고르기 중 뒤로가기', () => {
   test.use({ hasTouch: true });
-  for (const [name, open, widths] of HOLD_SCREENS) for (const width of widths) test(`S11 ${name} ${width}: 뒤로가기 한 번 = 고르기 끝·고른 것 0개·화면 그대로, 고르기 아닐 때는 이전 화면`, async ({ page }) => {
+  // S71-16 임시(반복 확인용, 다음 커밋에서 되돌림): 사진 작은 그림 20번.
+  for (const [name, open, widths] of HOLD_SCREENS) for (const width of widths) for (const rep of name === '사진 작은 그림' ? Array.from({ length: 20 }, (_, i) => ` #${i + 1}`) : ['']) test(`S11 ${name} ${width}${rep}: 뒤로가기 한 번 = 고르기 끝·고른 것 0개·화면 그대로, 고르기 아닐 때는 이전 화면`, async ({ page }) => {
     const s = await open(page, width);
     const hold = async l => { await holdAt(page, l); await s.afterHold?.(); };
     const here = () => page.evaluate(() => [location.href, window.KPTURouter?.current]);
