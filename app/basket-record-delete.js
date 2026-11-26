@@ -173,8 +173,10 @@ async function remove(kind,id,{rt,isCurrent,confirmText,write,confirmed=false,as
   }finally{pending.delete(key);}
 }
 
-export function disconnectRecordLink(linkId,{name='',rt=window.KPTURuntime,isCurrent=()=>true,anchor=globalThis.document?.activeElement,ask=askFor('link',anchor)}={}){
-  return remove('link',linkId,{rt,isCurrent,ask,confirmText:async()=>({text:disconnectConfirmText(name)})});
+// RECORD-기록하나로(S71-71): record=true = 조직·사업 기록 줄 [삭제] — 같은 연결 줄 하나 지우기를 '기록 삭제'로 묻고 알린다(원문은 그대로).
+export const RECORD_LINK_TEXT=Object.freeze({confirm:'이 기록을 삭제할까요?',done:'기록을 삭제했어요.'});
+export function disconnectRecordLink(linkId,{name='',rt=window.KPTURuntime,isCurrent=()=>true,anchor=globalThis.document?.activeElement,record=false,ask=askFor(record?'record':'link',anchor)}={}){
+  return remove('link',linkId,{rt,isCurrent,ask,confirmText:async()=>({text:record?RECORD_LINK_TEXT.confirm:disconnectConfirmText(name)})});
 }
 
 // Undo re-links the same place with the same summary through the existing confirm-links RPC (owner RLS, INVOKER).
@@ -242,11 +244,11 @@ export const linkRestoreKind=link=>link?.organization_id?'organization':link?.bu
 export const linkRestoreTarget=link=>link?.organization_id||link?.bundle_id||link?.project_id||null;
 // The four screens' disconnect: one confirmation, one row delete, then 5 seconds to undo.
 // link = {id,note_id,organization_id|project_id|bundle_id,summary}; name = the place's name.
-export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isCurrent=()=>true,onRestored=()=>{},anchor=globalThis.document?.activeElement,ask=askFor('link',anchor)}={}){
-  const result=await disconnectRecordLink(link.id,{name,rt,isCurrent,ask});
+export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isCurrent=()=>true,onRestored=()=>{},anchor=globalThis.document?.activeElement,record=false,ask=askFor(record?'record':'link',anchor)}={}){
+  const result=await disconnectRecordLink(link.id,{name,rt,isCurrent,ask,record});
   if(result.status==='deleted'){
     const owner=scope(rt),kind=linkRestoreKind(link);
-    offerUndoNotice({text:`${String(name||'').trim()||'이'} 연결을 해제했어요. 업데이트는 남아요.`,onUndo:async()=>{
+    offerUndoNotice({text:record?RECORD_LINK_TEXT.done:`${String(name||'').trim()||'이'} 연결을 해제했어요. 업데이트는 남아요.`,onUndo:async()=>{
       if(owner!==scope(rt))return {status:'stale'};
       const restored=await restoreRecordLink({noteId:link.note_id,kind,targetId:linkRestoreTarget(link),summary:link.summary??null,origin:link.origin??null},{rt});
       if(restored.status==='restored')onRestored(restored);
@@ -287,16 +289,7 @@ async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false,ask,movedT
   }});
 }
 
-// ORG-연결노트삭제(2026-11-12 명진 지시): 조직·사업영역 기록 목록의 노트 연결 줄 ⋯ [원문 삭제]. 노트 화면 [삭제]와 같은 휴지통 길
-// (owner-RLS DELETE 한 번 → 서버 가로채기가 휴지통 표시, 되돌리기는 app_trash_restore)을 그대로 쓰고, 묻는 글만 기록 줄에 맞춘다.
-// 휴지통에 간 노트는 RLS가 숨기므로 그 노트의 기록 줄은 모든 목록에서 빠지고, 되돌리면 연결과 함께 다시 보인다.
-// otherPlaces: 이 줄 말고 그 노트가 이어진 곳 수(조직·사업영역·사업 보고·자료실 연결 모두).
-export const recordNoteOtherPlaces=info=>Math.max(0,(info?.places||0)+(info?.otherLinks||0)-1);
-export function recordNoteDeleteWords(info){
-  const others=recordNoteOtherPlaces(info);
-  return {confirm:['노트를 삭제할까요?','휴지통으로 가요. 이 기록 줄도 빠져요.',others?`다른 곳 ${others}군데에도 연결돼 있어요.`:''].filter(Boolean).join('\n'),moved:'노트를 삭제했어요.'};
-}
-export const deleteRecordNote=(noteId,options={})=>deleteNoteOriginal(noteId,{...options,trash:true,confirmWords:recordNoteDeleteWords});
+// RECORD-기록하나로(S71-71): 조직·사업 기록 줄의 [삭제]는 그 연결 줄만 지운다(disconnectWithUndo). 기록 줄에서 원문 노트를 휴지통에 보내는 길은 없다.
 
 // describe: the confirmation text for a row that is not a basket memo (JOURNAL-일기: "…일기를 지웁니다").
 // keepFiles (a note): the owner-RLS REST delete only; the files stay in Drive (NOTE-파일붙이기).

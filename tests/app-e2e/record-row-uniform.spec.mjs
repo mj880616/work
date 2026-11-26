@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
-// UI-기록줄균일(S70-85, 명진 2026-11-26 09:29 "어떤건 위아래로 길고 어떤건 짧아 … 펼치기가 차지하는 공간 때문인거같은데 훨씬더 균일화할 방법 없나",
+// UI-기록줄균일(S70-85, 사용자 2026-11-26 09:29 "어떤건 위아래로 길고 어떤건 짧아 … 펼치기가 차지하는 공간 때문인거같은데 훨씬더 균일화할 방법 없나",
 // 08:19 결정 '두 줄'): 조직 관리 기록·사업 관리 기록 줄은 한 줄 글·두 줄 넘는 글·그림 하나·그림 둘 모두 같은 높이(본문 두 줄 높이).
 // [펼치기] 글자 줄 없음. 본문 글자를 누르면 그 자리에서 펴고 다시 누르면 접힘, 잘린 줄만 ⋯ 아래 꺾쇠(키보드 Enter·Space). ⋯ 메뉴는 그대로. 자료는 모두 가짜.
 test.use({hasTouch:true});
@@ -92,10 +92,11 @@ for(const width of [390,1280])for(const s of SCREENS){
   // 5) ⋯ 메뉴는 그대로 열린다
   const [trigger,menu]=s.menu['l-long'];await long.locator(trigger).click();await expect(page.locator(menu)).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.locator(menu)).toBeHidden();
-  // 6) 펼칠 것이 없는 줄의 글을 누르면 지금처럼 그 기록을 연다(폰 = 겹쳐 보기, PC = 잊지 말기)
+  // 6) RECORD-기록하나로(S71-71): 펼칠 것이 없는 줄의 글을 눌러도 아무 데도 가지 않는다(원문으로 가는 길 없음)
+  const before=await page.evaluate(()=>window.KPTURouter.current);
   await row('l-one').locator(s.name==='사업 관리 기록'?'.ps3-rec-text':'[data-link-summary-text]').click();
-  if(width<761)await expect(page.locator('#kptuRecordSheet')).toBeVisible();
-  else await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
+  await page.waitForTimeout(150);await expect(page.locator('#kptuRecordSheet')).toBeHidden();
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe(before);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(f.errors).toEqual([]);
  });
