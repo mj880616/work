@@ -515,8 +515,8 @@ async function loadList(p, {quiet = false} = {}) {
       state.children.set(folderKey(where.source, where.parent), p.rows.filter(r => r.is_folder));
       state.files.set(folderKey(where.source, where.parent), p.rows.filter(r => !r.is_folder && !isLockedItem(r)));
       // 위치 줄의 폴더(맨 위부터 지금 폴더까지)는 나무에서 펼쳐 둔다(나무가 칠하는 지금 칸만).
-      // TREE-탐색기꺾쇠(T10): 넓은 화면 나무는 지금 폴더 자신은 펼치지 않는다(위 폴더들만 — 펼치기는 꺾쇠·두 번 누르기·→). 폰은 그대로.
-      if (p === P()) for (const id of [null, ...trailIds(p.trail)]) if (PHONE.matches || !id || id !== where.parent) state.open.add(folderKey(where.source, id));
+      // TREE-탐색기꺾쇠(T10): 나무 이름 누르기로 들어간 폴더(p.shutSelf) 자신은 펼치지 않는다(펼치기는 꺾쇠·두 번 누르기·→).
+      if (p === P()) for (const id of [null, ...trailIds(p.trail)]) { const k = folderKey(where.source, id); if (!id || id !== where.parent || p.shutSelf !== k) state.open.add(k); }
     }
   } catch (e) {
     if (seq !== p.seq || state.scope !== scope) return;
@@ -3962,12 +3962,13 @@ function clearQuery(p) {
   clearTimeout(p.ftimer); p.query = ''; p.found = null; p.fseq++; p.ff = freshFilter();
   const s = $('[data-fx-search]'); if (s && p === P()) s.value = '';
 }
-function goFolder(source, id, p = P(), {down = false} = {}) {
+// openSelf: false = 나무 이름 누르기(TREE-탐색기꺾쇠 T10) — 오른쪽만 그 폴더로, 나무에서 그 폴더 자신은 펼치지 않는다(위 폴더들은 펼쳐 그 줄을 보임).
+function goFolder(source, id, p = P(), {down = false, openSelf = true} = {}) {
   if (!SOURCES.includes(source) && !(source === PH && phoneOn()) && !(source === PC && pcOn())) return;
   clearQuery(p);
   const parent = id || null;
-  // TREE-탐색기꺾쇠(T10): 넓은 화면 나무는 들어간 폴더 자신을 펼치지 않는다(저장소 상자 = 맨 위는 연다). 폰은 그대로.
-  if (PHONE.matches || !parent) state.open.add(folderKey(source, parent));
+  p.shutSelf = openSelf || !parent ? '' : folderKey(source, parent);
+  if (!p.shutSelf) state.open.add(folderKey(source, parent));
   return setWhere(p, {source, parent}, {down});
 }
 function goShelf(shelf, p = P()) {
@@ -4105,7 +4106,7 @@ root?.addEventListener('click', event => {
   // 접혀 있으면 펼침 — 공용 부품 ftExplorePress(자료실·노트·사진 나무와 같은 부품). 펼침 아이콘([data-fx-twist])은 펼치기·접기만.
   if (b.matches('[data-fx-go]')) {
     const source = b.dataset.fxGo, id = b.dataset.fxId || null;
-    if (!b.closest('[data-fx-ptree]') && b.matches('.ft-main') && b.closest('[data-fx-tree] .ft-row[data-fx-fold]')) { ftExplorePress(b, () => goFolder(source, id)); return; }
+    if (!b.closest('[data-fx-ptree]') && b.matches('.ft-main') && b.closest('[data-fx-tree] .ft-row[data-fx-fold]')) { ftExplorePress(b, () => goFolder(source, id, P(), {openSelf: false})); return; }
     goFolder(source, id); return;
   }
   if (b.matches('[data-fx-shelf]')) { goShelf(b.dataset.fxShelf); return; }

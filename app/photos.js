@@ -2581,13 +2581,13 @@ function syncFolderLayer() {
   }}) || null;
   if (!deep && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
 }
-function goFolder(id, {picked = true} = {}) {
+function goFolder(id, {picked = true, openSelf = true} = {}) {
   if (!tree || !photoFolderById(tree, id)) return;
   const from = fxNow();
   if (!treeWide() && fxWalk.length) fxWalk = walkTo(fxWalk, fxKey('o', id), {down: pAt === null && gdAt === null && photoFolderById(tree, id)?.parent_id === at});
   select.stop(); at = id; pAt = null; gdAt = null; fxTopFocus = false;
-  // TREE-탐색기꺾쇠(T10): 넓은 화면 나무는 들어간 폴더의 위 폴더들만 펼친다(들어간 폴더 자신은 꺾쇠·두 번 누르기·→로). 폰·폴드는 그대로.
-  for (const f of photoFolderTrail(tree, id)) if (!(treeWide() && f.id === id)) openSet.add(f.id);
+  // TREE-탐색기꺾쇠(T10): 나무 이름 누르기(openSelf:false)로 들어간 폴더 자신은 펼치지 않는다(위 폴더들만 — 펼치기는 꺾쇠·두 번 누르기·→).
+  for (const f of photoFolderTrail(tree, id)) if (openSelf || f.id !== id) openSet.add(f.id);
   renderFolders();
   if (picked) pickFolder(from);
   window.scrollTo?.(0, 0);
@@ -2807,7 +2807,7 @@ function folderClick(b) {
   // 오른쪽 칸의 하위 폴더 줄·폰·폴드는 지금처럼 그 폴더로.
   if (b.matches('[data-photos-fx-open]')) {
     const id = b.dataset.photosFxOpen;
-    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goFolder(id)); return true; }
+    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goFolder(id, {openSelf: false})); return true; }
     goFolder(id); return true;
   }
   if (b.matches('[data-photos-fx-sw]')) { toggleFolder(b.dataset.photosFxSw); return true; }
@@ -3013,13 +3013,13 @@ function paintGdFolderGridNow() {
   paintSize(); paintSelect();
 }
 // 폴더 고르기(PC: 오른쪽 칸, 폰: 그 폴더 한 화면). 위 폴더들은 나무에서 펼친다. 'root' = 맨 위('구글 드라이브').
-function goGdFolder(id, {picked = true} = {}) {
+function goGdFolder(id, {picked = true, openSelf = true} = {}) {
   if (id !== GDRIVE_TOP && !gdFolderInfo(id)) return;
   const from = fxNow();
   // 폰: 나무에서 고른 폴더가 길 처음, 그 안 하위 폴더를 누르면 한 단계 내려옴(FILES-폰폴더위로 ⑤).
   if (!treeWide()) fxWalk = id === GDRIVE_TOP ? [] : walkTo(gdAt === null ? [] : fxWalk, fxKey('g', id), {down: gdAt !== null && gdParentOf(id) === gdAt});
   select.stop();
-  for (const f of photoFolderTrail(gdTree(), id)) gdOpen.add(f.id); // 위 폴더들과 그 폴더를 펼친다(원드라이브 goFolder와 같음).
+  for (const f of photoFolderTrail(gdTree(), id)) if (openSelf || f.id !== id) gdOpen.add(f.id); // 위 폴더들과 그 폴더를 펼친다(원드라이브 goFolder와 같음, 나무 이름 누르기는 그 폴더 자신 빼고 — T10).
   gdAt = id; pAt = null;
   renderFolders(); if (picked) pickFolder(from); window.scrollTo?.(0, 0);
 }
@@ -3094,7 +3094,7 @@ function gdFolderClick(b) {
   if (b.matches('[data-photos-gf-open]')) {
     const id = b.dataset.photosGfOpen;
     // S69-38 UI-탐색기나무누르기: PC 나무 폴더 이름 누르기 = 오른쪽을 그 폴더로 + 접혀 있으면 펼침(원드라이브와 같은 공용 부품). 펼친 층을 아직 읽지 않았으면 나무가 읽는다(gdTreeHtml).
-    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goGdFolder(id)); return true; }
+    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goGdFolder(id, {openSelf: false})); return true; }
     goGdFolder(id); return true;
   }
   if (b.matches('[data-photos-gf-tog]')) { gdToggleOpen(b.dataset.photosGfTog); return true; }

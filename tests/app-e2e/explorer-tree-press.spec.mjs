@@ -65,13 +65,11 @@ test('[파일] PC 1280: 하위 있는 상위 폴더를 눌러도 오른쪽 = 그
   await psRow.click();
   await expect(psRow).toHaveAttribute('aria-expanded', 'false');
   await expect.poll(() => listNames(page)).toEqual(['PowerShell', '가짜 목록.txt']);
-  // 들어가기는 왼쪽 나무 또는 우클릭 [이 폴더로 들어가기] — 왼쪽 나무가 위 폴더까지 따라 펼치고 그 폴더 강조(그 폴더 자신은 접힌 채 — T10, 탐색기처럼).
+  // 들어가기는 왼쪽 나무 또는 우클릭 [이 폴더로 들어가기] — 왼쪽 나무가 따라 펼침·강조.
   await psRow.click({ button: 'right' });
   await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect.poll(() => listNames(page)).toEqual(['Modules']);
   await expect(fxTreeRow(page, 'od:OD!PS')).toHaveClass(/ft-current/);
-  await expect(fxTreeRow(page, 'od:OD!PS').locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'false');
-  await fxTreeRow(page, 'od:OD!PS').locator(':scope > .ft-tog').click();
   await expect(fxTreeRow(page, 'od:OD!PSM')).toBeVisible();
   // Backspace = 위 폴더(Documents) — 위치 줄·나무 강조가 같은 상태.
   await fx(page).locator('[data-fx-pane-i="0"] [data-fx-row="od:OD!PSM"]').focus();

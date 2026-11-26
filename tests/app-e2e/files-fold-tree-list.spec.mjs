@@ -121,7 +121,8 @@ for (const width of [700, 884]) test(`노트 폴드 ${width}: 왼쪽 폴더 나�
   // OPS-빠진일2차 1(S59-17): 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다(펼칠 것이 없으므로).
   const enterNote = async id => { await tree.locator(`[data-nx-folder-more="${id}"]`).click(); await page.locator('#noteDocMenu [data-nx-enter]').click(); };
   // S69-27: 나무에 폴더 바로 아래 노트 줄도 보이므로 노트가 든 폴더는 누르면 그 자리에서 펼친다(폰 나무와 같은 규칙). 오른쪽은 ⋯ [이 폴더로 들어가기].
-  await tree.locator(`[data-nx-folder="${U(1)}"] .ft-main`).click();
+  // TREE-탐색기꺾쇠(T10): 넓은 화면 나무 이름 = 오른쪽 그 폴더, 나무 펼치기는 꺾쇠(treeEnter = 이름 + 꺾쇠).
+  await treeEnter(tree.locator(`[data-nx-folder="${U(1)}"] .ft-main`));
   await expect(tree.locator('[data-nx-note="a1"]')).toBeVisible(); await expect(tree.locator('[data-nx-note="a2"]')).toBeVisible();
   await enterNote(U(1));
   await expect(page.locator('[data-nx-here]')).toHaveText('가상 메모 · 2');
@@ -169,18 +170,18 @@ test('파일 1280: 폴더 이름 누르기 = 그 폴더 열기 + 펼침, 아이�
   const main = tree.locator(`[data-fx-go][data-fx-id="${id}"]`), tog = tree.locator(`.ft-row:has([data-fx-id="${id}"]) > button.ft-tog`);
   const name = await main.locator('.ft-name').textContent();
   const crumb = root(page).locator('[data-fx-crumb] .fx-crumb-now');
-  // TREE-펼치기먼저(S70-81): 첫 누르기 = 펼치기만(위치 그대로), 두 번째 = 그 폴더 열기.
-  const crumb0 = await crumb.textContent();
-  await main.click();
-  await expect(tog).toHaveAttribute('aria-expanded', 'true');
-  await expect(crumb).toHaveText(crumb0);
+  // TREE-탐색기꺾쇠(T10): 이름 한 번 = 그 폴더 열기(나무 펼침 그대로), 다시 눌러도 그대로. 펼치기·접기는 꺾쇠·←/→·두 번 누르기.
+  await expect(tog).toHaveAttribute('aria-expanded', 'false');
   await main.click();
   await expect(crumb).toHaveText(name);
-  await expect(tog).toHaveAttribute('aria-expanded', 'true');
+  await expect(tog).toHaveAttribute('aria-expanded', 'false');
   await expect(main).toBeFocused();
-  await main.click(); // 지금 폴더 이름을 또 눌러도 접지 않는다(접기는 아이콘·←)
-  await expect(tog).toHaveAttribute('aria-expanded', 'true');
+  await page.waitForTimeout(700); // 두 번 누르기로 세지 않게 띄어 누른다
+  await main.click();
+  await expect(tog).toHaveAttribute('aria-expanded', 'false');
   await expect(crumb).toHaveText(name);
+  await tog.click();
+  await expect(tog).toHaveAttribute('aria-expanded', 'true');
   let open = true;
   const flip = async () => { open = !open; await expect(tog).toHaveAttribute('aria-expanded', String(open)); await expect(crumb).toHaveText(name); };
   await tog.click(); await flip();

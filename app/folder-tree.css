@@ -85,6 +85,9 @@
 .ft-main { container:ft-main / inline-size; }
 @container ft-main (max-width:14em) { .ft-tag { display:none; } }
 @container ft-main (max-width:5.5em) { .ft-num, .ft-offtag { display:none; } }
+/* TREE-탐색기꺾쇠(T10): 넓은 화면 나무 줄(.ft-has-tog)은 폴더 아이콘이 이름 단추 안(아이콘 + 간격 ≈ 2em)이라 기준 폭을 그만큼 넓힌다. */
+@container ft-main (max-width:16em) { .ft-has-tog > .ft-main .ft-tag { display:none; } }
+@container ft-main (max-width:7.5em) { .ft-has-tog > .ft-main :is(.ft-num, .ft-offtag) { display:none; } }
 .ft-ico { flex:none; display:inline-flex; align-items:center; justify-content:center; width:var(--ft-ico); height:var(--ft-ico); color:var(--fl-ico,var(--ds-folder-0-ico)); }
 .ft-ico svg { display:block; width:var(--ft-ico-svg); height:var(--ft-ico-svg); fill:currentColor; }
 .ft-ico.ft-ico-trash { color:var(--kptu-faint); }

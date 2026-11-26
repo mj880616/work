@@ -93,12 +93,12 @@ for(const width of [1280])test(`자료실 ${width}: 폴더 이름 누르기 = �
   await page.keyboard.press('ArrowLeft');
   await expect(child).toHaveCount(0);await expect(a).toBeFocused();
   await top();
-  // TREE-펼치기먼저(S70-81): 닫힌 폴더 Enter·이름 누르기 첫 번째 = 펼치기만(오른쪽 그대로), 두 번째 = 그 폴더 열기(펼침·강조, 초점은 그 이름)
+  // TREE-탐색기꺾쇠(T10): 닫힌 폴더 Enter(이름 누르기) = 그 폴더 열기(강조, 나무는 접힌 채, 초점은 그 이름). → = 펼치기.
   await page.keyboard.press('Enter');
-  await expect(child).toBeVisible();await expect(a).not.toHaveAttribute('aria-current','true');await top();
-  await page.keyboard.press('Enter');
-  await expect(a).toHaveAttribute('aria-current','true');await expect(child).toBeVisible();
+  await expect(a).toHaveAttribute('aria-current','true');await expect(child).toHaveCount(0);
   await expect.poll(()=>tops(page)).toEqual(['f:fc']);await expect(a).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(child).toBeVisible();await expect(a).toHaveAttribute('aria-current','true');
   if(process.env.LIB_TREE_FOLD_SHOTS)await page.screenshot({path:`${process.env.LIB_TREE_FOLD_SHOTS}/pc-${width}-1-open.png`});
   await treeEnter(child);
   await expect.poll(()=>tops(page)).toEqual([]);await expect(child).toHaveAttribute('aria-current','true');
