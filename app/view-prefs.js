@@ -27,7 +27,7 @@ export const QUICK_MODES = Object.freeze(['update', 'task']);
 // 적용 전에는 새 이름 쓰기가 400이라 칸 폭은 rejectable로 보내 그 칸만 되돌린다(다른 화면 기억은 그대로 저장, 새로고침하면 기본 폭).
 export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3', 'photos', 'arsenal', 'notes', 'noteboard', 'now', 'files', 'library', 'reading', 'brief']);
 // S70-58 READ-두칸보기: 저장한 글 목록 | 글 칸 비율 reading(migration 20261126063000_profile_view_prefs_reading_split). 적용 전에는 쓰기가 400이라 rejectable로 그 칸만 되돌린다.
-// S70-84 BRIEF-두칸폴더: 브리핑 룸 목록 | 브리핑 칸 비율 brief(migration 20261126120000_profile_view_prefs_brief_room). 적용 전에는 같은 방식으로 그 칸만 되돌린다.
+// S70-84 BRIEF-두칸폴더: 브리핑 룸 목록 | 브리핑 칸 비율 brief(migration 20261126210000_profile_view_prefs_brief_room). 적용 전에는 같은 방식으로 그 칸만 되돌린다.
 const LEGACY_SPLIT_SCREENS = ['tasks', 'projects', 'team', 'reports']; // 옛 기기 저장 키가 있던 화면(새 이름은 기기에 쓴 적 없음)
 export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사업 보고 [목록|달력|사진] (ACT-사진 6단계). 일정 탭 calendar_view와 다른 칸
 // MENU-HOME-편집: menu_layout = {bar, rest} (하단바 칸·그 밖 메뉴의 순서, 항목 이름 목록), home_cards = 홈에 보이는 칸의 이름 순서. 항목 이름의 뜻(어느 메뉴·어느 칸인지)은
@@ -247,7 +247,7 @@ export function validValue(key, value) {
     case 'note_blocks': return typeof value === 'boolean';
     // FILES-상세칸정리(S70-72): files_prev_shut = [파일] PC 넓은 폭 오른쪽 상세 칸을 접었나(참)·폈나(거짓, 없으면 펼침). 모든 기기 같음. migration 20261126090000.
     case 'files_prev_shut': return typeof value === 'boolean';
-    // S70-84 BRIEF-두칸폴더: brief_sort = 브리핑 룸 목록 정렬 {key: 이름·넣은 날·크기·종류, dir: 오름·내림}(모든 기기 같음, files_sort와 같은 모양). migration 20261126120000.
+    // S70-84 BRIEF-두칸폴더: brief_sort = 브리핑 룸 목록 정렬 {key: 이름·넣은 날·크기·종류, dir: 오름·내림}(모든 기기 같음, files_sort와 같은 모양). migration 20261126210000.
     // 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다. 기본(이름 오름)은 지운다(null).
     case 'brief_sort': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 2
       && FILES_SORT_KEYS.includes(value.key) && (value.dir === 'asc' || value.dir === 'desc');

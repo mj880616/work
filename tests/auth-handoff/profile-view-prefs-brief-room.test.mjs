@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
-// S70-84 BRIEF-두칸폴더(20261126120000_profile_view_prefs_brief_room): app_profiles_view_prefs_check accepts one more split_ratio screen name,
+// S70-84 BRIEF-두칸폴더(20261126210000_profile_view_prefs_brief_room): app_profiles_view_prefs_check accepts one more split_ratio screen name,
 // brief (brief room list | brief pane), and one more key, brief_sort ({key, dir}: the brief room list sort), through the approved DB workflow runner.
 // - 다른 칸 규칙 그대로(앞 판 profile_view_prefs_files_prev_shut의 예순네 칸을 그대로 받고, 전에 거절하던 값은 계속 거절).
 // - 권한 그대로: 프로필은 내 행만, anon은 못 읽는다. 표 권한·정책 수 그대로.
@@ -17,7 +17,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261126120000',name='profile_view_prefs_brief_room',stem=version+'_'+name;
+const version='20261126210000',name='profile_view_prefs_brief_room',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 const OUTSIDER='20000000-0000-4000-8000-000000000003';

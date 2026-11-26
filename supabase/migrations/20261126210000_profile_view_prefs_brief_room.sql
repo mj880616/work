@@ -1,5 +1,5 @@
 begin;
--- BRIEF-두칸폴더(S70-84, 명진 11/26 09:28 "브리핑 룸도 … 파일 이름 기준으로 하고 여기도 폴더 개념이 들어가야하고 폴드펼침과 pc에서는 왼쪽 목록 오른쪽 상세"):
+-- BRIEF-두칸폴더(S70-84, 사용자 11/26 09:28 "브리핑 룸도 … 파일 이름 기준으로 하고 여기도 폴더 개념이 들어가야하고 폴드펼침과 pc에서는 왼쪽 목록 오른쪽 상세"):
 -- 브리핑 룸의 왼쪽 목록 | 오른쪽 브리핑 경계 폭(view_prefs.split_ratio에 새 화면 이름 brief)과 목록 정렬(새 칸 brief_sort)을 서버 화면 기억에 둔다
 -- (사람별, 모든 기기 같음, 기기 저장 금지). 0 초과 1 미만 숫자 하나와 정렬 칸 이름·방향만 넣고 자료 이름·내용은 넣지 않는다.
 -- 브리핑 폴더는 새 표 없이 자료실 폴더 표(app_library_folders의 '브리핑 요청함' 아래 폴더)를 그대로 쓰므로 이 migration과 관계없다.
@@ -9,7 +9,7 @@ begin;
 --   split_ratio 화면 이름 하나(brief)와 칸 하나(brief_sort = {key, dir})만 더한다. 다른 칸 규칙·전체 4000바이트 상한은 글자 그대로 같다. 기존 행은 건드리지 않는다.
 -- 권한: grant·revoke·정책·RLS·함수·트리거·새 열 변경 없음. 프로필 정책은 task12a 두 개 그대로.
 -- 앞 단계: 20261126090000_profile_view_prefs_files_prev_shut(FILES-상세칸정리 S70-72, #3138) 기록이 있어야 한다(없으면 멈춘다).
--- 짝: docs/20261126120000_profile_view_prefs_brief_room.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261126210000_profile_view_prefs_brief_room.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 lock table public.app_profiles in access exclusive mode;
@@ -17,7 +17,7 @@ lock table public.app_profiles in access exclusive mode;
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261126120000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261126210000')
      or (select count(*) from supabase_migrations.schema_migrations
          where version = '20261126090000' and name = 'profile_view_prefs_files_prev_shut') <> 1
      or exists (select 1 from supabase_migrations.schema_migrations where version > '20261126090000' and name like 'profile_view_prefs%')
@@ -227,7 +227,7 @@ alter table public.app_profiles
               else not jsonb_path_exists(view_prefs, 'strict $.files_dest_recent[*].keyvalue() ? (!(@.key == "source" || @.key == "id" || @.key == "name"))')
                and jsonb_array_length(jsonb_path_query_array(view_prefs, 'lax $.files_dest_recent[*] ? (@.source.type() == "string" && (@.source == "od" || @.source == "gd") && @.id.type() == "string" && @.id like_regex "^[A-Za-z0-9!_.-]{0,120}$" && @.name.type() == "string" && @.name like_regex "^[^[:cntrl:]]{1,40}$")'))
                    = jsonb_array_length(view_prefs -> 'files_dest_recent') end
-        -- [파일] 두 칸 켬(S49-30 FILES-통합 2-③, 명진 결정 H-2): 객체, 칸은 기기 종류 app·phone·pc 셋뿐(files_sources와 같은 모양)이고
+        -- [파일] 두 칸 켬(S49-30 FILES-통합 2-③, 사용자 결정 H-2): 객체, 칸은 기기 종류 app·phone·pc 셋뿐(files_sources와 같은 모양)이고
         -- 각 칸은 객체, 그 안 칸은 fold(폴드 펼침)·wide(PC)·narrow(폰 한 칸 600px 미만, S51-20 ② 폰 위·아래 두 칸에서 더함) 셋뿐이며 값은 모두 참·거짓. 없는 칸은 화면이 기본(폴드 = 두 칸, PC = 한 칸)으로 본다.
         and case when not (view_prefs ? 'files_two') then true
               when jsonb_typeof(view_prefs -> 'files_two') <> 'object' then false
@@ -285,14 +285,14 @@ alter table public.app_profiles
               when jsonb_typeof(view_prefs -> 'recent_folded') <> 'array' then false
               else jsonb_array_length(view_prefs -> 'recent_folded') <= 4
                and not jsonb_path_exists(view_prefs, 'strict $.recent_folded[*] ? (@.type() != "string" || !(@ == "files" || @ == "notes" || @ == "library"))') end
-        -- [파일] 두 칸 칸별 출처(S52-07 FILES-칸출처고르기, 명진 결정 11/07 4-② A 서버 기억): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐(files_two와 같은 모양)이고
+        -- [파일] 두 칸 칸별 출처(S52-07 FILES-칸출처고르기, 사용자 결정 11/07 4-② A 서버 기억): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐(files_two와 같은 모양)이고
         -- 각 칸은 길이 2 배열 [첫 칸(왼쪽·위) 출처, 둘째 칸(오른쪽·아래) 출처], 출처는 od(원드라이브)·gd(구글 드라이브)·ph(이 폰)·pc(내 PC) 넷 중 하나(글자). 폴더 위치는 넣지 않는다(맨 위에서 시작). 없는 칸은 화면이 지금처럼 정한다.
         and case when not (view_prefs ? 'files_panes') then true
               when jsonb_typeof(view_prefs -> 'files_panes') <> 'object' then false
               when jsonb_path_exists(view_prefs, 'strict $.files_panes.keyvalue() ? (!(@.key == "app" || @.key == "phone" || @.key == "pc"))') then false
               when jsonb_path_exists(view_prefs, 'strict $.files_panes.* ? (@.type() != "array" || @.size() != 2)') then false
               else not jsonb_path_exists(view_prefs, 'strict $.files_panes.*[*] ? (@.type() != "string" || !(@ == "od" || @ == "gd" || @ == "ph" || @ == "pc"))') end
-        -- [파일]·사진 저장소 상자 접힘(S52-14 FILES-상자접힘기억, 요청함 11/07 11:33 명진 'ㅇ'): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐(files_sources와 같은 모양)이고
+        -- [파일]·사진 저장소 상자 접힘(S52-14 FILES-상자접힘기억, 요청함 11/07 11:33 사용자 'ㅇ'): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐(files_sources와 같은 모양)이고
         -- 각 칸은 객체, 그 안 칸은 화면 이름 files([파일])·photos(사진 [폴더]) 둘뿐이며 값은 접은 저장소 배열(4개까지, od·gd·ph·pc 글자). 안쪽 폴더 펼침은 넣지 않는다. 없으면 모두 펼침.
         and case when not (view_prefs ? 'box_shut') then true
               when jsonb_typeof(view_prefs -> 'box_shut') <> 'object' then false
@@ -301,7 +301,7 @@ alter table public.app_profiles
               when jsonb_path_exists(view_prefs, 'strict $.box_shut.*.keyvalue() ? (!(@.key == "files" || @.key == "photos"))') then false
               when jsonb_path_exists(view_prefs, 'strict $.box_shut.*.* ? (@.type() != "array" || @.size() > 4)') then false
               else not jsonb_path_exists(view_prefs, 'strict $.box_shut.*.*[*] ? (@.type() != "string" || !(@ == "od" || @ == "gd" || @ == "ph" || @ == "pc"))') end
-        -- [파일] 두 칸 보기 왼쪽 나무 열어 둠(S52-41 ③ FILES-두칸나무접기, 명진 결정 (가) 11/08): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐(files_two와 같은 모양)이고
+        -- [파일] 두 칸 보기 왼쪽 나무 열어 둠(S52-41 ③ FILES-두칸나무접기, 사용자 결정 (가) 11/08): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐(files_two와 같은 모양)이고
         -- 각 칸은 객체, 그 안 칸은 폭 종류 fold(폴드 펼침)·wide(PC) 둘뿐이며 값은 참·거짓. 없으면 접힘.
         and case when not (view_prefs ? 'files_tree') then true
               when jsonb_typeof(view_prefs -> 'files_tree') <> 'object' then false
@@ -333,7 +333,7 @@ alter table public.app_profiles
         -- 조직 보고 표 줄 순서(ORG-줄순서, 요청함 11/09): 'asc'(오래된 것 위, 기본) 또는 'desc'(최신 위) 둘 중 하나(글자여야 한다). 없으면 화면이 asc로 본다.
         and case when not (view_prefs ? 'org_row_order') then true
               else jsonb_typeof(view_prefs -> 'org_row_order') = 'string' and view_prefs ->> 'org_row_order' in ('asc', 'desc') end
-        -- 자료실 두 칸 보기 켬(LIB-두칸보기, 요청함 11/09, 명진 18:16 'ㅇ'): 참·거짓 하나(폰·PC 같음). 없으면 화면이 켬(PC·펼친 폴드)으로 본다. 폰은 늘 한 칸.
+        -- 자료실 두 칸 보기 켬(LIB-두칸보기, 요청함 11/09, 사용자 18:16 'ㅇ'): 참·거짓 하나(폰·PC 같음). 없으면 화면이 켬(PC·펼친 폴드)으로 본다. 폰은 늘 한 칸.
         and case when not (view_prefs ? 'library_two') then true
               else jsonb_typeof(view_prefs -> 'library_two') = 'boolean' end
         -- 사업 보고 '이번 주 주간보고' 칸 펼침 기억(BIZ-주간보고접힘기억, 요청함 11/10 10:00 '기기별로 기억'): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐
@@ -346,7 +346,7 @@ alter table public.app_profiles
         -- 모든 기기·모든 노트가 같은 값(기기 저장 없음). 없으면 화면이 100으로 본다. 노트 내용은 넣지 않는다.
         and case when not (view_prefs ? 'note_zoom') then true
               else jsonb_typeof(view_prefs -> 'note_zoom') = 'number' and (view_prefs ->> 'note_zoom') in ('80', '90', '100', '110', '125', '150') end
-        -- 내 기록 백업(PRIVACY-백업안내, 시안 #2677 명진 확정): 객체, 칸은 auto(매주 자동 백업 켬)·intro(첫 안내를 이미 보여 줌) 둘뿐이고 값은 참·거짓.
+        -- 내 기록 백업(PRIVACY-백업안내, 시안 #2677 사용자 확정): 객체, 칸은 auto(매주 자동 백업 켬)·intro(첫 안내를 이미 보여 줌) 둘뿐이고 값은 참·거짓.
         -- 기록 내용·드라이브 폴더 ID·백업 시각은 넣지 않는다(백업 시각은 내 드라이브 폴더가 기억). 없으면 화면이 자동 백업 꺼짐·안내 아직으로 본다.
         and case when not (view_prefs ? 'record_backup') then true
               when jsonb_typeof(view_prefs -> 'record_backup') <> 'object' then false
@@ -363,7 +363,7 @@ alter table public.app_profiles
         and case when not (view_prefs ? 'drive_import_folder') then true
               when jsonb_typeof(view_prefs -> 'drive_import_folder') <> 'string' then false
               else jsonb_path_exists(view_prefs, 'lax $.drive_import_folder ? (@ like_regex "^[A-Za-z0-9_-]{10,200}$")') end
-        -- 파일 목록 정렬(UI-머리눌러정렬, 명진 11/24 15:47): [파일] 목록 머리 칸·정렬 고르기로 고른 정렬 하나. 객체, 칸은 key·dir 둘 다 있고
+        -- 파일 목록 정렬(UI-머리눌러정렬, 사용자 11/24 15:47): [파일] 목록 머리 칸·정렬 고르기로 고른 정렬 하나. 객체, 칸은 key·dir 둘 다 있고
         -- key는 name(이름)·modified(바뀐 날)·size(크기)·kind(종류) 중 하나, dir은 asc(오름)·desc(내림). 모든 기기 같음. 파일 이름·폴더 내용은 넣지 않는다. 없으면 화면이 이름 오름으로 본다.
         and case when not (view_prefs ? 'files_sort') then true
               when jsonb_typeof(view_prefs -> 'files_sort') <> 'object' then false
@@ -371,7 +371,7 @@ alter table public.app_profiles
                and (view_prefs -> 'files_sort') ? 'key' and (view_prefs -> 'files_sort') ? 'dir'
                and jsonb_typeof(view_prefs -> 'files_sort' -> 'key') = 'string' and (view_prefs -> 'files_sort' ->> 'key') in ('name', 'modified', 'size', 'kind')
                and jsonb_typeof(view_prefs -> 'files_sort' -> 'dir') = 'string' and (view_prefs -> 'files_sort' ->> 'dir') in ('asc', 'desc') end
-        -- 노트 블록 편집 기본값(NOTE-노션편집 ①(나), 명진 11/25 03:19): 참이면 새로 여는 노트(노트마다 고른 값이 없는 노트)가 블록 편집(손잡이 ⋮⋮)을 켠 채 열린다.
+        -- 노트 블록 편집 기본값(NOTE-노션편집 ①(나), 사용자 11/25 03:19): 참이면 새로 여는 노트(노트마다 고른 값이 없는 노트)가 블록 편집(손잡이 ⋮⋮)을 켠 채 열린다.
         -- 참·거짓 하나. 없으면 끔(글쓰기). 모든 기기 같음. 글 내용은 넣지 않는다.
         and case when not (view_prefs ? 'note_blocks') then true
               else jsonb_typeof(view_prefs -> 'note_blocks') = 'boolean' end
@@ -379,7 +379,7 @@ alter table public.app_profiles
         -- 보통(m)은 칸을 지워 저장하지 않는다. 폴더 이름·자료 내용은 넣지 않는다. 없으면 화면이 보통으로 본다.
         and case when not (view_prefs ? 'row_size') then true
               else jsonb_typeof(view_prefs -> 'row_size') = 'string' and view_prefs ->> 'row_size' in ('s', 'l', 'xl') end
-        -- 노트 [목록] 정렬(NOTE-목록표머리 ①-2, 명진 11/25 12:34): [목록] 머리 칸·⋯ 정렬 고르기로 고른 정렬 하나. 객체, 칸은 key·dir 둘 다 있고
+        -- 노트 [목록] 정렬(NOTE-목록표머리 ①-2, 사용자 11/25 12:34): [목록] 머리 칸·⋯ 정렬 고르기로 고른 정렬 하나. 객체, 칸은 key·dir 둘 다 있고
         -- key는 title(제목)·folder(폴더)·changed(수정일)·created(작성일)·clip(첨부)·memo(메모)·chars(글자 수) 중 하나, dir은 asc(오름)·desc(내림). 모든 기기 같음. 노트 내용은 넣지 않는다. 없으면 화면이 수정일 내림으로 본다.
         and case when not (view_prefs ? 'note_list_sort') then true
               when jsonb_typeof(view_prefs -> 'note_list_sort') <> 'object' then false
@@ -387,17 +387,17 @@ alter table public.app_profiles
                and (view_prefs -> 'note_list_sort') ? 'key' and (view_prefs -> 'note_list_sort') ? 'dir'
                and jsonb_typeof(view_prefs -> 'note_list_sort' -> 'key') = 'string' and (view_prefs -> 'note_list_sort' ->> 'key') in ('title', 'folder', 'changed', 'created', 'clip', 'memo', 'chars')
                and jsonb_typeof(view_prefs -> 'note_list_sort' -> 'dir') = 'string' and (view_prefs -> 'note_list_sort' ->> 'dir') in ('asc', 'desc') end
-        -- 노트 [목록] 보일 칸(NOTE-목록표머리 ②, 명진 11/25 12:34 결정 ⑦가 '보일 칸'): 켠 칸 이름 배열, 8개까지. 이름은 folder(폴더)·tags(태그)·day(수정일)·made(작성일)·
+        -- 노트 [목록] 보일 칸(NOTE-목록표머리 ②, 사용자 11/25 12:34 결정 ⑦가 '보일 칸'): 켠 칸 이름 배열, 8개까지. 이름은 folder(폴더)·tags(태그)·day(수정일)·made(작성일)·
         -- clip(첨부)·memo(메모)·chars(글자 수)·pub(공유) 중 하나. 빈 배열 = 제목만. 없으면 화면이 기본(폴더·태그·수정일·첨부)으로 본다. 모든 기기 같음. 노트 내용은 넣지 않는다.
         and case when not (view_prefs ? 'note_cols') then true
               when jsonb_typeof(view_prefs -> 'note_cols') <> 'array' then false
               else jsonb_array_length(view_prefs -> 'note_cols') <= 8
                and not jsonb_path_exists(view_prefs, 'strict $.note_cols[*] ? (@.type() != "string" || !(@ == "folder" || @ == "tags" || @ == "day" || @ == "made" || @ == "clip" || @ == "memo" || @ == "chars" || @ == "pub"))') end
-        -- [파일] 오른쪽 상세 칸 접음(FILES-상세칸정리 S70-72, 명진 11/26 08:50 "오른쪽 상세화면은 펼쳤다 닫았다할 수있게해줘"): 참이면 PC 넓은 화면의 상세 칸을 접은 채 연다.
+        -- [파일] 오른쪽 상세 칸 접음(FILES-상세칸정리 S70-72, 사용자 11/26 08:50 "오른쪽 상세화면은 펼쳤다 닫았다할 수있게해줘"): 참이면 PC 넓은 화면의 상세 칸을 접은 채 연다.
         -- 참·거짓 하나. 없으면 펼침. 모든 기기 같음. 파일 이름·폴더 내용은 넣지 않는다.
         and case when not (view_prefs ? 'files_prev_shut') then true
               else jsonb_typeof(view_prefs -> 'files_prev_shut') = 'boolean' end
-        -- 브리핑 룸 목록 정렬(BRIEF-두칸폴더 S70-84, 명진 11/26 09:28 "파일 이름 기준으로"): 머리 칸·정렬 고르기로 고른 정렬 하나. 객체, 칸은 key·dir 둘 다 있고
+        -- 브리핑 룸 목록 정렬(BRIEF-두칸폴더 S70-84, 사용자 11/26 09:28 "파일 이름 기준으로"): 머리 칸·정렬 고르기로 고른 정렬 하나. 객체, 칸은 key·dir 둘 다 있고
         -- key는 name(이름)·modified(넣은 날)·size(크기)·kind(종류) 중 하나, dir은 asc(오름)·desc(내림). 모든 기기 같음. 자료 이름·내용은 넣지 않는다. 없으면 화면이 이름 오름으로 본다.
         and case when not (view_prefs ? 'brief_sort') then true
               when jsonb_typeof(view_prefs -> 'brief_sort') <> 'object' then false
@@ -424,5 +424,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261126120000', 'profile_view_prefs_brief_room', array['BRIEF-two-pane-folders: app_profiles_view_prefs_check rebuilt on the profile_view_prefs_files_prev_shut version with one more split_ratio screen name, brief, and one more key, brief_sort (object key/dir: the brief room list sort); every other key and rule unchanged']);
+values ('20261126210000', 'profile_view_prefs_brief_room', array['BRIEF-two-pane-folders: app_profiles_view_prefs_check rebuilt on the profile_view_prefs_files_prev_shut version with one more split_ratio screen name, brief, and one more key, brief_sort (object key/dir: the brief room list sort); every other key and rule unchanged']);
 commit;
