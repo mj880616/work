@@ -516,6 +516,8 @@ mark.hl-mark.hl-pen{background:var(--hl-c)}
 .hl-bar-marks[hidden],#appView .hl-bar-marks [hidden]{display:none}
 #appView .hl-bar-marks>button.kptu-act:not([hidden]){display:inline-flex;align-items:center;width:auto;height:auto;min-height:var(--ds-compact-height-sm,28px);padding:2px 4px;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1.25}
 /* 폰: 형광펜 칸이 있으면 두 줄 — 위 [형광펜 ●●●●●] … ✕, 아래 [밑줄 저장][메모][노트로][복사][공유]. 글자 '선택한 글'은 감춤(끌기는 PC만). */
+/* S70-80 PC 두 칸: 글 칸이 막대보다 좁으면 글 칸 폭으로 두 줄 — 위 '선택한 글' [형광펜 ●●●●●] … ✕, 아래 [밑줄 저장]…(끌기 글자는 남김). */
+.hl-bar[data-wrap]{flex-wrap:wrap;row-gap:0}.hl-bar[data-wrap] .hl-bar-close{order:2;margin-left:auto}.hl-bar[data-wrap] .hl-bar-acts{order:3;flex:1 0 100%}
 @media (max-width:760px){.hl-bar:has(.hl-bar-marks:not([hidden])){flex-wrap:wrap;row-gap:0}.hl-bar:has(.hl-bar-marks:not([hidden])) .hl-bar-label{display:none}.hl-bar:has(.hl-bar-marks:not([hidden])) .hl-bar-close{order:2;margin-left:auto}.hl-bar:has(.hl-bar-marks:not([hidden])) .hl-bar-acts{order:3;flex:1 0 100%}}
 .hl-dots,.hl-menu-dots{display:inline-flex;flex-wrap:nowrap;align-items:center}
 .hl-menu-dots{padding:2px 6px}

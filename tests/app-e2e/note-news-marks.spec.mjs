@@ -241,7 +241,7 @@ for (const width of [412, 880, 1280]) {
     await pickInNote(page, '가상');
     const bar = page.locator('div[data-hl-bar]');
     await expect(bar).toBeVisible();
-    await expect(bar.locator('.kptu-act:visible')).toHaveText(['밑줄 저장', '복사', ...(await page.evaluate(() => typeof navigator.share === 'function') ? ['공유'] : [])]);
+    await expect(bar.locator('.kptu-act:visible')).toHaveText(['형광펜', '밑줄 저장', '복사', ...(await page.evaluate(() => typeof navigator.share === 'function') ? ['공유'] : [])]);
     await bar.getByRole('button', { name: '밑줄 저장' }).click();
     await expect.poll(() => s.posts.length).toBe(1);
     expect(s.posts[0]).toMatchObject({ source_type: 'note', source_id: NOTE4, quote: '가상', source_title: '가상 메모 노트', source_media: '노트', source_url: null });

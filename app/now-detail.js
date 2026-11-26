@@ -15,7 +15,7 @@ import {notify, askText} from './small-notice.js';
 import {openOnScreen} from './source-open.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
-import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
+import {paintMarks, bindMarks, sourceMarks, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark, markActions} from './text-highlights.js';
 import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText, handShort, noMaterialLine, SHORT_SUMMARY_TEXT, canRefetch, canRefetchMenu, unreadLead, isNoMaterial, handBodyRequest, HAND_BODY_MAX, sameDetail, savedUsable} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
@@ -289,7 +289,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function marksNow() {
     const z = cur && !cur.tr.on ? part('[data-nd-prose]') : null;
     if (!z) return;
-    paintMarks(z, sourceHighlights(cur.item.type, cur.item.id));
+    paintMarks(z, sourceMarks(cur.item.type, cur.item.id)); // S70-80: 밑줄 + 형광펜
     if (cur.reveal && revealMark(z, cur.reveal)) cur.reveal = null;
   }
   function paintActs() {
@@ -849,7 +849,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   ndMenus = [obMenu];
   // 고른 글 줄(text-select-bar.js): 이 상세의 원문 칸([data-nd-prose])에서 고른 글만. 출처 = 지금 연 글.
   const sourceNow = () => (cur ? {type: cur.item.type, id: cur.item.id, title: cur.head.title, media: cur.head.meta?.[0] || '', date: cur.head.at || null, url: cur.head.url || ''} : null);
-  bindSelectZone(box, {zone: '[data-nd-prose]', source: sourceNow, onSave: saveFromSelection, onNote: noteFromSelection});
+  bindSelectZone(box, {zone: '[data-nd-prose]', source: sourceNow, onSave: saveFromSelection, onNote: noteFromSelection, marks: markActions}); // S70-80: 형광펜 켬
   bindMarks(box);
   onHighlights(() => marksNow());
   const focusTr = () => box?.querySelector('[data-nd-translate]')?.focus({preventScroll: true});
