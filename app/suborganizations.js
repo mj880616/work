@@ -88,7 +88,7 @@ function renderTeam(){const box=document.querySelector('#soOrganizationList');if
  // S71-35 ORG-조직관리로모으기(2026-11-26 사용자 "조직관리에서 추가수정 삭제 보관 가능하게"): 그 묶음은 접힌 '보관한 조직 n곳'(<details>, 처음 접힘·펼침은 화면 메모리만).
  // 찾는 중에 보관한 조직이 걸리면 펼친 채 그린다. 줄 [꺼내기] = ⋯ [꺼내기] = 밀기 [꺼내기](같은 toggleExcluded).
  const archOpen=soArchivedOpen||(!!soQuery&&excluded.length>0);
- const excludedHtml=excluded.length?`<div class="so-org-group so-excluded-group"><details class="so-group-card so-archived" data-so-archived${archOpen?' open':''}><summary class="so-group-heading"><span>보관한 조직</span><span class="so-group-count">${excluded.length}곳</span></summary>${excluded.map(row).join('')}</details></div>`:'';
+ const excludedHtml=excluded.length?`<div class="so-org-group so-excluded-group"><details class="so-group-card so-archived" data-so-archived${archOpen?' open':''}><summary class="so-group-heading"><span>${word('보관한 조직')}</span><span class="so-group-count">${excluded.length}곳</span></summary>${excluded.map(row).join('')}</details></div>`:'';
  // 묶음 이름 줄이 없는 목록(묶음을 정하지 않은 사람)은 PC에서 맨 위 줄(+ 담당조직·⋯)을 목록 위 따로 한 줄로(첫 조직 줄을 덮지 않게).
  const sec=document.querySelector('#soTeamSection');sec?.classList.toggle('so-none',!mine.length);
  // MULTI-다른담당자맞춤 ②: 묶음이 있거나(값) 빈 묶음을 만들었으면 묶음 칸·손잡이·묶음 ⋯(org-groups-drag.js), 아니면 지금처럼 가나다순 한 목록.
