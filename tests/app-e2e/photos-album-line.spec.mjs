@@ -180,6 +180,14 @@ test.describe('빈 곳 핀치 폰 412', () => {
     TE('touchend', [], [T(1, p1[0])]);
     return { inBody: !!target.closest('[data-photos-body]'), inList: !!target.closest('[data-photos-albums],[data-diary-grid]') };
   }, [x, y, from, to]);
+  // TEST-사진시험안정화: 본문 칸을 화면 아래까지 채우는 일(gesture-fill.js)은 내용이 바뀐 다음 그림 차례(requestAnimationFrame)에 한다.
+  // 칸이 그려진 바로 그 순간 재면 본문 칸이 아직 내용 높이라 '본문 아래 - 20'이 격자 안에 떨어진다(CI에서 inList true).
+  // 그래서 본문 칸이 화면 아래(하단바 위)까지 온 것을 기다린 뒤 잰다(시간 기다림이 아니라 상태).
+  const filledBody = async page => {
+    const vh = page.viewportSize().height, body = root(page).locator('[data-photos-body]');
+    await expect.poll(async () => { const b = await body.boundingBox(); return b ? b.y + b.height : 0; }).toBeGreaterThan(vh - 260);
+    return body.boundingBox();
+  };
 
   test('앨범 탭: 목록 아래 빈 곳 핀치로 보기 크기, 본문이 화면 아래까지 채워짐', async ({ page }) => {
     const f = await fixture(page, 412);
@@ -192,8 +200,7 @@ test.describe('빈 곳 핀치 폰 412', () => {
     await sizeBtn(page, '-1').click();
     await page.keyboard.press('Escape');
     await expect(list).toHaveAttribute('data-view', 'line');
-    const lb = await list.boundingBox(), body = await root(page).locator('[data-photos-body]').boundingBox(), vh = page.viewportSize().height;
-    expect(body.y + body.height).toBeGreaterThan(vh - 260); // 본문 칸이 화면 아래(하단바 위)까지
+    const body = await filledBody(page), lb = await list.boundingBox(); // 본문 칸이 화면 아래(하단바 위)까지
     const y = Math.min(lb.y + lb.height + 80, body.y + body.height - 20);
     expect(y).toBeGreaterThan(lb.y + lb.height);
     const hit = await pinchAt(page, 206, y, 30, 80); // 빈 곳에서 펼치기
@@ -212,8 +219,9 @@ test.describe('빈 곳 핀치 폰 412', () => {
     await expect(root(page).locator('[data-photos-list] [data-photos-open]')).toHaveCount(2);
     const cols = () => grid.evaluate(g => g.style.getPropertyValue('--photo-cols'));
     const before = Number(await cols());
-    const body = await root(page).locator('[data-photos-body]').boundingBox(), gb = await root(page).locator('[data-photos-list]').boundingBox();
+    const body = await filledBody(page), gb = await root(page).locator('[data-photos-list]').boundingBox();
     const y = Math.min(gb.y + gb.height + 80, body.y + body.height - 20);
+    expect(y).toBeGreaterThan(gb.y + gb.height); // 짚는 곳은 격자 아래 빈 곳
     const hit = await pinchAt(page, 206, y, 30, 80); // 펼치기 = 칸 수 하나 줄임(크게)
     expect(hit.inBody).toBe(true);
     expect(hit.inList).toBe(false);
