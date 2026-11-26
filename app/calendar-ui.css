@@ -7,12 +7,14 @@
 .calendar-toolbar #monthTitle{font-size:16px;min-width:94px;text-align:center}
 .calendar-toolbar-add{margin-left:auto;width:auto;min-width:0;height:36px;min-height:36px;padding:0 var(--kptu-space-3);border-radius:var(--kptu-radius-md);font-size:var(--kptu-text-meta);line-height:1;white-space:nowrap}
 
-.calendar-google-panel{margin:0 0 5px;border-bottom:1px solid var(--kptu-border)}
-.calendar-google-panel>summary{display:flex;align-items:center;gap:7px;min-height:30px;padding:3px 1px;cursor:pointer;font-size:11px;font-weight:800;color:var(--kptu-ink);list-style:none}
-.calendar-google-panel>summary::-webkit-details-marker{display:none}
-.calendar-google-panel>summary:before{content:'›';font-size:16px;line-height:1;color:var(--kptu-muted);transform:rotate(0deg)}
-.calendar-google-panel[open]>summary:before{transform:rotate(90deg)}
-.calendar-google-panel .updated{margin-left:auto;font-size:10px;font-weight:600;color:var(--kptu-muted);max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* CAL-머리한줄(S71-24, 명진 11/26 "구글 캘린더 맨 윗 줄로 합쳐서 한줄로"): 여는 단추 [구글 캘린더 ▾]는 화면 이름 줄(calendar-google-panel.js·screen-tools.js),
+   이 칸은 일정 상자 맨 위에서 열릴 때만 자리를 차지한다(닫힘 = hidden). 예전 상자 안 '› 구글 캘린더 …… 메일' 접기 줄은 지웠다. 연결 계정은 칸 안 첫 줄. */
+.calendar-google-panel{margin:0 0 5px;padding-bottom:2px;border-bottom:1px solid var(--kptu-border)}
+.calendar-google-panel[hidden]{display:none}
+.calendar-google-account{display:flex;align-items:center;gap:6px;min-width:0;margin:0;padding:2px 1px 0;font-size:11px;color:var(--kptu-muted)}
+.calendar-google-panel .updated{min-width:0;font-size:11px;font-weight:600;color:var(--kptu-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-google-head{white-space:nowrap}
+.cal-google-caret{margin-left:4px;font-size:.85em;color:var(--kptu-muted)}
 .google-bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:transparent;border:0;border-radius:var(--kptu-radius-sm);padding:4px 0;margin:0}
 .google-bar .secondary{min-height:32px;padding:5px 9px;font-size:11px}
 /* CAL-캘린더색칩(S52-18): 표시할 캘린더는 공용 칩(④ button.ds-chip + 12px 색 점 .ui-color-dot, 모양은 ui-standard.css) 한 줄. 여기는 자리만. */
@@ -166,7 +168,6 @@
   .calendar-toolbar{margin-top:0;margin-bottom:5px}
   .calendar-toolbar #monthTitle{font-size:15px;min-width:86px}
   .calendar-google-panel{margin-bottom:3px}
-  .calendar-google-panel>summary{min-height:27px}
   .google-cal-list{padding-bottom:5px}
   .google-cal-list .cal-chip-name{max-width:118px}
   .cal-cell{padding-left:1px;padding-right:1px}

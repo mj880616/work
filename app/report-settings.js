@@ -74,7 +74,7 @@ ${note ? `<p class="ps-report-note" role="status">${esc(note)}</p>` : ''}
     // 연결은 일정 화면의 구글 캘린더 칸에서 한다(기존 연결 길 하나, 새 서버 길 없음).
     if (e.target.closest?.('[data-ps-report-connect]')) {
       globalThis.KPTURouter?.go?.('calendar', {source: 'delegated'});
-      setTimeout(() => { const p = globalThis.document?.querySelector?.('#googleCalendarPanel'); if (p) p.open = true; }, 0);
+      setTimeout(() => { void import('./calendar-google-panel.js').then(m => m.setGooglePanelOpen(true)); }, 0); // CAL-머리한줄: 여닫기 주인 하나
     }
   });
   // 다시 그릴 때 열린 채 만들어진 details도 toggle을 내므로, 닫힘 → 열림으로 바뀔 때만 읽는다.
