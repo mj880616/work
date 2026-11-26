@@ -381,9 +381,8 @@ test('전수: 앱 폴더를 맨 위에서 이름으로만 찾는 곳이 없다(�
     if (/'root' in parents/.test(src)) hits.push(rel);
   }
   // app-folders.mjs: 부모 조건·모으기 쿼리. drive-summary/core.mjs: 안쪽 문서 외 예전 맨 위 조건 한 줄(맨 위 사본 폴더는 자리 조건 없이 표식만).
-  // library-files/drive-import.mjs(S69-25b): 앱 폴더를 찾는 곳이 아니라 [드라이브에서 가져오기]에서 고를 '내 드라이브' 맨 위 내 폴더 목록을 읽는 곳.
-  //   앱 폴더는 이름이 아니라 저장한 id·표식으로 빼고(checkFolder·planImport), 이름은 표식 없는 옛 폴더를 빼는 보조로만 쓴다.
-  assert.deepEqual(hits.sort(), ['_shared/app-folders.mjs', 'drive-summary/core.mjs', 'library-files/drive-import.mjs']);
+  // (S70-73: [드라이브에서 가져오기]의 '내 드라이브' 맨 위 폴더 목록(library-files/drive-import.mjs)은 지웠다 — 자동 등록은 자료실 나무만 훑는다.)
+  assert.deepEqual(hits.sort(), ['_shared/app-folders.mjs', 'drive-summary/core.mjs']);
   const summary = readFileSync(join(base, 'drive-summary/core.mjs'), 'utf8');
   assert.match(summary, /kind === 'folder' \? '' :/);
 });

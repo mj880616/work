@@ -37,7 +37,7 @@ async function dragWithBar(page,from,to){
 
 test('PC 1440 한 칸: 자료 1140개 — 폴더 밖 개수가 맞고, 폴더 밖 자료 여럿을 끌어 옮기면 저장 · 끄는 동안 막대는 옮기는 중·취소만',async({page})=>{
   test.setTimeout(120000);
-  const fnCalls=[];page.on('request',r=>{if(/\/functions\/v1\/library-files/.test(r.url())&&r.method()==='POST')fnCalls.push(r.url())});
+  const fnCalls=[];page.on('request',r=>{if(/\/functions\/v1\/library-files/.test(r.url())&&r.method()==='POST'&&!/"action":"drive-auto"/.test(r.postData()||''))fnCalls.push(r.url())}); // S70-73: 자료실을 열 때 자동 등록 부탁은 뺌
   const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더',init:{viewPrefs:{library_two:false}}});
   // 개수: 잡동사니 1100, 폴더 밖 40(전에는 읽기가 1000줄에서 잘려 폴더 밖이 부풀었다).
   await expect(page.locator(`${nav('x:out')} .ft-num`)).toHaveText(String(N_OUT));
