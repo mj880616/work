@@ -393,6 +393,7 @@
    찾기 칸을 펼치면(.sf-open) 칸이 이름·단추 자리를 다 쓴다(이름 자리와 같은 규칙). 크기는 지금 둘째 줄 그대로(출처 28px · 보기 칸 34px 둘). */
 @media (max-width:599px) {
   html[data-screen-find="files"] #appView>.mobile-shell-header { gap:4px; }
+  html[data-screen-find="files"] #appView>.mobile-shell-header>.head-mark { margin-right:4px; }
   html[data-screen-find="files"] .mobile-shell-header>.screen-tools-slot { order:1; flex:1 1 auto; margin-left:0; }
   html[data-screen-find="files"] .mobile-shell-header>.mobile-shell-find { order:2; flex:0 0 auto; }
   html[data-screen-find="files"] .mobile-shell-header.sf-open>.mobile-shell-find { flex:1 1 auto; }

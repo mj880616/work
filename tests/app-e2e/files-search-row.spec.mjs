@@ -23,7 +23,7 @@ async function topRow(page) {
     const chips = [...document.querySelectorAll('[data-fx-srcs] [data-src-chip]')].filter(b => !b.hidden && b.offsetParent).map(r);
     const same = b => b.top < t.bottom && t.top < b.bottom;
     return {
-      chips: chips.length, sameLine: chips.every(same), twoLast: chips.every(c => c.right <= t.left), searchIn: top.querySelectorAll('input[type="search"]').length,
+      chips: chips.length, sameLine: chips.every(same), twoLast: chips.every(c => c.right <= t.left), searchIn: document.querySelectorAll('#filesRoot input[type="search"]').length,
       twoW: Math.round(t.width), twoH: Math.round(t.height),
       label: two.getAttribute('aria-label'), oneLabel: one.getAttribute('aria-label'), text: [...seg.querySelectorAll('.fx-seg-t')].filter(x => x.offsetParent).map(x => x.textContent.trim()).join('|'),
       icon: !!two.querySelector('svg') && !!one.querySelector('svg'), cls: seg.className, joined: Math.abs(r(one).right - r(two).left) <= 3 && Math.abs(r(one).top - r(two).top) < 2,

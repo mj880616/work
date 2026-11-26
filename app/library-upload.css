@@ -537,6 +537,7 @@
    [분류 ▾]는 지금 고른 값만 보인다(읽기 이름은 '분류: …'). 좁으면 고르기 상자 글자가 먼저 '…'로 준다. 폰(600px 미만)에서 찾기 칸을 펼치면 칸이 이름·고르기 자리를 쓴다. */
 @media(max-width:760px){
   html[data-screen-find="library"] #appView>.mobile-shell-header{gap:4px}
+  html[data-screen-find="library"] #appView>.mobile-shell-header>.head-mark{margin-right:4px}
   html[data-screen-find="library"] .mobile-shell-header>.screen-tools-slot,
   html[data-screen-find="library"] .mobile-shell-header .sf-tools[data-sf-tools="library"]:not([hidden]),
   html[data-screen-find="library"] .mobile-shell-header .sf-tools[data-sf-tools="library"] .lu-head-actions{display:contents}
@@ -544,7 +545,7 @@
   html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-pick-row{order:1;display:flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0}
   #appView .sf-tools .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){max-width:9em}
   html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-head-actions>*{order:2}
-  html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-head-actions>:first-child{margin-left:auto}
+  html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-head-actions>:is(#libraryViewSeg,#libraryTopMenuBtn):first-child{margin-left:auto} /* 단추 모양 규칙(margin:0, id 고르개)보다 앞서게 id로 */
   html[data-screen-find="library"] .mobile-shell-header>.mobile-shell-find{order:3}
   html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-head-actions>#newDocumentBtn{order:4}
   /* 본문 첫 줄은 [결과 n개 모두 선택](찾는 중에만)만 남는다 — 비면 자리 없음. */

@@ -17,7 +17,7 @@ function oneLine(m,order){
   for(const sel of order)expect(m[sel],`${sel} 보임`).not.toBeNull();
   for(const sel of order){expect(Math.abs(m[sel].mid-m[order[0]].mid),`${sel} 같은 줄`).toBeLessThan(3);expect(m[sel].top).toBeGreaterThanOrEqual(m.head.top-1);expect(m[sel].bottom).toBeLessThanOrEqual(m.head.bottom+1)}
   for(let i=1;i<order.length;i++)expect(m[order[i-1]].right,`${order[i-1]} → ${order[i]}`).toBeLessThanOrEqual(m[order[i]].x+0.5);
-  expect(m[order.at(-1)].right).toBeLessThanOrEqual(m.head.right+0.5);
+  expect(Math.abs(m[order.at(-1)].right-m.head.right),'맨 끝 단추는 머리 줄 오른쪽 끝').toBeLessThan(1);
   expect(m.head.h).toBeLessThanOrEqual(44);
   expect(m.overflow).toBeLessThanOrEqual(0);
 }
