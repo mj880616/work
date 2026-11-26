@@ -17,6 +17,8 @@ const lockServer = async page => {
 const go = (page, view) => page.evaluate(v => window.KPTURouter.go(v, { source: 'delegated' }), view);
 const current = page => page.evaluate(() => window.KPTURouter.current);
 const lockView = page => page.locator('#lockView');
+// S71-38: 덮는 것은 #lockView 안의 맨 위 겹(모달 dialog) — 열린 창·메뉴보다도 위(tests/app-e2e/lock-cover-open-windows.spec.mjs).
+const cover = page => page.locator('#lockView [data-lk-layer]');
 
 // 덮인 윗줄·하단바: 보이는 단추마다 그 가운데를 누르면 잠금 화면이 받는지(가려진 단추가 눌리지 않음).
 async function coversShell(page) {
@@ -42,14 +44,14 @@ for (const width of [390, 412]) {
     await go(page, 'diary');
     await expect(page.locator('#lockView .lk-pad .lk-title')).toHaveText('하루 기록 잠김');
     await expect(lockView(page)).toHaveAttribute('data-lk-full', '');
-    const box = await lockView(page).boundingBox();
+    const box = await cover(page).boundingBox();
     expect([box.x, box.y, box.width, box.height]).toEqual([0, 0, width, 860]);
     await coversShell(page);
     // 판(숫자 칸 12개·✕)은 화면 안, 가로 넘침 없음, 카드 테두리 없음.
     const keys = await page.locator('#lockView .lk-key, #lockView .lk-close').evaluateAll(list => list.map(el => el.getBoundingClientRect()).map(r => [r.left, r.right, r.top, r.bottom]));
     expect(keys.length).toBe(13);
     for (const [l, r, t, b] of keys) { expect(l).toBeGreaterThanOrEqual(0); expect(r).toBeLessThanOrEqual(width); expect(t).toBeGreaterThanOrEqual(0); expect(b).toBeLessThanOrEqual(860); }
-    expect(await lockView(page).evaluate(el => el.scrollWidth <= el.clientWidth && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await cover(page).evaluate(el => el.scrollWidth <= el.clientWidth && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await page.locator('#lockView .lk-view').evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('0px');
     // 판은 세로 가운데보다 살짝 위.
     const padBox = await page.locator('#lockView .lk-pad').boundingBox();
@@ -90,7 +92,7 @@ test('880: 전체를 덮되 판 폭은 320px까지 가운데 · 설정 목록(�
   await openHome(page, { beforeLoad: () => lockServer(page) });
   await go(page, 'diary');
   await expect(page.locator('#lockView .lk-pad')).toBeVisible();
-  const box = await lockView(page).boundingBox();
+  const box = await cover(page).boundingBox();
   expect([box.x, box.y, box.width, box.height]).toEqual([0, 0, 880, 900]);
   const pad = await page.locator('#lockView .lk-pad').boundingBox();
   expect(pad.width).toBeLessThanOrEqual(320);
@@ -103,5 +105,8 @@ test('880: 전체를 덮되 판 폭은 320px까지 가운데 · 설정 목록(�
   await expect(page.locator('#lockView .lk-list')).toBeVisible();
   await expect(lockView(page)).not.toHaveAttribute('data-lk-full', '');
   expect(await lockView(page).evaluate(el => getComputedStyle(el).position)).not.toBe('fixed');
+  // 설정 목록은 맨 위 겹을 쓰지 않는다(아래 화면처럼 흐름 안에 그림).
+  await expect(cover(page)).toBeHidden();
+  expect(await page.evaluate(() => document.querySelectorAll('dialog:modal').length)).toBe(0);
   await expect(page.locator('#lockView [data-lk-close]')).toHaveCount(0);
 });

@@ -20,9 +20,11 @@ const folderWord = name => `'${[...String(name || '')].slice(0, 20).join('')}' �
 
 function install() {
   if (document.getElementById('lockView')) return;
-  document.getElementById('appView')?.insertAdjacentHTML('beforeend', '<section id="lockView" class="view-panel hidden" aria-label="잠금"><div class="panel lk-view" data-lk-root></div></section>');
+  // S71-38: 전체화면 잠금은 브라우저 맨 위 겹(모달 dialog) 하나에 그린다 — 아래 [data-lk-layer] 참고.
+  document.getElementById('appView')?.insertAdjacentHTML('beforeend', '<section id="lockView" class="view-panel hidden" aria-label="잠금"><div class="panel lk-view" data-lk-root></div><dialog class="lk-layer" data-lk-layer aria-label="잠금" tabindex="-1"></dialog></section>');
 }
 const root = () => document.querySelector('#lockView [data-lk-root]');
+const layer = () => document.querySelector('#lockView [data-lk-layer]');
 
 // 이 요청 세션의 로그인 시각이 9분 안인가(서버가 10분으로 다시 확인한다 — 화면 판정은 길 안내일 뿐).
 function recentLogin() {
@@ -63,6 +65,36 @@ function leave() {
 }
 // 앱 전체가 잠긴 동안(S69-08)은 나갈 화면이 없으므로 [✕] 대신 맨 아래 [로그아웃](다른 계정으로 쓰거나 기기를 넘길 때 갇히지 않게).
 const appGate = () => lock.appLocked();
+// ── 맨 위 겹(S71-38 SEC-잠금위로) ─────────────────────────────────────────────────────────────
+// 전체화면 잠금(숫자 판·PIN 잊음·잠긴 기능에서 온 대기)은 열려 있던 입력 창·⋯ 메뉴·고르기 창·보기 창 위를 모두 덮어야 한다.
+// 그 겹들은 z-index를 저마다 갖고(창 50, 메뉴 1000대), 일부는 이미 브라우저 맨 위 겹(showModal·popover)에 있어 z-index로는 이길 수 없다.
+// 그래서 덮는 동안 판(root)을 모달 dialog(data-lk-layer) 안으로 옮겨 showModal()한다: 브라우저가 맨 위 겹 맨 끝에 두고(그 뒤에 연 것 말고는 모두 아래),
+// 나머지 문서 전체를 inert로 만든다 — 아래 글자는 보이지도, 접근성 나무에 읽히지도, 눌리지도 않고 초점(Tab)은 판 안에서만 돈다.
+// 아래 창은 닫거나 숨기지 않는다(쓰던 글·스크롤 그대로, A1). 풀려서 다른 화면으로 가면 close() — 덮기 전 초점이 있던 칸으로 돌려준다.
+// 겹을 열고 닫는 곳은 여기 하나(draw·화면 바뀜·겹이 저절로 닫힘이 모두 이것만 부른다).
+// 덮기 전에 초점이 있던 칸(쓰던 글 칸 등)은 여기서 기억해 풀 때 돌려준다(브라우저마다 dialog close의 초점 돌려주기가 달라 직접 한다).
+let settling = false, returnFocus = null;
+function syncLayer() {
+  const section = document.getElementById('lockView'), box = layer(), host = root();
+  if (!section || !box || !host) return;
+  const cover = window.KPTURouter?.current === 'lock' && !section.classList.contains('hidden') && fullMode();
+  settling = true;
+  try {
+    if (cover) {
+      if (!box.open) { const was = document.activeElement; returnFocus = was && was !== document.body && !box.contains(was) ? was : null; }
+      if (host.parentNode !== box) box.append(host);
+      if (!box.open) box.showModal();
+      if (!box.contains(document.activeElement)) box.focus({preventScroll: true});
+    } else {
+      const back = box.open ? returnFocus : null;
+      if (box.open) box.close();
+      returnFocus = null;
+      if (host.parentNode !== section) section.prepend(host);
+      const now = document.activeElement;
+      if (back?.isConnected && (!now || now === document.body || now === box || box.contains(now))) back.focus({preventScroll: true});
+    }
+  } finally { settling = false; }
+}
 function draw() {
   const host = root(); if (!host) return;
   const full = fullMode();
@@ -73,6 +105,8 @@ function draw() {
   const gate = full && appGate();
   if (full && !gate) host.prepend(closeButton());
   if (gate && ui.mode !== 'wait') host.append(button('secondary mini lk-logout', '로그아웃', {lkLogout: ''}));
+  // 다시 그린 뒤에 겹을 맞춘다(눌렀던 칸이 다시 그려져 초점이 빠졌으면 겹이 다시 받는다 — 글쇠가 아래 문서로 새지 않게).
+  syncLayer();
 }
 
 function list() {
@@ -254,8 +288,14 @@ async function enter() {
 }
 
 install();
-onPadKeys(document.querySelector('#lockView'), press);
-document.querySelector('#lockView')?.addEventListener('click', event => {
+const padDown = onPadKeys(document.querySelector('#lockView'), press);
+// 겹의 Esc·폰 뒤로 가기(브라우저가 모달에 보내는 cancel)는 겹을 닫지 않는다: [✕]가 있는 판이면 [✕]와 같은 길(이전 화면), 앱 전체가 잠겼으면 아무 일 없음.
+layer()?.addEventListener('cancel', event => { event.preventDefault(); if (fullMode() && !appGate()) leave(); });
+// 브라우저가 cancel 없이 겹을 닫아 버린 때(같은 Esc를 거듭 누름 등)에도 잠금이 남아 있으면 곧바로 다시 덮는다.
+layer()?.addEventListener('close', () => { if (!settling) syncLayer(); });
+// 화면이 잠금에서 다른 화면으로 바뀌면(풀림·[✕]·로그아웃) 겹을 닫는다 — 라우터가 #lockView를 숨긴 같은 차례에서.
+window.addEventListener('kptu:view-changed', () => syncLayer());
+function onClick(event) {
   const key = keyOfClick(event); if (key != null) { if (key) press(key); return; }
   const t = event.target.closest?.('button,[data-lk-retry]'); if (!t) return;
   if (t.matches('[data-lk-retry]')) { void lock.refresh().then(enter); return; }
@@ -283,7 +323,8 @@ document.querySelector('#lockView')?.addEventListener('click', event => {
     if ((s.has_pin ? s.relock : ui.relockDraft) === t.dataset.lkRelock) return;
     wantChange({features: s.features, relock: t.dataset.lkRelock}); return;
   }
-});
+}
+document.querySelector('#lockView')?.addEventListener('click', onClick);
 document.querySelector('#lockView')?.addEventListener('change', event => {
   const input = event.target.closest?.('[data-lk-feature]'); if (!input) return;
   const s = lock.settings() || {features: [], relock: '5m'};
@@ -294,12 +335,30 @@ document.querySelector('#lockView')?.addEventListener('change', event => {
   wantChange({features, relock: s.has_pin ? s.relock : ui.relockDraft});
 });
 // PC: 숫자 판이 보이면 키보드 숫자·지우기도.
-document.addEventListener('keydown', event => {
+function onKey(event) {
   if (window.KPTURouter?.current !== 'lock' || ui.mode !== 'pad' || event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.target?.closest?.('input,textarea,[contenteditable="true"]')) return;
   if (/^[0-9]$/.test(event.key)) { event.preventDefault(); press(event.key); }
   else if (event.key === 'Backspace') { event.preventDefault(); press('back'); }
-});
+}
+document.addEventListener('keydown', onKey);
+// S71-38 가림막: 맨 위 겹이 덮는 동안 그 안에서 생긴 누르기·글쇠 사건은 앱의 다른 손잡이에 가지 않는다.
+// 브라우저 inert는 아래 칸이 사건을 받지 못하게만 한다 — document·window에서 듣는 손잡이(⋯ 메뉴 '바깥 누름'으로 닫기·Esc·Tab 돌리기,
+// 창의 Enter 저장 등)는 잠금 판을 누른 사건도 받아, 아래 메뉴가 닫히며 뒤로 가기를 하거나 아래 창이 움직였다.
+// 그래서 window 잡기 단계(문서의 어떤 손잡이보다 앞)에서 멈추고 잠금 화면 자신의 손잡이에만 넘긴다. 브라우저 기본 동작(단추 누름·Tab 이동)은 그대로.
+const OWN = {pointerdown: padDown, click: onClick, keydown: onKey};
+const SHIELD = ['pointerdown', 'pointerup', 'pointercancel', 'mousedown', 'mouseup', 'click', 'dblclick', 'auxclick', 'contextmenu',
+  'keydown', 'keyup', 'keypress', 'beforeinput', 'input', 'change', 'paste', 'copy', 'cut'];
+const PASSIVE = ['touchstart', 'touchmove', 'touchend', 'touchcancel', 'wheel'];
+// 덮는 동안 나머지 문서는 inert라 사건은 판 안이나(누르기·초점) 문서 몸통(초점이 빠진 순간의 글쇠)에서만 생긴다 — 어느 쪽이든 멈춘다.
+function shield(event) {
+  const box = layer();
+  if (!box?.open || !box.matches(':modal')) return;
+  event.stopPropagation();
+  OWN[event.type]?.(event);
+}
+for (const type of SHIELD) window.addEventListener(type, shield, true);
+for (const type of PASSIVE) window.addEventListener(type, shield, {capture: true, passive: true});
 window.KPTURouter?.on?.('lock', () => { void enter(); });
 // 앱 전체(S69-08): 잠금 설정 목록을 보던 중 앱 전체가 다시 잠기면(앱을 떠났다 돌아옴) 목록 대신 숫자 판.
 window.addEventListener('kptu:feature-lock-changed', () => { if (window.KPTURouter?.current === 'lock' && ui.mode === 'list' && lock.appLocked()) void enter(); });
