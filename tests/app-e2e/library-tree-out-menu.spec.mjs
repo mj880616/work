@@ -106,7 +106,8 @@ for(const width of [1440,884,412])test(`LIB-위쪽줄여백 ${width}: 위쪽 한
   test.setTimeout(60000);
   const {errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
   await expect(page.locator('#libraryRecent')).toBeVisible();
-  const gap=await page.evaluate(()=>{const a=document.querySelector('.library-filter-toolbar .lu-search-row').getBoundingClientRect(),b=document.querySelector('#libraryRecent').getBoundingClientRect(),space=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-space-2'));return {gap:Math.round(b.top-a.bottom),space}});
+  // S71-28 FILES-머리한줄: 폰·폴드는 위쪽 한 줄이 앱 머리 줄이다 — 머리 줄과 상자 사이 = 머리 줄 아래 여백(빈 둘째 줄 자리가 끼지 않음).
+  const gap=await page.evaluate(wide=>{const head=document.querySelector('#appView>.mobile-shell-header'),a=(wide?document.querySelector('.library-filter-toolbar .lu-search-row'):head).getBoundingClientRect(),b=document.querySelector('#libraryRecent').getBoundingClientRect(),space=wide?parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-space-2')):parseFloat(getComputedStyle(head).marginBottom);return {gap:Math.round(b.top-a.bottom),space}},width>760);
   expect(gap.gap).toBe(gap.space);
   await page.screenshot({path:`test-results/library-top-gap-${width}.png`,clip:{x:0,y:0,width,height:360}});
   expect(errors).toEqual([]);

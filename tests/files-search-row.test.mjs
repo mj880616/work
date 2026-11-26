@@ -29,8 +29,12 @@ test('화면 안 찾기 칸 없음 · 맨 위 칸 \'파일에서 찾기\' = 지�
   assert.match(js, /apply: raw => setQuery\(P\(\), raw\)/);
 });
 
-test('폰 맨 위 줄: 보기 단추는 출처 단추와 같은 줄, 폰은 그림만', () => {
+// S71-28 FILES-머리한줄(명진 11/26 "파일도 한줄로"): 폰은 출처·보기 단추를 앱 머리 줄 단추 상자(toolsBox('files'))로 옮긴다 — 둘째 줄 없음.
+test('폰 맨 위 줄: 보기 단추는 출처 단추와 같은 앱 머리 줄, 폰은 그림만', () => {
   assert.match(css, /\.fx-view-seg \.fx-seg-t \{ display:none; \}/);
-  assert.match(css, /\.fx-view-seg \{ order:2; \}/);
+  assert.match(js, /const fxTools = toolsBox\('files', 'files'\);/);
+  assert.match(js, /const host = PHONE\.matches \? fxTools : top;/);
+  assert.match(css, /\.sf-tools\[data-sf-tools="files"\] \.fx-view-seg \{ margin-left:auto; \}/);
   assert.doesNotMatch(css, /\.fx-view-seg \{[^}]*display:none/);
+  assert.doesNotMatch(css, /\.fx-top::before/); // 둘째 줄을 가르던 줄 나눔 없음
 });

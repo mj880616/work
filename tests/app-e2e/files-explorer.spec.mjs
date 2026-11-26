@@ -31,7 +31,7 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   // S70-57: 화면 안 찾기 칸은 없고 앱 머리 줄 맨 위 칸이 '파일에서 찾기'(폰은 돋보기). 출처 단추는 위 줄 작은 정사각.
   await expect(root(page).locator('input[type="search"]')).toHaveCount(0);
   await expect(page.locator('#gsScreenInput')).toHaveAttribute('placeholder', '파일에서 찾기');
-  const chip = await root(page).locator('[data-fx-srcs] [data-fx-src="od"]').boundingBox();
+  const chip = await page.locator('[data-fx-srcs] [data-fx-src="od"]').boundingBox();
   expect(chip.width).toBeLessThanOrEqual(30);
   expect(server.calls.filter(c => c.what === 'app_cloud_find_in').map(c => c.body.p_shelf).sort()).toEqual(['recent', 'starred']);
   expect(server.calls.find(c => c.what === 'edge' && c.action === 'status').auth).toMatch(/^Bearer /);

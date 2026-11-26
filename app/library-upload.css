@@ -253,6 +253,9 @@
 #appView #libraryView #libraryPath > .lu-drive-here{flex:none;margin-left:auto;padding:0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4}
 #appView #libraryView #libraryPath > .lu-drive-note.lu-drive-here{margin-left:6px}
 .lu-drive-note::before{content:"· ";}
+/* S70-76: 드라이브 쪽이 밀리면 줄 끝 '드라이브에 못 옮겼어요 [다시]' — 공용 글자 버튼(row-act), 여기서는 줄 글자 크기만 */
+.lu-drive-retry{flex:none;font-size:var(--ds-text-meta,12px)}
+#appView #libraryView #libraryPath > .lu-drive-retry.lu-drive-here{margin-left:0}
 .lu-folder-hint{margin:4px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
 .lu-folder-hint[hidden],.lu-folder-name[hidden],.lu-folder-targets[hidden]{display:none}
 .lu-folder-targets{display:grid;gap:2px;max-height:50vh;overflow:auto;margin:0 0 8px}
@@ -480,7 +483,7 @@
 #appView #libraryView .library-filter-toolbar .lu-recent{margin:var(--kptu-space-2) 0 0}
 #appView #libraryView #libraryListCard > .add-list-head.add-list-head{height:0;min-height:0;margin:0;padding:0}
 /* SEARCH-선택옮기기 ⑤: 찾는 중 작은 [결과 n개 모두 선택]. S71-07(Q3): 자리는 본문 첫 줄 [폴더 ▾][분류 ▾] 끝 — 맨 위 검색칸 폭을 줄이지 않는다. */
-#appView #libraryView .lu-pick-row > .lu-search-pick-all{flex:none;height:var(--ds-compact-height,32px);min-height:0;margin-left:auto;padding:0 8px;font-size:12px;white-space:nowrap}
+#appView #libraryView :is(.lu-pick-row,.lu-search-row) > .lu-search-pick-all{flex:none;height:var(--ds-compact-height,32px);min-height:0;margin-left:auto;padding:0 8px;font-size:12px;white-space:nowrap}
 /* FILES-폴드나무목록 ⑦(S51-20 ④): 펼친 폴드·PC(600px~) 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 목록. 줄 모양은 공용 폴더 줄(folder-tree.css ft-). 폰은 그대로(이 칸 없음).
    S69-28 LIB-한칸탐색기(명진 11/24 '화면 깨짐'·'펼치면 창이 같이 늘어나야'): 나무 칸은 카드 안 흐름(float)이라 카드(흰 상자)가 나무·목록 중 긴 쪽만큼 늘어난다.
    칸 안 스크롤·화면 높이 자르기는 없다 — 화면 스크롤 하나. (원인: 예전에는 나무 칸을 카드 높이에 묶어 두고(position:absolute;top:0;bottom:0)
@@ -513,25 +516,51 @@
 #appView #libraryView .library-filter-toolbar .lu-search-row{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;flex:1 1 100%;min-width:0}
 #appView #libraryView .lu-search-row > .lu-pick-row{display:flex;align-items:center;gap:6px;flex:0 1 auto;min-width:0}
 /* 고르기 상자 둘: 같은 높이·글자·선. [분류 ▾]는 단추(체크 여러 개 창), [폴더 ▾]는 고르기 상자(하나만). */
-#appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){position:relative;display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;max-width:14em;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 8px;
+#appView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){position:relative;display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;max-width:14em;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 8px;
   font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;color:var(--kptu-ink);white-space:nowrap;overflow:visible;
   background-color:var(--ds-select-bg,var(--kptu-surface-subtle));border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:var(--kptu-radius-md);cursor:pointer}
 /* S56-11: 바탕은 색만 정한다(background-color). 줄임 표기 background:는 공용 ▾ 그림(ui-standard.css select 규칙)을 지워 [폴더 ▾]의 ▾가 안 보였다(사진 [전체 ▾]와 같은 원인). */
-#appView #libraryView .lu-pick-row > .lu-top-select{width:auto;field-sizing:content;padding-right:22px;text-overflow:ellipsis}
-#appView #libraryView .lu-pick-row > .lu-cat-pick .lu-cat-pick-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
+#appView .lu-pick-row > .lu-top-select{width:auto;field-sizing:content;padding-right:22px;text-overflow:ellipsis}
+#appView .lu-pick-row > .lu-cat-pick .lu-cat-pick-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* S56-11: [분류] 단추의 꺾쇠는 글자가 아니라 공용 고르기 상자 그림(ui-standard.css select 규칙의 쉼표 목록)이다. [폴더] 상자와 모양·자리·굵기가 같다. */
-#appView #libraryView .lu-pick-row > .lu-cat-pick::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-#appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
+#appView .lu-pick-row > .lu-cat-pick::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
 /* 작은 아이콘 ⌕·+·⋯·✕: ⑥ 아이콘 크기(--ds-compact-height), 선·바탕 없음, 마우스를 올릴 때만 옅은 바탕. 누르는 범위 44px은 위아래로만 ::after. */
 .sf-tools .lu-head-actions :is(#newDocumentBtn,#libraryTopMenuBtn){position:relative;box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:var(--ds-compact-height,32px);min-width:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1}
 .sf-tools .lu-head-actions :is(#newDocumentBtn,#libraryTopMenuBtn):is(:hover,[aria-expanded="true"]){background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
 .sf-tools .lu-head-actions :is(#newDocumentBtn,#libraryTopMenuBtn)::after{content:"";position:absolute;inset:auto;left:0;right:0;min-width:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px);min-height:0}
 .sf-tools .lu-head-actions :is(#newDocumentBtn,#libraryTopMenuBtn):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
 .sf-tools .lu-head-actions #newDocumentBtn::before{content:"";display:block;width:18px;height:18px;background:currentColor;-webkit-mask:var(--ds-fab-plus) center / 18px 18px no-repeat;mask:var(--ds-fab-plus) center / 18px 18px no-repeat}
+/* S71-28 FILES-머리한줄(명진 11/26 "자료실도"): 폰·폴드(~760px)는 앱 머리 줄 한 줄 = [W] 자료실 · [폴더 ▾] · [분류 ▾] …… ⋯ · 찾기 · [+]
+   ([+]는 맨 오른쪽, 11/26 명진 '…찾기 · [+]'). 고르기 줄(.lu-pick-row)은 library-upload.js luPlacePicks가 머리 줄 단추 상자(.sf-tools)로 옮긴다 — 본문 둘째 줄 없음.
+   상자·[⋯ +] 묶음은 머리 줄 칸으로 풀어(display:contents) 찾기 칸(.mobile-shell-find)과 자리 순서만 맞춘다(그리기·누르기는 그대로).
+   [분류 ▾]는 지금 고른 값만 보인다(읽기 이름은 '분류: …'). 좁으면 고르기 상자 글자가 먼저 '…'로 준다. 폰(600px 미만)에서 찾기 칸을 펼치면 칸이 이름 자리를 쓰고 고르기는 같은 줄에서 좁아진다. */
 @media(max-width:760px){
-  #appView #libraryView .library-filter-toolbar .lu-search-row{flex-wrap:wrap;row-gap:var(--kptu-space-1,4px)}
-  #appView #libraryView .lu-search-row > .lu-pick-row{order:3;flex:1 1 100%}
-  #appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){max-width:calc(50% - 3px)}
+  html[data-screen-find="library"] #appView>.mobile-shell-header{gap:4px}
+  html[data-screen-find="library"] #appView>.mobile-shell-header>.head-mark{margin-right:4px}
+  html[data-screen-find="library"] .mobile-shell-header>.screen-tools-slot,
+  html[data-screen-find="library"] .mobile-shell-header .sf-tools[data-sf-tools="library"]:not([hidden]),
+  html[data-screen-find="library"] .mobile-shell-header .sf-tools[data-sf-tools="library"] .lu-head-actions{display:contents}
+  html[data-screen-find="library"] .mobile-shell-header>[data-mobile-view-name]{flex:none}
+  html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-pick-row{order:1;display:flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0}
+  #appView .sf-tools .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){max-width:9em}
+  html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-head-actions>*{order:2}
+  html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-head-actions>:is(#libraryViewSeg,#libraryTopMenuBtn):first-child{margin-left:auto} /* 단추 모양 규칙(margin:0, id 고르개)보다 앞서게 id로 */
+  html[data-screen-find="library"] .mobile-shell-header>.mobile-shell-find{order:3}
+  html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-head-actions>#newDocumentBtn{order:4}
+  /* 본문 첫 줄은 [결과 n개 모두 선택](찾는 중에만)만 남는다 — 비면 자리 없음. */
+  #appView #libraryView .library-filter-toolbar .lu-search-row:empty{display:none}
+  /* 그때 '최근 올린 파일' 상자가 맨 위면 위 여백은 머리 줄 아래 여백 하나(본문 첫 줄 아래 간격이 겹쳐 남지 않게). 거르기 줄이 보이면 그 아래 간격은 그대로. */
+  #appView #libraryView .library-filter-toolbar > .lu-search-row:empty ~ .lu-recent{margin-top:0}
+  #appView #libraryView .library-filter-toolbar > .lu-filter-row:not([hidden]):not(:has(> [hidden])) ~ .lu-recent{margin-top:var(--kptu-space-2)}
+}
+@media(max-width:599px){
+  html[data-screen-find="library"] .mobile-shell-header:not(.sf-open)>.mobile-shell-find{flex:0 0 auto}
+  /* 찾기 칸을 펼친 동안(폰): 칸이 이름 자리를 쓰고, [폴더 ▾][분류 ▾]는 같은 줄에서 좁게(글자 '…') 남아 찾으면서도 거를 수 있다.
+     줄 수가 바뀌지 않으므로 칸을 접을 때(빈 칸에서 다른 곳을 누를 때) 아래 목록이 움직이지 않는다 — 누른 자리 그대로. */
+  html[data-screen-find="library"] .mobile-shell-header.sf-open>.mobile-shell-find{flex:1 1 0;min-width:64px}
+  #appView .mobile-shell-header.sf-open .sf-tools .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){max-width:18vw}
+  html[data-screen-find="library"] .mobile-shell-header.sf-open .sf-tools .lu-head-actions>:is(#libraryViewSeg,#libraryTopMenuBtn):first-child{margin-left:0} /* 남는 폭은 찾기 칸이 쓴다 */
 }
 /* LIB-위쪽한줄: [분류 ▾] 창 줄 끝 자료 수(0도 보임, 소분류 줄은 없음) — 공용 고르기 창 줄 오른쪽 끝 작은 보조 글자. */
 .home-choice-sheet.lu-cat-sheet .lu-cat-sheet-count{flex:none;margin-left:auto;padding-left:8px;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);color:var(--kptu-muted);font-variant-numeric:tabular-nums}

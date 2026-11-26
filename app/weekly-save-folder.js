@@ -4,12 +4,13 @@
 // 규칙은 weekly-save-folder-model.mjs 한 곳. 저장 폴더 = 내 프로필 행 weekly_folder 칸(받는 폴더·모으는 폴더와 같은 내 행 PATCH, owner RLS). 기기 저장 없음.
 // 처음 한 번: 칸이 비어 있으면 '주간보고 파일을 ‘○○’ 폴더에 모을까요? [예] [다른 폴더]'. 답하지 않으면 지금처럼(폴더 밖·받는 폴더) 두고 다음 저장 때 다시 묻는다.
 // 서버 칸이 아직 없으면(적용 전, 400) 아무것도 하지 않는다(지금처럼).
-// 드라이브: 새 옮기기 코드를 두지 않는다. 폴더 연결을 바꾼 뒤 자료실 = 드라이브 폴더 맞추기(workspace-drive drive-mirror 'auto', S69-20/40)를 한 번 부탁해
+// 드라이브: 새 옮기기 코드를 두지 않는다. 폴더 연결을 바꾸면 그 저장 직후 drive-follow.mjs(S70-76, workspace-drive drive-mirror 'auto')가 부탁해
 // 드라이브 파일도 그 폴더의 짝 드라이브 폴더로 옮겨지게 한다(같은 자료의 파일만 바꾼 [올리기]·다시 확정도 새 파일이 자료실 폴더에 놓이므로 같이 옮겨진다).
 // S70-11 WEEKLY-저장폴더나누기: 종류별 두 칸 — 'personal'(내 주간 보고) = weekly_folder, 'confirmed'(팀 보고 취합) = weekly_team_folder(migration 20261125193000).
 // 팀 칸이 아직 없는 서버(400)면 S69-67 그대로(개인 쪽만, 한 폴더). 규칙(종류별 고르기·하위 폴더가 생기면 한 번 다시 묻기·이름 권하기)은 모델 planWeeklySave 한 곳.
 // 남의 기록 안 보기(AGENTS.md 3절): 내 로그인·내 작업공간만 읽고 쓴다.
 import {readLibraryFolders, putDocumentInFolder} from './library-folder-data.js';
+import {askDriveFollow} from './drive-follow.mjs';
 import {profileUrl} from './library-view-pref.js';
 import {notify} from './small-notice.js';
 import {weeklyCategoryFilter} from './document-categories.js';
@@ -77,10 +78,8 @@ async function folderOf(rt, ws, docId) {
     return Array.isArray(rows) && rows[0]?.folder_id || null;
   } catch { return null; }
 }
-// 드라이브 파일도 그 폴더의 짝 드라이브 폴더로: 기존 '앞으로 같게'(drive-mirror auto) 한 번. 실패해도 자료실 화면에 들어올 때 다시 맞춘다.
-function askMirror(rt) {
-  try { void Promise.resolve(rt.api('/functions/v1/workspace-drive?action=drive-mirror', {method: 'POST', body: {mode: 'auto'}, singleFlight: false})).catch(() => {}); } catch { /* 다음 자료실 방문 때 */ }
-}
+// 이미 그 폴더에 있으면(쓰기 없음) 새 파일 자리만 드라이브에 맞춘다 — 부탁 길은 drive-follow.mjs 하나(쓰기가 있으면 저장 직후 그쪽이 저절로).
+const askMirror = rt => askDriveFollow((path, options) => rt.api(path, options));
 
 // 같은 탭에서 두 저장이 겹쳐 두 번 묻지 않게 한 줄로 세운다.
 let tail = Promise.resolve();
@@ -138,7 +137,6 @@ export function fileWeeklyReport({docId, rt = window.KPTURuntime, kind = 'person
       if (ctxOf(rt).user !== owner) return {status: 'off'};
       if (!(await putDocumentInFolder(api, {workspace: ws, documentId: docId, folderId: folder.id}))) { notify(T.putFailed, {error: true}); return {status: 'error'}; }
       try { window.dispatchEvent(new CustomEvent('kptu:library-folders-changed', {detail: {folder_id: folder.id}})); } catch { /* 목록 새로 고침 알림만 */ }
-      askMirror(rt);
       if (asked) return {status: 'asked', folder};
       if (!quiet) notify(pref.legacy ? T.put(path) : T.putKind(kind, path), {actions: [{label: '다른 폴더', run: a => void pickOther(a, list, f => choose(f, docId, rt, kind, pref.legacy))}]});
       return {status: 'filed', folder};

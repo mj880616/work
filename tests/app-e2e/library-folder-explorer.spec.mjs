@@ -170,7 +170,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     const writes=s.writes.length;
     await libraryNodeHead(page,'f:fn').focus();await page.keyboard.press('F2');await input.fill('   ');await page.keyboard.press('Enter');
     await expect(page.locator('#libraryFolderStatusLine')).toHaveText('폴더 이름은 1~40자로 써 주세요.');expect(s.writes.length).toBe(writes);await expect(name).toHaveText('가상 N');
-    await libraryNodeHead(page,'f:fn').focus();await page.keyboard.press('F2');await input.fill('가상 바깥');await page.locator('#libraryView .lu-search-row').click({position:{x:1,y:1}})/* 바깥 누르기(LIB-위쪽한줄: 폰은 찾기 칸이 접혀 있어 위 줄 빈 곳) */;
+    await libraryNodeHead(page,'f:fn').focus();await page.keyboard.press('F2');await input.fill('가상 바깥');await page.locator('#libraryListCard').click({position:{x:2,y:2}})/* S71-28: 폰·폴드는 본문 첫 줄이 없어(고르기도 머리 줄) 목록 칸 모서리 빈 곳을 누른다 *//* 바깥 누르기(LIB-위쪽한줄: 폰은 찾기 칸이 접혀 있어 위 줄 빈 곳) */;
     await expect(name).toHaveText('가상 바깥');expect(s.writes.at(-1).body).toEqual({name:'가상 바깥'});
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });
