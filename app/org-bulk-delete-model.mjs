@@ -1,6 +1,6 @@
-// S67-53 ORG-여러개삭제(명진 11/20 22:48·22:54): 조직 관리 목록·참고 묶음 목록의 '여러 개 선택해 삭제' 글자와 판정(순수 함수, 화면·서버 없음).
+// S67-53 ORG-여러개삭제(명진 11/20 22:48·22:54): 조직 관리 목록의 '여러 개 선택해 삭제' 글자와 판정(순수 함수, 화면·서버 없음).
+// (참고 묶음 목록의 여러 개 삭제는 ORG-참고묶음삭제 S71-22에서 화면과 함께 없앴다.)
 // 담당조직은 한 개 삭제와 같은 규칙(TRASH-화면2): 휴지통으로 옮기고, 연결된 조직 보고·담당자는 그대로 남으며 휴지통에서 되돌릴 수 있다.
-// 참고 묶음은 한 개 삭제와 같은 규칙: 붙은 소식이 없는 빈 묶음만 삭제할 수 있고(DB on delete restrict), 휴지통이 없어 되돌릴 수 없다.
 
 import {word} from './brand/brand.mjs'; // 사람마다 고친 이름(담당조직·조직 보고 등)으로 보인다(APP-기록+이름바꾸기)
 
@@ -35,23 +35,4 @@ export function orgBulkMovedText(moved, left) {
 export function orgBulkUndoText(restored, failed) {
   if (!failed) return word(`담당조직 ${restored}곳을 되돌렸어요.`);
   return word(`담당조직 ${restored}곳을 되돌렸고 ${failed}곳은 되돌리지 못했어요. 보관 창의 휴지통을 확인해 주세요.`);
-}
-
-export const BUNDLE_PICK_TEXT = Object.freeze({
-  MENU: '여러 개 선택해 삭제',
-  ALL: '모두 선택',
-  DELETE: '삭제',
-  CANCEL: '취소',
-  HAS_LINKS: '붙은 소식이 있어 삭제할 수 없어요',
-});
-export const bundlePickCount = n => `${n}개 선택됨`;
-// 고를 수 있는 묶음: 붙은 소식이 없는 빈 묶음(한 개 [묶음 삭제]와 같은 기준).
-export const pickableBundles = (bundles, stats) => bundles.filter(b => !(stats.get(b.id)?.count > 0)).map(b => b.id);
-// 되돌릴 수 없으니 확인 창에서 그 점을 먼저 말한다.
-export function bundleBulkConfirmText(n) {
-  return `빈 묶음 ${n}개를 삭제할까요?\n붙은 소식이 없는 묶음만 삭제하고, 삭제하면 되돌릴 수 없어요.`;
-}
-export function bundleBulkResultText(done, left) {
-  if (!left) return `묶음 ${done}개를 삭제했어요.`;
-  return `묶음 ${done}개를 삭제했고 ${left}개는 삭제하지 못했어요. 목록을 다시 불러와 확인해 주세요.`;
 }
