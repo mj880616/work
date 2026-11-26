@@ -142,6 +142,13 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
   // - 칸이 열린 채 다른 곳(다른 줄·⋯ 등 목록 안)을 누르면 닫기만 한다 — 그 누름으로 다른 줄이 열리거나 단추가 눌리지 않게(iOS 메일과 같음).
   // - 열린 칸 위에서 시작한 좌우 밀기도 그 줄을 민다(오른쪽으로 밀면 닫힘). 민 뒤 따라오는 click은 삼키므로 칸 단추는 직접 누를 때만 실행된다.
   root.addEventListener('pointerdown', e => {
+    // S70-64: 두 번째 손가락이 닿으면(두 손가락 벌리기·오므리기 — 줄 크기 T9) 줄 밀기가 아니다. 밀던 것은 그대로 되돌리고 아무 일도 하지 않는다
+    // (오른쪽 밀기가 바로 고르기라, 벌리는 손가락 하나가 오른쪽으로 움직여도 고르기가 켜지지 않게).
+    if (drag && e.pointerId !== drag.id) {
+      const d = drag; drag = null;
+      if (d.on) { d.el.classList.remove('is-drag'); if (open === d.state) paint(d.state, openOffset(open.side, d.has.end)); else drop(d.state); swallow = true; }
+      return;
+    }
     swallow = false;
     const onCell = !!open && open.el.isConnected && open.layer.contains(e.target);
     if (open && !onCell && !open.el.contains(e.target)) { const shown = open.el.isConnected; close(); swallow = shown; }
