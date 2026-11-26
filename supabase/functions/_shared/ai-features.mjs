@@ -39,6 +39,7 @@ export const AI_ASSIST_KIND_FEATURES = Object.freeze({
   overlap_check: 'other',         // 기록 겹침 확인
   hwp_convert: 'other',           // 서식 변환
   note_title: 'other',            // 노트 제목
+  find_expand: 'other',           // 찾기 풀이(검색 글 → 기간·비슷한 말)
   share_draft: 'other',           // 공유 페이지 초안
   home_day_picks: 'other',        // 홈 하루 채우기
 });

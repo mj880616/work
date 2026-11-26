@@ -1331,7 +1331,7 @@ async function keyFiles(page) {
     picked: () => page.locator('#filesRoot [data-fx-list] [data-fx-row][aria-selected="true"], #filesRoot [data-fx-list] [data-fx-row].fx-picked').count(),
     pickTwo: async () => { await rows.nth(1).click({ modifiers: ['Control'] }); await rows.nth(2).click({ modifiers: ['Control'] }); },
     renameOpen: async () => { await expect(askShown(page).locator('.kptu-ask-field')).toBeVisible(); await expect(askShown(page).locator('.kptu-ask-field')).toHaveValue(/가짜/); await page.keyboard.press('Escape'); },
-    field: page.locator('#filesRoot [data-fx-search]'),
+    field: screenFindLocator(page), // S70-57: 맨 위 칸 '파일에서 찾기'(옛 [data-fx-search])
     id: i => rows.nth(i).getAttribute('data-fx-row'),
     // [파일] 휴지통 보내기는 [되돌리기]가 없다 → 하나·여럿 모두 확인 창(K1 한 규칙 I-6).
     deleteOne: async () => { await expect(askShown(page)).toBeVisible(); await expect(page.locator('.kptu-ask-text')).toContainText('휴지통'); await page.keyboard.press('Escape'); },

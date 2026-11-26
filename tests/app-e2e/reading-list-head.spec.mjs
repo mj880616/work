@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 // S70-40b ④ READ-목록머리(docs/design/reading-screens.md 2절 A1·A2·5절 ② (가), 명진 11/25 16:16 "추천대로"):
 // 저장한 글 왼쪽 목록 머리 줄 — PC 틀(761px~)은 위 줄(app-topline)에 화면 이름이 보이므로 머리 줄 제목을 빼고 보기 탭 + ＋ 아이콘만.
 // 글을 열어 왼쪽 칸이 좁아져도(22em) 머리 줄 안 어떤 칸도 잘리지 않는다(scrollWidth ≤ clientWidth). 안 읽은 글이 없으면 '안 읽음'(0 없음).
-// 폰(위 줄 없음)은 제목이 화면 이름이라 남고 잘리지 않는다. 서버는 흉내, 글·주소는 모두 예시.
+// 폰(위 줄 없음)은 앱 머리 줄이 화면 이름을 보이므로(S70-57) 머리 줄 제목은 어느 폭에도 없다. 서버는 흉내, 글·주소는 모두 예시.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ID = 'a7040b00-0000-4000-8000-000000000041';
 async function open(page, width, { unread = true } = {}) {
@@ -48,7 +48,7 @@ test('목록 머리 제목 안 잘림 PC 1280: 글을 열어 왼쪽 칸이 좁�
   await page.locator(`#readingView .rd-row[data-rd-open="${ID}"]`).click();
   await expect(page.locator('#readingView [data-rd-detail]')).toBeVisible();
   await expect(page.locator('#appView>.app-topline')).toContainText('저장한 글');
-  await expect(head.locator('.rd-title')).toBeHidden();
+  await expect(head.locator('.rd-title')).toHaveCount(0);
   expect(await clipped(head)).toEqual([]);
   const add = head.locator('.rd-add');
   await expect(add).toHaveClass(/icon-btn/);
@@ -61,10 +61,11 @@ test('목록 머리 제목 안 잘림 PC 1280: 글을 열어 왼쪽 칸이 좁�
   expect(errors).toEqual([]);
 });
 
-test('목록 머리 폰 390: 제목(화면 이름)은 잘리지 않고 ＋ 아이콘, 탭은 하단바 위 전환 줄', async ({ page }) => {
+test('목록 머리 폰 390: 화면 이름은 앱 머리 줄 한 번(머리 줄 제목 없음), ＋ 아이콘, 탭은 하단바 위 전환 줄', async ({ page }) => {
   test.setTimeout(60000);
   const { errors, head } = await open(page, 390);
-  await expect(head.locator('.rd-title')).toHaveText('저장한 글');
+  await expect(page.locator('.mobile-shell-header [data-mobile-view-name]')).toHaveText('저장한 글');
+  await expect(head.locator('.rd-title')).toHaveCount(0);
   expect(await clipped(head)).toEqual([]);
   await expect(head.locator('.rd-add')).toHaveAttribute('aria-label', '글 추가');
   expect(errors).toEqual([]);
