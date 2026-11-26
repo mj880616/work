@@ -3,7 +3,7 @@ import { WorkspaceDriveError, workspaceDriveToken } from "./workspace-drive-toke
 // S69-22: 바구니 폴더는 내 드라이브 맨 위 또는 맨 위 앱 폴더(root_folder_id) 바로 아래 어디에 있어도 같은 폴더(옮긴 뒤 새로 안 만듦).
 import { APP_FOLDER_MARK, basketFolderClause, createParentFor, isBasketFolder, renameIfOld, topParentsClause } from "./app-folders.mjs";
 // S69-41: 새 바구니 폴더 이름('WORK ON+ 바구니'). 찾기·확인은 표식 또는 알려진 이름(옛·새)이라 [한곳으로 모으기]가 이름을 바꿔도 같은 폴더.
-import { FOLDER_NAMES } from "./brand-folders.mjs";
+import { BOARD_PHOTO_FOLDER_NAME, FOLDER_NAMES } from "./brand-folders.mjs";
 
 export type UploadAdmin = Pick<SupabaseClient, "auth" | "from">;
 export type UploadLog = (code: string) => void;
@@ -349,11 +349,49 @@ export function createDriveUpload(
     }
     return verify(created);
   }
+  // S71-49 NOTE-보드사진: the folder "보드 사진" directly inside the stored top app folder (app_drive_settings.root_folder_id —
+  // read here with the server key for this workspace only, never taken from the request). Found or created with the same private
+  // check as every child folder (ensurePrivateChildFolder). Returns null when the top app folder is not known yet, is gone, trashed or
+  // not the caller's own folder, or the child folder cannot be used privately (shared / permissions unreadable): the caller then keeps
+  // the earlier place ("노트 첨부" in the basket). The top app folder itself is never created here (app-folders.mjs rule).
+  // existingOnly (OCR of a board photo): only find; null when it is not there.
+  async function boardPhotoFolder(
+    workspaceId: string,
+    token: string,
+    options: { existingOnly?: boolean } = {},
+  ): Promise<string | null> {
+    const { data, error } = await admin.from("app_drive_settings")
+      .select("root_folder_id").eq("workspace_id", workspaceId).maybeSingle();
+    if (error) throw unavailable("drive_settings");
+    const root = data?.root_folder_id;
+    if (!validId(root)) return null;
+    const r = await driveFetch(
+      "drive_folder",
+      `https://www.googleapis.com/drive/v3/files/${
+        encodeURIComponent(root)
+      }?fields=id,mimeType,ownedByMe,trashed`,
+      { headers: auth(token) },
+    );
+    if (r.status === 404) return null;
+    if (!r.ok) throw unavailable("drive_folder");
+    const f = await bodyJson(r);
+    if (
+      f.id !== root || f.mimeType !== "application/vnd.google-apps.folder" ||
+      f.ownedByMe !== true || f.trashed !== false
+    ) return null;
+    try {
+      return await ensurePrivateChildFolder(root, BOARD_PHOTO_FOLDER_NAME, token, options);
+    } catch (e) {
+      if (e instanceof UploadError && e.status === 409) return null;
+      throw e;
+    }
+  }
   return {
     driveToken,
     createFolder,
     ensurePrivateRootFolder,
     ensurePrivateChildFolder,
+    boardPhotoFolder,
     upload,
     discardUploadedFile,
   };
