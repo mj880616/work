@@ -2,7 +2,7 @@
 
 📱 폰 가능(이 문서) · DB 단계 📱 폰 경로 C 또는 승인형 DB workflow · Edge 단계 승인형 Edge workflow · 화면 단계 앱 PR
 
-- 요청: Drive 'Web2 요청함' [10/29 08:24] 1~6. 명진 결정 10/29 08:35 "추천대로"(이름 + 무작위 글자 링크, 블록 편집 공유 페이지 유지, 5MB).
+- 요청: Drive 'Web2 요청함' [10/29 08:24] 1~6. 사용자 결정 10/29 08:35 "추천대로"(이름 + 무작위 글자 링크, 블록 편집 공유 페이지 유지, 5MB).
 - 작성: 2026-10-29, Claude Code 웹(작업 세션). 기준 main `3e7b73e`(#1462).
 - 표시: **사실** = 저장소 코드·migration·문서로 확인. **추정** = 확인 못 한 짐작. 운영 DB·Edge는 조회하지 않았다.
 
@@ -12,7 +12,7 @@
 | --- | --- |
 | 보관함 | '이전 페이지'·'지나간 업무·사업' 접힘 두 개를 없애고 공유 페이지 목록 아래 접힌 **'보관함 n' 하나**. 보관한 내 공유 페이지(날짜순) → 옛 Web1 페이지 5개(지난 사업 꼬리표 포함). 자료는 지우지 않는다 |
 | HTML 종류 | 공유 페이지 표는 그대로, **HTML 판 표를 새로**. 판이 하나라도 있으면 'HTML' 종류. 새 파일로 바꾸기 = 판 추가(이전 판 보관), 링크는 그대로 |
-| 링크 주소 | `bokdoong.com/s/<이름>-<무작위 8글자>` (예: `bokdoong.com/s/minja-rail-k7q2m9xa`). 이름은 명진이, 글자는 DB가. **4글자는 부족해 8글자**(3절) |
+| 링크 주소 | `bokdoong.com/s/<이름>-<무작위 8글자>` (예: `bokdoong.com/s/minja-rail-k7q2m9xa`). 이름은 사용자가, 글자는 DB가. **4글자는 부족해 8글자**(3절) |
 | 기존 링크와 | 같은 링크 행에 짧은 주소를 하나 붙인다. 끄기·기한·게시 상태·지문 확인·검색 차단·no-store는 기존 그대로. 긴 링크(`/work/share/?t=`)도 계속 열린다 |
 | 읽는 화면 | 기존 공유 화면(`work.bokdoong.com/work/share/`)이 내용을 받아 **격리 칸**(sandbox iframe, allow-same-origin 없음) 안에서만 돌린다 |
 | 저장 | HTML은 DB 비공개 표에만(owner RLS). 공개 저장소(GitHub)·Pages에 남지 않는다. 한도 5MB |
@@ -37,7 +37,7 @@
 
 ### 2.2 짧은 주소
 
-- **새 표 `app_share_page_slugs`**: 링크의 `token_hash`(unique)를 가리키고 `slug_name`(명진이 정함)·`slug_code`(DB 기본값으로만 생김)·`slug_hash`(= sha256(`이름-글자`), 생성 칸, unique).
+- **새 표 `app_share_page_slugs`**: 링크의 `token_hash`(unique)를 가리키고 `slug_name`(사용자가 정함)·`slug_code`(DB 기본값으로만 생김)·`slug_hash`(= sha256(`이름-글자`), 생성 칸, unique).
 - 링크 행 하나에 짧은 주소 하나. 끄기·기한은 링크 행이 그대로 맡으므로 **짧은 주소와 긴 주소가 늘 같이 켜지고 같이 꺼진다**. 링크를 지우면 짧은 주소도 cascade로 지워진다.
 - 서버(service_role)는 `token_hash`·`slug_hash`만 읽는다. 이름·글자 원문은 owner만 읽는다(복사할 때만 읽고 화면에 남기지 않음 — 기존 token 규칙과 같음).
 - 블록 페이지에도 같은 표를 쓸 수 있다(이번 화면은 HTML 페이지에서만 짧은 주소를 만든다. 블록 페이지 링크는 지금 그대로).
@@ -70,7 +70,7 @@
 - **공유 화면**: 공유 화면은 엄격한 CSP라 srcdoc 칸은 그 CSP를 물려받아 CDN·인라인 스크립트가 막힌다. 그래서 **별도 주소** `share/frame.html`(CSP 없음)을 같은 sandbox 속성으로 띄우고, 받은 HTML을 postMessage로 넘겨 그 칸이 그린다. `frame.html`은 자기가 opaque origin(=sandbox 안)이고 부모가 있을 때만 그린다(누가 sandbox 없이 이 파일을 띄워 work 주소 권한으로 남의 HTML을 돌리는 것을 막음). 공유 화면 CSP에는 `frame-src 'self'`만 더한다.
 - 받는 사람이 링크로 여는 화면에는 로그인 정보가 없다. 그래도 같은 sandbox로 돌려 work 주소의 다른 저장값(옛 Web1 편집 로그인 등)에 닿지 않게 한다.
 - 자동 시험(화면 PR): 칸 안 HTML이 `localStorage`·`parent.localStorage`·`document.cookie`·`parent.document`를 읽으려 하면 모두 막히는지, 칸 속성에 allow-same-origin이 없는지, CDN 주소 스크립트·인라인 그래프가 도는지 Web2 미리 보기와 공유 화면 두 곳에서 본다.
-- 남는 위험: 올린 HTML이 칸 안에서 가짜 로그인 화면을 그릴 수는 있다(명진 본인 파일이라 받아들임). 외부 주소를 불러오는 것은 막지 않는다(CDN 라이브러리 동작 조건).
+- 남는 위험: 올린 HTML이 칸 안에서 가짜 로그인 화면을 그릴 수는 있다(사용자 본인 파일이라 받아들임). 외부 주소를 불러오는 것은 막지 않는다(CDN 라이브러리 동작 조건).
 
 ## 6. 크기·저장
 

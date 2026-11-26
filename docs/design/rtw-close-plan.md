@@ -2,7 +2,7 @@
 
 # 읽생기 사이트 닫기 계획 (RTW 닫기, 2026-11-10)
 
-- 명진 결정(2026-11-10 09:41, Web1 삭제 계획 Q6): **읽생기 사이트(`read.bokdoong.com`)를 지금 닫는다. 읽생기 데이터(`rtw_*` 표)는 지우지 않고 보관한다.**
+- 사용자 결정(2026-11-10 09:41, Web1 삭제 계획 Q6): **읽생기 사이트(`read.bokdoong.com`)를 지금 닫는다. 읽생기 데이터(`rtw_*` 표)는 지우지 않고 보관한다.**
 - 이 문서는 닫는 정확한 방법·순서·되돌리기만 적는다. **이 PR은 아무것도 닫지 않는다**(Cloudflare·Edge·비밀값·DB 변경 없음). 실제 닫기는 커맨드센터가 한다.
 - 바탕: `docs/design/domain-move.md` 3.0절(③-0), `docs/design/rtw-note-unify-investigation.md` 4절·6절(읽생기 끄기 정리 목록), `docs/bokdoong-domain.md`, `docs/web2-env6b-edge-source.md` 5절.
 - AGENTS.md 5절: `rtw_*` 표·정책·함수·관련 Edge 함수는 Web2·Web1 작업으로 바꾸지 않는다. 그래서 아래 2·3단계는 이 저장소 작업이 아니라 **커맨드센터의 운영 작업**이고, 데이터·비밀값은 건드리지 않는다.
@@ -24,7 +24,7 @@
 
 - **같은 Supabase 프로젝트의 Edge 비밀값은 모든 함수가 함께 쓴다.** Web2와 읽생기가 한 프로젝트를 쓰므로 비밀값 하나를 지우면 그것을 읽는 Web2 함수도 멈춘다.
 - 확인 결과(2026-11-10 이 저장소 `supabase/functions` 전수 검색): `OPENAI_API_KEY`를 **Web2 함수 10개가 읽는다** — `ai-assist`, `collector-feed`, `document-ai-index`, `library-files`, `meeting-ai-draft`, `meeting-ai-ingest`, `meeting-transcribe`, `news-feed`, `outside-feed`, `page-ai-draft`. `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`·`SUPABASE_ANON_KEY`도 Web2가 쓴다.
-- 이 저장소 함수 중 `RTW_`로 시작하는 비밀값(`RTW_PERSONAL_WRITE_KEY`, `RTW_AI_MODEL`)을 읽는 곳은 없다. 그래도 **이번 닫기에서는 어떤 비밀값도 지우거나 바꾸지 않는다**(명진 지시, AGENTS.md 1절: 비밀값 변경은 대시보드 정지 지점). 읽생기 전용 비밀값 정리는 나중에 읽생기 함수를 지울 때 따로 결정한다.
+- 이 저장소 함수 중 `RTW_`로 시작하는 비밀값(`RTW_PERSONAL_WRITE_KEY`, `RTW_AI_MODEL`)을 읽는 곳은 없다. 그래도 **이번 닫기에서는 어떤 비밀값도 지우거나 바꾸지 않는다**(사용자 지시, AGENTS.md 1절: 비밀값 변경은 대시보드 정지 지점). 읽생기 전용 비밀값 정리는 나중에 읽생기 함수를 지울 때 따로 결정한다.
 
 ## 3. 닫는 순서
 
@@ -32,10 +32,10 @@
 | --- | --- | --- | --- | --- |
 | 0 | 백업 확인: 오늘 날짜 `db-backup-daily` 성공(`scripts/ops/backup-db.mjs`의 `public` 스키마 전체라 `rtw_*` 포함). 데이터는 지우지 않지만 확인만 | 커맨드센터, GitHub Actions 기록 | 없음 | 해당 없음 |
 | 1 | **ChatGPT 글 추가 끊기**: `rtw-personal-write`를 **삭제하지 않고 "항상 410" 판으로 재배포**(추천) — 요청을 읽지 않고 `{"error":"읽생기는 운영을 마쳤습니다"}` 410만 돌려줌. DB·비밀값을 읽지 않음, verify_jwt=false 그대로 | 커맨드센터: 읽생기 저장소에 작은 PR → merge → 그 저장소의 배포 방식으로 **이 함수 하나만**(`--prune` 금지). 배포 전 `functions list`로 현재 version·verify_jwt 기록, 배포 후 version 증가·POST 410·OPTIONS 확인 | ★Edge 배포 | 이전 운영 소스(읽생기 저장소의 배포 전 커밋 SHA를 기록)로 같은 함수 재배포. 소스가 저장소에 있으므로 되돌릴 수 있음 |
-| 1′ | (대안) 함수 삭제 | 명진이 대시보드에서(AGENTS.md 1절: Edge 삭제는 대시보드) | ★Edge 삭제 | 저장소 원본으로 같은 이름·같은 verify_jwt 신규 배포. **삭제 전 운영본 내려받기** |
+| 1′ | (대안) 함수 삭제 | 사용자가 대시보드에서(AGENTS.md 1절: Edge 삭제는 대시보드) | ★Edge 삭제 | 저장소 원본으로 같은 이름·같은 verify_jwt 신규 배포. **삭제 전 운영본 내려받기** |
 | 2 | **사이트 닫기**: `rtw-router` Worker를 "모든 주소에 '더 이상 운영하지 않는 페이지입니다' 한 줄, 410, `X-Robots-Tag: noindex, nofollow, noarchive`, `Cache-Control: no-store`"로 바꿔 배포(이 저장소 `bokdoong-router`의 Web1 안내와 같은 모양). Custom Domain(`read`·`read-test`)은 **그대로 둔다** — 해제하면 주소가 아예 안 열리고(DNS 오류) 되돌리기가 길어짐 | 커맨드센터: 읽생기 저장소 Worker 소스 PR → 그 저장소 Worker 배포 workflow(또는 wrangler). 배포 확인: `https://read.bokdoong.com/`·임의 경로가 410 안내 | ★Cloudflare | Cloudflare 대시보드 `rtw-router` → Deployments → 이전 버전으로 Rollback(즉시), 또는 Worker 소스 revert PR |
-| 3 | GPT 쪽: ChatGPT 화면에서 "읽생기 글 추가" GPT의 작업(Action) 삭제 또는 GPT 비공개 정리 | 명진(ChatGPT 화면, 로그인 필요) — 선택. 1단계로 서버가 이미 막으므로 급하지 않음 | 없음 | 같은 Action 다시 추가 |
-| 4 | 확인: Web2 AI 기능 하나(예: 회의 AI 정리 또는 [AI 묻기])가 그대로 되는지, `rtw_*` 행 개수가 닫기 전과 같은지(select만) | 커맨드센터(읽기 전용 확인 SQL, 폰 경로 C 방식으로 명진이 실행 가능) | 없음 | 해당 없음 |
+| 3 | GPT 쪽: ChatGPT 화면에서 "읽생기 글 추가" GPT의 작업(Action) 삭제 또는 GPT 비공개 정리 | 사용자(ChatGPT 화면, 로그인 필요) — 선택. 1단계로 서버가 이미 막으므로 급하지 않음 | 없음 | 같은 Action 다시 추가 |
+| 4 | 확인: Web2 AI 기능 하나(예: 회의 AI 정리 또는 [AI 묻기])가 그대로 되는지, `rtw_*` 행 개수가 닫기 전과 같은지(select만) | 커맨드센터(읽기 전용 확인 SQL, 폰 경로 C 방식으로 사용자가 실행 가능) | 없음 | 해당 없음 |
 
 - 순서 이유: 들어오는 쓰기 문(1)을 먼저 막고 화면(2)을 닫는다. 1·2는 서로 독립이라 하나가 실패해도 다른 하나는 그대로다.
 - **하지 않는 것**: `rtw_*` 표·함수·정책 삭제, 비밀값 삭제·변경, Auth 사용자(지인 계정) 삭제, Supabase Auth Redirect URL 정리, 읽생기 저장소 archive, GitHub Pages 끄기. 모두 나중에 따로 결정(`rtw-note-unify-investigation.md` 6절 목록).
