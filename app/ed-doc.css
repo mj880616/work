@@ -254,6 +254,9 @@
 .ed-doc ul.ed-ul-check>li[data-checked="true"]::before{content:"\2611";color:var(--kptu-primary-ink,var(--kptu-ink))}
 .ed-doc ul.ed-ul-check>li[data-checked="true"]>.ed-p{color:var(--kptu-muted);text-decoration:line-through}
 .ed-input ul.ed-ul-check>li::before{cursor:pointer}
+/* S69-97 노트 안 할 일: 구글 할 일과 연결된 체크칸은 첫 줄 끝에 작은 '구글' 표(만드는 중은 흐리게). */
+.ed-doc ul.ed-ul-check>li.ed-gtask>:first-child::after{content:"구글";display:inline-block;margin-left:.4em;padding:0 .3em;border:1px solid var(--kptu-border);border-radius:3px;font-size:.7em;line-height:1.4;vertical-align:.15em;color:var(--kptu-muted);text-decoration:none}
+.ed-doc ul.ed-ul-check>li.ed-gtask[data-gtask="wait"]>:first-child::after{content:"구글 …";opacity:.6}
 /* NOTE-노션편집 ①(나) 접기: 첫 줄 + 펼치면 안쪽 블록. 표시는 사이트 공용 꺾쇠(UI-접기꺾쇠 .kptu-chev — 닫힘 ⌄, 펼침 ⌃, 모양은 ui-standard.css 한 곳).
    읽기 화면·게시 받는 화면은 <details>(누르면 열고 닫음, 스크립트 없음), 편집기는 [꺾쇠] 단추. */
 .ed-doc .ed-toggle{position:relative;margin:0 0 .4em;padding-left:1.4em}
