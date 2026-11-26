@@ -36,6 +36,7 @@ import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDo
 import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기
 import {word} from './brand/brand.mjs';
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
+import {setDragGhostImage} from './drag-ghost.js'; // S70-79 STD-끌기모양: 끄는 줄은 공용 이름 조각 하나
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
 installDragEdgeScroll();
 (()=>{
@@ -664,7 +665,7 @@ function clearDropMarks(){document.querySelectorAll('#projectGrid .ps3-plist .ps
 function dropTarget(e){const el=e.target.closest?.('#projectGrid .ps3-plist [data-ps3-project]');if(!el||!dragId||el.dataset.ps3Project===dragId)return null;const p=projects.find(x=>x.id===dragId);if(!groupSiblings(p).some(x=>x.id===el.dataset.ps3Project))return null;const r=el.getBoundingClientRect();return {el,id:el.dataset.ps3Project,after:e.clientY>r.top+r.height/2}}
 function bindReorderDrag(){
  document.addEventListener('click',e=>{const t=e.target.closest?.('#ps3OrderBtn');if(t){e.preventDefault();setOrderMode(!orderMode);return}const m=e.target.closest?.('#projectGrid [data-ps3-order-move]');if(m){e.preventDefault();void moveProject(m.dataset.ps3OrderId,Number(m.dataset.ps3OrderMove))}});
- document.addEventListener('dragstart',e=>{const el=e.target.closest?.('#projectGrid .ps3-plist [data-ps3-project][draggable="true"]');if(!el)return;dragId=el.dataset.ps3Project;el.classList.add('ps3-dragging');try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragId)}catch{}});
+ document.addEventListener('dragstart',e=>{const el=e.target.closest?.('#projectGrid .ps3-plist [data-ps3-project][draggable="true"]');if(!el)return;dragId=el.dataset.ps3Project;el.classList.add('ps3-dragging');setDragGhostImage(e.dataTransfer,projects.find(x=>x.id===dragId)?.name||'이름 없음',document,e);try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragId)}catch{}});
  document.addEventListener('dragover',e=>{if(!dragId)return;const t=dropTarget(e);document.querySelectorAll('#projectGrid .ps3-plist .ps3-drop-before,#projectGrid .ps3-plist .ps3-drop-after').forEach(x=>{if(x!==t?.el)x.classList.remove('ps3-drop-before','ps3-drop-after')});if(!t)return;e.preventDefault();try{e.dataTransfer.dropEffect='move'}catch{}t.el.classList.toggle('ps3-drop-after',t.after);t.el.classList.toggle('ps3-drop-before',!t.after)});
  document.addEventListener('drop',e=>{if(!dragId)return;const t=dropTarget(e),id=dragId;dragId=null;clearDropMarks();if(!t)return;e.preventDefault();const p=projects.find(x=>x.id===id),rest=catalog.siblings(projects,p).filter(x=>x.id!==id),at=rest.findIndex(x=>x.id===t.id);if(at<0)return;void reorderProject(id,at+(t.after?1:0))});
  document.addEventListener('dragend',()=>{dragId=null;clearDropMarks()});

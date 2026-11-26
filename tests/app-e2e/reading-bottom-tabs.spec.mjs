@@ -70,40 +70,45 @@ for (const width of [390, 412, 700]) {
     const last = list.locator('.rd-row').last();
     await page.evaluate(() => { const v = document.getElementById('readingView'); v.scrollTop = v.scrollHeight; window.scrollTo(0, document.documentElement.scrollHeight); document.scrollingElement.scrollTop = 1e6; });
     await expect(async () => { const r = await box(last), s2 = await box(sw); expect(r.y + r.height).toBeLessThanOrEqual(s2.y + 1); }).toPass({ timeout: 5000 });
-    // [+ 추가]는 제목 줄 그대로.
-    await expect(list.locator('.rd-head .rd-add')).toBeVisible();
-    // 탭을 누르면 바뀌고, 목록(머리줄)을 좌우로 밀면 옆 탭.
+    // ＋(글 추가)는 S71-26부터 앱 머리 줄 찾기 오른쪽(목록 머리 줄 없음).
+    await expect(page.locator('.mobile-shell-header [data-rd-add]')).toBeVisible();
+    await expect(list.locator('.rd-head')).toHaveCount(0);
+    // 탭을 누르면 바뀌고, 줄 밖(화면 칸 빈 곳)을 좌우로 밀면 옆 탭.
     await sw.locator('[data-filter-value="unread"]').click();
     await expect(list.locator('.rd-row')).toHaveCount(24);
-    await swipe(list.locator('.rd-head .rd-title'), -160);
+    const zone = page.locator('#readingView .rd-wrap');
+    await swipe(zone, -160);
     await expect(sw.locator('[data-filter-value="marks"]')).toHaveAttribute('aria-checked', 'true');
-    await swipe(list.locator('.rd-head .rd-title'), 160);
-    await swipe(list.locator('.rd-head .rd-title'), 160);
+    await swipe(zone, 160);
+    await swipe(zone, 160);
     await expect(sw.locator('[data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
     if (process.env.S68_48_SHOTS) await page.screenshot({ path: `${process.env.S68_48_SHOTS}/reading-${width}.png` });
-    // 글을 열면(폰은 목록 대신) 탭 줄도 없다.
+    // 글을 열면 폰은 목록 대신 글이라 탭 줄도 없다. S70-58: 펼친 폴드(600px~)는 목록 | 글 두 칸이라 목록·탭 줄이 그대로.
     await list.locator('.rd-row').first().click();
     await expect(page.locator('#readingView [data-rd-detail]')).toBeVisible();
-    await expect(sw).toBeHidden();
+    if (width < 600) await expect(sw).toBeHidden();
+    else { await expect(sw).toBeVisible(); await expect(list).toBeVisible(); }
     expect(errors).toEqual([]);
   });
 }
 
 for (const width of [904, 1280]) {
-  // S70-40b ④ READ-목록머리(명진 11/25 "추천대로" ② (가)): PC 틀은 위 줄에 화면 이름이 있어 머리 줄 제목이 없다 — 탭이 맨 앞, ＋가 줄 끝.
-  test(`저장한 글 보기 탭 ${width}: PC 틀은 머리 줄 맨 앞(제목 없음, ＋ 앞), 따로 칩 줄 없음`, async ({ page }) => {
+  // S70-40b ④ READ-목록머리(명진 11/25 "추천대로" ② (가)): PC 틀은 위 줄에 화면 이름이 있어 머리 줄 제목이 없다 — 탭이 목록 맨 앞.
+  // S71-26 SAVED-머리한줄: ＋는 목록 안이 아니라 맨 위 줄 검색 칸 오른쪽(목록 머리 줄 .rd-head 없음, 탭이 목록 첫 줄).
+  test(`저장한 글 보기 탭 ${width}: PC 틀은 목록 첫 줄 맨 앞(제목 없음, ＋는 맨 위 줄), 따로 칩 줄 없음`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, list } = await openReading(page, width);
-    const sw = list.locator('.rd-head > .rd-switch');
+    const sw = list.locator('> .rd-switch');
     await expect(sw).toBeVisible();
     await expect(sw).toHaveClass(/(^|\s)ds-seg(\s|$)/);
     expect(await sw.evaluate(e => getComputedStyle(e).position)).not.toBe('fixed');
     await expect(list.locator('.rd-chips, .filter-chips')).toHaveCount(0);
-    await expect(list.locator('.rd-head .rd-title')).toBeHidden();
-    const s = await box(sw), add = await box(list.locator('.rd-head .rd-add')), head = await box(list.locator('.rd-head'));
-    expect(Math.abs((s.y + s.height / 2) - (add.y + add.height / 2)), '머리 줄 한 줄').toBeLessThan(4);
-    expect(s.x - head.x).toBeLessThanOrEqual(1);
-    expect(s.x + s.width).toBeLessThanOrEqual(add.x + 1);
+    await expect(list.locator('.rd-head, .rd-title')).toHaveCount(0);
+    await expect(list.locator('[data-rd-add]')).toHaveCount(0);
+    await expect(page.locator('#appView>.app-topline [data-rd-add]')).toBeVisible();
+    const s = await box(sw), lb = await box(list), first = await box(list.locator('.rd-row').first());
+    expect(s.x - lb.x).toBeLessThanOrEqual(1);
+    expect(s.y + s.height, '탭이 첫 글 줄 위').toBeLessThanOrEqual(first.y + 1);
     await sw.locator('[data-filter-value="unread"]').click();
     await expect(list.locator('.rd-row')).toHaveCount(24);
     if (process.env.S68_48_SHOTS) await page.screenshot({ path: `${process.env.S68_48_SHOTS}/reading-${width}.png` });

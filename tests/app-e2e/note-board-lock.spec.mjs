@@ -56,7 +56,7 @@ test('PC 보드: 잠근 폴더는 왼쪽 목록에 줄 하나 · 잠김, 판 카
   await openNotes(page);
   const side = page.locator('[data-nbb-side]'), card = page.locator('[data-nb-card="n2"]');
   const locked = side.locator(`[data-nbb-locked="${F1}"]`);
-  await expect(locked).toHaveText(/비밀\s*·\s*잠김/);
+  await expect(locked).toHaveText(/^비밀\s*잠김$/);
   // 잠근 폴더 줄은 펼치는 줄·놓는 곳이 아니다(폴더 줄 속성·개수 없음), 안쪽 폴더·노트 제목은 어디에도 없다.
   await expect(side.locator(`[data-nbb-folder="${F1}"], [data-nbb-folder="${F2}"]`)).toHaveCount(0);
   await expect(locked).not.toHaveAttribute('data-reorder-id', /.*/);
@@ -93,7 +93,7 @@ test('폰 보드 [+ 노트 붙이기] 고르기 창: 잠근 폴더는 줄 하나
   await openNotes(page);
   await page.locator('[data-nbb] [data-nbb-pick]').click();
   const dlg = page.locator('dialog.nbb-pick');
-  await expect(dlg.locator(`[data-nbb-pl="${F1}"]`)).toHaveText(/비밀\s*·\s*잠김/);
+  await expect(dlg.locator(`[data-nbb-pl="${F1}"]`)).toHaveText(/^비밀\s*잠김$/);
   await expect(dlg.locator(`[data-nbb-pf="${F1}"], [data-nbb-pf="${F2}"]`)).toHaveCount(0);
   for (const t of HIDDEN) await expect(dlg).not.toContainText(t);
   // 찾기에도 걸리지 않는다.

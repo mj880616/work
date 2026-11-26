@@ -60,7 +60,6 @@ const SHORT_OR_OTHER = {
   'files-trash.js': '[파일] 휴지통 창(S69-62): 되살릴 파일을 휴지통 목록 자체에서 선택 — 고르는 목록이 아니라 되살리기 승인 목록',
   'reference-bundles.js': '참고 묶음 [여러 개 선택해 삭제] 모드(S67-53): 목록 자체에서 선택하는 것이라 선택 목록이 아님',
   'library-sort.js': '받는 폴더 나누기 제안 창: 줄마다 옮길지 체크 + 갈 폴더(시안 lib-receive-sort.html) — 고르는 목록이 아니라 제안 승인 목록',
-  'library-drive-import.js': '드라이브에서 가져오기 창(S69-25): 드라이브 폴더 경로별 묶음 체크로 가져올 파일 승인(library-sort.js와 같은 꼴) — 고르는 목록이 아니라 가져오기 승인 목록',
   'markdown-render.mjs': '글 안 할 일 표시(읽기 전용)',
   'suborganizations.js': '일정의 관련 담당조직은 내 담당만(짧음), 담당자 선택은 사람 몇 명',
   'task-row-view.js': '할 일 완료 체크',

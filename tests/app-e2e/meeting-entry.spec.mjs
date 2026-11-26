@@ -14,7 +14,7 @@ import {reportFilterSelect,reportFilterPicked,reportFilterLabels,pickReportFilte
 import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 
 import {addReport} from './helpers/report-add.mjs';
-import {reportBoxesInChip} from './helpers/report-boxes.mjs';
+import {reportBoxesInChip,openReportBoxes,closeReportBoxes} from './helpers/report-boxes.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -297,7 +297,7 @@ test('meeting material upload attempts every selected file and reports partial f
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
   // MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기와 같은 library-files 요청으로 올린다(meeting_id 칸으로 연결).
-  await page.route(`${SB}/functions/v1/library-files**`,async route=>{
+  await page.route(`${SB}/functions/v1/library-files**`,async route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     uploadCount++;
     if(uploadCount===2)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'upload failed'})});
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,document:{id:'00000000-0000-4000-8000-00000000000'+uploadCount,meeting_id:'meeting-files'}})});
@@ -333,8 +333,8 @@ test.describe('meeting list rows below PC width',()=>{
 test.use({viewport:{width:599,height:900}}); // FOLD-넓은화면 2차(S59-19): 한 줄 목록 + 보고 창은 칸 나누기(600px~, 펼친 폴드는 '목록 | 결과' 두 칸) 아래 폭 — 그 가장 넓은 폭(전에는 760)
 test('meeting list uses canonical meeting names without title-series duplication',async({page})=>{
   await signIn(page);
-  // S52-22 TEAM-맨위한줄: 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음.
-  await expect(reportFilterSelect(page,'name')).toBeVisible();
+  // S52-22 TEAM-맨위한줄: 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음. S71-10: 주 줄이 첫 줄에 들어가 이 폭(599)도 칩 하나일 수 있다 — 칩이면 창을 열어 본다.
+  await openReportBoxes(page,reportFilterSelect(page,'name'));await closeReportBoxes(page);
   expect(await reportFilterLabels(page,'name')).toEqual(expect.arrayContaining(['전체','궤도협의회','회의명 미지정']));
   await pickReportFilter(page,'name',{label:'궤도협의회'});
   expect(await reportFilterPicked(page,'name')).toBe('궤도협의회');

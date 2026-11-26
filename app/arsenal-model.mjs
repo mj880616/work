@@ -59,12 +59,14 @@ export function broadcastOf(m) {
 export const seasonsOf = matches => [...new Set(matches.map(m => text(m.season)).filter(Boolean))].sort().reverse();
 export const competitionsOf = matches => [...new Set(matches.map(m => text(m.competition)).filter(Boolean))].sort();
 
-// 시즌·대회·검색어(상대·제목·부제·라운드, 대소문자 무시)로 거른다.
-export function filterMatches(matches, {season = ALL, competition = ALL, query = ''} = {}) {
+// 시즌·대회·검색어(상대·제목·부제·라운드, 대소문자 무시)로 거른다. find: 공용 비슷한 것 찾기 판정(screen-find.js findFor, S70-67)이 오면 그것으로.
+export function filterMatches(matches, {season = ALL, competition = ALL, query = '', find = null} = {}) {
   const q = String(query || '').trim().toLowerCase();
+  const hit = find && !find.empty ? m => !!find.hit(...[m.home, m.away, m.title, m.subtitle, m.round].map(text))
+    : m => !q || [m.home, m.away, m.title, m.subtitle, m.round].map(text).join(' ').toLowerCase().includes(q);
   return matches.filter(m => (season === ALL || m.season === season)
     && (competition === ALL || m.competition === competition)
-    && (!q || [m.home, m.away, m.title, m.subtitle, m.round].map(text).join(' ').toLowerCase().includes(q)));
+    && hit(m));
 }
 
 // 거른 목록에서 보일 경기: 고른 경기가 남아 있으면 그것, 아니면 맨 위(없으면 null).

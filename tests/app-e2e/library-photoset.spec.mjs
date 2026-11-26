@@ -4,6 +4,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { expandLibraryTree, openLibraryPhotoFolds } from './helpers/library-tree.mjs';
 import { folderSheet } from './helpers/folder-sheet.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 
 // ACT-사진 4단계(결정 A): 자료실에서 사업 보고에 붙은 사진은 사업 보고마다 한 줄('사진 n · 제목' + 작은 그림 3장).
 // 자료실에 직접 올린 그림은 한 장 한 줄, 휴지통 사업 보고의 사진은 보이지 않고, 사업 보고를 읽지 못하면 묶지 않는다. 모든 이름·번호는 합성 값.
@@ -183,7 +184,7 @@ for (const fail of [false, true]) test(`photo set row drags into a folder as one
     // 결과 보고(PDF)·다른 사업 보고 사진은 그대로. 사업 보고 연결은 바꾸지 않는다(자료 행 쓰기 없음).
     expect(state.items.map(x => x.document_id).sort()).toEqual([...photos].sort());
     // S69-28 LIB-한칸탐색기: PC 한 칸은 왼쪽 나무에서 그 폴더를 열면 오른쪽에 묶음 줄.
-    await page.locator(`#libraryFolderNav [data-lu-nav="${ID(700)}"]`).click();
+    await treeEnter(page.locator(`#libraryFolderNav [data-lu-nav="${ID(700)}"]`));
     await openPhotoFolds(page);
     await expect(page.locator(`#documentList [data-lu-photoset="${M1}"]`)).toHaveCount(1);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 5개');

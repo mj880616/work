@@ -620,7 +620,6 @@
   #appView .mobile-menu-panel #mobileAccountGroup{ display:flex; flex-direction:column; gap:12px; margin:0; padding:2px 0 0; border:0; }
   #appView .mobile-menu-panel #mobileAccountGroup > div{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 2px; }
   #appView .mobile-menu-panel > .mobile-menu-sep{ height:0; margin:12px 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
-  #appView .mobile-menu-panel > .mobile-menu-search{ padding:0 0 4px; }
   #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup :is(button,a).account-action{ position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:32px; min-height:32px; padding:0 6px; border:0; border-radius:var(--ds-radius-control); background:transparent; white-space:nowrap; font-size:var(--ds-text-row); color:var(--kptu-muted); }
   #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup :is(button,a).account-action::after{ content:""; position:absolute; left:0; right:0; top:-6px; bottom:-6px; }
   /* 설정 링크의 작은 그림(14px, 글자색). [화면 색]의 ▾ 자리(::before)도 이 그림이 쓴다. */
@@ -887,10 +886,9 @@
   /* S68-48 READ-보기탭아래(명진 11/23 12:42): 폰 저장한 글 [안 읽음 n|전체|밑줄](reading.js .rd-switch)도 같은 전환 줄(아래 가운데). 글을 연 폰 화면(목록 숨김)에는 없다. */
   html:has(:where(#appView #readingView:not(.hidden) [data-rd-list]:not([hidden]) .rd-switch)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   /* LIB-위쪽한줄: 자료실은 아래 알약이 없어 --kptu-switch-dock을 쓰지 않는다. S70-54: 앱 머리 '자료실'에 찾기 돋보기·[+]·⋯(맨 위 칸 하나로), 화면 첫 줄은 고르기 둘. */
-  /* UI-보기탭드롭다운(11/10): 사업 보고 보기는 위 줄 고르기 상자 [목록 ▾]라 아래 전환 줄이 없다(--kptu-switch-dock 쓰지 않음). */
-  html:has(#appView #meetingsView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
-  /* UI-보기탭드롭다운(11/10): 사진도 앱 머리를 숨기고 화면 첫 줄이 제목 '사진' + 오른쪽 출처 아이콘(photos.css .photos-head). */
-  html:has(#appView #photosView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
+  /* UI-보기탭드롭다운(11/10): 사업 보고 보기는 위 줄 고르기 상자 [목록 ▾]라 아래 전환 줄이 없다(--kptu-switch-dock 쓰지 않음).
+     S70-57: 앱 머리 '사업 관리'에 찾기 돋보기(맨 위 칸 하나로) — 화면 첫 줄의 아이콘·제목은 없앴고 첫 줄은 고르기·[녹음][+][⋯]. */
+  /* S70-57: 사진은 앱 머리 '사진'에 찾기 돋보기·출처 아이콘(맨 위 칸 하나로) — 화면 첫 줄 제목은 없앴고 첫 줄은 도구 줄. */
   /* SHARE-제목줄더하기: 공유 페이지 목록은 앱 머리를 숨기고 화면 첫 줄이 제목 '공유 페이지'와 오른쪽 작은 +를 한 줄에 보인다(사업 보고·자료실과 같은 방식). 쓰는 화면(편집기)은 그대로. */
   html:has(#appView #pagesView:not(.hidden) .sp-list-view:not([hidden])) #appView > .mobile-shell-header{ display:none; }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
@@ -1726,7 +1724,7 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 .ui-ico-svg { display:block; flex:none; }
 .ui-ico-star { color:var(--kptu-warning); }
 .gs-row-folder .ui-ico { margin-right:2px; color:var(--ds-folder-0-ico,var(--kptu-muted)); }
-.nx-clip svg, .feed-pinmark svg, .tp-here svg, .diary-lv-find svg { display:inline-block; vertical-align:-0.15em; }
+.nx-clip svg, .feed-pinmark svg, .tp-here svg { display:inline-block; vertical-align:-0.15em; }
 
 /* UI-업로드말(S70-41): 파일을 올리는 단추 = 클립 아이콘 + '업로드'(app/upload-label.mjs 한 곳). 글자 앞 작은 클립, 단추 높이는 그 단추 그대로. */
 .up-clip-btn { display:inline-flex; align-items:center; gap:4px; }
@@ -1836,26 +1834,30 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   /* 앱 머리줄: 아이콘·이름을 왼쪽에 붙인다(전에는 이름 하나라 양끝 맞춤). 폴드 펼침의 찾기 입구는 남은 폭을 그대로 쓴다. */
   #appView > .mobile-shell-header{ justify-content:flex-start; gap:8px; }
   #appView > .mobile-shell-header > [data-mobile-view-name]{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  /* 사업 관리: 첫 줄(아이콘·제목·[+]·[⋯])과 고르기 줄(종류 전체 ▾·목록 ▾ 등)을 PC(meeting-ui.css BIZ-위쪽정돈PC)처럼 한 줄로 놓는다.
-     .report-top-line은 자리만 내주고(display:contents) 그 안 요소가 .report-top 줄에 바로 선다. 기간 줄(.report-week-bar)이 보일 때만 아래 한 줄. */
-  #appView #meetingsView .report-top{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; margin-bottom:var(--kptu-space-1); }
+  /* 사업 관리: 첫 줄([녹음][+][⋯] — 아이콘·이름은 S70-57부터 앱 머리 줄)과 고르기 줄(종류 전체 ▾·목록 ▾ 등)을 PC(meeting-ui.css BIZ-위쪽정돈PC)처럼 한 줄로 놓는다.
+     .report-top-line은 자리만 내주고(display:contents) 그 안 요소가 .report-top 줄에 바로 선다.
+     S71-10(명진 11/26 14:41 '한 줄에 우겨넣고 싶어'): 주 줄(‹ 11.23(월)~11.29(일) › · n건)도 같은 한 줄 = [고르기(칩)] [‹ 날짜 › · n건] … [녹음][+][⋯].
+     넘치면 report-filter-chip.js가 재어 .is-week-short(요일 빼기) → .is-week-tight(건수 짧게) → .is-week-squeeze(칩 끝 말줄임)를 붙인다.
+     기간 정하기·주차 고르기 창이 열리면 그 창(과 주 줄)만 아래 한 줄을 다 쓴다. */
+  #appView #meetingsView .report-top{ display:flex; flex-wrap:nowrap; align-items:center; gap:4px 8px; min-width:0; margin-bottom:var(--kptu-space-1); }
+  #appView #meetingsView .report-top:has(.report-period-panel){ flex-wrap:wrap; }
   #appView #meetingsView .report-top > .report-top-line{ display:contents; }
-  #appView #meetingsView .report-top-line > .head-mark{ order:0; }
-  /* 이름은 줄지 않는다. 사람마다 바꾼 이름(custom_words)이 아주 길 때만 9글자 폭에서 …(기본 이름은 닿지 않음) — 칩 자리·[+]·[⋯]가 줄 밖으로 밀리지 않게. */
-  #appView #meetingsView .report-top-line > .report-top-title{ order:1; flex:0 0 auto; max-width:9em; overflow:hidden; text-overflow:ellipsis; font-size:var(--ds-text-head); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
   /* S67-75 UI-걸러보기칩하나(명진 11/21 18:33 A안, PR 2847 끝 흐림은 걷어냄): 고르기 상자 네 개(종류·사업영역·기간·보기)가 이 줄에 다 들어가면
      지금처럼 네 개(남은 폭을 다 씀), 다 안 들어가면 칩 하나 [전체 ▾]·[고른 값 · 고른 값 ▾]로 묶는다. 어느 쪽인지는 report-filter-chip.js가
      실제 폭으로 재서 .report-top에 .is-filter-one을 붙인다. 칩 글자는 길면 끝 말줄임, ▾는 칩 오른쪽 바탕 그림이라 늘 보인다(칩이 잘리는 일 없음).
      칩을 누르면 상자 줄(.report-kind-bar) 자체가 칩 바로 아래 작은 창(.is-filter-panel, 맨 위 층 popover)이 된다 — 값·동작은 그 상자 그대로. */
-  #appView #meetingsView .report-top > .report-kind-bar{ order:2; flex:1 1 0; min-width:0; margin:0; flex-wrap:nowrap; overflow:hidden; }
+  #appView #meetingsView .report-top > .report-kind-bar{ order:1; flex:0 1 auto; min-width:0; margin:0; flex-wrap:nowrap; overflow:hidden; }
   /* 칩은 줄어들지 않는다(meeting-ui.css의 줄어드는 규칙보다 강하게) — 다 안 들어가면 줄이는 대신 칩 하나로 묶는다. */
   #appView #meetingsView .report-top > .report-kind-bar > :is(select.report-top-select,.report-period-host){ flex:none; }
-  /* 칩 자리(.report-filter-slot)는 남은 폭을 다 쓰고, 칩은 글자만큼 — 자리보다 길면 칩 안 글자 끝이 …(줄이 넘어가지 않음). */
-  #appView #meetingsView .report-top-line > .report-filter-slot{ order:2; flex:1 1 0; min-width:0; display:flex; }
+  /* 칩 자리(.report-filter-slot)는 칩 글자만큼. 주 줄까지 다 줄여도 넘칠 때(.is-week-squeeze)만 줄어들어 칩 안 글자 끝이 …(줄이 넘어가지 않음).
+     칩을 쓰지 않을 때(상자 네 개)는 자리도 없다(meeting-ui.css .report-filter-slot:has(>[hidden])). */
+  #appView #meetingsView .report-top-line > .report-filter-slot{ order:1; flex:none; min-width:0; display:flex; }
+  #appView #meetingsView .report-top.is-week-squeeze > .report-top-line > .report-filter-slot{ flex:0 1 auto; }
   #appView #meetingsView .report-filter-slot > .report-filter-chip{ flex:0 1 auto; min-width:0; max-width:100%; }
   #appView #meetingsView .report-top.is-filter-one > .report-kind-bar:not(.is-filter-panel){ display:none; }
-  #appView #meetingsView .report-top-line > .report-head-actions{ order:3; flex:none; margin-left:0; }
-  #appView #meetingsView .report-top > .report-week-bar{ order:4; flex:1 1 100%; margin:0; }
+  #appView #meetingsView .report-top-line > .report-head-actions{ order:3; flex:none; margin-left:auto; }
+  #appView #meetingsView .report-top > .report-week-bar{ order:2; flex:none; min-width:0; margin:0; }
+  #appView #meetingsView .report-top > .report-week-bar:has(.report-period-panel){ order:4; flex:1 1 100%; }
   /* 홈: 날짜 머리줄 첫 줄 = [아이콘] [날짜 글자(화면 이름 자리)] … [하루|주간 보고]. 날짜 7칸 줄은 그 아래 그대로. */
   #appView #homeView .journal-head > .head-mark{ order:-3; }
   #appView #homeView .journal-head > .journal-day-title{ font-size:var(--ds-text-head); }
@@ -1877,6 +1879,12 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
 .nbx-head button.row-act.nbx-title-btn{ display:flex; align-items:center; flex:1 1 auto; min-width:0; justify-content:flex-start; gap:6px; padding:0; color:inherit; font-size:inherit; text-align:left; }
 .nbx-list{ list-style:none; margin:0; padding:0; }
 .nbx-item{ padding:6px 0 4px; border-top:var(--ds-line-width) solid var(--ds-line); }
+/* S71-19(명진 11/26 '구분감이 없어 위에거랑'): 목록 맨 아래 '잠김' 묶음 줄(locked-line.mjs) — 위 줄과 사이 얇은 선(목록 줄 구분선 .nbx-item과 같은 선),
+   맨 앞 작은 통화·텔레그램 아이콘(메뉴 아이콘 그대로, 흐린 색). 목록 맨 위(첫 줄)면 선 없음. */
+.locked-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:0;padding-top:6px;border-top:var(--ds-line-width) solid var(--ds-line)}
+.locked-line:first-child{border-top:0}
+.locked-line-ic{display:inline-flex;flex:none;gap:2px;color:var(--kptu-faint)}
+.locked-line-ic svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .nbx-body{ margin:0; color:var(--kptu-ink); font-size:var(--ds-text-row); line-height:1.4; overflow-wrap:anywhere; }
 .nbx-tag{ color:var(--nbx-ink); font-size:var(--ds-text-meta); }
 .nbx-row2{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:3px; }

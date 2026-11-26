@@ -71,11 +71,11 @@ async function nothingDeleted(page, s) {
 test('저장한 글 412 실제 손가락: 조금·끝까지·빠르게 왼쪽 밀기는 칸만 열고, 열린 채 다른 줄을 누르면 닫기만, 삭제는 칸을 직접 누를 때만', async ({ page }) => {
   test.setTimeout(120000);
   const { s, errors, list, cdp } = await openReading(page, 412);
-  // ① 왼쪽으로 조금: 칸 3개([사업에 연결][읽음][삭제])가 열리고 멈춘다. 줄은 열리지 않는다(뗀 뒤 click 없음).
+  // ① 왼쪽으로 조금: 칸 2개([수정][삭제] — S70-62)가 열리고 멈춘다. 줄은 열리지 않는다(뗀 뒤 click 없음).
   let p = await center(rowOf(list, 3));
   await finger(page, cdp, path(p.x, p.y, -90, 0));
-  await expect(cells(list)).toHaveCount(3);
-  await expect(rowOf(list, 3)).toHaveCSS('transform', /matrix\(1, 0, 0, 1, -192, 0\)/);
+  await expect(cells(list)).toHaveCount(2);
+  await expect(rowOf(list, 3)).toHaveCSS('transform', /matrix\(1, 0, 0, 1, -128, 0\)/);
   await expect(detail(page)).toHaveCount(0);
   // ② 칸이 열린 채 다른 줄을 누르면 닫기만 한다(그 줄이 열리지 않는다).
   p = await center(rowOf(list, 5));
@@ -85,7 +85,7 @@ test('저장한 글 412 실제 손가락: 조금·끝까지·빠르게 왼쪽 �
   // ③ 왼쪽 끝까지: 맨 끝이 [삭제]라 칸만 열린다(묻는 창·삭제 없음).
   p = await center(rowOf(list, 3));
   await finger(page, cdp, path(p.x, p.y, -320, 0));
-  await expect(cells(list)).toHaveCount(3);
+  await expect(cells(list)).toHaveCount(2);
   await nothingDeleted(page, s);
   // 열린 줄을 누르면 닫기만.
   await finger(page, cdp, [[p.x - 150, p.y]]);
@@ -94,20 +94,21 @@ test('저장한 글 412 실제 손가락: 조금·끝까지·빠르게 왼쪽 �
   // ④ 빠르게 휙(움직임 두 번): 역시 칸만.
   p = await center(rowOf(list, 4));
   await finger(page, cdp, path(p.x, p.y, -280, 0, 2), 4);
-  await expect(cells(list)).toHaveCount(3);
+  await expect(cells(list)).toHaveCount(2);
   await nothingDeleted(page, s);
   // ⑤ 열린 칸([삭제] 자리) 위에서 다시 왼쪽으로 밀어도 지워지지 않고, 오른쪽으로 밀면 닫힌다.
   p = await center(rowOf(list, 4));
   await finger(page, cdp, path(p.right - 40, p.y, -120, 0));
-  await expect(cells(list)).toHaveCount(3);
+  await expect(cells(list)).toHaveCount(2);
   await nothingDeleted(page, s);
-  await finger(page, cdp, path(p.right - 40, p.y, 200, 0));
+  // S70-62: 칸이 둘(128px)이라 열린 자리에서 오른쪽으로 그만큼 밀면 닫힌 자리(더 밀면 반대쪽 [선택] 칸이 열린다).
+  await finger(page, cdp, path(p.right - 40, p.y, 130, 0));
   await expect(cells(list)).toHaveCount(0);
   await nothingDeleted(page, s);
   // ⑥ 열린 칸 위에서 시작한 세로 스크롤: 칸이 닫히고 아무것도 실행되지 않는다.
   p = await center(rowOf(list, 6));
   await finger(page, cdp, path(p.x, p.y, -90, 0));
-  await expect(cells(list)).toHaveCount(3);
+  await expect(cells(list)).toHaveCount(2);
   await finger(page, cdp, path(p.right - 32, p.y, 0, -160));
   await expect(cells(list)).toHaveCount(0);
   await nothingDeleted(page, s);
@@ -115,7 +116,7 @@ test('저장한 글 412 실제 손가락: 조금·끝까지·빠르게 왼쪽 �
   // ⑦ [삭제] 칸을 직접 누를 때만: 직접 넣은 글은 묻는다(취소하면 그대로).
   p = await center(rowOf(list, 6));
   await finger(page, cdp, path(p.x, p.y, -90, 0));
-  await expect(cells(list)).toHaveCount(3);
+  await expect(cells(list)).toHaveCount(2);
   const del = await list.locator('[data-row-swipe-key="delete"]').boundingBox();
   await finger(page, cdp, [[del.x + del.width / 2, del.y + del.height / 2]]);
   const ask = page.locator('.kptu-ask');
@@ -140,11 +141,11 @@ test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니�
   // ② 줄 위 왼쪽 밀기: 칸만 열리고 탭은 그대로.
   p = await center(rowOf(list, 8));
   await finger(page, cdp, path(p.x, p.y, -150, 0));
-  await expect(cells(list)).toHaveCount(3);
+  await expect(cells(list)).toHaveCount(2);
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');
   await finger(page, cdp, [[p.x - 160, p.y]]);
   await expect(cells(list)).toHaveCount(0);
-  // ③ 오른쪽 끝까지: [선택] 칸만 펼쳐진다(S70-60 UI-스와이프메뉴만). 칸을 누르면 그 줄이 골라진 채 '1개 선택됨', 탭은 그대로, 줄은 열리지 않는다.
+  // ③ 오른쪽 끝까지: 바로 그 줄 선택(S70-64 W3 — [선택] 칸이 남지 않음) → '1개 선택됨', 탭은 그대로, 줄은 열리지 않는다.
   p = await center(rowOf(list, 9));
   await finger(page, cdp, path(p.x, p.y, 300, 0));
   // S70-64: 오른쪽 밀기는 칸 없이 그 줄을 바로 고른다.
@@ -154,14 +155,23 @@ test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니�
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');
   await expect(detail(page)).toHaveCount(0);
-  await bar.locator('[data-row-pick-stop]').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await expect(bar).toBeHidden();
-  // ④ 줄 밖(맨 위 제목 줄)에서 왼쪽으로 밀면 옆 탭.
+  // ④ 줄 밖에서 왼쪽으로 밀면 옆 탭. S71-26: 목록 머리 줄(＋만 있던 줄)이 없어져 줄 밖 = 마지막 줄 아래 빈 곳(하단 전환 줄 위).
   await tick(page);
-  const head = list.locator('.rd-head .rd-title');
-  await head.evaluate(el => el.scrollIntoView({ block: 'center' }));
-  const h = await head.boundingBox();
-  await finger(page, cdp, path(h.x + h.width / 2 + 60, h.y + h.height / 2, -160, 0));
+  const last = list.locator('.rd-row[data-rd-open]').last();
+  // 맨 끝까지 굴린다(실제 굴림 입력 — 화면 자리 되돌리기가 멈춘다).
+  await page.mouse.move(200, 400);
+  await expect(async () => {
+    await page.mouse.wheel(0, 4000);
+    await page.waitForTimeout(200);
+    const lb = await last.boundingBox(), sb = await allTab(list).boundingBox();
+    expect(lb.y + lb.height + 8, '마지막 줄 아래 빈 곳이 전환 줄 위').toBeLessThan(sb.y - 2);
+  }).toPass({ timeout: 10000 });
+  const lb = await last.boundingBox();
+  const y = lb.y + lb.height + 13; // 줄 가장자리 가까이는 손가락 보정이 줄로 붙인다 — 빈 곳(화면 칸 아래 여백 16px) 안쪽
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id, [lb.x + lb.width / 2 + 60, y]), '줄 밖(화면 칸 빈 곳)').toBe('readingView');
+  await finger(page, cdp, path(lb.x + lb.width / 2 + 60, y, -160, 0));
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'false');
   await expect(page.locator('#readingView .row-swipe-acts')).toHaveCount(0);
   await nothingDeleted(page, s);
@@ -174,14 +184,14 @@ test('저장한 글 390 실제 손가락: 왼쪽 밀기 칸 열고 닫기, 끝�
   const { s, errors, list, cdp } = await openReading(page, 390);
   let p = await center(rowOf(list, 2));
   await finger(page, cdp, path(p.x, p.y, -90, 0));
-  await expect(cells(list)).toHaveCount(3);
+  await expect(cells(list)).toHaveCount(2);
   // 열린 줄은 오른쪽으로 짧게(60px) 되밀어도 닫힌다.
   await finger(page, cdp, path(p.x - 120, p.y, 60, 0));
   await expect(cells(list)).toHaveCount(0);
   await expect(detail(page)).toHaveCount(0);
   p = await center(rowOf(list, 2));
   await finger(page, cdp, path(p.x, p.y, -320, 0));
-  await expect(cells(list)).toHaveCount(3);
+  await expect(cells(list)).toHaveCount(2);
   await nothingDeleted(page, s);
   expect(errors).toEqual([]);
 });

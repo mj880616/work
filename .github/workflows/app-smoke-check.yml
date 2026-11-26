@@ -69,7 +69,7 @@ on:
       - 'tests/task-note-files.test.mjs'
       - 'tests/file-actions.test.mjs'
       - 'tests/library-photo.test.mjs'
-      - 'tests/library-drive-import-model.test.mjs'
+      - 'tests/library-drive-auto.test.mjs'
       - 'tests/library-move-write.test.mjs'
       - 'tests/org-files-folder-model.test.mjs'
       - 'tests/weekly-save-folder-model.test.mjs'
@@ -206,6 +206,7 @@ on:
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
       - 'tests/global-search-model.test.mjs'
+      - 'tests/find-match-model.test.mjs'
       - 'tests/ask-web2-model.test.mjs'
       - 'app/ask-web2-model.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
@@ -270,6 +271,7 @@ on:
       - 'tests/news-feed-default-on.test.mjs'
       - 'tests/now-model.test.mjs'
       - 'tests/now-memos-model.test.mjs'
+      - 'tests/now-hidden-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/select-bar-place-model.test.mjs'
       - 'tests/reading-model.test.mjs'
@@ -316,6 +318,8 @@ on:
       - 'supabase/functions/public-policy-drive/index.ts'
       - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
+      - 'scripts/cc/**'
+      - 'tests/cc-merge-check.test.mjs'
   pull_request:
     branches: [main]
     paths:
@@ -510,6 +514,7 @@ on:
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
       - 'tests/global-search-model.test.mjs'
+      - 'tests/find-match-model.test.mjs'
       - 'tests/ask-web2-model.test.mjs'
       - 'app/ask-web2-model.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
@@ -574,6 +579,7 @@ on:
       - 'tests/news-feed-default-on.test.mjs'
       - 'tests/now-model.test.mjs'
       - 'tests/now-memos-model.test.mjs'
+      - 'tests/now-hidden-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/select-bar-place-model.test.mjs'
       - 'tests/reading-model.test.mjs'
@@ -620,6 +626,8 @@ on:
       - 'supabase/functions/public-policy-drive/index.ts'
       - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
+      - 'scripts/cc/**'
+      - 'tests/cc-merge-check.test.mjs'
   workflow_dispatch:
 
 # 같은 PR에 다시 push하면 옛 시험 실행을 취소한다(PR 밖 이벤트는 취소하지 않음).
@@ -640,6 +648,9 @@ jobs:
         run: |
           set -e
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Check merge gate judgments for CC (OPS-넣기점검)
+        run: node --test tests/cc-merge-check.test.mjs
 
       - name: Check public privacy page matches requested Google scopes (MULTI D4)
         run: node --test tests/about-privacy-page.test.mjs
@@ -852,7 +863,7 @@ jobs:
       - name: Check news daily limits count only what a person used (S69-72 등록)
         run: node --test tests/news-limit-count.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/now-memos-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/select-bar-place-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/now-memos-model.test.mjs tests/now-hidden-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/select-bar-place-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
         run: node --test tests/files-model.test.mjs tests/folder-dest-sheet.test.mjs tests/files-trash.test.mjs tests/head-sort.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/drag-edge-scroll.test.mjs tests/marquee-select.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
 
@@ -973,7 +984,7 @@ jobs:
         run: node --test tests/origin-redirect.test.mjs
 
       - name: Check library toggle tree model
-        run: node --test tests/library-tree.test.mjs tests/library-receive.test.mjs tests/org-files-folder-model.test.mjs tests/weekly-save-folder-model.test.mjs tests/meeting-folder-model.test.mjs tests/library-sort-model.test.mjs tests/library-drive-import-model.test.mjs tests/library-move-write.test.mjs tests/library-tidy-model.test.mjs tests/library-learn-model.test.mjs tests/library-category-pick.test.mjs tests/list-edit.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/photo-fold-model.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
+        run: node --test tests/library-tree.test.mjs tests/library-receive.test.mjs tests/org-files-folder-model.test.mjs tests/weekly-save-folder-model.test.mjs tests/meeting-folder-model.test.mjs tests/library-sort-model.test.mjs tests/library-drive-auto.test.mjs tests/library-move-write.test.mjs tests/library-tidy-model.test.mjs tests/library-learn-model.test.mjs tests/library-category-pick.test.mjs tests/list-edit.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/photo-fold-model.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
 
       - name: Check split-resize column math
         run: node --test tests/split-resize-math.test.mjs tests/height-resize-model.test.mjs
@@ -1061,6 +1072,9 @@ jobs:
 
       - name: Global search model (SEARCH-전체검색 words, highlights, Google filters, groups, error codes)
         run: node --test tests/global-search-model.test.mjs
+
+      - name: Find-alike model (SEARCH-비슷한것찾기 spaces, typos, initials, jamo boundary, prefix, ranking)
+        run: node --test tests/find-match-model.test.mjs
 
       - name: Ask Web2 answer box rules (FEAT-1029묶음 ① question detection, evidence refs, open targets)
         run: node --test tests/ask-web2-model.test.mjs

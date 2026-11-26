@@ -9,7 +9,6 @@
 .fx-crumb-now { color:var(--kptu-ink); font-weight:500; overflow:hidden; text-overflow:ellipsis; padding:2px 4px; }
 .fx-crumb-sep { color:var(--kptu-faint); }
 .fx-up { font-size:15px; padding:0 6px; }
-.fx-search { height:28px; width:240px; max-width:100%; border:.5px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-sm); background:var(--kptu-surface-subtle); color:var(--kptu-ink); padding:0 8px; font:inherit; font-size:12.5px; }
 .fx-listcol { flex:1 1 auto; min-width:0; }
 .fx-wait { margin:0; }
 .fx-wait[hidden] { display:none; }
@@ -87,6 +86,10 @@
 .fx-pv-head { display:flex; align-items:center; gap:4px; min-width:0; }
 .fx-pv-nm { font-weight:500; word-break:break-all; }
 .fx-back { display:none; font-size:16px; }
+/* S70-72 FILES-상세칸정리: PC 넓은 폭 오른쪽 상세 칸 머리 끝 [›] 접기 · 접으면 얇은 띠에 [‹] 펼치기만(목록이 넓어짐). 접힘은 서버 view_prefs.files_prev_shut. */
+.fx-pv-fold { flex:none; margin-left:auto; width:24px; height:24px; padding:0; border:0; border-radius:var(--kptu-radius-sm); background:none; color:var(--kptu-muted); font:inherit; font-size:16px; line-height:1; cursor:pointer; }
+.fx-pv-fold:hover { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
+.fx[data-fx-prev-shut] .fx-prev { flex:0 0 28px; width:28px; padding:6px 2px; overflow:hidden; }
 .fx-pv-view { margin:8px 0; }
 .fx-pv-imgbox { min-height:180px; border-radius:var(--kptu-radius-sm); }
 .fx-pv-img { display:block; max-width:100%; max-height:60vh; margin:0 auto; border:.5px solid var(--kptu-border); border-radius:var(--kptu-radius-sm); }
@@ -133,11 +136,11 @@
 /* 정렬 기준 칩: 공용 select(폭 100%·높이 큼)가 폰에서 폭 가득 빈 칸처럼 보이던 것을 폰·PC 모두 같은 작은 칩으로. */
 .fx-sort { flex:none; width:auto; min-height:0; height:24px; max-width:96px; padding:0 8px; font-size:11.5px; border-color:transparent; border-radius:999px; background:var(--kptu-surface-subtle); }
 @media (max-width:599px) {
-  /* S50-33(시안 승인): 위 줄 = 찾기 칸 + 출처 단추(같은 줄 오른쪽 작은 정사각). 목록일 때만 아래 줄에 위치 길(‹ 원드라이브 › Pictures)·정렬. */
-  .fx-top { flex-wrap:wrap; row-gap:2px; min-height:0; padding:4px 0 3px; }
-  /* 찾기 칸은 출처 단추(2~4개)와만 한 줄을 채우고, 위치 길은 늘 다음 줄(최소 120px라 첫 줄 남은 자리에 끼지 않음). */
-  /* S62-40: 보기 단추도 같은 줄이라 그만큼 뺀다. S69-38: 붙은 [한 칸 | 두 칸](그림만, 칸 34px 둘)이라 더 뺀다. */
-  .fx-search { flex:1 1 calc(100% - 220px); width:auto; min-width:0; order:1; height:30px; }
+  /* S50-33 → S70-57: 찾기는 앱 머리 줄 맨 위 칸('파일에서 찾기')이라 첫 줄 = 출처 단추 …… [한 칸 | 두 칸](그림만, 칸 34px 둘, 오른쪽 끝).
+     둘째 줄은 그대로 위치 길(‹ 원드라이브 › Pictures)·정렬·[새 폴더]·[올리기] — 줄 나눔(::before, 높이 0)이 두 줄을 가른다. */
+  .fx-top { flex-wrap:wrap; row-gap:6px; min-height:0; padding:0 0 3px; } /* row-gap 6px: 첫 줄 출처 칩의 누르는 범위(44px)가 둘째 줄 위치 길 [‹]를 덮지 않게(위 여백 4px를 줄 사이로 옮겨 높이는 그대로) */
+  .fx-top::before { content:""; order:3; flex:0 0 100%; height:0; }
+  #appView #filesView .fx-view-seg { margin-left:auto; }
   #appView #filesView .fx-view-seg .ds-seg-btn { min-width:34px; width:34px; }
   .fx-srcs { order:2; }
   #appView #filesView .fx-srcs [data-src-chip] { min-width:28px; width:28px; height:28px; min-height:28px; padding:0; }

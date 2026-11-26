@@ -33,7 +33,7 @@ async function readingServer(page, rows) {
 export async function openSavedDoc(page, width, { title = '예시 기사 하나', body = BODY, state = 'ok' } = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = errorsOf(page);
-  await openHome(page);
+  const { prefs } = await openHome(page);
   const rows = [{ id: READ_ID, workspace_id: 'w', url: 'https://example.com/a', title, site: 'example.com', saved_at: '2026-11-22T01:00:00Z', read_at: null, body_state: state, body_at: '2026-11-22T01:00:10Z', business_area_id: null, updated_at: '2026-11-22T01:00:10Z', body }];
   await readingServer(page, rows);
   if (width <= 760) {
@@ -44,13 +44,13 @@ export async function openSavedDoc(page, width, { title = '예시 기사 하나'
   await page.locator(`#readingView .rd-row[data-rd-open="${READ_ID}"]`).click();
   const detail = page.locator('#readingView [data-rd-detail]');
   await expect(detail.locator('.ds-doc-top')).toBeVisible();
-  return { errors, rows, detail, list: page.locator('#readingView [data-rd-list]'), firstLeft: page.locator('#readingView [data-rd-list] .rd-head') };
+  return { errors, prefs, rows, detail, list: page.locator('#readingView [data-rd-list]'), firstLeft: page.locator('#readingView [data-rd-list]') }; // S71-26: 목록 머리 줄(.rd-head)이 없어져 왼쪽 첫 줄 위 끝 = 목록 칸 위 끝(보기 탭 알약 위 끝)
 }
 // 읽을 거리: [언론] 탭 첫 기사를 연 상태.
 export async function openNewsDoc(page, width) {
   await page.setViewportSize({ width, height: 900 });
   const errors = errorsOf(page);
-  await openHome(page);
+  const { prefs } = await openHome(page);
   await newsServer(page);
   await openNews(page, width);
   const first = page.locator('#outsideRoot [data-nc-item]').first();
@@ -59,6 +59,11 @@ export async function openNewsDoc(page, width) {
   const detail = page.locator('#outsideRoot [data-now-detail] .nd');
   await expect(detail.locator('.ds-doc-top')).toBeVisible();
   // 왼쪽 첫 줄: 옛 찾기 줄([data-nw-top])은 S70-54 UI-검색창하나로에서 맨 위 칸으로 옮겨 없어졌다 — 왼쪽 칸(#nowMain) 위 끝이 곧 첫 줄 위 끝.
-  return { errors, detail, firstLeft: page.locator('#outsideRoot #nowMain') };
+  return { errors, prefs, detail, firstLeft: page.locator('#outsideRoot #nowMain') };
 }
 export const DOC_SCREENS = [['저장한 글 글 보기', openSavedDoc], ['읽을 거리 글 보기', openNewsDoc]];
+// S70-58 READ-두칸보기: 두 글 보기 화면의 목록 | 글 칸(공용 split-resize.js). checkSplit(helpers/split-check.mjs)에 넘길 칸·서버 이름·기본 왼쪽 몫(폭별).
+export const DOC_SPLITS = {
+  '저장한 글 글 보기': { container: '#readingView .rd-wrap', left: '[data-rd-list]', right: '[data-rd-detail]', name: 'reading', share: () => 1 / 3, ready: page => expect(page.locator('#readingView [data-rd-detail] .ds-doc-title')).toBeVisible() },
+  '읽을 거리 글 보기': { container: '#outsideRoot', left: '#nowMain', right: '[data-now-detail]', name: 'now', share: width => (width > 760 ? 0.6 : 0.4), ready: page => expect(page.locator('#outsideRoot')).toHaveAttribute('data-detail', 'open') },
+};

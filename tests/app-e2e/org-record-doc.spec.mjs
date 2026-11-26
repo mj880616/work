@@ -41,7 +41,7 @@ test('서식이 있는 기록은 목록에서 서식 그대로, 서식 없는 �
  await clickView(page,'team');await expect(page.locator('#wdTitle')).toHaveText('합성 가 지부');
  const doc=page.locator('#wdUpdates [data-wd-up="u-doc"]'),old=page.locator('#wdUpdates [data-wd-up="u-old"]');
  await expect(doc.locator('[data-rec-doc] strong')).toHaveText('굵게 쓴 기록');
- await expect(old.locator('[data-rec-doc]')).toHaveCount(0);await expect(old.locator('.wd-log-main p')).toContainText('옛 글자 기록');
+ await expect(old.locator('[data-rec-doc]')).toHaveCount(0);await expect(old.locator('.wd-log-main .rec-fold-full')).toContainText('옛 글자 기록');
  expect(errors).toEqual([]);
 });
 

@@ -71,7 +71,7 @@ async function mockApp(page,state){
     // UI-앱안알림 4·5: 맨 위 알림 줄이 시작 때 묻는 phone-push notices(POST로 묻는 읽기)는 쓰기로 세지 않는다.
     if(path==='/functions/v1/phone-push'&&['notices','recent'].includes(url.searchParams.get('action')))return ok({ok:true,items:[]});
     // 원드라이브 연결 상태 묻기({action:'status'}, 일정 화면이 읽기만 함)는 쓰기가 아니다. 화면이 빨리 뜨면 이 시험 안에 들어온다(S51-28에서 드러남).
-    if(path.startsWith('/functions/v1/')){if(method!=='GET'&&method!=='OPTIONS'&&!(path==='/functions/v1/onedrive-photos'&&/^\{"action":"status"\}$/.test(req.postData()||''))&&!(path==='/functions/v1/workspace-drive'&&url.searchParams.get('action')==='drive-mirror'))state.otherWrites.push(path);return ok({})} // S69-20: 드라이브 폴더 '앞으로 같게' 부탁은 이 시험의 쓰기가 아님
+    if(path.startsWith('/functions/v1/')){if(method!=='GET'&&method!=='OPTIONS'&&!(path==='/functions/v1/onedrive-photos'&&/^\{"action":"status"\}$/.test(req.postData()||''))&&!(path==='/functions/v1/workspace-drive'&&url.searchParams.get('action')==='drive-mirror')&&!(path==='/functions/v1/library-files'&&/^\{"action":"drive-auto"\}$/.test(req.postData()||'')))state.otherWrites.push(path);return ok({})} // S70-73: 자료실을 열 때 드라이브 자동 등록 부탁도 이 시험의 쓰기가 아님 // S69-20: 드라이브 폴더 '앞으로 같게' 부탁은 이 시험의 쓰기가 아님
     if(path==='/rest/v1/app_library_classify_attempts'){
       if(state.attemptsMode==='missing')return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST205'})});
       return ok([...state.tried].map(id=>({document_id:id,with_text:true})));

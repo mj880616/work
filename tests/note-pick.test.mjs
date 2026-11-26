@@ -71,7 +71,11 @@ test('업무 줄 기본값: 새 노트 · 폴더 01. 업무메모(없으면 폴�
   assert.match(list, /target: createNoteTarget\(\{rt\}\)/);
 });
 
-test('노트 보드 노트 고르기와 잊지 말기 노트 고르기가 같은 줄 부품(note-tree-row.js)을 쓴다', () => {
-  assert.match(src('note-boards.js'), /noteTreeRowHtml\(r, \{esc, folderAttr:'nbb-pf', noteAttr:'nbb-pn', check:true/);
+test('노트 보드 왼쪽 목록·노트 고르기와 잊지 말기 노트 고르기가 같은 줄 부품(note-tree-row.js → 공용 ft 줄)을 쓴다', () => {
+  // S70-82 NOTE-폴더디자인통일: 보드 왼쪽 '노트 목록'도 같은 부품, 줄 부품은 [파일]·노트 [폴더] 나무와 같은 folder-tree-ui.mjs 줄이다.
+  assert.match(src('note-boards.js'), /noteTreeRowHtml\(r, \{folderAttr:'nbb-pf', noteAttr:'nbb-pn'/);
+  assert.match(src('note-boards.js'), /noteTreeRowHtml\(r, \{folderAttr:'nbb-folder', noteAttr:'nbb-note'/);
+  assert.match(src('note-tree-row.js'), /import \{ftFolderRowHtml, ftItemRowHtml\} from '\.\/folder-tree-ui\.mjs';/);
+  assert.doesNotMatch(src('note-tree-row.js') + src('note-boards.js'), /class="nbb-(folder|note)|nbb-caret|nbb-check|lk-open/);
   assert.match(src('note-pick.js'), /noteTreeRowHtml\(r, \{folderAttr: 'np-folder', noteAttr: 'np-note'/);
 });
