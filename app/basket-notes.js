@@ -2204,7 +2204,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nx-memos')) { if (splitOpen()) void askClose(b).then(ok => { if (ok) setView('comment'); }); else setView('comment'); }
     else if (b.hasAttribute('data-nx-open')) {
       const id = b.dataset.nxOpen, treeRow = wideList.matches && !pick.active && !!b.closest('[data-nx-tree] .ft-row.ft-has-tog');
-      const go = () => { if (treeRow) ftExplorePress(b, () => pressEnter(id)); else pressFolder(id, e); };
+      const go = () => { if (treeRow) ftExplorePress(b, () => pressEnter(id, {openSelf:false})); else pressFolder(id, e); };
       // 두 칸에서 노트를 읽는 중 다른 칸으로 가면 노트를 먼저 닫는다(고치던 글이 있으면 묻는다).
       if (splitOpen()) { void askClose(b).then(ok => { if (ok) go(); }); return; }
       go();
@@ -2259,20 +2259,21 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (pick.active) { togglePick('f:' + id); }
   }
   // 그 폴더 열기(PC·폴드 나무 이름 누르기 ftExplorePress): 같은 길(PC·폴드 = 들어가기, 폰 첫 화면 = 돌아올 자리를 기억하고 그 폴더만, 폰 그 폴더만 안 = 그 안으로).
-  function pressEnter(id) {
+  function pressEnter(id, opts = {}) {
     if (!id || !folderById(id)) return;
-    if (wideList.matches) enter(id); else if (at === null) focusFolder(id); else enter(id);
+    if (wideList.matches) enter(id, opts); else if (at === null) focusFolder(id); else enter(id);
   }
   // 들어가기(10:34 ②): 그 폴더만 보이고 위에 '이름 · 장수'(2단 이상이면 위치 줄도). 폴더 위쪽은 왼쪽 나무에서 열어 둔다.
   // NAV-PC뒤로직전: on PC·the unfolded Fold (folder tree | notes) a folder the person entered is a back step of its own (router pick):
   // ‹ = the folder before, then '최근' (the first screen, kept as one step), then the screen before. picked:false for the folder
   // entered by itself (a reload's ?folder=). The phone keeps its own folder layer (syncFolderLayer).
-  function enter(id, {focus = true, picked = true} = {}) {
+  function enter(id, {focus = true, picked = true, openSelf = true} = {}) {
     // S69-27: 두 칸에서 노트를 연 채 다른 칸('최근'·폴더 들어가기·휴지통 등)으로 가면 노트를 먼저 닫는다(오른쪽 칸 하나에 하나만).
     if (splitOpen() && !close({focus:false})) return;
     const from = at;
     at = id === OUTSIDE || isPaneAt(id) ? id : id && folderById(id) ? id : null;
-    for (const f of at && at !== OUTSIDE ? folderPath(folders, at) : []) openSet.add(f.id);
+    // TREE-탐색기꺾쇠(T10): 나무 이름 누르기(openSelf:false)로 들어간 폴더 자신은 펼치지 않는다(위 폴더들만 — 펼치기는 꺾쇠·두 번 누르기·→).
+    for (const f of at && at !== OUTSIDE ? folderPath(folders, at) : []) if (openSelf || f.id !== at) openSet.add(f.id);
     renderList();
     // NAV-새로고침제자리: the folder entered is written to the address (?folder=, no entry of its own) after the list is drawn, so on a
     // phone it lands on the folder screen's own layer entry and Back to the folder list leaves it out. A reload enters it again.

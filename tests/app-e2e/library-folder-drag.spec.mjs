@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNodeHead,libraryTopMenu} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,childrenOf} from './helpers/library-folder-server.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
+import {treeEnter} from './helpers/tree-enter.mjs';
 // LIB-폴더탐색기 화면 ②(docs/design/library-tree.md 12절): 끌어 옮기기(폴더 보기는 프로젝트 틀과 무관), 놓을 곳 점선 표시,
 // '옮겼어요 · 되돌리기', 여러 자료 한꺼번에 끌기, 화면 가장자리 자동 스크롤, 폰 길게 누르기(잡아 옮기기·떼면 고르기·세로 스크롤과 구분).
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -11,7 +12,7 @@ const row=id=>`[data-lu-document="${id}"]`;
 const line=page=>page.locator('#libraryFolderStatusLine');
 // S69-28 LIB-한칸탐색기: PC 한 칸 폴더 보기는 탐색기(왼쪽 나무 | 오른쪽 지금 자리 내용). 맨 위 자리는 왼쪽 나무 '자료실 전체' 줄, 폴더는 나무 줄로도 놓는다.
 const nav=id=>`#libraryFolderNav [data-lu-nav="${id}"]`;
-const go=async(page,id)=>{await page.locator(nav(id)).click();await expect(page.locator(nav(id))).toHaveAttribute('aria-current','true')};
+const go=async(page,id)=>{await treeEnter(page.locator(nav(id)));await expect(page.locator(nav(id))).toHaveAttribute('aria-current','true')};
 // 찾는 글자가 있으면 한 칸 목록은 예전 나무 목록(찾은 것을 펼쳐 보임) — 펼친 폴더 안 줄에 놓기·머물면 열림 규칙은 거기서 본다.
 const treeList=async page=>{await (await screenFind(page)).fill('자료');await expect(page.locator('#documentList details[data-lu-node="x:out"]')).toBeAttached()};
 async function dragTo(page,from,to,{edge='middle'}={}){
