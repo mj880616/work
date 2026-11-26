@@ -29,6 +29,13 @@
 //   한 번에 FOLDER_MAKE_MAX개까지. 못 만든(한도·실패) 폴더 안 파일은 이번에 넣지 않고 다음 열 때(잡동사니로 잘못 가지 않게).
 // - 파일을 복사·이동·삭제하지 않는다. 자료 행만 넣는다(제목·분류는 파일 이름으로만, AI 없음).
 // - 드라이브에서 파일이 지워지거나 자료실 밖으로 옮겨진 자료는 여기서 지우지 않는다(데이터 보존 — 이 PR 범위 밖, 보고만).
+// - S70-73c(명진 11/26 10:47 '잡동사니' 파일을 드라이브에서 제자리 폴더로 옮김): 이미 등록된 자료의 드라이브 부모 폴더가 지금 자료실 폴더의
+//   짝과 다르고 다른 자료실 폴더(휴지통 아님)의 짝이면, 그 자료의 자료실 폴더(app_library_folder_items.folder_id 한 칸)를 그쪽으로 고친다(planFollow).
+//   드라이브 부모가 자료실 맨 위·자료실 밖·짝 없는 폴더이거나, 지금 자료실 폴더가 휴지통이거나, 자료가 폴더 밖이면(연결 줄이 없어 앱에서
+//   언제 뺐는지 모름) 그대로. 지금 자료실 폴더(예: 잡동사니)가 짝이 없어도 드라이브 부모가 다른 자료실 폴더의 짝이면 따라간다.
+//   앱에서 옮긴 직후(드라이브 맞추기 S70-76 drive-mirror가 아직 드라이브를 옮기기 전)를 되돌리지 않게: 연결 줄의 옮긴 시각(moved_at, DB가
+//   옮길 때마다 적음)이 FOLLOW_QUIET_MS 안이면 건너뛰고, 고칠 때도 '그때 본 폴더 그대로이고 옮긴 시각이 여전히 옛날인 줄'만 고친다
+//   (그 사이 앱이 옮겼으면 아무것도 안 바뀜). moved_at 칸이 아직 없으면(DB 적용 전) 따라가기는 통째로 쉰다. 내 토큰(owner RLS)으로만, 드라이브는 읽기만.
 // - 이렇게 들어온 자료는 보통 자료실 자료다(classification_note 앞머리 AUTO_NOTE, document-actions의 '연결만 한 원본' 표식이 아님):
 //   지우면 지금처럼 드라이브 파일도 휴지통으로 간다. 그래야 지운 자료가 다음 확인 때 다시 들어오지 않는다.
 // 순수 규칙 + 주입받은 입출력(admin·db·fetch)만. 시험: tests/security/library-files-drive-auto.test.mjs.
@@ -60,7 +67,9 @@ export const PARENTS_PER_QUERY = 40;
 export const ADD_MAX = 200;        // 한 번에 넣는 자료 수(넘으면 more — 다음 열 때 이어서)
 export const INSERT_CHUNK = 50;
 export const FOLDER_MAKE_MAX = 30;  // 한 번에 만들거나 연결하는 자료실 폴더 수(넘으면 more)
-export const SAME_LOOKUP_MAX = 300; // 나무 밖 자료 중 내용 비교로 드라이브에 묻는 수(넘으면 그 크기 파일은 다음에)
+export const SAME_LOOKUP_MAX = 300;
+export const FOLLOW_QUIET_MS = 30 * 60 * 1000; // S70-73c: 앱에서 옮긴 지 이 안이면 드라이브 위치를 따라가지 않음(드라이브 맞추기가 끝나기 전)
+export const FOLLOW_MAX = 500;                 // 한 번에 따라가는 자료 수(넘으면 more) // 나무 밖 자료 중 내용 비교로 드라이브에 묻는 수(넘으면 그 크기 파일은 다음에)
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
 export const isDriveId = v => typeof v === 'string' && DRIVE_ID.test(v);
@@ -153,6 +162,40 @@ export function planAuto({ files, libraryId, registered = new Set(), used = new 
     add.push({ file: f, folderId: parent && parent !== libraryId ? pairOf.get(parent) || null : null });
   }
   return { add, skipped, more };
+}
+
+/**
+ * S70-73c 드라이브에서 옮긴 등록 자료 → 자료실 폴더를 드라이브 부모의 짝으로. 순수 규칙.
+ * docs: [{id, file_id}] · files: 자료실 나무에서 읽은 파일(parents) · items: [{document_id, folder_id, moved_at}]
+ * appPair: Map(휴지통 아닌 자료실 폴더 id → 짝 드라이브 id 또는 null) · pairOf: Map(드라이브 폴더 id → 자료실 폴더 id, 휴지통 아님)
+ * 답: moves [{docId, from, to}], skipped {...}, more
+ */
+export function planFollow({ docs, files, items, appPair = new Map(), pairOf = new Map(), libraryId, now = Date.now(), quietMs = FOLLOW_QUIET_MS, max = FOLLOW_MAX }) {
+  const skipped = { loose: 0, trashed: 0, parents: 0, top: 0, nopair: 0, quiet: 0, unknown: 0 };
+  const moves = [];
+  const fileOf = new Map((Array.isArray(files) ? files : []).filter(f => isDriveId(f?.id) && f.mimeType !== FOLDER_MIME).map(f => [f.id, f]));
+  const itemOf = new Map((Array.isArray(items) ? items : []).filter(i => i?.document_id).map(i => [i.document_id, i]));
+  let more = false;
+  for (const d of Array.isArray(docs) ? docs : []) {
+    const f = isDriveId(d?.file_id) ? fileOf.get(d.file_id) : null;
+    if (!f) continue; // 자료실 나무 밖(다른 앱 폴더·휴지통·자료실 밖) → 그대로
+    const item = itemOf.get(d.id);
+    if (!item?.folder_id) { skipped.loose++; continue; } // 폴더 밖 자료 → 그대로(옮긴 시각을 알 수 없음)
+    if (!appPair.has(item.folder_id)) { skipped.trashed++; continue; } // 휴지통·안 보이는 폴더 안 → 그대로
+    const ps = (Array.isArray(f.parents) ? f.parents : []).filter(isDriveId);
+    if (ps.length !== 1) { skipped.parents++; continue; }
+    const dp = ps[0], cur = appPair.get(item.folder_id);
+    if (cur === dp) continue; // 이미 같음
+    if (dp === libraryId) { skipped.top++; continue; }
+    const to = pairOf.get(dp);
+    if (!to || to === item.folder_id) { skipped.nopair++; continue; } // 드라이브 부모가 짝 없는 폴더 → 그대로(지금 폴더가 짝이 없어도 드라이브 부모가 짝이면 따라감)
+    const at = Date.parse(String(item.moved_at ?? ''));
+    if (!Number.isFinite(at)) { skipped.unknown++; continue; }
+    if (now - at < quietMs) { skipped.quiet++; continue; }
+    if (moves.length >= max) { more = true; continue; }
+    moves.push({ docId: d.id, from: item.folder_id, to });
+  }
+  return { moves, skipped, more };
 }
 
 export function parseAutoRequest(input) {
@@ -272,6 +315,36 @@ export function createDriveAuto(deps) {
     return { made, linked, hold, skipped, more: plan.more };
   }
 
+  // S70-73c: 드라이브에서 옮긴 등록 자료 → 자료실 폴더 칸만 고친다(내 토큰, owner RLS). 연결 줄을 못 읽으면(옮긴 시각 칸 없음 등) 통째로 쉰다.
+  async function follow(docs, files, folders, pairOf, libraryId) {
+    const skip = { follow_off: 0, follow_lost: 0 };
+    let items;
+    try { items = await pages((a, b) => db.from('app_library_folder_items').select('document_id,folder_id,moved_at').eq('workspace_id', workspaceId).order('document_id').range(a, b), 'items'); }
+    catch { return { moved: 0, more: false, skipped: { ...skip, follow_off: 1 } }; }
+    const appPair = new Map();
+    for (const f of folders) if (f?.id && !f.deleted_at) appPair.set(f.id, isDriveId(f.drive_folder_id) ? f.drive_folder_id : null);
+    for (const [drive, app] of pairOf) if (!appPair.has(app) || !appPair.get(app)) appPair.set(app, drive); // S70-73b가 이번에 만든·연결한 폴더
+    const t = now();
+    const plan = planFollow({ docs, files, items, appPair, pairOf, libraryId, now: t });
+    const skipped = { ...skip };
+    for (const [k, v] of Object.entries(plan.skipped)) skipped['follow_' + k] = v;
+    const groups = new Map();
+    for (const m of plan.moves) { const k = m.from + '>' + m.to; if (!groups.has(k)) groups.set(k, { from: m.from, to: m.to, ids: [] }); groups.get(k).ids.push(m.docId); }
+    // 그때 본 폴더 그대로이고 옮긴 시각이 여전히 조용한 시간 밖인 줄만(그 사이 앱이 옮겼으면 0줄).
+    const cutoff = new Date(t - FOLLOW_QUIET_MS).toISOString();
+    let moved = 0;
+    for (const g of groups.values()) {
+      for (let i = 0; i < g.ids.length; i += INSERT_CHUNK) {
+        const ids = g.ids.slice(i, i + INSERT_CHUNK);
+        const up = await db.from('app_library_folder_items').update({ folder_id: g.to }).eq('workspace_id', workspaceId).eq('folder_id', g.from).lt('moved_at', cutoff).in('document_id', ids).select('document_id');
+        if (up?.error) { log('follow_update'); skipped.follow_lost += ids.length; continue; }
+        const n = Array.isArray(up?.data) ? up.data.length : 0;
+        moved += n; skipped.follow_lost += ids.length - n;
+      }
+    }
+    return { moved, more: plan.more, skipped };
+  }
+
   async function run() {
     const { data: settings, error } = await admin.from('app_drive_settings').select('*').eq('workspace_id', workspaceId).maybeSingle();
     if (error) { log('settings_read'); throw new AutoFail('db_read'); }
@@ -318,6 +391,7 @@ export function createDriveAuto(deps) {
       }
     }
     const plan = planAuto({ files: tree.files, libraryId, registered, used, pairOf, knownKeys, waitSizes, hold: made.hold, now: now() });
+    const followed = await follow(docs, tree.files, folders, pairOf, libraryId);
 
     let added = 0, placed = 0, failed = 0;
     for (let i = 0; i < plan.add.length; i += INSERT_CHUNK) {
@@ -358,7 +432,7 @@ export function createDriveAuto(deps) {
         placed += ids.length;
       }
     }
-    return { ok: true, added, placed, failed, folders_made: made.made, folders_linked: made.linked, more: plan.more || tree.partial || made.more, skipped: { ...plan.skipped, ...made.skipped } };
+    return { ok: true, added, placed, failed, followed: followed.moved, folders_made: made.made, folders_linked: made.linked, more: plan.more || tree.partial || made.more || followed.more, skipped: { ...plan.skipped, ...made.skipped, ...followed.skipped } };
   }
   return { run, AutoFail };
 }

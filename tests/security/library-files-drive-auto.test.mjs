@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  createDriveAuto, planAuto, planFolders, parseAutoRequest, registeredIds, appFolderIdsFrom, skipFolder, AUTO_NOTE, EVENT_FOLDER_NAME, RECENT_MS, ADD_MAX, FOLDER_MAKE_MAX,
+  createDriveAuto, planAuto, planFolders, planFollow, FOLLOW_QUIET_MS, parseAutoRequest, registeredIds, appFolderIdsFrom, skipFolder, AUTO_NOTE, EVENT_FOLDER_NAME, RECENT_MS, ADD_MAX, FOLDER_MAKE_MAX,
 } from '../../supabase/functions/library-files/drive-auto.mjs';
 import { skipReason } from '../../supabase/functions/library-files/drive-skip.mjs';
 import { EVENT_ATTACH_FOLDER } from '../../supabase/functions/_shared/event-attach-file.ts';
@@ -18,7 +18,7 @@ const folder = (key, name, parent, over = {}) => ({ id: id(key), name, mimeType:
 const LIB = id('lib'), ROOT = id('root'), OUT = id('outside');
 
 // 가짜 supabase(표 이름 → 행 배열). select·eq·order·range·maybeSingle·not·in·insert·update·delete + rpc(app_library_folder_set_drive)만.
-function fakeClient(tables, { failInsert = false } = {}) {
+function fakeClient(tables, { failInsert = false, failRead = [] } = {}) {
   const calls = [];
   // DB 함수 app_library_folder_set_drive 흉내: 휴지통 아닌 내 폴더, 지금 값 = p_expect, 같은 작업공간 다른 폴더(휴지통 포함)가 짝이면 taken.
   async function rpc(fn, a) {
@@ -40,8 +40,9 @@ function fakeClient(tables, { failInsert = false } = {}) {
       eq(k, v) { filters.push(r => r[k] === v); return b; },
       in(k, vs) { filters.push(r => vs.includes(r[k])); return b; },
       not(k, _is, _v) { filters.push(r => r[k] != null); return b; },
+      lt(k, v) { filters.push(r => r[k] != null && String(r[k]) < String(v)); return b; },
       order() { return b; },
-      async range(a, z) { return { data: rows().slice(a, z + 1), error: null }; },
+      async range(a, z) { if (failRead.includes(name)) return { data: null, error: { code: '42703' } }; return { data: rows().slice(a, z + 1), error: null }; },
       async maybeSingle() { return { data: rows()[0] || null, error: null }; },
       insert(v) { op = 'insert'; payload = Array.isArray(v) ? v : [v]; return b; },
       update(v) { op = 'update'; payload = v; return b; },
@@ -63,6 +64,7 @@ function fakeClient(tables, { failInsert = false } = {}) {
             return Promise.resolve({ data: null, error: null }).then(res, rej);
           }
           if (op === 'update') {
+            if (typeof tables.__onUpdate === 'function') tables.__onUpdate(name);
             const hit = rows();
             for (const r of hit) Object.assign(r, payload);
             calls.push({ name, op, n: hit.length });
@@ -138,7 +140,7 @@ function world(over = {}) {
     __receive: 'af-recv',
     ...(over.tables || {}),
   };
-  const admin = fakeClient(tables, over.adminOpts), db = fakeClient(tables);
+  const admin = fakeClient(tables, over.adminOpts), db = fakeClient(tables, over.dbOpts);
   const dr = fakeDrive(driveFiles, over.driveOpts);
   const auto = createDriveAuto({ admin, db, fetch: dr.fetch, token: 't', workspaceId: 'w1', userId: 'u1', titleFor: n => n.replace(/\.[^.]+$/, ''), classify: () => ({ category: '기타', tags: [] }), now: () => NOW, log: () => {} });
   return { auto, tables, admin, db, dr, driveFiles };
@@ -420,4 +422,116 @@ test('S70-73b planFolders: 한 번에 FOLDER_MAKE_MAX개까지, 넘친 폴더와
   const files = [file('h1', 'h.pdf', id('deepX'))];
   const a = planAuto({ files, libraryId: LIB, hold: p.hold, now: NOW });
   assert.equal(a.add.length, 0); assert.equal(a.skipped.hold, 1); assert.equal(a.more, true);
+});
+
+// ── S70-73c: 드라이브에서 옮긴 등록 자료 → 자료실 폴더를 드라이브 부모의 짝으로(앱에서 막 옮긴 자료는 건너뜀) ──
+const LONG_AGO = new Date(NOW - FOLLOW_QUIET_MS - 60000).toISOString();
+const JUST_NOW = new Date(NOW - 5 * 60000).toISOString();
+// 등록 자료 'd-mv'(파일 mv): 앱에서는 교육 폴더(af-edu), 드라이브에서는 parentKey 폴더 안.
+function followWorld(parent, { item = { folder_id: 'af-edu', moved_at: LONG_AGO }, ...over } = {}) {
+  const w = world({
+    ...over,
+    docs: [{ id: 'd-mv', workspace_id: 'w1', file_id: id('mv'), file_size: 900, mime_type: 'application/pdf', previous_files: [] }],
+    driveFiles: [file('mv', '옮긴 자료.pdf', parent, { md5Checksum: 'E'.repeat(32), size: '900' }), ...(over.driveFiles || [])],
+  });
+  if (item) w.tables.app_library_folder_items.push({ document_id: 'd-mv', workspace_id: 'w1', ...item });
+  return w;
+}
+const folderOfMv = t => t.app_library_folder_items.find(i => i.document_id === 'd-mv')?.folder_id;
+
+test('S70-73c ① 드라이브에서 A→B로 옮긴 등록 자료 → 자료실 폴더도 B(폴더 칸만, 자료 행·파일 그대로)', async () => {
+  const { auto, tables } = followWorld(id('sub'));
+  const doc = JSON.stringify(tables.app_documents.find(d => d.id === 'd-mv'));
+  const r = await auto.run();
+  assert.equal(folderOfMv(tables), 'af-sub');
+  assert.equal(r.followed, 1);
+  assert.equal(JSON.stringify(tables.app_documents.find(d => d.id === 'd-mv')), doc, '자료 행은 그대로');
+  assert.equal(tables.app_documents.filter(d => d.file_id === id('mv')).length, 1, '새 자료로 또 넣지 않음');
+  const r2 = await auto.run();
+  assert.equal(r2.followed, 0, '두 번째는 할 일 없음');
+});
+
+test('S70-73c ① 잡동사니(짝 없는 자료실 폴더)에 있던 자료를 드라이브에서 짝 폴더로 옮기면 따라감', async () => {
+  const { auto, tables } = followWorld(id('edu'), { item: { folder_id: 'af-recv', moved_at: LONG_AGO } });
+  const r = await auto.run();
+  assert.equal(folderOfMv(tables), 'af-edu');
+  assert.equal(r.followed, 1);
+});
+
+test('S70-73c ① 이번에 새로 만든 자료실 폴더(S70-73b) 안으로 드라이브에서 옮긴 자료도 그 폴더로', async () => {
+  const { auto, tables } = followWorld(id('newsub'), { driveFiles: [folder('newsub', '새 하위', id('edu'))] });
+  await auto.run();
+  const made = tables.app_library_folders.find(f => f.drive_folder_id === id('newsub'));
+  assert.ok(made);
+  assert.equal(folderOfMv(tables), made.id);
+});
+
+test('S70-73c ② 드라이브 부모가 자료실 밖·자료실 맨 위·앱 폴더면 그대로', async () => {
+  for (const parent of [OUT, LIB, id('wait')]) {
+    const { auto, tables } = followWorld(parent);
+    const r = await auto.run();
+    assert.equal(folderOfMv(tables), 'af-edu', parent);
+    assert.equal(r.followed, 0, parent);
+  }
+  const top = followWorld(LIB);
+  assert.equal((await top.auto.run()).skipped.follow_top, 1);
+});
+
+test('S70-73c ③ 드라이브 부모가 짝 없는 폴더면 그대로, 지금 폴더가 휴지통이거나 폴더 밖 자료도 그대로', async () => {
+  const a = followWorld(id('free'));
+  const ra = await a.auto.run();
+  assert.equal(folderOfMv(a.tables), 'af-edu'); assert.equal(ra.skipped.follow_nopair, 1);
+  const b = followWorld(id('sub'), { item: { folder_id: 'af-gone', moved_at: LONG_AGO } });
+  b.tables.app_library_folders.push({ id: 'af-gone', workspace_id: 'w1', drive_folder_id: id('gonedrv'), deleted_at: 'old' });
+  const rb = await b.auto.run();
+  assert.equal(folderOfMv(b.tables), 'af-gone', '휴지통 폴더 안 자료는 그대로'); assert.equal(rb.skipped.follow_trashed, 1);
+  const c = followWorld(id('sub'), { item: null });
+  const rc = await c.auto.run();
+  assert.equal(folderOfMv(c.tables), undefined, '폴더 밖 자료는 그대로(연결 줄 만들지 않음)'); assert.equal(rc.skipped.follow_loose, 1);
+});
+
+test('S70-73c ④ 앱에서 막 옮긴 자료(드라이브 맞추기 전)는 건너뜀 — 앱 값을 되돌리지 않음', async () => {
+  const { auto, tables } = followWorld(id('edu'), { item: { folder_id: 'af-sub', moved_at: JUST_NOW } });
+  const r = await auto.run();
+  assert.equal(folderOfMv(tables), 'af-sub');
+  assert.equal(r.followed, 0); assert.equal(r.skipped.follow_quiet, 1);
+});
+
+test('S70-73c ④ 읽은 뒤 고치기 전에 앱이 옮기면(폴더·옮긴 시각이 바뀜) 고치지 않음', async () => {
+  const { auto, tables } = followWorld(id('sub'));
+  tables.__onUpdate = name => {
+    if (name !== 'app_library_folder_items') return;
+    const it = tables.app_library_folder_items.find(i => i.document_id === 'd-mv');
+    Object.assign(it, { folder_id: 'af-recv', moved_at: new Date(NOW).toISOString() });
+  };
+  const r = await auto.run();
+  assert.equal(folderOfMv(tables), 'af-recv', '앱이 옮긴 값 그대로');
+  assert.equal(r.followed, 0); assert.equal(r.skipped.follow_lost, 1);
+});
+
+test('S70-73c ④ 옮긴 시각 칸을 못 읽으면(DB 적용 전) 따라가기는 통째로 쉬고 새 파일 등록은 그대로', async () => {
+  const { auto, tables } = followWorld(id('sub'), { dbOpts: { failRead: ['app_library_folder_items'] } });
+  const r = await auto.run();
+  assert.equal(r.ok, true);
+  assert.equal(folderOfMv(tables), 'af-edu');
+  assert.equal(r.followed, 0); assert.equal(r.skipped.follow_off, 1);
+  assert.equal(r.added, 4, '새 파일 등록은 그대로');
+});
+
+test('S70-73c ⑤ 드라이브 쓰기 없음(목록·파일 하나·tokeninfo만), 자료실 폴더 표·자료 표 고치기 없음', async () => {
+  const { auto, dr, db, admin } = followWorld(id('sub'));
+  await auto.run();
+  for (const u of dr.seen) assert.ok(u.startsWith('https://www.googleapis.com/drive/v3/files?') || /\/files\/[^?]+\?fields=/.test(u) || u.startsWith('https://oauth2.googleapis.com/tokeninfo'), u);
+  assert.ok(db.calls.some(c => c.name === 'app_library_folder_items' && c.op === 'update' && c.n === 1), '연결 줄 폴더 칸 고치기');
+  assert.equal([...db.calls, ...admin.calls].some(c => (c.name === 'app_library_folders' || c.name === 'app_documents') && c.op === 'update'), false);
+});
+
+test('S70-73c planFollow: 부모가 둘 이상이면 그대로, 한 번에 max까지(넘으면 more), 옮긴 시각을 모르면 건너뜀', () => {
+  const appPair = new Map([['A', id('pa')], ['B', id('pb')]]), pairOf = new Map([[id('pa'), 'A'], [id('pb'), 'B']]);
+  const files = [file('x1', 'x1', id('pb')), file('x2', 'x2', id('pb')), file('x3', 'x3', id('pb'), { parents: [id('pa'), id('pb')] }), file('x4', 'x4', id('pb'))];
+  const docs = files.map((f, i) => ({ id: 'd' + i, file_id: f.id }));
+  const items = docs.map((d, i) => ({ document_id: d.id, folder_id: 'A', moved_at: i === 3 ? null : LONG_AGO }));
+  const p = planFollow({ docs, files, items, appPair, pairOf, libraryId: LIB, now: NOW, max: 1 });
+  assert.deepEqual(p.moves, [{ docId: 'd0', from: 'A', to: 'B' }]);
+  assert.equal(p.more, true); assert.equal(p.skipped.parents, 1); assert.equal(p.skipped.unknown, 1);
 });

@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDriveAuto, addedLine, GAP_MS, PATH } from '../app/library-drive-auto.mjs';
+import { createDriveAuto, addedLine, changedLine, GAP_MS, PATH } from '../app/library-drive-auto.mjs';
 
 // S70-73 LIB-드라이브자동등록: 자료실을 열 때 서버에 한 번 부탁, 새로 들어온 게 있을 때만 목록 다시 읽기·한 줄.
 function harness(answers) {
   const calls = [], added = [];
   let t = 1000;
   const api = async (path, opts) => { calls.push({ path, body: opts.body }); const a = answers.shift(); if (a instanceof Error) throw a; return a; };
-  const auto = createDriveAuto({ api, onAdded: n => { added.push(n); }, now: () => t });
+  const auto = createDriveAuto({ api, onAdded: (n, m) => { added.push(m ? [n, m] : n); }, now: () => t });
   return { auto, calls, added, tick: ms => { t += ms; } };
 }
 
@@ -46,4 +46,15 @@ test('화면을 떠났으면 목록을 다시 읽지 않음', async () => {
 
 test('한 줄 글', () => {
   assert.equal(addedLine(2), '드라이브 자료실 폴더에서 새 자료 2개가 들어왔어요');
+});
+
+test('S70-73c 드라이브 따라 옮긴 자료만 있어도 목록 다시 읽기·한 줄(돌려주는 값은 새로 들어온 수)', async () => {
+  const h = harness([{ ok: true, added: 0, followed: 2 }, { ok: true, added: 1, followed: 3 }]);
+  assert.equal(await h.auto.start('k'), 0);
+  h.tick(GAP_MS + 1);
+  assert.equal(await h.auto.start('k'), 1);
+  assert.deepEqual(h.added, [[0, 2], [1, 3]]);
+  assert.equal(changedLine(0, 2), '드라이브에서 옮긴 자료 2개를 자료실에서도 같은 폴더로 옮겼어요');
+  assert.equal(changedLine(1, 0), addedLine(1));
+  assert.equal(changedLine(1, 3), addedLine(1) + ' · 드라이브에서 옮긴 자료 3개를 자료실에서도 같은 폴더로 옮겼어요');
 });

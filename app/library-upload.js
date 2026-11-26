@@ -82,7 +82,7 @@ import {word} from './brand/brand.mjs';
 import {bindSelectKeys,renameTarget,confirmDelete} from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
 import {fitSelectBar} from './select-bar.js'; // UI-고르기막대(S69-85): 선택 막대 한 줄 맞추기
 import {uploadLabelHtml} from './upload-label.mjs'; // UI-업로드말(S70-41): 클립 + 업로드
-import {createDriveAuto,addedLine as luAutoAddedLine} from './library-drive-auto.mjs'; // S70-73 LIB-드라이브자동등록
+import {createDriveAuto,changedLine as luAutoChangedLine} from './library-drive-auto.mjs'; // S70-73 LIB-드라이브자동등록
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luCategorySub='',luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
@@ -2335,12 +2335,13 @@ function luStartAutoTidy(){
 }
 // S70-73 LIB-드라이브자동등록: 자료실을 열 때(목록을 읽은 뒤) 드라이브 'WORK ON+ › 자료실' 폴더에 앱을 거치지 않고 생긴 파일을 서버가 자료로 등록한다
 // (library-drive-auto.mjs → library-files drive-auto). 버튼·창 없음. 새로 들어온 게 있을 때만 목록을 다시 읽고 한 줄('새 자료 n개').
+// S70-73c: 드라이브에서 다른 폴더로 옮긴 등록 자료는 서버가 자료실 폴더도 따라 옮기고(followed), 그때도 목록을 다시 읽고 한 줄.
 let luAuto=null;
 function luStartDriveAuto(){
   const scope=luTidyScope();if(!scope||window.KPTURouter?.current!=='library')return;
   const key=[scope.epoch,scope.workspace,scope.user].join(':');
   const isCurrent=()=>{const now=luTidyScope();return !!now&&now.epoch===scope.epoch&&now.workspace===scope.workspace&&now.user===scope.user&&window.KPTURouter?.current==='library'};
-  luAuto||=createDriveAuto({api:luApi,onAdded:n=>luLoadAll().then(()=>{luRenderLibrary();luRenameNotice(luAutoAddedLine(n))})});
+  luAuto||=createDriveAuto({api:luApi,onAdded:(n,m)=>luLoadAll().then(()=>{luRenderLibrary();luRenameNotice(luAutoChangedLine(n,m))})});
   void luAuto.start(key,isCurrent);
 }
 // SEARCH-전체검색 ② 기존 자료 글자 채우기: 같은 자리에서, 한 번에 소수만 뒤에서 읽는다(document-text-read.js). 버튼·표시 없음.
