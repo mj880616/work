@@ -1,12 +1,12 @@
 begin;
--- S71-21 PHOTO-내용찾기 ②(DB). 설계: docs/design/photo-content-search.md 4-3절·6절 ①. 명진 11/26 17:25 "추천대로"(7절 네 가지 추천안).
+-- S71-21 PHOTO-내용찾기 ②(DB). 설계: docs/design/photo-content-search.md 4-3절·6절 ①. 사용자 11/26 17:25 "추천대로"(7절 네 가지 추천안).
 -- 무엇:
 --  1) 운영자 기능 키에 'photo_content'(사진을 설명 낱말로 찾기)를 더한다(검사 지우고 같은 이름으로 다시 만듦 — 앞 단계 20261125113100_blog_tables의 키 열은 그대로).
 --  2) 허용 행은 '통화(calls)가 허용된 작업공간이 정확히 하나일 때'만 그 작업공간에 1행(고정 id·이름·메일 없음, blog·arsenal·outside와 같은 방식).
 -- 쓰는 곳: Edge gdrive-photos의 content-find 동작이 service role 함수 public.app_operator_feature_workspace('photo_content')로
 --   부른 사람의 작업공간과 같은지 본다(다르면 403). 화면은 app_my_features()에 키가 있을 때만 그 동작을 부른다(화면 판단은 편의일 뿐).
 -- 권한: 바꾸지 않는다. app_operator_features는 RLS 켬·정책 없음·API 역할 권한 없음 그대로. 새 표·함수·정책·트리거·권한 없음.
--- 사진 설명 글은 DB에 두지 않는다(명진 드라이브 안 시트, 설계 4절). 안 하는 것: 기존 허용 행·함수·정책·권한 변경, 앱 표 변경, rtw_* 객체.
+-- 사진 설명 글은 DB에 두지 않는다(운영자 드라이브 안 시트, 설계 4절). 안 하는 것: 기존 허용 행·함수·정책·권한 변경, 앱 표 변경, rtw_* 객체.
 -- 짝: docs/20261126190000_photo_content_feature.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
