@@ -169,16 +169,13 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 // menu(n): 그 토글 머리에 ⋯ 버튼을 둘 때 접근성 이름(없으면 버튼 없음). 버튼 누르기는 토글을 여닫지 않는다(그리는 쪽이 막음).
 // canDrag(n): 폴더 머리를 끌 수 있게 할지(PC 끌어 놓기). 파일 줄의 끌기는 fileHtml이 정한다.
 // emoji: 폴더로 묶었을 때(LIB-폴더보기, 2026-10-28 명진 요청 08:25 ③) ▸ 삼각형 대신 닫힌/열린 폴더 그림, '폴더 밖'은 회색 점선 폴더 그림 + 흐린 글자(S51-25: 그림 문자 🗂은 PC에서 깨짐).
-// SEARCH-선택옮기기 ⑦(10/28 명진 요청 '외줄 폴더 경로 압축'): 자기 자료 없이 폴더 하나만 든 폴더가 이어지면 그 아래 폴더들(맨 위 폴더 제외).
-// 접힌 줄은 '공공팀 › 회의 › 집행위' 한 줄로 보이고, 펼치면 지금처럼 '공공팀' 아래 단마다 줄이 생긴다(CSS가 펼친 줄의 뒤 경로를 숨김).
-// 펼칠 때 이어진 폴더들도 함께 펼친다(library-upload.js luOnHeadClick). 메뉴·끌어 놓기는 지금처럼 맨 위 폴더 기준.
-export function folderChain(n){const out=[];let c=n,guard=0;while(c?.kind==='folder'&&!c.files.length&&c.children.length===1&&c.children[0].kind==='folder'&&guard++<FOLDER_DEPTH){c=c.children[0];out.push(c)}return out}
+// LIB-외줄합치기없애기(명진 11/26 08:43): 하위 폴더 하나뿐인 폴더도 '가 › 나'로 접지 않는다 — 어디서나 자기 이름·자기 개수, 누르면 안에 하위 폴더.
 // LIB-사진숨김(S60-10): isPhoto를 주면 묶음 안 사진은 줄에서 빼고(줄 수·[더 보기]도 사진 뺀 줄 기준) 줄 끝에 photoTail(묶음, 사진들) 하나.
 // S69-28 LIB-한칸탐색기(명진 11/24 '윈도우 탐색기처럼'): flat={node}이면 탐색기 오른쪽 칸 — list(그 자리 바로 안 폴더)를 0단 줄(data-lu-enter)로 두고
 // (S69-68: 누르면 그 자리 펼치기·접기 — 들어가지 않음), 이어서 node(지금 폴더·맨 위면 '폴더 밖' 묶음)의 자료 줄을 감싸지 않고 그린다.
 // 지금 폴더 줄 자신(위치 줄과 겹치는 제목)은 그리지 않는다. 자료 줄 모양·'n개 더 보기'·[사진 n]은 펼친 폴더 안과 같다.
 export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=null,pick=null,emoji=false,isPhoto=null,photoTail=null,flat=null}){
-  // LIB-받는폴더: 받는 폴더 줄에 작은 '받는 폴더' 표시(시안 ①③). 외줄 경로로 접힌 아래 폴더면 펼쳤을 때 그 줄에 보인다(두 번 보이지 않게).
+  // LIB-받는폴더: 받는 폴더 줄에 작은 '받는 폴더' 표시(시안 ①③).
   const receiveTag=n=>n.rc?'<span class="lu-receive-mark">받는 폴더</span>':'';
   const head=n=>{
     const face=emoji&&(n.kind==='folder'||n.key==='x:out');
@@ -189,9 +186,8 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
     // S51-25 FOLDER-세모0: 폴더가 아닌 묶음(사업영역·하위 프로젝트·담당조직·분류·소분류·종류·월)도 펼치는 나무라 세모 대신 같은 열린/닫힌 폴더 그림.
     const mark=face&&n.key==='x:out'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${treeIconHtml('outside',{className:'ft-ico'})}</span>`:`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`;
     const more=menu?.(n);
-    const rest=n.chain===false?[]:folderChain(n);
-    const cnt=folderCountOf(rest.length?rest.at(-1):n); // 외줄로 접힌 줄 '가 › 나'는 맨 끝 폴더(나)의 개수
-    return `<summary class="lu-node-head lu-node-emoji${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="${esc(cnt.label)}">${esc(cnt.text)}</span>${receiveTag(n)}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
+    const cnt=folderCountOf(n);
+    return `<summary class="lu-node-head lu-node-emoji${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}</span><span class="lu-node-count" aria-label="${esc(cnt.label)}">${esc(cnt.text)}</span>${receiveTag(n)}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
   };
   const filesOf=n=>{
     const rows=isPhoto?n.files.filter(d=>!isPhoto(d)):n.files,photos=isPhoto?n.files.filter(isPhoto):[];
@@ -202,7 +198,7 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
   const emptyIn=n=>n.kind==='folder'&&!n.children.length&&!n.files.length?`<div class="lu-node-empty">${emptyHtml('빈 폴더')}</div>`:'';
   // lazy(탐색기 칸): 접힌 폴더는 안쪽을 그리지 않는다(보이는 줄만 화면에 — 고르기 수·사각형 고르기가 지금처럼). 펼치면 다시 그린다(library-upload.js luOnHeadClick).
   const body=(n,lazy=false)=>n.children.map(c=>one(c,'',lazy)).join('')+filesOf(n)+emptyIn(n);
-  const one=(n,top='',lazy=false)=>{const rest=folderChain(n),open=isOpen(n.key);return `<details class="lu-node${top?' lu-enter':''}" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${top}${rest.length?` data-lu-chain="${esc(rest.map(c=>c.key).join(' '))}"`:''} style="--lu-depth:${folderIndent(n.depth)}"${open?' open':''}>${head(n)}<div class="lu-node-body">${lazy&&!open?'':body(n,lazy)}</div></details>`};
+  const one=(n,top='',lazy=false)=>{const open=isOpen(n.key);return `<details class="lu-node${top?' lu-enter':''}" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${top} style="--lu-depth:${folderIndent(n.depth)}"${open?' open':''}>${head(n)}<div class="lu-node-body">${lazy&&!open?'':body(n,lazy)}</div></details>`};
   // S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09 '노조를 클릭하면 노조가 펼쳐지는거야 거기로 들어가는게 아니고 들어가는건 무조건 왼쪽에서'):
   //  탐색기 오른쪽 칸 폴더 줄도 그 자리에서 펼치기·접기(한 칸 나무와 같은 줄 — 안의 하위 폴더·자료가 들여 보임). 들어가기는 왼쪽 나무·⋯ 첫 줄 [이 폴더로 들어가기]만.
   //  단(depth)은 이 칸 기준 0부터 다시 센다(지금 폴더 줄 자신은 그리지 않으므로). data-lu-enter는 '탐색기 칸 0단 폴더 줄' 표시(고르기·사각형 고르기가 읽음 — 이름은 옛 그대로).
