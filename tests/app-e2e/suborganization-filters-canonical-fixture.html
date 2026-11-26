@@ -49,6 +49,21 @@ window.__holdOrgSave=false;window.__failOrgSave=false;window.__holdAssigneeSave=
 let releaseOrgSave,releaseAssigneeSave;
 window.__orgSaveGate=new Promise(r=>releaseOrgSave=r);window.__assigneeSaveGate=new Promise(r=>releaseAssigneeSave=r);
 window.__releaseOrgSave=()=>releaseOrgSave();window.__releaseAssigneeSave=()=>releaseAssigneeSave();
+// S71-35 ORG-조직관리로모으기: ?collab = 조직 관리 화면에 들어와 있는 것처럼(KPTURouter.current='team') — 목록 맨 아래 접힌 '내 묶음'이 붙는다.
+// 묶음 함수(app_collab_*)는 가짜 서버(합성 값, 부른 것만 __collabCalls에 남김). ?collab=one = 내가 관리자인 부서 묶음 하나.
+if(fixtureParams.has('collab'))window.KPTURouter={current:'team',on(){return()=>{}},go(){}};
+window.__collabCalls=[];
+window.__collabGroups=fixtureParams.get('collab')==='one'?[{id:'g-1',kind:'dept',union_name:'가상노조',dept_name:'가상사업',my_role:'admin',members:[{id:'m-1',name:'김명진',me:true,role:'admin'},{id:'m-2',name:'한소영',role:'member'}],requests:[],invites_live:0}]:[];
+async function fixtureCollab(name,body){
+ window.__collabCalls.push({name,body:structuredClone(body||{})});
+ if(name==='app_collab_my_groups')return structuredClone(window.__collabGroups);
+ if(name==='app_collab_group_create'){const g={id:'g-'+(window.__collabGroups.length+1),kind:body.p_kind,union_name:body.p_union_name,dept_name:body.p_dept_name,my_role:'admin',members:[{id:'m-me',name:'김명진',me:true,role:'admin'}],requests:[]};window.__collabGroups.push(g);return g.id}
+ if(name==='app_collab_invite_create')return {token:'b'.repeat(64)};
+ if(name==='app_collab_invite_peek')return {kind:'dept',union_name:'가상노조',dept_name:'초대부서',admin_name:'한소영',member_count:2,already_member:false};
+ if(name==='app_collab_invite_accept'){const g={id:'g-in',kind:'dept',union_name:'가상노조',dept_name:'초대부서',my_role:'member',members:[{id:'m-x',name:'한소영',role:'admin'},{id:'m-me2',name:'김명진',me:true,role:'member'}],requests:[]};window.__collabGroups.push(g);return g.id}
+ if(name==='app_collab_leave'){window.__collabGroups=window.__collabGroups.filter(g=>g.id!==body.p_group);return null}
+ return null;
+}
 window.KPTURuntime={context:{read:()=>({user:{id:fixtureUser},workspace:{id:'ws-1'},membership:{role:fixtureRole}})},session:{ensure:async()=>true,epoch:()=>0,read:()=>({user:{id:fixtureUser}})},api:async(path,opt={})=>{
  const probe=window.__saveLockProbe;
  if(probe&&path.split('?')[0]===`/rest/v1/${probe.table}`&&opt.method===probe.method){
@@ -61,6 +76,8 @@ window.KPTURuntime={context:{read:()=>({user:{id:fixtureUser},workspace:{id:'ws-
    if(probe.table==='app_org_affiliation_tags')return [{id:'tag-new-'+probe.count}];
    if(probe.table==='app_suborganization_timeline')return [];
  }
+ if(path.startsWith('/rest/v1/rpc/app_collab_'))return fixtureCollab(path.slice('/rest/v1/rpc/'.length),opt.body);
+ if(path.startsWith(`/rest/v1/app_profiles?user_id=eq.${fixtureUser}&select=display_name`))return [{display_name:fixtureRole==='viewer'?'열람자':'김명진'}];
  if(path==='/functions/v1/team-ai'){window.__teamAiCalls++;throw new Error('retired team-ai call')}
  if(path==='/auth/v1/user')return {id:fixtureUser,user_metadata:{display_name:fixtureRole==='viewer'?'열람자':'김명진'}};
  // S67-53 ORG-여러개삭제(가짜 서버): 담당조직 DELETE는 휴지통으로(목록에서 빠짐), app_trash_list·app_trash_restore(organization), 조직 보고 개수 읽기(select=id).

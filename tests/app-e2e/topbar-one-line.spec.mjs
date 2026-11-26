@@ -96,7 +96,7 @@ for (const width of [390, 700]) {
         expect(seg.right).toBeGreaterThan(width - 30);
       }
       if (s.key === 'team' && width < 600) {
-        // 조직 관리: [+ 담당조직]·[⋯]는 같은 줄 오른쪽.
+        // 조직 관리: [⋯]는 같은 줄 오른쪽(S71-35: [+ 담당조직]은 ⋯ 안 '새 담당조직').
         const more = await box(page.locator('#soTeamMore'));
         expect(Math.abs(more.mid - n.mid)).toBeLessThanOrEqual(6);
       }

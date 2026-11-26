@@ -13,16 +13,6 @@
 /* PROFILE-소속칸글로쓰기: 칸 4개를 2줄로 — 위 노조명·부서명, 아래 이름·직책(같은 너비 비율). */
 #profileView .ps-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:6px;max-width:520px}
 #profileView .ps-fields input{min-width:0;height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-compact-text)}
-.ps-org-row{display:flex;align-items:center;gap:6px;min-height:var(--ds-compact-height);break-inside:avoid}
-.ps-org-pick{display:flex;flex-direction:row;justify-content:flex-start;flex:1;align-items:center;text-align:left;font-weight:var(--ds-weight-regular);color:var(--kptu-ink);gap:8px;min-width:0;min-height:var(--ds-compact-height);margin:0;cursor:pointer;font-size:var(--ds-text-row)}
-.ps-org-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#profileView .ps-org-go{position:relative;flex:none;width:var(--ds-compact-height);height:var(--ds-compact-height);padding:0;border:0;background:transparent;color:var(--kptu-faint);font-size:16px;line-height:1}
-#profileView .ps-org-go::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px)/2);height:var(--kptu-touch-target,44px)}
-#profileView .ps-org-go:hover,#profileView .ps-org-go:focus-visible{color:var(--kptu-ink);background:var(--kptu-surface-subtle);outline:none}
-.ps-legacy-wrap{margin-top:6px;padding-top:4px;border-top:.5px dashed var(--kptu-border);font-size:11px}
-.ps-legacy-title{margin-right:6px;color:var(--kptu-muted)}
-.ps-legacy-chip{display:inline-flex;align-items:center;margin:0 6px 0 0;color:var(--kptu-muted)}
-.ps-legacy-chip small{margin-left:4px;opacity:.72}
 /* 화면정리 A1(2026-10-28): 로그아웃은 메뉴(계정) 한 곳에만. 계정 칸은 [내 공간]이 보일 때만 남는다. */
 #profileView .ps-account-panel{display:flex;align-items:center;justify-content:space-between;gap:8px}
 #profileView .ps-account-panel:not(:has(button:not(.hidden))){display:none}
@@ -67,41 +57,6 @@
 #profileView .ps-push-recent[data-opened]{color:var(--kptu-muted)}
 #profileView .ps-push-recent:hover,#profileView .ps-push-recent:focus-visible{text-decoration:underline}
 #profileView .ps-push-time{flex:none;width:auto;min-width:7.2em;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 6px;font-size:var(--ds-compact-text)}
-/* COLLAB-묶인사람끼리공유 1단계: '내 묶음' 칸(collab-groups.js 한 곳이 그림). 콤팩트, 줄 단위, 큰 카드 없음. */
-#profileView .ps-collab .cg-n{color:var(--kptu-muted);font-weight:400;font-size:var(--ds-text-meta)}
-#profileView .ps-collab .cg-muted{color:var(--kptu-muted);font-size:var(--ds-text-meta);margin:4px 0}
-#profileView .ps-collab .cg-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-#profileView .ps-collab .cg-card{border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-md);padding:6px 8px;margin:6px 0;background:var(--kptu-surface-subtle)}
-#profileView .ps-collab .cg-join-title,#profileView .ps-collab .cg-form-title{font-weight:600}
-#profileView .ps-collab .cg-join-who{margin:2px 0 4px}
-#profileView .ps-collab .cg-consent{font-size:var(--ds-text-meta);margin:4px 0;color:var(--kptu-ink)}
-#profileView .ps-collab .cg-consent-head{color:var(--kptu-muted)}
-#profileView .ps-collab .cg-hint{font-size:var(--ds-text-meta);color:var(--kptu-muted);margin:4px 0}
-#profileView .ps-collab .cg-field{display:flex;flex-direction:row;align-items:center;gap:8px;margin:4px 0;font-weight:400}
-#profileView .ps-collab .cg-field span{flex:none;width:52px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#profileView .ps-collab .cg-field input{flex:1;min-width:0}
-#profileView .ps-collab .cg-group{border-top:.5px solid var(--kptu-border)}
-#profileView .ps-collab .cg-group:first-of-type{border-top:0}
-#profileView .ps-collab .cg-group>summary{display:flex;align-items:center;gap:8px;min-height:var(--kptu-touch-target,44px);cursor:pointer;list-style:none}
-#profileView .ps-collab .cg-group>summary::-webkit-details-marker{display:none}
-#profileView .ps-collab .cg-group>summary::after{content:"›";margin-left:auto;color:var(--kptu-muted);transition:transform .15s}
-#profileView .ps-collab .cg-group[open]>summary::after{transform:rotate(90deg)}
-#profileView .ps-collab .cg-gname{font-weight:600;min-width:0;overflow-wrap:anywhere}
-#profileView .ps-collab .cg-gmeta{color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
-#profileView .ps-collab .cg-body{padding:0 0 6px 4px}
-#profileView .ps-collab .cg-sec{display:flex;align-items:center;gap:6px;font-weight:600;font-size:var(--ds-text-meta);margin:6px 0 2px}
-#profileView .ps-collab .cg-sec-btn{margin-left:auto}
-#profileView .ps-collab .cg-ln{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);border-top:.5px solid var(--kptu-border)}
-#profileView .ps-collab .cg-nm{font-weight:500;min-width:0;overflow-wrap:anywhere}
-#profileView .ps-collab .cg-t{flex:1;min-width:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#profileView .ps-collab .cg-tag{font-size:11px;border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);padding:0 5px;color:var(--kptu-muted)}
-#profileView .ps-collab .cg-more{position:relative}
-#profileView .ps-collab .cg-more>summary{list-style:none;cursor:pointer;min-width:var(--ds-compact-height);text-align:center;color:var(--kptu-muted)}
-#profileView .ps-collab .cg-more>summary::-webkit-details-marker{display:none}
-#profileView .ps-collab .cg-more-menu{position:absolute;right:0;top:100%;z-index:5;display:flex;flex-direction:column;gap:2px;padding:4px;background:var(--kptu-surface);border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-md);box-shadow:var(--kptu-shadow-float);white-space:nowrap}
-#profileView .ps-collab .cg-link-box{margin:6px 0}
-#profileView .ps-collab .cg-link{font-family:ui-monospace,monospace;font-size:12px;padding:6px 8px;border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface-subtle);overflow-wrap:anywhere;user-select:all}
-#profileView .ps-collab .cg-foot{justify-content:flex-end}
 /* PRIVACY-백업안내(S66-01, 시안 backup-export.html): '내 기록 백업' 칸(S67-52 '홈 칸'도 같은 줄·스위치 모양). 촘촘한 한 줄 목록, 톤다운 색. 버튼은 공용 6가지(primary·secondary), .rb-btn은 '드라이브에서 보기' 글 링크만. */
 #psBackupPanel .rb-head,#psHomeOffPanel .rb-head{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
 #psBackupPanel .rb-head h3,#psHomeOffPanel .rb-head h3{margin:0}

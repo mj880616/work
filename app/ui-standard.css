@@ -309,9 +309,6 @@
 #appView #teamView .so-dot[data-so-recency="fresh"]{ background:var(--ds-recency-fresh); }
 #appView #teamView .so-dot[data-so-recency="warn"]{ background:var(--ds-recency-warn); }
 #appView #teamView .so-dot[data-so-recency="stale"]{ background:var(--ds-recency-stale); }
-@media(max-width:650px){
-  #appView #teamView .so-team-actions #soAddOrg{ min-height:var(--kptu-control-height); padding:0 var(--ds-control-pad-x); font-size:var(--ds-text-button); }
-}
 
 /* ───────── 3단계 2부(8-9e-2): 폰 배치 ─────────
    폰(760px 이하)만 바꾼다. PC 사이드바·PC 화면 배치는 그대로. 화면 전환은 app-router.js, 메뉴는 topbar-actions.js가 그대로 맡는다. */
@@ -406,7 +403,6 @@
   #appView #basketView [data-basket-list-status][data-basket-empty]{ margin:4px 0; color:var(--kptu-muted); }
 
   /* 담당조직: 위쪽 [+ 담당조직] 대신 목록 맨 아래 작은 글자 링크(같은 창을 엶). */
-  #appView #teamView .so-team-actions #soAddOrg{ display:none; }
   #appView #teamView .so-add-link{ display:block; min-height:var(--kptu-touch-target,44px); margin:8px auto 0; padding:0 12px; border:0; background:transparent; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
   #appView #teamView .so-add-link.hidden{ display:none; }
 }
@@ -1657,10 +1653,10 @@ button.report-filter-chip.is-on{ border-color:var(--ds-select-line,var(--kptu-bo
 :is(html,#appView):is(html,#appView):is(html,#appView) [data-chip-rows] > button.chip-rows-more:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
 /* ③ 체크칸 줄 누르는 범위: 보이는 체크칸(14~16px)·줄 높이(32px)는 그대로, 줄(label) 전체가 누르는 곳이고 위아래 44px까지 넓힌다(UI-버튼기준, 옆 ›의 ::after와 같은 식).
       내 프로필 담당 사업장·참고 일정 '내가 만든 일정도 포함', 원장 '지난 기록도 보기'. 그 밖의 체크칸 줄은 이미 40~44px이다(PR 본문 표). */
-#profileView :is(.ps-org-pick,.ps-calref-check),#appView #ledgerView .lb-check{ position:relative; }
-#profileView :is(.ps-org-pick,.ps-calref-check)::after,#appView #ledgerView .lb-check::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#profileView .ps-calref-check,#appView #ledgerView .lb-check{ position:relative; }
+#profileView .ps-calref-check::after,#appView #ledgerView .lb-check::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 /* 넓힌 범위(::after)가 체크칸 자체를 덮지 않게 체크칸을 그 위에 둔다(체크칸을 바로 눌러도 체크칸이 받는다). */
-#profileView :is(.ps-org-pick,.ps-calref-check)>input,#appView #ledgerView .lb-check>input{ position:relative; z-index:1; }
+#profileView .ps-calref-check>input,#appView #ledgerView .lb-check>input{ position:relative; z-index:1; }
 
 /* HOME-업무일지홈 C(2026-10-30): 할 일 줄 기한 글자(task-due.mjs dueLabel). 작은 진회색 — 본문(검정)보다 흐리고 회의 이름(흐림)보다 진하다.
    노란색은 쓰지 않는다. 홈 할 일 칸·정리함 챙길 것 줄·담당조직 할 일 줄 등 할 일이 줄로 나오는 곳이 같이 쓴다. */

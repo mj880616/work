@@ -79,10 +79,9 @@ test('항목마다 체크 칸을 그리는 목록은 공용 부품을 쓰거나 
 });
 
 // 기기 저장을 쓰지 않는 것은 browser-storage-audit가 앱 전체에서 본다.
-test('담당 사업장·협의회·사업단 소속은 공용 부품으로 그린다', () => {
-  const profile = readFileSync(join(APP, 'profile-settings.js'), 'utf8');
-  assert.match(profile, USES);
-  assert.match(profile, /pickFoldHtml\(\{key:'ws',title:(?:word\()?'담당조직 현황'/);
+// S71-35: 내 프로필 '담당조직 현황' 체크 칸은 없앴다(담당 추가·보관은 조직 관리) — 남은 것은 조직 상세의 협의회·사업단 소속.
+test('협의회·사업단 소속은 공용 부품으로 그린다', () => {
+  assert.doesNotMatch(readFileSync(join(APP, 'profile-settings.js'), 'utf8'), /pickFoldHtml|pick-fold\.mjs/);
   const wd = readFileSync(join(APP, 'workplace-detail.js'), 'utf8');
   assert.match(wd, USES);
   assert.match(wd, /function wdRenderAffChoices\([^\n]*pickFoldHtml\(/);
