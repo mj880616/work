@@ -24,9 +24,7 @@
 }
 /* 펼친 폴드(약 690px): 칸 최소 폭을 좁혀(공용 기본 240·360px) 두 칸이 기본 2 : 3(outside-statements.js mountSplit)으로 들어오게. */
 @media (min-width:600px) and (max-width:760px){ #appView #outsideView .os.now{ --ds-split-list-min:220px; --ds-split-detail-min:280px; } }
-@media (min-width:761px){
-  #appView #outsideView .now-detail{ position:sticky; top:var(--follow-top,8px); max-height:calc(100vh - var(--follow-top,8px) - 8px); overflow:auto; }
-}
+/* PC 오른쪽 글 칸의 붙기·높이는 공용 follow-pane(.kptu-follow-pane, desktop-ui.css UI-두칸높이) 한 곳이 정한다(outside-statements.js openDetail). */
 @media(max-width:599px){ #appView #outsideView .os.now[data-detail="open"] > .os-tabs{ display:none; } }
 #appView #outsideView :is([data-now-panel-all],[data-now-panel-news],.now-interests)[hidden]{ display:none; }
 

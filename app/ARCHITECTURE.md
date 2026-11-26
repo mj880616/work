@@ -226,6 +226,7 @@ MULTI-노조사용자 ②-4(S50-19, `docs/design/multi-user-audit.md` 8절): 접
 - 같은 버튼에 여러 모듈이 `onclick`/`click`을 중복 등록하지 않음.
 - 세션 refresh 로직을 기능 모듈에 새로 만들지 않고 `runtime-client.js`를 사용함.
 - DOM 생성 시점을 기다리기 위한 전역 `MutationObserver`는 최후 수단으로만 사용함. 가능하면 명시적 이벤트를 사용함.
+- 한 영역 한 렌더러 점검 결과 표(S71-74)는 `docs/design/one-renderer-audit.md`에 있음. 화면을 열 때 첫 그림과 1.5초 뒤 줄 위치가 같은지는 `tests/app-e2e/layout-settle.spec.mjs`, 넓은 감시·`!important` 숨김·`:has` 숨김이 늘지 않는지는 `tests/patch-patterns.mjs`(기준표)가 검사함.
 - 단순 CSS 변경을 JavaScript 주입 모듈로 만들지 않음.
 - 새 기능은 기존 소유 모듈에 통합하는 것을 우선함.
 - 비활성 파일은 바로 삭제하지 않고 의존성 검사 후 `legacy`에 격리함.
