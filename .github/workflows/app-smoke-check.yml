@@ -836,6 +836,8 @@ jobs:
         run: node --test tests/note-board-decor-model.test.mjs
       - name: Check note board images (S70-32 ② 사진 정보 지우기·칸 크기)
         run: node --test tests/note-board-image-model.test.mjs
+      - name: Check note board paste (S71-49 누른 자리 붙여넣기·글자 칸 한도)
+        run: node --test tests/note-board-paste-model.test.mjs
       - name: Check note board export (S70-32 ③ 범위·PDF 한 쪽)
         run: node --test tests/note-board-export-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
