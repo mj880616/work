@@ -8,7 +8,7 @@ import {notify} from './small-notice.js';
 // 돌려주는 값: 'shared' · 'cancel'(공유 창을 닫음) · 'copied' · 'failed' · 'none'(주소 없음).
 export async function shareArticleLink(article, {nav = globalThis.navigator, wide = wideShare(), copy = copyText, say = (text, opts) => notify(text, {record: false, ...opts})} = {}) {
   const d = articleShare(article || {});
-  if (!d) { say(SHARE_NOTE.none, {error: true}); return 'none'; }
+  if (!d) { say(SHARE_NOTE.noUrl, {error: true}); return 'none'; }
   if (shareWay({wide, canNative: typeof nav?.share === 'function'}) === 'native') {
     try { await nav.share(nativeData(d)); return 'shared'; }
     catch (e) {
