@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  createDriveAuto, planAuto, parseAutoRequest, registeredIds, appFolderIdsFrom, skipFolder, AUTO_NOTE, EVENT_FOLDER_NAME, RECENT_MS, ADD_MAX,
+  createDriveAuto, planAuto, planFolders, parseAutoRequest, registeredIds, appFolderIdsFrom, skipFolder, AUTO_NOTE, EVENT_FOLDER_NAME, RECENT_MS, ADD_MAX, FOLDER_MAKE_MAX,
 } from '../../supabase/functions/library-files/drive-auto.mjs';
 import { skipReason } from '../../supabase/functions/library-files/drive-skip.mjs';
 import { EVENT_ATTACH_FOLDER } from '../../supabase/functions/_shared/event-attach-file.ts';
@@ -17,9 +17,20 @@ const file = (key, name, parent, over = {}) => ({ id: id(key), name, mimeType: '
 const folder = (key, name, parent, over = {}) => ({ id: id(key), name, mimeType: F, parents: [parent], ownedByMe: true, ...over });
 const LIB = id('lib'), ROOT = id('root'), OUT = id('outside');
 
-// 가짜 supabase(표 이름 → 행 배열). select·eq·order·range·maybeSingle·not·in·insert·update만.
+// 가짜 supabase(표 이름 → 행 배열). select·eq·order·range·maybeSingle·not·in·insert·update·delete + rpc(app_library_folder_set_drive)만.
 function fakeClient(tables, { failInsert = false } = {}) {
   const calls = [];
+  // DB 함수 app_library_folder_set_drive 흉내: 휴지통 아닌 내 폴더, 지금 값 = p_expect, 같은 작업공간 다른 폴더(휴지통 포함)가 짝이면 taken.
+  async function rpc(fn, a) {
+    calls.push({ name: fn, op: 'rpc' });
+    if (fn !== 'app_library_folder_set_drive') throw new Error('unexpected rpc ' + fn);
+    const f = (tables.app_library_folders || []).find(r => r.id === a.p_id && !r.deleted_at);
+    if (!f) return { data: null, error: { code: '42501' } };
+    if ((f.drive_folder_id ?? null) !== a.p_expect) return { data: { ok: false }, error: null };
+    if (tables.app_library_folders.some(o => o.workspace_id === f.workspace_id && o.drive_folder_id === a.p_drive && o.id !== f.id)) return { data: { ok: false, taken: true }, error: null };
+    f.drive_folder_id = a.p_drive;
+    return { data: { ok: true, id: f.id, drive_folder_id: a.p_drive }, error: null };
+  }
   function from(name) {
     const t = (tables[name] ||= []);
     let filters = [], op = 'select', payload = null, wantRows = false;
@@ -34,6 +45,7 @@ function fakeClient(tables, { failInsert = false } = {}) {
       async maybeSingle() { return { data: rows()[0] || null, error: null }; },
       insert(v) { op = 'insert'; payload = Array.isArray(v) ? v : [v]; return b; },
       update(v) { op = 'update'; payload = v; return b; },
+      delete() { op = 'delete'; return b; },
       then(res, rej) {
         try {
           if (op === 'insert') {
@@ -43,6 +55,12 @@ function fakeClient(tables, { failInsert = false } = {}) {
             t.push(...made);
             if (name === 'app_documents' && tables.__receive) for (const d of made) (tables.app_library_folder_items ||= []).push({ document_id: d.id, folder_id: tables.__receive, workspace_id: d.workspace_id });
             return Promise.resolve({ data: wantRows ? made : null, error: null }).then(res, rej);
+          }
+          if (op === 'delete') {
+            const hit = rows();
+            for (const r of hit) r.deleted_at = 'now'; // 자료실 폴더 지우기 = 휴지통(트리거)
+            calls.push({ name, op, n: hit.length });
+            return Promise.resolve({ data: null, error: null }).then(res, rej);
           }
           if (op === 'update') {
             const hit = rows();
@@ -56,7 +74,7 @@ function fakeClient(tables, { failInsert = false } = {}) {
     };
     return b;
   }
-  return { from, calls };
+  return { from, rpc, calls };
 }
 // 가짜 드라이브: 목록(q의 'x' in parents)·파일 하나·tokeninfo.
 function fakeDrive(driveFiles, { scope = 'https://www.googleapis.com/auth/drive', extra = {} } = {}) {
@@ -277,4 +295,129 @@ test('index.ts: 자동 등록 갈래는 로그인 → 내 owner 작업공간 →
   assert.match(part, /userDbFor\(req\)/);
   assert.match(part, /driveToken\(wmAuto\.workspace_id\)/);
   assert.doesNotMatch(part, /input\.workspace_id|input\.user_id|input\.folder_id/);
+});
+
+// ── S70-73b: 짝 폴더 아래 새 드라이브 하위 폴더 → 같은 이름 자료실 폴더(만들기·연결) + 그 안 파일은 그 폴더로 ──
+const MEET = id('meet'), ORG = id('org');
+const folderRows = t => t.app_library_folders.filter(f => !f.deleted_at);
+function meetingWorld(over = {}) {
+  return world({
+    ...over,
+    driveFiles: [
+      folder('org', '03. 궤도', LIB), folder('meet', '회의', ORG),
+      folder('mtA', '궤도협의회 대표자회의', MEET),
+      file('mtA1', '회의록.hwp', id('mtA'), { md5Checksum: 'A'.repeat(32), size: '1001' }),
+      ...(over.driveFiles || []),
+    ],
+    tables: {
+      app_library_folders: [
+        { id: 'af-edu', workspace_id: 'w1', parent_id: null, name: '교육', sort_order: 1, drive_folder_id: id('edu'), deleted_at: null },
+        { id: 'af-sub', workspace_id: 'w1', parent_id: 'af-edu', name: '강의', sort_order: 1, drive_folder_id: id('sub'), deleted_at: null },
+        { id: 'af-recv', workspace_id: 'w1', parent_id: null, name: '잡동사니', sort_order: 2, drive_folder_id: null, deleted_at: null },
+        { id: 'af-org', workspace_id: 'w1', parent_id: null, name: '03. 궤도', sort_order: 3, drive_folder_id: ORG, deleted_at: null },
+        { id: 'af-meet', workspace_id: 'w1', parent_id: 'af-org', name: '회의', sort_order: 1, drive_folder_id: MEET, deleted_at: null },
+        ...((over.tables || {}).extraFolders || []),
+      ],
+    },
+  });
+}
+const itemOf = (tables, docId) => tables.app_library_folder_items.find(i => i.document_id === docId)?.folder_id;
+const docNamed = (tables, n) => tables.app_documents.find(d => d.file_name === n);
+
+test('S70-73b ① 짝 폴더 아래 새 드라이브 하위 폴더 → 자료실 폴더 1개 생성(짝 연결) + 그 안 파일은 그 폴더로', async () => {
+  const { auto, tables } = meetingWorld();
+  const before = folderRows(tables).length;
+  const r = await auto.run();
+  const rows = folderRows(tables);
+  assert.equal(rows.length, before + 1);
+  const made = rows.find(f => f.drive_folder_id === id('mtA'));
+  assert.ok(made, '짝 드라이브 폴더 id가 연결됨');
+  assert.equal(made.name, '궤도협의회 대표자회의');
+  assert.equal(made.parent_id, 'af-meet', '짝 폴더(회의) 아래');
+  assert.equal(made.workspace_id, 'w1');
+  assert.equal(r.folders_made, 1);
+  assert.equal(itemOf(tables, docNamed(tables, '회의록.hwp').id), made.id, '잡동사니가 아니라 새 폴더로');
+  // 두 번째 열기: 폴더도 자료도 더 생기지 않음
+  const r2 = await auto.run();
+  assert.equal(folderRows(tables).length, before + 1);
+  assert.equal(r2.folders_made, 0); assert.equal(r2.added, 0);
+});
+
+test('S70-73b ② 두 단계 깊이도 위에서 아래로 같게', async () => {
+  const { auto, tables } = meetingWorld({ driveFiles: [
+    folder('mtB', '2026-11 정기회의', id('mtA')),
+    file('mtB1', '안건.pdf', id('mtB'), { md5Checksum: 'B'.repeat(32), size: '1002' }),
+  ] });
+  const r = await auto.run();
+  const a = folderRows(tables).find(f => f.drive_folder_id === id('mtA'));
+  const b = folderRows(tables).find(f => f.drive_folder_id === id('mtB'));
+  assert.ok(a && b);
+  assert.equal(b.parent_id, a.id, '둘째 단은 첫째 단 아래');
+  assert.equal(b.name, '2026-11 정기회의');
+  assert.equal(r.folders_made, 2);
+  assert.equal(itemOf(tables, docNamed(tables, '안건.pdf').id), b.id);
+  assert.equal(itemOf(tables, docNamed(tables, '회의록.hwp').id), a.id);
+});
+
+test('S70-73b ③ 같은 부모 아래 같은 이름·짝 없는 자료실 폴더가 있으면 새로 만들지 않고 연결만(행 수 그대로)', async () => {
+  const { auto, tables } = meetingWorld({ tables: { extraFolders: [
+    { id: 'af-mtA', workspace_id: 'w1', parent_id: 'af-meet', name: '궤도협의회 대표자회의', sort_order: 1, drive_folder_id: null, deleted_at: null },
+  ] } });
+  const before = folderRows(tables).length;
+  const r = await auto.run();
+  assert.equal(folderRows(tables).length, before, '중복 폴더 없음');
+  assert.equal(tables.app_library_folders.find(f => f.id === 'af-mtA').drive_folder_id, id('mtA'));
+  assert.equal(r.folders_made, 0); assert.equal(r.folders_linked, 1);
+  assert.equal(itemOf(tables, docNamed(tables, '회의록.hwp').id), 'af-mtA');
+});
+
+test('S70-73b ④ 앱 폴더 이름·앱 표식·비밀값 보관 폴더·예전 짝 표식·맨 위 바로 아래·긴 이름은 자료실 폴더를 만들지 않음', async () => {
+  const { auto, tables } = meetingWorld({ driveFiles: [
+    folder('mWait', '정리 대기', MEET), folder('mTask', '할 일 첨부', MEET), folder('mMark', '아무개', MEET, { appProperties: { kptu_basket: '1' } }),
+    folder('mKey', '폰 키 백업', MEET), file('mKey1', '열쇠 메모.txt', id('mKey'), { mimeType: 'text/plain', md5Checksum: 'C'.repeat(32), size: '11' }),
+    folder('mOld', '지운 폴더', MEET, { appProperties: { won_n: '12345678', won_p: MEET } }),
+    file('mOld1', '지운 폴더 파일.pdf', id('mOld'), { md5Checksum: 'D'.repeat(32), size: '12' }),
+    folder('mLong', '가'.repeat(41), MEET),
+  ] });
+  const r = await auto.run();
+  const names = folderRows(tables).map(f => f.name);
+  for (const n of ['정리 대기', '할 일 첨부', '아무개', '폰 키 백업', '지운 폴더', '가'.repeat(41), '드라이브에서 만든 폴더']) assert.equal(names.includes(n), false, n);
+  assert.equal(names.includes('궤도협의회 대표자회의'), true);
+  assert.equal(tables.app_documents.some(d => d.file_name === '열쇠 메모.txt'), false, '비밀값 보관 폴더 안 파일은 안 들어옴');
+  assert.equal(itemOf(tables, docNamed(tables, '지운 폴더 파일.pdf').id), 'af-recv', '예전 짝 폴더 안 파일은 지금처럼 잡동사니');
+  assert.equal(itemOf(tables, docNamed(tables, '새 폴더 파일.pdf').id), 'af-recv', '자료실 맨 위 바로 아래 새 폴더는 지금처럼');
+  assert.equal(r.skipped.folder_stamped, 1); assert.equal(r.skipped.folder_name, 1);
+  assert.equal(tables.app_library_folders.some(f => f.deleted_at), false, '만들었다 지운 폴더 없음');
+});
+
+test('S70-73b ⑤ 드라이브 쓰기 요청 없음(목록·파일 하나·tokeninfo만) + 짝 칸은 set_drive 함수로만', async () => {
+  const { auto, dr, db } = meetingWorld({ driveFiles: [folder('mtB', '하위', id('mtA'))] });
+  await auto.run();
+  for (const u of dr.seen) assert.ok(u.startsWith('https://www.googleapis.com/drive/v3/files?') || /\/files\/[^?]+\?fields=/.test(u) || u.startsWith('https://oauth2.googleapis.com/tokeninfo'), u);
+  const folderInserts = db.calls.filter(c => c.name === 'app_library_folders' && c.op === 'insert').length;
+  assert.equal(folderInserts, 2);
+  assert.equal(db.calls.filter(c => c.op === 'rpc' && c.name === 'app_library_folder_set_drive').length, 2);
+  assert.equal(db.calls.some(c => c.name === 'app_library_folders' && c.op === 'update'), false, '폴더 표 직접 고치기 없음');
+});
+
+test('S70-73b 짝 연결이 거절되면(휴지통 폴더가 그 드라이브 폴더와 짝) 만든 폴더는 거두고 그 안 파일은 다음에', async () => {
+  const { auto, tables } = meetingWorld({ tables: { extraFolders: [
+    { id: 'af-gone', workspace_id: 'w1', parent_id: 'af-meet', name: '옛 이름', sort_order: 9, drive_folder_id: id('mtA'), deleted_at: 'old' },
+  ] } });
+  const r = await auto.run();
+  assert.equal(folderRows(tables).some(f => f.name === '궤도협의회 대표자회의'), false);
+  assert.equal(tables.app_documents.some(d => d.file_name === '회의록.hwp'), false, '잡동사니로 잘못 가지 않음');
+  assert.equal(r.skipped.hold, 1); assert.equal(r.more, true); assert.equal(r.skipped.folder_failed, 1);
+});
+
+test('S70-73b planFolders: 한 번에 FOLDER_MAKE_MAX개까지, 넘친 폴더와 그 아래는 hold + more', () => {
+  const kids = Array.from({ length: FOLDER_MAKE_MAX + 2 }, (_, i) => folder('k' + i, `폴더${i}`, MEET));
+  const deep = folder('deepX', '아래', id('k' + (FOLDER_MAKE_MAX + 1)));
+  const p = planFolders({ driveFolders: [...kids, deep], libraryId: LIB, pairOf: new Map([[MEET, 'af-meet']]) });
+  assert.equal(p.steps.length, FOLDER_MAKE_MAX); assert.equal(p.more, true);
+  assert.equal(p.hold.has(id('k' + (FOLDER_MAKE_MAX + 1))), true);
+  assert.equal(p.hold.has(id('deepX')), true, '못 만든 폴더 아래도 다음에');
+  const files = [file('h1', 'h.pdf', id('deepX'))];
+  const a = planAuto({ files, libraryId: LIB, hold: p.hold, now: NOW });
+  assert.equal(a.add.length, 0); assert.equal(a.skipped.hold, 1); assert.equal(a.more, true);
 });

@@ -19,6 +19,14 @@
 //   만든 지 RECENT_MS가 안 된 파일(앱이 올리는 중 — 드라이브에 파일을 만든 뒤 자료 행을 넣으므로 그 사이를 겹치지 않게. 다음 열 때 들어감).
 // - 자리: 파일의 드라이브 부모 폴더와 짝인 자료실 폴더(app_library_folders.drive_folder_id, 휴지통 아님). 짝이 없거나 자료실 맨 위면
 //   폴더를 정하지 않고 넣는다 → 넣기 뒤 트리거(app_documents_receive_folder)가 받는 폴더(잡동사니)로 넣는다.
+// - S70-73b(명진 11/26 10:17 드라이브 '회의자료' 안 회의별 폴더를 폴더째 자료실 제자리로): 짝 자료실 폴더가 있는 드라이브 폴더 아래에
+//   짝이 없는 드라이브 하위 폴더가 있으면 같은 이름 자료실 폴더를 그 짝 폴더 아래에 만들고(또는 같은 부모 아래 같은 이름·짝 없는 자료실 폴더에
+//   연결만) 그 안 파일을 그 폴더로 넣는다. 여러 단계도 위에서 아래로 같게(planFolders). 만들기 길은 지금 것 그대로:
+//   내 토큰으로 app_library_folders 넣기(owner RLS·칸 권한·나무 검사 그대로) → app_library_folder_set_drive(짝 칸은 이 함수로만).
+//   새 표·칸 없음. 드라이브는 읽기만(표식도 붙이지 않음). 자료실 맨 위 바로 아래 새 드라이브 폴더는 지금처럼 만들지 않는다(지시 범위).
+//   만들지 않는 것: 앱 폴더·앱 표식·비밀값 보관 폴더(나무 훑기에서 이미 빠짐), 자료실 이름 규칙(1~40자)에 안 맞는 이름,
+//   예전에 짝이었던 표식(won_n·won_p)이 있는 드라이브 폴더(자료실에서 휴지통에 넣은 폴더의 짝 — 되살리기 전에는 다시 만들지 않음).
+//   한 번에 FOLDER_MAKE_MAX개까지. 못 만든(한도·실패) 폴더 안 파일은 이번에 넣지 않고 다음 열 때(잡동사니로 잘못 가지 않게).
 // - 파일을 복사·이동·삭제하지 않는다. 자료 행만 넣는다(제목·분류는 파일 이름으로만, AI 없음).
 // - 드라이브에서 파일이 지워지거나 자료실 밖으로 옮겨진 자료는 여기서 지우지 않는다(데이터 보존 — 이 PR 범위 밖, 보고만).
 // - 이렇게 들어온 자료는 보통 자료실 자료다(classification_note 앞머리 AUTO_NOTE, document-actions의 '연결만 한 원본' 표식이 아님):
@@ -27,6 +35,7 @@
 import { folderNames, knownFolderNames } from '../_shared/brand-folders.mjs';
 import { fileKey, hashable, lookupKeys } from './same-content.mjs';
 import { FOLDER_MIME, appMarked, isSecretFolder, linkKind, skipReason } from './drive-skip.mjs';
+import { SYNC_NAME, SYNC_PARENT, appNameOk } from '../_shared/library-mirror.mjs';
 
 export const AUTO_NOTE = '자료실 드라이브 폴더에서 자동 등록 · 파일명 기반 자동분류';
 // 일정 첨부 폴더 이름(_shared/event-attach-file.ts EVENT_ATTACH_FOLDER와 같음 — 시험이 견준다).
@@ -50,6 +59,7 @@ export const FOLDERS_MAX = 3000;
 export const PARENTS_PER_QUERY = 40;
 export const ADD_MAX = 200;        // 한 번에 넣는 자료 수(넘으면 more — 다음 열 때 이어서)
 export const INSERT_CHUNK = 50;
+export const FOLDER_MAKE_MAX = 30;  // 한 번에 만들거나 연결하는 자료실 폴더 수(넘으면 more)
 export const SAME_LOOKUP_MAX = 300; // 나무 밖 자료 중 내용 비교로 드라이브에 묻는 수(넘으면 그 크기 파일은 다음에)
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
@@ -80,15 +90,45 @@ export function appFolderIdsFrom(settings) {
 //   S70-69 비밀값 보관 폴더(폰 열쇠 백업 등, 공용 거름 isSecretFolder) 안도 들어가지 않는다 — 그 안 파일은 이름과 상관없이 넣지 않음.
 export const skipFolder = (f, appFolderIds) => !f || appFolderIds.has(f.id) || appMarked(f) || isSecretFolder(f) || SKIP_FOLDER_NAMES.includes(String(f.name || '').normalize('NFC').trim());
 
+const nfc = v => String(v ?? '').normalize('NFC');
+// 예전에 짝이었던 표식(S69-52 맞추기가 짝 드라이브 폴더에 붙임).
+export const wasPaired = f => !!f?.appProperties && typeof f.appProperties === 'object' && (SYNC_NAME in f.appProperties || SYNC_PARENT in f.appProperties);
+
+/**
+ * S70-73b 짝 없는 드라이브 하위 폴더 → 만들 자료실 폴더. 순수 규칙.
+ * driveFolders: 나무 훑기에서 들어간 폴더(위에서 아래 차례) · libraryId · pairOf: Map(드라이브 폴더 id → 자료실 폴더 id)
+ * 답: steps [{drive, name, parentKey(드라이브 부모 id)}] — 위에서 아래 차례(부모가 앞 차례면 그 결과 짝 아래).
+ *     hold: Set(이번에 못 하는 드라이브 폴더 — 그 안 파일은 다음에), skipped: {top, stamped, name}, more
+ */
+export function planFolders({ driveFolders, libraryId, pairOf = new Map(), max = FOLDER_MAKE_MAX }) {
+  const steps = [], hold = new Set(), skipped = { top: 0, stamped: 0, name: 0 };
+  const planned = new Set();
+  let more = false;
+  for (const f of Array.isArray(driveFolders) ? driveFolders : []) {
+    if (!isDriveId(f?.id) || pairOf.has(f.id)) continue;
+    const parent = (Array.isArray(f.parents) ? f.parents : []).find(isDriveId) || null;
+    if (!parent || parent === libraryId) { skipped.top++; continue; }
+    if (hold.has(parent)) { hold.add(f.id); continue; }
+    if (!pairOf.has(parent) && !planned.has(parent)) continue; // 부모도 짝 없음(맨 위 바로 아래 등) → 지금처럼 잡동사니
+    if (wasPaired(f)) { skipped.stamped++; continue; }
+    if (!appNameOk(f.name)) { skipped.name++; continue; }
+    if (steps.length >= max) { more = true; hold.add(f.id); continue; }
+    steps.push({ drive: f.id, name: f.name, parentKey: parent });
+    planned.add(f.id);
+  }
+  return { steps, hold, skipped, more };
+}
+
 /**
  * 나무에서 읽은 파일들 → 넣을 것. 순수 규칙.
  * files: libraryId 아래(들어가도 되는 폴더만 훑은) 파일·폴더 목록(id,name,mimeType,size,md5Checksum,createdTime,parents,appProperties,ownedByMe)
  * registered: Set(드라이브 id) · used: Set(할 일·노트 첨부 드라이브 id) · pairOf: Map(드라이브 폴더 id → 자료실 폴더 id, 휴지통 아님)
  * knownKeys: Set(자료실 자료의 내용 열쇠) · waitSizes: Set(아직 내용을 못 견준 자료 크기 — 그 크기 파일은 다음에) · now(ms)
+ * hold: Set(이번에 자료실 폴더를 못 만든 드라이브 폴더 — 그 안 파일은 다음에, S70-73b)
  * 답: {add:[{file, folderId|null}], skipped:{...}, more}
  */
-export function planAuto({ files, libraryId, registered = new Set(), used = new Set(), pairOf = new Map(), knownKeys = new Set(), waitSizes = new Set(), now = Date.now() }) {
-  const skipped = { registered: 0, used: 0, folder: 0, not_file: 0, empty: 0, temp: 0, secret: 0, app: 0, others: 0, same: 0, recent: 0, wait: 0 };
+export function planAuto({ files, libraryId, registered = new Set(), used = new Set(), pairOf = new Map(), knownKeys = new Set(), waitSizes = new Set(), hold = new Set(), now = Date.now() }) {
+  const skipped = { registered: 0, used: 0, folder: 0, not_file: 0, empty: 0, temp: 0, secret: 0, app: 0, others: 0, same: 0, recent: 0, wait: 0, hold: 0 };
   const add = [], seenKeys = new Set();
   const list = (Array.isArray(files) ? files : []).filter(f => isDriveId(f?.id));
   // 같은 번에 같은 내용이면 먼저 만든 것 하나만(이름 순으로 고정).
@@ -106,9 +146,10 @@ export function planAuto({ files, libraryId, registered = new Set(), used = new 
     const key = linkKind(f) ? null : fileKey(f);
     if (key && (knownKeys.has(key) || seenKeys.has(key))) { skipped.same++; continue; }
     if (!linkKind(f) && waitSizes.has(Number(f.size))) { skipped.wait++; continue; }
+    const parent = (Array.isArray(f.parents) ? f.parents : []).find(isDriveId) || null;
+    if (parent && hold.has(parent)) { skipped.hold++; more = true; continue; }
     if (add.length >= ADD_MAX) { more = true; continue; }
     if (key) seenKeys.add(key);
-    const parent = (Array.isArray(f.parents) ? f.parents : []).find(isDriveId) || null;
     add.push({ file: f, folderId: parent && parent !== libraryId ? pairOf.get(parent) || null : null });
   }
   return { add, skipped, more };
@@ -163,7 +204,7 @@ export function createDriveAuto(deps) {
 
   // 자료실 나무 훑기: 부모 폴더 몇십 개씩 묶어 바로 아래를 묻고, 나온 폴더(들어가도 되는 것만)를 다음 차례에 묻는다.
   async function walk(libraryId, appFolderIds) {
-    const files = [], seen = new Set([libraryId]);
+    const files = [], folders = [], seen = new Set([libraryId]);
     let queue = [libraryId], partial = false, count = 0;
     while (queue.length) {
       const batch = queue.slice(0, PARENTS_PER_QUERY);
@@ -184,7 +225,7 @@ export function createDriveAuto(deps) {
           if (f.mimeType === FOLDER_MIME) {
             if (seen.has(f.id) || skipFolder(f, appFolderIds)) continue;
             if (seen.size >= FOLDERS_MAX) { partial = true; continue; }
-            seen.add(f.id); queue.push(f.id);
+            seen.add(f.id); queue.push(f.id); folders.push(f);
             continue;
           }
           files.push(f);
@@ -194,7 +235,41 @@ export function createDriveAuto(deps) {
         if (!pageToken) break;
       }
     }
-    return { files, partial };
+    return { files, folders, partial };
+  }
+
+  // S70-73b: 짝 없는 드라이브 하위 폴더 → 자료실 폴더(만들기 또는 같은 이름에 연결). pairOf를 채운다. 드라이브에는 쓰지 않는다.
+  async function placeFolders(driveFolders, libraryId, pairOf, appFolders) {
+    const plan = planFolders({ driveFolders, libraryId, pairOf });
+    const hold = plan.hold, skipped = { folder_top: plan.skipped.top, folder_stamped: plan.skipped.stamped, folder_name: plan.skipped.name, folder_failed: 0 };
+    let made = 0, linked = 0;
+    const sortOf = new Map(), taken = new Set();
+    for (const a of appFolders) { const k = a.parent_id || ''; sortOf.set(k, Math.max(sortOf.get(k) ?? 0, Number(a.sort_order) || 0)); }
+    const projectOf = new Map(appFolders.map(a => [a.id, a.project_id ?? null]));
+    for (const st of plan.steps) {
+      const parentApp = pairOf.get(st.parentKey);
+      if (!parentApp || hold.has(st.parentKey)) { hold.add(st.drive); continue; }
+      // 같은 부모 아래 같은 이름·짝 없는 자료실 폴더가 있으면 새로 만들지 않고 그 행에 연결(중복 폴더 금지).
+      const same = appFolders.find(a => a && !a.drive_folder_id && !taken.has(a.id) && a.parent_id === parentApp && nfc(a.name).trim() === nfc(st.name).trim());
+      let folderId = same ? same.id : null, fresh = false;
+      if (same) taken.add(same.id);
+      if (!folderId) {
+        const sort = (sortOf.get(parentApp) ?? 0) + 1;
+        const ins = await db.from('app_library_folders').insert({ workspace_id: workspaceId, project_id: projectOf.get(parentApp) ?? null, parent_id: parentApp, name: st.name, sort_order: sort }).select('id');
+        const row = Array.isArray(ins?.data) ? ins.data[0] : ins?.data;
+        if (ins?.error || !row?.id) { log('folder_insert'); skipped.folder_failed++; hold.add(st.drive); continue; }
+        folderId = row.id; fresh = true; sortOf.set(parentApp, sort); projectOf.set(folderId, projectOf.get(parentApp) ?? null);
+      }
+      const set = await db.rpc('app_library_folder_set_drive', { p_id: folderId, p_drive: st.drive, p_expect: null });
+      if (set?.error || set?.data?.ok !== true) {
+        log('folder_set_drive');
+        if (fresh) await db.from('app_library_folders').delete().eq('id', folderId).eq('workspace_id', workspaceId);
+        skipped.folder_failed++; hold.add(st.drive); continue;
+      }
+      pairOf.set(st.drive, folderId);
+      if (fresh) made++; else linked++;
+    }
+    return { made, linked, hold, skipped, more: plan.more };
   }
 
   async function run() {
@@ -209,7 +284,7 @@ export function createDriveAuto(deps) {
 
     const [docs, folders, tasks, notes] = await Promise.all([
       pages((a, b) => admin.from('app_documents').select('id,file_id,file_size,mime_type,previous_files').eq('workspace_id', workspaceId).order('id').range(a, b), 'docs'),
-      pages((a, b) => db.from('app_library_folders').select('id,drive_folder_id,deleted_at').eq('workspace_id', workspaceId).order('id').range(a, b), 'folders'),
+      pages((a, b) => db.from('app_library_folders').select('id,parent_id,name,sort_order,project_id,drive_folder_id,deleted_at').eq('workspace_id', workspaceId).order('id').range(a, b), 'folders'),
       pages((a, b) => db.from('app_task_attachments').select('drive_file_id').eq('workspace_id', workspaceId).order('drive_file_id').range(a, b), 'tasks'),
       // 노트 첨부는 서버 키로 휴지통 노트까지 본다(휴지통 노트가 되살아날 수 있으므로 그 첨부는 계속 지킨다). 첨부 id만 쓴다.
       pages((a, b) => admin.from('app_notes').select('id,attachments').eq('workspace_id', workspaceId).not('attachments', 'is', null).order('id').range(a, b), 'notes'),
@@ -222,6 +297,7 @@ export function createDriveAuto(deps) {
     for (const f of folders) if (!f?.deleted_at && isDriveId(f?.drive_folder_id)) pairOf.set(f.drive_folder_id, f.id);
 
     const tree = await walk(libraryId, appFolderIds);
+    const made = await placeFolders(tree.folders, libraryId, pairOf, folders.filter(f => f && !f.deleted_at));
     // 내용 비교: 나무 안 자료는 방금 읽은 목록의 md5, 나무 밖 자료는 새 파일과 크기가 같은 것만 드라이브에 묻는다(내용 열지 않음).
     const inTree = new Map(tree.files.map(f => [f.id, f]));
     const newSizes = new Set(tree.files.filter(f => !registered.has(f.id) && !linkKind(f)).map(f => Number(f.size)).filter(n => n > 0));
@@ -241,7 +317,7 @@ export function createDriveAuto(deps) {
         if (k) knownKeys.add(k);
       }
     }
-    const plan = planAuto({ files: tree.files, libraryId, registered, used, pairOf, knownKeys, waitSizes, now: now() });
+    const plan = planAuto({ files: tree.files, libraryId, registered, used, pairOf, knownKeys, waitSizes, hold: made.hold, now: now() });
 
     let added = 0, placed = 0, failed = 0;
     for (let i = 0; i < plan.add.length; i += INSERT_CHUNK) {
@@ -282,7 +358,7 @@ export function createDriveAuto(deps) {
         placed += ids.length;
       }
     }
-    return { ok: true, added, placed, failed, more: plan.more || tree.partial, skipped: plan.skipped };
+    return { ok: true, added, placed, failed, folders_made: made.made, folders_linked: made.linked, more: plan.more || tree.partial || made.more, skipped: { ...plan.skipped, ...made.skipped } };
   }
   return { run, AutoFail };
 }
