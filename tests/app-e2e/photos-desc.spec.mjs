@@ -109,6 +109,8 @@ for (const [label, width, height] of [['폰 390', 390, 844], ['PC 1280', 1280, 8
       await expect(v).toBeVisible();
       await v.locator('[data-strip-act="edit"]').click();
       const menu = page.locator('#photoBarMenu');
+      await expect(menu).toBeVisible();
+      if (process.env.SHOT) await page.screenshot({ path: `${process.env.SHOT}/menu-${width}.png` });
       await expect(menu.getByRole('button', { name: '설명', exact: true })).toBeVisible();
       await menu.getByRole('button', { name: '설명', exact: true }).click();
       const s = sheet(page);
@@ -124,6 +126,7 @@ for (const [label, width, height] of [['폰 390', 390, 844], ['PC 1280', 1280, 8
       await expect(chips.nth(0)).toHaveAttribute('aria-pressed', 'true');
       await s.locator('[data-pd-text]').pressSequentially(' 가상 회의실');
       await expect(s.locator('[data-pd-count]')).toHaveText('11/500');
+      if (process.env.SHOT) await page.screenshot({ path: `${process.env.SHOT}/sheet-${width}.png` });
       // 창은 화면 안(폰은 아래쪽), 하단바에 가리지 않는다.
       const b = await s.boundingBox(), vp = page.viewportSize();
       expect(b.y + b.height).toBeLessThanOrEqual(vp.height);
@@ -134,6 +137,7 @@ for (const [label, width, height] of [['폰 390', 390, 844], ['PC 1280', 1280, 8
       await expect(s).toBeHidden();
       expect(sets(state)).toEqual([{ action: 'desc-set', ids: ['G1'], text: '가상바다 가상 회의실', mode: 'set', confirm: true }]);
       await expect(v.locator('[data-diary-viewer-caption]')).toHaveText('가상바다 가상 회의실');
+      if (process.env.SHOT) await page.screenshot({ path: `${process.env.SHOT}/caption-${width}.png` });
       // 다시 열면 지금 설명이 채워져 있다(서버에 다시 묻지 않음).
       await v.locator('[data-strip-act="edit"]').click();
       await menu.getByRole('button', { name: '설명', exact: true }).click();

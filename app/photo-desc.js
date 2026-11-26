@@ -24,8 +24,7 @@ function ensureDialog() {
   dialog = document.createElement('dialog');
   dialog.id = 'photoDescDialog'; dialog.className = 'photo-desc-sheet'; dialog.setAttribute('aria-labelledby', 'photoDescTitle');
   dialog.innerHTML = `<header class="pd-head"><h2 id="photoDescTitle" data-pd-title>설명</h2><button type="button" class="icon-btn" data-pd-close aria-label="닫기">×</button></header>
-<div class="pd-body"><label class="sr-only" for="photoDescText">설명</label>
-<textarea id="photoDescText" class="pd-text" data-pd-text rows="3" maxlength="${DESC_MAX}" placeholder="무엇이 찍혔는지, 어디서·누구와 — 낱말만 써도 돼요" autocomplete="off"></textarea>
+<div class="pd-body"><textarea id="photoDescText" class="pd-text" data-pd-text aria-labelledby="photoDescTitle" rows="3" maxlength="${DESC_MAX}" placeholder="무엇이 찍혔는지, 어디서·누구와 — 낱말만 써도 돼요" autocomplete="off"></textarea>
 <div class="pd-words" data-pd-words role="group" aria-label="자주 쓴 낱말" hidden></div></div>
 <footer class="pd-foot"><p class="status" data-pd-status role="status" aria-live="polite"></p><span class="pd-count" data-pd-count aria-hidden="true"></span><button type="button" class="primary" data-pd-save disabled>저장</button></footer>`;
   document.body.append(dialog);
