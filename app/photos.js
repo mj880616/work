@@ -134,20 +134,23 @@ const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value
 //   가져올 곳은 단추 하나(지금 켠 곳 아이콘, 누르면 원드라이브·구글 드라이브·폰 폴더 고르기 — 켜고 끄기 주인은 예전 그대로 sources 하나),
 //   크기 －/＋와 [새 앨범]은 ⋯ 안. 폰 틀에서 찾기(돋보기)가 가져올 곳과 ⋯ 사이에 서는 자리는 photos.css(머리 줄 차례).
 const SORT_SVG = '<svg class="photos-head-svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M7 4v16M3 16l4 4 4-4M14 6h7M14 11h5M14 16h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// S71-64(사용자 11/26 22:42 "최신으로 는 남기는데 이모티콘 단추로 위로가는 화살표 느낌의"): 달로 건너뛴 뒤 맨 위(최신 사진)로 가는 단추. 윗줄 막대 + 위 화살표.
+const NEWEST_SVG = '<svg class="photos-head-svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M5 4h14M12 20V9M7 13l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const SRC_ICON = {onedrive:brandIconSvg('onedrive', {size:16, cls:'photos-src-ic'}), gdrive:GDRIVE_SVG, phone:PHONE_SVG};
 const SRC_NAME = {onedrive:'원드라이브', gdrive:'구글 드라이브', phone:'폰 폴더'};
 const srcBox = toolsBox('photos', 'photos');
 srcBox.dataset.photosTools = '';
 srcBox.innerHTML = `<select class="photos-view-select" data-photos-view aria-label="사진 보기" aria-controls="photosRoot">${viewOptions}</select><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><span class="photos-sp" aria-hidden="true"></span>`
+  + `<button type="button" class="icon-btn photos-head-ic photos-newest" data-photos-newest aria-label="최신으로" title="최신으로" hidden>${NEWEST_SVG}</button>`
   + `<button type="button" class="photos-head-ic photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false">${SORT_SVG}</button>`
   + `<button type="button" class="photos-head-ic photos-src-pick" data-photos-src-pick aria-haspopup="true" aria-expanded="false" aria-label="가져올 곳" title="가져올 곳"><span class="photos-src-now" data-photos-src-now></span></button>`
   + `<button type="button" class="photos-head-ic photos-head-more" data-photos-head-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="사진 메뉴" title="사진 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button>`;
 const h$ = sel => srcBox.querySelector(sel);
 let srcMenu = null, headMenu = null; // 가져올 곳·⋯ 메뉴는 아래(다른 작은 메뉴들 뒤)에서 만든다. 그 전 처음 그리기에서는 건너뛴다.
-root.innerHTML = `<div class="photos-sel kptu-selbar" data-photos-sel role="toolbar" aria-label="선택한 사진" hidden>${sbCloseHtml('data-photos-sel-off', '선택 끝내기')}<span class="kptu-sb-count" data-photos-sel-count>0개 선택됨</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act role="group" aria-label="선택한 사진" hidden>${photoActButtons(PHOTO_MENUS.selectBar, id => `data-photos-act-${id}`)}</div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-trash-act role="group" aria-label="선택한 휴지통 사진" hidden><button type="button" class="kptu-act" data-photos-restore>${actInner(ACT_ICON.restore,'되살리기')}</button><button type="button" class="kptu-act kptu-act-danger" data-photos-purge>${actInner(ACT_ICON.delete,'바로 삭제')}</button></div>`;
+root.innerHTML = `<div class="photos-sel kptu-selbar" data-photos-sel role="toolbar" aria-label="선택한 사진" hidden>${sbCloseHtml('data-photos-sel-off', '선택 끝내기')}<span class="kptu-sb-count" data-photos-sel-count>0개 선택됨</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-mark" data-photos-rail-mark aria-hidden="true" hidden></span><span class="photos-rail-bubble" data-photos-rail-bubble aria-hidden="true" hidden></span></div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act role="group" aria-label="선택한 사진" hidden>${photoActButtons(PHOTO_MENUS.selectBar, id => `data-photos-act-${id}`)}</div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-trash-act role="group" aria-label="선택한 휴지통 사진" hidden><button type="button" class="kptu-act" data-photos-restore>${actInner(ACT_ICON.restore,'되살리기')}</button><button type="button" class="kptu-act kptu-act-danger" data-photos-purge>${actInner(ACT_ICON.delete,'바로 삭제')}</button></div>`;
 const $ = sel => root.querySelector(sel);
 const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), odHost = $('[data-photos-od]');
-const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]');
+const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]'), railMark = $('[data-photos-rail-mark]');
 
 const OD_NONE = {configured:false, connected:false, folder:null, canDelete:false};
 let owner = ownerScope(rt), run = 0;
@@ -202,6 +205,9 @@ registerScreenFind('photos', {label:'사진에서 찾기', active:() => window.K
   }});
 // [사진] 목록: items(최신순), next(다음 쪽 cursor), from(막대·달력으로 건너뛴 시작 {cursor, label} 또는 null = 최신부터).
 let items = [], next = null, ended = false, loading = null, failed = '', from = null, rendered = 0, renderedIds = [];
+// S71-64 PHOTO-위로넘기기: 달·날로 건너뛰면(from) 아래(더 옛날)는 loadMore, 위(더 최근)는 loadUp이 받는다.
+// up.cursor = 지금까지 받은 맨 위 경계(그 시각보다 앞 사진만 받음, null = 맨 위 최신까지 받음). ready는 건너뛴 자리로 스크롤한 뒤.
+let up = null, upIo = null;
 // PHOTO-출처 ①: 출처마다 받은 것(odList·phList)을 섞은 것이 items다(mergeSources). hidden = 지우는 중(되돌리기 시간)이라 빼 둔 칸 id.
 let odList = [], odEnded = false, phList = [], phNext = 0, phEnded = false;
 const hidden = new Set();
@@ -221,7 +227,7 @@ let gdAt = null, gdFFor = null, gdFItems = [], gdFLoading = null, gdFFailed = ''
 // PHOTO-폴더스위치: 끈 폰 폴더(view_prefs.phone_folders_off, 서버). 앱 0.4.1+만 스위치·바꾸기(phone.state().hide·ops). 새 폴더(사진을 옮겨 넣기 전)는 이 화면 메모리에만.
 let phoneOff = new Set(), pPending = [], manageAsked = false;
 const phone = phonePhotos();
-let level = 'day', bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, dayLayer = null, syncing = false, syncAt = 0;
+let level = 'day', bar = [], barFor = null, monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, dayLayer = null, syncing = false, syncAt = 0;
 let trash = null, trashFailed = '', trashBusy = false;
 // S48-17 PHOTO-지우기두갈래: '폰 공간만 비우기'로 비운 사진(서버 kept-list → 원드라이브 칸 + kept 표시). null = 아직 안 읽음. 폰 앱 + 원드라이브 연결일 때만.
 let kept = null, keptLoading = null;
@@ -497,7 +503,7 @@ function streamsNow() {
   if (u.gdrive && gdFilterOk()) out.push({source:'gdrive', items:gdItems, ended:gdEnded, late:lateSrc('gdrive')});
   // S48-17: 원드라이브 칩을 꺼도 폰 사진 보기에 비운 사진을 원래 날짜 자리에(다 받은 묶음 하나). 원드라이브를 켜면 그 칸이 원드라이브 목록에 이미 있다.
   if (u.phone && !u.onedrive && kept?.length) {
-    const list = keptFilter(kept, {filter, isStarred, before:from ? Date.parse(from.cursor.t) : null}).sort(sortCompare(listSort()));
+    const list = keptFilter(kept, {filter, isStarred, before:from && up?.cursor ? Date.parse(up.cursor.t) : null}).sort(sortCompare(listSort()));
     if (list.length) out.push({source:'kept', items:list, ended:true});
   }
   return out;
@@ -658,7 +664,7 @@ async function loadBar(r) {
       else parts.push(await phone.months(want, await hideArg()));
     }
     if (!current(r) || filter !== want) return;
-    bar = monthBar(mergeMonths(...parts)); paintRail();
+    bar = monthBar(mergeMonths(...parts)); barFor = want; paintRail(); watchTop();
   } catch { if (current(r) && filter === want) { monthsFor = ''; bar = []; paintRail(); } }
 }
 
@@ -747,7 +753,9 @@ function paintListNow({full = false} = {}) {
   // 찾는 중이면 늘 통째로(맞는 칸만, 칸 번호는 목록 자리 그대로).
   if (full || photoQ || !list || !same) {
     rendered = 0;
-    const top = srcNotes() + (from ? `<p class="photos-muted photos-top">${esc(from.label)}부터 보는 중 · <button type="button" class="mini" data-photos-newest>최신으로</button></p>` : '');
+    // S71-64: 예전 'YYYY.MM부터 보는 중 · [최신으로]' 줄은 없앴다 — 위로 넘기면 더 최근 달이 이어 붙고, 맨 위로는 머리 줄 [↑ 최신으로] 아이콘.
+    // 건너뛴 동안 목록 맨 위에 위쪽을 받는 표시 칸(data-photos-up, 받지 못했을 때만 '[다시]' 한 줄)을 둔다.
+    const top = srcNotes() + (up && !up.ended ? '<div class="photos-up" data-photos-up></div>' : '');
     body.innerHTML = `${top}<div data-photos-list></div><p class="photos-muted photos-foot" data-photos-foot></p>`;
     list = body.querySelector('[data-photos-list]');
   }
@@ -819,8 +827,11 @@ function paintListEnd(list) {
   const foot = body.querySelector('[data-photos-foot]');
   foot.innerHTML = failed ? failHtml({retry: 'data-photos-more', reason: failed})
     : ended ? (items.length ? '' : filter === 'all' ? '사진이 없어요.' : `${FILTER_TEXT[filter]} 사진이 없어요.`) : waitHtml({rows:2, h:72});
-  paintSize(); paintSelect(); paintRail();
-  watchFoot(foot);
+  paintSize(); paintSelect(); paintRail(); paintNewest();
+  const upEl = body.querySelector('[data-photos-up]');
+  if (upEl && (!up || up.ended)) upEl.remove();
+  else if (upEl) upEl.innerHTML = up.failed ? failHtml({retry:'data-photos-up-retry', reason:up.failed}) : '';
+  watchFoot(foot); watchTop();
 }
 let io = null;
 function watchFoot(foot) {
@@ -830,6 +841,123 @@ function watchFoot(foot) {
   io = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) loadMore(); }, {rootMargin:'600px 0px'});
   io.observe(foot);
 }
+// ---- S71-64 PHOTO-위로넘기기(사용자 11/26 22:40 "특정 월에 갔을 때 위로 스크롤이 안되네 … 다른 월로 갈 수 있어야"): 건너뛴 달 위로도 이어 받기 ----
+// 원인: 달로 건너뛰면 from(그 달 끝)부터 아래로만 받았다(loadMore → 출처마다 from 앞 사진). 위쪽(더 최근)을 받는 길이 없어 맨 위에서 멈췄다.
+// 고침: 서버는 그대로(출처마다 '이 시각보다 앞' 받기만 있음). 위 경계 up.cursor에서 달 눈금(bar)으로 한 번에 받을 위 끝(hi)을 정하고,
+// 출처마다 hi 앞부터 받아 up.cursor 아래로 내려가면 멈춘다 → 받은 [up.cursor, hi) 사진을 출처 목록 앞에 붙인다(아래로 받는 자리·다음 쪽 기준은 그대로).
+// 붙일 때 보던 사진 칸이 화면에서 같은 자리에 있게 스크롤을 그만큼 옮긴다(keepAnchor). 받는 동안 다른 출처를 기다렸다 한꺼번에 붙인다(사이가 비지 않게).
+const UP_PAGES = 100; // 걸음 하나는 LOAD_STEP_MS 안(within)
+function watchTop() {
+  upIo?.disconnect(); upIo = null;
+  const el = body.querySelector('[data-photos-up]');
+  if (!el || !up || up.ended || !up.ready || up.failed || up.loading || tab !== 'all' || level !== 'day') return;
+  if (!('IntersectionObserver' in window)) { loadUp(); return; }
+  upIo = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) loadUp(); }, {rootMargin:'600px 0px'});
+  upIo.observe(el);
+}
+// 한 번에 받을 위 끝: 위 경계보다 최근 달을 오래된 달부터 PAGE_SIZE장 넘게 모은 달의 끝. 남은 달을 다 모으면 null(맨 위까지). 달 눈금을 아직 모르면 undefined.
+function upTop() {
+  if (filter === 'star') return null; // 별표는 모두 받아도 적다(loadMore ★와 같음)
+  if (!bar.length) return barFor === filter ? null : undefined;
+  const lo = Date.parse(up.cursor.t);
+  const newer = bar.filter(m => Date.parse(monthCursor(m.key).t) > lo).reverse();
+  let n = 0;
+  for (let k = 0; k < newer.length - 1; k++) { n += newer[k].n; if (n >= PAGE_SIZE) return monthCursor(newer[k].key); }
+  return null;
+}
+const belowUp = (it, lo) => Date.parse(it.taken_at) < Date.parse(lo.t);
+// 한 출처의 [lo, hi) 사진(최신 먼저). 받다가 lo 아래로 내려가면 멈춘다.
+async function upStream(source, lo, hi, alive, r) {
+  const out = [];
+  const keep = list => { for (const it of list) { if (belowUp(it, lo)) return true; out.push(it); } return false; };
+  if (source === 'onedrive' && filter === 'star') {
+    await ensureStars(r);
+    for (const ids of chunks(starIds(), STAR_CHUNK)) {
+      let cursor = null;
+      for (let guard = 0; guard < 50; guard++) {
+        const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort:DEFAULT_SORT});
+        if (!alive()) return null;
+        out.push(...page.items.map(toItem).filter(it => !belowUp(it, lo))); cursor = page.next;
+        if (!cursor) break;
+      }
+    }
+    return out.sort(sortCompare(DEFAULT_SORT));
+  }
+  if (source === 'phone' && filter === 'star') {
+    const list = await phoneStarList(r);
+    return alive() ? list.filter(it => !belowUp(it, lo)) : null;
+  }
+  if (source === 'onedrive') {
+    let cursor = hi;
+    for (let guard = 0; guard < UP_PAGES; guard++) {
+      const page = await odLibrary(rt, {filter, cursor, limit:PAGE_SIZE, sort:DEFAULT_SORT});
+      if (!alive()) return null;
+      if (keep(page.items.map(toItem)) || !page.next) break;
+      cursor = page.next;
+    }
+    return out;
+  }
+  if (source === 'gdrive') {
+    let before = hi ? gdriveFrom(hi.t) : null;
+    for (let guard = 0; guard < UP_PAGES; guard++) {
+      const page = await gdList(rt, {before, limit:PAGE_SIZE});
+      if (!alive()) return null;
+      const got = (Array.isArray(page?.items) ? page.items : []).map(gdriveToItem).filter(Boolean);
+      if (keep(got) || page?.more !== true || !got.length) break;
+      before = gdriveBefore(got[got.length - 1]);
+    }
+    return filter === 'video' ? out.filter(x => x.video) : out;
+  }
+  let offset = 0;
+  for (let guard = 0; guard < UP_PAGES; guard++) {
+    const page = await phone.page({sort:DEFAULT_SORT, filter, offset, limit:PAGE_SIZE, before:hi ? Date.parse(hi.t) : null, ...(await hideArg())});
+    if (!alive()) return null;
+    if (keep(page.items) || page.next === null || page.next === undefined) break;
+    offset = page.next;
+  }
+  return out;
+}
+function loadUp() {
+  if (!up || up.ended || up.loading || up.failed || !up.ready || !anyUse()) return up?.loading || null;
+  const hi = upTop();
+  if (hi === undefined) return null; // 달 눈금이 오면(paintRail → paintListEnd) 다시 본다
+  const r = run, mine = up, lo = up.cursor;
+  const alive = () => current(r) && up === mine;
+  const u = useSrc(), names = [];
+  if (u.onedrive) names.push('onedrive');
+  if (u.phone) names.push('phone');
+  if (u.gdrive && gdFilterOk() && filter !== 'star') names.push('gdrive');
+  mine.loading = (async () => {
+    let got = null;
+    try { got = await within(() => Promise.all(names.map(n => upStream(n, lo, hi, alive, r))), LOAD_STEP_MS); }
+    catch (error) { if (alive()) mine.failed = isLoadTimeout(error) ? '응답이 없어요' : readErrorText(error); }
+    finally { mine.loading = null; }
+    if (!alive()) return;
+    if (got && !got.some(x => x === null)) {
+      names.forEach((n, k) => {
+        if (n === 'onedrive') odList = appendItems(got[k], odList);
+        else if (n === 'phone') phList = appendItems(got[k], phList);
+        else gdItems = appendItems(got[k], gdItems);
+      });
+      mine.cursor = hi; mine.ended = !hi;
+    }
+    if (tab === 'all' && level === 'day') keepAnchor(() => { remerge(); paintList(); });
+  })();
+  return mine.loading;
+}
+// 목록 위쪽에 칸이 더해질 때 보던 칸(맨 위 줄 아래 처음 보이는 칸)이 화면에서 같은 자리에 있게 스크롤을 옮긴다.
+function keepAnchor(fn) {
+  const edge = Math.max(0, headEdge());
+  let a = null;
+  for (const c of body.querySelectorAll('[data-photos-id]')) { const top = c.getBoundingClientRect().top; if (top + c.offsetHeight > edge) { a = {id:c.dataset.photosId, top}; break; } }
+  fn();
+  if (!a) return;
+  const el = body.querySelector(`[data-photos-id="${CSS.escape(a.id)}"]`);
+  const d = el ? el.getBoundingClientRect().top - a.top : 0;
+  if (Math.abs(d) >= 1) window.scrollBy(0, d);
+}
+// 머리 줄 [↑ 최신으로]: 달·날로 건너뛰어 보는 동안만(맨 위 최신 사진부터 다시).
+function paintNewest() { const b = h$('[data-photos-newest]'); if (b) b.hidden = !(from && tab === 'all' && level === 'day'); }
 // 한 달의 날별 장수·대표 사진(달력·월 칸 대표 사진이 같이 쓴다). 같은 달·거르기·출처는 한 번만 받는다.
 async function monthDays(key, want, r) {
   const u = useSrc(), cacheKey = `${want}:${key}:${u.onedrive ? 'o' : ''}${u.phone ? 'p' : ''}`;
@@ -1044,7 +1172,7 @@ function paintTools() {
   h$('[data-photos-filter]').hidden = tab !== 'all' && tab !== 'calendar';
   h$('[data-photos-sort]').hidden = tab === 'calendar' || tab === 'trash';
   h$('[data-photos-head-more]').hidden = headMenuEmpty();
-  paintSize();
+  paintNewest(); paintSize();
 }
 const SIZE_LABEL = {'-1':['사진 작게(한 줄 칸 늘리기)', '앨범 작게 보기'], '1':['사진 크게(한 줄 칸 줄이기)', '앨범 크게 보기']};
 // 크기 [－][＋]는 ⋯ 메뉴 안(#photosHeadMenu)에만 있다 — 메뉴가 열려 있을 때만 칠한다(열 때 onOpen이 다시 칠함).
@@ -1156,7 +1284,7 @@ function paintRail() {
   const on = tab === 'all' && level === 'day' && anyUse() && bar.length > 1 && !select.active && listSort() === DEFAULT_SORT;
   rail.hidden = !on;
   rail.querySelectorAll('.photos-rail-year').forEach(el => el.remove());
-  if (!on) { rail.classList.remove('is-awake'); return; }
+  if (!on) { rail.classList.remove('is-awake'); markOff(); return; }
   placeRail();
   // PHOTO-연월이동 A: 막대 옆 연도 눈금(해마다 한 번, 그 해 가장 최근 달 자리). 눈금은 읽어 주는 말에서 뺀다. 겹치는 해는 생략(yearLabels).
   const h = rail.getBoundingClientRect().height;
@@ -1166,12 +1294,26 @@ function paintRail() {
   railAt(bar.indexOf(at));
   railWake(RAIL_AWAKE_MS + 700);
 }
-// 손잡이를 막대 위 y(px)에 둔다(위·아래 끝에서 삐져나오지 않게).
-const thumbTo = px => { const h = rail.getBoundingClientRect().height; thumb.style.top = `${Math.round(Math.max(0, Math.min(Math.max(0, h - RAIL_THUMB_H), px - RAIL_THUMB_H / 2)))}px`; };
+// 손잡이를 막대 위 y(px)에 둔다(위·아래 끝에서 삐져나오지 않게). 위치 줄·연월 이름표는 손잡이 가운데 높이.
+const thumbTo = px => {
+  const h = rail.getBoundingClientRect().height, top = Math.round(Math.max(0, Math.min(Math.max(0, h - RAIL_THUMB_H), px - RAIL_THUMB_H / 2)));
+  thumb.style.top = `${top}px`; railMark.style.top = bubble.style.top = `${top + RAIL_THUMB_H / 2}px`;
+};
+// S71-64 시안 B(사용자 11/26 22:38 "현재 위치표시가 … 조금 더 오비우스하게 가로로" · 22:39 "B"): 넘기는 동안(손가락·휠·막대 끌기)
+// 화면 오른쪽 끝에서 화면 폭 1/6 길이 가로 줄(CSS)과 그 왼쪽 '2018년 3월' 이름표(bubble)가 지금 위치 높이에 뜬다. 멈추면 MARK_MS 뒤 사라짐(끄는 동안은 그대로).
+const MARK_MS = 1000;
+let markT = 0;
+function markOn() {
+  if (rail.hidden) return;
+  railMark.hidden = false; bubble.hidden = !bubble.textContent;
+  clearTimeout(markT);
+  if (!railDrag) markT = setTimeout(markOff, MARK_MS);
+}
+function markOff() { clearTimeout(markT); if (railDrag) return; railMark.hidden = true; bubble.hidden = true; }
 // 막대 손잡이 자리와 읽어 주는 값(달 순서 0 = 최신 달).
 function railAt(k) {
   const m = bar[k]; if (!m) return;
-  thumbTo(m.from * rail.getBoundingClientRect().height);
+  thumbTo(m.from * rail.getBoundingClientRect().height); bubble.textContent = monthLabelKo(m.key);
   rail.setAttribute('aria-valuemax', String(bar.length - 1)); rail.setAttribute('aria-valuenow', String(k)); rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
 let railDrag = null;
@@ -1179,16 +1321,15 @@ const railMonth = y => { const r = rail.getBoundingClientRect(); return monthAt(
 function showBubble(m, y) {
   if (!m) return;
   const r = rail.getBoundingClientRect();
-  bubble.hidden = false; bubble.textContent = monthLabelKo(m.key); bubble.style.top = `${Math.max(0, Math.min(r.height - 32, y - r.top - 16))}px`;
-  thumbTo(y - r.top);
+  bubble.textContent = monthLabelKo(m.key); thumbTo(y - r.top); markOn();
   rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
 const railPoint = e => { const m = railMonth(e.clientY); if (m && railDrag && m.key !== railDrag.key) navigator.vibrate?.(6); railDrag = m; showBubble(m, e.clientY); };
 rail.addEventListener('pointerdown', e => { e.preventDefault(); rail.setPointerCapture?.(e.pointerId); rail.classList.add('is-drag'); railWake(); railPoint(e); });
 rail.addEventListener('pointermove', e => { if (railDrag) railPoint(e); });
-const railEnd = () => { const m = railDrag; railDrag = null; bubble.hidden = true; rail.classList.remove('is-drag'); if (m) jumpMonth(m.key); railWake(); };
+const railEnd = () => { const m = railDrag; railDrag = null; rail.classList.remove('is-drag'); markOn(); if (m) jumpMonth(m.key); railWake(); };
 rail.addEventListener('pointerup', railEnd);
-rail.addEventListener('pointercancel', () => { railDrag = null; bubble.hidden = true; rail.classList.remove('is-drag'); railWake(); });
+rail.addEventListener('pointercancel', () => { railDrag = null; rail.classList.remove('is-drag'); markOn(); railWake(); });
 rail.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); }); // 막대 위 누르기는 아래 사진을 열지 않는다
 rail.addEventListener('pointerenter', e => { if (e.pointerType !== 'mouse') return; railHover = true; railWake(); });
 rail.addEventListener('pointerleave', () => { railHover = false; railWake(); });
@@ -1198,14 +1339,15 @@ let railScrollRaf = 0;
 function railSync() {
   railScrollRaf = 0;
   if (rail.hidden || railDrag || !bar.length) return;
-  const edge = headEdge();
+  // S71-64: 폰 틀 머리 줄은 스크롤하면 화면 위로 올라가 bottom이 음수가 된다 → 화면 맨 위(0)보다 위는 보지 않는다(전에는 맨 첫 날을 '지금 달'로 잡았다).
+  const edge = Math.max(0, headEdge());
   const days = body.querySelectorAll('[data-photos-day]');
   let key = '';
   for (const d of days) { if (d.getBoundingClientRect().bottom > edge + 1) { key = String(d.dataset.photosDay).slice(0, 7); break; } }
   const k = bar.findIndex(m => m.key === key);
   if (k >= 0) railAt(k);
 }
-window.addEventListener('scroll', () => { if (rail.hidden || railDrag) return; railWake(); if (!railScrollRaf) railScrollRaf = requestAnimationFrame(railSync); }, {passive:true, capture:true});
+window.addEventListener('scroll', () => { if (rail.hidden || railDrag) return; railWake(); markOn(); if (!railScrollRaf) railScrollRaf = requestAnimationFrame(railSync); }, {passive:true, capture:true});
 window.addEventListener('resize', () => { if (!rail.hidden) paintRail(); });
 rail.addEventListener('keydown', e => {
   if (!['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key) || !bar.length) return;
@@ -1221,9 +1363,13 @@ function jumpTo(prefix, cursor, label) {
   const r = run;
   if (!find()) {
     select.stop(); from = {cursor, label}; clearLists(); failed = ''; rendered = 0;
+    const mine = up = {cursor, ended:false, loading:null, failed:'', ready:false};
     paintList({full:true});
     const p = loadMore();
-    Promise.resolve(p).then(() => { if (current(r) && tab === 'all') requestAnimationFrame(() => (find() || body).scrollIntoView({block:'start'})); });
+    Promise.resolve(p).then(() => {
+      if (!current(r) || tab !== 'all') return;
+      requestAnimationFrame(() => { (find() || body).scrollIntoView({block:'start'}); if (up === mine) { mine.ready = true; watchTop(); } });
+    });
     return;
   }
   requestAnimationFrame(() => find()?.scrollIntoView({block:'start'}));
@@ -3613,7 +3759,7 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-cal-day]')) return goDay(b.dataset.photosCalDay);
   if (b.matches('[data-photos-zgo]')) return zoomGo(b.dataset.photosZgo);
   if (b.matches('[data-photos-name-cancel]')) return nameDone(null);
-  if (b.matches('[data-photos-newest]')) { resetList(); render(); return window.scrollTo?.(0, 0); }
+  if (b.matches('[data-photos-up-retry]')) { if (up) up.failed = ''; paintList(); return loadUp(); }
   if (b.matches('[data-photos-more]')) { failed = ''; paintList(); return loadMore(); }
   if (b.matches('[data-photos-connect]')) return connectFromNone('onedrive');
   if (b.matches('[data-photos-folder]')) return settings.run(settings.startBrowse);
@@ -3629,6 +3775,7 @@ srcBox.addEventListener('change', event => {
 });
 srcBox.addEventListener('click', event => {
   const b = event.target.closest?.('button'); if (!b || !srcBox.contains(b)) return;
+  if (b.matches('[data-photos-newest]')) { resetList(); render(); return window.scrollTo?.(0, 0); }
   if (b.matches('[data-photos-sort]')) return sortMenu.open(b);
   if (b.matches('[data-photos-src-pick]')) return srcMenu.open(b);
   if (b.matches('[data-photos-head-more]')) return headMenu.open(b);
@@ -3645,7 +3792,7 @@ function clearLists() {
   gdItems = []; gdEnded = false; gdCursor = null;
 }
 function resetList() {
-  run++; clearLists(); loading = null; failed = ''; autoAgain = true; from = null; rendered = 0; monthsFor = ''; bar = []; io?.disconnect();
+  run++; clearLists(); loading = null; failed = ''; autoAgain = true; from = null; up = null; rendered = 0; monthsFor = ''; bar = []; barFor = null; io?.disconnect(); upIo?.disconnect(); upIo = null;
 }
 
 // ---- 가져올 곳(PHOTO-출처 ① → S71-25 PHOTO-머리한줄: 큰 단추 셋 대신 단추 하나 + 고르기 메뉴) ----
