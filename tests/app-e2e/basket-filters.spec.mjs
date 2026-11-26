@@ -50,7 +50,7 @@ async function fixture(page,{width=390,scheme='light'}={}){
  });
  return {errors,writes};
 }
-// REF-참고묶음: with [참고] the place row is wider than a 390px phone and slides sideways (filter-chips.css); bring the chip into view first, as a finger would.
+// The place row may be wider than a 390px phone and slide sideways (filter-chips.css); bring the chip into view first, as a finger would.
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 const rows=page=>page.locator('#basketView [data-basket-row]');
 const shown=page=>rows(page).evaluateAll(els=>els.map(el=>el.dataset.basketRow));
@@ -66,6 +66,7 @@ async function enter(page,width){
 
 // S71-58 FORGET-처리전만(사용자 결정 2026-11-26): [처리 전 ▾] 보기와 연결 완료 아래 분류된 곳 칩은 없앴다 — 그 시험도 함께 지웠다(목록은 늘 처리 전, forget-pending-only.spec.mjs).
 
+// ⑤ 자료실: the [일반 자료|회의자료만] row is gone; the project and category chip rows stay; [회의] narrows to meeting documents.
 for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library has no [일반 자료|회의자료만] row and [회의] shows meeting documents ${width} ${scheme}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});await page.emulateMedia({colorScheme:scheme});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});

@@ -25,7 +25,8 @@ async function fixture(page,{width=1280,blockStorage=false}={}){
   updates:Array.from({length:24},(_,i)=>({id:'u-'+i,organization_id:'oa',raw_text:'합성 기록 '+i,detail_text:null,occurred_at:day(i)})),
   links:[{id:'l-o',workspace_id:'w',note_id:note.id,project_id:null,organization_id:'oa',status:'confirmed',summary:'합성 조직 연결 요약'}]};
  const list=(route,rows)=>{const q=new URL(route.request().url()).searchParams;const o=Number(q.get('offset')||0);return route.fulfill({json:rows.slice(o,o+Number(q.get('limit')||rows.length||1))})};
- page.on('request',req=>{if(req.url().startsWith(SB+'/rest/')&&!['GET','HEAD','OPTIONS'].includes(req.method()))state.writes.push(req.method()+' '+new URL(req.url()).pathname)});
+ // S71-35: 조직 관리 '내 묶음' 칸의 내 묶음 목록(app_collab_my_groups)은 POST로 묻는 읽기라 쓰기에서 뺀다.
+ page.on('request',req=>{if(req.url().startsWith(SB+'/rest/')&&!['GET','HEAD','OPTIONS'].includes(req.method())&&!req.url().includes('/rpc/app_collab_my_groups'))state.writes.push(req.method()+' '+new URL(req.url()).pathname)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return route.fulfill({json:id?orgs.filter(o=>'eq.'+o.id===id):orgs})});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return route.fulfill({json:q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner}))})});
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('organization_id')||'';return list(route,state.updates.filter(u=>id==='eq.'+u.organization_id||id.startsWith('in.(')&&id.slice(4,-1).split(',').includes(u.organization_id)))});

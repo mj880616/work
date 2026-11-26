@@ -595,8 +595,8 @@ const rowState=(note,state)=>state.status==='미분류'&&noteClassified(note,lin
 // UI-디자인손질 6: each confirmed link is a colored-dot chip. BUG-바구니연결해제: organization and project
 // chips get × (disconnect, 44px target); on the note screen the chip itself opens that place.
 // Meeting and library chips stay plain: their links cannot be put back by the existing link path.
-// REF-참고묶음 화면 2: a reference chip ("참고: ○○") gets × too (restoreRecordLink takes kind 'reference'), and on the note screen
-// it opens that bundle on the 참고 묶음 screen.
+// REF-참고묶음: a reference chip ("참고: ○○", 이미 붙은 연결) gets × too (restoreRecordLink takes kind 'reference'). ORG-참고묶음삭제(S71-22):
+// 참고 묶음 화면은 없앴으므로 노트 화면에서도 이름만 보인다(누르면 여는 곳 없음).
 const chipKinds=[['project',word('사업영역')],['organization',word('담당조직')],['meeting',word('사업 보고')],['document','자료실'],['bundle','참고']];
 const confirmedLinks = noteId => links.filter(l => l.note_id === noteId && l.status === 'confirmed');
 function chipInfo(link) {
@@ -606,7 +606,7 @@ function chipInfo(link) {
 function linkChip(link, {open = false} = {}) {
   const {kind, label, name, removable} = chipInfo(link);
   const body = `<span class="basket-chip-dot ui-color-dot" aria-hidden="true"></span><span class="a11y-only">${esc(label)}: </span>${esc(name)}`;
-  const main = open && removable ? `<button type="button" class="basket-chip-open" data-basket-chip-open="${esc(link.id)}">${body}</button>` : `<span class="basket-chip-name">${body}</span>`;
+  const main = open && removable && kind !== 'bundle' ? `<button type="button" class="basket-chip-open" data-basket-chip-open="${esc(link.id)}">${body}</button>` : `<span class="basket-chip-name">${body}</span>`;
   const remove = removable ? `<button type="button" class="basket-chip-x" data-basket-unlink="${esc(link.id)}" aria-label="${esc(disconnectLabel(name))}"><span aria-hidden="true">×</span></button>` : '';
   return `<span class="basket-chip" data-chip-kind="${esc(kind)}"${removable ? ` data-basket-chip="${esc(link.id)}"` : ''}>${main}${remove}</span>`;
 }
@@ -1283,11 +1283,7 @@ async function unlinkChip(linkId) {
 // Note screen chip: open that organization or project over the basket, as home does.
 async function openChipPlace(linkId) {
   const link = links.find(l => l.id === linkId); if (!link) return;
-  if (link.bundle_id) {
-    try { await window.KPTUViewLoader.load('reference'); await window.KPTUReference.open(link.bundle_id); }
-    catch { if (selected?.id === link.note_id) detail.querySelector('[data-basket-status]').textContent = '참고 묶음을 열지 못했어요. 다시 시도해 주세요.'; }
-    return;
-  }
+  if (link.bundle_id) return;
   const project = !!link.project_id;
   try {
     // MTG-프로젝트합치기 ①: 사업영역은 사업영역 관리 창(area-window.js)으로 정리함 위에 연다.
