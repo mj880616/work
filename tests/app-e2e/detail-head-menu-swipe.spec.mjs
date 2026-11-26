@@ -142,7 +142,7 @@ test('[3] 폰 업데이트 줄(Raindrop식): 왼쪽으로 끝까지 밀어도 �
   page.on('dialog', d => { throw new Error('묻지 않아야 함: ' + d.message()); });
   await swipe(page.locator(`[data-basket-row="${B}"]`), -320);
   const cells = page.locator('#basketRows [data-row-swipe-act="end"]');
-  await expect(cells).toHaveText(['보류로', '삭제']);
+  await expect(cells).toHaveText(['보류로', '수정', '삭제']); // S70-65 가안
   await expect(page.locator(`[data-basket-row="${B}"]`)).toBeVisible();
   expect(f.writes.filter(w => w.method === 'DELETE')).toHaveLength(0); // 끝까지 밀어도 바로 지우지 않는다
   await page.locator('#basketRows [data-row-swipe-key="delete"]').tap();
@@ -169,10 +169,9 @@ test('[3] 폰 업데이트 줄(Raindrop식): 왼쪽으로 끝까지 밀어도 �
 
 test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 줄을 눌러 더 고르고 한 번에 [삭제](휴지통)', async ({ page }) => {
   const f = await updates(page, 412);
-  // S70-60: 오른쪽으로 밀면 [선택] 칸만 → 누르면 그 줄이 골라진다.
+  // S70-64: 오른쪽으로 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 바로 그 줄이 골라진다.
   await swipe(page.locator(`[data-basket-row="${A}"]`), 50);
-  await expect(page.locator('#basketRows [data-row-swipe-act="start"]')).toHaveText('선택');
-  await page.locator('#basketRows [data-row-swipe-key="select"]').tap();
+  await expect(page.locator('#basketRows [data-row-swipe-act="start"]')).toHaveCount(0);
   const bar = page.locator('#basketView .row-swipe-pickbar');
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
   await expect(bar.locator('[data-row-pick-all]')).toHaveAttribute('aria-checked', 'false');
@@ -189,7 +188,7 @@ test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 �
   expect(f.errors).toEqual([]);
 });
 
-test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제], 오른쪽 끝까지 밀면 [선택] 칸만 → 누르면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
+test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [옮기기][수정][삭제](S70-65, 고정은 ⋯), 오른쪽 끝까지 밀면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
   const f = await notesList(page, 412);
   // 휴지통에서 되돌리면 서버 목록에도 다시 있다(업데이트 줄 시험과 같음) — 되돌린 뒤 다시 읽어도 두 줄 그대로.
   f.trash.onRestore = row => { const { link_count, deleted_at, ...back } = row; f.rows.push(back); };
@@ -198,10 +197,9 @@ test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제]
   const cells = page.locator('[data-note-list] [data-row-swipe-act="end"]');
   await expect(cells).toHaveCount(3);
   await expect(cells.last()).toHaveText('삭제');
-  await expect(cells.first()).toHaveText('고정');
-  await cells.first().tap();
-  await expect.poll(() => f.writes.filter(w => w.method === 'PATCH').length).toBe(1);
-  expect(f.writes.find(w => w.method === 'PATCH').body.metadata?.pinned_at).toBeTruthy();
+  await expect(cells).toHaveText(['옮기기', '수정', '삭제']);
+  await swipe(page.locator('[data-note-row="n-two"]'), 50); // 열린 칸은 반대로 조금 밀어 닫는다(S68-50)
+  await expect(cells).toHaveCount(0);
   // 노트 보기 전환(좌우 밀기)은 일어나지 않는다: 목록 보기 그대로.
   await expect(page.locator('[data-note-row]')).toHaveCount(2);
   await swipe(page.locator('[data-note-row="n-one"]'), -50);
@@ -213,23 +211,18 @@ test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제]
   await expect(undo).toBeVisible();
   await undo.click();
   await expect.poll(() => f.trash.restored).toEqual(['n-one']);
-  // 오른쪽 끝까지: [선택] 칸만 펼쳐진다(S70-60 UI-스와이프메뉴만). 누르면 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(새 고르기 줄을 만들지 않음).
-  // 되돌린 뒤 목록이 다시 읽혀 그려지면(밀기 뒤에도 올 수 있음) 열린 칸도 사라지므로, 칸을 열고 누르기까지 통째로 다시 한다.
-  // 누르기는 칸에 바로 보낸다(Playwright tap의 '보이게 스크롤'이 스크롤 이벤트로 열린 칸을 닫지 않게 — 손가락은 스크롤하지 않고 누른다).
+  // 오른쪽 끝까지: 바로 그 줄 선택(S70-64 W1). 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(새 고르기 줄을 만들지 않음), [선택] 칸은 남지 않는다.
+  // 되돌린 뒤 목록이 다시 읽혀 그려지면 손동작이 빠질 수 있으므로 막대가 뜰 때까지 다시 민다(선택 중에는 줄 밀기가 꺼져 두 번 골라지지 않음).
   const pick = page.locator('[data-note-list] [data-row-swipe-key="select"]');
   const bar = page.locator('[data-nx-select-bar]');
-  // 되돌린 노트가 목록에 다시 그려질 때까지 먼저 기다린다(그 다시 그리기가 민 뒤에 오면 열린 칸이 닫힌다).
   await expect(page.locator('[data-note-row="n-one"]')).toHaveCount(1);
   await expect(page.locator('[data-note-row]')).toHaveCount(2);
   await expect(async () => {
-    if (await bar.isVisible()) return; // 앞 시도의 누르기가 늦게 먹었으면 그대로(선택 중에는 줄 밀기가 꺼져 다시 밀 수 없다)
+    if (await bar.isVisible()) return;
     await swipe(page.locator('[data-note-row="n-two"]'), 320);
-    await expect(pick).toBeVisible({ timeout: 1000 });
-    await expect(bar).toBeHidden({ timeout: 500 }); // 미는 것만으로는 선택이 시작되지 않는다
-    await pick.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true }, { timeout: 1000 });
-    await pick.dispatchEvent('click', undefined, { timeout: 1000 });
     await expect(bar).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 20000 });
+  await expect(pick).toHaveCount(0);
   await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   await expect(page.locator('[data-note-list] .row-swipe-pickbar')).toHaveCount(0);
   expect(f.errors).toEqual([]);

@@ -40,7 +40,7 @@ import { createUploadBatch, uploadBatch, readNewPhotos, updateFileLine, mountBas
 import { mountUploadRows, setUploadRetry, announceDock } from './upload-progress.js';
 import { announceUploaded } from './upload-done.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
-import { bindRowSwipe, PICK } from './row-swipe.js';
+import { bindRowSwipe, PICK, EDIT, DELETE } from './row-swipe.js';
 import { SPLIT_QUERY } from './screen-width.mjs';
 import { followPane } from './follow-pane.js';
 import {word} from './brand/brand.mjs';
@@ -172,14 +172,15 @@ function keepRowMenu(kept){
   if(kept.focusAct)(rowMenuEl.querySelector(`[data-basket-row-act="${CSS.escape(kept.focusAct)}"]`)||rowMenuEl.querySelector('button'))?.focus({preventScroll:true});
 }
 // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 업데이트 줄 — 왼쪽으로 밀기 [보류로]/[보류 해제]·[삭제](휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음: 되돌릴 수 있으므로),
-// 끝까지 밀어도 삭제는 바로 하지 않고 칸만 열린다. 오른쪽으로 밀기 → 여러 개 선택(막대 '[전체 선택][삭제]' 두 칸, S70-64b — 보류는 줄 밀기·⋯로). 기존 목록 ⋯의 길 그대로.
+// 끝까지 밀어도 삭제는 바로 하지 않고 칸만 열린다. 오른쪽으로 밀기 → 여러 개 선택('[✕] n개 선택됨 · [전체 선택][보류로][삭제]', S70-64). 기존 목록 ⋯의 길 그대로.
+// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [보류로][수정][삭제] — [수정]은 ⋯ [수정]과 같은 길(상세를 쓰기 상태로 연다).
 // 분류 완료는 갈 곳을 골라야 해서 한 번에 끝나는 처리가 아니므로 줄 밀기에 두지 않는다(옮기기 칸 없음, 공유 길 없음).
 bindRowSwipe(root.querySelector('[data-basket-rows]'),{row:'[data-basket-row-item]',enabled:()=>!busy&&(!selected||isSplit())&&!rowMenu,
-  actions:el=>{const note=notes.find(n=>n.id===el.dataset.basketRowItem);if(!note)return null;return {start:PICK,end:[note.archived_at?{key:'unhold',label:'보류 해제',tone:'muted'}:{key:'hold',label:'보류로',tone:'muted'},{key:'delete',label:'삭제',tone:'danger'}]};},
-  run:async(key,el)=>{const id=el.dataset.basketRowItem;if(busy||!notes.some(n=>n.id===id))return;if(selected&&!(await releaseDetail(el)))return;if(busy||selected||!notes.some(n=>n.id===id))return;if(key==='delete')void deleteFromList(id,{confirmed:true});else void holdFromList(id,key==='hold');},
-  // 고른 업데이트를 하나씩 차례로(기존 한 줄 길 그대로, 같은 때 두 번 부르지 않게 하나 끝나면 다음).
+  actions:el=>{const note=notes.find(n=>n.id===el.dataset.basketRowItem);if(!note)return null;return {start:PICK,end:[note.archived_at?{key:'unhold',label:'보류 해제',tone:'muted'}:{key:'hold',label:'보류로',tone:'muted'},EDIT,DELETE]};},
+  run:async(key,el)=>{const id=el.dataset.basketRowItem;if(busy||!notes.some(n=>n.id===id))return;if(selected&&!(await releaseDetail(el)))return;if(busy||selected||!notes.some(n=>n.id===id))return;if(key==='delete')void deleteFromList(id,{confirmed:true});else if(key==='edit')openDetail(id,{edit:true});else void holdFromList(id,key==='hold');},
+  // 고른 업데이트를 하나씩 차례로(기존 한 줄 길 그대로, 같은 때 두 번 부르지 않게 하나 끝나면 다음). S70-64b: 막대는 [전체 선택][삭제] 두 칸(보류는 줄 밀기·⋯).
   select:{attr:'data-basket-row-item',label:'선택한 업데이트',acts:()=>[{key:'delete',label:'삭제',danger:true}],
-    run:async(key,ids)=>{for(const id of ids){if(!notes.some(n=>n.id===id))continue;if(selected&&!isSplit())break;if(key==='delete')await deleteFromList(id,{confirmed:true});}}}});
+    run:async(key,ids)=>{for(const id of ids){if(!notes.some(n=>n.id===id))continue;if(selected&&!isSplit())break;if(key==='delete')await deleteFromList(id,{confirmed:true});else{const n=notes.find(x=>x.id===id);if(!n?.archived_at)await holdFromList(id,true);}}}}});
 root.addEventListener('keydown',e=>{if(e.key==='Escape'&&rowMenu){e.preventDefault();e.stopPropagation();closeRowMenu({focus:true});}});
 root.addEventListener('focusout',e=>{if(rowMenu&&e.relatedTarget&&!rowMenuEl.contains(e.relatedTarget)&&e.relatedTarget!==rowMenu.trigger)closeRowMenu();});
 document.addEventListener('click',e=>{if(rowMenu&&!rowMenuEl.contains(e.target)&&!rowMenu.trigger.contains(e.target))closeRowMenu();});

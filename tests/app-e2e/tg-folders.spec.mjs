@@ -1,4 +1,6 @@
-// TG-방날짜묶기 4-나: 폴더 칸 줄(전체·폴더·+ 폴더·보관함), 폰 줄 밀기([폴더로][보관] / [삭제]), 보관함 [꺼내기], PC 행 ⋯·오른쪽 클릭.
+// TG-방날짜묶기 4-나: 폴더 칸 줄(전체·폴더·+ 폴더·보관함), 폰 줄 밀기, 보관함 [꺼내기], PC 행 ⋯·오른쪽 클릭.
+// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): 폰 줄 밀기는 공용 줄 밀기(row-swipe.js) — 왼쪽으로 밀면 [폴더로][수정][삭제]
+// ([수정] = 그날 요약 수정, 요약을 고칠 수 있을 때만), 끝까지 밀어도 칸만, 오른쪽 밀기 없음. [보관]은 ⋯.
 // 서버는 흉내(helpers/tg-room-day-server.mjs). 방·폴더 이름은 모두 지어낸 것. 시계는 2026-10-06 10:00(한국)으로 고정.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
@@ -27,7 +29,6 @@ async function openTelegram(page,width){
  await expect(page.locator(`#telegramView [data-tg-rd="${B3}"] .feed-rl`)).toHaveText('옛 안건 정리 · 옛 일정 확인');
 }
 const rd=(view,key)=>view.locator(`[data-tg-rd="${key}"]`);
-const wrapOf=(view,key)=>view.locator(`[data-tg-swipe="${key}"]`);
 const keys=view=>view.locator('[data-tg-rd]').evaluateAll(els=>els.map(e=>e.dataset.tgRd));
 // 손가락 움직임은 터치 포인터 이벤트로 흉내 낸다(옛 카드 밀기 시험과 같은 방식). fromX: 줄 왼쪽에서의 가로 위치.
 async function drag(page,locator,fromX,dx,dy=0,{steps=8,startAt=null}={}){
@@ -40,6 +41,10 @@ async function drag(page,locator,fromX,dx,dy=0,{steps=8,startAt=null}={}){
  },{hx,x,y,dx,dy,steps});
 }
 const rpc=(f,name)=>f.writes.filter(w=>w.rpc===name);
+// 공용 줄 밀기: 열린 줄의 칸 묶음(.row-swipe-acts)은 줄 바로 앞에 하나만 생긴다.
+const acts=view=>view.locator('.row-swipe-acts');
+const cellOf=(view,key)=>view.locator(`.row-swipe-acts [data-row-swipe-key="${key}"]`);
+async function openLeft(page,view,key,dx=-140){const r=rd(view,key);await drag(page,r,(await r.boundingBox()).width-50,dx);await expect(acts(view)).toHaveAttribute('data-side','end');}
 
 test('폴더 칸 줄: [전체][폴더][+ 폴더][보관함 n], 모든 방 선택은 없고, 폴더를 선택하면 그 폴더의 방만',async({page})=>{
  const f=await fixture(page);
@@ -59,43 +64,40 @@ test('폴더 칸 줄: [전체][폴더][+ 폴더][보관함 n], 모든 방 선택
  expect(f.errors).toEqual([]);
 });
 
-test('폰 오른쪽 밀기: [폴더로](파랑)·[보관](연노랑) 두 버튼, 보관하면 방이 목록에서 빠지고 되돌리기 줄은 하단바 위',async({page})=>{
+test('폰 왼쪽 밀기 칸: [폴더로][수정][삭제] — 끝까지 밀어도 실행하지 않고, [수정]은 그날 요약 수정 칸, 오른쪽 밀기는 없다',async({page})=>{
  const f=await fixture(page);
  await openTelegram(page,390);
- const view=page.locator('#telegramView'),w=wrapOf(view,A6);
- await expect(w.locator('[data-tg-act-btn]')).toHaveCount(3);
- await drag(page,rd(view,A6),60,110);
- await expect(w).toHaveAttribute('data-side','start');
- const btns=w.locator('.feed-acts-start [data-tg-act-btn]');await expect(btns).toHaveText(['폴더로','보관']);
- const bw=await btns.evaluateAll(els=>els.map(e=>Math.round(e.getBoundingClientRect().width)));expect(bw).toEqual([64,64]);
- await btns.nth(1).tap();
- await expect.poll(()=>rpc(f,'app_feed_room_set').length).toBe(1);
- expect(rpc(f,'app_feed_room_set')[0].body).toEqual({p_room_key:'room-a',p_folder:null,p_archived:true});
- await expect.poll(()=>keys(view)).toEqual([B6,B3]);
- await expect(view.locator('[data-tg-folder="' + '' + '"]')).toBeVisible();
- await expect(view.locator('.feed-chiprow [data-tg-shelf]')).toHaveText('보관함 2');
- const bar=view.locator('[data-tg-undobar]');await expect(bar).toContainText('보관했어요');
- const tabs=await page.locator('.mobile-tabs').boundingBox(),b=await bar.boundingBox();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y+1);
- await bar.locator('[data-tg-undo]').tap();
- await expect.poll(()=>rpc(f,'app_feed_room_set').length).toBe(2);
- expect(rpc(f,'app_feed_room_set')[1].body).toEqual({p_room_key:'room-a',p_folder:null,p_archived:false});
- await expect.poll(()=>keys(view)).toEqual([A6,B6,A5,B3]);
+ const view=page.locator('#telegramView');
+ await expect(view.locator('[data-tg-act-btn]')).toHaveCount(0); // 줄 안에 숨긴 칸은 없다(칸은 밀 때만 생김)
+ await openLeft(page,view,A6,-500);
+ await expect(acts(view).locator('[data-row-swipe-act="end"] .row-swipe-tx')).toHaveText(['폴더로','수정','삭제']);
+ const bw=await acts(view).locator('[data-row-swipe-act="end"]').evaluateAll(els=>els.map(e=>Math.round(e.getBoundingClientRect().width)));expect(bw).toEqual([64,64,64]);
+ await page.waitForTimeout(500);
+ expect(f.writes).toEqual([]);expect(await keys(view)).toEqual([A6,B6,A5,B3]);
+ // 열린 줄을 누르면 닫히기만 한다.
+ await rd(view,A6).locator('.feed-rdb').tap();await expect(acts(view)).toHaveCount(0);
+ // 오른쪽으로 밀면 아무 칸도 없다(소식에는 여러 개 고르기가 없음).
+ await drag(page,rd(view,B6),60,140);await page.waitForTimeout(300);await expect(acts(view)).toHaveCount(0);
+ expect(f.writes).toEqual([]);
+ // [수정] = 그날 방 상세를 열고 요약 수정 칸(⋯·✎ [요약 수정]과 같은 칸).
+ await openLeft(page,view,B6);
+ await cellOf(view,'edit').tap();
+ await expect(page.locator('#tgDetail [data-tg-se-text]')).toBeVisible();
  expect(f.errors).toEqual([]);
 });
 
 test('폰 왼쪽 밀기: [삭제] 한 버튼, 그 날 한 줄만 빠지고(같은 방의 다른 날은 그대로) 되돌릴 수 있다',async({page})=>{
  const f=await fixture(page);
  await openTelegram(page,390);
- const view=page.locator('#telegramView'),w=wrapOf(view,A6);
- const box=await rd(view,A6).boundingBox();
- await drag(page,rd(view,A6),box.width-50,-110);
- await expect(w).toHaveAttribute('data-side','end');
- const del=w.locator('.feed-acts-end [data-tg-act-btn]');await expect(del).toHaveText('삭제');
+ const view=page.locator('#telegramView');
+ await openLeft(page,view,A6);
+ const del=cellOf(view,'delete');await expect(del).toHaveText('삭제');
  await del.tap();
  await expect.poll(()=>rpc(f,'app_feed_room_day_set').length).toBe(1);
  expect(rpc(f,'app_feed_room_day_set')[0].body).toEqual({p_room_key:'room-a',p_day:'2026-10-06',p_state:'trashed'});
  await expect.poll(()=>keys(view)).toEqual([B6,A5,B3]);
- await expect(view.locator('[data-tg-undobar]')).toContainText('삭제했어요');
+ const bar=view.locator('[data-tg-undobar]');await expect(bar).toContainText('삭제했어요');
+ const tabs=await page.locator('.mobile-tabs').boundingBox(),b=await bar.boundingBox();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y+1);
  await view.locator('[data-tg-undo]').tap();
  await expect.poll(()=>rpc(f,'app_feed_room_day_set').length).toBe(2);
  expect(rpc(f,'app_feed_room_day_set')[1].body.p_state).toBe('active');
@@ -103,22 +105,25 @@ test('폰 왼쪽 밀기: [삭제] 한 버튼, 그 날 한 줄만 빠지고(같�
  expect(f.errors).toEqual([]);
 });
 
-test('밀기는 분명한 가로 움직임만: 세로 스크롤·화면 가장자리 시작·짧은 움직임은 줄을 열지 않고, 줄을 누르면 방 상세가 열린다',async({page})=>{
+test('밀기는 분명한 가로 움직임만: 세로 스크롤·화면 가장자리 시작·짧은 움직임은 줄을 열지 않고, 열린 줄이 있으면 한 번 눌러 닫은 뒤 줄을 누르면 방 상세가 열린다',async({page})=>{
  await fixture(page);
  await openTelegram(page,390);
- const view=page.locator('#telegramView'),w=wrapOf(view,A6);
- await drag(page,rd(view,A6),60,12,90);
- await expect(w).not.toHaveAttribute('data-side',/.+/);
- await drag(page,rd(view,A6),60,110,0,{startAt:8});
- await expect(w).not.toHaveAttribute('data-side',/.+/);
- await drag(page,rd(view,A6),60,30);
- await expect(w).not.toHaveAttribute('data-side',/.+/);
+ const view=page.locator('#telegramView'),at=r=>r.boundingBox().then(b=>b.width-50);
+ await drag(page,rd(view,A6),await at(rd(view,A6)),-12,90);
+ await expect(acts(view)).toHaveCount(0);
+ await drag(page,rd(view,A6),60,-110,0,{startAt:8});
+ await expect(acts(view)).toHaveCount(0);
+ await drag(page,rd(view,A6),await at(rd(view,A6)),-20);
+ await expect(acts(view)).toHaveCount(0);
  // 열린 줄은 하나뿐: 다른 줄을 밀면 앞의 줄은 닫힌다.
- await drag(page,rd(view,A6),60,110);await expect(w).toHaveAttribute('data-side','start');
- await drag(page,rd(view,B6),60,110);
- await expect(wrapOf(view,B6)).toHaveAttribute('data-side','start');await expect(w).not.toHaveAttribute('data-side',/.+/);
+ await openLeft(page,view,A6);
+ await openLeft(page,view,B6);
+ await expect(acts(view)).toHaveCount(1);
+ expect(await acts(view).evaluate(el=>el.nextElementSibling?.dataset.tgSwipe)).toBe(B6);
+ // 칸이 열린 채 다른 줄을 누르면 닫히기만 하고(그 누름은 삼킴 — S68-50), 다시 누르면 방 상세가 열린다.
  await rd(view,A5).locator('.feed-rdb').tap();
- await expect(wrapOf(view,B6)).not.toHaveAttribute('data-side',/.+/);
+ await expect(acts(view)).toHaveCount(0);
+ await rd(view,A5).locator('.feed-rdb').tap();
  await expect(page.locator('#tgDetail [data-tg-daybox]')).toBeVisible();
 });
 
@@ -126,8 +131,8 @@ test('[폴더로]: 폴더 목록·새 폴더, 선택하면 그 방이 폴더로 
  const f=await fixture(page);
  await openTelegram(page,390);
  const view=page.locator('#telegramView'),pick=page.locator('#tgFolderPick');
- await drag(page,rd(view,A6),60,110);
- await wrapOf(view,A6).locator('[data-tg-kind="folder"]').tap();
+ await openLeft(page,view,A6);
+ await cellOf(view,'folder').tap();
  await expect(pick.locator('button')).toHaveText(['가상 업무','+ 새 폴더']);
  await pick.getByRole('button',{name:'가상 업무'}).tap();
  await expect.poll(()=>rpc(f,'app_feed_room_set').length).toBe(1);
@@ -136,8 +141,8 @@ test('[폴더로]: 폴더 목록·새 폴더, 선택하면 그 방이 폴더로 
  await view.locator('.feed-chiprow').getByRole('button',{name:'가상 업무'}).tap();
  expect(await keys(view)).toEqual([A6,B6,A5,B3]);
  // 이미 들어 있으면 체크와 [폴더에서 빼기].
- await drag(page,rd(view,A6),60,110);
- await wrapOf(view,A6).locator('[data-tg-kind="folder"]').tap();
+ await openLeft(page,view,A6);
+ await cellOf(view,'folder').tap();
  await expect(pick.locator('button')).toHaveText(['✓ 가상 업무','폴더에서 빼기','+ 새 폴더']);
  await pick.getByRole('button',{name:'폴더에서 빼기'}).tap();
  await expect.poll(()=>rpc(f,'app_feed_room_set').length).toBe(2);
@@ -145,8 +150,8 @@ test('[폴더로]: 폴더 목록·새 폴더, 선택하면 그 방이 폴더로 
  await expect.poll(()=>keys(view)).toEqual([B6,B3]);
  // + 새 폴더: 이름 상자 → 폴더를 만들고 그 방을 넣는다.
  await view.locator('.feed-chiprow [data-tg-folder=""]').tap();
- await drag(page,rd(view,A5),60,110);
- await wrapOf(view,A5).locator('[data-tg-kind="folder"]').tap();
+ await openLeft(page,view,A5);
+ await cellOf(view,'folder').tap();
  await pick.getByRole('button',{name:'+ 새 폴더'}).tap();
  const box=view.locator('[data-tg-fedit]');await expect(box).toContainText("'가상지부 단톡' 방을 넣을 새 폴더");
  await box.locator('input').fill('가상 새폴더');await box.getByRole('button',{name:'저장'}).tap();
@@ -213,8 +218,8 @@ test('휴지통: 삭제한 날은 "삭제한 날"에 모이고 [되살리기]로
  const f=await fixture(page);
  await openTelegram(page,390);
  const view=page.locator('#telegramView');
- await drag(page,rd(view,A5),(await rd(view,A5).boundingBox()).width-50,-110);
- await wrapOf(view,A5).locator('[data-tg-kind="trash"]').tap();
+ await openLeft(page,view,A5);
+ await cellOf(view,'delete').tap();
  await expect.poll(()=>rpc(f,'app_feed_room_day_set').length).toBe(1);
  await view.locator('[data-tg-head-more]').tap();
  await page.locator('#tgMenu').getByRole('button',{name:'휴지통 1'}).tap();
@@ -232,8 +237,9 @@ test('저장이 안 되면 화면을 바꾸지 않고 안내한다(폴더 기능
  const f=await fixture(page,{noFolderFns:true});
  await openTelegram(page,390);
  const view=page.locator('#telegramView');
- await drag(page,rd(view,A6),60,110);
- await wrapOf(view,A6).locator('[data-tg-kind="archive"]').tap();
+ await openLeft(page,view,A6);
+ await cellOf(view,'folder').tap();
+ await page.locator('#tgFolderPick').getByRole('button',{name:'가상 업무'}).tap();
  await expect(view.locator('[data-tg-status]')).toContainText('아직 준비되지 않았어요');
  expect(await keys(view)).toEqual([A6,B6,A5,B3]);
  expect(f.errors).toEqual([]);

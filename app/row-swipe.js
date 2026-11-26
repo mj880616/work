@@ -1,8 +1,8 @@
 // UI-목록밀기(2026-10-30 명진 요청): 폰(≤760px) 목록 줄을 손가락으로 밀어 처리하는 공용 부품. 텔레그램 소식 줄 밀기와 같은 손동작
 // (셈은 row-swipe-model.mjs, 텔레그램도 같은 기준을 쓴다).
 // UI-줄밀기 Raindrop식(S68-26, 명진 11/22 21:31): 왼쪽으로 밀면 오른쪽 끝에 단추 여러 칸(최대 3, 왼쪽부터 덜 위험한 것 → 맨 오른쪽 삭제),
-// 오른쪽으로 밀면 왼쪽 끝에 [선택] 한 칸 → 누르면 그 줄이 골라진 채로 '여러 개 고르기'(아래 설명 — 막대 [전체 선택][삭제], S70-64b).
-// 밀면 칸만 보이고 멈춘다. 끝까지 밀어도 바로 실행하지 않는다 — 일은 펼쳐진 칸을 누를 때만(S70-60 UI-스와이프메뉴만, 명진 11/26).
+// 오른쪽으로 밀면 그 줄이 골라진 채로 '여러 개 고르기'(S70-64 W3, 칸을 열어 두지 않음 — 아래 '여러 개 고르기' 설명).
+// 왼쪽으로 밀면 칸만 보이고 멈춘다. 끝까지 밀어도 바로 실행하지 않는다 — 일은 펼쳐진 칸을 누를 때만(S70-60 UI-스와이프메뉴만, 명진 11/26).
 // - 손가락(터치)만, 폰 폭만. PC·중간 폭은 지금처럼 ⋯·우클릭·마우스 올림 단추다. 세로 스크롤과 헷갈리지 않게 가로로 충분히 민 뒤에만 시작한다.
 // - 목록 줄 위에서는 줄 밀기가 먼저다: 다른 좌우 밀기(탭 넘김·노트 보기 전환 등)는 claimedSince()로 이 손동작을 건너뛴다.
 // - 데이터는 이 부품이 지우지 않는다. run(key, row)·select.run(key, ids)은 그 목록의 기존 길(휴지통 삭제 + '지웠어요 [되돌리기]', 보류, 무시 …)을 부른다.
@@ -25,7 +25,13 @@ const SKIP = 'input,textarea,select,[contenteditable],[data-row-swipe-act]';
 export const PICK = Object.freeze({key:'select', label:'선택', tone:'pick', icon:'pick'});
 // 이름이 같은 일은 같은 그림(그 목록이 icon을 주지 않았을 때).
 const ICON = {select:'pick', delete:'trash', move:'move', share:'share', hide:'hide', save:'archive', release:'undo', unstar:'undo', toggle:'done', done:'done',
-  hold:'archive', unhold:'undo', pin:'pin', dismiss:'hide'};
+  hold:'archive', unhold:'undo', pin:'pin', dismiss:'hide', edit:'edit', rename:'rename', 'to-task':'task', more:'more', star:'star', restore:'undo', purge:'trash'};
+// S70-65 UI-밀기메뉴통일(2026-11-26 08:16 명진 가안): 왼쪽 밀기 칸은 [주 동작][수정][숨기기·삭제] 세 칸. 같은 일은 같은 이름·그림 —
+// 목록은 아래 칸을 그대로 쓰고 주 동작만 제 것으로 준다. 수정 칸 이름은 용어 기준표(docs/design/ui-words.md)의 '수정', 파일은 '이름 바꾸기'.
+export const EDIT = Object.freeze({key:'edit', label:'수정', tone:'info', icon:'edit'});
+export const RENAME = Object.freeze({key:'rename', label:'이름 바꾸기', tone:'info', icon:'rename'});
+export const DELETE = Object.freeze({key:'delete', label:'삭제', tone:'danger', icon:'trash'});
+export const MORE = Object.freeze({key:'more', label:'⋯', aria:'메뉴', tone:'muted', icon:'more'});
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 let claimed = 0, roots = 0;
 // 마지막 줄 밀기가 시작된 때(ms). 다른 좌우 밀기는 자기 손동작 시작 뒤에 줄 밀기가 있었으면 아무것도 하지 않는다.
@@ -47,7 +53,7 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
     const host = el.parentElement; host.classList.add('row-swipe-host');
     const layer = document.createElement(host.tagName === 'UL' || host.tagName === 'OL' ? 'li' : 'div');
     layer.className = 'row-swipe-acts'; layer.setAttribute('role', 'presentation');
-    const btn = (side, a) => `<button type="button" class="row-swipe-act row-swipe-${side} row-swipe-tone-${esc(a.tone || (side === 'end' ? 'danger' : 'info'))}" data-row-swipe-act="${side}" data-row-swipe-key="${esc(a.key)}" aria-label="${esc(a.label)}"><span class="row-swipe-ic" aria-hidden="true">${iconSvg(a.icon || ICON[a.key] || '', {size:18})}</span><span class="row-swipe-tx">${esc(a.label)}</span></button>`;
+    const btn = (side, a) => `<button type="button" class="row-swipe-act row-swipe-${side} row-swipe-tone-${esc(a.tone || (side === 'end' ? 'danger' : 'info'))}" data-row-swipe-act="${side}" data-row-swipe-key="${esc(a.key)}" aria-label="${esc(a.aria || a.label)}"><span class="row-swipe-ic" aria-hidden="true">${iconSvg(a.icon || ICON[a.key] || '', {size:18})}</span><span class="row-swipe-tx">${esc(a.label)}</span></button>`;
     const ends = endCells(acts.end);
     layer.innerHTML = (acts.start ? btn('start', acts.start) : '') + (ends.length ? `<span class="row-swipe-ends">${ends.map(a => btn('end', a)).join('')}</span>` : '');
     Object.assign(layer.style, {top:el.offsetTop + 'px', height:el.offsetHeight + 'px'});
@@ -78,10 +84,10 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
   // UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와
   //   복수 또는 일괄 삭제 / 전테선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제 / 다 이런식으로 왼쪽에서 오른쪽으로 스와이프 하는 건"):
   // - 줄을 오른쪽으로 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 그 줄이 골라진 채 고르기 상태가 된다. 고르기 중 줄 누르기 = 고름/풀림.
-  // - 위 고르기 막대(공용 .kptu-selbar 모양): [전체 선택](켜면 네모 안 체크 + 화면 목록 전체, 다시 누르면 모두 풀림) · [삭제](맨 끝, 그 목록의
-  //   일괄 지우기 — 되돌리기가 있으면 바로, 없으면 확인 한 번은 그 목록 길이 정한다). 읽을 거리만 [저장]이 하나 더(S70-64b).
-  //   지우기 길이 없는 목록은 [삭제] 자리에 그 목록의 일괄 동작 하나(무시·보고할 일정·되돌리기)가 온다.
-  // - 고른 것이 0개가 되거나 Esc(PC)·뒤로가기(폰, 화면을 떠나지 않음)면 고르기가 끝난다. [✕]·'n개 선택됨' 글자는 없다(S70-64b).
+  // - 위 고르기 막대(공용 .kptu-selbar 모양, S8): [✕] 'n개 선택됨' · [전체 선택](켜면 네모 안 체크 + 화면 목록 전체, 다시 누르면 모두 풀림)
+  //   · 그 목록의 다른 일 · [삭제](맨 끝, 그 목록의 일괄 지우기 — 되돌리기가 있으면 바로, 없으면 확인 한 번은 그 목록 길이 정한다).
+  //   지우기가 없는 목록은 [삭제] 자리에 그 목록의 일괄 동작(무시·숨기기 등)이 온다.
+  // - 고른 것이 0개가 되거나 ✕·Esc·뒤로가기(화면을 떠나지 않음)면 고르기가 끝난다.
   // 그 목록에 이미 고르기 장치가 있으면(select.open) 그것을 연다. 없으면 이 부품의 공용 고르기: 위쪽 고르기 막대 + 고른 줄 표시.
   // 고른 줄 표시는 줄 id 속성을 가리키는 모양 한 벌(<style>)로 그린다 — 목록이 줄을 다시 그려도 그대로 보이고, 목록 그리기에 끼어들지 않는다.
   let bar = null, look = null, running = false;
@@ -173,7 +179,8 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
     if (!d.on) return;
     swallow = true; d.el.classList.remove('is-drag');
     if (e.type === 'pointercancel') { if (open === d.state) paint(d.state, openOffset(open.side, d.has.end)); else drop(d.state); return; }
-    const {side} = rowSettle(d.state.x, d.has, d.el.offsetWidth, d.from);
+    const {side, pick:picked} = rowSettle(d.state.x, d.has, d.el.offsetWidth, d.from);
+    if (picked) { if (open === d.state) open = null; drop(d.state); if (select && d.el.isConnected) startPick(d.el); return; }
     if (!side) { if (open === d.state) open = null; drop(d.state); return; }
     d.state.side = side; open = d.state; paint(d.state, openOffset(side, d.has.end));
   };

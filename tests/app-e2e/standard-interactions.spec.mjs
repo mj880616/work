@@ -10,7 +10,8 @@ import { start as startFiles, openFiles, treeGo, enterRow } from './helpers/file
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { pinch } from './helpers/pinch.mjs';
 import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
-import { DOC_SCREENS } from './helpers/doc-view.mjs';
+import { DOC_SCREENS, DOC_SPLITS } from './helpers/doc-view.mjs';
+import { checkSplit } from './helpers/split-check.mjs';
 import { screenFindLocator } from './helpers/screen-find.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { readFileSync } from 'node:fs';
@@ -128,7 +129,7 @@ for (const [name, open] of SCREENS) for (const width of [360, 412, 1280]) test(`
 
 // Z3·Z1 글 보기 화면(S70-40b READ-글보기머리, 공용 .ds-doc-* 머리): 저장한 글 글 보기·읽을 거리 글 보기. 새 글 보기 화면이 생기면
 // helpers/doc-view.mjs DOC_SCREENS에 한 줄 더한다. 머리 첫 줄은 고정 높이(--ds-compact-height)라 제목은 둘째 줄에서 줄바꿈(Z1 잘리지 않음).
-for (const [name, open] of DOC_SCREENS) for (const width of [360, 412, 1280]) test(`Z3 ${name} ${width}: 가로로 넘치지 않고 제목이 잘리지 않는다`, async ({ page }) => {
+for (const [name, open] of DOC_SCREENS) for (const width of [360, 412, 690, 1280]) test(`Z3 ${name} ${width}: 가로로 넘치지 않고 제목이 잘리지 않는다`, async ({ page }) => {
   test.setTimeout(60000);
   const { errors, detail } = await open(page, width);
   await page.waitForTimeout(300);
@@ -136,6 +137,16 @@ for (const [name, open] of DOC_SCREENS) for (const width of [360, 412, 1280]) te
   expect(over).toBeLessThanOrEqual(1);
   const title = detail.locator('.ds-doc-title');
   expect(await title.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+// Z2 두 칸 글 보기 화면(S70-58 READ-두칸보기): 펼친 폴드 690·PC 1280에서 목록 | 글 경계를 끌어 폭이 바뀌고, 서버에 기억해 새로고침 뒤 같고, 두 번 누르면 기본.
+// 새 '목록 | 글' 두 칸 화면이 생기면 helpers/doc-view.mjs DOC_SCREENS·DOC_SPLITS에 한 줄 더한다.
+for (const [name, open] of DOC_SCREENS) for (const width of [690, 1280]) test(`Z2 ${name} ${width}: 목록 | 글 경계 끌기 → 서버 기억 → 새로고침 유지 → 두 번 누르면 기본`, async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors, prefs } = await open(page, width);
+  const s = DOC_SPLITS[name];
+  await checkSplit(page, { ...s, share: s.share(width), server: prefs, reopen: () => s.ready(page) });
   expect(errors).toEqual([]);
 });
 
@@ -1579,14 +1590,14 @@ for (const [name, open] of CONFIRM_DRAG_SCREENS) test(`D7 ${name} PC 1280: 확�
   expect(s.errors).toEqual([]);
 });
 
-// ---------- W1 오른쪽 밀기 = 여러 개 고르기(S70-64 UI-오른쪽밀기고르기, 기준표 8절 W1) ----------
+// ---------- W3 오른쪽 밀기 = 여러 개 고르기(S70-64 UI-오른쪽밀기고르기, 기준표 8절 W3) ----------
 // 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와 복수 또는 일괄 삭제
 // / 전테선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제 / 다 이런식으로 왼쪽에서 오른쪽으로 스와이프 하는 건".
 // 공용 줄 밀기(row-swipe.js)를 쓰는 목록마다 같은 검사: 오른쪽 밀기 → 그 줄 고름(칸이 열려 남지 않음) · 줄 눌러 더 고르기 ·
 // [전체 선택] 켜기(체크 표시·전체 개수)·끄기(0개 → 고르기 끝) · 뒤로가기 = 고르기만 끝(화면 그대로) · [삭제] 일괄.
 // [삭제]는 그 목록 길(되돌리기가 있으면 확인 없이 바로 + [되돌리기], 없으면 확인 한 번) — 화면마다 del()이 확인한다. 새 밀기 목록은 이 표에 한 줄 더한다.
 import { openEmphasisFixture } from './helpers/calendar-task-emphasis.mjs';
-async function swipeOnly(locator, dx = 60) {
+async function swipeRight(locator, dx = 60) {
   await expect(async () => {
     await expect(locator).toBeVisible();
     const sent = await locator.evaluate((el, { dx }) => {
@@ -1598,13 +1609,6 @@ async function swipeOnly(locator, dx = 60) {
     }, { dx });
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
-}
-// S70-60(줄 밀기 = 칸만, 누를 때 실행): 오른쪽으로 밀면 [선택] 칸이 열리고, 그 칸을 손가락으로 누르면 그 줄이 골라진다.
-async function swipeRight(locator, dx = 60) {
-  const page = locator.page(), cell = page.locator('[data-row-swipe-key="select"]');
-  await expect(async () => { await swipeOnly(locator, dx); await expect(cell).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
-  await cell.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
-  await cell.dispatchEvent('click');
 }
 const swipeTick = async page => { try { await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000)); } catch { /* 시계를 멈추지 않은 화면 */ } };
 async function tasksSwipe(page) {
@@ -1670,7 +1674,7 @@ async function readingSwipe(page) {
   };
 }
 const SWIPE_PICK_SCREENS = [['할 일', tasksSwipe], ['저장한 글', readingSwipe]];
-for (const [name, open] of SWIPE_PICK_SCREENS) test(`W1 ${name} 폰 390: 오른쪽 밀기 = 고르기, 줄 눌러 더 고르기, [전체 선택] 켜고 끄기(체크), 뒤로가기로 끝, [삭제] 일괄`, async ({ page }) => {
+for (const [name, open] of SWIPE_PICK_SCREENS) test(`W3 ${name} 폰 390: 오른쪽 밀기 = 고르기, 줄 눌러 더 고르기, [전체 선택] 켜고 끄기(체크), 뒤로가기로 끝, [삭제] 일괄`, async ({ page }) => {
   test.setTimeout(120000);
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   const s = await open(page);
@@ -1678,7 +1682,7 @@ for (const [name, open] of SWIPE_PICK_SCREENS) test(`W1 ${name} 폰 390: 오른�
   const count = bar.locator('.row-swipe-pick-count'), all = bar.locator('[data-row-pick-all]');
   const here = () => page.evaluate(() => [location.href, window.KPTURouter?.current]);
   const at = await here();
-  // ① 오른쪽으로 밀어 [선택] 칸을 누르면 그 줄이 골라진다 — 칸이 열린 채 남지 않는다(S70-60).
+  // ① 오른쪽으로 조금(반 칸 넘게) 밀고 떼면 그 줄이 골라진다 — [선택] 칸이 열린 채 남지 않는다.
   await swipeRight(s.first, 60);
   await expect(bar).toBeVisible();
   await expect(count).toHaveText('1개 선택됨');
@@ -1730,7 +1734,7 @@ for (const [name, open] of SWIPE_PICK_SCREENS) test(`W1 ${name} 폰 390: 오른�
 // 고르기 막대 화면 표(폰 390). 막대에는 [✕]·'n개 선택됨'·[그만] 글자가 없고, 칸 이름·개수가 규칙과 같다. 뒤로가기(폰)·Esc(PC 자판)로 고르기만 끝(화면·주소 그대로).
 //   줄 고르기 목록(row-swipe.js) = [전체 선택][삭제], 읽을 거리 = [전체 선택][저장][삭제].
 //   노트·자료실은 그 화면의 고르기 모드(꾹 누르기·오른쪽 밀기가 같은 막대) — 맨 앞 [전체 선택]·맨 끝 [삭제], 가운데 [폴더로 옮기기] 등은 그 화면 것(PR 본문 '요청과 다른 점').
-// 막대가 있는 화면이 늘면 아래 표에 한 줄 더한다(docs/design/standard-interactions.md W2).
+// 막대가 있는 화면이 늘면 아래 표에 한 줄 더한다(docs/design/standard-interactions.md W4).
 const barNames = bar => bar.evaluate(el => [...el.querySelectorAll('button.kptu-sb-act:not(.kptu-sb-more)')].filter(b => !b.hidden)
   .map(b => (b.querySelector('.kptu-act-tx')?.textContent || b.getAttribute('aria-label') || '').trim()));
 async function newsSwipe(page) {
@@ -1750,9 +1754,9 @@ const BAR_SCREENS = [
   ['읽을 거리', newsSwipe],
   ['자료실', holdOf(libraryRows, '폴더로 옮기기')],
 ];
-test.describe('W2 고르기 막대 화면 표 폰 390', () => {
+test.describe('W4 고르기 막대 화면 표 폰 390', () => {
   test.use({ hasTouch: true });
-  for (const [name, open] of BAR_SCREENS) test(`W2 ${name} 390: 막대 칸 이름·개수가 규칙과 같고 '선택됨'·'그만' 글자·✕ 없음, 뒤로가기·Esc로 고르기 끝`, async ({ page }) => {
+  for (const [name, open] of BAR_SCREENS) test(`W4 ${name} 390: 막대 칸 이름·개수가 규칙과 같고 '선택됨'·'그만' 글자·✕ 없음, 뒤로가기·Esc로 고르기 끝`, async ({ page }) => {
     test.setTimeout(120000);
     const s = await open(page);
     const here = () => page.evaluate(() => [location.href, window.KPTURouter?.current]);
@@ -1781,7 +1785,7 @@ test.describe('W2 고르기 막대 화면 표 폰 390', () => {
 });
 // PC 1280: 노트·자료실 고르기도 [✕] 없이 Esc로 끝(커서가 목록 밖 — 문서 바탕 — 에 있어도), 보이는 글에 '선택됨' 없음.
 const PC_BAR_SCREENS = [['자료실', keyLibrary, '#librarySelectBar'], ['노트', keyNotes, '[data-nx-select-bar]']];
-for (const [name, open, barSel] of PC_BAR_SCREENS) test(`W2 ${name} PC 1280: 고르기 막대 ✕·'선택됨' 글자 없음, 맨 앞 [전체 선택]·맨 끝 [삭제], Esc로 끝`, async ({ page }) => {
+for (const [name, open, barSel] of PC_BAR_SCREENS) test(`W4 ${name} PC 1280: 고르기 막대 ✕·'선택됨' 글자 없음, 맨 앞 [전체 선택]·맨 끝 [삭제], Esc로 끝`, async ({ page }) => {
   test.setTimeout(90000);
   const s = await open(page);
   const bar = page.locator(barSel);
@@ -1798,6 +1802,7 @@ for (const [name, open, barSel] of PC_BAR_SCREENS) test(`W2 ${name} PC 1280: 고
   expect(await s.picked()).toBe(0);
   expect(s.errors).toEqual([]);
 });
+
 // ---------- T10 TREE-탐색기꺾쇠(S70-81b, 명진 2026-11-26 09:25 최종 결정) ----------
 // 넓은 화면 왼쪽 폴더 나무 = 윈도 탐색기: 폴더 아이콘 왼쪽 작은 회색 꺾쇠(접힘 › / 펼침 ⌄, 하위 없으면 없음) 누르기 = 펼치기·접기만(오른쪽 그대로),
 // 폴더 이름 한 번 = 오른쪽에 그 폴더 내용(나무 펼침 그대로), 이름 두 번 누르기 = 펼치기/접기 + 내용, 끄는 중 접힌 폴더 위에 ~1초 머무르면 펼침,
