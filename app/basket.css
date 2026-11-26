@@ -749,6 +749,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
   /* S70-82: 머리 칸 글자 단추는 [파일] 머리 줄(.fx-head)처럼 테두리·바탕 없는 글자(노트 화면 공용 단추 모양이 덮지 않게 같은 범위로 한 번 더). */
   #appView #basketView [data-note-list] .nl-head :is(.hs-btn, .nl-cols-btn) { min-height:0; border:0; background:none; box-shadow:none; }
   #appView #basketView [data-note-list] .nl-head .hs-btn { height:auto; padding:0; }
+  /* 머리 칸 글자 단추의 넓은 누르는 자리(공용 row-act ::after 44px)가 머리 줄 아래 첫 줄 위를 덮지 않게 머리 줄 높이 안으로(첫 줄 끌기·누르기를 가로채지 않게). */
+  #appView #basketView [data-note-list] .nl-head .hs-btn::after { top:-6px; height:calc(100% + 12px); max-height:28px; }
   .nl-head > :is([data-nl-col="day"], [data-nl-col="made"], [data-nl-col="clip"], [data-nl-col="memo"], [data-nl-col="chars"]) .hs-btn { margin-left:auto; }
   /* ② 머리 줄 오른쪽 끝 작은 ⋯ = '보일 칸' 메뉴(줄의 ⋯ 자리와 같은 세로 줄). */
   .nl-head > .nl-cols-btn { position:absolute; right:4px; top:50%; transform:translateY(-50%); color:var(--kptu-muted); }

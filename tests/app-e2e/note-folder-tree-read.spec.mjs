@@ -61,7 +61,8 @@ test('PC 1280: 폴더를 펼치면 하위 폴더 다음에 그 폴더 노트 줄
   await treeEnter(tree(page).locator(`[data-nx-folder="${F}"] .ft-main`)); // T10: 넓은 화면 나무는 이름 = 오른쪽 그 폴더, 펼치기는 꺾쇠(treeEnter = 둘 다)
   await expect(treeNote(page, 'n1')).toBeVisible(); await expect(treeNote(page, 'n2')).toBeVisible();
   // 하위 폴더('궤도') 줄이 먼저, 그다음 노트.
-  const order = await tree(page).locator(':scope > [data-nx-folder], :scope > [data-nx-note]').evaluateAll(els => els.map(el => el.dataset.nxFolder || el.dataset.nxNote));
+  // S70-82: 나무 줄은 [파일]처럼 상자(.ft-box) 안 — 나무 안 차례로 본다.
+  const order = await tree(page).locator('[data-nx-folder], [data-nx-note]').evaluateAll(els => els.map(el => el.dataset.nxFolder || el.dataset.nxNote));
   expect(order.indexOf(G)).toBeLessThan(order.indexOf('n1'));
   await treeNote(page, 'n1').locator('[data-note-row]').click();
   await expect(detail(page)).toBeVisible();
