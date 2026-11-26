@@ -14,7 +14,7 @@
 // - 생각 지도 상자(S69-82, 명진 11/24 23:51 "전체를 브레인 스토밍 마인드맵 하게", 설계 docs/design/note-board-mindmap.md — 옛 S68-38c 글 상자를 바꿈):
 //   그 보드에만 있는 짧은 글(노트가 아님, 서버 표 app_note_board_texts). [+ 주제]·빈 곳 두 번 누르기(PC 더블클릭) = 혼자 선 상자(뿌리).
 //   상자 누름 = 고르기, 고른 상자를 다시 누름·두 번 누름·F2·Space = 그 자리 글 고치기(가로 글, 글 길이만큼 폭, 최대 폭에서만 줄바꿈).
-//   고른 채 Tab = 하위 가지, Enter = 형제 가지(뿌리는 하위), Delete = 지우기(아래 가지가 있으면 확인), 화살표 = 옆 상자로.
+//   고른 채 Tab = 하위 가지, Enter = 형제 가지(뿌리는 하위), Delete = 지우기(되돌리기가 있으니 묻지 않음, K1), 화살표 = 옆 상자로.
 //   글 고치는 중 Enter = 저장, Shift+Enter = 줄바꿈, Tab = 저장하고 하위 가지, Esc = 취소. 폰은 고른 상자 위 작은 막대의 [+ 하위]·[+ 형제].
 //   가지 자리는 늘 자동 배치(note-board-mindmap-model.mjs layoutMindmap — 겹치지 않는 나무, 뿌리 가지는 왼·오른 양쪽), 가지 선은 자동.
 //   끌기 = 그 가지째 옮기기: 다른 상자 가운데에 놓으면 그 아래 가지로, 위·아래 끝에 놓으면 그 앞·뒤 형제로, 빈 곳에 놓으면 떼어 혼자 선 상자로
@@ -55,6 +55,7 @@
 import { multiTouchActive, onMultiTouch } from './photo-grid-size.js';
 import { LONG_MS, SLOP } from './reorder-drag.js';
 import { askText, askConfirm, notify } from './small-notice.js';
+import { confirmDelete } from './select-keys.js'; // K1 지우기 한 규칙(I-6)
 import { openRowMenu, appMenuPoint, ROW_MENU_ICON } from './row-menu.js';
 import { swatchHtml, setSwatchOn } from './color-swatch.mjs';
 import { iconSvg } from './tree-icons.js';
@@ -1095,15 +1096,15 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (renumber.length) onTextsChange(renumber.map(n => ({id:n.id, patch:{ord:n.ord}})));
     startDraft({parent_id:parent, ord, side:lay.rects.get(id)?.side === -1 ? -1 : tree.parentOf.has(parent) ? null : 1});
   }
-  // 지우기: 아래 가지가 있으면 먼저 묻는다. 지운 뒤 초점은 위 상자(없으면 판).
+  // 지우기(K1 한 규칙, I-6): 지운 뒤 [되돌리기]가 있으면(onRemoveItems) 아래 가지가 있어도 묻지 않고 바로, 없으면 확인 창. 지운 뒤 초점은 위 상자(없으면 판).
   async function removeNode(id, anchor = null) {
-    const t = textById.get(id); if (!t || t.pending) return;
+    const t = textById.get(id); if (!t || t.pending || (onRemoveItems && opts.pickActive)) return; // 노트 고르기 중에는 판에서 지우지 않는다(removeItems와 같음)
     const below = descendants(tree, id).filter(k => k !== DRAFT).length;
-    if (below) {
+    const ok = await confirmDelete({undo:!!onRemoveItems, ask:() => {
       const short = [...t.body.replace(/\s+/g, ' ')].slice(0, 16).join('');
-      const ok = await askConfirm(anchor || textEls.get(id) || box, {text:`'${short}'와 아래 가지 ${below}개를 삭제할까요?`, ok:'삭제', danger:true});
-      if (!ok) { focusNode(id); return; }
-    }
+      return askConfirm(anchor || textEls.get(id) || box, {text:below ? `'${short}'와 아래 가지 ${below}개를 삭제할까요?` : `'${short}'를 삭제할까요?`, ok:'삭제', danger:true});
+    }});
+    if (!ok) { focusNode(id); return; }
     const parent = tree.parentOf.get(id);
     if (textSel === id) { textSel = null; closeBar(); }
     if (onRemoveItems) void removeItems({texts:[id]}); else onTextRemove(id); // S70-03: 지운 뒤 [되돌리기]
