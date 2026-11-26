@@ -31,10 +31,9 @@ import {fillDocViews} from './record-view.js';
 import {mountSplitResize} from './split-resize.js';
 import {bindDropTarget} from './meeting-compact.js';
 import {createDropQueue} from './meeting-drop-queue.mjs'; // UI-PC손맛묶음 ⑥: 기록 칸에 놓은 파일의 뒤처리 줄(사업 보고 결과 칸 놓기와 같은 부품)
-import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,restoreTargets} from './report-links.js';
+import {readLinkedReports,readAllReports,changeOneTarget} from './report-links.js';
 import {readReportPhotos,reportPhotosHtml,mountReportPhotos} from './report-photos.js';
-import {reportTitle,reportKindTag,sameTarget} from './report-links-model.mjs';
-import {offerUndoNotice} from './basket-record-delete.js';
+import {reportTitle,reportKindTag} from './report-links-model.mjs';
 import {deleteOrgRow} from './org-row-delete.js'; // ORG-뺀줄지난줄메뉴: 조직 한 줄 삭제 서버 길 하나(조직보고 창 줄 ⋯ [기록 삭제]와 같이 씀)
 import {paintStageLine} from './org-dispute-stage-ui.js';
 import {pickFoldHtml,readPickState,bindPickFold} from './pick-fold.mjs'; // UI-고른것접기: 소속 고르기 = 고른 것 + 접힌 '그 외'(맨 위 찾기)
@@ -89,11 +88,12 @@ function wdDialog(el,want,{restoreFocus=true,fresh=false}={}){const a=window.KPT
 function wdToast(s){const t=document.querySelector('#toast');if(!t)return;t.textContent=s;kptuHoldToast(t)}
 async function wdCtx(){const epoch=wdSessionEpoch;if(!wdRt||!(await wdRt.session.ensure())||epoch!==wdSessionEpoch)return false;const shared=wdRt.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){wdUser=shared.user;wdWorkspace=shared.workspace.id;wdRole=shared.membership?.role||null;return true}const user=await wdApi('/auth/v1/user');if(epoch!==wdSessionEpoch)return false;const m=await wdApi(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id,role&limit=1`);if(epoch!==wdSessionEpoch||!m?.length)return false;wdUser=user;wdWorkspace=m[0].workspace_id;wdRole=m[0].role;return true}
 // MTG-사업보고 6단계: 이 조직에 연결된 사업 보고(모든 종류) 묶음. 연결은 연결 표의 '출처 회의' 줄(report-links.js) 하나라, 사업 보고 쪽에서 연결해도
-// 여기서 [연결]로 골라도 같은 줄이다. 줄은 [종류] 이름·차수·날짜, 누르면 사업 보고 결과 창이 겹쳐 열린다. ⋯ → [연결 해제](5초 되돌리기).
+// 여기서 [연결]로 골라도 같은 줄이다. 줄은 [종류] 이름·차수·날짜, 누르면 사업 보고 결과 창이 겹쳐 열린다.
+// S71-73(사용자 결정 2026-11-26): 줄에 ⋯를 두지 않는다(연결 해제만 있던 메뉴) — 그 자리는 사진·'외 n장'. 연결은 사업 보고를 열고 [수정] › [연결할 곳]에서 뺀다.
 let wdReports=[],wdReportsFor='',wdReportRun=0,wdReportsFailed=false,wdReportPhotos=new Map(); // ACT-사진 5단계: 사업 보고 번호 → 그림 자료(줄 오른쪽 작은 그림 3장 + 외 n장)
-function wdReportRow(m,can){const t=reportTitle(m),strip=reportPhotosHtml(m.id,wdReportPhotos);return `<div class="wd-doc-row" data-wd-report="${wdE(m.id)}"><button type="button" class="wd-doc-main wd-report-main${strip?' has-report-photos':''}" data-wd-report-open="${wdE(m.id)}"><b><span class="report-kind-tag" data-report-kind-tag>${wdE(reportKindTag(m))}</span>${wdE(t)}</b><small>${m.meeting_at?wdE(formatSeoulTime(m.meeting_at,{year:'numeric',month:'numeric',day:'numeric'})):''}</small>${m.linkSummary?`<small class="report-link-summary-line" data-report-link-summary>${wdE(m.linkSummary)}</small>`:''}${strip}</button>${can?word`<details class="wd-doc-more"><summary class="icon-btn" aria-label="사업 보고 관리: ${wdE(t)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="wd-doc-panel" role="group" aria-label="사업 보고 관리"><button type="button" data-wd-report-unlink="${wdE(m.id)}">연결 해제</button></div></details>`:''}</div>`}
-function wdPaintReports(){const box=document.querySelector('#wdReportBody'),n=document.querySelector('#wdReports [data-wd-report-count]');if(!box)return;const can=!!wdOrg?.canEdit;if(n){n.textContent=wdReports.length;n.hidden=!wdReports.length}
-  box.innerHTML=wdReportsFailed?word('<div class="status error" role="status">사업 보고를 불러오지 못했어요. <button type="button" data-wd-report-retry>다시</button></div>'):wdReports.length?`<div class="wd-doc-lines">${wdReports.map(m=>wdReportRow(m,can)).join('')}</div>`:'';mountReportPhotos(box,{isCurrent:()=>wdReportsFor===wdOrg?.id})}
+function wdReportRow(m){const t=reportTitle(m),strip=reportPhotosHtml(m.id,wdReportPhotos);return `<div class="wd-doc-row" data-wd-report="${wdE(m.id)}"><button type="button" class="wd-doc-main wd-report-main${strip?' has-report-photos':''}" data-wd-report-open="${wdE(m.id)}"><b><span class="report-kind-tag" data-report-kind-tag>${wdE(reportKindTag(m))}</span>${wdE(t)}</b><small>${m.meeting_at?wdE(formatSeoulTime(m.meeting_at,{year:'numeric',month:'numeric',day:'numeric'})):''}</small>${m.linkSummary?`<small class="report-link-summary-line" data-report-link-summary>${wdE(m.linkSummary)}</small>`:''}${strip}</button></div>`}
+function wdPaintReports(){const box=document.querySelector('#wdReportBody'),n=document.querySelector('#wdReports [data-wd-report-count]');if(!box)return;if(n){n.textContent=wdReports.length;n.hidden=!wdReports.length}
+  box.innerHTML=wdReportsFailed?word('<div class="status error" role="status">사업 보고를 불러오지 못했어요. <button type="button" data-wd-report-retry>다시</button></div>'):wdReports.length?`<div class="wd-doc-lines">${wdReports.map(m=>wdReportRow(m)).join('')}</div>`:'';mountReportPhotos(box,{isCurrent:()=>wdReportsFor===wdOrg?.id})}
 async function wdLoadReports(){const id=wdTargetId,run=++wdReportRun;try{const r=await readLinkedReports({kind:'organization',id});if(run!==wdReportRun||wdTargetId!==id)return;const photos=await readReportPhotos(r.rows).catch(e=>{console.warn('org report photos read failed',e);return new Map()});if(run!==wdReportRun||wdTargetId!==id)return;wdReports=r.rows;wdReportPhotos=photos;wdReportsFor=id;wdReportsFailed=false}catch(e){if(run!==wdReportRun||wdTargetId!==id)return;console.warn('org reports read failed',e);wdReports=[];wdReportPhotos=new Map();wdReportsFor=id;wdReportsFailed=true}wdPaintReports()}
 async function wdReportLinkPick(trigger){
   const id=wdTargetId;if(!id||!wdOrg?.canEdit)return;
@@ -105,18 +105,6 @@ async function wdReportLinkPick(trigger){
       wdToast(word('사업 보고를 연결했습니다.'));window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:mid}}))}})}
   catch(e){wdToast(e.message||word('사업 보고 목록을 불러오지 못했어요.'))}
 }
-async function wdReportUnlink(mid){
-  const id=wdTargetId;if(!id||!wdOrg?.canEdit)return;const target={kind:'organization',id},anchor=document.activeElement;
-  try{
-    const now=await readReportTargets(mid),mine=now.find(t=>sameTarget(t,target));
-    if(mine?.hasSummary&&(!(await askConfirm(anchor,{text:'이 연결에 보낸 기록이 있어요. 연결을 해제하면 그 기록도 함께 삭제돼요. 해제할까요?',ok:'해제',danger:true}))||wdTargetId!==id))return;
-    const r=await changeOneTarget(mid,target,'remove');
-    if(!r.ok){wdToast(r.message||'연결을 해제하지 못했어요.');return}
-    window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:mid}}));
-    if(mine?.hasSummary){wdToast('연결과 보낸 기록을 삭제했습니다.');return}
-    offerUndoNotice({text:word('연결을 해제했어요. 사업 보고는 남아요.'),onUndo:async()=>{const back=await restoreTargets(mid,r.previous);if(!back.ok)return {status:'failed',message:back.message||'되돌리지 못했어요.'};window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:mid}}));return {status:'restored',message:'연결을 되돌렸어요.'}}});
-  }catch(e){wdToast(e.message||'연결을 해제하지 못했어요.')}
-}
 async function wdReportOpen(mid){try{const {openReport}=await import('./report-open.js');await openReport(mid)}catch(e){console.error('org report open',e);wdToast(word('사업 보고를 열지 못했어요.'))}}
 async function wdReportAddNew(){const id=wdTargetId;if(!id||!wdOrg?.canEdit)return;try{const loader=window.KPTUViewLoader;if(!loader?.isLoaded?.('meetings'))await loader?.load?.('meetings');if(!window.KPTUReportEntry)throw new Error('x');await window.KPTUReportEntry.open({targets:[{kind:'organization',id}],trigger:document.activeElement})}catch{wdToast('기능을 불러오지 못했어요.')}}
 function wdReportClick(e){
@@ -124,7 +112,6 @@ function wdReportClick(e){
   if(b.id==='wdReportLink'){void wdReportLinkPick(b);return}
   if(b.id==='wdReportAdd'){void wdReportAddNew();return}
   if(b.dataset.wdReportOpen){void wdReportOpen(b.dataset.wdReportOpen);return}
-  if(b.dataset.wdReportUnlink){b.closest('details')?.removeAttribute('open');void wdReportUnlink(b.dataset.wdReportUnlink);return}
   if('wdReportRetry' in b.dataset)void wdLoadReports();
 }
 window.addEventListener('kptu:meetings-changed',()=>{if(wdTargetId&&wdOrg?.id===wdTargetId)void wdLoadReports()});
