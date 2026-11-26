@@ -78,7 +78,7 @@ export async function openWeekBase({rt = window.KPTURuntime, day, mods, opts = {
     info:{from:'library', document_id:String(doc.id), file_name:String(doc.file_name || ''), title:String(doc.title || '')}};
 }
 
-// 그 주 처음 한 번만 바탕을 열어 proposed 를 저장한다(명진 결정 11/01: 한 벌 저장).
+// 그 주 처음 한 번만 바탕을 열어 proposed 를 저장한다(사용자 결정 11/01: 한 벌 저장).
 // open(): {status:'ok', cells, from, info} | 그 밖의 status(바탕 없음·열기 실패 → 저장 없이 그대로 돌려줌). 보통 () => openWeekBase({…}).
 // known: 마지막으로 읽은 그 주 행({exists, draft, saved_at}) — 없으면 읽는다.
 // 반환 {status:'ready', proposed, row, opened:false}(이미 있음 — 바탕을 열지 않음) | {status:'saved', proposed, row, opened:true}

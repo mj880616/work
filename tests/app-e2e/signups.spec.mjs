@@ -1,4 +1,4 @@
-// OPS-새가입알림 ③(S62-25, 명진 11/15 21:04)·OPS-가입자현황(S62-29)·S68-58(11/23): 운영자 계정 메뉴 '가입자 현황' → 숫자 한 줄·가입자 표(칸 셋), 새 가입 알림 줄,
+// OPS-새가입알림 ③(S62-25, 사용자 11/15 21:04)·OPS-가입자현황(S62-29)·S68-58(11/23): 운영자 계정 메뉴 '가입자 현황' → 숫자 한 줄·가입자 표(칸 셋), 새 가입 알림 줄,
 // 내 프로필 폰 알림의 '새 가입' 칩. 이용자(운영자 아님)는 줄·칩이 없고, 주소로 열어도 '운영자만 볼 수 있어요'.
 // 서버는 page.route로 흉내 낸다(app_signup_list — 운영자만, phone-push notices — 운영자에게만 signup 줄). 모두 가상 메일.
 // 화면 사진: S62-25는 docs/design/screens/s62-25/, 이번 판은 docs/design/screens/s62-29/(S62_29_SHOTS=1, 폰 412·폴드 펼침 880·PC 1280).
@@ -9,7 +9,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 
 const origin=appOrigin;
 const SHOTS=process.env.S62_29_SHOTS?'docs/design/screens/s62-29/':'test-results/';
-// S68-58(명진 11/23 15:53): 칸 셋(이메일·가입일·마지막 사용)과 맨 위 숫자 한 줄. 시각은 시험 때 기준(이번 주·7일 판정이 날짜에 안 흔들리게).
+// S68-58(사용자 11/23 15:53): 칸 셋(이메일·가입일·마지막 사용)과 맨 위 숫자 한 줄. 시각은 시험 때 기준(이번 주·7일 판정이 날짜에 안 흔들리게).
 // 사진은 docs/design/screens/s62-29/(S62_29_SHOTS=1). 메일은 가상(example.test).
 const NOW=Date.now(),ago=h=>new Date(NOW-h*3600000).toISOString();
 // '이번 주 새로'는 한국 시각 월요일 0시부터 센다. 월요일 0시~0시 30분에 돌면 '30분 전' 가입이 지난주가 되어 시험이 깨졌다(11/23 00:15 CI).

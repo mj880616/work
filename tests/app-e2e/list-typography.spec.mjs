@@ -113,7 +113,7 @@ for(const width of [390,1440])test('D-3e archive and input roles preserve other 
   if(selector==='#ps3ArchiveModal button.mini'||selector==='#ps3CreateSave'){before[0]='13px';before[1]='500';before[2]='16.9px';before[4]=selector==='#ps3CreateSave'?'36px':'32px'}/* UI-버튼줄이기: 창 주 동작 36px. UI-버튼전수조사: 창 보조 버튼 32px */
   if(selector==='#ps3ArchiveModal button.mini')before[3]=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-ink)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c});// 기본 버튼 글자는 본문 색
   if(selector==='#ps3CreateSave')before[3]=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-on-primary)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c});// S67-64: 기본 색 먹 — 채운 주 버튼 글자는 강조 위 글자색(#f3f1ea)
-  if(selector==='#eventModal input'){before[1]='400';before[4]='28px'}/* MTG-보고창칸정리(명진 2026-10-27): 창 입력칸 높이 46px -> 28px(공용 --ds-field-height) */expect(await styles(page),selector).toEqual(before);
+  if(selector==='#eventModal input'){before[1]='400';before[4]='28px'}/* MTG-보고창칸정리(사용자 2026-10-27): 창 입력칸 높이 46px -> 28px(공용 --ds-field-height) */expect(await styles(page),selector).toEqual(before);
  }
  await original.close();
 });

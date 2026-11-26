@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
-// S69-15 UI-끌기가장자리스크롤(명진 11/24 08:19 "자료를 클릭해서 드래그할 때 스크롤이 가능해야 함."): 자료를 끄는 동안
+// S69-15 UI-끌기가장자리스크롤(사용자 11/24 08:19 "자료를 클릭해서 드래그할 때 스크롤이 가능해야 함."): 자료를 끄는 동안
 // 포인터(손가락) 아래 칸의 위·아래 가장자리에 오면 그 칸이 저절로 굴러, 화면 밖 폴더에 놓을 수 있다. 이름은 지어낸 것.
 // PC 1440 = 두 칸 보기 오른쪽 칸 목록(.lu-pane-list, 칸마다 따로 굴러감)을 실제 마우스 끌기로, 폰 412 = 한 칸 목록을 길게 눌러 끌기로.
 const MANY=Array.from({length:40},(_,i)=>libFolder('g'+String(i).padStart(2,'0'),null,{name:'가상 묶음 '+String(i).padStart(2,'0'),sort_order:2048+i*1024}));

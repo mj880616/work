@@ -1,4 +1,4 @@
-// ai-assist 쓰임 record_one_line(RECORD-한줄AI요약, 11/09 명진 A안 — 시안 docs/design/mockups/org-record-oneline.html): 조직 기록의 'AI 한 줄'.
+// ai-assist 쓰임 record_one_line(RECORD-한줄AI요약, 11/09 사용자 A안 — 시안 docs/design/mockups/org-record-oneline.html): 조직 기록의 'AI 한 줄'.
 // 순수 함수만 둔다(입출력은 handler.ts runRecordOneLine).
 // - 화면은 조직 기록을 저장(또는 원문 수정)한 뒤 기록 ID 하나만 보낸다. 글은 서버가 내 로그인으로 읽는다(남의 기록은 RLS가 숨김 = 404).
 // - 원문이 짧으면(표시 기호를 걷어낸 뒤 한 줄로 60자 안) AI를 부르지 않는다 — 화면이 원문 그대로 한 줄로 보인다.

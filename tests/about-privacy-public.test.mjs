@@ -1,4 +1,4 @@
-// S62-35 PRODUCT-개인정보처리방침(명진 11/16): 플레이 콘솔 '앱 콘텐츠'에 넣을 공개 개인정보 처리방침이
+// S62-35 PRODUCT-개인정보처리방침(사용자 11/16): 플레이 콘솔 '앱 콘텐츠'에 넣을 공개 개인정보 처리방침이
 // ① Pages 빌드 결과에 그대로 들어가고 ② work.bokdoong.com·nojoplus.com 경로 규칙(410·404)에 걸리지 않으며
 // ③ 폰 앱 권한·AI 처리 업체 설명이 실제 코드와 맞는지 본다. Google 권한 표는 tests/about-privacy-page.test.mjs가 본다.
 import test from 'node:test';

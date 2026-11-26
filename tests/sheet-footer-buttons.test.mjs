@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
-// UI-창아래버튼통일(2026-11-07 명진 요청 10:55, 시안 docs/design/mockups/sheet-footer-buttons.html 'A'): 창 아래 버튼 줄(삭제·완료·저장)은 한 가족.
+// UI-창아래버튼통일(2026-11-07 사용자 요청 10:55, 시안 docs/design/mockups/sheet-footer-buttons.html 'A'): 창 아래 버튼 줄(삭제·완료·저장)은 한 가족.
 // 높이·모서리·글자 크기·굵기·안쪽 여백이 같고 테두리 선이 없으며, 채움 정도만 다르다(저장 진하게 · 보조 연하게 · 삭제 빨간 글자, 왼쪽 끝).
 // 모양은 app/ui-standard.css 끝 'UI-창아래버튼통일' 한 곳, 줄 부품은 .modal-action-footer(팝업)·.save-row(화면 안 창·칸). 재발 방지 시험(App smoke check).
 const ui = readFileSync('app/ui-standard.css', 'utf8');

@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc,menuButton,press} from './helpers/library-folder-server.mjs';
-// S70-11 WEEKLY-저장폴더나누기(명진 11/25 "주간보고 안에 … 주간보고, 팀 보고 취합 폴더 만들어놨어 관련 기능에서 파일 만들 때 알아서 저기 안에 넣어요"):
+// S70-11 WEEKLY-저장폴더나누기(사용자 11/25 "주간보고 안에 … 주간보고, 팀 보고 취합 폴더 만들어놨어 관련 기능에서 파일 만들 때 알아서 저기 안에 넣어요"):
 // 저장 폴더가 종류별 둘(내 주간 보고 = weekly_folder, 팀 보고 취합 = weekly_team_folder). 정해 둔 폴더 아래 하위 폴더가 생기고 지난 자료를 옮겨 두었으면
 // 다음 저장 때 한 번 다시 묻고, 팀 보고 취합은 지난 팀 자료가 없으면 이름에 '취합'이 든 곁 폴더를 권한다. 가짜 서버만 쓴다. 이름은 지어낸 것.
 const FOLDERS=[
@@ -17,7 +17,7 @@ const DOCS=[
   libDoc('p-new',null,{category:P,created_at:at(24)}),libDoc('p-next',null,{category:P,created_at:at(25)}),
   libDoc('c-new',null,{category:C,created_at:at(24)}),libDoc('c-next',null,{category:C,created_at:at(25)}),
 ];
-// 명진처럼 지난 내 주간 보고 파일을 이미 하위 폴더로 옮겨 둔 상태.
+// 사용자처럼 지난 내 주간 보고 파일을 이미 하위 폴더로 옮겨 둔 상태.
 const ITEMS=[{document_id:'p-1',folder_id:'mine'},{document_id:'p-2',folder_id:'mine'}];
 const boot=(page,width,init)=>bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더',init:{viewPrefs:null,...init}});
 const file=(page,docId,kind='personal')=>page.evaluate(([id,k])=>import('/app/weekly-save-folder.js').then(m=>m.fileWeeklyReport({docId:id,kind:k})).then(r=>r.status),[docId,kind]);

@@ -13,7 +13,7 @@ export type DayDb = {
 };
 export type DayField = "ai_requests" | "ai_input_tokens" | "ai_output_tokens" | "translate_n" | "fill_n" | "fetch_n" | "save_n";
 
-// AI 월 한도(원). 뉴스 요약·제목·[번역] AI와 사회운동 [번역] AI가 함께 쓴다. 2000 → 5000(명진 결정 2026-11-10).
+// AI 월 한도(원). 뉴스 요약·제목·[번역] AI와 사회운동 [번역] AI가 함께 쓴다. 2000 → 5000(사용자 결정 2026-11-10).
 export const MONTHLY_LIMIT_KRW = 5000;
 
 export const kstDay = (ms: number) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);

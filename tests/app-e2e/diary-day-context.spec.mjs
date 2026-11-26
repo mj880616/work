@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// JOURNAL-일기원드라이브 10.6 '그날 맥락' (2026-11-10 명진 결정): 사진 있는 날 사진 격자 아래 접힌 한 줄 '그날 맥락 · 일정 1 · 회의 1'
+// JOURNAL-일기원드라이브 10.6 '그날 맥락' (2026-11-10 사용자 결정): 사진 있는 날 사진 격자 아래 접힌 한 줄 '그날 맥락 · 일정 1 · 회의 1'
 // (네이티브 <details>, 일정·회의만), 펼치면 제목 줄, 누르면 그 화면. 크게 보기 캡션은 찍은 시각과 일정 시간을 맞춘 한 줄
 // ("14:20 시험 회의 3차 중"), 찍은 시각이 대략인 사진은 생략. 사진 없는 날에는 맥락을 그리지 않는다.
 // 지어낸 Supabase: onedrive-photos(Edge, 원드라이브 응답은 일기 원드라이브 시험과 같은 가짜), google-calendar 일정, app_meetings 회의. 시계는 2026-10-06 KST.
@@ -19,7 +19,7 @@ const EVENTS = [
   { id: 'ev2', title: '다른 날 일정', start: '2026-10-13T10:00:00+09:00', end: '2026-10-13T11:00:00+09:00', calendarId: 'c' },
   { id: 'ev3', title: '취소된 일정', start: '2026-10-12T15:00:00+09:00', end: '2026-10-12T16:00:00+09:00', calendarId: 'c', status: 'cancelled' },
 ];
-// DIARY-맥락사업보고이름(11/14 명진 확정): 사업 보고 줄의 꼬리표는 그 칸 이름 그대로(회의 칸 '회의', 투쟁 칸 '투쟁' …), 이 줄에서는 이름 앞 [칸]을 뺀다.
+// DIARY-맥락사업보고이름(11/14 사용자 확정): 사업 보고 줄의 꼬리표는 그 칸 이름 그대로(회의 칸 '회의', 투쟁 칸 '투쟁' …), 이 줄에서는 이름 앞 [칸]을 뺀다.
 const MEETINGS = [
   { id: 'mt1', workspace_id: 'workspace-1', title: '시험 회의', series_name: '시험 회의', round_no: 3, meeting_at: '2026-10-12T05:00:00Z' },
   { id: 'mt2', workspace_id: 'workspace-1', title: '가상 총력결의대회', series_name: '가상 총력결의대회', round_no: null, meeting_at: '2026-10-12T07:00:00Z', activity_kind: 'struggle' },
@@ -74,7 +74,7 @@ for (const width of [390, 884, 1440]) {
     await openDiary(page, width);
     const detail = page.locator('#diaryRoot [data-diary-detail]');
 
-    // 사진 없는 날(10/13): 그날 일정이 있어도 맥락 자리를 그리지 않는다(명진 결정 ③).
+    // 사진 없는 날(10/13): 그날 일정이 있어도 맥락 자리를 그리지 않는다(사용자 결정 ③).
     await cell(page, '2026-10-13').click();
     await expect(detail).toContainText('하루 기록 없음');
     await expect(detail.locator('[data-diary-context-slot]')).toHaveCount(0);
@@ -103,7 +103,7 @@ for (const width of [390, 884, 1440]) {
     expect(f.eventReads.filter(t => t === new Date('2026-10-12T00:00:00+09:00').toISOString())).toHaveLength(1);
     expect(f.meetingReads.length).toBeGreaterThanOrEqual(1);
 
-    // 크게 보기 캡션: 찍은 시각과 일정·회의 시간을 맞춘 한 줄(명진 결정 ②). 대략 시각·맞는 것 없는 사진은 비어 있다.
+    // 크게 보기 캡션: 찍은 시각과 일정·회의 시간을 맞춘 한 줄(사용자 결정 ②). 대략 시각·맞는 것 없는 사진은 비어 있다.
     await detail.locator('[data-diary-open="0"]').click();
     const caption = page.locator('#diaryRoot [data-diary-viewer-caption]');
     await expect(caption).toHaveText('14:20 시험 회의 3차 중');

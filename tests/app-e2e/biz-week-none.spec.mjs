@@ -1,6 +1,6 @@
-// MULTI-사업보고빈화면(요청함 11/14 22:21, 설계 docs/design/new-user-start.md 2-4 — 명진 11/13 확정): 사업영역이 0개인 새 계정의 사업 보고.
+// MULTI-사업보고빈화면(요청함 11/14 22:21, 설계 docs/design/new-user-start.md 2-4 — 사용자 11/13 확정): 사업영역이 0개인 새 계정의 사업 보고.
 // - '이번 주 주간보고' 칸은 표·표 모양 자리(회색 칸)를 한 번도 그리지 않고 안내 한 줄 + [+ 사업 만들기](사업영역 관리 창)만.
-// - 아래 목록의 '없음'도 그리지 않는다(안내 한 줄이 빈 자리를 맡음). 명진 계정(사업영역 있음)은 지금과 같은 표 — biz-week-no-shift·biz-summary-now 시험이 본다.
+// - 아래 목록의 '없음'도 그리지 않는다(안내 한 줄이 빈 자리를 맡음). 사용자 계정(사업영역 있음)은 지금과 같은 표 — biz-week-no-shift·biz-summary-now 시험이 본다.
 // 서버는 가짜, 이름·글은 모두 합성 값. 시계 2026-11-09(월) 09:30(서울).
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
@@ -74,7 +74,7 @@ test('사업영역을 만들면 같은 칸이 표로 바뀐다',async({page})=>{
   await expect(page.locator('#bizWeekBox [data-bw-journal]')).toBeVisible();
 });
 
-// BIZ-빈표잠깐보임다시(명진 11/15 18:11 '여전히 표를 잠깐 그렸다 가림'): 실제 순서마다 표·표 모양 자리(회색 칸)가 0프레임인지 센다(재시도·대기 늘리기 없음).
+// BIZ-빈표잠깐보임다시(사용자 11/15 18:11 '여전히 표를 잠깐 그렸다 가림'): 실제 순서마다 표·표 모양 자리(회색 칸)가 0프레임인지 센다(재시도·대기 늘리기 없음).
 for(const width of [412,880,1280]){
   test(`${width}: 사업영역 목록이 늦게 와도(느린 망) 표 모양이 한 번도 안 보인다`,async({page})=>{
     await open(page,width,{spacesLate:1500});

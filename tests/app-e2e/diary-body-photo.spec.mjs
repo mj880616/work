@@ -39,7 +39,7 @@ async function fixture(page, { width = 412, lock = null } = {}) {
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|net::ERR/.test(m.text())) errors.push(m.text()); });
   // S67-69: 세는 '읽기'는 하루 기록 글을 담은 읽기다. 홈 '오늘 사진'은 하루 기록이 잠겨 있어도 그날 넣은 사진 정보만 읽는다
-  // (select=id,journal_day,attachments,body_photos:metadata->body_photos, 2026-11-21 명진 "사진을 안잠그면 홈에서 사진 보여주는거").
+  // (select=id,journal_day,attachments,body_photos:metadata->body_photos, 2026-11-21 사용자 "사진을 안잠그면 홈에서 사진 보여주는거").
   // 그 요청은 세지 않되, select가 없거나(*) 글·제목·doc·metadata 통째를 고르면 여전히 센다 — 잠긴 동안 글을 읽으면 실패한다.
   page.on('request', req => { const u = req.url(); if (u.startsWith(SB + '/rest/v1/app_notes') && /kind=eq\.diary/.test(u) && readsText(u)) diaryReads++; });
   const install = async () => {

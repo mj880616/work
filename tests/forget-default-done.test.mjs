@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-// S70-20b FORGET-기본이미함(명진 11/25 12:36 "할일에 추가하지도 않고 이미 해버린 일이 많다는거야", 12:39 "모두 추천대로").
+// S70-20b FORGET-기본이미함(사용자 11/25 12:36 "할일에 추가하지도 않고 이미 해버린 일이 많다는거야", 12:39 "모두 추천대로").
 // 화면 쪽 판정(todo-radar-data.js)과 서버 옮기기(migration 20261125160000)의 같은 기준을 본다. 실제 PostgreSQL 실행은
 // tests/auth-handoff/forget-auto-expire-db.test.mjs가 본다. 글·이름은 지어낸 것이다.
 const {autoDone, autoReplied, starredCandidate, bundleDay, AUTO_DONE_LABEL} = await import('../app/todo-radar-data.js');

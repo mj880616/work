@@ -7,16 +7,16 @@ import {validValue} from '../app/view-prefs.js';
 // MENU-HOME-편집 · MENU-세칸: 메뉴 순서의 결정 규칙을 한 곳에서 시험한다(PC 왼쪽 메뉴·폰 하단바·폰 [메뉴] 창이 모두 이 규칙을 읽는다).
 const ALL = () => ITEMS.map(i => i.id).sort();
 const flat = l => [...l.bar, ...l.rest, ...l.tail, ...(l.hidden || [])].sort();
-// MULTI-하단바기본노트: 11/13까지의 기본 구성을 저장해 둔 사람(명진처럼 저장값이 있는 계정)의 모양. 옮기기·끌기 규칙 시험의 출발점으로 쓴다.
+// MULTI-하단바기본노트: 11/13까지의 기본 구성을 저장해 둔 사람(사용자처럼 저장값이 있는 계정)의 모양. 옮기기·끌기 규칙 시험의 출발점으로 쓴다.
 // S68-09: 저장값에 [읽을 거리]가 없던 사람은 위 메뉴 끝에 붙는다(기본 앞 항목 잊지 말기가 하단바에 있으므로) — 그 뒤 저장한 모양.
 const SAVED_OLD = {bar: ['home', 'basket', 'calendar', 'meetings', 'team'], rest: ['note', 'library', 'files', 'brief', 'hwp', 'photos', 'outside', 'reading', TAIL_MARK, 'calls', 'telegram', 'arsenal']};
 const oldLayout = () => normalizeLayout(SAVED_OLD);
 test('기본 구성은 지금 화면과 같고 모든 항목이 정확히 한 번 나온다(세 칸)', () => {
   const d = defaultLayout();
-  // MULTI-하단바기본노트(명진 11/13 15:24): 잊지 말기는 위 메뉴 맨 앞. S68-37(명진 11/23 08:01): 처음 하단바는 홈·노트·일정·자료실·사진.
+  // MULTI-하단바기본노트(사용자 11/13 15:24): 잊지 말기는 위 메뉴 맨 앞. S68-37(사용자 11/23 08:01): 처음 하단바는 홈·노트·일정·자료실·사진.
   assert.deepEqual(d.bar, ['home', 'note', 'calendar', 'library', 'photos']);
   // PHOTO-사진메뉴: [사진]은 원장 다음. OUTSIDE-바깥성명 ④: [바깥 성명]은 처음 자리가 위 메뉴 끝(사진 다음). MENU-세칸: 통화·텔레그램 소식·아스날은 아래 붙는 메뉴 칸.
-  // FILES-클라우드탐색기 ④: [파일]은 처음 자리가 자료실 바로 아래(명진 결정 F5).
+  // FILES-클라우드탐색기 ④: [파일]은 처음 자리가 자료실 바로 아래(사용자 결정 F5).
   // OUTSIDE-글상세·관심환류 ③: 사회운동 Now·뉴스 클리핑은 'News' 한 칸(id outside, S51-17 P5에서 Now → News).
   // S68-09 READ-읽을거리함: [읽을 거리]는 처음 자리가 잊지 말기 다음. S68-37: 하단바에서 빠진 조직 관리·사업 관리는 그 다음.
   assert.deepEqual(d.rest, ['basket', 'reading', 'team', 'meetings', 'files', 'brief', 'hwp', 'outside']);

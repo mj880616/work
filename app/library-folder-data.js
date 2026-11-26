@@ -20,7 +20,7 @@ export async function createLibraryFolder(api, {workspace, project_id = null, pa
   const rows = await api('/rest/v1/app_library_folders', {method: 'POST', prefer: 'return=representation', body: {workspace_id: workspace, project_id, parent_id, name, sort_order}});
   return Array.isArray(rows) ? rows[0] || null : null;
 }
-// LIB-연결줄다읽기(명진 11/24 16:09·16:32 '폴더로 안 옮겨짐'): 자료 ↔ 폴더 연결 줄 전부. 서버는 한 번에 1000줄까지만 돌려주므로
+// LIB-연결줄다읽기(사용자 11/24 16:09·16:32 '폴더로 안 옮겨짐'): 자료 ↔ 폴더 연결 줄 전부. 서버는 한 번에 1000줄까지만 돌려주므로
 // (Supabase max rows) 1000줄씩 이어 읽는다. 1000줄에서 잘리면 나머지 자료가 '폴더 밖'으로 보이고, 옮기기가 이미 있는 줄과 겹쳐(409) 전부 실패했다.
 export const LIB_ITEM_PAGE = 1000;
 export async function readLibraryFolderItems(api, workspaceId, {page = LIB_ITEM_PAGE, max = 200000} = {}) {

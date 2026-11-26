@@ -4,7 +4,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {appOrigin} from './helpers/test-origin.mjs';
 // PERF-첫로딩 P5(docs/design/first-load.md 4절): 담당조직 화면은 목록만 먼저 보이고, 조직 상세(workplace-detail.js)와 그 할 일 칸
 // (project-catalog.js·google-tasks.js)은 목록이 보인 뒤 받는다. 받기 전의 첫 클릭·다른 화면에서 여는 길(KPTUWorkplace.open)은
-// 받은 뒤 그대로 열린다(명진 결정 11/02: 첫 클릭이 0.5초쯤 늦어도 됨). 조직 이름은 home-entry.mjs의 합성 값.
+// 받은 뒤 그대로 열린다(사용자 결정 11/02: 첫 클릭이 0.5초쯤 늦어도 됨). 조직 이름은 home-entry.mjs의 합성 값.
 const deferred=/\/app\/(workplace-detail|google-tasks|project-catalog)\.js(\?|$)/;
 // workplace-detail.js 응답을 붙잡아 둔다(쉬는 틈 미리 받기 modulepreload도 같이 붙잡힘). release()로 놓는다.
 async function holdDetail(page){

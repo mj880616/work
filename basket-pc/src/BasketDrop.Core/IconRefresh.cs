@@ -1,7 +1,7 @@
 namespace BasketDrop;
 
 /// <summary>
-/// S69(명진 11/24: 파일 올리기 트레이 아이콘이 아직 옛 그림): when the program picture changes, an updated PC shows the
+/// S69(사용자 11/24: 파일 올리기 트레이 아이콘이 아직 옛 그림): when the program picture changes, an updated PC shows the
 /// new picture in the tray, title bars and taskbar at once (they come from the new exe's own resources), but Windows may keep
 /// showing the old picture for the Start menu and desktop shortcuts from its icon cache, because the exe path does not change.
 /// So once per picture revision the installed program tells Windows that those shortcuts and the exe changed

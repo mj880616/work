@@ -1,10 +1,10 @@
 // FCM HTTP v1 보내기(APP-폰알림, 설계 docs/design/phone-notifications.md 4절). phone-push가 쓰고, 회의 요약 완료(N6)도 이 모듈을 쓴다.
 //
-// - 서비스 계정 비밀값 FCM_SERVICE_ACCOUNT_JSON(명진이 Supabase 대시보드에 직접 넣음)에서 project_id·client_email·private_key만 읽는다.
+// - 서비스 계정 비밀값 FCM_SERVICE_ACCOUNT_JSON(사용자가 Supabase 대시보드에 직접 넣음)에서 project_id·client_email·private_key만 읽는다.
 //   비밀값 안의 token_uri 같은 주소는 쓰지 않는다(보내는 곳은 아래 두 고정 주소뿐).
 // - 서비스 계정으로 RS256 JWT를 만들어 구글 OAuth 토큰(firebase.messaging 범위)을 받고, 데이터 메시지만 보낸다(알림 모양은 앱이 그림).
 // - 싣는 것: 종류·짧은 제목(40자)·누르면 열 앱 안 경로. 첨부·연락처는 싣지 않는다.
-// - 본문(body)은 BODY_KINDS(지금 family 하나 — FAMILY-기억알림 ②, 명진 결정 11/12 10:56 "보이기")에만 한 줄 120자까지 싣는다.
+// - 본문(body)은 BODY_KINDS(지금 family 하나 — FAMILY-기억알림 ②, 사용자 결정 11/12 10:56 "보이기")에만 한 줄 120자까지 싣는다.
 //   다른 종류는 body를 넘겨도 버린다(데이터 메시지는 지금처럼 kind·title·open 세 칸).
 // - 오류·로그에는 단계 코드만. 토큰·키·제목은 남기지 않는다.
 import { readBoundedJson } from "./bounded-json.mjs";

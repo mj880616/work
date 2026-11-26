@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S68-38 노트 '보드'(생각 지도, 명진 11/23 08:12·08:23 — Obsidian Canvas 참고): 카드 네 변의 손잡이를 끌어 다른 카드에 놓으면 연결선(화살표).
+// S68-38 노트 '보드'(생각 지도, 사용자 11/23 08:12·08:23 — Obsidian Canvas 참고): 카드 네 변의 손잡이를 끌어 다른 카드에 놓으면 연결선(화살표).
 // 선을 누르면 작은 메뉴 [실선|점선] [직선으로] [→|↔|없음] [뒤집기] [글자] [삭제](S68-38c: 새 선은 직선, 곡선은 선 끌기 — note-board-text-curve.spec.mjs). 카드를 옮기면 선이 따라오고, 새로고침해도 서버 값으로 남는다.
 // 판: 두 손가락 확대·축소, 판 위 옆 밀기는 보기 탭 넘김이 아니다. 서버(표 app_note_board_links)가 거절하면 알리고 선을 거둔다. 이름은 지어낸 것.
 test.use({ hasTouch: true });

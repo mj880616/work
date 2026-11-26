@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {nextSort, ariaSort, arrowOf, naturalCompare, headCellHtml, sortValue, parseSortValue, sortOptions, cleanSort, firstDir} from '../app/head-sort.mjs';
 import {sortRows, SORTS, SORT_KEYS, SORT_DESC_FIRST} from '../app/files-model.mjs';
-// UI-머리눌러정렬(명진 11/24 15:47): 머리 칸 누르기 = 그 칸 정렬, 다시 누르면 반대. 공용 규칙과 [파일] 정렬 계산.
+// UI-머리눌러정렬(사용자 11/24 15:47): 머리 칸 누르기 = 그 칸 정렬, 다시 누르면 반대. 공용 규칙과 [파일] 정렬 계산.
 
 test('누르면 그 칸(처음 방향), 같은 칸을 다시 누르면 반대 방향', () => {
   assert.deepEqual(SORT_DESC_FIRST, [], '[파일]은 모든 칸이 처음엔 오름차순');

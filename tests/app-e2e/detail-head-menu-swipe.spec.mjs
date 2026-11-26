@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 
-// UI-머리줄겹침 · UI-메뉴잘림 · UI-목록밀기(2026-10-30 요청함, 명진 결정 "같이"). Supabase 응답만 합성하고 실제 앱을 Chromium에서 누른다.
+// UI-머리줄겹침 · UI-메뉴잘림 · UI-목록밀기(2026-10-30 요청함, 사용자 결정 "같이"). Supabase 응답만 합성하고 실제 앱을 Chromium에서 누른다.
 // [1] 위에 다른 칸(공유 받기 칸 등)이 떠 있어도 업데이트·노트 상세의 '‹ 잊지 말기 … ⋯' 줄이 그 위에 포개지지 않는다(폰 412·폴드 884).
 // [2] 정리함 업데이트 줄 ⋯ 메뉴가 [삭제]까지 안쪽 스크롤 없이 다 보이고, [삭제]는 맨 끝에 선으로 나뉜다(412·884).
 // [3] 폰 목록 줄 밀기(S68-26 Raindrop식): 왼쪽으로 밀기 = 칸 여러 개(업데이트 [보류로][삭제], 노트 [고정][옮기기][삭제] — 삭제는 휴지통 + '지웠어요 [되돌리기]'),

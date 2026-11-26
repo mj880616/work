@@ -1,4 +1,4 @@
-// FILES-클라우드탐색기 ④ 화면 모델(설계 docs/design/files-explorer.md, 명진 결정 F1~F9 11/02). DOM·네트워크 없음.
+// FILES-클라우드탐색기 ④ 화면 모델(설계 docs/design/files-explorer.md, 사용자 결정 F1~F9 11/02). DOM·네트워크 없음.
 // 화면(files.js)은 여기서 계산한 값으로 그리기만 한다. 색인 줄 모양은 DB 읽기 함수 app_cloud_list·app_cloud_find와 Edge cloud-files sync 응답.
 
 import {phoneErrorText} from './phone-files-model.mjs';
@@ -11,10 +11,10 @@ export const SOURCES = Object.freeze(['od', 'gd']);
 // 'pc' = 내 PC(S50-27 FILES-내PC드라이브 ②, 그 PC 브라우저에서 바구니 PC 앱 문이 답할 때만). 'ph'처럼 SOURCES에는 넣지 않는다 — 서버 색인·맞추기·쓰기 밖.
 export const SOURCE_NAME = Object.freeze({od: '원드라이브', gd: '구글 드라이브', ph: '이 폰', pc: '내 PC'});
 // 묶음(나무 맨 위): 별표 · 큰 파일. 서버 app_cloud_find의 p_shelf와 같은 이름.
-// S50-33(명진 결정, 시안 승인): [최근] 묶음과 폰 탭 줄(최근·폴더·별표)은 화면·주소에서 뺐다(서버 p_shelf 'recent'는 그대로 둠). 폰 첫 화면은 나무.
+// S50-33(사용자 결정, 시안 승인): [최근] 묶음과 폰 탭 줄(최근·폴더·별표)은 화면·주소에서 뺐다(서버 p_shelf 'recent'는 그대로 둠). 폰 첫 화면은 나무.
 export const SHELVES = Object.freeze(['starred', 'big']);
 export const SHELF_NAME = Object.freeze({starred: '별표', big: '큰 파일'});
-// 명진 결정 F2: 화면이 열려 있는 동안 2분마다 바뀐 것만(서버도 2분 안이면 클라우드를 부르지 않는다).
+// 사용자 결정 F2: 화면이 열려 있는 동안 2분마다 바뀐 것만(서버도 2분 안이면 클라우드를 부르지 않는다).
 export const SYNC_EVERY_MS = 2 * 60 * 1000;
 export const SHELF_LIMIT = 200;
 export const FIND_LIMIT = 200;
@@ -145,7 +145,7 @@ export function fullTime(iso) {
   const d = new Date(ms);
   return `${dayKey(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-// FILES-맞춤단추없애기(S70-26, 11/25 명진 "굳이 내가 안쓰거든 / 자동으로 맞추게"): '○분 전 맞춤' 단추는 없앴다. 맞추기는 사람이 누르지 않는다 —
+// FILES-맞춤단추없애기(S70-26, 11/25 사용자 "굳이 내가 안쓰거든 / 자동으로 맞추게"): '○분 전 맞춤' 단추는 없앴다. 맞추기는 사람이 누르지 않는다 —
 //   [파일]에 들어올 때 · 화면에 있는 동안 2분마다(SYNC_EVERY_MS) · 창으로 돌아올 때(마지막 시도에서 SYNC_BACK_MS 지났으면) 저절로.
 //   실패·덜 받음은 글자 없이 다음 차례에 다시. 연달아 SYNC_ALERT_FAILS번 실패했을 때만 공용 알림 한 줄.
 export const SYNC_BACK_MS = 60 * 1000;
@@ -184,7 +184,7 @@ export function applySyncReply(status, reply, sources = ['od', 'gd']) {
 export const SORTS = Object.freeze(['name', 'modified', 'size', 'kind']);
 export const SORT_KEYS = Object.freeze([...SORTS, 'path']);
 export const SORT_NAME = Object.freeze({name: '이름', path: '위치', modified: '바뀐 날', size: '크기', kind: '종류'});
-// 머리 칸 처음 누르기는 모든 칸이 오름차순(명진 11/24: 누르면 오름 → 다시 누르면 내림). 큰 파일 묶음만 크기 내림으로 연다(setWhere).
+// 머리 칸 처음 누르기는 모든 칸이 오름차순(사용자 11/24: 누르면 오름 → 다시 누르면 내림). 큰 파일 묶음만 크기 내림으로 연다(setWhere).
 export const SORT_DESC_FIRST = Object.freeze([]);
 export function sortRows(rows, key = 'name', dir = 'asc') {
   const sign = dir === 'desc' ? -1 : 1;
@@ -414,7 +414,7 @@ export function twinRows(rows, self) {
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko') || String(a.item_id).localeCompare(String(b.item_id)));
 }
 
-// ---------- FILES-통합 2-① 복사·옮기기(받을 곳 창, 명진 결정 H-3·H-4·H-5, 11/04) ----------
+// ---------- FILES-통합 2-① 복사·옮기기(받을 곳 창, 사용자 결정 H-3·H-4·H-5, 11/04) ----------
 export const XFER_MODES = Object.freeze(['copy', 'move']);
 export const XFER_VERB = Object.freeze({copy: '복사', move: '옮기기'});
 // 클라우드 사이 한 파일 기본 상한(H-4). 넘는 파일은 묻고, 이 판에서는 '다음 판(2-②)에서 됩니다'로 멈춘다.
@@ -695,7 +695,7 @@ export function boxRows({source, children = new Map(), files = new Map(), open =
       const o = open.has(key);
       out.push({type: 'folder', source, id: f.item_id, name: f.name, key, parent: folderKey(source, parent), depth, open: o, hasContent: has, known});
       if (o) { walk(f.item_id, depth + 1); fileRows(f.item_id, depth + 1); }
-      // UI-폴더이름펼치기(명진 11/24 18:09): 펼친 빈 폴더는 안에 '빈 폴더' 한 줄(누르면 들어가지 않고 그 자리에서 펼쳐 보인다).
+      // UI-폴더이름펼치기(사용자 11/24 18:09): 펼친 빈 폴더는 안에 '빈 폴더' 한 줄(누르면 들어가지 않고 그 자리에서 펼쳐 보인다).
       if (o && known && !has) out.push({type: 'empty', source, key, parent: key, depth: depth + 1});
     }
   };

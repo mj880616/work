@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start } from './helpers/news-server.mjs';
-// NEWS-고유색 ①(명진 11/10, 시안 docs/design/mockups/news-identity-colors.html): News 목록 왼쪽 막대·이름 글자가 단체 고유색.
+// NEWS-고유색 ①(사용자 11/10, 시안 docs/design/mockups/news-identity-colors.html): News 목록 왼쪽 막대·이름 글자가 단체 고유색.
 // 정당 4곳 진한 고유색(정의당 막대 샛노랑, 이름은 진한 노랑), 금속노조 네이비, 공공운수노조 막대 하나에 네이비·회색·빨강 3색(이름 네이비).
 // 민주노총은 ②(S57-11)에서 고정 색이 됐다(나머지 단체·언론 고정 색 표는 tests/news-colors.test.mjs). 매체 고르기 창 점도 막대와 같은 색. 서버는 흉내(글은 모두 가짜).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';

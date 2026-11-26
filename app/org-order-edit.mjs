@@ -69,7 +69,7 @@ export function groupNameProblem(name, names = [], except = null) {
 
 // 화면 칸 나누기. list = 화면에 보일 조직(제외한 조직 뺀 것), pending = 빈 묶음 이름들(값에 없는 것만 씀).
 // 돌려주는 칸: {kind:'group', index(값 안 자리), name, orgs} … {kind:'pending', name, orgs:[]} … {kind:'tail', name:'그 외', orgs}(비면 없음)
-// 값에 있는 묶음 가운데 이 사람 목록에 그 이름의 조직이 하나도 없는 묶음은 지금처럼 그리지 않는다(명진 화면 그대로).
+// 값에 있는 묶음 가운데 이 사람 목록에 그 이름의 조직이 하나도 없는 묶음은 지금처럼 그리지 않는다(사용자 화면 그대로).
 export function sectionsOf(list, order, pending = []) {
   const out = clean(order), byName = new Map((list || []).map(o => [String(o?.name ?? ''), o])), placed = new Set();
   const sections = out.groups.map((g, index) => {

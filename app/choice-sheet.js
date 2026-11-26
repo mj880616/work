@@ -72,7 +72,7 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
   search.addEventListener('input',()=>{if(active)place();else filter();});
   // ↓ from the box goes to the first choice still shown.
   search.addEventListener('keydown',e=>{if(e.key!=='ArrowDown')return;const first=sheet.querySelector('[data-sheet-content] button[data-sheet-value]:not([hidden])');if(first){e.preventDefault();first.focus();}});
-  // S54-05 UI-고르기창버튼아래 ②(11/08 명진 결정): 버튼으로 연 고르기 창은 폰·폴드·PC 모두 누른 버튼 바로 아래 작은 창(아래 자리가 모자라면 위)이다.
+  // S54-05 UI-고르기창버튼아래 ②(11/08 사용자 결정): 버튼으로 연 고르기 창은 폰·폴드·PC 모두 누른 버튼 바로 아래 작은 창(아래 자리가 모자라면 위)이다.
   // 자리는 공용 placeAnchored·followAnchor가 정하고(library-move-picker.js와 같은 방식), 아래 바·자판 높이(bottomInset) 위에서 끝난다.
   // anchored(kind)가 false를 돌려주는 창(버튼 기준이 아닌 확인 창)과, 잴 수 있는 버튼이 없는 창만 아래 시트로 남는다.
   const wantAnchor=kind=>anchored?!!anchored(kind):true;

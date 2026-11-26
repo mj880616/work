@@ -100,7 +100,7 @@ for(const width of [390,1440]){
     test.use({viewport:{width,height:width===390?844:900},timezoneId:'Asia/Seoul'});
     test('library list card keeps add action and opens the same form',async({page})=>{
       await openApp(page,'library');
-      // LIB-위쪽한줄(11/09 명진 B·가안) → S70-54: 자료실 [+]도 폰·PC 모두 맨 위 줄 검색 칸 오른쪽 작은 아이콘 [+][⋯](떠 있지 않음, ⋯가 상자 끝).
+      // LIB-위쪽한줄(11/09 사용자 B·가안) → S70-54: 자료실 [+]도 폰·PC 모두 맨 위 줄 검색 칸 오른쪽 작은 아이콘 [+][⋯](떠 있지 않음, ⋯가 상자 끝).
       // 분류 수정은 [분류 ▾] 창 아래 '✎ 분류 수정' 하나(칩 줄 끝 버튼 없음).
       {const bar=page.locator('.sf-tools[data-sf-tools="library"]');/* S70-54: [+]·⋯는 맨 위 줄 단추 자리(검색 칸 오른쪽) */await expect(bar.locator('.lu-head-actions > #newDocumentBtn')).toBeVisible();
         expect(await page.locator('#newDocumentBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
@@ -129,7 +129,7 @@ for(const width of [390,1440]){
       // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
       // S52-22 TEAM-맨위한줄: 폰의 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음이다.
       await showReportsOf(page); // BIZ-주간표이번주: 지난 주 보고는 [전체 기간]으로
-      // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체] — 회의 화면(종류 목록·회의명 묶음)은 [회의]를 고른 뒤.
+      // MTG-기본종류전체(11/15 사용자): 처음은 [종류 전체] — 회의 화면(종류 목록·회의명 묶음)은 [회의]를 고른 뒤.
       await pickReportKind(page,'회의');
       if(width>=761){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
       else{expect(await reportFilterKeys(page)).toContain('name')}

@@ -389,7 +389,7 @@ export function firstLine(text) {
   if (!first) return '';
   return [...first].length > SHORT ? [...first].slice(0, SHORT).join('') + '…' : first;
 }
-// WEEKLY-재료전체 ① (S67-07, 명진 11/19 "조직별 기록의 내용… 다 읽어서 주간보고에 제안"): 화면 줄은 첫 줄(firstLine) 그대로 두고,
+// WEEKLY-재료전체 ① (S67-07, 사용자 11/19 "조직별 기록의 내용… 다 읽어서 주간보고에 제안"): 화면 줄은 첫 줄(firstLine) 그대로 두고,
 // 주간보고 AI 초안 재료에만 기록 전체 글(body)을 함께 보낸다. body = 여러 글의 모든 줄(같은 줄은 한 번, 기호 뺀 평문)을 '\n'으로 이은 것.
 // 첫 줄이 화면 줄과 같으면 그 줄은 빼고(머리 줄과 같은 말 두 번 없음), 남는 줄이 없으면 ''. 길이는 BODY_KEEP 자까지(보낼 때 다시 줄임 — weekly-draft-request.mjs).
 export const BODY_KEEP = 4000;

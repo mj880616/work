@@ -3,7 +3,7 @@
 //      자리가 모두 붙은 양식 → 그 profile(status 'own').
 //      저장된 양식 없음(none)·자리가 깨진 양식(broken)·표 준비 전(missing) → profile 없음. 부르는 쪽이 바탕 파일에서 읽는다(baseForm).
 //      읽기 실패(readFailed) → profile 없음 + 한 줄 안내. 부르는 쪽은 바탕을 열지 않고 [다시 시도]를 보인다(기본값으로 몰래 돌지 않음).
-//  - baseForm(pkg, draft)(명진 결정 11/17 '나'): 바탕 파일에서 양식을 읽어(hwpx-form-read.mjs readBaseForm — 글자는 파일 그대로)
+//  - baseForm(pkg, draft)(사용자 결정 11/17 '나'): 바탕 파일에서 양식을 읽어(hwpx-form-read.mjs readBaseForm — 글자는 파일 그대로)
 //      그 profile 로 바탕을 실제로 열어 본다(draft.prepareConfirmed). 읽지 못하거나 열리지 않으면 {note} 한 줄 — 추측해 열지 않는다.
 //      그 주 바탕에 회의 결과 상자가 없으면 상자 칸 이름을 알 수 없어 그 자리에서만 쓰고 저장하지 않는다(savable false).
 //  - saveBaseForm({form, known}, rt): 자료실 바탕에서 읽은 양식을 본인 로그인으로 자기 '내 양식'에 저장한다(owner RLS 그대로, 기존

@@ -1,4 +1,4 @@
-// FORGET-노트고르기(요청함 11/09 13:34, 시안 docs/design/mockups/forget-note-pick.html, 명진 13:37·13:38 결정): 잊지 말기 [노트] 창 제목 줄 앞
+// FORGET-노트고르기(요청함 11/09 13:34, 시안 docs/design/mockups/forget-note-pick.html, 사용자 13:37·13:38 결정): 잊지 말기 [노트] 창 제목 줄 앞
 // [새 노트 ▾] 단추와 그 아래 작은 고르기 창. 이 파일이 그 단추·작은 창·흐린 마지막 두 줄의 유일한 renderer다.
 // - 작은 창: '＋ 새 노트로'(가족 줄은 그 위 '잊지 말기 노트에 더하기') · 노트 이름 찾기 · 최근 노트 · 폴더별 노트.
 //   줄은 노트 보드 노트 고르기와 같은 부품(noteTreeRowHtml, 폴더 나무 note-tree.mjs treeRows, 모양은 [파일]·노트 나무 공용 줄 folder-tree.css .ft-*)이다.

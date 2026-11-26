@@ -26,13 +26,13 @@ export const editedName=name=>`${String(name||'문서').replace(/\.(hwpx?)$/i,''
 // [노조 양식으로 새 문서]는 그 자료를 기존 hwp-open 흐름으로 열되, 원본에는 덮어쓰지 않고 새 파일 제목을 사용자가 정한다.
 // HWP-노조서식분류(요청함 11/16 07:26): 분류 이름은 '노조 서식'. 새로 등록할 때는 '노조 서식'만 쓰고, 예전 이름 '양식'으로 등록된 자료도
 // 계속 찾는다(읽을 때 두 이름 모두 — 운영 자료 일괄 변경 없음). 자료실 꼬리표도 '양식' → '노조 서식'으로 보인다(document-categories.js LEGACY).
-// S68-21(명진 11/22 17:04): 새로 만드는 분류 이름은 얼굴 단어 word('노조 서식') — WORK ON+ 기본 '서식', 명진 화면(nojo_words) '노조 서식' 그대로.
+// S68-21(사용자 11/22 17:04): 새로 만드는 분류 이름은 얼굴 단어 word('노조 서식') — WORK ON+ 기본 '서식', 사용자 화면(nojo_words) '노조 서식' 그대로.
 // 저장된 자료의 분류 값과 내 분류 목록의 이름은 바꾸지 않는다(DB 변경 없음). 찾을 때는 지금 이름·'노조 서식'·옛 '양식'을 모두 보고,
 // 올릴 때 내 목록에 이미 '노조 서식'이 있으면(전에 올린 사람) 그 분류를 계속 쓴다(분류가 둘로 갈라지지 않게).
 export const UNION_TEMPLATE_NOJO_CATEGORY='노조 서식';
 export const UNION_TEMPLATE_CATEGORY=word('노조 서식');
 // S68-02: 편집 백업 폴더 이름. 서버(_shared/hwp-edit.ts)가 실제로 쓴 폴더 이름(backup.folder)을 알려 주면 그대로,
-// 모르면(옛 서버) 기본 이름 word('노조+ 편집 백업') — WORK ON+ 기본은 'WORK ON+ 편집 백업', 명진 화면은 그대로.
+// 모르면(옛 서버) 기본 이름 word('노조+ 편집 백업') — WORK ON+ 기본은 'WORK ON+ 편집 백업', 사용자 화면은 그대로.
 // S69-42: 서버가 편집 백업 폴더를 쓸 때 옛 이름을 새 이름으로 바꾸므로 기본 이름도 누구나 새 이름(서버 _shared/brand-folders.mjs).
 export const EDIT_BACKUP_FOLDER='WORK ON+ 편집 백업';
 export const backupFolderName=name=>typeof name==='string'&&name.trim()&&name.length<=100&&!/["\n]/.test(name)?name.trim():EDIT_BACKUP_FOLDER;
@@ -273,7 +273,7 @@ export async function saveDiscussDoc(file,{rt=window.KPTURuntime,fetcher}={}){
 // the owner's Drive library folder under drive.file, one private app_documents row). Title, category and date are given, so
 // the server does not read the content to guess a title. One request, never repeated; an unknown outcome says to check first.
 // S53-16 WEEKLY-분류이름바뀜: 저장 분류는 이름 글자가 아니라 '개인 확정본' 역할(document-categories.js weeklySaveCategory). 내 분류 목록을 먼저 읽는다(한 번만, 못 읽으면 옛 이름).
-// LIB-기본분류흔적빼기(명진 11/17): 주간보고 분류는 기본 목록에 없다. 처음 [확정] 저장할 때 내 목록에 '개인 확정본' 역할 분류가 없으면
+// LIB-기본분류흔적빼기(사용자 11/17): 주간보고 분류는 기본 목록에 없다. 처음 [확정] 저장할 때 내 목록에 '개인 확정본' 역할 분류가 없으면
 // 그때 기존 분류 추가 함수(app_document_category_add)로 '주간보고'·'주간보고›개인 확정본'을 더한다(있는 것은 건너뜀).
 // 목록을 못 읽었거나 30개가 찼거나 추가가 실패해도 저장은 막지 않는다(옛 이름으로 저장되고 바탕 찾기는 옛 이름도 찾음).
 export async function ensureWeeklyPersonalCategory({rt=window.KPTURuntime}={}){
@@ -300,7 +300,7 @@ export async function saveWeeklyReport(bytes,{fileName,title,documentDate},{rt=w
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 
-// WEEKLY-한흐름확정 ②(명진 결정 ②): 같은 주를 다시 확정하면 그 주 개인본 자료의 파일만 새 판으로 바꾼다(library-files replace_document_id —
+// WEEKLY-한흐름확정 ②(사용자 결정 ②): 같은 주를 다시 확정하면 그 주 개인본 자료의 파일만 새 판으로 바꾼다(library-files replace_document_id —
 // 제목·분류·날짜는 그대로, 옛 판은 [이전 파일]에 30일). 자료가 없어졌으면 {kind:'gone'}(부르는 쪽이 새 자료로). 한 번만 보내고 모르는 결과는 확인을 부탁한다.
 export async function replaceWeeklyReport(bytes,{fileName,documentId},{rt=window.KPTURuntime,fetcher}={}){
   const form=new FormData();

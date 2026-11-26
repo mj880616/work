@@ -8,7 +8,7 @@ const Q='가상 사업장 교섭 쟁점 뭐였지?';
 const SOURCES=[
   {ref:'s1',kind:'update',source:'note',id:ID(1),date:'2026-10-05',day:null,title:'교섭 결과 정리',sent:true,tag:null,snippet:'3차 교섭 성과급 기준 쟁점'},
   {ref:'s2',kind:'call',source:'call',id:ID(2),date:'2026-10-04',day:'2026-10-04',title:'가상 사업장 통화',sent:true,tag:null,snippet:'성과급 개인 평가 연동 거부'},
-  // 명진 결정 변경(10/29): 원장 교섭·전략(S2)도 AI에 보낸다(sent:true). 근거 목록의 '교섭·전략' 꼬리표는 그대로.
+  // 사용자 결정 변경(10/29): 원장 교섭·전략(S2)도 AI에 보낸다(sent:true). 근거 목록의 '교섭·전략' 꼬리표는 그대로.
   {ref:'s3',kind:'ledger',source:'ledger',id:ID(3),date:'2026-10-03',day:null,title:'교섭 전략 회의',sent:true,tag:'교섭·전략',snippet:'양보선 검토'},
 ];
 const ANSWER={ok:true,kind:'ask_web2',status:'ok',question:Q,words:['가상','사업장','교섭','쟁점'],id:ID(90),created_at:'2026-10-06T00:12:00Z',

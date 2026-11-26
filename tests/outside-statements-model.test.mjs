@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 // OUTSIDE-바깥성명 ④ 화면 1(docs/design/outside-statements.md 2·4절): 화면 계산 규칙.
 const CATALOG = normalizeCatalog({ok: true, sources: [
   {key: 'kctu', name: '민주노총', group: 'labor', lang: 'ko'},
-  {key: 'kptu', name: '공공운수노조', group: 'kptu', lang: 'ko'}, // 옛 서버 카탈로그 묶음 이름도 [노동]으로
+  {key: 'kptu', name: 'A노조', group: 'kptu', lang: 'ko'}, // 옛 서버 카탈로그 묶음 이름도 [노동]으로
   {key: 'laborparty', name: '노동당', group: 'party', lang: 'ko'},
   {key: 'kgreens', name: '녹색당', group: 'party', lang: 'ko'},
   {key: 'jacobin', name: 'Jacobin', group: 'foreign', lang: 'en'},
@@ -17,7 +17,7 @@ const NOW = Date.parse('2026-10-31T03:00:00Z'); // 서울 10. 31. 12:00
 test('카탈로그는 모양이 맞는 단체만 받는다', () => {
   assert.deepEqual(CATALOG.map(s => s.key), ['kctu', 'kptu', 'laborparty', 'kgreens', 'jacobin']);
   assert.deepEqual(normalizeCatalog(null), []);
-  assert.deepEqual(CATALOG.filter(s => s.group === 'labor').map(s => s.key), ['kctu', 'kptu'], '민주노총·공공운수노조는 [노동] 묶음(11/02 00:19)');
+  assert.deepEqual(CATALOG.filter(s => s.group === 'labor').map(s => s.key), ['kctu', 'kptu'], '민주노총·A노조는 [노동] 묶음(11/02 00:19)');
 });
 
 test('날짜 묶음: 오늘·어제·그 밖 날짜, 서버 순서 유지, 게시 시각 모르는 글은 받은 시각이 아니라 \'날짜 모름\'(11/02 00:17)', () => {

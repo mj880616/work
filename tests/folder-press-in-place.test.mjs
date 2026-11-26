@@ -1,4 +1,4 @@
-// UI-폴더이름펼치기(명진 11/24 18:09): 그 자리 펼치는 목록(자료실 폰 나무·두 칸 칸 안, [파일] 폰 나무·두 칸 칸 안, 노트 폰 폴더 목록, 사진 폰·폴드 나무)에서
+// UI-폴더이름펼치기(사용자 11/24 18:09): 그 자리 펼치는 목록(자료실 폰 나무·두 칸 칸 안, [파일] 폰 나무·두 칸 칸 안, 노트 폰 폴더 목록, 사진 폰·폴드 나무)에서
 // 폴더 이름 누르기 = 늘 그 자리 펼치기·접기. 빈 폴더도 펼쳐 안에 '빈 폴더' 한 줄. 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]·두 손가락 벌리기만.
 // 화면 없이 줄 만들기(순수 함수)와 소스 모양을 본다. 화면 동작은 tests/app-e2e/folder-press-leaf.spec.mjs.
 import test from 'node:test';
@@ -59,7 +59,7 @@ test('그 자리 펼치는 목록의 폴더 누르기는 들어가지 않는다(
     assert.doesNotMatch(src(f), /folderPressAction|FOLDER_PRESS_ENTER|createLeafWait/, f);
   }
   // 자료실 폰 맨 위 나무: 이름 누르기 = 들어가기였던 길(폴더 그림 자리 재기)을 없앴다.
-  // S69-68(명진 11/24 20:09): 탐색기 칸 줄(data-lu-enter)도 누르면 그 자리 펼치기 — 머리 누르기에서 들어가는 길이 남아 있지 않다.
+  // S69-68(사용자 11/24 20:09): 탐색기 칸 줄(data-lu-enter)도 누르면 그 자리 펼치기 — 머리 누르기에서 들어가는 길이 남아 있지 않다.
   assert.doesNotMatch(src('library-upload.js'), /luOnFolderIcon/);
   assert.doesNotMatch(src('library-upload.js'), /hasAttribute\('data-lu-enter'\)\)\{e\.preventDefault\(\);luPressEnter/);
   // [파일] 목록 칸 그 자리 펼치기는 한 칸·두 칸·폰 '그 폴더만' 모두(두 칸만이 아님).

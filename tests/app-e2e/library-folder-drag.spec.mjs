@@ -90,7 +90,7 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     expect(errors).toEqual([]);
   });
 
-  // LIB-폴더로올리기(2026-10-30 명진 결정): 폴더 묶기에서는 바깥 파일을 폴더 줄에 놓아 그 폴더로 올린다(library-folder-upload-drop.spec.mjs).
+  // LIB-폴더로올리기(2026-10-30 사용자 결정): 폴더 묶기에서는 바깥 파일을 폴더 줄에 놓아 그 폴더로 올린다(library-folder-upload-drop.spec.mjs).
   // 그 밖의 묶기(사업영역)에서는 지금처럼 폴더 줄에 표시가 생기지 않는다(화면 끌어놓기 그대로).
   test('안에서 시작한 끌기만 본다: 폴더 묶기가 아니면 바깥 파일을 끌어 올 때(Files) 폴더 표시가 생기지 않는다',async({page})=>{
     const {errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'사업영역'});
@@ -137,7 +137,7 @@ test.describe('폰 390 길게 누르기',()=>{
     await touch(cdp,'touchEnd',[]);
     await expect.poll(()=>s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fa');
     await expect(line(page)).toContainText('옮겼어요');
-    // 2) S69 LONGPRESS-선택(명진 11/24): 폴더 머리를 길게 눌렀다가 그대로 떼면 메뉴가 아니라 선택 모드 + 그 폴더 안 자료 모두 선택.
+    // 2) S69 LONGPRESS-선택(사용자 11/24): 폴더 머리를 길게 눌렀다가 그대로 떼면 메뉴가 아니라 선택 모드 + 그 폴더 안 자료 모두 선택.
     await expandLibraryTree(page);
     from=await centerView(page,head('f:fa')+' .lu-node-name');
     await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);await touch(cdp,'touchEnd',[]);

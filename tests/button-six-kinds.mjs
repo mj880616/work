@@ -1,4 +1,4 @@
-// UI-버튼6가지(2026-11-06 명진 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ').
+// UI-버튼6가지(2026-11-06 사용자 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ').
 // 사이트 버튼은 6가지(주 동작·작은 버튼·글자 버튼·칩·보기 바꾸기·아이콘)뿐이고 모양은 app/ui-standard.css 'UI-버튼6가지' 한 곳이 정한다.
 // 이 검사기는 두 가지 빚을 센다. 기준표(tests/button-six-kinds-baseline.json)보다 늘면 시험이 실패하고, 줄면 기준표를 줄이라고 알린다.
 //   css  화면 CSS(공용 세 파일 밖, ui-standard.css는 화면 id(#…)를 쓴 규칙만)에서 버튼을 잡는 규칙이 정한 높이·모서리·바탕·테두리 선언 수

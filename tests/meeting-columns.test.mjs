@@ -103,7 +103,7 @@ test('오른쪽 칸은 자리만: 고른 건의 번호가 붙고, 읽기용 본�
   assert.doesNotMatch(src,/export function (resultHtml|tasksHtml|resultText)\b/);
 });
 
-// FILE-사업보고⋯(2026-10-24 명진 결정): 사업 보고 자료 줄에도 담당조직·프로젝트 자료 줄과 같은 ⋯([Drive에서 열기]·[내려받기], file-actions.js).
+// FILE-사업보고⋯(2026-10-24 사용자 결정): 사업 보고 자료 줄에도 담당조직·프로젝트 자료 줄과 같은 ⋯([Drive에서 열기]·[내려받기], file-actions.js).
 test('사업 보고 자료 줄 ⋯: 자료실 자료면 두 항목, 줄 누르기 버튼은 그대로, 열 길이 없으면 ⋯ 없음',()=>{
   const fileLine=({name,cls,end})=>`<div class="file-line ${cls}">${name}${end}</div>`;
   const doc={id:'d1',title:'가상 안건지',file_name:'가상 <안건지>.hwp',mime_type:'application/x-hwp',file_id:'drive-d1',drive_url:'https://drive.google.com/file/d/drive-d1/view'};

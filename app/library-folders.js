@@ -154,12 +154,12 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(colorFor===key&&key.startsWith('f:')){const f0=folder(key.slice(2));return f0?colorChoiceHtml(colorOf(f0)):''}
       if(!key.startsWith('f:'))return '<button type="button" data-lu-folder-action="create">새 폴더</button>'+(key===OUTSIDE_KEY&&selectNode?.(key)?'<button type="button" data-lu-folder-action="select-all">전체 선택</button>':'');
       const f=folder(key.slice(2));if(!f)return '';
-      // LIB-폴더끌어순서(S61-14, 명진 11/12 15:30): 순서는 끌어서 바꾸므로 [위로]·[아래로]는 메뉴에서 뺐다. 키보드는 폴더 줄에서 Alt+↑·Alt+↓(bindKeys).
+      // LIB-폴더끌어순서(S61-14, 사용자 11/12 15:30): 순서는 끌어서 바꾸므로 [위로]·[아래로]는 메뉴에서 뺐다. 키보드는 폴더 줄에서 Alt+↑·Alt+↓(bindKeys).
       // LIB-폴더100단 ②(10:34): 폴더 보기에서는 [이 폴더로 들어가기](UI-폴더이름펼치기 11/24부터 첫 줄) — 그 폴더만 보이고 위에 위치 줄(자료실 › … ). 폴더 줄을 두 번 눌러도 같다.
       // '폴더 밖'이 비어 그 줄이 없으면(LIB-정리보충) 맨 위 폴더 메뉴 첫 줄이 맨 위 새 폴더 자리.
       // 탐색기(S69-28)는 '폴더 밖' 머리가 늘 없지만 맨 위 ⋯·빈 자리 우클릭 [새 폴더]가 맨 위 자리라 이 줄을 더하지 않는다.
       const top=s().free&&!s().explorer&&!s().inFolder&&!f.parent_id&&!outsideHead()?'<button type="button" data-lu-folder-action="create-top">맨 위에 새 폴더</button>':'';
-      // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기는 그 자리 펼치기·접기만이라, 들어가기는 이 메뉴 첫 줄 [이 폴더로 들어가기]로만.
+      // UI-폴더이름펼치기(사용자 11/24 18:09): 폴더 이름 누르기는 그 자리 펼치기·접기만이라, 들어가기는 이 메뉴 첫 줄 [이 폴더로 들어가기]로만.
       return (enter&&s().free?'<button type="button" data-lu-folder-action="enter">이 폴더로 들어가기</button>':'')+top+'<button type="button" data-lu-folder-action="rename" aria-keyshortcuts="F2">이름 바꾸기<span class="lu-menu-key" aria-hidden="true">F2</span></button>'
         +(canAddChild(s().folders,f.id)?'<button type="button" data-lu-folder-action="create">안에 새 폴더</button>':'')
         // S69-28 LIB-한칸탐색기: 탐색기(한 칸 폴더 보기)의 폴더 줄은 펼치지 않고 들어가므로 [펼치기·접기] 줄이 없다(왼쪽 나무는 줄 앞 폴더 그림).
@@ -220,7 +220,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       return;
     }
     if(!(await receive.set(f.id))){status('받는 폴더를 켜지 못했어요. 잠시 뒤 다시 해 주세요.',true);return}
-    // 명진 결정(11/11 '지금 폴더 밖 자료도 한 번에 옮김'): 켤 때 지금 '폴더 밖' 자료 개수를 보여 주고 물은 뒤 옮긴다. 되돌리기 한 줄로 다시 폴더 밖으로.
+    // 사용자 결정(11/11 '지금 폴더 밖 자료도 한 번에 옮김'): 켤 때 지금 '폴더 밖' 자료 개수를 보여 주고 물은 뒤 옮긴다. 되돌리기 한 줄로 다시 폴더 밖으로.
     const outside=receive.outside?.()||[];
     if(outside.length&&await askConfirm(trigger,{text:`폴더 밖 자료 ${outside.length}개도 ‘${f.name}’ 폴더로 옮길까요?`,note:'앞으로 폴더를 정하지 않고 들어오는 자료는 이 폴더로 들어가요.',ok:'옮기기',cancel:'그대로 두기'})){
       await fileOutside(outside,f);
@@ -396,7 +396,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     }
     return null;
   }
-  // S70-08 LIB-여러폴더끌기(명진 11/25 09:39 "선택해서 드래그하면 다 드래그되어야하는데 하나만 드래그됨"): 원인(사실) — 끌기 시작(dragFrom)이 폴더 줄이면
+  // S70-08 LIB-여러폴더끌기(사용자 11/25 09:39 "선택해서 드래그하면 다 드래그되어야하는데 하나만 드래그됨"): 원인(사실) — 끌기 시작(dragFrom)이 폴더 줄이면
   // 고른 것을 보지 않고 그 폴더 하나만, 자료 줄이면 고른 자료만(폴더째 고른 폴더는 빼고) 잡았다. 끄는 방향과는 상관없다.
   // 이제 잡은 줄이 고른 것 안에 있고(폴더째 고른 폴더 아래 폴더 포함) 고른 것에 폴더가 하나라도 있으면 고른 것 모두(kind 'many')를 끈다.
   // 고른 상태의 주인은 그대로 선택 모드(luPick) 하나 — 여기서는 읽기만 한다. 옮기기는 메뉴 [폴더로 옮기기]와 같은 movePicked(한 서버 길).
@@ -499,7 +499,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     clearTimeout(hoverTimer);hoverKey=want;
     if(want)hoverTimer=setTimeout(()=>{if(hoverKey===want&&(drag||touch?.grabbed||fileDrag)&&node.isConnected&&!node.open)node.open=true},HOVER_OPEN_MS);
   }
-  // LIB-폴더로올리기 (2026-10-30 명진 요청): PC 파일을 폴더 묶기의 폴더 줄(머리, 또는 열린 폴더 안 자료 줄) 위로 끌면 그 폴더가 놓을 곳이다.
+  // LIB-폴더로올리기 (2026-10-30 사용자 요청): PC 파일을 폴더 묶기의 폴더 줄(머리, 또는 열린 폴더 안 자료 줄) 위로 끌면 그 폴더가 놓을 곳이다.
   // 자료 옮기기와 같은 놓을 곳 표시·머물면 펼침을 쓴다. 폴더 묶기(free)에서만, 폴더가 아닌 곳('폴더 밖' 등)은 null(지금처럼 화면 끌어놓기).
   let fileDrag=false;
   function fileTarget(e){
@@ -676,10 +676,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // ---- 폰: 길게 누르기 = 고르기, 길게 눌러 움직이기 = 옮기기 ----
   // 줄·폴더 머리를 LONG_MS 눌러 두면(짧게 진동) 잡힌다. 잡기 전에 손가락이 움직이면(세로 스크롤) 그대로 스크롤이고,
   // 끌 수 있는 화면(touchOk)이면 잡은 뒤에는 스크롤을 막고 손가락을 따라 놓을 곳을 표시한다.
-  // S69 LONGPRESS-선택(2026-11-24 명진): 움직이지 않고 떼면 선택 모드를 켜고 그 줄을 고른다(onHold — 공용 규칙 select-mode.js holdPick).
+  // S69 LONGPRESS-선택(2026-11-24 사용자): 움직이지 않고 떼면 선택 모드를 켜고 그 줄을 고른다(onHold — 공용 규칙 select-mode.js holdPick).
   // 메뉴는 줄 오른쪽 ⋯로만 연다. 움직였다 떼면 놓은 곳으로 옮긴다. PC 마우스 우클릭·키보드(⋯·Shift+F10)는 그대로.
   const LONG_MS=450,SLOP=8,MOVED=12;
-  // S69-84 목록 엔진 통일 ①(명진 11/24 23:57 "폴드 펼침 화면에서도 꾹 눌러 선택 등 움직임 통일"): 받는 곳 = 목록 상자 전체(왼쪽 나무 + 오른쪽 목록).
+  // S69-84 목록 엔진 통일 ①(사용자 11/24 23:57 "폴드 펼침 화면에서도 꾹 눌러 선택 등 움직임 통일"): 받는 곳 = 목록 상자 전체(왼쪽 나무 + 오른쪽 목록).
   // 원인(사실): 목록(#documentList)에만 걸려 폴드·PC 왼쪽 나무 폴더 줄은 꾹 눌러도 아무 일이 없었다. 기기 폭이 아니라 손가락(pointerType)으로만 가른다.
   // 폴더 줄(.ft-row, 이름 단추 [data-lu-nav])은 단추지만 줄째 잡는다. ⋯·펼침 아이콘은 그대로 단추.
   const NAV_ROW='#libraryFolderNav .ft-row,[data-lu-pane-i] .ft-row';

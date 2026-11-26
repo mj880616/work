@@ -890,7 +890,7 @@ test('BRAND-웹2흔적지우기·S69-42: 옛 이름(.Web2 휴지통) 휴지통�
   for(const name of [TRASH_NAME,OLD_TRASH_NAME])assert.equal((await import('../../supabase/functions/onedrive-photos/graph.ts')).cleanFolderName(name),null,name);
 });
 
-// S69-42(명진 11/24 15:46): 휴지통 이름은 누구나(nojo_words여도) '.WORK ON+ 휴지통'. 옛 '.노조+ 휴지통'·'.Web2 휴지통'은 쓸 때 이름만 바꾸고
+// S69-42(사용자 11/24 15:46): 휴지통 이름은 누구나(nojo_words여도) '.WORK ON+ 휴지통'. 옛 '.노조+ 휴지통'·'.Web2 휴지통'은 쓸 때 이름만 바꾸고
 // (폴더 id·안 사진 그대로), 같은 자리에 '.WORK ON+ 휴지통'이 이미 있으면(409) 합치지 않고 옛 이름 그대로 쓴다. 허용 표는 더 묻지 않는다.
 test('S69-42: 휴지통은 누구나 .WORK ON+ 휴지통 — 새로 만들 때·옛 이름 둘 다 쓸 때 바꿈·같은 이름이 있으면 그대로',async()=>{
   const {WORKON_TRASH_NAME,TRASH_OLD_NAMES,isTrashName,cleanFolderName}=await import('../../supabase/functions/onedrive-photos/graph.ts');
@@ -902,7 +902,7 @@ test('S69-42: 휴지통은 누구나 .WORK ON+ 휴지통 — 새로 만들 때·
   const withRpc=(admin,answer,rpcs=[])=>({...admin,rpc:async(fn,args)=>{rpcs.push([fn,args]);return answer;}});
   const created=ms=>trashCreates(ms).map(c=>JSON.parse(c.init.body).name);
   const renames=ms=>ms.calls.filter(c=>c.init.method==='PATCH'&&c.url.includes('/items/'+encodeURIComponent(TRASH)+'?'));
-  // 새로 만들 때: 새 사용자·nojo_words(명진)·확인 실패 모두 .WORK ON+ 휴지통.
+  // 새로 만들 때: 새 사용자·nojo_words(사용자)·확인 실패 모두 .WORK ON+ 휴지통.
   for(const answer of [{data:null,error:null},{data:WS,error:null},{data:null,error:{message:'x'}}]){
     const rpcs=[];
     const c=make({admin:withRpc(fakeAdmin({row:{...fresh},index:lostIndex()}),answer,rpcs),ms:fakeMicrosoft({itemById:A1()})});

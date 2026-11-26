@@ -15,7 +15,7 @@ test('① 목록 꼬리표: 이름만(직책 빼고), 이름을 모르면 조직
   assert.equal(callTag(callWho({counterpart:'다른지부 이나연 지부장'})), '이나연');
   assert.equal(callTag(callWho({organization:ORG, counterpart:''})), '예시교통노조');
   assert.equal(callTag(callWho({})), '');
-  assert.equal(callTag(callWho({counterpart:'공공운수노조 박가상 팀장'})), '박가상');
+  assert.equal(callTag(callWho({counterpart:'A노조 박가상 팀장'})), '박가상');
   assert.equal(personName('김가상'), '김가상');
   assert.equal(personName(''), '');
 });

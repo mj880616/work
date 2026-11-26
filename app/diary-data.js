@@ -158,7 +158,7 @@ export async function readDiaryDay(day, rt = window.KPTURuntime) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 // S67-69 홈 '오늘 사진': 그날 하루 기록에 넣은 사진 정보만 읽는다 — 글(raw_text·doc)·제목·사진 코멘트는 읽지 않는다. 하루 기록이 잠겨 있어도
-// 사진 잠금만 따르는 홈 사진 칸이 쓴다(2026-11-21 08:32 명진). 같은 소유자 RLS 표(app_notes)·같은 열쇠. metadata는 body_photos(글 안 사진 표)만
+// 사진 잠금만 따르는 홈 사진 칸이 쓴다(2026-11-21 08:32 사용자). 같은 소유자 RLS 표(app_notes)·같은 열쇠. metadata는 body_photos(글 안 사진 표)만
 // 골라 읽어 diaryPhotos()가 글 안 사진을 빼게 한다. 돌려주는 행은 사진 그리기(photoElement: row.id)에만 쓴다.
 export const DIARY_PHOTO_FIELDS = 'id,journal_day,attachments,body_photos:metadata->body_photos';
 export async function readDiaryDayPhotos(day, rt = window.KPTURuntime) {

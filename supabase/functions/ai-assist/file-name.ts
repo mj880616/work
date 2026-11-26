@@ -2,7 +2,7 @@
 // - 화면은 {kind, target, id, drive_file_id}만 보낸다. 재료는 서버가 내 로그인으로 읽는다(남의 줄은 RLS가 숨김 = 404).
 //   재료: 이미 읽어 둔 글자만 쓴다 — 노트 첨부 사진의 OCR 글자(attachments[].ocr.text), 같은 Drive 파일 자료의 본문 글자(app_documents.extracted_text).
 //   새로 OCR·본문 읽기를 하지 않는다. 읽어 둔 글자가 없으면 AI를 부르지 않고 skipped:'no_text'.
-// - 저장하지 않는다. 추천 이름은 화면이 칸에 채우고, 명진이 고쳐서 [저장]을 눌러야 바뀐다(자동 저장 없음).
+// - 저장하지 않는다. 추천 이름은 화면이 칸에 채우고, 사용자가 고쳐서 [저장]을 눌러야 바뀐다(자동 저장 없음).
 // - 제목 규칙은 자료실 AI 제목(library-fill.ts title)과 같다: 표지·첫 쪽·머리말 제목 우선, 파일관리용 표현(최종·수정본·사본·버전·날짜 번호) 빼기.
 // - AI 답은 믿지 않는 입력: 한 줄·글자 수·HTML·제어 문자·연락처·비밀 모양을 다시 검사하고, 파일 이름에 못 쓰는 글자는 이름 규칙(file-rename-name.mjs)으로 다듬는다.
 import { tidySuggestedBase } from "../_shared/file-rename-name.mjs";

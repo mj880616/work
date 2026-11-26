@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 
-// ED③ 백업 표 삭제 (명진 결정 2026-10-25). DROP TABLE은 승인형 DB workflow가 차단하므로 SQL Editor 전용이다.
+// ED③ 백업 표 삭제 (사용자 결정 2026-10-25). DROP TABLE은 승인형 DB workflow가 차단하므로 SQL Editor 전용이다.
 // 이 시험은 (1) 삭제 대상이 백업 표 하나뿐인지, (2) workflow가 계속 거절하는지(규칙을 풀지 않았다는 증거), (3) 앱·Edge가 표를 참조하지 않는지,
 // (4) 짝 파일이 갖춰졌는지를 본다.
 const stem = '20261025191000_ed3_backup_drop';

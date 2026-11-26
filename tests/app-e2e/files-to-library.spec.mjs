@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// FILES-자료실로보내기(S52-26, 요청함 11/07 11:37, 시안 docs/design/mockups/files-to-library.html, 명진 11:41 '(가) 연결만').
+// FILES-자료실로보내기(S52-26, 요청함 11/07 11:37, 시안 docs/design/mockups/files-to-library.html, 사용자 11:41 '(가) 연결만').
 // [파일]의 파일 ⋯(PC 우클릭) → [자료실로 보내기] → 자료실 등록 창(같은 칸·같은 [등록])에 그 파일이 들어가고,
 // 원드라이브 파일은 사본으로 올리고(library-files), 구글 드라이브 파일은 사본 없이 연결만(document-actions register-drive-file, library-files 없음).
 // 이미 자료실에 있는 구글 드라이브 파일은 메뉴가 [자료실에서 보기], 여러 개 고른 줄의 [자료실로]는 '이미 자료실에 있어요 · 보기'. 합성 데이터만.

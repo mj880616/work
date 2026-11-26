@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
-// S67-06 NEWS-직접넣기 사진 붙여넣기(명진 11/19 "이미지 주소 복사 말고 이미지 복사해서 넣는 방법은 안돼?"):
+// S67-06 NEWS-직접넣기 사진 붙여넣기(사용자 11/19 "이미지 주소 복사 말고 이미지 복사해서 넣는 방법은 안돼?"):
 // 직접 넣기 본문 칸에 복사한 사진 붙여넣기 · [사진]으로 고르기(여러 장) · 끌어다 놓기 → 커서 자리에 '[사진 n]' 한 줄 + 아래 작은 미리보기.
 // 저장 때 한 장씩 서버(news-feed hand_photo_put)로 올리고, 그 줄은 안쪽 표시 주소 줄로 바뀌어 hand_fill로 간다. 상세는 그 자리에 서버(hand_photo)에서 받은 사진.
 // 다시 열어도(⋯ [수정]) '[사진 n]' 줄로 들어오고 미리보기가 서버 그림. jpg·png·webp·gif만, 한 장 10MB까지. 올리기 실패면 글은 그대로.

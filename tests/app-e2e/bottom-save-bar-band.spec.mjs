@@ -5,7 +5,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { noteAction } from './helpers/basket-more.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
-// UI-아래저장줄흰띠(S56-39, 명진 11/10 18:21 "여기 흰 배경 이것도 이상"): 노트·업데이트·일기 고치기 칸 아래에 붙는
+// UI-아래저장줄흰띠(S56-39, 사용자 11/10 18:21 "여기 흰 배경 이것도 이상"): 노트·업데이트·일기 고치기 칸 아래에 붙는
 // 공용 저장 줄(.save-row-sticky)이 흰색(--kptu-surface)이라 베이지 화면 바탕 위에서 흰 띠로 떠 보였다.
 // 지금: 줄 바탕 = 그 줄이 놓인 곳 바탕(감싼 칸이 칠한 바탕, 없으면 화면 바탕). 위 가는 선·아래 탭 위에 붙는 자리는 그대로.
 // 밝은·어두운 테마, 폰 412·PC 1280에서 화면 사진의 점 색으로도 확인한다. 서버는 흉내(이름·글은 모두 가짜).

@@ -77,7 +77,7 @@ export function renameTarget(picked = [], cursor = null) {
   return cursor ?? null;
 }
 
-// K1 지우기 한 규칙(I-6, 2026-11-25 명진 결정 6 "추천대로"): 지운 뒤 [되돌리기]가 있으면 확인 없이 바로 지우고, 없으면 확인 창을 받는다.
+// K1 지우기 한 규칙(I-6, 2026-11-25 사용자 결정 6 "추천대로"): 지운 뒤 [되돌리기]가 있으면 확인 없이 바로 지우고, 없으면 확인 창을 받는다.
 // Delete 키·선택 막대 [삭제]·⋯ [삭제]가 모두 이 함수 하나로 묻는다(화면마다 따로 '언제 묻나'를 정하지 않는다). 확인 창 글·모양은 부르는 화면 것(ask).
 // undo: 이 지우기 뒤에 [되돌리기] 알림이 뜨나(true/false). ask: () → Promise<boolean>(확인 창). 반환: 지워도 되면 true.
 export const deleteNeedsConfirm = ({undo = false} = {}) => !undo;

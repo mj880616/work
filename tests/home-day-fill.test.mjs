@@ -231,7 +231,7 @@ test('화면 연결 HOME-읽을글밀기: 공용 줄 밀기(bindNowRows) 그대�
   assert.match(acts, /el\.querySelector\('\.nw-title'\)/);
 });
 
-// S67-46(명진 11/20 "11월 20일인데 오늘 / 옛 일정이 제안으로"): 기록 제안 재료는 그 날 일만, 다른 날 만든 제안은 버린다.
+// S67-46(사용자 11/20 "11월 20일인데 오늘 / 옛 일정이 제안으로"): 기록 제안 재료는 그 날 일만, 다른 날 만든 제안은 버린다.
 test('S67-46: 지난 기한 할 일은 오늘 끝내도 재료에서 빠지고, 다른 날 만든 제안은 버린다(한국 자정 경계)', async () => {
   const {sendDone, sendEvents, picksState, suggestsMadeOn} = await import('../app/home-day-picks-model.mjs');
   const day = '2026-11-20';

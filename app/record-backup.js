@@ -1,4 +1,4 @@
-// PRIVACY-백업안내(S66-01, 시안 docs/design/mockups/backup-export.html, PR 2677 명진 확정 11/15·11/16): '내 기록 백업'의 화면 주인 하나.
+// PRIVACY-백업안내(S66-01, 시안 docs/design/mockups/backup-export.html, PR 2677 사용자 확정 11/15·11/16): '내 기록 백업'의 화면 주인 하나.
 // ① 내 프로필 '내 기록 백업' 칸(mountRecordBackup): 종류별 체크 → [지금 백업], '매주 자동으로' 스위치(기본 꺼짐).
 // ② 백업이 끝나면 한 줄 알림: 칸이 열려 있으면 칸 안에, 자동 백업이면 화면 맨 위 알림 줄(notice-bar.js)에.
 // ③ 가입 직후(계정이 만들어진 지 14일 안) 한 번만 띄우는 안내(startRecordBackup): 맨 위 알림 줄 [자동 백업 켜기] [나중에]. 누르면 다시 띄우지 않는다.
@@ -6,7 +6,7 @@
 // 백업 파일은 서버 함수 record-backup이 본인 구글 드라이브 'WORK ON+ 백업/날짜' 폴더에만 만든다(서버에 사본 없음). 이 파일이 그 함수를 부르는 유일한 곳이다.
 // S68-02: 새 사용자가 처음 만드는 맨 위 폴더는 'WORK ON+ 백업'(이미 있는 폴더는 이름 그대로, 서버 _shared/brand-folders.mjs).
 //   화면은 서버가 알려 준 실제 폴더 이름(status folder_name·run root_name)을 쓰고, 모를 때만 기본 이름 'WORK ON+ 백업'.
-// S69-42: 서버가 백업할 때 옛 이름('노조+ 백업')을 새 이름으로 바꾸므로 기본 이름도 누구나 새 이름(명진 화면 포함).
+// S69-42: 서버가 백업할 때 옛 이름('노조+ 백업')을 새 이름으로 바꾸므로 기본 이름도 누구나 새 이름(사용자 화면 포함).
 // 자동 백업: 서버 예약은 기록을 읽을 로그인이 없어(기록은 본인 토큰으로만 읽음) 앱을 연 뒤 2분에 마지막 백업이 7일 넘었으면 한 번 한다(원장 사본과 같은 방식).
 import {viewPrefs} from './view-prefs.js';
 import {putNotice, removeNotice} from './notice-bar.js';

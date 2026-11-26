@@ -176,7 +176,7 @@ export async function loadItem(deps: DetailDeps, it: DetailItemRef): Promise<Det
 // 재료가 하나도 없는 글(제목 읽기 전·본문 읽기 실패)은 AI를 부르지 않는다.
 // S68-43: 사회운동 글도 같다 — 본문·저장 요약·주요 문장이 모두 없으면(robots로 글 쪽을 못 읽은 국내 글 등) 제목만으로 요약하지 않는다
 // (예전에는 제목만 보내 'material이 비어 있어…' 같은 답이 요약 칸에 보였다). 외국 글은 수집 때 만든 한국어 요약·주요 문장이 재료다.
-// S69 READ-첨부본문(명진 11/24 "제공된 글 내용은 마침표 하나뿐이며…"가 요약 칸에 보였다): 본문은 글자(띄어쓰기·문장부호·기호 빼고)가
+// S69 READ-첨부본문(사용자 11/24 "제공된 글 내용은 마침표 하나뿐이며…"가 요약 칸에 보였다): 본문은 글자(띄어쓰기·문장부호·기호 빼고)가
 // MATERIAL_MIN_CHARS 이상일 때만 재료다. 그보다 짧은 본문(마침표 하나·사진 설명 한 줄 등)만 있는 글은 요약·시사점을 만들지 않는다(422 no_material —
 // 화면 '본문이 짧아 요약하지 않았어요'). 본문을 다시 가져와 길어지면 본문 지문이 바뀌어 그때 만든다.
 export const MATERIAL_MIN_CHARS = 20;
@@ -368,7 +368,7 @@ export function parseAnswer(raw: unknown): Record<string, unknown> | null {
 
 // AI가 재료가 없을 때 쓰는 '내용 없음' 문장(S48-66, 11/03). 요약으로 저장하거나 보이지 않는다.
 const NO_CONTENT = /(요약할\s*(내용|수)|내용(이|을)?\s*(없|제공되지|확인할\s*수\s*없)|제공되지\s*않아|본문(이|을)?\s*(없|제공되지)|no\s+(content|text|article)\s+(was\s+)?(provided|available))/i;
-// S68-43: 자료 칸 이름(material·stored_summary…)이나 '재료가 비어'·'제목만으로' 같은 말이 든 답도 같다(본문 없이 제목만으로 만든 요약 — 11/23 명진 캡처).
+// S68-43: 자료 칸 이름(material·stored_summary…)이나 '재료가 비어'·'제목만으로' 같은 말이 든 답도 같다(본문 없이 제목만으로 만든 요약 — 11/23 사용자 캡처).
 const INTERNAL_WORDS = /(\bmaterial\b|stored_(summary|sentences)|재료(가|이)?\s*(비어|없)|제목만으로|제목만\s*(보고|있어))/i;
 export const isNoContentSummary = (v: unknown): boolean => typeof v === "string" && (NO_CONTENT.test(v) || INTERNAL_WORDS.test(v));
 

@@ -150,7 +150,7 @@ export function buildTree(o){
   if(o.receiveId)walk(list,n=>{if(n.kind==='folder'&&n.id===o.receiveId)n.rc=true});
   return list;
 }
-// LIB-폴더개수(명진 11/24 18:04): 폴더 줄 회색 개수 — 하위 폴더가 있으면 '폴더 N · 파일 M'(M = 바로 안 자료, 0이면 '폴더 N'), 없으면 숫자.
+// LIB-폴더개수(사용자 11/24 18:04): 폴더 줄 회색 개수 — 하위 폴더가 있으면 '폴더 N · 파일 M'(M = 바로 안 자료, 0이면 '폴더 N'), 없으면 숫자.
 // 폴더가 아닌 묶음(사업영역·분류·월·'폴더 밖')은 지금처럼 안의 자료 모두(숫자). 한 칸 목록·탐색기·PC 나무·두 칸이 이 하나를 쓴다.
 export function folderCountOf(n){
   if(n?.kind!=='folder')return {text:String(n?.count??0),label:`자료 ${n?.count??0}건`};
@@ -168,10 +168,10 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 // fileHtml(d, node)는 지금의 파일 줄(luRowHtml)을 그대로 쓴다. node는 그 줄이 든 토글(종류로 묶었을 때 같은 종류 표를 빼는 데 쓴다).
 // menu(n): 그 토글 머리에 ⋯ 버튼을 둘 때 접근성 이름(없으면 버튼 없음). 버튼 누르기는 토글을 여닫지 않는다(그리는 쪽이 막음).
 // canDrag(n): 폴더 머리를 끌 수 있게 할지(PC 끌어 놓기). 파일 줄의 끌기는 fileHtml이 정한다.
-// emoji: 폴더로 묶었을 때(LIB-폴더보기, 2026-10-28 명진 요청 08:25 ③) ▸ 삼각형 대신 닫힌/열린 폴더 그림, '폴더 밖'은 회색 점선 폴더 그림 + 흐린 글자(S51-25: 그림 문자 🗂은 PC에서 깨짐).
-// LIB-외줄합치기없애기(명진 11/26 08:43): 하위 폴더 하나뿐인 폴더도 '가 › 나'로 접지 않는다 — 어디서나 자기 이름·자기 개수, 누르면 안에 하위 폴더.
+// emoji: 폴더로 묶었을 때(LIB-폴더보기, 2026-10-28 사용자 요청 08:25 ③) ▸ 삼각형 대신 닫힌/열린 폴더 그림, '폴더 밖'은 회색 점선 폴더 그림 + 흐린 글자(S51-25: 그림 문자 🗂은 PC에서 깨짐).
+// LIB-외줄합치기없애기(사용자 11/26 08:43): 하위 폴더 하나뿐인 폴더도 '가 › 나'로 접지 않는다 — 어디서나 자기 이름·자기 개수, 누르면 안에 하위 폴더.
 // LIB-사진숨김(S60-10): isPhoto를 주면 묶음 안 사진은 줄에서 빼고(줄 수·[더 보기]도 사진 뺀 줄 기준) 줄 끝에 photoTail(묶음, 사진들) 하나.
-// S69-28 LIB-한칸탐색기(명진 11/24 '윈도우 탐색기처럼'): flat={node}이면 탐색기 오른쪽 칸 — list(그 자리 바로 안 폴더)를 0단 줄(data-lu-enter)로 두고
+// S69-28 LIB-한칸탐색기(사용자 11/24 '윈도우 탐색기처럼'): flat={node}이면 탐색기 오른쪽 칸 — list(그 자리 바로 안 폴더)를 0단 줄(data-lu-enter)로 두고
 // (S69-68: 누르면 그 자리 펼치기·접기 — 들어가지 않음), 이어서 node(지금 폴더·맨 위면 '폴더 밖' 묶음)의 자료 줄을 감싸지 않고 그린다.
 // 지금 폴더 줄 자신(위치 줄과 겹치는 제목)은 그리지 않는다. 자료 줄 모양·'n개 더 보기'·[사진 n]은 펼친 폴더 안과 같다.
 export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=null,pick=null,emoji=false,isPhoto=null,photoTail=null,flat=null}){
@@ -194,12 +194,12 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
     const all=showAll(n.key),files=all?rows:rows.slice(0,FILE_LIMIT),rest=rows.length-files.length;
     return files.map(d=>fileHtml(d,n)).join('')+(rest>0?ftMoreRowHtml({rest,depth:0,attrs:{'data-lu-more':n.key},hint:n.kind==='folder'}).replace('class="ft-btn ft-row ft-more-row"','class="ft-btn ft-row ft-more-row lu-more-row"'):'')+(photos.length&&photoTail?photoTail(n,photos):'');
   };
-  // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기 = 늘 그 자리 펼치기·접기라, 안이 빈 폴더를 펼치면 안에 '빈 폴더' 한 줄(들어가지 않음).
+  // UI-폴더이름펼치기(사용자 11/24 18:09): 폴더 이름 누르기 = 늘 그 자리 펼치기·접기라, 안이 빈 폴더를 펼치면 안에 '빈 폴더' 한 줄(들어가지 않음).
   const emptyIn=n=>n.kind==='folder'&&!n.children.length&&!n.files.length?`<div class="lu-node-empty">${emptyHtml('빈 폴더')}</div>`:'';
   // lazy(탐색기 칸): 접힌 폴더는 안쪽을 그리지 않는다(보이는 줄만 화면에 — 고르기 수·사각형 고르기가 지금처럼). 펼치면 다시 그린다(library-upload.js luOnHeadClick).
   const body=(n,lazy=false)=>n.children.map(c=>one(c,'',lazy)).join('')+filesOf(n)+emptyIn(n);
   const one=(n,top='',lazy=false)=>{const open=isOpen(n.key);return `<details class="lu-node${top?' lu-enter':''}" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${top} style="--lu-depth:${folderIndent(n.depth)}"${open?' open':''}>${head(n)}<div class="lu-node-body">${lazy&&!open?'':body(n,lazy)}</div></details>`};
-  // S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09 '노조를 클릭하면 노조가 펼쳐지는거야 거기로 들어가는게 아니고 들어가는건 무조건 왼쪽에서'):
+  // S69-68 UI-오른쪽목록펼치기(사용자 11/24 20:09 '노조를 클릭하면 노조가 펼쳐지는거야 거기로 들어가는게 아니고 들어가는건 무조건 왼쪽에서'):
   //  탐색기 오른쪽 칸 폴더 줄도 그 자리에서 펼치기·접기(한 칸 나무와 같은 줄 — 안의 하위 폴더·자료가 들여 보임). 들어가기는 왼쪽 나무·⋯ 첫 줄 [이 폴더로 들어가기]만.
   //  단(depth)은 이 칸 기준 0부터 다시 센다(지금 폴더 줄 자신은 그리지 않으므로). data-lu-enter는 '탐색기 칸 0단 폴더 줄' 표시(고르기·사각형 고르기가 읽음 — 이름은 옛 그대로).
   const shift=(n,d)=>({...n,depth:d,children:(n.children||[]).map(c=>shift(c,d+1))});
@@ -256,7 +256,7 @@ export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_PHOTOS
 // 가장 높은 점수의 폴더가 하나뿐일 때만 추천(헷갈리면 추천하지 않음).
 const COMMON_WORDS=new Set(['자료','파일','문서','사본','복사본','최종','수정','수정본','첨부','붙임','new','copy','file']);
 export const titleWord=t=>String(t||'').replace(/\.[a-z0-9]{2,5}$/i,'').split(/[\s_\-·.,()[\]{}<>「」『』"'~]+/).map(w=>w.toLowerCase()).find(w=>w.length>=2&&!/^\d+$/.test(w)&&!COMMON_WORDS.has(w))||'';
-// S68-16(명진 11/22 14:45 '폴더로 나누기 제안 못하는 것들'): 첫 낱말이 똑같은 자료만 보던 규칙이 날짜 앞붙이('20261113 …')·대괄호('[취재요청]…')·
+// S68-16(사용자 11/22 14:45 '폴더로 나누기 제안 못하는 것들'): 첫 낱말이 똑같은 자료만 보던 규칙이 날짜 앞붙이('20261113 …')·대괄호('[취재요청]…')·
 // 붙은 낱말('제8차노사정')·회사 이름이 앞에 오는 제목을 못 맞췄다. 그래서 ㉠ 제목을 정리(날짜·괄호 번호·대괄호 떼기)하고
 // ㉡ 폴더 이름이 제목 안에 들어 있으면 그 폴더('제8차노사정' ⊃ '노사정'), ㉢ 아니면 같은 첫 낱말이거나 같은 회차 낱말('제7차노사정'·'제8차노사정' → '노사정')·
 // 같은 낱말 둘 이상이 든 자료가 있는 폴더를 고른다. 헷갈리면(같은 점수 둘 이상) 여전히 추천하지 않는다.
@@ -279,7 +279,7 @@ function titleTokens(t){
   return out;
 }
 const compact=t=>cleanTitle(t).replace(/\s+/g,'').toLowerCase();
-// S69-12(명진 11/24 08:09 '본부 집행위가 아닌 다른 단체 회의 자료를 집행위 폴더로 옮겨 버림'): 제목의 '임자'(단체·회의체) 낱말.
+// S69-12(사용자 11/24 08:09 '본부 집행위가 아닌 다른 단체 회의 자료를 집행위 폴더로 옮겨 버림'): 제목의 '임자'(단체·회의체) 낱말.
 // 종류 낱말(kinds: 회의자료·합의서 …)을 떼고 날짜·회차('43차')·숫자·흔한 말을 건너뛴 첫 낱말이다 — 이름 목록을 코드에 두지 않고 제목에서만 뽑는다.
 // '43차 본부집행위원회 회의자료' → '본부집행위원회', '다른협의회 6차대표자회의자료' → '다른협의회'. 없으면 ''.
 export function titleSubject(t,kinds=[]){

@@ -1,7 +1,7 @@
 import { viewPrefs } from './view-prefs.js';
 import { colDevice, colsFor, withCol } from './col-widths-model.mjs';
 import { heightStored, heightOf, clampHeight, HEIGHT_STEP } from './height-resize-model.mjs';
-// S69-29 UI-창높이끌기(명진 11/24 "창 밑으로도 드래그 가능하게 · 정확히는 높이를· 드래그로 늘릴 수 있게"): 상자(카드) 아래 테두리를 끌어 높이를 정하는 공용 부품.
+// S69-29 UI-창높이끌기(사용자 11/24 "창 밑으로도 드래그 가능하게 · 정확히는 높이를· 드래그로 늘릴 수 있게"): 상자(카드) 아래 테두리를 끌어 높이를 정하는 공용 부품.
 // 짝: 좌우 칸 경계(split-resize.js)·표 칸 너비(col-resize.js). 모양은 같은 가는 금(마우스를 올리면 보이는 2px 선), 커서만 ↕.
 // - 상자 아래 테두리에 손잡이(role=separator, 가로). 끌면 높이가 늘고 줄며, 두 번 누르면(마우스 두 번 누르기·손가락 두 번 누르기) '내용만큼(자동)'으로 돌아간다.
 //   키보드: 손잡이에 초점 → ↑/↓ 16px, Home = 자동.

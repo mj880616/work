@@ -1,6 +1,6 @@
 // collector-feed 통화: 기존 통화 분석 파일(검토__…md, Gemini가 이미 만든 것)을 읽기만 한다. AI를 부르지 않는다.
 // (docs/design/call-telegram-feed.md 1.3·3.2·3.4·4.2·4.5절, Q10~Q13)
-// 기준 형식: 명진의 통화 분석 v3.3(2026-10-24 19:30 적용), v3.5(개인 통화도 요약을 남김, status "개인"). 3.1·3.2·3.4 파일도 새 칸 없이 그대로 읽는다.
+// 기준 형식: 사용자의 통화 분석 v3.3(2026-10-24 19:30 적용), v3.5(개인 통화도 요약을 남김, status "개인"). 3.1·3.2·3.4 파일도 새 칸 없이 그대로 읽는다.
 // v3.3 새 칸: speaker_labels({"화자1": "나", "화자2": "소속 이름 직책"} 한 줄 JSON — 전사 줄 앞 `화자N:`을 이 값으로 바꿔 저장),
 //   counterparty_name·counterparty_title·counterparty_organization(상대 표시의 첫째 재료), 애매한 통화(is_work_related "" + status "애매")는 개수만.
 // - 앞머리(frontmatter): analysis_version(3.x만), status, is_work_related(true/false), call_title('조직 · 사람 직함 · 주제'),
@@ -384,10 +384,10 @@ export function titleCounterpart(title: string | null, orgs: OrgRow[]): { counte
   return { counterpart: cleanLine(`${org.name} ${person}`, CALL_LIMITS.counterpart), org };
 }
 
-// S67-47 ORG-근거만: 통화 상대 조직의 확실한 근거는 전사 파일 이름의 연락처 이름(명진 폰에 저장한 이름)뿐이다.
+// S67-47 ORG-근거만: 통화 상대 조직의 확실한 근거는 전사 파일 이름의 연락처 이름(사용자 폰에 저장한 이름)뿐이다.
 // 연락처 이름에 담당조직 하나의 이름·약칭이 적혀 있을 때만 그 조직(없거나 둘 이상이면 null). 번호만 있는 연락처는 null.
 // 분석(AI)이 고른 related_organizations·counterparty_organization·제목·상대 절의 소속은 통화 내용에서 짐작한 것이라
-// (예: 다른 조직 사람과 통화하며 이 조직의 파업 이야기를 함) 조직 연결·상대 표기·제목의 조직으로 쓰지 않는다. 비워 두면 명진이 상세에서 고른다.
+// (예: 다른 조직 사람과 통화하며 이 조직의 파업 이야기를 함) 조직 연결·상대 표기·제목의 조직으로 쓰지 않는다. 비워 두면 사용자가 상세에서 고른다.
 export function contactOrg(contact: string | null, orgs: OrgRow[]): OrgRow | null {
   if (!contact) return null;
   const active = orgs.filter((o) => o && o.active !== false && typeof o.name === "string");
@@ -530,7 +530,7 @@ function parseCallAs(input: { ref: string; analysis_md: string; transcript: stri
     counterpart = cleanLine([cpOrg?.name ?? cpOrgText ?? "", cpName, title2].filter(Boolean).join(" "), CALL_LIMITS.counterpart);
   }
   // S67-47 ORG-근거만: 조직 연결은 연락처 이름이 가리키는 조직(confirmed)만. 분석이 고른 조직(related_organizations·소속 칸·제목·상대 절)은
-  // 연결·상대 표기·제목 앞 조각에 쓰지 않는다(근거 조직이 있으면 그 이름으로 바꾸고, 없으면 뺀다). 비워 두면 명진이 상세에서 고른다.
+  // 연결·상대 표기·제목 앞 조각에 쓰지 않는다(근거 조직이 있으면 그 이름으로 바꾸고, 없으면 뺀다). 비워 두면 사용자가 상세에서 고른다.
   const organization_id = confirmed ? confirmed.id : null;
   counterpart = counterpartWith(counterpart, confirmed, active, cpOrgText);
   const title = titleWith(title1, confirmed, active);

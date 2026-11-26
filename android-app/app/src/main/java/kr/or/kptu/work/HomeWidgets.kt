@@ -77,7 +77,7 @@ object WidgetJobs {
 
 /**
  * '이번 주' 위젯을 갱신하는 작업 하나(배터리). 위젯 세션 읽기(readList)도 한 번에 묶는다: 보이는 주 일정·할 일·서버 기능 목록.
- * S68-13(11/22 명진): '지금'·'아스날' 위젯은 지웠다. 빠른 쓰기·한 칸 위젯은 서버를 읽지 않아 이 작업과 상관없다.
+ * S68-13(11/22 사용자): '지금'·'아스날' 위젯은 지웠다. 빠른 쓰기·한 칸 위젯은 서버를 읽지 않아 이 작업과 상관없다.
  */
 class WidgetWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
@@ -119,7 +119,7 @@ class WidgetWorker(context: Context, params: WorkerParameters) : Worker(context,
 
 /**
  * 홈 화면 위젯을 함께 다루는 곳. 로그인·로그아웃 뒤 앱이 부른다. 위젯 세션을 쓰는 위젯은 '이번 주' 하나.
- * S68-13(11/22 명진): '지금'·'아스날' 위젯을 지우면서 '지금' 위젯 파일에서 이 파일로 그대로 옮겼다.
+ * S68-13(11/22 사용자): '지금'·'아스날' 위젯을 지우면서 '지금' 위젯 파일에서 이 파일로 그대로 옮겼다.
  */
 object HomeWidgets {
     /** 위젯 세션을 쓰는 위젯이 하나라도 있는지(로그인 줄·갱신 대상). */

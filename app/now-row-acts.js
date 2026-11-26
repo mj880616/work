@@ -2,28 +2,28 @@ import {bindRowSwipe, PICK, EDIT} from './row-swipe.js';
 import {notify} from './small-notice.js';
 import {setMark, setSaved, sendSignal, unstar, restoreStar, removeMine, restoreMine} from './now-marks.js';
 import {openRowMenu, appMenuPoint} from './row-menu.js';
-// NOW-줄밀기(S49-3, 명진 11/03 08:55): Now 글 줄(사회운동·뉴스·보관)의 밀기·마우스 단추를 한 곳에서. 공용 줄 밀기(row-swipe.js)를 그대로 쓴다.
+// NOW-줄밀기(S49-3, 사용자 11/03 08:55): Now 글 줄(사회운동·뉴스·보관)의 밀기·마우스 단추를 한 곳에서. 공용 줄 밀기(row-swipe.js)를 그대로 쓴다.
 // S68-26부터 왼쪽 밀기 = 칸 [보관]·[숨기기](사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at — 끝까지 밀어도 칸만, 누를 때만 숨김 S70-60), 오른쪽 밀기 = [선택](여러 개).
 // 보관(= 별표, 두 쪽 같음 — S67-09)된 줄은 [보관] 칸이 [보관 풀기]. [보관] 탭은 칸 [보관 풀기]. 저장은 모두 서버(상세와 같은 now-marks.js), 누른 일마다 환류 기록. 알림 '숨겼어요 [되돌리기]'.
 // PC·중간 폭은 밀기 대신 줄 위에 마우스를 올리면(또는 키보드 초점) 작은 [보관][숨기기]([보관] 탭은 [보관 풀기]).
-// S67-11 NEWS-보관빼기(명진 11/19): 줄 오른쪽 ★(news-row.mjs, data-now-act="unstar")·밀기·마우스 단추·⋯·우클릭의 '보관 풀기'는 모두 dropSaved 하나 —
+// S67-11 NEWS-보관빼기(사용자 11/19): 줄 오른쪽 ★(news-row.mjs, data-now-act="unstar")·밀기·마우스 단추·⋯·우클릭의 '보관 풀기'는 모두 dropSaved 하나 —
 //   '보관에서 뺐어요 [되돌리기]' 5초, 되돌리면 원래 별표 시각·폴더로(원래 자리). 내가 넣은 기사(canDelete)는 [숨기기] 자리에 [삭제](deleteMine, 5초 [되돌리기]).
 // 쓰는 법: bindNowRows(목록 칸, {row:'줄 선택자', itemOf:줄→{type,id}|null, isSaved:item→bool, canDelete:item→bool, saved:bool, changed:(item,kind,on)=>void})
 //   changed kind: 'hide' | 'save'(on = 별표 켜짐) | 'release'(보관 탭에서 뺌, on = true) | 'delete'(on = 삭제됨, false = 되돌림).
 
-// S68-28(명진 11/23): News 화면에서 '보관' 단어를 없앴다 — 같은 동작(app_reading_keep)을 '읽을 거리로'/'읽을 거리에서 빼기'로 불렀다.
-// S68-34(명진 11/23 02:32·02:41): 화면 이름이 'News → 읽을 거리', '읽을 거리 → 저장한 글'로 바뀌어 단추는 [저장]·[삭제](= 저장한 글에서 빼기, 기사는 그대로).
+// S68-28(사용자 11/23): News 화면에서 '보관' 단어를 없앴다 — 같은 동작(app_reading_keep)을 '읽을 거리로'/'읽을 거리에서 빼기'로 불렀다.
+// S68-34(사용자 11/23 02:32·02:41): 화면 이름이 'News → 읽을 거리', '읽을 거리 → 저장한 글'로 바뀌어 단추는 [저장]·[삭제](= 저장한 글에서 빼기, 기사는 그대로).
 //   접근성 이름·되돌리기 기록은 RELEASE_ARIA '저장한 글에서 삭제'. 내가 넣은 기사(canDelete)를 저장까지 해 둔 줄은 [삭제]가 둘이 되므로
 //   기사 자체 삭제 쪽을 '기사 삭제'(DELETE_BOTH_LABEL)로 부른다(docs/design/ui-words.md).
 // 고르기 막대의 [삭제] = 숨기기(S70-64b). 줄 밀기·⋯의 [숨기기] 글자는 그대로.
 export const PICK_HIDE_LABEL = '삭제';
 export const HIDE_LABEL = '숨기기', SAVE_LABEL = '저장', EDIT_LABEL = '수정', RELEASE_LABEL = '삭제', RELEASE_ARIA = '저장한 글에서 삭제', DELETE_LABEL = '삭제', DELETE_BOTH_LABEL = '기사 삭제';
-// S69-03(명진 11/24 06:48 "저장된 글에서 저장 버튼이 눌린 것 표현한 것이었다면 글자도 저장됨v 이런식으로 바뀌면 인정"): 글 상세 아래 줄의
+// S69-03(사용자 11/24 06:48 "저장된 글에서 저장 버튼이 눌린 것 표현한 것이었다면 글자도 저장됨v 이런식으로 바뀌면 인정"): 글 상세 아래 줄의
 //   저장 단추는 켜고 끄는 단추(aria-pressed)라 눌린 상태 글자는 '저장됨 ✓'([관심 없음 ✓]와 같은 꼴). 누르면 저장한 글에서 삭제(5초 [되돌리기]).
 //   줄 밀기·마우스 단추·⋯·우클릭은 하는 일 이름이라 그대로 [삭제].
 export const SAVED_LABEL = '저장됨 ✓', SAVED_ARIA = '저장됨 — 누르면 저장한 글에서 삭제';
 export const SAVED_TEXT = '저장한 글에 넣었어요', RELEASED_TEXT = '저장한 글에서 삭제했어요';
-export const UNDO_MS = 5000; // 보관 빼기·삭제 되돌리기 알림은 5초(명진 11/19)
+export const UNDO_MS = 5000; // 보관 빼기·삭제 되돌리기 알림은 5초(사용자 11/19)
 
 // 보관에서 빼기(별표 끄기) 하나 — 줄 ★·밀기·단추·⋯·우클릭이 모두 부른다. saved: [보관] 목록 칸이면 true(changed 'release'), 아니면 changed('save', false).
 // S68-29: 읽을 거리 화면은 같은 길을 '삭제'로 부른다(text·label로 알림 글만 바꿈 — 서버 일은 같다).
@@ -68,7 +68,7 @@ export function rowMenuItems({saved = false, isSaved = false, canDelete = false,
 
 // titleOf: 우클릭 메뉴 머리에 보일 줄 제목(기본은 News 줄의 .nw-title — 다른 화면이 같은 줄 밀기를 쓸 때 줄 제목 위치를 알려 준다: 홈 읽을 만한 글).
 const nwTitle = el => el.querySelector('.nw-title')?.textContent || '';
-// S70-62 READ-밀기메뉴(명진 11/26 07:41 "읽을 거리에서는 수정 저장 숨기기"): canEdit(item)이 참인 줄은 밀기 칸·⋯·우클릭 맨 앞에 [수정] — onEdit(item)
+// S70-62 READ-밀기메뉴(사용자 11/26 07:41 "읽을 거리에서는 수정 저장 숨기기"): canEdit(item)이 참인 줄은 밀기 칸·⋯·우클릭 맨 앞에 [수정] — onEdit(item)
 //   (부르는 화면이 그 글 보기를 열고 기존 ⋯ [수정] 창을 연다. 새 수정 창 없음). 넘기지 않은 화면(홈·노트)은 전처럼.
 export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete = () => false, canEdit = () => false, onEdit = null, saved = false, changed = () => {}, enabled = () => true, titleOf = nwTitle} = {}) {
   if (!host) return {close() {}};
@@ -97,9 +97,9 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
   }
   const editable = item => !!onEdit && !!canEdit(item);
   const menuItems = item => rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item), canEdit: editable(item)});
-  // UI-줄밀기 Raindrop식(S68-26, 명진 11/22): 왼쪽으로 밀기 = 오른쪽 끝 칸 [보관]/[보관 풀기]·[숨기기](내가 넣은 기사는 [삭제]).
+  // UI-줄밀기 Raindrop식(S68-26, 사용자 11/22): 왼쪽으로 밀기 = 오른쪽 끝 칸 [보관]/[보관 풀기]·[숨기기](내가 넣은 기사는 [삭제]).
   // 끝까지 밀어도 칸만 열린다(S70-60) — 일은 칸을 누를 때만. 오른쪽으로 밀기 = 여러 개 선택.
-  // S70-64b(명진 11/26 07:46 "전체선택 저장 삭제 만 있음 될 듯? 읽을 거리 선택 메뉴에서는"): 막대 = [전체 선택][저장][삭제].
+  // S70-64b(사용자 11/26 07:46 "전체선택 저장 삭제 만 있음 될 듯? 읽을 거리 선택 메뉴에서는"): 막대 = [전체 선택][저장][삭제].
   //   막대 [삭제]는 숨기기와 같다(숨긴 글은 ⋯ [숨긴 글]에서 다시 보이기). [저장한 글] 탭은 [전체 선택][삭제](저장 빼기).
   const attr = (/^\[([a-z0-9-]+)\]$/.exec(row) || [])[1];
   const swipe = bindRowSwipe(host, {row, enabled,

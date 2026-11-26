@@ -6,7 +6,7 @@ import { expandLibraryTree } from './helpers/library-tree.mjs';
 import { start, openFiles } from './helpers/files-server.mjs';
 import { screenFind } from './helpers/screen-find.mjs';
 
-// LIB-사진숨김나머지(S61-1, 명진 결정 11/13 "모두 숨김"): #2448이 남겨 둔 곳도 같은 규칙 — 사진은 줄에서 빼고 목록 맨 아래 [사진 n] 하나,
+// LIB-사진숨김나머지(S61-1, 사용자 결정 11/13 "모두 숨김"): #2448이 남겨 둔 곳도 같은 규칙 — 사진은 줄에서 빼고 목록 맨 아래 [사진 n] 하나,
 // 누르면 그 자리에 작은 그림, 그림을 누르면 크게 보기. 자료실 '최근 올린 파일', [파일] '최근' 상자·별표·큰 파일 묶음·찾기 결과.
 // (사업 보고 사진 묶음 줄은 library-photoset.spec.mjs.) 모든 이름·번호는 지어낸 것이다.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';

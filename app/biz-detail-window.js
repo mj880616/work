@@ -3,7 +3,7 @@
 // - 줄 = 그 주 사업 기록 + 그 주 사업 보고를 사업별로 묶음(규칙은 biz-detail-model.mjs). 사업 보고 결과 본문이 있으면 기본 '상세 포함'(줄 아래 본문).
 // - 줄 ⋯ = [보고용으로 수정](작은 ✓)·[원래 글로]·[이번 보고에서 빼기]·[한 줄만 ↔ 상세 포함](본문 있는 사업 보고만)·[기록 열기](사업 보고 줄은 [보고 열기])(+ 홈에서는 [이 종류 늘 빼기]).
 //   보고에만 다른 것은 app_report_line_marks(section 'biz_detail', '그 주부터' 이어짐)에 한 행. 원래 사업 기록·사업 보고는 바꾸지 않는다.
-// - ORG-빠진일2차 3번(S59-3, 명진 결정 11/11 '가'): 사업 기록(한 줄 글) 줄 ⋯ 맨 아래에만 빨간 [삭제](한 번 묻고, 기존 owner RLS DELETE — business-now-data.js deleteBusinessRecord).
+// - ORG-빠진일2차 3번(S59-3, 사용자 결정 11/11 '가'): 사업 기록(한 줄 글) 줄 ⋯ 맨 아래에만 빨간 [삭제](한 번 묻고, 기존 owner RLS DELETE — business-now-data.js deleteBusinessRecord).
 //   사업 보고 줄에는 [삭제]가 없고 [보고 열기]로 보고 창을 연다(보고 삭제는 보고 창에서 — 자료·Drive까지 가는 길이라 이 ⋯에 두지 않는다).
 // - ORG-뺀줄지난줄메뉴: 뺀 줄도 보이는 줄과 같은 작은 ⋯ 하나(메뉴 맨 위 [되돌리기], 그 아래 [보고용으로 수정]·[원래 글로]·[기록 열기]). 큰 [되돌리기] 단추는 없다. PC 우클릭은 공용 context-menu.js가 그 줄 ⋯를 연다.
 // - 묶음 아래 [뺀 줄 n](펼쳐 ⋯ [되돌리기])·[+ 쓰기](그 사업 사업 기록 한 줄, business-now-data.js saveBusinessRecord), 맨 아래 [+ 쓰기](사업 고르기).
@@ -86,7 +86,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
       if (where === 'shown' && l.canFull) items.push({text: l.detail === 'full' ? '한 줄만' : '상세 포함', data: {bdDetail: l.id}, aria: `${l.detail === 'full' ? '한 줄만' : '상세 포함'}: ${l.text}`});
       if (where === 'shown') items.push({text: '이번 보고에서 빼기', data: {bdOut: l.id}, danger: true, aria: `이번 보고에서 빼기: ${l.text}`});
     }
-    // 열기: 사업 보고 줄은 [보고 열기](보고 창 — 보고 삭제는 거기서), 사업 기록 줄은 [기록 열기] + 맨 아래 [삭제](S59-3, 명진 결정 11/11 '가').
+    // 열기: 사업 보고 줄은 [보고 열기](보고 창 — 보고 삭제는 거기서), 사업 기록 줄은 [기록 열기] + 맨 아래 [삭제](S59-3, 사용자 결정 11/11 '가').
     const openText = l.kind === 'meeting' ? '보고 열기' : '기록 열기';
     items.push({text: openText, data: {bdOpen: l.id}, aria: `${openText}: ${l.text}`});
     if (l.kind === 'biz_record') items.push({text: '삭제', data: {bdDel: l.id}, danger: true, aria: `삭제: ${l.text}`});

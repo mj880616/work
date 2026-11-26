@@ -162,7 +162,7 @@ export function sharePhotoIds(blocks: unknown[]): string[] {
   return [...found];
 }
 
-// BLOG ①: 명진 블로그 화면(bokdoong.com, docs/design/blog.md 5절) 정확히 하나를 더한다.
+// BLOG ①: 사용자 블로그 화면(bokdoong.com, docs/design/blog.md 5절) 정확히 하나를 더한다.
 export const ALLOWED_ORIGINS = new Set(["https://work.bokdoong.com", "https://bokdoong.com"]);
 export const MAX_BODY_BYTES = 1024;
 const TOKEN = /^[0-9a-f]{64}$/;

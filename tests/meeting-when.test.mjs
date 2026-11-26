@@ -17,7 +17,7 @@ test('결과 글의 회의 일시를 여러 표기로 읽는다',()=>{
     ['1. 일시: 2026-10-19 PM 3:15','15:15'],
     ['시간 : 15:00 ~ 17:00','15:00'],
   ];
-  for(const [line,want] of cases)assert.equal(meetingTimeFromText(`궤도협의회 3차 회의 결과\n${line}\n장소: 본부 회의실`),want,line);
+  for(const [line,want] of cases)assert.equal(meetingTimeFromText(`레일협의회 3차 회의 결과\n${line}\n장소: 본부 회의실`),want,line);
 });
 
 test('일시 줄이 없으면 앞쪽 줄 중 날짜와 시각이 함께 있는 줄만 본다',()=>{

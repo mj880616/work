@@ -3,7 +3,7 @@
 // - 서버 호출(rec_start·rec_piece·rec_finish·rec_save·rec_pending·rec_discard·rec_restore)은 이 화면이 웹2 로그인 세션(runtime api)으로 한다.
 //   앱은 토큰을 보지 않는다. 조각 내용은 ./__rec/<한 번 번호>를 fetch하면 앱이 WebView 안에서 흘려준다(서버로 나가지 않음).
 // - 저장 흐름(rec_finish → rec_save: 자료실 '회의 녹음' 폴더)은 노트북 녹음(meeting-recorder.js)과 같은 규칙(meeting-recorder-model.mjs saveRecording)을 쓴다.
-//   S61-5 REC-전사삭제(명진 11/13): 전사·요약·회의 기록 초안은 하지 않는다. 띠에는 저장한 파일 이름 · [내려받기] · [Drive에서 열기].
+//   S61-5 REC-전사삭제(사용자 11/13): 전사·요약·회의 기록 초안은 하지 않는다. 띠에는 저장한 파일 이름 · [내려받기] · [Drive에서 열기].
 import {retryDelay,pieceOutcome,pendingOthers,saveRecording,saveFailText} from './meeting-recorder-model.mjs';
 import {word} from './brand/brand.mjs';
 

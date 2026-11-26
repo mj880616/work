@@ -214,7 +214,7 @@ test('repeated meeting save submits one meeting and one Google follow-up',async(
   expect(busy).toEqual({disabled:true,text:'저장 중…'});
 });
 
-// S50-36(2026-11-06 명진 결정): 사업 보고 후속 할 일도 줄마다 고른 날이 없으면 오늘(한국 날짜), 고르면 그날.
+// S50-36(2026-11-06 사용자 결정): 사업 보고 후속 할 일도 줄마다 고른 날이 없으면 오늘(한국 날짜), 고르면 그날.
 test('meeting follow-ups without a picked day are due today, picked days stay',async({page})=>{
   await signIn(page);
   const creates=[];
@@ -569,8 +569,8 @@ for(const width of [320,360,390,760]){
     await page.setViewportSize({width,height:800});
     await signIn(page);
     // S52-22 TEAM-맨위한줄 → BIZ-위쪽정돈(11/09 01:22 확정안): 맨 윗줄(.report-top-line)은 제목 ……… [녹음][+][⋯], 둘째 줄(.report-kind-bar)은 [종류 ▾][사업영역 ▾][주 ▾]. 칩 줄·[거르기]는 없다. ⋯는 맨 윗줄 오른쪽 끝.
-    // S67-64 UI-윗줄한줄(명진 11/21 D3): 폰(~760px)은 첫 줄과 고르기 줄이 한 줄(.report-top) — [아이콘][사업 관리][고르기 …][+][⋯]. .report-top-line은 자리만 내준다.
-    // S67-75 UI-걸러보기칩하나(명진 A안): 고르기 상자들이 줄에 다 안 들어가는 폭은 칩 하나(#reportFilterChip)가 그 자리다.
+    // S67-64 UI-윗줄한줄(사용자 11/21 D3): 폰(~760px)은 첫 줄과 고르기 줄이 한 줄(.report-top) — [아이콘][사업 관리][고르기 …][+][⋯]. .report-top-line은 자리만 내준다.
+    // S67-75 UI-걸러보기칩하나(사용자 A안): 고르기 상자들이 줄에 다 안 들어가는 폭은 칩 하나(#reportFilterChip)가 그 자리다.
     const inChip=await reportBoxesInChip(page),chip=page.locator('#reportFilterChip');
     // BIZ-머리한줄(S71-23): 폰·폴드는 첫 줄(#reportTop)이 앱 머리 줄 안 — [W][사업 관리][고르기 …] n건 찾기 [+]. 줄 끝 [+] 하나(⋯·녹음 없음).
     const top=page.locator('#reportTop'),bar=inChip?chip:page.locator('#reportFilterBar');

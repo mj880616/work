@@ -204,7 +204,7 @@ test('trimTail·matchScopeName', () => {
   assert.equal(m.matchScopeName('예시 거래처', '', null), null);
 });
 
-// S68-56(명진 11/23 15:06·15:12): 미리 정한 칸(챙길 일·우리 조직 관련·대응할 것·쟁점별·숫자)에 끼워 넣지 않는다.
+// S68-56(사용자 11/23 15:06·15:12): 미리 정한 칸(챙길 일·우리 조직 관련·대응할 것·쟁점별·숫자)에 끼워 넣지 않는다.
 test('S68-56 프롬프트·스키마: 고정 칸 없음, 자료 짜임대로, 누가 한 말인지 문장 안에, 요지·소제목·인용', async () => {
   for (const text of [m.CHUNK_INSTRUCTIONS, m.MERGE_INSTRUCTIONS]) {
     assert.match(text, /칸을 미리 정하지 않는다/);

@@ -18,10 +18,10 @@
 // 화면 색 허용 목록은 여기 한 곳이다(UI-화면색10, 2026-10-27 재정리로 열 가지: 수수한 다섯 → 산뜻한 다섯 차례). 고르는 창·저장 확인·시험이 이 목록을 읽는다. DB 검사(app_profiles_view_prefs_check)와 같은 값이어야 한다.
 // 빠진 색(terracotta·sand·mugwort·rose·mustard) 이름이 서버에 남아 있으면 parsePrefs가 그 칸만 버려 기본(ink, 먹)으로 보이고, 다른 칸을 저장할 때 다시 쓰지 않는다.
 export const THEMES = Object.freeze(['olive', 'navy', 'ink', 'lavender', 'teal', 'sky', 'mint', 'coral', 'lemon', 'red']);
-export const DEFAULT_THEME = 'ink'; // S67-64: 기본 색은 먹(명진 2026-11-21)
+export const DEFAULT_THEME = 'ink'; // S67-64: 기본 색은 먹(사용자 2026-11-21)
 export const CALENDAR_VIEWS = Object.freeze(['list', 'week', 'month']);
 export const QUICK_MODES = Object.freeze(['update', 'task']);
-// UI-작은결정묶음 ④(명진 10/27): 칸 폭은 화면마다 따로 — 텔레그램·통화·참고 묶음·사업 보고 3단이 다른 화면 값을 같이 쓰지 않는다
+// UI-작은결정묶음 ④(사용자 10/27): 칸 폭은 화면마다 따로 — 텔레그램·통화·참고 묶음·사업 보고 3단이 다른 화면 값을 같이 쓰지 않는다
 // (migration 20261029010000_profile_view_prefs_split_screens. 적용 전에는 새 이름 쓰기가 400이라 이 화면은 그 DB 적용 뒤 merge).
 // UI-칸폭끌기전수(요청함 10/30 10:29): 사진 폴더·아스날·노트 폴더·노트 보드 넷을 더함(migration 20261031030000_profile_view_prefs_split_more).
 // 적용 전에는 새 이름 쓰기가 400이라 칸 폭은 rejectable로 보내 그 칸만 되돌린다(다른 화면 기억은 그대로 저장, 새로고침하면 기본 폭).
@@ -35,7 +35,7 @@ export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사
 // OD-사진크기: photo_cols(폰 사진 격자 한 줄 칸 수 2·3·4·6)·photo_cols_wide(넓은 화면 6·8·10). 단계의 뜻은 photo-grid-size.js, 모양은 DB 검사(migration 20261028090000)와 같다.
 export const PHOTO_COLS = Object.freeze([2, 3, 4, 6]), PHOTO_COLS_WIDE = Object.freeze([6, 8, 10]);
 export const DIARY_VIEWS = Object.freeze(['calendar', 'list']); // 일기 [달력|목록] (JOURNAL-일기목록, migration 20261028100000). 적용 전에는 쓰기가 400이라 달력 그대로
-// PHOTO-사진메뉴 2차: photo_view = 사진 메뉴 거르기·칸 수 {filter: all|star|video|shot, cols: 3~12}(둘 다 선택, 명진 결정 6 — 일기 photo_cols와 따로). migration 20261028220000
+// PHOTO-사진메뉴 2차: photo_view = 사진 메뉴 거르기·칸 수 {filter: all|star|video|shot, cols: 3~12}(둘 다 선택, 사용자 결정 6 — 일기 photo_cols와 따로). migration 20261028220000
 export const PHOTO_VIEW_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']);
 // PHOTO-정렬: photo_view.sort = 사진·폴더·앨범 정렬 기준(없으면 찍은 날 최근 먼저). migration 20261030150000. 뜻은 photos-model.mjs SORTS. 적용 전에는 쓰기가 400이라 rejectable로 되돌리고 알린다.
 export const PHOTO_VIEW_SORTS = Object.freeze(['taken_desc', 'taken_asc', 'uploaded_desc', 'name_asc', 'size_desc', 'duration_desc']);
@@ -63,7 +63,7 @@ export const TG_VIEWS = Object.freeze(['day', 'room']);
 // photo_level = 사진 보기 단계 'year'·'month'·'day'(없으면 일). migration 20261103190000. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(출처는 기본값, 보기 단계는 이번 접속만).
 // REPORT-기간고르기(S49-11): report_period = 사업 보고 목록 기간 보기 {mode:'all'|'week'|'range', from?, to?}. range일 때만 from·to(YYYY-MM-DD, from<=to). 주간 보기(week)는 저장하지 않고 비운다(기본). migration 20261103200000.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다.
-// FILES-출처켜고끄기(S49-21) + 기기마다 따로(S49-26, 명진 결정 H-8): files_sources = [파일] 위 줄 출처 아이콘 켜기/끄기를 기기 종류별로
+// FILES-출처켜고끄기(S49-21) + 기기마다 따로(S49-26, 사용자 결정 H-8): files_sources = [파일] 위 줄 출처 아이콘 켜기/끄기를 기기 종류별로
 // {app?: {od?, gd?}, phone?: {...}, pc?: {...}}(app = 폰 앱, phone = 폰 브라우저, pc = 그 밖; 칸마다 참·거짓, 없으면 둘 다 켜짐). migration 20261104090000. 뜻은 files-sources-model.mjs.
 // 쓰기는 'files_sources.<기기>' 한 칸씩(split_ratio처럼): 보내기 직전 서버 값과 합쳐 다른 기기 칸을 덮지 않는다.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
@@ -79,7 +79,7 @@ export const NOTE_LIST_SORT_KEYS = Object.freeze(['title', 'folder', 'changed', 
 export const NOTE_COLS = Object.freeze(['folder', 'tags', 'day', 'made', 'clip', 'memo', 'chars', 'pub']); // note_cols 칸 이름(DB 검사와 같음, 이 차례로 보인다)
 export const FILES_SOURCE_DEVICES = Object.freeze(['app', 'phone', 'pc']);
 const filesFlagsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_SOURCE_NAMES.includes(name) && typeof v[name] === 'boolean');
-// FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2): files_two = [파일] 위 줄 [두 칸] 켬을 기기 종류별(app·phone·pc, files_sources와 같은 모양)로,
+// FILES-통합 2-③ 두 칸(S49-30, 사용자 결정 H-2): files_two = [파일] 위 줄 [두 칸] 켬을 기기 종류별(app·phone·pc, files_sources와 같은 모양)로,
 // 기기 칸 안은 화면 폭 종류마다 참·거짓 {fold?: 폴드 펼침 761~1199, wide?: PC 1200~}(없으면 폴드 = 두 칸, PC = 한 칸). migration 20261104190000. 뜻은 files-panes-model.mjs.
 // 쓰기는 'files_two.<기기>' 한 칸씩(files_sources처럼). 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
 export const FILES_TWO_LAYOUTS = Object.freeze(['fold', 'wide', 'narrow']); // narrow = 폰 위·아래 두 칸(S51-20 ②, migration 20261106200000)
@@ -88,7 +88,7 @@ const filesTwoOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Obj
 // S49-48 PHOTO-연월보기: photo_zoom = [사진] 탭 보기 단계를 기기 종류별로 {app?, phone?, pc?: 'year'|'month'|'day'}(없으면 일). migration 20261104221000. 뜻은 photo-zoom-model.mjs.
 // 쓰기는 'photo_zoom.<기기>' 한 칸씩. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
 const photoZoomOk = v => PHOTO_LEVELS.includes(v);
-// MULTI-노조사용자 ②-3(D5, S50-13): 담당조직 묶음·순서와 보고 캘린더 이름은 사람마다 따로(migration 20261105131500, 명진 값은 그 migration이 옮김).
+// MULTI-노조사용자 ②-3(D5, S50-13): 담당조직 묶음·순서와 보고 캘린더 이름은 사람마다 따로(migration 20261105131500, 사용자 값은 그 migration이 옮김).
 // org_order = {groups: [{name: 묶음 이름 1~20자, orgs: [조직 이름 1~60자, 1~40개]}, 12개까지], hidden: [고르기에서 뺄 조직 이름, 40개까지]} — 둘 다 있어야 한다.
 // report_calendar = 주간 정리 '주요 일정'의 업무 캘린더 이름(1~60자). 없으면 모든 캘린더를 업무로 본다(S71-34).
 // 뜻은 organization-order.js(묶음·순서)·report-calendar.mjs(캘린더). 묶음·순서는 조직 보고 화면, 캘린더는 화면에서 고치지 않는다(이미 저장된 값만, 바꿀 때는 SQL). 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다.

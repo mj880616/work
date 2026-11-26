@@ -1,4 +1,4 @@
-// WEEKLY-내양식자유변형 ②(요청함 11/15 21:38–21:57, 명진 확정; 시안 docs/design/mockups/weekly-own-form.html #2664):
+// WEEKLY-내양식자유변형 ②(요청함 11/15 21:38–21:57, 사용자 확정; 시안 docs/design/mockups/weekly-own-form.html #2664):
 // '내 양식' 모양 하나 — 항목(절) 순서·이름·단계, 표 머리 칸, 칸마다 채울 기록. 서버 표 app_weekly_forms.form 에 그대로 저장한다
 // (20261116003000_weekly_own_forms). DB는 큰 틀(판 1·항목 40개·30000바이트)만 막고, 세부 모양은 여기서 맞춘다(모르는 값은 버림).
 // 기록 내용(주간 보고 본문 글)은 넣지 않는다 — 양식 글자(항목 이름·표 머리 칸 이름)만.
@@ -110,7 +110,7 @@ export const renameColumn = (form, id, index, name) => withSections(form, form.s
 export const removeColumn = (form, id, index) => renameColumn(form, id, index, '');
 export const sameForm = (a, b) => JSON.stringify(cleanForm(a)) === JSON.stringify(cleanForm(b));
 
-// ---- WEEKLY-처음시작고르기(시안 docs/design/mockups/weekly-start-choice.html ★A안, 명진 11/17 "ㅇ"): 처음 여는 사람의 번호 4개 ----
+// ---- WEEKLY-처음시작고르기(시안 docs/design/mockups/weekly-start-choice.html ★A안, 사용자 11/17 "ㅇ"): 처음 여는 사람의 번호 4개 ----
 // 바탕(자료실 확정본)도 '내 양식'도 없는 사람의 첫 화면. 번호를 누르면 바로 저장하지 않고 [양식 수정] 화면(weekly-own-form-edit.js)을 그 모양으로 연다.
 // 채울 기록은 지금 초안 엔진(weekly-own-draft-model.mjs)이 실제로 채우는 것만: 표 칸은 columnKinds 규칙(사업명·조직 → 이름, 날짜 → 날짜, 진행·상황 → 내용,
 // 계획 → 빈칸)으로 맞춰진다. 미리보기 글은 모두 지어낸 예시(특정 노조·팀·사람 흔적 없음). filled: 그 주 기록에서 자동으로 채워지는 칸(노란 칸).
@@ -140,7 +140,7 @@ export function startForm(key) {
   const one = START_CHOICES.find(c => c.key === key) ?? START_CHOICES[0];
   return {form: cleanForm(one.form), name: one.key === 'own' ? formName('') : formName(one.name)};
 }
-// WEEKLY-처음시작여러개(명진 11/17 16:04 "복수선택 가능해야할 듯"): 1~3은 여러 개, 4 직접 만들기(빈 양식)는 혼자만.
+// WEEKLY-처음시작여러개(사용자 11/17 16:04 "복수선택 가능해야할 듯"): 1~3은 여러 개, 4 직접 만들기(빈 양식)는 혼자만.
 const START_OWN = 'own';
 // 고른 열쇠 목록 맞추기: 없는 열쇠·중복 빼고 번호 순서(1→2→3). 4가 다른 것과 섞여 있으면 4를 뺀다(빈 양식은 더할 것이 없음).
 export function startPicks(keys) {

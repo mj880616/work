@@ -187,7 +187,7 @@ test('horizontal swipes never change the tab; the bottom tabs do',async({page})=
   await expect(page.locator('[data-mobile-view-name]')).toBeHidden();
   await page.locator('.mobile-tabs [data-view="calendar"]').click();
   await expect(page.locator('[data-mobile-view-name]')).toHaveText('일정');
-  // S67-64 UI-윗줄한줄(명진 11/21 D2 제목 글씨, 옛 UI-디자인기준 18px): 머리줄 이름은 15px·중간 굵기(500).
+  // S67-64 UI-윗줄한줄(사용자 11/21 D2 제목 글씨, 옛 UI-디자인기준 18px): 머리줄 이름은 15px·중간 굵기(500).
   await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','15px');
   await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-weight','500');
   await page.locator('#mobileMenuTab').click();

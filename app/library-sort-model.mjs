@@ -81,7 +81,7 @@ export function learnReasons(units,{docs=[],items=[],folders=[],targets=null,aut
 }
 
 // 근거 없는 자료: 그림(사진 묶음 포함)인데 이름이 '붙여넣은 그림 11-13 03:38'·'IMG_1234'·'스크린샷'처럼 기본 이름뿐인 것.
-// S68-18(명진 11/22 15:32): 이름에 주제가 없어도 그림 속 글자(서버가 Drive OCR로 읽어 둔 app_documents.extracted_text, AI 비용 없음)가 있으면
+// S68-18(사용자 11/22 15:32): 이름에 주제가 없어도 그림 속 글자(서버가 Drive OCR로 읽어 둔 app_documents.extracted_text, AI 비용 없음)가 있으면
 // 그 글자로 ① 규칙(글자 앞부분에 폴더 이름 포함·비슷한 제목)을 먼저 보고, 못 찾으면 ② AI에 보낸다(서버 library_sort가 그 글자 앞 300자를 이미 재료로 씀).
 // 이름도 기본이고 그림 글자도 없을 때만 근거 없음 — AI에 보내지 않고 그림 모음 폴더(imageHome)를 제안한다.
 const GENERIC_IMAGE=/붙여\s*넣은|그림|사진|이미지|스크린\s*샷|화면\s*캡처|캡처|캡쳐|제목\s*없음|카카오톡|screenshot|screen\s*shot|image|img|photo|pic|pasted|kakaotalk|untitled|dsc|pxl|jpe?g|png|heic|webp|gif|\d+/gi;
@@ -254,7 +254,7 @@ export function sortSummary(rows,progress=null){
 // 옮긴 뒤 한 줄.
 export const doneText=(moved,made,failed=0)=>`${moved}개를 폴더로 옮겼어요${made?` · 새 폴더 ${made}개`:''}${failed?` · ${failed}개는 옮기지 못했어요`:''} ·`;
 
-// ---- LIB-정돈제안(S61-13, 시안 docs/design/mockups/lib-tidy-suggest.html, 명진 11/13 04:31·04:36 ㅇ) ----
+// ---- LIB-정돈제안(S61-13, 시안 docs/design/mockups/lib-tidy-suggest.html, 사용자 11/13 04:31·04:36 ㅇ) ----
 // 자료실 전체(또는 고른 폴더 안)에서 같은 종류인데 폴더가 둘 이상으로 갈라진 자료를 묶음으로 찾는다 — 순수 규칙(AI 없음, 1차).
 // 묶음 낱말: 이름에 든 종류 낱말(합의서·회의록·명단 …) 중 맨 뒤 것(한국어 이름은 뒤 낱말이 종류), 없으면 첫 낱말(받는 폴더 나누기와 같은 titleWord).
 // 옮길 곳: 그 묶음이 가장 많이 든 폴더(받는 폴더·폴더 밖은 빼고). 마땅한 폴더가 없으면 묶음 낱말 이름의 새 폴더(정돈하는 폴더 안 또는 맨 위).
@@ -303,7 +303,7 @@ export function tidyUnits(listDocs,items,folders,{scopeId=null}={}){
   return out;
 }
 
-// S69-12(명진 11/24 08:09): 묶음은 종류 낱말 하나가 아니라 '임자(단체·회의체) + 종류'로 만든다.
+// S69-12(사용자 11/24 08:09): 묶음은 종류 낱말 하나가 아니라 '임자(단체·회의체) + 종류'로 만든다.
 // 예전에는 '본부집행위원회 회의자료'와 '다른협의회 대표자회의자료'가 모두 '회의자료' 한 묶음이 되어 가장 많이 든 폴더(집행위)로 갔다.
 // 임자는 제목에서만 뽑는다(library-tree.js titleSubject — 단체 이름 목록을 코드에 두지 않음).
 export const tidySubject=title=>titleSubject(title,TIDY_KIND_WORDS);
@@ -314,7 +314,7 @@ export function tidyLabel(subject,kind){return [subject,kind].filter(Boolean).jo
 // ① 흩어진 묶음: 같은 임자·같은 종류인데 폴더가 둘 이상으로 갈라진 자료. 옮길 곳은 그 묶음이 가장 많이 든 폴더 — 단, 그 폴더의 주인 임자가 같을 때만.
 //    아니면 '임자 종류' 이름의 같은 폴더, 그것도 없으면 그 이름의 새 폴더.
 // ② 섞인 묶음(폴더 안 정돈일 때만): 폴더 주인 임자와 다른 임자의 자료를 임자별로. 같은 임자 자료가 모인 다른 폴더(또는 이름에 그 임자가 든 폴더)가 있으면 '옮기기',
-//    없으면 그 폴더 옆 새 폴더(임자 이름) 제안이되 기본은 '그대로'(애매하면 옮기지 않음 — 명진이 골라 옮김).
+//    없으면 그 폴더 옆 새 폴더(임자 이름) 제안이되 기본은 '그대로'(애매하면 옮기지 않음 — 사용자가 골라 옮김).
 // receiveId(받는 폴더)·폴더 밖(null)은 옮길 곳 후보가 아니다(잡동사니에서 꺼내는 것이 목적). allUnits: 주인 임자를 셀 때 쓰는 자료실 전체 단위(없으면 units).
 // S69-16: ⓪ 본보기 먼저 — 폴더 밖·받는 폴더 자료는 이미 폴더에 든 내 자료와 가장 닮은 폴더로(묶음 'e:폴더', 줄마다 '닮은 자료: …').
 //    비슷한 폴더가 여럿이면 '고르기' 묶음('p:…', 기본 '그대로'), 닮음이 약하면 아래 ①②의 옛 규칙으로 넘긴다. auto: learnReasons와 같음.

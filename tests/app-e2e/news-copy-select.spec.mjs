@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
-// S52-39 NEWS-원문복사선택(시안 docs/design/mockups/news-copy-select.html, 명진 11/08 01:39 'ㅇ'):
+// S52-39 NEWS-원문복사선택(시안 docs/design/mockups/news-copy-select.html, 사용자 11/08 01:39 'ㅇ'):
 // 원문 칸 머리 줄 [복사][번역(외국어 글만)][−][+] ⋯. [복사] = 제목 / 매체·날짜 / 본문 전체(문단 그대로) / 원래 주소를 한 번에(번역해서 보는 중이면 한국어 본문),
 // 위쪽 작은 알림 '복사했어요'. ⋯ = [모두 선택](원문 본문 전체가 선택된 상태)·[복사]·[공유](폰 공유 창 — 제목·주소만, 공유 창이 없는 화면엔 없음).
 // PC는 원문 위 우클릭도 같은 ⋯ 메뉴. 복사·선택은 화면 안에서만(서버에 새로 보내는 요청 없음). 서버는 흉내, 글은 모두 가상.

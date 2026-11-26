@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {holdPick} from '../app/select-mode.js';
 
-// S69-84 목록 엔진 통일 ①(2026-11-24 23:57 명진 "폴드 펼침 화면에서도 꾹 눌러 선택 등 움직임 통일 뭔가 지금 어설퍼"):
+// S69-84 목록 엔진 통일 ①(2026-11-24 23:57 사용자 "폴드 펼침 화면에서도 꾹 눌러 선택 등 움직임 통일 뭔가 지금 어설퍼"):
 // 폰·폴드 펼침·PC 모두 같은 규칙 — 손가락 꾹 누르기 = 선택 모드 + 그 줄(이미 선택 모드면 더하기, 토글 아님), 선택 모드에서 손가락 누르기 = 더하기/빼기,
 // 꾹 눌러 움직이면 끌기, 메뉴는 ⋯. 기기 폭이 아니라 손가락이냐 마우스냐(pointerType)로 가른다. 화면 시험은 tests/app-e2e/standard-interactions.spec.mjs P4·D5.
 const read = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8');

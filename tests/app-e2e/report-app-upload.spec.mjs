@@ -206,7 +206,7 @@ test.describe('폰 앱(가짜 다리)',()=>{
     expect(state.errors).toEqual([]);
   });
 
-  // S67-38(명진 결정 11/14 ①): 위젯 로그인이 없어도 앱 로그인으로 세션을 만들고 앱에 넘긴다 — 화면은 보내지 않는다(앱을 나가도·화면을 꺼도 앱이 끝까지).
+  // S67-38(사용자 결정 11/14 ①): 위젯 로그인이 없어도 앱 로그인으로 세션을 만들고 앱에 넘긴다 — 화면은 보내지 않는다(앱을 나가도·화면을 꺼도 앱이 끝까지).
   test('위젯 로그인 없음 + 새 앱: 앱 로그인으로 세션을 만들고 앱에 넘긴다 → 앱이 끝내면 채워진다 412px',async({page})=>{
     const state=await boot(page,412,{app:{know:true,on:false,login:true}});
     await openReport(page,OLD_ID);

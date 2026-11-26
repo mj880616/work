@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// LIB-폴더로올리기 (2026-10-30 명진 요청): PC 파일을 폴더 묶기의 폴더 줄에 놓으면 그 폴더로 올린다(같은 library-files 길 + 자료 연결 표 한 줄).
+// LIB-폴더로올리기 (2026-10-30 사용자 요청): PC 파일을 폴더 묶기의 폴더 줄에 놓으면 그 폴더로 올린다(같은 library-files 길 + 자료 연결 표 한 줄).
 // 끌고 오면 그 폴더 줄에 옮기기와 같은 놓을 곳 표시, 닫힌 폴더 위에 1초 머물면 열림, 폴더 밖에 놓으면 지금처럼(폴더 밖에 올림).
 // 가짜 서버만 쓴다(실제 Supabase·Drive·AI 없음).
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fn',null,{name:'가상 N',sort_order:2048}),libFolder('fw',null,{name:'주간보고',sort_order:4096})];
@@ -57,7 +57,7 @@ test.describe('PC 1440 PC 파일을 폴더에 놓아 올리기',()=>{
   });
 });
 
-// S59-9 LIB-펼친폴더안놓기(명진 11/11 14:16): 두 칸 보기에서 PC 파일을 펼친 폴더 안 자료 줄(과 그 묶음 안 빈 틈)에 놓아도 그 폴더로 올린다.
+// S59-9 LIB-펼친폴더안놓기(사용자 11/11 14:16): 두 칸 보기에서 PC 파일을 펼친 폴더 안 자료 줄(과 그 묶음 안 빈 틈)에 놓아도 그 폴더로 올린다.
 // 자료 옮기기와 같은 판정(library-drop.js paneDropAt): 여러 겹이면 안쪽 폴더, 표시는 그 폴더 줄. 칸 바로 아래 자료 줄은 지금처럼 그 칸의 지금 폴더(맨 위 = 폴더 밖).
 const TWO_FOLDERS=[...FOLDERS,libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0})];
 const TWO_ITEMS=[...ITEMS,{document_id:'a-1',folder_id:'fc'}];

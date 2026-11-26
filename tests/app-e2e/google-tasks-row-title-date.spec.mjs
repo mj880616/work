@@ -1,4 +1,4 @@
-// TASK-제목날짜만 (2026-11-09 명진 결정, 시안 docs/design/mockups/task-row-title-date.html): 할 일 줄은 '○ 제목… 날짜 ⋯' 한 줄.
+// TASK-제목날짜만 (2026-11-09 사용자 결정, 시안 docs/design/mockups/task-row-title-date.html): 할 일 줄은 '○ 제목… 날짜 ⋯' 한 줄.
 // 연결 조직·사업 이름은 줄에 쓰지 않고(연결은 그대로 — 상세·담당조직·사업 화면 연결 목록), 날짜는 모든 줄에서 같은 세로줄, 줄 높이는 모두 같다.
 // 폰 390은 묶음 목록(taskRow), 폴드 펼침 884·PC 1280은 카드(taskCard). 이름은 모두 지어낸 것.
 import {test,expect} from '@playwright/test';

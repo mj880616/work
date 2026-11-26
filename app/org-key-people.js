@@ -5,7 +5,7 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 // - 기록은 기존 읽기 경로를 그대로 쓴다: feed-data.js(통화·개인 통화함·통화 고침·텔레그램), tg-sender-data.js(보낸 사람 이름표),
 //   todo-radar-data.js(챙길 것), 사업 보고(app_meetings 제목·내용). 고르는 규칙은 org-key-people-model.mjs.
 // - 줄을 누르면 그 기록으로: 통화 KPTUCallFeed.show, 텔레그램 KPTUTelegramFeed.show, 회의 openReport, 챙길 것 정리함.
-//   LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 약속 줄은 지웠다(원장은 사용자 화면에 없는 AI용 뒤쪽 자료).
+//   LEDGER-화면에서빼기(2026-11-25 사용자 결정): 원장 약속 줄은 지웠다(원장은 사용자 화면에 없는 AI용 뒤쪽 자료).
 // - 칩 빼기·고치기: 칩 꾹 누르기(폰) 또는 우클릭(PC) → 칩 줄 아래 작은 메뉴.
 import {readFeed, readPersonal, readCallEdits, readFeedRooms, workspaceOf, scopeOf, LIST_DAYS} from './feed-data.js';
 import {applyCallEdit, missingTable, kstDay, addDays} from './feed-model.mjs';

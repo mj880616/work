@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles, phoneFolder, treeGo } from './helpers/files-server.mjs';
-// LIB-사진숨김(S60-10, 명진 결정 11/12, 시안 docs/design/mockups/photo-hide-thumbs.html ⑤): [파일] 폴더 안 사진은 줄에서 빠지고 맨 아래 [사진 n] 하나.
+// LIB-사진숨김(S60-10, 사용자 결정 11/12, 시안 docs/design/mockups/photo-hide-thumbs.html ⑤): [파일] 폴더 안 사진은 줄에서 빠지고 맨 아래 [사진 n] 하나.
 // 누르면 그 자리에 작은 그림(누르면 미리보기). 검색·묶음은 그대로. 이름은 모두 지어낸 것이다.
 const root = page => page.locator('#filesRoot');
 const addPhotos = server => {

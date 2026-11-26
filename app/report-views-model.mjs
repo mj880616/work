@@ -1,6 +1,6 @@
 // ACT-사진 6단계: 사업 보고 화면의 [목록 | 달력 | 사진] 보기의 순수 규칙(DOM·네트워크 없음, 단위 시험 대상).
 // 사업 보고(app_meetings)와 그 첨부 사진(app_documents.meeting_id, 원본은 Drive 한 곳)을 읽기만 한다. 달력은 사업 보고 화면 안에서만 쓰고
-// 일정 탭 달력과 섞지 않는다(명진 결정). 고른 보기는 서버(view-prefs.js의 report_view 칸)에 기억한다 — 일정 탭의 calendar_view와는 뜻이 달라 다른 칸이다.
+// 일정 탭 달력과 섞지 않는다(사용자 결정). 고른 보기는 서버(view-prefs.js의 report_view 칸)에 기억한다 — 일정 탭의 calendar_view와는 뜻이 달라 다른 칸이다.
 import {seoulDateKey} from './meeting-time.js';
 import {isLibraryPhoto} from './library-photo.js';
 import {word} from './brand/brand.mjs';
@@ -22,7 +22,7 @@ export const WEEKDAYS = Object.freeze(['일', '월', '화', '수', '목', '금',
 // 칸 높이는 CSS 한 곳(meeting-ui.css 달력 칸 규칙, PC 폭)이 이 줄 수에 맞춰 고정한다 — 그린 뒤에 재서 다시 그리지 않는다(깜박임·덮어쓰기 없음).
 // (폰은 제목 대신 점으로 보이고 고른 날의 목록이 아래에 나온다.)
 export const CELL_LINES = 4;
-// 사진 줄 하나에 보일 작은 그림 수(명진 결정: 3장 + '외 n장').
+// 사진 줄 하나에 보일 작은 그림 수(사용자 결정: 3장 + '외 n장').
 export const PHOTO_STRIP = 3;
 
 // 일시(meeting_at) → 서울 날짜 키 'YYYY-MM-DD'. 읽을 수 없으면 빈 글.

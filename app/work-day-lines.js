@@ -1,4 +1,4 @@
-// JOURNAL-오늘한일업무개인 (요청함 11/01 22:56·11/02 13:29 명진): 홈에서 넣은 '오늘 한 일' 줄을 달력 날짜 상세(일정 달력 날짜 창)와
+// JOURNAL-오늘한일업무개인 (요청함 11/01 22:56·11/02 13:29 사용자): 홈에서 넣은 '오늘 한 일' 줄을 달력 날짜 상세(일정 달력 날짜 창)와
 // 일기 화면(그날 보기·쓰기)에서도 읽기만 해서 보인다 — 일기를 안 쓴 날도. 같은 자료(노트 표 kind=work, journal-data.js readWorkDay)를
 // 읽을 뿐 두 벌 저장하지 않는다. 고치기·지우기는 홈에서만. 업무·개인을 가르지 않고 그대로 보인다(가르기는 업무 재료로 쓸 때만, work-scope.js).
 import {readWorkDay, readWorkBetween, readWorkRecent, workLines, todayKey} from './journal-data.js';

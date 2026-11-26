@@ -3,7 +3,7 @@
 //  - A text with markdown marks (머리 ##, **굵게**, 표, AI가 붙인 \. 같은 군더더기 역슬래시 — note-preview.mjs markdownSource) is shown
 //    formatted: headings, lists, tables; "2026\." reads "2026.". Until the view is ready (or if it cannot load) the letters stay.
 //  - A text without marks is shown as written (line breaks, "1)" numbers and indents kept: EDIT-번호모양보존).
-// S62-02 MTG-원문칸넘침(11/15 명진): the [원문]/[서식] button beside the heading is gone (사업 보고 상세 only used it). Addresses
+// S62-02 MTG-원문칸넘침(11/15 사용자): the [원문]/[서식] button beside the heading is gone (사업 보고 상세 only used it). Addresses
 // (http·https only, record-links.mjs) open in a new window (the app hands them to the outside browser); a line that is only an
 // address is a small bookmark row (domain + address). Nothing is fetched from the address. Long words wrap inside the box (CSS).
 // paintRecordText(el, raw, {isCurrent}).

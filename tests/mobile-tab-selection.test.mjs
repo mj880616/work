@@ -10,7 +10,7 @@ test('메뉴 창이 열려 있으면 어느 화면에서든 [메뉴]만', () => 
 });
 
 test('메뉴 창이 닫혀 있으면 지금 화면의 칸 하나', () => {
-  // S68-37(명진 11/23): 처음 하단바는 홈·노트·일정·자료실·사진 — 잊지 말기·조직 관리·사업 관리는 [메뉴] 창 화면, 노트는 하단바 [노트] 칸.
+  // S68-37(사용자 11/23): 처음 하단바는 홈·노트·일정·자료실·사진 — 잊지 말기·조직 관리·사업 관리는 [메뉴] 창 화면, 노트는 하단바 [노트] 칸.
   const expected = {home: 'home', calendar: 'schedule', tasks: 'schedule', diary: 'schedule', library: 'library', photos: 'photos'};
   for (const [view, tab] of Object.entries(expected)) assert.equal(selectedMobileTab({view}), tab, view);
   for (const view of ['team', 'meetings', 'projects']) assert.equal(selectedMobileTab({view}), null, `${view}: [메뉴] 창 화면`);

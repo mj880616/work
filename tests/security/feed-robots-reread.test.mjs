@@ -1,4 +1,4 @@
-// S68-43(명진 요청 11/23 '옛 보관 글 원문 다시 불러오기'): robots 때문에 원문이 빈 채 남은 지난 글 다시 읽기.
+// S68-43(사용자 요청 11/23 '옛 보관 글 원문 다시 불러오기'): robots 때문에 원문이 빈 채 남은 지난 글 다시 읽기.
 // - outside-feed 예약 수집 끝 retryRobotsBodies: robots 실패 글만, 한 번에 ROBOTS_RETRY_PER_RUN개, robots.txt 없이 글 쪽 한 번, 읽힌 본문은 덮지 않음, 글마다 1번.
 // - outside-feed 화면 입구 reread: 로그인 + 'outside' 기능 키 작업공간 + 그 사람이 읽을 수 있는 공용 글 + 본문이 실패·없음일 때만, 하루 한도.
 // - reader: skipRobots는 글 쪽 읽기에만(피드 읽기는 robots 그대로).

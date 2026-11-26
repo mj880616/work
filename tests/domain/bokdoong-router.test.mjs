@@ -1227,7 +1227,7 @@ test('workonplus.com look-alike hosts are not served', async () => {
   }
 });
 
-// S68-01 (명진 2026-11-21 "bokdoong.com은 안 쓰고 workonplus만 씀"): bokdoong.com / and /work/app/** answer the moved notice.
+// S68-01 (사용자 2026-11-21 "bokdoong.com은 안 쓰고 workonplus만 씀"): bokdoong.com / and /work/app/** answer the moved notice.
 const HTML_PAGE = () => new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 
 test('bokdoong.com /work/app/** answers its own moved notice with a link that keeps path and ?query', async () => {

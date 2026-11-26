@@ -5,7 +5,7 @@ import {sortByName} from './name-order.mjs';
 
 // 탭(S51-8 NEWS-전면개편 P4b, 시안 news-overhaul.html): [전체][사회운동][언론][밑줄]. 저장 값은 view_prefs.news_tab(DB 20261106080000) — 이름이 그대로 DB 검사 값이다.
 // 옛 [뉴스] 탭은 [언론]으로(메뉴 이름과 겹치지 않게), [문장 찾기] 탭은 위 찾기 칸으로 합쳐 없어졌다.
-// S68-24(명진 11/22 "2. A"): [보관] 탭은 없앴다 — 보관한 글은 '읽을 거리' 한 목록에서 본다(reading.js [News] 칩). S68-28 탭 줄 끝 보관 길도 없앴다.
+// S68-24(사용자 11/22 "2. A"): [보관] 탭은 없앴다 — 보관한 글은 '읽을 거리' 한 목록에서 본다(reading.js [News] 칩). S68-28 탭 줄 끝 보관 길도 없앴다.
 // DB 검사 값 'archive'는 그대로 두되(DB 바꾸지 않음) 그 값이 기억돼 있으면 [전체]로 연다(startTab).
 export const NOW_TABS = Object.freeze([
   {id: 'all', label: '전체'},
@@ -13,7 +13,7 @@ export const NOW_TABS = Object.freeze([
   {id: 'media', label: '언론'},
   // S53-5 NEWS-밑줄모으기: [밑줄](app_news_highlights 모아보기). 마지막 탭 기억(news_tab)의 DB 검사 값에는 아직 없어 이 탭은 기억하지 않는다(SAVED_TAB_IDS).
   {id: 'marks', label: '밑줄'},
-  // S69-70(명진 11/24 20:43): [메모] = 메모 있는 글(글에 [메모]로 남긴 노트 모아보기, now-memos.js). [밑줄]처럼 마지막 탭으로 기억하지 않는다(DB 검사 값 그대로).
+  // S69-70(사용자 11/24 20:43): [메모] = 메모 있는 글(글에 [메모]로 남긴 노트 모아보기, now-memos.js). [밑줄]처럼 마지막 탭으로 기억하지 않는다(DB 검사 값 그대로).
   {id: 'memos', label: '메모'},
 ]);
 export const NOW_TAB_IDS = Object.freeze(NOW_TABS.map(t => t.id));
@@ -84,7 +84,7 @@ export function detailView(detail) {
   const rel = d.relevance && typeof d.relevance === 'object' ? d.relevance : null;
   const topics = rel && Array.isArray(rel.topics) ? rel.topics.map(str).filter(Boolean).slice(0, 5) : [];
   const imp = d.implications && typeof d.implications === 'object' ? d.implications : null;
-  // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 줄은 '함께 볼 것'에 그리지 않는다(원장은 사용자 화면에 없는 AI용 뒤쪽 자료).
+  // LEDGER-화면에서빼기(2026-11-25 사용자 결정): 원장 줄은 '함께 볼 것'에 그리지 않는다(원장은 사용자 화면에 없는 AI용 뒤쪽 자료).
   const related = (Array.isArray(d.related) ? d.related : [])
     .filter(r => r && ['outside', 'news', 'update', 'library'].includes(r.kind) && str(r.id) && str(r.title))
     .slice(0, 8).map(r => ({kind: r.kind, id: str(r.id), title: str(r.title)}));
@@ -154,11 +154,11 @@ function bodyViewOf(row) {
   return {state: 'failed', blocks: [], reason: why || '본문을 읽지 못함'};
 }
 // 저장 원문 줄이 잠깐의 오류(늦은 답·사이트 오류)로 실패한 뉴스 기사만 누를 때 한 번 다시 읽는다(S51-17 P5, 설계 7.1). 봇 확인·없는 글·유료는 다시 읽지 않는다.
-// S68-25(명진 결정 2026-11-22): 원문 읽기는 이제 robots.txt를 보지 않으므로, 예전에 robots 때문에 비어 있던 뉴스 기사도 열 때 한 번 읽어 온다.
+// S68-25(사용자 결정 2026-11-22): 원문 읽기는 이제 robots.txt를 보지 않으므로, 예전에 robots 때문에 비어 있던 뉴스 기사도 열 때 한 번 읽어 온다.
 const REOPEN_REASONS = new Set(['timeout', 'http_5xx', 'robots']);
 export const reopenBody = row => row?.state === 'failed' && REOPEN_REASONS.has(row?.reason);
 // [원문 다시 가져오기](S68-49 봇 확인 → S68-52 리드 → S69-02 늘): 서버 길은 뉴스 news-feed open · 사회운동 outside-feed reread. 봇 확인 등은 열 때 저절로 다시 읽지 않고 사람이 누를 때만.
-// S69-02(명진 11/24 06:40·06:43 "글 안에서도 원문 다시 불러오기 버튼 만들기로 했었는데 어디있지"): 단추는 글 보기 안에 늘 있다.
+// S69-02(사용자 11/24 06:40·06:43 "글 안에서도 원문 다시 불러오기 버튼 만들기로 했었는데 어디있지"): 단추는 글 보기 안에 늘 있다.
 // - 원문을 다 못 읽은 글(앞부분만 lead — 유료벽 포함 · 실패 failed — 까닭 상관없이)은 까닭 줄 끝에 [원문 다시 가져오기](canRefetch).
 // - 다 읽은 글(ok·image_only)은 원문 칸 ⋯ 메뉴에 [원문 다시 가져오기](canRefetchMenu — 위 경우도 메뉴에 함께).
 // 뉴스·사회운동 두 갈래, 읽을 거리·저장한 글 어디서 열든 같은 글 보기라 같다. 손으로 넣은 본문(manual@1)은 사람 것이라 둘 다 없다.
@@ -354,7 +354,7 @@ export function mergeFeed(posts = [], news = []) {
   const list = [...(posts || []).map(row => ({type: 'outside', id: row.id, at: row.at, row: row.row})), ...(news || []).map(row => ({type: 'news', id: row.id, at: row.at, row: row.row}))];
   return list.sort((a, b) => (a.at && b.at ? String(b.at).localeCompare(String(a.at)) : a.at ? -1 : b.at ? 1 : 0) || String(a.id).localeCompare(String(b.id)));
 }
-// S63-11(명진 11/16 '5 고쳐'): 주소 ?item= 로 다시 연 글은 그 글이 들어 있는 탭으로 맞춘다. [전체]·[보관]·[밑줄]은 두 종류 모두 담으므로 그대로,
+// S63-11(사용자 11/16 '5 고쳐'): 주소 ?item= 로 다시 연 글은 그 글이 들어 있는 탭으로 맞춘다. [전체]·[보관]·[밑줄]은 두 종류 모두 담으므로 그대로,
 // [사회운동]에서 뉴스 기사면 [언론], [언론]에서 사회운동 글이면 [사회운동].
 export function tabForItem(type, tab) {
   const t = keepNowTab(tab);
@@ -381,7 +381,7 @@ export function handBodyRequest(id, text) {
 // S68-44: 손으로 넣은 본문(블록 규칙 manual@1)인데 글자 블록이 없는가(본문을 비웠거나 사진만). 상세 원문 칸은 까닭 대신 '본문 없음' 한 줄.
 // 제목만 고친 못 읽은 기사(블록은 읽기 실패 그대로)는 들지 않는다 — 원래 까닭(늦은 답 등)이 그대로 보인다.
 export const handNoText = b => !!b?.hand && !b.failedLoad && !(b.blocks || []).some(x => x && x.t !== 'img');
-// S69 READ-첨부본문(명진 11/24 '[사진 1] .'뿐인 손 본문에 '마침표 하나뿐…' 요약): 본문 글자(띄어쓰기·문장부호·기호 빼고)가 BODY_SHORT_CHARS 미만이면 짧은 본문.
+// S69 READ-첨부본문(사용자 11/24 '[사진 1] .'뿐인 손 본문에 '마침표 하나뿐…' 요약): 본문 글자(띄어쓰기·문장부호·기호 빼고)가 BODY_SHORT_CHARS 미만이면 짧은 본문.
 // 서버(ai-assist 재료 규칙 MATERIAL_MIN_CHARS · news-feed HAND_SHORT_CHARS)와 같은 값·같은 셈. 짧은 본문은 요약·시사점을 만들지 않고(422 no_material),
 // 손으로 넣은 짧은 본문은 [원문 다시 가져오기](open again)로 원래 주소 본문(첨부 PDF·HWP 포함)을 채울 수 있다.
 export const BODY_SHORT_CHARS = 20;
@@ -579,7 +579,7 @@ export function hostOf(url) {
 }
 // 입력 값 → 서버 몸통 또는 {error: 화면 글자}. 본문은 처음 값에서 바뀌었을 때만 보낸다(바뀌지 않으면 서버가 읽어 둔 본문·사진을 그대로 둔다).
 // photos: 본문 칸 '[사진 n]' 번호 → 저장된 사진 주소(올리기 전이면 ''). 그 줄은 주소 줄로 바꿔 보내고 사진 수에 센다.
-// S68-44(명진 11/23 "본문 글자 없이도 저장되게"): 본문 글자·제목은 필수가 아니다(빈 제목 = 지금 제목 그대로, 빈 본문 = 본문 없음, 사진만 = 사진 본문).
+// S68-44(사용자 11/23 "본문 글자 없이도 저장되게"): 본문 글자·제목은 필수가 아니다(빈 제목 = 지금 제목 그대로, 빈 본문 = 본문 없음, 사진만 = 사진 본문).
 // 제목·원문 주소·본문(글·사진)이 모두 비면 보내지 않는다(서버도 같은 규칙 — EMPTY_ARTICLE). 제목이 비면 원문 주소 칸 값을 함께 보낸다(서버가 빈 기사로 보지 않게).
 export const HAND_EMPTY = '제목·원문 주소·본문(글이나 사진) 중 하나는 넣어 주세요';
 export function handRequest(id, values, initial, photos = new Map()) {

@@ -112,7 +112,7 @@
 .lu-row.lu-expanded .lu-row-title{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere;-webkit-line-clamp:unset;line-clamp:none}
 @media(prefers-reduced-motion:reduce){.lu-expand svg{transition:none}}
 .lu-more-trigger{flex:none;color:var(--kptu-muted);border:0;background:transparent}
-/* S70-07 LIB-고른줄칩넘침(명진 11/25): 줄 끝 ⋯의 44px 누르는 자리(base-ui.css 공용 ::after)가 단추 오른쪽으로 6px 나와 두 칸 보기 칸 목록
+/* S70-07 LIB-고른줄칩넘침(사용자 11/25): 줄 끝 ⋯의 44px 누르는 자리(base-ui.css 공용 ::after)가 단추 오른쪽으로 6px 나와 두 칸 보기 칸 목록
    (overflow:auto라 가로도 auto)에 가로 넘침 2px가 생겼고, 터치패드·끌기로 목록이 옆으로 밀리면 고른 줄 바탕·종류 칩이 칸 왼쪽 경계 밖으로 삐져 보였다.
    누르는 크기 44px는 그대로, 오른쪽 끝은 단추 끝(줄 끝)에 맞추고 모자란 폭만 왼쪽으로 넓힌다(S57-23 .mnp-more와 같은 방법). 칸에 overflow를 숨겨 덮지 않는다. */
 #appView #libraryView #documentList .lu-row > .lu-more-trigger::after{inset:auto;top:calc(50% - var(--kptu-touch-target,44px) / 2);right:0;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:0}
@@ -189,7 +189,7 @@
 #appView #libraryView .lu-node-head.lu-renaming::after{content:none}
 .lu-node-head .lu-folder-rename,.lu-row .lu-rename-input{position:relative;z-index:1}
 #appView #libraryView .lu-node-head:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-/* UI-폴더줄크기(S69-99, 명진 2026-11-25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로"): 자료실 목록 폴더 묶음 머리(summary)도 [파일] 폴더 줄과 같은 값 —
+/* UI-폴더줄크기(S69-99, 사용자 2026-11-25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로"): 자료실 목록 폴더 묶음 머리(summary)도 [파일] 폴더 줄과 같은 값 —
    높이·글자·폴더 그림·간격·들여쓰기는 folder-tree.css의 줄 크기 값(--ft-*, 두 손가락 단계와 함께 바뀜) 그대로, 맨 위 단만 굵게, ⋯는 [파일] ⋯(36×32, 오른쪽 끝 2px),
    개수는 작은 흐린 글씨(높이를 바꾸지 않음). 이 결정이 앞 확정 LIB-목록간격 ②(2026-10-23, 글자 = 자료 줄·간격 36px)·LIB-토글트리 ③(⋯ 28px)을 대신한다. */
 #appView #libraryView #documentList .lu-node > summary.lu-node-head{gap:var(--ft-gap,9px);min-height:var(--ft-sub-h,40px);padding:0 0 0 calc(12px + var(--lu-depth,0) * var(--ft-indent,22px));font-size:var(--ft-font,14px);font-weight:var(--ds-weight-regular,400)}
@@ -286,7 +286,7 @@
 .lu-select-row{display:flex;align-items:center;min-width:0;margin:0 0 4px}
 /* 빠짐9: 평소에는 선택 줄이 비어 있으니(⋯ 메뉴로 합침) 자리를 차지하지 않는다. */
 #libraryListCard:not(.lu-selecting) .lu-select-row{display:none}
-/* UI-자료실파일모양(S69-85 ②, 명진 11/25 "파일 인터페이스로 자료실도 바꿔", 버릴 것: 큰 체크칸): 파일 목록처럼 네모 칸 없이 고른 줄은
+/* UI-자료실파일모양(S69-85 ②, 사용자 11/25 "파일 인터페이스로 자료실도 바꿔", 버릴 것: 큰 체크칸): 파일 목록처럼 네모 칸 없이 고른 줄은
    옅은 강조 바탕 + 왼쪽 진한 세로줄(.lu-picked·.lu-node-picked·.lu-folder-picked, 파일 .fx-picked와 같은 색 변수). 네모 칸은 줄 위에 보이지 않게
    남아 있어(누르기·키보드·화면 읽기 그대로) 줄 어디를 눌러도 고르기·풀기. 폴더 묶음 칸은 줄 왼쪽 폴더 그림 자리(32px)만 — 이름 누르기는 그 자리 펼치기 그대로. */
 #appView #libraryView #documentList .lu-row.lu-row-picking{position:relative}
@@ -422,7 +422,7 @@
 .lu-drop-item.lu-drop-over:not([aria-disabled="true"]){outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
 .lu-drop-note{margin:4px 4px 0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
 .lu-drop-note[hidden]{display:none}
-/* LIB-폴더보기 (2026-10-28 명진 요청 08:25 ③): 폴더로 묶었을 때 폴더 줄은 ▸ 대신 📁(닫힘)/📂(열림) 글자, '폴더 밖'은 🗂 + 흐린 글자. 다른 묶기는 그대로. */
+/* LIB-폴더보기 (2026-10-28 사용자 요청 08:25 ③): 폴더로 묶었을 때 폴더 줄은 ▸ 대신 📁(닫힘)/📂(열림) 글자, '폴더 밖'은 🗂 + 흐린 글자. 다른 묶기는 그대로. */
 #appView #libraryView .lu-folder-emoji{flex:none;margin:0 4px 0 1px;font-size:14px;line-height:1}
 /* FOLDER-나무새기준 ③: 폴더 그림은 공용 닫힌/열린 그림 둘 중 하나(펼침에 따라). 안이 빈 폴더는 닫힌 그림만(lu-fe-only). */
 #appView #libraryView .lu-folder-shape{display:inline-flex;margin:0 4px 0 0}
@@ -482,7 +482,7 @@
 /* SEARCH-선택옮기기 ⑤: 찾는 중 작은 [결과 n개 모두 선택]. S71-07(Q3): 자리는 본문 첫 줄 [폴더 ▾][분류 ▾] 끝 — 맨 위 검색칸 폭을 줄이지 않는다. */
 #appView #libraryView .lu-pick-row > .lu-search-pick-all{flex:none;height:var(--ds-compact-height,32px);min-height:0;margin-left:auto;padding:0 8px;font-size:12px;white-space:nowrap}
 /* FILES-폴드나무목록 ⑦(S51-20 ④): 펼친 폴드·PC(600px~) 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 목록. 줄 모양은 공용 폴더 줄(folder-tree.css ft-). 폰은 그대로(이 칸 없음).
-   S69-28 LIB-한칸탐색기(명진 11/24 '화면 깨짐'·'펼치면 창이 같이 늘어나야'): 나무 칸은 카드 안 흐름(float)이라 카드(흰 상자)가 나무·목록 중 긴 쪽만큼 늘어난다.
+   S69-28 LIB-한칸탐색기(사용자 11/24 '화면 깨짐'·'펼치면 창이 같이 늘어나야'): 나무 칸은 카드 안 흐름(float)이라 카드(흰 상자)가 나무·목록 중 긴 쪽만큼 늘어난다.
    칸 안 스크롤·화면 높이 자르기는 없다 — 화면 스크롤 하나. (원인: 예전에는 나무 칸을 카드 높이에 묶어 두고(position:absolute;top:0;bottom:0)
    안쪽만 화면 높이까지(max-height 100dvh) 키워서, 오른쪽 목록이 짧으면 안쪽이 카드 아래 테두리를 뚫고 밖으로 그려졌다.)
    폭은 카드 왼쪽 여백(padding)과 나무 칸 폭이 같은 값이어야 해서 %(둘의 기준 폭이 다름) 대신 화면 폭(vw)으로 정한다. 가운데 세로 선은 카드 높이 전체(::before). */
@@ -503,7 +503,7 @@
   #libraryFolderNav .ft-dots::after,#documentList .lu-pane-folder .ft-dots::after{inset:0 -4px}
 }
 
-/* ───────── LIB-위쪽한줄(요청함 11/09 11:01, 명진 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html) ─────────
+/* ───────── LIB-위쪽한줄(요청함 11/09 11:01, 사용자 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html) ─────────
    S51-28(폰·폴드 [찾기][분류 ▾][⋯] + 아래 알약 묶기·떠 있는 [+], PC 묶기 칩 줄·분류 칩 줄)을 대신한다. 폰·PC 경계는 사업 보고 위쪽(meeting-ui.css)과 같은 760px.
    - PC·펼친 폴드(761px~): 한 줄 = [폴더 ▾][분류: 전체 ▾][찾기 칸 ………] + 오른쪽 끝 [+][⋯] 작은 아이콘. 제목은 위쪽 경로 줄이 보이므로 읽기 프로그램용.
    - 폰(~760px): 첫 줄 = 제목 '자료실' ……… [⌕][+][⋯](사업 보고 폰 첫 줄과 같은 모양), 둘째 줄 = [폴더 ▾][분류: 전체 ▾].
@@ -551,7 +551,7 @@
 /* LIB-두칸보기(S55-11, 시안 docs/design/mockups/library-two-pane.html): PC·펼친 폴드 폴더 묶기의 두 칸 — 양쪽 다 위치 줄 + 폴더 줄 + 자료 줄.
    지금 칸은 초록 테두리(lu-pane-cur). 칸 폭은 경계 끌기(split-resize.js, split_ratio.library). 두 칸은 그 폭에서만 그려지므로 폭 조건 없음. */
 #documentList .lu-two{--ds-split-library-a:50fr;--ds-split-library-b:50fr;display:grid;grid-template-columns:minmax(0,var(--ds-split-library-a)) minmax(0,var(--ds-split-library-b));column-gap:8px;align-items:stretch;--ds-split-library-min:260px}
-/* LIB-두칸아래여백(S60-13, 명진 11/12 09:58 '밑에 살짝 여백'): 두 칸 높이는 긴 쪽에 맞추고(stretch) 목록 아래는 줄 두 개쯤(60px) 비운다.
+/* LIB-두칸아래여백(S60-13, 사용자 11/12 09:58 '밑에 살짝 여백'): 두 칸 높이는 긴 쪽에 맞추고(stretch) 목록 아래는 줄 두 개쯤(60px) 비운다.
    빈 자리는 칸 목록 안이라 그 칸의 지금 폴더로 놓는 자리·우클릭 자리 그대로(paneDropAt). 길면 지금처럼 화면 높이까지 칸 안 스크롤. */
 #documentList .lu-pane{display:flex;flex-direction:column;min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,8px);background:var(--kptu-surface)}
 #documentList .lu-pane.lu-pane-cur{border-color:var(--kptu-primary);outline:1px solid var(--kptu-primary);outline-offset:-2px}

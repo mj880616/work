@@ -68,7 +68,7 @@ test('폰: 두 줄만 → [+ 선택] 아래 창(찾기·자주 쓴 것·큰 묶�
   expect((await page.locator(LINKS).boundingBox()).height).toBeLessThan(100);
   await openPicker(page,LINKS,'area');
   const sheet=page.locator(SHEET);
-  // 폰: S54-05(11/08 명진 결정)로 누른 버튼 아래 작은 창(전에는 아래에서 올라오는 창). 찾기 칸 있음, 아래 탭에 가리지 않음.
+  // 폰: S54-05(11/08 사용자 결정)로 누른 버튼 아래 작은 창(전에는 아래에서 올라오는 창). 찾기 칸 있음, 아래 탭에 가리지 않음.
   await expectChoiceAtButton(page,sheet,page.locator(`${LINKS} [data-aop-line="area"]`));
   await expect(sheet.locator('[data-sheet-search]')).toBeVisible();
   // 자주 쓴 것: 저장된 연결에서 많이 쓴 순(보관·안 보이는 대상 제외).

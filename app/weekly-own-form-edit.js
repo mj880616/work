@@ -1,4 +1,4 @@
-// WEEKLY-내양식자유변형 ③(시안 docs/design/mockups/weekly-own-form.html ②, 명진 확정): '내 양식' 확인·짝짓기 화면.
+// WEEKLY-내양식자유변형 ③(시안 docs/design/mockups/weekly-own-form.html ②, 사용자 확정): '내 양식' 확인·짝짓기 화면.
 // 항목마다 이름(눌러 수정)·채울 기록 선택·표 칸(칩, 눌러 이름 수정·빈 이름이면 빼기, [+ 칸])·⠿ 끌어서 순서(⋯ 안 [위로]·[아래로]는 키보드용)·[빼기],
 // 맨 아래 [+ 항목 추가]·[취소]·[저장]. 이 칸의 유일한 renderer이며 상태(고치는 양식)는 이 함수 안 메모리에만 둔다(브라우저 저장소 없음).
 // 저장은 부르는 쪽(journal.js)이 넘긴 onSave(form) — 서버 저장(weekly-own-form-store.js) 결과 글을 돌려준다.

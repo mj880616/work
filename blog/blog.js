@@ -1,4 +1,4 @@
-// BLOG ②(docs/design/blog.md 5절): 명진 블로그 밖 화면 — 게시판 목록 → 글 목록 → 글 본문.
+// BLOG ②(docs/design/blog.md 5절): 사용자 블로그 밖 화면 — 게시판 목록 → 글 목록 → 글 본문.
 // 주소에서 요청 하나를 만들어 share-page-read 블로그 길에 묻는다(로그인·쿠키·저장소 없음, credentials omit, no-store).
 // 서버 글자는 textContent로만, 글 본문은 공유 화면과 같은 그리기(app/sr-render.mjs)로만 그린다. 옮겨 다니기는 보통 링크(뒤로가기 = 이전 화면).
 import {el, renderPage} from '../app/sr-render.mjs';

@@ -64,7 +64,7 @@ export const releaseAfter = (act, ok) => !!ok && RELEASE_AFTER[act] === true;
 export const PHOTO_MENUS = Object.freeze({
   viewerShare: Object.freeze(['copy', ...SEND_ROWS, 'download', 'native']),
   context: Object.freeze(['star', 'share', ...SEND_ROWS, 'info']),
-  // PHOTO-아래줄정돈(S49-34, 명진 결정 11/04 12:06 'A안'): 아래 줄은 다섯 칸까지(PHOTO_BAR_MAX). 칸 목록은 아래 두 줄, 칸 안 펼침 항목은 PHOTO_BAR_MENUS.
+  // PHOTO-아래줄정돈(S49-34, 사용자 결정 11/04 12:06 'A안'): 아래 줄은 다섯 칸까지(PHOTO_BAR_MAX). 칸 목록은 아래 두 줄, 칸 안 펼침 항목은 PHOTO_BAR_MENUS.
   // 고르기 줄(selectBar)과 크게 보기 줄(viewBar)이 같은 원칙, 우클릭·꾹 누르기 메뉴(context)는 지금처럼 모두 펼친 목록.
   selectBar: Object.freeze(['star', 'share', 'move', 'delete', 'more']),
   viewBar: Object.freeze(['star', 'share', 'edit', 'delete', 'more']),

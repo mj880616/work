@@ -1,4 +1,4 @@
-// ORG-기록첨부(S50-22): the one line a record gets when only pictures or files were put in (11/05 16:41 명진 결정).
+// ORG-기록첨부(S50-22): the one line a record gets when only pictures or files were put in (11/05 16:41 사용자 결정).
 // The server AI's reading of one file comes first (library-files mode=record_line); when it gives nothing, the line is made here
 // from the files themselves: '그림 1장 · 붙여넣은 그림 11-05 16:18.png'. Pure functions only (the request is in record-attach.js).
 import { isPictureFile } from './photo-fold-model.mjs';

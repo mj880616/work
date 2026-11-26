@@ -101,7 +101,7 @@ export async function findOutsideArticles(words, cols, {since, limit, keys = nul
   ]);
   return {recent: Array.isArray(recent) ? recent.filter(r => r && hasId(r.id)) : [], kept: (Array.isArray(kept) ? kept : []).map(m => m?.[T.outside.art]).filter(r => r && hasId(r.id))};
 }
-// S70-62 READ-밀기메뉴 [숨긴 글](명진 11/26 07:41 "근데 숨기기는 어떻게 다시 보지?"): 내가 숨긴 글(뉴스 hidden_at · 사회운동 관심 없음 dismissed_at), 최근 숨긴 것 먼저.
+// S70-62 READ-밀기메뉴 [숨긴 글](사용자 11/26 07:41 "근데 숨기기는 어떻게 다시 보지?"): 내가 숨긴 글(뉴스 hidden_at · 사회운동 관심 없음 dismissed_at), 최근 숨긴 것 먼저.
 // 내 표시 표(작업공간 주인 RLS 그대로) + 공용 글 표 읽기만. 돌려줌 {news: [옛 뉴스 줄 모양(hidden_at 포함)], outside: [{row, at}]}.
 export async function readHiddenArticles({newsCols, postCols, limit = 100}) {
   const w = workspaceOf();

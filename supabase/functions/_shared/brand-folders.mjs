@@ -1,5 +1,5 @@
-// S68-02(명진 11/22 08:49 결정): 서버가 사용자 드라이브에 만드는 폴더 이름. 새 사용자는 'WORK ON+ …', 명진 화면(운영자 기능 nojo_words)은 지금 이름 '노조+ …'.
-// S69-42(명진 11/24 15:49 "중단없이 꾸준히 WORK ON+ 등 최신 이름으로 폴더 명도 최신화"): 앱 폴더는 이름이 아니라 저장한 id·표식으로 찾고,
+// S68-02(사용자 11/22 08:49 결정): 서버가 사용자 드라이브에 만드는 폴더 이름. 새 사용자는 'WORK ON+ …', 사용자 화면(운영자 기능 nojo_words)은 지금 이름 '노조+ …'.
+// S69-42(사용자 11/24 15:49 "중단없이 꾸준히 WORK ON+ 등 최신 이름으로 폴더 명도 최신화"): 앱 폴더는 이름이 아니라 저장한 id·표식으로 찾고,
 // 옛 이름(아래 olds)은 계속 알아본다. 기능이 그 폴더를 쓸 때(app-folders.mjs renameIfOld)와 [한곳으로 모으기]를 누를 때 새 이름으로 바꾼다.
 // 바꾸려는 새 이름의 폴더가 같은 자리에 이미 있으면 합치지 않고 그대로 둔다(결과에 '같은 이름 있음'으로 셈).
 // (S69-41로 바뀜: 구글 드라이브 폴더는 새로 만들 때 늘 새 이름, 이미 있는 폴더는 사람이 [한곳으로 모으기]를 누를 때만 표식으로 알아본 앱 폴더의 옛 이름을 바꾼다.)
@@ -9,10 +9,10 @@
 // DOM·네트워크 없음(단위 시험 tests/brand-folders.test.mjs).
 export const NOJO_WORDS_FEATURE = 'nojo_words';
 
-// S69-20(명진 11/24 08:48 'ㄱ'): 서버가 새 사용자 드라이브 맨 위에 만드는 앱 폴더 이름(자료실·회의자료·회의 녹음이 이 아래).
-// 이미 있는 사람은 app_drive_settings.root_folder_id(폴더 id)로 찾으므로 이름을 바꾸지 않는다(명진은 '웹2' 그대로 — 드라이브에서 바꾼 이름 존중).
+// S69-20(사용자 11/24 08:48 'ㄱ'): 서버가 새 사용자 드라이브 맨 위에 만드는 앱 폴더 이름(자료실·회의자료·회의 녹음이 이 아래).
+// 이미 있는 사람은 app_drive_settings.root_folder_id(폴더 id)로 찾으므로 이름을 바꾸지 않는다(사용자는 '웹2' 그대로 — 드라이브에서 바꾼 이름 존중).
 // 옛 기본 이름: library-files·workspace-drive '공공기관사업팀 Workspace', meeting-files·meeting-transcribe '웹2'.
-// S69-41(명진 11/24 "구글드라이브에 웹2, 노조플러스 같은 옛 이름 모두 WORK ON PLUS 라는 새 이름으로"):
+// S69-41(사용자 11/24 "구글드라이브에 웹2, 노조플러스 같은 옛 이름 모두 WORK ON PLUS 라는 새 이름으로"):
 // 구글 드라이브에 앱이 만드는 폴더의 앱 이름 글자는 이 한 줄이 기준이다. 'WORK ON PLUS'로 바꾸려면 여기만 고친다
 // (지금 'WORK ON+' 이름 폴더는 PAST_BRANDS 덕분에 옛 이름이 되어 [한곳으로 모으기]가 새 글자로 다시 바꾼다).
 export const DRIVE_BRAND = 'WORK ON+';
@@ -41,7 +41,7 @@ export const FOLDER_NAMES = Object.freeze({
   // drive-summary 읽기용 사본(표식 kptu_summary=folder)
   copy: driveKind('노조+ 읽기용 사본', ' 읽기용 사본', ['Web2 읽기용 사본']),
   // onedrive-photos 사진 휴지통(고른 맨 위 폴더 바로 아래, 저장한 id로 찾고 없을 때만 이름). 원드라이브라 [한곳으로 모으기] 대상은 아니고,
-  // S69-42(명진 11/24 15:46 "WORK ON+ 휴지통이어야하지 않은지"): 서버가 휴지통을 쓸 때마다 옛 이름 둘을 '.WORK ON+ 휴지통'으로 바꾼다.
+  // S69-42(사용자 11/24 15:46 "WORK ON+ 휴지통이어야하지 않은지"): 서버가 휴지통을 쓸 때마다 옛 이름 둘을 '.WORK ON+ 휴지통'으로 바꾼다.
   photo_trash: Object.freeze({ old: '.노조+ 휴지통', now: `.${DRIVE_BRAND} 휴지통`, olds: without(['.노조+ 휴지통', '.Web2 휴지통', ...pastBrand(' 휴지통').map(n => `.${n}`)], `.${DRIVE_BRAND} 휴지통`), drive: false }),
 });
 
@@ -62,16 +62,16 @@ export function renameTo(kind, name) {
 /** 맨 위 앱 폴더 이름 맞추기: 옛 기본 이름이면 새 이름, 아니면 null. */
 export const rootRenameTo = name => typeof name === 'string' && ROOT_OLD_NAMES.includes(name.trim()) ? ROOT_FOLDER_NAME : null;
 
-// S68-21(명진 11/22 17:04): 서버가 새로 만드는 문서 안에 쓰는 앱 이름(record-backup 읽기용 문서 첫 줄). 폴더 이름과 같은 규칙.
+// S68-21(사용자 11/22 17:04): 서버가 새로 만드는 문서 안에 쓰는 앱 이름(record-backup 읽기용 문서 첫 줄). 폴더 이름과 같은 규칙.
 export const APP_NAMES = Object.freeze({ old: '노조+', now: 'WORK ON+' });
 
-/** 새로 만드는 문서에 쓸 앱 이름. S69-42: 누구나 'WORK ON+'(명진 nojo_words여도 — 노조+는 따로 만드는 노조 공간 앱 이름). keepOld는 받기만 한다. */
+/** 새로 만드는 문서에 쓸 앱 이름. S69-42: 누구나 'WORK ON+'(사용자 nojo_words여도 — 노조+는 따로 만드는 노조 공간 앱 이름). keepOld는 받기만 한다. */
 export const appNameFor = () => APP_NAMES.now;
 
 /** 이 종류 폴더의 이름 둘(옛·새). 찾기·휴지통 판별·이름 거절에 쓴다. */
 export const folderNames = kind => [FOLDER_NAMES[kind].old, FOLDER_NAMES[kind].now];
 
-/** 새로 만들 때 쓸 이름. 늘 새 이름(구글 드라이브 S69-41, 원드라이브 사진 휴지통 S69-42 — 명진도 WORK ON+).
+/** 새로 만들 때 쓸 이름. 늘 새 이름(구글 드라이브 S69-41, 원드라이브 사진 휴지통 S69-42 — 사용자도 WORK ON+).
  * keepOld는 예전 부르는 쪽과 모양을 맞추려고 받기만 하고 쓰지 않는다. */
 export function folderNameFor(kind, keepOld) {
   const names = FOLDER_NAMES[kind];

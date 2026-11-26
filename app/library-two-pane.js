@@ -1,10 +1,10 @@
-// LIB-두칸보기(S55-11, 시안 docs/design/mockups/library-two-pane.html, 명진 11/09 18:16 'ㅇ'): 자료실 두 칸 보기.
+// LIB-두칸보기(S55-11, 시안 docs/design/mockups/library-two-pane.html, 사용자 11/09 18:16 'ㅇ'): 자료실 두 칸 보기.
 // [▥ 두 칸]을 켜면(서버 view_prefs.library_two, 없으면 켬) PC·펼친 폴드(600px~)의 폴더 묶기에서 왼쪽 나무 대신 두 칸이 같은 목록이다:
 // 칸마다 위치 줄(‹ 자료실 › 궤도 › 회의)·정렬, 폴더 줄 + 자료 줄. 맨 위(자료실)는 맨 위 폴더 + 폴더 밖 자료.
-// LIB-두칸폴더펼치기(S56-40, 명진 11/10 18:25): 폴더 줄을 누르면 들어가지 않고 그 칸 안에서 나무처럼 펼치기·접기(하위 폴더·자료가 들여 보임).
+// LIB-두칸폴더펼치기(S56-40, 사용자 11/10 18:25): 폴더 줄을 누르면 들어가지 않고 그 칸 안에서 나무처럼 펼치기·접기(하위 폴더·자료가 들여 보임).
 // 그 폴더만 보기(들어가기)는 PC = 우클릭 [이 폴더로 들어가기](library-folders.js).
-// UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 칸 안에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯·우클릭 첫 줄 [이 폴더로 들어가기]만.
-// S69-68 UI-두칸따로(명진 11/24 20:14 '우측에서의 폴더조작이 왼쪽에 영향 안미치게 반대로도. 원래 따로 조작하는게 의도임'):
+// UI-폴더이름펼치기(사용자 11/24 18:09): 빈 폴더도 그 칸 안에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯·우클릭 첫 줄 [이 폴더로 들어가기]만.
+// S69-68 UI-두칸따로(사용자 11/24 20:14 '우측에서의 폴더조작이 왼쪽에 영향 안미치게 반대로도. 원래 따로 조작하는게 의도임'):
 //  펼침은 칸마다 따로 적는다(own[i] — 화면 메모리, 기기 저장 없음). 칸에서 펼치거나 접은 적 없는 폴더만 한 칸 목록 펼침(luOpened·거르기 펼침 — isOpen)을 따른다.
 //  지금 폴더도 칸마다 따로(왼쪽 = left, 오른쪽 = luInFolder) — 한 칸에서 펼치기·접기·들어가기를 해도 다른 칸은 그대로.
 // 폰(600px 미만)·다른 묶기는 지금 한 칸 목록 그대로. 두 칸을 끄면 지금 한 칸(나무 | 목록).
@@ -49,7 +49,7 @@ export function paneRows(content, isOpen = () => false, sort = 'date', titleOf) 
   const walk = (folders, files, node, depth) => {
     for (const f of folders) {
       const kids = paneSorted({folders: (f.children || []).filter(n => n.kind === 'folder'), files: f.files || []}, sort, titleOf);
-      // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 자리에서 펼친다 — 펼치면 안에 '빈 폴더' 한 줄({kind:'empty'}), 들어가지 않음.
+      // UI-폴더이름펼치기(사용자 11/24 18:09): 빈 폴더도 그 자리에서 펼친다 — 펼치면 안에 '빈 폴더' 한 줄({kind:'empty'}), 들어가지 않음.
       const hasContent = kids.folders.length + kids.files.length > 0, open = !!isOpen(f.key);
       out.push({kind: 'folder', node: f, depth, open, hasContent});
       if (open && !hasContent) out.push({kind: 'empty', node: f, depth: depth + 1});
@@ -58,7 +58,7 @@ export function paneRows(content, isOpen = () => false, sort = 'date', titleOf) 
     if (files.length) out.push({kind: 'files', node, depth, files});
   };
   const top = paneSorted({folders: content.folders || [], files: content.files || []}, sort, titleOf);
-  // LIB-두칸폴더밖(S69, 명진 11/24 16:12 "두 칸보기에서 폴더밖 어디로 사라졌어"): 맨 위(자료실)에서는 한 칸 나무처럼 맨 위에 '폴더 밖' 줄(개수) 하나,
+  // LIB-두칸폴더밖(S69, 사용자 11/24 16:12 "두 칸보기에서 폴더밖 어디로 사라졌어"): 맨 위(자료실)에서는 한 칸 나무처럼 맨 위에 '폴더 밖' 줄(개수) 하나,
   // 폴더 밖 자료는 그 줄을 펼쳤을 때 그 안에만(폴더 줄 아래 섞이지 않음). 펼침은 폴더와 같은 곳(isOpen 'x:out').
   if (content.top) {
     const n = content.node, hasContent = top.files.length > 0, open = hasContent && !!isOpen(OUT_KEY);
@@ -212,7 +212,7 @@ export function createLibraryTwo(h) {
       if (step) { e.preventDefault(); go(i, step.dataset.luPaneGo || null); focusHead(i); return; }
       if (e.target.closest('[data-lu-pane-up]')) { e.preventDefault(); const f = h.folders().find(x => x.id === where(i)); go(i, f?.parent_id || null); focusHead(i); return; }
       // 폴더 줄 누르기 = 그 칸 안에서 펼치기·접기(들어가지 않음). 들어가기는 ⋯·우클릭 메뉴 첫 줄 [이 폴더로 들어가기].
-      // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 펼친다(안에 '빈 폴더' 한 줄) — 전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 열기'는 없앴다.
+      // UI-폴더이름펼치기(사용자 11/24 18:09): 빈 폴더도 펼친다(안에 '빈 폴더' 한 줄) — 전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 열기'는 없앴다.
       const nav = e.target.closest('[data-lu-nav]');
       if (nav && !e.target.closest('input')) {
         e.preventDefault(); e.stopPropagation();

@@ -85,7 +85,7 @@ export function objectAfter(html: string, marker: RegExp, max = JSON_BODY_LIMITS
 }
 
 // 2) Arc XP Fusion globalContent의 공개 본문 칸.
-// S69-02(명진 11/24 06:40 조선일보 '원문 다시 불러오기를 눌러도'): 문단(text)만이 아니라 소제목(header)·사진(image, https 주소·캡션)·목록(list)·인용(quote)도
+// S69-02(사용자 11/24 06:40 조선일보 '원문 다시 불러오기를 눌러도'): 문단(text)만이 아니라 소제목(header)·사진(image, https 주소·캡션)·목록(list)·인용(quote)도
 //   차례 그대로 읽는다(화면 '원문 전체'가 사진·소제목까지 보이게). 글자는 예전과 같이 text·header·list·quote 글자를 줄로 이은 것.
 const textOf = (v: unknown) => (typeof v === "string" ? paraLines(v) : []);
 function arcItemsOf(els: unknown[], out: JsonItem[], depth = 0) {

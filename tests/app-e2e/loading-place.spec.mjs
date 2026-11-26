@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles } from './helpers/files-server.mjs';
-// UI-로딩자리전수(S49-15 A) → UI-로딩맨위(S49-24, 명진 결정 11/04): 움직이는 막대는 화면 맨 위 한 곳(.top-wait)뿐, 칸 안에는 회색 빈 줄만(공용 wait-state).
+// UI-로딩자리전수(S49-15 A) → UI-로딩맨위(S49-24, 사용자 결정 11/04): 움직이는 막대는 화면 맨 위 한 곳(.top-wait)뿐, 칸 안에는 회색 빈 줄만(공용 wait-state).
 // 불러오는 동안에는 '빈 폴더'·'없음' 같은 빈 결과 글이 없고, '맞추는 중' 같은 두 번째 로딩 글자도 없다(다 읽은 뒤에만 결과).
 // 느린 응답을 흉내 내(목록 응답 1.5초 지연) 불러오는 도중 모양을 PC 1440·1920에서 본다.
 const root = page => page.locator('#filesRoot');

@@ -58,7 +58,7 @@ test('Edge: 다시·단계·실패가 닫음 표시를 이어 가고, job_list�
   assert.doesNotMatch(src,/discarded_at|dismissed_at/,'새 칸 없음');
 });
 
-// S61-5 REC-전사삭제(명진 11/13): 녹음 띠는 서버 정리를 맡기지 않으므로 '멈춘 서버 정리' 띠·녹음 줄 [다시]는 지금은 없다.
+// S61-5 REC-전사삭제(사용자 11/13): 녹음 띠는 서버 정리를 맡기지 않으므로 '멈춘 서버 정리' 띠·녹음 줄 [다시]는 지금은 없다.
 // 멈춤 띠는 저장이 멈춘 것뿐이고 [닫기]는 띠만 닫는다(서버 표시 없음).
 test('지금은 없음: 녹음 띠에 서버 정리 멈춤 닫기(job_discard)·녹음 줄 [다시](data-rec-stopped)가 없고 [닫기]는 띠만 닫는다',()=>{
   const src=read('app/meeting-recorder.js');

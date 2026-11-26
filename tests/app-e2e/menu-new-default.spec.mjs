@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome, OPERATOR_MENU_FEATURES} from './helpers/home-entry.mjs';
-// MULTI-하단바기본노트(명진 결정 11/13 15:24, 설계 docs/design/new-user-start.md 2-1): 메뉴를 한 번도 바꾸지 않은 새 계정은
-// 폰 하단바 '홈·노트·일정·자료실·사진·메뉴'(S68-37, 명진 11/23), 잊지 말기는 [메뉴] 창 맨 앞, 조직 관리·사업 관리는 읽을 거리 다음, PC 왼쪽 메뉴도 같은 순서.
+// MULTI-하단바기본노트(사용자 결정 11/13 15:24, 설계 docs/design/new-user-start.md 2-1): 메뉴를 한 번도 바꾸지 않은 새 계정은
+// 폰 하단바 '홈·노트·일정·자료실·사진·메뉴'(S68-37, 사용자 11/23), 잊지 말기는 [메뉴] 창 맨 앞, 조직 관리·사업 관리는 읽을 거리 다음, PC 왼쪽 메뉴도 같은 순서.
 // 메뉴 순서를 저장해 둔 사람(운영자 시험 고정값 OPERATOR_MENU_LAYOUT = 11/13까지의 기본 모양)은 그대로.
 // 화면 사진: SHOT_DIR=docs/design/screens/s62-04a 로 돌릴 때만 남긴다. 합성 값만 쓴다.
 const tabLabels=page=>page.locator('#appView .mobile-tabs > button').evaluateAll(list=>list.map(b=>b.textContent.trim()));
@@ -25,7 +25,7 @@ for(const width of [360,412]){
     await page.locator('.mobile-tabs [data-basket-kind-nav="note"]').click();
     await expect(page.locator('.mobile-tabs [data-basket-kind-nav="note"]')).toHaveAttribute('aria-current','page');
     await expect(page.locator('#basketView')).toBeVisible();
-    // [메뉴] 창: 잊지 말기가 맨 앞, 노트는 없다(하단바에 있음). 운영자 기능이 없는 계정이라 통화·텔레그램 소식·아스날·News는 없다. [파일]은 모두에게(S62-11 명진 결정).
+    // [메뉴] 창: 잊지 말기가 맨 앞, 노트는 없다(하단바에 있음). 운영자 기능이 없는 계정이라 통화·텔레그램 소식·아스날·News는 없다. [파일]은 모두에게(S62-11 사용자 결정).
     await page.locator('#mobileMenuTab').click();
     await expect(page.locator('#mobileMenu')).toBeVisible();
     await expect.poll(()=>sheetIds(page)).toEqual(['basket','reading','team','meetings','files','brief','hwp']);

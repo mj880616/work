@@ -210,7 +210,7 @@ export const createFolder = (name, rt = window.KPTURuntime) => tgdg('app_feed_fo
 export const renameFolder = (id, name, rt = window.KPTURuntime) => tgdg('app_feed_folder_rename', {p_id:id, p_name:name}, rt);
 export const deleteFolder = (id, rt = window.KPTURuntime) => tgdg('app_feed_folder_delete', {p_id:id}, rt);
 
-// ---------- TG-요약고치기: 명진이 손으로 고친 요약은 AI 값과 따로 서버(app_feed_summary_edits, 소유자 읽기만)에 있고, 쓰기는 DB 함수 app_feed_summary_edit 하나뿐이다.
+// ---------- TG-요약고치기: 사용자가 손으로 고친 요약은 AI 값과 따로 서버(app_feed_summary_edits, 소유자 읽기만)에 있고, 쓰기는 DB 함수 app_feed_summary_edit 하나뿐이다.
 // 읽기: [{target, vals}] 전부(소식 한 줄은 'item:<id>', 그날 요약은 'day:<방>|<날짜>'). 표가 아직 없거나 읽지 못하면 던진다(부르는 쪽이 고치기를 숨긴다).
 export async function readSummaryEdits(rt = window.KPTURuntime) {
   const ws = workspaceOf(rt);

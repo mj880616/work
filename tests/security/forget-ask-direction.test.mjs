@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// S61-9 FORGET-요청방향(요청함 11/13 05:14, 명진 확정 05:19): 명진이 남에게 부탁·요청한 일은 잊지 말기 '처리 전'에 명진 할 일로 뜨지 않는다.
+// S61-9 FORGET-요청방향(요청함 11/13 05:14, 사용자 확정 05:19): 사용자가 남에게 부탁·요청한 일은 잊지 말기 '처리 전'에 사용자 할 일로 뜨지 않는다.
 // 길마다(소식 journal-memorable · 텔레그램 요청 telegram.ts · 챙길 것 todo-radar.ts · 다시 거르기 todo-recheck.ts) 같은 규칙을 순수 함수로 확인한다.
 // 이름·글은 모두 지어낸 것이다. 네트워크 없음.
 const jm=await import('../../supabase/functions/ai-assist/journal-memorable.ts');
@@ -54,7 +54,7 @@ test("텔레그램 요청: 근거 메시지가 모두 '나'가 보낸 것이면 
   assert.equal(r.items[0].ask.request,'가상 자료 보내기');assert.equal(r.askDropped,0);
 });
 
-test("챙길 것: 내가 남에게 부탁한 일은 owner=other(명진 할 일 아님), 상대가 하기로 했으면 상대 약속 '(내가 요청)'", ()=>{
+test("챙길 것: 내가 남에게 부탁한 일은 owner=other(사용자 할 일 아님), 상대가 하기로 했으면 상대 약속 '(내가 요청)'", ()=>{
   const ins=buildTodoRadarInstructions();
   assert.match(ins,/기록 주인이 다른 사람·조직에게 부탁·요청·지시한 일은 그 사람이 할 일이다/);
   assert.match(ins,/summary 끝에 '\(내가 요청\)'을 붙인다/);

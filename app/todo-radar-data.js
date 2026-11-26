@@ -142,7 +142,7 @@ export function autoDone(c) {
   return Number.isFinite(a) && Number.isFinite(b) && a === b ? c.auto_done : '';
 }
 export const autoReplied = c => autoDone(c) === 'replied';
-// ③ 중요 ★: 마감 날짜가 있거나 명진을 직접 부른(1:1 방·내 메시지에 답장·내 이름) 처리 전 업무 제안. 서버가 하루 지나도 옮기지 않는다
+// ③ 중요 ★: 마감 날짜가 있거나 사용자를 직접 부른(1:1 방·내 메시지에 답장·내 이름) 처리 전 업무 제안. 서버가 하루 지나도 옮기지 않는다
 // (migration 20261125160000 app_forget_auto_expire와 같은 기준). 화면은 묶음 맨 위에 ★로 둔다.
 export const starredCandidate = c => c?.status === 'open' && (DAY.test(String(c?.due || '')) || c?.ask_direct === true);
 // ① 하루 묶음: 서울 기준 어제 들어온, ★ 아닌 처리 전 줄. 오늘 줄은 그대로 한 줄씩, 어제 줄은 '어제 들어온 요청 n개' 한 줄로 접는다.
@@ -440,7 +440,7 @@ export async function recheckTodos(options = {}) {
   return {ok:true, checked:d.checked, dismissed:d.dismissed, more:d.more === true};
 }
 
-// ---- TODO-이미함·환류 4.3: 챙길 것 거르기 규칙(app_todo_rules, 소유자 RLS) — AI 후보 → 명진 [ㅇ]·[×]·[고쳐서 확정] ----------
+// ---- TODO-이미함·환류 4.3: 챙길 것 거르기 규칙(app_todo_rules, 소유자 RLS) — AI 후보 → 사용자 [ㅇ]·[×]·[고쳐서 확정] ----------
 // 찾기(ai-assist todo_radar)는 확정(confirmed)만 쓴다. [×]는 지우지 않고 뺀 것(retired)으로, 뺀 것은 [다시 후보로].
 export const RULE_STATES = Object.freeze(['candidate', 'confirmed', 'retired']);
 export const RULE_CHARS = 120;

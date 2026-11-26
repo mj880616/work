@@ -55,7 +55,7 @@ test('no work-side reader names the table (ai-assist, weekly, journal, search, f
  // 화면은 family-notes-data.js 하나, phone-push는 알림 건수 세기만.
  assert.deepEqual(hits.sort(),['app/family-notes-data.js','supabase/functions/collector-feed/handler.ts','supabase/functions/phone-push/handler.ts'],`이 표를 부르는 앱·Edge 파일: ${hits.join(', ')}`);
 });
-// S52-20 HOME-잊지말기한목록(명진 11/07 14:43 '가족 얘기든 업무 얘기든 … 구분해서 보여 줄 필요가 없다'): 정리함 화면의 '잊지 말기' 한 목록(forget-list.js)도
+// S52-20 HOME-잊지말기한목록(사용자 11/07 14:43 '가족 얘기든 업무 얘기든 … 구분해서 보여 줄 필요가 없다'): 정리함 화면의 '잊지 말기' 한 목록(forget-list.js)도
 // 가족 줄을 보인다. 그 목록은 줄을 보이고 상태만 바꾸며(데이터 모듈 하나), 업데이트·원장·주간보고·업무일지·AI 길(basket.js 등)에는 넘기지 않는다.
 test('잊지 말기 자료는 홈 한 줄(숫자만)과 잊지 말기 한 목록에서만 부르고, 업무 화면(원장·주간보고·검색·정리함 본체·업무 소식)은 부르지 않는다',()=>{
  const app=walk(join(root,'app')).map(p=>relative(root,p));

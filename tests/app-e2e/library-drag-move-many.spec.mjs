@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {libraryTopMenu} from './helpers/library-tree.mjs';
 import {treeEnter} from './helpers/tree-enter.mjs';
-// LIB-끌어옮기기저장실패 · LIB-두칸폴더밖 · LIB-끄는중막대 (S69, 명진 11/24 16:09·16:12·16:17).
+// LIB-끌어옮기기저장실패 · LIB-두칸폴더밖 · LIB-끄는중막대 (S69, 사용자 11/24 16:09·16:12·16:17).
 // ① 자료가 1000개를 넘으면 서버가 한 번에 1000줄까지만 준다(가짜 서버도 같게). 전에는 자료실이 한 번만 읽어 잡동사니에 든 자료가 '폴더 밖'으로 보이고,
 //    그것을 폴더로 끌면 겹침 거절(409)로 '저장하지 못했어요'. 지금은 끝까지 읽어 개수가 맞고, 여러 개 끌어 옮기기가 된다(드라이브에서 가져온 연결 원본 포함, 드라이브 요청 없음).
 // ② 두 칸 보기 각 칸 맨 위 '폴더 밖' 줄(개수) — 폴더 밖 자료는 그 안에서만. ③ 끄는 동안 고르기 막대 = '옮기는 중 N개 · 취소'만, 끝나면 원래대로.

@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {destSheetHtml, folderSheetRows, folderSheetPath, folderChain, folderAndBelow, sheetTitle, ROOT} from '../app/folder-dest-sheet.mjs';
-// S69-62 폴더 고르기 창 하나(명진 11/24 18:16·18:18): [파일] '옮길 곳' 창 모양을 자료실·노트·사진·News 별표 폴더가 같이 쓴다.
+// S69-62 폴더 고르기 창 하나(사용자 11/24 18:16·18:18): [파일] '옮길 곳' 창 모양을 자료실·노트·사진·News 별표 폴더가 같이 쓴다.
 const DEVICE_STORES = new RegExp([['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB']].map(p => p.join('')).join('|'));
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const F = [

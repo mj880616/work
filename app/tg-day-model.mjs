@@ -187,7 +187,7 @@ export const pinsWithoutLine = (rooms, lines) => pinnedRooms(rooms, lines).filte
 // 방 표의 상태를 줄에 입힌다(줄이 가진 값보다 방 표가 기준).
 export const withRoomState = (lines, rooms) => (lines || []).map(l => { const r = rooms?.get(l.room_key); return r ? {...l, folder_id:r.folder_id || null, archived_at:r.archived_at || null} : l; });
 
-// ---------- 밀기 (폰, 터치만) — S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): 텔레그램 소식 줄도 공용 줄 밀기(row-swipe.js)를 쓴다.
+// ---------- 밀기 (폰, 터치만) — S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 가안): 텔레그램 소식 줄도 공용 줄 밀기(row-swipe.js)를 쓴다.
 // 왼쪽으로 밀면 오른쪽 끝에 칸(64px씩, 끝까지 밀어도 칸만). 화면 왼쪽 가장자리 24px 안에서 시작한 밀기는 무시한다(공용 셈 row-swipe-model.mjs).
 // 소식에는 여러 개 고르기가 없어 오른쪽 밀기는 없다. 손동작 기준(시작 12px·가장자리 24px·버튼 64px)은 공용 셈 그대로 내보낸다.
 export {SWIPE_BTN, SWIPE_START, SWIPE_EDGE, swipeIntent, swipeEdge};
@@ -200,7 +200,7 @@ export const SWIPE_ACTIONS = Object.freeze({
 });
 export const ACTION_LABEL = Object.freeze({folder:'폴더로', edit:'수정', archive:'보관', trash:'삭제', unarchive:'꺼내기'});
 
-// ---------- TG-요약고치기 (docs/design/tg-summary-edit.md): 명진이 손으로 고친 요약은 AI 값과 따로 서버에 있다(app_feed_summary_edits).
+// ---------- TG-요약고치기 (docs/design/tg-summary-edit.md): 사용자가 손으로 고친 요약은 AI 값과 따로 서버에 있다(app_feed_summary_edits).
 // 화면은 AI 값 위에 고친 값을 입혀 보여 줄 뿐이고 AI 값은 지우지 않는다. [AI 원래 요약으로]는 고친 값을 비워 AI 값이 다시 보이게 한다.
 export const SUMEDIT = Object.freeze({SUMMARY_MAX:400, HEADLINE_MAX:60, LINES_MAX:12, LINE_MAX:150});
 export const SUMEDIT_TEXT = Object.freeze({

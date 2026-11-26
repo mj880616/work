@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {treeEnter} from './helpers/tree-enter.mjs';
-// S69-29 LIB-한칸크기끌기(명진 11/24 "창 밑으로도 드래그 가능하게 · 정확히는 높이를 · 드래그로 늘릴 수 있게",
+// S69-29 LIB-한칸크기끌기(사용자 11/24 "창 밑으로도 드래그 가능하게 · 정확히는 높이를 · 드래그로 늘릴 수 있게",
 // "한칸보기에서 왼쪽 목록이랑 오른쪽 폴더 또는 자료 보기 사이 드래그가안되네"): 자료실 한 칸 탐색기(왼쪽 나무 | 오른쪽 그 폴더 내용).
 // ① 카드 아래 테두리 끌기 = 카드 높이(서버 기억, 다시 열어도 그대로), 두 번 누르기 = 내용만큼. 늘린 빈 곳에서 사각형 고르기·파일 놓기(지금 폴더로).
 // ② 두 칸 사이 세로 선 끌기 = 왼쪽 나무 칸 폭(서버 기억), 두 번 누르기 = 기본.

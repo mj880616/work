@@ -219,7 +219,7 @@
 .photo-info-dialog .pi-foot .status{margin:0;font-size:12px;flex:1;min-width:0}
 @media (max-width:760px){.photo-info-dialog{margin:12px auto auto}}
 
-/* PHOTO-연월이동(S49-5, 명진 결정 A+B 둘 다): A 오른쪽 막대 연도 눈금, B [연·월·일] 보기 단계 줄과 월·연 칸. */
+/* PHOTO-연월이동(S49-5, 사용자 결정 A+B 둘 다): A 오른쪽 막대 연도 눈금, B [연·월·일] 보기 단계 줄과 월·연 칸. */
 #appView #photosView .photos-rail-year{ position:absolute; right:16px; margin-top:-6px; padding:0 3px; border-radius:3px; font-size:10px; line-height:12px; color:var(--kptu-ink); background:color-mix(in srgb,var(--kptu-surface) 78%,transparent); font-variant-numeric:tabular-nums; pointer-events:none; }
 /* PHOTO-연월보기(S49-48): [사진] 탭 월 보기·연 보기. 줄 = 이름·장수 + 작은 사진 한 줄(폰 6·PC 10 / 연 폰 2·PC 4, --zn). 연도 막대는 일별에서만(JS가 숨김). */
 #appView #photosView .photos-zoom{ display:block; }

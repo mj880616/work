@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// PHOTO-속도(2026-10-30 명진 "사진 속도 빠르게"): 사진 메뉴의 요청 수·순서를 지어낸 서버로 잰다(네트워크 없음, 사진은 1×1 그림).
+// PHOTO-속도(2026-10-30 사용자 "사진 속도 빠르게"): 사진 메뉴의 요청 수·순서를 지어낸 서버로 잰다(네트워크 없음, 사진은 1×1 그림).
 // - 첫 화면: 목록 읽기(library·months)는 sync:false(서버가 원드라이브 delta를 기다리지 않음), 썸네일 주소는 꽉 찬 묶음(photo-urls 20장)으로,
 //   화면에 보이는 칸과 곧 보일 칸(아래 한 화면, 위 200px)만 받는다. 한 장씩 받는 길(photo)은 쓰지 않는다.
 // - 스크롤: 건너뛴 칸은 받지 않고 새 자리 근처 칸만 받는다.

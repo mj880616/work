@@ -1,4 +1,4 @@
-// S68-09 READ-읽을거리함(명진 11/22 "Raindrop 가져올 것 ㄱ", 위치 "B: 메뉴에 새 칸"): 읽을 거리의 순수 계산. DOM·네트워크 없음(node --test).
+// S68-09 READ-읽을거리함(사용자 11/22 "Raindrop 가져올 것 ㄱ", 위치 "B: 메뉴에 새 칸"): 읽을 거리의 순수 계산. DOM·네트워크 없음(node --test).
 // 저장은 서버 표 public.app_reading_items(DB 20261122100000 — 자기 작업공간 주인만). 원문 받아 오기는 기존 Edge note-import 답(글자 블록)을 그대로 쓴다.
 // 밑줄은 기존 표 app_news_highlights(종류 'reading')와 공용 부품 text-highlights.js. 여기서는 주소 다듬기·줄 값·거르기·원문 글자·상태 한 줄만 만든다.
 import {readImportUrl, hostOf, resultOutcome, failInfo, makeSource, NOTE_BODY_MAX, NOTE_TITLE_MAX} from './note-import-model.mjs';
@@ -9,8 +9,8 @@ export const TITLE_MAX = 500, SITE_MAX = 120, BODY_MAX = 200000, URL_MAX = 2000,
 export const LIST_COLS = 'id,url,title,site,saved_at,read_at,body_state,body_at,business_area_id,updated_at,origin,news_article_id,outside_article_id';
 // lead(본문을 못 찾아 소개 글만)·login(로그인 화면이 옴)은 S70-40a READ-실패까닭에서 더함(DB 20261125170000_reading_body_state_login_lead).
 export const BODY_STATES = Object.freeze(['pending', 'ok', 'paywall', 'lead', 'bot_check', 'robots', 'too_big', 'blocked', 'login', 'failed']);
-// 거르기 칩: [전체] [안 읽음 n] [밑줄] [메모]. 처음은 전체(S70-24 READ-저장한글기본전체, 명진 11/25 "전체를 기본으로").
-// S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 글을 따로 거르는 칩은 없다 — 평범한 읽을 거리 줄.
+// 거르기 칩: [전체] [안 읽음 n] [밑줄] [메모]. 처음은 전체(S70-24 READ-저장한글기본전체, 사용자 11/25 "전체를 기본으로").
+// S68-29(사용자 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 글을 따로 거르는 칩은 없다 — 평범한 읽을 거리 줄.
 // S69-94 NOTE-메모통일: [메모] = 이 화면 글에 남긴 메모만 모아 보기(노트 [메모]와 같은 메모 목록·같은 줄).
 export const FILTERS = Object.freeze(['all', 'unread', 'marks', 'memos']);
 export const DEFAULT_FILTER = 'all';
@@ -50,7 +50,7 @@ export function lineOf(row) {
     day: shortDay(row?.saved_at), unread: !row?.read_at, area: row?.business_area_id || null, state: BODY_STATES.includes(row?.body_state) ? row.body_state : 'pending'};
 }
 
-// ---- 한 목록(S68-27 READ-보관기록일원화, 명진 11/22 "2. A" → 21:37 "저장된 기록도 일원화") ----
+// ---- 한 목록(S68-27 READ-보관기록일원화, 사용자 11/22 "2. A" → 21:37 "저장된 기록도 일원화") ----
 // 보관의 원본은 이 표 하나다(DB 20261122230000). News에서 보관한 글도 이 표의 줄이고, 원래 글 연결 칸(news_article_id·outside_article_id)과
 // 어디서 왔나(origin: direct·news·outside)를 가진다. 화면은 이 표만 읽는다(두 곳을 합치지 않음).
 // 줄(entry): {key: 줄 id, at: 저장 시각, row, link: {type:'news'|'outside', id} | null}
@@ -154,7 +154,7 @@ export function stateLine(row, {busy = false} = {}) {
 const NO_RETRY = Object.freeze(['ok', 'blocked', 'too_big']);
 export const canRetry = row => !NO_RETRY.includes(BODY_STATES.includes(row?.body_state) ? row.body_state : 'pending');
 
-// S68-32 READ-보관글원문다시(명진 11/23 02:25 "이미 보관한 뉴스 전문 못불러오는 것도 제대로"): 화면이 열릴 때 한 번 자동으로 다시 가져올 줄.
+// S68-32 READ-보관글원문다시(사용자 11/23 02:25 "이미 보관한 뉴스 전문 못불러오는 것도 제대로"): 화면이 열릴 때 한 번 자동으로 다시 가져올 줄.
 // - 대상: 원문이 없는 상태(pending) · 실패(failed) · robots로 막혔던 줄. News에서 온 줄(원래 글 연결이 있음)은 bot_check도 — News 쪽 본문이 그 뒤 채워졌을 수 있다.
 // - 한 줄에 한 번만: 마지막 시도 시각(body_at, 서버 칸)이 REFETCH_SINCE보다 앞인 줄만(pending은 body_at이 비어 늘 대상). 자동 시도가 실패하면
 //   body_at이 지금으로 바뀌어 다시 자동 대상이 되지 않는다 — 그 뒤는 [다시] 단추만. 기기 저장 없음.
@@ -187,7 +187,7 @@ export function refetchBatches(rows, {tried = new Set(), busy = () => false, sin
 // 자동 다시 가져오기를 그만둘 요청 실패(하루 횟수 다 씀·로그인 풀림·권한 없음 — 다음 줄도 같은 답).
 export const stopsAuto = reason => ['daily_limit', 'login', 'forbidden'].includes(reason);
 
-// ---- 제목 주인 하나(S69 READ-제목하나, 명진 11/24 "목록에서 이상한 제목이 보임") ----
+// ---- 제목 주인 하나(S69 READ-제목하나, 사용자 11/24 "목록에서 이상한 제목이 보임") ----
 // News에서 온 줄의 제목은 이 표의 사본이고, 사람이 글 보기 [직접 넣기]·⋯ [수정]으로 고치는 곳은 공용 기사(app_news_articles, 손으로 넣은 기사 manual_at)다.
 // 그래서 손으로 넣은 기사의 제목이 사본과 다르면 그 제목이 이긴다 — 목록·글 보기·검색·홈·밑줄 출처가 모두 이 표 제목을 읽으므로 사본을 맞춘다.
 // articles: [{id, title, manual_at}] (기사 표에서 읽은 줄). 고칠 줄 [{id: 이 표 줄 id, title}]만 돌려준다(수집 기사·빈 제목·같은 제목은 그대로).
@@ -232,7 +232,7 @@ export function sourceOf(row) {
   return {type: 'reading', id: row.id, title: l.title, media: l.site || null, date: row?.saved_at || null, url: row?.url || null};
 }
 
-// S69-98 NOTE-에버노트 ⑤(명진 11/25 "좋아 모두 다 넣어!"): 글 보기 [노트로 만들기] — 받아 둔 원문 사본 + 출처 주소 + 저장 시각을 새 노트 한 장으로.
+// S69-98 NOTE-에버노트 ⑤(사용자 11/25 "좋아 모두 다 넣어!"): 글 보기 [노트로 만들기] — 받아 둔 원문 사본 + 출처 주소 + 저장 시각을 새 노트 한 장으로.
 // 새 저장소 없음: 노트는 기존 노트 만들기 길(createNoteDoc), 원래 주소는 노트의 원문 정보(metadata.source, 주소로 가져오기와 같은 모양)로도 남긴다.
 // 읽을 거리 줄·원문 사본은 그대로 둔다(복사). 노트 글자 상한을 넘으면 뒤 문단부터 빼고 한 줄로 알린다.
 // → {title, raw_text, source, cut} | null(줄 id·https 주소가 없을 때)

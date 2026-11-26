@@ -173,7 +173,7 @@ function renderDocuments(){if(window.KPTULibrary?.render){window.KPTULibrary.ren
 function meetingName(m){return String(m?.series_name||m?.title||'').trim()}
 function meetingNameKey(name){return String(name||'').replace(/\s+/g,'').toLowerCase()}
 function meetingNameChoices(kind=null){const seen=new Set();return [...(kind?filterByReportKind(meetings,kind):meetings)].sort((a,b)=>new Date(b.meeting_at)-new Date(a.meeting_at)).map(meetingName).filter(name=>{const key=meetingNameKey(name);if(!key||seen.has(key))return false;seen.add(key);return true})}
-// MTG-비정기회의바로쓰기(A안, 11/24 명진): 회의명 자리 맨 위 [정기 회의 | 비정기 회의](공용 ⑤ .ds-seg). [비정기 회의]는 바로 이름 칸 +
+// MTG-비정기회의바로쓰기(A안, 11/24 사용자): 회의명 자리 맨 위 [정기 회의 | 비정기 회의](공용 ⑤ .ds-seg). [비정기 회의]는 바로 이름 칸 +
 // 그 아래 한 줄 [조직 ▾](회의명 정리의 조직 목록) · [관련 사업 ▾](연결할 곳과 같은 연결 — 새 저장 길 없음). 옛 '기타(직접 입력)' 옆 [정기 회의 ▾] 상자는 없앴다.
 function installMeetingNamePicker(input,prefix){if(document.querySelector(`#${prefix}NameSelect`))return;const label=input.parentElement;
   label.insertAdjacentHTML('beforebegin',`<div id="${prefix}NameMode" class="ds-seg mnp-mode" role="radiogroup" aria-label="회의 종류"><button type="button" class="ds-seg-btn" role="radio" aria-checked="true" data-name-mode="regular">정기 회의</button><button type="button" class="ds-seg-btn" role="radio" aria-checked="false" data-name-mode="adhoc">비정기 회의</button></div>`);
@@ -254,7 +254,7 @@ let reportPlaceReady=false;
 // 달력은 사업 보고 화면 안에서만 쓴다(일정 탭 달력과 섞지 않음). 보기 선택은 이 화면 안 상태이고 서버(view-prefs report_view)에 기억한다.
 // 서버에서 읽은 기억은 사용자가 이번에 직접 고르기 전까지 그릴 때마다 따른다(팀 모듈이 기억을 읽기 전에 불러와질 수 있어 처음 값은 그릴 때 읽는다).
 let reportView='list',reportViewChosen=false,reportMonth=(()=>{const p=seoulParts();return {year:p.year,month:p.month}})(),reportDay='',photoFocusId=null;
-// UI-보기탭드롭다운(11/10 명진 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기 [목록|달력|사진] 탭 줄 대신 위 줄 기간 [주 단위 ▾] 옆 같은 고르기 상자 [목록 ▾] 하나(fillSelect, 열리는 작은 목록은 select-menu.js).
+// UI-보기탭드롭다운(11/10 사용자 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기 [목록|달력|사진] 탭 줄 대신 위 줄 기간 [주 단위 ▾] 옆 같은 고르기 상자 [목록 ▾] 하나(fillSelect, 열리는 작은 목록은 select-menu.js).
 function renderReportViewSelect(){fillSelect($('#reportViewSelect'),{groups:[{options:REPORT_VIEW_OPTIONS.map(o=>({value:o.value,label:o.label}))}],value:reportView,on:false});paintReportFilterChip()}
 // MTG-고치기바로: 세 번째 칸에서 고치던 내용이 있으면, 다른 줄·종류·칸·보기를 누를 때 그 자리에서 [저장] [버리기]를 묻고 고른 뒤에 간다(meeting-round-detail.js 문지기). 없으면 바로 간다.
 // 물어서 멈췄으면(false) 눌린 칩은 원래 상태로 되돌려 그린다.
@@ -311,7 +311,7 @@ function areaNameOf(m){if(!areaTree)return '';const id=areaIdOf(m),x=id&&areaTre
 let areaOptions=[];
 function renderAreaChips(){loadAreaTree();const options=areaTree?areaChipOptions(filterByReportKind(meetings,reportChip),areaTree):[];areaOptions=options.length<2?[]:options;if(!areaOptions.length){if(areaChip!=='all')areaChip='all'}else if(!options.some(o=>o.value===areaChip))areaChip='all';renderReportSelects()}
 // S52-22 TEAM-맨위한줄(요청 11/07 16:18, 시안 docs/design/mockups/report-top-bar.html): 맨 위는 언제나 한 줄 [종류 ▾][사업영역 ▾][녹음][⋯].
-// 고르기는 공용 고르기 상자(<select>, 열리는 작은 목록은 select-menu.js)다. BIZ-위쪽정돈PC(명진 11/09 10:52 A): 종류는 모든 폭에서 [회의 ▾] 상자 하나(PC 종류 칩 줄은 없앰).
+// 고르기는 공용 고르기 상자(<select>, 열리는 작은 목록은 select-menu.js)다. BIZ-위쪽정돈PC(사용자 11/09 10:52 A): 종류는 모든 폭에서 [회의 ▾] 상자 하나(PC 종류 칩 줄은 없앰).
 // 사업영역 상자 = 전체 · 각 사업영역 · 사업영역 없음('안 단 보고'는 목록 위 '사업영역 안 단 보고 n건 · 달기' 줄). 고른 값이 있으면 상자 글자가 진하다(is-on).
 // 상자를 그리는 곳은 이 함수 하나이고, 상태 주인은 그대로 reportChip·meetingType·areaChip이다.
 const KIND_PICK='kind:',NAME_PICK='name:';
@@ -408,7 +408,7 @@ function weekOfSaved(at){const day=String(at||'').slice(0,10);if(/^\d{4}-\d{2}-\
 // MTG-프로젝트합치기 ⑤: 새로 저장한 보고는 그 주로 옮기고 고른 보고로 둔다. 사업영역 칩·회의명 거르기가 그 보고를 가리면 [전체]로 푼다.
 function showSaved(m,at){weekOfSaved(at||(m?.meeting_at?seoulDateKey(m.meeting_at):''));if(!m?.id)return;meetingSelectedId=m.id;if(reportChip===DEFAULT_KIND){const n=meetingName(m);meetingSelectedKind=n?meetingNameKey(n):NONE_KEY;if(meetingType!=='all'&&meetingType!==(n||'__none__'))meetingType='all'}if(areaChip!=='all'&&areaTree&&!matchesAreaChip(m,areaChip,areaRoots(areaTree)))areaChip='all'}
 function reportRows(){return findMatch(weekMatch(areaMatch(filterByReportKind(meetings,reportChip))))}
-// S70-57 UI-메뉴별검색(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸 '사업 관리에서 찾기' 글자(화면 메모리만).
+// S70-57 UI-메뉴별검색(사용자 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸 '사업 관리에서 찾기' 글자(화면 메모리만).
 // 거르기는 그리기 전 자료 한 곳(reportRows·meetingColumnList)에서 — 목록·세 칸·폰 줄·달력·사진 보기가 모두 같은 거른 줄을 그린다. 새 서버 검색 없음.
 let reportFind='';
 // S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말·기간). 줄 순서는 지금 보기(날짜·종류) 그대로.
@@ -477,7 +477,7 @@ function restoreReportPlace(){if(reportPlaceReady)return;reportPlaceReady=true;c
 function writeReportPlace(){if(!reportPlaceReady||window.KPTURouter?.current!=='meetings')return;window.KPTURouter.setPlace?.('meetings',{chip:reportChip===DEFAULT_CHIP?null:reportChip,report:meetingSelectedId!=null?String(meetingSelectedId):null})}
 function selectMeetingKind(key){if(key===meetingSelectedKind){setWeekAuto(true);return}leaveReport(()=>{const had=meetingSelectedId!=null;meetingSelectedKind=key;meetingSelectedId=null;weekAuto=true;renderMeetings({resetList:true});writeReportPlace();pickReport(had)})}
 function selectMeetingRound(id){if(String(id)===String(meetingSelectedId)){setWeekAuto(true);return}leaveReport(()=>{const had=meetingSelectedId!=null;meetingSelectedId=id;weekAuto=true;renderMeetings({resetResult:true});writeReportPlace();pickReport(had)})}
-// NAV-PC뒤로직전(명진 결정 11/11 (나)): on PC a report (or a column of reports) the person picks is a back step of its own (router pick, one owner).
+// NAV-PC뒤로직전(사용자 결정 11/11 (나)): on PC a report (or a column of reports) the person picks is a back step of its own (router pick, one owner).
 // The report the screen opened by itself (the first one) is not a step. Back/forward to a picked entry shows that report again; one no longer there shows the list (first report).
 function pickReport(had=true){if(!meetingPc?.matches||reportView!=='list'||meetingSelectedId==null||window.KPTURouter?.current!=='meetings')return;window.KPTURouter.pick?.record?.('meetings',{chip:reportChip===DEFAULT_CHIP?null:reportChip,report:String(meetingSelectedId)},{fromNone:!had})}
 function showPickedReport({report}={}){if(!meetingPc?.matches||window.KPTURouter?.current!=='meetings'||!reportKitLoaded)return true;if(report&&String(report)===String(meetingSelectedId))return true;const m=report?meetings.find(x=>String(x.id)===String(report)):null;if(!m){leaveReport(()=>{meetingSelectedId=null;renderMeetings({resetResult:true});writeReportPlace()});return true}window.KPTUMeetingColumns.select({id:m.id});writeReportPlace();return true}
@@ -568,7 +568,7 @@ async function prepareTimePhotos(target,picks){const who=user?.id||'';timePhotos
   if(!who||user?.id!==who)return null;
   if(made.failed.length)announceDock({text:sendFailLine({badPhotos:made.failed.length}),note:'사진을 읽지 못했어요. 폰·원드라이브 연결을 확인한 뒤 다시 올려 주세요.',error:true,ms:0,actions:[{label:'다시 업로드',aria:'못 올린 사진 다시 업로드',run:()=>sendReportFiles(target,[],null,made.failed)}]});
   return made.files}
-// S46-20 사진 정리 ⑥(명진 11/01 01:04): 사진 줄 안 '그 시각 사진 [골라 붙이기]'(time-photos.js). 고른 사진만 위 사진 파일과 같은 길(저장할 때 차례로 올림, Drive 첨부).
+// S46-20 사진 정리 ⑥(사용자 11/01 01:04): 사진 줄 안 '그 시각 사진 [골라 붙이기]'(time-photos.js). 고른 사진만 위 사진 파일과 같은 길(저장할 때 차례로 올림, Drive 첨부).
 // BIZ-보고할일정 PR D: 일정에서 연 창(일정 id + 시각)이면 창을 열 때 그 시각 사진을 미리 골라 둔다(preset). [저장]하면 chosen()을 받아 창을 닫은 뒤 위 길로 올린다.
 let meetingTimePhotos=null,meetingTimePhotosLoading=false,meetingEntryPreset=false;
 function resetMeetingTimePhotos(){const host=$('#meetingTimePhotos');if(!host)return;if(meetingTimePhotos){void meetingTimePhotos();return}if(meetingTimePhotosLoading)return;meetingTimePhotosLoading=true;import('./time-photos.js').then(m=>{meetingTimePhotos=m.mountTimePhotos(host,{at:()=>$('#meetingAt')?.value||'',onPick:files=>addMeetingFiles(files),busy:()=>meetingSavePending,quiet:true,preset:()=>meetingEntryPreset})},e=>console.warn('time photos load failed',e)).finally(()=>{meetingTimePhotosLoading=false})}
@@ -772,7 +772,7 @@ function paintEntryWords(){
 function paintEntryKind(){const host=$('#meetingKindPick');if(!host)return;renderFilterChips(host,{label:'종류',value:entryKind(),options:REPORT_KINDS.map(k=>({value:k.value,label:k.label})),onChange:value=>{meetingEntryKind=value;paintEntryKind()}});paintEntryWords()}
 // [+]: [전체] 칩이면 칸 고르기 창을 먼저 열고, 다른 칩이면 그 칸이 채워진 입력 창을 바로 연다.
 // MTG-한줄업데이트: [+] 메뉴 맨 위 [한 줄 업데이트]. 사업영역 칩을 고른 채면 그 사업영역을 미리 고른다.
-// MTG-더하기늘고르기(11/14 명진 '거르기 상관 없이 늘 고르기 창'): 사업 보고 [+]는 거르기와 상관없이 늘 '어느 칸에 남길까요?' 창. 거르기가 한 종류면 그 줄만 표시(순서 그대로).
+// MTG-더하기늘고르기(11/14 사용자 '거르기 상관 없이 늘 고르기 창'): 사업 보고 [+]는 거르기와 상관없이 늘 '어느 칸에 남길까요?' 창. 거르기가 한 종류면 그 줄만 표시(순서 그대로).
 function openOnelineEntry(trigger){const area=areaChip!=='all'&&areaChip!==AREA_NONE?areaChip:'';import('./report-oneline.js').then(m=>m.openOneline(trigger,{areaId:area,onSaved:row=>{showSaved(row);renderMeetings({resetList:true})}}),err=>toast(err?.message||'한 줄 업데이트 창을 열지 못했어요.'))}
 function newReport(trigger,date=''){const chip=reportChip;pickReportKind(trigger,{title:'어느 칸에 남길까요?',current:isReportKind(chip)?chip:'',onPick:kind=>openMeetingModal({name:kind===chip?newMeetingName():'',kind,trigger,date}),onOneline:()=>openOnelineEntry(trigger)})}
 function openMeetingModal({name='',kind=DEFAULT_KIND,trigger=document.activeElement,targets=[],at='',date='',location='',text='',onSaved=null,onClosed=null,closeNote='',event=null}={}){meetingEntryOnSaved=onSaved;meetingEntryOnClosed=typeof onClosed==='function'?onClosed:null;meetingEntryCloseNote=String(closeNote||'');meetingEntryEvent=event?.id?{id:String(event.id),calendarId:String(event.calendarId||'primary')}:null;meetingEntryPreset=!!meetingEntryEvent&&!!String(at||'').trim();meetingEntryKind=isReportKind(kind)?kind:DEFAULT_KIND;entryRoundRows.paint(true);['meetingTitle','meetingAt','meetingNotes','meetingRoundNo','meetingShortName','meetingTranscript'].forEach(id=>{if($('#'+id))$('#'+id).value=''});meetingRoundEdited=false;meetingUploadEntries=[];meetingLibraryPicks=[];renderMeetingSelectedFiles();if($('#meetingFiles'))$('#meetingFiles').value='';$('#meetingProject').innerHTML=projectOptions(true);meetingEntryTargets=targetList(targets);entryNames=new Map();$('#meetingAt').value=defaultReportAt({at,date});if($('#meetingLocation'))$('#meetingLocation').value=location||'';if($('#meetingAttendees'))$('#meetingAttendees').value='';if(text)$('#meetingTranscript').value=text;paintEntryPlaces();areaFields()?.start({areaId:firstProjectId(meetingEntryTargets)||''});void locationAvailable().then(ok=>{const row=$('#meetingLocationRow');if(row)row.hidden=!ok},()=>{});entryAttendeesOk=false;paintAttendeesRow();void attendeesAvailable().then(ok=>{entryAttendeesOk=!!ok;paintAttendeesRow()},()=>{});installMeetingNamePicker($('#meetingTitle'),'meeting');setupMeetingNamePicker($('#meetingNameSelect'),$('#meetingTitle'),$('#meetingNameMatch'),$('#meetingNameUseMatch'),{current:name,names:meetingNameChoices(DEFAULT_KIND),onChoose:suggestMeetingRound,onCustom:()=>{const round=$('#meetingRoundNo');if(round&&!meetingRoundEdited)round.value=''},area:{get:()=>firstProjectId(meetingEntryTargets)||'',set:id=>{meetingEntryTargets=withFirstProject(meetingEntryTargets,id);paintEntryPlaces();areaFields()?.suggest(firstProjectId(meetingEntryTargets))}}});paintEntryKind();resetMeetingTimePhotos();resetMeetingEventPhotos();openModal('meetingModal',{trigger,initialFocus:isMeetingKind(meetingEntryKind)&&meetingNameChoices(DEFAULT_KIND).length?'#meetingNameSelect':'#meetingTitle',onRequestClose:()=>void requestMeetingClose()});meetingEntryBase=entrySnapshot()}

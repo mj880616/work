@@ -5,7 +5,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 // UI-모바일업데이트겹쳐보기: on a phone a tapped record first comes up as a card over the detail; its full-open button continues as before.
 const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-record-sheet-full]').click()};
-// UI-기록아이콘(2026-10-18 명진 결정): 노트를 [연결하기]로 이은 조직·프로젝트 화면의 기록 목록에 노트도 보인다. 기록 줄 앞 표시는 새 업데이트 아이콘·노트
+// UI-기록아이콘(2026-10-18 사용자 결정): 노트를 [연결하기]로 이은 조직·프로젝트 화면의 기록 목록에 노트도 보인다. 기록 줄 앞 표시는 새 업데이트 아이콘·노트
 // 아이콘으로 구분하고 🧺는 없앤다. 노트 줄을 누르면 노트 읽기 화면, 머리 줄 "‹ (이름)"·뒤로 가기는 #831 규칙대로 같은 프로젝트·조직으로.
 // DB 변경 없음: 같은 확정 연결(app_record_links, app_basket_confirm_links로 만든 것)을 노트 종류까지 함께 읽는다. 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z';

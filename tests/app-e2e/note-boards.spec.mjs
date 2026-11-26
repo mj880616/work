@@ -13,8 +13,8 @@ async function answerText(page, value) {
   await ask.waitFor({state: 'detached'});
 }
 
-// NOTE-보드여러개 (요청함 10/30 05:48, 명진 결정 '위 추천안대로'): 보드 보기 위 [보드…] [+ 새 보드].
-// S69-83(명진 11/24 23:55 "전체는 불필요함 걍 없애"): 모든 노트를 늘어놓던 [전체] 칸·판은 없다. 보드가 없으면 판 대신 빈 안내 한 줄.
+// NOTE-보드여러개 (요청함 10/30 05:48, 사용자 결정 '위 추천안대로'): 보드 보기 위 [보드…] [+ 새 보드].
+// S69-83(사용자 11/24 23:55 "전체는 불필요함 걍 없애"): 모든 노트를 늘어놓던 [전체] 칸·판은 없다. 보드가 없으면 판 대신 빈 안내 한 줄.
 // PC: 왼쪽 폴더·노트 목록에서 끌어 놓기로만 붙이기(S69-33: 누르기로는 붙지 않음), 이미 붙은 노트는 작은 '보드에 있음' 점, ×로 빼도 노트는 남음, 옮긴 자리는 metadata.boards[보드 id].
 // 폰: [+ 노트 붙이기] 고르기 창, 보드 칸 꾹 누르기 메뉴 [이름 바꾸기] [보드 지우기]. 보드 목록·마지막 보드는 서버 화면 기억(view_prefs). 이름은 지어낸 것.
 test.use({ hasTouch: true });
@@ -298,7 +298,7 @@ test('S69-83: 화면 기억에 옛 값 [전체](all)가 남아 있어도 무시�
   expect(errors).toEqual([]);
 });
 
-// NOTE-보드목록음영(S70-79, 명진 11/26 09:02 "노트 보드화면에서 노트위에 커서 올리면 또 회색 노란 색 배경 음영"):
+// NOTE-보드목록음영(S70-79, 사용자 11/26 09:02 "노트 보드화면에서 노트위에 커서 올리면 또 회색 노란 색 배경 음영"):
 // PC 보드 왼쪽 노트 목록 줄에 마우스를 올리면 — 줄 바탕은 다른 목록(노트·[파일] 폴더 나무 .ft-main·.nx-main)과 같은 공용 마우스 올림 색
 // (--kptu-surface-subtle) 하나, 커서 밑에 노란(밑줄·형광펜·끌기 조각) 칸이 없고, 쓰는 법 안내 title 말풍선이 없다(이름 칸 title = 전체 이름만, 표준 L2).
 test('PC 1280: 보드 노트 목록 줄 마우스 올림 = 공용 색 하나 · 노란 칸 없음 · 안내 title 없음', async ({ page }) => {
@@ -339,7 +339,7 @@ test('PC 1280: 보드 노트 목록 줄 마우스 올림 = 공용 색 하나 · 
   expect(errors).toEqual([]);
 });
 
-// S70-79 STD-끌기모양(명진 11/26 "노란 네모"): PC에서 왼쪽 노트 목록 줄을 끌 때 마우스를 따라오는 것은 줄 이름이 든 작은 칩 하나.
+// S70-79 STD-끌기모양(사용자 11/26 "노란 네모"): PC에서 왼쪽 노트 목록 줄을 끌 때 마우스를 따라오는 것은 줄 이름이 든 작은 칩 하나.
 // 칩은 화면 안(끌기 그림이 그려질 그 자리)에서 찍는다 — 화면 밖(top:-1000px)에서 찍으면 PC 크롬이 테두리만 남은 작은 네모를 따라오게 했다.
 // 끌기 중 글자 선택(파란 칠) 없음, 줄마다 뜨던 긴 조작 안내 툴팁 없음. 보드에 놓으면 붙고, 폴더 줄에 놓으면 옮겨지는 동작은 그대로.
 test('PC: 노트 목록 줄 끌기 = 줄 이름 칩 하나(화면 안·톤다운), 글자 선택·조작 안내 툴팁 없음, 보드·폴더 놓기 그대로 (1280)', async ({ page }) => {
@@ -365,7 +365,7 @@ test('PC: 노트 목록 줄 끌기 = 줄 이름 칩 하나(화면 안·톤다운
   await expect(n2).not.toHaveAttribute('title', /.+/);
     // 끄는 줄은 글자 선택이 되지 않는다.
   expect(await n2.evaluate(el => getComputedStyle(el).userSelect)).toBe('none');
-  // 앞서 줄 글자가 선택돼 있어도(명진 사진의 파란 칠) 끌기를 시작하면 지운다.
+  // 앞서 줄 글자가 선택돼 있어도(사용자 사진의 파란 칠) 끌기를 시작하면 지운다.
   await n2.locator('.ft-name').evaluate(el => { const r = document.createRange(); r.selectNodeContents(el); getSelection().removeAllRanges(); getSelection().addRange(r); });
   const a = await n2.boundingBox(), b = await folderRow('궤도').boundingBox();
   await page.mouse.move(a.x + 20, a.y + a.height / 2); await page.mouse.down();

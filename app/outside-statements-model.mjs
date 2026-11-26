@@ -3,12 +3,12 @@
 import {kstDay, addDays, dayLabel, hhmm} from './feed-model.mjs';
 
 // 단체 묶음(카탈로그 group 값과 같은 이름). 단체 이름·묶음은 서버 카탈로그(outside-feed ?action=catalog)에서만 받는다.
-// 11/02 00:19 명진 요청: [노동] [정당] [사회운동] [외국→11/15 국제]. 민주노총·공공운수노조는 [노동] 안.
+// 11/02 00:19 사용자 요청: [노동] [정당] [사회운동] [외국→11/15 국제]. 민주노총·공공운수노조는 [노동] 안.
 export const GROUPS = Object.freeze([
   {key: 'labor', label: '노동'},
   {key: 'party', label: '정당'},
   {key: 'movement', label: '사회운동'},
-  {key: 'foreign', label: '국제'}, // 11/15 명진 "외국은 국제"(NEWS-출처목록가나다) — 내부 이름 foreign·DB는 그대로
+  {key: 'foreign', label: '국제'}, // 11/15 사용자 "외국은 국제"(NEWS-출처목록가나다) — 내부 이름 foreign·DB는 그대로
 ]);
 const GROUP_KEYS = new Set(GROUPS.map(g => g.key));
 // 옛 서버 카탈로그(묶음 kctu·kptu)가 아직 배포돼 있을 때도 [노동]으로 묶는다(Edge 재배포 전후 어느 쪽이든 같은 화면).
@@ -16,7 +16,7 @@ const LEGACY_GROUP = Object.freeze({kctu: 'labor', kptu: 'labor'});
 // 종류 칸: 성명·논평·보도자료만. article(외국 매체 글·사회운동 글처럼 보도·논설 등을 가릴 수 없는 글)은 종류 칸을 비운다(11/01 요청 5).
 export const KIND_LABEL = Object.freeze({statement: '성명', comment: '논평', press: '보도자료', article: ''});
 export const PAGE_SIZE = 40;
-// 공대위 표시(명진 결정 11/02 16:26 L3): 공대위(양대노총 공공기관 노동조합 공동대책위원회)는 따로 사이트가 없어,
+// 공대위 표시(사용자 결정 11/02 16:26 L3): 공대위(양대노총 공공기관 노동조합 공동대책위원회)는 따로 사이트가 없어,
 // [노동] 안 민주노총·공공운수노조 글 가운데 제목이나 요약(본문에서 만든 것)에 '공대위'·'공동대책위원회'가 든 글에 표시만 한다.
 // 본문 문장은 펼칠 때만 읽으므로 본문에만 있는 글은 표시되지 않는다(서버 저장 칸을 새로 만들지 않음).
 export const GONGDAEWI_SOURCES = Object.freeze(['kctu', 'kptu']);
@@ -202,7 +202,7 @@ export function feedWhen(rows, now = Date.now()) {
   return `${lastText} · ${nextText}`;
 }
 
-// S63-11(명진 11/16 '6 고쳐'): [사회운동] 탭은 국내 단체 글 먼저, 국제(카탈로그 묶음 foreign — 외국 매체) 글은 아래 접힌 '국제' 묶음으로.
+// S63-11(사용자 11/16 '6 고쳐'): [사회운동] 탭은 국내 단체 글 먼저, 국제(카탈로그 묶음 foreign — 외국 매체) 글은 아래 접힌 '국제' 묶음으로.
 // 위 [매체 ▾]에서 국제 묶음이나 국제 단체 하나를 고르면 나누지 않는다(고른 것이 곧 국제 글). 다른 묶음·단체를 고르면 국제 글이 없어 묶음도 없다.
 export const INTL_GROUP = 'foreign';
 export const INTL_LABEL = GROUPS.find(g => g.key === INTL_GROUP).label;

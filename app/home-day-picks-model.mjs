@@ -1,4 +1,4 @@
-// HOME-하루채우기 ②·③(2026-11-09 명진 시안 ④ 승인): '읽을 만한 글'·'이런 기록은 어때요?' 칸이 받는 모양과 거르기.
+// HOME-하루채우기 ②·③(2026-11-09 사용자 시안 ④ 승인): '읽을 만한 글'·'이런 기록은 어때요?' 칸이 받는 모양과 거르기.
 // 고르기·한 줄 쓰기는 서버(ai-assist, 사용자 로그인)가 하고 결과도 서버에 둔다. 이 파일은 받은 값을 화면에 그려도 되는 모양으로만 거른다.
 //   읽을 글:  {id, title, what, why, source, at, url}  최대 READS_MAX개, 처음 READS_OPEN개만 펼침
 //   기록 제안: {id, text, basis}                      최대 SUGGEST_MAX개, 오후 SUGGEST_FROM_HOUR시부터 오늘만
@@ -118,7 +118,7 @@ export function sendDone(tasks, day) {
 // AI 한도에 닿았을 때 칸 위 한 줄(기존 한도 알림 문구와 같음). 그 밖의 실패는 조용히(고른 것이 있으면 그대로 보임).
 export const LIMIT_NOTE = Object.freeze({monthly_limit:'이번 달 AI 한도에 닿았어요.', daily_limit:'오늘 AI 횟수를 다 썼어요.', ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.'});
 export const limitNote = code => LIMIT_NOTE[code] || '';
-// ---- HOME-읽을글밀기(2026-11-11 명진 요청): 숨기거나 보관한 글은 홈 '읽을 만한 글'에서 뺀다 ----
+// ---- HOME-읽을글밀기(2026-11-11 사용자 요청): 숨기거나 보관한 글은 홈 '읽을 만한 글'에서 뺀다 ----
 // 읽을 글의 id는 뉴스 기사(app_news_items) id다. 처리 표시는 홈에 따로 두지 않고 News와 같은 뉴스 줄의 표시를 그대로 본다:
 // 숨김 = hidden_at, 보관 = starred_at(뉴스에서 보관은 별표). 그래서 News에서 숨기거나 보관해도 홈에서 빠지고, 다른 기기에서도 같다.
 export const READS_DONE_NOTE = '다 읽었어요';

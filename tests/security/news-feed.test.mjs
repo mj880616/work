@@ -430,7 +430,7 @@ test('S54-16 titles step: lines the AI answered without a translation get title_
  assert.equal(filled.length,1);assert.deepEqual(Object.keys(filled[0].body).sort(),['title_ko','translated_at','updated_at'],'fully translated line is not marked tried');
 });
 
-// NEWS-운영자만(S63-03, 명진 11/16): News 몫 서버 일은 운영자 기능 키 'outside' 작업공간만. 화면 숨김만으로 끝내지 않는다.
+// NEWS-운영자만(S63-03, 사용자 11/16): News 몫 서버 일은 운영자 기능 키 'outside' 작업공간만. 화면 숨김만으로 끝내지 않는다.
 test("NEWS-운영자만: 'outside' 키가 없는 작업공간의 화면 입구는 읽기·AI·저장 없이 403 FEATURE_OFF",async()=>{
  const OTHER='a0000000-0000-4000-8000-0000000000ff';
  const items=[{id:ITEM,workspace_id:WS,lane:'channel',state:'pending',url:'https://news.example.org/a/1'}];

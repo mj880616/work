@@ -1,4 +1,4 @@
-// S69-68 UI-오른쪽목록펼치기·UI-두칸따로(명진 11/24 20:09·20:14): 탐색기 오른쪽 칸 폴더 줄도 그 자리 펼치기·접기,
+// S69-68 UI-오른쪽목록펼치기·UI-두칸따로(사용자 11/24 20:09·20:14): 탐색기 오른쪽 칸 폴더 줄도 그 자리 펼치기·접기,
 // 두 칸은 칸마다 펼침을 따로 가진다. 화면 없이 줄 만들기(순수 함수)와 소스 모양을 본다. 화면 동작은 tests/app-e2e/standard-interactions.spec.mjs T5·T6·T7.
 import test from 'node:test';
 import assert from 'node:assert/strict';

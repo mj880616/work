@@ -110,7 +110,7 @@ object PushSetup {
             .setAutoCancel(true)
             .setPriority(priority)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-        // FAMILY-기억알림 ②(명진 결정 11/12 "보이기"): 본문을 그리는 종류(family)만 본문을 보이고 잠금 화면에도 그대로. 그 밖은 지금처럼 내용 숨김.
+        // FAMILY-기억알림 ②(사용자 결정 11/12 "보이기"): 본문을 그리는 종류(family)만 본문을 보이고 잠금 화면에도 그대로. 그 밖은 지금처럼 내용 숨김.
         val note = if (m.showOnLock) {
             builder.setContentText(m.body)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(m.body))

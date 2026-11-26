@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-// UI-눌림느낌(2026-10-27 명진 요청): 모든 버튼·누를 수 있는 줄이 누르는 순간 살짝 작아지고(scale) 바탕이 진해진다.
+// UI-눌림느낌(2026-10-27 사용자 요청): 모든 버튼·누를 수 있는 줄이 누르는 순간 살짝 작아지고(scale) 바탕이 진해진다.
 // 움직임 줄이기 설정에서는 작아지지 않고 색만 바뀐다. 버튼이 아닌데 눌리는 것(cursor:pointer)도 같은 규칙을 쓴다. 눌렀다 놓으면 원래대로.
 // 누른 채로 시험하려고 마우스를 누르고, 놓기 전에 옆으로 옮겨 실제 누름(click)은 일으키지 않는다.
 const NAV='.app-nav [data-view="diary"]';

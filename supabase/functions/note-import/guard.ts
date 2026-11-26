@@ -12,7 +12,7 @@ import { openArticleUrl } from "../_shared/news-url.ts";
 export const RESOLVE_TIMEOUT_MS = 3000;
 export const RESOLVE_MAX_ADDRESSES = 32;
 
-// 노트용 주소 판정. 지금은 열린 주소 규칙과 같다(명진 결정 2026-11-11: http 막고 https만).
+// 노트용 주소 판정. 지금은 열린 주소 규칙과 같다(사용자 결정 2026-11-11: http 막고 https만).
 export function noteImportUrl(raw: string): URL | null {
   return openArticleUrl(raw);
 }

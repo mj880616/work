@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-// MTG-한줄업데이트(요청함 10/29 08:59, 명진 09:01 '추천대로'): 사업 보고 [+] 메뉴 맨 위 [한 줄 업데이트] — 저장 몸통, 칸·칩,
+// MTG-한줄업데이트(요청함 10/29 08:59, 사용자 09:01 '추천대로'): 사업 보고 [+] 메뉴 맨 위 [한 줄 업데이트] — 저장 몸통, 칸·칩,
 // 주간보고 ② 사업 요약 표(문장 그대로, AI 한 줄보다 먼저)·③ 회의·활동 결과 제외, 미리보기. 가짜 이름·가짜 id만 쓴다.
 const model = await import('../app/report-oneline-model.mjs');
 const kinds = await import('../app/report-kinds.mjs');
@@ -80,7 +80,7 @@ test('화면 연결(정적 확인): [+] 메뉴 맨 위 줄, [한 줄] 칩의 [+]
   assert.match(sheet, /html:\(active\?\.onOneline\?ONELINE_ROW:''\)\+REPORT_KINDS\.map/);
   assert.match(sheet, /data-report-oneline title="사업영역에 진행 상황 한 줄"><span class="home-choice-check" aria-hidden="true">✎<\/span><span class="home-choice-name">한 줄 업데이트<\/span>/);
   assert.doesNotMatch(sheet.match(/const ONELINE_ROW=(?:word\()?`[^`]*`/)[0], /data-sheet-value/);
-  // MTG-더하기늘고르기(11/14 명진): [+]는 거르기와 상관없이 늘 고르기 창([한 줄] 칩이어도 맨 위 [한 줄 업데이트] 줄로).
+  // MTG-더하기늘고르기(11/14 사용자): [+]는 거르기와 상관없이 늘 고르기 창([한 줄] 칩이어도 맨 위 [한 줄 업데이트] 줄로).
   assert.match(team, /function newReport\(trigger,date=''\)\{const chip=reportChip;pickReportKind\(trigger,\{title:'어느 칸에 남길까요\?',current:isReportKind\(chip\)\?chip:''/);
   assert.doesNotMatch(team, /if\(reportChip===ONELINE_KIND\)\{openOnelineEntry/);
   assert.match(team, /onOneline:\(\)=>openOnelineEntry\(trigger\)/);

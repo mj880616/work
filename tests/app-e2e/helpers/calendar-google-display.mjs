@@ -8,7 +8,7 @@ const contrast=(fg,bg)=>{const a=luminance(fg),b=luminance(bg);return (Math.max(
 
 // S67-65 E1: a Google event is a solid chip — the painted background is the event's (toned) color itself, with no side stripe,
 // and its text (and the time in front of it) stays readable on that fill. Still visibly distinct from the outlined task chip.
-// S68-03 G2(명진 11/22): 구글처럼 밝은 색 + 흰 글자 기본 — 흰 글자면 2.7:1 이상, 진한 글자(밝은 노랑)면 4.5:1 이상.
+// S68-03 G2(사용자 11/22): 구글처럼 밝은 색 + 흰 글자 기본 — 흰 글자면 2.7:1 이상, 진한 글자(밝은 노랑)면 4.5:1 이상.
 // S68-57: 달력은 자료가 올 때마다 칸을 통째로 다시 그린다(한 renderer, 같은 칠). locator.evaluate는 요소를 찾은 뒤 따로 읽으므로
 // 그 사이에 다시 그려지면 떨어져 나간 옛 칩을 읽어 getComputedStyle이 빈 값을 준다(CI 간헐 실패 'null.slice').
 // 그래서 문서에 붙어 있는 칩에서 한 번에 읽힐 때까지 기다린다(떨어진 칩이면 null → 다시 찾아 읽음). 값 판정은 그대로다.

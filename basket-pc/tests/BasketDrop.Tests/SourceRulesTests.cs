@@ -46,7 +46,7 @@ public class SourceRulesTests
     [Fact]
     public void A_start_by_the_user_shows_the_helper_window_with_open_nojoplus()
     {
-        // S63-09 PC도우미구분(명진 11/16): the tray program is not 노조+ itself; double-click explains that and opens the web app.
+        // S63-09 PC도우미구분(사용자 11/16): the tray program is not 노조+ itself; double-click explains that and opens the web app.
         var program = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "Program.cs"));
         Assert.Contains("if (LaunchArgs.StartedByUser()) HelperSignal.Ring();", program);
         var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
@@ -65,7 +65,7 @@ public class SourceRulesTests
     public void The_removed_send_entrances_leave_no_code_behind()
     {
         // Clipboard hotkey, right-click Send to (S54-13). The corner box and desktop tile came back (S69-31).
-        // S69-35 (명진 11/24): an input window opened by a double click on a box came back too; there is still no hotkey.
+        // S69-35 (사용자 11/24): an input window opened by a double click on a box came back too; there is still no hotkey.
         foreach (var gone in new[] { "HotkeyWindow.cs", "ClipboardReader.cs", "SendToShortcut.cs", "HotkeyChoice.cs", "PasteText.cs" })
             Assert.DoesNotContain(gone, Sources().Select(Path.GetFileName));
         var all = string.Join(" ", Sources().Select(File.ReadAllText));
@@ -98,7 +98,7 @@ public class SourceRulesTests
     [Fact]
     public void The_corner_box_and_desktop_tile_send_only_through_the_one_queue_gate()
     {
-        // S69-31 (명진 11/24): both boxes are back; they add no new server path, only TrayApp.Submit → queue → QueueProcessor.
+        // S69-31 (사용자 11/24): both boxes are back; they add no new server path, only TrayApp.Submit → queue → QueueProcessor.
         foreach (var file in new[] { "CornerRules.cs", "DesktopTileRules.cs", "DropService.cs" })
             Assert.Contains(file, Sources().Select(Path.GetFileName));
         var app = Path.Combine(Root(), "src", "BasketDrop");
@@ -236,7 +236,7 @@ public class SourceRulesTests
             var text = File.ReadAllText(file);
             if (Path.GetFileName(file) == "LegacyEntries.cs") continue; // keeps the old Send to file name on purpose
             Assert.DoesNotContain("바구니 PC드롭", text);
-            // S68-21(명진 11/22 17:04): 보이는 글자에 옛 앱 이름 '노조+'가 남지 않는다(옛 바로가기 파일 이름 목록은 RenamedShortcuts.cs만, 주석 제외).
+            // S68-21(사용자 11/22 17:04): 보이는 글자에 옛 앱 이름 '노조+'가 남지 않는다(옛 바로가기 파일 이름 목록은 RenamedShortcuts.cs만, 주석 제외).
             if (Path.GetFileName(file) != "RenamedShortcuts.cs") Assert.DoesNotMatch("\"[^\"\\n]*노조\\+[^\"\\n]*\"", text);
             Assert.DoesNotMatch("\"[^\"\\n]*(웹2|Web2)[^\"\\n]*\"", text); // shown words only, not comments
         }

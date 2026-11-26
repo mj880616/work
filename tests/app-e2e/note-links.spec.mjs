@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
-// S69-98 NOTE-에버노트 ⑧(명진 11/25 "좋아 모두 다 넣어!", S69-96 '@ 노트 연결'과 하나로): 노트 고치기에서 '[[' → 노트 고르기 목록 →
+// S69-98 NOTE-에버노트 ⑧(사용자 11/25 "좋아 모두 다 넣어!", S69-96 '@ 노트 연결'과 하나로): 노트 고치기에서 '[[' → 노트 고르기 목록 →
 // Enter = 그 노트 제목 링크(보통 링크, 주소는 이 앱의 그 노트). 저장은 기존 노트 저장 하나(doc 안 링크). 읽기 화면에서 누르면 앱 안에서 그 노트,
 // 그 노트 아래 '가리키는 노트' 한 줄. 새 칸·새 표 없음. 합성 데이터, 390·1280.
 test.use({hasTouch:true});

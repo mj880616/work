@@ -206,7 +206,7 @@ test('hand_fill photos: unsafe or non-photo addresses stay as text; caption only
   assert.equal(H.handBlocks(`https://img.example.org/a.gif\n사진: ${'가'.repeat(400)}\n본문`)[0].cap.length, 300);
 });
 
-// S68-44(명진 11/23 "본문 글자 없이도 저장되게"): 본문 글자는 필수가 아니다 — 사진만, 비운 본문, 제목만 모두 저장된다. 손 본문은 다시 읽기가 덮지 않는다.
+// S68-44(사용자 11/23 "본문 글자 없이도 저장되게"): 본문 글자는 필수가 아니다 — 사진만, 비운 본문, 제목만 모두 저장된다. 손 본문은 다시 읽기가 덮지 않는다.
 test('S68-44 hand_fill: photos only is saved as an image-only hand body; the article keeps no text', async () => {
   const w = world({olds: [{id: OLD, workspace_id: WS, lane: 'channel', url: 'https://news.example.org/a/1', url_key: 'news.example.org/a/1', title: null, state: 'failed', fetched_at: null}],
     bodies: [{article_id: ART, blocks: [], state: 'failed', reason: 'timeout', rule: 'open@3', chars: 0, images: 0}]});

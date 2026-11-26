@@ -105,7 +105,7 @@ test('phone 412 update hint fits inside the one-line box',async({page},info)=>{
  expect(fit.text).toBeLessThanOrEqual(fit.room);expect(fit.scroll).toBeLessThanOrEqual(fit.client);
  await q.screenshot({path:info.outputPath('home-update-hint-412.png')});
 });
-// S54-05(11/08 명진 결정): 폰도 누른 버튼 아래 작은 창이다(전에는 아래 시트였다).
+// S54-05(11/08 사용자 결정): 폰도 누른 버튼 아래 작은 창이다(전에는 아래 시트였다).
 test('phone opens below the button',async({page})=>{
  const {q}=await ready(page,412);
  await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await expect(dialog(page)).toBeVisible();

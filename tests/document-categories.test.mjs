@@ -173,7 +173,7 @@ test('weekly report categories read every known name and save the listed one', a
   setDocumentCategories(['교섭', '기타', '주간보고', '주간보고›확정본', '주간보고›개인본']);
   assert.equal(weeklySaveCategory('personal', none), '주간보고›개인본');
   assert.equal(categoryOf('주간보고 확정본'), '주간보고›확정본');
-  // 명진 11/08: 이름을 '팀 확정본'·'개인 확정본'으로 바꿈 → 그 이름으로 찾고 저장, 옛 이름 자료도 같은 꼬리표.
+  // 사용자 11/08: 이름을 '팀 확정본'·'개인 확정본'으로 바꿈 → 그 이름으로 찾고 저장, 옛 이름 자료도 같은 꼬리표.
   setDocumentCategories(['교섭', '주간보고', '주간보고›팀 확정본', '주간보고›개인 확정본', '기타']);
   assert.equal(weeklySaveCategory('personal', none), '주간보고›개인 확정본');
   for (const old of ['주간보고 개인본', '주간보고›개인본']) assert.equal(categoryOf(old), '주간보고›개인 확정본', old);

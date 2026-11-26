@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S52-41 ③ FILES-두칸나무접기(명진 결정 (가) 11/08, 시안 docs/design/mockups/files-two-pane-tree.html):
+// S52-41 ③ FILES-두칸나무접기(사용자 결정 (가) 11/08, 시안 docs/design/mockups/files-two-pane-tree.html):
 // 두 칸 보기(폴드 펼침·PC)면 왼쪽 나무를 접어 두고 맨 위 줄 왼쪽 ◫로 열고 닫는다(서버 view_prefs.files_tree.<기기>.<fold|wide>).
 // 나무에서 누른 폴더는 지금 칸에 열리고, 칸 위 [출처 ▾] 맨 위에 별표·큰 파일. 나무 폴더 줄을 칸으로 끌면 [복사][옮기기]. 한 칸·폰은 그대로.
 // 서버는 흉내(파일·폴더 이름은 모두 가짜).

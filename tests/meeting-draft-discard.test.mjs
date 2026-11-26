@@ -43,7 +43,7 @@ test('Edge: job_discard·job_restore는 소유 확인(ownServerJob) 뒤 그 상�
   assert.equal(src.includes('discarded_at'),false,'새 칸 없음(DB 변경 없음)');
 });
 
-// S61-5 REC-전사삭제(명진 11/13): 녹음 띠에 '정리 끝 [초안 열기] [삭제]'는 지금은 없다(초안을 만들지 않음). 버림 표시 서버 규칙·글자는 지난 결과용으로 남는다.
+// S61-5 REC-전사삭제(사용자 11/13): 녹음 띠에 '정리 끝 [초안 열기] [삭제]'는 지금은 없다(초안을 만들지 않음). 버림 표시 서버 규칙·글자는 지난 결과용으로 남는다.
 test('지금은 없음: 녹음 띠에 [초안 열기]·초안 [삭제]가 없고, 저장 끝 띠는 파일 줄 + [닫기]',()=>{
   const src=read('app/meeting-recorder.js');
   for(const gone of ["state==='ready'",'초안 열기','data-rec="drop"','job_discard','markNoticeOpened'])assert.ok(!src.includes(gone),gone);

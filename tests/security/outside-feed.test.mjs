@@ -64,7 +64,7 @@ test('catalog = decided sources only (Q1·Q2·Q3·Q4·Q5): 정의당은 홈페�
     for(const l of s.lists){assert.ok(allowedUrl(s,l),`${s.key} list inside its own hosts`);}
     assert.deepEqual(s.httpHosts??[],s.key==='socialist'?['socialist.kr','www.socialist.kr']:[],'http only for socialist.kr (Q4)');
     assert.equal('allowHttp' in s,false,'옛 칸(단체 전체 http 허용)은 없앰');
-    assert.equal(s.hosts.includes('t.me'),['socialist','justice'].includes(s.key),'t.me는 사회주의자(명진 결정 11/01 21:13)·정의당(S48-23) 채널만');
+    assert.equal(s.hosts.includes('t.me'),['socialist','justice'].includes(s.key),'t.me는 사회주의자(사용자 결정 11/01 21:13)·정의당(S48-23) 채널만');
     assert.equal(s.mode==='telegram',['socialist','justice'].includes(s.key));
     if(s.mode==='html')assert.ok(s.item instanceof RegExp);
   }
@@ -95,7 +95,7 @@ test('title prefixes decide the kind; notices/press-call posts are dropped', () 
   assert.equal(prefixOf('제목만'),'');
   assert.equal(sourceByKey('kctu').kindOf('[취재요청] x',''),null);
   assert.equal(sourceByKey('leftall').kindOf('[공지] 토론회',''),null);
-  // 노동자연대(명진 결정 11/01 22:30): 기사도 받는다 — 성명 머리말은 statement, 나머지는 article(종류 칸 비움), 공지류 머리말은 뺀다.
+  // 노동자연대(사용자 결정 11/01 22:30): 기사도 받는다 — 성명 머리말은 statement, 나머지는 article(종류 칸 비움), 공지류 머리말은 뺀다.
   assert.equal(sourceByKey('ws').kindOf('그냥 기사',''),'article');
   assert.equal(sourceByKey('ws').kindOf('[긴 글] 가상 긴 글',''),'article');
   assert.equal(sourceByKey('ws').kindOf('[노동자연대 성명] x',''),'statement');
@@ -702,7 +702,7 @@ test('로봇 확인 쪽이 오면 풀지 않고 bot_check로 남긴다(사회주
   assert.deepEqual(h.calls.site,['https://t.me/robots.txt','https://t.me/s/ksocialist'],'the gate is not solved or retried with other requests');
 });
 
-// 사회주의자(명진 결정 11/01 21:13): 사이트는 로봇 확인 화면이라 읽지 않고, 공개 텔레그램 채널 웹 미리보기를 읽는다.
+// 사회주의자(사용자 결정 11/01 21:13): 사이트는 로봇 확인 화면이라 읽지 않고, 공개 텔레그램 채널 웹 미리보기를 읽는다.
 test('사회주의자: 텔레그램 공개 채널 글 — 새 글부터, 본문 안 사이트 글 주소를 원문으로(없으면 채널 글 주소), 사진뿐·다른 채널·공지 글은 뺀다', () => {
   const s=sourceByKey('socialist');
   assert.equal(s.mode,'telegram');assert.deepEqual(s.lists,['https://t.me/s/ksocialist']);assert.equal(H.robotsExempt(s),false,'robots 예외 아님');
@@ -777,7 +777,7 @@ test('정의당: 채널 목록 한 번만 읽고 justice21.org는 한 번도 요
   assert.equal((await (await r.cron('run',{source:'justice'})).json()).status,'robots');assert.deepEqual(r.calls.site,['https://t.me/robots.txt']);
 });
 
-test('노동자연대: 성명 머리말([노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명]·괄호 없는 \'노동자연대 성명:\')은 성명, 나머지 기사는 article(명진 결정 11/01 22:30)', () => {
+test('노동자연대: 성명 머리말([노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명]·괄호 없는 \'노동자연대 성명:\')은 성명, 나머지 기사는 article(사용자 결정 11/01 22:30)', () => {
   const k=sourceByKey('ws').kindOf;
   for(const t of['[노동자연대 성명] 가상','[성명] 가상','[노동자연대 학생그룹 성명] 가상','노동자연대 성명: 가상','노동자연대 학생그룹 성명 — 가상'])assert.equal(k(t,''),'statement',t);
   for(const t of['〈노동자 연대〉가 뽑은: 가상 10대 뉴스','가상 기사에서 성명을 다룸','노동자연대 성명서 낭독 현장 기사','[긴 글] 가상 긴 글'])assert.equal(k(t,''),'article',t);
@@ -797,14 +797,14 @@ test('노동자연대: 기사가 하루 수십 건이어도 한 번에 MAX_NEW_P
   assert.equal(postView({kind:'statement'}).kind,'성명');assert.equal(postView({kind:'article'}).kind,'');
 });
 
-// 공공운수노조 robots 예외(명진 결정 11/01 16:49): 소속 노조의 공개 성명 게시판 한 곳만. 일반 robots 검사는 약하게 하지 않는다.
+// A노조 robots 예외(사용자 결정 11/01 16:49): 소속 노조의 공개 성명 게시판 한 곳만. 일반 robots 검사는 약하게 하지 않는다.
 const KPTU_ROBOTS='User-agent: *\nDisallow: /\n\nUser-agent: Yeti\nDisallow: /adm\nDisallow: /member\n';
-test('robots 예외: 예외 목록은 kptu·laborparty 두 곳뿐, 카탈로그 robotsException도 두 곳뿐(명진 결정 주석)', () => {
+test('robots 예외: 예외 목록은 kptu·laborparty 두 곳뿐, 카탈로그 robotsException도 두 곳뿐(사용자 결정 주석)', () => {
   assert.deepEqual([...H.ROBOTS_EXEMPT_KEYS],['kptu','laborparty']);
   assert.ok(Object.isFrozen(H.ROBOTS_EXEMPT_KEYS));
   assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.robotsException).map(s=>s.key),['kptu','laborparty']);
-  assert.match(sourceByKey('kptu').robotsException,/명진 결정 11\/01 16:49/);
-  assert.match(sourceByKey('laborparty').robotsException,/명진 결정 11\/01 21:08/);
+  assert.match(sourceByKey('kptu').robotsException,/사용자 결정 11\/01 16:49/);
+  assert.match(sourceByKey('laborparty').robotsException,/사용자 결정 11\/01 21:08/);
   assert.ok(H.robotsExempt(sourceByKey('kptu')));assert.ok(H.robotsExempt(sourceByKey('laborparty')));
   for(const s of OUTSIDE_CATALOG.filter(s=>!['kptu','laborparty'].includes(s.key))){
     assert.equal(H.robotsExempt(s),false,s.key);
@@ -816,7 +816,7 @@ test('robots 예외: 예외 목록은 kptu·laborparty 두 곳뿐, 카탈로그 
   assert.equal(publicCatalog().some(s=>'robotsException' in s),false,'화면에는 싣지 않음');
 });
 
-test('공공운수노조: robots.txt가 모두 막아도(Disallow: /) 목록 한 쪽 + 새 글만 읽는다 — robots.txt는 묻지 않고, 요청 머리는 그대로', async () => {
+test('A노조: robots.txt가 모두 막아도(Disallow: /) 목록 한 쪽 + 새 글만 읽는다 — robots.txt는 묻지 않고, 요청 머리는 그대로', async () => {
   const sites={'https://www.kptu.net/board/list.aspx?mid=F686C1F3':FX('kptu-list-2026-11.html'),
     'https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=96558':FX('kptu-article.html'),
     'https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=96549':FX('kptu-article-image-only.html')};
@@ -836,13 +836,13 @@ test('공공운수노조: robots.txt가 모두 막아도(Disallow: /) 목록 한
   assert.equal(again.fresh,0);assert.equal(h.calls.site.filter(u=>/detail\.aspx/.test(u)).length,2);
 });
 
-test('공공운수노조: 바로 읽기는 하지 않는다(하루 3번 예약 때만) — 바깥 요청 0', async () => {
+test('A노조: 바로 읽기는 하지 않는다(하루 3번 예약 때만) — 바깥 요청 0', async () => {
   const h=harness({sources:[{workspace_id:WS,source_key:'kptu'}],sites:{'https://www.kptu.net/board/list.aspx?mid=F686C1F3':FX('kptu-list-2026-11.html')}});
   const r=await (await h.user('read_now',{source:'kptu'})).json();
   assert.deepEqual(r,{ok:true,source:'kptu',status:'scheduled_only',inserted:0});assert.equal(h.calls.site.length,0);
 });
 
-// 노동당 robots 예외(명진 결정 11/01 21:08): 공공운수노조 예외와 같은 조건.
+// 노동당 robots 예외(사용자 결정 11/01 21:08): A노조 예외와 같은 조건.
 test('노동당: robots.txt를 거절(403)해도 목록 한 쪽 + 새 글만 읽는다 — robots.txt는 묻지 않고, 요청 머리 그대로, 바로 읽기 없음', async () => {
   const sites={'https://laborparty.kr/?page_id=13642':FX('laborparty.html'),
     'https://laborparty.kr/?mod=document&page_id=13642&uid=5001':FX('article-ko.html'),
@@ -986,7 +986,7 @@ const T=await import('../../supabase/functions/_shared/outside-tidy.ts');
 
 test('정돈 함수: 제목 한 줄 — 종류 꼬리표·단체명·날짜 꼬리 떼기, 긴 제목만 부제 나누기, 다른 머리말은 그대로', () => {
   assert.deepEqual(T.tidyTitle('[성명] 가상 노동법 개악 규탄','민주노총'),{title:'가상 노동법 개악 규탄',subtitle:null});
-  assert.equal(T.tidyTitle('【보도자료】 가상 지부 출범 (2026.10.31)','공공운수노조').title,'가상 지부 출범');
+  assert.equal(T.tidyTitle('【보도자료】 가상 지부 출범 (2026.10.31)','A노조').title,'가상 지부 출범');
   assert.equal(T.tidyTitle('[노동자연대 성명] 가상 파업을 지지한다','노동자연대').title,'가상 파업을 지지한다');
   assert.equal(T.tidyTitle('노동자연대 학생그룹 성명: 가상 등록금 인상 반대','노동자연대').title,'가상 등록금 인상 반대');
   assert.equal(T.tidyTitle('[성명] 가상 지역 공공의료를 지켜라 – 노동당','노동당').title,'가상 지역 공공의료를 지켜라','글 쪽 제목의 \' – 단체명\' 꼬리');
@@ -1066,7 +1066,7 @@ test('글 쪽 날짜: 메타(article:published_time) → 제목 뒤 날짜 → <
   assert.equal(P.pageDate(FX('article-nodate.html'),'[논평] 가상 날짜 없는 글',NOW),null);
 });
 
-test('묶음: [노동](labor)은 민주노총·공공운수노조·금속노조·서비스연맹·학비노조(L1), 묶음은 노동·정당·사회운동·외국 넷뿐', () => {
+test('묶음: [노동](labor)은 민주노총·A노조·금속노조·서비스연맹·학비노조(L1), 묶음은 노동·정당·사회운동·외국 넷뿐', () => {
   assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.group==='labor').map(s=>s.key),['kctu','kptu','kmwu','kfsu','hakbi','edubonbu']);
   assert.deepEqual([...new Set(OUTSIDE_CATALOG.map(s=>s.group))].sort(),['foreign','labor','movement','party']);
   // 뉴스 클리핑도 같은 정돈 함수만 부른다(다른 동작은 그대로).
@@ -1135,13 +1135,13 @@ test('넣지 않은 단체(L2 robots 미확인·L4): 전국공무원노조·전�
   assert.doesNotMatch(all,/kgeu\.org|eduhope\.net|kcwu\.or\.kr|inochong\.org|publicunion\.kr|bogun\.nodong\.org|kfiu\.org/);
 });
 
-test('공대위 표시(L3): 민주노총·공공운수노조 글 중 제목·요약에 \'공대위\'·\'공동대책위원회\'가 든 글만', async () => {
+test('공대위 표시(L3): 민주노총·A노조 글 중 제목·요약에 \'공대위\'·\'공동대책위원회\'가 든 글만', async () => {
   const M=await import('../../app/outside-statements-model.mjs');
   const v=p=>M.postView({lang:'ko',kind:'statement',url:'https://nodong.org/statement/1',published_at:'2026-10-30T00:00:00Z',...p},NOW).tag;
   assert.equal(v({source_key:'kctu',title:'[성명] 가상 공대위 공동성명'}),'공대위');
   assert.equal(v({source_key:'kptu',title:'[보도자료] 가상 기자회견',summary_ko:'양대노총 공공기관 노동조합 공동대책위원회가 가상 기자회견을 열었다.'}),'공대위');
   assert.equal(v({source_key:'kptu',title:'[성명] 가상 공공기관 성명',summary_ko:'가상 요약이다.'}),'');
-  assert.equal(v({source_key:'kmwu',title:'[성명] 가상 공대위 이름이 든 다른 단체 글'}),'','민주노총·공공운수노조 글만');
+  assert.equal(v({source_key:'kmwu',title:'[성명] 가상 공대위 이름이 든 다른 단체 글'}),'','민주노총·A노조 글만');
   assert.equal(v({source_key:'laborparty',title:'[논평] 가상 공대위'}),'');
   // S51-8 News 목록: 사회운동 줄은 공용 줄(news-row.mjs)의 badge 칸에 그대로 넘기고, 줄은 매체 이름 바로 뒤에 글자로만 그린다.
   const js=readFileSync('app/outside-statements.js','utf8'),row=readFileSync('app/news-row.mjs','utf8');
@@ -1390,7 +1390,7 @@ test('E1b translate: 같은 주소 공용 글에 번역이 있으면 엔진·하
 
 test('E1b 소스: outside-feed는 텔레그램 소식·방·가족·통화 표를 읽거나 쓰지 않고, 사람별 표시·읽음·자세히·반응 새 표에도 쓰지 않는다', () => {
   const src=readFileSync(new URL('../../supabase/functions/outside-feed/handler.ts',import.meta.url),'utf8').replace(/\/\/.*$/gm,'');
-  assert.doesNotMatch(src,/app_feed_items|app_feed_rooms|app_feed_days|app_family|app_tg_|app_call/,'명진 텔레그램·통화 표 없음');
+  assert.doesNotMatch(src,/app_feed_items|app_feed_rooms|app_feed_days|app_family|app_tg_|app_call/,'사용자 텔레그램·통화 표 없음');
   assert.doesNotMatch(src,/app_outside_(article_marks|reads|now_details|now_signals)/,'사람별 새 표 직접 쓰기 없음');
   assert.match(src,/"app_outside_id_map\?on_conflict=old_id", \{ old_id: oldId, workspace_id: workspaceId, article_id: articleId \}/,'지도는 id 세 칸뿐');
 });
@@ -1439,7 +1439,7 @@ test('E3 translate 거절: 차단 명단 사람·owner 아닌 사람·없는 id�
   assert.equal(h.db.app_outside_posts[0].body_ko,null,'남의 옛 글은 그대로');
 });
 
-// NEWS-운영자만(S63-03, 명진 11/16): [사회운동] 수집·화면 입구도 운영자 기능 키 'outside' 작업공간만. 화면 숨김만으로 끝내지 않는다.
+// NEWS-운영자만(S63-03, 사용자 11/16): [사회운동] 수집·화면 입구도 운영자 기능 키 'outside' 작업공간만. 화면 숨김만으로 끝내지 않는다.
 test("NEWS-운영자만: 'outside' 키가 없는 작업공간의 화면 입구는 읽기·AI·저장 없이 403, 키가 아무 곳에도 없으면 예약 수집도 하지 않음", async () => {
   for(const newsWs of [WS2,null]){
     const h=harness({newsWs,sources:[{workspace_id:WS,source_key:'kctu'}],sites:kctuSites()});

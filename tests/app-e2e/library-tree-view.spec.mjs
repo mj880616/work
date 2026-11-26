@@ -47,7 +47,7 @@ for(const width of [390,1280])test(`프로젝트 트리: 맨 위 단만, 자료 
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   await expect(page.locator('#documentList details[open]')).toHaveCount(0);
   await expect(page.locator('.lu-row:visible')).toHaveCount(0);
-  // 접힌 줄: 이름 · 자료 수(아래 단 포함). FOLDER-나무새기준 ⑨(명진 11/06 01:39): 종류 색 점·사업영역 색 점은 없다.
+  // 접힌 줄: 이름 · 자료 수(아래 단 포함). FOLDER-나무새기준 ⑨(사용자 11/06 01:39): 종류 색 점·사업영역 색 점은 없다.
   const a=libraryNodeHead(page,'p:top-a');
   await expect(a.locator('.lu-node-name')).toHaveText('공공기관 기능개혁 대응');await expect(a.locator('.lu-node-count')).toHaveText('3');
   await expect(a.locator('.lu-node-count')).toHaveAttribute('aria-label','자료 3건');

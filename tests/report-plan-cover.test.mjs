@@ -5,7 +5,7 @@ import {reportCover, coverCandidates, coverLevel, eventStatus, STATUS_DONE, STAT
 import {planItems, overdueItems, itemMeta} from '../app/report-calendar-plan.mjs';
 import {sameThing} from '../app/record-window-model.mjs';
 
-// S67-40(명진 11/20 20:22 "이미 보고를 했는데 중복된 일정 보고 제안"): 일정에서 시작하지 않고 따로 쓴 보고도 '보고함'으로 본다. 자료는 모두 가짜.
+// S67-40(사용자 11/20 20:22 "이미 보고를 했는데 중복된 일정 보고 제안"): 일정에서 시작하지 않고 따로 쓴 보고도 '보고함'으로 본다. 자료는 모두 가짜.
 const at = (day, time) => new Date(`${day}T${time}:00+09:00`).toISOString();
 const ev = (id, title, day, time, extra = {}) => ({id, calendarId: 'own', title, start: at(day, time), end: at(day, time), allDay: false, organizationIds: [], ...extra});
 const rep = (id, title, day, time, extra = {}) => ({id, title, series_name: title, meeting_at: at(day, time), created_at: at(day, '20:00'), ...extra});

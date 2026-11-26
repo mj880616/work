@@ -1,4 +1,4 @@
-// UI-폴드PC틀(2026-10-30 명진 시안 A): 화면 기준은 둘(≤760 폰 / ≥761 PC 틀). 옛 761~1023px 셸(위쪽 한 줄 메뉴 + ☰)이 다시 생기지 않게 본다.
+// UI-폴드PC틀(2026-10-30 사용자 시안 A): 화면 기준은 둘(≤760 폰 / ≥761 PC 틀). 옛 761~1023px 셸(위쪽 한 줄 메뉴 + ☰)이 다시 생기지 않게 본다.
 // 761~1023px만 따로 보는 곳은 왼쪽 메뉴를 그림만 보이는 좁은 칸으로 그리는 두 곳(desktop-tight-nav.css, topbar-actions.js)뿐이다.
 import test from 'node:test';
 import assert from 'node:assert/strict';

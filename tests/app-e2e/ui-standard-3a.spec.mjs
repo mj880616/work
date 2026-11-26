@@ -146,7 +146,7 @@ for(const width of [390,1280])test(`담당조직: 이름 한 줄·마지막 기�
 for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 Drive 파일 종류)·목록 글자·필터·버튼 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  await view(page,'library');
- // LIB-사진숨김(S60-10, 명진 결정 시안 photo-hide-thumbs.html ⑤): 사진 자료(d9)는 줄 대신 그 묶음 맨 아래 [사진 1]. 그림 종류 색은 아래 찾기(사진도 줄로 보임)에서 본다.
+ // LIB-사진숨김(S60-10, 사용자 결정 시안 photo-hide-thumbs.html ⑤): 사진 자료(d9)는 줄 대신 그 묶음 맨 아래 [사진 1]. 그림 종류 색은 아래 찾기(사진도 줄로 보임)에서 본다.
  const rows=page.locator('#documentList .lu-row');await expect(rows).toHaveCount(8);
  await expect(page.locator('#documentList [data-lu-photos]')).toHaveText(['사진 1']);
  // LIB-토글트리: 줄을 보는 시험이라 토글을 모두 편다.

@@ -42,7 +42,7 @@ test('줄 보임: 요약 늘 보임, 외국어 제목은 미리 번역한 한국
   assert.equal(media.summary, '');
   const pend = {id: '4', lane: 'channel', lang: 'ko', title: null, state: 'pending', url: 'https://www.example.org/x'};
   const pending = M.itemView(pend);
-  // S69 NEWS-제목늘읽기(명진 11/24): '제목 읽기 전'은 없다 — 제목이 없으면 주소 경로 조각, 그것도 없으면 '못 읽은 기사 · 도메인'.
+  // S69 NEWS-제목늘읽기(사용자 11/24): '제목 읽기 전'은 없다 — 제목이 없으면 주소 경로 조각, 그것도 없으면 '못 읽은 기사 · 도메인'.
   assert.equal(pending.title, '못 읽은 기사 · example.org', '도메인을 제목으로 보이지 않음'); assert.equal(pending.note, '아직 안 읽음'); assert.equal(pending.canOpen, false);
   assert.equal(M.itemView({...pend, title: 'naver.me/xAbC12'}).title, '못 읽은 기사 · example.org', '주소뿐인 제목도 제목으로 쓰지 않음');
   assert.equal(M.itemView({...pend, state: 'failed', title: 'https://example.org/x'}).title, '못 읽은 기사 · example.org');

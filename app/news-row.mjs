@@ -6,7 +6,7 @@ import {chevHtml} from './fold-chevron.mjs';
 // 바깥 글자는 모두 esc로만 넣는다. 색은 var(--ds-news-*) 토큰 이름만(news-colors.mjs).
 
 // r: {key:'outside:<id>'|'news:<id>', openAttr:'data-…', openId, rowAttr?:'data-…', rowId?, title, titleLang?, src, badge?, color(이름 글자), bar?(막대, 없으면 color), tag, time, star, hit?, read:true|false|null, open, cls?, acts?}
-// memo = [메모] 탭 줄의 메모 첫 줄(꼬리 줄 아래 작게, S69-70). badge = 매체 이름 바로 뒤 작은 표시(공대위, 명진 결정 11/02 L3). hit = 확정 관심 주제에 걸린 주제 이름(줄 끝 작은 표시, 설계 outside-statements.md 12.2 결정 ②).
+// memo = [메모] 탭 줄의 메모 첫 줄(꼬리 줄 아래 작게, S69-70). badge = 매체 이름 바로 뒤 작은 표시(공대위, 사용자 결정 11/02 L3). hit = 확정 관심 주제에 걸린 주제 이름(줄 끝 작은 표시, 설계 outside-statements.md 12.2 결정 ②).
 export function rowHtml(r, esc) {
   const state = r.read === true ? ' is-read' : r.read === false ? ' is-new' : '';
   const row = r.rowAttr ? ` ${r.rowAttr}="${esc(r.rowId ?? r.openId)}"` : '';

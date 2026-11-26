@@ -29,7 +29,7 @@ export function stageRule(st) {
   return '';
 }
 
-// MULTI-다른담당자맞춤 ⑤(명진 11/13 결정 3)·S67-51: 고정 소속·직책 대신 회의를 정리하게 한 사람의 프로필 소속·직책(app_profiles.union_name·job_title).
+// MULTI-다른담당자맞춤 ⑤(사용자 11/13 결정 3)·S67-51: 고정 소속·직책 대신 회의를 정리하게 한 사람의 프로필 소속·직책(app_profiles.union_name·job_title).
 // 부르는 말의 규칙은 owner-role.mjs 한 곳(ai-assist와 같음). 둘 다 비었으면 업종 없는 '업무 담당자'. 이름은 넣지 않는다.
 import { NEUTRAL_ROLE, ownerRoleOf } from './owner-role.mjs';
 export { NEUTRAL_ROLE };

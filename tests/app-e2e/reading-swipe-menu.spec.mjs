@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
-// S70-62 READ-밀기메뉴(명진 11/26 07:41 "보관은 저장으로 통일 … 읽을 거리에서는 수정 저장 숨기기 / 근데 숨기기는 어떻게 다시 보지? / 저장된 글에서는 수정 삭제로"):
+// S70-62 READ-밀기메뉴(사용자 11/26 07:41 "보관은 저장으로 통일 … 읽을 거리에서는 수정 저장 숨기기 / 근데 숨기기는 어떻게 다시 보지? / 저장된 글에서는 수정 삭제로"):
 // 폰 390 — 읽을 거리 글 줄 왼쪽 밀기 칸 [수정][저장][숨기기], [수정]은 그 글 보기의 기존 ⋯ [수정] 칸, 숨긴 글은 머리 ⋯ [숨긴 글] → 밀어서 [다시 보이기](서버 hidden_at 끄기).
 // 화면에 '보관' 글자가 없다. 저장한 글 줄 [수정][삭제]는 row-swipe-more.spec.mjs. 서버는 흉내(helpers/news-server.mjs), 기사는 모두 가짜.
 const item = (page, id) => page.locator(`#newsRoot [data-nc-item="${id}"]`);

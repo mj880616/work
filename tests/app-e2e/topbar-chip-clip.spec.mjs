@@ -4,7 +4,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S67-74 UI-윗줄칩잘림(2026-11-21 명진 16:18, 폰 '사업 관리' 캡처: "사업영역 전체 박스 짤림") → S67-75 UI-걸러보기칩하나(18:33 A안).
+// S67-74 UI-윗줄칩잘림(2026-11-21 사용자 16:18, 폰 '사업 관리' 캡처: "사업영역 전체 박스 짤림") → S67-75 UI-걸러보기칩하나(18:33 A안).
 // #2847의 끝 흐림(mask)은 18:27 "이게 의도된 거라고?"로 걷어냈다. 폰 윗줄은 [아이콘][사업 관리][걸러보기 칩 하나 ▾] … [+][⋯]:
 // 고르기 상자 네 개(종류·사업영역·기간·보기)가 그 줄에 다 안 들어가면 칩 하나로 묶고, 누르면 칩 아래 작은 창에서 같은 상자 네 개로 고른다(고르면 바로 반영).
 // 칩 글자는 아무것도 안 골랐으면 '전체', 고른 값만 ' · '로 잇고 길면 끝 말줄임(▾는 늘 보임). 다 들어가는 폭(폴드 펼침 700·880)은 네 개 그대로.
@@ -22,7 +22,7 @@ function makeState(words = null) {
   const meeting = (n, title, kind, area = null) => ({ id: ID(n), workspace_id: workspace.id, title, series_name: title, round_no: null, meeting_at: today, activity_kind: kind, created_by: user.id, notes: '', decisions: '', transcript_text: '', project_id: area });
   return {
     words,
-    // 사업영역이 달린 보고가 있어야 [사업영역 전체 ▾]가 보인다(명진 화면과 같은 네 칩).
+    // 사업영역이 달린 보고가 있어야 [사업영역 전체 ▾]가 보인다(사용자 화면과 같은 네 칩).
     spaces: [{ id: 'area-1', workspace_id: workspace.id, name: '합성 사업', description: null, parent_id: null, status: 'active', visibility: 'private', owner_id: user.id, sort_order: 10, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', metadata: { project_system: 'v2', management_version: 2 } }],
     meetings: [meeting(901, '○○ 대표자 회의', 'meeting', 'area-1'), meeting(902, '□□ 실무 회의', 'meeting', 'area-1'), meeting(903, '◇◇ 결의대회', 'struggle')],
   };
@@ -75,7 +75,7 @@ const chipState = page => page.evaluate(([barSel, chipSel]) => {
 }, [BAR, CHIP]);
 const noPageScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
-// S70-57: 이름 '사업 관리'가 앱 머리 줄로 올라갔다. S71-10(11/26 명진 '한 줄에 우겨넣고 싶어'): 주 줄(‹ 날짜 › · n건)도 같은 줄에 들어가
+// S70-57: 이름 '사업 관리'가 앱 머리 줄로 올라갔다. S71-10(11/26 사용자 '한 줄에 우겨넣고 싶어'): 주 줄(‹ 날짜 › · n건)도 같은 줄에 들어가
 // 폰(412까지)은 상자 네 개가 다 안 들어가 칩 하나다. 펼친 폴드(700·880)는 네 개 그대로(아래 줄).
 for (const width of [320, 360, 412]) {
   test(`phone ${width}: 사업 관리 top line shows one filter chip (never cut) instead of four boxes; the chip opens one small window with the same four boxes, and a pick there filters the list and renames the chip`, async ({ page }) => {

@@ -366,7 +366,7 @@ test('폰 390: 회의 목록은 최신 차수가 위(6차→1차), 시각이 같
   await kind(page,'궤도협의회').click();await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['6차','5차','4차','3차','2차','1차']);
 });
 
-// FILE-사업보고⋯(2026-10-24 명진 결정): 사업 보고 자료 줄에도 담당조직·프로젝트 자료 줄과 같은 ⋯([Drive에서 열기]·[내려받기], file-actions.js).
+// FILE-사업보고⋯(2026-10-24 사용자 결정): 사업 보고 자료 줄에도 담당조직·프로젝트 자료 줄과 같은 ⋯([Drive에서 열기]·[내려받기], file-actions.js).
 // 줄 전체를 누르면 지금처럼 종류별 동작(PDF는 Drive 보기 새 탭, HWP는 내려받기). ⋯는 그 누르기 자리 밖이라 누르면 메뉴만 열린다.
 // 내려받기는 화면 주소를 바꾸므로 각 시험의 맨 끝에 한 번만 본다(HWP 줄 누르기 = 내려받기는 위 'PC 오른쪽 결과' 시험이 본다).
 const fileState=()=>{const s=columnState();s.downloads=[];

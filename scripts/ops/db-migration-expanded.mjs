@@ -181,7 +181,7 @@ function doBlock(ts) {
   }
 }
 
-// cron 예약 등록(2026-11-25 명진 결정, OPS-DB적용cron받기). 맨 위 문장 `select cron.schedule('이름', '시각', 명령)`과
+// cron 예약 등록(2026-11-25 사용자 결정, OPS-DB적용cron받기). 맨 위 문장 `select cron.schedule('이름', '시각', 명령)`과
 // 같은 이름 다시 등록용 `select cron.unschedule('이름')`만 받는다. 이름·시각은 파일 안 고정 글자 하나, 명령은 고정 글자
 // 또는 $태그$ 한 덩어리. 명령 안에도 본문과 같은 금지(commonRisks)에 더해 아래 좁은 허용 목록만 통과한다.
 const CRON_NAME = /^[a-z][a-z0-9_]{0,62}$/;

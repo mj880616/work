@@ -1,4 +1,4 @@
-// S69-98 NOTE-에버노트 ⑦ 관련 노트(명진 11/25 "좋아 모두 다 넣어!"): 열린 노트 아래 비슷한 노트·자료 3~4개를 고르는 순수 계산.
+// S69-98 NOTE-에버노트 ⑦ 관련 노트(사용자 11/25 "좋아 모두 다 넣어!"): 열린 노트 아래 비슷한 노트·자료 3~4개를 고르는 순수 계산.
 // DOM·네트워크 없음(node --test). AI를 부르지 않는다: 제목·태그·폴더·글자 겹침만 센다. 자료는 화면(note-related.js)이 기존 전체 검색
 // RPC(app_search_records, owner RLS)에 이 노트의 대표 낱말 하나로 묻는다(docQuery).
 export const REL_MAX = 4, DOC_MAX = 2, MIN_SCORE = 4;

@@ -1,11 +1,11 @@
-// S68-38 노트 '보드'(생각 지도, 명진 11/23 08:12·08:23 — Obsidian Canvas 참고): 카드끼리 잇는 연결선 계산(화면 없음, 시험 가능).
+// S68-38 노트 '보드'(생각 지도, 사용자 11/23 08:12·08:23 — Obsidian Canvas 참고): 카드끼리 잇는 연결선 계산(화면 없음, 시험 가능).
 // - 저장: 서버 표 app_note_board_links(migration 20261123090000·20261123120000, owner RLS·같은 작업공간). 읽기·쓰기는 note-board-links-data.js 한 곳.
 // - 선 한 줄 = {id, board_id, from_note|from_text|from_x·from_y, to_note|to_text|to_x·to_y, from_side, to_side, shape, dash, ends, label, bend_x, bend_y, color, width}.
 //   S69-91(migration 20261125040100): 끝이 판 위 한 점이어도 된다(도구 줄로 넣은 선), 모양 elbow(꺾은선), 선 색(0~9)·두께(1~8).
-//   S68-38c(명진 11/23 08:47): 끝마다 노트(from_note·to_note) 또는 그 보드의 글 상자(from_text·to_text) 중 정확히 하나(서버 check와 같은 규칙). endId(l, 'from')로 한 번에 읽는다.
+//   S68-38c(사용자 11/23 08:47): 끝마다 노트(from_note·to_note) 또는 그 보드의 글 상자(from_text·to_text) 중 정확히 하나(서버 check와 같은 규칙). endId(l, 'from')로 한 번에 읽는다.
 //   from_side·to_side: 카드 네 변(top·right·bottom·left) 중 하나, 비면(null) 두 카드 자리로 서로 마주 보는 변을 고른다(카드를 옮기면 따라 바뀜).
 //   shape: line(직선, S68-38c부터 새 선 기본)·curve(곡선). dash: solid(실선 = 이어지는 생각)·dashed(점선 = 그냥 관련). ends: end(끝에 화살촉)·both(양쪽)·none(없음).
-//   bend_x·bend_y(S68-38c, 명진 11/23 08:32): 선 가운데를 끌어 만든 곡선이 지나는 점. 두 끝점 기준 상대 위치 —
+//   bend_x·bend_y(S68-38c, 사용자 11/23 08:32): 선 가운데를 끌어 만든 곡선이 지나는 점. 두 끝점 기준 상대 위치 —
 //   bend_x = 시작→끝 방향 비율, bend_y = 그 수직 방향 비율(선 길이 단위). 카드·상자를 옮겨도 곡선이 따라온다. 둘 다 null = 지나는 점 없음
 //   (shape=curve면 옛 자동 곡선, line이면 직선). 점이 있으면 shape는 curve.
 //   label: 선 위 짧은 글자(1~40자, 없어도 됨). 같은 보드·같은 방향·같은 두 끝은 한 줄(서버 unique와 같은 규칙).

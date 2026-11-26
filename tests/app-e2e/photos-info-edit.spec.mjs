@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S48-60 PHOTO-정보고치기(요청함 11/03 00:29, 명진 결정 E1·E2): 폰 앱 412(앱 다리 흉내 0.4.15 = 상태에 meta).
+// S48-60 PHOTO-정보고치기(요청함 11/03 00:29, 사용자 결정 E1·E2): 폰 앱 412(앱 다리 흉내 0.4.15 = 상태에 meta).
 // 완료 기준: 사진 12장을 골라 [정보수정] → '모두 −8시간' → 앞→뒤 표 → [저장] = 앱에 시각만 한 번(photos:meta:write) →
 // 목록을 새로 읽어 순서가 바뀜 + 서버에 되돌리기 기록 12줄 → 알림 [되돌리기] = 앞 시각으로 다시 고치고 undone_at.
 // 네트워크 없음(지어낸 서버·지어낸 앱), 사진은 1×1 그림. 앱 흉내는 고친 시각을 자기 목록에 반영한다(실제 앱의 EXIF + DATE_TAKEN 자리).

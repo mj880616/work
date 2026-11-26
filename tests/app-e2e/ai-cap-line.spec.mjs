@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-// AI-사람별한도(S61-35) → MULTI-다른담당자맞춤 ⑥(명진 11/13 15:30): 내 프로필 '사용 현황' 칸은 다른 사람에게 안 보이고,
+// AI-사람별한도(S61-35) → MULTI-다른담당자맞춤 ⑥(사용자 11/13 15:30): 내 프로필 '사용 현황' 칸은 다른 사람에게 안 보이고,
 // 한 달 AI 한도에 닿았을 때만 그 한 줄이 보인다(쓴 금액·한도 줄 없앰).
 // openHome 뒤에 ai-assist kind=ai_month만 가짜로 답한다(나중에 단 길이 먼저)(진짜 서버 호출 없음). 화면은 작업공간을 보내지 않는다. 운영자(exempt)는 줄이 없다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';

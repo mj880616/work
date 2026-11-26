@@ -1,4 +1,4 @@
-// S52-11 CAL-폰달력핀치·제목먼저(명진 11/07 10:59·11:05, 시안 docs/design/mockups/calendar-phone-pinch.html).
+// S52-11 CAL-폰달력핀치·제목먼저(사용자 11/07 10:59·11:05, 시안 docs/design/mockups/calendar-phone-pinch.html).
 // ① 폰 월 보기 칸 안 일정 줄은 제목만(시각은 읽기 이름·그날 목록에), PC·펼친 폴드는 시각 + 제목 그대로.
 // ② 달력 칸 위 두 손가락 벌리기 = 칸이 가로·세로 같은 비율로 함께 커짐(화면 전체 확대 아님), 글자 조금 커지고 제목은 줄을 바꿔 전부,
 //    커진 달력은 달력 안에서 밀어 봄, 최대 약 2.5배, 오므리면 0.2초에 처음 크기. 머리 줄·아래 줄·하단바는 그대로. 크기는 기억하지 않음.
@@ -243,7 +243,7 @@ test.describe('폰 월 보기(폴드 접힘 412px)',()=>{
     await expect(page.locator('#calendarGrid .cmv-day-stack')).toHaveCount(0);
   });
 
-  // S52-40 CAL-확대시각(명진 11/07·11/08): 처음 크기 = 시각 없음, 두 손가락으로 키운 동안 = 하루짜리 일정 제목 앞에 작은 시각.
+  // S52-40 CAL-확대시각(사용자 11/07·11/08): 처음 크기 = 시각 없음, 두 손가락으로 키운 동안 = 하루짜리 일정 제목 앞에 작은 시각.
   test('두 손가락으로 키운 동안만 하루짜리 일정 제목 앞에 작은 시각, 오므리면 다시 제목만',async({page})=>{
     await fixture(page);
     const grid=page.locator('#calendarGrid');

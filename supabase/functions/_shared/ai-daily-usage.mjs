@@ -19,7 +19,7 @@ export function seoulDay(nowMs) {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
-// 하루 요청 수 한도(모든 AI 쓰임 합계, 10/25 명진 결정 80). ai-assist(checkBudget)·meeting-transcribe·meeting-ai-draft·page-ai-draft가
+// 하루 요청 수 한도(모든 AI 쓰임 합계, 10/25 사용자 결정 80). ai-assist(checkBudget)·meeting-transcribe·meeting-ai-draft·page-ai-draft가
 // 이 숫자 하나와 서울 날짜 하나로 같은 행(requests)을 센다(REC-멈춤띠계속뜸, S60-26b). 작업공간 설정 daily_request_limit은 하루 한도에 쓰지 않는다.
 export const DAILY_TOTAL_LIMIT = 80;
 

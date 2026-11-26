@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {libraryTopMenu} from './helpers/library-tree.mjs';
 import {pinch} from './helpers/pinch.mjs';
-// S55-11 LIB-두칸보기(시안 docs/design/mockups/library-two-pane.html, 명진 11/09 18:16 'ㅇ'): PC·펼친 폴드 폴더 묶기 = 양쪽 다 폴더 + 자료 두 칸.
+// S55-11 LIB-두칸보기(시안 docs/design/mockups/library-two-pane.html, 사용자 11/09 18:16 'ㅇ'): PC·펼친 폴드 폴더 묶기 = 양쪽 다 폴더 + 자료 두 칸.
 // 칸마다 위치·폴더 들어가기, 칸 사이·같은 칸 폴더 줄 끌어 옮기기(실제 브라우저 끌기), 자기 안 막음, Tab·F6, [▥ 두 칸] 켬/끔(서버 기억),
 // 경계 폭(split_ratio.library, 서버 기억), 폰은 한 칸. 흡수한 나무 접수(폴더 밖·나무로 끌기·나무 넘침·접기·폭)는 두 칸에서 같은 결과로 본다. 이름은 지어낸 것.
 const FOLDERS=[
@@ -17,7 +17,7 @@ const folderIn=(i,id)=>`${pane(i)} [data-lu-nav="${id}"]`;
 // S56-40 LIB-두칸폴더펼치기: 폴더 줄 누르기 = 그 칸 안 펼치기·접기. 그 폴더로 들어가기는 우클릭 [이 폴더로 들어가기].
 const enterIn=async(page,i,id)=>{await page.locator(folderIn(i,id)).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()};
 const docIn=(i,id)=>`${pane(i)} [data-lu-document="${id}"]`;
-// LIB-두칸폴더밖(S69, 명진 11/24 16:12): 맨 위 칸의 '폴더 밖' 줄(개수). 폴더 밖 자료는 그 줄을 펼쳐야 보인다(S69-68: 펼침은 칸마다 따로).
+// LIB-두칸폴더밖(S69, 사용자 11/24 16:12): 맨 위 칸의 '폴더 밖' 줄(개수). 폴더 밖 자료는 그 줄을 펼쳐야 보인다(S69-68: 펼침은 칸마다 따로).
 const outRow=i=>`${pane(i)} [data-lu-nav="x:out"]`;
 const openOut=async(page,i=0)=>{await page.locator(outRow(i)).click();await expect(page.locator(outRow(i))).toHaveAttribute('aria-expanded','true')};
 const line=page=>page.locator('#libraryFolderStatusLine');
@@ -42,7 +42,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸`,()=>{
       await expect(page.locator(`${pane(i)} .lu-pane-here`)).toHaveText('자료실');
     }
     await openOut(page,0);
-    // S69-68 UI-두칸따로(명진 11/24 20:14 '우측에서의 폴더조작이 왼쪽에 영향 안미치게 반대로도'): 펼침은 칸마다 — 왼쪽 칸에서 펼쳐도 오른쪽 칸은 접힌 채.
+    // S69-68 UI-두칸따로(사용자 11/24 20:14 '우측에서의 폴더조작이 왼쪽에 영향 안미치게 반대로도'): 펼침은 칸마다 — 왼쪽 칸에서 펼쳐도 오른쪽 칸은 접힌 채.
     for(const id of ['a-2','a1-1'])await expect(page.locator(`${pane(0)} [data-lu-pane-sub=""] [data-lu-document="${id}"]`)).toBeVisible();
     for(const id of ['a-2','a1-1'])await expect(page.locator(docIn(1,id))).toHaveCount(0);
     await expect(page.locator(outRow(1))).toHaveAttribute('aria-expanded','false');
@@ -103,7 +103,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸`,()=>{
   });
 });
 
-// S59-9 LIB-펼친폴더안놓기(명진 11/11 14:16): 칸 안에서 펼친 폴더 안 자료 줄(과 그 묶음 안 빈 틈) 위에 놓아도 그 폴더(가장 가까운 펼친 폴더)로.
+// S59-9 LIB-펼친폴더안놓기(사용자 11/11 14:16): 칸 안에서 펼친 폴더 안 자료 줄(과 그 묶음 안 빈 틈) 위에 놓아도 그 폴더(가장 가까운 펼친 폴더)로.
 // 표시는 그 폴더 줄(칸 상자 아님), 이미 그 폴더에 든 자료만 끌면 놓을 수 없음, 펼친 폴더 밖 빈 자리·맨 위 자료 줄은 지금처럼 그 칸의 지금 폴더(맨 위 = 폴더 밖).
 // 자료 옮기기·여러 개·폴더·손가락 길게 눌러 끌기가 같은 판정(PC 파일 올리기는 library-folder-upload-drop.spec.mjs). 이름은 지어낸 것.
 const sub=(i,id)=>`${pane(i)} [data-lu-pane-sub="${id}"]`;
@@ -145,7 +145,7 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 왼쪽 자료를
   await expect(page.locator('#documentList .lu-drop-into,#documentList .lu-drop-no')).toHaveCount(0);
   await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');
   await expect.poll(()=>folderOf(s,'a-2')).toBeNull();
-  // 실제 마우스 끌기(명진이 하는 그대로)로 한 번 더: 같은 자리 → 가상 A.
+  // 실제 마우스 끌기(사용자가 하는 그대로)로 한 번 더: 같은 자리 → 가상 A.
   await page.locator(docIn(0,'a1-1')).dragTo(page.locator(subDoc(1,'fa','n-1')));
   await expect.poll(()=>folderOf(s,'a1-1')).toBe('fa');
   await expect(line(page)).toContainText('가상 A 폴더');
@@ -231,7 +231,7 @@ test.describe('펼친 폴드 884 손가락 두 칸 길게 눌러 끌기',()=>{
   });
 });
 
-// S56-40 LIB-두칸폴더펼치기(명진 11/10 18:25): 폴더 줄 누르기 = 그 칸 안에서 나무처럼 펼치기·접기(들어가지 않음),
+// S56-40 LIB-두칸폴더펼치기(사용자 11/10 18:25): 폴더 줄 누르기 = 그 칸 안에서 나무처럼 펼치기·접기(들어가지 않음),
 // 들어가기는 우클릭 [이 폴더로 들어가기](메뉴를 연 칸에서), 손가락 화면은 두 손가락 벌리기 = 그 폴더만, 오므리기 = 한 단계 위.
 for(const width of [1440,884])test(`자료실 ${width} 두 칸: 폴더 누르기 = 그 칸 안 펼치기·접기, 우클릭 [이 폴더로 들어가기]`,async({page})=>{
   const {errors}=await boot(page,width);
@@ -256,7 +256,7 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 폴더 누르기
   await expect(fa).toHaveAttribute('aria-expanded','false');
   await expect(page.locator(folderIn(0,'fc'))).toHaveCount(0);
   await expect(page.locator(`${pane(0)} [data-lu-document="n-1"]`)).toHaveCount(0);
-  // UI-폴더이름펼치기(명진 11/24 18:09, 전의 OPS-빠진일2차 1 '빈 폴더 = 한 번에 열기'를 대신함): 빈 폴더도 그 칸 안 펼침('빈 폴더' 한 줄), 다시 누르면 접힘.
+  // UI-폴더이름펼치기(사용자 11/24 18:09, 전의 OPS-빠진일2차 1 '빈 폴더 = 한 번에 열기'를 대신함): 빈 폴더도 그 칸 안 펼침('빈 폴더' 한 줄), 다시 누르면 접힘.
   //  들어가기는 우클릭 메뉴 첫 줄 [이 폴더로 들어가기]. 위치 줄로 돌아온다.
   await page.locator(folderIn(0,'fz')).click();
   await expect(page.locator(`${pane(0)} .lu-pane-empty[data-lu-pane-sub="fz"]`)).toContainText('빈 폴더');
@@ -291,7 +291,7 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 폴더 누르기
 
 test.describe('펼친 폴드 884 손가락 두 칸',()=>{
   test.use({hasTouch:true});
-  // UI-폴더줄크기(S69-99, 명진 11/25 08:23 "폴더 안으로 들어가기가 아니라"): 두 손가락 = 줄 크기 한 단계(칸은 그대로), 그 칸에서 들어가기는 ⋯ 첫 줄.
+  // UI-폴더줄크기(S69-99, 사용자 11/25 08:23 "폴더 안으로 들어가기가 아니라"): 두 손가락 = 줄 크기 한 단계(칸은 그대로), 그 칸에서 들어가기는 ⋯ 첫 줄.
   test('두 손가락 벌리기 = 줄 크기 한 단계(들어가지 않음), 그 칸 ⋯ = 그 칸에서 그 폴더만',async({page})=>{
     const {errors}=await boot(page,884);
     await page.locator(folderIn(1,'fa')).click();

@@ -5,7 +5,7 @@ import { segBox } from './helpers/seg-box.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
 
-// NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 노트 검색 칸 오른쪽 [폴더|목록|보드](S68-38 옛 이름 포스트잇).
+// NOTE-보기3가지 (요청함 10/29 15:05, 사용자 15:10 '추천대로'): 노트 검색 칸 오른쪽 [폴더|목록|보드](S68-38 옛 이름 포스트잇).
 // 목록 = 모든 노트 최근 고친 순 한 줄(폴더 꼬리표·날짜), 보드 = 끝없이 넓은 판 위 제목만 보이는 같은 크기 작은 카드(S68-38), 끌어 놓으면
 // 그 보드의 metadata.boards[보드 id]로 서버 저장(S69-83: 모든 노트를 늘어놓던 [전체]는 없앴다 — 이름 붙은 보드 BID에 세 노트를 붙여 둔 채 시험), 끈 칸은 맨 위. 검색은 세 보기 모두. 폰 412·884, PC 1440. 이름은 지어낸 것.
 // 연결선(화살표)·두 손가락 확대·탭 넘김과의 관계는 note-board-map.spec.mjs.

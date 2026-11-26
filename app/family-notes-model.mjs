@@ -1,4 +1,4 @@
-// FAMILY-잊지말기 4단계(설계 docs/design/tg-personal.md 5·6절, 명진 결정 11/05 시안 A) + S51-26 FAMILY-노트로(11/06 결정 '2'):
+// FAMILY-잊지말기 4단계(설계 docs/design/tg-personal.md 5·6절, 사용자 결정 11/05 시안 A) + S51-26 FAMILY-노트로(11/06 결정 '2'):
 // 홈 [하루] '잊지 말기' 칸의 규칙. 화면·서버 호출 없이 node --test로 확인한다.
 // 줄은 서버(collector-feed)가 가족 1명의 대화·통화에서 뽑은 한 줄이다(원문 없음). 화면은 글자로만 그린다(HTML 해석 금지).
 // 상태: new(제안) → kept(노트로 보냄·[이미 함] — 옛 [기억만]도 같은 값, 처음 한 번 노트로 옮김)·tasked(할 일로)·scheduled(일정으로)·dismissed(×).
@@ -40,7 +40,7 @@ export function metaLine(n) {
   return [n.saidWhen ? `말한 때: ${n.saidWhen}` : '', ORIGIN_LABEL[n.origin], shortDay(n.day)].filter(Boolean).join(' · ');
 }
 export const suggestions = notes => notes.filter(n => n.status === 'new');
-// 할 일·일정 창에 미리 채울 제목·메모. 날짜는 바꾸지 않고 '말한 때' 글로만 메모에 둔다(명진이 달력으로 고름).
+// 할 일·일정 창에 미리 채울 제목·메모. 날짜는 바꾸지 않고 '말한 때' 글로만 메모에 둔다(사용자가 달력으로 고름).
 export function draftOf(n) {
   return {title: [...n.body].slice(0, 100).join(''), memo: n.saidWhen ? `말한 때: ${n.saidWhen}` : ''};
 }

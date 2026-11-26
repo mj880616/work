@@ -154,7 +154,7 @@ function defaultAnswer(body){
   const refs=(m.candidates??[]).map(c=>c.ref);
   const core={summary:'공공기관 민영화 저지 투쟁을 선포한 성명이다. 11월 총파업을 예고했다.',
     key_sentences:[{orig:'정부는 철도와 가스의 분할을 멈춰야 한다.',ko:''},{orig:'지어낸 문장은 저장되지 않는다.',ko:''}]};
-  const ctx={relevance:{topics:['민영화','공공성 사업','없는 주제'],reason:'민영화 관심 주제와 바로 닿는다.'},implications:{kptu:'공공운수노조 공동투쟁에 힘이 된다.',labor:''},related:[...refs,'r99']};
+  const ctx={relevance:{topics:['민영화','공공성 사업','없는 주제'],reason:'민영화 관심 주제와 바로 닿는다.'},implications:{kptu:'A노조 공동투쟁에 힘이 된다.',labor:''},related:[...refs,'r99']};
   if(name==='now_detail')return {...core,...ctx};
   if(name==='now_basic')return core;
   if(name==='now_context')return ctx;
@@ -194,7 +194,7 @@ test('first open makes and stores the full detail once; second open returns the 
   assert.deepEqual(b.detail.key_sentences,[{orig:'정부는 철도와 가스의 분할을 멈춰야 한다.',ko:null}]);
   // 연관 주제는 확정 관심사·내 업무 이름 안에서만.
   assert.deepEqual(b.detail.relevance,{topics:['민영화','공공성 사업'],reason:'민영화 관심 주제와 바로 닿는다.'});
-  assert.deepEqual(b.detail.implications,{kptu:'공공운수노조 공동투쟁에 힘이 된다.'});
+  assert.deepEqual(b.detail.implications,{kptu:'A노조 공동투쟁에 힘이 된다.'});
   // 함께 볼 것은 서버 후보 안에서만: 다른 사회운동 글·뉴스·업데이트·원장(S0·S1). 개인 메모·S2·남의 글·지어낸 ref 없음.
   const kinds=b.detail.related.map(x=>`${x.kind}:${x.id}`);
   assert.deepEqual(kinds.sort(),[`ledger:${id(72)}`,`news:${NEWS_1}`,`outside:${id(6)}`,`update:${id(70)}`].sort());
@@ -409,7 +409,7 @@ test('E3 now_detail 거절: 차단 명단·남의 작업공간 옛 id·없는 id
   assert.ok(h.calls.service.every(s=>s.method!=='POST'||[].concat(s.body).every(x=>x.workspace_id===WS)),'쓰기는 누른 사람 작업공간만');
 });
 
-// S68-43(명진 11/23 캡처 — 본문 없이 제목만으로 만든 요약에 'material이 비어 있어'): 재료 없는 사회운동 글은 AI를 부르지 않고, 제목만으로 만든 옛 저장본도 보이지 않는다.
+// S68-43(사용자 11/23 캡처 — 본문 없이 제목만으로 만든 요약에 'material이 비어 있어'): 재료 없는 사회운동 글은 AI를 부르지 않고, 제목만으로 만든 옛 저장본도 보이지 않는다.
 test('S68-43: 본문·요약·주요 문장이 없는 사회운동 글은 no_material(AI 없음), 제목만으로 만든 옛 저장본도 버린다',async()=>{
   const fresh=harness();
   const r=await post(fresh.handler,{kind:'now_detail',outside_post_id:id(6)});
@@ -435,7 +435,7 @@ test('S68-43: 저장 본문이 저장된 요약보다 새로우면(본문을 나
   assert.equal(k.calls.openai.length,0);assert.equal(c.detail.summary,'예전 요약.');
 });
 
-// S69-01(명진 11/24 "요약 시사점을 매번 다시 만드는 거 같은데 이러지마"): 다시 만드는 기준은 본문 '내용'(지문)뿐 — 본문을 뽑은 시각이 아니다.
+// S69-01(사용자 11/24 "요약 시사점을 매번 다시 만드는 거 같은데 이러지마"): 다시 만드는 기준은 본문 '내용'(지문)뿐 — 본문을 뽑은 시각이 아니다.
 test('S69-01: 같은 본문을 다시 뽑아 시각만 새로워지면 저장본 그대로(AI 0), 본문 글자가 바뀌면 그때만 다시 만든다',async()=>{
   const feed=[{id:id(300),workspace_id:WS,outside_post_id:POST_KO,news_item_id:null,state:'ok',blocks:FEED_KO,extracted_at:'2026-11-02T09:00:00Z'}];
   const h=harness({feed,interests:confirmed});

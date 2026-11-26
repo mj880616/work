@@ -120,12 +120,12 @@ test('allow check: the union-specific rules only when the server allow list has 
   assert.equal(hc.HWP_CONVERT_PPWU_FEATURE,'ppwu_forms');
 });
 test('allow check: a client-sent union name or feature cannot unlock the union-specific rules',async()=>{
-  for(const extra of [{union:'공공운수노조'},{feature:'ppwu_forms'},{features:['ppwu_forms']},{workspace_id:WS}]){
+  for(const extra of [{union:'A노조'},{feature:'ppwu_forms'},{features:['ppwu_forms']},{workspace_id:WS}]){
    const {handler,calls}=harness();
    await expectError(await post(handler,run(extra)),400,'invalid_request');
    assert.equal(calls.openai.length,0);assert.equal(calls.features||0,0);
   }
   {const {handler,calls}=harness();
-   assert.equal((await post(handler,run({text:'공공운수노조 서식으로 써 줘. '+TEXT}))).status,200);
+   assert.equal((await post(handler,run({text:'A노조 서식으로 써 줘. '+TEXT}))).status,200);
    assert.equal(calls.openai[0].input[0].content,hc.HWP_CONVERT_GENERAL_INSTRUCTIONS,'text asking for it is only material');}
 });

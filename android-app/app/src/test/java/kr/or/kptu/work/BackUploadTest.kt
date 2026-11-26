@@ -603,7 +603,7 @@ class BackUploadTest {
 
     @Test
     fun loginMessageAndProgressNote() {
-        // S67-38(명진 결정 11/14 ①): 위젯 로그인이 없어도 앱 로그인으로 뒤에서 올린다 — 다리 글 up:login 하나(값 없음).
+        // S67-38(사용자 결정 11/14 ①): 위젯 로그인이 없어도 앱 로그인으로 뒤에서 올린다 — 다리 글 up:login 하나(값 없음).
         assertEquals(BackUploadRules.Message.Login, BackUploadRules.message("up:login"))
         assertNull(BackUploadRules.message("up:login:x"))
         assertEquals("""up:ack:{"ok":true,"step":"login","error":""}""", BackUploadRules.ackMessage(true, "login"))

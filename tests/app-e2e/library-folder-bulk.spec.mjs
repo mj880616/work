@@ -33,7 +33,7 @@ async function pick(page,ids,width){
   await expect(page.locator('#librarySelectCount')).toHaveText(`${ids.length}개 선택됨`);
 }
 const menuItem=(page,name)=>page.locator('#luBulkMenu').getByRole('button',{name,exact:true});
-// UI-고르기막대(S69-85): 사업영역·담당조직·분류 바꾸기는 막대 ⋯ 안(명진 확정). ⋯ 항목 = 그 단추를 누른 것과 같다.
+// UI-고르기막대(S69-85): 사업영역·담당조직·분류 바꾸기는 막대 ⋯ 안(사용자 확정). ⋯ 항목 = 그 단추를 누른 것과 같다.
 const MORE=['사업영역 바꾸기','담당조직 바꾸기','분류 바꾸기'];
 const moreMenu=page=>page.locator('#rowMenu');
 async function bulk(page,name,width){await press(page,bar(page).locator('.kptu-sb-more'),width);await press(page,moreMenu(page).getByRole('button',{name,exact:true}),width)}

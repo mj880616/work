@@ -20,7 +20,7 @@ public enum TrayPicture
 public sealed record TrayStatus(TrayPicture Picture, int Waiting, int NeedsCheck, string Tooltip)
 {
     // S63-09 PC도우미구분: 웹 앱 자체와 헷갈리지 않게 하는 일을 이름에 담는다. 옛 이름은 RenamedShortcuts.OldFileNames.
-    // S68-21(명진 11/22 17:04): 앱 이름이 WORK ON+로 바뀌어 'WORK ON+ 파일 올리기'. 설치 ID·실행 파일·설치 폴더·자동 시작 이름은 그대로.
+    // S68-21(사용자 11/22 17:04): 앱 이름이 WORK ON+로 바뀌어 'WORK ON+ 파일 올리기'. 설치 ID·실행 파일·설치 폴더·자동 시작 이름은 그대로.
     public const string Name = "WORK ON+ 파일 올리기";
 
     /// <summary>Windows cuts the tray tooltip; keep it within the old, safe limit.</summary>

@@ -1,6 +1,6 @@
 // Source of truth: app/family-remind-model.mjs.
 // Deployment-local copy; the regression compares everything below this banner byte for byte.
-// FAMILY-기억알림(요청함 11/12 10:40, 시안 docs/design/mockups/family-note-remind.html, 명진 10:47 "나"·10:56 "보이기"): 가족 '잊지 말기' 노트의 줄을
+// FAMILY-기억알림(요청함 11/12 10:40, 시안 docs/design/mockups/family-note-remind.html, 사용자 10:47 "나"·10:56 "보이기"): 가족 '잊지 말기' 노트의 줄을
 // 돌아가며 보여 주는 규칙. 화면·서버 호출 없이 node --test로 확인한다(tests/family-remind-model.test.mjs).
 // - AI를 쓰지 않는다. 가족 노트는 AI 재료에서 빠지는 노트라(ai_export_allowed=false) 줄(맨 위 문단)을 그대로 보인다.
 // - 어느 줄을 언제 보여 줬는지는 그 노트 행의 기존 metadata jsonb 한 칸(metadata.remind = {day, picks, seen})에 둔다(서버 저장, 새 표·DB 변경 없음,
@@ -121,7 +121,7 @@ export function putLine(doc, index, node) {
   content.splice(Math.max(0, Math.min(Number.isInteger(index) ? index : content.length, content.length)), 0, node);
   return cleanDoc({type: 'doc', content});
 }
-// 폰 알림 글(명진 결정 11/12 10:56 "보이기"): 제목 '가족 · 이번 주 기억할 것 n', 본문은 줄 앞부분을 ' · '로 이은 한 줄(줄마다 24자, 전체 120자).
+// 폰 알림 글(사용자 결정 11/12 10:56 "보이기"): 제목 '가족 · 이번 주 기억할 것 n', 본문은 줄 앞부분을 ' · '로 이은 한 줄(줄마다 24자, 전체 120자).
 export function pushText(picks) {
   const cut = (s, n) => ([...s].length > n ? [...s].slice(0, n - 1).join('') + '…' : s);
   const strip = s => String(s).replace(/^[☐☑]\s*/, '');

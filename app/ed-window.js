@@ -152,7 +152,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   const say = message => { if (!closed) status.textContent = message || ''; };
 
   // 761px~: the app's own menu stays beside the window (side); the window takes only the rest.
-  // NOTE-크게쓰기틀(S70-38, 2026-11-25 명진 "가"): the window sits in the body column's own frame — the same top and bottom as the menu card,
+  // NOTE-크게쓰기틀(S70-38, 2026-11-25 사용자 "가"): the window sits in the body column's own frame — the same top and bottom as the menu card,
   // the same left and right as the screen's body column (the top line above every screen), and the same rounded card (ed-window.css).
   const FRAME_VARS = ['--ed-window-left', '--ed-window-top', '--ed-window-right', '--ed-window-bottom'];
   function placeBesideNav() {

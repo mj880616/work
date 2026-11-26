@@ -1,4 +1,4 @@
-// S48-12b 파일 탐색기 ③ Edge(FILES-클라우드탐색기, 명진 결정 F1~F9 11/02). 설계: docs/design/files-explorer.md 3·4·5절, 7절 ③.
+// S48-12b 파일 탐색기 ③ Edge(FILES-클라우드탐색기, 사용자 결정 F1~F9 11/02). 설계: docs/design/files-explorer.md 3·4·5절, 7절 ③.
 // 읽기: status(맞춘 상태) · sync(바뀐 것만 색인에 반영) · thumb(썸네일 중계) · media(원본 중계, Range) · preview(오피스·구글 문서 → PDF)
 //   · open-url(클라우드 보기 주소) · trash_list(S69-62 구글 휴지통 목록, 원드라이브는 웹 휴지통 주소만).
 // 쓰기(S48-45 ⑤·⑦, 모두 confirm:true + 색인 안 항목만): rename(이름) · mkdir(새 폴더) · move(같은 클라우드 안, 한 번에 200개까지)
@@ -10,7 +10,7 @@
 // 문(모두 서버에서, 매 요청): ① 로그인(Auth) ② 그 사람이 작업공간 owner(owner 행 정확히 1개)
 //   ③ (구글) 그 작업공간의 Drive 연결(app_drive_connections 그 행)의 갱신 토큰만 ④ (원드라이브) 그 작업공간의 app_onedrive_connections 행.
 //   화면이 보낸 작업공간·사용자 값은 쓰지 않는다. 다른 작업공간 연결·프로젝트 전체 연결(public_policy_drive_config id=1의 갱신 토큰)로 넘어가는 길은 없다.
-// S62-11 MULTI-구글드라이브사진모두(설계: docs/design/gdrive-photos-all.md 2절, 명진 11/14 22:18): 운영자 기능 키 files·단 하나 작업공간(slug) 판정을 뺐다.
+// S62-11 MULTI-구글드라이브사진모두(설계: docs/design/gdrive-photos-all.md 2절, 사용자 11/14 22:18): 운영자 기능 키 files·단 하나 작업공간(slug) 판정을 뺐다.
 //   Drive·원드라이브를 연결한 사람 모두 각자 자기 드라이브·자기 작업공간 색인만(색인 표 읽기도 owner RLS, migration 20261115120000).
 // 새 OAuth 범위 없음: 원드라이브는 이미 받은 Files.ReadWrite(onedrive-photos/graph.ts SCOPE, .All 섞이면 거절), 구글은 연결 때 받은 drive
 //   (drive.file만 받은 연결은 gd_scope_missing → 화면 '[Drive 다시 연결]').
@@ -1792,7 +1792,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       const removed = done.length ? await deleteTree(ws, source, done) : [];
       return json({ ok: true, changed: [], removed: removed.map((id) => ({ source, id })), failed, left });
     },
-    // S69-62 휴지통 보기(명진 11/24 18:17 "휴지통을 볼 수 있어야 돼. 지운파일 복구하려면"): 구글 드라이브 휴지통 목록(읽기만).
+    // S69-62 휴지통 보기(사용자 11/24 18:17 "휴지통을 볼 수 있어야 돼. 지운파일 복구하려면"): 구글 드라이브 휴지통 목록(읽기만).
     //   내 파일('me' in owners)이고 사람이 직접 휴지통에 넣은 것(explicitlyTrashed)만 — 폴더째 지운 안쪽 파일은 그 폴더 줄 하나로 보인다.
     //   한 번에 100개, page(구글이 준 다음 쪽 표시)로 이어 받는다. 이름·크기·지운 시각만 돌려주고 색인에는 쓰지 않는다.
     //   원드라이브는 개인 계정 휴지통 목록을 주는 Graph API가 없어(2026-11 기준) unsupported:true + 원드라이브 웹 휴지통 주소만.

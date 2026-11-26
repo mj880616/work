@@ -35,12 +35,12 @@ import {photoContextLine} from './diary-context-model.mjs';
 // OD-연결아이콘: 원드라이브 연결 표시는 [오늘] 오른쪽 아이콘 하나 + 드롭다운(공용 부품, 사진 메뉴도 같은 부품).
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {createOdSettings} from './od-settings.js';
-// S46-20 사진 정리 ⑥(명진 11/01 01:04): 그날 폰 사진도 같은 격자에 '보여 주기만'(앱 다리로 폰 안에서만 읽음, 서버 저장 없음).
+// S46-20 사진 정리 ⑥(사용자 11/01 01:04): 그날 폰 사진도 같은 격자에 '보여 주기만'(앱 다리로 폰 안에서만 읽음, 서버 저장 없음).
 import {phonePhotos} from './phone-photos.js';
 import {readDeviceSources} from './photo-sources-device.js';
 import {phoneHideList} from './phone-folders-sync.js';
 import {dayEndMs, phoneDayItems} from './time-photos-model.mjs';
-// S70-57 UI-검색창하나로(명진 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일 / 검색창은 하나로만"): 목록 보기의 찾기는 맨 위 칸 '하루 기록에서 찾기'.
+// S70-57 UI-검색창하나로(사용자 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일 / 검색창은 하나로만"): 목록 보기의 찾기는 맨 위 칸 '하루 기록에서 찾기'.
 import {registerScreenFind, refreshScreenFind} from './screen-find.js';
 
 (() => {
@@ -67,7 +67,7 @@ let selected = null, source = 'all', dayLayer = null;
 // JOURNAL-일기원드라이브 2단계: 연결 상태·이 달의 원드라이브 사진·이 달의 별표. 모두 메모리에만 둔다(저장은 서버).
 const OD_NONE = {configured:false, connected:false, folder:null, canDelete:false};
 let od = {...OD_NONE}, odStatusFlight = null, odMonth = null, odMessage = '';
-// 원드라이브 설정 창: 사진 메뉴와 같은 공용 부품(od-settings.js, 명진 결정 4). 연결 상태·안내 한 줄·다시 읽기는 일기 것을 쓴다.
+// 원드라이브 설정 창: 사진 메뉴와 같은 공용 부품(od-settings.js, 사용자 결정 4). 연결 상태·안내 한 줄·다시 읽기는 일기 것을 쓴다.
 const odSettings = createOdSettings({rt, layerName:'diary-od', hint:'하위 폴더도 함께 읽어요.',
   od:() => od, refresh:force => ensureOdStatus(force), paint:() => renderOdPanel(), message:text => { odMessage = text; }, fault:() => { odFault = true; },
   reload:() => loadMonth({force:true}), reset:({disconnected}) => { stopOdSync(); odSyncState.done = false; if (disconnected) odFault = false; }});
@@ -350,7 +350,7 @@ function renderDetail() {
   if (hasPhotos) paintContext(detail.querySelector('[data-diary-context-slot]'), selected);
   void loadPhoneDay(selected);
 }
-// JOURNAL-일기원드라이브 10.6 '그날 맥락'(2026-11-10 명진 결정): 사진 있는 날에만 사진 격자 아래 접힌 한 줄(일정·회의만, diary-context.js).
+// JOURNAL-일기원드라이브 10.6 '그날 맥락'(2026-11-10 사용자 결정): 사진 있는 날에만 사진 격자 아래 접힌 한 줄(일정·회의만, diary-context.js).
 // 업무일지와 같은 읽기를 그날 처음 열 때 한 번(주 단위 기억), 다시 그릴 때는 읽은 것을 쓴다(메모리에만). 펼침 상태도 이 접속 동안만 기억한다.
 // 크게 보기 캡션은 찍은 시각과 일정·회의 시간을 맞춘 한 줄(photoContextLine). 맥락은 보여 주기만 하고 일기 글에 쓰지 않는다.
 let dayContext = {key:'', p:null, entries:[]}, contextOpen = '';

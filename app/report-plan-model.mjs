@@ -87,7 +87,7 @@ export function planDecision(event, {plans = [], reports = []} = {}) {
 // 메뉴·일정 창 [보고할 일정]이 켜져 보이는가.
 export const planIsOn = (event, data) => planDecision(event, data).state === PLAN_ON;
 
-// 4-1 ④ '보고할까요?'를 물을 일정인가(S67-16, 명진 11/20 03:23 "넓혀"). 'org' 담당조직 연결 · 'major' 주요 일정 · '' 묻지 않음.
+// 4-1 ④ '보고할까요?'를 물을 일정인가(S67-16, 사용자 11/20 03:23 "넓혀"). 'org' 담당조직 연결 · 'major' 주요 일정 · '' 묻지 않음.
 //   담당조직 연결 = 조직 보고 창(record-window-model.mjs eventItems)과 같은 판정 ①·②:
 //     ① 일정에 붙인 조직(Google 일정의 kptu_suborg_ids — 일정 창에서 고른 담당조직) ② 제목에 내 담당조직 이름·다른 이름이 한 조직만 맞음.
 //   주요 일정 = ③ 사업영역 주요 일정 행(app_project_milestones의 google_event_id)에 오른 일정
@@ -104,7 +104,7 @@ export function askReason(event, {orgs = null, areaEventIds = null} = {}) {
   return majorRule(event?.title) ? ASK_MAJOR : '';
 }
 
-// S67-40(명진 11/20 20:22 "이미 보고를 했는데 중복된 일정 보고 제안"): 일정에서 시작하지 않고 따로 쓴 보고(일정 id 연결 없음)도 '보고함'으로 본다.
+// S67-40(사용자 11/20 20:22 "이미 보고를 했는데 중복된 일정 보고 제안"): 일정에서 시작하지 않고 따로 쓴 보고(일정 id 연결 없음)도 '보고함'으로 본다.
 //   같은 날(서울)이고 ① 시각: 일정·보고 둘 다 시각이 있으면 ±COVER_MINUTES 안(종일 일정·시각을 고르지 않은 보고는 날짜만)
 //   ② 제목: title-match.mjs titleMatch가 'same'(한쪽이 다른 쪽을 품거나 짧은 쪽 낱말이 모두 들어 있음)이면 그 보고가 이 일정을 덮는다(cover).
 //   'near'(낱말 일부만 겹침)는 덮지 않고 ⋯ 메뉴 '이미 보고함' 후보 맨 앞에 둔다(사람이 연결을 고른다 — 저장은 기존 보고의 일정 id 칸).

@@ -48,7 +48,7 @@ export function recordFilesHtml(row, {open = false} = {}) {
     const menu = `<details class="record-photo-more"><summary class="icon-btn" aria-label="사진 관리: ${name}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="record-photo-panel" role="group" aria-label="사진 관리">${menuItemsHtml(fa, {attrs:fileAttrs(fa), attr:'data-fa-menu', rename:renameMenuAttrs(spec)})}</div></details>`;
     return `<div class="photo-fold-tile record-photo" data-photo-tile="${id}" data-fr-row${!open && i >= THUMBS ? ' hidden' : ''}><button type="button" class="record-file-thumb" data-record-photo="${id}" data-record-note="${note}" aria-label="${name} 크게 보기" title="${name}"></button><span class="record-photo-name"${renameHostAttrs(spec)}>${name}</span>${menu}</div>`;
   }).join('');
-  // UI-기록카드하나로(S70-42, 명진 11/25 "사진은 차라리 썸네일을 보여주던가"): 접는 [사진 n] 줄 대신 작은 정사각 그림을 바로 가로로(앞 THUMBS=3장 — 폰 폭에서도 옆 한 줄 글이 보이게),
+  // UI-기록카드하나로(S70-42, 사용자 11/25 "사진은 차라리 썸네일을 보여주던가"): 접는 [사진 n] 줄 대신 작은 정사각 그림을 바로 가로로(앞 THUMBS=3장 — 폰 폭에서도 옆 한 줄 글이 보이게),
   // 넘치면 [+n](누르면 이 화면 메모리에서만 나머지를 편다). 사진만 있는 기록(data-record-only-photos)은 그림 옆에 기록 한 줄(말줄임 — 자동 줄이면 '그림 1장 · 파일 이름').
   const hiddenCount = open ? 0 : Math.max(0, pictures.length - THUMBS);
   const photos = pictures.length ? `<div class="record-photos" data-record-photos="${note}"${open || !hiddenCount ? ' data-all' : ''}><div class="record-photo-thumbs">${thumbs}${hiddenCount ? `<button type="button" class="ds-chip record-photos-more" data-record-photos-more aria-label="사진 ${hiddenCount}장 더 보기">+${hiddenCount}</button>` : ''}</div></div>` : '';

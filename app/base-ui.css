@@ -163,7 +163,7 @@ dialog:modal{overscroll-behavior:contain}
 .modal-foot>div:last-child{display:flex;gap:var(--kptu-space-2)}
 .result-box{margin-top:var(--kptu-space-3);background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);padding:var(--kptu-space-3);font-size:12px;word-break:break-all}
 .result-box a{color:var(--kptu-link)}
-/* UI-작은알림자리(2026-10-28 명진 결정 10:52): 작은 알림(#toast·.kptu-undo-notice·.kptu-notice)은 모두 화면 위쪽 가운데,
+/* UI-작은알림자리(2026-10-28 사용자 결정 10:52): 작은 알림(#toast·.kptu-undo-notice·.kptu-notice)은 모두 화면 위쪽 가운데,
    맨 위 줄(폰 머리줄·PC 상단 줄) 바로 아래·목록 위에 뜬다. 폰 하단바·손가락에 가리지 않게. 맨 위 알림 줄(notice-bar.js, 새 버전 안내 등)이 떠 있으면 그 아래로.
    자리는 --kptu-notice-top 하나로 정하고, 화면마다 bottom을 따로 올리던 덮어쓰기는 없앴다(docs/design-decisions.md '작은 알림 자리'). */
 :root{--kptu-notice-top:calc(env(safe-area-inset-top,0px) + 56px)}
@@ -227,7 +227,7 @@ body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-
 
 /* CAL-버튼고정: reserve the footer height in flow; cover the shared 24px card bottom padding. */
 .modal-action-footer{position:sticky;bottom:calc(-1 * var(--kptu-space-5));z-index:2;background:var(--kptu-surface);border-top:1px solid var(--kptu-border);margin-top:var(--kptu-space-3);margin-bottom:calc(-1 * var(--kptu-space-5));padding:var(--kptu-space-2) 0 calc(var(--kptu-space-5) + var(--kptu-space-1) + env(safe-area-inset-bottom))}
-/* UI-저장자리(2026-10-27 명진 요청): 팝업 아래 줄은 버튼이 오른쪽 아래([취소] 왼쪽, [저장] 맨 오른쪽). 상태 글은 버튼 줄 위 한 줄. 줄 모양은 ui-standard.css의 .save-row 규칙과 같다. */
+/* UI-저장자리(2026-10-27 사용자 요청): 팝업 아래 줄은 버튼이 오른쪽 아래([취소] 왼쪽, [저장] 맨 오른쪽). 상태 글은 버튼 줄 위 한 줄. 줄 모양은 ui-standard.css의 .save-row 규칙과 같다. */
 .modal-action-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--kptu-space-2)}
 .modal-action-footer>.status{flex:1 1 100%;margin:0;overflow-wrap:anywhere}
 .modal-action-footer>div:not(.status){flex:1 1 100%;min-width:0}
@@ -302,7 +302,7 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
    ② 칸은 가장 긴 낱말보다 좁아지지 않는다(낱말 단위 줄바꿈 keep-all) — 폴드 접음 폭에서도 글자가 잘리지 않고, 모자라면 다음 줄(위쪽 글자 줄만).
    ③ 아이콘 줄(-icon, 한 줄): 폰은 아이콘 위·글자 아래, 761px~는 한 줄 나란히. 아이콘은 글자와 같은 색의 글자 모양·선 아이콘.
      글자 줄(-text, 위쪽 고르기 줄 안의 버튼 묶음): 테두리 없는 작은 글자, 왼쪽부터 글자 폭대로 촘촘히 붙인다(같은 작은 간격, 줄 폭에 퍼뜨리지 않음 —
-     S69 명진 11/24 "양쪽 정렬이라 이상함. 왼쪽 정렬"). 모자라면 다음 줄 왼쪽부터, 칸 하나가 줄보다 길면 낱말 단위로 줄바꿈(잘림 없음).
+     S69 사용자 11/24 "양쪽 정렬이라 이상함. 왼쪽 정렬"). 모자라면 다음 줄 왼쪽부터, 칸 하나가 줄보다 길면 낱말 단위로 줄바꿈(잘림 없음).
    ④ 지우기(.kptu-act-danger)도 다른 버튼과 같은 색·같은 선 아이콘(S49-5: 빨강은 되돌릴 수 없는 마지막 확인 버튼에만). 누르는 범위는 늘 44px(::after). 줄의 자리(아래 붙기·위 붙기)·바탕은 화면 CSS가 맡는다. */
 .kptu-actbar{display:flex;align-items:center;justify-content:space-evenly;min-width:0}
 #appView .kptu-actbar>button.kptu-act{position:relative;box-sizing:border-box;flex:1 1 0;min-width:min-content;max-width:120px;justify-content:center;margin:0;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;box-shadow:none;font-weight:400;text-align:center;white-space:normal;word-break:keep-all;-webkit-tap-highlight-color:transparent}
@@ -318,7 +318,7 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-actbar-text{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:0 var(--kptu-act-gap,8px);flex:1 1 auto;min-width:0}
 #appView .kptu-actbar-text>button.kptu-act{display:inline-flex;align-items:center;flex:0 1 auto;width:auto;max-width:100%;height:auto;min-height:var(--ds-compact-height-sm,28px);padding:2px;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1.25}
 @media(min-width:761px){#appView .kptu-actbar-icon>button.kptu-act{flex-direction:row;gap:4px;min-height:var(--ds-compact-height,32px);padding:0 4px;font-size:var(--ds-compact-text,13px)}}
-/* UI-고르기막대 (S69-85, 명진 11/25 00:37~00:42 "두줄로 삐져나오지 않게 … 좀더 세련되게"): 위쪽 고르기 막대 공용 모양(파일·자료실·노트·줄 고르기·사진 위 줄).
+/* UI-고르기막대 (S69-85, 사용자 11/25 00:37~00:42 "두줄로 삐져나오지 않게 … 좀더 세련되게"): 위쪽 고르기 막대 공용 모양(파일·자료실·노트·줄 고르기·사진 위 줄).
    막대는 늘 한 줄·목록 줄 하나 높이(36px): 왼쪽 [✕] + 'N개', 오른쪽 테두리 없는 가벼운 단추(선 아이콘 16px + 짧은 글자), 휴지통은 맨 끝 — 바탕 없이 글자·아이콘만 경고색.
    폭이 모자라면 select-bar.js가 ① 글자를 빼고 아이콘만(.kptu-sb-icons, 글자는 화면 읽기에 남음) ② 덜 쓰는 동작부터 ⋯ 하나로 접는다(.kptu-sb-folded = 보이지 않게 오른쪽 끝에 남김).
    바탕은 옅은 강조색(--kptu-primary-soft, 불투명 — 위에 붙어도 뒤 글이 비치지 않고 흰 띠도 아님). 모든 색은 테마 변수. 막대의 자리(위 붙기 sticky 등)는 화면 CSS가 맡는다. */
@@ -326,7 +326,7 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-selbar[hidden]{display:none}
 .kptu-selbar .kptu-sb-count{flex:0 1 auto;min-width:0;margin:0 auto 0 2px;padding:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--kptu-primary-text);font-size:var(--ds-compact-text,13px);font-weight:600}
 .kptu-selbar.kptu-sb-measure .kptu-sb-count{flex-shrink:0;max-width:55%}
-/* S70-64b(명진 11/26 07:46 "그만은 필요없어"): 고르기 막대는 [✕]·'n개 선택됨' 글자 없이 단추만(전체 선택 맨 왼쪽 … 삭제 맨 끝).
+/* S70-64b(사용자 11/26 07:46 "그만은 필요없어"): 고르기 막대는 [✕]·'n개 선택됨' 글자 없이 단추만(전체 선택 맨 왼쪽 … 삭제 맨 끝).
    고른 개수는 화면 읽기 프로그램에만(role=status) — 눈에 보이는 칸을 차지하지 않는다. 끄는 중 '옮기는 중 N개'처럼 보여야 하는 글은 이 표시를 뺀다. */
 .kptu-selbar .kptu-sb-count.kptu-sb-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .kptu-selbar:has(>.kptu-sb-count.kptu-sb-sr) .kptu-sb-acts{flex:1 1 auto;justify-content:flex-end}
@@ -387,14 +387,14 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .fp-path .fp-step:hover,.fp-path .fp-step:focus-visible{background:var(--kptu-surface-subtle)}
 .fp-path .fp-here{padding:0 6px;color:var(--kptu-ink);font-weight:600}
 .fp-path .fp-sep{color:var(--kptu-muted)}
-/* S69-19(명진 11/24 '폴더 안에서 목록으로 돌아가기 쉽게'): 위치 줄 앞 칸은 눌러 가는 곳 — 글자 색은 링크 색, 마우스를 올리거나 초점이면 밑줄.
+/* S69-19(사용자 11/24 '폴더 안에서 목록으로 돌아가기 쉽게'): 위치 줄 앞 칸은 눌러 가는 곳 — 글자 색은 링크 색, 마우스를 올리거나 초점이면 밑줄.
    모든 위치 줄 같은 규칙(넓은 화면 .fp-path · 폰 '그 폴더만' .ft-focus-anc · 자료실 두 칸 .lu-pane-path). 길면 가운데 '…'(folder-path-more.js 작은 목록). */
 /* 손가락 화면은 마우스 올리기가 없으므로 늘 옅은 밑줄(글자 색 35%), 올리거나 초점이면 진한 밑줄. */
 :is(.fp-path .fp-step,.ft-focus-anc .ft-focus-step,.lu-pane-path .lu-pane-step){color:var(--kptu-link);text-decoration:underline;text-decoration-color:color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:3px}
 :is(.fp-path .fp-step,.ft-focus-anc .ft-focus-step,.lu-pane-path .lu-pane-step):is(:hover,:focus-visible){text-decoration-color:currentColor}
 :is(.fp-path,.ft-focus-anc,.lu-pane-path) button.icon-btn.fp-more{flex:none;width:auto;min-width:24px;height:24px;min-height:0;padding:0 4px;border:0;background:none;color:var(--kptu-link);font:inherit;letter-spacing:1px}
 :is(.fp-path,.ft-focus-anc,.lu-pane-path) button.icon-btn.fp-more:is(:hover,:focus-visible){background:var(--kptu-surface-subtle)}
-/* S70-13 UI-위치줄뒤로작게(명진 11/25 "이 버튼이 너무 큼"): 위치 줄 맨 앞 [‹](위 폴더로·폴더 나무로)는 ⑥ 아이콘 하나 — 자료실 한 칸·두 칸 칸 머리, [파일] 위치 줄(한 칸·두 칸), 사진 위치 줄.
+/* S70-13 UI-위치줄뒤로작게(사용자 11/25 "이 버튼이 너무 큼"): 위치 줄 맨 앞 [‹](위 폴더로·폴더 나무로)는 ⑥ 아이콘 하나 — 자료실 한 칸·두 칸 칸 머리, [파일] 위치 줄(한 칸·두 칸), 사진 위치 줄.
    선·바탕 없이 위치 줄 글자 높이에 맞춘 작은 꺽쇠(같은 줄 [⋯]와 같은 24px). 누르는 범위 44px는 공용 ::after(base-ui.css :where(button.icon-btn)::after). */
 :is(.fp-path,.fx-crumb,.lu-pane-head) > button.icon-btn.fp-up{flex:none;width:24px;height:24px;min-width:0;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-sm,6px);background:none;color:var(--kptu-ink);font:inherit;font-size:16px;line-height:1}
 :is(.fp-path,.fx-crumb,.lu-pane-head) > button.icon-btn.fp-up:hover{background:var(--kptu-surface-subtle)}
@@ -420,14 +420,14 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 .img-slot-retry:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:1px;border-radius:50%}
 .img-slot .diary-photo-link{position:absolute;left:0;right:0;bottom:8px;z-index:1;text-align:center}
 .act-photo-thumb.img-slot::before{content:none}
-/* UI-기다림표시통일(2026-10-29 명진 A안): 기다림·실패·없음 공용 부품(wait-state.js) 하나. 기다림 = 위쪽 가는 줄 + 실제 줄 높이 회색 빈 줄, 글자 없음.
+/* UI-기다림표시통일(2026-10-29 사용자 A안): 기다림·실패·없음 공용 부품(wait-state.js) 하나. 기다림 = 위쪽 가는 줄 + 실제 줄 높이 회색 빈 줄, 글자 없음.
    0.4초 안에 끝나면 아무것도 보이지 않는다(늦은 표시). 회색 빈 줄은 그림 칸(.img-slot 받는 중)과 같은 색. 민트(.notice)는 완료 알림에만. */
 .wait{display:grid;gap:6px;padding:4px 0;animation:wait-show 0s linear .4s both}
 /* UI-로딩맨위: 칸 안에는 회색 빈 줄만(막대 없음). 칸 폭 가득, 글줄 안 한 칸(.wait-inline)만 예외. */
 .wait:not(.wait-inline){box-sizing:border-box;width:100%;align-self:stretch;justify-self:stretch;margin:0}
 @keyframes wait-show{from{visibility:hidden}to{visibility:visible}}
 .wait-only-bar{display:block}
-/* UI-로딩맨위(2026-11-04 명진 결정): 움직이는 로딩 막대는 화면 맨 위 끝 한 곳뿐(wait-state.js 공용 카운터). 아래로 내려도 보이게 fixed, 눌림은 막지 않는다. */
+/* UI-로딩맨위(2026-11-04 사용자 결정): 움직이는 로딩 막대는 화면 맨 위 끝 한 곳뿐(wait-state.js 공용 카운터). 아래로 내려도 보이게 fixed, 눌림은 막지 않는다. */
 .top-wait{position:fixed;top:0;left:0;right:0;height:3px;z-index:120;overflow:hidden;pointer-events:none;animation:wait-show 0s linear .4s both}
 .top-wait-run{position:absolute;top:0;bottom:0;left:0;width:30%;background:var(--kptu-muted);opacity:.75;animation:wait-run 1.2s ease-in-out infinite}
 @keyframes wait-run{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
@@ -523,7 +523,7 @@ textarea[data-autogrow][data-enter-field]{line-height:1.4}
 .photo-fold-tile .photo-fold-thumb{display:block;box-sizing:border-box;width:100%;height:100%;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-primary-soft);overflow:hidden;cursor:zoom-in;box-shadow:none}
 .photo-fold-tile .photo-fold-thumb img{display:block;width:100%;height:100%;object-fit:cover}
 .photo-fold-thumb:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
-/* UI-사진고르기표시(S69-24, 명진 11/24 '사진 선택했을 때 선택됐다는 티가 안 남'): 사진을 고르는 모든 칸(자료실 작은 그림 칸·사진 화면 칸)의 공용 표시.
+/* UI-사진고르기표시(S69-24, 사용자 11/24 '사진 선택했을 때 선택됐다는 티가 안 남'): 사진을 고르는 모든 칸(자료실 작은 그림 칸·사진 화면 칸)의 공용 표시.
    갤러리 앱 방식 — 고른 칸은 바탕이 공용 선택 색(--ds-select-bg)·3px 선택 선(--ds-select-line)으로 바뀌고 사진이 조금 줄어들며 옅은 덮개가 씌워지고,
    왼쪽 위(사진 화면은 오른쪽 위) 동그란 배지가 공용 선택 바탕(--ds-select-bg)에 선택 선 색(--ds-select-line) ✓로 채워진다(주 색으로 꽉 칠하지 않는 선택 표시 규칙). 안 고른 칸은 선택 모드에서만 빈 동그라미. 배지는 흰 테두리 + 옅은 어둠 바탕이라
    밝은 사진·어두운 사진 위 모두 보인다(그림자 없음). 선은 사진 밖(줄어든 사진 둘레 바탕) 위에 그려져 사진 색과 겹치지 않는다.
@@ -553,9 +553,9 @@ textarea[data-autogrow][data-enter-field]{line-height:1.4}
 .report-add-menu[role="group"] button.row-act{display:block;width:100%;height:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);padding:0 12px;text-align:left;border:0;border-radius:var(--ds-radius-control,8px);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta,13px);font-weight:400}
 .report-add-menu[role="group"] button.row-act::after{content:none}
 .report-add-menu[role="group"] button.row-act:hover{background:var(--kptu-surface-subtle)}
-/* UI-스크롤막대(명진 11/24 15:58 '세로스크롤 … 너무 디자인적으로 튀고 존재감이 큼'): 앱 전체 스크롤 막대를 가늘고 연하게, 화살표 없이.
+/* UI-스크롤막대(사용자 11/24 15:58 '세로스크롤 … 너무 디자인적으로 튀고 존재감이 큼'): 앱 전체 스크롤 막대를 가늘고 연하게, 화살표 없이.
    표준 속성만 쓴다(크롬 121+·삼성 인터넷은 표준 속성이 있으면 ::-webkit-scrollbar를 무시). 마우스를 올린 칸만 조금 진하게. 막대를 숨긴 곳(scrollbar-width:none)은 그대로. */
-/* 11/24 명진 "위아래 삼각형 너무 별로": 윈도 크롬·앱은 표준 속성(scrollbar-width/color)을 쓰면 위아래 화살표 단추가 붙는다.
+/* 11/24 사용자 "위아래 삼각형 너무 별로": 윈도 크롬·앱은 표준 속성(scrollbar-width/color)을 쓰면 위아래 화살표 단추가 붙는다.
    그래서 ::-webkit-scrollbar를 아는 곳(크롬·엣지·삼성 인터넷·폰 앱)은 화살표 없는 가는 막대로 그리고, 표준 속성은 그 밖(파이어폭스)에만 쓴다. */
 :where(html, body, *)::-webkit-scrollbar{width:6px;height:6px;background:transparent}
 :where(html, body, *)::-webkit-scrollbar-button{display:none;width:0;height:0}

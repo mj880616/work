@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libDoc,libFolder,press} from './helpers/library-folder-server.mjs';
-// S70-73 LIB-드라이브자동등록(명진 11/26 "자동으로 들어오게해야지 메뉴 없애고"): 자료실 ⋯에 [드라이브에서 가져오기]가 없고,
+// S70-73 LIB-드라이브자동등록(사용자 11/26 "자동으로 들어오게해야지 메뉴 없애고"): 자료실 ⋯에 [드라이브에서 가져오기]가 없고,
 // 자료실을 열면 서버에 자동 등록 부탁(library-files {action:'drive-auto'})을 한 번 보낸다. 새 자료가 들어오면 목록에 보이고 한 줄('새 자료 n개').
 // 들어온 게 없으면 아무 글도 없다. 가짜 서버·지어낸 이름만.
 const RECV='5f730000-0000-4000-8000-000000000001';

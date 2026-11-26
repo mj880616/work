@@ -7,7 +7,7 @@
 //              x-workspace-id, x-file-name(encodeURIComponent), x-duration-sec(화면이 잰 길이, 없을 수 있음), Content-Length 필수.
 //   transcribe {job_id}                  → Drive에서 읽어 Gemini Files에 올리고 전사(통화 전사와 같은 설정) → 글을 이 응답으로만 돌려준다.
 //              작업 행은 진행 중 → 끝/실패. 이 함수는 전사 글을 저장하지 않는다. 화면이 그 글을 회의 입력 창의 '회의록 전문' 칸
-//              (app_meetings.notes)에 넣어 [사업 보고 저장] 때 회의와 함께 남긴다(S48-64, 명진 11/03 지시 '전사 전문 저장 허용').
+//              (app_meetings.notes)에 넣어 [사업 보고 저장] 때 회의와 함께 남긴다(S48-64, 사용자 11/03 지시 '전사 전문 저장 허용').
 //              사용량은 기존 app_ai_external_usage에 ref 'mtg-…'로 넣는다(홈 AI 사용량 줄·월 상한이 같은 기록을 셈). 글을 못 받은 시도는 'mtgfail-…'(홈 사용량에만, 월 상한 밖).
 //   attach     {job_id, meeting_id}      → 끝난 녹음을 그 회의 자료로 링크(app_documents 한 행, 원본은 Drive 그대로).
 // MTG-노트북녹음 1단계(노트북 Web2 [녹음], 설계 docs/design/laptop-recording.md, 표 app_meeting_recordings):
@@ -91,7 +91,7 @@ const REC_MEETING_TABLE = 'app_meeting_recording_meetings';
 const REC_COLUMNS = 'id,workspace_id,created_by,session_id,segment_no,status,error_code,mime_type,piece_ids,size_bytes,duration_sec,job_id,pieces_trashed_at,closed_at,created_at,updated_at';
 const JOB_COLUMNS = 'id,workspace_id,created_by,status,error_code,drive_file_id,file_name,mime_type,size_bytes,duration_sec,model,meeting_id,started_at,finished_at,trashed_at,created_at,updated_at';
 
-// S61-5 REC-전사삭제(명진 11/13): 회의 녹음 전사·요약을 새로 시작하는 입구. 410 transcribe_off로만 답한다(지난 결과 읽기·버리기·잇기는 그대로).
+// S61-5 REC-전사삭제(사용자 11/13): 회의 녹음 전사·요약을 새로 시작하는 입구. 410 transcribe_off로만 답한다(지난 결과 읽기·버리기·잇기는 그대로).
 const TRANSCRIBE_OFF_ACTIONS = new Set(['upload', 'transcribe', 'job_start', 'job_retry']);
 
 const cors = {
@@ -972,7 +972,7 @@ async function recRestore(user: { id: string }, body: Record<string, unknown>) {
 // ---- REC-서버정리 · MTG-첨부녹음전사(S49-2): 서버 정리 작업(app_meeting_server_jobs, 설계 meeting-transcript-server.md 8절) ----
 // 화면을 닫아도 서버가 합치기 → 구간(파일) 전사 → 요약을 한 단계씩 이어 간다. 한 번 호출 = 한 단계, 끝나면 같은 함수 job_tick을 다시 부른다.
 // job_tick은 사용자 로그인이 없다: 게이트(verify_jwt)는 SUPABASE_ANON_KEY로 지나고, 이 코드가 서버 키 HMAC(작업 id·기한)을 확인한다.
-// 작업 행은 owner만 읽고(RLS), 쓰기는 이 함수(service_role)만 한다. 전사·요약은 명진이 누른 job_start로만 시작한다.
+// 작업 행은 owner만 읽고(RLS), 쓰기는 이 함수(service_role)만 한다. 전사·요약은 사용자가 누른 job_start로만 시작한다.
 // REC-초안버리기(S60-20): job_discard {job_id}·job_restore {job_id} — 끝난 결과에 '버림' 표시를 넣고 빼기(job_list에서 빠짐, 소리·글은 그대로).
 // REC-정리멈춤반복(11/09): 서버 요약도 Web2 전용 열쇠만 읽는다(결정 D2, docs/design/ai-server.md). 옛 이름 OPENAI_API_KEY는 Web2 열쇠가 아니라 OpenAI가 401로 거절해 요약이 늘 draft_failed였다.
 const OPENAI = () => (Deno.env.get('WEB2_OPENAI_API_KEY') || '').trim();
@@ -1234,7 +1234,7 @@ async function transcribeFile(key: string, job: Job, file: Record<string, unknow
   return await transcribeLoaded(key, src, await loadAudio(src), range, 0, halveFirst, thinTried);
 }
 
-// 서버 요약 한 번(meeting-ai-draft '새 회의' 길과 같은 지시문·한도·사용량 기록). 명진 이름 목록은 읽을 수 있을 때만 넣는다.
+// 서버 요약 한 번(meeting-ai-draft '새 회의' 길과 같은 지시문·한도·사용량 기록). 사용자 이름 목록은 읽을 수 있을 때만 넣는다.
 async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'part' | 'merge'; no: number; count: number }) {
   const key = OPENAI();
   if (!key) throw new Fail('draft_failed');

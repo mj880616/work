@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
-// HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 업무일지 화면이 홈이다. PC 1440·폴드 884·폰 412에서
+// HOME-업무일지홈(2026-10-30 사용자 시안 v2 확정): 업무일지 화면이 홈이다. PC 1440·폴드 884·폰 412에서
 // ① 앱을 열면 새 홈(오늘 업무일지) ② 입력줄로 업데이트 저장 ③ [일정] 아래·폰 전환 줄에 업무일지 없음 ④ 옛 주소(?view=journal·?view=home)
 // ⑤ 뒤로 가기·새로고침 제자리 ⑥ 마지막 수집 시각·AI 사용량은 내 프로필 ⑦ '사업 보고 후속' 칸 없음 ⑧ 할 일 줄 기한은 작은 진회색, 연결된 사업 보고 이름은 흐린 글씨.
 // 시계는 2026-10-06 10:00 KST(화, home-entry.mjs). 가짜 서버·합성 자료만 쓴다.

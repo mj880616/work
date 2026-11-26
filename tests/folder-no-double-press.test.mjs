@@ -1,4 +1,4 @@
-// S69-76 UI-두번누르기없앰(명진 11/24 21:30 "폴더 두번 누르면 들어가지는데 너무 민감 더블클릭 없애고 그 폴더에 들어가는 건 ... 해서 들어가기로만"):
+// S69-76 UI-두번누르기없앰(사용자 11/24 21:30 "폴더 두번 누르면 들어가지는데 너무 민감 더블클릭 없애고 그 폴더에 들어가는 건 ... 해서 들어가기로만"):
 // 파일·자료실·노트·사진 폴더 화면에 '두 번 누르기(dblclick) = 폴더 들어가기' 처리가 다시 생기지 않게 원본을 본다.
 // 화면 동작은 tests/app-e2e/standard-interactions.spec.mjs T8이 본다(docs/design/standard-interactions.md T8).
 import test from 'node:test';

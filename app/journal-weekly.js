@@ -134,7 +134,7 @@ export const isVacation = event => VACATION_WORDS.test(String(event?.title ?? ''
 // compared without case and spacing differences. No calendar → the table is empty and the screen (only) says so. The calendar screen
 // itself is unchanged. One rule for the screen table and the .hwpx draft (both read upcomingSchedule).
 // MULTI ②-3(D5): the calendar name is each person's own setting (report-calendar.mjs, 내 프로필 › 보고 설정), no longer a name in this file.
-// S71-34 PROFILE-주간캘린더칸삭제(명진 11/26): the profile field that chose the name is gone. A name already saved stays the work calendar
+// S71-34 PROFILE-주간캘린더칸삭제(사용자 11/26): the profile field that chose the name is gone. A name already saved stays the work calendar
 // (only its events, as before); no name saved → every calendar's events are work events (all are read anyway, journal-data.js).
 export {reportCalendarName};
 const reportKey = (name = reportCalendarName()) => calendarKey(name);
@@ -295,7 +295,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     // MTG-프로젝트합치기 2단계: 사업영역 꼬리표를 직접 단 사업 보고도 ② 재료(진행 = 보고 한 줄, 이후 계획 = 다음 할 일).
     // 꼬리표가 빈 옛 보고는 넣지 않는다(지난 주 보고서가 달라지지 않게). 옛 진행 기록·바구니 프로젝트 연결은 그대로(결정 ⑦).
     // 사업 보고 읽기는 ③의 재료라 ② 출처 목록(WEEKLY_SOURCES.summary)에는 넣지 않는다: 읽히면 함께 놓이고, 못 읽으면 ③이 실패를 알린다.
-    // WEEKLY-요약표수기(S49-39 · 명진 11/04 16:45 "아예 지우자"): 사업영역 AI 한 줄(area_summaries)은 쓰지 않는다. 저장된 값은 두되 화면·요약에 쓰지 않는다.
+    // WEEKLY-요약표수기(S49-39 · 사용자 11/04 16:45 "아예 지우자"): 사업영역 AI 한 줄(area_summaries)은 쓰지 않는다. 저장된 값은 두되 화면·요약에 쓰지 않는다.
     // WEEKLY-주요일정기준 ④ → WEEKLY-내부회의사람별: 내 목록의 '빼기' 단어·늘 빼기로 정한 회의 종류의 사업 보고는 요약 재료에도 넣지 않는다(reportsMeeting 한 곳 — 미리보기와 같음).
     const hiddenKinds = kinds?.status === 'ok' ? kinds.list : null;
     const areaMeetings = ok(m, 'meetings') ? ok(m, 'meetings').filter(x => reportsMeeting(x, hiddenKinds)) : null;
@@ -543,7 +543,7 @@ export function weeklyReportText(model) {
 export const FILE_TAG = '자료';
 export const HAND_NOTES_LABEL = '내 메모';
 export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['tasks', '끝낸 할 일'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모']]);
-// 1. 2) 주요 일정: 기준은 weekly-major-schedule.mjs 한 곳(WEEKLY-주요일정기준, 명진 11/01 확정). 화면 안내 문구는 두지 않는다 — 적는 칸·기준 제안은
+// 1. 2) 주요 일정: 기준은 weekly-major-schedule.mjs 한 곳(WEEKLY-주요일정기준, 사용자 11/01 확정). 화면 안내 문구는 두지 않는다 — 적는 칸·기준 제안은
 // 수기 표(weekly-hq-schedule.js)가 그린다.
 const rangeTitle = calendar => `${shortDay(calendar.days[0])} ~ ${shortDay(calendar.days.at(-1))} · 다음 주 월요일부터 2주`;
 // orgUi (journal.js keeps it): 4. 산하 조직 현황 화면 상태(P6부터 AI 요약 칸 없음).
@@ -610,7 +610,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     box.append(cancel, save); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
     return box;
   }
-  // S48-49 A(명진 11/03 "자동 처리 안내 빼기"): '기록과 같아 뺀 자료 n [넣기]'·'겹쳐서 n건 뺐어요 [되살리기]' 접힘은 화면에서 없앴다.
+  // S48-49 A(사용자 11/03 "자동 처리 안내 빼기"): '기록과 같아 뺀 자료 n [넣기]'·'겹쳐서 n건 뺐어요 [되살리기]' 접힘은 화면에서 없앴다.
   // 데이터(자료 줄 file.verdict·kept, 겹침 판정 표, draft.dropped)는 그대로 — 기록과 같은 자료·겹친 줄은 조용히 빠진다.
   // WEEKLY-뺀목록삭제(S48-3b): [빼기]한 자료 줄('뺀 자료' 접힘)은 두지 않는다 — 데이터(draft.docs)는 그대로. 방금 뺀 줄 하나만 그 자리에
   // '자료 줄을 뺐어요 [되돌리기]'(누르기 처리는 journal.js 의 기존 data-journal-file-undrop).
@@ -727,7 +727,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     // WEEKLY-한흐름확정 ③: '이 주 기록 없는 사업영역: …' 한 줄은 없앴다 — 기록 없는 사업영역도 위 보고서 칸에 지난주 줄 그대로 칸이 있다.
   }
   foldRecords(summary, 'summary', '이번 주 기록', s.count ?? 0);
-  // WEEKLY-사업영역세부줄(빠짐1, 명진 11/02 결정 '넣는다'): 줄마다 ⋯ [고치기]·[빼기](+ 이 종류 늘 빼기), 묶음 제목 줄 오른쪽 [+ 추가].
+  // WEEKLY-사업영역세부줄(빠짐1, 사용자 11/02 결정 '넣는다'): 줄마다 ⋯ [고치기]·[빼기](+ 이 종류 늘 빼기), 묶음 제목 줄 오른쪽 [+ 추가].
   // 목록·고치기 칸 그리기는 weekly-detail-lines.js 하나(journal.js가 이 자리에 붙임) — 여기서는 자리와 불러오기·실패 줄만. node 시험에서는 빈 자리.
   // WEEKLY-뺀목록삭제(빠짐2): 이 주에 빠진 회의 종류 목록과 되살리기 버튼은 화면·코드에서 없앴다(뺀 종류는 조용히 빠짐, 서버 목록은 그대로).
   const meet = block('meetings', title('details'), 'h5', true);
@@ -819,7 +819,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const confirmSlot = slotEl('weekly-flow-confirm-slot', 'data-weekly-flow-confirm');
   five.append(cal, confirmSlot);
 
-  // WEEKLY-주간정리다듬기 ④(명진 11/13 16:57 '밑에 있는 내용은 필요 없을 것 같아, 지저분하기만', 시안 docs/design/mockups/weekly-tidy.html ③):
+  // WEEKLY-주간정리다듬기 ④(사용자 11/13 16:57 '밑에 있는 내용은 필요 없을 것 같아, 지저분하기만', 시안 docs/design/mockups/weekly-tidy.html ③):
   //   '참고 — 보고서 칸 밖 재료' 묶음은 없앴다(재료 자료는 그대로, 화면에서만 뺌). 주간보고 기억·규칙·환류는 확정 버튼 옆 ⋯ [배운 것 보기]를 누르면 열리는 한 칸.
   // WEEKLY-환류학습: '주간보고 규칙·환류' 자리 — 그림은 weekly-learn-panel.js 가 채운다(journal.js 가 그린 뒤 부름).
   const learn = slotEl('journal-weekly-learn', 'data-journal-weekly-learn-slot');
@@ -842,7 +842,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
 }
 
 // WEEKLY-환류 (설계 3.7, Q6 ①): [주간 정리] 맨 아래 접힌 '주간보고 기억' — 일정 이름·일정 빼기(지우기)·거절해서 안 내는 제안.
-// WEEKLY-뺀목록삭제: 회의 종류 빼기 목록·되살리기 버튼은 없앴다(명진 11/01 01:16 "다시 올릴 일 없음, 다 보여주지마").
+// WEEKLY-뺀목록삭제: 회의 종류 빼기 목록·되살리기 버튼은 없앴다(사용자 11/01 01:16 "다시 올릴 일 없음, 다 보여주지마").
 // memoryUi (journal.js keeps it): {open, busy, status, error, undo:{entry}}. 기억 칸을 읽지 못했으면 일정 기억 줄은 없다.
 export const MEMORY_TAG = '기억';
 const slash = day => { const [, m, d] = String(day ?? '').split('-'); return m ? `${Number(m)}/${Number(d)}` : ''; };

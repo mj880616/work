@@ -10,14 +10,14 @@ import {canDeleteNews} from './now-marks.js';
 import {requestNewsOpen} from './news-request.mjs';
 import {sourceTag, quoteGone} from './text-highlights-model.mjs';
 import {visibleMarks, marksNewsOn, NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_NAMES, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from './note-news-marks-model.mjs';
-// NOTE-News밑줄보관보기(명진 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html ①~④):
+// NOTE-News밑줄보관보기(사용자 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html ①~④):
 // 노트 [폴더] 목록 맨 아래(폴더 없음 밑) 얇은 줄 'News에서' + [밑줄 n]·[보관한 글 n]. 노트가 아니라 News와 같은 서버 자료를 그대로 읽어 보인다 —
 // 밑줄은 text-highlights.js가 들고 있는 같은 목록(News에서 지우거나 메모를 고치면 이 칸도 바로 같게), 보관한 글은 읽을 거리 [News]와 같은 읽기(now-saved.js readSavedRows — S68-24 News [보관] 탭은 없앰).
 // 새 저장 표·기기 저장·복사본 없음. 이 모듈은 노트 칸의 두 상자([data-nnm-head] 찾은 수 머리, [data-nnm] 목록)의 유일한 그리기 주인이다.
 // 줄 모양·메뉴는 News 부품 그대로: 밑줄 줄 = now-highlights.js highlightRowHtml + 밑줄 메뉴(openMarkMenu, 여기서는 [원문에서 보기]를 더함),
 // 보관한 글 줄 ⋯·우클릭·밀기 = now-row-acts.js bindNowRows(보관 풀기). 줄을 누르면 News로 가서 그 글(밑줄이면 그 자리)을 연다(news-request.mjs).
 // [목록]·[포스트잇]·[태그]·[댓글] 보기에는 넣지 않는다(노트가 아님 — 껍데기 basket-notes.js가 [폴더] 보기에서만 부른다).
-// S62-17 NOTE-노트에서도밑줄(11/15 명진): 노트 본문에서 저장한 밑줄(source_type 'note')도 같은 '밑줄' 목록에 새 것이 위로 함께 쌓인다.
+// S62-17 NOTE-노트에서도밑줄(11/15 사용자): 노트 본문에서 저장한 밑줄(source_type 'note')도 같은 '밑줄' 목록에 새 것이 위로 함께 쌓인다.
 // 줄 앞 출처 꼬리표 노트·News·텔레그램. 노트 밑줄 줄을 누르면 껍데기의 openNote(노트 id, 밑줄 id)로 그 노트 그 자리, 노트 글이 바뀌어 고른 글이 없으면 줄에 '원문이 바뀌었어요'.
 // 머리 줄 [News에서 보기 ↗]는 뺐다(11/15 17:57 확정 — 줄마다 원문으로 감). '보관한 글' 머리 줄도 같은 규칙으로 뺐다.
 // 바깥 글자는 모두 esc로만 그린다. 로그에 밑줄 글·제목을 남기지 않는다.
@@ -65,7 +65,7 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   const svCount = () => saved?.length ?? null;
 
   // 글자 없는 얇은 구분 줄 + 두 줄(노트 폴더 줄과 같은 공용 줄 — 끌어 놓을 곳이 아니다). at: 지금 고른 곳(PC 나무에서 표시).
-  // NOTE-News에서글자빼기(11/15 명진): 구분 줄의 'News에서' 글자는 뺐다(밑줄이 노트·텔레그램에서도 옴). 줄마다 붙는 출처 꼬리표(노트·News·텔레그램)는 그대로.
+  // NOTE-News에서글자빼기(11/15 사용자): 구분 줄의 'News에서' 글자는 뺐다(밑줄이 노트·텔레그램에서도 옴). 줄마다 붙는 출처 꼬리표(노트·News·텔레그램)는 그대로.
   // sep: 구분 줄을 넣을지(폰에서 두 줄이 따로 선 상자에 들 때는 상자 테두리가 이미 나누므로 껍데기가 false).
   function navHtml({tree = false, at = null, sep = true} = {}) {
     const row = (id, icon, count) => ftFolderRowHtml({name: NEWS_NAMES[id], count: count ?? '', countLabel: count === null ? '' : `${NEWS_NAMES[id]} ${count}개`, depth: 0, hasContent: false,

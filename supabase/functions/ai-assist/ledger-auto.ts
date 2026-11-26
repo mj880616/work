@@ -16,7 +16,7 @@ import { WORK_PERSONAL_RULE } from "./work-scope.ts";
 export const AUTO_KINDS = Object.freeze(["event", "change", "decision", "commitment"] as const);
 export type AutoKind = typeof AUTO_KINDS[number];
 // 재료 일곱째: 업무 통화(call, CALL-원장재료 L-2, docs/design/ledger-sources.md 6절). DB가 아직 이 종류를 모르면 handler가 읽지 않는다.
-// 재료 여덟째: 개인 공유 캘린더 일정(calendar_ref, CAL-승지명진참고 C-3, 설계 5절). 참고용이라 새 기록을 만들지 않고 근거 추가(same_as)만 한다.
+// 재료 여덟째: 개인 공유 캘린더 일정(calendar_ref, CAL-가족사용자참고 C-3, 설계 5절). 참고용이라 새 기록을 만들지 않고 근거 추가(same_as)만 한다.
 // 재료 아홉째: 사업 기록(biz_record, 표 app_business_records, LEDGER-사업기록재료·docs/design/record-one.md 4절). 근거 위치 web2:biz_record:<사업 기록 id>.
 //   DB 종류 목록에 biz_record를 더하는 migration 20261110213000_ledger_biz_records가 먼저 운영에 들어가야 한다(아니면 DB 함수가 실행 전체를 거절).
 // 재료 열째: 주간보고 개인본(weekly_personal, WEEKLY-개인본대조 W-3, 설계 4절 — 받은 초안과 바뀐 줄만, ledger-weekly.ts). DB 종류는 20261025110000_ledger_sources에서 이미 받는다.

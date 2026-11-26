@@ -1,4 +1,4 @@
-// FORGET-노트작은창(요청함 11/09 21:39, 시안 docs/design/mockups/forget-note-small.html, 명진 21:42 'ㅇㅇ'): 잊지 말기 [노트로]를 누르면
+// FORGET-노트작은창(요청함 11/09 21:39, 시안 docs/design/mockups/forget-note-small.html, 사용자 21:42 'ㅇㅇ'): 잊지 말기 [노트로]를 누르면
 // 큰 노트 창 대신 누른 줄 바로 아래(PC는 버튼 아래, 폰은 줄 아래·하단바 위) 작은 창이 먼저 뜬다. 이 파일이 그 작은 창의 유일한 renderer다.
 // - 안에는 [새 노트 ▾][폴더 ▾](note-pick.js createNoteTarget·note-folder-pick.js 그대로) · 더할 글 칸 · [취소][저장] · [크게 수정 ↗].
 // - 저장 길은 큰 창과 같다: 기존 노트·가족 줄은 target.save(note-append.js appendToNote 한 길, 가족 노트 경계는 저장 함수가 다시 확인),

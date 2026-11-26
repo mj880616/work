@@ -195,7 +195,7 @@ for (const width of [1280, 880, 760, 412]) test(`새 계정: 폰 알림 칩 셋(
   expect(Object.keys(state.patches[0].notify_prefs.kinds).sort()).toEqual(['collect_stall', 'evening', 'meeting_done', 'morning', 'task_due']);
   expect(state.errors).toEqual([]);
 });
-// 운영자(명진) 계정: 수집·잊지 말기·새 가입 기능이 있으면 그 칩만 더해진다. '원장 약속'·'다음 주 준비'는 여기에도 없다.
+// 운영자 계정: 수집·잊지 말기·새 가입 기능이 있으면 그 칩만 더해진다. '원장 약속'·'다음 주 준비'는 여기에도 없다.
 for (const width of [1280, 880, 412]) test(`운영자 계정: 폰 알림 칩에 원장 약속·다음 주 준비 없음 (${width}px)`, async ({page}) => {
   await page.setViewportSize({width, height: 900});
   const state = await boot(page, {features: ['calls', 'telegram', 'family', 'dev_inbox'], chips: 8});

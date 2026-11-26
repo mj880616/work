@@ -2,7 +2,7 @@ import {word} from './brand/brand.mjs';
 // MENU-HOME-편집: 메뉴 목록의 유일한 정의. PC 왼쪽 메뉴·폰 하단바·폰 [메뉴] 창이 모두 여기서 읽는다.
 // DOM·네트워크 없음. 화면 쪽(menu-layout.js)은 이 모듈이 돌려주는 순서대로 그리기만 한다.
 //
-// 규칙(명진 요청 2026-10-27 15:35)
+// 규칙(사용자 요청 2026-10-27 15:35)
 // - 하단바는 [메뉴] 칸을 빼고 5칸까지이고 맨 앞 [홈]은 고정이다(옮기거나 뺄 수 없다).
 // - 하단바 칸에 없는 메뉴는 폰 [메뉴] 창 안에 있고, PC 왼쪽 메뉴는 하단바 칸 메뉴가 위, 나머지가 그 아래 같은 순서다.
 // - 순서는 서버(view_prefs.menu_layout = {bar, rest})에 둔다(아래 칸은 rest 안 'bottom' 표시 뒤, MENU-세칸). 모르는 항목 이름은 버리고, 빠진 항목은 기본 자리에 다시 붙여
@@ -17,29 +17,29 @@ import {word} from './brand/brand.mjs';
 export const ITEMS = Object.freeze([
   {id: 'home', label: '홈', view: 'home', icon: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9'},
   {id: 'basket', label: '잊지 말기', view: 'basket', icon: 'M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3'},
-  // S68-09 READ-읽을거리함(명진 11/22 13:42 'B: 메뉴에 새 칸'): 저장한 글·원문 사본·밑줄. 모든 사람(운영자 기능 아님), 처음 자리는 위 메뉴 잊지 말기 다음.
+  // S68-09 READ-읽을거리함(사용자 11/22 13:42 'B: 메뉴에 새 칸'): 저장한 글·원문 사본·밑줄. 모든 사람(운영자 기능 아님), 처음 자리는 위 메뉴 잊지 말기 다음.
   {id: 'reading', label: '저장한 글', view: 'reading', icon: 'M6 3h12v18l-6-4-6 4zM9 8h6M9 11h4'},
   {id: 'calendar', label: '일정', view: 'calendar', group: ['calendar', 'tasks', 'diary'], icon: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', pc: ['tasks', 'diary']},
   {id: 'note', label: '노트', kind: 'note', icon: 'M4 20l1-4L16 5l3 3L8 19zM14 7l3 3'},
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴는 없다. 사업영역 관리 화면(라우터 이름 projects)은 사업 보고 ⋯ 안에서 열고, 하단바·왼쪽 메뉴에서는 사업 보고 칸이 그 화면을 맡는다.
   {id: 'meetings', label: word('사업 관리'), view: 'meetings', group: ['meetings', 'projects'], icon: 'M4 5h16v11H9l-5 4z'},
   {id: 'library', label: '자료실', view: 'library', icon: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4'},
-  // FILES-클라우드탐색기 ④: [파일](원드라이브·구글 드라이브 탐색기)은 처음 자리가 자료실 바로 아래(명진 결정 F5, 설계 docs/design/files-explorer.md).
-  // S62-11 MULTI-구글드라이브사진모두(명진 11/14 22:18): [파일]은 모두에게 — 각자 자기 드라이브·자기 작업공간만(서버 cloud-files·RLS가 owner로 막음).
+  // FILES-클라우드탐색기 ④: [파일](원드라이브·구글 드라이브 탐색기)은 처음 자리가 자료실 바로 아래(사용자 결정 F5, 설계 docs/design/files-explorer.md).
+  // S62-11 MULTI-구글드라이브사진모두(사용자 11/14 22:18): [파일]은 모두에게 — 각자 자기 드라이브·자기 작업공간만(서버 cloud-files·RLS가 owner로 막음).
   {id: 'files', label: '파일', view: 'files', icon: 'M3 6h7l2 2h9v11H3zM3 10h18'},
-  // BRIEF-브리핑룸 ③(명진 결정 11/13 18:07 ③ 메뉴에 '브리핑 룸'): 처음 자리는 자료실 묶음 — [파일]이 자료실 바로 아래(F5)라 그 다음.
+  // BRIEF-브리핑룸 ③(사용자 결정 11/13 18:07 ③ 메뉴에 '브리핑 룸'): 처음 자리는 자료실 묶음 — [파일]이 자료실 바로 아래(F5)라 그 다음.
   {id: 'brief', label: '브리핑 룸', view: 'brief', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h4M16 15l2 2-2 2'},
-  // NOTE-게시 ③(명진 11/24 21:41 "별도 메뉴에서 공유 페이지 삭제"): [공유 페이지] 메뉴·화면은 없다. 공유는 노트 ⋯ [공유 링크 만들기]로 하고,
+  // NOTE-게시 ③(사용자 11/24 21:41 "별도 메뉴에서 공유 페이지 삭제"): [공유 페이지] 메뉴·화면은 없다. 공유는 노트 ⋯ [공유 링크 만들기]로 하고,
   // 옛 주소 ?view=pages는 라우터 별칭으로 노트를 연다. 저장된 메뉴 순서의 'pages'는 모르는 이름이라 버려진다. 표·데이터·받는 화면(share/)은 그대로.
   {id: 'team', label: word('조직 관리'), view: 'team', icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
   {id: 'hwp', label: 'HWP 편집', view: 'hwp', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7'},
-  // MULTI-처음쓰는사람 ④(명진 11/13 16:25 "원장도 빼, 나한테도 불필요"): [원장]은 모든 계정의 메뉴 목록에서 뺐다.
+  // MULTI-처음쓰는사람 ④(사용자 11/13 16:25 "원장도 빼, 나한테도 불필요"): [원장]은 모든 계정의 메뉴 목록에서 뺐다.
   // LEDGER-화면에서빼기(2026-11-25): 원장 화면 자체를 없앴다(옛 주소는 홈). 저장된 메뉴 순서의 'ledger'는 모르는 이름이라 버려진다.
   {id: 'photos', label: '사진', view: 'photos', icon: 'M3 6h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01'},
   // OUTSIDE-바깥성명 ④: [바깥 성명]은 처음 자리가 위 메뉴 끝(사진 다음, 설계 docs/design/outside-statements.md 4절).
-  // OUTSIDE-글상세·관심환류 ③(명진 결정 11/01 23:16): 사회운동과 뉴스 클리핑을 한 칸으로 합쳤다. S51-17 NEWS P5: 이름 'Now' → 'News'(id outside는 그대로 — 저장된 menu_layout이 맞게).
+  // OUTSIDE-글상세·관심환류 ③(사용자 결정 11/01 23:16): 사회운동과 뉴스 클리핑을 한 칸으로 합쳤다. S51-17 NEWS P5: 이름 'Now' → 'News'(id outside는 그대로 — 저장된 menu_layout이 맞게).
   // id는 outside 그대로라 저장된 메뉴 순서가 맞고, 옛 id news는 아래 OLD_IDS가 outside로 읽는다.
-  // NEWS-운영자만(S63-03, 명진 11/16 "완성도 높아지면 그 때 열자"): S62-12g에서 모두에게 열었던 News를 다시 운영자 기능 키 'outside'로.
+  // NEWS-운영자만(S63-03, 사용자 11/16 "완성도 높아지면 그 때 열자"): S62-12g에서 모두에게 열었던 News를 다시 운영자 기능 키 'outside'로.
   //   공용 기사 한 벌 구조(news-for-all)는 그대로 두고, 화면 입구는 이 키, 수집·AI는 Edge가 같은 키로 막는다.
   {id: 'outside', label: '읽을 거리', view: 'outside', feature: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
   {id: 'calls', label: '통화', view: 'calls', feed: true, feature: 'calls', icon: 'M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z'},
@@ -51,11 +51,11 @@ export const MENU_ICON = 'M4 6h16M4 12h16M4 18h16';
 export const FIXED_ID = 'home';
 // 하단바 칸 수(홈 포함, [메뉴] 칸 제외). DB 검사는 여유를 두고 6개까지 받는다(view-prefs.js MENU_BAR_MAX).
 export const BAR_MAX = 5;
-// MENU-세칸(명진 요청 2026-10-30 10:19): 메뉴는 세 칸이다. bar = 폰 하단바, rest = 위 메뉴(폰 [메뉴] 창 · PC 왼쪽 위),
+// MENU-세칸(사용자 요청 2026-10-30 10:19): 메뉴는 세 칸이다. bar = 폰 하단바, rest = 위 메뉴(폰 [메뉴] 창 · PC 왼쪽 위),
 // tail = 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래 선 아래). 어느 메뉴든 세 칸 사이를 옮길 수 있다.
-// MULTI-하단바기본노트(명진 결정 11/13 15:24, 설계 docs/design/new-user-start.md 2-1): 처음 하단바는 홈·노트·일정·조직 보고·사업 보고.
+// MULTI-하단바기본노트(사용자 결정 11/13 15:24, 설계 docs/design/new-user-start.md 2-1): 처음 하단바는 홈·노트·일정·조직 보고·사업 보고.
 // 빠진 잊지 말기는 위 메뉴 맨 앞. 저장된 순서(view_prefs.menu_layout)가 있는 사람은 기본값을 쓰지 않으므로 그대로다.
-// S68-37(명진 11/23 08:00·08:01 "자료실 사진"): 처음 하단바는 홈·노트·일정·자료실·사진. 빠진 조직 관리·사업 관리(얼굴 단어표 이름)는
+// S68-37(사용자 11/23 08:00·08:01 "자료실 사진"): 처음 하단바는 홈·노트·일정·자료실·사진. 빠진 조직 관리·사업 관리(얼굴 단어표 이름)는
 // 위 메뉴 잊지 말기·읽을 거리 다음. 저장된 순서가 있는 사람(운영자 포함)은 그대로다.
 export const DEFAULT_BAR = Object.freeze(['home', 'note', 'calendar', 'library', 'photos']);
 export const DEFAULT_REST = Object.freeze(['basket', 'reading', 'team', 'meetings', 'files', 'brief', 'hwp', 'outside']);
@@ -67,7 +67,7 @@ const PLACE_ORDER = Object.freeze(['basket', 'reading', 'library', 'files', 'bri
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
 // 지금까지 보이던 모양 그대로 옮겨 담는다. 'bottom'은 메뉴 항목 이름이 아니라서 옛 화면은 그냥 버리고 읽는다.
 export const TAIL_MARK = 'bottom';
-// MENU-숨김(명진 요청 2026-11-03 10:38): 메뉴를 '숨겨 두기'. 숨긴 메뉴는 폰 하단바·[메뉴] 창·PC 왼쪽 메뉴 어디에도 그리지 않고, 메뉴 편집의 '숨긴 메뉴' 칸에서만 꺼낸다(2026-11-04 접힌 '숨긴 메뉴 n' 줄 없앰).
+// MENU-숨김(사용자 요청 2026-11-03 10:38): 메뉴를 '숨겨 두기'. 숨긴 메뉴는 폰 하단바·[메뉴] 창·PC 왼쪽 메뉴 어디에도 그리지 않고, 메뉴 편집의 '숨긴 메뉴' 칸에서만 꺼낸다(2026-11-04 접힌 '숨긴 메뉴 n' 줄 없앰).
 // 기능·주소·데이터는 그대로(다른 화면 링크·전체 검색으로는 계속 열림). 메뉴 모델에서 빠지는 것이라 화면에서 가리는 땜질이 아니다.
 // 저장은 같은 방식: DB 검사는 bar·rest 둘만 받으므로 rest = [...위 메뉴, 'bottom', ...아래 칸, 'hidden', ...숨긴 메뉴]. 'hidden'도 항목 이름이 아니라 표시다.
 // 이 표시를 모르는 옛 화면은 표시를 버리고 숨긴 메뉴를 아래 칸으로 읽어 지금처럼 보인다(DB 변경 없음).
@@ -131,7 +131,7 @@ export function normalizeLayout(raw) {
   return {bar: [FIXED_ID, ...bar], rest: placeMissing([...spill, ...rest], missing.filter(id => !DEFAULT_TAIL.includes(id)), PLACE_ORDER), tail: [...tail, ...missing.filter(id => DEFAULT_TAIL.includes(id))], hidden};
 }
 // MULTI-처음쓰는사람 ④: 운영자 기능이 없는 메뉴를 목록에서 뺀 '보이는 순서'. features가 아직 없으면(null: 서버 답 전) 그대로 둔다 —
-// 운영자(명진) 화면이 답을 기다리는 동안 메뉴가 빠졌다 다시 생기지 않게. 뺀 이름은 off에 담는다(저장값에는 손대지 않음).
+// 운영자 화면이 답을 기다리는 동안 메뉴가 빠졌다 다시 생기지 않게. 뺀 이름은 off에 담는다(저장값에는 손대지 않음).
 export function withFeatures(layout, features) {
   const base = normalizeLayout(layout);
   if (!Array.isArray(features)) return {...base, off: []};

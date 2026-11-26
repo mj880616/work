@@ -1,4 +1,4 @@
-// collector-feed: 명진 계정 Google 앱 스크립트("Web2 수집 보내기")가 보낸 통화 분석·텔레그램 묶음을 받아 Web2 표에 저장한다.
+// collector-feed: 사용자 계정 Google 앱 스크립트("Web2 수집 보내기")가 보낸 통화 분석·텔레그램 묶음을 받아 Web2 표에 저장한다.
 // (CALL-통화메뉴·TG-소식메뉴 2단계, docs/design/call-telegram-feed.md 2·3·4.2~4.5·5·6절, 12절 결정)
 //
 // 입구(verify_jwt=false, 함수 안에서 막음):
@@ -15,7 +15,7 @@
 // - POST ?action=call: 통화 분석 파일(이미 Gemini가 만든 것) 읽기만. AI 없음. 업무면 업무 통화함(app_feed_items)에 저장.
 //   개인·애매(CALL-개인통화함 2단계)는 요약·전문까지 개인 통화함(app_call_personal, 소유자만 읽는 별도 표)에 저장한다. 업무 표에는 넣지 않는다.
 //   요약이 없는 옛 개인 기록·구분 없음은 개수만, 모양 다름은 판정 실패. 중복 확인은 두 표를 모두 본다(DB 트리거도 막는다).
-//   CALL-업무기본: 분석이 '애매'(status 애매)로 본 통화만 서버가 다시 가른다(새 AI 호출 없음). ① 명진이 한 번 고른 상대(app_call_contact_choice, 열쇠 = 작업공간별 SHA-256, 번호·이름 원문 저장 없음)
+//   CALL-업무기본: 분석이 '애매'(status 애매)로 본 통화만 서버가 다시 가른다(새 AI 호출 없음). ① 사용자가 한 번 고른 상대(app_call_contact_choice, 열쇠 = 작업공간별 SHA-256, 번호·이름 원문 저장 없음)
 //   → 고른 대로 ② 전사 파일 이름의 연락처에 담당조직 이름·약칭이나 업무 꼬리표가 들어 있으면 업무. 둘 다 아니면 '확인할 통화'로 남는다. 개인 판정·개인 번호 목록 통화는 그대로 개인.
 //   저장한 통화마다 열쇠만 별도 표(app_call_contact_ref)에 한 줄 남긴다(옮길 때 선택을 기억하는 재료, 통화 표는 그대로). 연락처 이름·번호는 저장·로그에 쓰지 않는다. DB(migration 20261104200000) 적용 뒤에 배포한다.
 // - POST ?action=call_skip: 옛 보내기 스크립트가 개인 번호·연락처 목록으로 거른 수(개수만). 새 스크립트는 목록 통화도 ?action=call로 보낸다. 옛 스크립트 호환용으로 남긴다.
@@ -49,7 +49,7 @@
 // - POST ?action=context(CALL-맥락문서·CALL-맥락사람): 읽기 전용. 몸통은 `{}`만. 담당조직(쓰지 않음 제외)·진행 중 프로젝트의 **이름 문자열**과
 //   "조직 — 이름 직함" 목록을 돌려준다(context.ts). 사람 목록은 읽기 전용 DB 함수 app_call_context_people(service_role 실행)만 부르고(표는 직접 읽지 않음),
 //   함수가 없으면(404) 지금처럼 이름만 돌려준다. DB에 쓰지 않는다. 하루 20회 상한은 인스턴스 메모리로만 센다. 번호·메모·통화 내용·ID는 응답에 없다.
-// - POST ?action=scrap(NEWS-클리핑 B2, 설계 news-clipping.md 2.1): 앱 스크립트 tgScrap_run_이 명진이 구독하는 텔레그램 채널(Drive 수집 폴더)의
+// - POST ?action=scrap(NEWS-클리핑 B2, 설계 news-clipping.md 2.1): 앱 스크립트 tgScrap_run_이 사용자가 구독하는 텔레그램 채널(Drive 수집 폴더)의
 //   새 줄 'YYYY-MM-DD HH:MM:SS URL'에서 뽑은 기사 주소를 보낸다. 몸통은 {items:[{url, at?}]}만(1~SCRAP_MAX_ITEMS개, 칸 추가·작업공간 칸 400).
 //   작업공간은 텔레그램과 같은 운영자 기능 확인(app_operator_feature_workspace 'telegram' — private.app_workspace_has_feature)으로 서버가 정한다.
 //   주소는 news-feed와 같은 규칙(_shared/news-url.ts): https만·기본 포트·사용자 정보 없음·내부 이름·IP 숫자·Supabase 아님(openArticleUrl),
@@ -65,7 +65,7 @@
 //   뽑기 AI 호출은 인스턴스 메모리로 하루 FAMILY_DAILY_AI번까지. 대화·전사 원문은 AI에 보낸 뒤 버린다(저장·로그·응답에 없음).
 //   서버 쪽 거름: 가족 방의 줄은 source_ref에 방 표(작업공간 + 방 번호의 해시 16자)를 담는다. 같은 방 번호로 ?action=telegram이 오면 400 FAMILY_ROOM으로
 //   거절해 업무 소식 표에 들어가지 않게 한다(앱 스크립트가 먼저 빼는 것이 첫째 장치, 이것은 둘째 장치).
-//   할 일·일정·원장·업무일지를 만들지 않는다. 화면에서 명진이 눌러야만 생긴다(4단계).
+//   할 일·일정·원장·업무일지를 만들지 않는다. 화면에서 사용자가 눌러야만 생긴다(4단계).
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·주소·오류 원문은 넣지 않는다.
 import { askDirect, askReplied, AUTO_DONE_REPLIED, messagedAfter, type ReplyMsg } from "./replied.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
@@ -587,7 +587,7 @@ async function runCall(db: Db, ws: string, input: CallInput, nowMs: number, fami
   if (settledValue(settled[1]).length) return callResult({ duplicate: true });
   const orgs = settledValue(settled[2]);
   if (input.family) return await runFamilyCall(db, ws, input, orgs, nowMs, family);
-  // CALL-업무기본: 분석이 '애매'로 본 통화만 서버 규칙으로 다시 가른다(새 AI 호출 없음, 순서는 ① 명진이 고른 상대 기억 → ② 연락처 이름 규칙).
+  // CALL-업무기본: 분석이 '애매'로 본 통화만 서버 규칙으로 다시 가른다(새 AI 호출 없음, 순서는 ① 사용자가 고른 상대 기억 → ② 연락처 이름 규칙).
   // 개인(분석이 개인으로 본 것·개인 번호 목록 통화)은 그대로 개인이고, 규칙에 안 걸린 애매만 '확인할 통화'로 남는다.
   const contact = contactRaw(sourceTxtNameOf(input.analysis_md));
   const contactKey = await contactDigest(ws, contactNorm(contact));
@@ -863,7 +863,7 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   // 같은 묶음이 다시 오면 AI를 다시 부르지 않는다(저장 전에 먼저 확인).
   const dup = await db.get(`app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&source_ref=like.${encodeURIComponent(prefix)}*&select=source_ref&limit=1`);
   if (dup.length) return callResult({ duplicate: true });
-  // 뉴스방(명진이 정한 방)이면 글 속 기사 주소만 공용 기사로. 실패해도 소식 처리는 그대로(던지지 않음).
+  // 뉴스방(사용자가 정한 방)이면 글 속 기사 주소만 공용 기사로. 실패해도 소식 처리는 그대로(던지지 않음).
   try { await takeNewsRoom(db, ws, input, deps.log, deps.peek); } catch { deps.log("news_room_failed", { stage: "INTERNAL" }); }
   // 글 있는 메시지가 없으면 AI에 보내지 않고 개수만 더한다(설계 3.2절).
   if (!input.messages.length) {
@@ -1180,11 +1180,11 @@ export function scrapAt(value: unknown, nowMs: number): string | null {
   return new Date(t).toISOString();
 }
 
-// ---- 들어올 때 제목 읽기(S69 NEWS-제목늘읽기, 명진 11/24 "제목은 읽어놔야 누르든 말든하지") ------------------------------------
+// ---- 들어올 때 제목 읽기(S69 NEWS-제목늘읽기, 사용자 11/24 "제목은 읽어놔야 누르든 말든하지") ------------------------------------
 // 채널 스크랩·뉴스방으로 새로 들어온 기사 줄은 제목 없이 '대기'로 들어가고, 원문 읽기(news-feed 대기 기사 단계)는 한 시간마다라
 // 그사이 화면에 제목이 비어 있었다. 메신저 링크 미리보기처럼 새로 들어온 그 주소 한 장만 읽어 제목(og:title → <title>)만 적는다.
 // - 읽는 곳: 이번에 받은 주소뿐(열린 주소 규칙 openArticleUrl·리다이렉트·크기·시간 상한 — _shared/feed-fetch.ts). 다른 쪽은 읽지 않는다.
-//   기사 한 쪽 읽기라 robots.txt는 보지 않는다(news-feed 원문 읽기와 같은 규칙, S68-25 명진 결정). 쿠키·로그인 없음, 봇 확인은 넘지 않는다.
+//   기사 한 쪽 읽기라 robots.txt는 보지 않는다(news-feed 원문 읽기와 같은 규칙, S68-25 사용자 결정). 쿠키·로그인 없음, 봇 확인은 넘지 않는다.
 // - 적는 칸: 제목이 빈 줄(title is null)의 제목·제목 열쇠·매체 이름뿐. 상태(대기)·본문은 그대로 — 원문 읽기는 news-feed가 하던 대로 한다.
 // - 한 번 요청에 TITLE_PEEK_MAX건, TITLE_PEEK_BUDGET_MS 안에서만(텔레그램 처리를 오래 붙잡지 않게). 못 읽은 줄은 그대로 두어 다음 원문 읽기가 다시 읽는다.
 // - 로그에는 건수만(주소·제목 없음).
@@ -1289,7 +1289,7 @@ export async function mapOld(db: Db, oldId: string, ws: string, articleId: strin
 }
 
 // ---- 뉴스방(NEWS-모두에게열기 ②, 설계 news-for-all.md 2-3·2-4절) ------------------------------------------------------
-// 명진이 [뉴스방으로] 정한 그룹·채널 방의 메시지 글에서 기사 주소만 뽑아 서버 전용 DB 함수 app_news_room_take로 보낸다.
+// 사용자가 [뉴스방으로] 정한 그룹·채널 방의 메시지 글에서 기사 주소만 뽑아 서버 전용 DB 함수 app_news_room_take로 보낸다.
 // 그 방이 지금 뉴스방인지·1:1·가족 방이 아닌지는 DB 함수가 서버 표(app_feed_rooms.news_at·chat_kind, 잊지 말기 방 표)로 다시 판정한다
 // (몸통의 chat_kind는 '그룹·채널이 아니면 부르지도 않음'으로 좁히는 데만 쓴다). 공용 표에는 주소(url·url_key)만 간다 —
 // 메시지 글·방 이름·방 키·보낸 사람·시각은 함수 인자에도 넣지 않는다(방 키는 판정용 인자일 뿐 저장 칸이 없다).

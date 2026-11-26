@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
 import { openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
-// S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 5): while the write window is open on a phone the bottom tabs are hidden and
+// S48-6b UI-메뉴판쓰기창(2026-11-02 사용자 결정, #1708 질문 5): while the write window is open on a phone the bottom tabs are hidden and
 // the window (and its sheets) reach the screen's end, so a press where a tab used to be lands in the window, never on a tab.
 // BUG-내보내기탭이동: on a phone the shared bottom choice sheet (choice-sheet.js) rises from just above the bottom tabs, not
 // over them. Before, its lowest row ([HWP 파일로 받기]) lay on the tabs, so a press there followed by one more press at the
@@ -38,7 +38,7 @@ async function touch(page,x,y){
  await cdp.detach();
 }
 const current=page=>page.evaluate(()=>window.KPTURouter.current);
-// S54-05 UI-고르기창버튼아래 ②(11/08 명진 결정): 폰도 고르기 창은 누른 버튼 바로 아래 작은 창이다(전에는 아래 탭 바로 위에서 올라오는 시트). 이 시험이 지키던
+// S54-05 UI-고르기창버튼아래 ②(11/08 사용자 결정): 폰도 고르기 창은 누른 버튼 바로 아래 작은 창이다(전에는 아래 탭 바로 위에서 올라오는 시트). 이 시험이 지키던
 // 것은 "창의 가장 아래 줄이 탭 위에 얹혀 같은 자리를 또 누르면 탭으로 가는 일이 없다"였고, 지금은 창이 아래 바 위에서 끝나고 화면 안에 다 들어오는 것으로 지킨다.
 async function expectAboveTabs(page,sheet){
  await expect(page.locator('.mobile-tabs')).toBeVisible();

@@ -51,7 +51,7 @@ object BackUploadRules {
 
     sealed class Message {
         object Hello : Message()
-        /** S67-38(명진 결정 11/14 ①): 위젯 로그인이 없을 때 앱 로그인으로 뒤에서 올리기 세션을 만든다. */
+        /** S67-38(사용자 결정 11/14 ①): 위젯 로그인이 없을 때 앱 로그인으로 뒤에서 올리기 세션을 만든다. */
         object Login : Message()
         data class Start(val target: Target, val count: Int) : Message()
         data class Begin(val name: String, val mime: String, val size: Long, val fields: Fields) : Message()

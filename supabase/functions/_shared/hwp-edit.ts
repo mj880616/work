@@ -359,7 +359,7 @@ export function createHwpEdit(deps: Deps) {
   // One backup folder in the owner's own My Drive root. S68-02: 찾을 때는 세 이름("노조+ 편집 백업"·"WORK ON+ 편집 백업"·옛 "Web2 편집 백업")을
   // 모두 보고, 이름 차례(노조+ → WORK ON+ → Web2) 다음 오래된 것을 고른다 — 이미 있는 "노조+ 편집 백업"은 그대로 계속 쓴다(이름을 바꾸지 않음).
   // BRAND-웹2흔적지우기: 고른 것이 "Web2 편집 백업"이면 이름만 이 사람의 이름(아래)으로 바꾼다(실패해도 백업은 그 폴더에 그대로 한다).
-  // 없을 때만 새로 만든다: 운영자 기능 nojo_words(명진 화면)·확인 실패는 "노조+ 편집 백업", 그 밖은 "WORK ON+ 편집 백업".
+  // 없을 때만 새로 만든다: 운영자 기능 nojo_words(사용자 화면)·확인 실패는 "노조+ 편집 백업", 그 밖은 "WORK ON+ 편집 백업".
   // 새 폴더를 더 만들지 않고, 안의 파일은 옮기거나 지우지 않는다.
   const keepOldNames = deps.keepOldNames ?? (async (workspaceId: string) =>
     keepOldFromFeatureWorkspace(await deps.db(`rpc/app_operator_feature_workspace?p_feature=${NOJO_WORDS_FEATURE}`), workspaceId));

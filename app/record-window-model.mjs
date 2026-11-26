@@ -245,11 +245,11 @@ const byRecent = (a, b) => b.day.localeCompare(a.day) || (b.end_day || b.day).lo
 const sortBy = (list, order) => [...list].sort(rowOrderOf(order) === 'desc' ? byRecent : byDayAsc);
 // 이미 정해진 순서(확정 사진·옛 보고 줄)에 고른 순서만 입힌다: asc는 저장된 순서 그대로, desc는 거꾸로.
 export const orderLines = (lines, order) => (rowOrderOf(order) === 'desc' ? [...lines].reverse() : lines);
-// RECORD-보고용글잘림(요청함 11/10): 보고용 글(report_body)은 명진이 직접 쓴 글이라 자르지 않는다 — 줄바꿈·겹친 띄어쓰기만 한 칸으로(cleanBody).
+// RECORD-보고용글잘림(요청함 11/10): 보고용 글(report_body)은 사용자가 직접 쓴 글이라 자르지 않는다 — 줄바꿈·겹친 띄어쓰기만 한 칸으로(cleanBody).
 // 60자 한 줄 규칙(record-oneline.mjs)은 AI·원문에서 만든 한 줄에만 쓴다. 표·복사·한글 파일·확정 사진이 모두 이 text를 쓴다.
 export const reportLine = body => cleanBody(body);
 // 줄 글: 보고용 글이 있으면 그 글 전체. 다만 예전 [보고용으로 수정]이 원문을 통째로 채워 그대로 저장된 보고용 글(원문과 같은 글)은
-// 명진이 쓴 글이 아니라 원문이므로 원문 한 줄 규칙대로(item.text). 저장된 값은 그대로.
+// 사용자가 쓴 글이 아니라 원문이므로 원문 한 줄 규칙대로(item.text). 저장된 값은 그대로.
 export function reportText(item, report) {
   if (report == null) return item.text;
   const full = reportLine(report);

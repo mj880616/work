@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// NEWS-운영자만(S63-03, 명진 11/16 "명진 외 나머지 가입자에게는 메뉴 숨기고"): S62-12g에서 모두에게 열었던 News를 다시 운영자 기능 키 'outside'로.
+// NEWS-운영자만(S63-03, 사용자 11/16 "사용자 외 나머지 가입자에게는 메뉴 숨기고"): S62-12g에서 모두에게 열었던 News를 다시 운영자 기능 키 'outside'로.
 // - 새 계정(기능 없음): [메뉴] 창·PC 왼쪽 메뉴·하단바 어디에도 News가 없다.
 // - 같은 새 계정이 주소 ?view=news·옛 ?view=outside·?view=now를 직접 열어도 News 화면이 생기지 않고 홈이 열린다(주소도 홈으로).
 // - 운영자(기본 OPERATOR_MENU_FEATURES, 'outside' 있음)는 그대로 ?view=news가 열린다.

@@ -1,13 +1,13 @@
-// LIB-화면끌어놓기 (2026-10-26 명진 요청): PC에서 자료실을 연 채로 화면 어디에나 파일을 끌어다 놓으면 [+ 자료 등록]과 같은 서버 길로 바로 올린다.
+// LIB-화면끌어놓기 (2026-10-26 사용자 요청): PC에서 자료실을 연 채로 화면 어디에나 파일을 끌어다 놓으면 [+ 자료 등록]과 같은 서버 길로 바로 올린다.
 // 이 파일은 끌어오기 감지·올리기 순서·안내 문구만 맡는다. 실제 올리기(library-files 요청, AI 채우기)는 library-upload.js가 넘겨 주는 upload 함수다.
 // 저장은 서버(Drive 원본 + 자료 표)뿐이고 이 화면은 아무것도 따로 저장하지 않는다.
 export const DROP_HINT='놓으면 바로 올려요';
 const NAV_OUT='x:out';
 export const DROP_BLOCKED='여기에는 놓을 수 없어요';
-// LIB-폴더로올리기 (2026-10-30 명진 요청): 폴더 묶기에서 폴더 줄 위에 놓으면 그 폴더로 올린다. 안내·결과 문구에 폴더 이름.
+// LIB-폴더로올리기 (2026-10-30 사용자 요청): 폴더 묶기에서 폴더 줄 위에 놓으면 그 폴더로 올린다. 안내·결과 문구에 폴더 이름.
 export const folderHint=name=>`놓으면 ‘${name}’ 폴더로 올려요`;
 export const DROP_RESULT_CLEAR_MS=8000;
-// S46-25 묶음으로올리기 (2026-10-31 명진 결정): 사업영역·담당조직·분류 묶기에서 그 묶음 머리(또는 그 묶음 안 자료 줄)에 놓으면 그 값을 달아 올린다.
+// S46-25 묶음으로올리기 (2026-10-31 사용자 결정): 사업영역·담당조직·분류 묶기에서 그 묶음 머리(또는 그 묶음 안 자료 줄)에 놓으면 그 값을 달아 올린다.
 // 월별 묶기와 '값 없음' 묶음(사업영역 없음·조직 없음)은 지금처럼 화면 끌어놓기. 값 확인(있는 사업영역·조직·분류인지)은 resolve가 하고, 서버가 다시 본다.
 export const VALUE_GROUPS=Object.freeze({
   project:Object.freeze({prefix:'p:',field:'project_id',none:'none'}),
@@ -55,7 +55,7 @@ export function placeDropTarget(el,{step=true,inFolder=null,folderOf=()=>null}={
   return f?{ok:true,kind:'into',target:f.id,name:f.name,here:true}:null;
 }
 
-// LIB-펼친폴더안놓기(S59-9, 명진 11/11 14:16): 두 칸 보기 칸 안에서 폴더 줄이 아닌 자리의 놓을 폴더. 자료 옮기기(library-folders.js dropFor —
+// LIB-펼친폴더안놓기(S59-9, 사용자 11/11 14:16): 두 칸 보기 칸 안에서 폴더 줄이 아닌 자리의 놓을 폴더. 자료 옮기기(library-folders.js dropFor —
 // 마우스·손가락 길게 눌러 끌기)와 PC 파일 올리기(library-upload.js luDropTarget)가 같이 쓰는 판정 하나다.
 // 펼친 폴더 안 자료 묶음(div.lu-pane-sub = 줄과 그 사이 빈 틈, library-two-pane.js)이면 그 묶음의 폴더 — 묶음마다 가장 가까운 펼친 폴더 id가
 // 붙어 있어 여러 겹이면 안쪽 폴더 — 이고 표시는 그 칸의 그 폴더 줄(없으면 묶음). 그 밖의 칸 빈 자리·칸 바로 아래 자료 줄은 그 칸의 지금 폴더

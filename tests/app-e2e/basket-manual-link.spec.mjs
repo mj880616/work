@@ -164,7 +164,7 @@ test('cancel asks only when something was picked, and leaving the view asks abou
  expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// S50-36(2026-11-06 명진 결정): 업데이트 → 할 일도 기한을 고르지 않으면 오늘. [오늘]이 눌린 채 시작하고, 한 번 더 누르면 기한 없음.
+// S50-36(2026-11-06 사용자 결정): 업데이트 → 할 일도 기한을 고르지 않으면 오늘. [오늘]이 눌린 채 시작하고, 한 번 더 누르면 기한 없음.
 for(const width of [390,1280])test(`a task made from the note without picking a day is due today, and [오늘] again clears it ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page),detail=await openNote(page,width);
  await tap(page,detail.getByRole('button',{name:'할 일 만들기'}),width);

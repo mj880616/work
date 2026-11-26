@@ -1,4 +1,4 @@
-// RECORD-한줄AI요약(11/09 명진 A안): 화면 쪽 — 긴 조직 기록만 서버 AI 한 줄을 부탁하고, 저장된 one_line이 표·조직 상세의 한 줄이 된다.
+// RECORD-한줄AI요약(11/09 사용자 A안): 화면 쪽 — 긴 조직 기록만 서버 AI 한 줄을 부탁하고, 저장된 one_line이 표·조직 상세의 한 줄이 된다.
 // 보고용 글(report_body)은 AI 한 줄보다 먼저다(AI가 덮지 않음). 이름·글은 모두 가짜.
 import test from 'node:test';
 import assert from 'node:assert/strict';

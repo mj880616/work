@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {saveWeeklyReport,ensureWeeklyPersonalCategory} from '../app/hwp-drive.js';
 import {DEFAULT_DOCUMENT_CATEGORIES,WEEKLY_PERSONAL_CATEGORY,categoryOf,resetDocumentCategories} from '../app/document-categories.js';
-// LIB-기본분류흔적빼기(명진 11/17): 주간보고 팀·개인 확정본은 기본 분류로 주지 않는다. 기본은 7개 그대로(화면·서버 AI·DB 칸 기본값 같음).
+// LIB-기본분류흔적빼기(사용자 11/17): 주간보고 팀·개인 확정본은 기본 분류로 주지 않는다. 기본은 7개 그대로(화면·서버 AI·DB 칸 기본값 같음).
 // 주간보고를 처음 [확정] 저장하는 사람에게만 그때 '주간보고'·'주간보고›개인 확정본'을 기존 분류 추가 함수로 만든다. 이미 쓰는 사람의 목록·자료는 그대로.
 
 const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');

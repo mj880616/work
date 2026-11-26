@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {setup,openLibrary} from './helpers/library-multi-delete-scenario.mjs';
-// LIB-바로지우기 (2026-10-28 명진 요청 08:28 ①): 자료 하나 지우기 — 묻지 않고 줄이 바로 빠지고 '지웠어요 · 되돌리기'.
+// LIB-바로지우기 (2026-10-28 사용자 요청 08:28 ①): 자료 하나 지우기 — 묻지 않고 줄이 바로 빠지고 '지웠어요 · 되돌리기'.
 // 서버 요청(document-actions delete, 하나씩 삭제와 같은 길)은 알림이 사라진 뒤 한 번만. 실패하면 줄이 되살아나고 작은 알림.
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const rows=page=>page.locator('#documentList [data-lu-document]');

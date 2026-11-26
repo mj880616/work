@@ -21,7 +21,7 @@ export function folderPathHtml({rootLabel, trail, attr, esc}) {
   const shown = hidden.length ? [...head.map((s, i) => one(s, i)), moreStepHtml(hidden, {cls: 'fp-step', attr, esc, sep: ''}), ...tail.map((s, k) => one(s, last - tail.length + 1 + k))] : all.map(one);
   return shown.join(sep);
 }
-// S69-19(명진 11/24 '폴더 안에서 목록으로 돌아가기 쉽게'): 위치 줄이 길면 가운데를 '…' 한 칸으로 줄인다.
+// S69-19(사용자 11/24 '폴더 안에서 목록으로 돌아가기 쉽게'): 위치 줄이 길면 가운데를 '…' 한 칸으로 줄인다.
 // steps = 맨 앞 칸부터 지금 칸까지 전부. 칸 수가 max를 넘으면 맨 앞 1칸 + '…' + 끝 tail칸만 보이고 나머지는 hidden.
 // 화면 없음(순수) — 시험은 tests/select-mode-folder-path.test.mjs.
 export function collapseSteps(steps, {max = 4, tail = 2} = {}) {

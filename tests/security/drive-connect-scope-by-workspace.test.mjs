@@ -1,7 +1,7 @@
-// S50-8 MULTI-노조사용자(명진 결정 11/05 '가'): Drive 연결 권한 범위를 작업공간 기준으로 서버가 정한다.
+// S50-8 MULTI-노조사용자(사용자 결정 11/05 '가'): Drive 연결 권한 범위를 작업공간 기준으로 서버가 정한다.
 // 실제 public-policy-drive 함수를 지어낸 Supabase(PostgREST)·지어낸 Google로 돌린다. 네트워크·비밀값 없음(모두 가짜 글자).
 // - S62-11부터 모든 작업공간: drive.file + drive 요청, 받은 권한으로 full_drive, 빠지면 사진 안내. 운영자가 아니면 옛 자리(id=1)를 건드리지 않는다.
-// - 운영자(명진): 지금과 같다(drive.file + drive, 받은 권한으로 full_drive, 빠지면 사진 안내, id=1도 갱신).
+// - 운영자: 지금과 같다(drive.file + drive, 받은 권한으로 full_drive, 빠지면 사진 안내, id=1도 갱신).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -76,7 +76,7 @@ async function callback() {
   return new URL(r.headers.get('location'));
 }
 
-// S62-11 MULTI-구글드라이브사진모두(명진 11/14 '가'·11/15 결정 1 '가'): 모든 작업공간이 drive.file + drive를 요청한다.
+// S62-11 MULTI-구글드라이브사진모두(사용자 11/14 '가'·11/15 결정 1 '가'): 모든 작업공간이 drive.file + drive를 요청한다.
 test('S62-11 모든 작업공간: 연결 요청은 drive.file + drive(운영자 기능 키 판정 없음)', async () => {
   reset();
   const r = await start('synthetic-other-jwt');

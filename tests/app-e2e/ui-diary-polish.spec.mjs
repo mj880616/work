@@ -112,12 +112,12 @@ for(const width of [390,1280])test(`② today is a square frame only (no ring on
  // (찾은 칸을 들고 있다가 재면 그 사이 새로 그려진 옛 칸을 재어 빈 값이 나온다).
  await expect(page.locator('#diaryRoot [data-diary-status] [data-wait]')).toHaveCount(0);
  const look=loc=>page.evaluate(sel=>{const el=document.querySelector(sel);const n=el.querySelector('.diary-num'),c=getComputedStyle(n),cell=getComputedStyle(el);return {bg:c.backgroundColor,fg:c.color,numRing:c.boxShadow,cellBg:cell.backgroundColor,ring:cell.boxShadow,frame:getComputedStyle(el,'::before').borderTopWidth,frameColor:getComputedStyle(el,'::before').borderTopColor,photo:el.classList.contains('has-photo')};},loc);
- // UI-오늘네모(명진 2026-10-30): 오늘 = 칸 둘레 진한 네모 선(::before, --ds-today-line = --kptu-primary-ink 2px)만. 숫자 동그라미 없음, 숫자는 강조 글자색.
+ // UI-오늘네모(사용자 2026-10-30): 오늘 = 칸 둘레 진한 네모 선(::before, --ds-today-line = --kptu-primary-ink 2px)만. 숫자 동그라미 없음, 숫자는 강조 글자색.
  const t=await look(TODAY),o=await look(OTHER);
  expect(t.numRing).toBe('none');expect(o.numRing).toBe('none');
  if(!t.photo){expect(t.bg).toBe('rgba(0, 0, 0, 0)');expect(t.fg).toBe(accent);}
  expect(t.frame).toBe('2px');expect(t.frameColor).toBe(ink);expect(o.frame).not.toBe('2px');
- // UI-고른날진하게(명진 2026-11-12): 고른 날 = 칸은 그대로, 날짜 숫자만 진한 채운 동그라미·흰 숫자(--ds-day-sel-bg·--ds-day-sel-ink). 고르지 않은 오늘은 바탕 없음.
+ // UI-고른날진하게(사용자 2026-11-12): 고른 날 = 칸은 그대로, 날짜 숫자만 진한 채운 동그라미·흰 숫자(--ds-day-sel-bg·--ds-day-sel-ink). 고르지 않은 오늘은 바탕 없음.
  expect(t.ring).toBe('none');expect(t.cellBg).not.toBe(soft);
  const numBox=sel=>page.evaluate(s=>{const r=document.querySelector(s).querySelector('.diary-num').getBoundingClientRect();return [Math.round(r.width),Math.round(r.height)];},sel);
  const before=await numBox(OTHER);

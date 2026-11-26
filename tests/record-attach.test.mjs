@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-// ORG-기록첨부(S50-22): 담당조직 기록 칸에 그림·파일 + 글 없이 파일만이면 AI 한 줄(11/05 16:41 명진 결정).
+// ORG-기록첨부(S50-22): 담당조직 기록 칸에 그림·파일 + 글 없이 파일만이면 AI 한 줄(11/05 16:41 사용자 결정).
 const events=[];
 globalThis.window={dispatchEvent:e=>events.push(e.type),addEventListener:()=>{},KPTUOrganizationOrder:{groupName:()=>'',GROUP_NAMES:['그 외']}};
 globalThis.CustomEvent=class{constructor(type,init){this.type=type;this.detail=init?.detail}};

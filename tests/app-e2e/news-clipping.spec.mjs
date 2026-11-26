@@ -27,7 +27,7 @@ for (const width of [412, 884, 1440]) {
     // 날짜 묶음(새 글 수) → 흰 상자 안 줄. 칩 줄([전체]·[별표])·이 칸의 ⋯는 없다(S51-8: 위 [매체 ▾]·껍데기 ⋯로).
     await expect(root(page).locator('.nw-day-head')).toHaveText(['오늘 · 새 글 2', '어제 · 새 글 2', '10. 4. (일) · 새 글 1']);
     await expect(root(page).locator('[data-nc-tab], [data-nc-more], .nc-chips')).toHaveCount(0);
-    await expect(root(page)).not.toContainText('명진');
+    await expect(root(page)).not.toContainText('사용자');
     const c1 = item(page, 'c1');
     await expect(c1.locator('.nw-title')).toHaveText('가짜 채널 기사');
     await expect(c1.locator('.nw-src')).toHaveText('가짜노동신문');

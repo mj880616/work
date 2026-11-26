@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, otherStart, FILES_TWO_DEFAULT} from '../app/files-panes-model.mjs';
 import {validValue, parsePrefs, applyChanges, createViewPrefs} from '../app/view-prefs.js';
-// S49-30 FILES-통합 2-③ 두 칸(명진 결정 H-2): 켬 계산·막대 글자·받을 곳(반대 칸), 서버 칸 files_two 모양.
+// S49-30 FILES-통합 2-③ 두 칸(사용자 결정 H-2): 켬 계산·막대 글자·받을 곳(반대 칸), 서버 칸 files_two 모양.
 test('기본: 폴드 펼침은 두 칸, PC는 한 칸 · 서버 값이 있으면 그 값', () => {
   assert.equal(FILES_TWO_KEY, 'files_two');
   assert.deepEqual({...FILES_TWO_DEFAULT}, {fold: false, wide: false, narrow: false}); // S50-33: 폴드도 PC처럼 한 칸이 기본 · S51-20 ②: 폰도 기본 한 칸

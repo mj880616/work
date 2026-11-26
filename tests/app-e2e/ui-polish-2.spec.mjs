@@ -48,7 +48,7 @@ test('PC 1280: 사업 보고 칸·고른 보고가 주소에 적히고 새로고
   await where.getByRole('button',{name:'언론',exact:true}).click();
   // S52-22 → BIZ-위쪽정돈PC(11/09): 모든 폭에서 [종류 ▾] 상자에 초점(PC 칩 줄 없앰).
   await expect(page.locator('#reportKindSelect')).toBeFocused();
-  // [회의]로 가면 주소의 칸이 회의로 바뀐다. MTG-기본종류전체(11/15 명진): 기본은 [종류 전체]라 그때만 주소에서 빠진다.
+  // [회의]로 가면 주소의 칸이 회의로 바뀐다. MTG-기본종류전체(11/15 사용자): 기본은 [종류 전체]라 그때만 주소에서 빠진다.
   await pickReportKind(page,'회의');
   await expect(page).toHaveURL(/[?&]chip=meeting(?:&|$)/);
   await pickReportKind(page,'전체');

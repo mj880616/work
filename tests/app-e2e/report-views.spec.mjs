@@ -136,7 +136,7 @@ for (const width of [390, 1440]) {
     await expect.poll(() => state.meetingOpens.some(x => x === 'eq.' + M2)).toBe(true);
   });
 
-  // S57-8 BIZ-달력우클릭끌기 ④(명진 폰 제보 "숫자를 눌러야 클릭이 됨, 터치 범위 넓혀요"): 숫자·점·제목 옆 빈 곳·'+n' 어디를 눌러도 그 칸 전체가 그날 고르기.
+  // S57-8 BIZ-달력우클릭끌기 ④(사용자 폰 제보 "숫자를 눌러야 클릭이 됨, 터치 범위 넓혀요"): 숫자·점·제목 옆 빈 곳·'+n' 어디를 눌러도 그 칸 전체가 그날 고르기.
   test(`report calendar day cell is pressable all over, not only the number ${width}`, async ({page}) => {
     const state = makeState();
     await open(page, state, width);

@@ -6,7 +6,7 @@ import {readFile} from 'node:fs/promises';
 // FEAT-1029묶음 ① Web2에 물어보기: the real ai-assist handler, kind=ask_web2, with a synthetic Supabase (Auth + PostgREST with owner RLS,
 // the two search RPCs) and a mocked OpenAI. No network, no real key, synthetic text only.
 // Checks: lines without evidence are dropped, AI-excluded notes never reach AI, S2 ledger and telegram raw text with sender names DO reach AI
-// (명진 결정 변경 10/29), the personal call / personal telegram / diary paths are never read, another workspace's rows never show,
+// (사용자 결정 변경 10/29), the personal call / personal telegram / diary paths are never read, another workspace's rows never show,
 // no AI call without evidence, monthly / daily limits, raw text length cap.
 const {createAiAssistHandler,DAILY_LIMITS}=await import('../../supabase/functions/ai-assist/handler.ts');
 const ask=await import('../../supabase/functions/ai-assist/web2-ask.ts');

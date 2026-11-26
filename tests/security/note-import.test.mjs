@@ -456,7 +456,7 @@ test('only text formats are accepted; plain text becomes paragraphs',async()=>{
 });
 
 test('a person saving one page: robots.txt is not read (S68-23); bot-check pages, 401/403 and paywalls are still not bypassed; errors fail plainly',async()=>{
- // 사람이 직접 한 쪽 저장(명진 결정 2026-11-22 "1. A"): robots.txt가 막든·거절하든·고장 났든 읽지 않고 글만 한 번 읽는다.
+ // 사람이 직접 한 쪽 저장(사용자 결정 2026-11-22 "1. A"): robots.txt가 막든·거절하든·고장 났든 읽지 않고 글만 한 번 읽는다.
  for(const rb of [{body:'User-agent: *\nDisallow: /news/',headers:{'content-type':'text/plain'}},{body:`User-agent: ${H.ROBOTS_AGENT}\nDisallow: /`,headers:{'content-type':'text/plain'}},{status:403},{status:500}]){
   const w=world({sites:{'https://example.org/robots.txt':rb,[PAGE]:html(ARTICLE)}});
   const r=await imp(w,PAGE);

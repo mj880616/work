@@ -60,7 +60,7 @@ export function htmlToText(html: string): string {
 }
 
 // 피드·미리보기에서 온 글자(요약·본문·소개)를 글자만으로: 제목(cleanTitle)과 같은 순서 — 이스케이프 풀기 → 태그 걷기 → 다시 풀기.
-// ITF 같은 RSS는 description 안 HTML을 한 번 더 이스케이프해 보내서, 풀기 없이 태그만 걷으면 '<span …>'·'&nbsp;'가 글자로 남는다(11/04 명진 캡처).
+// ITF 같은 RSS는 description 안 HTML을 한 번 더 이스케이프해 보내서, 풀기 없이 태그만 걷으면 '<span …>'·'&nbsp;'가 글자로 남는다(11/04 사용자 캡처).
 // 제목·요약·본문·텔레그램 미리보기가 모두 이 함수 하나를 쓴다. 문단 줄바꿈은 htmlToText가 남긴다.
 export function feedText(raw: string): string {
   return htmlToText(decodeEntitiesDeep(raw));

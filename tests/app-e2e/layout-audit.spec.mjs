@@ -5,7 +5,7 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { start as startFiles, openFiles, treeGo } from './helpers/files-server.mjs';
 import { measureLayout, uniqueIssues } from './helpers/layout-audit.mjs';
-// QA-여백겹침점검(S70-25, 명진 11/25 11:12 "디자인 전수조사 여백 없어서 답답하거나 겹치는 문제 등 확인후 개선").
+// QA-여백겹침점검(S70-25, 사용자 11/25 11:12 "디자인 전수조사 여백 없어서 답답하거나 겹치는 문제 등 확인후 개선").
 // 앱 메뉴 화면마다 PC 1280·1440, 폰 390, 폴드 펼침 884에서 겹침·붙음·자리 표시 남음을 같은 자로 잰다(helpers/layout-audit.mjs).
 // 가짜 서버·지어낸 자료만 쓴다(운영 접속 없음). 조사 결과: docs/qa/layout-audit-20261125.md.
 // KNOWN 표: 이미 찾았고 고치는 PR이 줄 서 있는 문제(화면|폭 → 허용하는 종류). 고치는 PR은 그 화면 줄을 지워 검사를 켠다(고치기 전 실패 → 고친 뒤 통과).
@@ -78,4 +78,4 @@ for (const [name] of SCREENS) for (const width of WIDTHS) test(`LA ${name} ${wid
 });
 
 // UI-간격기준 A(S70-42)의 '머리줄 단추 줄 바로 아래 놓기 칸' 검사는 그 모양이 있던 유일한 화면(브리핑 룸)에서 S71-30 BRIEF-머리한줄·놓기안내삭제
-// (명진 11/26 17:38)로 머리줄 단추 줄과 점선 안내 줄이 모두 없어져 뺐다. 브리핑 룸 머리 한 줄은 brief-room-head.spec.mjs가 본다.
+// (사용자 11/26 17:38)로 머리줄 단추 줄과 점선 안내 줄이 모두 없어져 뺐다. 브리핑 룸 머리 한 줄은 brief-room-head.spec.mjs가 본다.

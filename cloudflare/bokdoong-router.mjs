@@ -40,9 +40,9 @@ const NEW_HOST_KEPT = Object.freeze(['/work/about']);
 
 // DOMAIN-workonplus 2 (PR-B, docs/design/domain-workonplus.md 4절): the app moved to workonplus.com (WORK ON+). On nojoplus.com,
 // / and /work/app/** (pages and files) answer one notice page instead of the app: nothing is fetched from GitHub Pages and
-// nothing moves on its own (명진 요청: 안내 + 링크). Its one button keeps the same path and ?query on workonplus.com (/ and
+// nothing moves on its own (사용자 요청: 안내 + 링크). Its one button keeps the same path and ?query on workonplus.com (/ and
 // /work/app become /work/app/). Kept on nojoplus.com: /s/<short address>, /work/about/**, other /work/** → work, www → 301.
-// S68-01 (명진 2026-11-21: "bokdoong.com은 안 쓰고 workonplus만 씀"): bokdoong.com / and /work/app/** answer the same notice
+// S68-01 (사용자 2026-11-21: "bokdoong.com은 안 쓰고 workonplus만 씀"): bokdoong.com / and /work/app/** answer the same notice
 // (its own wording, without the 노동조합+ sentence). desk, work and arsenal still send people to bokdoong.com first, so they
 // end on the notice too. Three groups on bokdoong.com stay out of the notice (docs/bokdoong-domain.md "앱 자리 이전 안내"):
 //  - BOKDOONG_KEPT: served from Pages as before. The old phone app (0.5.16 and earlier) signs in through

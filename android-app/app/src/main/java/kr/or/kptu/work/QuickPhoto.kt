@@ -24,7 +24,7 @@ import java.io.File
  * 2) QuickPhotoWorker(WorkManager, 인터넷 연결 조건)가 위젯 세션으로 정리함 첨부 올리기(basket-files)를 부른다. 올린 장은 바로 지운다.
  * 3) 다 되면 짧은 알림(토스트). 일시 오류는 저절로 다시(최대 3번), 그래도 안 되면 토스트 한 줄 + 남은 사진은 임시 폴더에 두고
  *    다음에 위젯 [사진]을 누르면 이어 올린다(다시 시도). 3일 지난 묶음은 지운다.
- *    폰 알림줄 알림은 쓰지 않는다(알림 권한은 녹음 알림줄 전용, 명진 결정 MTG-폰녹음·collaboration-ownership-check).
+ *    폰 알림줄 알림은 쓰지 않는다(알림 권한은 녹음 알림줄 전용, 사용자 결정 MTG-폰녹음·collaboration-ownership-check).
  * 서버·DB·Edge 변경 없음. 파일 이름·토큰·응답은 로그에 남기지 않는다.
  */
 object QuickPhoto {

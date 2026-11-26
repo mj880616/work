@@ -3,7 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {chooseBasketKind} from './helpers/basket-kind.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
 import {noteField, edWin, edWinText, typeInto} from './helpers/note-editor.mjs';
-// NOTE-크게쓰기틀·본문칸여백(S70-38, 2026-11-25 명진):
+// NOTE-크게쓰기틀·본문칸여백(S70-38, 2026-11-25 사용자):
 // ① 노트 [큰 창에서 수정] 창은 넓은 화면에서 본문 칸 틀 그대로 — 위·아래 끝이 왼쪽 메뉴 카드와 같고, 같은 둥근 모서리·테두리. 폰은 화면 전체(하단바 숨음).
 // ② 노트 읽기 본문 상자는 글이 테두리에 붙지 않게 위·아래 안쪽 여백(공용 간격 토큰 --kptu-space-4)과 몇 줄짜리 최소 높이를 두고,
 //    읽기 ↔ 고치기 전환 때 본문 상자 높이가 같다(흔들리지 않음).

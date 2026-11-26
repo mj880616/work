@@ -1,6 +1,6 @@
-// LEDGER-수정요청(설계 docs/design/ledger-auto-record.md 7절·10절 4번, 명진 요청 2026-10-24 07:17): 원장 고치기 칸(app/ledger-fix.js)의 순수 함수.
+// LEDGER-수정요청(설계 docs/design/ledger-auto-record.md 7절·10절 4번, 사용자 요청 2026-10-24 07:17): 원장 고치기 칸(app/ledger-fix.js)의 순수 함수.
 // 입력칸 하나: 일상어 한 줄(서버 ai-assist ledger_fix가 수정 요청 모양으로 바꿈) 또는 Claude 수정안 덩어리(kptu-ledger-fix JSON, 그대로 해 보기).
-// LEDGER-기록바로업데이트(명진 요청 2026-10-25): 기록 상세 ⋯ 바로가기(지켜짐 · 종결 / 추적에서 빼기 / 추적 끝내기)의 요청 만들기·문구,
+// LEDGER-기록바로업데이트(사용자 요청 2026-10-25): 기록 상세 ⋯ 바로가기(지켜짐 · 종결 / 추적에서 빼기 / 추적 끝내기)의 요청 만들기·문구,
 //   [내용 업데이트…]의 대상 고정 검사, 반영 뒤 펼친 기록을 다시 읽을지 정하는 규칙도 이 파일(순수 함수)에 있다.
 // 미리보기는 DB 함수 해 보기(app_apply_ledger_fix p_dry_run=true)의 전·후를 일상어 한 줄씩으로 바꾼다(고정 ID·DB 낱말 없음). DOM·네트워크 없음.
 import { KIND_DISPLAY, EVENT_STATUS_LABEL, DECISION_TYPE_LABEL, EVIDENCE_TYPE_LABEL, COMMITMENT_STATUS_LABEL, SENSITIVITY_LABEL, IMPORTANCE_LABEL } from './ledger-browse-model.mjs';

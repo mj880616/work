@@ -92,7 +92,7 @@ test('PRJ-기록입력 header: color dot + name, one summary line, no child-name
   await expect(page.locator('#ps3Hierarchy .ps3-parent-link')).toContainText('민자철도 대응');
 });
 
-// MTG-프로젝트합치기 3단계: 맨 위 진행 기록 입력칸·[기록]·⤢ 큰 창은 없어졌다(기록은 사업 보고 한 곳, 명진 결정). 기록 목록은 맨 앞에 남고 아무것도 쓰지 않는다.
+// MTG-프로젝트합치기 3단계: 맨 위 진행 기록 입력칸·[기록]·⤢ 큰 창은 없어졌다(기록은 사업 보고 한 곳, 사용자 결정). 기록 목록은 맨 앞에 남고 아무것도 쓰지 않는다.
 // 결정 ⑥: 목록에는 정리함 연결 줄(여기서는 bl-1 하나)만 그려진다.
 test('PRJ-기록입력 detail has no record input or ⤢, and the record list stays first',async({page})=>{
   const state=await fixture(page);

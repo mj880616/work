@@ -102,13 +102,13 @@ test('library-upload.js wires the drop: no storage of its own, no hard-coded col
 
 // S46-25 묶음으로올리기: 사업영역·담당조직·분류 묶음 머리에 놓으면 그 값을 달아 올린다(월별·'값 없음'은 지금처럼).
 test('ro: 받침에 맞는 로/으로',()=>{
-  assert.equal(m.ro('공공기관사업본부'),'로');
+  assert.equal(m.ro('가상사업본부'),'로');
   assert.equal(m.ro('교섭'),'으로');
   assert.equal(m.ro('공공기관 기능개혁 대응'),'으로');
   assert.equal(m.ro('서울'),'로');// 받침 ㄹ
   assert.equal(m.ro('ABC'),'로');
-  assert.equal(m.valueHint('공공기관사업본부'),'놓으면 ‘공공기관사업본부’로 올려요');
-  assert.equal(m.resultText({done:2,value:'공공기관사업본부'}),'공공기관사업본부로 2개 올렸어요');
+  assert.equal(m.valueHint('가상사업본부'),'놓으면 ‘가상사업본부’로 올려요');
+  assert.equal(m.resultText({done:2,value:'가상사업본부'}),'가상사업본부로 2개 올렸어요');
   assert.equal(m.resultText({done:2,value:'교섭',unlinked:1}),'교섭으로 2개 올렸어요 · 1개는 교섭에 붙이지 못했어요');
   assert.equal(m.resultText({done:1,unlinked:1}),'1개 올렸어요 · 1개는 그 묶음에 붙이지 못했어요');
 });
@@ -128,7 +128,7 @@ function tree(keys,{inList=true}={}){
   return {nodes,row};
 }
 test('groupDropTarget: 가장 가까운 그 묶기의 묶음, 값 없음·없는 값·다른 묶기는 null',()=>{
-  const resolve=raw=>({'top-a':{name:'공공기관 기능개혁 대응'},'child-a1':{name:'국토부 대응'},'org-1':{name:'공공기관사업본부'},'정책':{name:'정책'}})[raw]||null;
+  const resolve=raw=>({'top-a':{name:'공공기관 기능개혁 대응'},'child-a1':{name:'국토부 대응'},'org-1':{name:'가상사업본부'},'정책':{name:'정책'}})[raw]||null;
   // 사업영역 > 하위 사업영역 안 자료 줄 → 하위 사업영역. 사업영역 안 폴더 위는 지금처럼(null).
   assert.equal(m.groupDropTarget({target:tree(['p:top-a','f:fx']).row},'project',{resolve}),null);
   let {row,nodes}=tree(['p:top-a','p:child-a1']);
@@ -136,7 +136,7 @@ test('groupDropTarget: 가장 가까운 그 묶기의 묶음, 값 없음·없는
   assert.equal(t.key,'p:child-a1');assert.equal(t.field,'project_id');assert.equal(t.value,'child-a1');assert.equal(t.kind,'into');assert.equal(t.hint,'놓으면 ‘국토부 대응’으로 올려요');assert.equal(t.head.parentElement,nodes[1]);
   ({row}=tree(['p:none']));assert.equal(m.groupDropTarget({target:row},'project',{resolve}),null);
   ({row}=tree(['p:gone']));assert.equal(m.groupDropTarget({target:row},'project',{resolve}),null);
-  ({row}=tree(['o:org-1']));t=m.groupDropTarget({target:row},'organization',{resolve});assert.equal(t.field,'organization_id');assert.equal(t.name,'공공기관사업본부');
+  ({row}=tree(['o:org-1']));t=m.groupDropTarget({target:row},'organization',{resolve});assert.equal(t.field,'organization_id');assert.equal(t.name,'가상사업본부');
   ({row}=tree(['o:none']));assert.equal(m.groupDropTarget({target:row},'organization',{resolve}),null);
   ({row}=tree(['c:정책']));t=m.groupDropTarget({target:row},'category',{resolve});assert.equal(t.field,'category');assert.equal(t.kind,'category');assert.equal(t.value,'정책');
   ({row}=tree(['m:2026-10']));assert.equal(m.groupDropTarget({target:row},'month',{resolve}),null);
@@ -146,10 +146,10 @@ test('groupDropTarget: 가장 가까운 그 묶기의 묶음, 값 없음·없는
 });
 test('bindLibraryDrop: 값 묶음 안내 문구(hint)를 그대로 보인다',()=>{
   const doc=fakeDoc(),overlay={hidden:true,firstChild:{textContent:''}};let got=null;
-  const t={name:'공공기관사업본부',hint:'놓으면 ‘공공기관사업본부’로 올려요',field:'organization_id',value:'org-1'};
+  const t={name:'가상사업본부',hint:'놓으면 ‘가상사업본부’로 올려요',field:'organization_id',value:'org-1'};
   m.bindLibraryDrop({doc,overlay,active:()=>true,onFiles:(f,x)=>{got=x},pick:()=>t});
   doc.fire(dragEvent('dragenter'));doc.fire(dragEvent('dragover'));
-  assert.equal(overlay.firstChild.textContent,'놓으면 ‘공공기관사업본부’로 올려요');
+  assert.equal(overlay.firstChild.textContent,'놓으면 ‘가상사업본부’로 올려요');
   doc.fire(dragEvent('drop',{list:[file('a.pdf')]}));assert.equal(got,t);
 });
 // S53-19 LIB-화면끌어놓기 이어서: 두 칸 폴더 보기의 나무 줄·위치 줄·들어간 폴더 안 빈 곳.

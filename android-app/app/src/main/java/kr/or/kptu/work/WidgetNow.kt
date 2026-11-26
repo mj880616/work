@@ -7,7 +7,7 @@ import java.time.ZoneId
 /**
  * 위젯이 함께 쓰는 일정 읽기(서울 시간대·제목 다듬기·google-calendar events 응답 → 일정 목록). '이번 주' 위젯(WidgetWeek)이 쓴다.
  * 안드로이드 API를 쓰지 않아 JVM 시험 대상이다. 만든 내용은 폰에 저장하지 않는다(결정 W-D2).
- * S68-13(11/22 명진): '지금' 위젯을 지우면서 그 위젯만 쓰던 것(다음 일정·남은 시간·요청·챙길 것·오늘 기한 줄)을 뺐다.
+ * S68-13(11/22 사용자): '지금' 위젯을 지우면서 그 위젯만 쓰던 것(다음 일정·남은 시간·요청·챙길 것·오늘 기한 줄)을 뺐다.
  */
 object WidgetNow {
     val ZONE: ZoneId = ZoneId.of("Asia/Seoul")

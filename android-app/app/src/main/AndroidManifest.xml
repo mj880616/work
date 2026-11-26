@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
     <!-- 기본 권한은 인터넷. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- PHOTO-출처 ①(0.3.9, 명진 결정 10/30): 사진 메뉴 '폰 사진'만 쓰는 사진·동영상 읽기. 처음 사진 메뉴에서 [사진 접근 허용]을 누를 때만 묻는다.
+    <!-- PHOTO-출처 ①(0.3.9, 사용자 결정 10/30): 사진 메뉴 '폰 사진'만 쓰는 사진·동영상 읽기. 처음 사진 메뉴에서 [사진 접근 허용]을 누를 때만 묻는다.
          안드로이드 14+는 '고른 사진만'(부분 허용)도 받는다. 12 이하는 저장소 읽기. 목록·그림은 폰 안에서만 쓰고 서버로 올리지 않는다(PhoneMedia). -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <!-- PHOTO-폴더스위치(0.4.1): 사진 [폴더]의 폰 폴더 바꾸기·지우기. 사용자가 설정에서 '미디어 관리 허용'을 켜면 매번 확인 창을 띄우지 않는다(안 켜면 바꿀 때마다 시스템이 묻는다). -->
     <uses-permission android:name="android.permission.MANAGE_MEDIA" tools:ignore="ProtectedPermissions" />
-    <!-- FILES-통합 3단계(0.5.0, 명진 결정 H-1 11/04): [파일] '이 폰' 저장 공간. 안드로이드 11+ '모든 파일 접근'을 설정에서 명진이 한 번 켠다(앱이 스스로 켜지 못함).
+    <!-- FILES-통합 3단계(0.5.0, 사용자 결정 H-1 11/04): [파일] '이 폰' 저장 공간. 안드로이드 11+ '모든 파일 접근'을 설정에서 사용자가 한 번 켠다(앱이 스스로 켜지 못함).
          다리(PhoneFiles)는 웹2 주소·열쇠·내부 저장소 뿌리 안만, Android/data·Android/obb·숨김 칸은 막는다. 목록·파일은 서버로 보내지 않는다. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
     <!-- APP-스스로업데이트(0.3.8): 이 앱 자신의 새 판(같은 서명, 공개 릴리스)만 설치한다. 처음 한 번 '이 앱에서 설치 허용'을 사용자가 켠다.

@@ -35,7 +35,7 @@ test('errorMessage maps every server error code and status to plain words', () =
 });
 
 test('highlightParts splits text into plain/mark pieces, merges overlaps, ignores case, never builds HTML', () => {
-  assert.deepEqual(highlightParts('궤도협의회 교섭', ['교섭']), [{text: '궤도협의회 ', mark: false}, {text: '교섭', mark: true}]);
+  assert.deepEqual(highlightParts('레일협의회 교섭', ['교섭']), [{text: '레일협의회 ', mark: false}, {text: '교섭', mark: true}]);
   assert.deepEqual(highlightParts('abcd', ['abc', 'bcd']), [{text: 'abcd', mark: true}]);
   assert.deepEqual(highlightParts('Rail rail', ['RAIL']), [{text: 'Rail', mark: true}, {text: ' ', mark: false}, {text: 'rail', mark: true}]);
   const xss = '<img src=x onerror=alert(1)>';
@@ -251,7 +251,7 @@ test('the auto text read is wired only to the library screen, next to the auto t
 
 test('SEARCH-선택옮기기 ④: 정리 전 꼬리표 글자는 값만 · 로 잇는다', async () => {
   const {tidySnippet} = await import('../app/global-search-model.mjs');
-  assert.equal(tidySnippet('{종류:회의자료,조직:공공기관사업본부,주제:본부집행위}'), '회의자료 · 공공기관사업본부 · 본부집행위');
+  assert.equal(tidySnippet('{종류:회의자료,조직:가상사업본부,주제:본부집행위}'), '회의자료 · 가상사업본부 · 본부집행위');
   assert.equal(tidySnippet('앞 글 {종류:회의자료} 뒤 글'), '앞 글 회의자료 뒤 글');
   assert.equal(tidySnippet('그냥 {괄호} 글'), '그냥 {괄호} 글');
   assert.equal(tidySnippet(null), null);

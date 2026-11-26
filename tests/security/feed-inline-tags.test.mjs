@@ -1,4 +1,4 @@
-// S61-37 NEWS-원문표기깨짐2: 한글 문서를 붙여 넣은 누리집(공공운수노조 보도자료 등) 글 원문에
+// S61-37 NEWS-원문표기깨짐2: 한글 문서를 붙여 넣은 누리집(A노조 보도자료 등) 글 원문에
 // '&middot'·'&rarr'가 글자로 남고 '13 일'·'잠정합의했습니다 .'처럼 빈칸이 끼던 문제.
 // 고친 곳은 공용 한 곳: outside-feed/parse.ts stripTags·htmlToText(글자 모양 태그는 빈칸 없이 걷음),
 // _shared/html-entities.ts decodeText(';' 빠진 흔한 이름 표기 풀기). 네트워크 없음, 글은 모두 지어낸 것.
@@ -73,7 +73,7 @@ test('stripTags·htmlToText: 글자 모양 태그는 빈칸 없이, 칸 나누�
  assert.equal(P.htmlToText('<span>가</span>  <span>나</span>\t<span>다</span>'),'가 나 다');
 });
 
-test('공공운수노조 보도자료 모양(한글 문서 붙여넣기) 원문: 표기 없음·빈칸 끼지 않음', ()=>{
+test('A노조 보도자료 모양(한글 문서 붙여넣기) 원문: 표기 없음·빈칸 끼지 않음', ()=>{
  const src=OUTSIDE_CATALOG.find(s=>s.key==='kptu');
  assert.ok(src,'kptu 카탈로그');
  const out=extractBlocks({html:PAGE,base:'https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=1',title:'가짜철도 노사 잠정합의, 13일 경고파업 철회',

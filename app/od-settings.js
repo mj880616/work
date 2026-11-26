@@ -1,7 +1,7 @@
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {askConfirm} from './small-notice.js';
 import {treeIconHtml} from './tree-icons.js';
-// OD-설정창 공용 부품(PHOTO-사진메뉴 2차, 명진 결정 4 · 2026-10-28 22:43): 원드라이브 설정 창 하나를 일기(diary.js)와 사진 메뉴(photos.js)가 함께 쓴다.
+// OD-설정창 공용 부품(PHOTO-사진메뉴 2차, 사용자 결정 4 · 2026-10-28 22:43): 원드라이브 설정 창 하나를 일기(diary.js)와 사진 메뉴(photos.js)가 함께 쓴다.
 // 일기 안에 있던 창(위 폴더 고르기·하위 폴더 켜고 끄기·연결 끊기·폰 보관 그림 비우기·연결 뒤 마무리)을 그대로 옮겨 왔다(모양·data-od-* 속성 같음).
 // 상태(창 열림·폴더 탐색·트리 초안·바쁨)는 이 부품이 갖고, 그리기는 부르는 화면이 html()을 제 자리에 넣어 한다(paint 콜백).
 // 연결 상태(od)·안내 문구·다시 읽기는 부르는 화면 것이다: od(), refresh(force), message(text), fault(), reload(), reset({disconnected}).

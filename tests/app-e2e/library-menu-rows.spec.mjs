@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc,press} from './helpers/library-folder-server.mjs';
-// LIB-메뉴정리(S70-74, 2026-11-26 명진 "여기 메뉴 폴더 업로드 이거뭐야; 왜 또 혼자 튀어" "자료 업로드여야 하는거 아냐?"):
+// LIB-메뉴정리(S70-74, 2026-11-26 사용자 "여기 메뉴 폴더 업로드 이거뭐야; 왜 또 혼자 튀어" "자료 업로드여야 하는거 아냐?"):
 // 자료실 ⋯ 메뉴와 빈 자리 우클릭 메뉴의 줄은 모두 글자만(그림 없음) · 같은 왼쪽 끝에서 글자가 시작한다. 폴더를 통째로 고르는 줄 이름은 '폴더째 업로드'.
 // 가짜 서버만 쓴다. 이름은 지어낸 것.
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 성명',sort_order:1024})];

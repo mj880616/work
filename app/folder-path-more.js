@@ -1,4 +1,4 @@
-// S69-19(명진 11/24 '자료실 폴더 안에서 목록으로 돌아가기 쉽게'): 위치 줄 가운데 '…'(folder-path.mjs moreStepHtml)를 누르면
+// S69-19(사용자 11/24 '자료실 폴더 안에서 목록으로 돌아가기 쉽게'): 위치 줄 가운데 '…'(folder-path.mjs moreStepHtml)를 누르면
 // 가려진 단계 이름의 작은 목록(공용 anchored-menu 상자). 고르면 그 위치 줄 안에 숨겨 둔 같은 단계 단추(data-fp-hidden)를 대신 눌러
 // 화면마다 이미 있는 처리(자료실 data-lu-path·두 칸 data-lu-pane-go·노트 data-nx-at·사진 data-photos-*-at)를 그대로 탄다.
 // 화면 하나에 상자 하나, 처음 누를 때 만든다. 기기 저장 없음.

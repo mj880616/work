@@ -63,7 +63,7 @@ export function pickReport(trigger,{reports,linkedIds=new Set(),title,onPick}={}
   return ensureReportSheet().open('report',trigger);
 }
 
-// MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 고르기 — 하나만(명진 결정 ①). 맨 위 '꼬리표 없음'. 고르면 바로 닫히고 onPick(id|'')가 불린다.
+// MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 고르기 — 하나만(사용자 결정 ①). 맨 위 '꼬리표 없음'. 고르면 바로 닫히고 onPick(id|'')가 불린다.
 // MTG-사업영역없음: allowNone이면 맨 위는 '고르지 않음'(''), 그 아래 회색 '없음'(AREA_NONE — 사업영역이 원래 없는 보고). 한 줄 업데이트 창은 사업영역이 필수라 두지 않는다.
 // S52-01 ③b UI-사업영역조직고르기창: 창은 모든 화면과 같은 고르기 창(area-org-picker.js, 하나만 고르기) — 큰 묶음만 보이고 꺾쇠로 하위,
 // 찾기(폰도)·자주 쓴 것. 맨 위 줄('꼬리표 없음' 또는 '고르지 않음'·'없음')과 돌려주는 값(id|''|AREA_NONE)은 그대로다.

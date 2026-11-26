@@ -10,8 +10,8 @@ test.use({timezoneId:'Asia/Seoul'});
 const SHOTS=process.env.KPTU_SHOTS==='1';
 const known=page=>page.waitForFunction(m=>window.KPTUMeetingJoin.canMerge({id:m,activity_kind:'meeting'}),M4);
 const openReport=async(page,meetingId)=>{await page.evaluate(m=>window.KPTUMeetingRoundDetail.open(m),meetingId);await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id',meetingId,{timeout:15000})};
-// OPS-빠진일2차 4(S59-22, 명진 11/11 14:55 "제안대로 전부"): AI 단추 이름 — 회의 보고 창 [할 일 후보 찾기], 회의 입력 창 [사업영역 추천].
-// S61-5 REC-전사삭제(명진 11/13): 자료 녹음 ⋯ [녹음 글로 옮기고 요약하기]는 지금은 없다(⋯에 없음을 확인).
+// OPS-빠진일2차 4(S59-22, 사용자 11/11 14:55 "제안대로 전부"): AI 단추 이름 — 회의 보고 창 [할 일 후보 찾기], 회의 입력 창 [사업영역 추천].
+// S61-5 REC-전사삭제(사용자 11/13): 자료 녹음 ⋯ [녹음 글로 옮기고 요약하기]는 지금은 없다(⋯에 없음을 확인).
 // KPTU_SHOTS=1이면 docs/design/screens/s59-22/에 PC 1280·폰 412 사진을 남긴다(가짜 자료만).
 const shot22=async(page,name)=>{if(SHOTS){await page.waitForTimeout(250);await page.screenshot({path:`docs/design/screens/s59-22/${name}.png`})}};
 for(const [width,label] of [[1280,'pc-1280'],[412,'phone-412']])test(`⑦ ${label}: AI 단추 이름 — 보고 창 [할 일 후보 찾기], 자료 녹음 ⋯에 전사 항목 없음`,async({page})=>{

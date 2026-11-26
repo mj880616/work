@@ -1,5 +1,5 @@
 // WEEKLY-내양식자유변형 ⑤-1·⑤-3: 한글 파일 엔진의 양식 글자를 '내 양식' 데이터(form-profile.mjs)에서 읽는다. 코드에 기본 양식은 없다(⑤-3a).
-// 대조 시험(명진 조건 11/17 — 결과물이 지난주와 같아야 함): ⑤-3 전 기본 양식과 같은 모양의 지어낸 확정본에서 읽은 양식으로 만든 결과물이
+// 대조 시험(사용자 조건 11/17 — 결과물이 지난주와 같아야 함): ⑤-3 전 기본 양식과 같은 모양의 지어낸 확정본에서 읽은 양식으로 만든 결과물이
 // 고정 양식(⑤-3 전 기본 양식을 그대로 옮겨 적은 tests/fixtures/weekly-own-form-legacy-shape.json)으로 만든 결과물과 바이트(sha256)까지 같다.
 // 자유 변형 시험: 제목·표 머리 칸 이름을 바꾼 지어낸 양식도 같은 엔진으로 읽고 만든다. 실제 조직·사람 이름은 쓰지 않는다(가짜 견본만).
 import test from 'node:test';
@@ -58,7 +58,7 @@ test('고정 양식(⑤-3 전 기본 양식과 같은 모양)은 서버 표에 �
   for (const [role, [key, n]] of Object.entries(TABLE_ROLES)) assert.equal(LEGACY_PROFILE.heads[key].length, n, role);
 });
 
-test('대조(명진 조건): 같은 모양의 지어낸 확정본에서 읽은 양식 → 결과물이 고정 양식(⑤-3 전 기본값)으로 만든 것과 sha256까지 같다', async () => {
+test('대조(사용자 조건): 같은 모양의 지어낸 확정본에서 읽은 양식 → 결과물이 고정 양식(⑤-3 전 기본값)으로 만든 것과 sha256까지 같다', async () => {
   const src = legacyShapeReport(sample());
   const read = readBaseForm(src);
   assert.ok(read.form, read.reason);

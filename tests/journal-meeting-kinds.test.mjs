@@ -63,7 +63,7 @@ test('운영자 결과 불변: 적용 뒤 운영자 목록으로 거른 결과 =
   const old = meeting => { const name = m.meetingKindName(meeting), key = m.meetingKindKey(name);
     if (OLD_FIXED.some(w => key.includes(w))) return false; return !key || !before.includes(key); };
   const names = ['궤도 집행국 회의', '궤도집행국회의', '본부집행위', '본부 집행위 42차', '노조 상집 45차', '노조 중집', '상무집행위원회', '중앙 집행 위원회', '중앙집행위원회',
-    '가상 기자회견', '운영위원회', '궤도협의회 대표자회의', '가상 간담회', '집행', '상무', '', null];
+    '가상 기자회견', '운영위원회', '레일협의회 대표자회의', '가상 간담회', '집행', '상무', '', null];
   for (const series_name of names) for (const title of ['', '노조 상집 44차', '가상 교섭']) {
     const meeting = {series_name, title};
     assert.equal(m.reportsMeeting(meeting, after), old(meeting), JSON.stringify(meeting));

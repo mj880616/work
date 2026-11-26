@@ -80,7 +80,7 @@ export async function run(page,base,width,check,{shot=null}={}){
   if(shot)await page.screenshot({path:shot,fullPage:false});
   await page.locator('#librarySelectAll').click();
   check(await count(page),'0개 선택됨','all off');
-  // K1 한 규칙(I-6, 2026-11-25 명진 결정 6 — 예전 S70 LIB-묶음삭제 '여럿은 한 번 묻기'를 바꿈): 지운 뒤 [되돌리기]가 있으니 여럿도 묻지 않는다.
+  // K1 한 규칙(I-6, 2026-11-25 사용자 결정 6 — 예전 S70 LIB-묶음삭제 '여럿은 한 번 묻기'를 바꿈): 지운 뒤 [되돌리기]가 있으니 여럿도 묻지 않는다.
   // LIB-바로지우기 그대로: 바로 목록에서 빠지고 작은 알림 '5개를 삭제했어요 · 되돌리기'(드라이브 원본을 둔 수 한 줄). 서버 요청은 알림이 사라진 뒤에 보낸다.
   await page.locator('#librarySelectAll').click();
   const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.type());await d.dismiss()});
@@ -114,7 +114,7 @@ export async function run(page,base,width,check,{shot=null}={}){
   return state;
 }
 
-// S70 LIB-묶음삭제(명진 11/24 "2300개 다 삭제했는데 왜 삭제가 안 되지"): 한 묶음에 320개 — [전체]가 접힌 것까지 모두 고르고 정확한 수를 보이며,
+// S70 LIB-묶음삭제(사용자 11/24 "2300개 다 삭제했는데 왜 삭제가 안 되지"): 한 묶음에 320개 — [전체]가 접힌 것까지 모두 고르고 정확한 수를 보이며,
 // [삭제] 한 번에 모두 지워진다(서버 'delete-many' 40개씩, 빠짐·겹침 없음). 진행 'n/전체', 끝 알림 'N개를 삭제했어요' + 드라이브 원본을 둔 수.
 export async function runMany(page,base,width,check,n=320){
   const state=await setup(page,width,{docs:manyDocs(n)});

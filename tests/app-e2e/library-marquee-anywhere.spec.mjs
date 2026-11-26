@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// S69(명진 11/24): 자료실 한 칸 탐색기(왼쪽 나무 | 오른쪽 그 폴더 내용)에서
+// S69(사용자 11/24): 자료실 한 칸 탐색기(왼쪽 나무 | 오른쪽 그 폴더 내용)에서
 // ① "드래그가 저 창 안에서만 되는데 창 밖에서도 창 안으로" · "이 드래그가 어느곳에서든 자유롭게" — 사각형 고르기를 카드 아래 빈 바탕·왼쪽 나무 칸 빈 곳에서도 시작,
 //    사각형은 칸 경계에 갇히지 않고 오른쪽 목록 줄(자료 줄·하위 폴더 줄)에 닿은 것을 고른다. 줄 위 시작 = 끌어 옮기기 그대로, 단추 위 시작 = 사각형 없음.
 // ② "선택된거 클릭하면 선택해제돼야지" — 고르는 중 ✓ 줄을 다시 누르면 풀리고, 폴더 줄 본문도 고르기·풀기, '−'(일부) 폴더를 누르면 그 안 것 모두 풀림.

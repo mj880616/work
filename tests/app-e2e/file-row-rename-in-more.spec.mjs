@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openMeetingResult} from './helpers/meeting-open.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
-// FILE-이름고치기연필먹통(S57-4, 요청함 11/11 07:00 + 명진 "⋯가 있으니 필요한 메뉴면 ⋯ 안으로 넣자"):
+// FILE-이름고치기연필먹통(S57-4, 요청함 11/11 07:00 + 사용자 "⋯가 있으니 필요한 메뉴면 ⋯ 안으로 넣자"):
 // 사업 보고 결과 창 회의자료 줄은 ✎ 없이 ⋯ 안 [이름 수정]으로 고치고, 줄 전체를 덮는 열기 단추(.file-line-open) 위에서도
 // 이름 두 번 누르기(PC)·꾹 누르기(폰)가 이름 칸을 열며, 한 번 누르기는 지금처럼 파일 열기다. 이름 칸이 열린 줄은 칸 안을 눌러도 파일이 열리지 않는다.
 // 가짜 데이터만(사람·회의 이름 없음).

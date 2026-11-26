@@ -54,7 +54,7 @@ const row=(n,over={})=>({id:DOC(n),title:'scan_2026',file_name:'scan_2026.hwp',c
 
 test('untidyFields: only empty / file-name / 기타 / out-of-list fields; user and legacy-edited fields are never candidates',()=>{
   assert.deepEqual(m.untidyFields(row(1),CATS),['title','document_date','source','category']);
-  assert.deepEqual(m.untidyFields(row(1,{title:'2026년 임금교섭 요구안',source:'공공운수노조',document_date:'2026-01-01',category:'교섭'}),CATS),[]);
+  assert.deepEqual(m.untidyFields(row(1,{title:'2026년 임금교섭 요구안',source:'A노조',document_date:'2026-01-01',category:'교섭'}),CATS),[]);
   assert.deepEqual(m.untidyFields(row(1,{category:'회의자료'}),CATS).includes('category'),true);
   assert.deepEqual(m.untidyFields(row(1,{field_origin:{title:'user',category:'user'}}),CATS),['document_date','source']);
   assert.deepEqual(m.untidyFields(row(1,{classification_note:'사용자 수정'}),CATS),[]);

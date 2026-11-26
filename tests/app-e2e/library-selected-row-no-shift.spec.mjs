@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {libraryTopMenu} from './helpers/library-tree.mjs';
-// S70-07 LIB-고른줄칩넘침(명진 11/25 09:37 "자료실쪽 파일 드래그한 결과인데 여기 파일유형 버튼이 삐져나온거 이거 수정해야할듯"):
+// S70-07 LIB-고른줄칩넘침(사용자 11/25 09:37 "자료실쪽 파일 드래그한 결과인데 여기 파일유형 버튼이 삐져나온거 이거 수정해야할듯"):
 // 고른 줄의 종류 칩(PDF·HWP)·분류 칩이 칸 왼쪽 경계 밖으로 밀려 나갔다. 원인: 줄 끝 ⋯의 44px 누르는 자리(base-ui.css 공용 ::after)가
 // 단추 오른쪽으로 6px 나와 칸 목록(overflow:auto)에 가로 넘침이 생기고, 고르는 동안 목록이 그만큼 옆으로 밀렸다(고른 줄 바탕이 경계에 걸려 보임).
 // 지키는 것: 끌어서·눌러서 고른 뒤에도 모든 줄의 종류 칩 왼쪽 끝이 고르기 전과 같고(±0.5px), 고른 줄 = 안 고른 줄, 칸 왼쪽 경계 안쪽. 이름은 지어낸 것.

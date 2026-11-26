@@ -158,13 +158,13 @@ test('5. 주요 일정: only events of the 공공운수노조 calendar; no such 
   assert.equal(m.reportCalendarName(), '공공운수노조');
   const at = {start:'2026-10-13T10:00:00+09:00', end:'2026-10-13T11:00:00+09:00'};
   const events = Object.assign([
-    {id:'a', calendarId:'x1', calendarName:'명진승지', title:'가상 개인', ...at},
-    {id:'b', calendarId:'x2', calendarName:' Arsenal   명진 ', title:'가상 경기', ...at},
+    {id:'a', calendarId:'x1', calendarName:'가족', title:'가상 개인', ...at},
+    {id:'b', calendarId:'x2', calendarName:' Arsenal   사용자 ', title:'가상 경기', ...at},
     {id:'c', calendarId:'x3', calendarName:' 공공운수노조 ', title:'가상 업무 회의', ...at},
     {id:'d', calendarId:'x4', title:'이름 모름', ...at},
     {id:'f', calendarId:'x5', calendarName:'가상 다른 달력', title:'가상 생일', ...at},
-    {id:'e', calendarId:'x1', calendarName:'명진승지', title:'연차', allDay:true, start:'2026-10-14', end:'2026-10-15'},
-  ], {calendarNames:['명진승지', 'Arsenal 명진', '공공운수노조', '가상 다른 달력']});
+    {id:'e', calendarId:'x1', calendarName:'가족', title:'연차', allDay:true, start:'2026-10-14', end:'2026-10-15'},
+  ], {calendarNames:['가족', 'Arsenal 사용자', '공공운수노조', '가상 다른 달력']});
   assert.equal(m.isReportCalendar(events[2]), true);
   for (const i of [0, 1, 3, 4]) assert.equal(m.isReportCalendar(events[i]), false);
   const c = m.upcomingSchedule(events, '2026-10-05');
@@ -174,7 +174,7 @@ test('5. 주요 일정: only events of the 공공운수노조 calendar; no such 
   // The .hwpx form cells come from the same model.
   assert.equal(JSON.stringify(m.scheduleForm(c, '나')).match(/가상 개인|가상 경기|이름 모름|가상 생일/), null);
   // No 공공운수노조 calendar in the account: nothing is taken and the screen is told.
-  const none = m.upcomingSchedule(Object.assign(events.filter(e => e.id !== 'c'), {calendarNames:['명진승지', 'Arsenal 명진']}), '2026-10-05');
+  const none = m.upcomingSchedule(Object.assign(events.filter(e => e.id !== 'c'), {calendarNames:['가족', 'Arsenal 사용자']}), '2026-10-05');
   assert.deepEqual([none.rows, none.vacations, none.noCalendar], [[], [], true]);
   assert.equal(m.scheduleForm(none, '나').calendar.length, 14);
   assert.ok(m.scheduleForm(none, '나').calendar.every(d => !d.items.length));

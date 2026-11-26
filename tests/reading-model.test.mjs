@@ -80,7 +80,7 @@ test('한 목록(S68-27·S68-29): 읽을 거리 표 하나 — News에서 보낸
   assert.deepEqual(all.map(e => e.key), [R3, R2, R1]);
   assert.deepEqual(all.map(e => e.link), [{type: 'outside', id: N2}, null, {type: 'news', id: N1}]);
   assert.equal(linkOf({news_article_id: 'nope'}), null);
-  // S68-29(명진 11/23 02:23): News에서 보낸 줄을 따로 거르는 칩은 없다(S69-94부터 칩은 [안 읽음][전체][밑줄][메모]).
+  // S68-29(사용자 11/23 02:23): News에서 보낸 줄을 따로 거르는 칩은 없다(S69-94부터 칩은 [안 읽음][전체][밑줄][메모]).
   assert.deepEqual(filterOptions(all, 2).map(o => o.label), ['전체', '안 읽음 2', '밑줄 2', '메모']);
   assert.deepEqual(filterEntries(all, 'news').map(e => e.key), filterEntries(all, 'all').map(e => e.key), '옛 칩 값은 처음 칩(전체)으로 — S70-24');
   assert.deepEqual(filterEntries(all, 'unread').map(e => e.key), [R3, R1], '안 읽음은 줄의 읽음 칸 하나로');
@@ -230,7 +230,7 @@ test('화면 연결: 열릴 때 자동 다시 가져오기(기존 startFetch, 2�
   assert.match(data, /const copy = await newsCopy\(row\);/);
 });
 
-// S69 READ-제목하나(명진 11/24 "목록에서 이상한 제목이 보임"): News에서 온 줄의 제목 주인은 사람이 고친 기사 제목(손으로 넣은 기사).
+// S69 READ-제목하나(사용자 11/24 "목록에서 이상한 제목이 보임"): News에서 온 줄의 제목 주인은 사람이 고친 기사 제목(손으로 넣은 기사).
 test('titleFixes: 손으로 넣은 기사 제목이 사본과 다를 때만 고칠 줄, 수집 기사·빈 제목·같은 제목은 그대로', async () => {
   const {titleFixes, ownTitle} = await import('../app/reading-model.mjs');
   const R = n => `a6900000-0000-4000-8000-00000000000${n}`, A = n => `c6900000-0000-4000-8000-00000000000${n}`;

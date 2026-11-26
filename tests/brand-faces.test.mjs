@@ -12,7 +12,7 @@ const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'
 // 얼굴 기능 전(main 7e50408) 메뉴 이름 그대로. 노동조합+ 얼굴에서는 한 글자도 달라지면 안 된다.
 const NOJO_MENU_LABELS = Object.freeze({
   home: '홈', basket: '잊지 말기', reading: '저장한 글', calendar: '일정', note: '노트', meetings: '사업 관리', library: '자료실', files: '파일',
-  brief: '브리핑 룸', team: '조직 관리', hwp: 'HWP 편집', photos: '사진', outside: '읽을 거리', // S68-34(11/23 명진): News → 읽을 거리, 읽을 거리 → 저장한 글
+  brief: '브리핑 룸', team: '조직 관리', hwp: 'HWP 편집', photos: '사진', outside: '읽을 거리', // S68-34(11/23 사용자): News → 읽을 거리, 읽을 거리 → 저장한 글
   calls: '통화', telegram: '텔레그램 소식', arsenal: '아스날'
 });
 
@@ -21,7 +21,7 @@ test('저장소의 얼굴은 nojo(지금 운영) 한 줄이고, 단어표가 비
   assert.equal(FACE_ID, 'nojo');
   assert.equal(DEFAULT_FACE, 'nojo');
   assert.equal(FACE.id, 'nojo');
-  assert.equal(APP_NAME, 'WORK ON+', '앱 이름은 WORK ON+(2026-11-21 명진 확정)');
+  assert.equal(APP_NAME, 'WORK ON+', '앱 이름은 WORK ON+(2026-11-21 사용자 확정)');
   assert.deepEqual(FACE.words, {});
   for (const text of [...Object.keys(FACES.girok.words), '사업 보고', '홈', '']) assert.equal(word(text), text);
 });
@@ -56,7 +56,7 @@ test('얼굴 두 벌은 같은 칸을 모두 갖고, 켜진 메뉴·화면은 �
   }
 });
 
-test('기록+ 단어표: 2026-11-20 명진 결정 단어, 표에 없는 글자는 그대로', () => {
+test('기록+ 단어표: 2026-11-20 사용자 결정 단어, 표에 없는 글자는 그대로', () => {
   const girok = faceOf('girok');
   assert.equal(girok.name, 'WORK ON+');
   assert.equal(girok.shortName, 'WORK ON+');
@@ -143,7 +143,7 @@ test('노조 색 화면 이름은 단어표를 거쳐 나온다(글자를 곧바
   assert.match(read('app/basket-note-tasks.js'), /projects:word\('사업영역'\),team:word\('조직 관리'\)/);
 });
 
-// S68-56(명진 11/23 15:06·15:12): 브리핑은 미리 정한 칸 이름을 쓰지 않는다(소제목은 AI가 자료에서 정함). 단어표의 브리핑 칸 열쇠('#brief')도 없앴다.
+// S68-56(사용자 11/23 15:06·15:12): 브리핑은 미리 정한 칸 이름을 쓰지 않는다(소제목은 AI가 자료에서 정함). 단어표의 브리핑 칸 열쇠('#brief')도 없앴다.
 test('S68-56 브리핑: 단어표에 고정 칸 이름 열쇠가 없고, 옛 형식 소제목에 노조 색 글자가 없다', async () => {
   const {GIROK_WORDS} = await import('../app/brand/girok-words.mjs');
   assert.deepEqual(Object.keys(GIROK_WORDS).filter(k => k.endsWith('#brief')), []);
@@ -152,8 +152,8 @@ test('S68-56 브리핑: 단어표에 고정 칸 이름 열쇠가 없고, 옛 형
   for (const t of titles) assert.doesNotMatch(t, /조직|노조|사업/);
 });
 
-// S68-02(11/22 명진 결정): WORK ON+ 기본 얼굴(girok)에 남은 노조 단어 — 한글 문서 서식 버튼·편집 백업·백업·휴지통 폴더 이름·PC 도우미 글자.
-// 명진 화면(운영자 기능 nojo_words = 바탕 낱말 묶음 'nojo')은 지금 글자 그대로.
+// S68-02(11/22 사용자 결정): WORK ON+ 기본 얼굴(girok)에 남은 노조 단어 — 한글 문서 서식 버튼·편집 백업·백업·휴지통 폴더 이름·PC 도우미 글자.
+// 사용자 화면(운영자 기능 nojo_words = 바탕 낱말 묶음 'nojo')은 지금 글자 그대로.
 test('S68-02: girok에서는 서식·WORK ON+ 글자, nojo_words 바탕에서는 지금 글자 그대로', async () => {
   const { withWordBase } = await import('../app/brand/custom-words-model.mjs');
   const girok = FACES.girok, mine = withWordBase(girok, 'nojo');
@@ -204,7 +204,7 @@ test('S68-02: 화면 글자가 word()를 거친다 — HWP 스타일 묶음 이�
   }
 });
 
-// S68-21(명진 11/22 17:04): PC 도우미 프로그램 자체 글자 — 웹 안내가 가리키는 이름·트레이 메뉴와 프로그램 소스가 같다.
+// S68-21(사용자 11/22 17:04): PC 도우미 프로그램 자체 글자 — 웹 안내가 가리키는 이름·트레이 메뉴와 프로그램 소스가 같다.
 test('S68-21: PC 도우미 이름·트레이 메뉴는 웹 안내와 프로그램이 같은 WORK ON+ 글자', async () => {
   const { PC_TRAY_SHOW_ITEM } = await import('../app/pc-files-model.mjs');
   const { PC_HELPER_NAME } = await import('../app/app-download.mjs');

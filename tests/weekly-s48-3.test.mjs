@@ -25,14 +25,14 @@ const A = {section:'summary', key:'가 영역›가-1', n:0}, B = {section:'summ
 test('주요 일정 기준: 연대를 조직할 투쟁(파업·선전전·결의대회·총회 투쟁·공동 집회)과 기자회견·국회 토론회는 넣고, 회의는 모두·단순 방문은 넣지 않는다', () => {
   for (const t of ['가상 사업장 집중 릴레이 선전전', '가상 조합원 총회 투쟁', '궤도 주최 기자회견', '국회 토론회 — 가상 정책', '공동 집회', '가상 공동투쟁 선포', '현장 파업 집회', '가상 조합원 총력 투쟁 결의대회'])
     assert.ok(majorRule(t), t);
-  for (const t of ['궤도협의회 대표자회의', '가상 대의원대회', '가상 파업 대책 회의', '본부 집행위', '궤도 집행국 회의', '노조 상집 44차', '노조 중집', '가상 사업장 방문', '파업 사업장 방문', '교섭 실무 회의', '', null])
+  for (const t of ['레일협의회 대표자회의', '가상 대의원대회', '가상 파업 대책 회의', '본부 집행위', '궤도 집행국 회의', '노조 상집 44차', '노조 중집', '가상 사업장 방문', '파업 사업장 방문', '교섭 실무 회의', '', null])
     assert.equal(majorRule(t), null, String(t));
-  assert.ok(hasSkipWord('노조 상집 44차', OPERATOR_WORDS) && hasSkipWord('본부집행위', OPERATOR_WORDS) && !hasSkipWord('궤도협의회 대표자회의', OPERATOR_WORDS));
+  assert.ok(hasSkipWord('노조 상집 44차', OPERATOR_WORDS) && hasSkipWord('본부집행위', OPERATOR_WORDS) && !hasSkipWord('레일협의회 대표자회의', OPERATOR_WORDS));
   assert.match(MAJOR_SCHEDULE_RULE, /회의는 넣지 않는다/);
   assert.ok(MAJOR_RULES.length >= 5);
 });
 
-// WEEKLY-내부회의사람별(11/17 명진 "이건 나에게만 해당되는"): 빼는 단어는 코드에 없고 사람마다 넘긴다.
+// WEEKLY-내부회의사람별(11/17 사용자 "이건 나에게만 해당되는"): 빼는 단어는 코드에 없고 사람마다 넘긴다.
 test('빼는 단어는 코드에 고정돼 있지 않다: 단어가 없으면 아무 일정도 빼지 않고, 넘긴 사람에게만 걸린다', () => {
   assert.equal(majorModule.INTERNAL_MEETINGS, undefined);
   assert.deepEqual([...OPERATOR_WORDS], OLD_FIXED, '운영자 행에 넣는 단어 = 옛 고정 단어 그대로');

@@ -10,7 +10,7 @@
   // OUTSIDE-글상세·관심환류 ③ → S51-17 NEWS P5: News 화면(#outsideView, 라우터 이름 outside)의 주소는 ?view=news다(아래 URL_NAME).
   // 옛 ?view=outside·?view=now와 go('news')도 같은 화면을 연다(주소는 ?view=news로 고쳐 쓴다). 탭은 화면이 정한다(마지막 탭).
   // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages, go('pages'))은 없앴다 — 노트(정리함의 노트 쪽, ALIAS_SUB)를 연다. 주소는 ?view=basket&pane=note로 고쳐 쓴다.
-  // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 화면은 없앴다. 옛 ?view=ledger·go('ledger')는 홈을 연다.
+  // LEDGER-화면에서빼기(2026-11-25 사용자 결정): 원장 화면은 없앴다. 옛 ?view=ledger·go('ledger')는 홈을 연다.
   // ORG-참고묶음삭제(S71-22, 2026-11-26 사용자 "참고 묶음 기능 삭제 안씀"): 참고 묶음 화면은 없앴다. 옛 ?view=reference·go('reference')는 조직 관리를 연다.
   const VIEW_ALIAS={ledger:'home',reference:'team','hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
   const ALIAS_SUB={pages:'note'};
@@ -340,7 +340,7 @@
     // NAV-PC뒤로직전: a step between two picked items of the same screen shows the item of the entry landed on.
     if(sameView&&!returningTo&&!closed&&api.current===viewFromUrl())showPick();
   }
-  // NAV-PC뒤로직전(명진 결정 11/11 (나)): on a PC '목록 | 상세' screen (the detail shown in a pane beside the list, not a window or
+  // NAV-PC뒤로직전(사용자 결정 11/11 (나)): on a PC '목록 | 상세' screen (the detail shown in a pane beside the list, not a window or
   // layer) the item the person picks is a history step too: A → B → C, then ‹ = B, ‹ = A, ‹ = the screen before (like phone back),
   // and › goes the same way forward. This router is the one owner of those entries; a screen never writes history for it:
   // - pick.record(view, values) — only for a pick the person made (a click/key on a row), never for an item the screen opened by
@@ -635,7 +635,7 @@
   }
 
   function syncNavigationState(view){
-    // UI-일정탭달력기본(11/20 명진): 폰 [일정] 탭은 달력·할 일·하루 기록을 묶지만, 누르면 늘 달력(data-view="calendar" 고정)을 연다.
+    // UI-일정탭달력기본(11/20 사용자): 폰 [일정] 탭은 달력·할 일·하루 기록을 묶지만, 누르면 늘 달력(data-view="calendar" 고정)을 연다.
     // 마지막으로 본 쪽을 기억해 열지 않는다 — 잠근 하루 기록을 보던 뒤 [일정]을 눌러도 잠금 화면이 아니라 달력. 하위 화면은 위 [달력|할 일|하루 기록]으로.
     // 탭의 선택 표시는 mobile-tab-selection.mjs가 묶음(group)으로 칠한다(할 일·하루 기록에서도 [일정]이 켜짐).
     // UI-PC일정묶음: the PC sidebar [일정] heads a sub menu (달력·할 일·일기). The head (data-nav-group) keeps the

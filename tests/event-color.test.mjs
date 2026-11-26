@@ -1,6 +1,6 @@
 // S67-65 CAL-꽉찬색(E1): 일정 칩 색 표 하나 + 글자 대비 자동 판정.
-// S68-03 CAL-밝은색 G2(명진 11/22): E1은 흰 글자 4.5:1을 맞추려 모든 색을 어둡게 눌러 '거무티티'해졌다.
-// 명진이 고른 G2는 구글처럼 밝은 색 + 흰 글자 기본이므로, 기준을 '흰 글자면 2.7:1 이상, 진한 글자면 4.5:1 이상'으로 바꾼다.
+// S68-03 CAL-밝은색 G2(사용자 11/22): E1은 흰 글자 4.5:1을 맞추려 모든 색을 어둡게 눌러 '거무티티'해졌다.
+// 사용자가 고른 G2는 구글처럼 밝은 색 + 흰 글자 기본이므로, 기준을 '흰 글자면 2.7:1 이상, 진한 글자면 4.5:1 이상'으로 바꾼다.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {WHITE_MIN, EVENT_COLOR_IDS, CALENDAR_COLOR_TONES, COLOR_TONES, toneColor, eventInk, eventChip, contrastRatio, INK_LIGHT, INK_DARK, DEFAULT_GOOGLE} from '../app/event-color.mjs';
@@ -22,7 +22,7 @@ test('표의 모든 색(일정 11가지·캘린더 기본색)은 흰 글자 2.7:
   assert.equal(WHITE_MIN, 2.7);
 });
 
-test('G2 값: 명진이 고른 일정 색 11가지, 노랑(바나나)만 진한 글자', () => {
+test('G2 값: 사용자가 고른 일정 색 11가지, 노랑(바나나)만 진한 글자', () => {
   const g2 = {1: '#7683c4', 2: '#4a9e88', 3: '#9459ae', 4: '#d98077', 5: '#eebe4e', 6: '#eb7d43', 7: '#368cc0', 8: '#787776', 9: '#5166b0', 10: '#338860', 11: '#d8503c'};
   for (const [id, tone] of Object.entries(g2)) {
     assert.equal(EVENT_COLOR_IDS[id].tone, tone, EVENT_COLOR_IDS[id].name);

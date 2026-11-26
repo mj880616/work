@@ -32,7 +32,7 @@ export const DOC_TEXT_MAX = 200;
 //   임시저장은 draft 를 통째로 쓰므로 makeDraft·readDraft·merge3·keepDocsOnly 가 issued 를 다시 실어 보낸다(안 그러면 다음 저장에 지워진다).
 //   '고친 칸'이 아니라 사본 기록이라 hasContent·3자 비교 칸에는 넣지 않고(이어 쓰기·충돌 질문 없음), 합칠 때는 더 나중에 낸 것을 쓴다.
 // MTG-프로젝트합치기 사업영역 AI(docs/design/project-into-report.md 12.2·13절): 예전에 사업요약표 '진행' 한 줄 요약을 같은 draft의 area_summaries 칸에 두었다.
-//   area_summaries: {"<사업영역 id>": {text, hash, edited, at}}. S49-39(명진 11/04 16:45 "아예 지우자")로 쓰고 보여 주는 길은 모두 없앴다 — 이 칸은 이미 저장된 값을
+//   area_summaries: {"<사업영역 id>": {text, hash, edited, at}}. S49-39(사용자 11/04 16:45 "아예 지우자")로 쓰고 보여 주는 길은 모두 없앴다 — 이 칸은 이미 저장된 값을
 //   지우지 않고(요청 없으면 데이터 보존) 읽은 그대로 다시 실어 보낼 뿐이다. 새로 쓰는 곳은 없다. 사업요약표 직접 쓰기는 rows(summary 칸)·owners 에 둔다(weekly-summary-hand.mjs).
 //   3자 비교 칸은 고친 줄만(area:<id>). AI 줄은 합칠 때 더 나중에 쓴 것(at)을 둔다. hasContent에는 넣지 않는다(상자에서 고친 것이 아님).
 

@@ -252,7 +252,7 @@ export function startDraft(team, {me, myOrgs = [], orgList = null, title, date})
   return personalReportFromTeam(team, me, {myOrgs, orgList, title: title ?? team.title ?? '', date});
 }
 
-// ORG-쟁의단계 ②(2026-10-24) → WEEKLY-주간정리다듬기(명진 11/13 17:14 "한글 파일에서도 빼"): 3. 2) 투쟁 사업장 칸에 쟁의 단계 줄('- 파업 찬반투표(11.5)')을 넣지 않는다.
+// ORG-쟁의단계 ②(2026-10-24) → WEEKLY-주간정리다듬기(사용자 11/13 17:14 "한글 파일에서도 빼"): 3. 2) 투쟁 사업장 칸에 쟁의 단계 줄('- 파업 찬반투표(11.5)')을 넣지 않는다.
 //   - 투쟁 중인 내 담당 조직은 칸이 있다(직전 확정본에 줄이 없던 조직은 빈 줄을 표 끝에 더함). 칸 글은 직전 확정본 줄 그대로.
 //   - 모든 칸에서 예전에 앱이 넣은 단계 줄(isStageLine)은 뺀다(starts = 뺀 뒤 줄). 손으로 쓴 다른 줄은 그대로.
 //   - 직전 확정본에 줄이 있었는데 더는 투쟁 중이 아니면(끝난 주 포함) 말없이 지우지 않고 fixes(고칠 목록 '지울까요?')로 알린다. 줄 자체는 그대로 둔다.
@@ -332,7 +332,7 @@ export function applyBizWindow(base, me, rows, {places = null} = {}) {
   const areaOf = e => e.row.keyArea ?? e.area.join(' ');
   const mine = effectiveOwners(out.summary).filter(e => isMine(e.owner, name));
   const used = new Set(), want = new Map(), slots = new Map(), added = [];
-  // WEEKLY-사업영역묶음 ①(시안 docs/design/mockups/weekly-tidy.html ②, 명진 11/13 (나)): 양식(지난주 확정본)의 내 줄 가운데
+  // WEEKLY-사업영역묶음 ①(시안 docs/design/mockups/weekly-tidy.html ②, 사용자 11/13 (나)): 양식(지난주 확정본)의 내 줄 가운데
   // 세부 과제(둘째 칸) 이름이 이 사업영역 이름과 같은 줄 = 이 사업영역의 '자리'(첫 칸 이름은 따지지 않음, 띄어쓰기·부호 무시, 내 줄 한정).
   // 자리가 없으면 고른 자리(places: 사업영역 이름 → {area, task}, 양식 줄 이름)를 쓴다. 둘 다 없으면 null(예전처럼 새 줄).
   const slotOf = area => {

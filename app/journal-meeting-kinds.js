@@ -5,7 +5,7 @@
 // 20261022090000; new rows start empty since 20261117190000). Anything not in the list is reported, so a new kind is reported by itself,
 // and a list that cannot be read (an older answer, a failed read) means "report everything" — the screen never hides on a guess.
 // Reads and writes go through the existing owner-RLS REST path (my profile row, this one column only).
-// WEEKLY-내부회의사람별(11/17 명진): the same list also holds "word" entries written '*단어*' (e.g. '*상집*') = leave out every meeting
+// WEEKLY-내부회의사람별(11/17 사용자): the same list also holds "word" entries written '*단어*' (e.g. '*상집*') = leave out every meeting
 // whose kind name contains that word. They used to be a fixed list in code that hit everyone; now they live only in the owner's own row
 // (migration 20261117190000; new rows start with an empty list). The screen never writes word entries (the ⋯ switch writes exact kinds only).
 import {hasSkipWord} from './weekly-major-schedule.mjs';

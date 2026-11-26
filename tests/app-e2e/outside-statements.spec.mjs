@@ -204,7 +204,7 @@ for (const width of [412, 884, 1280]) {
     expect(server.calls.find(c => c.what === 'app_outside_reads' && c.method === 'GET').query).toContain('workspace_id=eq.w');
     expect(await noWideScroll(page)).toBe(true);
 
-    // 탭 자리(명진 11/06): 폰 = 아래 가운데 떠 있음, 폴드 = 오른쪽 아래, PC = 위.
+    // 탭 자리(사용자 11/06): 폰 = 아래 가운데 떠 있음, 폴드 = 오른쪽 아래, PC = 위.
     const tb = await segBox(root(page).locator('[data-os-tabs]')), vw = width, top = await root(page).locator('[data-nw-all]').boundingBox(); // S70-54: 옛 찾기 줄은 없고 탭 줄 바로 아래가 목록
     if (width <= 760) { expect(Math.abs(tb.x + tb.width / 2 - vw / 2)).toBeLessThan(4); expect(tb.y).toBeGreaterThan(700); }
     else if (width < 1200) { expect(vw - (tb.x + tb.width)).toBeLessThan(20); expect(tb.y).toBeGreaterThan(800); }
@@ -319,7 +319,7 @@ test('News 처음 탭: news_tab이 없으면 옛 now_tab을 바꿔 한 번 옮�
   expect(server.prefs.value.now_tab).toBe('news');
 });
 
-// S54-04 UI-고르기창버튼아래(11/08 명진 결정 B): [매체: 전체 ▾] 창은 폰·폴드·PC 모두 누른 버튼 바로 아래 작은 창 — 첫 줄 '전체'가 다 보이고 아래 메뉴 줄과 겹치지 않는다.
+// S54-04 UI-고르기창버튼아래(11/08 사용자 결정 B): [매체: 전체 ▾] 창은 폰·폴드·PC 모두 누른 버튼 바로 아래 작은 창 — 첫 줄 '전체'가 다 보이고 아래 메뉴 줄과 겹치지 않는다.
 for (const width of [390, 884, 1280]) test(`News 매체 고르기 창은 누른 버튼 바로 아래 ${width}`, async ({ page }) => {
   const { errors } = await start(page, width);
   await openOutside(page, width);
@@ -335,8 +335,8 @@ for (const width of [390, 884, 1280]) test(`News 매체 고르기 창은 누른 
   expect(errors).toEqual([]);
 });
 
-// S69 NEWS-제목늘읽기·NEWS-사설칼럼(명진 11/24): 제목 없는 줄은 '제목 읽기 전'으로 남지 않고(대기·robots 모의), [매체 ▾]에 '사설·칼럼' 묶음 하나 — 고르면 사설·칼럼만.
-// S70-17b NEWS-제목꼭얻기(명진 11/25 "못읽으면 차라리 목록에서 빠지는게 나음"): 주소 조각도 없는 줄(동아일보 꼴)은 목록에서 빠진다.
+// S69 NEWS-제목늘읽기·NEWS-사설칼럼(사용자 11/24): 제목 없는 줄은 '제목 읽기 전'으로 남지 않고(대기·robots 모의), [매체 ▾]에 '사설·칼럼' 묶음 하나 — 고르면 사설·칼럼만.
+// S70-17b NEWS-제목꼭얻기(사용자 11/25 "못읽으면 차라리 목록에서 빠지는게 나음"): 주소 조각도 없는 줄(동아일보 꼴)은 목록에서 빠진다.
 test('S69 News: 제목 없는 대기·robots 줄은 주소 조각으로, 조각도 없으면 목록에서 빠짐, [매체 ▾] 사설·칼럼 묶음으로 거르기', async ({ page }) => {
   test.setTimeout(90000);
   const newsCatalog = [...NEWS_CATALOG, { key: 'news-fake-a-opinion', name: '가짜일보 사설·칼럼', region: 'opinion', lang: 'ko' }];
@@ -365,7 +365,7 @@ test('S69 News: 제목 없는 대기·robots 줄은 주소 조각으로, 조각�
   expect(errors).toEqual([]);
 });
 
-// S70-17b NEWS-제목꼭얻기(명진 11/25 10:26 "원문 못읽어도 최소한 제목이라도 읽어야함 … 못읽으면 차라리 목록에서 빠지는게 나음"): 폰 390 읽을 거리.
+// S70-17b NEWS-제목꼭얻기(사용자 11/25 10:26 "원문 못읽어도 최소한 제목이라도 읽어야함 … 못읽으면 차라리 목록에서 빠지는게 나음"): 폰 390 읽을 거리.
 // 제목을 끝내 못 얻은 기사(동아일보 공유 주소 꼴 — 주소 조각도 없음)는 '못 읽은 기사 · 도메인' 카드로 보이지 않고 '새 글 N'에도 세지 않는다.
 // 서버가 나중에 제목을 얻으면(같은 기사 RSS 줄 등) 다시 읽을 때 보인다. 보관한 글(공유로 넣은 글)은 [직접 넣기]를 위해 남는다.
 test('S70-17b 폰 390: 제목 없는 기사는 읽을 거리 목록·새 글 수에서 빠지고, 제목이 생기면 다시 보임', async ({ page }) => {

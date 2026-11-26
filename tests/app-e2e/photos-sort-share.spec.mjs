@@ -38,7 +38,7 @@ async function fixture(page, width) {
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript(() => {
     window.KPTUOdWarm = { run: () => null };
-    // 클립보드·기기 공유 창 흉내(시험 기록만, 기기 저장 없음). 실제 붙여넣기(Ctrl+V)는 merge 뒤 명진이 실기기에서 본다.
+    // 클립보드·기기 공유 창 흉내(시험 기록만, 기기 저장 없음). 실제 붙여넣기(Ctrl+V)는 merge 뒤 사용자가 실기기에서 본다.
     window.__clip = []; window.__shared = 0;
     const clip = { write: async list => { for (const item of list) { const blob = await item.getType('image/png'); window.__clip.push({ types: [...item.types], type: blob.type, size: blob.size }); } } };
     Object.defineProperty(Navigator.prototype, 'clipboard', { configurable: true, get: () => clip });

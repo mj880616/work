@@ -7,7 +7,7 @@ import { openReportBoxes, closeReportBoxes, pickReportBox } from './helpers/repo
 
 // S54-21 BIZ-위쪽정돈(요청함 11/09 00:10~01:22, 시안 docs/design/mockups/biz-report-top.html 확정안 01:22):
 // 사업 보고 위쪽은 세 줄 — ① 제목 '사업 관리' ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9~11.15 › · n건.
-// BIZ-위쪽정돈PC(명진 11/09 10:52 A안, 시안 biz-report-top-pc.html): PC(761px~)는 같은 요소가 한 줄 — ② ③ ……… [녹음][+][⋯](작은 아이콘, 폰과 같은 버튼·순서).
+// BIZ-위쪽정돈PC(사용자 11/09 10:52 A안, 시안 biz-report-top-pc.html): PC(761px~)는 같은 요소가 한 줄 — ② ③ ……… [녹음][+][⋯](작은 아이콘, 폰과 같은 버튼·순서).
 // 주 고르기는 이 화면에 하나, '이번 주 주간보고'는 늘 펼친 채 같은 주를 따르고, 떠 있는 동그란 [+]는 없다. [목록|달력|사진]은 앞 자리 규칙 그대로(위로 올리지 않음).
 // (가짜 서버·가짜 보고는 report-period.spec.mjs와 같은 틀. 모든 이름·번호는 합성 값.)
 test.use({timezoneId: 'Asia/Seoul'});
@@ -28,7 +28,7 @@ function makeState() {
   docs.push(doc(21, M2), doc(31, M5));
   return {
     year: y, month: mo - 1, photoCalls: [], meetingOpens: [], docs,
-    // MULTI-사업보고빈화면: 이 시험은 사업영역이 있는 계정(명진)의 위쪽 줄·주간보고 표를 본다. 사업영역 0개(새 계정)는 biz-week-none.spec.mjs.
+    // MULTI-사업보고빈화면: 이 시험은 사업영역이 있는 계정(사용자)의 위쪽 줄·주간보고 표를 본다. 사업영역 0개(새 계정)는 biz-week-none.spec.mjs.
     spaces: [{id: 'area-1', workspace_id: 'workspace-1', name: '합성 사업', description: null, parent_id: null, status: 'active', visibility: 'private', owner_id: 'user-1', sort_order: 10, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', metadata: {project_system: 'v2', management_version: 2}}],
     user: {id: 'user-1', email: 'owner@example.org', user_metadata: {display_name: '관리자'}},
     workspace: {id: 'workspace-1', slug: 'team', name: '웹2'},
@@ -96,7 +96,7 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   await expect(page.locator('#reportMore, #reportRecordBtn, #phoneRecordBtn')).toHaveCount(0);
   // ② 둘째 줄: [회의 ▾](모든 폭 상자, 칩 줄 없음)·[사업영역 ▾]·[주 ▾]가 한 줄이고 폰은 첫 줄 아래, PC는 첫 줄과 같은 줄(아이콘 왼쪽).
   await expect(page.locator('#reportKindFilter, #reportNameSelect')).toHaveCount(0);
-  // S67-75 UI-걸러보기칩하나(명진 A안): 폰은 고르기 상자들이 줄에 다 안 들어가면 칩 하나 — 그 칩이 둘째 줄 자리다.
+  // S67-75 UI-걸러보기칩하나(사용자 A안): 폰은 고르기 상자들이 줄에 다 안 들어가면 칩 하나 — 그 칩이 둘째 줄 자리다.
   const inChip = !pc && await page.locator('#reportFilterChip').isVisible();
   const line2 = await mids(page, inChip ? '#reportFilterChip' : `#reportFilterBar > #reportKindSelect, #reportFilterBar > #reportAreaSelect, #reportFilterBar #reportPeriodPick select`);
   expect(line2.length).toBeGreaterThanOrEqual(inChip ? 1 : 2);

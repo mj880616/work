@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// S70-40b ④ READ-목록머리(docs/design/reading-screens.md 2절 A1·A2·5절 ② (가), 명진 11/25 16:16 "추천대로"):
+// S70-40b ④ READ-목록머리(docs/design/reading-screens.md 2절 A1·A2·5절 ② (가), 사용자 11/25 16:16 "추천대로"):
 // 저장한 글 왼쪽 목록 머리 줄 — PC 틀(761px~)은 위 줄(app-topline)에 화면 이름이 보이므로 머리 줄 제목을 빼고 보기 탭 + ＋ 아이콘만.
 // 글을 열어 왼쪽 칸이 좁아져도(22em) 머리 줄 안 어떤 칸도 잘리지 않는다(scrollWidth ≤ clientWidth). 안 읽은 글이 없으면 '안 읽음'(0 없음).
 // 폰(위 줄 없음)은 앱 머리 줄이 화면 이름을 보이므로(S70-57) 머리 줄 제목은 어느 폭에도 없다. 서버는 흉내, 글·주소는 모두 예시.

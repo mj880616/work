@@ -1,5 +1,5 @@
 // TG-발언자이름 4단계 (docs/design/telegram-sender-names.md 6절): 텔레그램 원문 줄의 A·B에 이름을 입히는 규칙. DOM·네트워크 없이 순수 계산만 한다.
-// 표시 순서(명진 결정): 손으로 붙인 이름(name) → "나"(is_self) → 수집기 이름(auto_name) → A 그대로. 표가 비었거나 읽기가 실패하면(index가 null) 지금처럼 A·B.
+// 표시 순서(사용자 결정): 손으로 붙인 이름(name) → "나"(is_self) → 수집기 이름(auto_name) → A 그대로. 표가 비었거나 읽기가 실패하면(index가 null) 지금처럼 A·B.
 // 원문(raw_text)은 한 글자도 바꾸지 않고, (방, 날짜, 라벨)로 사람을 찾아 화면에서만 입힌다. AI 요약에는 이름이 가지 않는다.
 export const NAME_MAX = 40;
 

@@ -1,4 +1,4 @@
-// FORGET-소식합치기(요청함 11/08 21:02~21:19, 시안 docs/design/mockups/forget-news-link.html, 명진 'ㅇㅋ'·'넣어'):
+// FORGET-소식합치기(요청함 11/08 21:02~21:19, 시안 docs/design/mockups/forget-news-link.html, 사용자 'ㅇㅋ'·'넣어'):
 // 업무일지 '기억할 통화·텔레그램' 묶음(옛 journal-memorable.js)을 없애고, 같은 줄(AI가 고른 그날 업무 통화·텔레그램 소식)을 잊지 말기 한 목록에
 // 출처 '소식'으로 넣는다. 이 파일은 그 줄의 읽기·쓰기만 한다(그리기는 forget-list.js 한 곳).
 // - 저장은 그대로 서버 표 app_journal_memorable(owner RLS + 운영자 기능 restrictive 정책, 새 표·새 칸 없음). 상태: suggested = 처리 전,
@@ -27,7 +27,7 @@ const enc = encodeURIComponent;
 export const NEWS_SOURCE_TAG = Object.freeze({telegram: '소식 · 텔레그램', call: '소식 · 통화'});
 
 // 서버 줄 → 목록 줄. 모양이 틀린 줄은 버린다.
-// S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 종류 promise = 내가 남에게 부탁해 상대가 하기로 한 일(상대 약속).
+// S61-11 FORGET-요청방향 2단계(사용자 11/13 05:19): 종류 promise = 내가 남에게 부탁해 상대가 하기로 한 일(상대 약속).
 // 처리 전 할 일 줄·빨간 숫자에 들지 않고 잊지 말기 맨 아래 '상대 약속' 줄에 보인다(promiseNews). 서버가 정한다(ai-assist journal-memorable.ts).
 export const NEWS_KINDS = Object.freeze(['task', 'event', 'note', 'org', 'area', 'promise']);
 const PICK = 'app_journal_memorable_picks';

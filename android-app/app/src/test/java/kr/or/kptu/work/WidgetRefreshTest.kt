@@ -15,7 +15,7 @@ import org.w3c.dom.Element
  * FIX-위젯: 위젯이 빈칸·'불러오는 중'에 멈추던 문제(0.3.5~0.3.7).
  * 원인: WidgetToday의 정규식 (?U)가 안드로이드(ICU)에서 PatternSyntaxException → WidgetToday 초기화 실패 →
  * 그 객체를 쓰는 오늘·이번 주·텔레그램·아스날 그리기와 갱신 작업이 모두 예외로 끝남. JVM에서는 (?U)가 되어 시험이 못 잡았다.
- * S68-13(11/22 명진): '지금'·'아스날' 위젯을 지워 위젯 세션을 쓰는 위젯은 '이번 주' 하나.
+ * S68-13(11/22 사용자): '지금'·'아스날' 위젯을 지워 위젯 세션을 쓰는 위젯은 '이번 주' 하나.
  */
 class WidgetRefreshTest {
     private val src = File("src/main/java/kr/or/kptu/work")
@@ -38,7 +38,7 @@ class WidgetRefreshTest {
         {"id":"t2","title":"지난 일","notes":"","due":"2026-10-28T00:00:00.000Z","status":"needsAction","completed":null,"updated":null,"taskListId":"@default","taskListTitle":"내 할 일","position":null,"webViewLink":null,"source":"google-task"}
       ]}"""
 
-    // S68-02: 서버 기능 목록(app_my_features). 기본은 명진 화면(nojo_words)처럼.
+    // S68-02: 서버 기능 목록(app_my_features). 기본은 사용자 화면(nojo_words)처럼.
     private var features = """["calls","nojo_words"]"""
 
     private fun serverReplies(plan: WidgetRefresh): List<WidgetSession.Reply> = plan.urls.map { url ->

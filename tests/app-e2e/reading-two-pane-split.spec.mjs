@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { newsServer } from './helpers/news-server.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
-// S70-58 READ-두칸보기(명진 11/26 06:12 "읽을 거리랑 저장한 글 왼쪽 목록 오른쪽 본문 형태로 개편 드래그 폭 조절 가능하게 / 폴드 펼침 이야기임"):
+// S70-58 READ-두칸보기(사용자 11/26 06:12 "읽을 거리랑 저장한 글 왼쪽 목록 오른쪽 본문 형태로 개편 드래그 폭 조절 가능하게 / 폴드 펼침 이야기임"):
 // 칸 나누기 폭(600px~ — 펼친 폴드 기본 화면 약 690px, PC)에서 두 화면 모두 왼쪽 목록 | 오른쪽 글.
 // ① 처음 들어오면 맨 위 글이 오른쪽에(저절로 연 글은 읽음으로 치지 않음) ② 다른 글을 누르면 오른쪽만 바뀌고 목록은 그대로
 // ③ 가운데 경계를 끌면 폭이 바뀌고 서버(view_prefs.split_ratio.<화면>)에 기억 → 새로고침해도 그대로(공용 checkSplit) ④ 폰 390은 한 칸(누르면 글, 뒤로 = 목록).

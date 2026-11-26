@@ -33,10 +33,10 @@ test('줄바꿈 없는 아주 긴 줄도 조각 크기로 자르고, 상한 조�
 
 test('조각 요약 → 합치기 재료 글',()=>{
   const t=partsText([
-    {decisions:'예산 확정',information:'',actions:[{task:'공문 발송',assignee:'명진',due:'2026-11-05'}],attendees:['가'],meetingDate:'2026-11-03'},
+    {decisions:'예산 확정',information:'',actions:[{task:'공문 발송',assignee:'사용자',due:'2026-11-05'}],attendees:['가'],meetingDate:'2026-11-03'},
     {decisions:'',information:'다음 회의 11월 10일',actions:[],attendees:[],meetingDate:''},
   ]);
-  assert.match(t,/^\[부분 1\/2\]\n참석: 가\n결정\n- 예산 확정\n할 일\n- 공문 발송 \(담당 명진\) \(기한 2026-11-05\)\n날짜: 2026-11-03/);
+  assert.match(t,/^\[부분 1\/2\]\n참석: 가\n결정\n- 예산 확정\n할 일\n- 공문 발송 \(담당 사용자\) \(기한 2026-11-05\)\n날짜: 2026-11-03/);
   assert.match(t,/\[부분 2\/2\]\n공유\n- 다음 회의 11월 10일$/);
 });
 

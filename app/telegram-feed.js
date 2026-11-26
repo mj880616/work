@@ -342,7 +342,7 @@ function headHtml() {
   const more = ready ? `<button type="button" class="feed-more" data-tg-head-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button>` : '';
   return `<div class="feed-head"><span class="feed-head-title screen-title" aria-hidden="true">텔레그램 소식</span><span class="feed-head-sub" data-tg-today>${ready ? esc(telegramHeadText(today) + failed) : ''}</span>${ready ? pull.button() : ''}${more}</div>${ready ? pull.line() + chipsHtml() + feditHtml() : ''}`;
 }
-// 줄 밀기(S70-65 UI-밀기메뉴통일, 명진 11/26 08:16 가안): 칸은 공용 줄 밀기(row-swipe.js)가 그린다. 여기는 줄 틀(방·날·보는 자리)만.
+// 줄 밀기(S70-65 UI-밀기메뉴통일, 사용자 11/26 08:16 가안): 칸은 공용 줄 밀기(row-swipe.js)가 그린다. 여기는 줄 틀(방·날·보는 자리)만.
 function swipeRow(key, mode, room, day, inner) {
   return `<div class="feed-swipe" data-tg-swipe="${esc(key)}" data-mode="${mode}" data-room="${esc(room)}" data-day="${esc(day)}">${inner}</div>`;
 }

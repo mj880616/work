@@ -8,13 +8,13 @@ const MEETING=Object.freeze({
   nameLabel:'회의명',
   nameMissing:'회의명을 입력해 주세요.',
   resultLegend:'회의 결과',
-  // S62-02 MTG-원문칸넘침(11/15 명진 '원문이라는 표현을 내용으로'): '원문' 말을 뺀다. [회의] 칸은 '회의 결과'.
+  // S62-02 MTG-원문칸넘침(11/15 사용자 '원문이라는 표현을 내용으로'): '원문' 말을 뺀다. [회의] 칸은 '회의 결과'.
   textLabel:'회의 결과',
   textPlaceholder:'회의 결과를 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
   materials:'회의자료',
   pickFiles:'회의자료 파일 선택',
   materialsSaved:'회의자료',
-  // S48-64(REC-전사원문저장, 명진 11/03 '특이사항을 회의록 전문으로'): [회의] 칸의 notes 칸 = 전사 전문. 칸(DB 열)은 그대로 app_meetings.notes.
+  // S48-64(REC-전사원문저장, 사용자 11/03 '특이사항을 회의록 전문으로'): [회의] 칸의 notes 칸 = 전사 전문. 칸(DB 열)은 그대로 app_meetings.notes.
   notesLabel:'회의록 전문',
   // S61-24 REC-요약단추삭제: 화면이 전사하지 않으므로 '녹음을 전사하면…' 안내는 뺐다.
   notesPlaceholder:'회의록 전문을 붙여 넣어도 돼요.'

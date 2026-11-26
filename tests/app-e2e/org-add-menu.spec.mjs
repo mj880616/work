@@ -1,7 +1,7 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-// MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정): 조직 보고 맨 위 [+ 담당조직](이름·종류 두 칸)과 그 조직 메뉴
-// [이름 바꾸기]·[담당 조직에서 제외]/[담당 조직으로 추가]·[삭제]. ORG-목록줄메뉴없음(S71-08): 메뉴는 목록 줄 ⋯가 아니라 줄을 눌러 연 상세 맨 위 ⋯. 두 계정: 막 가입한 다른 담당자(?orgs=none)와 명진(?orgs=order).
+// MULTI-다른담당자맞춤 ①(2026-11-13 사용자 결정): 조직 보고 맨 위 [+ 담당조직](이름·종류 두 칸)과 그 조직 메뉴
+// [이름 바꾸기]·[담당 조직에서 제외]/[담당 조직으로 추가]·[삭제]. ORG-목록줄메뉴없음(S71-08): 메뉴는 목록 줄 ⋯가 아니라 줄을 눌러 연 상세 맨 위 ⋯. 두 계정: 막 가입한 다른 담당자(?orgs=none)와 사용자(?orgs=order).
 // 값은 화면 기억 org_order 하나(window.__orgOrderPrefs 대역), 서버는 가짜(저장 요청만 확인). 이름은 모두 합성 값.
 const base=`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html`;
 const SHOTS=process.env.S61_39_SHOTS; // 화면 사진: docs/design/screens/s61-39/
@@ -72,7 +72,7 @@ test('새 담당자: 이름 없이·같은 이름으로는 저장하지 않음',
   expect(await page.evaluate(()=>window.__orgPosts.length)).toBe(1);
 });
 
-for(const width of [412,1280])test(`명진 계정: 묶음·순서 그대로, 이름을 바꾸면 묶음 자리도 따라감, 제외한 조직은 맨 아래 ${width}px`,async({page})=>{
+for(const width of [412,1280])test(`사용자 계정: 묶음·순서 그대로, 이름을 바꾸면 묶음 자리도 따라감, 제외한 조직은 맨 아래 ${width}px`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setViewportSize({width,height:900});await page.goto(base+'?orgs=order');
   await expect(page.locator('.so-group-heading')).toHaveText(['철도1곳','지하철4곳','민자철도4곳','민간도시철도4곳','그 외2곳','보관한 조직1곳']);

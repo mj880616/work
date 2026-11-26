@@ -23,7 +23,7 @@ test('every blog policy requires the owner and the blog allow row (12 policies, 
 test('reader serves only the single allowed workspace; request values cannot pick a workspace or a person',async()=>{
  const s=store(),h=handler(s);
  const home=JSON.parse((await read(h,{blog:'home'})).text);
- assert.equal(home.blog.title,'명진 블로그');
+ assert.equal(home.blog.title,'사용자 블로그');
  assert.deepEqual(home.boards.map(b=>b.key),[KEYS.boardA,KEYS.boardB]);
  assert.ok(s.calls.filter(c=>c[0]==='blogByWorkspace').every(c=>c[1]===WS_OP));
  for(const body of [{blog:'home',workspace:WS_OTHER},{blog:'home',workspace_id:WS_OTHER},{blog:'home',user:'x'},{blog:'board',board:KEYS.boardOther},{blog:'post',post:KEYS.postOther}]){

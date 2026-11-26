@@ -1,4 +1,4 @@
-// APP-폰알림 N4(설계 docs/design/phone-notifications.md 3·4.4절, 명진 결정 N-D5): 내 프로필의 '폰 알림' 칸과 폰 기기 등록.
+// APP-폰알림 N4(설계 docs/design/phone-notifications.md 3·4.4절, 사용자 결정 N-D5): 내 프로필의 '폰 알림' 칸과 폰 기기 등록.
 // 서버 함수 phone-push(사용자 입구: register·unregister·test)를 부르는 곳은 이 파일 하나다('Notification boundary check' 허용 위치).
 // - 종류별 켜기/끄기·조용한 시간: 내 프로필 행(app_profiles.notify_prefs, 기존 owner RLS PATCH)에 바로 저장한다. 기기에는 아무것도 남기지 않는다.
 // - 등록된 폰 목록: app_push_devices를 기존 RLS로 읽는다(토큰 칸은 읽을 수 없음, migration 20261101010000). [끊기]는 phone-push unregister.

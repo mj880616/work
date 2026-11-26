@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {readLibraryCategories} from './helpers/library-categories.mjs';
 import {bootLibrary,libDoc} from './helpers/library-folder-server.mjs';
-// S51-28 LIB-화면정리 ②(요청 11/06 01:26, 명진 'ㅇㅋ', 시안 docs/design/mockups/library-category-edit.html): 자료실 [편집] = '분류 고치기 n개' 창.
+// S51-28 LIB-화면정리 ②(요청 11/06 01:26, 사용자 'ㅇㅋ', 시안 docs/design/mockups/library-category-edit.html): 자료실 [편집] = '분류 고치기 n개' 창.
 // 공용 '목록 고치기' 모양(list-edit.mjs): 맨 위 '새 분류 이름 [추가]', 줄 = ⠿ · 이름(누르면 그 자리 고침) · 자료 수 · ⋯([+ 소분류]·[이름 바꾸기]·[지우기]),
 // 큰 버튼·빨강·긴 안내문 없음, '기타'는 맨 아래 자물쇠 '고정', ⠿ 끌기 = 분류 칩 순서(서버 저장), 창이 아래 탭에 가리지 않음. 이름은 지어낸 것.
 const CATS=['교섭','투쟁','교육','선전','정책','회의','주간보고','주간보고›확정본','주간보고›개인본','공문','양식','기타'];

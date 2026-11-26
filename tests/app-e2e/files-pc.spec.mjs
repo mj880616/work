@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S50-27 FILES-내PC드라이브 ②(시안 A, 명진 결정 11/05): 윈도우 PC 브라우저에서 바구니 PC 앱 문(127.0.0.1:47620~47622)이 답하면
+// S50-27 FILES-내PC드라이브 ②(시안 A, 사용자 결정 11/05): 윈도우 PC 브라우저에서 바구니 PC 앱 문(127.0.0.1:47620~47622)이 답하면
 // 나무 맨 끝 뿌리 '내 PC'(원드라이브·구글 드라이브 다음 줄) → 드라이브 → 폴더 목록 → 미리보기 [이 PC에서 열기][탐색기에서 위치].
 // 두 칸이면 칸마다 '내 PC'를 고른다(왼쪽 내 PC · 오른쪽 원드라이브). 이 단계는 보기·열기만. 문이 답하지 않으면 '내 PC · 꺼짐' 흐린 줄 + 켜는 법.
 // PC 목록·이름은 서버·브라우저 저장소에 남지 않는다. 리눅스·폰 브라우저에서는 문을 두드리지 않는다. 문은 흉내(파일 이름은 모두 가짜).

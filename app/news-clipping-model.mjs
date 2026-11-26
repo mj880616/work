@@ -1,10 +1,10 @@
 import {AI_CAP_TEXT, isAiCap} from './ai-cap.mjs';
 import {sortByName} from './name-order.mjs';
 import {urlTitle} from './url-title.mjs';
-// NEWS-클리핑 화면 계산(설계 docs/design/news-clipping.md, 명진 11/01 22:34): 그리기 없는 순수 함수만. app/news-clipping.js가 쓴다.
-// - 한 목록: 채널 기사(lane=channel) + 서버가 찾은 기사(lane=keyword·media) = 하나의 스크랩. 어디서 왔는지(채널/자동) 칩·꼬리표는 화면에 없다(11/04 명진: 굳이 구분 안 해도 됨). lane 값·수집 방식은 그대로.
+// NEWS-클리핑 화면 계산(설계 docs/design/news-clipping.md, 사용자 11/01 22:34): 그리기 없는 순수 함수만. app/news-clipping.js가 쓴다.
+// - 한 목록: 채널 기사(lane=channel) + 서버가 찾은 기사(lane=keyword·media) = 하나의 스크랩. 어디서 왔는지(채널/자동) 칩·꼬리표는 화면에 없다(11/04 사용자: 굳이 구분 안 해도 됨). lane 값·수집 방식은 그대로.
 // - 한 문장 요약은 늘 보이고 본문은 접는다. 외국어 기사 제목은 서버가 수집 때 한국어로 미리 번역해 두고(한국어 제목 + 원제 작게),
-//   본문은 [번역]을 누를 때만 서버가 번역해 저장한다(저장본 재사용, S47-57 명진 결정).
+//   본문은 [번역]을 누를 때만 서버가 번역해 저장한다(저장본 재사용, S47-57 사용자 결정).
 // - 하루 횟수 같은 기본값은 서버(supabase/functions/news-feed/handler.ts) 상수 한 곳이 정하고, 화면은 catalog 응답 limits로 받는다.
 export const ALL = 'all';
 // C2: 별표한 기사는 폴더 트리(폴더 안 폴더)로 본다.
@@ -19,7 +19,7 @@ export const DEFAULT_LIMITS = Object.freeze({fill: 10, translate: 20, keywords: 
 export function laneFilter() {
   return '';
 }
-// [언론] 정렬(S63-12 NEWS-언론등급정렬, 명진 11/16 12:22 "노동 우선 / 사회 그 다음 정치 경제는 관련도 높은 것"):
+// [언론] 정렬(S63-12 NEWS-언론등급정렬, 사용자 11/16 12:22 "노동 우선 / 사회 그 다음 정치 경제는 관련도 높은 것"):
 //   받은 날(서울, kst_day) 최신 → 같은 날 안에서 등급 1 노동·2 사회·3 정치·경제 → 등급 없는 줄(채널 기사·옛 줄) → 받은 시각 최신.
 //   등급·날짜는 서버가 기사 표에 적은 칸 그대로다(규칙은 supabase/functions/_shared/news-rank.ts 한 곳 — 화면에 복제하지 않음). 날짜 묶음(groupItems)도 받은 날이라 순서와 맞는다.
 export const NEWS_ORDER = 'kst_day.desc.nullslast,news_rank.asc.nullslast,created_at.desc,id.desc';
@@ -63,7 +63,7 @@ const STATE_NOTE = {
 };
 export const stateNote = state => STATE_NOTE[state] || '';
 // 제목을 못 읽은 줄의 제목 자리(S67-10 NEWS-네이버공유읽기): '제목 없음' 대신 까닭 한마디 · 도메인. 자세한 까닭과 [직접 넣기]는 상세 원문 칸(now-detail.js).
-// S69 NEWS-제목늘읽기(명진 11/24 "제목 읽기 전 -> 제목은 읽어놔야 누르든 말든하지"): 서버가 들어올 때 그 주소 한 장의 제목을 읽는다(collector-feed·news-feed).
+// S69 NEWS-제목늘읽기(사용자 11/24 "제목 읽기 전 -> 제목은 읽어놔야 누르든 말든하지"): 서버가 들어올 때 그 주소 한 장의 제목을 읽는다(collector-feed·news-feed).
 //   그래도 제목이 없으면 '제목 읽기 전'으로 두지 않는다 — 주소 경로의 읽을 만한 조각(url-title.mjs), 그것도 없으면 '못 읽은 기사 · 도메인'.
 const NO_TITLE = {bot_check: '읽기 막힌 기사', blocked: '읽지 않는 주소'};
 const NO_TITLE_ELSE = '못 읽은 기사';
@@ -108,7 +108,7 @@ function ownTitle(item) {
   const raw = rawTitleOf(item);
   return koTitleOf(item) || (raw && !isAddressTitle(raw) ? raw : '') || urlTitle(item?.url);
 }
-// S70-17 NEWS-제목꼭얻기(명진 11/25 10:26 "제목 못읽으면 차라리 목록에서 빠지는게 나음"): 목록에 띄울 수 있는 줄인가.
+// S70-17 NEWS-제목꼭얻기(사용자 11/25 10:26 "제목 못읽으면 차라리 목록에서 빠지는게 나음"): 목록에 띄울 수 있는 줄인가.
 // 보일 제목이 있거나, 내가 보관한 글(공유로 넣은 글 포함 — [직접 넣기]로 채울 수 있게 보관 목록·상세에는 남는다)이면 띄운다.
 // 제목이 없는 줄은 지우지 않는다 — 서버가 나중에 제목을 얻으면(다른 곳 제목·제목 다시 읽기) 다음 읽기에서 다시 보인다.
 // 목록 규칙 한 곳은 feed-shared-model.mjs newsPage(목록 읽기 = [전체]·[언론] 같은 길)이다.
@@ -173,7 +173,7 @@ export function cleanWord(raw, have = []) {
   return {ok: true, word: w};
 }
 
-// 키워드 칸(S59-1 NEWS-키워드살리기, 11/11 명진 결정): 밖에서 새로 찾지 않고, 받은 매체 글 가운데 서버(news-feed 키워드 단계)가
+// 키워드 칸(S59-1 NEWS-키워드살리기, 11/11 사용자 결정): 밖에서 새로 찾지 않고, 받은 매체 글 가운데 서버(news-feed 키워드 단계)가
 // keywords 칸에 키워드를 적어 둔 글을 키워드마다 모아 보인다. 켠 키워드만, 키워드 가나다순(name-order.mjs, NEWS-출처목록가나다), 키워드마다 새 글부터 KW_GROUP_SIZE건.
 export const KW_GROUP_SIZE = 20;
 // PostgREST 배열 값(cs.{…})의 글자: 낱말마다 큰따옴표로 감싸고, 안의 \ 와 " 는 앞에 \ 를 붙인다(PostgreSQL 배열 글자 규칙). 주소에 넣을 때는 따로 encodeURIComponent.

@@ -14,12 +14,12 @@ const md = createMarkdown(MarkdownIt);
 const toDoc = text => markdownToDoc(md, guardDateLines(text));
 const strip = value => JSON.stringify(value, (k, v) => (k === 'marker' && v === 'decimal' ? undefined : v));
 
-const PASTED = '### 궤도협의회 집행위원회 회의 결과 종합\n\n2026\\. 10\\. 19\\.(월) 14:00\n\n### 1\\. 안건\n\n- **결정**: 가결\n- 보류 *사항*\n  - 하위\n\n1. 하나\n2. 둘\n\n| 칸 | 값 |\n|---|---|\n| 가 | 나 |\n\n> 인용\n\n---\n\n[링크](https://example.com/a) 끝';
+const PASTED = '### 레일협의회 집행위원회 회의 결과 종합\n\n2026\\. 10\\. 19\\.(월) 14:00\n\n### 1\\. 안건\n\n- **결정**: 가결\n- 보류 *사항*\n  - 하위\n\n1. 하나\n2. 둘\n\n| 칸 | 값 |\n|---|---|\n| 가 | 나 |\n\n> 인용\n\n---\n\n[링크](https://example.com/a) 끝';
 
 test('pasted result with copy backslashes is read as markdown and shows headings, lists and no backslash', () => {
   assert.ok(markdownSource(PASTED));
   const {html} = renderMarkdown(md, PASTED);
-  assert.match(html, /<h3>궤도협의회 집행위원회 회의 결과 종합<\/h3>/);
+  assert.match(html, /<h3>레일협의회 집행위원회 회의 결과 종합<\/h3>/);
   assert.match(html, /<h3>1\. 안건<\/h3>/);
   assert.match(html, /2026\. 10\. 19\.\(월\) 14:00/);
   assert.match(html, /<ul>/); assert.match(html, /<table>/);
@@ -34,7 +34,7 @@ test('plain letters opened in the window and saved come back exactly (원문 글
 
 test('a formatted text round-trips through the editor form as markdown', () => {
   const doc = toDoc(PASTED), out = docToMarkdown(doc);
-  assert.match(out, /^### 궤도협의회 집행위원회 회의 결과 종합$/m);
+  assert.match(out, /^### 레일협의회 집행위원회 회의 결과 종합$/m);
   assert.match(out, /^- \*\*결정\*\*: 가결$/m);
   assert.match(out, /^\| 칸 \| 값 \|$/m);
   assert.match(out, /^1\. 하나$/m);
@@ -59,7 +59,7 @@ test('letters that look like marks inside a formatted text are escaped, date lin
 test('사업 보고 screens use the shared reader and the one write window', () => {
   const mrd = read('app/meeting-round-detail.js'), team = read('app/team.js'), loader = read('app/view-loader.js');
   assert.match(mrd, /import \{paintRecordText\} from '\.\/record-text-view\.js'/);
-  // S62-02 MTG-원문칸넘침(11/15 명진 '우측 불필요'): 사업 보고 상세의 [원문] 버튼은 없다.
+  // S62-02 MTG-원문칸넘침(11/15 사용자 '우측 불필요'): 사업 보고 상세의 [원문] 버튼은 없다.
   assert.doesNotMatch(mrd, /rawToggleHtml|mrdResultRaw|mrdSpecialRaw/);
   assert.match(mrd, /paintRecordText\(document\.querySelector\('#mrdResult'\)/);
   assert.match(mrd, /paintRecordText\(document\.querySelector\('#mrdSpecial'\)/);

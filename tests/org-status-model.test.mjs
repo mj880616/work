@@ -25,7 +25,7 @@ test('순서(DESK-현황오름차순): 시작일 오름차순, 같은 날은 sor
   assert.deepEqual(older.map(r => r.id), ['a', 'f', 'e']);
   assert.deepEqual(weeklyLines(rows), ['- 10.20.(화) 교섭 결렬', '- 10.26.(월) 같은 날 두 번째', '- 10.26.(월) 조합원 총력 결의대회', '- 10.29.(목) 지노위 2차 조정회의 — 조정 종료(쟁의권 확보)']);
   assert.deepEqual(weeklyLines([]), []);
-  // 전체 표: 가장 최근 3줄을 오름차순으로, 그 앞 줄은 older(철도노조 예: 10.15 → 10.29 → 11.11)
+  // 전체 표: 가장 최근 3줄을 오름차순으로, 그 앞 줄은 older(가람노조 예: 10.15 → 10.29 → 11.11)
   const rail = [R('x', '2026-11-11', 'C', 0), R('y', '2026-10-15', 'A', 0), R('z', '2026-10-29', 'B', 0), R('w', '2026-09-01', '옛', 0)];
   assert.deepEqual(overviewRows(rail, 3).map(r => r.id), ['y', 'z', 'x']);
   assert.deepEqual(overviewOlder(rail, 3).map(r => r.id), ['w']);

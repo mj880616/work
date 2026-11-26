@@ -83,7 +83,7 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
     if(view==='meetings')for(const id of ['reportKindSelect','reportAreaSelect','reportNameSelect']){
       // S67-75 UI-걸러보기칩하나: 폰 폭이면 상자는 칩이 여는 창 안 — 숨김(hidden)이 아닌 상자를 칩 창을 열어 고른다.
       const box=page.locator('#'+id);if(!await box.count()||await box.evaluate(e=>e.hidden))continue;
-      // MTG-기본종류전체(11/15 명진): 사업 보고는 [종류 전체]로 열린다. 회의명 묶음 줄까지 보려면 [회의]부터 고른다(전에는 처음이 [회의]).
+      // MTG-기본종류전체(11/15 사용자): 사업 보고는 [종류 전체]로 열린다. 회의명 묶음 줄까지 보려면 [회의]부터 고른다(전에는 처음이 [회의]).
       if(id==='reportKindSelect'){await openReportBoxes(page);await box.selectOption('kind:meeting',{timeout:3000}).catch(()=>{});await page.waitForTimeout(120)}
       const values=(await box.locator('option:not([hidden])').evaluateAll(els=>els.map(e=>e.value))).slice(0,20);
       for(const v of values){await openReportBoxes(page);await box.selectOption(v,{timeout:3000}).catch(()=>{});await page.waitForTimeout(120);clicks.meetings++;await check(`meetings ${id} ${v.slice(0,12)}`)}

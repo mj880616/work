@@ -1,4 +1,4 @@
-// S69-06(명진 11/24 06:40·07:38 "원문 제대로 못 불러오는 곳을 다 고쳐야 돼"): 실제 사이트 점검(article-extract-live-check)에서 찾은 원인마다,
+// S69-06(사용자 11/24 06:40·07:38 "원문 제대로 못 불러오는 곳을 다 고쳐야 돼"): 실제 사이트 점검(article-extract-live-check)에서 찾은 원인마다,
 // 그 사이트 쪽 구조를 본뜬 작은 가짜 HTML(글은 지어낸 문장, example 주소)로 고친 동작을 본다. 네트워크 없음.
 import test from 'node:test';
 import assert from 'node:assert/strict';

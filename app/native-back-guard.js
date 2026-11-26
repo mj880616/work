@@ -8,7 +8,7 @@
   // BUG-뒤로가기: Android back is the browser's back. Every open menu, sheet, dialog and memo
   // owns a history entry, so KPTURouter.back() closes the top one first, then the previous screen;
   // at Web2's first entry the last return is home.
-  // S47-18(명진 결정 규칙 3, 2026-11-01): on home with nothing left (KPTURouter.back() → false) the app leaves, like any Android app:
+  // S47-18(사용자 결정 규칙 3, 2026-11-01): on home with nothing left (KPTURouter.back() → false) the app leaves, like any Android app:
   // the press goes back to the app as 'share:back', which it already answers by moving itself to the back (moveTaskToBack, the app's
   // own '뒤로 보내기'; it is not killed). The bridge is the existing KPTUAppShell (allowed origin, top frame only). Without it the
   // press is consumed as before (the WebView's own earlier pages are the sign-in steps, never a place to go back to).

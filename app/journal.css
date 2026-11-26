@@ -27,7 +27,7 @@
 #appView #homeView .journal-dot{ position:absolute; left:50%; bottom:6px; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ds-kind-journal-ink); }
 #appView #homeView .journal-date:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView .journal-date:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
-/* HOME-날짜줄고른날(명진 2026-11-12, 시안 #2431): 요일은 위에 작게, 날짜는 아래(폰·폴드·PC 모두 두 줄). 고른 날 = 진한 채운 동그라미·흰 숫자(앱 공용 .ds-day-sel·.ds-day-num,
+/* HOME-날짜줄고른날(사용자 2026-11-12, 시안 #2431): 요일은 위에 작게, 날짜는 아래(폰·폴드·PC 모두 두 줄). 고른 날 = 진한 채운 동그라미·흰 숫자(앱 공용 .ds-day-sel·.ds-day-num,
    UI-고른날진하게), 오늘 = 동그라미 선, 오늘을 고르면 채운 동그라미 하나. 앱 공용 '오늘 = 칸 둘레 네모 선'에서 홈 날짜 줄만 빠지는 예외(칸 테두리가 없는 날짜 줄이라)다.
    칸 바탕·테두리를 없애는 규칙은 화면 칸 규칙을 이기려고 :not(#ds-none)을 붙인다. 한 줄 쓴 날 초록 점은 그대로. */
 #appView #homeView .journal-date.journal-date:not(#ds-none){ background:transparent; border-color:transparent; }
@@ -486,7 +486,7 @@
 #appView #homeView button.journal-weekly-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView button.journal-weekly-open:hover{ text-decoration:underline; text-underline-offset:2px; } }
 
-/* HOME-업무일지홈(2026-10-30 명진 시안 v2): 이 화면이 홈. 머리줄 한 줄 = 날짜 제목 · ‹ 날짜 숫자 7개 › · 이번 주 · (오른쪽 끝) [하루|주간 정리].
+/* HOME-업무일지홈(2026-10-30 사용자 시안 v2): 이 화면이 홈. 머리줄 한 줄 = 날짜 제목 · ‹ 날짜 숫자 7개 › · 이번 주 · (오른쪽 끝) [하루|주간 정리].
    날짜 숫자는 작은 칸(요일 글자는 숨김, 읽기 이름에는 있음), 오늘(네모 선)·고른 날(옅은 바탕)은 공용 표시(ui-standard.css .ds-today·.ds-day-sel). 폰은 제목이 한 줄, 아래 날짜 줄. */
 #appView #homeView .journal-head{ justify-content:flex-start; gap:6px 10px; }
 #appView #homeView .journal-day-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
@@ -494,7 +494,7 @@
 #appView #homeView .journal-head .journal-mode-switch{ margin-left:auto; }
 #appView #homeView .journal-head .journal-days{ display:flex; gap:2px; }
 #appView #homeView .journal-head .journal-date{ flex:0 0 auto; width:auto; min-width:32px; min-height:32px; height:32px; padding:0 4px 2px; flex-direction:column; justify-content:flex-start; align-items:center; gap:0; border-color:transparent; background:transparent; }
-/* HOME-날짜줄고른날(S60-2, 명진 11/12 "그리고 일 요일 지금 방식 어색", 시안 #2431이 S57-16 한 줄 '수 11'을 대체): 요일은 위에 작게, 날짜는 아래 두 줄(폰·폴드·PC 모두). 높이는 옆 단추와 같은 32px 그대로.
+/* HOME-날짜줄고른날(S60-2, 사용자 11/12 "그리고 일 요일 지금 방식 어색", 시안 #2431이 S57-16 한 줄 '수 11'을 대체): 요일은 위에 작게, 날짜는 아래 두 줄(폰·폴드·PC 모두). 높이는 옆 단추와 같은 32px 그대로.
    오늘·고른 날 표시는 위 HOME-날짜줄고른날 묶음(동그라미)이다. 한 줄 쓴 날 점은 그대로. */
 #appView #homeView .journal-head .journal-weekday{ margin:0; line-height:1; }
 #appView #homeView .journal-head .journal-num{ min-width:18px; width:18px; height:18px; padding:0; }
@@ -522,7 +522,7 @@
 #appView #homeView .journal-top-cols{ display:grid; grid-template-columns:minmax(0,1fr); gap:12px 16px; }
 @media(min-width:761px){ #appView #homeView .journal-top-cols{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
 #appView #homeView .journal-top-cols > *{ min-width:0; }
-/* S49-8 JOURNAL-두칸구분선(2026-11-03 명진): 두 칸으로 나란할 때(761px~) 사이에 엷은 세로선(다른 구분선과 같은 색·두께), 오른쪽 칸 위 가로선은 빼서
+/* S49-8 JOURNAL-두칸구분선(2026-11-03 사용자): 두 칸으로 나란할 때(761px~) 사이에 엷은 세로선(다른 구분선과 같은 색·두께), 오른쪽 칸 위 가로선은 빼서
    두 칸 제목(그날 일정 / 할 일)이 같은 높이. 폰 한 칸일 때는 지금처럼 할 일 칸 위 가로선. */
 @media(min-width:761px){
   #appView #homeView .journal-top-cols{ column-gap:0; }
@@ -603,7 +603,7 @@
 #appView #homeView .journal-hwpx-gone > summary,
 #appView #homeView .journal-weekly-gone > summary{ cursor:pointer; }
 
-/* WEEKLY-화면디자인정리·요청사항버튼정리·칸밖재료접기(요청함 11/01 01:08·01:21·01:22, 명진 시안 "ㅇㅋ" 01:28): 주간 정리 화면 버튼 하나의 규칙.
+/* WEEKLY-화면디자인정리·요청사항버튼정리·칸밖재료접기(요청함 11/01 01:08·01:21·01:22, 사용자 시안 "ㅇㅋ" 01:28): 주간 정리 화면 버튼 하나의 규칙.
    - 줄마다의 [고치기]·[지우기/빼기]는 줄 끝 작은 ⋯ 하나(row-more.js). 누르면 ⋯ 바로 아래 오른쪽 맞춤의 작은 글자 줄 메뉴로 뜨고 줄을 밀지 않는다.
    - 묶음의 [+ 추가](와 [달력에서]·[요약 만들기])는 묶음 제목 줄 오른쪽 테두리 없는 작은 버튼(32px·13px, .journal-part-add). 표 아래 따로 한 줄을 두지 않는다.
    - 폰(~760px)에서 표가 줄마다 쌓일 때도 ⠿·⋯ 는 그 줄 오른쪽 위에 겹쳐 두어(빈 줄 없음) 줄은 날짜 줄 + 내용 줄까지만.
@@ -711,7 +711,7 @@
 /* 홈 [하루]의 '나한테 온 요청'·'잊지 말기' 상자 모양은 ui-standard.css 'UI-요청상자통일' 한 곳(S52-09, 공용 부품 notice-box.mjs). */
 /* 3. 2) 사업장 칸 안쪽 창 줄([주간 정리]). */
 #appView #homeView .weekly-flow-window{ min-width:0; padding:2px 0 0; }
-/* HOME-하루채우기(2026-11-09 명진 시안 ④ 승인): 오늘 한 일 아래 세 칸 — 오늘 사진 한 줄 · 읽을 만한 글 · 이런 기록은 어때요?
+/* HOME-하루채우기(2026-11-09 사용자 시안 ④ 승인): 오늘 한 일 아래 세 칸 — 오늘 사진 한 줄 · 읽을 만한 글 · 이런 기록은 어때요?
    칸 모양은 기존 .journal-group(위 선 한 줄)·머리 줄(.journal-schedule-head)·공용 사진 칸(.act-photo-thumb)·버튼(row-act·secondary)을 그대로 쓴다.
    여기는 자리(간격·줄)만 정한다. 셋 다 비면 칸째 숨는다(home-day-fill.js). */
 #appView #homeView .journal-fill{ display:flex; flex-direction:column; gap:10px; }
@@ -745,7 +745,7 @@
 #appView #homeView .journal-suggest-text{ display:flex; flex-direction:column; flex:1; min-width:0; }
 #appView #homeView .journal-suggest-acts{ flex:none; display:flex; align-items:center; gap:2px; } /* S67-52: [하루 기록 쓰기](secondary) + [빼기](row-act) 자리만 */
 
-/* FOLD-넓은화면 ④(S57-16, 시안 docs/design/mockups/home-fold-two-columns.html '안 1', 명진 선택 11/11 09:51): 폴드 펼침(600~1199px, 공용 판정 screen-width.mjs와 같은 값,
+/* FOLD-넓은화면 ④(S57-16, 시안 docs/design/mockups/home-fold-two-columns.html '안 1', 사용자 선택 11/11 09:51): 폴드 펼침(600~1199px, 공용 판정 screen-width.mjs와 같은 값,
    PC는 1200~)에서 [하루] 카드를 5:5 두 단으로 — 왼쪽 [그날 일정 · 할 일], 오른쪽 [오늘 한 일 · 읽을 글·사진 · 소식], '다가오는 일' 줄은 두 단 폭 전체 한 줄.
    두 단은 같이 내린다(스크롤 칸 하나). 입력 줄(home-quick)은 카드 밖이라 그대로 날짜 줄 아래 전체 폭. 폰(600 미만)·PC(1200~)는 아래 묶음 두 개가 없는 것과 같아 그대로다.
    .journal-top-cols·.journal-schedule은 display:contents로 접어 날짜 줄·일정 묶음·할 일·오른쪽 묶음이 .journal-day 격자의 칸이 된다(DOM 순서는 그대로 → 키보드 순서 그대로).

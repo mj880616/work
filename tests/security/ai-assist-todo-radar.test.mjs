@@ -360,7 +360,7 @@ test('profile values are cleaned before they enter the instructions (no tags, ne
 
 test('source: no real name or job title is written in code or tests (public repo)',()=>{
   const files=['supabase/functions/ai-assist/todo-radar.ts','supabase/functions/ai-assist/handler.ts','tests/security/ai-assist-todo-radar.test.mjs'];
-  for(const f of files)assert.doesNotMatch(readFileSync(f,'utf8'),new RegExp(['부'+'팀장','공공기관'+'사업팀','김'+'명진'].join('|')),f);
+  for(const f of files)assert.doesNotMatch(readFileSync(f,'utf8'),new RegExp(['부'+'팀장','공공기관'+'사업팀','김'+'사용자'].join('|')),f);
 });
 
 // ---- MTG-후속할일후보: 사업 보고 하나 뽑기(mode=meeting)와 사업 보고 판단 재료 -------------------------------------------

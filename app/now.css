@@ -64,7 +64,7 @@
 #appView #outsideView .os-intl-sum::-webkit-details-marker{ display:none; }
 #appView #outsideView .os-intl-sum:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
 
-/* 탭 자리(명진 11/06 01:25): 폰 세로 = 아래 가운데 떠 있는 둥근 탭 줄(하단바 위), 폴드 펼침(761~1199px) = 오른쪽 아래, PC(1200px~) = 위. 모양은 어디서나 공용 ⑤ 보기 바꾸기(UI-보기탭한모양). */
+/* 탭 자리(사용자 11/06 01:25): 폰 세로 = 아래 가운데 떠 있는 둥근 탭 줄(하단바 위), 폴드 펼침(761~1199px) = 오른쪽 아래, PC(1200px~) = 위. 모양은 어디서나 공용 ⑤ 보기 바꾸기(UI-보기탭한모양). */
 @media (max-width:1199px){
   #appView #outsideView .os.now > .os-tabs{ position:fixed; z-index:30; margin:0; }
   /* 떠 있는 탭 줄에 마지막 줄이 가리지 않게 목록 아래 여백 */

@@ -85,7 +85,7 @@ import { createNoteBoardImages } from './note-board-image.js';
 import { photoOnlyFile } from './note-board-image-model.mjs';
 import { diaryPhotoUrl } from './diary-data.js';
 // NOTE-보드여러개(요청함 10/30 05:48): 보드 보기의 [보드…] [+ 새 보드](S69-83 [전체] 없앰). 보드 칸 줄·PC 왼쪽 목록·폰 고르기 창은 note-boards.js.
-// S70-21 NOTE-보드탭자리(명진 11/25 "왼쪽은 노트목록이잖아"): 보드 칸 줄은 오른쪽 보드 칸(nbw-main)의 머리 — 판 바로 위, 판과 같은 왼쪽 끝.
+// S70-21 NOTE-보드탭자리(사용자 11/25 "왼쪽은 노트목록이잖아"): 보드 칸 줄은 오른쪽 보드 칸(nbw-main)의 머리 — 판 바로 위, 판과 같은 왼쪽 끝.
 //   왼쪽 노트 목록 칸 위에는 아무것도 없다(목록은 '노트 목록' 머리부터). 전체 화면에서도 보드 칸 줄은 판 위에 함께 있다.
 import { createNoteBoards } from './note-boards.js';
 // S68-38 노트 '보드'(생각 지도): 보드 위 노트 → 노트 연결선(서버 표 app_note_board_links). 읽기·쓰기·화면 모음은 note-board-links-data.js 한 곳.
@@ -128,7 +128,7 @@ import {fitSelectBar, paintSelectAll} from './select-bar.js';
 // UI-검색창하나로(S70-54): 노트 찾기는 맨 위 칸(화면 찾기 등록), 목록 머리 ⋯는 맨 위 줄 단추 자리(screen-find.js 상자)로.
 import {registerScreenFind, refreshScreenFind, toolsBox, findFor} from './screen-find.js';
 // UI-고르기막대(S69-85): 노트 고르기 막대도 공용 모양 — [전체 선택][폴더로 옮기기][삭제](좁으면 아이콘만 → ⋯).
-//   S70-64b(명진 11/26 07:46 "그만은 필요없어 폰 뒤로가기 버튼 누르면 되고 Pc는 esc가 그거야"): [✕]·'N개 선택됨' 글자는 두지 않는다.
+//   S70-64b(사용자 11/26 07:46 "그만은 필요없어 폰 뒤로가기 버튼 누르면 되고 Pc는 esc가 그거야"): [✕]·'N개 선택됨' 글자는 두지 않는다.
 //   고른 개수는 화면 읽기에만(kptu-sb-sr). 끄는 동안 '옮기는 중 N개'만 눈에 보인다. 끝내기 = 뒤로가기·Esc.
 //   kptu-act는 정리함 기본 단추 모양(ui-standard.css)에서 빼는 표시로 그대로 둔다.
 const NX_SEL_BAR = '<span class="kptu-sb-count kptu-sb-sr" data-nx-select-count role="status" aria-live="polite"></span><span class="kptu-sb-acts nx-sel-acts">'
@@ -206,7 +206,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const quick = mountQuick({root:host.querySelector('[data-note-list]'), esc, noteOnly:true, view:'basket', idPrefix:'basketNote',
     onSaved:saved => noteAdded(saved, {open:false}), onBig:(text, upload) => openNew(text, upload), onFolder:trigger => openAddPicker(trigger)});
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
-  // S70-54 UI-검색창하나로(명진 11/25 21:29 "검색창 두개인데 걍 맨 위 검색창 활용하면 안되나"): 옛 목록 머리 [노트 검색 칸 | ⋯] 줄의 칸은 맨 위 칸이 겸하고
+  // S70-54 UI-검색창하나로(사용자 11/25 21:29 "검색창 두개인데 걍 맨 위 검색창 활용하면 안되나"): 옛 목록 머리 [노트 검색 칸 | ⋯] 줄의 칸은 맨 위 칸이 겸하고
   // (치면 같은 query → renderList), ⋯는 맨 위 줄 단추 상자에 산다(누르기는 아래 host 누르기 처리 그대로 — 상자도 같은 처리로 보낸다).
   const tools = toolsBox('notes', 'basket');
   tools.innerHTML = `<button type="button" class="icon-btn note-folder-more sf-more" data-note-folder-more data-ctx="screen" aria-label="노트 목록 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
@@ -332,7 +332,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const byScore = list => { const f = findNow(), score = new Map(list.map(n => [n, f.best(...noteTexts(n))?.score ?? -1])); return [...list].sort((a, b) => score.get(b) - score.get(a)); };
   const sortList = list => (query ? byScore(sortNotes(list)) : noteSort === 'manual' ? sortNotesManual(list, notePinnedAt) : sortNotes(list));
   const isPicked = key => !!pick.has(key);
-  // UI-폴더목록한모양(S69-90, 명진 11/25 "모든 폴더 쓰는 ui를 통일"): 고른 줄은 [파일]처럼 바탕 + 왼쪽 세로줄만(줄 앞 체크칸 없음).
+  // UI-폴더목록한모양(S69-90, 사용자 11/25 "모든 폴더 쓰는 ui를 통일"): 고른 줄은 [파일]처럼 바탕 + 왼쪽 세로줄만(줄 앞 체크칸 없음).
   // 고르기 중 줄 어디를 눌러도 고르기·풀기(S10), 화면 읽기는 줄 단추의 aria-pressed로 안다.
   // FOLDER-나무새기준(S51-12): 폴더 줄은 공용 줄(folder-tree-ui.mjs) — 폰 나무·PC 왼쪽 나무·그 폴더만 보기가 같은 모양
   // (맨 위 단계만 구분선·굵은 이름, 하위는 들여쓰기, 이름 + 회색 개수, 오른쪽 ⋯, 펼침은 폴더 그림 열린/닫힌 모양).
@@ -509,7 +509,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const trail = [{label:'노트', attrs:{'data-nx-at':''}}, ...path.slice(0, -1).map(x => ({label:x.name, attrs:{'data-nx-at':x.id}}))];
     return ftFocusHtml({back:{'data-nx-back':''}, trail, name:f ? f.name : OUTSIDE_NAME, color:f ? colorOf(f) : null, count:ftFocusCount(subs, own, '노트'), body, attrs:{'data-nx-focus':at}});
   }
-  // LIB-끄는중막대(S69, 명진 11/24 16:17 — 자료실과 같은 규칙): 고른 노트를 끄는 동안은 막대에 '옮기는 중 N개'와 ✕(선택 끝내기)만.
+  // LIB-끄는중막대(S69, 사용자 11/24 16:17 — 자료실과 같은 규칙): 고른 노트를 끄는 동안은 막대에 '옮기는 중 N개'와 ✕(선택 끝내기)만.
   // [폴더로 옮기기]·[삭제]·[전체 선택]은 그동안 막대에서 떼어 둔다(숨김 아님 — 이 함수 하나가 떼고 붙임). 끝나면 원래대로.
   let selDragging = false; // 끄는 중인가(showHover가 공용 끌기 부품 표시 re-active로 바꾼다)
   let parkedActs = null; // 끄는 동안 막대에서 떼어 둔 단추(끝나면 제자리)
@@ -689,13 +689,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else { rowsBox.replaceChildren(); paintBoard(m); }
     } else if (wide) {
       tree.hidden = false;
-      // S69-27(명진 11/24 "폴더 밑에 바로 들어가있는 메모도 목록으로 보여야해 / 왼쪽은 목록 오른쪽에는 노트 내용"): 왼쪽 나무는 폰 나무·보드 왼쪽 목록과
+      // S69-27(사용자 11/24 "폴더 밑에 바로 들어가있는 메모도 목록으로 보여야해 / 왼쪽은 목록 오른쪽에는 노트 내용"): 왼쪽 나무는 폰 나무·보드 왼쪽 목록과
       // 같은 treeRows — 하위 폴더 먼저, 그다음 그 폴더 노트(펼치면 보이고 접으면 숨음, 많으면 처음 FT_PREVIEW개 + 'n개 더 보기'). 노트를 누르면 오른쪽에 그 노트.
       const limit = id => moreSet.has(id ?? OUTSIDE) ? Infinity : FT_PREVIEW;
       // '폴더 없음'은 지금처럼 맨 아래 한 줄(누르면 오른쪽에 그 노트들) — 폴더가 아니라 나무 안에 펼치지 않는다(폰에서 펼쳐 둔 것도 여기서는 닫힌 채).
       const left = treeRows({folders, notes, folderOf, root:null, isOpen:id => id !== OUTSIDE && openSet.has(id), sort:sortList, limit}).filter(r => r.type !== 'outside' && r.parent !== OUTSIDE);
       const outCount = notes.filter(n => folderOf(n) === null).length;
-      // NOTE-폴더디자인통일(S70-82, 명진 11/26 09:27 "파일쪽에 맞춰서"): 왼쪽 나무도 [파일] 왼쪽 나무처럼 둥근 상자(ftBoxHtml)로 묶는다 —
+      // NOTE-폴더디자인통일(S70-82, 사용자 11/26 09:27 "파일쪽에 맞춰서"): 왼쪽 나무도 [파일] 왼쪽 나무처럼 둥근 상자(ftBoxHtml)로 묶는다 —
       // '최근' 상자 · 폴더 상자(폴더들 + '폴더 없음', 맨 위 단계 사이 구분선) · 밑줄·메모·저장한 글·휴지통 상자. 줄은 그대로 공용 줄이다.
       const special = pick.active ? '' : newsMarks.navHtml({tree:true, at, sep:false}) + noteTrash.navHtml({tree:true, at});
       tree.innerHTML = (showRecent() ? ftBoxHtml({body:recentTreeRowHtml(), label:RECENT_NAME, attrs:{'data-nx-box':'recent'}}) : '')
@@ -703,10 +703,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
         + (special ? ftBoxHtml({body:special, label:'밑줄·메모·휴지통', attrs:{'data-nx-box':'more'}}) : '') + newFolderRowHtml();
       followPane(tree, {top:8, reset:false}); // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다(따로 스크롤 없음).
       // NOTE-최근5개: PC 처음(at null)은 오른쪽에 최근 5개(폴더가 있을 때). 찾는 중이면 지금처럼 맞는 노트 전부.
-      // S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09 '오른쪽에서든 왼쪽이든 폴더를 클릭하면 폴더가 펼쳐지는거야'): 폴더 안이면 하위 폴더 줄도 그 자리에서 펼친다
+      // S69-68 UI-오른쪽목록펼치기(사용자 11/24 20:09 '오른쪽에서든 왼쪽이든 폴더를 클릭하면 폴더가 펼쳐지는거야'): 폴더 안이면 하위 폴더 줄도 그 자리에서 펼친다
       // (폰 나무와 같은 treeRows — 안의 하위 폴더·노트가 들여 보이고, 빈 폴더는 '빈 폴더' 한 줄). 펼침은 paneOpen(왼쪽 나무와 따로).
       const inFolder = !m && folderAt();
-      // NOTE-폴더디자인통일(S70-82, 명진 11/26 "파일쪽에 맞춰서"): 오른쪽 노트 목록도 [파일] 오른쪽 목록처럼 머리 줄(누르면 정렬·칸 너비 끌기) + 칸 줄.
+      // NOTE-폴더디자인통일(S70-82, 사용자 11/26 "파일쪽에 맞춰서"): 오른쪽 노트 목록도 [파일] 오른쪽 목록처럼 머리 줄(누르면 정렬·칸 너비 끌기) + 칸 줄.
       // 머리·칸·정렬·너비는 [목록] 보기와 같은 것 하나(보일 칸 view_prefs.note_cols, 정렬 note_list_sort, 너비 col_widths.notes) — 따로 두지 않는다.
       // 폴더 줄은 [파일]처럼 늘 위(하위 폴더 먼저), 노트만 머리 정렬을 따른다. '내가 정한 순서'(⋯ 메뉴)일 때는 그 순서 그대로(머리는 정렬 표시 없음).
       const manual = noteSort === 'manual', paneSort = manual ? sortList : paneListSort;
@@ -960,11 +960,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const lockItem = lockable ? [pinLock.folderLocked(folderId) ? ['data-nx-lock-folder', '잠금 해제'] : ['data-nx-lock-folder', '잠금']] : [];
       if (pinLock.notesHidden() && pinLock.folderCovered(folderId)) return [['data-nx-lock-open', '열기'], ...(pinLock.folderLocked(folderId) ? lockItem : [])];
       // NOTE-폴더메뉴새노트(11/07): [새 노트](11/24부터 [이 폴더로 들어가기] 다음) — 기존 새 노트 창이 이 폴더가 골라진 채로 열린다(newNoteIn).
-      // UI-폴더이름펼치기(명진 11/24 18:09): 폰 폴더 이름 누르기는 그 자리 펼치기·접기만이라, 들어가기는 이 메뉴 첫 줄.
+      // UI-폴더이름펼치기(사용자 11/24 18:09): 폰 폴더 이름 누르기는 그 자리 펼치기·접기만이라, 들어가기는 이 메뉴 첫 줄.
       return [['data-nx-enter', '이 폴더로 들어가기'], ['data-nx-new-note', '새 노트'], ['data-nx-select', '선택'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-color', '색 선택…'],
         ['data-nx-move-folder', '옮기기…'], ...lockItem, ['data-nx-delete-folder', '폴더 삭제', 'basket-menu-danger']] : [])];
     }
-    // PRESS-성명초안삭제(11/09 명진 결정): [성명·보도자료 초안] 메뉴는 기능째 삭제했다(저장해 둔 초안 노트·폴더는 그대로).
+    // PRESS-성명초안삭제(11/09 사용자 결정): [성명·보도자료 초안] 메뉴는 기능째 삭제했다(저장해 둔 초안 노트·폴더는 그대로).
     if (from === 'head') return [...(folderAt() ? [['data-nx-new-note', '이 폴더에 새 노트']] : []), ['data-nx-form-new', '서식으로 새 노트'], ...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
       // ①-2: [목록] 보기 정렬(폰은 머리 줄이 없어 여기서만, PC는 머리 칸과 같은 값). 누르면 그 칸, 지금 칸이면 반대로.
       ...(view === 'list' ? [['data-nl-cols-open', '보일 칸…']] : []),
@@ -983,7 +983,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // S70-04 UI-순서는끌기로: 순서 바꾸기는 끌기(PC 마우스·폰 꾹 눌러 끌기)와 키보드 Alt+↑↓만 — 메뉴 [위로][아래로]는 없앴다.
       // NOTE-보드여러개 ③: 이름 붙은 보드의 칸 메뉴 맨 위 [보드에서 빼기](노트는 그대로).
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-detach', '보드에서 빼기']] : []),
-      // S69-88(명진 11/25 02:48 "노트 내용, 링크는 유지하더라도 텍스트는 다르게"): 이 보드에서만 카드에 보일 글자(별명) · 손으로 정한 카드 크기 되돌리기.
+      // S69-88(사용자 11/25 02:48 "노트 내용, 링크는 유지하더라도 텍스트는 다르게"): 이 보드에서만 카드에 보일 글자(별명) · 손으로 정한 카드 크기 되돌리기.
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-label', '보드에 보일 글자']] : []),
       ...(from === 'list' && view === 'board' && boards.isNamed() && boards.isSized(note) ? [['data-nbb-autosize', '카드 크기 자동']] : []),
       ...(from === 'list' && view === 'board' && boards.isNamed() && !onBoard(note, boards.current()) ? [['data-nbb-attach', '보드에 붙이기']] : []),
@@ -1933,7 +1933,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (plan.kind === 'reorder-note') void reorderNote(plan);
     else if (plan.kind === 'hint') reorderHint();
   }
-  // S69 LONGPRESS-선택(2026-11-24 명진): 폰에서 줄을 꾹 눌렀다 움직이지 않고 떼면 선택 모드를 켜고 그 줄을 고른다
+  // S69 LONGPRESS-선택(2026-11-24 사용자): 폰에서 줄을 꾹 눌렀다 움직이지 않고 떼면 선택 모드를 켜고 그 줄을 고른다
   // (이미 선택 모드면 더하기, 풀지 않음 — 공용 규칙 select-mode.js holdPick). 메뉴는 줄 오른쪽 ⋯로만. 움직이면 끌기(끌 수 있는 보기에서).
   const holdKey = key => key.startsWith('n:') || key.startsWith('f:');
   function handleHold(row) {
@@ -2230,7 +2230,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.hasAttribute('data-nb-remove')) { if (!pick.active) boards.detach(b.dataset.nbRemove); return; }
     if (b.hasAttribute('data-note-row')) { if (pick.active) togglePick('n:' + b.dataset.noteRow); else void switchNote(b.dataset.noteRow, b); }
     else if (b.hasAttribute('data-nx-tog')) { const id = b.dataset.nxTog; if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); host.querySelector(`[data-nx-tog="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); }
-    // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 모든곳 공통 노트 자료 파일'): PC·폴드 왼쪽 나무 폴더 이름 누르기 =
+    // S69-38 UI-탐색기나무누르기(사용자 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 모든곳 공통 노트 자료 파일'): PC·폴드 왼쪽 나무 폴더 이름 누르기 =
     // 오른쪽을 그 폴더(하위 폴더 줄 → 그 폴더 노트)로, 접혀 있으면 펼침 — 공용 부품 ftExplorePress(자료실·[파일]·사진 나무와 같은 부품). 아이콘([data-nx-tog])은 펼치기·접기만.
     // S69-94: 폴더 목록 '밑줄' 아래 '메모' 줄 = [메모] 보기(모든 메모 모아 보기).
     else if (b.hasAttribute('data-nx-memos')) { if (splitOpen()) void askClose(b).then(ok => { if (ok) setView('comment'); }); else setView('comment'); }
@@ -2277,10 +2277,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function pressFolder(id, e) {
     if (isPaneAt(id)) { if (!pick.active) enter(id); return; } // 'News에서' 두 줄·휴지통: 그 칸(폰은 '그 폴더만'처럼 한 겹)
     // FOLDER-나무새기준 ③: 폰 나무(첫 화면·그 폴더만 보기 모두)는 화면을 바꾸지 않고 그 자리에서 펼치기·접기(줄 어디를 눌러도). 그 폴더만 보기는 ⋯ [이 폴더로 들어가기].
-    // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 자리에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]만
+    // UI-폴더이름펼치기(사용자 11/24 18:09): 빈 폴더도 그 자리에서 펼친다(안에 '빈 폴더' 한 줄). 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]만
     //  (전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 열기'는 없앴다).
     if (!wideList.matches && id !== RECENT && !(pick.active && id !== OUTSIDE)) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); return; }
-    // S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09, 전의 S69-38 '오른쪽 하위 폴더 줄 = 들어가기'를 대신함): PC·폴드 오른쪽 칸의 폴더 줄 = 그 자리 펼치기·접기만
+    // S69-68 UI-오른쪽목록펼치기(사용자 11/24 20:09, 전의 S69-38 '오른쪽 하위 폴더 줄 = 들어가기'를 대신함): PC·폴드 오른쪽 칸의 폴더 줄 = 그 자리 펼치기·접기만
     // (왼쪽 나무는 그대로). 들어가기는 왼쪽 나무 누르기·⋯ 첫 줄 [이 폴더로 들어가기].
     if (wideList.matches && !pick.active && folderById(id)) {
       if (paneOpen.has(id)) paneOpen.delete(id); else paneOpen.add(id);
@@ -2332,7 +2332,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     enter(id);
     riseFromRow(from, host.querySelector('#noteRows .ft-focus'));
   }
-  // LIB-최근폴더로가기(S61-12, 요청함 V28 11/13 04:40 명진 ㅇ): '최근' 노트 줄 [폴더로 가기] = 그 노트가 든 폴더(없으면 '폴더 없음')로 들어가 그 줄을 잠깐 강조.
+  // LIB-최근폴더로가기(S61-12, 요청함 V28 11/13 04:40 사용자 ㅇ): '최근' 노트 줄 [폴더로 가기] = 그 노트가 든 폴더(없으면 '폴더 없음')로 들어가 그 줄을 잠깐 강조.
   // 폰 첫 화면 = 두 손가락 '그 폴더만'과 같은 길(뒤로 = 펼친 나무 자리 그대로), PC = 폴더 들어가기(뒤로 = 앞 화면 '최근'). 줄 그냥 누르기(노트 열기)는 그대로.
   function gotoFolder(note) {
     if (!note) return;
@@ -2421,7 +2421,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (i >= 0 && i < ALL_VIEWS.length) { suppressUntil = Date.now() + 400; setView(ALL_VIEWS[i]); }
   }, {passive:true});
   list.addEventListener('touchcancel', () => { swipe = null; }, {passive:true});
-  // S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [옮기기][수정][삭제] — [수정] = ⋯ [수정](노트를 쓰기 상태로 연다), 빠진 [고정]은 ⋯ '고정'.
+  // S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 가안): [옮기기][수정][삭제] — [수정] = ⋯ [수정](노트를 쓰기 상태로 연다), 빠진 [고정]은 ⋯ '고정'.
   // (옛) UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 노트 줄 — 왼쪽으로 밀기 [고정]/[고정 풀기]·[옮기기](폴더 고르기, ⋯ [폴더로 옮기기]와 같은 길)·[삭제]
   // (휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음 — 끝까지 밀어도 삭제는 칸만 열림). 오른쪽으로 밀기 [선택] = 노트에 이미 있는 선택 모드(그 줄이 골라진 채).
   // 선택 모드·열린 노트·포스트잇 보드에서는 밀지 않는다(보드는 칸 옮기기). 노트에는 공유 길이 없어 [공유] 칸은 없다.

@@ -110,7 +110,7 @@ test('2단계 녹음 전사: 상한·종류는 서버와 같고, 실패 문구�
   assert.match(transcribeFailText('Error: boom'),/녹음은 그대로/);
 });
 
-// S61-5 REC-전사삭제 + S61-24 REC-요약단추삭제(명진 11/13 '빼자'): [회의] 입력 창의 [녹음·전사 넣기] → [녹음 요약하기] 길은 화면·경로째 없다.
+// S61-5 REC-전사삭제 + S61-24 REC-요약단추삭제(사용자 11/13 '빼자'): [회의] 입력 창의 [녹음·전사 넣기] → [녹음 요약하기] 길은 화면·경로째 없다.
 test('지금은 없음: [녹음·전사 넣기]·[녹음 요약하기] 화면과 그 길만 쓰던 잇기 물음(join_text)이 없다',()=>{
   assert.ok(!existsSync(new URL('../app/meeting-transcript-draft.js',import.meta.url)),'화면 모듈 파일을 지웠다');
   const loader=read('app/view-loader.js');

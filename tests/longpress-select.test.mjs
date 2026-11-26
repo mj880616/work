@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createSelectMode, holdPick} from '../app/select-mode.js';
 
-// S69 LONGPRESS-선택(2026-11-24 명진): 폰에서 줄을 꾹 누르면 선택 모드 + 그 줄 선택, 메뉴는 ⋯로만.
+// S69 LONGPRESS-선택(2026-11-24 사용자): 폰에서 줄을 꾹 누르면 선택 모드 + 그 줄 선택, 메뉴는 ⋯로만.
 test('holdPick: 더하기만 하고 넘겨받은 Set은 바꾸지 않는다', () => {
   const before = new Set(['a']);
   const next = holdPick(before, ['b']);

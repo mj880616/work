@@ -91,7 +91,7 @@ test('시간·분 글자',()=>{
   assert.equal(minuteText(120),'2시간');
 });
 
-// S61-5 REC-전사삭제(명진 11/13): 구간 글 합치기·전사 계획은 지금은 없다(전사를 하지 않음). 그 자리에 녹음 저장 규칙.
+// S61-5 REC-전사삭제(사용자 11/13): 구간 글 합치기·전사 계획은 지금은 없다(전사를 하지 않음). 그 자리에 녹음 저장 규칙.
 test('지금은 없음: 전사 계획·구간 글 합치기 함수가 모델에 없다',async()=>{
   const m=await import('../app/meeting-recorder-model.mjs');
   assert.equal(m.transcribePlan,undefined);

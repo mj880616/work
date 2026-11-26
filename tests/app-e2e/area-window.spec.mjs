@@ -1,5 +1,5 @@
 import {SHEET as AOP_SHEET,pressRow} from './helpers/area-org-picker.mjs';
-// MTG-프로젝트합치기 ①③(명진 10/29 시안 승인): [사업영역 관리]는 사업 보고 위에 뜨는 창(area-window.js), 목록 맨 위 '사업영역 안 단 보고 n건 [달기]'.
+// MTG-프로젝트합치기 ①③(사용자 10/29 시안 승인): [사업영역 관리]는 사업 보고 위에 뜨는 창(area-window.js), 목록 맨 위 '사업영역 안 단 보고 n건 [달기]'.
 // ① 창 열기·닫기 뒤 보던 주 그대로 · 폰 뒤로가기 순서(상세 → 목록 → 사업 보고) · 옛 주소(?view=projects·?project=)
 // ③ 줄은 보고 있는 주에 안 단 보고가 있을 때만 · 0건 주는 줄 없음 · [달기] 창(AI 추천 미리 고름) → [저장] 한 번 → 줄이 사라지고 꼬리표가 바뀜.
 // 모든 이름·글은 합성 값.
@@ -135,7 +135,7 @@ for(const width of [390,1280])test(`${width}: '사업영역 안 단 보고 n건 
   await pressRow(page,'p:child-a1');await expect(picker).toBeHidden();await expect(sheet).toBeVisible();
   await expect(select).toHaveAttribute('data-value','child-a1');await expect(select).toContainText(' › ');await expect(row.locator('[data-area-tag-mark]')).toBeHidden();
   await select.click();await expect(picker).toBeVisible();await pressRow(page,'p:top-a');await expect(picker).toBeHidden();
-  if(width<=760){/* S54-05(11/08 명진 결정): 폰도 누른 버튼 아래 작은 창이다(전에는 아래 시트라 y>200을 봤다). 아래 탭을 덮지 않는지만 본다. */const b=await sheet.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();await expect(sheet).toHaveClass(/home-choice-anchored/);expect(tabs).toBeTruthy();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y+1)}
+  if(width<=760){/* S54-05(11/08 사용자 결정): 폰도 누른 버튼 아래 작은 창이다(전에는 아래 시트라 y>200을 봤다). 아래 탭을 덮지 않는지만 본다. */const b=await sheet.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();await expect(sheet).toHaveClass(/home-choice-anchored/);expect(tabs).toBeTruthy();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y+1)}
   const before=s.meetingWrites.length;
   await sheet.locator('[data-area-tag-save]').click();
   await expect(sheet).toBeHidden();

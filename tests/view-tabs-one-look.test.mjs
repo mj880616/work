@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {cssRules} from './button-six-kinds.mjs';
 import {findViewTabs, scanViewTabs, isOneLook} from './view-tabs-one-look.mjs';
-// UI-보기탭한모양(S52-17, 2026-11-07 명진 'ㅇ', 시안 docs/design/mockups/bottom-view-tabs.html): 보기 탭은 공용 ⑤ 보기 바꾸기 하나뿐. 재발 방지 시험(App smoke check).
+// UI-보기탭한모양(S52-17, 2026-11-07 사용자 'ㅇ', 시안 docs/design/mockups/bottom-view-tabs.html): 보기 탭은 공용 ⑤ 보기 바꾸기 하나뿐. 재발 방지 시험(App smoke check).
 const ui = readFileSync('app/ui-standard.css', 'utf8');
 const six = ui.slice(ui.indexOf('/* ===== UI-버튼6가지'));
 

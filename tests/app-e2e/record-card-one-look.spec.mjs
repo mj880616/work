@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
-// UI-기록카드하나로(S70-42, 명진 11/25 15:09 "사진1 이게 너무 내용은 적은데 칸은 커서 좀;" · "사진이 있는거랑 글자가 있는거랑 먼가 통일감이 없음
+// UI-기록카드하나로(S70-42, 사용자 11/25 15:09 "사진1 이게 너무 내용은 적은데 칸은 커서 좀;" · "사진이 있는거랑 글자가 있는거랑 먼가 통일감이 없음
 // 사진은 차라리 썸네일을 보여주던가"): 담당조직 기록 목록에서 사진 기록 카드도 글 기록 카드와 같은 틀 [날짜 칸 'MM.DD.' | 본문 | ⋯].
 // 큰 [사진 n ⌄] 접기 줄 없이 작은 정사각 그림을 바로(3장 넘으면 [+n]), 누르면 기존 크게 보기. 카드 높이는 글 두 줄 카드 이하. 자료는 모두 가짜.
 test.use({hasTouch:true});

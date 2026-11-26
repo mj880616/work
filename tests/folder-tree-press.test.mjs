@@ -17,7 +17,7 @@ const fakeRow = ({tog = true, expanded = 'false', current = false} = {}) => {
 globalThis.CSS ??= {escape: v => String(v)};
 globalThis.document ??= {querySelector: () => null, querySelectorAll: () => []};
 
-test('explorePressPlan: TREE-탐색기꺾쇠(T10, 명진 11/26 09:25) — 이름 한 번 = 오른쪽에 그 폴더(펼침 그대로), 두 번 = 펼치기/접기 + 그 폴더', () => {
+test('explorePressPlan: TREE-탐색기꺾쇠(T10, 사용자 11/26 09:25) — 이름 한 번 = 오른쪽에 그 폴더(펼침 그대로), 두 번 = 펼치기/접기 + 그 폴더', () => {
   assert.deepEqual(explorePressPlan({canOpen: true}), {enter: true, toggle: false});
   assert.deepEqual(explorePressPlan({canOpen: false}), {enter: true, toggle: false});
   assert.deepEqual(explorePressPlan({canOpen: true, current: true}), {enter: false, toggle: false});
@@ -80,7 +80,7 @@ test('ftHoverExpander: 같은 폴더 위에 약 1초 머무르면 한 번 펼치
   assert.equal(press.HOVER_EXPAND_MS, 1000);
 });
 
-test('UI-폴더이름펼치기(명진 11/24 18:09): 하위 없는 폴더 = 한 번에 열기 판정(folderPressAction·createLeafWait)은 없앴다 — 그 자리 펼치는 목록은 늘 펼치기·접기', () => {
+test('UI-폴더이름펼치기(사용자 11/24 18:09): 하위 없는 폴더 = 한 번에 열기 판정(folderPressAction·createLeafWait)은 없앴다 — 그 자리 펼치는 목록은 늘 펼치기·접기', () => {
   assert.equal(press.folderPressAction, undefined);
   assert.equal(press.createLeafWait, undefined);
   assert.equal(press.FOLDER_PRESS_ENTER, undefined);

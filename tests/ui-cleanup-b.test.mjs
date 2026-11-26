@@ -4,7 +4,7 @@ import {readdirSync, readFileSync} from 'node:fs';
 import {join, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-// UI-화면정리 B(2026-10-28 명진 요청 20:03): 공용 부품 통일의 재발 방지. 기록은 docs/design-decisions.md "UI-화면정리 B".
+// UI-화면정리 B(2026-10-28 사용자 요청 20:03): 공용 부품 통일의 재발 방지. 기록은 docs/design-decisions.md "UI-화면정리 B".
 const app = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const SKIP = new Set(['hwp-lab', 'markdown-lib', 'pdf-lib', 'editor-lib', 'node_modules', 'legacy']);
 function walk(dir, base = '', out = []) {

@@ -5,7 +5,7 @@ import {allState,afterAllTap} from './library-view-pref.js';
 import {pickedToggles} from './chip-rows-model.mjs';
 import {documentCategories,subcategoriesOf,categoryParent,categoryLeaf,topCategoryOf,categoryOf,LOCKED_CATEGORY} from './document-categories.js';
 
-// 담당조직·프로젝트 상세 [자료]가 처음 열릴 때 꺼 둘 종류(2026-10-24 명진 결정: '회의' 기본 켜짐).
+// 담당조직·프로젝트 상세 [자료]가 처음 열릴 때 꺼 둘 종류(2026-10-24 사용자 결정: '회의' 기본 켜짐).
 // 자료실은 '회의'만 꺼진 채 열리지만(library-upload.js LU_DEFAULT_OFF, 서버에 기억한 설정이 있으면 그것), 상세 두 곳은
 // 그 조직·프로젝트에 붙은 회의자료도 자료의 일부라 아무 종류도 끄지 않는다. 상세의 칩 상태는 저장하지 않으므로(열어 둔 동안만)
 // 자료실에 기억한 설정은 상세에 쓰이지 않고, 상세를 새로 열 때마다 이 기본값에서 시작한다.

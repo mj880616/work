@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
-// S59-1 NEWS-키워드살리기(11/11 명진 결정): 키워드는 밖(구글 뉴스)에서 새로 찾지 않고, 받은 매체 글 가운데 서버가 keywords 칸에 적어 둔 글을
+// S59-1 NEWS-키워드살리기(11/11 사용자 결정): 키워드는 밖(구글 뉴스)에서 새로 찾지 않고, 받은 매체 글 가운데 서버가 keywords 칸에 적어 둔 글을
 // ⋯ [키워드 수정] 칸의 키워드 줄 아래에 켠 키워드마다 모아 보인다(새 것부터 20건, 같은 매체 연달아는 접기). 누르면 공용 상세.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울). 기사·매체·주소는 모두 가짜(example.org).
 const root = page => page.locator('#newsRoot');

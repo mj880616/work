@@ -44,7 +44,7 @@ function harness(){
     app_spaces:[{id:PROJECT,workspace_id:WS,name:'B 프로젝트',owner_id:OWNER}],
     app_reference_bundles:[{id:BUNDLE,workspace_id:WS,name:'철도 안전'},{id:FOREIGN_BUNDLE,workspace_id:OTHER_WS,name:'남의 묶음'}],
     app_meetings:[
-      {id:MEETING,workspace_id:WS,title:'궤도협의회',series_name:'궤도협의회',round_no:3,meeting_at:'2026-10-20T05:00:00Z',transcript_text:'1. 11월 총회 개최 예정(미확정).',decisions:null},
+      {id:MEETING,workspace_id:WS,title:'레일협의회',series_name:'레일협의회',round_no:3,meeting_at:'2026-10-20T05:00:00Z',transcript_text:'1. 11월 총회 개최 예정(미확정).',decisions:null},
       {id:EMPTY_MEETING,workspace_id:WS,title:'빈 보고',series_name:null,round_no:null,meeting_at:null,transcript_text:'',decisions:null},
       {id:FOREIGN_MEETING,workspace_id:OTHER_WS,title:'남의 회의',transcript_text:'남의 글'},
     ],
@@ -153,7 +153,7 @@ test('photo text that looks like an instruction stays inside the JSON user messa
 test('business report (사업 보고): the result body with its name and round; empty body or foreign report refused',async()=>{
   {const {handler,calls}=harness();
     assert.equal((await post(handler,{kind:'link_summary',meeting_id:MEETING,target_kind:'project',target_id:PROJECT})).status,200);
-    assert.deepEqual(sent(calls).material,{kind:'meeting',title:'궤도협의회 3차',at:'2026-10-20T05:00',text:'1. 11월 총회 개최 예정(미확정).'});}
+    assert.deepEqual(sent(calls).material,{kind:'meeting',title:'레일협의회 3차',at:'2026-10-20T05:00',text:'1. 11월 총회 개최 예정(미확정).'});}
   {const {handler,calls}=harness();await err(await post(handler,{kind:'link_summary',meeting_id:EMPTY_MEETING,target_kind:'organization',target_id:ORG}),422,'no_file_text');assert.equal(calls.openai.length,0);}
   {const {handler,calls}=harness();await err(await post(handler,{kind:'link_summary',meeting_id:FOREIGN_MEETING,target_kind:'organization',target_id:ORG}),404,'not_found');assert.equal(calls.openai.length,0);}
 });

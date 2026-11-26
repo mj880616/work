@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 test.use({timezoneId:'Asia/Seoul'});
-// S69-21 CAL-말풍선통일(명진 11/24 "달력 할일에 커서 대면 이런식임"): 월 보기 칸 안 할 일 줄에 마우스를 올리면 브라우저 기본 표시
+// S69-21 CAL-말풍선통일(사용자 11/24 "달력 할일에 커서 대면 이런식임"): 월 보기 칸 안 할 일 줄에 마우스를 올리면 브라우저 기본 표시
 // ('할 일: 제목' 작은 상자)가 칸 안에 끼어 보이던 것을, 일정 막대와 같은 공용 말풍선(calendar-tip.js, .cwv-tip)으로 바꾼다.
 // 잘린 제목만 띄우고, 화면 기준으로 떠서 칸 높이·다른 줄 위치가 그대로이며, 화면 가장자리 안에 들어온다.
 const LONG='아주 긴 할 일 제목입니다 다음 주 회의 자료 정리와 보내기까지 끝내기';

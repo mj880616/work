@@ -4,7 +4,7 @@ import {MEMO_PAGE, memoPage, memoEntries, memoHit, memoTarget, tableEntries, mer
 import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {memosNow, memoState, loadMemos, onMemos} from './memo-store.js';
 import {requestMemoReveal} from './memo-open.js';
-// S69-70(명진 11/24 20:43~20:44 "읽을 거리 글에 [메모]로 남긴 메모를 저장하지 않았어도 모아 보기", CC 제안 "'메모 있는 글' 거르기" ㅇㅇ):
+// S69-70(사용자 11/24 20:43~20:44 "읽을 거리 글에 [메모]로 남긴 메모를 저장하지 않았어도 모아 보기", CC 제안 "'메모 있는 글' 거르기" ㅇㅇ):
 // 읽을 거리 [메모] 탭. 이 칸(box)의 유일한 그리기 주인.
 // S69-94 NOTE-메모통일: 메모는 이제 글 아래 메모 칸(memo-thread.js — 표 app_memos)에 남긴다. 이 탭은 같은 메모 목록(memo-store.js) 중
 //   읽을 거리 글(news·outside)에 단 메모 + 예전에 노트로 남긴 글 메모(metadata.news_item_id | outside_post_id — 지우지 않고 그대로)를 합쳐 글마다 한 줄.

@@ -1,4 +1,4 @@
-// FOLDER-나무새기준(S51-12, 요청함 11/06 01:31, 시안 folder-unify-library-style.html·folder-inline-expand-pinch.html 명진 01:39 'ㅇㅋ'):
+// FOLDER-나무새기준(S51-12, 요청함 11/06 01:31, 시안 folder-unify-library-style.html·folder-inline-expand-pinch.html 사용자 01:39 'ㅇㅋ'):
 // 파일·노트·사진·자료실 폴더 나무가 함께 쓰는 줄 모양 한 곳(순수 함수: 화면·저장소·네트워크에 닿지 않음, node --test로 시험).
 // 모양 규칙은 folder-tree.css의 'ft-' 묶음 한 곳이다.
 //  ① 둥근 상자(ftBoxHtml): '최근' 상자, 저장소마다 상자. 머리를 누르면 접기(접는 상자만).
@@ -74,7 +74,7 @@ export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0,
     + `${after}${more ? ftMoreButtonHtml(more) : ''}</div>`;
 }
 
-// NOTE-폴더디자인통일(S70-82, 명진 11/26 09:27 "노트메뉴 안에 보드쪽, 폴더쪽 디자인이 살짝 달라 … 파일쪽에 맞춰서"): 폴더 안 항목(노트 등) 줄 한 곳.
+// NOTE-폴더디자인통일(S70-82, 사용자 11/26 09:27 "노트메뉴 안에 보드쪽, 폴더쪽 디자인이 살짝 달라 … 파일쪽에 맞춰서"): 폴더 안 항목(노트 등) 줄 한 곳.
 // 폴더 줄과 같은 들여쓰기·글자·누름 모양(.ft-main), 높이는 하위 폴더 줄과 같은 --ft-sub-h(좁은 왼쪽 나무), 이름은 폴더 그림 자리만큼 들여 폴더 이름과 줄이 맞는다.
 //  name·title(이름 칸 마우스 올림 = 전체 이름, 표준 L2)·depth·tail(이름 뒤 작은 글자 HTML — 부르는 쪽이 이스케이프한 것)·rowAttrs·mainAttrs·more(⋯)
 //  current(지금 연 것)·picked(고른 줄, [파일]과 같은 표시)·off(고를 수 없음: 흐리게)·pressed(고르기 창의 aria-pressed, null이면 없음)·className.
@@ -92,7 +92,7 @@ export function ftMoreRowHtml({rest, depth = 1, attrs = {}} = {}) {
   return `<button type="button" class="ft-btn ft-row ft-more-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${esc(rest)}개 더 보기</button>`;
 }
 
-// UI-폴더이름펼치기(명진 11/24 18:09): 그 자리 펼치는 목록에서 빈 폴더를 펼치면 그 아래 '빈 폴더' 한 줄(들어가지 않는다). attrs: 그 화면의 표시(예 data-ft-parent).
+// UI-폴더이름펼치기(사용자 11/24 18:09): 그 자리 펼치는 목록에서 빈 폴더를 펼치면 그 아래 '빈 폴더' 한 줄(들어가지 않는다). attrs: 그 화면의 표시(예 data-ft-parent).
 export function ftEmptyRowHtml({depth = 1, attrs = {}} = {}) {
   return `<div class="ft-row ft-item ft-empty-row"${attrsHtml(attrs)} style="--ft-depth:${ftDepth(depth)}">${emptyHtml('빈 폴더')}</div>`;
 }

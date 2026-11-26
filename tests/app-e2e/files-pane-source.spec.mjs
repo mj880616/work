@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S52-07 FILES-칸출처고르기(명진 결정 11/07 "모두 추천대로": 칸 머리 '원드라이브 ▾' 이름 → 목록, 고른 출처는 서버에 기억;
+// S52-07 FILES-칸출처고르기(사용자 결정 11/07 "모두 추천대로": 칸 머리 '원드라이브 ▾' 이름 → 목록, 고른 출처는 서버에 기억;
 // 시안 docs/design/mockups/morning-1107/4-files-pane-source.html 1-A, 설계 docs/design/files-pane-source.md).
 // 두 칸 [파일]의 칸 머리마다 출처 이름 ▾ → 네 줄(원드라이브·구글 드라이브·이 폰·내 PC). 이 기기에서 못 쓰는 출처는 흐리게 + 이유.
 // 고르면 그 칸만 그 출처 맨 위. 고른 값은 서버 view_prefs.files_panes.<기기> = [첫 칸, 둘째 칸](migration 20261107110000).

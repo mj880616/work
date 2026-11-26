@@ -1,5 +1,5 @@
-// S52-20 HOME-잊지말기한목록 ②(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html ①, 명진 14:44 '좋은데')
-// → S53-13 HOME-잊지말기칩(요청함 11/08 13:54, 시안 docs/design/mockups/home-forget-slim.html, 명진 13:55 'A'):
+// S52-20 HOME-잊지말기한목록 ②(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html ①, 사용자 14:44 '좋은데')
+// → S53-13 HOME-잊지말기칩(요청함 11/08 13:54, 시안 docs/design/mockups/home-forget-slim.html, 사용자 13:55 'A'):
 // - 홈 '잊지 말기'는 따로 한 줄이 아니라 입력 칸 머리 줄 오른쪽 칩 하나 + 빨간 바탕 흰 글자 숫자(처리 안 한 수, 0이면 숫자 없이 칩만 흐리게), 누르면 정리함 한 목록.
 // - 옛 띠 줄·옛 [잊지 말기 전체 보기 ›] 글자 링크는 없다.
 // - 옛 '나한테 온 요청' 상자·'잊지 말기' 상자·'챙길 것 n · 정리 안 된 것 n' 줄은 없다.

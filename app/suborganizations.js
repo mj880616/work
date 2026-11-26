@@ -61,7 +61,7 @@ let soRecency=null,soTeamHtml=null,soTeamBox=null,soGroupsMod=null,soGroupEditin
 let soLoadedFor=null,soFirstUse=null;
 import('./first-use.js').then(m=>{soFirstUse=m.firstUseHtml;if(soLoadedFor&&soLoadedFor===soWorkspace&&!myOrganizations().length)renderTeam()}).catch(()=>{});
 const soEmptyHtml=()=>soFirstUse&&soLoadedFor&&soLoadedFor===soWorkspace&&isAdmin()?soFirstUse('team'):(globalThis.KPTUWait?.emptyHtml?.()||'');
-// S67-53 ORG-여러개삭제(명진 11/20): 화면 ⋯ [여러 개 선택해 삭제] → 공용 선택 모드(select-mode.js, 폰 뒤로가기 = 선택 끝) → [삭제] 한 번 확인으로
+// S67-53 ORG-여러개삭제(사용자 11/20): 화면 ⋯ [여러 개 선택해 삭제] → 공용 선택 모드(select-mode.js, 폰 뒤로가기 = 선택 끝) → [삭제] 한 번 확인으로
 // 선택한 담당조직을 휴지통으로(org-bulk-delete.js — 한 개 [삭제]와 같은 서버 길·규칙). 선택 상태 주인은 soPick 하나, 그리기는 renderTeam 하나.
 let soPick=null,soPickBusy=false,soPickText=null;
 const picking=()=>!!soPick?.active;
@@ -103,20 +103,20 @@ async function stageModules(){if(!stageMod){const [data,model,ui]=await Promise.
 function paintStageTags(){
  document.querySelectorAll('#soOrganizationList .so-stage-tag').forEach(el=>el.remove());document.querySelectorAll('#soOrganizationList .has-stage').forEach(el=>el.classList.remove('has-stage'));
  const state=stageMod?.peekDisputeState();if(!state||state.status!=='ready')return;
- // ORG-머리줄한줄(S70-53, 2026-11-25 명진 폴드 사진 '칩이 안 보임'): 꼬리표는 모든 폭에서 그린다. 좁으면 조직 이름이 먼저 '…'로 줄고 칩은 남는다
+ // ORG-머리줄한줄(S70-53, 2026-11-25 사용자 폴드 사진 '칩이 안 보임'): 꼬리표는 모든 폭에서 그린다. 좁으면 조직 이름이 먼저 '…'로 줄고 칩은 남는다
  // (예전 ORG-담당조직버튼자리폴드 ② '폴드 펼침 600~1023px에서는 그리지 않음'은 이 요청으로 거둠).
  document.querySelectorAll('#soOrganizationList [data-so-org]').forEach(row=>{const tag=stageMod.listTag(stageMod.stageOfOrg(row.dataset.soOrg,state.histories,state.stages)),main=row.querySelector('.kptu-list-row-main');if(!tag||!main)return;
   const span=document.createElement('span');span.className='so-stage-tag'+(tag.kind==='ended'?' is-end':tag.kind==='quiet'?' is-quiet':'');span.dataset.soStage=tag.kind;span.textContent=tag.text;main.querySelector('.kptu-list-chevron')?.before(span);main.classList.add('has-stage')});
 }
 async function refreshStages(){if(!soWorkspace)return;try{await stageModules();await stageMod.loadDisputeState({rt,workspaceId:soWorkspace});paintStageTags()}catch(err){console.error('dispute stages',err)}}
-// UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 선택하지 않은 조직 줄을 우클릭하면 같은 화면 메뉴 맨 위에 [열기] 한 줄이 더 붙는다
+// UI-PC손맛묶음 ⑦(2026-11-11 사용자 결정 B안): PC에서 선택하지 않은 조직 줄을 우클릭하면 같은 화면 메뉴 맨 위에 [열기] 한 줄이 더 붙는다
 // ([열기] ─ [쟁의 단계 관리]). [열기] = 그 줄을 왼쪽 누름과 같은 길로 눌러 오른쪽 상세를 그 조직으로. 메뉴를 띄우는 길은 공용 우클릭(context-menu.js openAt)
 // 그대로이고, 어느 줄에서 열었는지만 이 화면이 기억한다(⋯를 그냥 누르면 [열기] 없이 지금 메뉴).
 // ORG-목록줄메뉴없음(S71-08): 줄 ⋯가 없어진 뒤로는 고른 줄(오른쪽에 열린 조직) 우클릭도 같은 메뉴에서 [열기]만 빠진다(C1: 줄 우클릭 = 그 조직 메뉴).
 let ctxOrg=null,menuOrg=null;
 const soMenuItem=(attr,label)=>`<button type="button" ${attr}>${label}</button>`; // 메뉴 글자 줄(모양은 .basket-link-menu 공용) 한 틀
 // MULTI-다른담당자맞춤 ①: 그 조직 일 — [이름 바꾸기]·[담당 조직에서 제외]/[담당 조직으로 추가]·[삭제]. 어느 조직의 메뉴인지는 이 화면만 기억한다(menuOrg).
-// ORG-목록줄메뉴없음(S71-08, 2026-11-26 14:22 명진 "이거는 안보여도돼 / 필요하면 각 조직 눌러서 들어가서 수정 삭제 등 할게"): 목록 줄에는 ⋯가 없다.
+// ORG-목록줄메뉴없음(S71-08, 2026-11-26 14:22 사용자 "이거는 안보여도돼 / 필요하면 각 조직 눌러서 들어가서 수정 삭제 등 할게"): 목록 줄에는 ⋯가 없다.
 // 그 조직 메뉴는 상세 맨 위 쟁의 단계 줄 오른쪽 ⋯(#wdOrgMore, workplace-detail.js가 그림 → KPTUOrgMenu.open, from='detail')와
 // PC 줄 우클릭(맨 위 [열기]가 더 붙음, 화면 메뉴와 함께)에서 연다. 쟁의 단계는 상세의 단계 줄에서 바로 고친다(메뉴 줄 없음).
 let menuFrom='screen';
@@ -130,7 +130,7 @@ function orgMenuItems(id){const o=soOrganizations.find(x=>x.id===id);if(!o)retur
 // MULTI-다른담당자맞춤 ⑥: '연락 없는 조직' 줄(2026-11-24 홈에서 이 화면 목록 맨 아래로 옮김)의 기준 [2주|3주|4주|6주|끄기]는 내 프로필에서 조직 보고 화면 ⋯로 옮겼다. 값은 그대로
 // 서버 화면 기억 view_prefs.quiet_weeks 하나(바꾸면 바로 서버 저장). 통화·텔레그램 수집이 있는 작업공간(서버 운영자 기능)에서만 보인다.
 let quietMod=null,quietShown=false;
-// 2026-11-24 명진 요청("홈화면에서 이거 없애고, 이거는 조직 관리 화면 맨 아래로"): 줄의 유일한 renderer는 org-quiet.js, 이 화면은 자리(soQuietEl)만 둔다.
+// 2026-11-24 사용자 요청("홈화면에서 이거 없애고, 이거는 조직 관리 화면 맨 아래로"): 줄의 유일한 renderer는 org-quiet.js, 이 화면은 자리(soQuietEl)만 둔다.
 // 목록(renderTeam)이 다시 그려도 같은 자리를 목록 맨 끝에 다시 붙인다. 고르기 중에는 빼 둔다. 무거운 읽기라 조직 관리를 처음 열 때 불러온다.
 let soQuietEl=null,soQuietFlight=null;
 function placeQuiet(box,pk){if(!soQuietEl)return;if(pk||!box){soQuietEl.remove();return}if(soQuietEl.parentNode!==box||box.lastElementChild!==soQuietEl)box.appendChild(soQuietEl)}
@@ -182,7 +182,7 @@ async function installStageMenu(trigger,org=null,from=org?'ctx':'screen'){
    if(button.matches('[data-so-add-group]')){openGroupEdit(null,active.trigger);return}
    if(button.matches('[data-so-add-org]')){openEdit(null,{trigger:active.trigger});return}
    if(button.matches('[data-so-collab-new]')){void startCollabCreate(button.dataset.soCollabNew);return}
-   // ORG-기록자료폴더(명진 11/24): 모으는 폴더 바꾸기 — org-files-folder.js. 지난 자료 모으기는 처음 정할 때 저절로(S70-29, 메뉴 줄 지움).
+   // ORG-기록자료폴더(사용자 11/24): 모으는 폴더 바꾸기 — org-files-folder.js. 지난 자료 모으기는 처음 정할 때 저절로(S70-29, 메뉴 줄 지움).
    if(button.matches('[data-so-files-parent]')){const at=active.trigger;import('./org-files-folder.js').then(m=>m.chooseOrgFilesParent(at,rt)).catch(()=>notify('자료를 확인하지 못했어요. 다시 시도해 주세요.',{error:true}));return}
    stageMod.openStageManager({workspaceId:soWorkspace,rt,trigger:active.trigger,orgNames:()=>new Map(soOrganizations.map(o=>[o.id,o.name]))})}});
  menuOrg=org;menuFrom=org?from:'screen';stageMenu.open(trigger);
@@ -328,7 +328,7 @@ function bind(){if(soBound)return;soBound=true;window.addEventListener('kptu:wor
 async function boot(){if(!rt)return false;if(!(await context()))return false;installTeam();installModals();installEventCreate();installGoogleEditSelector();bind();await load();if(document.querySelector('#ciGoogleModal:not(.hidden)'))window.__KPTU_EDIT_GOOGLE_ORGS__(window.__KPTU_GOOGLE_EDIT_ORGS_PENDING__||[],{areas:window.__KPTU_GOOGLE_EDIT_AREAS_PENDING__});window.__KPTU_RELOAD_SUBORGANIZATIONS__=()=>load();return true}
 // PERF-첫로딩 P5: 조직 상세(workplace-detail.js)와 그 할 일 칸(project-catalog.js·google-tasks.js)은 목록이 보인 뒤 받는다(첫 화면 앞에 받던 JS 약 40개).
 // 순서는 옛 view-loader.js organizations()와 같다. 다 받기 전의 열기 길: KPTUWorkplace.open(다른 화면·검색에서 여는 곳)은 받은 뒤 진짜 open으로 넘기고,
-// 목록·프로필의 조직 줄([data-ps-workplace-org]) 클릭은 받은 뒤 같은 줄을 다시 누른다(첫 클릭만 잠깐 늦을 수 있음 — 명진 결정 11/02).
+// 목록·프로필의 조직 줄([data-ps-workplace-org]) 클릭은 받은 뒤 같은 줄을 다시 누른다(첫 클릭만 잠깐 늦을 수 있음 — 사용자 결정 11/02).
 let detailFlight=null;
 function loadDetail(){
  // 이미 받은 것(할 일 화면이 먼저 받은 google-tasks.js 등)은 건너뛴다.

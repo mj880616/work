@@ -10,7 +10,7 @@ import {swatchHtml, setSwatchOn} from './color-swatch.mjs';
 // - 글 칸(zone)은 화면 주인이 bindSelectZone(container, {zone, source, onSave, onNote, marks})로 알린다. 고른 글의 처음과 끝이 같은 글 칸 안일 때만 뜬다.
 // - 줄 버튼을 누르는 사이 폰이 고른 글을 풀어도, 줄이 뜰 때 받아 둔 글자·자리로 실행한다(이 탭 메모리만, 서버 저장은 onSave·marks가 맡는다).
 // - 모양은 공용 고르기 줄(base-ui.css .kptu-actbar-text · .kptu-act, app/action-bar.mjs). 줄은 하나(문서에 한 번만 만든다).
-// S70-16 UI-고른글메뉴·형광펜(명진 2026-11-25 09:51·09:54, 시안 docs/design/mockups/highlight-underline-options.html):
+// S70-16 UI-고른글메뉴·형광펜(사용자 2026-11-25 09:51·09:54, 시안 docs/design/mockups/highlight-underline-options.html):
 // - 자리: 고른 글과 앞뒤 줄을 가리지 않는 곳. PC(넓은 화면)는 글 칸 옆 여백 → 고른 글 위(한 줄 띄움) → 아래(한 줄 띄움), 순수 계산은 select-bar-place-model.mjs.
 //   폰은 하단바 바로 위 고정 줄(base-ui.css .hl-bar 기본 자리). 마우스로 끌어 고르는 동안(누른 채)에는 뜨지 않고 뗀 뒤 뜬다.
 // - 끌어 옮기기(PC 마우스 왼쪽): 줄의 빈 곳·'선택한 글' 글자를 잡고 끌면 따라 움직인다(공용 dragByTitle — 단추 위에서는 끌기 아님, 화면 밖으로 안 나감).

@@ -16,7 +16,7 @@ const SOURCE = stripTypeScriptTypes(
 );
 const DOC = 'e0000000-0000-4000-8000-000000000001', OTHER = 'e0000000-0000-4000-8000-000000000002';
 const baseDoc = (over = {}) => ({
-  id: DOC, workspace_id: 'workspace-1', title: '고친 제목', category: '교섭', source: '공공운수노조', document_date: '2026-10-20', description: '설명', tags: ['a'],
+  id: DOC, workspace_id: 'workspace-1', title: '고친 제목', category: '교섭', source: 'A노조', document_date: '2026-10-20', description: '설명', tags: ['a'],
   project_id: 'project-1', meeting_id: 'meeting-1', organization_id: 'org-1', field_origin: { title: 'user' }, classification_note: '사용자 수정', auto_classified: false,
   file_id: 'oldDriveFile', file_name: '옛 파일.hwpx', mime_type: 'application/x-hwp', file_size: 111, drive_url: 'https://drive.google.com/file/d/oldDriveFile/view',
   previous_files: [], reclassify_needed: false, extracted_text: '옛 글자', extraction_status: 'ready', extraction_error: null, extracted_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z', ...over
@@ -93,7 +93,7 @@ test('replace: only the file columns change; title, category, links, marks and n
   const row = h.rows[0];
   assert.deepEqual([row.file_id, row.file_name, row.mime_type, row.file_size, row.drive_url], ['newDriveFile', '새 파일.pdf', 'application/pdf', 10, 'https://drive.example/new']);
   assert.deepEqual([row.title, row.category, row.source, row.document_date, row.description, row.tags, row.project_id, row.meeting_id, row.organization_id, row.field_origin, row.classification_note, row.auto_classified],
-    ['고친 제목', '교섭', '공공운수노조', '2026-10-20', '설명', ['a'], 'project-1', 'meeting-1', 'org-1', { title: 'user' }, '사용자 수정', false]);
+    ['고친 제목', '교섭', 'A노조', '2026-10-20', '설명', ['a'], 'project-1', 'meeting-1', 'org-1', { title: 'user' }, '사용자 수정', false]);
   assert.equal(row.previous_files.length, 1);
   const prev = row.previous_files[0];
   assert.deepEqual([prev.file_id, prev.file_name, prev.mime_type, prev.file_size, prev.drive_url], ['oldDriveFile', '옛 파일.hwpx', 'application/x-hwp', 111, 'https://drive.google.com/file/d/oldDriveFile/view']);
@@ -135,7 +135,7 @@ test('replace: the project, title, category fields sent along are ignored (the r
   const h = harness();
   const { status } = await send(h, { fields: { replace_document_id: DOC, title: '덮어쓰기', category: '선전', project_id: 'project-9', source: 'x' } });
   assert.equal(status, 200);
-  assert.deepEqual([h.rows[0].title, h.rows[0].category, h.rows[0].project_id, h.rows[0].source], ['고친 제목', '교섭', 'project-1', '공공운수노조']);
+  assert.deepEqual([h.rows[0].title, h.rows[0].category, h.rows[0].project_id, h.rows[0].source], ['고친 제목', '교섭', 'project-1', 'A노조']);
 });
 
 test('replace: DB not ready (columns missing) → 503 before any upload; update failure removes only the new Drive file', async () => {

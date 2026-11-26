@@ -123,7 +123,7 @@ export const recordMarkdownSource=row=>markdownSource(recordSourceText(row));
 // EDIT-번호모양보존: a text with no markdown marks that was written over several lines opens as written ("1)" "(1)" indentation and blank lines stay).
 export const recordWrittenSource=row=>{const text=recordSourceText(row);return !markdownSource(text)&&/\n/.test(String(text??'').trim())?writtenText(text):'';};
 // extra: html put inside the record under its line (ORG-기록첨부: the picture/file strip, record-files.js).
-// UI-기록카드하나로(S70-42, 명진 11/25 "사진이 있는거랑 글자가 있는거랑 먼가 통일감이 없음"): 글 기록 줄과 같은 틀 [날짜 칸 'MM.DD.' | 본문 | ⋯].
+// UI-기록카드하나로(S70-42, 사용자 11/25 "사진이 있는거랑 글자가 있는거랑 먼가 통일감이 없음"): 글 기록 줄과 같은 틀 [날짜 칸 'MM.DD.' | 본문 | ⋯].
 // 본문 = 글(또는 사진만인 기록의 한 줄) + 그 아래 extra(기록 띠: 작은 사진·파일 이름, record-files.js). 긴 날짜·시각은 날짜 칸 title로만.
 export function linkRecordHtml(row,{extra=''}={}){
   const ok=Number.isFinite(Date.parse(row.occurred_at)),date=ok?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'',day=ok?dayCell(row):'';

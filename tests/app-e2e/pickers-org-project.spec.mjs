@@ -136,7 +136,7 @@ test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(
 // row, since many can be chosen) with [취소] [저장] fixed at the bottom; still no search box.
 test('폰: 아래에서 올라오는 시트, 찾기 칸, 묶음 이름 + 조직 줄 44px, 체크칸, 아래 [취소] [저장]',async({page})=>{
  const {sheet}=await homeOrgSheet(page,390,NAMES);
- // S54-05(11/08 명진 결정): 폰도 누른 버튼 아래 작은 창(전에는 아래에서 올라오는 시트). 폰 줄 높이·체크칸·아래 [취소] [저장]은 그대로.
+ // S54-05(11/08 사용자 결정): 폰도 누른 버튼 아래 작은 창(전에는 아래에서 올라오는 시트). 폰 줄 높이·체크칸·아래 [취소] [저장]은 그대로.
  await expectChoiceAtButton(page,sheet,await quickOrgButton(page),{firstRow:false});
  /* S52-01 ②: 폰도 찾기 칸 */await expect(sheet.getByRole('searchbox')).toBeVisible();await expect(sheet.locator('[data-sheet-all] .aop-group-label')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]').first()).toHaveCSS('min-height','44px');

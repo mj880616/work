@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
-// S69-17 UI-끌어고르기(명진 11/24 08:30 "자료실에서 선택 말고 드래그해서 파일 선택 가능하게"): PC 1440 두 칸 보기에서
+// S69-17 UI-끌어고르기(사용자 11/24 08:30 "자료실에서 선택 말고 드래그해서 파일 선택 가능하게"): PC 1440 두 칸 보기에서
 // 칸 목록 빈 곳(마지막 줄 아래)을 마우스로 끌면 사각형에 닿은 줄이 골라지고(기존 선택 모드·위 막대), Ctrl과 끌면 더하기,
 // 줄 위(이름·가운데 빈칸)에서 끌면 지금처럼 폴더로 옮기기, Shift+클릭은 범위. 이름은 지어낸 것.
 const FOLDERS=[libFolder('src',null,{name:'가상 시작',sort_order:1024}),libFolder('dst',null,{name:'가상 도착',sort_order:2048})];

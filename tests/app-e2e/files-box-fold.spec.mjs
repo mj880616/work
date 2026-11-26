@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
-// S52-14 FILES-상자접힘기억(요청함 11/07 11:33, 명진 'ㅇ' — 상자만, 기기 종류별): [파일] 저장소 상자(원드라이브·구글 드라이브) 머리를 눌러 접으면
+// S52-14 FILES-상자접힘기억(요청함 11/07 11:33, 사용자 'ㅇ' — 상자만, 기기 종류별): [파일] 저장소 상자(원드라이브·구글 드라이브) 머리를 눌러 접으면
 // 서버 view_prefs.box_shut.<기기>.files에 기억된다(기기 저장 없음) — 다른 화면에 갔다 오거나 새로고침해도 접힌 채, 펼치면 펼친 채.
 // 기기 종류는 폰 브라우저(폭 760 이하 = phone)·그 밖(pc)이 따로: 폰에서 접어도 PC 칸은 그대로. 안쪽 폴더 펼침은 기억하지 않는다. 이름은 모두 가짜.
 // 사진 [폴더] 상자는 photos-folders.spec.mjs, DB 적용 전(400) 거절은 아래 마지막 시험.

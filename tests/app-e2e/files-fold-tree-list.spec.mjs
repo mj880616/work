@@ -4,7 +4,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// FILES-폴드나무목록(S51-18, 요청함 11/06 01:13 · 명진 01:14 'ㅇ', 시안 docs/design/mockups/files-fold-tree-list.html):
+// FILES-폴드나무목록(S51-18, 요청함 11/06 01:13 · 사용자 01:14 'ㅇ', 시안 docs/design/mockups/files-fold-tree-list.html):
 // 펼친 갤럭시 Z 폴드는 CSS 폭이 약 673~884px(폰 앱 WebView·삼성 인터넷 기본 배율). 옛 판정(760px 이하 = 폰)은 이 폭을 폰으로 잡아
 // 나무만 화면 가득 → 폴더를 누르면 목록만 나왔다. 공용 판정(app/screen-width.mjs, 600px~)으로 고친 뒤:
 // 파일·노트가 폴드 폭(700·768·884)과 PC(1280)에서 '왼쪽 나무 | 오른쪽 목록', 폴더를 옮겨 다녀도 나무가 남고, 경계선 끌기는 서버(view_prefs.split_ratio)에 기억.
@@ -28,7 +28,7 @@ for (const width of [700, 768, 884, 1280]) test(`파일 ${width}: 왼쪽 나무 
   // 저장소마다 둥근 상자(S51-25, 자료실 모양) — 상자 사이가 한눈에 갈린다.
   const rootBox = tree.locator('[data-fx-box="od"]');
   expect(await rootBox.evaluate(e => parseFloat(getComputedStyle(e).borderTopLeftRadius))).toBeGreaterThan(0);
-  // S69-38 UI-탐색기나무누르기(명진 11/24): 나무에서 폴더 이름을 누르면(하위 폴더가 있어도) 오른쪽이 그 폴더 + 나무에서 펼침 — 두 번 옮겨 다녀도 나무가 그대로.
+  // S69-38 UI-탐색기나무누르기(사용자 11/24): 나무에서 폴더 이름을 누르면(하위 폴더가 있어도) 오른쪽이 그 폴더 + 나무에서 펼침 — 두 번 옮겨 다녀도 나무가 그대로.
   // ⋯·우클릭 [이 폴더로 들어가기]도 같은 곳.
   const go = tree.locator('[data-fx-go][data-fx-id]:not([data-fx-id=""])');
   const crumb = root(page).locator('[data-fx-crumb] .fx-crumb-now');
@@ -138,7 +138,7 @@ for (const width of [700, 884]) test(`노트 폴드 ${width}: 왼쪽 폴더 나�
   expect(errors).toEqual([]);
 });
 
-// UI-폴드보기탭가운데(S68-44, 명진 11/23 11:43 '노트 폴드펼침 화면 폴더 목록 보드 태그 댓글 달력 가운데 정렬'): 펼친 폴드(폰 틀 673~760)도 아래 가운데.
+// UI-폴드보기탭가운데(S68-44, 사용자 11/23 11:43 '노트 폴드펼침 화면 폴더 목록 보드 태그 댓글 달력 가운데 정렬'): 펼친 폴드(폰 틀 673~760)도 아래 가운데.
 test('노트 보기 전환 줄 자리: 폴드(폰 틀)·폰 아래 가운데 · PC 위', async ({ page }) => {
   const sw = () => page.locator('[data-note-list] .nv-switch');
   await notes(page, 700);
@@ -156,7 +156,7 @@ test('노트 보기 전환 줄 자리: 폴드(폰 틀)·폰 아래 가운데 · 
   }
 });
 
-// S69-38 UI-탐색기나무누르기(명진 11/24, UI-폴더누르기한규칙을 탐색기 나무에서 바꿈): 폴더 이름 누르기 = 오른쪽이 그 폴더 + 펼침(다시 눌러도 접지 않음),
+// S69-38 UI-탐색기나무누르기(사용자 11/24, UI-폴더누르기한규칙을 탐색기 나무에서 바꿈): 폴더 이름 누르기 = 오른쪽이 그 폴더 + 펼침(다시 눌러도 접지 않음),
 // 펼침 아이콘·←/→ = 펼치기·접기만(오른쪽 그대로). ⋯ [이 폴더로 들어가기]도 같은 곳.
 test('파일 1280: 폴더 이름 누르기 = 그 폴더 열기 + 펼침, 아이콘·←/→ = 펼침·접힘만, ⋯ 메뉴로도 들어가기', async ({ page }) => {
   test.setTimeout(90000);

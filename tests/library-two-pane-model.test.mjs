@@ -39,7 +39,7 @@ test('옮기기 막대: 왼쪽 칸이면 → 오른쪽, 오른쪽 칸이면 ← 
 });
 
 // S56-40 LIB-두칸폴더펼치기: 칸 안 나무 줄 — 펼친 폴더 아래 하위 폴더·자료가 한 단 들여, 접으면 안쪽 없음.
-// UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 펼친다 — 펼치면 안에 '빈 폴더' 한 줄({kind:'empty'}, 들어가지 않음).
+// UI-폴더이름펼치기(사용자 11/24 18:09): 빈 폴더도 펼친다 — 펼치면 안에 '빈 폴더' 한 줄({kind:'empty'}, 들어가지 않음).
 test('칸 안 나무 줄: 펼친 폴더만 안쪽이 한 단 들여 보이고, 펼친 빈 폴더는 안에 빈 폴더 한 줄', () => {
   const top = paneContent(tree, null);
   const flat = rows => rows.map(r => r.kind === 'folder' ? `${r.depth}${r.open ? '▾' : '▸'}${r.node.id}` : r.kind === 'out' ? `${r.depth}${r.open ? '▾' : '▸'}폴더밖` : r.kind === 'empty' ? `${r.depth}(빈 ${r.node.id})` : `${r.depth}:${r.files.map(d => d.id).join(',')}`);

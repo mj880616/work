@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
-// NOTE-AI제외정리(11/10 17:41 명진 결정 A): 노트 ⋯에 [AI에 보내지 않기]·[AI 제외 풀기]가 없고, 비밀번호·키 모양 글이 든 노트도
+// NOTE-AI제외정리(11/10 17:41 사용자 결정 A): 노트 ⋯에 [AI에 보내지 않기]·[AI 제외 풀기]가 없고, 비밀번호·키 모양 글이 든 노트도
 // 목록 제목·앞 줄이 원래 글 그대로 보인다('비밀 메모' 가림 없음). 옛 표시(metadata.ai_off)가 있는 노트도 같다. 가림은 서버가 AI로 보낼 때만.
 // 사진: NOTE_AI_OFF_SHOTS 폴더가 있으면 docs/design/screens/s56-26/ 용 사진을 남긴다. 예시 값은 모두 지어낸 가짜 글.
 test.use({ hasTouch: true });

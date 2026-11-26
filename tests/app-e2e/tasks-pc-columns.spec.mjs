@@ -90,7 +90,7 @@ for(const width of [1280,1440]){
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await open(page,width,[task('late','2026-10-06'),task('today','2026-10-08'),task('soon','2026-10-10'),task('far','2026-10-30')]);
     const box=l=>l.boundingBox();
-    // TASK-넓게쓰기(2026-11-10 명진 B안): 고르기 전에는 오른쪽 칸·경계선이 없고, 두 묶음이 위아래로 화면 폭 전부.
+    // TASK-넓게쓰기(2026-11-10 사용자 B안): 고르기 전에는 오른쪽 칸·경계선이 없고, 두 묶음이 위아래로 화면 폭 전부.
     await expect(page.locator('#gtDetailPane')).toBeHidden();await expect(page.locator('#gtTaskSection>.split-resize-handle:visible')).toHaveCount(0);
     {const sec=await box(page.locator('#gtTaskSection')),n=await box(col(page,'now')),w=await box(col(page,'week'));
       expect(Math.abs(n.width-sec.width)).toBeLessThanOrEqual(1);expect(Math.abs(w.width-sec.width)).toBeLessThanOrEqual(1);expect(w.y).toBeGreaterThanOrEqual(n.y+n.height)}

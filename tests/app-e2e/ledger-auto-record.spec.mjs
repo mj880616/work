@@ -94,7 +94,7 @@ const saveUpdate=page=>page.evaluate(ws=>window.KPTURuntime.api('/rest/v1/app_no
 const autoCalls=db=>db.ai.filter(b=>b&&JSON.parse(b).kind==='ledger_auto');
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth);
 
-// LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장은 AI가 쓰는 뒤쪽 자료라 사용자 화면이 없다. 옛 ?view=ledger 주소는 홈을 열고,
+// LEDGER-화면에서빼기(2026-11-25 사용자 결정): 원장은 AI가 쓰는 뒤쪽 자료라 사용자 화면이 없다. 옛 ?view=ledger 주소는 홈을 열고,
 // 하루 카드의 '새로 기록된 약속' 줄도 없다. 자동 기록(저장 → 10분 묶어 ai-assist ledger_auto 한 번)과 Claude용 사본 갱신은 화면 없이 그대로다.
 for(const [name,width] of [['PC',1280],['phone',390]]){
  test(`원장 화면 없음: 옛 주소는 홈, '새로 기록된 약속' 줄 없음, 자동 기록·사본 갱신은 그대로 (${name} ${width}px)`,async({page})=>{

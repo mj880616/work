@@ -130,8 +130,8 @@ test('outside-feed refill: 학비노조처럼 옛 판 실패 줄을 글 쪽 다�
  assert.equal((await w.outside({source:'nope'})).status,400);
 });
 
-test('outside-feed refill: robots 예외 단체는 판이 오른 글만 한 번, 10개까지, 요청 사이 5초(명진 결정 11/13 A안)',async()=>{
- assert.equal(E.ruleId('kptu',OC.sourceByKey('kptu').extract),'kptu@2','공공운수노조 판 2(S61-37 글자 규칙)');
+test('outside-feed refill: robots 예외 단체는 판이 오른 글만 한 번, 10개까지, 요청 사이 5초(사용자 결정 11/13 A안)',async()=>{
+ assert.equal(E.ruleId('kptu',OC.sourceByKey('kptu').extract),'kptu@2','A노조 판 2(S61-37 글자 규칙)');
  const K=n=>`https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=${n}`;
  const page=`<html><head><title>합성 제목</title></head><body><div class="publishList_write"><p><span>${LONG}</span><span>13</span><span>일</span> &middot 합성</p></div></body></html>`;
  const rows=[];

@@ -1,11 +1,11 @@
-// JOURNAL-일기원드라이브 10.6 '그날 맥락' (docs/design/diary-onedrive.md 10.6, 2026-11-10 명진 결정): 사진 있는 날의 일정·회의를
+// JOURNAL-일기원드라이브 10.6 '그날 맥락' (docs/design/diary-onedrive.md 10.6, 2026-11-10 사용자 결정): 사진 있는 날의 일정·회의를
 // 보여 주기만 하는 규칙(화면·읽기는 diary-context.js). 새 저장 없음, AI가 사진을 읽지 않음, 일기 글에 쓰지 않음.
 //   ① 붙이는 것은 일정(Google Calendar)과 회의(Web2 회의 기록)뿐 — 끝낸 할 일·메모는 붙이지 않는다.
 //   ② 크게 보기 캡션: 찍은 시각이 일정·회의 시간 안이면 "14:20 ○○ 회의 중" 한 줄. 찍은 시각이 없거나 대략(approx)인 사진은 생략.
 //   ③ 사진 없는 날에는 맥락을 그리지 않는다(diary.js가 사진 있는 날에만 자리를 만든다).
 // 항목 모양(entry): {kind:'event'|'meeting', id, calendarId?, title, time('HH:MM'|'종일'), startMs, endMs, allDay, label?, name?}
 //   회의 항목(= 사업 보고 한 건)의 label은 그 줄의 칸 이름(report-kinds.mjs reportKindLabel: 회의·투쟁·정책 …), name은 이름 앞 [칸] 꼬리표를 뺀 이름.
-//   DIARY-맥락사업보고이름(11/14 명진 확정): 꼬리표·접힌 한 줄·읽어 주는 말은 '회의'로 고정하지 않고 그 칸 이름 그대로.
+//   DIARY-맥락사업보고이름(11/14 사용자 확정): 꼬리표·접힌 한 줄·읽어 주는 말은 '회의'로 고정하지 않고 그 칸 이름 그대로.
 
 // 회의 기록에는 끝 시각이 없다. 회의 시각부터 이만큼을 '회의 중'으로 본다.
 export const MEETING_SPAN_MS = 2 * 60 * 60 * 1000;

@@ -21,7 +21,7 @@ const pending=new Set();
 // One confirmation for every screen: the place's name, and that the note stays.
 export const disconnectConfirmText=name=>`${String(name||'').trim()||'이'} 연결을 해제할까요? 업데이트는 남아요`;
 export const disconnectLabel=name=>`${String(name||'').trim()||'이'} 연결 해제`;
-export const UNDO_MS=NOTICE_UNDO_MS; // UI-작은알림자리(2026-10-28 명진 결정): 사이트 전체 작은 알림 2초
+export const UNDO_MS=NOTICE_UNDO_MS; // UI-작은알림자리(2026-10-28 사용자 결정): 사이트 전체 작은 알림 2초
 export const RECORD_DELETE_TEXT=Object.freeze({
   DISCONNECT_FAILED:'연결을 해제하지 못했어요. 다시 시도해 주세요.',
   DISCONNECT_MISSING:'이미 해제된 연결이에요. 목록을 다시 불러왔어요.',
@@ -287,7 +287,7 @@ async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false,ask,movedT
   }});
 }
 
-// ORG-연결노트삭제(2026-11-12 명진 지시): 조직·사업영역 기록 목록의 노트 연결 줄 ⋯ [원문 삭제]. 노트 화면 [삭제]와 같은 휴지통 길
+// ORG-연결노트삭제(2026-11-12 사용자 지시): 조직·사업영역 기록 목록의 노트 연결 줄 ⋯ [원문 삭제]. 노트 화면 [삭제]와 같은 휴지통 길
 // (owner-RLS DELETE 한 번 → 서버 가로채기가 휴지통 표시, 되돌리기는 app_trash_restore)을 그대로 쓰고, 묻는 글만 기록 줄에 맞춘다.
 // 휴지통에 간 노트는 RLS가 숨기므로 그 노트의 기록 줄은 모든 목록에서 빠지고, 되돌리면 연결과 함께 다시 보인다.
 // otherPlaces: 이 줄 말고 그 노트가 이어진 곳 수(조직·사업영역·사업 보고·자료실 연결 모두).

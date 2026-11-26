@@ -1,4 +1,4 @@
-// S59-22 OPS-빠진일2차 4: AI 버튼 이름(명진 11/11 14:55 "제안대로 전부", docs/design/ai-button-names.md).
+// S59-22 OPS-빠진일2차 4: AI 버튼 이름(사용자 11/11 14:55 "제안대로 전부", docs/design/ai-button-names.md).
 // 새 이름이 화면 코드에 있고, 옛 이름이 버튼·눌림 이름·안내 글자로 남지 않았으며, 기준표(ui-words.md)에도 올라갔는지 본다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,9 +11,9 @@ const read = rel => readFileSync(join(root, rel), 'utf8');
 
 test('새 이름이 그 단추 자리에 있다(회의 보고 창 2곳·파일 이름 칸·사업영역 칸·공유 페이지·주간 초안)', () => {
   assert.match(read('app/meeting-round-detail.js'), /id="mrdMakeTodos"[^>]*>할 일 후보 찾기<\/button>/);
-  // S61-5 REC-전사삭제(명진 11/13): 회의자료 녹음 ⋯ [녹음 글로 옮기고 요약하기]는 지금은 없다.
+  // S61-5 REC-전사삭제(사용자 11/13): 회의자료 녹음 ⋯ [녹음 글로 옮기고 요약하기]는 지금은 없다.
   assert.doesNotMatch(read('app/meeting-round-detail.js'), /data-mrd-transcribe/);
-  // S61-24 REC-요약단추삭제(명진 11/13): 회의 입력 창 [녹음 요약하기]도 지금은 없다.
+  // S61-24 REC-요약단추삭제(사용자 11/13): 회의 입력 창 [녹음 요약하기]도 지금은 없다.
   for (const rel of screenFiles()) assert.doesNotMatch(read(rel), />녹음 요약하기<|'녹음 요약하기'/, rel);
   assert.match(read('app/file-rename.js'), /data-fr-ai>이름 추천 받기<\/button>/);
   assert.match(read('app/business-area-fields.js'), /data-biz-area-ai>사업영역 추천<\/button>/);

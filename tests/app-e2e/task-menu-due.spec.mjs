@@ -1,4 +1,4 @@
-// S69-18 TASK-메뉴기한(명진 11/24): 할 일 화면 줄의 ⋯·우클릭 메뉴 [수정] 바로 아래 [기한 바꾸기]. 메뉴 자리에 작은 기한 고르기
+// S69-18 TASK-메뉴기한(사용자 11/24): 할 일 화면 줄의 ⋯·우클릭 메뉴 [수정] 바로 아래 [기한 바꾸기]. 메뉴 자리에 작은 기한 고르기
 // ([오늘][내일][모레][다음주][기한 없음] + 달력), 고르면 바로 같은 google-tasks action=update로 저장, 줄은 새 기한 묶음으로, 5초 [되돌리기].
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
@@ -79,7 +79,7 @@ test('폰 412: ⋯ → [기한 바꾸기] → [내일], 줄 밀기 칸은 [완�
   await page.locator('#gtTaskBody [data-google-task="a"] [data-gt-menu]').click();
   await expect(page.locator('#gtTaskMenu')).toBeVisible();
   await pickTomorrowAndUndo(page,calls);
-  // S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): 줄 밀기 왼쪽 칸은 [완료][수정][삭제] — [기한]은 밀기에서 빠지고 ⋯ [기한 바꾸기](위)로만.
+  // S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 가안): 줄 밀기 왼쪽 칸은 [완료][수정][삭제] — [기한]은 밀기에서 빠지고 ⋯ [기한 바꾸기](위)로만.
   const line=page.locator('#gtTaskBody [data-google-task="a"]');
   await swipe(line,-90);
   const ends=page.locator('#gtTaskBody .row-swipe-acts [data-row-swipe-act="end"]'); // 칸은 줄 바로 앞 형제(row-swipe.js)

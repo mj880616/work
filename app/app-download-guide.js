@@ -1,4 +1,4 @@
-// HELP-처음쓰는사람안내 ③(시안 help-first-use.html ④, 명진 확정 11/16): '앱 내려받기' 기기별 안내 — [안드로이드|아이폰|윈도우|맥] 탭, 지금 기기의 탭이 먼저 열린다.
+// HELP-처음쓰는사람안내 ③(시안 help-first-use.html ④, 사용자 확정 11/16): '앱 내려받기' 기기별 안내 — [안드로이드|아이폰|윈도우|맥] 탭, 지금 기기의 탭이 먼저 열린다.
 // 쓰는 법 화면의 '앱 내려받기' 줄(help.js)과 계정 메뉴 '앱 내려받기'(아이폰·맥 등, topbar-actions.js)가 같이 쓴다. 글은 help-content.mjs 한 곳,
 // 받는 주소는 app-download.mjs(배포 때 정한 최신 폰 앱·PC 도우미 — 같은 저장소·같은 태그 이름만). 탭 선택은 메모리에만(기기 저장 없음).
 import {DEVICES, APP_GUIDE, deviceOf} from './help-content.mjs';

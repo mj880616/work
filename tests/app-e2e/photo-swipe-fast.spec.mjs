@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// 요청함 10/30(명진 결정 확정) 세 건을 지어낸 서버로 본다(네트워크 없음, 사진은 1×1 그림). 폰 412·PC 1440.
+// 요청함 10/30(사용자 결정 확정) 세 건을 지어낸 서버로 본다(네트워크 없음, 사진은 1×1 그림). 폰 412·PC 1440.
 // A PHOTO-스와이프안내: 위로 밀면 사진이 손가락을 따라 올라가고 정해진 거리를 넘겨야 별표(덜 밀면 제자리), 아래로 밀면 따라 내려가다 닫힘.
 //   처음 3번만 손동작 안내(본 횟수는 서버 view_prefs.photo_hint).
 // B PHOTO-크게보기빨리: 누르면 이미 있는 작은 그림이 바로 뜨고 큰 그림이 오면 바뀐다. [ⓘ 정보]에 '불러오기' 한 줄.

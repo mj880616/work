@@ -15,7 +15,7 @@ import { readJpegMeta, validLoc, writeJpegMeta } from "../_shared/jpeg-exif.ts";
 //   권한 범위·소유자 확인·폴더 밖 거절은 그대로다(DB 20261028220000 적용 뒤 배포).
 // 사진 메뉴 ②(폴더 보기): 새 폴더(folder-create)·이름 바꾸기(folder-rename)·폴더 옮기기(folder-move)·빈 폴더 지우기(folder-delete)·
 //   여러 장 폴더로 옮기기(photos-move). 모두 고른 맨 위 폴더 안에서만(색인 폴더 나무 + Graph 경로 이중 확인), 권한 범위는 그대로(Files.ReadWrite).
-// 사진 정보 고치기 ②(S50-31 PHOTO-정보고치기, 명진 결정 E3 (가)·E4·E5): 고른 사진의 찍은 시각·위치 읽기(photos-meta-read, 파일 앞 256KB만)·
+// 사진 정보 고치기 ②(S50-31 PHOTO-정보고치기, 사용자 결정 E3 (가)·E4·E5): 고른 사진의 찍은 시각·위치 읽기(photos-meta-read, 파일 앞 256KB만)·
 //   고치기(photos-meta-write, confirm:true). 원본을 메모리로만 받아 EXIF 칸만 바꾸고 같은 파일의 새 판으로 올린다(If-Match eTag — 그 사이 바뀌었으면 멈춤).
 //   JPEG만, 한 장 30MB·한 번 10장까지. 사진은 디스크·Storage·DB에 두지 않는다. 권한 범위·고른 폴더 안 확인은 그대로(Files.ReadWrite).
 // 로그인한 작업공간 소유자만 쓴다. 갱신 토큰은 service role로만 읽고 쓰며 응답·로그에 싣지 않는다.
@@ -772,7 +772,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     // PHOTO-폴더스위치(요청함 10/31 11:04): 원드라이브 전체 보기로 바꾼다(한 번, 화면이 연결 상태를 읽을 때 부른다). 이미 전체면 그대로 답한다.
     // 옛 연결(고른 폴더 하나)이면: 고른 폴더와, 그 아래에서 지금 보이던 폴더(켜짐이고 위 폴더도 모두 켜짐)를 켠 채로 두고 나머지는 끈다.
     // 고른 폴더에서 루트까지의 위 폴더 줄을 꺼진 채 미리 넣어, 색인을 루트부터 다시 받는 동안에도 지금 보이던 사진이 그대로 보이게 한다.
-    // 사진 줄은 지우지 않는다(다시 받는 줄마다 덮임). 루트 줄과 새로 들어오는 폴더는 꺼진 채 시작(명진 결정 10/31 11:04).
+    // 사진 줄은 지우지 않는다(다시 받는 줄마다 덮임). 루트 줄과 새로 들어오는 폴더는 꺼진 채 시작(사용자 결정 10/31 11:04).
     async "whole-drive"({ workspaceId }) {
       const conn = await readConnection(workspaceId);
       if (!conn) throw new Fail(424, "onedrive_not_connected");
@@ -1670,7 +1670,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     return item.id;
   }
 
-  // 지우기(명진 결정 1) = 고른 폴더 안 'Web2 휴지통' 폴더로 옮기기(되살리기는 trash-restore, 30일 뒤 원드라이브 휴지통).
+  // 지우기(사용자 결정 1) = 고른 폴더 안 'Web2 휴지통' 폴더로 옮기기(되살리기는 trash-restore, 30일 뒤 원드라이브 휴지통).
   // 한 장(id, 예전 화면과 같은 답) 또는 여러 장(ids ≤ 50). 고른 폴더 안 사진·동영상만, confirm:true가 있을 때만. 이미 휴지통 안이면 옮긴 것으로 친다.
   async function photoDelete(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
     const single = body.ids === undefined;

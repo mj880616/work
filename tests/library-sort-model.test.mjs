@@ -77,7 +77,7 @@ test('창 위 한 줄과 옮긴 뒤 한 줄',()=>{
   assert.equal(doneText(16,1),'16개를 폴더로 옮겼어요 · 새 폴더 1개 ·');
 });
 
-// ---- S68-16: 폴더로 나누기 제안이 맞는 폴더를 못 찾던 까닭 재현(지어낸 폴더·자료, 명진 11/22 캡처의 제목 모양만 따름) ----
+// ---- S68-16: 폴더로 나누기 제안이 맞는 폴더를 못 찾던 까닭 재현(지어낸 폴더·자료, 사용자 11/22 캡처의 제목 모양만 따름) ----
 const S68=n=>`d6800000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const RECV68=S68(1);
 const F68=[{id:RECV68,name:'받는 폴더',parent_id:null},{id:S68(2),name:'노사정',parent_id:null},{id:S68(3),name:'교섭',parent_id:null},{id:S68(4),name:'대의원대회',parent_id:null},{id:S68(5),name:'취재요청·보도',parent_id:null},{id:S68(6),name:'투쟁명령',parent_id:null},{id:S68(7),name:'철도',parent_id:null}];
@@ -154,7 +154,7 @@ test('S68-16 개선 ③: 묶음이 실패·건너뜀이면 그 묶음 줄만 바
   assert.deepEqual(settleRows([{wait:true,ids:['a'],why:'x',to:null,checked:false}]),[{wait:false,ids:['a'],why:'x',to:null,checked:false}]);
 });
 
-// ---- S68-18(명진 11/22 15:32): 그림은 그림 속 글자로 폴더를 찾고, 그래도 모르면 그림만 모으는 폴더를 제안 ----
+// ---- S68-18(사용자 11/22 15:32): 그림은 그림 속 글자로 폴더를 찾고, 그래도 모르면 그림만 모으는 폴더를 제안 ----
 test('S68-18 ①: 기본 이름 그림이라도 그림 글자(Drive OCR)가 있으면 근거 있음 — 글자 앞부분으로 규칙이 폴더를 찾는다',()=>{
   const units=receiveUnits(D68,I68,RECV68),pasted=units.filter(u=>PASTED.includes(u.title));
   assert.deepEqual(textIdsFor(units),pasted.map(u=>u.key),'그림 글자가 필요한 것은 기본 이름 그림뿐');

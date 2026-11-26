@@ -189,7 +189,7 @@ for (const width of [390, 1280]) {
 test.describe('폰 390: 하단바', () => {
   test.use({hasTouch: true});
 
-  // S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 5): 폰 쓰기 창이 열리면 하단 탭이 숨고 창이 화면 끝까지 쓴다(나가기는 ✕·뒤로 가기).
+  // S48-6b UI-메뉴판쓰기창(2026-11-02 사용자 결정, #1708 질문 5): 폰 쓰기 창이 열리면 하단 탭이 숨고 창이 화면 끝까지 쓴다(나가기는 ✕·뒤로 가기).
   test('창이 열리면 하단 탭이 숨고 창이 화면 끝까지, 작은 상자는 창 안에, 닫으면 탭이 돌아옴', async ({page}) => {
     await start(page, {width: 390, text: LINES});
     const tabs = page.locator('.mobile-tabs');

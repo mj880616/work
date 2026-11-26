@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { setup as librarySetup, openLibrary } from './helpers/library-multi-delete-scenario.mjs';
-// S68-53(명진 11/23 14:46~14:49, 폰 앱 저장한 글 '전체' 7줄 "좌에서 우로는 작동 선택은 나옴 / 우에서 좌로가 아예 스와이프가 안됨"):
+// S68-53(사용자 11/23 14:46~14:49, 폰 앱 저장한 글 '전체' 7줄 "좌에서 우로는 작동 선택은 나옴 / 우에서 좌로가 아예 스와이프가 안됨"):
 // 오른쪽에서 왼쪽으로 미는 손가락은 화면 오른쪽 끝(⋯ 단추 자리)에서 시작한다. 전에는 공용 줄 밀기(row-swipe-model.mjs swipeEdge)가
 // 화면 오른쪽 끝 24px에서 시작한 밀기를 버려서, 줄은 움직이지 않고 그 밀기를 보기 탭 넘김이 가져갔다(390 폭에서는 ⋯ 단추 오른쪽 절반도 그 띠 안).
 // 실제 손가락 입력(브라우저 터치 입력: CDP Input.dispatchTouchEvent)으로, 줄 위에서 시작한 가로 밀기는 방향·시작 자리와 관계없이 줄 밀기가 먼저인지 본다.
@@ -11,7 +11,7 @@ const BASE = process.env.APP_E2E_ORIGIN || 'http://127.0.0.1:8123';
 test.use({ hasTouch: true, isMobile: true });
 const rid = n => `a6853000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-// 명진 캡처와 같은 7줄(안 읽음 4 · 읽음 3), 그중 3줄에 밑줄.
+// 사용자 캡처와 같은 7줄(안 읽음 4 · 읽음 3), 그중 3줄에 밑줄.
 async function readingServer(page) {
   const row = (n, read) => ({ id: rid(n), workspace_id: 'w', url: `https://example.com/${n}`, title: `가짜 글 ${n}`, site: 'example.com', saved_at: `2026-11-${String(30 - n).padStart(2, '0')}T01:00:00Z`, read_at: read ? '2026-11-21T02:00:00Z' : null, body_state: 'ok', body_at: '2026-11-21T01:00:10Z', business_area_id: null, updated_at: '2026-11-21T01:00:10Z', body: '가짜 본문이에요.' });
   const s = { rows: Array.from({ length: 7 }, (_, i) => row(i + 1, i % 2 === 1)), patches: [], deletes: [] };

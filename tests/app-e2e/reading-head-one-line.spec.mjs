@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// S71-26 SAVED-머리한줄(명진 11/26 "+ 하고 돋보기 합칠 수 있지 않을까? ㅋ + 를 돋보기 우측으로.."):
+// S71-26 SAVED-머리한줄(사용자 11/26 "+ 하고 돋보기 합칠 수 있지 않을까? ㅋ + 를 돋보기 우측으로.."):
 // 저장한 글 ＋(글 추가)는 화면 이름 줄 찾기 오른쪽 맨 끝 — 폰 390은 앱 머리 줄 [W 저장한 글 · 찾기 · ＋], PC 1280은 맨 위 줄 검색 칸 오른쪽.
 // ＋ 하나만 있던 목록 머리 줄(.rd-head)은 그리지 않는다(숨김이 아니라 없음). ＋를 누르면 글 저장 칸이 열리고 다시 누르면 닫힌다. 서버는 흉내, 글·주소는 예시.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';

@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { edCmd } from './helpers/ed-tools.mjs';
-// S69-98 NOTE-에버노트 ④(명진 11/25 "좋아 모두 다 넣어!"): 노트에 넣은 사진도 업데이트 사진처럼 글자를 읽어(basket-files OCR) 검색에 걸리게 한다.
+// S69-98 NOTE-에버노트 ④(사용자 11/25 "좋아 모두 다 넣어!"): 노트에 넣은 사진도 업데이트 사진처럼 글자를 읽어(basket-files OCR) 검색에 걸리게 한다.
 // - 사진은 올라가자마자 글 안에 보인다(글자 읽기를 기다리지 않음). 읽기는 그 뒤에 따로, 새로 올라간 사진만 한 번.
 // - 읽은 글자가 저장되면 노트를 다시 읽어, 열린 고치기는 그 판을 기준으로 저장한다(거절되지 않음).
 // 글자 읽기 모듈(basket-ocr.js)은 흉내(실제 서버 계약은 tests/security/basket-ocr.test.mjs). 합성 데이터, 390·1280.

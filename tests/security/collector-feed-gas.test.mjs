@@ -20,7 +20,7 @@ const ORGS=[{id:'d0000000-0000-4000-8000-000000000001',name:'가상노조',alias
 const REF='SRCFAKE0001aa';
 const plain=(o)=>JSON.parse(JSON.stringify(o)); // vm 경계 객체를 보통 객체로
 
-// 명진의 통화 분석 v3.2(분석 앱 스크립트)가 만드는 모양을 따른 지어낸 분석 파일. isWork: is_work_related 값(null=칸 없음, 옛 3.1).
+// 사용자의 통화 분석 v3.2(분석 앱 스크립트)가 만드는 모양을 따른 지어낸 분석 파일. isWork: is_work_related 값(null=칸 없음, 옛 3.1).
 function analysis({version='3.2',status='검토대기',isWork='true',title='가상노조 위원장 · 교섭 일정',name='홍길동',role='위원장'}={}){
   return ['---',`analysis_version: "${version}"`,`status: "${status}"`,'source_type: "통화녹음"',`source_txt_id: "${REF}"`,
     'source_txt_name: "통화 홍길동_261024_093000.txt"','recording_datetime: "2026-10-24 09:30:00"','analysis_model: "gemini-fake"',
@@ -403,7 +403,7 @@ test('대기 목록 정리·상한·판정(순수 함수)',()=>{
   assert.equal(G.callFeedPendingDecision({created:now-W},now,true),'send');
 });
 
-test('최근 일주일보다 오래된 녹음은 보내지 않는다(명진 결정 10/25)',()=>{
+test('최근 일주일보다 오래된 녹음은 보내지 않는다(사용자 결정 10/25)',()=>{
   const now=Date.parse('2026-10-25T03:00:00Z');
   assert.equal(G.callFeedTooOld('2026-04-14',now),true);
   assert.equal(G.callFeedTooOld('2026-10-17',now),true);

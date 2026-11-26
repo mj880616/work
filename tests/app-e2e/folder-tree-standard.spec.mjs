@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { pinch } from './helpers/pinch.mjs';
-// FOLDER-나무새기준(S51-12, 요청함 11/06 01:31·명진 01:39 'ㅇㅋ'): 노트·자료실 폴더 나무가 같은 공용 줄·상자(folder-tree-ui.mjs, folder-tree.css ft-).
+// FOLDER-나무새기준(S51-12, 요청함 11/06 01:31·사용자 01:39 'ㅇㅋ'): 노트·자료실 폴더 나무가 같은 공용 줄·상자(folder-tree-ui.mjs, folder-tree.css ft-).
 // 폰(412×915): '최근' 상자 + 폴더 상자, 폴더를 누르면 그 자리에서 하위 폴더·노트까지 펼침(폴더 그림 열린/닫힌 모양, 세모·꺽쇠 없음),
 // 노트가 많으면 처음 5개 + 'n개 더 보기', 펼친 폴더 위 두 손가락 벌리기 = 그 폴더만([‹] 위치 줄), 오므리기·[‹]·뒤로 키 = 펼친 자리 그대로 나무.
 // 폴드 펼침(884)·PC(1280)는 같은 줄 모양으로 '나무 | 목록'. 점(●)은 어디에도 없다. 이름은 지어낸 것이다.

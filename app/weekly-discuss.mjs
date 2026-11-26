@@ -10,7 +10,7 @@
 import {newId} from './weekly-exec-requests.js';
 
 export const DISCUSS_MAX = 20;
-// WEEKLY-요청사항버튼정리(11/01 01:09 명진: 상집 논의 요청은 글이 많고 복붙이 많음): 안건·설명은 여러 줄 글(줄바꿈 그대로), 길이도 늘림.
+// WEEKLY-요청사항버튼정리(11/01 01:09 사용자: 상집 논의 요청은 글이 많고 복붙이 많음): 안건·설명은 여러 줄 글(줄바꿈 그대로), 길이도 늘림.
 export const DISCUSS_LIMITS = Object.freeze({title:200, note:1000, org:120, fileName:120});
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
 const DOC_ID = /^[A-Za-z0-9-]{1,64}$/;

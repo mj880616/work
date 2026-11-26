@@ -1,5 +1,5 @@
 /* OPS-가입자현황(S62-29): 운영자 '가입자 현황' 화면. 맨 위 숫자 한 줄 + 촘촘한 표, 새 색 없음.
-   S68-58(명진 11/23): 칸 셋(이메일·가입일·마지막 사용)만. 넓은 화면은 표 세 칸, 폰(760px 이하)은 한 사람 한 줄 —
+   S68-58(사용자 11/23): 칸 셋(이메일·가입일·마지막 사용)만. 넓은 화면은 표 세 칸, 폰(760px 이하)은 한 사람 한 줄 —
    이메일 · 가입 · 사용(긴 메일이면 날짜가 다음 줄로). 빈 칸은 폰에서 접는다. */
 #signupsView .su-view{min-width:0}
 #signupsView .su-table{width:100%;border-collapse:collapse;font-size:var(--ds-text-row);table-layout:fixed}

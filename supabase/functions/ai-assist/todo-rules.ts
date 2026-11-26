@@ -1,6 +1,6 @@
 // ai-assist 쓰임 kind=todo_rules_review(TODO-이미함·환류, docs/design/todo-feedback.md 4.3): 순수 함수만 둔다(입출력은 handler.ts).
-// 명진이 [규칙 후보 보기]를 누를 때만, 최근 결과 기록(할 일로·이미 함·무시·내 일 아님)을 보고 "다음부터 이렇게 거를까요?" 한 줄 규칙 후보를
-// 최대 3개 만든다. 후보는 app_todo_rules에 candidate로만 들어가고, 찾기(todo_radar)는 명진이 확정한 것만 쓴다.
+// 사용자가 [규칙 후보 보기]를 누를 때만, 최근 결과 기록(할 일로·이미 함·무시·내 일 아님)을 보고 "다음부터 이렇게 거를까요?" 한 줄 규칙 후보를
+// 최대 3개 만든다. 후보는 app_todo_rules에 candidate로만 들어가고, 찾기(todo_radar)는 사용자가 확정한 것만 쓴다.
 // AI 답은 믿지 않는 입력: 개수·글자 수·한 줄을 다시 검사하고, 이미 있는(확정·후보·뺀) 규칙과 같은 뜻(같은 글)은 버린다.
 import { cleanLine, normalizeTitle } from "./todo-radar.ts";
 

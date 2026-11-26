@@ -154,11 +154,11 @@ async function hasOperatorFeature(workspaceId: string, feature: string) {
   return (await operatorFeatureWorkspace(feature)) === workspaceId;
 }
 
-// S46-24(명진 G1 2026-10-31): 자료실·바구니가 쓰는 drive.file에 더해, 사진 출처 구글 드라이브(Edge gdrive-photos)용 drive(읽기·쓰기)를 요청한다.
+// S46-24(사용자 G1 2026-10-31): 자료실·바구니가 쓰는 drive.file에 더해, 사진 출처 구글 드라이브(Edge gdrive-photos)용 drive(읽기·쓰기)를 요청한다.
 // 동의 화면에서 drive 칸만 끄고 동의해도 연결은 저장되고(drive.file 기능 그대로), 사진 출처만 '권한 없음'으로 돌려보낸다.
 // 이 함수와 기존 Drive 함수들이 부르는 API는 바뀌지 않는다. 쓰기 동작은 gdrive-photos에만 있다.
 // MULTI ②-2·S50-8: 전체 drive(제한 등급)는 사진 출처·파일 탐색기 기능이 허용된 운영자 작업공간에서만 요청했다.
-// S62-11 MULTI-구글드라이브사진모두(명진 11/14 22:11 '가'·11/15 결정 1 '가'): 이제 모든 작업공간이 drive.file + drive를 요청한다(각자 자기 드라이브·자기 작업공간 행).
+// S62-11 MULTI-구글드라이브사진모두(사용자 11/14 22:11 '가'·11/15 결정 1 '가'): 이제 모든 작업공간이 drive.file + drive를 요청한다(각자 자기 드라이브·자기 작업공간 행).
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_FULL_SCOPE = 'https://www.googleapis.com/auth/drive';
 const DRIVE_SCOPES = [DRIVE_FILE_SCOPE, DRIVE_FULL_SCOPE];
@@ -341,7 +341,7 @@ Deno.serve(async (req) => {
         });
       }
       // Expand(②-2): 운영자 작업공간이면 옛 자리(id=1)도 같이 갱신한다. 운영자 전용 함수(사진 출처·파일 탐색기·drive-summary)와 Web1이 아직 id=1을 읽는다.
-      // 다른 작업공간은 id=1을 절대 쓰지 않는다(명진 Drive 연결을 덮어쓰지 못함).
+      // 다른 작업공간은 id=1을 절대 쓰지 않는다(사용자 Drive 연결을 덮어쓰지 못함).
       if (await hasOperatorFeature(workspaceId, 'calls')) {
         await servicePatch('public_policy_drive_config?id=eq.1', {
           google_refresh_token: tokens.refresh_token,

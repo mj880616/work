@@ -6,7 +6,7 @@ import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs'
 import {pickReportKind} from './helpers/report-filter.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
-// S54-05 UI-고르기창버튼아래 ②(11/08 명진 결정): 공용 고르기 창(app/choice-sheet.js)도 버튼으로 연 경우 폰(390)·폴드(884)·PC(1280) 모두
+// S54-05 UI-고르기창버튼아래 ②(11/08 사용자 결정): 공용 고르기 창(app/choice-sheet.js)도 버튼으로 연 경우 폰(390)·폴드(884)·PC(1280) 모두
 // 누른 버튼 바로 아래 작은 창이다(아래 자리가 모자라면 위). 위치는 anchored-popup.js의 공용 함수가 정하고 창마다 따로 고치지 않았다.
 // 이 시험이 지키는 것(helpers/choice-anchor.mjs): 버튼 아래(또는 위)에 붙음 · 아래 메뉴 줄·화면 밖으로 나가지 않음 · 열자마자 첫 줄이 다 보임.
 // 대표 4곳: 사업영역·담당조직 고르기, 자료실 [분류 ▾], 보고 종류 고르기, 홈 빠른 입력 고르기. 이름은 모두 합성 값.

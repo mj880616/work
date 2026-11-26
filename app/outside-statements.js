@@ -36,7 +36,7 @@ import {sortByName} from './name-order.mjs';
 import {registerScreenFind, refreshScreenFind, toolsBox, finderOf} from './screen-find.js';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — S51-17 P5에서 메뉴 이름 'News'·주소 ?view=news).
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1·6.3·6.4절, 시안 docs/design/mockups/news-overhaul.html ①·③):
-// - 탭 [전체][사회운동][언론][보관](now-model.mjs NOW_TABS). 폰은 아래 떠 있는 탭 줄, 폴드 펼침(761~1199px)은 오른쪽 아래, PC(1200px~)는 위(명진 11/06 탭 자리 규칙).
+// - 탭 [전체][사회운동][언론][보관](now-model.mjs NOW_TABS). 폰은 아래 떠 있는 탭 줄, 폴드 펼침(761~1199px)은 오른쪽 아래, PC(1200px~)는 위(사용자 11/06 탭 자리 규칙).
 //   좌우 밀기 = 탭 이동(글 줄 위 밀기는 숨기기·보관이 갖는다). 고른 탭은 서버 view_prefs.news_tab. news_tab이 없으면 옛 now_tab을 바꿔 한 번 옮긴다(옛 값은 지우지 않음).
 // - 위 줄: 찾기 칸 하나 'News 찾기 — 제목·문장'. 탭마다 한 길(S63-11): [전체]·[언론]은 서버 찾기(news-find.js — 최근 30일 + 보관한 글의 제목·한국어 제목·요약),
 //   [사회운동]·[보관]·[밑줄]은 지금 보이는 목록에서 제목 거르기 + Enter = 문장 찾기(app_outside_search·expand — 결과 칸은 outside-search.js)
@@ -59,7 +59,7 @@ const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
 const PANEL = Object.freeze({all: 'nowPanelAll', movement: 'osPanelNew', media: 'nowPanelNews', marks: 'nowPanelMarks', memos: 'nowPanelMemos'});
 
 const TABS_HTML = NOW_TABS.map((t, i) => `<button type="button" role="tab" class="ds-seg-btn" id="osTab-${t.id}" data-os-tab="${t.id}" aria-selected="${i === 0}" aria-controls="${PANEL[t.id]}"${i ? ' tabindex="-1"' : ''}>${t.label}</button>`).join('');
-// S68-28(명진 11/23 "여기서 보관 자체를 없앴으면"): 탭 줄 끝 보관 길(옛 [보관] 탭 자리)은 없앴다 — 읽을 거리로 보낸 글은 메뉴 '읽을 거리'에서 본다.
+// S68-28(사용자 11/23 "여기서 보관 자체를 없앴으면"): 탭 줄 끝 보관 길(옛 [보관] 탭 자리)은 없앴다 — 읽을 거리로 보낸 글은 메뉴 '읽을 거리'에서 본다.
 function install() {
   if (document.getElementById('outsideView')) return;
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="outsideView" class="view-panel hidden" aria-labelledby="osTitle">
@@ -195,7 +195,7 @@ function reloadLists() {
 }
 
 // ---------- 상세·보관·관심 주제(공용 부품, 각 칸의 그리기 주인) ----------
-// S70-58 READ-두칸보기(명진 11/26 "왼쪽 목록 오른쪽 본문 · 드래그 폭 조절 · 폴드 펼침"): 목록 | 상세 두 칸은 앱 공용 칸 나누기 폭(screen-width.mjs, 600px~ —
+// S70-58 READ-두칸보기(사용자 11/26 "왼쪽 목록 오른쪽 본문 · 드래그 폭 조절 · 폴드 펼침"): 목록 | 상세 두 칸은 앱 공용 칸 나누기 폭(screen-width.mjs, 600px~ —
 // 조직 관리·자료실과 같은 값)부터. 그 아래(폰·접은 폴드)만 한 칸(누르면 상세 전체 화면, 뒤로 = 목록). PHONE(~760px)은 폰 틀 판정(메뉴 창 기록)에만 남는다.
 const PC = window.matchMedia(SPLIT_QUERY);
 const NARROW = window.matchMedia(NARROW_QUERY);
@@ -238,7 +238,7 @@ const folds = new Set();
 function foldedHtml(entries, rowFn) {
   return runsHtml(foldRuns(entries), {rowOf: rowFn, keyOf: e => itemKey({type: e.type, id: e.row.id}), nameOf: e => (e.type === 'news' ? itemView(e.row).publisher : ''), isOpen: key => folds.has(key)}, esc);
 }
-// S63-11(명진 11/16 '3 고쳐'): 서버에서 새로 온 뉴스 줄 내용(열기·채우기 뒤 제목 등) → 이 화면의 같은 기사 줄([전체] 목록·찾은 글)과 열린 상세 머리를 고친다.
+// S63-11(사용자 11/16 '3 고쳐'): 서버에서 새로 온 뉴스 줄 내용(열기·채우기 뒤 제목 등) → 이 화면의 같은 기사 줄([전체] 목록·찾은 글)과 열린 상세 머리를 고친다.
 // [언론] 칸 줄은 그 칸 주인(news-clipping.js fresh)이 고친다. from='news'는 그 칸이 보낸 것이라 되돌려 보내지 않는다.
 const FRESH_COLS = ['title', 'title_ko', 'state', 'publisher', 'published_at', 'summary', 'lang', 'body_kind', 'author', 'manual_at', 'origin'];
 function newsFresh(rows, {from = ''} = {}) {
@@ -514,7 +514,7 @@ function paintTabs() {
   show('[data-now-hidden]', state.mode === 'hidden');
   paintMediaButton();
 }
-// 관심 주제 후보는 목록 위 줄이 아니라 화면 머리 ⋯ 메뉴 안 '관심 주제 후보 n' 한 줄(S69-70, 명진 11/24 20:45 "줄 차지하는게 보기싫음 / ... 안에 넣어줘"). 0개면 그 줄도 없다.
+// 관심 주제 후보는 목록 위 줄이 아니라 화면 머리 ⋯ 메뉴 안 '관심 주제 후보 n' 한 줄(S69-70, 사용자 11/24 20:45 "줄 차지하는게 보기싫음 / ... 안에 넣어줘"). 0개면 그 줄도 없다.
 // 탭 하나 보이기. save=true면 서버에 마지막 탭으로 기억(view_prefs.news_tab). [언론]·[밑줄]은 처음 보일 때 그 칸 주인이 불러온다.
 function setTab(tab, {focus = false, save = true} = {}) {
   tab = keepNowTab(tab);
@@ -570,7 +570,7 @@ function paintList() {
 }
 // 읽음 표시가 서버에서 오면(또는 상세를 열어 읽음이 되면) 보이는 목록을 다시 그린다(각 칸 주인이 자기 칸만).
 onReads(() => { paintList(); });
-// UI-Now PC정돈(명진 11/03 09:39): PC·폴드 펼침에서 상세 칸이 비어 안내문만 있지 않게 — 목록이 보이면 맨 위 글을 바로 연다(탭마다 이 화면에 들어온 뒤 한 번,
+// UI-Now PC정돈(사용자 11/03 09:39): PC·폴드 펼침에서 상세 칸이 비어 안내문만 있지 않게 — 목록이 보이면 맨 위 글을 바로 연다(탭마다 이 화면에 들어온 뒤 한 번,
 // 닫으면 다시 열지 않음). 글이 없는 탭(빈 목록)은 상세 칸을 열지 않고 목록이 폭을 쓴다(CSS가 data-detail="closed"일 때 한 칸).
 const autoOpened = new Set();
 let autoOpenWaiting = false; // 열린 메뉴가 닫힌 뒤 맨 위 글 열기를 한 번만 걸어 둠
@@ -813,7 +813,7 @@ async function readNow(key) {
   let note = '';
   try {
     const r = await readNowApi(key);
-    // 공공운수노조는 하루 3번 예약 때만 읽는다(서버가 바로 읽기를 하지 않음, 명진 결정 11/01 16:49).
+    // 공공운수노조는 하루 3번 예약 때만 읽는다(서버가 바로 읽기를 하지 않음, 사용자 결정 11/01 16:49).
     if (r?.status === 'scheduled_only') note = '예약 때 읽음';
   } catch (e) {
     note = e?.status === 429 ? '오늘 바로 읽기를 다 씀 · 예약 때 읽음' : '바로 읽기 실패 · 예약 때 읽음';
@@ -831,7 +831,7 @@ async function readNow(key) {
   if (state.mode === 'list') { listDirty = false; loadPosts({keep: true}); } else { listDirty = true; paint(); }
 }
 
-// [지금 채우기](NEWS-클리핑 C1, 명진 11/01 22:34): 켠 단체를 하나씩 바로 읽고, 언론 쪽은 뉴스 칸 주인이 서버 fill_now로 채운다.
+// [지금 채우기](NEWS-클리핑 C1, 사용자 11/01 22:34): 켠 단체를 하나씩 바로 읽고, 언론 쪽은 뉴스 칸 주인이 서버 fill_now로 채운다.
 // 마지막으로 읽은 지 얼마 안 된 단체·하루 횟수는 서버가 거른다(새 읽기 길을 만들지 않음).
 let filling = false;
 async function fillNow() {
@@ -941,7 +941,7 @@ root?.addEventListener('keydown', event => {
   const next = event.key === 'Home' ? NOW_TABS[0].id : event.key === 'End' ? NOW_TABS.at(-1).id : nowTabAt(state.tab, event.key === 'ArrowLeft' ? -1 : 1);
   if (next) setTab(next, {focus: true});
 });
-// 폰·폴드: 좌우로 밀어 탭 이동(NEWS P4b). 글 줄 위 밀기는 숨기기·보관(NOW-줄밀기, 명진 11/03)이 가지므로 줄·입력 칸 밖(탭 줄·날짜 머리·빈 곳)에서만.
+// 폰·폴드: 좌우로 밀어 탭 이동(NEWS P4b). 글 줄 위 밀기는 숨기기·보관(NOW-줄밀기, 사용자 11/03)이 가지므로 줄·입력 칸 밖(탭 줄·날짜 머리·빈 곳)에서만.
 // 가로로 충분히 민 것만. 상세가 전체 화면일 때·다른 칸(단체·관심 주제)일 때는 하지 않는다.
 // S51-24 UI-빈칸손짓: 글이 짧아도 아래 빈 곳까지 밀기 칸(gesture-fill.js).
 fillGestureArea(root);

@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
-// LIB-위쪽한줄(요청함 11/09 11:01, 명진 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html):
+// LIB-위쪽한줄(요청함 11/09 11:01, 사용자 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html):
 // 폰·PC 경계는 사업 보고 위쪽과 같은 760px.
 // - PC·펼친 폴드(761px~): 위 한 줄 = [폴더 ▾][분류: 전체 ▾][찾기 칸] + 오른쪽 끝 [+][⋯] 작은 아이콘.
 // - 폰(~760px): 첫 줄 = 제목 '자료실' + ⌕·+·⋯, 둘째 줄 = [폴더 ▾][분류: 전체 ▾]. ⌕ → 첫 줄이 [찾기 칸][✕], ✕로 닫음.

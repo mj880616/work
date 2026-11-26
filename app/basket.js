@@ -114,7 +114,7 @@ const rowMenuEl=root.querySelector('#basketRowMenu');
 let rowMenu=null;
 // UI-모바일노트복사메뉴: on a phone the row has no [복사] button; [복사] is the first item of this menu.
 // UI-화면정리 C4(요청함 10/28 20:03, S48-46): PC도 같다 — 줄마다 늘 보이던 복사 아이콘을 없애고 [복사]는 ⋯·우클릭 메뉴 맨 위(노트 줄 17:45 ③과 같게).
-// UI-잊지말기줄단추(11/10 명진 '추천대로'): 줄 버튼과 메뉴 이름을 하나로 — [할 일로]·[노트로](옛 '할 일 만들기'·'노트로 옮기기').
+// UI-잊지말기줄단추(11/10 사용자 '추천대로'): 줄 버튼과 메뉴 이름을 하나로 — [할 일로]·[노트로](옛 '할 일 만들기'·'노트로 옮기기').
 // 줄에 처리 버튼이 있는 줄(처리 전, acts)은 폰에서 접힌 [일정으로]·[조직]·[사업]도 줄 버튼과 같은 이름·같은 길(updateAct)로 여기 둔다. ×는 [보류로].
 function rowMenuItems(note,acts=false){
   return [...(String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일로'],...(acts?[['event','일정으로']]:[]),['to-note','노트로'],...(acts?[['org',word('조직')],['area','사업']]:[]),['to-report',word('사업 보고로 옮기기')],...journalItem(note),note.archived_at?['unhold','보류 해제']:['hold','보류로'],['delete','삭제','basket-menu-danger']];
@@ -173,7 +173,7 @@ function keepRowMenu(kept){
 }
 // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 업데이트 줄 — 왼쪽으로 밀기 [보류로]/[보류 해제]·[삭제](휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음: 되돌릴 수 있으므로),
 // 끝까지 밀어도 삭제는 바로 하지 않고 칸만 열린다. 오른쪽으로 밀기 → 여러 개 선택(막대 '[전체 선택][삭제]' 두 칸, S70-64b — 보류는 줄 밀기·⋯로). 기존 목록 ⋯의 길 그대로.
-// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [보류로][수정][삭제] — [수정]은 ⋯ [수정]과 같은 길(상세를 쓰기 상태로 연다).
+// S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 가안): [보류로][수정][삭제] — [수정]은 ⋯ [수정]과 같은 길(상세를 쓰기 상태로 연다).
 // 분류 완료는 갈 곳을 골라야 해서 한 번에 끝나는 처리가 아니므로 줄 밀기에 두지 않는다(옮기기 칸 없음, 공유 길 없음).
 bindRowSwipe(root.querySelector('[data-basket-rows]'),{row:'[data-basket-row-item]',enabled:()=>!busy&&(!selected||isSplit())&&!rowMenu,
   actions:el=>{const note=notes.find(n=>n.id===el.dataset.basketRowItem);if(!note)return null;return {start:PICK,end:[note.archived_at?{key:'unhold',label:'보류 해제',tone:'muted'}:{key:'hold',label:'보류로',tone:'muted'},EDIT,DELETE]};},
@@ -422,7 +422,7 @@ forget=mountForgetList(root.querySelector('[data-basket-rows]'),{rt,statusEl:roo
   updateCount:()=>loadingRun&&!notes.length?null:visibleNotes(notes,links,'unclassified',docs).length,
   onView:view=>{filter=UPDATE_FILTER[view]||'none';place='all';sub='all';renderList();}});
 void forget.refresh();
-// S70-57 UI-메뉴별검색(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일"): [잊지 말기] 목록이 보일 때 맨 위 칸 = '잊지 말기에서 찾기'.
+// S70-57 UI-메뉴별검색(사용자 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일"): [잊지 말기] 목록이 보일 때 맨 위 칸 = '잊지 말기에서 찾기'.
 // 거르기는 목록의 유일한 renderer(forget-list.js items())가 한다. [노트] 쪽은 basket-notes.js의 '노트에서 찾기'(kind로 갈림).
 registerScreenFind('forget',{label:'잊지 말기에서 찾기',
   active:()=>window.KPTURouter?.current==='basket'&&kind==='memo'&&!list.hidden,

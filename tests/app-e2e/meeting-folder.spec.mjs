@@ -3,7 +3,7 @@ import {bootLibrary,libFolder,SB} from './helpers/library-folder-server.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {addReport} from './helpers/report-add.mjs';
 import {folderSheet,sheetRow,sheetGo} from './helpers/folder-sheet.mjs';
-// MTG-정기회의자료폴더(명진 11/24 21:03 "자료실 폴더 이름 중 회의 폴더 이름이 정기 회의 폴더 이름과 같고 매칭이 되어서.
+// MTG-정기회의자료폴더(사용자 11/24 21:03 "자료실 폴더 이름 중 회의 폴더 이름이 정기 회의 폴더 이름과 같고 매칭이 되어서.
 //   저기에 회의자료 등을 올리면 저 폴더로 자동으로 가게"):
 // 사업 보고(회의)에 올린 회의자료는 그 회의명과 짝지은 자료실 폴더에, 짝이 없으면 이름이 같은 폴더(띄어쓰기·가운뎃점만 맞춤) 하나에 들어간다.
 // 둘 다 없으면 지금처럼(폴더 밖). 넣은 뒤 '…폴더에 넣었어요' 한 줄. 회의명 고르기 창 줄 ⋯ [자료실 폴더 정하기]로 짝을 서버에 정한다.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parseMeetingDraft } from '../supabase/functions/meeting-ai-draft/parse.mjs';
 
 test('parses schema output including Korean newlines', () => {
-  const parsed = parseMeetingDraft('{"decisions":"- 확정\\n- 시행","actions":[{"task":"자료 작성","assignee":"김명진","due":"2026-09-20"}],"information":"공유"}');
+  const parsed = parseMeetingDraft('{"decisions":"- 확정\\n- 시행","actions":[{"task":"자료 작성","assignee":"홍길동","due":"2026-09-20"}],"information":"공유"}');
   assert.equal(parsed.draft.decisions, '- 확정\n- 시행');
   assert.equal(parsed.draft.actions[0].task, '자료 작성');
   assert.deepEqual(parsed.warnings, []);

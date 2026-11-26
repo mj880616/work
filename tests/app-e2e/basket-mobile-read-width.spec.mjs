@@ -6,7 +6,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // below it use the whole card width; a many-column table scrolls sideways and keeps a date such as 10/21(수) on one line.
 const X=Array.from({length:4},(_,i)=>'추가열'+i+'번아주긴제목입니다열');
 const row=a=>'| '+a.concat(X).join(' | ')+' |';
-const TABLE=[row(['날짜','장소','내용','참석','담당','비고','결과']),'|'+' --- |'.repeat(11),row(['10/21(수)','본사 회의실','교섭 준비 회의','12명','김명진','자료 취합','완료']),row(['10/22(목)','서울 현장','현장 간담회 진행','30명','박승지','사진 첨부','진행'])].join('\n');
+const TABLE=[row(['날짜','장소','내용','참석','담당','비고','결과']),'|'+' --- |'.repeat(11),row(['10/21(수)','본사 회의실','교섭 준비 회의','12명','홍길동','자료 취합','완료']),row(['10/22(목)','서울 현장','현장 간담회 진행','30명','박가상','사진 첨부','진행'])].join('\n');
 const TITLE='첫 줄 제목입니다 이 줄은 버튼 옆에 놓입니다 길게 길게 이어집니다';
 const BODY=TITLE+'\n\n'+'둘째 문단은 카드 오른쪽 끝까지 폭을 모두 씁니다. '.repeat(6)+'\n\n'+TABLE;
 function rows(){return [

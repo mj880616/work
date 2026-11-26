@@ -15,7 +15,7 @@ import {askConfirm,notify} from './small-notice.js';
 import {registerScreenFind,refreshScreenFind,toolsBox} from './screen-find.js';
 
 // UI-업데이트기록찾기(요청함 11/02): 치는 대로 이 화면 안에서만 거르고(서버 호출 없음) 낱말을 칠한다.
-// S71-31(명진 11/26 "낱말로 찾기랑 직접 쓰기 한줄로 / 낱말로 찾기는 찾기로"): 화면 안 찾기 칸은 없애고 맨 위 칸 '업데이트 기록에서 찾기'(용어 기준표)가 겸한다.
+// S71-31(사용자 11/26 "낱말로 찾기랑 직접 쓰기 한줄로 / 낱말로 찾기는 찾기로"): 화면 안 찾기 칸은 없애고 맨 위 칸 '업데이트 기록에서 찾기'(용어 기준표)가 겸한다.
 // 찾는 동안은 맞는 줄만 펼쳐 보인다. 목록은 20개씩 그리고, 아래로 내려 [이전 기록 더 보기]가 보이면 다음 20개를 더 그린다.
 const el=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!=null)node.textContent=text;return node};
 function marked(tag,className,text,words){
@@ -34,9 +34,9 @@ function noteRow(item,current,words){
   if(note.v===current)head.append(el('span','rn-now','지금'));
   else head.append(marked('span','rn-one',item.changes[0]??item.checks[0],words));
   // UPDATE-운영자전용기록업데이트소식 PR3: 줄마다 [보내기](이용자에게 업데이트 소식으로). 소식 서버를 못 읽으면 없다.
-  // S67-73(명진 11/21 "보내기 버튼이 보냄으로 바뀌어야지"): 이미 보낸 기록은 따로 '보냄' 꼬리표를 달지 않고 같은 버튼이 [보냄]으로 바뀐다.
-  // S68-14(명진 11/22 "보낸 후 거둬들일 수가 없음"): [보냄]을 누르면 그 기록이 든 소식을 거둔다(같은 버튼 하나, 새 버튼 없음).
-  // S68-46(명진 11/23 "기본 자동으로 보내고 수동으로는 회수 가능하게"): 새 기록은 서버가 자동으로 보내 처음부터 [보냄]이고, 거둔 기록은 [다시 보내기].
+  // S67-73(사용자 11/21 "보내기 버튼이 보냄으로 바뀌어야지"): 이미 보낸 기록은 따로 '보냄' 꼬리표를 달지 않고 같은 버튼이 [보냄]으로 바뀐다.
+  // S68-14(사용자 11/22 "보낸 후 거둬들일 수가 없음"): [보냄]을 누르면 그 기록이 든 소식을 거둔다(같은 버튼 하나, 새 버튼 없음).
+  // S68-46(사용자 11/23 "기본 자동으로 보내고 수동으로는 회수 가능하게"): 새 기록은 서버가 자동으로 보내 처음부터 [보냄]이고, 거둔 기록은 [다시 보내기].
   if(news.admin){
     const send=el('button','rn-send mini');send.type='button';send.dataset.rnSend=note.v;if(note.file)send.dataset.rnFile=note.file;paintSend(send);
     head.append(send);
@@ -57,7 +57,7 @@ function noteRow(item,current,words){
   return row;
 }
 
-// ── UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 ①②④ + 명진 11/15 13:37): 운영자 쪽 '업데이트 소식' 보내기·고치기·거두기·시작 날짜.
+// ── UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 ①②④ + 사용자 11/15 13:37): 운영자 쪽 '업데이트 소식' 보내기·고치기·거두기·시작 날짜.
 // 쓰기는 서버(app_update_news_*)가 운영자만 받는다. 새 소식 알림·점·숫자는 없다(이용자는 메뉴 › 업데이트 소식을 눌러야만 본다).
 const news={admin:null,notes:[],root:null};
 const rpc=(name,body={})=>window.KPTURuntime.api('/rest/v1/rpc/'+name,{method:'POST',body,singleFlight:false});
@@ -131,7 +131,7 @@ function openSend({versions=[],item=null,trigger}={}){
       return true;
     }});
 }
-// S71-31(명진 11/26 "이용자에게 보이는 시작날짜랑 바꾸기 삭제 불필요" / "보낸 소식 260 이용자에게 보이는 그대로도 삭제"):
+// S71-31(사용자 11/26 "이용자에게 보이는 시작날짜랑 바꾸기 삭제 불필요" / "보낸 소식 260 이용자에게 보이는 그대로도 삭제"):
 // 위쪽 시작 날짜 줄·[바꾸기] 창과 접히는 '보낸 소식 N · 이용자에게 보이는 그대로' 줄을 없앴다. 기록에서 나간 소식은 기록 줄 버튼([보냄]/[다시 보내기])이 맡고,
 // 기록 줄에 없는 소식(직접 쓴 것)만 목록 위에 줄로 남겨 [수정]·[거두기]·[다시 보내기]를 그대로 둔다. [+] 직접 쓰기는 맨 위 줄 단추 자리.
 const addBox=toolsBox('updates','updates');

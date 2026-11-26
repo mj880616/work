@@ -1,4 +1,4 @@
-/* BLOG ②: 명진 블로그 밖 화면. 색은 Web2 공용 토큰(app/theme-tokens.css)만. 글 블록 모양은 app/sr-blocks.css·ed-doc.css(공유 화면과 같이 씀).
+/* BLOG ②: 사용자 블로그 밖 화면. 색은 Web2 공용 토큰(app/theme-tokens.css)만. 글 블록 모양은 app/sr-blocks.css·ed-doc.css(공유 화면과 같이 씀).
    콤팩트한 줄 목록: PC는 게시판 | 글 목록 | 본문 세 칸, 폰은 한 단계씩(뒤로가기 = 이전 화면). */
 *{box-sizing:border-box}
 html{background:var(--kptu-bg)}

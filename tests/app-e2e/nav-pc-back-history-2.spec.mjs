@@ -1,4 +1,4 @@
-// NAV-PC뒤로직전2(S60-24, 명진 결정 11/11 15:37 '직전 화면 무조건 직전화면'): #2454가 남긴 화면 — 아스날 경기, 텔레그램 날짜별 상세,
+// NAV-PC뒤로직전2(S60-24, 사용자 결정 11/11 15:37 '직전 화면 무조건 직전화면'): #2454가 남긴 화면 — 아스날 경기, 텔레그램 날짜별 상세,
 // 사업 보고, 자료실 폴더, 사진 폴더. PC에서 사람이 누른 항목 = 뒤로 한 칸(A → B → C 에서 ‹ = B, ‹ = A, ‹ = 앞), › 는 같은 기록.
 // 기록은 라우터 한 곳(KPTURouter.pick). 폰 뒤로가기(겹·창)는 그대로. 이름·내용은 모두 지어낸 것.
 import {test,expect} from '@playwright/test';
@@ -137,7 +137,7 @@ test('폰 412 자료실 폴더: 들어간 폴더는 겹 하나 — 뒤로 = 한 
  test.setTimeout(90000);
  const {errors}=await bootLibrary(page,412,{folders:LIB_FOLDERS,items:LIB_ITEMS});
  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
- // UI-폴더이름펼치기(명진 11/24 18:09): 폰 폴더 이름 누르기는 그 자리 펼치기라 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기].
+ // UI-폴더이름펼치기(사용자 11/24 18:09): 폰 폴더 이름 누르기는 그 자리 펼치기라 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기].
  await page.locator('#documentList details[data-lu-node="f:fn"] > summary [data-lu-node-menu]').tap();
  await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').tap();
  await expect.poll(()=>libHere(page)).toBe('가상 N');
@@ -214,7 +214,7 @@ test('PC 1280 사업 보고: (스스로 연 상집 46) → 상집 45 → [집행
  await openReports(page,1280);
  await clickView(page,'calendar');await expect(page.locator('#calendarView')).toBeVisible();
  await clickView(page,'meetings');
- // MTG-기본종류전체(11/15 명진): 메뉴로 들어오면 [종류 전체]부터 — 회의 세 칸은 [회의]를 고른 뒤.
+ // MTG-기본종류전체(11/15 사용자): 메뉴로 들어오면 [종류 전체]부터 — 회의 세 칸은 [회의]를 고른 뒤.
  await pickReportKind(page,'회의');
  // 화면이 스스로 연 첫 보고(가장 최근 상집 46)는 한 칸이 아니다.
  await reportAt(page,'m-a');

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, phoneFolder, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S49-51 FILES-통합 3단계 '이 폰'(명진 결정 H-1 모든 파일 접근). S50-33: [최근](H-7 섞기)은 화면에서 뺐다.
+// S49-51 FILES-통합 3단계 '이 폰'(사용자 결정 H-1 모든 파일 접근). S50-33: [최근](H-7 섞기)은 화면에서 뺐다.
 // 폰 앱(412, 앱 다리 흉내 + __phone/…/files/ 가로채기 흉내): [이 폰] 아이콘 → 허락 전이면 설정 안내·pfiles:ask → 앱이 '켜짐'을 알리면
 // 나무 뿌리 줄에 '이 폰', 폴더 안 목록·미리보기(폰 안에서 읽음),
 // 폰 파일 → 원드라이브 [복사]는 올리기 길(upload_open)로. 폰 쪽 쓰기(이름·휴지통)는 이 판에 없다. PC 브라우저에는 '이 폰'이 없다. 파일 이름은 모두 가짜.

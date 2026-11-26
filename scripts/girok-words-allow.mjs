@@ -46,15 +46,15 @@ export const GIROK_ALLOW = Object.freeze([
   { file: 'app/activity-photo-model.mjs', text: '투쟁', reason: '자료실 종류 이름 맞추기(데이터 값)' },
   { file: 'app/ask-web2-model.mjs', text: '교섭·전략', reason: '서버 답의 꼬리표 값 비교(데이터 값)' },
   { file: 'app/journal-draft-model.mjs', text: '조직 소식', reason: 'AI 초안 재료 줄 꼬리표(서버로 보내는 글, 화면에 안 보임)' },
-  { file: 'app/weekly-major-schedule.mjs', reason: '노조식 주간 보고 주요 일정 기준: AI 지시문·사용자 일정 이름 맞추기 단어(기록+에서 끌지 명진 결정 필요)' },
-  { file: 'app/weekly-group-names.mjs', text: '현황', reason: "서버 사본(supabase/functions/_shared/weekly-group-names.mjs)과 바이트까지 같아야 해 brand를 부를 수 없음. 양식 제목이 없을 때만 쓰는 기본 묶음 이름 '사업장 현황'·'조직 현황' — 주간 보고 학습 묶음(노조식 주간 보고와 함께 명진 결정)" },
+  { file: 'app/weekly-major-schedule.mjs', reason: '노조식 주간 보고 주요 일정 기준: AI 지시문·사용자 일정 이름 맞추기 단어(기록+에서 끌지 사용자 결정 필요)' },
+  { file: 'app/weekly-group-names.mjs', text: '현황', reason: "서버 사본(supabase/functions/_shared/weekly-group-names.mjs)과 바이트까지 같아야 해 brand를 부를 수 없음. 양식 제목이 없을 때만 쓰는 기본 묶음 이름 '사업장 현황'·'조직 현황' — 주간 보고 학습 묶음(노조식 주간 보고와 함께 사용자 결정)" },
 
   // ── 묶음 B 끝 ──
 
 
   // ── 묶음 C ──
   { file: 'app/org-name-match.mjs', text: '노조', reason: '사용자가 쓴 조직 이름 맞추기(노동조합→노조 줄임 비교), 화면에 안 나옴' },
-  { file: 'app/org-dispute-stage-model.mjs', reason: '겸용: 처음 열 때 DB에 넣는 기본 단계 이름(이후 사용자 글). 노조 전용 구조라 기록+에서 끌지 명진 결정 필요' },
+  { file: 'app/org-dispute-stage-model.mjs', reason: '겸용: 처음 열 때 DB에 넣는 기본 단계 이름(이후 사용자 글). 노조 전용 구조라 기록+에서 끌지 사용자 결정 필요' },
 
   // ── 묶음 C 끝 ──
 

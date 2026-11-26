@@ -253,7 +253,7 @@ test('④-2 고친 항목: 저장 모양 맞춤·고친 글 우선(노란 칸 �
   assert.equal(prevWeek('x'), '');
 });
 
-// WEEKLY-처음시작고르기(시안 #2732 ★A안, 명진 11/17): 번호 4개 — 이름·순서 시안 그대로, 양식은 cleanForm을 거쳐도 같고, 지금 초안 엔진이 표의 대로 채운다.
+// WEEKLY-처음시작고르기(시안 #2732 ★A안, 사용자 11/17): 번호 4개 — 이름·순서 시안 그대로, 양식은 cleanForm을 거쳐도 같고, 지금 초안 엔진이 표의 대로 채운다.
 test('처음 고르기 번호 4개: 이름·순서, 양식 모양, 초안 엔진이 채우는 칸', async () => {
   const {START_CHOICES, START_DEFAULT, startForm} = await import('../app/weekly-own-form-model.mjs');
   const {ownDraft} = await import('../app/weekly-own-draft-model.mjs');
@@ -280,7 +280,7 @@ test('처음 고르기 번호 4개: 이름·순서, 양식 모양, 초안 엔진
   for (const c of START_CHOICES) assert.ok(!JSON.stringify(startForm(c.key)).includes('preview'));
 });
 
-// WEEKLY-처음시작여러개(명진 11/17 16:04 "복수선택 가능해야할 듯"): 1~3 여러 개를 번호 순서로 이어 붙이고, 같은 이름 항목은 한 번, 4는 혼자만.
+// WEEKLY-처음시작여러개(사용자 11/17 16:04 "복수선택 가능해야할 듯"): 1~3 여러 개를 번호 순서로 이어 붙이고, 같은 이름 항목은 한 번, 4는 혼자만.
 test('처음 고르기 여러 개: 합치기·겹침 제거·4 직접 만들기는 혼자만', async () => {
   const {START_CHOICES, startForm, startFormMany, startPicks, togglePick} = await import('../app/weekly-own-form-model.mjs');
   // 하나만 고르면 예전 startForm과 같다.

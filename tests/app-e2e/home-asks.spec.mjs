@@ -1,4 +1,4 @@
-// UI-앱안알림 3단계(docs/design/in-app-notices.md 5절, 명진 결정 A4·A5):
+// UI-앱안알림 3단계(docs/design/in-app-notices.md 5절, 사용자 결정 A4·A5):
 // - S52-20: '잊지 말기'(처리 안 한 것, 홈 한 줄과 같은 숫자)가 1건 이상이면 폰 하단바 '홈'에 작은 점(숫자 없음), 폴드 펼침·PC 왼쪽 메뉴 '홈' 옆에 옅은 숫자. 0이면 아무것도 없다.
 // - 숫자는 홈 한 줄·정리함 한 목록이 이미 센 값(새 읽기 없음). 정리함에서 처리하면 다른 화면에서도 바로 사라진다.
 // - 홈 '잊지 말기' 한 줄 오른쪽에 '내일 약속 n'(원장)을 붙이지 않는다(LEDGER-화면에서빼기). 서버는 흉내, 글은 지어낸 것.
@@ -68,7 +68,7 @@ test('handling a request in the 정리함 updates the mark without a new count r
   await page.evaluate(()=>window.KPTURouter.go('basket'));
   await expect.poll(async()=>(await mark(page)).attr).toBeNull();
 });
-// LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 약속이 있어도 홈에 '내일 약속 n ›'(원장으로) 줄을 붙이지 않고 원장을 읽지도 않는다.
+// LEDGER-화면에서빼기(2026-11-25 사용자 결정): 원장 약속이 있어도 홈에 '내일 약속 n ›'(원장으로) 줄을 붙이지 않고 원장을 읽지도 않는다.
 test('tomorrow promises are never shown on home (ledger has no screen)',async({page})=>{
   const {ledgerAsked}=await fixture(page,{width:390,promises:[{id:'p1'},{id:'p2'}]});
   await expect(page.locator('#homeView [data-home-summary] [data-home-forget-open]')).toBeVisible();

@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {targets, jsStrings, htmlStrings} from './ui-words.mjs';
-// DIARY-이름하루기록(S62-15, 명진 11/15 "일기는 좀 부담스러울 거 같아" → "나 하루 기록", 명진 계정 포함): 화면 글자에 '일기'를 쓰지 않는다.
+// DIARY-이름하루기록(S62-15, 사용자 11/15 "일기는 좀 부담스러울 거 같아" → "나 하루 기록", 사용자 계정 포함): 화면 글자에 '일기'를 쓰지 않는다.
 // '업무일지'는 그대로(다른 낱말). 주석·코드 이름(diary)·파일 이름·DB·서버 AI 지시문은 세지 않는다(검사기 tests/ui-words.mjs의 글자 꺼내기).
 // 업데이트 기록(옛 공개 배포물)은 세지 않는다.
 const count = (f, src) => (/\.(html|xml)$/.test(f) ? htmlStrings(src) : jsStrings(src)).filter(({text}) => text.includes('일기')).map(({line}) => `${f}:${line}`);

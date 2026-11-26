@@ -1,12 +1,12 @@
 import {word} from './brand/brand.mjs';
 // MTG-프로젝트합치기 2단계(docs/design/project-into-report.md): 사업 보고의 사업영역 꼬리표·다음 할 일 — 화면이 쓰는 순수 함수 한 곳.
-// 꼬리표 = app_meetings.business_area_id(보고 하나에 하나, 명진 결정 ①). 사업영역 = 지금 프로젝트 표(app_spaces) 트리 그대로.
+// 꼬리표 = app_meetings.business_area_id(보고 하나에 하나, 사용자 결정 ①). 사업영역 = 지금 프로젝트 표(app_spaces) 트리 그대로.
 // 옛 보고(꼬리표 빈 것)는 첫 연결 프로젝트(project_id)를 화면에서만 꼬리표처럼 보여 준다(결정 ②, 저장하지 않음).
 // 주간보고 ② 사업 요약 표의 재료는 '직접 단 꼬리표'만 쓴다 — 옛 주의 보고서가 달라지지 않게(설계 4절 2단계).
 
 export const NEXT_PLAN_MAX = 1000; // DB 검사 app_meetings_next_plan_check 와 같은 한도
 
-// MTG-한줄업데이트(요청 10/29 08:59): 칸 'oneline' 사업 보고 = 사업영역 한 줄 업데이트. 표의 '진행' 칸에 명진이 쓴 문장 그대로(AI 요약으로 바꾸지 않음),
+// MTG-한줄업데이트(요청 10/29 08:59): 칸 'oneline' 사업 보고 = 사업영역 한 줄 업데이트. 표의 '진행' 칸에 사용자가 쓴 문장 그대로(AI 요약으로 바꾸지 않음),
 // 같은 칸에 다른 줄(보고 줄·AI 한 줄)이 있으면 한 줄 업데이트가 먼저(first). 세부 내용(회의·활동 결과) 목록에는 넣지 않는다.
 const ONELINE = 'oneline';
 export const isOneline = meeting => meeting?.activity_kind === ONELINE;

@@ -1,4 +1,4 @@
-// RECORD-한줄AI요약(11/09 명진 A안, 시안 docs/design/mockups/org-record-oneline.html): 조직 기록을 저장(또는 원문 수정)한 뒤 한 번,
+// RECORD-한줄AI요약(11/09 사용자 A안, 시안 docs/design/mockups/org-record-oneline.html): 조직 기록을 저장(또는 원문 수정)한 뒤 한 번,
 // 서버(ai-assist kind=record_one_line)에 'AI 한 줄'을 부탁한다. 기록 ID만 보낸다(글은 서버가 내 로그인으로 읽음).
 // - 원문이 짧으면(표시 기호를 걷어낸 뒤 한 줄로 60자 안) 부르지 않는다 — 화면이 원문 그대로 보인다(record-oneline.mjs needsOneLine).
 // - 기다리지 않는다: 실패·배포 전·건너뜀은 조용히 넘어가고(화면은 임시 한 줄 그대로), 한 줄이 생기면 같은 탭 표·목록이 다시 읽게 알린다.

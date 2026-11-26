@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libDoc,SB} from './helpers/library-folder-server.mjs';
-// S46-25 묶음으로올리기 (2026-10-31 명진 결정): 사업영역·담당조직·분류 묶기에서 PC 파일을 그 묶음 머리에 놓으면 그 값을 달아 올린다.
+// S46-25 묶음으로올리기 (2026-10-31 사용자 결정): 사업영역·담당조직·분류 묶기에서 PC 파일을 그 묶음 머리에 놓으면 그 값을 달아 올린다.
 // 사업영역·분류는 [+ 자료 등록]과 같은 library-files 요청 칸(project_id·category), 담당조직은 담당조직 상세 [+]와 같은 자료 연결(PATCH organization_id).
 // 월별 묶기와 '값 없음' 묶음(사업영역 없음·조직 없음)은 지금처럼 화면 끌어놓기. 가짜 서버만 쓴다(실제 Supabase·Drive·AI 없음).
 const ORGS=[{id:'org-1',name:'공공기관사업본부',active:true},{id:'org-2',name:'철도본부',active:true}];

@@ -5,7 +5,7 @@ import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
 const supabase = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-const person = {id: 'solo-shell-user', email: 'solo@example.org', user_metadata: {display_name: '김명진'}};
+const person = {id: 'solo-shell-user', email: 'solo@example.org', user_metadata: {display_name: '홍길동'}};
 
 async function mockWorkspace(page) {
   await page.route(`${supabase}/**`, route => {
@@ -14,7 +14,7 @@ async function mockWorkspace(page) {
       path === '/auth/v1/user' ? person :
       path === '/rest/v1/app_workspace_members' ? [{workspace_id: 'solo-workspace', user_id: person.id, role: 'owner'}] :
       path === '/rest/v1/app_workspaces' ? [{id: 'solo-workspace', name: '웹2'}] :
-      path === '/rest/v1/app_profiles' ? [{user_id: person.id, display_name: '김명진'}] :
+      path === '/rest/v1/app_profiles' ? [{user_id: person.id, display_name: '홍길동'}] :
       path === '/functions/v1/google-calendar' ? {connected: false, enabled: false, selected: [], calendars: [], events: []} :
       path === '/functions/v1/push-notifications' ? {enabled: false, web_enabled: false, native_enabled: false, public_key: 'qa'} :
       path.startsWith('/rest/v1/') ? [] : {};
@@ -33,7 +33,7 @@ for (const width of [1280, 768, 390, 360]) {
     await expect(page.locator('#teamView')).toBeVisible();
     await expect(page.locator('#soTeamSection')).toBeVisible();
     await expect(page.locator('#userBadge')).toHaveCount(0);
-    await expect(page.locator('.topbar')).not.toContainText('김명진');
+    await expect(page.locator('.topbar')).not.toContainText('홍길동');
     await expect(page.locator('#workspaceRole,#memberList,#inviteModal,#messagesView,[data-view="messages"],[data-cc-view="messages"]')).toHaveCount(0);
     await expect(page.locator('.app-nav')).not.toContainText('구성원');
     await expect(page.locator('.app-nav')).not.toContainText('메시지');

@@ -5,7 +5,7 @@ import { routeMemos } from './helpers/memo-server.mjs';
 import { revealLibraryRow } from './helpers/library-tree.mjs';
 import { installTgServer, telegramRows, T } from './helpers/tg-room-day-server.mjs';
 
-// S69-95 NOTE-메모넓히기(명진 11/25 03:16~03:17 "또 메모 남길만한 거 뭐가 있을까 워크온+ 내에" → 자료실 파일·사업 관리 회의 기록·조직 관리 담당조직 기록·
+// S69-95 NOTE-메모넓히기(사용자 11/25 03:16~03:17 "또 메모 남길만한 거 뭐가 있을까 워크온+ 내에" → 자료실 파일·사업 관리 회의 기록·조직 관리 담당조직 기록·
 // 텔레그램 소식 / "중요한 건 메모를 모아두는 화면에서는 메모도 보이지만 그 메모를 남긴 원문 기록으로 연결 도 되어야한다는 거야"):
 // - 네 곳 모두 노트·저장한 글과 같은 메모 칸(memo-thread.js)에서 [메모 남기기] → 서버 메모 표 한 줄(대상 종류·대상 id·원문 제목 사본).
 //   자료실 자료: ⋯ [메모] → 자료 창 아래 / 사업 보고: 보고 창 맨 아래 / 담당조직 기록: 기록 ⋯ [메모] → 기록 창 아래 / 텔레그램 소식: 펼친 원문 아래.

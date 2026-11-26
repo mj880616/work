@@ -82,13 +82,13 @@ import {uploadLabelHtml} from './upload-label.mjs';
 import {bindRowSwipe, PICK, RENAME, DELETE} from './row-swipe.js';
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
 installDragEdgeScroll();
-// FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
+// FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 사용자 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
-// - 갱신(명진 결정 F2, 단축키 아님): 들어올 때 + 2분마다 + 창으로 돌아올 때(1분 지났으면) Edge cloud-files sync(서버가 2분 안이면 클라우드를 부르지 않음). 응답의 바뀐 줄만
+// - 갱신(사용자 결정 F2, 단축키 아님): 들어올 때 + 2분마다 + 창으로 돌아올 때(1분 지났으면) Edge cloud-files sync(서버가 2분 안이면 클라우드를 부르지 않음). 응답의 바뀐 줄만
 //   지금 목록에 입힌다(applyChanges). 많이 바뀌면(reload) 지금 목록을 서버에서 다시 읽는다. 밤 한 번은 서버 예약(⑧).
 // - 미리보기(오른쪽 칸 / 폰·폴드는 겹친 칸, 뒤로가기 한 번 = 닫힘): 사진 = 큰 썸네일, PDF = 원본, 오피스 = 서버가 PDF로 바꾼 것(F4),
 //   PDF는 저장소에 고정한 pdf.js로 쪽마다 그린다. 글 = 앞 200KB. 그 밖은 이름·크기·위치만 + [열기](클라우드 보기 새 창).
-// - S50-33(명진 결정, 시안 승인): [최근]·폰 탭 줄은 없앴다. 폰 첫 화면은 나무(맨 위 '★ 별표 (개수)' · '큰 파일' → 저장소 뿌리 → 폴더, 줄 30px·들여쓰기 7px).
+// - S50-33(사용자 결정, 시안 승인): [최근]·폰 탭 줄은 없앴다. 폰 첫 화면은 나무(맨 위 '★ 별표 (개수)' · '큰 파일' → 저장소 뿌리 → 폴더, 줄 30px·들여쓰기 7px).
 //   폴더·별표를 누르면 같은 자리에서 목록 + 위치 줄(원드라이브 › Pictures). 뒤로가기(브라우저·폰)·‹ = 한 단계 위, 맨 위 목록이면 나무(layer 'files-list').
 //   위 줄은 찾기 칸 + 출처 단추(같은 줄 오른쪽 작은 정사각). 맞추기 단추·맞춘 때 글자는 없다(S70-26, 저절로만). PC·폴드 첫 화면은 첫 저장소 맨 위.
 // - 폰은 보기·찾기·열기·공유.
@@ -104,28 +104,28 @@ installDragEdgeScroll();
 //   나무: 켜진 드라이브가 맨 위 줄(▸)로 나란히, 아래로 폴더를 펼치고 접는다. 폰(600px 미만)도 첫 화면이 같은 나무(한 화면에 두 드라이브, 여러 단계 펼치기),
 //   폴더 이름을 누르면 그 폴더 안 목록(pane 'list'), 목록 맨 위 ‹ 로 나무(pane 'tree')로 돌아온다. 펼친 폴더는 그 폴더를 바로 읽어(Edge folder) 채우고 한 번 읽은 폴더는 다시 부르지 않는다(directDone).
 //   펼침 상태는 이 탭 메모리만(서버에 저장하지 않음). 켜기/끄기만 서버에 기억해 다른 기기에서도 같다.
-// FILES-통합 2-① 복사(S49-27, 명진 결정 H-3·H-4·H-5, 시안 files-unified-mockup.html ③④⑤): 고르기 막대 'N개 · [복사][옮기기][이름][휴지통] ✕' →
+// FILES-통합 2-① 복사(S49-27, 사용자 결정 H-3·H-4·H-5, 시안 files-unified-mockup.html ③④⑤): 고르기 막대 'N개 · [복사][옮기기][이름][휴지통] ✕' →
 //   받을 곳 창(하단바 위, 최근 보낸 곳 칩 3개는 서버 view_prefs.files_dest_recent, 켜진 저장소 나무, [새 폴더][여기에 복사/옮기기]) → 같은 이름은 한 번 묻기
 //   ([그래도 하기] = 서버가 '이름 (2)'로 번호 붙여 둘 다 둠 / [건너뛰기], '남은 것도 모두 같게') → 200MB 넘는 클라우드 사이 파일은 묻고 이 판에서는 다음 판 안내로 건너뜀
 //   → 하단바 위 얇은 전송 줄 '2/5 보내는 중'(차례로 하나씩). 폴더째 복사는 S52-43 ②부터 원드라이브↔구글, S53-8부터 내 PC·이 폰과도(treeUp·treeDev). PC Ctrl+C·Ctrl+X → Ctrl+V.
-// FILES-통합 2-② 전송 목록(S49-28, 명진 결정 H-4·H-6, 시안 ⑤⑧): 복사와 다른 저장소로 옮기기는 서버 작업표(Edge job_add → app_cloud_jobs)에 한 건 = 한 줄로 넣고
+// FILES-통합 2-② 전송 목록(S49-28, 사용자 결정 H-4·H-6, 시안 ⑤⑧): 복사와 다른 저장소로 옮기기는 서버 작업표(Edge job_add → app_cloud_jobs)에 한 건 = 한 줄로 넣고
 //   서버가 화면을 닫아도 차례로 잇는다(200MB 넘는 것은 [그래도 보내기]를 누른 것만 10MB 조각씩). 같은 저장소 안 옮기기는 지금처럼 move 한 번.
 //   하단바 위 전송 줄을 누르면 전송 목록(폰: 하단바 위 칸, PC: 오른쪽 아래 작은 칸) — 줄마다 진행 막대·[멈춤]/[이어 하기]/[다시], '모두 멈춤'.
 //   목록은 서버(job_list)에서 읽어 그린다. 보내는 것이 있는 동안만 2초마다 다시 읽고(화면이 보일 때만), 다시 열면 서버 목록으로 이어 보인다. 기기 저장 없음.
-// FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2, 시안 ⑥⑧): 폴드 펼침(600~1199, S51-18 전에는 761~)·PC(1200~)에서 위 줄 [두 칸]. 폴드 펼침은 기본 두 칸, PC는 기본 한 칸(나무·목록·미리보기),
+// FILES-통합 2-③ 두 칸(S49-30, 사용자 결정 H-2, 시안 ⑥⑧): 폴드 펼침(600~1199, S51-18 전에는 761~)·PC(1200~)에서 위 줄 [두 칸]. 폴드 펼침은 기본 두 칸, PC는 기본 한 칸(나무·목록·미리보기),
 //   폰(600px 미만)은 늘 한 칸. 켬은 서버 view_prefs.files_two(기기 종류별 · 폭 종류별, files-panes-model.mjs). 상태는 '칸 2개'(state.panes) — 한 칸 화면은 같은 코드로 칸 0 하나만 그린다.
 //   칸마다 따로: 저장소·위치 줄·목록·정렬·고르기·찾기. 지금 칸(state.cur)은 칸 위 줄 밑선(fx-cur). 칸을 누르거나 Tab으로 바꾼다.
 //   고르기 막대는 '→ 오른쪽에 복사 / → 옮기기'(받을 곳 = 반대 칸의 지금 폴더, 받을 곳 창 없이). 같은 이름·200MB 묻기·전송 목록은 2-①·2-② 그대로(xferRun).
 //   칸 사이 끌어 놓기: 놓으면 '복사 · 옮기기' 작은 고르기. PC 키(두 칸일 때): F5 반대 칸에 복사 · F6 옮기기 · Tab 칸 바꾸기(입력 칸 안에서는 안 함). F2·Del은 그대로.
 //   폴드 두 칸은 나무 대신 칸 위 줄 ▾(그 칸 위로 나무가 내려옴). 미리보기는 두 칸이면 덮는 칸(뒤로가기 한 번 = 닫힘).
-// FILES-통합 3단계 '이 폰'(S49-51, 명진 결정 H-1·H-7, 폰 앱 0.5.0+): 위 줄 출처 아이콘에 [이 폰](폰 앱에서만). 앱 다리(phone-files.js)로 폰 저장 공간을 읽는다 —
+// FILES-통합 3단계 '이 폰'(S49-51, 사용자 결정 H-1·H-7, 폰 앱 0.5.0+): 위 줄 출처 아이콘에 [이 폰](폰 앱에서만). 앱 다리(phone-files.js)로 폰 저장 공간을 읽는다 —
 //   나무 뿌리 줄에 '이 폰'(폴더 펼치기·목록). 미리보기·받기·공유는 폰 안에서 읽는다.
 //   폰 파일 → 클라우드 [복사]는 올리기 길(upload_open, 2-④)을 그대로 쓴다(바이트는 폰 앱 안에서 읽어 클라우드 자리로 바로 보냄, 서버 Edge를 거치지 않음).
 //   3-③(앱이 쓰기를 알 때, state.write): 클라우드 → 폰 [복사](받을 곳 창에 '이 폰', Edge media로 받아 앱이 그 폴더에 씀 — 같은 이름은 한 번 묻고 앱이 번호를 붙임, 덮어쓰기 없음),
 //   폰 쪽 새 폴더·이름 바꾸기·휴지통(사람이 누른 것만, 휴지통은 확인 한 번 + 안드로이드 휴지통). 폰이 낀 옮기기는 아직 없다(복사 뒤 원본 지우기 안내).
 //   [별표]·[큰 파일]·찾기는 클라우드만(폰 별표는 두지 않음, 설계 D-6).
 //   폰 파일 목록은 이 화면 메모리에만 있고 서버·기기에 저장하지 않는다. [이 폰] 켜기/끄기는 이번 접속만 기억한다(서버 기억은 DB 한 칸이 더 필요해 다음 PR).
-// FILES-내PC드라이브 ②(S50-27, 시안 A, 명진 결정 11/05 D1~D5·시안 A): 윈도우 PC 브라우저에서 바구니 PC 앱(0.3.0+) 문(pc-files.js, 127.0.0.1)이 같은 계정으로 답하면
+// FILES-내PC드라이브 ②(S50-27, 시안 A, 사용자 결정 11/05 D1~D5·시안 A): 윈도우 PC 브라우저에서 바구니 PC 앱(0.3.0+) 문(pc-files.js, 127.0.0.1)이 같은 계정으로 답하면
 //   나무 맨 끝 뿌리에 '내 PC'(원드라이브·구글 드라이브 다음 줄) → 드라이브(C:·D: …) → 폴더. 두 칸이면 칸마다 나무에서 '내 PC'를 고른다(왼쪽 내 PC · 오른쪽 원드라이브처럼).
 //   이 단계는 보기·열기만: 파일 [이 PC에서 열기]·[탐색기에서 위치](그 PC의 프로그램이 엶, 바이트는 브라우저로 안 옴). 미리보기 그림·복사·옮기기·이름·휴지통·별표·색은 없다(다음 단계).
 //   찾기에 PC 파일을 섞지 않는다(D3). 문이 답하지 않으면 '내 PC · 꺼짐' 흐린 줄 + 누르면 켜는 법 한 줄. 크롬 허락 창이 뜰 수 있으면 저절로 두드리지 않는다(누를 때만).
@@ -142,7 +142,7 @@ installDragEdgeScroll();
 //   격자 칸은 목록 줄과 같은 단추·같은 data-*라 누르기·꾹 누르기·끌어 놓기 길이 그대로다. 찾는 중 목록은 늘 목록.
 // FILES-폰보기끌기 ②(S51-20): 폰도 [두 칸 보기] = 위·아래 두 칸(files_two.<기기>.narrow). 폰 한 칸 흐름(나무 ⇄ 목록·뒤로가기)은 solo() 한 곳.
 // FILES-폰보기끌기 ③(S51-20): 꾹 눌러 끌기(touch-drag.js) — 폴더(같은 칸·다른 칸·▾ 나무) 위 보라 점선, 놓으면 [복사][옮기기]. 같은 저장소 옮기기는 알림 [되돌리기].
-// FILES-두칸나무접기(S52-41 ③, 명진 결정 (가) 11/08, 시안 files-two-pane-tree.html): 두 칸 보기(폴드 펼침·PC)면 왼쪽 나무를 접어 두고 맨 위 줄 왼쪽 ◫로 열고 닫는다
+// FILES-두칸나무접기(S52-41 ③, 사용자 결정 (가) 11/08, 시안 files-two-pane-tree.html): 두 칸 보기(폴드 펼침·PC)면 왼쪽 나무를 접어 두고 맨 위 줄 왼쪽 ◫로 열고 닫는다
 //   (서버 view_prefs.files_tree.<기기>.<fold|wide>, 없으면 접힘 — 적용 전에는 이번 접속만). 나무에서 누른 폴더는 지금 칸(초록 테두리)에 열린다. 칸 위 [출처 ▾] 맨 위에 별표·큰 파일.
 //   나무 폴더 줄도 끌어서 칸·다른 나무 폴더에 놓을 수 있다(칸에 놓으면 [복사][옮기기]). 한 칸 보기·폰은 그대로.
 // FILES-폴더고정(S52-41 ④, 시안 files-pinned-folders.html): 나무 맨 위(별표 위) '📌 고정한 폴더' 상자 — 어느 출처 폴더든, 줄 오른쪽 흐린 출처 글자, 누르면 그 폴더(두 칸이면 지금 칸),
@@ -183,7 +183,7 @@ const MEDIA_BIG_TEXT = '200MB가 넘어 여기서는 재생하지 않아요. [�
 const HWP_BIG_TEXT = '30MB가 넘는 한글 파일은 여기서 보지 않아요. [열기]로 보세요';
 // FILES-폴드나무목록 ⑥(S51-18): 폰 한 칸인가는 공용 판정(screen-width.mjs, 600px 미만). 펼친 폴드(약 673~884px)는 폴드 칸(나무 | 목록).
 const PHONE = window.matchMedia(NARROW_QUERY);
-// 출처 켜기/끄기를 기억하는 기기 칸(폰 앱·폰 브라우저·PC, 명진 결정 H-8). 화면을 연 때 한 번 정한다. 기억 칸은 지금까지처럼 760px 기준(바꾸면 기억한 켜기/끄기가 다른 칸으로 감).
+// 출처 켜기/끄기를 기억하는 기기 칸(폰 앱·폰 브라우저·PC, 사용자 결정 H-8). 화면을 연 때 한 번 정한다. 기억 칸은 지금까지처럼 760px 기준(바꾸면 기억한 켜기/끄기가 다른 칸으로 감).
 const DEVICE = filesDeviceKind({ua: navigator.userAgent || '', narrow: !!window.matchMedia(PHONE_WIDTH_QUERY).matches});
 const WIDE = window.matchMedia('(min-width:1200px)');
 // 손가락이 주 입력인 기기(폰·폴드): 줄을 HTML 끌기(draggable)로 두지 않는다 — 안드로이드 크롬은 길게 누르면 그 끌기를 시작해 꾹 눌러 끌기(touch-drag.js)를 끊는다.
@@ -202,7 +202,7 @@ const pc = createPcFiles(window, {enabled: pcDeviceOk({ua: navigator.userAgent |
 let pcOff = false;
 const PC_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 14h4M8 11v3" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>';
 // S62-40: [두 칸 보기] 아이콘(네모 하나를 가운데 선으로 나눈 그림). 폰은 위·아래 두 칸이라 가로 선, 600px~는 CSS가 돌려 세로 선(왼쪽·오른쪽 두 칸).
-// S69-38 FILES-보기두칸(명진 11/24 '오른쪽 위 두 칸 아이콘을 자료실과 같은 붙은 버튼으로'): [한 칸 | 두 칸] 붙은 단추(공용 ⑤ 보기 바꾸기 ds-seg, 자료실과 같은 그림).
+// S69-38 FILES-보기두칸(사용자 11/24 '오른쪽 위 두 칸 아이콘을 자료실과 같은 붙은 버튼으로'): [한 칸 | 두 칸] 붙은 단추(공용 ⑤ 보기 바꾸기 ds-seg, 자료실과 같은 그림).
 const ONE_SVG = '<svg class="fx-one-ic" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
 const TWO_SVG = '<svg class="fx-two-ic" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 8h12" stroke="currentColor" stroke-width="1.4"/></svg>';
 const PHONE_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/></svg>';
@@ -257,7 +257,7 @@ const jobsSeen = new Set();
 let state = fresh(), syncTimer = 0, layer = null, entering = null, jobTimer = 0, jobsLayer = null;
 // 지금 칸 · 두 칸인가(폰은 늘 한 칸) · 그려지는 칸들 · 반대 칸 · 칸 번호.
 const P = () => state.panes[state.cur];
-// S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 화면 안 찾기 칸은 없고 맨 위 칸이 '파일에서 찾기'(지금 칸의 setQuery 그대로 —
+// S70-57(사용자 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 화면 안 찾기 칸은 없고 맨 위 칸이 '파일에서 찾기'(지금 칸의 setQuery 그대로 —
 // 이름 + 자료실이 이미 읽은 글자, 치면 잠깐 뒤 서버 찾기). 칸 글자는 칸마다(p.findRaw, 화면 메모리만). 위 줄의 나머지 단추는 화면 위 줄(.fx-top)에 그대로.
 registerScreenFind('files', {label: '파일에서 찾기', active: () => window.KPTURouter?.current === 'files',
   value: () => { const p = P(); return !p?.query ? '' : cleanQuery(p.findRaw) === p.query ? p.findRaw : p.query; },
@@ -683,7 +683,7 @@ async function find(p, q) {
 }
 const refind = p => { const q = p.query; p.query = ''; setQuery(p, q); };
 
-// ---------- 갱신(명진 결정 F2 — 저절로만, S70-26) ----------
+// ---------- 갱신(사용자 결정 F2 — 저절로만, S70-26) ----------
 // reason: 'enter'(들어올 때) · 'timer'(2분마다) · 'back'(창으로 돌아올 때, 1분 지났을 때만) · 'more'(이어 받기) · 'ask'(알림의 [다시]).
 async function sync({force = false, reason = 'enter'} = {}) {
   if (state.syncing || !state.status || !connected().length) return;
@@ -786,7 +786,7 @@ function keepFxMenus(paint) { return keepMenus(fxLookMade ? [rowMenuFollower, lo
 // 폴드 펼침·PC(600px~)에서 왼쪽 나무와 오른쪽 목록이 각자 따로 스크롤한다: 맨 위 줄(위치 길·찾기·정렬·출처·두 칸 보기)과 고르기 막대는 화면 위에 고정(sticky),
 // 나무는 공용 부품 follow-pane.js로 그 아래에 붙어 화면보다 길면 나무만 스크롤(UI-상세칸고정과 같은 칸 모양). 한 칸 목록은 화면 스크롤 그대로라
 // 나무를 끝까지 내려도 목록·위치 길은 제자리. 두 칸이면 칸마다 따로(칸 머리 줄은 칸 안 위에 고정). 폰(600px 미만, 폰 두 칸 위·아래 포함)은 지금대로.
-// 명진 요청(11/08)이 C8 'UI-칸안스크롤하나로'(화면 스크롤 하나)보다 우선이다 — [파일]의 나무·목록 칸에서만.
+// 사용자 요청(11/08)이 C8 'UI-칸안스크롤하나로'(화면 스크롤 하나)보다 우선이다 — [파일]의 나무·목록 칸에서만.
 const SPLIT_SCROLL = window.matchMedia('(min-width:600px)'), FOLLOW_WIDE = window.matchMedia('(min-width:761px)');
 const dockBelow = () => parseFloat(getComputedStyle(root).getPropertyValue('--kptu-mobile-tab-height')) || 0;
 let headWatch = null;
@@ -830,7 +830,7 @@ function crumbHtml(p, {noRoot = false} = {}) {
   if (names.length > 1 || back || (noRoot && names.length)) html = `<button type="button" class="icon-btn fp-up" data-fx-up aria-label="${back ? '폴더 나무' : '위 폴더'}">‹</button>` + html;
   return html;
 }
-// ---------- UI-머리눌러정렬(명진 11/24 15:47): 정렬 상태 주인은 칸마다 p.sort·p.dir 하나 ----------
+// ---------- UI-머리눌러정렬(사용자 11/24 15:47): 정렬 상태 주인은 칸마다 p.sort·p.dir 하나 ----------
 // 머리 칸(fileHeadHtml)과 정렬 고르기(sortHtml)는 그 값을 그리기만 한다. 바꾸는 길은 setSort 하나(머리 누르기·고르기 모두).
 // 찾기 결과는 처음엔 맞는 순(서버 순서) — 머리나 고르기로 정렬을 고르면 그때부터 그 정렬(p.findSorted, 새로 찾으면 다시 맞는 순).
 // 기억: 폴더 목록에서 고른 정렬만 서버 view_prefs.files_sort(모든 기기 같음). 묶음(큰 파일·별표)·찾기에서 고른 정렬은 그 자리에서만.
@@ -1160,7 +1160,7 @@ function paintTree() {
   // 받을 곳 창의 나무도 같은 하위 폴더 목록(state.children)을 쓴다: 새로 읽으면 함께 다시 그린다.
   if (state.xfer) paintDest();
 }
-// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안, [파일] 화면에도 붙임): 폰 나무의 파일 줄을 왼쪽으로 밀면 [옮기기][이름 바꾸기][삭제] — 자료실 자료 줄과 같은 칸.
+// S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 가안, [파일] 화면에도 붙임): 폰 나무의 파일 줄을 왼쪽으로 밀면 [옮기기][이름 바꾸기][삭제] — 자료실 자료 줄과 같은 칸.
 // 칸마다 그 줄 ⋯ 메뉴의 같은 항목(treeMenuItems 옮기기·이름 바꾸기·휴지통으로)이 있을 때만, 누르면 ⋯ 메뉴와 같은 treeAct 길(옮길 곳 창·이름 칸·휴지통 확인).
 // 폴더 줄은 밀지 않는다(누르면 그 자리 펼치기). 오른쪽으로 밀면 꾹 누르기와 같은 고르기(holdPickRow, 그 줄이 골라진 채 고르기 막대).
 // 끝까지 밀어도 칸만 열린다(공용 row-swipe.js). 폰 폭·손가락만(PC·폴드는 ⋯·우클릭 그대로).
@@ -1272,7 +1272,7 @@ function focusTreeFolder(key) {
   riseFromRow(from, inPane(state.panes[0], '.ft-focus'));
   return done;
 }
-// LIB-최근폴더로가기(S61-12, 요청함 V28 11/13 04:40 명진 ㅇ): '최근' 상자 파일 줄 ⋯·우클릭 맨 위 [폴더로 가기] = 그 파일이 든 폴더로 들어가 그 줄을 잠깐 강조.
+// LIB-최근폴더로가기(S61-12, 요청함 V28 11/13 04:40 사용자 ㅇ): '최근' 상자 파일 줄 ⋯·우클릭 맨 위 [폴더로 가기] = 그 파일이 든 폴더로 들어가 그 줄을 잠깐 강조.
 // 폰 나무 = 두 손가락 '그 폴더만'과 같은 길(뒤로·[‹] = 들어오기 전 나무 자리), PC = 지금 칸에 그 폴더 열기(뒤로 = 앞 화면, 폴더 열기와 같은 기록).
 // 사진이면 그 폴더의 [사진 n]을 펴고 그 칸을 강조한다. 줄 그냥 누르기(미리보기)는 그대로.
 async function gotoFolder(r) {
@@ -1448,10 +1448,10 @@ function mountThumbs(list) {
 }
 const thumbHtml = (r, cls) => `<span class="${cls} fx-th" data-kind="image" data-fx-thumb="${esc(thumbKey(r))}" aria-hidden="true"></span>`;
 const wantsThumb = r => r.source !== PC && thumbWanted(kindOf(r), r.is_folder);
-// ---------- LIB-사진숨김(S60-10, 명진 결정 11/12, 시안 photo-hide-thumbs.html ⑤) ----------
+// ---------- LIB-사진숨김(S60-10, 사용자 결정 11/12, 시안 photo-hide-thumbs.html ⑤) ----------
 // 폴더 안을 보이는 곳(목록 칸 목록·격자·'그 폴더만', 펼친 하위 폴더, 폰 나무)에서 사진(공용 판정 kindOf === 'image')은 줄에서 빼고
 // 그 폴더 맨 아래 [사진 n] 하나. 누르면 그 자리에 작은 그림 칸(같은 줄 단추·같은 data-* — 누르기 = 미리보기, 꾹 누르기·우클릭·⋯ = 지금 메뉴).
-// LIB-사진숨김나머지(S61-1, 명진 결정 11/13 "모두 숨김"): '최근' 상자·묶음(별표·큰 파일)·찾기 결과도 같은 규칙 — 목록 맨 아래 [사진 n] 하나.
+// LIB-사진숨김나머지(S61-1, 사용자 결정 11/13 "모두 숨김"): '최근' 상자·묶음(별표·큰 파일)·찾기 결과도 같은 규칙 — 목록 맨 아래 [사진 n] 하나.
 // 찾기는 종류 거르기에서 '사진'을 고른 때만 사진을 줄로 보인다(사진만 보려고 고른 것). 펼친 곳(state.photoOpen)은 화면 메모리만이고 [파일]을 떠나면 비운다(늘 숨김으로 시작).
 const isFxPhoto = r => !r.is_folder && kindOf(r) === 'image';
 const fxSplit = rows => ({rest: rows.filter(r => !isFxPhoto(r)), photos: rows.filter(isFxPhoto)});
@@ -1660,12 +1660,12 @@ function paintFocus(p, list, drawn = '') {
   list.innerHTML = html;
   mountThumbs(list);
 }
-// ---------- OPS-빠진일2차 1(명진 11/11 14:55 '가'): 목록 칸 폴더 누르기 = 그 자리 펼치기·접기(왼쪽 나무와 같은 규칙) ----------
+// ---------- OPS-빠진일2차 1(사용자 11/11 14:55 '가'): 목록 칸 폴더 누르기 = 그 자리 펼치기·접기(왼쪽 나무와 같은 규칙) ----------
 // UI-폴더누르기한규칙 "오른쪽도 왼쪽처럼"이 [파일] 목록 칸만 빠졌던 것(PR 2348 '남김'). 폴더 한 번 누르기 = 그 자리에서 하위 폴더·파일을 들여 보이기, 다시 누르기 = 접기.
-// UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 펼쳐 '빈 폴더' 한 줄(전의 '하위 없는 폴더는 한 번에 열기'는 없앰). 그 폴더만 보기(들어가기)는 ⋯·우클릭 [이 폴더로 들어가기].
+// UI-폴더이름펼치기(사용자 11/24 18:09): 빈 폴더도 펼쳐 '빈 폴더' 한 줄(전의 '하위 없는 폴더는 한 번에 열기'는 없앰). 그 폴더만 보기(들어가기)는 ⋯·우클릭 [이 폴더로 들어가기].
 // 펼친 폴더 안은 나무와 같은 읽기(state.children·state.files — loadChildren·fillFolder)를 쓰고, 그 칸 정렬 그대로 하위 폴더 → 파일 순서. 펼침은 칸마다 화면 메모리(p.xopen).
 // 찾기 결과·묶음(별표·큰 파일)은 여러 위치가 섞인 목록이라 지금처럼 누르면 들어간다.
-// S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09 '노조를 클릭하면 노조가 펼쳐지는거야 거기로 들어가는게 아니고 들어가는건 무조건 왼쪽에서 클릭했을 때'):
+// S69-68 UI-오른쪽목록펼치기(사용자 11/24 20:09 '노조를 클릭하면 노조가 펼쳐지는거야 거기로 들어가는게 아니고 들어가는건 무조건 왼쪽에서 클릭했을 때'):
 //  그 자리 펼치기는 두 칸 칸 안뿐 아니라 한 칸 탐색기 오른쪽 목록·폰 '그 폴더만' 안 하위 폴더 줄도 같다(전의 S69-38 '오른쪽 하위 폴더 = 들어가기'를 대신함).
 //  들어가기는 왼쪽 나무 누르기(ftExplorePress)·⋯·우클릭 [이 폴더로 들어가기]만.
 const xable = p => orderable(p);
@@ -1754,7 +1754,7 @@ function xToggle(p, r) {
   inPane(p, `[data-fx-row="${CSS.escape(rowKey(r))}"]`)?.focus({preventScroll: true});
 }
 // 목록 칸 폴더 줄 하나 누르기(마우스·손가락·Enter 같은 길).
-// S69-68 UI-오른쪽목록펼치기(명진 11/24 20:09): 목록 칸(한 칸 탐색기 오른쪽·두 칸 칸 안·폰 '그 폴더만')의 폴더 이름 누르기 = 늘 그 자리 펼치기·접기
+// S69-68 UI-오른쪽목록펼치기(사용자 11/24 20:09): 목록 칸(한 칸 탐색기 오른쪽·두 칸 칸 안·폰 '그 폴더만')의 폴더 이름 누르기 = 늘 그 자리 펼치기·접기
 // (빈 폴더도 펼쳐 '빈 폴더' 한 줄, 하위 폴더 수를 몰라도 펼치며 읽기). 왼쪽 나무는 따라 바뀌지 않는다(목록 펼침 p.xopen과 나무 펼침 state.open은 따로).
 // 들어가기는 ⋯ [이 폴더로 들어가기]만(folder-tree-press.mjs 머리 설명).
 function pressListFolder(p, r) {
@@ -1764,10 +1764,10 @@ function pressListFolder(p, r) {
 }
 // ---------- 미리보기 ----------
 const rowByKey = (key, p = P()) => (p.query ? p.found || [] : p.rows).find(r => rowKey(r) === key) || p.inline?.get(key) || (p === state.panes[0] && !two() ? state.treeRows.get(key) : null) || null;
-// S69-75 LONGPRESS-폰나무(2026-11-24 21:15 명진 "파일 목록에 보이는 파일 폴더 꾹 눌러도 선택 안되는데?"): 폰 한 칸 나무(원드라이브·구글·이 폰·내 PC 상자, '최근' 상자)의
+// S69-75 LONGPRESS-폰나무(2026-11-24 21:15 사용자 "파일 목록에 보이는 파일 폴더 꾹 눌러도 선택 안되는데?"): 폰 한 칸 나무(원드라이브·구글·이 폰·내 PC 상자, '최근' 상자)의
 // 폴더 줄(data-fx-tog)·파일 줄(data-fx-tfile)도 목록 줄과 같은 고르기 — 꾹 누르기 = 선택 모드 + 그 줄(holdPickRow), 선택 모드에서 줄 누르기 = 더하기/빼기, 메뉴는 ⋯로만.
 // 고른 것은 칸 0의 picked(목록과 같은 Set·같은 고르기 막대). 줄 열쇠 = rowKey(폴더 줄의 folderKey와 같은 모양). 맨 위(저장소 뿌리)처럼 줄 정보가 없는 줄은 고르지 않는다.
-// S69-84 목록 엔진 통일 ①(명진 11/24 23:57 "폴드 펼침 화면에서도 꾹 눌러 선택 등 움직임 통일"): 폴드 펼침·PC 한 칸 왼쪽 나무의 폴더 줄
+// S69-84 목록 엔진 통일 ①(사용자 11/24 23:57 "폴드 펼침 화면에서도 꾹 눌러 선택 등 움직임 통일"): 폴드 펼침·PC 한 칸 왼쪽 나무의 폴더 줄
 // (data-fx-fold 줄의 이름 단추 data-fx-go)·'최근' 상자 파일 줄도 폰 나무와 같은 고르기 — 꾹 누르기 = 선택 모드 + 그 줄, 선택 모드에서 누르기 = 더하기/빼기.
 // 기기 폭이 아니라 화면 모양(한 칸 나무가 있는지)으로 정한다. 두 칸 칸 위 ▾ 나무([data-fx-ptree])는 '열 폴더 고르기' 창이라 빼낸다.
 const treeTapKey = b => b?.dataset?.fxTog || b?.dataset?.fxTfile || (b?.matches?.('.ft-main[data-fx-go]') ? b.closest('.ft-row[data-fx-fold]')?.dataset.fxFold || '' : '');
@@ -1974,7 +1974,7 @@ function paintPreview() {
   const p = state.preview;
   if (!p) { box.hidden = true; box.innerHTML = ''; delete root.dataset.fxPreview; delete root.dataset.fxPrevShut; return; }
   box.hidden = false;
-  // S70-72 FILES-상세칸정리(명진 11/26 08:50 "우클릭하면 메뉴가 나오기 때문에 … 오른쪽 상세화면에서 메뉴가 불필요" · "펼쳤다 닫았다할 수있게"):
+  // S70-72 FILES-상세칸정리(사용자 11/26 08:50 "우클릭하면 메뉴가 나오기 때문에 … 오른쪽 상세화면에서 메뉴가 불필요" · "펼쳤다 닫았다할 수있게"):
   // PC 넓은 폭 한 칸 보기의 오른쪽 상세 칸(dockedPreview)은 정보만(이름·★·보기·위치·크기·바뀐 날·종류) — 동작은 줄 우클릭·⋯ 메뉴(listMenu)가 맡는다.
   // 칸 머리 [›]로 접으면 얇은 띠에 [‹](펼치기)만 그리고 목록이 넓어진다. 접힘은 서버 view_prefs.files_prev_shut(모든 기기 같음, 기기 저장 없음).
   // 덮는 칸(폰·폴드·좁은 PC·두 칸)은 목록이 가려 우클릭할 줄이 없으니 지금처럼 아래 동작 줄을 둔다.
@@ -2189,7 +2189,7 @@ const PH_TRASH_HTML = trashHtml();
 const PV_TRASH_HTML = '<button type="button" class="danger" data-fx-trash-one>휴지통</button>';
 const trashOff = (html, code) => html.replace(/data-fx-trash(?:-one)?(?=[\s>])/, m => `${m} aria-disabled="true" data-fx-off="${code}"`);
 const sendButtonsHtml = (i, off, keys) => ['copy', 'move'].map(m => sbActHtml({attrs: `data-fx-send="${m}"${off}`, icon: m === 'copy' ? 'copy' : 'send', label: `${sendLabel(i, m, VERT())}${keys ? (m === 'copy' ? ' (F5)' : ' (F6)') : ''}`, rank: m === 'copy' ? 5 : 10})).join('');
-// S69-89 UI-고르기모드통일(명진 11/25): 고른 줄이 있으면(= 고르기 모드) 폰·브라우저 뒤로가기 한 번 = 고른 것을 모두 풀고 이 화면에 그대로(공용 select-mode.js createBackLayer).
+// S69-89 UI-고르기모드통일(사용자 11/25): 고른 줄이 있으면(= 고르기 모드) 폰·브라우저 뒤로가기 한 번 = 고른 것을 모두 풀고 이 화면에 그대로(공용 select-mode.js createBackLayer).
 // 열린 메뉴·창은 라우터 겹 차례대로 먼저 닫힌다. 옮기는 중(state.busy)에는 풀지 않고 겹으로 돌아간다.
 const pickBack = createBackLayer('files-pick', {canLeave: () => !state.busy, onBack: () => { for (const p of state.panes) { p.picked.clear(); p.anchor = ''; } for (const p of state.panes) paintPicks(p); }});
 function paintBar() { return keepFxMenus(() => { paintBarNow(); fitSelectBar($('[data-fx-bar]')); }); }
@@ -2286,7 +2286,7 @@ function togglePick(key) {
   if (p.picked.has(key)) p.picked.delete(key); else p.picked.add(key);
   p.anchor = key; paintPicks(p);
 }
-// S69 LONGPRESS-선택(2026-11-24 명진): 폰 꾹 누르기는 그 줄을 고르기만 한다(이미 골랐으면 그대로 — 공용 규칙 select-mode.js holdPick). 풀기는 줄 누르기·네모 칸.
+// S69 LONGPRESS-선택(2026-11-24 사용자): 폰 꾹 누르기는 그 줄을 고르기만 한다(이미 골랐으면 그대로 — 공용 규칙 select-mode.js holdPick). 풀기는 줄 누르기·네모 칸.
 function holdPickRow(key) {
   const p = P();
   p.picked = holdPick(p.picked, [key]);
@@ -3324,7 +3324,7 @@ function paintJobs() {
     + (list.length ? `<ul class="fx-jobs-list">${list.map(jobRowHtml).join('')}</ul>` : '<p class="fx-jobs-none">보낸 것이 없어요(하루 지난 것은 삭제돼요).</p>');
   if (keep) (box.querySelector(keep) || box.querySelector('[data-fx-jobs-close]'))?.focus({preventScroll: true});
 }
-// ---------- FILES-자료실로보내기(S52-26, 요청함 11/07 11:37, 시안 docs/design/mockups/files-to-library.html, 명진 11:41 '(가) 연결만') ----------
+// ---------- FILES-자료실로보내기(S52-26, 요청함 11/07 11:37, 시안 docs/design/mockups/files-to-library.html, 사용자 11:41 '(가) 연결만') ----------
 // 파일 ⋯ · 미리보기 · 여러 개 고른 줄의 [자료실로] → 자료실 등록 창(library-upload.js, 같은 칸·같은 [등록]·같은 막대·%)에 그 파일들을 넣어 연다.
 // 원본은 그대로. 원드라이브·이 폰·내 PC 파일은 바이트를 받아(원드라이브는 Edge media, 폰은 앱 다리, 내 PC는 바구니 문) 자료실 Drive 폴더에 사본으로 올리고,
 // 구글 드라이브 파일은 사본 없이 연결만(서버 document-actions register-drive-file이 이 작업공간 [파일] 색인·Drive 원본을 확인).
@@ -3395,7 +3395,7 @@ async function sendToLibrary(rows) {
   }
   if (out.opened) unpick();
 }
-// ---------- 올리기(FILES-통합 2-④, S49-33, 명진 결정 H-3·H-4·H-6, 시안 ⑦) ----------
+// ---------- 올리기(FILES-통합 2-④, S49-33, 사용자 결정 H-3·H-4·H-6, 시안 ⑦) ----------
 // PC: 바탕화면 파일을 목록 칸(그 칸의 지금 폴더)이나 폴더 줄에 끌어 놓기 → 점선 '여기 놓으면 ○○에 올리기'. 폰·폴드: 위 줄 [올리기] → 고르기 창.
 // 같은 이름은 한 번 묻기(H-3, [그래도 하기] = 서버가 '이름 (2)'로 둘 다 둠), 200MB 넘으면 한 번 묻기(H-4, 2GB까지).
 // 파일마다 서버(upload_open)가 작업표 줄(기기 줄)과 그 클라우드의 이어 올리기 자리를 열어 주고, 이 화면이 그 자리로 5MB씩 직접 보낸다(파일이 서버를 거치지 않음).
@@ -4144,7 +4144,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-paste]')) { const d = hereDest(); if (state.clip && d) pasteClip(d, b); return; }
   if (b.matches('[data-fx-uncut]')) { uncut(); return; }
   // FOLDER-나무새기준 ②: 폰 나무(공용 줄) — 펼치기·접기, 상자 접기, n개 더 보기, 최근 더보기, 파일 미리보기, ⋯ 그 자리 메뉴(S51-22).
-  // UI-폴더이름펼치기(명진 11/24 18:09): 폰 나무 폴더 누르기 = 늘 그 자리 펼치기·접기(하위 폴더·파일까지, 빈 폴더는 '빈 폴더' 한 줄).
+  // UI-폴더이름펼치기(사용자 11/24 18:09): 폰 나무 폴더 누르기 = 늘 그 자리 펼치기·접기(하위 폴더·파일까지, 빈 폴더는 '빈 폴더' 한 줄).
   //  그 폴더만 보기(들어가기)는 ⋯ [이 폴더로 들어가기]만.
   // S69-75: 폰 나무에서 고른 것이 있으면(선택 모드) 폴더·파일 줄 누르기 = 더하기/빼기(펼치기·미리보기 아님). ⋯는 그대로 메뉴.
   // S69-84: 폴드·PC 한 칸 왼쪽 나무 폴더 이름(data-fx-go)도 손가락이면 같다 — 선택 모드에서는 들어가기·펼치기 대신 더하기/빼기(마우스는 그대로 들어가기).
@@ -4166,7 +4166,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-enter-picked]')) { const q = P(), r = pickedRows(q)[0]; if (r?.is_folder) { unpick(q); goFolder(r.source, r.item_id, q, {down: focusBox(q)}); } return; }
   // 위치 줄·상자 머리 [맨 위]·같은 이름 폴더 줄처럼 나무 줄이 아닌 [data-fx-go]는 그 폴더로 들어간다.
   // 두 칸 ▾ 선택 창 나무([data-fx-ptree])는 '이 칸에 열 폴더 고르기'라 눌러 고르면 그 폴더가 열리고 창이 닫힌다(그대로).
-  // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게'): PC·폴드 왼쪽 나무 폴더 이름 누르기 = 지금 칸을 그 폴더로(하위 폴더가 있어도),
+  // S69-38 UI-탐색기나무누르기(사용자 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게'): PC·폴드 왼쪽 나무 폴더 이름 누르기 = 지금 칸을 그 폴더로(하위 폴더가 있어도),
   // 접혀 있으면 펼침 — 공용 부품 ftExplorePress(자료실·노트·사진 나무와 같은 부품). 펼침 아이콘([data-fx-twist])은 펼치기·접기만.
   if (b.matches('[data-fx-go]')) {
     const source = b.dataset.fxGo, id = b.dataset.fxId || null;
@@ -4197,7 +4197,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-tolib]')) { sendToLibrary(pickedRows()); return; }
   if (b.matches('[data-fx-retry]')) { const q = P(); if (!state.status) enter(true); else if (q.query) refind(q); else loadList(q); }
 });
-// 두 손가락 손짓(부품 folder-pinch.js). UI-폴더줄크기(S69-99, 명진 11/25 08:23 "오므리기 벌리기로 폴더 크기 다르게 보기 폴더 안으로 들어가기가 아니라"):
+// 두 손가락 손짓(부품 folder-pinch.js). UI-폴더줄크기(S69-99, 사용자 11/25 08:23 "오므리기 벌리기로 폴더 크기 다르게 보기 폴더 안으로 들어가기가 아니라"):
 // - 나무·그 자리 펼친 목록·왼쪽 나무 위 벌리기·오므리기 = 줄 크기 한 단계(row-size.js, 모든 폴더 화면 같은 값). 들어가기·나무로 돌아가기는 하지 않는다(⋯ [이 폴더로 들어가기]·[‹]만).
 // - S51-20 ①: 오른쪽 목록 칸(그 폴더 안, 찾기 아님)은 그대로 보기 바꾸기 — 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대(끝에서는 그대로).
 //   목록 칸의 손짓은 아래 attach가 먼저 받아 줄 크기 쪽으로 가지 않는다(lookPinch).
@@ -4318,11 +4318,11 @@ root?.addEventListener('contextmenu', event => {
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   if (event.pointerType === 'mouse') togglePick(b.dataset.fxRow); else holdPickRow(b.dataset.fxRow);
 });
-// S70-30 FILES-선택드래그(명진 11/24 "드래그도 안되네;"): PC 마우스로 [파일] 화면의 빈 곳(줄 사이·목록 아래·왼쪽 나무 칸의 줄 없는 곳·칸 바탕)에서 끌면
+// S70-30 FILES-선택드래그(사용자 11/24 "드래그도 안되네;"): PC 마우스로 [파일] 화면의 빈 곳(줄 사이·목록 아래·왼쪽 나무 칸의 줄 없는 곳·칸 바탕)에서 끌면
 // 반투명 사각형이 그려지고 닿은 목록 줄을 고른다 — 자료실과 같은 공용 부품(marquee-select.js, 기준표 S4). 고른 상태 주인은 그 칸의 picked 하나.
 // 줄 위에서 끌면 지금처럼 폴더로 끌어 옮기기(HTML 끌기), 단추·입력칸·메뉴·미리보기·위 줄은 건드리지 않는다. Ctrl·Shift와 끌면 더하기. 두 칸이면 시작한 칸만.
 const MQ_SKIP = 'input,textarea,select,button,a,label,[contenteditable],summary,[data-fx-row],.ft-row,.fx-top,.fx-head,[data-fx-prev],[data-fx-bar],.fx-drop-ask,[popover],[role="menu"],[role="dialog"],dialog,.modal';
-// STAB-파일끌기회귀(S70-80, 명진 11/26 09:15 "이 종류 바깥부분부터 드래그해서 선택하려고하는데 이게 안돼"): 원인(사실) — 사각형 시작 자리를 [파일] 칸(#filesRoot) 안으로만 받아,
+// STAB-파일끌기회귀(S70-80, 사용자 11/26 09:15 "이 종류 바깥부분부터 드래그해서 선택하려고하는데 이게 안돼"): 원인(사실) — 사각형 시작 자리를 [파일] 칸(#filesRoot) 안으로만 받아,
 // ① 목록 줄의 마지막 칸(종류) 오른쪽 빈 자리는 줄 단추 위라 '줄 끌기'로 보고 ② 칸 바깥 바탕(오른쪽 여백·목록이 짧을 때 그 아래 화면 바탕)은 받는 칸 밖이라 시작하지 않았다.
 // 이제 자료실(luMqArea·luMqBlank)과 같은 규칙: 받는 칸 = 앱 틀(.shell) 전체, 빈 곳 = [파일] 화면 안 빈 곳 + [파일] 화면을 감싼 바탕(화면 밖 여백)
 // + 목록 줄의 마지막 칸 오른쪽 빈 자리(탐색기처럼). 줄 글자·칸 위는 지금처럼 줄 끌어 옮기기. 다른 화면에서는 enabled가 막는다.
@@ -4360,7 +4360,7 @@ function listMenu(b, event) {
   if (!r) return false;
   // S52-44 ⑤: 이 줄을 포함해 여러 개 골랐으면 [여러 개 받기](파일만 zip 하나로).
   const p = P(), many = p.picked.has(key) && p.picked.size > 1 ? pickedRows(p) : [];
-  // S70-30 FILES-선택드래그(명진 11/24 "파일에 선택 만들어줘"): 첫 묶음 맨 위 [선택] = 이 줄을 고른 채 고르기 막대(공용 holdPick — 이미 골랐으면 그대로).
+  // S70-30 FILES-선택드래그(사용자 11/24 "파일에 선택 만들어줘"): 첫 묶음 맨 위 [선택] = 이 줄을 고른 채 고르기 막대(공용 holdPick — 이미 골랐으면 그대로).
   const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), pinned: pinState(r), zip: many.some(x => !x.is_folder), select: true, detail: menuDetail(), share: canShare()}).map(it => (it.id === 'only' ? {...it, id: 'go', label: FOLDER_ENTER_LABEL} : it));
   return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '',
     run: id => { if (offStop(items, id)) return; if (id === 'select') { if (i >= 0) setCur(i); holdPickRow(key); return; } if (id === 'go') goFolder(r.source, r.item_id, P(), {down: focusBox(P())}); else if (id === 'zip') void zipDownload(many); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});

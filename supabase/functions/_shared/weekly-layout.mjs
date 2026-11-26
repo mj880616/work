@@ -1,4 +1,4 @@
-// WEEKLY-자동화 ② (docs/design/weekly-automation.md 3.1-1절, 명진 결정 3): 'Web2가 만든 확정 파일' ↔ '명진이 한글에서 고쳐 올린 파일'의
+// WEEKLY-자동화 ② (docs/design/weekly-automation.md 3.1-1절, 사용자 결정 3): 'Web2가 만든 확정 파일' ↔ '사용자가 한글에서 고쳐 올린 파일'의
 // 모양(빈 줄 띄우기·줄머리 기호·들여쓰기)을 숫자로 견준다. 문장 고침·줄 더함/뺌·줄 순서는 지금처럼 weekly-feedback.mjs diffCells 가 센다.
 // - 이 파일은 supabase/functions/_shared/weekly-layout.mjs 와 바이트까지 같은 사본이다(weekly-lines.mjs 와 같은 방식). 한쪽만 고치지 않는다
 //   (tests/weekly-layout.test.mjs 가 지킨다). 앱([올리기]·한글 파일 만들기)과 Edge(금요일 자동 초안)가 같은 규칙을 쓴다.

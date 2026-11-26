@@ -2,17 +2,17 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {targets, countFile, jsStrings, htmlStrings} from './ui-words.mjs';
-// HOME-주간정리이름주간보고(S62-15, 명진 11/15 "홈화면 주간 정리를 주간 보고 로"): 화면 글자에 '주간 정리'를 쓰지 않는다.
+// HOME-주간정리이름주간보고(S62-15, 사용자 11/15 "홈화면 주간 정리를 주간 보고 로"): 화면 글자에 '주간 정리'를 쓰지 않는다.
 // 주석·코드 이름은 세지 않는다(검사기 tests/ui-words.mjs의 글자 꺼내기를 그대로 쓴다). 업데이트 기록(옛 공개 배포물)은 세지 않는다.
 // 남은 자리 없음: 자리 표 글자(biz-week-skeleton.mjs)도 S62-21에서 '주간 보고에서 보기 ›'로 맞췄다.
-// S67-63(2026-11-20 22:38 명진 결정, docs/design/allinone-diary-plan.md): WORK ON 기본 얼굴(girok)에서는 다시 '주간 정리'.
-// 그 글자는 얼굴 단어표(app/brand/girok-words.mjs) 한 곳에만 있고, 화면 코드는 '주간 보고'를 word()에 넣는다(명진 화면은 그대로 '주간 보고').
+// S67-63(2026-11-20 22:38 사용자 결정, docs/design/allinone-diary-plan.md): WORK ON 기본 얼굴(girok)에서는 다시 '주간 정리'.
+// 그 글자는 얼굴 단어표(app/brand/girok-words.mjs) 한 곳에만 있고, 화면 코드는 '주간 보고'를 word()에 넣는다(사용자 화면은 그대로 '주간 보고').
 const LEFT = {};
 const FACE_TABLE = 'app/brand/girok-words.mjs';
 const WORD = /주간\s?정리/g;
 const strings = (f, src) => (/\.(html|xml)$/.test(f) ? htmlStrings(src) : jsStrings(src));
 const count = (f, src, word = WORD) => strings(f, src).reduce((n, {text}) => n + (text.match(word) || []).length, 0);
-// HOME-주간보고띄어쓰기(S62-21, 명진 11/15 20:17 "화면 글은 모두 띄어 쓰기 '주간 보고'로 통일"): 붙여 쓴 '주간보고'도 화면 글자에 0곳.
+// HOME-주간보고띄어쓰기(S62-21, 사용자 11/15 20:17 "화면 글은 모두 띄어 쓰기 '주간 보고'로 통일"): 붙여 쓴 '주간보고'도 화면 글자에 0곳.
 // 그대로 두는 것(바꾸면 연결이 끊기거나 밖에 내는 문서): 한글 파일 이름 '주간보고_날짜'(뒤에 _가 붙은 꼴), 자료실 분류 이름
 // '주간보고›팀 확정본' 등(document-categories.js — 저장된 분류 이름과 글자로 맞춘다), 한글 양식 안 글(app 밖 양식 파일).
 const JOINED = /주간보고(?!_)/g;
@@ -55,7 +55,7 @@ test('주간 보고 띄어 쓴 대표 자리: 사업 보고 위 칸 제목·담�
   assert.match(readFileSync('app/biz-week-skeleton.mjs', 'utf8'), />주간 보고에서 보기 ›<\/span>/);
 });
 
-test("S67-63: WORK ON 기본 얼굴은 '주간 정리', 노동조합+ 얼굴(명진)은 '주간 보고' 그대로", async () => {
+test("S67-63: WORK ON 기본 얼굴은 '주간 정리', 노동조합+ 얼굴(사용자)은 '주간 보고' 그대로", async () => {
   const {FACES, wordIn} = await import('../app/brand/faces.mjs');
   for (const text of ['주간 보고', '이번 주 주간 보고', '[하루 | 주간 보고]로 오늘 하루와 이번 주를 바꿔 봐요.']) {
     assert.equal(wordIn(FACES.nojo, text), text);

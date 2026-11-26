@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {targets, jsStrings, htmlStrings} from './ui-words.mjs';
-// UI-업로드말(S70-41, 2026-11-25 명진 "올리기는 업로드로 그리고 그 파일 이모티콘인가 그거 잇자나 클립 그거 붙어있어야함"):
+// UI-업로드말(S70-41, 2026-11-25 사용자 "올리기는 업로드로 그리고 그 파일 이모티콘인가 그거 잇자나 클립 그거 붙어있어야함"):
 // 파일을 올리는 단추·메뉴·안내의 말은 '업로드', 파일 고르기 단추 앞에는 [첨부] 단추와 같은 클립 그림(app/upload-label.mjs 한 곳).
 // 예외: 설치하는 윈도우 도우미 프로그램 이름 'WORK ON+ 파일 올리기'(설치된 이름·바로가기와 같아야 함). 업데이트 기록(옛 공개 배포물)·폰 앱(따로 출시)은 세지 않는다.
 const read = f => readFileSync(f, 'utf8');
@@ -43,7 +43,7 @@ test('파일 고르기 단추마다 클립 + 업로드', () => {
   assert.match(read('app/files-tree-menu.mjs'), /upload: '업로드'/, '[파일] 폴더 ⋯·우클릭 [업로드]');
 });
 
-// LIB-메뉴정리(S70-74, 2026-11-26 명진 "여기 메뉴 폴더 업로드 이거뭐야; 왜 또 혼자 튀어"): 클립은 단추에만. 메뉴(⋯·우클릭·+ 작은 메뉴) 줄은
+// LIB-메뉴정리(S70-74, 2026-11-26 사용자 "여기 메뉴 폴더 업로드 이거뭐야; 왜 또 혼자 튀어"): 클립은 단추에만. 메뉴(⋯·우클릭·+ 작은 메뉴) 줄은
 // 다른 줄과 같게 글자만 — 한 줄만 그림이 붙어 글자가 오른쪽으로 밀리지 않게. 작은 메뉴 부품(createAnchoredMenu)을 쓰는 화면 모두.
 test('메뉴 줄에는 클립을 붙이지 않는다(작은 메뉴를 쓰는 화면 모두)', () => {
   const files = targets().filter(f => /^app\/.+\.(js|mjs)$/.test(f) && f !== 'app/upload-label.mjs' && !f.startsWith('app/release-notes/'));

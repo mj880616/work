@@ -312,7 +312,7 @@ test('new-column grant: the S68-38c migration passes plan (dry-run) and producti
   assert.ok(sent.some(s => s.sql === plan.checks.precheck.sql));
 });
 
-// OPS-DB적용cron받기(S70-01, 2026-11-25 명진 결정): cron 예약 등록은 좁은 조건으로만 받는다.
+// OPS-DB적용cron받기(S70-01, 2026-11-25 사용자 결정): cron 예약 등록은 좁은 조건으로만 받는다.
 const cronName = 'ex_job';
 const cronOf = (command, jobName = `'${cronName}'`) => `select cron.schedule(${jobName}, '43 18 * * *', $cmd$${command}$cmd$);`;
 const cronTrim = "delete from cron.job_run_details where end_time < now() - interval '3 days'";

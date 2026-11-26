@@ -12,7 +12,7 @@ const {toPlain, toTelegram, toHangul} = await import('../app/ed-text.mjs');
 const {orderedLabel, ORDER_MARKERS} = await import('../app/ed-schema.mjs');
 const md = createMarkdown(MarkdownIt);
 
-// 명진 10/26: 메트로9호선노동조합 임단협 결렬 경과 기록 모양(번호 단계 1. → 1) → (1) → ①).
+// 사용자 10/26: 별빛메트로노동조합 임단협 결렬 경과 기록 모양(번호 단계 1. → 1) → (1) → ①).
 const UNION = [
   '1. 경과',
   '  1) 10.14 본교섭',

@@ -92,7 +92,7 @@ const longDay = day => formatSeoulTime(day, {month:'long', day:'numeric', weekda
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const length = text => [...String(text ?? '')].length;
 
-// HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 이 화면이 홈이다(#homeView, 라우터 이름 home). 위에서부터
+// HOME-업무일지홈(2026-10-30 사용자 시안 v2 확정): 이 화면이 홈이다(#homeView, 라우터 이름 home). 위에서부터
 //   날짜 제목·이번 주 날짜 줄(‹ 26 … 1 › 이번 주, 오늘은 갈색 테두리) → 업데이트 입력줄(home-quick.js, 폰은 아래 고정)
 //   → [하루] 카드 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(home-summary.js, S52-20 — 누르면 정리함 한 목록)
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
@@ -501,7 +501,7 @@ function renderDay() {
   // (보고는 [주간 정리]·담당조직 전체 표·사업 보고에서). 그 앞 주(옛 보고)는 예전 주간보고 재료 그대로.
   const report = isRecordWeek(start) ? null : dayReportBlock(card);
   // JOURNAL-그밖의기록삭제(11/08): ⑤ 그 밖의 기록(자료실 새 자료·공유 페이지·기타 메모·참고·어디에도 안 보낸 업데이트)은 없앴다 — 모두 원래 자리가 있다.
-  // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장은 AI가 쓰는 뒤쪽 자료라 하루 카드에 '새로 기록된 약속' 줄을 두지 않는다.
+  // LEDGER-화면에서빼기(2026-11-25 사용자 결정): 원장은 AI가 쓰는 뒤쪽 자료라 하루 카드에 '새로 기록된 약속' 줄을 두지 않는다.
   const blocks = report ? [report] : [];
   host.replaceChildren(...blocks);
   fitAll(host); // UI-줄입력늘어나기: 고쳐서 넣을 한 줄 칸은 글 전체가 보이게
@@ -653,7 +653,7 @@ function paintCalendarHand(host, weekModel, part = 'calendar') {
 // 칸 하나를 그리는 모듈에 '그 칸만 다시 그리기'를 redraw로 넘긴다(같은 자리·같은 재료로 다시 부름).
 function slotPaint(paint, slot, args) { const go = () => paint(slot, {...args, redraw:go}); go(); }
 // 바탕 없는 주의 [주간 보고]. 고른 한글 파일에서 '내 양식'을 읽어 서버에 저장한다(아래 open).
-// WEEKLY-처음시작고르기(시안 weekly-start-choice.html ★A안, 명진 11/17): '내 양식'도 없으면 첫 화면은 [파일 올리기] 한 줄 + 번호 4개 고르기
+// WEEKLY-처음시작고르기(시안 weekly-start-choice.html ★A안, 사용자 11/17): '내 양식'도 없으면 첫 화면은 [파일 올리기] 한 줄 + 번호 4개 고르기
 // (weekly-start-choice.js). 번호를 고르면 [양식 수정] 화면을 그 모양으로 열고 [저장]해야 '내 양식'이 된다. 저장한 뒤에는 '내 양식' 줄 ⋯ [다른 모양 선택]으로 다시 연다.
 // weekModel: 그 주 기록 모델(weeklySummary). 백지 상자가 이미 있으면 그 주 초안 자리만 맞춘다(blankDraft — 바뀐 항목만 다시 그림).
 let blankDraft = null;
@@ -729,7 +729,7 @@ function paintBlank(host, weekModel) {
         if (saved.missing) return {ok:false, text:store.OWN_FORM_TEXT.notReady};
         if (saved.conflict) { known = saved.row; return {ok:false, text:store.OWN_FORM_TEXT.conflict}; }
         known = saved.row; loaded = true; editing = false; uploadedId = undefined; paintSaved();
-        // S68-21: 원본이 들어간 실제 분류 이름(hwp-drive.js saveUnionForm 답 — WORK ON+ 기본 '서식', 명진 화면 '노조 서식', 전에 만든 분류면 그 이름).
+        // S68-21: 원본이 들어간 실제 분류 이름(hwp-drive.js saveUnionForm 답 — WORK ON+ 기본 '서식', 사용자 화면 '노조 서식', 전에 만든 분류면 그 이름).
         note.textContent = store.OWN_FORM_TEXT.saved + (sourceFileId ? (upCategory ? ` 원본 파일은 자료실 '${upCategory}'에 두었어요.` : ' 원본 파일은 자료실에 두었어요.') : upNote);
         return {ok:true, text:''};
       }});
@@ -878,7 +878,7 @@ function drawWindow() {
   const table = slot.querySelector('table.wl-weekly');
   if (table) { W.mountWeeklyCols(table, 'org'); W.fitOrgColumn(table); fitAll(slot); }
 }
-// 3. 2) 사업장 칸 안쪽: 그 조직의 창 줄(쟁의 단계 줄은 넣지 않음 — 명진 11/13 17:14). 내 담당조직과 이름이 안 맞는 칸·창을 못 읽은 때는 칸 줄 그대로.
+// 3. 2) 사업장 칸 안쪽: 그 조직의 창 줄(쟁의 단계 줄은 넣지 않음 — 사용자 11/13 17:14). 내 담당조직과 이름이 안 맞는 칸·창을 못 읽은 때는 칸 줄 그대로.
 function siteWinBody(c) {
   const org = RW.names.matchOrg(c.key, winOrgs);
   if (!org || siteWin.status === 'error') return null;

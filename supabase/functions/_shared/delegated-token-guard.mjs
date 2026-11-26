@@ -1,7 +1,7 @@
 // MCP-Claude읽기 M-2 (L3 Edge 공통 검사, 설계 docs/design/mcp-claude-read.md 4.3절).
 //
 // Supabase Auth의 OAuth 2.1 서버가 바깥 앱(예: Claude 커넥터)에 내주는 "위임 열쇠"는 일반 로그인 열쇠와 같은
-// role·aud(authenticated)를 갖고, 추가로 `client_id` 칸이 붙는다. /auth/v1/user·auth.getUser는 이 열쇠도 명진 본인으로
+// role·aud(authenticated)를 갖고, 추가로 `client_id` 칸이 붙는다. /auth/v1/user·auth.getUser는 이 열쇠도 사용자 본인으로
 // 통과시키므로, 서버 키로 표·Drive·Google을 다루는 Web2 Edge 함수가 위임 열쇠를 본인으로 믿고 쓰기까지 할 수 있다.
 // 그래서 사용자 확인을 하는 모든 Web2 Edge 함수는, Auth가 확인한 바로 그 열쇠에 `client_id`가 있으면 401로 거절한다.
 //

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S70-35 NOTE-목록표머리 ①(설계 docs/design/note-list-columns.md, 명진 11/25 10:54 "노트 목록화면 제목줄을 만들어주고 … 드래그해서 열 간격 조절" ·
+// S70-35 NOTE-목록표머리 ①(설계 docs/design/note-list-columns.md, 사용자 11/25 10:54 "노트 목록화면 제목줄을 만들어주고 … 드래그해서 열 간격 조절" ·
 // "스크롤할 때 제목줄은 틀고정"): 노트 [목록] 보기 머리 줄(제목 | 폴더 | 태그 | 수정일 | 첨부), 칸 자리 맞춤, 틀 고정, 칸 너비 끌기(서버 저장), 폰은 아래 작은 줄.
 // 이름·내용은 모두 가짜. 서버는 흉내 낸다(기기 저장 없음).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -154,7 +154,7 @@ test('폰 390은 머리 줄 없이 아래 작은 줄', async ({ page }) => {
   expect(s.errors).toEqual([]);
 });
 
-// [태그] 보기는 지금 모양 그대로(칸 줄 아님). [폴더] 보기 넓은 화면 오른쪽 목록은 S70-82(NOTE-폴더디자인통일, 명진 11/26 "파일쪽에 맞춰서")부터
+// [태그] 보기는 지금 모양 그대로(칸 줄 아님). [폴더] 보기 넓은 화면 오른쪽 목록은 S70-82(NOTE-폴더디자인통일, 사용자 11/26 "파일쪽에 맞춰서")부터
 // [목록]과 같은 머리 줄·칸 줄(같은 보일 칸) — 자세한 것은 note-folder-unify.spec.mjs.
 test('[태그] 보기 줄은 지금 모양 그대로(칸 줄 아님), [폴더] 보기 오른쪽은 [목록]과 같은 머리·칸 줄', async ({ page }) => {
   const s = await fixture(page, 1280);

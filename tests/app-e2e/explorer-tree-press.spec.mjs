@@ -4,7 +4,7 @@ import { bootLibrary, libFolder, libDoc } from './helpers/library-folder-server.
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// S69-38 UI-탐색기나무누르기(명진 11/24 "상위폴더를 눌러도 오른쪽에 내용이 보이게 / 이거는 모든곳 공통 노트 자료 파일"):
+// S69-38 UI-탐색기나무누르기(사용자 11/24 "상위폴더를 눌러도 오른쪽에 내용이 보이게 / 이거는 모든곳 공통 노트 자료 파일"):
 // 탐색기 화면(왼쪽 나무 | 오른쪽 그 폴더 내용)의 나무에서 어느 폴더를 누르든(하위 폴더가 있는 상위 폴더 포함) 오른쪽이 그 폴더 — 하위 폴더 줄 다음에 파일·자료·노트.
 // TREE-탐색기꺾쇠(S70-81b, T10): 이름 한 번 = 오른쪽 그 폴더(나무 펼침 그대로), 펼치기·접기는 아이콘 왼쪽 꺾쇠·두 번 누르기·→ ←. 이 시험의 '들어가며 펼치기'는 treeEnter(이름 + 꺾쇠). S69-68: 오른쪽 하위 폴더를 누르면 그 자리 펼치기·접기(들어가기는 왼쪽 나무·⋯). 공용 부품 하나(folder-tree-press.mjs ftExplorePress).
 // 같은 시험을 화면마다 되풀이한다: [파일] · 자료실 · 노트. 이름·id는 모두 지어낸 것이다.
@@ -52,7 +52,7 @@ test('[파일] PC 1280: 하위 있는 상위 폴더를 눌러도 오른쪽 = 그
   // 원드라이브 'Documents' → 오른쪽 PowerShell(폴더) 다음 파일(나무도 꺾쇠로 펼쳐 둔다).
   await treeEnter(fxTreeRow(page, 'od:OD!D').locator('.ft-main'));
   await expect.poll(() => listNames(page)).toEqual(['PowerShell', '가짜 목록.txt']);
-  // S69-68(명진 11/24 20:09): 오른쪽 하위 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음). 왼쪽 나무·주소는 그대로.
+  // S69-68(사용자 11/24 20:09): 오른쪽 하위 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음). 왼쪽 나무·주소는 그대로.
   const psRow = fx(page).locator('[data-fx-pane-i="0"] [data-fx-row="od:OD!PS"]');
   const url0 = page.url();
   await psRow.click();
@@ -135,7 +135,7 @@ test('자료실 PC 1280: 하위 있는 \'06. 선전\'을 누르면 오른쪽 = �
   await expect(page.locator('#documentList [data-lu-document="dA"]')).toBeVisible();
   await expect(page.locator(luNav('s06')).locator('xpath=..')).toHaveClass(/ft-current/);
   await expect(page.locator('#libraryFolderNav [data-lu-nav-tog="s06"]')).toHaveAttribute('aria-expanded', 'true');
-  // S69-68(명진 11/24 20:09): 오른쪽 하위 폴더 줄 누르기 = 그 자리 펼치기·접기(들어가지 않음, 왼쪽 나무 그대로). 들어가기는 왼쪽 나무.
+  // S69-68(사용자 11/24 20:09): 오른쪽 하위 폴더 줄 누르기 = 그 자리 펼치기·접기(들어가지 않음, 왼쪽 나무 그대로). 들어가기는 왼쪽 나무.
   await page.locator('#documentList details[data-lu-node="f:s06b"] > summary').click();
   await expect(page.locator('#documentList details[data-lu-node="f:s06b"]')).toHaveAttribute('open', '');
   await expect(page.locator('#documentList [data-lu-document="dB"]')).toBeVisible();
