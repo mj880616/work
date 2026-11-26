@@ -4,6 +4,7 @@ import {MEMO_PAGE, memoPage, memoEntries, memoHit, memoTarget, tableEntries, mer
 import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {memosNow, memoState, loadMemos, onMemos} from './memo-store.js';
 import {requestMemoReveal} from './memo-open.js';
+import {openOnScreen} from './source-open.js';
 // S69-70(명진 11/24 20:43~20:44 "읽을 거리 글에 [메모]로 남긴 메모를 저장하지 않았어도 모아 보기", CC 제안 "'메모 있는 글' 거르기" ㅇㅇ):
 // 읽을 거리 [메모] 탭. 이 칸(box)의 유일한 그리기 주인.
 // S69-94 NOTE-메모통일: 메모는 이제 글 아래 메모 칸(memo-thread.js — 표 app_memos)에 남긴다. 이 탭은 같은 메모 목록(memo-store.js) 중
@@ -88,7 +89,7 @@ export function createNowMemos({box, query = () => '', rowOf, colsOf, onOpen} = 
     if (!b || !box.contains(b)) return;
     if (b.matches('[data-nm-retry]')) { failed = false; paint(); void load(); return; }
     if (b.matches('[data-nm-more]')) { if (!loading) void readPage(true); return; }
-    if (b.matches('[data-nm-note]')) { requestNoteDocOpen(b.dataset.nmNote); window.KPTURouter?.go?.('basket', {source: 'delegated'}); return; }
+    if (b.matches('[data-nm-note]')) { requestNoteDocOpen(b.dataset.nmNote); void openOnScreen('basket'); return; }
     if (b.matches('[data-nm-open]')) {
       const key = b.closest('[data-nw-key]')?.dataset.nwKey || '', e = shown.find(x => x.key === key);
       if (!e?.row) return;

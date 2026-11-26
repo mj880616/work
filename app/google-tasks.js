@@ -29,6 +29,7 @@ import {word} from './brand/brand.mjs';
 import {partStyles} from './part-styles.js';
 // S70-57 UI-검색창하나로(명진 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일"): 맨 위 칸 '할 일에서 찾기' = 할 일 제목 거르기(renderTasks 안, 서버 검색 없음, 메모리만).
 import {registerScreenFind,findFor} from './screen-find.js';
+import {mountQuick} from './home-quick.js'; // S71-74: 입력칸은 화면이 보이기 전에 한 번(늦은 끼어들기 없음)
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('google-tasks');
 (()=>{
@@ -728,7 +729,9 @@ let quickMount=null;
 function focusFallback(){const count=document.querySelector('#gtTaskSection [data-gt-count]');return count?.getClientRects().length?count:document.querySelector('#tasksView [data-quick-save]')}
 function mountQuickInput(){
   if(quickMount||!document.querySelector('#tasksView > .home-quick-placeholder'))return quickMount;
-  quickMount=import('./home-quick.js').then(({mountQuick})=>mountQuick({root:document.querySelector('#tasksView'),dependencies:{},refreshTasks:tasksChanged,esc,taskOnly:true,view:'tasks',idPrefix:'tasks'})).catch(e=>{quickMount=null;console.error(e)});
+  // S71-74 UI-덮어쓰기땜질없애기: 정적 불러오기로 화면이 보이기 전(라우터 처리 안)에 입력칸을 그린다. 전에는 늦은 import라 PC에서
+  // 할 일 목록이 먼저 보이고 입력칸이 위에 끼어들어 목록이 한 줄(약 58px) 밀렸다.
+  try{quickMount=Promise.resolve(mountQuick({root:document.querySelector('#tasksView'),dependencies:{},refreshTasks:tasksChanged,esc,taskOnly:true,view:'tasks',idPrefix:'tasks'}))}catch(e){quickMount=null;console.error(e)}
   return quickMount;
 }
 async function boot(){section();ensureModal();window.addEventListener('kptu:project-catalog-updated',()=>{linkTargets=null});window.KPTURouter?.on?.('tasks',detail=>{void mountQuickInput();if(!['popstate','back'].includes(detail?.source)){unlinkedOnly=false;document.querySelector('#gtCompleted')?.removeAttribute('open');document.querySelector('#gtLater')?.removeAttribute('open');laterWasOpen=false}load(true)});window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='tasks'){taskMenu?.close();closeScope();if(isDocked())closeEditor()}});PC?.addEventListener?.('change',()=>{if(isDocked())closeEditor();if(tasksViewShown())renderTasks(lastTasks)});FRAME_PC?.addEventListener?.('change',()=>{const pane=document.querySelector('#gtDetailPane');if(isDocked()&&pane)followPane(pane,FRAME_PC.matches?{reset:false}:{narrow:true,bottom:bottomDock,reset:false})});document.addEventListener('keydown',e=>{if(e.key!=='Escape'||e.defaultPrevented||!isDocked())return;const m=document.querySelector('#gtTaskModal');if(m.classList.contains('hidden')||!m.contains(e.target))return;e.preventDefault();void closeDocked()});window.addEventListener('pagehide',cancelPendingDeletes);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tasksViewShown())renderTasks(lastTasks)});window.addEventListener('focus',()=>{if(tasksViewShown())load(true)});window.addEventListener('kptu:session-changed',e=>{if(editorRuntimeEpoch===rt.session.epoch())return;checkedAt=0;verifiedOwner='';editorGone=false;setFresh('');editorRuntimeEpoch=rt.session.epoch();sessionEpoch++;editorSeq++;editorRequest=null;editorSaving=false;createAttempt=null;uncertainTasks.clear();pendingEditors.clear();closeEditor();document.querySelector('#gtSaveBtn').disabled=false;taskMenu?.close();closeScope();cancelPendingDeletes();pendingDeletes.clear();deletedTombstones.clear();lastTasks=[];pendingToggles.clear();savedToggles.clear();stopEffects();cacheOwnerId='';shownOwner='';fetchedOwner='';allPendingConfirmed=false;linkTargets=null;editorSeq++;linkedCache.clear();closePicker();document.querySelector('#gtTaskSection')?.remove();if(e.detail?.session&&tasksViewShown())queueMicrotask(()=>load(true))});window.addEventListener('kptu:project-catalog-updated',()=>{linkTargets=null});
