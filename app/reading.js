@@ -1,18 +1,18 @@
-// S68-09 READ-읽을거리함 화면(?view=reading, 메뉴 '읽을 거리'). #readingView의 유일한 그리기 주인. 명진 11/22 13:28 "Raindrop 가져올 것 ㄱ", 13:42 "B: 메뉴에 새 칸".
+// S68-09 READ-읽을거리함 화면(?view=reading, 메뉴 '읽을 거리'). #readingView의 유일한 그리기 주인. 사용자 11/22 13:28 "Raindrop 가져올 것 ㄱ", 13:42 "B: 메뉴에 새 칸".
 // - 목록(시안 ②): 줄마다 안 읽음 점 · 제목 · 사이트 · 날짜 한 줄, 사업영역 꼬리표. 보기 탭 [안 읽음 n][전체][밑줄](공용 ⑤, 폰은 하단바 위 가운데 · 좌우로 밀어 옆 탭 — S68-48). [+ 추가]는 주소 한 칸.
 // - 보기(시안 ③): 받아 둔 원문 사본 + 고른 글 [밑줄 저장]·메모(공용 text-select-bar.js·text-highlights.js, 밑줄 표 app_news_highlights 종류 'reading')
 //   + [밑줄을 노트로](밑줄 문장 + 출처 → 기존 노트 만들기 길) · [사업에 연결](공용 사업영역 고르기 창) · [읽음]. 폰은 목록 대신(뒤로 = 목록), 761px~는 오른쪽 칸.
 // - 원래 페이지 링크는 늘 보인다. 저장·원문 받기 실패는 한 줄 상태로. 원문은 글자로만 그린다(textContent — HTML·스크립트 실행 없음).
 // - 서버 저장만(reading-data.js, owner RLS). 기기 저장 없음.
-// - S68-27 READ-보관기록일원화(명진 11/22 "2. A" → 21:37 "저장된 기록도 일원화 하지 왜?"): 보관의 원본은 이 표(app_reading_items) 하나다.
+// - S68-27 READ-보관기록일원화(사용자 11/22 "2. A" → 21:37 "저장된 기록도 일원화 하지 왜?"): 보관의 원본은 이 표(app_reading_items) 하나다.
 //   News에서 보관한 글도 이 표의 줄(원래 글 연결 칸 news_article_id·outside_article_id, DB 20261122230000)이라 목록은 이 표만 읽는다(두 곳 합치기 없음).
-// - S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 줄도 평범한 읽을 거리 한 줄이다 —
+// - S68-29(사용자 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 줄도 평범한 읽을 거리 한 줄이다 —
 //   'News' 꼬리표·[News] 칩 없음, 줄 모양·⋯·밀기·고르기 단추가 직접 넣은 줄과 같다. 다른 점은 화면 밖 두 가지뿐:
 //   ① (한 칸 폭에서만 — S70-58 두 칸에서는 오른쪽 칸에 연다) News 기능 키 'outside'가 있는 사람이 그런 줄을 누르면 News 지금 글 보기(원문·News에서 그은 밑줄)를 라우터 openFrom으로 연다(뒤로 한 번 = 읽을 거리).
 //      글을 먼저 읽어 두고(ready) 옮기는 순간 글 보기를 바로 그린다 — 읽을 거리 목록이 먼저 보이지 않는다(S68-54).
 //   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
-// - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
+// - S68-33 READ-글자크기(사용자 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
 import {DEFAULT_FILTER, keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto, readingNote} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, setTitle, fixLinkedTitles, fetchBody, fetching} from './reading-data.js';
 import {loadHighlights, highlightsNow, sourceHighlights, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu} from './text-highlights.js';
@@ -48,7 +48,7 @@ const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls)
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
 const view = () => document.getElementById('readingView');
 const wide = () => window.matchMedia?.('(min-width: 761px)').matches;
-// S70-58 READ-두칸보기(명진 11/26 06:12 "읽을 거리랑 저장한 글 왼쪽 목록 오른쪽 본문 형태로 개편 드래그 폭 조절 가능하게 / 폴드 펼침 이야기임"):
+// S70-58 READ-두칸보기(사용자 11/26 06:12 "읽을 거리랑 저장한 글 왼쪽 목록 오른쪽 본문 형태로 개편 드래그 폭 조절 가능하게 / 폴드 펼침 이야기임"):
 // 칸 나누기 폭(screen-width.mjs 600px~ — 조직 관리·자료실과 같은 값)이면 왼쪽 목록 | 오른쪽 글 보기 두 칸. 목록은 그대로 남고, 처음 들어오면 맨 위 글을 오른쪽에 연다
 // (저절로 연 글은 읽음으로 치지 않음 — 읽을 거리와 같은 규칙). 가운데 경계는 공용 split-resize.js(서버 view_prefs.split_ratio.reading).
 // News에서 온 줄도 두 칸에서는 오른쪽 칸에 연다(목록이 남아야 하므로). 그 글의 News 쪽 밑줄도 같이 칠한다. 그 아래 폭(폰·접은 폴드)은 지금처럼 목록 → 글(뒤로 = 목록).
@@ -68,7 +68,7 @@ const state = {rows: [], loaded: false, failed: false, filter: DEFAULT_FILTER, o
   newsOn: false, marksNewsOn: true, editing: null, editBusy: false, editNote: '', noteBusy: null};
 const scopeNow = () => { const c = window.KPTURuntime?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const rowOf = id => state.rows.find(r => r.id === id) || null;
-// S70-24 READ-저장한글기본전체(명진 11/25 "전체를 기본으로 / 탭 누르면 전체가 나오는"): 보기 탭 상태 주인은 state.filter 하나.
+// S70-24 READ-저장한글기본전체(사용자 11/25 "전체를 기본으로 / 탭 누르면 전체가 나오는"): 보기 탭 상태 주인은 state.filter 하나.
 // 메뉴로 들어오면(라우터가 주소의 자리 값을 지움) 늘 [전체], 주소에 ?tab=이 적혀 들어오면(뒤로가기·새로고침·링크) 그 보기.
 // 고른 보기는 주소에만 적는다(replaceState — 기록 칸을 늘리지 않음). 기기·서버에 '마지막 보기'를 따로 두지 않는다.
 const filterFromUrl = () => keepFilter(window.KPTURouter?.place?.('reading')?.tab);
@@ -76,12 +76,12 @@ function setFilter(v) {
   state.filter = keepFilter(v);
   window.KPTURouter?.setPlace?.('reading', {tab: state.filter === DEFAULT_FILTER ? null : state.filter});
 }
-// S69-04 MARK-밑줄한목록(명진 11/24 "노트 밑줄에 있는 것들 저장한 글 밑줄에 없음 두개 동기화"): [밑줄] 탭은 글 줄 거르기가 아니라
+// S69-04 MARK-밑줄한목록(사용자 11/24 "노트 밑줄에 있는 것들 저장한 글 밑줄에 없음 두개 동기화"): [밑줄] 탭은 글 줄 거르기가 아니라
 // 내가 그은 밑줄 전부(저장한 글에 있든 없든) — 노트 › 밑줄과 같은 원본(text-highlights.js 목록)·같은 규칙(visibleMarks)이라 같은 목록·같은 개수.
 // 잠근 노트 폴더가 있고 안 풀렸으면 노트 밑줄은 뺀다(이 화면은 노트 목록을 모른다 — 풀리면 노트 › 밑줄과 같아진다).
 const marksNow = () => visibleMarks(highlightsNow(), {newsOn: state.marksNewsOn, noteHidden: () => !!window.KPTUFeatureLock?.notesHidden?.()});
 const entriesNow = () => entriesOf(state.rows);
-// S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸이 '저장한 글에서 찾기' — 지금 탭 목록을
+// S70-57(사용자 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸이 '저장한 글에서 찾기' — 지금 탭 목록을
 // 제목·매체(밑줄 탭은 밑줄 글·메모·글 제목, 메모 탭은 글 제목·메모)로 거른다. 이 화면 메모리만(서버 검색 없음).
 let findText = '', findQuery = '';
 // S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말), 맞은 정도 순, 맞은 부분 굵게.
@@ -96,7 +96,7 @@ registerScreenFind('reading', {
 });
 // News에서 열 수 있는 줄의 원래 글({type,id}) — News 기능 키가 있을 때만.
 const newsLinkOf = id => (state.newsOn ? linkOf(rowOf(id)) : null);
-// S69 [수정](명진 11/24 "목록에서 ... 안에 수정 버튼도 있어야"): 어느 창으로 고치나 — 한 곳만.
+// S69 [수정](사용자 11/24 "목록에서 ... 안에 수정 버튼도 있어야"): 어느 창으로 고치나 — 한 곳만.
 // 'news': News에서 온 뉴스 기사(키가 있을 때) — 그 글 보기의 ⋯ [수정] 창(now-detail, 제목의 주인이 공용 기사라 거기서 고친다).
 // 'own': 직접 넣은 줄·키가 없을 때 — 이 화면 글 보기 안의 제목·매체 칸(이 표가 제목의 주인).
 // null: News에서 온 사회운동 글(키가 있을 때) — 제목은 수집한 그대로이고 News 글 보기에도 제목 수정이 없다.
@@ -117,7 +117,7 @@ async function load() {
   void loadMemos({force: true}); // S69-94: [메모 n]·[메모] 탭·글 아래 메모 칸(다 읽으면 onMemos가 다시 그린다)
 }
 
-// S69 READ-제목하나(명진 11/24 "목록에서 이상한 제목이 보임"): News에서 온 줄 중 사람이 글 보기에서 제목을 고친 기사(손으로 넣은 기사)는
+// S69 READ-제목하나(사용자 11/24 "목록에서 이상한 제목이 보임"): News에서 온 줄 중 사람이 글 보기에서 제목을 고친 기사(손으로 넣은 기사)는
 // 그 제목이 주인이다. 목록을 읽을 때 사본이 다르면 사본을 고쳐(서버 저장) 목록·글 보기·검색·홈이 같은 제목을 보이게 한다.
 async function fixTitles(scope) {
   let fixed = [];
@@ -178,7 +178,7 @@ function rowEl(e) {
 function drawList() {
   const box = view()?.querySelector('[data-rd-list]');
   if (!box) return;
-  // S71-26 SAVED-머리한줄(명진 11/26 "+ 를 돋보기 우측으로"): ＋는 목록 머리 줄이 아니라 화면 이름 줄 찾기 오른쪽(공용 단추 상자 screen-find.js toolsBox —
+  // S71-26 SAVED-머리한줄(사용자 11/26 "+ 를 돋보기 우측으로"): ＋는 목록 머리 줄이 아니라 화면 이름 줄 찾기 오른쪽(공용 단추 상자 screen-find.js toolsBox —
   // 폰·폴드 앱 머리 줄 [W 저장한 글 · 찾기 · ＋], PC 맨 위 줄 검색 칸 오른쪽). ＋ 하나만 있던 폰 목록 머리 줄(.rd-head)은 없앴다.
   // 목록 첫 줄은 보기 탭(.rd-switch)뿐 — 폰은 하단바 위 공용 전환 줄, PC 틀은 목록 맨 위. 화면 이름은 앱 머리 줄·PC 위 줄 한 곳(S70-40b·S70-57).
   addBtn.setAttribute('aria-expanded', String(state.adding));
@@ -213,7 +213,7 @@ function drawList() {
   }
   if (!state.loaded) { box.replaceChildren(...parts); box.insertAdjacentHTML('beforeend', waitHtml({rows: 4})); return; }
   const entries = entriesNow(), marks = marksNow();
-  // S68-48 READ-보기탭아래(명진 11/23 12:42 "안읽음 전체 밑줄도 다른 버튼 있는 메뉴처럼 하단 가운데 정렬"): [안 읽음 n][전체][밑줄]은
+  // S68-48 READ-보기탭아래(사용자 11/23 12:42 "안읽음 전체 밑줄도 다른 버튼 있는 메뉴처럼 하단 가운데 정렬"): [안 읽음 n][전체][밑줄]은
   // 위쪽 칩 줄이 아니라 공용 ⑤ 보기 바꾸기(renderFilterChips seg — .ds-seg) 한 줄. 자리는 노트 보기 탭과 같은 공용 규칙(ui-standard.css 폰 전환 줄):
   // 폰·펼친 폴드(~760px) 하단바 바로 위 가운데, PC 틀(761px~) 제목 줄 오른쪽([+ 추가] 앞). 따로 칩 줄은 없다.
   switchHost ||= el('div', 'rd-switch');
@@ -463,7 +463,7 @@ async function addUrl(text) {
   draw();
   if (!out.dup) void startFetch(out.row);
 }
-// S68-45(명진 11/23 11:08 "안읽은 글 눌러서 읽었는데 읽음 처리 안됨"): 글 보기를 열면(이 화면 보기·읽을 거리 원문 보기 둘 다) 그 줄을 읽음으로 서버에 저장한다.
+// S68-45(사용자 11/23 11:08 "안읽은 글 눌러서 읽었는데 읽음 처리 안됨"): 글 보기를 열면(이 화면 보기·읽을 거리 원문 보기 둘 다) 그 줄을 읽음으로 서버에 저장한다.
 // [읽음]·[안 읽음으로] 단추와 같은 저장 길(setRead). 이미 읽은 줄은 다시 쓰지 않는다(안 읽음으로 되돌린 줄은 다음에 열 때 다시 읽음).
 // 실패하면 점은 그대로 두고 알림 한 줄 — read_at이 비어 있으니 다음에 열 때 다시 저장한다. 같은 줄을 겹쳐 보내지 않는다.
 const readSaving = new Set();
@@ -659,9 +659,9 @@ function bindSwipe(box) {
   }, {passive: true});
 }
 
-// S70-62부터 왼쪽 밀기 칸은 [수정][삭제](아래). 옛 설명 — UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로],
+// S70-62부터 왼쪽 밀기 칸은 [수정][삭제](아래). 옛 설명 — UI-줄밀기 Raindrop식(S68-26 2/2, 사용자 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로],
 // 오른쪽으로 밀면 여러 개 선택(막대 '[전체 선택][삭제]' 두 칸, S70-64b — 읽음은 줄 밀기·⋯로). News에서 보낸 줄도 같은 단추(S68-29).
-// 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·removeAny). S68-31(명진 11/23 02:24 "삭제가 필요 가능한 경우 왼쪽으로 밀 때 삭제도"):
+// 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·removeAny). S68-31(사용자 11/23 02:24 "삭제가 필요 가능한 경우 왼쪽으로 밀 때 삭제도"):
 // 왼쪽 밀기 맨 끝에 [삭제] — ⋯ [삭제]와 같은 removeAny(직접 넣은 줄은 묻고 지우기, News에서 보낸 줄은 5초 [되돌리기]). 끝까지 밀어도 칸만 열린다.
 function bindRows(box) {
   const keyOf = el => el?.dataset?.rdPick || '';
@@ -670,7 +670,7 @@ function bindRows(box) {
       const key = keyOf(el);
       const row = rowOf(key);
       if (!row) return null;
-      // S70-62 READ-밀기메뉴(명진 11/26 07:41 "저장된 글에서는 수정 삭제로"): 칸은 [수정][삭제] 둘. 읽음·사업에 연결은 ⋯·글 보기에 그대로.
+      // S70-62 READ-밀기메뉴(사용자 11/26 07:41 "저장된 글에서는 수정 삭제로"): 칸은 [수정][삭제] 둘. 읽음·사업에 연결은 ⋯·글 보기에 그대로.
       // [수정]은 ⋯ [수정]과 같은 startEdit(고칠 수 없는 줄 — News에서 온 사회운동 글 — 은 [삭제]만).
       return {start: PICK, end: [...(editKind(key) ? [EDIT] : []), {key: 'delete', label: '삭제', tone: 'danger'}]};
     },
