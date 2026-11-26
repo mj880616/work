@@ -261,9 +261,9 @@ if (DIAG) {
 const CANDIDATE_FEEDS = [
   "https://www.newscham.net/rss", "https://www.newscham.net/feed", "https://www.newscham.net/rss/allArticle.xml", "https://www.newscham.net/news/rss.php",
   "https://www.newscham.net/rss.xml", "https://www.newscham.net/rss/news.xml",
-  "https://www.mediatoday.co.kr/rss/allArticle.xml", "https://www.mediatoday.co.kr/rss/S1N1.xml",
-  "https://www.hani.co.kr/rss/", "https://www.hani.co.kr/rss/labor/",
-  "https://www.labortoday.co.kr/rss/clickTop.xml",
+  "https://www.mediatoday.co.kr/rss/allArticle.xml",
+  "https://newscham.net/rss", "https://newscham.net/", "https://www.newscham.net/",
+  "https://www.mediatoday.co.kr/news/articleList.html?view_type=sm", "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N1&view_type=sm",
 ];
 async function checkCandidate(list) {
   const host = new URL(list).host;
@@ -272,6 +272,12 @@ async function checkCandidate(list) {
   const got = await reader.get(list, ACCEPT_FEED);
   if (!got.ok) return `${list} ⇒ ${got.code}`;
   const rawItems = (got.text.match(/<(item|entry)\b/gi) ?? []).length;
+  if (!rawItems) {
+    const t = got.text;
+    const feeds = [...t.matchAll(/<link\b[^>]*type\s*=\s*["']application\/(?:rss|atom)\+xml["'][^>]*>/gi)].map((m) => /href\s*=\s*["']([^"']+)["']/i.exec(m[0])?.[1] ?? "-").slice(0, 4);
+    const arts = (t.match(/articleView\.html\?idxno=\d+/g) ?? []).length;
+    return `${list} ⇒ ok(html) type=${(got.contentType ?? "-").split(";")[0]} bytes=${t.length} feedlinks=[${feeds.join(",")}] articleLinks=${arts} bot=${looksLikeBotCheck(t) ? 1 : 0}`;
+  }
   const pseudo = { key: "candidate", name: "-", group: "movement", lang: "ko", mode: "rss", lists: [list], hosts: [host, host.replace(/^www\./, "")], kindOf: () => "article" };
   const parsed = parseFeed(pseudo, got.text, nowMs, 50);
   return `${list} ⇒ ok type=${(got.contentType ?? "-").split(";")[0]} items=${rawItems} parsed=${parsed.length} cat[${tally(parsed.map((it) => it.category ?? "-"), true)}] path[${tally(parsed.map((it) => firstSeg(it.url)))}]`;
