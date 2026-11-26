@@ -23,7 +23,7 @@ import { swatchHtml } from './color-swatch.mjs';
 import { layoutBoard, spreadFrom, topZ, placeFields, validateCardLabel, CARD_LABEL_MAX, clampPos, Z_MAX } from './note-board-model.mjs';
 import { treeRows, noteLineTitle, OUTSIDE } from './note-tree.mjs';
 import { setNoteBoardPlace } from './basket-data.js';
-import { NOTE_DRAG } from './note-board.js';
+import { NOTE_DRAG, NOTE_REF_DRAG } from './note-board.js';
 import * as pinLock from './feature-lock.js';
 import { noteTreeRowHtml, lockedFolderRowHtml } from './note-tree-row.js';
 import { ftBoxHtml } from './folder-tree-ui.mjs';
@@ -125,7 +125,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
       if (r.type === 'folder' && lockedRow(r.id)) return lockedFolderRowHtml(r, {lockAttr:'nbb-locked'});
       if (r.type !== 'note') return noteTreeRowHtml(r, {folderAttr:'nbb-folder', noteAttr:'nbb-note', reorder:true});
       const on = onBoard(r.note, current);
-      return noteTreeRowHtml(r, {folderAttr:'nbb-folder', noteAttr:'nbb-note', reorder:true, on, draggable:on ? !!moveToFolder : true});
+      return noteTreeRowHtml(r, {folderAttr:'nbb-folder', noteAttr:'nbb-note', reorder:true, on, draggable:true}); // S71-54: 보드에 있는 노트도 끌어 주제 위에 놓으면 재료
     }).join('');
     side.innerHTML = ftBoxHtml({head:'노트 목록', body:html || emptyHtml('노트 없음'), label:'붙일 노트', attrs:{'data-nbb-list':''}});
   }
@@ -350,9 +350,11 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   side.addEventListener('dragstart', e => {
     const n = e.target.closest?.('[data-nbb-note]'), on = !!n?.hasAttribute('data-nbb-on');
     // 손가락으로 이미 잡은 끌기(아래 reorder-drag)가 있으면 브라우저 끌기는 시작하지 않는다(둘이 겹치지 않게).
-    if (!n || (on && !moveToFolder) || side.classList.contains('re-active')) { e.preventDefault(); return; }
+    if (!n || side.classList.contains('re-active')) { e.preventDefault(); return; }
     // 판 놓기 형식(NOTE_DRAG)은 아직 안 붙은 노트만 싣는다. 폴더 놓기 형식은 언제나.
+    // S71-54: 재료 형식(NOTE_REF_DRAG)은 늘 — 주제 위에 놓으면 그 주제의 재료(보드에 있는 노트도). 빈 곳에 놓으면 지금처럼.
     if (!on) e.dataTransfer.setData(NOTE_DRAG, n.dataset.nbbNote);
+    e.dataTransfer.setData(NOTE_REF_DRAG, n.dataset.nbbNote);
     if (moveToFolder) { e.dataTransfer.setData(FOLDER_DRAG, n.dataset.nbbNote); dragNote = n.dataset.nbbNote; }
     e.dataTransfer.effectAllowed = moveToFolder ? 'copyMove' : 'copy';
     // S69-27 끄는 모습 보이기: 노트 폴더 보기와 같은 반투명 조각(제목 한 줄)이 마우스를 따라온다(공용 drag-ghost.js).
@@ -430,7 +432,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
 
   return {
     paint, boardView, attach, attachSized, detach, restore, move, relabel, autosize, isSized,
-    current:() => current, isNamed:named, name:boardName,
+    current:() => current, isNamed:named, name:boardName, select, // S71-54: 이어진 주제로 가기
     bgOf, setBg, bgSwatchesHtml,
     reset() { closeMenu(); picker?.close(); openSet = new Set(); chosen = false; boards = parseBoards(viewPrefs.get('note_boards')); current = pickBoard(viewPrefs.get('note_board'), boards); bgs = parseBoardBgs(viewPrefs.get('note_board_bg')); bgTouched = false; },
   };

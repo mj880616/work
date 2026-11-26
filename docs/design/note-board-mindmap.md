@@ -248,6 +248,16 @@
 - 보드 안 찾기(⑥): 맨 위 찾기 하나(`registerScreenFind('notes')`)의 판정(`findFor`)을 보드에도 넘긴다(`board.setFind`). 이 보드 주제 글을 맞은 정도 순으로 30개까지. 누르면 `goToText` — 접힌 윗가지(`ancestorsOf`)를 펴고(서버 저장), 화면 가운데·고르기·잠깐 강조.
 - 이 가지만 보기(⑦): `focusIds(tree, id)`에 든 칸·가지 선·선(양 끝이 모두 든 것)·카드만 `nb-in-focus`, 판에 `data-nb-focus`면 나머지 18%. 보드마다 이번 접속 메모리(저장 없음). 보던 가지가 지워지면 전체 보기.
 
+## 13. 주제 재료 — 노트·자료실 자료·웹 주소 잇기 (S71-54)
+
+- 저장(새 표 없음): 기존 연결선 표 `app_note_board_links`의 종류 하나 `kind='material'`(migration `20261127020000_note_board_materials`). 끝 하나는 늘 그 보드의 상자(`from_text`, 같은 작업공간·같은 보드는 기존 외래 키), 다른 끝은 노트(`to_note`, 기존 owner 정책이 같은 작업공간 노트만) · 자료(`mat_doc` → `app_documents`, 좁히기 정책 `note_board_links_doc_own`이 같은 작업공간 자료만) · 주소(`mat_url`, http/https·빈칸 없음·2000자). 이름은 `label`(이을 때 이름, 화면은 지금 이름 우선). 같은 주제·같은 재료는 부분 unique 색인. 자료를 지우면 잇기도(on delete cascade), 주제를 지우면 잇기도(기존 cascade).
+- 왜 이 표: 이미 '보드 위 칸 → 다른 것' 잇기의 한 곳이고(관계선도 같은 표의 종류), 기존 `app_record_links`는 '할 일·메모 → 사업·조직' 꼬리표라 대상이 다르다. 노트 '관련' 칸(note-related.js)은 저장 없는 계산이다.
+- 읽기: `readBoardLinks`가 재료 줄을 선과 따로 모은다(`materials`, 선으로 그리지 않음). 칸이 없는 서버면 관계선 칸으로 다시 읽고 `material=false`(재료 메뉴·칩·끌어 놓기 없음). 보드에서 카드를 뺄 때 서버 지우기는 `kind=neq.material`(그 노트를 재료로 둔 주제는 그대로).
+- 그리기: 칩은 상자 안(`.nb-mats`)이라 크기 재기·배치·내보내기에 그대로 든다. 멀리 보기는 숨김. 내보내기 동안은 칩을 모두·이름 전체로(`endExport`로 돌아옴).
+- 열어 보기: 노트·자료는 보드 칸 위 옆 칸(`note-board-material-view.js`, 폰은 아래 판) — 보드를 떠나는 것은 [노트 열기]·[자료실에서 보기] 단추뿐. 링크는 `window.open(…, 'noopener,noreferrer')`.
+- 반대 방향: `readMaterialTopics(kind, ref)`(owner RLS) → 노트 읽기 화면 '관련' 칸의 한 줄, 자료실 ⋯ 메뉴의 한 줄(`library-board-topics.js`). 누르면 `goToTopic` → 보드 고르기 → `goToText`.
+- 링크 제목: 붙여넣은 주소의 제목을 서버가 읽어 오는 길은 없다(뉴스 `save_url`은 저장한 글에 넣는 쓰기라 쓰지 않음). 지금은 사람이 적거나 주소 그대로, 브라우저에서 끌어 놓으면 브라우저가 준 제목. 제안: 기존 `_shared/page-title.ts` `peekTitle`을 쓰는 읽기 전용 동작(쓰기 없음·열린 주소 검사 그대로)을 따로 PR로.
+
 ## 사용자 결정 — 왼쪽 클릭 막대 [삭제] (2026-11-25 사용자 결정(21:35 "추천대로", `docs/qa/stalled-audit-20261125.md` 2절) 7번)
 
 - 왼쪽 클릭 막대의 [삭제]는 **그대로 둔다**(막대를 줄이지 않음). PC 우클릭 작은 메뉴(#3044)와 함께 쓴다.

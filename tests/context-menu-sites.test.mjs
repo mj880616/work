@@ -15,6 +15,7 @@ const KNOWN = [
   'brief-room.js' /* S63-08 BRIEF-브리핑룸삭제: 브리핑 룸 줄 ⋯([선택]·[브리핑만 삭제]·[자료까지 삭제]) — 공통 우클릭이 그 줄 ⋯을 연다(tests/app-e2e/brief-room-delete.spec.mjs) */, 'suborganizations.js', 'task-inline.js', 'task-row-view.js', 'task-workflow.js', 'telegram-feed.js', 'workplace-detail.js',
   'collab-groups.js' /* COLLAB-묶인사람끼리공유 1단계: 내 프로필 '내 묶음' 칸 멤버 줄 ⋯([관리자 넘기기]·[내보내기] 펼침, 관리자만, data-ctx="off" — 프로필 설정 칸 안이라 우클릭 메뉴 없음) */,
   'home-off.js' /* S67-52 HOME-칸끄기: 홈 '이런 기록은 어때요?' 칸 머리 ⋯([이 칸 끄기], data-ctx="off" — 칸 머리라 줄 우클릭 메뉴 없음) */,
+  'note-board.js' /* S71-54 NOTE-주제재료잇기: 주제 아래 재료 칩 ⋯([열기]·[잇기 풀기], data-ctx="off" — 칩 우클릭은 note-board.js가 같은 칩 메뉴를 연다, tests/app-e2e/note-board-material.spec.mjs) */,
   'note-trash.js' /* S69-27 노트 휴지통: 지운 노트 줄 ⋯([영구 삭제], <details>) — 줄(role listitem) 우클릭은 공용 context-menu.js가 그 ⋯을 연다(tests/app-e2e/note-folder-tree-read.spec.mjs) */,
   'weekly-own-form-edit.js' /* S62-28 WEEKLY-내양식자유변형 ③: 내 양식 확인 화면 항목 줄 ⋯([위로]·[아래로]·[빼기] 펼침, data-ctx="off" — 양식 고치는 창 안이라 우클릭 메뉴 없음) */
 ];

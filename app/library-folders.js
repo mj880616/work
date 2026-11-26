@@ -24,6 +24,7 @@ import {askConfirm} from './small-notice.js';
 import {RECEIVE_MENU} from './library-receive.js';
 import {WEEKLY_FOLDER_TEXT} from './weekly-save-folder-model.mjs'; // S70-11 주간보고 저장 폴더 두 줄
 import {word} from './brand/brand.mjs';
+import {DOC_REF_DRAG} from './note-board-material-model.mjs'; // S71-54 자료 줄 끌기 → 노트 보드 주제의 재료
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
@@ -656,7 +657,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const area=list.closest?.('#libraryListCard')||list;
     area.addEventListener('dragstart',e=>{
       const d=dragFrom(e.target);if(!d)return;drag=d;markDragging(d);pokeDrag();
-      try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',d.id)}catch{}
+      try{e.dataTransfer.effectAllowed=d.kind==='file'?'copyMove':'move';e.dataTransfer.setData('text/plain',d.id);if(d.kind==='file')e.dataTransfer.setData(DOC_REF_DRAG,d.id)}catch{} // S71-54: 자료 줄은 노트 보드 주제 위에 놓으면 재료
       setDragGhostImage(e.dataTransfer,ghostLabel(d),document,e);
       // 폴더 토글이 없는 묶기에서는 왼쪽에 놓을 곳 목록을 띄운다. 끌기 시작 중에 DOM을 바꾸면 브라우저가 끌기를 취소하므로 한 박자 뒤에.
       if(d.kind==='file'&&!s().treeView)setTimeout(()=>{if(drag===d)showDropPanel(d)},0);

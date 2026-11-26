@@ -852,6 +852,8 @@ jobs:
         run: node --test tests/note-board-big-map.test.mjs
       - name: Check big board view math (S71-52 ② 멀리 보기·미니맵·이 가지만 보기)
         run: node --test tests/note-board-view-model.test.mjs
+      - name: Check note board topic materials (S71-54 NOTE-주제재료잇기 주소 검사·칩·끌어 놓기·보안 줄)
+        run: node --test tests/note-board-material.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
         run: node --test tests/note-tags-comments.test.mjs tests/memo-model.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)

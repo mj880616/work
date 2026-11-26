@@ -25,16 +25,30 @@ globalThis.window?.addEventListener?.('kptu:session-changed', resetRelated);
  * host: 노트 읽기 화면의 [data-note-related] 칸. note: 열린 노트. notes: 노트 목록(이미 읽은 것).
  * opts: {tagsOf, folderOf, hidden(note)=잠긴 노트, titleOf, scope, isCurrent(), openNote(id), openDocument(id)}
  */
-export function paintRelated(host, note, notes, {tagsOf, folderOf, hidden = () => false, titleOf, scope = '', isCurrent = () => true, openNote, openDocument} = {}) {
+// S71-54 topics: 이 노트를 재료로 둔 생각지도 주제(Promise<[{board, text, body}]>, 없으면 null) — '이어진 생각지도 주제' 한 줄(누르면 openTopic).
+export function paintRelated(host, note, notes, {tagsOf, folderOf, hidden = () => false, titleOf, scope = '', isCurrent = () => true, openNote, openDocument, topics = null, openTopic} = {}) {
   if (!host) return;
   const rows = hidden(note) ? [] : relatedNotes(note, notes, {tagsOf, folderOf, hidden, titleOf});
   const back = hidden(note) ? [] : backlinks(note.id, notes, {hidden, titleOf});
+  let tops = [], lastDocs = [];
   const draw = docs => {
     if (!isCurrent()) return;
+    lastDocs = docs;
     const all = [...rows.map(r => ({...r, kind: 'note'})), ...docs.map(d => ({...d, kind: 'document'}))];
-    if (!all.length && !back.length) { host.hidden = true; host.replaceChildren(); return; }
+    if (!all.length && !back.length && !tops.length) { host.hidden = true; host.replaceChildren(); return; }
     // ⑧ 이 노트를 가리키는 노트: 한 줄(제목 단추들), 접지 않는다.
     const parts = [];
+    if (tops.length) { // S71-54 이어진 생각지도 주제: 한 줄(주제 글 단추들), 누르면 그 보드의 그 주제로
+      const line = el('p', 'note-linkedby note-topics'); line.dataset.noteTopics = '';
+      line.append(el('span', 'note-linkedby-label', '이어진 생각지도 주제'));
+      for (const t of tops) {
+        const name = [...String(t.body || '').replace(/\s+/g, ' ').trim()].slice(0, 24).join('') || '주제';
+        const btn = el('button', 'note-linkedby-link', name); btn.type = 'button'; btn.dataset.noteTopic = t.text; btn.dataset.noteTopicBoard = t.board;
+        btn.addEventListener('click', () => openTopic?.(t));
+        line.append(btn);
+      }
+      parts.push(line);
+    }
     if (back.length) {
       const line = el('p', 'note-linkedby'); line.dataset.noteLinkedby = '';
       line.append(el('span', 'note-linkedby-label', '가리키는 노트'));
@@ -64,4 +78,5 @@ export function paintRelated(host, note, notes, {tagsOf, folderOf, hidden = () =
   draw([]);
   if (hidden(note)) return;
   void docsFor(note, scope).then(docs => { if (docs.length) draw(docs); });
+  if (topics) void Promise.resolve(topics).then(list => { if (Array.isArray(list) && list.length) { tops = list.slice(0, 20); draw(lastDocs); } }, () => {});
 }

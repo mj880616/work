@@ -16,8 +16,12 @@
 //   서버로는 parent_card면 parent_note에, 아니면 parent_id에 보낸다(둘 중 하나만, 서버 check와 같음).
 // - S71-53 관계선 칸(선 종류 kind 'line'·'relation', migration 20261127010000)이 아직 없으면 점 끝 칸으로 다시 읽고(relation=false),
 //   관계선 만들기는 막는다('준비 중' 한 줄, 화면은 관계 잇기 메뉴를 보이지 않음). 관계선을 일반 선으로 바꿔 저장하지 않는다(kind가 없는 줄은 서버에 보내지 않음).
+// - S71-54 주제 재료 칸(kind 'material' · 자료 mat_doc · 주소 mat_url, migration 20261127020000)이 아직 없으면 관계선 칸으로 다시 읽고(material=false),
+//   재료 잇기는 보이지 않는다(화면은 materialReady()로 메뉴·끌어 놓기를 켠다). 재료 줄(kind 'material')은 선과 따로 모아(materials) 선 목록에 넣지 않는다 —
+//   선으로 그리지 않고, 보드에서 카드를 뺄 때 그 노트를 재료로 둔 줄은 지우지 않는다(노트 재료는 선 끝 칸이 아닌 mat_note).
 // - 화면은 바로 바뀌고(서버 답을 기다리지 않음) 실패하면 알리고 서버 값으로 다시 불러온다.
 import { parseLink, parseText, endId } from './note-board-links-model.mjs';
+import { parseMaterial, materialBody, materialKey, MATERIAL } from './note-board-material-model.mjs';
 import { nodeShape } from './note-board-mindmap-model.mjs';
 
 const ws = rt => { const id = rt.context.read()?.workspace?.id; if (!id) throw new Error('작업공간을 확인하지 못했어요.'); return id; };
@@ -26,7 +30,8 @@ const FIELDS = FIELDS_V1 + ',from_text,to_text,bend_x,bend_y';
 const LINE_KEYS = ['from_x', 'from_y', 'to_x', 'to_y', 'color', 'width'];
 const FIELDS_LINES = `${FIELDS},${LINE_KEYS.join(',')}`;
 const FIELDS_REL = `${FIELDS_LINES},kind`; // S71-53
-const linkFields = ({v2 = true, lines = true, relation = false} = {}) => (!v2 ? FIELDS_V1 : !lines ? FIELDS : relation ? FIELDS_REL : FIELDS_LINES);
+const FIELDS_MAT = `${FIELDS_REL},mat_note,mat_doc,mat_url`; // S71-54
+const linkFields = ({v2 = true, lines = true, relation = false, material = false} = {}) => (!v2 ? FIELDS_V1 : !lines ? FIELDS : relation ? (material ? FIELDS_MAT : FIELDS_REL) : FIELDS_LINES);
 const TEXT_FIELDS_V2 = 'id,board_id,body,x,y';
 const MAP_KEYS = ['parent_id', 'ord', 'side', 'kind', 'color', 'shape', 'font', 'w', 'collapsed'];
 const TEXT_FIELDS = `${TEXT_FIELDS_V2},${MAP_KEYS.join(',')}`;
@@ -51,7 +56,7 @@ const toNode = row => nodeShape(parseText(row), row);
 export async function readBoardLinks(rt = window.KPTURuntime) {
   const where = `workspace_id=eq.${enc(ws(rt))}`;
   const get = fields => rt.api(`${TABLE}?${where}&select=${fields}&order=created_at.asc,id.asc&limit=10000`);
-  const linksAsk = get(FIELDS_REL);
+  const linksAsk = get(FIELDS_MAT);
   const getTexts = fields => rt.api(`${TEXTS}?${where}&select=${fields}&order=created_at.asc,id.asc&limit=10000`);
   const older = async () => { try { return {ok:true, got:await getTexts(TEXT_FIELDS_V2), mindmap:false}; } catch { return {ok:false}; } };
   const frameAsk = () => getTexts(TEXT_FIELDS_FRAME).then(got => ({ok:true, got, mindmap:true, frame:true, decor:false}), async error => {
@@ -61,9 +66,9 @@ export async function readBoardLinks(rt = window.KPTURuntime) {
   });
   const decorAsk = () => getTexts(TEXT_FIELDS_DECOR).then(got => ({ok:true, got, mindmap:true, frame:true, decor:true, branch:false}), error => (missingNewColumn(error) ? frameAsk() : {ok:false}));
   const textsAsk = getTexts(TEXT_FIELDS_BRANCH).then(got => ({ok:true, got, mindmap:true, frame:true, decor:true, branch:true}), error => (missingNewColumn(error) ? decorAsk() : {ok:false}));
-  let rows, v2 = true, lines = true, relation = true;
+  let rows, v2 = true, lines = true, relation = true, material = true;
   const oldLinks = async () => { // 점 끝·선 색 칸 적용 전: S68-38c 칸으로, 그것도 없으면 옛 칸으로
-    lines = false; relation = false;
+    lines = false; relation = false; material = false;
     try { return {rows:await get(FIELDS)}; }
     catch (error) {
       if (!missingColumn(error) || /404|PGRST205|42P01/.test(errText(error))) return {fail:error};
@@ -71,19 +76,27 @@ export async function readBoardLinks(rt = window.KPTURuntime) {
     }
   };
   let got;
+  const relAsk = async () => { // S71-53: 관계선 칸(kind) 적용 전 — 점 끝 칸으로, 그것도 없으면 더 옛 칸으로
+    relation = false;
+    try { return {rows:await get(FIELDS_LINES)}; } catch (again) { return missingNewColumn(again) ? await oldLinks() : {fail:again}; }
+  };
   try { got = {rows:await linksAsk}; }
   catch (error) {
     if (!missingNewColumn(error)) got = {fail:error};
-    else { // S71-53: 관계선 칸(kind) 적용 전 — 점 끝 칸으로, 그것도 없으면 더 옛 칸으로
-      relation = false;
-      try { got = {rows:await get(FIELDS_LINES)}; } catch (again) { got = missingNewColumn(again) ? await oldLinks() : {fail:again}; }
+    else { // S71-54: 재료 칸(mat_doc·mat_url) 적용 전 — 관계선 칸으로, 그것도 없으면 더 옛 칸으로
+      material = false;
+      try { got = {rows:await get(FIELDS_REL)}; } catch (again) { got = missingNewColumn(again) ? await relAsk() : {fail:again}; }
     }
   }
-  if (got.fail) { await textsAsk; return {ready:false, links:[], missing:missingTable(got.fail), texts:[], textsReady:false}; }
-  rows = got.rows;
+  if (got.fail) { await textsAsk; return {ready:false, links:[], materials:[], missing:missingTable(got.fail), texts:[], textsReady:false}; }
+  rows = Array.isArray(got.rows) ? got.rows : [];
   const t = await textsAsk, textsReady = v2 && t.ok;
   const texts = textsReady ? (Array.isArray(t.got) ? t.got : []).map(toNode).filter(Boolean) : [];
-  return {ready:true, v2, lines:v2 && lines, relation:v2 && lines && relation, links:(Array.isArray(rows) ? rows : []).map(parseLink).filter(Boolean), texts, textsReady, mindmap:textsReady && !!t.mindmap, frame:textsReady && !!t.frame, decor:textsReady && !!t.decor, branch:textsReady && !!t.branch};
+  // S71-54: 재료 줄은 선과 따로(선으로 읽지 않음). 재료 칸이 없는 서버에는 재료 줄이 없다.
+  const isMat = r => r?.kind === MATERIAL;
+  return {ready:true, v2, lines:v2 && lines, relation:v2 && lines && relation, material:v2 && lines && relation && material,
+    links:rows.filter(r => !isMat(r)).map(parseLink).filter(Boolean), materials:material ? rows.filter(isMat).map(parseMaterial).filter(Boolean) : [],
+    texts, textsReady, mindmap:textsReady && !!t.mindmap, frame:textsReady && !!t.frame, decor:textsReady && !!t.decor, branch:textsReady && !!t.branch};
 }
 const v2Body = body => Object.fromEntries(Object.entries(body).filter(([k, v]) => !V2_KEYS.includes(k) || v != null));
 const linesBody = body => Object.fromEntries(Object.entries(body).filter(([k, v]) => !LINE_KEYS.includes(k) || v != null));
@@ -108,6 +121,7 @@ export async function updateBoardLink(id, patch, rt = window.KPTURuntime, {v2 = 
   return link;
 }
 // filter: {id} 한 줄 · {board_id} 그 보드의 선 전부(보드 삭제) · {board_id, note} 그 보드에서 그 노트에 붙은 선(보드에서 빼기).
+// S71-54: 노트 재료는 선 끝 칸(to_note)이 아니라 mat_note라서 이 지우기에 걸리지 않는다(보드에서 카드를 빼도 주제의 재료는 그대로).
 export async function deleteBoardLinks(filter, rt = window.KPTURuntime) {
   const q = [`workspace_id=eq.${enc(ws(rt))}`];
   if (filter.id) q.push(`id=eq.${enc(filter.id)}`);
@@ -116,6 +130,30 @@ export async function deleteBoardLinks(filter, rt = window.KPTURuntime) {
     if (filter.note) q.push(`or=(from_note.eq.${enc(filter.note)},to_note.eq.${enc(filter.note)})`);
   } else throw new Error('삭제할 연결선을 확인하지 못했어요.');
   await rt.api(`${TABLE}?${q.join('&')}&select=id`, {method:'DELETE', prefer:'return=representation'});
+}
+// S71-54 재료 잇기: 주제 상자 → 노트·자료·주소 하나. 모양이 틀리면(주소가 http/https가 아니면 등) 서버에 보내지 않고 오류.
+export async function addBoardMaterial(material, rt = window.KPTURuntime) {
+  const body = materialBody(material);
+  if (!body) throw new Error('이을 수 없는 재료예요.');
+  const rows = await rt.api(`${TABLE}?select=${FIELDS_MAT}`, {method:'POST', prefer:'return=representation', body:{workspace_id:ws(rt), ...body}});
+  const got = Array.isArray(rows) && rows.length === 1 ? parseMaterial(rows[0]) : null;
+  if (!got) throw new Error('재료를 잇지 못했어요.');
+  return got;
+}
+// S71-54 반대 방향: 이 노트(kind 'note')·자료(kind 'doc')를 재료로 둔 주제(보드 · 주제 id · 주제 글). 재료 칸이 없는 서버면 빈 목록.
+export async function readMaterialTopics(kind, ref, rt = window.KPTURuntime) {
+  const col = kind === 'note' ? 'mat_note' : kind === 'doc' ? 'mat_doc' : null;
+  if (!col || typeof ref !== 'string' || !ref) return [];
+  let rows;
+  try { rows = await rt.api(`${TABLE}?workspace_id=eq.${enc(ws(rt))}&kind=eq.material&${col}=eq.${enc(ref)}&select=board_id,from_text&order=created_at.asc&limit=50`, {singleFlight:false}); }
+  catch (error) { if (missingNewColumn(error) || missingTable(error)) return []; throw error; }
+  const pairs = (Array.isArray(rows) ? rows : []).filter(r => typeof r?.from_text === 'string' && typeof r?.board_id === 'string');
+  if (!pairs.length) return [];
+  const ids = [...new Set(pairs.map(r => r.from_text))];
+  const texts = await rt.api(`${TEXTS}?workspace_id=eq.${enc(ws(rt))}&id=in.(${ids.map(enc).join(',')})&select=id,board_id,body&limit=${ids.length}`, {singleFlight:false});
+  const body = new Map((Array.isArray(texts) ? texts : []).map(t => [t.id, String(t.body || '')]));
+  const seen = new Set();
+  return pairs.filter(r => body.has(r.from_text) && !seen.has(r.from_text) && seen.add(r.from_text)).map(r => ({board:r.board_id, text:r.from_text, body:body.get(r.from_text)}));
 }
 // 글 상자 넣기·고치기(글·자리·생각 지도 칸)·지우기({id} 하나 · {board_id} 그 보드 전부). 지우면 서버가 그 상자에 붙은 선과 그 아래 가지도 지운다(cascade).
 // mindmap=false(새 칸 적용 전)면 옛 칸만 보내고 옛 칸으로 받는다.
@@ -159,7 +197,7 @@ const needsLines = body => LINE_KEYS.some(k => body[k] != null) || body.shape ==
 
 // 노트 화면 하나가 쓰는 연결선·글 상자 모음(한 작업공간). scope(): 지금 작업공간 표시(바뀌면 늦은 답은 버림). onChange: 다시 그리기. toast: 알림 한 줄.
 export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, onChange = () => {}, toast = () => {}} = {}) {
-  let links = [], texts = [], ready = false, v2 = false, lines = false, relation = false, textsReady = false, mindmap = false, frame = false, decor = false, branch = false, missing = false, loading = null, loadedFor;
+  let links = [], materials = [], material = false, texts = [], ready = false, v2 = false, lines = false, relation = false, textsReady = false, mindmap = false, frame = false, decor = false, branch = false, missing = false, loading = null, loadedFor;
   async function load(force = false) {
     const owner = scope();
     if (!force && loadedFor === owner) return loading; // 한 작업공간에 한 번(실패해도 다시 그릴 때마다 묻지 않음 — 선을 그으려 하면 알림)
@@ -167,7 +205,7 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
     const run = (async () => {
       const r = await readBoardLinks(rt);
       if (owner !== scope()) return;
-      links = r.links; ready = r.ready; v2 = !!r.v2; lines = !!r.lines; relation = !!r.relation; texts = r.texts || []; textsReady = !!r.textsReady; mindmap = !!r.mindmap; frame = !!r.frame; decor = !!r.decor; branch = !!r.branch; missing = !!r.missing; onChange();
+      links = r.links; materials = r.materials || []; material = !!r.material; ready = r.ready; v2 = !!r.v2; lines = !!r.lines; relation = !!r.relation; texts = r.texts || []; textsReady = !!r.textsReady; mindmap = !!r.mindmap; frame = !!r.frame; decor = !!r.decor; branch = !!r.branch; missing = !!r.missing; onChange();
     })();
     loading = run; try { await run; } finally { if (loading === run) loading = null; }
   }
@@ -228,7 +266,7 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
   const branchOf = id => { const out = new Set([id]); let grew = true; while (grew) { grew = false; for (const t of texts) if (t.parent_id && out.has(t.parent_id) && !out.has(t.id)) { out.add(t.id); grew = true; } } return out; };
   const api = {
     load,
-    reset() { links = []; texts = []; ready = false; v2 = false; lines = false; relation = false; textsReady = false; mindmap = false; frame = false; decor = false; branch = false; missing = false; loadedFor = undefined; },
+    reset() { links = []; materials = []; material = false; texts = []; ready = false; v2 = false; lines = false; relation = false; textsReady = false; mindmap = false; frame = false; decor = false; branch = false; missing = false; loadedFor = undefined; },
     mindmapReady:() => mindmap,
     frameReady:() => mindmap && frame,
     decorReady:() => mindmap && frame && decor,
@@ -236,6 +274,27 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
     checkBranch:() => !branchBlocked(),
     linesReady:() => ready && v2 && lines,
     relationReady:() => ready && v2 && lines && relation, // S71-53 관계선 칸(kind)이 있나
+    materialReady:() => ready && v2 && lines && relation && material && textsReady, // S71-54 재료 칸(mat_doc·mat_url)이 있나
+    materialsFor:boardId => materials.filter(m => m.board_id === boardId),
+    allMaterials:() => materials,
+    // S71-54 재료 잇기: 화면은 바로 칩을 보이고, 실패하면 알리고 다시 불러온다. 같은 주제에 같은 재료는 한 번(서버 unique와 같음).
+    async addMaterial(m) {
+      if (!(ready && material && textsReady)) { toast('재료 잇기는 아직 서버에 저장할 수 없어요(준비 중).'); return null; }
+      const body = materialBody(m); if (!body) { toast(m?.kind === 'link' ? 'http:// 또는 https:// 로 시작하는 주소만 이을 수 있어요.' : '이을 수 없는 재료예요.'); return null; }
+      const probe = parseMaterial({id:'probe', ...body});
+      if (probe && materials.some(x => materialKey(x) === materialKey(probe))) { toast('이미 이은 재료예요.'); return null; }
+      const temp = {...probe, id:tempId('m'), pending:true};
+      materials = [...materials, temp]; onChange();
+      const owner = scope();
+      try { const saved = await addBoardMaterial(m, rt); if (owner !== scope()) return null; materials = materials.map(x => (x.id === temp.id ? saved : x)); onChange(); return saved; }
+      catch { if (owner === scope()) await failed('재료를 잇지 못했어요. 다시 불러올게요.'); return null; }
+    },
+    async removeMaterial(id) {
+      if (!materials.some(m => m.id === id && !m.pending)) return false;
+      materials = materials.filter(m => m.id !== id); onChange();
+      const owner = scope();
+      try { await deleteBoardLinks({id}, rt); return true; } catch { if (owner === scope()) await failed('잇기를 풀지 못했어요. 다시 불러올게요.'); return false; }
+    },
     checkRelation:() => !blocked({kind:'relation'}),
     checkDecor:() => !decorBlocked(),
     checkLines:() => !blocked({from_x:0}),
@@ -275,7 +334,9 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
       const hit = links.filter(l => l.board_id === boardId && (!note || l.from_note === note || l.to_note === note));
       const hitTexts = note ? [] : texts.filter(t => t.board_id === boardId);
       if ((!ready || !hit.length) && (!textsReady || !hitTexts.length)) return;
-      links = links.filter(l => !hit.includes(l)); texts = texts.filter(t => !hitTexts.includes(t)); onChange();
+      links = links.filter(l => !hit.includes(l)); texts = texts.filter(t => !hitTexts.includes(t));
+      if (!note) materials = materials.filter(m => m.board_id !== boardId); // 보드 삭제 = 그 보드 주제의 재료도(서버는 주제 상자와 함께 cascade)
+      onChange();
       const owner = scope();
       try {
         if (textsReady && hitTexts.length) await deleteBoardTexts({board_id:boardId}, rt); // 글 상자 끝 선은 서버가 함께 지운다
@@ -325,16 +386,17 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
       const goneTexts = texts.filter(t => gone.has(t.id)), notes = new Set(noteIds), want = new Set(linkIds);
       const goneLinks = links.filter(l => !l.pending && (want.has(l.id) || [...gone].some(g => touches(l, g)) || (boardId && l.board_id === boardId && (notes.has(l.from_note) || notes.has(l.to_note)))));
       if (!goneTexts.length && !goneLinks.length) return {texts:[], links:[]};
-      texts = texts.filter(t => !gone.has(t.id)); links = links.filter(l => !goneLinks.includes(l)); onChange();
+      const goneMats = materials.filter(m => !m.pending && gone.has(m.text)); // S71-54: 지운 주제의 재료(서버 cascade) — 되돌리기 때 다시 잇는다
+      texts = texts.filter(t => !gone.has(t.id)); links = links.filter(l => !goneLinks.includes(l)); materials = materials.filter(m => !goneMats.includes(m)); onChange();
       const roots = goneTexts.filter(t => !(t.parent_id && gone.has(t.parent_id))).map(t => t.id);
       const loose = goneLinks.filter(l => ![...gone].some(g => touches(l, g)));
       const owner = scope();
       try { await Promise.all([...roots.map(id => deleteBoardTexts({id}, rt)), ...loose.map(l => deleteBoardLinks({id:l.id}, rt))]); }
       catch { if (owner === scope()) await failed('삭제하지 못했어요. 다시 불러올게요.'); return null; }
-      return {texts:goneTexts, links:goneLinks};
+      return {texts:goneTexts, links:goneLinks, materials:goneMats};
     },
     // 되돌리기: 지운 상자를 위(뿌리)부터 다시 만들고(새 id), 선은 새 id로 이어 다시 긋는다. 끝이 없어진 선은 건너뛴다. 다 되면 true.
-    async restore({texts:rows = [], links:lrows = []} = {}, alive = () => true) {
+    async restore({texts:rows = [], links:lrows = [], materials:mrows = []} = {}, alive = () => true) {
       const map = new Map(), inSet = new Set(rows.map(t => t.id));
       let left = rows.slice(), ok = true;
       while (left.length) {
@@ -356,13 +418,18 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
         if (skip) { ok = false; continue; }
         if (!(await api.add(next))) ok = false;
       }
+      for (const m of mrows) { // S71-54: 지운 주제의 재료를 새 주제 id로 다시 잇는다(노트가 지워졌으면 건너뜀)
+        const text = there(m.text);
+        if (!text || (m.kind === 'note' && !alive(m.ref, true))) { ok = false; continue; }
+        if (!(await api.addMaterial({board_id:m.board_id, text, kind:m.kind, ref:m.ref, title:m.title}))) ok = false;
+      }
       return ok;
     },
     async removeText(id) {
       if (textBlocked()) return;
       if (!texts.some(t => t.id === id && !t.pending)) return;
       const gone = branchOf(id);
-      texts = texts.filter(t => !gone.has(t.id)); links = links.filter(l => ![...gone].some(g => touches(l, g))); onChange();
+      texts = texts.filter(t => !gone.has(t.id)); links = links.filter(l => ![...gone].some(g => touches(l, g))); materials = materials.filter(m => !gone.has(m.text)); onChange();
       const owner = scope();
       try { await deleteBoardTexts({id}, rt); } catch { if (owner === scope()) await failed('상자를 삭제하지 못했어요. 다시 불러올게요.'); }
     },

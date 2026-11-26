@@ -13,7 +13,7 @@ import { mountNotes } from './basket-notes.js';
 import { mountForgetList } from './forget-list.js';
 import { plainText } from './notice-box.mjs';
 import { radarFindState, radarFindAgain, radarClock, radarPromises, openSource as openTodoSource } from './todo-radar.js';
-import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest, takeBasketKindRequest, basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
+import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest, takeBasketKindRequest, takeBoardTopicRequest, basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel, offerUndoNotice } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js';
@@ -1401,11 +1401,11 @@ window.addEventListener('kptu:view-changed',e=>{
 });
 window.KPTURouter.on('basket', detail => {
   void preloadMarkdown();
-  const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt), wantedKind = takeBasketKindRequest(rt);
+  const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt), wantedKind = takeBasketKindRequest(rt), wantedTopic = takeBoardTopicRequest(rt);
   // NAV-새로고침제자리: the place written in the address (an open note, the folder entered) — read before anything below closes it.
   const written = window.KPTURouter.place?.('basket') || {};
   if (busy || noteDocs.isBusy() || noteDocs.hasDraft()) { window.KPTURouter.setSub('basket', paneSub(), {replace:true}); return; }
-  const noteSide = detail?.sub === 'note' || wantedKind === 'note' || !!wantedDoc;
+  const noteSide = detail?.sub === 'note' || wantedKind === 'note' || !!wantedDoc || !!wantedTopic;
   noteDocs.close({focus:false,force:true}); showKind('memo',{address:false});
   // FORGET-원문열기·뒤로가기: coming back by Back (from a source opened on another screen) keeps the list's view and filter as left;
   // the router gives the scroll position back. A step from a menu starts at 처리 전.
@@ -1416,7 +1416,8 @@ window.KPTURouter.on('basket', detail => {
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();
   // BASKET-정리함한화면: the old '챙길 것' address opens the one screen at that box (the address drops the old side).
   if (detail?.sub === 'todo' && !noteSide) { window.KPTURouter.setSub('basket', null, {replace:true}); requestAnimationFrame(showTodoBox); }
-  if (noteSide) showKind('note', {openId:wantedDoc || written.doc || null, folder:wantedDoc ? null : written.folder || null});
+  if (noteSide) showKind('note', {openId:wantedDoc || written.doc || null, folder:wantedDoc || wantedTopic ? null : written.folder || null});
+  if (wantedTopic) noteDocs.goToTopic(wantedTopic); // S71-54: 자료실 '이어진 생각지도 주제' → 그 보드의 그 주제
 });
 // UI-디자인손질 8: a note saved from the menu [쓰기] shows up here without leaving the current screen.
 // TRASH-다른삭제 5단계: 휴지통에서 되돌린 업데이트·노트가 이 화면 목록에 다시 나타나게 한다(지금 보고 있는 화면이고 작업 중이 아닐 때만. 아니면 다음에 열 때 다시 읽는다).

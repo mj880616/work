@@ -91,7 +91,12 @@ import { diaryPhotoUrl } from './diary-data.js';
 //   왼쪽 노트 목록 칸 위에는 아무것도 없다(목록은 '노트 목록' 머리부터). 전체 화면에서도 보드 칸 줄은 판 위에 함께 있다.
 import { createNoteBoards } from './note-boards.js';
 // S68-38 노트 '보드'(생각 지도): 보드 위 노트 → 노트 연결선(서버 표 app_note_board_links). 읽기·쓰기·화면 모음은 note-board-links-data.js 한 곳.
-import { createBoardLinks } from './note-board-links-data.js';
+import { createBoardLinks, readMaterialTopics } from './note-board-links-data.js';
+// S71-54 NOTE-주제재료잇기: 주제마다 재료(노트·자료실 자료·웹 주소) — 고르기 창·보드 위 열어 보기·이름 계산.
+import { createMaterialPicker } from './note-board-material-pick.js';
+import { createMaterialView } from './note-board-material-view.js';
+import { materialName, safeUrl } from './note-board-material-model.mjs';
+import { readLibraryFolders, readLibraryFolderItems } from './library-folder-data.js';
 import { onBoard } from './note-boards-model.mjs';
 import { folderTone } from './note-board-model.mjs';
 import { noteMarkdown } from './note-markdown.mjs';
@@ -278,6 +283,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!board) { renderList(); return; }
     if (!boards.isNamed()) return;
     const key = boards.current(); board.relink({links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key)});
+    afterBoardPaint(key);
   }});
   const boards = createNoteBoards({esc, rt, links:boardLinks, wide:window.matchMedia('(min-width:761px)'), bar:host.querySelector('[data-nbb]'), side:host.querySelector('[data-nbb-side]'),
     notes:{get:() => notes, set:fn => { notes = fn(notes); }}, folderOf:note => folderOf(note), folders:() => folders, matches:() => (query ? matches : null),
@@ -300,7 +306,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     exporting = true; showToast(kind === 'pdf' ? 'PDF를 만드는 중이에요…' : 'HTML을 만드는 중이에요…');
     try { const {exportBoard} = await import('./note-board-export.js'); showToast(await exportBoard(kind, {getSnapshot:() => board.exportSnapshot(), name:boards.name(boards.current())})); }
     catch (e) { showToast(e?.message || '내보내지 못했어요. 다시 눌러 주세요.'); }
-    finally { exporting = false; }
+    finally { exporting = false; board?.endExport?.(); } // S71-54: 내보낸 뒤 재료 칩을 다시 줄인 모양으로
   }
   const boardImages = createNoteBoardImages({rt, notes:{get:() => notes, set:fn => { notes = fn(notes); }}, boards, toast:showToast, notice:notify,
     rerender:() => { if (loaded && !selected && view === 'board') renderList(); }});
@@ -604,7 +610,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
         return async () => {
           if (boards.current() !== boardId) return {status:'stale'};
           const back = boards.restore(boardId, cards.map(c => [c.id, c.place]));
-          const onBoard = nid => !!boards.boardView()?.notes.some(n => n.id === nid);
+          const onBoard = (nid, anywhere = false) => (anywhere ? !!noteById(nid) : !!boards.boardView()?.notes.some(n => n.id === nid)); // S71-54: 재료 노트는 보드 밖이어도 된다
           const ok = await boardLinks.restore(snap, onBoard);
           return back && ok ? true : {status:'failed', message:'일부는 되돌리지 못했어요.'};
         };
@@ -633,6 +639,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), branchReady:() => boardLinks.branchReady(), canBranch:() => boardLinks.checkBranch(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
       // S71-53 관계선: 선 종류 칸(kind)이 있는 서버에서만 [관계 잇기]. 자주 쓴 이름은 작업공간 모든 보드의 관계선에서 센다.
       relationReady:() => boardLinks.relationReady(), canRelation:() => boardLinks.checkRelation(), allLinks:() => boardLinks.all(),
+      // S71-54 주제 재료: 재료 칸(mat_doc·mat_url)이 있는 서버에서만 [재료 잇기]·칩·주제 위 끌어 놓기. 이름은 지금 노트·자료 이름(없으면 이을 때 이름).
+      materialReady:() => boardLinks.materialReady(),
+      materialsOf:textId => (materialIndex().get(textId) || []).map(m => ({...m, name:materialNameOf(m)})),
+      onMaterialPick:(textId, anchor) => openMaterialPick(textId, anchor),
+      onMaterialOpen:(m, el) => openMaterial(m, el),
+      onMaterialRemove:m => { void unlinkMaterial(m); },
+      onMaterialDrop:(textId, got) => { void linkMaterials(textId, [got]); },
       // S70-32 ②: 사진 끌어 놓기·붙여넣기·[이미지] → 사진 정보를 지우고 사진 한 장뿐인 노트로(노트 첨부, owner만) → 놓은 자리에 붙임.
       onImages:(files, point) => { if (!busy) void boardImages.add(files, point); }, photoUrl:(noteId, fileId) => diaryPhotoUrl(noteId, fileId, 'large', {rt}),
       // S71-49 [나]: 사진 카드 두 번 누름(폰은 고른 사진 한 번 더) = 보드 위 크게 보기(공용 photo-view.js — Esc·바깥·뒤로가기로 닫으면 보드 그대로). 노트 화면으로 가지 않는다.
@@ -647,6 +660,100 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     board.paint({notes:shown, folderOf, colorOfFolder:id => colorOf(folderById(id)), visible:m ? new Set(shown.filter(m).map(n => n.id)) : null, pickActive:!!pick.active, isPicked:id => isPicked('n:' + id),
       boardKey:key, links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key), placeOf:named.placeOf, removable:true, emptyText:named.emptyText, bg:boards.bgOf(key)});
     board.setFind(query ? noteFind : null); // S71-52 ②: 맨 위 '노트에서 찾기'가 보드 주제 글도 맞춘다(같은 공용 판정)
+    afterBoardPaint(key);
+  }
+  // ---- S71-54 NOTE-주제재료잇기 ----
+  // 재료 이름: 노트는 지금 제목(잠긴 노트는 '잠긴 노트'), 자료는 지금 이름(처음 보는 자료는 owner RLS로 이름만 한 번 읽음), 링크는 이을 때 이름 또는 주소.
+  const docTitles = new Map(); let docTitleAsk = null;
+  // 주제 → 재료 목록(보드 하나). 모음 배열이 바뀔 때만 다시 묶는다(주제 1,000개 보드도 칸마다 다시 거르지 않게).
+  let matIdx = {all:null, board:null, map:new Map()};
+  function materialIndex() {
+    const all = boardLinks.allMaterials(), key = boards.current();
+    if (matIdx.all !== all || matIdx.board !== key) { const map = new Map(); for (const m of all) if (m.board_id === key) { if (!map.has(m.text)) map.set(m.text, []); map.get(m.text).push(m); } matIdx = {all, board:key, map}; }
+    return matIdx.map;
+  }
+  let noteIndex = {list:null, map:new Map()};
+  const noteById = id => { if (noteIndex.list !== notes) noteIndex = {list:notes, map:new Map(notes.map(n => [n.id, n]))}; return noteIndex.map.get(id) || null; };
+  const materialNameOf = m => materialName(m, {noteTitle:id => { const n = noteById(id); return n ? noteLineTitle(n) : null; }, docTitle:id => docTitles.get(id) || null,
+    locked:id => { const n = noteById(id); return !!n && pinLock.noteHidden(n); }});
+  const wsId = () => rt.context.read()?.workspace?.id || '';
+  const libApi = (path, o) => rt.api(path, o);
+  function ensureDocTitles(key) {
+    if (docTitleAsk || !boardLinks.materialReady()) return;
+    const need = [...new Set(boardLinks.materialsFor(key).filter(m => m.kind === 'doc' && !docTitles.has(m.ref)).map(m => m.ref))].slice(0, 100);
+    if (!need.length) return;
+    const owner = scope(), ws = wsId(); if (!ws) return;
+    docTitleAsk = rt.api(`/rest/v1/app_documents?workspace_id=eq.${encodeURIComponent(ws)}&id=in.(${need.map(encodeURIComponent).join(',')})&select=id,title,file_name&limit=${need.length}`, {singleFlight:false})
+      .then(rows => { if (owner !== scope()) return; for (const id of need) docTitles.set(id, null); for (const r of Array.isArray(rows) ? rows : []) docTitles.set(r.id, r.title || r.file_name || null);
+        if (board && view === 'board' && !selected && boards.current() === key) board.relink({links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key)}); })
+      .catch(() => { for (const id of need) docTitles.set(id, null); })
+      .finally(() => { docTitleAsk = null; });
+  }
+  // 다른 화면(노트 상세·자료실 메뉴)에서 '이어진 생각지도 주제'를 누르면 그 보드의 그 주제로(S71-52 찾기 이동 goToText 그대로).
+  let pendingTopic = null;
+  function afterBoardPaint(key) {
+    ensureDocTitles(key);
+    if (!pendingTopic || !board || pendingTopic.board !== key) return;
+    if (!boardLinks.textsFor(key).some(t => t.id === pendingTopic.text)) { if (boardLinks.textsReady()) pendingTopic = null; return; }
+    const id = pendingTopic.text; pendingTopic = null;
+    requestAnimationFrame(() => board?.goToText(id));
+  }
+  async function goToTopic({board:bid, text}) {
+    if (busy || !bid || !text) return;
+    if (selected && close({focus:false}) === false) return;
+    pendingTopic = {board:bid, text};
+    boards.select(bid);
+    if (view !== 'board') setView('board'); else renderList();
+  }
+  const materialPicker = createMaterialPicker({notes:() => notes, titleOf:noteLineTitle, hidden:note => pinLock.noteHidden(note), toast:showToast,
+    have:(kind, ref) => !!pickText && boardLinks.materialsFor(boards.current()).some(m => m.text === pickText && m.kind === kind && m.ref === ref),
+    loadDocs:async () => {
+      const ws = wsId(); if (!ws) throw new Error('작업공간을 확인하지 못했어요.');
+      const [docs, folders, items, tree] = await Promise.all([
+        rt.api(`/rest/v1/app_documents?workspace_id=eq.${encodeURIComponent(ws)}&select=id,title,file_name,created_at&order=created_at.desc&limit=2000`, {singleFlight:false}),
+        readLibraryFolders(libApi, ws).catch(() => []), readLibraryFolderItems(libApi, ws, {max:5000}).catch(() => []), import('./library-tree.js')]);
+      const list = Array.isArray(docs) ? docs : [];
+      for (const d of list) docTitles.set(d.id, d.title || d.file_name || null);
+      return {docs:list, folders:Array.isArray(folders) ? folders : [], itemFolder:new Map((Array.isArray(items) ? items : []).map(r => [r.document_id, r.folder_id])),
+        siblings:(all, parentId) => tree.folderSiblings(all, {free:true, parentId})};
+    }});
+  let pickText = null;
+  function openMaterialPick(textId, anchor) {
+    if (busy || pick.active || !boardLinks.materialReady()) return;
+    const key = boards.current(), t = boardLinks.textsFor(key).find(x => x.id === textId); if (!t) return;
+    pickText = textId;
+    materialPicker.open({anchor, topic:String(t.body || '').split('\n')[0], onPick:list => { void linkMaterials(textId, list); }});
+  }
+  // 고른 것(끌어 놓은 것)을 그 주제에 잇는다. 이름은 지금 이름을 남긴다(노트 제목·자료 이름·적은 제목). 하나씩 서버에(같은 것은 서버도 막음).
+  async function linkMaterials(textId, list) {
+    const key = boards.current(); if (!key || !boardLinks.materialReady()) return;
+    let n = 0;
+    for (const p of list) {
+      if (p.kind === 'note' && !noteById(p.ref)) continue;
+      const title = p.title ?? (p.kind === 'note' ? (pinLock.noteHidden(noteById(p.ref)) ? null : noteLineTitle(noteById(p.ref))) : p.kind === 'doc' ? docTitles.get(p.ref) ?? null : null);
+      if (await boardLinks.addMaterial({board_id:key, text:textId, kind:p.kind, ref:p.ref, title})) n++;
+    }
+    if (n) { topicCache.clear(); showToast(n === 1 ? '재료를 이었어요.' : `재료 ${n}개를 이었어요.`); }
+  }
+  async function unlinkMaterial(m) {
+    if (materialView.current()?.id === m.id) await materialView.close({focus:false});
+    if (await boardLinks.removeMaterial(m.id)) { topicCache.clear(); showToast('잇기를 풀었어요.'); }
+  }
+  const materialView = createMaterialView({host:() => host.querySelector('[data-note-board-wrap]'), rt, titleOf:noteLineTitle, hidden:note => pinLock.noteHidden(note),
+    readDoc:async id => { const ws = wsId(); const rows = await rt.api(`/rest/v1/app_documents?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(ws)}&select=id,title,file_name,created_at,description,drive_url&limit=1`, {singleFlight:false}); return Array.isArray(rows) ? rows[0] || null : null; },
+    openNote:id => { if (!busy && noteById(id)) open(id); },
+    openDoc:id => { requestLibraryDocument(id); void window.KPTURouter?.openFrom?.('library'); },
+    openDrive:url => { window.open(url, '_blank', 'noopener,noreferrer'); }});
+  // 칩 한 번 누름: 링크 = 새 탭(noopener — 이 앱 창을 건드리지 못함), 노트·자료 = 보드 위 열어 보기.
+  function openMaterial(m, el) {
+    if (m.kind === 'link') { const url = safeUrl(m.ref); if (url) window.open(url, '_blank', 'noopener,noreferrer'); return; }
+    void materialView.open({...m, name:materialNameOf(m)}, {note:m.kind === 'note' ? noteById(m.ref) : null, trigger:el});
+  }
+  // 반대 방향(노트 상세): 이 노트를 재료로 둔 주제. 노트마다 이번 접속 동안 한 번 읽고, 잇기·풀기 뒤에는 다시 읽는다.
+  const topicCache = new Map();
+  function topicsOfNote(id) {
+    if (!topicCache.has(id)) topicCache.set(id, readMaterialTopics('note', id, rt).catch(() => { topicCache.delete(id); return []; }));
+    return topicCache.get(id);
   }
   function paintViewSwitch() {
     host.querySelectorAll('[data-note-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.noteView === view)));
@@ -1173,7 +1280,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     paintRelated(host, selected, notes, {tagsOf:tagsOfNote, folderOf, hidden:note => pinLock.noteHidden(note), titleOf:noteLineTitle, scope:owner,
       isCurrent:() => owner === scope() && selected?.id === id && !editing,
       openNote:noteId => { if (!busy && notes.some(n => n.id === noteId)) open(noteId); },
-      openDocument:docId => { requestLibraryDocument(docId); void window.KPTURouter?.openFrom?.('library'); }});
+      openDocument:docId => { requestLibraryDocument(docId); void window.KPTURouter?.openFrom?.('library'); },
+      topics:pinLock.noteHidden(selected) ? null : topicsOfNote(id), openTopic:t => { void goToTopic(t); }}); // S71-54 이어진 생각지도 주제
   }
   function paintRead() {
     syncHeadTitle(); paintPub(); paintAlarm(); paintRelatedNow();
@@ -2484,10 +2592,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     reload() { if (loaded && !selected && !busy) void refresh(); },
     show({openId = null, folder = null} = {}) { void preloadMarkdown(); pendingOpen = openId; pendingFolder = folder; if (!folder && at) window.KPTURouter?.setPlace?.('basket', {folder:at}); if (!selected) void refresh(); },
     close,
-    reset() { closeMenu(); boards.reset(); boardLinks.reset(); board?.closeMenu(); newsMarks.reset(); if (folderSheetOpen()) closeFolderSheet(); addPick = null; endSelect(); at = null; openSet = new Set(); paneOpen = new Set(); moreSet = new Set(); recentAll = false; treeScroll = null; { const l = folderLayer; folderLayer = null; l?.close(); } folders = []; foldersReady = false; folderSay(''); const openedLayer = layer; layer = null; openedLayer?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); noteComments.reset(); resetMemos(); tagSel = []; tagTouched = false; readPick = null; editPick = null; memoGroup = ''; calMonth = monthNow(); calDay = ''; notes = []; links = []; loaded = false; query = ''; noteTrash.reset(); detail.replaceChildren(); placeDetail(); findText = ''; refreshScreenFind(); host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { closeMenu(); materialPicker.close(); void materialView.close({focus:false}); topicCache.clear(); docTitles.clear(); pendingTopic = null; pickText = null; boards.reset(); boardLinks.reset(); board?.closeMenu(); newsMarks.reset(); if (folderSheetOpen()) closeFolderSheet(); addPick = null; endSelect(); at = null; openSet = new Set(); paneOpen = new Set(); moreSet = new Set(); recentAll = false; treeScroll = null; { const l = folderLayer; folderLayer = null; l?.close(); } folders = []; foldersReady = false; folderSay(''); const openedLayer = layer; layer = null; openedLayer?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); noteComments.reset(); resetMemos(); tagSel = []; tagTouched = false; readPick = null; editPick = null; memoGroup = ''; calMonth = monthNow(); calDay = ''; notes = []; links = []; loaded = false; query = ''; noteTrash.reset(); detail.replaceChildren(); placeDetail(); findText = ''; refreshScreenFind(); host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     isUploading: () => fileQueue.any(), // 뒤에서 노트 첨부를 올리는 중(최신화 전에 막는 데 쓴다)
     hasDraft: () => textDirty() || (!!selected && (manual.hasDraft() || noteComments.hasDraft())),
     isOpen: () => !!selected,
+    goToTopic: t => { void goToTopic(t); }, // S71-54
   };
 }

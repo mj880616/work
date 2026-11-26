@@ -86,7 +86,7 @@ test('저장: kind 칸이 있으면 관계선을 kind relation으로 넣고 다�
   const rt = fakeRt(), toasts = [];
   const store = createBoardLinks({rt, scope:() => 'w1', toast:t => toasts.push(t)});
   await store.load();
-  assert.equal(store.relationReady(), true); assert.match(rt.calls[0].url, /select=[^&]*,kind(&|$)/);
+  assert.equal(store.relationReady(), true); assert.match(rt.calls[0].url, /select=[^&]*,kind(,mat_note,mat_doc,mat_url)?(&|$)/); // S71-54: 재료 칸도 함께 묻는다
   const saved = await store.add(relationSpec('bmap0001', {kind:'note', id:'photo1'}, {kind:'note', id:'file1'})); // 사진 카드 ↔ 파일 카드
   assert.equal(saved.kind, 'relation');
   const post = rt.calls.find(c => c.method === 'POST');

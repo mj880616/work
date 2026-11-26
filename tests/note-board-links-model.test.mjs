@@ -109,7 +109,7 @@ test('모음: 읽기·긋기·바꾸기·지우기, 보드 삭제·노트 빼기
 });
 test('모음: 표가 없으면(DB 적용 전) 카드만 — 긋기는 서버에 보내지 않고 준비 중 알림', async () => {
   const rt = fakeRt({missing:true}), toasts = [];
-  assert.deepEqual(await readBoardLinks(rt), {ready:false, links:[], missing:true, texts:[], textsReady:false});
+  assert.deepEqual(await readBoardLinks(rt), {ready:false, links:[], materials:[], missing:true, texts:[], textsReady:false});
   const store = createBoardLinks({rt, scope:() => 'w1', toast:t => toasts.push(t)});
   await store.load();
   assert.equal(await store.add({board_id:'all', from_note:'a', to_note:'b'}), null);

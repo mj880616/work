@@ -69,6 +69,7 @@ import { confirmDelete } from './select-keys.js'; // K1 지우기 한 규칙(I-6
 import { openRowMenu, appMenuPoint, ROW_MENU_ICON } from './row-menu.js';
 import { swatchHtml, setSwatchOn } from './color-swatch.mjs';
 import { iconSvg } from './tree-icons.js';
+import { chipsOf, shorten, dropMaterial, KIND_NAMES as MATERIAL_KIND_NAMES, NOTE_REF_DRAG, DOC_REF_DRAG } from './note-board-material-model.mjs'; // S71-54 주제 재료 칩
 import { slotLoading, slotImg, slotFailed } from './img-slot.js';
 import { unionBounds } from './note-board-export-model.mjs';
 import { clampCoord } from './note-board-coord.mjs';
@@ -96,6 +97,9 @@ const EDGE = 36, EDGE_STEP = 14, DRAFT = '__draft', DETACH_MIN = 36;
 // 크기 손잡이 8개(보이는 점은 작은 네모, 누르는 범위는 손가락 크기 — basket.css .nb-rz). 고른 상자·카드에만 보인다.
 const resizeHtml = () => HANDLES.map(k => `<span class="nb-rz nb-rz-${k}" data-nb-resize="${k}" aria-hidden="true" title="크기 (${HANDLE_NAMES[k]})"></span>`).join('');
 export const NOTE_DRAG = 'application/x-kptu-note';
+// S71-54: 노트·자료를 주제 위에 놓아 재료로 잇는 끌기 종류(note-board-material-model.mjs 한 곳 — 자료실도 같은 값).
+export { NOTE_REF_DRAG, DOC_REF_DRAG };
+const MAT_ICON = {note:'doc', doc:'clip', link:'link'};
 let uid = 0;
 
 // moreIcon: 노트 줄과 같은 ⋯ 그림(basket-notes.js의 것을 받아 같은 메뉴 단추 모양을 쓴다).
@@ -121,11 +125,11 @@ const barHtml = () => `<div class="nb-node-bar" data-nb-bar role="toolbar" aria-
   + barBtn('data-nb-map data-nb-bar-sibling', '+ 형제', '형제 가지 (Enter)')
   + barBtn('data-nb-bar-edit', '수정', '글 수정 (F2)')
   + barBtn('data-nb-bar-del', '삭제', '삭제 (Delete)')
-  + barBtn('data-nb-bar-open="more" aria-expanded="false" aria-label="더 보기"', '…', '앞으로 · 뒤로 · 복제 · 투명도 · 자동 배치로 · 크기 자동 · 가지 떼기 · 노트로 만들기 · 관계 잇기 · 이 가지만 보기') // 메뉴가 아니라 아래 한 줄 펼치기(…)
+  + barBtn('data-nb-bar-open="more" aria-expanded="false" aria-label="더 보기"', '…', '앞으로 · 뒤로 · 복제 · 투명도 · 자동 배치로 · 크기 자동 · 가지 떼기 · 노트로 만들기 · 관계 잇기 · 재료 잇기 · 이 가지만 보기') // 메뉴가 아니라 아래 한 줄 펼치기(…)
   + `</div><div class="nb-bar-row" data-nb-bar-row="more" role="group" aria-label="더 많은 동작" hidden>`
   + `<button type="button" class="ds-chip" data-nb-decor data-nb-z="1">앞으로</button><button type="button" class="ds-chip" data-nb-decor data-nb-z="-1">뒤로</button><button type="button" class="ds-chip" data-nb-decor data-nb-dup>복제</button>`
   + ALPHAS.map(a => `<button type="button" class="ds-chip" data-nb-decor data-nb-alpha="${a}" aria-pressed="false" aria-label="투명도 ${a}%">${a}%</button>`).join('')
-  + `<button type="button" class="ds-chip" data-nb-auto>자동 배치로</button><button type="button" class="ds-chip" data-nb-autosize>크기 자동</button><button type="button" class="ds-chip" data-nb-detach>가지 떼기</button><button type="button" class="ds-chip" data-nb-to-note>노트로 만들기</button><button type="button" class="ds-chip" data-nb-relate>관계 잇기</button><button type="button" class="ds-chip" data-nb-relations>관계</button><button type="button" class="ds-chip" data-nb-focus>이 가지만 보기</button>`
+  + `<button type="button" class="ds-chip" data-nb-auto>자동 배치로</button><button type="button" class="ds-chip" data-nb-autosize>크기 자동</button><button type="button" class="ds-chip" data-nb-detach>가지 떼기</button><button type="button" class="ds-chip" data-nb-to-note>노트로 만들기</button><button type="button" class="ds-chip" data-nb-relate>관계 잇기</button><button type="button" class="ds-chip" data-nb-relations>관계</button><button type="button" class="ds-chip" data-nb-material>재료 잇기</button><button type="button" class="ds-chip" data-nb-focus>이 가지만 보기</button>`
   + `</div><div class="nb-bar-row" data-nb-bar-row="tone" role="radiogroup" aria-label="채우기 색" hidden>`
   + NODE_COLORS.map(c => swatchHtml({color:`var(--ds-note-paper-${c.n})`, label:c.name, role:'radio', attrs:{'data-nb-tone':c.n, title:c.name}})).join('')
   + `<span data-nb-decor class="nb-bar-more-tones">${[8, 9].map(n => swatchHtml({color:colorVar(n), label:PALETTE[n].name, role:'radio', attrs:{'data-nb-tone':n, title:PALETTE[n].name}})).join('')}${swatchHtml({color:'', label:'채우기 없음', text:'⊘', role:'radio', attrs:{'data-nb-tone':NONE, title:'채우기 없음'}})}</span>`
@@ -155,7 +159,8 @@ const viewExtrasHtml = () => `<div class="nb-focusbar nb-vx" data-nb-focusbar ro
 export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onBackgroundMenu = null, onMove = () => {}, onDrop = null, onRemove = null, fullHost = () => null, hasSide = () => false,
   onLinkAdd = () => {}, onLinkChange = () => {}, onLinkRemove = () => {}, onTextAdd = () => null, onTextChange = () => {}, onTextsChange = () => {}, onTextRemove = () => {}, onRemoveItems = null,
   onTextToNote = null, canText = () => true, mapReady = () => true, canMap = () => true, frameReady = () => true, decorReady = () => true, canDecor = () => true, branchReady = () => true, canBranch = () => true, linesReady = () => true, canLines = () => true,
-  relationReady = () => false, canRelation = () => false, allLinks = null, toast = () => {}, onImages = null, photoUrl = null, onPhotoView = null, miniOpen = () => null, onMiniOpen = () => {}}) {
+  relationReady = () => false, canRelation = () => false, allLinks = null,
+  materialReady = () => false, materialsOf = () => [], onMaterialPick = null, onMaterialOpen = null, onMaterialRemove = null, onMaterialDrop = null, toast = () => {}, onImages = null, photoUrl = null, onPhotoView = null, miniOpen = () => null, onMiniOpen = () => {}}) {
   const mark = `nb${++uid}`;
   box.innerHTML = `<div class="nb-selbar" data-nb-selbar role="toolbar" aria-label="선택한 카드" hidden><span data-nb-sel-count></span><button type="button" class="icon-btn" data-nb-sel-remove>보드에서 빼기</button><button type="button" class="icon-btn nb-sel-x" data-nb-sel-clear aria-label="선택 해제" title="선택 해제 (Esc)">✕</button></div><div class="nb-selbar nb-relbar" data-nb-relbar role="toolbar" aria-label="관계 잇기" hidden><span class="nb-relbar-msg" data-nb-rel-msg></span><button type="button" class="icon-btn" data-nb-rel-find>찾기</button><button type="button" class="icon-btn nb-sel-x" data-nb-rel-cancel aria-label="관계 잇기 그만" title="그만 (Esc)">✕</button></div><div class="nb-tools" role="group" aria-label="보드 도구"><button type="button" class="icon-btn nb-side-btn" data-nb-side-toggle aria-pressed="false" hidden>노트 목록</button><button type="button" class="icon-btn nb-add-text" data-nb-add-text title="상자 더하기">+ 상자</button><button type="button" class="icon-btn nb-add-text" data-nb-add-label title="글자 넣기 (배경 없는 글)">글자</button><button type="button" class="icon-btn nb-add-text" data-nb-insert-open="shape" aria-expanded="false" title="도형 넣기">도형▾</button><button type="button" class="icon-btn nb-add-text" data-nb-insert-open="line" aria-expanded="false" title="선 넣기">선▾</button>${onImages ? '<button type="button" class="icon-btn nb-img-btn" data-nb-add-image aria-label="이미지 넣기" title="이미지 넣기">' + IMAGE_ICON + '</button>' : ''}<button type="button" class="icon-btn" data-nb-zoom="-1" aria-label="작게">－</button><button type="button" class="icon-btn nb-pct" data-nb-zoom-pct data-zoom-pct-key="board">100%</button><button type="button" class="icon-btn" data-nb-zoom="1" aria-label="크게">＋</button><button type="button" class="icon-btn nb-fit" data-nb-fit aria-label="맞추기 — 카드가 모두 보이게" title="맞추기 — 카드가 모두 보이게">맞추기</button><button type="button" class="icon-btn nb-full-btn" data-nb-full aria-pressed="false" aria-label="전체 화면" title="전체 화면">${FULL_ICON}</button></div>${insertHtml()}${onImages ? '<input type="file" accept="image/*" multiple hidden data-nb-image-input tabindex="-1" aria-hidden="true">' : ''}<div class="nb-scroll" data-nb-scroll><div class="nb-board" data-nb-board role="group" aria-label="노트 보드"><svg class="nb-links" data-nb-links width="1" height="1" focusable="false"><defs><marker id="${mark}-a" class="nb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker><marker id="${mark}-s" class="nb-arrow nb-arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker><marker id="${mark}-r" class="nb-arrow nb-arrow-rel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g class="nb-branches" data-nb-branches></g><g data-nb-lines></g><path class="nb-temp" data-nb-temp d="" hidden/><g class="nb-guides" data-nb-guides></g></svg><div class="nb-texts" data-nb-texts></div><div class="nb-cards" data-nb-cards></div></div><p class="nb-empty" data-nb-empty hidden></p>${barHtml()}</div>${viewExtrasHtml()}`;
   const empty = box.querySelector('[data-nb-empty]'), scroll = box.querySelector('[data-nb-scroll]'), board = box.querySelector('[data-nb-board]');
@@ -228,7 +233,8 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   }
   // 멀리 보기에서 돌아오면 가벼운 모양으로 붙인 상자를 제 모양(손잡이 포함)으로.
   function swapLight() { for (const [id, el] of [...textEls]) if (el._nbLight && editing?.el !== el) { el.remove(); textEls.delete(id); htmlOf.delete(id); attachText(id); } }
-  function setView(next) { allOn = false; delete box.dataset.nbExport; view = {x:next.x, y:next.y, z:clampZoom(next.z)}; paintView(); queue(); }
+  function setView(next) { allOn = false; delete box.dataset.nbExport; endMatExport(); view = {x:next.x, y:next.y, z:clampZoom(next.z)}; paintView(); queue(); }
+  function endMatExport() { if (!matExport) return; matExport = false; renderTexts(); }
   // ---- S71-52: 가지째 끌기 칸(lift) ----
   function liftDrag() {
     if (lift || !tdrag) return;
@@ -400,6 +406,22 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   const nodeInfo = t => { const kids = childrenOf(tree, t.id).length; return {root:!tree.parentOf.has(t.id), kids, count:kids ? descendants(tree, t.id).length : 0}; };
   let zOf = new Map(); // 겹침 순서(z) → 화면 z-index, renderTexts가 매번 다시 센다
   // light = 크기만 재는 가벼운 모양(손잡이·접기 동그라미 없음 — 둘 다 칸 밖에 떠 있어 크기에 들지 않는다, S71-52).
+  // S71-54 주제 재료 칩: 주제 아래 작은 칩(종류 아이콘 + 이름 줄임) 3개까지, 넘으면 '+n'(누르면 이 주제만 모두 — 이번 접속만).
+  // 칩 한 번 누름 = 보드 위에서 열어 보기(onMaterialOpen, 링크는 새 탭), 칩 ⋯ = [열기]·[잇기 풀기]. 이름은 부르는 쪽이 지금 이름으로 준다(materialsOf).
+  // 칩은 상자 안에 있어 크기 재기·배치에 그대로 들어간다(멀리 보기는 CSS가 숨김). 재료 칸이 없는 서버(적용 전)면 그리지 않는다.
+  // 내보내기(PDF·HTML) 동안은 모든 칩을 이름 전체로(⋯·'+n' 없음) — 끝나면(endExport·판 이동) 다시 줄인 칩.
+  const matAll = new Set();
+  let matExport = false;
+  const matsHtml = t => {
+    if (t.id === DRAFT || t.pending || !materialReady()) return '';
+    const list = materialsOf(t.id) || []; if (!list.length) return '';
+    if (matExport) return `<div class="nb-mats nb-mats-out" data-nb-mats>${list.map(m => `<span class="nb-mat" data-kind="${m.kind}">${iconSvg(MAT_ICON[m.kind], {size:12})}<span class="nb-mat-name">${esc(`${MATERIAL_KIND_NAMES[m.kind]} · ${m.name}`)}</span></span>`).join('')}</div>`;
+    const all = matAll.has(t.id), {shown, more} = all ? {shown:list, more:0} : chipsOf(list);
+    const chip = m => { const what = `${MATERIAL_KIND_NAMES[m.kind]} · ${m.name}`; return `<span class="nb-mat${m.pending ? ' nb-pending' : ''}" data-nb-mat="${esc(m.id)}" data-kind="${m.kind}"><button type="button" class="icon-btn nb-mat-open" data-nb-mat-open="${esc(m.id)}" title="${esc(what)}" aria-label="${esc(`${what} 열기`)}">${iconSvg(MAT_ICON[m.kind], {size:12})}<span class="nb-mat-name">${esc(shorten(m.name))}</span></button><button type="button" class="icon-btn nb-mat-more" data-nb-mat-more="${esc(m.id)}" data-ctx="off" aria-label="${esc(`재료 메뉴: ${m.name}`)}" title="재료 메뉴" aria-haspopup="menu"><span class="more-dots" aria-hidden="true">⋯</span></button></span>`; };
+    const tail = more ? `<button type="button" class="icon-btn nb-mat-plus" data-nb-mat-all="${esc(t.id)}" aria-expanded="false" aria-label="재료 ${more}개 더 보기">+${more}</button>`
+      : all ? `<button type="button" class="icon-btn nb-mat-plus" data-nb-mat-all="${esc(t.id)}" aria-expanded="true" aria-label="재료 접기">접기</button>` : '';
+    return `<div class="nb-mats" data-nb-mats role="group" aria-label="재료 ${list.length}개">${shown.map(chip).join('')}${tail}</div>`;
+  };
   const nodeHtml = (t, light = false) => {
     const info = nodeInfo(t), free = isFree(t), name = t.kind === 'label' ? '글자' : t.kind === 'shape' ? '도형' : info.root ? '상자' : '가지', fold = info.kids && !info.root
       ? `<button type="button" class="icon-btn nb-fold" data-nb-fold aria-expanded="${!t.collapsed}" aria-label="${t.collapsed ? `가지 펼치기 (${info.count}개)` : '가지 접기'}" title="${t.collapsed ? '펼치기' : '접기'}"><span class="nb-fold-dot" aria-hidden="true">${t.collapsed ? info.count : '−'}</span></button>` : '';
@@ -410,7 +432,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     const art = poly ? `<svg class="nb-shape-art" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><polygon points="${poly}" vector-effect="non-scaling-stroke"/></svg>` : '';
     const label = t.body || (t.kind === 'shape' ? SHAPE_KIND_NAMES[t.shape] || '도형' : '');
     const deep = t.id !== DRAFT && depthOf(tree, t.id) >= FAR_DEPTH; // S71-52 ②: 멀리 볼 때 흐린 막대가 될 칸(큰 가지 아래)
-    return `<div class="nb-text${t.pending ? ' nb-pending' : ''}${info.root && !free ? ' nb-root' : ''}${poly ? ' nb-poly' : ''}" data-nb-text="${esc(t.id)}" data-shape="${t.shape}" data-font="${t.font}" data-kind="${t.kind}"${tone}${t.color === NONE ? ' data-fill-none' : ''}${t.stroke === NONE ? ' data-stroke-none' : ''}${t.dash ? ' data-dash' : ''}${t.bold ? ' data-bold' : ''}${t.pinned ? ' data-pinned' : ''}${t.h ? ' data-h' : ''}${fold ? ' data-fold' : ''}${deep ? ' data-deep' : ` data-far-label="${esc([...label].slice(0, 40).join(''))}"`} style="${style}">${art}<div class="nb-tx" tabindex="0" role="button" aria-roledescription="${name}" aria-label="${esc(label)}"${info.kids ? ` aria-expanded="${!t.collapsed}"` : ''}>${esc(t.body)}</div>${light ? '' : fold}${opts.pickActive || light ? '' : SIDES.map(s => `<span class="nb-h nb-h-${s}" data-nb-handle="${s}" aria-hidden="true"></span>`).join('') + resizeHtml()}</div>`;
+    return `<div class="nb-text${t.pending ? ' nb-pending' : ''}${info.root && !free ? ' nb-root' : ''}${poly ? ' nb-poly' : ''}" data-nb-text="${esc(t.id)}" data-shape="${t.shape}" data-font="${t.font}" data-kind="${t.kind}"${tone}${t.color === NONE ? ' data-fill-none' : ''}${t.stroke === NONE ? ' data-stroke-none' : ''}${t.dash ? ' data-dash' : ''}${t.bold ? ' data-bold' : ''}${t.pinned ? ' data-pinned' : ''}${t.h ? ' data-h' : ''}${fold ? ' data-fold' : ''}${deep ? ' data-deep' : ` data-far-label="${esc([...label].slice(0, 40).join(''))}"`} style="${style}">${art}<div class="nb-tx" tabindex="0" role="button" aria-roledescription="${name}" aria-label="${esc(label)}"${info.kids ? ` aria-expanded="${!t.collapsed}"` : ''}>${esc(t.body)}</div>${matsHtml(t)}${light ? '' : fold}${opts.pickActive || light ? '' : SIDES.map(s => `<span class="nb-h nb-h-${s}" data-nb-handle="${s}" aria-hidden="true"></span>`).join('') + resizeHtml()}</div>`;
   };
   function measureText(id) { const el = textEls.get(id); if (el && !el._nbLight) textSize.set(id, {w:el.offsetWidth || 80, h:el.offsetHeight || 26, html:htmlOf.get(id)}); }
   // 자리만 다시(글을 고치는 중 폭이 바뀔 때·끌기가 끝난 뒤): 크기 재기 → 배치 → 자리·가지 선·연결선·막대.
@@ -685,10 +707,11 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     bar.querySelector('[data-nb-font="-1"]').disabled = t.font <= FONT_MIN;
     bar.querySelector('[data-nb-font="1"]').disabled = t.font >= FONT_MAX;
     // [더 보기] 줄: 손으로 둔 가지 → [자동 배치로], 손으로 정한 크기 → [크기 자동], 가지 → [가지 떼기]. 해당 없는 것은 빼고, 셋 다 없으면 [더 보기]도 뺀다.
-    const branch = tree.parentOf.has(t.id), rels = relationReady() ? relationCount(t.id) : 0, more = {auto:branch && t.pinned && frameReady(), autosize:!!(t.w || t.h), detach:branch, decor, toNote:canNote(t), rel:relationReady(), focus:childrenOf(tree, t.id).length > 0 && focusRoot !== t.id};
+    const branch = tree.parentOf.has(t.id), rels = relationReady() ? relationCount(t.id) : 0, more = {auto:branch && t.pinned && frameReady(), autosize:!!(t.w || t.h), detach:branch, decor, toNote:canNote(t), rel:relationReady(), mat:materialReady() && !!onMaterialPick, focus:childrenOf(tree, t.id).length > 0 && focusRoot !== t.id};
     bar.querySelector('[data-nb-focus]').hidden = !more.focus;
     bar.querySelector('[data-nb-to-note]').hidden = !more.toNote;
     bar.querySelector('[data-nb-relate]').hidden = !more.rel; // S71-53
+    bar.querySelector('[data-nb-material]').hidden = !more.mat; // S71-54
     const relBtn = bar.querySelector('[data-nb-relations]'); relBtn.hidden = !rels; if (rels) relBtn.textContent = `관계 ${rels}개`;
     bar.querySelector('[data-nb-auto]').hidden = !more.auto;
     bar.querySelector('[data-nb-autosize]').hidden = !more.autosize;
@@ -713,6 +736,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (b.hasAttribute('data-nb-to-note')) { barOpen = null; textToNote(id); return; }
     if (b.hasAttribute('data-nb-relate')) { barOpen = null; startRelation(id); return; } // S71-53
     if (b.hasAttribute('data-nb-relations')) { openRelations(id, b); return; }
+    if (b.hasAttribute('data-nb-material')) { barOpen = null; pickMaterial(id, b); return; } // S71-54
     if (b.hasAttribute('data-nb-focus')) { barOpen = null; focusBranch(id); return; }
     if (!canMap()) return;
     if (b.hasAttribute('data-nb-dup')) { // 복제: 같은 꾸미기·크기, 조금 옆에, 맨 앞(가지는 혼자 선 칸으로)
@@ -1585,7 +1609,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (e.pointerType === 'touch' && editing?.isNew && draft && !draft.parent_id && !opts.pickActive && e.target.closest?.('[data-nb-text-edit]') === editing.area) {
       ddrag = {pointerId:e.pointerId, x:e.clientX, y:e.clientY, p0:pointOf(e), start:{x:draft.x, y:draft.y}, touch:true, moved:false}; return;
     }
-    if (e.target.closest?.('[data-nb-text-edit],[data-nb-fold]')) return; // 입력칸 안·접기 단추는 그대로
+    if (e.target.closest?.('[data-nb-text-edit],[data-nb-fold],[data-nb-mats]')) return; // 입력칸 안·접기 단추·재료 칩(S71-54)은 그대로(click이 맡는다)
     if (e.target.closest?.('.nb-tools,.nb-selbar,.nb-node-bar')) return; // 도구 줄·고른 카드 줄·상자 막대 단추는 그대로(click이 맡는다)
     const handle = e.target.closest?.('[data-nb-handle]');
     if (handle) { // 손잡이 → 연결선 긋기(노트 카드·글 상자)
@@ -1863,6 +1887,8 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   box.addEventListener('contextmenu', e => {
     if (e.defaultPrevented || opts.pickActive) return;
     const t = e.target instanceof Element ? e.target : null; if (!t || t.closest('textarea,input')) return;
+    const matEl = t.closest('[data-nb-mat]'); // S71-54: 재료 칩 우클릭 = 칩 메뉴
+    if (matEl) { const at = appMenuPoint(e, matEl); if (!at) return; e.preventDefault(); e.stopPropagation(); openMaterialMenu(matEl.dataset.nbMat, matEl, at); return; }
     const textEl = t.closest('[data-nb-text]'), hit = textEl ? null : t.closest('[data-nb-hit]'), card = textEl || hit ? null : t.closest('[data-nb-card]');
     const own = textEl || hit || card; if (!own) return;
     const at = appMenuPoint(e, own); if (!at) return;
@@ -1895,6 +1921,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       map && {id:'font-1', label:'글자 작게', disabled:t.font <= FONT_MIN}, map && {id:'font1', label:'글자 크게', disabled:t.font >= FONT_MAX},
       canNote(t) && {id:'to-note', label:'노트로 만들기', sep:true},
       relationReady() && {id:'relate', label:'관계 잇기', sep:!canNote(t)}, relationReady() && relationCount(id) && {id:'relations', label:`관계 ${relationCount(id)}개`},
+      materialReady() && onMaterialPick && {id:'material', label:'재료 잇기', sep:!canNote(t) && !relationReady()},
       {id:'delete', label:'삭제', last:true}];
     const short = [...String(t.body || '').replace(/\s+/g, ' ')].slice(0, 20).join('');
     const SEL = {edit:'[data-nb-bar-edit]', child:'[data-nb-bar-child]', sibling:'[data-nb-bar-sibling]', tone:'[data-nb-bar-open="tone"]', stroke:'[data-nb-bar-open="stroke"]',
@@ -1903,11 +1930,26 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       if (!textById.has(id)) return;
       if (item === 'relate') { startRelation(id); return; }
       if (item === 'relations') { openRelations(id, textEls.get(id) || el, at); return; }
+      if (item === 'material') { pickMaterial(id, textEls.get(id) || el); return; }
       if (textSel !== id) selectText(id);
       const b = bar.querySelector(SEL[item]); if (!b) return;
       if (b.dataset.nbBarOpen) { barOpen = null; } // 펼칠 줄은 막대에서 바로 열린 채로(한 번 누름 = 열기)
       barAction(b);
     }});
+  }
+  // ---- S71-54 주제 재료 ----
+  const materialOf = mid => { for (const t of texts) { const m = (materialsOf(t.id) || []).find(x => x.id === mid); if (m) return m; } return null; };
+  function pickMaterial(id, anchor) {
+    const t = textById.get(id); if (!t || t.pending || opts.pickActive || !onMaterialPick) return;
+    if (!materialReady()) return;
+    if (editing) void endEdit(true);
+    onMaterialPick(id, anchor && anchor.isConnected ? anchor : textEls.get(id) || box);
+  }
+  function openMaterial(mid, el) { const m = materialOf(mid); if (!m || m.pending || opts.pickActive) return; onMaterialOpen?.(m, el); }
+  function openMaterialMenu(mid, el, at) {
+    const m = materialOf(mid); if (!m || m.pending) return;
+    openRowMenu(el, {key:`nb-mat:${mid}`, label:m.name, at, items:[{id:'open', label:m.kind === 'link' ? '새 탭에서 열기' : '열기'}, {id:'unlink', label:'잇기 풀기', last:true}],
+      run:item => { if (item === 'open') openMaterial(mid, el); else if (item === 'unlink') onMaterialRemove?.(m); }});
   }
   function openMultiMenu(el, at) {
     const sel = selection(), n = sel.cards.length + sel.texts.length, onlyCards = !sel.texts.length;
@@ -1929,6 +1971,11 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     const addShape = e.target.closest?.('[data-nb-add-shape]'); if (addShape) { closeInsert(); void newShape(addShape.dataset.nbAddShape, viewCenter()); return; }
     const addLine = e.target.closest?.('[data-nb-add-line]'); if (addLine) { closeInsert(); newLine(addLine.dataset.nbAddLine, viewCenter()); return; }
     const barBtn = e.target.closest?.('.nb-node-bar button'); if (barBtn) { barAction(barBtn); return; }
+    // S71-54 재료 칩: 이름 = 열어 보기, ⋯ = 칩 메뉴, '+n'·[접기] = 이 주제 칩 모두/접기.
+    const matOpenBtn = e.target.closest?.('[data-nb-mat-open]'); if (matOpenBtn) { openMaterial(matOpenBtn.dataset.nbMatOpen, matOpenBtn); return; }
+    const matMore = e.target.closest?.('[data-nb-mat-more]'); if (matMore) { const r = matMore.getBoundingClientRect(); openMaterialMenu(matMore.dataset.nbMatMore, matMore, {x:r.left, y:r.bottom}); return; }
+    const matAllBtn = e.target.closest?.('[data-nb-mat-all]');
+    if (matAllBtn) { const tid = matAllBtn.dataset.nbMatAll; if (matAll.has(tid)) matAll.delete(tid); else matAll.add(tid); renderTexts(); textEls.get(tid)?.querySelector('[data-nb-mat-all]')?.focus({preventScroll:true}); return; }
     const fold = e.target.closest?.('[data-nb-fold]');
     if (fold) { const id = fold.closest('[data-nb-text]')?.dataset.nbText, t = textById.get(id); if (t && !t.pending && canMap()) onTextChange(id, {collapsed:!t.collapsed}); return; }
     const hit = e.target.closest?.('[data-nb-hit]'); if (hit && bendEnded) { bendEnded = false; return; }
@@ -1998,10 +2045,30 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   // S70-32 ②: 기기의 사진 파일을 판에 끌어 놓으면 놓은 자리에 이미지(사진 한 장뿐인 노트, note-board-image.js). 사진이 아닌 파일은 넣지 않는다고 알린다.
   const noteDrag = e => !!onDrop && [...(e.dataTransfer?.types || [])].includes(NOTE_DRAG);
   const fileDrag = e => !!onImages && !noteDrag(e) && [...(e.dataTransfer?.types || [])].includes('Files');
-  scroll.addEventListener('dragover', e => { if (!noteDrag(e) && !fileDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; box.classList.add('nb-drop'); });
-  scroll.addEventListener('dragleave', e => { if (!scroll.contains(e.relatedTarget)) box.classList.remove('nb-drop'); });
+  // S71-54: 주제(글 상자) 위에 놓으면 그 주제의 재료로 잇는다 — 노트 목록 줄(NOTE_REF_DRAG)·자료실 줄(DOC_REF_DRAG)·브라우저 주소(http/https).
+  // 빈 곳에 놓으면 지금처럼(노트 = 카드, 사진 = 이미지). 재료 칸이 없는 서버(적용 전)면 받지 않는다.
+  const matDrag = e => {
+    if (!onMaterialDrop || !materialReady() || opts.pickActive) return false;
+    const ty = [...(e.dataTransfer?.types || [])];
+    return ty.includes(NOTE_REF_DRAG) || ty.includes(DOC_REF_DRAG) || (!ty.includes('Files') && (ty.includes('text/uri-list') || ty.includes('text/plain')));
+  };
+  const topicAt = e => { const el = document.elementFromPoint?.(e.clientX, e.clientY)?.closest?.('[data-nb-text]'); const id = el?.dataset.nbText; return el && box.contains(el) && id !== DRAFT && textById.has(id) && !textById.get(id).pending ? el : null; };
+  let matOver = null;
+  const markMatOver = el => { if (matOver === el) return; matOver?.classList.remove('nb-mat-drop'); matOver = el; el?.classList.add('nb-mat-drop'); };
+  scroll.addEventListener('dragover', e => {
+    const over = matDrag(e) ? topicAt(e) : null; markMatOver(over);
+    if (over) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; box.classList.remove('nb-drop'); return; }
+    if (!noteDrag(e) && !fileDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; box.classList.add('nb-drop');
+  });
+  scroll.addEventListener('dragleave', e => { if (!scroll.contains(e.relatedTarget)) { box.classList.remove('nb-drop'); markMatOver(null); } });
   scroll.addEventListener('drop', e => {
     box.classList.remove('nb-drop');
+    const over = matDrag(e) ? topicAt(e) : null; markMatOver(null);
+    if (over) {
+      const got = dropMaterial(e.dataTransfer, {noteType:NOTE_REF_DRAG, docType:DOC_REF_DRAG});
+      if (got) { e.preventDefault(); onMaterialDrop(over.dataset.nbText, got); return; }
+      if (!noteDrag(e)) { e.preventDefault(); toast('주제에는 노트·자료·http(s) 주소만 이을 수 있어요.'); return; }
+    }
     if (fileDrag(e)) { e.preventDefault(); if (!opts.pickActive) onImages([...(e.dataTransfer.files || [])], pointOf(e)); return; }
     if (!noteDrag(e)) return;
     e.preventDefault();
@@ -2337,6 +2404,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     async exportSnapshot() {
       if (!shown.length && !texts.length && !links.length) return null;
       select(null); closeBar(); closeInsert(); closeLineMenu?.();
+      if (materialReady() && texts.some(t => (materialsOf(t.id) || []).length)) { matExport = true; renderTexts(); } // S71-54: 재료 이름 전체로
       fitBoard();
       allOn = true; box.dataset.nbExport = ''; syncTexts(true); paintBranches(); // S71-53: 내보낼 때는 관계선을 흐리게 하지 않는다 // S71-52: 화면 밖 칸·선도 모두 붙여 내보낸다(다음 화면 이동 때 다시 보이는 것만)
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -2347,6 +2415,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
       const bounds = unionBounds(rects);
       return bounds ? {board, bounds, background:getComputedStyle(scroll).backgroundColor || getComputedStyle(document.body).backgroundColor} : null;
     },
+    endExport: () => endMatExport(),
     selected: () => [...multi],
     isFull: () => !!full,
     exitFull: () => exitFull(),
