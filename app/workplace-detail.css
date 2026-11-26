@@ -33,14 +33,8 @@
 #wdUpdates .basket-link-day{padding-top:2px;white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta);font-variant-numeric:tabular-nums}
 #wdUpdates .basket-link-main{min-width:0}
 #wdUpdates .basket-link-main>.record-files{margin:4px 0 0}
-/* 사진만 있는 기록: [작은 그림 줄][기록 한 줄(말줄임)]을 한 줄에. */
-#wdUpdates .basket-link-main:has(>.record-files[data-record-only-photos]){display:flex;align-items:center;gap:8px}
-#wdUpdates .basket-link-main>.record-files[data-record-only-photos]{order:-1;flex:none;margin:0}
-#wdUpdates .basket-link-main:has(>.record-files[data-record-only-photos])>.basket-link-open{flex:1 1 auto;min-width:4.5em}
-#wdUpdates .basket-link-main:has(>.record-files[data-record-only-photos]) [data-link-summary-text]{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:650px){#wdUpdates .basket-link-line{grid-template-columns:3.9em minmax(0,1fr) auto}}
 #wdUpdates .basket-link-open{display:block;min-width:0;color:inherit;text-decoration:none;border-radius:var(--kptu-radius-md)}
-#wdUpdates .basket-link-open:hover p[data-link-summary-text]{text-decoration:underline}
 #wdUpdates .basket-link-more{width:44px;height:44px;min-height:44px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 #wdUpdates .basket-link-more:hover{background:var(--kptu-surface)}
 .basket-link-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
@@ -56,7 +50,6 @@
 #wdUpdates :is(button,a,textarea):focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 
 #wdUpdates [data-link-summary-original] > summary{min-height:44px;align-content:center;cursor:pointer}
-#wdUpdates .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
 #wdUpdates [data-link-summary-form] .basket-link-actions{justify-content:flex-end}
 /* AI-서버연동 S4: [AI 요약] under the summary box; a proposal never replaces the text until [이걸로 바꾸기]. */
 #wdUpdates .ai-summary-row,#wdUpdates .ai-summary-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
@@ -102,8 +95,6 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 .wd-doc-all:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
 #wdDocBody .status{margin-top:4px}
 /* UI-기록아이콘: 연결 기록 머리 앞 업데이트·노트 아이콘. */
-#wdUpdates .basket-link-mark{display:inline-flex;vertical-align:-2px}
-#wdUpdates .basket-link-mark svg{display:block}
 /* ORG-기록수정삭제: a record written here has one ⋯ at its top right (same look as a basket-linked record), holding [수정]·[삭제].
    [수정] opens a multi-line box in place with [저장]·[취소]. */
 /* ORG-기록하나로 O-5: '날짜 | 기록' 한 표 — 왼쪽 날짜 칸(흐린 작은 글씨, 한 줄), 가운데 기록, 오른쪽 ⋯. 최근 10줄 아래 '지난 기록 n'(접힘). */
@@ -111,9 +102,7 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 #wdUpdates .wd-log-day{padding-top:2px;white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta);font-variant-numeric:tabular-nums}
 #wdUpdates .wd-log-older{margin-top:6px}
 #wdUpdates .wd-log-older>summary{cursor:pointer;width:max-content;min-height:var(--ds-compact-height-sm);padding:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#wdUpdates .wd-log-src{margin:4px 0 0 calc(4.6em + 8px);padding:4px 8px;border-left:2px solid var(--kptu-border);color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:pre-wrap;overflow-wrap:anywhere}
-#wdUpdates .wd-log-src-k{color:var(--kptu-ink)}
-@media(max-width:650px){#wdUpdates .wd-log-row .wd-rowtop{grid-template-columns:3.9em minmax(0,1fr) auto}#wdUpdates .wd-log-src{margin-left:0}}
+@media(max-width:650px){#wdUpdates .wd-log-row .wd-rowtop{grid-template-columns:3.9em minmax(0,1fr) auto}}
 #wdUpdates .wd-log-main{min-width:0}
 #wdUpdates .wd-log-main p{white-space:pre-wrap;overflow-wrap:anywhere}
 #wdUpdates .wd-log-main .wd-doc{min-width:0;font-size:var(--ds-text-body,14px)}
@@ -258,3 +247,31 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 .wd-inbox-files:not([hidden]){margin-top:var(--kptu-space-2)}
 #wdInbox.basket-drop-target{position:relative}
 #wdInbox .basket-clip .basket-clip-label{display:none}
+
+/* UI-기록줄균일(S70-85, 명진 11/26 09:29 "어떤건 위아래로 길고 어떤건 짧아"): 조직 관리 기록 줄은 글·연결·사진 줄 모두 같은 높이.
+   틀 하나 [날짜 칸 | 본문(두 줄 높이) | ⋯ 위 · 꺾쇠 아래]. 본문 글자 크기·줄 높이도 하나(13px / --kptu-rec-lh). 따로 줄을 차지하던 [펼치기] 줄과
+   '잊지 말기 연결' 글자 줄은 없다(표시 그림만 글 앞에, 이름은 그림이 읽어 준다). 사진은 본문 오른쪽 작은 그림(두 줄 높이), 파일 이름 띠와 '상세:'는 펼친 뒤에만.
+   펼친 줄(data-rec-open)만 길어진다. 고쳐 쓰는 칸·원래 글 보기는 줄 밖이라 그대로. */
+#wdUpdates :is(.wd-row.wd-log-row,.basket-link-record){padding:9px}
+#wdUpdates .kptu-rec-fold :is(.wd-rowtop,.basket-link-line){display:grid;grid-template-columns:4.6em minmax(0,1fr) 38px;grid-template-rows:var(--kptu-rec-lh) auto;column-gap:8px;row-gap:0;align-items:start}
+@media(max-width:650px){#wdUpdates .kptu-rec-fold :is(.wd-rowtop,.basket-link-line){grid-template-columns:3.9em minmax(0,1fr) 38px}}
+#wdUpdates .kptu-rec-fold :is(.wd-log-day,.basket-link-day){grid-column:1;grid-row:1;padding-top:0;line-height:var(--kptu-rec-lh)}
+#wdUpdates .kptu-rec-fold :is(.wd-log-main,.basket-link-main){grid-column:2;grid-row:1/span 2;min-width:0;min-height:var(--kptu-rec-body)}
+#wdUpdates .kptu-rec-fold :is(.wd-up-more,.basket-link-more){grid-column:3;grid-row:1;width:44px;height:44px;min-height:44px;margin:-9px -6px 0 0}
+#wdUpdates .kptu-rec-fold .kptu-rec-fold-btn{grid-column:3;grid-row:2;justify-self:start;margin-left:6px}
+#wdUpdates .kptu-rec-fold :is(.wd-log-main>p,.wd-log-main>.wd-doc,[data-link-summary-text]){margin:0;font-size:var(--ds-text-row,13px);color:var(--kptu-ink)}
+#wdUpdates .kptu-rec-fold:not([data-rec-open]) .wd-log-detail{display:none}
+#wdUpdates .kptu-rec-fold .wd-log-detail{margin:4px 0 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:pre-wrap;overflow-wrap:anywhere}
+/* 연결 줄: 표시 그림은 글 앞 작은 칸, '잊지 말기 연결'·'노트 연결' 글자는 화면에서 감춘다(그림의 이름이 읽어 준다). */
+#wdUpdates .kptu-rec-fold .basket-link-open{display:flex;align-items:flex-start;gap:4px;min-width:0}
+#wdUpdates .kptu-rec-fold .basket-link-open>p{flex:1 1 auto;min-width:0}
+/* 접힌 줄: 사진 작은 그림은 본문 오른쪽에 두 줄 높이로, 파일 이름 띠는 감춘다(꺾쇠로 펼치면 아래에). */
+#wdUpdates .kptu-rec-fold:not([data-rec-open]) .basket-link-main{display:flex;align-items:flex-start;gap:8px}
+#wdUpdates .kptu-rec-fold:not([data-rec-open]) .basket-link-main>.basket-link-open{flex:1 1 auto;min-width:4.5em}
+#wdUpdates .kptu-rec-fold:not([data-rec-open]) .basket-link-main>.record-files{order:1;flex:none;flex-wrap:nowrap;margin:0;--record-thumb:calc(var(--kptu-rec-lh) * 2)}
+#wdUpdates .kptu-rec-fold:not([data-rec-open]) .record-files-count{display:inline-flex}
+#wdUpdates .kptu-rec-fold:not([data-rec-open]) .record-files>:is(.record-file,.record-files-more){display:none}
+#wdUpdates .kptu-rec-fold:not([data-rec-open]) .record-photo-thumbs{flex-wrap:nowrap}
+#wdUpdates .kptu-rec-fold[data-rec-open] .basket-link-main>.record-files{margin:6px 0 0}
+#wdUpdates .kptu-rec-fold:not([data-rec-open]) .record-photos{flex:none}
+#wdUpdates .wd-up-editor .wd-up-day{margin:0 0 6px}

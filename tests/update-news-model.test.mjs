@@ -6,7 +6,7 @@ import {draftLines, linesFromText, draftProblem, sentVersions, shortDay, looseNe
 const a = {v: '11/15-3', changes: ['사진 칸이 생겼어요', '메뉴에 파일'], checks: ['사진 열어 보기']};
 const b = {v: '11/15-2', changes: ['메뉴에 파일', '이름이 바뀌었어요'], checks: []};
 
-test('묶은 기록 → 보낼 줄: 폰에서 볼 것은 기본으로 빼고, 같은 줄은 한 번', () => {
+test('묶은 기록 → 보낼 줄: 확인할 것은 기본으로 빼고, 같은 줄은 한 번', () => {
   assert.deepEqual(draftLines([a, b]), ['사진 칸이 생겼어요', '메뉴에 파일', '이름이 바뀌었어요']);
   assert.deepEqual(draftLines([a], {withChecks: true}), ['사진 칸이 생겼어요', '메뉴에 파일', '사진 열어 보기']);
   assert.equal(draftLines(Array.from({length: 20}, (_, i) => ({changes: ['줄 ' + i]}))).length, 12);

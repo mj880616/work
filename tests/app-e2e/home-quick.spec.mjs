@@ -57,7 +57,7 @@ test('quick task next-week day list and 모레',async({page})=>{
 // BASKET-업데이트통합 PR 1: [업데이트] with no place saves to the basket; picking a place in ▾ saves that place's record.
 test('quick update with a chosen organization preserves multiline and saves without home record reads',async({page})=>{
  const {requests}=await openHome(page);await pickQuickMode(page,'task');await pickQuickMode(page,'task');const q=quick(page),input=q.locator('[data-quick-input]');
- await pickQuickMode(page,'update');await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height',page.viewportSize().width>=761?'120px':'130px'); // UI-버튼크기: 5줄에서 멈춤(UI-PC버튼36: PC는 36px 한 줄에서 시작해 120px)
+ await pickQuickMode(page,'update');await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height','124px'); // UI-버튼크기: 5줄에서 멈춤(NOTE-입력줄높이 S71-67: 폰·PC 모두 40px 한 줄에서 시작해 124px)
  await input.press('Enter');await expect(input).toHaveValue('1\n2\n3\n4\n5\n6\n7\n');await input.fill('첫 줄\n둘째 줄');
  await pickQuickMode(page,'task');await expect(input).toHaveValue('첫 줄\n둘째 줄');await pickQuickMode(page,'update');
  await pickQuickMode(page,'org');await expect(page.getByRole('dialog')).toBeVisible();
@@ -89,7 +89,7 @@ test('mode memory is on the server; unreadable or unsaveable server value defaul
 for(const width of [390,1440])test(`quick visual measurements and snapshot ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});await openHome(page);await pickQuickMode(page,'task');const q=quick(page);await q.locator('[data-quick-input]').fill('QA');
  // UI-디자인기준 1/3 보완: one control height for every mode, the [추가] height (--ds-control-height; UI-PC버튼36: PC ≥1024 is the input height 36px).
- const h='36px';/* HOME-모바일정리④: 폰 입력칸도 36px */await expect(q.locator('[data-quick-input]')).toHaveCSS('height',h);await expect(q.locator('[data-quick-save]')).toHaveCSS('height','36px');/* UI-버튼줄이기: 폰도 [추가] 36px */
+ const h='40px';/* NOTE-입력줄높이(S71-67): 입력칸·[추가] 같은 40px */await expect(q.locator('[data-quick-input]')).toHaveCSS('height',h);await expect(q.locator('[data-quick-save]')).toHaveCSS('height','40px');/* UI-버튼줄이기: 폰도 [추가] 36px */
  if(width>=761)expect(await q.locator('[data-quick-save]').evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});

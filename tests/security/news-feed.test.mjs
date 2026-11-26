@@ -228,13 +228,13 @@ test('open: Google relay links are not read; media items only on catalog hosts',
 // S59-1: 카탈로그에서 뺀 매체(옛 구글 뉴스 매체 단위 줄)의 기사·남의 매체 링크 피드의 기사는 서버가 읽지 않는다 — 누를 때 열기도 원문 링크로만.
 test('open·probe: 카탈로그에서 뺀 매체의 기사와 남의 매체 링크 기사는 읽지 않는다(요청 없음, 하루 열기 횟수도 안 씀), 뺀 매체 probe는 400',async()=>{
  const G2='c0000000-0000-4000-8000-000000000013',L1='c0000000-0000-4000-8000-000000000014';
- const g={id:G2,workspace_id:WS,lane:'media',source_key:'news-mediatoday',url:'https://news.google.com/rss/articles/synthetic2?oc=5',title:'t',lang:'ko',body:null,body_kind:null};
+ const g={id:G2,workspace_id:WS,lane:'media',source_key:'news-edaily',url:'https://news.google.com/rss/articles/synthetic2?oc=5',title:'t',lang:'ko',body:null,body_kind:null};
  const l={id:L1,workspace_id:WS,lane:'media',source_key:'news-labourstart',url:'https://other.example.org/news/1',title:'t',lang:'en',body:null,body_kind:null};
  const w=fakeWorld({items:[g,l],sites:{'https://news.google.com/robots.txt':{body:''},'https://news.google.com/rss/articles/synthetic2':{body:'<html><body><article><p>'+LONG+'</p></article></body></html>'}}});
  for(const id of [G2,L1]){const r=await call(w,userReq('open',{id}));assert.equal(r.status,200);assert.equal(r.body.status,'original_only');}
  assert.equal(w.outbound().length,0,'중계 주소·남의 매체 주소로 요청하지 않음');
  assert.equal(w.writes().length,0,'기사 줄·하루 횟수를 고치지 않음');
- for(const key of ['news-mediatoday','news-edaily','news-busan','news-google']){const pr=await call(w,cronReq('probe',{source:key}));assert.equal(pr.status,400,key);}
+ for(const key of ['news-edaily','news-busan','news-google']){const pr=await call(w,cronReq('probe',{source:key}));assert.equal(pr.status,400,key);}
  assert.equal(w.outbound().length,0);
  // 화면 목록에는 주소·도메인이 실리지 않는다(키·이름·지역·말·기본 켬뿐).
  assert.ok(!JSON.stringify(C.publicNewsCatalog()).includes('google'));

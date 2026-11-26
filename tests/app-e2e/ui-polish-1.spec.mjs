@@ -1,4 +1,4 @@
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {showBasketRow,openBasketNote} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -209,8 +209,8 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
 for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽기·수정: "‹ 잊지 말기", 이 메모의 [⋯] 메뉴, 큰 버튼 둘, 연결·날짜 한 줄 ${width}${dark?' 어두운 화면':''}`,async({page})=>{
  const {errors,state}=await boot(page,width,{dark});
  await view(page,'basket');
- const listMore=page.locator('#basketView [data-inbox-find]');await expect(listMore).toBeVisible();await expect(page.locator('[data-basket-more]')).toHaveCount(0);
- await (await showBasketRow(page,N1)).click();
+ const listMore=page.locator('[data-sf-tools="forget"] [data-inbox-find]');await expect(listMore).toBeVisible();await expect(page.locator('[data-basket-more]')).toHaveCount(0);
+ await openBasketNote(page,N1);
  const detail=page.locator('[data-basket-detail]');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
  // The list's top line ([다시 찾기]) is the list's only; the note has its own [⋯].
  await expect(listMore).toBeHidden();

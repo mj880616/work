@@ -250,10 +250,15 @@ test('PC: the row menu opens above the ⋯ when there is no room below, and foll
   const f = await fixture(page, 1280, { more: [['n-old1', '2026-09-03T01:00:00Z'], ['n-old2', '2026-09-02T01:00:00Z'], ['n-old3', '2026-09-01T01:00:00Z']] });
   await page.setViewportSize({ width: 1280, height: 420 });
   const more = rowMore(page, 'n-old3');
-  await page.evaluate(() => window.scrollTo(0, document.scrollingElement.scrollHeight));
-  await more.scrollIntoViewIfNeeded();
-  const pre = await more.boundingBox();
-  expect(420 - (pre.y + pre.height)).toBeLessThan(200); // 아래에는 메뉴가 들어갈 자리가 없다(전제)
+  // TEST-옮기기창굴리기안정화: 창 높이를 900→420으로 바꾼 직후에는 손짓 칸(gesture-fill.js, 이 시험은 hasTouch라 켜짐)이 아직 900 기준
+  // 높이(min-height)라 문서가 잠깐 길다(350px 남짓). 칸은 resize 다음 그림 차례(rAF)에 다시 재므로, 그 사이에 맨 아래로 넘기면 옛 긴 문서의
+  // 맨 아래로 가서 마지막 줄 ⋯가 화면 위쪽(CI에서 아래 361px 남음)에 놓여 전제가 깨졌다. 전제(⋯ 아래 자리 없음)가 설 때까지 '맨 아래로 넘기기 →
+  // 자리 재기'를 되풀이한다(시간이 아니라 화면 상태를 기다림. 칸이 끝내 줄지 않으면 여기서 깨진다).
+  await expect.poll(async () => {
+    await page.evaluate(() => window.scrollTo(0, document.scrollingElement.scrollHeight));
+    const pre = await more.boundingBox();
+    return pre && pre.y >= 0 ? 420 - (pre.y + pre.height) : 999;
+  }, { message: '아래에는 메뉴가 들어갈 자리가 없다(전제)' }).toBeLessThan(200);
   await more.click();
   await expect(menu(page)).toBeVisible();
   const mb = await more.boundingBox(), m = await menu(page).boundingBox();

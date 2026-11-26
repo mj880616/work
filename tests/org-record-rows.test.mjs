@@ -2,7 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, existsSync} from 'node:fs';
-import {seoulDay, dayCell, splitRecent, hasSource, sourceLabel, RECENT} from '../app/org-record-rows.mjs';
+import {seoulDay, dayCell, splitRecent, RECENT} from '../app/org-record-rows.mjs';
+import * as rowsModel from '../app/org-record-rows.mjs';
 const read = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 
 test('서울 날짜: 밤 11시(UTC 15시 이후)는 다음 날', () => {
@@ -33,12 +34,10 @@ test('최근 10줄 + 그 앞은 접음, 순서 그대로', () => {
   assert.deepEqual(splitRecent(null), {shown: [], older: []});
 });
 
-test('원래 글 보기: 통화·텔레그램·소식·업데이트에서 온 기록만(옮긴 옛 줄·직접 쓴 줄은 없음)', () => {
-  assert.equal(sourceLabel({source_kind: 'feed', source_id: 'a'}), '원래 통화·글 보기');
-  assert.equal(sourceLabel({source_kind: 'memorable', source_id: 'a'}), '원래 소식 보기');
-  assert.equal(sourceLabel({source_kind: 'update', source_id: 'a'}), '원래 업데이트 보기');
-  for (const r of [{source_kind: 'user'}, {source_kind: 'status_row', source_id: 'a'}, {source_kind: 'weekly_line', source_id: 'a'}, {source_kind: 'feed', source_id: null}, {}, null, {source_kind: 'toString', source_id: 'a'}])
-    assert.equal(hasSource(r), false, JSON.stringify(r));
+test('RECORD-기록하나로: 원래 글 보기 길이 없다(기록이 된 글은 그냥 기록)', () => {
+  assert.equal('hasSource' in rowsModel, false);assert.equal('sourceLabel' in rowsModel, false);
+  const wd = read('app/workplace-detail.js');
+  assert.doesNotMatch(wd, /원래 글 (보기|접기)|wdToggleSource|wdSrcHtml|org-record-source/);
 });
 
 test('옛 [현황 표] 소탭·표 쓰기 길이 남아 있지 않다(삭제한 화면 경로 참조 0)', () => {

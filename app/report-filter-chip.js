@@ -35,7 +35,11 @@ function layout(){
   top.classList.remove('is-filter-one');chip.hidden=true;
   if(!isWide()&&bar.getClientRects().length&&bar.scrollWidth>bar.clientWidth+1){top.classList.add('is-filter-one');chip.hidden=false}
 }
-function place(){const bar=barEl(),chip=chipEl();if(open&&bar&&chip)placeAnchored(bar,chip,{maxWidth:280,maxHeight:360,minHeight:120,bottomInset:bottomInset()})}
+// S71-75 BIZ-걸러보기창좁게(사용자 2026-11-26 "이거 너무 좌우로 길지 않니"): 창 폭은 내용만큼 — 줄 글자 폭을 재어(max-content) 그 폭으로,
+// 최대 FIT_MAX·최소 FIT_MIN. 자리는 공용 placeAnchored 그대로(칩 아래 왼쪽 끝 맞춤, 화면 밖이면 안으로).
+const FIT_MAX=260,FIT_MIN=140;
+function fitWidth(bar){bar.style.width='max-content';const w=Math.ceil(bar.getBoundingClientRect().width);return Math.max(FIT_MIN,Math.min(FIT_MAX,w||FIT_MAX))}
+function place(){const bar=barEl(),chip=chipEl();if(open&&bar&&chip)placeAnchored(bar,chip,{maxWidth:fitWidth(bar),maxHeight:360,minHeight:120,bottomInset:bottomInset()})}
 
 function openPanel(){
   const bar=barEl(),chip=chipEl();if(open||!bar||!chip||chip.hidden)return;
@@ -73,6 +77,8 @@ function bind(){
 // team.js가 상자(종류·사업영역·기간·보기)를 그린 뒤 부른다.
 export function paintReportFilterChip(){
   const chip=chipEl();if(!chip)return;bind();
+  // 창 안 고른 줄 앞 이름: 사업영역은 사람마다 고친 이름(상자 첫 줄 글자 = team.js word('사업영역')).
+  const areaName=$('#reportAreaSelect')?.options?.[0]?.label,areaTag=$('#reportFilterBar [data-filter-name=area]');if(areaName&&areaTag&&areaTag.textContent!==areaName)areaTag.textContent=areaName;
   const text=filterChipText(parts()),label=chip.querySelector('.report-filter-chip-text');
   if(label&&label.textContent!==text)label.textContent=text;
   chip.classList.toggle('is-on',text!==FILTER_CHIP_ALL);chip.setAttribute('aria-label',`걸러보기: ${text}`);

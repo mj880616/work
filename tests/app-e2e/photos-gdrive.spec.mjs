@@ -56,6 +56,8 @@ async function fixture(page, { features = ['calls', 'gdrive_photos'], status = {
         if (!features.includes('photo_content')) return r.fulfill({ status: 403, json: { ok: false, error: 'feature_off' } });
         return r.fulfill({ json: { ok: true, index: true, ids: (content && content[body.q]) || [], more: false } });
       }
+      // S71-62 드라이브 글자 찾기(기능 키가 없는 사람): 이 파일의 지어낸 드라이브는 늘 빈 결과(photos-desc.spec.mjs가 결과를 본다).
+      if (body.action === 'drive-find') return r.fulfill({ json: { ok: true, ids: [], more: false } });
       if (body.action === 'sync') return r.fulfill({ json: { ok: true, photos: 0, partial: 0 } });
       if (body.action === 'folders') {
         const parent = body.parent || 'root';
@@ -251,7 +253,7 @@ test.describe('PC 1440', () => {
     await expect(page.locator('#photosRoot [data-photos-content-mark]')).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
-  test('사진 설명으로 찾기: 기능 키가 없으면 서버에 묻지 않고 지금처럼 이름만', async ({ page }) => {
+  test('사진 설명으로 찾기: 기능 키가 없으면 색인(content-find)은 묻지 않고 드라이브 글자 찾기(drive-find)만', async ({ page }) => {
     const { state } = await fixture(page, { prefs: { photo_sources_pc: { onedrive: true, gdrive: true, phone: false } }, content: { '가상현수막': ['G3'] } });
     state.folders.root[0].enabled = true;
     await openPhotos(page, 1440);
@@ -261,6 +263,7 @@ test.describe('PC 1440', () => {
     await expect.poll(() => ids(page)).toEqual([]);
     await page.waitForTimeout(700);
     expect(state.gd.some(b => b.action === 'content-find')).toBe(false);
+    expect(state.gd.filter(b => b.action === 'drive-find')).toEqual([{ action: 'drive-find', q: '가상현수막' }]);
     await expect(page.locator('#photosRoot [data-photos-content-mark]')).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
