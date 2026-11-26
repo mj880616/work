@@ -826,6 +826,8 @@ jobs:
         run: node --test tests/note-boards-model.test.mjs tests/note-lock-record-lines.test.mjs
       - name: Check note board links (S68-38 생각 지도)
         run: node --test tests/note-board-links-model.test.mjs
+      - name: Check note board relation lines (S71-53 관계선)
+        run: node --test tests/note-board-relation.test.mjs
       - name: Check board hover band (S71-48 연결점 유지)
         run: node --test tests/hover-band.test.mjs
       - name: Check note board mindmap (S69-82 브레인스토밍·마인드맵)

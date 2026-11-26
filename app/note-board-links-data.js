@@ -14,6 +14,8 @@
 // - S71-51 모든 칸 가지 칸(카드 부모 parent_note·글자·도형 가지, migration 20261126230000)이 아직 없으면 꾸미기 칸으로 다시 읽고(branch=false),
 //   카드 아래 가지·글자·도형 가지만 '준비 중'으로 알린다(상자 가지는 지금 그대로). 화면 줄은 parent_id 하나 + parent_card(부모가 카드)로 본다 —
 //   서버로는 parent_card면 parent_note에, 아니면 parent_id에 보낸다(둘 중 하나만, 서버 check와 같음).
+// - S71-53 관계선 칸(선 종류 kind 'line'·'relation', migration 20261127010000)이 아직 없으면 점 끝 칸으로 다시 읽고(relation=false),
+//   관계선 만들기는 막는다('준비 중' 한 줄, 화면은 관계 잇기 메뉴를 보이지 않음). 관계선을 일반 선으로 바꿔 저장하지 않는다(kind가 없는 줄은 서버에 보내지 않음).
 // - 화면은 바로 바뀌고(서버 답을 기다리지 않음) 실패하면 알리고 서버 값으로 다시 불러온다.
 import { parseLink, parseText, endId } from './note-board-links-model.mjs';
 import { nodeShape } from './note-board-mindmap-model.mjs';
@@ -23,6 +25,8 @@ const FIELDS_V1 = 'id,board_id,from_note,to_note,from_side,to_side,shape,dash,en
 const FIELDS = FIELDS_V1 + ',from_text,to_text,bend_x,bend_y';
 const LINE_KEYS = ['from_x', 'from_y', 'to_x', 'to_y', 'color', 'width'];
 const FIELDS_LINES = `${FIELDS},${LINE_KEYS.join(',')}`;
+const FIELDS_REL = `${FIELDS_LINES},kind`; // S71-53
+const linkFields = ({v2 = true, lines = true, relation = false} = {}) => (!v2 ? FIELDS_V1 : !lines ? FIELDS : relation ? FIELDS_REL : FIELDS_LINES);
 const TEXT_FIELDS_V2 = 'id,board_id,body,x,y';
 const MAP_KEYS = ['parent_id', 'ord', 'side', 'kind', 'color', 'shape', 'font', 'w', 'collapsed'];
 const TEXT_FIELDS = `${TEXT_FIELDS_V2},${MAP_KEYS.join(',')}`;
@@ -47,7 +51,7 @@ const toNode = row => nodeShape(parseText(row), row);
 export async function readBoardLinks(rt = window.KPTURuntime) {
   const where = `workspace_id=eq.${enc(ws(rt))}`;
   const get = fields => rt.api(`${TABLE}?${where}&select=${fields}&order=created_at.asc,id.asc&limit=10000`);
-  const linksAsk = get(FIELDS_LINES);
+  const linksAsk = get(FIELDS_REL);
   const getTexts = fields => rt.api(`${TEXTS}?${where}&select=${fields}&order=created_at.asc,id.asc&limit=10000`);
   const older = async () => { try { return {ok:true, got:await getTexts(TEXT_FIELDS_V2), mindmap:false}; } catch { return {ok:false}; } };
   const frameAsk = () => getTexts(TEXT_FIELDS_FRAME).then(got => ({ok:true, got, mindmap:true, frame:true, decor:false}), async error => {
@@ -57,9 +61,9 @@ export async function readBoardLinks(rt = window.KPTURuntime) {
   });
   const decorAsk = () => getTexts(TEXT_FIELDS_DECOR).then(got => ({ok:true, got, mindmap:true, frame:true, decor:true, branch:false}), error => (missingNewColumn(error) ? frameAsk() : {ok:false}));
   const textsAsk = getTexts(TEXT_FIELDS_BRANCH).then(got => ({ok:true, got, mindmap:true, frame:true, decor:true, branch:true}), error => (missingNewColumn(error) ? decorAsk() : {ok:false}));
-  let rows, v2 = true, lines = true;
+  let rows, v2 = true, lines = true, relation = true;
   const oldLinks = async () => { // 점 끝·선 색 칸 적용 전: S68-38c 칸으로, 그것도 없으면 옛 칸으로
-    lines = false;
+    lines = false; relation = false;
     try { return {rows:await get(FIELDS)}; }
     catch (error) {
       if (!missingColumn(error) || /404|PGRST205|42P01/.test(errText(error))) return {fail:error};
@@ -68,30 +72,37 @@ export async function readBoardLinks(rt = window.KPTURuntime) {
   };
   let got;
   try { got = {rows:await linksAsk}; }
-  catch (error) { got = missingNewColumn(error) ? await oldLinks() : {fail:error}; }
+  catch (error) {
+    if (!missingNewColumn(error)) got = {fail:error};
+    else { // S71-53: 관계선 칸(kind) 적용 전 — 점 끝 칸으로, 그것도 없으면 더 옛 칸으로
+      relation = false;
+      try { got = {rows:await get(FIELDS_LINES)}; } catch (again) { got = missingNewColumn(again) ? await oldLinks() : {fail:again}; }
+    }
+  }
   if (got.fail) { await textsAsk; return {ready:false, links:[], missing:missingTable(got.fail), texts:[], textsReady:false}; }
   rows = got.rows;
   const t = await textsAsk, textsReady = v2 && t.ok;
   const texts = textsReady ? (Array.isArray(t.got) ? t.got : []).map(toNode).filter(Boolean) : [];
-  return {ready:true, v2, lines:v2 && lines, links:(Array.isArray(rows) ? rows : []).map(parseLink).filter(Boolean), texts, textsReady, mindmap:textsReady && !!t.mindmap, frame:textsReady && !!t.frame, decor:textsReady && !!t.decor, branch:textsReady && !!t.branch};
+  return {ready:true, v2, lines:v2 && lines, relation:v2 && lines && relation, links:(Array.isArray(rows) ? rows : []).map(parseLink).filter(Boolean), texts, textsReady, mindmap:textsReady && !!t.mindmap, frame:textsReady && !!t.frame, decor:textsReady && !!t.decor, branch:textsReady && !!t.branch};
 }
 const v2Body = body => Object.fromEntries(Object.entries(body).filter(([k, v]) => !V2_KEYS.includes(k) || v != null));
 const linesBody = body => Object.fromEntries(Object.entries(body).filter(([k, v]) => !LINE_KEYS.includes(k) || v != null));
 export async function addBoardLink({board_id, from_note = null, to_note = null, from_text = null, to_text = null, from_side = null, to_side = null, shape = 'line', dash = 'solid', ends = 'end', label = null, bend_x = null, bend_y = null,
-  from_x = null, from_y = null, to_x = null, to_y = null, color = null, width = null}, rt = window.KPTURuntime, {v2 = true, lines = true} = {}) {
+  from_x = null, from_y = null, to_x = null, to_y = null, color = null, width = null, kind = 'line'}, rt = window.KPTURuntime, {v2 = true, lines = true, relation = false} = {}) {
   let body = {workspace_id:ws(rt), board_id, from_note, to_note, from_text, to_text, from_side, to_side, shape, dash, ends, label, bend_x, bend_y, from_x, from_y, to_x, to_y, color, width};
   body = linesBody(body); // 새 칸(점 끝·선 색·두께)은 값이 있을 때만 보낸다 — 옛 선 넣기는 옛 모양 그대로
-  const rows = await rt.api(`${TABLE}?select=${!v2 ? FIELDS_V1 : lines ? FIELDS_LINES : FIELDS}`, {method:'POST', prefer:'return=representation', body:v2 ? body : v2Body(body)});
+  if (kind === 'relation') { if (!relation) throw new Error('관계선은 아직 서버에 저장할 수 없어요.'); body.kind = 'relation'; } // S71-53: 관계선은 칸이 있을 때만(일반 선으로 바꿔 저장하지 않음)
+  const rows = await rt.api(`${TABLE}?select=${linkFields({v2, lines, relation})}`, {method:'POST', prefer:'return=representation', body:v2 ? body : v2Body(body)});
   const link = Array.isArray(rows) && rows.length === 1 ? parseLink(rows[0]) : null;
   if (!link) throw new Error('연결선을 저장하지 못했어요.');
   return link;
 }
 const PATCHABLE = ['from_note', 'to_note', 'from_side', 'to_side', 'shape', 'dash', 'ends', 'label', ...V2_KEYS, 'from_text', 'to_text', ...LINE_KEYS];
-export async function updateBoardLink(id, patch, rt = window.KPTURuntime, {v2 = true, lines = true} = {}) {
+export async function updateBoardLink(id, patch, rt = window.KPTURuntime, {v2 = true, lines = true, relation = false} = {}) {
   let body = Object.fromEntries(Object.entries(patch).filter(([k]) => PATCHABLE.includes(k)));
   if (!lines) body = Object.fromEntries(Object.entries(body).filter(([k]) => !LINE_KEYS.includes(k)));
   if (!v2) body = v2Body(body);
-  const rows = await rt.api(`${TABLE}?id=eq.${enc(id)}&workspace_id=eq.${enc(ws(rt))}&select=${!v2 ? FIELDS_V1 : lines ? FIELDS_LINES : FIELDS}`, {method:'PATCH', prefer:'return=representation', body});
+  const rows = await rt.api(`${TABLE}?id=eq.${enc(id)}&workspace_id=eq.${enc(ws(rt))}&select=${linkFields({v2, lines, relation})}`, {method:'PATCH', prefer:'return=representation', body});
   const link = Array.isArray(rows) && rows.length === 1 ? parseLink(rows[0]) : null;
   if (!link) throw new Error('연결선을 바꾸지 못했어요.');
   return link;
@@ -148,7 +159,7 @@ const needsLines = body => LINE_KEYS.some(k => body[k] != null) || body.shape ==
 
 // 노트 화면 하나가 쓰는 연결선·글 상자 모음(한 작업공간). scope(): 지금 작업공간 표시(바뀌면 늦은 답은 버림). onChange: 다시 그리기. toast: 알림 한 줄.
 export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, onChange = () => {}, toast = () => {}} = {}) {
-  let links = [], texts = [], ready = false, v2 = false, lines = false, textsReady = false, mindmap = false, frame = false, decor = false, branch = false, missing = false, loading = null, loadedFor;
+  let links = [], texts = [], ready = false, v2 = false, lines = false, relation = false, textsReady = false, mindmap = false, frame = false, decor = false, branch = false, missing = false, loading = null, loadedFor;
   async function load(force = false) {
     const owner = scope();
     if (!force && loadedFor === owner) return loading; // 한 작업공간에 한 번(실패해도 다시 그릴 때마다 묻지 않음 — 선을 그으려 하면 알림)
@@ -156,12 +167,13 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
     const run = (async () => {
       const r = await readBoardLinks(rt);
       if (owner !== scope()) return;
-      links = r.links; ready = r.ready; v2 = !!r.v2; lines = !!r.lines; texts = r.texts || []; textsReady = !!r.textsReady; mindmap = !!r.mindmap; frame = !!r.frame; decor = !!r.decor; branch = !!r.branch; missing = !!r.missing; onChange();
+      links = r.links; ready = r.ready; v2 = !!r.v2; lines = !!r.lines; relation = !!r.relation; texts = r.texts || []; textsReady = !!r.textsReady; mindmap = !!r.mindmap; frame = !!r.frame; decor = !!r.decor; branch = !!r.branch; missing = !!r.missing; onChange();
     })();
     loading = run; try { await run; } finally { if (loading === run) loading = null; }
   }
   const failed = async text => { toast(text); await load(true); };
   const blocked = (body = null) => {
+    if (ready && body?.kind === 'relation' && !relation) { toast('관계선은 아직 서버에 저장할 수 없어요(준비 중).'); return true; } // S71-53
     if (ready && (!body || ((v2 || !needsV2(body)) && (lines || !needsLines(body))))) return false;
     if (ready) { toast(v2 ? '선 넣기·선 끝 옮기기·꺾은선·선 색은 아직 서버에 저장할 수 없어요(준비 중).' : '상자 잇기·곡선은 아직 서버에 저장할 수 없어요(준비 중).'); return true; }
     toast(missing ? '연결선은 아직 서버에 저장할 수 없어요(준비 중).' : '연결선을 불러오지 못했어요. 잠시 뒤 다시 해 주세요.');
@@ -216,13 +228,15 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
   const branchOf = id => { const out = new Set([id]); let grew = true; while (grew) { grew = false; for (const t of texts) if (t.parent_id && out.has(t.parent_id) && !out.has(t.id)) { out.add(t.id); grew = true; } } return out; };
   const api = {
     load,
-    reset() { links = []; texts = []; ready = false; v2 = false; lines = false; textsReady = false; mindmap = false; frame = false; decor = false; branch = false; missing = false; loadedFor = undefined; },
+    reset() { links = []; texts = []; ready = false; v2 = false; lines = false; relation = false; textsReady = false; mindmap = false; frame = false; decor = false; branch = false; missing = false; loadedFor = undefined; },
     mindmapReady:() => mindmap,
     frameReady:() => mindmap && frame,
     decorReady:() => mindmap && frame && decor,
     branchReady:() => mindmap && frame && decor && branch,
     checkBranch:() => !branchBlocked(),
     linesReady:() => ready && v2 && lines,
+    relationReady:() => ready && v2 && lines && relation, // S71-53 관계선 칸(kind)이 있나
+    checkRelation:() => !blocked({kind:'relation'}),
     checkDecor:() => !decorBlocked(),
     checkLines:() => !blocked({from_x:0}),
     checkMindmap:() => !mapBlocked(),
@@ -235,10 +249,10 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
     textsFor:boardId => texts.filter(t => t.board_id === boardId),
     async add(link) {
       if (blocked(link)) return null;
-      const temp = {id:tempId('l'), from_note:null, to_note:null, from_text:null, to_text:null, from_x:null, from_y:null, to_x:null, to_y:null, color:null, width:null, from_side:null, to_side:null, shape:'line', dash:'solid', ends:'end', label:null, bend_x:null, bend_y:null, ...link, pending:true};
+      const temp = {id:tempId('l'), from_note:null, to_note:null, from_text:null, to_text:null, from_x:null, from_y:null, to_x:null, to_y:null, color:null, width:null, from_side:null, to_side:null, shape:'line', dash:'solid', ends:'end', label:null, bend_x:null, bend_y:null, kind:'line', ...link, pending:true};
       links = [...links, temp]; onChange();
       const owner = scope();
-      try { const saved = await addBoardLink(link, rt, {v2, lines}); if (owner !== scope()) return null; links = links.map(l => (l.id === temp.id ? saved : l)); onChange(); return saved; }
+      try { const saved = await addBoardLink(link, rt, {v2, lines, relation}); if (owner !== scope()) return null; links = links.map(l => (l.id === temp.id ? saved : l)); onChange(); return saved; }
       catch { if (owner === scope()) await failed('연결선을 저장하지 못했어요. 다시 불러올게요.'); return null; }
     },
     async update(id, patch) {
@@ -246,7 +260,7 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
       const old = links.find(l => l.id === id); if (!old || old.pending) return;
       links = links.map(l => (l.id === id ? {...l, ...patch} : l)); onChange();
       const owner = scope();
-      try { const saved = await updateBoardLink(id, patch, rt, {v2, lines}); if (owner === scope()) { links = links.map(l => (l.id === id ? saved : l)); onChange(); } }
+      try { const saved = await updateBoardLink(id, patch, rt, {v2, lines, relation}); if (owner === scope()) { links = links.map(l => (l.id === id ? saved : l)); onChange(); } }
       catch { if (owner === scope()) await failed('연결선을 바꾸지 못했어요. 다시 불러올게요.'); }
     },
     async remove(id) {

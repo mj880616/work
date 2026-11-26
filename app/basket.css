@@ -403,6 +403,18 @@ html.nb-full-on #noteDocMenu { z-index:60; }
 .nb-label { font-size:11px; fill:var(--kptu-ink); stroke:var(--nb-board-bg,var(--kptu-surface-subtle)); stroke-width:4px; stroke-linejoin:round; paint-order:stroke; pointer-events:none; }
 .nb-temp[hidden] { display:none; }
 .nb-temp { fill:none; stroke:var(--nb-link-on); stroke-width:1.6; stroke-dasharray:4 4; }
+/* S71-53 NOTE-관계선: 가지와 다른 점선 곡선(작은 화살표). 멀리 볼 때(배율 0.5 미만) 흐리게, 고른 칸의 관계선만 진하게. 접힌 칸으로 모인 관계선은 짧은 점. */
+.nb-rel .nb-line { stroke-dasharray:6 5; stroke-width:var(--nb-line-w,1.4px); }
+.nb-rel.nb-rel-gather .nb-line { stroke-dasharray:2 4; }
+.nb-rel.nb-rel-on .nb-line { stroke:var(--nb-line-c,var(--nb-link-on)); stroke-width:calc(var(--nb-line-w,1.4px) + .6px); }
+.nb-arrow-rel path { fill:var(--nb-link); }
+.nb[data-nb-small]:not([data-nb-export]) .nb-rel:not(.nb-rel-on,.nb-line-sel) { opacity:.3; }
+.nb.nb-wiring-rel .nb-temp { stroke-dasharray:6 5; }
+.nb-relbar .nb-relbar-msg { padding-right:8px; max-width:56vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nb.nb-rel-picking :is(.nb-card,.nb-text) { cursor:crosshair; }
+:is(.nb-card,.nb-text).nb-rel-from { outline:2px dashed var(--nb-link-on); outline-offset:3px; }
+.nb-text.nb-flash { animation:nb-flash 1.2s ease-out; }
+@media (prefers-reduced-motion:reduce) { .nb-text.nb-flash { animation:none; outline:2px solid var(--kptu-primary); } }
 .nb-cards { position:absolute; left:0; top:0; width:0; height:0; }
 .nb-card { position:absolute; width:128px; height:34px; box-sizing:border-box; background:var(--nb-paper); color:var(--ds-note-ink); border-radius:var(--ds-radius-control,8px); box-shadow:var(--ds-note-shadow); touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 .nb-card.nb-dragging, .nb-card.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); }

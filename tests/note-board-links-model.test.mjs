@@ -8,7 +8,7 @@ import {createBoardLinks, readBoardLinks} from '../app/note-board-links-data.js'
 import {CARD_W, CARD_H} from '../app/note-board-model.mjs';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
-const row = (over = {}) => ({id:'l1', board_id:'all', from_note:'a', to_note:'b', from_text:null, to_text:null, from_x:null, from_y:null, to_x:null, to_y:null, from_side:null, to_side:null, shape:'line', dash:'solid', ends:'end', label:null, bend_x:null, bend_y:null, color:null, width:null, ...over});
+const row = (over = {}) => ({id:'l1', board_id:'all', from_note:'a', to_note:'b', from_text:null, to_text:null, from_x:null, from_y:null, to_x:null, to_y:null, from_side:null, to_side:null, shape:'line', dash:'solid', ends:'end', label:null, bend_x:null, bend_y:null, color:null, width:null, kind:'line', ...over}); // S71-53: 선 종류(옛 줄은 'line')
 
 test('서버 줄 모양 검사: 틀린 보드 id·같은 노트·없는 칸은 버리고, 모르는 값은 기본값', () => {
   assert.deepEqual(parseLink(row()), row());

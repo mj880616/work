@@ -625,6 +625,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(),
       // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
       decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), branchReady:() => boardLinks.branchReady(), canBranch:() => boardLinks.checkBranch(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
+      // S71-53 관계선: 선 종류 칸(kind)이 있는 서버에서만 [관계 잇기]. 자주 쓴 이름은 작업공간 모든 보드의 관계선에서 센다.
+      relationReady:() => boardLinks.relationReady(), canRelation:() => boardLinks.checkRelation(), allLinks:() => boardLinks.all(),
       // S70-32 ②: 사진 끌어 놓기·붙여넣기·[이미지] → 사진 정보를 지우고 사진 한 장뿐인 노트로(노트 첨부, owner만) → 놓은 자리에 붙임.
       onImages:(files, point) => { if (!busy) void boardImages.add(files, point); }, photoUrl:(noteId, fileId) => diaryPhotoUrl(noteId, fileId, 'large', {rt}),
       // S71-49 [나]: 사진 카드 두 번 누름(폰은 고른 사진 한 번 더) = 보드 위 크게 보기(공용 photo-view.js — Esc·바깥·뒤로가기로 닫으면 보드 그대로). 노트 화면으로 가지 않는다.
@@ -988,6 +990,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // S69-88(명진 11/25 02:48 "노트 내용, 링크는 유지하더라도 텍스트는 다르게"): 이 보드에서만 카드에 보일 글자(별명) · 손으로 정한 카드 크기 되돌리기.
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-label', '보드에 보일 글자']] : []),
       ...(from === 'list' && view === 'board' && boards.isNamed() && boards.isSized(note) ? [['data-nbb-autosize', '카드 크기 자동']] : []),
+      // S71-53 NOTE-관계선: 보드 위 카드(사진·파일 카드 포함)에서 다른 칸으로 관계선 잇기 · 이어진 관계 목록(누르면 그 칸으로).
+      ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) && board && boardLinks.relationReady() ? [['data-nbb-relate', '관계 잇기'], ...(board.relationCount(note.id) ? [['data-nbb-relations', `관계 ${board.relationCount(note.id)}개`]] : [])] : []),
       ...(from === 'list' && view === 'board' && boards.isNamed() && !onBoard(note, boards.current()) ? [['data-nbb-attach', '보드에 붙이기']] : []),
       ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
       // NOTE-링크원문: 본문(또는 원문 정보)에 https 링크가 있으면 [원문 가져오기] — 이미 쓴 글은 덮지 않고 아래에 붙인다(다시 가져오기도 이것 하나).
@@ -2173,6 +2177,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nbb-detach')) boards.detach(note.id);
     else if (b.hasAttribute('data-nbb-label')) void boards.relabel(note, from.trigger);
     else if (b.hasAttribute('data-nbb-autosize')) boards.autosize(note.id);
+    else if (b.hasAttribute('data-nbb-relate')) board?.startRelation(note.id);
+    else if (b.hasAttribute('data-nbb-relations')) board?.openRelations(note.id);
     else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);
     else if (b.hasAttribute('data-note-copy')) void telegram(note, from.trigger); // UI-눌림느낌: the menu is closed, so the row's ⋯ shows the ✓
     else if (b.hasAttribute('data-note-pin')) void pin(note);

@@ -22,7 +22,7 @@ test('PC: 주제 오른쪽 클릭 = 작은 메뉴(막대 동작 + 삭제), [삭�
   await page.mouse.click(c.x, c.y, { button: 'right' });
   await expect(menu(page)).toBeVisible();
   const names = (await menu(page).locator('button').allInnerTexts()).map(t => t.trim());
-  expect(names).toEqual(['수정', '+ 하위', '+ 형제', '색', '테두리', '글자', '모양', '글자 작게', '글자 크게', '노트로 만들기', '삭제']);
+  expect(names).toEqual(['수정', '+ 하위', '+ 형제', '색', '테두리', '글자', '모양', '글자 작게', '글자 크게', '노트로 만들기', '관계 잇기', '삭제']); // S71-53: 관계선 칸이 있는 서버면 [관계 잇기]
   // 메뉴는 누른 자리 근처
   const mb = await nbBox(menu(page));
   expect(Math.abs(mb.x - c.x)).toBeLessThan(220); expect(Math.abs(mb.y - c.y)).toBeLessThan(220);
