@@ -23,7 +23,8 @@ async function open(page, width, { unread = true } = {}) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav button:visible', { hasText: '저장한 글' }).click();
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: '저장한 글', exact: true }).click();
-  const head = page.locator('#readingView [data-rd-list] .rd-head');
+  // S71-26 SAVED-머리한줄: ＋는 화면 이름 줄(찾기 오른쪽)로 가 목록 머리 줄(.rd-head)은 없다 — '머리 줄'은 목록 칸 첫 줄(보기 탭)로 잰다.
+  const head = page.locator('#readingView [data-rd-list]');
   await expect(page.locator(`#readingView .rd-row[data-rd-open="${ID}"]`)).toBeVisible();
   return { errors, head };
 }
@@ -42,7 +43,7 @@ const clipped = head => head.evaluate(el => {
   return bad;
 });
 
-test('목록 머리 제목 안 잘림 PC 1280: 글을 열어 왼쪽 칸이 좁아도 머리 줄 칸이 잘리지 않고, 제목 대신 위 줄 화면 이름·탭·＋', async ({ page }) => {
+test('목록 머리 제목 안 잘림 PC 1280: 글을 열어 왼쪽 칸이 좁아도 첫 줄 탭이 잘리지 않고, 제목 대신 위 줄 화면 이름·＋', async ({ page }) => {
   test.setTimeout(60000);
   const { errors, head } = await open(page, 1280);
   await page.locator(`#readingView .rd-row[data-rd-open="${ID}"]`).click();
@@ -50,24 +51,25 @@ test('목록 머리 제목 안 잘림 PC 1280: 글을 열어 왼쪽 칸이 좁�
   await expect(page.locator('#appView>.app-topline')).toContainText('저장한 글');
   await expect(head.locator('.rd-title')).toHaveCount(0);
   expect(await clipped(head)).toEqual([]);
-  const add = head.locator('.rd-add');
+  await expect(head.locator('.rd-head, .rd-add')).toHaveCount(0);
+  const add = page.locator('#appView>.app-topline [data-rd-add]');
   await expect(add).toHaveClass(/icon-btn/);
   await expect(add).toHaveAttribute('aria-label', '글 추가');
   await expect(add).toHaveText('＋');
-  // 탭이 머리 줄 맨 앞, ＋가 줄 끝.
-  const [hb, sb, ab] = await Promise.all([head.boundingBox(), head.locator('.rd-switch').boundingBox(), add.boundingBox()]);
+  // 탭이 목록 첫 줄 맨 앞.
+  const [hb, sb] = await Promise.all([head.boundingBox(), head.locator('.rd-switch').boundingBox()]);
   expect(sb.x - hb.x).toBeLessThanOrEqual(1);
-  expect(hb.x + hb.width - (ab.x + ab.width)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
 });
 
-test('목록 머리 폰 390: 화면 이름은 앱 머리 줄 한 번(머리 줄 제목 없음), ＋ 아이콘, 탭은 하단바 위 전환 줄', async ({ page }) => {
+test('목록 머리 폰 390: 화면 이름은 앱 머리 줄 한 번(머리 줄 제목 없음), ＋는 앱 머리 줄, 탭은 하단바 위 전환 줄', async ({ page }) => {
   test.setTimeout(60000);
   const { errors, head } = await open(page, 390);
   await expect(page.locator('.mobile-shell-header [data-mobile-view-name]')).toHaveText('저장한 글');
   await expect(head.locator('.rd-title')).toHaveCount(0);
   expect(await clipped(head)).toEqual([]);
-  await expect(head.locator('.rd-add')).toHaveAttribute('aria-label', '글 추가');
+  await expect(head.locator('.rd-head, .rd-add')).toHaveCount(0);
+  await expect(page.locator('.mobile-shell-header [data-rd-add]')).toHaveAttribute('aria-label', '글 추가');
   expect(errors).toEqual([]);
 });
 

@@ -178,9 +178,13 @@ test('5. 주요 일정: only events of the 공공운수노조 calendar; no such 
   assert.deepEqual([none.rows, none.vacations, none.noCalendar], [[], [], true]);
   assert.equal(m.scheduleForm(none, '나').calendar.length, 14);
   assert.ok(m.scheduleForm(none, '나').calendar.every(d => !d.items.length));
-  // MULTI ②-3: 보고 캘린더를 정하지 않은 사람 — 아무 일정도 넣지 않고 '미지정'을 알린다('못 찾음'이 아님).
+  // S71-34 PROFILE-주간캘린더칸삭제: 업무 캘린더 값이 없는 사람 — 모든 캘린더 일정을 업무로 본다('미지정' 안내 없음, '못 찾음'도 아님).
   const unset = m.upcomingSchedule(events, '2026-10-05', '');
-  assert.deepEqual([unset.rows, unset.vacations, unset.unsetCalendar, unset.noCalendar], [[], [], true, false]);
+  assert.deepEqual(unset.rows.flatMap(r => r.items.map(i => i.title)).sort(), ['가상 개인', '가상 경기', '가상 생일', '가상 업무 회의', '이름 모름'].sort());
+  assert.deepEqual(unset.vacations.map(v => v.title), ['연차']);
+  assert.equal(unset.noCalendar, false);
+  assert.equal('unsetCalendar' in unset, false);
+  for (const e of events) assert.equal(m.isReportCalendar(e, ''), true);
   // 다른 이름을 정한 사람은 그 이름의 달력만.
   const other = m.upcomingSchedule(events, '2026-10-05', '가상 다른 달력');
   assert.deepEqual(other.rows.map(r => r.items.map(i => i.what)), [['10:00 / 가상 생일']]);

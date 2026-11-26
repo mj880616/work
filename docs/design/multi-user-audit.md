@@ -1,4 +1,4 @@
-# MULTI-노조사용자 단계 ① 사람별 분리 전수 점검 + 명진 전용 잠금 (조사·설계)
+# MULTI-노조사용자 단계 ① 사람별 분리 전수 점검 + 사용자 전용 잠금 (조사·설계)
 
 - 원장 행: MULTI-노조사용자 (맨 뒤 순서). 요청 원문: Drive 'Web2 요청함' 10/29 01:02 항목, [10/29 01:07~01:15 사용자 결정].
 - 기준: `main` `78bca261f` (2026-10-29). 저장소만 읽었고 production 조회는 하지 않았다(웹 세션, AGENTS.md 1절).
@@ -12,10 +12,10 @@
 | DB 표 61개(저장소에서 만든 것) | 54개가 `private.app_is_workspace_owner(workspace_id)`로 '내 작업공간'만 허용. 7개는 서비스 키 전용·권한 없음 | **사람마다 작업공간 1개**를 주면 대부분 그대로 분리됨 |
 | DB 기본 표 약 45개 | 정의·일부 정책이 저장소에 없음(운영에만 있음) | **운영 catalog 전량 조회가 먼저 필요** |
 | 작업공간 만들기 | 만드는 경로가 저장소에 없음(가입 트리거·생성 RPC 0건) | 가입 때 작업공간을 만드는 서버 함수가 새로 필요(단계 ②) |
-| Google Drive | 프로젝트 전체에 연결 1개(`public_policy_drive_config` id=1). 10여 개 Edge가 같이 씀 | **다른 사람 파일이 명진 Drive로 감. 바구니 폴더는 섞임** → 사람별 Drive 연결로 구조 변경(단계 ②) |
+| Google Drive | 프로젝트 전체에 연결 1개(`public_policy_drive_config` id=1). 10여 개 Edge가 같이 씀 | **다른 사람 파일이 사용자 Drive로 감. 바구니 폴더는 섞임** → 사람별 Drive 연결로 구조 변경(단계 ②) |
 | 캘린더·할 일 연결 | 이미 사람별(`app_google_calendar_connections.user_id`) | 그대로 사용 가능 |
-| 통화·텔레그램 수집 | `collector-feed`가 고정 작업공간 이름으로 씀, 비밀값 하나=명진 수집기 하나 | 구조상 이미 명진 전용. **읽는 쪽(화면·RPC·ai-assist)은 작업공간 owner면 누구나 열림** → 서버 잠금 필요(3절) |
-| 고정 작업공간 이름 | 화면 4곳·Edge 5곳 | 명진 전용 기능 판정을 이 이름 대신 '기능 허용 표'로 바꿔야 함 |
+| 통화·텔레그램 수집 | `collector-feed`가 고정 작업공간 이름으로 씀, 비밀값 하나=사용자 수집기 하나 | 구조상 이미 사용자 전용. **읽는 쪽(화면·RPC·ai-assist)은 작업공간 owner면 누구나 열림** → 서버 잠금 필요(3절) |
+| 고정 작업공간 이름 | 화면 4곳·Edge 5곳 | 사용자 전용 기능 판정을 이 이름 대신 '기능 허용 표'로 바꿔야 함 |
 | RTW(읽생기) | Auth 공유. rtw 표는 베타 허용 목록으로 이미 막힘 | 가입만으로 읽생기 자료가 열리지는 않음. 탈퇴 함수 판정만 확인 필요(4절) |
 
 ## 1. 지금 구조와 충돌하는 규칙 목록
@@ -29,11 +29,11 @@
 | AGENTS.md 5절 익명 차단(115줄) | 비로그인은 로더가 로그인으로 보냄 | 유지. 다만 '로그인했지만 작업공간 없음'(지금은 접근 거부 화면)이 '가입 → 작업공간 자동 생성'으로 바뀜 |
 | AGENTS.md 5절 협업 구조(121줄) | 작업공간 구성원·역할·초대·참석자·배정은 Task 19~31에서 제거 예정, 새 기능을 얹지 않음 | **충돌 없음**. 각자 따로 쓰는 구조라 협업 표는 계속 필요 없음. 단, 소유자 판정의 뿌리인 `app_workspace_members`(role='owner' 행)는 제거 대상에서 빼고 '사람↔작업공간 연결표'로 남겨야 함 |
 | AGENTS.md 5절 RTW(120줄) | RTW는 같은 Supabase·Auth를 쓰는 별개 제품, rtw_* 건드리지 않음 | 가입 허용 방식이 Auth 공유라 RTW에도 영향(4절). rtw_* 수정은 계속 금지 |
-| `private.app_is_workspace_owner` (`20260925084844_task12a_sole_owner_db.sql:5-19`) | 작업공간 구성원 표에 (그 작업공간, 나, owner) 행이 있으면 참 | 함수 자체는 사람마다 작업공간 1개면 그대로 맞음. '명진만' 판정은 이 함수로 못 함 → 새 판정 함수 필요(3절) |
+| `private.app_is_workspace_owner` (`20260925084844_task12a_sole_owner_db.sql:5-19`) | 작업공간 구성원 표에 (그 작업공간, 나, owner) 행이 있으면 참 | 함수 자체는 사람마다 작업공간 1개면 그대로 맞음. '사용자만' 판정은 이 함수로 못 함 → 새 판정 함수 필요(3절) |
 | Task 12a 정책 `task12a_owner_all`(`app_workspaces`·`app_workspace_members`, 같은 파일 198-203) | 이미 owner인 사람만 작업공간·구성원 행을 씀 | 새 사람은 스스로 작업공간을 못 만듦. 가입 때 서버(DEFINER 함수)가 만들어 줘야 함 |
 | 운영 전용 트리거 `trg_app_enforce_workspace_member_role`(문서 `docs/web2-account1-env6-investigation.md:55`) | 고정 메일로 역할을 정함 | 새 사람 owner 행과 부딪칠 수 있음. 운영 정의 확인 후 정리(단계 ②) |
 | `docs/web2-bundle-a-investigation.md:137-143` | Auth 가입을 막지 않은 이유=RTW와 설정 공유 | 유지. Web2 쪽에서 '가입 허용 여부'를 서버 함수로 판정 |
-| 사용자 원칙 '정보 원본: 자료 원문=Drive' | 명진 Drive | 각자 자기 Drive가 원본(요청 5번). 원칙 문장은 '각 사용자 Drive'로 |
+| 사용자 원칙 '정보 원본: 자료 원문=Drive' | 사용자 Drive | 각자 자기 Drive가 원본(요청 5번). 원칙 문장은 '각 사용자 Drive'로 |
 
 ### 1.2 규칙 문서를 바꿀 자리 (단계 ② 시작 PR에서, 아직 고치지 않음)
 
@@ -41,9 +41,9 @@
 - `app/ARCHITECTURE.md`의 시작 순서 설명(세션 확인 → 구성원 행 → 접근 거부)에 '작업공간 자동 생성' 경로 추가.
 - `docs/design/collab-structure-audit.md`·`docs/roadmap.md` Task 19~31 행: `app_workspace_members`를 제거 목록에서 빼는 설명(원장은 커맨드센터가 고침).
 
-### 1.3 명진 결정 문장 초안
+### 1.3 사용자 결정 문장 초안
 
-> 2026-10-29 사용자 결정(MULTI-노조사용자): Web2는 노조 사람(많아야 10명)이 **각자 자기 작업공간**에서 쓰는 개인 업무 시스템이다. 한 사람에 작업공간 하나, 작업공간 사이 공유·열람 화면은 만들지 않는다. 구글 계정이면 누구나 가입하고, 운영자(명진)는 이용 정지만 한다. 통화·텔레그램 기능은 운영자 작업공간에서만 서버가 허용한다. 협업 구조(구성원 역할·초대·참석자·배정)는 계속 제거 대상이며, 소유자 판정용 구성원 행(owner)만 남긴다.
+> 2026-10-29 사용자 결정(MULTI-노조사용자): Web2는 노조 사람(많아야 10명)이 **각자 자기 작업공간**에서 쓰는 개인 업무 시스템이다. 한 사람에 작업공간 하나, 작업공간 사이 공유·열람 화면은 만들지 않는다. 구글 계정이면 누구나 가입하고, 운영자는 이용 정지만 한다. 통화·텔레그램 기능은 운영자 작업공간에서만 서버가 허용한다. 협업 구조(구성원 역할·초대·참석자·배정)는 계속 제거 대상이며, 소유자 판정용 구성원 행(owner)만 남긴다.
 
 AGENTS.md 5절 첫 문단 교체안(영문 유지):
 
@@ -66,7 +66,7 @@ AGENTS.md 5절 첫 문단 교체안(영문 유지):
 | app_todo_candidates, app_todo_radar_state | WS | OWN | 없음 | radar는 작업공간당 1행(정상) |
 | app_ledger_imports·id_counters·topics·organizations·sources·records·record_sources·links·candidates·audit | WS | OWN(+되돌리기 전용 삭제) | 없음 | 번호표도 작업공간 기준 |
 | app_ledger_auto_runs·auto_sources·fix_requests·record_changes | WS | OWN | 없음 | auto_sources는 통화를 재료로 씀 |
-| app_task_attachments | WS | OWN | 없음 | 파일 자체는 명진 Drive(2.2) |
+| app_task_attachments | WS | OWN | 없음 | 파일 자체는 사용자 Drive(2.2) |
 | app_library_folders·folder_items·tidy_backups·tidy_attempts·classify_attempts | WS | OWN | 없음 | |
 | app_weekly_org_summaries, app_weekly_exec_requests | WS | OWN | 없음 | |
 | app_reference_bundles, app_dispute_stages | WS | OWN | 없음 | |
@@ -77,7 +77,7 @@ AGENTS.md 5절 첫 문단 교체안(영문 유지):
 | app_ai_external_usage, app_ai_cost_entries | WS | OWN 읽기(+넣기) | 없음 | 상한 계산 재료(단계 ③) |
 | **app_feed_items, app_feed_days** | WS | OWN 읽기·일부 고치기, service_role 넣기 | 수집기가 고정 작업공간에 씀(`20261024140000_call_tg_feed.sql:9`) | **통화·텔레그램** |
 | **app_call_personal** | WS | OWN, service_role 넣기 | 위와 같음 | **통화** |
-| app_tg_personal_days | — | — | **운영에 없음**: 만드는 `20261025030000` 미적용, 명진 10/28 결정(텔레그램은 1:1 포함 모두 업무방)으로 적용 계획 없음. 단계 ① 잠금 대상에서 뺌 | (없음) |
+| app_tg_personal_days | — | — | **운영에 없음**: 만드는 `20261025030000` 미적용, 사용자 10/28 결정(텔레그램은 1:1 포함 모두 업무방)으로 적용 계획 없음. 단계 ① 잠금 대상에서 뺌 | (없음) |
 | **app_call_edits, app_call_edit_history** | WS | OWN 읽기(쓰기는 RPC) | 없음 | **통화** |
 | **app_tg_senders, app_tg_day_senders** | WS | OWN 읽기(쓰기는 RPC) | 'owner 작업공간이 정확히 1개' 가정(`20261026190000_tg_sender_names.sql:205-210`) | **텔레그램** |
 | **app_feed_folders, app_feed_rooms, app_feed_room_days, app_feed_summary_edits, app_feed_summary_edit_history** | WS | OWN 읽기 | 같은 가정(`20261027010000_tg_room_day_group.sql:121-126`) | **텔레그램** |
@@ -115,39 +115,39 @@ Task 12a(`20260925084844_task12a_sole_owner_db.sql:101-123`)가 32개 표의 정
 
 ### 2.2 Edge 함수 (`docs/web2-env6b-edge-source.md` 5절 표 기준)
 
-| 함수 | verify_jwt | 코드 인증 | 명진 고정 값(파일:줄, 종류) | 다른 사람이 부르면 | 통화·텔레그램 |
+| 함수 | verify_jwt | 코드 인증 | 사용자 고정 값(파일:줄, 종류) | 다른 사람이 부르면 | 통화·텔레그램 |
 | --- | --- | --- | --- | --- | --- |
 | ai-assist | true | `/user` 확인 후 **본인이 owner인 작업공간 정확히 1개**(`handler.ts:599-614`), 화면이 보낸 작업공간은 안 받음, 모든 DB 접근이 사용자 JWT(RLS) | AI 지침에 조직·사람 문구(`ledger-auto.ts:132-133`, `business-area.ts:184`, `call-refill.ts:84`, `hwp-convert.ts:43`, `library-fill.ts:221`, `schedule-titles.ts:95`) | 자기 것만. 가장 잘 분리됨. 월 상한은 작업공간별(`:750`) | **예**: `call_refill`(`:3109`), `ledger_auto`(통화 재료 `:1462,1494,1628`), `org_people_brief`(`:2681`) |
-| collector-feed(배포 대기) | false | 비밀 헤더 하나, JWT 붙으면 거절 | 고정 작업공간 이름(`handler.ts:58,399`), 조직 이름(`context.ts:30`), AI 지침 사람 문구(`telegram.ts:42-47`) | 다른 사람 수집 경로 없음(명진 수집기 전용) | **예(전부)**: `call`·`call_skip`·`telegram`·`context` |
+| collector-feed(배포 대기) | false | 비밀 헤더 하나, JWT 붙으면 거절 | 고정 작업공간 이름(`handler.ts:58,399`), 조직 이름(`context.ts:30`), AI 지침 사람 문구(`telegram.ts:42-47`) | 다른 사람 수집 경로 없음(사용자 수집기 전용) | **예(전부)**: `call`·`call_skip`·`telegram`·`context` |
 | drive-summary | false | cron 비밀 / 사용자 JWT+고정 작업공간 owner / 수집 비밀 | 고정 작업공간 이름(`core.mjs:11`, `ledger-export.mjs:81`), 조직 목록(`core.mjs:27-33`), 단일 Drive(`:325`), 'owner 1명' 가정(`:312-314`) | 다른 사람은 403 | **예**: `heartbeat`(통화 전사·텔레그램 수집 상태), `ai_usage`(수집기 AI 사용량) |
-| public-policy-drive | false | `drive-start`는 고정 작업공간 owner/admin만(`index.ts:104-111`), callback은 state 해시 | 고정 작업공간 이름(`:104,238`), 단일 Drive 토큰 덮어쓰기(`:260`) | Drive 재연결은 명진만. 캘린더·할 일 토큰은 사람별 upsert(`:280-290`) | 아님 |
-| basket-files | false | `getUser`, 본인 구성원 1행 owner 확인(`handler.ts:84-103`) | 단일 Drive(`_shared/drive-upload.ts:49`), 고정 폴더 이름(`:242,255,272`) | **위험**: 새 작업공간은 명진 Drive의 같은 이름 폴더를 찾아 **그대로 씀**(`drive-upload.ts:252-272`) → 첨부 섞임 | 아님 |
-| document-actions | true | `/user`, 행의 작업공간 owner 확인(`:83`) | 단일 Drive(`:58`), 고정 백업 폴더(`_shared/hwp-edit.ts:41`) | 행 확인은 됨. 파일은 모두 명진 Drive, 백업 폴더 공용 | 아님 |
+| public-policy-drive | false | `drive-start`는 고정 작업공간 owner/admin만(`index.ts:104-111`), callback은 state 해시 | 고정 작업공간 이름(`:104,238`), 단일 Drive 토큰 덮어쓰기(`:260`) | Drive 재연결은 사용자만. 캘린더·할 일 토큰은 사람별 upsert(`:280-290`) | 아님 |
+| basket-files | false | `getUser`, 본인 구성원 1행 owner 확인(`handler.ts:84-103`) | 단일 Drive(`_shared/drive-upload.ts:49`), 고정 폴더 이름(`:242,255,272`) | **위험**: 새 작업공간은 사용자 Drive의 같은 이름 폴더를 찾아 **그대로 씀**(`drive-upload.ts:252-272`) → 첨부 섞임 | 아님 |
+| document-actions | true | `/user`, 행의 작업공간 owner 확인(`:83`) | 단일 Drive(`:58`), 고정 백업 폴더(`_shared/hwp-edit.ts:41`) | 행 확인은 됨. 파일은 모두 사용자 Drive, 백업 폴더 공용 | 아님 |
 | document-ai-index | true | 사용자 토큰으로 접근 확인 후 service role | 단일 Drive(`:17`), AI 지침 조직 문구(`:25,28`) | 자기 것만(RLS) | 아님 |
-| library-files | false | `getUser`, owner 확인 | 단일 Drive(`:25`), 고정 폴더 이름(`:28`), 출처 목록(`:61`) | 새 작업공간마다 명진 Drive에 같은 이름 폴더 생성 | 아님 |
-| meeting-files | false | owner 확인 | 단일 Drive(`:10`), 고정 폴더 이름(`:13-14`) | 명진 Drive에 생성 | 아님 |
-| meeting-ai-ingest | true | 사용자 JWT(RLS) | 단일 Drive(`:17`), AI 지침(`:23`) | 자기 것만, 파일은 명진 Drive | 아님 |
+| library-files | false | `getUser`, owner 확인 | 단일 Drive(`:25`), 고정 폴더 이름(`:28`), 출처 목록(`:61`) | 새 작업공간마다 사용자 Drive에 같은 이름 폴더 생성 | 아님 |
+| meeting-files | false | owner 확인 | 단일 Drive(`:10`), 고정 폴더 이름(`:13-14`) | 사용자 Drive에 생성 | 아님 |
+| meeting-ai-ingest | true | 사용자 JWT(RLS) | 단일 Drive(`:17`), AI 지침(`:23`) | 자기 것만, 파일은 사용자 Drive | 아님 |
 | meeting-ai-draft | true | 클라이언트 작업공간을 받되 owner 확인 | AI 지침(`:16`), 옛 admin/editor 분기(`:33-38`) | 자기 것만 | 아님(회의 녹취) |
 | page-ai-draft | true | 클라이언트 작업공간 + owner 확인(`:37-42,66`) | AI 지침(`:27`) | 자기 것만 | 아님 |
 | team-ai | false | 첫 구성원 행 하나(`index.ts:43`, `limit(1)`, **owner 확인 없음**) | AI 지침(`:47`) | 재료는 RLS가 막음. 옛 협업 표 읽음 | 아님 |
-| workspace-drive | false | owner 확인, 일회용 토큰 | 단일 Drive(`:9`), 고정 폴더 이름(`:12`), 출처 목록(`:15`) | 파일은 명진 Drive | 아님 |
+| workspace-drive | false | owner 확인, 일회용 토큰 | 단일 Drive(`:9`), 고정 폴더 이름(`:12`), 출처 목록(`:15`) | 파일은 사용자 Drive | 아님 |
 | event-media | false | `getUser`, 일정 owner 확인 | 없음 | 자기 것만(`list`는 전체를 읽고 거름, 범위 밖 10절) | 아님 |
 | google-calendar, google-tasks | false | `getUser`, 연결을 `user_id`로 찾음 | OAuth 앱 값만 Drive 행에서 읽음(앱 단위, 문제 아님). 할 일 첨부는 단일 Drive(`task-files.ts:13`) | 자기 구글 계정만 | 아님 |
 | onedrive-photos(배포 대기) | true | 본인 owner 확인(`handler.ts:1258-1267`) | 앱 단위 env만 | 작업공간별(정상) | 아님 |
 | share-page-media | true | 사용자 JWT(RLS) | 없음 | 자기 것만 | 아님 |
 | auth-handoff | false | Origin 허용 + `/user` | 허용 주소(사용자 값 아님) | 무관 | 아님 |
-| public-page-edit, pc0921-board | false | **Web1**. 고정 관리자 uuid 비교(`public-page-edit/index.ts:11,47`, `pc0921-board/index.ts:20`) | 고정 uuid | 명진만 통과(의도) | 아님 |
+| public-page-edit, pc0921-board | false | **Web1**. 고정 관리자 uuid 비교(`public-page-edit/index.ts:11,47`, `pc0921-board/index.ts:20`) | 고정 uuid | 사용자만 통과(의도) | 아님 |
 | share-page-read, pc0914-checklist | false | **Web1** 공개 | 허용 주소 | Web1 공개 | 아님 |
 | Web1 소스 없음 5개, rtw-* 7개 | 표대로 | 소스 없음 | 확인 불가 | – | – |
 
 Google 토큰 저장 요약:
 
-- **Drive: 전체에 1개**. `public_policy_drive_config` id=1 행(client id/secret/refresh token). 12곳이 읽고, 갱신은 `public-policy-drive:260` 한 곳(명진만). → 모든 작업공간의 자료실·회의·바구니·할 일 첨부·HWP 백업이 명진 Drive에 저장된다. **여러 사람으로 열기 전 가장 큰 구조 변경**(단계 ②의 '연결' 작업).
+- **Drive: 전체에 1개**. `public_policy_drive_config` id=1 행(client id/secret/refresh token). 12곳이 읽고, 갱신은 `public-policy-drive:260` 한 곳(사용자만). → 모든 작업공간의 자료실·회의·바구니·할 일 첨부·HWP 백업이 사용자 Drive에 저장된다. **여러 사람으로 열기 전 가장 큰 구조 변경**(단계 ②의 '연결' 작업).
 - 캘린더·할 일: 사람별(`app_google_calendar_connections`, `user_id`). 그대로 사용.
 - OneDrive: 작업공간별(`app_onedrive_connections`). 그대로 사용.
-- 비밀값: `COLLECTOR_FEED_SECRET`·`COLLECTOR_HEARTBEAT_SECRET`은 명진 수집기 전용, `WEB2_OPENAI_API_KEY`는 공용 비용(상한은 단계 ③).
+- 비밀값: `COLLECTOR_FEED_SECRET`·`COLLECTOR_HEARTBEAT_SECRET`은 사용자 수집기 전용, `WEB2_OPENAI_API_KEY`는 공용 비용(상한은 단계 ③).
 
-### 2.3 화면 코드의 명진 고정 값 (값은 적지 않음)
+### 2.3 화면 코드의 사용자 고정 값 (값은 적지 않음)
 
 | 종류 | 파일:줄 |
 | --- | --- |
@@ -162,7 +162,7 @@ Google 토큰 저장 요약:
 
 판정: 노조 서식·조직 이름·보고 캘린더 이름은 '노조 사람들이 모두 같은 조직'이라 대부분 그대로 써도 되지만, **담당조직 13곳(`organization-order.js`)과 보고 캘린더 이름은 사람마다 다르다** → 단계 ②에서 작업공간별 설정으로 옮길지 결정 필요(결정 D5).
 
-## 3. 명진 전용 잠금 설계 (통화·텔레그램)
+## 3. 사용자 전용 잠금 설계 (통화·텔레그램)
 
 ### 3.1 원칙
 
@@ -173,7 +173,7 @@ Google 토큰 저장 요약:
 
 ### 3.2 판정 함수
 
-- 새 표 `private.app_operator_features(workspace_id uuid, feature text, primary key(workspace_id, feature))`. private 스키마라 API 노출 없음. 행은 승인형 DB 적용으로 명진 작업공간에 `calls`, `telegram` 2행만 넣는다(작업공간 id는 SQL 안에서 현재 소유자 구성원 행으로 찾고, 문서·커밋에는 값을 적지 않음).
+- 새 표 `private.app_operator_features(workspace_id uuid, feature text, primary key(workspace_id, feature))`. private 스키마라 API 노출 없음. 행은 승인형 DB 적용으로 사용자 작업공간에 `calls`, `telegram` 2행만 넣는다(작업공간 id는 SQL 안에서 현재 소유자 구성원 행으로 찾고, 문서·커밋에는 값을 적지 않음).
 - 새 함수 `private.app_workspace_has_feature(p_workspace uuid, p_feature text) returns boolean` — SECURITY DEFINER, `search_path` 고정, `private.app_is_workspace_owner(p_workspace) and exists(허용 행)`.
 - 이미 있는 `app_private_feature_access`(사람·기능 키, `app/myspace-return.js:7`가 읽음)를 다시 쓸 수 있는지 **먼저 운영 정의 확인**(정책 원문이 저장소에 없음). 쓰기가 authenticated에 열려 있으면 재사용하지 않는다. 같은 목적의 표를 두 개 만들지 않기 위해, 재사용 가능하면 그쪽으로 판정 함수를 만든다(AGENTS.md 4절).
 
@@ -190,7 +190,7 @@ Google 토큰 저장 요약:
 | Edge `collector-feed` | 고정 작업공간 이름 대신 '비밀값 → 허용 행이 있는 작업공간'으로 찾음. 허용 행이 정확히 1개가 아니면 거절 |
 | Edge `drive-summary` `heartbeat`·`ai_usage`·`status` | 고정 이름 대신 판정 함수. 다른 사람은 403 |
 | 화면 메뉴 `app/menu-model.mjs:25-26`, PC `app/index.html:64-65`, 폰 `app/index.html:100-101`(`menu-layout.js:26-40`), 경로 `app/app-router.js:29`, `app/view-loader.js:39-40,180-182` | 시작 때 판정 RPC 한 번(공개 함수 `app_my_features()` — 내 작업공간의 기능 키 목록만 돌려줌)으로 메뉴에서 **삭제**(숨김 아님, 렌더 목록에서 뺌). 주소 직접 입력은 라우터가 '없는 화면'으로, 그래도 데이터는 서버가 거절 |
-| 화면 고정 작업공간 이름 4곳(2.3) | 같은 `app_my_features()` 결과로 바꿈(원장 내보내기·원장 자동은 명진만인지 결정 D3) |
+| 화면 고정 작업공간 이름 4곳(2.3) | 같은 `app_my_features()` 결과로 바꿈(원장 내보내기·원장 자동은 사용자만인지 결정 D3) |
 
 ### 3.4 같이 막을 것 (분리 점검에서 나온 것)
 
@@ -200,7 +200,7 @@ Google 토큰 저장 요약:
 
 ### 3.5 확인 시험 (단계 ① 완료 기준)
 
-- DB 시험: 두 번째 시험 사용자·작업공간을 만든 로컬 시험 DB에서 통화·텔레그램 표 select 0행, RPC 14개 모두 거절, 명진 작업공간은 그대로.
+- DB 시험: 두 번째 시험 사용자·작업공간을 만든 로컬 시험 DB에서 통화·텔레그램 표 select 0행, RPC 14개 모두 거절, 사용자 작업공간은 그대로.
 - Edge 시험: `ai-assist` `call_refill`이 허용 없는 작업공간에서 403.
 - 화면 E2E: 기능 키가 없으면 메뉴에 통화·텔레그램 없음, `?view=calls` 직접 입력 시 빈 화면이 아니라 '없는 화면' 처리.
 
@@ -217,7 +217,7 @@ Google 토큰 저장 요약:
   - 나) 그 함수에 '가입 허용 여부'(전체 열기/닫기, 정지 목록)를 서버 표로 둔다. Auth 설정은 바꾸지 않는다.
   - 다) Auth 설정에서 가입을 끄는 방법은 RTW 신규 가입도 막으므로 쓰지 않는다.
 
-## 5. 구글 앱 상태 확인 방법 (명진이 직접, 읽기만)
+## 5. 구글 앱 상태 확인 방법 (사용자가 직접, 읽기만)
 
 PC 브라우저가 편하다(폰도 가능).
 
@@ -230,7 +230,7 @@ PC 브라우저가 편하다(폰도 가능).
 
 읽는 법:
 
-- '테스트 중'이면: 등록한 테스트 사용자만 연결할 수 있고, 연결이 **7일마다 풀린다**. 노조 사람이 쓰려면 명진이 4번 화면에서 그 사람 메일을 하나씩 넣어야 한다 → 실사용 전에 '프로덕션으로 게시' 필요.
+- '테스트 중'이면: 등록한 테스트 사용자만 연결할 수 있고, 연결이 **7일마다 풀린다**. 노조 사람이 쓰려면 사용자가 4번 화면에서 그 사람 메일을 하나씩 넣어야 한다 → 실사용 전에 '프로덕션으로 게시' 필요.
 - Web2가 요청하는 권한: Drive는 모든 사용자에게 `drive.file`(민감 아님)만, 일정은 `calendar.events`·`calendar.calendarlist.readonly`, 할 일은 `tasks`(이 둘은 '민감' 등급)(코드 근거 `public-policy-drive/index.ts`의 `fullDriveAllowed`·`startDriveAuth`, `google-calendar/index.ts`, `google-tasks/index.ts`). 유료 보안 심사가 필요한 '제한' 등급 `drive`(전체)는 운영자 작업공간(사진 출처 `gdrive_photos`·파일 탐색기 `files` 허용)의 연결에서만 요청한다(S50-8, 8절). 다른 사람에게는 처음부터 요청하지 않는다. 콘솔 '데이터 액세스'에 `drive`를 남길지(운영자 전용 목적으로 적기) 뺄지는 인증 신청 때 CC가 판단한다(`google-brand-verification.md` 3절).
 - 프로덕션으로 게시만 하고 심사를 안 받으면: 사용자 100명까지 '확인되지 않은 앱' 경고(고급 → 계속)를 거쳐 쓸 수 있다. 10명 이내라 당장은 가능하지만 노조 사람들에게 경고 화면을 넘기는 법을 안내해야 한다.
 - 경고를 없애려면 **민감 권한 인증(무료)**: 3번 화면 → 브랜딩(앱 이름·로고·홈페이지·개인정보처리방침 주소·도메인 확인) 채우기 → 인증 센터 → 인증 제출. 개인정보처리방침 페이지(Web1)와 도메인 소유 확인이 필요하다. 이 단계는 단계 ②의 '연결' 작업 앞에 넣는다(결정 D4).
@@ -247,25 +247,25 @@ PC 브라우저가 편하다(폰도 가능).
 | ①-2 | Edge | `ai-assist`(통화 action 판정), `drive-summary`·`collector-feed`(고정 이름 → 판정) | **배포 직전 정지**(8절, verify_jwt 유지). 되돌리기=이전 운영 소스 SHA 재배포. ①-1 적용 뒤 |
 | ①-3 | 화면 | 메뉴·라우터가 `app_my_features()`를 따름, 고정 작업공간 이름 4곳 교체, E2E 추가, 업데이트 기록 파일 | 없음(Pages 배포). ①-1 뒤 |
 
-순서: ①-0 → ①-1 → ①-2·①-3(병렬 가능). 명진 작업공간에 허용 행을 넣는 것이 ①-1 안에 있어야 명진 화면이 끊기지 않는다(Expand → Deploy → Verify → Contract, `docs/web2-expand-deploy-verify-contract.md`).
+순서: ①-0 → ①-1 → ①-2·①-3(병렬 가능). 사용자 작업공간에 허용 행을 넣는 것이 ①-1 안에 있어야 사용자 화면이 끊기지 않는다(Expand → Deploy → Verify → Contract, `docs/web2-expand-deploy-verify-contract.md`).
 
 ### 6.2 위험
 
-- 명진 화면 끊김: 허용 행 없이 정책만 적용되면 명진도 통화·텔레그램이 0건으로 보임 → 같은 트랜잭션에서 허용 행을 먼저 넣고, 사후 확인 SQL로 명진 건수 비교.
+- 사용자 화면 끊김: 허용 행 없이 정책만 적용되면 사용자도 통화·텔레그램이 0건으로 보임 → 같은 트랜잭션에서 허용 행을 먼저 넣고, 사후 확인 SQL로 사용자 건수 비교.
 - 수집 끊김: `collector-feed` 교체 시 고정 이름 → 판정 전환이 틀리면 수집이 멈춤 → 배포 후 heartbeat·하루 건수 확인.
 - 원문 없는 정책: 기본 표 일부의 운영 정책을 모른 채 열면 분리가 깨질 수 있음 → ①-0 없이는 단계 ②로 가지 않는다.
-- Drive 단일 연결: 단계 ① 잠금과 무관하게, **Drive 사람별 연결(단계 ②) 전에는 다른 사람을 들이면 안 된다**(파일이 명진 Drive로 감, 바구니 폴더 섞임).
-- 단계 ① 자체는 다른 사람이 없을 때 적용하므로 사용자 영향은 명진 한 명뿐.
+- Drive 단일 연결: 단계 ① 잠금과 무관하게, **Drive 사람별 연결(단계 ②) 전에는 다른 사람을 들이면 안 된다**(파일이 사용자 Drive로 감, 바구니 폴더 섞임).
+- 단계 ① 자체는 다른 사람이 없을 때 적용하므로 사용자 영향은 사용자 한 명뿐.
 
-### 6.3 명진 결정 필요
+### 6.3 사용자 결정 필요
 
 | 번호 | 결정(일상어) | 추천 |
 | --- | --- | --- |
-| D1 | 위 1.3 규칙 문장(각자 자기 작업공간, 통화·텔레그램은 서버가 명진만)으로 규칙을 바꿀까요? | 예 — 단계 ② 시작 PR에서 반영 |
-| D2 | 명진 전용 판정을 '서버 허용 표'(화면에서 못 고침, SQL로만)로 할까요? | 예 — 고정 아이디를 코드에 박지 않음 |
-| D3 | 원장 내보내기·원장 자동 기록·수집 상태 화면도 명진만인가요, 다른 사람도 자기 것으로 쓰나요? | 원장 자동 기록·내보내기는 모두 쓰게(통화 재료만 빠짐), 수집 상태는 명진만 |
+| D1 | 위 1.3 규칙 문장(각자 자기 작업공간, 통화·텔레그램은 서버가 사용자만)으로 규칙을 바꿀까요? | 예 — 단계 ② 시작 PR에서 반영 |
+| D2 | 사용자 전용 판정을 '서버 허용 표'(화면에서 못 고침, SQL로만)로 할까요? | 예 — 고정 아이디를 코드에 박지 않음 |
+| D3 | 원장 내보내기·원장 자동 기록·수집 상태 화면도 사용자만인가요, 다른 사람도 자기 것으로 쓰나요? | 원장 자동 기록·내보내기는 모두 쓰게(통화 재료만 빠짐), 수집 상태는 사용자만 |
 | D4 | 구글 앱을 '프로덕션'으로 올리고 무료 인증(경고 없애기)을 단계 ② 앞에 넣을까요? | 예 — 먼저 5절대로 지금 상태 캡처만 보내 주세요 |
-| D5 | 담당조직 13곳·보고 캘린더 이름을 사람마다 따로 정하게 할까요? | 예 — 단계 ②에서 각자 설정, 명진 값은 그대로 이전 |
+| D5 | 담당조직 13곳·보고 캘린더 이름을 사람마다 따로 정하게 할까요? | 예 — 단계 ②에서 각자 설정, 사용자 값은 그대로 이전 |
 
 ## 7. 범위 밖 발견사항 (고치지 않음)
 
@@ -276,24 +276,24 @@ PC 브라우저가 편하다(폰도 가능).
 5. `basket-files`·`library-files`·`onedrive-photos`·`task-files`는 '구성원 행 1개'를 가정해 한 사람이 작업공간 둘이면 403/503. 사람당 작업공간 1개 규칙이면 문제 없음.
 6. `app_spaces`는 사람(`owner_id`) 기준, 나머지는 작업공간 기준 판정. 기준이 둘이다.
 
-## 8. 단계 ② PR 표 (S49-53, 2026-11-04 명진 "같이 시작 오늘 밤에")
+## 8. 단계 ② PR 표 (S49-53, 2026-11-04 사용자 "같이 시작 오늘 밤에")
 
 - 단계 ①(①-0~①-3: 서버 허용 표 `app_operator_features`, 판정 함수, 통화·텔레그램 잠금, `app_my_features()`)은 main·운영에 들어가 있다. 단계 ②는 그 위에서 **가입 문을 닫은 채** 서버·DB·화면 구조를 만든다.
-- D4(구글 앱 프로덕션 게시·인증)는 커맨드센터가 명진에게 따로 묻는다. 아래 PR은 D4 답과 무관하게 만들 수 있는 것만 담는다. 실제 '가입 열기'는 ②-4의 서버 스위치를 커맨드센터가 켤 때다(②-2 운영 반영 + D4 답 뒤).
+- D4(구글 앱 프로덕션 게시·인증)는 커맨드센터가 사용자에게 따로 묻는다. 아래 PR은 D4 답과 무관하게 만들 수 있는 것만 담는다. 실제 '가입 열기'는 ②-4의 서버 스위치를 커맨드센터가 켤 때다(②-2 운영 반영 + D4 답 뒤).
 - PR은 줄 세운다(앞 PR이 main에 들어간 뒤 다음 PR merge). 브랜치 `s49-53-multi-2-1`, `-2-2`, `-2-3`, `-2-4`.
 
 | 순서 | PR | 내용 | 바꾸는 곳 | 정지 지점·되돌리기 |
 | --- | --- | --- | --- | --- |
 | ②-1 | 규칙 문서 | AGENTS.md 5절 'Other users cannot sign up yet' 문단을 단계 ② 문장으로 교체(가입은 ②-4 스위치 전까지 닫힘), 이 8절 | `AGENTS.md`, 이 문서 | 없음(문서). 되돌리기=문서 PR revert |
-| ②-2 | 사람별 Google Drive 연결 | 새 표 `app_drive_connections`(작업공간당 1행, refresh token은 service_role만, RLS 켬·정책 없음·API 권한 없음). 명진 연결은 같은 트랜잭션에서 운영자 작업공간 행으로 복사(기존 `public_policy_drive_config` id=1은 그대로 둠 — 앱 client id/secret과 운영자 전용 함수·Web1이 계속 읽음). 다른 작업공간이 쓰는 Drive Edge는 공용 도우미 `_shared/workspace-drive-token.ts`로 '서버가 확인한 자기 작업공간의 연결'만 읽고, 연결이 없으면 424 `drive_not_connected`(연결 안내). `public-policy-drive`의 Drive 연결은 고정 작업공간 대신 '부른 사람이 owner인 작업공간'에 저장(운영자 작업공간이면 id=1도 같이 갱신, Expand) | DB migration 짝 5파일, `supabase/functions/_shared/`, Drive를 쓰는 Edge, 시험 | **DB 적용 직전·Edge 배포 직전 정지**. 순서: DB(표+명진 행 복사) → `public-policy-drive` → 나머지 Edge 하나씩. 되돌리기=rollback SQL(표 삭제, id=1은 손대지 않았으므로 그대로), Edge는 이전 운영 SHA 재배포 |
-| ②-3 | 담당조직·보고 캘린더 사람별 설정(D5) | `app/organization-order.js`의 13곳·묶음 5개와 보고 캘린더 이름('공공운수노조')을 내 프로필 설정(`app_profiles.view_prefs`)으로. 명진 값은 같은 migration에서 명진 프로필로 이전, 다른 사람은 비어 있음(묶음 없이 가나다순, 보고 캘린더 미지정 안내) | DB migration 짝 5파일, `app/organization-order.js`, `app/journal-weekly.js`, 설정 화면, 업데이트 기록 | DB 적용 직전 정지. 화면은 ②-3 DB 적용 뒤 Pages |
+| ②-2 | 사람별 Google Drive 연결 | 새 표 `app_drive_connections`(작업공간당 1행, refresh token은 service_role만, RLS 켬·정책 없음·API 권한 없음). 사용자 연결은 같은 트랜잭션에서 운영자 작업공간 행으로 복사(기존 `public_policy_drive_config` id=1은 그대로 둠 — 앱 client id/secret과 운영자 전용 함수·Web1이 계속 읽음). 다른 작업공간이 쓰는 Drive Edge는 공용 도우미 `_shared/workspace-drive-token.ts`로 '서버가 확인한 자기 작업공간의 연결'만 읽고, 연결이 없으면 424 `drive_not_connected`(연결 안내). `public-policy-drive`의 Drive 연결은 고정 작업공간 대신 '부른 사람이 owner인 작업공간'에 저장(운영자 작업공간이면 id=1도 같이 갱신, Expand) | DB migration 짝 5파일, `supabase/functions/_shared/`, Drive를 쓰는 Edge, 시험 | **DB 적용 직전·Edge 배포 직전 정지**. 순서: DB(표+사용자 행 복사) → `public-policy-drive` → 나머지 Edge 하나씩. 되돌리기=rollback SQL(표 삭제, id=1은 손대지 않았으므로 그대로), Edge는 이전 운영 SHA 재배포 |
+| ②-3 | 담당조직·보고 캘린더 사람별 설정(D5) | `app/organization-order.js`의 13곳·묶음 5개와 보고 캘린더 이름('A노조')을 내 프로필 설정(`app_profiles.view_prefs`)으로. 사용자 값은 같은 migration에서 사용자 프로필로 이전, 다른 사람은 비어 있음(묶음 없이 가나다순, 보고 캘린더 미지정 안내) | DB migration 짝 5파일, `app/organization-order.js`, `app/journal-weekly.js`, 설정 화면, 업데이트 기록 | DB 적용 직전 정지. 화면은 ②-3 DB 적용 뒤 Pages |
 | ②-4 | 가입 때 작업공간 1개 | 새 서버 함수(SECURITY DEFINER, authenticated만): 부른 본인에게 owner 행이 하나도 없을 때만 작업공간 1개 + 본인 owner 행 1개 + 프로필을 만든다. 클라이언트 값(작업공간 이름·역할·user_id)을 받지 않는다. **서버 스위치**(SQL로만 쓰는 행, 기본 꺼짐)가 꺼져 있으면 거절 → 지금처럼 접근 거부 화면. 로그인 화면 흐름(접근 거부 대신 '시작하기' 버튼은 스위치가 켜졌을 때만 서버 답으로 보임). Auth 가입 트리거로 만들지 않음(4절 가: RTW 로그인으로 생기지 않게) | DB migration 짝 5파일, `app/loader-v2.js`·접근 거부 화면, `app/ARCHITECTURE.md` 시작 순서, E2E | DB 적용 직전 정지. 운영 전용 트리거 `trg_app_enforce_workspace_member_role` 정의는 PR 본문의 읽기 SQL로 커맨드센터가 먼저 확인. 스위치 켜기는 별도 SQL(커맨드센터, ②-2 운영 반영·D4 뒤) |
 
 ②-2에서 '자기 연결만' 원칙:
 
 - 작업공간은 늘 서버가 정한다(로그인 → 본인 owner 행 정확히 1개, 또는 행의 작업공간 owner 확인). 화면이 보낸 작업공간 값으로 연결을 찾지 않는다.
-- 운영자 전용 기능 `drive-summary`는 허용 표로 운영자 작업공간에만 열려 있어 id=1을 계속 읽어도 다른 작업공간이 명진 Drive에 닿지 않는다. 그 전환은 Contract 단계(id=1 refresh token 비우기)와 함께 뒤로 미룬다.
-- ~~다른 사람의 Drive 연결은 `drive.file`만 요청한다(D4 심사 범위를 민감 등급 이하로 유지).~~ **2026-11-15 바뀜(S62-11 MULTI-구글드라이브사진모두, 명진 11/14 22:11 '가'·11/15 결정 1 '가'·2 '예')**: 모든 작업공간의 Drive 연결이 `drive.file` + `drive`를 요청하고, 사진의 구글 드라이브 칸·[파일]은 Drive를 연결한 사람 모두에게 열린다. 각자 자기 작업공간 연결(`app_drive_connections` 그 행)로만, id=1·다른 작업공간 연결로 넘어가는 길 없음. 쓰기(이름 바꾸기·옮기기·휴지통으로)는 명진과 같은 규칙(누를 때만·확인 한 번·영구 삭제 없음). 이유: (나) 폴더 고르기(`drive.file`+Picker)는 폴더 안 기존 파일 목록을 읽지 못해 사진 칸이 안 된다. 구글 미검증 앱 100명 한도 안에서 그대로 가고, 판매로 100명을 넘을 때쯤 정식 심사를 따로 결정한다. 설계: `docs/design/gdrive-photos-all.md`.
+- 운영자 전용 기능 `drive-summary`는 허용 표로 운영자 작업공간에만 열려 있어 id=1을 계속 읽어도 다른 작업공간이 사용자 Drive에 닿지 않는다. 그 전환은 Contract 단계(id=1 refresh token 비우기)와 함께 뒤로 미룬다.
+- ~~다른 사람의 Drive 연결은 `drive.file`만 요청한다(D4 심사 범위를 민감 등급 이하로 유지).~~ **2026-11-15 바뀜(S62-11 MULTI-구글드라이브사진모두, 사용자 11/14 22:11 '가'·11/15 결정 1 '가'·2 '예')**: 모든 작업공간의 Drive 연결이 `drive.file` + `drive`를 요청하고, 사진의 구글 드라이브 칸·[파일]은 Drive를 연결한 사람 모두에게 열린다. 각자 자기 작업공간 연결(`app_drive_connections` 그 행)로만, id=1·다른 작업공간 연결로 넘어가는 길 없음. 쓰기(이름 바꾸기·옮기기·휴지통으로)는 사용자와 같은 규칙(누를 때만·확인 한 번·영구 삭제 없음). 이유: (나) 폴더 고르기(`drive.file`+Picker)는 폴더 안 기존 파일 목록을 읽지 못해 사진 칸이 안 된다. 구글 미검증 앱 100명 한도 안에서 그대로 가고, 판매로 100명을 넘을 때쯤 정식 심사를 따로 결정한다. 설계: `docs/design/gdrive-photos-all.md`.
 
 ### 8-B. 담당조직·보고 캘린더 사람별 설정 (S50-13 ②-3, D5)
 
@@ -301,7 +301,7 @@ PC 브라우저가 편하다(폰도 가능).
 - migration `20261105131500_profile_view_prefs_org_order`: 검사(`app_profiles_view_prefs_check`)를 최신 판(`20261104221000` photo_zoom, 서른아홉 칸) 위에서 다시 쌓아 두 칸을 더하고, 같은 트랜잭션에서 운영자(`calls` 허용 작업공간 owner) 프로필 1행에만 지금까지 화면 코드에 있던 값을 옮긴다. 다른 사람은 비어 있음.
 - 화면: `organization-order.js`는 이름을 갖지 않고 설정을 읽는다(없으면 묶음 없이 가나다순). 보고 캘린더는 `report-calendar.mjs` 한 곳 → 주간 정리 표·.hwpx 초안·다음 주 준비 표·일정 만들기 기본 캘린더. 미지정이면 표가 비고 '내 프로필 › 보고 설정에서 정해 주세요' 안내. 고치는 곳은 내 프로필 › 보고 설정 하나.
 - 주간보고 순서(`weekly-org-order-model.mjs`·`journal-weekly.js`·`weekly-hwpx/delta.mjs`·`org-overview.js`)는 모두 `KPTUOrganizationOrder.sort` 하나를 쓴다(따로 목록 없음).
-- 배포 순서: 화면(Pages) 먼저 → DB 적용. 이유: 옛 화면은 모르는 칸을 저장할 때 버리므로(view-prefs.js), DB를 먼저 적용하면 옛 화면이 열린 동안 명진 값이 지워질 수 있다. 새 화면은 DB 전에도 안전하다(값이 없을 뿐).
+- 배포 순서: 화면(Pages) 먼저 → DB 적용. 이유: 옛 화면은 모르는 칸을 저장할 때 버리므로(view-prefs.js), DB를 먼저 적용하면 옛 화면이 열린 동안 사용자 값이 지워질 수 있다. 새 화면은 DB 전에도 안전하다(값이 없을 뿐).
 - 범위 밖으로 남긴 것: 운영자 전용 Edge `drive-summary`의 조직 순서 사본(`supabase/functions/drive-summary/core.mjs`), `ai-assist/schedule-titles.ts`의 조직 이름, 자기 조직 이름(`feed-model.mjs` OWN_ORG), 바로가기 링크(`quick-links.js`).
 
 ### 8-A. 사람별 Drive 연결과 권한 범위 (S49-53 #1877, S50-8)
@@ -309,11 +309,11 @@ PC 브라우저가 편하다(폰도 가능).
 #### 8.1 연결 저장 (#1877, 11/05 운영 반영)
 
 - 표 `public.app_drive_connections`: 작업공간당 1행(`workspace_id` 기본 키), `google_refresh_token`, `full_drive`, `connected_at`, `updated_at`. RLS 켬·정책 없음·anon·authenticated·PUBLIC 권한 없음, service_role만 칸을 정해 읽고 쓴다(Edge만).
-- 명진(운영자, `calls` 허용) 작업공간 1행을 옛 자리 `public_policy_drive_config` id=1의 열쇠로 옮겼다(`full_drive=true`). 앱 client id/secret은 계속 id=1에 있다.
+- 사용자(운영자, `calls` 허용) 작업공간 1행을 옛 자리 `public_policy_drive_config` id=1의 열쇠로 옮겼다(`full_drive=true`). 앱 client id/secret은 계속 id=1에 있다.
 - Web2 Drive 함수들은 `_shared/workspace-drive-token.ts`로 **부른 사람의 작업공간 행**만 읽는다. 연결이 없으면 424 `drive_not_connected`, 다른 작업공간 연결로 넘어가는 길은 없다.
 - 운영자 전용 함수(`gdrive-photos`·`cloud-files`의 구글 쪽·`drive-summary`)와 Web1은 아직 id=1을 읽는다(Contract는 뒤 단계). 콜백은 `calls` 허용 작업공간일 때만 id=1도 같이 갱신한다.
 
-#### 8.2 권한 범위 (명진 결정 11/05 09:18 '가')
+#### 8.2 권한 범위 (사용자 결정 11/05 09:18 '가')
 
 | 작업공간 | 연결 때 요청하는 범위 | `full_drive` |
 | --- | --- | --- |
@@ -322,7 +322,7 @@ PC 브라우저가 편하다(폰도 가능).
 
 - 범위는 서버가 정한다: `public-policy-drive`의 `fullDriveAllowed(workspaceId)`가 서버 허용 표(`app_operator_feature_workspace`, service_role 전용)로 판정한다. 작업공간은 로그인 → 본인 owner 행(정확히 1개)으로만 정하고, 화면이 보낸 값(범위·작업공간·`full` 등)은 쓰지 않는다.
 - 콜백도 같은 판정을 다시 한다. `full_drive = fullDriveAllowed && 구글 응답 scope에 drive 있음`. 운영자가 동의 화면에서 drive 칸을 끄면 연결은 저장되고 `photos=scope_missing` 안내만 붙는다. 다른 사람에게는 사진 안내를 붙이지 않는다.
-- 명진 운영자 연결은 다시 연결시키지 않는다(지금 연결 그대로 `full_drive=true`).
+- 사용자 운영자 연결은 다시 연결시키지 않는다(지금 연결 그대로 `full_drive=true`).
 - 다른 사람의 Drive 기능(자료실·바구니·회의 파일·문서 처리)은 모두 웹2가 만든 폴더(`ensureRoot` 등) 안에서만 일하므로 `drive.file`로 동작한다.
 
 #### 8.3 전체 권한이 필요한 기능의 서버 거절

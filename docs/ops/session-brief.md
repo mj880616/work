@@ -1,4 +1,4 @@
-# 작업 세션 공통 시작·끝 절차 (OPS-작업양식, 2026-11-26 명진 결정)
+# 작업 세션 공통 시작·끝 절차 (OPS-작업양식, 2026-11-26 사용자 결정)
 
 지시서는 이 문서를 가리키고 **과제·영역·겹치는 파일·완료 기준만** 적는다. 규칙 원문은 `AGENTS.md`와 `docs/command-center-ops.md`이고, 여기에는 순서만 둔다.
 
@@ -6,10 +6,11 @@
 
 1. 저장소 연결: `add_repo(owner=mj880616, repo=work, access=push)` (이미 연결돼 있으면 건너뜀).
 2. 새 폴더에 받기: `git clone --depth 50 https://github.com/mj880616/work <새 폴더>`. 기억한 SHA를 믿지 말고 받은 `origin/main`을 기준으로 한다.
-3. 브랜치: 최신 `main`에서 만든다. 지시서가 "○○ PR 브랜치 위에서 시작"이라고 하면 그 PR head에서 만든다(줄 세우기, `AGENTS.md` 2절). 관련 브랜치·열린 PR이 있으면 이어서 쓴다.
-4. 영역 확인: 지시서 첫 줄의 영역(`docs/command-center-ops.md` 1-1절, 경로 패턴은 `scripts/cc/lanes.json`) 밖 파일은 만지지 않는다. 다른 영역 파일을 꼭 고쳐야 하면 멈추고 보고한다.
-5. 묻기 전에 결정 장부(1-3절)를 먼저 찾는다. 확정 동작 ID(`docs/design/standard-interactions.md`)를 만들거나 고치면 그 ID 이름의 시험을 넣는다(1-2절).
-6. 첫 의미 있는 진행에서 push하고 **PR을 초안(draft)으로** 연다. 본문은 `.github/pull_request_template.md` 양식을 채운다. 그 뒤로도 의미 있는 진행마다 커밋·push.
+3. 커밋 작성자 메일: `git config user.email "172895968+mj880616@users.noreply.github.com"`(GitHub noreply 주소. 개인 메일 금지, `AGENTS.md` 3절).
+4. 브랜치: 최신 `main`에서 만든다. 지시서가 "○○ PR 브랜치 위에서 시작"이라고 하면 그 PR head에서 만든다(줄 세우기, `AGENTS.md` 2절). 관련 브랜치·열린 PR이 있으면 이어서 쓴다.
+5. 영역 확인: 지시서 첫 줄의 영역(`docs/command-center-ops.md` 1-1절, 경로 패턴은 `scripts/cc/lanes.json`) 밖 파일은 만지지 않는다. 다른 영역 파일을 꼭 고쳐야 하면 멈추고 보고한다.
+6. 묻기 전에 결정 장부(1-3절)를 먼저 찾는다. 확정 동작 ID(`docs/design/standard-interactions.md`)를 만들거나 고치면 그 ID 이름의 시험을 넣는다(1-2절).
+7. 첫 의미 있는 진행에서 push하고 **PR을 초안(draft)으로** 연다. 본문은 `.github/pull_request_template.md` 양식을 채운다. 그 뒤로도 의미 있는 진행마다 커밋·push.
 
 ## 2. 하지 않는 것
 
@@ -29,3 +30,4 @@
 4. PR 본문을 양식대로 채운다: 완료보고 12항목(`AGENTS.md` 10절) + 영역 + 확정 동작 ID + **원장 반영** 절(행 이름·상태·한 줄 요약·사용자 결정). `docs/roadmap.md`는 고치지 않는다.
 5. 초안을 해제(ready)한다: `gh api -X POST repos/mj880616/work/pulls/<번호>/ccr/ready_for_review`.
 6. CC는 넣기 전에 `node scripts/cc/merge-check.mjs <PR 번호>`로 넣기 점검을 돌린다(쓰기 없음).
+x 명진 결정
