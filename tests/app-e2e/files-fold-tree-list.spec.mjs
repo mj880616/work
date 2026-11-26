@@ -168,15 +168,18 @@ test('파일 1280: 폴더 이름 누르기 = 그 폴더 열기 + 펼침, 아이�
   const main = tree.locator(`[data-fx-go][data-fx-id="${id}"]`), tog = tree.locator(`.ft-row:has([data-fx-id="${id}"]) > button.ft-tog`);
   const name = await main.locator('.ft-name').textContent();
   const crumb = root(page).locator('[data-fx-crumb] .fx-crumb-now');
+  // TREE-펼치기먼저(S70-81): 첫 누르기 = 펼치기만(위치 그대로), 두 번째 = 그 폴더 열기.
+  const crumb0 = await crumb.textContent();
+  await main.click();
+  await expect(tog).toHaveAttribute('aria-expanded', 'true');
+  await expect(crumb).toHaveText(crumb0);
   await main.click();
   await expect(crumb).toHaveText(name);
   await expect(tog).toHaveAttribute('aria-expanded', 'true');
   await expect(main).toBeFocused();
-  await main.click(); // 이미 들어간 폴더 이름을 다시 누르면 접힌다(명진 11/24 15:42), 또 누르면 펼친다
-  await expect(tog).toHaveAttribute('aria-expanded', 'false');
-  await expect(crumb).toHaveText(name);
-  await main.click();
+  await main.click(); // 지금 폴더 이름을 또 눌러도 접지 않는다(접기는 아이콘·←)
   await expect(tog).toHaveAttribute('aria-expanded', 'true');
+  await expect(crumb).toHaveText(name);
   let open = true;
   const flip = async () => { open = !open; await expect(tog).toHaveAttribute('aria-expanded', String(open)); await expect(crumb).toHaveText(name); };
   await tog.click(); await flip();

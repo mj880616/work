@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 // 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
 const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
 import { askBox, dragAsk, askTextSpot } from './helpers/confirm-drag.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // STD-기본동작(docs/design/standard-interactions.md): 윈도우 탐색기·구글 드라이브·노션에서 당연한 기본 동작을 화면마다 같은 시험으로 반복 확인한다.
 // 기준표 항목 ID(K4·D4·S6·Z3…)를 시험 이름 앞에 붙인다. 새 목록·나무 화면이 생기면 아래 SCREENS 표에 한 줄 더한다.
 // 이름은 모두 지어낸 것이다. 서버 쓰기는 없다(가짜 서버).
@@ -371,7 +372,7 @@ for (const [name, open] of PRESS_SCREENS) test(`T5 ${name} 폰 390: 폴더 이�
 async function filesRight(page, width = 1280) {
   const { errors } = await startFiles(page, width);
   await openFiles(page, width);
-  await page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main').click();
+  await treeEnter(page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main'));
   const row = page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!10"]');
   await expect(row).toBeVisible();
   return { errors, press: () => row.click(), dbl: () => row.dblclick(), menu: () => row.click({ button: 'right' }), panel: page.locator('#rowMenu'), open: async () => (await row.getAttribute('aria-expanded')) === 'true',
@@ -381,7 +382,7 @@ async function filesRight(page, width = 1280) {
 async function libraryRight(page, width = 1280) {
   const folders = [libFolder('ra', null, { name: '가상 노조', sort_order: 1024 }), libFolder('rb', null, { name: '가상 회의', parent_id: 'ra', sort_order: 1024 }), libFolder('rc', null, { name: '가상 안건', parent_id: 'rb', sort_order: 1024 })];
   const { errors, s: st } = await bootLibrary(page, width, { folders, items: [{ document_id: 'd1', folder_id: 'rb' }], docs: [libDoc('d1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
-  await page.locator('#libraryFolderNav [data-lu-nav="ra"]').click();
+  await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="ra"]'));
   const d = page.locator('#documentList details[data-lu-node="f:rb"]');
   await expect(d).toBeVisible();
   return { errors, prefs: () => st.viewPrefs, row: d.locator(':scope > summary'), press: () => d.locator(':scope > summary').click(), dbl: () => d.locator(':scope > summary').dblclick(), menu: () => d.locator(':scope > summary').click({ button: 'right' }), panel: page.locator('#luFolderMenu'), open: () => d.evaluate(x => x.open),
@@ -402,7 +403,7 @@ async function notesRight(page, width = 1280) {
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await chooseBasketKind(page, 'note');
-  await page.locator(`[data-nx-tree] [data-nx-open="${U(301)}"]`).click();
+  await treeEnter(page.locator(`[data-nx-tree] [data-nx-open="${U(301)}"]`));
   const main = page.locator(`#noteRows [data-nx-open="${U(302)}"]`);
   await expect(main).toBeVisible();
   return { errors, press: () => main.click(), dbl: () => main.dblclick(), menu: () => main.click({ button: 'right' }), panel: page.locator('#noteDocMenu'), open: async () => (await main.getAttribute('aria-expanded')) === 'true',
@@ -743,7 +744,7 @@ async function notesRows(page, width, { tree = false } = {}) {
     return { ...base, first: folder(U(1)).locator('.ft-main'), second: folder(U(2)).locator('.ft-main'),
       isPicked: l => expect(l.locator('xpath=..')).toHaveClass(/ft-picked/), tap: l => l.tap(), more: l => l.locator('xpath=..').locator('[data-nx-folder-more]') };
   }
-  await page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-main`).click();
+  await treeEnter(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-main`));
   const note = id => page.locator(`#noteRows [data-nx-note="${id}"]`);
   await expect(note('n2')).toBeVisible();
   return { ...base, first: note('n1'), second: note('n2'),
@@ -931,7 +932,7 @@ async function dragRow(page, fromSel, toSel, { beforeUp = null } = {}) {
 }
 async function oneNested(page, extra = 0) {
   const r = await bootLibrary(page, 1280, { folders: nestedFolders(extra), items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
-  await page.locator('#libraryFolderNav [data-lu-nav="up"]').click();
+  await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="up"]'));
   const head = id => `#documentList details[data-lu-node="f:${id}"] > summary`;
   await expect(page.locator(head('track'))).toBeVisible();
   return { ...r, head };
@@ -995,7 +996,7 @@ test('D 자료실 한 칸 PC 1280: 폴더 9개 고른 채 한 줄을 끌어 점�
   test.setTimeout(60000);
   const r = await bootLibrary(page, 1280, { folders: nineFolders(), items: [], docs: [libDoc('d-1', null)], group: '폴더', init: { viewPrefs: { library_two: false } } });
   const { s, errors } = r, head = id => `#documentList details[data-lu-node="f:${id}"] > summary`, ids = [...NEST, 'm0', 'm1', 'm2', 'm3', 'm4'];
-  await page.locator('#libraryFolderNav [data-lu-nav="up"]').click();
+  await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="up"]'));
   await page.locator(head('track')).click();
   for (const id of [...NEST, 'dst']) await expect(page.locator(head(id))).toBeVisible();
   const card = await rectOf(page, '#libraryListCard'), list = await rectOf(page, '#documentList');
@@ -1299,7 +1300,7 @@ async function keyNotes(page) {
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await chooseBasketKind(page, 'note');
-  await page.locator('[data-nx-tree] [data-nx-open]').first().click(); // 왼쪽 나무 '폴더 없음' = 오른쪽에 노트 3개
+  await treeEnter(page.locator('[data-nx-tree] [data-nx-open]').first()); // 왼쪽 나무 '폴더 없음' = 오른쪽에 노트 3개
   const rows = page.locator('#noteRows [data-nx-note]').filter({ visible: true });
   await expect(rows).toHaveCount(3);
   return { errors, rows, total: 3,
@@ -1434,7 +1435,7 @@ async function filesPick(page, width, two) {
   if (two) {
     await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
     await page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!1"]').click(); // 그 자리 펼치기
-  } else await page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main').first().click();
+  } else await treeEnter(page.locator('#filesRoot [data-fx-tree] [data-fx-fold="od:OD!1"] .ft-main').first());
   const list = page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list]');
   await expect(list.locator('[data-fx-row="od:OD!11"]')).toBeVisible();
   const row = id => list.locator(`[data-fx-row="od:${id}"]`);

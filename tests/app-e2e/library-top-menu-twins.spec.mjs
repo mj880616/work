@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryTopMenu,libraryExpandItem} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,press} from './helpers/library-folder-server.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // S48-10 빠짐9: 자료실 칸 맨 위 오른쪽 ⋯ 하나에 [새 폴더]·[여러 개 고르기]·[모두 펴기·접기](따로 뜬 '선택'·'모두 펴기' 글자 없음).
 // 빠짐10: 같은 글 원본 두 개(웹 + PDF)는 한 줄(대표 = PDF) + [원본 2]로 펼치기, 접힌 줄을 고르면 둘 다, 고른 수에 '— 접힌 n개 포함'.
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 성명',sort_order:1024})];
@@ -37,7 +38,7 @@ for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글
 
   test(`같은 글 원본 두 줄은 한 줄 + [원본 2], 펼치면 둘 다, 접힌 줄을 선택하면 둘 다 ${width}`,async({page})=>{
     const {errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
-    if(width>=600)await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();else await expandLibraryTree(page); // 넓은 화면 한 칸 = 탐색기(그 폴더를 연다)
+    if(width>=600)await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));else await expandLibraryTree(page); // 넓은 화면 한 칸 = 탐색기(그 폴더를 연다)
     // 대표는 PDF 줄, 웹 줄은 접혀 있다(자료 행은 그대로).
     await expect(page.locator(rowSel('p-1'))).toBeVisible();await expect(page.locator(rowSel('w-1'))).toHaveCount(0);
     const twin=page.locator('#documentList [data-lu-twin="p-1"]');
@@ -62,7 +63,7 @@ test('PC 1280: 접힌 같은 글 줄을 끌어 다른 폴더로 옮기면 둘 �
   const folders=[...FOLDERS,libFolder('fb',null,{name:'가상 다른 폴더',sort_order:2048})];
   const {s,errors}=await bootLibrary(page,1280,{folders,items:ITEMS,docs:DOCS,group:'폴더'});
   // S69-28 LIB-한칸탐색기: 가상 성명을 열고, 접힌 같은 글 줄을 왼쪽 나무의 다른 폴더 줄에 놓는다.
-  await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();await expect(page.locator('#documentList [data-lu-document="p-1"]')).toBeVisible();
+  await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));await expect(page.locator('#documentList [data-lu-document="p-1"]')).toBeVisible();
   await page.evaluate(()=>{
     const src=document.querySelector('#documentList [data-lu-document="p-1"]'),dst=document.querySelector('#libraryFolderNav [data-lu-nav="fb"]'),dt=new DataTransfer(),r=dst.getBoundingClientRect();
     const x=r.left+r.width/2,y=r.top+r.height/2;

@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNodeHead} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,menuButton,folderMenuItem,press,openMove,moveFolder} from './helpers/library-folder-server.mjs';
+import {treeEnter} from './helpers/tree-enter.mjs';
 // FOLDER-순서·색 ③-1 (S49-47, docs/design/folder-color-order.md): 자료실 폴더 색 8가지.
 // 폴더 ⋯ → [색 고르기…] → 동그라미 하나 → 바로 서버에 저장(서버 함수 app_library_folder_set_color), 새로고침해도 유지, 같은 폴더는 토글 머리·폴더 고르기 창에서 같은 색,
 // [기본]은 지금 모양(노란 폴더 글자), 저장 실패는 그대로 두고 알림, DB 적용 전(color 칸·함수 없음)에도 목록이 그대로 뜬다. 폴더 이름은 모두 가짜.
@@ -83,7 +84,7 @@ for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>
     expect(await colorOfMark(mark(page,'f:fa'))).toBe(RGB.dark[4]);
     // S69-28 LIB-한칸탐색기: 넓은 화면은 가상 A에 들어가야 안의 가상 C 줄이 보인다. 가상 A 색은 왼쪽 나무 줄 그림.
     const wide=width>=600;
-    if(wide)await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();else await expandLibraryTree(page);
+    if(wide)await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));else await expandLibraryTree(page);
     await pickColor(page,'f:fc','벽돌',width);
     await expect(mark(page,'f:fc')).toHaveAttribute('data-fc','1');
     if(wide)await expect(page.locator('#libraryFolderNav [data-lu-nav-tog="fa"] [data-fc="4"]').first()).toBeAttached();else await expect(mark(page,'f:fa')).toHaveAttribute('data-fc','4');

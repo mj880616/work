@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
+import {treeEnter} from './helpers/tree-enter.mjs';
 // S51-20 FILES-폴드나무목록 ⑦(시안 docs/design/mockups/files-fold-tree-list.html '같은 종류'): 자료실 폴더 묶기도 펼친 폴드·PC(600px~)에서
 // 왼쪽 폴더 나무 | 오른쪽 목록. UI-폴더누르기한규칙(S57-5): 나무 줄을 누르면 들어가지 않고 그 자리에서 펼침·접힘, 그 폴더로 들어가기(위치 줄·주소)는 우클릭 [이 폴더로 들어가기]. 나무는 그대로 남는다. 폰(412)은 지금처럼 나무 칸 없음. 이름은 지어낸 것.
 // 들어가기: PC(761px~)는 우클릭 메뉴, 폴드(600~760px)는 두 손가락 벌리기.
@@ -33,14 +34,14 @@ for(const width of [700,884,1280])test.describe(`자료실 ${width} 나무`,()=>
   await expect(nav(page).locator('[data-lu-nav=""]')).toHaveAttribute('aria-current','true');
   await expect.poll(()=>tops(page)).toEqual(['f:fa','f:fn']); // 오른쪽 목록·주소 그대로
   expect(new URL(page.url()).searchParams.get('folder')).toBeNull();
-  await nav(page).locator('[data-lu-nav="fa"]').click(); // 이름 = 그 폴더 열기 + 펼친 폴더면 바로 접기(명진 11/24 20:26)
+  await nav(page).locator('[data-lu-nav="fa"]').click(); // 이미 펼친 폴더 이름 = 그 폴더 열기, 펼침 그대로(TREE-펼치기먼저 S70-81)
   await expect(nav(page).locator('[data-lu-nav="fa"]')).toHaveAttribute('aria-current','true');
-  await expect(nav(page).locator('[data-lu-nav="fc"]')).toHaveCount(0);
-  await nav(page).locator('[data-lu-nav="fa"]').click(); // 다시 누르면 펼침(오른쪽은 그 폴더 그대로)
+  await expect(nav(page).locator('[data-lu-nav="fc"]')).toBeVisible();
+  await nav(page).locator('[data-lu-nav="fa"]').click(); // 지금 폴더 이름을 또 눌러도 접지 않음(접기는 그림·←)
   await expect(nav(page).locator('[data-lu-nav="fc"]')).toBeVisible();
   await expect.poll(()=>tops(page)).toEqual(['f:fc']);expect(await rows(page)).toEqual(['n-1']);
   await expect(page.locator('#libraryPath')).toBeVisible();
-  await nav(page).locator('[data-lu-nav="fc"]').click();
+  await treeEnter(nav(page).locator('[data-lu-nav="fc"]')); // 하위 없는 폴더 = 골라짐 → 다시 눌러 열기
   await expect.poll(()=>tops(page)).toEqual([]);expect(await rows(page)).toEqual(['a-1']);
   await nav(page).locator('[data-lu-nav=""]').click();
   await expect.poll(()=>tops(page)).toEqual(['f:fa','f:fn']);
@@ -92,12 +93,14 @@ for(const width of [1280])test(`자료실 ${width}: 폴더 이름 누르기 = �
   await page.keyboard.press('ArrowLeft');
   await expect(child).toHaveCount(0);await expect(a).toBeFocused();
   await top();
-  // Enter·이름 누르기 = 그 폴더 열기(그 폴더까지 펼침·강조, 초점은 그 이름)
+  // TREE-펼치기먼저(S70-81): 닫힌 폴더 Enter·이름 누르기 첫 번째 = 펼치기만(오른쪽 그대로), 두 번째 = 그 폴더 열기(펼침·강조, 초점은 그 이름)
+  await page.keyboard.press('Enter');
+  await expect(child).toBeVisible();await expect(a).not.toHaveAttribute('aria-current','true');await top();
   await page.keyboard.press('Enter');
   await expect(a).toHaveAttribute('aria-current','true');await expect(child).toBeVisible();
   await expect.poll(()=>tops(page)).toEqual(['f:fc']);await expect(a).toBeFocused();
   if(process.env.LIB_TREE_FOLD_SHOTS)await page.screenshot({path:`${process.env.LIB_TREE_FOLD_SHOTS}/pc-${width}-1-open.png`});
-  await child.click();
+  await treeEnter(child);
   await expect.poll(()=>tops(page)).toEqual([]);await expect(child).toHaveAttribute('aria-current','true');
   await nav(page).locator('[data-lu-nav=""]').click();
   await top();

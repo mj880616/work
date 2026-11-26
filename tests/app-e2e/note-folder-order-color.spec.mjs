@@ -3,6 +3,7 @@ import { folderSheet } from './helpers/folder-sheet.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // S49-38 FOLDER-순서·색 ② (설계 docs/design/folder-color-order.md): 노트 폴더·노트 끌기 순서(줄 사이 = 순서 / 줄 가운데 = 넣기), 색 8가지(고르기·새로고침 뒤 유지·
 // 폴더 고르기 창·꼬리표·포스트잇 같은 색), 노트 정렬 [내가 정한 순서]일 때만 노트 끌기, 폰은 꾹 눌러 끌기, 키보드는 Alt+↑↓(S70-04: 메뉴 [위로][아래로]는 없앴다). 이름·내용은 모두 가짜.
 test.use({ hasTouch: true });
@@ -107,14 +108,17 @@ test.describe('PC 1440', () => {
     const f = await fixture(page, 1440, { child: true });
     const main = page.locator(`[data-nx-tree] [data-nx-open="${U(1)}"]`), tog = page.locator(`[data-nx-tree] [data-nx-tog="${U(1)}"]`);
     const child = page.locator(`[data-nx-tree] [data-nx-folder="${U(3)}"]`), noteRows = () => noteOrder(page);
+    // TREE-펼치기먼저(S70-81): 첫 누르기 = 펼치기만, 다시 = 그 폴더 열기, 지금 폴더 이름을 또 눌러도 접지 않음(접기는 그림·←).
+    const row = page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"]`);
     await main.click();
     await expect(child).toBeVisible(); await expect(tog).toHaveAttribute('aria-expanded', 'true');
+    await expect(row).not.toHaveClass(/ft-current/);
+    await main.click();
+    await expect(row).toHaveClass(/ft-current/);
     await expect.poll(noteRows).toEqual(['n1', 'n2', 'n3']);
     await expect(main).toBeFocused();
-    await main.click(); // 이미 들어간 폴더 이름을 다시 누르면 접힌다(명진 11/24 15:42)
-    await expect(child).toHaveCount(0); await expect(tog).toHaveAttribute('aria-expanded', 'false');
     await main.click();
-    await expect(child).toBeVisible();
+    await expect(child).toBeVisible(); await expect(tog).toHaveAttribute('aria-expanded', 'true');
     await tog.click();
     await expect(child).toHaveCount(0); await expect(tog).toHaveAttribute('aria-expanded', 'false');
     expect(await noteRows()).toEqual(['n1', 'n2', 'n3']);
@@ -126,7 +130,7 @@ test.describe('PC 1440', () => {
     await expect(child).toBeVisible(); await expect(main).toBeFocused();
     expect(await noteRows()).toEqual(['n1', 'n2', 'n3']);
     // ⋯ 메뉴 [이 폴더로 들어가기]도 같은 곳(다른 폴더에서 돌아오기).
-    await page.locator(`[data-nx-tree] [data-nx-open="out"]`).click();
+    await treeEnter(page.locator(`[data-nx-tree] [data-nx-open="out"]`));
     await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"]`)).not.toHaveClass(/ft-current/);
     await page.locator(`[data-nx-tree] [data-nx-folder-more="${U(1)}"]`).click();
     await page.locator('#noteDocMenu [data-nx-enter]').click();
