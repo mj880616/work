@@ -10,6 +10,7 @@ import {TRASH_STATE, TRASH_TEXT, purgeConfirmText, restoredText} from './project
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {formatSeoulTime} from './meeting-time.js';
 import {askConfirm, notify} from './small-notice.js';
+import {bindRowSwipe} from './row-swipe.js';
 
 export const NOTE_TRASH = 'note-trash';
 export const NOTE_TRASH_NAME = '휴지통';
@@ -37,17 +38,21 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
     return ftTrashRowHtml({label:NOTE_TRASH_NAME, count:n === null ? '' : n, countLabel:n === null ? '' : `휴지통 노트 ${n}개`, current:tree && at === NOTE_TRASH, tree,
       attrs:{'data-nx-open':NOTE_TRASH, 'data-nx-trash-item':''}});
   }
+  // 줄 모양(11/26 명진 "뚱뚱한 단추"): 제목·날짜 + 오른쪽 테두리 없는 작은 글자 [되살리기](휴지통에서 꺼내기는 '되살리기', ui-words.md)와 ⋯.
+  // 폰은 줄을 왼쪽으로 밀어도 같은 [되살리기][영구 삭제](다른 휴지통 줄과 같은 밀기 칸). 영구 삭제는 ⋯ 안에서 줄마다 묻는다.
   function rowHtml(r) {
     const name = r.name || '제목 없음', when = deletedDay(r.deleted_at);
     return `<div class="nxt-row" role="listitem" data-nxt-row="${esc(r.id)}"><span class="nxt-main"><span class="nxt-name">${esc(name)}</span>${when ? `<time class="nxt-day" datetime="${esc(r.deleted_at || '')}"><span class="a11y-only">삭제한 날 </span>${esc(when)}</time>` : ''}</span>`
-      + `<button type="button" class="secondary nxt-restore" data-nxt-restore="${esc(r.id)}"${busy ? ' disabled' : ''}>되돌리기</button>`
-      + `<details class="nxt-more"><summary class="icon-btn" aria-label="휴지통 관리: ${esc(name)}">${MORE}</summary><div class="nxt-more-panel" role="group" aria-label="휴지통 관리"><button type="button" class="danger nxt-purge" data-nxt-purge="${esc(r.id)}"${busy ? ' disabled' : ''}>영구 삭제</button></div></details></div>`;
+      + `<button type="button" class="nxt-act nxt-restore" data-nxt-restore="${esc(r.id)}"${busy ? ' disabled' : ''}>되살리기</button>`
+      + `<details class="nxt-more"><summary class="nxt-dots" aria-label="휴지통 관리: ${esc(name)}">${MORE}</summary><div class="nxt-more-panel" role="group" aria-label="휴지통 관리"><button type="button" class="danger nxt-purge" data-nxt-purge="${esc(r.id)}"${busy ? ' disabled' : ''}>영구 삭제</button></div></details></div>`;
   }
-  function listHtml() {
+  // '휴지통 비우기': 휴지통에 보이는 노트 전부를 영구 삭제(건수 옆, 글자 단추). 서버 길은 줄마다 쓰는 app_trash_purge 그대로.
+  const emptyBtn = (cls = '') => `<button type="button" class="nxt-act nxt-empty ${cls}" data-nxt-empty-all${busy ? ' disabled' : ''}>휴지통 비우기</button>`;
+  function listHtml({bar = false} = {}) {
     if (state === TRASH_STATE.FAILED) return failHtml({retry:'data-nxt-retry', text:TRASH_TEXT.LOAD_FAILED});
     if (state === TRASH_STATE.MISSING) return emptyHtml(TRASH_TEXT.PREPARING);
     if (!rows) return waitHtml({rows:3, h:36});
-    return rows.length ? `<div class="nxt-list" role="list" aria-label="휴지통에 있는 노트">${rows.map(rowHtml).join('')}</div>` : emptyHtml('휴지통 비어 있음', {attrs:'data-nxt-empty'});
+    return rows.length ? `${bar ? `<div class="nxt-bar">${emptyBtn()}</div>` : ''}<div class="nxt-list" role="list" aria-label="휴지통에 있는 노트">${rows.map(rowHtml).join('')}</div>` : emptyHtml('휴지통 비어 있음', {attrs:'data-nxt-empty'});
   }
   const ICON = '<span class="ft-ico ft-ico-trash" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span>';
   // 그리기. at: 지금 자리(NOTE_TRASH일 때만 보인다), phone: 폰 '그 폴더만' 상자, query: 찾는 중이면 숨김, folderView: [폴더] 보기일 때만.
@@ -56,8 +61,8 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
     if (!folderView || query || at !== NOTE_TRASH) { box.hidden = true; box.replaceChildren(); return; }
     box.hidden = false;
     const n = count(), num = n === null ? '' : String(n);
-    if (phone) { box.innerHTML = ftFocusHtml({back:{'data-nx-back':''}, trail:[{label:'노트', attrs:{'data-nx-at':''}}], name:NOTE_TRASH_NAME, icon:ICON, count:num, body:listHtml(), attrs:{'data-nxt-focus':''}}); return; }
-    box.innerHTML = `<div class="nxt-head">${ICON}<b>${NOTE_TRASH_NAME}</b>${num ? `<span class="nxt-n">${num}</span>` : ''}</div>${listHtml()}`;
+    if (phone) { box.innerHTML = ftFocusHtml({back:{'data-nx-back':''}, trail:[{label:'노트', attrs:{'data-nx-at':''}}], name:NOTE_TRASH_NAME, icon:ICON, count:num, body:listHtml({bar:true}), attrs:{'data-nxt-focus':''}}); return; }
+    box.innerHTML = `<div class="nxt-head">${ICON}<b>${NOTE_TRASH_NAME}</b>${num ? `<span class="nxt-n">${num}</span>` : ''}${rows && rows.length ? emptyBtn('nxt-empty-head') : ''}</div>${listHtml()}`;
   }
   const rowOf = id => (rows || []).find(r => r.id === id) || null;
   async function restore(id, anchor) {
@@ -92,10 +97,36 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
     onChange();
     void load().then(onChange);
   }
+  // 비우기: 되돌릴 수 없다는 확인을 거친 뒤에만, 지금 보이는 노트를 하나씩 영구 삭제한다(서버가 줄마다 그 사람 휴지통의 노트인지 다시 확인).
+  async function purgeAll(anchor) {
+    if (busy || !rows || !rows.length) return;
+    const ids = rows.map(r => r.id), n = ids.length;
+    if (!(await askConfirm(anchor, {text:`휴지통의 노트 ${n}개를 영구 삭제할까요?`, note:'삭제하면 되돌릴 수 없어요.', ok:'영구 삭제', danger:true})) || busy) return;
+    busy = true; onChange();
+    const owner = scope();
+    let done = 0, fail = '';
+    try {
+      for (const id of ids) {
+        const r = await purgeFromTrashKind('note', id, rt);
+        if (!r.ok) { fail = r.message; break; }
+        done++;
+        if (owner === scope()) rows = (rows || []).filter(x => x.id !== id);
+      }
+    } finally { busy = false; }
+    if (owner !== scope()) return;
+    notify(fail ? `${done}개를 영구 삭제했어요. ${fail}` : `노트 ${done}개를 영구 삭제했어요.`, {error:!!fail, record:false});
+    onChange();
+    void load().then(onChange);
+  }
+  // 폰 줄 밀기(왼쪽): [되살리기][영구 삭제]. 칸만 열고 누를 때만 한다(다른 휴지통 줄과 같은 공용 부품).
+  if (box) bindRowSwipe(box, {row:'[data-nxt-row]', enabled:() => !busy,
+    actions:() => ({start:null, end:[{key:'restore', label:'되살리기', tone:'info', icon:'undo'}, {key:'purge', label:'영구 삭제', tone:'danger', icon:'trash'}]}),
+    run:(key, el) => { const id = el.dataset.nxtRow; if (key === 'restore') void restore(id, el); else if (key === 'purge') void purge(id, el); }});
   box?.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b || !box.contains(b) || b.disabled) return;
     if (b.matches('[data-nxt-retry]')) { state = TRASH_STATE.UNKNOWN; rows = null; onChange(); void load().then(onChange); return; }
+    if (b.matches('[data-nxt-empty-all]')) { void purgeAll(b); return; }
     if (b.matches('[data-nxt-restore]')) { void restore(b.dataset.nxtRestore, b); return; }
     if (b.matches('[data-nxt-purge]')) { b.closest('details')?.removeAttribute('open'); void purge(b.dataset.nxtPurge, b.closest('.nxt-row')?.querySelector('summary') || b); }
   });

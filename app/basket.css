@@ -262,7 +262,16 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nxt-main { flex:1 1 auto; min-width:0; display:flex; align-items:baseline; gap:8px; }
 .nxt-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
 .nxt-day { flex:none; font-size:12px; color:var(--kptu-muted); }
-#appView #basketView .nxt-row button.nxt-restore { flex:none; }
+/* 휴지통 줄 단추(11/26 명진 "뚱뚱한 단추"): 테두리·바탕 없는 작은 글자. 누르는 범위 44px는 ::after로 지킨다. */
+#appView #basketView .nxt-act { position:relative; flex:none; min-height:0; height:28px; padding:0 6px; border:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:12px; font-weight:400; cursor:pointer; }
+#appView #basketView .nxt-act::after { content:''; position:absolute; inset:-8px -2px; }
+#appView #basketView .nxt-act:hover:not(:disabled) { color:var(--kptu-ink); text-decoration:underline; }
+#appView #basketView .nxt-act:disabled { opacity:.5; cursor:default; }
+#appView #basketView .nxt-empty { color:var(--kptu-danger); }
+#appView #basketView .nxt-empty-head { margin-left:auto; }
+.nxt-bar { display:flex; justify-content:flex-end; }
+#appView #basketView .nxt-dots { position:relative; display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:0; background:transparent; color:var(--kptu-muted); }
+#appView #basketView .nxt-dots::after { content:''; position:absolute; inset:-8px -4px; }
 .nxt-more { position:relative; flex:none; }
 .nxt-more > summary { list-style:none; cursor:pointer; }
 .nxt-more > summary::-webkit-details-marker { display:none; }

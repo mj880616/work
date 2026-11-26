@@ -4,6 +4,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
+import { answerAsk as askText } from './helpers/small-notice.mjs';
 
 // S69-27 (명진 11/24): 노트 [폴더] 보기
 // ① "폴더 밑에 바로 들어가있는 메모도 목록으로 보여야해 / 왼쪽은 목록 오른쪽에는 노트 내용" — PC·펼친 폴드 왼쪽 나무에 폴더 바로 아래 노트 줄(하위 폴더 먼저),
@@ -14,12 +15,13 @@ import { treeEnter } from './helpers/tree-enter.mjs';
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const F = '00000000-0000-4000-8000-000000000001', G = '00000000-0000-4000-8000-000000000002';
-async function fixture(page, width) {
+async function fixture(page, width, { trashed = [] } = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], deletes = [];
   page.on('pageerror', e => errors.push(e.message));
   await openHome(page);
   const trash = await noteTrash(page, SB);
+  trashed.forEach(t => trash.take({ id: t, workspace_id: 'w', kind: 'note', title: `지운 노트 ${t}`, raw_text: '본문' }, 0));
   const row = (id, title, updated_at, metadata = {}) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + ' 본문 글', occurred_at: updated_at, created_at: updated_at, updated_at, archived_at: null, ai_export_allowed: true, attachments: [], metadata });
   const rows = [
     row('n1', '가 노트', '2026-10-16T01:00:00Z', { folder_id: F }),
@@ -168,5 +170,39 @@ test('폰 390: 노트 줄을 꾹 눌러 끄는 동안에도 같은 조각이 따
   expect(seen.opacity).toBeLessThan(1);
   await expect(page.locator('[data-drag-ghost]')).toHaveCount(0);
   await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata.folder_id).toBe(G);
+  expect(f.errors).toEqual([]);
+});
+
+// NOTE-휴지통줄슬림(명진 11/26 "버튼도 뚱뚱하고 혼자 튀고. 무엇보다 휴지통 비우기가 없어"): 휴지통 줄은 얇은 한 줄(테두리 단추 없음), [휴지통 비우기] = 확인 → 건수만큼 영구 삭제.
+for (const width of [1280, 390]) test(`휴지통 줄은 얇고 단추에 테두리가 없다 · [휴지통 비우기]: 취소하면 그대로, 확인하면 모두 사라진다 (${width})`, async ({ page }) => {
+  const f = await fixture(page, width, { trashed: ['t1', 't2', 't3'] });
+  const press = l => (width < 761 ? l.tap() : l.click());
+  await press(page.locator(width < 761 ? '#noteRows [data-nx-trash-item]' : '[data-nx-tree] [data-nx-trash-item]'));
+  const box = page.locator('[data-nx-trash]');
+  const rows = box.locator('[data-nxt-row]');
+  await expect(rows).toHaveCount(3);
+  // 얇은 줄: 높이 44px 이하, [되살리기]·⋯·[휴지통 비우기]는 테두리·바탕이 없는 글자형.
+  for (const r of await rows.all()) expect((await r.boundingBox()).height).toBeLessThanOrEqual(44);
+  const quiet = async l => expect(await l.evaluate(e => { const c = getComputedStyle(e); return [c.borderTopWidth, c.backgroundColor]; })).toEqual(['0px', 'rgba(0, 0, 0, 0)']);
+  await quiet(rows.first().locator('[data-nxt-restore]'));
+  await quiet(rows.first().locator('summary'));
+  await quiet(box.locator('[data-nxt-empty-all]'));
+  await expect(rows.first().locator('[data-nxt-restore]')).toHaveText('되살리기');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  // 취소: 아무것도 지우지 않는다.
+  await press(box.locator('[data-nxt-empty-all]'));
+  const ask = await askText(page, false);
+  expect(ask).toContain('3개');
+  expect(ask).toContain('되돌릴 수 없');
+  await expect(rows).toHaveCount(3);
+  expect(f.trash.purged).toEqual([]);
+  // 확인: 건수만큼 영구 삭제, 목록 비고 '휴지통 비어 있음'.
+  await press(box.locator('[data-nxt-empty-all]'));
+  await answerAsk(page, true);
+  await expect(rows).toHaveCount(0);
+  await expect(box.locator('[data-nxt-empty]')).toBeVisible();
+  expect(f.trash.purged.sort()).toEqual(['t1', 't2', 't3']);
+  expect(f.trash.restored).toEqual([]);
+  await expect(box.locator('[data-nxt-empty-all]')).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
