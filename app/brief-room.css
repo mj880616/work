@@ -29,6 +29,7 @@
 #briefView .br-row .fx-day,#briefView .br-row .fx-kind{color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #briefView .br-row .fx-sub{display:none}
 #briefView .br-row .br-start{min-height:24px}
+#briefView .br-row .br-st-retry{display:inline-flex;align-items:center;gap:6px;min-width:0}
 #briefView .br-rows>.ft-row{border-bottom:.5px solid var(--kptu-border)}
 @container (max-width:380px){
   #briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:20px minmax(0,1fr) var(--br-w-day,64px) auto}
@@ -86,7 +87,7 @@
   #briefView .br-row .fx-ico{grid-row:1/3}
   #briefView .br-row .fx-nm{grid-column:2;grid-row:1}
   #briefView .br-row .fx-sub{display:block;grid-column:2;grid-row:2}
-  #briefView .br-row .br-st{grid-column:3;grid-row:1/3}
+  #briefView .br-row :is(.br-st,.br-st-retry){grid-column:3;grid-row:1/3}
   #briefView .br-head .br-sort{flex:none;height:26px}
 }
 /* BRIEF-브리핑룸삭제(S63-08): 줄 끝 ⋯(공용 icon-btn), 선택 모드(줄 앞 네모 칸·위쪽 줄 [모두 선택] n개 선택됨 [브리핑만 삭제] [자료까지 삭제] [취소]).

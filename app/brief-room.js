@@ -162,8 +162,9 @@ function stateNode(row){
   // S70-84: 다 된 줄은 상태 칸을 비운다(넣은 날은 날짜 칸, 브리핑 날짜는 칸 위에 마우스를 올리면). 줄을 누르면 보기.
   if(s.kind==='done'){const n=el('span','br-st br-st-done');n.title=s.date?`${s.date} 브리핑`:'';return n}
   // 줄 ⋯를 없앤 뒤에도 못 만든 줄은 줄 안 단추로 다시 만든다(전에는 ⋯ [다시 만들기]).
-  if(canRetry(state.briefs.get(row.doc.id)))return btn('br-start mini',RETRY_LABEL,{brStart:row.doc.id});
-  return el('span','br-st br-st-bad',s.text);
+  const bad=el('span','br-st br-st-bad',s.text);
+  if(!canRetry(state.briefs.get(row.doc.id)))return bad;
+  const box=el('span','br-st-retry');box.append(bad,btn('br-start mini',RETRY_LABEL,{brStart:row.doc.id}));return box;
 }
 
 // S70-84: 자료 한 줄 = [파일] 목록 줄 칸(files.css .fx-row — 그림 · 이름 · 넣은 날 · 크기 · 종류)에 브리핑 상태 칸과 ⋯. 폰은 [파일] 폰 줄처럼 이름 / 날짜·크기·종류 두 줄.
