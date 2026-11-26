@@ -313,7 +313,6 @@ function drawDetail() {
   if (!row) { box.hidden = true; box.replaceChildren(); memoThread.detach(); if (listBox) listBox.hidden = false; view()?.classList.remove('rd-reading'); refreshScreenFind(); return; }
   view()?.classList.add('rd-reading');
   if (listBox) listBox.hidden = !split();
-  if (listBox) listBox.hidden = !wide();
   refreshScreenFind(); // 폰은 글 보기가 목록 대신 — 그동안 맨 위 칸은 이 화면 찾기가 아니다
   const l = lineOf(row);
   // S70-40b READ-글보기머리(docs/design/reading-screens.md 4절·5절 ①③ (가)): 공용 '글 보기 머리'(ui-standard.css .ds-doc-*) —
