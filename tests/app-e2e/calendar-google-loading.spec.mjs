@@ -169,7 +169,7 @@ test('연결 해제 후에는 캐시를 쓰지 않고 Google 일정을 삭제한
   const state=newState();
   await openCalendar(page,state);
   page.on('dialog',d=>d.accept());
-  await page.locator('#googleCalendarPanel summary').click();
+  await page.locator('#googleCalendarHeadBtn').click(); // CAL-머리한줄: 이름 줄 [구글 캘린더 ▾]
   await page.locator('#disconnectGoogle').click();
   await expect(page.locator('[data-google-event]')).toHaveCount(0);
   await expect.poll(()=>page.evaluate(()=>window.__KPTU_GOOGLE_STATE__?.connected)).toBe(false);

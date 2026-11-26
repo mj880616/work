@@ -94,7 +94,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);
  for(const [name,selectors]of Object.entries(listButtons)){
   await view(page,name);await view(original,name);
-  if(name==='calendar')for(const p of [page,original])await p.locator('.calendar-google-panel').evaluate(el=>el.open=true);
+  if(name==='calendar')for(const p of [page,original])await p.locator('.calendar-google-panel').evaluate(el=>{el.hidden=false;el.open=true}); // CAL-머리한줄: 지금은 hidden 하나, 옛 판(original)은 details
   for(const selector of selectors){
    if(selector==='#ps3ArchiveBtn'){
     const el=page.locator(selector);await expect(el).toHaveText('보관 1');const after=await size(el);
