@@ -4,7 +4,8 @@
 // 고칠 때마다 개수가 줄면 기준표도 줄인다(늘면 실패). 세는 것 세 가지:
 //  broadObserver  — document·document.body·documentElement를 subtree로 지켜보는 MutationObserver(다른 모듈이 그린 DOM을 고치는 넓은 감시)
 //  importantHide  — display:none!important(다른 모듈 요소를 힘으로 가리는 숨김. 같은 모듈의 상태 숨김은 [hidden]·클래스로 한다)
-//  hasHide        — :has(…)로 고른 요소를 display:none으로 가리는 CSS 규칙(다른 화면·셸 요소를 그 화면 CSS가 숨김)
+//  hasHide        — :has(…)로 고른 요소를 display:none으로 가리는 CSS 규칙(다른 화면·셸 요소를 그 화면 CSS가 숨김).
+//                   ':not(:has(…))'(안이 비었을 때 자기 자리를 접는 상태 규칙)은 세지 않는다.
 // 범위: app/ 아래 .js·.mjs·.css. 외부 라이브러리 폴더(판 번호 폴더·vendor·*-lib)와 운영에서 불러오지 않는 app/legacy는 뺀다.
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join, relative} from 'node:path';
@@ -29,7 +30,7 @@ export function countPatterns(name, text) {
   out.importantHide = (src.match(/display\s*:\s*none\s*!\s*important/g) || []).length;
   if (css || /display\s*:\s*none/.test(src)) {
     // 규칙 단위: 고르개{몸통}. 고르개에 :has( 가 있고 몸통에 display:none.
-    for (const m of src.matchAll(/([^{}]+)\{([^{}]*)\}/g)) if (/:has\(/.test(m[1]) && /display\s*:\s*none/.test(m[2])) out.hasHide++;
+    for (const m of src.matchAll(/([^{}]+)\{([^{}]*)\}/g)) if (/(?<!:not\():has\(/.test(m[1]) && /display\s*:\s*none/.test(m[2])) out.hasHide++;
   }
   return out;
 }

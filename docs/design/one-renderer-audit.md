@@ -12,7 +12,7 @@
   - 아래 동작 표에서 고친 화면은 이 시험의 화면 표에 더한다.
 - 정적 검사 `tests/patch-patterns.mjs`
   - 기준표는 `tests/patch-patterns-baseline.json`이다. CI의 App smoke check가 돌린다.
-  - 세는 것: 넓은 MutationObserver(document·body를 subtree로 지켜봄), `display:none!important`, `:has(…)`로 고른 요소를 `display:none`으로 가리는 규칙.
+  - 세는 것: 넓은 MutationObserver(document·body를 subtree로 지켜봄), `display:none!important`, `:has(…)`로 고른 요소를 `display:none`으로 가리는 규칙. 안이 비었을 때 자기 자리를 접는 `:not(:has(…))` 상태 규칙은 세지 않는다.
   - 파일별 개수가 기준표보다 늘면 실패한다. 고쳐서 줄면 기준표도 줄인다.
 
 ## 1. 노트 탭: 사실로 확인한 원인

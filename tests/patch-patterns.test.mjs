@@ -16,6 +16,7 @@ test('display:none!important와 :has 숨김 규칙을 센다 · 상태 숨김([h
   assert.equal(countPatterns('a.css', '.x[hidden]{display:none}').importantHide, 0);
   assert.equal(countPatterns('a.css', 'html:has(#noteView .open) #appView>.mobile-shell-header{display:none}').hasHide, 1);
   assert.equal(countPatterns('a.css', '.box:has(.row){display:grid}').hasHide, 0);
+  assert.equal(countPatterns('a.css', '.slot:not(:has(>:not([hidden]))){display:none}').hasHide, 0); // 빈 자기 자리 접기(상태)
   assert.equal(countPatterns('a.css', '/* .a:has(.b){display:none} */').hasHide, 0);
   assert.equal(countPatterns('a.js', "style.textContent='.y{display:none !important}'").importantHide, 1);
 });
