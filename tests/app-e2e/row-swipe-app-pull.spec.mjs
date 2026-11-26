@@ -109,11 +109,9 @@ for (const width of [412, 360]) {
     r = await finger(page, cdp, arc(b.x + 40, b.y + b.height / 2 + 12, 280, -36));
     const bar = page.locator('#readingView .row-swipe-pickbar');
     expect(r).toEqual({ pull: ['pull:on', 'pull:off'], cancels: 0 });
-    const pick = list.locator('[data-row-swipe-key="select"]');
-    await expect(pick).toBeVisible();
-    await expect(bar).toBeHidden();
-    const pb = await pick.boundingBox();
-    await finger(page, cdp, [[pb.x + pb.width / 2, pb.y + pb.height / 2]]);
+    // S70-64: 오른쪽 밀기는 칸 없이 그 줄을 바로 고른다.
+    await expect(bar).toBeVisible();
+    await expect(list.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
     await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
     await bar.locator('[data-row-pick-stop]').click();
     await expect(bar).toBeHidden();

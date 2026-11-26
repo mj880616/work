@@ -270,12 +270,9 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
   const bar = page.locator('#readingView .row-swipe-pickbar');
-  // S70-60 UI-스와이프메뉴만: 끝까지 밀어도 [선택] 칸만 펼쳐진다 → 칸을 눌러 선택을 시작한다.
-  const pick = page.locator('#readingView [data-row-swipe-key="select"]');
-  await expect(pick).toBeVisible();
-  await pick.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
-  await pick.dispatchEvent('click');
+  // S70-64: 오른쪽 밀기는 칸 없이 그 줄을 바로 고른다.
   await expect(bar).toBeVisible();
+  await expect(page.locator('#readingView [data-row-swipe-key="select"]')).toHaveCount(0);
   await row(page, T_N2).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
