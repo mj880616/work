@@ -24,7 +24,7 @@ import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from 
 import {askConfirm} from './small-notice.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {bindRowSwipe, EDIT, DELETE} from './row-swipe.js';
-import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
+import {paintMarks, bindMarks, sourceMarks, markActions, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
 import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} from './tg-sender-data.js';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
@@ -70,10 +70,10 @@ install();
 // S53-5 NEWS-밑줄모으기: 소식 원문([data-tg-raw])에서 글을 고르면(끌기·⋯ [원문 모두 선택]) 하단바 위 공용 줄 [밑줄 저장][노트로][복사][공유] ✕(text-select-bar.js).
 // 출처 = 방 이름·시각. 저장한 밑줄은 원문을 그린 뒤 노란 바탕(text-highlights.js paintMarks), 누르면 메모·노트로·복사·지우기. 모아보기는 News [밑줄] 탭.
 const tgSource = el => { const r = itemOf(el.closest('[data-tg-di]')?.dataset.tgDi || ''); return r ? {type:'telegram', id:r.id, title:oneLineOf(r.room_label) || '텔레그램', media:'텔레그램', date:r.occurred_at || null, url:''} : null; };
-bindSelectZone($('#telegramView'), {zone:'[data-tg-raw]', source:tgSource, onSave:saveFromSelection, onNote:noteFromSelection});
+bindSelectZone($('#telegramView'), {zone:'[data-tg-raw]', source:tgSource, onSave:saveFromSelection, onNote:noteFromSelection, marks:markActions}); // S70-80: 형광펜 켬
 bindMarks($('#telegramView'));
 // 원문 칸마다 그 소식의 밑줄을 칠한다(칸은 paintDetail·paintRoomDetail이 그린 그대로, 글자 마디만 감쌈).
-function paintTgMarks(box) { for (const el of box?.querySelectorAll('[data-tg-di] [data-tg-raw]') || []) paintMarks(el, sourceHighlights('telegram', el.closest('[data-tg-di]').dataset.tgDi)); }
+function paintTgMarks(box) { for (const el of box?.querySelectorAll('[data-tg-di] [data-tg-raw]') || []) paintMarks(el, sourceMarks('telegram', el.closest('[data-tg-di]').dataset.tgDi)); }
 onHighlights(() => { const box = $('#tgDetail'); if (box && !box.hidden) { paintTgMarks(box); revealTg(box); } });
 // S61-51a NEWS-밑줄모으기: News [밑줄] 탭에서 연 텔레그램 밑줄(reveal = 밑줄 id). 원문이 그려지고 밑줄이 칠해지면 그 자리로 한 번 옮기고 잠깐 밝힌다
 // (뉴스·사회운동 원문과 같은 revealMark). 그 밑줄이 6줄 접힘 안이면 그 줄을 펼친 뒤 옮긴다. 다른 방·날을 열면 잊는다.

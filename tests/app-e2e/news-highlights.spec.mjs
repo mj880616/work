@@ -110,7 +110,7 @@ for (const width of [412, 1440]) {
     await d.locator('[data-nd-ob-more]').click();
     await page.locator('#ndObMenu').getByRole('button', { name: '모두 선택' }).click();
     await expect(bar(page)).toBeVisible();
-    await expect(bar(page).locator('.kptu-act:visible')).toHaveText(['밑줄 저장', '노트로', '복사', '공유']);
+    await expect(bar(page).locator('.kptu-act:visible')).toHaveText(['형광펜', '밑줄 저장', '노트로', '복사', '공유']);
     await bar(page).getByRole('button', { name: '복사' }).click();
     await expect.poll(() => copied(page)).toContain(QUOTE_LINE);
     expect(await copied(page)).toContain('https://nodong.org/statement/2');
@@ -170,7 +170,8 @@ for (const width of [412, 1440]) {
 }
 
 // S61-38 UI-선택줄글아래(11/13) → S70-16 UI-고른글메뉴(11/25 09:51 명진 "이 메뉴가 글을 가리지 않는 곳에 뜨게", 사진: 바로 아래 줄이 다음 줄 글을 가림)로 바뀜:
-// 줄은 고른 글과 바로 앞뒤 줄을 가리지 않는다. PC는 글 칸 옆 여백 → 고른 글 위(한 줄 띄움) → 아래(한 줄 띄움), 폰은 하단바 바로 위 고정 줄.
+// 줄은 고른 글과 바로 앞뒤 줄을 가리지 않는다. S70-80(11/26): 옛 '글 칸 옆 여백'은 두 칸 보기에서 목록 칸 위에 떠서 없앴다 —
+// PC는 고른 글 위(한 줄 띄움) → 아래(한 줄 띄움), 폰은 아래(한 줄 + 손잡이 자리) → 위.
 // 스크롤해도 가리지 않는다. 어느 폭에서도 화면·하단바 밖으로 안 나간다. (자리 계산은 select-bar-place-model.mjs, 기준표 docs/design/standard-interactions.md G1)
 const selBox = page => page.evaluate(() => { const r = getSelection().getRangeAt(0).getClientRects(), a = [...r].filter(x => x.width && x.height); return { top: Math.min(...a.map(x => x.top)), bottom: Math.max(...a.map(x => x.bottom)), left: Math.min(...a.map(x => x.left)), right: Math.max(...a.map(x => x.right)) }; });
 const lineOf = p => p.evaluate(el => parseFloat(getComputedStyle(el).lineHeight) || 20);
@@ -192,8 +193,7 @@ for (const width of [412, 760, 1280]) {
     const line = await lineOf(p);
     await pick(page, QUOTE);
     await expect(bar(page)).toBeVisible();
-    if (width <= 760) await expect(bar(page)).not.toHaveAttribute('data-anchor-side', /.+/); // 폰: 하단바 위 고정 줄
-    else await expect(bar(page)).toHaveAttribute('data-anchor-side', /^(right|left|top|bottom)$/);
+    await expect(bar(page)).toHaveAttribute('data-anchor-side', width <= 760 ? 'bottom' : 'top'); // 폰: 고른 글 아래, PC: 고른 글 위
     let s = await selBox(page), bb = await bar(page).boundingBox();
     expect(clear(bb, s, line)).toBe(true);
     await barInWindow(page, bb, width);
@@ -203,8 +203,8 @@ for (const width of [412, 760, 1280]) {
     await p.evaluate(el => { const r = getSelection().getRangeAt(0).getBoundingClientRect(), tabs = document.querySelector('nav.mobile-tabs'), tb = tabs && getComputedStyle(tabs).display !== 'none' ? tabs.getBoundingClientRect().height : 0;
       el.style.marginTop = (parseFloat(getComputedStyle(el).marginTop) + (innerHeight - tb - 30) - r.bottom) + 'px'; el.style.marginBottom = '1500px'; });
     await pick(page, QUOTE);
-    // 폰도 하단바 위 고정 줄이 고른 글을 덮으면 고른 글 위로 올린다.
-    await expect(bar(page)).toHaveAttribute('data-anchor-side', /^(right|left|top)$/);
+    // 아래에 자리가 없으면(화면 아래쪽 글) 고른 글 위로 올린다.
+    await expect(bar(page)).toHaveAttribute('data-anchor-side', 'top');
     s = await selBox(page); bb = await bar(page).boundingBox();
     expect(clear(bb, s, line)).toBe(true);
     await barInWindow(page, bb, width);
@@ -219,7 +219,7 @@ for (const width of [412, 760, 1280]) {
 }
 test.describe('폰 손가락', () => {
   test.use({ hasTouch: true, isMobile: true });
-  test('고른 글 줄은 하단바 위 고정 줄 — 고른 글·선택 손잡이를 가리지 않음 412', async ({ page }) => {
+  test('고른 글 줄은 고른 글 아래 — 고른 글·선택 손잡이를 가리지 않음 412', async ({ page }) => {
     test.setTimeout(90000);
     const { errors } = await start(page, 412);
     await open(page, KO);
@@ -229,9 +229,10 @@ test.describe('폰 손가락', () => {
     const line = await lineOf(p);
     await pick(page, QUOTE);
     await expect(bar(page)).toBeVisible();
-    await expect(bar(page)).not.toHaveAttribute('data-anchor-side', /.+/);
+    await expect(bar(page)).toHaveAttribute('data-anchor-side', 'bottom');
     const s = await selBox(page), bb = await bar(page).boundingBox();
-    expect(bb.y - s.bottom).toBeGreaterThanOrEqual(24 + line); // 손잡이 자리(약 24px)와 다음 줄은 비운다
+    expect(bb.y - s.bottom).toBeGreaterThanOrEqual(24 + line - 1); // 손잡이 자리(약 24px)와 다음 줄은 비운다
+    expect(bb.y - s.bottom).toBeLessThanOrEqual(24 + line + 2); // 그러면서 고른 글 바로 아래
     await barInWindow(page, bb, 412);
     if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/touch-412.png` });
     expect(errors).toEqual([]);

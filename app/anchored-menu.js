@@ -1,5 +1,8 @@
-// D-3e anchored menu: shared history, focus, outside-click replay and positioning.
+// D-3e anchored menu: shared history, focus, outside-press close (menu-dismiss.js) and positioning.
 import {markScrollMore,bottomInset,notePressAnchor} from './anchored-popup.js';
+// STD-메뉴바깥닫기(S70-78): 바깥 누름·Esc·스크롤·창 크기·화면 이동·한 번에 하나는 공용 지킴이(menu-dismiss.js)가 맡는다.
+// 바깥 누름은 닫기만 한다(전의 '닫고 그 누름을 다시 보내기'는 없앴다 — 바깥 누름이 다른 동작을 일으키지 않게).
+import {holdMenu,menusSettling} from './menu-dismiss.js';
 // actDetached: 메뉴가 열린 동안 화면이 다시 그려져 누른 칸이 바뀌어도 고른 항목을 실행한다(부르는 쪽이 새 칸을 찾는다).
 // open(trigger,{at:{x,y}}): 누른 자리(PC 우클릭·Shift+F10) 바로 옆에 둔다. 이때 trigger(날짜 칸·일정 줄)는 메뉴 주인일 뿐이라 그 안을 다시 눌러도 바깥 누름으로 닫힌다(S51-27).
 // S51-31 UI-⋯작은메뉴: 폰·폴드·PC 모두 같은 작은 상자. 화면 아래를 덮는 판(옛 sheet)은 없앴다.
@@ -7,7 +10,7 @@ import {markScrollMore,bottomInset,notePressAnchor} from './anchored-popup.js';
 // 아래쪽 끝은 하단바(--kptu-mobile-tab-height + 시스템 바 자리)·전환 줄(--kptu-switch-dock)·자판 위라 상자가 아래 바에 가리지 않는다(공용 bottomInset, S61-8).
 // STAB-갈래4흔들림: 지금 열린 메뉴들(모든 createAnchoredMenu 공통). 화면이 스스로 하는 일(예: PC News 목록이 오면 맨 위 글 열기)이
 // 버튼 누르기를 흉내 내면 아래 '바깥 누름' 잡기가 사람이 방금 연 메뉴를 닫으므로, 그런 일은 열린 메뉴가 없을 때까지 미룬다.
-const openMenus=new Set();let afterClose=[];
+const openMenus=new Set(),closings=new Set();let afterClose=[];
 export const anyMenuOpen=()=>openMenus.size>0;
 export function whenMenusClosed(fn){if(!openMenus.size){fn();return}afterClose.push(fn)}
 function menusClosed(){if(openMenus.size||!afterClose.length)return;const list=afterClose;afterClose=[];list.forEach(fn=>fn())}
@@ -22,8 +25,8 @@ export function createAnchoredMenu({id,className,label,historyKey,parent=documen
   panel.addEventListener('click',e=>{const button=e.target.closest('button'),previous=active;if(!button||!previous)return;notePressAnchor(previous.trigger,{at:previous.at});close(()=>{if(actDetached||previous.trigger.isConnected)onAction(button,previous)});});
 function close(then,fromBack=false){
   const previous=active;if(!previous){if(then){if(closing)closing.then(then);else then()}return closing||Promise.resolve()}
-  active=null;openMenus.delete(panel);if(popover)panel.hidePopover();panel.hidden=true;previous.trigger.setAttribute('aria-expanded','false');
-  let release;const pending=new Promise(resolve=>{release=resolve});closing=pending;
+  active=null;openMenus.delete(panel);previous.release?.();if(popover)panel.hidePopover();panel.hidden=true;previous.trigger.setAttribute('aria-expanded','false');
+  let release;const pending=new Promise(resolve=>{release=resolve});closing=pending;closings.add(pending);pending.then(()=>closings.delete(pending));
   const finish=()=>queueMicrotask(()=>{if(closing===pending)closing=null;release();if(then)then();else if(previous.trigger.isConnected)previous.trigger.focus({preventScroll:true});onClose();menusClosed()});
   if(!fromBack&&history.state?.[historyKey]===previous.id){window.addEventListener('popstate',finish,{once:true});history.back()}else finish();return pending;
 }
@@ -47,14 +50,16 @@ function open(trigger,{at=null}={}){
   if(trigger.disabled||!canOpen(trigger))return;
   const point=at&&Number.isFinite(at.x)&&Number.isFinite(at.y)?{x:at.x,y:at.y}:null;
   if(closing){closing.then(()=>{if(trigger.isConnected)open(trigger,{at:point})});return}
+  // 다른 메뉴가 닫히며 부른 뒤로가기가 아직이면 그 뒤에 연다(새 메뉴 기록 칸이 앞 메뉴의 뒤로가기에 지워지지 않게).
+  const settling=menusSettling();if(closings.size||settling){Promise.all([...closings,settling]).then(()=>{if(trigger.isConnected)open(trigger,{at:point})});return}
   if(active){close(active.trigger===trigger&&!point?null:()=>open(trigger,{at:point}));return}
   const id=key(trigger),to=host(trigger);if(panel.parentElement!==to)to.append(panel);active={trigger,id,at:point,row:point?null:row(trigger)||null};openMenus.add(panel);
+  const mine=active;mine.release=holdMenu(panel,{close:reason=>{if(active!==mine)return;return reason==='esc'?close():close(()=>{})},keep:t=>!mine.at&&!!t&&mine.trigger.contains(t)});
   panel.innerHTML=render(id);
   panel.hidden=false;if(popover){try{panel.showPopover()}catch{popover=false;panel.removeAttribute('popover')}}
   position();trigger.setAttribute('aria-expanded','true');history.pushState({...history.state,[historyKey]:id},'',location.href);onOpen(trigger,panel);panel.querySelector('button')?.focus({preventScroll:true});
 }
-  document.addEventListener('click',e=>{if((!active&&!closing)||panel.contains(e.target)||(active&&!active.at&&active.trigger.contains(e.target)))return;const target=e.target,forward=new MouseEvent('click',e);e.preventDefault();e.stopImmediatePropagation();close(()=>{if(target.isConnected)target.dispatchEvent(forward)})},true);
-  document.addEventListener('keydown',e=>{if(!active)return;if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close()}else if(e.key==='Tab'){const buttons=[...panel.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);e.preventDefault();e.stopImmediatePropagation();buttons[(index+(e.shiftKey?-1:1)+buttons.length)%buttons.length].focus()}},true);
+  document.addEventListener('keydown',e=>{if(!active)return;if(e.key==='Tab'){const buttons=[...panel.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);e.preventDefault();e.stopImmediatePropagation();buttons[(index+(e.shiftKey?-1:1)+buttons.length)%buttons.length].focus()}},true);
   window.addEventListener('popstate',e=>{if(active&&e.state?.[historyKey]!==active.id)close(null,true)},true);
   window.addEventListener('resize',position);window.addEventListener('scroll',position,true);new ResizeObserver(position).observe(panel);
   // LIB-다시그리기메뉴닫힘: 메뉴 주인(그 목록을 그리는 쪽)이 목록을 다시 그린 직후 부른다. 누른 칸이 떨어졌으면 find(id,옛 칸)가

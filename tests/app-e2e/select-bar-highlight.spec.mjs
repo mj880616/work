@@ -1,5 +1,5 @@
 // S70-16 UI-고른글메뉴·형광펜(명진 2026-11-25 09:51·09:54, 시안 docs/design/mockups/highlight-underline-options.html) — 브리핑 룸.
-// ① 두 문단을 고르면 '선택한 글' 막대가 고른 글과 앞뒤 줄을 가리지 않는다(PC 글 칸 옆·위·아래, 폰 하단바 위). PC는 마우스를 누른 채 고르는 동안 뜨지 않고 뗀 뒤 뜬다.
+// ① 두 문단을 고르면 '선택한 글' 막대가 고른 글과 앞뒤 줄을 가리지 않는다(S70-80: PC 고른 글 위·아래, 폰 아래·위). PC는 마우스를 누른 채 고르는 동안 뜨지 않고 뗀 뒤 뜬다.
 // ② PC: 막대 빈 곳('선택한 글' 글자)을 끌면 따라 움직이고, 단추 위에서 끌면 움직이지 않으며, 끈 뒤에도 단추가 동작한다.
 // ③ [형광펜] 색 점 → 그 색으로 글 안 표시(서버 줄 mark_kind highlight·mark_color) → 새로 불러와도 같은 색 → 칠한 곳을 골라 색 바꾸기 → 다음 [형광펜]은 마지막 색 → [삭제].
 // ④ 형광 줄은 모아 보기(노트로 보관의 '밑줄')에 섞이지 않는다.
@@ -39,7 +39,7 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/${label}-select.png` });
     if (!pc) {
-      // 폰: 하단바 위 고정 줄(하단바와 겹치지 않음).
+      // 폰: 고른 글 근처(S70-80) — 하단바와 겹치지 않음.
       const tabs = await page.locator('nav.mobile-tabs').evaluate(el => el.getBoundingClientRect().top).catch(() => height);
       const b = await box(bar(page));
       expect(b.y + b.h).toBeLessThanOrEqual(tabs + 1);
@@ -51,10 +51,11 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
       const grip = await box(bar(page).locator('.hl-bar-label'));
       await page.mouse.move(grip.x + 6, grip.y + grip.h / 2);
       await page.mouse.down();
-      await page.mouse.move(grip.x + 66, grip.y + grip.h / 2 + 90, { steps: 6 });
+      // S70-80: 막대가 글 칸 폭(오른쪽 끝 가까이)에 뜰 수 있어 왼쪽 아래로 끈다(오른쪽은 화면 끝에 막힘).
+      await page.mouse.move(grip.x + 6 - 60, grip.y + grip.h / 2 + 90, { steps: 6 });
       await page.mouse.up();
       const moved = await box(bar(page));
-      expect(Math.round(moved.x - before.x)).toBe(60);
+      expect(Math.round(moved.x - before.x)).toBe(-60);
       expect(Math.round(moved.y - before.y)).toBe(90);
       await expect(bar(page)).toBeVisible();
       const copy = await box(bar(page).getByRole('button', { name: '복사', exact: true }));

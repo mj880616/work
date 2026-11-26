@@ -64,7 +64,7 @@ async function setup(page, width) {
   await openNews(page, width);
   return { errors, server, seen, bodies };
 }
-const openMenuEdit = async (page, nd) => { await nd.locator('[data-nd-ob-more]').click(); await page.locator('#ndObMenu [data-nd-menu="hand"]').click(); };
+const openMenuEdit = async (page, nd) => { await nd.locator('[data-nd-ob-more]').click(); await page.locator('#ndObMenu [data-nd-menu="edit"]').click(); await page.locator('#outsideRoot [data-nd-edit-info]').click(); }; // S71-68 ②: ⋯ [수정] = 문단 수정 칸, 직접 넣기 칸은 그 안 [제목·정보]
 // 작은 글 입력창(app/small-notice.js askText)에 주소를 붙여 넣고 [넣기].
 const askPhoto = async (page, form, url) => { await form.locator('[data-nd-hand-photo]').click(); const f = page.locator('.kptu-ask .kptu-ask-field'); await expect(f).toBeVisible(); await f.fill(url); await page.locator('.kptu-ask button.primary').click(); await expect(page.locator('.kptu-ask')).toHaveCount(0); };
 const loaded = img => img.evaluate(el => el.complete && el.naturalWidth > 0);
