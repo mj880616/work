@@ -4255,18 +4255,37 @@ root?.addEventListener('contextmenu', event => {
 // 반투명 사각형이 그려지고 닿은 목록 줄을 고른다 — 자료실과 같은 공용 부품(marquee-select.js, 기준표 S4). 고른 상태 주인은 그 칸의 picked 하나.
 // 줄 위에서 끌면 지금처럼 폴더로 끌어 옮기기(HTML 끌기), 단추·입력칸·메뉴·미리보기·위 줄은 건드리지 않는다. Ctrl·Shift와 끌면 더하기. 두 칸이면 시작한 칸만.
 const MQ_SKIP = 'input,textarea,select,button,a,label,[contenteditable],summary,[data-fx-row],.ft-row,.fx-top,.fx-head,[data-fx-prev],[data-fx-bar],.fx-drop-ask,[popover],[role="menu"],[role="dialog"],dialog,.modal';
+// STAB-파일끌기회귀(S70-80, 명진 11/26 09:15 "이 종류 바깥부분부터 드래그해서 선택하려고하는데 이게 안돼"): 원인(사실) — 사각형 시작 자리를 [파일] 칸(#filesRoot) 안으로만 받아,
+// ① 목록 줄의 마지막 칸(종류) 오른쪽 빈 자리는 줄 단추 위라 '줄 끌기'로 보고 ② 칸 바깥 바탕(오른쪽 여백·목록이 짧을 때 그 아래 화면 바탕)은 받는 칸 밖이라 시작하지 않았다.
+// 이제 자료실(luMqArea·luMqBlank)과 같은 규칙: 받는 칸 = 앱 틀(.shell) 전체, 빈 곳 = [파일] 화면 안 빈 곳 + [파일] 화면을 감싼 바탕(화면 밖 여백)
+// + 목록 줄의 마지막 칸 오른쪽 빈 자리(탐색기처럼). 줄 글자·칸 위는 지금처럼 줄 끌어 옮기기. 다른 화면에서는 enabled가 막는다.
+const mqView = () => root.closest('.view-panel') || root;
+const mqArea = () => { const v = mqView(); return v.closest('.shell') || v.closest('main') || v; };
+const rowTail = (row, x) => {
+  if (!row.matches('.fx-row') || row.closest('.fx-grid')) return false;
+  const cells = [...row.children].filter(c => c.getClientRects().length);
+  if (!cells.length) return false;
+  return x > Math.max(...cells.map(c => c.getBoundingClientRect().right)) + 4;
+};
+function mqBlank(t, x) {
+  const view = mqView();
+  if (!root.contains(t)) return t.contains(view) && mqArea().contains(t); // 화면을 감싼 바탕(화면 밖 여백)만, 옆 메뉴·위 줄은 아님
+  const row = t.matches('[data-fx-row]') ? t : null;
+  if (row) return rowTail(row, x);
+  return !t.closest(MQ_SKIP);
+}
 let mqPane = 0;
 const mqPaneOf = el => { const i = el?.isConnected ? paneOfEl(el) : -1; return i >= 0 ? i : mqPane; };
-if (root) bindMarquee(root, {
+if (root) bindMarquee(mqArea(), {
   enabled: () => !PHONE.matches && !TOUCH.matches && window.KPTURouter?.current === 'files' && !state.busy && !state.ask && !state.run && !drag,
-  blank: t => root.contains(t) && !t.closest(MQ_SKIP),
+  blank: (t, x) => mqBlank(t, x),
   items: start => [...(paneEl(state.panes[mqPaneOf(start)])?.querySelectorAll('[data-fx-list] [data-fx-row]') || [])],
   keyOf: el => el.dataset.fxRow,
   anchor: start => paneEl(state.panes[mqPaneOf(start)]) || root,
   begin: additive => { if (mqPane !== state.cur && state.panes[mqPane]) setCur(mqPane); return additive ? [...P().picked] : []; },
   onChange: set => { const p = state.panes[mqPane]; if (!p) return; p.picked = new Set(set); if (set.size) p.anchor = [...set].at(-1); paintPicks(p); },
 });
-root?.addEventListener('mousedown', event => { if (event.button === 0) { const i = paneOfEl(event.target); mqPane = i >= 0 ? i : state.cur; } }, true);
+if (root) mqArea().addEventListener('mousedown', event => { if (event.button === 0 && window.KPTURouter?.current === 'files') { const i = root.contains(event.target) ? paneOfEl(event.target) : -1; mqPane = i >= 0 ? i : state.cur; } }, true);
 function listMenu(b, event) {
   const at = appMenuPoint(event, b); if (!at) return false;
   const i = paneOfEl(b); if (i >= 0) setCur(i);
