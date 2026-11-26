@@ -3,8 +3,8 @@
 import {test,expect} from '@playwright/test';
 import {answerAsk} from './helpers/small-notice.mjs';
 import {openHome, pickQuickMode} from './helpers/home-entry.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
-import { pickBasketView } from './helpers/forget-view.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
+import { openBasketUpdate } from './helpers/forget-view.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-06T01:00:00Z';
 const n='10000000-0000-4000-8000-0000000000a1',o='30000000-0000-4000-8000-0000000000a1';
@@ -65,8 +65,8 @@ async function fixture(page,{width=1280}={}){
 // 폰 폭은 손가락 누르기. locator.tap()은 누르는 순간 줄을 다시 찾는다(좌표를 먼저 재고 누르면 그 사이 줄이 바뀔 때 깨진다).
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}
 async function openNote(page,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
- await tap(page,page.locator(`[data-basket-row="${n}"]`),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,n,width<761?l=>l.tap():null);
+ await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  return page.locator('[data-basket-detail]');
 }
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
@@ -125,8 +125,8 @@ for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 선택 → �
  // 연결 줄은 id로 가리키므로 그대로이고, 바구니 칩도 새 이름으로 보인다.
  expect(f.links).toHaveLength(1);
  await page.evaluate(()=>window.KPTURouter.go('basket'));
- await pickBasketView(page,'classified');
- await expect(page.locator(`[data-basket-row-item="${n}"]`)).toContainText('합성 본부 사업(바뀐 이름)');
+ await openBasketUpdate(page,n); // S71-58: 연결된 업데이트는 처리 전 목록에 없다 — 상세의 칩으로 본다
+ await expect(page.locator('[data-basket-detail] [data-basket-state]')).toContainText('합성 본부 사업(바뀐 이름)');
 
  // 주간 정리: 참고에만 붙인 소식은 조직 소식('미분류')·[복사] 글 어디에도 없다.
  await page.evaluate(()=>window.KPTURouter.go('home'));

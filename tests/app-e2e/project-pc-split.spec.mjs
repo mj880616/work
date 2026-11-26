@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
-import { pickBasketView } from './helpers/forget-view.mjs';
+import { openBasketUpdate } from './helpers/forget-view.mjs';
 // UI-모바일업데이트겹쳐보기: on a phone a tapped record first comes up as a card over the detail; its full-open button continues as before.
 const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-record-sheet-full]').click()};
 // UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(≥1024) 프로젝트 화면은 왼쪽 목록 + 오른쪽 상세(같은 상세 창을 칸에 옮겨 씀).
@@ -143,8 +143,8 @@ test('PC 1280: a 🧺 record opens the update with "‹ (project)" in the head; 
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();/* MTG-프로젝트합치기 ①: 사업 보고 위 창으로 돌아온다 */await expectProjectTitle(page,'합성 정책 사업');
   await expect(pane(page).locator('#ps3DetailModal')).toBeVisible();await expect.poll(()=>top(basketLine(page))).toBe(before);
  }
- // A note opened from the basket list itself has no return line.
- await clickView(page,'basket');await pickBasketView(page,'classified');await page.locator(`[data-basket-row="${note.id}"]`).click();await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
+ // A note opened in the basket itself (S71-58: a linked note is no longer in the 처리 전 list, so by its address) has no return line.
+ await clickView(page,'basket');await openBasketUpdate(page,note.id);await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
  await expect(page.locator('#basketView [data-basket-return]')).toHaveCount(0);
  // …and its back stays the basket list, as before.
  for(const how of ['back','browser']){
@@ -237,7 +237,7 @@ for(const width of [412,884,1440])test(`UI-돌아가기머리줄 ${width}: 사�
  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');await expect.poll(()=>top(basketLine(page))).toBe(before);
  if(width<761){await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden()}
  // 정리함 목록에서 열면 '‹ 잊지 말기' 그대로. FOLD-넓은화면 ④(S57-21): 폴드 펼침(600~1199px)은 목록 옆 오른쪽 칸에 열려 닫기가 ✕(이름 '닫기')다.
- await clickView(page,'basket');await pickBasketView(page,'classified');await page.locator(`[data-basket-row="${note.id}"]`).click();await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
+ await clickView(page,'basket');await openBasketUpdate(page,note.id);await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
  await expect(page.locator('#basketView [data-basket-detail] [data-basket-return]')).toHaveCount(0);
  await expect(page.locator('#basketView [data-basket-detail] [data-basket-close]')).toHaveText(width>=600&&width<1200?'✕':'‹ 잊지 말기');
  await page.locator('#basketView [data-basket-close]').click();await expect(page.locator(`[data-basket-row="${note.id}"]`)).toBeVisible();

@@ -64,7 +64,7 @@ test('PC 1280: 정리함 한 화면 — 맨 위 줄 [처리 전 ▾]와 최신�
  await expect(basket.locator('[data-basket-more]')).toHaveCount(0);await expect(basket.locator('.forget-head,.basket-switch-row')).toHaveCount(0);
  await expect(head).toBeVisible();await expect(list).toBeVisible();
  expect((await head.boundingBox()).y).toBeLessThan((await list.boundingBox()).y);
- await expect(head.locator('[data-forget-view-open]')).toHaveText('처리 전 ▾');
+ await expect(page.locator('[data-forget-view-open]')).toHaveCount(0); // S71-58 FORGET-처리전만: 보기 단추 없음
  await expect(basket.locator('[data-inbox-todo-section],[data-inbox-chip],h3')).toHaveCount(0);
  await page.evaluate(()=>window.KPTURouter.go('basket',{sub:'todo'}));
  await expect(list).toBeVisible();await expect(page).not.toHaveURL(/pane=/);

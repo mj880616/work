@@ -108,12 +108,13 @@ test('C2 정리함은 PC에서 다른 화면처럼 본문 칸을 꽉 쓴다(예�
   assert.match(css, /@media\(min-width:761px\)\{\s*#basketView\s*\{\s*max-width:none;/);
 });
 
-test('C4 업데이트 줄: 복사 아이콘 없이 ⋯ 하나, [복사]는 폰·PC 모두 ⋯ 메뉴 맨 위, [미분류]를 고른 동안 줄에 미분류를 또 쓰지 않음', () => {
+test('C4 업데이트 줄: 복사 아이콘 없이 ⋯ 하나, [복사]는 폰·PC 모두 ⋯ 메뉴 맨 위, 줄에 미분류를 또 쓰지 않음', () => {
   const js = read('basket.js');
   assert.doesNotMatch(js, /data-basket-row-copy/);
   assert.match(js, /function rowMenuItems\(note,acts=false\)\{\s*return \[\.\.\.\(String\(note\.raw_text\|\|''\)\.trim\(\)\?\[\['copy','복사'\]\]:\[\]\)/);
-  // S52-20 HOME-잊지말기한목록: 업데이트 줄도 한 목록의 공용 줄(notice-box rowHtml)이고 ⋯은 줄 끝 ⑥ 아이콘(늘 보임). [미분류]=처리 전 보기에서는 '미분류'를 쓰지 않는다.
-  assert.match(js, /filter === 'unclassified' && label !== '미분류' \? label : ''/);
+  // S52-20 HOME-잊지말기한목록: 업데이트 줄도 한 목록의 공용 줄(notice-box rowHtml)이고 ⋯은 줄 끝 ⑥ 아이콘(늘 보임).
+  // FORGET-처리전만(S71-58): 목록은 늘 처리 전(미분류)이라 '미분류'는 쓰지 않는다.
+  assert.match(js, /label !== '미분류' \? label : ''/);
   assert.match(js, /tail: `<button type="button" class="icon-btn nbx-more" data-basket-row-more=/);
 });
 

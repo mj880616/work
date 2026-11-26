@@ -5,7 +5,7 @@ import {onlyLibraryCategories,showAllLibraryCategories,libraryCategoryNames} fro
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
 
@@ -127,8 +127,7 @@ async function fixture(page,{width=390,scheme='light',docs=seedDocs(),categories
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 async function openNote(page,id,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,id);
- await tap(page,page.locator(`[data-basket-row="${id}"]`),width);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,id,width<761?l=>l.tap():null); // S71-58: 자료로 넣은(처리한) 메모는 주소로
  const detail=page.locator('[data-basket-detail]');await expect(detail.locator('[data-basket-attachments]')).not.toBeEmpty();return detail;
 }
 async function pick(page,detail,kind,name,width){
