@@ -64,7 +64,7 @@ for(const [name,width] of [['PC',1440],['mid',900],['phone',390]]){
     await expect(page.locator('#calendarView')).toBeHidden();
     await expect(page).toHaveURL(/view=profile/);
     await expect(page.locator('#psName')).toHaveValue('Entry QA');
-    await expect(page.locator('#psTitle')).toHaveValue('Entry Title');
+    await expect(page.locator('#psTitle')).toHaveCount(0);
     await expect(page.locator('#psWorkplacePanel')).toBeVisible();
 
     // 새로고침해도 프로필 화면이 유지된다(주소의 view=profile을 시작 로더가 같은 방식으로 불러온다).

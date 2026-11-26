@@ -69,15 +69,15 @@
    screen-width.mjs 600px)은 제목만 있던 큰 줄(44px + 아래 12px) 대신 '제목 · 찾기' 낮은 한 줄(36px + 아래 8px)이다. PC 틀(761px~) 위 한 줄과 같은 구성이고,
    찾기는 폰 메뉴 창 맨 위와 같은 입구(global-search.js mountMenuEntry — 누르면 화면 전체 검색)다. 접은 폰(600px 미만)은 그대로(입구는 메뉴 창).
    화면 첫 줄이 제목을 보이는 화면(사업 보고·자료실·사진·공유 페이지, ui-standard.css)은 지금처럼 이 줄이 없다. 검색 화면 자신은 검색칸이 있어 입구를 두지 않는다. */
-/* S70-57(명진 11/26 "전체 검색은 홈에만"): 머리 줄 '전체 검색' 칸은 전체 검색 화면에서만 보인다(S71-41: 홈 입구는 날짜 줄 끝 돋보기). 다른 화면은 그 화면 찾기 칸(아래). */
+/* S70-57(사용자 11/26 "전체 검색은 홈에만"): 머리 줄 '전체 검색' 칸은 전체 검색 화면에서만 보인다(S71-41: 홈 입구는 날짜 줄 끝 돋보기). 다른 화면은 그 화면 찾기 칸(아래). */
 .mobile-shell-search{display:none}
 @media(min-width:600px) and (max-width:760px){
   .mobile-shell-header{min-height:36px;margin-bottom:8px}
   .mobile-shell-header>[data-mobile-view-name]{flex:none;white-space:nowrap}
 }
-/* S71-07 SEARCH-누른자리그대로(명진 11/26 13:51 "노트에서처럼 검색창 클릭하고 검색 화면에서 검색창 위치가 같아야 함"): 전체 검색 화면 머리 줄은
+/* S71-07 SEARCH-누른자리그대로(사용자 요청 11/26): 전체 검색 화면 머리 줄은
    이름('검색')·아이콘 없이 '전체 검색' 칸 한 칸이다. 결과·안내만 아래에 뜬다.
-   S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합"): 홈에는 이 칸 줄이 없다(머리 줄 자체를 두지 않음,
+   S71-41 HOME-머리한줄(사용자 요청 11/26): 홈에는 이 칸 줄이 없다(머리 줄 자체를 두지 않음,
    topbar-actions.js). 홈 날짜 머리줄 끝 돋보기를 누르면 이 화면의 이 칸(홈 날짜 줄과 같은 첫 줄 자리)에 바로 커서가 간다. */
 @media(max-width:760px){
   html:has(#searchView:not(.hidden)) .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}

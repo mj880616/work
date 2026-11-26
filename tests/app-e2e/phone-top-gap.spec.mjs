@@ -40,7 +40,7 @@ test('home top has no empty header gap, and the header comes back on other tabs'
   await open(page,'home');
   const head=page.locator('#appView>.mobile-shell-header');
   await expect(page.locator('#homeView [data-journal-title]')).toBeVisible();
-  // S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합"): 홈에는 머리줄(예전 '전체 검색' 칸 줄)이 없고,
+  // S71-41 HOME-머리한줄(사용자 요청 11/26): 홈에는 머리줄(예전 '전체 검색' 칸 줄)이 없고,
   // 날짜 제목 줄이 맨 위 첫 줄이며 그 끝에 돋보기. 빈 머리줄 같은 틈이 끼지 않는다.
   await expect(head).toBeHidden();
   const find=page.locator('#homeView [data-journal-find]');

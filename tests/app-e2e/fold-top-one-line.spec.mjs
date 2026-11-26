@@ -24,7 +24,7 @@ for (const [width, height] of FOLD) {
     page.on('pageerror', e => errors.push(e.message));
     await page.setViewportSize({ width, height });
     await openHome(page);
-    // S70-57(명진 11/26 "전체 검색은 홈에만") → S71-41 HOME-머리한줄: 홈에는 앱 머리 줄이 없고, '전체 검색' 입구는 날짜 줄 끝 돋보기 하나(36px).
+    // S70-57(사용자 11/26 "전체 검색은 홈에만") → S71-41 HOME-머리한줄: 홈에는 앱 머리 줄이 없고, '전체 검색' 입구는 날짜 줄 끝 돋보기 하나(36px).
     const entry = page.locator('#homeView [data-journal-find]');
     await expect(entry).toBeVisible({ timeout: 15000 });
     { const m = await head(page); expect(m.shown).toBe(false); const b = await entry.boundingBox(); expect(b.height).toBe(36); }

@@ -508,7 +508,7 @@
   #appView #homeView .journal-head .journal-days{ flex:1 1 auto; min-width:0; justify-content:space-between; }
   #appView #homeView .journal-head .journal-date{ min-width:0; flex:1 1 0; padding:0; }
 }
-/* S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합"): 폰 틀 첫 줄 = [아이콘] 날짜 · (빈 칸) · [하루|주간 보고] · 찾기.
+/* S71-41 HOME-머리한줄(사용자 요청 11/26): 폰 틀 첫 줄 = [아이콘] 날짜 · (빈 칸) · [하루|주간 보고] · 찾기.
    돋보기는 다른 화면 머리 줄 찾기 돋보기(topbar-actions.css .mobile-shell-find .sf-open)와 같은 36px·20px 아이콘·흐린 색. 누르면 전체 검색(journal.js openFind).
    PC 틀(761px~)은 맨 위 줄 '전체 검색' 칸이 있어 돋보기를 그리지 않는다. */
 #appView #homeView .journal-head .journal-find{ display:none; }

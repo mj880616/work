@@ -97,7 +97,7 @@ const length = text => [...String(text ?? '')].length;
 //   → [하루] 카드 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(home-summary.js, S52-20 — 누르면 정리함 한 목록)
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
-// S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합"): 폰 틀(~760px)은 따로 있던 '전체 검색' 칸 줄이 없고,
+// S71-41 HOME-머리한줄(사용자 요청 11/26): 폰 틀(~760px)은 따로 있던 '전체 검색' 칸 줄이 없고,
 //   이 머리줄 맨 오른쪽 돋보기(…· [하루|주간 보고] · 찾기)를 누르면 전체 검색 화면의 머리 줄 칸(global-search.js openHere — 이 줄과 같은 첫 줄 자리)에 바로 입력.
 //   PC 틀(761px~)은 맨 위 줄 '전체 검색' 칸이 그대로라 돋보기는 폰 틀에서만 보인다(journal.css).
 root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">${word('주간 보고')}</button></div><button type="button" class="journal-find" data-journal-find aria-label="전체 검색"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"/></svg></button></div>

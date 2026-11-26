@@ -1,18 +1,17 @@
 import {word} from './brand/brand.mjs';
-import {UNION_LABEL,REPORT_CALENDAR_TITLE} from './profile-words.mjs';
 const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-notice.js').then(m=>m.holdToast(el,opt)).catch(()=>{})}; // UI-작은알림자리: 일반 스크립트라 동적 import(#toast 위쪽·2초·올려 두면 멈춤)
 (()=>{
 'use strict';
 // PROFILE-화면정리(docs/design/profile-screen-tidy.md): 이 모듈이 #profileView의 유일한 renderer다.
-// 저장 버튼은 위 줄에 하나(이름·직책 + 담당 사업장 체크 변경). 순서는 프로필 → 사업장 추가 → 사업장 삭제이고, 서버 호출(표·방식)은 그대로다.
+// 저장 버튼은 위 줄에 하나(이름 + 담당 사업장 체크 변경). 순서는 프로필 → 사업장 추가 → 사업장 삭제이고, 서버 호출(표·방식)은 그대로다.
 // 담당 사업장 목록의 묶음·순서는 organization-order.js(KPTUOrganizationOrder)의 정의를 그대로 쓴다.
 // PROFILE-담당사업장접기(2026-10-29 명진 결정): 칸은 '담당조직 현황 n' 한 줄로 접힌 채 시작한다. 펼치면 담당만 체크된 채(체크를 풀면
 // 저장 전까지 흐리게 남음), 그 아래 접힌 '그 외 n'(맨 위 찾기 칸, 초성 포함). 모양은 공용 부품 pick-fold.mjs 하나다.
 const rt=window.KPTURuntime;
 let user=null,workspaceId=null,workplaces=[],legacyWorkplaces=[],organizations=[],assignments=[],profileWorkplaces=[];
-// PROFILE-소속칸글로쓰기(명진 확정 11/15 21:45·21:48): 기본 정보 칸 4개 — 노조명·부서명·이름·직책. 모두 글로 직접(목록·자동완성 없음), 가입 때 받지 않고 여기서 채운다.
-// 노조명·부서명은 이름·직책과 같은 표(app_profiles.union_name·department_name, 각 60자 한 줄 — DB 검사)·같은 저장 길([저장] → 내 행 PATCH)이다.
-const EMPTY_SAVED={name:'',title:'',union:'',dept:''};
+// S71-34 PROFILE-이름만(명진 11/26 "기본 정보는 이름(닉네임) 말고 나머지는 수집 x 창도 없애"): 기본 정보 칸은 이름(닉네임) 하나다.
+// 소속·부서·직책은 화면에서 받지도 읽지도 보내지도 않는다. 이미 저장된 값과 DB 칸(app_profiles.union_name·department_name·job_title)은 지우지 않는다(명진 결정 대기).
+const EMPTY_SAVED={name:''};
 let baseline=new Set(),saved={...EMPTY_SAVED},saving=false,bound=false,fold=null,freshFold=true,note=null;
 // PROFILE-바뀜것없음글자빼기(명진 확정): 바뀐 게 없으면 상태 글자 없음 + [저장] 흐리게. 고쳤을 때만 'n곳 바뀜, 저장 안 됨'. 저장 직후 잠깐 '저장됨'.
 let justSaved=0,justSavedTimer=null;const SAVED_MS=2000;
@@ -26,7 +25,7 @@ const $=sel=>document.querySelector(sel);
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function installView(){
   if($('#profileView'))return;
-  $('#appView')?.insertAdjacentHTML('beforeend',word`<section id="profileView" class="view-panel hidden" aria-label="내 프로필"><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psUnion" type="text" placeholder="${UNION_LABEL} (예: ${word('○○노동조합 ○○지부','example')})" aria-label="${UNION_LABEL}" autocomplete="off" maxlength="60"><input id="psDept" type="text" placeholder="부서명 (예: ${word('○○사업팀','example')})" aria-label="부서명" autocomplete="off" maxlength="60"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: ${word('국장','example')})" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel" aria-label="담당 사업장"><div id="psWorkplaceList"></div></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`);
+  $('#appView')?.insertAdjacentHTML('beforeend',word`<section id="profileView" class="view-panel hidden" aria-label="내 프로필"><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psName" type="text" placeholder="이름 (닉네임 써도 돼요)" aria-label="이름" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel" aria-label="담당 사업장"><div id="psWorkplaceList"></div></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`);
 }
 async function context(){if(!rt?.session||!(await rt.session.ensure()))return false;user=await api('/auth/v1/user');const rows=await api(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id&limit=1`);workspaceId=rows?.[0]?.workspace_id||null;return !!workspaceId}
 function buildWorkplaces(){
@@ -42,13 +41,8 @@ const isChecked=id=>want.has(id)?want.get(id):baseline.has(id);
 const pendingAdds=()=>[...want].filter(([id,v])=>v&&!baseline.has(id)).map(([id])=>id);
 const pendingRemoves=()=>[...want].filter(([id,v])=>!v&&baseline.has(id)).map(([id])=>id);
 const nameValue=()=>($('#psName')?.value||'').trim();
-const titleValue=()=>($('#psTitle')?.value||'').trim();
-// 서버 검사와 같게: 줄바꿈·제어문자는 빈칸으로 바꾸고 앞뒤 공백을 지우고 60자까지.
-const lineValue=sel=>($(sel)?.value||'').replace(/[\u0000-\u001f\u007f]+/g,' ').trim().slice(0,60);
-const unionValue=()=>lineValue('#psUnion');
-const deptValue=()=>lineValue('#psDept');
-const FIELDS=[['#psName','name'],['#psTitle','title'],['#psUnion','union'],['#psDept','dept']];
-const profileDirty=()=>nameValue()!==saved.name||titleValue()!==saved.title||unionValue()!==saved.union||deptValue()!==saved.dept;
+const FIELDS=[['#psName','name']];
+const profileDirty=()=>nameValue()!==saved.name;
 const changeCount=()=>(profileDirty()?1:0)+pendingAdds().length+pendingRemoves().length;
 // 목록: 활성 조직 + 이미 담당인 조직(비활성이어도 유지). 묶음 순서·묶음 밖(그 외, 가나다순)은 organization-order.js 그대로.
 function listItems(){
@@ -91,18 +85,17 @@ async function load(){
   await foldReady;
   if(!user&&!(await context()))return false;
   const [profile,a,orgs,pw]=await Promise.all([
-    api(`/rest/v1/app_profiles?user_id=eq.${user.id}&select=user_id,display_name,job_title,union_name,department_name&limit=1`),
+    api(`/rest/v1/app_profiles?user_id=eq.${user.id}&select=user_id,display_name&limit=1`),
     api(`/rest/v1/app_suborganization_assignees?user_id=eq.${user.id}&select=organization_id,user_id,assigned_by,created_at`),
     api(`/rest/v1/app_suborganizations?workspace_id=eq.${workspaceId}&select=id,name,aliases,active&order=name.asc`),
     api(`/rest/v1/app_profile_workplaces?user_id=eq.${user.id}&select=id,organization_id,full_name,aliases,sort_order,created_at&order=sort_order.asc,created_at.asc`)
   ]);
   assignments=a||[];organizations=orgs||[];profileWorkplaces=pw||[];buildWorkplaces();
-  const p=profile?.[0]||{},next={name:p.display_name||user.user_metadata?.display_name||'',title:p.job_title||'',union:p.union_name||'',dept:p.department_name||''};
+  const p=profile?.[0]||{},next={name:p.display_name||user.user_metadata?.display_name||''};
   // 고치던 칸(서버 값과 달라진 칸)은 덮어쓰지 않는다. 고치지 않은 칸만 서버 값으로 맞춘다.
   for(const [id,key] of FIELDS){const el=$(id);if(el&&el.value.trim()===saved[key])el.value=next[key]}
   saved=next;
   renderWorkplaces();
-  void loadReport();
   void loadCollab();
   void loadPush();
   void loadBackup();
@@ -112,24 +105,16 @@ async function load(){
   void loadCustomWords();
   return true;
 }
-// MULTI ②-3(D5) → MULTI-다른담당자맞춤 ②: '주간보고 일정 캘린더' 칸(묶음·제외는 조직 보고 화면으로 옮김)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
-let reportSettings=null;
-async function loadReport(){
-  try{
-    let host=$('#psReportPanel');
-    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend',`<article class="panel ps-panel" id="psReportPanel" aria-label="${REPORT_CALENDAR_TITLE}"></article>`);host=$('#psReportPanel')}
-    if(!reportSettings||reportSettings.host!==host){const ready=import('./report-settings.js').then(m=>m.mountReportSettings(host,{toast}));reportSettings={host,ready};ready.catch(()=>{if(reportSettings?.ready===ready)reportSettings=null})}
-    (await reportSettings.ready).refresh();
-  }catch(e){console.error('report settings',e?.name||'Error')}
-}
+// S71-34 PROFILE-주간캘린더칸삭제(명진 11/26): '주간 정리 일정 캘린더' 칸은 없앴다. 주간 정리는 모든 캘린더 일정을 읽고, 이미 저장된 값
+// (view_prefs.report_calendar)은 서버에 그대로 두어 업무 캘린더로 계속 쓴다(report-calendar.mjs). 화면에서 바꾸는 길은 없다.
 // COLLAB-묶인사람끼리공유 1단계: '내 묶음' 칸(만들기·초대 링크·같은 이름 요청·멤버·나가기·관리자 넘기기)은 collab-groups.js가 그리고 서버 함수로 바로 저장한다.
-// 칸 자리는 주간 보고 일정 캘린더 칸 뒤('폰 알림' 칸 앞), 한 번만 붙인다. 만들기·들어가기에 쓰는 이름·노조명·부서명은 저장된 프로필 값(saved)이다.
+// 칸 자리는 담당 사업장 칸 뒤('폰 알림' 칸 앞), 한 번만 붙인다. 만들기·들어가기에 쓰는 것은 저장된 이름(saved.name)뿐이다(소속·부서는 만들기 창에서 직접 씀).
 let collabGroups=null;
 async function loadCollab(){
   try{
     let host=$('#psCollabPanel');
-    if(!host){const after=$('#psReportPanel')||$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel ps-collab" id="psCollabPanel" aria-label="내 묶음"></article>');host=$('#psCollabPanel')}
-    if(!collabGroups||collabGroups.host!==host){const ready=import('./collab-groups.js').then(m=>m.mountCollabGroups(host,{rt,toast,profile:()=>({...saved})}));collabGroups={host,ready};ready.catch(()=>{if(collabGroups?.ready===ready)collabGroups=null})}
+    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel ps-collab" id="psCollabPanel" aria-label="내 묶음"></article>');host=$('#psCollabPanel')}
+    if(!collabGroups||collabGroups.host!==host){const ready=import('./collab-groups.js').then(m=>m.mountCollabGroups(host,{rt,toast,profile:()=>({name:saved.name})}));collabGroups={host,ready};ready.catch(()=>{if(collabGroups?.ready===ready)collabGroups=null})}
     await (await collabGroups.ready).load();
   }catch(e){console.error('collab groups',e?.name||'Error')}
 }
@@ -208,7 +193,7 @@ async function save(){
   let profileSaved=false,wpSaved=0,failed=false;
   try{
     if(wasProfile){
-      try{await api(`/rest/v1/app_profiles?user_id=eq.${user.id}`,{method:'PATCH',body:{display_name:nameValue(),job_title:titleValue()||null,union_name:unionValue()||null,department_name:deptValue()||null,updated_at:new Date().toISOString()}});profileSaved=true}
+      try{await api(`/rest/v1/app_profiles?user_id=eq.${user.id}`,{method:'PATCH',body:{display_name:nameValue(),updated_at:new Date().toISOString()}});profileSaved=true}
       catch{failed=true}
     }
     if(!failed&&wpTotal){
@@ -221,7 +206,7 @@ async function save(){
     }
   }finally{
     saving=false;
-    if(profileSaved)saved={name:nameValue(),title:titleValue(),union:unionValue(),dept:deptValue()};
+    if(profileSaved)saved={name:nameValue()};
     try{await load()}catch{}
     renderWorkplaces();
     if(wpSaved)emitWorkplaceChange();else if(profileSaved)emitProfileChange();
@@ -238,7 +223,7 @@ function markSaved(){clearTimeout(justSavedTimer);justSaved=1;renderStatus();jus
 function bind(){
   if(bound)return;bound=true;
   $('#psSave')?.addEventListener('click',save);
-  $('#profileView')?.addEventListener('input',e=>{if(e.target.matches('#psName,#psTitle,#psUnion,#psDept'))renderStatus()});
+  $('#profileView')?.addEventListener('input',e=>{if(e.target.matches('#psName'))renderStatus()});
   $('#profileView')?.addEventListener('change',e=>{const box=e.target.closest?.('[data-ps-org-check]');if(!box||saving)return;want.set(box.dataset.psOrgCheck,box.checked);const id=box.dataset.psOrgCheck;if(want.get(id)===baseline.has(id))want.delete(id);renderWorkplaces();$(`#psWorkplaceList [data-ps-org-check="${CSS.escape(id)}"]`)?.focus()});
   window.KPTURouter?.on?.('profile',()=>{freshFold=true;return load()});
 }

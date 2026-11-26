@@ -290,7 +290,7 @@ menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('kptu:view-changed',event=>{
   const home=event.detail?.view==='home';
   // APP-위여백: 홈은 본문 맨 위 날짜가 제목이라 폰 머리줄에 쓸 이름이 없다. 이름이 없으면 머리줄 전체가 자리를 비운다(빈 44px+12px 칸이 남지 않게).
-  // S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합"): 홈은 머리줄을 두지 않는다 — '전체 검색' 입구는
+  // S71-41 HOME-머리한줄(사용자 요청 11/26): 홈은 머리줄을 두지 않는다 — '전체 검색' 입구는
   // 본문 날짜 줄 끝 돋보기(journal.js). 전체 검색 화면은 이름('검색')이 있어 머리줄(그 칸)이 보인다(이름 글자는 topbar-actions.css가 뺀다).
   const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),team:word('조직 관리','title'),meetings:word('사업 관리','title'),library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리',reading:'저장한 글',brief:'브리핑 룸'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
 });

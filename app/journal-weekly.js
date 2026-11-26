@@ -43,8 +43,7 @@ import {myReportOrgs} from './weekly-org-order-model.mjs';
 import {withHandCalendar, handRows, detailEdits, HAND_TAG} from './weekly-hand.mjs';
 import {sortPicks, sigLabel} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf} from './overlap-weekly.mjs';
-import {reportCalendarName, calendarKey, UNSET_TEXT as UNSET_CALENDAR_TEXT} from './report-calendar.mjs';
-import {REPORT_CALENDAR_TITLE} from './profile-words.mjs'; // MULTI ②-3: 보고 캘린더 이름(사람마다)
+import {reportCalendarName, calendarKey} from './report-calendar.mjs';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 긴 글 한 줄 칸 = 글만큼 늘어나는 공용 칸
 import {word} from './brand/brand.mjs';
@@ -135,10 +134,11 @@ export const isVacation = event => VACATION_WORDS.test(String(event?.title ?? ''
 // compared without case and spacing differences. No calendar → the table is empty and the screen (only) says so. The calendar screen
 // itself is unchanged. One rule for the screen table and the .hwpx draft (both read upcomingSchedule).
 // MULTI ②-3(D5): the calendar name is each person's own setting (report-calendar.mjs, 내 프로필 › 보고 설정), no longer a name in this file.
-// No name set → no event is taken, and the screen says the calendar is not chosen (unsetCalendar) instead of 'not found'.
+// S71-34 PROFILE-주간캘린더칸삭제(명진 11/26): the profile field that chose the name is gone. A name already saved stays the work calendar
+// (only its events, as before); no name saved → every calendar's events are work events (all are read anyway, journal-data.js).
 export {reportCalendarName};
 const reportKey = (name = reportCalendarName()) => calendarKey(name);
-export const isReportCalendar = (event, name) => { const key = reportKey(name); return !!key && calendarKey(event?.calendarName) === key; };
+export const isReportCalendar = (event, name) => { const key = reportKey(name); return !key || calendarKey(event?.calendarName) === key; };
 // events.calendarNames (readScheduleEvents): every calendar name of the account; when it is known and holds no such calendar, noCalendar.
 export const hasReportCalendar = (events, name) => { const key = reportKey(name); return key && Array.isArray(events?.calendarNames) ? events.calendarNames.some(n => calendarKey(n) === key) : null; };
 export const isPrivateEvent = event => PRIVATE_WORDS.test(`${event?.title ?? ''}\n${event?.description ?? ''}`);
@@ -183,7 +183,7 @@ export function upcomingSchedule(events, start, calendar = reportCalendarName())
     row.items.push({what:item.what, multi:item.multi, key:item.key, time:item.time, title:item.title, place:item.place, ...(item.open ? {open:item.open} : {})});
   }
   vacations.sort((a, b) => a.first.localeCompare(b.first) || a.last.localeCompare(b.last));
-  return {days, rows, vacations, calendar, unsetCalendar:!calendarKey(calendar), noCalendar:hasReportCalendar(events, calendar) === false};
+  return {days, rows, vacations, calendar, noCalendar:hasReportCalendar(events, calendar) === false};
 }
 // "※ 휴가: 10/23(금) 연차, 10/27(화)~10/28(수) 휴가" (screen and copy), or '' without one.
 export const vacationLine = vacations => vacations?.length ? `※ 휴가: ${vacations.map(v => `${span(v.first, v.last, slashDay, '~')} ${v.title}`).join(', ')}` : '';
@@ -812,8 +812,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (off) { const p = el('p', 'journal-weekly-vacation', off); p.dataset.journalWeeklyVacation = ''; cal.append(p); }
     // WEEKLY-뺀목록삭제(S48-3b): '이번 주 뺀 일정 [다시 넣기]' 접힘·'기억으로 뺀 일정 n개' 줄은 두지 않는다(데이터 draft.dropped·기억 칸은 그대로).
     // WEEKLY-주간정리다듬기 ⑤: 방금 뺀 일정의 '일정을 뺐어요 [되돌리기]'는 표 아래 줄이 아니라 화면 아래 5초 알림 하나(journal-hwpx.js dropNotice).
-    if (c.unsetCalendar) { const p = muted(UNSET_CALENDAR_TEXT); p.dataset.journalWeeklyNoCalendar = 'unset'; cal.append(p); }
-    else if (c.noCalendar) { const p = muted(`'${c.calendar}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록이나 내 프로필 › ${REPORT_CALENDAR_TITLE}를 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
+    if (c.noCalendar) { const p = muted(`'${c.calendar}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
     // S48-33(WEEKLY-화면디자인정리 2): 늘 보이던 안내 한 줄('참석자 칸은 한글 파일에서…')은 없앴다 — 당연한 안내 문구 삭제.
   }
   // [확정하고 한글 파일 받기] 줄 자리(journal-hwpx.js 마디를 journal.js 가 붙임).

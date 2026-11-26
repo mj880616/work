@@ -2019,7 +2019,7 @@ const q3Box = async loc => { const b = await loc.boundingBox(); expect(b).not.to
 // 누르기 전 자리: 맨 위 줄이 다 그려질 때까지(PC 위치 줄·단추 상자가 늦게 붙으면 칸 폭이 바뀐다 — 누르기와 상관없음) 두 번 잰 값이 같아질 때를 쓴다.
 const q3Settled = async loc => { let last = null; for (let i = 0; i < 20; i++) { const b = await q3Box(loc); if (last && ['x', 'y', 'w', 'h'].every(k => last[k] === b[k])) return b; last = b; await loc.page().waitForTimeout(150); } return last; };
 const q3Same = (a, b, what) => { for (const k of ['x', 'y', 'w', 'h']) expect(Math.abs(a[k] - b[k]), `${what} ${k}`).toBeLessThanOrEqual(1); };
-// S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합"): 폰 틀 홈은 날짜 줄 끝 돋보기 → 누르면 그 첫 줄 자리에
+// S71-41 HOME-머리한줄(사용자 요청 11/26): 폰 틀 홈은 날짜 줄 끝 돋보기 → 누르면 그 첫 줄 자리에
 // 전체 검색 칸(전체 검색 화면 머리 줄)이 열리고 결과만 아래. 칸은 돋보기와 같은 줄(가운데 높이 같음)·오른쪽 끝 같음, 친 뒤에도 그대로. PC 틀은 맨 위 줄 칸 그대로.
 for (const width of Q3_WIDTHS) test(`Q3 홈 ${width}: '전체 검색'을 누르면 그 자리(폰 틀은 돋보기 줄)에서 입력, 결과만 아래 · 뒤로 = 홈 원래 상태`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });

@@ -48,11 +48,9 @@ test("화면 글자에 붙여 쓴 '주간보고'가 0곳(한글 파일 이름·�
   assert.match(readFileSync('app/document-categories.js', 'utf8'), /'주간보고›팀 확정본'/, '자료실 분류 이름은 그대로');
 });
 
-test('주간 보고 띄어 쓴 대표 자리: 사업 보고 위 칸 제목·프로필 캘린더·담당조직 기록·자리 표', () => {
+test('주간 보고 띄어 쓴 대표 자리: 사업 보고 위 칸 제목·담당조직 기록·자리 표', () => {
   assert.match(readFileSync('app/weekly-summary-table.js', 'utf8'), /`이번 주 \$\{word\('주간 보고'\)\}`:`\$\{weekLabel\(from\)\} \$\{word\('주간 보고'\)\}`/);
   assert.match(readFileSync('app/index.html', 'utf8'), /aria-label="이번 주 주간 보고"/);
-  assert.match(readFileSync('app/report-settings.js', 'utf8'), /<h3>\$\{REPORT_CALENDAR_TITLE\}<\/h3>/);
-  assert.match(readFileSync('app/profile-words.mjs', 'utf8'), /WEEKLY_WORD = word\('주간 보고', 'weekly'\)/, '프로필 캘린더 칸: 노동조합+·명진은 주간 보고');
   assert.match(readFileSync('app/workplace-report.js', 'utf8'), /<h4>주간 보고 기록<\/h4>/);
   assert.match(readFileSync('app/biz-week-skeleton.mjs', 'utf8'), />주간 보고에서 보기 ›<\/span>/);
 });

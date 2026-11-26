@@ -3,7 +3,7 @@
 📱 폰 가능 — 이 문서는 설계만 한다. 앱 코드·DB·Edge·Supabase Auth 설정·비밀값 변경 없음.
 
 - 2판: 2026-11-13, Claude Code 웹(작업 세션 S61-25). 기준 main `b8ce04a`(#2518). 1판: 2026-10-21 #913.
-- 원장 행: `docs/roadmap.md`의 MCP-Claude읽기(재개). 명진 11/13 지시: "claude.ai 어느 대화에서든 Claude가 명진의 Web2 기록을 읽기 전용으로 언제든 읽게."
+- 원장 행: `docs/roadmap.md`의 MCP-Claude읽기(재개). 사용자 11/13 지시: "claude.ai 어느 대화에서든 Claude가 사용자의 Web2 기록을 읽기 전용으로 언제든 읽게."
 - 앞 설계: [ai-server.md](ai-server.md)(4.2 소유자 확인, 4.4·4.5 AI 답·재료 속 지시문), [ledger-web2.md](ledger-web2.md)(5절 권한, 8절 검색 RPC, 9절 S2 제목만), [multi-user-audit.md](multi-user-audit.md)(한 사람 한 작업공간, 운영자 기능 서버 허용 표), [../ai-work-system-source-of-truth.md](../ai-work-system-source-of-truth.md)("외부 입력과 실행의 분리").
 - 표기: **사실**은 저장소 코드·문서·공식 문서에서 확인한 것. **추정**은 그렇게 적었다. 웹 세션이라 운영 DB·Auth 설정을 보지 않았다(AGENTS.md §1). 추정은 9절 M-1(읽기 전용 사전 확인)과 M-7(켜기 전 시험)에서 확인한다.
 - 공개 저장소: 프로젝트 ID·클라이언트 ID·사용자 번호·주소 비밀값·업무 내용은 쓰지 않는다. 주소는 `<프로젝트>.supabase.co`처럼 자리 표시만 쓴다.
@@ -12,8 +12,8 @@
 
 | | 1판(10/21) | 2판(11/13) |
 | --- | --- | --- |
-| 입구 | Cloudflare Worker가 자기 열쇠를 만듦, Supabase OAuth 서버는 안 켬 | **Supabase Edge 함수 `mcp-read` 하나 + Supabase Auth OAuth 2.1 서버**(명진 지시) |
-| 1판이 Supabase OAuth를 뺀 이유 | Claude가 받는 열쇠가 명진 로그인과 같은 힘(Web2·읽생기 쓰기까지) | 그 위험을 **DB 문지기 하나 + Edge 공통 검사 하나**로 막는다(4절). 막지 못하는 것이 시험에서 나오면 켜지 않는다(9절 M-7 통과 조건) |
+| 입구 | Cloudflare Worker가 자기 열쇠를 만듦, Supabase OAuth 서버는 안 켬 | **Supabase Edge 함수 `mcp-read` 하나 + Supabase Auth OAuth 2.1 서버**(사용자 지시) |
+| 1판이 Supabase OAuth를 뺀 이유 | Claude가 받는 열쇠가 사용자 로그인과 같은 힘(Web2·읽생기 쓰기까지) | 그 위험을 **DB 문지기 하나 + Edge 공통 검사 하나**로 막는다(4절). 막지 못하는 것이 시험에서 나오면 켜지 않는다(9절 M-7 통과 조건) |
 | 읽기 범위 | 5개(최근 업데이트·조직·프로젝트·회의·원장) | 6개 묶음(조직·사업 보고·프로젝트·원장·노트 검색·할 일/일정 안내). 회의 목록 뺌, 노트 제목·요지 더함 |
 | 읽기 전용을 어디서 지키나 | Worker 코드 | **DB**(OAuth 열쇠는 허용된 읽기 함수만 부를 수 있음) + Edge 코드 |
 | 호출 기록·상한 | Worker | DB 읽기 함수 안(우회 불가) |
@@ -24,7 +24,7 @@
 
 ### 목표
 
-claude.ai(웹·데스크톱·모바일) 어느 대화에서든 명진이 "가 지부 요즘 어때", "원장에서 B 사업 지난 결정 찾아 줘"라고 하면 Claude가 원격 MCP 커넥터로 Web2를 **읽기만** 해서 답한다.
+claude.ai(웹·데스크톱·모바일) 어느 대화에서든 사용자가 "가 지부 요즘 어때", "원장에서 B 사업 지난 결정 찾아 줘"라고 하면 Claude가 원격 MCP 커넥터로 Web2를 **읽기만** 해서 답한다.
 
 ### 원칙
 
@@ -54,7 +54,7 @@ claude.ai(웹·데스크톱·모바일) 어느 대화에서든 명진이 "가 �
 ## 3. 처음부터 뺀 해법
 
 - 서버 관리자 키로 읽기, 원장·Web2 표에 "MCP용 읽기 권한"을 새로 열기(anon·새 역할에 select, RLS 약화).
-- 명진의 Web2 로그인 열쇠를 Claude에 붙여 넣기(고정 토큰).
+- 사용자의 Web2 로그인 열쇠를 Claude에 붙여 넣기(고정 토큰).
 - 로그인 없는 커넥터.
 - Claude가 보낸 작업공간·사용자 ID로 권한 정하기.
 
@@ -65,13 +65,13 @@ claude.ai(웹·데스크톱·모바일) 어느 대화에서든 명진이 "가 �
 ```
 claude.ai ──(1) /mcp 열쇠 없이──▶ mcp-read ──401 + resource_metadata
 claude.ai ──(2) 정보 문서──▶ mcp-read(보호 자원 정보) → Supabase Auth(<프로젝트>.supabase.co/auth/v1, OAuth 서버 정보)
-claude.ai ──(3) 브라우저 /authorize──▶ Supabase Auth ──▶ Web2 동의 화면(desk 쪽, 명진 로그인 상태) ──허락──▶ claude.ai 되돌아올 주소
+claude.ai ──(3) 브라우저 /authorize──▶ Supabase Auth ──▶ Web2 동의 화면(desk 쪽, 사용자 로그인 상태) ──허락──▶ claude.ai 되돌아올 주소
 claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──같은 열쇠로 POST /rest/v1/rpc/app_mcp_*──▶ DB(문지기·owner RLS·상한·기록)
 ```
 
 ### 4.2 Supabase OAuth 2.1 서버가 주는 열쇠의 성질 (사실, 1판 4.2)
 
-- 표준 Supabase JWT(`role=authenticated`, `aud=authenticated`)에 `client_id` 칸이 더 붙는다. 기존 RLS가 그대로 걸린다 = **명진이 할 수 있는 모든 읽기·쓰기가 이 열쇠로 된다**(막지 않으면).
+- 표준 Supabase JWT(`role=authenticated`, `aud=authenticated`)에 `client_id` 칸이 더 붙는다. 기존 RLS가 그대로 걸린다 = **사용자가 할 수 있는 모든 읽기·쓰기가 이 열쇠로 된다**(막지 않으면).
 - 범위(scope)는 OIDC 정보만 정하고 DB 접근은 막지 않는다. 막으려면 `auth.jwt() ->> 'client_id'`로 직접 막아야 한다(Supabase Token Security 문서).
 - 따라서 2판의 핵심은 **"`client_id`가 붙은 열쇠는 허용된 읽기 함수 말고는 아무 데도 못 쓰게"** 하는 겹 3개다(4.3). 이 겹이 다 서기 전에는 OAuth 서버를 켜지 않는다(9절 순서).
 
@@ -83,9 +83,9 @@ claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──
 | L2 저장소 | Storage(파일) | `storage.objects`에 제한(restrictive) 정책 1개: `client_id`가 있는 열쇠는 모두 거절 | 정책이 좁히기만 함. 일반 로그인 영향 없음 |
 | L3 Edge 공통 검사 | 로그인 사용자를 확인하는 Edge 함수 27개(사실: 저장소에서 `auth/v1/user`·`getUser`를 쓰는 함수 수) | `_shared/delegated-token-guard.mjs` 하나: Auth로 확인한 같은 열쇠에 `client_id`가 있으면 401. CI 정적 시험이 "사용자 확인을 하는 모든 함수가 이 검사를 부르는지" 확인(새 함수에서 빠뜨리면 CI 실패) | 읽생기 Edge는 건드리지 않음(읽생기 Edge는 OAuth 열쇠를 받을 일이 없고, 받아도 L1이 표 접근을 막음. 다만 서버 키를 쓰는 읽생기 함수가 있다면 남는 위험 → M-1 목록 확인) |
 
-- L1이 있어도 L3가 필요한 이유: 여러 Edge 함수는 사용자 확인 뒤 **서버 키**로 표·Drive·Google을 다룬다(사실: 서버 키를 읽는 함수 30개). 이런 함수는 L1을 거치지 않으므로 OAuth 열쇠를 명진으로 믿고 쓰기까지 할 수 있다.
+- L1이 있어도 L3가 필요한 이유: 여러 Edge 함수는 사용자 확인 뒤 **서버 키**로 표·Drive·Google을 다룬다(사실: 서버 키를 읽는 함수 30개). 이런 함수는 L1을 거치지 않으므로 OAuth 열쇠를 사용자로 믿고 쓰기까지 할 수 있다.
 - `verify_jwt=true` 함수도 마찬가지다. 관문은 서명만 보므로 OAuth 열쇠를 통과시킨다(추정, M-7 시험).
-- **Auth 자체의 계정 기능**(`PUT /auth/v1/user` 이메일·비밀번호·메타데이터 바꾸기, 신원 연결 등)은 DB·Edge 밖이라 위 겹으로 못 막는다. Supabase가 OAuth 열쇠로 이것을 거절하는지 **M-7 시험의 통과 조건**으로 둔다. 거절하지 않으면 OAuth 서버를 끄고 1판 Worker 방식(명진 결정 D1의 나)으로 간다.
+- **Auth 자체의 계정 기능**(`PUT /auth/v1/user` 이메일·비밀번호·메타데이터 바꾸기, 신원 연결 등)은 DB·Edge 밖이라 위 겹으로 못 막는다. Supabase가 OAuth 열쇠로 이것을 거절하는지 **M-7 시험의 통과 조건**으로 둔다. 거절하지 않으면 OAuth 서버를 끄고 1판 Worker 방식(사용자 결정 D1의 나)으로 간다.
 - Realtime: 실시간 구독은 PostgREST를 거치지 않고 표 RLS로 읽기를 허락한다. 구독 대상 표가 있으면 OAuth 열쇠로 그 표의 변경을 **읽을** 수 있다(쓰기는 못 함). M-1에서 구독 목록(publication)을 확인하고, 있으면 M-3 migration에서 막는 방법을 따로 정한다(정할 때까지 OAuth 서버를 켜지 않음).
 
 ### 4.4 Edge 함수 `mcp-read`와 verify_jwt
@@ -106,7 +106,7 @@ claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──
 | --- | --- | --- |
 | OAuth 2.1 서버 | 켬 | 프로젝트 전체 설정. 기존 로그인(Web2·읽생기)·Site URL·Redirect URLs는 바뀌지 않음(추정, 켜기 전·후 화면 캡처로 확인). 되돌리기 = 끔 |
 | 동의 화면 주소(authorization path) | Web2 쪽 한 화면(예: `https://desk.bokdoong.com/work/app/oauth-consent/`) | 우리가 만드는 화면(M-5). 다른 사이트 안에 못 띄움(`frame-ancestors 'none'`) |
-| 자동 등록(DCR) | **끔** | 아무나 클라이언트를 만들어 명진을 속이는 길(confused deputy)을 막음 |
+| 자동 등록(DCR) | **끔** | 아무나 클라이언트를 만들어 사용자를 속이는 길(confused deputy)을 막음 |
 | 클라이언트 | "Claude" 하나, 공개 클라이언트(PKCE S256), 되돌아올 주소 `https://claude.ai/api/mcp/auth_callback` 정확히 일치 | Claude 커넥터 고급 설정에 클라이언트 ID를 넣음. 클라이언트 ID는 저장소·문서에 쓰지 않음 |
 | 열쇠 수명 | 프로젝트 기본값 그대로(바꾸지 않음) | 읽생기와 같이 쓰는 값이라 건드리지 않음 |
 
@@ -151,8 +151,8 @@ claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──
 | `web2_business_reports` 사업 보고 | `from`·`to`(최대 90일, 기본 최근 30일), `project`(선택) | `app_business_records`(날짜·끝날짜·본문 300자 이하·프로젝트 이름), 휴지통 제외 | 출처 원문(연결된 업데이트·피드 원문) |
 | `web2_project_status` 프로젝트 현황 | `project`(이름 또는 ID, 없으면 진행 중 목록) | `app_spaces`(이름·상태·상위), 갈래(`app_project_workstreams` 제목·단계), 진행 기록 최근 10건(날짜·상태·요약·다음 할 일), 다가오는 주요 일정(`app_project_milestones` 제목·날짜), 미완료 할 일 **개수**, 자료 **개수** | 보관·휴지통 프로젝트(정확히 지정하면 "보관됨" 한 줄), 할 일 제목·본문, 자료 제목·원문 |
 | `ledger_search` 원장 검색 / `ledger_get` 원장 한 건 | 검색어(100자), 종류·조직·주제·기간·개수 / `ledger_id`(모양 검사) | `app_ledger_search`(민감도 상한·범위 인자는 **DB 함수가 고정**, Claude가 못 바꿈). S0·S1: 요지 앞 300자. **S2: ID·종류·기준일·제목·유효상태만**. 한 건: 허용 칸 + S0·S1 출처 제목·종류·날짜, 연결 | 감사 기록, 원장 후보, 수정 요청, 가져오기 묶음, 출처 위치·Drive 파일 ID, S2의 요지·이유·상대측·근거 |
-| `web2_notes_search` 노트 검색 | `query`(100자), `folder`(선택), `limit` | `app_notes` 중 `kind='note'`만, 휴지통 제외: 제목·폴더 이름·수정일·**요지(본문 앞 200자)** | 일기(`diary`), 정리함(`basket`), 업무일지(`work`, 1차 제외 — 명진 결정 D2), 가족 방(가족 방 표), 통화(`app_call_*`), 회의 녹취·회의록, 첨부, 댓글 |
-| `google_where` 할 일·일정 찾는 길 | 없음 | Web2가 쓰는 **Google 캘린더 이름·할 일 목록 이름**(명진 설정에 있는 이름만)과 "Claude의 Google Calendar 커넥터에서 이 이름으로 보세요" 안내 | 일정·할 일 내용·ID·날짜. Web2는 Google 내용을 복사 저장하지 않고 이 도구도 내용을 내지 않음 |
+| `web2_notes_search` 노트 검색 | `query`(100자), `folder`(선택), `limit` | `app_notes` 중 `kind='note'`만, 휴지통 제외: 제목·폴더 이름·수정일·**요지(본문 앞 200자)** | 일기(`diary`), 정리함(`basket`), 업무일지(`work`, 1차 제외 — 사용자 결정 D2), 가족 방(가족 방 표), 통화(`app_call_*`), 회의 녹취·회의록, 첨부, 댓글 |
+| `google_where` 할 일·일정 찾는 길 | 없음 | Web2가 쓰는 **Google 캘린더 이름·할 일 목록 이름**(사용자 설정에 있는 이름만)과 "Claude의 Google Calendar 커넥터에서 이 이름으로 보세요" 안내 | 일정·할 일 내용·ID·날짜. Web2는 Google 내용을 복사 저장하지 않고 이 도구도 내용을 내지 않음 |
 
 - S2를 아예 숨기지 않고 제목만 내는 이유: "기록이 있다"까지 숨기면 Claude가 "없다"고 잘못 답한다(1판과 같음).
 - 노트 요지는 노트에 민감도 칸이 없어 앞 200자로 정했다. 노트에 AI 내보내기 금지 표시(`ai_export_allowed=false`)가 있는 행은 제목도 내지 않는다.
@@ -173,9 +173,9 @@ claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──
 
 | 방법 | 누가 | 효과 | 언제 |
 | --- | --- | --- | --- |
-| Web2 설정 [Claude 읽기 연결] 끄기 | 명진(Web2) | 다음 호출부터 모든 도구 거절(DB 문지기 7.2-3) | 평소 |
-| Web2 설정 [모든 연결 끊기] | 명진(Web2) | `revoked_before` = 지금 → 지금까지 맺은 연결 모두 거절, 다시 쓰려면 Claude에서 다시 연결(7.2-4) | 기기 분실·의심 |
-| Claude 설정에서 커넥터 연결 해제 | 명진(Claude) | Claude 쪽 열쇠 삭제 | 평소 |
+| Web2 설정 [Claude 읽기 연결] 끄기 | 사용자(Web2) | 다음 호출부터 모든 도구 거절(DB 문지기 7.2-3) | 평소 |
+| Web2 설정 [모든 연결 끊기] | 사용자(Web2) | `revoked_before` = 지금 → 지금까지 맺은 연결 모두 거절, 다시 쓰려면 Claude에서 다시 연결(7.2-4) | 기기 분실·의심 |
+| Claude 설정에서 커넥터 연결 해제 | 사용자(Claude) | Claude 쪽 열쇠 삭제 | 평소 |
 | Supabase OAuth 클라이언트 삭제·OAuth 서버 끄기 | CC(대시보드) | 새 열쇠 발급 중단 | 비상 |
 
 "즉시"의 뜻: 앞의 두 방법은 **다음 호출부터**(DB가 매 호출 확인, 캐시 없음).
@@ -243,7 +243,7 @@ create policy app_mcp_no_delegated_storage on storage.objects
 - precheck(읽기 전용): 두 표·함수·정책이 없을 것, `authenticator`의 `pgrst.db_pre_request`가 비어 있을 것, `auth.sessions`·`session_id` 확인, Realtime publication 표 목록 출력(있으면 멈춤 판단).
 - 적용 SQL 끝: `schema_migrations` 1행 insert → `commit;`.
 - rollback: 요청 전 설정 해제(`alter role authenticator reset pgrst.db_pre_request` + reload) → Storage 정책 삭제 → 함수 삭제 → 표 삭제(기록 행이 있으면 표 삭제 전 멈춤). 해제 순서는 OAuth 서버를 먼저 끈 뒤.
-- 설정 행(명진 작업공간 1행, `enabled=false`, `allowed_client_id`)은 migration에 넣지 않는다(공개 저장소). M-6 뒤 CC가 별도 SQL로 넣는다.
+- 설정 행(사용자 작업공간 1행, `enabled=false`, `allowed_client_id`)은 migration에 넣지 않는다(공개 저장소). M-6 뒤 CC가 별도 SQL로 넣는다.
 
 ### 7.7 M-3에서 정한 것 (S67-21, `20261120090000_mcp_claude_read`)
 
@@ -258,13 +258,13 @@ create policy app_mcp_no_delegated_storage on storage.objects
 | # | 위협 | 막는 것 | 남는 위험 |
 | --- | --- | --- | --- |
 | T1 | Claude 쪽 OAuth 열쇠 유출 | L1·L2·L3로 `app_mcp_*` 읽기 함수만, 상한, 스위치, [모든 연결 끊기] | 끊기 전까지 읽기 도구 범위의 읽기. **Auth 계정 기능(M-7 조건)이 막히지 않으면 켜지 않음** |
-| T2 | 가짜 연결 링크(confused deputy) | DCR 끔, 클라이언트 1개, 되돌아갈 곳 `claude.ai` 정확히 일치, 동의 화면에 표시, 클릭재킹 막기, DB가 `allowed_client_id` 확인 | 명진이 낯선 화면에서 허락 → 되돌아갈 곳이 claude.ai 고정 |
+| T2 | 가짜 연결 링크(confused deputy) | DCR 끔, 클라이언트 1개, 되돌아갈 곳 `claude.ai` 정확히 일치, 동의 화면에 표시, 클릭재킹 막기, DB가 `allowed_client_id` 확인 | 사용자가 낯선 화면에서 허락 → 되돌아갈 곳이 claude.ai 고정 |
 | T3 | 열쇠의 받는 곳(aud) 구분 없음 | `client_id` 고정 확인 + L1 | Supabase가 클라이언트별 `aud`를 지원하면 다시 비교 |
 | T4 | 새 Edge 함수가 L3 검사를 빠뜨림 | CI 정적 시험(사용자 확인 함수 = 검사 호출 필수) | 시험 우회는 PR 검토에서 |
 | T5 | 서버 코드 실수로 범위 밖 읽기 | 읽기 함수의 열 허용 목록 SQL 고정, Edge에 표 이름 없음, 정적 시험(`rtw_`·`diary`·`transcript_text`·`app_call_`·가족 방 표 이름 금지) | 허용 칸 안에 민감한 글(조직 기록 요지) |
-| T6 | 프롬프트 주입 | 1판 8.2의 4겹 그대로: 위험한 재료 빼기, 데이터 표지, 이 연결은 행동 없음, **바깥 행동(메일·공유·Zapier 쓰기)은 Claude 설정에서 "매번 묻기"** | Claude가 글에 끌려가는 것 자체는 서버가 완전히 못 막음 → 최후 방어선은 명진의 확인 |
+| T6 | 프롬프트 주입 | 1판 8.2의 4겹 그대로: 위험한 재료 빼기, 데이터 표지, 이 연결은 행동 없음, **바깥 행동(메일·공유·Zapier 쓰기)은 Claude 설정에서 "매번 묻기"** | Claude가 글에 끌려가는 것 자체는 서버가 완전히 못 막음 → 최후 방어선은 사용자의 확인 |
 | T7 | 읽생기 영향 | 요청 전 함수는 OAuth 열쇠에만 작동, Auth 설정은 OAuth 서버 켜기·클라이언트 추가만, 열쇠 수명 그대로 | 요청 전 함수 자리 충돌(M-1에서 확인, 있으면 멈춤) |
-| T8 | Anthropic으로 가는 데이터 | 5.3 영구 제외, S2 요지 제외, 노트 앞 200자 | 조직 요지·사업 보고·원장 S0~S1 요지·노트 요지는 Anthropic이 처리(명진이 고르는 위험) |
+| T8 | Anthropic으로 가는 데이터 | 5.3 영구 제외, S2 요지 제외, 노트 앞 200자 | 조직 요지·사업 보고·원장 S0~S1 요지·노트 요지는 Anthropic이 처리(사용자가 고르는 위험) |
 | T9 | 반복 호출 | DB 문지기 상한(우회 불가) | Edge 호출 수(무료 한도 안 예상) |
 
 ## 9. 단계·정지 지점·되돌리기
@@ -273,17 +273,17 @@ create policy app_mcp_no_delegated_storage on storage.objects
 
 | 단계 | 내용 | 정지 지점 | 되돌리기 |
 | --- | --- | --- | --- |
-| M-0 | 이 문서 2판 + 명진 결정 D1~D3 | 없음 | — |
+| M-0 | 이 문서 2판 + 사용자 결정 D1~D3 | 없음 | — |
 | M-1 | 읽기 전용 사전 확인(CC, select만): `authenticator`의 요청 전 함수 설정, Realtime publication 표, `storage.objects` 정책, `auth.sessions` 칸, 요금제에서 OAuth 서버 사용 가능 여부, Web2가 쓰는 supabase-js 판의 OAuth 승인 함수 유무, 읽생기 Edge 중 서버 키를 쓰는 함수 | 없음(조회) | — |
 | M-2 | L3: `_shared/delegated-token-guard.mjs` + 27개 함수에 한 줄 + CI 정적 시험 | 코드 PR(merge = CC). 그 뒤 **Edge 재배포 27번**(한 번에 하나, 함수마다 되돌리기 ref 기록) | 함수마다 이전 ref 재배포 |
 | M-3 | migration(7절): 표 2개·문지기·읽기 함수 7개·요청 전 함수·Storage 제한 정책 + 짝 4개 | **DB migration**(승인형 workflow, 시험 적용 먼저) | rollback SQL(7.6) |
 | M-4 | Edge `mcp-read` 코드·시험(모의 응답으로 401 헤더·정보 문서·도구 목록·봉투·입력 검사·서버 키 없음 정적 시험) → 첫 배포 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=true`, `docs/web2-env6b-edge-source.md` 5절 표에 행 추가 | **Edge 첫 배포** | 이전 버전 없음 → 클라이언트 등록 전이라 쓰는 곳 없음, 필요 시 대시보드 삭제 판단 |
 | M-5 | Web2 동의 화면 + 설정 화면 [Claude 읽기 연결](스위치·[모든 연결 끊기]·최근 읽은 기록·이번 달 호출 수) | Pages 배포(= merge) | PR revert |
-| M-6 | Auth: OAuth 서버 켬, 동의 화면 주소, DCR 끔, "Claude" 클라이언트 등록. 설정 행 SQL(명진 작업공간, `enabled=false`, 클라이언트 ID). 켜기 전·후 화면 캡처 | **Auth 설정 변경 + production 데이터 1행** | 4.5 되돌리기 순서 |
-| M-7 | 켜기 전 시험(스위치 꺼진 채, CC, 절차 `scripts/ops/mcp-m7-check.md`): OAuth 열쇠로 ① REST 표 GET → 403 ② `app_mcp_*` 외 RPC → 403 ③ Storage → 거절(또는 빈 목록) ④ Edge 함수 아무거나 → 401 ⑤ **계정 기능 모두 403**(14.4): `PUT /auth/v1/user`(`{"data":{}}`·빈 email·빈 password), `GET /auth/v1/user`, `POST /auth/v1/factors`(`{}`), `GET /auth/v1/user/identities/authorize`(공급자 없이), `POST /auth/v1/reauthenticate`(`GET /user`가 403일 때만 — 메일 발송 위험) ⑥ 읽생기 표 → 403 ⑦ 허용 RPC(스위치 꺼짐) → 403 `DISCONNECTED` ⑧ `GET /auth/v1/oauth/userinfo` → 200 ⑨ `mcp-read` ping → 200. 시험용 계정 변경은 값 없는 요청만, 결과는 상태 코드만 기록(열쇠 값 출력 금지). **하나라도 실패하면 OAuth 서버를 끄고 멈춤**(명진 결정 D1 다시) | 시험 결과 판정 | OAuth 서버 끄기 |
-| M-8 | 명진: claude.ai 커넥터 추가(9.1) → Web2 스위치 켬 → 도구 시험(상한 21번째 거절, [모든 연결 끊기] 뒤 즉시 거절, 지시문이 든 시험 기록으로 주입 시험) | 실제 데이터 | Web2 스위치 끄기 |
+| M-6 | Auth: OAuth 서버 켬, 동의 화면 주소, DCR 끔, "Claude" 클라이언트 등록. 설정 행 SQL(사용자 작업공간, `enabled=false`, 클라이언트 ID). 켜기 전·후 화면 캡처 | **Auth 설정 변경 + production 데이터 1행** | 4.5 되돌리기 순서 |
+| M-7 | 켜기 전 시험(스위치 꺼진 채, CC, 절차 `scripts/ops/mcp-m7-check.md`): OAuth 열쇠로 ① REST 표 GET → 403 ② `app_mcp_*` 외 RPC → 403 ③ Storage → 거절(또는 빈 목록) ④ Edge 함수 아무거나 → 401 ⑤ **계정 기능 모두 403**(14.4): `PUT /auth/v1/user`(`{"data":{}}`·빈 email·빈 password), `GET /auth/v1/user`, `POST /auth/v1/factors`(`{}`), `GET /auth/v1/user/identities/authorize`(공급자 없이), `POST /auth/v1/reauthenticate`(`GET /user`가 403일 때만 — 메일 발송 위험) ⑥ 읽생기 표 → 403 ⑦ 허용 RPC(스위치 꺼짐) → 403 `DISCONNECTED` ⑧ `GET /auth/v1/oauth/userinfo` → 200 ⑨ `mcp-read` ping → 200. 시험용 계정 변경은 값 없는 요청만, 결과는 상태 코드만 기록(열쇠 값 출력 금지). **하나라도 실패하면 OAuth 서버를 끄고 멈춤**(사용자 결정 D1 다시) | 시험 결과 판정 | OAuth 서버 끄기 |
+| M-8 | 사용자: claude.ai 커넥터 추가(9.1) → Web2 스위치 켬 → 도구 시험(상한 21번째 거절, [모든 연결 끊기] 뒤 즉시 거절, 지시문이 든 시험 기록으로 주입 시험) | 실제 데이터 | Web2 스위치 끄기 |
 
-### 9.1 명진이 claude.ai에서 커넥터 추가하기 (M-8, 한 단계씩)
+### 9.1 사용자가 claude.ai에서 커넥터 추가하기 (M-8, 한 단계씩)
 
 1. Web2 → 설정 → [Claude 읽기 연결]이 "꺼짐"인지 본다(아직 켜지 않음).
 2. claude.ai → 설정 → 커넥터 → [사용자 지정 커넥터 추가].
@@ -304,10 +304,10 @@ create policy app_mcp_no_delegated_storage on storage.objects
 
 ## 11. 조사 중 알게 된 것 (범위 밖, 보고만)
 
-- 서버 키를 읽는 Edge 함수가 30개, 사용자 확인을 하는 함수가 27개다(저장소 기준). Supabase OAuth 서버를 켜는 순간 이 함수들이 OAuth 열쇠를 명진으로 믿는다 — 이 연결을 하지 않더라도 **OAuth 서버를 다른 목적으로 켜면 같은 문제**가 생긴다. L3 검사는 그 자체로 방어 강화다.
+- 서버 키를 읽는 Edge 함수가 30개, 사용자 확인을 하는 함수가 27개다(저장소 기준). Supabase OAuth 서버를 켜는 순간 이 함수들이 OAuth 열쇠를 사용자로 믿는다 — 이 연결을 하지 않더라도 **OAuth 서버를 다른 목적으로 켜면 같은 문제**가 생긴다. L3 검사는 그 자체로 방어 강화다.
 - 1판 13절 발견(Drive 사본의 바구니 원문)은 원장 DRIVE-바구니원문제외 행에서 따로 다룬다.
 
-## 명진 결정
+## 사용자 결정
 
 1. **D1 Claude 연결 입구를 어디에 둘까** — 추천 **가**.
    - 가(추천). Supabase 안(지시대로). 먼저 Web2 서버 함수 27개에 "Claude 열쇠는 거절" 한 줄씩 넣어 다시 배포하고, DB에 문지기 하나를 둔 뒤 켠다. 켜기 전 시험에서 하나라도 새면 켜지 않고 나로 바꾼다.
@@ -343,8 +343,8 @@ create policy app_mcp_no_delegated_storage on storage.objects
 | ⑦ | 허용 RPC(스위치 꺼짐) | 403 `DISCONNECTED` | 통과(문지기) |
 | 덧 | `POST /auth/v1/logout?scope=local` | 403 | 위임 열쇠로 자기 세션 끊기 안 됨(이상 동작은 아님) |
 
-- 조치(사실, CC): 9절 M-7 규칙대로 **OAuth 서버를 다시 껐다**(지금 꺼짐, 이미 나간 위임 열쇠도 무효로 봄). "Claude" 클라이언트 등록·설정 행·동의 화면은 그대로 둠. Site URL은 동의 화면 origin 검사 때문에 `https://workonplus.com/work/app/`으로 바꿈(명진 허락).
-- 결론: ⑤ 하나 때문에 M-8(명진 커넥터 추가)로 가지 않는다. 대책은 14절.
+- 조치(사실, CC): 9절 M-7 규칙대로 **OAuth 서버를 다시 껐다**(지금 꺼짐, 이미 나간 위임 열쇠도 무효로 봄). "Claude" 클라이언트 등록·설정 행·동의 화면은 그대로 둠. Site URL은 동의 화면 origin 검사 때문에 `https://workonplus.com/work/app/`으로 바꿈(사용자 허락).
+- 결론: ⑤ 하나 때문에 M-8(사용자 커넥터 추가)로 가지 않는다. 대책은 14절.
 
 ## 14. Auth 계정 기능 대책 (S70-51, 2026-11-25 조사)
 
@@ -368,22 +368,22 @@ create policy app_mcp_no_delegated_storage on storage.objects
 | --- | --- | --- | --- |
 | user_metadata 바꾸기 | 표시 이름 등 바뀜 | 작음: 앱은 권한 판단에 쓰지 않음. `app/profile-settings.js`·`app/journal-hwpx.js`가 프로필 이름이 비었을 때 **표시 이름 대신**으로만 씀. DB 함수의 `raw_user_meta_data` 사용은 옛 가입 요청·알림 이름뿐이고 11/23 운영자 정보 3가지 변경으로 알림에서 빠짐 | 사실(전수 검색: `app/`·`supabase/functions/`·`supabase/migrations/`) |
 | app_metadata | 못 바꿈(관리자 키만) | 없음 | 사실(Supabase 구조) |
-| 이메일 바꾸기 | 계정 이메일이 남의 주소로 | **중간**: 가입 허용·막기 목록(`app_workspace_signup_allow`, `20261113140000`)이 이메일로 본다. 운영자 기능은 작업공간 허용 표라 이메일과 무관. "이메일 이중 확인"이 켜져 있으면 명진 Gmail 확인 없이는 안 바뀜 | 사실(코드) + 추정(설정 값 미확인) |
+| 이메일 바꾸기 | 계정 이메일이 남의 주소로 | **중간**: 가입 허용·막기 목록(`app_workspace_signup_allow`, `20261113140000`)이 이메일로 본다. 운영자 기능은 작업공간 허용 표라 이메일과 무관. "이메일 이중 확인"이 켜져 있으면 사용자 Gmail 확인 없이는 안 바뀜 | 사실(코드) + 추정(설정 값 미확인) |
 | 비밀번호 만들기 | 구글만 쓰던 계정에 비밀번호가 생김 | 작음~중간: Email 로그인(provider)이 2026-10-21부터 꺼져 있어 비밀번호로 들어오는 길이 막힘(추정: provider 끄면 비밀번호 로그인 거절). 나중에 Email 로그인을 다시 켜면 위험이 살아남 | 사실(원장 SEC-이메일로그인제거) + 추정 |
-| 인증 수단(MFA) 등록 | 공격자 TOTP 등록 | 중간: 앱은 MFA를 쓰지 않지만, 검증된 수단이 생기면 비밀번호 변경·수단 삭제에 aal2가 필요해져 명진이 스스로 지우기 어려움(관리자 삭제 필요) | 사실(#2877) + 추정 |
-| 신원 연결(linkIdentity) | 공격자 구글 계정을 명진 계정에 연결 | **큼**(계정 탈취): 연결되면 공격자 구글로 명진 계정 로그인. 단 "수동 연결(Manual linking)"이 꺼져 있으면 막힘(Supabase 기본값 꺼짐, 운영 값 미확인) | 추정 |
-| 재인증 요청 | 명진 메일로 확인 번호 발송 | 작음(귀찮음) | 추정 |
+| 인증 수단(MFA) 등록 | 공격자 TOTP 등록 | 중간: 앱은 MFA를 쓰지 않지만, 검증된 수단이 생기면 비밀번호 변경·수단 삭제에 aal2가 필요해져 사용자가 스스로 지우기 어려움(관리자 삭제 필요) | 사실(#2877) + 추정 |
+| 신원 연결(linkIdentity) | 공격자 구글 계정을 사용자 계정에 연결 | **큼**(계정 탈취): 연결되면 공격자 구글로 사용자 계정 로그인. 단 "수동 연결(Manual linking)"이 꺼져 있으면 막힘(Supabase 기본값 꺼짐, 운영 값 미확인) | 추정 |
+| 재인증 요청 | 사용자 메일로 확인 번호 발송 | 작음(귀찮음) | 추정 |
 
-- 주의: 이 피해는 **위임 열쇠가 새었을 때**만 생긴다. 열쇠는 명진이 동의 화면에서 [허락]해야 나오고 Claude 쪽에만 있다. 그래도 9절 규칙은 "새도 읽기 도구 범위만"이므로 켜지 않는다.
+- 주의: 이 피해는 **위임 열쇠가 새었을 때**만 생긴다. 열쇠는 사용자가 동의 화면에서 [허락]해야 나오고 Claude 쪽에만 있다. 그래도 9절 규칙은 "새도 읽기 도구 범위만"이므로 켜지 않는다.
 
 ### 14.3 대안별 비교
 
-| 안 | 막히는 것 | 남는 것 | 명진 손 | 되돌리기 | 읽생기 영향 |
+| 안 | 막히는 것 | 남는 것 | 사용자 손 | 되돌리기 | 읽생기 영향 |
 | --- | --- | --- | --- | --- | --- |
 | (a) Auth 설정 다지기: 이메일 이중 확인(Secure email change) 켬, 비밀번호 변경 재인증(Secure password change) 켬, 수동 신원 연결 끔 확인, Email 로그인 끔 유지 | 이메일 탈취(옛 주소 확인 필요), 신원 연결 탈취(꺼져 있으면) | user_metadata 바꾸기, MFA 등록, 비밀번호 만들기 자체(재인증은 "최근 로그인"이면 생략되는데 위임 세션은 방금 만든 세션이라 통과할 것으로 추정), 재인증 메일 | 없음(CC 대시보드) | 같은 화면에서 되돌림 | **있음**: 프로젝트 전체 설정이라 읽생기 이메일·비밀번호 사용자도 이메일 바꿀 때 두 주소 확인·비밀번호 바꿀 때 재인증이 생김 |
 | (b) Custom access token hook으로 위임 열쇠의 `aud`·`role` 바꾸기 | 효과 불확실: Auth API는 열쇠 칸보다 세션 기록을 믿는 구조로 보임(#2898이 "hook이 칸을 바꿀 수 있어 세션 기록으로 판정"이라 적음). `aud`를 바꿔도 `/user`가 거절할지 모름(추정, 시험 필요) | 계정 기능 대부분 그대로일 가능성 높음 | 없음 | hook 끄기 | **큼**: hook은 프로젝트 하나뿐이고 모든 로그인(읽생기 포함)의 열쇠 발급에 끼어든다. hook 오류 = 모든 로그인 실패. `auth` 쪽 권한이라 승인형 workflow 규칙 밖. 문서의 "최소 열쇠" 예시를 따라 하면 `client_id`가 빠져 L1이 무너짐 |
 | (c) user_metadata 의존 없애기 | metadata 변경 피해를 0으로(표시 이름 대신 쓰기 제거) | 이메일·비밀번호·MFA·신원 연결 | 없음 | PR revert | 없음 |
-| (d) 1판으로: Cloudflare Worker가 자기 열쇠를 만들고 Supabase OAuth 서버는 끔 | Supabase 위임 열쇠 자체가 없으니 계정 기능 길이 사라짐. 9절 L1~L3·문지기는 그대로 재사용 | Worker가 DB를 부를 때 쓸 자격(명진 세션 보관 또는 새 좁은 길)을 새로 설계해야 함 — 그 자격이 Worker에서 새면 같은 문제가 Worker 쪽으로 옮겨감(추정, 설계 필요) | Cloudflare 설정·비밀값 등록(정지 지점), 새 서비스 하나 관리 | Worker 끄기 | 없음(Supabase Auth 안 건드림) |
+| (d) 1판으로: Cloudflare Worker가 자기 열쇠를 만들고 Supabase OAuth 서버는 끔 | Supabase 위임 열쇠 자체가 없으니 계정 기능 길이 사라짐. 9절 L1~L3·문지기는 그대로 재사용 | Worker가 DB를 부를 때 쓸 자격(사용자 세션 보관 또는 새 좁은 길)을 새로 설계해야 함 — 그 자격이 Worker에서 새면 같은 문제가 Worker 쪽으로 옮겨감(추정, 설계 필요) | Cloudflare 설정·비밀값 등록(정지 지점), 새 서비스 하나 관리 | Worker 끄기 | 없음(Supabase Auth 안 건드림) |
 | (e1) Supabase 수정(#2898) 기다리기 | 들어오면 계정 기능 전부 403(우리 쪽 설정 불필요, 추정) | 들어오는 시점 모름. 그리고 **`mcp-read`가 열쇠 확인에 `GET /auth/v1/user`를 쓰므로(사실: `supabase/functions/mcp-read/core.mjs` `verifyToken`) 수정이 들어오면 `mcp-read`가 모든 호출을 거절**하게 됨 → 열쇠 확인을 `GET /auth/v1/oauth/userinfo` 또는 서명 공개키(JWKS) 검사로 바꾸는 코드 PR 필요 | 없음 | — | 없음(읽생기는 위임 열쇠를 안 씀) |
 | (e2) 연결 포기(Drive 사본만) | 전부 | Claude가 원장·노트 검색을 못 함 | 없음 | — | 없음 |
 
@@ -394,7 +394,7 @@ create policy app_mcp_no_delegated_storage on storage.objects
 3. 준비 ② M-7 시험표 늘리기(**S70-56: 9절 M-7 행·`scripts/ops/mcp-m7-check.md`에 반영**): ⑤에 더해 `GET /user`, `PUT /user`(email·password), `POST /factors`, `GET /user/identities/authorize`, `POST /reauthenticate`가 모두 403이어야 통과. 시험용 metadata 변경은 `{"data":{}}`처럼 값 없는 요청만.
 4. Supabase에 #2898이 들어오면(CC가 릴리스·변경 기록 확인) → OAuth 서버 켬 → 늘린 M-7 다시 → 모두 통과하면 M-8.
 5. (a)의 "수동 신원 연결 꺼짐"·"이메일 이중 확인" 현재 값은 CC가 대시보드에서 **보기만** 하고 기록한다(바꾸는 것은 읽생기 영향이 있어 따로 결정).
-6. 기다림이 길어지면(예: 2027-01 말까지 안 들어오면) (d)를 다시 설계할지 명진이 정한다.
+6. 기다림이 길어지면(예: 2027-01 말까지 안 들어오면) (d)를 다시 설계할지 사용자가 정한다.
 
 - (b)는 읽생기까지 모든 로그인을 흔들고 효과도 불확실해 뺀다. (c)는 피해가 이미 작아 지금 할 필요 없다(범위 밖 발견사항으로만 둠).
 
@@ -404,7 +404,7 @@ create policy app_mcp_no_delegated_storage on storage.objects
 - 잘못되면: 기다림이 길어져 Claude가 원장·노트를 바로 못 읽는 기간이 늘어난다(지금처럼 Drive 사본으로만 봄). 보안 위험은 늘지 않는다.
 - 되돌리기: 꺼 둔 상태가 곧 안전한 상태다. 입구 코드 수정은 이전 판을 다시 배포하면 된다.
 
-### 14.5 명진 결정
+### 14.5 사용자 결정
 
 - **D4** — "Supabase가 고칠 때까지(몇 주로 예상, 날짜 모름) Claude 연결을 미뤄도 될까요? 아니면 새 입구(Cloudflare)를 따로 만들어 먼저 쓸까요?" — 추천 **미루기**.
 

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// S71-41 HOME-머리한줄(명진 11/26 "홈 맨위 전체검색을 돋보기 하나로 바꾸고 아래랑 한줄 통합").
+// S71-41 HOME-머리한줄(사용자 요청 11/26).
 // 폰 틀(~760px) 홈: 따로 된 '전체 검색' 입력 칸 줄이 없고(머리 줄 자체가 그려지지 않음), 첫 줄 = [아이콘] 날짜 · [하루|주간 보고] · 찾기(돋보기) 한 줄.
 // 돋보기를 누르면 그 첫 줄 자리에 전체 검색 칸이 열리고(전체 검색 화면 머리 줄 — S71-07 '누른 자리 그대로'), 결과는 아래.
 // 결과를 누르면 원문으로 가는 것은 기존 시험(global-search·global-search-jump·source-open-back-rest — 입구를 이 돋보기로 바꿈)이 지킨다.
