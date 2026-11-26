@@ -20,6 +20,7 @@ import {highlightRowHtml} from './now-highlights.js';
 import {sourceTag} from './text-highlights-model.mjs';
 import {visibleMarks, marksNewsOn} from './note-news-marks-model.mjs';
 import {requestNewsOpen} from './news-request.mjs';
+import {openOnScreen} from './source-open.js';
 import {requestBasketNote, requestNoteDocOpen} from './basket-note-tasks.js';
 import {createNoteDoc} from './basket-data.js';
 import {bindSelectZone} from './text-select-bar.js';
@@ -277,8 +278,8 @@ function openMark(h) {
     return;
   }
   if (h.source_type === 'note') { requestBasketNote(h.source_id); void window.KPTURouter?.openFrom?.('basket')?.catch?.(() => {}); return; }
-  if (h.source_type === 'brief') { window.KPTUBriefOpen = {id: h.source_id, highlight: h.id}; window.KPTURouter?.go?.('brief', {source: 'delegated'}); return; }
-  if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) window.KPTURouter?.go?.('news', {source: 'delegated'});
+  if (h.source_type === 'brief') { window.KPTUBriefOpen = {id: h.source_id, highlight: h.id}; void openOnScreen('brief'); return; }
+  if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) void openOnScreen('outside');
 }
 
 // ---------- 보기 ----------
@@ -536,7 +537,7 @@ async function makeNote(id) {
   if (!note?.id) return;
   const router = window.KPTURouter;
   notify(made.cut ? '노트로 만들었어요 · 긴 글이라 앞부분만 넣었어요' : '노트로 만들었어요', {record: false,
-    actions: [{label: '열기', run: ({close}) => { close(); requestNoteDocOpen(note.id); router?.go?.('basket', {source: 'delegated'}); }}]});
+    actions: [{label: '열기', run: ({close}) => { close(); requestNoteDocOpen(note.id); void openOnScreen('basket'); }}]});
 }
 async function marksToNote(id) {
   const marks = sourceHighlights('reading', id);
@@ -769,4 +770,4 @@ install(); bind();
 state.filter = filterFromUrl();
 window.KPTURouter?.on?.('reading', () => { state.filter = filterFromUrl(); if (state.loaded) drawList(); void refresh().then(takeAsked); });
 void refresh().then(takeAsked);
-window.KPTUReading = {refresh, open: (id, opts) => { window.KPTUReadingOpen = {id, ...(opts || {})}; if (window.KPTURouter?.current === 'reading') takeAsked(); else window.KPTURouter?.go?.('reading'); }};
+window.KPTUReading = {refresh, open: (id, opts) => { window.KPTUReadingOpen = {id, ...(opts || {})}; if (window.KPTURouter?.current === 'reading') takeAsked(); else void openOnScreen('reading'); }};

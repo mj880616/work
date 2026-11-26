@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {cleanDoc, GTASK_ID} from '../app/ed-schema.mjs';
 import {kstIso, kstDay, quickAlarms, checkAlarm, alarmLabel, noteAlarmAt, alarmPast} from '../app/note-alarm-model.mjs';
-import {BUILTIN_TEMPLATES, checkTemplateName, joinTemplate, templateBody} from '../app/note-templates-model.mjs';
+import * as templatesModel from '../app/note-templates-model.mjs';
+const {TEMPLATE_EMPTY_HINT, checkTemplateName, joinTemplate, templateBody} = templatesModel;
 
 const p = text => ({type: 'paragraph', attrs: {style: 'body2'}, content: [{type: 'text', text}]});
 const check = (...items) => ({v: 'ed1', doc: {type: 'doc', content: [{type: 'bullet_list', attrs: {marker: 'check'}, content: items}]}});
@@ -59,20 +60,21 @@ test('② 노트 알림은 서버 저장만: 기기 저장 없음, 노트 metada
   assert.match(data, /export function setNoteAlarm\(note, at, rt = window\.KPTURuntime\) \{\n  return patchNoteMetadata\(/);
 });
 
-test('③ 서식: 기본 셋은 일반 문구, 이름 검사, 빈 글이면 그대로·쓴 글 뒤에 붙임, 연결·체크는 따라오지 않음', () => {
-  assert.deepEqual(BUILTIN_TEMPLATES.map(t => t.name), ['회의록', '주간 계획', '통화 기록']);
-  for (const t of BUILTIN_TEMPLATES) assert.ok(cleanDoc(t.doc), t.name);
-  const words = JSON.stringify(BUILTIN_TEMPLATES);
-  for (const w of ['노조', '조합', '단협', '집행부']) assert.ok(!words.includes(w), w);
+test('③ 서식: 앱이 미리 넣은 서식 없음(S71-65), 이름 검사, 빈 글이면 그대로·쓴 글 뒤에 붙임, 연결·체크는 따라오지 않음', () => {
+  assert.equal('BUILTIN_TEMPLATES' in templatesModel, false);
+  for (const f of ['app/note-templates-model.mjs', 'app/note-templates.js', 'app/note-window.js'])
+    assert.doesNotMatch(readFileSync(f, 'utf8'), /기본 서식|주간 계획|통화 기록|BUILTIN_TEMPLATES/, f);
+  assert.equal(TEMPLATE_EMPTY_HINT, '노트 ⋯ [서식으로 저장]으로 내 서식을 만들어요.');
   assert.equal(checkTemplateName(' '), '서식 이름을 써 주세요.');
   assert.equal(checkTemplateName('가'.repeat(41)), '서식 이름은 40자까지 쓸 수 있어요.');
   assert.equal(checkTemplateName('회의록'), '');
   const linked = check({type: 'list_item', attrs: {checked: true, gtask: 'abc'}, content: [p('할 일')]});
   assert.deepEqual(templateBody({doc: linked}).doc.content[0].content[0].attrs, {});
+  const mine = {doc: {v: 'ed1', doc: {type: 'doc', content: [{type: 'heading', attrs: {level: 2}, content: [{type: 'text', text: '누구와'}]}, p('')]}}};
   const empty = {v: 'ed1', doc: {type: 'doc', content: [{type: 'paragraph', content: []}]}};
-  assert.deepEqual(joinTemplate(empty, BUILTIN_TEMPLATES[2]).doc.content, BUILTIN_TEMPLATES[2].doc.doc.content);
+  assert.deepEqual(joinTemplate(empty, mine).doc.content, mine.doc.doc.content);
   const written = {v: 'ed1', doc: {type: 'doc', content: [p('먼저')]}};
-  const joined = joinTemplate(written, BUILTIN_TEMPLATES[2]).doc.content;
+  const joined = joinTemplate(written, mine).doc.content;
   assert.equal(joined[0].content[0].text, '먼저');
-  assert.equal(joined.length, 1 + BUILTIN_TEMPLATES[2].doc.doc.content.length);
+  assert.equal(joined.length, 1 + mine.doc.doc.content.length);
 });
