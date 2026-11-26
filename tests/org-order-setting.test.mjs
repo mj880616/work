@@ -1,15 +1,13 @@
 // MULTI-노조사용자 ②-3(D5, S50-13): 담당조직 묶음·순서와 보고 캘린더 이름은 사람마다 내 프로필 설정(view_prefs)에 있다.
 // - 운영자 값은 migration 한 곳에만 있고(화면 코드에는 없음), 시험 대역 두 곳(tests/org-order-fixture.mjs·화면 fixture용 helpers/org-order-prefs.js)이 그 값과 같다.
-// - 내 프로필 '주간보고 일정 캘린더' 칸 값 검사와 조직 보고 화면 묶음 고치기(org-order-edit.mjs)가 서버 검사와 같은 모양을 만든다.
+// - 조직 보고 화면 묶음 고치기(org-order-edit.mjs)가 서버 검사와 같은 모양을 만든다. 보고 캘린더 이름을 고르는 내 프로필 칸은 S71-34에서 없앴다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {OPERATOR_ORG_ORDER, OPERATOR_REPORT_CALENDAR} from './org-order-fixture.mjs';
-import {parseCalendar} from '../app/report-settings-model.mjs';
 import {sectionsOf, moveOrg, moveGroup, renameGroup, ungroup, groupNameProblem, orderValue} from '../app/org-order-edit.mjs';
 import {validValue} from '../app/view-prefs.js';
-import {summaryText} from '../app/report-settings.js';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const plain = v => JSON.parse(JSON.stringify(v));
@@ -40,15 +38,12 @@ test('운영자 값: migration이 옮기는 값 = 시험 대역 두 곳, 화면 
   assert.match(read('app/report-calendar.mjs'), /KPTUViewPrefs\?\.get\?\.\('report_calendar'\)/);
 });
 
-test('주간 보고 일정 캘린더 값: 비우면 지움(null), 60자까지', () => {
-  assert.deepEqual(parseCalendar('  업무 달력 '), {ok: true, value: '업무 달력'});
-  assert.deepEqual(parseCalendar(''), {ok: true, value: null});
-  assert.equal(parseCalendar('가'.repeat(61)).ok, false);
-  assert.equal(summaryText(''), '미지정');
-  assert.equal(summaryText(OPERATOR_REPORT_CALENDAR), `'${OPERATOR_REPORT_CALENDAR}'`);
-  // 내 프로필 글자 칸(묶음·뺄 조직)은 없앴다(MULTI-다른담당자맞춤 ②).
-  const src = read('app/report-settings.js');
-  assert.doesNotMatch(src, /psReportGroups|psReportHidden|org_order/);
+// S71-34 PROFILE-주간캘린더칸삭제: 내 프로필 칸·그 값 검사 파일은 없앴다. 저장된 값의 서버 검사(view-prefs 60자)는 그대로.
+test('주간 정리 캘린더: 고르는 칸 없음, 저장된 값의 모양 검사는 그대로', () => {
+  for (const f of ['app/report-settings.js', 'app/report-settings-model.mjs']) assert.throws(() => read(f), f);
+  assert.doesNotMatch(read('app/profile-settings.js'), /report-settings\.js|psReportPanel/);
+  assert.equal(validValue('report_calendar', '업무 달력'), true);
+  assert.equal(validValue('report_calendar', '가'.repeat(61)), false);
 });
 
 // MULTI-다른담당자맞춤 ②: 조직 보고 화면 묶음 고치기 규칙(org-order-edit.mjs). 값은 같은 org_order, 서버 검사와 같은 한도.

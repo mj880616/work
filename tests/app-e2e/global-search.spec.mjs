@@ -184,21 +184,23 @@ test('PC: a query that looks like HTML is shown as text, never injected; server 
  expect(alerted).toBe(false);expect(errors).toEqual([]);
 });
 
-test('Phone 390: the home header has the one search field (not the menu sheet); tapping it opens the full-screen search in the same field (S71-07)',async({page})=>{
+test('Phone 390: the home date line ends with the one search magnifier (not the menu sheet); tapping it opens the full-screen search field in that first line (S71-07·S71-41)',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  const calls=[];
  await openHome(page,{beforeLoad:()=>routeSearch(page,calls)});
  await expect(page.locator('#homeView input[type="search"]')).toHaveCount(0);
  await expect(page.locator('[data-search-slot]')).toBeHidden();
- // S70-57(명진 11/26 "전체 검색은 홈에만"): 입구는 홈 앱 머리 줄 하나. 메뉴 창에는 없다.
- const entry=page.locator('#appView > .mobile-shell-header .gs-menu-entry');
+ // S70-57(사용자 11/26 "전체 검색은 홈에만"): 입구는 홈 하나. 메뉴 창에는 없다.
+ // S71-41 HOME-머리한줄: 입구는 따로 된 칸 줄이 아니라 날짜 머리줄 끝 돋보기.
+ const entry=page.locator('#homeView [data-journal-find]');
  await expect(entry).toBeVisible();
+ await expect(page.locator('#appView > .mobile-shell-header')).toBeHidden();
  await page.locator('#mobileMenuTab').click();
  await expect(page.locator('#mobileMenu .gs-menu-entry')).toHaveCount(0);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();
  await entry.click();
  await expect(page.locator('#searchView')).toBeVisible();
- // S71-07 SEARCH-누른자리그대로: 화면 안 두 번째 칸 없이, 누른 머리 줄 칸 그대로 입력.
+ // S71-07 SEARCH-누른자리그대로: 화면 안 두 번째 칸 없이, 머리 줄 칸 그대로 입력(S71-41: 돋보기를 누른 그 첫 줄 자리).
  const input=page.locator('#gsHeadInput');
  await expect(input).toBeFocused();
  await expect(page.locator('#searchView input')).toHaveCount(0);
@@ -222,6 +224,7 @@ test('Phone 390: the home header has the one search field (not the menu sheet); 
  await expect(page.locator('#homeView')).toBeVisible();
  await expect(input).toHaveValue('');
  await expect(input).not.toBeFocused();
+ await expect(input).toBeHidden();
 });
 
 // LIB-후속1 ② / SEARCH-선택옮기기(1차): 자료실 결과 줄 우클릭 = 작은 메뉴(맨 위 [선택], [열기]). [선택]은 결과 창을 닫고 자료실 화면의 같은 선택 모드로 넘긴다.
