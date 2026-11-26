@@ -22,6 +22,8 @@ export const MEMO_TARGETS = Object.freeze({
   meeting: Object.freeze({label: word('사업 보고'), group: 'meeting'}),
   org_record: Object.freeze({label: word('담당조직'), group: 'org'}),
   telegram: Object.freeze({label: '텔레그램', group: 'telegram'}),
+  // S71-71 RECORD-기록하나로: 조직·사업 관리의 연결 기록 한 줄(app_record_links.id, 기록 ⋯ [메모] → 기록 창 아래). DB 대상 종류 20261127030000.
+  record_link: Object.freeze({label: '기록', group: 'org'}),
 });
 export const MEMO_TYPES = Object.freeze(Object.keys(MEMO_TARGETS));
 // 모아 보기 거르기 칩(전체는 늘, 나머지는 그 묶음 메모가 있을 때만).
@@ -52,6 +54,7 @@ export const MEMO_OPEN = Object.freeze({
   meeting: Object.freeze({view: 'meetings', request: 'meeting', check: 'app_meetings', own: true, live: 'deleted_at=is.null'}),
   org_record: Object.freeze({view: 'team', request: 'org_record', check: 'app_suborganization_updates'}),
   telegram: Object.freeze({view: 'telegram', request: 'telegram', check: 'app_feed_items', own: true, live: 'source=eq.telegram&hidden_at=is.null', feature: 'telegram'}),
+  record_link: Object.freeze({view: 'team', request: 'record_link', check: 'app_record_links', own: true, live: 'status=eq.confirmed'}),
 });
 // 운영자 기능에 달린 종류(텔레그램): 그 기능이 잠겨 있으면 모아 보기에서 글·제목을 가린다(밑줄 모아 보기와 같은 규칙). DOM 없는 판정은 부르는 쪽이 준다.
 export const memoFeature = memo => MEMO_OPEN[memo?.target_type]?.feature || '';
