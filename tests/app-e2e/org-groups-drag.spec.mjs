@@ -9,14 +9,16 @@ const gripOf=(page,name)=>rowOf(page,name).locator('[data-so-grip="org"]');
 const groupCard=(page,name)=>page.locator(`#soOrganizationList .so-org-group[data-so-group="${name}"]`);
 const order=page=>page.evaluate(()=>window.__orgOrderPrefs.org_order??null);
 // 화면 밖 자리로는 위·아래 끝에 들고 있어 저절로 굴러가게 한 뒤 놓는다(손가락 끌기와 같은 길).
+// S70-75: 저절로 굴리는 자리는 공용 부품(drag-edge-scroll.js)이 정한다 — 칸 끝 48px 안, 화면 아래에 떠 있는 막대(폰 보기 고르기 줄)는 칸이 아니라
+// 그 바로 위가 끝이다. 놓을 곳은 그 자리 밖(아래 막대 + 48px보다 안쪽)에 들어온 뒤에 가리킨다.
 async function dragTo(page,from,to,{dy=0,dx=null}={}){
   await from.scrollIntoViewIfNeeded();
   const a=await from.boundingBox();await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();
   await page.mouse.move(a.x+a.width/2,a.y+a.height/2+12,{steps:3});
-  const vh=page.viewportSize().height;
+  const vh=page.viewportSize().height,low=vh-48-12-await page.evaluate(()=>{const el=document.elementFromPoint(innerWidth/2,innerHeight-1);for(let n=el;n&&n!==document.body;n=n.parentElement){const p=getComputedStyle(n).position;if(p==='fixed'||p==='sticky'){const r=n.getBoundingClientRect();return r.height<innerHeight/3?innerHeight-r.top:0}}return 0});
   for(let i=0;i<60;i++){
     const b=await to.boundingBox();
-    if(b&&b.y>=60&&b.y+b.height<=vh-60)break;
+    if(b&&b.y>=60&&b.y+b.height<=low)break;
     await page.mouse.move(a.x+a.width/2,b&&b.y<60?20:vh-20,{steps:2});await page.waitForTimeout(60);
   }
   const b=await to.boundingBox();await page.mouse.move(dx===null?b.x+b.width/2:b.x+dx,b.y+b.height/2+dy,{steps:8});

@@ -2,6 +2,7 @@ import {HOUR} from './calendar-week-timeline.js';
 import {canDrag,moveTimed,resizeTimed,moveBand,resizeBand,moveDays,dayDiff,original,same,label} from './calendar-drag-model.js';
 import {setWeekDrag} from './calendar-week-view.js';
 import {offerUndoNotice} from './basket-record-delete.js';
+import {createEdgeScroll} from './drag-edge-scroll.js';
 // CAL-끌어옮기기(PC, 마우스): 주간 시간 일정(위아래 = 시간, 옆 = 날짜, 아래 끝 = 끝 시간), 주간 종일·여러 날 띠(옆 = 날짜, 오른쪽 끝 =
 // 기간), 월간 일정(다른 날로)을 끌어 옮긴다. 이 모듈은 끌기 입력과 상태(메모리)만 갖고, 미리보기는 주간·월간 renderer가 그리며
 // (setWeekDrag·KPTUCalendarMonthView.setDrag), 저장은 일정 수정 창과 같은 update-event 경로(KPTUCalendarEvents.saveMove)다.
@@ -12,7 +13,7 @@ import {offerUndoNotice} from './basket-record-delete.js';
 // 개수 표시라 끌 것이 없다.
 // 끌기 손맛: 끌기가 시작되면 끄는 줄의 반투명 복제 조각 하나를 body 아래 고정 위치로 만들어(pointer-events:none) 커서를 따라가게 한다
 // (pointermove마다 위치만 적어 두고 requestAnimationFrame 한 번에 transform만 바꿈). 놓기·Esc·창 밖으로 나가기에서 지운다. 렌더러 영역은 건드리지 않는다.
-const PC=matchMedia('(min-width:761px)'),SLOP=4,EDGE=28;
+const PC=matchMedia('(min-width:761px)'),SLOP=4;
 let g=null,swallowClick=false,swallowUp=false;
 // Esc·창 밖으로 취소한 뒤 손을 뗄 때 따라오는 클릭(일정·할 일 열기)도 막는다.
 const swallowNext=()=>{swallowClick=true;setTimeout(()=>{swallowClick=false},0)};
@@ -66,10 +67,15 @@ function ghostMove(e){
   h.frame=requestAnimationFrame(()=>{h.frame=0;h.el.style.transform=`translate3d(${h.x-h.ox}px,${h.y-h.oy}px,0)`});
 }
 function ghostEnd(was){
+  edgeScroll.stop();
   const h=was?.ghost;if(!h)return;if(h.frame)cancelAnimationFrame(h.frame);h.el.remove();was.ghost=null;
   document.documentElement.classList.remove('cal-drag-on');
 }
-function autoscroll(e){if(g.view!=='week'||g.kind!=='timed')return;const r=g.box.getBoundingClientRect();if(e.clientY>r.bottom-EDGE)g.box.scrollTop+=12;else if(e.clientY<timelineTop(g.box)+EDGE&&e.clientY>=timelineTop(g.box))g.box.scrollTop-=12}
+// S70-75 STD-끌기자동스크롤: 끄는 동안 칸 끝에 가면 저절로 굴린다 — 모든 끌기와 같은 공용 부품(drag-edge-scroll.js). 전에는 이 파일만의 계산으로
+// 주간 시간 일정만, 움직일 때만 12px씩 굴렀다(월간·넓힌 달력·종일 띠는 굴리지 않음). 주간 시간표는 고정된 날짜 줄 아래부터가 칸이다(timelineTop).
+// 굴린 뒤에는 같은 포인터 자리로 놓을 곳을 다시 계산한다(손을 멈춰도).
+const timeline=box=>({getBoundingClientRect:()=>{const r=box.getBoundingClientRect();return {top:timelineTop(box),bottom:r.bottom,left:r.left,right:r.right}},scrollBy:(x,y)=>box.scrollBy(x,y)});
+const edgeScroll=createEdgeScroll({prefer:()=>!g?null:g.view==='week'&&g.kind==='timed'?timeline(g.box):g.box,onScroll:(x,y)=>{if(!g?.started||g.saving)return;const r=compute({clientX:x,clientY:y});g.next=r.next;g.blocked=r.blocked||!r.next;paint()}});
 function downTask(e,el){
   const month=el.closest('#calendarGrid');if(!month||e.target.closest('.cmv-cell-task-box,.cmv-task-mark'))return;
   const id=el.dataset.calendarTask,from=cellAt(month,e.clientX,e.clientY);if(!id||!from)return;
@@ -95,7 +101,7 @@ function move(e){
   // 놓을 칸 표시·끄는 조각을 그렸다. 끌기는 왼쪽 버튼을 누르고 있는 동안만 — 버튼이 떨어져 있으면 그 끌기를 취소한다.
   if(!(e.buttons&1)){cancel();return}
   if(!g.started){if(Math.hypot(e.clientX-g.x0,e.clientY-g.y1)<SLOP)return;g.started=true;try{g.el.setPointerCapture(e.pointerId)}catch{};getSelection?.()?.removeAllRanges?.();ghostStart(e)}
-  e.preventDefault();ghostMove(e);autoscroll(e);
+  e.preventDefault();ghostMove(e);edgeScroll.update(e.clientX,e.clientY);
   const r=compute(e);g.next=r.next;g.blocked=r.blocked||!r.next;paint();
 }
 function cancel(){if(!g)return;const was=g;g=null;ghostEnd(was);if(was.started)show(null,was.view)}

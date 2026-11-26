@@ -18,6 +18,7 @@
 // 이 파일이 이 목록 자리의 유일한 renderer다. 기기 저장 없음.
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
+import {lockedLineHtml} from './locked-line.mjs';
 import {esc, rowHtml, groupHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
@@ -204,7 +205,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
         why: r.reason, acts: PROMISE_NEWS_ACTS, attrs: 'data-forget-src="promise" data-forget-promise-news'})});
     }
-    if (hidden) sorted.push({html: `<p class="nbx-faint forget-locked" data-forget-locked data-lock-here="calls telegram">통화·텔레그램 ${hidden}줄 · 잠김 <button type="button" class="row-act lk-open">풀기</button></p>`});
+    if (hidden) sorted.push({html: lockedLineHtml({features: ['calls', 'telegram'], label: '통화·텔레그램', count: hidden, cls: 'nbx-faint forget-locked', attrs: 'data-forget-locked'})});
     return sorted;
   }
   // ⋯ [이미 할 일에 있음]: 제목이 비슷한 열린 할 일 몇 개(같은 ③ 글자 버튼). 고르면 그 할 일과 잇고 목록에서 뺀다. 새 할 일은 만들지 않는다.
