@@ -5,7 +5,7 @@ const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-not
 // PROFILE-화면정리(docs/design/profile-screen-tidy.md): 이 모듈이 #profileView의 유일한 renderer다. 저장 버튼은 위 줄에 하나(이름).
 // S71-35 ORG-조직관리로모으기(2026-11-26 사용자 "관련 대상 현황 이것도 걍 없애 / 조직관리에서 추가수정 삭제 보관 가능하게",
 // "내 묶음도 여기서 삭제 조직 관리에서 처리 가능하게"): '담당조직 현황' 체크 칸과 '내 묶음' 칸은 내 프로필에서 없앴다(그리기·코드째).
-// 담당 추가·보관·삭제 등은 조직 관리 화면(suborganizations.js), 내 묶음은 조직 관리 목록 맨 아래 접힌 '내 묶음'(collab-groups.js).
+// 담당 추가·보관·삭제 등은 조직 관리 화면(suborganizations.js), 내 묶음은 조직 관리 목록 맨 아래 접힌 '내 묶음'(묶음 칸 모듈은 조직 관리가 부른다).
 // 담당 여부 저장(app_suborganization_assignees·app_profile_workplaces)·서버 함수는 그대로다 — 이 화면이 더는 쓰지 않을 뿐, 자료는 지우지 않는다.
 const rt=window.KPTURuntime;
 let user=null,workspaceId=null;
