@@ -38,8 +38,15 @@ begin
          and conname in ('app_note_board_links_material_check', 'app_note_board_links_url_check'))
      or (select count(*) from pg_policy where polrelid = to_regclass('public.app_note_board_links')) <> 1
      or (select count(*) from pg_policy where polrelid = to_regclass('public.app_note_board_links')
-         and polname = 'note_board_links_owner_all') <> 1
-     or exists (select 1 from public.app_note_board_links where kind not in ('line', 'relation')) then
+         and polname = 'note_board_links_owner_all') <> 1 then
+    raise exception 'NOTE_BOARD_MATERIALS_PREREQUISITE_CHANGED; stop';
+  end if;
+end
+$$;
+-- 기존 줄은 지금 선·관계선뿐이어야 한다(kind 칸이 있는 것을 위에서 확인한 뒤에 읽는다 — 없으면 위에서 이미 멈춤).
+do $$
+begin
+  if exists (select 1 from public.app_note_board_links where kind not in ('line', 'relation')) then
     raise exception 'NOTE_BOARD_MATERIALS_PREREQUISITE_CHANGED; stop';
   end if;
 end
