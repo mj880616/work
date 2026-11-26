@@ -100,7 +100,7 @@ const line=(page,key)=>page.locator(`#basketView [data-nbx-row="${key}"]`);
 const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 // 버튼 줄이 한 줄인가: 모든 버튼의 세로 범위가 겹친다(가장 아래 버튼의 위가 가장 위 버튼의 아래보다 위). right = 가장 오른쪽 끝.
 const oneLine=gs=>gs.map(g=>{const bs=[...g.children].filter(b=>b.getClientRects().length).map(b=>b.getBoundingClientRect());return {one:Math.max(...bs.map(b=>b.top))<Math.min(...bs.map(b=>b.bottom)),right:Math.max(...bs.map(b=>b.right))};});
-const viewBtn=page=>page.locator('#basketView [data-forget-view-open]');
+const viewBtn=page=>page.locator('[data-sf-tools="forget"] [data-forget-view-open]');
 async function pickView(page,label){
   await viewBtn(page).click();
   await page.locator('#forgetViewMenu').getByRole('menuitemradio',{name:label,exact:true}).click();
