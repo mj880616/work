@@ -60,7 +60,7 @@ const root = page => page.locator('#photosRoot');
 // S71-25 PHOTO-머리한줄: 위쪽은 맨 위 줄 하나(폰 틀 앱 머리 줄, PC 틀 상단 줄 — screen-find.js 단추 자리 [data-sf-tools="photos"]).
 // 보이는 단추 차례·한 줄인지·화면 안인지, 화면 안 도구 줄이 없는지.
 const barShape = page => page.locator('[data-sf-tools="photos"]').evaluate(box => {
-  const line = box.closest('.mobile-shell-header, .app-topline'), lr = line.getBoundingClientRect();
+  const line = box.closest('.mobile-shell-header, .app-topline, [data-screen-tools="line"]'), lr = line.getBoundingClientRect();
   const visible = el => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 1;
   const shown = [...box.children].filter(visible);
   const mids = [...new Set(shown.map(el => Math.round((el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2) / 6)))];

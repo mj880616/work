@@ -44,7 +44,7 @@ import { bindRowSwipe, PICK, EDIT, DELETE } from './row-swipe.js';
 import { SPLIT_QUERY } from './screen-width.mjs';
 import { followPane } from './follow-pane.js';
 import {word} from './brand/brand.mjs';
-import {registerScreenFind, refreshScreenFind} from './screen-find.js'; // S70-54: [노트]일 때만 맨 위 칸이 노트 찾기 · S70-57: [잊지 말기] 목록이면 잊지 말기 찾기
+import {registerScreenFind, refreshScreenFind, toolsBox} from './screen-find.js'; // S70-54: [노트]일 때만 맨 위 칸이 노트 찾기 · S70-57: [잊지 말기] 목록이면 잊지 말기 찾기
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 // STAB-간헐3: the refresh run whose list read is still pending (0 = none). Until it answers, an empty list is "loading",
@@ -91,7 +91,7 @@ const LINK_ICONS = {
   edit: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10.5 2.5l3 3-8 8h-3v-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
 };
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : formatSeoulTime(d, {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}); };
-root.innerHTML = `<div class="basket-head"><h2>잊지 말기</h2></div><div class="basket-switch-row forget-head"><button type="button" class="secondary forget-view" data-forget-view-open aria-haspopup="true" aria-expanded="false" aria-label="목록 보기 선택">처리 전 ▾</button><button type="button" class="row-act inbox-find" data-inbox-find>최신화</button></div><div class="basket-place-filter" data-basket-place-filter hidden></div><div class="basket-place-filter basket-sub-filter" data-basket-sub-filter hidden></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><section class="nbx fam-remind" data-nbx-tone="forget" data-fam-remind aria-label="가족 기억할 것" hidden></section><section class="nbx forget-list" data-nbx-tone="list" data-forget-section aria-label="잊지 말기 목록"><ul class="nbx-list" data-basket-rows id="basketRows"></ul><p class="nbx-status" role="status" aria-live="polite" data-forget-status></p></section><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div class="note-host" data-note-host hidden></div>`;
+root.innerHTML = `<div class="basket-head"><h2>잊지 말기</h2></div><div class="basket-place-filter" data-basket-place-filter hidden></div><div class="basket-place-filter basket-sub-filter" data-basket-sub-filter hidden></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><section class="nbx fam-remind" data-nbx-tone="forget" data-fam-remind aria-label="가족 기억할 것" hidden></section><section class="nbx forget-list" data-nbx-tone="list" data-forget-section aria-label="잊지 말기 목록"><ul class="nbx-list" data-basket-rows id="basketRows"></ul><p class="nbx-status" role="status" aria-live="polite" data-forget-status></p></section><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div class="note-host" data-note-host hidden></div>`;
 // Keep the basket heading available to assistive navigation only: the phone header (~760px) and the PC top line (761px~,
 // '정리함' / '노트', UI-화면정리 B ①·UI-폴드PC틀) already name the screen at every width.
 const basketTitle=root.querySelector('.basket-head > h2');basketTitle.classList.add('a11y-only');
@@ -383,8 +383,15 @@ const manualDraft=()=>!!selected&&manual.hasDraft();
 const noteHost=root.querySelector('[data-note-host]');
 let kind='memo';
 root.dataset.kind=kind;
-const switchRow=root.querySelector('.basket-switch-row');
-const findButton=root.querySelector('[data-inbox-find]');
+// S71-29 FORGET-머리한줄(사용자 결정 11/26 — 다른 화면처럼 한 줄로): [처리 전 ▾]·최신화(↻)는 따로 한 줄이 아니라 맨 위 줄 단추 상자(screen-find.js toolsBox)에 산다.
+// 폰·폴드 = 앱 머리 줄 [W] 잊지 말기 · [처리 전 ▾] ……… ↻ · 찾기, PC 틀 = 맨 위 줄 찾기 칸 오른쪽. 상자는 '잊지 말기에서 찾기'가 쓰일 때(목록이 보일 때)만 보인다.
+// 보기 메뉴의 주인은 그대로 forget-list.js(viewButton), 최신화는 그대로 findAgain(todo-radar.js). 상자는 #basketView 밖이라 누르기는 여기 단추에 직접 붙인다.
+const forgetTools=toolsBox('forget','basket');
+forgetTools.classList.add('forget-tools');
+forgetTools.innerHTML='<button type="button" class="secondary sf-chip forget-view" data-forget-view-open aria-haspopup="true" aria-expanded="false" aria-label="목록 보기 선택">처리 전 ▾</button><button type="button" class="icon-btn inbox-find" data-inbox-find aria-label="최신화"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M13 8a5 5 0 1 1-1.46-3.54M13 2.5v2.8h-2.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+const viewButton=forgetTools.querySelector('[data-forget-view-open]');
+const findButton=forgetTools.querySelector('[data-inbox-find]');
+findButton.addEventListener('click',()=>{if(!busy&&!findButton.disabled)void findAgain();});
 // UI-일기손질 ⑥: the [메모 | 노트] row and the list head have one painter. They show only while a list is on screen;
 // an open memo or note draws its own "‹ 바구니" head (a note: its title and ⋯, no back button) in that place instead.
 // BASKET-드롭제목: a memo's title is its first line; a memo with only files is titled by its first file (a name cut by the old upload reader shows cleaned,
@@ -398,7 +405,7 @@ function memoTitle(note){
 // UI-상단줄제목: the open update's title goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it. Notes send their own (basket-notes.js).
 // The place is keyed by screen, so the update's and the note's titles are told apart by the side that is open (only one detail is open at a time).
 const sendMemoWhere=name=>window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'basket',name,kind:'memo'}}));
-function paintListChrome(){const open=(!!selected&&!isSplit())||noteDocs.isOpen(),notes=kind==='note';switchRow.hidden=open||notes;listHead.hidden=open;refreshScreenFind();}
+function paintListChrome(){const open=(!!selected&&!isSplit())||noteDocs.isOpen();listHead.hidden=open;refreshScreenFind();}
 const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:()=>paintListChrome(),onMovedToBasket:()=>void refresh()});
 // The menu marks ([정리함] / [노트] in the sidebar, tabs and menu sheet) follow the side shown: the router reads #basketView[data-kind].
 function paintNavKind(){
@@ -407,16 +414,16 @@ function paintNavKind(){
   window.KPTURouter?.syncNavigation?.();
 }
 window.addEventListener('kptu:view-changed',paintNavKind);
-// [다시 찾기] sits in the top row beside [처리 전 ▾]; the last find time is its tooltip.
+// 최신화(↻) sits in the top row's tools box beside [처리 전 ▾]; the last find time is its tooltip.
 function paintSummary(){
   const state=radarFindState();
-  findButton.title=state.checkedAt?`마지막 찾기 ${radarClock(state.checkedAt)}`:'';
+  findButton.title=state.checkedAt?`최신화 · 마지막 찾기 ${radarClock(state.checkedAt)}`:'최신화';
   findButton.disabled=state.finding||state.missing;findButton.toggleAttribute('aria-busy',state.finding);
 }
 paintSummary();
 // The list's views map to the update filters: 처리 전 = 미분류, 연결 완료 = 분류 완료, 무시 = 보류. 보냄·이미 함 hold no updates.
 const UPDATE_FILTER={open:'unclassified',linked:'classified',dismissed:'archived'};
-forget=mountForgetList(root.querySelector('[data-basket-rows]'),{rt,statusEl:root.querySelector('[data-forget-status]'),viewButton:root.querySelector('[data-forget-view-open]'),
+forget=mountForgetList(root.querySelector('[data-basket-rows]'),{rt,statusEl:root.querySelector('[data-forget-status]'),viewButton,
   updates:()=>({loading:!!loadingRun&&!notes.length,items:updateItems()}),
   onUpdateAct:(id,act,button)=>void updateAct(id,act,button),radarPromises,openSource:openTodoSource,
   updateCount:()=>loadingRun&&!notes.length?null:visibleNotes(notes,links,'unclassified',docs).length,
@@ -544,7 +551,7 @@ async function holdFromList(noteId,on,{undo=''}={}){
     return {status:'done',message:'다시 보이게 했어요.'};
   }});
   else showToast(on?'보류로 보냈어요.':'보류를 해제했어요.');
-  root.querySelector('[data-forget-view-open]')?.focus({preventScroll:true});
+  viewButton?.focus({preventScroll:true});
 }
 async function deleteFromList(id,{confirmed=false}={}){
   if(busy||selected||attachGoing(id))return;
@@ -559,7 +566,7 @@ async function deleteFromList(id,{confirmed=false}={}){
   if(['deleted','missing'].includes(result.status)){
     notes=notes.filter(n=>n.id!==id);links=links.filter(l=>l.note_id!==id);
     renderList();if(result.message)listStatus.textContent=result.message;
-    root.querySelector('[data-forget-view-open]')?.focus({preventScroll:true});
+    viewButton?.focus({preventScroll:true});
     return;
   }
   if(result.status!=='cancelled')listStatus.textContent=result.message;
@@ -761,7 +768,7 @@ function closeDetail({focus = true, force = false, cleanAddress = true, fromBack
   if (!keepLayer) { const layer = noteLayer; noteLayer = null; if (!fromBack) layer?.close(); }
   // 폴드 펼침은 목록이 내내 보였으므로 스크롤 자리를 되돌릴 일이 없다.
   if (id && !wasSplit && window.KPTURouter.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
-  if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector('[data-forget-view-open]'))?.focus({preventScroll:true});
+  if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || viewButton)?.focus({preventScroll:true});
   return true;
 }
 function openNoteLayer({adoptOnly = false} = {}) {
@@ -813,7 +820,7 @@ async function keepInJournal(noteId, on, {undo = false} = {}) {
   say('');
   offerUndoNotice({text:message, onUndo:async () => owner !== scope() ? {status:'stale'} : keepInJournal(noteId, !on, {undo:true})});
   if (inDetail && selected?.id === noteId) detail.querySelector('[data-basket-note-more]')?.focus({preventScroll:true});
-  else if (!selected) (root.querySelector(`[data-basket-row-more="${CSS.escape(noteId)}"]`) || root.querySelector('[data-forget-view-open]'))?.focus({preventScroll:true});
+  else if (!selected) (root.querySelector(`[data-basket-row-more="${CSS.escape(noteId)}"]`) || viewButton)?.focus({preventScroll:true});
   return {status:'done', message};
 }
 function paintAttachments() {
@@ -1250,7 +1257,6 @@ root.addEventListener('click', e => {
   else if (b.hasAttribute('data-basket-to-note')) void saveToNote();
   else if (b.hasAttribute('data-basket-to-diary')) void toDiary(selected?.id, detail.querySelector('[data-basket-note-more]'));
   else if (b.hasAttribute('data-basket-journal')) void keepInJournal(selected?.id, b.dataset.basketJournal === 'on');
-  else if (b.hasAttribute('data-inbox-find')) void findAgain();
   else if (b.hasAttribute('data-basket-big-write')) openBigWriter();
   else if (b.hasAttribute('data-basket-link-open')||b.hasAttribute('data-basket-task-open')) { const id = selected?.id; void manual.open(b.hasAttribute('data-basket-link-open') ? 'link' : 'task', b).then(message => { if (selected?.id === id) detail.querySelector('[data-basket-status]').textContent = message || ''; }); }
   else if (b.hasAttribute('data-basket-cancel')) void finishEdit({anchor:b});

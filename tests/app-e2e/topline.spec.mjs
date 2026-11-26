@@ -20,8 +20,8 @@ test('PC: the top line sits above every screen in order, the account moved there
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page);
  await expect(line(page)).toBeVisible();
- const order=await line(page).evaluate(el=>[...el.children].map(c=>c.dataset.navToggle!==undefined?'nav':c.dataset.historyStep||(c.matches('.topline-where')?'where':c.dataset.searchSlot!==undefined?'search':c.dataset.screenTools!==undefined?'tools':c.dataset.quickAdd!==undefined?'add':c.dataset.toplineAccount!==undefined?'account':'?')));
- expect(order).toEqual(['nav','back','forward','where','search','tools','add','account']); // ORG-머리줄한줄(S70-53): 검색 칸 오른쪽 = 그 화면 만들기·⋯ 자리(screen-tools.js)
+ const order=await line(page).evaluate(el=>[...el.children].map(c=>c.dataset.navToggle!==undefined?'nav':c.dataset.historyStep||(c.matches('.topline-where')?'where':c.dataset.screenNote!==undefined?'note':c.dataset.searchSlot!==undefined?'search':c.dataset.screenTools!==undefined?'tools':c.dataset.quickAdd!==undefined?'add':c.dataset.toplineAccount!==undefined?'account':'?')));
+ expect(order).toEqual(['nav','back','forward','where','note','search','tools','add','account']); // ORG-머리줄한줄(S70-53): 검색 칸 오른쪽 = 그 화면 만들기·⋯ 자리(screen-tools.js). NEWS-머리한줄(S71-27): 위치 뒤 = 화면 이름 옆 작은 글(screen-find.js noteBox, 비면 자리째 없음)
  // SEARCH-전체검색: the slot (owned here) now holds only the search field mounted by global-search.js.
  await expect(page.locator('[data-search-slot] input[type="search"]')).toBeVisible();
  await expect(page.locator('[data-search-slot]>*')).toHaveCount(1);
