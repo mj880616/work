@@ -49,7 +49,7 @@ const F = n => `f0000000-0000-4000-8000-00000000000${n}`, D = n => `d0000000-000
 
 test('요청 모양: {mode:"auto"|"align"} 하나만', () => {
   assert.equal(parseMirrorBody({ mode: 'auto' }), 'auto');
-  assert.equal(parseMirrorBody({ mode: 'align' }), 'align');
+  assert.equal(parseMirrorBody({ mode: 'align' }), null, 'S70-29: [드라이브 폴더 맞추기] 요청은 받지 않는다');
   for (const b of [null, {}, { mode: 'x' }, { mode: 'auto', folder_id: 'y' }, ['auto']]) assert.equal(parseMirrorBody(b), null);
 });
 
