@@ -22,7 +22,7 @@ const dropFiles=(page,to,names,{wait=0}={})=>page.evaluate(async({to,names,wait}
 async function boot(page,group){
   const {s,errors}=await bootLibrary(page,1440,{docs:DOCS.map(d=>({...d}))});
   s.fields=[];
-  await page.route(`${SB}/functions/v1/library-files`,route=>{
+  await page.route(`${SB}/functions/v1/library-files`,route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     const raw=(route.request().postDataBuffer()||Buffer.from('')).toString('utf8');
     const field=name=>raw.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1]??null;
     s.fields.push({project_id:field('project_id'),category:field('category'),organization_id:field('organization_id')});
