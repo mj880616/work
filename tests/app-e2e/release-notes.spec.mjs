@@ -5,6 +5,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import {serveBuiltShell,shellVersion} from './helpers/built-shell.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {screenFind,screenFindLocator,screenTools} from './helpers/screen-find.mjs';
 
 const origin=appOrigin,current=shellVersion;
 const note=(v,changes,checks=[])=>({v,date:'2026-10-29',changes,checks});
@@ -185,8 +186,9 @@ test('기록이 하나도 없으면 기록 화면은 없음 한 줄',async({page
   await expect(page.locator('#updatesView [data-wait-empty]')).toHaveText('없음',{timeout:15000});
 });
 
-// UI-업데이트기록찾기(요청함 11/02): 목록 위 검색 칸 — 치는 대로 이 화면 안에서만 거르고 낱말을 칠한다(서버 호출 없음).
-for(const width of [412,1440])test(`업데이트 기록 검색 칸: '사진'이면 관련 줄만 남고 칠해진다 (${width}px)`,async({page})=>{
+// UI-업데이트기록찾기(요청함 11/02): 치는 대로 이 화면 안에서만 거르고 낱말을 칠한다(서버 호출 없음).
+// S71-31: 화면 안 찾기 칸은 없고 맨 위 칸 '업데이트 기록에서 찾기'가 겸한다(폰 390은 머리 줄 돋보기를 누르면 그 자리에서 칸이 열림).
+for(const width of [390,1440])test(`업데이트 기록 찾기(맨 위 칸): '사진'이면 관련 줄만 남고 칠해진다 (${width}px)`,async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width,height:900});
   const notes=[
@@ -196,12 +198,18 @@ for(const width of [412,1440])test(`업데이트 기록 검색 칸: '사진'이�
     ...Array.from({length:30},(_,i)=>({v:`9/11-${30-i}`,date:'2026-09-11',changes:[`옛 변경 ${i+1}`],checks:[]}))
   ];
   await boot(page,{view:'updates',notes:()=>list(notes)});
-  const view=page.locator('#updatesView'),rows=view.locator('.rn-note'),search=view.getByRole('searchbox',{name:'업데이트 기록 찾기'});
+  const view=page.locator('#updatesView'),rows=view.locator('.rn-note');
   await expect(view).toBeVisible({timeout:15000});
-  await expect(search).toBeVisible();
-  // 검색 칸이 목록 위
-  const order=await view.evaluate(v=>{const s=v.querySelector('.rn-search').getBoundingClientRect(),r=v.querySelector('.rn-note').getBoundingClientRect();return s.bottom<=r.top+1});
-  expect(order).toBe(true);
+  await expect(rows.first()).toBeVisible({timeout:15000});
+  // 화면 안 찾기 칸('낱말로 찾기')은 없다 — 맨 위 칸 하나
+  await expect(view.locator('input')).toHaveCount(0);
+  await expect(page.getByPlaceholder('낱말로 찾기')).toHaveCount(0);
+  if(width<600){
+    await expect(screenFindLocator(page)).toBeHidden();
+    await expect(page.locator('.mobile-shell-header .sf-open')).toBeVisible();
+  }
+  const search=await screenFind(page);
+  await expect(search).toHaveAttribute('placeholder','업데이트 기록에서 찾기');
   // 찾는 동안 서버로 가는 요청이 없다
   const sent=[];page.on('request',r=>{if(/search/i.test(r.url()))sent.push(r.url())});
   await search.fill('사진');

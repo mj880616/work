@@ -162,7 +162,7 @@ async function notes(page) {
   await chooseBasketKind(page, 'note');
   const el = page.locator('[data-note-row="n-one"]');
   await expect(el).toBeVisible();
-  return { row: el, list: page.locator('[data-note-list]'), picked: page.locator('[data-nx-select-bar]'), stop: () => page.locator('[data-nx-select-bar]').getByRole('button', { name: '선택 끝내기' }).click(),
+  return { row: el, list: page.locator('[data-note-list]'), picked: page.locator('[data-nx-select-bar]'),
     labels: ['옮기기', '수정', '삭제'], mid: { key: 'edit', done: async () => expect(page.locator('[data-note-editor]:visible')).toHaveCount(1) },
     act: { key: 'delete', done: async () => expect(el).toHaveCount(0) } };
 }
@@ -311,9 +311,9 @@ for (const [name, open] of SCREENS) {
     await expect(pickCell).toHaveCount(0);
     expect(writes, '오른쪽 끝까지 밀기만으로 서버 쓰기').toEqual([]);
     await expect(page.locator('.kptu-ask')).toHaveCount(0);
-    // 선택 끝내기: 공용 선택 줄은 [✕], 화면 고유 선택 막대는 그 화면의 끝내기(노트) 또는 Esc(자료실·파일).
-    const quit = page.locator('.row-swipe-pickbar:visible [data-row-pick-stop]');
-    if (s.stop) await s.stop(); else if (await quit.count()) await quit.click(); else await page.keyboard.press('Escape');
+    // 선택 끝내기: S70-64b — 줄 고르기·노트·자료실 막대에는 [✕]·[그만]이 없어 Esc(폰은 뒤로가기)로 고르기만 끝(창·화면은 그대로).
+    //   [파일] 막대는 아직 ✕가 있다(S70-64c 몫) — 그 화면은 stop으로 그 ✕를 누른다.
+    if (s.stop) await s.stop(); else await page.keyboard.press('Escape');
     await expect(s.picked).toBeHidden();
 
     // ④ 왼쪽 칸 하나를 누르면 그때 그 일을 한다(그 목록의 기존 길).

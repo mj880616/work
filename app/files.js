@@ -46,6 +46,7 @@ import {writeZip} from './weekly-hwpx/zip.mjs';
 import {FIND_SCOPES, FIND_DIMS, FIND_DIM_NAME, freshFilter, filterSet, dimLabel, baseOf, findFilter} from './files-find-model.mjs';
 import {PINS_MAX, pinParse, pinKey, pinsClean, pinHas, pinAdd, pinRemove, pinMove, pinStep, pinView} from './files-pins-model.mjs';
 import {mountReorder} from './reorder-drag.js';
+import {setDragGhostImage} from './drag-ghost.js'; // S70-79 STD-끌기모양: 끄는 줄은 공용 이름 조각 하나
 import {mountColResize, gripHtml} from './col-resize.js';
 import {nextSort, headCellHtml, sortSelectHtml, sortOptions, sortValue, parseSortValue, cleanSort, bindHeadSort} from './head-sort.mjs';
 import {askConfirm, askText, notify} from './small-notice.js';
@@ -4393,6 +4394,7 @@ root?.addEventListener('dragstart', event => {
     drag = {pane: -1, rows: [fr]};
     event.dataTransfer?.setData('text/plain', 'files-move');
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copyMove';
+    setDragGhostImage(event.dataTransfer, fr.name || '', document, event);
     return;
   }
   const b = event.target.closest?.('[data-fx-row]');
@@ -4403,6 +4405,7 @@ root?.addEventListener('dragstart', event => {
   drag = {pane: state.cur, rows: (p.picked.has(key) ? [...p.picked] : [key]).map(k => rowByKey(k, p)).filter(Boolean)};
   event.dataTransfer?.setData('text/plain', 'files-move');
   if (event.dataTransfer) event.dataTransfer.effectAllowed = two() ? 'copyMove' : 'move';
+  setDragGhostImage(event.dataTransfer, drag.rows.length > 1 ? `${drag.rows.length}개` : (drag.rows[0]?.name || ''), document, event);
 });
 // 놓을 곳: 폴더 줄·칸·나무 폴더(data-fx-drop), 두 칸이면 반대 칸(그 칸의 지금 폴더). any = 꾹 눌러 끌기(놓으면 늘 복사·옮기기를 고름).
 const dropAt = (target, {any = false} = {}) => {

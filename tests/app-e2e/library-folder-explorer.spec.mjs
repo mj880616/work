@@ -227,7 +227,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     // [모두 선택] = 지금 자리(맨 위 = 폴더 밖) 자료 모두 고른 선택 모드.
     await page.locator('#luAreaMenu').getByRole('button',{name:'모두 선택',exact:true}).click();
     await expect(page.locator('#documentList .lu-row input.lu-pick:checked')).toHaveCount(2);
-    await page.locator('#librarySelectCancel').click();
+    await page.keyboard.press('Escape'); // S70-64b: [✕] 대신 Esc
     // 파일 줄 위 우클릭은 [새 폴더]를 열지 않는다(파일 ⋯ 메뉴).
     await page.locator('#documentList [data-lu-document="a-2"]').click({button:'right'});
     await expect(page.locator('#luAreaMenu')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');
