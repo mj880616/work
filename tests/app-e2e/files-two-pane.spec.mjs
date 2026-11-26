@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { screenFind } from './helpers/screen-find.mjs';
 // S49-30 FILES-통합 2-③ 두 칸(명진 결정 H-2, S50-33부터 폴드 기본은 한 칸 — 켜 둔 값만 두 칸, 시안 docs/design/files-unified-mockup.html ⑥ 폴드 884 · ⑧ PC 1440).
 // 칸마다 따로 위치·목록·정렬·고르기, 고르기 막대 '→ 오른쪽에 복사 / → 옮기기'(받을 곳 = 반대 칸), 칸 사이 끌어 놓기 → '복사 · 옮기기' 고르기, PC F5·F6·Tab.
 // 서버는 흉내(파일 이름은 모두 가짜). 두 칸 켬은 서버 view_prefs.files_two(기기 종류별 · 폭 종류별).
@@ -142,7 +143,7 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
   await expect(root(page).locator('[data-fx-xfer]')).toBeHidden({ timeout: 15000 });
   await shot(page, 'files-two-1440');
   // 입력 칸 안에서는 Tab·F5가 두 칸 키로 쓰이지 않는다.
-  await root(page).locator('[data-fx-search]').focus();
+  await (await screenFind(page)).focus(); // S70-57: 맨 위 칸 '파일에서 찾기'(옛 [data-fx-search])
   const cur = await root(page).locator('.fx-cur').getAttribute('data-fx-pane-i');
   await page.keyboard.press('Tab');
   await expect(root(page).locator('.fx-cur')).toHaveAttribute('data-fx-pane-i', cur);

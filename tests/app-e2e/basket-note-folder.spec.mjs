@@ -91,7 +91,7 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
     // PC: folders only in the left tree (none on the right). NOTE-최근5개: the tree starts with '최근' (picked first), the right shows
     // the latest changed notes of every folder with '최근 · 3' above and the folder name on the row.
     await expect(page.locator('#noteRows [data-nx-folder]')).toHaveCount(0);
-    await expect(page.locator('[data-nx-tree] > *').first()).toHaveAttribute('data-nx-recent-item', '');
+    await expect(page.locator('[data-nx-tree] .ft-row').first()).toHaveAttribute('data-nx-recent-item', '');
     await expect(page.locator('[data-nx-tree] [data-nx-recent-item]')).toHaveClass(/ft-current/);
     await expect(here(page)).toHaveText('최근 · 3');
     await expect(page.locator('[data-nx-tree] [data-nx-new-top]')).toHaveText('+ 새 폴더');

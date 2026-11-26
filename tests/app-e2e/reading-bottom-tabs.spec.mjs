@@ -70,15 +70,15 @@ for (const width of [390, 412, 700]) {
     const last = list.locator('.rd-row').last();
     await page.evaluate(() => { const v = document.getElementById('readingView'); v.scrollTop = v.scrollHeight; window.scrollTo(0, document.documentElement.scrollHeight); document.scrollingElement.scrollTop = 1e6; });
     await expect(async () => { const r = await box(last), s2 = await box(sw); expect(r.y + r.height).toBeLessThanOrEqual(s2.y + 1); }).toPass({ timeout: 5000 });
-    // [+ 추가]는 제목 줄 그대로.
+    // [+ 추가]는 머리 줄 그대로.
     await expect(list.locator('.rd-head .rd-add')).toBeVisible();
     // 탭을 누르면 바뀌고, 목록(머리줄)을 좌우로 밀면 옆 탭.
     await sw.locator('[data-filter-value="unread"]').click();
     await expect(list.locator('.rd-row')).toHaveCount(24);
-    await swipe(list.locator('.rd-head .rd-title'), -160);
+    await swipe(list.locator('.rd-head'), -160);
     await expect(sw.locator('[data-filter-value="marks"]')).toHaveAttribute('aria-checked', 'true');
-    await swipe(list.locator('.rd-head .rd-title'), 160);
-    await swipe(list.locator('.rd-head .rd-title'), 160);
+    await swipe(list.locator('.rd-head'), 160);
+    await swipe(list.locator('.rd-head'), 160);
     await expect(sw.locator('[data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
     if (process.env.S68_48_SHOTS) await page.screenshot({ path: `${process.env.S68_48_SHOTS}/reading-${width}.png` });
     // 글을 열면 폰은 목록 대신 글이라 탭 줄도 없다. S70-58: 펼친 폴드(600px~)는 목록 | 글 두 칸이라 목록·탭 줄이 그대로.
@@ -100,7 +100,7 @@ for (const width of [904, 1280]) {
     await expect(sw).toHaveClass(/(^|\s)ds-seg(\s|$)/);
     expect(await sw.evaluate(e => getComputedStyle(e).position)).not.toBe('fixed');
     await expect(list.locator('.rd-chips, .filter-chips')).toHaveCount(0);
-    await expect(list.locator('.rd-head .rd-title')).toBeHidden();
+    await expect(list.locator('.rd-head .rd-title')).toHaveCount(0);
     const s = await box(sw), add = await box(list.locator('.rd-head .rd-add')), head = await box(list.locator('.rd-head'));
     expect(Math.abs((s.y + s.height / 2) - (add.y + add.height / 2)), '머리 줄 한 줄').toBeLessThan(4);
     expect(s.x - head.x).toBeLessThanOrEqual(1);

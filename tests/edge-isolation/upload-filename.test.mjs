@@ -29,7 +29,7 @@ const ROWS={
   public_policy_drive_config:{google_client_id:'c',google_client_secret:'s'},
   app_drive_connections:{workspace_id:'w1',google_refresh_token:'r'},
   app_drive_settings:{library_folder_id:'f1',root_folder_id:'r1'},
-  app_meeting_drive_folders:{folder_id:'f1'},
+  app_meeting_drive_folders:{folder_id:'meetRound0001'}, // S71-02: 회차 폴더는 드라이브 id 모양이어야 살아 있는지 묻는다(_shared/meeting-drive-place.mjs)
   app_project_drive_folders:{folder_id:'f1'},
   app_ai_workspace_settings:null,
 };
@@ -58,6 +58,8 @@ globalThis.fetch=async(url,init={})=>{
   const j=(d,h={})=>new Response(JSON.stringify(d),{status:200,headers:{'content-type':'application/json',...h}});
   if(href.startsWith('https://oauth2.googleapis.com/token'))return j({access_token:'t'});
   if(href.startsWith('https://www.googleapis.com/upload/drive/v3/files')){globalThis.__calls.drive.push(JSON.parse(init.body).name);return j({},{location:'https://upload.invalid/s'})}
+  // S71-02: meeting-files가 저장한 회차 폴더가 살아 있는지 한 번 묻는다(휴지통 아님·폴더).
+  if(method==='GET'&&href.startsWith('https://www.googleapis.com/drive/v3/files/meetRound0001?'))return j({id:'meetRound0001',trashed:false,mimeType:'application/vnd.google-apps.folder'});
   if(href==='https://upload.invalid/s'&&method==='PUT')return j({id:'df1',webViewLink:'https://drive.invalid/df1'});
   throw new Error('unexpected fetch '+method+' '+href);
 };

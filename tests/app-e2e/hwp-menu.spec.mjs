@@ -36,7 +36,7 @@ async function setup(page,width){
   page.on('pageerror',error=>seen.errors.push(error.message));
   await openHome(page);
   for(const t of ['app_suborganizations','app_suborganization_assignees','app_spaces','app_record_links','app_meetings','app_documents'])await page.route(SB+'/rest/v1/'+t+'?**',r=>r.fulfill({json:[]}));
-  await page.route(SB+'/functions/v1/library-files',route=>{
+  await page.route(SB+'/functions/v1/library-files',route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     seen.library.push(uploadedFile(route.request()));
     return route.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:'doc-new',title:'sample'}}});
   });

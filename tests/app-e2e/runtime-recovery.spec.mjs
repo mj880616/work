@@ -289,6 +289,7 @@ async function deleteConsumerFixture(page,view,width=390,{holdImport=false}={}){
       state.driveCalls++;if(state.driveGate)await state.driveGate.promise;
       return route.fulfill({status:state.driveStatus,json:state.driveStatus===200?{url:`${appOrigin}/tests/app-e2e/library-open-fixture.html?delete-oauth=1`}:{error:'controlled reconnect failure'}});
     }
+    if(path==='/functions/v1/library-files'&&/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     if(path==='/functions/v1/library-files'){state.uploadCalls++;return route.fulfill({status:400,json:{error:'invalid_grant'}})}
     if(path==='/functions/v1/google-tasks')return route.fulfill({json:{tasks:[]}});
     return route.fulfill({json:[]});

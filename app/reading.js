@@ -42,6 +42,7 @@ import {openMemoSource} from './memo-open.js';
 import {SPLIT_QUERY} from './screen-width.mjs';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
+import {registerScreenFind, refreshScreenFind, finderOf} from './screen-find.js';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
@@ -80,6 +81,19 @@ function setFilter(v) {
 // 잠근 노트 폴더가 있고 안 풀렸으면 노트 밑줄은 뺀다(이 화면은 노트 목록을 모른다 — 풀리면 노트 › 밑줄과 같아진다).
 const marksNow = () => visibleMarks(highlightsNow(), {newsOn: state.marksNewsOn, noteHidden: () => !!window.KPTUFeatureLock?.notesHidden?.()});
 const entriesNow = () => entriesOf(state.rows);
+// S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸이 '저장한 글에서 찾기' — 지금 탭 목록을
+// 제목·매체(밑줄 탭은 밑줄 글·메모·글 제목, 메모 탭은 글 제목·메모)로 거른다. 이 화면 메모리만(서버 검색 없음).
+let findText = '', findQuery = '';
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말), 맞은 정도 순, 맞은 부분 굵게.
+const finder = finderOf('reading', () => findText);
+const ranked = (list, texts) => (findQuery ? finder().rank(list, texts) : list);
+registerScreenFind('reading', {
+  label: '저장한 글에서 찾기',
+  active: () => window.KPTURouter?.current === 'reading' && !!view() && !view().classList.contains('hidden') && !view().querySelector('[data-rd-list]')?.hidden,
+  value: () => (findQuery ? findText : ''),
+  marks: '#readingView [data-rd-list]',
+  apply: (raw, {again} = {}) => { findText = String(raw ?? ''); const next = findText.trim().toLowerCase(); if (next === findQuery && !again) return; findQuery = next; drawList(); },
+});
 // News에서 열 수 있는 줄의 원래 글({type,id}) — News 기능 키가 있을 때만.
 const newsLinkOf = id => (state.newsOn ? linkOf(rowOf(id)) : null);
 // S69 [수정](명진 11/24 "목록에서 ... 안에 수정 버튼도 있어야"): 어느 창으로 고치나 — 한 곳만.
@@ -160,10 +174,8 @@ function drawList() {
   const box = view()?.querySelector('[data-rd-list]');
   if (!box) return;
   const head = el('div', 'rd-head');
-  // S70-40b ④ READ-목록머리(docs/design/reading-screens.md 5절 ② (가), 명진 11/25 16:16 "추천대로"): PC 틀(761px~)은 위 줄(app-topline)에
-  // 화면 이름 '저장한 글'이 이미 보이므로 머리 줄 제목은 그리지 않는 쪽(reading.css가 761px~에서 뺌) — 머리 줄은 보기 탭 + ＋ 아이콘만.
-  // 폰·접은 폴드(~760px)는 위 줄이 없어 제목이 화면 이름이고 탭은 하단바 위 공용 전환 줄로 간다(머리 = 제목 + ＋).
-  head.append(el('h2', 'rd-title', '저장한 글'));
+  // S70-40b ④ READ-목록머리(docs/design/reading-screens.md 5절 ② (가), 명진 11/25 16:16 "추천대로"): 머리 줄 제목은 그리지 않는다 — 머리 줄은 보기 탭 + ＋ 아이콘만.
+  // 화면 이름 '저장한 글'은 PC 틀(761px~) 위 줄(app-topline), 폰 틀(~760px)은 앱 머리 줄(S70-57부터 이 화면에도 이름이 보인다)에 한 번만 있다.
   const add = btn('rd-add icon-btn', '＋', {rdAdd: '1', ctxScreenItem: '글 추가'}); // S70-28: 빈 곳 우클릭 메뉴에도(context-menu.js)
   add.setAttribute('aria-label', '글 추가'); add.title = '글 추가';
   add.setAttribute('aria-expanded', String(state.adding));
@@ -206,9 +218,9 @@ function drawList() {
   renderFilterChips(switchHost, {options: filterOptions(entries, marks ? marks.length : null, memoState().ready ? myMemos().length : null), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
     onChange: v => { setFilter(v); drawList(); }});
   head.insertBefore(switchHost, add);
-  if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks)); box.replaceChildren(...parts); return; }
+  if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks && ranked(marks, h => [h.quote, h.memo, h.source_title]))); box.replaceChildren(...parts); return; }
   if (keepFilter(state.filter) === 'memos') { parts.push(memosEl()); box.replaceChildren(...parts); return; }
-  const shown = filterEntries(entries, state.filter, state.open || '');
+  const shown = ranked(filterEntries(entries, state.filter, state.open || ''), e => { const l = lineOf(e.row); return [l.title, l.site]; });
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
   for (const e of shown) list.append(rowEl(e));
@@ -245,7 +257,7 @@ function memosEl() {
   const st = memoState();
   if (!st.loaded) { void loadMemos(); list.insertAdjacentHTML('beforeend', waitHtml({rows: 3, h: 40})); return list; }
   if (!st.ready) { list.append(emptyEl(st.missing ? '메모는 준비 중이에요.' : '메모를 읽지 못했어요.')); return list; }
-  const rows = myMemos();
+  const rows = ranked(myMemos(), m => [readingMemoTitle(m), m.quote, m.body]);
   if (!rows.length) list.append(emptyEl(emptyText('memos', 0)));
   else list.insertAdjacentHTML('beforeend', `<div class="memo-lines">${rows.map(m => memoRowHtml(m, {titleOf: readingMemoTitle, exists: readingMemoExists})).join('')}</div>`);
   return list;
@@ -298,9 +310,11 @@ function drawDetail() {
   const box = detailBox, listBox = view()?.querySelector('[data-rd-list]');
   if (!box) return;
   const row = state.open ? rowOf(state.open) : null;
-  if (!row) { box.hidden = true; box.replaceChildren(); memoThread.detach(); if (listBox) listBox.hidden = false; view()?.classList.remove('rd-reading'); return; }
+  if (!row) { box.hidden = true; box.replaceChildren(); memoThread.detach(); if (listBox) listBox.hidden = false; view()?.classList.remove('rd-reading'); refreshScreenFind(); return; }
   view()?.classList.add('rd-reading');
   if (listBox) listBox.hidden = !split();
+  if (listBox) listBox.hidden = !wide();
+  refreshScreenFind(); // 폰은 글 보기가 목록 대신 — 그동안 맨 위 칸은 이 화면 찾기가 아니다
   const l = lineOf(row);
   // S70-40b READ-글보기머리(docs/design/reading-screens.md 4절·5절 ①③ (가)): 공용 '글 보기 머리'(ui-standard.css .ds-doc-*) —
   // 첫 줄 = [‹](폰) 출처 · 날짜 · 사업영역 꼬리표 + 오른쪽 작은 아이콘 줄 [↗ 원래 페이지][−][+][⋯], 둘째 줄 = 제목(두 줄까지 줄바꿈, 말줄임 없음).
