@@ -328,7 +328,9 @@ test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 머리 줄 [
   await expect(add).toHaveAttribute('aria-expanded', 'false');
   const empty = page.locator('#readingView .wait-empty');
   await expect(empty).toBeVisible(); // 목록 읽기가 끝나 빈 안내가 그려진 뒤
-  const b = await empty.boundingBox();
+  // 밑줄·메모 개수가 늦게 오면 목록(drawList)이 통째로 다시 그려져 빈 안내도 새 것으로 바뀐다 — 그 사이에 잰 자리는 비므로 새 것의 자리를 다시 잰다.
+  let b = null;
+  await expect(async () => { b = await empty.boundingBox(); expect(b).not.toBeNull(); }).toPass({ timeout: 5000 });
   const r = await rightClickAt(page, Math.round(b.x + 30), Math.round(b.y + b.height / 2));
   expect(r.result).toBe('app');
   await page.locator('#rowMenu').getByRole('button', { name: '글 추가', exact: true }).click();

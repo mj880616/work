@@ -46,16 +46,17 @@ async function touchTap(locator) {
 }
 const ends = (root) => root.locator('[data-row-swipe-act="end"]');
 const cell = (root, key) => root.locator(`[data-row-swipe-key="${key}"]`);
-// S70-60 UI-스와이프메뉴만(명진 11/26): 오른쪽으로 끝까지 밀어도 [선택] 칸만 펼쳐진다 → 칸을 눌러야 선택이 시작된다.
+// W3(S70-64 UI-오른쪽밀기고르기, 명진 11/26 07:44): 오른쪽으로 밀고 떼면 칸을 열지 않고 바로 그 줄이 골라진다(여러 개 고르기).
+// (S70-60 메뉴만 규칙은 왼쪽 밀기 칸에 그대로 — 고르기는 데이터 일이 아니다.)
+const PICKING = '.row-swipe-pickbar:visible, #librarySelectBar:visible, [data-nx-select-bar]:visible';
 async function swipePick(page, locator, how = swipe) {
-  const b = page.locator('[data-row-swipe-key="select"]');
-  // 민 뒤 목록이 다시 그려지면 열린 칸도 닫히므로, 칸이 보일 때까지 다시 민다.
+  const on = page.locator(PICKING).first();
+  // 민 뒤 목록이 다시 그려져 밀기가 닿지 않았으면 고르기가 보일 때까지 다시 민다(고르기 중에는 밀기를 받지 않는다).
   await expect(async () => {
-    await how(locator, 320);
-    await expect(b).toBeVisible({ timeout: 1000 });
+    if (!(await on.count())) await how(locator, 320);
+    await expect(on).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
-  await expect(page.locator('.row-swipe-pickbar:visible')).toHaveCount(0);
-  await touchTap(b);
+  await expect(page.locator('[data-row-swipe-key="select"]')).toHaveCount(0); // [선택] 칸은 열려 남지 않는다
 }
 // 시험은 시계를 멈춰 두므로 실제처럼 1초 흐르게 한 뒤 다음 손동작을 한다(줄 밀기 시각보다 뒤에 시작한 손동작).
 const tick = async page => { try { await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000)); } catch { /* 시계를 멈추지 않은 시험 */ } };
@@ -153,7 +154,7 @@ test('읽을 거리 412: 왼쪽 밀기 [삭제] — ⋯ 삭제와 같이 묻고,
   expect(errors).toEqual([]);
 });
 
-test('읽을 거리 412: 오른쪽 밀기 [선택] 칸 누르기 → n개 선택됨 · [읽음][삭제], [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
+test('읽을 거리 412: 오른쪽 밀기 = 바로 고르기 → n개 선택됨 · [읽음][삭제], [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors, list } = await openReading(page, 412);
   await swipePick(page, rdRow(list, RA));
@@ -271,7 +272,7 @@ test('자료실 390: 왼쪽 밀기 [옮기기]·[삭제] 칸 — 끝까지 밀�
   expect(state.errors).toEqual([]);
 });
 
-test('자료실 390: 오른쪽 밀기 [선택] 칸 누르기 → 자료실 선택 모드가 그 줄이 골라진 채로 열림, 줄 위 밀기는 길게 누르기 메뉴를 열지 않음', async ({ page }) => {
+test('자료실 390: 오른쪽 밀기 = 바로 고르기 → 자료실 선택 모드가 그 줄이 골라진 채로 열림, 줄 위 밀기는 길게 누르기 메뉴를 열지 않음', async ({ page }) => {
   test.setTimeout(90000);
   const state = await librarySetup(page, 390);
   await openLibrary(page, BASE);

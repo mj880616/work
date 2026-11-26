@@ -1160,13 +1160,11 @@ test('TRASH 줄 밀기 412: 왼쪽 밀기 [되돌리기]·[영구 삭제] 칸, �
   await expect.poll(()=>state.spaces.some(x=>x.id==='solo-1')).toBe(true);
   await expect(list.locator('[data-ps3-trash-row]')).toHaveCount(3);
   // 오른쪽 밀기 [선택] → 'n개 선택됨 · [되돌리기]'(상위가 휴지통인 줄은 건너뜀).
-  // S70-60 UI-스와이프메뉴만: 끝까지 밀어도 [선택] 칸만 펼쳐진다 → 칸을 눌러야 선택.
+  // W3(S70-64): 오른쪽으로 밀고 떼면 칸 없이 바로 그 줄이 골라진다(왼쪽 칸은 S70-60 메뉴만 그대로).
   await tick();await swipe('solo-2',320);
   const bar=page.locator('#ps3ArchiveModal .row-swipe-pickbar');
-  await expect(list.locator('[data-row-swipe-key="select"]')).toBeVisible();
-  await expect(bar).toBeHidden();
-  await tap(list.locator('[data-row-swipe-key="select"]'));
   await expect(bar).toBeVisible();
+  await expect(list.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
   await list.locator('[data-ps3-trash-row="main-1"]').click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
