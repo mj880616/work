@@ -386,6 +386,8 @@ function paintSortButton() {
   const b = h$('[data-photos-sort]'); if (!b) return;
   const t = `순서: ${SORT_TEXT[sort]}`; b.setAttribute('aria-label', t); b.title = t; b.dataset.sort = sort;
 }
+// [폴더] 넓은 화면 왼쪽 나무가 붙는 자리(맨 위 줄 아래 몇 px). S71-25: 예전엔 화면 안 도구 줄(붙박이 약 40px) 아래라 52였다 — 그 줄이 없어져 나무 제자리와 같은 12px.
+const FX_TREE_TOP = 12;
 const sizer = createGridSizer({current:wide => colsFor(wide, colsSaved), step:stepPhotoCols, save:(wide, n) => { colsSaved = n; savePrefs(); }});
 
 // ---- 서버 읽기 ----
@@ -2330,7 +2332,7 @@ function renderFoldersNow() {
     else body.innerHTML = f ? `<div class="photos-fx">${phoneFocusHtml(f, '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>')}</div>`
       : `${top}<div class="photos-fx photos-fx-boxes${cardWide() ? ' is-cards' : ''}">${fxBoxesHtml(u)}</div>`;
     if (!wide && !f) { fxFillStrips(); fxFillCovers(); }
-    if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52, reset:false}); fxSplit(); }
+    if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:FX_TREE_TOP, reset:false}); fxSplit(); }
     syncFolderLayer();
     if (gdPane) paintGdFolderGrid(); else if (f) paintPhoneFolderGrid();
     return;
@@ -2367,7 +2369,7 @@ function renderFoldersNow() {
     // 폰·폴드에서 여기는 늘 '그 폴더만'(맨 위 폴더 첫 화면은 위 상자 나무).
     body.innerHTML = `${top}<div class="photos-fx">${fxFocusBox({steps:photoFolderTrail(tree, at).slice(0, -1).map(x => ({attr:'data-photos-fx-at', id:x.id, name:x.name})), head, body:inner + grid})}</div>`;
   }
-  if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52, reset:false}); fxSplit(); } // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다.
+  if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:FX_TREE_TOP, reset:false}); fxSplit(); } // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다.
   syncFolderLayer();
   if (gdPane) { paintGdFolderGrid(); return; }
   if (pf) { paintPhoneFolderGrid(); return; }
