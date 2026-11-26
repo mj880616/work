@@ -165,6 +165,16 @@ let luQuery='';// S70-54 UI-검색창하나로: 자료실 찾기 글자(맨 위 
 // [결과 n개 모두 선택]은 맨 위 줄 단추 자리(screen-find.js 상자)에 산다. 본문 첫 줄(.lu-search-row)은 [사업영역 ▾][분류 ▾] 고르기만.
 const luTools=toolsBox('library','library');
 {const actions=document.querySelector('#libraryView .lu-head-actions');if(actions)luTools.append(actions)}
+// S71-28 FILES-머리한줄(명진 11/26 "자료실도"): 폰·폴드(~760px)는 [폴더 ▾][분류 ▾]도 앱 머리 줄로 올린다 — 머리 줄 한 줄
+// [W] 자료실 · [폴더 ▾] · [분류 ▾] …… ⋯ · 찾기 · [+](자리 순서는 library-upload.css 'S71-28' 절). 따로 된 둘째 줄은 없다(줄째 옮김, 숨김 아님).
+// PC 틀(761px~)은 지금처럼 본문 첫 줄(.lu-search-row). 상태 주인·그리기·누르기는 그대로(고르기 상자 두 개는 같은 요소가 자리만 바꾼다).
+const LU_HEAD=typeof matchMedia==='function'?matchMedia('(max-width:760px)'):null;
+function luPlacePicks(){
+  const row=document.querySelector('.lu-pick-row'),home=document.querySelector('#libraryView .lu-search-row');if(!row||!home)return;
+  if(LU_HEAD?.matches){if(row.parentElement!==luTools)luTools.prepend(row)}
+  else if(row.parentElement!==home)home.prepend(row);
+  luRenderCategoryFilter(luCatCounts);
+}
 // S70-67 SEARCH-비슷한것찾기: 자료 거르기(luRenderLibraryNow)는 공용 판정(findFor — 띄어쓰기 무시·오타·초성·앞부분, 비슷한 말·기간), 맞은 부분 굵게.
 registerScreenFind('library',{label:'자료실에서 찾기',active:()=>window.KPTURouter?.current==='library',value:()=>luQuery,marks:'#documentList [data-lu-document]',
   apply:(raw,{again}={})=>{const next=String(raw??'');if(next===luQuery&&!again)return;luQuery=next;luRenderLibrary()}});
@@ -286,8 +296,13 @@ let luCatCounts=null;
 function luRenderCategoryFilter(counts=null){
   luCatCounts=counts;
   const pick=document.querySelector('#libraryCategoryPick');
-  if(pick){const names=topDocumentCategories(),sub=activeSubcategory(names,luCategoryOff,luCategorySub);const text=pickLabel(names,luCategoryOff,sub?categoryLabel(sub):'');if(pick.dataset.label!==text){pick.dataset.label=text;pick.innerHTML=`<span class="lu-cat-pick-text">${luEsc(text)}</span>`;}}
+  // S71-28: 머리 줄에 있을 때(폰·폴드)는 좁으므로 지금 고른 값만 보인다('분류: 전체' → '전체', ui-words '보이는 이름표 없이 칩만'과 같은 꼴).
+  // 앞말 '분류: '는 읽기 프로그램용 글자로 남겨 단추 이름은 늘 '분류: …' 전체다.
+  if(pick){const names=topDocumentCategories(),sub=activeSubcategory(names,luCategoryOff,luCategorySub);const text=pickLabel(names,luCategoryOff,sub?categoryLabel(sub):'');const short=!!pick.closest('.sf-tools');
+    if(pick.dataset.label!==text||pick.dataset.short!==String(short)){pick.dataset.label=text;pick.dataset.short=String(short);pick.title=short?text:'';const value=text.replace(/^분류: /,'');
+      pick.innerHTML=short&&value!==text?`<span class="lu-cat-pick-text"><span class="a11y-only">분류: </span>${luEsc(value)}</span>`:`<span class="lu-cat-pick-text">${luEsc(text)}</span>`;}}
 }
+luPlacePicks();LU_HEAD?.addEventListener?.('change',luPlacePicks);// S71-28: 처음 그릴 때부터 자리(폰·폴드는 머리 줄) — 둘째 줄이 잠깐 보였다 올라가지 않게.
 // [분류 ▾] 고르기 창: 공용 고르기 창(choice-sheet.js — 폰은 아래에서 올라오는 판, 폴드 펼침·PC 폭은 단추 아래 작은 창) 하나.
 // 줄을 누르면 창 안에서만 바뀌고 [적용]을 눌러야 자료실에 걸린다(기억은 지금처럼 서버 library_view.categories_off). [✎ 분류 수정]은 분류 수정 창.
 let luCatSheet=null,luCatPending=null;
@@ -1952,7 +1967,8 @@ function luSyncPicksNow(){
 // S71-07 SEARCH-누른자리그대로(Q3): 단추는 맨 위 검색칸 옆(칸이 그만큼 좁아짐)이 아니라 본문 첫 줄 [폴더 ▾][분류 ▾] 끝에 둔다 — 치는 동안 칸 자리·크기가 그대로.
 let luSearchPickIds=[];
 function luSyncSearchPickAll(q,matches){
-  const row=document.querySelector('#libraryView .lu-pick-row')||luTools;
+  // S71-28: 폰·폴드는 고르기 줄이 머리 줄에 있으므로 단추는 본문 첫 줄(.lu-search-row) 자리 — 머리 줄 찾기 칸 폭이 치는 동안 그대로(Q3).
+  const row=document.querySelector('#libraryView .lu-pick-row')||document.querySelector('#libraryView .lu-search-row')||luTools;
   let button=row.querySelector('#luSearchPickAll');
   luSearchPickIds=q?matches.filter(d=>!d.photoset&&!isPhotoSet(d)).map(d=>d.id):[];
   if(!luSearchPickIds.length){button?.remove();return}

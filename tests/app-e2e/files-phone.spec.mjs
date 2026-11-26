@@ -9,7 +9,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.5.0';
 const KEY = 'abcdefghijklmnopqrstuvwxyzABCDEF';
 const root = page => page.locator('#filesRoot');
-const chip = (page, name) => root(page).locator(`[data-fx-src="${name}"]`);
+const chip = (page, name) => page.locator(`[data-fx-src="${name}"]`);
 const tree = page => root(page).locator('[data-fx-tree]');
 const list = page => root(page).locator('[data-fx-list]');
 const edgeCalls = (server, action) => server.calls.filter(c => c.what === 'edge' && c.action === action);

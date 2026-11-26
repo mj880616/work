@@ -136,14 +136,10 @@
 /* 정렬 기준 칩: 공용 select(폭 100%·높이 큼)가 폰에서 폭 가득 빈 칸처럼 보이던 것을 폰·PC 모두 같은 작은 칩으로. */
 .fx-sort { flex:none; width:auto; min-height:0; height:24px; max-width:96px; padding:0 8px; font-size:11.5px; border-color:transparent; border-radius:999px; background:var(--kptu-surface-subtle); }
 @media (max-width:599px) {
-  /* S50-33 → S70-57: 찾기는 앱 머리 줄 맨 위 칸('파일에서 찾기')이라 첫 줄 = 출처 단추 …… [한 칸 | 두 칸](그림만, 칸 34px 둘, 오른쪽 끝).
-     둘째 줄은 그대로 위치 길(‹ 원드라이브 › Pictures)·정렬·[새 폴더]·[올리기] — 줄 나눔(::before, 높이 0)이 두 줄을 가른다. */
-  .fx-top { flex-wrap:wrap; row-gap:6px; min-height:0; padding:0 0 3px; } /* row-gap 6px: 첫 줄 출처 칩의 누르는 범위(44px)가 둘째 줄 위치 길 [‹]를 덮지 않게(위 여백 4px를 줄 사이로 옮겨 높이는 그대로) */
-  .fx-top::before { content:""; order:3; flex:0 0 100%; height:0; }
-  #appView #filesView .fx-view-seg { margin-left:auto; }
-  #appView #filesView .fx-view-seg .ds-seg-btn { min-width:34px; width:34px; }
-  .fx-srcs { order:2; }
-  #appView #filesView .fx-srcs [data-src-chip] { min-width:28px; width:28px; height:28px; min-height:28px; padding:0; }
+  /* S50-33 → S70-57 → S71-28 FILES-머리한줄: 찾기·출처 단추·[한 칸 | 두 칸]은 앱 머리 줄(아래 'S71-28' 절)이라 이 줄은 위치 길(‹ 원드라이브 › Pictures)·정렬·[새 폴더]·[올리기]만. */
+  .fx-top { flex-wrap:wrap; row-gap:6px; min-height:0; padding:0 0 3px; }
+  /* 나무 첫 화면처럼 보일 것이 없으면(나무 화면의 정렬은 위 규칙대로 안 보임) 줄째 자리 없음 — 빈 띠·밑줄이 남지 않게. */
+  .fx-top:not(:has(> :not([hidden], input))), .fx[data-fx-pane="tree"] > .fx-top:not(:has(> :not([hidden], input, .fx-sort))) { display:none; }
   .fx-crumb { order:3; flex:1 1 120px; }
   /* FILES-폰폴더위로 ②: 정렬·[새 폴더]·[올리기]는 둘째 줄 오른쪽에 작게. */
   .fx-sort { order:4; height:26px; margin-left:auto; }
@@ -312,7 +308,6 @@
 /* S51-20 FILES-폰보기끌기 ②(시안 files-phone-grid-two-drag.html ②): 폰 [두 칸 보기] = 위·아래 두 칸. 칸마다 칸 위 줄(▾ 나무·위치·정렬)과 따로 굴러가는 목록,
    누른 칸이 지금 칸(옅은 보라 바탕 + 칸 위 줄 강조 밑선). 줄 모양은 폰 두 줄 그대로. */
 @media (max-width:599px) {
-  .fx-view-seg { order:2; }
   .fx[data-fx-two="phone"] .fx-main { grid-template-columns:minmax(0,1fr); }
   .fx[data-fx-two="phone"] .fx-listcol { height:calc((100dvh - var(--kptu-mobile-tab-height, 56px) - 150px) / 2); min-height:180px; overflow:auto; overscroll-behavior:contain; }
   .fx[data-fx-two="phone"] .fx-listcol + .fx-listcol { border-left:0; border-top:2px solid var(--kptu-border-strong, var(--kptu-border)); }
@@ -392,3 +387,18 @@
 @media (prefers-reduced-motion:reduce) { .fx-flash { animation:none; background:var(--kptu-primary-soft); } }
 /* UI-폴더줄크기(S69-99): 폰 나무 저장소 상자 머리 오른쪽 = 맞춘 시각 + ⋯([이 폴더로 들어가기] — 전의 상자 머리 두 손가락 벌리기 대신). ⋯는 폴더 줄 ⋯와 같은 공용 모양. */
 .fx-box-tail { flex:none; display:inline-flex; align-items:center; gap:2px; margin-left:auto; }
+
+/* S71-28 FILES-머리한줄(명진 11/26 "파일도 한줄로"): 폰(600px 미만) 앱 머리 줄 한 줄 = [W] 파일 · 출처 아이콘(작게) …… [□|⊟] · 찾기.
+   출처·보기 단추는 files.js placeFxHead가 머리 줄 단추 상자(.sf-tools[data-sf-tools="files"])로 옮긴다. 상자 자리를 찾기 칸(.mobile-shell-find) 앞에 두고,
+   찾기 칸을 펼치면(.sf-open) 칸이 이름·단추 자리를 다 쓴다(이름 자리와 같은 규칙). 크기는 지금 둘째 줄 그대로(출처 28px · 보기 칸 34px 둘). */
+@media (max-width:599px) {
+  html[data-screen-find="files"] #appView>.mobile-shell-header { gap:4px; }
+  html[data-screen-find="files"] .mobile-shell-header>.screen-tools-slot { order:1; flex:1 1 auto; margin-left:0; }
+  html[data-screen-find="files"] .mobile-shell-header>.mobile-shell-find { order:2; flex:0 0 auto; }
+  html[data-screen-find="files"] .mobile-shell-header.sf-open>.mobile-shell-find { flex:1 1 auto; }
+  html[data-screen-find="files"] .mobile-shell-header.sf-open>.screen-tools-slot { display:none; }
+  #appView .sf-tools[data-sf-tools="files"] { flex:1 1 auto; gap:4px; }
+  #appView :is(#filesView, .sf-tools[data-sf-tools="files"]) .fx-srcs [data-src-chip] { min-width:28px; width:28px; height:28px; min-height:28px; padding:0; }
+  #appView .sf-tools[data-sf-tools="files"] .fx-view-seg { margin-left:auto; }
+  #appView :is(#filesView, .sf-tools[data-sf-tools="files"]) .fx-view-seg .ds-seg-btn { min-width:34px; width:34px; }
+}

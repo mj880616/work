@@ -4,7 +4,7 @@ import {screenFind} from './helpers/screen-find.mjs';
 // LIB-위쪽한줄(요청함 11/09 11:01, 명진 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html):
 // 폰·PC 경계는 사업 보고 위쪽과 같은 760px.
 // - PC·펼친 폴드(761px~): 위 한 줄 = [폴더 ▾][분류: 전체 ▾][찾기 칸] + 오른쪽 끝 [+][⋯] 작은 아이콘.
-// - 폰(~760px): 첫 줄 = 제목 '자료실' + ⌕·+·⋯, 둘째 줄 = [폴더 ▾][분류: 전체 ▾]. ⌕ → 첫 줄이 [찾기 칸][✕], ✕로 닫음.
+// - 폰(~760px): S71-28 FILES-머리한줄(명진 11/26 "자료실도") — 앱 머리 줄 한 줄 = 제목 '자료실' · [폴더 ▾] · [분류 ▾](고른 값만) …… ⋯ · ⌕ · [+]. 둘째 줄 없음.
 // 분류 칩 줄·'✎ 분류 수정' 줄 끝 버튼·묶기 칩 탭·아래 알약·떠 있는 동그란 [+]는 없다. 이름은 지어낸 것.
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A'}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
 const ITEMS=[{document_id:'a-1',folder_id:'fa'}];
@@ -28,7 +28,9 @@ const measure=page=>page.evaluate(sels=>{
 for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 칸 하나, [+]·⋯는 맨 위 줄, 본문 첫 줄은 [사업영역 ▾][분류 ▾] · 칩 줄·알약·떠 있는 [+] 없음`,async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS});
-  await expect(pick(page)).toHaveText('분류: 회의 빼고');
+  await expect(pick(page)).toHaveText('분류: 회의 빼고');await expect(pick(page)).toHaveAccessibleName('분류: 회의 빼고');
+  // S71-28: 폰·폴드 머리 줄에서는 보이는 글자가 고른 값만('분류: '는 읽기 프로그램용).
+  expect(await pick(page).evaluate(el=>el.querySelector('.lu-cat-pick-text').innerText.replace(el.querySelector('.a11y-only')?.innerText||'','').trim())).toBe(width<=760?'회의 빼고':'분류: 회의 빼고');
   // 없앤 것: 분류 칩 줄·줄 끝 [✎ 분류 수정]·묶기 칩 탭(⑤)·이름표. S70-54: 화면 안 찾기 칸·⌕·✕·화면 안 제목 줄도 없다(자리째).
   await expect(page.locator('#libraryCategoryFilter,#manageLibraryBtn,#libraryView .library-filter-toolbar .ds-seg,#libraryView [data-lu-group-chip]')).toHaveCount(0);
   await expect(page.locator('#documentSearch,#librarySearchOpen,#librarySearchClose,#libraryView .lu-top-title')).toHaveCount(0);
@@ -39,8 +41,8 @@ for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 �
   expect(await page.locator('#libraryGroupBy').evaluate(el=>getComputedStyle(el).backgroundImage)).toContain('linear-gradient');
   // S56-11: [분류 ▾] 단추도 같은 공용 ▾ 그림·자리·바탕·선이다(글자 ▾ 없음).
   const look=sel=>page.locator(sel).evaluate(el=>{const c=getComputedStyle(el);return [c.backgroundImage,c.backgroundPosition,c.backgroundSize,c.backgroundColor,c.borderTopColor,c.borderTopWidth,c.borderRadius,c.height,c.paddingRight].join('|')});
-  expect(await look('#libraryView .lu-cat-pick')).toBe(await look('#libraryGroupBy'));
-  expect(await page.locator('#libraryView .lu-cat-pick').textContent()).not.toContain('▾');
+  expect(await look('#libraryCategoryPick')).toBe(await look('#libraryGroupBy'));
+  expect(await page.locator('#libraryCategoryPick').textContent()).not.toContain('▾');
   // [+]·⋯는 맨 위 줄 단추 자리 안.
   await expect(page.locator('.sf-tools:not([hidden]) #newDocumentBtn')).toBeVisible();await expect(page.locator('.sf-tools:not([hidden]) #libraryTopMenuBtn')).toBeVisible();
   await expect(page.locator(width>760?'#gsTopInput':'.mobile-shell-header .sf-open')).toBeVisible();
@@ -51,29 +53,34 @@ for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 �
   for(const sel of ['#libraryGroupBy','#libraryCategoryPick','#newDocumentBtn','#libraryTopMenuBtn'])expect(m[sel].h,sel).toBe(32);
   expect(m['#newDocumentBtn'].text).toBe('');await expect(page.locator('#newDocumentBtn')).toHaveAccessibleName('자료 등록');
   const same=(a,b)=>expect(Math.abs(m[a].mid-m[b].mid),`${a}·${b} 같은 줄`).toBeLessThan(3);
-  // 본문 첫 줄 = [사업영역 ▾][분류 ▾](왼쪽 끝부터).
-  same('#libraryGroupBy','#libraryCategoryPick');expect(Math.abs(m['#libraryGroupBy'].x-m.bar.x)).toBeLessThan(2);expect(m['#libraryGroupBy'].right).toBeLessThanOrEqual(m['#libraryCategoryPick'].x);
+  // [사업영역 ▾][분류 ▾] 차례(PC는 본문 첫 줄 왼쪽 끝부터, 폰·폴드는 머리 줄 이름 다음).
+  same('#libraryGroupBy','#libraryCategoryPick');expect(m['#libraryGroupBy'].right).toBeLessThanOrEqual(m['#libraryCategoryPick'].x);
+  if(width>760)expect(Math.abs(m['#libraryGroupBy'].x-m.bar.x)).toBeLessThan(2);
   if(width<=760){
-    // 폰: 앱 머리 줄 = 제목 '자료실' ……… ⌕ + ⋯. 고르기 줄은 그 아래.
+    // 폰: 앱 머리 줄 한 줄 = 제목 '자료실' · [사업영역 ▾] · [분류 ▾] ……… ⋯ · ⌕ · [+](S71-28). 따로 된 고르기 줄 없음.
     await expect(page.locator('#appView > .mobile-shell-header')).toBeVisible();
     const head='.mobile-shell-header [data-mobile-view-name]',open='.mobile-shell-header .sf-open';
     expect(m[head].text).toBe('자료실');
-    for(const sel of [open,'#newDocumentBtn','#libraryTopMenuBtn'])same(head,sel);
-    expect(m[open].right).toBeLessThanOrEqual(m['#newDocumentBtn'].x);expect(m['#newDocumentBtn'].right).toBeLessThanOrEqual(m['#libraryTopMenuBtn'].x);
-    expect(m['#libraryGroupBy'].mid).toBeGreaterThan(m[head].mid+16);
+    const order=[head,'#libraryGroupBy','#libraryCategoryPick','#libraryTopMenuBtn',open,'#newDocumentBtn'];
+    for(const sel of order.slice(1))same(head,sel);
+    for(let i=1;i<order.length;i++)expect(m[order[i-1]].right,`${order[i-1]} → ${order[i]}`).toBeLessThanOrEqual(m[order[i]].x+0.5);
+    await expect(page.locator('#libraryView .lu-pick-row')).toHaveCount(0);
     // ⌕ → 머리 줄에 '자료실에서 찾기' 칸. 쓰는 글자로 목록을 거르고, Esc는 글자를 비운다.
     const find=await screenFind(page);
     await expect(find).toBeVisible();await expect(find).toBeFocused();await expect(find).toHaveAttribute('placeholder','자료실에서 찾기');
-    const fb=await find.boundingBox(),mb=await page.locator('#libraryTopMenuBtn').boundingBox();expect(Math.abs((fb.y+fb.height/2)-(mb.y+mb.height/2))).toBeLessThan(3);expect(fb.x+fb.width).toBeLessThanOrEqual(mb.x);
+    const fb=await find.boundingBox(),mb=await page.locator('#libraryTopMenuBtn').boundingBox(),ab=await page.locator('#newDocumentBtn').boundingBox();expect(Math.abs((fb.y+fb.height/2)-(mb.y+mb.height/2))).toBeLessThan(3);expect(fb.x).toBeGreaterThanOrEqual(mb.x+mb.width-0.5);expect(fb.x+fb.width).toBeLessThanOrEqual(ab.x+0.5);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
     await find.fill('결의');expect(await shownDocs(page)).toEqual(['a-2']);
     await find.press('Escape');await expect(find).toHaveValue('');
     expect(await shownDocs(page)).toEqual(['a-1','a-2','n-1']);
+    // 찾기 칸이 펼쳐진 동안은 칸이 이름·고르기 자리를 쓴다(S71-28). 비운 채 Esc면 접히고 고르기가 돌아온다.
+    await expect(page.locator('#libraryGroupBy')).toBeHidden();
+    await find.press('Escape');await expect(find).toBeHidden();await expect(page.locator('#libraryGroupBy')).toBeVisible();
   }else{
-    // PC·펼친 폴드: 상단 줄 [자료실에서 찾기 ……][+][⋯] 같은 줄.
+    // PC·펼친 폴드: 상단 줄 [자료실에서 찾기 ……][⋯][+] 같은 줄([+] 맨 오른쪽, S71-28).
     const find=await screenFind(page);await expect(find).toHaveAttribute('placeholder','자료실에서 찾기');
     for(const sel of ['#newDocumentBtn','#libraryTopMenuBtn'])same('#gsTopInput',sel);
-    expect(m['#gsTopInput'].right).toBeLessThanOrEqual(m['#newDocumentBtn'].x);expect(m['#newDocumentBtn'].right).toBeLessThanOrEqual(m['#libraryTopMenuBtn'].x);
+    expect(m['#gsTopInput'].right).toBeLessThanOrEqual(m['#libraryTopMenuBtn'].x);expect(m['#libraryTopMenuBtn'].right).toBeLessThanOrEqual(m['#newDocumentBtn'].x);
     expect(m['#libraryGroupBy'].mid).toBeGreaterThan(m['#gsTopInput'].mid+16);
     await find.fill('결의');expect(await shownDocs(page)).toEqual(['a-2']);await find.fill('');
   }

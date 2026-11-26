@@ -51,7 +51,7 @@ import {nextSort, headCellHtml, sortSelectHtml, sortOptions, sortValue, parseSor
 import {askConfirm, askText, notify} from './small-notice.js';
 import {screenSameFiles} from './same-file.js'; // UX-이미있는파일알림: 기기에서 넣는 파일은 올리기 전에 같은 이름·크기가 내 작업공간에 있는지 묻는다
 import {viewPrefs} from './view-prefs.js';
-import {registerScreenFind, refreshScreenFind} from './screen-find.js';
+import {registerScreenFind, refreshScreenFind, toolsBox} from './screen-find.js';
 import {recentFolded, toggleRecentFolded} from './recent-fold.js';
 import {MORE_LABEL} from './fold-chevron.mjs';
 import {recentHumanRows} from './files-auto-model.mjs';
@@ -230,6 +230,25 @@ install();
 
 const root = document.getElementById('filesRoot');
 const $ = sel => root?.querySelector(sel);
+// S71-28 FILES-머리한줄(명진 11/26 "파일도 한줄로"): 폰(600px 미만)은 출처 아이콘·[한 칸 | 두 칸]을 앱 머리 줄로 올린다 — 머리 줄 한 줄
+// [W] 파일 · 출처 아이콘 …… [□|⊟] · 찾기(자리 순서는 files.css 'S71-28' 절). 둘째 줄이던 자리는 없다(요소째 옮김, 숨김 아님).
+// 폴드·PC는 지금처럼 위쪽 도구 줄(.fx-top). 그리기(paintSrcs·보기 표시)·누르기(srcClick·setTwo)는 그대로 이 화면 — 머리 줄 상자 누르기만 여기서 같은 길로 넘긴다.
+const fxTools = toolsBox('files', 'files');
+const fxBit = sel => root?.querySelector(sel) || fxTools.querySelector(sel);
+function placeFxHead() {
+  const top = root?.querySelector('.fx-top'), srcs = fxBit('[data-fx-srcs]'), seg = fxBit('[data-fx-view-seg]');
+  if (!top || !srcs || !seg) return;
+  const host = PHONE.matches ? fxTools : top;
+  for (const el of [srcs, seg]) if (el.parentElement !== host) host.append(el);
+}
+placeFxHead();
+PHONE.addEventListener?.('change', placeFxHead);
+fxTools.addEventListener('click', event => {
+  const b = event.target.closest('button');
+  if (!b) return;
+  if (b.matches('[data-fx-two],[data-fx-one]')) { const want = b.matches('[data-fx-two]'); if (two() !== want) setTwo(want); return; }
+  if (b.matches('[data-fx-src]')) srcClick(b.dataset.fxSrc);
+});
 const rt = () => window.KPTURuntime;
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 // 칸 하나의 상태(S49-30 두 칸): 위치·목록·정렬·찾기·고르기. pane = 폰 칸 0의 나무/목록(첫 화면은 나무), drop = 폴드 두 칸의 ▾ 나무가 내려와 있는가. seq·fseq·ftimer = 늦게 온 응답 거르기.
@@ -946,7 +965,7 @@ function paintTop() {
     const t = open ? '폴더 나무 닫기' : '폴더 나무 열기'; tt.title = t; tt.setAttribute('aria-label', t);
   }
   // S62-40 UI-파일검색줄: 폰 맨 위 줄 [찾기][출처][보기] 한 줄. S69-38: 보기는 붙은 [한 칸 | 두 칸](지금 보기 쪽이 눌린 표시, 폰은 그림만).
-  const seg = $('[data-fx-view-seg]');
+  const seg = fxBit('[data-fx-view-seg]');
   if (seg) { seg.hidden = false; seg.querySelector('[data-fx-one]')?.setAttribute('aria-pressed', String(!twoNow)); seg.querySelector('[data-fx-two]')?.setAttribute('aria-pressed', String(!!twoNow)); }
   paintSrcs();
   const note = $('[data-fx-note]');
@@ -983,7 +1002,7 @@ async function connectGo(name) {
 }
 // 출처 아이콘(사진 화면과 같은 부품). 원드라이브·구글 드라이브 모두 연결 전에도 흐리게 보이고, 누르면 연결 안내 한 줄 + [○○ 연결](S62-16, 사진 칩과 같은 규칙).
 function paintSrcs() {
-  const box = $('[data-fx-srcs]');
+  const box = fxBit('[data-fx-srcs]');
   if (!box) return;
   box.hidden = !state.status;
   const link = connected();
