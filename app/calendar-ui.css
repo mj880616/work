@@ -7,7 +7,7 @@
 .calendar-toolbar #monthTitle{font-size:16px;min-width:94px;text-align:center}
 .calendar-toolbar-add{margin-left:auto;width:auto;min-width:0;height:36px;min-height:36px;padding:0 var(--kptu-space-3);border-radius:var(--kptu-radius-md);font-size:var(--kptu-text-meta);line-height:1;white-space:nowrap}
 
-/* CAL-머리한줄(S71-24, 명진 11/26 "구글 캘린더 맨 윗 줄로 합쳐서 한줄로"): 여는 단추 [구글 캘린더 ▾]는 화면 이름 줄(calendar-google-panel.js·screen-tools.js),
+/* CAL-머리한줄(S71-24, 2026-11-26 사용자 요청: 구글 캘린더 줄을 맨 윗줄로 합쳐 한 줄로): 여는 단추 [구글 캘린더 ▾]는 화면 이름 줄(calendar-google-panel.js·screen-tools.js),
    이 칸은 일정 상자 맨 위에서 열릴 때만 자리를 차지한다(닫힘 = hidden). 예전 상자 안 '› 구글 캘린더 …… 메일' 접기 줄은 지웠다. 연결 계정은 칸 안 첫 줄. */
 .calendar-google-panel{margin:0 0 5px;padding-bottom:2px;border-bottom:1px solid var(--kptu-border)}
 .calendar-google-panel[hidden]{display:none}
