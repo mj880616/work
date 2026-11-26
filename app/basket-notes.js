@@ -49,7 +49,7 @@ import { createNoteTrash, NOTE_TRASH, isTrashAt } from './note-trash.js';
 import { ghostText, ghostCountText } from './drag-ghost.js';
 // NOTE-노트에서도밑줄(S62-17): 노트 읽기 본문에서도 글을 골라 [밑줄 저장](News·텔레그램 원문과 같은 고른 글 줄·밑줄 부품·같은 서버 표 app_news_highlights, 종류 note).
 import { bindSelectZone } from './text-select-bar.js';
-import { paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, revealMark, highlightById } from './text-highlights.js';
+import { paintMarks, bindMarks, sourceMarks, loadHighlights, onHighlights, saveFromSelection, revealMark, highlightById, markActions } from './text-highlights.js';
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
@@ -236,13 +236,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!selected || editing) return;
     const z = detail.querySelector('[data-basket-read-text]');
     if (!z || z.hidden || z.classList.contains('basket-read-empty')) return;
-    paintMarks(z, sourceHighlights('note', selected.id));
+    paintMarks(z, sourceMarks('note', selected.id)); // S70-80: 밑줄 + 형광펜
     if (!hlReveal || !highlightById(hlReveal)) return;
     if (!revealMark(z, hlReveal)) notify('원문이 바뀌었어요 · 밑줄은 노트 › 밑줄에 그대로 있어요', {record:false});
     hlReveal = null;
   }
   const hlSourceNow = () => (selected ? {type:'note', id:selected.id, title:selected.title || '제목 없음', media:'노트', date:selected.updated_at || selected.created_at || null, url:''} : null);
-  bindSelectZone(detail, {zone:'[data-basket-read-text]', source:hlSourceNow, onSave:saveFromSelection});
+  bindSelectZone(detail, {zone:'[data-basket-read-text]', source:hlSourceNow, onSave:saveFromSelection, marks:markActions}); // S70-80: 형광펜 켬
   bindMarks(detail);
   onHighlights(() => noteMarksNow());
   // NOTE-목록에파일놓기(S61-16 ①): PC 파일을 오른쪽 목록(노트 줄 위·빈 자리·포스트잇 보기)에 놓으면 그 파일을 붙인 새 노트 창(⤢와 같은 창).
