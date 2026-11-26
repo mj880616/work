@@ -88,6 +88,11 @@
 
 - 토큰·키 값을 명령어 인자에 넣지 않는다. gh가 있으면 gh를 우선 사용한다.
 
+### 공개 금지 낱말과 커밋 작성자
+
+- **커밋 작성자 메일은 GitHub noreply 주소(`<번호>+<계정>@users.noreply.github.com`)만 쓴다.** 개인 메일을 `git config user.email`에 두지 않는다(SEC-공개저장소청소 ②, 2026-11-26 사용자 결정).
+- 코드·문서·시험 자료·커밋 메시지·PR 제목과 본문에 실제 사람 이름·실제 단체 이름·업무 내용·요청 원문·가족 이야기를 쓰지 않는다. 출처 표시는 '사용자 결정'·'운영자', 시험 자료는 가짜 이름(예: A노조·가상지부)으로 쓴다. CI `public-words-check`가 새로 더한 줄·커밋·PR 글을 비밀값 낱말 목록으로 본다(`scripts/check-public-words.mjs`, 낱말 목록은 저장소에 두지 않는다).
+
 ## 4. 조사와 수정
 
 - 기존 구조와 source of truth(실제 데이터, 인증/DB 상태, 지정된 원장)를 확인한 뒤 수정한다. Inspect the relevant call path and data flow first: UI, routes, APIs/RPCs, database policies, storage rules, authentication/session handling, shared authorization logic, and related tests.

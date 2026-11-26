@@ -81,7 +81,7 @@ async function openPhotos(page) {
 }
 const root = page => page.locator('#photosRoot');
 const order = page => root(page).locator('[data-photos-list] [data-photos-open]').evaluateAll(list => list.map(b => b.dataset.photosId));
-const sortBtn = page => root(page).locator('[data-photos-sort]');
+const sortBtn = page => page.locator('[data-sf-tools="photos"] [data-photos-sort]');
 const menu = page => page.locator('#photosSortMenu');
 const libraryBodies = f => f.edge.filter(b => b.action === 'library');
 
@@ -94,16 +94,19 @@ const EXPECT = {
   duration_desc: ['V1', 'C2', 'C1', 'B1', 'A3', 'A2', 'A1'],
 };
 const ROWS = ['찍은 날 최근 먼저', '찍은 날 오래된 먼저', '올린 날 최근 먼저', '파일 이름 가나다', '크기 큰 것 먼저', '동영상 길이 긴 것 먼저'];
-const SHORT = { taken_desc: '찍은 날 ↓', taken_asc: '찍은 날 ↑', uploaded_desc: '올린 날 ↓', name_asc: '이름 가나다', size_desc: '크기 ↓', duration_desc: '길이 ↓' };
+// S71-25 PHOTO-머리한줄: 순서 단추는 글자 없는 작은 아이콘, 지금 순서는 aria-label '순서: …'(메뉴 줄 이름과 같음).
+const LONG = { taken_desc: ROWS[0], taken_asc: ROWS[1], uploaded_desc: ROWS[2], name_asc: ROWS[3], size_desc: ROWS[4], duration_desc: ROWS[5] };
+const sortIs = (page, sort) => expect(sortBtn(page)).toHaveAttribute('aria-label', `순서: ${LONG[sort]}`);
 
 for (const width of [1440, 884, 412]) {
   test(`사진 정렬: 기준 6가지마다 서버 순서·날짜 머리줄은 찍은 날만·서버 저장·새로고침 뒤 같은 기준·달력엔 없음 ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     await openPhotos(page, width);
-    await expect(sortBtn(page)).toHaveText('찍은 날 ↓ ▾');
+    await sortIs(page, 'taken_desc');
+    await expect(sortBtn(page)).toHaveText('');
     await expect.poll(() => order(page)).toEqual(EXPECT.taken_desc);
-    // [정렬]은 [−][+] 왼쪽
-    expect(await sortBtn(page).evaluate(b => b.nextElementSibling?.classList.contains('photo-size'))).toBe(true);
+    // [순서]는 맨 위 줄 [가져올 곳] 왼쪽
+    expect(await sortBtn(page).evaluate(b => b.nextElementSibling?.matches('[data-photos-src-pick]'))).toBe(true);
     await sortBtn(page).click();
     await expect(menu(page)).toBeVisible();
     await expect(menu(page).locator('button')).toHaveText(ROWS.map((t, i) => (i === 0 ? '✓' : '') + t));
@@ -113,7 +116,7 @@ for (const width of [1440, 884, 412]) {
       await sortBtn(page).click();
       await menu(page).locator('button').nth(i).click();
       await expect(menu(page)).toBeHidden();
-      await expect(sortBtn(page)).toHaveText(`${SHORT[sort]} ▾`);
+      await sortIs(page, sort);
       await expect.poll(() => order(page)).toEqual(EXPECT[sort]);
       expect(libraryBodies(f).at(-1).sort).toBe(sort === 'taken_desc' ? undefined : sort);
       await expect(root(page).locator('[data-photos-list] .photos-day')).toHaveCount(sort.startsWith('taken') ? 4 : 0);
@@ -127,13 +130,13 @@ for (const width of [1440, 884, 412]) {
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 15000 });
     if (!(await page.locator('#photosView').isVisible())) await openPhotos(page, width);
-    await expect(sortBtn(page)).toHaveText('크기 ↓ ▾');
+    await sortIs(page, 'size_desc');
     await expect.poll(() => order(page)).toEqual(EXPECT.size_desc);
     expect(libraryBodies(f).at(-1).sort).toBe('size_desc');
     // 달력에는 정렬 버튼이 없다.
-    await root(page).locator('[data-photos-view]').selectOption('calendar');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('calendar');
     await expect(sortBtn(page)).toBeHidden();
-    await root(page).locator('[data-photos-view]').selectOption('folders');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
     await expect(sortBtn(page)).toBeVisible();
     await expect.poll(() => libraryBodies(f).some(b => b.folder_id === 'T' && b.sort === 'size_desc')).toBe(true);
   });

@@ -20,4 +20,5 @@ import calls from './calls.mjs';
 import telegram from './telegram.mjs';
 import arsenal from './arsenal.mjs';
 import updates from './updates.mjs';
-export default [calendar, tasks, diary, library, photos, notes, basket, reading, team, meetings, projects, files, brief, hwp, outside, calls, telegram, arsenal, updates].filter(Boolean);
+import help from './help.mjs';
+export default [calendar, tasks, diary, library, photos, notes, basket, reading, team, meetings, projects, files, brief, hwp, outside, calls, telegram, arsenal, updates, help].filter(Boolean);
