@@ -16,7 +16,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '
 
 // 글 보내기. 돌려주는 값: 'shared' · 'cancel' · 'copied' · 'failed' · 'none'.
 export async function shareNoteText(data, {nav = globalThis.navigator, wide = wideShare(), copy = copyText, tell = say} = {}) {
-  if (!data?.text) { tell(NOTE_SHARE_NOTE.empty, {error: true}); return 'none'; }
+  if (!data?.text) { tell(NOTE_SHARE_NOTE.noText, {error: true}); return 'none'; }
   if (!wide && typeof nav?.share === 'function') {
     try { await nav.share(data.title ? {title: data.title, text: data.text} : {text: data.text}); return 'shared'; }
     catch (e) { if (e?.name === 'AbortError') return 'cancel'; }

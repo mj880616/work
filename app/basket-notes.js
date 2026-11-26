@@ -897,7 +897,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     wrap.setAttribute('aria-hidden', 'true'); wrap.inert = true;
     wrap.style.cssText = 'position:fixed;left:-10000px;top:0;width:760px;pointer-events:none';
     const page = document.createElement('div');
-    page.style.cssText = 'padding:24px;background:var(--kptu-surface,#fff);color:var(--kptu-ink,#111)';
+    page.style.cssText = 'padding:24px;background:var(--kptu-surface);color:var(--kptu-ink)';
     const head = document.createElement('h1');
     head.style.cssText = 'margin:0 0 12px;font-size:20px;line-height:1.35';
     head.textContent = note.title || '노트';

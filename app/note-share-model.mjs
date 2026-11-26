@@ -13,7 +13,7 @@ export const NOTE_SHARE_TITLE = '어떻게 보낼까요?';
 // 고르기 칸(차례 그대로). link는 게시할 수 있는 노트만(잠근 폴더 노트는 빠짐).
 export const NOTE_SHARE_CHOICES = Object.freeze([['html', 'HTML 파일'], ['pdf', 'PDF 파일'], ['link', '링크'], ['text', '글만 보내기']]);
 export const NOTE_LINK_ASK = Object.freeze({text: '링크로 공유할까요?', note: '게시하면 링크를 아는 사람은 누구나 이 노트를 볼 수 있어요. 언제든 ⋯ [게시 멈춤]으로 닫을 수 있어요.', ok: '게시하고 공유'});
-export const NOTE_SHARE_NOTE = Object.freeze({copied: '복사했어요', copyFail: '복사하지 못했어요. 다시 눌러 주세요.', empty: '보낼 글이 없어요', making: '파일을 만드는 중이에요…', saved: '파일을 내려받았어요', again: '공유 창이 막혔어요. [보내기]를 한 번 더 눌러 주세요.', failed: '파일을 만들지 못했어요. 다시 눌러 주세요.', linkFail: '링크를 만들지 못했어요. 다시 시도해 주세요.'});
+export const NOTE_SHARE_NOTE = Object.freeze({copied: '복사했어요', copyFail: '복사하지 못했어요. 다시 눌러 주세요.', noText: '보낼 글이 없어요', making: '파일을 만드는 중이에요…', saved: '파일을 내려받았어요', again: '공유 창이 막혔어요. [보내기]를 한 번 더 눌러 주세요.', failed: '파일을 만들지 못했어요. 다시 눌러 주세요.', linkFail: '링크를 만들지 못했어요. 다시 시도해 주세요.'});
 
 const hasAttachments = note => Array.isArray(note?.attachments) && note.attachments.length > 0;
 // 글자 마크: 없음, 또는 글자가 곧 주소인 링크(글로 보내도 주소가 그대로 남음).

@@ -91,8 +91,8 @@ export function elementSnapshot(el, background = '') {
   const r = el.getBoundingClientRect();
   const w = Math.max(1, Math.ceil(Math.max(r.width, el.scrollWidth))), h = Math.max(1, Math.ceil(Math.max(r.height, el.scrollHeight)));
   let bg = background;
-  for (let n = el; !bg && n; n = n.parentElement) { const c = getComputedStyle(n).backgroundColor; if (c && c !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(c)) bg = c; }
-  return {board: el, bounds: {x: 0, y: 0, w, h}, background: bg || '#ffffff'};
+  for (let n = el; !bg && n; n = n.parentElement) { const c = getComputedStyle(n).backgroundColor; if (c && c !== 'transparent' && !c.replace(/\s/g, '').endsWith(',0)')) bg = c; }
+  return {board: el, bounds: {x: 0, y: 0, w, h}, background: bg || 'white'};
 }
 // kind 'pdf' | 'html' → 파일 하나(File). 내려받기·공유는 부르는 쪽이 정한다.
 export async function snapshotFile(kind, snapshot, fileName) {
