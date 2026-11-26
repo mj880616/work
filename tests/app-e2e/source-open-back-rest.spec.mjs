@@ -92,7 +92,7 @@ for(const width of [412,1280]){
     let input,row;
     if(width<761){
       await page.locator('#appView > .mobile-shell-header .gs-menu-entry').click(); // S70-57: 폰 전체 검색 입구는 홈 머리 줄 하나
-      input=page.locator('#searchView .gs-view-input input');
+      input=page.locator('#gsHeadInput'); // S71-07: 누른 머리 줄 칸 그대로
       row=page.locator('#searchView .gs-row').filter({hasText:'가상 교섭 메모'});
     }else{
       input=page.locator('[data-search-slot] input[type="search"]');

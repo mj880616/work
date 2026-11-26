@@ -141,28 +141,38 @@ function considerMeaning(key, text) {
   const st = stateOf(key), spec = scopes.get(key);
   if (!spec || spec.meaning === false || current?.key !== key || st.text !== text || st.seen !== text) return;
   if (meanings.has(text)) return;
-  if (meaningOff || meaningCalls >= MEANING_MAX || !window.KPTURuntime?.api) return;
   if (!wantsMeaning(text, looksSentence(text) ? 0 : st.count)) return;
-  meaningCalls++;
-  const ask = window.KPTURuntime.api('/functions/v1/ai-assist', {method: 'POST', body: {kind: 'find_expand', text}, singleFlight: false, timeoutMs: 20000})
-    .then(data => {
-      const words = Array.isArray(data?.words) ? data.words.filter(w => typeof w === 'string' && w.trim()).slice(0, 8) : [];
-      const day = v => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
-      const got = words.length || day(data?.from) || day(data?.to) ? {words, from: day(data?.from), to: day(data?.to)} : null;
-      meanings.set(text, got);
-      return got;
-    }, e => {
-      // 하루·월 한도(429)나 AI 없음이면 이번에 연 동안 더 부르지 않는다 — 글자 비슷 찾기 결과만 보인다.
-      if (e?.status === 429 || e?.status === 503) meaningOff = true;
-      meanings.set(text, null);
-      return null;
-    });
-  meanings.set(text, ask);
+  const ask = askMeaning(text);
+  if (!ask) return;
   ask.then(got => {
     if (!got || current?.key !== key || stateOf(key).text !== text) return;
     try { spec.apply(text, {again: true}); } catch (e) { console.error('screen find again', e?.name || 'Error'); }
     paintAlso();
   });
+}
+// 뜻 비슷 찾기 한 길(S71-15: 홈 전체 검색도 같은 길·같은 기억·같은 한도를 쓴다). 서버 AI(ai-assist find_expand)에 친 글 하나만 보낸다.
+// 돌려주는 것: Promise<{words, from, to} | null>, 부를 수 없으면(한도·AI 없음·런타임 없음) null. 같은 글은 한 번만 묻는다(이 탭 메모리).
+export function askMeaning(text) {
+  const t = norm(text);
+  if (!t) return null;
+  if (meanings.has(t)) { const m = meanings.get(t); return m instanceof Promise ? m : Promise.resolve(m); }
+  if (meaningOff || meaningCalls >= MEANING_MAX || !window.KPTURuntime?.api) return null;
+  meaningCalls++;
+  const ask = window.KPTURuntime.api('/functions/v1/ai-assist', {method: 'POST', body: {kind: 'find_expand', text: t}, singleFlight: false, timeoutMs: 20000})
+    .then(data => {
+      const words = Array.isArray(data?.words) ? data.words.filter(w => typeof w === 'string' && w.trim()).slice(0, 8) : [];
+      const day = v => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+      const got = words.length || day(data?.from) || day(data?.to) ? {words, from: day(data?.from), to: day(data?.to)} : null;
+      meanings.set(t, got);
+      return got;
+    }, e => {
+      // 하루·월 한도(429)나 AI 없음이면 이번에 연 동안 더 부르지 않는다 — 글자 비슷 찾기 결과만 보인다.
+      if (e?.status === 429 || e?.status === 503) meaningOff = true;
+      meanings.set(t, null);
+      return null;
+    });
+  meanings.set(t, ask);
+  return ask;
 }
 
 // '비슷한 말로도 찾았어요: 협의 · 간담회' 한 줄: 맨 위 칸 바로 아래(화면 목록 위)에 떠 있는 작은 줄. 이 모듈이 유일한 주인.

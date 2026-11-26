@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, mergeParts, daySummary,
   openTarget, COPY_NOTE, firstWindow, olderWindow, reachedEnd, chunksOf, LIST_WINDOW,
-  cleanFolderName, FOLDER_NAME_MAX, archivedRooms, withRoomState, swipeIntent, swipeEdge, swipeWidths, swipeOffset, swipeSettle, swipeOpenOffset, SWIPE_ACTIONS, ACTION_LABEL, allowOf} from '../app/tg-day-model.mjs';
+  cleanFolderName, FOLDER_NAME_MAX, archivedRooms, withRoomState, swipeIntent, swipeEdge, SWIPE_ACTIONS, ACTION_LABEL} from '../app/tg-day-model.mjs';
 
 const L = (room, day, o = {}) => lineOf({room_key:room, room_label:`가상 ${room}`, day, last_at:`${day}T05:00:00Z`, item_count:2, raw_count:5, headline:'', ...o});
 
@@ -141,17 +141,10 @@ test('밀기: 분명한 가로 움직임만, 세로 스크롤·가장자리 시�
   assert.equal(swipeEdge(10, 400), true); assert.equal(swipeEdge(390, 400), false, '오른쪽 끝은 막지 않음(S68-53)'); assert.equal(swipeEdge(24, 400), false); assert.equal(swipeEdge(200, 400), false);
 });
 
-test('밀기 폭: 버튼 64px씩, 오른쪽 밀기 128px(폴더로·보관), 왼쪽 밀기 64px(삭제), 절반 넘으면 열린 채로', () => {
-  assert.deepEqual(SWIPE_ACTIONS.live, {start:['folder', 'archive'], end:['trash']});
-  assert.deepEqual(SWIPE_ACTIONS.archive, {start:['unarchive'], end:[]});
-  assert.deepEqual(ACTION_LABEL, {folder:'폴더로', archive:'보관', trash:'삭제', unarchive:'꺼내기'});
-  const live = allowOf('live'), arch = allowOf('archive');
-  assert.deepEqual(swipeWidths(live), {start:128, end:64}); assert.deepEqual(swipeWidths(arch), {start:64, end:0});
-  assert.equal(swipeOffset(300, 0, live), 128); assert.equal(swipeOffset(-300, 0, live), -64); assert.equal(swipeOffset(-30, 0, arch), 0);
-  assert.equal(swipeOffset(-40, 128, live), 88, '열린 줄에서 다시 밀기');
-  assert.equal(swipeSettle(63, live), ''); assert.equal(swipeSettle(64, live), 'start'); assert.equal(swipeSettle(-31, live), ''); assert.equal(swipeSettle(-32, live), 'end');
-  assert.equal(swipeSettle(-50, arch), ''); assert.equal(swipeSettle(32, arch), 'start');
-  assert.equal(swipeOpenOffset('start', live), 128); assert.equal(swipeOpenOffset('end', live), -64); assert.equal(swipeOpenOffset('', live), 0);
+test('S70-65 밀기 칸(공용 줄 밀기): 날짜별 [폴더로][수정][삭제], 보관함 [꺼내기] — 왼쪽 밀기만', () => {
+  assert.deepEqual(SWIPE_ACTIONS.live, ['folder', 'edit', 'trash']);
+  assert.deepEqual(SWIPE_ACTIONS.archive, ['unarchive']);
+  assert.deepEqual(ACTION_LABEL, {folder:'폴더로', edit:'수정', archive:'보관', trash:'삭제', unarchive:'꺼내기'});
 });
 
 // TG-불러오기속도(S70-31): 화면을 열 때 부르는 읽기의 차례. 첫 목록은 방·날 줄을 그리는 데 꼭 필요한 넷만 기다린다.

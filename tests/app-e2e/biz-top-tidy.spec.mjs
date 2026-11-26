@@ -116,14 +116,15 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   const selH = (await mids(page, '#meetingsView .report-kind-bar select.report-top-select')).map(x => Math.round(x.h));
   expect(new Set(selH).size).toBe(1);
   if (inChip) { expect(Math.round((await page.locator('#reportFilterChip').boundingBox()).height)).toBe(selH[0]); await closeReportBoxes(page); }
-  // ③ 셋째 줄: ‹ 11.9(월)~11.15(일) › · n건 — 폰은 둘째 줄 아래, PC는 같은 한 줄(고르기와 아이콘 사이).
+  // ③ 주 줄: ‹ 11.9(월)~11.15(일) › · n건 — 모든 폭에서 같은 한 줄(고르기와 아이콘 사이, S71-10).
   const nav = page.locator('#reportWeekFilter .report-week-nav');
   await expect(nav.locator('.report-week-label')).toContainText(/\(월\)~.*\(일\)/);
   await expect(nav.locator('.report-week-count')).toContainText(/· \d+건/);
   const line3 = await mids(page, '#reportWeekFilter .report-week-nav > *');
   expect(Math.max(...line3.map(x => x.mid)) - Math.min(...line3.map(x => x.mid))).toBeLessThanOrEqual(3);
-  if (pc) { expect(Math.abs(line3[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line3.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right))); }
-  else expect(Math.min(...line3.map(x => x.top))).toBeGreaterThanOrEqual(Math.max(...line2.map(x => x.bottom)) - 1);
+  // S71-10(명진 11/26 '한 줄에 우겨넣고 싶어'): 폰도 PC처럼 주 줄이 첫 줄 안 — 고르기(칩) 오른쪽, [녹음][+][⋯] 왼쪽.
+  expect(Math.abs(line3[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line3.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)));
+  expect(Math.min(...line3.map(x => x.right))).toBeGreaterThan(Math.max(...line2.map(x => x.right)));
   // 주 고르기는 이 화면에 하나(‹ › 짝 하나, 안쪽 [이번 주 ▾] 아닌 주 고르기 부품 없음).
   await expect(page.locator('#meetingsView [data-report-week="prev"]')).toHaveCount(1);
   await expect(page.locator('#meetingsView [data-report-week="next"]')).toHaveCount(1);

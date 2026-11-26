@@ -27,10 +27,12 @@ for(const width of WIDTHS)test.describe(`메뉴마다 검색 칸 하나 ${width}
       await expect(page.locator('#gsTopInput')).toHaveAttribute('placeholder','전체 검색');
       expect(await visibleFinds(page)).toEqual(['전체 검색']);
     }else{
-      const entry=page.locator('#appView > .mobile-shell-header .gs-menu-entry');
-      await expect(entry).toBeVisible();await expect(entry).toHaveText('전체 검색');
-      expect(await visibleFinds(page)).toEqual([]);
+      // S71-07: 폰 틀 홈 머리 줄은 처음부터 '전체 검색' 입력 칸(누르면 그 칸 그대로 전체 검색 화면).
+      const entry=page.locator('#appView > .mobile-shell-header #gsHeadInput');
+      await expect(entry).toBeVisible();await expect(entry).toHaveAttribute('placeholder','전체 검색');
+      expect(await visibleFinds(page)).toEqual(['전체 검색']);
       await entry.click();await expect(page.locator('#searchView')).toBeVisible();
+      expect(await visibleFinds(page)).toEqual(['전체 검색']);
     }
     expect(await noOverflow(page)).toBeLessThanOrEqual(1);
   });

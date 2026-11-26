@@ -4,7 +4,7 @@
 // 폭이 바뀌면(폴드 펼침·창 크기) 다시 맞춘다. 접힌 단추는 막대 안에 보이지 않게 남아 있고, ⋯ 메뉴 항목을 누르면 그 단추를 누른 것과 같다
 // (화면의 누르기 처리·흐린 단추 안내·펼침 메뉴가 그대로 — 새 처리 길을 만들지 않음). 글자는 화면 읽기에는 늘 남는다.
 import {openRowMenu} from './row-menu.js';
-import {SB_ICON, sbIconHtml, foldOrder} from './select-bar-model.mjs';
+import {SB_ICON, sbIconHtml, foldOrder, sbAllIcon} from './select-bar-model.mjs';
 
 const seen = new WeakSet(), widths = new WeakMap();
 let watcher = null;
@@ -95,4 +95,16 @@ function onMore(e) {
       if (!b?.isConnected) { const name = items[Number(id)]?.label; b = [...bar.querySelectorAll('button.kptu-sb-act')].find(x => labelOf(x) === name); }
       if (b && !b.disabled) b.click();
     }});
+}
+
+// UI-오른쪽밀기고르기(S70-64): [전체 선택] 칸의 켜짐(체크 표시)만 바꾼다 — 화면 목록이 모두 골라졌으면 켜짐(네모 안 체크), 아니면 빈 네모.
+export function paintSelectAll(btn, on) {
+  if (!btn) return;
+  btn.setAttribute('role', 'checkbox');
+  btn.setAttribute('aria-checked', on ? 'true' : 'false');
+  const icon = sbAllIcon(on);
+  if (btn.dataset.sbIcon === icon) return;
+  btn.dataset.sbIcon = icon;
+  const ic = btn.querySelector('.kptu-act-ic');
+  if (ic) ic.innerHTML = sbIconHtml(icon);
 }

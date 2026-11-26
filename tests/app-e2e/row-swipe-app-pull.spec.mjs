@@ -91,7 +91,7 @@ for (const width of [412, 360]) {
     await tick(page);
     let b = await box(rows(list).first());
     let r = await finger(page, cdp, arc(b.x + b.width * 0.7, b.y + b.height / 2 - 12, -150, 36));
-    await expect(cells(list), '엄지 호 왼쪽 밀기').toHaveCount(3);
+    await expect(cells(list), '엄지 호 왼쪽 밀기').toHaveCount(2);
     expect(r).toEqual({ pull: ['pull:on', 'pull:off'], cancels: 0 });
     await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
     await expect(cells(list)).toHaveCount(0);
@@ -99,23 +99,19 @@ for (const width of [412, 360]) {
     await tick(page);
     b = await box(rows(list).nth(2));
     r = await finger(page, cdp, arc(b.x + b.width - 6, b.y + b.height / 2 - 12, -140, 40));
-    await expect(cells(list), '오른쪽 끝 시작 엄지 호').toHaveCount(3);
+    await expect(cells(list), '오른쪽 끝 시작 엄지 호').toHaveCount(2);
     expect(r).toEqual({ pull: ['pull:on', 'pull:off'], cancels: 0 });
     await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
     await expect(cells(list)).toHaveCount(0);
-    // ③ 오른쪽 밀기(손끝이 위로): [선택] 칸만(S70-60) → 칸을 누르면 '1개 선택됨'. 이것도 옆으로 가는 손가락이라 pull:off.
+    // ③ 오른쪽 밀기(손끝이 위로): 바로 그 줄 선택(S70-64 W3 — 오른쪽 밀기는 선택만, [선택] 칸이 열려 남지 않음) → '1개 선택됨'. 이것도 옆으로 가는 손가락이라 pull:off.
     await tick(page);
     b = await box(rows(list).last());
     r = await finger(page, cdp, arc(b.x + 40, b.y + b.height / 2 + 12, 280, -36));
     const bar = page.locator('#readingView .row-swipe-pickbar');
     expect(r).toEqual({ pull: ['pull:on', 'pull:off'], cancels: 0 });
-    const pick = list.locator('[data-row-swipe-key="select"]');
-    await expect(pick).toBeVisible();
-    await expect(bar).toBeHidden();
-    const pb = await pick.boundingBox();
-    await finger(page, cdp, [[pb.x + pb.width / 2, pb.y + pb.height / 2]]);
+    await expect(list.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
     await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
-    await bar.locator('[data-row-pick-stop]').click();
+    await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
     await expect(bar).toBeHidden();
     // ④ 맨 위에서 아래로 당기기: 줄은 움직이지 않고, 앱에는 pull:on만(당겨서 새로고침은 그대로 앱 몫).
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -144,7 +140,7 @@ for (const width of [412, 360]) {
       await tick(page);
       const b = await box(rows(list).first());
       const r = await finger(page, cdp, arc(b.x + b.width * 0.7, b.y + Math.min(b.height / 2, 30), -150, 30));
-      await expect(cells(list), `글자 ${done.toFixed(1)}배 왼쪽 밀기`).toHaveCount(3);
+      await expect(cells(list), `글자 ${done.toFixed(1)}배 왼쪽 밀기`).toHaveCount(2);
       expect(r.cancels).toBe(0);
       await finger(page, cdp, [[b.x + 40, b.y + 20]]);
       await expect(cells(list)).toHaveCount(0);

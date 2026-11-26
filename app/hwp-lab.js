@@ -21,7 +21,6 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {askConfirm,askText} from './small-notice.js';
 import {openTimingText} from './hwp-open-timing.mjs';
 import {word} from './brand/brand.mjs';
-import {uploadLabelHtml} from './upload-label.mjs';
 (()=>{
 'use strict';
 if(window.__KPTU_HWP_LAB_READY__)return;
@@ -115,7 +114,7 @@ function mountBarMenu(card){
     render:key=>(MENU_ITEMS[key]?.()||[]).map(id=>{
       const source=$(id);
       if(!source||source.hidden)return '';
-      return `<button type="button" data-hwp-act="${id}"${source.disabled?' disabled':''}>${source.classList.contains('up-clip-btn')?uploadLabelHtml(source.textContent.trim()):escapeText(source.textContent.trim())}</button>`; // UI-업로드말: 업로드 단추는 클립 그대로
+      return `<button type="button" data-hwp-act="${id}"${source.disabled?' disabled':''}>${escapeText(source.textContent.trim())}</button>`; // LIB-메뉴정리(S70-74): 메뉴 줄은 글자만(클립은 바 단추에만)
     }).join(''),
     onAction:button=>{const source=$(button.dataset.hwpAct);if(source&&!source.disabled&&!source.hidden)source.click()}});
   for(const trigger of card.querySelectorAll('[data-hwp-menu]')){

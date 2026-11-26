@@ -93,13 +93,14 @@ import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {bindEdgeBack} from './edge-back-swipe.js';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {bindFolderPinch} from './folder-pinch.js';
-import {FOLDER_ENTER_LABEL, ftKeepPlace, ftExplorePress, ftBindTreeArrows} from './folder-tree-press.mjs';
+import {FOLDER_ENTER_LABEL, ftKeepPlace, ftExplorePress, ftBindTreeArrows, ftHoverExpander} from './folder-tree-press.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {originKey} from './diary-list-model.mjs';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, TABS, TAB_TEXT, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
   colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearLabels, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
 import {word} from './brand/brand.mjs';
+import {setDragGhostImage} from './drag-ghost.js'; // S70-79 STD-끌기모양: 끄는 사진은 공용 이름 조각 하나
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
 installDragEdgeScroll();
@@ -2608,12 +2609,13 @@ function syncFolderLayer() {
   }}) || null;
   if (!deep && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
 }
-function goFolder(id, {picked = true} = {}) {
+function goFolder(id, {picked = true, openSelf = true} = {}) {
   if (!tree || !photoFolderById(tree, id)) return;
   const from = fxNow();
   if (!treeWide() && fxWalk.length) fxWalk = walkTo(fxWalk, fxKey('o', id), {down: pAt === null && gdAt === null && photoFolderById(tree, id)?.parent_id === at});
   select.stop(); at = id; pAt = null; gdAt = null; fxTopFocus = false;
-  for (const f of photoFolderTrail(tree, id)) openSet.add(f.id);
+  // TREE-탐색기꺾쇠(T10): 나무 이름 누르기(openSelf:false)로 들어간 폴더 자신은 펼치지 않는다(위 폴더들만 — 펼치기는 꺾쇠·두 번 누르기·→).
+  for (const f of photoFolderTrail(tree, id)) if (openSelf || f.id !== id) openSet.add(f.id);
   renderFolders();
   if (picked) pickFolder(from);
   window.scrollTo?.(0, 0);
@@ -2833,7 +2835,7 @@ function folderClick(b) {
   // 오른쪽 칸의 하위 폴더 줄·폰·폴드는 지금처럼 그 폴더로.
   if (b.matches('[data-photos-fx-open]')) {
     const id = b.dataset.photosFxOpen;
-    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goFolder(id)); return true; }
+    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goFolder(id, {openSelf: false})); return true; }
     goFolder(id); return true;
   }
   if (b.matches('[data-photos-fx-sw]')) { toggleFolder(b.dataset.photosFxSw); return true; }
@@ -3039,13 +3041,13 @@ function paintGdFolderGridNow() {
   paintSize(); paintSelect();
 }
 // 폴더 고르기(PC: 오른쪽 칸, 폰: 그 폴더 한 화면). 위 폴더들은 나무에서 펼친다. 'root' = 맨 위('구글 드라이브').
-function goGdFolder(id, {picked = true} = {}) {
+function goGdFolder(id, {picked = true, openSelf = true} = {}) {
   if (id !== GDRIVE_TOP && !gdFolderInfo(id)) return;
   const from = fxNow();
   // 폰: 나무에서 고른 폴더가 길 처음, 그 안 하위 폴더를 누르면 한 단계 내려옴(FILES-폰폴더위로 ⑤).
   if (!treeWide()) fxWalk = id === GDRIVE_TOP ? [] : walkTo(gdAt === null ? [] : fxWalk, fxKey('g', id), {down: gdAt !== null && gdParentOf(id) === gdAt});
   select.stop();
-  for (const f of photoFolderTrail(gdTree(), id)) gdOpen.add(f.id); // 위 폴더들과 그 폴더를 펼친다(원드라이브 goFolder와 같음).
+  for (const f of photoFolderTrail(gdTree(), id)) if (openSelf || f.id !== id) gdOpen.add(f.id); // 위 폴더들과 그 폴더를 펼친다(원드라이브 goFolder와 같음, 나무 이름 누르기는 그 폴더 자신 빼고 — T10).
   gdAt = id; pAt = null;
   renderFolders(); if (picked) pickFolder(from); window.scrollTo?.(0, 0);
 }
@@ -3120,7 +3122,7 @@ function gdFolderClick(b) {
   if (b.matches('[data-photos-gf-open]')) {
     const id = b.dataset.photosGfOpen;
     // S69-38 UI-탐색기나무누르기: PC 나무 폴더 이름 누르기 = 오른쪽을 그 폴더로 + 접혀 있으면 펼침(원드라이브와 같은 공용 부품). 펼친 층을 아직 읽지 않았으면 나무가 읽는다(gdTreeHtml).
-    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goGdFolder(id)); return true; }
+    if (treeWide() && b.closest('[data-photos-fx-tree]')) { ftExplorePress(b, () => goGdFolder(id, {openSelf: false})); return true; }
     goGdFolder(id); return true;
   }
   if (b.matches('[data-photos-gf-tog]')) { gdToggleOpen(b.dataset.photosGfTog); return true; }
@@ -3604,14 +3606,17 @@ body.addEventListener('dragstart', e => {
   const ids = select.active && select.has(it.id) ? pickedItems().map(x => x.id) : [it.id];
   drag = null; cancelHold();
   e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(ids)); e.dataTransfer.setData('text/plain', `사진 ${ids.length}장`); e.dataTransfer.effectAllowed = 'move';
+  setDragGhostImage(e.dataTransfer, `사진 ${ids.length}장`, document, e);
   b.classList.add('nx-dragging');
 });
-body.addEventListener('dragend', e => { e.target.closest?.('[data-photos-open]')?.classList.remove('nx-dragging'); body.querySelectorAll('.nx-drop').forEach(x => x.classList.remove('nx-drop')); });
+body.addEventListener('dragend', e => { photoTreeHover.stop(); e.target.closest?.('[data-photos-open]')?.classList.remove('nx-dragging'); body.querySelectorAll('.nx-drop').forEach(x => x.classList.remove('nx-drop')); });
 const dropRow = e => (e.dataTransfer?.types || []).includes(DRAG_TYPE) ? e.target.closest?.('[data-photos-fx-tree] [data-photos-folder]') : null;
-body.addEventListener('dragover', e => { const row = dropRow(e); if (!row) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; body.querySelectorAll('.nx-drop').forEach(x => { if (x !== row) x.classList.remove('nx-drop'); }); row.classList.add('nx-drop'); });
+// TREE-펼치기먼저 ④(S70-81): 끄는 중 왼쪽 나무의 닫힌 폴더 위에 0.6초 머무르면 저절로 펼친다(공용 ftHoverExpander, [파일]과 같은 값).
+const photoTreeHover = ftHoverExpander(id => { if (!openSet.has(id)) { openSet.add(id); renderFolders(); } });
+body.addEventListener('dragover', e => { const row = dropRow(e); const shut = row?.querySelector(':scope > [data-photos-fx-tog][aria-expanded="false"]'); photoTreeHover.over(shut ? shut.dataset.photosFxTog : '', !!shut); if (!row) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; body.querySelectorAll('.nx-drop').forEach(x => { if (x !== row) x.classList.remove('nx-drop'); }); row.classList.add('nx-drop'); });
 body.addEventListener('dragleave', e => { const row = dropRow(e); if (row && !row.contains(e.relatedTarget)) row.classList.remove('nx-drop'); });
 body.addEventListener('drop', e => {
-  const row = dropRow(e); if (!row) return;
+  const row = dropRow(e); photoTreeHover.stop(); if (!row) return;
   e.preventDefault(); row.classList.remove('nx-drop');
   let ids = [];
   try { ids = JSON.parse(e.dataTransfer.getData(DRAG_TYPE) || '[]').filter(x => typeof x === 'string'); } catch { /* 모양이 다르면 놓지 않음 */ }

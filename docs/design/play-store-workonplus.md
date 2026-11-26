@@ -1,6 +1,6 @@
 # 플레이 스토어 판 WORK ON+ (com.workonplus.app)
 
-S69-10, 2026-11-24 명진 결정(08:05). S62-34(APP-플레이스토어비공개테스트)의 play 판을 새 앱으로 옮긴다.
+S69-10, 2026-11-24 사용자 결정(08:05). S62-34(APP-플레이스토어비공개테스트)의 play 판을 새 앱으로 옮긴다.
 
 ## 결정
 
@@ -51,7 +51,7 @@ S69-10, 2026-11-24 명진 결정(08:05). S62-34(APP-플레이스토어비공개�
 | minSdk | 29 |
 | 스스로 업데이트·설치 요청 | play 판에서 `REQUEST_INSTALL_PACKAGES`·`UPDATE_PACKAGES_WITHOUT_USER_ACTION` 뺌, `SELF_UPDATE=false` |
 | 모든 파일 접근 | play 판에서 `MANAGE_EXTERNAL_STORAGE` 뺌, `ALL_FILES=false` |
-| 앞쪽 서비스(포그라운드 서비스) 신고 | S70-45(명진 결정 11/25 '플레이 판만 빼고 먼저'): play 판에서 `FOREGROUND_SERVICE`·`_MICROPHONE`·`_DATA_SYNC`와 두 서비스의 `foregroundServiceType` 뺌, `FG_SERVICES=false` — 신고 없음 |
+| 앞쪽 서비스(포그라운드 서비스) 신고 | S70-45(사용자 결정 11/25 '플레이 판만 빼고 먼저'): play 판에서 `FOREGROUND_SERVICE`·`_MICROPHONE`·`_DATA_SYNC`와 두 서비스의 `foregroundServiceType` 뺌, `FG_SERVICES=false` — 신고 없음 |
 | 사진·동영상 권한 신고 | S70-45: play 판에서 `READ_MEDIA_*`·`READ_EXTERNAL_STORAGE`·`ACCESS_MEDIA_LOCATION`·`MANAGE_MEDIA` 뺌, `PHONE_GALLERY=false` — 신고 없음 |
 | 제한 권한(통화·SMS·위치·연락처·카메라·모든 앱 보기 등) | 없음 — `check-flavor-manifests.py`가 빌드된 판으로 막는다 |
 
@@ -81,7 +81,7 @@ play 판에 없는 것(S70-45, github 판에는 그대로): 사진 메뉴 '폰 �
 - 앱 안: 내 프로필 › 계정 › [계정 삭제] → 확인 창(지워지는 것·남는 것·되돌릴 수 없음, 확인 글자 '삭제') → 바로 삭제 + 모든 기기 로그아웃. 설계 `docs/design/account-delete.md`.
 - 웹 주소: `https://workonplus.com/work/about/delete-account/`(로그인 없이 열림, 앱 안 방법 + 앱에 못 들어갈 때 방법).
 
-## CC·명진 할 일
+## CC·사용자 할 일
 
 - Firebase: 같은 Firebase 프로젝트에 Android 앱 `com.workonplus.app`을 등록하고, 나온 앱 ID를 GitHub environment `phone-app-release` 변수 `WEB2_FCM_PLAY_APP_ID`에 넣는다(비밀값 아님). 없으면 play 판은 알림만 꺼진 채 빌드된다. API 키에 Android 앱 제한이 걸려 있으면 `com.workonplus.app`과 플레이 앱 서명 키 SHA-1을 더한다.
 - 플레이 콘솔: 새 앱 `com.workonplus.app`(WORK ON+) 만들기 → Play App Signing → 업로드 키 인증서가 `play-bundle.yml` 요약의 SHA-256과 같은지 확인. 앱 서명 키 SHA-256은 App Links를 쓸 때 위 자리에 넣는다.

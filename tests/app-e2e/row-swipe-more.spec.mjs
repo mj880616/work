@@ -46,16 +46,14 @@ async function touchTap(locator) {
 }
 const ends = (root) => root.locator('[data-row-swipe-act="end"]');
 const cell = (root, key) => root.locator(`[data-row-swipe-key="${key}"]`);
-// S70-60 UI-스와이프메뉴만(명진 11/26): 오른쪽으로 끝까지 밀어도 [선택] 칸만 펼쳐진다 → 칸을 눌러야 선택이 시작된다.
+// S70-64 W3(결정 장부 W3): 오른쪽 밀기는 선택만 — 손을 떼면 [선택] 칸을 열어 두지 않고 바로 그 줄이 선택된다(막대가 뜬다).
+// 민 뒤 목록이 다시 그려져 손동작이 빠졌으면 막대가 뜰 때까지 다시 민다(선택 중에는 줄 밀기가 꺼져 있어 두 번 골라지지 않음).
 async function swipePick(page, locator, how = swipe) {
-  const b = page.locator('[data-row-swipe-key="select"]');
-  // 민 뒤 목록이 다시 그려지면 열린 칸도 닫히므로, 칸이 보일 때까지 다시 민다.
   await expect(async () => {
     await how(locator, 320);
-    await expect(b).toBeVisible({ timeout: 1000 });
+    await expect(page.locator('.row-swipe-pickbar:visible, .kptu-selbar:visible').first()).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
-  await expect(page.locator('.row-swipe-pickbar:visible')).toHaveCount(0);
-  await touchTap(b);
+  await expect(page.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
 }
 // 시험은 시계를 멈춰 두므로 실제처럼 1초 흐르게 한 뒤 다음 손동작을 한다(줄 밀기 시각보다 뒤에 시작한 손동작).
 const tick = async page => { try { await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000)); } catch { /* 시계를 멈추지 않은 시험 */ } };
@@ -95,37 +93,31 @@ async function openReading(page, width) {
 }
 const rdRow = (list, id) => list.locator(`.rd-row[data-rd-open="${id}"]`);
 
-test('읽을 거리 412: 왼쪽 밀기 [사업에 연결]·[읽음]·[삭제] 칸, 끝까지 밀어도 바로 하지 않고 칸만 열림', async ({ page }) => {
+// S70-62 READ-밀기메뉴(명진 11/26 07:41 "저장된 글에서는 수정 삭제로"): 저장한 글 줄 왼쪽 밀기 칸은 [수정][삭제] 둘. 읽음·사업에 연결은 ⋯에만.
+test('저장한 글 390: 왼쪽 밀기 [수정][삭제] 두 칸, 끝까지 밀어도 바로 하지 않고 칸만 열림, [수정]은 제목·매체 칸', async ({ page }) => {
   test.setTimeout(90000);
-  const { s, errors, list } = await openReading(page, 412);
+  const { s, errors, list } = await openReading(page, 390);
   await swipe(rdRow(list, RA), -60);
-  await expect(ends(list)).toHaveCount(3);
-  await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'area');
-  await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'read');
-  // S68-31: ⋯에 [삭제]가 있으므로 맨 끝(위험 색)에 [삭제].
-  await expect(ends(list).nth(2)).toHaveAttribute('data-row-swipe-key', 'delete');
-  await expect(ends(list).nth(2)).toHaveClass(/row-swipe-tone-danger/);
+  await expect(ends(list)).toHaveCount(2);
+  await expect(ends(list)).toHaveText(['수정', '삭제']);
+  await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'edit');
+  await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'delete');
+  await expect(ends(list).nth(1)).toHaveClass(/row-swipe-tone-danger/);
   // 칸은 줄 높이만큼 꽉 찬다.
   const [cellH, rowH] = await Promise.all([ends(list).first().evaluate(b => b.getBoundingClientRect().height), rdRow(list, RA).evaluate(r => r.getBoundingClientRect().height)]);
   expect(Math.abs(cellH - rowH)).toBeLessThan(1.5);
-  await touchTap(cell(list, 'read'));
-  await expect.poll(() => s.patches.filter(p => p.id === RA).length).toBe(1);
-  expect(s.patches.at(-1).body.read_at).toBeTruthy();
-  // 읽은 줄(B)을 왼쪽 끝까지: 맨 끝이 [삭제]라 아무것도 하지 않고 칸만 열린 채 멈춘다(묻는 창도 없음).
+  // 끝까지 밀기: 맨 끝이 [삭제]라 아무것도 하지 않고 칸만 열린 채 멈춘다(묻는 창도 없음).
   await tick(page);
   await swipe(rdRow(list, RB), -320);
-  await expect(ends(list)).toHaveCount(3);
-  await expect(cell(list, 'unread')).toBeVisible();
+  await expect(ends(list)).toHaveCount(2);
   await expect(page.locator('.kptu-ask')).toHaveCount(0);
-  // 열린 칸의 [안 읽음으로] = ⋯ 메뉴와 같은 길.
-  await touchTap(cell(list, 'unread'));
-  await expect.poll(() => s.patches.filter(p => p.id === RB).length).toBe(1);
-  expect(s.patches.at(-1).body.read_at).toBeNull();
-  // [사업에 연결] 칸 = ⋯ [사업에 연결]과 같은 사업영역 고르기 창.
-  await tick(page);
-  await swipe(rdRow(list, RC), -60);
-  await touchTap(cell(list, 'area'));
-  await expect(page.locator('#areaOrgPickSheet')).toBeVisible();
+  // [수정] = ⋯ [수정]과 같은 길: 글 보기를 열고 제목·매체 칸.
+  await touchTap(cell(list, 'edit'));
+  const form = page.locator('#readingView [data-rd-edit-form]');
+  await expect(form).toBeVisible();
+  await expect(form.locator('input[name="title"]')).toHaveValue('가짜 칼럼 둘');
+  // S70-62: '보관'은 '저장'으로 통일 — 저장한 글 화면에 '보관' 글자가 없다.
+  expect(await page.locator('#readingView').evaluate(el => el.innerText)).not.toContain('보관');
   expect(s.deletes).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
@@ -153,7 +145,7 @@ test('읽을 거리 412: 왼쪽 밀기 [삭제] — ⋯ 삭제와 같이 묻고,
   expect(errors).toEqual([]);
 });
 
-test('읽을 거리 412: 오른쪽 밀기 [선택] 칸 누르기 → n개 선택됨 · [읽음][삭제], [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
+test('저장한 글 412: 오른쪽 밀기 [선택] 칸 누르기 → 막대는 [전체 선택][삭제] 두 칸(✕·개수 글자 없음), Esc로 끝', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors, list } = await openReading(page, 412);
   await swipePick(page, rdRow(list, RA));
@@ -164,17 +156,17 @@ test('읽을 거리 412: 오른쪽 밀기 [선택] 칸 누르기 → n개 선택
   await rdRow(list, RC).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(page.locator('#readingView [data-rd-detail] .rd-title')).toHaveCount(0);
-  // S68-29: 고르기 단추는 [읽음][삭제](News에서 보낸 줄도 같은 단추).
-  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
-  await bar.locator('[data-row-pick-act="read"]').click();
-  await expect.poll(() => s.patches.map(p => p.id).sort()).toEqual([RA, RC].sort());
-  expect(s.patches.every(p => p.body.read_at)).toBe(true);
+  // S70-64b: 고르기 단추는 [삭제] 하나(+ 맨 앞 [전체 선택]). 읽음은 줄 밀기·⋯로(News에서 보낸 줄도 같은 단추).
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['삭제']);
+  await expect(bar.locator('[data-row-pick-stop]')).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await expect(bar).toBeHidden();
-  // [그만]: 선택을 끝내면 선택 줄이 사라진다.
+  expect(s.patches).toEqual([]);
+  // Esc: 선택을 끝내면 선택 줄이 사라진다(다시 해도 같다).
   await tick(page);
   await swipePick(page, rdRow(list, RB));
   await expect(bar).toBeVisible();
-  await bar.locator('[data-row-pick-stop]').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await expect(bar).toBeHidden();
   expect(s.deletes).toEqual([]);
   expect(errors).toEqual([]);
@@ -214,13 +206,13 @@ test('읽을 거리 412: 줄 위 좌우 밀기는 칩을 넘기지 않고, 줄 �
   const allChip = list.locator('.rd-switch [data-filter-value="all"]');
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await both(rdRow(list, RA), -120);
-  await expect(ends(list)).toHaveCount(3);
+  await expect(ends(list)).toHaveCount(2);
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await tick(page);
   await swipePick(page, rdRow(list, RB), both);
   await expect(page.locator('#readingView .row-swipe-pickbar')).toBeVisible();
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
-  await page.locator('#readingView [data-row-pick-stop]').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await tick(page);
   await both(list.locator('.rd-head'), -160);
   await expect(allChip).toHaveAttribute('aria-checked', 'false');
@@ -250,9 +242,10 @@ test('자료실 390: 왼쪽 밀기 [옮기기]·[삭제] 칸 — 끝까지 밀�
   await expect(luRows(page)).toHaveCount(5);
   // 끝까지 밀어도 맨 끝이 삭제라 칸만 열린다.
   await swipe(luRow(page, 'n1'), -320);
-  await expect(ends(list)).toHaveCount(2);
+  await expect(ends(list)).toHaveCount(3); // S70-65 가안: [옮기기][이름 바꾸기][삭제]
   await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'move');
-  await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'delete');
+  await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'rename');
+  await expect(ends(list).nth(2)).toHaveAttribute('data-row-swipe-key', 'delete');
   await expect(luRows(page)).toHaveCount(5);
   await touchTap(cell(list, 'delete'));
   await expect(luRows(page)).toHaveCount(4);
@@ -321,10 +314,11 @@ test.describe('일정 목록', () => {
     test.setTimeout(90000);
     const { state, errors, list } = await openList(page, 412);
     // 켜 둔 일정(쓰기 권한 있는 캘린더): [표시 끄기]·[삭제] 두 칸. S68-31: 메뉴에 [삭제]가 있어 맨 끝에 [삭제].
-    await swipe(ev(list, 'todo2'), -60);
-    await expect(ends(list)).toHaveCount(2);
+    // S70-65 가안: [표시 끄기][수정][삭제]. 목록은 연 뒤 늦게 온 읽기로 한 번 더 그려져 열린 칸이 닫힐 수 있어 칸이 보일 때까지 민다.
+    await expect(async () => { await swipe(ev(list, 'todo2'), -60); await expect(ends(list)).toHaveCount(3, { timeout: 1000 }); }).toPass({ timeout: 15000 });
     await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'plan-off');
-    await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'delete');
+    await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'edit');
+    await expect(ends(list).nth(2)).toHaveAttribute('data-row-swipe-key', 'delete');
     await touchTap(cell(list, 'plan-off'));
     await expect.poll(() => state.planWrites.length).toBe(1);
     expect(JSON.stringify(state.planWrites[0].body)).toContain('"off"');
@@ -332,7 +326,7 @@ test.describe('일정 목록', () => {
     // 그냥 일정을 끝까지: 맨 끝이 [삭제]라 바로 하지 않고 칸만 열린다(일정 창·묻기 없음). 열린 [보고할 일정]을 누르면 켠다.
     await tick(page);
     await swipe(ev(list, 'none1'), -320);
-    await expect(ends(list)).toHaveCount(2);
+    await expect(ends(list)).toHaveCount(3);
     await expect(page.locator('#ciGoogleModal')).toBeHidden();
     await expect(page.locator('.kptu-ask')).toHaveCount(0);
     expect(state.planWrites.length).toBe(1);

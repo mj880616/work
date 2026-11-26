@@ -3,7 +3,7 @@
 // 화면 왼쪽 가장자리 24px 안에서 시작한 밀기는 무시한다(뒤로가기 손동작과 겹침 방지. 오른쪽 끝은 막지 않음 — S68-53). 버튼 한 칸은 64px.
 // UI-줄밀기 Raindrop식(S68-26, 명진 11/22 21:31 "좌우 스와이프. 이것도 곳곳에 따라해"):
 // - 왼쪽으로 밀기(end) = 오른쪽 끝에 단추 여러 칸(최대 3). 왼쪽부터 덜 위험한 것 → 맨 오른쪽 위험한 것(삭제). 칸은 줄 높이만큼 꽉 찬다.
-// - 오른쪽으로 밀기(start) = 왼쪽 끝에 [선택] 한 칸 → 그 줄이 골라진 채로 '여러 개 고르기'.
+// - 오른쪽으로 밀기(start) = 그 줄이 골라진 채로 '여러 개 고르기'(S70-64 W3: 칸을 열어 두지 않고 바로 고르기 — 아래 startPick).
 // - 밀고 떼면(첫 칸 폭의 절반 이상) 칸만 보이고 멈춘다. 얼마나 멀리 밀든(끝까지 밀어도) 어떤 칸도 바로 실행하지 않는다 — 일은 펼쳐진 칸을 눌렀을 때만.
 //   UI-스와이프메뉴만(S70-60, 명진 11/26 07:29 "왼쪽으로 스와이프를 끝까지 한다고 해서 숨겨지면 안 돼 … 메뉴가 펼쳐지고 … 그 메뉴를 눌렀을 때 돼야 돼"):
 //   전의 '끝까지 쭉 밀면 맨 끝 칸 바로 실행(full swipe, 삭제 칸만 예외)'을 없앴다. 칸이 여러 개라 끝까지 밀기 실행은 오작동이 잦았다.
@@ -37,9 +37,13 @@ export function endCells(end) {
 }
 // 줄에서 쓸 칸 수. has.start/has.end는 칸 수(옛 true/false도 받음: true = 1칸).
 const count = v => (v === true ? 1 : Math.max(0, Math.min(SWIPE_END_MAX, Number(v) || 0)));
+// UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야"):
+// 오른쪽 밀기는 고르기 하나뿐이다. start 칸이 [선택](key 'select')이면 startPick — 반 칸(32px) 넘게 밀고 떼면 칸을 열어 두지 않고 바로 그 줄을 고른다.
+export const PICK_KEY = 'select';
 export function sides(acts) {
-  const ends = endCells(acts?.end);
-  return {start: acts?.start ? 1 : 0, end: ends.length};
+  const ends = endCells(acts?.end), out = {start: acts?.start ? 1 : 0, end: ends.length};
+  if (acts?.start?.key === PICK_KEY) out.startPick = true;
+  return out;
 }
 // 줄이 따라가는 자리. 칸이 없는 쪽으로는 움직이지 않는다. 줄 폭보다 더 가지 않는다.
 export function rowOffset(dx, open = 0, has = {start:true, end:true}, rowWidth = 360) {
@@ -51,6 +55,9 @@ export function rowOffset(dx, open = 0, has = {start:true, end:true}, rowWidth =
 // 전에는 칸 3개(192px)가 열린 줄을 닫으려면 160px 넘게 되밀어야 해서, 짧게 밀면 다시 열린 채로 남았다.
 export function rowSettle(offset, has = {start:true, end:true}, rowWidth = 360, from = 0) {
   const x = Number(offset) || 0, s = count(has.start), e = count(has.end), was = Number(from) || 0, half = SWIPE_BTN / 2;
+  // 고르기(startPick, S70-64 W3): 반 칸 넘게 오른쪽으로 밀면 칸을 열지 않고 바로 고른다(pick). 열린 왼쪽 칸을 닫는 되밀기는 닫기가 먼저.
+  // 고르기는 데이터 일을 하지 않으므로 S70-60(밀기로는 일을 바로 하지 않음)과 겹치지 않는다.
+  if (s && has.startPick && x >= half && !(was < 0 && x < half)) return {side:'start', pick:true};
   if (was < 0 && x >= was + half && x < half) return {side:''};
   if (was > 0 && x <= was - half && x > -half) return {side:''};
   if (s && x >= half) return {side:'start'};

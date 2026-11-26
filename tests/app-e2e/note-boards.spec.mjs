@@ -89,7 +89,7 @@ test('PC: 보드 없음 = [+ 새 보드]와 빈 안내([전체] 없음) → 새 
   // S69-33: 이미 붙은 줄은 흐리게가 아니라 보통 진하기 + 작은 점('보드에 있음').
   const onRow = side.locator('[data-nbb-note="n1"]');
   await expect(onRow).toHaveAttribute('data-nbb-on', '');
-  await expect(onRow.locator('.nbb-dot')).toBeVisible();
+  await expect(onRow.locator('.ft-on-dot')).toBeVisible();
   expect(await onRow.evaluate(el => getComputedStyle(el).opacity)).toBe('1');
   await expect(onRow).not.toHaveAttribute('title', /./); // S70-79: 쓰는 법 안내 title 없음
   // 끌어 놓기로만 붙는다(놓은 자리마다).
@@ -181,7 +181,7 @@ test('PC: 보드 왼쪽 목록에서 노트를 하위 폴더·폴더 없음에 �
   await folderRow('회의').click();
   await folderRow('폴더 없음').click();
   await expect(folderRow('궤도')).toBeVisible();
-  await expect(folderRow('궤도').locator('.nbb-num')).toHaveText('0');
+  await expect(folderRow('궤도').locator('.ft-num')).toHaveText('0');
   // 끄는 동안: 놓을 폴더 줄 강조, 지금 든 폴더(폴더 없음)는 강조하지 않음.
   // 마우스로 브라우저 끌기: 누른 채 조금 움직여 시작 → 폴더 줄로(자리 알림은 다음 움직임에서 따라오므로 끝에서 한 번 더 움직임).
   const dragOver = async (from, to) => {
@@ -192,13 +192,13 @@ test('PC: 보드 왼쪽 목록에서 노트를 하위 폴더·폴더 없음에 �
     await page.mouse.move(b.x + 34, b.y + b.height / 2, { steps: 2 });
   };
   await dragOver(side.locator('[data-nbb-note="n2"]'), folderRow('궤도'));
-  await expect(folderRow('궤도')).toHaveClass(/nx-drop/);
-  await expect(side.locator('.nbb-folder.nx-drop')).toHaveCount(1);
+  await expect(folderRow('궤도').locator('xpath=..')).toHaveClass(/nx-drop/);
+  await expect(side.locator('.ft-row.nx-drop')).toHaveCount(1);
   await page.mouse.up();
-  await expect(side.locator('.nbb-folder.nx-drop')).toHaveCount(0);
+  await expect(side.locator('.ft-row.nx-drop')).toHaveCount(0);
   await expect.poll(() => rows[1].metadata.folder_id).toBe(G);
   expect(rows[1].metadata.folder).toBe('궤도');
-  await expect(folderRow('궤도').locator('.nbb-num')).toHaveText('1');
+  await expect(folderRow('궤도').locator('.ft-num')).toHaveText('1');
   await expect(cards(page)).toHaveCount(0); // 폴더로 옮기기는 판에 붙이지 않는다
   // 판 놓기는 그대로.
   await side.locator('[data-nbb-note="n1"]').dragTo(page.locator('[data-nb-scroll]'), { targetPosition: { x: 400, y: 300 } });
@@ -209,13 +209,13 @@ test('PC: 보드 왼쪽 목록에서 노트를 하위 폴더·폴더 없음에 �
   await expect(folderRow('폴더 없음')).toHaveCount(0);
   await expect(side.locator('[data-nbb-note="n1"]')).toHaveAttribute('data-nbb-on', '');
   await dragOver(side.locator('[data-nbb-note="n1"]'), side.locator('[data-nbb-folder]', { hasText: /^회의/ }));
-  await expect(side.locator('.nbb-folder.nx-drop')).toHaveCount(0);
+  await expect(side.locator('.ft-row.nx-drop')).toHaveCount(0);
   const sub = await folderRow('궤도').boundingBox(); // 같은 끌기로 이어서 하위 폴더로
   await page.mouse.move(sub.x + 30, sub.y + sub.height / 2, { steps: 4 }); await page.mouse.move(sub.x + 34, sub.y + sub.height / 2, { steps: 2 });
-  await expect(folderRow('궤도')).toHaveClass(/nx-drop/);
+  await expect(folderRow('궤도').locator('xpath=..')).toHaveClass(/nx-drop/);
   await page.mouse.up();
   await expect.poll(() => rows[0].metadata.folder_id).toBe(G);
-  await expect(folderRow('궤도').locator('.nbb-num')).toHaveText('2');
+  await expect(folderRow('궤도').locator('.ft-num')).toHaveText('2');
   expect(rows[0].metadata.boards?.[id]).toBeTruthy();
   await expect(cards(page)).toHaveCount(1);
   expect(errors).toEqual([]);
@@ -228,9 +228,9 @@ test('넓은 터치 화면: 보드 왼쪽 목록 노트를 꾹 눌러 끌어 하
   await expect(side).toBeVisible();
   await folderRow('회의').click();
   await folderRow('폴더 없음').click();
-  await touchDrag(page, side.locator('[data-nbb-note="n3"]'), folderRow('궤도'), { before: async () => { await expect(folderRow('궤도')).toHaveClass(/nx-drop/); } });
+  await touchDrag(page, side.locator('[data-nbb-note="n3"]'), folderRow('궤도'), { before: async () => { await expect(folderRow('궤도').locator('xpath=..')).toHaveClass(/nx-drop/); } });
   await expect.poll(() => rows[2].metadata.folder_id).toBe(G);
-  await expect(folderRow('궤도').locator('.nbb-num')).toHaveText('1');
+  await expect(folderRow('궤도').locator('.ft-num')).toHaveText('1');
   await expect(cards(page)).toHaveCount(0);
   await page.waitForTimeout(700); // 끌기 뒤 따라오는 누르기 삼킴이 끝난 뒤
   // S69-33: 짧게 누르기는 붙이지 않는다(붙이기는 끌어 놓기·[+ 노트 붙이기]만) — 아직 안 붙은 노트는 노트 열기.
@@ -310,7 +310,7 @@ test('PC 1280: 보드 노트 목록 줄 마우스 올림 = 공용 색 하나 · 
   await expect(row).toBeVisible();
   // 안내 말풍선 없음: 줄·보드 칸·목록 어디에도 쓰는 법 title이 없다. 이름 칸은 전체 이름.
   await expect(row).not.toHaveAttribute('title', /./);
-  await expect(row.locator('.nbb-name')).toHaveAttribute('title', '나 노트');
+  await expect(row.locator('.ft-name')).toHaveAttribute('title', '나 노트');
   await expect(chip(page, '교섭')).not.toHaveAttribute('title', /./);
   expect(await side.evaluate(el => [...el.querySelectorAll('[title]')].map(x => x.title).filter(t => /끌어|누르면|우클릭|놓으면/.test(t)))).toEqual([]);
   const bb = await row.boundingBox();
@@ -323,16 +323,81 @@ test('PC 1280: 보드 노트 목록 줄 마우스 올림 = 공용 색 하나 · 
     const r = document.querySelector('[data-nbb-side] [data-nbb-note="n2"]');
     const clear = c => c === 'rgba(0, 0, 0, 0)' || c === 'transparent';
     const sideBg = getComputedStyle(document.querySelector('[data-nbb-side]')).backgroundColor;
+    // S70-82: 목록은 [파일] 나무와 같은 둥근 상자(.ft-box) 안 — 상자 바탕도 목록 칸 바탕이다.
+    const boxBg = getComputedStyle(document.querySelector('[data-nbb-side] .ft-box')).backgroundColor;
     // 커서 자리에 겹친 칸: 줄(공용 색)·목록 칸 바탕 말고 다른 바탕이 없어야 한다.
     const stack = document.elementsFromPoint(x, y).filter(e => e.closest('[data-nbb-side]') || e.matches('.td-ghost,mark'))
       .map(e => getComputedStyle(e).backgroundColor).filter(c => !clear(c));
     const inner = [...r.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundColor).filter(c => !clear(c));
-    return { common, row: getComputedStyle(r).backgroundColor, sideBg, stack, inner,
+    return { common, row: getComputedStyle(r).backgroundColor, sideBg, boxBg, stack, inner,
       marks: document.querySelectorAll('[data-nbb-side] mark, mark.hl-mark, .td-ghost, [data-drag-ghost]').length };
   }, { x: bb.x + 30, y: bb.y + bb.height / 2 });
   expect(look.row).toBe(look.common);
   expect(look.inner).toEqual([]);
   expect(look.marks).toBe(0);
-  expect(look.stack.filter(c => c !== look.common && c !== look.sideBg)).toEqual([]);
+  expect(look.stack.filter(c => c !== look.common && c !== look.sideBg && c !== look.boxBg)).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+// S70-79 STD-끌기모양(명진 11/26 "노란 네모"): PC에서 왼쪽 노트 목록 줄을 끌 때 마우스를 따라오는 것은 줄 이름이 든 작은 칩 하나.
+// 칩은 화면 안(끌기 그림이 그려질 그 자리)에서 찍는다 — 화면 밖(top:-1000px)에서 찍으면 PC 크롬이 테두리만 남은 작은 네모를 따라오게 했다.
+// 끌기 중 글자 선택(파란 칠) 없음, 줄마다 뜨던 긴 조작 안내 툴팁 없음. 보드에 놓으면 붙고, 폴더 줄에 놓으면 옮겨지는 동작은 그대로.
+test('PC: 노트 목록 줄 끌기 = 줄 이름 칩 하나(화면 안·톤다운), 글자 선택·조작 안내 툴팁 없음, 보드·폴더 놓기 그대로 (1280)', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__dragImages = [];
+    const orig = DataTransfer.prototype.setDragImage;
+    DataTransfer.prototype.setDragImage = function (el, x, y) {
+      const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+      window.__dragImages.push({ cls: el.className, text: el.textContent, top: r.top, left: r.left, w: r.width, h: r.height,
+        vw: innerWidth, vh: innerHeight, border: cs.borderTopColor, chips: document.querySelectorAll('.td-ghost').length,
+        sel: String(getSelection()), x, y });
+      return orig.call(this, el, x, y);
+    };
+  });
+  const id = 'b1a2b3c4';
+  const { rows, errors } = await fixture(page, 1280, { note_view: 'board', note_boards: [{ id, name: '교섭' }], note_board: id });
+  const side = page.locator('[data-nbb-side]'), folderRow = name => side.locator('[data-nbb-folder]', { hasText: name });
+  await folderRow('회의').click();
+  await folderRow('폴더 없음').click();
+  const n2 = side.locator('[data-nbb-note="n2"]');
+  await expect(n2).toBeVisible();
+  // 줄마다 뜨던 조작 안내 툴팁('끌어다 보드에 놓으면 붙어요 …')이 없다.
+  await expect(n2).not.toHaveAttribute('title', /.+/);
+    // 끄는 줄은 글자 선택이 되지 않는다.
+  expect(await n2.evaluate(el => getComputedStyle(el).userSelect)).toBe('none');
+  // 앞서 줄 글자가 선택돼 있어도(명진 사진의 파란 칠) 끌기를 시작하면 지운다.
+  await n2.locator('.ft-name').evaluate(el => { const r = document.createRange(); r.selectNodeContents(el); getSelection().removeAllRanges(); getSelection().addRange(r); });
+  const a = await n2.boundingBox(), b = await folderRow('궤도').boundingBox();
+  await page.mouse.move(a.x + 20, a.y + a.height / 2); await page.mouse.down();
+  await page.mouse.move(a.x + 24, a.y + a.height / 2 - 6, { steps: 3 });
+  await page.mouse.move(b.x + 30, b.y + b.height / 2, { steps: 6 });
+  await page.mouse.move(b.x + 34, b.y + b.height / 2, { steps: 2 });
+  await expect(folderRow('궤도').locator('xpath=..')).toHaveClass(/nx-drop/);
+  expect(await page.evaluate(() => String(getSelection()))).toBe('');
+  const imgs = await page.evaluate(() => window.__dragImages);
+  expect(imgs).toHaveLength(1);
+  const g = imgs[0];
+  expect(g.cls).toContain('td-ghost');
+  expect(g.text).toBe('나 노트');
+  expect(g.sel).toBe('');
+  expect(g.chips).toBe(1); // 끌기 표시는 칩 하나
+  // 화면 안에서, 마우스 자리(끌기 그림이 그려질 곳)에 글자가 든 크기로 찍었다 — 화면 밖 빈 네모가 아님.
+  expect(g.top).toBeGreaterThanOrEqual(0); expect(g.left).toBeGreaterThanOrEqual(0);
+  expect(g.top + g.h).toBeLessThanOrEqual(g.vh); expect(g.left + g.w).toBeLessThanOrEqual(g.vw);
+  expect(g.w).toBeGreaterThan(30); expect(g.h).toBeGreaterThan(12);
+  expect(Math.abs(g.left + g.x - (a.x + 20))).toBeLessThan(12);
+  // 찍은 칩은 바로 뗀다(화면에 남은 끌기 그림 조각 없음).
+  await expect(page.locator('.dg-image')).toHaveCount(0);
+  await page.mouse.up();
+  // 폴더 줄에 놓으면 옮겨진다(그대로).
+  await expect.poll(() => rows[1].metadata.folder_id).toBe(G);
+  // 보드에 놓으면 붙는다(그대로), 이때도 칩 하나.
+  await side.locator('[data-nbb-note="n3"]').dragTo(page.locator('[data-nb-scroll]'), { targetPosition: { x: 400, y: 300 } });
+  await expect(cards(page)).toHaveCount(1);
+  await expect.poll(() => rows[2].metadata.boards?.[id]).toBeTruthy();
+  const after = await page.evaluate(() => window.__dragImages);
+  expect(after).toHaveLength(2);
+  expect(after[1]).toMatchObject({ text: '다 노트', chips: 1 });
+  expect(after[1].top).toBeGreaterThanOrEqual(0);
   expect(errors).toEqual([]);
 });

@@ -350,12 +350,12 @@ function weekMatch(list){return weekOn()?inReportWeek(list,currentWeek()):rangeO
 function applyPeriodPref(){if(reportPeriodChosen)return;const p=periodFromPref(viewPrefs.get('report_period'));reportPeriod=p.mode;if(p.mode==='range')reportRange={from:p.from,to:p.to}}
 function setPeriod(mode,range=null){reportPeriodChosen=true;reportPeriod=mode;if(range)reportRange=range;periodPanel='';periodDraft=null;isoDraft=null;meetingSelectedId=null;viewPrefs.set('report_period',prefFromPeriod({mode,...(mode==='range'?reportRange:{})}),{rejectable:true});renderMeetings({resetList:true})}
 function renderReportWeek(){const host=$('#reportWeekFilter'),bar=host?.parentElement,pickHost=$('#reportPeriodPick');if(!host)return;const show=reportView==='list'&&meetings.length>0;if(bar)bar.hidden=!show;if(pickHost)pickHost.hidden=!show;if(!show){host.innerHTML='';if(pickHost)pickHost.innerHTML='';paintReportFilterChip();return}
-  const mode=rangeOn()||reportPeriod!=='range'?reportPeriod:'all',list=filterByReportKind(meetings,reportChip),inList=mode==='week'?inReportWeek(list,currentWeek()):mode==='range'?inRange(list,reportRange.from,reportRange.to):list,none=undatedCount(inList),n=inList.length-none,count=`<small class="report-week-count">· ${n}건${none?` · ${NO_WHEN} ${none}`:''}</small>`;
+  const mode=rangeOn()||reportPeriod!=='range'?reportPeriod:'all',list=filterByReportKind(meetings,reportChip),inList=mode==='week'?inReportWeek(list,currentWeek()):mode==='range'?inRange(list,reportRange.from,reportRange.to):list,none=undatedCount(inList),n=inList.length-none,count=`<small class="report-week-count"><span class="rw-sep">· </span>${n}건${none?`<span class="rw-none"> · ${NO_WHEN} ${none}</span>`:''}</small>`;
   const thisWeek=weekOf(seoulDateKey()).from,numbered=mode==='week'&&weekNumbered,away=mode==='week'&&(currentWeek()!==thisWeek||numbered),held=mode==='range'&&!periodPanel,value=periodPanel||(away||held?'':mode);
   // BIZ-위쪽정돈(B안, 11/09): 기간 고르기 상자는 둘째 줄(회의·사업영역 옆), 주 넘기기 ‹ ›는 셋째 줄. 주를 고르는 곳은 이 한 곳이고 '이번 주 주간보고' 칸도 이 주를 따른다.
   const pick=`<select class="report-top-select report-period-select" data-report-period aria-label="기간 선택"><option value="" hidden>${held?'정한 기간':numbered?weekNumberName(currentWeek()):'주 단위'}</option>${PERIOD_CHOICES.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>`;
   let nav='';
-  if(mode==='week')nav=`<button type="button" class="icon-btn" data-report-week="prev" aria-label="이전 주">‹</button><span class="report-week-label" aria-live="polite">${numbered?`${weekNumberName(currentWeek())} · `:''}${esc(reportWeekLabel(currentWeek()))}</span><button type="button" class="icon-btn" data-report-week="next" aria-label="다음 주">›</button>${count}`;
+  if(mode==='week')nav=`<button type="button" class="icon-btn" data-report-week="prev" aria-label="이전 주">‹</button><span class="report-week-label" aria-live="polite">${numbered?`${weekNumberName(currentWeek())} · `:''}${weekLabelHtml(currentWeek())}</span><button type="button" class="icon-btn" data-report-week="next" aria-label="다음 주">›</button>${count}`;
   else if(mode==='all')nav=`<span class="report-week-label" aria-live="polite">전체</span>${count}`;
   else nav=`<span class="report-week-label" aria-live="polite">${esc(rangeLabel(reportRange.from,reportRange.to))}</span><button type="button" class="icon-btn report-period-x" data-report-week="clear" aria-label="기간 삭제">×</button>${count}`;
   let panel='';
@@ -366,6 +366,8 @@ function renderReportWeek(){const host=$('#reportWeekFilter'),bar=host?.parentEl
   if(pickHost){pickHost.innerHTML=pick;const sel=pickHost.querySelector('[data-report-period]');sel.value=value;sel.classList.toggle('is-on',mode!=='week'||away)}
   paintReportFilterChip();
 }
+// S71-10(명진 11/26 '한 줄에 우겨넣고 싶어'): 주 줄은 첫 줄 안에 선다. 요일 '(월)'·'(일)'은 따로 감싸, 줄이 모자라면 report-filter-chip.js가 .report-top에 붙이는 단계(is-week-short)에서 빠진다(글자 원문은 그대로).
+const weekLabelHtml=from=>esc(reportWeekLabel(from)).replace(/\((.)\)/g,'<span class="rw-dow">($1)</span>');
 const isoPick=from=>{const w=isoWeekOf(from);return {year:w.year,week:w.week}};
 function firstReportDay(){let first='';for(const m of meetings){const d=reportDayOf(m);if(d&&(!first||d<first))first=d}return first}
 function reportWeekClick(e){
@@ -590,7 +592,7 @@ async function loadGoogleEvents(){return window.KPTUCalendarPersistence?.refresh
 // 누름·색·저장은 calendar-persistence.js(cpDecorate)가 맡고, 점 색도 그쪽이 칠한다(한 주인).
 // 달력을 다시 그릴 때마다 부르므로 내용이 같으면 칩을 새로 만들지 않는다(누른 칩의 초점·열린 색 상자 유지).
 let googleListHtml='';
-function calendarChipHtml(c,on){const name=esc(c.summary||'')+(c.primary?' (기본)':'');return `<button type="button" class="ds-chip cal-chip" data-dot-toggle data-google-cal="${esc(c.id)}" aria-pressed="${on?'true':'false'}" title="누르면 보이기·숨기기 · 색 점을 누르면 색 바꾸기"><span class="ui-color-dot" data-cp-dot="${esc(c.id)}" aria-hidden="true"></span><span class="cal-chip-name">${name}</span></button>`}
+function calendarChipHtml(c,on){const name=esc(c.summary||'')+(c.primary?' (기본)':'');return `<button type="button" class="ds-chip cal-chip" data-dot-toggle data-google-cal="${esc(c.id)}" aria-pressed="${on?'true':'false'}"><span class="ui-color-dot" data-cp-dot="${esc(c.id)}" aria-hidden="true"></span><span class="cal-chip-name">${name}</span></button>`}
 function renderGoogleControls(){if(!$('#googleConnectBtn'))return;const panel=$('#googleCalendarPanel'),connect=$('#googleConnectBtn'),box=$('#googleCalendarList');$('#googleAccountLabel').textContent=googleState.connected?(googleState.email||'연결됨'):'연결 안 됨';connect.classList.toggle('hidden',!!googleState.connected);if(panel&&!panel.dataset.initialized&&typeof googleState.connected==='boolean'){panel.open=!googleState.connected;panel.dataset.initialized='1'}if(googleState.connected&&googleState.calendars?.length){box.classList.remove('hidden');const html='<b>표시할 Google 캘린더</b>'+googleState.calendars.map(c=>calendarChipHtml(c,googleState.selected?.includes(c.id))).join('')+'<span id="cpSaved" class="cal-saved" role="status" aria-live="polite"></span><button id="disconnectGoogle" class="secondary" type="button">연결 해제</button>';if(googleListHtml!==html||!$('#disconnectGoogle')){box.innerHTML=html;googleListHtml=html;$('#disconnectGoogle').onclick=disconnectGoogle}}else{box.classList.add('hidden');googleListHtml=''}window.KPTUCalendarPersistence?.decorate?.()}
 window.__KPTU_SYNC_GOOGLE_STATE__=next=>{googleState={...googleState,...(next||{})}};
 window.__KPTU_SYNC_GOOGLE_EVENTS__=next=>{googleState.events=Array.isArray(next)?next:[];scheduleCalendarRender()};
