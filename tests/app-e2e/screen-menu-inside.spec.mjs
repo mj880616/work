@@ -18,7 +18,7 @@ const orgs = [
 const SCREENS = [
   { key: '노트', view: 'basket', kind: 'note', tool: '[data-note-folder-more]', line: '#basketView [data-note-list] > .note-list-head' },
   // 잊지 말기(S71-29 둘째 줄 없앰)는 노트와 같은 화면 칸(#basketView)이라 첫 줄 자리를 같이 쓴다 — 지금 보이는 쪽의 첫 줄(.basket-head)로 간다.
-  { key: '잊지 말기', view: 'basket', kind: 'memo', tool: '[data-forget-view-open]', line: '#basketView > .basket-head', also: ['[data-inbox-find]'] },
+  { key: '잊지 말기', view: 'basket', kind: 'memo', tool: '[data-inbox-find]', line: '#basketView > .basket-head', also: ['[data-forget-view-open]'] },
   { key: '조직 관리', view: 'team', tool: '#soTeamMore', line: '#soTeamTabs' },
   { key: '자료실', view: 'library', tool: '#libraryTopMenuBtn', line: '#libraryView .lu-search-row', also: ['#newDocumentBtn'] },
   { key: '읽을 거리', view: 'outside', tool: '[data-os-more]', line: '#outsideRoot > .os-tabs', also: ['[data-nw-media]'] },
