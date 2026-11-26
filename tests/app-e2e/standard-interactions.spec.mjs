@@ -72,7 +72,7 @@ async function photos(page, width, { first = '' } = {}) {
     return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
   });
   await clickView(page, 'photos');
-  await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   return { errors, tree: page.locator('#photosRoot [data-photos-fx-tree][role="tree"]'), main: '.ft-row .ft-main' };
 }
 const SCREENS = [['자료실', library], ['노트', notes], ['사진', photos]];
@@ -1906,7 +1906,7 @@ async function t10Photos(page, width) {
     return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
   });
   await clickView(page, 'photos');
-  await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   const pane = page.locator('#photosRoot .photos-fx-pane');
   const kid = { S1: '', S2: 'S21', S21: 'S211' };
   return {

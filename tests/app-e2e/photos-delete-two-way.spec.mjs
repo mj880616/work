@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { srcPick, pickSource } from './helpers/photo-head.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S48-17 PHOTO-지우기두갈래(요청함 11/01 00:27, 시안 확정): 고른 사진 [지우기] → 작은 고르기 창 두 줄.
@@ -114,8 +115,8 @@ const sentOf = (page, re) => page.evaluate(src => window.__photoSent.filter(m =>
 async function phoneOnly(page) {
   await openPhotos(page, 412);
   await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
-  await page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]').click();
-  await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]')).toHaveAttribute('aria-pressed', 'false');
+  await pickSource(page, 'onedrive');
+  await expect(srcPick(page)).not.toHaveAttribute('aria-label', /원드라이브/);
   await expect.poll(() => ids(page)).toEqual(['ph:2', 'ph:1', 'K9']);
 }
 
