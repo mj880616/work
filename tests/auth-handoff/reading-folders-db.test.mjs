@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
-// S70-83 READ-저장한글폴더 DB(20261126120000_reading_folders):
+// S70-83 READ-저장한글폴더 DB(20261126123000_reading_folders):
 // - 새 표 app_reading_folders: owner만(RLS·정책 1개). 화면은 id·작업공간·이름·순서 넣기 / 이름·순서 고치기 / 지우기만. 작업공간은 못 고친다.
 //   service_role·anon 권한 없음. 남의 작업공간 폴더는 못 보고 못 넣고 못 고치고 못 지운다.
 // - app_reading_items.folder_id(새 칸): 같은 작업공간 폴더만 가리킨다(남의 폴더 id를 알아도 거절). 폴더를 지우면 글은 남고 칸만 비운다.
@@ -20,7 +20,7 @@ import {OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {setupSteps} from './reading-folders-fixture.mjs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const FN='20261126120000',FN_NAME='reading_folders',stem=FN+'_'+FN_NAME;
+const FN='20261126123000',FN_NAME='reading_folders',stem=FN+'_'+FN_NAME;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 const externalPort=process.env.READING_FOLDERS_PG_PORT;
@@ -71,7 +71,7 @@ test('READ-저장한글폴더 DB: owner-only saved-post folders and a same-works
    assert.match(code,/grant update \(name, sort_order\) on table public\.app_reading_folders to authenticated;/);
    assert.match(code,/grant update \(folder_id\) on table public\.app_reading_items to authenticated;/);
    assert.doesNotMatch(code,/to service_role/);
-   assert.match(F.migration,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\nvalues \('20261126120000', 'reading_folders'/);
+   assert.match(F.migration,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\nvalues \('20261126123000', 'reading_folders'/);
    for(const mode of ['apply','dry-run']){const p=plan(mode,'1');assert.equal(p.rules,'expanded');assert.equal(p.flow,'full');}
    assert.throws(()=>plan('rollback','1'));
   });

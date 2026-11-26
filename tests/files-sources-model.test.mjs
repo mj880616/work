@@ -90,6 +90,7 @@ test('화면은 서버 저장만(기기 저장 없음)·같은 부품·같은 �
   const css = read('app/source-chips.css');
   assert.match(css, /#filesView/);
   assert.match(css, /#photosView/);
-  assert.match(read('app/photos.js'), /class="photos-srcs src-chips"/);
+  // S71-25 PHOTO-머리한줄: 사진은 큰 출처 단추 셋 대신 [가져올 곳] 단추 하나 + 고르기 메뉴(켜고 끄기 주인 sources 그대로).
+  assert.match(read('app/photos.js'), /data-photos-src-pick/);
   assert.match(read('app/files.js'), /class="fx-srcs src-chips"/);
 });

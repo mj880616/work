@@ -69,24 +69,22 @@
    screen-width.mjs 600px)은 제목만 있던 큰 줄(44px + 아래 12px) 대신 '제목 · 찾기' 낮은 한 줄(36px + 아래 8px)이다. PC 틀(761px~) 위 한 줄과 같은 구성이고,
    찾기는 폰 메뉴 창 맨 위와 같은 입구(global-search.js mountMenuEntry — 누르면 화면 전체 검색)다. 접은 폰(600px 미만)은 그대로(입구는 메뉴 창).
    화면 첫 줄이 제목을 보이는 화면(사업 보고·자료실·사진·공유 페이지, ui-standard.css)은 지금처럼 이 줄이 없다. 검색 화면 자신은 검색칸이 있어 입구를 두지 않는다. */
-/* S70-57(명진 11/26 "전체 검색은 홈에만"): 머리 줄 '전체 검색' 입구는 홈에서만 보인다(폰·폴드 접힘·폴드 펼침 모두). 다른 화면은 그 화면 찾기 칸(아래). */
+/* S70-57(사용자 11/26 "전체 검색은 홈에만"): 머리 줄 '전체 검색' 칸은 전체 검색 화면에서만 보인다(S71-41: 홈 입구는 날짜 줄 끝 돋보기). 다른 화면은 그 화면 찾기 칸(아래). */
 .mobile-shell-search{display:none}
 @media(min-width:600px) and (max-width:760px){
   .mobile-shell-header{min-height:36px;margin-bottom:8px}
   .mobile-shell-header>[data-mobile-view-name]{flex:none;white-space:nowrap}
 }
-/* S71-07 SEARCH-누른자리그대로(명진 11/26 13:51 "노트에서처럼 검색창 클릭하고 검색 화면에서 검색창 위치가 같아야 함"): 전체 검색 화면도 홈과 같은 머리 줄이다 —
-   이름('검색')·아이콘 없이 '전체 검색' 칸 한 칸. 그래서 홈에서 누른 칸이 같은 자리·같은 크기로 입력 칸이 되고, 결과·안내만 아래에 뜬다. */
+/* S71-07 SEARCH-누른자리그대로(사용자 요청 11/26): 전체 검색 화면 머리 줄은
+   이름('검색')·아이콘 없이 '전체 검색' 칸 한 칸이다. 결과·안내만 아래에 뜬다.
+   S71-41 HOME-머리한줄(사용자 요청 11/26): 홈에는 이 칸 줄이 없다(머리 줄 자체를 두지 않음,
+   topbar-actions.js). 홈 날짜 머리줄 끝 돋보기를 누르면 이 화면의 이 칸(홈 날짜 줄과 같은 첫 줄 자리)에 바로 커서가 간다. */
 @media(max-width:760px){
-  html:is(:has(#homeView:not(.hidden)),:has(#searchView:not(.hidden))) .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}
-  html:is(:has(#homeView:not(.hidden)),:has(#searchView:not(.hidden))) .mobile-shell-header{min-height:36px;margin-bottom:8px}
-  /* 홈은 본문 날짜 줄에 이미 아이콘이 있다 — 머리 줄은 '전체 검색' 칸 하나만(아이콘 두 번 없음). 전체 검색 화면도 같은 모양(칸이 움직이지 않게). */
-  html:is(:has(#homeView:not(.hidden)),:has(#searchView:not(.hidden))) .mobile-shell-header>:is(.head-mark,[data-mobile-view-name]){display:none}
-  /* 홈에서 자판이 열려 있으면(글 쓰는 중) 빠른 입력·아래 탭처럼 이 칸 줄도 접는다 — 쓰는 칸이 자판 위로 올라올 자리(예전 홈과 같은 높이).
-     머리 줄 '전체 검색' 칸 자신에 커서가 있을 때는 접지 않는다(누른 칸이 사라지면 안 됨). */
-  /* 전체 검색 화면은 결과를 내려도 칸이 위에 남는다(예전 화면 안 검색 줄처럼 붙박이). 처음 자리는 홈과 같다. */
+  html:has(#searchView:not(.hidden)) .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}
+  html:has(#searchView:not(.hidden)) .mobile-shell-header{min-height:36px;margin-bottom:8px}
+  html:has(#searchView:not(.hidden)) .mobile-shell-header>:is(.head-mark,[data-mobile-view-name]){display:none}
+  /* 전체 검색 화면은 결과를 내려도 칸이 위에 남는다(예전 화면 안 검색 줄처럼 붙박이). */
   html:has(#searchView:not(.hidden)) #appView>.mobile-shell-header{position:sticky;top:var(--kptu-stick-top,0px);z-index:2;background:var(--kptu-bg)}
-  html:has(#homeView:not(.hidden)):not(:has(#gsHeadInput:focus)) body.kptu-mobile-keyboard #appView>.mobile-shell-header{display:none}
 }
 
 /* UI-검색창하나로(S70-54, 설계 docs/design/one-search-bar.md): 지금 화면에 화면 찾기가 있으면(html[data-screen-find], 주인 screen-find.js) 앱 머리 줄의
@@ -116,8 +114,6 @@
 .menu-edit-card h2{font-size:var(--ds-text-title,15px);margin:0}
 .menu-edit-actions{display:flex;gap:6px}
 .menu-edit-actions button{min-height:28px;padding:0 10px;font-size:var(--ds-text-row,13px)}
-.me-group h3{margin:8px 0 4px;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted)}
-.me-group h3 small{font-weight:400;margin-left:4px}
 .me-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);overflow:hidden}
 .me-row{display:flex;align-items:center;gap:6px;min-height:28px;padding:0 8px 0 2px;border-top:1px solid var(--kptu-border);background:transparent}
 .me-row:first-child{border-top:0}
@@ -132,22 +128,20 @@
 #menuEditModal .me-row .me-name-in::placeholder{color:var(--kptu-muted);opacity:.8}
 #menuEditModal .me-row .me-name-in:focus{outline:none;border-color:var(--kptu-primary-ink)}
 #menuEditModal .me-row .me-name-in[aria-invalid="true"]{border-color:var(--kptu-danger)}
-.me-cols{display:flex;flex-direction:column;gap:8px}
-.me-lists{flex:1 1 auto;min-width:0}
-/* MENU-세칸: PC 왼쪽 메뉴 미리보기. 위 메뉴 … 빈 공간 … 선 … 아래 붙는 메뉴. 작고 흐리게. */
-.me-preview{margin:0;flex:0 0 auto}
-.me-preview figcaption{margin:8px 0 4px;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted)}
-.me-pv-box{display:flex;flex-direction:column;min-height:180px;padding:4px 0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-surface-subtle)}
-.me-pv-box ol{list-style:none;margin:0;padding:0}
-.me-pv-box li{padding:2px 8px;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-ink)}
-.me-pv-gap{flex:1 1 auto;min-height:12px}
-.me-pv-tail{border-top:1px solid var(--kptu-border);padding-top:2px}
-@media (min-width:761px){
-  .menu-edit-card{width:min(600px,calc(100vw - 24px))}
-  .me-cols{flex-direction:row;align-items:stretch;gap:12px}
-  .me-preview{width:170px;display:flex;flex-direction:column}
-  .me-pv-box{flex:1 1 auto}
-}
+/* S71-32 NAV-메뉴수정하나로: 하단바·위 메뉴·아래 붙는 메뉴·숨긴 메뉴를 테두리 하나 안의 목록 하나로. 칸 사이는 가는 줄 + 작은 회색 글. PC 미리보기 상자 없음. */
+.me-one{border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);overflow:hidden;margin-top:6px}
+.me-one .me-list{border:0}
+.me-one .me-list:empty{min-height:22px}
+.me-bar-line{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:1px 8px 1px 38px;border-top:1px solid var(--kptu-muted);font-size:11px;line-height:16px;color:var(--kptu-muted)}
+.me-bar-line small{font-size:11px}
+.me-sub{margin:0;padding:3px 8px 1px 38px;border-top:1px solid var(--kptu-border);font-size:11px;line-height:15px;color:var(--kptu-muted);list-style:none}
+.me-more{margin-top:8px}
+.me-more>summary{cursor:pointer;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted);padding:2px 0}
+.me-more>summary small{font-weight:400;margin-left:4px}
+.me-more .me-list{margin-top:4px}
+.me-words .me-sub{padding-left:8px}
+.me-hint{flex:0 0 5.2em;padding-left:6px;font-size:11px;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#menuEditModal .me-word-row .me-name-in{margin-left:0}
 .me-note{margin:8px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
 .re-active,.re-active *{user-select:none;-webkit-user-select:none}
 .re-dragging{opacity:.45}

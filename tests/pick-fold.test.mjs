@@ -58,14 +58,11 @@ const SHORT_OR_OTHER = {
   'now-highlights.js': 'News [밑줄] 탭 [여러 개 선택] — 밑줄 줄마다 선택 칸(노트 하나로 묶기), 찾기는 위 News 찾기 칸',
   'library-upload.js': '자료 여러 개 선택 모드: 목록 자체에서 선택하는 것이라 선택 목록이 아님',
   'files-trash.js': '[파일] 휴지통 창(S69-62): 되살릴 파일을 휴지통 목록 자체에서 선택 — 고르는 목록이 아니라 되살리기 승인 목록',
-  'reference-bundles.js': '참고 묶음 [여러 개 선택해 삭제] 모드(S67-53): 목록 자체에서 선택하는 것이라 선택 목록이 아님',
   'library-sort.js': '받는 폴더 나누기 제안 창: 줄마다 옮길지 체크 + 갈 폴더(시안 lib-receive-sort.html) — 고르는 목록이 아니라 제안 승인 목록',
   'markdown-render.mjs': '글 안 할 일 표시(읽기 전용)',
   'suborganizations.js': '일정의 관련 담당조직은 내 담당만(짧음), 담당자 선택은 사람 몇 명',
   'task-row-view.js': '할 일 완료 체크',
-  'mcp-read-settings.js': "'Claude 읽기 연결' 켜기 스위치 하나 — 고르는 목록이 아님",
-  'home-off.js': "내 프로필 '홈 칸' 켜기 스위치(끌 수 있는 홈 칸 몇 개) — 고르는 목록이 아님",
-  'record-backup.js': "'내 기록 백업' 종류 체크(서버가 정한 몇 개, 시안 backup-export.html) — 고르는 목록이 아니라 백업할 종류 켜기",
+  'settings-list.mjs': "공용 설정 줄(UI-설정줄, S71-36)의 스위치 한 칸 — 설정 화면의 켜기·끄기(알림 종류·홈 칸·백업할 것·Claude 연결)이지 고르는 목록이 아님",
 };
 const walk = dir => readdirSync(dir).flatMap(name => { const p = join(dir, name); return statSync(p).isDirectory() ? walk(p) : [p]; });
 const files = walk(APP).map(p => relative(APP, p).split('\\').join('/')).filter(f => /\.(m?js)$/.test(f) && !SKIP.test(f));
@@ -80,10 +77,9 @@ test('항목마다 체크 칸을 그리는 목록은 공용 부품을 쓰거나 
 });
 
 // 기기 저장을 쓰지 않는 것은 browser-storage-audit가 앱 전체에서 본다.
-test('담당 사업장·협의회·사업단 소속은 공용 부품으로 그린다', () => {
-  const profile = readFileSync(join(APP, 'profile-settings.js'), 'utf8');
-  assert.match(profile, USES);
-  assert.match(profile, /pickFoldHtml\(\{key:'ws',title:(?:word\()?'담당조직 현황'/);
+// S71-35: 내 프로필 '담당조직 현황' 체크 칸은 없앴다(담당 추가·보관은 조직 관리) — 남은 것은 조직 상세의 협의회·사업단 소속.
+test('협의회·사업단 소속은 공용 부품으로 그린다', () => {
+  assert.doesNotMatch(readFileSync(join(APP, 'profile-settings.js'), 'utf8'), /pickFoldHtml|pick-fold\.mjs/);
   const wd = readFileSync(join(APP, 'workplace-detail.js'), 'utf8');
   assert.match(wd, USES);
   assert.match(wd, /function wdRenderAffChoices\([^\n]*pickFoldHtml\(/);

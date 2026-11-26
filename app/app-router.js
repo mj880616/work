@@ -2,8 +2,7 @@
   if(window.KPTURouter)return;
   const hooks=new Map();
   const VIEW_PARAM='view';
-  // REF-참고묶음: the 참고 묶음 screen is entered from the organization list, so the 담당조직 menu item stays marked there.
-  const NAV_ALIAS={messages:'home',myspace:'home',reference:'team'};
+  const NAV_ALIAS={messages:'home',myspace:'home'};
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   // MTG-프로젝트합치기 ①: 사업영역 관리(옛 ?view=projects)는 화면이 아니라 사업 보고 위의 창이다. go('projects')·옛 주소는 사업 보고를 열고
   // kptu:view-changed의 detail.areas로 창(area-window.js)을 띄운다.
@@ -12,7 +11,8 @@
   // 옛 ?view=outside·?view=now와 go('news')도 같은 화면을 연다(주소는 ?view=news로 고쳐 쓴다). 탭은 화면이 정한다(마지막 탭).
   // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages, go('pages'))은 없앴다 — 노트(정리함의 노트 쪽, ALIAS_SUB)를 연다. 주소는 ?view=basket&pane=note로 고쳐 쓴다.
   // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 화면은 없앴다. 옛 ?view=ledger·go('ledger')는 홈을 연다.
-  const VIEW_ALIAS={ledger:'home','hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
+  // ORG-참고묶음삭제(S71-22, 2026-11-26 사용자 "참고 묶음 기능 삭제 안씀"): 참고 묶음 화면은 없앴다. 옛 ?view=reference·go('reference')는 조직 관리를 연다.
+  const VIEW_ALIAS={ledger:'home',reference:'team','hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
   const ALIAS_SUB={pages:'note'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
@@ -30,7 +30,8 @@
   // The router owns the address and the history entries of it; the screen (basket.js) owns what is drawn and is told through the view hook
   // (detail.sub) and, for a back/forward step inside the same screen, kptu:sub-changed.
   // NAV-새로고침제자리: [노트] is a side of the same screen too (?view=basket&pane=note), so a reload on the note side stays there.
-  const SUB_PARAMS={basket:{param:'pane',values:['todo','note']}};
+  // S71-36 PROFILE-설정화면: 내 프로필의 장(이름·홈 칸·알림 설정 …)도 한 겹 아래 쪽이다(?view=profile&pane=push). 뒤로가기 = 내 프로필.
+  const SUB_PARAMS={basket:{param:'pane',values:['todo','note']},profile:{param:'pane',values:['name','home','push','backup','drive','mcp','account','status']}};
   // NAV-새로고침제자리: the place inside a screen (an open note, the folder entered, the day picked) is written to the address as
   // the screen's own parameters, so a reload (pull-to-refresh) opens the same place. Each screen lists its keys here and writes them
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back

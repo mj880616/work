@@ -18,7 +18,7 @@ const api = (path, opts = {}) => rt().api(path, {refreshSession: false, singleFl
 const first = v => (Array.isArray(v) ? v[0] : v) || null;
 const emit = detail => { try { window.dispatchEvent(new CustomEvent(CHANGED, {detail})); } catch { /* 듣는 화면이 일을 막지 않는다 */ } };
 
-// S70-83 READ-저장한글폴더: 목록은 폴더 칸(folder_id, DB 20261126120000)까지 읽는다. 그 칸이 아직 없는 서버(DB 적용 전)면 칸 이름 때문에
+// S70-83 READ-저장한글폴더: 목록은 폴더 칸(folder_id, DB 20261126123000)까지 읽는다. 그 칸이 아직 없는 서버(DB 적용 전)면 칸 이름 때문에
 // 거절(400/42703)되므로 칸 없이 다시 읽고 folderColumn()이 false — 화면은 모든 글을 '폴더 없음'으로 보이고 폴더 만들기·옮기기를 두지 않는다.
 let folderCol = null;
 export const folderColumn = () => folderCol;
