@@ -106,7 +106,8 @@ for (const width of [390, 1280]) {
     await page.keyboard.press('Enter'); await expect(menu(page)).toBeVisible(); await expect(rowMore(page, B)).toHaveAttribute('aria-expanded', 'true');
     await expect(menu(page).locator('[aria-expanded]')).toHaveCount(0);
     // An outside press closes it without opening anything.
-    await press(page, page.locator('#basketView .forget-head'), width); // S52-20: 머리 줄 빈 곳(옛 '업데이트' 칸 제목 자리)
+    // S71-29: 옛 화면 안 머리 줄은 없다 — 맨 위 줄의 화면 이름(폰 앱 머리 줄 이름 · PC 맨 위 줄 위치 마지막 칸, 누를 것 없음).
+    await press(page, page.locator(width < 761 ? '#appView > .mobile-shell-header [data-mobile-view-name]' : '.app-topline [data-topline-where] > li:last-child'), width);
     await expect(menu(page)).toBeHidden(); await expect(detail(page)).toBeHidden();
     // [복사] (the menu's first item, phone and PC) copies without opening the update, and closes the menu.
     { await press(page, more, width); await press(page, menu(page).getByRole('button', { name: '복사', exact: true }), width); await expect(more).toBeFocused(); }

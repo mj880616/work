@@ -25,6 +25,21 @@ export function dayHtml(label, rowsHtml, unread, esc) {
   const head = `${esc(label)}${unread > 0 ? ` · 새 글 ${unread}` : ''}`;
   return `<section class="nw-day" aria-label="${esc(label)}"><h3 class="nw-day-head">${head}</h3><div class="nw-card">${rowsHtml}</div></section>`;
 }
+// S71-27 NEWS-머리한줄(명진 11/26 "오늘 새글 이것도 위로 밀어넣으면 될듯"): 목록 맨 위 묶음이 '오늘'이면 그 머리 줄('오늘 · 새 글 N')은 그리지 않고
+// 새 글 수는 화면 첫 줄(읽을 거리 · 새 글 N, screen-find.js noteBox)이 보인다. 아래 '어제'·날짜 묶음 머리는 그대로 둔다.
+// 맨 위가 다른 묶음(관심 주제·어제·날짜)이거나 lead=false(국제 접기 안쪽 등 목록 맨 위가 아닌 곳)면 모든 머리를 그대로 그린다.
+// groups = [{label, rows(줄 HTML), unread}] → {html, lead: 머리를 뺀 '오늘' 묶음의 새 글 수 | null(뺀 머리 없음)}
+export const TODAY_LABEL = '오늘';
+export function daysListHtml(groups, esc, {lead = true} = {}) {
+  const list = Array.isArray(groups) ? groups : [];
+  const top = lead && list[0]?.label === TODAY_LABEL ? list[0] : null;
+  const html = list.map((g, i) => (top && i === 0
+    ? `<section class="nw-day nw-day-lead" aria-label="${esc(g.label)}"><div class="nw-card">${g.rows}</div></section>`
+    : dayHtml(g.label, g.rows, g.unread, esc))).join('');
+  return {html, lead: top ? Math.max(0, Number(top.unread) || 0) : null};
+}
+// 화면 첫 줄 글자: 새 글이 있을 때만 '새 글 N'(없으면 빈 글자 — 자리째 없다).
+export const leadText = n => (Number(n) > 0 ? `새 글 ${Number(n)}` : '');
 // NEWS-도배막기 A(news-fold.mjs foldRuns): 같은 매체가 연달아 나온 기사 묶음. 첫 기사 줄 + 작게 '○○ 외 N건'(누르면 그 자리에서 펼침·다시 누르면 접힘).
 // 펼침은 브라우저 기본 <details>(키보드·터치 그대로). 열림 여부는 그리는 칸 주인이 화면 메모리로 들고 open으로 넘긴다(다시 그려도 그대로).
 // runs = foldRuns 결과, o = {rowOf(entry)→줄 HTML, keyOf(entry)→줄 키, nameOf(entry)→매체 이름, isOpen(foldKey, entries)→bool}.
