@@ -91,9 +91,6 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width,height});
- await openHome(page,{beforeLoad});
- // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표는 기본으로 '아직 없음'(404) — 4. 1) 칸은 예전 칸 줄 그대로. 표가 있는 경우는 weekLinesFixture가 다시 가로챈다.
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_org_lines',r=>r.fulfill({status:404,json:{code:'PGRST205',message:'Could not find the table'}}));
  // PostgREST or=(and(col.op.val,…),…) — only the shape the journal sends (WEEKLY-자료날짜: put in the library in the week, or dated in the week).
  const orSplit=v=>{const out=[];let depth=0,cur='';for(const ch of v){if(ch==='(')depth++;if(ch===')')depth--;if(ch===','&&depth===0){out.push(cur);cur='';continue}cur+=ch}if(cur)out.push(cur);return out};
  const orCond=(row,c)=>{const [col,...rest]=c.split('.');if(row[col]==null)return false;const one=new URLSearchParams([[col,rest.join('.')]]);return match(instants(row,one),one)};
@@ -122,10 +119,17 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
   const offset=Number(q.get('offset')||0),limit=Number(q.get('limit')||1000);
   return r.fulfill({json:hit.slice(offset,offset+limit)});
  });
- await table('app_suborganizations',more.orgs,null,q=>q.get('select')==='id,name,active');
- await table('app_suborganization_assignees',more.assignees,null,q=>q.get('select')==='organization_id'&&q.has('user_id'));
+ // 조직 목록·담당 줄·조직 기록 세 길은 첫 화면 전에 건다(openHome beforeLoad, 시험이 넘긴 beforeLoad 뒤라 그보다 앞섬). 화면을 연 뒤에 걸면
+ // 홈이 시작하며 읽는 조직 목록은 홈 모의(조직 'o')로 가고 이어지는 기록 읽기만 여기 잡혀, 읽기 기록 맨 앞에 'in.(o)'가 끼었다(CI 가끔).
+ await openHome(page,{beforeLoad:async()=>{
+  await beforeLoad?.();
+  await table('app_suborganizations',more.orgs,null,q=>q.get('select')==='id,name,active');
+  await table('app_suborganization_assignees',more.assignees,null,q=>q.get('select')==='organization_id'&&q.has('user_id'));
+  await table('app_suborganization_updates',more.orgUpdates,'orgUpdates',q=>q.has('occurred_at'));
+ }});
+ // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표는 기본으로 '아직 없음'(404) — 4. 1) 칸은 예전 칸 줄 그대로. 표가 있는 경우는 weekLinesFixture가 다시 가로챈다.
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_org_lines',r=>r.fulfill({status:404,json:{code:'PGRST205',message:'Could not find the table'}}));
  await table('app_record_links',more.links,'memos',q=>q.has('note_id'));
- await table('app_suborganization_updates',more.orgUpdates,'orgUpdates',q=>q.has('occurred_at'));
  await table('app_project_progress_updates',more.progress,'progress',q=>q.has('effective_on'));
  await table('app_spaces',more.spaces,null,q=>q.get('select')==='id,name'&&q.has('id'));
  await table('app_meetings',more.meetings,'meetings',q=>q.has('meeting_at'));
