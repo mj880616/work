@@ -10,9 +10,11 @@
 //     띄어쓰기 무시·오타·초성·앞부분)을 받아 줄마다 hit()을 부른다. 화면마다 따로 만들지 않는다. 맞은 부분 굵게는 spec.marks(글자 칸 고르개)
 //     안 글자에 여기서 한 번 칠한다(CSS Custom Highlight — 글을 바꾸지 않고 칠만). 결과가 3개 미만이거나 문장이면 서버 AI(ai-assist find_expand)에
 //     그 글 하나만 보내 비슷한 말·기간을 받아 다시 거르게 하고(spec.apply(글, {again: true})), 맨 위 칸 아래에 '비슷한 말로도 찾았어요' 한 줄을 둔다.
+//  4) 화면 이름 옆 작은 글자(noteBox, S71-27 NEWS-머리한줄): '읽을 거리 · 새 글 40'처럼 화면 이름 바로 뒤 작은 회색 글 한 칸. 자리는 폰·폴드 머리 줄 이름 뒤
+//     ([data-screen-note="head"]), PC 틀은 맨 위 줄 위치(›) 뒤([data-screen-note="top"]). 단추 상자와 같이 지금 화면 것만 보이고, 글자는 그 화면이 채운다.
 // 저장하는 것 없음(화면 찾기 글자·비슷한 말은 이 탭 메모리).
 import {compileFind, inPeriod, markRanges, wantsMeaning, looksSentence} from './find-match-model.mjs';
-const scopes = new Map(), listeners = new Set(), boxes = new Map();
+const scopes = new Map(), listeners = new Set(), boxes = new Map(), notes = new Map();
 const WIDE = window.matchMedia('(min-width:761px)');
 let current = null, queued = false;
 
@@ -47,6 +49,18 @@ export function toolsBox(key, view) {
   return box;
 }
 
+// 화면 이름 옆 작은 글자 칸(처음 부를 때 만든다). 화면은 textContent만 채운다(빈 글자면 자리째 없음 — CSS).
+export function noteBox(key) {
+  let el = notes.get(key);
+  if (!el) {
+    el = document.createElement('span');
+    el.className = 'sf-note'; el.dataset.sfNote = key; el.hidden = true;
+    notes.set(key, el);
+    place();
+  }
+  return el;
+}
+
 function pick() {
   for (const spec of scopes.values()) {
     try { if (spec.active()) return spec; } catch { /* 화면이 아직 준비 전 */ }
@@ -62,6 +76,11 @@ function place() {
   for (const [key, box] of boxes) {
     if (host && box.parentElement !== host) host.append(box);
     box.hidden = key !== current?.key;
+  }
+  const noteHost = document.querySelector(WIDE.matches ? '[data-screen-note="top"]' : '[data-screen-note="head"]');
+  for (const [key, el] of notes) {
+    if (noteHost && el.parentElement !== noteHost) noteHost.append(el);
+    el.hidden = key !== current?.key;
   }
 }
 function sync() {

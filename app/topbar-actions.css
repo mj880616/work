@@ -189,4 +189,13 @@ a.account-action{text-decoration:none;box-sizing:border-box}
 /* S70-54: 화면 찾기 단추 상자(screen-find.js .sf-tools)는 다른 화면일 때 숨긴 채 이 자리에 남는다 — 보이는 것이 없으면 자리째 없앤다(줄 간격이 남지 않게). */
 .screen-tools-slot:not(:has(>:not([hidden]))){display:none}
 .screen-tools{display:flex;align-items:center;flex:none}
+/* S71-27 NEWS-머리한줄: 화면 이름 바로 뒤 작은 회색 글('읽을 거리 · 새 글 40', screen-find.js noteBox). 폰·폴드는 머리 줄 이름 뒤, PC 틀은 맨 위 줄 위치 뒤.
+   보이는 글자가 없으면 자리째 없다(줄 간격이 남지 않게). 폰에서 찾기 칸을 펼치면(.sf-open) 이름과 함께 비켜 준다. */
+.screen-note-slot{display:flex;align-items:center;flex:none;min-width:0}
+.screen-note-slot:not(:has(>.sf-note:not([hidden]):not(:empty))){display:none}
+.sf-note{font-size:12px;font-weight:var(--ds-weight-regular,400);line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
+.sf-note[hidden],.sf-note:empty{display:none}
+.mobile-shell-header>.screen-note-slot{margin-left:-4px}
+.app-topline .screen-note-slot{margin-left:8px}
+.mobile-shell-header.sf-open>.screen-note-slot{display:none}
 .screen-tools:not([data-screen-tools-placed]){display:none}

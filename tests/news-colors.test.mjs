@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {FIXED_OUTSIDE, FIXED_NEWS, FAMILIES, SHADES, colorVar, outsideColor, outsideBar, newsColor, newsBar, postTag, newsTag, tagLabel, tagStyle, shadeOf, baseKey} from '../app/news-colors.mjs';
-import {rowHtml, dayHtml} from '../app/news-row.mjs';
+import {rowHtml, dayHtml, daysListHtml, leadText} from '../app/news-row.mjs';
 // S51-8 NEWS-전면개편 P4b: News 목록 색·꼬리표는 news-colors.mjs 하나, 값은 theme-tokens.css 토큰(밝은·어두운 화면 둘 다).
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const css = readFileSync(new URL('../app/theme-tokens.css', import.meta.url), 'utf8');
@@ -55,6 +55,30 @@ test('줄 글자: 바깥 글자는 esc, 읽음·안 읽음·모름, 별표, 색 
   assert.match(rowHtml({...base, hit: '<철도>'}, esc), /<span class="now-hit">&lt;철도&gt;<\/span>/);
   assert.match(dayHtml('오늘', '', 6, esc), /오늘 · 새 글 6/);
   assert.doesNotMatch(dayHtml('어제', '', 0, esc), /새 글/);
+});
+
+// S71-27 NEWS-머리한줄: 맨 위 '오늘' 묶음만 머리 없이(새 글 수는 화면 첫 줄), 아래 날짜 묶음 머리는 그대로. 맨 위가 다른 묶음이거나 lead=false면 모두 그대로.
+test('daysListHtml: 맨 위 오늘 묶음 머리만 빼고 그 새 글 수를 돌려준다', () => {
+  const g = [{label: '오늘', rows: '<i>a</i>', unread: 3}, {label: '어제', rows: '<i>b</i>', unread: 1}];
+  const d = daysListHtml(g, esc);
+  assert.equal(d.lead, 3);
+  assert.doesNotMatch(d.html, /오늘 · 새 글/);
+  assert.match(d.html, /^<section class="nw-day nw-day-lead" aria-label="오늘"><div class="nw-card"><i>a<\/i><\/div><\/section>/);
+  assert.match(d.html, /<h3 class="nw-day-head">어제 · 새 글 1<\/h3>/);
+  // 맨 위가 관심 주제(또는 어제)면 아무 머리도 빼지 않는다.
+  const lifted = daysListHtml([{label: '관심 주제', rows: '', unread: 1}, ...g], esc);
+  assert.equal(lifted.lead, null);
+  assert.match(lifted.html, /오늘 · 새 글 3/);
+  assert.equal(daysListHtml([g[1]], esc).lead, null);
+  // 목록 맨 위가 아닌 곳(국제 접기 안쪽 등)은 lead=false — 그대로.
+  const inner = daysListHtml(g, esc, {lead: false});
+  assert.equal(inner.lead, null);
+  assert.match(inner.html, /오늘 · 새 글 3/);
+  assert.deepEqual(daysListHtml(null, esc), {html: '', lead: null});
+  assert.equal(daysListHtml([{label: '오늘', rows: '', unread: 0}], esc).lead, 0);
+  assert.equal(leadText(40), '새 글 40');
+  assert.equal(leadText(0), '');
+  assert.equal(leadText(null), '');
 });
 
 // NEWS-정당색 → NEWS-고유색: 키별 고정 색 표(정당 4곳·금속노조·공공운수노조). 이름 글자·막대 토큰 두 개, 나머지 색은 그대로.
