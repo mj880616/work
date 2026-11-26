@@ -16,7 +16,7 @@ import {foldedSet,isFoldedOwn,partitionTree,blocks,foldedMetadata,foldSummary} f
 import {recordLines,markdownSource} from './note-preview.mjs';
 import {createFoldState,foldHeadHtml,foldBodyAttrs,foldFullHtml,bindRecordFold,syncOpenRows} from './record-fold.js'; // UI-기록줄높이통일(S70-66)
 import {memosNow,loadMemos,onMemos} from './memo-store.js';
-import {readRecordPages,readLinkRecords,recordMark,recordShownText,isNoteRecord,isDirectRecord,recordMenuLabel,mountLinkSummaryEditor,recordFileCount,recordFullText,recordLocked} from './basket-link-records.js';
+import {readRecordPages,readLinkRecords,noteMark,recordShownText,isNoteRecord,mountLinkSummaryEditor,recordFileCount,recordFullText,recordLocked} from './basket-link-records.js';
 import {recordFilesHtml,paintRecordFiles,bindRecordFiles,renameInRecordRows,applyRenamedLines,recordPhotosOpen} from './record-files.js';
 import {isPictureDoc,splitPictures} from './photo-fold-model.mjs'; // LIB-사진숨김: 사진은 [자료] 줄에서 빼고 칩 줄 끝 '사진 n'
 import {docKindHtml,photoTilesHtml,bindPhotoTileMenus} from './photo-fold.js';
@@ -32,7 +32,7 @@ import {TRASH_KIND,TRASH_KINDS,TRASH_KIND_LABEL,TRASH_STATE,TRASH_TEXT,classifyT
 import {purgePage as purgeSharePage} from './share-pages-archive.mjs';
 import {bigWindowOpen} from './big-window-open.js';
 import {hasDoc,sameRecord,recordPatch} from './record-doc.mjs';
-import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn} from './basket-note-tasks.js';
+import {requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn} from './basket-note-tasks.js';
 import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기
 import {word} from './brand/brand.mjs';
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
@@ -424,18 +424,18 @@ const recordFrom=u=>u.workstream_id?detail?.workstreams.find(w=>w.id===u.workstr
 const recordButton=(id,date,text)=>`<button type="button" class="ps3-rec-line" data-ps3-record-menu="${esc(id)}" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><time>${esc(day(date))}</time><span class="ps3-rec-text kptu-clamp">${text}</span></button>`;
 function progressRecord(u){const from=recordFrom(u);return recordButton(u.id,u.effective_on,`${from?`<span class="ps3-rec-from">${esc(from)}</span> `:''}<span class="ps3-rec-summary">${esc(recordLines(u.summary||''))}</span>${u.next_step?` <span class="ps3-rec-next">다음: ${esc(u.next_step)}</span>`:''}`)}
 function itemRecord(w){return recordButton(w.id,keyOf(w.created_at),esc(w.title||''))}
-// BUG-바구니연결해제: tapping a linked line opens the original update; its ⋯ holds [업데이트 열기]·[연결 해제]·[요약 수정] (no note
-// delete here; UI-연결요약수정 added [요약 수정] with the organization detail's editor and save path). UI-기록아이콘: notes linked to this project join the list too (same confirmed links, kind=note); the mark in
-// front is the update or note icon (basket-link-records.js), and a note line opens the note's read view ([노트 열기]·[연결 해제]).
+// RECORD-잊지말기연결표시삭제(S71-57, 사용자 결정 2026-11-26): a record that came from 잊지 말기 is just a record — date and text, no
+// source mark, and the line goes nowhere (its ⋯ holds [연결 해제]·[요약 수정]). UI-기록아이콘: notes linked to this project join the
+// list too (same confirmed links, kind=note) with the note icon, and a note line opens the note's read view ([노트 열기]·[연결 해제]).
 const LINK_NOTE_KINDS=['basket','note'];
 // UI-기록줄높이통일(S70-66, 시안 B 나안 두 줄): 줄 = [날짜 · 요약 두 줄 · 첨부·메모 수 · ›] 같은 높이(record-fold.js, 조직 기록과 같은 부품).
-// 누르면 그 자리에서 원문 전체·사진·파일이 펼쳐지고 다시 누르면 접힌다(펼침은 이 창을 연 동안 메모리 ps3Fold만). 원래 글 열기는 ⋯ [업데이트 열기]/[노트 열기].
+// 누르면 그 자리에서 원문 전체·사진·파일이 펼쳐지고 다시 누르면 접힌다(펼침은 이 창을 연 동안 메모리 ps3Fold만). 노트 줄만 '노트 연결' 칩, 노트 열기는 ⋯ [노트 열기].
 const ps3Fold=createFoldState();
 const ps3MemoCount=b=>memosNow().filter(m=>m.target_type==='note'&&m.target_id===b.note_id).length;
 function basketRecord(b,{photos=false}={}){const note=isNoteRecord(b),key='link:'+b.id,open=ps3Fold.has(key),full=recordFullText(b),locked=recordLocked(b),md=locked?'':markdownSource(full);
- const chip=isDirectRecord(b)?'':`<small>${recordMark(b,'ps3-rec-mark')}<span class="rec-fold-chip-t">${note?'노트 연결':'잊지 말기 연결'}</span></small>`;
+ const chip=note?`<small>${noteMark('ps3-rec-mark')}<span class="rec-fold-chip-t">노트 연결</span></small>`:'';
  const head=foldHeadHtml({key,day:`<time>${esc(day(keyOf(b.occurred_at)))}</time>`,summary:recordShownText(b),chip,files:recordFileCount(b),memos:ps3MemoCount(b),open,cls:'ps3-rec-head'});
- return `<div class="ps3-rec ps3-rec-basket${note?' ps3-rec-note':''}" data-rec-fold${open?' data-rec-fold-open':''} data-basket-link="${esc(b.id)}"><div class="rec-fold-line">${head}<button type="button" class="ps3-rec-more" data-ps3-record-menu="basket:${esc(b.id)}" aria-label="${recordMenuLabel(b)}" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><div ${foldBodyAttrs(open)}>${foldFullHtml(locked?full:recordLines(full),{md})}${recordFilesHtml(b,{open:photos})}</div></div>`}
+ return `<div class="ps3-rec ps3-rec-basket${note?' ps3-rec-note':''}" data-rec-fold${open?' data-rec-fold-open':''} data-basket-link="${esc(b.id)}"><div class="rec-fold-line">${head}<button type="button" class="ps3-rec-more" data-ps3-record-menu="basket:${esc(b.id)}" aria-label="기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><div ${foldBodyAttrs(open)}>${foldFullHtml(locked?full:recordLines(full),{md})}${recordFilesHtml(b,{open:photos})}</div></div>`}
 // ORG-기록첨부(S50-22): 연결 줄 아래 그 업데이트의 그림(작게, 누르면 크게)·파일(이름 줄, 누르면 열기) — 담당조직 기록과 같은 부품(record-files.js).
 function ps3PaintFiles(){const host=$('#ps3Body');if(!host||!detail)return;paintRecordFiles(host,detail.basketLinks||[],rt);bindRecordFold(host,ps3Fold,{onOpen:()=>paintRecordFiles(host,detail?.basketLinks||[],rt)});syncOpenRows(host);bindRecordFiles(host,()=>detail?.basketLinks||[],{rt,onError:text=>toast(text)})}
 // MTG-프로젝트합치기 결정 ⑥(10/28 19:38 '지난 진행 기록 화면 없음'): 옛 진행 기록(app_project_progress_updates)·기록 없는 진행 항목
@@ -451,8 +451,8 @@ function closeRecordMenu(then,fromBack=false){return recordMenu?.close(then,from
 function openRecordMenu(trigger){recordMenu?.open(trigger)}
 function bindRecordMenu(){
   recordMenu=createAnchoredMenu({id:'ps3RecordMenu',className:'ps3-record-menu',label:'진행 기록 관리',historyKey:'kptuProgressMenu',parent:$('#ps3DetailModal'),key:trigger=>trigger.dataset.ps3RecordMenu,canOpen:trigger=>trigger.closest('[data-ps3-record]')?.dataset.saving!=='1',
-    render:id=>String(id).startsWith('basket:')?'<button type="button" data-ps3-record-action="open-note">'+(isNoteRecord(detail?.basketLinks?.find(x=>'basket:'+x.id===id))?'노트 열기':'업데이트 열기')+'</button>'+'<button type="button" class="ps3-record-danger" data-ps3-record-action="disconnect">연결 해제</button><button type="button" data-ps3-record-action="summary">요약 수정</button>'+(isNoteRecord(detail?.basketLinks?.find(x=>'basket:'+x.id===id))?'<button type="button" class="ps3-record-danger" data-ps3-record-action="note-delete">원문 삭제</button>':''):'<button type="button" data-ps3-record-action="edit">수정</button><button type="button" class="ps3-record-danger" data-ps3-record-action="delete">삭제</button>',
-    onAction:(button,active)=>{const basket=active.trigger.closest('[data-basket-link]');if(basket){const b=detail?.basketLinks?.find(x=>x.id===basket.dataset.basketLink);if(!b)return;if(button.dataset.ps3RecordAction==='open-note')openBasketNote(b.note_id,isNoteRecord(b)?'note':'basket');else if(button.dataset.ps3RecordAction==='disconnect')void disconnectBasket(b);else if(button.dataset.ps3RecordAction==='summary')editBasketSummary(b);else if(button.dataset.ps3RecordAction==='note-delete'&&isNoteRecord(b))void deleteBasketNote(b);return}const row=active.trigger.closest('[data-ps3-record]');if(!row?.isConnected)return;if(button.dataset.ps3RecordAction==='edit'){if(row.dataset.ps3RecordKind==='item')openWs(active.id);else{active.trigger.dataset.ps3EditRecord=active.id;editProgressRecord(active.trigger)}}else mutateProgressRecord(row,'DELETE')}
+    render:id=>String(id).startsWith('basket:')?(isNoteRecord(detail?.basketLinks?.find(x=>'basket:'+x.id===id))?'<button type="button" data-ps3-record-action="open-note">노트 열기</button>':'')+'<button type="button" class="ps3-record-danger" data-ps3-record-action="disconnect">연결 해제</button><button type="button" data-ps3-record-action="summary">요약 수정</button>'+(isNoteRecord(detail?.basketLinks?.find(x=>'basket:'+x.id===id))?'<button type="button" class="ps3-record-danger" data-ps3-record-action="note-delete">원문 삭제</button>':''):'<button type="button" data-ps3-record-action="edit">수정</button><button type="button" class="ps3-record-danger" data-ps3-record-action="delete">삭제</button>',
+    onAction:(button,active)=>{const basket=active.trigger.closest('[data-basket-link]');if(basket){const b=detail?.basketLinks?.find(x=>x.id===basket.dataset.basketLink);if(!b)return;if(button.dataset.ps3RecordAction==='open-note'){if(isNoteRecord(b))openNote(b.note_id)}else if(button.dataset.ps3RecordAction==='disconnect')void disconnectBasket(b);else if(button.dataset.ps3RecordAction==='summary')editBasketSummary(b);else if(button.dataset.ps3RecordAction==='note-delete'&&isNoteRecord(b))void deleteBasketNote(b);return}const row=active.trigger.closest('[data-ps3-record]');if(!row?.isConnected)return;if(button.dataset.ps3RecordAction==='edit'){if(row.dataset.ps3RecordKind==='item')openWs(active.id);else{active.trigger.dataset.ps3EditRecord=active.id;editProgressRecord(active.trigger)}}else mutateProgressRecord(row,'DELETE')}
   });
 }
 async function refreshBasketLinks(){const id=basketTargetId,epoch=detailEpoch;if(!id)return;void loadMemos();if(!basketCurrent(id,epoch)){basketPending=true;return}const run=++basketRun;basketPending=false;let rows,error=false;try{rows=await readLinkRecords({kind:'project',targetIds:[id],noteKinds:LINK_NOTE_KINDS,withFiles:true},rt)}catch{error=true}if(!basketCurrent(id,epoch)||run!==basketRun)return;detail.basketLinks=rows||detail.basketLinks;detail.basketError=error;paintRecords()}
@@ -461,7 +461,7 @@ function paintRecords(){const host=$('#ps3Body [data-ps3-records]');if(!host||!d
 // On a phone the dialog's history entry is popped after it closes; navigate once that pop is done, or it would undo the move.
 // UI-PC프로젝트좌우: from the projects screen the note remembers this project and its scroll (basket-note-tasks.js), so the
 // note offers "← (project)으로 돌아가기" and back, the button or the 프로젝트 tab reopen it where it was (resumeProjects).
-function openBasketNote(id,kind='basket'){const m=$('#ps3DetailModal'),tracked=m?.dataset.kptuHistoryOpen==='1',p=current,from=p&&areaOpen()?{view:'projects',id:p.id,name:p.name,scroll:detailScroll()}:null;if(!closeDetail())return;const back=tracked&&history.state?.kptuOverlay==='ps3DetailModal';const go=()=>{if(kind==='note'){if(from)requestNoteDocFrom(id,from,rt);else requestNoteDocOpen(id,rt)}else if(from)requestBasketNoteFrom(id,from,rt);else requestBasketNote(id,rt);window.KPTURouter?.go('basket',{source:'delegated'})};if(back)window.addEventListener('popstate',()=>queueMicrotask(go),{once:true});else go()}
+function openNote(id){const m=$('#ps3DetailModal'),tracked=m?.dataset.kptuHistoryOpen==='1',p=current,from=p&&areaOpen()?{view:'projects',id:p.id,name:p.name,scroll:detailScroll()}:null;if(!closeDetail())return;const back=tracked&&history.state?.kptuOverlay==='ps3DetailModal';const go=()=>{if(from)requestNoteDocFrom(id,from,rt);else requestNoteDocOpen(id,rt);window.KPTURouter?.go('basket',{source:'delegated'})};if(back)window.addEventListener('popstate',()=>queueMicrotask(go),{once:true});else go()}
 // One confirmation, one owner-RLS row delete, then 5 seconds to undo (basket-record-delete.js). The list is re-read by the shared event.
 const basketActing=new Set();
 // UI-연결요약수정: [요약 수정] opens the same editor as organization detail under the line. It saves through the same compare-and-set

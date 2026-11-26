@@ -306,6 +306,10 @@
     const top=topOf(history.state);
     if(top&&!layers.some(layer=>layer.name===top)){
       if(traverseDelta>0&&reopenHere(top))return;
+      // S71-76 NAV-뒤로가기직전화면: Back onto the entry a line was pressed on before openFrom stepped to another screen (kept in
+      // returns) opens that entry's layer again (its owner's reopen — e.g. the phone note folder '저장한 글'), not passed over:
+      // the screen before is the layer the line was on, not the one under it.
+      if(traverseDelta<0&&returns.has(here()?.key)&&reopenHere(top))return;
       if(traverseDelta<0)history.back();else history.forward();
       return;
     }
@@ -486,15 +490,17 @@
     await new Promise(done=>requestAnimationFrame(done));
     return here()?.key!==from&&(w.classList.contains('hidden')||getComputedStyle(w).display==='none');
   }
+  // Every entry a line stepped away from is kept (S71-76: skipStaleLayer reopens its layer on Back); back (a window's reopener) is optional.
   function keepReturn(key,view,back){
-    if(!key||typeof back!=='function')return;
-    returns.delete(key);returns.set(key,{view,back});
+    if(!key)return;
+    returns.delete(key);returns.set(key,{view,back:typeof back==='function'?back:null});
     while(returns.size>50)returns.delete(returns.keys().next().value);
   }
   function returnHere(){
     const key=here()?.key,kept=key&&returns.get(key);
     if(!kept||api.current!==kept.view)return;
     returns.delete(key);
+    if(!kept.back)return;
     // After every popstate listener (a window opened inside the dispatch would be taken by a later listener for one Back closes).
     requestAnimationFrame(()=>{if(here()?.key!==key||api.current!==kept.view)return;try{kept.back()}catch(err){console.error('return reopen',err)}});
   }

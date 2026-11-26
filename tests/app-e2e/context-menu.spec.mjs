@@ -188,12 +188,12 @@ test('1280 update row: right-click on a link inside the card keeps the browser m
   expect(await kept(page)).toEqual([true]);
   const at = await rightClickAt(page, row, 0.3, 0.5); await expectAtPointer(page, menu, at);
 });
-test('1280 project detail: a record line that is itself a link (next to its ⋯) still opens the ⋯ menu', async ({ page }) => {
+test('1280 project detail: right-click on a record line (plain text since S71-57, next to its ⋯) opens the ⋯ menu', async ({ page }) => {
   await projectFixture(page); await clickView(page, 'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
   const rec = page.locator('#ps3Body [data-basket-link="l-p"]'), menu = page.locator('#ps3RecordMenu');
-  await expect(rec.locator('a[href]')).toHaveCount(1);
+  await expect(rec.locator('a[href]')).toHaveCount(0); // S71-57: 잊지 말기에서 온 기록 줄은 링크가 아니다
   await rec.locator('[data-ps3-record-menu]').click(); await expect(menu).toBeVisible(); await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
-  const at = await rightClickAt(page, rec.locator('a[href]'), 0.5, 0.5); await expectAtPointer(page, menu, at);
+  const at = await rightClickAt(page, rec.locator('.rec-fold-head'), 0.5, 0.5); await expectAtPointer(page, menu, at);
 });
 test('1280 update row: the menu stays inside a short window (bottom edge)', async ({ page }) => {
   await basketFixture(page, 1280); await watch(page);

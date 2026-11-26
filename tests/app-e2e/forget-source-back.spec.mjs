@@ -45,7 +45,7 @@ async function fixture(page,{width}){
 }
 const row=(page,n)=>page.locator(`#basketView [data-nbx-row="n:${nid(n)}"]`);
 async function pickSource(page,label){
-  await page.locator('#basketView [data-forget-view-open]').click();
+  await page.locator('[data-sf-tools="forget"] [data-forget-view-open]').click();
   await page.locator('#forgetViewMenu').getByRole('menuitemradio',{name:label,exact:true}).click();
 }
 // 뒤로가기: 폰은 안드로이드 앱과 같은 KPTURouter.back(), PC는 브라우저 뒤로.
@@ -57,7 +57,7 @@ for(const width of [412,1280]){
   test(`${width}: 소식 줄 출처 › → 통화 원문, 뒤로가기 한 번 → 잊지 말기 같은 거르기·같은 자리`,async({page})=>{
     await fixture(page,{width});
     await pickSource(page,'소식');
-    await expect(page.locator('#basketView [data-forget-view-open]')).toHaveText('처리 전 · 소식 ▾');
+    await expect(page.locator('[data-sf-tools="forget"] [data-forget-view-open]')).toHaveText('처리 전 · 소식 ▾');
     // 원문이 있는 줄은 출처 꼬리표 줄 끝에 작은 ›(눌러도 열림).
     const target=row(page,4); // 새 것이 위라 4번째는 목록 아래쪽
     await expect(target.locator('.nbx-meta-open')).toHaveText(/^소식 · 통화.*›$/);
@@ -75,7 +75,7 @@ for(const width of [412,1280]){
     await back(page,width);
     await expect(page.locator('#basketView')).toBeVisible();
     await expect(page.locator('#callsView')).toBeHidden();
-    await expect(page.locator('#basketView [data-forget-view-open]')).toHaveText('처리 전 · 소식 ▾');
+    await expect(page.locator('[data-sf-tools="forget"] [data-forget-view-open]')).toHaveText('처리 전 · 소식 ▾');
     await expect.poll(()=>page.evaluate(()=>Math.round(scrollY))).toBe(y);
     await expect(target).toBeInViewport();
   });

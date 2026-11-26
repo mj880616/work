@@ -1,14 +1,17 @@
 // ORG-기록수정삭제 + UI-모바일업데이트겹쳐보기 (synthetic data only, basket-link-detail-fixture.html).
 // A: a record written in organization detail has one ⋯ (no tall red 삭제 button) holding [수정]·[삭제]; [수정] edits in place
 //    (Enter = new line, Ctrl+Enter or [저장] saves with an owner-RLS PATCH limited to the row and organization), [삭제] asks once more.
-// B: UI-기록줄높이통일(S70-66, 명진 2026-11-26 '두 줄'): a tapped linked record opens in place under its line (no card, no leaving) on
-//    every width; the full open (basket view) is the ⋯ [업데이트 열기]. (Before: a card over the detail on a phone — UI-모바일업데이트겹쳐보기.)
+// B: UI-기록줄높이통일(S70-66, 사용자 결정 2026-11-26 '두 줄'): a tapped linked record opens in place under its line (no card, no leaving)
+//    on every width; the full open is the ⋯ [노트 열기]. (Before: a card over the detail on a phone — UI-모바일업데이트겹쳐보기.)
+//    S71-57 RECORD-잊지말기연결표시삭제: 잊지 말기에서 온 기록 줄은 이제 아무 데도 가지 않으므로(record-no-basket-origin.spec.mjs),
+//    여기 B 시험은 노트에서 이은 기록 줄(같은 기록 창, [노트 열기])로 본다.
 import {test,expect} from '@playwright/test';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html';
 const shots=process.env.KPTU_SHOT_DIR||'';
 async function ready(page,query=''){await page.goto(fixture+query);await expect.poll(()=>page.evaluate(()=>window.__detailReady===true)).toBe(true);await page.evaluate(()=>{window.__went=[];window.KPTURouter.go=(view,o)=>window.__went.push(view)})}
+const asNotes=page=>page.evaluate(()=>{for(const n of window.__detailState.notes)n.kind='note'});
 async function openOrg(page){await page.evaluate(()=>window.KPTUWorkplace.open(window.__detailState.ids.org));await expect(page.locator('#wdUpdates [data-wd-up]')).toHaveCount(1)}
 async function openProject(page){await page.evaluate(()=>{const s=window.__detailState;for(const row of s.links){row.project_id=s.ids.project;row.organization_id=null}return window.KPTUProjects.open(s.ids.project)});await expect(page.locator('#ps3-progress [data-basket-link]')).toHaveCount(2)}
 const menu=page=>page.locator('#wdUpMenu');
@@ -73,18 +76,19 @@ test('organization record delete asks once more and only deletes after yes',asyn
  const del=await page.evaluate(()=>window.__detailState.calls.filter(c=>c.method==='DELETE').map(c=>c.path));expect(del).toHaveLength(1);expect(del[0]).toContain('app_suborganization_updates?id=eq.old-log');
 });
 
-for(const width of [390,1280])test(`linked record ${width}: a tap opens it in place (no card, no leaving); ⋯ [업데이트 열기] is the full open`,async({page})=>{
- await page.setViewportSize({width,height:900});await ready(page,'?history=1');await openOrg(page);
+// UI-기록줄높이통일(S70-66): 노트에서 이은 줄도 누르면 그 자리에서 펼친다(폰 카드·이동 없음). 노트 열기는 ⋯ [노트 열기].
+for(const width of [390,1280])test(`linked note record ${width}: a tap opens it in place (no card, no leaving); ⋯ [노트 열기] is the full open`,async({page})=>{
+ await page.setViewportSize({width,height:900});await ready(page,'?history=1');await asNotes(page);await openOrg(page);
  const modal=page.locator('#wdModal'),row=page.locator('#wdUpdates [data-basket-link]').first(),line=row.locator('[data-rec-fold-toggle]');
  await line.click();await expect(line).toHaveAttribute('aria-expanded','true');await expect(row.locator('[data-rec-fold-body]')).toContainText('보관 원문 <script> 합성 내용');
- await expect(page.locator('#kptuRecordSheet')).toHaveCount(0);await expect(modal).toBeVisible();expect(await page.evaluate(()=>window.__went)).toEqual([]);
+ await expect(page.locator('#kptuRecordSheet:not(.hidden)')).toHaveCount(0);await expect(modal).toBeVisible();expect(await page.evaluate(()=>window.__went)).toEqual([]);
  await line.click();await expect(line).toHaveAttribute('aria-expanded','false');await expect(row.locator('[data-rec-fold-body]')).toBeHidden();
- await row.locator('[data-basket-link-menu]').click();await page.locator('#basketLinkMenu').getByRole('button',{name:'업데이트 열기'}).click();
+ await row.locator('[data-basket-link-menu]').click();await page.locator('#basketLinkMenu').getByRole('button',{name:'노트 열기'}).click();
  await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(modal).toBeHidden();
- await ready(page,'?history=1');await openProject(page);
+ await ready(page,'?history=1');await asNotes(page);await openProject(page);
  const prow=page.locator('#ps3-progress [data-basket-link]').first(),pline=prow.locator('[data-rec-fold-toggle]');
  await pline.click();await expect(pline).toHaveAttribute('aria-expanded','true');await expect(prow.locator('[data-rec-fold-body]')).toContainText('보관 원문 <script> 합성 내용');
- await expect(page.locator('#kptuRecordSheet')).toHaveCount(0);await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(await page.evaluate(()=>window.__went)).toEqual([]);
+ await expect(page.locator('#kptuRecordSheet:not(.hidden)')).toHaveCount(0);await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(await page.evaluate(()=>window.__went)).toEqual([]);
  await prow.locator('[data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu [data-ps3-record-action="open-note"]').click();
  await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);
 });

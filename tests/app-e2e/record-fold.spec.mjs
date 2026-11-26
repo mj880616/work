@@ -2,23 +2,23 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
-// UI-기록줄높이통일(S70-66, 명진 2026-11-26 08:19 "두 줄" — 시안 B 나안): 조직 관리 기록·사업 관리 진행 기록 줄은 짧든 길든 같은 높이
+// UI-기록줄높이통일(S70-66, 사용자 결정 2026-11-26 08:19 "두 줄" — 시안 B 나안): 조직 관리 기록·사업 관리 진행 기록 줄은 짧든 길든 같은 높이
 // [날짜 · 요약 두 줄까지 '…' · 첨부·메모 수 · ›]. 줄을 누르면(Enter/Space도) 그 자리에서 본문 전체·첨부가 펼쳐지고 다시 누르면 접힌다.
 // 폴드 펼침·PC 폭에서는 분류 칩(기록이 온 곳) 글자가 줄 안에 보인다. 폰 390 · 폴드 펼침 690 · PC 1280.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LONG=Array.from({length:12},(_,i)=>`긴 기록 ${i+1}번째 줄`).join('\n');
 const FILES=[{drive_file_id:'f-one',file_name:'합성 자료.pdf',mime_type:'application/pdf'},{drive_file_id:'f-two',file_name:'합성 표.xlsx',mime_type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}];
-const link=(id,place,{summary=null,raw='합성 원문',at,files=[]})=>({id,workspace_id:'w',summary,origin:null,note_id:'n-'+id,organization_id:place==='o'?'o':null,project_id:place==='p'?'p':null,status:'confirmed',
- note:{id:'n-'+id,workspace_id:'w',occurred_at:at,raw_text:raw,kind:'basket',title:null,metadata:null,attachments:files}});
+const link=(id,place,{summary=null,raw='합성 원문',at,files=[],kind='basket'})=>({id,workspace_id:'w',summary,origin:null,note_id:'n-'+id,organization_id:place==='o'?'o':null,project_id:place==='p'?'p':null,status:'confirmed',
+ note:{id:'n-'+id,workspace_id:'w',occurred_at:at,raw_text:raw,kind,title:null,metadata:null,attachments:files}});
 async function fixture(page,width){
  await page.setViewportSize({width,height:844});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  const home=await openHome(page,{beforeLoad:async()=>{
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_record_links'&&(u.searchParams.get('select')||'').includes('note:app_notes'),r=>{
    const url=new URL(r.request().url());if(Number(url.searchParams.get('offset')||0))return r.fulfill({json:[]});
-   if(url.searchParams.get('project_id')==='in.(p)')return r.fulfill({json:[link('p-long','p',{raw:LONG,at:'2026-10-21T01:00:00Z',files:FILES}),link('p-short','p',{summary:'한 줄 연결',at:'2026-10-20T01:00:00Z'})]});
-   if(url.searchParams.get('organization_id')==='in.(o)')return r.fulfill({json:[link('o-link','o',{raw:LONG,at:'2026-10-03T01:00:00Z',files:FILES})]});
+   if(url.searchParams.get('project_id')==='in.(p)')return r.fulfill({json:[link('p-long','p',{raw:LONG,at:'2026-10-21T01:00:00Z',files:FILES,kind:'note'}),link('p-short','p',{summary:'한 줄 연결',at:'2026-10-20T01:00:00Z'})]});
+   if(url.searchParams.get('organization_id')==='in.(o)')return r.fulfill({json:[link('o-link','o',{raw:LONG,at:'2026-10-03T01:00:00Z',files:FILES,kind:'note'})]});
    return r.fallback();
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',r=>r.request().method()!=='GET'?r.fallback():r.fulfill({json:[
@@ -63,7 +63,8 @@ for(const width of [390,690,1280]){
   await expect(linkHead).toHaveAttribute('aria-expanded','true');await expect(linkRow.locator('.record-files')).toBeVisible();
   await expect(linkRow.locator('[data-record-file="f-one"]')).toBeVisible();await expect(page.locator('#wdModal')).toBeVisible();
   await page.keyboard.press('Space');await expect(linkHead).toHaveAttribute('aria-expanded','false');await expect(linkRow.locator('.record-files')).toBeHidden();
-  // 분류 칩: 폰은 그림만, 폴드 펼침·PC는 글자도 줄 안에
+  // 분류 칩(노트에서 이은 줄만 '노트 연결' — 잊지 말기에서 온 줄은 표시 없음): 폰은 그림만, 폴드 펼침·PC는 글자도 줄 안에
+  await expect(row('u-long').locator('.rec-fold-chip')).toHaveCount(0);
   const chip=linkRow.locator('.rec-fold-chip-t');
   if(width<600)await expect(chip).toBeHidden();else await expect(chip).toBeVisible();
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);
@@ -89,7 +90,7 @@ for(const width of [390,690,1280]){
   expect(await height(line(short))).toBe(h);
   await head.click();await expect(head).toHaveAttribute('aria-expanded','false');await expect(long.locator('[data-rec-fold-body]')).toBeHidden();
   expect(await height(line(long))).toBe(h);
-  // 원래 글 열기는 ⋯ 메뉴에 그대로 있다.
+  // 노트 열기는 ⋯ 메뉴에 그대로 있다(노트에서 이은 줄).
   await long.locator('[data-ps3-record-menu]').click();
   await expect(page.locator('#ps3RecordMenu [data-ps3-record-action="open-note"]')).toBeVisible();
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);

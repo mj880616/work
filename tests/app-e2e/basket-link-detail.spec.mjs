@@ -14,18 +14,17 @@ async function open(page,kind='organization'){await page.evaluate(kind=>{const s
 for(const width of [390,1280])test(`organization blends old and basket records with archived source and NULL fallback ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});await ready(page);await open(page);
  const box=page.locator('#wdUpdates');await expect(box.locator('[data-basket-link]')).toHaveCount(2);await expect(box).toContainText('연결 요약');await expect(box).toContainText('보관 원문');
- const first=await box.locator(':scope > div').first().textContent();expect(first).toContain('잊지 말기');await expect(box.locator('[data-wd-up-menu]')).toHaveCount(1);await expect(box.locator('[data-wd-up-del]')).toHaveCount(0);await expect(box.locator('[data-basket-link] [data-wd-up-menu]')).toHaveCount(0);
- await expect(box.locator('[data-basket-link] [data-rec-fold-toggle]').first()).toHaveAttribute('aria-expanded','false');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await expect(box).not.toContainText('잊지 말기'); // S71-57: 출처 표시 없음
+ await expect(box.locator('[data-wd-up-menu]')).toHaveCount(1);await expect(box.locator('[data-wd-up-del]')).toHaveCount(0);await expect(box.locator('[data-basket-link] [data-wd-up-menu]')).toHaveCount(0);
+ await expect(box.locator('[data-basket-link] a')).toHaveCount(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 for(const width of [390,1280])test(`project basket rows join the record list read-only and keep child/menu separation ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});await ready(page);await open(page,'project');const list=page.locator('#ps3-progress [data-ps3-records]');await expect(page.locator('#ps3BasketLinks')).toHaveCount(0);await expect(list.locator('[data-basket-link]')).toHaveCount(2);await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('2');
- const row=list.locator('[data-basket-link]').first();await expect(row).toBeVisible();await expect(row.getByRole('img',{name:'잊지 말기 업데이트'})).toBeVisible();await expect(row.locator('[data-rec-fold-toggle]')).toHaveAttribute('aria-expanded','false');await expect(list.locator('[data-link-summary-edit],[data-link-disconnect],[data-link-note-delete],[data-link-summary-input],button:not([data-ps3-record-menu^="basket:"],[data-rec-fold-toggle])')).toHaveCount(0);
+ const row=list.locator('[data-basket-link]').first();await expect(row).toBeVisible();await expect(row.locator('[data-record-mark]')).toHaveCount(0);await expect(row.locator('a')).toHaveCount(0);await expect(list.locator('[data-link-summary-edit],[data-link-disconnect],[data-link-note-delete],[data-link-summary-input],button:not([data-ps3-record-menu^="basket:"],[data-rec-fold-toggle])')).toHaveCount(0);
  await expect(page.locator('#ps3-children')).toContainText('하위 프로젝트');await expect(page.locator('#ps3Menu [data-ps3-project]')).toHaveCount(0);expect(await list.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
- // UI-기록줄높이통일(S70-66): 줄을 누르면 그 자리에서 펼치고(떠나지 않음), 원래 업데이트는 ⋯ [업데이트 열기].
- await page.evaluate(()=>{window.__went=[];window.KPTURouter.go=(...a)=>window.__went.push(a)});await row.locator('[data-rec-fold-toggle]').click();
- await expect(row.locator('[data-rec-fold-toggle]')).toHaveAttribute('aria-expanded','true');await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(await page.evaluate(()=>window.__went)).toEqual([]);
- await row.locator('[data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu [data-ps3-record-action="open-note"]').click();
- await expect(page.locator('#ps3DetailModal')).toBeHidden();expect(await page.evaluate(()=>window.__went)).toEqual([['basket',{source:'delegated'}]]);expect(await page.evaluate(()=>window.__detailState.calls.filter(x=>x.method!=='GET'))).toEqual([]);
+ await page.evaluate(()=>{window.__went=[];window.KPTURouter.go=(...a)=>window.__went.push(a)});await row.locator('.rec-fold-text').click();
+ // S71-57: 잊지 말기에서 온 기록 줄은 눌러도 어디로도 가지 않는다(폰 기록 창도 없음).
+ await expect(page.locator('#kptuRecordSheet:not(.hidden)')).toHaveCount(0);await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(await page.evaluate(()=>window.__went)).toEqual([]);expect(await page.evaluate(()=>window.__detailState.calls.filter(x=>x.method!=='GET'))).toEqual([]);
 });
 test('existing organization logs paginate without losing old records',async({page})=>{await ready(page);await page.evaluate(()=>{const s=window.__detailState;s.updates=Array.from({length:130},(_,i)=>({id:'old-'+i,organization_id:s.ids.org,occurred_at:'2026-10-10T01:00:00Z',raw_text:'조직 로그 '+i}));});await open(page);await expect(page.locator('#wdUpdates [data-wd-up-menu]')).toHaveCount(130);});
 for(const kind of ['organization','project'])test(`${kind} basket permission failure is explicit, retry restores records`,async({page})=>{

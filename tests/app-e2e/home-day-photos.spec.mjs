@@ -131,19 +131,32 @@ test('HOME-오늘사진빨리: 홈에서 바로 다른 탭으로 가면 사진 �
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
+  // TEST-사진시험안정화: 이번 달 목록 첫 답은 시험이 다른 탭으로 옮긴 뒤에 풀어 준다(정해진 800ms 기다림이 아니라 상태로).
+  // 예전에는 답을 800ms 늦췄는데, 바쁜 CI에서는 [일정]을 누르기 전에 답이 와서 홈에 사진이 그려진 채 떠나 '0'이 아니었다.
+  let asked = null, release;
+  const held = new Promise(res => { release = res; });
   await openHome(page, { beforeLoad: async () => {
     await page.route(u => u.origin === SB && u.pathname === '/functions/v1/onedrive-photos', async r => {
       const body = r.request().postDataJSON();
       if (body.action === 'photo') return r.fulfill({ status: 200, contentType: 'image/png', body: PNG });
       if (body.action === 'status') return r.fulfill({ json: { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true } });
-      if (body.action === 'photos') { await new Promise(res => setTimeout(res, 800)); return r.fulfill({ json: { month: body.month, days: body.month === '2026-10' ? { '2026-10-06': DAY } : {}, truncated: false } }); }
+      if (body.action === 'photos') {
+        if (!asked) { asked = r.request(); await held; }
+        return r.fulfill({ json: { month: body.month, days: body.month === '2026-10' ? { '2026-10-06': DAY } : {}, truncated: false } });
+      }
       return r.fulfill({ json: {} });
     });
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_diary_stars', r => r.fulfill({ json: [] }));
   } });
+  await expect.poll(() => !!asked).toBe(true); // 홈이 사진 목록을 읽기 시작함(답은 아직)
+  expect(await home(page).locator('[data-journal-photo]').count()).toBe(0);
   await clickView(page, 'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
-  await page.waitForTimeout(1200); // 목록이 온 뒤에도 홈 밖에서는 사진 칸을 채우지 않는다
+  const finished = page.waitForEvent('requestfinished', req => req === asked);
+  release();
+  await finished; // 목록 답이 다 옴
+  // 답을 받은 뒤 화면이 할 일(json 읽기·다음 단계)이 다 돌 때까지 한 바퀴 넘긴다. 홈 밖에서는 사진 칸을 채우지 않는다.
+  await page.evaluate(() => new Promise(res => setTimeout(() => requestAnimationFrame(() => setTimeout(res, 0)), 0)));
   expect(await home(page).locator('[data-journal-photo]').count()).toBe(0);
   await clickView(page, 'home');
   await expect(home(page).locator('[data-journal-photo]').first()).toBeVisible();

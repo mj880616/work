@@ -50,7 +50,7 @@ for(const width of [390,1280]){
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);
  });
 
- // UI-기록줄높이통일(S70-66, 명진 2026-11-26 '두 줄'): 진행 기록·조직 기록의 4줄 자르기·[펼치기]는 같은 높이 두 줄 줄 + 누르면 그 자리 펼침으로
+ // UI-기록줄높이통일(S70-66, 사용자 결정 2026-11-26 '두 줄'): 진행 기록·조직 기록의 4줄 자르기·[펼치기]는 같은 높이 두 줄 줄 + 누르면 그 자리 펼침으로
  // 바뀌었다 — 그 시험은 record-fold.spec.mjs. 여기는 입력 칸이 없고 겹상자가 없는 것만 본다.
  test(`프로젝트 상세: 입력 칸·⤢ 없음, 겹상자 없음 ${width}`,async({page})=>{
   const f=await fixture(page,width);

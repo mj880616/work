@@ -1,4 +1,4 @@
-// UI-기록줄높이통일(S70-66, 명진 2026-11-26 08:19 "두 줄" — 시안 docs/design/swipe-and-record-mockup.html 시안 B 나안).
+// UI-기록줄높이통일(S70-66, 사용자 결정 2026-11-26 08:19 "두 줄" — 시안 docs/design/swipe-and-record-mockup.html 시안 B 나안).
 // 기록 줄 하나 모양: [날짜 · 요약 두 줄까지(넘치면 '…') · 첨부 수·메모 수 · ›] 같은 높이. 줄을 누르면(Enter/Space도 — 진짜 button)
 // 그 자리에서 펼쳐 본문 전체·첨부·메모가 보이고, 다시 누르면 접힌다. 폴드 펼침·PC 폭에서는 분류 칩(기록이 온 곳)이 줄 안에 보인다.
 // 쓰는 곳: 조직 관리 기록(workplace-detail.js — 글 기록 줄·연결 기록 줄), 사업 관리 진행 기록(project-system-v3.js).

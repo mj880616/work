@@ -47,7 +47,7 @@
   <button id="accessDeniedLogoutBtn" class="ghost" type="button">로그아웃</button>
 </section>
 <section id="appView" class="app-view hidden">
-  <header class="mobile-shell-header" hidden><a class="head-mark" href="./?view=home" data-goto="home" aria-label="홈"><img src="./app-icon.svg" width="20" height="20" alt=""></a><span data-mobile-view-name></span><div class="mobile-shell-search" data-search-entry></div><div class="mobile-shell-find" data-screen-find-slot></div><div class="screen-tools-slot" data-screen-tools="head"></div></header>
+  <header class="mobile-shell-header" hidden><a class="head-mark" href="./?view=home" data-goto="home" aria-label="홈"><img src="./app-icon.svg" width="20" height="20" alt=""></a><span data-mobile-view-name></span><span class="screen-note-slot" data-screen-note="head"></span><div class="mobile-shell-search" data-search-entry></div><div class="mobile-shell-find" data-screen-find-slot></div><div class="screen-tools-slot" data-screen-tools="head"></div></header>
   <nav id="appNav" class="app-nav">
     <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="홈"><img src="./app-icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>홈</span></a>
     <a class="nav-btn nav-home-mid" data-view="home" href="./">홈</a>
@@ -76,6 +76,7 @@
     <button class="topline-btn topline-step" type="button" data-history-step="back" aria-label="뒤로" title="뒤로" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg></button>
     <button class="topline-btn topline-step" type="button" data-history-step="forward" aria-label="앞으로" title="앞으로" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></button>
     <nav class="topline-where" aria-label="지금 위치"><ol data-topline-where></ol></nav>
+    <span class="screen-note-slot" data-screen-note="top"></span>
     <div class="topline-search" data-search-slot></div>
     <div class="screen-tools-slot" data-screen-tools="top"></div>
     <button class="topline-btn topline-add" type="button" data-quick-add aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">+</span> 추가</button>
