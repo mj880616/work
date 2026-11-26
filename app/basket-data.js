@@ -317,6 +317,16 @@ export function setNoteBlockEdit(note, on, rt = window.KPTURuntime) {
     return metadata;
   }, rt);
 }
+// S69-97 노트 알림: metadata.alarm = {at: ISO UTC}(새 칸·DB 변경 없음), null이면 칸을 지운다. 고치기가 아니라 updated_at은 그대로, 다른 metadata 칸도 그대로.
+// 시각이 되면 서버(phone-push)가 폰으로 한 번 알린다. 같은 값이면 쓰지 않는다.
+export function setNoteAlarm(note, at, rt = window.KPTURuntime) {
+  return patchNoteMetadata(note, metadata => {
+    const now = plainObject(metadata.alarm) ? metadata.alarm.at : undefined;
+    if (at) { if (now === at) return null; metadata.alarm = {at}; }
+    else { if (!('alarm' in metadata)) return null; delete metadata.alarm; }
+    return metadata;
+  }, rt);
+}
 // NOTE-주소로 가져오기 2단계(docs/design/note-import-by-url.md 5절): 원문 정보는 노트 행의 기존 metadata jsonb(metadata.source) 하나(새 칸·DB 변경 없음).
 // setNoteSource: 원문 정보만 바꾼다(실패 표시·[주소만 두기]·[다시 시도] 표시). 수정이 아니라 updated_at은 그대로, 다른 metadata 칸도 그대로
 // (고정·폴더와 같은 읽고-지키며-쓰기). change(지금 source 또는 null) → 새 source, 객체가 아니면 쓰지 않는다.
