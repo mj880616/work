@@ -187,7 +187,7 @@ test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 �
   expect(f.errors).toEqual([]);
 });
 
-test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제], 오른쪽 끝까지 밀면 바로 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
+test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제], 오른쪽 끝까지 밀면 [선택] 칸만 → 누르면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
   const f = await notesList(page, 412);
   // 휴지통에서 되돌리면 서버 목록에도 다시 있다(업데이트 줄 시험과 같음) — 되돌린 뒤 다시 읽어도 두 줄 그대로.
   f.trash.onRestore = row => { const { link_count, deleted_at, ...back } = row; f.rows.push(back); };

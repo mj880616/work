@@ -126,7 +126,7 @@ test('저장한 글 412 실제 손가락: 조금·끝까지·빠르게 왼쪽 �
   expect(errors).toEqual([]);
 });
 
-test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니고, 오른쪽 끝까지는 칸 없이 바로 고르기(W3), 줄 위 좌우 밀기는 탭을 넘기지 않고 줄 밖에서는 넘긴다', async ({ page }) => {
+test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니고, 오른쪽 끝까지는 [선택] 칸만(누르면 선택), 줄 위 좌우 밀기는 탭을 넘기지 않고 줄 밖에서는 넘긴다', async ({ page }) => {
   test.setTimeout(120000);
   const { s, errors, list, cdp } = await openReading(page, 412);
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');

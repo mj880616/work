@@ -98,7 +98,7 @@ test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높
   expect(Math.abs(cellBox.height - rowBox.height)).toBeLessThan(2);
   expect(cellBox.x + cellBox.width).toBeGreaterThan(rowBox.x + rowBox.width - 2);
   expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method !== 'GET')).toHaveLength(0);
-  // 오른쪽 끝까지: 칸 없이 바로 그 줄이 골라진 채로 고르기 줄. 다른 줄을 눌러 더 고른다(열리지 않음).
+  // 오른쪽 끝까지: [선택] 칸만 → 누르면 그 줄이 골라진 채로 고르기 줄. 다른 줄을 눌러 더 고른다(열리지 않음).
   await swipePick(page, item(page, 'c1'));
   const bar = page.locator('#newsRoot .row-swipe-pickbar');
   await expect(bar).toBeVisible();

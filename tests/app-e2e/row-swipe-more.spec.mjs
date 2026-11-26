@@ -151,7 +151,7 @@ test('읽을 거리 412: 왼쪽 밀기 [삭제] — ⋯ 삭제와 같이 묻고,
   expect(errors).toEqual([]);
 });
 
-test('읽을 거리 412: 오른쪽 밀기 = 바로 고르기 → n개 선택됨 · [읽음][삭제], [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
+test('읽을 거리 412: 오른쪽 밀기 [선택] 칸 누르기 → n개 선택됨 · [읽음][삭제], [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors, list } = await openReading(page, 412);
   await swipePick(page, rdRow(list, RA));
@@ -269,7 +269,7 @@ test('자료실 390: 왼쪽 밀기 [옮기기]·[삭제] 칸 — 끝까지 밀�
   expect(state.errors).toEqual([]);
 });
 
-test('자료실 390: 오른쪽 밀기 = 바로 고르기 → 자료실 선택 모드가 그 줄이 골라진 채로 열림, 줄 위 밀기는 길게 누르기 메뉴를 열지 않음', async ({ page }) => {
+test('자료실 390: 오른쪽 밀기 [선택] 칸 누르기 → 자료실 선택 모드가 그 줄이 골라진 채로 열림, 줄 위 밀기는 길게 누르기 메뉴를 열지 않음', async ({ page }) => {
   test.setTimeout(90000);
   const state = await librarySetup(page, 390);
   await openLibrary(page, BASE);
