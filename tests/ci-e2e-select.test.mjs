@@ -1,7 +1,7 @@
 // OPS-시험줄(S70-39): PR마다 고친 파일과 관련된 화면 시험만 고르는 계산(scripts/ci/e2e-select.mjs)을 본다.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {select, parseChanged, shardsFor, loadRepo} from '../scripts/ci/e2e-select.mjs';
+import {select, parseChanged, shardsFor, loadRepo, routeStylesOf} from '../scripts/ci/e2e-select.mjs';
 
 const app = new Map([
   ['app/index.html', '<link href="./base-ui.css"><script src="./app.js"></script>'],
@@ -104,4 +104,61 @@ test('실제 저장소: 화면 파일 → 공용 동작 기준표·사각형 고
     const sel = select([f], appFiles, testFiles);
     for (const s of lib) assert.ok(sel.mode === 'full' || sel.specs.includes(s), `${f} → ${s}`);
   }
+});
+
+// TEST-시험고르기보강(S71-79, #3232 범위 밖 발견사항 ①): 기준표(standard-interactions) 화면 표의 화면 파일은 모두 그 시험을 고른다.
+// 노트 화면 본체(basket-notes.js)를 고친 PR에서 노트 줄(D3·W 등)이 있는 기준표 시험이 빠졌다. 같은 종류로 빠져 있던 화면 파일도 함께 본다.
+test('실제 저장소: 기준표 화면 표의 화면 파일 전부 → 기준표 시험', () => {
+  const {appFiles, testFiles} = loadRepo('.');
+  const std = 'tests/app-e2e/standard-interactions.spec.mjs';
+  const screens = {
+    노트: ['app/basket-notes.js', 'app/basket.css', 'app/note-window.js', 'app/note-board.js'],
+    자료실: ['app/library-upload.js', 'app/library-two-pane.js'],
+    파일: ['app/files.js', 'app/files.css'],
+    사진: ['app/photos.js', 'app/gdrive-photos.js', 'app/phone-photos.js'],
+    '브리핑 룸': ['app/brief-room.js', 'app/brief-room.css'],
+    '저장한 글': ['app/reading.js', 'app/reading.css'],
+    '읽을 거리': ['app/outside-statements.js', 'app/outside-statements.css', 'app/now.css', 'app/news-clipping.js'],
+    '할 일': ['app/google-tasks.js', 'app/task-layout.css'],
+    '조직 묶음': ['app/suborganizations.js', 'app/organization-order.js'],
+    '나무·목록 줄 공용 모양': ['app/folder-tree.css', 'app/list-row.css', 'app/row-swipe.css'],
+  };
+  for (const [screen, files] of Object.entries(screens)) for (const f of files) {
+    assert.ok(appFiles.has(f), `${f} 없음`);
+    const sel = select([f], appFiles, testFiles);
+    assert.ok(sel.mode === 'full' || sel.specs.includes(std), `${screen} ${f}: ${sel.mode} ${sel.specs.length}개에 기준표 시험 없음`);
+  }
+});
+
+test('화면 파일이 바로 부르는 파일 → 그 화면 시험, 시험이 주소로 여는 fixture HTML이 부르는 파일 → 그 시험', () => {
+  const app2 = new Map([...app,
+    ['app/files.js', "import './files-part.mjs';"],
+    ['app/files-part.mjs', 'export const p = 1;'],
+    ['app/lone-helper.mjs', 'export const h = 1;'],
+    ['app/screen-x.js', "import './lone-helper.mjs';"],
+    ['app/org-thing.js', 'export const o = 1;'],
+  ]);
+  const tests2 = new Map([...tests,
+    ['tests/app-e2e/standard-interactions.spec.mjs', "await page.goto(`${appOrigin}/tests/app-e2e/org-fixture.html?x=1`);"],
+    ['tests/app-e2e/org-fixture.html', '<script type=module src="/app/org-thing.js"></script>'],
+    ['tests/app-e2e/screen-x.spec.mjs', "test('x', () => {});"],
+  ]);
+  const std = 'tests/app-e2e/standard-interactions.spec.mjs';
+  // lone-helper.mjs는 화면 파일(files*)이 부르지 않으므로 기준표 시험이 아니고, 이름 규칙으로 screen-x 시험만.
+  assert.deepEqual(select(['app/lone-helper.mjs'], app2, tests2).specs, ['tests/app-e2e/screen-x.spec.mjs']);
+  // files.js가 바로 부르는 파일은 [파일] 화면 파일과 같이 기준표 시험.
+  assert.ok(select(['app/files-part.mjs'], app2, tests2).specs.includes(std));
+  // 기준표 시험이 주소로 여는 fixture가 부르는 파일.
+  assert.deepEqual(select(['app/org-thing.js'], app2, tests2).specs, [std]);
+});
+
+test('화면 모양 파일(view-loader routeStyles의 기준표 화면 줄) → 기준표 시험, 다른 화면 모양 파일은 아님', () => {
+  const loader = "const routeStyles={\n  basket:['./shelf.css','./shared.css'],\n  calendar:['./calendar-ui.css'],\n};\nconst routes={}";
+  assert.deepEqual(routeStylesOf(loader).get('basket'), ['app/shelf.css', 'app/shared.css']);
+  const app3 = new Map([...app, ['app/view-loader.js', loader], ['app/shelf.css', 'a{}'], ['app/shared.css', 'b{}'], ['app/calendar-ui.css', 'c{}']]);
+  const tests3 = new Map([...tests, ['tests/app-e2e/standard-interactions.spec.mjs', "test('x', () => {});"], ['tests/app-e2e/calendar-ui.spec.mjs', "test('y', () => {});"]]);
+  const std = 'tests/app-e2e/standard-interactions.spec.mjs';
+  assert.deepEqual(select(['app/shelf.css'], app3, tests3).specs, [std]);
+  assert.deepEqual(select(['app/shared.css'], app3, tests3).specs, [std]);
+  assert.deepEqual(select(['app/calendar-ui.css'], app3, tests3).specs, ['tests/app-e2e/calendar-ui.spec.mjs']);
 });

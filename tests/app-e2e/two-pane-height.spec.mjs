@@ -12,6 +12,9 @@ import { openSavedDoc, openNewsDoc } from './helpers/doc-view.mjs';
 import { fixture as callFixture, openCalls } from './helpers/call-feed-server.mjs';
 import { installTgServer, telegramRows } from './helpers/tg-room-day-server.mjs';
 import { bootLibrary, libFolder } from './helpers/library-folder-server.mjs';
+import { start as startFiles, openFiles } from './helpers/files-server.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { openBriefRoom, openBrief } from './helpers/select-text-bar.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const GAP = 12; // follow-pane.js: 창 아래 끝과 칸 사이 틈
@@ -138,4 +141,74 @@ test('UI-두칸높이 노트 폴더 나무 PC 1280×800: 처음 그릴 때부터
   await expect(tree).toBeVisible();
   await expect.poll(async () => { const m = await measure(page, '#basketView .nx-tree.kptu-follow-pane', null); return Math.abs(Math.round(m.vh - GAP - m.bottom)); }).toBeLessThanOrEqual(2);
   expect(await page.evaluate(() => window.__treeMax), '나무 칸 높이가 처음 그린 뒤에 바뀜').toHaveLength(1);
+});
+
+// FOLLOW-높이재는때(S71-79, #3232 범위 밖 발견사항 ②): 붙는 칸(follow-pane.js)을 쓰는 화면 전부 — 칸 높이(--follow-max)는 처음 그릴 때 한 번만 정해진다.
+// 같은 순서 문제(칸 높이를 그리기 중간에 재고 그 뒤 칸 위쪽 줄 — 상태 줄·빈 줄·위치 줄 — 이 바뀌면 다음 그림 틀까지 칸이 짧다)를 화면마다 본다.
+// 기록은 창 크기를 바꾸면 비운다(창 크기에 따라 다시 재는 것은 맞는 동작). 화면 표는 위 SCREENS + 붙는 칸이 있는 나머지 화면.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
+// 사업 관리는 뺀다: 칸 위 '이번 주 주간보고' 상자가 따로 늦게 읽혀(그리기 순서가 아니라 자료 도착) 칸이 한 번 더 옮겨지고,
+// 그것은 틀 크기 변화 보기(ResizeObserver)가 다음 그림 틀에 다시 잰다(설계대로 — follow-pane.js BIZ-결과칸작음). PR 본문 '범위 밖 발견사항'.
+const FIRST_SCREENS = [...SCREENS.filter(([name]) => name !== '사업 관리'),
+  ['사진 폴더 나무', async (page, width) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openHome(page);
+    await installViewPrefsServer(page);
+    const folders = Array.from({ length: 6 }, (_, i) => ({ id: 'S' + i, name: '가상 폴더 ' + i, parent_id: 'T', enabled: true, count: 0, total: 0 }));
+    await page.route(u => u.origin === SB && ['/rest/v1/app_diary_stars', '/rest/v1/app_photo_tags', '/rest/v1/app_photo_tag_items'].includes(u.pathname), r => r.fulfill({ json: [] }));
+    await page.route(u => u.origin === SB && u.pathname === '/functions/v1/onedrive-photos', r => {
+      const { action } = r.request().postDataJSON();
+      if (action === 'photo') return r.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+      if (action === 'status') return r.fulfill({ json: { configured: true, connected: true, folder: { name: '가상 카메라' }, can_delete: true } });
+      if (action === 'sync') return r.fulfill({ json: { more: false, indexing: false } });
+      if (action === 'months') return r.fulfill({ json: { months: {}, total: 0 } });
+      if (action === 'library') return r.fulfill({ json: { items: [], next_cursor: null, indexing: false } });
+      if (action === 'folders-tree') return r.fulfill({ json: { top: { id: 'T', name: '가상 카메라', count: 0, total: 0 }, folders, indexing: false } });
+      return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
+    });
+    await clickView(page, 'photos');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
+    await expect(page.locator('#photosRoot [data-photos-fx-tree].kptu-follow-pane')).toBeVisible();
+    return { pane: '#photosRoot [data-photos-fx-tree]' };
+  }],
+  ['파일 나무', async (page, width) => {
+    await startFiles(page, width);
+    await openFiles(page, width);
+    await expect(page.locator('#filesRoot [data-fx-tree].kptu-follow-pane')).toBeVisible();
+    return { pane: '#filesRoot [data-fx-tree]' };
+  }],
+  ['파일 두 칸', async (page, width) => {
+    await startFiles(page, width);
+    await openFiles(page, width, { two: true });
+    const two = page.locator('#filesRoot [data-fx-two]');
+    if ((await two.getAttribute('aria-pressed')) !== 'true') await two.click();
+    await expect(page.locator('#filesRoot [data-fx-pane-i="1"].kptu-follow-pane')).toBeVisible();
+    return { pane: '#filesRoot [data-fx-pane-i="1"]' };
+  }],
+  ['브리핑 룸', async (page, width) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openBriefRoom(page);
+    await openBrief(page);
+    await expect(page.locator('#briefView [data-br-detail].kptu-follow-pane')).toBeVisible();
+    return { pane: '#briefView [data-br-detail]' };
+  }],
+];
+for (const [name, open] of FIRST_SCREENS) test(`FOLLOW-높이재는때 ${name} PC 1280: 칸 높이는 처음 그릴 때 한 번(뒤에 다시 재어 바뀌지 않음)`, async ({ page }) => {
+  test.setTimeout(90000);
+  await page.addInitScript(() => {
+    const log = window.__followMax = new Map();
+    addEventListener('resize', () => log.clear());
+    new MutationObserver(list => {
+      for (const { target: el } of list) {
+        if (!el.classList?.contains('kptu-follow-pane')) continue;
+        const v = el.style.getPropertyValue('--follow-max'), a = log.get(el) || [];
+        if (v && a.at(-1) !== v) { a.push(v); log.set(el, a); }
+      }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ['style'] });
+  });
+  const { pane } = await open(page, 1280);
+  await expect.poll(async () => { const m = await measure(page, pane, null); return Math.abs(Math.round(m.vh - GAP - m.bottom)); }, { message: `${name}: 칸 아래 끝 = 창 아래 끝` }).toBeLessThanOrEqual(2);
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const values = await page.evaluate(sel => window.__followMax.get(document.querySelector(sel)) || [], pane);
+  expect(values, `${name}: 칸 높이가 처음 그린 뒤에 바뀜`).toHaveLength(1);
 });

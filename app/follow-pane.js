@@ -45,11 +45,8 @@ function paint(el, at) {
   const top = Math.round(at.top + stickTop());
   const t = `${top}px`;
   if (el.style.getPropertyValue('--follow-top') !== t) el.style.setProperty('--follow-top', t);
-  const rectTop = el.getBoundingClientRect().top;
-  at.lastTop = rectTop;
-  const v = `${followMax({ view: window.innerHeight - below, top, rectTop })}px`;
-  if (el.style.getPropertyValue('--follow-max') !== v) el.style.setProperty('--follow-max', v);
   // 윗선 맞춤(under): 칸 위끝을 왼쪽 칸 머리 줄 아래(그 줄의 아래 끝)에 둔다. 두 요소가 같은 틀 안에서 함께 내려가므로 틀 위끝과의 차이만 잰다(붙은 상태와 상관없음).
+  // 띄움(margin)이 칸 위치를 옮기므로 칸 높이보다 먼저 정한다(FOLLOW-높이재는때 S71-79: 뒤에 정하면 칸을 띄움만큼 짧게 재고 다음 틀에 다시 쟀다 — 통화·텔레그램 32px).
   if (at.under) {
     const u = at.under(), box = el.parentElement;
     let off = 0;
@@ -60,6 +57,10 @@ function paint(el, at) {
     const o = `${off}px`;
     if (el.style.getPropertyValue('--follow-offset') !== o) el.style.setProperty('--follow-offset', o);
   }
+  const rectTop = el.getBoundingClientRect().top;
+  at.lastTop = rectTop;
+  const v = `${followMax({ view: window.innerHeight - below, top, rectTop })}px`;
+  if (el.style.getPropertyValue('--follow-max') !== v) el.style.setProperty('--follow-max', v);
   return top;
 }
 /** 순수 계산(tests/follow-pane-math.test.mjs): 윗선 맞춤 — 칸을 틀 위끝(boxTop)에서 왼쪽 머리 줄 아래 끝(underBottom)까지 내릴 거리(px, 0 이상). */
