@@ -89,7 +89,7 @@ test('mode memory is on the server; unreadable or unsaveable server value defaul
 for(const width of [390,1440])test(`quick visual measurements and snapshot ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});await openHome(page);await pickQuickMode(page,'task');const q=quick(page);await q.locator('[data-quick-input]').fill('QA');
  // UI-디자인기준 1/3 보완: one control height for every mode, the [추가] height (--ds-control-height; UI-PC버튼36: PC ≥1024 is the input height 36px).
- const h='36px';/* HOME-모바일정리④: 폰 입력칸도 36px */await expect(q.locator('[data-quick-input]')).toHaveCSS('height',h);await expect(q.locator('[data-quick-save]')).toHaveCSS('height','36px');/* UI-버튼줄이기: 폰도 [추가] 36px */
+ const h='40px';/* NOTE-입력줄높이(S71-67): 입력칸·[추가] 같은 40px */await expect(q.locator('[data-quick-input]')).toHaveCSS('height',h);await expect(q.locator('[data-quick-save]')).toHaveCSS('height','40px');/* UI-버튼줄이기: 폰도 [추가] 36px */
  if(width>=761)expect(await q.locator('[data-quick-save]').evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});

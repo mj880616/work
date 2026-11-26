@@ -1849,7 +1849,7 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
 }
 /* 폴더 단추: 폴더 없음 = 정사각 아이콘(공용 폴더 그림·기본 폴더 색), 고른 폴더 = 그 폴더 색 아이콘 + 작은 이름(넘치면 '…'). */
 #appView #basketView .home-quick[data-home-quick] .home-quick-entry .home-quick-folder{
-  display:inline-flex; align-items:center; justify-content:center; gap:4px; width:auto; min-width:var(--ds-quick-row-height); max-width:9em; padding:0 10px; overflow:hidden;
+  display:inline-flex; align-items:center; justify-content:center; gap:4px; width:auto; min-width:var(--ds-quick-row-height); max-width:9em; padding:0 10px;
   font-family:inherit; font-size:12px; font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; color:var(--kptu-muted);
   background:var(--kptu-surface); border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-radius-control);
 }
