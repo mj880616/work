@@ -747,8 +747,6 @@
 .modal .event-create-modes > :is(button,div):hover{ border-color:var(--ds-line); }
 
 /* ③ 전환·필터 한 줄: 바구니 [업데이트 | 노트] 오른쪽에 [미분류·분류·보류](넘치면 다음 줄). 목록이 숨으면(노트·읽기·분류 창) 필터도 숨는다. */
-#appView #basketView .basket-switch-row:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 10px; min-height:var(--kptu-touch-target,44px); margin:0 0 8px; }
-#appView #basketView:has(> [data-basket-list][hidden]) .basket-switch-row .basket-filters{ display:none; }
 #appView #basketView .basket-filters[hidden]{ display:none; }
 /* UI-바구니거르기: [분류]를 고르면 바로 아래 한 줄에 분류된 곳 칩 [전체·담당조직·프로젝트·자료실·할 일](공용 filter-chips.js, 자료실·회의와 같은 알약).
    넘치면 두 줄 + [더보기](UI-칩줄두줄). 목록이 숨으면(노트·읽기·분류 창) 함께 숨는다. */
@@ -920,8 +918,6 @@
   /* 일기 목록 끝 여백: [+]가 전환 줄 안이라 전환 줄 + 16px만. */
   #appView #diaryView.view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
 
-  /* 바구니 위쪽 줄에는 필터 [미분류·분류·보류]만 남는다. 필터가 숨으면(노트 목록) 줄도 자리를 차지하지 않는다. */
-  #appView #basketView:has(> [data-basket-list][hidden]) > .basket-switch-row{ min-height:0; margin:0; }
   /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 }
 
