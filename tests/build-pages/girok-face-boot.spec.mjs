@@ -252,12 +252,11 @@ test('girok 빌드 + 바탕 없음(기본 사용자) + 고친 이름 없음: 화
   expect(bad).toEqual({});
 });
 
-// S67-57: 내 프로필의 기본 정보·담당 칸·주간 캘린더 칸·내 묶음(명진 캡처의 칸들). 칸이 모두 그려질 때까지 기다린다.
-const PROFILE_PANELS = '#profileView .ps-panel:first-child, #psWorkplacePanel, #psReportPanel, #psCollabPanel';
+// S67-57: 내 프로필의 기본 정보·담당 칸·내 묶음(명진 캡처의 칸들). 칸이 모두 그려질 때까지 기다린다(S71-34: 주간 캘린더 칸은 없앴다).
+const PROFILE_PANELS = '#profileView .ps-panel:first-child, #psWorkplacePanel, #psCollabPanel';
 async function openProfile(page) {
   await page.evaluate(() => window.KPTURouter.go('profile'));
   await expect(page.locator('#profileView')).toBeVisible();
-  await expect(page.locator('#psReportPanel h3')).toBeVisible();
   await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toBeVisible();
   await expect(page.locator('#psWorkplacePanel h3')).toBeVisible();
   await page.waitForLoadState('networkidle');
@@ -269,10 +268,9 @@ test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·담당 �
   await page.setViewportSize({ width: 412, height: 915 });
   await boot(page);
   await openProfile(page);
-  await expect(page.locator('#psUnion')).toHaveAttribute('placeholder', '소속명 (예: ○○회사·○○단체)');
-  await expect(page.locator('#psDept')).toHaveAttribute('placeholder', '부서명 (예: ○○팀)');
-  await expect(page.locator('#psTitle')).toHaveAttribute('placeholder', '직책 (예: 팀장)');
-  await expect(page.locator('#psReportPanel h3')).toHaveText('주간 정리 일정 캘린더');
+  await expect(page.locator('#profileView .ps-fields input')).toHaveCount(1);
+  await expect(page.locator('#psName')).toHaveAttribute('placeholder', '이름 (닉네임 써도 돼요)');
+  await expect(page.locator('#psReportPanel')).toHaveCount(0);
   await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toHaveText('+ 소속 묶음 만들기');
   const bad = (await shownTexts(page, PROFILE_PANELS)).filter(t => FORBIDDEN.test(t));
   expect(bad, '내 프로필: 기록+ 화면에 노조 색 글자').toEqual([]);
@@ -292,13 +290,9 @@ test('girok 빌드 + 명진(바탕 nojo + 15칸): 내 프로필 글자가 지금
   await page.setViewportSize({ width: 1280, height: 900 });
   await boot(page, MINJIN);
   await openProfile(page);
-  await expect(page.locator('#psUnion')).toHaveAttribute('placeholder', '노조명 (예: ○○노동조합 ○○지부)');
-  await expect(page.locator('#psUnion')).toHaveAttribute('aria-label', '노조명');
-  await expect(page.locator('#psDept')).toHaveAttribute('placeholder', '부서명 (예: ○○사업팀)');
-  await expect(page.locator('#psTitle')).toHaveAttribute('placeholder', '직책 (예: 국장)');
-  await expect(page.locator('#psReportPanel')).toHaveAttribute('aria-label', '주간 보고 일정 캘린더');
-  await expect(page.locator('#psReportPanel h3')).toHaveText('주간 보고 일정 캘린더');
-  await expect(page.locator('#psReportPanel small')).toHaveText("주간 보고 '주요 일정'에 넣을 일정이 있는 구글 캘린더");
+  await expect(page.locator('#profileView .ps-fields input')).toHaveCount(1);
+  await expect(page.locator('#psName')).toHaveAttribute('aria-label', '이름');
+  await expect(page.locator('#psReportPanel')).toHaveCount(0);
   await expect(page.locator('#psWorkplacePanel h3')).toHaveText('담당조직 현황');
   await expect(page.locator('#psCollabPanel .cg-muted').first()).toHaveText('같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.');
   await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="dept"]')).toHaveText('+ 부서 묶음 만들기');

@@ -6,6 +6,7 @@
 import {test, expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {accountButton} from './helpers/shell-navigation.mjs';
+import {screenFind} from './helpers/screen-find.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const WIDTHS = [['phone-412', 412, 915], ['fold-880', 880, 900], ['pc-1440', 1440, 900]];
@@ -33,7 +34,9 @@ for (const [label, width, height] of WIDTHS) {
     await openHome(page, {features: []});
     await openHelpFromMenu(page);
     await expect(page).toHaveURL(/view=help/);
-    await expect(help(page).locator('.hp-sum')).toHaveText('WORK ON+는 내 일정·할 일·조직·사업 기록을 한곳에 모으는 개인 업무 수첩이에요. 내 기록은 나만 봐요.');
+    // S71-33 HELP-머리한줄: 맨 위 안내 글·화면 안 찾기 칸 없음(렌더에서 뺌).
+    await expect(help(page).locator('.hp-sum, .hp-top, [data-hp-find]')).toHaveCount(0);
+    await expect(help(page)).not.toContainText('개인 업무 수첩');
     if (width <= 760) {
       await expect(help(page).locator('.hp-gl').first()).toHaveText('많이 쓰는 곳');
       const rows = help(page).locator('details.hp-item');
@@ -43,13 +46,17 @@ for (const [label, width, height] of WIDTHS) {
       await help(page).locator('[data-hp-topic="team"] > summary').click();
       const body = help(page).locator('[data-hp-topic="team"] .hp-body');
       await expect(body.locator('ol.hp-ls li')).toHaveCount(4);
-      await expect(body.locator('[data-hp-ex]')).toContainText('바다지회');
+      // S71-33 HELP-그림: 글자로 그린 예시 대신 화면 그림(alt 글, 실제로 불러와짐).
+      const img = body.locator('[data-hp-shots] img');
+      await expect(img).toHaveCount(1);
+      await expect(img).toHaveAttribute('alt', /예시 이름/);
+      await expect.poll(() => img.evaluate(i => i.complete && i.naturalWidth)).toBeGreaterThan(0);
       await expect(page).toHaveURL(/topic=team/);
       await shot(page, `${label}-2-help-open`);
       // 한 번에 하나만 펼친다.
       await help(page).locator('[data-hp-topic="calendar"] > summary').click();
       await expect(help(page).locator('[data-hp-topic="team"]')).not.toHaveAttribute('open', '');
-      await expect(help(page).locator('[data-hp-topic="calendar"] [data-hp-ex]')).toBeVisible();
+      await expect(help(page).locator('[data-hp-topic="calendar"] [data-hp-shots] img')).toBeVisible();
       // S68-58(명진 11/23 폰 캡처): '내 기록은 누가 보나'를 펼치면 첫 문장은 한 번만, 상자에는 제공/미제공 두 줄.
       await help(page).locator('[data-hp-topic="privacy"] > summary').click();
       const priv = help(page).locator('[data-hp-topic="privacy"] .hp-body');
@@ -86,15 +93,54 @@ for (const [label, width, height] of WIDTHS) {
   });
 }
 
-test('찾기: 낱말이 든 줄만, 없으면 한 줄', async ({page}) => {
-  await page.setViewportSize({width: 412, height: 915});
+// S71-33 HELP-머리한줄(명진 11/26 "맨위 안내멘트 지우고 검색창을 제목줄로 올려 돋보기로"): 폰 머리 줄은 한 줄 [W] 쓰는 법 · (빈 칸) · 돋보기.
+// 돋보기를 누르면 그 자리에서 칸이 열리고('쓰는 법에서 찾기'), 치면 예전처럼 낱말이 든 줄만.
+for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280, 900]]) {
+  test(`찾기: 맨 위 칸 하나 '쓰는 법에서 찾기' — 낱말이 든 줄만, 없으면 한 줄 (${label})`, async ({page}) => {
+    await page.setViewportSize({width, height});
+    await openHome(page, {features: []});
+    await openHelpFromMenu(page);
+    if (width <= 760) {
+      const head = page.locator('#appView > .mobile-shell-header');
+      const open = head.locator('.sf-open');
+      await expect(open).toBeVisible();
+      await expect(open).toHaveAttribute('aria-label', '쓰는 법에서 찾기');
+      // 머리 줄은 한 줄: 이름과 돋보기가 같은 높이 줄에 있고 머리 줄 높이는 한 줄(56px 이하).
+      const [hb, ob] = [await head.boundingBox(), await open.boundingBox()];
+      expect(hb.height).toBeLessThanOrEqual(56);
+      expect(ob.y).toBeGreaterThanOrEqual(hb.y); expect(ob.y + ob.height).toBeLessThanOrEqual(hb.y + hb.height + 1);
+      await expect(head).toContainText('쓰는 법');
+      // 쓰는 법 화면 첫 줄은 묶음 이름(안내 글 없음).
+      await expect(help(page).locator('.hp > *').first()).toHaveClass(/hp-list/);
+    }
+    const find = await screenFind(page);
+    await expect(find).toHaveAttribute('placeholder', '쓰는 법에서 찾기');
+    await find.fill('PDF 스캔');
+    const rows = help(page).locator(width <= 760 ? 'details.hp-item' : '[data-hp-pick]');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('브리핑 룸');
+    await find.fill('없는낱말');
+    await expect(help(page).locator('[data-wait-empty]')).toHaveText('찾는 글이 없어요');
+    await find.fill('');
+    await expect(rows).toHaveCount(16);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  });
+}
+
+test('사진 내용 찾기 줄은 서버 기능 목록에 그 기능이 있을 때만', async ({page}) => {
+  await page.setViewportSize({width: 1280, height: 900});
+  await openHome(page, {features: ['photo_content']});
+  await openHelpFromMenu(page);
+  await help(page).locator('[data-hp-toc] [data-hp-pick="photos"]').click();
+  await expect(help(page).locator('[data-hp-detail]')).toContainText('사진 속 내용 낱말');
+});
+test('사진 내용 찾기 줄은 기능이 없으면 없다', async ({page}) => {
+  await page.setViewportSize({width: 1280, height: 900});
   await openHome(page, {features: []});
   await openHelpFromMenu(page);
-  await help(page).locator('[data-hp-find]').fill('스캔');
-  await expect(help(page).locator('details.hp-item')).toHaveCount(1);
-  await expect(help(page).locator('details.hp-item .hp-name')).toHaveText('브리핑 룸');
-  await help(page).locator('[data-hp-find]').fill('없는낱말');
-  await expect(help(page).locator('[data-wait-empty]')).toHaveText('찾는 글이 없어요');
+  await help(page).locator('[data-hp-toc] [data-hp-pick="photos"]').click();
+  await expect(help(page).locator('[data-hp-detail]')).toContainText('사진을 길게 눌러');
+  await expect(help(page).locator('[data-hp-detail]')).not.toContainText('사진 속 내용 낱말');
 });
 
 test('운영자 기능 메뉴 줄은 서버 기능 목록에 있을 때만(다른 사람은 줄 자체가 없음)', async ({page}) => {

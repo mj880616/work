@@ -130,7 +130,7 @@ export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => (
     const b = e.target.closest?.('[data-cg]');
     if (!b || b.disabled) return;
     const what = b.dataset.cg, id = b.dataset.id;
-    if (what === 'new') { state.form = createDefaults(b.dataset.kind, {union_name: profile().union, department_name: profile().dept}); state.created = ''; render(); host.querySelector('[data-cg-in="union"]')?.focus(); return; }
+    if (what === 'new') { state.form = createDefaults(b.dataset.kind); state.created = ''; render(); host.querySelector('[data-cg-in="union"]')?.focus(); return; }
     if (what === 'form-cancel') { state.form = null; render(); return; }
     if (what === 'join-close') { state.join = null; render(); return; }
     if (what === 'join-accept') {
