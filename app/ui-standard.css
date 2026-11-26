@@ -348,7 +348,7 @@
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#diaryView #newDiaryBtn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
   /* 목록 마지막 줄 아래 여백: 폰에는 떠 있는 [+]가 없으므로 아래 전환 줄 몫만(자료실은 library-upload.css). */
   #appView :is(#projectsView,#meetingsView).view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
-  /* UI-보기줄자리(S56-9): 조직 보고도 목록 끝 여백을 아래 전환 줄 몫만큼 — 맨 아래 '참고 묶음' 줄이 [목록|전체 표]에 가리지 않게. */
+  /* UI-보기줄자리(S56-9): 조직 보고도 목록 끝 여백을 아래 전환 줄 몫만큼 — 맨 아래 줄이 [목록|전체 표]에 가리지 않게. */
   #appView #teamView.view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
   /* S68-48: 저장한 글도 목록 끝 여백을 아래 전환 줄 몫만큼 — 마지막 줄이 [안 읽음|전체|밑줄]에 가리지 않게. */
   #appView #readingView.view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
@@ -881,7 +881,7 @@
   html:has(:where(#appView :is(#calendarView,#tasksView,#diaryView):not(.hidden) > .schedule-switch:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   /* FOLDER-나무새기준 ⑧(01:25 탭 자리 규칙): 폰 노트 [폴더|목록|포스트잇|태그|댓글]도 같은 전환 줄(아래 가운데), 노트 입력칸은 그 위. */
   html:has(:where(#appView #basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden]) .nv-switch)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
-  /* UI-보기줄자리(S56-9, 11/10): 폰 담당조직 [목록|전체 표](org-overview.js #soTeamTabs)도 같은 전환 줄(아래 가운데). 목록 맨 아래 '참고 묶음' 줄은 위 #teamView 끝 여백(전환 줄 몫)으로 가리지 않는다. */
+  /* UI-보기줄자리(S56-9, 11/10): 폰 담당조직 [목록|전체 표](org-overview.js #soTeamTabs)도 같은 전환 줄(아래 가운데). 목록 맨 아래 줄은 위 #teamView 끝 여백(전환 줄 몫)으로 가리지 않는다. */
   html:has(:where(#appView #teamView:not(.hidden) > #soTeamSection > #soTeamTabs:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   /* S68-48 READ-보기탭아래(명진 11/23 12:42): 폰 저장한 글 [안 읽음 n|전체|밑줄](reading.js .rd-switch)도 같은 전환 줄(아래 가운데). 글을 연 폰 화면(목록 숨김)에는 없다. */
   html:has(:where(#appView #readingView:not(.hidden) [data-rd-list]:not([hidden]) .rd-switch)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }

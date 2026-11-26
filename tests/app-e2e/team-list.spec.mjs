@@ -30,10 +30,12 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
   const layout=await rail.evaluate(el=>({height:el.getBoundingClientRect().height,padding:getComputedStyle(el).paddingLeft}));
   // MULTI-다른담당자맞춤 ②: 묶음이 있으면 줄 맨 앞에 끌기 손잡이 ⋮⋮ 자리(36px)가 생긴다(줄 높이는 그대로).
   expect(layout.height).toBe(44);expect(layout.padding).toBe('36px');
-  // ORG-목록단계칩위치: 묶음 머리줄 [N곳 ·8· ⋯]과 줄 [›]은 같은 세로줄('N곳' 끝 = › 끝). ORG-목록줄메뉴없음(S71-08): 줄에는 ⋯가 없다.
-  const ends=await page.evaluate(()=>{const r=el=>el.getBoundingClientRect(),g=document.querySelector('[data-so-group]:has(.so-group-more)'),head=g.querySelector('.so-group-heading'),row=g.querySelector('.so-row');
-   return {count:r(head.querySelector('.so-group-count')).right-r(row.querySelector('.kptu-list-chevron')).right,rowMenus:document.querySelectorAll('#soOrganizationList .so-row .more-dots').length}});
-  expect(Math.abs(ends.count)).toBeLessThanOrEqual(1);expect(ends.rowMenus).toBe(0);
+  // ORG-목록줄메뉴없음(S71-08): 줄에는 ⋯가 없다. ORG-단계오른쪽(S71-22): 그 빈자리를 남기지 않아 줄 › 오른쪽 끝 = 묶음 머리줄 오른쪽 끝선
+  // (⋯가 있는 머리줄은 ⋯ 오른쪽 끝, ⋯가 없는 머리줄은 'N곳' 끝).
+  const ends=await page.evaluate(()=>{const r=el=>el.getBoundingClientRect(),chev=g=>r(g.querySelector('.so-row .kptu-list-chevron')).right;
+   const g=document.querySelector('[data-so-group]:has(.so-group-more)'),plain=[...document.querySelectorAll('[data-so-group]:not(:has(.so-group-more))')].find(x=>x.querySelector('.so-row .kptu-list-chevron'));
+   return {more:r(g.querySelector('.so-group-more')).right-chev(g),count:plain?r(plain.querySelector('.so-group-count')).right-chev(plain):0,rowMenus:document.querySelectorAll('#soOrganizationList .so-row .more-dots').length}});
+  expect(Math.abs(ends.more)).toBeLessThanOrEqual(1);expect(Math.abs(ends.count)).toBeLessThanOrEqual(1);expect(ends.rowMenus).toBe(0);
   await expect(page.locator('[data-so-row] [data-so-grip="org"]')).toHaveCount(15);
   // MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정, UI-조직추가숨김을 바꿈): 맨 위 [+ 담당조직] 하나가 모든 폭에 보인다(옛 폰 글자 링크는 없음).
   await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrg')).toHaveText('+ 담당조직');await expect(page.locator('#soAddOrgLink,.so-add-link')).toHaveCount(0);

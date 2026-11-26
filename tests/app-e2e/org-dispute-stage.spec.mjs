@@ -400,7 +400,8 @@ test('조직 줄 우클릭: 폰 폭(412)은 메뉴를 띄우지 않는다',async
 });
 
 // ORG-목록단계칩위치(2026-11-25 명진 "쟁의권확보 종료 교섭 중 이런게 우측 끝에 붙어야"): 단계 칩은 줄 오른쪽 끝 › 바로 앞.
-// 줄 끝 = [칩 ·8· › ·(머리줄 ⋯ 자리)· 줄 끝](› 는 글자 폭만큼, 줄 ⋯는 S71-08에서 지움). 묶음 머리줄 'N곳' 오른쪽 끝은 줄 › 오른쪽 끝과 같은 세로줄.
+// 줄 끝 = [칩 ·8· › ·8· 줄 끝](› 는 글자 폭만큼). ORG-단계오른쪽(S71-22, 명진 "없앤 자리에 쟁의단계가 차고 들어가야지 … 우측 정렬"):
+// S71-08에서 줄 ⋯를 지운 뒤 남던 빈 자리(8+32+8)를 없앴다. › 오른쪽 끝 = 묶음 머리줄 오른쪽 끝선(머리줄 ⋯ 끝, ⋯ 없으면 'N곳' 끝).
 // 폰 폭 · PC 좁은 목록 칸(1280) · PC 넓은 목록 칸(1920). 폴드 폭(600~1023)은 칩을 그리지 않는다(위 시험).
 for(const width of [390,1280,1920])test(`목록 줄 단계 칩이 줄 오른쪽 끝 › 바로 앞 ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
@@ -409,16 +410,18 @@ for(const width of [390,1280,1920])test(`목록 줄 단계 칩이 줄 오른쪽 
  await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
  const rows=await page.evaluate(()=>{const r=el=>el.getBoundingClientRect();const head=document.querySelector('#soOrganizationList .so-group-heading');
   return [...document.querySelectorAll('#soOrganizationList .so-row')].map(row=>{const tag=r(row.querySelector('.so-stage-tag')),chev=r(row.querySelector('.kptu-list-chevron')),box=r(row);
-   return {tagToChev:chev.left-tag.right,chevW:chev.width,chevToEnd:box.right-chev.right,rowMenus:row.querySelectorAll('.more-dots').length,countVsChev:head?Math.abs(r(head.querySelector('.so-group-count')).right-chev.right):0}})});
+   const end=head?r(head.querySelector('.so-group-more')||head.querySelector('.so-group-count')).right:null;
+   return {tagToChev:chev.left-tag.right,chevW:chev.width,chevToEnd:box.right-chev.right,tagToEnd:box.right-tag.right,rowMenus:row.querySelectorAll('.more-dots').length,headVsChev:end==null?0:Math.abs(end-chev.right)}})});
  // 바꾸기 전·후 사진(PR 본문용): ORG_CHIP_SHOTS=폴더
  if(process.env.ORG_CHIP_SHOTS)await page.locator('#soOrganizationList').screenshot({path:`${process.env.ORG_CHIP_SHOTS}/org-chip-${width}.png`});
  expect(rows).toHaveLength(orgs.length);
  for(const x of rows){
   expect(x.tagToChev,'칩 → ›').toBeGreaterThanOrEqual(0);expect(x.tagToChev,'칩 → ›').toBeLessThanOrEqual(8.5);
   expect(x.chevW,'› 폭').toBeLessThanOrEqual(12);
-  // ORG-목록줄메뉴없음(S71-08): 줄 ⋯는 없고, › 오른쪽은 머리줄 ⋯ 자리만큼(8 + 32 + 8) 비어 'N곳' 끝과 맞는다.
-  expect(x.rowMenus,'줄 ⋯ 없음').toBe(0);expect(x.chevToEnd,'› → 줄 끝').toBeLessThanOrEqual(48.5);
-  expect(x.countVsChev,"머리줄 'N곳' 끝 = › 끝").toBeLessThanOrEqual(1);
+  // 줄 ⋯는 없고(S71-08), 그 자리도 비워 두지 않는다: 칩 오른쪽 끝 → 줄 끝은 › 폭 + 8 + 8 이내, › → 줄 끝은 8.
+  expect(x.rowMenus,'줄 ⋯ 없음').toBe(0);expect(x.chevToEnd,'› → 줄 끝').toBeLessThanOrEqual(8.5);
+  expect(x.tagToEnd,'칩 → 줄 끝').toBeLessThanOrEqual(x.chevW+16.5);
+  expect(x.headVsChev,'머리줄 오른쪽 끝선 = › 끝').toBeLessThanOrEqual(1);
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
