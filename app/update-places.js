@@ -16,21 +16,18 @@ import { areaTree, areaListHtml, orgListHtml, openKeysFor, ensureStyles, orgWrit
 import { orgWriteInFor } from './feed-link.js';
 import { confirmLinks, LINK_ORIGIN } from './basket-classification.js';
 import { announceRecordSaved, basketDetail } from './record-saved.js';
-import { readReferenceBundles } from './reference-bundles-data.js';
 import { pickMyOrganizations } from './my-organizations.js';
 import { fallbackFileLine } from './record-file-line.mjs';
 import { seoulDateKey } from './meeting-time.js';
 import {word} from './brand/brand.mjs';
 
-// place: null (basket) | {kind:'organization'|'project'|'reference', id}
-// REF-참고묶음: 'reference' is a reference bundle (app_reference_bundles). It has no record table of its own, so an update for it is
-// always a basket update linked to the bundle (saveUpdate below), never a report record.
+// place: null (basket) | {kind:'organization'|'project', id}
+// ORG-참고묶음삭제(S71-22, 2026-11-26 사용자 "참고 묶음 기능 삭제 안씀"): 참고 묶음은 이 창에서 고르지 않는다(이미 붙은 연결은 DB에 그대로).
 export const BASKET = null;
-export const placeValue = place => !place ? 'basket' : place.kind === 'project' ? 'project:' + place.id : place.kind === 'reference' ? 'reference:' + place.id : place.id;
+export const placeValue = place => !place ? 'basket' : place.kind === 'project' ? 'project:' + place.id : place.id;
 export function placeFromValue(value) {
   if (!value || value === 'basket') return BASKET;
   if (value.startsWith('project:')) return {kind:'project', id:value.slice(8)};
-  if (value.startsWith('reference:')) return {kind:'reference', id:value.slice(10)};
   return {kind:'organization', id:value};
 }
 export const samePlace = (a, b) => placeValue(a) === placeValue(b);
@@ -56,13 +53,10 @@ export function togglePlace(chosen, value) {
 }
 export const choiceCountText = chosen => { const n = placeList(chosen).length; return n ? `${n}곳 선택됨` : '잊지 말기(미분류) 선택됨'; };
 
-// sources: {projects(), orgs(), assignments(), bundles()?} — the home passes its shared reads; the write window reads them itself.
-// Returns {projects:[tree rows of active projects], orgs:{recent, groups}, bundles:[reference bundles]} with the three most recent
-// organizations first. REF-참고묶음: the bundles are read here when the sources have none (owner RLS); a failed read only means
-// the 참고 block is not offered, so the organizations and projects can still be chosen.
+// sources: {projects(), orgs(), assignments()} — the home passes its shared reads; the write window reads them itself.
+// Returns {projects:[tree rows of active projects], orgs:{recent, groups}} with the three most recent organizations first.
 export async function readPlaces(sources, {rt = window.KPTURuntime, isCurrent = () => true} = {}) {
-  const bundleRead = (sources.bundles ? sources.bundles() : readReferenceBundles(rt)).catch(() => []);
-  const [ps, os, as, bs] = await Promise.all([sources.projects(), sources.orgs(), sources.assignments(), bundleRead]);
+  const [ps, os, as] = await Promise.all([sources.projects(), sources.orgs(), sources.assignments()]);
   if (!isCurrent()) return null;
   const ctx = rt.context.read(), order = window.KPTUOrganizationOrder;
   // ORG-고르기통일: my organizations only (my-organizations.js); no assignment still offers none here, as before.
@@ -81,20 +75,18 @@ export async function readPlaces(sources, {rt = window.KPTURuntime, isCurrent = 
   // S61-52: orgs.all = 이 작업공간의 활동 중인 조직 전체 — [직접 쓰기]가 새로 만들기 전에 비슷한 이름을 찾는 데만 쓴다(중복 방지).
   const orgs = order.withRecent(eligible, recent.map(r => r.organization_id), 3);
   orgs.all = (Array.isArray(os) ? os : []).filter(o => o?.id && o.active !== false);
-  return {projects: projects.filter(x => x.project.status === 'active'), orgs, bundles: Array.isArray(bs) ? bs : []};
+  return {projects: projects.filter(x => x.project.status === 'active'), orgs};
 }
 // A place that is no longer offered (organization unassigned, project archived) falls back to the basket.
 export function keepPlace(places, place) {
   if (!place || !places) return place;
   if (place.kind === 'project') return places.projects.some(x => x.project.id === place.id) ? place : BASKET;
-  if (place.kind === 'reference') return (places.bundles || []).some(b => b.id === place.id) ? place : BASKET;
   return places.orgs.groups.flat().some(o => o.id === place.id) ? place : BASKET;
 }
 export const keepPlaces = (places, chosen) => placeList(chosen).filter(place => keepPlace(places, place));
 export function placeName(places, place) {
   if (!place) return '';
   if (place.kind === 'project') return places?.projects.find(x => x.project.id === place.id)?.project.name || '';
-  if (place.kind === 'reference') return (places?.bundles || []).find(b => b.id === place.id)?.name || '';
   return places?.orgs.groups.flat().find(o => o.id === place.id)?.name || '';
 }
 // UPD-여러곳고르기 ⑥: what the input's button says — one place by its name, more as "첫 곳 이름 외 N" (in the order picked).
@@ -119,28 +111,24 @@ function usedPlaces(places) {
 // heading and its organizations follow one per line with a check box. Many may be chosen; the sheet marks them (choice-sheet.js multi).
 // UI-기록할곳창PC: the organizations and the projects are each one column block (data-sheet-col); on a wide PC (761px~) the sheet
 // sets them side by side under the 최근 line (choice-sheet.js wide, choice-sheet.css). Phones and middle widths keep them stacked.
-// REF-참고묶음 (docs/design/ref-bundle.md 6절): the reference bundles are one more block at the very bottom (references:false leaves it
-// out, as the 사업 보고 [연결할 곳] does). On a wide PC it sits under the projects in the projects column.
-export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, references = true, writeIn = null} = {}) {
+export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, writeIn = null} = {}) {
   const list = placeList(chosen), picked = value => value === 'basket' ? !list.length : list.some(p => placeValue(p) === value);
   const chip = (value, name) => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(value)}" aria-pressed="${picked(value)}">${esc(name)}</button>`;
   const basket = `<span data-sheet-basket class="home-choice-inline">${chip('basket', '잊지 말기(미분류)')}</span>`;
   const orgs = places?.orgs || {recent:[], groups:[]}, projects = places?.projects || [];
   const used = usedPlaces(places), usedIds = new Set(used.filter(p => p.kind === 'organization').map(p => p.id));
   const all = orgs.groups.flat();
-  const recent = [...used.filter(p => references || p.kind !== 'reference').map(p => p.kind !== 'organization' ? chip(placeValue(p), placeName(places, p)) : chip(p.id, all.find(o => o.id === p.id)?.name || '')),
+  const recent = [...used.map(p => p.kind !== 'organization' ? chip(placeValue(p), placeName(places, p)) : chip(p.id, all.find(o => o.id === p.id)?.name || '')),
     ...orgs.recent.filter(o => !usedIds.has(o.id)).slice(0, Math.max(0, Math.max(3, orgs.recent.length) - usedIds.size)).map(o => chip(o.id, o.name))];
   // MTG-사업보고 6단계: 사업 보고의 [연결할 곳]은 바구니(미분류)가 없는 같은 창이다({basket:false}). 최근 줄은 고를 곳이 있을 때만.
   const recentBlock = withBasket || recent.length ? `<div data-sheet-recent-block data-sheet-hide-on-search><p class="home-choice-label">최근</p><div class="home-choice-group home-choice-group-plain">${withBasket ? basket : ''}<span data-sheet-recent class="home-choice-inline">${recent.join('')}</span></div></div>` : '';
-  const bundles = references ? places?.bundles || [] : [];
-  const refs = bundles.length ? `<p class="home-choice-label" data-sheet-label-of="refs">참고</p><div data-sheet-refs data-sheet-part="refs">${bundles.map(b => referenceRow(b, picked('reference:' + b.id), esc)).join('')}</div>` : '';
   // S52-01 ② UI-사업영역조직고르기창: 담당조직·사업영역은 모든 화면과 같은 접는 목록(area-org-picker.js) — 큰 묶음만 보이고
   // 꺾쇠로 하위를 펼친다(고른 것이 든 묶음은 처음부터 펼침, 찾는 동안은 맞는 하위가 모두 보임). 값('project:<id>'·'<조직 id>')은 그대로.
   ensureStyles();
   const order = window.KPTUOrganizationOrder, tree = areaTree(projects.map(x => ({key:'project:' + x.project.id, name:x.project.name, depth:x.depth})));
   const groups = (orgs.groups || []).map(g => g.map(o => ({key:o.id, name:o.name || word('이름 없는 조직'), group:order?.groupName?.(o) || ''})));
   const open = openKeysFor(tree, groups, [...list.map(placeValue)]), pressed = picked;
-  const projectCol = projects.length ? word`<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">사업영역</p><div class="aop-list" data-sheet-projects data-sheet-part="projects">${areaListHtml(tree, {open, pressed})}</div>${refs}</div>` : refs ? `<div class="home-choice-col" data-sheet-col="refs">${refs}</div>` : '';
+  const projectCol = projects.length ? word`<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">사업영역</p><div class="aop-list" data-sheet-projects data-sheet-part="projects">${areaListHtml(tree, {open, pressed})}</div></div>` : '';
   return `${recentBlock}${orgColumnHtml(places, open, pressed, writeIn)}${projectCol}`;
 }
 // 담당조직 칸: 접는 조직 목록 + (writeIn이 있으면) 맨 아래 [직접 쓰기](S61-52, 다른 조직 고르기 창과 같은 부품).
@@ -186,11 +174,6 @@ export function bindPlaceWriteIn(sheet, sheetId, get) {
       picked:x => { addPlaceOrg(g.places, x.org); repaint(g, `[data-sheet-col="orgs"] [data-sheet-value="${CSS.escape(x.key)}"]`); }};
   });
 }
-// One reference bundle: the same row as an organization (check box, one per line), valued 'reference:<id>'.
-export function referenceRow(b, pressed, esc) {
-  const name = b.name || '이름 없는 묶음';
-  return `<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:0" data-depth="0" data-sheet-value="${esc('reference:' + b.id)}" aria-pressed="${!!pressed}" title="${esc(name)}"><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(name)}</span></button>`;
-}
 export { projectRows };
 // Text-only save of one update. owner is the signed-in user (the record's created_by/author_id, checked again by RLS).
 // chosen: one place, null, or a list. None → a basket note; one → that place's own record (unchanged); two or more → one basket
@@ -201,8 +184,7 @@ export { projectRows };
 export async function saveUpdate({place, places, text, owner, doc = null}, rt = window.KPTURuntime) {
   const list = placeList(places ?? place);
   if (!list.length) return createNote({raw_text:text, ...(doc ? {doc} : {})}, rt);
-  // REF-참고묶음: a reference bundle has no record table, so one bundle alone also goes the basket-update-and-link way below.
-  // MTG-프로젝트합치기 3단계: one project (사업영역) alone goes that way too (no new progress record).
+  // MTG-프로젝트합치기 3단계: one project (사업영역) alone goes the basket-update-and-link way below (no new progress record).
   if (list.length === 1 && list[0].kind === 'organization') {
     const [one] = list;
     return saveOrganizationUpdate({organization_id:one.id, raw_text:text.trim(), created_by:owner, doc}, rt);
@@ -271,10 +253,10 @@ function filesPlan({places, text, batch, fileLine, basket = false}) {
   return {list, lettered, picked, linePromise};
 }
 const filesLine = async ({picked, linePromise}) => linePromise ? String(await linePromise || '').trim() || fallbackFileLine(picked) : '';
-// ②③ after the upload. link: files only, not linked yet — linked with that line (fileLine), else to reference bundles only (REF-참고묶음).
+// ②③ after the upload. link: files only, not linked yet — linked with that line (fileLine); without a line it stays unlinked.
 // files: the update's files to put into documents (a retry passes only the ones not put in yet). Another account by now: nothing (stale).
 async function placeFiles({noteId, list, link, line, files, sameOwner}, rt) {
-  const linkTo = !link ? [] : line ? list : list.filter(p => p.kind === 'reference');
+  const linkTo = link && line ? list : [];
   let note = null, linkError = '', filed = null;
   if (linkTo.length) { try { note = await readBasketNote(noteId, rt); } catch { note = null; } }
   if (!sameOwner()) return {note:{id:noteId}, linkError:'STALE', filed:null, stale:true};
@@ -282,14 +264,14 @@ async function placeFiles({noteId, list, link, line, files, sameOwner}, rt) {
     if (!note) linkError = 'NOTE_MISSING';
     else {
       try {
-        const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON, origin:LINK_ORIGIN.RECORD_INPUT, ...(line && p.kind !== 'reference' ? {summary:line} : {})})), rt);
+        const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON, origin:LINK_ORIGIN.RECORD_INPUT, summary:line})), rt);
         if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
       } catch (error) { linkError = error?.message || 'UNKNOWN'; }
       if (!linkError) { window.dispatchEvent(new CustomEvent('kptu:basket-links-changed')); announceRecordSaved(basketDetail(note, linkTo)); if (sameOwner() && line) await addBusinessRecord(note, linkTo, line, rt); }
     }
   }
   const project = list.find(p => p.kind === 'project') || null, organization = list.find(p => p.kind === 'organization') || null;
-  // A reference bundle takes no documents: files go into a project's or an organization's documents only.
+  // Files go into a project's or an organization's documents only.
   if (sameOwner() && files.length && (project || organization)) {
     try { filed = await putFilesIntoTargets({noteId, files, projectId:project?.id || null, organizationId:organization?.id || null, rt, expectedSessionEpoch:rt.session.epoch(), isCurrent:sameOwner}); }
     catch { filed = {ok:false, kind:'unknown', message:''}; }
