@@ -12,7 +12,7 @@ export function ocrHarness(options={}){
  const admin={auth:{getUser:async jwt=>({data:{user:jwt==='owner'?{id:'user'}:null},error:null})},from(table){
   if(table==='app_notes'&&options.adminNotes)return options.adminNotes();
   assert.notEqual(table,'app_notes','OCR must use caller RLS rather than admin note reads/writes');
-  const q={select(){return q;},eq(){return q;},maybeSingle:async()=>({data:table==='app_workspace_members'?{role:options.nonOwner?'member':'owner',workspace_id:WS}:table==='public_policy_drive_config'?{google_client_id:'client',google_client_secret:'secret'}:table==='app_drive_connections'?{workspace_id:WS,google_refresh_token:'refresh'}:{basket_folder_id:options.settingsCleared&&++settingsReads>1?null:'folder'},error:null}),single:async()=>({data:{google_client_id:'client',google_client_secret:'secret',google_refresh_token:'refresh'},error:null})};return q;
+  const q={select(){return q;},eq(){return q;},maybeSingle:async()=>({data:table==='app_workspace_members'?{role:options.nonOwner?'member':'owner',workspace_id:WS}:table==='public_policy_drive_config'?{google_client_id:'client',google_client_secret:'secret'}:table==='app_drive_connections'?{workspace_id:WS,google_refresh_token:'refresh'}:{basket_folder_id:options.settingsCleared&&++settingsReads>1?null:'folder',...(options.appRoot?{root_folder_id:'approot00001'}:{})},error:null}),single:async()=>({data:{google_client_id:'client',google_client_secret:'secret',google_refresh_token:'refresh'},error:null})};return q;
  }};
  const user={from(table){assert.equal(table,'app_notes');const filters={};const q={select(){return q;},eq(k,v){filters[k]=v;return q;},maybeSingle:async()=>({data:filters.id===NOTE&&filters.workspace_id===WS?structuredClone(note):null,error:null})};return q;},async rpc(name,args){
   assert.equal(name,'app_basket_update_attachment_ocr');calls.rpc.push(structuredClone(args));
@@ -30,6 +30,9 @@ export function ocrHarness(options={}){
   const url=new URL(input),method=init.method||'GET';calls.drive.push({url,method});
   if(url.hostname==='oauth2.googleapis.com')return Response.json({access_token:'token'});
   if(url.pathname.endsWith('/about'))return Response.json({importFormats:{'image/jpeg':['application/vnd.google-apps.document'],'image/png':['application/vnd.google-apps.document']},exportFormats:{'application/vnd.google-apps.document':['text/plain']}});
+  // S71-49: 맨 위 앱 폴더('WORK ON+')와 그 안 '보드 사진'(appRoot 옵션일 때만).
+  if(options.appRoot&&url.pathname==='/drive/v3/files/approot00001')return Response.json({id:'approot00001',mimeType:'application/vnd.google-apps.folder',ownedByMe:true,trashed:false});
+  if(url.pathname==='/drive/v3/files'&&method==='GET'&&url.searchParams.get('q')?.includes("name = '보드 사진'")){calls.boardLookups=(calls.boardLookups||0)+1;return Response.json({files:options.appRoot?[{...meta('boardpics','application/vnd.google-apps.folder','보드 사진','approot00001')}]:[]});}
   if(url.pathname==='/drive/v3/files/folder')return Response.json({...meta('folder','application/vnd.google-apps.folder','Web2 바구니'),parents:['root']});
   if(url.pathname==='/drive/v3/files'&&method==='GET'&&url.searchParams.get('q')?.includes("name = '노트 첨부'")){calls.childLookups=(calls.childLookups||0)+1;return Response.json({files:options.noNoteFolder?[]:[{...meta('notes','application/vnd.google-apps.folder','노트 첨부'),...(options.sharedNoteFolder?{permissions:[{type:'user',role:'owner'},{type:'anyone',role:'reader'}]}:{})}]});}
   if(url.pathname==='/drive/v3/files'&&method==='POST'&&!url.searchParams.get('uploadType'))throw Error('OCR must never create a folder');

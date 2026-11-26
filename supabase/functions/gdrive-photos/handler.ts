@@ -42,6 +42,10 @@ export const PHOTO_CONTENT_FEATURE = "photo_content";
 export const PHOTO_INDEX_SHEET = "사진 색인";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 const INDEX_BYTES = 8 * 1024 * 1024, INDEX_ROWS = 60000, INDEX_HITS = 2000, INDEX_KEEP_MS = 5 * 60 * 1000, INDEX_NONE_KEEP_MS = 60 * 1000;
+// S71-62 사진 설명(드라이브 파일 description 칸) · 드라이브 글자 찾기(fullText contains).
+export const DESC_MAX = 500;
+export const DESC_PROP = "workon_desc";
+const DESC_READ_MAX = 2000, DESC_WORDS = 12, FIND_PICK = 150;
 
 const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, range",
@@ -181,6 +185,42 @@ export function matchIndex(entries: IndexEntry[], q: string) {
     seen.add(e.id);
   }
   return { ids: [...seen], more };
+}
+
+// ---- 사진 설명·드라이브 글자 찾기(S71-62) — 순수 함수 ----
+// 설명 글: 문자열, NFC, 제어문자 없음(줄바꿈·탭은 빈칸 하나로), 앞뒤 빈칸 없음, DESC_MAX자 이하. 빈 글 = 지우기(""). 아니면 null.
+export function cleanDesc(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.normalize("NFC").replace(/[\t\r\n]+/g, " ").replace(/ {2,}/g, " ").trim();
+  if (/[\u0000-\u001f\u007f]/.test(s) || [...s].length > DESC_MAX) return null;
+  return s;
+}
+// 있던 설명 뒤에 더하기(빈칸 하나). 이미 같은 글로 끝나면 그대로.
+export function joinDesc(old: unknown, add: string) {
+  const a = typeof old === "string" ? old.trim() : "";
+  if (!a) return add;
+  if (!add || a === add || a.endsWith(" " + add)) return a;
+  return a + " " + add;
+}
+// 드라이브 검색 글(낱말마다 fullText contains, 사진·동영상, 내 파일, 휴지통 아님). 낱말 8개까지.
+export function driveFindQuery(text: string) {
+  const words = text.split(" ").filter(Boolean).slice(0, 8);
+  return [...words.map((w) => `fullText contains '${q(w)}'`), "(mimeType contains 'image/' or mimeType contains 'video/')", "trashed = false", "'me' in owners"].join(" and ");
+}
+// 설명들에서 자주 쓴 낱말(많이 쓴 순, 같으면 먼저 나온 순). 1~20자, 숫자만인 것·문장부호는 뺀다.
+export function descWords(texts: unknown[], max = DESC_WORDS) {
+  const n = new Map<string, number>();
+  for (const t of texts) {
+    if (typeof t !== "string") continue;
+    const seen = new Set<string>();
+    for (const raw of t.normalize("NFC").split(/[\s,.;:!?()[\]{}"'·…/|#]+/)) {
+      const w = raw.trim();
+      if (!w || [...w].length > 20 || /^\d+$/.test(w) || seen.has(w)) continue;
+      seen.add(w);
+      n.set(w, (n.get(w) || 0) + 1);
+    }
+  }
+  return [...n.entries()].sort((a, b) => b[1] - a[1]).slice(0, max).map(([w]) => w);
 }
 
 export function createGdriveHandler(options: GdriveOptions) {
@@ -530,6 +570,34 @@ export function createGdriveHandler(options: GdriveOptions) {
     return keep(entries, INDEX_KEEP_MS);
   }
 
+  // S71-62 드라이브 글자 찾기: 그 사람 드라이브 검색(이름·설명·사진 속 글자) 결과 중 색인(켠 폴더 안 사진)에 든 것만, 드라이브가 준 순서로.
+  async function driveHits(workspaceId: string, token: string, text: string) {
+    const { files, complete } = await listAll(token, driveFindQuery(text), "id", 1);
+    const found = [...new Set(files.map((f) => f.id).filter(isDriveId))] as string[];
+    if (!found.length) return { ids: [] as string[], more: false };
+    const on = new Set(await enabledIds(workspaceId));
+    const known = new Set<string>();
+    for (let i = 0; i < found.length; i += FIND_PICK) {
+      const got = await rows("photos_find", `app_gdrive_photos?workspace_id=eq.${workspaceId}&item_id=${inList(found.slice(i, i + FIND_PICK))}&select=item_id,parent_id`);
+      for (const r of got) if (on.has(r.parent_id as string)) known.add(r.item_id as string);
+    }
+    return { ids: found.filter((id) => known.has(id)), more: !complete };
+  }
+  const mergeIds = (a: string[], b: string[]) => {
+    const all = [...new Set([...a, ...b])];
+    return { ids: all.slice(0, INDEX_HITS), more: all.length > INDEX_HITS };
+  };
+  // 설명 한 장 쓰기: description + 표시 속성(자주 쓴 낱말을 찾으려고, 값은 "1"뿐). 빈 글이면 표시도 지운다.
+  async function writeDesc(token: string, id: string, description: string) {
+    const r = await drive("desc", token, `${DRIVE}/${encodeURIComponent(id)}?fields=id,description`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description, properties: { [DESC_PROP]: description ? "1" : null } }),
+    });
+    const f = await body(r);
+    if (!f || f.id !== id) throw new Fail(502, "desc_unconfirmed");
+    return typeof f.description === "string" ? f.description : description;
+  }
+
   type Ctx = { workspaceId: string; body: Record<string, unknown>; req: Request };
   const actions: Record<string, (c: Ctx) => Promise<Response>> = {
     // S71-21 사진을 설명 낱말로 찾기(읽기만). 걸린 드라이브 파일 id만 돌려준다(낱말 글은 보내지 않음). 색인 시트가 없으면 index:false·빈 목록.
@@ -538,10 +606,64 @@ export function createGdriveHandler(options: GdriveOptions) {
       if (!text) throw new Fail(400, "q_invalid");
       await needFeature(workspaceId, PHOTO_CONTENT_FEATURE);
       const token = await fullToken(workspaceId);
-      const entries = await photoIndex(workspaceId, token);
-      if (!entries) return json({ ok: true, index: false, ids: [], more: false });
-      const { ids, more } = matchIndex(entries, text);
-      return json({ ok: true, index: true, ids, more });
+      // S71-62: 색인 시트 결과 + 드라이브 글자 찾기 결과를 합친다(같은 id는 한 번, 시트 것 먼저). 낱말 글은 보내지 않는다.
+      const [entries, found] = await Promise.all([photoIndex(workspaceId, token), driveHits(workspaceId, token, text)]);
+      const sheet = entries ? matchIndex(entries, text) : { ids: [] as string[], more: false };
+      const m = mergeIds(sheet.ids, found.ids);
+      return json({ ok: true, index: !!entries, ids: m.ids, more: m.more || sheet.more || found.more });
+    },
+    // S71-62 드라이브 글자 찾기만(운영자 기능 photo_content가 없는 사람). 드라이브 전체 권한이 있어야 하고, 색인에 든 사진 id만 돌려준다.
+    async "drive-find"({ workspaceId, body: b }) {
+      const text = cleanQuery(b.q);
+      if (!text) throw new Fail(400, "q_invalid");
+      const token = await fullToken(workspaceId);
+      const found = await driveHits(workspaceId, token, text);
+      const m = mergeIds(found.ids, []);
+      return json({ ok: true, ids: m.ids, more: m.more || found.more });
+    },
+    // S71-62 사진 설명 읽기(한 장). 색인(켠 폴더) 안 사진만 — 남의 파일 id·목록 밖 id는 드라이브를 부르기 전에 404.
+    async "desc-get"({ workspaceId, body: b }) {
+      if (!isDriveId(b.id)) throw new Fail(400, "id_invalid");
+      await indexedPhotos(workspaceId, [b.id]);
+      const token = await fullToken(workspaceId);
+      const f = await getFile(token, b.id, "id,description,trashed");
+      const d = typeof f.description === "string" ? f.description.slice(0, DESC_READ_MAX) : "";
+      return json({ ok: true, id: b.id, description: d });
+    },
+    // S71-62 사진 설명 쓰기(≤50장, confirm:true). mode 'set' = 바꾸기(한 장), 'add' = 있던 설명 뒤에 더하기(여러 장). 저장 자리 = 드라이브 파일 description.
+    async "desc-set"({ workspaceId, body: b }) {
+      needConfirm(b);
+      const ids = idList(b.ids);
+      const mode = b.mode === "add" ? "add" : b.mode === "set" ? "set" : null;
+      if (!mode) throw new Fail(400, "mode_invalid");
+      const text = cleanDesc(b.text);
+      if (text === null || (mode === "add" && !text)) throw new Fail(400, "text_invalid");
+      if (mode === "set" && ids.length !== 1) throw new Fail(400, "ids_invalid");
+      await indexedPhotos(workspaceId, ids);
+      const token = await fullToken(workspaceId);
+      const done: { id: string; description: string }[] = [], failed: { id: string; why: string }[] = [];
+      for (const id of ids) {
+        try {
+          let next = text;
+          if (mode === "add") {
+            const f = await getFile(token, id, "id,description,trashed");
+            next = joinDesc(f.description, text);
+            if ([...next].length > DESC_MAX) { failed.push({ id, why: "too_long" }); continue; }
+          }
+          done.push({ id, description: (await writeDesc(token, id, next)).slice(0, DESC_READ_MAX) });
+        } catch (e) {
+          if (e instanceof Fail && e.code === "scope_missing") throw e;
+          failed.push({ id, why: e instanceof Fail && e.status === 404 ? "missing" : e instanceof Fail && e.status === 403 ? "forbidden" : "unavailable" });
+        }
+      }
+      return json({ ok: true, done, failed });
+    },
+    // S71-62 자주 쓴 낱말(설명 칸 아래 고르기 칩). 이 앱이 설명을 붙인 내 사진(표시 속성)만 읽어 센다. 낱말만 돌려준다.
+    async "desc-words"({ workspaceId }) {
+      const token = await fullToken(workspaceId);
+      const { files } = await listAll(token,
+        `properties has { key='${DESC_PROP}' and value='1' } and trashed = false and 'me' in owners`, "id,description", 1);
+      return json({ ok: true, words: descWords(files.map((f) => f.description)) });
     },
     // 상태: 권한이 없으면 오류 대신 scope:false로 답한다(화면이 [Drive 다시 연결] 안내).
     async status({ workspaceId }) {

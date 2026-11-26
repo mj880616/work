@@ -96,3 +96,9 @@ test('S68-21: appNameFor', () => {
   assert.equal(appNameFor(null), 'WORK ON+');
   assert.equal(appNameFor(undefined), 'WORK ON+');
 });
+
+// S71-49: 보드 사진 폴더 이름은 공용 자리 한 곳(앱 이름이 붙지 않아 브랜드가 바뀌어도 그대로).
+test('보드 사진 폴더 이름', async () => {
+  const { BOARD_PHOTO_FOLDER_NAME } = await import('../supabase/functions/_shared/brand-folders.mjs');
+  assert.equal(BOARD_PHOTO_FOLDER_NAME, '보드 사진');
+});
