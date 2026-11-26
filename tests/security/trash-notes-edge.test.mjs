@@ -36,6 +36,8 @@ const CLASSIFIED = {
   'drive-summary/library-prev-prune.mjs': 'unfiltered-on-purpose',
   // S69-40 맨 위 파일 정리: 서버 키로 모든 노트(휴지통 포함)의 첨부 id만 읽어, 어떤 노트가 쓰는 Drive 파일도 휴지통·정리 대기로 보내지 않는다
   'library-files/top-files.mjs': 'unfiltered-on-purpose',
+  // S70-73 드라이브 자동 등록: 서버 키로 모든 노트(휴지통 포함)의 첨부 id만 읽어, 노트가 쓰는 Drive 파일은 자료로 저절로 넣지 않는다
+  'library-files/drive-auto.mjs': 'unfiltered-on-purpose',
   // FILE-첨부삭제: 첨부 [삭제]의 노트 읽기·쓰기는 로그인 토큰, '같은 파일을 쓰는 줄' 확인만 서버 키로 휴지통 노트까지 본다(지우지 않는 쪽)
   'document-actions/file-trash.ts': 'unfiltered-on-purpose',
   // 사용자 토큰(로그인 JWT)으로 읽음: 휴지통 숨김 정책(restrictive)이 자동으로 거른다
