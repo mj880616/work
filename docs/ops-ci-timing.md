@@ -1,6 +1,6 @@
 # 검사·배포 흐름 걸린 시간 (OPS-작업속도, 2026-11-10)
 
-명진 요청: "작업 하나에 1~2시간이 정상이야? 10분 안쪽으로". 시험은 줄이지 않고 기다림부터 줄인다. 운영 규칙은 `docs/command-center-ops.md` 4-1절, 다시 재는 법은 `node scripts/ops/work-timing.mjs`.
+사용자 요청: "작업 하나에 1~2시간이 정상이야? 10분 안쪽으로". 시험은 줄이지 않고 기다림부터 줄인다. 운영 규칙은 `docs/command-center-ops.md` 4-1절, 다시 재는 법은 `node scripts/ops/work-timing.mjs`.
 
 ## 1. 일 하나가 기다리는 곳 (11/10 KST 하루, merge된 PR 54개)
 

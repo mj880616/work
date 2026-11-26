@@ -137,7 +137,7 @@ async function openReadingAdd(page, width) {
     await page.locator('#mobileMenu nav button:visible', { hasText: '저장한 글' }).click();
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: '저장한 글', exact: true }).click();
   await expect(page.locator('#readingView')).toBeVisible();
-  await page.locator('#readingView [data-rd-add]').click();
+  await page.locator('[data-screen-tools] [data-rd-add]:visible').click(); // S71-26: ＋는 화면 이름 줄 찾기 오른쪽(폰 앱 머리 줄·PC 맨 위 줄)
   await expect(page.locator('#readingView input.rd-url')).toBeVisible();
 }
 
