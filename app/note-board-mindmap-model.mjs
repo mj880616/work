@@ -13,6 +13,7 @@
 // - 기기 저장 없음. 서버 check와 같은 범위만 받는다(migration 20261125000000_note_board_mindmap, 20261125020000_note_board_box_size, 20261125040000_note_board_decor).
 import { clampCoord } from './note-board-coord.mjs';
 import { FREE_KINDS, SHAPE_KINDS, decorShape } from './note-board-decor-model.mjs';
+import { CELL_KINDS, parseCells, fileRef } from './note-board-cell-model.mjs';
 
 export const NODE_COLORS = Object.freeze([
   {n:0, name:'연두'}, {n:1, name:'하늘'}, {n:2, name:'연보라'}, {n:3, name:'살구'},
@@ -20,7 +21,7 @@ export const NODE_COLORS = Object.freeze([
 ]);
 export const NODE_SHAPES = Object.freeze(['round', 'rect', 'pill', 'plain']);
 export const SHAPE_NAMES = Object.freeze({round:'둥근 상자', rect:'네모 상자', pill:'알약', plain:'글만'});
-export const NODE_KINDS = Object.freeze(['topic', 'sticky', ...FREE_KINDS]);
+export const NODE_KINDS = Object.freeze(['topic', 'sticky', ...FREE_KINDS, ...CELL_KINDS]); // S71-56: 표·파일 칸(note-board-cell-model.mjs)
 export const CARD_KIND = 'card'; // 나무 안 노트 카드(서버 글 상자 줄이 아님)
 // 노트 카드를 나무의 뿌리 칸으로(그 아래 가지를 배치하려고). 자리는 카드 자리 {x, y}.
 export const cardNode = (id, place) => ({id, kind:CARD_KIND, parent_id:null, parent_card:false, ord:0, side:null, collapsed:false, pinned:false, x:place?.x || 0, y:place?.y || 0});
@@ -61,7 +62,14 @@ export function nodeShape(base, row = {}) {
     h:int(row.h, H_MIN, H_MAX),
     collapsed:row.collapsed === true,
     pinned:row.pinned === true && !!parent, // 뿌리는 늘 자기 자리이므로 손으로 둔 표시는 가지에만 뜻이 있다
+    ...cellShape(kind, row),
   };
+}
+// S71-56: 표 칸은 글자 표(cells), 파일 칸은 가리키는 곳(file_doc 또는 file_note·file_drive)만. 모양이 틀리면 빈 표·빈 파일(그리기는 '찾을 수 없는 파일').
+function cellShape(kind, row) {
+  if (kind === 'table') return {cells:parseCells(row.cells) || [['']]};
+  if (kind === 'file') { const ref = fileRef(row); return {file_doc:ref?.kind === 'doc' ? ref.doc : null, file_note:ref?.kind === 'att' ? ref.note : null, file_drive:ref?.kind === 'att' ? ref.drive : null}; }
+  return {};
 }
 
 // 나무 만들기: 부모가 없거나(다른 보드·지워짐) 고리(서로가 서로의 부모)면 뿌리로 본다. 형제는 ord → id 순.

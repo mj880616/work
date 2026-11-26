@@ -78,8 +78,8 @@ export const endFields = (side, kind, id) => (kind === 'text' ? {[`${side}_note`
 export function parseText(row) {
   if (!row || typeof row !== 'object') return null;
   const {id, board_id, body} = row;
-  // S69-91: 도형(kind shape)만 빈 글을 받는다(글 없는 도형 — 서버 check와 같음).
-  if (typeof id !== 'string' || !id || typeof board_id !== 'string' || !BOARD_RE.test(board_id) || typeof body !== 'string' || (!body.trim() && !(row.kind === 'shape' && body === ''))) return null;
+  // S69-91: 도형(kind shape)만 빈 글을 받는다(글 없는 도형 — 서버 check와 같음). S71-56: 표·파일 칸도(서버 check와 같음).
+  if (typeof id !== 'string' || !id || typeof board_id !== 'string' || !BOARD_RE.test(board_id) || typeof body !== 'string' || (!body.trim() && !(['shape', 'table', 'file'].includes(row.kind) && body === ''))) return null; // S71-56: 표·파일 칸도 빈 글
   const at = clampCoord;
   return {id, board_id, body:[...body].slice(0, TEXT_MAX).join(''), x:at(row.x), y:at(row.y)};
 }

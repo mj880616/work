@@ -7,7 +7,7 @@
 import {exportFileName, pdfFromJpeg, rasterScale} from './note-board-export-model.mjs';
 
 // 내보내기에서 빼는 것: 손잡이·크기 손잡이·빼기(×)·⋯·맞춤선·끄는 선·숨은 칸.
-const DROP = '[data-nb-handle],[data-nb-resize],.nb-x,.nb-more,[data-note-row-more],[data-nb-guides],[data-nb-temp],[data-nb-text-edit],[data-img-retry],.nb-node-bar,[hidden]';
+const DROP = '[data-nb-handle],[data-nb-resize],.nb-x,.nb-more,.nb-file-meta,[data-note-row-more],[data-nb-guides],[data-nb-temp],[data-nb-text-edit],[data-img-retry],.nb-node-bar,[hidden]';
 const SKIP_PROPS = /^(cursor|pointer-events|user-select|-webkit-user-select|touch-action|-webkit-touch-callout|transition.*|animation.*|will-change|caret-color|outline.*)$/;
 
 let sandbox = null;

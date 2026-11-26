@@ -96,6 +96,7 @@ import { createBoardLinks, readMaterialTopics } from './note-board-links-data.js
 import { createMaterialPicker } from './note-board-material-pick.js';
 import { createMaterialView } from './note-board-material-view.js';
 import { materialName, safeUrl } from './note-board-material-model.mjs';
+import { pickAttachments, fileType, FILE_TYPE_NAMES, sizeText, isHwpName } from './note-board-cell-model.mjs'; // S71-56 보드 파일 칸
 import { readLibraryFolders, readLibraryFolderItems } from './library-folder-data.js';
 import { onBoard } from './note-boards-model.mjs';
 import { folderTone } from './note-board-model.mjs';
@@ -103,7 +104,7 @@ import { noteMarkdown } from './note-markdown.mjs';
 import { basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
 import { noteTaskProvider } from './note-gtasks.js'; // S69-97 노트 안 할 일 → 구글 할 일
 import { noteAlarmAt, alarmLabel } from './note-alarm-model.mjs'; // S69-97 노트 알림
-import { requestHwpConvert } from './hwp-drive.js'; // S71-61 HWP-노트안으로: 노트 ⋯ [이 노트를 HWP로] 한 번짜리 넘김
+import { requestHwpConvert, requestHwpEdit } from './hwp-drive.js'; // S71-61 HWP-노트안으로: 노트 ⋯ [이 노트를 HWP로] 한 번짜리 넘김
 import { noteConvertText } from './hwp-convert-model.mjs';
 import { alarmLine } from './note-alarm.js';
 // NOTE-읽생기아이디어 1단계: 해시태그(본문 #낱말을 읽어 모음, 따로 저장 없음).
@@ -642,6 +643,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // S71-53 관계선: 선 종류 칸(kind)이 있는 서버에서만 [관계 잇기]. 자주 쓴 이름은 작업공간 모든 보드의 관계선에서 센다.
       relationReady:() => boardLinks.relationReady(), canRelation:() => boardLinks.checkRelation(), allLinks:() => boardLinks.all(),
       // S71-54 주제 재료: 재료 칸(mat_doc·mat_url)이 있는 서버에서만 [재료 잇기]·칩·주제 위 끌어 놓기. 이름은 지금 노트·자료 이름(없으면 이을 때 이름).
+      // S71-56 표·파일 칸: 표·파일 칸이 있는 서버에서만 넣기. 파일 칸 이름·크기는 지금 자료·노트 첨부에서(없으면 '찾을 수 없는 파일').
+      cellsReady:() => boardLinks.cellsReady(), canCells:() => boardLinks.checkCells(),
+      fileInfoOf:t => boardFileInfo(t), onFilePick:(anchor, add) => openFilePick(anchor, add), onFileOpen:(t, el) => openBoardFile(t, el),
       materialReady:() => boardLinks.materialReady(),
       materialsOf:textId => (materialIndex().get(textId) || []).map(m => ({...m, name:materialNameOf(m)})),
       onMaterialPick:(textId, anchor) => openMaterialPick(textId, anchor),
@@ -695,6 +699,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   let pendingTopic = null;
   function afterBoardPaint(key) {
     ensureDocTitles(key);
+    ensureFileDocs(key);
     if (!pendingTopic || !board || pendingTopic.board !== key) return;
     if (!boardLinks.textsFor(key).some(t => t.id === pendingTopic.text)) { if (boardLinks.textsReady()) pendingTopic = null; return; }
     const id = pendingTopic.text; pendingTopic = null;
@@ -709,7 +714,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   const materialPicker = createMaterialPicker({notes:() => notes, titleOf:noteLineTitle, hidden:note => pinLock.noteHidden(note), toast:showToast,
     have:(kind, ref) => !!pickText && boardLinks.materialsFor(boards.current()).some(m => m.text === pickText && m.kind === kind && m.ref === ref),
-    loadDocs:async () => {
+    loadDocs:() => loadPickDocs()});
+  // 고르기 창 [자료실] 목록(재료 잇기·S71-56 파일 넣기 같은 길 — owner RLS, 기기 저장 없음).
+  const loadPickDocs = async () => {
       const ws = wsId(); if (!ws) throw new Error('작업공간을 확인하지 못했어요.');
       const [docs, folders, items, tree] = await Promise.all([
         rt.api(`/rest/v1/app_documents?workspace_id=eq.${encodeURIComponent(ws)}&select=id,title,file_name,created_at&order=created_at.desc&limit=2000`, {singleFlight:false}),
@@ -718,7 +725,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       for (const d of list) docTitles.set(d.id, d.title || d.file_name || null);
       return {docs:list, folders:Array.isArray(folders) ? folders : [], itemFolder:new Map((Array.isArray(items) ? items : []).map(r => [r.document_id, r.folder_id])),
         siblings:(all, parentId) => tree.folderSiblings(all, {free:true, parentId})};
-    }});
+  };
   let pickText = null;
   function openMaterialPick(textId, anchor) {
     if (busy || pick.active || !boardLinks.materialReady()) return;
@@ -745,7 +752,83 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     readDoc:async id => { const ws = wsId(); const rows = await rt.api(`/rest/v1/app_documents?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(ws)}&select=id,title,file_name,created_at,description,drive_url&limit=1`, {singleFlight:false}); return Array.isArray(rows) ? rows[0] || null : null; },
     openNote:id => { if (!busy && noteById(id)) open(id); },
     openDoc:id => { requestLibraryDocument(id); void window.KPTURouter?.openFrom?.('library'); },
-    openDrive:url => { window.open(url, '_blank', 'noopener,noreferrer'); }});
+    openDrive:url => { window.open(url, '_blank', 'noopener,noreferrer'); }, fileInfo:f => boardFileDetail(f)});
+  // ---- S71-56 NOTE-보드 파일 칸 ----
+  // 파일 칸 = 자료실 자료(file_doc) 또는 노트 첨부(file_note + file_drive)를 가리키는 칸. 원본은 드라이브 그대로, 칸은 번호만(복사·이동 없음).
+  // 자료 줄은 owner RLS로 이름·종류·크기만 그때 읽고(이번 접속 메모리), 노트 첨부는 이미 읽은 내 노트의 첨부 목록에서 찾는다. 기기 저장 없음.
+  const fileDocs = new Map(); let fileDocAsk = null;
+  const DOC_FILE_FIELDS = 'id,title,file_name,mime_type,file_size,file_id,drive_url,created_at,description,category';
+  function ensureFileDocs(key) {
+    if (fileDocAsk || !boardLinks.cellsReady()) return;
+    const need = [...new Set(boardLinks.textsFor(key).filter(t => t.kind === 'file' && t.file_doc && !fileDocs.has(t.file_doc)).map(t => t.file_doc))].slice(0, 100);
+    if (!need.length) return;
+    const owner = scope(), ws = wsId(); if (!ws) return;
+    fileDocAsk = rt.api(`/rest/v1/app_documents?workspace_id=eq.${encodeURIComponent(ws)}&id=in.(${need.map(encodeURIComponent).join(',')})&select=${DOC_FILE_FIELDS}&limit=${need.length}`, {singleFlight:false})
+      .then(rows => { if (owner !== scope()) return; for (const id of need) fileDocs.set(id, null); for (const r of Array.isArray(rows) ? rows : []) fileDocs.set(r.id, r);
+        if (board && view === 'board' && !selected && boards.current() === key) board.relink({links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key)}); })
+      .catch(() => { for (const id of need) if (!fileDocs.has(id)) fileDocs.set(id, null); })
+      .finally(() => { fileDocAsk = null; });
+  }
+  const attOf = t => { const n = noteById(t.file_note); return {note:n, file:n ? (n.attachments || []).find(f => f?.drive_file_id === t.file_drive) || null : null}; };
+  // 칸에 보일 이름·종류·크기. 아직 읽는 중이면 이름만 '자료'(빈 칸이 아님), 없으면 missing.
+  function boardFileInfo(t) {
+    if (t.file_doc) {
+      if (!fileDocs.has(t.file_doc)) return {name:docTitles.get(t.file_doc) || '자료'};
+      const d = fileDocs.get(t.file_doc); if (!d) return {name:'파일', missing:true};
+      return {name:d.title || d.file_name || '자료', fileName:d.file_name, mime:d.mime_type, size:d.file_size};
+    }
+    if (t.file_note) {
+      const {note, file} = attOf(t);
+      if (!note || !file) return {name:'파일', missing:true};
+      if (pinLock.noteHidden(note)) return {name:'잠긴 노트의 파일'};
+      return {name:attachmentName(file), mime:file.mime_type, size:file.file_size ?? file.size};
+    }
+    return {name:'파일', missing:true};
+  }
+  const filePicker = createMaterialPicker({notes:() => notes, titleOf:noteLineTitle, hidden:note => pinLock.noteHidden(note), toast:showToast,
+    tabs:[['doc', '자료실'], ['att', '노트 첨부']], title:'파일 넣기', done:'넣기',
+    extraRows:(tab, query) => (tab === 'att' ? pickAttachments(notes, query, {hidden:note => pinLock.noteHidden(note), titleOf:noteLineTitle}) : []),
+    loadDocs:() => loadPickDocs()});
+  function openFilePick(anchor, add) {
+    if (busy || pick.active || !boardLinks.cellsReady()) return;
+    filePicker.open({anchor, onPick:list => add(list.filter(p => p.kind === 'doc' || p.kind === 'att'))});
+  }
+  // 파일 칸 누름 = 보드 위 옆 칸(폰은 아래 판)에서 미리보기(재료 보기 칸 재사용). 단추: 열기(사진은 크게 보기·HWP는 HWP 편집)·자료실에서 보기·드라이브에서 열기·노트 열기.
+  function openBoardFile(t, el) {
+    if (busy || pick.active) return;
+    void materialView.openFile({id:t.id, name:boardFileInfo(t).name, doc:t.file_doc, note:t.file_note, drive:t.file_drive}, {trigger:el});
+  }
+  async function boardFileDetail(f) {
+    if (f.doc) {
+      const ws = wsId();
+      const rows = await rt.api(`/rest/v1/app_documents?id=eq.${encodeURIComponent(f.doc)}&workspace_id=eq.${encodeURIComponent(ws)}&select=${DOC_FILE_FIELDS}&limit=1`, {singleFlight:false});
+      const d = Array.isArray(rows) ? rows[0] || null : null; fileDocs.set(f.doc, d); if (!d) return null;
+      const type = fileType(d.file_name, d.mime_type), file = {name:d.file_name || d.title || '', mime:d.mime_type || '', documentId:d.id, driveId:d.file_id || '', driveUrl:d.drive_url || ''};
+      const actions = [];
+      if (isHwpName(d.file_name)) actions.push({label:'HWP 편집으로 열기', primary:true, leave:true, run:() => {
+        if (!requestHwpEdit({kind:'library', document:{id:d.id, title:d.title, file_name:d.file_name, category:d.category}})) { showToast('로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.'); return; }
+        window.KPTURouter?.go?.('hwp', {source:'delegated'});
+      }});
+      else if (d.file_name || d.file_id) actions.push({label:type === 'image' ? '크게 보기' : type === 'pdf' ? '열기' : '내려받기', primary:true, run:() => { void pressFile(file, {onError:showToast}); }});
+      actions.push({label:'자료실에서 보기', leave:true, run:() => { requestLibraryDocument(d.id); void window.KPTURouter?.openFrom?.('library'); }});
+      if (typeof d.drive_url === 'string' && /^https:\/\//.test(d.drive_url)) actions.push({label:'드라이브에서 열기', run:() => window.open(d.drive_url, '_blank', 'noopener,noreferrer')});
+      return {name:d.title || d.file_name || '자료', rows:[['파일', d.file_name], ['종류', FILE_TYPE_NAMES[type]], ['크기', sizeText(d.file_size)], ['올린 날', String(d.created_at || '').slice(0, 10)], ['설명', d.description]],
+        thumb:type === 'image' ? async () => (await import('./library-photo.js')).libraryPhotoUrl(d.id, 'small') : null, actions};
+    }
+    if (f.note) {
+      const {note, file} = attOf({file_note:f.note, file_drive:f.drive});
+      if (!note || !file) return null;
+      if (pinLock.noteHidden(note)) return {name:'잠긴 노트의 파일', rows:[['노트', '잠긴 노트예요. 노트 화면에서 풀고 보세요.']], actions:[]};
+      const name = attachmentName(file), type = fileType(name, file.mime_type), press = {name, mime:file.mime_type || '', driveId:f.drive, noteId:note.id};
+      const actions = [{label:type === 'image' ? '크게 보기' : type === 'pdf' ? '열기' : '내려받기', primary:true,
+        run:() => { void pressFile(press, {viewPhoto:() => openPhotoView({row:note, file, trigger:null, rt}), onError:showToast}); }}];
+      actions.push({label:'드라이브에서 열기', run:() => openInDrive(press, {onError:showToast})});
+      actions.push({label:'노트 열기', leave:true, run:() => { if (!busy && noteById(note.id)) open(note.id); }});
+      return {name, rows:[['파일', name], ['종류', FILE_TYPE_NAMES[type]], ['크기', sizeText(file.file_size ?? file.size)], ['노트', noteLineTitle(note)]],
+        thumb:type === 'image' ? async () => diaryPhotoUrl(note.id, f.drive, 'small', {rt}) : null, actions};
+    }
+    return null;
+  }
   // 칩 한 번 누름: 링크 = 새 탭(noopener — 이 앱 창을 건드리지 못함), 노트·자료 = 보드 위 열어 보기.
   function openMaterial(m, el) {
     if (m.kind === 'link') { const url = safeUrl(m.ref); if (url) window.open(url, '_blank', 'noopener,noreferrer'); return; }
@@ -2608,7 +2691,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     reload() { if (loaded && !selected && !busy) void refresh(); },
     show({openId = null, folder = null} = {}) { void preloadMarkdown(); pendingOpen = openId; pendingFolder = folder; if (!folder && at) window.KPTURouter?.setPlace?.('basket', {folder:at}); if (!selected) void refresh(); },
     close,
-    reset() { closeMenu(); materialPicker.close(); void materialView.close({focus:false}); topicCache.clear(); docTitles.clear(); pendingTopic = null; pickText = null; boards.reset(); boardLinks.reset(); board?.closeMenu(); newsMarks.reset(); if (folderSheetOpen()) closeFolderSheet(); addPick = null; endSelect(); at = null; openSet = new Set(); paneOpen = new Set(); moreSet = new Set(); recentAll = false; treeScroll = null; { const l = folderLayer; folderLayer = null; l?.close(); } folders = []; foldersReady = false; folderSay(''); const openedLayer = layer; layer = null; openedLayer?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); noteComments.reset(); resetMemos(); tagSel = []; tagTouched = false; readPick = null; editPick = null; memoGroup = ''; calMonth = monthNow(); calDay = ''; notes = []; links = []; loaded = false; query = ''; noteTrash.reset(); detail.replaceChildren(); placeDetail(); findText = ''; refreshScreenFind(); host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { closeMenu(); materialPicker.close(); filePicker.close(); fileDocs.clear(); void materialView.close({focus:false}); topicCache.clear(); docTitles.clear(); pendingTopic = null; pickText = null; boards.reset(); boardLinks.reset(); board?.closeMenu(); newsMarks.reset(); if (folderSheetOpen()) closeFolderSheet(); addPick = null; endSelect(); at = null; openSet = new Set(); paneOpen = new Set(); moreSet = new Set(); recentAll = false; treeScroll = null; { const l = folderLayer; folderLayer = null; l?.close(); } folders = []; foldersReady = false; folderSay(''); const openedLayer = layer; layer = null; openedLayer?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); noteComments.reset(); resetMemos(); tagSel = []; tagTouched = false; readPick = null; editPick = null; memoGroup = ''; calMonth = monthNow(); calDay = ''; notes = []; links = []; loaded = false; query = ''; noteTrash.reset(); detail.replaceChildren(); placeDetail(); findText = ''; refreshScreenFind(); host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     isUploading: () => fileQueue.any(), // 뒤에서 노트 첨부를 올리는 중(최신화 전에 막는 데 쓴다)
     hasDraft: () => textDirty() || (!!selected && (manual.hasDraft() || noteComments.hasDraft())),

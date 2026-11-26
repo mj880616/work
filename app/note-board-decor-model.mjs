@@ -81,7 +81,7 @@ export function zIndexes(list) {
 }
 // 복제: 같은 꾸미기·크기, 조금 옆(16px)에, 맨 앞. 가지는 혼자 선 칸으로 복제한다(가지 관계는 복제하지 않음).
 export function duplicateSpec(t, list) {
-  const keys = ['kind', 'color', 'shape', 'font', 'w', 'h', 'stroke', 'stroke_w', 'dash', 'alpha', 'bold', 'align', 'ink'];
+  const keys = ['kind', 'color', 'shape', 'font', 'w', 'h', 'stroke', 'stroke_w', 'dash', 'alpha', 'bold', 'align', 'ink', 'cells', 'file_doc', 'file_note', 'file_drive']; // S71-56: 표 글·파일이 가리키는 곳도 그대로
   const spec = {board_id:t.board_id, body:t.body, x:clampCoord((t.x || 0) + 16), y:clampCoord((t.y || 0) + 16), parent_id:null};
   for (const k of keys) if (t[k] !== undefined && t[k] !== null && t[k] !== false) spec[k] = t[k];
   const z = zFront([...list, {...t, id:'__copy', z:t.z}], '__copy'); if (z !== null) spec.z = z;

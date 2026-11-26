@@ -4,6 +4,8 @@
 //   [노트 열기]를 눌렀을 때만 노트 화면으로 간다(보드를 떠나는 것은 그 단추 하나).
 // - 자료실 자료: 이름·파일 이름·올린 날 + [자료실에서 보기]·[드라이브에서 열기](주소가 있을 때). 자료 줄은 owner RLS로 그때 읽는다(기기 저장 없음).
 // - 링크는 이 칸을 쓰지 않는다(부르는 쪽이 새 탭으로 연다, noopener).
+// - S71-56 파일 칸: 같은 칸에서 파일 미리보기(openFile) — 이름·종류·크기·올린 날(노트 첨부는 그 노트) + 사진이면 작은 그림 +
+//   부르는 쪽이 준 단추(열기·크게 보기·HWP 편집으로 열기·자료실에서 보기·드라이브에서 열기·노트 열기). 보드를 떠나는 단추(leave)만 이 칸을 닫고 간다.
 // 닫기: ✕ · Esc · 폰 뒤로가기(라우터 layer가 있으면). 닫으면 누른 칩으로 초점.
 import {renderMarkdownInto, showPlainText} from './markdown-view.js';
 import {paintDoc} from './note-body.js';
@@ -14,8 +16,9 @@ import {waitEl} from './wait-state.js';
 const wide = () => !!globalThis.matchMedia?.('(min-width:761px)')?.matches;
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 
-/** host(): 보드 칸(옆 칸을 붙일 곳). readDoc(id) → 자료 줄 또는 null. openNote(id) · openDoc(id) · openDrive(url): 보드를 떠나는 단추. */
-export function createMaterialView({host, rt = globalThis.window?.KPTURuntime, titleOf, hidden = () => false, readDoc, openNote, openDoc, openDrive}) {
+/** host(): 보드 칸(옆 칸을 붙일 곳). readDoc(id) → 자료 줄 또는 null. openNote(id) · openDoc(id) · openDrive(url): 보드를 떠나는 단추.
+ *  fileInfo(f) → {name, rows:[[이름, 값]], thumb?:() => Promise<주소>, actions:[{label, run, leave?, primary?}]} 또는 null(찾지 못함) — S71-56 파일 칸. */
+export function createMaterialView({host, rt = globalThis.window?.KPTURuntime, titleOf, hidden = () => false, readDoc, openNote, openDoc, openDrive, fileInfo = async () => null}) {
   let panel = null, now = null, layer = null;
   function ensure() {
     const h = host(); if (!h) return null;
@@ -76,6 +79,30 @@ export function createMaterialView({host, rt = globalThis.window?.KPTURuntime, t
     }
     show(p);
   }
+  // S71-56 파일 칸 미리보기. f = {id(칸 id), name, ...가리키는 곳} — 내용은 fileInfo(f)가 그때 읽는다(기기 저장 없음).
+  async function openFile(f, {trigger = null} = {}) {
+    const p = ensure(); if (!p) return;
+    const run = Symbol('view'); now = {m:{kind:'file', id:f.id, ref:f.id, name:f.name}, trigger, run};
+    p.classList.toggle('nbm-view-sheet', !wide());
+    p.setAttribute('aria-labelledby', 'nbmViewTitle');
+    const body = el('div', 'nbm-view-body nbm-file-body'), acts = el('div', 'nbm-view-acts');
+    p.replaceChildren(head('doc', f.name || '파일'), body, acts);
+    body.append(waitEl({rows:2}));
+    show(p);
+    let info = null; try { info = await fileInfo(f); } catch { info = null; }
+    if (now?.run !== run) return;
+    body.replaceChildren();
+    if (!info) { body.append(el('p', 'nbm-view-empty', '이 파일을 찾지 못했어요. 삭제했거나 옮겼을 수 있어요.')); return; }
+    p.querySelector('.nbm-view-title').textContent = info.name || f.name || '파일';
+    if (info.thumb) {
+      const box = el('div', 'nbm-file-thumb'); body.append(box);
+      void Promise.resolve(info.thumb()).then(url => { if (now?.run !== run || !url) { box.remove(); return; } const img = document.createElement('img'); img.alt = ''; img.decoding = 'async'; img.src = url; box.append(img); }, () => box.remove());
+    }
+    const dl = el('dl', 'nbm-view-meta');
+    for (const [k, v] of info.rows || []) if (v) dl.append(el('dt', '', k), el('dd', '', String(v)));
+    body.append(dl);
+    for (const a of info.actions || []) acts.append(act(a.label, async () => { if (a.leave) await close({focus:false}); a.run(); }, a.primary ? 'primary' : 'secondary'));
+  }
   function show(p) {
     p.hidden = false;
     if (!layer) layer = globalThis.window?.KPTURouter?.layer?.open?.('note-board-material', {close:() => close({fromBack:true})}) || null;
@@ -89,5 +116,5 @@ export function createMaterialView({host, rt = globalThis.window?.KPTURuntime, t
     if (focus && back?.isConnected) back.focus?.({preventScroll:true});
     return l && !fromBack ? Promise.resolve(l.close?.()) : Promise.resolve(); // 뒤로가기 칸을 다 돌려받은 뒤 다른 화면으로 가게(늦은 뒤로가기가 되돌리지 않게)
   }
-  return {open, close, isOpen:() => !!now, current:() => now?.m || null};
+  return {open, openFile, close, isOpen:() => !!now, current:() => now?.m || null};
 }
