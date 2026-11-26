@@ -103,13 +103,14 @@ for (const width of [412, 360]) {
     expect(r).toEqual({ pull: ['pull:on', 'pull:off'], cancels: 0 });
     await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
     await expect(cells(list)).toHaveCount(0);
-    // ③ 오른쪽 밀기(손끝이 위로): [선택] → '1개 선택됨'. 이것도 옆으로 가는 손가락이라 pull:off.
+    // ③ 오른쪽 밀기(손끝이 위로): 바로 그 줄 선택(S70-64 W1 — 오른쪽 밀기는 선택만, [선택] 칸이 열려 남지 않음) → '1개 선택됨'. 이것도 옆으로 가는 손가락이라 pull:off.
     await tick(page);
     b = await box(rows(list).last());
     r = await finger(page, cdp, arc(b.x + 40, b.y + b.height / 2 + 12, 280, -36));
     const bar = page.locator('#readingView .row-swipe-pickbar');
-    await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
     expect(r).toEqual({ pull: ['pull:on', 'pull:off'], cancels: 0 });
+    await expect(list.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
+    await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
     await bar.locator('[data-row-pick-stop]').click();
     await expect(bar).toBeHidden();
     // ④ 맨 위에서 아래로 당기기: 줄은 움직이지 않고, 앱에는 pull:on만(당겨서 새로고침은 그대로 앱 몫).

@@ -55,6 +55,7 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/library-files'&&body?.action==='drive-auto')return ok({ok:true,added:0}); // S70-73: 자료실을 열 때 드라이브 자동 등록 부탁(새 자료 없음) — 이 시험의 올리기·쓰기가 아님
     if(path==='/functions/v1/library-files'){
       const raw=(req.postDataBuffer()||Buffer.from('')).toString('utf8');
       const field=name=>raw.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1]??null;
@@ -333,7 +334,7 @@ for(const width of [390,1280]){
       const errors=[],requests=[];
       page.on('pageerror',error=>errors.push(error.message));
       page.on('console',message=>{if(message.type()==='error')errors.push(message.text())});
-      page.on('request',req=>requests.push({url:req.url(),method:req.method()}));
+      page.on('request',req=>requests.push({url:req.url(),method:req.method(),auto:/"action":"drive-auto"/.test(req.postData()||'')}));
       const state=baseState();state.downloads=[];state.deletes=[];
       state.meetings=[
         {id:'older',workspace_id:'workspace-1',series_name:'정책 회의',title:'이전 제목',round_no:1,meeting_at:'2026-10-01T03:00:00Z',created_by:state.user.id},
@@ -399,7 +400,7 @@ for(const width of [390,1280]){
       await closeMeetingResult(page);await page.evaluate(()=>window.KPTURouter.go('library'));
       await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expandLibraryTree(page);await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       expect(state.docs[0].project_id).toBe('top-c');
-      expect(requests.filter(r=>r.method!=='GET'&&/functions\/v1\/(library-files|meeting-files|document-actions|drive-summary)/.test(r.url))).toEqual([]);
+      expect(requests.filter(r=>r.method!=='GET'&&!r.auto&&/functions\/v1\/(library-files|meeting-files|document-actions|drive-summary)/.test(r.url))).toEqual([]); // S70-73: 자료실을 열 때 자동 등록 부탁은 뺌
       expect(requests.filter(r=>r.method==='GET'&&r.url.includes('/rest/v1/app_meetings?')&&!r.url.includes('id=eq.recent'))).toHaveLength(1);
       await page.screenshot({path:`/tmp/library-meeting-edit-${width}.png`,fullPage:true});
       expect(errors).toEqual([]);

@@ -967,3 +967,39 @@ for(const width of [412,1280])test(`하루 기록 쓰기: 긴 글을 내려도 �
  if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/diary-sticky-${width}.png`});
  expect(f.errors).toEqual([]);
 });
+
+// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [목록] 보기의 하루 기록 줄은 공용 줄 밀기(row-swipe.js) — 왼쪽으로 밀면 [고정][별표][수정],
+// 끝까지 밀어도 칸만(누를 때만 저장), [수정] = 그날 창, 오른쪽으로 밀면 그 줄이 골라진 채 여러 개 고르기. 한 일만 있는 날은 밀지 않는다.
+async function lvSwipe(row,dx){
+ await row.evaluate((el,dx)=>{const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+  const fire=(type,cx)=>el.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,pointerId:9,pointerType:'touch',isPrimary:true,clientX:cx,clientY:y}));
+  fire('pointerdown',x);for(let i=1;i<=12;i++)fire('pointermove',x+dx*i/12);fire('pointerup',x+dx);},dx);
+}
+const lvTap=async l=>{await l.dispatchEvent('pointerdown',{pointerType:'touch',isPrimary:true,bubbles:true});await l.dispatchEvent('click');};
+test('[하루 기록] 목록 폰 390 줄 밀기: 왼쪽 [고정][별표][수정](끝까지 밀어도 저장 없음), 칸을 눌러야 저장·창 열기, 오른쪽 밀기 = 고르기',async({page})=>{
+ const rows=[...store(),workRow('2026-10-05','가상 교섭 준비회의')];
+ const f=await fixture(page,{rows});await openDiary(page,390);
+ await page.locator('#diaryRoot [data-diary-view="list"]').click();
+ const lv=page.locator('#diaryRoot [data-diary-all]'),row=lv.locator('[data-diary-lv-swipe="2026-10-04"]'),ends=lv.locator('[data-row-swipe-act="end"]');
+ await expect(row).toBeVisible();
+ const before=f.writes.length;
+ await expect(async()=>{await lvSwipe(row,-430);await expect(ends.first()).toBeVisible({timeout:1000});}).toPass({timeout:10000});
+ await expect(ends.locator('.row-swipe-tx')).toHaveText(['고정','별표','수정']);
+ await page.waitForTimeout(600);expect(f.writes.length).toBe(before);
+ await lvTap(lv.locator('[data-row-swipe-key="star"]'));
+ await expect(row.locator('[data-diary-lv-star]')).toHaveAttribute('aria-pressed','true');
+ await expect.poll(()=>f.writes.length).toBeGreaterThan(before);
+ // [수정] = 그날 하루 기록 창(⋯ [열기]와 같은 길).
+ await expect(async()=>{await lvSwipe(row,-430);await expect(ends.first()).toBeVisible({timeout:1000});}).toPass({timeout:10000});
+ await lvTap(lv.locator('[data-row-swipe-key="edit"]'));
+ const detail=page.locator('#diaryRoot [data-diary-detail]');await expect(detail).toBeVisible();await expect(detail).toContainText('글만 쓴 날');
+ await detail.locator('[data-diary-detail-close]').click();await expect(detail).toBeHidden();
+ // 오른쪽 밀기: 칸 없이 그 줄이 골라진다 → [별표] 한꺼번에.
+ await expect(async()=>{await lvSwipe(lv.locator('[data-diary-lv-swipe="2026-10-03"]'),200);await expect(page.locator('#diaryRoot .row-swipe-pickbar')).toBeVisible({timeout:1000});}).toPass({timeout:10000});
+ await expect(page.locator('#diaryRoot .row-swipe-pick-count')).toHaveText('1개 선택됨');
+ await expect(lv.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
+ await page.locator('#diaryRoot .row-swipe-pickbar [data-row-pick-stop]').click();await expect(page.locator('#diaryRoot .row-swipe-pickbar')).toBeHidden();
+ // 한 일만 있는 날(일기 없음)은 밀어도 칸이 없다.
+ await lvSwipe(lv.locator('[data-diary-lv-swipe="2026-10-05"]'),-430);await page.waitForTimeout(300);await expect(ends).toHaveCount(0);
+ expect(f.errors).toEqual([]);
+});

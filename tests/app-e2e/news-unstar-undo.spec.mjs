@@ -134,6 +134,16 @@ async function goReading(page, width) {
   await expect(page.locator('#readingView')).toBeVisible();
 }
 const T_N1 = '가짜 매체 기사 하나', T_R1 = '읽을 거리에 넣은 같은 성명', T_N2 = '내가 공유로 넣은 가짜 기사';
+// S70-58 READ-두칸보기: 두 칸(600px~)에서는 저장한 글 줄을 누르면 오른쪽 칸에 열린다 — 읽을 거리 글 보기는 글 보기 머리 ⋯ [읽을 거리에서 보기]. 폰은 줄을 누르면 바로.
+// 오른쪽 칸이 방금 누른 글로 바뀐 뒤에 ⋯를 누른다(앞 글 머리 ⋯가 아직 보이는 사이에 누르면 앞 글이 열린다 — S71-03).
+async function toNews(page, width, title) {
+  if (width < 600) return;
+  await expect(page.locator('#readingView [data-rd-detail] .ds-doc-title')).toHaveText(title);
+  const more = page.locator('#readingView [data-rd-detail] [data-rd-head-more]');
+  await expect(more).toBeVisible();
+  await more.click();
+  await page.locator('#rdRowMenu [data-rd-act="news"]').click();
+}
 const titles = page => rlist(page).locator('.rd-row .rd-nm').allTextContents();
 const savedAt = (s, id) => s.reading.find(r => r.news_article_id === id)?.saved_at ?? null;
 
@@ -205,6 +215,7 @@ for (const width of [412, 884, 1280]) {
     await expect(row(page, T_N1)).toBeVisible();
     // 수집 기사(N1): 같은 상세(지금 News 글 보기), [삭제] 없음. 뒤로 한 번이면 읽을 거리 [전체] 그대로.
     await row(page, T_N1).click();
+    await toNews(page, width, T_N1);
     const det = root(page).locator('[data-now-detail]');
     await expect(page.locator('#outsideView')).toBeVisible();
     await expect(det.locator('.nd-title')).toContainText('가짜 매체 기사 하나');
@@ -215,6 +226,7 @@ for (const width of [412, 884, 1280]) {
     // 내가 넣은 기사(N2): 키보드(Enter)로도 열린다.
     await row(page, T_N2).focus();
     await page.keyboard.press('Enter');
+    await toNews(page, width, T_N2);
     await expect(det.locator('.nd-title')).toContainText('내가 공유로 넣은 가짜 기사');
     await expect(det.locator('[data-nd-delete]')).toHaveText('기사 삭제'); // S68-34: 저장해 둔 내 기사는 [삭제](저장한 글에서 빼기)와 겹치지 않게 '기사 삭제'
     if (shots) await page.screenshot({ path: `${shots}/detail-from-reading-${width}.png` });
@@ -233,6 +245,7 @@ for (const width of [412, 884, 1280]) {
     await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
     await row(page, T_N2).click();
+    await toNews(page, width, T_N2);
     await expect(det.locator('[data-nd-delete]')).toHaveText('기사 삭제');
     await det.locator('[data-nd-delete]').click();
     await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('삭제했어요');
@@ -258,7 +271,7 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
   await goReading(page, 412);
   await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
   await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
-  // 오른쪽으로 밀면 [선택](공용 줄 밀기). 손가락 밀기는 포인터만 보낸다.
+  // 오른쪽으로 밀면 바로 선택(공용 줄 밀기, S70-64 W1). 손가락 밀기는 포인터만 보낸다.
   await expect(async () => {
     const sent = await row(page, T_N1).evaluate(el => {
       if (!el.isConnected) return false;
@@ -270,7 +283,9 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
   const bar = page.locator('#readingView .row-swipe-pickbar');
+  // S70-64 W1: 오른쪽 밀기 = 바로 그 줄 선택([선택] 칸이 남지 않음).
   await expect(bar).toBeVisible();
+  await expect(page.locator('#readingView [data-row-swipe-key="select"]')).toHaveCount(0);
   await row(page, T_N2).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
@@ -341,8 +356,9 @@ for (const width of [412, 1280]) {
     await goReading(page, width);
     await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect(row(page, T_N2)).toBeVisible();
+    if (width >= 600) { await row(page, T_N2).click(); await expect(page.locator('#readingView [data-rd-detail] .ds-doc-title')).toHaveText(T_N2); }
     await watchOutside(page);
-    await row(page, T_N2).click();
+    if (width >= 600) await toNews(page, width, T_N2); else await row(page, T_N2).click();
     const det = root(page).locator('[data-now-detail]');
     await expect(page.locator('#outsideView')).toBeVisible();
     await expect(det.locator('.nd-title')).toContainText(T_N2);

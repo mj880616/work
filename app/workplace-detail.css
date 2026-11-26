@@ -146,7 +146,13 @@ button.wd-doc-main{width:100%;margin:0;border:0;border-radius:var(--kptu-radius-
 button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 
 /* ORG-쟁의단계: 이름 줄 바로 아래 '쟁의 단계' 한 줄(선택 + 달력 날짜 + 저장)과 접힌 단계 이력. 작은 글자·낮은 컨트롤(UI-버튼기준). */
-.wd-stage{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0 0 10px;font-size:var(--ds-text-meta)}
+/* ORG-목록줄메뉴없음(S71-08): 상세 맨 위 줄 = 쟁의 단계 줄 | 그 조직 ⋯(목록 줄 ⋯를 지우고 여기로). ⋯는 공용 .icon-btn 모양, 여기는 자리만. */
+.wd-top{display:flex;align-items:flex-start;gap:6px;margin:0 0 10px}
+.wd-top:has(>.wd-stage:empty):has(>.wd-org-more[hidden]){display:none}
+.wd-top>.wd-org-more{flex:none;margin-left:auto}
+/* ⋯는 칸 오른쪽 끝이라 누르는 범위는 위아래로만 넓힌다(공용 .icon-btn::after를 좌우로 넓히면 칸이 옆으로 넘친다 — 옛 목록 줄 ⋯와 같음). */
+.wd-top>.wd-org-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
+.wd-stage{display:flex;flex:1 1 auto;min-width:0;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:var(--ds-text-meta)}
 .wd-stage:empty{display:none}
 .wd-stage-k{flex:0 0 auto;color:var(--kptu-muted)}
 .wd-stage-note,.wd-stage-now{color:var(--kptu-muted)}.wd-stage-now{color:var(--kptu-ink);font-size:var(--ds-text-row)}

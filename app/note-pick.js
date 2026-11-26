@@ -1,7 +1,7 @@
 // FORGET-노트고르기(요청함 11/09 13:34, 시안 docs/design/mockups/forget-note-pick.html, 명진 13:37·13:38 결정): 잊지 말기 [노트] 창 제목 줄 앞
 // [새 노트 ▾] 단추와 그 아래 작은 고르기 창. 이 파일이 그 단추·작은 창·흐린 마지막 두 줄의 유일한 renderer다.
 // - 작은 창: '＋ 새 노트로'(가족 줄은 그 위 '잊지 말기 노트에 더하기') · 노트 이름 찾기 · 최근 노트 · 폴더별 노트.
-//   줄은 노트 보드 노트 고르기와 같은 부품(noteTreeRowHtml, 폴더 나무 note-tree.mjs treeRows, basket.css .nbb-pick 줄 모양)이다.
+//   줄은 노트 보드 노트 고르기와 같은 부품(noteTreeRowHtml, 폴더 나무 note-tree.mjs treeRows, 모양은 [파일]·노트 나무 공용 줄 folder-tree.css .ft-*)이다.
 // - 노트 목록은 기존 소유자 RLS 읽기 길(app_notes kind=note)로 창을 열 때 서버에서 읽는다. '최근 노트'는 서버의 고친 때 순(기기 저장 없음).
 // - 가족 줄(family)은 AI가 읽지 않는 노트(ai_export_allowed=false)만 읽고 보인다. 저장 함수(note-append.js appendToNote)도 다시 확인한다.
 // - 자리는 공용 placeAnchored·followAnchor(단추 바로 아래, 모자라면 위). 닫기: Esc·바깥 누르기·고르기·폰 뒤로가기(라우터 한 겹).

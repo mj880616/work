@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // LIB-폴더로올리기 (2026-10-30 명진 요청): PC 파일을 폴더 묶기의 폴더 줄에 놓으면 그 폴더로 올린다(같은 library-files 길 + 자료 연결 표 한 줄).
 // 끌고 오면 그 폴더 줄에 옮기기와 같은 놓을 곳 표시, 닫힌 폴더 위에 1초 머물면 열림, 폴더 밖에 놓으면 지금처럼(폴더 밖에 올림).
 // 가짜 서버만 쓴다(실제 Supabase·Drive·AI 없음).
@@ -31,7 +32,7 @@ test.describe('PC 1440 PC 파일을 폴더에 놓아 올리기',()=>{
     expect(s.items.filter(x=>x.folder_id==='fw')).toEqual([{document_id:'upload-1',folder_id:'fw',workspace_id:'workspace-1'},{document_id:'upload-2',folder_id:'fw',workspace_id:'workspace-1'}]);
     await expect(page.locator('#documentList [data-lu-document="upload-1"]')).toBeHidden(); // 맨 위 그대로(S69-68: 접힌 주간보고 줄 안에만 — 저절로 펼치지 않음)
     await expect(page.locator('#documentList details[data-lu-node="f:fw"]')).not.toHaveAttribute('open','');
-    await page.locator('#libraryFolderNav [data-lu-nav="fw"]').click();
+    await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fw"]'));
     await expect(page.locator('#documentList > [data-lu-document]')).toHaveCount(2);
     await page.locator('#libraryFolderNav [data-lu-nav=""]').click();
     // 놓은 뒤 표시가 남지 않는다.

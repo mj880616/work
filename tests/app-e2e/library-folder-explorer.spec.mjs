@@ -2,6 +2,7 @@ import {toggleLibraryCategory,readLibraryCategories} from './helpers/library-cat
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,childrenOf,menuButton,folderMenuItem,press,openMove,moveFolder,moveEnabledNames,movePicker,pickMove} from './helpers/library-folder-server.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // LIB-폴더탐색기 화면 ①(docs/design/library-tree.md 12절): 묶기 '폴더'(프로젝트와 상관없는 폴더 나무), 폴더 메뉴(이름 바꾸기 F2·안에 새 폴더·접기/펼치기·폴더 지우기),
 // 줄 안 이름 바꾸기, 빈 곳 우클릭 [새 폴더], 틀을 넘는 옮기기(DB 적용 전에는 '준비 중' 안내).
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -31,14 +32,14 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
       await expect(page.locator('#libraryFolderNav [data-lu-nav="x:out"] .tree-ico-outside svg path[stroke-dasharray]')).toHaveCount(1);
       await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
       await expect(count(page,'f:fa')).toHaveText('폴더 1 · 파일 1');await expect(count(page,'f:fn')).toHaveText('0');
-      await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
+      await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));
       expect(await tops(page)).toEqual(['f:fc']);expect(await rowsHere(page)).toEqual(['n-1']);
       // S69-68(명진 11/24 20:09): 오른쪽 폴더 줄 누르기 = 그 자리 펼치기(들어가지 않음). 들어가기는 왼쪽 나무.
       await page.locator('#documentList details[data-lu-node="f:fc"] > summary').click();
       await expect(page.locator('#documentList details[data-lu-node="f:fc"]')).toHaveAttribute('open','');
       await expect(page.locator('#documentList details[data-lu-node="f:fc"] [data-lu-document="a-1"]')).toBeVisible();
       expect(await tops(page)).toEqual(['f:fc']);
-      await page.locator('#libraryFolderNav [data-lu-nav="fc"]').click();
+      await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fc"]'));
       await expect.poll(()=>tops(page)).toEqual([]);expect(await rowsHere(page)).toEqual(['a-1']);
       await pickGroup(page,'사업영역');await expandLibraryTree(page);
       expect(await childrenOf(page,'p:none')).toContain('n-1');expect(await childrenOf(page,'f:fa')).toEqual([]);
@@ -181,7 +182,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     expect(await moveEnabledNames(page)).toEqual(['가상 A','가상 C','가상 N']);
     await pickMove(page,'fn',width);await expect(movePicker(page)).toHaveCount(0);
     expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-2',folder_id:'fn',workspace_id:'workspace-1'}});
-    if(wideOf(width)){await expect(page.locator('#documentList > [data-lu-document="a-2"]')).toHaveCount(0);await page.locator('#libraryFolderNav [data-lu-nav="fn"]').click();await expect(page.locator('#documentList > [data-lu-document="a-2"]')).toBeAttached();await page.locator('#libraryFolderNav [data-lu-nav=""]').click()}
+    if(wideOf(width)){await expect(page.locator('#documentList > [data-lu-document="a-2"]')).toHaveCount(0);await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fn"]'));await expect(page.locator('#documentList > [data-lu-document="a-2"]')).toBeAttached();await page.locator('#libraryFolderNav [data-lu-nav=""]').click()}
     else await expect(page.locator('#documentList details[data-lu-node="f:fn"] [data-lu-document="a-2"]')).toBeAttached();
     expect(s.docs.find(d=>d.id==='a-2').project_id).toBe('top-a');expect(s.patches).toEqual([]);
     // 폴더를 다른 틀의 폴더 안으로(맨 위 폴더 fn → fc 아래): 3단 안이라 허용.
@@ -234,7 +235,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     await libraryNodeHead(page,'f:fn').click({button:'right',position:{x:40,y:8}});
     await expect(page.locator('#luFolderMenu button').first()).toContainText('이 폴더로 들어가기');await expect(page.locator('#luFolderMenu button').nth(1)).toContainText('이름 바꾸기');await page.keyboard.press('Escape'); // UI-폴더이름펼치기: 첫 줄 = 들어가기
     // 들어간 폴더의 빈 곳도 같은 메뉴(그 폴더 자리).
-    await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
+    await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));
     await ctx(700,600);
     await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','파일 업로드','폴더째 업로드','정돈 제안','모두 선택']);await page.keyboard.press('Escape');
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
