@@ -38,17 +38,14 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
     test.use({viewport, hasTouch: touch, isMobile: touch});
     const press = l => (touch ? l.tap() : l.click());
     // Shows the handle beside a block: a mouse hovers it, a phone puts the cursor in it.
-    // 손잡이는 처음 열 때부터 첫 블록 옆에 보인다. 그래서 '보인다'만 기다리면 누른 블록으로 옮겨 가기 전(편집기가 커서를 읽기 전)에
-    // 다음 동작이 시작되어 앞 블록을 끌 수 있다(바쁜 CI에서 순서가 그대로 남던 간헐 실패). 손잡이가 그 블록 줄 높이에 선 것을 확인한다.
+    // S71-11: 블록 편집이 켜져 있으면 손잡이는 처음부터 커서 자리(첫 문단) 옆에 보인다. 폰은 누른 뒤 편집기가 커서를 옮겨야
+    // (selectionchange — 브라우저가 조금 뒤에 알림) 손잡이가 그 블록으로 간다. 그래서 '보인다'가 아니라 '그 블록 옆에 섰다'
+    // (손잡이의 data-ed-block = 그 블록의 맨 위 순번)를 기다린다. 아니면 첫 문단을 끌어 제자리에 놓아 순서가 그대로다.
     const reach = async (page, block) => {
       if (touch) await block.tap(); else { await block.click(); await block.hover(); }
       await expect(page.locator('.ed-grip')).toBeVisible();
-      await expect.poll(() => block.evaluate(el => {
-        const g = [...document.querySelectorAll('.ed-grip')].find(x => !x.hidden);
-        if (!g) return false;
-        const r = el.getBoundingClientRect(), gr = g.getBoundingClientRect(), y = gr.top + gr.height / 2;
-        return y >= r.top - 2 && y <= r.bottom + 2;
-      })).toBe(true);
+      const index = await block.evaluate(el => { while (el.parentElement && !el.parentElement.classList.contains('ed-input')) el = el.parentElement; return [...el.parentElement.children].indexOf(el); });
+      await expect(page.locator('.ed-grip')).toHaveAttribute('data-ed-block', String(index));
     };
 
     test('끈 상태가 기본: 손잡이 없음 · [블록]으로 켜면 손잡이 보임 · 끄면 사라짐', async ({page}) => {
