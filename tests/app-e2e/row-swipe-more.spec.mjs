@@ -248,9 +248,10 @@ test('자료실 390: 왼쪽 밀기 [옮기기]·[삭제] 칸 — 끝까지 밀�
   await expect(luRows(page)).toHaveCount(5);
   // 끝까지 밀어도 맨 끝이 삭제라 칸만 열린다.
   await swipe(luRow(page, 'n1'), -320);
-  await expect(ends(list)).toHaveCount(2);
+  await expect(ends(list)).toHaveCount(3); // S70-65 가안: [옮기기][이름 바꾸기][삭제]
   await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'move');
-  await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'delete');
+  await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'rename');
+  await expect(ends(list).nth(2)).toHaveAttribute('data-row-swipe-key', 'delete');
   await expect(luRows(page)).toHaveCount(5);
   await touchTap(cell(list, 'delete'));
   await expect(luRows(page)).toHaveCount(4);
@@ -319,10 +320,11 @@ test.describe('일정 목록', () => {
     test.setTimeout(90000);
     const { state, errors, list } = await openList(page, 412);
     // 켜 둔 일정(쓰기 권한 있는 캘린더): [표시 끄기]·[삭제] 두 칸. S68-31: 메뉴에 [삭제]가 있어 맨 끝에 [삭제].
-    await swipe(ev(list, 'todo2'), -60);
-    await expect(ends(list)).toHaveCount(2);
+    // S70-65 가안: [표시 끄기][수정][삭제]. 목록은 연 뒤 늦게 온 읽기로 한 번 더 그려져 열린 칸이 닫힐 수 있어 칸이 보일 때까지 민다.
+    await expect(async () => { await swipe(ev(list, 'todo2'), -60); await expect(ends(list)).toHaveCount(3, { timeout: 1000 }); }).toPass({ timeout: 15000 });
     await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'plan-off');
-    await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'delete');
+    await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'edit');
+    await expect(ends(list).nth(2)).toHaveAttribute('data-row-swipe-key', 'delete');
     await touchTap(cell(list, 'plan-off'));
     await expect.poll(() => state.planWrites.length).toBe(1);
     expect(JSON.stringify(state.planWrites[0].body)).toContain('"off"');
@@ -330,7 +332,7 @@ test.describe('일정 목록', () => {
     // 그냥 일정을 끝까지: 맨 끝이 [삭제]라 바로 하지 않고 칸만 열린다(일정 창·묻기 없음). 열린 [보고할 일정]을 누르면 켠다.
     await tick(page);
     await swipe(ev(list, 'none1'), -320);
-    await expect(ends(list)).toHaveCount(2);
+    await expect(ends(list)).toHaveCount(3);
     await expect(page.locator('#ciGoogleModal')).toBeHidden();
     await expect(page.locator('.kptu-ask')).toHaveCount(0);
     expect(state.planWrites.length).toBe(1);

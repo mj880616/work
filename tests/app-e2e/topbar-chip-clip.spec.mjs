@@ -75,8 +75,9 @@ const chipState = page => page.evaluate(([barSel, chipSel]) => {
 }, [BAR, CHIP]);
 const noPageScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
-// S70-57: 이름 '사업 관리'가 앱 머리 줄로 올라가 412에서는 상자 네 개가 한 줄에 다 들어간다(칩 없음 — 아래 412 줄). 칩은 그보다 좁은 폰에서 본다.
-for (const width of [320, 360]) {
+// S70-57: 이름 '사업 관리'가 앱 머리 줄로 올라갔다. S71-10(11/26 명진 '한 줄에 우겨넣고 싶어'): 주 줄(‹ 날짜 › · n건)도 같은 줄에 들어가
+// 폰(412까지)은 상자 네 개가 다 안 들어가 칩 하나다. 펼친 폴드(700·880)는 네 개 그대로(아래 줄).
+for (const width of [320, 360, 412]) {
   test(`phone ${width}: 사업 관리 top line shows one filter chip (never cut) instead of four boxes; the chip opens one small window with the same four boxes, and a pick there filters the list and renames the chip`, async ({ page }) => {
     await open(page, makeState(), width);
     const chip = page.locator(CHIP);
@@ -169,7 +170,7 @@ for (const width of [320, 360]) {
   });
 }
 
-for (const width of [412, 700, 880]) {
+for (const width of [700, 880]) {
   test(`${width < 600 ? 'phone' : 'fold open'} ${width}: all four boxes fit in the line, so they stay four (no chip)`, async ({ page }) => {
     await open(page, makeState(), width);
     await expect(page.locator('#reportAreaSelect')).toBeVisible({ timeout: 10000 });

@@ -142,7 +142,7 @@ test('[3] 폰 업데이트 줄(Raindrop식): 왼쪽으로 끝까지 밀어도 �
   page.on('dialog', d => { throw new Error('묻지 않아야 함: ' + d.message()); });
   await swipe(page.locator(`[data-basket-row="${B}"]`), -320);
   const cells = page.locator('#basketRows [data-row-swipe-act="end"]');
-  await expect(cells).toHaveText(['보류로', '삭제']);
+  await expect(cells).toHaveText(['보류로', '수정', '삭제']); // S70-65 가안
   await expect(page.locator(`[data-basket-row="${B}"]`)).toBeVisible();
   expect(f.writes.filter(w => w.method === 'DELETE')).toHaveLength(0); // 끝까지 밀어도 바로 지우지 않는다
   await page.locator('#basketRows [data-row-swipe-key="delete"]').tap();
@@ -189,7 +189,7 @@ test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 �
   expect(f.errors).toEqual([]);
 });
 
-test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제], 오른쪽 끝까지 밀면 [선택] 칸만 → 누르면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
+test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [옮기기][수정][삭제](S70-65, 고정은 ⋯), 오른쪽 끝까지 밀면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
   const f = await notesList(page, 412);
   // 휴지통에서 되돌리면 서버 목록에도 다시 있다(업데이트 줄 시험과 같음) — 되돌린 뒤 다시 읽어도 두 줄 그대로.
   f.trash.onRestore = row => { const { link_count, deleted_at, ...back } = row; f.rows.push(back); };
@@ -198,10 +198,9 @@ test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제]
   const cells = page.locator('[data-note-list] [data-row-swipe-act="end"]');
   await expect(cells).toHaveCount(3);
   await expect(cells.last()).toHaveText('삭제');
-  await expect(cells.first()).toHaveText('고정');
-  await cells.first().tap();
-  await expect.poll(() => f.writes.filter(w => w.method === 'PATCH').length).toBe(1);
-  expect(f.writes.find(w => w.method === 'PATCH').body.metadata?.pinned_at).toBeTruthy();
+  await expect(cells).toHaveText(['옮기기', '수정', '삭제']);
+  await swipe(page.locator('[data-note-row="n-two"]'), 50); // 열린 칸은 반대로 조금 밀어 닫는다(S68-50)
+  await expect(cells).toHaveCount(0);
   // 노트 보기 전환(좌우 밀기)은 일어나지 않는다: 목록 보기 그대로.
   await expect(page.locator('[data-note-row]')).toHaveCount(2);
   await swipe(page.locator('[data-note-row="n-one"]'), -50);

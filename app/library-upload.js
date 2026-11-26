@@ -38,7 +38,7 @@ import {createReceiveSort,sortButtonHtml,createTidySuggest,TIDY_LABEL} from './l
 import {readLibraryFolders,readLibraryFolderItems,createLibraryFolder} from './library-folder-data.js';
 import {createSelectMode} from './select-mode.js';
 import {bindMarquee} from './marquee-select.js';
-import {bindRowSwipe,PICK} from './row-swipe.js';
+import {bindRowSwipe,PICK,RENAME,DELETE} from './row-swipe.js';
 import {announceUploaded,openInLibrary} from './upload-done.js';
 import {folderTrail,folderPathHtml,collapseSteps,moreStepHtml} from './folder-path.mjs';import './folder-path-more.js';
 import {bindFolderPinch} from './folder-pinch.js';
@@ -2241,11 +2241,13 @@ async function luSelDelete(anchor=document.querySelector('#librarySelectDelete')
 // UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 자료실 자료 줄 — 왼쪽으로 밀면 [옮기기](⋯ [폴더로 옮기기]와 같은 폴더 고르기, 폴더 표를 읽었을 때만)·[삭제]
 // (⋯ [삭제]와 같은 길: 줄이 바로 빠지고 '삭제했어요 [되돌리기]', 끝까지 밀어도 바로 지우지 않고 칸만 열림). 오른쪽으로 밀면 [선택] → 자료실에 이미 있는 선택 모드(luPick)가 그 줄이 골라진 채로 열린다.
 // 사진 묶음 줄은 묶음 메뉴가 따로라 밀지 않는다. 공유 길은 자료 줄에 없어 칸을 두지 않는다. PC·중간 폭은 ⋯·우클릭 그대로(공용 부품이 폰 폭만 본다).
+// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [옮기기][이름 바꾸기][삭제] — [이름 바꾸기] = ⋯ [이름 바꾸기](F2)와 같은 그 자리 이름 칸.
 function luBindRowSwipe(list){
   bindRowSwipe(list,{row:'.lu-row[data-lu-document]',enabled:()=>!luPick.items&&!luSelBusy&&!luRenameBusy&&!luActiveMenu,
-    actions:el=>{const d=luDocuments.find(x=>x.id===el.dataset.luDocument);if(!d||isPhotoSet(d))return null;return {start:PICK,end:[...(luFoldersReady?[{key:'move',label:'옮기기',tone:'move'}]:[]),{key:'delete',label:'삭제',tone:'danger'}]}},
+    actions:el=>{const d=luDocuments.find(x=>x.id===el.dataset.luDocument);if(!d||isPhotoSet(d))return null;return {start:PICK,end:[...(luFoldersReady?[{key:'move',label:'옮기기',tone:'move'}]:[]),RENAME,DELETE]}},
     run:(key,el)=>{const id=el.dataset.luDocument;if(!luDocuments.some(d=>d.id===id))return;
       if(key==='delete')luDeleteDocument(id);
+      else if(key==='rename')luStartRename(id);
       else if(key==='move'&&luFoldersReady){const at=el.querySelector('[data-lu-menu]')||el;luFolders().openMove(luMoveDocs(id),at,{place:'below',trigger:at})}},
     select:{attr:'data-lu-document',open:el=>luSelStartWith(el.dataset.luDocument)}});
 }

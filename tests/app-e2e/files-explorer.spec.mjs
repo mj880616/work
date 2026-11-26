@@ -153,7 +153,7 @@ for (const width of [884, 1440]) {
   });
 }
 
-test('1440: 사진 미리보기는 공용 그림 칸(큰 썸네일), [열기]는 클라우드 보기 주소를 새 창으로', async ({ page, context }) => {
+test('1440: 사진 미리보기는 공용 그림 칸(큰 썸네일), 줄 우클릭 [새 창에서 열기]는 클라우드 보기 주소를 새 창으로', async ({ page, context }) => {
   test.setTimeout(60000);
   const { errors, server } = await start(page, 1440);
   await openFiles(page, 1440);
@@ -169,7 +169,10 @@ test('1440: 사진 미리보기는 공용 그림 칸(큰 썸네일), [열기]는
   expect(server.calls.find(c => c.action === 'thumb' && c.body.size === 'small').body).toEqual({ action: 'thumb', source: 'od', id: 'OD!20', size: 'small' });
   await context.route('https://example.org/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<p>가짜</p>' }));
   const popup = context.waitForEvent('page');
-  await prev.locator('[data-fx-open]').click();
+  // S70-72: PC 넓은 폭 상세 칸에는 동작 줄이 없다 — 상세 칸의 [열기]는 줄 우클릭 [새 창에서 열기]로 옮겼다.
+  await expect(prev.locator('[data-fx-open]')).toHaveCount(0);
+  await row(page, 'od:OD!20').click({ button: 'right' });
+  await page.locator('#rowMenu').getByRole('button', { name: '새 창에서 열기', exact: true }).click();
   await expect.poll(async () => (await popup).url()).toBe('https://example.org/fake-open');
   expect(server.calls.find(c => c.action === 'open-url').body).toEqual({ action: 'open-url', source: 'od', id: 'OD!20' });
   expect(errors).toEqual([]);

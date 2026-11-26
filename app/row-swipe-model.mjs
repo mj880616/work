@@ -37,6 +37,9 @@ export function endCells(end) {
 }
 // 줄에서 쓸 칸 수. has.start/has.end는 칸 수(옛 true/false도 받음: true = 1칸).
 const count = v => (v === true ? 1 : Math.max(0, Math.min(SWIPE_END_MAX, Number(v) || 0)));
+// UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야"):
+// 오른쪽 밀기는 고르기 하나뿐이다. start 칸이 [선택](key 'select')이면 startPick — 반 칸(32px) 넘게 밀고 떼면 칸을 열어 두지 않고 바로 그 줄을 고른다.
+export const PICK_KEY = 'select';
 export function sides(acts) {
   const ends = endCells(acts?.end), out = {start: acts?.start ? 1 : 0, end: ends.length};
   if (acts?.start?.key === PICK_KEY) out.startPick = true;

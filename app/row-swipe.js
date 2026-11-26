@@ -25,7 +25,13 @@ const SKIP = 'input,textarea,select,[contenteditable],[data-row-swipe-act]';
 export const PICK = Object.freeze({key:'select', label:'선택', tone:'pick', icon:'pick'});
 // 이름이 같은 일은 같은 그림(그 목록이 icon을 주지 않았을 때).
 const ICON = {select:'pick', delete:'trash', move:'move', share:'share', hide:'hide', save:'archive', release:'undo', unstar:'undo', toggle:'done', done:'done',
-  hold:'archive', unhold:'undo', pin:'pin', dismiss:'hide'};
+  hold:'archive', unhold:'undo', pin:'pin', dismiss:'hide', edit:'edit', rename:'rename', 'to-task':'task', more:'more', star:'star', restore:'undo', purge:'trash'};
+// S70-65 UI-밀기메뉴통일(2026-11-26 08:16 명진 가안): 왼쪽 밀기 칸은 [주 동작][수정][숨기기·삭제] 세 칸. 같은 일은 같은 이름·그림 —
+// 목록은 아래 칸을 그대로 쓰고 주 동작만 제 것으로 준다. 수정 칸 이름은 용어 기준표(docs/design/ui-words.md)의 '수정', 파일은 '이름 바꾸기'.
+export const EDIT = Object.freeze({key:'edit', label:'수정', tone:'info', icon:'edit'});
+export const RENAME = Object.freeze({key:'rename', label:'이름 바꾸기', tone:'info', icon:'rename'});
+export const DELETE = Object.freeze({key:'delete', label:'삭제', tone:'danger', icon:'trash'});
+export const MORE = Object.freeze({key:'more', label:'⋯', aria:'메뉴', tone:'muted', icon:'more'});
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 let claimed = 0, roots = 0;
 // 마지막 줄 밀기가 시작된 때(ms). 다른 좌우 밀기는 자기 손동작 시작 뒤에 줄 밀기가 있었으면 아무것도 하지 않는다.
@@ -47,7 +53,7 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
     const host = el.parentElement; host.classList.add('row-swipe-host');
     const layer = document.createElement(host.tagName === 'UL' || host.tagName === 'OL' ? 'li' : 'div');
     layer.className = 'row-swipe-acts'; layer.setAttribute('role', 'presentation');
-    const btn = (side, a) => `<button type="button" class="row-swipe-act row-swipe-${side} row-swipe-tone-${esc(a.tone || (side === 'end' ? 'danger' : 'info'))}" data-row-swipe-act="${side}" data-row-swipe-key="${esc(a.key)}" aria-label="${esc(a.label)}"><span class="row-swipe-ic" aria-hidden="true">${iconSvg(a.icon || ICON[a.key] || '', {size:18})}</span><span class="row-swipe-tx">${esc(a.label)}</span></button>`;
+    const btn = (side, a) => `<button type="button" class="row-swipe-act row-swipe-${side} row-swipe-tone-${esc(a.tone || (side === 'end' ? 'danger' : 'info'))}" data-row-swipe-act="${side}" data-row-swipe-key="${esc(a.key)}" aria-label="${esc(a.aria || a.label)}"><span class="row-swipe-ic" aria-hidden="true">${iconSvg(a.icon || ICON[a.key] || '', {size:18})}</span><span class="row-swipe-tx">${esc(a.label)}</span></button>`;
     const ends = endCells(acts.end);
     layer.innerHTML = (acts.start ? btn('start', acts.start) : '') + (ends.length ? `<span class="row-swipe-ends">${ends.map(a => btn('end', a)).join('')}</span>` : '');
     Object.assign(layer.style, {top:el.offsetTop + 'px', height:el.offsetHeight + 'px'});
