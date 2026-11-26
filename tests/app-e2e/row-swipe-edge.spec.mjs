@@ -103,10 +103,12 @@ for (const width of [412, 390]) {
       await expect(cells(list), `${v}: 가운데 시작`).toHaveCount(3);
       await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
       await expect(cells(list)).toHaveCount(0);
-      // ④ 오른쪽 밀기: [선택] → '1개 선택됨', 탭 그대로.
+      // ④ 오른쪽 밀기: 칸 없이 그 줄이 바로 골라진다(S70-64) → '1개 선택됨', 탭 그대로.
       await tick(page);
       await finger(page, cdp, path(b.x + 40, b.y + b.height / 2, 300, 0));
       const bar = page.locator('#readingView .row-swipe-pickbar');
+      await expect(bar, `${v}: 오른쪽 밀기 = 고르기`).toBeVisible();
+      await expect(list.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
       await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
       await bar.locator('[data-row-pick-stop]').click();
@@ -153,7 +155,7 @@ test('자료실 390 실제 손가락: 줄 오른쪽 끝에서 시작한 왼쪽 �
   const b = await box(row);
   // 자료실 줄은 나무 안쪽으로 들여 있어 화면 끝까지 닿지 않는다 — 줄 오른쪽 끝(⋯ 자리)에서 시작한다.
   await finger(page, cdp, path(b.x + b.width - 4, b.y + b.height / 2, -120, 0));
-  await expect(list.locator('[data-row-swipe-act="end"]')).toHaveCount(2);
+  await expect(list.locator('[data-row-swipe-act="end"]')).toHaveCount(3); // S70-65 가안 [옮기기][이름 바꾸기][삭제]
   await expect(list.locator('[data-lu-document]')).toHaveCount(5);
   expect(state.deletes).toEqual([]);
   expect(state.errors).toEqual([]);

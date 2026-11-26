@@ -11,6 +11,8 @@ export const SB_ICON = Object.freeze({
   ...ROW_MENU_ICON,
   close: 'M4 4l8 8M12 4l-8 8',
   all: 'M3 3h10v10H3zM5.5 8l2 2 3-4',
+  // [전체 선택]이 꺼졌을 때: 빈 네모(켜지면 all — 네모 안 체크 표시).
+  box: 'M3 3h10v10H3z',
   paste: 'M5 3H3.5v10.5h9V3H11M6 2h4v2H6zM8 6.5v5M5.8 9.3L8 11.5l2.2-2.2',
   send: 'M2 8h10M9 5l3 3-3 3',
   folder: 'M2 4.5h4l1.3 1.5H14v6.5H2z',
@@ -41,4 +43,13 @@ export function foldOrder(items) {
   const list = (items || []).filter(x => x && !x.keep && !x.more);
   const by = (a, b) => (Number(b.rank) || 0) - (Number(a.rank) || 0) || b.i - a.i;
   return [...list.filter(x => !x.danger).sort(by), ...list.filter(x => x.danger).sort(by)].map(x => x.i);
+}
+
+// UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 명진 "전체선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제"):
+// 고르기 막대의 [전체 선택] 한 칸. 켜고 끄는 단추(role=checkbox, aria-checked) — 켜지면 네모 안 체크(all), 꺼지면 빈 네모(box).
+// 노트·자료실·줄 고르기(row-swipe.js)가 같은 칸을 쓴다. 다시 그리지 않는 막대는 select-bar.js paintSelectAll로 켜짐만 바꾼다.
+export const SB_ALL_LABEL = '전체 선택';
+export const sbAllIcon = on => (on ? 'all' : 'box');
+export function sbAllHtml({attrs = '', on = false, disabled = false, label = SB_ALL_LABEL} = {}) {
+  return sbActHtml({attrs: `role="checkbox" aria-checked="${on ? 'true' : 'false'}"${disabled ? ' disabled' : ''}${attrs ? ' ' + attrs : ''}`, icon: sbAllIcon(on), label, rank: 30});
 }

@@ -126,7 +126,7 @@ test('저장한 글 412 실제 손가락: 조금·끝까지·빠르게 왼쪽 �
   expect(errors).toEqual([]);
 });
 
-test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니고, 오른쪽 끝까지는 [선택], 줄 위 좌우 밀기는 탭을 넘기지 않고 줄 밖에서는 넘긴다', async ({ page }) => {
+test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니고, 오른쪽 끝까지는 [선택] 칸만(누르면 선택), 줄 위 좌우 밀기는 탭을 넘기지 않고 줄 밖에서는 넘긴다', async ({ page }) => {
   test.setTimeout(120000);
   const { s, errors, list, cdp } = await openReading(page, 412);
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');
@@ -144,11 +144,13 @@ test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니�
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');
   await finger(page, cdp, [[p.x - 160, p.y]]);
   await expect(cells(list)).toHaveCount(0);
-  // ③ 오른쪽 끝까지: 그 줄이 골라진 채 '1개 선택됨', 탭은 그대로, 줄은 열리지 않는다.
+  // ③ 오른쪽 끝까지: [선택] 칸만 펼쳐진다(S70-60 UI-스와이프메뉴만). 칸을 누르면 그 줄이 골라진 채 '1개 선택됨', 탭은 그대로, 줄은 열리지 않는다.
   p = await center(rowOf(list, 9));
   await finger(page, cdp, path(p.x, p.y, 300, 0));
+  // S70-64: 오른쪽 밀기는 칸 없이 그 줄을 바로 고른다.
   const bar = page.locator('#readingView .row-swipe-pickbar');
   await expect(bar).toBeVisible();
+  await expect(list.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');
   await expect(detail(page)).toHaveCount(0);

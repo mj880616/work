@@ -77,6 +77,7 @@ import {word} from './brand/brand.mjs';
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
 import {createSelectKeys, renameTarget} from './select-keys.js';
 import {uploadLabelHtml} from './upload-label.mjs';
+import {bindRowSwipe, PICK, RENAME, DELETE} from './row-swipe.js';
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
 installDragEdgeScroll();
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
@@ -1151,11 +1152,34 @@ function paintTree() {
   // 받을 곳 창의 나무도 같은 하위 폴더 목록(state.children)을 쓴다: 새로 읽으면 함께 다시 그린다.
   if (state.xfer) paintDest();
 }
+// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안, [파일] 화면에도 붙임): 폰 나무의 파일 줄을 왼쪽으로 밀면 [옮기기][이름 바꾸기][삭제] — 자료실 자료 줄과 같은 칸.
+// 칸마다 그 줄 ⋯ 메뉴의 같은 항목(treeMenuItems 옮기기·이름 바꾸기·휴지통으로)이 있을 때만, 누르면 ⋯ 메뉴와 같은 treeAct 길(옮길 곳 창·이름 칸·휴지통 확인).
+// 폴더 줄은 밀지 않는다(누르면 그 자리 펼치기). 오른쪽으로 밀면 꾹 누르기와 같은 고르기(holdPickRow, 그 줄이 골라진 채 고르기 막대).
+// 끝까지 밀어도 칸만 열린다(공용 row-swipe.js). 폰 폭·손가락만(PC·폴드는 ⋯·우클릭 그대로).
+let treeSwipeBound = false;
+const swipeTreeRow = el => { const k = el?.querySelector?.('[data-fx-tfile]')?.dataset.fxTfile; return k ? {key: k, r: state.treeRows.get(k), inKey: el.dataset.ftParent || ''} : null; };
+function bindTreeSwipe(tree) {
+  if (treeSwipeBound) return; treeSwipeBound = true;
+  bindRowSwipe(tree, {row: '.ft-row.fx-titem', enabled: () => !state.busy && !state.run && !state.ask && !P().picked.size && !two(),
+    actions: el => {
+      const x = swipeTreeRow(el); if (!x?.r || x.r.is_folder) return null;
+      const items = treeMenuItems(x.r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit()}), on = id => items.some(it => it.id === id && !it.off);
+      const end = [on('move') ? {key: 'move', label: '옮기기', tone: 'move'} : null, on('rename') ? RENAME : null, on('trash') ? DELETE : null];
+      return end.some(Boolean) ? {start: PICK, end} : null;
+    },
+    run: (key, el) => {
+      const x = swipeTreeRow(el); if (!x?.r) return;
+      const id = key === 'delete' ? 'trash' : key, anchor = el.querySelector('[data-fx-tmenu]') || el;
+      if (['move', 'rename', 'trash'].includes(id)) void treeAct(id, x.r, x.inKey, anchor);
+    },
+    select: {attr: 'data-ft-parent', open: el => { const k = treePickKey(el.querySelector('[data-fx-tfile]')); if (k) holdPickRow(k); }}});
+}
 // 왼쪽 나무(한 칸·PC 두 칸). 지금 칸의 위치를 칠한다. 폴드 두 칸은 CSS가 숨기고 칸 위 ▾ 나무를 쓴다.
 function paintMainTree() { return keepFxMenus(() => paintMainTreeNow()); }
 function paintMainTreeNow() {
   const tree = $('[data-fx-tree]');
   if (!tree) return;
+  bindTreeSwipe(tree);
   ftKeepPlace(tree, () => paintMainTreeBody(tree));
 }
 function paintMainTreeBody(tree) {

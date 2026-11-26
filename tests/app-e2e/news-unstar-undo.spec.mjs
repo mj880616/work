@@ -258,7 +258,7 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
   await goReading(page, 412);
   await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
   await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
-  // 오른쪽으로 밀면 [선택](공용 줄 밀기). 손가락 밀기는 포인터만 보낸다.
+  // 오른쪽으로 밀면 [선택] 칸(공용 줄 밀기). 손가락 밀기는 포인터만 보낸다.
   await expect(async () => {
     const sent = await row(page, T_N1).evaluate(el => {
       if (!el.isConnected) return false;
@@ -270,7 +270,9 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
   const bar = page.locator('#readingView .row-swipe-pickbar');
+  // S70-64: 오른쪽 밀기는 칸 없이 그 줄을 바로 고른다.
   await expect(bar).toBeVisible();
+  await expect(page.locator('#readingView [data-row-swipe-key="select"]')).toHaveCount(0);
   await row(page, T_N2).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
