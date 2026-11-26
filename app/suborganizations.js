@@ -74,7 +74,7 @@ async function deletePicked(trigger){if(!picking()||soPickBusy)return;const ids=
  finally{soPickBusy=false}
  if(r?.status==='moved'){if(r.left.length)soPick.items=new Set(r.left);else soPick.stop()}
  soTeamHtml=null;renderTeam();(picking()?document.querySelector('#soOrganizationList [data-so-pick-delete]'):document.querySelector('#soTeamMore'))?.focus({preventScroll:true})}
-function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const soFind=soQuery?findFor('team',soFindText):null,mine=myOrganizations().filter(o=>!soFind||!!soFind.hit(o.name,...(o.aliases||[]))),all=soQuery?myOrganizations():mine;const hidden=new Set(window.KPTUOrganizationOrder.PICKER_EXCLUDED||[]),shown=mine.filter(o=>!hidden.has(o.name)),excluded=mine.filter(o=>hidden.has(o.name)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const soFind=soQuery?findFor('team',soFindText):null;const mine=myOrganizations().filter(o=>!soFind||!!soFind.hit(o.name,...(o.aliases||[]))),all=soQuery?myOrganizations():mine;const hidden=new Set(window.KPTUOrganizationOrder.PICKER_EXCLUDED||[]),shown=mine.filter(o=>!hidden.has(o.name)),excluded=mine.filter(o=>hidden.has(o.name)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
  const pk=picking();if(pk)soPick.prune(pickableIds());
  // S67-53 ORG-여러개삭제: 선택 중에는 줄 앞에 선택 칸, 줄 ⋯는 빼고, 줄을 누르면 열지 않고 선택만(아래 click). 내가 지울 수 없는 조직은 칸이 꺼져 있다.
  const pickBox=o=>{if(!pk)return '';const on=soPick.has(o.id),off=!canEdit(o)||soPickBusy;return `<input type="checkbox" class="so-pick" data-so-pick="${esc(o.id)}" aria-label="${esc(o.name)} 선택"${on?' checked':''}${off?' disabled':''}>`};

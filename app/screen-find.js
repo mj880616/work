@@ -107,7 +107,7 @@ export function findFor(key, raw) {
     if (!seenRows.has(sig)) { seenRows.add(sig); st.count = seenRows.size; }
     return r;
   };
-  if (!f.empty) schedulePaint();
+  schedulePaint(); // 비운 뒤에도 한 번 칠해 지난 칠하기를 지운다
   return {
     empty: f.empty, text, also: f.also, period,
     best: f.best, test: f.test, // 세지 않고 점수만 볼 때(정렬 등)
@@ -132,6 +132,7 @@ function afterApply(key, raw, opt) {
   const st = stateOf(key), text = norm(raw);
   clearTimeout(st.timer);
   paintAlso();
+  schedulePaint();
   if (!text) return;
   // 그리기가 끝난 뒤(결과 수가 정해진 뒤) 본다. Enter면 바로, 치는 중이면 손을 멈춘 뒤.
   st.timer = setTimeout(() => requestAnimationFrame(() => considerMeaning(key, text)), opt?.submit ? 0 : 900);
