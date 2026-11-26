@@ -1,0 +1,92 @@
+{
+ "base-ui.css": {
+  "importantHide": 1,
+  "hasHide": 1
+ },
+ "basket.css": {
+  "hasHide": 3
+ },
+ "calendar-ui.css": {
+  "importantHide": 1
+ },
+ "choice-sheet.css": {
+  "importantHide": 1
+ },
+ "date-field.js": {
+  "broadObserver": 1
+ },
+ "desktop-ui.css": {
+  "importantHide": 3
+ },
+ "diary.css": {
+  "importantHide": 1
+ },
+ "due-date-calendar.js": {
+  "broadObserver": 1
+ },
+ "feed.css": {
+  "hasHide": 1
+ },
+ "global-search.css": {
+  "importantHide": 1
+ },
+ "hwp-lab.css": {
+  "hasHide": 1
+ },
+ "journal.css": {
+  "importantHide": 2
+ },
+ "library-upload.css": {
+  "hasHide": 1
+ },
+ "login/login.css": {
+  "importantHide": 1
+ },
+ "meeting-name-panel.js": {
+  "broadObserver": 1
+ },
+ "meeting-ui.css": {
+  "hasHide": 1
+ },
+ "mobile-modal-history.js": {
+  "broadObserver": 1
+ },
+ "news-mark-rows.css": {
+  "importantHide": 1
+ },
+ "now.css": {
+  "importantHide": 1
+ },
+ "project-system-v3.css": {
+  "hasHide": 1
+ },
+ "record-sheet.css": {
+  "hasHide": 1
+ },
+ "select-menu.js": {
+  "broadObserver": 1
+ },
+ "split-resize.js": {
+  "importantHide": 1
+ },
+ "static-gates.css": {
+  "importantHide": 1
+ },
+ "suborganizations.css": {
+  "importantHide": 1
+ },
+ "team.css": {
+  "importantHide": 1
+ },
+ "topbar-actions.css": {
+  "importantHide": 3,
+  "hasHide": 2
+ },
+ "ui-standard.css": {
+  "importantHide": 2,
+  "hasHide": 5
+ },
+ "workplace-detail.css": {
+  "hasHide": 1
+ }
+}
