@@ -163,7 +163,7 @@ div.gt-main{cursor:default}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-board{display:contents}
   #appView #tasksView #gtTaskSection.gt-pc>#gtUndoDeletes{grid-column:1;grid-row:3}
   /* UI-칸안스크롤하나로(시안 A): 상세 칸에 따로 스크롤을 두지 않는다. 화면에 붙어 따라오는 일은 follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 한다(google-tasks.js syncSplit). */
-  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane:not([hidden]){grid-column:2;grid-row:2 / -1;display:block;align-self:start;min-height:0;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane:not([hidden]){grid-column:2;grid-row:2 / -1;display:block;align-self:start;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   /* TASK-넓게쓰기(2026-11-10 명진 B안, 시안 docs/design/mockups/task-wide-list.html): 할 일을 고르기 전에는 오른쪽 칸이 없다(상세 칸 hidden).
      '지남·오늘'·'일주일 안'(나중·완료 접기 포함) 모든 묶음이 위아래로 화면 폭 전부를 써서 제목이 잘리지 않는다. 고르면 지금처럼 왼쪽 목록 | 오른쪽 상세,
      닫으면 다시 넓은 목록. 상태 주인은 google-tasks.js paintPane 하나(.gt-wide·hidden). 경계선(split-resize)은 상세 칸이 있을 때만. */
