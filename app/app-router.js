@@ -645,15 +645,17 @@
     // BASKET-정리함이름: [노트] is its own menu item but lives on the basket panel (basket.js writes the side it shows to
     // #basketView[data-kind]). On that side [정리함] is not the current page and [노트] is; on every other screen [노트] is not marked.
     const noteMode=target==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
+    // S71-61 HWP-노트안으로: HWP 편집(hwp)은 노트 안 화면이라 메뉴 칸이 없다. 그 화면에서는 [노트] 칸이 묶음 머리처럼 켜진다(현재 쪽 표시는 아님).
+    const inNote=noteMode||target==='hwp';
     document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
       const own=btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
-      btn.classList.toggle('active',own||!!btn.dataset.navGroup?.split(' ').includes(target));
+      btn.classList.toggle('active',own||(!!btn.dataset.basketKindNav&&inNote)||!!btn.dataset.navGroup?.split(' ').includes(target));
       if(own)btn.setAttribute('aria-current',btn.dataset.goto&&!btn.dataset.view?'true':'page');
       else btn.removeAttribute('aria-current');
     });
     // UI-모바일메뉴순서: the phone bottom tabs are marked in one place (mobile-tab-selection.mjs): exactly one is current —
     // [메뉴] while its sheet is open, else the tab of this screen ([메뉴] for screens reached through the sheet).
-    window.KPTUMobileTabs?.paint(document,{view:target,noteMode});
+    window.KPTUMobileTabs?.paint(document,{view:target,noteMode:inNote});
     // UI-PC사이드바: on the PC sidebar the top line (icon + 홈) is the home menu, so it carries the home selection.
     document.querySelectorAll('.app-nav .sidebar-brand').forEach(brand=>{
       const current=(NAV_ALIAS[view]||view)==='home';

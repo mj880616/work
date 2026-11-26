@@ -138,7 +138,7 @@ const menuQuery=mobileQuery;
 const appNav=document.querySelector('#appView>.app-nav');
 // BASKET-정리함한화면: the order is the sidebar's: 홈 / 정리함 / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
 // MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
-const ALL_KEYS=['home','basket','reading','calendar','note','meetings','library','files','brief','team','hwp','photos','outside','calls','telegram','arsenal'];
+const ALL_KEYS=['home','basket','reading','calendar','note','meetings','library','files','brief','team','photos','outside','calls','telegram','arsenal']; // S71-61: HWP 편집은 메뉴가 아니다(노트 안)
 const keyButton=key=>appNav?.querySelector(key==='note'?'.nav-btn[data-basket-kind-nav="note"]':`.nav-btn[data-view="${key}"]`);
 const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
 // UI-폴드PC틀: each left-menu row carries the same line picture as the phone tabs (menu-model.mjs icon). At 761~1023px the menu is a
@@ -341,11 +341,15 @@ async function openWriter(kind='update'){
 document.addEventListener('click',async event=>{
   const button=event.target.closest?.('#appView [data-basket-kind-nav]');if(!button||window.KPTURouter?.leaveToBrowser?.(event,button))return;
   if(button.matches('a[href]'))event.preventDefault();
-  try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(button.dataset.basketKindNav);}catch(error){console.error('basket kind',error)}
-  // NAV-새로고침제자리: the note side is written to the address (?view=basket&pane=note).
-  // On the basket screen already, [노트] changes the side of the same entry (Back still leaves the screen), as before.
-  window.KPTURouter?.go('basket',{source:'delegated',sub:button.dataset.basketKindNav==='note'?'note':null,replaceUrl:window.KPTURouter?.current==='basket'});
+  await openBasketKind(button.dataset.basketKindNav);
 });
+// NAV-새로고침제자리: the note side is written to the address (?view=basket&pane=note).
+// On the basket screen already, [노트] changes the side of the same entry (Back still leaves the screen), as before.
+// S71-61: 위치 줄 '노트 › HWP 편집'의 [노트]도 이 길 하나로 노트를 연다.
+async function openBasketKind(kind){
+  try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(kind);}catch(error){console.error('basket kind',error)}
+  window.KPTURouter?.go('basket',{source:'delegated',sub:kind==='note'?'note':null,replaceUrl:window.KPTURouter?.current==='basket'});
+}
 // UI-자주가는링크: PC sidebar '자주 가는 링크 ›' opens the small links window beside it (quick-links.js owns the window and its saving).
 document.querySelector('#appView>.app-nav [data-quick-links]')?.addEventListener('click',async event=>{
   const trigger=event.currentTarget;
@@ -560,8 +564,9 @@ window.addEventListener('kptu:view-changed',event=>{
 paintSteps();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
-const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',projects:'reports'};
-const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:word('조직 관리'),view:'team'},reports:{name:word('사업 관리'),view:'meetings'}};
+// S71-61 HWP-노트안으로: HWP 편집은 노트 안 화면이다(노트 › HWP 편집, [노트]를 누르면 노트로).
+const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',projects:'reports',hwp:'note'};
+const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:word('조직 관리'),view:'team'},reports:{name:word('사업 관리'),view:'meetings'},note:{name:'노트',view:'note'}};
 const VIEW_NAMES={home:'홈',basket:'잊지 말기',reading:'저장한 글',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),library:'자료실',files:'파일',meetings:word('사업 관리','title'),team:word('조직 관리','title'),hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리'};
 const whereList=topline?.querySelector('[data-topline-where]');
 // APP-올인원다이어리 단계 2: 앱 이름·노조 색 화면 이름은 얼굴(app/brand/brand.mjs)에서. WORK ON+ 얼굴은 글자 그대로.
@@ -598,6 +603,7 @@ whereList?.addEventListener('click',event=>{
   const step=event.target.closest('[data-topline-step]');
   if(step){window.dispatchEvent(new CustomEvent('kptu:where-step',{detail:{view:step.dataset.toplineStepView,step:step.dataset.toplineStep}}));return}
   const go=event.target.closest('[data-topline-go]')?.dataset.toplineGo;if(!go)return;
+  if(go==='note'){void openBasketKind('note');return}
   window.KPTURouter?.go(go,{source:'delegated'});
 });
 window.addEventListener('kptu:basket-kind',event=>{

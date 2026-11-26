@@ -4,7 +4,8 @@ import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {servePagesCors,hwpPress,openHwpMenu,hwpMenuItem} from './helpers/hwp-editor.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
-// HWP-편집기 메뉴 입구: ☰ 메뉴(phone) and the sidebar (PC) open [HWP 편집]. The editor (about 20MB) loads only on this
+import {openHwpFromNote} from './helpers/shell-navigation.mjs';
+// HWP-편집기 입구: 노트 화면 ⋯ [HWP 편집](S71-61, 예전에는 ☰ 메뉴·사이드바) opens the editor screen. The editor (about 20MB) loads only on this
 // screen. A device file is downloaded as HWP or handed to the library's own [+ 자료 등록] dialog, where the person
 // picks project and category; nothing else goes to the server. Leaving with unsaved edits asks first.
 test.setTimeout(120000);
@@ -42,11 +43,9 @@ async function setup(page,width){
   });
   return seen;
 }
+// S71-61 HWP-노트안으로: [HWP 편집]은 메뉴가 아니다 — 노트 화면 ⋯ [HWP 편집]으로 들어간다(사람처럼 노트 → ⋯ → HWP 편집).
 async function enterFromMenu(page,width,{ready=true}={}){
-  if(width<761){
-    await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav').getByRole('button',{name:'HWP 편집',exact:true}).click();
-  }else await page.locator('.app-nav').getByRole('link',{name:'HWP 편집',exact:true}).click();
+  await openHwpFromNote(page);
   await expect(page.locator('#hwpView')).toBeVisible();
   if(ready)await expect(status(page)).toHaveText(/HWP 편집이 준비됐습니다/,{timeout:60000});
   expect(new URL(page.url()).searchParams.get('view')).toBe('hwp');

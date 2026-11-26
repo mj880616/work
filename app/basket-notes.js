@@ -96,6 +96,8 @@ import { noteMarkdown } from './note-markdown.mjs';
 import { basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
 import { noteTaskProvider } from './note-gtasks.js'; // S69-97 노트 안 할 일 → 구글 할 일
 import { noteAlarmAt, alarmLabel } from './note-alarm-model.mjs'; // S69-97 노트 알림
+import { requestHwpConvert } from './hwp-drive.js'; // S71-61 HWP-노트안으로: 노트 ⋯ [이 노트를 HWP로] 한 번짜리 넘김
+import { noteConvertText } from './hwp-convert-model.mjs';
 import { alarmLine } from './note-alarm.js';
 // NOTE-읽생기아이디어 1단계: 해시태그(본문 #낱말을 읽어 모음, 따로 저장 없음).
 // S69-94 NOTE-메모통일: 노트 아래 '메모'(옛 댓글 — 생각·질문·인용 구분 없앰)와 [메모] 모아 보기(노트·읽을 거리·저장한 글 모든 메모, 줄을 누르면 그 원문 그 메모로).
@@ -971,6 +973,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // NOTE-이 폴더 삭제(S67-34): 들어간 폴더의 ⋯에도 폴더 ⋯의 [폴더 삭제]와 같은 길(deleteFolder: 안의 노트·폴더는 한 단 위로, [되돌리기]).
       // 맨 위 '노트'·'폴더 없음'에서는 넣지 않는다(folderAt() 없음).
       ...(folderAt() && canEditFolders() && !(pinLock.notesHidden() && pinLock.folderCovered(folderAt())) ? [['data-nx-delete-folder', '이 폴더 삭제', 'basket-menu-danger']] : []),
+      // S71-61 HWP-노트안으로(2026-11-26 사용자 결정 "노트 안에서만 열게 하자"): HWP 편집은 메뉴가 아니라 노트 화면 ⋯ 안 한 줄(쓰는 법 바로 위).
+      ['data-nx-hwp', 'HWP 편집'],
       ['data-nx-help', '쓰는 법']]; // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래
     return [
       // LIB-최근폴더로가기(S61-12): '최근' 노트 줄(폰 첫 화면 '최근' 상자·PC 처음 '최근' 목록)이면 맨 위 [폴더로 가기].
@@ -995,6 +999,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(notePub.isReady() ? pubMenu(notePub.stateOf(note.id), {locked:pinLock.noteInLockedFolder(note)}).map(k => [`data-note-pub-${k}`, PUB_LABELS[k]]) : []),
       // S69-97 노트 알림·서식: [알림 걸기…](걸려 있으면 [알림 수정…]) · [서식으로 저장](이 노트 글을 내 서식으로).
       ['data-note-alarm', noteAlarmAt(note) ? '알림 수정…' : '알림 걸기…'], ['data-note-form-save', '서식으로 저장'],
+      ['data-note-to-hwp', '이 노트를 HWP로'], // S71-61: 이 노트 글로 HWP 편집 [노조 서식으로 만들기](노트는 그대로)
       ['data-note-to-diary', '하루 기록으로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
       ['data-note-delete', '삭제', 'basket-menu-danger']];
   };
@@ -2130,6 +2135,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // S67-48: 고치는 중 제목·본문에 #을 직접 써도 아래 태그 칩 줄이 따라온다(잠깐 쉬었다가).
     if (editing && e.target.closest?.('[data-note-editor]') && !e.target.closest('[data-note-edit-tags]')) { clearTimeout(editTagTimer); editTagTimer = setTimeout(paintEditTags, 250); }
   });
+  // S71-61 HWP-노트안으로: HWP 편집은 노트 안 화면(위치 줄 '노트 › HWP 편집', 뒤로 = 이 노트 화면). 새 화면·새 저장 길 없이 기존 화면(?view=hwp)을 연다.
+  const openHwpView = () => { window.KPTURouter?.go?.('hwp', {source:'delegated'}); };
+  // [이 노트를 HWP로]: 노트 글을 HWP 편집 [노조 서식으로 만들기] 글 칸에 넣어 연다(hwp-lab.js startConvert). 저장은 그 화면의 [저장 ▾] 그대로.
+  function noteToHwp(note) {
+    const text = noteConvertText(note);
+    if (!text) { showToast('글이 없는 노트예요.'); return; }
+    if (!requestHwpConvert(text, rt)) { showToast('지금은 HWP로 열 수 없어요. 다시 눌러 주세요.'); return; }
+    openHwpView();
+  }
   // A menu item acts on the note the menu was openSet for (a list row's note need not be open).
   function menuAction(b, from) {
     if (from.from === 'cols') { if (b.hasAttribute('data-nl-cols-reset')) setListCols([...LIST_COLS_DEFAULT]); return; }
@@ -2141,6 +2155,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }
     if (from.from === 'board') { if (b.hasAttribute('data-nbb-newnote')) { const input = host.querySelector('[data-note-list] textarea[data-quick-input]'); input?.scrollIntoView({block:'nearest'}); input?.focus({preventScroll:true}); } else if (b.hasAttribute('data-nbb-export-pdf')) void exportThisBoard('pdf'); else if (b.hasAttribute('data-nbb-export-html')) void exportThisBoard('html'); return; }
     if (from.from === 'head' && b.hasAttribute('data-nx-help')) { void import('./help-link.js').then(m => m.openHelp('note')); return; }
+    if (from.from === 'head' && b.hasAttribute('data-nx-hwp')) { openHwpView(); return; }
     if (from.from === 'folder' || from.from === 'head') {
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
       if (b.hasAttribute('data-nx-lock-open')) pinLock.askNotes();
@@ -2184,6 +2199,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       onDone: () => { if (!editing && selected?.id === note.id) void reload(); }, onFail: text => say(text)})).catch(() => say('메뉴를 열지 못했어요.'));
     else if (b.hasAttribute('data-note-alarm')) void setAlarm(note, from.trigger);
     else if (b.hasAttribute('data-note-form-save')) void saveForm(note, from.trigger);
+    else if (b.hasAttribute('data-note-to-hwp')) noteToHwp(note);
     else if (b.hasAttribute('data-note-to-diary')) void toDiary(note.id, from.trigger);
     else if (b.hasAttribute('data-note-delete')) void remove(note.id);
   }
@@ -2195,8 +2211,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     closeMenu(); calDay = cell.dataset.ntCalCell; renderList();
   });
   // S70-54: 맨 위 줄로 옮긴 목록 머리 ⋯(상자 안)도 같은 메뉴를 연다.
+  // S71-61: PC 틀에서는 S71-59가 이 상자를 화면 안 첫 줄(host 안)로 옮겨, 아래 host 누르기 처리도 같은 ⋯를 받는다 — 둘 다 열면 열자마자 닫혀
+  // (열기 → 같은 단추 다시 = 닫기) PC에서 노트 화면 ⋯가 열리지 않았다. host 안이면 host 처리 한 곳만 연다.
   tools.addEventListener('click', e => {
-    const b = e.target.closest('[data-note-folder-more]'); if (!b || b.disabled) return;
+    const b = e.target.closest('[data-note-folder-more]'); if (!b || b.disabled || host.contains(b)) return;
     if (!busy && (!selected || splitOpen())) openMenu(b, null, pick.active ? 'picked' : 'head');
   });
   host.addEventListener('click', e => {
