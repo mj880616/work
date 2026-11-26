@@ -66,9 +66,9 @@ export function groupMeta(g) {
   if (g?.my_role === 'admin' && req) parts.push(`요청 ${req}`);
   return parts.join(' · ');
 }
-// 만들기 창 기본값: 프로필의 노조명·부서명(고칠 수 있음, 시안 ②). 노조 묶음은 부서명 없음.
-export function createDefaults(kind, profile = {}) {
-  return {kind, union: cleanName(profile.union_name), dept: kind === 'dept' ? cleanName(profile.department_name) : ''};
+// 만들기 창 기본값: 빈 칸(S71-34 PROFILE-이름만 — 프로필은 소속·부서를 받지 않으므로 만들기 창에서 직접 쓴다). 노조 묶음은 부서명 없음.
+export function createDefaults(kind) {
+  return {kind, union: '', dept: ''};
 }
 export function createReady(form) {
   return !!cleanName(form?.union) && (form?.kind !== 'dept' || !!cleanName(form?.dept));

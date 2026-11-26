@@ -1,0 +1,40 @@
+name: Public words check
+
+# SEC-공개저장소청소 ②: 공개 저장소에 실제 사람·단체 이름(공개 금지 낱말)이 새로 들어오지 않게 막는다.
+# 새로 더한 줄·이 PR의 커밋 메시지·커밋 작성자 메일·PR 제목과 본문을 본다. 낱말 목록은 저장소 비밀값 PUBLIC_WORDS_LIST에만 있고,
+# 결과에는 위치와 목록 번호만 찍는다(scripts/check-public-words.mjs). 비밀값이 없으면 커밋 작성자 메일만 본다.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  public-words:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Test public-words checker
+        run: node --test scripts/check-public-words.test.mjs
+      - name: Check new lines, commits and PR text
+        env:
+          PUBLIC_WORDS_LIST: ${{ secrets.PUBLIC_WORDS_LIST }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          BASE=$(git merge-base "$PR_BASE" "$PR_HEAD")
+          node scripts/check-public-words.mjs --base "$BASE" --head "$PR_HEAD" --event
