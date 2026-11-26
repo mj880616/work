@@ -5,7 +5,8 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {accountButton} from './helpers/shell-navigation.mjs';
 
 // S67-71 · S67-77(A안): '메뉴 수정' 창에서 이름 바꾸기 칸이 있는 메뉴(사업 관리·조직 관리)는 이름 자리가 처음부터 입력칸(값 = 지금 이름).
-// 칸 밖으로 나가기·Enter = 저장, 저장은 내 프로필 '이름 바꾸기'와 같은 칸(서버 custom_words)·같은 길, 빈칸 = 기본 이름, [완료] 뒤 앱을 다시 열어 메뉴에 새 이름.
+// S71-32: 내 프로필 '이름 바꾸기' 상자를 없애고 여기로 옮겼다. 메뉴가 아닌 이름·활동 분류는 맨 아래 접힌 '다른 이름' 묶음.
+// 저장은 [완료] 하나로 함께(서버 custom_words 같은 칸·같은 길), 빈칸 = 기본 이름, 저장했으면 앱을 다시 열어 하단바·왼쪽 메뉴에 새 이름.
 // 끌기는 ⠿ 손잡이에서만(입력칸을 누르면 글 입력). 모든 이름·글은 합성 값. 서버는 가짜(page.route).
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'menu-rename-user',email:'menu-rename@example.org',user_metadata:{display_name:'이름 QA'}};
@@ -76,8 +77,8 @@ const menuText=(page,view,width)=>page.locator(width<=760?`#appView :is(.mobile-
 
 const ids=(page,list)=>modal(page).locator(`[data-reorder-list="${list}"] > [data-reorder-id]`).evaluateAll(els=>els.map(el=>el.dataset.reorderId));
 
-for(const width of [1440,412,390]){
-  test(`메뉴 수정 창: 이름 칸은 처음부터 입력칸 → 칸 밖·Enter로 저장 → [완료] 뒤 메뉴에 새 이름, 빈칸은 기본 이름, 끌기는 손잡이에서 (${width}px)`,async({page})=>{
+for(const width of [1440,390]){
+  test(`메뉴 수정 창: 메뉴 줄에서 이름 고치기 + '다른 이름'에서 분류 이름 고치기 → [완료] 한 번에 저장 → 하단바·왼쪽 메뉴에 새 이름, 비우면 기본 이름 (${width}px)`,async({page})=>{
     test.setTimeout(90000);
     await page.setViewportSize({width,height:900});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -87,69 +88,56 @@ for(const width of [1440,412,390]){
     await expect(menuText(page,'meetings',width)).toContainText('활동 일지');
 
     await openEdit(page,width);
-    // 이름 칸이 있는 메뉴만 처음부터 입력칸(값 = 지금 이름, 흐린 글자 = 기본 이름). 나머지·홈은 글자. ✎·이름 버튼은 없다.
+    // 이름 칸이 있는 메뉴만 줄의 이름 자리가 입력칸(값 = 지금 이름, 흐린 글자 = 기본 이름). 나머지·홈은 글자.
     const bizIn=row(page,'meetings').locator('input[data-menu-edit-name]'),teamIn=row(page,'team').locator('input[data-menu-edit-name]');
     await expect(bizIn).toHaveValue('활동 일지');
     await expect(bizIn).toHaveAttribute('placeholder','사업 관리');
     await expect(teamIn).toHaveValue('조직 관리');
-    await expect(teamIn).toHaveAttribute('placeholder','조직 관리');
     for(const id of ['note','home']){
       await expect(row(page,id).locator('[data-menu-edit-name]')).toHaveCount(0);
       await expect(row(page,id).locator('.me-name')).toHaveText(/\S/);
     }
-    await expect(modal(page).locator('[data-menu-edit-rename],.me-pen')).toHaveCount(0);
-    expect(await modal(page).locator('.me-body, [data-menu-edit-body]').first().evaluate(el=>el.textContent.includes('✎'))).toBe(false);
     // 콤팩트: 줄 높이 그대로, 입력칸은 얇은 선·줄 안 높이·남는 폭을 채운다.
     const look=await teamIn.evaluate(el=>{const cs=getComputedStyle(el),r=el.getBoundingClientRect(),row=el.closest('.me-row'),rr=row.getBoundingClientRect(),toggle=row.querySelector('.me-toggle').getBoundingClientRect();return {line:parseFloat(cs.borderTopWidth),h:r.height,row:rr.height,gap:toggle.left-r.right}});
     expect(look.line).toBeLessThanOrEqual(1);expect(look.h).toBeLessThanOrEqual(26);expect(look.row).toBeLessThanOrEqual(29);expect(look.gap).toBeLessThanOrEqual(12);
     expect(await noOverflow(page)).toBe(true);
 
-    // 입력칸을 눌러도 끌기가 시작되지 않고 글을 쓴다. Esc는 고치던 글자만 되돌리고 창은 닫지 않는다.
+    // '다른 이름' 묶음: 처음엔 접힘(n개 바꿈), 펼치면 메뉴가 아닌 이름 5칸 + 활동 분류 8칸이 같은 줄 모양.
+    const more=modal(page).locator('details.me-more');
+    await expect(more).not.toHaveAttribute('open','');
+    await expect(more.locator('summary')).toContainText('다른 이름');
+    await expect(more.locator('summary')).toContainText('1개 바꿈');
+    await more.locator('summary').click();
+    const words=more.locator('input[data-menu-edit-word]');
+    await expect(words).toHaveCount(13);
+    await expect(more.locator('[data-menu-edit-word="area"]')).toHaveValue('캠페인');
+    await expect(more.locator('[data-menu-edit-word="area"]')).toHaveAttribute('placeholder','사업영역');
+    await expect(more.locator('[data-menu-edit-word="kind_policy"]')).toHaveValue('정책');
+    expect(await more.locator('.me-row').first().evaluate(el=>el.getBoundingClientRect().height)).toBeLessThanOrEqual(29);
+    await expect(more.locator('[data-reorder-id]')).toHaveCount(0);
+
+    // 입력칸을 눌러도 끌기가 시작되지 않고 글을 쓴다. Esc는 고치던 글자만 되돌리고 창은 닫지 않는다. 칸 밖으로 나가도 저장하지 않는다(저장은 [완료]).
     await teamIn.click();
     await expect(teamIn).toBeFocused();
     await teamIn.fill('그만둘 이름');
     await page.keyboard.press('Escape');
     await expect(modal(page)).toBeVisible();
     await expect(teamIn).toHaveValue('조직 관리');
-    expect(state.patches).toHaveLength(0);
-
-    // 새 이름 → 칸 밖 누르기(blur) = 저장(다른 칸은 그대로 둔다).
     await teamIn.fill('거래처·직원');
-    await expect.poll(()=>noOverflow(page)).toBe(true);
-    await modal(page).locator('.me-group h3').first().click();
-    await expect(modal(page).locator('.me-note')).toContainText('바꿨어요');
-    expect(state.patches).toEqual([{custom_words:{menu_biz:'활동 일지',area:'캠페인',menu_org:'거래처·직원'}}]);
-    await expect(teamIn).toHaveValue('거래처·직원');
-    if(width>760)await expect(modal(page).locator('.me-pv-box')).toContainText('거래처·직원');
-    // 같은 이름으로 칸을 들락날락하면 저장하지 않는다.
-    await teamIn.focus();await teamIn.blur();
+    await teamIn.press('Enter');
+    await bizIn.fill('');                       // 비우면 기본 이름
+    await more.locator('[data-menu-edit-word="kind_policy"]').fill('기획');
+    await more.locator('[data-menu-edit-word="area"]').fill('');
+    await modal(page).locator('.me-note').click();
     await page.waitForTimeout(200);
-    expect(state.patches).toHaveLength(1);
+    expect(state.patches).toEqual([]);
+    await expect(modal(page).locator('.me-note')).toContainText('[완료]');
 
-    // 틀린 글자는 저장하지 않고 칸에 그대로 둔다(Enter).
-    await bizIn.fill('a<b');
-    await bizIn.press('Enter');
-    await expect(modal(page).locator('.me-note')).toContainText('20자까지');
-    await expect(bizIn).toHaveValue('a<b');
-    await expect(bizIn).toHaveAttribute('aria-invalid','true');
-    expect(state.patches).toHaveLength(1);
-
-    // 빈칸 + Enter = 기본 이름으로 되돌리기(칸에는 기본 이름이 보인다).
-    await bizIn.fill('');
-    await bizIn.press('Enter');
-    await expect(modal(page).locator('.me-note')).toContainText('기본 이름');
-    expect(state.patches[1]).toEqual({custom_words:{area:'캠페인',menu_org:'거래처·직원'}});
-    await expect(bizIn).not.toHaveAttribute('aria-invalid','true');
-    await bizIn.blur();
-    await expect(bizIn).toHaveValue('사업 관리');
-    expect(state.patches).toHaveLength(2);
-
-    // 끌기는 ⠿ 손잡이에서 여전히 된다(이름 칸이 있는 줄도). 옮긴 뒤에도 입력칸 값 그대로.
+    // 끌어도(손잡이) 고친 글자는 그대로.
     const rowList=await row(page,'team').evaluate(el=>el.closest('[data-reorder-list]').dataset.reorderList);
-    const before=await ids(page,rowList),idx=before.indexOf('team');
-    const target=before[idx>1?idx-1:idx+1];
+    const before=await ids(page,rowList),idx=before.indexOf('team'),target=before[idx>1?idx-1:idx+1];
     const handle=row(page,'team').locator('[data-reorder-handle]');
-    await handle.scrollIntoViewIfNeeded();
+    await row(page,'team').evaluate(el=>el.scrollIntoView({block:'center'})); // 창 머리(고정)에 가리지 않게 가운데로
     const from=await handle.boundingBox(),to=await row(page,target).boundingBox();
     const toY=idx>1?to.y+3:to.y+to.height-3;
     await page.mouse.move(from.x+from.width/2,from.y+from.height/2);await page.mouse.down();
@@ -157,17 +145,14 @@ for(const width of [1440,412,390]){
     await page.mouse.move(from.x+from.width/2,toY,{steps:6});await page.mouse.up();
     await expect.poll(()=>ids(page,rowList)).not.toEqual(before);
     await expect(teamIn).toHaveValue('거래처·직원');
-    // 입력칸 위에서 끌어도 줄이 움직이지 않는다(글자 고르기).
-    const now=await ids(page,rowList),box=await teamIn.boundingBox();
-    await page.mouse.move(box.x+8,box.y+box.height/2);await page.mouse.down();
-    await page.mouse.move(box.x+8,box.y+box.height/2+40,{steps:6});await page.mouse.up();
-    await page.waitForTimeout(200);
-    expect(await ids(page,rowList)).toEqual(now);
-    expect(await noOverflow(page)).toBe(true);
+    await expect(bizIn).toHaveValue('');
+    await expect(modal(page).locator('details.me-more')).toHaveAttribute('open','');
+    await expect(modal(page).locator('[data-menu-edit-word="kind_policy"]')).toHaveValue('기획');
     await modal(page).screenshot({path:`test-results/menu-rename-${width}.png`});
 
-    // [완료] → 앱을 다시 열어 메뉴·하단바·왼쪽 메뉴가 새 이름.
+    // [완료] → 고친 칸만 한 번에 저장(다른 칸은 서버 값 그대로) → 앱을 다시 열어 하단바·왼쪽 메뉴에 새 이름.
     await Promise.all([page.waitForEvent('load',{timeout:20000}),modal(page).locator('[data-close="menuEditModal"]').click()]);
+    expect(state.patches).toEqual([{custom_words:{menu_org:'거래처·직원',kind_policy:'기획'}}]);
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
     await expect(menuText(page,'team',width)).toContainText('거래처·직원',{timeout:20000});
     await expect(menuText(page,'meetings',width)).toContainText('사업 관리');
@@ -175,13 +160,44 @@ for(const width of [1440,412,390]){
   });
 }
 
-// 칸에 새 이름을 쓰고 곧바로 [완료]를 눌러도(칸 밖으로 나가며 시작된 저장) 저장이 끝난 뒤 앱을 다시 연다.
-test('메뉴 수정 창: 이름을 쓰고 바로 [완료] → 저장 뒤 다시 열기 (390px)',async({page})=>{
+// 틀린 글자는 [완료]에서 막고 창을 닫지 않는다. 접힌 '다른 이름' 안 칸이면 펼쳐서 보인다.
+test('메뉴 수정 창: 틀린 이름은 [완료]에서 막고 그 칸을 보인다 (390px)',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:900});
   const state=await mockApp(page,{words:null});
   await page.goto(testOrigin+'/app/?view=calendar');
   await signIn(page);
+  await openEdit(page,390);
+  await modal(page).locator('details.me-more summary').click();
+  await modal(page).locator('[data-menu-edit-word="report"]').fill('a<b');
+  await modal(page).locator('details.me-more summary').click();
+  await expect(modal(page).locator('details.me-more')).not.toHaveAttribute('open','');
+  await modal(page).locator('[data-close="menuEditModal"]').click();
+  await expect(modal(page)).toBeVisible();
+  await expect(modal(page).locator('details.me-more')).toHaveAttribute('open','');
+  await expect(modal(page).locator('[data-menu-edit-word="report"]')).toHaveAttribute('aria-invalid','true');
+  await expect(modal(page).locator('[data-menu-edit-word="report"]')).toBeFocused();
+  await expect(modal(page).locator('.me-note')).toContainText('20자까지');
+  expect(state.patches).toEqual([]);
+  // 고치면 저장하고 다시 연다.
+  await modal(page).locator('[data-menu-edit-word="report"]').fill('일지');
+  await Promise.all([page.waitForEvent('load',{timeout:20000}),modal(page).locator('[data-close="menuEditModal"]').click()]);
+  expect(state.patches).toEqual([{custom_words:{report:'일지'}}]);
+});
+
+// 칸에 새 이름을 쓰고 곧바로 [완료]를 눌러도 저장이 끝난 뒤 앱을 다시 연다. 이름을 안 고쳤으면 다시 열지 않는다.
+test('메뉴 수정 창: 이름을 쓰고 바로 [완료] → 저장 뒤 다시 열기, 안 고쳤으면 그냥 닫기 (390px)',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:390,height:900});
+  const state=await mockApp(page,{words:null});
+  await page.goto(testOrigin+'/app/?view=calendar');
+  await signIn(page);
+  let loads=0;page.on('load',()=>{loads+=1;});
+  await openEdit(page,390);
+  await modal(page).locator('[data-close="menuEditModal"]').click();
+  await expect(modal(page)).toBeHidden();
+  await page.waitForTimeout(800);
+  expect(loads).toBe(0);
   await openEdit(page,390);
   const teamIn=row(page,'team').locator('input[data-menu-edit-name]');
   await expect(teamIn).toHaveValue('조직 관리');
