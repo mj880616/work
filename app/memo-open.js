@@ -7,6 +7,7 @@ import {requestNewsOpen} from './news-request.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {noteExists} from './memo-store.js';
 import {notify} from './small-notice.js';
+import {openOnScreen} from './source-open.js';
 
 export {requestMemoReveal, takeMemoReveal, pendingMemoTarget} from './memo-reveal.js';
 import {requestMemoReveal} from './memo-reveal.js';
@@ -16,16 +17,17 @@ export function memoLocked(memo) {
   return !!f && !!lock?.hides?.(f) && !!lock?.settings?.();
 }
 
-const go = view => window.KPTURouter?.go?.(view, {source: 'delegated'});
+// S71-76 NAV-뒤로가기직전화면: 화면 이동은 openOnScreen(라우터 openFrom) 한 길 — 뒤로가기 한 번 = 메모 모아 보기 그 자리.
+const go = view => openOnScreen(view);
 const rt = () => window.KPTURuntime;
 const wsId = () => rt()?.context?.read?.()?.workspace?.id || '';
 // 열어 보니 원문이 없으면: 링크를 끄고(모아 보기 줄이 '원래 기록이 없어요'로) 한 줄 알린다. 메모는 그대로.
 function gone(o) { noteExists(o.type, o.id, false); notify(`${GONE_LINE} · 메모는 그대로 있어요`, {record: false}); return false; }
 // 열기 일(request 이름 → 그 화면에 요청 남기기). 새 종류는 MEMO_OPEN 한 줄 + 여기 한 줄.
 const OPENERS = {
-  note: o => { requestNoteDocOpen(o.id); go('basket'); },
-  news: o => { if (requestNewsOpen({type: o.type, id: o.id})) go('news'); },
-  reading: o => { if (window.KPTUReading?.open) window.KPTUReading.open(o.id); else { window.KPTUReadingOpen = {id: o.id}; go('reading'); } },
+  note: o => { requestNoteDocOpen(o.id); return go('basket'); },
+  news: o => { if (requestNewsOpen({type: o.type, id: o.id})) return go('outside'); },
+  reading: o => { if (window.KPTUReading?.open) window.KPTUReading.open(o.id); else { window.KPTUReadingOpen = {id: o.id}; return go('reading'); } },
   // S69-95 자료실 파일: 자료실에서 그 줄을 보이고(기존 '자료실에서 보기' 길) 그 자료 창(이름·종류·날짜·설명 + 메모 칸)을 연다.
   document: async o => {
     requestLibraryDocument(o.id);

@@ -4,6 +4,15 @@
 import {flashRecord} from './record-flash.js';
 
 const router = () => window.KPTURouter;
+// S71-76 NAV-뒤로가기직전화면: 다른 화면의 항목(노트·저장한 글·읽을 거리 글·브리핑 자료)을 여는 줄의 한 길.
+// 부르는 쪽이 그 화면에 "이 항목을 열어 줘"(request…)를 남긴 뒤 부른다. 라우터 openFrom이 화면 이동 기록 한 칸을 만들고,
+// 그 화면이 처음 여는 상세(폰 겹·창)가 같은 칸을 쓴다 → 뒤로가기 한 번 = 누른 화면 그 자리(스크롤 포함).
+// router.go로 옮기면 화면 칸 + 상세 칸 두 칸이 생겨 뒤로가기 한 번이 도착 화면 목록에 멈췄다(노트 › 저장한 글 → 읽을 거리 목록).
+export function openOnScreen(view, open = null) {
+  const r = router();
+  if (r?.openFrom) return Promise.resolve(r.openFrom(view, open)).catch(() => false);
+  return Promise.resolve(!!r?.go?.(view, {source: 'delegated'}));
+}
 // back: 창(조직 상세 같은 .modal) 안의 줄에서 열 때, 뒤로가기 한 번으로 그 창을 그 자리로 다시 여는 함수(라우터 openFrom의 back, S61-53).
 // 통화 한 건(업무·개인 통화함 어느 쪽이든). workOnly: 업무 통화만 여는 기존 길(KPTUCallFeed.open — 원장 근거·전체 검색). 열었으면 true.
 export async function openCallSource(id, {workOnly = false, back = null} = {}) {
