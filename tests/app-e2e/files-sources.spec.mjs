@@ -7,7 +7,7 @@ import { screenFind } from './helpers/screen-find.mjs';
 // S49-26(명진 결정 H-8): 켜고 끄기 기억은 기기 종류마다 따로(files_sources.app / .phone / .pc) — 412는 폰 브라우저, 884·1440은 PC 칸.
 // 켜진 두 드라이브가 맨 위 줄로 나란히 있는 폴더 나무(폰 [폴더] 탭 포함), 펼치기 2단계 이상, 폴더 눌러 들어가기, 모두 끔 안내. 파일·폴더 이름은 모두 가짜.
 const root = page => page.locator('#filesRoot');
-const chip = (page, name) => root(page).locator(`[data-fx-src="${name}"]`);
+const chip = (page, name) => page.locator(`[data-fx-src="${name}"]`);
 const tree = page => root(page).locator('[data-fx-tree]');
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 저장소마다 상자(머리 [data-fx-box-tog]), PC·폴드는 뿌리 줄(.fx-root).
 const roots = page => tree(page).locator('.fx-root, [data-fx-box-tog]');
@@ -27,7 +27,7 @@ for (const width of [412, 884, 1440]) {
     await expect(chip(page, 'gd')).toBeVisible();
     await expect(chip(page, 'od')).toHaveAttribute('aria-pressed', 'true');
     await expect(chip(page, 'gd')).toHaveAttribute('aria-pressed', 'true');
-    await expect(root(page).locator('[data-fx-srcs]')).toHaveClass(/src-chips/);
+    await expect(page.locator('[data-fx-srcs]')).toHaveClass(/src-chips/);
     // 뿌리 두 줄: 원드라이브 / 구글 드라이브가 나란히. 폰은 이 나무가 첫 화면이고 목록은 아직 없다.
     await expect(roots(page)).toHaveCount(2);
     await expect(roots(page).nth(0)).toContainText('원드라이브');

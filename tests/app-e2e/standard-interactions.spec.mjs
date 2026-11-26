@@ -577,7 +577,7 @@ test('T6 파일 1280 두 칸: 칸마다 펼침·들어가기가 따로', async (
   test.setTimeout(90000);
   const { errors } = await startFiles(page, 1280);
   await openFiles(page, 1280, { two: true });
-  const two = page.locator('#filesRoot [data-fx-two]');
+  const two = page.locator('button[data-fx-two]');
   if ((await two.getAttribute('aria-pressed')) !== 'true') await two.click();
   await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
   const pane = i => page.locator(`#filesRoot [data-fx-pane-i="${i}"] [data-fx-list]`);
@@ -1449,7 +1449,7 @@ for (const [name, open] of CTX_SCREENS) test(`C7 ${name} PC 1280: 글 줄 오른
 async function filesPick(page, width, two) {
   const { errors, server } = await startFiles(page, width);
   await openFiles(page, width, { two });
-  const t = page.locator('#filesRoot [data-fx-two]');
+  const t = page.locator('button[data-fx-two]');
   if (two && (await t.getAttribute('aria-pressed')) !== 'true') await t.click();
   if (two) {
     await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
@@ -1862,7 +1862,7 @@ async function t10Files(page, width, two) {
   await openFiles(page, width);
   const fx = page.locator('#filesRoot');
   if (two) {
-    await fx.locator('[data-fx-view-seg] [data-fx-two]').click();
+    await page.locator('[data-fx-view-seg] [data-fx-two]').click();
     await expect(fx.locator('[data-fx-pane-i="1"]')).toHaveCount(1);
     if (await fx.locator('[data-fx-tree]').isHidden()) await fx.locator('[data-fx-tree-tog]').click();
     await expect(fx.locator('[data-fx-tree]')).toBeVisible();

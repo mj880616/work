@@ -79,7 +79,7 @@ for(const width of [1280,884])test(`파일 ${width} 두 칸 목록: 명진 예 �
   server.items.push({source:'od',item_id:'OD!21',parent_id:'OD!2',name:'가짜 행사',is_folder:true,size_bytes:null,mime:null,modified_at:'2026-10-01T01:00:00Z',hash:null,trashed:false,starred:false,library_doc_id:null},
     {source:'od',item_id:'OD!22',parent_id:'OD!2',name:'가짜 명단.pdf',is_folder:false,size_bytes:2000,mime:'application/pdf',modified_at:'2026-10-02T01:00:00Z',hash:null,trashed:false,starred:false,library_doc_id:null});
   await openFiles(page,width,{two:true});
-  const two=page.locator('#filesRoot [data-fx-two]');if((await two.getAttribute('aria-pressed'))!=='true')await two.click();
+  const two=page.locator('button[data-fx-two]');if((await two.getAttribute('aria-pressed'))!=='true')await two.click();
   const list=page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list]'),row=key=>list.locator(`[data-fx-row="${key}"]`);
   await expect(row('od:OD!1')).toBeVisible();
   for(const k of ['od:OD!1','od:OD!2']){await row(k).click();await expect(row(k)).toHaveAttribute('aria-expanded','true')}

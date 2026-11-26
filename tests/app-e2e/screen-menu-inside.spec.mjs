@@ -18,7 +18,7 @@ const orgs = [
 const SCREENS = [
   { key: '노트', view: 'basket', kind: 'note', tool: '[data-note-folder-more]', line: '#basketView [data-note-list] > .note-list-head' },
   { key: '조직 관리', view: 'team', tool: '#soTeamMore', line: '#soTeamTabs' },
-  { key: '자료실', view: 'library', tool: '#libraryTopMenuBtn', line: '#libraryView .lu-search-row', also: ['#newDocumentBtn'] },
+  { key: '자료실', view: 'library', tool: '#newDocumentBtn', line: '#libraryView .lu-search-row', also: ['#libraryTopMenuBtn'] }, // [+]가 맨 오른쪽(S71-28, ⋯ 다음)
   { key: '읽을 거리', view: 'outside', tool: '[data-os-more]', line: '#outsideRoot > .os-tabs', also: ['[data-nw-media]'] },
   { key: '브리핑 룸', view: 'brief', tool: '[data-br-top-add]', line: null, also: ['[data-br-top-more]'] }, // [+]가 맨 오른쪽(S71-30)
   { key: '사진', view: 'photos', tool: '[data-photos-head-more]', line: null, also: ['[data-photos-src-pick]'] },

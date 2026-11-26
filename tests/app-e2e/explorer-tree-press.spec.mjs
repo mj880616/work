@@ -77,7 +77,7 @@ test('[파일] PC 1280: 하위 있는 상위 폴더를 눌러도 오른쪽 = 그
   await expect.poll(() => listNames(page)).toEqual(['PowerShell', '가짜 목록.txt']);
   await expect(fxTreeRow(page, 'od:OD!D')).toHaveClass(/ft-current/);
   // [한 칸 | 두 칸] 붙은 단추(자료실과 같은 ds-seg).
-  const seg = fx(page).locator('[data-fx-view-seg]');
+  const seg = page.locator('[data-fx-view-seg]');
   await expect(seg).toHaveClass(/ds-seg/);
   await expect(seg.locator('[data-fx-one]')).toHaveAttribute('aria-pressed', 'true');
   await seg.locator('[data-fx-two]').click();

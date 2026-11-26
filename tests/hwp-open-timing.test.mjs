@@ -20,6 +20,7 @@ test('자료실 검색 결과 모두 고르기 버튼이 본문 첫 줄 고르�
   const js = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');
   assert.match(js, /luSyncSearchPickAll\(q,matches\)/);
   assert.match(js, /결과 \$\{luSearchPickIds\.length\}개 모두 선택/);
-  assert.match(js, /const row=document\.querySelector\('#libraryView \.lu-pick-row'\)\|\|luTools;/);
+  // S71-28: 폰·폴드는 고르기 줄이 앱 머리 줄이라 단추는 본문 첫 줄(.lu-search-row) — 머리 줄 찾기 칸을 좁히지 않는다.
+  assert.match(js, /const row=document\.querySelector\('#libraryView \.lu-pick-row'\)\|\|document\.querySelector\('#libraryView \.lu-search-row'\)\|\|luTools;/);
   assert.match(js, /row\.append\(button\)/);
 });

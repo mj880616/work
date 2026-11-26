@@ -1,4 +1,4 @@
-import {mountLibraryDriveLine} from './library-drive-line.js'; // S69-20 ①: 자료실 저장 위치 한 줄(구글 드라이브 폴더 열기)
+import {mountLibraryDriveLine} from './library-drive-line.js'; // S69-20 ①·S71-46: 자료실 드라이브 저장 위치(⋯ [드라이브에서 열기])·못 옮겼을 때만 [다시] 한 줄
 import {readDocuments} from './report-list-read.js'; // APP-낭비줄이기 ①: 자료 목록은 쓰는 열만(글자 본문 열 제외)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderFilterChips} from './filter-chips.js';
@@ -165,6 +165,16 @@ let luQuery='';// S70-54 UI-검색창하나로: 자료실 찾기 글자(맨 위 
 // [결과 n개 모두 선택]은 맨 위 줄 단추 자리(screen-find.js 상자)에 산다. 본문 첫 줄(.lu-search-row)은 [사업영역 ▾][분류 ▾] 고르기만.
 const luTools=toolsBox('library','library');
 {const actions=document.querySelector('#libraryView .lu-head-actions');if(actions)luTools.append(actions)}
+// S71-28 FILES-머리한줄(명진 11/26 "자료실도"): 폰·폴드(~760px)는 [폴더 ▾][분류 ▾]도 앱 머리 줄로 올린다 — 머리 줄 한 줄
+// [W] 자료실 · [폴더 ▾] · [분류 ▾] …… ⋯ · 찾기 · [+](자리 순서는 library-upload.css 'S71-28' 절). 따로 된 둘째 줄은 없다(줄째 옮김, 숨김 아님).
+// PC 틀(761px~)은 지금처럼 본문 첫 줄(.lu-search-row). 상태 주인·그리기·누르기는 그대로(고르기 상자 두 개는 같은 요소가 자리만 바꾼다).
+const LU_HEAD=typeof matchMedia==='function'?matchMedia('(max-width:760px)'):null;
+function luPlacePicks(){
+  const row=document.querySelector('.lu-pick-row'),home=document.querySelector('#libraryView .lu-search-row');if(!row||!home)return;
+  if(LU_HEAD?.matches){if(row.parentElement!==luTools)luTools.prepend(row)}
+  else if(row.parentElement!==home)home.prepend(row);
+  luRenderCategoryFilter(luCatCounts);
+}
 // S70-67 SEARCH-비슷한것찾기: 자료 거르기(luRenderLibraryNow)는 공용 판정(findFor — 띄어쓰기 무시·오타·초성·앞부분, 비슷한 말·기간), 맞은 부분 굵게.
 registerScreenFind('library',{label:'자료실에서 찾기',active:()=>window.KPTURouter?.current==='library',value:()=>luQuery,marks:'#documentList [data-lu-document]',
   apply:(raw,{again}={})=>{const next=String(raw??'');if(next===luQuery&&!again)return;luQuery=next;luRenderLibrary()}});
@@ -286,8 +296,13 @@ let luCatCounts=null;
 function luRenderCategoryFilter(counts=null){
   luCatCounts=counts;
   const pick=document.querySelector('#libraryCategoryPick');
-  if(pick){const names=topDocumentCategories(),sub=activeSubcategory(names,luCategoryOff,luCategorySub);const text=pickLabel(names,luCategoryOff,sub?categoryLabel(sub):'');if(pick.dataset.label!==text){pick.dataset.label=text;pick.innerHTML=`<span class="lu-cat-pick-text">${luEsc(text)}</span>`;}}
+  // S71-28: 머리 줄에 있을 때(폰·폴드)는 좁으므로 지금 고른 값만 보인다('분류: 전체' → '전체', ui-words '보이는 이름표 없이 칩만'과 같은 꼴).
+  // 앞말 '분류: '는 읽기 프로그램용 글자로 남겨 단추 이름은 늘 '분류: …' 전체다.
+  if(pick){const names=topDocumentCategories(),sub=activeSubcategory(names,luCategoryOff,luCategorySub);const text=pickLabel(names,luCategoryOff,sub?categoryLabel(sub):'');const short=!!pick.closest('.sf-tools');
+    if(pick.dataset.label!==text||pick.dataset.short!==String(short)){pick.dataset.label=text;pick.dataset.short=String(short);pick.title=short?text:'';const value=text.replace(/^분류: /,'');
+      pick.innerHTML=short&&value!==text?`<span class="lu-cat-pick-text"><span class="a11y-only">분류: </span>${luEsc(value)}</span>`:`<span class="lu-cat-pick-text">${luEsc(text)}</span>`;}}
 }
+luPlacePicks();LU_HEAD?.addEventListener?.('change',luPlacePicks);// S71-28: 처음 그릴 때부터 자리(폰·폴드는 머리 줄) — 둘째 줄이 잠깐 보였다 올라가지 않게.
 // [분류 ▾] 고르기 창: 공용 고르기 창(choice-sheet.js — 폰은 아래에서 올라오는 판, 폴드 펼침·PC 폭은 단추 아래 작은 창) 하나.
 // 줄을 누르면 창 안에서만 바뀌고 [적용]을 눌러야 자료실에 걸린다(기억은 지금처럼 서버 library_view.categories_off). [✎ 분류 수정]은 분류 수정 창.
 let luCatSheet=null,luCatPending=null;
@@ -754,7 +769,7 @@ if(luBackGone(scope))return;
 if(stopped?.type==='project'){try{await luLoadProjects(true);luRenderUploadProject()}catch{}}
 if(filedId){try{await luLoadFolders()}catch(e){console.error('library folders refresh after upload failed',e)}}
 const unknown=failures.some(f=>f.kind==='unknown');
-if(succeeded&&!luDrive().place())void luDrive().refresh(); // S69-20: 첫 자료를 올려 드라이브 폴더가 막 생겼으면 저장 위치 줄을 보인다
+if(succeeded&&!luDrive().place())void luDrive().refresh(); // S69-20: 첫 자료를 올려 드라이브 폴더가 막 생겼으면 저장 위치를 읽는다(⋯ [드라이브에서 열기])
 if(succeeded||unknown){try{await (folder?.receive?luLoadAll():luLoadDocuments());luRenderLibrary()}catch(e){console.error('library list refresh after upload failed',e)}if(filedId)luFolders().revealFolder(filedId)}
 if(succeeded)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:lastProjectId,...(org?{organization_id:org.id}:{}),...(meeting?{meeting_id:meeting.id}:{})}}));
 // ORG-기록자료폴더: 담당조직 자료로 올렸고 폴더를 따로 고르지 않았으면(받는 폴더 포함) 모으는 폴더 › 그 조직 폴더로(org-files-folder.js, 첫 사용 때 한 줄로 묻는다).
@@ -1100,8 +1115,8 @@ function luLeaveFocus(){if(!luInFolder)return;const back=luTreeBack;luTreeBack=n
 document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [data-lu-path-back]');if(!b)return;e.preventDefault();luFocusUp()});
 // S69-19: 폰 위치 줄(지금 폴더 위 단계들)도 길면 가운데를 '…' 하나로(누르면 가려진 단계 목록, folder-path-more.js).
 function luPhoneAncHtml(steps){const sep='<span class="ft-focus-sep" aria-hidden="true">›</span>',one=f=>`<button type="button" class="ft-btn ft-focus-step" data-lu-path="${luEsc(f.id)}">${luEsc(f.name)}</button>`;const c=collapseSteps(steps,{max:3,tail:1});return(c.hidden.length?[one(c.head[0]),moreStepHtml(c.hidden,{cls:'ft-btn ft-focus-step',attr:'data-lu-path',esc:luEsc,sep:''}),...c.tail.map(one)]:steps.map(one)).map(x=>x+sep).join('')}
-// UI-자료실파일모양(S69-85 ②, 살릴 것 7): 주소 줄은 하나 — 폴더 안이면 위치 줄 끝에 작은 [드라이브 ↗]만 두고 저장 위치 줄(#libraryDriveLine)은 숨긴다(library-drive-line.js render).
-function luRenderPath(box){luRenderPathNow(box);luDrive().render()} // S69-20: 저장 위치 줄도 지금 자리(폴더 안·밖)에 맞춘다
+// S71-46 LIB-위치줄삭제: 위치 줄 끝 [드라이브 ↗]·저장 위치 줄은 없앴다 — 드라이브 폴더 열기는 머리 ⋯ [드라이브에서 열기](폴더 안이면 그 폴더).
+function luRenderPath(box){luRenderPathNow(box)}
 function luRenderPathNow(box){
   let nav=document.querySelector('#libraryPath');
   if(luTwoActive()){nav?.remove();return} // LIB-두칸보기: 두 칸은 칸마다 위치 줄
@@ -1953,7 +1968,8 @@ function luSyncPicksNow(){
 // S71-07 SEARCH-누른자리그대로(Q3): 단추는 맨 위 검색칸 옆(칸이 그만큼 좁아짐)이 아니라 본문 첫 줄 [폴더 ▾][분류 ▾] 끝에 둔다 — 치는 동안 칸 자리·크기가 그대로.
 let luSearchPickIds=[];
 function luSyncSearchPickAll(q,matches){
-  const row=document.querySelector('#libraryView .lu-pick-row')||luTools;
+  // S71-28: 폰·폴드는 고르기 줄이 머리 줄에 있으므로 단추는 본문 첫 줄(.lu-search-row) 자리 — 머리 줄 찾기 칸 폭이 치는 동안 그대로(Q3).
+  const row=document.querySelector('#libraryView .lu-pick-row')||document.querySelector('#libraryView .lu-search-row')||luTools;
   let button=row.querySelector('#luSearchPickAll');
   luSearchPickIds=q?matches.filter(d=>!d.photoset&&!isPhotoSet(d)).map(d=>d.id):[];
   if(!luSearchPickIds.length){button?.remove();return}
@@ -1982,11 +1998,12 @@ function luTopMenuHtml(){
     // S70-73(2026-11-26 명진 "자동으로 들어오게해야지 메뉴 없애고"): [드라이브에서 가져오기]도 지웠다 — 자료실을 열 때 서버가 저절로 등록(luStartDriveAuto).
     +(luPick.active?luMenuRow('data-lu-top="select-stop"','선택 끝내기'):luMenuRow('data-lu-top="select"','여러 개 선택'))
     +(luExplorerNow?'':luMenuRow(`data-lu-top="expand"${luExpandNow.count?'':' disabled'}`,luExpandNow.open?'모두 접기':'모두 펴기')) // S69-28: 탐색기 칸은 펼칠 묶음이 없다
+    +(luDrive().openUrl()?luMenuRow('data-lu-top="drive-open"','드라이브에서 열기'):'') // S71-46: 옛 저장 위치 줄 [열기 ↗] — 폴더 안이면 그 폴더의 짝 드라이브 폴더
     +luMenuRow('data-lu-top="help"','쓰는 법'); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'
 }
 function luTopMenuOpen(trigger){
   luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-folder-menu lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
-    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
+    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-open'){const url=luDrive().openUrl();if(url)window.open(url,'_blank','noopener,noreferrer')}else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
   luTopMenu.open(trigger);
 }
 // S55-08 LIB-우클릭메뉴 (2026-11-09 명진 결정): PC(761px~) 폴더 보기에서 빈 자리(왼쪽 나무 빈 곳·'자료실 전체'·'폴더 밖' 줄, 오른쪽 목록의 어느 폴더도 아닌 바탕,
@@ -2393,7 +2410,7 @@ bindPhotoTileMenus(list,{longPress:luTileLongPress});document.querySelector('#li
 // ✕는 찾는 글자를 비우고 닫는다(보이지 않는 거르기가 남지 않게). 글자가 들어 있으면(다른 화면이 채운 경우 포함) 찾기 칸은 열린 채다. PC 폭은 찾기 칸이 늘 보인다(CSS).
 let luDriveLine=null;
 // S69-20 ③: 폴더 안이면 그 폴더의 짝 드라이브 폴더로 연다(at). 앱 폴더·자료 연결이 바뀌면 서버에 '앞으로 같게'를 부탁한다(luLoadFolders 뒤 changed).
-function luDrive(){if(!luDriveLine)luDriveLine=mountLibraryDriveLine({api:luApi,esc:luEsc,at:()=>luInFolder&&!luTwoActive()?{folderId:luInFolder,trail:folderTrail(luFolders_,luInFolder).map(f=>f.name)}:{},notify:(text,{error}={})=>luFolderStatus(text,!!error),onAppChanged:async()=>{await luLoadFolders();luRenderLibrary()}});return luDriveLine}
+function luDrive(){if(!luDriveLine)luDriveLine=mountLibraryDriveLine({api:luApi,esc:luEsc,at:()=>luInFolder&&!luTwoActive()?{folderId:luInFolder,trail:folderTrail(luFolders_,luInFolder).map(f=>f.name)}:{},onAppChanged:async()=>{await luLoadFolders();luRenderLibrary()}});return luDriveLine}
 function luDriveSign(){return JSON.stringify([luFolders_.map(f=>[f.id,f.parent_id||'',f.name]),luFolderItems.map(i=>[i.document_id,i.folder_id]),(luDocuments||[]).length])}
-async function luInit(){if(!(await luContext()))return;luTakePlace();luHandleDriveReturn();luEnhanceUpload();luEnhanceDrop();luEnsureManageUi();luBindList();luViewOwner=luUser?.id||'';await Promise.all([luLoadAll(),loadDocumentCategories(),luRefreshView(),luRefreshReceive(),luRefreshWeekly()]);luApplyRememberedFolder();luRenderUploadCategory();luRenderLibrary();if(window.KPTURouter?.current==='library')void luDrive().refresh();window.KPTULibrary={render:luRenderLibrary,reveal:luGoToRecent,showOrganization:luShowOrganization,startUploadForOrganization:luStartUploadForOrganization,startUploadForProject:luStartUploadForProject,startUploadForMeeting:luStartUploadForMeeting,uploadFileForMeeting:luUploadFileForMeeting,sendForMeeting:(meeting,files)=>luMeetingSend.send(meeting,files),sendFileForMeeting:luSendOneForMeeting,meetingSending:(id,file)=>luMeetingSend.has(id,file),startUploadFromFiles:luStartUploadFromFiles,startUploadInFolder:luStartUploadInFolder};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null);luSetUploadFolder(window.KPTURouter?.current==='library'?luOpenedFolder():null)},true);luRenderUploadProject('');const catPick=document.querySelector('#libraryCategoryPick');if(catPick)catPick.onclick=e=>luOpenCategorySheet(e.currentTarget);window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering){luViewHold=false;luResetCategories();luResetTree()}luEntering=false;luApplyEntry();luRenderLibrary();void luDrive().refresh();luDrive().entered();void luRefreshView();void luRefreshReceive();void luRefreshWeekly();void loadDocumentCategories();luLoadAll().then(()=>{luRenderLibrary();luRevealRequested();luStartAutoTidy();luStartTextRead();luWarmHwp();luStartDriveAuto()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async e=>{if(e.detail?.source===LU_EDIT_SOURCE)return;await luLoadAll();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'){luFlushView();if(luOrganization){luOrganization=null;luRenderLibrary()}}});document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushView()});if(window.KPTURouter?.current==='library')luApplyEntry();luStartAutoTidy();luStartTextRead();luWarmHwp();luStartDriveAuto()}
+async function luInit(){if(!(await luContext()))return;luTakePlace();luHandleDriveReturn();luEnhanceUpload();luEnhanceDrop();luEnsureManageUi();luBindList();luViewOwner=luUser?.id||'';await Promise.all([luLoadAll(),loadDocumentCategories(),luRefreshView(),luRefreshReceive(),luRefreshWeekly()]);luApplyRememberedFolder();luRenderUploadCategory();luRenderLibrary();if(window.KPTURouter?.current==='library'){void luDrive().refresh();luDrive().entered()}window.KPTULibrary={render:luRenderLibrary,reveal:luGoToRecent,showOrganization:luShowOrganization,startUploadForOrganization:luStartUploadForOrganization,startUploadForProject:luStartUploadForProject,startUploadForMeeting:luStartUploadForMeeting,uploadFileForMeeting:luUploadFileForMeeting,sendForMeeting:(meeting,files)=>luMeetingSend.send(meeting,files),sendFileForMeeting:luSendOneForMeeting,meetingSending:(id,file)=>luMeetingSend.has(id,file),startUploadFromFiles:luStartUploadFromFiles,startUploadInFolder:luStartUploadInFolder};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null);luSetUploadFolder(window.KPTURouter?.current==='library'?luOpenedFolder():null)},true);luRenderUploadProject('');const catPick=document.querySelector('#libraryCategoryPick');if(catPick)catPick.onclick=e=>luOpenCategorySheet(e.currentTarget);window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering){luViewHold=false;luResetCategories();luResetTree()}luEntering=false;luApplyEntry();luRenderLibrary();void luDrive().refresh();luDrive().entered();void luRefreshView();void luRefreshReceive();void luRefreshWeekly();void loadDocumentCategories();luLoadAll().then(()=>{luRenderLibrary();luRevealRequested();luStartAutoTidy();luStartTextRead();luWarmHwp();luStartDriveAuto()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async e=>{if(e.detail?.source===LU_EDIT_SOURCE)return;await luLoadAll();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'){luFlushView();if(luOrganization){luOrganization=null;luRenderLibrary()}}});document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushView()});if(window.KPTURouter?.current==='library')luApplyEntry();luStartAutoTidy();luStartTextRead();luWarmHwp();luStartDriveAuto()}
 window.__KPTU_LIBRARY_UPLOAD_READY__=Promise.resolve().then(luInit).then(()=>true).catch(err=>{console.error('library upload init',err);return false});
