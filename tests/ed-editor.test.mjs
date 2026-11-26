@@ -236,7 +236,7 @@ test('phone toolbar: one grouped row in the requested order, every button still 
   assert.deepEqual(groups.map(g=>[g[0],g[1]]),[['gText','글자 ▾'],['gPara','문단 ▾'],['gInsert','넣기 ▾'],['gSym','기호 ▾']]);
   const items=Object.fromEntries(groups.map(g=>[g[0],g[3]]));
   assert.deepEqual(items.gText,['em','underline','strike','color','highlight','clear']);
-  assert.deepEqual(items.gPara,['align','bullet','ordered','indent','outdent','quote','rule']);
+  assert.deepEqual(items.gPara,['align','bullet','ordered','indent','outdent','quote','rule','gtask']); // S69-97: [구글 할 일로] only where the opener gives tasks
   assert.deepEqual(items.gInsert,['table','photo','file','link','scan','nowStamp','plainPaste']); // S48-21 [파일] · S69-98 [문서 스캔](노트만)
   assert.deepEqual(items.gSym,['symNote','symArrow','symCircled','symBracket']);
   // Every existing button (the row and the [⌄] list) is on the phone row or in exactly one group, none twice.

@@ -69,15 +69,33 @@ export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} =
 // The read view of a note with doc. Returns true when it drew (false: the caller keeps the old view).
 // onOpen(file, trigger): NOTE-파일그림넣기 ② — a shown photo in the text is pressed (or Enter/Space) to see it large (the opener's own
 // photo view, the same one as the attachment cards). Without it the photos only show.
-export function paintDoc(box, note, {rt, onOpen = null} = {}) {
+// tasks: S69-97 — the note screen's Google task provider (noteTaskProvider). A check linked to a Google task reads Google's state
+// (the source): the box is redrawn when Google says otherwise. Reading never writes the note; the next edit takes Google's state in.
+export function paintDoc(box, note, {rt, onOpen = null, tasks = null} = {}) {
   if (!hasDoc(note)) return false;
   ensureStyles();
   // NOTE-유튜브보기: 노트·업데이트 읽기 화면은 유튜브 링크 아래 영상 칸(▶ 누를 때 재생).
-  const doc = renderDoc(note.doc, null, {videos: true});
+  const doc = renderDoc(note.doc, null, {videos: true, tasks: true});
   box.replaceChildren(doc);
   box.dataset.noteView = 'doc';
   fillPhotos(box, note, {rt, onOpen});
+  if (tasks) void readTaskState(doc, tasks);
   return true;
+}
+async function readTaskState(doc, tasks) {
+  const items = [...doc.querySelectorAll('li[data-gtask]')];
+  const ids = [...new Set(items.map(li => li.dataset.gtask))].slice(0, 50);
+  if (!ids.length) return;
+  let r; try { r = await tasks.pick(ids); } catch { return; }
+  const done = new Map((r?.tasks || []).map(t => [t.id, t.status === 'completed'])), gone = new Set(r?.gone || []);
+  for (const li of items) {
+    if (!li.isConnected) continue;
+    const id = li.dataset.gtask;
+    if (gone.has(id)) { li.classList.remove('ed-gtask'); li.removeAttribute('data-gtask'); continue; }
+    if (!done.has(id)) continue;
+    li.classList.toggle('ed-done', done.get(id));
+    if (done.get(id)) li.setAttribute('data-checked', 'true'); else li.removeAttribute('data-checked');
+  }
 }
 
 // What [복사] puts on the clipboard for a note with doc (title first), or null to use the old one.
@@ -138,7 +156,7 @@ export function noteFiles({getNote, upload, open = url => window.open(url, '_bla
 // lead: NOTE-제목서식줄고정 — the 제목 칸 put in the editor's top band with the button row (createDocEditor lead).
 // blocks: NOTE-노션편집 ①(나) — null, or {on, onToggle(on)} (createDocEditor blocks: the handle ⋮⋮ and the [블록] switch).
 // noteLinks: S69-98 NOTE-에버노트 ⑧ — null, or the '[[' note list's source (createDocEditor noteLinks).
-export async function mountEditField(host, note, {photos = null, files = null, label = '본문', lead = null, blocks = null, noteLinks = null} = {}) {
+export async function mountEditField(host, note, {photos = null, files = null, label = '본문', lead = null, blocks = null, noteLinks = null, tasks = null} = {}) {
   const [{createDocEditor}, start] = await Promise.all([editorModule(), startValue(note)]);
   // UI-뒤로가기겹규칙: 편집기 안의 작은 상자(글자색 목록·표 칸 메뉴·버튼 줄 판)가 열리면 라우터 겹 하나 — 뒤로가기 = 상자만 닫기(일기·창과 같은 onBox 계약).
   let editor = null, boxLayer = null;
@@ -147,8 +165,12 @@ export async function mountEditField(host, note, {photos = null, files = null, l
     if (open) boxLayer ||= window.KPTURouter?.layer?.open('note-edit-box', {close:() => { boxLayer = null; editor?.closeBoxes(); return true; }}) || null;
     else dropBox();
   };
-  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead, lineWidth: true, blocks, noteLinks});
+  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead, lineWidth: true, blocks, noteLinks, tasks});
   let base = JSON.stringify(editor.getValue());
+  // S69-97: the first read of the linked Google tasks may tick boxes (Google's state). That alone is not the person's change.
+  const bare = text => text.replace(/,?"(checked|gtask)":(true|false|null|"[^"]*")/g, '');
+  const first = editor.syncTasks?.();
+  if (first) void first.then(() => { const now = JSON.stringify(editor.getValue()); if (bare(now) === bare(base)) base = now; });
   return {
     editor,
     getValue: () => editor.getValue(),
