@@ -528,7 +528,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-text[data-kind="file"] { display:flex; align-items:center; gap:6px; max-width:none; min-width:120px; border-radius:6px; }
 .nb-text[data-kind="file"] .nb-tx { display:flex; align-items:center; gap:6px; min-width:0; flex:1; white-space:nowrap; }
 .nb-file-ico { flex:none; display:inline-flex; color:var(--kptu-muted,var(--kptu-ink)); }
-.nb-file-ico[data-type="pdf"], .nb-file-ico[data-type="hwp"] { color:var(--kptu-primary); }
+.nb-file-ico[data-type="pdf"], .nb-file-ico[data-type="hwp"] { color:var(--kptu-primary-text); }
 .nb-file-name { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .nb-file-meta { flex:none; color:var(--kptu-muted,var(--kptu-ink)); font-size:.8em; }
 .nb-insert-sep { width:1px; align-self:stretch; margin:0 2px; background:var(--kptu-border); }

@@ -12,6 +12,7 @@ import {paintDoc} from './note-body.js';
 import {noteMarkdown} from './note-markdown.mjs';
 import {iconSvg} from './tree-icons.js';
 import {waitEl} from './wait-state.js';
+import {slotLoading, slotImg, slotFailed} from './img-slot.js';
 
 const wide = () => !!globalThis.matchMedia?.('(min-width:761px)')?.matches;
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -96,7 +97,8 @@ export function createMaterialView({host, rt = globalThis.window?.KPTURuntime, t
     p.querySelector('.nbm-view-title').textContent = info.name || f.name || '파일';
     if (info.thumb) {
       const box = el('div', 'nbm-file-thumb'); body.append(box);
-      void Promise.resolve(info.thumb()).then(url => { if (now?.run !== run || !url) { box.remove(); return; } const img = document.createElement('img'); img.alt = ''; img.decoding = 'async'; img.src = url; box.append(img); }, () => box.remove());
+      const load = () => { slotLoading(box); void Promise.resolve(info.thumb()).then(url => { if (now?.run !== run) return; if (!url) { box.remove(); return; } const img = document.createElement('img'); img.alt = ''; img.decoding = 'async'; slotImg(box, img, url, {retry:() => { img.remove(); load(); }}); }, () => { if (now?.run === run && box.isConnected) slotFailed(box, load); }); };
+      load(); // 공용 그림 칸(img-slot.js)
     }
     const dl = el('dl', 'nbm-view-meta');
     for (const [k, v] of info.rows || []) if (v) dl.append(el('dt', '', k), el('dd', '', String(v)));
