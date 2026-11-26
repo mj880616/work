@@ -25,6 +25,9 @@ export const RULES = [
   // S69-94 NOTE-메모통일(11/25 명진 "걍 다 메모로 통일 / 남기는 형식은 댓글인데 부르는 명칭은 메모 남기기"): 기록에 남기는 짧은 글은 '메모'.
   // 옛 업데이트 기록은 그때 이름 그대로라 화면 코드·폰 앱만 센다. 기준 0.
   [/댓글|답글/g, '메모', {code: true}],
+  // S70-62 READ-밀기메뉴(11/26 명진 "보관은 저장으로 통일 메뉴가 저장된 글이니까"): 글을 저장한 글로 모으는 일은 화면 어디서나 '저장'.
+  // 다른 뜻의 '보관'(사업영역·공유 페이지·텔레그램 방 보관함, 자료 '계속 보관', 백업·휴지통 보관 기간)은 그대로라, 글 저장 화면 파일에서만 센다. 기준 0.
+  [/보관/g, '저장', {code: true, files: /^app\/(reading[a-z-]*|outside-[a-z-]+|now-[a-z-]+|news-[a-z-]+|note-news-marks[a-z-]*|share-news[a-z-]*|share-intake[a-z-]*|home-day-[a-z-]+|feed-[a-z-]+|save-bookmarklet[a-z-]*)\.m?js$/}],
 ];
 
 export const NOTES_FROM = '20261108-1530-~'; // 이 이름보다 뒤에 오는 기록만 검사
@@ -82,7 +85,7 @@ export function countFile(name, src) {
   const hits = [];
   for (const {text, line} of parts) {
     if (/ui-words-ok/.test(lines[line - 1] || '')) continue;
-    for (const [re, to, opt] of RULES) { if (opt?.code && notes) continue; for (const m of text.matchAll(re)) hits.push({line, word: m[0], to}); }
+    for (const [re, to, opt] of RULES) { if (opt?.code && notes) continue; if (opt?.files && !opt.files.test(name)) continue; for (const m of text.matchAll(re)) hits.push({line, word: m[0], to}); }
   }
   return hits;
 }

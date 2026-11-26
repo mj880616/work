@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles, treeGo } from './helpers/files-server.mjs';
 // FILES-자세히버튼크기 ①: [파일] 자세히 보기 버튼 줄은 모든 버튼이 같은 작은 버튼(공용 secondary·danger)이라 높이가 하나다.
-// 폭 세 가지: 폰 390 · 폴드 884 · PC 1440. 이름·id는 모두 가짜.
+// 폭 세 가지: 폰 390 · 폴드 884 · PC 1440(S70-72부터 PC 넓은 폭 상세 칸은 동작 줄 없음). 이름·id는 모두 가짜.
 const root = page => page.locator('#filesRoot');
 for (const width of [390, 884, 1440]) {
   test(`[파일] ${width}폭: 자세히 보기 버튼 줄은 모두 같은 높이 · 이름 옆 ← → 없음`, async ({ page }) => {
@@ -20,6 +20,17 @@ for (const width of [390, 884, 1440]) {
     expect(new Set(bh).size, JSON.stringify(bh)).toBe(1);
     await list.locator('[data-fx-row]', { hasText: '가짜 안내문.pdf' }).click({ modifiers: ['Control'] });
     await list.locator('[data-fx-row]', { hasText: '가짜 안내문.pdf' }).click();
+    // S70-72 FILES-상세칸정리: PC 넓은 폭 오른쪽 상세 칸에는 동작 줄이 없다(줄 우클릭 메뉴가 맡음 — files-detail-panel.spec.mjs). 머리는 ★·접기만.
+    if (width >= 1200) {
+      await expect(root(page).locator('[data-fx-prev] .fx-pv-meta')).toBeVisible();
+      await expect(root(page).locator('[data-fx-prev] .fx-pv-acts')).toHaveCount(0);
+      await expect(root(page).locator('[data-fx-pv-step]')).toHaveCount(0);
+      await expect(root(page).locator('.fx-pv-head button:visible')).toHaveCount(2);
+      await expect(root(page).locator('.fx-pv-head [data-fx-star-one], .fx-pv-head [data-fx-pv-fold]')).toHaveCount(2);
+      expect(await root(page).evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+      expect(errors).toEqual([]);
+      return;
+    }
     const btns = root(page).locator('[data-fx-prev] .fx-pv-acts button:visible');
     await expect(btns.first()).toBeVisible();
     expect(await btns.count()).toBeGreaterThanOrEqual(5);

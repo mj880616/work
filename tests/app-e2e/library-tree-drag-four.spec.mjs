@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
+import {treeEnter} from './helpers/tree-enter.mjs';
 // S55-08 LIB-나무로끌기안됨 + LIB-폴더이름칸닫힘 (2026-11-09 명진 요청).
 // 끌기는 실제 브라우저 끌기(Playwright 마우스 끌기 → 크롬 HTML 끌어 놓기)로 네 방향을 본다:
 //   ⓐ 오른쪽 자료 → 왼쪽 나무 폴더  ⓑ 왼쪽 나무 폴더 → 오른쪽 목록 폴더  ⓒ 오른쪽 자료 → 오른쪽 폴더  ⓓ 왼쪽 나무 폴더 → 왼쪽 나무 다른 폴더
@@ -16,7 +17,7 @@ const row=id=>`#documentList [data-lu-document="${id}"]`;
 const head=key=>`#documentList details[data-lu-node="${key}"] > summary`;
 const line=page=>page.locator('#libraryFolderStatusLine');
 // S69-28 LIB-한칸탐색기: 넓은 화면 한 칸은 탐색기 — 묶음을 펼치는 대신 그 자리(폴더 밖 = 나무 '자료실 전체', 폴더 = 나무 그 줄)로 간다. 두 칸·폰은 그 자리 펼치기.
-const openNode=async(page,key)=>{if(await page.locator('#libraryFolderNav').count()){const id=key==='x:out'?'':key.slice(2);await page.locator(nav(id)).click();await expect(page.locator(nav(id))).toHaveAttribute('aria-current','true');return}await page.locator(`#documentList details[data-lu-node="${key}"]`).evaluate(d=>{d.open=true})};
+const openNode=async(page,key)=>{if(await page.locator('#libraryFolderNav').count()){const id=key==='x:out'?'':key.slice(2);await treeEnter(page.locator(nav(id)));await expect(page.locator(nav(id))).toHaveAttribute('aria-current','true');return}await page.locator(`#documentList details[data-lu-node="${key}"]`).evaluate(d=>{d.open=true})};
 const folderOf=(s,doc)=>s.items.find(x=>x.document_id===doc)?.folder_id||null;
 const parentOf=(s,id)=>s.folders.find(f=>f.id===id)?.parent_id||null;
 
@@ -60,7 +61,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸 폴더 �
     await expect.poll(()=>parentOf(s,'fz')).toBe('fa');
     await expect(line(page)).toContainText('가상 A 폴더');
     // 자기 아래(가상 A 안의 가상 C)로 가상 A를 넣을 수 없고, 자기 자신에도 놓을 수 없다.
-    await page.locator(nav('fa')).click();await expect(page.locator(nav('fc'))).toBeVisible();
+    await treeEnter(page.locator(nav('fa')));await expect(page.locator(nav('fc'))).toBeVisible();
     const n=s.writes.length;
     await page.locator(nav('fa')).dragTo(page.locator(nav('fc')));
     await page.locator(nav('fa')).dragTo(page.locator(nav('fa')),{targetPosition:{x:40,y:8}});

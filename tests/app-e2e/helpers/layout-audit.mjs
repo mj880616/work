@@ -40,6 +40,9 @@ export async function measureLayout(page, root = '#appView') {
       while (e && e !== document.body && parts.length < 3) { parts.unshift(name(e)); if (e.id) break; e = e.parentElement; }
       return parts.join(' > ');
     };
+    // 화면에 붙어 있는 막대(하단바·상단 줄·폰 빠른 입력 막대 — position:fixed): 굴리는 본문이 그 밑을 지나가는 것은 정상이라
+    // 막대와 본문 사이(서로 다른 층)는 겹침·붙음을 재지 않는다. 막대 안끼리, 본문 안끼리만 잰다(S70-57: 홈 머리 줄로 본문이 내려가 드러남).
+    const bar = el => { const b = el?.closest?.('.mobile-tabs,.app-topline,[data-home-quick]'); return b && (b.matches('.mobile-tabs,.app-topline') || getComputedStyle(b).position === 'fixed') ? b : null; };
     const text = el => (el.innerText || el.getAttribute('aria-label') || el.value || '').replace(/\s+/g, ' ').trim().slice(0, 30);
     const push = (kind, el, extra = {}) => out.push({ kind, where: where(el), text: text(el), ...extra });
     const all = [...base.querySelectorAll('*')].filter(el => !el.closest('svg') && shown(el));
@@ -66,7 +69,7 @@ export async function measureLayout(page, root = '#appView') {
       // 떠 있는 층(계정 창·메뉴 창·줄 메뉴·대화 상자)이 뒤 화면을 덮는 것은 정상이다. 그 층 안끼리 겹침만 센다.
       const FLOAT = '#sidebarAccountPanel,#mobileMenu,#rowMenu,[role=menu],[role=dialog],[aria-modal=true],.modal';
       if (top.closest(FLOAT) && top.closest(FLOAT) !== el.closest(FLOAT)) continue;
-      if (top.closest('.mobile-tabs,.app-topline')) continue; // 굴리는 목록이 하단바·상단 줄 밑을 지나가는 것은 정상(맨 끝 여백은 따로 본다)
+      if (bar(top) && bar(top) !== bar(el)) continue; // 굴리는 목록이 하단바·상단 줄·빠른 입력 막대 밑을 지나가는 것은 정상(맨 끝 여백은 따로 본다)
       push('overlap', el, { by: where(top) });
     }
     // ② clipped: 버튼 글자가 넘친다(… 처리 없이).
@@ -119,7 +122,7 @@ export async function measureLayout(page, root = '#appView') {
         const lead = Math.max(0, (box.height - fs) / 2); // 줄 높이의 위아래 남는 몫(글자 모양 밖)
         const t = { left: box.left, right: box.right, top: box.top + lead, bottom: box.bottom - lead };
         for (const L of lines) {
-          if (gridLine(L, host)) continue;
+          if (gridLine(L, host) || bar(L.el) !== bar(host)) continue;
           if (L.el.contains(host) && L.v) {
             // 자기 상자의 세로 테두리 안쪽 여백(상자 안 글자가 테두리에 붙음)
             const gap = L.x === L.el.getBoundingClientRect().left ? t.left - L.x : L.x - t.right;
@@ -145,7 +148,7 @@ export async function measureLayout(page, root = '#appView') {
       if (!el.matches('button,[role=tab],select,input:not([type=hidden]):not([type=checkbox]):not([type=radio])') || el.closest('[aria-hidden="true"]') || !boxedOrGroup(el)) continue;
       const r = el.getBoundingClientRect();
       for (const L of lines) {
-        if (L.el === el || el.contains(L.el) || gridLine(L, el) || groupLine(L)) continue;
+        if (L.el === el || el.contains(L.el) || gridLine(L, el) || groupLine(L) || bar(L.el) !== bar(el)) continue;
         if (!L.v) {
           // 줄을 가득 채운 목록 줄(나무·목록의 한 줄 단추)은 줄 자체가 칸이라 뺀다: 작은 버튼·탭·고르기만 본다.
           if (r.height > 40 || r.width > L.el.getBoundingClientRect().width * 0.6) continue;

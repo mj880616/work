@@ -141,3 +141,20 @@ test('FILES-선택드래그(S70-30): select면 [선택] — 파일은 맨 위(�
   }
   assert.equal(treeMenuItems({source: 'od'}, {select: true})[0].label, '선택');
 });
+
+// S70-72 FILES-상세칸정리: PC 넓은 폭 상세 칸 동작 줄을 지우며 그 칸에만 있던 동작을 파일 줄 메뉴(detail)로 옮긴다. 폴더 줄·detail 없음은 그대로.
+test('detail: 클라우드 파일 [열기] 다음 [새 창에서 열기][받기]([공유]) · 이 폰 [받기]([공유]) · 내 PC [이 PC에서 열기][탐색기에서 위치]', () => {
+  const ids = (row, opt) => treeMenuItems(row, opt).map(x => x.id);
+  const od = {source: 'od', is_folder: false};
+  assert.deepEqual(ids(od, {detail: true, share: true}), ['open', 'ext', 'save', 'share', 'tolib', 'copy', 'move', 'rename', 'star', 'trash']);
+  assert.deepEqual(ids(od, {detail: true}), ['open', 'ext', 'save', 'tolib', 'copy', 'move', 'rename', 'star', 'trash']);
+  assert.deepEqual(ids(od, {}), ['open', 'tolib', 'copy', 'move', 'rename', 'star', 'trash']);
+  assert.deepEqual(ids({source: 'gd', is_folder: false, library_doc_id: 'd1'}, {detail: true, select: true}), ['select', 'open', 'ext', 'save', 'libview', 'copy', 'move', 'rename', 'star', 'trash']);
+  assert.deepEqual(ids({source: 'ph', is_folder: false}, {detail: true, share: true, phoneWrite: true}), ['open', 'save', 'share', 'tolib', 'copy', 'move', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: false, parent_id: 'C:\\'}, {detail: true, pcWrite: true, pcEdit: true}), ['open', 'pcopen', 'reveal', 'tolib', 'copy', 'move', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: false, parent_id: 'C:\\'}, {detail: true}), ['open', 'pcopen', 'reveal', 'trash']);
+  assert.deepEqual(ids({source: 'od', is_folder: true}, {detail: true, share: true}), ids({source: 'od', is_folder: true}, {}));
+  const labels = treeMenuItems(od, {detail: true, share: true}).map(x => x.label);
+  assert.deepEqual(labels.slice(0, 4), ['열기', '새 창에서 열기', '받기', '공유']);
+  assert.deepEqual(treeMenuItems({source: 'pc', is_folder: false, parent_id: 'C:\\'}, {detail: true}).map(x => x.label).slice(0, 3), ['열기', '이 PC에서 열기', '탐색기에서 위치']);
+});

@@ -4,29 +4,31 @@ import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 // - 줄: 왼쪽 40px 작은 그림(직접 올린 사진 먼저, 없으면 원드라이브 사진 — 일기에서 원드라이브 사진을 보는 연결이 켜져 있을 때만),
 //   날짜·요일·제목, 본문 첫 줄(한 줄 말줄임), 오른쪽 ☆·⋯. 작은 그림은 화면에 보이는 줄부터 받는다(IntersectionObserver, 줄마다 한 장).
 //   원드라이브 사진은 그 줄이 보일 때 그 달 목록을 한 번만 읽고(메모리), 그림은 diary-onedrive.js의 같은 대기열(보이는 칸 먼저)로 받는다.
-// - 📌 고정·★ 별표: ☆ 누르기, ⋯ 메뉴, 폰은 줄을 옆으로 밀기(오른쪽으로 밀면 📌, 왼쪽으로 밀면 ★). 밀기는 텔레그램 줄 밀기의 판단 부품
-//   (tg-day-model.mjs swipeIntent·swipeOffset·swipeSettle)을 그대로 쓴다: 가로가 세로의 1.5배 넘게 움직여야 밀기, 아니면 위아래 넘기기.
-// - 🔍 찾기: 불러온 일기 글 안에서 찾는다. 전체 검색(app_search_records)은 일기를 일부러 빼 두었으므로(search_records 결정) 그 길을 넓히지 않는다.
+// - 📌 고정·★ 별표: ☆ 누르기, ⋯ 메뉴, 폰은 줄 밀기 — S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안)로 따로 만든 밀기를 공용 줄 밀기(row-swipe.js)로 옮겼다:
+//   왼쪽으로 밀면 [고정][별표][수정](끝까지 밀어도 칸만), 오른쪽으로 밀면 다른 목록처럼 그 줄이 골라진 채 '여러 개 고르기'([별표]·[고정] 한꺼번에).
+//   [수정] = 그날 하루 기록 창 열기(⋯ [열기]와 같은 길 — 하루 기록은 그 창에서 고친다).
+// - 찾기: 불러온 일기 글 안에서 찾는다. 전체 검색(app_search_records)은 일기를 일부러 빼 두었으므로(search_records 결정) 그 길을 넓히지 않는다.
+//   S70-57 UI-검색창하나로: 옛 목록 위 찾기 줄([data-diary-lv-q])은 없앴고, 맨 위 칸 '하루 기록에서 찾기'(diary.js 등록)가 setQuery로 같은 걸러 내기를 쓴다.
 // - JOURNAL-오늘한일달력 (S50-29): 일기를 안 쓴 날도 홈에서 넣은 '오늘 한 일'이 있으면 그 날짜 줄이 나온다(work-day-lines.js로 읽기만,
 //   못 읽으면 일기만). 그런 줄은 📌·★·밀기가 없고(일기 한 편 단위 표시), 누르면 그날 창이 열린다.
 // - 기기 저장 없음: 펼친 달·찾기 글자·밀어 둔 줄은 메모리만, 고정·별표는 서버(일기 행 metadata).
 import {readDiaryList, setDiaryMark, diaryPhotos, photoElement, ownerScope} from './diary-data.js';
+import {findFor} from './screen-find.js'; // S70-67 SEARCH-비슷한것찾기: 공용 판정
 import {buildDiaryList, withDoneDays, rowText, dayLabel, diaryPinnedAt, diaryStarredAt, MARK_KEYS} from './diary-list-model.mjs';
 import {odPhotos, odPhotoElement, odTakeWarmMonth} from './diary-onedrive.js';
-import {swipeIntent, swipeOffset, swipeSettle, swipeOpenOffset, swipeEdge} from './tg-day-model.mjs';
+import {bindRowSwipe, PICK, EDIT} from './row-swipe.js';
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import { chevHtml } from './fold-chevron.mjs';
 import {iconHtml} from './tree-icons.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const ALLOW = Object.freeze({start:1, end:1});
 
 export function createDiaryList({host, rt = window.KPTURuntime, odReady = async () => false, onOpen = () => {}, onMarked = () => {}}) {
-  const state = {owner:'', loaded:false, loading:null, error:'', rows:[], done:null, truncated:false, filter:'all', query:'', search:false, opened:{}, swipe:null, busy:new Set(), note:'', epoch:0};
+  const state = {owner:'', loaded:false, loading:null, error:'', rows:[], done:null, truncated:false, filter:'all', query:'', opened:{}, busy:new Set(), note:'', epoch:0};
   const odCache = new Map(); // 'YYYY-MM' → Promise<odMonth|null>
-  let observer = null, drag = null, swallow = false;
-  host.innerHTML = '<div class="diary-lv-search" data-diary-lv-search hidden><input type="search" data-diary-lv-q placeholder="하루 기록 글에서 찾기" aria-label="하루 기록 찾기" enterkeyhint="search" autocomplete="off"><button type="button" class="mini" data-diary-lv-search-close aria-label="찾기 닫기">×</button></div><p class="diary-lv-note" data-diary-lv-note role="status"></p><div class="diary-lv-body" data-diary-lv-body></div>';
-  const body = host.querySelector('[data-diary-lv-body]'), note = host.querySelector('[data-diary-lv-note]'), searchRow = host.querySelector('[data-diary-lv-search]'), input = host.querySelector('[data-diary-lv-q]');
+  let observer = null;
+  host.innerHTML = '<p class="diary-lv-note" data-diary-lv-note role="status"></p><div class="diary-lv-body" data-diary-lv-body></div>';
+  const body = host.querySelector('[data-diary-lv-body]'), note = host.querySelector('[data-diary-lv-note]');
   const rowOf = day => state.rows.find(row => row.journal_day === day) || null;
   const scopeNow = () => ownerScope(rt);
 
@@ -48,7 +50,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   }
   function reset() {
     state.epoch++; observer?.disconnect(); odCache.clear();
-    Object.assign(state, {owner:scopeNow(), loaded:false, loading:null, error:'', rows:[], done:null, truncated:false, opened:{}, swipe:null, busy:new Set(), note:''});
+    Object.assign(state, {owner:scopeNow(), loaded:false, loading:null, error:'', rows:[], done:null, truncated:false, opened:{}, busy:new Set(), note:''});
   }
 
   const markButtons = row => {
@@ -62,9 +64,8 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   function rowHtml(row) {
     if (row.done_only) return doneRowHtml(row);
     const day = row.journal_day, photos = diaryPhotos(row), {title, line} = rowText(row, photos.length), pinned = !!diaryPinnedAt(row), star = !!diaryStarredAt(row);
-    const open = state.swipe?.day === day ? ` data-side="${state.swipe.side}"` : '';
     const label = `${dayLabel(day)}${title ? ' ' + title : ''}${pinned ? ', 고정' : ''}${star ? ', 별표' : ''}`;
-    return `<div class="diary-lv-swipe" data-diary-lv-swipe="${esc(day)}"${open}><div class="diary-lv-acts diary-lv-acts-start"><button type="button" class="diary-lv-act" data-diary-lv-act="pin" tabindex="-1" aria-hidden="true">${iconHtml('pin')}<span>${pinned ? '고정 풀기' : '고정'}</span></button></div><div class="diary-lv-acts diary-lv-acts-end"><button type="button" class="diary-lv-act" data-diary-lv-act="star" tabindex="-1" aria-hidden="true">${iconHtml('star')}<span>${star ? '별표 풀기' : '별표'}</span></button></div>`
+    return `<div class="diary-lv-swipe" data-diary-lv-swipe="${esc(day)}">`
       + `<div class="diary-lv-row"><button type="button" class="diary-lv-open" data-diary-lv-open="${esc(day)}" aria-label="${esc(label)}"><span class="diary-lv-thumb" data-diary-lv-thumb="${esc(day)}" aria-hidden="true"></span><span class="diary-lv-text"><span class="diary-lv-top"><b>${esc(dayLabel(day))}</b>${title ? `<span class="diary-lv-title">${esc(title)}</span>` : ''}</span>${line ? `<span class="diary-lv-line">${esc(line)}</span>` : ''}</span></button>${markButtons(row)}</div></div>`;
   }
   // FILES-다시그리기메뉴자리: 메뉴가 열린 채 다시 그려도(재조회·다른 화면 알림) 열린 ⋯ 메뉴는 같은 줄의 새 칸에 붙는다(공용 keepMenus).
@@ -73,10 +74,9 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   function paintNow() {
     if (host.hidden) return;
     observer?.disconnect();
-    searchRow.hidden = !state.search;
     if (state.error) { note.textContent = ''; body.innerHTML = failHtml({retry: 'data-diary-lv-retry'}); return; }
     if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); return; }
-    const list = buildDiaryList(withDoneDays(state.rows, state.done), {filter:state.filter, query:state.query, opened:state.opened});
+    const list = buildDiaryList(withDoneDays(state.rows, state.done), {filter:state.filter, query:state.query, opened:state.opened, find:state.query.trim() ? findFor('diary', state.query) : null});
     const empty = !list.total ? (state.query ? '맞는 하루 기록 없음' : state.filter === 'star' ? '별표 하루 기록 없음' : '없음') : '';
     note.textContent = state.note || (state.truncated ? '최근 하루 기록 1,000편만 보여요.' : '');
     const parts = [];
@@ -120,7 +120,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   async function toggleMark(day, kind) {
     const row = rowOf(day); if (!row || state.busy.has(day)) return;
     const key = MARK_KEYS[kind], on = !(kind === 'pin' ? diaryPinnedAt(row) : diaryStarredAt(row)), owner = state.owner;
-    state.busy.add(day); state.swipe = null; state.note = ''; paint();
+    state.busy.add(day); state.note = ''; paint();
     try {
       const saved = await setDiaryMark(row, key, on, rt);
       if (owner !== state.owner) return;
@@ -142,76 +142,32 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     onAction:(button, {id}) => { const act = button.dataset.diaryLvMenu; if (act === 'open') onOpen(id); else if (act) toggleMark(id, act); }});
   dlMenus = [menu];
 
-  // 줄 밀기(폰, 터치만).
-  function syncSwipe(wrap, side) {
-    if (side) wrap.dataset.side = side; else delete wrap.dataset.side;
-    const inner = wrap.querySelector(':scope > .diary-lv-row'); if (inner) inner.style.transform = '';
-    for (const b of wrap.querySelectorAll('[data-diary-lv-act]')) { const on = (b.dataset.diaryLvAct === 'pin' ? 'start' : 'end') === side; if (on) b.removeAttribute('aria-hidden'); else b.setAttribute('aria-hidden', 'true'); b.tabIndex = on ? 0 : -1; }
-  }
-  function closeSwipe() {
-    const open = state.swipe; if (!open) return; state.swipe = null;
-    const wrap = body.querySelector(`[data-diary-lv-swipe="${CSS.escape(open.day)}"]`); if (wrap) syncSwipe(wrap, '');
-  }
-  host.addEventListener('pointerdown', e => {
-    swallow = false;
-    if (e.pointerType !== 'touch') return;
-    const inner = e.target.closest('.diary-lv-swipe > .diary-lv-row'); if (!inner) return;
-    const wrap = inner.parentElement, day = wrap.dataset.diaryLvSwipe;
-    if (wrap.hasAttribute('data-diary-lv-done')) return; // 한 일만 있는 날: 📌·★ 없음
-    if (state.swipe && state.swipe.day !== day) closeSwipe();
-    if (swipeEdge(e.clientX, innerWidth)) return; // 화면 왼쪽 끝은 브라우저 뒤로가기 손동작에 양보(오른쪽 끝은 막지 않음, S68-53)
-    drag = {id:e.pointerId, x:e.clientX, y:e.clientY, wrap, inner, day, open:state.swipe?.day === day ? swipeOpenOffset(state.swipe.side, ALLOW) : 0, dx:0, on:false};
-  });
-  host.addEventListener('pointermove', e => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    if (!drag.on) {
-      const intent = swipeIntent(dx, dy); if (intent === 'wait') return;
-      if (intent === 'scroll') { drag = null; return; }
-      drag.on = true; drag.inner.classList.add('is-drag'); try { drag.inner.setPointerCapture(e.pointerId); } catch {}
-    }
-    drag.dx = dx; drag.inner.style.transform = `translateX(${swipeOffset(dx, drag.open, ALLOW)}px)`;
-  });
-  const endDrag = e => {
-    if (!drag || e.pointerId !== drag.id) return; const d = drag; drag = null;
-    if (!d.on) return;
-    swallow = true; d.inner.classList.remove('is-drag');
-    const side = e.type === 'pointercancel' ? (state.swipe?.day === d.day ? state.swipe.side : '') : swipeSettle(swipeOffset(d.dx, d.open, ALLOW), ALLOW);
-    state.swipe = side ? {day:d.day, side} : null; syncSwipe(d.wrap, side);
-  };
-  host.addEventListener('pointerup', endDrag); host.addEventListener('pointercancel', endDrag);
-  // 밀고 손을 뗄 때 따라오는 click은 삼킨다(그날 일기가 열리지 않게).
-  window.addEventListener('click', e => { if (swallow && host.contains(e.target)) { swallow = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  // 줄 밀기(폰, 터치만): 공용 row-swipe.js. 한 일만 있는 날(일기 없음)은 고정·별표가 없어 밀지 않는다.
+  const swipe = bindRowSwipe(body, {row:'[data-diary-lv-swipe]', enabled:() => !host.hidden && state.loaded,
+    actions:el => { const row = el.hasAttribute('data-diary-lv-done') ? null : rowOf(el.dataset.diaryLvSwipe); if (!row || state.busy.has(row.journal_day)) return null;
+      return {start:PICK, end:[{key:'pin', label:diaryPinnedAt(row) ? '고정 풀기' : '고정', tone:'muted'}, {key:'star', label:diaryStarredAt(row) ? '별표 풀기' : '별표', tone:'warning'}, {...EDIT, tone:'info'}]}; },
+    run:(key, el) => { const day = el.dataset.diaryLvSwipe; if (!rowOf(day)) return; if (key === 'edit') onOpen(day); else if (key === 'pin' || key === 'star') toggleMark(day, key); },
+    select:{attr:'data-diary-lv-swipe', label:'선택한 하루 기록', acts:() => [{key:'star', label:'별표'}, {key:'pin', label:'고정'}],
+      run:async (key, ids) => { for (const day of ids) { const row = rowOf(day); if (!row || row.done_only) continue; const on = key === 'pin' ? diaryPinnedAt(row) : diaryStarredAt(row); if (!on) await toggleMark(day, key); } }}});
 
   host.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || b.disabled || !host.contains(b)) return;
     const d = b.dataset;
-    if (state.swipe && !d.diaryLvAct) { const was = state.swipe.day; closeSwipe(); if (d.diaryLvOpen === was) return; }
-    if (d.diaryLvAct) { const day = b.closest('[data-diary-lv-swipe]')?.dataset.diaryLvSwipe; if (day) toggleMark(day, d.diaryLvAct); }
-    else if (d.diaryLvOpen) onOpen(d.diaryLvOpen);
+    if (d.diaryLvOpen) onOpen(d.diaryLvOpen);
     else if (d.diaryLvStar) toggleMark(d.diaryLvStar, 'star');
     else if (d.diaryLvMore) menu.open(b);
     else if (d.diaryLvMonth) { const now = b.getAttribute('aria-expanded') === 'true'; state.opened[d.diaryLvMonth] = !now; paint(); host.querySelector(`[data-diary-lv-month="${CSS.escape(d.diaryLvMonth)}"]`)?.focus({preventScroll:true}); }
     else if (b.hasAttribute('data-diary-lv-retry')) load({force:true});
-    else if (b.hasAttribute('data-diary-lv-search-close')) setSearch(false);
   });
-  input.addEventListener('input', () => { state.query = input.value; state.opened = {}; paint(); });
-  input.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); setSearch(false); } });
-
-  function setSearch(on) {
-    state.search = on;
-    if (!on && state.query) { state.query = ''; input.value = ''; state.opened = {}; }
-    paint();
-    if (on) input.focus();
-  }
   return {
     show() { host.hidden = false; if (state.owner !== scopeNow()) reset(); paint(); load(); },
-    hide() { host.hidden = true; observer?.disconnect(); closeSwipe(); },
+    hide() { host.hidden = true; observer?.disconnect(); swipe.close(); swipe.stopPicking(); },
     reload() { if (state.owner !== scopeNow()) reset(); return load({force:true}); },
     setFilter(filter) { state.filter = filter === 'star' ? 'star' : 'all'; state.opened = {}; paint(); },
     get filter() { return state.filter; },
-    toggleSearch() { setSearch(!state.search); },
-    get searching() { return state.search; },
+    // 맨 위 칸 '하루 기록에서 찾기'(diary.js)가 친 글자. 같은 글자면 다시 그리지 않는다. 메모리만.
+    setQuery(q, {again} = {}) { const next = String(q ?? ''); if (next === state.query && !again) return; state.query = next; state.opened = {}; paint(); },
+    get query() { return state.query; },
     // 그날 일기에서 돌아왔을 때 그 줄로.
     focusDay(day) { const b = host.querySelector(`[data-diary-lv-open="${CSS.escape(day)}"]`); if (b) { b.scrollIntoView({block:'nearest'}); b.focus({preventScroll:true}); } },
     // 일기 화면(달력 쪽)에서 바뀐 행을 목록에도 반영한다(없던 날이면 다음 reload 때).

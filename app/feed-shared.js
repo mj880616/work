@@ -101,6 +101,18 @@ export async function findOutsideArticles(words, cols, {since, limit, keys = nul
   ]);
   return {recent: Array.isArray(recent) ? recent.filter(r => r && hasId(r.id)) : [], kept: (Array.isArray(kept) ? kept : []).map(m => m?.[T.outside.art]).filter(r => r && hasId(r.id))};
 }
+// S70-62 READ-밀기메뉴 [숨긴 글](명진 11/26 07:41 "근데 숨기기는 어떻게 다시 보지?"): 내가 숨긴 글(뉴스 hidden_at · 사회운동 관심 없음 dismissed_at), 최근 숨긴 것 먼저.
+// 내 표시 표(작업공간 주인 RLS 그대로) + 공용 글 표 읽기만. 돌려줌 {news: [옛 뉴스 줄 모양(hidden_at 포함)], outside: [{row, at}]}.
+export async function readHiddenArticles({newsCols, postCols, limit = 100}) {
+  const w = workspaceOf();
+  const [news, marks] = await Promise.all([
+    rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(w)}&hidden_at=not.is.null&select=folder_id,hidden_at,keywords,${T.news.art}(${articleCols(newsCols)},${SAVED_EMBED})&${T.news.art}.app_reading_items.workspace_id=eq.${q(w)}&order=hidden_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false}),
+    rt().api(`/rest/v1/${T.outside.mark}?workspace_id=eq.${q(w)}&dismissed_at=not.is.null&select=article_id,dismissed_at&order=dismissed_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false}),
+  ]);
+  const at = new Map((Array.isArray(marks) ? marks : []).filter(m => hasId(m?.article_id)).map(m => [m.article_id, m.dismissed_at]));
+  const rows = at.size ? await readArticlesByIds('outside', [...at.keys()], postCols) : new Map();
+  return {news: (Array.isArray(news) ? news : []).map(flatNewsMark).filter(Boolean), outside: [...at].map(([id, when]) => ({row: rows.get(id) || null, at: when})).filter(x => x.row)};
+}
 // 내 표시 쓰기(숨김·관심 없음·별표 폴더): 줄이 있으면 칸만 고치고, 없으면 넣는다(지울 것만 있고 줄이 없으면 할 일 없음).
 // 돌려줌: 뉴스 {id, folder_id, hidden_at}, 사회운동 {id, dismissed_at}. 보관은 writeSaved.
 async function writeMark(type, given, fields) {

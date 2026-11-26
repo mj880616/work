@@ -479,8 +479,8 @@
    '최근 올린 파일' 상자 테두리가 위쪽 한 줄에 붙었다. 거르는 줄들은 지금처럼 붙여 쌓고, 상자 위에만 도구 줄 공용 간격(--kptu-space-2)을 둔다. */
 #appView #libraryView .library-filter-toolbar .lu-recent{margin:var(--kptu-space-2) 0 0}
 #appView #libraryView #libraryListCard > .add-list-head.add-list-head{height:0;min-height:0;margin:0;padding:0}
-/* SEARCH-선택옮기기 ⑤: 검색칸 오른쪽 작은 [결과 n개 모두 선택](자리는 아래 'LIB-위쪽한줄' 절). */
-.sf-tools > .lu-search-pick-all{flex:none;min-height:0;padding:0 8px;font-size:12px;white-space:nowrap}
+/* SEARCH-선택옮기기 ⑤: 찾는 중 작은 [결과 n개 모두 선택]. S71-07(Q3): 자리는 본문 첫 줄 [폴더 ▾][분류 ▾] 끝 — 맨 위 검색칸 폭을 줄이지 않는다. */
+#appView #libraryView .lu-pick-row > .lu-search-pick-all{flex:none;height:var(--ds-compact-height,32px);min-height:0;margin-left:auto;padding:0 8px;font-size:12px;white-space:nowrap}
 /* FILES-폴드나무목록 ⑦(S51-20 ④): 펼친 폴드·PC(600px~) 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 목록. 줄 모양은 공용 폴더 줄(folder-tree.css ft-). 폰은 그대로(이 칸 없음).
    S69-28 LIB-한칸탐색기(명진 11/24 '화면 깨짐'·'펼치면 창이 같이 늘어나야'): 나무 칸은 카드 안 흐름(float)이라 카드(흰 상자)가 나무·목록 중 긴 쪽만큼 늘어난다.
    칸 안 스크롤·화면 높이 자르기는 없다 — 화면 스크롤 하나. (원인: 예전에는 나무 칸을 카드 높이에 묶어 두고(position:absolute;top:0;bottom:0)
@@ -642,21 +642,6 @@
 .lu-row-brief{flex:1 0 100%;order:9;min-width:0;margin-top:-2px;padding-left:2px;line-height:1.35;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #appView #libraryView #documentList .lu-row .lu-row-brief{grid-column:1/-1}
 /* S69-25 LIB-드라이브에서가져오기: 받는 폴더 나누기와 같은 창 모양 + 드라이브 폴더 경로 묶음·파일 한 줄(촘촘하게) */
-#libraryDriveImportModal .lu-di-card{max-width:600px;width:calc(100vw - 24px);display:flex;flex-direction:column;max-height:min(86vh,760px)}
-#libraryDriveImportModal .lu-di-sub{margin:2px 0 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-#libraryDriveImportModal .lu-di-from{display:flex;align-items:center;gap:8px;padding:4px 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-#libraryDriveImportModal .lu-di-from select{flex:1 1 auto;min-width:0;max-width:340px}
-#libraryDriveImportModal .lu-di-list{overflow:auto;min-height:60px;flex:1 1 auto;border-top:1px solid var(--kptu-border)}
-#libraryDriveImportModal .lu-di-group>summary{display:flex;align-items:center;gap:6px;padding:5px 2px;border-bottom:1px solid var(--kptu-border);cursor:pointer;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-#libraryDriveImportModal .lu-di-group>summary input,#libraryDriveImportModal .lu-di-row input{flex:none;width:16px;height:16px;margin:0}
-#libraryDriveImportModal .lu-di-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-ink)}
-#libraryDriveImportModal .lu-di-count{flex:none;font-variant-numeric:tabular-nums}
-#libraryDriveImportModal .lu-di-row{display:flex;align-items:center;gap:6px;padding:4px 2px 4px 18px;border-bottom:1px solid var(--kptu-border);font-size:var(--ds-text-body,14px);cursor:pointer}
-#libraryDriveImportModal .lu-di-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#libraryDriveImportModal .lu-di-meta{flex:none;color:var(--kptu-muted);font-size:11px;font-variant-numeric:tabular-nums}
-#libraryDriveImportModal .lu-di-note{flex:none;padding:0 6px;border:1px solid var(--kptu-border);border-radius:999px;color:var(--kptu-muted);font-size:11px}
-#libraryDriveImportModal .lu-di-empty,#libraryDriveImportModal .lu-di-hint{margin:8px 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
-@media (max-width:600px){#libraryDriveImportModal .lu-di-row{flex-wrap:wrap;padding-left:10px}#libraryDriveImportModal .lu-di-meta{flex-basis:100%;padding-left:22px}}
 
 /* S69-28 LIB-한칸탐색기: 탐색기 칸(목록)의 하위 폴더 줄은 펼치지 않고 들어가는 줄 — 펼침 표시 없이 닫힌 폴더 그림만, 줄 모양은 폴더 줄 그대로.
    폰 '그 폴더만' 위치 줄 끝의 지금 폴더 이름(상자 머리 대신 한 번). */

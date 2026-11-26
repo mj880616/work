@@ -216,7 +216,8 @@ const SPOTS = {
   ],
   // A(S70-28): 머리 줄 '새로 만들기' 단추(data-ctx-screen-item)를 빈 곳 우클릭 메뉴로.
   '하루 기록': [{ name: '하루 기록 머리 줄', sel: '#diaryView .diary-week-head', want: 'app', labels: ['하루 기록 쓰기'] }],
-  '사진': [{ name: '사진 머리 줄', sel: '#photosView .photos-head', want: 'app', gap: SCREEN_GAP }],
+  // S70-57: 사진 화면 첫 줄 제목 묶음(.photos-head)은 없앴다(이름·찾기·출처는 맨 위 줄) — 머리 줄 = 도구 줄의 빈 곳.
+  '사진': [{ name: '사진 머리 줄', sel: '#photosView .photos-bar', want: 'app', gap: SCREEN_GAP, at: 600 }],
   '잊지 말기': [{ name: '잊지 말기 머리 줄', sel: '#basketView .forget-head', want: 'app', gap: SCREEN_GAP, at: 200 }],
   // S70-40b ④: PC 틀은 목록 머리 줄 제목이 없다(위 줄에 화면 이름) — 머리 줄 탭 오른쪽 빈 곳. S70-28: 그 우클릭 메뉴에 '글 추가'.
   '저장한 글': [{ name: '저장한 글 머리 줄', sel: '#readingView [data-rd-list] .rd-head', want: 'app', labels: ['글 추가'], at: 300 }, { name: '저장한 글 빈 곳', sel: '#readingView .wait-empty', want: 'app', labels: ['글 추가'] }],
@@ -281,7 +282,8 @@ test('S70-28 전수 1280: 파일 화면', async ({ page }, testInfo) => {
   expect(r.labels[0]).toBe('이 폴더로 들어가기');
   await expectSpot(page, { name: '파일 목록 빈 곳', sel: '#filesRoot .fx-cols', want: 'app', gap: 'N6 [파일] 빈 곳', at: 600 });
   await expectSpot(page, { name: '파일 나무 [휴지통] 줄', sel: '#filesRoot .ft-row.ft-trash', want: 'app', gap: 'S70-28 ⋯ 없음 줄(파일 나무 별표·휴지통)' });
-  await expectSpot(page, { name: '파일 찾기 칸', sel: '#filesRoot .fx-search', want: 'browser' });
+  // S70-57: 화면 안 찾기 칸은 없고 맨 위 칸이 '파일에서 찾기'를 겸한다(글 칸이라 브라우저 메뉴 그대로).
+  await expectSpot(page, { name: '파일 찾기 칸(맨 위 칸)', sel: '#gsTopInput[data-screen-find="files"]', want: 'browser' });
   const k = await keyboardMenu(page, '#filesRoot [data-fx-list] [data-fx-row="od:OD!1"]');
   console.log('[ctx-key] 파일 줄 Shift+F10 |', k.prevented, '|', k.labels.join('·'));
 });
@@ -326,7 +328,9 @@ test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 머리 줄 [
   await expect(add).toHaveAttribute('aria-expanded', 'false');
   const empty = page.locator('#readingView .wait-empty');
   await expect(empty).toBeVisible(); // 목록 읽기가 끝나 빈 안내가 그려진 뒤
-  const b = await empty.boundingBox();
+  // 밑줄·메모 개수가 늦게 오면 목록(drawList)이 통째로 다시 그려져 빈 안내도 새 것으로 바뀐다 — 그 사이에 잰 자리는 비므로 새 것의 자리를 다시 잰다.
+  let b = null;
+  await expect(async () => { b = await empty.boundingBox(); expect(b).not.toBeNull(); }).toPass({ timeout: 5000 });
   const r = await rightClickAt(page, Math.round(b.x + 30), Math.round(b.y + b.height / 2));
   expect(r.result).toBe('app');
   await page.locator('#rowMenu').getByRole('button', { name: '글 추가', exact: true }).click();

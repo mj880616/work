@@ -20,9 +20,10 @@ test('PC 1440: 이름 바꾸기(확장자 그대로)·새 폴더·여러 개 선
   test.setTimeout(90000);
   const { errors, server } = await start(page, 1440);
   await intoDocs(page, 1440);
-  // 미리보기 [이름] → 작은 입력창에는 확장자 없는 이름만, 저장은 확장자 붙여서.
+  // 줄 우클릭 [이름 바꾸기](S70-72: PC 넓은 폭 상세 칸에는 동작 줄이 없다) → 작은 입력창에는 확장자 없는 이름만, 저장은 확장자 붙여서.
   await row(page, 'od:OD!13').click();
-  await root(page).locator('[data-fx-prev] [data-fx-rename-one]').click();
+  await row(page, 'od:OD!13').click({ button: 'right' });
+  await page.locator('#rowMenu').getByRole('button', { name: '이름 바꾸기', exact: true }).click();
   await expect(ask(page).locator('.kptu-ask-field')).toHaveValue('가짜 메모');
   await ask(page).locator('.kptu-ask-field').fill('가짜 메모 고침');
   await ask(page).getByRole('button', { name: '바꾸기' }).click();

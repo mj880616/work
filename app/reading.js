@@ -8,7 +8,7 @@
 //   News에서 보관한 글도 이 표의 줄(원래 글 연결 칸 news_article_id·outside_article_id, DB 20261122230000)이라 목록은 이 표만 읽는다(두 곳 합치기 없음).
 // - S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 줄도 평범한 읽을 거리 한 줄이다 —
 //   'News' 꼬리표·[News] 칩 없음, 줄 모양·⋯·밀기·고르기 단추가 직접 넣은 줄과 같다. 다른 점은 화면 밖 두 가지뿐:
-//   ① News 기능 키 'outside'가 있는 사람이 그런 줄을 누르면 News 지금 글 보기(원문·News에서 그은 밑줄)를 라우터 openFrom으로 연다(뒤로 한 번 = 읽을 거리).
+//   ① (한 칸 폭에서만 — S70-58 두 칸에서는 오른쪽 칸에 연다) News 기능 키 'outside'가 있는 사람이 그런 줄을 누르면 News 지금 글 보기(원문·News에서 그은 밑줄)를 라우터 openFrom으로 연다(뒤로 한 번 = 읽을 거리).
 //      글을 먼저 읽어 두고(ready) 옮기는 순간 글 보기를 바로 그린다 — 읽을 거리 목록이 먼저 보이지 않는다(S68-54).
 //   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
@@ -30,7 +30,7 @@ import {waitHtml, failHtml, emptyEl} from './wait-state.js';
 import {notify, askConfirm} from './small-notice.js';
 import {word, APP_NAME} from './brand/brand.mjs';
 import {myFeaturesOrNull} from './my-features.js';
-import {bindRowSwipe, claimedSince, PICK} from './row-swipe.js';
+import {bindRowSwipe, claimedSince, PICK, EDIT} from './row-swipe.js';
 import {textSizeHtml, paintTextSize} from './text-size.js';
 import {copyText} from './copy-text.js';
 import {isPhoneApp} from './phone-push-model.mjs';
@@ -39,11 +39,21 @@ import {createMemoThread, memoRowHtml} from './memo-thread.js';
 import {memoRows} from './memo-model.mjs';
 import {memosNow, memoState, loadMemos, onMemos, memoExists} from './memo-store.js';
 import {openMemoSource} from './memo-open.js';
+import {SPLIT_QUERY} from './screen-width.mjs';
+import {mountSplitResize} from './split-resize.js';
+import {followPane} from './follow-pane.js';
+import {registerScreenFind, refreshScreenFind, finderOf} from './screen-find.js';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
 const view = () => document.getElementById('readingView');
 const wide = () => window.matchMedia?.('(min-width: 761px)').matches;
+// S70-58 READ-두칸보기(명진 11/26 06:12 "읽을 거리랑 저장한 글 왼쪽 목록 오른쪽 본문 형태로 개편 드래그 폭 조절 가능하게 / 폴드 펼침 이야기임"):
+// 칸 나누기 폭(screen-width.mjs 600px~ — 조직 관리·자료실과 같은 값)이면 왼쪽 목록 | 오른쪽 글 보기 두 칸. 목록은 그대로 남고, 처음 들어오면 맨 위 글을 오른쪽에 연다
+// (저절로 연 글은 읽음으로 치지 않음 — 읽을 거리와 같은 규칙). 가운데 경계는 공용 split-resize.js(서버 view_prefs.split_ratio.reading).
+// News에서 온 줄도 두 칸에서는 오른쪽 칸에 연다(목록이 남아야 하므로). 그 글의 News 쪽 밑줄도 같이 칠한다. 그 아래 폭(폰·접은 폴드)은 지금처럼 목록 → 글(뒤로 = 목록).
+const SPLIT = window.matchMedia?.(SPLIT_QUERY);
+const split = () => !!SPLIT?.matches;
 const here = () => window.KPTURouter?.current === 'reading' && !document.hidden;
 // S69-BM: PC 크롬 즐겨찾기 막대용 저장 버튼(북마클릿) 줄은 마우스로 쓰는 넓은 화면에서만 그린다(폰·펼친 폴드·폰 앱에서는 만들지 않음).
 const pcBrowser = () => wide() && !!window.matchMedia?.('(pointer: fine)').matches && !isPhoneApp(navigator.userAgent);
@@ -71,6 +81,19 @@ function setFilter(v) {
 // 잠근 노트 폴더가 있고 안 풀렸으면 노트 밑줄은 뺀다(이 화면은 노트 목록을 모른다 — 풀리면 노트 › 밑줄과 같아진다).
 const marksNow = () => visibleMarks(highlightsNow(), {newsOn: state.marksNewsOn, noteHidden: () => !!window.KPTUFeatureLock?.notesHidden?.()});
 const entriesNow = () => entriesOf(state.rows);
+// S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸이 '저장한 글에서 찾기' — 지금 탭 목록을
+// 제목·매체(밑줄 탭은 밑줄 글·메모·글 제목, 메모 탭은 글 제목·메모)로 거른다. 이 화면 메모리만(서버 검색 없음).
+let findText = '', findQuery = '';
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말), 맞은 정도 순, 맞은 부분 굵게.
+const finder = finderOf('reading', () => findText);
+const ranked = (list, texts) => (findQuery ? finder().rank(list, texts) : list);
+registerScreenFind('reading', {
+  label: '저장한 글에서 찾기',
+  active: () => window.KPTURouter?.current === 'reading' && !!view() && !view().classList.contains('hidden') && !view().querySelector('[data-rd-list]')?.hidden,
+  value: () => (findQuery ? findText : ''),
+  marks: '#readingView [data-rd-list]',
+  apply: (raw, {again} = {}) => { findText = String(raw ?? ''); const next = findText.trim().toLowerCase(); if (next === findQuery && !again) return; findQuery = next; drawList(); },
+});
 // News에서 열 수 있는 줄의 원래 글({type,id}) — News 기능 키가 있을 때만.
 const newsLinkOf = id => (state.newsOn ? linkOf(rowOf(id)) : null);
 // S69 [수정](명진 11/24 "목록에서 ... 안에 수정 버튼도 있어야"): 어느 창으로 고치나 — 한 곳만.
@@ -151,10 +174,8 @@ function drawList() {
   const box = view()?.querySelector('[data-rd-list]');
   if (!box) return;
   const head = el('div', 'rd-head');
-  // S70-40b ④ READ-목록머리(docs/design/reading-screens.md 5절 ② (가), 명진 11/25 16:16 "추천대로"): PC 틀(761px~)은 위 줄(app-topline)에
-  // 화면 이름 '저장한 글'이 이미 보이므로 머리 줄 제목은 그리지 않는 쪽(reading.css가 761px~에서 뺌) — 머리 줄은 보기 탭 + ＋ 아이콘만.
-  // 폰·접은 폴드(~760px)는 위 줄이 없어 제목이 화면 이름이고 탭은 하단바 위 공용 전환 줄로 간다(머리 = 제목 + ＋).
-  head.append(el('h2', 'rd-title', '저장한 글'));
+  // S70-40b ④ READ-목록머리(docs/design/reading-screens.md 5절 ② (가), 명진 11/25 16:16 "추천대로"): 머리 줄 제목은 그리지 않는다 — 머리 줄은 보기 탭 + ＋ 아이콘만.
+  // 화면 이름 '저장한 글'은 PC 틀(761px~) 위 줄(app-topline), 폰 틀(~760px)은 앱 머리 줄(S70-57부터 이 화면에도 이름이 보인다)에 한 번만 있다.
   const add = btn('rd-add icon-btn', '＋', {rdAdd: '1', ctxScreenItem: '글 추가'}); // S70-28: 빈 곳 우클릭 메뉴에도(context-menu.js)
   add.setAttribute('aria-label', '글 추가'); add.title = '글 추가';
   add.setAttribute('aria-expanded', String(state.adding));
@@ -177,7 +198,7 @@ function drawList() {
       const bm = el('p', 'rd-line rd-bm');
       bm.dataset.rdBm = '1';
       const a = el('a', 'rd-bm-link', `${APP_NAME} 저장`);
-      a.href = bookmarklet(); a.dataset.rdBmLink = '1'; a.title = '즐겨찾기 막대로 끌어 놓기';
+      a.href = bookmarklet(); a.dataset.rdBmLink = '1';
       bm.append('크롬 버튼: ', a, ' ', btn('mini', '한 줄 복사', {rdBmCopy: '1'}));
       parts.push(bm);
     }
@@ -197,15 +218,16 @@ function drawList() {
   renderFilterChips(switchHost, {options: filterOptions(entries, marks ? marks.length : null, memoState().ready ? myMemos().length : null), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
     onChange: v => { setFilter(v); drawList(); }});
   head.insertBefore(switchHost, add);
-  if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks)); box.replaceChildren(...parts); return; }
+  if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks && ranked(marks, h => [h.quote, h.memo, h.source_title]))); box.replaceChildren(...parts); return; }
   if (keepFilter(state.filter) === 'memos') { parts.push(memosEl()); box.replaceChildren(...parts); return; }
-  const shown = filterEntries(entries, state.filter, state.open || '');
+  const shown = ranked(filterEntries(entries, state.filter, state.open || ''), e => { const l = lineOf(e.row); return [l.title, l.site]; });
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
   for (const e of shown) list.append(rowEl(e));
   if (!shown.length) list.append(emptyEl(emptyText(keepFilter(state.filter), entries.length)));
   parts.push(list);
   box.replaceChildren(...parts);
+  if (!state.open && shown.length && split()) queueMicrotask(autoOpenTop);
 }
 
 // [밑줄] 탭 목록: 노트 › 밑줄과 같은 줄 부품(highlightRowHtml)·같은 출처 꼬리표(sourceTag). 밑줄 줄 ⋯ = 공용 밑줄 메뉴(지우면 두 화면 모두에서 사라짐).
@@ -235,7 +257,7 @@ function memosEl() {
   const st = memoState();
   if (!st.loaded) { void loadMemos(); list.insertAdjacentHTML('beforeend', waitHtml({rows: 3, h: 40})); return list; }
   if (!st.ready) { list.append(emptyEl(st.missing ? '메모는 준비 중이에요.' : '메모를 읽지 못했어요.')); return list; }
-  const rows = myMemos();
+  const rows = ranked(myMemos(), m => [readingMemoTitle(m), m.quote, m.body]);
   if (!rows.length) list.append(emptyEl(emptyText('memos', 0)));
   else list.insertAdjacentHTML('beforeend', `<div class="memo-lines">${rows.map(m => memoRowHtml(m, {titleOf: readingMemoTitle, exists: readingMemoExists})).join('')}</div>`);
   return list;
@@ -266,16 +288,16 @@ function closeDetail({fromBack = false} = {}) {
   draw();
 }
 function openLayer(id) {
-  if (wide() || layer) return;
+  if (split() || layer) return;
   layer = window.KPTURouter?.layer?.open?.('reading-detail', {reopen: () => openItem(id), close: () => { layer = null; closeDetail({fromBack: true}); return true; }}) || null;
 }
-async function openItem(id, {highlight = null} = {}) {
+async function openItem(id, {highlight = null, auto = false} = {}) {
   if (!isId(id)) return;
   if (state.editing !== id) { state.editing = null; state.editNote = ''; state.editBusy = false; }
   state.open = id; state.body = null; state.bodyFor = null;
   openLayer(id);
   draw();
-  void markOpened(id);
+  if (!auto) void markOpened(id);
   try { const full = await getItem(id); if (state.open !== id) return; state.body = full?.body || ''; state.bodyFor = id; if (full) Object.assign(rowOf(id) || {}, full); }
   catch { if (state.open === id) { state.body = null; state.bodyFor = 'failed:' + id; } }
   draw();
@@ -288,16 +310,17 @@ function drawDetail() {
   const box = detailBox, listBox = view()?.querySelector('[data-rd-list]');
   if (!box) return;
   const row = state.open ? rowOf(state.open) : null;
-  if (!row) { box.hidden = true; box.replaceChildren(); memoThread.detach(); if (listBox) listBox.hidden = false; view()?.classList.remove('rd-reading'); return; }
+  if (!row) { box.hidden = true; box.replaceChildren(); memoThread.detach(); if (listBox) listBox.hidden = false; view()?.classList.remove('rd-reading'); refreshScreenFind(); return; }
   view()?.classList.add('rd-reading');
-  if (listBox) listBox.hidden = !wide();
+  if (listBox) listBox.hidden = !split();
+  refreshScreenFind(); // 폰은 글 보기가 목록 대신 — 그동안 맨 위 칸은 이 화면 찾기가 아니다
   const l = lineOf(row);
   // S70-40b READ-글보기머리(docs/design/reading-screens.md 4절·5절 ①③ (가)): 공용 '글 보기 머리'(ui-standard.css .ds-doc-*) —
   // 첫 줄 = [‹](폰) 출처 · 날짜 · 사업영역 꼬리표 + 오른쪽 작은 아이콘 줄 [↗ 원래 페이지][−][+][⋯], 둘째 줄 = 제목(두 줄까지 줄바꿈, 말줄임 없음).
   // 첫 줄은 왼쪽 목록 머리 줄과 같은 32px 줄이라 두 칸 위 끝이 맞는다. 테두리 단추 줄(.rd-acts)은 없앴고 동작은 모두 ⋯(목록 줄 ⋯과 같은 메뉴) 안.
   const parts0 = [];
   const bar = el('div', 'ds-doc-top rd-dhead');
-  if (!wide()) { const back = btn('rd-back icon-btn', '‹', {rdBack: '1'}); back.setAttribute('aria-label', '목록으로'); bar.append(back); }
+  if (!split()) { const back = btn('rd-back icon-btn', '‹', {rdBack: '1'}); back.setAttribute('aria-label', '목록으로'); bar.append(back); }
   const meta = el('p', 'ds-doc-meta rd-meta-line', [l.site, l.day ? l.day + ' 저장' : ''].filter(Boolean).join(' · '));
   const tag = areaText(l.area);
   if (tag) meta.append(' · ', el('span', 'rd-tag', tag));
@@ -322,7 +345,9 @@ function drawDetail() {
     if (!busy && canRetry(row)) p.append(' ', btn('row-act', '원문 다시 가져오기', {rdFetch: row.id}));
     parts.push(p);
   }
-  const marks = sourceHighlights('reading', row.id);
+  // News에서 온 줄은 그 기사·성명에 News에서 그은 밑줄도 같이 칠한다(같은 원문 사본 — 글자로 찾아 칠함).
+  const lk = linkOf(row);
+  const marks = [...sourceHighlights('reading', row.id), ...(lk ? sourceHighlights(lk.type, lk.id) : [])];
   const prose = el('div', 'rd-prose');
   prose.dataset.rdProse = '1';
   prose.dataset.textSizeTarget = '';
@@ -339,6 +364,7 @@ function drawDetail() {
   box.replaceChildren(...parts);
   memoThread.attach(memoHost, {type: 'reading', id: row.id, title: l.title});
   box.hidden = false;
+  if (split()) { followPane(box, {narrow: !wide(), reset: followed !== row.id}); followed = row.id; }
   paintTextSize(box);
   if (state.bodyFor === row.id) paintMarks(prose, marks);
 }
@@ -370,7 +396,25 @@ function editForm(row) {
   return form;
 }
 
-function draw() { drawList(); drawDetail(); }
+function draw() { drawList(); drawDetail(); mountSplit(); }
+let followed = '';
+// 두 칸 경계(공용 split-resize.js): 왼쪽 목록 1 : 오른쪽 글 2가 기본(칸 최소 200px · 320px — 펼친 폴드 약 690px에서도 기본 비율), 끌면 서버(view_prefs.split_ratio.reading)에 기억. 두 번 누르면 기본.
+function mountSplit() {
+  const wrap = view()?.querySelector('.rd-wrap');
+  if (!wrap) return;
+  mountSplitResize({container: wrap, name: 'reading', label: '목록과 글 칸 폭 조절', query: SPLIT_QUERY, columns: [
+    {el: () => wrap.querySelector('[data-rd-list]'), varName: '--ds-split-list', minVar: '--ds-split-list-min', minFallback: 200, share: 1},
+    {el: () => wrap.querySelector('[data-rd-detail]'), varName: '--ds-split-detail', minVar: '--ds-split-detail-min', minFallback: 320, share: 2},
+  ], active: () => split() && !!view()?.classList.contains('rd-reading') && !view()?.classList.contains('hidden')});
+}
+// 두 칸에서 열린 글이 없으면 지금 보기(전체·안 읽음)의 맨 위 글을 오른쪽에 연다. [밑줄]·[메모] 보기는 줄이 글이 아니라 그대로 둔다.
+function autoOpenTop() {
+  if (!split() || !here() || !state.loaded || state.open) return;
+  const f = keepFilter(state.filter);
+  if (f === 'marks' || f === 'memos') return;
+  const first = filterEntries(entriesNow(), state.filter, '')[0];
+  if (first) void openItem(first.key, {auto: true});
+}
 
 // ---------- 동작 ----------
 async function startFetch(row) {
@@ -571,14 +615,16 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
   render: id => {
     const row = rowOf(id);
     if (!row) return '';
-    // S68-29: News에서 보낸 줄도 같은 단추. 'News에서 열기'는 두지 않는다 — 줄을 누르면 이미 News 원문 보기로 열린다(키가 있을 때).
+    // S68-29: News에서 보낸 줄도 같은 단추. 한 칸 폭에서는 'News에서 열기'를 두지 않는다 — 줄을 누르면 이미 News 원문 보기로 열린다(키가 있을 때).
     // S69: 맨 앞 [수정](다른 화면 ⋯과 같은 순서 — 수정 … 삭제). 고칠 수 없는 줄(News에서 온 사회운동 글)은 없음.
     // S70-40b: 글 보기 머리 ⋯(data-rd-head-more)도 이 메뉴 — [수정] 다음에 [밑줄을 노트로 n]이 더 있다(옛 테두리 단추 줄의 동작).
     const n = headMenu ? sourceHighlights('reading', id).length : 0;
     // S69-98 NOTE-에버노트 ⑤: [노트로 만들기](원문 사본·출처 주소·저장 시각을 새 노트로) — 글 보기 머리 ⋯에만, 원문을 받은 뒤에만 누를 수 있다.
     const making = headMenu ? `<button type="button" class="row-act" data-rd-act="make"${state.noteBusy === id || state.bodyFor !== id ? ' disabled' : ''}>${state.noteBusy === id ? '만드는 중…' : '노트로 만들기'}</button>` : '';
     const note = headMenu ? `${making}<button type="button" class="row-act" data-rd-act="note">${n ? `밑줄을 노트로 ${n}` : '밑줄을 노트로'}</button>` : '';
-    return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}${note}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">${headMenu && areaText(lineOf(row).area) ? word('사업영역 바꾸기') : '사업에 연결'}</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
+    // S70-58: 두 칸에서는 News에서 온 줄도 오른쪽 칸에 열므로, 글 보기 머리 ⋯에 [읽을 거리에서 보기](요약·시사점·[저장됨 ✓]이 있는 읽을 거리 글 보기 — 뒤로 = 저장한 글).
+    const toNews = headMenu && split() && newsLinkOf(id) ? '<button type="button" class="row-act" data-rd-act="news">읽을 거리에서 보기</button>' : '';
+    return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}${toNews}${note}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">${headMenu && areaText(lineOf(row).area) ? word('사업영역 바꾸기') : '사업에 연결'}</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
   },
   onAction: (button, active) => {
     const id = active.id, act = button.dataset.rdAct, at = (active.trigger?.isConnected ? active.trigger : null) || view()?.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || null;
@@ -590,6 +636,7 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     else if (act === 'fetch') void startFetch(row);
     else if (act === 'note') void marksToNote(id);
     else if (act === 'make' && state.open === id) void makeNote(id);
+    else if (act === 'news') { const l = newsLinkOf(id); if (l) void openNews(l); }
     else if (act === 'delete') void removeAny(id, at);
   }});
 
@@ -609,7 +656,7 @@ function bindSwipe(box) {
   }, {passive: true});
 }
 
-// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로],
+// S70-62부터 왼쪽 밀기 칸은 [수정][삭제](아래). 옛 설명 — UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로],
 // 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [읽음][삭제]'. News에서 보낸 줄도 같은 단추(S68-29).
 // 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·removeAny). S68-31(명진 11/23 02:24 "삭제가 필요 가능한 경우 왼쪽으로 밀 때 삭제도"):
 // 왼쪽 밀기 맨 끝에 [삭제] — ⋯ [삭제]와 같은 removeAny(직접 넣은 줄은 묻고 지우기, News에서 보낸 줄은 5초 [되돌리기]). 끝까지 밀어도 칸만 열린다.
@@ -620,15 +667,15 @@ function bindRows(box) {
       const key = keyOf(el);
       const row = rowOf(key);
       if (!row) return null;
-      const readAct = row.read_at ? {key: 'unread', label: '안 읽음으로', tone: 'muted', icon: 'undo'} : {key: 'read', label: '읽음', tone: 'info', icon: 'done'};
-      return {start: PICK, end: [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, readAct, {key: 'delete', label: '삭제', tone: 'danger'}]};
+      // S70-62 READ-밀기메뉴(명진 11/26 07:41 "저장된 글에서는 수정 삭제로"): 칸은 [수정][삭제] 둘. 읽음·사업에 연결은 ⋯·글 보기에 그대로.
+      // [수정]은 ⋯ [수정]과 같은 startEdit(고칠 수 없는 줄 — News에서 온 사회운동 글 — 은 [삭제]만).
+      return {start: PICK, end: [...(editKind(key) ? [EDIT] : []), {key: 'delete', label: '삭제', tone: 'danger'}]};
     },
     run: (key, el) => {
       const id = keyOf(el);
       const row = rowOf(id);
       if (!row) return;
-      if (key === 'read' || key === 'unread') void toggleRead(id, key === 'read');
-      else if (key === 'area') { const at = box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`); if (at) void pickArea(at, id); }
+      if (key === 'edit') void startEdit(id);
       else if (key === 'delete') void removeAny(id, box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || el);
     },
     // 고른 줄: [읽음]은 하나씩 차례로(⋯와 같은 길), [삭제]는 removeMany(⋯ 삭제와 같은 규칙, 묻기·알림은 한 번).
@@ -667,7 +714,8 @@ function bind() {
     const open = t.closest?.('[data-rd-open]');
     if (open && !t.closest('a,button,input')) {
       const id = open.dataset.rdOpen, link = newsLinkOf(id);
-      if (link) { void markOpened(id); void openNews(link); } else void openItem(id);
+      // 두 칸은 오른쪽 칸에 연다. 이 화면이 열 수 없는 줄(id 모양이 아님)은 전처럼 읽을 거리 글 보기로.
+      if (link && (!split() || !isId(id))) { void markOpened(id); void openNews(link); } else void openItem(id);
       return;
     }
   });
@@ -694,6 +742,12 @@ function bind() {
     if ((k === 'fetching' || k === 'fetched') && window.KPTURouter?.current === 'reading') draw();
   });
   window.addEventListener('resize', () => { if (window.KPTURouter?.current === 'reading') drawDetail(); });
+  // 폴드를 펼치거나 접으면(칸 나누기 폭을 넘나들면): 펼침 = 두 칸(열린 글이 없으면 맨 위 글), 접힘 = 한 칸(열린 글이 있으면 글 화면, 뒤로 = 목록).
+  SPLIT?.addEventListener?.('change', () => {
+    if (window.KPTURouter?.current !== 'reading') return;
+    if (!split() && state.open) openLayer(state.open);
+    draw();
+  });
 }
 
 async function refresh() {
