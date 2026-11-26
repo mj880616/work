@@ -1692,11 +1692,12 @@ jobs:
           grep -q "data-ps3-records" app/project-system-v3.js
           # MTG-프로젝트합치기 3단계: 상세 맨 위 진행 기록 입력칸은 없다(기록은 사업 보고 한 곳, 표·데이터 보존).
           if grep -Eq 'data-ps3-record-input|saveRecordInput|openRecordBig' app/project-system-v3.js; then echo 'project record input returned'; exit 1; fi
-          grep -q "data-ps3-basket-note" app/project-system-v3.js
+          # RECORD-기록하나로(S71-71): 사업 기록 줄은 노트로 가지 않는다(출처 상관없이 같은 기록 줄).
+          if grep -q "data-ps3-basket-note" app/project-system-v3.js; then echo 'record line link to the note returned'; exit 1; fi
           grep -q ".ps3-rec-line" app/project-system-v3.css
           if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal" app/project-system-v3.js; then echo 'retired per-item progress UI returned'; exit 1; fi
-          # UI-연결요약수정: the shared link summary editor may be mounted only lazily from the record ⋯ [요약 수정] action (no always-on project basket editor).
-          grep -q "ps3RecordAction==='summary')editBasketSummary(b)" app/project-system-v3.js
+          # UI-연결요약수정: the shared link summary editor may be mounted only lazily from the record ⋯ [수정] action (no always-on project basket editor; S71-71 [요약 수정] → [수정]).
+          grep -q "if(a==='edit')editBasketSummary(b)" app/project-system-v3.js
           test "$(grep -o 'mountLinkSummaryEditor(' app/project-system-v3.js | wc -l)" -eq 1
           grep -q "if(!basketEditor){basketEditorKey=key;basketEditor=mountLinkSummaryEditor(body," app/project-system-v3.js
           if grep -Eq "ps3CreateType|ps3CreateVisibility|ps3AccessModal|ps3TypeModal|data-ps3-access|ps3ManageTypes" app/project-system-v3.js; then echo 'removed project type/access UI returned'; exit 1; fi

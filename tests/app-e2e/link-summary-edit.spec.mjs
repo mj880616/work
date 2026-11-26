@@ -1,6 +1,6 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-// UI-연결요약수정: organization and project detail both offer ⋯ → [요약 수정] on a linked record. Only the link's summary changes,
+// UI-연결요약수정: organization and project detail both offer ⋯ → [수정] (S71-71, was [요약 수정]) on a linked record. Only the link's summary changes,
 // through the existing compare-and-set RPC (app_basket_update_link_summary); the note (update or note) is never written.
 // Enter is a new line, Ctrl+Enter saves, an Enter that ends a Korean IME composition is ignored. All names are synthetic.
 test.use({hasTouch:true});
@@ -18,13 +18,13 @@ async function openEditor(page,row,menu,width){
  if(width<761)await more.tap();else await more.click();
  // The menu opens at the ⋯ it came from (anchored menu, #773).
  await expect(menu).toBeVisible();const [a,m]=await more.evaluate((btn,panel)=>[btn,panel].map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}}),await menu.elementHandle());/* STAB-간헐묶음: 두 상자를 한 번에 재서 메뉴가 열리며 움직이는 중 따로 재는 어긋남을 없앤다 */expect(Math.min(Math.abs(m.y-(a.y+a.height)),Math.abs(m.y+m.height-a.y))).toBeLessThanOrEqual(12);expect(m.x+m.width).toBeGreaterThanOrEqual(a.x);
- const item=menu.getByRole('button',{name:'요약 수정',exact:true});if(width<761)await item.tap();else await item.click();
+ const item=menu.getByRole('button',{name:'수정',exact:true});if(width<761)await item.tap();else await item.click();
  const input=row.locator('[data-link-summary-input]');await expect(input).toBeFocused();return input;
 }
 const writes=page=>page.evaluate(()=>window.__detailState.calls.filter(c=>c.method!=='GET').map(c=>({table:new URL(c.path,'https://x.invalid').pathname.split('/').pop(),body:c.body})));
 const noteText=page=>page.evaluate(()=>window.__detailState.notes.map(n=>n.raw_text));
 
-for(const kind of ['organization','project'])for(const width of [390,1280])test(`${kind} ${width}: ⋯ → 요약 수정 saves only the summary with Ctrl+Enter; Enter is a new line`,async({page})=>{
+for(const kind of ['organization','project'])for(const width of [390,1280])test(`${kind} ${width}: ⋯ → 수정 saves only the summary with Ctrl+Enter; Enter is a new line`,async({page})=>{
  await page.setViewportSize({width,height:900});
  const {errors,host,ids,menu}=await ready(page,kind),row=host.locator(`[data-basket-link="${ids.link}"]`),before=await noteText(page);
  const input=await openEditor(page,row,menu,width);await expect(input).toHaveValue('연결 요약');
@@ -46,7 +46,7 @@ for(const kind of ['organization','project'])for(const width of [390,1280])test(
 for(const kind of ['organization','project'])test(`${kind}: the [저장] button saves too, from an empty summary (expected NULL)`,async({page})=>{
  const {host,ids,menu}=await ready(page,kind),row=host.locator(`[data-basket-link="${ids.nullLink}"]`);
  await expect(row).toContainText('보관 원문');
- const input=await openEditor(page,row,menu,1280);await expect(input).toHaveValue('');
+ const input=await openEditor(page,row,menu,1280);await expect(input).toHaveValue(/보관 원문/); // S71-71: 기록에 보이는 글로 시작(원문은 그대로)
  await input.fill('합성 직접 쓴 요약');await row.locator('[data-link-summary-save]').click();
  await expect(host.locator(`[data-basket-link="${ids.nullLink}"]`)).toContainText('합성 직접 쓴 요약');
  expect(await writes(page)).toEqual([{table:'app_basket_update_link_summary',body:{p_link_id:ids.nullLink,p_expected_summary:null,p_summary:'합성 직접 쓴 요약'}}]);
@@ -91,6 +91,6 @@ test('project: an open summary draft asks before closing, and disconnect waits f
  await expect(input).toHaveValue('닫기 전 초안');
  // A refresh of the record list keeps the open draft.
  await page.evaluate(()=>window.dispatchEvent(new Event('kptu:basket-links-changed')));await expect(input).toHaveValue('닫기 전 초안');
- await row.getByRole('button',{name:'기록 메뉴',exact:true}).click();await menu.getByRole('button',{name:'연결 해제'}).click();
+ await row.getByRole('button',{name:'기록 메뉴',exact:true}).click();await menu.getByRole('button',{name:'삭제',exact:true}).click();
  expect((await writes(page)).filter(w=>w.table==='app_record_links')).toEqual([]);await expect(row).toHaveCount(1);
 });

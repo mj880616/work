@@ -11,14 +11,15 @@ const M = (id, type, target, body, created_at, extra = {}) => ({id, target_type:
 const MID = n => `aaaaaaaa-aaaa-4aaa-8aaa-${String(n).padStart(12, '0')}`;
 
 test('종류 표: 노트·읽을 거리(news·outside)·저장한 글·브리핑 + 자료실·사업 보고·담당조직 기록·텔레그램(S69-95), DB 검사와 같은 종류', () => {
-  assert.deepEqual(MEMO_TYPES, ['note', 'news', 'outside', 'reading', 'brief', 'document', 'meeting', 'org_record', 'telegram']);
+  assert.deepEqual(MEMO_TYPES, ['note', 'news', 'outside', 'reading', 'brief', 'document', 'meeting', 'org_record', 'telegram', 'record_link']);
+  assert.equal(memoSource({target_type: 'record_link'}), '기록'); // S71-71 연결 기록
   assert.deepEqual(['document', 'meeting', 'org_record', 'telegram'].map(t => memoSource({target_type: t})), ['자료실', '사업 보고', '담당조직', '텔레그램']);
   assert.equal(MEMO_TARGETS.news.label, '읽을 거리');
   assert.equal(MEMO_TARGETS.outside.group, MEMO_TARGETS.news.group, '기사·성명은 한 칩');
   assert.equal(memoSource({target_type: 'reading'}), '저장한 글');
   assert.equal(memoSource({target_type: 'x'}), '기록');
   // DB 검사(app_memos_target_type_check)와 종류 표가 같다 — 종류를 더하면 둘 다 고친다.
-  const sql = readFileSync(new URL('../supabase/migrations/20261125060000_memos_more_targets.sql', import.meta.url), 'utf8');
+  const sql = readFileSync(new URL('../supabase/migrations/20261127030000_memos_record_link.sql', import.meta.url), 'utf8'); // 가장 뒤 대상 종류 migration
   const check = sql.match(/check \(target_type in \(([^)]*)\)/)[1].match(/'([a-z_]+)'/g).map(v => v.slice(1, -1));
   assert.deepEqual(check, MEMO_TYPES);
   assert.equal(MEMO_LIMITS.body, 4000);
@@ -35,6 +36,7 @@ test('열기 표 한 곳: 종류마다 여는 화면·요청·있는지 볼 표,
   assert.deepEqual({...MEMO_OPEN.document}, {view: 'library', request: 'document', check: 'app_documents', own: true});
   assert.deepEqual({...MEMO_OPEN.meeting}, {view: 'meetings', request: 'meeting', check: 'app_meetings', own: true, live: 'deleted_at=is.null'});
   assert.deepEqual({...MEMO_OPEN.org_record}, {view: 'team', request: 'org_record', check: 'app_suborganization_updates'});
+  assert.deepEqual({...MEMO_OPEN.record_link}, {view: 'team', request: 'record_link', check: 'app_record_links', own: true, live: 'status=eq.confirmed'});
   assert.deepEqual({...MEMO_OPEN.telegram}, {view: 'telegram', request: 'telegram', check: 'app_feed_items', own: true, live: 'source=eq.telegram&hidden_at=is.null', feature: 'telegram'});
   assert.equal(memoFeature({target_type: 'telegram'}), 'telegram');
   assert.equal(memoFeature({target_type: 'document'}), '');
