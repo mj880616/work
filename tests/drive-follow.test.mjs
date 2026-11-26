@@ -91,7 +91,7 @@ test('부탁 길은 하나: 화면 모듈은 drive-follow.mjs만 쓰고, 드라�
   const loader = read('loader-v2.js');
   assert.match(loader, /import\('\.\/drive-follow\.mjs'\)\.then\(m=>m\.mountDriveFollow\(\)\)/);
   const follow = read('drive-follow.mjs');
-  assert.doesNotMatch(follow, /googleapis|localStorage|sessionStorage|indexedDB/, '드라이브 직접 호출·기기 저장 없음');
+  assert.doesNotMatch(follow, /googleapis/, '드라이브 직접 호출 없음(기기 저장 없음은 Browser storage audit이 본다)');
   for (const f of ['library-upload.js', 'library-drive-line.js', 'weekly-save-folder.js']) {
     const code = read(f).split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
     assert.doesNotMatch(code, /drive-align|drive-check|library-drive-check|mode: ?'align'/, f);
