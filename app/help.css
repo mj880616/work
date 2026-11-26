@@ -1,8 +1,5 @@
 /* HELP-메뉴안쓰는법: 쓰는 법 화면(?view=help, help.js). 시안 docs/design/mockups/help-howto.html. 촘촘한 줄, 새 색 없음(기존 토큰만), 큰 카드·굵은 버튼 없음. */
 #helpView .hp{min-width:0}
-#helpView .hp-top{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:2px 0 6px;border-bottom:.5px solid var(--kptu-border)}
-#helpView .hp-sum{flex:1 1 20em;margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);line-height:1.5}
-#helpView .hp-find{flex:0 1 16em;min-width:0;height:var(--ds-compact-height,32px);padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row,13px)}
 #helpView .hp-gl{margin:8px 0 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
 #helpView .hp-group{margin:0}
 #helpView .hp-item{border-bottom:.5px solid var(--kptu-border)}
@@ -23,13 +20,9 @@
 #helpView .hp-chip{padding:0 6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);font-size:var(--ds-text-meta,12px)}
 #helpView .hp-arrow{color:var(--kptu-muted)}
 #helpView .hp-open{margin-top:6px}
-#helpView .hp-ex{margin:8px 0 0;max-width:22em}
-#helpView .hp-ex-screen{border:1px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);overflow:hidden;font-size:var(--ds-text-meta,12px)}
-#helpView .hp-ex-bar{padding:4px 8px;border-bottom:.5px solid var(--kptu-border);font-weight:var(--ds-weight-medium,600)}
-#helpView .hp-ex-rows{margin:0;padding:0;list-style:none}
-#helpView .hp-ex-rows li{padding:3px 8px;border-bottom:.5px solid var(--kptu-border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#helpView .hp-ex-rows li:last-child{border-bottom:0}
-#helpView .hp-ex-cap{margin-top:2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+/* HELP-그림(S71-33): 화면 그림은 폰 화면 비율 그대로 작게(폭 390 기준 그림을 최대 210px로), 여러 장이면 옆으로. 테두리 얇게. */
+#helpView .hp-shots{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
+#helpView .hp-shot{display:block;width:min(210px,100%);height:auto;border:1px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface)}
 #helpView .hp-privacy{padding:6px 8px;border:1px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px)}
 #helpView .hp-privacy p{margin:0 0 2px}
 #helpView .hp-contact{margin:6px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
@@ -42,4 +35,3 @@
 #helpView .hp-toc-btn[aria-current="true"]{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-weight:var(--ds-weight-medium,600)}
 #helpView .hp-detail{min-width:0;padding:4px 0 8px 14px;font-size:var(--ds-text-row,13px);line-height:1.55}
 #helpView .hp-dt{margin:2px 0 2px;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600)}
-@media(max-width:760px){#helpView .hp-find{flex:1 1 100%}}

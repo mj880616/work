@@ -1,5 +1,6 @@
 // COLLAB-묶인사람끼리공유 1단계 '묶기' 화면(설계 docs/design/collab-sharing.md 3절, 시안 docs/design/mockups/collab-groups-3.html, 결정 ①~⑭ 확정).
-// 자리: 내 프로필 › '내 묶음' 칸. 이 칸(#psCollabPanel)을 그리는 곳은 이 파일 하나다(render 하나, 상태는 아래 state 하나).
+// 자리: 조직 관리 › 목록 맨 아래 접힌 '내 묶음 n'(S71-35, 옛 내 프로필 칸에서 옮김). 접기 머리(이름·개수)와 ⋯ [부서·노조 묶음 만들기]는 조직 관리(suborganizations.js)가,
+// 칸 안(#soCollabPanel)을 그리는 곳은 이 파일 하나다(render 하나, 상태는 아래 state 하나). 개수는 onCount로, 펼칠 일(초대 링크·만들기)은 onOpen으로 알린다.
 // 서버는 app_collab_* 함수(SECURITY DEFINER, authenticated만)만 부른다. 표를 직접 읽지 않고, workspace·user id를 보내지 않는다.
 // 관리자만 되는 일(초대 링크·요청 수락·내보내기·넘기기)은 서버가 다시 판정한다 — 여기서 버튼을 숨기는 것은 보기 편하게 하는 것뿐이다.
 // 초대 링크 글자는 만든 화면 메모리에만 둔다(다시 볼 수 없음). 받은 링크(?join=)는 읽자마자 주소에서 지운다. 기기 저장 없음.
@@ -7,7 +8,7 @@
 import {askConfirm} from './small-notice.js';
 import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
 import {
-  KIND_NAME, CREATED_TEXT, LIMIT_HINT, EMPTY_TEXT, INVITE_HINT, LINK_NOTE, CONSENT_LINES,
+  KIND_NAME, CREATED_TEXT, LIMIT_HINT, EMPTY_TEXT, LINK_NOTE, CONSENT_LINES,
   errorText, errorCode, groupName, roleText, memberLine, groupMeta, createDefaults, createReady, createArgs,
   inviteUrl, tokenFromUrl, urlWithoutToken, inviteSummary,
 } from './collab-groups-model.mjs';
@@ -16,7 +17,7 @@ import {UNION_LABEL} from './profile-words.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
-export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => ({}), appRoot = window.KPTUAuth?.APP_ROOT || location.href, win = window} = {}) {
+export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => ({}), onCount = () => {}, onOpen = () => {}, appRoot = window.KPTUAuth?.APP_ROOT || location.href, win = window} = {}) {
   const state = {groups: null, failed: false, busy: false, form: null, created: '', link: null, join: null, open: new Set()};
   const rpc = (name, body = {}) => rt.api(`/rest/v1/rpc/${name}`, {method: 'POST', body, singleFlight: false});
 
@@ -63,14 +64,14 @@ export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => (
   }
   function render() {
     const gs = state.groups;
-    const head = `<h3>내 묶음 <span class="cg-n">${gs ? gs.length : ''}</span></h3>`;
     let body;
     if (state.failed) body = failHtml({retry: 'data-cg-retry', text: '내 묶음을 불러오지 못했어요.'});
     else if (!gs) body = waitHtml({rows: 2});
     else body = `${state.created ? `<div class="cg-card cg-done" role="status">${esc(state.created)}</div>` : ''}${gs.length ? gs.map(groupHtml).join('') : `<div class="cg-muted">${esc(EMPTY_TEXT)}</div>`}
-      ${formHtml()}${state.form ? '' : `<div class="cg-acts"><button class="secondary" type="button" data-cg="new" data-kind="dept">+ ${KIND_NAME.dept} 만들기</button><button class="secondary" type="button" data-cg="new" data-kind="union">+ ${KIND_NAME.union} 만들기</button></div>`}
-      ${gs.length ? '' : `<div class="cg-muted">${esc(INVITE_HINT)}</div>`}`;
-    host.innerHTML = head + joinHtml() + body;
+      ${formHtml()}`;
+    // S71-35: 만들기 단추는 조직 관리 ⋯ 안([부서 묶음 만들기]·[노조 묶음 만들기] → create). 안내는 빈 칸일 때 한 줄(EMPTY_TEXT)만.
+    host.innerHTML = joinHtml() + body;
+    onCount(gs ? gs.length : null);
   }
 
   async function load() {
@@ -93,8 +94,9 @@ export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => (
     if (!token) return;
     // 받은 링크는 읽자마자 주소에서 지운다(뒤로가기·새로고침·화면 캡처에 남지 않게).
     try { win.history.replaceState(win.history.state, '', urlWithoutToken(win.location.href)); } catch { /* 주소 못 바꿈 */ }
-    if (token === 'bad') { state.join = {error: errorText('COLLAB_INVITE_UNUSABLE')}; render(); return; }
+    if (token === 'bad') { state.join = {error: errorText('COLLAB_INVITE_UNUSABLE')}; onOpen(); render(); return; }
     state.join = {token, peek: null};
+    onOpen();
     render();
     try { state.join.peek = await rpc('app_collab_invite_peek', {p_token: token}); }
     catch (e) { state.join = {error: errorText(e)}; }
@@ -130,7 +132,6 @@ export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => (
     const b = e.target.closest?.('[data-cg]');
     if (!b || b.disabled) return;
     const what = b.dataset.cg, id = b.dataset.id;
-    if (what === 'new') { state.form = createDefaults(b.dataset.kind, {union_name: profile().union, department_name: profile().dept}); state.created = ''; render(); host.querySelector('[data-cg-in="union"]')?.focus(); return; }
     if (what === 'form-cancel') { state.form = null; render(); return; }
     if (what === 'join-close') { state.join = null; render(); return; }
     if (what === 'join-accept') {
@@ -188,9 +189,20 @@ export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => (
     }
   });
 
+  // 만들기 칸 열기(조직 관리 ⋯ [부서 묶음 만들기]·[노조 묶음 만들기]). 칸은 접힌 '내 묶음' 안에 열린다.
+  function create(kind) {
+    if (!KIND_NAME[kind]) return;
+    state.form = createDefaults(kind); state.created = '';
+    onOpen(); render();
+    const input = host.querySelector('[data-cg-in="union"]');
+    input?.focus({preventScroll: true});
+    input?.scrollIntoView?.({block: 'nearest'});
+  }
+
   render();
   return {
     async load() { await load(); await startJoin(); },
     refresh: () => render(),
+    create,
   };
 }
