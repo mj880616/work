@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
-// MENU-자리나머지(S61-15) 묶음 A: 통합 검색 결과 줄 메뉴·원문 ⋯ 메뉴·참고 묶음 ⋯ 메뉴를 연 채 그 화면이 뒤에서 다시 그려져도(자료 바뀜 알림·같은 글 다시 열기·연결 바뀜 알림)
+// MENU-자리나머지(S61-15) 묶음 A: 통합 검색 결과 줄 메뉴·원문 ⋯ 메뉴를 연 채 그 화면이 뒤에서 다시 그려져도(자료 바뀜 알림·같은 글 다시 열기)
+// (참고 묶음 ⋯ 시험은 ORG-참고묶음삭제 S71-22에서 화면과 함께 지움)
 // 메뉴는 같은 칸의 새 자리 옆에 그대로 붙어 있고(왼쪽 위로 튀지 않음), 항목을 누르면 그 칸에 대해 실행된다. 칸이 사라지면 메뉴는 닫힌다(공용 anchored-menu keepMenus).
 // 가짜 서버만(이름 모두 가짜). 사진: MENU_FOLLOW_SHOTS 폴더가 있으면 남긴다.
 const SHOTS = process.env.MENU_FOLLOW_SHOTS || '';
@@ -125,74 +126,4 @@ for (const width of [412, 1280]) test(`원문 ⋯ 메뉴 ${width}: 연 채 상�
   await panel.getByRole('button', { name: '복사', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__copied.at(-1) ?? '')).toContain('First fake paragraph.');
   expect(errors).toEqual([]);
-});
-
-// ---------- 참고 묶음 ⋯ ----------
-const n = '10000000-0000-4000-8000-0000000000a1', o = '30000000-0000-4000-8000-0000000000a1', b1 = '50000000-0000-4000-8000-000000000001';
-const L1 = '40000000-0000-4000-8000-000000000101', L2 = '40000000-0000-4000-8000-000000000102';
-async function referenceFixture(page, width) {
-  await page.setViewportSize({ width, height: 900 });
-  await openHome(page);
-  const errors = watchErrors(page);
-  const stamp = '2026-10-06T01:00:00Z';
-  const note = { id: n, workspace_id: 'w', kind: 'basket', occurred_at: stamp, created_at: stamp, updated_at: stamp, raw_text: '가짜 토론회 메모', ai_export_allowed: true, archived_at: null, attachments: [], metadata: {} };
-  const bundles = [{ id: b1, workspace_id: 'w', name: '가짜 묶음', sort_order: 10, created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z' }];
-  const link = (id, summary, at) => ({ id, workspace_id: 'w', note_id: n, status: 'confirmed', summary, organization_id: null, project_id: null, bundle_id: b1, meeting_id: null, document_id: null, occurred_at: at });
-  const links = [link(L1, '가짜 참고 하나', '2026-10-05T00:00:00Z'), link(L2, '가짜 참고 둘', '2026-10-04T00:00:00Z')];
-  await page.route(SB + '/rest/v1/app_suborganizations?**', r => r.fulfill({ json: [{ id: o, workspace_id: 'w', name: '가짜 지부', active: true }] }));
-  await page.route(SB + '/rest/v1/app_suborganization_assignees?**', r => r.fulfill({ json: [{ organization_id: o, user_id: 'home-test' }] }));
-  await page.route(SB + '/rest/v1/app_suborganization_updates?**', r => r.fulfill({ json: [] }));
-  await page.route(SB + '/rest/v1/app_project_progress_updates?**', r => r.fulfill({ json: [] }));
-  await page.route(SB + '/rest/v1/app_notes?**', r => {
-    const q = new URL(r.request().url()).searchParams;
-    if (r.request().method() !== 'GET') return r.fulfill({ json: [] });
-    const kind = q.get('kind'); if (kind && kind !== 'eq.basket') return r.fulfill({ json: [] });
-    return r.fulfill({ json: Number(q.get('offset') || 0) ? [] : [note] });
-  });
-  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_reference_bundles', r => r.fulfill({ json: Number(new URL(r.request().url()).searchParams.get('offset') || 0) ? [] : bundles.map(b => ({ ...b })) }));
-  await page.route(SB + '/rest/v1/app_record_links?**', r => {
-    const q = new URL(r.request().url()).searchParams;
-    if (q.has('google_task_id') || Number(q.get('offset') || 0)) return r.fulfill({ json: [] });
-    let rows = links.map(l => ({ ...l, organization: null, project: null, meeting: null, document: null, bundle: { name: '가짜 묶음' } }));
-    if (q.get('bundle_id') === 'not.is.null') rows = rows.map(l => ({ ...l, note: { id: n, workspace_id: 'w', occurred_at: l.occurred_at, raw_text: note.raw_text, kind: 'basket', title: null } }));
-    else rows = [];
-    return r.fulfill({ json: rows });
-  });
-  await page.evaluate(() => window.KPTURouter.go('team'));
-  const entry = page.locator('#soOrganizationList .so-reference-entry');
-  await expect(entry).toBeVisible();
-  await entry.click();
-  await expect(page.locator('#referenceView')).toBeVisible();
-  await page.locator(`#rbList [data-rb-bundle="${b1}"]`).click();
-  await expect(page.locator('#rbDetail .rb-item')).toHaveCount(2);
-  return { errors, links };
-}
-const linksChanged = page => () => page.evaluate(() => window.dispatchEvent(new CustomEvent('kptu:basket-links-changed')));
-for (const width of [412, 1280]) test.describe(`참고 묶음 ⋯ ${width}`, () => {
-  test('줄 ⋯: 연 채 다시 읽어 그려도 같은 줄 옆에 붙고 항목이 눌린다', async ({ page }) => {
-    const { errors } = await referenceFixture(page, width);
-    const more = page.locator(`#rbDetail [data-rb-item-more="${L2}"]`), panel = page.locator('#rbMenu');
-    await more.click();
-    await expect(panel).toBeVisible();
-    await redraw(more, linksChanged(page));
-    await expect(panel).toBeVisible();
-    await expect(more).toHaveAttribute('aria-expanded', 'true');
-    expect(await nextTo(panel, more)).toBe(true);
-    await shot(page, width, 'reference-item-menu-kept');
-    // 다시 그린 뒤에도 그 줄에 대해 실행된다: [연결 해제] → 묻기 창.
-    await panel.locator('[data-rb-act="disconnect"]').click();
-    expect(await answerAsk(page, false)).toContain('연결');
-    expect(errors).toEqual([]);
-  });
-  test('줄 ⋯: 연 채 그 줄이 없어지면 메뉴가 닫힌다', async ({ page }) => {
-    const { errors, links } = await referenceFixture(page, width);
-    const more = page.locator(`#rbDetail [data-rb-item-more="${L2}"]`), panel = page.locator('#rbMenu');
-    await more.click();
-    await expect(panel).toBeVisible();
-    links.splice(1, 1); // 다른 화면에서 그 연결을 끊었다
-    await linksChanged(page)();
-    await expect(page.locator('#rbDetail .rb-item')).toHaveCount(1);
-    await expect(panel).toBeHidden();
-    expect(errors).toEqual([]);
-  });
 });

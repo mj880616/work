@@ -51,7 +51,7 @@ async function fixture(page,{width=390,scheme='light'}={}){
  });
  return {errors,writes};
 }
-// REF-참고묶음: with [참고] the place row is wider than a 390px phone and slides sideways (filter-chips.css); bring the chip into view first, as a finger would.
+// The place row may be wider than a 390px phone and slide sideways (filter-chips.css); bring the chip into view first, as a finger would.
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 const rows=page=>page.locator('#basketView [data-basket-row]');
 const shown=page=>rows(page).evaluateAll(els=>els.map(el=>el.dataset.basketRow));
@@ -80,7 +80,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[처리
  await pickBasketView(page,'classified');
  const places=page.locator('[data-basket-place-filter]');await expect(places).toBeVisible();
  await expect(places).toHaveAttribute('role','radiogroup');await expect(places).toHaveAttribute('aria-label','분류된 곳');
- await expect(places.getByRole('radio')).toHaveText(['전체','담당조직','사업영역','참고','자료실','할 일','업무일지']);
+ await expect(places.getByRole('radio')).toHaveText(['전체','담당조직','사업영역','자료실','할 일','업무일지']);
  await expect(places.locator('[aria-checked="true"]')).toHaveText('전체');
  // It sits right under the segment row, and above the list.
  const segBox=await seg.boundingBox(),placeBox=await places.boundingBox(),listBox=await page.locator('#basketView [data-basket-rows]').boundingBox();

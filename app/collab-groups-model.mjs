@@ -14,8 +14,8 @@ export const CREATED_TEXT = {
   union: `${UNION_WORD} 묶음을 만들었어요. 같은 이름 묶음이 이미 있으면 그 묶음에서 수락할 때 하나로 합쳐져요.`,
 };
 export const LIMIT_HINT = '하루에 3번까지 만들 수 있어요. 넘으면 같은 안내 뒤에 아무 일도 일어나지 않아요.';
-export const EMPTY_TEXT = word('같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.');
-export const INVITE_HINT = '초대 링크를 받았으면 그 링크를 누르면 돼요.';
+// S71-35: 안내는 접힌 '내 묶음' 안 한 줄(옛 설명 두 줄 + 초대 안내를 줄임). 만들기는 조직 관리 ⋯ 안이다.
+export const EMPTY_TEXT = word('같은 부서·노조 사람과 나눠 봐요. ⋯에서 만들거나 받은 초대 링크를 눌러요.');
 export const LINK_NOTE = '7일 동안 한 사람이 쓸 수 있어요. 이 창을 닫으면 다시 볼 수 없어요(필요하면 새로 만들기).';
 // 들어갈 때 알리고 동의받는 것(결정 ①, 시안 ②·⑥).
 export const CONSENT_LINES = [
@@ -66,9 +66,9 @@ export function groupMeta(g) {
   if (g?.my_role === 'admin' && req) parts.push(`요청 ${req}`);
   return parts.join(' · ');
 }
-// 만들기 창 기본값: 프로필의 노조명·부서명(고칠 수 있음, 시안 ②). 노조 묶음은 부서명 없음.
-export function createDefaults(kind, profile = {}) {
-  return {kind, union: cleanName(profile.union_name), dept: kind === 'dept' ? cleanName(profile.department_name) : ''};
+// 만들기 창 기본값: 빈 칸(S71-34 PROFILE-이름만 — 프로필은 소속·부서를 받지 않으므로 만들기 창에서 직접 쓴다). 노조 묶음은 부서명 없음.
+export function createDefaults(kind) {
+  return {kind, union: '', dept: ''};
 }
 export function createReady(form) {
   return !!cleanName(form?.union) && (form?.kind !== 'dept' || !!cleanName(form?.dept));
@@ -82,11 +82,11 @@ export function createArgs(form) {
   };
 }
 
-// 초대 링크: 앱 주소 + ?view=profile&join=<64자>. 링크 글자는 화면 메모리에만 둔다(서버는 해시만 가짐).
+// 초대 링크: 앱 주소 + ?view=team&join=<64자>(S71-35: '내 묶음'이 조직 관리로 옮겨 감 — 옛 ?view=profile 링크는 내 프로필이 조직 관리로 넘긴다). 링크 글자는 화면 메모리에만 둔다(서버는 해시만 가짐).
 export function inviteUrl(appRoot, token) {
   if (!TOKEN_RE.test(String(token || ''))) return '';
   const u = new URL(appRoot);
-  u.searchParams.set('view', 'profile');
+  u.searchParams.set('view', 'team');
   u.searchParams.set(INVITE_PARAM, token);
   return u.href;
 }

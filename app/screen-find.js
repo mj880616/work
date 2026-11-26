@@ -3,16 +3,19 @@
 //  1) 화면 찾기 등록표: 화면이 registerScreenFind(key, {active, label, value, apply})로 자기 걸러 내기 함수를 넘긴다.
 //     맨 위 칸(global-search.js)은 지금 화면에 등록된 찾기가 있으면 그 칸의 안내글·글자를 그 찾기 것으로 바꾸고, 칠 때 apply를 부른다.
 //     새 검색을 만들지 않는다 — apply는 그 화면이 원래 쓰던 걸러 내기 함수 그대로다.
-//  2) 옮겨 온 단추 상자: 화면 안 검색 줄에 있던 고르기·⋯·만들기 단추가 사는 상자(toolsBox). 상자는 PC 틀(761px~)이면 상단 줄
-//     검색 칸 오른쪽([data-screen-tools="top"]), 폰 틀이면 앱 머리 줄 오른쪽([data-screen-tools="head"])에 붙고(S70-53 공용 자리),
+//  2) 옮겨 온 단추 상자: 화면 안 검색 줄에 있던 고르기·⋯·만들기 단추가 사는 상자(toolsBox). 상자는 PC 틀(761px~)이면 그 화면 안
+//     첫 줄 오른쪽 끝(S71-59, screen-tools.js lineSlot), 폰 틀이면 앱 머리 줄 오른쪽([data-screen-tools="head"])에 붙고(S70-53 공용 자리),
 //     지금 화면 것만 보인다. 상자 안 단추의 그리기·누르기는 계속 그 화면이 한다(여기서는 자리만).
 //  3) 비슷한 것 찾기(SEARCH-비슷한것찾기 S70-67, 명진 11/26 08:22~08:24): 화면은 걸러 낼 때 findFor(key, 글자)로 공용 판정(find-match-model.mjs —
 //     띄어쓰기 무시·오타·초성·앞부분)을 받아 줄마다 hit()을 부른다. 화면마다 따로 만들지 않는다. 맞은 부분 굵게는 spec.marks(글자 칸 고르개)
 //     안 글자에 여기서 한 번 칠한다(CSS Custom Highlight — 글을 바꾸지 않고 칠만). 결과가 3개 미만이거나 문장이면 서버 AI(ai-assist find_expand)에
 //     그 글 하나만 보내 비슷한 말·기간을 받아 다시 거르게 하고(spec.apply(글, {again: true})), 맨 위 칸 아래에 '비슷한 말로도 찾았어요' 한 줄을 둔다.
+//  4) 화면 이름 옆 작은 글자(noteBox, S71-27 NEWS-머리한줄): '읽을 거리 · 새 글 40'처럼 화면 이름 바로 뒤 작은 회색 글 한 칸. 자리는 폰·폴드 머리 줄 이름 뒤
+//     ([data-screen-note="head"]), PC 틀은 맨 위 줄 위치(›) 뒤([data-screen-note="top"]). 단추 상자와 같이 지금 화면 것만 보이고, 글자는 그 화면이 채운다.
 // 저장하는 것 없음(화면 찾기 글자·비슷한 말은 이 탭 메모리).
 import {compileFind, inPeriod, markRanges, wantsMeaning, looksSentence} from './find-match-model.mjs';
-const scopes = new Map(), listeners = new Set(), boxes = new Map();
+import {lineSlot} from './screen-tools.js'; // S71-59 UI-화면메뉴안으로: PC 틀 단추 상자 자리 = 그 화면 안 첫 줄 오른쪽 끝(표는 screen-tools.js 한 곳)
+const scopes = new Map(), listeners = new Set(), boxes = new Map(), notes = new Map();
 const WIDE = window.matchMedia('(min-width:761px)');
 let current = null, queued = false;
 
@@ -40,11 +43,23 @@ export function toolsBox(key, view) {
   if (!box) {
     box = document.createElement('div');
     box.className = 'sf-tools'; box.dataset.sfTools = key; box.hidden = true;
-    if (view) box.dataset.screenToolsFor = view + 'View';
+    if (view) { box.dataset.screenToolsFor = view + 'View'; box.dataset.sfView = view; }
     boxes.set(key, box);
     place();
   }
   return box;
+}
+
+// 화면 이름 옆 작은 글자 칸(처음 부를 때 만든다). 화면은 textContent만 채운다(빈 글자면 자리째 없음 — CSS).
+export function noteBox(key) {
+  let el = notes.get(key);
+  if (!el) {
+    el = document.createElement('span');
+    el.className = 'sf-note'; el.dataset.sfNote = key; el.hidden = true;
+    notes.set(key, el);
+    place();
+  }
+  return el;
 }
 
 function pick() {
@@ -53,15 +68,21 @@ function pick() {
   }
   return null;
 }
-function hostFor() {
-  // 자리 두 칸은 S70-53 공용 자리(index.html [data-screen-tools="top"|"head"], screen-tools.js와 같은 칸)를 같이 쓴다.
-  return document.querySelector(WIDE.matches ? '[data-screen-tools="top"]' : '[data-screen-tools="head"]');
+function hostFor(box) {
+  // 폰 틀은 S70-53 공용 자리(index.html 앱 머리 줄 [data-screen-tools="head"], screen-tools.js와 같은 칸).
+  // PC 틀은 S71-59: 그 화면 안 첫 줄 오른쪽 끝(screen-tools.js lineSlot — 맨 위 줄에는 앱 전체 것만).
+  return WIDE.matches ? lineSlot(box.dataset.sfView) : document.querySelector('[data-screen-tools="head"]');
 }
 function place() {
-  const host = hostFor();
   for (const [key, box] of boxes) {
+    const host = hostFor(box);
     if (host && box.parentElement !== host) host.append(box);
     box.hidden = key !== current?.key;
+  }
+  const noteHost = document.querySelector(WIDE.matches ? '[data-screen-note="top"]' : '[data-screen-note="head"]');
+  for (const [key, el] of notes) {
+    if (noteHost && el.parentElement !== noteHost) noteHost.append(el);
+    el.hidden = key !== current?.key;
   }
 }
 function sync() {
@@ -75,6 +96,7 @@ function sync() {
 // 화면이 바뀌면 그 화면이 자기 칸을 그린 뒤 맞춘다(같은 틱 안의 화면 그리기가 먼저).
 window.addEventListener('kptu:view-changed', () => { refreshScreenFind(); requestAnimationFrame(refreshScreenFind); });
 WIDE.addEventListener('change', () => { place(); for (const fn of listeners) fn(current); });
+window.addEventListener('kptu:screen-line', place); // S71-59: 화면 첫 줄이 새로 생기면(screen-tools.js placeScreenTools) PC 틀 상자 자리를 다시 맞춘다
 
 // ---------- 비슷한 것 찾기(S70-67) ----------
 const states = new Map();          // key -> {text, sig, find, period, count, timer}

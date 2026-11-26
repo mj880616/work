@@ -72,7 +72,7 @@ async function photos(page, width, { first = '' } = {}) {
     return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
   });
   await clickView(page, 'photos');
-  await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   return { errors, tree: page.locator('#photosRoot [data-photos-fx-tree][role="tree"]'), main: '.ft-row .ft-main' };
 }
 const SCREENS = [['자료실', library], ['노트', notes], ['사진', photos]];
@@ -1679,7 +1679,42 @@ async function readingSwipe(page) {
     },
   };
 }
-const SWIPE_PICK_SCREENS = [['할 일', tasksSwipe], ['저장한 글', readingSwipe]];
+// S71-30 BRIEF-밀기: 브리핑 룸 자료 줄(공용 밀기). [삭제] = 브리핑만 삭제(되돌리기 없음 → 확인 한 번), 자료는 자료실에 남는다.
+async function briefSwipe(page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const ids = [1, 2, 3].map(n => `d0000000-0000-4000-8000-00000000003${n}`);
+  const s = { folder: new Set(ids), briefs: new Set(ids), deletes: [] };
+  const brief = { v: 3, lead: '가상 요지', gist: ['가상 요지'], sections: [{ title: '가상 소제목', items: [{ text: '가상 줄', page: 1 }] }], quotes: [] };
+  await openHome(page, { beforeLoad: async () => {
+    await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: ids.filter(id => s.briefs.has(id)).map((id, i) => ({ id: 'b' + i, document_id: id, status: 'done', stage: 'done', step_no: 1, step_total: 1, page_count: 2, brief, edited: null, edited_at: null, error_code: null, created_at: '2026-11-24T00:00:00Z', updated_at: '2026-11-24T00:00:00Z', finished_at: '2026-11-24T00:00:00Z' })) }));
+    await page.route(SB + '/rest/v1/rpc/app_document_brief_delete', r => { const id = r.request().postDataJSON().p_document_id; s.deletes.push(id); s.briefs.delete(id); return r.fulfill({ status: 204, body: '' }); });
+    await page.route(SB + '/rest/v1/app_library_folders**', r => r.fulfill({ json: r.request().method() === 'GET' ? [{ id: 'f-brief', parent_id: null, name: '브리핑 요청함', sort_order: 1, project_id: null }] : [] }));
+    await page.route(SB + '/rest/v1/app_library_folder_items**', r => {
+      const req = r.request(), u = new URL(req.url());
+      if (req.method() === 'DELETE') { s.folder.delete((u.searchParams.get('document_id') || '').replace('eq.', '')); return r.fulfill({ status: 204, body: '' }); }
+      return r.fulfill({ json: [...s.folder].map(document_id => ({ document_id, folder_id: 'f-brief' })) });
+    });
+    await page.route(SB + '/rest/v1/app_documents?**', r => {
+      if (r.request().method() !== 'GET') return r.fallback();
+      return r.fulfill({ json: ids.map((id, i) => ({ id, workspace_id: 'w', category: '기타', visibility: 'private', title: `가상 자료 ${i + 1}`, file_name: `가상${i + 1}.pdf`, mime_type: 'application/pdf', file_id: 'FILE_aaaaaaaaa' + i, created_at: '2026-11-2' + (i + 1) + 'T00:00:00Z' })) });
+    });
+  } });
+  await page.evaluate(() => window.KPTURouter.go('brief'));
+  const rows = page.locator('#briefView .br-row[data-br-open]');
+  await expect(rows).toHaveCount(3);
+  const row = id => page.locator(`#briefView .br-row[data-br-open="${id}"]`);
+  return {
+    scope: page.locator('#briefView'), rows, total: 3, first: row(ids[0]), second: row(ids[1]), tapAt: l => l.locator('.fx-name'),
+    async del() {
+      const ask = page.locator('.kptu-ask');
+      await expect(ask).toContainText('2개');
+      await ask.locator('.kptu-ask-actions button').nth(1).click();
+      await expect.poll(() => [...s.deletes].sort()).toEqual([ids[0], ids[1]].sort());
+      await expect(rows).toHaveCount(1);
+    },
+  };
+}
+const SWIPE_PICK_SCREENS = [['할 일', tasksSwipe], ['저장한 글', readingSwipe], ['브리핑 룸', briefSwipe]];
 for (const [name, open] of SWIPE_PICK_SCREENS) test(`W3 ${name} 폰 390: 오른쪽 밀기 = 고르기, 줄 눌러 더 고르기, [전체 선택] 켜고 끄기(체크), 뒤로가기로 끝, [삭제] 일괄`, async ({ page }) => {
   test.setTimeout(120000);
   const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -1906,7 +1941,7 @@ async function t10Photos(page, width) {
     return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
   });
   await clickView(page, 'photos');
-  await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   const pane = page.locator('#photosRoot .photos-fx-pane');
   const kid = { S1: '', S2: 'S21', S21: 'S211' };
   return {
@@ -2019,42 +2054,53 @@ const q3Box = async loc => { const b = await loc.boundingBox(); expect(b).not.to
 // 누르기 전 자리: 맨 위 줄이 다 그려질 때까지(PC 위치 줄·단추 상자가 늦게 붙으면 칸 폭이 바뀐다 — 누르기와 상관없음) 두 번 잰 값이 같아질 때를 쓴다.
 const q3Settled = async loc => { let last = null; for (let i = 0; i < 20; i++) { const b = await q3Box(loc); if (last && ['x', 'y', 'w', 'h'].every(k => last[k] === b[k])) return b; last = b; await loc.page().waitForTimeout(150); } return last; };
 const q3Same = (a, b, what) => { for (const k of ['x', 'y', 'w', 'h']) expect(Math.abs(a[k] - b[k]), `${what} ${k}`).toBeLessThanOrEqual(1); };
-for (const width of Q3_WIDTHS) test(`Q3 홈 ${width}: '전체 검색' 칸을 누르면 같은 자리·같은 크기로 입력, 결과만 아래 · 뒤로 = 홈 원래 상태`, async ({ page }) => {
+// S71-41 HOME-머리한줄(사용자 요청 11/26): 폰 틀 홈은 날짜 줄 끝 돋보기 → 누르면 그 첫 줄 자리에
+// 전체 검색 칸(전체 검색 화면 머리 줄)이 열리고 결과만 아래. 칸은 돋보기와 같은 줄(가운데 높이 같음)·오른쪽 끝 같음, 친 뒤에도 그대로. PC 틀은 맨 위 줄 칸 그대로.
+for (const width of Q3_WIDTHS) test(`Q3 홈 ${width}: '전체 검색'을 누르면 그 자리(폰 틀은 돋보기 줄)에서 입력, 결과만 아래 · 뒤로 = 홈 원래 상태`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await openHome(page);
-  const input = page.locator(width > 760 ? '#gsTopInput' : '#gsHeadInput');
-  await expect(input).toBeVisible();
-  await expect(input).toHaveAttribute('placeholder', '전체 검색');
-  const before = await q3Settled(input);
-  await input.click();
+  const phone = width <= 760;
+  const input = page.locator(phone ? '#gsHeadInput' : '#gsTopInput');
+  const entry = phone ? page.locator('#homeView [data-journal-find]') : input;
+  await expect(entry).toBeVisible();
+  if (phone) { await expect(entry).toHaveAccessibleName('전체 검색'); await expect(input).toBeHidden(); }
+  else await expect(input).toHaveAttribute('placeholder', '전체 검색');
+  const before = await q3Settled(entry);
+  await entry.click();
   await expect(input).toBeFocused();
-  if (width <= 760) {
+  await expect(input).toHaveAttribute('placeholder', '전체 검색');
+  let opened = before;
+  if (phone) {
     await expect(page.locator('#searchView')).toBeVisible();
     await expect(page.locator('#homeView')).toBeHidden();
     // 화면 안 두 번째 칸·'검색' 제목 줄 없음.
     await expect(page.locator('#searchView input')).toHaveCount(0);
     await expect(page.locator('#appView > .mobile-shell-header [data-mobile-view-name]')).toBeHidden();
-  }
-  q3Same(before, await q3Box(input), '누른 뒤');
+    opened = await q3Box(input);
+    // 돋보기가 있던 그 줄: 가운데 높이 같고 오른쪽 끝 같음(칸은 그 줄 왼쪽으로 펼쳐짐).
+    expect(Math.abs((opened.y + opened.h / 2) - (before.y + before.h / 2)), '같은 줄').toBeLessThanOrEqual(2);
+    expect(Math.abs((opened.x + opened.w) - (before.x + before.w)), '오른쪽 끝').toBeLessThanOrEqual(1);
+    expect(opened.h).toBe(36);
+  } else q3Same(before, await q3Box(input), '누른 뒤');
   await input.pressSequentially('가상', { delay: 20 });
   await expect(input).toHaveValue('가상');
-  if (width > 760) await expect(page.locator('#gsPanel')).toBeVisible();
-  q3Same(before, await q3Box(input), '친 뒤');
+  if (!phone) await expect(page.locator('#gsPanel')).toBeVisible();
+  q3Same(opened, await q3Box(input), '친 뒤');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   // 뒤로: 폰 틀은 기기 뒤로가기(전체 검색 화면을 닫음), PC 틀은 Esc(결과 창을 닫음). 홈은 원래 상태.
-  if (width <= 760) {
+  if (phone) {
     await page.goBack();
     await expect(page.locator('#homeView')).toBeVisible();
     await expect(input).toHaveValue('');
-    await expect(input).not.toBeFocused();
+    await expect(input).toBeHidden();
   } else {
     await page.keyboard.press('Escape');
     await expect(page.locator('#gsPanel')).toBeHidden();
     await expect(page.locator('#homeView')).toBeVisible();
   }
-  q3Same(before, await q3Box(input), '뒤로 뒤');
+  q3Same(before, await q3Box(entry), '뒤로 뒤');
   expect(errors).toEqual([]);
 });
 for (const width of Q3_WIDTHS) for (const c of MENU_FINDS) test(`Q3 ${c.name} ${width}: '${c.label}' 칸은 누르고 쳐도 같은 자리·같은 크기`, async ({ page }) => {

@@ -80,7 +80,11 @@ test('아래 줄은 다섯 칸까지: 고르기 줄·크게 보기 줄 모두, �
   // 공유 ▾ 안: 크게 보기 = 사진 복사·일기·업데이트·받기·다른 앱, 고르기 = 복사 빼고 같은 순서.
   assert.deepEqual([...PHOTO_BAR_MENUS.viewBar.share], ['copy', 'diary', 'basket', 'down', 'native']);
   assert.deepEqual([...PHOTO_BAR_MENUS.selectBar.share], ['diary', 'basket', 'down', 'native']);
-  assert.deepEqual([...PHOTO_BAR_MENUS.viewBar.edit], ['edit', 'info']);
+  // S71-62 PHOTO-설명: [수정 ▾] 끝에 '설명', 고르기 [메뉴] 끝에 '설명 붙이기'(같은 칸 재사용).
+  assert.deepEqual([...PHOTO_BAR_MENUS.viewBar.edit], ['edit', 'info', 'desc']);
+  assert.equal(PHOTO_BAR_MENUS.selectBar.more.at(-1), 'descAdd');
+  assert.equal(barItemText('desc'), '설명');
+  assert.equal(barItemText('descAdd'), '설명 붙이기');
   assert.equal(barItemText('tag'), '앨범에 넣기');
   assert.equal(barItemText('basket'), '업데이트로 보내기');
   // 그리기 코드는 한 곳, 아이콘은 모두 같은 선 아이콘(글자 모양 ✚ ↥ # ↩ 없음), ▾ 칸은 공유·편집만.
