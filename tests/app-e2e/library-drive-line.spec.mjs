@@ -81,9 +81,9 @@ test('서버 답 주소가 드라이브 폴더 주소가 아니면 그리지 않
 });
 
 // S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [드라이브 폴더 맞추기]·[맨 위 파일 정리]·[같은 내용 자료 정리]·[드라이브와 맞는지 보기]는 지웠다.
-// 저장 위치가 있어도 ⋯에 넷 다 없고, [드라이브에서 가져오기]는 남는다. 새 자료·폴더 변경은 '앞으로 같게'(drive-mirror auto)가 그대로 맞춘다.
+// 저장 위치가 있어도 ⋯에 넷 다 없다(S70-73: [드라이브에서 가져오기]도 지움 — 자료실을 열 때 자동 등록). 새 자료·폴더 변경은 '앞으로 같게'(drive-mirror auto)가 그대로 맞춘다.
 for(const width of [390,1280]){
-  test(`자료실 ⋯에 한 번 정리 메뉴 넷이 없다, 가져오기는 남고 자동 맞추기는 그대로 (${width})`,async({page})=>{
+  test(`자료실 ⋯에 한 번 정리 메뉴 넷·가져오기가 없다, 자동 맞추기는 그대로 (${width})`,async({page})=>{
     const state=await boot(page,{width,place:PLACE,mirror:[{ok:true,state:'not_aligned',folders_made:0,folders_fixed:0,files_moved:0,cant:0,pending:1,more:false,stopped:false}]});
     await expect(page.locator('#libraryDriveLine .lu-drive-where')).toBeVisible();
     await expect.poll(()=>state.mirrorAsks.length).toBe(1); // 처음 들어오면 '앞으로 같게' 한 번
@@ -92,9 +92,8 @@ for(const width of [390,1280]){
     await page.locator('#libraryTopMenuBtn').click();
     const menu=page.locator('#luTopMenu');
     await expect(menu).toBeVisible();
-    await expect(menu.locator('[data-lu-top="drive-import"]')).toHaveText('드라이브에서 가져오기');
-    await expect(menu.locator('[data-lu-top="drive-align"],[data-lu-top="top-files"],[data-lu-top="same-content"],[data-lu-top="drive-check"]')).toHaveCount(0);
-    for(const word of ['드라이브 폴더 맞추기','맨 위 파일 정리','같은 내용 자료 정리','드라이브와 맞는지 보기'])await expect(menu).not.toContainText(word);
+    await expect(menu.locator('[data-lu-top="drive-import"],[data-lu-top="drive-align"],[data-lu-top="top-files"],[data-lu-top="same-content"],[data-lu-top="drive-check"]')).toHaveCount(0);
+    for(const word of ['드라이브에서 가져오기','드라이브 폴더 맞추기','맨 위 파일 정리','같은 내용 자료 정리','드라이브와 맞는지 보기'])await expect(menu).not.toContainText(word);
     expect(state.mirrorAsks.every(b=>b?.mode==='auto')).toBe(true);
     expect(state.asks.filter(a=>/drive-check|gather-folders/.test(a.query))).toEqual([]);
   });
