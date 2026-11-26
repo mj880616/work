@@ -45,6 +45,11 @@ export const FOLDER_NAMES = Object.freeze({
   photo_trash: Object.freeze({ old: '.노조+ 휴지통', now: `.${DRIVE_BRAND} 휴지통`, olds: without(['.노조+ 휴지통', '.Web2 휴지통', ...pastBrand(' 휴지통').map(n => `.${n}`)], `.${DRIVE_BRAND} 휴지통`), drive: false }),
 });
 
+// S71-49 NOTE-보드사진(사용자 결정 2026-11-26 "보드 위에 붙여넣은 사진은 WORK ON + 폴더 안에 보드 사진 관련 폴더를 만들어서 자동으로 거기"):
+// 노트 보드에 넣은 사진 파일이 들어가는 폴더 이름. 맨 위 앱 폴더(app_drive_settings.root_folder_id) 바로 아래에 서버가 찾거나 만든다
+// (_shared/drive-upload.ts boardPhotoFolder). 앱 이름이 붙지 않는 이름이라 브랜드가 바뀌어도 그대로다.
+export const BOARD_PHOTO_FOLDER_NAME = '보드 사진';
+
 /** 이 종류 폴더로 알아볼 이름 전부(옛 이름들 + 지금 이름). 표식 없는 옛 폴더 찾기·이름 거절에 쓴다. */
 export const knownFolderNames = kind => Object.freeze([...FOLDER_NAMES[kind].olds, FOLDER_NAMES[kind].now]);
 

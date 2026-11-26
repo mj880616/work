@@ -45,6 +45,8 @@ function world({feature=WS,sheets=[{id:SHEET,parents:[ROOTF]}],named=[{id:NAMEDF
    assert.equal(u.pathname,'/drive/v3/files');
    const qq=u.searchParams.get('q');
    assert.match(qq,/trashed = false/);assert.match(qq,/'me' in owners/);
+   // S71-62: 드라이브 글자 찾기(fullText). 이 파일의 세계는 늘 빈 결과(합치기는 gdrive-photos-desc.test.mjs).
+   if(qq.includes('fullText contains')){assert.match(qq,/mimeType contains 'image\/'/);return ok({files:[]});}
    if(qq.includes("mimeType = 'application/vnd.google-apps.folder'")){assert.match(qq,/^name = 'WORK ON\+'/);return ok({files:named});}
    if(qq.includes("mimeType = 'application/vnd.google-apps.spreadsheet'")){
     assert.ok(qq.startsWith(`name = '${PHOTO_INDEX_SHEET}'`));
