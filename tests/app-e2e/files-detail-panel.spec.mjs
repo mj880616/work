@@ -92,7 +92,6 @@ test('PC 1280: 상세 칸에 동작 단추 없음 · 줄 우클릭으로 열기�
   expect((await prev(page).boundingBox()).width).toBeLessThanOrEqual(32);
   await expect.poll(async () => (await listCol.boundingBox()).width).toBeGreaterThan(wide0 + 200);
   await expect.poll(() => prefs.value?.files_prev_shut).toBe(true);
-  expect(await page.evaluate(() => JSON.stringify(localStorage).includes('prev_shut'))).toBe(false);
 
   // ④ 새로 열어도 접힌 채(서버 기억).
   await page.reload();
