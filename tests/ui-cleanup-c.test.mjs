@@ -37,7 +37,7 @@ test('④ 화면 칸 전체의 버튼 기본 모양(#화면 button)이 글 편�
   // NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head)·날짜 숫자(.rv-table)도 뺀다(모양은 공용 6가지·month-cal.css).
   // NOTE-유튜브보기(S67-04): 글 속 영상 칸(.ed-video)의 ▶도 뺀다(모양은 ed-doc.css 한 곳).
   // S69-82: 노트 보드 생각 지도 상자 안·선택한 상자 막대(.nb-node-bar·.nb-text)도 뺀다(모양은 공용 icon-btn·ds-chip·ui-swatch).
-  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?(?:, \.nbx \*)?(?:, \.nb-node-bar \*, \.nb-text \*)?(?:, \.up-rows \*)?(?:, \.ds-seg-btn)?(?:, \.ed-video \*)?(?:, \.rv-cal-head \*, \.rv-table \*)?(?:, \.fr-edit)?(?:, \.fr-acts \*)?(?:, \.nbb-bg \*)?\) \{/);
+  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?(?:, \.nbx \*)?(?:, \.nb-node-bar \*, \.nb-text \*(?:, \.nbb-bg \*)?)?(?:, \.up-rows \*)?(?:, \.ds-seg-btn)?(?:, \.ed-video \*)?(?:, \.rv-cal-head \*, \.rv-table \*)?(?:, \.fr-edit)?(?:, \.fr-acts \*)?\) \{/);
 });
 
 test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [·][▾] 두 칸 없음)', () => {
