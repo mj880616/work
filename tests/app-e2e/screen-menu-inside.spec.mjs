@@ -18,7 +18,8 @@ const orgs = [
 const SCREENS = [
   { key: '노트', view: 'basket', kind: 'note', tool: '[data-note-folder-more]', line: '#basketView [data-note-list] > .note-list-head' },
   // 잊지 말기(S71-29 둘째 줄 없앰)는 노트와 같은 화면 칸(#basketView)이라 첫 줄 자리를 같이 쓴다 — 지금 보이는 쪽의 첫 줄(.basket-head)로 간다.
-  { key: '잊지 말기', view: 'basket', kind: 'memo', tool: '[data-inbox-find]', line: '#basketView > .basket-head' },
+  // S71-58 FORGET-처리전만: [처리 전 ▾] 걸러 보기 단추는 없앴다 — 남은 단추는 ↻(gone: 어디에도 없어야 하는 것).
+  { key: '잊지 말기', view: 'basket', kind: 'memo', tool: '[data-inbox-find]', line: '#basketView > .basket-head', gone: ['[data-forget-view-open]'] },
   { key: '조직 관리', view: 'team', tool: '#soTeamMore', line: '#soTeamTabs' },
   { key: '자료실', view: 'library', tool: '#libraryTopMenuBtn', line: '#libraryView .lu-search-row', also: ['#newDocumentBtn'] },
   { key: '읽을 거리', view: 'outside', tool: '[data-os-more]', line: '#outsideRoot > .os-tabs', also: ['[data-nw-media]'] },
@@ -54,6 +55,7 @@ test('PC 1280: 화면 전용 단추·⋯는 화면 안 첫 줄 오른쪽 끝, �
     const panel = page.locator(`#${s.view}View`), tool = panel.locator(s.tool);
     await expect(tool, `${s.key}: 화면 안에 단추`).toBeVisible();
     for (const sel of s.also || []) await expect(panel.locator(sel), `${s.key}: ${sel}도 화면 안`).toBeVisible();
+    for (const sel of s.gone || []) await expect(page.locator(sel), `${s.key}: ${sel}는 없음`).toHaveCount(0);
     // 맨 위 줄에는 이 화면 단추가 없다(앱 전체 것만: 메뉴 숨기기·뒤로·앞으로·위치·찾기·+ 추가·계정).
     await expect(topline.locator([s.tool, ...(s.also || [])].join(',')), `${s.key}: 맨 위 줄에 없음`).toHaveCount(0);
     await expect(topline.locator('[data-screen-tools-for]:visible'), `${s.key}: 맨 위 줄 단추 상자 없음`).toHaveCount(0);
