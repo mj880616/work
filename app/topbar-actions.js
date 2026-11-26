@@ -32,25 +32,25 @@ const accounts=logoutButtons.map(logout=>{
   const profile=document.createElement('button');profile.type='button';profile.className='account-action';profile.dataset.profileOpen='';profile.textContent='내 프로필';
   // UI-업데이트기록입구: [내 프로필] 바로 아래 [업데이트 기록] 줄, 오른쪽에 지금 판 이름을 작게(메뉴를 처음 열 때 기록 파일에서 채움).
   const updates=document.createElement('button');updates.type='button';updates.className='account-action account-updates';updates.dataset.updatesOpen='';
-  updates.innerHTML='<span class="account-action-name">업데이트 기록</span>'; // 명진 11/23: 이름 옆 '현재 판' 글자는 빼고 이름만
+  updates.innerHTML='<span class="account-action-name">업데이트 기록</span>'; // 사용자 11/23: 이름 옆 '현재 판' 글자는 빼고 이름만
   // UPDATE-운영자전용기록업데이트소식 PR1: 개발 기록은 운영자만 — 서버 허용 표(app_my_features)에 운영자 개발 키가 있을 때만 줄을 그린다.
   // 읽기 자체는 서버 함수가 운영자만 허용한다(화면에서 줄을 그리는 것은 편의일 뿐 막는 장치가 아님).
   updates.hidden=true;
-  // UPDATE-운영자전용기록업데이트소식 PR3: 모든 이용자에게 '업데이트 소식'(운영자가 보낸 소식만). 새 소식 점·숫자는 붙이지 않는다(명진 11/15 13:37).
+  // UPDATE-운영자전용기록업데이트소식 PR3: 모든 이용자에게 '업데이트 소식'(운영자가 보낸 소식만). 새 소식 점·숫자는 붙이지 않는다(사용자 11/15 13:37).
   const whatsnew=document.createElement('button');whatsnew.type='button';whatsnew.className='account-action';whatsnew.dataset.whatsnewOpen='';whatsnew.textContent='업데이트 소식';
   // FEEDBACK-의견보내기 PR5: 맨 아래(로그아웃 위) '의견 보내기'는 모두에게, '받은 의견 n'은 운영자만(서버 허용 표 dev_inbox일 때만 줄을 그림 — 읽기는 서버가 막음).
   // S69-34 APP-업데이트확인: [업데이트 소식] 아래 '앱 정보'(지금 쓰는 판 모두 + [업데이트 확인] 작은 창, app-info.js). 폰 앱이면 오른쪽에 앱 판.
   const appInfo=document.createElement('button');appInfo.type='button';appInfo.className='account-action';appInfo.dataset.appInfoOpen='';appInfo.setAttribute('aria-haspopup','dialog');
   appInfo.innerHTML='<span class="account-action-name">앱 정보</span><span class="account-ver" data-app-info-ver></span>';
   {const shell=shellOf(navigator.userAgent||'');appInfo.querySelector('[data-app-info-ver]').textContent=shell.kind==='web'?'':shell.version}
-  // S69-71(명진 11/24 "쓰는법 계정 안으로 들여보내줘"): '쓰는 법'은 왼쪽 메뉴 맨 아래 줄이 아니라 계정 메뉴 '앱 정보' 바로 아래 한 줄(PC·폰 같은 자리).
+  // S69-71(사용자 11/24 "쓰는법 계정 안으로 들여보내줘"): '쓰는 법'은 왼쪽 메뉴 맨 아래 줄이 아니라 계정 메뉴 '앱 정보' 바로 아래 한 줄(PC·폰 같은 자리).
   const help=document.createElement('button');help.type='button';help.className='account-action';help.dataset.helpMenu='';help.textContent='쓰는 법';
   const feedback=document.createElement('button');feedback.type='button';feedback.className='account-action';feedback.dataset.feedbackOpen='';feedback.textContent='의견 보내기';feedback.setAttribute('aria-haspopup','dialog');
   const inbox=document.createElement('button');inbox.type='button';inbox.className='account-action';inbox.dataset.feedbackInbox='';inbox.hidden=true;
   inbox.innerHTML='<span class="account-action-name">받은 의견</span><span class="account-count" data-feedback-count></span>';
   // OPS-새가입알림 ③·OPS-가입자현황: '가입자 현황'도 운영자만(같은 서버 허용 표 dev_inbox일 때만 줄을 그림 — 읽기는 서버 app_signup_list가 막음).
   const signups=document.createElement('button');signups.type='button';signups.className='account-action';signups.dataset.signupsOpen='';signups.hidden=true;signups.textContent='가입자 현황';
-  // APP-앱내려받기버튼(명진 11/15): [업데이트 기록] 아래 '앱 내려받기'. 안드로이드 폰 브라우저는 최신 폰 앱 APK 주소(app-download.mjs), PC·아이폰은 누르면 한 줄 안내,
+  // APP-앱내려받기버튼(사용자 11/15): [업데이트 기록] 아래 '앱 내려받기'. 안드로이드 폰 브라우저는 최신 폰 앱 APK 주소(app-download.mjs), PC·아이폰은 누르면 한 줄 안내,
   // 폰 앱 안에서는 줄이 없다(앱이 스스로 업데이트한다).
   const appDl=appDownloadRow();
   const appInstall=appInstallRow();
@@ -63,7 +63,7 @@ const accounts=logoutButtons.map(logout=>{
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
   return {host,trigger,panel,profile,updates,whatsnew,appInfo,help,appInstall,appDl,menuEdit,theme,lockRow,signups,inbox,feedback,nativePopover};
 });
-// S68-36 메뉴 창 정리(명진 11/23 확정): 계정 줄은 두 묶음 — 자주 안 쓰는 설정 링크(내 프로필 · 업데이트 소식 · 앱 정보 · 쓰는 법(S69-71) · 메뉴 수정 · 화면 색 · 잠금 · 의견 보내기)
+// S68-36 메뉴 창 정리(사용자 11/23 확정): 계정 줄은 두 묶음 — 자주 안 쓰는 설정 링크(내 프로필 · 업데이트 소식 · 앱 정보 · 쓰는 법(S69-71) · 메뉴 수정 · 화면 색 · 잠금 · 의견 보내기)
 // 다음에 운영자 줄(업데이트 기록 · 가입자 현황 · 받은 의견 — 보이는 조건은 그대로 서버 기능 확인 결과), 맨 끝 로그아웃. PC 계정 메뉴도 같은 순서.
 function settingsRows(a){return [a.profile,a.whatsnew,a.appInfo,a.help,a.appInstall,a.appDl,a.menuEdit,a.theme,a.lockRow,a.feedback].filter(Boolean)}
 function opsRows(a){return [a.updates,a.signups,a.inbox]}
@@ -126,7 +126,7 @@ const mobileAccount=accounts[0];
 const mobileTab=document.querySelector('#mobileMenuTab');
 const menuButton=()=>mobileTab;
 let mobileOpen=false,mobileClosing=false,mobileOpener=null;
-// S68-36 메뉴 창 정리(명진 11/23 확정, S48-6b 순서를 바꿈): 위에서부터 손잡이 → 설정 링크 묶음 → 운영 줄(+ 로그아웃) → 선 → 전체 검색 → 메뉴 칸.
+// S68-36 메뉴 창 정리(사용자 11/23 확정, S48-6b 순서를 바꿈): 위에서부터 손잡이 → 설정 링크 묶음 → 운영 줄(+ 로그아웃) → 선 → 전체 검색 → 메뉴 칸.
 // 메뉴 칸이 맨 아래(하단바 바로 위, 엄지 닿는 곳). 판 높이는 내용만큼이고, 화면보다 길면 아래 끝에 맞춰 열려 메뉴 칸이 먼저 보인다(판 안 스크롤).
 const sheetToBottom=()=>{if(mobilePanel)mobilePanel.scrollTop=mobilePanel.scrollHeight};
 
