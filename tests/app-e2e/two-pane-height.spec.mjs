@@ -1,5 +1,5 @@
 // UI-두칸높이(S71-60, 사용자 2026-11-26 21:02~21:04 PC 화면 의견): 목록 + 본문 두 칸 화면은
-//  ① 본문(오른쪽) 칸 높이를 고정 숫자로 묶지 않는다 — 칸 아래 끝이 창 아래 끝(붙는 틈 12px)까지 오고, 칸 안 세로 스크롤은 칸이 '붙었을 때 창 높이'를 다 쓴 뒤에만 생긴다.
+//  ① 본문(오른쪽) 칸 높이를 고정 숫자로 묶지 않는다 — 칸 높이 = 창 남은 높이(칸 아래 끝 = 창 아래 끝, 붙는 틈 12px). 내용이 길면 그 칸 안에서만 스크롤.
 //  ② 본문 칸에 가로 스크롤 막대가 없다(넘치는 내용 원인을 고침).
 //  ③ 두 칸 윗선: 오른쪽 칸 위끝 = 왼쪽 목록 윗선(머리 줄이 있으면 그 줄 아래 끝, 통화가 대표) ±2px.
 // 칸 모양은 공용 follow-pane.js + desktop-ui.css(.kptu-follow-pane) 한 곳. 폰 390은 한 칸(본문이 화면 전체)이라 가로 넘침만 본다.
@@ -98,29 +98,15 @@ for (const [name, open] of SCREENS) for (const [width, height] of [[1280, 800], 
     await page.setViewportSize({ width, height });
     const at = () => measure(page, pane, line);
     // 창 크기를 바꾼 뒤 칸이 다시 재어질 때까지(follow-pane은 다음 그림 틀에서 잰다).
-    await expect.poll(async () => { const m = await at(); return Math.round(m.vh - GAP - m.bottom); }, { message: `${name}: 칸 아래 끝이 창 아래 끝(틈 ${GAP}px)까지` }).toBeLessThanOrEqual(2);
+    await expect.poll(async () => { const m = await at(); return Math.abs(Math.round(m.vh - GAP - m.bottom)); }, { message: `${name}: 칸 아래 끝 = 창 아래 끝(틈 ${GAP}px)` }).toBeLessThanOrEqual(2);
     const m = await at();
-    // 칸 안 세로 스크롤은 칸이 '붙었을 때 창 높이'(창 높이 - 붙는 자리 - 틈)를 다 쓴 뒤에만.
-    if (m.inner) expect(m.height, `${name}: 칸 안 스크롤인데 칸 높이가 창 높이를 다 쓰지 않음`).toBeGreaterThanOrEqual(m.vh - m.stuck - GAP - 2);
+    // 칸 높이 = 창 남은 높이(지금 자리에서 창 끝까지) — 칸 안 스크롤이 있어도 칸은 창 끝까지 다 쓴다(고정 숫자 아님).
+    expect(Math.abs(m.height - (m.vh - Math.max(m.top, m.stuck) - GAP)), `${name}: 칸 높이 ${m.height}가 창 남은 높이와 다름`).toBeLessThanOrEqual(2);
     expect(m.wide, `${name}: 본문 칸 가로 넘침`).toBeLessThanOrEqual(0);
     expect(m.docWide, `${name}: 화면 가로 넘침`).toBeLessThanOrEqual(0);
     if (line) expect(Math.abs(m.top - m.line), `${name}: 오른쪽 칸 위끝 ${m.top} · 왼쪽 윗선 ${m.line}`).toBeLessThanOrEqual(2);
   });
 }
-
-// 위쪽에 긴 상자가 있는 화면(사업 관리 = 이번 주 주간 보고 상자): 전에는 칸이 '지금 자리에서 창 끝까지'로 작게 묶여 칸 안 스크롤이 생기고
-// 화면은 그만큼만 길어 위 상자를 올릴 수도 없었다. 이제 화면을 내리면 칸이 창 높이를 다 쓴다(붙은 뒤 칸 아래 끝 = 창 아래 끝).
-test('UI-두칸높이 사업 관리 1280×800: 화면을 내리면 결과 칸이 창 높이를 다 쓴다(작게 묶인 칸 안 스크롤 없음)', async ({ page }) => {
-  test.setTimeout(90000);
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await openHome(page);
-  await clickView(page, 'meetings');
-  const pane = page.locator('#meetingList .mcol-result');
-  await expect(pane).toBeVisible();
-  await page.mouse.move(640, 20);
-  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
-  await expect.poll(() => pane.evaluate(el => { const r = el.getBoundingClientRect(), top = parseFloat(getComputedStyle(el).top) || 0; return Math.round(r.height - (innerHeight - top - 12)); })).toBeGreaterThanOrEqual(-2);
-});
 
 // 폰 390 회귀: 한 칸(본문이 화면 전체), 가로 넘침 없음.
 test.describe('폰', () => { test.use({ hasTouch: true });

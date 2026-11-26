@@ -38,16 +38,8 @@ export function stickTop() {
 export function followMax({ view, top = GAP, rectTop }) {
   return Math.max(160, Math.floor(view - Math.max(top, rectTop) - GAP));
 }
-// UI-두칸높이(2026-11-26 사용자 결정, S71-60): PC 칸 높이는 고정 숫자로 묶지 않고 창 남은 높이를 다 쓴다.
-//  · 칸은 적어도 '지금 자리에서 창 아래 끝까지'(--follow-max, 위 followMax)를 차지한다 — 내용이 짧아도 칸 아래 빈 화면이 남지 않는다.
-//  · 내용이 그보다 길면 칸은 '붙었을 때 창 높이'(--follow-full, 아래 followFull)까지 자라고, 그 위쪽 줄(주간 보고 상자 등)은 화면 스크롤로 올라간다.
-//    전에는 칸 최대 높이를 지금 자리 기준(--follow-max)으로만 묶어, 위쪽 줄이 길면 칸이 작게 묶인 채 칸 안 스크롤이 생기고
-//    문서는 그 작은 칸만큼만 길어 화면 스크롤로 위쪽 줄을 올릴 수도 없었다(화면을 다 쓰지 못한 채 칸 안 스크롤).
-//  · 칸 안 스크롤은 내용이 붙은 칸 높이(창 높이 - 위 자리)보다도 길 때만 생긴다. 폴드 펼침(narrow)은 그대로 --follow-max까지.
-/** 순수 계산(tests/follow-pane-math.test.mjs): 칸이 위 자리(top)에 붙었을 때 창 안에 다 들어오는 높이(칸 자리와 상관없음). */
-export function followFull({ view, top = GAP }) {
-  return Math.max(160, Math.floor(view - top - GAP));
-}
+// UI-두칸높이(2026-11-26 사용자 결정, S71-60): PC 칸 높이는 고정 숫자로 묶지 않고 창 남은 높이를 다 쓴다 — 최대 높이(--follow-max)를
+// 최소 높이로도 써서(desktop-ui.css) 칸 아래 끝이 늘 창 아래 끝(틈 12px)에 온다. 내용이 짧아도 칸 아래 빈 화면이 남지 않고, 길면 그 칸 안에서만 스크롤.
 function paint(el, at) {
   const below = typeof at.bottom === 'function' ? Math.max(0, Number(at.bottom()) || 0) : 0;
   const top = Math.round(at.top + stickTop());
@@ -68,8 +60,6 @@ function paint(el, at) {
     const o = `${off}px`;
     if (el.style.getPropertyValue('--follow-offset') !== o) el.style.setProperty('--follow-offset', o);
   }
-  const f = `${followFull({ view: window.innerHeight - below, top })}px`;
-  if (el.style.getPropertyValue('--follow-full') !== f) el.style.setProperty('--follow-full', f);
   return top;
 }
 /** 순수 계산(tests/follow-pane-math.test.mjs): 윗선 맞춤 — 칸을 틀 위끝(boxTop)에서 왼쪽 머리 줄 아래 끝(underBottom)까지 내릴 거리(px, 0 이상). */
