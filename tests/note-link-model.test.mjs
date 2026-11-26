@@ -49,7 +49,10 @@ test('가리키는 노트: doc 안 링크만 세고, 자기·잠긴 노트 제�
 });
 test('연결: 노트 편집기만 [[ 목록, 읽기 화면은 앱 안에서 열기, 가리키는 노트는 관련 칸 한 곳', () => {
   const ed = readFileSync(new URL('../app/ed-editor.js', import.meta.url), 'utf8');
-  assert.match(ed, /if \(noteLinks\) \{\n    const \{mountNoteLink\} = await import\('\.\/ed-note-link\.js'\);/);
+  // 노트 연결 부품은 노트 편집기(noteLinks)만 부르고, 본문을 화면에 놓기 전에 함께 불러 둔다(본문이 보이면 편집기는 다 된 상태).
+  assert.match(ed, /const \[pm, noteLinkLib\] = await Promise\.all\(\[loadEditorLib\(\), noteLinks \? import\('\.\/ed-note-link\.js'\) : null\]\);/);
+  assert.match(ed, /if \(noteLinks\) \{\n    noteLinkPart = noteLinkLib\.mountNoteLink\(\{/);
+  assert.ok(ed.indexOf("import('./ed-note-link.js')") < ed.indexOf('new pm.EditorView('), '노트 연결 부품은 본문(EditorView)보다 먼저 불러온다');
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
   assert.match(notes, /noteLinks:linksFor\(id\), tasks:noteTaskProvider\(id, \{rt\}\)\}\);/); // S69-97: 노트 칸은 구글 할 일(tasks)도 함께 넘긴다
   assert.match(notes, /const target = noteLinkId\(a\.getAttribute\('href'\)\); if \(!target\) return;/);

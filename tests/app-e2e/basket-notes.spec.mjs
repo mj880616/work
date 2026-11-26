@@ -471,3 +471,24 @@ test('[닫기] in the big window asks once, then hands the text back to the edit
  await closeNote(page);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
+
+// NOTE-큰창: the edit body comes on screen only when the editor is whole (its 노트 연결 part loads before, not after). So
+// [큰 창에서 수정] pressed the moment the body shows opens the big window with the field's text — never a press that does nothing
+// (a slow phone or a busy test runner used to fall into that gap).
+test('[큰 창에서 수정] pressed the moment the edit body shows opens the big window',async({page})=>{
+ await page.setViewportSize({width:390,height:900});
+ let release;const gate=new Promise(done=>{release=done;});let held=0;
+ await page.route(u=>u.pathname.endsWith('/app/ed-note-link.js'),async r=>{held++;await gate;await r.fallback();});
+ const f=await fixture(page);
+ await chooseBasketKind(page,'note');
+ await noteList(page).filter({hasText:'오래된 노트'}).click();
+ const detail=page.locator('[data-note-detail]');
+ await noteMenuAction(page,'data-note-edit');
+ await expect.poll(()=>held).toBe(1);
+ setTimeout(release,800);
+ await expect(noteField(page)).toBeVisible();
+ await detail.locator('[data-note-big-write]').click();
+ await expect(edWinText(page)).toBeVisible();await expect(edWinText(page)).toContainText('옛 본문');
+ await expect(edWin(page)).toHaveCount(1);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
