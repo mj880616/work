@@ -18,6 +18,7 @@ function withEntries(ai,entries){
 async function fixture(page,{width,ai=usage(),entries=[]}){
   await page.setViewportSize({width,height:900});
   await openHome(page,{query:'?view=profile'});
+  await page.waitForLoadState('networkidle'); // S71-36: 앞 화면의 늦은 사용 현황 읽기가 끝난 뒤 세기 시작
   const writes=[],posts=[];let reads=0;
   await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/drive-summary',route=>{
     const req=route.request();

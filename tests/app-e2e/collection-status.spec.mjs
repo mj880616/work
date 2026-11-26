@@ -9,6 +9,8 @@ const status=copy=>({ok:true,checked_at:'2026-10-06T01:00:00.000Z',copy:{state:'
 async function fixture(page,{copy=status({last_success_at:'2026-10-05T21:17:00.000Z'}),state=[{last_success_at:'2026-10-06T00:30:00Z'}],width=1280,features=['calls']}={}){
   await page.setViewportSize({width,height:900});
   await openHome(page,{query:'?view=profile'});
+  // S71-36: 첫 화면의 사용 현황 읽기(로그인 뒤에 붙음)가 끝난 뒤에 세기 시작한다(앞 화면의 늦은 읽기를 이 시험의 요청으로 세지 않게).
+  await page.waitForLoadState('networkidle');
   const calls=[];
   await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/drive-summary',route=>{
     const req=route.request();
