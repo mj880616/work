@@ -145,7 +145,7 @@ test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니�
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');
   await finger(page, cdp, [[p.x - 160, p.y]]);
   await expect(cells(list)).toHaveCount(0);
-  // ③ 오른쪽 끝까지: 바로 그 줄 선택(S70-64 W1 — [선택] 칸이 남지 않음) → '1개 선택됨', 탭은 그대로, 줄은 열리지 않는다.
+  // ③ 오른쪽 끝까지: 바로 그 줄 선택(S70-64 W3 — [선택] 칸이 남지 않음) → '1개 선택됨', 탭은 그대로, 줄은 열리지 않는다.
   p = await center(rowOf(list, 9));
   await finger(page, cdp, path(p.x, p.y, 300, 0));
   // S70-64: 오른쪽 밀기는 칸 없이 그 줄을 바로 고른다.
@@ -155,14 +155,23 @@ test('저장한 글 412 실제 손가락: 세로 스크롤은 밀기가 아니�
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'true');
   await expect(detail(page)).toHaveCount(0);
-  await bar.locator('[data-row-pick-stop]').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await expect(bar).toBeHidden();
-  // ④ 줄 밖(맨 위 머리 줄)에서 왼쪽으로 밀면 옆 탭.
+  // ④ 줄 밖에서 왼쪽으로 밀면 옆 탭. S71-26: 목록 머리 줄(＋만 있던 줄)이 없어져 줄 밖 = 마지막 줄 아래 빈 곳(하단 전환 줄 위).
   await tick(page);
-  const head = list.locator('.rd-head'); // S70-57: 머리 줄 제목 없음(이름은 앱 머리 줄) — 머리 줄 빈 곳
-  await head.evaluate(el => el.scrollIntoView({ block: 'center' }));
-  const h = await head.boundingBox();
-  await finger(page, cdp, path(h.x + h.width / 2 + 60, h.y + h.height / 2, -160, 0));
+  const last = list.locator('.rd-row[data-rd-open]').last();
+  // 맨 끝까지 굴린다(실제 굴림 입력 — 화면 자리 되돌리기가 멈춘다).
+  await page.mouse.move(200, 400);
+  await expect(async () => {
+    await page.mouse.wheel(0, 4000);
+    await page.waitForTimeout(200);
+    const lb = await last.boundingBox(), sb = await allTab(list).boundingBox();
+    expect(lb.y + lb.height + 8, '마지막 줄 아래 빈 곳이 전환 줄 위').toBeLessThan(sb.y - 2);
+  }).toPass({ timeout: 10000 });
+  const lb = await last.boundingBox();
+  const y = lb.y + lb.height + 13; // 줄 가장자리 가까이는 손가락 보정이 줄로 붙인다 — 빈 곳(화면 칸 아래 여백 16px) 안쪽
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id, [lb.x + lb.width / 2 + 60, y]), '줄 밖(화면 칸 빈 곳)').toBe('readingView');
+  await finger(page, cdp, path(lb.x + lb.width / 2 + 60, y, -160, 0));
   await expect(allTab(list)).toHaveAttribute('aria-checked', 'false');
   await expect(page.locator('#readingView .row-swipe-acts')).toHaveCount(0);
   await nothingDeleted(page, s);
