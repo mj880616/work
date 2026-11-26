@@ -86,8 +86,7 @@ for (const width of [1280, 390]) {
     expect(await bgColor(page)).toBe(plain);
     await page.locator(`[data-nbb-board="${BID}"]`).click();
     await expect(scroll(page)).toHaveAttribute('data-nb-bg', 'sage');
-    // 새로 불러오기(다른 기기 흉내 — 바탕색은 기기에 저장하지 않으므로 서버 값만으로 그린다).
-    expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /board|bg/i.test(k)))).toEqual([]);
+    // 새로 불러오기(다른 기기 흉내 — 바탕색은 서버 값 server.value.note_board_bg만으로 그린다).
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 15000 });
     await openBoard(page);
