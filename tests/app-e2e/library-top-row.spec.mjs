@@ -73,8 +73,8 @@ for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 �
     await find.fill('결의');expect(await shownDocs(page)).toEqual(['a-2']);
     await find.press('Escape');await expect(find).toHaveValue('');
     expect(await shownDocs(page)).toEqual(['a-1','a-2','n-1']);
-    // 찾기 칸이 펼쳐진 동안은 칸이 이름 자리를 쓰고, 고르기는 그동안만 칸 아래로 내려가 그대로 쓸 수 있다(S71-28). 비운 채 Esc면 접히고 다시 한 줄.
-    {const gb=await page.locator('#libraryGroupBy').boundingBox(),f2=await find.boundingBox();expect(gb.y).toBeGreaterThanOrEqual(f2.y+f2.height-1)}
+    // 찾기 칸이 펼쳐진 동안은 칸이 이름 자리를 쓰고, 고르기는 같은 줄에서 좁아져 그대로 쓸 수 있다(S71-28). 비운 채 Esc면 접힌다. 줄 수는 그대로.
+    {const gb=await page.locator('#libraryGroupBy').boundingBox(),f2=await find.boundingBox();expect(Math.abs((gb.y+gb.height/2)-(f2.y+f2.height/2))).toBeLessThan(3);expect(gb.x+gb.width).toBeLessThanOrEqual(f2.x)}
     await find.press('Escape');await expect(find).toBeHidden();
     {const gb=await page.locator('#libraryGroupBy').boundingBox(),nb=await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();expect(Math.abs((gb.y+gb.height/2)-(nb.y+nb.height/2))).toBeLessThan(3)}
   }else{
