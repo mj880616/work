@@ -116,7 +116,8 @@ for(const width of [1440,412])test(`계정 메뉴 [내 프로필] 아래 [업데
   await expect(list20).toHaveCount(20);
   await expect(list20.first()).toHaveAttribute('open','');
   await expect(list20.first().locator('.rn-now')).toHaveText('지금');
-  await expect(list20.first().locator('.rn-check')).toContainText('폰에서 볼 것');
+  await expect(list20.first().locator('.rn-check')).toContainText('확인할 것');
+  await expect(view).not.toContainText('폰에서 볼 것');
   await expect(list20.nth(1)).not.toHaveAttribute('open','');
   await expect(list20.nth(1).locator('.rn-one')).toHaveText('바뀐 점 2');
   await list20.nth(1).locator('summary').focus();await page.keyboard.press('Enter');
