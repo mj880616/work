@@ -252,7 +252,7 @@ test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(
 });
 
 // PHOTO-연월이동(S49-5, 명진 결정 A+B 둘 다): 연도 눈금·말풍선 글·연/월 칸.
-import {yearLabels, monthLabelKo, yearTicks} from '../app/photos-model.mjs';
+import {yearLabels, monthLabelKo, yearTicks, RAIL_YEAR_GAP, RAIL_YEAR_LABEL_H} from '../app/photos-model.mjs';
 test('연월 이동: 말풍선 글, 연도 눈금(해마다 한 번, 가장 최근 달 자리)', () => {
   assert.equal(monthLabelKo('2025-03'), '2025년 3월');
   assert.equal(monthLabelKo('bad'), '');
@@ -271,7 +271,9 @@ test('연도 막대: 글자끼리 최소 간격, 몰린 해는 생략, 막대 �
   const labels = yearLabels(bar, 400);
   assert.ok(labels.length >= 1 && labels.length < 26);
   assert.equal(labels[0].year, 2026);
-  for (let i = 1; i < labels.length; i++) assert.ok(labels[i].pos - labels[i - 1].pos >= 16);
+  // S71-64: 글자 사이가 붙어 보이지 않게 글자 높이보다 8px 넘게 띄운다.
+  assert.ok(RAIL_YEAR_GAP - RAIL_YEAR_LABEL_H >= 8);
+  for (let i = 1; i < labels.length; i++) assert.ok(labels[i].pos - labels[i - 1].pos >= RAIL_YEAR_GAP);
   for (const l of labels) assert.ok(l.pos >= 6 && l.pos <= 394);
   assert.equal(yearLabels(monthBar({'2026-10': 3, '2026-08': 1}), 300).length, 1);
   assert.deepEqual(yearLabels([], 300), []);

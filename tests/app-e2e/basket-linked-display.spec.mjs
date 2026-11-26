@@ -3,7 +3,7 @@ import {test,expect} from '@playwright/test';
 import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {noteAction} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
-import { pickBasketView, expectBasketView } from './helpers/forget-view.mjs';
+import { pickBasketView, expectBasketView, openBasketUpdate } from './helpers/forget-view.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-12T01:00:00Z';
 // UI-디자인기준 3/3: the organization list shows the last record only as the colored dot before the name; the dot keeps the
 // record time (data-so-at), read here as the KST month.day the list used to print on the right.
@@ -51,9 +51,9 @@ for(const width of [390,1280])test.describe(`original list return ${width}`,()=>
  await page.locator('[data-basket-close]').focus();await page.keyboard.press('Enter');
  // BUG-뒤로가기: the opened note was one entry over the list; closing returns to the list entry under it.
  await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');expect(new URL(page.url()).hash).toBe('#anchor');expect(await page.evaluate(()=>history.state?.kptuLayers)).toBeUndefined();
- await page.evaluate(()=>history.replaceState({...history.state,custom:'preserve'},'',location.href));await pickBasketView(page,'classified');await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(await page.evaluate(()=>history.state.custom)).toBe('preserve');expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');
+ await page.evaluate(()=>history.replaceState({...history.state,custom:'preserve'},'',location.href));await openBasketUpdate(page,n);await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(await page.evaluate(()=>history.state.custom)).toBe('preserve');expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');
  await page.reload();await openQuickBox(page);await expect(page.locator('[data-basket-detail]')).toBeHidden();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(0);
- const activate=control=>width===390?control.tap():control.click();await pickBasketView(page,'classified');await activate(page.locator('[data-basket-row]'));await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);expect(f.errors).toEqual([]);
+ const activate=control=>width===390?control.tap():control.click();await openBasketUpdate(page,n);await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);expect(f.errors).toEqual([]);
  });
 });
 test('cancelled dirty menu movement preserves URL and editor; accepted movement clears note',async({page})=>{
@@ -95,7 +95,7 @@ for(const retire of ['screen','session'])test(`list ${retire} transition retires
  expect(f.errors).toEqual([]);
 });
 test('archived original and browser Back remain explicit choices',async({page})=>{
- const f=await fixture(page);f.note.archived_at=stamp;f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-list]')).toBeVisible();await pickBasketView(page,'archived');await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();
+ const f=await fixture(page);f.note.archived_at=stamp;f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-list]')).toBeVisible();await openBasketUpdate(page,n);await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();
  await page.goto(testOrigin+'/app/?view=basket&note='+n);await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await page.evaluate(async()=>{await KPTUViewLoader.load('home');KPTURouter.go('home',{source:'delegated'});});await expect(page.locator('#homeView')).toBeVisible();await page.goBack();await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(f.errors).toEqual([]);
 });
 

@@ -56,14 +56,14 @@ async function scrollToRecord(page,locator){
 // UI-상단줄제목: on a PC (1024px~) the open note's title is in the top line's place; below that, in the note's head.
 const noteRead=page=>(page.viewportSize()?.width||0)>=761?page.locator('[data-topline-where] [aria-current="page"]'):page.locator('#basketView [data-note-read-title]');
 
-for(const width of [1280,390])test(`project ${width}: a linked note joins the record list with the note icon; the update has the update icon and no 🧺 is left`,async({page})=>{
+for(const width of [1280,390])test(`project ${width}: a linked note joins the record list as a plain record (no icon, no link) and no 🧺 is left`,async({page})=>{
  const {state,errors}=await fixture(page,{width});
  await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
  await expectProjectTitle(page,'합성 정책 사업');
  const records=page.locator('#ps3-progress [data-ps3-records]'),up=records.locator('[data-basket-link="l-up"]'),nt=records.locator('[data-basket-link="l-note"]');
  await expect(nt).toBeVisible();await expect(up).toBeVisible();
- await expect(up.getByRole('img',{name:'잊지 말기 업데이트'})).toBeVisible();await expect(up.locator('[data-record-mark="update"] svg')).toHaveCount(1);
- await expect(nt.getByRole('img',{name:'노트'})).toBeVisible();await expect(nt.locator('[data-record-mark="note"] svg')).toHaveCount(1);
+ await expect(up.locator('[data-record-mark]')).toHaveCount(0);await expect(up.locator('a')).toHaveCount(0); // S71-57: 잊지 말기에서 온 기록은 표시·링크 없음
+ await expect(nt.locator('[data-record-mark]')).toHaveCount(0);await expect(nt.locator('a')).toHaveCount(0); // S71-71: 노트에서 온 기록도 표시·링크 없음
  // A note without a link summary shows its title.
  await expect(nt.locator('.ps3-rec-text')).toHaveText('합성 회의 준비 노트');await expect(up.locator('.ps3-rec-text')).toHaveText('합성 업데이트 연결 요약');
  await expect(page.locator('#ps3Body')).not.toContainText('🧺');
@@ -71,59 +71,14 @@ for(const width of [1280,390])test(`project ${width}: a linked note joins the re
  const order=await records.locator(':scope > [data-basket-link]').evaluateAll(xs=>xs.map(x=>x.dataset.basketLink));expect(order).toEqual(['l-note','l-up']);
  await expect(records.locator(':scope > *')).toHaveCount(2);await expect(records.locator('[data-ps3-record]')).toHaveCount(0);
  await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('2');
- // Its ⋯: [노트 열기]·[연결 해제]·[요약 수정]·[원문 삭제](ORG-연결노트삭제); the update's ⋯ is [업데이트 열기]·[연결 해제]·[요약 수정] (UI-연결요약수정).
- await nt.getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();const menu=page.locator('#ps3RecordMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정','원문 삭제']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
- await up.getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await expect(menu.getByRole('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');
+ // S71-71 RECORD-기록하나로: the note line and the update line have the same ⋯ [수정][메모][삭제].
+ await nt.getByRole('button',{name:'기록 메뉴',exact:true}).click();const menu=page.locator('#ps3RecordMenu');await expect(menu.getByRole('button')).toHaveText([/^수정$/,/^메모( \d+)?$/,/^삭제$/]);await page.keyboard.press('Escape');
+ await up.getByRole('button',{name:'기록 메뉴',exact:true}).click();await expect(menu.getByRole('button')).toHaveText([/^수정$/,/^메모( \d+)?$/,/^삭제$/]);await page.keyboard.press('Escape');
  // The same link read asks for both kinds, nothing is written.
  expect(state.queries).toContain('in.(basket,note)');expect(state.writes).toEqual([]);expect(errors).toEqual([]);
 });
 
-for(const width of [1280,390])test(`project ${width}: a note line opens the note's read view with the return line; the button and back return to the same project and scroll`,async({page})=>{
- const {errors}=await fixture(page,{width,fill:24});
- await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
- await expectProjectTitle(page,'합성 정책 사업');
- const line=page.locator('#ps3Body [data-basket-link="l-note"] a[data-ps3-basket-note]');
- const before=await scrollToRecord(page,line);
- for(const how of ['button','back','browser']){
-  await line.click();await viaSheet(page);
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
-  await expect(page.locator('#basketView [data-basket-text]').first()).toBeHidden();
-  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText(width<761?'‹ 사업영역':'‹ 합성 정책 사업');
-  // UI-돌아가기머리줄: 노트 머리 줄의 '‹ 노트' 자리가 '‹ (이름)'으로 바뀌고(모든 폭), 따로 있던 돌아가기 상자 버튼은 없다.
-  await expect(page.locator('#basketView [data-note-detail] .basket-detail-head > button.basket-back:visible')).toHaveCount(1);
-  await expect(page.locator('#basketView [data-note-detail] [data-note-back]')).toHaveCount(0);await expect(page.locator('#basketView .basket-return')).toHaveCount(0);
-  if(how==='button')await back.click();else await goBack(page,how);
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect.poll(()=>top(line)).toBe(before);
- }
- // The ⋯ [노트 열기] opens the same note.
- await page.locator('#ps3Body [data-basket-link="l-note"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'노트 열기'}).click();
- await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');await page.locator('#basketView [data-basket-return]').click();await expectProjectTitle(page,'합성 정책 사업');if(width<761){await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden()}
- // A note opened from the note list itself has no return line and its back stays the note list.
- await clickView(page,'basket');await chooseBasketKind(page,'note');await page.locator(`[data-note-row="${note.id}"]`).click();
- await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');await expect(page.locator('#basketView [data-basket-return]')).toHaveCount(0);
- await page.goBack();await expect(page.locator('#basketView [data-note-detail]')).toBeHidden();await expect(page.locator(`[data-note-row="${note.id}"]`)).toBeVisible();
- expect(await page.evaluate(()=>KPTURouter.current)).toBe('basket');
- expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
-});
 
-for(const width of [390,1280])test(`organization ${width}: the linked note shows with the note icon, opens the note and returns to the same organization`,async({page})=>{
- const {state,errors}=await fixture(page,{width});
- await clickView(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();
- const modal=page.locator('#wdModal'),row=modal.locator('[data-basket-link="l-note-o"]'),line=row.locator('a[data-basket-link-open]');await expect(line).toBeVisible();
- await expect(row.getByRole('img',{name:'노트'})).toBeVisible();await expect(row.locator('small')).toContainText('노트 연결');await expect(row.locator('[data-link-summary-text]')).toHaveText('합성 회의 준비 노트');
- await expect(modal).not.toContainText('🧺');
- await row.locator('[data-basket-link-menu]').click();const menu=page.locator('#basketLinkMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정','원문 삭제']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
- const before=await top(line);
- for(const how of ['button','back','browser']){
-  await line.click();await viaSheet(page);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
-  await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'‹ 조직 관리':'‹ 테스트 조직');
-  if(how==='button')await page.locator('#basketView [data-basket-return]').click();else await goBack(page,how);
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
-  await expect.poll(()=>top(line)).toBe(before);
- }
- expect(state.writes).toEqual([]);expect(errors).toEqual([]);
-});
 
 // BUG-미리보기기호: project record lines (a linked update's summary) show plain letters, no ###·|·**·entity leftovers.
 // MTG-프로젝트합치기 결정 ⑥: 옛 진행 기록 줄은 그리지 않으므로 그 글은 화면에 없다.

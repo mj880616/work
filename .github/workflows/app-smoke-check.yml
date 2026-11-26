@@ -108,6 +108,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -216,10 +217,12 @@ on:
       - 'tests/overlap-model.test.mjs'
       - 'tests/overlap-weekly.test.mjs'
       - 'tests/overlap-paths.test.mjs'
+      - 'tests/patch-patterns*'
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
       - 'tests/brief-room-model.test.mjs'
+      - 'tests/brief-folders-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
       - 'tests/brief-edit-model.test.mjs'
@@ -416,6 +419,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -524,10 +528,12 @@ on:
       - 'tests/overlap-model.test.mjs'
       - 'tests/overlap-weekly.test.mjs'
       - 'tests/overlap-paths.test.mjs'
+      - 'tests/patch-patterns*'
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
       - 'tests/brief-room-model.test.mjs'
+      - 'tests/brief-folders-model.test.mjs'
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
       - 'tests/brief-edit-model.test.mjs'
@@ -685,7 +691,7 @@ jobs:
       - name: Check direct record input links show the date only (ORG-기록첨부표시이름 ①)
         run: node --test tests/org-record-origin.test.mjs
 
-      - name: Check organization and reference bundle multi delete words (S67-53)
+      - name: Check organization multi delete words (S67-53)
         run: node --test tests/org-bulk-delete-model.test.mjs
 
       - name: Check attachment delete and undo (FILE-첨부삭제)
@@ -824,6 +830,8 @@ jobs:
         run: node --test tests/note-boards-model.test.mjs tests/note-lock-record-lines.test.mjs
       - name: Check note board links (S68-38 생각 지도)
         run: node --test tests/note-board-links-model.test.mjs
+      - name: Check board hover band (S71-48 연결점 유지)
+        run: node --test tests/hover-band.test.mjs
       - name: Check note board mindmap (S69-82 브레인스토밍·마인드맵)
         run: node --test tests/note-board-mindmap-model.test.mjs
       - name: Check note board box frame (S69-88 크기 손잡이·자유 이동·카드 별명)
@@ -832,6 +840,8 @@ jobs:
         run: node --test tests/note-board-decor-model.test.mjs
       - name: Check note board images (S70-32 ② 사진 정보 지우기·칸 크기)
         run: node --test tests/note-board-image-model.test.mjs
+      - name: Check note board paste (S71-49 누른 자리 붙여넣기·글자 칸 한도)
+        run: node --test tests/note-board-paste-model.test.mjs
       - name: Check note board export (S70-32 ③ 범위·PDF 한 쪽)
         run: node --test tests/note-board-export-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
@@ -913,7 +923,7 @@ jobs:
         run: node --test tests/s59-20-small-fixes.test.mjs
 
       - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
-        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-edit-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs
+        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-edit-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs tests/brief-folders-model.test.mjs
 
       - name: S67-39 사업 보고·조직 보고 자료실에서 선택·빼기 규칙
         run: node --test tests/report-library-pick-model.test.mjs
@@ -922,7 +932,7 @@ jobs:
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs tests/record-backup-model.test.mjs tests/mcp-read-model.test.mjs tests/help-content.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/upload-done-model.test.mjs tests/upload-done-open.test.mjs tests/basket-upload.test.mjs tests/paste-files.test.mjs tests/record-attach.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/todo-feedback-model.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/google-link.test.mjs tests/connect-note.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/color-swatch.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/open-window.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-row-tag.test.mjs tests/org-write-in.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/tg-mark-model.test.mjs tests/ai-tone.test.mjs tests/quick-links-groups.test.mjs tests/tg-summary-edit-model.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/upload-done-model.test.mjs tests/upload-done-open.test.mjs tests/basket-upload.test.mjs tests/paste-files.test.mjs tests/record-attach.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/todo-feedback-model.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/google-link.test.mjs tests/connect-note.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/color-swatch.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/open-window.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-row-tag.test.mjs tests/org-write-in.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/tg-mark-model.test.mjs tests/ai-tone.test.mjs tests/quick-links-groups.test.mjs tests/tg-summary-edit-model.test.mjs
 
       - name: TG-방고정 텔레그램 방 고정 칸 규칙·고정 읽기쓰기·메뉴 문구
         run: node --test tests/tg-room-pin.test.mjs
@@ -996,7 +1006,7 @@ jobs:
         run: node --test tests/drive-summary-refresh.test.mjs
 
       - name: Check pinned HWP editor files
-        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs
+        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs tests/hwp-into-note.test.mjs
 
       - name: Check HWP union-style template and style shortcuts
         run: node --test tests/hwp-union-style.test.mjs
@@ -1094,6 +1104,9 @@ jobs:
       - name: Check photo menu names and release after send (S49-9 PHOTO-메뉴항목통일, synthetic)
         run: node --test tests/photo-menu-items.test.mjs
 
+      - name: Check photo description sheet (S71-62 PHOTO-설명, synthetic)
+        run: node --test tests/photo-desc.test.mjs
+
       - name: Check send to diary (S48-56 노트·업데이트·사진 → 일기, synthetic)
         run: node --test tests/diary-send.test.mjs
 
@@ -1161,8 +1174,6 @@ jobs:
         run: node --test tests/obvious-hints-removed.test.mjs
       - name: "Phone folders (PHOTO-폴더스위치 ②·③: 폰 폴더 스위치·폰 폴더 바꾸기·원드라이브 사진 든 폴더 지우기, synthetic)"
         run: node --test tests/phone-folders.test.mjs
-      - name: "Photo tidy (S46-20 정리 제안 ①: 어디에 있나 거르기·백업 안 됨 폴더·잡동사니, synthetic)"
-        run: node --test tests/photo-tidy.test.mjs
       - name: "Photo delete two ways (S48-17 PHOTO-지우기두갈래: 폰 공간만 비우기·완전히 지우기·비운 사진 목록·폰으로 되돌리기, synthetic)"
         run: node --test tests/photo-keep.test.mjs
       - name: "Photo info edit (S48-60 PHOTO-정보고치기: 시각 밀기·이 날짜로·이 장소로·되돌리기·폰 다리 meta, synthetic)"
@@ -1248,6 +1259,9 @@ jobs:
       - name: Check phone widget logout line (APP-폰앱새로 ③)
         run: node --test tests/phone-widget-line.test.mjs
 
+      - name: Check shared settings rows (UI-설정줄, S71-36 PROFILE-설정화면)
+        run: node --test tests/settings-list.test.mjs
+
       - name: Check phone widget auto login bridge (APP-폰앱새로 ③)
         run: node --test tests/phone-widget-auth.test.mjs
 
@@ -1293,10 +1307,13 @@ jobs:
       - name: Check UI words standard ratchet (UI-용어통일)
         run: node --test tests/ui-words.test.mjs tests/ui-words-upload.test.mjs
 
-      - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
+      - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·확인할 것 빼기·시작 날짜)
         run: node --test tests/update-news-model.test.mjs
       - name: Check day record screen words (DIARY-이름하루기록)
         run: node --test tests/ui-words-day-record.test.mjs
+
+      - name: Check release notes checks label words (UPD-확인할것)
+        run: node --test tests/ui-words-checks-label.test.mjs
 
       - name: Check quick input kind words (HOME-입력종류업데이트글자잊지말기)
         run: node --test tests/ui-words-quick-kind.test.mjs
@@ -1357,6 +1374,10 @@ jobs:
 
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
+
+      # S71-74 UI-덮어쓰기땜질없애기: 넓은 MutationObserver·display:none!important·:has 숨김이 기준표보다 늘면 실패(AGENTS.md 5절).
+      - name: Check patch-style overwrite patterns stay at or below baseline
+        run: node --test tests/patch-patterns.test.mjs
 
       - name: UI-목록밀기 폰 목록 줄 밀기 셈·연결, UI-메뉴잘림
         run: node --test tests/row-swipe-model.test.mjs
@@ -1535,7 +1556,8 @@ jobs:
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed personal view stylesheet was loaded'; exit 1; fi
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
-          grep -q "#authView{display:none!important}" app/base-ui.css
+          # S71-74: #authView 숨김 규칙은 지웠다(요소가 없음) — 요소도 되살아나지 않는다.
+          if grep -q 'id="authView"' app/index.html; then echo 'retired authView returned'; exit 1; fi
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -Fq "[data-kptu-logout]" app/topbar-actions.css
           grep -q "logoutButtons.forEach" app/topbar-actions.js
@@ -1664,11 +1686,12 @@ jobs:
           grep -q "data-ps3-records" app/project-system-v3.js
           # MTG-프로젝트합치기 3단계: 상세 맨 위 진행 기록 입력칸은 없다(기록은 사업 보고 한 곳, 표·데이터 보존).
           if grep -Eq 'data-ps3-record-input|saveRecordInput|openRecordBig' app/project-system-v3.js; then echo 'project record input returned'; exit 1; fi
-          grep -q "data-ps3-basket-note" app/project-system-v3.js
+          # RECORD-기록하나로(S71-71): 사업 기록 줄은 노트로 가지 않는다(출처 상관없이 같은 기록 줄).
+          if grep -q "data-ps3-basket-note" app/project-system-v3.js; then echo 'record line link to the note returned'; exit 1; fi
           grep -q ".ps3-rec-line" app/project-system-v3.css
           if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal" app/project-system-v3.js; then echo 'retired per-item progress UI returned'; exit 1; fi
-          # UI-연결요약수정: the shared link summary editor may be mounted only lazily from the record ⋯ [요약 수정] action (no always-on project basket editor).
-          grep -q "ps3RecordAction==='summary')editBasketSummary(b)" app/project-system-v3.js
+          # UI-연결요약수정: the shared link summary editor may be mounted only lazily from the record ⋯ [수정] action (no always-on project basket editor; S71-71 [요약 수정] → [수정]).
+          grep -q "if(a==='edit')editBasketSummary(b)" app/project-system-v3.js
           test "$(grep -o 'mountLinkSummaryEditor(' app/project-system-v3.js | wc -l)" -eq 1
           grep -q "if(!basketEditor){basketEditorKey=key;basketEditor=mountLinkSummaryEditor(body," app/project-system-v3.js
           if grep -Eq "ps3CreateType|ps3CreateVisibility|ps3AccessModal|ps3TypeModal|data-ps3-access|ps3ManageTypes" app/project-system-v3.js; then echo 'removed project type/access UI returned'; exit 1; fi

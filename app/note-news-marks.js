@@ -8,6 +8,7 @@ import {myFeaturesOrNull} from './my-features.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {canDeleteNews} from './now-marks.js';
 import {requestNewsOpen} from './news-request.mjs';
+import {openOnScreen} from './source-open.js';
 import {sourceTag, quoteGone} from './text-highlights-model.mjs';
 import {visibleMarks, marksNewsOn, NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_NAMES, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from './note-news-marks-model.mjs';
 // NOTE-News밑줄보관보기(명진 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html ①~④):
@@ -130,14 +131,15 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   // 노트 검색에 걸린 밑줄·보관 수(껍데기의 '맞는 노트 없음'을 가린다).
   const hits = query => { if (!query) return 0; const h = newsSearch({highlights: hlNow() || [], saved: saved || [], query, nameOf}); return h.highlights.length + h.saved.length; };
 
-  const goNews = () => window.KPTURouter?.go?.('news', {source: 'delegated'});
+  // S71-76 NAV-뒤로가기직전화면: 다른 화면(읽을 거리·저장한 글·브리핑 룸)으로 가는 길은 openOnScreen 한 길 — 뒤로가기 한 번 = 노트 그 목록 그 자리.
+  const goNews = () => openOnScreen('outside');
   const openHighlight = h => {
     if (!h) return;
     if (h.source_type === 'note') { openNote?.(h.source_id, h.id); return; }
-    if (h.source_type === 'reading') { window.KPTUReadingOpen = {id: h.source_id, highlight: h.id}; window.KPTURouter?.go?.('reading', {source: 'delegated'}); return; }
+    if (h.source_type === 'reading') { window.KPTUReadingOpen = {id: h.source_id, highlight: h.id}; void openOnScreen('reading'); return; }
     // S69-86: 브리핑 밑줄은 브리핑 룸 그 자료·그 밑줄로(브리핑이 사라졌으면 브리핑 룸이 알림 한 줄 — 밑줄은 그대로).
-    if (h.source_type === 'brief') { window.KPTUBriefOpen = {id: h.source_id, highlight: h.id}; window.KPTURouter?.go?.('brief', {source: 'delegated'}); return; }
-    if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) goNews();
+    if (h.source_type === 'brief') { window.KPTUBriefOpen = {id: h.source_id, highlight: h.id}; void openOnScreen('brief'); return; }
+    if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) void goNews();
   };
   box?.addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -146,7 +148,7 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
     if (b.matches('[data-nh-more]') && b.dataset.hlId) { openMarkMenu(b, {onSource: openHighlight}); return; }
     if (b.matches('[data-nh-open]')) { openHighlight((hlNow() || []).find(x => x.id === b.dataset.nhOpen)); return; }
     if (b.matches('[data-nnm-kind]')) { kind = keepSavedKind(b.dataset.nnmKind); onChange(); box.querySelector(`[data-nnm-kind="${kind}"]`)?.focus({preventScroll: true}); return; }
-    if (b.matches('[data-nnm-saved]')) { const [type, id] = String(b.dataset.nnmSaved).split(':'); if (requestNewsOpen({type, id})) goNews(); return; }
+    if (b.matches('[data-nnm-saved]')) { const [type, id] = String(b.dataset.nnmSaved).split(':'); if (requestNewsOpen({type, id})) void goNews(); return; }
   });
   bindNowRows(box, {row: '[data-nw-key]', saved: true, titleOf: el => el.querySelector('.nnm-t')?.textContent || '',
     itemOf: el => { const [type, id] = String(el.dataset.nwKey || '').split(':'); return (type === 'outside' || type === 'news') && id ? {type, id} : null; },

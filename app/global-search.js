@@ -859,6 +859,7 @@ function focusScreenFind() {
 
 // ---------- 폰 틀 머리 줄 '전체 검색' 칸 ----------
 // S70-57(명진 11/26 "전체 검색은 홈에만"): 칸은 폰 틀(~760px) 앱 머리 줄 하나이고 홈과 전체 검색 화면에서만 보인다(topbar-actions.css). PC 틀은 상단 줄 검색칸.
+// S71-41 HOME-머리한줄: 홈에서는 이 칸 줄을 그리지 않는다(머리 줄 자체가 없음, topbar-actions.js) — 입구는 홈 날짜 머리줄 끝 돋보기(openHere).
 // S71-07 SEARCH-누른자리그대로: 누르는 단추가 아니라 처음부터 입력 칸이다. 홈에서 누르면(포커스) 그 칸 그대로 전체 검색 화면으로 가고(결과·안내는 아래),
 // 칸은 자리·크기가 바뀌지 않는다(노트 '노트에서 찾기'와 같은 머리 줄 칸 — 같은 makeInput 부품). 홈으로 돌아오면 칸은 비운 원래 상태.
 let headInput = null;
@@ -869,6 +870,13 @@ function mountMenuEntry() {
   headInput.input.setAttribute('aria-controls', 'gsList-view');
   headInput.input.addEventListener('focus', () => { if (!PC.matches && router()?.current !== 'search') void openSearchView(); });
   host.append(headInput.wrap);
+}
+// S71-41 HOME-머리한줄: 폰 틀 홈에는 이 칸 줄이 없고 날짜 머리줄 끝 돋보기(journal.js)가 입구다. 누르면 전체 검색 화면으로 바꾸고(같은 첫 줄 자리)
+// 이 칸에 바로 커서를 둔다 — 누른 그 순간에 커서를 두어야 폰 자판이 뜬다(화면 바꾸기는 모듈을 받았으면 바로 끝남). PC 틀은 맨 위 줄 칸에 커서.
+function openHere() {
+  if (PC.matches) { slotInput?.input.focus(); return; }
+  if (router()?.current !== 'search') router()?.go?.('search', {source: 'delegated'});
+  headInput?.input.focus({preventScroll: true});
 }
 async function openSearchView() {
   await window.KPTUViewLoader?.load?.('search');
@@ -891,6 +899,6 @@ mountMenuEntry();
 mountScreenFind();
 installView();
 onScreenFind(syncScope);
-window.KPTUGlobalSearch = {set: setText, state: () => ({...state}), focusScreenFind};
+window.KPTUGlobalSearch = {set: setText, state: () => ({...state}), focusScreenFind, openHere};
 window.__KPTU_GLOBAL_SEARCH_READY__ = Promise.resolve(true);
 })();

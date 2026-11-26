@@ -69,7 +69,7 @@ test('blocks: 문단·소제목·인용·사진(캡션·대체 글), 꾸밈 그�
  for(const bad of ['메뉴 칸','공유 칸','꼬리 칸','목록 뒤','2026.11.06','logo.png','p.gif','http://','data:'])assert.ok(!all.includes(bad),bad);
  // 같은 본문 칸·제목 줄·끝 표시·덧줄 거르기: 캡션 줄만 빼면 extractBody와 같은 글자.
  assert.equal(e.text,P.extractBody(html.replace('<div class="share-box">공유 칸 글자</div>',''),'합성 제목').replace('합성 캡션\n',''));
- assert.deepEqual(E.bodyNumbers(e),{state:'ok',reason:null,rule:'kctu@3',blocks:6,chars:e.chars,images:2,captions:1,headings:1,quotes:1,scope:'article',cut:'list'});
+ assert.deepEqual(E.bodyNumbers(e),{state:'ok',reason:null,rule:'kctu@3',blocks:6,chars:e.chars,images:2,captions:1,headings:1,quotes:1,scope:'article',cut:'list',issue:null,trimmed:0});
 });
 
 test('limits: 블록 400개·사진 20장·글자 10만 자·제어 문자 없음, 같은 사진 한 번',()=>{
@@ -174,6 +174,10 @@ const SAMPLES={
  'news-laborplus':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-redian':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-mt':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ // S71-70 새 두 곳(가짜 쪽 — 예시 매체 D·E 모양): D는 엔디소프트 기사 쪽(앞 짧은 <article> 머리 + 본문 칸 #article-view-content-div + 많이 본 기사 목록),
+ //   E는 워드프레스 글 쪽(글 머리 날짜·기자 줄 + entry-content 본문 칸 + 다른 글 목록). 본문 칸 밖 덧줄·목록이 블록에 들어가지 않는지 본다.
+ 'news-mediatoday':l=>wrap(`<article class="article-veiw-head"><p>합성 머리 호수 줄</p><p>합성 머리 입력 날짜 줄</p></article><div id="article-view-content-div">${body(l)}${FIG()}</div><section class="auto-article"><ul>${'<li><a href="/news/articleView.html?idxno=9">합성 빼는 칸 많이 본 기사 제목</a></li>'.repeat(8)}</ul></section>`),
+ 'news-newscham':l=>wrap(`<div class="entry-meta"><span>합성 머리 날짜</span><span>합성 머리 기자</span></div><div class="entry-content">${body(l)}${FIG()}</div><aside class="related"><ul>${'<li><a href="/1/">합성 빼는 칸 다른 글 제목</a></li>'.repeat(8)}</ul></aside>`),
  // S69 사설·칼럼(extract:false — 종합지와 같다).
  'news-khan-opinion':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-hani-opinion':l=>wrap(`<article>${body(l)}${FIG()}</article>`),

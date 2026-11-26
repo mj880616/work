@@ -7,6 +7,7 @@ import {requestNewsOpen} from './news-request.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {noteExists} from './memo-store.js';
 import {notify} from './small-notice.js';
+import {openOnScreen} from './source-open.js';
 
 export {requestMemoReveal, takeMemoReveal, pendingMemoTarget} from './memo-reveal.js';
 import {requestMemoReveal} from './memo-reveal.js';
@@ -16,16 +17,17 @@ export function memoLocked(memo) {
   return !!f && !!lock?.hides?.(f) && !!lock?.settings?.();
 }
 
-const go = view => window.KPTURouter?.go?.(view, {source: 'delegated'});
+// S71-76 NAV-뒤로가기직전화면: 화면 이동은 openOnScreen(라우터 openFrom) 한 길 — 뒤로가기 한 번 = 메모 모아 보기 그 자리.
+const go = view => openOnScreen(view);
 const rt = () => window.KPTURuntime;
 const wsId = () => rt()?.context?.read?.()?.workspace?.id || '';
 // 열어 보니 원문이 없으면: 링크를 끄고(모아 보기 줄이 '원래 기록이 없어요'로) 한 줄 알린다. 메모는 그대로.
 function gone(o) { noteExists(o.type, o.id, false); notify(`${GONE_LINE} · 메모는 그대로 있어요`, {record: false}); return false; }
 // 열기 일(request 이름 → 그 화면에 요청 남기기). 새 종류는 MEMO_OPEN 한 줄 + 여기 한 줄.
 const OPENERS = {
-  note: o => { requestNoteDocOpen(o.id); go('basket'); },
-  news: o => { if (requestNewsOpen({type: o.type, id: o.id})) go('news'); },
-  reading: o => { if (window.KPTUReading?.open) window.KPTUReading.open(o.id); else { window.KPTUReadingOpen = {id: o.id}; go('reading'); } },
+  note: o => { requestNoteDocOpen(o.id); return go('basket'); },
+  news: o => { if (requestNewsOpen({type: o.type, id: o.id})) return go('outside'); },
+  reading: o => { if (window.KPTUReading?.open) window.KPTUReading.open(o.id); else { window.KPTUReadingOpen = {id: o.id}; return go('reading'); } },
   // S69-95 자료실 파일: 자료실에서 그 줄을 보이고(기존 '자료실에서 보기' 길) 그 자료 창(이름·종류·날짜·설명 + 메모 칸)을 연다.
   document: async o => {
     requestLibraryDocument(o.id);
@@ -49,6 +51,16 @@ const OPENERS = {
       if (!window.KPTUWorkplace?.openMemo) await window.KPTUWorkplace?.load?.(); // 조직 상세는 처음 열 때 받는다(suborganizations.js)
       return window.KPTUWorkplace?.openMemo?.(org, o.id);
     });
+    return ok === false ? gone(o) : true;
+  },
+  // S71-71 연결 기록: 그 기록이 있는 조직(조직 관리)이나 사업(사업 관리)을 연다. 연결 줄은 내 작업공간 것만 읽는다(소유자 RLS 그대로).
+  record_link: async o => {
+    const rows = await rt().api(`/rest/v1/app_record_links?id=eq.${encodeURIComponent(o.id)}&workspace_id=eq.${encodeURIComponent(wsId())}&status=eq.confirmed&select=id,organization_id,project_id&limit=1`, {singleFlight: false});
+    const r = Array.isArray(rows) && rows[0]?.id === o.id ? rows[0] : null;
+    if (!r || (!r.organization_id && !r.project_id)) return gone(o);
+    const ok = r.organization_id
+      ? await window.KPTURouter?.openFrom?.('team', async () => { if (!window.KPTUWorkplace?.open) await window.KPTUWorkplace?.load?.(); return window.KPTUWorkplace?.open?.(r.organization_id); })
+      : await window.KPTURouter?.openFrom?.('projects', async () => window.KPTUProjects?.open?.(r.project_id));
     return ok === false ? gone(o) : true;
   },
   // 텔레그램 소식: 그 방·날을 열고 그 소식 원문을 펼친다(원문 아래 메모 칸). 운영자 기능 검사·소유자 RLS는 그 화면 길 그대로.

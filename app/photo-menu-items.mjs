@@ -26,6 +26,9 @@ export const PHOTO_ACT_TEXT = Object.freeze({
   edit: '수정',
   detail: '정보',
   delete: '삭제',
+  // S71-62 PHOTO-설명(사용자 결정 2026-11-26: 설명 하나로 — 태그 칸 없음): 크게 보기 [수정 ▾] '설명', 고르기 [메뉴] '설명 붙이기'(있던 설명 뒤에 더하기).
+  desc: '설명',
+  descAdd: '설명 붙이기',
 });
 
 // 아이콘 줄처럼 칸이 좁은 곳에서 보이는 앞부분. PHOTO-아래줄정돈(S49-34)부터 아래 줄에 [일기]·[업데이트] 단추가 없어 비어 있다(메뉴 안에서는 온이름).
@@ -75,12 +78,12 @@ export const PHOTO_BAR_MAX = 5;
 export const PHOTO_BAR_MENUS = Object.freeze({
   viewBar: Object.freeze({
     share: Object.freeze(['copy', ...SEND_ROWS, 'down', 'native']),
-    edit: Object.freeze(['edit', 'info']),
+    edit: Object.freeze(['edit', 'info', 'desc']),
     more: Object.freeze(['detail', 'move', 'tag', 'untag', 'restore', 'rename']),
   }),
   selectBar: Object.freeze({
     share: Object.freeze([...SEND_ROWS, 'down', 'native']),
-    more: Object.freeze(['tag', 'untag', 'restore', 'rename', 'info']),
+    more: Object.freeze(['tag', 'untag', 'restore', 'rename', 'info', 'descAdd']),
   }),
 });
 // 아래 줄 칸 안 펼침 항목의 글자(아이콘 없이 글자만). 칸 이름과 달리 '무엇을 하는지' 풀어 쓴 이름. 없으면 PHOTO_ACT_TEXT 이름.
@@ -111,6 +114,8 @@ export const PHOTO_OFF_TEXT = Object.freeze({
   delete: Object.freeze({phone: '이 폰은 여기서 삭제하지 못해요. 갤러리 앱에서 삭제해 주세요.', gdrive: '구글 드라이브 권한이 없어 삭제하지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '삭제하려면 원드라이브를 다시 연결해 주세요.'}),
   move: Object.freeze({phone: word('폰 사진을 옮기려면 WORK ON+ 앱을 새 판으로 올려 주세요.'), gdrive: '구글 드라이브 권한이 없어 옮기지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '옮기려면 원드라이브를 다시 연결해 주세요.'}),
   rename: Object.freeze({gdrive: '구글 드라이브 권한이 없어 이름을 바꾸지 못해요. 사진 › 출처에서 다시 연결해 주세요.'}),
+  // S71-62: 설명은 구글 드라이브 사진 파일의 '설명' 칸에 저장한다(폰·원드라이브 사진은 저장할 곳이 없어 항목 자체가 없음).
+  desc: Object.freeze({gdrive: '구글 드라이브 권한이 없어 설명을 저장하지 못해요. 사진 › 출처에서 다시 연결해 주세요.'}),
 });
 export function photoOffWhy(act, kind) {
   const t = PHOTO_OFF_TEXT[act]; if (!t) return '';

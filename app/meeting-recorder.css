@@ -31,10 +31,7 @@ body.rec-on{padding-top:var(--rec-band-height,32px)}
   body.rec-on #appView{--kptu-fixed-top:var(--rec-band-height,32px);--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--rec-band-height,32px))}
   body.rec-on #appView>.app-nav{top:calc(12px + var(--rec-band-height,32px));height:calc(100dvh - 24px - var(--rec-band-height,32px))}
 }
-/* 사업 보고 위쪽 줄 [녹음]: [+ 사업 보고] 왼쪽의 작은 낮은 버튼(32px). PC에서만 보이고(hidden은 화면이 정함) 녹음 중에는 '녹음 중'으로 꺼진다. */
-#appView #meetingsView .report-head-actions>#reportRecordBtn{height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,10px);font-size:var(--ds-compact-text,13px)}
-#appView #meetingsView .report-head-actions>#reportRecordBtn::before{content:"";display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:var(--kptu-danger)}
-/* S61-36 회의(사업 보고) 상세 머리 줄 [녹음]: ⋯ 왼쪽의 작은 낮은 버튼(32px, 위쪽 줄 [녹음]과 같은 모양). 보임·꺼짐은 meeting-recorder.js가 정한다. */
+/* S61-36 회의(사업 보고) 상세 머리 줄 [녹음]: ⋯ 왼쪽의 작은 낮은 버튼(32px). 보임·꺼짐은 meeting-recorder.js가 정한다. */
 #meetingRoundDetailModal .mrd-head-ends>#mrdRecordBtn{box-sizing:border-box;display:inline-flex;align-items:center;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,10px);font-size:var(--ds-compact-text,13px);white-space:nowrap}
 #meetingRoundDetailModal .mrd-head-ends>#mrdRecordBtn[hidden]{display:none}
 #meetingRoundDetailModal .mrd-head-ends>#mrdRecordBtn::before{content:"";display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:var(--kptu-danger)}

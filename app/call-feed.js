@@ -143,7 +143,7 @@ function paint() {
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:wide && row ? topicOf(row) : null}}));
   mountSplitResize({container:$('#cfSplit'), name:'calls', inherit:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !!state.selected && !view()?.classList.contains('hidden')});
   // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 상세 칸은 화면에 붙어 따라오고, 다른 통화를 고르면 머리부터 보인다.
-  if (wide && open) { followPane($('#cfDetail'), {reset: followed !== state.selected}); followed = state.selected; }
+  if (wide && open) { followPane($('#cfDetail'), {reset: followed !== state.selected, under: () => $('#cfList > .feed-head')}); followed = state.selected; }
   focusEdit();
   refreshScreenFind();
 }

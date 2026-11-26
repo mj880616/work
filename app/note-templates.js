@@ -1,11 +1,11 @@
 // S69-97 노트 서식(NOTE-에버노트 ③): 서식 읽기·저장·지우기와 고르기창.
-// 내 서식은 서버 표 app_note_templates(주인만 읽고 쓰는 RLS, migration 20261125131000) — 기기 저장 없음. 기본 서식 셋은 코드(note-templates-model.mjs).
-//   - 새 노트 창 제목 줄 [서식 ▾](note-window.js)·노트 목록 ⋯ [서식으로 새 노트]에서 골라 쓴다.
+// 내 서식은 서버 표 app_note_templates(주인만 읽고 쓰는 RLS, migration 20261125131000) — 기기 저장 없음. 앱이 미리 넣은 서식은 없다(S71-65).
+//   - 새 노트 창 도구 줄 [넣기 ▾] › [서식](note-window.js → ed-editor.js forms)·노트 목록 ⋯ [서식으로 새 노트]에서 골라 쓴다.
 //   - 노트 ⋯ [서식으로 저장]: 그 노트 글을 이름을 붙여 저장한다(같은 이름이 있으면 바꿀지 묻는다).
-//   - 표가 아직 없으면(DB 적용 전) 기본 서식만 보이고, 저장은 '아직 저장할 수 없어요'로 알린다.
+//   - 내 서식이 없으면 고르기 창은 안내 한 줄(TEMPLATE_EMPTY_HINT)만. 표를 읽지 못하면 그 사실 한 줄.
 import {askChoice, askConfirm, askText} from './small-notice.js';
 import {cleanDoc} from './ed-schema.mjs';
-import {BUILTIN_TEMPLATES, TEMPLATE_MAX, TEMPLATE_NAME_MAX, checkTemplateName, templateBody} from './note-templates-model.mjs';
+import {TEMPLATE_EMPTY_HINT, TEMPLATE_MAX, TEMPLATE_NAME_MAX, checkTemplateName, templateBody} from './note-templates-model.mjs';
 
 const TABLE = '/rest/v1/app_note_templates';
 function ws(rt) { const id = rt.context.read()?.workspace?.id; if (!id) throw new Error('업무 공간을 확인할 수 없어요.'); return id; }
@@ -43,18 +43,17 @@ export async function saveAsTemplate(anchor, {name: first = '', doc, rt = window
   }
 }
 
-// 고르기창: 기본 서식 + 내 서식(+ 내 서식이 있으면 맨 아래 [내 서식 삭제…]). 반환: {name, doc} 또는 null.
+// 고르기창: 내 서식(+ 내 서식이 있으면 맨 아래 [내 서식 삭제…]). 내 서식이 없으면 안내 한 줄만. 반환: {name, doc} 또는 null.
 export async function pickTemplate(anchor, {rt = window.KPTURuntime} = {}) {
   const mine = await listTemplates({rt});
   for (;;) {
     const choices = [
-      ...BUILTIN_TEMPLATES.map(t => ({value: 'b:' + t.key, label: t.name, note: '기본 서식'})),
-      ...mine.rows.map(r => ({value: 'm:' + r.id, label: r.name, note: '내 서식'})),
+      ...mine.rows.map(r => ({value: 'm:' + r.id, label: r.name})),
       ...(mine.rows.length ? [{value: 'drop', label: '내 서식 삭제…', note: `${mine.rows.length}개`}] : []),
     ];
-    const v = await askChoice(anchor, {text: '서식 선택', choices, foot: mine.ok ? '노트 ⋯ [서식으로 저장]으로 내 서식을 더할 수 있어요.' : '내 서식을 읽지 못해 기본 서식만 보여요.'});
+    const foot = !mine.ok ? '내 서식을 읽지 못했어요. 잠시 뒤 다시 해 주세요.' : mine.rows.length ? '' : TEMPLATE_EMPTY_HINT;
+    const v = await askChoice(anchor, {text: '서식 선택', choices, foot});
     if (!v) return null;
-    if (v.startsWith('b:')) { const t = BUILTIN_TEMPLATES.find(x => 'b:' + x.key === v); return t ? {name: t.name, doc: templateBody(t)} : null; }
     if (v.startsWith('m:')) { const r = mine.rows.find(x => 'm:' + x.id === v); return r ? {name: r.name, doc: templateBody(r)} : null; }
     const gone = await askChoice(anchor, {text: '삭제할 서식', choices: mine.rows.map(r => ({value: r.id, label: r.name, danger: true}))});
     if (!gone) continue;

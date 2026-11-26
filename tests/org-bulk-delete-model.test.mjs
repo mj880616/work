@@ -1,7 +1,7 @@
 // S67-53 ORG-여러개삭제: 확인 창·결과 글자와 선택 판정(순수 함수).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {chunks,orgRecordCountPath,orgBulkConfirmText,orgBulkMovedText,orgBulkUndoText,orgPickCount,pickableBundles,bundleBulkConfirmText,bundleBulkResultText,bundlePickCount,COUNT_CHUNK} from '../app/org-bulk-delete-model.mjs';
+import {chunks,orgRecordCountPath,orgBulkConfirmText,orgBulkMovedText,orgBulkUndoText,orgPickCount,COUNT_CHUNK} from '../app/org-bulk-delete-model.mjs';
 
 test('담당조직 확인 창: 조직 수·연결된 조직 보고 수, 휴지통·되돌리기 안내(한 개 삭제와 같은 규칙)',()=>{
   assert.equal(orgBulkConfirmText(3,5),'담당조직 3곳을 휴지통으로 옮길까요?\n연결된 조직 보고 5건과 담당자는 그대로 남고, 휴지통에서 되돌릴 수 있어요.');
@@ -16,12 +16,4 @@ test('조직 보고 개수 읽기: 40곳씩 나눠 묻고 id만 읽는다',()=>{
   const ids=Array.from({length:85},(_,i)=>'id-'+i);
   assert.deepEqual(chunks(ids).map(c=>c.length),[COUNT_CHUNK,COUNT_CHUNK,5]);
   assert.equal(orgRecordCountPath(['a b','c']),'/rest/v1/app_suborganization_updates?organization_id=in.(a%20b,c)&select=id');
-});
-test('참고 묶음: 빈 묶음만 선택 가능, 확인 창은 되돌릴 수 없음을 먼저 말함',()=>{
-  const stats=new Map([['b1',{count:2}],['b2',{count:0}]]);
-  assert.deepEqual(pickableBundles([{id:'b1'},{id:'b2'},{id:'b3'}],stats),['b2','b3']);
-  assert.match(bundleBulkConfirmText(2),/^빈 묶음 2개를 삭제할까요\?\n.*되돌릴 수 없어요\.$/);
-  assert.equal(bundleBulkResultText(2,0),'묶음 2개를 삭제했어요.');
-  assert.match(bundleBulkResultText(1,1),/1개는 삭제하지 못했어요/);
-  assert.equal(bundlePickCount(0),'0개 선택됨');
 });

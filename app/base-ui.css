@@ -53,7 +53,6 @@ body{line-height:1.55}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 .hidden{display:none!important}
-#authView{display:none!important}
 #appView:not(.kptu-ui-ready):not(.kptu-shell-ready){visibility:hidden!important;pointer-events:none!important}
 .shell{min-height:100vh;min-height:100dvh}
 .topbar{height:62px;padding:0 max(18px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border);position:sticky;top:0;z-index:20}
@@ -244,11 +243,22 @@ body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-
 .kptu-title-line>:first-child{flex:1 1 auto;min-width:0;margin:0;overflow-wrap:anywhere}
 .kptu-title-line>:not(:first-child){flex:none;margin-top:-4px}
 
-/* PRJ-화면다듬기: one 4-line text clamp (text-clamp.js). Open = .is-open; the organization record list adds a [더보기]/[접기] button under the text. */
-.kptu-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}
+/* PRJ-화면다듬기 → UI-기록줄균일(S70-85): 기록 목록 줄 접기 공용 모양(text-clamp.js). 접힌 본문 = 두 줄(넘치면 말줄임), 펼침 = .is-open.
+   줄(.kptu-rec-fold)마다 본문 줄 높이 --kptu-rec-lh 하나로 두 줄 높이를 정한다. 본문 칸 높이 --kptu-rec-body = 두 줄과 누르는 칸(44px) 중 큰 쪽
+   (한 줄짜리도 같은 높이 — 각 목록 CSS가 본문 칸 최소 높이로 맞춤).
+   꺾쇠(.kptu-rec-fold-btn, 공용 .kptu-chev)는 ⋯ 바로 아래 한 줄 높이 안 — 자리는 각 목록 CSS가 정한다. ⋯는 44px 그대로(줄 위 여백까지 덮음),
+   꺾쇠는 그 아래쪽 위에 겹쳐 놓여(z-index) 꺾쇠 자리를 누르면 꺾쇠가 눌린다. 누르는 범위는 ::after로 아래 여백까지(옆으로는 넓히지 않음 — 가로 넘침 없음). */
+.kptu-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
 .kptu-clamp.is-open{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible}
-.kptu-clamp-more{display:inline-flex;align-items:center;min-height:44px;margin:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
-.kptu-clamp-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:var(--kptu-radius-md)}
+.kptu-rec-fold{--kptu-rec-lh:20px;--kptu-rec-body:max(calc(var(--kptu-rec-lh) * 2),var(--kptu-touch-target,44px))}
+.kptu-rec-fold .kptu-clamp{margin:0;line-height:var(--kptu-rec-lh)}
+.kptu-rec-fold:not([data-rec-open]) .kptu-clamp{max-height:calc(var(--kptu-rec-lh) * 2)}
+.kptu-rec-fold[data-rec-foldable] .kptu-clamp{cursor:pointer}
+.kptu-rec-fold-btn{position:relative;display:grid;place-items:center;box-sizing:border-box;width:32px;height:var(--kptu-rec-lh);min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:13px;line-height:1;cursor:pointer}
+.kptu-rec-fold-btn{z-index:1}
+.kptu-rec-fold-btn::after{content:"";position:absolute;left:0;right:0;top:0;bottom:-9px}
+.kptu-rec-fold-btn:hover{background:var(--kptu-surface-subtle)}
+.kptu-rec-fold-btn:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 /* SEARCH-결과원문으로(S71-15): 전체 검색 결과를 눌러 연 원문 자리의 찾은 낱말(found-mark.js, 화면 찾기 kptu-find와 같은 색) */
 ::highlight(kptu-found){color:var(--kptu-ink);background-color:color-mix(in srgb,var(--kptu-primary-ink) 18%,transparent);text-shadow:.35px 0 0 currentColor,-.35px 0 0 currentColor}
 /* CAL-저장본먼저: one small line on screens that show this device's saved copy first (data-freshness.js draws it):
