@@ -188,6 +188,8 @@ test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 �
 
 test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제], 오른쪽 끝까지 밀면 [선택] 칸만 → 누르면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
   const f = await notesList(page, 412);
+  // 휴지통에서 되돌리면 서버 목록에도 다시 있다(업데이트 줄 시험과 같음) — 되돌린 뒤 다시 읽어도 두 줄 그대로.
+  f.trash.onRestore = row => { const { link_count, deleted_at, ...back } = row; f.rows.push(back); };
   page.on('dialog', d => { throw new Error('묻지 않아야 함: ' + d.message()); });
   await swipe(page.locator('[data-note-row="n-two"]'), -50);
   const cells = page.locator('[data-note-list] [data-row-swipe-act="end"]');
@@ -213,14 +215,18 @@ test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제]
   // 누르기는 칸에 바로 보낸다(Playwright tap의 '보이게 스크롤'이 스크롤 이벤트로 열린 칸을 닫지 않게 — 손가락은 스크롤하지 않고 누른다).
   const pick = page.locator('[data-note-list] [data-row-swipe-key="select"]');
   const bar = page.locator('[data-nx-select-bar]');
+  // 되돌린 노트가 목록에 다시 그려질 때까지 먼저 기다린다(그 다시 그리기가 민 뒤에 오면 열린 칸이 닫힌다).
+  await expect(page.locator('[data-note-row="n-one"]')).toHaveCount(1);
+  await expect(page.locator('[data-note-row]')).toHaveCount(2);
   await expect(async () => {
+    if (await bar.isVisible()) return; // 앞 시도의 누르기가 늦게 먹었으면 그대로(선택 중에는 줄 밀기가 꺼져 다시 밀 수 없다)
     await swipe(page.locator('[data-note-row="n-two"]'), 320);
     await expect(pick).toBeVisible({ timeout: 1000 });
     await expect(bar).toBeHidden({ timeout: 500 }); // 미는 것만으로는 선택이 시작되지 않는다
-    await pick.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
-    await pick.dispatchEvent('click');
-    await expect(bar).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 15000 });
+    await pick.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true }, { timeout: 1000 });
+    await pick.dispatchEvent('click', undefined, { timeout: 1000 });
+    await expect(bar).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 20000 });
   await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   await expect(page.locator('[data-note-list] .row-swipe-pickbar')).toHaveCount(0);
   expect(f.errors).toEqual([]);
