@@ -1,6 +1,6 @@
 begin;
 -- S71-53 NOTE-관계선(사용자 결정 2026-11-26 19:58 "굉장히 광범위한 생각지도 … 서로의 관계성을 잇고", 21:10~21:11 "관계망 형성이 되어야해").
--- 앞 단계: 20261125040100_note_board_free_lines 기록이 있어야 한다(선 점 끝·색·두께 칸). 설계: docs/design/note-board-mindmap.md 11절.
+-- 앞 단계: 20261125040100_note_board_free_lines 기록이 있어야 한다(선 점 끝·색·두께 칸). 설계: docs/design/note-board-mindmap.md 12절.
 -- 바꾸는 것: 기존 표 app_note_board_links(연결선)에 선 종류 칸 kind 하나.
 --  · kind = 'line'(지금 선, 기본값 — 기존 행은 모두 이 값) · 'relation'(관계선: 가지 구조에 끼지 않고 멀리 떨어진 칸끼리 잇는 선).
 --  · 관계선 이름은 지금 칸 label(1~40자), 방향은 지금 칸 ends(none·end·both)를 그대로 쓴다. 새 표·함수·트리거·정책 바꾸기 없음.
@@ -9,14 +9,14 @@ begin;
 -- 권한: owner만(기존 정책 note_board_links_owner_all 그대로). 새 칸 넣기 권한만 authenticated에 더한다(고치기 권한은 주지 않음 — 만든 뒤 종류는 안 바뀜).
 --   anon·PUBLIC·service_role 권한 없음. 공유(COLLAB) 함수는 이 표를 읽지 않는다.
 -- 적용 경로: 승인형 DB workflow 확장 규칙(기존 표의 새 칸 권한).
---   짝: docs/20261127010000_note_board_relation.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+--   짝: docs/20261127020000_note_board_relation.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261127010000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261127020000')
      or not exists (select 1 from supabase_migrations.schema_migrations where version = '20261125040100' and name = 'note_board_free_lines')
      or to_regclass('public.app_note_board_links') is null
      or exists (select 1 from pg_attribute where attrelid = to_regclass('public.app_note_board_links')
@@ -62,5 +62,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261127010000', 'note_board_relation', array['S71-53: app_note_board_links kind column (line, relation)']);
+values ('20261127020000', 'note_board_relation', array['S71-53: app_note_board_links kind column (line, relation)']);
 commit;

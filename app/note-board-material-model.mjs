@@ -1,6 +1,6 @@
 // S71-54 NOTE-주제재료잇기(사용자 결정 2026-11-26 19:58~59):
 // 생각지도 주제(보드 글 상자)마다 이어 둔 '재료' 계산 한 곳(화면 없음, 시험 가능).
-// - 저장: 새 표 없이 기존 연결선 표 app_note_board_links의 kind 'material' 줄(migration 20261127020000). 끝 하나는 늘 주제 상자(from_text),
+// - 저장: 새 표 없이 기존 연결선 표 app_note_board_links의 kind 'material' 줄(migration 20261127040000). 끝 하나는 늘 주제 상자(from_text),
 //   다른 끝은 노트(mat_note) · 자료실 자료(mat_doc) · 웹 주소(mat_url) 중 하나(노트 재료가 선 끝 칸 to_note가 아닌 까닭은 migration 머리말). 이름(label)은 이을 때 이름(1~40자) — 화면은 지금 노트·자료 이름이 있으면 그걸 쓴다.
 //   선으로 그리지 않는다(주제 아래 작은 칩). 읽기·쓰기는 note-board-links-data.js 한 곳.
 // - 웹 주소는 http:// · https:// 만(javascript: · data: · file: 등은 거절), 빈칸·제어 문자 없음, 2000자까지(서버 check와 같은 규칙).

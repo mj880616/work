@@ -8,5 +8,5 @@ union all select 'index',i.relname,pg_get_indexdef(i.oid) from pg_index x join p
 union all select 'policy',p.polname,p.polcmd::text||' '||p.polroles::text||' '||p.polpermissive::text||' '||coalesce(pg_get_expr(p.polqual,p.polrelid),'')||' | '||coalesce(pg_get_expr(p.polwithcheck,p.polrelid),'')
   from pg_policy p where p.polrelid=to_regclass('public.app_note_board_links')
 union all select 'table acl','public.app_note_board_links',coalesce(c.relacl::text,'') from pg_class c where c.oid=to_regclass('public.app_note_board_links')
-union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261127020000'
+union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261127040000'
 order by 1,2;

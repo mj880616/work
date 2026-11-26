@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google, OpenAI or production credentials. All data synthetic.
-// S71-54 노트 보드 주제 재료 DB(20261127020000_note_board_materials): 연결선 표에 재료 종류(kind 'material')와 자료(mat_doc)·주소(mat_url) 칸.
+// S71-54 노트 보드 주제 재료 DB(20261127040000_note_board_materials): 연결선 표에 재료 종류(kind 'material')와 자료(mat_doc)·주소(mat_url) 칸.
 // 앞 단계(관계선 칸) 기록이 있어야 적용, 재료는 주제 상자 → 노트·자료·주소 하나, 주소는 http/https만, 같은 재료 한 번만,
 // 남의 노트·자료 잇기 거절, 주인만 읽고 고침, 남·anon·server 막힘, 쓰는 중이면 되돌리기가 멈춤, 비운 뒤 되돌리면 옛 모양 그대로.
 import test from 'node:test';
@@ -14,7 +14,7 @@ import pg from 'pg';
 import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
-const M='20261127020000_note_board_materials';
+const M='20261127040000_note_board_materials';
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
@@ -55,7 +55,7 @@ test('note board materials db: topic materials (note, document, web address), ow
   const mig=await read('supabase/migrations/'+M+'.sql');
   // 앞 단계(관계선 칸) 없이 적용하면 멈춘다.
   await assert.rejects(pool.query(mig),/PREREQUISITE_CHANGED/);
-  await pool.query(await read('supabase/migrations/20261127010000_note_board_relation.sql'));
+  await pool.query(await read('supabase/migrations/20261127020000_note_board_relation.sql'));
   const p=Object.fromEntries(await Promise.all(['precheck.sql','postcheck.sql','snapshot.sql','rollback.sql','summary.md'].map(async k=>[k.split('.')[0],await read('docs/'+M+'.'+k)])));
   const readOnly=async sql=>{const c=await pool.connect();try{await c.query('begin read only');await c.query('set local role supabase_read_only_user');const r=await c.query(sql);await c.query('commit');return r.rows;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
   async function as(role,sub,fn){const c=await pool.connect();try{await c.query('begin');await c.query("select set_config('request.jwt.claim.sub',$1,true)",[sub||'']);await c.query('set local role '+role);const r=await fn(c);await c.query('commit');return r;}catch(e){await c.query('rollback');throw e;}finally{c.release();}}
@@ -69,7 +69,7 @@ test('note board materials db: topic materials (note, document, web address), ow
 
   await t.test('files: pair files, summary 3 lines, approved workflow accepts it as new-column grants with a narrowing policy',()=>{
    for(const sql of [p.precheck,p.postcheck,p.snapshot])assert.equal(checkSQL(sql).baselineNull,false);
-   const plan=prepareMigration({mode:'apply',version:'20261127020000',runId:'1',root});
+   const plan=prepareMigration({mode:'apply',version:'20261127040000',runId:'1',root});
    assert.equal(plan.rules,'expanded');assert.equal(plan.flow,'full');assert.deepEqual(plan.newColumnGrantTables,['app_note_board_links']);
    const lines=p.summary.trim().split('\n');
    assert.equal(lines.length,3);['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((x,i)=>assert.ok(lines[i].startsWith(x)));

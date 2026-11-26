@@ -9,7 +9,7 @@
 //   bend_x = 시작→끝 방향 비율, bend_y = 그 수직 방향 비율(선 길이 단위). 카드·상자를 옮겨도 곡선이 따라온다. 둘 다 null = 지나는 점 없음
 //   (shape=curve면 옛 자동 곡선, line이면 직선). 점이 있으면 shape는 curve.
 //   label: 선 위 짧은 글자(1~40자, 없어도 됨). 같은 보드·같은 방향·같은 두 끝은 한 줄(서버 unique와 같은 규칙).
-//   kind(S71-53, migration 20261127010000): 'line'(지금 선) · 'relation'(관계선 — note-board-relation-model.mjs). 칸이 없는 옛 서버 줄은 'line'.
+//   kind(S71-53, migration 20261127020000): 'line'(지금 선) · 'relation'(관계선 — note-board-relation-model.mjs). 칸이 없는 옛 서버 줄은 'line'.
 // - 글 상자(S68-38c, 서버 표 app_note_board_texts): {id, board_id, body, x, y}. 그 보드에만 있는 짧은 글(노트가 아님). 크기는 화면이 글에 맞춘다.
 // - 기기 저장 없음.
 import { clampCoord, okCoord } from './note-board-coord.mjs';

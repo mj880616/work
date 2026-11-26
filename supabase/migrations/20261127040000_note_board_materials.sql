@@ -1,6 +1,6 @@
 begin;
 -- S71-54 NOTE-주제재료잇기(사용자 결정 2026-11-26 19:58~59).
--- 앞 단계: 20261127010000_note_board_relation 기록이 있어야 한다(선 종류 칸 kind). 설계: docs/design/note-board-mindmap.md 13절.
+-- 앞 단계: 20261127020000_note_board_relation 기록이 있어야 한다(선 종류 칸 kind). 설계: docs/design/note-board-mindmap.md 13절.
 -- 새 표를 만들지 않는다. 보드 위 칸끼리 잇는 기존 표 app_note_board_links(연결선·관계선)에 '재료' 종류 하나를 더한다.
 --  · kind = 'material'(재료): 끝 하나는 늘 그 보드의 주제 상자(from_text), 다른 끝은 새 칸 셋 중 하나 —
 --    노트(mat_note → app_notes, 노트를 지우면 잇기도 지워짐), 자료실 자료(mat_doc → app_documents, 자료를 지우면 잇기도 지워짐),
@@ -14,15 +14,15 @@ begin;
 -- 권한: owner만(기존 정책 note_board_links_owner_all 그대로 + 좁히기만). 새 칸 넣기 권한만 authenticated에 더한다(고치기 권한은 주지 않음 — 재료는 풀고 다시 잇는다).
 --   anon·PUBLIC·service_role 권한 없음. 공유(COLLAB) 함수는 이 표를 읽지 않는다. 새 함수·트리거·외부 호출 없음.
 -- 적용 경로: 승인형 DB workflow 확장 규칙(기존 표의 새 칸 권한 · restrictive 정책).
---   짝: docs/20261127020000_note_board_materials.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+--   짝: docs/20261127040000_note_board_materials.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261127020000')
-     or not exists (select 1 from supabase_migrations.schema_migrations where version = '20261127010000' and name = 'note_board_relation')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261127040000')
+     or not exists (select 1 from supabase_migrations.schema_migrations where version = '20261127020000' and name = 'note_board_relation')
      or to_regclass('public.app_note_board_links') is null
      or to_regclass('public.app_note_board_texts') is null
      or to_regclass('public.app_documents') is null
@@ -114,5 +114,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261127020000', 'note_board_materials', array['S71-54: app_note_board_links material kind (topic to note, library document or web address), mat_note, mat_doc and mat_url columns, restrictive same-workspace note and document policy']);
+values ('20261127040000', 'note_board_materials', array['S71-54: app_note_board_links material kind (topic to note, library document or web address), mat_note, mat_doc and mat_url columns, restrictive same-workspace note and document policy']);
 commit;
