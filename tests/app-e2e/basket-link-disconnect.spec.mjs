@@ -50,10 +50,14 @@ for(const width of [390,1280])test(`organization detail: line opens the note, �
  expect(await page.evaluate(()=>window.__detailState.links.length)).toBe(2);expect(errors).toEqual([]);
 });
 
-test('organization detail: tapping the line (or [메모 열기]) opens the original note in the basket',async({page})=>{
+// UI-기록줄높이통일(S70-66): 줄을 누르면 그 자리에서 펼친다(떠나지 않음). 원래 업데이트는 ⋯ [업데이트 열기]로 연다.
+test('organization detail: tapping the line opens it in place; ⋯ [업데이트 열기] opens the original note in the basket',async({page})=>{
  const {errors,host,ids}=await ready(page,'organization'),row=host.locator(`[data-basket-link="${ids.link}"]`);
- await expect(row.locator('a[data-basket-link-open]')).toHaveAttribute('href',`./?view=basket&note=${ids.note}`);
- await row.locator('a[data-basket-link-open]').click();await expect(page.locator('#wdModal')).toBeHidden();
+ const line=row.locator('[data-basket-link-open]');await expect(line).toHaveAttribute('data-basket-link-open',ids.note);
+ await line.click();await expect(line).toHaveAttribute('aria-expanded','true');await expect(page.locator('#wdModal')).toBeVisible();
+ expect(await page.evaluate(()=>window.__went)).toEqual([]);
+ await row.getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'업데이트 열기'}).click();
+ await expect(page.locator('#wdModal')).toBeHidden();
  expect(await page.evaluate(()=>window.__went)).toEqual([['basket',{source:'delegated'}]]);
  await page.evaluate(()=>window.KPTUWorkplace.open(window.__detailState.ids.org));await expect(host.locator('[data-basket-link]')).toHaveCount(2);
  await host.locator(`[data-basket-link="${ids.nullLink}"]`).getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'업데이트 열기'}).click();
@@ -69,7 +73,7 @@ test('organization detail: cancelling the confirmation changes nothing and retur
 
 for(const width of [390,1280])test(`project detail: 🧺 ⋯ holds [업데이트 열기]·[연결 해제]·[요약 수정]; the notice ends after 5 seconds ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const {errors,host,ids}=await ready(page,'project'),row=host.locator(`[data-basket-link="${ids.link}"]`);
- await expect(row.locator('a[data-ps3-basket-note]')).toHaveAttribute('href',/view=basket&note=/);
+ await expect(row.locator('[data-rec-fold-toggle]')).toHaveAttribute('aria-expanded','false');
  const more=row.getByRole('button',{name:'잊지 말기 기록 메뉴'}),box=await more.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
  await expect(host.locator('[data-link-summary-edit],[data-link-note-delete]')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -97,7 +101,7 @@ test('project detail: [되돌리기] re-links the same project with its summary;
  await again.getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  await page.locator('#ps3DetailModal [data-undo-notice]').getByRole('button',{name:'되돌리기'}).click();
  await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toContainText('보류한 업데이트라 연결을 되돌리지 못했어요.');await expect(host.locator('[data-basket-link]')).toHaveCount(1);
- await host.locator('a[data-ps3-basket-note]').first().click();await expect(page.locator('#ps3DetailModal')).toBeHidden();expect(await page.evaluate(()=>window.__went)).toEqual([['basket',{source:'delegated'}]]);
+ await host.locator('[data-basket-link]').first().getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'업데이트 열기'}).click();await expect(page.locator('#ps3DetailModal')).toBeHidden();expect(await page.evaluate(()=>window.__went)).toEqual([['basket',{source:'delegated'}]]);
  expect(errors).toEqual([]);
 });
 

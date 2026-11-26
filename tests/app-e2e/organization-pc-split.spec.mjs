@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {openRecordOriginal} from './helpers/record-open.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
@@ -120,10 +121,10 @@ test('PC 1280: a record opens the update with "‹ (organization)" in the head; 
  await row(page,'oa').click();await expect(title(page)).toHaveText('합성 가 지부');
  // ORG-기록하나로 O-5: 최근 10줄 앞 기록은 '지난 기록 n'에 접혀 있다 — 펼친 뒤 오래된 연결 기록으로 내려간다(펼침은 이 조직을 연 동안 그대로).
  await page.locator('#wdModal [data-wd-log-older] > summary').click();
- const line=page.locator('#wdModal [data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();
+ const line=page.locator('#wdModal [data-basket-link="l-o"] [data-basket-link-menu]'); // UI-기록줄높이통일: 업데이트는 ⋯ [업데이트 열기]로await expect(line).toBeVisible();
  const before=await scrollToRecord(page,line);/* UI-상세칸고정: 긴 상세는 그 칸만 스크롤한다 */expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
  for(const how of ['button','back','browser']){
-  await line.click();
+  await openRecordOriginal(page,line);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('‹ 합성 가 지부');
   if(how==='button')await back.click();else await goBack(page,how);

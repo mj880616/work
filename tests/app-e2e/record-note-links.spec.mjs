@@ -1,10 +1,11 @@
 import {test,expect} from '@playwright/test';
+import {openRecordOriginal} from './helpers/record-open.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 // UI-모바일업데이트겹쳐보기: on a phone a tapped record first comes up as a card over the detail; its full-open button continues as before.
-const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-record-sheet-full]').click()};
+// UI-기록줄높이통일(S70-66): 줄을 누르면 그 자리에서 펼치므로 노트는 그 줄 ⋯ [노트 열기]로 연다.
 // UI-기록아이콘(2026-10-18 명진 결정): 노트를 [연결하기]로 이은 조직·프로젝트 화면의 기록 목록에 노트도 보인다. 기록 줄 앞 표시는 새 업데이트 아이콘·노트
 // 아이콘으로 구분하고 🧺는 없앤다. 노트 줄을 누르면 노트 읽기 화면, 머리 줄 "‹ (이름)"·뒤로 가기는 #831 규칙대로 같은 프로젝트·조직으로.
 // DB 변경 없음: 같은 확정 연결(app_record_links, app_basket_confirm_links로 만든 것)을 노트 종류까지 함께 읽는다. 이름은 모두 합성 값이다.
@@ -65,7 +66,7 @@ for(const width of [1280,390])test(`project ${width}: a linked note joins the re
  await expect(up.getByRole('img',{name:'잊지 말기 업데이트'})).toBeVisible();await expect(up.locator('[data-record-mark="update"] svg')).toHaveCount(1);
  await expect(nt.getByRole('img',{name:'노트'})).toBeVisible();await expect(nt.locator('[data-record-mark="note"] svg')).toHaveCount(1);
  // A note without a link summary shows its title.
- await expect(nt.locator('.ps3-rec-text')).toHaveText('합성 회의 준비 노트');await expect(up.locator('.ps3-rec-text')).toHaveText('합성 업데이트 연결 요약');
+ await expect(nt.locator('.rec-fold-text')).toHaveText('합성 회의 준비 노트');await expect(up.locator('.rec-fold-text')).toHaveText('합성 업데이트 연결 요약');
  await expect(page.locator('#ps3Body')).not.toContainText('🧺');
  // Newest first: the note (9.16) above the update (9.15), both counted. The 24 old progress records are not drawn (결정 ⑥).
  const order=await records.locator(':scope > [data-basket-link]').evaluateAll(xs=>xs.map(x=>x.dataset.basketLink));expect(order).toEqual(['l-note','l-up']);
@@ -82,10 +83,10 @@ for(const width of [1280,390])test(`project ${width}: a note line opens the note
  const {errors}=await fixture(page,{width,fill:24});
  await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
  await expectProjectTitle(page,'합성 정책 사업');
- const line=page.locator('#ps3Body [data-basket-link="l-note"] a[data-ps3-basket-note]');
+ const line=page.locator('#ps3Body [data-basket-link="l-note"] [data-ps3-record-menu]');
  const before=await scrollToRecord(page,line);
  for(const how of ['button','back','browser']){
-  await line.click();await viaSheet(page);
+  await openRecordOriginal(page,line);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
   await expect(page.locator('#basketView [data-basket-text]').first()).toBeHidden();
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText(width<761?'‹ 사업영역':'‹ 합성 정책 사업');
@@ -110,13 +111,13 @@ for(const width of [1280,390])test(`project ${width}: a note line opens the note
 for(const width of [390,1280])test(`organization ${width}: the linked note shows with the note icon, opens the note and returns to the same organization`,async({page})=>{
  const {state,errors}=await fixture(page,{width});
  await clickView(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();
- const modal=page.locator('#wdModal'),row=modal.locator('[data-basket-link="l-note-o"]'),line=row.locator('a[data-basket-link-open]');await expect(line).toBeVisible();
+ const modal=page.locator('#wdModal'),row=modal.locator('[data-basket-link="l-note-o"]'),line=row.locator('[data-basket-link-menu]');await expect(line).toBeVisible();
  await expect(row.getByRole('img',{name:'노트'})).toBeVisible();await expect(row.locator('small')).toContainText('노트 연결');await expect(row.locator('[data-link-summary-text]')).toHaveText('합성 회의 준비 노트');
  await expect(modal).not.toContainText('🧺');
  await row.locator('[data-basket-link-menu]').click();const menu=page.locator('#basketLinkMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정','원문 삭제']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  const before=await top(line);
  for(const how of ['button','back','browser']){
-  await line.click();await viaSheet(page);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
+  await openRecordOriginal(page,line);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
   await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'‹ 조직 관리':'‹ 테스트 조직');
   if(how==='button')await page.locator('#basketView [data-basket-return]').click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
@@ -133,7 +134,7 @@ for(const width of [1280,390])test(`project ${width}: record lines show plain le
  state.progress[0].summary='## 합성 진행 | 항목 | **굵게**';
  await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
  await expectProjectTitle(page,'합성 정책 사업');
- const up=page.locator('#ps3-progress [data-ps3-records] [data-basket-link="l-up"] .ps3-rec-text');
+ const up=page.locator('#ps3-progress [data-ps3-records] [data-basket-link="l-up"] .rec-fold-text');
  await expect(up).toContainText('합성 결과 · 일시 · 장소 2026. 10. 21. · 합성 본사');
  expect((await up.textContent())||'').not.toMatch(/###|\||\*\*|&#x20;|\\\./);
  await expect(page.locator('#ps3-progress .ps3-rec-summary,#ps3-progress [data-ps3-record]')).toHaveCount(0);

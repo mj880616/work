@@ -210,7 +210,9 @@
 .ps3-rec-text{min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
 .ps3-rec-from,.ps3-rec-next{color:var(--kptu-muted)}
 .ps3-rec-from::after{content:' ·'}
-.ps3-rec-basket{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:center}
+/* UI-기록줄높이통일(S70-66): 연결 기록 줄 = [머리 줄(record-fold.css) | ⋯] + 그 아래 펼침 본문. */
+.ps3-rec-basket{display:block}
+.ps3-rec-basket .rec-fold-body{margin-bottom:8px}
 .ps3-rec-more{width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 .ps3-rec-more:hover{background:var(--kptu-surface-subtle)}
 .ps3-rec-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}

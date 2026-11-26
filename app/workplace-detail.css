@@ -29,19 +29,15 @@
 #wdUpdates .basket-link-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 /* BUG-바구니연결해제: the line opens the note; ⋯ (44px) holds the record's actions. */
 /* UI-기록카드하나로(S70-42): 연결 기록(사진 기록 포함)도 글 기록 줄(.wd-log-row)과 같은 틀 [날짜 칸 | 본문 | ⋯] — 날짜 칸 폭·글자, 안쪽 여백 9px 같게. */
-#wdUpdates .basket-link-line{display:grid;grid-template-columns:4.6em minmax(0,1fr) auto;align-items:start;gap:4px 8px}
+/* UI-기록줄높이통일(S70-66): 줄 = [머리 줄(날짜 · 요약 두 줄 · 수 · ›, record-fold.css) | ⋯], 본문·띠는 그 아래 펼침. */
+#wdUpdates .basket-link-line{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 4px}
 #wdUpdates .basket-link-day{padding-top:2px;white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta);font-variant-numeric:tabular-nums}
 #wdUpdates .basket-link-main{min-width:0}
 #wdUpdates .basket-link-main>.record-files{margin:4px 0 0}
 /* 사진만 있는 기록: [작은 그림 줄][기록 한 줄(말줄임)]을 한 줄에. */
 #wdUpdates .basket-link-main:has(>.record-files[data-record-only-photos]){display:flex;align-items:center;gap:8px}
 #wdUpdates .basket-link-main>.record-files[data-record-only-photos]{order:-1;flex:none;margin:0}
-#wdUpdates .basket-link-main:has(>.record-files[data-record-only-photos])>.basket-link-open{flex:1 1 auto;min-width:4.5em}
-#wdUpdates .basket-link-main:has(>.record-files[data-record-only-photos]) [data-link-summary-text]{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:650px){#wdUpdates .basket-link-line{grid-template-columns:3.9em minmax(0,1fr) auto}}
-#wdUpdates .basket-link-open{display:block;min-width:0;color:inherit;text-decoration:none;border-radius:var(--kptu-radius-md)}
-#wdUpdates .basket-link-open:hover p[data-link-summary-text]{text-decoration:underline}
-#wdUpdates .basket-link-more{width:44px;height:44px;min-height:44px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+#wdUpdates .basket-link-more{width:44px;height:44px;min-height:44px;margin:0 -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 #wdUpdates .basket-link-more:hover{background:var(--kptu-surface)}
 .basket-link-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
 .basket-link-menu[hidden]{display:none}
@@ -107,19 +103,21 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 /* ORG-기록수정삭제: a record written here has one ⋯ at its top right (same look as a basket-linked record), holding [수정]·[삭제].
    [수정] opens a multi-line box in place with [저장]·[취소]. */
 /* ORG-기록하나로 O-5: '날짜 | 기록' 한 표 — 왼쪽 날짜 칸(흐린 작은 글씨, 한 줄), 가운데 기록, 오른쪽 ⋯. 최근 10줄 아래 '지난 기록 n'(접힘). */
-#wdUpdates .wd-log-row .wd-rowtop{display:grid;grid-template-columns:4.6em minmax(0,1fr) auto;align-items:start;gap:4px 8px}
+#wdUpdates .wd-log-row .wd-rowtop{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 4px}
+/* UI-기록줄높이통일: 접힌 기록 줄은 머리 줄 높이(54px)가 곧 줄 높이 — 칸 위아래 여백은 두지 않는다. */
+#wdUpdates .wd-row.wd-log-row,#wdUpdates .basket-link-record{padding-top:0;padding-bottom:0}
 #wdUpdates .wd-log-day{padding-top:2px;white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta);font-variant-numeric:tabular-nums}
 #wdUpdates .wd-log-older{margin-top:6px}
 #wdUpdates .wd-log-older>summary{cursor:pointer;width:max-content;min-height:var(--ds-compact-height-sm);padding:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #wdUpdates .wd-log-src{margin:4px 0 0 calc(4.6em + 8px);padding:4px 8px;border-left:2px solid var(--kptu-border);color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:pre-wrap;overflow-wrap:anywhere}
 #wdUpdates .wd-log-src-k{color:var(--kptu-ink)}
-@media(max-width:650px){#wdUpdates .wd-log-row .wd-rowtop{grid-template-columns:3.9em minmax(0,1fr) auto}#wdUpdates .wd-log-src{margin-left:0}}
+@media(max-width:650px){#wdUpdates .wd-log-src{margin-left:0}}
 #wdUpdates .wd-log-main{min-width:0}
 #wdUpdates .wd-log-main p{white-space:pre-wrap;overflow-wrap:anywhere}
 #wdUpdates .wd-log-main .wd-doc{min-width:0;font-size:var(--ds-text-body,14px)}
 #wdUpdates .wd-log-main .wd-doc .ed-doc{font-size:inherit;line-height:1.55}
 #wdUpdates .wd-log-main p.md-body,#wdUpdates [data-link-summary-text].md-body{white-space:normal}
-#wdUpdates .wd-up-more{width:44px;height:44px;min-height:44px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+#wdUpdates .wd-up-more{width:44px;height:44px;min-height:44px;margin:0 -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 #wdUpdates .wd-up-more:hover{background:var(--kptu-surface-subtle)}
 #wdUpdates .wd-up-editor{display:grid;gap:6px;margin-top:4px}
 #wdUpdates .wd-up-editor textarea{width:100%;box-sizing:border-box;min-height:96px;resize:none;font:inherit;font-size:var(--kptu-text-body);line-height:1.55}

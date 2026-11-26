@@ -633,7 +633,7 @@ test('project detail keeps one summary-first column at desktop and phone widths'
       const r=el=>el.getBoundingClientRect();
       const list=document.querySelector('#ps3-progress [data-ps3-records]');
       const objective=document.querySelector('#ps3Summary');
-      const summary=document.querySelector('[data-basket-link="layout-second"] .ps3-rec-text');
+      const summary=document.querySelector('[data-basket-link="layout-second"] .rec-fold-text');
       return {
         overflow:document.documentElement.scrollWidth-window.innerWidth,
         list:r(list).width,
@@ -950,13 +950,13 @@ test('V3 more menu and record lines use native keyboard disclosure behavior',asy
   await expect(menu).toHaveAttribute('open','');
   await page.locator('#ps3Title,#ps3Summary').first().click();
   await expect(menu).not.toHaveAttribute('open','');
-  // Each linked record line is a keyboard link (opens the update) followed by its ⋯ button (opens the record menu).
+  // Each linked record line is a keyboard button (opens the record in place — UI-기록줄높이통일) followed by its ⋯ button (opens the record menu).
   // MTG-프로젝트합치기 3단계: 맨 위 입력칸·⤢가 없어져 첫 기록 줄에서 시작한다(입력칸 → ⤢ → [기록] 순서 검사는 기능과 함께 없앴다).
   await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big],#ps3-progress [data-ps3-record]')).toHaveCount(0);
   const first=page.locator('[data-ps3-record-menu="basket:kb-first"]'),second=page.locator('[data-ps3-record-menu="basket:kb-second"]');
   await first.focus();
   await expect(first).toBeFocused();
-  await page.keyboard.press('Tab');await expect(page.locator('[data-basket-link="kb-second"] a.ps3-rec-line')).toBeFocused();
+  await page.keyboard.press('Tab');await expect(page.locator('[data-basket-link="kb-second"] [data-rec-fold-toggle]')).toBeFocused();
   await page.keyboard.press('Tab');await expect(second).toBeFocused();
   await page.keyboard.press('Enter');await expect(page.locator('#ps3RecordMenu button').first()).toBeFocused();
   // Tab stays inside the menu and wraps: Shift+Tab from the first item reaches the last.
@@ -1499,7 +1499,7 @@ test('PRJ linked record lines fit 390px and 1280px with 44px targets',async({pag
   await expect(item.locator('[data-ps3-progress-ws],[data-ps3-record]')).toHaveCount(0);
   for(const width of [390,1280]){
     await page.setViewportSize({width,height:844});
-    const layout=await record.evaluate(el=>{const r=x=>x.getBoundingClientRect(),list=el.closest('[data-ps3-records]');return {row:r(el).width,list:r(list).width,line:{w:r(el.querySelector('a.ps3-rec-line')).width,h:r(el.querySelector('a.ps3-rec-line')).height},buttons:[...el.querySelectorAll('button')].map(b=>({w:r(b).width,h:r(b).height})),overflow:document.documentElement.scrollWidth-innerWidth}});
+    const layout=await record.evaluate(el=>{const r=x=>x.getBoundingClientRect(),list=el.closest('[data-ps3-records]');return {row:r(el).width,list:r(list).width,line:{w:r(el.querySelector('[data-rec-fold-toggle]')).width,h:r(el.querySelector('[data-rec-fold-toggle]')).height},buttons:[...el.querySelectorAll('button:not([data-rec-fold-toggle])')].map(b=>({w:r(b).width,h:r(b).height})),overflow:document.documentElement.scrollWidth-innerWidth}});
     expect(layout.overflow).toBeLessThanOrEqual(1);
     expect(Math.round(layout.row)).toBe(Math.round(layout.list));
     expect(layout.line.h).toBeGreaterThanOrEqual(44);expect(layout.line.w).toBeGreaterThan(width>500?300:250);

@@ -16,10 +16,10 @@ test('linkRecordHtml: record_input은 날짜만, basket·null은 잊지 말기 �
   assert.match(direct,/aria-label="기록 메뉴"/);
   for(const origin of ['basket',null,undefined,'other']){
     const html=linkRecordHtml(row({origin}));
-    assert.match(html,/잊지 말기 연결<\/small>/,String(origin));assert.match(html,/class="basket-link-day"><time/,String(origin));assert.match(html,/data-record-mark="update"/);assert.match(html,/aria-label="잊지 말기 기록 메뉴"/);
+    assert.match(html,/잊지 말기 연결<\/span><\/small>/,String(origin));assert.match(html,/class="basket-link-day"><time/,String(origin));assert.match(html,/data-record-mark="update"/);assert.match(html,/aria-label="잊지 말기 기록 메뉴"/);
   }
   const note=linkRecordHtml(row({origin:'record_input',note_kind:'note',title:'합성 노트'}));
-  assert.match(note,/노트 연결<\/small>/);assert.equal(isDirectRecord(row({origin:'record_input',note_kind:'note'})),false);
+  assert.match(note,/노트 연결<\/span><\/small>/);assert.equal(isDirectRecord(row({origin:'record_input',note_kind:'note'})),false);
   assert.equal(recordMenuLabel(row({origin:'record_input'})),'기록 메뉴');assert.equal(recordMenuLabel(row({})),'잊지 말기 기록 메뉴');
 });
 
@@ -48,7 +48,7 @@ test('저장 길마다 보내는 origin: 입력칸 record_input, 잊지 말기 b
 
 test('사업 보고 기록 줄·큰 창도 같은 판정(isDirectRecord)을 쓴다',()=>{
   const src=f=>readFileSync(new URL('../app/'+f,import.meta.url),'utf8');
-  assert.match(src('project-system-v3.js'),/\$\{isDirectRecord\(b\)\?'':`\$\{recordMark\(b,'ps3-rec-mark'\)\} `\}/);
+  assert.match(src('project-system-v3.js'),/isDirectRecord\(b\)\?'':`<small>\$\{recordMark\(b,'ps3-rec-mark'\)\}/);
   assert.match(src('project-system-v3.js'),/aria-label="\$\{recordMenuLabel\(b\)\}"/);
   const sheet=src('record-sheet.js');
   assert.match(sheet,/direct\?'':'잊지 말기 연결'/);assert.match(sheet,/direct\?'기록':'잊지 말기 업데이트'/);assert.match(sheet,/direct\?'원문 보기':'잊지 말기에서 열기'/);

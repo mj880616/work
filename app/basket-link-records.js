@@ -3,8 +3,9 @@ import {formatSeoulTime} from './meeting-time.js';
 import {disconnectWithUndo,deleteNoteOriginal,deleteRecordNote} from './basket-record-delete.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {aiSummaryAllowed,aiSummaryMarkup,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
-import {previewText,markdownSource,writtenText} from './note-preview.mjs';
+import {previewText,markdownSource,writtenText,recordLines} from './note-preview.mjs';
 import {attachmentsLabel} from './record-file-line.mjs';
+import {foldHeadHtml,foldBodyAttrs,foldFullHtml} from './record-fold.js'; // UI-기록줄높이통일: 기록 줄 한 모양
 import {dayCell} from './org-record-rows.mjs'; // UI-기록카드하나로: 글 기록 줄과 같은 날짜 칸 글
 
 const PAGE_SIZE=100;
@@ -127,10 +128,17 @@ export const recordWrittenSource=row=>{const text=recordSourceText(row);return !
 // extra: html put inside the record under its line (ORG-기록첨부: the picture/file strip, record-files.js).
 // UI-기록카드하나로(S70-42, 명진 11/25 "사진이 있는거랑 글자가 있는거랑 먼가 통일감이 없음"): 글 기록 줄과 같은 틀 [날짜 칸 'MM.DD.' | 본문 | ⋯].
 // 본문 = 글(또는 사진만인 기록의 한 줄) + 그 아래 extra(기록 띠: 작은 사진·파일 이름, record-files.js). 긴 날짜·시각은 날짜 칸 title로만.
-export function linkRecordHtml(row,{extra=''}={}){
+// UI-기록줄높이통일(S70-66, 시안 B 나안 두 줄): 줄은 [날짜 · 요약 두 줄 · 첨부·메모 수 · ›] 같은 높이(record-fold.js). 누르면 그 자리에서
+// 원문 전체(잠긴 노트는 '잠김')·extra(사진·파일 띠)가 펼쳐지고 다시 누르면 접힌다. 원래 업데이트·노트 열기는 ⋯ [업데이트 열기]/[노트 열기].
+// open: 펼친 채로 그린다(화면이 가진 펼침 Set). memos: 이 노트에 남긴 메모 수.
+export const recordFileCount=row=>recordLocked(row)||row?.locked?0:(Array.isArray(row?.attachments)?row.attachments:[]).filter(f=>/^[A-Za-z0-9_-]{1,255}$/.test(String(f?.drive_file_id||''))).length;
+export const recordFullText=row=>recordLocked(row)?LOCKED_RECORD_TEXT:String(row?.raw_text??'').trim()?String(row.raw_text):recordShownText(row);
+export function linkRecordHtml(row,{extra='',open=false,memos=0}={}){
   const ok=Number.isFinite(Date.parse(row.occurred_at)),date=ok?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'',day=ok?dayCell(row):'';
-  const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><span class="basket-link-day"><time${ok?` datetime="${escape(new Date(row.occurred_at).toISOString())}" title="${escape(date)}"`:''}>${escape(day)}</time></span><div class="basket-link-main"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}">${isDirectRecord(row)?'':`<small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'잊지 말기 연결'}</small>`}<p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordShownText(row))}</p></a>${extra}</div><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="${recordMenuLabel(row)}" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),full=recordFullText(row),md=recordLocked(row)?'':markdownSource(full);
+  const chip=isDirectRecord(row)?'':`<small>${recordMark(row,'basket-link-mark')}<span class="rec-fold-chip-t">${note?'노트 연결':'잊지 말기 연결'}</span></small>`;
+  const head=foldHeadHtml({key:'link:'+row.id,day:`<span class="basket-link-day"><time${ok?` datetime="${escape(new Date(row.occurred_at).toISOString())}" title="${escape(date)}"`:''}>${escape(day)}</time></span>`,summary:recordShownText(row),chip,files:recordFileCount(row),memos,open,cls:'basket-link-open',attrs:`data-basket-link-open="${escape(row.note_id)}"`,textAttrs:'data-link-summary-text'});
+  return `<div class="basket-link-record" data-rec-fold${open?' data-rec-fold-open':''} data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line rec-fold-line">${head}<button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="${recordMenuLabel(row)}" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><div ${foldBodyAttrs(open)}><div class="basket-link-main">${foldFullHtml(recordLocked(row)?full:recordLines(full),{md})}${extra}</div></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
 // One menu panel for every mounted record host (created on first use inside the open dialog).
@@ -278,15 +286,9 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     if(name==='summary'){open(id);return;}
     if(name==='disconnect'||name==='note-delete')void act(id,name==='note-delete');
   }
-  // UI-모바일업데이트겹쳐보기: a tap on the line itself passes {line,linkId,trigger}, so a phone can show the record over the detail
-  // (record-sheet.js) instead of leaving; the ⋯ [업데이트 열기]/[노트 열기] passes nothing and still opens the full view.
+  // UI-기록줄높이통일(S70-66): 줄을 누르면 그 자리에서 펼친다(record-fold.js) — 원래 글 열기는 ⋯ [업데이트 열기]/[노트 열기]뿐.
   function openNote(noteId,kind='basket',info=null){if(onOpenNote&&noteId)onOpenNote(noteId,kind,info);else if(noteId)location.href=kind==='note'?'./?view=basket':`./?view=basket&note=${encodeURIComponent(noteId)}`;}
   function click(event){
-    const link=event.target.closest?.('a[data-basket-link-open]');
-    if(link&&host.contains(link)){
-      if(!onOpenNote||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-      event.preventDefault();const row=link.closest('[data-basket-link]');if(isCurrent())openNote(link.dataset.basketLinkOpen,row?.dataset.basketLinkNoteKind==='note'?'note':'basket',{line:true,linkId:row?.dataset.basketLink||null,trigger:link});return;
-    }
     const button=event.target.closest?.('button');if(!button||!host.contains(button))return;
     if(button.dataset.basketLinkMenu){if(!button.disabled)recordMenu(host).open(button);return;}
     const form=button.closest('[data-link-summary-form]'),state=form&&states.get(form.dataset.linkSummaryForm);if(!state||state.busy)return;

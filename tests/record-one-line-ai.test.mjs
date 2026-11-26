@@ -61,7 +61,7 @@ test('연결: 새 조직 기록 저장·원문 수정 뒤 부탁, 조직 상세 
   const qs = read('app/quick-save.js'), wd = read('app/workplace-detail.js'), ai = read('app/record-one-line-ai.js');
   assert.match(qs, /requestRecordOneLine\(String\(savedId\),raw_text,\{rt\}\)/);
   assert.equal(wd.match(/requestRecordOneLine\(/g)?.length, 2);
-  assert.match(wd, /wdRecordText\(x\.raw_text,x\.one_line\)/);
+  // UI-기록줄높이통일(S70-66): 조직 기록 줄 요약 = 저장된 한 줄(one_line)이 있으면 그것, 없으면 원문 앞부분.\n  assert.match(wd, /const wdSummary=x=>plainLines\(x\.one_line\)\.join\(' '\)\|\|plainLines\(x\.raw_text\)\.join\(' '\)/);
   assert.match(wd, /one_line:null\}/);
   assert.doesNotMatch(ai, /CustomEvent\('kptu:api-saved'|RECORD_ONE_LINE_EVENT = 'kptu:api-saved'/);
 });

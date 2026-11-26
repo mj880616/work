@@ -2,7 +2,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // BUG-미리보기기호: a record line in 담당조직 (a basket update linked there, a note, a direct update) shows plain letters only
-// (no ###, |, **, no 2026\.&#x20; leftovers; table cells joined with ' · '); [더보기] opens the same text as headings and a table.
+// (no ###, |, **, no 2026\.&#x20; leftovers; table cells joined with ' · '); tapping the line opens the same text as headings and a table in place (UI-기록줄높이통일).
 // Project progress lines use the same function. All names and texts are synthetic.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-12T01:00:00Z';
 const n='10000000-0000-4000-8000-000000000001',o='30000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001';
@@ -29,25 +29,23 @@ async function fixture(page){
 }
 for(const width of [390,1280])test(`organization record lines show plain letters and open as markdown ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page);
- await page.addStyleTag({content:'#wdUpdates .kptu-clamp{-webkit-line-clamp:1!important;line-clamp:1!important}'});
  await page.evaluate(async()=>{await KPTUViewLoader.load('team');KPTURouter.go('team');});
  await expect(page.locator('[data-so-org]')).toHaveCount(1);
  if(width<761)await page.locator('[data-so-org]').click();
- const link=page.locator('#wdUpdates [data-link-summary-text]'),own=page.locator('#wdUpdates .wd-log-main p');
+ const link=page.locator('#wdUpdates [data-link-summary-text]'),own=page.locator('#wdUpdates .wd-log-row .rec-fold-text');
  await expect(link).toHaveCount(1);await expect(own).toHaveCount(1);
  const line=(await link.textContent())||'';
  expect(line).toContain('합성 간담회 결과 일시 · 위치·장소 · 참석');expect(line).toContain('2026. 10. 21.');expect(line).toContain('합성 본사 · 12명');expect(line).not.toMatch(MARKS);
- // RECORD-한줄: 조직 상세 기록 줄은 한 줄(첫 줄 + …), [펼치기]로 원문(마크다운은 정리해서).
- expect(((await own.textContent())||'').trim()).toBe('직접 쓴 업데이트…');expect((await own.textContent())||'').not.toMatch(MARKS);
- // opened: the same text as a heading and a table. The 4-line cut is made certain by a 1-line clamp so [더보기] always shows.
- const more=page.locator('#wdUpdates .kptu-clamp-more');await expect(more).toHaveCount(2);
- await more.first().click();
- const open=page.locator('#wdUpdates [data-link-summary-text], #wdUpdates .wd-log-main p').filter({has:page.locator('table, h2')});
+ // UI-기록줄높이통일(S70-66): 조직 기록 줄은 요약 두 줄(표시 없는 글자), 줄을 누르면 그 자리에서 원문(마크다운은 정리해서).
+ expect(((await own.textContent())||'').trim()).toMatch(/^직접 쓴 업데이트 굵게 합성 문장/);expect((await own.textContent())||'').not.toMatch(MARKS);
+ const heads=page.locator('#wdUpdates [data-rec-fold-toggle]');await expect(heads).toHaveCount(2);
+ await heads.first().click();
+ const open=page.locator('#wdUpdates .rec-fold-full').filter({has:page.locator('table, h2')});
  await expect(open).toHaveCount(1);
- await more.nth(1).click();
+ await heads.nth(1).click();
  await expect(page.locator('#wdUpdates table')).toHaveCount(1);await expect(page.locator('#wdUpdates h3')).toContainText('합성 간담회 결과');await expect(page.locator('#wdUpdates h2')).toContainText('직접 쓴 업데이트');
  await expect(page.locator('#wdUpdates tbody td').first()).toContainText('2026. 10. 21.');
- await page.locator('#wdUpdates .kptu-clamp-more').first().click();await page.locator('#wdUpdates .kptu-clamp-more').last().click();
- await expect(page.locator('#wdUpdates table')).toHaveCount(0);expect(((await link.textContent())||'')).not.toMatch(MARKS);
+ await heads.first().click();await heads.last().click();
+ await expect(page.locator('#wdUpdates table')).toBeHidden();expect(((await link.textContent())||'')).not.toMatch(MARKS);
  expect(f.errors).toEqual([]);
 });
