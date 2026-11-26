@@ -109,7 +109,7 @@ for(const width of [412,1280])test.describe(`다시 그려도 메뉴 자리(둘�
     await expect(linkPanel).toBeVisible();
     await expect(linkMore).toHaveAttribute('aria-expanded','true');
     expect(await nextTo(linkPanel,linkMore)).toBe(true);
-    await linkPanel.getByRole('button',{name:'요약 수정',exact:true}).click();
+    await linkPanel.getByRole('button',{name:'수정',exact:true}).click();
     await expect(link.locator('[data-link-summary-input]')).toBeFocused();
     expect(errors).toEqual([]);
   });

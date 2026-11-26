@@ -275,7 +275,7 @@ test('1280 project detail: a record line opens the record ⋯ menu; browser menu
   // MTG-프로젝트합치기 3단계: 맨 위 기록 입력칸이 없다. 결정 ⑥: 옛 진행 기록 줄(state.progress)도 목록에 그려지지 않아, 남은 글 입력칸인
   // 연결 줄의 ⋯ → [요약 수정] 칸에서 브라우저 메뉴가 그대로인지 본다.
   await expect(page.locator('#ps3Body [data-ps3-record-input],#ps3Body [data-ps3-record]')).toHaveCount(0);
-  await rec.locator('[data-ps3-record-menu]').click(); await menu.getByRole('button', { name: '요약 수정', exact: true }).click();
+  await rec.locator('[data-ps3-record-menu]').click(); await menu.getByRole('button', { name: '수정', exact: true }).click();
   const input = rec.locator('[data-link-summary-input]');
   await expect(input).toBeVisible(); await input.scrollIntoViewIfNeeded(); await rightClickAt(page, input, 0.5, 0.5); await expect(menu).toBeHidden(); expect(await kept(page)).toEqual([false, true]);
 });
