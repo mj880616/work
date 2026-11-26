@@ -123,15 +123,15 @@ import { pubMenu, PUB_LABELS, PUB_ON } from './note-publish-model.mjs';
 import { paintNoteSource } from './note-import-view.js';
 import { busyTitle, noteSource } from './note-import-model.mjs';
 import {word} from './brand/brand.mjs';
-import {sbActHtml, sbCloseHtml} from './select-bar-model.mjs';
-import {fitSelectBar} from './select-bar.js';
+import {sbActHtml, sbCloseHtml, sbAllHtml} from './select-bar-model.mjs';
+import {fitSelectBar, paintSelectAll} from './select-bar.js';
 // UI-검색창하나로(S70-54): 노트 찾기는 맨 위 칸(화면 찾기 등록), 목록 머리 ⋯는 맨 위 줄 단추 자리(screen-find.js 상자)로.
 import {registerScreenFind, refreshScreenFind, toolsBox, findFor} from './screen-find.js';
 // UI-고르기막대(S69-85): 노트 고르기 막대도 공용 모양 — 왼쪽 [✕] 'N개 선택됨', 오른쪽 [전체 선택][폴더로 옮기기][삭제](좁으면 아이콘만 → ⋯).
 //   kptu-act는 정리함 기본 단추 모양(ui-standard.css)에서 빼는 표시로 그대로 둔다.
 const NX_SEL_BAR = sbCloseHtml('data-nx-sel-close', '선택 끝내기').replace('kptu-sb-close"', 'kptu-sb-close kptu-act nx-sel-close"')
   + '<span class="kptu-sb-count" data-nx-select-count></span><span class="kptu-sb-acts nx-sel-acts">'
-  + sbActHtml({attrs: 'data-nx-sel-all', icon: 'all', label: '전체 선택', rank: 30}).replace('kptu-sb-act"', 'kptu-sb-act kptu-act"')
+  + sbAllHtml({attrs: 'data-nx-sel-all'}).replace('kptu-sb-act"', 'kptu-sb-act kptu-act"')
   + sbActHtml({attrs: 'data-nx-sel-move', icon: 'move', label: '폴더로 옮기기', rank: 10}).replace('kptu-sb-act"', 'kptu-sb-act kptu-act"')
   + sbActHtml({attrs: 'data-nx-sel-delete', icon: 'trash', label: '삭제', danger: true}).replace('kptu-sb-danger"', 'kptu-sb-danger kptu-act kptu-act-danger"')
   + '</span>';
@@ -521,7 +521,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const acts = bar.querySelector('.nx-sel-acts'), moving = !!pick.active && selDragging;
     if (acts && moving && !parkedActs) { parkedActs = [...acts.children]; for (const b of parkedActs) b.remove(); }
     else if (acts && !moving && parkedActs) { acts.append(...parkedActs); parkedActs = null; }
-    if (pick.active) { host.querySelector('[data-nx-select-count]').textContent = moving ? `옮기는 중 ${pick.size}개` : `${pick.size}개 선택됨`; bar.querySelectorAll('[data-nx-sel-move],[data-nx-sel-delete]').forEach(b => { b.disabled = !pick.size || busy; }); }
+    if (pick.active) { host.querySelector('[data-nx-select-count]').textContent = moving ? `옮기는 중 ${pick.size}개` : `${pick.size}개 선택됨`; bar.querySelectorAll('[data-nx-sel-move],[data-nx-sel-delete]').forEach(b => { b.disabled = !pick.size || busy; });
+      // S70-64: [전체 선택] 켜짐 = 지금 보이는 노트·폴더가 모두 골라짐(네모 안 체크), 다시 누르면 모두 풀림(selectAll 토글).
+      const keys = shownPickKeys(); paintSelectAll(bar.querySelector('[data-nx-sel-all]'), keys.length > 0 && keys.every(k => pick.has(k))); }
     list.classList.toggle('nx-selecting', !!pick.active);
   }
 
@@ -1829,9 +1831,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   const togglePick = key => { if (!pick.active) return; pick.toggle([key]); renderList(); };
   const pickedItems = () => ({notes:[...(pick.items || [])].filter(k => k.startsWith('n:')).map(k => k.slice(2)), folders:[...(pick.items || [])].filter(k => k.startsWith('f:')).map(k => k.slice(2))});
+  function shownPickKeys() {
+    return [...new Set([...host.querySelectorAll('[data-nx-recent] [data-nx-note], #noteRows [data-nx-note], #noteRows [data-nx-folder]')].map(el => el.dataset.nxNote ? 'n:' + el.dataset.nxNote : 'f:' + el.dataset.nxFolder))];
+  }
   function selectAll() {
     if (!pick.active) return;
-    const keys = [...host.querySelectorAll('[data-nx-recent] [data-nx-note], #noteRows [data-nx-note], #noteRows [data-nx-folder]')].map(el => el.dataset.nxNote ? 'n:' + el.dataset.nxNote : 'f:' + el.dataset.nxFolder);
+    const keys = shownPickKeys();
     pick.toggle(keys, {anchor:false});
     renderList();
   }

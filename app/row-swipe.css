@@ -26,7 +26,7 @@
 .row-swipe-tone-move{ --rs-c:var(--ds-project-purple); }
 .row-swipe-act:focus-visible{ outline:2px solid var(--kptu-info); outline-offset:-2px; }
 @media(prefers-reduced-motion:reduce){ .row-swipe-row{ transition:none; } }
-/* 여러 개 고르기 줄(오른쪽 밀기 [고르기]): 목록 바로 위에 붙는 콤팩트한 한 줄. 버튼 칸은 공용 고르기 줄(base-ui.css .kptu-actbar-text, 노트·자료실 고르기 줄과 같음). */
-.row-swipe-pickbar:not([hidden]){ position:sticky; top:var(--kptu-stick-top,0px); z-index:3; display:flex; align-items:center; gap:6px; margin:2px 0 4px; padding:2px 6px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-bg); font-size:13px; }
-.row-swipe-pick-count{ flex:none; color:var(--kptu-ink); white-space:nowrap; }
+/* 여러 개 고르기 막대(오른쪽 밀기, S70-64): 모양은 공용 고르기 막대(base-ui.css .kptu-selbar — [✕] 'n개 선택됨' · [전체 선택] · … · [삭제] 맨 끝, 한 줄).
+   여기서는 목록 위에 붙어 따라오는 자리만 정한다(하단바·하단 칩과 겹치지 않게 위쪽). 단추 모양은 base-ui.css 한 곳(앱 화면 밖 창 — 사업 관리 휴지통 창 — 도 같은 규칙). */
+.row-swipe-pickbar:not([hidden]){ position:sticky; top:var(--kptu-stick-top,0px); z-index:3; margin:2px 0 4px; }
 [data-row-picking] [data-row-swipe-act]{ display:none; }
