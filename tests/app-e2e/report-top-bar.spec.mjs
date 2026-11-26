@@ -111,7 +111,7 @@ for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + �
   // 종류: 모든 폭에서 고르기 상자 하나(BIZ-위쪽정돈PC: PC 칩 줄 없앰).
   await expect(page.locator('#reportKindSelect')).toBeVisible(); await expect(page.locator('#reportKindFilter')).toHaveCount(0);
   // BIZ-머리한줄(S71-23): 첫 줄 끝은 [+] 하나 — 녹음·⋯는 [+] 메뉴 안으로.
-  await expect(page.locator('#reportTop #newMeetingBtn')).toBeVisible();
+  await expect(page.locator('#newMeetingBtn')).toBeVisible();
   await expect(page.locator('#reportMore, #reportRecordBtn')).toHaveCount(0);
   // BIZ-위쪽정돈(11/09, B안): 기간은 두 줄로 나뉜다 — [이번 주 ▾]는 둘째 줄(종류·사업영역 옆), '‹ 날짜 › · n건'은 셋째 줄(폰). PC(761px~)는 BIZ-위쪽정돈PC로 한 줄.
   const period = page.locator('#reportPeriodPick [data-report-period]');

@@ -31,9 +31,12 @@ test('one style block: phone only, 20px picture, 44px press area, head name 15px
   assert.match(block,/\.head-mark::after\{ content:""; position:absolute; left:-12px; right:-12px; top:-12px; bottom:-12px; \}/);
   assert.match(ui,/#appView > \.mobile-shell-header :is\(time,\[data-mobile-view-name\]\)\{ font-size:var\(--ds-text-head\); font-weight:var\(--ds-weight-medium\);/);
   assert.match(readFileSync('app/theme-tokens.css','utf8'),/--ds-text-head:15px;/);
-  // BIZ-머리한줄(S71-23): 사업 관리 첫 줄(#reportTop)은 앱 머리 줄 도구 칸으로 옮겨 와 이름 바로 뒤에서 남은 폭을 쓰고, 찾기는 줄 끝 — 자리만 바꾼다(숨기거나 덮어쓰지 않음).
-  assert.match(block,/#appView > \.mobile-shell-header:has\(> \.screen-tools-slot > #reportTop\) > \.screen-tools-slot\{ order:1; flex:1 20 auto; min-width:136px; margin-left:0; \}/);
+  // BIZ-머리한줄(S71-23): 사업 관리 첫 줄(#reportTop)은 앱 머리 줄 도구 칸으로 옮겨 와 이름 바로 뒤에서 남은 폭을 쓰고, 그 뒤 찾기, 줄 끝 [+] —
+  // SAVED-머리한줄 '… · 찾기 · [+]'(S71-43). 도구 칸은 상자 없이(display:contents) 두 칸을 머리 줄에 세운다 — 자리만 바꾼다(숨기거나 덮어쓰지 않음).
+  assert.match(block,/#appView > \.mobile-shell-header:has\(> \.screen-tools-slot > #reportTop\) > \.screen-tools-slot\{ display:contents; \}/);
+  assert.match(block,/#appView > \.mobile-shell-header > \.screen-tools-slot > #reportTop\{ order:1; flex:1 20 auto; min-width:96px; margin-left:0; \}/);
   assert.match(block,/#appView > \.mobile-shell-header:has\(> \.screen-tools-slot > #reportTop\) > \.mobile-shell-find\{ order:2;/);
+  assert.match(block,/#appView > \.mobile-shell-header > \.screen-tools-slot > \.report-head-actions\{ order:3;/);
   // S67-75 UI-걸러보기칩하나(명진 A안): 상자 네 개가 줄에 다 안 들어갈 때 그 줄 자리를 비우는 규칙 하나만 예외다 — 상자는 칩이 여는 작은 창(.is-filter-panel)으로
   // 같은 요소 그대로 옮겨 보이므로 숨김이 아니라 자리 바꿈이다(규칙은 meeting-ui.css #reportTop 묶음). 폰 머리 줄 규칙에는 숨김이 없다.
   assert.ok(readFileSync('app/meeting-ui.css','utf8').includes('#appView #reportTop.is-filter-one>.report-kind-bar:not(.is-filter-panel){display:none}'));

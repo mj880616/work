@@ -6,8 +6,9 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { pickReportBox } from './helpers/report-boxes.mjs';
 import { pickReportFilter } from './helpers/report-filter.mjs';
 
-// S71-23 BIZ-머리한줄(명진 11/26 "시안 한줄 좋아", 시안 claude.ai/artifact/Bod9CNKnxrLMj4m8BGKxfw):
-// 폰·폴드 = 앱 머리 줄 하나 [W] 사업 관리 · [전체 ▾] · n건 ……… [+] · 찾기. 예전 둘째 줄(날짜 ‹ ›·녹음 ●·⋯)은 없다.
+// S71-23 BIZ-머리한줄(사용자 11/26 "시안 한줄 좋아", 시안 claude.ai/artifact/Bod9CNKnxrLMj4m8BGKxfw):
+// 폰·폴드 = 앱 머리 줄 하나 [W] 사업 관리 · [전체 ▾] · n건 ……… 찾기 · [+]. 예전 둘째 줄(날짜 ‹ ›·녹음 ●·⋯)은 없다.
+// 머리줄 오른쪽 끝 순서는 SAVED-머리한줄(S71-26) 규칙 '… · 찾기 · [+]'(+가 맨 오른쪽, S71-43에서 맞춤).
 // PC = 화면 안 첫 줄 하나 [고르기 상자들] · n건 ……… [+]. 주 넘기기 ‹ 11.23~11.29 ›는 '이번 주 주간 보고' 상자 제목 줄.
 // [+] 메뉴 = [새 사업 보고][녹음] / 구분선 / [사업영역 관리](옅은 글자). '쓰는 법'은 없다.
 // (예전 S71-10 report-filter-chip-week.spec.mjs '주 줄 첫 줄 안'은 이 결정으로 거두고 이 시험이 대신한다. 모든 이름은 합성 값.)
@@ -67,7 +68,7 @@ async function open(page, width) {
   if (width <= 760) await expect(page.locator('#appView > .mobile-shell-header .mobile-shell-find').locator('.sf-open:visible, .gs-field:visible').first()).toBeVisible();
 }
 
-// 첫 줄에 보이는 것들(왼쪽부터): 폰은 아이콘·이름·고르기·건수·[+]·찾기, PC는 고르기·건수·[+].
+// 첫 줄에 보이는 것들(왼쪽부터): 폰은 아이콘·이름·고르기·건수·찾기·[+], PC는 고르기·건수·[+](찾기는 맨 위 줄 검색 칸).
 function measure(page) {
   return page.evaluate(() => {
     const vis = e => e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && getComputedStyle(e).display !== 'none';
@@ -79,8 +80,9 @@ function measure(page) {
     const phone = !!(head && vis(head) && head.contains(top));
     const items = [
       ...(phone ? [head.querySelector('.head-mark'), head.querySelector('[data-mobile-view-name]')] : []),
-      ...filters, document.querySelector('#reportCount'), document.querySelector('#newMeetingBtn'),
-      ...(phone ? [[...head.querySelectorAll('.mobile-shell-find .sf-open, .mobile-shell-find .gs-field')].find(vis)] : [])
+      ...filters, document.querySelector('#reportCount'),
+      ...(phone ? [[...head.querySelectorAll('.mobile-shell-find .sf-open, .mobile-shell-find .gs-field')].find(vis)] : []),
+      document.querySelector('#newMeetingBtn')
     ].filter(vis);
     const row = phone ? head : top;
     return {phone, items: items.map(e => ({id: e.id || e.className, ...box(e)})), row: {...box(row), scroll: row.scrollWidth, client: row.clientWidth},
@@ -106,16 +108,18 @@ function expectOneLine(m) {
 }
 
 // 390 폰, 344 폴드 접힘, 700 폴드 펼침(찾기 칸이 펼쳐진 폭), 1280 PC.
-for (const width of [390, 344, 700, 1280]) test(`${width}: 첫 줄 한 줄 — 고르기 · n건 ……… [+]${width <= 760 ? ' · 찾기(앱 머리 줄)' : '(화면 안)'}, 둘째 줄·날짜·녹음·⋯ 없음`, async ({page}) => {
+for (const width of [390, 344, 700, 1280]) test(`${width}: 첫 줄 한 줄 — 고르기 · n건 ……… ${width <= 760 ? '찾기 · [+](앱 머리 줄)' : '[+](화면 안)'}, 둘째 줄·날짜·녹음·⋯ 없음`, async ({page}) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await open(page, width);
   await expect.poll(async () => { const m = await measure(page); const mids = m.items.map(x => x.mid); return Math.max(...mids) - Math.min(...mids); }).toBeLessThanOrEqual(3);
   const m = await measure(page);
   expect(m.phone).toBe(width <= 760);
   expectOneLine(m);
-  // 폰: 순서 [W] 사업 관리 [고르기] n건 [+] 찾기 — 찾기가 줄 맨 끝.
-  if (m.phone) { expect(m.items.at(-1).id).toMatch(/sf-open|gs-field/); expect(m.items.at(-2).id).toBe('newMeetingBtn'); }
-  else expect(m.items.at(-1).id).toBe('newMeetingBtn');
+  // 순서: 폰 [W] 사업 관리 [고르기] n건 ……… 찾기 [+] — [+]가 줄 맨 오른쪽(SAVED-머리한줄). PC도 [+]가 줄 맨 오른쪽.
+  expect(m.items.at(-1).id).toBe('newMeetingBtn');
+  if (m.phone) { expect(m.items.at(-2).id).toMatch(/sf-open|gs-field/); expect(m.items.at(-3).id).toBe('reportCount'); }
+  // [+] 오른쪽에는 그 줄에 보이는 것이 없다(폰은 머리 줄 끝, PC는 첫 줄 끝).
+  expect(m.row.right - m.items.at(-1).right).toBeLessThanOrEqual(m.phone ? 16 : 4);
   // 화면 안에는 첫 줄 말고 다른 줄이 없다(폰은 첫 줄이 머리 줄로 가서 화면 안 줄이 비어 있음).
   expect(m.screenLine).toEqual(m.phone ? [] : ['reportTop']);
   // 날짜는 첫 줄에 없고 상자 제목 줄에 있다.

@@ -87,12 +87,12 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   const vp = page.viewportSize();
   const pc = width >= 761;
   // ① 첫 줄: 오른쪽 끝 [+] 하나(BIZ-머리한줄 S71-23 — [녹음]·⋯는 [+] 메뉴 안). 폰 제목 '사업 관리'는 앱 머리 줄이고 첫 줄도 그 머리 줄 안.
-  const line1 = await mids(page, '#reportTop .report-head-actions > :not([hidden])');
+  const line1 = await mids(page, '.report-head-actions > :not([hidden])');
   expect(line1.length).toBe(1);
   expect(Math.max(...line1.map(x => x.mid)) - Math.min(...line1.map(x => x.mid))).toBeLessThanOrEqual(3);
   if (width < 761) await expect(page.locator('#appView > .mobile-shell-header [data-mobile-view-name]')).toHaveText('사업 관리');
   await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
-  await expect(page.locator('#reportTop #newMeetingBtn')).toBeVisible();
+  await expect(page.locator('#newMeetingBtn')).toBeVisible();
   await expect(page.locator('#reportMore, #reportRecordBtn, #phoneRecordBtn')).toHaveCount(0);
   // ② 둘째 줄: [회의 ▾](모든 폭 상자, 칩 줄 없음)·[사업영역 ▾]·[주 ▾]가 한 줄이고 폰은 첫 줄 아래, PC는 첫 줄과 같은 줄(아이콘 왼쪽).
   await expect(page.locator('#reportKindFilter, #reportNameSelect')).toHaveCount(0);
@@ -102,7 +102,7 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   expect(line2.length).toBeGreaterThanOrEqual(inChip ? 1 : 2);
   expect(Math.max(...line2.map(x => x.mid)) - Math.min(...line2.map(x => x.mid))).toBeLessThanOrEqual(3);
   if (pc) { expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line2.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)) - 32); }
-  // BIZ-머리한줄(S71-23): 폰은 앱 머리 줄 하나 — [W] 사업 관리 [고르기(넘치면 칩 하나)] n건 … [+] 찾기.
+  // BIZ-머리한줄(S71-23): 폰은 앱 머리 줄 하나 — [W] 사업 관리 [고르기(넘치면 칩 하나)] n건 … 찾기 [+](S71-43 SAVED-머리한줄 순서).
   else {
     expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3);
     const [bar, add, name] = await Promise.all([page.locator(inChip ? '#reportFilterChip' : '#reportFilterBar').boundingBox(), page.locator('#newMeetingBtn').boundingBox(), page.locator('#appView > .mobile-shell-header [data-mobile-view-name]').boundingBox()]);
@@ -111,7 +111,7 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
     expect(bar.x + bar.width).toBeLessThanOrEqual(add.x);
   }
   // [+]는 모든 폭에서 글자 없는 작은 아이콘(이름은 화면 읽기용).
-  for (const b of await page.locator('#reportTop .report-head-actions > #newMeetingBtn').all()) { const r = await b.boundingBox(); expect(r.width).toBeLessThanOrEqual(34); expect(r.height).toBeLessThanOrEqual(34); }
+  for (const b of await page.locator('.report-head-actions > #newMeetingBtn').all()) { const r = await b.boundingBox(); expect(r.width).toBeLessThanOrEqual(34); expect(r.height).toBeLessThanOrEqual(34); }
   // 작은 버튼 상자 높이가 같다(고르기 상자끼리).
   if (inChip) await openReportBoxes(page);
   const selH = (await mids(page, '#reportFilterBar select.report-top-select')).map(x => Math.round(x.h));

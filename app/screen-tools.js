@@ -6,8 +6,10 @@
 // 그 화면이 보일 때만 자리에 들어가고, 다른 화면이면 화면 안 원래 자리(home)로 돌아가 숨는다(.screen-tools는 자리에 있을 때만 보임 — topbar-actions.css).
 // 빈 곳 우클릭(context-menu.js)은 data-screen-tools-for(화면 칸 id)로 이 화면 ⋯를 찾는다.
 // BIZ-머리한줄(S71-23): {wide:false}면 폰·폴드 틀에서만 앱 머리 줄로 가고, PC 틀에서는 화면 안 원래 자리에 그대로 보인다(사업 관리 첫 줄 — PC는 화면 안 한 줄).
+// {end}: 자리에 들어갈 때 el과 함께 그 뒤에 따로 놓는 끝 단추 묶음(사업 관리 [+]). 머리 줄 오른쪽 끝 순서 '… · 찾기 · [+]'(SAVED-머리한줄,
+//   S71-43)에서 찾기는 el과 [+] 사이에 서야 해서 [+]를 el 밖 자기 칸으로 뺀다(줄 세우기는 ui-standard.css). 원래 자리로 돌아가면 el 맨 끝에 다시 붙는다.
 const PC = '(min-width:761px)';
-const tools = new Map(); // view → {el, home, wide}
+const tools = new Map(); // view → {el, home, wide, end}
 let active = null, bound = false;
 const panelId = view => view + 'View';
 const shown = view => {const p = document.getElementById(panelId(view)); return !!p && !p.classList.contains('hidden')};
@@ -19,6 +21,10 @@ function place() {
     if (!target) continue;
     if (t.el.parentElement !== target) target.append(t.el);
     t.el.toggleAttribute('data-screen-tools-placed', on);
+    if (t.end) {
+      if (on ? t.el.nextElementSibling !== t.end : t.el.lastElementChild !== t.end) (on ? t.el.after(t.end) : t.el.append(t.end));
+      t.end.toggleAttribute('data-screen-tools-placed', on);
+    }
   }
 }
 function bind() {
@@ -26,9 +32,10 @@ function bind() {
   window.addEventListener('kptu:view-changed', e => {active = e.detail?.view || null; place()});
   window.matchMedia(PC).addEventListener?.('change', place);
 }
-export function mountScreenTools(view, el, {wide = true} = {}) {
+export function mountScreenTools(view, el, {wide = true, end = null} = {}) {
   if (!view || !el?.parentElement) return;
-  if (!tools.has(view)) tools.set(view, {el, home: el.parentElement, wide});
+  if (!tools.has(view)) tools.set(view, {el, home: el.parentElement, wide, end: end && el.contains(end) ? end : null});
   el.dataset.screenToolsFor = panelId(view);
+  if (end) end.dataset.screenToolsFor = panelId(view);
   bind(); place();
 }

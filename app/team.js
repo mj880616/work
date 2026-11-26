@@ -391,7 +391,8 @@ function reportWeekClick(e){
 // BIZ-머리한줄: 상자 제목 줄의 ‹ ›(weekly-summary-table.js가 놓은 글자) 누름. 다시 그린 뒤 같은 쪽 단추로 초점을 돌려 키보드로 이어 넘길 수 있게.
 function reportWeekBoxClick(e){const b=e.target.closest?.('[data-report-week]');if(!b)return;const to=b.dataset.reportWeek;reportWeekClick(e);if(to==='prev'||to==='next')$(`#bizWeekBox [data-report-week="${to}"]`)?.focus({preventScroll:true})}
 // BIZ-머리한줄: 첫 줄(#reportTop)은 폰·폴드(~760px)에서 앱 머리 줄 [W 사업 관리] 오른쪽으로 가고(공용 자리 screen-tools.js), PC는 화면 안 한 줄 그대로.
-function mountReportTop(){const el=$('#reportTop');if(el)mountScreenTools('meetings',el,{wide:false})} // 정적 불러오기: 화면이 보이기 전에 자리를 정해 첫 줄이 화면 안에 잠깐 보였다 옮겨 가지 않게
+// [+](.report-head-actions)는 머리 줄에서 찾기 오른쪽 맨 끝에 따로 선다(SAVED-머리한줄 '… · 찾기 · [+]', S71-43 — screen-tools.js {end}).
+function mountReportTop(){const el=$('#reportTop');if(el)mountScreenTools('meetings',el,{wide:false,end:el.querySelector('.report-head-actions')})} // 정적 불러오기: 화면이 보이기 전에 자리를 정해 첫 줄이 화면 안에 잠깐 보였다 옮겨 가지 않게
 function reportPeriodPick(e){const sel=e.target.closest?.('[data-report-period]');if(!sel)return;const to=sel.value;
   if(to==='range'||to==='isoweek'){periodPanel=to;periodDraft=null;isoDraft=null;renderReportWeek();return}
   if(!leaveReport(()=>{weekNumbered=false;if(to==='all')setPeriod('all');else if(to==='week'){pickWeek(null);setPeriod('week')}}))renderReportWeek()}

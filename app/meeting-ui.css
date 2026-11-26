@@ -453,11 +453,11 @@
 .biz-area-open:hover,.biz-plan-open:hover{color:var(--kptu-ink)}
 /* BIZ-머리한줄(S71-23): 첫 줄 오른쪽 끝은 [+] 하나(작은 아이콘 버튼 ⑥ — 선 없음·옅은 바탕은 올리거나 메뉴가 열린 동안만, 누르는 범위 44px은 위아래로만 ::after).
    누르면 공용 메뉴(.topline-add-menu) [새 사업 보고][녹음] / 구분선 / [사업영역 관리](옅은 글자). 글자는 화면 읽기 이름으로만 남는다. */
-#appView #reportTop>.report-head-actions{display:flex;align-items:center;gap:6px;margin-left:auto;flex:none}
-#appView #reportTop>.report-head-actions>#newMeetingBtn{position:relative;box-sizing:border-box;display:inline-grid;place-items:center;width:var(--ds-compact-height);min-width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:0;line-height:0}
-#appView #reportTop>.report-head-actions>#newMeetingBtn:is(:hover,[aria-expanded="true"]){background:var(--kptu-surface-subtle)}
-#appView #reportTop>.report-head-actions>#newMeetingBtn::after{content:"";position:absolute;inset:auto;left:0;right:0;min-width:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px);min-height:0}
-#appView #reportTop>.report-head-actions>#newMeetingBtn::before{content:"";display:block;width:18px;height:18px;background:currentColor;-webkit-mask:var(--ds-fab-plus) center / 18px 18px no-repeat;mask:var(--ds-fab-plus) center / 18px 18px no-repeat}
+#appView :is(#reportTop,.screen-tools-slot)>.report-head-actions{display:flex;align-items:center;gap:6px;margin-left:auto;flex:none}
+#appView :is(#reportTop,.screen-tools-slot)>.report-head-actions>#newMeetingBtn{position:relative;box-sizing:border-box;display:inline-grid;place-items:center;width:var(--ds-compact-height);min-width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:0;line-height:0}
+#appView :is(#reportTop,.screen-tools-slot)>.report-head-actions>#newMeetingBtn:is(:hover,[aria-expanded="true"]){background:var(--kptu-surface-subtle)}
+#appView :is(#reportTop,.screen-tools-slot)>.report-head-actions>#newMeetingBtn::after{content:"";position:absolute;inset:auto;left:0;right:0;min-width:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px);min-height:0}
+#appView :is(#reportTop,.screen-tools-slot)>.report-head-actions>#newMeetingBtn::before{content:"";display:block;width:18px;height:18px;background:currentColor;-webkit-mask:var(--ds-fab-plus) center / 18px 18px no-repeat;mask:var(--ds-fab-plus) center / 18px 18px no-repeat}
 .biz-add-menu .biz-add-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 .biz-add-menu button.row-act.biz-add-quiet{color:var(--kptu-muted)}
 .biz-add-menu button.row-act[data-report-rec][aria-pressed="true"]{color:var(--kptu-danger)}

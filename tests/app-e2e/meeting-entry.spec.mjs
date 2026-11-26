@@ -572,7 +572,7 @@ for(const width of [320,360,390,760]){
     // S67-64 UI-윗줄한줄(명진 11/21 D3): 폰(~760px)은 첫 줄과 고르기 줄이 한 줄(.report-top) — [아이콘][사업 관리][고르기 …][+][⋯]. .report-top-line은 자리만 내준다.
     // S67-75 UI-걸러보기칩하나(명진 A안): 고르기 상자들이 줄에 다 안 들어가는 폭은 칩 하나(#reportFilterChip)가 그 자리다.
     const inChip=await reportBoxesInChip(page),chip=page.locator('#reportFilterChip');
-    // BIZ-머리한줄(S71-23): 폰·폴드는 첫 줄(#reportTop)이 앱 머리 줄 안 — [W][사업 관리][고르기 …] n건 [+] 찾기. 줄 끝 [+] 하나(⋯·녹음 없음).
+    // BIZ-머리한줄(S71-23): 폰·폴드는 첫 줄(#reportTop)이 앱 머리 줄 안 — [W][사업 관리][고르기 …] n건 찾기 [+]. 줄 끝 [+] 하나(⋯·녹음 없음).
     const top=page.locator('#reportTop'),bar=inChip?chip:page.locator('#reportFilterBar');
     const select=inChip?chip:page.locator('#reportKindSelect'),button=page.locator('#newMeetingBtn');
     await expect(page.locator('#meetingTypeFilter,#reportAreaFilter,#reportFilterBtn,#meetingsView .meeting-toolbar')).toHaveCount(0);

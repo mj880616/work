@@ -1834,17 +1834,21 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   /* 앱 머리줄: 아이콘·이름을 왼쪽에 붙인다(전에는 이름 하나라 양끝 맞춤). 폴드 펼침의 찾기 입구는 남은 폭을 그대로 쓴다. */
   #appView > .mobile-shell-header{ justify-content:flex-start; gap:8px; }
   #appView > .mobile-shell-header > [data-mobile-view-name]{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  /* 사업 관리 BIZ-머리한줄(S71-23, 명진 11/26 "시안 한줄 좋아"): 앱 머리 줄 하나 = [W] 사업 관리 · [전체 ▾] · n건 ……… [+] · 찾기.
-     첫 줄(#reportTop)은 screen-tools.js가 이 화면이 보일 때만 머리 줄 도구 칸으로 옮긴다({wide:false} — PC는 화면 안). 그 칸이 이름 바로 뒤에서 남은 폭을 쓰고,
-     찾기(돋보기·폴드 펼침의 찾기 칸)는 줄 맨 끝으로 간다. 고르기 상자들이 다 안 들어가면 칩 하나 [전체 ▾](report-filter-chip.js가 재어 .is-filter-one),
-     칩 글자가 길면 끝 말줄임 — 줄은 넘어가지 않는다. 돋보기를 눌러 찾기 칸이 펴진 동안은 찾기 칸이 남은 폭을 쓰고 이 줄은 글자만큼(칩이 먼저 줄어듦). */
-  #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .screen-tools-slot{ order:1; flex:1 20 auto; min-width:136px; margin-left:0; } /* 칩 최소 56 + 건수 + [+] 32 */
+  /* 사업 관리 BIZ-머리한줄(S71-23, 명진 11/26 "시안 한줄 좋아"): 앱 머리 줄 하나 = [W] 사업 관리 · [전체 ▾] · n건 ……… 찾기 · [+].
+     오른쪽 끝 순서는 SAVED-머리한줄(S71-26) '… · 찾기 · [+]'(+가 맨 오른쪽, S71-43에서 맞춤).
+     첫 줄(#reportTop)은 screen-tools.js가 이 화면이 보일 때만 머리 줄 도구 칸으로 옮기고({wide:false} — PC는 화면 안), [+] 묶음(.report-head-actions)은
+     {end}로 그 칸 안 #reportTop 바로 뒤에 따로 놓는다. 도구 칸은 상자 없이(display:contents) 두 칸을 머리 줄에 바로 세워 찾기를 그 사이에 둔다:
+     #reportTop(order 1, 이름 바로 뒤에서 남은 폭) · 찾기(order 2, 돋보기·폴드 펼침의 찾기 칸) · [+](order 3, 줄 맨 끝).
+     고르기 상자들이 다 안 들어가면 칩 하나 [전체 ▾](report-filter-chip.js가 #reportTop 폭을 재어 .is-filter-one), 칩 글자가 길면 끝 말줄임 — 줄은 넘어가지 않는다.
+     돋보기를 눌러 찾기 칸이 펴진 동안은 찾기 칸이 남은 폭을 쓰고 #reportTop은 글자만큼(칩이 먼저 줄어듦). */
+  #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .screen-tools-slot{ display:contents; }
+  #appView > .mobile-shell-header > .screen-tools-slot > #reportTop{ order:1; flex:1 20 auto; min-width:96px; margin-left:0; } /* 칩 최소 56 + 건수 */
   #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .mobile-shell-find{ order:2; flex:none; }
+  #appView > .mobile-shell-header > .screen-tools-slot > .report-head-actions{ order:3; flex:none; margin-left:0; }
   @media(min-width:600px){ #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .mobile-shell-find{ flex:1 1 120px; min-width:120px; } } /* 폴드 펼침: 찾기 칸이 펼쳐진 폭 — 고르기 상자들이 먼저 자리를 쓰고(다 들어가면 네 개 그대로) 찾기 칸은 남은 폭(120px 이상) */
-  #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .screen-tools-slot > #reportTop{ flex:1 1 auto; }
-  /* 이름은 거의 줄지 않는다(도구 칸이 20배 먼저 줄어 고르기 칩 글자가 먼저 …). 사람이 고친 아주 긴 이름만 칩 최소 폭·[+]·찾기를 지키고 남은 만큼 … */
+  /* 이름은 거의 줄지 않는다(#reportTop이 20배 먼저 줄어 고르기 칩 글자가 먼저 …). 사람이 고친 아주 긴 이름만 칩 최소 폭·찾기·[+]를 지키고 남은 만큼 … */
   #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > [data-mobile-view-name]{ flex:0 1 auto; }
-  #appView > .mobile-shell-header.sf-open:has(> .screen-tools-slot > #reportTop) > .screen-tools-slot{ flex:none; }
+  #appView > .mobile-shell-header.sf-open > .screen-tools-slot > #reportTop{ flex:none; }
   #appView > .mobile-shell-header.sf-open:has(> .screen-tools-slot > #reportTop) > .mobile-shell-find{ flex:1 1 auto; }
   /* 홈: 날짜 머리줄 첫 줄 = [아이콘] [날짜 글자(화면 이름 자리)] … [하루|주간 보고]. 날짜 7칸 줄은 그 아래 그대로. */
   #appView #homeView .journal-head > .head-mark{ order:-3; }
