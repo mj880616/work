@@ -51,7 +51,7 @@ test('연결: 노트 편집기만 [[ 목록, 읽기 화면은 앱 안에서 열�
   const ed = readFileSync(new URL('../app/ed-editor.js', import.meta.url), 'utf8');
   assert.match(ed, /if \(noteLinks\) \{\n    const \{mountNoteLink\} = await import\('\.\/ed-note-link\.js'\);/);
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
-  assert.match(notes, /noteLinks:linksFor\(id\)\}\);/);
+  assert.match(notes, /noteLinks:linksFor\(id\), tasks:noteTaskProvider\(id, \{rt\}\)\}\);/); // S69-97: 노트 칸은 구글 할 일(tasks)도 함께 넘긴다
   assert.match(notes, /const target = noteLinkId\(a\.getAttribute\('href'\)\); if \(!target\) return;/);
   assert.match(readFileSync(new URL('../app/note-related.js', import.meta.url), 'utf8'), /backlinks\(note\.id, notes, \{hidden, titleOf\}\)/);
   assert.doesNotMatch(readFileSync(new URL('../app/ed-note-link.js', import.meta.url), 'utf8'), /(?:local|session)Storag[e]|fetch\(/);

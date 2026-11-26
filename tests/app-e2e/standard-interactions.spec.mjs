@@ -12,6 +12,7 @@ import { pinch } from './helpers/pinch.mjs';
 import { boardFixture, nbNode, nbBox } from './helpers/note-board-fixture.mjs';
 import { DOC_SCREENS } from './helpers/doc-view.mjs';
 import { screenFindLocator } from './helpers/screen-find.mjs';
+import { noteTrash } from './helpers/note-trash.mjs';
 import { readFileSync } from 'node:fs';
 // 끌기 가장자리 저절로 굴리기 폭(app/drag-edge-scroll.js EDGE). 그 파일은 .js(ESM)라 시험 실행기가 바로 불러오지 못해 글자에서 읽는다.
 const EDGE = Number(readFileSync(new URL('../../app/drag-edge-scroll.js', import.meta.url), 'utf8').match(/export const EDGE = (\d+)/)[1]);
@@ -888,15 +889,14 @@ test('S4 자료실 두 칸 PC 1440: 사각형으로 폴더 줄 고르기 — 폴
   await expect(page.locator('#librarySelectBar')).toBeHidden();
   expect(errors).toEqual([]);
 });
-test('S4 자료실 두 칸 PC 1440: 사각형으로 고른 폴더 줄 [삭제]는 한 번 묻고 폴더째 휴지통으로, 되돌리기 한 번에 모두', async ({ page }) => {
+test('S4 자료실 두 칸 PC 1440: 사각형으로 고른 폴더 줄 [삭제]는 묻지 않고(K1 한 규칙 I-6: 되돌리기가 있으니) 폴더째 휴지통으로, 되돌리기 한 번에 모두', async ({ page }) => {
   test.setTimeout(60000);
   const { s, errors, pane } = await libraryFolderRows(page);
   await marqueeFolders(page, pane);
   await expect(page.locator('#librarySelectCount')).toHaveText('폴더 3 선택됨');
   await page.locator('#librarySelectDelete').click();
-  await expect(page.locator('.kptu-ask-text')).toHaveText('폴더 3개를 삭제할까요?');
-  await page.locator('.kptu-ask button', { hasText: '삭제' }).click();
   await expect.poll(() => s.trash.map(t => t.root).sort()).toEqual(['k1', 'k2', 'k3']);
+  await expect(page.locator('.kptu-ask')).toHaveCount(0);
   await expect(page.locator(`${pane} [data-lu-nav="k1"]`)).toHaveCount(0);
   await expect(page.locator('#librarySelectBar')).toBeHidden();
   await page.locator('.kptu-undo-notice [data-undo-action]').click();
@@ -1143,6 +1143,24 @@ async function noteBoard(page) {
   return { items: [nbNode(page, '가 주제'), nbNode(page, '나 주제')] };
 }
 const BOARD_SCREENS = [['노트 보드', noteBoard]];
+// I-6 K1 한 규칙: 아래 가지가 있는 상자 하나도 [되돌리기]가 있으니 묻지 않고 바로 지운다(예전 '아래 가지 N개를 삭제할까요?' 확인 창 없앰).
+async function noteBoardBranch(page) {
+  const bid = 'bs70055';
+  await boardFixture(page, 1280, { bid, seed: [{ id: 'T1', board_id: bid, body: '뿌리 주제', x: 300, y: 380 }, { id: 'T2', board_id: bid, body: '딸린 가지', parent_id: 'T1', ord: 1, x: 0, y: 0 }] });
+  return { root: nbNode(page, '뿌리 주제'), kid: nbNode(page, '딸린 가지') };
+}
+const BRANCH_SCREENS = [['노트 보드', noteBoardBranch]];
+for (const [name, open] of BRANCH_SCREENS) test(`K1 ${name} PC 1280: 아래 가지가 있는 상자 Delete = 확인 창 없이 바로, [되돌리기]로 가지째 돌아옴`, async ({ page }) => {
+  const { root, kid } = await open(page);
+  await root.locator('.nb-tx').click();
+  await page.keyboard.press('Delete');
+  await expect(root).toHaveCount(0);
+  await expect(kid).toHaveCount(0);
+  await expect(page.locator('.kptu-ask')).toHaveCount(0);
+  await page.getByRole('button', { name: '되돌리기' }).click();
+  await expect(root).toHaveCount(1);
+  await expect(kid).toHaveCount(1);
+});
 for (const [name, open] of BOARD_SCREENS) test(`K1·R2 ${name} PC 1280: 두 개 골라 Delete = 바로 지움, [되돌리기] 한 번에 둘 다`, async ({ page }) => {
   const { items } = await open(page);
   const a = await nbBox(items[0]), b = await nbBox(items[1]);
@@ -1226,7 +1244,7 @@ for (const [name, open] of ORDER_SCREENS) for (const width of [390, 1280]) test.
 
 // ---------- S5·K1·K2 목록 공용 키(UI-목록공용키 S70-18, docs/qa/folder-tree-audit-20261125.md N2·N3·N4) ----------
 // 공용 부품 app/select-keys.js: 목록 줄에 커서를 두고 Ctrl+A = 그 목록 전체 고르기(화면 글자 전체가 아님), Delete = 그 화면 [삭제](확인 창·되돌리기 알림 그대로),
-// F2 = 고른 줄, 없으면 커서 줄 이름 바꾸기. 글 쓰는 칸 안 Ctrl+A·Delete는 글자 동작 그대로. 새 목록 화면은 KEY_SCREENS에 한 줄 더한다.
+// F2 = 고른 줄, 없으면 커서 줄 이름 바꾸기. K1 언제 묻나(I-6): [되돌리기]가 있으면 확인 없이 바로, 없으면 확인 창(select-keys.js confirmDelete). 글 쓰는 칸 안 Ctrl+A·Delete는 글자 동작 그대로. 새 목록 화면은 KEY_SCREENS에 한 줄 더한다.
 // 화면마다 돌려줄 것: rows(목록 줄 locator), focus(i)(i번째 줄에 커서), picked()(고른 줄 수), total(줄 수), pickTwo()(두 줄 고르기),
 // renameOpen(i)(이름 칸이 i번째 줄 이름으로 열렸나), field(글 쓰는 칸), id(i)(줄 열쇠), deleteOne(id)·deleteMany()(Delete 뒤 확인 창·되돌리기 확인).
 const textSelected = page => page.evaluate(() => String(window.getSelection?.() || '').trim().length);
@@ -1247,13 +1265,14 @@ async function keyLibrary(page) {
     id: i => rows.nth(i).getAttribute('data-lu-document'),
     deleteOne: async id => {
       await expect(page.locator(`#documentList [data-lu-document="${id}"]`)).toHaveCount(0);
+      await expect(askShown(page)).toHaveCount(0);
       await page.locator('#kptuNotice .kptu-notice-undo').click();
       await expect(page.locator(`#documentList [data-lu-document="${id}"]`)).toHaveCount(1);
     },
     deleteMany: async () => {
-      await expect(page.locator('.kptu-ask-text')).toHaveText('2개를 삭제할까요?');
-      await page.locator('.kptu-ask button', { hasText: '삭제' }).click();
+      // K1 한 규칙(I-6): 여럿도 [되돌리기]가 있으니 묻지 않는다.
       await expect(rows).toHaveCount(2);
+      await expect(askShown(page)).toHaveCount(0);
       await page.locator('#kptuNotice .kptu-notice-undo').click();
       await expect(rows).toHaveCount(4);
     } };
@@ -1266,7 +1285,16 @@ async function keyNotes(page) {
   await installViewPrefsServer(page);
   const note = (id, title) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + ' 본문', occurred_at: '2026-10-10T01:00:00Z', created_at: '2026-10-10T01:00:00Z', updated_at: '2026-10-1' + id.slice(-1) + 'T01:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: {} });
   const rowsData = [note('n1', '가상 가 노트'), note('n2', '가상 나 노트'), note('n3', '가상 다 노트')];
-  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: structuredClone(rowsData) }) : r.fulfill({ status: 500, json: {} }));
+  // 노트 휴지통 길(K1 한 규칙 I-6: 한 개 지우기는 [되돌리기]가 있어 묻지 않음) — DELETE는 휴지통 흉내로, 되돌리면 다시 목록에.
+  const trash = await noteTrash(page, SB);
+  trash.onRestore = n => { const { link_count, deleted_at, ...back } = n; rowsData.push(back); };
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => {
+    const req = r.request(), q = new URL(req.url()).searchParams;
+    const pick = x => !q.get('id') || 'eq.' + x.id === q.get('id');
+    if (req.method() === 'GET') return r.fulfill({ json: structuredClone(rowsData.filter(pick)) });
+    if (req.method() === 'DELETE') { for (const x of rowsData.filter(pick)) { rowsData.splice(rowsData.indexOf(x), 1); trash.take(x, 0); } return r.fulfill({ json: [] }); }
+    return r.fulfill({ status: 500, json: {} });
+  });
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 500, json: {} }));
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
@@ -1281,7 +1309,13 @@ async function keyNotes(page) {
     renameOpen: async () => { const input = page.locator('[data-note-title-input]'); await expect(input).toBeFocused(); await expect(input).toHaveValue(/가상 . 노트/); },
     field: screenFindLocator(page), // S70-54: 맨 위 칸(옛 [data-note-search])
     id: i => rows.nth(i).getAttribute('data-nx-note'),
-    deleteOne: async () => { await expect(askShown(page)).toBeVisible(); await expect(page.locator('.kptu-ask-text')).toContainText('노트를 휴지통으로 옮길까요?'); await page.keyboard.press('Escape'); await expect(rows).toHaveCount(3); },
+    deleteOne: async id => {
+      await expect(page.locator(`#noteRows [data-nx-note="${id}"]`)).toHaveCount(0);
+      await expect(askShown(page)).toHaveCount(0); // 되돌리기가 있으니 묻지 않는다
+      await page.locator('[data-undo-notice] [data-undo-action]').click(); // 노트 휴지통 길의 되돌리기 알림(basket-record-delete.js offerUndoNotice)
+      await expect(rows).toHaveCount(3);
+    },
+    // 여럿은 노트마다 알림이 덮여 끝에 [되돌리기]가 남지 않는다 → 확인 창.
     deleteMany: async () => { await expect(page.locator('.kptu-ask-text')).toHaveText('노트 2개를 삭제할까요?'); await page.keyboard.press('Escape'); await expect(rows).toHaveCount(3); } };
 }
 async function keyFiles(page) {
@@ -1297,8 +1331,9 @@ async function keyFiles(page) {
     picked: () => page.locator('#filesRoot [data-fx-list] [data-fx-row][aria-selected="true"], #filesRoot [data-fx-list] [data-fx-row].fx-picked').count(),
     pickTwo: async () => { await rows.nth(1).click({ modifiers: ['Control'] }); await rows.nth(2).click({ modifiers: ['Control'] }); },
     renameOpen: async () => { await expect(askShown(page).locator('.kptu-ask-field')).toBeVisible(); await expect(askShown(page).locator('.kptu-ask-field')).toHaveValue(/가짜/); await page.keyboard.press('Escape'); },
-    field: page.locator('#filesRoot [data-fx-search]'),
+    field: screenFindLocator(page), // S70-57: 맨 위 칸 '파일에서 찾기'(옛 [data-fx-search])
     id: i => rows.nth(i).getAttribute('data-fx-row'),
+    // [파일] 휴지통 보내기는 [되돌리기]가 없다 → 하나·여럿 모두 확인 창(K1 한 규칙 I-6).
     deleteOne: async () => { await expect(askShown(page)).toBeVisible(); await expect(page.locator('.kptu-ask-text')).toContainText('휴지통'); await page.keyboard.press('Escape'); },
     deleteMany: async () => { await expect(page.locator('.kptu-ask-text')).toContainText('2개'); await page.keyboard.press('Escape'); } };
 }
@@ -1311,7 +1346,7 @@ for (const [name, open] of KEY_SCREENS) test(`S5 ${name} PC 1280: Ctrl+A = 목�
   expect(await textSelected(page), '화면 글자 전체가 골라지지 않는다').toBe(0);
   expect(s.errors).toEqual([]);
 });
-for (const [name, open] of KEY_SCREENS) test(`K1 ${name} PC 1280: Delete = 고른 것 지우기(확인 창·되돌리기)`, async ({ page }) => {
+for (const [name, open] of KEY_SCREENS) test(`K1 ${name} PC 1280: Delete = 고른 것 지우기(되돌리기 있으면 바로·없으면 확인 창)`, async ({ page }) => {
   const s = await open(page);
   // 커서만 둔 줄 하나: 그 화면 ⋯ [삭제]와 같은 길.
   const id = await s.id(1);
@@ -1455,6 +1490,31 @@ for (const [name, opener] of FILE_PICK_SCREENS) test.describe(`${name} PC 1280 �
     expect(s.moves()).toEqual([]);
     expect(s.errors).toEqual([]);
   });
+  // STAB-파일끌기회귀(S70-80, 명진 11/26 09:15 "이 종류 바깥부분부터 드래그해서 선택하려고하는데 이게 안돼"): 칸 너비를 줄여 종류 칸 오른쪽에 빈 자리가 생긴 표에서
+  // ① 줄의 종류 칸 오른쪽 빈 자리 ② [파일] 화면 아래 바탕(목록이 짧을 때) ③ 화면 오른쪽 바깥 여백 — 어디서 시작해도 사각형으로 고른다(자료실과 같은 규칙).
+  for (const [spot, from] of [
+    ['종류 칸 오른쪽 빈 자리', async (page, s) => { const last = await s.row('OD!12').boundingBox(), kind = await s.row('OD!12').locator('.fx-kind').boundingBox(); expect(last.x + last.width - (kind.x + kind.width)).toBeGreaterThan(40); return { x: kind.x + kind.width + 24, y: last.y + last.height / 2 }; }],
+    ['화면 아래 바탕', async page => { const v = await page.locator('#filesView').boundingBox(), l = await page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list]').boundingBox(); expect(v.y + v.height + 40).toBeLessThan(900); return { x: l.x + l.width * 0.6, y: v.y + v.height + 30 }; }],
+    ['화면 오른쪽 바깥 여백', async page => { const v = await page.locator('#filesView').boundingBox(); expect(1280 - (v.x + v.width)).toBeGreaterThan(8); return { x: Math.round(v.x + v.width + (1280 - v.x - v.width) / 2), y: v.y + Math.min(v.height - 20, 300) }; }],
+  ]) test(`S4 ${name} 1280: ${spot}에서 끌어도 사각형으로 여러 줄 고르기`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    // 사람처럼 이름 칸 금(손잡이)을 줄여 종류 칸 오른쪽에 빈 자리를 만든다(서버 기억 col_widths와 같은 길).
+    const grip = page.locator('#filesRoot [data-fx-pane-i="0"] .fx-head .col-grip').first();
+    await grip.focus();
+    for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowLeft');
+    const p = await from(page, s), first = await s.row('OD!13').boundingBox();
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.down();
+    await page.mouse.move(first.x + first.width * 0.5, first.y + 4, { steps: 12 });
+    await expect(page.locator('.marquee-box')).toBeVisible();
+    await page.mouse.up();
+    await expect(page.locator('.marquee-box')).toHaveCount(0);
+    const got = await s.picked();
+    expect(got).toEqual(expect.arrayContaining(['od:OD!11', 'od:OD!12', 'od:OD!13']));
+    await expect(s.bar).toBeVisible();
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
   test(`D ${name} 1280: 여러 줄 고르고 끌어 폴더 줄에 놓으면 고른 것 전부 옮김`, async ({ page }) => {
     const s = await opener(1280)(page);
     await s.row('OD!11').click({ modifiers: ['Control'] });
@@ -1516,7 +1576,7 @@ for (const [name, open] of CONFIRM_DRAG_SCREENS) test(`D7 ${name} PC 1280: 확�
   expect(s.errors).toEqual([]);
 });
 
-// ---------- W1 오른쪽 밀기 = 여러 개 고르기(S70-64 UI-오른쪽밀기고르기, 기준표 8절 W1) ----------
+// ---------- W3 오른쪽 밀기 = 여러 개 고르기(S70-64 UI-오른쪽밀기고르기, 기준표 8절 W3) ----------
 // 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와 복수 또는 일괄 삭제
 // / 전테선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제 / 다 이런식으로 왼쪽에서 오른쪽으로 스와이프 하는 건".
 // 공용 줄 밀기(row-swipe.js)를 쓰는 목록마다 같은 검사: 오른쪽 밀기 → 그 줄 고름(칸이 열려 남지 않음) · 줄 눌러 더 고르기 ·
@@ -1600,7 +1660,7 @@ async function readingSwipe(page) {
   };
 }
 const SWIPE_PICK_SCREENS = [['할 일', tasksSwipe], ['저장한 글', readingSwipe]];
-for (const [name, open] of SWIPE_PICK_SCREENS) test(`W1 ${name} 폰 390: 오른쪽 밀기 = 고르기, 줄 눌러 더 고르기, [전체 선택] 켜고 끄기(체크), 뒤로가기로 끝, [삭제] 일괄`, async ({ page }) => {
+for (const [name, open] of SWIPE_PICK_SCREENS) test(`W3 ${name} 폰 390: 오른쪽 밀기 = 고르기, 줄 눌러 더 고르기, [전체 선택] 켜고 끄기(체크), 뒤로가기로 끝, [삭제] 일괄`, async ({ page }) => {
   test.setTimeout(120000);
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   const s = await open(page);

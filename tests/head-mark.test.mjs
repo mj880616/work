@@ -11,11 +11,12 @@ test('the mark is the app icon and goes home through the shared router path',()=
   assert.match(HEAD_MARK_HTML,/^<a class="head-mark" href="\.\/\?view=home" data-goto="home" aria-label="홈"><img src="\.\/app-icon\.svg" width="20" height="20" alt=""><\/a>$/);
   assert.match(readFileSync('app/app-router.js','utf8'),/closest\?\.\('\[data-view\],\[data-goto\]'\)/);
 });
-test('index.html carries the same mark at the start of the phone head and of the 사업 관리 first line',()=>{
-  assert.equal(html.split(HEAD_MARK_HTML).length-1,2);
+// S70-57: 사업 관리도 앱 머리 줄(아이콘·이름·찾기 돋보기)을 쓰므로 index.html의 아이콘은 앱 머리 줄 한 곳이다.
+test('index.html carries the same mark at the start of the phone head (사업 관리 first line has none)',()=>{
+  assert.equal(html.split(HEAD_MARK_HTML).length-1,1);
   assert.ok(html.includes('<header class="mobile-shell-header" hidden>'+HEAD_MARK_HTML+'<span data-mobile-view-name>'));
-  assert.ok(html.includes('<div class="toolbar report-top-line">'+HEAD_MARK_HTML+'<h2 class="report-top-title">'));
-  assert.equal((html.match(/class="head-mark"/g)||[]).length,2,'no hand-written copies');
+  assert.ok(html.includes('<div class="toolbar report-top-line"><span class="report-filter-slot">'));
+  assert.equal((html.match(/class="head-mark"/g)||[]).length,1,'no hand-written copies');
 });
 test('home head puts the shared mark first',()=>{
   assert.match(journal,/import \{HEAD_MARK_HTML\} from '\.\/head-mark\.mjs'/);

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { screenFind } from './helpers/screen-find.mjs';
 // FILES-출처켜고끄기 + FILES-두드라이브나무(S49-21, 요청함 11/04 07:34): [파일] 위 줄 출처 아이콘 [원드라이브][구글 드라이브] 켜기/끄기(서버 view_prefs.files_sources),
 // S49-26(명진 결정 H-8): 켜고 끄기 기억은 기기 종류마다 따로(files_sources.app / .phone / .pc) — 412는 폰 브라우저, 884·1440은 PC 칸.
 // 켜진 두 드라이브가 맨 위 줄로 나란히 있는 폴더 나무(폰 [폴더] 탭 포함), 펼치기 2단계 이상, 폴더 눌러 들어가기, 모두 끔 안내. 파일·폴더 이름은 모두 가짜.
@@ -258,7 +259,7 @@ for (const width of [412, 884, 1440]) {
     await expect(list.locator('[data-fx-row^="gd:"]')).toHaveCount(0);
     await expect(list.locator('[data-fx-row^="od:"]').first()).toBeVisible();
     // 찾는 중에 출처를 바꾸면 켜진 출처로 다시 찾는다.
-    await root(page).locator('[data-fx-search]').fill('가짜');
+    await (await screenFind(page)).fill('가짜');
     await expect.poll(lastFind).toEqual({ p_sources: ['od'], p_query: '가짜', p_shelf: null, p_limit: 200 });
     await chip(page, 'gd').click();
     await expect.poll(() => server.calls.filter(c => c.what === 'app_cloud_find_in' && c.body.p_query).at(-1)?.body).toEqual({ p_sources: ['od', 'gd'], p_query: '가짜', p_shelf: null, p_limit: 200 });

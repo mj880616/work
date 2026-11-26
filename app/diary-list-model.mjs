@@ -53,10 +53,14 @@ export function matches(row, words) {
 }
 const byDayDesc = (a, b) => String(b.journal_day).localeCompare(String(a.journal_day));
 // rows → {pinned:[행], months:[{key, label, count, rows, open}], total}. filter: 'all' | 'star'. opened: 사용자가 펼친(또는 접은) 달 {key: bool}.
-export function buildDiaryList(rows, {filter = 'all', query = '', opened = {}} = {}) {
+// find: 공용 비슷한 것 찾기 판정(screen-find.js findFor, S70-67)이 오면 그것으로 맞춘다(띄어쓰기·오타·초성·앞부분·비슷한 말·기간). 없으면 낱말 포함 그대로.
+export function buildDiaryList(rows, {filter = 'all', query = '', opened = {}, find = null} = {}) {
   const words = queryWords(query);
+  const hit = find && !find.empty
+    ? row => !!find.hitAt(row.journal_day, String(row?.raw_text ?? ''), row?.done_only ? (row.done_lines || []).join('\n') : '', dayLabel(row?.journal_day), row?.journal_day || '')
+    : row => matches(row, words);
   const kept = (Array.isArray(rows) ? rows : []).filter(row => row && dayRe.test(String(row.journal_day)))
-    .filter(row => filter !== 'star' || diaryStarredAt(row)).filter(row => matches(row, words)).sort(byDayDesc);
+    .filter(row => filter !== 'star' || diaryStarredAt(row)).filter(hit).sort(byDayDesc);
   const pinned = kept.filter(diaryPinnedAt).sort((a, b) => Date.parse(diaryPinnedAt(b)) - Date.parse(diaryPinnedAt(a)) || byDayDesc(a, b));
   const rest = kept.filter(row => !diaryPinnedAt(row));
   const groups = new Map();

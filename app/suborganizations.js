@@ -1,5 +1,5 @@
 import {word} from './brand/brand.mjs';
-import {registerScreenFind} from './screen-find.js'; // S70-54 UI-검색창하나로
+import {registerScreenFind,findFor} from './screen-find.js'; // S70-54 UI-검색창하나로 · S70-67 비슷한 것 찾기(공용 판정)
 import {emptyHtml} from './wait-state.js';
 const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-notice.js').then(m=>m.holdToast(el,opt)).catch(()=>{})}; // UI-작은알림자리: 일반 스크립트라 동적 import(#toast 위쪽·2초·올려 두면 멈춤)
 (()=>{
@@ -39,8 +39,9 @@ function installTeamHead(section){if(document.querySelector('#soTeamHead'))retur
  import('./screen-tools.js').then(m=>m.mountScreenTools('team',document.querySelector('#soTeamTools'))).catch(err=>console.error('screen tools',err))}
 // S70-54 UI-검색창하나로: 맨 위 칸이 '조직 관리에서 찾기'를 겸한다 = 담당조직 이름 거르기(renderTeam 안, 서버 검색 없음). 단추 자리는 위 screen-tools.js 그대로.
 let soQuery='',soFindText='';
-registerScreenFind('team',{label:word('조직 관리에서 찾기'),foot:()=>document.querySelector('#soOrganizationList'),active:()=>{const v=document.querySelector('#teamView');return !!v&&!v.classList.contains('hidden')&&!!document.querySelector('#soTeamSection')},value:()=>soQuery?soFindText:'',
-  apply:raw=>{soFindText=String(raw??'');const next=norm(soFindText);if(next===soQuery)return;soQuery=next;renderTeam()}});
+registerScreenFind('team',{label:word('조직 관리에서 찾기'),active:()=>{const v=document.querySelector('#teamView');return !!v&&!v.classList.contains('hidden')&&!!document.querySelector('#soTeamSection')},value:()=>soQuery?soFindText:'',
+  marks:'#soOrganizationList [data-so-org]',
+  apply:(raw,{again}={})=>{soFindText=String(raw??'');const next=norm(soFindText);if(next===soQuery&&!again)return;soQuery=next;renderTeam()}});
 function installTeam(){const team=document.querySelector('#teamView');if(!team)return false;let section=document.querySelector('#soTeamSection');if(!section){section=document.createElement('section');section.id='soTeamSection';section.className='so-team-section';section.innerHTML='<div id="soOrganizationList" class="so-list"></div>';team.appendChild(section)}installTeamHead(section);if(!document.querySelector('#wdDetailPane'))section.insertAdjacentHTML('beforeend',word('<aside id="wdDetailPane" class="so-pane" aria-label="담당조직 상세"></aside>'));return true}
 // ORG-PC좌우: on a PC the organization shown on the right (workplace-detail.js, kptu:workplace-selection) is marked in the list.
 let soSelected=null;
@@ -73,7 +74,7 @@ async function deletePicked(trigger){if(!picking()||soPickBusy)return;const ids=
  finally{soPickBusy=false}
  if(r?.status==='moved'){if(r.left.length)soPick.items=new Set(r.left);else soPick.stop()}
  soTeamHtml=null;renderTeam();(picking()?document.querySelector('#soOrganizationList [data-so-pick-delete]'):document.querySelector('#soTeamMore'))?.focus({preventScroll:true})}
-function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const mine=myOrganizations().filter(o=>!soQuery||norm(o.name).includes(soQuery)||(o.aliases||[]).some(x=>norm(x).includes(soQuery))),all=soQuery?myOrganizations():mine;const hidden=new Set(window.KPTUOrganizationOrder.PICKER_EXCLUDED||[]),shown=mine.filter(o=>!hidden.has(o.name)),excluded=mine.filter(o=>hidden.has(o.name)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const soFind=soQuery?findFor('team',soFindText):null;const mine=myOrganizations().filter(o=>!soFind||!!soFind.hit(o.name,...(o.aliases||[]))),all=soQuery?myOrganizations():mine;const hidden=new Set(window.KPTUOrganizationOrder.PICKER_EXCLUDED||[]),shown=mine.filter(o=>!hidden.has(o.name)),excluded=mine.filter(o=>hidden.has(o.name)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
  const pk=picking();if(pk)soPick.prune(pickableIds());
  // S67-53 ORG-여러개삭제: 선택 중에는 줄 앞에 선택 칸, 줄 ⋯는 빼고, 줄을 누르면 열지 않고 선택만(아래 click). 내가 지울 수 없는 조직은 칸이 꺼져 있다.
  const pickBox=o=>{if(!pk)return '';const on=soPick.has(o.id),off=!canEdit(o)||soPickBusy;return `<input type="checkbox" class="so-pick" data-so-pick="${esc(o.id)}" aria-label="${esc(o.name)} 선택"${on?' checked':''}${off?' disabled':''}>`};

@@ -44,7 +44,7 @@ import { bindRowSwipe, PICK } from './row-swipe.js';
 import { SPLIT_QUERY } from './screen-width.mjs';
 import { followPane } from './follow-pane.js';
 import {word} from './brand/brand.mjs';
-import {refreshScreenFind} from './screen-find.js'; // S70-54: [노트]일 때만 맨 위 칸이 노트 찾기
+import {registerScreenFind, refreshScreenFind} from './screen-find.js'; // S70-54: [노트]일 때만 맨 위 칸이 노트 찾기 · S70-57: [잊지 말기] 목록이면 잊지 말기 찾기
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 // STAB-간헐3: the refresh run whose list read is still pending (0 = none). Until it answers, an empty list is "loading",
@@ -397,7 +397,7 @@ function memoTitle(note){
 // UI-상단줄제목: the open update's title goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it. Notes send their own (basket-notes.js).
 // The place is keyed by screen, so the update's and the note's titles are told apart by the side that is open (only one detail is open at a time).
 const sendMemoWhere=name=>window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'basket',name,kind:'memo'}}));
-function paintListChrome(){const open=(!!selected&&!isSplit())||noteDocs.isOpen(),notes=kind==='note';switchRow.hidden=open||notes;listHead.hidden=open;}
+function paintListChrome(){const open=(!!selected&&!isSplit())||noteDocs.isOpen(),notes=kind==='note';switchRow.hidden=open||notes;listHead.hidden=open;refreshScreenFind();}
 const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:()=>paintListChrome(),onMovedToBasket:()=>void refresh()});
 // The menu marks ([정리함] / [노트] in the sidebar, tabs and menu sheet) follow the side shown: the router reads #basketView[data-kind].
 function paintNavKind(){
@@ -421,6 +421,12 @@ forget=mountForgetList(root.querySelector('[data-basket-rows]'),{rt,statusEl:roo
   updateCount:()=>loadingRun&&!notes.length?null:visibleNotes(notes,links,'unclassified',docs).length,
   onView:view=>{filter=UPDATE_FILTER[view]||'none';place='all';sub='all';renderList();}});
 void forget.refresh();
+// S70-57 UI-메뉴별검색(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일"): [잊지 말기] 목록이 보일 때 맨 위 칸 = '잊지 말기에서 찾기'.
+// 거르기는 목록의 유일한 renderer(forget-list.js items())가 한다. [노트] 쪽은 basket-notes.js의 '노트에서 찾기'(kind로 갈림).
+registerScreenFind('forget',{label:'잊지 말기에서 찾기',
+  active:()=>window.KPTURouter?.current==='basket'&&kind==='memo'&&!list.hidden,
+  value:()=>forget.query(),
+  apply:(raw,opt={})=>forget.setQuery(raw,opt)});
 // FAMILY-기억알림: 맨 위 '가족 · 기억할 것' 칸(family-remind.js가 유일한 renderer — 가족 노트가 없거나 비면 칸 없음). 이 파일은 칸 자리만 둔다.
 let famRemind=null;
 const refreshFamRemind=()=>import('./family-remind.js').then(m=>{famRemind||=m.mountFamilyRemind(root.querySelector('[data-fam-remind]'),{rt});return famRemind.refresh();}).catch(()=>{});
@@ -641,7 +647,7 @@ function updateItems() {
     const state = noteState(note, links, docs), title = [...memoTitle(note)].slice(0, 80).join('');
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note) + requestTagsHtml(noteRequests(note), esc);
     const label = rowState(note, state);
-    return {id: note.id, at: note.occurred_at || note.created_at || '', body: title, busy,
+    return {id: note.id, at: note.occurred_at || note.created_at || '', body: title, text: String(note.raw_text || ''), busy, // text: 찾기는 메모 글 전체로(forget-list.js)
       open: {attrs: `data-basket-row="${esc(note.id)}"${isSplit() && selected?.id === note.id ? ' aria-current="true"' : ''}`, label: title},
       meta: [time(note), note.attachments?.length ? '첨부 ' + note.attachments.length + '개' : '', filter === 'unclassified' && label !== '미분류' ? label : ''].filter(Boolean).join(' · '),
       done: note.archived_at ? '보류' : label,

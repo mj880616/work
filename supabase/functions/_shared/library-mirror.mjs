@@ -93,7 +93,8 @@ export function stampFor(drive, name, parent) {
 
 export function parseMirrorBody(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).join(',') !== 'mode') return null;
-  return body.mode === 'auto' || body.mode === 'align' ? body.mode : null;
+  // S70-29: 'align'([드라이브 폴더 맞추기] 버튼)은 지웠다 — 화면·서버 요청으로는 'auto'만. 아래 엔진의 align 갈래는 시험과 함께 남는다(부르는 곳 없음).
+  return body.mode === 'auto' ? 'auto' : null;
 }
 
 /** 앱 폴더를 위에서 아래 차례로. 부모가 보이지 않는 폴더(휴지통 아래 등)는 뺀다. */

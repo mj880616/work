@@ -58,7 +58,7 @@ const luErrorNotice=message=>notify(message,{error:true});
 import {takeLibraryDocumentRequest,takeLibrarySelectionRequest} from './basket-library-send.js';
 import {isHwpName,requestHwpEdit} from './hwp-drive.js';
 import {pressFile,downloadFile,openInDrive,canOpenInDrive,fileAttrs,driveOpenUrl} from './file-actions.js';
-import {registerScreenFind,refreshScreenFind,toolsBox} from './screen-find.js'; // S70-54 UI-검색창하나로
+import {registerScreenFind,refreshScreenFind,toolsBox,findFor} from './screen-find.js'; // S70-54 UI-검색창하나로
 import {takeLibraryUploadRequest} from './library-upload-request.js';
 import {normalizeUploadMeeting,uploadMeetingLabel} from './library-upload-meeting.mjs';
 import {isPhotoFile,photoUploadFields} from './activity-photo-model.mjs';
@@ -79,7 +79,7 @@ import {memosNow,loadMemos} from './memo-store.js';
 import {readDroppedEntries,readPickedFiles,planFolderUpload,isBigFolder,skippedCount,skippedText,takenRoots,buildFolders,folderIdOf} from './library-folder-upload.mjs'; // S69-23 폴더째 올리기
 import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,resultText as luDropResultText,DROP_HINT} from './library-drop.js';
 import {word} from './brand/brand.mjs';
-import {bindSelectKeys,renameTarget} from './select-keys.js'; // UI-목록공용키(S70-18)
+import {bindSelectKeys,renameTarget,confirmDelete} from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
 import {fitSelectBar, paintSelectAll} from './select-bar.js'; // UI-고르기막대(S69-85): 선택 막대 한 줄 맞추기
 import {uploadLabelHtml} from './upload-label.mjs'; // UI-업로드말(S70-41): 클립 + 업로드
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -165,8 +165,9 @@ let luQuery='';// S70-54 UI-검색창하나로: 자료실 찾기 글자(맨 위 
 // [결과 n개 모두 선택]은 맨 위 줄 단추 자리(screen-find.js 상자)에 산다. 본문 첫 줄(.lu-search-row)은 [사업영역 ▾][분류 ▾] 고르기만.
 const luTools=toolsBox('library','library');
 {const actions=document.querySelector('#libraryView .lu-head-actions');if(actions)luTools.append(actions)}
-registerScreenFind('library',{label:'자료실에서 찾기',foot:()=>document.querySelector('#libraryListCard'),active:()=>window.KPTURouter?.current==='library',value:()=>luQuery,
-  apply:raw=>{const next=String(raw??'');if(next===luQuery)return;luQuery=next;luRenderLibrary()}});
+// S70-67 SEARCH-비슷한것찾기: 자료 거르기(luRenderLibraryNow)는 공용 판정(findFor — 띄어쓰기 무시·오타·초성·앞부분, 비슷한 말·기간), 맞은 부분 굵게.
+registerScreenFind('library',{label:'자료실에서 찾기',active:()=>window.KPTURouter?.current==='library',value:()=>luQuery,marks:'#documentList [data-lu-document]',
+  apply:(raw,{again}={})=>{const next=String(raw??'');if(next===luQuery&&!again)return;luQuery=next;luRenderLibrary()}});
 function luPushRecentFolder(id){luRecentFolders=rememberFolder(luRecentFolders,id);luViewPending.add('recent');clearTimeout(luViewTimer);luViewTimer=setTimeout(luFlushView,400)}
 // 걸러 보는 중인지 가를 때 비교하는 '들어올 때의 칩 상태'(고른 칩이 이것과 다르면 맞는 자료가 든 토글을 펼친다).
 let luBaselineOff=new Set(LU_DEFAULT_OFF);
@@ -1126,13 +1127,7 @@ function luSort(){if(!luSortUi)luSortUi=createReceiveSort({api:luApi,esc:luEsc,s
 // 단추 자리: 자료실 맨 위 ⋯(폴더 보기, 들어간 폴더가 있으면 그 안)·PC 빈 자리 우클릭(그 칸의 지금 폴더)·폴더 메뉴(그 폴더 안).
 let luTidyUi=null;
 // S69-25 LIB-드라이브에서가져오기: 내 드라이브에만 있고 자료실에 없는 파일을 받는 폴더(잡동사니)로 등록하는 창(library-drive-import.js, 누를 때만 불러옴).
-let luTopFilesUi=null; // S69-40 [맨 위 파일 정리] 창(library-top-files.js) — 누를 때만 불러온다
-async function luTopFilesOpen(trigger){try{if(!luTopFilesUi){const m=await import('./library-top-files.js');luTopFilesUi=m.createTopFiles({api:luApi,esc:luEsc,onDone:async()=>{await luLoadAll();luRenderLibrary()},reconnect:()=>luReconnectDrive()})}await luTopFilesUi.open(trigger)}catch(e){console.error('top files open failed',e);notify('맨 위 파일 정리를 열지 못했어요.',{error:true})}}
 let luDriveImportUi=null;
-let luDriveCheckUi=null; // S69-52 [드라이브와 맞는지 보기] 창(library-drive-check.js) — 누를 때만 불러온다
-async function luDriveCheckOpen(trigger){try{if(!luDriveCheckUi){const m=await import('./library-drive-check.js');luDriveCheckUi=m.createDriveCheck({api:luApi,esc:luEsc,onDone:async()=>{await luLoadAll();luRenderLibrary()},reconnect:()=>luReconnectDrive()})}await luDriveCheckUi.open(trigger)}catch(e){console.error('drive check open failed',e);notify('드라이브와 맞는지 보기를 열지 못했어요.',{error:true})}}
-let luSameUi=null; // S69-45 [같은 내용 자료 정리] 창(library-same-content.js) — 누를 때만 불러온다
-async function luSameOpen(trigger){try{if(!luSameUi){const m=await import('./library-same-content.js');luSameUi=m.createSameContent({api:luApi,esc:luEsc,onDone:async()=>{await luLoadAll();luRenderLibrary()},reconnect:()=>luReconnectDrive()})}await luSameUi.open(trigger)}catch(e){console.error('same content open failed',e);notify('같은 내용 자료 정리를 열지 못했어요.',{error:true})}}
 async function luDriveImportOpen(trigger){try{if(!luDriveImportUi){const m=await import('./library-drive-import.js');luDriveImportUi=m.createDriveImport({api:luApi,esc:luEsc,receiveName:()=>luReceiveFolder()?.name||null,onDone:async()=>{await luLoadAll();luRenderLibrary()},reconnect:()=>luReconnectDrive()})}await luDriveImportUi.open(trigger)}catch(e){console.error('drive import open failed',e);notify('드라이브에서 가져오기를 열지 못했어요.',{error:true})}}
 function luTidy(){if(!luTidyUi)luTidyUi=createTidySuggest({api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,listDocs:luListDocs(),receiveId:luReceiveFolder()?.id||null}),reload:async()=>{await luLoadFolders();luRenderLibrary()},say:luRenameNotice});return luTidyUi}
 const luSortReady=id=>!!id&&luFoldersReady&&luReceiveFolder()?.id===id&&luSort().count()>0;
@@ -1271,7 +1266,7 @@ document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [
 // 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기](PC 우클릭 같은 메뉴)만. 자료 줄 누르기·두 번 누르기는 그대로.
 // UI-폴더펼치면위로(S61-7): 다시 그리는 앞뒤를 공용 부품(ftKeepPlace)으로 감싼다 — 왼쪽 나무·두 칸 칸 안을 내려 둔 자리가 그대로 남는다.
 function luRenderLibrary(){const card=document.querySelector('#libraryListCard');return card?ftKeepPlace(card,luRenderLibraryNow):luRenderLibraryNow()}
-function luRenderLibraryNow(){const box=document.querySelector('#documentList');if(!box)return;luRenderTwoToggle();const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';const menuSpots=[luMenuSpot(luActiveMenu?.trigger),luMenuSpot(luFolderUi?.menuTrigger)];luApplyPlaceFolder();luRenderGroupBy();luRenderProjectFilter();luRenderOrganizationFilter();const q=luQuery.trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
+function luRenderLibraryNow(){const box=document.querySelector('#documentList');if(!box)return;luRenderTwoToggle();const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';const menuSpots=[luMenuSpot(luActiveMenu?.trigger),luMenuSpot(luFolderUi?.menuTrigger)];luApplyPlaceFolder();luRenderGroupBy();luRenderProjectFilter();luRenderOrganizationFilter();const q=luQuery.trim().toLowerCase(),luFind=findFor('library',luQuery),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||!!luFind.hitAt(String(d.document_date||d.created_at||'').slice(0,10),d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' '))));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
 luSyncSearchPickAll(q,matches);
 const filtering=luFiltering(q,pid),signature=filtering?JSON.stringify([q,[...luCategoryOff].sort(),luCategorySub,luOrganization?.id||'',pid,luGroupBy]):'-';if(signature!==luFilterSignature){luFilterOpen.clear();luFilterSignature=signature}
 if(luGroupBy==='organization'&&!luOrganizations)luLoadOrganizations();
@@ -1422,7 +1417,7 @@ function luDragRowHtml0(d,node){const html=luAddSuggest(luRowHtml(d,node),d,node
 // 저장은 [수정] 창과 같은 서버 길(app_documents PATCH)이고 제목 칸을 사용자 값('user')으로 남긴다(library-rename.js). 브라우저 저장소는 쓰지 않는다.
 let luRename=null,luRenameBusy=false,luRenameNoticeToken=0,luKeepFocus=null;
 // UI-목록공용키(S70-18, N2·N3·N4): 목록 칸 Ctrl+A·Delete·F2는 공용 키 부품(select-keys.js)이 정하고, 할 일은 이 화면 길 그대로 —
-// Ctrl+A = [전체]와 같은 보이는 자료 모두(선택 모드가 아니면 켜면서), Delete = 고른 것이 있으면 선택 막대 [삭제](여럿·폴더는 한 번 묻기), 없으면 커서 줄 ⋯ [삭제](바로 빠지고 [되돌리기]),
+// Ctrl+A = [전체]와 같은 보이는 자료 모두(선택 모드가 아니면 켜면서), Delete = 고른 것이 있으면 선택 막대 [삭제], 없으면 커서 줄 ⋯ [삭제] — 둘 다 바로 빠지고 [되돌리기](K1 한 규칙, 묻지 않음),
 // F2 = 고른 자료 하나, 없으면 커서 줄 이름 바꾸기(폴더 머리 줄 F2는 폴더 부품 bindKeys). Esc = 고르기 풀기는 luOnSelEscape(문서 전체)가 맡는다.
 const luDocIdOf=e=>{const id=e.target.closest?.('[data-lu-document]')?.dataset.luDocument||null;return id&&luDocuments.some(d=>d.id===id)?id:null};
 function luBindRename(list){bindSelectKeys(list,{
@@ -1524,10 +1519,8 @@ function luOnHeadClick(e){const head=e.target.closest('summary.lu-node-head');if
   //  들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기]만. 전의 'S69-28 폰 이름 누르기 = 그 폴더 내용'·'OPS-빠진일2차 1 하위 없는 폴더 = 한 번에 열기'는 없앴다.
   // 탐색기 칸은 접힌 폴더 안을 그려 두지 않으므로(library-tree.js lazy) 펼침·접힘을 칸 펼침(luXOpen — 나무 luOpened·luNavOpen과 따로)에 적고 다시 그린다
   // (자리는 공용 ftKeepPlace가 지킨다). 이름 바꾸는 중(입력칸)에는 손대지 않는다.
-  if(d.closest('[data-lu-enter]')){if(head.querySelector('input'))return;e.preventDefault();if(next){luXOpen.add(key);for(const k of String(d.dataset.luChain||'').split(' ').filter(Boolean))luXOpen.add(k)}else luXOpen.delete(key);luRenderLibrary();document.querySelector(`#documentList details[data-lu-node="${CSS.escape(key)}"] > summary`)?.focus({preventScroll:true});return}
-  if(luFilterSignature!=='-')luFilterOpen.set(key,next);else if(next)luOpened.add(key);else luOpened.delete(key);
-  // SEARCH-선택옮기기 ⑦: '공공팀 › 회의 › 집행위'로 줄여 보이던 외줄 폴더를 펼치면 이어진 폴더도 함께 펼친다(각 폴더의 toggle을 luOnToggle이 그대로 기록).
-  if(next)for(const k of String(d.dataset.luChain||'').split(' ').filter(Boolean)){const x=luNodeEl(k);if(x&&!x.open)x.open=true}}
+  if(d.closest('[data-lu-enter]')){if(head.querySelector('input'))return;e.preventDefault();if(next)luXOpen.add(key);else luXOpen.delete(key);luRenderLibrary();document.querySelector(`#documentList details[data-lu-node="${CSS.escape(key)}"] > summary`)?.focus({preventScroll:true});return}
+  if(luFilterSignature!=='-')luFilterOpen.set(key,next);else if(next)luOpened.add(key);else luOpened.delete(key);}
 // 한 자료가 든 토글을 위 단까지 펼치고 그 토글의 자료를 모두 보인다(다른 화면에서 그 자료로 올 때).
 function luRevealInTree(id){if(luInFolder&&!luVisibleIds().includes(id)){luInFolder=null;luRenderLibrary()}const path=pathTo(luLastTree,id);if(!path.length)return;if(luTwoActive()){luTwo.reveal(path);return}for(const k of path){if(luFilterSignature!=='-')luFilterOpen.set(k,true);else luOpened.add(k)}luShowAll.add(path.at(-1));luRenderLibrary()}
 // Account-menu pattern: consume the menu history entry before opening a successor.
@@ -1978,17 +1971,14 @@ function luTopMenuHtml(){
     +(folder&&luCanPickFolder()?luMenuRow('data-lu-top="folder-upload"',uploadLabelHtml('폴더 업로드')):'') // S69-23: 탐색기 폴더째 올리기
     +(folder?luMenuRow('data-lu-top="tidy"',TIDY_LABEL):'')
     +luMenuRow('data-lu-top="drive-import"','드라이브에서 가져오기') // S69-25 LIB-드라이브에서가져오기
-    +luMenuRow('data-lu-top="same-content"','같은 내용 자료 정리') // S69-45: 내용이 같은 자료 묶음마다 하나만 남기고 휴지통으로(누를 때만)
+    // S70-29(2026-11-25 명진 '다 없애 1회용 기능'): [같은 내용 자료 정리]·[드라이브 폴더 맞추기]·[드라이브와 맞는지 보기]·[맨 위 파일 정리]는 한 번 정리라 지웠다.
     +(luPick.active?luMenuRow('data-lu-top="select-stop"','선택 끝내기'):luMenuRow('data-lu-top="select"','여러 개 선택'))
     +(luExplorerNow?'':luMenuRow(`data-lu-top="expand"${luExpandNow.count?'':' disabled'}`,luExpandNow.open?'모두 접기':'모두 펴기')) // S69-28: 탐색기 칸은 펼칠 묶음이 없다
-    +(luDrive().place()?luMenuRow(`data-lu-top="drive-align"${luDrive().busy()?' disabled':''}`,'드라이브 폴더 맞추기'):'') // S69-20 ④: 누를 때만 기존 자료까지 드라이브 폴더로 정리
-    +(luDrive().place()?luMenuRow('data-lu-top="drive-check"','드라이브와 맞는지 보기'):'') // S69-52 ①: 누를 때만 자료실 폴더 ↔ 드라이브 폴더 어긋남 목록·맞추기·되돌리기
-    +(luDrive().place()?luMenuRow('data-lu-top="top-files"','맨 위 파일 정리'):'') // S69-40: 드라이브 자료실 맨 위에 쌓인 파일 판정·정리(누를 때만)
     +luMenuRow('data-lu-top="help"','쓰는 법'); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'
 }
 function luTopMenuOpen(trigger){
   luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-folder-menu lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
-    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-import')void luDriveImportOpen(active.trigger);else if(act==='same-content')void luSameOpen(active.trigger);else if(act==='top-files')void luTopFilesOpen(active.trigger);else if(act==='drive-check')void luDriveCheckOpen(active.trigger);else if(act==='drive-align')void luDrive().align().then(()=>luLoadFolders()).then(()=>luRenderLibrary()).catch(()=>{});else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
+    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(act==='folder-upload')luPickFolderUpload(luInFolder||null,active.trigger);else if(act==='tidy')void luTidy().open(active.trigger,luInFolder||null);else if(act==='drive-import')void luDriveImportOpen(active.trigger);else if(act==='help')void import('./help-link.js').then(m=>m.openHelp('library'))}});
   luTopMenu.open(trigger);
 }
 // S55-08 LIB-우클릭메뉴 (2026-11-09 명진 결정): PC(761px~) 폴더 보기에서 빈 자리(왼쪽 나무 빈 곳·'자료실 전체'·'폴더 밖' 줄, 오른쪽 목록의 어느 폴더도 아닌 바탕,
@@ -2226,13 +2216,15 @@ async function luSelDelete(anchor=document.querySelector('#librarySelectDelete')
   // S69-69 LIB-사각형폴더: 폴더째 고른 폴더는 폴더째 휴지통으로(폴더 하나 [폴더 삭제]와 같은 길 — 안의 자료는 폴더와 함께 숨고 휴지통에서 되살린다).
   const fids=luPickedFolderIds();
   if(!ids.length&&!fids.length)return;
-  if(fids.length||ids.length>1){// 폴더가 있으면 하나여도 한 번 묻는다(폴더 [폴더 삭제]처럼)
+  // K1 한 규칙(I-6, select-keys.js confirmDelete): 자료는 줄이 바로 빠지고 '삭제했어요 · 되돌리기'(luQueueDelete), 폴더는 휴지통 + '· 되돌리기'(trashFolders) —
+  // 둘 다 [되돌리기]가 있으니 여럿·폴더여도 묻지 않는다(되돌리기가 없어지면 아래 확인 창이 다시 나온다).
+  const ok=await confirmDelete({undo:true,ask:()=>{
     const docs=ids.map(id=>have.get(id));
     const what=fids.length?[`폴더 ${fids.length}개`,ids.length?`자료 ${ids.length}개`:''].filter(Boolean).join('·'):`${ids.length}개`;
     const note=[fids.length?'폴더는 안의 것과 함께 휴지통으로 가요(휴지통에서 되살릴 수 있어요).':'',ids.length?luDeleteNote(docs):''].filter(Boolean).join(' ');
-    const ok=await askConfirm(anchor?.isConnected?anchor:null,{text:`${what}를 삭제할까요?`,note,ok:'삭제',danger:true});
-    if(!ok||!luPick.items||luSelBusy)return;
-  }
+    return askConfirm(anchor?.isConnected?anchor:null,{text:`${what}를 삭제할까요?`,note,ok:'삭제',danger:true});
+  }});
+  if(!ok||!luPick.items||luSelBusy)return;
   if(ids.length)luQueueDelete(ids);
   if(fids.length){
     const r=await luFolders().trashFolders(fids);
