@@ -156,6 +156,8 @@
 /* 원드라이브·구글 드라이브 표시는 공식 아이콘이라 어두운 막 대신 화면 바탕 위에 둔다(다크 모드에서도 아이콘 색은 그대로). */
 #appView #photosView .photos-src-mark:is([data-src="onedrive"],[data-src="gdrive"]){ background:var(--kptu-surface); }
 #appView #photosView .has-src .photos-dur{ right:20px; }
+/* S71-21 PHOTO-내용찾기: 이름이 아니라 설명 낱말로만 걸린 칸 — 왼쪽 아래 작은 '설명' 글자(출처 표시와 같은 크기 막, 누르기 없음). */
+#appView #photosView .photos-content-mark{ position:absolute; left:3px; bottom:3px; z-index:1; padding:0 3px; border-radius:3px; font-size:10px; line-height:14px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }
 /* PHOTO-폴더스위치(10/31): 폴더 줄 오른쪽 작은 스위치(일기 설정 창과 같은 .diary-od-switch), 꺼진 줄은 흐림, 같은 이름 폴더는 위치 이름을 흐리게. */
 #appView #photosView .photos-fx-row > .photos-fx-sw,#appView #photosView .photos-fx-here .photos-fx-sw{ height:32px; }
 #appView #photosView .photos-fx-row.is-off > .ft-main{ opacity:.5; }

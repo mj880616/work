@@ -53,7 +53,6 @@ import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './wee
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 import {dayRowForm} from './weekly-hq-schedule.js'; // S52-31: 5. 주요 일정 줄 제자리 고치기 칸 = 2) 주요 일정과 같은 공용 줄
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer} from './weekly-hwpx/schedule.mjs';
-import {REPORT_CALENDAR_TITLE} from './profile-words.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
 import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, putExtras, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftOwners, draftSiteLayout, readCarriedLayout, readCarriedPlaces, changeWeekDocs, withTitleEdit, draftDrops, changeWeekCell, withDetailTakes, withRequestTakes} from './weekly-draft-store.js';
 import {discussLines, discussFileItems} from './weekly-discuss.mjs';
@@ -823,7 +822,6 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const calHead = `${titles().calendar} 표: `;
     if (cal && (!c || c.loading)) { cal.textContent = calHead; cal.insertAdjacentHTML('beforeend', waitInlineHtml()); }
     else if (cal) cal.textContent = c.failed?.length ? `${calHead}달력 일정을 불러오지 못해 날짜만 넣어요. [주간 보고]의 ${titles().calendar}에서 [다시 시도]할 수 있어요.`
-      : c.unsetCalendar ? `${calHead}${REPORT_CALENDAR_TITLE}가 정해지지 않아 날짜만 넣어요(내 프로필 › ${REPORT_CALENDAR_TITLE}).`
       : c.noCalendar ? `${calHead}'${c.calendar}' 달력을 찾지 못해 날짜만 넣어요.`
       : `${calHead}${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
     syncTitles(fullCalendar());
@@ -915,7 +913,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!state) return;
     const items = scheduleItems(calendar);
     // 임시저장의 일정 제목·빼기는 일정 키로 다시 맞춘다. 달력에서 없어진 일정은 조용히 버린다(달력을 다 읽었을 때만).
-    if (calendar && !calendar.loading && !calendar.failed?.length && !calendar.noCalendar && !calendar.unsetCalendar) {
+    if (calendar && !calendar.loading && !calendar.failed?.length && !calendar.noCalendar) {
       const live = new Set(items.map(i => i.key));
       let gone = 0;
       for (const map of [state.titles, state.drops]) for (const key of [...map.keys()]) if (!live.has(key)) { map.delete(key); gone++; }

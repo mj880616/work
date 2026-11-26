@@ -233,22 +233,19 @@ test('소속·주간 자리: WORK ON 기본은 노조 색 없음, 사용자(바�
   assert.ok(!SLOT_IDS.includes('affiliation') && !SLOT_IDS.includes('weekly'), '이름 칸은 15칸 그대로');
 });
 
-test('내 프로필·묶음·주간 캘린더 칸 글자는 소속·주간 칸 자리로만 부른다', () => {
+test('내 프로필·묶음 칸 글자는 소속 칸 자리로만 부른다(S71-34: 프로필 소속·부서·직책·주간 캘린더 칸은 없음)', () => {
   const words = read('app/profile-words.mjs');
   assert.match(words, /UNION_WORD = word\('노조', 'group'\)/);
   assert.match(words, /UNION_LABEL = `\$\{UNION_WORD\}명`/);
-  assert.match(words, /REPORT_CALENDAR_TITLE = `\$\{WEEKLY_WORD\} 일정 캘린더`/);
+  assert.doesNotMatch(words, /REPORT_CALENDAR_TITLE/);
   const profile = read('app/profile-settings.js');
-  assert.match(profile, /placeholder="\$\{UNION_LABEL\} \(예: \$\{word\('○○노동조합 ○○지부','example'\)\}\)" aria-label="\$\{UNION_LABEL\}"/);
-  assert.match(profile, /placeholder="부서명 \(예: \$\{word\('○○사업팀','example'\)\}\)"/);
-  assert.match(profile, /placeholder="직책 \(예: \$\{word\('국장','example'\)\}\)"/);
-  assert.match(profile, /aria-label="\$\{REPORT_CALENDAR_TITLE\}"/);
+  assert.doesNotMatch(profile, /psUnion|psDept|psTitle|psReportPanel|UNION_LABEL|REPORT_CALENDAR_TITLE/);
   const groups = read('app/collab-groups.js');
   assert.match(groups, /\+ \$\{KIND_NAME\.union\} 만들기/);
   assert.match(groups, /<span>\$\{UNION_LABEL\}<\/span>/);
   assert.match(read('app/collab-groups-model.mjs'), /union: `\$\{UNION_WORD\} 묶음`/);
   // 고정 글자에 노조 낱말이 남지 않는다(주석 빼고).
-  for (const file of ['app/profile-settings.js', 'app/collab-groups.js', 'app/collab-groups-model.mjs', 'app/report-settings.js', 'app/report-settings-model.mjs', 'app/report-calendar.mjs']) {
+  for (const file of ['app/profile-settings.js', 'app/collab-groups.js', 'app/collab-groups-model.mjs', 'app/report-calendar.mjs']) {
     const code = read(file).replace(/^\s*\/\/.*$/gm, '').replace(/\/\/ [^'"`\n]*$/gm, '');
     assert.doesNotMatch(code, /'노조명|"노조명|>노조명|노조 묶음 만들기|주간 보고 일정 캘린더/, file);
   }
