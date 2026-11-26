@@ -2,7 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 
 // PROFILE-화면정리: 내 프로필 화면. 저장 버튼 하나(이름), 맡은 프로젝트 칸·안내문 없음.
-// S71-35 ORG-조직관리로모으기(2026-11-26 명진 "관련 대상 현황 이것도 걍 없애", "내 묶음도 여기서 삭제 조직 관리에서 처리 가능하게"):
+// S71-35 ORG-조직관리로모으기(2026-11-26 사용자 "관련 대상 현황 이것도 걍 없애", "내 묶음도 여기서 삭제 조직 관리에서 처리 가능하게"):
 // '담당조직 현황' 체크 칸과 '내 묶음' 칸은 없다(그리기째). 담당 추가·보관·삭제·내 묶음은 조직 관리(org-manage-gather.spec.mjs가 본다).
 const url=`${appOrigin}/tests/app-e2e/profile-workplaces-fixture.html`;
 

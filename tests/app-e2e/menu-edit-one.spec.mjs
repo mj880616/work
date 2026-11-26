@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {accountButton} from './helpers/shell-navigation.mjs';
-// S71-32 NAV-메뉴수정하나로(명진 11/26 "폰 하단바랑 pc 왼쪽 메뉴 구분해둔 이유는? 하나로 통일 못하나" → "ㄱ"):
+// S71-32 NAV-메뉴수정하나로(사용자 11/26 "폰 하단바랑 pc 왼쪽 메뉴 구분해둔 이유는? 하나로 통일 못하나" → "ㄱ"):
 // 메뉴 수정 창은 폰 하단바와 위 메뉴를 목록 하나로 잇고, 하단바 마지막 줄 아래 가는 줄 + 작은 회색 글 '여기까지 폰 하단바'.
 // 줄 위로 끌어 올리면 하단바에 들고 내리면 빠진다(5칸·홈 고정 그대로). 아래 붙는 메뉴·숨긴 메뉴는 같은 목록 모양에 머리 글자만 작게. PC 왼쪽 메뉴 미리보기 상자는 없다.
 // 저장은 서버(view_prefs.menu_layout, 흉내 낸 서버)뿐이고 모양은 그대로 {bar, rest}.

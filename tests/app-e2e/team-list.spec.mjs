@@ -37,7 +37,7 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
    return {more:r(g.querySelector('.so-group-more')).right-chev(g),count:plain?r(plain.querySelector('.so-group-count')).right-chev(plain):0,rowMenus:document.querySelectorAll('#soOrganizationList .so-row .more-dots').length}});
   expect(Math.abs(ends.more)).toBeLessThanOrEqual(1);expect(Math.abs(ends.count)).toBeLessThanOrEqual(1);expect(ends.rowMenus).toBe(0);
   await expect(page.locator('[data-so-row] [data-so-grip="org"]')).toHaveCount(15);
-  // S71-35 ORG-조직관리로모으기(2026-11-26 명진): 맨 위 [+ 담당조직]은 없다(추가는 ⋯ '새 담당조직', org-manage-gather.spec). 옛 폰 글자 링크도 없음.
+  // S71-35 ORG-조직관리로모으기(2026-11-26 사용자): 맨 위 [+ 담당조직]은 없다(추가는 ⋯ '새 담당조직', org-manage-gather.spec). 옛 폰 글자 링크도 없음.
   await expect(page.locator('#soAddOrg,#soAddOrgLink,.so-add-link')).toHaveCount(0);await expect(page.locator('#soTeamMore')).toBeVisible();
   await page.evaluate(()=>{document.querySelector('[data-so-org="ord-3"] h4').textContent='아주 긴 조직 이름 '.repeat(30)});
   const name=await page.locator('[data-so-org="ord-3"] h4').evaluate(e=>({overflow:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow,white:getComputedStyle(e).whiteSpace}));expect(name).toEqual({overflow:true,ellipsis:'ellipsis',white:'nowrap'});

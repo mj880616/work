@@ -64,7 +64,7 @@
 
 - 개발 작업 원장은 `docs/roadmap.md`다. 새 작업은 커맨드센터가 원장에 행을 추가한 뒤 시작한다.
 - 개발도구는 Drive 원장 직접쓰기 금지. 기준은 `docs/ai-work-system-source-of-truth.md`를 따른다.
-- 원장에 들어가는 문은 Web2 서버 AI(`ai-assist`) 자동 기록 하나뿐이다. 서버 AI가 사용자 로그인으로 Web2 기록(업데이트·사업 보고·담당조직 기록·노트)에서 뽑아 기록하고, 기록마다 근거(원래 Web2 기록)를 붙이며, 기존 기록을 고치거나 폐기하지 않고 더하기만 한다. **원장은 사용자 화면에 없다**(2026-11-25 명진 결정: 원장은 AI가 명진 업무를 파악하는 데 쓰는 뒤쪽 자료이고, 명진은 직접 보지도 고치지도 않는다). 원장 화면·메뉴·경로·'원장 수정 요청' 입력칸은 두지 않는다(옛 `?view=ledger`는 홈). 고칠 일이 생기면 명진이 채팅으로 말하고 CC가 승인형 DB workflow(7절)로 '대체됨' 방식(지우지 않고 더하기)으로 반영한다. Claude·개발도구는 Web2·원장에 직접 쓰지 않는다(2026-10-22 변경: AI 후보 → 사용자 확정 방식 폐지).
+- 원장에 들어가는 문은 Web2 서버 AI(`ai-assist`) 자동 기록 하나뿐이다. 서버 AI가 사용자 로그인으로 Web2 기록(업데이트·사업 보고·담당조직 기록·노트)에서 뽑아 기록하고, 기록마다 근거(원래 Web2 기록)를 붙이며, 기존 기록을 고치거나 폐기하지 않고 더하기만 한다. **원장은 사용자 화면에 없다**(2026-11-25 사용자 결정: 원장은 AI가 사용자 업무를 파악하는 데 쓰는 뒤쪽 자료이고, 사용자는 직접 보지도 고치지도 않는다). 원장 화면·메뉴·경로·'원장 수정 요청' 입력칸은 두지 않는다(옛 `?view=ledger`는 홈). 고칠 일이 생기면 사용자가 채팅으로 말하고 CC가 승인형 DB workflow(7절)로 '대체됨' 방식(지우지 않고 더하기)으로 반영한다. Claude·개발도구는 Web2·원장에 직접 쓰지 않는다(2026-10-22 변경: AI 후보 → 사용자 확정 방식 폐지).
 - **작업 PR은 `docs/roadmap.md`를 수정하지 않는다**(2026-10-17 사용자 결정, PR 간 충돌 줄이기). 대신 PR 본문 끝에 "원장 반영" 절(행 이름·상태·한 줄 요약·사용자 결정 사항)을 쓴다. 원장 갱신은 커맨드센터가 merge 뒤 문서 전용 PR로 한다.
 - 동시 세션 수·같은 파일 과제 묶기 등 커맨드센터 운영 규칙(세션 운영·merge·요청함·보고·인계)은 `docs/command-center-ops.md`를 따른다.
 - **줄 세우기**: 지시서가 "○○ PR 브랜치 위에서 시작"을 지정하면 최신 main 대신 그 PR의 head에서 브랜치를 만든다. 앞 PR이 main에 들어간 뒤에는 main을 merge만 하고(rebase·force push 금지), 앞 PR이 바뀌면 그 브랜치를 다시 merge해 맞춘다. 커맨드센터는 앞 PR → 뒤 PR 순서로 merge한다(2026-10-17 사용자 결정).
@@ -82,11 +82,16 @@
 
 ### 남의 기록 안 보기
 
-- 2026-11-15 명진 확정(2026-11-23 명진 변경: "내가 기록한 내용은 운영자가 볼 수 없습니다."): 운영자·커맨드센터·작업 세션은 다른 사람 작업공간의 기록 내용(노트·보고·일정·할 일·자료·조직 목록·AI 사용 내용·제목·이름)을 DB 주인·service_role 권한으로도 조회하지 않는다. 운영 확인은 개수·존재 여부 같은 숫자만. 장애가 나도 내용을 열지 않고 본인이 화면에서 확인하게 한다. 운영자 화면·함수·알림이 보여 주는 사람 정보는 이메일·가입일·마지막 사용 시각뿐이다(2026-11-23 명진 변경 — 조직·부서·이름·직책은 운영자에게 가지 않는다).
+- 2026-11-15 사용자 확정(2026-11-23 사용자 변경: "내가 기록한 내용은 운영자가 볼 수 없습니다."): 운영자·커맨드센터·작업 세션은 다른 사람 작업공간의 기록 내용(노트·보고·일정·할 일·자료·조직 목록·AI 사용 내용·제목·이름)을 DB 주인·service_role 권한으로도 조회하지 않는다. 운영 확인은 개수·존재 여부 같은 숫자만. 장애가 나도 내용을 열지 않고 본인이 화면에서 확인하게 한다. 운영자 화면·함수·알림이 보여 주는 사람 정보는 이메일·가입일·마지막 사용 시각뿐이다(2026-11-23 사용자 변경 — 조직·부서·이름·직책은 운영자에게 가지 않는다).
 
 ### 토큰 취급
 
 - 토큰·키 값을 명령어 인자에 넣지 않는다. gh가 있으면 gh를 우선 사용한다.
+
+### 공개 금지 낱말과 커밋 작성자
+
+- **커밋 작성자 메일은 GitHub noreply 주소(`<번호>+<계정>@users.noreply.github.com`)만 쓴다.** 개인 메일을 `git config user.email`에 두지 않는다(SEC-공개저장소청소 ②, 2026-11-26 사용자 결정).
+- 코드·문서·시험 자료·커밋 메시지·PR 제목과 본문에 실제 사람 이름·실제 단체 이름·업무 내용·요청 원문·가족 이야기를 쓰지 않는다. 출처 표시는 '사용자 결정'·'운영자', 시험 자료는 가짜 이름(예: A노조·가상지부)으로 쓴다. CI `public-words-check`가 새로 더한 줄·커밋·PR 글을 비밀값 낱말 목록으로 본다(`scripts/check-public-words.mjs`, 낱말 목록은 저장소에 두지 않는다).
 
 ## 4. 조사와 수정
 
@@ -96,19 +101,19 @@
 - 기존 구조를 가장 적게 흔드는 방법으로, 필요한 범위만 바꾼다. When a shared permission or data model changes, review all features that use the same model.
 - 같은 목적의 테이블·함수·API·파일이 있는지 먼저 찾는다. 중복 구현이나 새 상태 저장소를 만들지 않는다. Keep permission-sensitive logic centralized.
 - 기존 기능 수정 요청에 새 기능을 옆에 만들어 우회하지 않는다. 동작하는 코드를 불필요하게 재작성하지 않는다.
-- 명진 데이터 한 번 정리(옮기기·이름 맞추기·가져오기·중복 치우기·옛 형식 바꾸기)는 화면 버튼·메뉴로 만들지 않는다. CC가 승인형 DB workflow(7절)나 명진 계정 커넥터로 직접 하고 결과 숫자를 보고한다(2026-11-25 명진 결정, `docs/design/one-time-features-audit.md`). 다른 사용자에게도 생기는 정리는 버튼 대신 서버·앱이 쓸 때 저절로 하게 만든다. AI가 만들어야 해서 CC가 대신 못 하는 정리만 예외로 화면에 두고, 만들 때 PR 본문에 '지울 때'(끝나는 조건)를 적는다.
+- 사용자 데이터 한 번 정리(옮기기·이름 맞추기·가져오기·중복 치우기·옛 형식 바꾸기)는 화면 버튼·메뉴로 만들지 않는다. CC가 승인형 DB workflow(7절)나 사용자 계정 커넥터로 직접 하고 결과 숫자를 보고한다(2026-11-25 사용자 결정, `docs/design/one-time-features-audit.md`). 다른 사용자에게도 생기는 정리는 버튼 대신 서버·앱이 쓸 때 저절로 하게 만든다. AI가 만들어야 해서 CC가 대신 못 하는 정리만 예외로 화면에 두고, 만들 때 PR 본문에 '지울 때'(끝나는 조건)를 적는다.
 - 삭제 요청은 사용처·의존성을 확인한 뒤 정리한다. UI만 숨기지도, 조사 없이 공용 구조를 지우지도 않는다.
 - 사용자가 폐기한 구조를 편의상 되살리지 않는다.
 - UI 변경: 기존 컴포넌트를 재사용하고, 모바일·데스크톱을 함께 확인한다. 키보드·터치 접근성을 유지하고, 요청 없는 대규모 디자인 변경을 하지 않는다.
-- 목록·나무·고르기·끌기 화면은 `docs/design/standard-interactions.md` 기준표를 모두 지킨다(2026-11-24 명진 요청). 새 화면은 `tests/app-e2e/standard-interactions.spec.mjs` 화면 표에 더한다.
+- 목록·나무·고르기·끌기 화면은 `docs/design/standard-interactions.md` 기준표를 모두 지킨다(2026-11-24 사용자 요청). 새 화면은 `tests/app-e2e/standard-interactions.spec.mjs` 화면 표에 더한다.
 - 화면 글자(버튼·메뉴·안내·알림)는 `docs/design/ui-words.md` 용어 기준표를 따른다.
-- 명진에게 묻기 전에 결정 장부(동작 `docs/design/standard-interactions.md`, 모양 `docs/design-decisions.md`, 글자 `docs/design/ui-words.md`)를 먼저 찾는다. 확정 동작을 만드는 PR은 그 ID의 시험을 넣는다. 같은 영역(폴더·목록·끌기 / 밀기·막대·메뉴 / 글 읽기 / 노트 / 찾기 / 자료실 서버 등)은 한 번에 한 작업만 돈다(2026-11-26 명진 결정, `docs/command-center-ops.md` 1-1~1-3절).
+- 사용자에게 묻기 전에 결정 장부(동작 `docs/design/standard-interactions.md`, 모양 `docs/design-decisions.md`, 글자 `docs/design/ui-words.md`)를 먼저 찾는다. 확정 동작을 만드는 PR은 그 ID의 시험을 넣는다. 같은 영역(폴더·목록·끌기 / 밀기·막대·메뉴 / 글 읽기 / 노트 / 찾기 / 자료실 서버 등)은 한 번에 한 작업만 돈다(2026-11-26 사용자 결정, `docs/command-center-ops.md` 1-1~1-3절).
 - Do not independently change Supabase schemas, RLS, existing data, visibility policy, URL structure, or Edge Function authentication boundaries. Record a proposal instead. Do not add product features or redesign the application as part of stabilization work.
 
 ### 범위
 
 - 요청 범위만 수정한다. 범위 밖에서 발견한 문제는 고치지 않고 보고만 한다.
-- 지적받은 문제와 같은 종류를 전수 검사하되, 다른 곳에서 찾은 같은 종류 문제는 지금 PR에 섞지 않는다. PR 본문 '범위 밖 발견사항'에 위치와 함께 적고, 커맨드센터가 별도 PR로 줄 세운다(2026-11-25 명진 결정, `docs/command-center-ops.md` 1절).
+- 지적받은 문제와 같은 종류를 전수 검사하되, 다른 곳에서 찾은 같은 종류 문제는 지금 PR에 섞지 않는다. PR 본문 '범위 밖 발견사항'에 위치와 함께 적고, 커맨드센터가 별도 PR로 줄 세운다(2026-11-25 사용자 결정, `docs/command-center-ops.md` 1절).
 - 지시서 완료 기준에 적힌 자동 시험이 통과해야 완료다. 요구를 지키는 시험이 없으면 시험부터 추가한다(고치기 전 실패·고친 뒤 통과).
 - 근본 원인 때문에 연관 파일 수정이 불가피하면 그 이유를 보고에 밝힌다.
 
@@ -120,13 +125,13 @@
 
 ## 5. 제품 구조 (Confirmed product structure)
 
-Web2 (`app/`) is a private personal work system. Each signed-in user owns exactly one workspace and sees only that workspace (one owner per workspace). It is not a shared team database or a public site. Each workspace stays owner-only. The only cross-workspace paths are (a) a copy that a person sends by pressing a button (COLLAB-함께쓰기, 2026-11-15 명진 확정 "추천대로"), and (b) an item that its owner has turned on for sharing with a group they belong to (COLLAB-묶인사람끼리공유, 2026-11-15·11-16 명진 결정). Sharing is off by default, chosen per item, can be turned off at any time, is visible only to current members of that group, and is enforced only by the server (`app_collab_*` SECURITY DEFINER functions and their `private.app_collab_*` helpers); there is no other cross-workspace view. Operator-only features (calls, Telegram collection) are allowed only by a server-side feature check, never by UI hiding. Preserve the links among projects, schedules, follow-up tasks, meetings, and documents.
+Web2 (`app/`) is a private personal work system. Each signed-in user owns exactly one workspace and sees only that workspace (one owner per workspace). It is not a shared team database or a public site. Each workspace stays owner-only. The only cross-workspace paths are (a) a copy that a person sends by pressing a button (COLLAB-함께쓰기, 2026-11-15 사용자 확정 "추천대로"), and (b) an item that its owner has turned on for sharing with a group they belong to (COLLAB-묶인사람끼리공유, 2026-11-15·11-16 사용자 결정). Sharing is off by default, chosen per item, can be turned off at any time, is visible only to current members of that group, and is enforced only by the server (`app_collab_*` SECURITY DEFINER functions and their `private.app_collab_*` helpers); there is no other cross-workspace view. Operator-only features (calls, Telegram collection) are allowed only by a server-side feature check, never by UI hiding. Preserve the links among projects, schedules, follow-up tasks, meetings, and documents.
 
-2026-10-29 사용자 결정(MULTI-노조사용자 D1), 2026-11-20 명진 확인으로 고침: Web2(노조 플러스)는 노조 사람에 한하지 않고 구글 계정이 있는 누구나 가입해(아래 막기 목록) 각자 자기 작업공간에서 쓰는 개인 업무 시스템이다. 한 사람에 작업공간 하나는 그대로다. 작업공간 사이에는 **본인이 켠 공유만, 묶인 무리(부서·노조 묶음) 안에서만, 서버 권한으로** 보인다(2026-11-15 명진 "팀원 혹은 같은 노조 사람들끼리 공유 캘린더 공유 / 같은 사업 영역 공유 / 같은 조직 공유 / 자료실 내 공유 폴더 공유", 11-16 명진 결정 "담당조직은 조직 보고 기록까지, 권한은 공유마다 보기만/쓰기까지"). 공유는 항목마다 기본 꺼짐이고 언제든 끈다. 공유 종류는 캘린더·사업 영역·담당조직(조직 보고 포함)·자료실 폴더 네 가지뿐이며, 텔레그램 수집·통화·가족 기록은 어떤 공유로도 열리지 않는다(서버가 거절, 시험으로 지킴). 무리에서 나가면 그 무리 공유물을 못 본다. 운영자도 공유물 내용을 보지 않는다(3절 '남의 기록 안 보기'). 설계: `docs/design/collab-sharing.md`. 통화·텔레그램 기능은 운영자(명진) 작업공간에서만 서버가 허용한다(D2: 서버 허용 표, SQL로만 넣음). 원장 자동 기록·내보내기는 모두 자기 것으로 쓰고, 수집 상태 화면만 운영자 전용이다(D3). 담당조직·보고 캘린더 이름은 사람별 설정으로 옮긴다(D5). 설계: `docs/design/multi-user-audit.md`.
+2026-10-29 사용자 결정(MULTI-노조사용자 D1), 2026-11-20 사용자 확인으로 고침: Web2(노조 플러스)는 노조 사람에 한하지 않고 구글 계정이 있는 누구나 가입해(아래 막기 목록) 각자 자기 작업공간에서 쓰는 개인 업무 시스템이다. 한 사람에 작업공간 하나는 그대로다. 작업공간 사이에는 **본인이 켠 공유만, 묶인 무리(부서·노조 묶음) 안에서만, 서버 권한으로** 보인다(2026-11-15 사용자 "팀원 혹은 같은 노조 사람들끼리 공유 캘린더 공유 / 같은 사업 영역 공유 / 같은 조직 공유 / 자료실 내 공유 폴더 공유", 11-16 사용자 결정 "담당조직은 조직 보고 기록까지, 권한은 공유마다 보기만/쓰기까지"). 공유는 항목마다 기본 꺼짐이고 언제든 끈다. 공유 종류는 캘린더·사업 영역·담당조직(조직 보고 포함)·자료실 폴더 네 가지뿐이며, 텔레그램 수집·통화·가족 기록은 어떤 공유로도 열리지 않는다(서버가 거절, 시험으로 지킴). 무리에서 나가면 그 무리 공유물을 못 본다. 운영자도 공유물 내용을 보지 않는다(3절 '남의 기록 안 보기'). 설계: `docs/design/collab-sharing.md`. 통화·텔레그램 기능은 운영자 작업공간에서만 서버가 허용한다(D2: 서버 허용 표, SQL로만 넣음). 원장 자동 기록·내보내기는 모두 자기 것으로 쓰고, 수집 상태 화면만 운영자 전용이다(D3). 담당조직·보고 캘린더 이름은 사람별 설정으로 옮긴다(D5). 설계: `docs/design/multi-user-audit.md`.
 
-2026-11-20 명진 결정(APP-올인원다이어리, 21:23 방향 전환): 지금 운영 중인 이 앱·서버·주소를 그대로 개인 업무 관리 앱 **WORK ON+**(2026-11-21 07:35 명진 확정, 그 전 WORK ON 11-20 22:22, 옛 이름 기록+)로 삼는다(명진 데이터 이전 없음). WORK ON+ 기본 화면에는 노조 색 단어를 두지 않고(활동 기록·프로젝트·거래처·부서·직원, 분류 회의·기획·협의·홍보·외근·행사·교육·기타), 사람마다 메뉴·분류 이름을 직접 고쳐 쓰게 하며 그 설정은 서버에 저장한다. '노조 실무자' 같은 미리 만든 묶음은 두지 않는다(명진의 지금 이름은 명진 본인의 고친 결과). 통화·텔레그램·News·브리핑 룸 등 운영자 기능은 지금처럼 서버 허용 표로만 명진에게 연다. **노조+**는 노조 공간 앱(공지·투표·소통·단협·경조사·조합원 가입)으로 새로 만들고 서버는 따로 둔다. 노조+ 사용자는 집행부(공간 관리 + 실무 기능 일부)와 조합원(노조 공간만, 개인 업무 기능 없음) 둘로 나눈다. 두 앱은 같은 저장소·같은 코드에서 얼굴만 다르게 만들고, 빠지는 기능은 화면 숨김이 아니라 메뉴·경로 제거와 서버 거절로 막는다. 계획: `docs/design/allinone-diary-plan.md`.
+2026-11-20 사용자 결정(APP-올인원다이어리, 21:23 방향 전환): 지금 운영 중인 이 앱·서버·주소를 그대로 개인 업무 관리 앱 **WORK ON+**(2026-11-21 07:35 사용자 확정, 그 전 WORK ON 11-20 22:22, 옛 이름 기록+)로 삼는다(사용자 데이터 이전 없음). WORK ON+ 기본 화면에는 노조 색 단어를 두지 않고(활동 기록·프로젝트·거래처·부서·직원, 분류 회의·기획·협의·홍보·외근·행사·교육·기타), 사람마다 메뉴·분류 이름을 직접 고쳐 쓰게 하며 그 설정은 서버에 저장한다. '노조 실무자' 같은 미리 만든 묶음은 두지 않는다(사용자의 지금 이름은 사용자 본인의 고친 결과). 통화·텔레그램·News·브리핑 룸 등 운영자 기능은 지금처럼 서버 허용 표로만 사용자에게 연다. **노조+**는 노조 공간 앱(공지·투표·소통·단협·경조사·조합원 가입)으로 새로 만들고 서버는 따로 둔다. 노조+ 사용자는 집행부(공간 관리 + 실무 기능 일부)와 조합원(노조 공간만, 개인 업무 기능 없음) 둘로 나눈다. 두 앱은 같은 저장소·같은 코드에서 얼굴만 다르게 만들고, 빠지는 기능은 화면 숨김이 아니라 메뉴·경로 제거와 서버 거절로 막는다. 계획: `docs/design/allinone-diary-plan.md`.
 
-- **Sign-up is open to anyone with a block list (2026-11-13 명진 결정: "모두 열어 / 나중에 특정 사용자는 배제").** `app_workspace_start()` creates exactly one workspace with exactly one owner row for the signed-in caller only, refuses callers on the server block list (`public.app_workspace_signup_allow` kind `blocked`, written only by SQL), and the role trigger gives owner only on a brand-new workspace with no members. The server switch (`app_workspace_signup`, SQL only) stays the on/off for sign-up. Do not create workspaces for other people by hand, do not create workspaces from an Auth sign-up trigger (RTW shares Auth), never let one workspace read or write another workspace's data except through the group-share functions in `docs/design/collab-sharing.md`, and never let anyone use another person's Google Drive or Calendar connection to read on their behalf, and keep operator-only features on the server allow-list.
+- **Sign-up is open to anyone with a block list (2026-11-13 사용자 결정: "모두 열어 / 나중에 특정 사용자는 배제").** `app_workspace_start()` creates exactly one workspace with exactly one owner row for the signed-in caller only, refuses callers on the server block list (`public.app_workspace_signup_allow` kind `blocked`, written only by SQL), and the role trigger gives owner only on a brand-new workspace with no members. The server switch (`app_workspace_signup`, SQL only) stays the on/off for sign-up. Do not create workspaces for other people by hand, do not create workspaces from an Auth sign-up trigger (RTW shares Auth), never let one workspace read or write another workspace's data except through the group-share functions in `docs/design/collab-sharing.md`, and never let anyone use another person's Google Drive or Calendar connection to read on their behalf, and keep operator-only features on the server allow-list.
 
 - Anonymous Web2 startup is blocked: the loader checks the session and redirects to login before routing or feature modules load (Task 11, #280; `tests/security/web2-anonymous-auth-gate.test.mjs`).
 - Web2 data access is owner-only in the database and Edge Function layers (Task 12, #281–#284; `private.app_is_workspace_owner`): each workspace's owner only, never another workspace. Operator-only features are checked on the server against an allow-list table (`public.app_operator_features` with RLS on, no policies and no API-role privileges, added by the MULTI stage ① DB change) through `private.app_workspace_has_feature`; the table is written only by SQL, never by a screen or API.
@@ -148,7 +153,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 ## 7. production DB 적용 (Claude Code 로컬 또는 폰 경로 C)
 
 - 순서: 로컬 세션 read-only 사전 확인(snapshot 대조) → 사용자가 SQL Editor에서 직접 실행 → 로컬 세션 read-only 사후 검증.
-- 사용자 승인형 DB workflow: 커맨드센터가 main에서 apply를 시작 → (environment 승인이 걸려 있으면 승인 한 번) → 사전 확인·snapshot·시험 적용(취소)·백업·적용·사후 확인, 하나라도 실패하면 멈춤(rollback 자동 실행 없음, 사용자 결정). AI는 승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지. 엄격 규칙 밖의 정책·권한·트리거·함수는 확장 규칙(짝 파일 5개 필수, anon·PUBLIC 권한·RLS 끄기·DEFINER+anon/PUBLIC 실행·권한을 넓히는 정책 교체 등 거절. 같은 이름·같은 표로 다시 만들며 권한을 높이지 않는 정책 교체는 운영 정의와 비교해 받음)으로만 받는다(`docs/ops-db-workflow.md` "승인 한 번 흐름"). cron 예약 등록은 위 조건으로 받음(2026-11-25 명진 결정: 고정 글자 이름, 같은 이름은 unschedule 뒤 다시 등록만, 예약 명령 안에도 권한·역할·RLS·정책·외부 주소 호출 금지 그대로, `docs/ops-db-workflow.md` "cron 예약 등록"). rollback 모드 규칙은 그대로다.
+- 사용자 승인형 DB workflow: 커맨드센터가 main에서 apply를 시작 → (environment 승인이 걸려 있으면 승인 한 번) → 사전 확인·snapshot·시험 적용(취소)·백업·적용·사후 확인, 하나라도 실패하면 멈춤(rollback 자동 실행 없음, 사용자 결정). AI는 승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지. 엄격 규칙 밖의 정책·권한·트리거·함수는 확장 규칙(짝 파일 5개 필수, anon·PUBLIC 권한·RLS 끄기·DEFINER+anon/PUBLIC 실행·권한을 넓히는 정책 교체 등 거절. 같은 이름·같은 표로 다시 만들며 권한을 높이지 않는 정책 교체는 운영 정의와 비교해 받음)으로만 받는다(`docs/ops-db-workflow.md` "승인 한 번 흐름"). cron 예약 등록은 위 조건으로 받음(2026-11-25 사용자 결정: 고정 글자 이름, 같은 이름은 unschedule 뒤 다시 등록만, 예약 명령 안에도 권한·역할·RLS·정책·외부 주소 호출 금지 그대로, `docs/ops-db-workflow.md` "cron 예약 등록"). rollback 모드 규칙은 그대로다.
 - SQL Editor 적용은 항상 새 쿼리 창(+)에서 시작한다. 붙여 넣은 뒤 첫 줄·마지막 줄(`commit;`)·대상 프로젝트 ID를 확인하고 실행한다.
 - AI가 apply_migration 등 쓰기 도구로 production DB를 직접 변경하지 않는다.
 - **`supabase db push`·`migration repair`는 영구 금지.** production DB를 읽생기 저장소와 공유한다(`docs/migration-history.md`).
@@ -187,7 +192,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - 문서 전용 PR은 CI 대상 아님을 완료 기준으로 인정한다.
 - 같은 E2E 시험이 서로 다른 실행에서 두 번 이상 간헐 실패하면 재실행으로 넘기지 않고 안정화 작업을 원장에 올려 원인을 고친다. 재시도 횟수 증가·대기 시간만 늘리기·skip은 해결로 인정하지 않는다(2026-10-19 사용자 결정).
 - If a security or authorization issue remains unresolved, do not describe the task as fully complete.
-- **시험 양 줄이기**(2026-11-25 명진 결정 "규칙에 아예 박아버려"): PR마다 도는 브라우저 E2E는 그 PR이 고친 파일과 관련된 시험만 돌린다(고친 파일 → 관련 시험 대응표 한 곳, 대응을 못 찾으면 전체). 앱 전체 E2E는 main에 들어갈 때마다(push)와 하루 한 번 돈다. merge queue는 개인 계정 저장소라 쓸 수 없다(2026-11-25 확인, 명진 결정 'main에서 전체'). main 전체 시험이 깨지면 CC가 다른 앱 PR merge를 멈추고 그것부터 고친다(보호 장치는 낮추지 않음). workflow의 merge_group 설정은 나중에 단체 계정으로 옮길 때를 위해 둔다. 공용 부품·공용 CSS·시험 도구를 고친 PR은 전체를 돌린다.
+- **시험 양 줄이기**(2026-11-25 사용자 결정 "규칙에 아예 박아버려"): PR마다 도는 브라우저 E2E는 그 PR이 고친 파일과 관련된 시험만 돌린다(고친 파일 → 관련 시험 대응표 한 곳, 대응을 못 찾으면 전체). 앱 전체 E2E는 main에 들어갈 때마다(push)와 하루 한 번 돈다. merge queue는 개인 계정 저장소라 쓸 수 없다(2026-11-25 확인, 사용자 결정 'main에서 전체'). main 전체 시험이 깨지면 CC가 다른 앱 PR merge를 멈추고 그것부터 고친다(보호 장치는 낮추지 않음). workflow의 merge_group 설정은 나중에 단체 계정으로 옮길 때를 위해 둔다. 공용 부품·공용 CSS·시험 도구를 고친 PR은 전체를 돌린다.
 
 ## 10. 보고
 
@@ -195,7 +200,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - 진행 중에는 원인 발견, 예상과 다른 구조, 보안·데이터 손실 위험, 요구사항 충돌, 테스트 실패를 우선 알린다.
 - 요청과 구현이 다르면 차이를 명시한다.
 - 사용자 할 일과 사용자 결정 항목은 채팅 보고와 별도로 PR 댓글로도 올린다(터미널 복사 시 잘림 방지).
-- **업데이트 기록**(2026-10-27 사용자 결정, UI-업데이트안내): 앱 화면·동작이 바뀌는 PR은 `app/release-notes/YYYYMMDD-HHMM-작업이름.json` 파일 1개를 더한다(`{"date":"YYYY-MM-DD","changes":["바뀐 점"],"checks":["폰에서 볼 것"]}`, 한 줄 100자·각 3줄까지). 일상어로만 쓰고 개발 용어·작업 이름·사람 이름·단체 이름·업무 내용·주소는 쓰지 않는다(공개 저장소에 남는다. 2026-11-15 명진 결정: 기록 화면은 운영자만 본다. 2026-11-23 명진 결정 '기본 자동·수동 회수': 새 기록은 main에 배포되면 서버가 기록 하나당 이용자 '업데이트 소식' 하나로 자동으로 보내고(`changes` 줄만, `checks`는 빼고), 운영자는 소식마다 거두거나 다시 보낸다. 그러니 `changes`는 이용자가 그대로 읽을 글로 쓴다). 문서·원장·내부 정리만 바뀐 PR은 쓰지 않는다. 모양은 `app/release-notes-model.mjs`와 Pages 빌드 검사가 본다.
+- **업데이트 기록**(2026-10-27 사용자 결정, UI-업데이트안내): 앱 화면·동작이 바뀌는 PR은 `app/release-notes/YYYYMMDD-HHMM-작업이름.json` 파일 1개를 더한다(`{"date":"YYYY-MM-DD","changes":["바뀐 점"],"checks":["폰에서 볼 것"]}`, 한 줄 100자·각 3줄까지). 일상어로만 쓰고 개발 용어·작업 이름·사람 이름·단체 이름·업무 내용·주소는 쓰지 않는다(공개 저장소에 남는다. 2026-11-15 사용자 결정: 기록 화면은 운영자만 본다. 2026-11-23 사용자 결정 '기본 자동·수동 회수': 새 기록은 main에 배포되면 서버가 기록 하나당 이용자 '업데이트 소식' 하나로 자동으로 보내고(`changes` 줄만, `checks`는 빼고), 운영자는 소식마다 거두거나 다시 보낸다. 그러니 `changes`는 이용자가 그대로 읽을 글로 쓴다). 문서·원장·내부 정리만 바뀐 PR은 쓰지 않는다. 모양은 `app/release-notes-model.mjs`와 Pages 빌드 검사가 본다.
 
 ### 완료보고 양식
 

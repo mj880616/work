@@ -25,7 +25,7 @@ import {word} from './brand/brand.mjs';
 export const MANUAL_LINK_REASON='직접 연결';
 export const MANUAL_LINK_LIMIT=20;
 export const TASK_LIMITS=Object.freeze({title:1024,notes:8192});
-// ORG-참고묶음삭제(S71-22, 2026-11-26 명진): 참고 묶음(bundle_id)은 여기서 고르지 않는다. 이미 붙은 참고 연결은 '이미 연결됨'으로만 센다.
+// ORG-참고묶음삭제(S71-22, 2026-11-26 사용자): 참고 묶음(bundle_id)은 여기서 고르지 않는다. 이미 붙은 참고 연결은 '이미 연결됨'으로만 센다.
 // MTG-프로젝트합치기 2단계: 바구니에서 프로젝트 고르기 버튼·창 이름은 '사업영역 꼬리표 달기'(저장은 같은 연결 줄, 주간보고 ②에 그대로 — 결정 ⑦). 나머지 글자는 3단계에서.
 const KIND_NAME={organization:word('담당조직'),project:word('사업영역')};
 const MANUAL_ERROR_TEXT=Object.freeze({

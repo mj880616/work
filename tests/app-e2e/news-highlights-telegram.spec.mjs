@@ -98,6 +98,9 @@ test('412: 원래 소식이 없어졌으면 알림만, 화면은 [밑줄] 탭 �
 test('412: 텔레그램을 잠그면 [밑줄] 탭의 텔레그램 밑줄은 "잠김" 한 줄', async ({ page }) => {
   const errors = await fixture(page, 412, { locked: true });
   await expect(page.locator('#outsideRoot [data-nh-locked]')).toHaveText('텔레그램 밑줄 2줄 · 잠김 풀기');
+  // S71-19: 같은 잠김 줄 — 맨 앞 작은 텔레그램 아이콘 하나. 여기는 밑줄이 모두 텔레그램이라 위에 줄이 없으니 선도 없다(맨 위 줄은 선 없음).
+  await expect(page.locator('#outsideRoot [data-nh-locked] .locked-line-ic svg')).toHaveCount(1);
+  expect(await page.locator('#outsideRoot [data-nh-locked]').evaluate(el => getComputedStyle(el).borderTopStyle)).toBe('none');
   await expect(page.locator('#outsideRoot')).not.toContainText(QUOTE);
   await expect(page.locator('#outsideRoot [data-nh-empty]')).toHaveCount(0);
   expect(errors).toEqual([]);

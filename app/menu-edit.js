@@ -1,11 +1,11 @@
-// MENU-HOME-편집 · MENU-세칸: 계정 메뉴 [메뉴 수정] 창. S71-32 NAV-메뉴수정하나로(명진 11/26 "하나로 통일 못하나" → "ㄱ"):
+// MENU-HOME-편집 · MENU-세칸: 계정 메뉴 [메뉴 수정] 창. S71-32 NAV-메뉴수정하나로(사용자 11/26 "하나로 통일 못하나" → "ㄱ"):
 // 폰 하단바와 위 메뉴는 목록 하나로 잇고, 하단바 마지막 줄 아래에 가는 줄 하나 + 작은 회색 글 '여기까지 폰 하단바'.
 // 줄을 그 줄 위로 끌어 올리면 하단바에 들고, 아래로 내리면 빠진다(칸 수 5칸·홈 맨 앞 고정 그대로, menu-model.mjs).
 // 아래 붙는 메뉴·숨긴 메뉴도 같은 목록 모양으로 이어 보이고 머리 글자만 작다. PC 왼쪽 메뉴 미리보기 상자는 없다(같은 순서라 겹쳤다).
 // 저장 모양은 그대로: 칸 이름 bar·rest·tail·hidden(서버 view_prefs.menu_layout, menu-layout.js). ⠿을 잡고 끌고(폰은 길게 눌러 끌기, reorder-drag.js),
 // 키보드는 손잡이에서 위·아래 화살표. 순서는 바꾸면 그 자리에서 메뉴에 반영되고 서버에 저장된다. [처음대로]는 기본 순서로.
 //
-// 이름 바꾸기(S71-32 ②, 명진 "이름 바꾸기도 없애고 차라리 메뉴 수정 여기에 기능을 넣든지"): 내 프로필 '이름 바꾸기' 상자를 없애고 여기로 옮겼다.
+// 이름 바꾸기(S71-32 ②, 사용자 "이름 바꾸기도 없애고 차라리 메뉴 수정 여기에 기능을 넣든지"): 내 프로필 '이름 바꾸기' 상자를 없애고 여기로 옮겼다.
 // - 이름 칸이 있는 메뉴(custom-words-model.mjs SLOTS의 menu)는 줄의 이름 자리가 그대로 입력칸이다(누르면 그 자리에서 고친다). 빈칸 = 기본 이름(흐린 글자).
 // - 메뉴가 아닌 이름(기록 한 건·큰 묶음·대상 한 곳·대상 기록·중요 대상)과 활동 분류 8개는 맨 아래 접힌 '다른 이름' 묶음 안에 같은 줄 모양으로.
 // - 고친 이름은 창 안에서만 들고 있다가 [완료](창 닫기) 한 번에 함께 저장한다(따로 [저장] 없음). 저장 길·값 모양은 그대로(custom-words-store.js, 서버 custom_words).
@@ -43,7 +43,7 @@ function nameHtml(id) {
   const slot = slotFor(id);
   return slot ? inputHtml(slot, id) : `<span class="me-name">${esc(itemOf(id)?.label)}</span>`;
 }
-// MENU-숨김: 숨긴 메뉴는 명진이 고르는 개인 표시이고 기능을 숨기는 것이 아니다(docs/design-decisions.md). 줄마다 [숨기기]/[꺼내기] 작은 글자 버튼, 끌어서 숨긴 메뉴 칸에 놓아도 된다.
+// MENU-숨김: 숨긴 메뉴는 사용자이 고르는 개인 표시이고 기능을 숨기는 것이 아니다(docs/design-decisions.md). 줄마다 [숨기기]/[꺼내기] 작은 글자 버튼, 끌어서 숨긴 메뉴 칸에 놓아도 된다.
 function rowHtml(id, list) {
   const item = itemOf(id), fixed = id === FIXED_ID;
   const handle = fixed ? '<span class="me-handle me-fixed" aria-hidden="true">⠿</span>'

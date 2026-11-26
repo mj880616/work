@@ -50,7 +50,7 @@ async function pick(page,detail,kind,name,width){
 }
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-// ORG-참고묶음삭제(S71-22, 2026-11-26 명진 "참고 묶음 기능 삭제 안씀"): [연결하기]에는 [담당조직 선택 ▾]·[사업영역 꼬리표 달기 ▾]만, [참고 ▾]는 없다.
+// ORG-참고묶음삭제(S71-22, 2026-11-26 사용자 "참고 묶음 기능 삭제 안씀"): [연결하기]에는 [담당조직 선택 ▾]·[사업영역 꼬리표 달기 ▾]만, [참고 ▾]는 없다.
 for(const width of [390,1280])test(`A: [연결하기]에 [참고 ▾] 없음 ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page),detail=await openLink(page,width);
  await expect(detail.locator('[data-manual-pick]')).toHaveCount(2);

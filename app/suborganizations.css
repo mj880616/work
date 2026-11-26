@@ -107,7 +107,7 @@
 .so-team-menu .so-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 /* S71-35 ORG-조직관리로모으기: 맨 위 [+ 담당조직]은 없앴다(추가는 ⋯ '새 담당조직').
    ORG-목록줄메뉴없음(S71-08, 2026-11-26 명진): 조직 줄 끝 ⋯는 지웠다(그 조직 메뉴는 상세 맨 위 ⋯). */
-/* ORG-목록단계칩위치·ORG-단계오른쪽(S71-22, 2026-11-26 명진 "없앤 자리에 쟁의단계가 차고 들어가야지"): 줄 끝은 [칩 ·8· › ·8· 끝].
+/* ORG-목록단계칩위치·ORG-단계오른쪽(S71-22, 2026-11-26 사용자 "없앤 자리에 쟁의단계가 차고 들어가야지"): 줄 끝은 [칩 ·8· › ·8· 끝].
    줄 ⋯를 지웠으니(S71-08) 그 자리를 비워 두지 않는다 — › 오른쪽 끝 = 묶음 머리줄 오른쪽 끝선(머리줄 ⋯ 오른쪽 끝, ⋯ 없는 머리줄은 'N곳' 끝, 모두 끝에서 space-2). */
 #soOrganizationList{--so-more-w:32px}
 #soOrganizationList .so-row{position:relative;min-width:0}

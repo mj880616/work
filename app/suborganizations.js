@@ -34,8 +34,8 @@ function assigneeMarkup(o){const actual=actualNames(o);if(actual.length)return a
 // 폰은 위 머리줄 "담당조직" 오른쪽으로 올라가고, 761px~는 본문 제목 줄 오른쪽). 묶음이 바뀌어도 자리가 그대로다.
 // UI-전수디자인점검 F07: 머리줄은 #soTeamSection의 첫 칸이다. PC(761px~)에서는 ⋯ 하나만 담은 빈 줄을 두지 않고, 목록 칸 맨 위 줄(첫 묶음 머리줄 높이)
 // 오른쪽 끝에 겹쳐 놓는다(suborganizations.css). 목록 HTML은 다시 그려지므로 ⋯는 목록 안에 넣지 않는다.
-// S71-35 ORG-조직관리로모으기(2026-11-26 명진): 맨 위 [+ 담당조직] 단추는 없앴다 — 추가는 ⋯ 맨 위 '새 담당조직'(머리줄 '… · 찾기 · [+]'의 예외, docs/design-decisions.md).
-// ORG-머리줄한줄(S70-53, 2026-11-25 명진): ⋯(#soTeamTools, 옛 [+ 담당조직] 자리 포함)는 화면 이름 줄 오른쪽 끝(폰·폴드 앱 머리 줄, PC 맨 위 줄 검색 칸 오른쪽)으로 —
+// S71-35 ORG-조직관리로모으기(2026-11-26 사용자): 맨 위 [+ 담당조직] 단추는 없앴다 — 추가는 ⋯ 맨 위 '새 담당조직'(머리줄 '… · 찾기 · [+]'의 예외, docs/design-decisions.md).
+// ORG-머리줄한줄(S70-53, 2026-11-25 사용자): ⋯(#soTeamTools, 옛 [+ 담당조직] 자리 포함)는 화면 이름 줄 오른쪽 끝(폰·폴드 앱 머리 줄, PC 맨 위 줄 검색 칸 오른쪽)으로 —
 // 자리 옮기기는 공용 screen-tools.js. 누름 처리는 지금처럼 document 위임(bind)이라 자리가 바뀌어도 그대로다. 머리줄 안에는 읽기 프로그램용 제목만 남는다.
 function installTeamHead(section){if(document.querySelector('#soTeamHead'))return;section.insertAdjacentHTML('afterbegin',word('<div id="soTeamHead" class="so-team-head"><h2 class="so-team-title screen-title">조직 관리</h2><div id="soTeamTools" class="screen-tools so-team-tools">')+word('<button id="soTeamMore" class="icon-btn so-team-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="조직 관리 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div>'));
  import('./screen-tools.js').then(m=>m.mountScreenTools('team',document.querySelector('#soTeamTools'))).catch(err=>console.error('screen tools',err))}
@@ -85,7 +85,7 @@ function renderTeam(){const box=document.querySelector('#soOrganizationList');if
  const outBtn=o=>hidden.has(o.name)&&!pk?`<button type="button" class="secondary mini so-unarchive" data-so-unarchive="${esc(o.id)}" aria-label="${esc(o.name)} 꺼내기">꺼내기</button>`:'';
  const row=o=>`<div class="so-row${hidden.has(o.name)?' is-excluded':''}${pk&&soPick.has(o.id)?' is-picked':''}" data-so-row="${esc(o.id)}">${pickBox(o)}<article class="so-card kptu-list-row" data-so-org="${esc(o.id)}" data-ps-workplace-org="${esc(o.id)}" role="button" tabindex="0" aria-label="${esc(o.name)} ${pk?'선택':'상세 열기'}"${pk?` aria-pressed="${soPick.has(o.id)}"`:''}><div class="so-card-main kptu-list-row-main"><span class="so-dot" data-so-dot="${esc(o.id)}" aria-hidden="true"></span><h4 class="kptu-list-name">${esc(o.name)}</h4><span class="so-chevron kptu-list-chevron" aria-hidden="true">›</span></div></article>${outBtn(o)}</div>`;
  // MULTI-다른담당자맞춤 ①: [보관]한 조직(org_order.hidden, 옛 이름 '담당 조직에서 제외')은 원래 묶음에서 빠져 맨 아래 묶음에 흐리게(가나다순).
- // S71-35 ORG-조직관리로모으기(2026-11-26 명진 "조직관리에서 추가수정 삭제 보관 가능하게"): 그 묶음은 접힌 '보관한 조직 n곳'(<details>, 처음 접힘·펼침은 화면 메모리만).
+ // S71-35 ORG-조직관리로모으기(2026-11-26 사용자 "조직관리에서 추가수정 삭제 보관 가능하게"): 그 묶음은 접힌 '보관한 조직 n곳'(<details>, 처음 접힘·펼침은 화면 메모리만).
  // 찾는 중에 보관한 조직이 걸리면 펼친 채 그린다. 줄 [꺼내기] = ⋯ [꺼내기] = 밀기 [꺼내기](같은 toggleExcluded).
  const archOpen=soArchivedOpen||(!!soQuery&&excluded.length>0);
  const excludedHtml=excluded.length?`<div class="so-org-group so-excluded-group"><details class="so-group-card so-archived" data-so-archived${archOpen?' open':''}><summary class="so-group-heading"><span>보관한 조직</span><span class="so-group-count">${excluded.length}곳</span></summary>${excluded.map(row).join('')}</details></div>`:'';
@@ -134,8 +134,8 @@ let quietMod=null,quietShown=false;
 // 목록(renderTeam)이 다시 그려도 같은 자리를 목록 맨 끝에 다시 붙인다. 고르기 중에는 빼 둔다. 무거운 읽기라 조직 관리를 처음 열 때 불러온다.
 let soQuietEl=null,soQuietFlight=null;
 function placeQuiet(box,pk){if(!soQuietEl)return;if(pk||!box){soQuietEl.remove();return}if(soQuietEl.parentNode!==box||box.lastElementChild!==soQuietEl)box.appendChild(soQuietEl)}
-// S71-35 ORG-조직관리로모으기(2026-11-26 명진 "내 묶음도 여기서 삭제 조직 관리에서 처리 가능하게"): 옛 내 프로필 '내 묶음' 칸 → 조직 관리 목록 아래
-// 접힌 '내 묶음 n'(<details>, 목록(보관한 조직 포함) 다음, '연락 없는 조직' 줄 앞 — 그 줄은 11/24 명진 결정대로 맨 아래). 칸 안은 collab-groups.js가 그대로 그린다 — 서버 app_collab_* 함수·권한·초대 링크 처리는 그대로, 자리만 옮김.
+// S71-35 ORG-조직관리로모으기(2026-11-26 사용자 "내 묶음도 여기서 삭제 조직 관리에서 처리 가능하게"): 옛 내 프로필 '내 묶음' 칸 → 조직 관리 목록 아래
+// 접힌 '내 묶음 n'(<details>, 목록(보관한 조직 포함) 다음, '연락 없는 조직' 줄 앞 — 그 줄은 11/24 사용자 결정대로 맨 아래). 칸 안은 collab-groups.js가 그대로 그린다 — 서버 app_collab_* 함수·권한·초대 링크 처리는 그대로, 자리만 옮김.
 // 목록(renderTeam)이 다시 그려도 같은 자리(연락 없는 조직 줄 앞, 없으면 맨 끝)에 다시 붙인다. 선택 중에는 빼 둔다. 조직 관리를 처음 열 때 붙이고, 들어올 때마다 다시 읽는다.
 // 묶음 만들기·들어가기에 쓰는 이름은 내 프로필에 저장된 이름(app_profiles.display_name) 하나다(옛 칸과 같음).
 // 다시 읽기는 조직 관리에 들어올 때 한 번(view-changed → load). 같은 화면 안의 다른 목록 다시 읽기(조직 저장 등)에서는 묶음을 다시 읽지 않는다.

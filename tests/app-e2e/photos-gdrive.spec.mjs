@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
+import { screenFind } from './helpers/screen-find.mjs';
 // S46-24 ④ 사진 화면 구글 드라이브 칸(지어낸 서버: app_my_features·gdrive-photos·onedrive-photos, 네트워크 없음, 그림은 1×1).
 // - S62-11: 운영자 기능(gdrive_photos)이 없는 작업공간도 칩이 보이고, Drive 연결 전이면 '연결 전 · [연결]'.
 // - PC 1440: 칩 켜기(서버 view_prefs) → [폴더] '구글 드라이브' 묶음에서 폴더 스위치 켜기(folder-toggle) → [사진]에 찍은 날 순서로 섞임
@@ -22,7 +23,7 @@ const GD = [
   { id: 'G3', folder: 'GF1', name: 'IMG_3.jpg', day: '2026-10-27', taken_at: '2026-10-27T03:00:00+00:00', size_bytes: 30 },
 ].map(m => ({ ...m, video: false, approx: false }));
 
-async function fixture(page, { features = ['calls', 'gdrive_photos'], status = { ok: true, scope: true, folders_on: 0, synced_at: null }, statusCode = 200, prefs = null, counts = true, od = true } = {}) {
+async function fixture(page, { features = ['calls', 'gdrive_photos'], status = { ok: true, scope: true, folders_on: 0, synced_at: null }, statusCode = 200, prefs = null, counts = true, od = true, content = null } = {}) {
   const state = { errors: [], gd: [], od: [], folders: { root: [{ id: 'GF1', name: '카메라 백업', enabled: false }, { id: 'GF2', name: '업무', enabled: false }], GF1: [{ id: 'GF11', name: '2026', enabled: false }] }, photos: GD.slice() };
   page.on('pageerror', e => state.errors.push(e.message));
   await page.addInitScript(() => { window.KPTUOdWarm = { run: () => null }; });
@@ -49,6 +50,11 @@ async function fixture(page, { features = ['calls', 'gdrive_photos'], status = {
       state.gd.push(body);
       if (body.action === 'status') return r.fulfill({ status: statusCode, json: status });
       if (body.action === 'thumb') return r.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+      // S71-21 사진 설명 색인: 지어낸 서버는 찾는 글 → 걸린 드라이브 파일 id만 돌려준다(설명 글 없음). 기능 키가 없으면 403.
+      if (body.action === 'content-find') {
+        if (!features.includes('photo_content')) return r.fulfill({ status: 403, json: { ok: false, error: 'feature_off' } });
+        return r.fulfill({ json: { ok: true, index: true, ids: (content && content[body.q]) || [], more: false } });
+      }
       if (body.action === 'sync') return r.fulfill({ json: { ok: true, photos: 0, partial: 0 } });
       if (body.action === 'folders') {
         const parent = body.parent || 'root';
@@ -212,6 +218,46 @@ test.describe('PC 1440', () => {
     expect(state.errors).toEqual([]);
   });
 
+  // S71-21 PHOTO-내용찾기 ②: '사진에서 찾기' = 이름 || 설명 색인(운영자 기능 photo_content만). 설명으로만 걸린 칸에 작은 '설명' 표시.
+  test('사진 설명으로 찾기: 기능 키가 있으면 이름에 없는 낱말로도 걸리고 작은 표시, 이름으로 걸린 칸은 표시 없음', async ({ page }) => {
+    const { state } = await fixture(page, { features: ['calls', 'gdrive_photos', 'photo_content'], prefs: { photo_sources_pc: { onedrive: true, gdrive: true, phone: false } },
+      content: { '가상현수막': ['G3'], 'img': ['G3'] } });
+    state.folders.root[0].enabled = true;
+    await openPhotos(page, 1440);
+    await expect.poll(() => ids(page)).toEqual(['gd:G1', 'O1', 'O2', 'gd:G3', 'O3']);
+    const box = await screenFind(page);
+    await box.fill('가상현수막');
+    await expect.poll(() => ids(page)).toEqual(['gd:G3']);
+    expect(state.gd.filter(b => b.action === 'content-find')).toEqual([{ action: 'content-find', q: '가상현수막' }]);
+    const g3 = page.locator('#photosRoot [data-photos-id="gd:G3"]');
+    await expect(g3.locator('[data-photos-content-mark]')).toHaveText('설명');
+    await expect(g3.locator('[data-photos-content-mark]')).toHaveAttribute('title', '설명으로 찾음');
+    await expect(g3).toHaveAttribute('aria-label', /, 설명으로 찾음$/);
+    // 이름으로도 걸린 칸은 설명 색인에 있어도 표시 없음.
+    await box.fill('img');
+    await expect.poll(() => state.gd.filter(b => b.action === 'content-find').map(b => b.q)).toEqual(['가상현수막', 'img']);
+    await expect.poll(() => ids(page)).toEqual(['gd:G1', 'gd:G3']);
+    await expect(page.locator('#photosRoot [data-photos-content-mark]')).toHaveCount(0);
+    await expect(g3).not.toHaveAttribute('aria-label', /설명으로 찾음/);
+    // 지우면 전부, 표시 없음.
+    await box.fill('');
+    await expect.poll(() => ids(page)).toEqual(['gd:G1', 'O1', 'O2', 'gd:G3', 'O3']);
+    await expect(page.locator('#photosRoot [data-photos-content-mark]')).toHaveCount(0);
+    expect(state.errors).toEqual([]);
+  });
+  test('사진 설명으로 찾기: 기능 키가 없으면 서버에 묻지 않고 지금처럼 이름만', async ({ page }) => {
+    const { state } = await fixture(page, { prefs: { photo_sources_pc: { onedrive: true, gdrive: true, phone: false } }, content: { '가상현수막': ['G3'] } });
+    state.folders.root[0].enabled = true;
+    await openPhotos(page, 1440);
+    await expect.poll(() => ids(page)).toEqual(['gd:G1', 'O1', 'O2', 'gd:G3', 'O3']);
+    const box = await screenFind(page);
+    await box.fill('가상현수막');
+    await expect.poll(() => ids(page)).toEqual([]);
+    await page.waitForTimeout(700);
+    expect(state.gd.some(b => b.action === 'content-find')).toBe(false);
+    await expect(page.locator('#photosRoot [data-photos-content-mark]')).toHaveCount(0);
+    expect(state.errors).toEqual([]);
+  });
   test('옛 서버(장수 없음): 폴더·맨 위 장수는 —, 장수를 따로 부르지 않음', async ({ page }) => {
     const { state } = await fixture(page, { od: false, counts: false, prefs: { photo_sources_pc: { onedrive: false, gdrive: true, phone: false } } });
     state.folders.root[0].enabled = true;

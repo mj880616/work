@@ -252,7 +252,7 @@ test('girok 빌드 + 바탕 없음(기본 사용자) + 고친 이름 없음: 화
   expect(bad).toEqual({});
 });
 
-// S67-57: 내 프로필의 기본 정보 칸(명진 캡처의 칸들). S71-34: 주간 캘린더 칸은 없앴다.
+// S67-57: 내 프로필의 기본 정보 칸(사용자 캡처의 칸들). S71-34: 주간 캘린더 칸은 없앴다.
 // S71-35 ORG-조직관리로모으기: '담당조직 현황'·'내 묶음' 칸은 내 프로필에서 없앴다 — 내 묶음은 조직 관리 목록 아래 접힌 칸, 만들기는 조직 관리 ⋯ 안.
 const PROFILE_PANELS = '#profileView .ps-panel:first-child';
 async function openProfile(page) {
@@ -296,8 +296,8 @@ test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·조직 �
   expect(errors).toEqual([]);
 });
 
-// 명진(바탕 nojo + 15칸): 소속 칸 이름은 이름 바꾸기 칸이 아니라 바탕 낱말 묶음으로 지금 글자 그대로다(DB 변경 없음).
-test('girok 빌드 + 명진(바탕 nojo + 15칸): 내 프로필·내 묶음 글자가 지금 화면 그대로다', async ({ page }) => {
+// 사용자(바탕 nojo + 15칸): 소속 칸 이름은 이름 바꾸기 칸이 아니라 바탕 낱말 묶음으로 지금 글자 그대로다(DB 변경 없음).
+test('girok 빌드 + 사용자(바탕 nojo + 15칸): 내 프로필·내 묶음 글자가 지금 화면 그대로다', async ({ page }) => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width: 1280, height: 900 });

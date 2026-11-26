@@ -1,6 +1,6 @@
 # Web1 고정 공개 페이지 내리기 (폐지됨)
 
-> **2026-11-10 폐지(WEB1-페이지삭제 C1-b, 명진 결정).** Web1 페이지(`p/` 포함)·생성기(`scripts/generate-public-pages.mjs`)·
+> **2026-11-10 폐지(WEB1-페이지삭제 C1-b, 사용자 결정).** Web1 페이지(`p/` 포함)·생성기(`scripts/generate-public-pages.mjs`)·
 > 검사(`sync-public-page-meta.yml`)를 모두 지웠다. 옛 주소는 `work.bokdoong.com`에서 '더 이상 운영하지 않는 페이지입니다' 한 줄
 > (410, 검색 제외), github.io에서는 루트 `404.html`의 같은 한 줄이다. DB의 `app_public_post`·Web1 표는 지우지 않았다(데이터 보존).
 > 되돌리기: 이름표 `web1-last-YYYYMMDD`에서 필요한 폴더만 되살리는 PR + Worker 안내 한 줄 되돌리기(`docs/design/web1-removal-plan.md` 4절).

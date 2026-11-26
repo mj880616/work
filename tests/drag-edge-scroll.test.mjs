@@ -64,3 +64,19 @@ test('손가락 끌기: 누른 칸이 빠진 동안만 그 칸에서 받고, 떼
   off(); assert.deepEqual(Object.keys(on), []);
   assert.equal(typeof followTouch(null), 'function');
 });
+// S70-75 STD-끌기자동스크롤: 옆으로 넘치는 칸(보드·표·넓힌 달력)은 왼쪽·오른쪽 가장자리에서 옆으로도 굴린다(세로와 같은 규칙).
+test('가로: 칸 왼쪽·오른쪽 가장자리면 그쪽으로 · 끝까지 구른 칸은 건너뛴다', async () => {
+  const {pickScrollX, canScrollX, X_MIN} = await import('../app/drag-edge-scroll.js');
+  assert.ok(X_MIN > 0 && X_MIN < EDGE);
+  const board = {name: 'board', left: 100, right: 900, scrollLeft: 0, scrollWidth: 3000, clientWidth: 800};
+  const page = {name: 'page', left: 0, right: 1280, scrollLeft: 0, scrollWidth: 1280, clientWidth: 1280};
+  assert.equal(pickScrollX([board, page], 890).box.name, 'board', '오른쪽 가장자리 = 그 칸');
+  assert.ok(pickScrollX([board, page], 890).v > 0);
+  assert.equal(pickScrollX([board, page], 110), null, '맨 왼쪽에서 왼쪽으로는 못 구른다');
+  assert.ok(pickScrollX([{...board, scrollLeft: 500}, page], 110).v < 0, '구른 뒤에는 왼쪽으로');
+  assert.equal(pickScrollX([board, page], 500), null, '가운데');
+  assert.equal(pickScrollX([{...board, scrollLeft: 2200}, page], 890), null, '칸 끝 · 화면은 옆으로 넘치지 않음');
+  assert.equal(canScrollX(board, 1), true);
+  assert.equal(canScrollX(board, -1), false);
+  assert.equal(canScrollX(page, 1), false);
+});

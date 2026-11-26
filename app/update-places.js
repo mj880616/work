@@ -22,7 +22,7 @@ import { seoulDateKey } from './meeting-time.js';
 import {word} from './brand/brand.mjs';
 
 // place: null (basket) | {kind:'organization'|'project', id}
-// ORG-참고묶음삭제(S71-22, 2026-11-26 명진 "참고 묶음 기능 삭제 안씀"): 참고 묶음은 이 창에서 고르지 않는다(이미 붙은 연결은 DB에 그대로).
+// ORG-참고묶음삭제(S71-22, 2026-11-26 사용자 "참고 묶음 기능 삭제 안씀"): 참고 묶음은 이 창에서 고르지 않는다(이미 붙은 연결은 DB에 그대로).
 export const BASKET = null;
 export const placeValue = place => !place ? 'basket' : place.kind === 'project' ? 'project:' + place.id : place.id;
 export function placeFromValue(value) {

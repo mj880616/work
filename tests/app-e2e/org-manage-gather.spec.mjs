@@ -1,6 +1,6 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-// S71-35 ORG-조직관리로모으기(2026-11-26 명진 "관련 대상 현황 이것도 걍 없애 / 조직관리에서 추가수정 삭제 보관 가능하게",
+// S71-35 ORG-조직관리로모으기(2026-11-26 사용자 "관련 대상 현황 이것도 걍 없애 / 조직관리에서 추가수정 삭제 보관 가능하게",
 // "내 묶음도 여기서 삭제 조직 관리에서 처리 가능하게"):
 // - 머리줄: [W] 조직 관리 · 찾기 · ⋯ — [+ 담당조직] 없음. ⋯ 맨 위 '새 담당조직' ─ 부서·노조 묶음 만들기 ─ 그다음 원래 항목.
 // - 보관(옛 '담당 조직에서 제외', 같은 값 org_order.hidden): 상세 ⋯·폰 줄 밀기 → 목록 맨 아래 접힌 '보관한 조직 n곳' → 줄 [꺼내기].
@@ -9,6 +9,11 @@ import {test,expect} from '@playwright/test';
 const base=`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html`;
 const menuLabels=page=>page.locator('#soTeamMenu button').allTextContents().then(xs=>xs.map(x=>x.trim()));
 const rowOf=(page,name)=>page.locator('#soOrganizationList .so-row').filter({has:page.locator('.kptu-list-name',{hasText:new RegExp(`^${name}$`)})});
+// ?orgs=order 시험 자료의 조직은 id로 가리킨다(이름은 시험 자료 파일 한 곳에만 — 화면에서 읽어 비교).
+const ARCH='ord-14',FIRST='ord-0',SECOND='ord-1';
+const rowById=(page,id)=>page.locator(`#soOrganizationList [data-so-row="${id}"]`);
+const nameById=(page,id)=>page.locator(`#soOrganizationList [data-so-org="${id}"] .kptu-list-name`).textContent();
+const hidden=page=>page.evaluate(()=>window.__orgOrderPrefs.org_order.hidden);
 async function openScreenMenu(page){await page.locator('#soTeamMore').click();const menu=page.locator('#soTeamMenu');await expect(menu).toBeVisible();return menu}
 async function swipe(row,dx){
  await row.evaluate((el,dx)=>{const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
@@ -44,20 +49,21 @@ for(const width of [412,1280])test(`보관한 조직은 맨 아래 접힌 '보�
  const fold=page.locator('#soOrganizationList details.so-archived');
  await expect(fold).toHaveCount(1);await expect(fold).not.toHaveAttribute('open','');
  await expect(fold.locator('summary')).toHaveText('보관한 조직1곳');
- await expect(rowOf(page,'궤도협의회').locator('[data-so-org]')).toBeHidden();
+ const arch=await nameById(page,ARCH);
+ await expect(rowById(page,ARCH).locator('[data-so-org]')).toBeHidden();
  await fold.locator('summary').click();await expect(fold).toHaveAttribute('open','');
- const out=rowOf(page,'궤도협의회').getByRole('button',{name:'궤도협의회 꺼내기'});await expect(out).toBeVisible();await expect(out).toHaveText('꺼내기');
+ const out=rowById(page,ARCH).getByRole('button',{name:`${arch} 꺼내기`});await expect(out).toBeVisible();await expect(out).toHaveText('꺼내기');
  await out.click();
  await expect(page.locator('#soOrganizationList details.so-archived')).toHaveCount(0);
- await expect(rowOf(page,'궤도협의회')).not.toHaveClass(/is-excluded/);
+ await expect(rowById(page,ARCH)).not.toHaveClass(/is-excluded/);
  expect(await page.evaluate(()=>window.__orgOrderPrefs.org_order.hidden)).toEqual([]);
  await expect(page.locator('#toast')).toContainText('꺼냈어요');
  // 상세 ⋯ [보관] → 다시 접힌 묶음 안으로(펼침은 기억: 사람이 펼쳐 둔 채)
- await rowOf(page,'궤도협의회').locator('[data-so-org]').click();
+ await rowById(page,ARCH).locator('[data-so-org]').click();
  const more=page.locator('#wdOrgMore');await expect(more).toBeVisible();await more.click();await expect(page.locator('#soTeamMenu')).toBeVisible();
  expect(await menuLabels(page)).toEqual(['이름 바꾸기','보관','삭제']);
  await page.locator('#soTeamMenu').getByRole('button',{name:'보관',exact:true}).click();
- expect(await page.evaluate(()=>window.__orgOrderPrefs.org_order.hidden)).toEqual(['궤도협의회']);
+ expect(await hidden(page)).toEqual([arch]);
  await expect(page.locator('#soOrganizationList details.so-archived summary')).toHaveText('보관한 조직1곳');
  await expect(page.locator('#toast')).toContainText('보관했어요');
  expect(errors).toEqual([]);
@@ -66,25 +72,26 @@ for(const width of [412,1280])test(`보관한 조직은 맨 아래 접힌 '보�
 test('폰 390 줄 밀기: 왼쪽 [보관][이름 바꾸기][삭제](밀기만으로는 저장 없음), [보관]을 눌러야 보관 · 보관한 줄은 [꺼내기] · 오른쪽 밀기 = 여러 개 선택',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.setViewportSize({width:390,height:860});await page.goto(base+'?orgs=order');
- const row=rowOf(page,'공항철도지부').locator('[data-so-org]'),ends=page.locator('#soOrganizationList [data-row-swipe-act="end"]');
+ const row=rowById(page,FIRST).locator('[data-so-org]'),ends=page.locator('#soOrganizationList [data-row-swipe-act="end"]');
  await expect(row).toBeVisible();
+ const arch=await nameById(page,ARCH),first=await nameById(page,FIRST);
  await expect(async()=>{await swipe(row,-430);await expect(ends.first()).toBeVisible({timeout:1000})}).toPass({timeout:10000});
  await expect(ends.locator('.row-swipe-tx')).toHaveText(['보관','이름 바꾸기','삭제']);
- await page.waitForTimeout(400);expect(await page.evaluate(()=>window.__orgOrderPrefs.org_order.hidden)).toEqual(['궤도협의회']);
+ await page.waitForTimeout(400);expect(await hidden(page)).toEqual([arch]);
  await tap(page.locator('#soOrganizationList [data-row-swipe-key="archive"]'));
- await expect.poll(()=>page.evaluate(()=>window.__orgOrderPrefs.org_order.hidden)).toEqual(['궤도협의회','공항철도지부']);
+ await expect.poll(()=>hidden(page)).toEqual([arch,first]);
  const fold=page.locator('#soOrganizationList details.so-archived');await expect(fold.locator('summary')).toHaveText('보관한 조직2곳');
  await fold.locator('summary').click();
- const out=rowOf(page,'공항철도지부').locator('[data-so-org]');await expect(out).toBeVisible();
+ const out=rowById(page,FIRST).locator('[data-so-org]');await expect(out).toBeVisible();
  await expect(async()=>{await swipe(out,-430);await expect(ends.first()).toBeVisible({timeout:1000})}).toPass({timeout:10000});
  await expect(ends.locator('.row-swipe-tx')).toHaveText(['꺼내기','이름 바꾸기','삭제']);
  await tap(page.locator('#soOrganizationList [data-row-swipe-key="restore"]'));
- await expect.poll(()=>page.evaluate(()=>window.__orgOrderPrefs.org_order.hidden)).toEqual(['궤도협의회']);
+ await expect.poll(()=>hidden(page)).toEqual([arch]);
  // [이름 바꾸기] = 상세 ⋯ [이름 바꾸기]와 같은 창
- const r2=rowOf(page,'용인경전철지부').locator('[data-so-org]');
+ const r2=rowById(page,SECOND).locator('[data-so-org]'),second=await nameById(page,SECOND);
  await expect(async()=>{await swipe(r2,-430);await expect(ends.first()).toBeVisible({timeout:1000})}).toPass({timeout:10000});
  await tap(page.locator('#soOrganizationList [data-row-swipe-key="rename"]'));
- await expect(page.locator('#soEditHeading')).toHaveText('이름 바꾸기');await expect(page.locator('#soEditName')).toHaveValue('용인경전철지부');
+ await expect(page.locator('#soEditHeading')).toHaveText('이름 바꾸기');await expect(page.locator('#soEditName')).toHaveValue(second);
  await page.locator('[data-so-close="soEditModal"]').click();await expect(page.locator('#soEditModal')).toBeHidden();
  // 오른쪽 밀기 = 이 화면의 '여러 개 선택해 삭제'를 그 줄로 연다(선택만, 서버 쓰기 없음)
  await expect(async()=>{await swipe(r2,200);await expect(page.locator('#soOrganizationList .so-pick-bar')).toBeVisible({timeout:1000})}).toPass({timeout:10000});
@@ -95,14 +102,14 @@ test('폰 390 줄 밀기: 왼쪽 [보관][이름 바꾸기][삭제](밀기만으
 
 test('밀기 [삭제]는 지금 [삭제]와 같은 길(휴지통 + 확인 그대로)',async({page})=>{
  await page.setViewportSize({width:390,height:860});await page.goto(base+'?orgs=order');
- const row=rowOf(page,'공항철도지부').locator('[data-so-org]'),ends=page.locator('#soOrganizationList [data-row-swipe-act="end"]');
+ const row=rowById(page,FIRST).locator('[data-so-org]'),ends=page.locator('#soOrganizationList [data-row-swipe-act="end"]');
  await expect(async()=>{await swipe(row,-430);await expect(ends.first()).toBeVisible({timeout:1000})}).toPass({timeout:10000});
  await tap(page.locator('#soOrganizationList [data-row-swipe-key="delete"]'));
  // 확인 한 번 그대로(묻기 전에는 지우지 않는다)
  const ok=page.getByRole('button',{name:'휴지통으로'});await expect(ok).toBeVisible();expect(await page.evaluate(()=>window.__orgDeletes)).toEqual([]);
  await ok.click();
  await expect.poll(()=>page.evaluate(()=>window.__orgDeletes)).toEqual(['ord-0']);
- await expect(rowOf(page,'공항철도지부')).toHaveCount(0);
+ await expect(rowById(page,FIRST)).toHaveCount(0);
 });
 
 for(const width of [390,1280])test(`내 묶음: 목록 맨 아래 접힌 '내 묶음 n' · 목록·관리(초대 링크·나가기) 그대로 · ⋯ [부서 묶음 만들기]로 만들기 ${width}px`,async({page})=>{

@@ -142,7 +142,7 @@ test('시작 순서: 고친 이름 약속은 소유자 확인에 묶이고, word
   const block = loader.slice(promiseAt, loader.indexOf(';\n', loader.indexOf('Promise.resolve(null)', promiseAt)));
   assert.match(block, /member\.rows\[0\]\?\.role==='owner'/, '소유자만 읽는다(비구성원은 데이터 요청 없음)');
   assert.match(block, /select=custom_words&limit=1/);
-  // S71-32: 고친 이름은 소속 확인과 같은 기다림(15초)으로 받는다 — 3초 남짓에 끊겨 그 접속 내내 기본 이름으로 굳던 원인(명진 폰).
+  // S71-32: 고친 이름은 소속 확인과 같은 기다림(15초)으로 받는다 — 3초 남짓에 끊겨 그 접속 내내 기본 이름으로 굳던 원인(사용자 폰).
   assert.match(loader, /const BOOT_WORDS_MS=15000;/);
   assert.match(block, /timeoutMs:BOOT_WORDS_MS\}/);
   assert.match(block, /setTimeout\(\(\)=>resolve\(null\),BOOT_WORDS_MS\+500\)/, '서버가 끝내 답하지 않을 때만 기본 이름으로 연다');

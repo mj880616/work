@@ -93,7 +93,7 @@ test('통화·텔레그램 조직 고르기 창은 내 담당조직(과 지금 �
   assert.match(source('app/feed-data.js'), /mine:myOrganizationIds\(rows, mine\)/);
 });
 
-// S71-35 ORG-조직관리로모으기(2026-11-26 명진 "관련 대상 현황 이것도 걍 없애"): 내 프로필의 '담당조직 현황' 체크 칸(옛 예외)은 없앴다 — 조직을 읽지 않는다.
+// S71-35 ORG-조직관리로모으기(2026-11-26 사용자 "관련 대상 현황 이것도 걍 없애"): 내 프로필의 '담당조직 현황' 체크 칸(옛 예외)은 없앴다 — 조직을 읽지 않는다.
 test('내 프로필은 조직을 읽지 않는다(담당 추가·보관은 조직 관리)', () => {
   const profile = source('app/profile-settings.js');
   assert.doesNotMatch(profile, USES_RULE);

@@ -485,7 +485,7 @@ export function noteState(note, links, docs = []) {
 // confirmed record links by target kind, [자료로 넣기] documents (a project's library documents, so both
 // 'project' and 'library'), Google tasks made from it (metadata.tasks, basket-note-tasks.js) and the work-journal memo
 // mark (metadata.journal_at, update-journal.js; place 'journal' = [업무일지]).
-// ORG-참고묶음삭제(S71-22, 2026-11-26 명진 "참고 묶음 기능 삭제 안씀"): [분류] 칩에 [참고]는 두지 않는다. 이미 참고 묶음에 붙은 업데이트는
+// ORG-참고묶음삭제(S71-22, 2026-11-26 사용자 "참고 묶음 기능 삭제 안씀"): [분류] 칩에 [참고]는 두지 않는다. 이미 참고 묶음에 붙은 업데이트는
 // 그대로 '분류됨'이고 [전체]에 보인다(notePlaces·placeSubOptions의 'reference' 읽기는 남김 — 데이터 보존).
 export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization',word('담당조직')], ['project',word('사업영역')], ['library','자료실'], ['task','할 일'], ['journal','업무일지']]);
 export function notePlaces(note, links, docs = []) {
