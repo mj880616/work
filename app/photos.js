@@ -46,7 +46,7 @@ import {connectNoteFor, connectText, cloudNoneHtml} from './connect-note.mjs'; /
 //   [사진]에 섞이고(거르기 '전체'·'동영상'만 — ★·스크린샷·달력·빠른 이동 막대·앨범은 아직 원드라이브·폰만), [폴더]는 '구글 드라이브' 묶음(맨 위부터 한 층씩, 스위치·⋯).
 //   사진 이름 바꾸기·옮기기·지우기(드라이브 휴지통)는 사진 ⋯(PC 우클릭)·고른 사진 아래 줄에서, 지우기는 확인 창 한 번. 권한이 없으면 칩·목록 위에 '권한 없음 · [구글 드라이브 다시 연결]'.
 import {gdStatus, gdFolders, gdFolderToggle, gdSync, gdList, gdRename, gdMove, gdTrash, gdFolderCreate, gdFolderRename, gdFolderTrash, gdReconnect,
-  gdThumbBlob, gdMediaBlob, gdPhotoElement, gdForget, gdClear} from './gdrive-photos.js';
+  gdThumbBlob, gdMediaBlob, gdPhotoElement, gdForget, gdClear, gdContentFind} from './gdrive-photos.js';
 import {ownerScope, requestDiaryDay} from './diary-data.js';
 import {seoulParts, seoulDateKey} from './meeting-time.js';
 import {SIZE_BUTTONS, WIDE_QUERY, attachPinch, createGridSizer, isWide, multiTouchActive, onMultiTouch} from './photo-grid-size.js';
@@ -147,7 +147,31 @@ let photoQ = '', photoQRaw = '';
 // S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말).
 const photoFinder = finderOf('photos', () => photoQRaw);
 const hitText = text => !photoQ || !!photoFinder().hit(String(text ?? ''));
-const photoHit = item => hitText(item?.name);
+// S71-21 PHOTO-내용찾기 ②(설계 docs/design/photo-content-search.md 6절 ③): 이름 || 사진 설명 색인. 색인은 서버 content-find(운영자 기능 photo_content만,
+// 서버가 다시 막음)가 걸린 구글 드라이브 파일 id만 돌려준다(설명 글은 화면에 오지 않음). contentIds = 지금 찾는 글(contentQ)에 걸린 id, 이 화면 메모리만.
+// 기능 키가 없으면 부르지 않는다 = 지금과 같이 이름만. 설명으로만 걸린 칸에는 작은 '설명으로 찾음' 표시(cell·cellLabel).
+let contentQ = '', contentIds = new Set(), contentTimer = 0, contentRun = 0, contentOff = false;
+const CONTENT_WAIT_MS = 400;
+const byContent = item => !!photoQ && contentQ === photoQ && !!item?.gdId && contentIds.has(item.gdId);
+const photoHit = item => hitText(item?.name) || byContent(item);
+const contentOnly = item => byContent(item) && !hitText(item?.name);
+// 친 글이 바뀌면 지난 결과는 바로 버리고, 손을 잠깐 멈춘 뒤 한 번 묻는다. 답이 왔을 때 글이 그대로면 그때 다시 그린다.
+function askContent() {
+  clearTimeout(contentTimer);
+  const q = photoQ, my = ++contentRun;
+  if (contentQ !== q) { contentQ = ''; contentIds = new Set(); }
+  if (!q || contentOff) return;
+  contentTimer = setTimeout(async () => {
+    try {
+      const d = await gdContentFind(rt, q); // 기능 키가 없으면 null(서버에 묻지 않음)
+      if (!d || my !== contentRun || q !== photoQ) return;
+      contentQ = q; contentIds = new Set(Array.isArray(d?.ids) ? d.ids.filter(id => typeof id === 'string') : []);
+      if (contentIds.size) repaintShown();
+    } catch (e) {
+      if (Number(e?.status) === 403) contentOff = true; // 서버가 이 작업공간을 허용하지 않음 — 이 화면에서는 다시 묻지 않는다.
+    }
+  }, CONTENT_WAIT_MS);
+}
 // [달력]·월·연 보기는 그림 칸이 없어 치면 [사진] 일 보기로 바꿔 맞는 칸을 보인다(기억해 둔 크기 단계는 그대로 — 저장하지 않음).
 registerScreenFind('photos', {label:'사진에서 찾기', active:() => window.KPTURouter?.current === 'photos', value:() => photoQRaw,
   apply:(raw, {again} = {}) => {
@@ -155,6 +179,7 @@ registerScreenFind('photos', {label:'사진에서 찾기', active:() => window.K
     const q = photoQRaw.trim().toLowerCase();
     if (q === photoQ && !again) return;
     photoQ = q;
+    askContent();
     if (q && tab === 'calendar') { level = 'day'; setTab('all'); return; }
     if (q && tab === 'all' && level !== 'day') { level = 'day'; render(); return; }
     repaintShown();
@@ -840,7 +865,8 @@ function srcNotes() {
   else { if (odNeed) out.push(gate()); out.push(gdLine); }
   return out.join('');
 }
-const cellLabel = (item, on) => `${dayHead(item.day)} ${item.video ? '동영상' : '사진'}${on ? ', 별표' : ''}${marks() && item.source !== 'onedrive' ? `, ${SOURCE_TEXT[item.source]}` : ''}`;
+const cellLabel = (item, on) => `${dayHead(item.day)} ${item.video ? '동영상' : '사진'}${on ? ', 별표' : ''}${marks() && item.source !== 'onedrive' ? `, ${SOURCE_TEXT[item.source]}` : ''}${contentOnly(item) ? `, ${CONTENT_MARK_TEXT}` : ''}`;
+const CONTENT_MARK_TEXT = '설명으로 찾음';
 const photoEl = (item, size, opts = {}) => (item.kind === 'phone' ? phone.element(item, size, opts)
   : item.kind === 'gdrive' ? gdPhotoElement(item, size, {...opts, rt, owner}) : odPhotoElement(item, size, {...opts, rt}));
 function cell(item, i) {
@@ -855,6 +881,8 @@ function cell(item, i) {
   if (item.video) b.append(Object.assign(document.createElement('span'), {className:'photos-dur', textContent:`▶${durationLabel(item.duration_ms) ? ' ' + durationLabel(item.duration_ms) : ''}`}));
   if (item.kept) b.dataset.photosKept = '';
   if (marks() || item.kept) { const m = document.createElement('span'); m.className = 'photos-src-mark'; m.dataset.src = item.source; m.setAttribute('aria-hidden', 'true'); m.innerHTML = MARK_SVG[item.source] || ''; b.append(m); b.classList.add('has-src'); }
+  // S71-21: 이름이 아니라 설명 낱말로만 걸린 칸. 화면 읽기 프로그램은 칸 이름(cellLabel)으로 듣는다.
+  if (contentOnly(item)) { const c = document.createElement('span'); c.className = 'photos-content-mark'; c.dataset.photosContentMark = ''; c.setAttribute('aria-hidden', 'true'); c.title = CONTENT_MARK_TEXT; c.textContent = '설명'; b.append(c); }
   return b;
 }
 function newGrid() {

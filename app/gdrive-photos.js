@@ -5,6 +5,7 @@
 // - 썸네일은 한 번에 4장까지만 받는다(요청마다 서버가 Drive 열쇠를 새로 받으므로 몰아치지 않게). 화면 밖으로 나간 차례 안 된 요청은 거둔다.
 import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
 import {within, isLoadTimeout} from './load-deadline.js';
+import {myFeatures as featureList} from './my-features.js';
 
 export const GD_FN = '/functions/v1/gdrive-photos';
 export const GD_TIMEOUT_MS = 45000;
@@ -24,6 +25,13 @@ export const gdTrash = (rt, ids) => gdCall(rt, {action:'trash', ids, confirm:tru
 export const gdFolderCreate = (rt, parent, name) => gdCall(rt, {action:'folder-create', parent, name, confirm:true});
 export const gdFolderRename = (rt, id, name) => gdCall(rt, {action:'folder-rename', id, name, confirm:true});
 export const gdFolderTrash = (rt, id) => gdCall(rt, {action:'folder-trash', id, confirm:true});
+// S71-21 사진을 설명 낱말로 찾기(읽기만). 서버가 운영자 기능 photo_content를 다시 본다. 답은 걸린 드라이브 파일 id 목록뿐.
+// 운영자 기능 목록에 photo_content가 없으면 서버에 묻지 않고 null(화면은 지금처럼 이름만).
+export const PHOTO_CONTENT_FEATURE = 'photo_content';
+export async function gdContentFind(rt, q) {
+  if (!(await featureList(rt)).includes(PHOTO_CONTENT_FEATURE)) return null;
+  return gdCall(rt, {action:'content-find', q:String(q || '').slice(0, 50)});
+}
 // 자료실과 같은 [Drive 다시 연결](public-policy-drive drive-start → Google 동의 화면으로).
 export async function gdReconnect(rt) {
   const d = await rt.api('/functions/v1/public-policy-drive', {method:'POST', body:{action:'drive-start'}, singleFlight:false});
