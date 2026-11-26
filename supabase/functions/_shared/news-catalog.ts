@@ -236,6 +236,8 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     // 매체가 보이는 분야 코드 [사실: 목록 쪽 메뉴]: S1N2 정치 · S1N3 경제 · S1N4 사회(노동·언론·인권 등 하위 분야 포함) · S1N8 오피니언(사설·연재). 문화·IT/과학·세계는 읽지 않는다.
     // 목록 쪽에는 소개 글·피드 날짜가 없어 제목·주소만 받는다(받은 날로 정렬). 글 쪽은 수집 때 읽지 않는다(extract:false, 다른 종합지와 같음).
     extract: false,
+    // 기사 쪽은 엔디소프트(목록 쪽 주소 꼴 articleList·articleView [사실]) — 같은 회사 쪽의 본문 칸 `#article-view-content-div`를 고정한다(S69-06 시사IN·레디앙과 같은 까닭: 앞 짧은 <article> 머리에서 멈추지 않게) [추정 — 글 쪽 칸 이름은 배포 뒤 원문 점검으로 확인].
+    bodyClass: /^article-view-content-div$/,
     lists: ["https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N2&view_type=sm", "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N3&view_type=sm",
       "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N4&view_type=sm", "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N8&view_type=sm"],
     hosts: ["www.mediatoday.co.kr", "mediatoday.co.kr"],
