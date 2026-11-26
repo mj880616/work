@@ -541,6 +541,9 @@
   html[data-screen-find="library"] .mobile-shell-header .sf-tools .lu-head-actions>#newDocumentBtn{order:4}
   /* 본문 첫 줄은 [결과 n개 모두 선택](찾는 중에만)만 남는다 — 비면 자리 없음. */
   #appView #libraryView .library-filter-toolbar .lu-search-row:empty{display:none}
+  /* 그때 '최근 올린 파일' 상자가 맨 위면 위 여백은 머리 줄 아래 여백 하나(본문 첫 줄 아래 간격이 겹쳐 남지 않게). 거르기 줄이 보이면 그 아래 간격은 그대로. */
+  #appView #libraryView .library-filter-toolbar > .lu-search-row:empty ~ .lu-recent{margin-top:0}
+  #appView #libraryView .library-filter-toolbar > .lu-filter-row:not([hidden]):not(:has(> [hidden])) ~ .lu-recent{margin-top:var(--kptu-space-2)}
 }
 @media(max-width:599px){
   html[data-screen-find="library"] .mobile-shell-header:not(.sf-open)>.mobile-shell-find{flex:0 0 auto}
