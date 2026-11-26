@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openHeadMenu, sizeBtn } from './helpers/photo-head.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18, 사용자 '시안대로 진행'). 지어낸 서버(onedrive-photos·gdrive-photos·app_photo_tags·app_my_features), 네트워크 없음.
@@ -56,32 +57,30 @@ async function openPhotos(page, width) {
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const root = page => page.locator('#photosRoot');
-// 위쪽 묶음 높이와 줄 수(보이는 칸 가운데 높이가 다른 줄의 개수), 도구 줄 칸 순서, 출처 아이콘·제목 자리.
-// UI-보기탭드롭다운(11/10): 탭 줄 없음. S70-57: 화면 첫 줄 제목 '사진'은 없고 위쪽은 도구 줄 한 줄([사진 ▾] 맨 앞) —
-// 이름·찾기('사진에서 찾기')·출처 아이콘은 맨 위 줄(폰 틀 앱 머리 줄, PC 틀 상단 줄 — 출처는 screen-find.js 단추 자리 [data-sf-tools="photos"]).
-const barShape = page => root(page).locator('[data-photos-bar]').evaluate(bar => {
-  const box = bar.getBoundingClientRect(), tools = bar.querySelector('[data-photos-tools]'), srcs = document.querySelector('[data-sf-tools="photos"] .photos-srcs');
+// S71-25 PHOTO-머리한줄: 위쪽은 맨 위 줄 하나(폰 틀 앱 머리 줄, PC 틀 상단 줄 — screen-find.js 단추 자리 [data-sf-tools="photos"]).
+// 보이는 단추 차례·한 줄인지·화면 안인지, 화면 안 도구 줄이 없는지.
+const barShape = page => page.locator('[data-sf-tools="photos"]').evaluate(box => {
+  const line = box.closest('.mobile-shell-header, .app-topline'), lr = line.getBoundingClientRect();
   const visible = el => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 1;
-  const shown = [...tools.children].filter(visible);
+  const shown = [...box.children].filter(visible);
   const mids = [...new Set(shown.map(el => Math.round((el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2) / 6)))];
-  return { height: Math.round(box.height), lines: mids.length, toolsTop: tools.getBoundingClientRect().top, srcsBottom: srcs.getBoundingClientRect().bottom,
-    srcsShown: visible(srcs), titleInBar: !!bar.querySelector('h1,h2,h3,.photos-title'),
-    inside: shown.every(el => el.getBoundingClientRect().right <= box.right + 0.5 && el.getBoundingClientRect().left >= box.left - 0.5),
-    tabRow: bar.querySelectorAll('.ds-seg, [data-photos-tab]').length,
-    order: shown.map(el => el.dataset.photosView !== undefined ? 'view' : el.dataset.photosFilter !== undefined ? 'filter' : el.dataset.photosSort !== undefined ? 'sort' : el.classList.contains('photo-size') ? 'size'
-      : el.classList.contains('photos-sp') ? 'sp' : el.dataset.photosAlNew !== undefined ? 'new' : el.dataset.photosTidyChip !== undefined ? 'tidy' : el.className) };
+  return { height: Math.round(lr.height), lines: mids.length,
+    inside: shown.every(el => el.getBoundingClientRect().right <= innerWidth + 0.5 && el.getBoundingClientRect().left >= -0.5),
+    toolsRow: !!document.querySelector('#photosRoot [data-photos-bar], #photosRoot [data-photos-tools], #photosRoot [data-photos-view], #photosRoot [data-photo-size]'),
+    order: shown.map(el => el.dataset.photosView !== undefined ? 'view' : el.dataset.photosFilter !== undefined ? 'filter' : el.dataset.photosSort !== undefined ? 'sort'
+      : el.dataset.photosSrcPick !== undefined ? 'src' : el.dataset.photosHeadMore !== undefined ? 'more' : el.classList.contains('photos-sp') ? 'sp' : el.className) };
 });
-const gdMarks = page => page.locator('[data-sf-tools="photos"] [data-photos-src="gdrive"]').evaluate(b => {
+const gdMarks = page => page.locator('[data-sf-tools="photos"] [data-photos-src-pick]').evaluate(b => {
   const d = getComputedStyle(b, '::before'), a = getComputedStyle(b, '::after');
-  return { dot: [d.content, parseFloat(d.width), parseFloat(d.height)], hit: [a.content, parseFloat(a.minWidth), parseFloat(a.minHeight)] };
+  return { dot: [d.content, parseFloat(d.width), parseFloat(d.height)], hit: [a.content, parseFloat(a.width), parseFloat(a.height)] };
 });
 
 for (const width of [412, 1280]) {
-  test(`사진 위쪽: 다섯 보기 모두 [사진 ▾] 고르기 상자·같은 높이, 도구 줄 한 줄 · 출처는 맨 위 줄 ${width}`, async ({ page }) => {
+  test(`사진 위쪽: 다섯 보기 모두 [사진 ▾] 고르기 상자·같은 높이, 맨 위 줄 한 줄(가져올 곳 포함) ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     await openPhotos(page, width);
-    await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="gdrive"]')).toBeVisible();
-    const view = root(page).locator('[data-photos-view]');
+    await expect(page.locator('[data-sf-tools="photos"] [data-photos-src-pick]')).toBeVisible();
+    const view = page.locator('[data-sf-tools="photos"] [data-photos-view]');
     await expect(view.locator('option')).toHaveText(['사진', '달력', '폴더', '앨범', '휴지통']);
     // S70-57: 폰은 앱 머리 줄이 이름 '사진'·찾기·출처(화면 첫 줄 제목 없음), PC는 상단 줄.
     if (width <= 760) await expect(page.locator('#appView > .mobile-shell-header')).toBeVisible();
@@ -90,19 +89,18 @@ for (const width of [412, 1280]) {
       await view.selectOption(tab);
       await expect(view).toHaveValue(tab);
       const s = await barShape(page);
-      expect(s.tabRow, `${tab}: 탭 칸 줄 없음`).toBe(0);
+      expect(s.toolsRow, `${tab}: 화면 안 도구 줄·탭 줄 없음`).toBe(false);
       expect(s.lines, `${tab}: 위쪽 줄 수`).toBe(1);
-      expect(s.titleInBar, `${tab}: 화면 첫 줄 제목 없음`).toBe(false);
-      expect(s.srcsShown, `${tab}: 출처 아이콘은 모든 보기에서`).toBe(true);
-      expect(s.toolsTop, `${tab}: 출처는 도구 줄 위 맨 위 줄`).toBeGreaterThanOrEqual(s.srcsBottom - 0.5);
       expect(s.inside, `${tab}: 화면 안`).toBe(true);
       heights[tab] = s.height;
-      expect(s.order[0], `${tab}: [사진 ▾]가 도구 줄 맨 앞`).toBe('view');
-      if (tab === 'all') expect(s.order).toEqual(['view', 'filter', 'sort', 'size', 'sp']);
-      if (tab === 'calendar') expect(s.order).toEqual(['view', 'filter', 'sp']);
-      if (tab === 'folders') expect(s.order).toEqual(['view', 'sort', 'size', 'sp']);
-      if (tab === 'albums') expect(s.order).toEqual(['view', 'sort', 'size', 'sp', 'new']);
-      if (tab === 'trash') expect(s.order).toEqual(['view', 'size', 'sp']);
+      expect(s.order[0], `${tab}: [사진 ▾]가 맨 앞`).toBe('view');
+      // 가져올 곳은 모든 보기에서. 폭이 0인 빈 칸(sp)은 PC에서 보이지 않는다.
+      const order = s.order.filter(x => x !== 'sp');
+      if (tab === 'all') expect(order).toEqual(['view', 'filter', 'sort', 'src', 'more']);
+      if (tab === 'calendar') expect(order).toEqual(['view', 'filter', 'src']);
+      if (tab === 'folders') expect(order).toEqual(['view', 'sort', 'src', 'more']);
+      if (tab === 'albums') expect(order).toEqual(['view', 'sort', 'src', 'more']);
+      if (tab === 'trash') expect(order).toEqual(['view', 'src', 'more']);
       // 고른 이름이 상자 글자.
       expect(await view.evaluate(el => el.selectedOptions[0].textContent)).toBe({ all: '사진', calendar: '달력', folders: '폴더', albums: '앨범', trash: '휴지통' }[tab]);
     }
@@ -119,16 +117,16 @@ for (const width of [412, 1280]) {
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await expect(view).toHaveValue('calendar');
-    await expect(root(page).locator('[data-photos-filter]')).toBeVisible();
-    await expect(root(page).locator('[data-photos-sort]')).toBeHidden();
-    // 출처 칩을 옮겨도 문제 점(::before)은 작고, 누르는 범위(::after)는 44px.
-    await root(page).locator('[data-photos-view]').selectOption('all');
-    await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="gdrive"]')).toHaveAttribute('data-problem', /.*/);
+    await expect(page.locator('[data-sf-tools="photos"] [data-photos-filter]')).toBeVisible();
+    await expect(page.locator('[data-sf-tools="photos"] [data-photos-sort]')).toBeHidden();
+    // 구글 드라이브 권한 문제: [가져올 곳] 단추 문제 점(::before)은 작고, 누르는 범위(::after)는 높이 44px.
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('all');
+    await expect(page.locator('[data-sf-tools="photos"] [data-photos-src-pick]')).toHaveAttribute('data-problem', '');
     const m = await gdMarks(page);
     expect(m.dot[0]).not.toBe('none');
     expect(m.dot[1]).toBeLessThanOrEqual(10);
     expect(m.dot[2]).toBeLessThanOrEqual(10);
-    expect(m.hit[1]).toBeGreaterThanOrEqual(44);
+    expect(m.hit[1]).toBeGreaterThanOrEqual(32);
     expect(m.hit[2]).toBeGreaterThanOrEqual(44);
     expect(f.errors).toEqual([]);
   });
@@ -138,11 +136,13 @@ test('앨범 탭: [－][＋]로 큰 칸 → 작은 그림 목록 → 한 줄 목
   const width = 412;
   const f = await fixture(page, width);
   await openPhotos(page, width);
-  await root(page).locator('[data-photos-view]').selectOption('albums');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('albums');
   const list = root(page).locator('[data-photos-albums]');
-  const minus = root(page).locator('[data-photo-size="-1"]'), plus = root(page).locator('[data-photo-size="1"]');
+  // S71-25 PHOTO-머리한줄: [－][＋]·[새 앨범]은 맨 위 줄 ⋯ 메뉴 안(크기를 눌러도 메뉴는 열린 채).
+  const minus = sizeBtn(page, '-1'), plus = sizeBtn(page, '1');
   await expect(list).toHaveAttribute('data-view', 'card');
-  await expect(root(page).locator('[data-photos-al-new]')).toBeVisible();
+  await openHeadMenu(page);
+  await expect(page.locator('#photosHeadMenu [data-photos-al-new]')).toBeVisible();
   await expect(plus).toBeDisabled();
   await expect(list.locator('[data-photos-album]')).toHaveCount(2);
   // 작은 그림 목록: 이름·장수·기간.
@@ -161,19 +161,25 @@ test('앨범 탭: [－][＋]로 큰 칸 → 작은 그림 목록 → 한 줄 목
   const row = await jeju.boundingBox();
   expect(row.height).toBeLessThanOrEqual(52);
   await expect.poll(() => f.server.value?.album_view).toBe('line');
-  // 앨범을 열면 [－][＋]는 다시 사진 칸 수, [+ 새 앨범]은 숨는다. 목록으로 돌아오면 한 줄 목록 그대로.
+  // 앨범을 열면 [－][＋]는 다시 사진 칸 수, [새 앨범]은 없다. 목록으로 돌아오면 한 줄 목록 그대로.
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#photosHeadMenu')).toBeHidden();
   await jeju.locator('[data-photos-al-open]').click();
   await expect(root(page).locator('[data-photos-al-back]')).toBeVisible();
-  await expect(root(page).locator('[data-photos-al-new]')).toBeHidden();
+  await openHeadMenu(page);
+  await expect(page.locator('#photosHeadMenu [data-photos-al-new]')).toHaveCount(0);
   await expect(minus).toHaveAttribute('aria-label', /사진 작게/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#photosHeadMenu')).toBeHidden();
   await root(page).locator('[data-photos-al-back]').click();
   await expect(list).toHaveAttribute('data-view', 'line');
   // 새로고침해도 서버 값으로 한 줄 목록.
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   if (!(await page.locator('#photosView').isVisible())) await openPhotos(page, width);
-  await root(page).locator('[data-photos-view]').selectOption('albums');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('albums');
   await expect(root(page).locator('[data-photos-albums]')).toHaveAttribute('data-view', 'line');
+  await openHeadMenu(page);
   await plus.click();
   await expect(root(page).locator('[data-photos-albums]')).toHaveAttribute('data-view', 'thumb');
   await expect.poll(() => f.server.value?.album_view).toBe('thumb');

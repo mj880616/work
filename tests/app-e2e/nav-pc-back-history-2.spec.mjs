@@ -177,7 +177,7 @@ test('PC 1280 사진 폴더: 2026 → 제주 에서 ‹ = 2026, ‹ = [사진], 
  const errors=watchErrors(page);
  await photosFixture(page,1280);
  await clickView(page,'photos');await expect(page.locator('#photosView')).toBeVisible();
- const chip=page.locator('#photosRoot [data-photos-view]');
+ const chip=page.locator('[data-sf-tools="photos"] [data-photos-view]');
  await chip.selectOption('folders');await expect(chip).toHaveValue('folders');
  await expect(photoTree(page).locator('.ft-name')).toHaveText(['카메라','2026','여행']);
  await treeEnter(photoTree(page).locator('[data-photos-fx-open="S1"]'));await photoAt(page,'S1');

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { srcPick, pickSource } from './helpers/photo-head.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { askGap } from './helpers/small-notice.mjs';
@@ -115,8 +116,8 @@ async function pickPhoneOne(page) {
   else { await page.locator('#mobileMenuTab').click(); await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click(); }
   await expect(page.locator('#photosView')).toBeVisible();
   await expect(cellOf(page, 'O1')).toBeVisible({ timeout: 15000 });
-  await page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]').click();
-  await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]')).toHaveAttribute('aria-pressed', 'false');
+  await pickSource(page, 'onedrive');
+  await expect(srcPick(page)).not.toHaveAttribute('aria-label', /원드라이브/);
   await expect(cellOf(page, 'ph:1')).toBeVisible({ timeout: 15000 });
   await hold(page, cellOf(page, 'ph:1'));
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');

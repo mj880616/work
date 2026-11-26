@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { srcPick, openSrcMenu, openHeadMenu, sizeBtn } from './helpers/photo-head.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // PHOTO-사진메뉴(docs/design/photo-menu.md): '사진' 메뉴 = 원드라이브 사진·동영상 최신순 격자(서버 library 쪽 읽기)·날짜 머리줄·[달력](days)·[휴지통](trash-*)·
@@ -99,8 +100,8 @@ for (const width of [390, 1280]) {
   test(`사진 메뉴: 최신순 격자(서버 쪽 읽기)·동영상 표시·크게 보기 ☆·★ 거르기·달력 ${width}`, async ({ page }) => {
     const f = await fixture(page, { width });
     await openPhotos(page, width);
-    await expect(root(page).locator('[data-photos-view] option')).toHaveText(['사진', '달력', '폴더', '앨범', '휴지통']);
-    await expect(page.locator('[data-sf-tools="photos"] [data-od-link]')).toBeVisible();
+    await expect(page.locator('[data-sf-tools="photos"] [data-photos-view] option')).toHaveText(['사진', '달력', '폴더', '앨범', '휴지통']);
+    await expect(srcPick(page)).toHaveAttribute('aria-label', /원드라이브/);
     await expect(items(page)).toHaveCount(7);
     await expect(root(page).locator('.photos-day b')).toHaveText(['10월 5일 (월)', '10월 2일 (금)', '9월 20일 (일)', '8월 15일 (토)']);
     await expect(root(page).locator('.photos-day').first()).toContainText('· 3장');
@@ -127,29 +128,29 @@ for (const width of [390, 1280]) {
     await expect(viewer).toHaveCount(0);
     await expect(items(page).first().locator('.diary-star-mark')).toBeVisible();
     // ★ 거르기: 서버에 별표 id를 보내 그것만. 고른 거르기는 서버(view_prefs.photo_view)에 기억.
-    await root(page).locator('[data-photos-filter]').selectOption('star');
+    await page.locator('[data-sf-tools="photos"] [data-photos-filter]').selectOption('star');
     await expect(items(page)).toHaveCount(1);
     expect(f.edge.filter(b => b.action === 'library').at(-1)).toMatchObject({ filter: 'star', star_ids: ['A3'] });
     await expect.poll(() => f.prefs.value?.photo_view?.filter).toBe('star');
-    await root(page).locator('[data-photos-filter]').selectOption('video');
+    await page.locator('[data-sf-tools="photos"] [data-photos-filter]').selectOption('video');
     await expect(items(page)).toHaveCount(1);
     await expect(items(page).first()).toHaveAttribute('data-photos-id', 'V1');
-    await root(page).locator('[data-photos-filter]').selectOption('all');
+    await page.locator('[data-sf-tools="photos"] [data-photos-filter]').selectOption('all');
     await expect(items(page)).toHaveCount(7);
     // [달력]: 칸마다 대표 사진과 장수(서버 days), 누르면 [사진]의 그날로. 뒤로가기 = 이전 칩.
-    await root(page).locator('[data-photos-view]').selectOption('calendar');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('calendar');
     await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 10월');
     const day5 = root(page).locator('[data-photos-cal-day="2026-10-05"]');
     await expect(day5).toHaveAttribute('aria-label', '10월 5일 (월), 사진 3장');
     await expect(day5.locator('.photos-cal-c')).toHaveText('3');
     await page.goBack();
-    await expect(root(page).locator('[data-photos-view]')).toHaveValue('all');
-    await root(page).locator('[data-photos-view]').selectOption('calendar');
+    await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('all');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('calendar');
     await root(page).locator('[data-photos-cal="-1"]').click();
     await root(page).locator('[data-photos-cal="-1"]').click();
     await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
     await root(page).locator('[data-photos-cal-day="2026-08-15"]').click();
-    await expect(root(page).locator('[data-photos-view]')).toHaveValue('all');
+    await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('all');
     await expect(root(page).locator('[data-photos-day="2026-08-15"]')).toBeInViewport();
     expect(f.errors).toEqual([]);
   });
@@ -163,9 +164,10 @@ for (const width of [412, 884, 1440]) {
     await expect(items(page)).toHaveCount(7);
     await expect(root(page).locator('[data-photos-rail] .photos-rail-year')).toHaveText(['2026']);
     const kind = width <= 760 ? 'phone' : 'pc';
-    const minus = root(page).locator('[data-photo-size="-1"]'), plus = root(page).locator('[data-photo-size="1"]');
+    // S71-25 PHOTO-머리한줄: [－][＋]는 맨 위 줄 ⋯ 메뉴 안(눌러도 메뉴는 열린 채).
+    const minus = sizeBtn(page, '-1'), plus = sizeBtn(page, '1');
     // 칸 수 단계 끝까지 작게 → 월 보기
-    for (let k = 0; k < 8 && !(await root(page).locator('[data-photos-zoom]').count()); k++) await minus.click();
+    for (let k = 0; k < 8 && !(await root(page).locator('[data-photos-zoom]').count()); k++) { await openHeadMenu(page); await minus.click(); }
     const zoom = root(page).locator('[data-photos-zoom]');
     await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
     await expect.poll(() => f.prefs.value?.photo_zoom?.[kind]).toBe('month');
@@ -174,10 +176,12 @@ for (const width of [412, 884, 1440]) {
     await expect(root(page).locator('[data-photos-zgo="month:2026-08"]')).toHaveAttribute('aria-label', '2026년 8월, 사진 2장');
     await expect(root(page).locator('[data-photos-zgo="month:2026-10"] .photos-zph.has-photo')).toHaveCount(2);
     // 연 보기: 해 줄 하나, [－]는 끝
-    await minus.click();
+    await openHeadMenu(page); await minus.click();
     await expect(zoom).toHaveAttribute('data-photos-zoom', 'year');
     await expect(root(page).locator('[data-photos-zgo="year:2026"]')).toHaveAttribute('aria-label', '2026년, 사진 7장');
     await expect(minus).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#photosHeadMenu')).toBeHidden();
     await expect.poll(() => f.prefs.value?.photo_zoom?.[kind]).toBe('year');
     // 해 줄 → 그 해 월 보기 → 달 줄 → 그 달 일별
     await root(page).locator('[data-photos-zgo="year:2026"]').click();
@@ -192,13 +196,13 @@ for (const width of [412, 884, 1440]) {
     await page.goBack();
     await expect(zoom).toHaveAttribute('data-photos-zoom', 'year');
     // [＋]: 연 → 월 → 일별
-    await plus.click();
+    await openHeadMenu(page); await plus.click();
     await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
     await plus.click();
     await expect(root(page).locator('[data-photos-zoom]')).toHaveCount(0);
     await expect(items(page).first()).toBeVisible();
     // 달력 탭에는 연·월 단계가 없다(날짜 칸만)
-    await root(page).locator('[data-photos-view]').selectOption('calendar');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('calendar');
     await expect(root(page).locator('.photos-cal-head b')).toBeVisible();
     await expect(root(page).locator('[data-photos-lv], [data-photos-lv-go]')).toHaveCount(0);
     expect(f.errors).toEqual([]);
@@ -240,7 +244,7 @@ test('사진 메뉴: 길게 눌러 여러 장 선택 → [☆ 별표]·[🗑 삭
   expect(del[0]).toMatchObject({ confirm: true });
   expect(del[0].ids.slice().sort()).toEqual(['B1', 'C2']);
   // [휴지통]: 지운 두 장. 고르고 [되살리기] → 휴지통에서 빠지고 [사진]으로 돌아오면 다시 보인다.
-  await root(page).locator('[data-photos-view]').selectOption('trash');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('trash');
   await expect(root(page).locator('.photos-top')).toContainText('30일 뒤 원드라이브 휴지통으로 가요');
   await expect(items(page)).toHaveCount(2);
   await items(page).nth(0).click();
@@ -249,8 +253,8 @@ test('사진 메뉴: 길게 눌러 여러 장 선택 → [☆ 별표]·[🗑 삭
   await root(page).locator('[data-photos-restore]').click();
   await expect(items(page)).toHaveCount(0);
   expect(f.edge.find(b => b.action === 'trash-restore').ids.slice().sort()).toEqual(['B1', 'C2']);
-  await root(page).locator('[data-photos-view]').selectOption('all');
-  await expect(root(page).locator('[data-photos-view]')).toHaveValue('all');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('all');
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('all');
   await expect(items(page)).toHaveCount(7);
   // 뒤로가기 = 선택 해제(화면 이동 아님).
   await hold(items(page).nth(0));
@@ -365,7 +369,8 @@ test('사진 메뉴: 원드라이브 아이콘은 공식 아이콘 원래 색, �
   const f = await fixture(page, { width: 412 });
   await openPhotos(page, 412);
   await expect(items(page)).toHaveCount(7);
-  const link = page.locator('[data-sf-tools="photos"] [data-od-link]');
+  // S71-25 PHOTO-머리한줄: 원드라이브 아이콘은 [가져올 곳] 단추 안(켠 곳 아이콘).
+  const link = srcPick(page).locator('[data-src="onedrive"]');
   await expect(link).toBeVisible();
   await expect(link.locator('svg.brand-ic-onedrive path')).toHaveCount(4);
   await expect(link.locator('svg.brand-ic-onedrive path').nth(1)).toHaveAttribute('fill', '#0078d4');
@@ -380,8 +385,9 @@ test('사진 메뉴: 원드라이브 설정 창(하위 폴더)을 하루 기록�
   const f = await fixture(page, { width: 390 });
   await openPhotos(page, 390);
   await expect(items(page)).toHaveCount(7);
-  // PHOTO-출처 ①: 연결된 뒤 원드라이브 아이콘 누르기 = 켜기/끄기, 연결 메뉴는 꾹 누르기(PC 우클릭).
-  await page.locator('[data-sf-tools="photos"] [data-od-link]').click({ button: 'right' });
+  // S71-25 PHOTO-머리한줄: 연결 메뉴는 [가져올 곳] 고르기 맨 아래 [원드라이브 연결 설정](예전 아이콘 꾹 누르기·우클릭).
+  await openSrcMenu(page);
+  await page.locator('#photosSrcMenu [data-photos-src-od]').click();
   const menu = page.locator('#photosOdMenu');
   await expect(menu).toBeVisible();
   await menu.locator('button', { hasText: '하위 폴더 켜고 끄기' }).click();
@@ -415,7 +421,7 @@ test('사진 메뉴: 달력 → 날짜 → 뒤로가기 = 같은 달 달력(폴�
   await page.setViewportSize({ width: 412, height: 560 });
   await openPhotos(page, 412);
   await expect(items(page)).toHaveCount(7);
-  await root(page).locator('[data-photos-view]').selectOption('calendar');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('calendar');
   await root(page).locator('[data-photos-cal="-1"]').click();
   await root(page).locator('[data-photos-cal="-1"]').click();
   await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
@@ -423,32 +429,32 @@ test('사진 메뉴: 달력 → 날짜 → 뒤로가기 = 같은 달 달력(폴�
   await day.scrollIntoViewIfNeeded();
   const y = await page.evaluate(() => Math.round(window.scrollY));
   await day.click();
-  await expect(root(page).locator('[data-photos-view]')).toHaveValue('all');
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('all');
   await expect(root(page).locator('[data-photos-day="2026-08-15"]')).toBeInViewport();
   // 브라우저 뒤로 = 같은 달 달력, 같은 스크롤 위치.
   await page.goBack();
-  await expect(root(page).locator('[data-photos-view]')).toHaveValue('calendar');
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('calendar');
   await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
   await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(y);
   await expect(page).toHaveURL(/tab=calendar/);
   // 폰 앱 뒤로와 같은 길(KPTURouter.back): 날짜 → 한 번 = 달력, 한 번 더 = [사진].
   await root(page).locator('[data-photos-cal-day="2026-08-15"]').click();
-  await expect(root(page).locator('[data-photos-view]')).toHaveValue('all');
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('all');
   await page.evaluate(() => window.KPTURouter.back());
-  await expect(root(page).locator('[data-photos-view]')).toHaveValue('calendar');
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('calendar');
   await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
   await page.evaluate(() => window.KPTURouter.back());
-  await expect(root(page).locator('[data-photos-view]')).toHaveValue('all');
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('all');
   await expect(page.locator('#photosView')).toBeVisible();
   // 그날 사진에서 다른 칩([휴지통])으로 가면 '그날 사진' 겹은 닫히고, 뒤로 한 번 = [사진]. 달력은 마지막에 본 달(8월) 그대로.
-  await root(page).locator('[data-photos-view]').selectOption('calendar');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('calendar');
   await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
   await root(page).locator('[data-photos-cal-day="2026-08-15"]').click();
-  await expect(root(page).locator('[data-photos-view]')).toHaveValue('all');
-  await root(page).locator('[data-photos-view]').selectOption('trash');
-  await expect(root(page).locator('[data-photos-view]')).toHaveValue('trash');
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('all');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('trash');
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('trash');
   await page.goBack();
-  await expect(root(page).locator('[data-photos-view]')).toHaveValue('all');
+  await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('all');
   await expect(page.locator('#photosView')).toBeVisible();
   expect(f.errors).toEqual([]);
 });

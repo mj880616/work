@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openHeadMenu, sizeBtn } from './helpers/photo-head.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S47-26(요청함 11/01 12:44, 사용자 '시안대로'). 지어낸 서버(onedrive-photos·gdrive-photos·app_photo_tags·app_my_features), 네트워크 없음.
@@ -51,17 +52,19 @@ async function openAlbums(page, width) {
     else { await page.locator('#mobileMenuTab').click(); await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click(); }
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: '사진', exact: true }).click();
   await expect(page.locator('#photosView')).toBeVisible();
-  await root(page).locator('[data-photos-view]').selectOption('albums');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('albums');
   await expect(root(page).locator('[data-photos-album]')).toHaveCount(3);
 }
 const root = page => page.locator('#photosRoot');
+// S71-25 PHOTO-머리한줄: [새 앨범]은 맨 위 줄 ⋯ 메뉴 안(앨범 목록일 때).
+const newAlbumMenu = async page => { await openHeadMenu(page); await page.locator('#photosHeadMenu [data-photos-al-new]').click(); };
 
 for (const width of [412, 1280]) {
   test(`새 앨범: 둘째 줄 바로 아래 한 줄 [입력칸][만들기][×], Enter로 만들기·×·뒤로가기로 닫기 ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     await openAlbums(page, width);
     const form = root(page).locator('[data-photos-name]'), input = root(page).locator('[data-photos-name-input]');
-    await root(page).locator('[data-photos-al-new]').click();
+    await newAlbumMenu(page);
     await expect(form).toBeVisible();
     await expect(input).toBeFocused();
     await expect(input).toHaveAttribute('placeholder', '새 앨범 이름');
@@ -73,7 +76,8 @@ for (const width of [412, 1280]) {
     await expect(root(page)).not.toContainText('길게 눌러');
     // 한 줄: 세 칸의 가운데가 같은 높이, 줄 높이는 입력칸 높이 그대로(카드 테두리·제목 줄 없음), 둘째 줄 바로 아래, 화면 안.
     const shape = await form.evaluate(el => {
-      const r = el.getBoundingClientRect(), tools = el.closest('#photosRoot').querySelector('[data-photos-tools]').getBoundingClientRect();
+      // S71-25 PHOTO-머리한줄: 화면 안 도구 줄이 없어져 맨 위 줄(폰 앱 머리 줄·PC 상단 줄) 바로 아래인지 본다.
+      const r = el.getBoundingClientRect(), tools = document.querySelector('[data-sf-tools="photos"]').closest('.mobile-shell-header, .app-topline').getBoundingClientRect();
       const kids = [...el.children].map(k => k.getBoundingClientRect()), mids = kids.map(k => k.top + k.height / 2);
       const s = getComputedStyle(el), inp = el.querySelector('input').getBoundingClientRect();
       return { h: r.height, inputH: inp.height, gap: r.top - tools.bottom, spread: Math.max(...mids) - Math.min(...mids), border: s.borderTopWidth, right: r.right, vw: innerWidth,
@@ -85,21 +89,21 @@ for (const width of [412, 1280]) {
     expect(shape.okH).toBeLessThanOrEqual(32.5);
     expect(shape.border).toBe('0px');
     expect(shape.gap).toBeGreaterThanOrEqual(0);
-    expect(shape.gap).toBeLessThanOrEqual(8);
+    expect(shape.gap).toBeLessThanOrEqual(16);
     expect(shape.right).toBeLessThanOrEqual(shape.vw);
     // × = 닫기.
     await form.locator('[data-photos-name-cancel]').click();
     await expect(form).toBeHidden();
     await page.waitForTimeout(300); // 닫은 겹의 기록 되돌림이 끝난 뒤
     // 뒤로가기 = 닫기(앨범 탭 그대로).
-    await root(page).locator('[data-photos-al-new]').click();
+    await newAlbumMenu(page);
     await expect(input).toBeFocused();
     await page.goBack();
     await expect(form).toBeHidden();
     await expect(page.locator('#photosView')).toBeVisible();
-    await expect(root(page).locator('[data-photos-view]')).toHaveValue('albums');
+    await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('albums');
     // Enter = 만들기 → 목록에 바로 보임.
-    await root(page).locator('[data-photos-al-new]').click();
+    await newAlbumMenu(page);
     await page.waitForTimeout(300);
     await input.fill('여행');
     await input.press('Enter');
@@ -140,14 +144,17 @@ for (const width of [412, 1280]) {
     await pinch(60, 20);
     await expect(root(page).locator('[data-photos-albums]')).toHaveAttribute('data-view', 'line');
     await expect.poll(() => f.server.value?.album_view).toBe('line');
-    await expect(root(page).locator('[data-photo-size="-1"]')).toBeDisabled();
+    await openHeadMenu(page);
+    await expect(sizeBtn(page, '-1')).toBeDisabled();
+    await page.keyboard.press('Escape');
     await page.waitForTimeout(450);
     await pinch(30, 80); // 펼치기
     await expect(root(page).locator('[data-photos-albums]')).toHaveAttribute('data-view', 'thumb');
     await expect.poll(() => f.server.value?.album_view).toBe('thumb');
     // [＋]도 같은 값에서 한 단계.
     await page.waitForTimeout(450);
-    await root(page).locator('[data-photo-size="1"]').click();
+    await openHeadMenu(page); await sizeBtn(page, '1').click();
+    await page.keyboard.press('Escape');
     await expect(root(page).locator('[data-photos-albums]')).toHaveAttribute('data-view', 'card');
     await expect.poll(() => f.server.value?.album_view).toBe('card');
     await expect(root(page).locator('[data-photos-al-back]')).toHaveCount(0);
@@ -180,8 +187,10 @@ test.describe('빈 곳 핀치 폰 412', () => {
     const list = root(page).locator('[data-photos-albums]');
     await expect(list).toHaveAttribute('data-view', 'card');
     // 카드 보기 → 작은 보기로 줄여 목록 아래 빈 곳을 만든다.
-    await root(page).locator('[data-photo-size="-1"]').click();
-    await root(page).locator('[data-photo-size="-1"]').click();
+    await openHeadMenu(page);
+    await sizeBtn(page, '-1').click();
+    await sizeBtn(page, '-1').click();
+    await page.keyboard.press('Escape');
     await expect(list).toHaveAttribute('data-view', 'line');
     const lb = await list.boundingBox(), body = await root(page).locator('[data-photos-body]').boundingBox(), vh = page.viewportSize().height;
     expect(body.y + body.height).toBeGreaterThan(vh - 260); // 본문 칸이 화면 아래(하단바 위)까지

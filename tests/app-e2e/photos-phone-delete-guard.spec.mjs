@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S52-06 PHOTO-폰지우기안전장치(사용자 11/07 '모두 추천대로' — 사진 정리 다음 순서 A): 사진 정리 칸에서 폰 원본을 지우는 길.
-// - 잡동사니 [지우기]: 서버가 원드라이브 사본을 확인한 것만 기본으로 지우고, 백업 없음은 체크해야만 함께. 지우기 전 개수·용량 요약 한 번.
-// - 공간 비우기 [폰 공간만 비우기]: 요약에 용량.
-// - 정리 칸 크게 보기 한 장 [지우기]: 되돌리기 시간 뒤가 아니라 바로 같은 요약 확인(백업 없음 한 장은 체크해야만).
+// S52-06 PHOTO-폰지우기안전장치(사용자 11/07 '모두 추천대로'): 폰 폴더째 [삭제]는 백업을 확인하지 못하면 체크해야만 폰 휴지통으로.
+// S71-25 PHOTO-정리삭제(사용자 결정: 정리 기능 삭제): [정리] 칸(잡동사니·공간 비우기·크게 보기 한 장 지우기)은 지웠다 —
+// 그 길의 시험도 함께 지웠고, 폴더째 삭제는 [정리]가 읽어 둔 백업 수 없이 늘 '확인하지 못함' + 체크해야만.
 // 네트워크 없음(지어낸 서버·지어낸 앱 다리), 사진은 1×1 그림. 폰 휴지통 = 안드로이드 휴지통(앱 다리 photos:trash, 30일 되살림).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const CDN = 'https://od-thumb.example.test';
@@ -75,125 +74,28 @@ async function fixture(page) {
   } });
   return state;
 }
-const trashed = page => page.evaluate(() => window.__photoSent.filter(m => m.startsWith('photos:trash:')).flatMap(m => m.slice('photos:trash:'.length).split(',')).sort());
 const ask = page => page.locator('.kptu-ask:not(.kptu-ask-choice)');
-async function openTidy(page) {
+async function openPhotos(page) {
   // S68-37: 저장된 메뉴 순서가 없는 계정은 [사진]이 기본 하단바 칸, 순서를 저장한 계정은 [메뉴] 창 칸이다.
   if (await page.locator('.mobile-tabs [data-view="photos"]').isVisible()) await page.locator('.mobile-tabs [data-view="photos"]').click();
   else { await page.locator('#mobileMenuTab').click(); await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click(); }
   await expect(page.locator('#photosView')).toBeVisible();
-  const box = page.locator('#photosRoot [data-photos-tidy]');
-  await page.locator('#photosRoot [data-photos-tidy-chip]').click();
-  await expect(box.locator('.photos-tidy-at')).toContainText('폰 7장 · 원드라이브 5장 확인', { timeout: 30_000 });
-  return box;
-}
-async function openJunk(box) {
-  const junk = box.locator('details[data-k="junk"]');
-  await junk.locator('summary').click();
-  return junk;
 }
 
-test.describe('폰 앱 412 · 사진 정리 삭제 안전장치', () => {
+test.describe('폰 앱 412 · 폰 폴더째 삭제 안전장치', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
 
-  test('잡동사니 [삭제]: 요약 한 번, 백업 없음 2장은 기본으로 남기고 사본 확인된 1장만 폰 휴지통', async ({ page }) => {
+  test('폰 폴더째 [삭제]: 백업을 확인하지 못했으니 체크해야만 폴더를 폰 휴지통으로', async ({ page }) => {
     const state = await fixture(page);
-    const junk = await openJunk(await openTidy(page));
-    await junk.locator('[data-photos-tidy-trash="kakao"]').click();
-    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('카톡 받은 사진 1장(1MB)을 폰 휴지통으로 옮길까요?');
-    await expect(ask(page).locator('.kptu-ask-note')).toContainText('원드라이브에 같은 사진이 있는 것만 삭제해요 · 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요');
-    await expect(ask(page).locator('.kptu-ask-check')).toHaveText('백업 없음 2장(5MB)도 함께 삭제');
-    await expect(ask(page).locator('[data-ask-check]')).not.toBeChecked();
-    // 확인 창 아래 끝이 하단바에 가리지 않는다.
-    const box = await ask(page).boundingBox(), bar = await page.locator('.mobile-tabs').boundingBox();
-    if (bar) expect(box.y + box.height).toBeLessThanOrEqual(bar.y + 1);
-    expect(state.bodies.find(b => b.action === 'copy-check').pairs).toEqual([{ id: 'OK1', size: 1_000_000, video: false, w: 10, h: 10, taken_at: KAKAO[0].taken_at }]);
-    await ask(page).getByRole('button', { name: '폰 휴지통으로' }).click();
-    await expect.poll(() => trashed(page)).toEqual(['80001']);
-    await expect.poll(() => state.bodies.find(b => b.action === 'trash-log')?.pairs).toEqual([{ phone_id: '80001', copy_id: 'OK1', keep: false }]);
-    expect(state.errors).toEqual([]);
-  });
-
-  test('잡동사니 [삭제] 체크하면 백업 없음도 함께, [취소]면 아무것도 삭제하지 않음', async ({ page }) => {
-    const state = await fixture(page);
-    const junk = await openJunk(await openTidy(page));
-    await junk.locator('[data-photos-tidy-trash="kakao"]').click();
-    await ask(page).getByRole('button', { name: '취소' }).click();
-    await expect(ask(page)).toHaveCount(0);
-    expect(await trashed(page)).toEqual([]);
-    await junk.locator('[data-photos-tidy-trash="kakao"]').click();
-    await ask(page).locator('[data-ask-check]').check();
-    await ask(page).getByRole('button', { name: '폰 휴지통으로' }).click();
-    await expect.poll(() => trashed(page)).toEqual(['80001', '80002', '80003']);
-    expect(state.errors).toEqual([]);
-  });
-
-  test('공간 비우기 [폰 공간만 비우기]: 요약에 장수·용량, 체크 줄 없음', async ({ page }) => {
-    const state = await fixture(page);
-    const box = await openTidy(page);
-    const space = box.locator('details[data-k="space"]');
-    await space.locator('summary').click();
-    await space.locator('[data-photos-tidy-trash="space"]').click();
-    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('원드라이브에 있는 폰 사진 4장(10MB)을 폰 휴지통으로 옮길까요?');
-    await expect(ask(page).locator('[data-ask-check]')).toHaveCount(0);
-    await ask(page).getByRole('button', { name: '폰 휴지통으로' }).click();
-    await expect.poll(() => trashed(page)).toEqual(['1', '2', '3', '4']);
-    expect(state.errors).toEqual([]);
-  });
-
-  // UX-먼저묻고뒤에처리 3차(S56-56): 읽은 지 오래됐으면 '확인이 끝나면 다시 눌러 주세요'로 돌려보내지 않고, 다시 확인한 뒤 바로 이어서 묻는다.
-  test('공간 비우기: 확인이 오래됐으면 다시 확인한 뒤 다시 누르지 않아도 이어서 묻는다', async ({ page }) => {
-    const state = await fixture(page);
-    const box = await openTidy(page);
-    const space = box.locator('details[data-k="space"]');
-    await space.locator('summary').click();
-    const reads = state.bodies.filter(b => b.action === 'library').length;
-    await page.evaluate(() => { const real = Date.now.bind(Date); Date.now = () => real() + 11 * 60 * 1000; });
-    await space.locator('[data-photos-tidy-trash="space"]').click();
-    await expect(page.locator('#kptuNotice')).toContainText('끝나면 바로 이어서 물을게요');
-    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('원드라이브에 있는 폰 사진 4장(10MB)을 폰 휴지통으로 옮길까요?');
-    expect(state.bodies.filter(b => b.action === 'library').length).toBeGreaterThan(reads);
-    await ask(page).getByRole('button', { name: '폰 휴지통으로' }).click();
-    await expect.poll(() => trashed(page)).toEqual(['1', '2', '3', '4']);
-    expect(state.errors).toEqual([]);
-  });
-
-  test('정리 칸 크게 보기 한 장 [삭제]: 백업 없음 한 장은 체크해야만, 체크하면 바로 폰 휴지통', async ({ page }) => {
-    const state = await fixture(page);
-    const junk = await openJunk(await openTidy(page));
-    // 빠른 이동 막대(오른쪽 끝)가 [보기]·칸 위에 겹칠 수 있어(CI 화면) 누르기 대신 초점 → Enter(키보드로 여는 길과 같음).
-    await junk.locator('[data-photos-tidy-see="junk:kakao"]').focus();
-    await page.keyboard.press('Enter');
-    const pane = junk.locator('[data-photos-tidy-pane="junk:kakao"]');
-    const cell = pane.locator('[data-photos-id="ph:80003"]');
-    await cell.focus();
-    await page.keyboard.press('Enter');
-    const viewer = page.locator('[data-diary-viewer]');
-    await expect(viewer).toBeVisible();
-    await viewer.locator('[data-od-delete]').click();
-    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('사진 1장 모두 백업 없음이에요');
-    const ok = ask(page).getByRole('button', { name: '폰 휴지통으로' });
-    await expect(ok).toBeDisabled();
-    await ask(page).locator('[data-ask-check]').check();
-    await expect(ok).toBeEnabled();
-    await ok.click();
-    await expect.poll(() => trashed(page)).toEqual(['80003']);
-    // 백업이 없던 사진이라 지운 기록(사본 짝)은 남기지 않는다.
-    expect(state.bodies.filter(b => b.action === 'trash-log')).toEqual([]);
-    expect(state.errors).toEqual([]);
-  });
-
-  test('폰 폴더째 [삭제]: 백업 없음이 들어 있으면(정리로 확인) 체크해야만 폴더를 폰 휴지통으로', async ({ page }) => {
-    const state = await fixture(page);
-    await openTidy(page);
-    await page.locator('#photosRoot [data-photos-tidy-chip]').click();
-    await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+    await openPhotos(page);
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
     const row = page.locator('#photosRoot [data-photos-pf="Pictures/KakaoTalk/"]');
     await row.locator('[data-photos-pf-more]').click();
     await page.locator('#photosPhoneFolderMenu').getByRole('button', { name: '삭제', exact: true }).click();
     await expect(ask(page).locator('.kptu-ask-text')).toHaveText("'KakaoTalk' 폴더를 삭제할까요?");
-    await expect(ask(page).locator('.kptu-ask-note')).toContainText('안의 사진 3장(6MB)(하위 폴더 포함)이 폰 휴지통으로 가요');
-    await expect(ask(page).locator('.kptu-ask-note')).toContainText('그중 백업 없음 2장');
+    await expect(ask(page).locator('.kptu-ask-note')).toContainText('안의 사진 3장(하위 폴더 포함)이 폰 휴지통으로 가요');
+    await expect(ask(page).locator('.kptu-ask-note')).toContainText('원드라이브 백업 여부를 확인하지 못했어요');
+    await expect(ask(page).locator('.kptu-ask-note')).not.toContainText('정리');
     const ok = ask(page).getByRole('button', { name: '삭제', exact: true });
     await expect(ok).toBeDisabled();
     await ask(page).locator('[data-ask-check]').check();
@@ -202,6 +104,8 @@ test.describe('폰 앱 412 · 사진 정리 삭제 안전장치', () => {
     await expect(ask(page).locator('.kptu-ask-text')).toContainText('미디어 관리 허용');
     await ask(page).getByRole('button', { name: '취소' }).click();
     await expect.poll(() => page.evaluate(() => window.__photoSent.filter(m => m.startsWith('photos:op:')))).toEqual(['photos:op:{"op":"trashfolder","from":"Pictures/KakaoTalk/"}']);
+    // 폰 사진 전체를 미리 읽는 [정리] 찾기는 없다(폴더 삭제가 폰 사진 전부를 읽지 않음).
+    expect(state.bodies.filter(b => b.action === 'trash-watch')).toEqual([]);
     expect(state.errors).toEqual([]);
   });
 });
