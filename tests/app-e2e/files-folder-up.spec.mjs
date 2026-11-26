@@ -99,7 +99,7 @@ for (const width of [390, 344]) {
       const name = document.querySelector('#filesRoot [data-fx-list] .ft-focus-name');
       const after = getComputedStyle(back, '::after');
       const b = r(back), n = r(name);
-      const top = document.querySelector('#filesRoot .fx-top'), two = top.querySelector('[data-fx-two]');
+      const top = document.querySelector('#filesRoot .fx-top'), two = document.querySelector('button[data-fx-two]'); // S71-28: 폰은 앱 머리 줄
       const tools = ['[data-fx-sort]', '[data-fx-mkdir]', '[data-fx-upload]'].map(s => r(top.querySelector(s)));
       return {
         hitW: b.width - parseFloat(after.left) - parseFloat(after.right), hitH: b.height - parseFloat(after.top) - parseFloat(after.bottom),

@@ -3,6 +3,7 @@
 //   이 부품은 onChange(닿은 열쇠들, 더하기인지)로 알리기만 한다(따로 고른 목록을 두지 않음). 기기 저장 없음.
 // - 시작은 마우스 왼쪽 단추만(손가락·펜은 그대로 — 폰은 길게 누르기). 빈 곳인지는 부르는 화면이 blank(target, x, y)로 정한다.
 //   줄 위에서 누르면 시작하지 않아 줄 끌어 옮기기(HTML 끌기)·글자 고르기·폴더 나무는 지금 그대로다.
+//   S71-45: 목록 줄은 아이콘 + 이름 글자 위만 '줄 위'(onGrip), 같은 줄의 나머지는 빈 곳이다.
 // - 빈 곳에서 누르면 mousedown 기본 동작을 막아 글자 고르기·HTML 끌기가 시작되지 않는다. 손을 THRESHOLD px 넘게 움직여야 사각형이 시작되고,
 //   그 전에 떼면 보통 클릭 그대로(빈 줄 오른쪽을 누르면 그 줄이 열리는 것 등). 사각형을 그린 뒤 떼면 바로 다음 클릭 하나는 먹는다.
 // - Ctrl·Shift(맥 Cmd)와 함께 끌면 끌기 전 고른 것에 더한다. 아니면 사각형에 닿은 것만.
@@ -37,6 +38,40 @@ export function mergePick(base, hit, additive) {
 }
 // 손이 문턱을 넘었나. 화면 없이 시험한다.
 export const passed = (a, b, t = THRESHOLD) => Math.abs(b.x - a.x) > t || Math.abs(b.y - a.y) > t;
+
+// STD-끌기시작(S71-45, 2026-11-26 사용자 결정 "폴더 모양, 폴더명 위에서만 드래그가 안돼 왜냐면 거기서 클릭하면 그 폴더 클릭이니까"):
+// 목록 줄의 '잡는 곳' = 아이콘 + 이름 글자 위. 거기서 끌면 줄 옮기기, 같은 줄의 그 밖(이름 오른쪽 빈 곳·바뀐 날·크기·종류 칸·아이콘 왼쪽 띠·줄 오른쪽 여백)은
+// 빈 곳 = 사각형 고르기(윈도 탐색기와 같음). 화면마다 따로 재지 않고 이 판정 하나를 쓴다(blank에서 부른다).
+// 점이 상자들 중 하나 안인가(pad px 넓혀서). 화면 없이 시험한다.
+export function inBoxes(x, y, boxes, pad = 2) {
+  return (boxes || []).some(b => b && b.right > b.left && b.bottom > b.top && x >= b.left - pad && x <= b.right + pad && y >= b.top - pad && y <= b.bottom + pad);
+}
+// 두 상자의 겹친 부분(없으면 null). 화면 없이 시험한다.
+export function clipBox(a, b) {
+  if (!a || !b) return null;
+  const r = {left: Math.max(a.left, b.left), top: Math.max(a.top, b.top), right: Math.min(a.right, b.right), bottom: Math.min(a.bottom, b.bottom)};
+  return r.right > r.left && r.bottom > r.top ? r : null;
+}
+// 줄의 잡는 곳 상자들: icon(선택자)은 그 칸 전체, name(선택자)은 실제 글자가 그려진 폭만(잘린 이름은 보이는 칸 안까지).
+export function gripBoxes(row, {icon = '', name = ''} = {}) {
+  const out = [], doc = row?.ownerDocument;
+  if (!row || !doc) return out;
+  const shown = el => el.getClientRects().length > 0;
+  if (icon) for (const el of row.querySelectorAll(icon)) if (shown(el)) out.push(el.getBoundingClientRect());
+  if (name) for (const el of row.querySelectorAll(name)) {
+    if (!shown(el)) continue;
+    const box = el.getBoundingClientRect();
+    if (!String(el.textContent || '').trim()) { out.push(box); continue; }
+    const range = doc.createRange();
+    range.selectNodeContents(el);
+    const text = clipBox(range.getBoundingClientRect(), box);
+    range.detach?.();
+    if (text) out.push(text);
+  }
+  return out;
+}
+// (x, y)가 그 줄의 잡는 곳(아이콘 + 이름 글자) 위인가.
+export const onGrip = (row, x, y, grip) => inBoxes(x, y, gripBoxes(row, grip));
 
 // area 안에서 끌어 고르기를 켠다.
 // enabled(): 지금 켤 수 있나(PC 마우스 화면·바쁘지 않음 등). blank(target, x, y): 그 자리가 빈 곳인가.
@@ -126,6 +161,9 @@ export function bindMarquee(area, {enabled = () => true, blank = () => false, it
     // 기본 동작을 막으면 글자 칸에서 초점이 빠지지 않는다 — 빈 곳 누르기는 보통처럼 입력칸 초점을 놓는다(바깥 누르기 = 저장 같은 동작이 그대로).
     const focused = doc.activeElement;
     if (focused && focused !== doc.body && !focused.contains(t) && focused.matches?.('input,textarea,select,[contenteditable],[contenteditable] *')) focused.blur();
+    // S71-45: 줄 위 빈 곳(날짜 칸 등)을 눌러도 보통 누르기처럼 그 줄(가장 가까운 초점 받는 요소)이 초점을 받는다 — 막으면 그 줄의 키(Ctrl+X·F2·Delete)가 닿지 않는다.
+    const host = t.closest('a[href],button,summary,[tabindex]');
+    if (host && area.contains(host) && host !== focused) host.focus?.({preventScroll: true});
     const boxes = scrollBoxesAt(t, {doc});
     const box = boxes[0]?.node || page();
     const ref = box === page() ? (anchor(t) || area) : box;

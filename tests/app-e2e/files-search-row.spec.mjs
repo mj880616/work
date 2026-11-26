@@ -17,12 +17,13 @@ const findPlace = page => page.locator((page.viewportSize()?.width || 1280) > 76
 async function topRow(page) {
   return page.evaluate(() => {
     const r = el => el.getBoundingClientRect();
-    const top = document.querySelector('#filesRoot .fx-top');
-    const seg = top.querySelector('[data-fx-view-seg]'), t = r(seg), two = seg.querySelector('[data-fx-two]'), one = seg.querySelector('[data-fx-one]');
-    const chips = [...top.querySelectorAll('[data-fx-srcs] [data-src-chip]')].filter(b => !b.hidden && b.offsetParent).map(r);
+    // S71-28 FILES-머리한줄: 폰(600px 미만)은 출처·보기 단추가 앱 머리 줄에 있다 — 그 줄(없으면 화면 위쪽 줄)에서 잰다.
+    const seg = document.querySelector('[data-fx-view-seg]'), top = seg.closest('.mobile-shell-header') || document.querySelector('#filesRoot .fx-top');
+    const t = r(seg), two = seg.querySelector('[data-fx-two]'), one = seg.querySelector('[data-fx-one]');
+    const chips = [...document.querySelectorAll('[data-fx-srcs] [data-src-chip]')].filter(b => !b.hidden && b.offsetParent).map(r);
     const same = b => b.top < t.bottom && t.top < b.bottom;
     return {
-      chips: chips.length, sameLine: chips.every(same), twoLast: chips.every(c => c.right <= t.left), searchIn: top.querySelectorAll('input[type="search"]').length,
+      chips: chips.length, sameLine: chips.every(same), twoLast: chips.every(c => c.right <= t.left), searchIn: document.querySelectorAll('#filesRoot input[type="search"]').length,
       twoW: Math.round(t.width), twoH: Math.round(t.height),
       label: two.getAttribute('aria-label'), oneLabel: one.getAttribute('aria-label'), text: [...seg.querySelectorAll('.fx-seg-t')].filter(x => x.offsetParent).map(x => x.textContent.trim()).join('|'),
       icon: !!two.querySelector('svg') && !!one.querySelector('svg'), cls: seg.className, joined: Math.abs(r(one).right - r(two).left) <= 3 && Math.abs(r(one).top - r(two).top) < 2,
@@ -35,7 +36,7 @@ test('폰 412: [원드라이브][구글 드라이브][한 칸|두 칸] 한 줄 �
   test.setTimeout(90000);
   const { errors } = await start(page, 412);
   await openFiles(page, 412);
-  const two = root(page).locator('[data-fx-two]');
+  const two = page.locator('button[data-fx-two]');
   await expect(two).toBeVisible();
   await expect(two).toHaveAttribute('aria-pressed', 'false');
   const m = await topRow(page);
@@ -66,16 +67,16 @@ test('폰 412: [원드라이브][구글 드라이브][한 칸|두 칸] 한 줄 �
   await expect(two).toHaveAttribute('aria-label', '두 칸 보기');
   expect((await topRow(page)).sameLine).toBe(true);
   await shot(page, 'phone-412-two');
-  await expect(root(page).locator('[data-fx-one]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('button[data-fx-one]')).toHaveAttribute('aria-pressed', 'false');
   // 눌린 [두 칸]을 다시 눌러도 그대로(붙은 단추는 고르기만).
   await two.click();
   await expect(root(page).locator('[data-fx-pane-i="1"]')).toHaveCount(1);
   // 키보드: [한 칸]에 초점을 옮겨 Enter로 끈다.
-  await root(page).locator('[data-fx-one]').focus();
+  await page.locator('button[data-fx-one]').focus();
   await page.keyboard.press('Enter');
   await expect(root(page).locator('[data-fx-pane-i="1"]')).toHaveCount(0);
   await expect(two).toHaveAttribute('aria-pressed', 'false');
-  await expect(root(page).locator('[data-fx-one]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('button[data-fx-one]')).toHaveAttribute('aria-pressed', 'true');
   expect(errors).toEqual([]);
 });
 
@@ -95,7 +96,7 @@ test.describe('폰 앱 412(이 폰 단추가 있을 때)', () => {
     await installViewPrefsServer(page);
     await page.reload();
     await openFiles(page, 412);
-    await expect(root(page).locator('[data-fx-src="ph"]')).toBeVisible();
+    await expect(page.locator('[data-fx-src="ph"]')).toBeVisible();
     const m = await topRow(page);
     expect(m.chips).toBe(3);
     expect(m.sameLine).toBe(true);
@@ -112,7 +113,7 @@ test('PC 1280: 맨 위 줄 한 줄 그대로 · 붙은 [한 칸 | 두 칸] 켜�
   test.setTimeout(90000);
   const { errors } = await start(page, 1280);
   await openFiles(page, 1280);
-  const two = root(page).locator('[data-fx-two]');
+  const two = page.locator('button[data-fx-two]');
   await expect(two).toHaveAttribute('aria-pressed', 'false');
   const m = await topRow(page);
   expect(m.sameLine).toBe(true);
@@ -129,7 +130,7 @@ test('PC 1280: 맨 위 줄 한 줄 그대로 · 붙은 [한 칸 | 두 칸] 켜�
   await expect(two).toHaveAttribute('aria-pressed', 'true');
   expect((await topRow(page)).sameLine).toBe(true);
   await shot(page, 'pc-1280-two');
-  await root(page).locator('[data-fx-one]').click();
+  await page.locator('button[data-fx-one]').click();
   await expect(two).toHaveAttribute('aria-pressed', 'false');
   expect(errors).toEqual([]);
 });

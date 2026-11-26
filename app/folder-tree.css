@@ -111,6 +111,9 @@
 /* UI-폴더이름펼치기(11/24): 펼친 빈 폴더 안 '빈 폴더' 한 줄 — 'n개 더 보기'와 같은 들여쓰기. */
 .ft-empty-row { display:block; padding:2px 8px 2px calc(12px + var(--ft-depth,0) * var(--ft-indent) + var(--ft-ico) + var(--ft-gap)); }
 .ft-empty-row > .wait-empty { margin:0; }
+/* FILES-빈폴더줄(S70-70): 같은 자리의 '읽는 중' 뼈대 줄·'불러오지 못했어요 [다시]' 줄도 같은 들여쓰기(빈 폴더 줄과 따로). */
+.ft-empty-row > .wait-fail { margin:0; }
+.ft-wait-row > .wait { padding:4px 0; }
 /* 폴더 안 파일(노트·사진·자료) 줄: 화면의 줄 모양은 그대로 두고 들여쓰기만 이 규칙(폴더 그림 자리만큼 더). */
 .ft-item { --ft-item-pad:calc(12px + var(--ft-depth,0) * var(--ft-indent)); }
 /* NOTE-폴더디자인통일(S70-82): 공용 항목 줄(folder-tree-ui.mjs ftItemRowHtml — 노트 보드 왼쪽 목록·노트 고르기 창). 높이는 하위 폴더 줄과 같은 단계 값,

@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {treeEnter} from './helpers/tree-enter.mjs';
 // S69-28 LIB-한칸탐색기 · LIB-보기두칸 · 깨짐 고치기(명진 11/24): 자료실 폴더 묶기 한 칸 = 윈도우 탐색기처럼 왼쪽 폴더 나무 | 오른쪽 그 폴더 내용.
@@ -121,11 +122,11 @@ test.describe('PC 1280 한 칸 탐색기',()=>{
 
   test('⑥ 오른쪽 자료를 왼쪽 나무 폴더에 끌어 놓기 · 오른쪽 하위 폴더 줄에 끌어 놓기',async({page})=>{
     const {errors,s}=await boot(page,1280);
-    await page.locator('#documentList [data-lu-document="d3"]').dragTo(page.locator(nav('t2')));
+    await dragByName(page.locator('#documentList [data-lu-document="d3"]'), page.locator(nav('t2')));
     await expect.poll(()=>s.items.find(x=>x.document_id==='d3')?.folder_id||null).toBe('t2');
     await expect(page.locator('#documentList [data-lu-document="d3"]')).toBeHidden(); // 옮긴 자료는 접힌 '가상 묶음 2' 안(보이지 않음)
     await treeEnter(page.locator(nav('t2')));
-    await page.locator('#documentList [data-lu-document="d3"]').dragTo(page.locator('#documentList details[data-lu-node="f:c2_4"] > summary'));
+    await dragByName(page.locator('#documentList [data-lu-document="d3"]'), page.locator('#documentList details[data-lu-node="f:c2_4"] > summary'));
     await expect.poll(()=>s.items.find(x=>x.document_id==='d3')?.folder_id||null).toBe('c2_4');
     expect(errors).toEqual([]);
   });

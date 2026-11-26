@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -15,7 +16,7 @@ const root = page => page.locator('#filesRoot');
 const tree = page => root(page).locator('[data-fx-tree]');
 const pane = (page, i) => root(page).locator(`[data-fx-pane-i="${i}"]`);
 const list = page => pane(page, 0).locator('[data-fx-list]');
-const chip = page => root(page).locator('[data-fx-src="pc"]');
+const chip = page => page.locator('[data-fx-src="pc"]');
 const SHOTS = process.env.FILES_PC_SHOTS || '';
 const shot = async (page, name) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/${name}.png` }); } };
 
@@ -209,7 +210,7 @@ test.describe('윈도우 PC 1440', () => {
   test("두 칸: 칸마다 '내 PC'를 선택할 수 있다(왼쪽 내 PC · 오른쪽 원드라이브), 내 PC로 보내기는 막고 안내(단추 흐림·F5 안내)", async ({ page }) => {
     test.setTimeout(90000);
     const { errors } = await begin(page);
-    await root(page).locator('[data-fx-two]').click();
+    await page.locator('button[data-fx-two]').click();
     await expect(pane(page, 1)).toBeVisible();
     await root(page).locator('[data-fx-tree-tog]').click(); // S52-41 ③: 두 칸이면 나무는 접혀 있다
     // 왼쪽 칸(지금 칸)에서 나무 '내 PC' → C:.
@@ -267,7 +268,7 @@ test.describe('윈도우 PC 1440', () => {
 
 // S52-41 FILES-내PC클라우드옮기기: 0.4.0 문. 왼쪽 칸 내 PC › C: › 문서, 오른쪽 칸 원드라이브 › 가짜 문서함.
 async function twoPanes(page) {
-  await root(page).locator('[data-fx-two]').click();
+  await page.locator('button[data-fx-two]').click();
   await expect(pane(page, 1)).toBeVisible();
   await root(page).locator('[data-fx-tree-tog]').click(); // S52-41 ③: 두 칸이면 나무는 접혀 있다
   await pane(page, 0).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
@@ -288,7 +289,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)
     await twoPanes(page);
     const memo = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
     await expect(memo).toHaveAttribute('draggable', 'true');
-    await memo.dragTo(pane(page, 1).locator('[data-fx-list]'));
+    await dragByName(memo, pane(page, 1).locator('[data-fx-list]'));
     const ask = root(page).locator('[data-fx-dropask]');
     await expect(ask).toBeVisible();
     await shot(page, 'files-pc-xfer-drop-1440');
@@ -537,7 +538,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
   test('두 칸: 내 PC 줄을 반대 칸 내 PC 폴더로 끌어 놓으면 [복사][옮기기] → 옮기기, 같은 칸 폴더에 놓으면 묻지 않고 옮기기, Ctrl+C → [여기에 복사]는 같은 이름이면 한 번 묻고 이름 (2)', async ({ page }) => {
     test.setTimeout(150000);
     const { errors, server, st } = await begin(page, { edit: true });
-    await root(page).locator('[data-fx-two]').click();
+    await page.locator('button[data-fx-two]').click();
     await expect(pane(page, 1)).toBeVisible();
     await root(page).locator('[data-fx-tree-tog]').click();
     await pane(page, 0).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
@@ -545,11 +546,11 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     await pane(page, 1).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
     await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
     await enterRow(page, pane(page, 1).locator(at('data-fx-row', 'pc:D:\\')));
-    await expect(pane(page, 1).locator('[data-fx-list]')).toContainText('빈 폴더');
+    await expect(pane(page, 1).locator('[data-fx-list]')).toContainText('이 폴더는 비어 있어요');
     // 왼쪽 내 PC 파일 → 오른쪽 내 PC D: 끌어 놓기 → [옮기기].
     const memo = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
     await expect(memo).toHaveAttribute('draggable', 'true');
-    await memo.dragTo(pane(page, 1).locator('[data-fx-list]'));
+    await dragByName(memo, pane(page, 1).locator('[data-fx-list]'));
     const drop = root(page).locator('[data-fx-dropask]');
     await expect(drop).toBeVisible();
     await drop.locator('[data-fx-drop-go="move"]').click();
@@ -558,7 +559,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     expect(JSON.parse(st.calls.find(c => c.path === '/v1/move').body)).toEqual({ path: 'C:\\문서\\가짜 메모_연습.txt', dir: 'D:\\' });
     // 같은 칸 안 폴더에 놓기 = 묻지 않고 옮기기(클라우드 안과 같게).
     const pdf = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 안내문.pdf'));
-    await pdf.dragTo(pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
+    await dragByName(pdf, pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
     await expect(pdf).toHaveCount(0);
     expect(st.pc['C:\\문서\\하위_예시'].map(e => e.name)).toEqual(['가짜 안내문.pdf']);
     // Ctrl+C(오른쪽 D: 파일) → 같은 칸 Ctrl+V = 같은 이름 → [그래도 하기] → '이름 (2)'.
@@ -591,7 +592,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
       { path: 'C:\\문서\\가짜 메모_연습.txt', name: '가짜 메모_잠깐.txt' }, { path: 'C:\\문서\\가짜 메모_잠깐.txt', name: '가짜 메모_연습.txt' }]);
     await expect(page.getByText(/되돌렸어요/).first()).toBeVisible();
     // 같은 칸 폴더로 끌어 옮긴 뒤 [되돌리기] = 원래 폴더로.
-    await memo.dragTo(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
+    await dragByName(memo, list(page).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
     await expect(memo).toHaveCount(0);
     await page.locator('.kptu-notice-undo').click();
     await expect(memo).toBeVisible();

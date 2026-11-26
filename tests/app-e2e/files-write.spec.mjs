@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 // S48-45 FILES-클라우드탐색기 ⑤·⑦ 쓰기(명진 결정 F1 원드라이브 자체 휴지통, F8 클라우드 사이 1개·200MB).
 // 이름 바꾸기·새 폴더·여러 개 고르기·휴지통(확인 창)·잘라 붙이기·끌어 놓기·클라우드 사이 옮기기. 서버는 흉내(파일 이름은 모두 가짜).
@@ -85,7 +86,7 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   await expect(bar(page)).toBeHidden();
   // 끌어 놓기: 줄을 나무의 원드라이브 맨 위로.
   const tree = root(page).locator('[data-fx-tree]');
-  await row(page, 'od:OD!14').dragTo(tree.locator('[data-fx-box="od"] .ft-box-head') /* S51-25: 저장소 맨 위 = 상자 머리에 놓기 */);
+  await dragByName(row(page, 'od:OD!14'), tree.locator('[data-fx-box="od"] .ft-box-head') /* S51-25: 저장소 맨 위 = 상자 머리에 놓기 */);
   await expect.poll(() => names(page)).toEqual(['가짜 메모.txt']);
   expect(edgeCalls(server, 'move')[1].body).toMatchObject({ source: 'od', ids: ['OD!14'], to: null });
   // 다른 클라우드: 원드라이브 파일을 잘라(Ctrl+X) 구글 드라이브 폴더에 붙이기 → 확인 창 → 서버 작업표(job_add kind move, S49-28).

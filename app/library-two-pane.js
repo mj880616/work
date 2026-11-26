@@ -18,7 +18,7 @@
 import {twoPaneFrame} from './two-pane.js';
 import {mountSplitResize} from './split-resize.js';
 import {paneSide} from './files-panes-model.mjs';
-import {ftFolderRowHtml} from './folder-tree-ui.mjs';
+import {ftFolderRowHtml, FOLDER_EMPTY_TEXT} from './folder-tree-ui.mjs';
 import {folderCountOf} from './library-tree.js';
 import {emptyHtml, waitHtml} from './wait-state.js';
 import {collapseSteps, moreStepHtml} from './folder-path.mjs';
@@ -121,7 +121,7 @@ export function createLibraryTwo(h) {
       more: {attrs: {'data-lu-nav-more': n.id}, label: `${n.label} 폴더 메뉴`}});
   }
   // 펼친 빈 폴더 안 한 줄. data-lu-pane-sub(그 폴더 id) — 여기에 놓으면 그 폴더(LIB-펼친폴더안놓기 paneDropAt 그대로).
-  const emptyIn = ({node, depth}) => `<div class="lu-pane-sub lu-pane-empty" data-lu-pane-sub="${h.esc(node?.id || '')}" style="--ft-depth:${depth}">${emptyHtml('빈 폴더')}</div>`;
+  const emptyIn = ({node, depth}) => `<div class="lu-pane-sub lu-pane-empty" data-lu-pane-sub="${h.esc(node?.id || '')}" style="--ft-depth:${depth}">${emptyHtml(FOLDER_EMPTY_TEXT)}</div>`;
   // 맨 위 '폴더 밖' 줄: 한 칸 나무의 '폴더 밖' 줄과 같은 모양·같은 표시(data-lu-nav="x:out" — 놓으면 폴더 밖으로, library-folders.js dropFor).
   function outRow({node: n, open, hasContent}) {
     return ftFolderRowHtml({name: n.label, count: n.count, countLabel: `${n.count}건`, depth: 0, open, hasContent, tree: true, icon: h.outIcon?.() ?? null, className: 'lu-pane-folder lu-pane-out', mainAttrs: {'data-lu-nav': OUT_KEY, 'data-lu-prow': OUT_KEY}});
@@ -152,7 +152,7 @@ export function createLibraryTwo(h) {
     const rows = paneRows({...c, node}, paneOpen(i), sorts[i]).map(r => (r.kind === 'folder' ? folderRow(r) : r.kind === 'out' ? outRow(r) : r.kind === 'empty' ? emptyIn(r) : filesHtml(r))).join('');
     return `<section class="lu-pane" data-lu-pane-i="${i}" data-lu-pane-folder="${h.esc(id || '')}" aria-label="${side} 칸">`
       + `<div class="lu-pane-head">${up}<nav class="lu-pane-path" aria-label="${side} 칸 위치">${steps}</nav>${h.sortBtn?.(id) || ''}${sort}</div>`
-      + `<div class="lu-pane-list" role="list">${rows || (h.ready() ? (c.found && id ? emptyUpHtml(emptyHtml('빈 폴더')) : emptyHtml(c.found ? '빈 폴더' : '없음')) : waitHtml({rows: 3}))}</div></section>`;
+      + `<div class="lu-pane-list" role="list">${rows || (h.ready() ? (c.found && id ? emptyUpHtml(emptyHtml(FOLDER_EMPTY_TEXT)) : emptyHtml(c.found ? FOLDER_EMPTY_TEXT : '없음')) : waitHtml({rows: 3}))}</div></section>`;
   }
   // #documentList 안에 넣을 두 칸 HTML. tree = 거르기까지 한 폴더 묶기 나무(폴더 밖 묶음 포함, 들어가기 전 전체).
   function html(tree) {

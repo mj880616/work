@@ -23,3 +23,25 @@ export function paintDropGroup(scope, els = [], cls = DROP_GROUP) {
   for (const el of scope?.querySelectorAll?.('.' + cls) || []) if (!keep.has(el)) el.classList.remove(cls);
   for (const el of keep) el.classList.add(cls);
 }
+
+// STD-빈곳놓기(S71-45, 2026-11-26 사용자 결정 "그 외에 위 아래 여백쪽에 두면 그 최상위 폴더에 드롭가능하게"): 끄는 중 손 아래가
+// 어느 줄에도 걸리지 않는 빈 곳(폴더 나무 맨 위 줄 위·맨 아래 줄 밑 여백, 칸 안쪽 여백)이면 그 나무의 맨 위(뿌리)에 놓는다.
+// 폴더 줄 위(이름 오른쪽 같은 줄 포함)는 지금처럼 그 폴더 — 이 판정은 줄 밖일 때만 참이다. 화면마다 따로 계산하지 않고 이 하나를 쓴다.
+//   zone: 빈 곳으로 볼 칸(선택자 또는 요소 — 나무 칸), rows: 줄 선택자(그 안이면 빈 곳 아님), skip: 단추·입력칸 등(빈 곳 아님).
+export const BLANK_SKIP = 'button,a[href],input,select,textarea,label,[contenteditable],summary,[role="treeitem"],[role="menu"],[role="dialog"],[popover]';
+export function blankRootAt(el, {zone, rows = '.ft-row', skip = BLANK_SKIP} = {}) {
+  if (!el?.closest || !zone) return false;
+  const box = typeof zone === 'string' ? el.closest(zone) : (zone.contains?.(el) ? zone : null);
+  if (!box) return false;
+  if (rows && el.closest(rows)) return false;
+  if (skip) { const s = el.closest(skip); if (s && box.contains(s)) return false; }
+  return true;
+}
+// STD-순서는줄사이만(S71-45): 순서 바꾸기 선은 두 줄 '사이'에서만 생긴다. 나무 맨 끝 줄의 아래 끝(그 밑에 줄이 없음)은 줄 사이가 아니라
+// 아래 빈 곳 — 'blank'로 돌려 위 blankRootAt과 같은 '맨 위에 놓기'가 된다. 원인(추정, 사용자 캡처 '순서를 바꿨어요 · 되돌리기'):
+// 맨 아래 폴더 밑 여백 가까이 놓으면 그 줄의 아래 25%(dropZone 'after')로 잡혀 순서 바꾸기가 되었다.
+export function lineOrBlank(zone, {last = false, first = false} = {}) {
+  if (zone === 'after' && last) return 'blank';
+  if (zone === 'before' && first) return 'blank';
+  return zone;
+}

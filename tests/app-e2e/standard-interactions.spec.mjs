@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
 import { bootLibrary, libFolder, libDoc, openMove, movePicker, pickMove } from './helpers/library-folder-server.mjs';
 import { expandLibraryTree, revealLibraryRow } from './helpers/library-tree.mjs';
@@ -370,7 +371,7 @@ for (const [name, open] of PRESS_SCREENS) test(`T5 ${name} 폰 390: 폴더 이�
   const url0 = page.url();
   await s.press();
   await expect.poll(s.open).toBe(true);
-  await expect(s.empty).toContainText('빈 폴더');
+  await expect(s.empty).toContainText('이 폴더는 비어 있어요');
   expect(page.url()).toBe(url0);
   await s.press();
   await expect.poll(s.open).toBe(false);
@@ -577,7 +578,7 @@ test('T6 파일 1280 두 칸: 칸마다 펼침·들어가기가 따로', async (
   test.setTimeout(90000);
   const { errors } = await startFiles(page, 1280);
   await openFiles(page, 1280, { two: true });
-  const two = page.locator('#filesRoot [data-fx-two]');
+  const two = page.locator('button[data-fx-two]');
   if ((await two.getAttribute('aria-pressed')) !== 'true') await two.click();
   await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
   const pane = i => page.locator(`#filesRoot [data-fx-pane-i="${i}"] [data-fx-list]`);
@@ -626,7 +627,7 @@ test('T7 자료실 1280 두 칸: 끌어 놓기·펼치기 뒤 두 칸 스크롤�
   const inView = (i, sel) => page.evaluate(([p, q, edge]) => { const l = document.querySelector(p + ' .lu-pane-list').getBoundingClientRect(); return [...document.querySelectorAll(p + ' ' + q)].find(x => { const r = x.getBoundingClientRect(); return r.top > l.top + edge + 4 && r.bottom < l.bottom - edge - 4; })?.getAttribute(q.slice(1, -1)); }, [lp(i), sel, EDGE]);
   const doc = await inView(0, '[data-lu-document]'), to = await inView(1, '[data-lu-nav]');
   expect(doc && to).toBeTruthy();
-  await page.locator(`${lp(0)} [data-lu-document="${doc}"]`).dragTo(page.locator(`${lp(1)} [data-lu-nav="${to}"]`));
+  await dragByName(page.locator(`${lp(0)} [data-lu-document="${doc}"]`), page.locator(`${lp(1)} [data-lu-nav="${to}"]`));
   await expect.poll(() => s.items.find(x => x.document_id === doc)?.folder_id).toBe(to);
   await expect.poll(tops).toEqual(top0);
   expect(await opened()).toEqual(open0);
@@ -940,7 +941,7 @@ function nestedFolders(extra = 0) {
 }
 // PC HTML 끌기: from 줄을 잡아 to 줄 가운데로. beforeUp(): 놓기 직전(표시가 뜬 뒤) 할 일.
 async function dragRow(page, fromSel, toSel, { beforeUp = null } = {}) {
-  const a = await rectOf(page, fromSel);
+  const a = await namePoint(page.locator(fromSel).first()); // S71-45: 줄 옮기기는 이름 글자를 잡고(S12)
   await page.mouse.move(a.x, a.y); await page.mouse.down();
   await page.mouse.move(a.x + 4, a.y + 6, { steps: 3 });
   const b = await rectOf(page, toSel);
@@ -1449,7 +1450,7 @@ for (const [name, open] of CTX_SCREENS) test(`C7 ${name} PC 1280: 글 줄 오른
 async function filesPick(page, width, two) {
   const { errors, server } = await startFiles(page, width);
   await openFiles(page, width, { two });
-  const t = page.locator('#filesRoot [data-fx-two]');
+  const t = page.locator('button[data-fx-two]');
   if (two && (await t.getAttribute('aria-pressed')) !== 'true') await t.click();
   if (two) {
     await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(1);
@@ -1541,7 +1542,7 @@ for (const [name, opener] of FILE_PICK_SCREENS) test.describe(`${name} PC 1280 �
     await s.row('OD!13').click({ modifiers: ['Control'] });
     await expect.poll(s.picked).toEqual(['od:OD!11', 'od:OD!13']);
     await expect(s.row('OD!11')).toHaveAttribute('draggable', 'true');
-    await s.row('OD!11').dragTo(s.row('OD!10'));
+    await dragByName(s.row('OD!11'), s.row('OD!10'));
     await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11', 'OD!13'], to: 'OD!10', confirm: true }]);
     await expect(s.row('OD!11')).toHaveCount(0);
     await expect(s.row('OD!13')).toHaveCount(0);
@@ -1552,7 +1553,7 @@ test('D 파일 한 칸 PC 1280: 여러 줄 고르고 끌어 왼쪽 나무 폴더
   const s = await filesPick(page, 1280, false);
   await s.row('OD!11').click({ modifiers: ['Control'] });
   await s.row('OD!12').click({ modifiers: ['Control'] });
-  await s.row('OD!12').dragTo(page.locator('#filesRoot [data-fx-tree] [data-fx-drop="od:OD!2"]').first());
+  await dragByName(s.row('OD!12'), page.locator('#filesRoot [data-fx-tree] [data-fx-drop="od:OD!2"]').first());
   await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11', 'OD!12'], to: 'OD!2', confirm: true }]);
   await expect(s.row('OD!11')).toHaveCount(0);
   await expect(s.row('OD!12')).toHaveCount(0);
@@ -1862,7 +1863,7 @@ async function t10Files(page, width, two) {
   await openFiles(page, width);
   const fx = page.locator('#filesRoot');
   if (two) {
-    await fx.locator('[data-fx-view-seg] [data-fx-two]').click();
+    await page.locator('[data-fx-view-seg] [data-fx-two]').click();
     await expect(fx.locator('[data-fx-pane-i="1"]')).toHaveCount(1);
     if (await fx.locator('[data-fx-tree]').isHidden()) await fx.locator('[data-fx-tree-tog]').click();
     await expect(fx.locator('[data-fx-tree]')).toBeVisible();
@@ -2030,7 +2031,7 @@ for (const [name, open] of T10_SCREENS.slice(0, 3)) test(`T10 ${name} PC 1280: �
   const B = s.row(s.B);
   await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
   await expect(s.drag.from).toBeVisible();
-  await s.drag.from.hover();
+  await s.drag.from.hover({ position: await nameSpot(s.drag.from) }); // S71-45: 이름 글자를 잡고(S12)
   await page.mouse.down();
   const b = await t10Name(B).boundingBox();
   await page.mouse.move(b.x + 40, b.y + b.height / 2, { steps: 8 });
@@ -2214,4 +2215,248 @@ for (const [name, width, open] of DRAG_SCROLL_SCREENS) test.describe(`D3 ${name}
     await s.done();
     expect(s.errors).toEqual([]);
   });
+});
+
+// ---------- S71-45 STD-끌기시작·빈곳놓기·Esc풀기(2026-11-26 사용자 결정 — 윈도 탐색기와 같게) ----------
+// S12: 목록 줄의 아이콘 + 이름 글자 위에서 끌면 옮기기, 같은 줄의 나머지(이름 오른쪽 빈 곳·날짜·크기·종류 칸·아이콘 왼쪽 띠)에서 끌면 사각형 고르기.
+// S13: Esc = 고른 것 모두 풀기(사각형으로 고른 뒤·줄을 눌러 고른 뒤, 커서가 목록 밖이어도) — 열린 메뉴가 있으면 메뉴만 먼저.
+// D10: 어느 폴더 줄에도 걸리지 않는 나무 위·아래 빈 곳에 놓으면 맨 위(뿌리)로 — 이미 맨 위면 아무 일 없음. 폴더 줄 위(이름 오른쪽 같은 줄 포함)는 그 폴더.
+// D11: 순서 바꾸기 선은 줄 사이에서만 — 나무 맨 끝 줄의 아래 끝은 빈 곳(D10).
+// 화면 표: 파일 한 칸·두 칸(FILE_PICK_SCREENS) · 자료실(PC 1280 왼쪽 나무 + 목록) · 노트 폴더 나무. 이름은 지어낸 것, 가짜 서버.
+import { namePoint, nameSpot } from './helpers/grab-name.mjs';
+async function marqueeFrom(page, from, to) {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 10 });
+  await expect(page.locator('.marquee-box')).toBeVisible();
+  await page.mouse.move(to.x + 1, to.y + 1, { steps: 2 }); // 고르기 막대가 떠 목록이 내려간 뒤의 자리로 한 번 더(사람 손처럼)
+  await page.mouse.up();
+  await expect(page.locator('.marquee-box')).toHaveCount(0);
+}
+const blurAll = page => page.evaluate(() => document.activeElement?.blur?.());
+for (const [name, opener] of FILE_PICK_SCREENS) test.describe(`${name} PC 1280 끌기 시작 자리·Esc`, () => {
+  for (const [spot, at] of [
+    ['바뀐 날 칸', async r => { const b = await r.locator('.fx-day').boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }],
+    ['크기 칸', async r => { const b = await r.locator('.fx-size').boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }],
+    ['아이콘 왼쪽 띠', async r => { const b = await r.boundingBox(), i = await r.locator('.fx-ico').boundingBox(); expect(i.x - b.x).toBeGreaterThan(4); return { x: (b.x + i.x) / 2, y: b.y + b.height / 2 }; }],
+    ['이름 오른쪽 빈 곳', async r => { const p = await namePoint(r), d = await r.locator('.fx-day').boundingBox(); const end = await r.locator('.fx-name').evaluate(n => { const g = document.createRange(); g.selectNodeContents(n); return g.getBoundingClientRect().right; }); expect(d.x - end).toBeGreaterThan(30); return { x: (end + d.x) / 2, y: p.y }; }],
+  ]) test(`S12 ${name} 1280: ${spot}에서 끌면 사각형으로 여러 줄 고르기(옮기지 않음)`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    const p = await at(s.row('OD!12')), top = await s.row('OD!13').boundingBox(); // 이름 차례: 2026 폴더 · 메모(13) · 안내문(11) · 예산표(12)
+    await marqueeFrom(page, p, { x: p.x - 10, y: top.y + 4 });
+    await expect.poll(s.picked).toEqual(expect.arrayContaining(['od:OD!11', 'od:OD!12', 'od:OD!13']));
+    await expect(s.bar).toBeVisible();
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
+  test(`S12·D10 ${name} 1280: 이름 글자 잡고 끌면 옮기기 — 폴더 줄 이름 오른쪽 같은 줄에 놓아도 그 폴더`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    const dst = await s.row('OD!10').boundingBox();
+    await s.row('OD!11').dragTo(s.row('OD!10'), { sourcePosition: await nameSpot(s.row('OD!11')), targetPosition: { x: dst.width * 0.7, y: dst.height / 2 } });
+    await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11'], to: 'OD!10', confirm: true }]);
+    expect(s.errors).toEqual([]);
+  });
+  test(`S13 ${name} 1280: 사각형으로 고른 뒤 Esc · 줄 눌러 고른 뒤 Esc = 모두 풀림·막대 닫힘, 메뉴가 열려 있으면 메뉴만 먼저`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    const p = await s.row('OD!12').locator('.fx-day').boundingBox(), top = await s.row('OD!13').boundingBox();
+    await marqueeFrom(page, { x: p.x + p.width / 2, y: p.y + p.height / 2 }, { x: p.x, y: top.y + 4 });
+    await expect.poll(async () => (await s.picked()).length).toBeGreaterThanOrEqual(3);
+    await blurAll(page);
+    await page.keyboard.press('Escape');
+    await expect.poll(s.picked).toEqual([]);
+    await expect(s.bar).toBeHidden();
+    // 줄을 눌러 고른 뒤(Ctrl+누르기 두 줄) — 커서를 목록 밖에 두어도 Esc 한 번에 모두 풀림.
+    await s.row('OD!11').click({ modifiers: ['Control'] });
+    await s.row('OD!13').click({ modifiers: ['Control'] });
+    await expect.poll(s.picked).toEqual(['od:OD!11', 'od:OD!13']);
+    await blurAll(page);
+    await page.keyboard.press('Escape');
+    await expect.poll(s.picked).toEqual([]);
+    await expect(s.bar).toBeHidden();
+    // 메뉴가 열린 채 Esc = 메뉴만 닫힘(고른 것 그대로), 한 번 더 Esc = 고른 것 풀림.
+    await s.row('OD!11').click({ modifiers: ['Control'] });
+    await s.row('OD!12').click({ modifiers: ['Control'] });
+    await s.row('OD!12').click({ button: 'right' });
+    await expect(page.locator('#rowMenu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#rowMenu')).toBeHidden();
+    await expect.poll(s.picked).toEqual(['od:OD!11', 'od:OD!12']);
+    await page.keyboard.press('Escape');
+    await expect.poll(s.picked).toEqual([]);
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
+});
+test('D10 파일 한 칸 PC 1280: 이름 잡고 끌어 왼쪽 나무 상자 밖 빈 곳(원드라이브 상자 밑)에 놓으면 원드라이브 맨 위로 · 맨 위 줄이 놓을 곳 표시 · 이미 맨 위면 변화 없음', async ({ page }) => {
+  const s = await filesPick(page, 1280, false);
+  const box = await page.locator('#filesRoot [data-fx-tree] [data-fx-box="od"]').boundingBox(), next = await page.locator('#filesRoot [data-fx-tree] [data-fx-box="gd"]').boundingBox();
+  expect(next.y - (box.y + box.height)).toBeGreaterThan(3);
+  const gap = { x: box.x + box.width / 2, y: (box.y + box.height + next.y) / 2 };
+  const from = await namePoint(s.row('OD!11'));
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 6, from.y + 4, { steps: 3 });
+  await page.mouse.move(gap.x, gap.y, { steps: 12 });
+  await expect(page.locator('#filesRoot [data-fx-tree] [data-fx-box="od"].fx-drop-on')).toHaveCount(1);
+  await page.mouse.up();
+  await expect.poll(s.moves).toEqual([{ action: 'move', source: 'od', ids: ['OD!11'], to: null, confirm: true }]);
+  // 맨 위 폴더(가짜 문서함)를 맨 위 빈 곳에 놓기 = 이미 맨 위라 옮기지 않는다.
+  await treeGo(page, 'od', '');
+  const top = page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row="od:OD!1"]');
+  await expect(top).toBeVisible();
+  const f2 = await namePoint(top);
+  await page.mouse.move(f2.x, f2.y);
+  await page.mouse.down();
+  await page.mouse.move(f2.x + 6, f2.y + 4, { steps: 3 });
+  await page.mouse.move(gap.x, gap.y, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  expect(s.moves().length).toBe(1);
+  expect(s.errors).toEqual([]);
+});
+
+// 자료실(PC 1280 왼쪽 나무 '자료실 전체' + 목록).
+const LIB_FOLDERS = [
+  libFolder('fa', 'top-a', { name: '가상 A', sort_order: 1024 }),
+  libFolder('fc', 'child-a1', { name: '가상 C', parent_id: 'fa', sort_order: 0 }),
+  libFolder('fn', null, { name: '가상 N', sort_order: 2048 }),
+  libFolder('fz', null, { name: '가상 Z', sort_order: 3072 }),
+];
+const LIB_ITEMS = [{ document_id: 'a-1', folder_id: 'fc' }, { document_id: 'n-1', folder_id: 'fa' }];
+const lnav = id => `#libraryFolderNav [data-lu-nav="${id}"]`;
+const ldoc = id => `#documentList [data-lu-document="${id}"]`;
+async function libStd(page) {
+  const { s, errors } = await bootLibrary(page, 1280, { folders: LIB_FOLDERS, items: LIB_ITEMS, group: '폴더' });
+  await expect(page.locator('#libraryFolderNav')).toBeVisible();
+  await treeEnter(page.locator(lnav('')));
+  await expect(page.locator(ldoc('a-2'))).toBeVisible();
+  // 나무 밑 빈 곳: 왼쪽 나무 칸 아래, 목록 상자 안(어느 줄에도 걸리지 않음).
+  const blank = async () => { const n = await page.locator('#libraryFolderNav').boundingBox(), c = await page.locator('#libraryListCard').boundingBox(); expect(c.y + c.height - (n.y + n.height)).toBeGreaterThan(30); return { x: n.x + n.width / 2, y: n.y + n.height + 20 }; };
+  return { s, errors, blank, folderOf: id => s.items.find(x => x.document_id === id)?.folder_id || null, parentOf: id => s.folders.find(f => f.id === id)?.parent_id || null,
+    line: page.locator('#libraryFolderStatusLine'), picked: () => page.locator('#documentList [data-lu-document][aria-selected="true"], #documentList .lu-row:has(.lu-pick:checked)').count() };
+}
+async function mouseDrag(page, from, to) {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 6, from.y + 4, { steps: 3 });
+  await page.mouse.move(to.x, to.y, { steps: 12 });
+  await page.mouse.move(to.x + 1, to.y, { steps: 2 });
+  await page.mouse.up();
+}
+test('S12·S13 자료실 PC 1280: 자료 줄 날짜·분류 칸에서 끌면 사각형(옮기지 않음) → Esc로 모두 풀림 · 이름 글자를 잡고 끌면 폴더로 옮기기', async ({ page }) => {
+  const L = await libStd(page);
+  const n = L.s.writes.length;
+  const d = await page.locator(`${ldoc('a1-1')} .lu-row-date`).boundingBox(), top = await page.locator(ldoc('a-2')).boundingBox();
+  await marqueeFrom(page, { x: d.x + d.width / 2, y: d.y + d.height / 2 }, { x: d.x - 20, y: top.y + 4 });
+  await expect(page.locator('#librarySelectBar')).toBeVisible();
+  await expect.poll(L.picked).toBe(2);
+  expect(L.s.writes.length).toBe(n);
+  await blurAll(page);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#librarySelectBar')).toBeHidden();
+  // 분류 칸(이름 왼쪽 작은 꼬리표)도 빈 곳.
+  const tag = await page.locator(`${ldoc('a1-1')} .lu-row-tag`).boundingBox();
+  await marqueeFrom(page, { x: tag.x + tag.width / 2, y: tag.y + tag.height / 2 }, { x: tag.x + 30, y: top.y + 4 });
+  await expect.poll(L.picked).toBe(2);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#librarySelectBar')).toBeHidden();
+  expect(L.s.writes.length).toBe(n);
+  // 이름 글자를 잡고 왼쪽 나무 폴더에 놓으면 옮기기(지금과 같음).
+  const fn = await page.locator(lnav('fn')).boundingBox();
+  await mouseDrag(page, await namePoint(page.locator(ldoc('a-2'))), { x: fn.x + fn.width * 0.7, y: fn.y + fn.height / 2 });
+  await expect.poll(() => L.folderOf('a-2')).toBe('fn');
+  expect(L.errors).toEqual([]);
+});
+test('D10·D11 자료실 PC 1280: 나무 밑 빈 곳에 놓으면 자료실 전체(맨 위) · 이미 맨 위면 쓰기 없음 · 맨 끝 폴더 줄 아래 끝은 순서 바꾸기가 아님', async ({ page }) => {
+  const L = await libStd(page);
+  // 하위 폴더(가상 A 안 가상 C)를 나무 밑 빈 곳에 → 맨 위로.
+  await treeEnter(page.locator(lnav('fa')));
+  await expect(page.locator(lnav('fc'))).toBeVisible();
+  const c = await page.locator(lnav('fc')).boundingBox(), spot = await L.blank();
+  await page.mouse.move(c.x + 60, c.y + c.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(c.x + 66, c.y + c.height / 2 + 4, { steps: 3 });
+  await page.mouse.move(spot.x, spot.y, { steps: 12 });
+  await expect(page.locator('#libraryFolderNav .lu-fnav-root.lu-drop-into')).toHaveCount(1); // '자료실 전체' 줄이 놓을 곳
+  await page.mouse.up();
+  await expect.poll(() => L.parentOf('fc')).toBeNull();
+  await expect(L.line).toContainText('맨 위');
+  // 폴더 안 자료(가상 C 안 a-1)를 나무 밑 빈 곳에 → 폴더 밖.
+  await treeEnter(page.locator(lnav('fc')));
+  await expect(page.locator(ldoc('a-1'))).toBeVisible();
+  await mouseDrag(page, await namePoint(page.locator(ldoc('a-1'))), await L.blank());
+  await expect.poll(() => L.folderOf('a-1')).toBeNull();
+  // 이미 맨 위 폴더(가상 Z)를 빈 곳에 → 쓰기 없음·알림 없음.
+  let n = L.s.writes.length;
+  await expect(L.line).toContainText('폴더 밖');
+  await expect(page.locator(lnav('fz'))).toBeVisible();
+  const z = await page.locator(lnav('fz')).boundingBox();
+  await mouseDrag(page, { x: z.x + 60, y: z.y + z.height / 2 }, await L.blank());
+  await page.waitForTimeout(400);
+  expect(L.s.writes.length).toBe(n);
+  // 맨 끝 폴더 줄(가상 Z)의 아래 끝에 가상 N을 놓기 = 줄 사이가 아니라 빈 곳 → 이미 맨 위라 쓰기 없음('순서를 바꿨어요' 없음).
+  const rows = page.locator('#libraryFolderNav .ft-row'), last = await rows.last().boundingBox(), nn = await page.locator(lnav('fn')).boundingBox();
+  await mouseDrag(page, { x: nn.x + 60, y: nn.y + nn.height / 2 }, { x: last.x + 80, y: last.y + last.height - 3 });
+  await page.waitForTimeout(400);
+  expect(L.s.writes.length).toBe(n);
+  await expect(L.line).not.toContainText('순서를 바꿨어요');
+  // 줄 사이(가상 Z 아래 끝 — 그 밑에 가상 C 줄이 있음)는 지금처럼 순서 바꾸기.
+  const zz = await page.locator(lnav('fz')).boundingBox();
+  expect(await rows.last().locator('[data-lu-nav]').getAttribute('data-lu-nav')).not.toBe('fz');
+  await mouseDrag(page, { x: nn.x + 60, y: nn.y + nn.height / 2 }, { x: zz.x + 80, y: zz.y + zz.height - 3 });
+  await expect.poll(() => L.s.writes.length).toBeGreaterThan(n);
+  await expect(L.line).toContainText('순서를 바꿨어요');
+  expect(L.errors).toEqual([]);
+});
+
+// 노트 폴더 나무(PC 1280): 하위 폴더를 나무 밑 빈 곳에 놓으면 '폴더 없음'(맨 위)으로.
+test('D10 노트 폴더 나무 PC 1280: 하위 폴더를 나무 밑 빈 곳에 놓으면 맨 위로 · 맨 위 폴더는 쓰기 없음', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page);
+  await installViewPrefsServer(page);
+  const folders = [
+    { id: U(300), workspace_id: 'w', parent_id: null, name: '가상 위', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' },
+    { id: U(301), workspace_id: 'w', parent_id: U(300), name: '가상 아래', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' },
+    { id: U(302), workspace_id: 'w', parent_id: null, name: '가상 옆', sort_order: 2048, created_at: '2026-10-01T00:00:00Z' },
+  ];
+  const patches = [];
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => {
+    const m = r.request().method();
+    if (m === 'GET') return r.fulfill({ json: structuredClone(folders) });
+    if (m === 'PATCH') { const id = new URL(r.request().url()).searchParams.get('id')?.replace(/^eq\./, ''); const body = r.request().postDataJSON(); patches.push({ id, body }); const f = folders.find(x => x.id === id); if (f) Object.assign(f, body); return r.fulfill({ json: f ? [f] : [] }); }
+    return r.fulfill({ status: 500, json: {} });
+  });
+  await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
+  await page.evaluate(() => window.KPTURouter.go('basket'));
+  await chooseBasketKind(page, 'note');
+  const tree = page.locator('[data-nx-tree]');
+  await expect(tree.locator(`[data-reorder-id="f:${U(300)}"]`)).toBeVisible();
+  const tog = tree.locator(`[data-reorder-id="f:${U(300)}"] .ft-tog`).first();
+  if (await tog.count()) await tog.click(); else await tree.locator(`[data-reorder-id="f:${U(300)}"] .ft-main`).first().dblclick();
+  const child = tree.locator(`[data-reorder-id="f:${U(301)}"]`);
+  await expect(child).toBeVisible();
+  const t = await tree.boundingBox(), lastRow = await tree.locator('.ft-row').last().boundingBox();
+  const spot = { x: t.x + t.width / 2, y: Math.min(t.y + t.height - 6, lastRow.y + lastRow.height + 30) };
+  expect(spot.y).toBeGreaterThan(lastRow.y + lastRow.height + 2);
+  const c = await child.boundingBox();
+  await page.mouse.move(c.x + 50, c.y + c.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(c.x + 56, c.y + c.height / 2 + 6, { steps: 4 });
+  await page.mouse.move(spot.x, spot.y, { steps: 12 });
+  await expect(page.locator('[data-nx-tree] [data-nx-outside].nx-drop')).toHaveCount(1);
+  await page.mouse.up();
+  await expect.poll(() => patches.find(p => p.id === U(301))?.body?.parent_id, { timeout: 5000 }).toBeNull();
+  // 맨 위 폴더(가상 옆)를 빈 곳에 = 쓰기 없음.
+  const n = patches.length, side = await tree.locator(`[data-reorder-id="f:${U(302)}"]`).boundingBox();
+  await page.mouse.move(side.x + 50, side.y + side.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(side.x + 56, side.y + side.height / 2 + 6, { steps: 4 });
+  await page.mouse.move(spot.x, spot.y, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  expect(patches.length).toBe(n);
+  expect(errors).toEqual([]);
 });

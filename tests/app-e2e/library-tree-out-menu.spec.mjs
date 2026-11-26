@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
 import {treeEnter} from './helpers/tree-enter.mjs';
 // S55-08 PR-2 (2026-11-09 명진 요청): LIB-나무폴더밖 · LIB-우클릭메뉴 · LIB-위쪽줄여백. 이름은 지어낸 것.
@@ -46,13 +47,13 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     await treeEnter(page.locator(nav('')));await expect.poll(()=>tops(page)).toEqual(['f:fa','f:fn']);
     // 폴더 안 자료를 끌어 '폴더 밖' 줄에 놓으면 폴더 밖으로.
     await enterNav(page,'fa');
-    await page.locator(row('n-1')).dragTo(page.locator(nav('x:out')));
+    await dragByName(page.locator(row('n-1')), page.locator(nav('x:out')));
     await expect.poll(()=>s.items.some(x=>x.document_id==='n-1')).toBe(false);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('폴더 밖');
     // 폴더 밖 자료를 모두 폴더로 옮기면(0개) 그 나무 줄도 없다.
     await treeEnter(page.locator(nav('')));
     // 옮긴 뒤 목록을 다시 그리기를 마친 것(그 줄이 빠짐)을 본 다음 다음 줄을 끈다 — 다시 그리는 중에 시작한 끌기는 브라우저가 취소해 놓이지 않는다(바쁜 CI에서 간헐 실패).
-    for(const id of ['a-2','a1-1','n-1']){await page.locator(row(id)).dragTo(page.locator(nav('fn')));await expect.poll(()=>s.items.find(x=>x.document_id===id)?.folder_id).toBe('fn');await expect(page.locator(row(id))).toHaveCount(0)}
+    for(const id of ['a-2','a1-1','n-1']){await dragByName(page.locator(row(id)), page.locator(nav('fn')));await expect.poll(()=>s.items.find(x=>x.document_id===id)?.folder_id).toBe('fn');await expect(page.locator(row(id))).toHaveCount(0)}
     await expect(page.locator('#documentList > [data-lu-document]')).toHaveCount(0);
     await expect(page.locator(nav('x:out'))).toHaveCount(0);
     expect(errors).toEqual([]);
@@ -106,7 +107,8 @@ for(const width of [1440,884,412])test(`LIB-위쪽줄여백 ${width}: 위쪽 한
   test.setTimeout(60000);
   const {errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
   await expect(page.locator('#libraryRecent')).toBeVisible();
-  const gap=await page.evaluate(()=>{const a=document.querySelector('.library-filter-toolbar .lu-search-row').getBoundingClientRect(),b=document.querySelector('#libraryRecent').getBoundingClientRect(),space=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-space-2'));return {gap:Math.round(b.top-a.bottom),space}});
+  // S71-28 FILES-머리한줄: 폰·폴드는 위쪽 한 줄이 앱 머리 줄이다 — 머리 줄과 상자 사이 = 머리 줄 아래 여백(빈 둘째 줄 자리가 끼지 않음).
+  const gap=await page.evaluate(wide=>{const head=document.querySelector('#appView>.mobile-shell-header'),a=(wide?document.querySelector('.library-filter-toolbar .lu-search-row'):head).getBoundingClientRect(),b=document.querySelector('#libraryRecent').getBoundingClientRect(),space=wide?parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-space-2')):parseFloat(getComputedStyle(head).marginBottom);return {gap:Math.round(b.top-a.bottom),space}},width>760);
   expect(gap.gap).toBe(gap.space);
   await page.screenshot({path:`test-results/library-top-gap-${width}.png`,clip:{x:0,y:0,width,height:360}});
   expect(errors).toEqual([]);

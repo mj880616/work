@@ -90,7 +90,8 @@ for(const width of [1440,884,390])test(`분류: 기본은 회의만 꺼짐, 여�
   const hint=page.locator('.lu-off-hint');await expect(hint).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');await expect(hint).toHaveAttribute('role','status');
   await hint.getByRole('button',{name:'켜기'}).click();await expect(pick(page)).toHaveText('분류: 전체');await expect(page.locator('[data-lu-document="meeting"]')).toBeVisible();await expect(hint).toHaveCount(0);
   // 검색어가 없으면 안내도 없다.
-  await toggleLibraryCategory(page,'회의');await (await screenFind(page)).fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);
+  // S71-28: 폰(600px 미만)은 찾기 칸을 펼친 동안 칸이 고르기 자리를 쓴다 — 비우고 접은 뒤 [분류 ▾]를 고른다.
+  {const find=await screenFind(page);await find.fill('');if(width<600){await find.press('Escape');await expect(find).toBeHidden()}}await toggleLibraryCategory(page,'회의');await expect(page.locator('.lu-off-hint')).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
@@ -200,11 +201,11 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 위 한 줄·담당
   expect(await page.evaluate(()=>!!(document.querySelector('#libraryView .lu-search-row').compareDocumentPosition(document.querySelector('#libraryRecent'))&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   // 빠짐9: [모두 펴기/접기]·[여러 개 고르기]·[새 폴더]는 위 줄 오른쪽 끝 ⋯ 하나(32px 아이콘, 누르는 범위 44px). 따로 뜬 글자 버튼은 없다.
   await expect(page.locator('#libraryExpandAll,#librarySelectBtn')).toHaveCount(0);
-  // S71-59 UI-화면메뉴안으로: ⋯는 맨 위 줄이 아니라 화면 안 첫 줄(폴더·분류 고르기 줄) 오른쪽 끝.
-  const more=page.locator('.sf-tools:not([hidden]) #libraryTopMenuBtn'),m=await box(more),view=await box(page.locator('#libraryView'));
+  // S71-59 UI-화면메뉴안으로: ⋯·[+]는 맨 위 줄이 아니라 화면 안 첫 줄(폴더·분류 고르기 줄) 오른쪽 끝 — 차례는 ⋯ 다음 [+]가 맨 오른쪽(S71-28).
+  const more=page.locator('.sf-tools:not([hidden]) #libraryTopMenuBtn'),m=await box(more),view=await box(page.locator('#libraryView')),add=await box(page.locator('.sf-tools:not([hidden]) #newDocumentBtn'));
   await expect(page.locator('#appView>.app-topline #libraryTopMenuBtn')).toHaveCount(0);
   await expect(page.locator('#libraryView .lu-search-row [data-screen-tools="line"] #libraryTopMenuBtn')).toBeVisible();
-  expect(m.x).toBeGreaterThan(cat.x+cat.width);expect(view.x+view.width-(m.x+m.width)).toBeLessThanOrEqual(12);expect(Math.abs((m.y+m.height/2)-(search.y+search.height/2))).toBeLessThan(3);expect(Math.round(m.height)).toBe(32);expect(await more.evaluate(n=>Math.round(parseFloat(getComputedStyle(n,'::after').height)))).toBe(44);
+  expect(m.x).toBeGreaterThan(cat.x+cat.width);expect(m.x+m.width).toBeLessThanOrEqual(add.x+0.5);expect(view.x+view.width-(add.x+add.width)).toBeLessThanOrEqual(12);expect(Math.abs((m.y+m.height/2)-(search.y+search.height/2))).toBeLessThan(3);expect(Math.round(m.height)).toBe(32);expect(await more.evaluate(n=>Math.round(parseFloat(getComputedStyle(n,'::after').height)))).toBe(44);
   await expect(group).toHaveAttribute('aria-label','묶기');await expect(group).toHaveAttribute('aria-controls','documentList');
   expect(await page.locator('#libraryView .lu-filter-label').evaluateAll(els=>els.every(el=>el.getAttribute('aria-hidden')==='true'))).toBe(true);
   // 담당조직으로 걸러 들어오면 그 줄(이름표 + 칩)이 위 줄 아래에 낀다.
@@ -220,14 +221,14 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 위 한 줄·담당
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-// LIB-위쪽한줄 가안 → S70-54: 폰 위쪽은 앱 머리 줄 '자료실' ……… [⌕][+][⋯] / 본문 첫 줄 [폴더 ▾][분류 ▾]. 아래 알약·떠 있는 [+] 없음(자세한 동작은 library-top-row.spec.mjs).
-test('폰 거르기 줄: 두 줄, 이름표 없음, 아래 알약·떠 있는 [+] 없음',async({page})=>{
+// LIB-위쪽한줄 가안 → S70-54 → S71-28 FILES-머리한줄: 폰 위쪽은 앱 머리 줄 한 줄 '자료실' [폴더 ▾][분류 ▾] ……… [⋯][⌕][+]. 아래 알약·떠 있는 [+] 없음(자세한 동작은 library-top-row.spec.mjs·head-one-line.spec.mjs).
+test('폰 거르기 줄: 한 줄, 이름표 없음, 아래 알약·떠 있는 [+] 없음',async({page})=>{
   const {errors}=await boot(page,390);
   await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveCount(0);
   await expect(page.locator('#libraryCategoryFilter,#manageLibraryBtn')).toHaveCount(0);
   const title=await box(page.locator('.mobile-shell-header [data-mobile-view-name]')),find=await box(page.locator('.mobile-shell-header .sf-open')),more=await box(page.locator('#libraryTopMenuBtn')),g=await box(page.locator('#libraryGroupBy')),p=await box(pick(page));
   expect(Math.abs((title.y+title.height/2)-(find.y+find.height/2))).toBeLessThan(3);expect(Math.abs((more.y+more.height/2)-(find.y+find.height/2))).toBeLessThan(3);
-  expect(Math.abs((g.y+g.height/2)-(p.y+p.height/2))).toBeLessThan(3);expect(g.y).toBeGreaterThan(title.y+title.height-1);
+  expect(Math.abs((g.y+g.height/2)-(p.y+p.height/2))).toBeLessThan(3);expect(Math.abs((g.y+g.height/2)-(title.y+title.height/2))).toBeLessThan(3);expect(g.x).toBeGreaterThanOrEqual(title.x+title.width);
   await expect(page.locator('#gsScreenInput')).toBeHidden();
   expect(await page.locator('#libraryGroupBy,#newDocumentBtn').evaluateAll(xs=>xs.map(x=>getComputedStyle(x).position))).not.toContain('fixed');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
@@ -238,8 +239,9 @@ for(const width of [1440,884,390])test(`'✎ 분류 수정'은 [분류 ▾] 창 
   const {errors}=await boot(page,width);
   await expect(page.getByRole('button',{name:'분류 수정',exact:true})).toHaveCount(0);
   expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);
-  expect(await page.locator('#libraryView .lu-search-row .lu-pick-row button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['libraryCategoryPick']); // S71-59: 같은 줄 끝 단추 자리(+·⋯)는 아래 .sf-tools
-  expect(await page.locator('.sf-tools:not([hidden]) button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);
+  // S71-28: 폰은 [분류 ▾]도 머리 줄 단추 상자 안, [+]는 맨 오른쪽(⋯ 다음). S71-59: PC는 단추 자리(⋯·+)가 본문 첫 줄 끝(.lu-search-row 안 .sf-tools).
+  expect(await page.locator('#libraryView .lu-search-row .lu-pick-row button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(width<=760?[]:['libraryCategoryPick']);
+  expect(await page.locator('.sf-tools:not([hidden]) button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(width<=760?['libraryCategoryPick','libraryTopMenuBtn','newDocumentBtn']:['libraryTopMenuBtn','newDocumentBtn']);
   await libraryCategoriesReady(page);await pick(page).click();
   const edit=sheet(page).getByRole('button',{name:'분류 수정',exact:true});
   await expect(edit).toHaveCount(1);await expect(edit).toBeVisible();await expect(edit).toHaveText('✎ 분류 수정');

@@ -54,9 +54,10 @@ test('붙는 곳: [확정] 저장과 ② [올리기] 저장 두 곳 모두 저�
     const s = readFileSync(new URL(f, import.meta.url), 'utf8').split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
     assert.doesNotMatch(s, /공공팀/); // 기기 저장 금지는 Browser storage audit 작업이 본다
   }
-  // 드라이브는 기존 맞추기(drive-mirror auto)만 부탁한다 — 새 옮기기 코드 없음.
+  // 드라이브는 공용 부탁 길(drive-follow.mjs → drive-mirror auto)만 쓴다 — 새 옮기기 코드 없음(S70-76).
   const mod = readFileSync(new URL('../app/weekly-save-folder.js', import.meta.url), 'utf8');
-  assert.match(mod, /workspace-drive\?action=drive-mirror', \{method: 'POST', body: \{mode: 'auto'\}/);
+  assert.match(mod, /import \{askDriveFollow\} from '\.\/drive-follow\.mjs'/);
+  assert.doesNotMatch(mod, /action=drive-mirror/);
   assert.doesNotMatch(mod, /googleapis/);
 });
 

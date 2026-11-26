@@ -36,6 +36,7 @@ export function dropIndexGrid(rects, x, y) {
 //  whole: true  → 마우스도 줄 어디를 잡아도 끌린다(손잡이 없이). 줄 안 입력칸·링크·onlyHandleExcept 선택자(기본 ⋯ 단추)는 제외.
 //  zones: {resolve(dragId, overId, zone) -> {ok, canInside}} → 줄 위에서 위 25%·가운데 50%·아래 25%(dropZone)를 재서 onHover({id, over, zone})로 알리고,
 //         onDrop({id, list, index, over, zone})에 넘긴다. 자리 표시는 화면(onHover)이 그린다. 줄 사이 = 순서, 가운데 = 넣기.
+//         zones.blank(hit, x, y) -> 줄 id | null (S71-45): 줄 밖 빈 곳이면 그 id의 줄 '안으로'(맨 위·뿌리 줄). 없으면 빈 곳은 놓을 곳 아님.
 //  onHold(item): 폰에서 줄을 꾹 눌렀다 움직이지 않고 뗐을 때(끌기 아님) 알린다(S69 LONGPRESS-선택: 선택 모드 + 그 줄 선택).
 //  canHold(id): 끌 수 없는 줄(canDrag false)도 꾹 누르기(onHold)는 받을지. 기본 없음(끌 수 있는 줄만).
 // MENU-왼쪽메뉴바로끌기 확장 — 칸 상자가 따로 없이 한 줄로 이어진 목록(PC 왼쪽 메뉴·폰 [메뉴] 창, 칸 사이에 빈 공간·선만 있음). 다른 사용처는 기본값 그대로:
@@ -66,6 +67,12 @@ export function mountReorder(root, {ghost = null, altStep = false, listSelector 
     if (over && root.contains(over)) {
       const box = over.getBoundingClientRect();
       if (y < box.top || y >= box.bottom) over = [...root.querySelectorAll(itemSelector)].find(el => { const b = el.getBoundingClientRect(); return b.height > 0 && y >= b.top && y < b.bottom && x >= b.left && x <= b.right; }) || over;
+    }
+    // STD-빈곳놓기(S71-45): 줄 밖 빈 곳이면 화면이 정한 맨 위 줄(zones.blank → 그 줄 id, 없으면 null)에 '안으로' 놓는다.
+    if ((!over || !root.contains(over)) && zones.blank) {
+      const blankId = zones.blank(hit, x, y);
+      const rule = blankId ? zones.resolve(drag.id, blankId) || {} : {ok: false};
+      return blankId && rule.ok !== false ? {list: null, listId: '', items: [], index: 0, over: blankId, zone: 'inside', blank: true} : null;
     }
     if (!over || !root.contains(over) || over === drag.el) return null;
     const overId = idOf(over), rule = zones.resolve(drag.id, overId) || {};

@@ -18,7 +18,7 @@ import {paneDropAt} from './library-drop.js';
 import {writeMoves,undoMoves} from './library-move-write.mjs';
 import {createEdgeScroll,installDragEdgeScroll,followTouch} from './drag-edge-scroll.js';
 import {createDragGhost,setDragGhostImage} from './drag-ghost.js'; // S69-29 끄는 동안 따라오는 반투명 조각(노트 폴더 보기와 같은 공용 부품)
-import {openFolderAt} from './drop-open-folder.mjs';
+import {openFolderAt,blankRootAt,lineOrBlank} from './drop-open-folder.mjs';
 import {ftHoverExpander} from './folder-tree-press.mjs';
 import {askConfirm} from './small-notice.js';
 import {RECEIVE_MENU} from './library-receive.js';
@@ -373,6 +373,9 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // el에서 시작한 끌기 상태. touch=true(폰 길게 누르기)이면 draggable 표시가 없어도 잡는다.
   // S55-08 LIB-나무로끌기안됨: 두 칸 폴더 보기의 왼쪽 나무 폴더 줄(#libraryFolderNav)도 같은 끌기·놓기 부품을 쓴다(ⓑ 나무 → 목록, ⓓ 나무 → 나무).
   const navAt=el=>el?.closest?.('#libraryListCard [data-lu-nav]')||null;
+  const rootNav=()=>document.querySelector('#libraryFolderNav [data-lu-nav=""]');
+  const BLANK_ROWS='.ft-row,details.lu-node,.lu-row,[data-lu-pane-i],#libraryRecent,.lu-pane-head,.lu-search-row,.lu-filter-row,.lu-select-row,#libraryUploadRows,.lu-two-bar';
+  const blankRoot=el=>!!rootNav()&&(blankRootAt(el,{zone:'#libraryFolderNav'})||blankRootAt(el,{zone:'#libraryListCard',rows:BLANK_ROWS}));
   // LIB-두칸보기(S55-11): 두 칸의 칸 상자(폴더 줄이 아닌 빈 자리·자료 줄 위)에 놓으면 그 칸의 지금 폴더(맨 위면 폴더 밖)로.
   // LIB-펼친폴더안놓기(S59-9): 칸 안에서 펼친 폴더 안 자료 줄(과 그 묶음 안 빈 틈)이면 그 폴더(가장 가까운 펼친 폴더)로, 표시는 그 폴더 줄.
   // 판정은 PC 파일 올리기와 같은 하나(library-drop.js paneDropAt) — {id, place(표시할 곳)}.
@@ -429,7 +432,12 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(!drag)return null;
     // S55-08 ⓐ·ⓓ: 왼쪽 나무 줄에 놓기. '자료실 전체'는 오른쪽 '폴더 밖' 머리와 같은 맨 위(폴더 밖으로), 폴더 줄은 그 안으로.
     // 원인(사실): 끌기·놓기 이벤트를 오른쪽 목록(#documentList)에만 걸어 두어 나무 줄 위에서는 놓기를 받는 곳이 없었다(브라우저가 놓기를 거절).
-    const nav=navAt(e.target),spot=!nav&&paneAt(e.target);
+    let nav=navAt(e.target);const spot=!nav&&paneAt(e.target);
+    // STD-빈곳놓기·순서는줄사이만(S71-45, 2026-11-26 사용자 "폴더 밑에 여백 등에 마우스 가져가면 그냥 자료실 전체에 드롭"): 왼쪽 나무의 줄 밖 빈 곳(맨 아래 폴더 밑·칸 위아래 여백)과
+    // 한 칸 목록 상자의 줄·묶음 밖 빈 곳은 '자료실 전체'(맨 위) — 표시도 그 줄. 폴더를 끌 때 나무 맨 끝 줄의 아래 끝은 줄 사이가 아니라 빈 곳(공용 lineOrBlank).
+    // 폴더 줄 위(이름 오른쪽 같은 줄 포함)는 지금처럼 그 폴더. 판정은 공용 blankRootAt 하나.
+    if(nav&&drag.kind==='folder'&&nav.dataset.luNav&&nav.closest('#libraryFolderNav')){const row=nav.closest('.ft-row'),rows=[...document.querySelectorAll('#libraryFolderNav .ft-row')];if(row&&row===rows.at(-1)&&lineOrBlank(dropZone(row.getBoundingClientRect(),e.clientY),{last:true})==='blank')nav=rootNav()||nav}
+    if(!nav&&!spot&&s().free&&blankRoot(e.target))nav=rootNav();
     if(nav||spot){
       const head=nav?nav.closest('.ft-row')||nav:spot.place,id=nav?nav.dataset.luNav||'':spot.id,group=spot?.group||null;
       if(!s().free)return null;

@@ -70,14 +70,14 @@ test('출처를 끄면 그 고정은 흐리게 "연결 안 됨"(삭제하지 않
   test.setTimeout(90000);
   const { errors, prefs } = await begin(page, 1440, { files_pins: ['gd:gdFolder1', 'od:OD!2'] });
   await expect(box(page).locator('.fx-pin .ft-name')).toHaveText(['가짜 업무 공간', '가짜 사진함']);
-  await root(page).locator('[data-fx-src="gd"]').click();
+  await page.locator('[data-fx-src="gd"]').click();
   const gd = box(page).locator('[data-reorder-id="gd:gdFolder1"]');
   await expect(gd.locator('.ft-row')).toHaveClass(/ft-off/);
   await expect(gd.locator('.ft-num')).toHaveText('연결 안 됨');
   await gd.locator('[data-fx-pin-go]').click();
   await expect(page.getByText('꺼져 있거나 연결이 끊겼어요').first()).toBeVisible();
   expect(prefs.value?.files_pins).toEqual(['gd:gdFolder1', 'od:OD!2']);
-  await root(page).locator('[data-fx-src="gd"]').click();
+  await page.locator('[data-fx-src="gd"]').click();
   await expect(gd.locator('.ft-num')).toHaveText('구글 드라이브');
   expect(errors).toEqual([]);
 });

@@ -8,7 +8,7 @@ import {treeRows} from '../app/note-tree.mjs';
 import {boxRows, folderKey} from '../app/files-model.mjs';
 import {paneContent, paneRows} from '../app/library-two-pane.js';
 import {treeHtml} from '../app/library-tree.js';
-import {ftEmptyRowHtml} from '../app/folder-tree-ui.mjs';
+import {ftEmptyRowHtml, ftWaitRowHtml, ftFailRowHtml, FOLDER_EMPTY_TEXT} from '../app/folder-tree-ui.mjs';
 import {treeMenuItems} from '../app/files-tree-menu.mjs';
 import {FOLDER_ENTER_LABEL} from '../app/folder-tree-press.mjs';
 
@@ -19,7 +19,21 @@ test('공용 빈 폴더 줄: 들여쓰기 + 빈 폴더 글자 + 그 화면 표�
   assert.match(html, /class="ft-row ft-item ft-empty-row"/);
   assert.match(html, /data-ft-parent="k"/);
   assert.match(html, /--ft-depth:2/);
-  assert.match(html, /빈 폴더/);
+  assert.match(html, /이 폴더는 비어 있어요/);
+});
+
+test('FILES-빈폴더줄(S70-70): 빈 폴더 글자는 한 곳, 읽는 중·못 읽음 줄은 같은 들여쓰기의 다른 줄', () => {
+  assert.equal(FOLDER_EMPTY_TEXT, '이 폴더는 비어 있어요');
+  const wait = ftWaitRowHtml({depth: 1, attrs: {'data-ft-parent': 'k'}}), fail = ftFailRowHtml({depth: 1, attrs: {'data-fx-fail-key': 'k'}, retry: 'data-x-retry', reason: '까닭'});
+  assert.match(wait, /ft-empty-row ft-wait-row/); assert.match(wait, /<kptu-wait/); assert.doesNotMatch(wait, /비어 있어요|불러오지/);
+  assert.match(fail, /ft-empty-row ft-fail-row/); assert.match(fail, /불러오지 못했어요/); assert.match(fail, /data-x-retry/); assert.match(fail, /까닭/); assert.doesNotMatch(fail, /비어 있어요/);
+  // [파일] 폰 나무: 펼쳤는데 아직 못 읽은 폴더 = 뼈대 줄(pending), 못 읽은 폴더 = 실패 줄, 다 읽고 비었을 때만 빈 폴더 줄.
+  const children = new Map([[folderKey('od', null), [{item_id: 'E', name: '빈', is_folder: true}, {item_id: 'U', name: '모름', is_folder: true}, {item_id: 'F', name: '실패', is_folder: true}]], [folderKey('od', 'E'), []]]);
+  const rows = boxRows({source: 'od', children, files: new Map(), open: new Set(['E', 'U', 'F'].map(id => folderKey('od', id))), pending: true, failed: new Set([folderKey('od', 'F')])});
+  assert.deepEqual(rows.map(r => r.type + (r.id ? ':' + r.id : '')), ['folder:E', 'empty', 'folder:U', 'wait', 'folder:F', 'fail']);
+  assert.equal(rows[3].depth, 1); assert.equal(rows[5].parent, folderKey('od', 'F'));
+  // 화면 코드: 나무가 못 읽은 폴더를 빈 목록([])으로 두지 않는다.
+  assert.doesNotMatch(src('files.js'), /catch \{ if \(state\.scope === scope\) state\.children\.set\(key, \[\]\); \}/);
 });
 
 test('노트 폰 목록: 펼친 빈 폴더 아래 빈 폴더 한 줄(emptyRows를 켠 곳만), 안이 있는 폴더·닫힌 폴더는 없음', () => {
@@ -50,7 +64,7 @@ test('자료실 나무(폰 맨 위 목록): 빈 폴더 안에 빈 폴더 한 줄
   const n = (id, extra = {}) => ({kind: 'folder', key: 'f:' + id, label: id, depth: 0, count: 0, files: [], children: [], ...extra});
   const html = treeHtml([n('e'), n('f', {count: 1, files: [{id: 'd1'}]})], {isOpen: () => false, showAll: () => false, fileHtml: d => `<i>${d.id}</i>`, esc: s => s, emoji: true});
   const bodies = html.split('<details').slice(1);
-  assert.match(bodies[0], /lu-node-empty[^]*빈 폴더/);
+  assert.match(bodies[0], /lu-node-empty[^]*이 폴더는 비어 있어요/);
   assert.doesNotMatch(bodies[1], /lu-node-empty/);
 });
 

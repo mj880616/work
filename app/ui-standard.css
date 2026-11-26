@@ -1453,6 +1453,10 @@ html .doc-kind-pick > select.cc-kind-select.is-on{ color:var(--kptu-ink); font-w
   transition:scale var(--ds-press-ms) ease-out,box-shadow var(--ds-press-ms) ease-out;
 }
 [data-pressing][data-press-wide]{ scale:var(--ds-press-scale-wide); }
+/* S71-45 STD-끌기시작: 줄 위 빈 곳(날짜 칸·아이콘 왼쪽 띠 등)에서 시작한 사각형 고르기(marquee-select.js가 html.marquee-on)를 그리는 동안은 누른 줄의 눌림(작아짐)을 끈다 —
+   작아진 줄은 자리가 바뀌어 사각형이 시작한 줄에 닿지 않은 것처럼 보였다. 눌림 규칙은 이 한 곳이라 여기서 끈다. */
+html.marquee-on :active,html.marquee-on [data-pressing]{
+  scale:none !important; }
 @media (prefers-reduced-motion:reduce){
   :is(button,summary,a[href],[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="switch"],input:is([type="button"],[type="submit"],[type="reset"])):active:not(:disabled,[aria-disabled="true"],[data-press="off"]),
   [data-pressing]{ scale:none; transition:none; }
@@ -1509,7 +1513,7 @@ button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
 /* ▾ 그림은 base-ui.css 칸 기본(select{background:…} 줄임 표기)보다 한 단계 강하게 둔다(S52-22에서 발견: :where 강도 0이라 ▾가 어디서도 그려지지 않았다).
    화면이 #id로 바탕을 따로 정한 상자는 그 규칙이 그대로 이긴다. 오른쪽 여백 26px은 아래 ③ 규칙.
    S56-11: 고르기 창을 여는 단추라도 '고르기 상자' 자리에 놓이면 같은 ▾ 그림을 쓴다(자료실 [분류 ▾] — 옆 [폴더 ▾]와 한 모양). 쉼표 목록이라 select 쪽 강도는 그대로다. */
-select:not([multiple],[size]),#libraryView button.lu-cat-pick,#reportTop button.report-filter-chip{
+select:not([multiple],[size]),#appView button.lu-cat-pick,#reportTop button.report-filter-chip{
   background-image:linear-gradient(45deg,transparent 50%,var(--kptu-muted) 50%),linear-gradient(135deg,var(--kptu-muted) 50%,transparent 50%);
   background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%; background-size:4px 4px,4px 4px; background-repeat:no-repeat;
 }
@@ -1546,7 +1550,7 @@ li:where(:has(> label > input:is([type="checkbox"],[type="radio"]))){ list-style
 button.icon-btn:is([aria-label$="닫기"],[data-close]){ border-color:transparent; background:transparent; color:var(--kptu-muted); }
 button.icon-btn:is([aria-label$="닫기"],[data-close]):hover{ color:var(--kptu-ink); }
 /* ③ 고르기 상자 ▾ 자리: 화면 규칙이 padding을 정해도 글자가 ▾ 밑으로 들어가지 않게 오른쪽 여백만 한 곳에서 고정한다. */
-select:not([multiple],[size],[hidden]),#libraryView button.lu-cat-pick,#reportTop button.report-filter-chip{ padding-right:26px !important; }
+select:not([multiple],[size],[hidden]),#appView button.lu-cat-pick,#reportTop button.report-filter-chip{ padding-right:26px !important; }
 /* S67-75: 고르기 상자 자리에 놓인 '여러 상자를 여는 칩'(사업 관리 폰 윗줄 걸러보기 칩)은 고르기 상자와 같은 높이·테두리·모서리·바탕, 고른 게 있으면 진한 선. */
 button.report-filter-chip{ height:var(--ds-compact-height); min-height:var(--ds-compact-height); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background-color:var(--ds-select-bg,var(--kptu-surface)); }
 button.report-filter-chip.is-on{ border-color:var(--ds-select-line,var(--kptu-border-strong)); } /* S56-11: ▾ 그림을 쓰는 고르기 단추도 같은 여백 */
