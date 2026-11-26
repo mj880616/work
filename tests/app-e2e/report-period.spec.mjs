@@ -77,24 +77,25 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
 // UI-보기탭드롭다운(11/10): 보기는 위 줄 고르기 상자 [목록 ▾](#reportViewSelect). view(page,'달력') = 그 보기를 고르기.
 const viewSelect = page => page.locator('#reportViewSelect');
 const view = async (page, label) => { await openReportBoxes(page); await viewSelect(page).selectOption({label}); };
-const chip = (page, v) => page.locator(`#reportWeekFilter [data-report-week="${v}"]`);
+// BIZ-머리한줄(S71-23): ‹ ›는 '주간 보고' 상자 제목 줄, 정한 기간 ×·건수는 첫 줄 #reportCount, 기간 창 단추는 #reportWeekFilter.
+const chip = (page, v) => page.locator(`:is(#reportWeekFilter,#bizWeekBox,#reportCount) [data-report-week="${v}"]`);
 const period = page => page.locator('#reportPeriodPick [data-report-period]');
 // BIZ-위쪽정돈(11/09): 건수는 › 뒤로 나가 label 옆 .report-week-count로 갔으므로 이 시험의 '라벨'은 주 줄 전체(‹ 날짜 › · n건)다.
-const label = page => page.locator('#reportWeekFilter .report-week-nav');
+const label = page => page.locator('#reportCount');
 const kindNamesIn = page => page.locator('#meetingList .mcol-kinds .mcol-name, #meetingList .meeting-list-title h3');
 const daysAgo = n => seoulKey(new Date(Date.now() - n * 86400000));
 
-for (const width of [1440, 390]) test(`${width}: 기간 한 줄 — 기본은 이번 주(‹ ›), 전체 기간은 ‹ › 없이 '전체 · n건'`, async ({page}) => {
+for (const width of [1440, 390]) test(`${width}: 기간 — 기본은 이번 주(주간 보고 상자 ‹ ›), 전체 기간은 ‹ › 없이 첫 줄 'n건'`, async ({page}) => {
   const state = makeState();
   await open(page, state, width);
   await expect(period(page).locator('option:not([hidden])')).toHaveText(['이번 주', '주차 선택', '전체 기간', '기간 정하기']);
   await expect(period(page)).toHaveValue('week');
   await expect(chip(page, 'prev')).toBeVisible();
-  const tops = await page.locator('#reportWeekFilter .report-week-nav > *').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
+  const tops = await page.locator('#bizWeekBox .biz-week-nav > *').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
   await openReportBoxes(page);await period(page).selectOption('all');
   await expect(period(page)).toHaveValue('all');
-  await expect(label(page)).toContainText('전체');
+  await expect(label(page)).toContainText('건'); // 전체 기간: 첫 줄은 건수만, ‹ › 없음
   await expect(chip(page, 'prev')).toHaveCount(0);
   await expect(chip(page, 'next')).toHaveCount(0);
   await openReportBoxes(page);await period(page).selectOption('week');

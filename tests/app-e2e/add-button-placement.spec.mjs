@@ -117,10 +117,12 @@ for(const width of [390,1440]){
       // BIZ-위쪽정돈(11/09 01:22 확정안, 사업 보고만 예외): 폰도 다른 탭의 동그란 [+](하단 탭 위)가 아니라 맨 위 줄 오른쪽 작은 아이콘 [+]다(떠 있지 않음).
       // 모든 너비에서 맨 위 줄 .report-top-line 안 [녹음][+][⋯]이고 ⋯가 줄 끝이다(이전: 폰 동그란 [+], PC는 report-kind-bar 안).
       // S67-64 UI-윗줄한줄: 폰은 첫 줄과 고르기 줄이 한 줄(.report-top)이고 .report-top-line은 자리만 내준다(display:contents).
-      {const bar=page.locator(width<=760?'#meetingsView .report-top':'#meetingsView .report-top-line');await expect(bar.locator('#newMeetingBtn')).toBeVisible();
+      // BIZ-머리한줄(S71-23): 모든 폭에서 첫 줄 #reportTop 끝이 [+] 하나(⋯·녹음 없음). 폰·폴드는 그 줄이 앱 머리 줄 안(찾기 앞).
+      {const bar=page.locator('#reportTop');await expect(bar.locator('#newMeetingBtn')).toBeVisible();
         expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
-        const [b,btn,more]=await Promise.all([bar.boundingBox(),bar.locator('#newMeetingBtn').boundingBox(),page.locator('#reportMore').boundingBox()]);
-        expect(btn.x+btn.width).toBeLessThanOrEqual(more.x);expect(more.x+more.width).toBeCloseTo(b.x+b.width,0);expect(btn.y+btn.height/2).toBeCloseTo(width<=760?more.y+more.height/2:b.y+b.height/2,0)}
+        await expect(page.locator('#reportMore')).toHaveCount(0);
+        const [b,btn]=await Promise.all([bar.boundingBox(),bar.locator('#newMeetingBtn').boundingBox()]);
+        expect(btn.x+btn.width).toBeCloseTo(b.x+b.width,0);expect(btn.y+btn.height/2).toBeCloseTo(b.y+b.height/2,0)}
       // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
       // S52-22 TEAM-맨위한줄: 폰의 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음이다.
       await showReportsOf(page); // BIZ-주간표이번주: 지난 주 보고는 [전체 기간]으로

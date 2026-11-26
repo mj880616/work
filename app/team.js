@@ -23,6 +23,7 @@ let renderFilterChips,defaultReportAt,isPhotoFile,paintLocalPhotos,REPORT_VIEW_O
 import {within, isLoadTimeout} from './load-deadline.js';
 import {SPLIT_QUERY} from './screen-width.mjs'; // FOLD-넓은화면 2차: 사업 보고 '목록 | 결과' 칸 나누기 폭은 공용 판정 한 곳(600px~)
 import {word} from './brand/brand.mjs';
+import {mountScreenTools} from './screen-tools.js'; // BIZ-머리한줄: 사업 관리 첫 줄(#reportTop)을 폰·폴드 앱 머리 줄로
 import {registerScreenFind,refreshScreenFind,finderOf} from './screen-find.js'; // S70-57 UI-메뉴별검색: 맨 위 칸 '사업 관리에서 찾기'
 // FOLD-넓은화면 2차(S59-19, 요청함 11/06 01:18 ④): meetingPc = 칸 나누기(공용 판정 600px~ — 펼친 폴드·PC), meetingWide = [회의] 칸 세 칸(종류 | 차수 | 결과)을 쓰는 PC(1200px~, 홈 두 단·잊지 말기와 같은 경계),
 // meetingFramePc = 앱 틀이 PC(761px~)인지(아니면 폰 틀: 결과 칸은 아래 하단바만큼 짧게 붙는다, follow-pane.js narrow).
@@ -390,7 +391,7 @@ function reportWeekClick(e){
 // BIZ-머리한줄: 상자 제목 줄의 ‹ ›(weekly-summary-table.js가 놓은 글자) 누름. 다시 그린 뒤 같은 쪽 단추로 초점을 돌려 키보드로 이어 넘길 수 있게.
 function reportWeekBoxClick(e){const b=e.target.closest?.('[data-report-week]');if(!b)return;const to=b.dataset.reportWeek;reportWeekClick(e);if(to==='prev'||to==='next')$(`#bizWeekBox [data-report-week="${to}"]`)?.focus({preventScroll:true})}
 // BIZ-머리한줄: 첫 줄(#reportTop)은 폰·폴드(~760px)에서 앱 머리 줄 [W 사업 관리] 오른쪽으로 가고(공용 자리 screen-tools.js), PC는 화면 안 한 줄 그대로.
-function mountReportTop(){const el=$('#reportTop');if(el)import('./screen-tools.js').then(m=>m.mountScreenTools('meetings',el,{wide:false})).catch(err=>console.error('report top',err))}
+function mountReportTop(){const el=$('#reportTop');if(el)mountScreenTools('meetings',el,{wide:false})} // 정적 불러오기: 화면이 보이기 전에 자리를 정해 첫 줄이 화면 안에 잠깐 보였다 옮겨 가지 않게
 function reportPeriodPick(e){const sel=e.target.closest?.('[data-report-period]');if(!sel)return;const to=sel.value;
   if(to==='range'||to==='isoweek'){periodPanel=to;periodDraft=null;isoDraft=null;renderReportWeek();return}
   if(!leaveReport(()=>{weekNumbered=false;if(to==='all')setPeriod('all');else if(to==='week'){pickWeek(null);setPeriod('week')}}))renderReportWeek()}
@@ -723,7 +724,8 @@ async function settleOpenEntry(opts={}){
   return true;
 }
 // 다른 화면(프로젝트·담당조직·캘린더·바구니·[+ 추가])이 사업 보고 입력 창을 여는 길: 화면을 불러온 뒤 칸 고르기(또는 정해진 칸) → 채워진 입력 창.
-window.KPTUReportEntry={open:async(opts={})=>{
+// pick(trigger): 사업 관리 [+] › [새 사업 보고]와 같은 길(칸 고르기 '어느 칸에 남길까요?' → 쓰기 창). 맨 위 [+ 추가] › 사업 보고가 쓴다(BIZ-머리한줄).
+window.KPTUReportEntry={pick:trigger=>newReport(trigger),open:async(opts={})=>{
   if(!workspace?.id)return false;
   await loadForView('meetings');
   // REC-한회의로잇기 PR-0: 입력 창이 이미 열려 있으면 그 창부터 끝낸다(쓰던 글이 있으면 먼저 묻고, 두기로 하면 false — 연 쪽은 결과를 제자리에 둔다).

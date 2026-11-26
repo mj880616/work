@@ -71,6 +71,8 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
   await signInWithSession(page, 'owner@example.org');
   await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));
   await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
+  if (state.meetings?.length) await expect(page.locator('#reportCount')).toBeVisible(); // 첫 줄이 다 그려진 뒤(건수까지)
+  await expect(page.locator('html')).toHaveAttribute('data-screen-find', 'meetings'); // 찾기 칸까지 붙은 뒤 칩/상자를 판단(폰은 같은 머리 줄)
   return prefs;
 }
 const tops = els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); });

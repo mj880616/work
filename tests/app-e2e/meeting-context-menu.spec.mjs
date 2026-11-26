@@ -69,11 +69,11 @@ for(const width of [884,1440])test(`PC ${width}: 사업 보고 창 본문 어디
 
 // UI-PC손맛묶음 ①(요청함 11/10): 사업 보고 화면에서 보고 창(오른쪽 칸) 밖 — 주 이름·건수 — 을 우클릭하면
 // 보고 창 ⋯([수정][종류 바꾸기][삭제])가 뜨지 않는다. 그 자리는 화면 메뉴 — BIZ-머리한줄(S71-23)부터 첫 줄 ⋯가 없어 [+](data-ctx-screen-item '추가')를 여는 작은 메뉴.
-test('PC 1280: 보고 창 밖(주 이름·건수) 우클릭은 보고 메뉴가 아니라 화면 메뉴',async({page})=>{
+test('PC 1280: 보고 창 밖(첫 줄 건수) 우클릭은 보고 메뉴가 아니라 화면 메뉴',async({page})=>{
   await page.setViewportSize({width:1280,height:900});
   const {errors}=await setup(page);
   const menu=page.locator('#mrdMoreMenu'),screen=page.locator('#rowMenu');
-  for(const sel of ['#bizWeekBox .report-week-label','#reportCount .report-week-count']){
+  for(const sel of ['#reportCount .report-week-count']){
     const spot=page.locator(sel).first();
     await expect(spot,sel).toBeVisible();
     await spot.click({button:'right'});

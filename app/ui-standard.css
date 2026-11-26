@@ -1840,7 +1840,7 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
      칩 글자가 길면 끝 말줄임 — 줄은 넘어가지 않는다. 돋보기를 눌러 찾기 칸이 펴진 동안은 찾기 칸이 남은 폭을 쓰고 이 줄은 글자만큼(칩이 먼저 줄어듦). */
   #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .screen-tools-slot{ order:1; flex:1 20 auto; min-width:136px; margin-left:0; } /* 칩 최소 56 + 건수 + [+] 32 */
   #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .mobile-shell-find{ order:2; flex:none; }
-  @media(min-width:600px){ #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .mobile-shell-find{ flex:1 1 auto; } } /* 폴드 펼침: 찾기 칸이 펼쳐진 폭 — 고르기 줄과 남은 폭을 나눔 */
+  @media(min-width:600px){ #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .mobile-shell-find{ flex:1 1 120px; min-width:120px; } } /* 폴드 펼침: 찾기 칸이 펼쳐진 폭 — 고르기 상자들이 먼저 자리를 쓰고(다 들어가면 네 개 그대로) 찾기 칸은 남은 폭(120px 이상) */
   #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > .screen-tools-slot > #reportTop{ flex:1 1 auto; }
   /* 이름은 거의 줄지 않는다(도구 칸이 20배 먼저 줄어 고르기 칩 글자가 먼저 …). 사람이 고친 아주 긴 이름만 칩 최소 폭·[+]·찾기를 지키고 남은 만큼 … */
   #appView > .mobile-shell-header:has(> .screen-tools-slot > #reportTop) > [data-mobile-view-name]{ flex:0 1 auto; }
