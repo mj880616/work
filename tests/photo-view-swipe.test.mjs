@@ -189,3 +189,27 @@ test('연결: 보기 창이 초점을 받을 수 있고(tabindex -1), 그림을 
   }
   assert.match(read('app/report-photo-row.js'), /viewDocumentPhotos[^\n]*file-actions\.js/, '사업 보고 사진 줄 → file-actions → photo-view.js');
 });
+
+// PHOTO-크게보기넘기기(S71-72): 화면 끝에서 시작한 밀기는 폰 뒤로가기 몫, 같은 기록·노트 사진 목록은 공용 nav로 넘긴다.
+test('화면 끝 밀기: 왼쪽·오른쪽 끝 BACK_EDGE 안에서 시작하면 넘기지 않는다', async () => {
+  const {fromScreenEdge, BACK_EDGE} = await import('../app/photo-viewer-model.mjs');
+  assert.equal(fromScreenEdge(BACK_EDGE, 400), true); assert.equal(fromScreenEdge(400 - BACK_EDGE, 400), true);
+  assert.equal(fromScreenEdge(BACK_EDGE + 1, 400), false); assert.equal(fromScreenEdge(200, 400), false);
+  assert.equal(fromScreenEdge(5, undefined), false, '창 너비를 모르면(시험 칸) 끝 판정 없음');
+  const was = globalThis.innerWidth; globalThis.innerWidth = 400;
+  try {
+    const a = setup(); slide(a.stage, [5, 300], [200, 300]); assert.deepEqual(a.st.moves, [], '왼쪽 끝에서 시작');
+    const b = setup(); slide(b.stage, [396, 300], [200, 300]); assert.deepEqual(b.st.moves, [], '오른쪽 끝에서 시작');
+    const c = setup(); slide(c.stage, [300, 300], [150, 300]); assert.deepEqual(c.st.moves, [3], '가운데는 그대로 넘김');
+  } finally { globalThis.innerWidth = was; }
+});
+test('연결: 기록 줄·잊지 말기·노트 첨부·노트 본문 사진은 openPhotoView files로 같은 넘기기를 쓴다(새 크게 보기 없음)', () => {
+  const view = read('app/photo-view.js');
+  assert.match(view, /export function openPhotoView\(\{row, file, files = null/);
+  assert.match(view, /openDocumentPhotoView\(\{\.\.\.itemOf\(at\), trigger, nav: \{count: list\.length, index: at, item: itemOf\}\}\)/);
+  assert.match(read('app/record-files.js'), /openPhotoView\(\{row:\{id:row\.note_id\}, file, files, trigger:el, rt\}\)/);
+  assert.match(read('app/basket.js'), /openPhotoView\(\{row:selected,file,files:/);
+  const notes = read('app/basket-notes.js');
+  assert.match(notes, /files: attachedPhotos\(selected\)/); assert.match(notes, /onOpen:\(file, el, files\) => openPhotoView\(\{row:selected, file, files, trigger:el\}\)/);
+  assert.match(read('app/note-body.js'), /onOpen\(file, place, bodyPhotos\(box, note\)\)/);
+});
