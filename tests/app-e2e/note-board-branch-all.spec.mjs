@@ -129,7 +129,8 @@ test('B6 PC: 노트 카드·사진 카드에서 Tab = 기본 상자 하위(paren
   await writeAndEnter(page, '사진 설명');
   await expect.poll(() => rowBy(textRows, '사진 설명')).toMatchObject({ kind: 'topic', parent_note: PHOTO });
   await expect(branches(page)).toHaveCount(2);
-  // 떠 있는 상자를 노트 카드 위에 끌어 놓기 = 그 카드 아래 가지.
+  // 떠 있는 상자를 노트 카드 위에 끌어 놓기 = 그 카드 아래 가지. S71-52 ②: 상자가 오른쪽 아래 미니맵 밑에 있으므로 판을 조금 올린 뒤 잡는다.
+  await page.mouse.move(640, 500); await page.mouse.wheel(0, 200);
   const from = await center(node(page, '떠 있는 상자')), to = await center(page.locator(`[data-nb-card="${NOTE}"]`));
   await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(to.x, to.y, { steps: 12 }); await page.mouse.up();
   await expect.poll(() => textRows.find(t => t.id === 'free')).toMatchObject({ parent_id: null, parent_note: NOTE });

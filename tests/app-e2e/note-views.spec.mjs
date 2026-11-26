@@ -230,15 +230,16 @@ for (const width of [412, 884]) {
     await expect.poll(() => boardWrites(writes, 'n2').length).toBe(1);
     let end = await cardAt(card);
     expect(Math.abs(end.x - start.x - 36)).toBeLessThanOrEqual(snapSlack(2.5)); expect(Math.abs(end.y - start.y - 18)).toBeLessThanOrEqual(snapSlack(2.5));
-    // 가장 작게(0.2배): 손가락 40px = 판 위 200칸, 꾹 누른 뒤 끌기.
-    while (await minus.isEnabled()) await press(page, minus, width);
-    expect(await zoomOf(page)).toBe(0.2);
+    // 아주 작게(약 0.2배 — S71-52 ②부터 가장 작게는 0.04배라 카드가 너무 작아 잡기 어려움): 손가락 40px = 판 위 40/배율 칸, 꾹 누른 뒤 끌기.
+    while ((await zoomOf(page)) > 0.205) await press(page, minus, width);
+    const small = await zoomOf(page);
+    expect(small).toBeLessThan(0.25); expect(small).toBeGreaterThan(0.15);
     await fitCard();
     start = end; from = await center(card);
     await touch(cdp, 'touchStart', [from]); await page.waitForTimeout(700); await swipe(cdp, from, 40, 20); await touch(cdp, 'touchEnd', []);
     await expect.poll(() => boardWrites(writes, 'n2').length).toBe(2);
     end = await cardAt(card);
-    expect(Math.abs(end.x - start.x - 200)).toBeLessThanOrEqual(6); expect(Math.abs(end.y - start.y - 100)).toBeLessThanOrEqual(6);
+    expect(Math.abs(end.x - start.x - 40 / small)).toBeLessThanOrEqual(snapSlack(small)); expect(Math.abs(end.y - start.y - 20 / small)).toBeLessThanOrEqual(snapSlack(small));
     // 가장자리: 끄는 손가락을 판 오른쪽 끝에 멈춰 두면 판이 저절로 밀리고 카드도 따라간다.
     await press(page, page.locator('[data-nb-fit]'), width);
     await fitCard();
