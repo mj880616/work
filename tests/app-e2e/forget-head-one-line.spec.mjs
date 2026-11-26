@@ -1,7 +1,7 @@
 // S71-29 FORGET-머리한줄(사용자 결정 11/26 — 다른 화면처럼 한 줄로):
 // 예전: 1줄 [W] 잊지 말기 · 찾기 / 2줄 (빈 칸) · [처리 전 ▾] · 최신화.
 // 지금: 한 줄 [W] 잊지 말기 · [처리 전 ▾] · (빈 칸) · 최신화(↻, aria-label '최신화') · 찾기. 따로 된 둘째 줄은 그리지 않는다(숨김 아님).
-// 폰·폴드는 앱 머리 줄, PC 틀은 맨 위 줄(찾기 칸 오른쪽, 다른 화면과 같은 단추 자리). [처리 전 ▾] 보기 메뉴·최신화(찾기 다시)는 예전 그대로 동작한다.
+// 폰·폴드는 앱 머리 줄, PC 틀은 화면 안 첫 줄(.basket-head) 오른쪽 끝(S71-59 UI-화면메뉴안으로 — 맨 위 줄에는 앱 전체 것만). [처리 전 ▾] 보기 메뉴·최신화(찾기 다시)는 예전 그대로 동작한다.
 // 서버는 흉내(openHome 기본: 후보 없음, ai-assist todo_radar는 건너뜀 답). 글·이름은 지어낸 것.
 import {test, expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
@@ -79,18 +79,22 @@ for (const width of [344, 390, 690]) test(`폰·폴드 ${width}: 앱 머리 줄 
   }
 });
 
-test('PC 1280: 맨 위 줄 한 줄 — 찾기 칸 오른쪽 [처리 전 ▾] · ↻, 화면 안 둘째 줄 없음, 동작 그대로', async ({page}) => {
+test('PC 1280: 화면 안 첫 줄 오른쪽 끝 [처리 전 ▾] · ↻ — 맨 위 줄에는 없음, 따로 된 둘째 줄 없음, 동작 그대로', async ({page}) => {
   const f = await openForget(page, 1280);
   const top = page.locator('#appView > .app-topline');
-  await expect(top.locator('[data-sf-tools="forget"]')).toBeVisible();
-  await expect(page.locator('#basketView .forget-head, #basketView .basket-switch-row, #basketView [data-forget-view-open]')).toHaveCount(0);
-  const t = await box(top), view = await box(viewButton(page)), find = await box(findButton(page));
-  const search = await box(top.locator('[data-search-slot]'));
-  for (const b of [view, find, search]) expect(Math.abs(b.mid - t.mid)).toBeLessThanOrEqual(3);
-  expect(view.x).toBeGreaterThan(search.right - 1);
+  const line = page.locator('#basketView > .basket-head');
+  await expect(top.locator('[data-sf-tools="forget"]')).toHaveCount(0);
+  await expect(line.locator('[data-sf-tools="forget"]')).toBeVisible();
+  await expect(page.locator('#basketView .forget-head, #basketView .basket-switch-row')).toHaveCount(0);
+  await expect(page.locator('#basketView [data-forget-view-open]')).toHaveCount(1);
+  const t = await box(top), l = await box(line), view = await box(viewButton(page)), find = await box(findButton(page));
+  const panel = await box(page.locator('#basketView'));
+  for (const b of [view, find]) expect(Math.abs(b.mid - l.mid)).toBeLessThanOrEqual(3);
+  expect(l.y).toBeGreaterThanOrEqual(t.bottom - 1);
   expect(find.x).toBeGreaterThan(view.right - 1);
+  expect(panel.right - find.right).toBeLessThanOrEqual(24); // 오른쪽 끝
   const list = await box(page.locator('#basketView [data-forget-section]'));
-  expect(list.y).toBeGreaterThanOrEqual(t.bottom);
+  expect(list.y).toBeGreaterThanOrEqual(l.bottom - 1);
   await viewButton(page).click();
   await page.locator('#forgetViewMenu').getByRole('menuitemradio', {name: '무시', exact: true}).click();
   await expect(viewButton(page)).toHaveAttribute('data-forget-current', 'dismissed');
