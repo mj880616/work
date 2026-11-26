@@ -6,6 +6,7 @@
 // - 이 파일은 목록 HTML의 묶음 칸·손잡이와 끌기 동작만 맡는다. 목록 전체 renderer는 suborganizations.js renderTeam 하나다.
 import {sectionsOf, moveOrg, moveGroup, renameGroup, ungroup, groupNameProblem, orderValue, TAIL_GROUP} from './org-order-edit.mjs';
 import {word} from './brand/brand.mjs';
+import {createEdgeScroll} from './drag-edge-scroll.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'}[c]));
 const MOVE_PX = 6;
@@ -118,25 +119,9 @@ function targetAt(x, y) {
   const next = rowEl.nextElementSibling?.matches?.('.so-row[data-so-row]') ? rowEl.nextElementSibling.querySelector('[data-so-grip]')?.dataset.soName : null;
   return {group, before: next && next !== drag.name ? next : null, el: rowEl, cls: 'so-drop-after'};
 }
-// 화면 위·아래 끝 가까이 들고 있으면 계속 굴린다(손을 멈춰도). 굴린 뒤 놓을 자리를 다시 본다.
-let scrollTimer = 0, scrollStep = 0, lastPoint = null;
-function scroller() {
-  let box = list();
-  while (box && box !== document.body && !(box.scrollHeight > box.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
-  return box && box !== document.body ? box : document.scrollingElement || document.documentElement;
-}
-function autoScroll(y) {
-  const edge = 56;
-  scrollStep = y < edge ? -12 : y > innerHeight - edge ? 12 : 0;
-  if (!scrollStep || scrollTimer) return;
-  const tick = () => {
-    if (!drag?.moving || !scrollStep) { scrollTimer = 0; return; }
-    scroller().scrollBy(0, scrollStep);
-    if (lastPoint) mark(lastPoint.x, lastPoint.y);
-    scrollTimer = requestAnimationFrame(tick);
-  };
-  scrollTimer = requestAnimationFrame(tick);
-}
+// 화면·목록 칸 위·아래 끝 가까이 들고 있으면 계속 굴린다(손을 멈춰도). 굴린 뒤 놓을 자리를 다시 본다.
+// S70-75 STD-끌기자동스크롤: 모든 끌기와 같은 공용 부품(drag-edge-scroll.js) — 전에는 이 파일만의 계산(창 끝 56px, 늘 같은 빠르기)이었다.
+const edgeScroll = createEdgeScroll({prefer: () => list(), onScroll: (x, y) => { if (drag?.moving) mark(x, y); }});
 function mark(x, y) {
   clearMarks();
   (drag.kind === 'group' ? drag.grip.closest('.so-org-group') : drag.grip.closest('.so-row'))?.classList.add('so-dragging');
@@ -164,13 +149,12 @@ function onMove(e) {
     list()?.classList.add('is-dragging');
   }
   e.preventDefault();
-  lastPoint = {x: e.clientX, y: e.clientY};
-  autoScroll(e.clientY);
+  edgeScroll.update(e.clientX, e.clientY);
   mark(e.clientX, e.clientY);
 }
 function onUp(e) {
   if (!drag || e.pointerId !== drag.id) return;
-  const d = drag; drag = null; scrollStep = 0; lastPoint = null;
+  const d = drag; drag = null; edgeScroll.stop();
   clearMarks(); list()?.classList.remove('is-dragging'); list()?.querySelector('.so-tail-temp')?.remove();
   if (!d.moving || !d.target) return;
   if (d.kind === 'group') {
@@ -189,7 +173,7 @@ function onUp(e) {
   }
   void moveOrgTo(d.name, d.target.group, d.target.before);
 }
-function onCancel() { if (!drag) return; drag = null; scrollStep = 0; lastPoint = null; clearMarks(); list()?.classList.remove('is-dragging'); list()?.querySelector('.so-tail-temp')?.remove(); }
+function onCancel() { if (!drag) return; drag = null; edgeScroll.stop(); clearMarks(); list()?.classList.remove('is-dragging'); list()?.querySelector('.so-tail-temp')?.remove(); }
 
 // 키보드: 손잡이에서 Alt+↑↓. 조직은 화면 순서로 한 칸(묶음 경계를 넘으면 이웃 묶음 끝·앞으로, '그 외'는 가나다순이라 들어가기만).
 function onKey(e) {
