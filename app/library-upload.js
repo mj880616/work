@@ -81,7 +81,6 @@ import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload
 import {word} from './brand/brand.mjs';
 import {bindSelectKeys,renameTarget,confirmDelete} from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
 import {fitSelectBar, paintSelectAll} from './select-bar.js'; // UI-고르기막대(S69-85): 선택 막대 한 줄 맞추기
-import {uploadLabelHtml} from './upload-label.mjs'; // UI-업로드말(S70-41): 클립 + 업로드
 import {createDriveAuto,changedLine as luAutoChangedLine} from './library-drive-auto.mjs'; // S70-73 LIB-드라이브자동등록
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
@@ -1969,11 +1968,14 @@ function luSelStart(){if(luPick.active)return;luPick.start();luRenderLibrary()}
 // 따로 떠 있던 '선택' 글자와 '모두 펴기' 글자는 이 메뉴로 합쳤다. 폴더마다 이름 바꾸기·지우기는 지금처럼 그 폴더 줄 우클릭·꾹 누르기.
 let luTopMenu=null;
 // 자료실 작은 메뉴(맨 위 ⋯·빈 자리 우클릭)의 글자 줄 하나 — 모양은 공용 메뉴 부품(anchored-menu.js)이 정한다.
+// LIB-메뉴정리(S70-74, 명진 11/26 "폴더 업로드 이거뭐야; 왜 또 혼자 튀어"): 메뉴 줄은 글자만 — 클립 같은 그림은 단추에만 붙인다(docs/design/ui-words.md).
+// 폴더를 통째로 고르는 줄은 '폴더째 업로드'(파일은 머리 [+] 자료 등록 창·빈 자리 메뉴 [파일 업로드]).
+const LU_FOLDER_UPLOAD='폴더째 업로드';
 function luMenuRow(attrs,label){return `<button type="button" ${attrs}>${label}</button>`}
 function luTopMenuHtml(){
   const folder=luFoldersReady&&luGroupBy==='folder';
   return (folder?luMenuRow('data-lu-top="folder"',luInFolder?'이 폴더 안에 새 폴더':'새 폴더'):'')
-    +(folder&&luCanPickFolder()?luMenuRow('data-lu-top="folder-upload"',uploadLabelHtml('폴더 업로드')):'') // S69-23: 탐색기 폴더째 올리기
+    +(folder&&luCanPickFolder()?luMenuRow('data-lu-top="folder-upload"',LU_FOLDER_UPLOAD):'') // S69-23: 탐색기 폴더째 올리기
     +(folder?luMenuRow('data-lu-top="tidy"',TIDY_LABEL):'')
     // S70-29(2026-11-25 명진 '다 없애 1회용 기능'): [같은 내용 자료 정리]·[드라이브 폴더 맞추기]·[드라이브와 맞는지 보기]·[맨 위 파일 정리]는 한 번 정리라 지웠다.
     // S70-73(2026-11-26 명진 "자동으로 들어오게해야지 메뉴 없애고"): [드라이브에서 가져오기]도 지웠다 — 자료실을 열 때 서버가 저절로 등록(luStartDriveAuto).
@@ -1995,7 +1997,7 @@ function luAreaMenuOpen(owner,x,y,folder=luInFolder){luAreaFolder=folder||null;
   luAreaMenu||=createAnchoredMenu({id:'luAreaMenu',className:'lu-folder-menu lu-area-menu',label:'자료실 빈 자리 메뉴',historyKey:'kptuLibraryAreaMenu',key:()=>'area',
     // S69-28 LIB-한칸탐색기: 탐색기 칸에는 '폴더 밖' 묶음 머리(그 ⋯ [전체 선택])가 없으므로 빈 자리 메뉴에 [전체 선택](지금 자리 자료 모두).
     // S70-09 LIB-PC우클릭(명진 11/25 "새 폴더 만들기 이런걸 우클릭해서"): 윈도우 탐색기처럼 [새 폴더][파일 올리기]…[모두 선택](ui-words '모두 선택'). 이미 몇 개 고른 중에도 [모두 선택].
-    render:()=>luMenuRow('data-lu-area="folder"','새 폴더')+luMenuRow('data-lu-area="add"',uploadLabelHtml('파일 업로드'))+(luCanPickFolder()?luMenuRow('data-lu-area="folder-upload"',uploadLabelHtml('폴더 업로드')):'')+luMenuRow('data-lu-area="tidy"',TIDY_LABEL)+(luExplorerNow&&!luTwoActive()&&luExplorerFileIds().length?luMenuRow('data-lu-area="select-all"','모두 선택'):''),
+    render:()=>luMenuRow('data-lu-area="folder"','새 폴더')+luMenuRow('data-lu-area="add"','파일 업로드')+(luCanPickFolder()?luMenuRow('data-lu-area="folder-upload"',LU_FOLDER_UPLOAD):'')+luMenuRow('data-lu-area="tidy"',TIDY_LABEL)+(luExplorerNow&&!luTwoActive()&&luExplorerFileIds().length?luMenuRow('data-lu-area="select-all"','모두 선택'):''),
     onClose:()=>document.querySelectorAll('#libraryListCard[aria-expanded],#libraryFolderNav[aria-expanded],#documentList[aria-expanded]').forEach(el=>el.removeAttribute('aria-expanded')),
     onAction:(b,active)=>{if(b.dataset.luArea==='select-all'){const ids=luExplorerFileIds();if(ids.length&&!luSelBusy){luPick.stop();luPick.start(ids);luRenderLibrary()}return}if(b.dataset.luArea==='folder')luFolders().createIn(luAreaFolder,active.trigger);else if(b.dataset.luArea==='folder-upload')luPickFolderUpload(luAreaFolder,active.trigger);else if(b.dataset.luArea==='tidy')void luTidy().open(active.trigger,luAreaFolder);else if(luOpenUploadWindow())luSetUploadFolder(luAreaFolder);else notify('자료 업로드를 열지 못했어요.',{error:true})}});
   luCloseMenu(()=>luAreaMenu.open(owner,{at:{x,y}}));
