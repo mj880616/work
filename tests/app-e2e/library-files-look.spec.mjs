@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { bootLibrary, libFolder, libDoc, SB } from './helpers/library-folder-server.mjs';
 import { libraryTopMenu } from './helpers/library-tree.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // UI-자료실파일모양(S69-85 ②, 명진 11/25 "파일 인터페이스로 자료실도 바꿔", 'ㅇ' 확정): 자료실 목록을 파일 목록 모양으로.
 // - 큰 체크칸 없음: 고른 줄은 파일과 같은 옅은 강조 바탕 + 왼쪽 진한 세로줄, 줄을 누르면 고르기·풀기(네모 칸은 보이지 않게 남아 키보드·화면 읽기 그대로).
 // - 주소 줄 하나: 폴더 안이면 위치 줄 끝에 작은 [드라이브 ↗]만, 저장 위치 줄은 따로 두지 않는다(살릴 것 7).
@@ -31,7 +32,7 @@ for (const width of [390, 1280]) test(`자료실 ${width}: 고르기 중 네모 
   await tapTitle();
   await expect(page.locator('#librarySelectCount')).toHaveText('0개 선택됨');
   await expect(row).not.toHaveClass(/lu-picked/);
-  await page.locator('#librarySelectCancel').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕] 대신 Esc
   await expect(page.locator('#documentList .lu-picked')).toHaveCount(0);
   expect(r.errors).toEqual([]);
 });
@@ -47,7 +48,7 @@ test('자료실 PC 1280: 폴더 안에서는 주소 줄이 하나 — 위치 줄
   await page.evaluate(() => window.KPTURouter.go('library'));
   const line = page.locator('#libraryDriveLine');
   await expect(line.locator('.lu-drive-where')).toHaveText('구글 드라이브 · 가상 앱 › 자료실');
-  await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();
+  await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));
   const path = page.locator('#libraryPath');
   await expect(path).toBeVisible();
   const open = path.locator('a.lu-drive-here');

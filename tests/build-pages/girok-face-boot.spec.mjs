@@ -127,7 +127,7 @@ test('girok 빌드 + 고친 이름(지금 화면 이름 15칸): 앱 바탕·메�
   await expect(page.locator('#areaWindowTitle')).toHaveText('사업영역 관리');
   await expect(page.locator('.area-window-back')).toHaveAttribute('aria-label', '사업 관리로 돌아가기');
   await expect(page.locator('#projectsView')).toHaveAttribute('aria-label', '사업영역 목록');
-  await expect(page.locator('.report-top-title')).toHaveText('사업 관리');
+  await expect(page.locator('#meetingsListCard .add-list-head h2')).toHaveText('사업 관리'); // S70-57: 화면 첫 줄 제목은 없앰(앱 머리 줄) — 읽기용 제목
   const shell = await page.evaluate(() => [...document.querySelectorAll('[data-word-aria-label]')].map(el => [el.getAttribute('data-word-aria-label'), el.getAttribute('aria-label')]));
   expect(shell.length).toBeGreaterThan(0);
   // S67-62부터 앱 바탕은 빌드가 바꾼 글자를 모두 남기므로, 남긴 자리는 '이 사람의 word(원래 글자)'와 같아야 한다:

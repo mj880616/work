@@ -193,13 +193,13 @@ test('열면 읽음 412: 저장 실패 → 알림 한 줄·점 그대로, 다음
   await expect(list(page).locator(`.rd-row[data-rd-open="${A}"]`)).toHaveCount(0); // [안 읽음]에서 빠짐
 });
 
-test('[+ 추가]: 주소 → 넣기 → note-import로 원문을 받아 글자로만 저장, 막힌 줄은 한 줄 상태와 원래 페이지 링크', async ({ page }) => {
+test('＋(글 추가): 주소 → 넣기 → note-import로 원문을 받아 글자로만 저장, 막힌 줄은 한 줄 상태와 원래 페이지 링크', async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 900 });
   await openHome(page);
   const s = await server(page);
   await goReading(page, 1280);
-  await list(page).locator('[data-rd-add]').click();
+  await page.locator('#appView>.app-topline [data-rd-add]').click(); // S71-26: ＋는 맨 위 줄 검색 칸 오른쪽
   await list(page).locator('input.rd-url').fill('javascript:alert(1)');
   await list(page).getByRole('button', { name: '저장', exact: true }).click(); // S68-34: 줄 ⋯ 이름 '저장한 글 메뉴'와 겹치지 않게 정확히
   await expect(list(page).locator('.rd-bad')).toContainText('가져올 수 없어요');

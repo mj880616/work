@@ -37,7 +37,8 @@ function photoRoutes(state, {files = FILES} = {}) {
       if (fail) { state.ev.fail.delete(body.drive_file_id); return route.fulfill({status: fail.status, contentType: 'application/json', body: JSON.stringify(fail.body)}); }
       return route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({ok: true, result: 'created', document: {id: 'doc-' + state.ev.links.length, title: body.drive_file_id}})});
     });
-    await page.route(`${SB}/functions/v1/library-files**`, route => { state.ev.uploads = (state.ev.uploads || 0) + 1; return route.fulfill({status: 500, body: '{}'}); });
+    await page.route(`${SB}/functions/v1/library-files**`, route => {if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+ state.ev.uploads = (state.ev.uploads || 0) + 1; return route.fulfill({status: 500, body: '{}'}); });
   };
 }
 

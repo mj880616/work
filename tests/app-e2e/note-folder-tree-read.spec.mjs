@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 
 // S69-27 (명진 11/24): 노트 [폴더] 보기
 // ① "폴더 밑에 바로 들어가있는 메모도 목록으로 보여야해 / 왼쪽은 목록 오른쪽에는 노트 내용" — PC·펼친 폴드 왼쪽 나무에 폴더 바로 아래 노트 줄(하위 폴더 먼저),
@@ -57,10 +58,11 @@ async function answerAsk(page, yes) {
 test('PC 1280: 폴더를 펼치면 하위 폴더 다음에 그 폴더 노트 줄, 노트를 누르면 오른쪽에 내용(나무는 그대로), 다른 노트로 바꾸기·Esc로 닫기', async ({ page }) => {
   const f = await fixture(page, 1280);
   await expect(treeNote(page, 'n1')).toHaveCount(0); // 접힌 폴더 안 노트는 안 보인다
-  await tree(page).locator(`[data-nx-folder="${F}"] .ft-main`).click();
+  await treeEnter(tree(page).locator(`[data-nx-folder="${F}"] .ft-main`)); // T10: 넓은 화면 나무는 이름 = 오른쪽 그 폴더, 펼치기는 꺾쇠(treeEnter = 둘 다)
   await expect(treeNote(page, 'n1')).toBeVisible(); await expect(treeNote(page, 'n2')).toBeVisible();
   // 하위 폴더('궤도') 줄이 먼저, 그다음 노트.
-  const order = await tree(page).locator(':scope > [data-nx-folder], :scope > [data-nx-note]').evaluateAll(els => els.map(el => el.dataset.nxFolder || el.dataset.nxNote));
+  // S70-82: 나무 줄은 [파일]처럼 상자(.ft-box) 안 — 나무 안 차례로 본다.
+  const order = await tree(page).locator('[data-nx-folder], [data-nx-note]').evaluateAll(els => els.map(el => el.dataset.nxFolder || el.dataset.nxNote));
   expect(order.indexOf(G)).toBeLessThan(order.indexOf('n1'));
   await treeNote(page, 'n1').locator('[data-note-row]').click();
   await expect(detail(page)).toBeVisible();
@@ -106,7 +108,7 @@ for (const width of [1280, 390]) test(`노트 삭제 → '휴지통 1' → 지�
   await expect(trashRow).toContainText('휴지통');
   await expect(trashRow.locator('.ft-num')).toHaveText('0');
   // 폴더를 펼치고 노트 ⋯ [삭제].
-  await press(page.locator(`${width < 761 ? '#noteRows' : '[data-nx-tree]'} [data-nx-folder="${F}"] .ft-main`));
+  await treeEnter(page.locator(`${width < 761 ? '#noteRows' : '[data-nx-tree]'} [data-nx-folder="${F}"] .ft-main`), { tap: width < 761 }); // T10: 넓은 화면은 이름 + 꺾쇠
   await press(page.locator(`[data-note-row-more="n2"]`).first());
   await press(page.locator('#noteDocMenu').getByRole('button', { name: '삭제', exact: true }));
   await answerAsk(page, true);
@@ -137,7 +139,7 @@ for (const width of [1280, 390]) test(`노트 삭제 → '휴지통 1' → 지�
 
 test('PC 1280: 노트를 끄는 동안 반투명 조각(제목)이 따라오고 놓으면 사라진다, 놓을 폴더 줄은 강조', async ({ page }) => {
   const f = await fixture(page, 1280);
-  await tree(page).locator(`[data-nx-folder="${F}"] .ft-main`).click();
+  await treeEnter(tree(page).locator(`[data-nx-folder="${F}"] .ft-main`)); // T10: 넓은 화면 나무는 이름 = 오른쪽 그 폴더, 펼치기는 꺾쇠(treeEnter = 둘 다)
   const src = treeNote(page, 'n1').locator('[data-note-row]'), dst = tree(page).locator(`[data-nx-folder="${G}"]`);
   const a = await src.boundingBox(), b = await dst.boundingBox();
   await page.mouse.move(a.x + 30, a.y + a.height / 2);

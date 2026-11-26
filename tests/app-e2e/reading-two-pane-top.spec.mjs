@@ -19,7 +19,12 @@ for (const [name, open] of DOC_SCREENS) {
     test.setTimeout(60000);
     const { errors, detail, firstLeft } = await open(page, 1280);
     const left = await rect(firstLeft), right = await rect(detail.locator('.ds-doc-top'));
-    expect(Math.abs(left.top - right.top), `왼쪽 ${left.top} 오른쪽 ${right.top}`).toBeLessThanOrEqual(1);
+    // 실패 때 원인을 가릴 사실(왼쪽 칸이 숨었는지·폭 판정·화면 상태)을 함께 남긴다 — 값은 합성 화면 상태뿐.
+    const why = Math.abs(left.top - right.top) > 1 ? await firstLeft.evaluate(el => {
+      const chain = []; for (let n = el; n && n !== document.body; n = n.parentElement) chain.push(`${n.id ? '#' + n.id : n.tagName.toLowerCase()}${n.hidden ? '[hidden]' : ''}:${getComputedStyle(n).display}`);
+      return JSON.stringify({w: innerWidth, y: scrollY, split: matchMedia('(min-width:600px)').matches, wide: matchMedia('(min-width: 761px)').matches, view: document.querySelector('#readingView')?.className, views: document.querySelectorAll('#readingView').length, lists: document.querySelectorAll('[data-rd-list]').length, chain: chain.slice(0, 6), url: location.search});
+    }) : '';
+    expect(Math.abs(left.top - right.top), `왼쪽 ${left.top} 오른쪽 ${right.top} ${why}`).toBeLessThanOrEqual(1);
     expect(Math.abs(right.height - await compact(page))).toBeLessThanOrEqual(1);
     expect(errors).toEqual([]);
   });

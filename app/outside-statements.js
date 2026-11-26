@@ -10,7 +10,7 @@ import {SPLIT_QUERY, NARROW_QUERY} from './screen-width.mjs';
 import {followPane} from './follow-pane.js';
 import {hasNewsItem, takeNewsTab, takeNewsOpen} from './news-request.mjs';
 import {itemView, whenOf} from './news-clipping-model.mjs';
-import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, openTabFor, titleHit, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, tabForItem} from './now-model.mjs';
+import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, openTabFor, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, tabForItem} from './now-model.mjs';
 import {outsideColor, outsideBar, newsColor, newsBar, colorVar, familyOfGroup, postTag, newsTag, tagLabel} from './news-colors.mjs';
 import {rowHtml, dayHtml, runsHtml} from './news-row.mjs';
 import {foldRuns, liftRelated, LIFT_LABEL} from './news-fold.mjs';
@@ -33,7 +33,7 @@ import {newsPage} from './feed-shared-model.mjs';
 import {fillGestureArea} from './gesture-fill.js';
 import {sortByName} from './name-order.mjs';
 // UI-검색창하나로(S70-54): 찾기 칸은 맨 위 칸(화면 찾기 등록), [매체 ▾]·⋯는 맨 위 줄 단추 자리(screen-find.js 상자)로.
-import {registerScreenFind, refreshScreenFind, toolsBox} from './screen-find.js';
+import {registerScreenFind, refreshScreenFind, toolsBox, finderOf} from './screen-find.js';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — S51-17 P5에서 메뉴 이름 'News'·주소 ?view=news).
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1·6.3·6.4절, 시안 docs/design/mockups/news-overhaul.html ①·③):
 // - 탭 [전체][사회운동][언론][보관](now-model.mjs NOW_TABS). 폰은 아래 떠 있는 탭 줄, 폴드 펼침(761~1199px)은 오른쪽 아래, PC(1200px~)는 위(명진 11/06 탭 자리 규칙).
@@ -427,8 +427,11 @@ function daysHtml(entries, now, {lift = true} = {}) {
   const wrapped = rest.map(e => ({...e, published_at: e.type === 'news' ? (whenOf(e.row) ? new Date(whenOf(e.row)).toISOString() : '') : e.row.published_at}));
   return head + groupPosts(wrapped, now).map(g => dayHtml(g.label, foldedHtml(g.items, rowFn), unreadOf(g.items), esc)).join('');
 }
-const shownPosts = () => state.posts.filter(p => !markOf(p.id).dismissed && titleHit([postView(p).title, p.title], state.query));
-const shownNews = () => state.news.filter(n => titleHit([itemView(n).title, n.title], state.query));
+// S70-67 SEARCH-비슷한것찾기: 제목 거르기는 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말). 서버 찾기·Enter 문장 찾기는 그대로.
+const osFinder = finderOf('outside', () => state.query);
+const osHit = texts => !state.query || !!osFinder().hit(...texts);
+const shownPosts = () => state.posts.filter(p => !markOf(p.id).dismissed && osHit([postView(p).title, p.title]));
+const shownNews = () => state.news.filter(n => osHit([itemView(n).title, n.title]));
 const moreBtn = (attr, busy) => `<button type="button" class="os-text-btn os-more-posts" ${attr}${busy ? ' disabled aria-busy="true"' : ''}>더 보기</button>`;
 function listHtml() {
   if (!state.postsLoaded) return state.postsFailed ? failHtml({retry: 'data-os-retry'}) : waitHtml({rows: 6, h: 44});
@@ -923,7 +926,7 @@ root?.addEventListener('toggle', event => {
 let findText = '';
 registerScreenFind('outside', {
   label: '읽을 거리에서 찾기',
-  foot: () => mainBox, // '전체에서 「…」 찾기 →' 줄은 목록 칸(#nowMain) 맨 아래
+  meaning: false, // 문장은 이 화면의 Enter 문장 찾기(서버)가 이미 맡는다 — AI 찾기 풀이를 겹쳐 부르지 않는다
   active: () => window.KPTURouter?.current === 'outside' && state.mode === 'list' && !(NARROW.matches && root?.dataset.detail === 'open')
     && !(state.tab === 'media' && document.getElementById('newsRoot')?.dataset.mode && document.getElementById('newsRoot').dataset.mode !== 'list'),
   value: () => (state.query ? findText : ''),

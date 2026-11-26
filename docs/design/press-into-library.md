@@ -3,11 +3,11 @@
 📱 폰 경로 C 해당 없음(DB 변경 없음 추천) · Edge 배포 1건(정지 지점). 이 문서는 설계만 한다. 앱 코드·DB·Edge·워크플로·`press/` 파일 변경 없음.
 
 - 작성: 2026-10-23, Claude Code 웹. 기준 main `5110d60`.
-- 요청: 2026-10-23 11:03·11:05 명진 요청·결정(요청함).
+- 요청: 2026-10-23 11:03·11:05 사용자 요청·결정(요청함).
 - 바뀌는 기존 설계: [press-to-web2-design.md](press-to-web2-design.md)(2026-10-16). 무엇이 바뀌는지는 §8 표.
-- 관련: [library-ai-fill.md](library-ai-fill.md) §8.5(분류 목록에 '성명·보도자료'·'공문' 추가 = 명진 화면 작업, LIB-AI분류보완 #1032 완료).
+- 관련: [library-ai-fill.md](library-ai-fill.md) §8.5(분류 목록에 '성명·보도자료'·'공문' 추가 = 사용자 화면 작업, LIB-AI분류보완 #1032 완료).
 
-## 1. 명진 결정 (요청 원문 요지)
+## 1. 사용자 결정 (요청 원문 요지)
 
 1. 따로 있는 '성명·보도자료' 메뉴를 자료실 안으로 합친다. 자료 종류에 '성명·보도자료'·'공문'을 더하고, 기존 성명·보도자료는 모두 '성명·보도자료' 종류로 둔다.
 2. 기존 글은 지금 페이지 모양 그대로 자료실로 옮긴다(누르면 지금처럼 페이지로 보임).
@@ -56,14 +56,14 @@ select document_categories from public.app_profiles where document_categories is
 
 - `press/`는 main 루트 Pages로 공개 배포된다: `work.bokdoong.com/work/press/…`, `mj880616.github.io/work/press/…`. Worker는 desk 호스트의 `/press`를 work 호스트로 넘긴다(`tests/domain/bokdoong-router.test.mjs:298-302`).
 - Web1 다른 페이지에서 `press/`로 가는 링크는 없다(루트 `index.html`·`p/`·`public-policy/` grep 0건). `press/` 밖에서 이어지는 것은 `workforce/press-conference-0914/`가 자기 하위 보도자료 페이지를 거는 것뿐이고 `press/`와 무관하다.
-- 10/16 명진 확인: Web1 성명·보도자료는 개인 아카이브이고 외부에 보낸 링크가 없다. 삭제는 PRESS-Web1삭제에서 따로 한다.
+- 10/16 사용자 확인: Web1 성명·보도자료는 개인 아카이브이고 외부에 보낸 링크가 없다. 삭제는 PRESS-Web1삭제에서 따로 한다.
 - **이번 작업은 `press/`·Pages·Worker·게시 관문을 건드리지 않는다.** 옮기기는 복사이고, Web1 공개 주소는 지금처럼 열린다. Web2 인증·RLS·Edge 검사도 완화하지 않는다(가져오기는 owner 로그인 권한으로만).
 
 ### 2.5 자료실 쪽 이미 있는 것 (재사용)
 
 | 필요한 것 | 이미 있는 것 |
 | --- | --- |
-| 종류 | `app_documents.category`(자유 글자, 검사 없음) + 내 목록 `app_profiles.document_categories`(추가·이름 바꾸기 함수). '성명·보도자료'·'공문' 추가는 명진 화면 작업(library-ai-fill §8.5) |
+| 종류 | `app_documents.category`(자유 글자, 검사 없음) + 내 목록 `app_profiles.document_categories`(추가·이름 바꾸기 함수). '성명·보도자료'·'공문' 추가는 사용자 화면 작업(library-ai-fill §8.5) |
 | 발표일·발행 | `document_date`(date) · `source`(발행 주체) |
 | 세부 구분(성명/보도자료/취재요청) | `tags`(text[]) |
 | 파일 보관 | Edge `library-files`(Drive "자료실" 폴더 + `app_documents` 행, 사용자가 제목을 주면 AI 제목 추정 없음) |
@@ -130,15 +130,15 @@ select document_categories from public.app_profiles where document_categories is
 
 ## 6. DB 변경 필요 여부와 PR 순서
 
-- **DB 변경 필요 없음.** 쓰는 칸(`category`·`document_date`·`source`·`tags`·`file_name`·`field_origin`)과 권한(owner RLS·`library-files`)이 모두 있다. 종류 2개 추가는 기존 함수로 명진이 화면에서 한다. 그래서 "DB PR 먼저"에 해당하는 단계가 없고, 대신 **서버(Edge) PR을 먼저** 둔다.
+- **DB 변경 필요 없음.** 쓰는 칸(`category`·`document_date`·`source`·`tags`·`file_name`·`field_origin`)과 권한(owner RLS·`library-files`)이 모두 있다. 종류 2개 추가는 기존 함수로 사용자가 화면에서 한다. 그래서 "DB PR 먼저"에 해당하는 단계가 없고, 대신 **서버(Edge) PR을 먼저** 둔다.
 - `app_press_posts` 초안 SQL 3개는 폐기(§8). 지울지·"폐기" 표시만 할지는 원장 정리 PR에서.
 
 | 순서 | 무엇 | 누가 | 멈춤 | 되돌리기 |
 | --- | --- | --- | --- | --- |
-| 0 | 종류 목록에 '성명·보도자료'·'공문' 추가(library-ai-fill §8.5 사용자 할 일, 했는지 확인) | 명진 화면 1분 | — | 이름 삭제(자료 그대로) |
+| 0 | 종류 목록에 '성명·보도자료'·'공문' 추가(library-ai-fill §8.5 사용자 할 일, 했는지 확인) | 사용자 화면 1분 | — | 이름 삭제(자료 그대로) |
 | 1 | **Edge PR**: `document-actions` `html-view`가 자료실 자료(`kind:"library"`)의 `.html`도 열게. owner 확인·2 MB 상한·읽기 전용은 그대로 | AI → PR → merge | **Edge 배포**(승인형 workflow, verify_jwt=**true** 유지, 배포 전 운영 SHA 기록) | 직전 운영 SHA 재배포. 화면이 아직 안 쓰는 동안은 영향 없음 |
 | 2 | **화면 PR(Expand)**: 자료실에서 `.html` 자료를 누르면 칸막이로 보기(`html-frame.js` 재사용), 1회용 가져오기 단추. 성명 메뉴는 아직 그대로 | AI → PR → merge(Pages) | — | revert PR |
-| 3 | 가져오기 1번 누르기 → 대조: 자료실 성명·보도자료 글 44·첨부 4, 세부 꼬리표 16/13/13(+목록 밖 2), 겹침 0, 무작위 5건 + 가장 큰 글·가장 옛 글·로고 3건 원본과 나란히 | 명진 단추 1번, 캡처 → 커맨드센터 판정 | **production 데이터 추가**(자료실 48행·Drive 48파일) | §7 |
+| 3 | 가져오기 1번 누르기 → 대조: 자료실 성명·보도자료 글 44·첨부 4, 세부 꼬리표 16/13/13(+목록 밖 2), 겹침 0, 무작위 5건 + 가장 큰 글·가장 옛 글·로고 3건 원본과 나란히 | 사용자 단추 1번, 캡처 → 커맨드센터 판정 | **production 데이터 추가**(자료실 48행·Drive 48파일) | §7 |
 | 4 | **화면 PR(Contract)**: §5 삭제 + `?view=media` → 자료실 모아보기 + `/게시반영` press 새 글 절 삭제 + 원본 기준 문서 | AI → PR → merge | — | revert PR(데이터는 그대로라 메뉴만 돌아옴) |
 | 5 | (나중) PRESS-Web1삭제 | 별도 | 별도 | 별도 |
 
@@ -151,7 +151,7 @@ select document_categories from public.app_profiles where document_categories is
 | --- | --- | --- |
 | Edge(1) | 배포 전 기록한 운영 SHA로 같은 workflow 재실행 | 없음 |
 | 화면(2·4) | 해당 PR revert → Pages | 없음(데이터는 자료실에 그대로) |
-| 가져온 자료(3) | 자료실에서 종류 '성명·보도자료' + 파일 이름 `YYYY-MM-DD-*.html`·첨부 4건을 여러 개 지우기로 삭제(Drive 원본도 같이 지워짐). 원본 `press/`가 그대로라 다시 가져올 수 있음 | 가져온 뒤 명진이 붙인 연결·수정 |
+| 가져온 자료(3) | 자료실에서 종류 '성명·보도자료' + 파일 이름 `YYYY-MM-DD-*.html`·첨부 4건을 여러 개 지우기로 삭제(Drive 원본도 같이 지워짐). 원본 `press/`가 그대로라 다시 가져올 수 있음 | 가져온 뒤 사용자가 붙인 연결·수정 |
 | 일부만 틀림 | 그 자료만 수정 창에서 고치거나 지우고 다시 가져오기(겹침 판정이 빠진 것만 올림) | 없음 |
 
 ## 8. 기존 계획 정리안 (원장 행 — 커맨드센터가 merge 뒤 문서 PR로)
@@ -200,13 +200,13 @@ select document_categories from public.app_profiles where document_categories is
 | AI 자동 정리(LIB-자동정리)가 옛 글 제목·날짜를 고침 | 4칸 `field_origin='user'`. 정리 대상은 '정리 안 된 칸'뿐이라 채워진 칸은 원래도 대상 아님 |
 | 글 보기가 Drive 연결에 묶임(끊기면 성명 안 보임) | 다른 자료실 자료와 같은 조건으로 받아들임. 원본 `press/`는 PRESS-Web1삭제 전까지 남음 |
 | 본문 검색 안 됨: 글자 읽기(`_shared/document-text.ts`)가 `.html`을 모름(`none`) | 제목·발행·꼬리표로는 검색됨. 본문 검색은 별도 작업(Q5) |
-| 자료실 목록이 48행 늘어남 | 종류 거르기로 숨기기 가능(기본 끔 목록에 넣을지는 명진 화면 설정) |
+| 자료실 목록이 48행 늘어남 | 종류 거르기로 숨기기 가능(기본 끔 목록에 넣을지는 사용자 화면 설정) |
 | 칸막이가 지금 Web1 보기보다 좁음(`allow-popups`·`forms`·`downloads`·네트워크 없음) → 글 안 링크·복사 단추 안 뜸 | 보안상 의도(10/16 P3 ①). 첨부는 옆 자료 행으로 |
 | `publication-gate`가 남아 있음 | 지우지 않음(먼저 지우면 모든 PR 막힘) — PRESS-Web1삭제 |
 | 가져오기 도중 끊김 | 한 건씩 올리고 파일 이름으로 겹침 판정 → 다시 누르면 빠진 것만 |
 | 공개 git 이력의 전화번호 5건 | 이번 범위 밖(10/16 P4 유지) |
 
-## 11. 명진 질문 (추천안)
+## 11. 사용자 질문 (추천안)
 
 - **Q1. 옛 글을 어떻게 옮길까**
   - ① 파일로 복사해 자료실에 둠, 누르면 Web2 안에서 지금 모양으로 보임 — **추천**. Web1을 나중에 지워도 남는다. 서버 한 곳만 고침(배포 승인 1번).
@@ -227,4 +227,4 @@ select document_categories from public.app_profiles where document_categories is
   - ① 더함 — **추천**(지침 글 한 줄, `ai-assist` 다음 배포 때 같이).
   - ② 지금 기준 그대로.
 - **확인**: 종류 목록에 '성명·보도자료'·'공문'을 이미 추가했는지(library-ai-fill §8.5). 안 했으면 가져오기 전에 1분.
-- 결정(2026-10-24 명진): Q1~Q6 모두 ① 추천안. 종류 목록 '성명·보도자료'·'공문' 추가 완료.
+- 결정(2026-10-24 사용자): Q1~Q6 모두 ① 추천안. 종류 목록 '성명·보도자료'·'공문' 추가 완료.

@@ -209,6 +209,35 @@ test('통화·텔레그램을 잠그면 소식·텔레그램 요청 줄 대신 �
   await expect(list(page).locator('[data-forget-src="todo"]').first()).toBeVisible();
 });
 
+// S71-19(명진 11/26 17:14 "통화 텔레그램 2줄 / 이게 구분감이 없어 위에거랑"): 잠김 줄은 바로 위 업데이트 줄의 일부가 아니라 따로 잠근 묶음 —
+// 위와 사이 얇은 선(목록 줄 구분선과 같은 선) + 맨 앞 작은 통화·텔레그램 아이콘 두 개. 업데이트 줄의 단추 줄과 같은 줄이 아니라 그 아래.
+const SHOTS19=process.env.KPTU_SHOTS?'docs/design/screens/s71-19/':'';
+test('390: 잠김 줄은 위 업데이트 줄과 선으로 나뉘고 맨 앞 작은 통화·텔레그램 아이콘, 업데이트 단추 줄 아래 따로',async({page})=>{
+  const news=[newsRow(2,{org_name:'가상 지부'}),newsRow(4,{source:'call',line:'가상 통화 소식'})];
+  // 사진과 같은 자리: 잠긴 텔레그램 요청·소식을 뺀 뒤 바로 위가 업데이트 줄(가족 없음, 챙길 것 없음).
+  await fixture(page,{width:390,news,features:['telegram','calls'],lockFeatures:['calls','telegram'],cands:[cand(1)]});
+  const locked=list(page).locator('[data-forget-locked]');
+  await expect(locked).toHaveText(/^통화·텔레그램 \d+줄 · 잠김 풀기$/);
+  await expect(locked.locator('.locked-line-ic svg')).toHaveCount(2);
+  await expect(list(page).locator('[data-nbx-row]').last()).toHaveAttribute('data-forget-src','update');
+  const got=await locked.evaluate(el=>{
+    const prev=el.previousElementSibling,cs=getComputedStyle(el),probe=document.createElement('i');
+    probe.style.color='var(--ds-line)';el.parentElement.append(probe);const lineColor=getComputedStyle(probe).color;probe.remove();
+    const acts=[...prev.querySelectorAll('.nbx-acts button')].filter(b=>b.getClientRects().length).map(b=>b.getBoundingClientRect());
+    const me=el.getBoundingClientRect(),ic=el.querySelector('.locked-line-ic').getBoundingClientRect();
+    return {prevRow:prev.matches('[data-nbx-row]'),prevSrc:prev.dataset.forgetSrc||'',line:cs.borderTopStyle,width:parseFloat(cs.borderTopWidth),color:cs.borderTopColor,lineColor,
+      actsBottom:Math.max(...acts.map(b=>b.bottom)),top:me.top,icW:ic.width,icH:ic.height};
+  });
+  expect(got.prevRow,'바로 위는 목록 줄').toBe(true);
+  expect(got.prevSrc,'바로 위는 업데이트 줄(사진과 같은 자리)').toBe('update');
+  expect(got.line,'위와 사이 선').toBe('solid');expect(got.width).toBeGreaterThan(0);
+  expect(got.color,'목록 줄 구분선(.nbx-item)과 같은 선 색').toBe(got.lineColor);
+  expect(got.top,'업데이트 단추 줄과 같은 줄이 아니라 그 아래').toBeGreaterThanOrEqual(got.actsBottom);
+  expect(got.icH,'아이콘은 작게(글자보다 작음)').toBeLessThanOrEqual(14);expect(got.icW).toBeLessThanOrEqual(30);
+  expect(await noWide(page)).toBe(true);
+  if(SHOTS19){await locked.scrollIntoViewIfNeeded();await page.screenshot({path:`${SHOTS19}forget-locked-390.png`});}
+});
+
 // S67-25 그 자리 풀기(명진 11/20 "풀 수 있는 방법도 여기에 줘야지"): '잠김' 줄 끝 [풀기] → 화면을 떠나지 않고 작은 PIN 창(잠금 화면과 같은 숫자 판)
 // → 틀리면 남은 횟수(서버 값) → 맞으면 창이 닫히고 같은 자리에 숨긴 줄들이 보인다. 풀기 전에는 소식 글자가 화면에 없다.
 const SHOTS25=process.env.KPTU_SHOTS?'docs/design/screens/s67-25/':'';

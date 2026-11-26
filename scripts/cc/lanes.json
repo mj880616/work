@@ -1,0 +1,97 @@
+{
+  "_설명": "작업 영역 표(docs/command-center-ops.md 1-1절). 파일 경로 패턴은 여기 한 곳에만 둔다. 위에서부터 먼저 맞는 영역 하나로 센다. * = 한 칸 안 아무 글자, ** = 여러 칸. 어디에도 안 맞는 앱·서버 파일은 '사. 그 밖'.",
+  "default": "사",
+  "lanes": [
+    {
+      "id": "바",
+      "name": "바. 자료실·드라이브 서버",
+      "patterns": [
+        "supabase/functions/library-files/**",
+        "supabase/functions/workspace-drive/**",
+        "supabase/functions/drive-summary/**",
+        "supabase/functions/cloud-files/**",
+        "supabase/functions/_shared/library-*",
+        "supabase/functions/_shared/drive-*",
+        "app/library-drive-*",
+        "app/drive-*",
+        "app/hwp-drive.js"
+      ]
+    },
+    {
+      "id": "다",
+      "name": "다. 글 읽기",
+      "patterns": [
+        "app/reading*",
+        "app/brief-*",
+        "app/news-*",
+        "app/text-highlights*",
+        "app/text-select-bar*",
+        "app/home-read-model.js",
+        "app/library-html-view.js"
+      ]
+    },
+    {
+      "id": "라",
+      "name": "라. 노트",
+      "patterns": [
+        "app/note-*",
+        "app/basket-note*",
+        "app/connect-note.mjs",
+        "app/ed-note-link.js"
+      ]
+    },
+    {
+      "id": "마",
+      "name": "마. 찾기",
+      "patterns": [
+        "app/global-search*",
+        "app/screen-find*",
+        "app/files-find-model.mjs",
+        "app/outside-search*"
+      ]
+    },
+    {
+      "id": "나",
+      "name": "나. 밀기·막대·메뉴",
+      "patterns": [
+        "app/row-swipe*",
+        "app/row-menu*",
+        "app/row-more*",
+        "app/row-size*",
+        "app/select-bar*",
+        "app/action-bar*",
+        "app/context-menu*",
+        "app/anchored-menu*",
+        "app/menu-dismiss*",
+        "app/details-menu-back*",
+        "app/record-*",
+        "app/org-record-*",
+        "app/list-row.css"
+      ]
+    },
+    {
+      "id": "가",
+      "name": "가. 폴더·목록·끌기",
+      "patterns": [
+        "app/folder-*",
+        "app/files*",
+        "app/pc-files*",
+        "app/phone-files*",
+        "app/phone-folders*",
+        "app/library-*",
+        "app/select-mode*",
+        "app/select-keys*",
+        "app/marquee-select*",
+        "app/drag-*",
+        "app/touch-drag*",
+        "app/reorder-drag*",
+        "app/drop-open-folder*",
+        "app/goto-folder*",
+        "app/tree-icons*",
+        "app/photo*",
+        "app/photos*",
+        "app/compact-list.css"
+      ]
+    }
+  ]
+}

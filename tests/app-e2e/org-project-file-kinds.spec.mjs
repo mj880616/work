@@ -269,7 +269,8 @@ const photoDocs=()=>[
 const IMG={drive_file_id:'drive-img1',file_name:'IMG_1021.jpg',mime_type:'image/jpeg',size_bytes:2048},IMG2={...IMG,drive_file_id:'drive-img2',file_name:'IMG_1022.jpg'};
 async function photoRoutes(page){
  const calls=[];
- await page.route(SB+'/functions/v1/library-files?**',route=>{const q=new URL(route.request().url()).searchParams;calls.push(q.get('document_id')+':'+q.get('size'));return route.fulfill({status:200,contentType:'image/png',body:PNG});});
+ await page.route(SB+'/functions/v1/library-files?**',route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+const q=new URL(route.request().url()).searchParams;calls.push(q.get('document_id')+':'+q.get('size'));return route.fulfill({status:200,contentType:'image/png',body:PNG});});
  await page.route(SB+'/functions/v1/basket-files?**',route=>route.fulfill({status:200,contentType:'image/png',body:PNG}));
  return calls;
 }

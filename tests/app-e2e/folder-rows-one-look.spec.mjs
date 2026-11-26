@@ -5,6 +5,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // UI-폴더목록한모양(S69-90, 명진 11/25 "파일 인터페이스로 자료실도 바꿔 … 모든 폴더 쓰는 ui를 통일 시키는 거 맞지? 노트 사진 등 모두"):
 // 폴더를 쓰는 화면(자료실·노트·사진)의 폴더 줄이 [파일] 폴더 줄과 같은 모양인지 계산된 값으로 비교한다 — 줄 높이·글자 크기·폴더 그림 폭·⋯ 크기·⋯ 자리(줄 오른쪽 끝에서),
 // 고른 줄 표시(옅은 강조 바탕 + 왼쪽 세로줄, 줄 앞 체크칸 없음), 개수 글씨(작은 흐린 글씨), 주소 줄 하나(이름이 두 번 보이지 않음).
@@ -181,8 +182,8 @@ for (const width of [390, 1280]) test(`노트 ${width}: 고르기 중 폴더 줄
 test('노트 PC 1280: 폴더 안 폴더에서 주소 줄이 하나(노트 › 위 폴더 › 지금 폴더 · 개수)', async ({ page }) => {
   const errors = await notesServer(page, 1280, { deep: true });
   const tree = page.locator('[data-nx-tree]');
-  await tree.locator(`[data-nx-folder="${U(100)}"] .ft-main`).click();
-  await tree.locator(`[data-nx-folder="${U(110)}"] .ft-main`).click();
+  await treeEnter(tree.locator(`[data-nx-folder="${U(100)}"] .ft-main`));
+  await treeEnter(tree.locator(`[data-nx-folder="${U(110)}"] .ft-main`));
   const here = page.locator('[data-nx-here]');
   await expect(here).toBeVisible();
   await expect(here).toHaveText(/^노트›가상 폴더 0›가상 안쪽 · \d+$/);
@@ -198,7 +199,7 @@ test('노트 PC 1280: 폴더 안 폴더에서 주소 줄이 하나(노트 › �
 test('사진 PC 1280: 폴더 안에서 주소 줄이 하나(사진 › 카메라 › 지금 폴더 · n장)', async ({ page }) => {
   const errors = await photosServer(page, 1280);
   const tree = page.locator('#photosRoot [data-photos-fx-tree]');
-  await tree.locator('[data-photos-fx-open="S1"]').click();
+  await treeEnter(tree.locator('[data-photos-fx-open="S1"]'));
   const pane = page.locator('#photosRoot .photos-fx-pane');
   const here = pane.locator('.photos-fx-here');
   await expect(here).toHaveCount(1);
