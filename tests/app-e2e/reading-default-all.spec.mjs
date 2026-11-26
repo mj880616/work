@@ -51,11 +51,14 @@ for (const [label, width] of [['pc-1280', 1280], ['phone-390', 390]]) {
     await expect(list(page).locator('.rd-row')).toHaveCount(3);
     expect(new URL(page.url()).searchParams.get('tab')).toBeNull();
 
-    // 머리줄(보기 탭 줄) 아래 끝과 목록 첫 줄 위 끝 사이 간격 ≥ 공용 간격 값.
+    // 머리줄 아래 끝과 목록 첫 줄 위 끝 사이 간격 ≥ 공용 간격 값. S71-26: 목록 머리 줄(.rd-head)이 없어 PC 틀은 보기 탭 줄(보이는 칸 아래 끝 —
+    // 누르는 범위 padding 제외), 폰은 탭이 하단바 위로 가므로 앱 머리 줄 아래 끝에서 잰다.
     const gap = await page.evaluate(() => {
-      const head = document.querySelector('#readingView [data-rd-list] .rd-head'), rows = document.querySelector('#readingView [data-rd-list] .rd-rows');
+      const sw = document.querySelector('#readingView [data-rd-list] > .rd-switch'), rows = document.querySelector('#readingView [data-rd-list] .rd-rows');
       const want = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-chip-row-above'));
-      return { gap: rows.getBoundingClientRect().top - head.getBoundingClientRect().bottom, want };
+      const above = getComputedStyle(sw).position === 'fixed' ? document.querySelector('#appView>.mobile-shell-header').getBoundingClientRect().bottom
+        : sw.getBoundingClientRect().bottom - parseFloat(getComputedStyle(sw).paddingBottom);
+      return { gap: rows.getBoundingClientRect().top - above, want };
     });
     expect(gap.want).toBeGreaterThan(0);
     expect(gap.gap).toBeGreaterThanOrEqual(gap.want - 0.5);

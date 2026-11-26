@@ -200,7 +200,7 @@ test('읽을 거리 412: 고른 줄 [삭제] — 한 번만 묻고, 취소하면
   expect(errors).toEqual([]);
 });
 
-test('읽을 거리 412: 줄 위 좌우 밀기는 칩을 넘기지 않고, 줄 밖(머리줄)에서 밀면 옆 칩', async ({ page }) => {
+test('읽을 거리 412: 줄 위 좌우 밀기는 칩을 넘기지 않고, 줄 밖(화면 칸 빈 곳)에서 밀면 옆 칩', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, list } = await openReading(page, 412);
   const allChip = list.locator('.rd-switch [data-filter-value="all"]');
@@ -214,7 +214,7 @@ test('읽을 거리 412: 줄 위 좌우 밀기는 칩을 넘기지 않고, 줄 �
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await tick(page);
-  await both(list.locator('.rd-head'), -160);
+  await both(page.locator('#readingView .rd-wrap'), -160); // S71-26: 목록 머리 줄이 없어 줄 밖 = 화면 칸 빈 곳
   await expect(allChip).toHaveAttribute('aria-checked', 'false');
   expect(errors).toEqual([]);
 });

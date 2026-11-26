@@ -119,15 +119,19 @@ for (const width of [412, 390]) {
     await expect(tab(list, 'marks')).toHaveAttribute('aria-checked', 'true');
     await expect(list.locator('[data-rd-marks] .nh-row')).toHaveCount(3);
     await expect(rows(list)).toHaveCount(0);
-    // ⑤ 줄 밖(맨 위 머리 줄)에서 밀면 탭을 넘긴다: 밑줄 → (오른쪽 밀기) 안 읽음 → (왼쪽 밀기) 밑줄. S70-24: 탭 차례 [전체·안 읽음·밑줄·메모].
-    const head = list.locator('.rd-head'); // S70-57: 머리 줄 제목 없음(이름은 앱 머리 줄) — 머리 줄 빈 곳
+    // ⑤ 줄 밖에서 밀면 탭을 넘긴다: 밑줄 → (오른쪽 밀기) 안 읽음 → (왼쪽 밀기) 밑줄. S70-24: 탭 차례 [전체·안 읽음·밑줄·메모].
+    // S71-26: ＋만 있던 목록 머리 줄이 없어져 줄 밖 = 목록 마지막 줄 아래 빈 곳(화면 칸 안). 높이 32 띠로 잰다.
+    const gapBox = async () => {
+      const l = await box(list.locator('.rd-row[data-rd-open], [data-rd-marks] .nh-row').last()); // 지금 탭 목록 마지막 줄
+      return { x: l.x, y: l.y + l.height + 24, width: l.width, height: 32 };
+    };
     await tick(page);
-    let h = await box(head);
+    let h = await gapBox();
     await finger(page, cdp, path(h.x + 20, h.y + h.height / 2, 160, 0));
     await expect(tab(list, 'unread')).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('#readingView .row-swipe-acts')).toHaveCount(0);
     await tick(page);
-    h = await box(head);
+    h = await gapBox();
     await finger(page, cdp, path(h.x + h.width / 2 + 60, h.y + h.height / 2, -160, 0));
     await expect(tab(list, 'marks')).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('#readingView .row-swipe-acts')).toHaveCount(0);
