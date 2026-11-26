@@ -25,15 +25,15 @@ test('크기 손잡이 8개: 모서리 = 폭·높이, 변 = 그 방향만, 왼�
   assert.deepEqual(ne, {x:100, y:110, w:130, h:30}); // 높이는 최소 30에서 멈추고 아래 변(140)은 그대로
 });
 
-test('크기 범위 자르기: 폭 60~600·높이 30~1200, 줄일 때도 반대편은 그대로, 판 왼쪽·위 끝 밖으로 못 감', () => {
+test('크기 범위 자르기: 폭 60~600·높이 30~1200, 줄일 때도 반대편은 그대로, S71-52 판은 왼쪽·위로도 뻗음', () => {
   assert.equal(resizeRect(R, 'e', -500, 0).w, 60);
   assert.equal(resizeRect(R, 'e', 5000, 0).w, 600);
   assert.equal(resizeRect(R, 's', 0, -500).h, 30);
   assert.equal(resizeRect(R, 's', 0, 5000).h, 1200);
   const small = resizeRect(R, 'nw', 500, 500); // 너무 줄임 → 최소 크기, 오른쪽·아래 변 고정
   assert.deepEqual(small, {x:160, y:110, w:60, h:30});
-  const edge = resizeRect({x:10, y:5, w:100, h:40}, 'nw', -200, -200); // 판 끝(0) 밖으로는 못 늘림
-  assert.equal(edge.x, 0); assert.equal(edge.y, 0); assert.equal(edge.w, 110); assert.equal(edge.h, 45);
+  const edge = resizeRect({x:10, y:5, w:100, h:40}, 'nw', -200, -200); // S71-52: 0을 넘어 음수 쪽으로도 늘림(최대 크기까지)
+  assert.equal(edge.x, -190); assert.equal(edge.y, -195); assert.equal(edge.w, 300); assert.equal(edge.h, 240);
   assert.equal(clampSize(NaN, 60, 600), 60);
   assert.equal(H_MIN, FRAME_LIMITS.hMin); assert.equal(H_MAX, FRAME_LIMITS.hMax);
 });

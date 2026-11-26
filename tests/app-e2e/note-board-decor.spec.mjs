@@ -118,7 +118,7 @@ test('PC: 글자 넣기(배경 없음)·도형 넣기·꾸미기·크기·옮기
   await expect(shape.locator('.nb-shape-art polygon')).toHaveCount(1);
   await expect(shape.locator('[data-nb-resize]:visible')).toHaveCount(8);
   await expect(bar(page)).toBeVisible();
-  await expect(bar(page).locator('[data-nb-bar-child]')).toBeHidden();
+  await expect(bar(page).locator('[data-nb-bar-child]')).toBeVisible(); // S71-51(사용자 결정 2026-11-26): 도형도 가지를 뻗는다
   // 꾸미기: 채우기 색 · 테두리 색·두께·점선 · 투명도
   await bar(page).locator('[data-nb-bar-open="tone"]').click();
   await bar(page).locator('[data-nb-tone="3"]').click();
@@ -217,6 +217,8 @@ test('PC: 양 끝이 점인 선은 몸통을 끌어 통째로 옮기고, 끝을 
   expect(linkRows[0].from_text).toBeNull();
   // 도형 복제 → 옆에 같은 모양, 삭제
   await page.keyboard.press('Escape');
+  // S71-52: 도형이 도구 줄 밑에 있다 — 예전에는 판 안 20000px 선 그림 덕에 시험 도구가 판을 몰래 스크롤해 눌렀다(판이 밀리던 숨은 문제). 판을 내려 보이게 한 뒤 누른다.
+  await page.mouse.move(640, 600); await page.mouse.wheel(0, -200);
   await page.locator('[data-nb-text="s1"] .nb-tx').click();
   await bar(page).locator('[data-nb-bar-open="more"]').click();
   await bar(page).locator('[data-nb-dup]').click();

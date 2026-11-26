@@ -10,12 +10,12 @@ const n = (id, parent = null, ord = 0, extra = {}) => nodeShape(base(id, extra.x
 const size = () => ({w:80, h:24});
 
 test('옛 글 상자(새 칸 없음)는 혼자 선 기본 주제 상자로 읽힌다, 범위 밖 값은 기본값', () => {
-  assert.deepEqual(nodeShape(base('a', 5, 6)), {id:'a', board_id:'all', body:'a', x:5, y:6, z:0, stroke:null, stroke_w:null, dash:false, alpha:null, bold:false, align:null, ink:null, parent_id:null, ord:0, side:null, kind:'topic', color:null, shape:'round', font:2, w:null, h:null, collapsed:false, pinned:false});
+  assert.deepEqual(nodeShape(base('a', 5, 6)), {id:'a', board_id:'all', body:'a', x:5, y:6, z:0, stroke:null, stroke_w:null, dash:false, alpha:null, bold:false, align:null, ink:null, parent_id:null, parent_card:false, ord:0, side:null, kind:'topic', color:null, shape:'round', font:2, w:null, h:null, collapsed:false, pinned:false});
   const odd = nodeShape(base('a'), {parent_id:'a', ord:-3, side:0, kind:'x', color:10, shape:'star', font:7, w:20, collapsed:'yes'});
   assert.equal(odd.parent_id, null); assert.equal(odd.ord, 0); assert.equal(odd.side, null); assert.equal(odd.kind, 'topic');
   assert.equal(odd.color, null); assert.equal(odd.shape, 'round'); assert.equal(odd.font, 2); assert.equal(odd.w, null); assert.equal(odd.collapsed, false);
   assert.deepEqual(nodeShape(base('a'), {parent_id:'p', ord:5, side:-1, kind:'sticky', color:7, shape:'pill', font:4, w:300, collapsed:true}),
-    {...base('a'), z:0, stroke:null, stroke_w:null, dash:false, alpha:null, bold:false, align:null, ink:null, parent_id:'p', ord:5, side:-1, kind:'sticky', color:7, shape:'pill', font:4, w:300, h:null, collapsed:true, pinned:false});
+    {...base('a'), z:0, stroke:null, stroke_w:null, dash:false, alpha:null, bold:false, align:null, ink:null, parent_id:'p', parent_card:false, ord:5, side:-1, kind:'sticky', color:7, shape:'pill', font:4, w:300, h:null, collapsed:true, pinned:false});
   assert.equal(nodeShape(null), null);
   assert.equal(NODE_COLORS.length, 8);
 });
@@ -109,4 +109,23 @@ test('키보드 길 찾기와 글자 크기·감싸는 칸', () => {
   assert.equal(stepFont(2, 1), 3); assert.equal(stepFont(FONT_MAX, 1), FONT_MAX); assert.equal(stepFont(1, -1), 1);
   assert.deepEqual(boundsOf([{x:0, y:0, w:10, h:10}, {x:20, y:-5, w:10, h:10}]), {x:0, y:-5, w:30, h:15});
   assert.equal(boundsOf([]), null);
+});
+
+// S71-51 보드 위 모든 칸 가지 뻗기: 카드 부모(parent_note)·카드 칸(cardNode)·섞인 가지·옛 서버 규칙.
+test('S71-51: 노트 카드 부모는 parent_note로 읽고 나무에서는 parent_id 하나로, 카드 칸은 늘 뿌리', async () => {
+  const { cardNode, isCardNode } = await import('../app/note-board-mindmap-model.mjs');
+  const kid = nodeShape(base('k'), {parent_note:'note1', ord:0});
+  assert.equal(kid.parent_id, 'note1'); assert.equal(kid.parent_card, true);
+  const both = nodeShape(base('b'), {parent_id:'t1', parent_note:'note1'}); // 둘 다 오면(서버는 막음) 글 상자 부모
+  assert.equal(both.parent_id, 't1'); assert.equal(both.parent_card, false);
+  const card = cardNode('note1', {x:100, y:50});
+  assert.ok(isCardNode(card));
+  const t = buildTree([card, kid, n('g', 'k'), {...cardNode('note2', {x:0, y:0}), parent_id:'k'}]);
+  assert.equal(t.parentOf.get('k'), 'note1'); assert.equal(t.parentOf.get('g'), 'k');
+  assert.ok(t.roots.some(r => r.id === 'note2'), '카드 칸은 가지가 되지 않는다');
+  const lay = layoutMindmap(t, id => (id.startsWith('note') ? {w:128, h:34} : size()));
+  assert.equal(lay.rects.get('note1').x, 100);
+  assert.ok(lay.rects.get('k').x >= 100 + 128, '카드 오른쪽에 가지');
+  const old = buildTree([card, kid], {free:false});
+  assert.ok(old.roots.some(r => r.id === 'k'), '옛 서버: 카드 아래 가지 없음');
 });

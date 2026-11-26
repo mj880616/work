@@ -844,6 +844,12 @@ jobs:
         run: node --test tests/note-board-paste-model.test.mjs
       - name: Check note board export (S70-32 ③ 범위·PDF 한 쪽)
         run: node --test tests/note-board-export-model.test.mjs
+      - name: Check note board background (S71-50 색 목록·대비·고르기)
+        run: node --test tests/note-board-bg.test.mjs
+      - name: Check big board coordinates and tree speed (S71-52 NOTE-큰생각지도)
+        run: node --test tests/note-board-big-map.test.mjs
+      - name: Check big board view math (S71-52 ② 멀리 보기·미니맵·이 가지만 보기)
+        run: node --test tests/note-board-view-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
         run: node --test tests/note-tags-comments.test.mjs tests/memo-model.test.mjs
       - name: Check note tag field add/remove on the text (S67-48)

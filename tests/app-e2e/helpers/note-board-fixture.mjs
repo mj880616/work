@@ -8,8 +8,8 @@ import { installViewPrefsServer } from './view-prefs-server.mjs';
 export const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 export const TEXT_DEF = { parent_id: null, ord: 0, side: null, kind: 'topic', color: null, shape: 'round', font: 2, w: null, collapsed: false, h: null, pinned: false,
   z: 0, stroke: null, stroke_w: null, dash: false, alpha: null, bold: false, align: null, ink: null };
-export async function boardFixture(page, width, { bid = 'bs70003', seed = [], links = [] } = {}) {
-  await page.setViewportSize({ width, height: width > 600 ? 1000 : 860 });
+export async function boardFixture(page, width, { bid = 'bs70003', seed = [], links = [], open = true, height = null } = {}) {
+  await page.setViewportSize({ width, height: height || (width > 600 ? 1000 : 860) });
   const errors = [], linkCalls = [], linkRows = links.map(l => ({ from_x: null, from_y: null, to_x: null, to_y: null, color: null, width: null, from_note: null, to_note: null, from_text: null, to_text: null, from_side: null, to_side: null, shape: 'line', dash: 'solid', ends: 'end', label: null, bend_x: null, bend_y: null, ...l })), textCalls = [], textRows = seed.map(t => ({ ...TEXT_DEF, ...t }));
   page.on('pageerror', e => errors.push(e.message));
   await installViewPrefsServer(page, { note_boards: [{ id: bid, name: '시험 보드' }], note_board: bid });
@@ -52,8 +52,10 @@ export async function boardFixture(page, width, { bid = 'bs70003', seed = [], li
   });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await chooseBasketKind(page, 'note');
-  await page.locator('.nv-switch [data-note-view="board"]').click();
-  await expect(page.locator('[data-note-board] [data-nb-card]')).toHaveCount(1);
+  if (open) {
+    await page.locator('.nv-switch [data-note-view="board"]').click();
+    await expect(page.locator('[data-note-board] [data-nb-card]')).toHaveCount(1);
+  }
   return { errors, linkCalls, linkRows, textCalls, textRows, rows };
 }
 export const nbNode = (page, text) => page.locator('[data-nb-texts] [data-nb-text]').filter({ has: page.locator('.nb-tx', { hasText: new RegExp(`^${text}$`) }) });
