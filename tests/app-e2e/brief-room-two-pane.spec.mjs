@@ -187,7 +187,8 @@ for (const [label, width, height] of [['pc-1280', 1280, 860], ['phone-390', 390,
 
 // ---------- S71-30 BRIEF-머리한줄·놓기안내삭제·밀기(명진 11/26 17:38 "여기에 파일을 놓아듀 돼요 이 안내멘트 삭제 / 브리핑 요약 삭제하고 파일 제목으로만
 // 자료실 파일처럼 한줄로 / 좌우로 스와이프 기능 넣는거 요청했는데 어케됨") ----------
-// ① 머리는 한 줄: 화면 안 머리 줄([자료실에서 선택][자료 넣기][−|+])·점선 놓기 안내 줄이 없고, 맨 위 줄(폰·폴드 '브리핑 룸 · 찾기', PC 상단 줄) 끝에 [⋯][+] 둘 — [+]가 맨 오른쪽.
+// ① 머리는 한 줄: 화면 안 머리 줄([자료실에서 선택][자료 넣기][−|+])·점선 놓기 안내 줄이 없고, 맨 위 줄(폰·폴드 '브리핑 룸 · 찾기') 끝에 [⋯][+] 둘 — [+]가 맨 오른쪽.
+//   PC 틀은 S71-59부터 화면 안 첫 줄 오른쪽 끝(맨 위 줄은 앱 전체 것만).
 // ② [+] 작은 메뉴 = 자료실에서 선택 · 파일 업로드. ③ [⋯] = (폰) 정렬 · 글자 크기 [−][+](메뉴를 닫지 않고 한 단계씩) · 쓰는 법. 보기가 열려 있으면 글자 크기는 보기 머리 줄 하나뿐.
 // ④ 목록 줄은 이름 한 줄(+ 폰은 [파일] 폰 줄처럼 날짜·크기·종류 작은 줄), 요약 줄 없음. ⑤ 파일을 끌어 오는 동안만 목록에 놓을 곳 점선.
 for (const [label, width, height] of [['phone-390', 390, 844], ['fold-690', 690, 900], ['pc-1280', 1280, 860]]) {
@@ -205,9 +206,11 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['fold-690', 690,
     await expect(tools).toBeVisible();
     await expect(tools.locator('button')).toHaveCount(2);
     await expect(tools.locator('button').last()).toHaveAttribute('data-br-top-add', '');
-    const slot = width <= 760 ? '.mobile-shell-header [data-screen-tools="head"]' : '.app-topline [data-screen-tools="top"]';
+    // S71-59 UI-화면메뉴안으로: PC 틀은 맨 위 줄이 아니라 화면 안 첫 줄 오른쪽 끝(브리핑 룸은 첫 줄이 따로 없어 화면 맨 위 그 한 줄).
+    const slot = width <= 760 ? '.mobile-shell-header [data-screen-tools="head"]' : '#briefView [data-screen-tools="line"]';
     await expect(page.locator(`${slot} .sf-tools[data-sf-tools="brief"]`)).toBeVisible();
-    const line = await page.locator(width <= 760 ? '.mobile-shell-header' : '.app-topline').boundingBox();
+    if (width > 760) await expect(page.locator('.app-topline .sf-tools[data-sf-tools="brief"]')).toHaveCount(0);
+    const line = await page.locator(width <= 760 ? '.mobile-shell-header' : slot).boundingBox();
     for (const b of await tools.locator('button').all()) {
       const r = await b.boundingBox();
       expect(r.y).toBeGreaterThanOrEqual(line.y - 1); expect(r.y + r.height).toBeLessThanOrEqual(line.y + line.height + 1);

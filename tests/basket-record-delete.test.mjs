@@ -314,7 +314,7 @@ test('trash: notes (kind note) use the note wording, and the default call withou
 });
 
 test('screens: every update/note delete call goes to the trash; only the diary keeps the immediate delete',()=>{
-  for(const file of ['basket.js','basket-notes.js','basket-link-records.js']){
+  for(const file of ['basket.js','basket-notes.js']){
     const text=readFileSync(new URL('../app/'+file,import.meta.url),'utf8');
     const calls=[...text.matchAll(/deleteNoteOriginal\([^)]*\)/g)].map(m=>m[0]);
     assert.ok(calls.length>0,file);
@@ -322,15 +322,10 @@ test('screens: every update/note delete call goes to the trash; only the diary k
   }
   const diary=readFileSync(new URL('../app/diary.js',import.meta.url),'utf8');
   assert.doesNotMatch(diary,/trash:\s*true/);
-  // ORG-연결노트삭제: 기록 줄의 노트 [원문 삭제]는 deleteRecordNote(휴지통 길 고정)로만 간다.
+  // RECORD-기록하나로: 기록 줄은 원문을 지우지 않는다 — 연결 줄 [삭제]는 그 줄만(disconnectWithUndo).
+  const records=readFileSync(new URL('../app/basket-link-records.js',import.meta.url),'utf8');
+  assert.doesNotMatch(records,/deleteNoteOriginal|deleteRecordNote/);assert.match(records,/disconnectWithUndo\(record,/);
   const shared=readFileSync(new URL('../app/basket-record-delete.js',import.meta.url),'utf8');
-  assert.match(shared,/export const deleteRecordNote=\(noteId,options=\{\}\)=>deleteNoteOriginal\(noteId,\{\.\.\.options,trash:true,/);
+  assert.doesNotMatch(shared,/export const deleteRecordNote|recordNoteDeleteWords/);
 });
 
-// ORG-연결노트삭제(2026-11-12 명진 지시): 기록 줄의 노트 [원문 삭제] 묻는 글. 이 줄 말고 이어진 곳이 있으면 'n군데'를 함께 말한다.
-test('record note delete words: one question, the trash, this line, and other places',()=>{
-  assert.deepEqual(mod.recordNoteDeleteWords({places:1,otherLinks:0}),{confirm:'노트를 삭제할까요?\n휴지통으로 가요. 이 기록 줄도 빠져요.',moved:'노트를 삭제했어요.'});
-  assert.equal(mod.recordNoteDeleteWords({places:2,otherLinks:1}).confirm,'노트를 삭제할까요?\n휴지통으로 가요. 이 기록 줄도 빠져요.\n다른 곳 2군데에도 연결돼 있어요.');
-  assert.equal(mod.recordNoteOtherPlaces({places:0,otherLinks:0}),0);
-  assert.equal(mod.recordNoteOtherPlaces(null),0);
-});

@@ -41,12 +41,15 @@ test('PC 1280: 노트 입력칸은 한 줄 높이 고정, 세 줄도 그대로 �
   const s = await rect(save), i0 = await rect(input);
   expect(i0.height).toBeLessThanOrEqual(s.height + 0.5);
   expect(await input.evaluate(el => getComputedStyle(el).resize)).toBe('none');
-  // [폴더 ▾]·[첨부]·[추가]는 칸과 같은 한 줄: 각 단추의 세로 가운데가 칸 안에 있다.
-  for (const sel of ['[data-quick-folder]', '[data-quick-file-picker]', '[data-quick-save]']) {
+  // [폴더]·[추가]는 칸과 같은 한 줄: 각 단추의 세로 가운데가 칸 안에 있다. 첨부 클립은 칸 안 왼쪽(NOTE-입력줄높이 S71-67).
+  for (const sel of ['[data-quick-folder]', '[data-quick-save]']) {
     const b = await rect(q(page, sel)), mid = (b.top + b.bottom) / 2;
     expect(mid).toBeGreaterThanOrEqual(i0.top); expect(mid).toBeLessThanOrEqual(i0.bottom);
     expect(b.left).toBeGreaterThanOrEqual(i0.right - 0.5);
   }
+  const clip = await rect(q(page, '[data-quick-file-picker]'));
+  expect(clip.left).toBeGreaterThanOrEqual(i0.left - 0.5); expect(clip.right).toBeLessThan(i0.left + i0.width / 2);
+  expect(clip.top).toBeGreaterThanOrEqual(i0.top - 0.5); expect(clip.bottom).toBeLessThanOrEqual(i0.bottom + 0.5);
   // [⤢ 크게]는 칸 안 오른쪽 끝.
   const big = await rect(q(page, '[data-quick-big]'));
   expect(big.right).toBeLessThanOrEqual(i0.right + 0.5); expect(big.left).toBeGreaterThan(i0.left + i0.width / 2);
@@ -70,10 +73,11 @@ test('PC 1280: 노트 입력칸은 한 줄 높이 고정, 세 줄도 그대로 �
   expect(f.errors).toEqual([]);
 });
 
-for (const width of [390, 412]) test(`폰 ${width}: 노트 입력칸 높이는 고치기 전과 같음(공용 한 줄 칸)`, async ({ page }) => {
+// NOTE-입력줄높이(S71-67): 폰도 입력 줄 공용 높이(--ds-quick-row-height) 한 줄 칸.
+for (const width of [390, 412]) test(`폰 ${width}: 노트 입력칸 높이는 입력 줄 공용 높이(공용 한 줄 칸)`, async ({ page }) => {
   const f = await fixture(page, width);
   const input = q(page, '[data-quick-input]');
-  const [h, token] = await input.evaluate(el => [el.getBoundingClientRect().height, parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height'))]);
+  const [h, token] = await input.evaluate(el => [el.getBoundingClientRect().height, parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-quick-row-height'))]);
   expect(token).toBeGreaterThan(0);
   expect(h).toBeCloseTo(token, 0);
   expect(await input.evaluate(el => getComputedStyle(el).resize)).toBe('none');

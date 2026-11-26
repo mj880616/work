@@ -121,6 +121,14 @@
   // A screen's own focus handler can move its content after ours: check the newly focused field once more next frame.
   document.addEventListener('focusin',()=>{syncKeyboard();requestAnimationFrame(()=>{if(keyboardOpen&&keyboardField&&document.activeElement===keyboardField)revealField(keyboardField)})});
   document.addEventListener('focusout',()=>queueMicrotask(syncKeyboard));
+  // UI-입력칸자동높이: a growing field (auto-grow.js) keeps its bottom — the line being typed — above the keyboard.
+  document.addEventListener('kptu:autogrow',event=>{
+    const field=event.target;
+    if(!keyboardOpen||field!==keyboardField||document.activeElement!==field||onFixedBar(field))return;
+    const viewport=window.visualViewport,r=field.getBoundingClientRect(),port=scrollport(field);
+    const bottom=Math.min(viewport?viewport.offsetTop+viewport.height:innerHeight,port.bottom)-8;
+    if(r.bottom>bottom)port.el.scrollBy(0,Math.ceil(r.bottom-bottom));
+  });
 
   // companions (optional): a function returning controls outside the dialog that stay in its Tab cycle (the full-screen
   // editor on a wide screen keeps the app's menu beside it). The cycle is the dialog, then these, then the version notice.

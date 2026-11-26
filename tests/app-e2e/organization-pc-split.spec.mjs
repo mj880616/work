@@ -8,7 +8,8 @@ import {innerScrollers,docScroll} from './helpers/one-scroll.mjs';
 // 상세의 기록 → 업데이트 화면에서 머리 줄 "‹ (조직)"·뒤로 가기 → 같은 조직·같은 스크롤. 761~1023px·폰은 목록 + 상세 창.
 // 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test';
-const note={id:'10000000-0000-4000-8000-0000000000bb',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 조직 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
+// S71-57: 잊지 말기에서 온 기록 줄은 이제 아무 데도 가지 않으므로, 기록 → 원문 → '‹ (조직)' 돌아가기는 노트에서 이은 기록 줄로 본다.
+const note={id:'10000000-0000-4000-8000-0000000000bb',workspace_id:'w',kind:'note',title:'합성 조직 노트',metadata:{},occurred_at:stamp,updated_at:stamp,raw_text:'합성 조직 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
 // The first two are in the 철도 group order (organization-order.js); the rest fall in "그 외" by name.
 const orgs=[
  {id:'oa',workspace_id:'w',name:'합성 가 지부',active:true,created_by:owner,updated_at:stamp},
@@ -114,26 +115,7 @@ test('PC 1280: a blocked browser storage still opens the first organization',asy
  await clickView(page,'home');await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');expect(errors).toEqual([]);
 });
 
-test('PC 1280: a record opens the update with "‹ (organization)" in the head; the button and back return to the same organization and scroll',async({page})=>{
- const {errors}=await fixture(page);
- await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');
- await row(page,'ob').click();await expect(title(page)).toHaveText('합성 나 지부');
- await row(page,'oa').click();await expect(title(page)).toHaveText('합성 가 지부');
- // ORG-기록하나로 O-5: 최근 10줄 앞 기록은 '지난 기록 n'에 접혀 있다 — 펼친 뒤 오래된 연결 기록으로 내려간다(펼침은 이 조직을 연 동안 그대로).
- await page.locator('#wdModal [data-wd-log-older] > summary').click();
- const line=page.locator('#wdModal [data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();
- const before=await scrollToRecord(page,line);/* UI-상세칸고정: 긴 상세는 그 칸만 스크롤한다 */expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
- for(const how of ['button','back','browser']){
-  await line.click();
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
-  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('‹ 합성 가 지부');
-  if(how==='button')await back.click();else await goBack(page,how);
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(title(page)).toHaveText('합성 가 지부');
-  await expect(pane(page).locator('#wdModal')).toBeVisible();await expect(row(page,'oa')).toHaveAttribute('aria-current','true');
-  await expect.poll(()=>top(line)).toBe(before);
- }
- expect(errors).toEqual([]);
-});
+// S71-71 RECORD-기록하나로: 기록 줄은 노트로 가지 않는다(노트 연결 줄도) — 그 시험(노트 열기 → '‹ 조직'으로 돌아오기)은 지웠다. record-one.spec.mjs가 본다.
 
 test('PC 1024: the list keeps its minimum width, the pane takes the rest, nothing overflows sideways',async({page})=>{
  const {errors}=await fixture(page,{width:1024});
@@ -195,7 +177,7 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  // 2) The 요약 box of a linked record.
  await modal.locator('[data-wd-log-older]:not([open]) > summary').click(); // ORG-기록하나로 O-5: 오래된 연결 기록은 '지난 기록 n' 안
  const link=modal.locator('[data-basket-link="l-o"]');await scrollToRecord(page,link);
- await link.getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
+ await link.getByRole('button',{name:'기록 메뉴',exact:true}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'수정',exact:true}).click();
  const sum=link.locator('[data-link-summary-input]');await expect(sum).toBeFocused();await expect(sum).toHaveCSS('resize','none');
  const sumBig=link.locator('[data-link-summary-big]');await expect(sumBig).toBeVisible();await expect(sumBig).toHaveAccessibleName('크게');
  // 요약 keeps letters only (결정 E): the window says so, and its [저장] hands the letters to the box; the box's own [저장] is the only save.

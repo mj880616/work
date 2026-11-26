@@ -108,6 +108,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -216,6 +217,7 @@ on:
       - 'tests/overlap-model.test.mjs'
       - 'tests/overlap-weekly.test.mjs'
       - 'tests/overlap-paths.test.mjs'
+      - 'tests/patch-patterns*'
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
@@ -419,6 +421,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-warm.test.mjs'
+      - 'tests/hwp-into-note.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-union-forms.test.mjs'
@@ -527,6 +530,7 @@ on:
       - 'tests/overlap-model.test.mjs'
       - 'tests/overlap-weekly.test.mjs'
       - 'tests/overlap-paths.test.mjs'
+      - 'tests/patch-patterns*'
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
@@ -840,6 +844,8 @@ jobs:
         run: node --test tests/note-board-decor-model.test.mjs
       - name: Check note board images (S70-32 ② 사진 정보 지우기·칸 크기)
         run: node --test tests/note-board-image-model.test.mjs
+      - name: Check note board paste (S71-49 누른 자리 붙여넣기·글자 칸 한도)
+        run: node --test tests/note-board-paste-model.test.mjs
       - name: Check note board export (S70-32 ③ 범위·PDF 한 쪽)
         run: node --test tests/note-board-export-model.test.mjs
       - name: Check note hashtags and memos (NOTE-읽생기아이디어, S69-94 NOTE-메모통일)
@@ -1004,7 +1010,7 @@ jobs:
         run: node --test tests/drive-summary-refresh.test.mjs
 
       - name: Check pinned HWP editor files
-        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs
+        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs tests/hwp-warm.test.mjs tests/hwp-into-note.test.mjs
 
       - name: Check HWP union-style template and style shortcuts
         run: node --test tests/hwp-union-style.test.mjs
@@ -1101,6 +1107,9 @@ jobs:
 
       - name: Check photo menu names and release after send (S49-9 PHOTO-메뉴항목통일, synthetic)
         run: node --test tests/photo-menu-items.test.mjs
+
+      - name: Check photo description sheet (S71-62 PHOTO-설명, synthetic)
+        run: node --test tests/photo-desc.test.mjs
 
       - name: Check send to diary (S48-56 노트·업데이트·사진 → 일기, synthetic)
         run: node --test tests/diary-send.test.mjs
@@ -1302,10 +1311,13 @@ jobs:
       - name: Check UI words standard ratchet (UI-용어통일)
         run: node --test tests/ui-words.test.mjs tests/ui-words-upload.test.mjs
 
-      - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
+      - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·확인할 것 빼기·시작 날짜)
         run: node --test tests/update-news-model.test.mjs
       - name: Check day record screen words (DIARY-이름하루기록)
         run: node --test tests/ui-words-day-record.test.mjs
+
+      - name: Check release notes checks label words (UPD-확인할것)
+        run: node --test tests/ui-words-checks-label.test.mjs
 
       - name: Check quick input kind words (HOME-입력종류업데이트글자잊지말기)
         run: node --test tests/ui-words-quick-kind.test.mjs
@@ -1366,6 +1378,10 @@ jobs:
 
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
+
+      # S71-74 UI-덮어쓰기땜질없애기: 넓은 MutationObserver·display:none!important·:has 숨김이 기준표보다 늘면 실패(AGENTS.md 5절).
+      - name: Check patch-style overwrite patterns stay at or below baseline
+        run: node --test tests/patch-patterns.test.mjs
 
       - name: UI-목록밀기 폰 목록 줄 밀기 셈·연결, UI-메뉴잘림
         run: node --test tests/row-swipe-model.test.mjs
@@ -1544,7 +1560,8 @@ jobs:
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed personal view stylesheet was loaded'; exit 1; fi
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
-          grep -q "#authView{display:none!important}" app/base-ui.css
+          # S71-74: #authView 숨김 규칙은 지웠다(요소가 없음) — 요소도 되살아나지 않는다.
+          if grep -q 'id="authView"' app/index.html; then echo 'retired authView returned'; exit 1; fi
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -Fq "[data-kptu-logout]" app/topbar-actions.css
           grep -q "logoutButtons.forEach" app/topbar-actions.js
@@ -1673,11 +1690,12 @@ jobs:
           grep -q "data-ps3-records" app/project-system-v3.js
           # MTG-프로젝트합치기 3단계: 상세 맨 위 진행 기록 입력칸은 없다(기록은 사업 보고 한 곳, 표·데이터 보존).
           if grep -Eq 'data-ps3-record-input|saveRecordInput|openRecordBig' app/project-system-v3.js; then echo 'project record input returned'; exit 1; fi
-          grep -q "data-ps3-basket-note" app/project-system-v3.js
+          # RECORD-기록하나로(S71-71): 사업 기록 줄은 노트로 가지 않는다(출처 상관없이 같은 기록 줄).
+          if grep -q "data-ps3-basket-note" app/project-system-v3.js; then echo 'record line link to the note returned'; exit 1; fi
           grep -q ".ps3-rec-line" app/project-system-v3.css
           if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal" app/project-system-v3.js; then echo 'retired per-item progress UI returned'; exit 1; fi
-          # UI-연결요약수정: the shared link summary editor may be mounted only lazily from the record ⋯ [요약 수정] action (no always-on project basket editor).
-          grep -q "ps3RecordAction==='summary')editBasketSummary(b)" app/project-system-v3.js
+          # UI-연결요약수정: the shared link summary editor may be mounted only lazily from the record ⋯ [수정] action (no always-on project basket editor; S71-71 [요약 수정] → [수정]).
+          grep -q "if(a==='edit')editBasketSummary(b)" app/project-system-v3.js
           test "$(grep -o 'mountLinkSummaryEditor(' app/project-system-v3.js | wc -l)" -eq 1
           grep -q "if(!basketEditor){basketEditorKey=key;basketEditor=mountLinkSummaryEditor(body," app/project-system-v3.js
           if grep -Eq "ps3CreateType|ps3CreateVisibility|ps3AccessModal|ps3TypeModal|data-ps3-access|ps3ManageTypes" app/project-system-v3.js; then echo 'removed project type/access UI returned'; exit 1; fi

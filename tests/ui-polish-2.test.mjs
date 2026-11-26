@@ -39,17 +39,18 @@ test('② 새로고침 제자리: 사업 보고 칸·고른 보고, 할 일 상�
   for (const fn of [read('app/team.js').match(/function restoreReportPlace\(\)\{[^\n]*/)[0], read('app/google-tasks.js').match(/function taskPlace[^\n]*/)[0]]) assert.doesNotMatch(fn, DEVICE_STORE);
 });
 
-test('③ 잘림: 노트 큰 창·입력칸의 [폴더 ▾]는 줄어들지 않고 8글자까지 다 보인다, 안내 글은 짧게', async () => {
+test('③ 잘림: 노트 큰 창의 [폴더 ▾]는 8글자까지 다 보이고 입력칸 폴더 아이콘 이름은 칸 안에서 줄어든다, 안내 글은 짧게', async () => {
   assert.match(read('app/ed-window.css'), /button\[data-edw-folder\](?:,button\[data-edw-target\]\))? \{ position:relative; flex:0 0 auto;/); // FORGET-노트고르기: [새 노트 ▾]도 같은 규칙
-  assert.match(read('app/basket.css'), /button\.home-quick-folder \{ position:relative; flex:0 0 auto;/);
+  // NOTE-입력줄높이(S71-67): 노트 입력 줄 폴더는 아이콘 단추(ui-standard.css 한 곳) — 이름은 아이콘 옆 작은 칸이 '…'로 줄인다.
+  assert.match(read('app/ui-standard.css'), /\.home-quick \.home-quick-folder \.home-quick-folder-name\{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; \}/);
   const nw = read('app/note-window.js');
   assert.match(nw, /placeholder = '제목\(비우면 첫 줄\)'/);
   const short = new Function(`${nw.match(/const shortFolder = [^\n]+/)[0].replace('export ', '')}; return shortFolder;`)();
   assert.equal(short('회의'), '회의');
   assert.equal(short('여덟글자폴더이름'), '여덟글자폴더이름');
   assert.equal(short('아홉글자인폴더이름'), '아홉글자인폴더이…');
-  // NOTE-큰창잘림(S61-30): 이름(8글자 넘으면 '…')은 안쪽 칸, ▾는 그 뒤에 늘 남는다(버튼이 flex라 버튼 자체 '…'는 듣지 않음).
-  assert.match(read('app/home-quick.js'), /name\.textContent=\[\.\.\.label\]\.length>8\?\[\.\.\.label\]\.slice\(0,8\)\.join\(''\)\+'…':label;f\.replaceChildren\(name,' ▾'\)/);
+  // NOTE-큰창잘림(S61-30) → NOTE-입력줄높이(S71-67): 입력 줄 폴더 단추는 아이콘 + (고른 폴더면) 이름 칸, ▾ 없음. 읽는 이름은 '폴더: <이름>'.
+  assert.match(read('app/home-quick.js'), /f\.setAttribute\('aria-label','폴더: '\+label\)/);
 });
 
 test('① ▾: 고를 거리를 여는 버튼은 이름 뒤 작은 ▾(읽어 주는 이름은 그대로), [화면 색]은 PC에서 누른 자리 아래', () => {

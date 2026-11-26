@@ -2,6 +2,10 @@
 // 쓰는 법(선언만): <textarea rows="1" data-autogrow data-enter-field="single"> — 처음 한 줄, 글이 늘면 줄 수만큼 늘어난다.
 //   data-autogrow="5"   많아야 5줄까지(넘으면 칸 안에서 스크롤). 값이 없으면 화면 높이의 절반까지.
 //   data-enter-field="single" (enter-save.js 와 같은 표시) 한 줄 칸: 붙여 넣은 줄바꿈은 빈칸 하나로 바꾼다(Enter 는 늘 저장).
+//   data-keep-breaks    한 줄 칸이어도 줄바꿈을 바꾸지 않는다 — 그 화면이 이유를 보이며 거절한다(홈 '오늘 한 일').
+// UI-입력칸자동높이(사용자 결정 2026-11-26, STD-INPUT-01): 앱의 여러 줄 입력칸은 모두 이 칸이다. 처음 높이는 그 칸의 rows·CSS 그대로,
+//   글이 늘면 아래로 늘고 화면 높이 절반에서 멈춘 뒤에만 칸 안 스크롤. 칸에 초점이 들어올 때도 맞춘다(글을 넣어 둔 채 연 창).
+//   자란 칸에 초점이 있으면 'kptu:autogrow' 를 알린다 — 폰 자판이 올라와 있으면 accessibility-dialog.js 가 쓰는 줄을 자판 위로 올린다.
 // 화면은 칸을 그린 뒤 fitAll(그린 자리)을 한 번 부른다 — 열자마자 글 전체가 보이게. 글을 칠 때·칸 폭이 바뀔 때는 이 모듈이 맞춘다
 // (문서에 입력 듣기 하나 + 맞춘 칸만 지켜보는 ResizeObserver 하나. MutationObserver 는 쓰지 않는다).
 // 높이 셈은 홈 빠른 입력(home-quick.js size())에서 끌어왔다: CSS 최소 높이(한 줄) ≤ 높이 = 글 높이 + 테두리 ≤ 상한.
@@ -18,6 +22,7 @@ export function growHeight({min = 0, line = 21, edge = 0, scroll = 0, borders = 
 
 const maxLinesOf = el => { const n = Number.parseInt(el?.getAttribute?.('data-autogrow') || '', 10); return Number.isFinite(n) && n > 0 ? n : 0; };
 
+const heights = new WeakMap(); // 칸마다 마지막으로 맞춘 높이(자랐는지 보려고)
 // 칸 하나를 글에 맞춘다. 숨은 칸(높이 0)은 건드리지 않는다. overflow: false 면 스크롤 표시를 칸 CSS 에 맡긴다(홈 빠른 입력 그대로).
 export function fitHeight(el, {maxLines = maxLinesOf(el), overflow = true} = {}) {
   if (!el || el.tagName !== 'TEXTAREA') return;
@@ -28,8 +33,12 @@ export function fitHeight(el, {maxLines = maxLinesOf(el), overflow = true} = {})
   const s = getComputedStyle(el), px = v => parseFloat(v) || 0;
   const borders = px(s.borderTopWidth) + px(s.borderBottomWidth);
   const r = growHeight({min, line: px(s.lineHeight) || 21, edge: px(s.paddingTop) + px(s.paddingBottom) + borders, scroll: el.scrollHeight, borders, maxLines, screen: el.ownerDocument?.defaultView?.innerHeight || 800});
+  const before = heights.get(el) || 0;
   el.style.height = `${r.height}px`;
-  if (overflow) el.style.overflowY = r.scroll ? 'auto' : 'hidden';
+  heights.set(el, r.height);
+  const cssMax = px(s.maxHeight); // 칸 CSS 에 max-height 가 있으면 그 높이에서 멈추므로 거기서부터 칸 안 스크롤
+  if (overflow) el.style.overflowY = r.scroll || (cssMax && r.height > cssMax) ? 'auto' : 'hidden';
+  if (r.height > before && before && el.ownerDocument?.activeElement === el) el.dispatchEvent(new CustomEvent('kptu:autogrow', {bubbles: true}));
 }
 
 // 폭이 바뀌면(폴드 펼침·칸 폭 끌기·창 크기) 다시 맞춘다. 높이만 바뀐 알림은 넘기고, 화면에서 빠진 칸은 놓아 준다.
@@ -64,7 +73,7 @@ export const isAutoGrow = el => !!el && el.tagName === 'TEXTAREA' && el.hasAttri
 // 한 줄 칸에 들어온 줄바꿈: 끝의 것은 지우고(한글 조합 중 Enter 가 남긴 것) 가운데 것(붙여 넣기)은 빈칸 하나로. 커서는 같은 자리.
 export const oneLine = text => String(text ?? '').replace(/(?:\r\n?|\n)+$/, '').replace(/\r\n?|\n/g, ' ');
 function keepOneLine(el) {
-  if (el.getAttribute('data-enter-field') !== 'single' || !/[\r\n]/.test(el.value)) return;
+  if (el.getAttribute('data-enter-field') !== 'single' || el.hasAttribute('data-keep-breaks') || !/[\r\n]/.test(el.value)) return;
   const at = el.selectionStart, end = el.selectionEnd, before = el.value.length;
   el.value = oneLine(el.value);
   const d = el.value.length - before;
@@ -83,5 +92,9 @@ export function installAutoGrow(doc = globalThis.document) {
   installed = true;
   // input 이 칸 자기 듣기보다 먼저 오도록 capture: 줄바꿈을 먼저 지워 화면 상태에도 한 줄 글이 들어간다.
   doc.addEventListener('input', e => { const t = e.target; if (!isAutoGrow(t)) return; keepOneLine(t); fitHeight(t); }, true);
+  // 글을 넣어 둔 채 그린 칸(고치기 창·불러온 글)도 쓰기 시작하면 글 전체가 보이게.
+  doc.addEventListener('focusin', e => { if (isAutoGrow(e.target)) fitHeight(e.target); }, true);
+  // 공용 창(accessibility-dialog.js)이 열리면 그 창의 칸을 한 번 맞춘다 — 글을 채워 연 고치기 창도 열자마자 글 전체가 보이게.
+  doc.defaultView?.addEventListener?.('kptu:dialog-opened', e => { const m = e.detail?.modal; if (m) doc.defaultView.requestAnimationFrame(() => fitAll(m)); });
 }
 installAutoGrow();

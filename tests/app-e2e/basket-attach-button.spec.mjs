@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import {noteAction} from './helpers/basket-more.mjs';
 
-// UI-PC바구니첨부버튼: the attach control is the shared button [📎 첨부]. PC basket input: outside the input, left of
-// [추가], same line and height. Phone: the icon stays inside the input (label hidden). The edit screen's tool row shows
+// UI-PC바구니첨부버튼 → NOTE-입력줄높이(S71-67): the quick input's attach control is the clip inside the input's left edge on
+// every width (label hidden). The edit screen's tool row shows
 // the labeled button on both widths. One part (basket-upload.js mountBasketPicker) serves all three places.
 test.use({ hasTouch: true });
 for (const width of [390, 1280]) test(`basket attach button placement and shared button look ${width}`, async ({ page }) => {
@@ -17,26 +17,15 @@ for (const width of [390, 1280]) test(`basket attach button placement and shared
   const clip = quick.getByRole('button', { name: '파일 첨부', exact: true });
   await expect(clip).toBeVisible();
   const box = await clip.boundingBox(), input = await quick.locator('[data-quick-input]').boundingBox(), save = await quick.locator('[data-quick-save]').boundingBox();
-  // UI-PC버튼36: on PC the button paints the input height (36px) and keeps a 44px touch area (::after).
-  expect(box.height).toBeGreaterThanOrEqual(width === 1280 ? 36 : 44);
-  if (width === 1280) expect(await clip.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
-  expect(box.width).toBeGreaterThanOrEqual(44);
-  if (width === 1280) {
-    await expect(clip.locator('.basket-clip-label')).toBeVisible();
-    expect(box.x).toBeGreaterThanOrEqual(input.x + input.width);
-    expect(box.x + box.width).toBeLessThanOrEqual(save.x);
-    expect(save.x - (box.x + box.width)).toBeLessThanOrEqual(12);
-    expect(Math.abs(box.y - save.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(box.height - save.height)).toBeLessThanOrEqual(1);
-    const look = await clip.evaluate(el => { const s = getComputedStyle(el); return { border: s.borderTopStyle, radius: s.borderTopLeftRadius, size: s.fontSize }; });
-    expect(look).toEqual({ border: 'solid', radius: '8px', size: '13px' });
-    // Text no longer starts after an icon gap inside the input.
-    expect(parseFloat(await quick.locator('[data-quick-input]').evaluate(el => getComputedStyle(el).paddingLeft))).toBeLessThanOrEqual(12);
-  } else {
-    await expect(clip.locator('.basket-clip-label')).toBeHidden();
-    expect(box.x).toBeGreaterThanOrEqual(input.x);
-    expect(box.x + box.width).toBeLessThanOrEqual(input.x + 46);
-  }
+  // NOTE-입력줄높이(S71-67, 2026-11-26 사용자 결정): 빠른 입력 줄의 첨부는 폰·PC 모두 입력칸 안 왼쪽 클립(글자 숨김) —
+  // 칸 안쪽 높이의 정사각, 누르는 범위(::after)는 44px. 따로 있던 PC [📎 첨부] 단추는 없다.
+  const touch = await clip.evaluate(el => { const p = getComputedStyle(el, '::after'); return [parseFloat(p.width), parseFloat(p.height)]; });
+  expect(touch[0]).toBeGreaterThanOrEqual(44); expect(touch[1]).toBeGreaterThanOrEqual(44);
+  await expect(clip.locator('.basket-clip-label')).toBeHidden();
+  expect(box.x).toBeGreaterThanOrEqual(input.x);
+  expect(box.x + box.width).toBeLessThanOrEqual(input.x + 46);
+  expect(box.y).toBeGreaterThanOrEqual(input.y - 0.5); expect(box.y + box.height).toBeLessThanOrEqual(input.y + input.height + 0.5);
+  expect(Math.abs(input.height - save.height)).toBeLessThanOrEqual(1);
   // The button opens the same file chooser (keyboard on PC, a tap on the phone); a chosen file shows the count badge.
   const chooser = page.waitForEvent('filechooser');
   if (width === 1280) await clip.press('Enter'); else await clip.tap();

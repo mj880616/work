@@ -40,6 +40,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {createFeedHold} from './feed-hold.js';
 import {createSelectMode} from './select-mode.js';
 import {deleteSequentially} from './library-select.js';
+import {fitAll} from './auto-grow.js'; // UI-입력칸자동높이: 고치기 줄도 공용 늘어나는 칸
 import {loadHighlights,sourceHighlights,sourceMarks,markActions,onHighlights,paintMarks,bindMarks,saveFromSelection,noteFromSelection,replyFromSelection,revealMark} from './text-highlights.js';
 import {bindSelectZone,selectBarActs,runSelectBarAct} from './text-select-bar.js';
 import {EDIT_LABEL,EDITED_TAG,REDO_ASK,REVERT_ASK,REVERT_LABEL,applyEdits,editFields,fitsServer,isEdited,lineMenuItems,shownBrief} from './brief-edit-model.mjs';
@@ -384,7 +385,7 @@ function editForm(doc,b){
     const head=f.kind==='gist'?'gist':`s${f.section}`;
     if(head!==last){group=el('section','br-edit-group');if(f.kind==='gist')group.append(el('p','br-edit-head','요지'));form.append(group);last=head}
     const t=el('textarea','br-edit-in'+(f.kind==='title'?' br-edit-title':''));
-    t.rows=1;t.dataset.brField=f.key;t.maxLength=2000;
+    t.rows=1;t.dataset.autogrow='';t.dataset.brField=f.key;t.maxLength=2000;
     t.value=ed.values.has(f.key)?ed.values.get(f.key):f.text;
     t.placeholder=f.kind==='title'?'소제목(비우면 제목 없이)':'비우면 이 줄을 빼요';
     t.setAttribute('aria-label',f.kind==='gist'?'요지 줄':f.kind==='title'?'소제목':'줄');
@@ -392,9 +393,8 @@ function editForm(doc,b){
   }
   return form;
 }
-const grow=t=>{t.style.height='auto';t.style.height=`${t.scrollHeight}px`};
 function focusEdit(box){
-  const all=[...box.querySelectorAll('textarea[data-br-field]')];all.forEach(grow);
+  const all=[...box.querySelectorAll('textarea[data-br-field]')];fitAll(box); // UI-입력칸자동높이: 공용 auto-grow.js
   const t=all.find(x=>x.dataset.brField===state.editing?.focus)||all[0];
   if(t){t.focus({preventScroll:false});t.setSelectionRange(t.value.length,t.value.length)}
 }
@@ -713,7 +713,7 @@ function bind(){
     if(e.key==='Enter'){e.preventDefault();void saveEdit(v.querySelector('[data-br-edit-save]'));return}
     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();stopEdit()}
   });
-  v.addEventListener('input',e=>{const t=e.target;if(t?.matches?.('textarea[data-br-field]')&&state.editing){state.editing.values.set(t.dataset.brField,t.value);grow(t)}});
+  v.addEventListener('input',e=>{const t=e.target;if(t?.matches?.('textarea[data-br-field]')&&state.editing){state.editing.values.set(t.dataset.brField,t.value)}});
   v.addEventListener('contextmenu',onContextMenu);
   v.addEventListener('change',e=>{const sel=e.target.closest?.('[data-br-sort]');if(!sel)return;const next=parseSortValue(sel.value,BRIEF_SORT_KEYS);if(!next)return;state.sort=next;viewPrefs.setBriefSort?.(next);drawList()});
   bindDrag(v);

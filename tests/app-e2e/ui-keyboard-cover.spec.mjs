@@ -88,6 +88,23 @@ for(const [width,height] of [[412,915],[344,882]])test(`홈 ${width}: 업무일�
  expect(errors).toEqual([]);
 });
 
+// UI-입력칸자동높이(STD-INPUT-01): 자판이 올라온 채 '오늘 한 일' 칸이 글만큼 늘어나도 쓰는 줄(칸 아래 끝)은 자판 위에 있다.
+test('홈 412: 자판이 올라온 채 오늘 한 일 칸이 늘어나도 쓰는 줄이 자판에 가리지 않음',async({page})=>{
+ const errors=await boot(page,412,915);
+ const field=page.locator('#homeView [data-journal-input]');await expect(field).toBeVisible();
+ await field.evaluate(el=>{const r=el.getBoundingClientRect();scrollBy(0,r.top-(innerHeight-90));el.focus({preventScroll:true});});
+ await resizeKeyboard(page,412,915,true);
+ await expect(field).toHaveAttribute('data-keyboard-field','');
+ const before=await field.evaluate(el=>el.getBoundingClientRect().height);
+ for(let i=0;i<6;i++){await field.press('End');await field.pressSequentially('가나다라마바사아자차카타파하가나다라마바',{delay:0});}
+ await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+ const at=await field.evaluate(el=>{const r=el.getBoundingClientRect(),vv=visualViewport;return {h:r.height,bottom:r.bottom,view:vv.offsetTop+vv.height,inner:el.scrollHeight-el.clientHeight};});
+ expect(at.h).toBeGreaterThan(before+30);
+ expect(at.inner,JSON.stringify(at)).toBeLessThanOrEqual(1);
+ expect(at.bottom,JSON.stringify(at)).toBeLessThanOrEqual(at.view);
+ expect(errors).toEqual([]);
+});
+
 test('홈 412: 화면 위만 덮는 자판에서도 칸이 자판 위로',async({page})=>{
  const errors=await boot(page,412,915);
  const field=page.locator('#homeView [data-journal-input]');await expect(field).toBeVisible();
