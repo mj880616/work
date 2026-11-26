@@ -384,7 +384,7 @@ const noteHost=root.querySelector('[data-note-host]');
 let kind='memo';
 root.dataset.kind=kind;
 // S71-29 FORGET-머리한줄(사용자 결정 11/26 — 다른 화면처럼 한 줄로): [처리 전 ▾]·최신화(↻)는 따로 한 줄이 아니라 맨 위 줄 단추 상자(screen-find.js toolsBox)에 산다.
-// 폰·폴드 = 앱 머리 줄 [W] 잊지 말기 · [처리 전 ▾] ……… ↻ · 찾기, PC 틀 = 맨 위 줄 찾기 칸 오른쪽. 상자는 '잊지 말기에서 찾기'가 쓰일 때(목록이 보일 때)만 보인다.
+// 폰·폴드 = 앱 머리 줄 [W] 잊지 말기 · [처리 전 ▾] ……… ↻ · 찾기, PC 틀 = 화면 안 첫 줄(.basket-head) 오른쪽 끝(S71-59, screen-tools.js LINES.basket). 상자는 '잊지 말기에서 찾기'가 쓰일 때(목록이 보일 때)만 보인다.
 // 보기 메뉴의 주인은 그대로 forget-list.js(viewButton), 최신화는 그대로 findAgain(todo-radar.js). 상자는 #basketView 밖이라 누르기는 여기 단추에 직접 붙인다.
 const forgetTools=toolsBox('forget','basket');
 forgetTools.classList.add('forget-tools');
