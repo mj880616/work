@@ -259,11 +259,8 @@ if (DIAG) {
 // 카탈로그에 넣기 전에 후보 주소가 이 러너에서 열리는지·robots가 허용하는지(운영 수집기와 같은 robots 판정)·글 분야 칸이 있는지를 숫자로만 본다.
 // 카탈로그 밖 주소라 운영 수집기는 읽지 않는다. 주소는 이 목록에 적힌 것뿐(호스트 고정, https만).
 const CANDIDATE_FEEDS = [
-  "https://www.newscham.net/rss", "https://www.newscham.net/feed", "https://www.newscham.net/rss/allArticle.xml", "https://www.newscham.net/news/rss.php",
-  "https://www.newscham.net/rss.xml", "https://www.newscham.net/rss/news.xml",
-  "https://www.mediatoday.co.kr/rss/allArticle.xml",
-  "https://newscham.net/rss", "https://newscham.net/", "https://www.newscham.net/",
-  "https://www.mediatoday.co.kr/news/articleList.html?view_type=sm", "https://www.mediatoday.co.kr/news/articleList.html?sc_section_code=S1N1&view_type=sm",
+  "https://newscham.net/feed/", "https://newscham.net/robots.txt",
+  "https://www.mediatoday.co.kr/rss/allArticle.xml", "https://www.mediatoday.co.kr/news/articleList.html?view_type=sm",
 ];
 async function checkCandidate(list) {
   const host = new URL(list).host;
@@ -276,6 +273,10 @@ async function checkCandidate(list) {
     const t = got.text;
     const feeds = [...t.matchAll(/<link\b[^>]*type\s*=\s*["']application\/(?:rss|atom)\+xml["'][^>]*>/gi)].map((m) => /href\s*=\s*["']([^"']+)["']/i.exec(m[0])?.[1] ?? "-").slice(0, 4);
     const arts = (t.match(/articleView\.html\?idxno=\d+/g) ?? []).length;
+    // 분야 목록 쪽 링크(엔디소프트 sc_section_code·sc_sub_section_code)와 그 이름 — 매체가 화면에 보이는 분야 이름만.
+    const secs = [...new Set([...t.matchAll(/sc_(?:sub_)?section_code=(S\dN\d{1,3})[^"'>]*["'][^>]*>\s*([^<]{1,14})</g)].map((m) => `${m[1]}=${m[2].trim()}`))].slice(0, 40);
+    if (/robots\.txt$/.test(list)) return `${list} ⇒ robots.txt ${t.split(/\r?\n/).filter((l) => /^(user-agent|disallow|allow)\s*:/i.test(l.trim())).slice(0, 30).join(" ; ")}`;
+    if (secs.length) return `${list} ⇒ ok(html) articleLinks=${arts} sections=[${secs.join(",")}]`;
     return `${list} ⇒ ok(html) type=${(got.contentType ?? "-").split(";")[0]} bytes=${t.length} feedlinks=[${feeds.join(",")}] articleLinks=${arts} bot=${looksLikeBotCheck(t) ? 1 : 0}`;
   }
   const pseudo = { key: "candidate", name: "-", group: "movement", lang: "ko", mode: "rss", lists: [list], hosts: [host, host.replace(/^www\./, "")], kindOf: () => "article" };
