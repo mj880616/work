@@ -80,7 +80,7 @@ import {readDroppedEntries,readPickedFiles,planFolderUpload,isBigFolder,skippedC
 import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,resultText as luDropResultText,DROP_HINT} from './library-drop.js';
 import {word} from './brand/brand.mjs';
 import {bindSelectKeys,renameTarget,confirmDelete} from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
-import {fitSelectBar} from './select-bar.js'; // UI-고르기막대(S69-85): 선택 막대 한 줄 맞추기
+import {fitSelectBar, paintSelectAll} from './select-bar.js'; // UI-고르기막대(S69-85): 선택 막대 한 줄 맞추기
 import {uploadLabelHtml} from './upload-label.mjs'; // UI-업로드말(S70-41): 클립 + 업로드
 import {createDriveAuto,changedLine as luAutoChangedLine} from './library-drive-auto.mjs'; // S70-73 LIB-드라이브자동등록
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -1938,7 +1938,7 @@ function luSyncPicksNow(){
   // S69-84: 왼쪽 나무(#libraryFolderNav) 폴더 줄도 같은 표시(폴드·PC 꾹 누르기·선택 모드 누르기로 폴더째 고름).
   for(const el of document.querySelectorAll('#documentList details[data-lu-node] > summary,#documentList [data-lu-pane-i] .ft-row,#libraryFolderNav .ft-row')){const id=luMqFolderId(el),on=!!id&&luPick.items.has(folderPick(id));el.classList.toggle('lu-folder-picked',on);if(on)el.setAttribute('aria-selected','true');else el.removeAttribute('aria-selected')}
   const all=document.querySelector('#librarySelectAll'),count=document.querySelector('#librarySelectCount'),del=document.querySelector('#librarySelectDelete'),cancel=document.querySelector('#librarySelectCancel');
-  if(all){all.setAttribute('aria-checked',String(allSelected(luPick.items,ids)));all.disabled=luSelBusy||!ids.length}
+  if(all){paintSelectAll(all,allSelected(luPick.items,ids));all.disabled=luSelBusy||!ids.length} // S70-64: [전체 선택] 켜짐 = 네모 안 체크
   // 빠짐10: 고른 것 중 지금 줄로 보이지 않는 것(접힌 토글·'n건 더'·접힌 같은 글)이 있으면 '— 접힌 n개 포함'.
   if(count&&!luSelBusy){const seen=new Set([...(list?.querySelectorAll('[data-lu-document]')||[])].filter(x=>x.checkVisibility?.()!==false).map(x=>x.dataset.luDocument));const pk=splitPicks(luPick.items);let hidden=0;for(const id of pk.docs)if(!seen.has(id))hidden++;
     // UI-자료실파일모양(S69-85 ②, 살릴 것 5): '— 접힌 n개 포함' 같은 덧말은 개수 옆 작은 흐린 글씨(글은 그대로).
@@ -1948,18 +1948,19 @@ function luSyncPicksNow(){
   const fb=barEl.querySelector('#librarySelectFolder');if(fb)fb.hidden=!luFoldersReady;
   if(cancel)cancel.disabled=luSelBusy;
 }
-// SEARCH-선택옮기기 ⑤(10/28 10:44): 자료실 검색칸에 글자가 있고 걸러진 자료가 있으면 검색칸 오른쪽에 작은 [결과 n개 모두 고르기].
+// SEARCH-선택옮기기 ⑤(10/28 10:44): 자료실 검색칸에 글자가 있고 걸러진 자료가 있으면 작은 [결과 n개 모두 고르기].
 // 폴더·묶음과 상관없이 걸러진 자료 전부를 선택 모드로 고른다(접힌 폴더 안 것 포함). 그 뒤 옮기기·분류 바꾸기·지우기는 같은 선택 모드가 맡는다.
+// S71-07 SEARCH-누른자리그대로(Q3): 단추는 맨 위 검색칸 옆(칸이 그만큼 좁아짐)이 아니라 본문 첫 줄 [폴더 ▾][분류 ▾] 끝에 둔다 — 치는 동안 칸 자리·크기가 그대로.
 let luSearchPickIds=[];
 function luSyncSearchPickAll(q,matches){
-  const row=luTools;
+  const row=document.querySelector('#libraryView .lu-pick-row')||luTools;
   let button=row.querySelector('#luSearchPickAll');
   luSearchPickIds=q?matches.filter(d=>!d.photoset&&!isPhotoSet(d)).map(d=>d.id):[];
   if(!luSearchPickIds.length){button?.remove();return}
   if(!button){
     button=document.createElement('button');button.type='button';button.id='luSearchPickAll';button.className='secondary lu-search-pick-all';
     button.addEventListener('click',()=>{if(luSelBusy||!luSearchPickIds.length)return;luPick.stop();luPick.start([...luSearchPickIds]);luRenderLibrary()});
-    row.prepend(button);
+    row.append(button);
   }
   button.textContent=`결과 ${luSearchPickIds.length}개 모두 선택`;
 }

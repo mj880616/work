@@ -47,14 +47,17 @@ for (const [width, height] of FOLD) {
       expect(f.fh, view).toBe(36);
       expect(f.docW, view).toBeLessThanOrEqual(f.vw);
     }
-    // 홈 입구: 키보드로 닿고(Enter) 화면 전체 검색으로 간다. 검색 화면에는 검색칸이 있어 입구를 두지 않는다. 뒤로 가면 홈.
+    // 홈 칸: 키보드로 닿으면(포커스) 화면 전체 검색으로 간다. S71-07 SEARCH-누른자리그대로(Q3): 검색 화면도 같은 머리 줄 칸 하나(같은 자리·같은 크기),
+    // 화면 안 두 번째 칸 없음. 뒤로 가면 홈.
     await go(page, 'home');
-    await expect(entry).toHaveAccessibleName('전체 검색 열기');
-    await entry.focus();
-    await page.keyboard.press('Enter');
+    const input = page.locator('#gsHeadInput');
+    await expect(input).toHaveAccessibleName('전체 검색');
+    const before = await entry.boundingBox();
+    await input.focus();
     await expect(page.locator('#searchView')).toBeVisible();
-    await expect(page.locator('#searchView input[type="search"], #searchView .gs-input').first()).toBeVisible();
-    await expect(entry).toBeHidden();
+    await expect(input).toBeFocused();
+    await expect(page.locator('#searchView input')).toHaveCount(0);
+    expect(await entry.boundingBox()).toEqual(before);
     await page.goBack();
     await expect(page.locator('#homeView')).toBeVisible();
     await expect(entry).toBeVisible();
