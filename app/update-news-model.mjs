@@ -34,47 +34,12 @@ export function sentVersions(items) {
   return out;
 }
 
-/** 서울 날짜(YYYY-MM-DD) 그날 0시 이후에 보냈는가 — 서버와 같은 기준(시작 날짜 0시, 서울). */
-export function afterStart(sentAt, startOn) {
-  if (!startOn || !sentAt) return false;
-  return Date.parse(sentAt) >= Date.parse(`${startOn}T00:00:00+09:00`);
-}
-
-/** 관리 목록에서 '여기부터 위만 이용자에게 보임' 줄이 들어갈 자리(그 앞까지가 보이는 것). 없으면 목록 길이. */
-export function cutIndex(items, startOn) {
-  const at = (items || []).findIndex(item => !afterStart(item.sent_at, startOn));
-  return at < 0 ? (items || []).length : at;
-}
-
 /** 11/20 모양 날짜(서울). */
 export function shortDay(value) {
   if (!value) return '';
   const day = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : new Date(Date.parse(value) + 9 * 3600 * 1000).toISOString().slice(0, 10);
   const [, mm, dd] = day.split('-');
   return `${Number(mm)}/${Number(dd)}`;
-}
-
-// ── UPDATE-소식안보임(요청함 11/16 09:21): 시작 날짜가 없거나 보낸 소식이 시작 날짜 앞이면 이용자 화면에 안 보인다(서버 app_update_news_list 규칙 그대로).
-// 운영자 화면이 그 사실을 한 줄로 알려 주고, 처음 보낼 때는 시작 날짜를 오늘로 같이 정하게 한다.
-
-/** 오늘 서울 날짜(YYYY-MM-DD). */
-export function seoulToday(now = Date.now()) {
-  return new Date(now + 9 * 3600 * 1000).toISOString().slice(0, 10);
-}
-
-/** 보낸 소식 목록 위 안내 한 줄. 시작 날짜 없음 / 거두지 않은 소식 중 시작 날짜 앞인 것 n개 / 문제없음(''). */
-export function startGapText(items, startOn) {
-  if (!startOn) return '시작 날짜가 없어 이용자에게 아직 안 보여요';
-  const hidden = (items || []).filter(item => !item.withdrawn_at && !afterStart(item.sent_at, startOn)).length;
-  return hidden ? `보낸 소식 ${hidden}개는 시작 날짜 앞이라 이용자에게 안 보여요` : '';
-}
-
-/** 지금 보내는 새 소식이 이용자에게 보이는지 → 보내기 창 안내와 '시작 날짜도 정하기' 칸. 보이면 null.
- *  시작 날짜가 없으면 오늘로 정하기 칸을 기본으로 켜고(추천안, 명진 확인 대기), 시작 날짜가 오늘보다 뒤면 당기기 칸을 꺼 둔다(이미 정한 값이라). */
-export function sendStartHint(startOn, today) {
-  if (!startOn) return {text: '시작 날짜가 없어 이용자에게 아직 안 보여요', option: `오늘(${shortDay(today)})부터 보이게 시작 날짜도 정하기`, checked: true};
-  if (startOn > today) return {text: `시작 날짜(${shortDay(startOn)}) 앞이라 이 소식은 이용자에게 아직 안 보여요`, option: `시작 날짜를 오늘(${shortDay(today)})로 당기기`, checked: false};
-  return null;
 }
 
 // ── S68-14(명진 11/22 "업데이트 기록 보낸 후 거둬들일 수가 없음"): 기록 줄의 [보냄]을 눌러 그 기록이 든 소식을 거둔다.
@@ -94,6 +59,13 @@ export function newsHasNote(item, note) {
   if (!item) return false;
   if (Array.isArray(item.source_files) && item.source_files.length) return !!key.file && item.source_files.includes(key.file);
   return !!key.v && (item.sources || []).includes(key.v);
+}
+
+/** S71-31: 기록 줄 어디에도 없는 소식(직접 쓴 소식) — 운영자 업데이트 기록 화면 위에 줄로 남겨 [수정]·[거두기]를 둔다.
+ *  기록에서 나간 소식은 그 기록 줄 버튼([보냄]/[다시 보내기])이 맡으므로 여기서 빠진다. notes: 기록 [{v, file}]. */
+export function looseNews(items, notes) {
+  const keys = (notes || []).map(n => ({v: n.v, file: n.file || ''}));
+  return (items || []).filter(item => !keys.some(key => newsHasNote(item, key)));
 }
 
 function notePlan(hits, note) {

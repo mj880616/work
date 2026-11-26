@@ -589,11 +589,11 @@ function renderTasks(tasks){
   body.querySelectorAll('[data-gt-toggle]').forEach(b=>b.onclick=()=>toggleTask(lastTasks.find(t=>t.id===b.dataset.gtToggle)));
   // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 할 일 줄 — 왼쪽으로 밀기 [완료]/[완료 취소](✓와 같은 길, 다시 밀면 되돌아감).
   // S68-31(명진 11/23 02:24): 맨 끝에 [삭제] — ⋯ [삭제]와 같은 queueDelete(5초 '삭제 대기 [되돌리기]' 뒤에 지움). 삭제가 맨 끝이라 끝까지 밀어도 칸만 열린다.
-  // S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [완료][수정][삭제]. [수정] = 줄 제목 누르기와 같은 수정 창. 빠진 [기한]은 ⋯ '기한 바꾸기'.
+  // 오른쪽으로 밀기 = 여러 개 선택(막대 '[전체 선택][삭제]' 두 칸, S70-64b — 완료는 줄 밀기·✓로).
   bindRowSwipe(body,{row:'.gt-row[data-google-task]',actions:el=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);return t?{start:PICK,end:[{key:'toggle',label:t.status==='completed'?'완료 취소':'완료',tone:'info'},EDIT,DELETE]}:null},
     run:(key,el)=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);if(!t)return;if(key==='toggle')toggleTask(t);else if(key==='edit')openEditor(t,{docked:false,picked:false});else if(key==='delete')queueDelete(t.id)},
     // S70-64 UI-오른쪽밀기고르기: 고르기 막대 [삭제] = 고른 할 일을 한꺼번에 줄 [삭제]와 같은 길(queueDelete — 5초 '삭제 대기 [되돌리기]', 확인 없음).
-    select:{attr:'data-google-task',label:'선택한 할 일',acts:()=>[{key:'done',label:'완료'},{key:'delete',label:'삭제',danger:true}],run:async(key,ids)=>{if(key==='delete'){for(const id of ids)if(lastTasks.some(t=>t.id===id))queueDelete(id);return}if(key!=='done')return;for(const id of ids){const t=lastTasks.find(x=>x.id===id);if(t&&t.status!=='completed')toggleTask(t)}}}});
+    select:{attr:'data-google-task',label:'선택한 할 일',acts:()=>[{key:'delete',label:'삭제',danger:true}],run:async(key,ids)=>{if(key!=='delete')return;for(const id of ids)if(lastTasks.some(t=>t.id===id))queueDelete(id)}}});
   body.querySelectorAll('[data-gt-edit]').forEach(b=>b.onclick=()=>{const task=lastTasks.find(t=>t.id===b.dataset.gtEdit);if(task)openEditor(task,{docked:pc,picked:pc})});
   body.querySelectorAll('[data-gt-menu]').forEach(b=>b.onclick=()=>taskMenu.open(b));
   body.querySelectorAll('[data-gt-source-note]').forEach(a=>a.onclick=openSourceNote);

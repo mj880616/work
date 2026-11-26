@@ -297,7 +297,7 @@ test.describe('폰 412', () => {
     await expect(rootMenu(page)).toBeHidden();
     await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
     await expect(page.locator(`#noteRows [data-nx-folder="${U(2)}"]`)).toHaveClass(/ft-picked/);
-    await page.locator('[data-nx-select-bar] [data-nx-sel-close]').tap();
+    await page.goBack(); // S70-64b: [✕] 대신 폰 뒤로가기
     await expect(page.locator('[data-nx-select-bar]')).toBeHidden();
     await page.waitForTimeout(700);
     await page.locator(`#noteRows [data-nx-folder-more="${U(2)}"]`).tap();

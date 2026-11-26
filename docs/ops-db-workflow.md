@@ -77,7 +77,7 @@ dry-run도 운영 DB에 접속해야 하고, 그 열쇠(`SUPABASE_ACCESS_TOKEN`)
 | cron 예약 형식 밖: 이름이 고정 글자 하나가 아님(이어 붙이기·함수·변수·$태그$·E''), 이름 없는 예약, 다른 DB 예약(`schedule_in_database`)·`alter_job`, 시각 글자 형식 밖, 같은 이름 두 번, 다시 등록 없는 `unschedule`(예약 지우기만)·다른 이름 unschedule·schedule 뒤 unschedule, cron 외 맨 위 SELECT | `cron-shape` |
 | cron 예약 명령 안: GRANT·REVOKE·anon·ALTER(ROLE·TABLE 등)·CREATE·DROP·RLS 끄기·정책·SECURITY DEFINER·SET·DO·INSERT·UPDATE·SELECT INTO·`net.*`·`http*`·`extensions.*`·`vault`·`auth`·`storage`·`cron.*`(다른 예약)·`://` 주소·허용 밖 함수 | `cron-command`(또는 `blocked-command`·`rls-disable`) |
 
-### cron 예약 등록 (2026-11-25 명진 결정, S70-01)
+### cron 예약 등록 (2026-11-25 사용자 결정, S70-01)
 
 cron 예약 등록은 아래 조건으로만 받는다(그 밖은 위 `cron-shape`·`cron-command`로 거절). 짝 파일 5개·dry-run 먼저·백업·사후 확인·실패하면 멈춤은 그대로다.
 
