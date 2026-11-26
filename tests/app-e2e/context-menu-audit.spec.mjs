@@ -228,7 +228,8 @@ const SPOTS = {
     { name: '조직 기록 입력 칸', sel: '#teamView textarea', want: 'browser' },
   ],
   '사업 관리': [{ name: '사업 관리 머리 줄', sel: '#meetingsView .report-top-line', want: 'app', at: 300 }],
-  '브리핑 룸': [{ name: '브리핑 룸 제목', sel: '#briefView .br-title', want: 'app', gap: 'S70-27 브리핑 룸' }],
+  // S71-30 BRIEF-머리한줄: 목록 머리 줄(제목)은 없고 화면 ⋯는 맨 위 줄 — 빈 곳 우클릭 = 그 ⋯ 메뉴.
+  '브리핑 룸': [{ name: '브리핑 룸 빈 곳', sel: '#briefView [data-br-list]', want: 'app' }],
   '텔레그램 소식': [{ name: '텔레그램 머리 줄', sel: '#telegramView .feed-head-sub', want: 'app' }],
   '아스날': [{ name: '아스날 경기 글', sel: '#arsenalView .ars-verdict', want: 'app', gap: 'S70-16 고른 글 메뉴(읽기 글) + 화면 머리 ⋯ 없음' }],
 };

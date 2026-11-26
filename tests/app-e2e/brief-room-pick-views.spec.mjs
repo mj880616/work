@@ -3,6 +3,7 @@
 // 이미 넣은 자료는 '이미 있음', 여러 개 고르기와 [넣기 n개]. 폰 412는 아래에서 올라오는 판, PC는 단추 아래 창. 자료 이름은 모두 예시.
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { openBriefLibPick } from './helpers/brief-head.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const D = n => `d0000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`;
@@ -55,8 +56,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['pc-1280', 1280,
   test(`브리핑 룸 자료실 고르기: [최근]·[폴더], 꼬리표·날짜, 여러 개 넣기 (${label})`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     const { posted } = await open(page);
-    const opener = page.locator('#briefView [data-br-pick-lib]');
-    await opener.click();
+    const opener = await openBriefLibPick(page); // S71-30: 머리 [+] → [자료실에서 선택]
     const picker = page.locator('#brLibPicker');
     await expect(picker).toBeVisible();
     // 자리: 폰은 아래 판(하단바 위), PC는 단추 바로 아래.
