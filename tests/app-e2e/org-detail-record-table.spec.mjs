@@ -3,7 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 // ORG-기록하나로 O-5(설계 docs/design/record-one.md 4절 '조직 상세'): 담당조직 상세는 [기록 | 현황 표] 소탭 없이 '날짜 | 기록' 한 표.
-// 날짜 칸 = 기록 날짜(기간이면 시작~끝), 최근 10줄 + 그 앞은 '지난 기록 n'(접힘), 줄 ⋯ = [수정][삭제] + (통화·소식·업데이트에서 온 기록만) [원래 글 보기].
+// 날짜 칸 = 기록 날짜(기간이면 시작~끝), 최근 10줄 + 그 앞은 '지난 기록 n'(접힘), 줄 ⋯ = [수정][메모][삭제](S71-71 RECORD-기록하나로: 어디서 온 기록이든 같고 원래 글 보기는 없음).
 // 옛 현황 표 쓰기는 없다(app_org_status_rows 쓰기 0). 서버는 가짜, 이름은 모두 합성 값.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test';
 const orgs=[{id:'oa',workspace_id:'w',name:'합성 가 지부',active:true,created_by:owner,updated_at:stamp}];
@@ -35,7 +35,7 @@ async function openOrg(page){
 }
 const row=(page,i)=>page.locator(`#wdUpdates [data-wd-up="${rec(i).id}"]`);
 
-for(const width of [390,884,1440])test(`조직 상세 '날짜 | 기록' 한 표: 소탭 없음·최근 10줄·지난 기록 접힘·원래 글 보기 ${width}px`,async({page})=>{
+for(const width of [390,884,1440])test(`조직 상세 '날짜 | 기록' 한 표: 소탭 없음·최근 10줄·지난 기록 접힘·⋯ 한 벌 ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
  await openOrg(page);
  // 옛 [기록 | 현황 표] 소탭은 없다. 기록 입력칸은 바로 보인다.
@@ -58,50 +58,45 @@ for(const width of [390,884,1440])test(`조직 상세 '날짜 | 기록' 한 표:
  expect(d.x+d.width).toBeLessThanOrEqual(m.x+1);expect(Math.abs(d.y-m.y)).toBeLessThan(12);
  await older.locator('summary').click();
  await expect(row(page,1)).toBeVisible();await expect(row(page,1).locator('.wd-log-day')).toHaveText('9.1.');
- // 직접 쓴 기록 ⋯ 에는 [원래 글 보기]가 없다.
- await row(page,11).locator('[data-wd-up-menu]').click();
+ // 직접 쓴 기록·통화에서 온 기록 모두 ⋯ = [수정][메모][삭제], 원래 글 보기 없음.
  const menu=page.locator('#wdUpMenu');
- await expect(menu.getByRole('button',{name:'수정',exact:true})).toBeVisible();
- await expect(menu.getByRole('button',{name:/^원래/})).toHaveCount(0);
- await page.keyboard.press('Escape');
- // 통화에서 온 기록 ⋯ [원래 통화·글 보기] → 줄 아래 원래 글(읽기만), 다시 누르면 접힘.
- await row(page,21).locator('[data-wd-up-menu]').click();
- await menu.getByRole('button',{name:'원래 통화·글 보기'}).click();
- const src=row(page,21).locator('[data-wd-up-src]');
- await expect(src).toContainText('통화');await expect(src).toContainText('합성 통화 요약 글');
- expect(db.feedReads).toBe(1);
- // 지난 기록 펼친 상태는 다시 그려도 그대로.
+ for(const n of [11,21]){
+  await row(page,n).locator('[data-wd-up-menu]').click();
+  await expect(menu.getByRole('button')).toHaveText([/^수정$/,/^메모( \d+)?$/,/^삭제$/]);
+  await expect(menu.getByRole('button',{name:/^원래/})).toHaveCount(0);
+  await page.keyboard.press('Escape');
+ }
+ await expect(row(page,21).locator('[data-wd-up-src]')).toHaveCount(0);expect(db.feedReads).toBe(0);
  await expect(row(page,1)).toBeVisible();
- await row(page,21).locator('[data-wd-up-menu]').click();
- await menu.getByRole('button',{name:'원래 글 접기'}).click();
- await expect(src).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(db.statusWrites).toEqual([]);
  expect(errors).toEqual([]);
 });
 
-// ORG-기록날짜고치기(요청함 11/10): 조직 상세 기록 ⋯ [날짜 수정] → 줄 바로 아래 [하루|기간|없음] + 달력(조직보고 표와 같은 칸) → 원래 기록 날짜만.
-for(const width of [412,1280])test(`조직 상세 기록 ⋯ [날짜 수정]: 하루로 바꾸면 날짜 칸이 새 날짜, 없음은 '-', 글 그대로 ${width}px`,async({page})=>{
+// ORG-기록날짜고치기(요청함 11/10) → S71-71 RECORD-기록하나로(사용자 결정 2026-11-26 "날짜 수정 - 이건 수정에 넣어 같이 수정할 때 날짜랑 내용 다 수정 가능하게"):
+// 조직 상세 기록 ⋯ [수정] 칸 맨 위 [하루|기간|없음] + 달력(조직보고 표와 같은 칸). 글을 그대로 두고 날짜만 바꾸면 날짜만, 없음은 '-'.
+for(const width of [412,1280])test(`조직 상세 기록 ⋯ [수정] 칸 날짜: 하루로 바꾸면 날짜 칸이 새 날짜, 없음은 '-', 글 그대로 ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
  await openOrg(page);
  const menu=page.locator('#wdUpMenu');
+ await expect(menu.getByRole('button',{name:'날짜 수정'})).toHaveCount(0);
  await row(page,11).locator('[data-wd-up-menu]').click();
- await menu.getByRole('button',{name:'날짜 수정'}).click();
- const form=row(page,11).locator('[data-rde-day-form]');
+ await menu.getByRole('button',{name:'수정',exact:true}).click();
+ const form=row(page,11).locator('[data-wd-up-edit]');
  await expect(form).toBeVisible();
- await expect(form.locator('[data-rde-mode="day"]')).toHaveAttribute('aria-pressed','true');
- await expect(form.locator('[data-rde-field="day"]')).toHaveValue('2026-09-11');
- await form.locator('[data-rde-field="day"]').fill('2026-09-12');
- await form.locator('[data-rde-save]').click();
+ await expect(form.locator('[data-wdue-mode="day"]')).toHaveAttribute('aria-pressed','true');
+ await expect(form.locator('[data-wdue-field="day"]')).toHaveValue('2026-09-11');
+ await form.locator('[data-wdue-field="day"]').fill('2026-09-12');
+ await form.locator('[data-wd-up-save]').click();
  await expect(form).toHaveCount(0);
  expect(db.patches.at(-1)).toEqual({id:rec(11).id,occurred_at:'2026-09-12T12:00:00+09:00',end_day:null,day_none:false});
  await expect(row(page,11).locator('.wd-log-day')).toHaveText('9.12.');
  await expect(row(page,11).locator('.wd-log-main')).toContainText('합성 기록 11');
  // 없음
  await row(page,11).locator('[data-wd-up-menu]').click();
- await menu.getByRole('button',{name:'날짜 수정'}).click();
- await form.locator('[data-rde-mode="none"]').click();
- await form.locator('[data-rde-save]').click();
+ await menu.getByRole('button',{name:'수정',exact:true}).click();
+ await form.locator('[data-wdue-mode="none"]').click();
+ await form.locator('[data-wd-up-save]').click();
  await expect(row(page,11).locator('.wd-log-day')).toHaveText('-');
  expect(db.patches.at(-1)).toMatchObject({end_day:null,day_none:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

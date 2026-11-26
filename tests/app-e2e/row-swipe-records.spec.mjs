@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { testOrigin } from './helpers/test-origin.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
-// S70-65 UI-밀기메뉴통일(명진 2026-11-26 08:16 "조직 관리 기록·사업 관리 진행 기록 = [수정][삭제] 두 칸"):
+// S70-65 UI-밀기메뉴통일(사용자 2026-11-26 08:16 "조직 관리 기록·사업 관리 진행 기록 = [수정][삭제] 두 칸"):
 // 폰 390에서 기록 줄을 왼쪽으로 밀면 [수정][삭제] 두 칸만 펼쳐지고(끝까지 밀어도 실행 없음 — S70-60), 칸을 눌러야 그 줄 ⋯ 메뉴와 같은 일을 한다.
 // - 조직 관리 기록 창(#wdUpdates): 직접 쓴 기록 줄 [수정] = 그 자리 고쳐 쓰기 칸, [삭제] = 한 번 묻고 지움.
-//   잊지 말기·노트에서 연결된 줄 [수정] = ⋯ [요약 수정], [삭제] = ⋯ [원문 삭제](한 번 묻기).
-// - 사업 관리 진행 기록(#ps3-progress): 연결된 업데이트 줄 [수정] = ⋯ [요약 수정], 원문을 지우는 길이 없어 [연결 해제](⋯와 같은 이름·길).
+//   잊지 말기·노트에서 연결된 줄 [수정] = ⋯ [수정](글), [삭제] = ⋯ [삭제](이 기록만, 한 번 묻기 — S71-71 RECORD-기록하나로, 원문 그대로).
+// - 사업 관리 진행 기록(#ps3-progress): 연결된 줄도 같은 [수정][삭제](S71-71: 출처와 상관없이 칸 이름 같음).
 // 기록에는 여러 개 고르기가 없어 오른쪽 밀기는 없다. 기준표 docs/design/standard-interactions.md 8절 W2.
 // 화면은 담당조직·사업 상세 공용 흉내(basket-link-detail-fixture.html — basket-link-disconnect.spec.mjs와 같은 것). 글·이름은 모두 지어낸 것.
 test.use({ hasTouch: true });
@@ -70,7 +70,7 @@ test(`조직 관리 기록 폰 ${W}: 직접 쓴 기록 줄 왼쪽 밀기 [수정
   expect(errors).toEqual([]);
 });
 
-test(`조직 관리 기록 폰 ${W}: 연결된 줄 왼쪽 밀기 [수정][삭제] — [수정]은 ⋯ [요약 수정] 칸, [삭제]는 ⋯ [원문 삭제]처럼 한 번 묻기`, async ({ page }) => {
+test(`조직 관리 기록 폰 ${W}: 연결된 줄 왼쪽 밀기 [수정][삭제] — [수정]은 ⋯ [수정] 칸, [삭제]는 ⋯ [삭제]처럼 '이 기록을 삭제할까요?' 한 번 묻기`, async ({ page }) => {
   const { errors, host, ids } = await ready(page, 'organization');
   const row = host.locator(`[data-basket-link="${ids.link}"]`);
   const ends = await openCells(host, row);
@@ -80,23 +80,23 @@ test(`조직 관리 기록 폰 ${W}: 연결된 줄 왼쪽 밀기 [수정][삭제
   await row.locator('[data-link-summary-cancel]').click(); await expect(row.locator('[data-link-summary-form]')).toHaveCount(0);
   await openCells(host, row);
   await tap(host.locator('[data-row-swipe-key="delete"]'));
-  expect(await answerAsk(page, false)).toContain('휴지통으로 옮길까요'); // ⋯ [원문 삭제]와 같은 확인창
+  expect(await answerAsk(page, false)).toBe('이 기록을 삭제할까요?'); // ⋯ [삭제]와 같은 확인창(원문은 그대로)
   await expect(row).toBeVisible(); expect(await deletes(page)).toBe(0);
   expect(errors).toEqual([]);
 });
 
-test(`사업 관리 진행 기록 폰 ${W}: 연결된 업데이트 줄 왼쪽 밀기 [수정][연결 해제] — [수정]은 요약 수정 칸, [연결 해제]는 ⋯와 같은 한 번 묻기, 오른쪽 밀기 없음`, async ({ page }) => {
+test(`사업 관리 진행 기록 폰 ${W}: 연결된 줄 왼쪽 밀기 [수정][삭제] — [수정]은 ⋯ [수정] 칸, [삭제]는 ⋯와 같은 한 번 묻기, 오른쪽 밀기 없음`, async ({ page }) => {
   const { errors, host, ids } = await ready(page, 'project');
   const row = host.locator(`[data-basket-link="${ids.link}"]`);
   const ends = await openCells(host, row);
-  await expect(ends.locator('.row-swipe-tx')).toHaveText(['수정', '연결 해제']);
+  await expect(ends.locator('.row-swipe-tx')).toHaveText(['수정', '삭제']);
   await page.waitForTimeout(500); expect(await deletes(page)).toBe(0);
   await tap(host.locator('[data-row-swipe-key="edit"]'));
   await expect(row.locator('[data-link-summary-form]')).toBeVisible();
   await row.locator('[data-link-summary-cancel]').click(); await expect(row.locator('[data-link-summary-form]')).toHaveCount(0);
   await openCells(host, row);
-  await tap(host.locator('[data-row-swipe-key="disconnect"]'));
-  expect(await answerAsk(page, true)).toContain('연결을 해제할까요');
+  await tap(host.locator('[data-row-swipe-key="delete"]'));
+  expect(await answerAsk(page, true)).toBe('이 기록을 삭제할까요?');
   await expect(row).toHaveCount(0); expect(await deletes(page)).toBe(1);
   await swipe(host.locator('[data-basket-link]').first(), W + 40); await page.waitForTimeout(300);
   await expect(host.locator('[data-row-swipe-act]')).toHaveCount(0); await expect(page.locator('.row-swipe-pickbar:visible')).toHaveCount(0);
