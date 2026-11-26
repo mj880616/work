@@ -12,8 +12,10 @@
    ORG-기록첨부이름반영(S60-14): 첨부 이름 끝 ✎(.fr-edit)도 공용 모양(file-rename.css, 테두리 없는 흐린 연필) 그대로 — 이 규칙이 테두리 단추로 덮어썼다.
    UI-이름고치기단추(S69-100): 이름 고치는 칸의 [이름 추천 받기][저장][취소](.fr-acts)도 공용 ② 작은 버튼 그대로 — 이 규칙이 44px 상자로 덮어썼다.
    NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로.
-   S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로. */
-#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .nbb-bg *, .up-rows *, .ds-seg-btn, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+   S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로.
+   S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게).
+   S71-50: 보드 배경색 고르기(.nbb-bg)도 공용 색 칸 모양 그대로. */
+#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .nbb-bg *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -134,14 +136,31 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView > .basket-head:not([hidden]) { display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:0 0 4px; }
 /* NOTE-최근5개 ③: 보일 것이 없는 머리줄(제목은 읽기 프로그램용, 요약·[다시 찾기]는 감춤 — PC 노트 쪽)은 높이 없이 둔다(위쪽 빈 띠 56px). 제목은 읽기 프로그램에 그대로 남는다. */
 #appView #basketView > .basket-head:not([hidden]):not(:has(> :not(.a11y-only,[hidden]))) { min-height:0; margin:0; }
-/* S52-20: 정리함 머리 줄 [처리 전 ▾](② 작은 버튼, 모양은 공용) 오른쪽 끝 정렬. */
-#appView #basketView .forget-head:not([hidden]) { justify-content:flex-end; }
 #forgetViewMenu .forget-view-sep { margin:4px 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
 #forgetViewMenu button[aria-checked="true"] { color:var(--ds-select-ink); font-weight:var(--ds-weight-medium); }
-/* UI-점검1030손질 C5: [다시 찾기]는 거르기 칩(처리 전·보냄·무시)이 아니라 동작이므로 칩 모양이 아니라 홈·업무일지 '챙길 것'의 [다시 찾기]와 같은 글자 버튼(todo-radar.css .radar-find). 누르는 범위 44px은 아래 ::after. */
-#appView #basketView .inbox-find { position:relative; flex:none; height:var(--ds-compact-height-sm,28px); min-height:0; margin:0; padding:0 2px; border:0; border-radius:0; background:transparent; background-image:none; box-shadow:none; color:var(--kptu-primary-ink); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; cursor:pointer; }
-#appView #basketView .inbox-find:disabled { color:var(--kptu-muted); cursor:default; }
-#appView #basketView .inbox-find::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+/* S71-29 FORGET-머리한줄(사용자 결정 11/26, 다른 화면처럼 한 줄로): [처리 전 ▾]·최신화(↻)는 맨 위 줄 단추 상자(.sf-tools.forget-tools, basket.js)에 산다 — 따로 된 둘째 줄 없음.
+   폰·폴드 앱 머리 줄 = [W] 잊지 말기 · [처리 전 ▾] ……… ↻ · 찾기: 고르기는 이름 바로 뒤, 동작(↻)은 찾기 바로 앞(머리줄 규칙 '… · 찾기 · [+]'), 가운데는 빈 칸.
+   그래서 이 상자가 보일 때만 찾기 칸을 줄 끝으로 보내고(order), 상자가 남은 폭을 쓰며 ↻를 상자 오른쪽 끝에 붙인다. 폰에서 찾기 칸을 펼치면(.sf-open) 칸이 남은 폭을 쓴다.
+   PC 틀(761px~)은 다른 화면과 같이 맨 위 줄 찾기 칸 오른쪽([+ 추가] 앞). */
+@media(max-width:760px){
+  #appView > .mobile-shell-header:has(> [data-screen-tools="head"] > .forget-tools:not([hidden])) > .mobile-shell-find { order:1; }
+}
+/* 접은 폰(~599px): 찾기는 돋보기 하나라 상자가 남은 폭을 쓴다(↻는 상자 오른쪽 끝 = 돋보기 바로 앞). 폴드 펼침(600~760px)은 찾기 칸이 늘 보이며 남은 폭을 쓴다. */
+@media(max-width:599px){
+  #appView > .mobile-shell-header:not(.sf-open):has(> [data-screen-tools="head"] > .forget-tools:not([hidden])) > .mobile-shell-find { flex:none; }
+  #appView > .mobile-shell-header:not(.sf-open) > [data-screen-tools="head"]:has(> .forget-tools:not([hidden])) { flex:1 1 auto; min-width:0; }
+  #appView > .mobile-shell-header:not(.sf-open) .forget-tools { flex:1 1 auto; }
+  #appView > .mobile-shell-header:not(.sf-open) .forget-tools > .inbox-find { margin-left:auto; }
+}
+/* 최신화(↻): 다른 머리 줄 아이콘 단추와 같은 크기 — 보이는 32px, 누르는 범위 44px(UI-버튼기준). 바탕·테두리 없음. 찾는 중·못 찾는 때는 흐리게(마지막 찾기 시각은 title). */
+.forget-tools .inbox-find { position:relative; box-sizing:border-box; display:inline-grid; place-items:center; flex:none; width:var(--ds-compact-height,32px); min-width:var(--ds-compact-height,32px); height:var(--ds-compact-height,32px); min-height:0; margin:0; padding:0; border:0; border-radius:var(--kptu-radius-md); background:transparent; background-image:none; box-shadow:none; color:var(--kptu-muted); line-height:1; cursor:pointer; }
+.forget-tools .inbox-find:hover:not(:disabled) { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
+.forget-tools .inbox-find:disabled { opacity:.5; cursor:default; }
+.forget-tools .inbox-find[aria-busy] svg { animation:forget-spin 1s linear infinite; }
+.forget-tools .inbox-find::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+.forget-tools .inbox-find:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }
+@keyframes forget-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .forget-tools .inbox-find[aria-busy] svg { animation:none; } }
 #basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
 /* [노트] 위쪽: 검색칸 + [+ 노트]. 폰의 [+ 노트]는 위 입력칸으로 바뀌었다(BASKET-노트입력창). */
 .note-list-head { display:flex; align-items:center; gap:8px; margin:8px 0; }

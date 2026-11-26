@@ -77,7 +77,7 @@ for (const width of [412, 1280]) {
     // 한 줄: 세 칸의 가운데가 같은 높이, 줄 높이는 입력칸 높이 그대로(카드 테두리·제목 줄 없음), 둘째 줄 바로 아래, 화면 안.
     const shape = await form.evaluate(el => {
       // S71-25 PHOTO-머리한줄: 화면 안 도구 줄이 없어져 맨 위 줄(폰 앱 머리 줄·PC 상단 줄) 바로 아래인지 본다.
-      const r = el.getBoundingClientRect(), tools = document.querySelector('[data-sf-tools="photos"]').closest('.mobile-shell-header, .app-topline').getBoundingClientRect();
+      const r = el.getBoundingClientRect(), tools = document.querySelector('[data-sf-tools="photos"]').closest('.mobile-shell-header, .app-topline, [data-screen-tools="line"]').getBoundingClientRect();
       const kids = [...el.children].map(k => k.getBoundingClientRect()), mids = kids.map(k => k.top + k.height / 2);
       const s = getComputedStyle(el), inp = el.querySelector('input').getBoundingClientRect();
       return { h: r.height, inputH: inp.height, gap: r.top - tools.bottom, spread: Math.max(...mids) - Math.min(...mids), border: s.borderTopWidth, right: r.right, vw: innerWidth,

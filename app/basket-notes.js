@@ -2201,7 +2201,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     closeMenu(); calDay = cell.dataset.ntCalCell; renderList();
   });
   // S70-54: 맨 위 줄로 옮긴 목록 머리 ⋯(상자 안)도 같은 메뉴를 연다.
+  // S71-59: PC 틀은 상자가 화면 안 보기 탭 줄(host 안)에 있어 아래 host 누르기 처리가 받는다 — 여기서 또 열면 두 번 눌러 바로 닫힌다.
   tools.addEventListener('click', e => {
+    if (host.contains(tools)) return;
     const b = e.target.closest('[data-note-folder-more]'); if (!b || b.disabled) return;
     if (!busy && (!selected || splitOpen())) openMenu(b, null, pick.active ? 'picked' : 'head');
   });
@@ -2399,7 +2401,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else void askClose(e.target instanceof Element ? e.target : null);
   };
   host.addEventListener('keydown', onListKey);
-  tools.addEventListener('keydown', onListKey);
+  tools.addEventListener('keydown', e => { if (!host.contains(tools)) onListKey(e); }); // S71-59: PC 틀은 상자가 host 안 — host 처리 한 번만
   // S70-64b: 막대에 [✕]가 없으니, 누른 곳(커서)이 노트 칸 밖(문서 바탕 등)이어도 노트 화면이 보이는 동안 Esc = 고르기 끝(자료실·줄 고르기와 같음).
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || e.defaultPrevented || !pick.active || selected || menu || busy) return;
