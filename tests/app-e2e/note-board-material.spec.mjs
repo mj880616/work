@@ -263,7 +263,7 @@ test('B9 PC: 보드 HTML 내보내기에 재료 이름 전체가 들어가고(�
   await page.locator('[data-nbb-menu] [data-nbb-export="html"]').click();
   const html = readFileSync(await (await dl).path(), 'utf8');
   for (const name of ['노트 · 자료 정리 노트', '링크 · 아주 긴 이름의 참고 기사 하나', '자료 · 회의 결과 문서', '노트 · 다른 노트']) expect(html).toContain(name);
-  expect(html).not.toContain('data-nb-mat-more'); expect(html).not.toContain('data-nb-mat-all');
+  expect(html).not.toContain('data-nb-mat-more'); expect(html).toContain('nb-mats-out'); expect(html).not.toContain('data-nb-mat-all');
   await expect(cell(page, 'tp').locator('[data-nb-mat-all]')).toHaveText('+1');
   await expect(chips(page, 'tp')).toHaveCount(3);
   expect(errors).toEqual([]);

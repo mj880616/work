@@ -2404,8 +2404,8 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     async exportSnapshot() {
       if (!shown.length && !texts.length && !links.length) return null;
       select(null); closeBar(); closeInsert(); closeLineMenu?.();
-      if (materialReady() && texts.some(t => (materialsOf(t.id) || []).length)) { matExport = true; renderTexts(); } // S71-54: 재료 이름 전체로
       fitBoard();
+      if (materialReady() && texts.some(t => (materialsOf(t.id) || []).length)) { matExport = true; renderTexts(); } // S71-54: 재료 이름 전체로(맞추기 뒤 — 판 이동이 이 모양을 끝내므로)
       allOn = true; box.dataset.nbExport = ''; syncTexts(true); paintBranches(); // S71-53: 내보낼 때는 관계선을 흐리게 하지 않는다 // S71-52: 화면 밖 칸·선도 모두 붙여 내보낸다(다음 화면 이동 때 다시 보이는 것만)
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       sync(true);
