@@ -146,26 +146,6 @@
 #psMcpReadPanel .mr-foot{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding-top:6px}
 #psMcpReadPanel .mr-foot .mr-s{margin:0 auto 0 0}
 #psMcpReadPanel p.mr-error{font-size:var(--ds-compact-text,12px);margin:4px 0}
-/* APP-기록+이름바꾸기(S67-44): '이름 바꾸기' 칸 — 접힌 한 줄(제목 · n개 바꿈), 펼치면 칸마다 [작은 이름표 · 기본 이름 · 내 이름 입력 · 기본으로] 한 줄. */
-#psCustomWordsPanel .cw-fold>summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none}
-#psCustomWordsPanel .cw-fold>summary::-webkit-details-marker{display:none}
-#psCustomWordsPanel .cw-fold>summary h3{margin:0}
-#psCustomWordsPanel .cw-fold>summary::after{content:"›";margin-left:auto;color:var(--kptu-muted);transition:transform .15s}
-#psCustomWordsPanel .cw-fold[open]>summary::after{transform:rotate(90deg)}
-#psCustomWordsPanel .cw-count{font-size:var(--ds-compact-text,12px);color:var(--kptu-muted)}
-#psCustomWordsPanel .cw-note{font-size:var(--ds-compact-text,12px);color:var(--kptu-muted);line-height:1.5;margin:4px 0}
-#psCustomWordsPanel .cw-group{border-top:var(--ds-line-width,1px) solid var(--ds-line);padding-top:4px;margin-top:4px}
-#psCustomWordsPanel .cw-group-h{display:block;font-size:var(--ds-compact-text,12px);color:var(--kptu-muted);margin-bottom:2px}
-#psCustomWordsPanel .cw-row{display:grid;grid-template-columns:4.5em minmax(5em,9em) minmax(0,1fr) 5.6em;align-items:center;gap:6px;min-height:var(--ds-compact-height-sm,28px);padding:1px 0}
-#psCustomWordsPanel .cw-hint{font-size:11px;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#psCustomWordsPanel .cw-def{font-size:13px;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;font-weight:var(--ds-weight-regular,400)}
-#profileView #psCustomWordsPanel .cw-row input{min-height:var(--ds-compact-height-sm,28px);padding:2px 6px;font-size:13px;width:100%;box-sizing:border-box}
-#profileView #psCustomWordsPanel .cw-reset{min-height:var(--ds-compact-height-sm,28px);padding:0 4px;font-size:12px;width:100%;white-space:nowrap}
-#profileView #psCustomWordsPanel .cw-reset[hidden]{display:none}
-#psCustomWordsPanel .cw-foot{display:flex;align-items:center;gap:8px;justify-content:flex-end;padding-top:6px;flex-wrap:wrap}
-#psCustomWordsPanel .cw-state{margin-right:auto;font-size:var(--ds-compact-text,12px);color:var(--kptu-muted)}
-#psCustomWordsPanel .cw-state.cw-error{color:var(--kptu-danger)}
-@media (max-width:760px){#psCustomWordsPanel .cw-row{grid-template-columns:3.4em minmax(4em,6.5em) minmax(0,1fr) auto}#profileView #psCustomWordsPanel .cw-reset{width:auto}}
 /* S69 STORE-계정삭제: [계정 삭제] 확인 창(account-delete.js). 몸 끝에 붙는 창이라 #profileView 밖 선택자. 버튼 모양은 공용 6가지 그대로. */
 .account-delete-dialog{width:min(480px,calc(100vw - 16px));max-height:calc(100dvh - var(--kptu-mobile-tab-height,56px) - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink);display:none;flex-direction:column}
 .account-delete-dialog[open]{display:flex}
