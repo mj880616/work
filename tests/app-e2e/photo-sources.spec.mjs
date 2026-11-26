@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { srcPick, srcRow, openSrcMenu, pickSource } from './helpers/photo-head.mjs';
 // PHOTO-출처 ①(요청함 10/30 17:30): 사진 메뉴 위 줄 오른쪽 출처 아이콘 + 폰 사진 섞어 보기.
 // - PC(1440, 웹 브라우저): 원드라이브 아이콘 + 구글 드라이브 칩(S62-11부터 모두에게, Drive 연결 전이면 '연결 전'·꺼짐 — 자세한 것은 photos-gdrive.spec.mjs), 폰 사진 아이콘 없음, 출처 표시 없음.
 // - 폰 앱(412, 앱 다리 흉내 + __phone 가로채기 흉내): 폰 사진이 원드라이브 사진과 찍은 날 순서로 섞이고 칸 오른쪽 아래 출처 표시,
@@ -101,7 +102,8 @@ async function openPhotos(page, width) {
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
-const src = page => page.locator('[data-sf-tools="photos"] [data-photos-src]');
+// S71-25 PHOTO-머리한줄: 출처는 맨 위 줄 [가져올 곳] 단추 하나 → 고르기 메뉴(#photosSrcMenu) 줄.
+const src = page => page.locator('#photosSrcMenu [data-photos-src]');
 
 test.describe('PC 1440', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
@@ -109,13 +111,16 @@ test.describe('PC 1440', () => {
     const { state } = await fixture(page);
     await openPhotos(page, 1440);
     await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
-    await expect(src(page).locator('visible=true')).toHaveCount(2);
-    await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(srcPick(page)).toHaveAttribute('aria-label', '가져올 곳: 원드라이브');
+    await openSrcMenu(page);
+    await expect(src(page)).toHaveCount(2);
+    await expect(srcRow(page, 'onedrive')).toHaveAttribute('aria-pressed', 'true');
     // S62-11: 칩은 모두에게. 처음엔 꺼져 있고(SOURCE_DEFAULT gdrive:false) Drive 연결 전이라 '연결 전' — 사진 목록은 부르지 않는다.
-    await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="gdrive"]')).toBeVisible();
-    await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="gdrive"]')).toHaveAttribute('aria-label', '구글 드라이브 · 연결 전');
+    await expect(srcRow(page, 'gdrive')).toBeVisible();
+    await expect(srcRow(page, 'gdrive')).toHaveAttribute('aria-label', '구글 드라이브 · 연결 전');
     expect(state.gd).toEqual(['status']);
-    await expect(page.locator('[data-sf-tools="photos"] [data-photos-src="phone"]')).toBeHidden();
+    await expect(srcRow(page, 'phone')).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await expect(page.locator('#photosRoot .photos-src-mark')).toHaveCount(0);
     expect(state.phoneReads).toEqual([]);
     expect(state.errors).toEqual([]);
@@ -129,22 +134,23 @@ test.describe('폰 앱 412', () => {
     await openPhotos(page, 412);
     // 10/31(폰) · 10/30(원) · 10/29(폰) · 10/28(원) · 10/26(원, 폰의 같은 사진은 빠짐) · 10/25(폰)
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1', 'ph:2', 'O2', 'O3', 'ph:4']);
-    const phoneBtn = page.locator('[data-sf-tools="photos"] [data-photos-src="phone"]');
-    await expect(phoneBtn).toBeVisible();
-    await expect(phoneBtn).toHaveAttribute('aria-pressed', 'true');
+    await openSrcMenu(page);
+    await expect(srcRow(page, 'phone')).toBeVisible();
+    await expect(srcRow(page, 'phone')).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Escape');
     await expect(page.locator('#photosRoot [data-photos-id="ph:1"] .photos-src-mark')).toHaveAttribute('data-src', 'phone');
     await expect(page.locator('#photosRoot [data-photos-id="O1"] .photos-src-mark')).toHaveAttribute('data-src', 'onedrive');
     await expect(page.locator('#photosRoot [data-photos-id="ph:1"] .diary-photo')).toHaveAttribute('data-img-state', 'shown');
     expect(state.phoneReads.some(p => p.startsWith(`${KEY}/page?`))).toBe(true);
     expect(await page.evaluate(() => window.__photoSent.filter(m => m.startsWith('photos:')))).toContain('photos:hello');
     // 끄기: 원드라이브 사진만, 출처 표시 없음, 서버에 photo_sources_phone.phone=false.
-    await phoneBtn.click();
-    await expect(phoneBtn).toHaveAttribute('aria-pressed', 'false');
+    await pickSource(page, 'phone');
+    await expect(srcPick(page)).toHaveAttribute('aria-label', '가져올 곳: 원드라이브');
     await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
     await expect(page.locator('#photosRoot .photos-src-mark')).toHaveCount(0);
     await expect.poll(() => prefs.patches.at(-1)?.photo_sources_phone).toEqual({ onedrive: true, gdrive: false, phone: false });
     // 크게 보기는 폰 사진도 같은 부품.
-    await phoneBtn.click();
+    await pickSource(page, 'phone');
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1', 'ph:2', 'O2', 'O3', 'ph:4']);
     await page.locator('#photosRoot [data-photos-id="ph:1"]').click();
     const viewer = page.locator('[data-diary-viewer]');
@@ -162,8 +168,7 @@ test.describe('폰 앱 412 · 모든 칩', () => {
     const { state } = await fixture(page, { app: true });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1', 'ph:2', 'O2', 'O3', 'ph:4']);
-    const od = page.locator('[data-sf-tools="photos"] [data-photos-src="onedrive"]'), phoneBtn = page.locator('[data-sf-tools="photos"] [data-photos-src="phone"]');
-    const tab = name => page.locator('#photosRoot [data-photos-view]').selectOption(name);
+    const tab = name => page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption(name);
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
     // 둘 다 켜짐: [폴더]에 '원드라이브'·'폰' 두 상자(FOLDER-나무새기준 ③: 출처마다 상자, 폴더 줄은 공용 줄).
     await tab('folders');
@@ -172,8 +177,8 @@ test.describe('폰 앱 412 · 모든 칩', () => {
     await expect(bodyEl.locator('[data-photos-folder="S1"]')).toBeVisible();
     await expect(bodyEl.locator('[data-photos-pf]')).toHaveCount(2);
     // 원드라이브 끄기: 폰 폴더만(원드라이브 폴더·⋯·새 폴더 없음).
-    await od.click();
-    await expect(od).toHaveAttribute('aria-pressed', 'false');
+    await pickSource(page, 'onedrive');
+    await expect(srcPick(page)).toHaveAttribute('aria-label', '가져올 곳: 폰 폴더');
     await expect(bodyEl.locator('[data-photos-folder]')).toHaveCount(0);
     await expect(bodyEl.locator('[data-photos-fx-more], [data-photos-fx-new]')).toHaveCount(0);
     await expect(bodyEl.locator('[data-photos-pf] .ft-main')).toHaveText(['Camera2', 'Screenshots2']);
@@ -192,13 +197,13 @@ test.describe('폰 앱 412 · 모든 칩', () => {
     await expect(bodyEl.locator('[data-photos-open]')).toHaveCount(0);
     expect(state.edge.filter(a => a === 'trash-list').length).toBe(trashReads);
     // 모두 끄기: 모든 칩에서 한 줄.
-    await phoneBtn.click();
+    await pickSource(page, 'phone');
     for (const name of ['trash', 'folders', 'albums', 'all']) {
       await tab(name);
       await expect(bodyEl.locator('[data-photos-no-source]')).toHaveText('위 출처 아이콘을 켜 주세요.');
     }
     // 원드라이브만 다시 켜기: [폴더]는 원드라이브 상자 하나.
-    await od.click();
+    await pickSource(page, 'onedrive');
     await tab('folders');
     await expect(bodyEl.locator('[data-photos-folder="S1"]')).toBeVisible();
     await expect(bodyEl.locator('[data-photos-pf], [data-photos-box="phone"]')).toHaveCount(0);
