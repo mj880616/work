@@ -71,7 +71,7 @@ for(const width of WIDTHS)test.describe(`검색 칸 하나 ${width}`,()=>{
     const list=page.locator('#noteRows [data-note-row]');
     await expect(list).toHaveCount(2);
     await expect(page.locator('#basketView [data-note-search], #basketView .note-search, #basketView [data-note-list] input[type="search"]')).toHaveCount(0);
-    await expect(page.locator('#basketView [data-note-folder-more]')).toHaveCount(0);
+    await expect(page.locator('#basketView [data-note-folder-more]:not(.sf-tools *)')).toHaveCount(0); // S71-59: PC 틀은 단추 상자(.sf-tools)가 화면 안 보기 탭 줄 끝
     const more=screenTools(page).locator('[data-note-folder-more]');await expect(more).toBeVisible();
     await more.click();await expect(page.locator('#noteDocMenu')).toBeVisible();await page.keyboard.press('Escape');
     const find=await screenFind(page);

@@ -273,3 +273,17 @@
 #appView #photosView .photos-fx-focus .photos-fx-here b{ font-size:15px; font-weight:700; }
 #appView #photosView .photos-fx-focus .ft-box-body{ padding:0 0 8px; }
 #appView #photosView .photos-fx-focus .ft-box-body > [data-photos-fx-grid]{ padding:8px 8px 0; }
+/* S71-62 PHOTO-설명: 크게 보기 [수정 ▾] '설명'·고르기 '설명 붙이기' 작은 칸. 폰은 아래에서 올라오는 칸(하단바 위), 넓은 화면은 가운데 작은 창. */
+.photo-desc-sheet{width:min(480px,calc(100vw - 16px));max-height:calc(100dvh - var(--kptu-mobile-tab-height,56px) - 24px);margin:auto auto calc(var(--kptu-mobile-tab-height,56px) + env(safe-area-inset-bottom,0px) + 8px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink);display:none;flex-direction:column}
+.photo-desc-sheet[open]{display:flex}
+.photo-desc-sheet::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
+@media (min-width:761px){.photo-desc-sheet{margin:auto}}
+.photo-desc-sheet .pd-head,.photo-desc-sheet .pd-foot{display:flex;align-items:center;gap:8px;padding:6px 12px}
+.photo-desc-sheet .pd-head h2{margin:0;font-size:15px;flex:1}
+.photo-desc-sheet .pd-body{display:flex;flex-direction:column;gap:6px;padding:0 12px;min-height:0;overflow:auto}
+.photo-desc-sheet .pd-text{width:100%;box-sizing:border-box;min-height:4.2em;resize:vertical;font:inherit;font-size:14px;line-height:1.4;padding:6px 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface);color:var(--kptu-ink)}
+.photo-desc-sheet .pd-words{display:flex;flex-wrap:wrap;gap:4px}
+.photo-desc-sheet .pd-word{min-height:26px;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-pill,999px);background:var(--kptu-surface);color:var(--kptu-ink);font-size:12px;box-shadow:none}
+.photo-desc-sheet .pd-word[aria-pressed="true"]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink,var(--kptu-primary))}
+.photo-desc-sheet .pd-foot .status{flex:1;margin:0;font-size:12px;color:var(--kptu-muted)}
+.photo-desc-sheet .pd-count{font-size:11px;color:var(--kptu-muted);font-variant-numeric:tabular-nums}

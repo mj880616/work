@@ -71,8 +71,8 @@ for (const [width, touch] of [[412, true], [884, false], [1440, false]]) {
         const rail = railOf(page);
         await expect(rail).toBeVisible();
         await expect(root(page).locator('[data-photos-open]').first()).toBeVisible();
-        // 위 버튼 줄(S71-25 PHOTO-머리한줄: 맨 위 한 줄 — 폰 앱 머리 줄·PC 상단 줄) 맨 아래보다 막대 맨 위가 아래.
-        const bar = await box(page.locator('[data-sf-tools="photos"]').locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " mobile-shell-header ") or contains(concat(" ", normalize-space(@class), " "), " app-topline ")][1]'));
+        // 위 버튼 줄(S71-25 PHOTO-머리한줄: 맨 위 한 줄 — 폰 앱 머리 줄, PC는 S71-59부터 화면 안 첫 줄) 맨 아래보다 막대 맨 위가 아래.
+        const bar = await box(page.locator('[data-sf-tools="photos"]').locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " mobile-shell-header ") or contains(concat(" ", normalize-space(@class), " "), " app-topline ") or @data-screen-tools="line"][1]'));
         const rb = await box(rail);
         expect(rb.y).toBeGreaterThanOrEqual(bar.y + bar.height);
         for (const b of await page.locator('[data-sf-tools="photos"] button, [data-sf-tools="photos"] select').all()) {

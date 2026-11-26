@@ -1,12 +1,12 @@
 import {emptyHtml} from './wait-state.js';
-// UI-모바일업데이트겹쳐보기: on a phone (760px or less) tapping a linked record (basket update or note) in project or organization
+// UI-모바일업데이트겹쳐보기: on a phone (760px or less) tapping a linked note in project or organization
 // detail does not leave the screen. The record comes up as a card (sheet) over the detail; ✕, a tap outside the card, swiping
 // the card's top down, Esc and the phone's back button close it, and the detail stays where it was (nothing under it changes).
 // The sheet is a .modal, so mobile-modal-history.js gives it its one history entry (back closes it first, BUG-뒤로가기).
-// [바구니에서 열기]/[노트 열기] closes the sheet and then hands over to the screen's existing full open (the PC behaviour).
+// [노트 열기] closes the sheet and then hands over to the screen's existing full open (the PC behaviour).
 // It only shows what the detail already read (readLinkRecords: summary, original text, date); it reads and writes nothing.
 import {formatSeoulTime} from './meeting-time.js';
-import {recordMark,recordText,isNoteRecord,isDirectRecord,shownRecord} from './basket-link-records.js';
+import {noteMark,recordText,isNoteRecord,shownRecord} from './basket-link-records.js';
 import {markdownSource} from './note-preview.mjs';
 import {partStyles} from './part-styles.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
@@ -39,8 +39,8 @@ function install(){
 
 // row: a readLinkRecords row. place: the project or organization name. trigger: the tapped line (focus returns there).
 // onOpenFull: the existing full open (basket note or note view), run once the sheet's history entry is gone.
-// ORG-기록첨부표시이름 ①(S61-6): 기록 입력칸에서 바로 올린 기록(isDirectRecord)은 제목 '기록'·표시 아이콘 없음·머리말에 '잊지 말기 연결' 없음.
-// RECORD-한줄: title·meta·summaryLabel = 조직 기록 [원문 보기](record-raw-view.js)처럼 잊지 말기 연결이 아닌 기록을 같은 창으로 볼 때(표시 아이콘 없음).
+// S71-57 RECORD-잊지말기연결표시삭제: 노트가 아닌 기록은 제목 '기록'·표시 아이콘 없음·머리말에 출처 표시 없음(잊지 말기에서 왔어도 같다).
+// RECORD-한줄: title·meta·summaryLabel = 조직 기록 [원문 보기](record-raw-view.js)처럼 연결 기록이 아닌 글을 같은 창으로 볼 때(표시 아이콘 없음).
 // S69-95 NOTE-메모넓히기: memo = {type,id,title}이면 글 아래에 같은 메모 칸(memo-thread.js)을 붙인다(자료실 자료 창·담당조직 기록 창).
 // 글이 비었고 메모 칸이 있으면 '없음' 대신 글 칸을 뺀다. fullLabel = 아래 [열기] 단추 글자(주면 그 글자, 없으면 기록 종류에 따른 옛 글자).
 let memoThread=null;
@@ -48,16 +48,16 @@ export function openRecordSheet({row,place='',trigger=null,onOpenFull=null,title
   if(!row)return false;
   row=shownRecord(row); // S69 보드잠금가림 전수: 잠긴 폴더 노트면 제목·요약·원문 대신 '잠김'만
   const sheet=install();if(state)close({focus:false,immediate:true});
-  const note=isNoteRecord(row),direct=isDirectRecord(row),summary=recordText(row)||'',raw=String(row.raw_text??''),title=note&&String(row.title||'').trim()?row.title:(note?'노트':direct?'기록':'잊지 말기 업데이트');
+  const note=isNoteRecord(row),summary=recordText(row)||'',raw=String(row.raw_text??''),title=note&&String(row.title||'').trim()?row.title:(note?'노트':'기록');
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
-  sheet.querySelector('[data-record-sheet-title]').innerHTML=ownTitle!=null?`<span>${escape(ownTitle)}</span>`:(direct?`<span>${escape(title)}</span>`:`${recordMark(row,'record-sheet-mark')} <span>${escape(title)}</span>`);
-  sheet.querySelector('[data-record-sheet-meta]').textContent=meta!=null?meta:[note?'노트 연결':direct?'':'잊지 말기 연결',date,place].filter(Boolean).join(' · ');
+  sheet.querySelector('[data-record-sheet-title]').innerHTML=ownTitle!=null?`<span>${escape(ownTitle)}</span>`:(note?`${noteMark('record-sheet-mark')} <span>${escape(title)}</span>`:`<span>${escape(title)}</span>`);
+  sheet.querySelector('[data-record-sheet-meta]').textContent=meta!=null?meta:[note?'노트 연결':'',date,place].filter(Boolean).join(' · ');
   const showSummary=row.summary!=null&&String(row.summary).trim()&&String(row.summary).trim()!==raw.trim();
   sheet.querySelector('[data-record-sheet-body]').innerHTML=`${showSummary?`<p class="record-sheet-summary"><b>${escape(summaryLabel)}</b> ${escape(summary)}</p>`:''}${memo&&!raw.trim()?'':`<div class="record-sheet-text" data-record-sheet-text>${raw.trim()?escape(raw):emptyHtml()}</div>`}${memo?'<section class="memo-th record-sheet-memos" data-record-sheet-memos aria-label="메모"></section>':''}`;
   // BUG-미리보기기호: the opened sheet shows the written text as headings and tables (the plain text stays until the view is ready).
   const textBox=sheet.querySelector('[data-record-sheet-text]');
   if(textBox&&raw.trim()&&markdownSource(raw))import('./markdown-view.js').then(view=>view.renderMarkdownInto(textBox,raw,{isCurrent:()=>state?.row===row})).catch(()=>{});
-  const full=sheet.querySelector('[data-record-sheet-full]');full.textContent=fullLabel||(note?'노트 열기':direct?'원문 보기':'잊지 말기에서 열기');full.hidden=typeof onOpenFull!=='function';full.closest('.record-sheet-foot').hidden=full.hidden; // 여는 곳이 없으면(RECORD-한줄 [원문 보기]) 아래 줄째 감춘다(record-sheet.css [hidden])
+  const full=sheet.querySelector('[data-record-sheet-full]');full.textContent=fullLabel||(note?'노트 열기':'열기');full.hidden=typeof onOpenFull!=='function';full.closest('.record-sheet-foot').hidden=full.hidden; // 여는 곳이 없으면(RECORD-한줄 [원문 보기]) 아래 줄째 감춘다(record-sheet.css [hidden])
   state={row,trigger,onOpenFull,drag:null};
   const card=sheet.querySelector('[data-record-sheet-card]');card.style.transform='';card.scrollTop=0;
   sheet.classList.remove('hidden');sheet.setAttribute('aria-hidden','false');
