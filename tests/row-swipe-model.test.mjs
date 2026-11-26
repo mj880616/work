@@ -132,3 +132,11 @@ test('⋯ 메뉴는 높이를 320px로 묶지 않고, 창보다 길 때만 아�
   assert.match(read('anchored-menu.js'), /down=below>=panel\.scrollHeight\|\|below>=above;/);
   assert.match(read('base-ui.css'), /\[data-scroll-below\]\{-webkit-mask-image:linear-gradient/);
 });
+test('S70-64b 고르기 막대: [✕](선택 끝내기)·[그만]·보이는 개수 글자 없음, [전체 선택] 켜고 끄기, 0개면 끝', () => {
+  const swipe = read('row-swipe.js');
+  assert.match(swipe, /start:select && a\.start \? PICK : null/); // 오른쪽 밀기에는 [선택] 말고 다른 동작을 두지 않는다
+  assert.match(swipe, /sbAllHtml\(\{attrs:'data-row-pick-all', on:all/); // [전체 선택] 켜짐(체크 표시)
+  assert.match(swipe, /if \(!pick\.size\) stopPicking\(\)/); // 0개면 고르기 끝
+  assert.doesNotMatch(swipe, /data-row-pick-stop|sbCloseHtml/); // 끝내기는 Esc·뒤로가기
+  assert.match(swipe, /kptu-sb-count kptu-sb-sr row-swipe-pick-count/); // 개수는 화면 읽기에만
+});

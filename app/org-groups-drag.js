@@ -19,7 +19,7 @@ export const hasPending = () => pendingNow().length > 0;
 const savedNames = () => (prefsOrder()?.groups || []).map(g => String(g?.name ?? ''));
 const allNames = () => [...savedNames(), ...pendingNow()];
 
-const grip = (kind, name, label) => `<button type="button" class="icon-btn so-grip" data-so-grip="${kind}" data-so-name="${esc(name)}" aria-label="${esc(label)} 옮기기" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title="끌어서 옮기기 · Alt+↑↓"></button>`;
+const grip = (kind, name, label) => `<button type="button" class="icon-btn so-grip" data-so-grip="${kind}" data-so-name="${esc(name)}" aria-label="${esc(label)} 옮기기" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"></button>`;
 
 // 묶음 칸 HTML. row(o) = suborganizations.js의 조직 줄 HTML(그대로), 손잡이는 줄 맨 앞에 끼운다.
 export function sectionsHtml(list, row) {

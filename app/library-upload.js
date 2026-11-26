@@ -1502,7 +1502,7 @@ async function luRenameUndo(id,renamed,snapshot){
   finally{luRenameBusy=false}
 }
 function luFolderStatus(text,error=false){const el=document.querySelector('#libraryFolderStatusLine');if(!el)return;el.textContent=text||'';el.hidden=!text;el.classList.toggle('error',!!error)}
-function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({selectNode:luSelectNode,enter:(id,trigger)=>luTwoActive()?luTwo.enter(id,trigger):LU_SPLIT?.matches?luEnterFolder(id):luPressEnter(id),photoSetDocs:luPhotoSetMembers,twinDocs:luTwinDocs,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',inFolder:!!luInFolder,treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen,explorer:luExplorerNow}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luPick.items?splitPicks(luPick.items).docs:[],pickedFolders:luPickedFolderIds,onPickedMoved:()=>{if(luPick.items&&!luSelBusy){luPick.items=null;luRenderLibrary()}},touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luPick.items&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luPick.items&&ids.every(id=>luPick.items.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luPick.items&&([...done,...failed].some(id=>luPick.items.has(id))||!luPick.items.size)/* S69-28: 들어간 폴더(탐색기 칸)에서 고른 것을 다른 폴더로 옮기면 다시 그릴 때 보이지 않는 고른 것이 먼저 빠져 빈 선택이 된다 — 그것도 선택에서 옮긴 것 */;luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder},receive:{ready:()=>luReceive.status==='ok'&&luReceive.owner===(luUser?.id||''),get:()=>luReceiveFolder()?.id||null,set:luSetReceive,outside:()=>outsideDocuments(luDocuments,luFolderItems),sortCount:()=>luSort().count(),sort:trigger=>luSort().open(trigger)},weekly:{show:luWeeklyShow,get:luWeeklyGet,set:luWeeklySet},tidy:{open:(trigger,id)=>luTidy().open(trigger,id)},onHold:el=>luRowHold(el),onDragState:v=>{luDragNow=v;luSyncPicks()},navOpen:luNavHoverOpen});return luFolderUi}
+function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({selectNode:luSelectNode,enter:(id,trigger)=>luTwoActive()?luTwo.enter(id,trigger):LU_SPLIT?.matches?luEnterFolder(id):luPressEnter(id),photoSetDocs:luPhotoSetMembers,twinDocs:luTwinDocs,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',inFolder:!!luInFolder,treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen,explorer:luExplorerNow}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luPick.items?splitPicks(luPick.items).docs:[],pickedFolders:luPickedFolderIds,onPickedMoved:()=>{if(luPick.items&&!luSelBusy){luPick.items=null;luRenderLibrary()}},touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luPick.items&&total>1){c.textContent=`옮기는 중 ${index}/${total}`;c.classList.remove('kptu-sb-sr')}},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luPick.items&&ids.every(id=>luPick.items.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luPick.items&&([...done,...failed].some(id=>luPick.items.has(id))||!luPick.items.size)/* S69-28: 들어간 폴더(탐색기 칸)에서 고른 것을 다른 폴더로 옮기면 다시 그릴 때 보이지 않는 고른 것이 먼저 빠져 빈 선택이 된다 — 그것도 선택에서 옮긴 것 */;luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder},receive:{ready:()=>luReceive.status==='ok'&&luReceive.owner===(luUser?.id||''),get:()=>luReceiveFolder()?.id||null,set:luSetReceive,outside:()=>outsideDocuments(luDocuments,luFolderItems),sortCount:()=>luSort().count(),sort:trigger=>luSort().open(trigger)},weekly:{show:luWeeklyShow,get:luWeeklyGet,set:luWeeklySet},tidy:{open:(trigger,id)=>luTidy().open(trigger,id)},onHold:el=>luRowHold(el),onDragState:v=>{luDragNow=v;luSyncPicks()},navOpen:luNavHoverOpen});return luFolderUi}
 // 토글 하나를 접거나 편다(폴더 ⋯ 메뉴의 [접기·펼치기]). 상태는 머리를 눌렀을 때와 같은 곳(luOpened·luFilterOpen)에 적는다.
 const luNodeEl=key=>[...document.querySelectorAll('#documentList details[data-lu-node]')].find(x=>x.dataset.luNode===key);
 // LIB-두칸폴더펼치기(S56-40): 두 칸은 details가 없고 칸 안 나무 줄이다. S69-68 UI-두칸따로: 펼침은 칸마다 따로(library-two-pane.js own[i]) —
@@ -1906,12 +1906,12 @@ function luAfterRender(){
   luPick.prune(luPickKeep());
   luSyncPicks();
 }
-// LIB-끄는중막대: 고르기 막대 단추 줄. 평소 = index.html의 여섯 단추, 끄는 중 = [취소] 하나 — 다른 단추는 막대에서 떼어 두었다가(숨김 아님) 끝나면 제자리에 다시 붙인다.
+// LIB-끄는중막대: 고르기 막대 단추 줄. 평소 = index.html의 단추들, 끄는 중 = '옮기는 중 N개' 글만(S70-64b: [✕] 없음, Esc·뒤로가기로 끝) — 단추는 막대에서 떼어 두었다가(숨김 아님) 끝나면 제자리에 다시 붙인다.
 // 단추 누르기는 막대 하나에 건 위임 듣기라 떼었다 붙여도 그대로 동작한다.
 let luDragNow=null,luParkedActs=null;
 function luPaintSelectActs(barEl,dragging){
   const acts=barEl?.querySelector('.lu-select-acts');if(!acts)return;
-  if(dragging&&!luParkedActs){luParkedActs=[...acts.children].filter(b=>b.id!=='librarySelectCancel');for(const b of luParkedActs)b.remove()}
+  if(dragging&&!luParkedActs){luParkedActs=[...acts.children];for(const b of luParkedActs)b.remove()}
   else if(!dragging&&luParkedActs){acts.append(...luParkedActs);luParkedActs=null}
 }
 // UI-고르기막대(S69-85): 막대를 고친 뒤 한 줄 맞추기(공용 select-bar.js — 좁으면 아이콘만, 그래도 모자라면 ⋯로 접음).
@@ -1929,14 +1929,16 @@ function luSyncPicksNow(){
   // LIB-끄는중막대(S69, 사용자 11/24 16:17 "드래그해서 폴더로 드롭해서 옮기는 중에는 이 메뉴들이 없어져야지. 취소야 남겨두더라도"):
   // 끄는 동안·놓은 뒤 옮기는 동안(luDragNow, 폴더 부품이 알림)은 '옮기는 중 N개 · 취소'만 그린다. 끝나면 원래 막대. 그리는 곳은 여기 하나.
   const dragging=!!luDragNow;luPaintSelectActs(barEl,dragging);
-  if(dragging){const c=document.querySelector('#librarySelectCount');if(c&&!luDragNow.moving)c.textContent=`옮기는 중 ${luDragNow.count}개`;return}
+  // S70-64b: 평소 개수('N개 선택됨')는 화면 읽기에만(kptu-sb-sr), 끄는 중·옮기는 중 글은 눈에 보이게.
+  const countEl=document.querySelector('#librarySelectCount');countEl?.classList.toggle('kptu-sb-sr',!dragging&&!(luSelBusy&&countEl.textContent.startsWith('옮기는 중')));
+  if(dragging){if(countEl&&!luDragNow.moving)countEl.textContent=`옮기는 중 ${luDragNow.count}개`;return}
   const ids=luVisibleIds(),list=document.querySelector('#documentList');
   for(const c of list?.querySelectorAll('[data-lu-pick]')||[]){const ids=luTwinIds([c.dataset.luPick]);c.checked=ids.every(x=>luPick.items.has(x));c.indeterminate=ids.length>1&&!c.checked&&ids.some(x=>luPick.items.has(x));c.closest('.lu-row')?.classList.toggle('lu-picked',c.checked)}
   for(const c of list?.querySelectorAll('[data-lu-pick-node]')||[]){const key=c.dataset.luPickNode,whole=key.startsWith('f:')&&luPick.items.has(folderPick(key.slice(2))),nodeIds=nodeDocumentIds(luTreeNode(key));c.checked=whole||allSelected(luPick.items,nodeIds);c.indeterminate=!c.checked&&someSelected(luPick.items,nodeIds);c.parentElement?.classList.toggle('lu-node-picked',c.checked)}
   // S69-69: 폴더째 고른 폴더 줄(탐색기 칸·두 칸)은 고른 줄 표시(lu-folder-picked + aria-selected).
   // S69-84: 왼쪽 나무(#libraryFolderNav) 폴더 줄도 같은 표시(폴드·PC 꾹 누르기·선택 모드 누르기로 폴더째 고름).
   for(const el of document.querySelectorAll('#documentList details[data-lu-node] > summary,#documentList [data-lu-pane-i] .ft-row,#libraryFolderNav .ft-row')){const id=luMqFolderId(el),on=!!id&&luPick.items.has(folderPick(id));el.classList.toggle('lu-folder-picked',on);if(on)el.setAttribute('aria-selected','true');else el.removeAttribute('aria-selected')}
-  const all=document.querySelector('#librarySelectAll'),count=document.querySelector('#librarySelectCount'),del=document.querySelector('#librarySelectDelete'),cancel=document.querySelector('#librarySelectCancel');
+  const all=document.querySelector('#librarySelectAll'),count=document.querySelector('#librarySelectCount'),del=document.querySelector('#librarySelectDelete');
   if(all){paintSelectAll(all,allSelected(luPick.items,ids));all.disabled=luSelBusy||!ids.length} // S70-64: [전체 선택] 켜짐 = 네모 안 체크
   // 빠짐10: 고른 것 중 지금 줄로 보이지 않는 것(접힌 토글·'n건 더'·접힌 같은 글)이 있으면 '— 접힌 n개 포함'.
   if(count&&!luSelBusy){const seen=new Set([...(list?.querySelectorAll('[data-lu-document]')||[])].filter(x=>x.checkVisibility?.()!==false).map(x=>x.dataset.luDocument));const pk=splitPicks(luPick.items);let hidden=0;for(const id of pk.docs)if(!seen.has(id))hidden++;
@@ -1945,7 +1947,6 @@ function luSyncPicksNow(){
   if(del)del.disabled=luSelBusy||!luPick.items.size;
   for(const b of barEl.querySelectorAll('[data-lu-bulk],#librarySelectFolder'))b.disabled=luSelBusy||!luPick.items.size;
   const fb=barEl.querySelector('#librarySelectFolder');if(fb)fb.hidden=!luFoldersReady;
-  if(cancel)cancel.disabled=luSelBusy;
 }
 // SEARCH-선택옮기기 ⑤(10/28 10:44): 자료실 검색칸에 글자가 있고 걸러진 자료가 있으면 작은 [결과 n개 모두 고르기].
 // 폴더·묶음과 상관없이 걸러진 자료 전부를 선택 모드로 고른다(접힌 폴더 안 것 포함). 그 뒤 옮기기·분류 바꾸기·지우기는 같은 선택 모드가 맡는다.
@@ -2322,7 +2323,6 @@ function luBindSelect(){
     if(folder&&luPick.items&&!luSelBusy&&luPick.items.size){const ui=luFolders();if(ui.moveOpen)void ui.closeMove();else ui.openMove(luSelectedDocs(),folder,{place:'below',history:true,folders:luPickedFolderIds(),done:ok=>{if(ok&&luPick.items&&!luSelBusy){luPick.items=null;luRenderLibrary()}}})}
   });
   list.addEventListener('mousedown',e=>{if(e.shiftKey&&LU_FINE?.matches&&e.target.closest?.('[data-lu-document]'))e.preventDefault()});
-  document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{if(e.target.closest('#librarySelectCancel'))luSelStop()});
   document.addEventListener('keydown',luOnSelEscape);
   // Shift+클릭으로 여러 줄을 고를 때 화면 글자가 파랗게 칠해지지 않게(선택 모드 중 목록 칸 전체).
   document.querySelector('#libraryListCard')?.addEventListener('mousedown',e=>{if(e.shiftKey&&luPick.items&&LU_FINE?.matches&&!e.target.closest?.('input:not([type=checkbox]),textarea,[contenteditable]'))e.preventDefault()});

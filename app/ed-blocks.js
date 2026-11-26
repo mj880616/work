@@ -76,7 +76,7 @@ export function mountBlocks({pm, view, schema, root, box, bar = root, handles = 
 
   // ── handle ──
   const grip = make('button', 'ed-grip');
-  grip.type = 'button'; grip.setAttribute('aria-label', '블록 옮기기·메뉴'); grip.title = '끌어서 옮기기 · 눌러서 메뉴';
+  grip.type = 'button'; grip.setAttribute('aria-label', '블록 옮기기·메뉴');
   grip.setAttribute('aria-haspopup', 'true'); grip.setAttribute('aria-expanded', 'false'); grip.hidden = true;
   grip.append(gripIcon());
   const line = make('div', 'ed-drop-line'); line.hidden = true; line.setAttribute('aria-hidden', 'true');

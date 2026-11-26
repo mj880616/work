@@ -67,7 +67,8 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     await expect(page.locator('#libraryView')).toBeVisible();
     await expect(page.locator('[data-lu-pick="a-2"]')).toHaveCount(0);
     await pick(page,['a-1'],width);
-    await press(page,page.locator('#librarySelectCancel'),width);
+    // S70-64b: 막대에 [✕]가 없다 — 폰은 뒤로가기, PC는 Esc로 고르기를 끝낸다.
+    if(width<=760)await page.goBack();else await page.keyboard.press('Escape');
     await expect(bar(page)).toBeHidden();
     await expect(page.locator('#libraryView')).toBeVisible();
     expect(errors).toEqual([]);

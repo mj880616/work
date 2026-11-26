@@ -123,14 +123,15 @@ import { pubMenu, PUB_LABELS, PUB_ON } from './note-publish-model.mjs';
 import { paintNoteSource } from './note-import-view.js';
 import { busyTitle, noteSource } from './note-import-model.mjs';
 import {word} from './brand/brand.mjs';
-import {sbActHtml, sbCloseHtml, sbAllHtml} from './select-bar-model.mjs';
+import {sbActHtml, sbAllHtml} from './select-bar-model.mjs';
 import {fitSelectBar, paintSelectAll} from './select-bar.js';
 // UI-검색창하나로(S70-54): 노트 찾기는 맨 위 칸(화면 찾기 등록), 목록 머리 ⋯는 맨 위 줄 단추 자리(screen-find.js 상자)로.
 import {registerScreenFind, refreshScreenFind, toolsBox, findFor} from './screen-find.js';
-// UI-고르기막대(S69-85): 노트 고르기 막대도 공용 모양 — 왼쪽 [✕] 'N개 선택됨', 오른쪽 [전체 선택][폴더로 옮기기][삭제](좁으면 아이콘만 → ⋯).
+// UI-고르기막대(S69-85): 노트 고르기 막대도 공용 모양 — [전체 선택][폴더로 옮기기][삭제](좁으면 아이콘만 → ⋯).
+//   S70-64b(명진 11/26 07:46 "그만은 필요없어 폰 뒤로가기 버튼 누르면 되고 Pc는 esc가 그거야"): [✕]·'N개 선택됨' 글자는 두지 않는다.
+//   고른 개수는 화면 읽기에만(kptu-sb-sr). 끄는 동안 '옮기는 중 N개'만 눈에 보인다. 끝내기 = 뒤로가기·Esc.
 //   kptu-act는 정리함 기본 단추 모양(ui-standard.css)에서 빼는 표시로 그대로 둔다.
-const NX_SEL_BAR = sbCloseHtml('data-nx-sel-close', '선택 끝내기').replace('kptu-sb-close"', 'kptu-sb-close kptu-act nx-sel-close"')
-  + '<span class="kptu-sb-count" data-nx-select-count></span><span class="kptu-sb-acts nx-sel-acts">'
+const NX_SEL_BAR = '<span class="kptu-sb-count kptu-sb-sr" data-nx-select-count role="status" aria-live="polite"></span><span class="kptu-sb-acts nx-sel-acts">'
   + sbAllHtml({attrs: 'data-nx-sel-all'}).replace('kptu-sb-act"', 'kptu-sb-act kptu-act"')
   + sbActHtml({attrs: 'data-nx-sel-move', icon: 'move', label: '폴더로 옮기기', rank: 10}).replace('kptu-sb-act"', 'kptu-sb-act kptu-act"')
   + sbActHtml({attrs: 'data-nx-sel-delete', icon: 'trash', label: '삭제', danger: true}).replace('kptu-sb-danger"', 'kptu-sb-danger kptu-act kptu-act-danger"')
@@ -521,7 +522,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const acts = bar.querySelector('.nx-sel-acts'), moving = !!pick.active && selDragging;
     if (acts && moving && !parkedActs) { parkedActs = [...acts.children]; for (const b of parkedActs) b.remove(); }
     else if (acts && !moving && parkedActs) { acts.append(...parkedActs); parkedActs = null; }
-    if (pick.active) { host.querySelector('[data-nx-select-count]').textContent = moving ? `옮기는 중 ${pick.size}개` : `${pick.size}개 선택됨`; bar.querySelectorAll('[data-nx-sel-move],[data-nx-sel-delete]').forEach(b => { b.disabled = !pick.size || busy; });
+    if (pick.active) { const cnt = host.querySelector('[data-nx-select-count]'); cnt.textContent = moving ? `옮기는 중 ${pick.size}개` : `${pick.size}개 선택됨`; cnt.classList.toggle('kptu-sb-sr', !moving); bar.querySelectorAll('[data-nx-sel-move],[data-nx-sel-delete]').forEach(b => { b.disabled = !pick.size || busy; });
       // S70-64: [전체 선택] 켜짐 = 지금 보이는 노트·폴더가 모두 골라짐(네모 안 체크), 다시 누르면 모두 풀림(selectAll 토글).
       const keys = shownPickKeys(); paintSelectAll(bar.querySelector('[data-nx-sel-all]'), keys.length > 0 && keys.every(k => pick.has(k))); }
     list.classList.toggle('nx-selecting', !!pick.active);
@@ -2392,6 +2393,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   };
   host.addEventListener('keydown', onListKey);
   tools.addEventListener('keydown', onListKey);
+  // S70-64b: 막대에 [✕]가 없으니, 누른 곳(커서)이 노트 칸 밖(문서 바탕 등)이어도 노트 화면이 보이는 동안 Esc = 고르기 끝(자료실·줄 고르기와 같음).
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || e.defaultPrevented || !pick.active || selected || menu || busy) return;
+    if (host.contains(e.target) || tools.contains(e.target) || !host.isConnected || !host.offsetParent) return;
+    if (e.target instanceof Element && e.target.closest('input,textarea,select,[contenteditable],[role="dialog"],.modal')) return;
+    e.preventDefault(); endSelect();
+  });
   // NOTE-보기3가지 ①: 폰은 좌우로 밀어 보기 전환(왼쪽으로 밀면 폴더 → 목록 → 보드). 보드 판 위는 판 이동이라 빼고(판이 먼저, data-nb-scroll),
   // 보드에서는 위쪽 줄(검색 칸 줄·보드 칸 줄)에서 밀거나 전환 단추를 누른다. 꾹 눌러 잡은 줄·선택 모드·열린 노트·글 칸에서는 밀기를 보지 않는다.
   // UI-칩줄두줄: 보드 칸 줄(data-nbb)은 이제 옆으로 밀지 않으므로(두 줄 + [더보기]) 밀기 예외에서 뺐다.

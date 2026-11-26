@@ -29,7 +29,7 @@ export function bindZoomPct(button, {levels, now, choose, label = '보기 비율
     const v = pctOf(now());
     button.innerHTML = `<span class="zoom-pct-now">${v}%</span>${CARET}`;
     button.setAttribute('aria-label', `${label} ${v}% · 누르면 비율 선택`);
-    button.title = `${label} ${v}% · 누르면 비율 선택`;
+    button.title = `${label} ${v}%`;
   };
   button.addEventListener('click', e => { e.preventDefault(); openZoomPct(button, {levels, now, choose, label}); });
   paint();

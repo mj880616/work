@@ -32,7 +32,7 @@ for (const width of [390, 1280]) test(`자료실 ${width}: 고르기 중 네모 
   await tapTitle();
   await expect(page.locator('#librarySelectCount')).toHaveText('0개 선택됨');
   await expect(row).not.toHaveClass(/lu-picked/);
-  await page.locator('#librarySelectCancel').click();
+  await page.keyboard.press('Escape'); // S70-64b: [✕] 대신 Esc
   await expect(page.locator('#documentList .lu-picked')).toHaveCount(0);
   expect(r.errors).toEqual([]);
 });

@@ -1,7 +1,7 @@
 // UI-목록밀기(2026-10-30 사용자 요청): 폰(≤760px) 목록 줄을 손가락으로 밀어 처리하는 공용 부품. 텔레그램 소식 줄 밀기와 같은 손동작
 // (셈은 row-swipe-model.mjs, 텔레그램도 같은 기준을 쓴다).
 // UI-줄밀기 Raindrop식(S68-26, 사용자 11/22 21:31): 왼쪽으로 밀면 오른쪽 끝에 단추 여러 칸(최대 3, 왼쪽부터 덜 위험한 것 → 맨 오른쪽 삭제),
-// 오른쪽으로 밀면 그 줄이 골라진 채로 '여러 개 고르기'(S70-64 W3, 칸을 열어 두지 않음 — 아래 '여러 개 고르기' 설명).
+// 오른쪽으로 밀면 그 줄이 골라진 채로 '여러 개 고르기'(S70-64 W3, 칸을 열어 두지 않음 — 아래 '여러 개 고르기' 설명 — 막대 [전체 선택][삭제], ✕·개수 글자 없음, S70-64b).
 // 왼쪽으로 밀면 칸만 보이고 멈춘다. 끝까지 밀어도 바로 실행하지 않는다 — 일은 펼쳐진 칸을 누를 때만(S70-60 UI-스와이프메뉴만, 사용자 11/26).
 // - 손가락(터치)만, 폰 폭만. PC·중간 폭은 지금처럼 ⋯·우클릭·마우스 올림 단추다. 세로 스크롤과 헷갈리지 않게 가로로 충분히 민 뒤에만 시작한다.
 // - 목록 줄 위에서는 줄 밀기가 먼저다: 다른 좌우 밀기(탭 넘김·노트 보기 전환 등)는 claimedSince()로 이 손동작을 건너뛴다.
@@ -14,7 +14,7 @@ import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, cellWidth, end
 import {partStyles} from './part-styles.js';
 import {iconSvg} from './tree-icons.js';
 import {createSelectMode} from './select-mode.js';
-import {sbActHtml, sbCloseHtml, sbAllHtml} from './select-bar-model.mjs';
+import {sbActHtml, sbAllHtml} from './select-bar-model.mjs';
 import {fitSelectBar} from './select-bar.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('row-swipe');
@@ -84,10 +84,10 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
   // UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 사용자 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와
   //   복수 또는 일괄 삭제 / 전테선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제 / 다 이런식으로 왼쪽에서 오른쪽으로 스와이프 하는 건"):
   // - 줄을 오른쪽으로 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 그 줄이 골라진 채 고르기 상태가 된다. 고르기 중 줄 누르기 = 고름/풀림.
-  // - 위 고르기 막대(공용 .kptu-selbar 모양, S8): [✕] 'n개 선택됨' · [전체 선택](켜면 네모 안 체크 + 화면 목록 전체, 다시 누르면 모두 풀림)
-  //   · 그 목록의 다른 일 · [삭제](맨 끝, 그 목록의 일괄 지우기 — 되돌리기가 있으면 바로, 없으면 확인 한 번은 그 목록 길이 정한다).
-  //   지우기가 없는 목록은 [삭제] 자리에 그 목록의 일괄 동작(무시·숨기기 등)이 온다.
-  // - 고른 것이 0개가 되거나 ✕·Esc·뒤로가기(화면을 떠나지 않음)면 고르기가 끝난다.
+  // - 위 고르기 막대(공용 .kptu-selbar 모양): [전체 선택](켜면 네모 안 체크 + 화면 목록 전체, 다시 누르면 모두 풀림) · [삭제](맨 끝, 그 목록의
+  //   일괄 지우기 — 되돌리기가 있으면 바로, 없으면 확인 한 번은 그 목록 길이 정한다). 읽을 거리만 [저장]이 하나 더(S70-64b).
+  //   지우기 길이 없는 목록은 [삭제] 자리에 그 목록의 일괄 동작 하나(무시·보고할 일정·되돌리기)가 온다.
+  // - 고른 것이 0개가 되거나 Esc(PC)·뒤로가기(폰, 화면을 떠나지 않음)면 고르기가 끝난다. [✕]·'n개 선택됨' 글자는 없다(S70-64b).
   // 그 목록에 이미 고르기 장치가 있으면(select.open) 그것을 연다. 없으면 이 부품의 공용 고르기: 위쪽 고르기 막대 + 고른 줄 표시.
   // 고른 줄 표시는 줄 id 속성을 가리키는 모양 한 벌(<style>)로 그린다 — 목록이 줄을 다시 그려도 그대로 보이고, 목록 그리기에 끼어들지 않는다.
   let bar = null, look = null, running = false;
@@ -120,14 +120,14 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
     // 지우는 칸(danger)은 맨 끝. 그림: 이름이 같은 일은 같은 그림(줄 밀기 칸과 같은 표).
     const ordered = [...acts.filter(a => !a.danger), ...acts.filter(a => a.danger)];
     const act = a => sbActHtml({attrs:`data-row-pick-act="${esc(a.key)}"${off ? ' disabled' : ''}`, icon:a.danger ? 'trash' : '', label:a.label, danger:!!a.danger, rank:a.danger ? 0 : 10});
-    b.innerHTML = sbCloseHtml(`data-row-pick-stop${running ? ' disabled' : ''}`, '선택 끝내기')
-      + `<span class="kptu-sb-count row-swipe-pick-count" aria-live="polite">${esc(pickedLabel(pick.size))}</span>`
+    // S70-64b(사용자 11/26 07:46 "그만은 필요없어 폰 뒤로가기 버튼 누르면 되고 Pc는 esc가 그거야"): 막대에는 [✕]·'n개 선택됨' 글자를 두지 않는다.
+    //   끝내기는 뒤로가기·Esc·[전체 선택] 다시 누르기·마지막 줄 풀기. 고른 개수는 화면 읽기 프로그램에만 알린다(kptu-sb-sr, 눈에는 안 보임).
+    b.innerHTML = `<span class="kptu-sb-count kptu-sb-sr row-swipe-pick-count" role="status" aria-live="polite">${esc(pickedLabel(pick.size))}</span>`
       + `<span class="kptu-sb-acts row-swipe-pick-acts">${sbAllHtml({attrs:'data-row-pick-all', on:all, disabled:running || !shown.length})}${ordered.map(act).join('')}</span>`;
     fitSelectBar(b);
   }
   async function onBar(e) {
     const b = e.target.closest?.('button'); if (!b || !picking()) return;
-    if (b.hasAttribute('data-row-pick-stop')) { stopPicking(); return; }
     // [전체 선택]: 화면 목록이 모두 골라져 있으면 모두 풀고(0개 → 고르기 끝), 아니면 모두 고른다.
     if (b.hasAttribute('data-row-pick-all')) { pick.toggle(shownIds(), {anchor:false}); if (!pick.size) stopPicking(); else paintPick(); return; }
     const key = b.dataset.rowPickAct; if (!key || running) return;
@@ -136,7 +136,8 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
     running = true; paintPick();
     try { await select.run(key, ids); } finally { running = false; stopPicking(); }
   }
-  if (pick) document.addEventListener('keydown', e => { if (e.key === 'Escape' && picking() && root.isConnected) { e.preventDefault(); stopPicking(); } });
+  // S70-64b: Esc = 고르기만 끝. 먼저 받아(capture) 그 키를 여기서 멈춘다 — 목록이 창 안에 있어도(보고 상세 '잊지 말기 후보' 등) 창은 닫히지 않는다.
+  if (pick) document.addEventListener('keydown', e => { if (e.key === 'Escape' && picking() && root.isConnected) { e.preventDefault(); e.stopImmediatePropagation(); stopPicking(); } }, true);
 
   // S68-50(사용자 11/23 12:46 "좌우 스와이프 제대로 작동 안함 점검"):
   // - 칸이 열린 채 다른 곳(다른 줄·⋯ 등 목록 안)을 누르면 닫기만 한다 — 그 누름으로 다른 줄이 열리거나 단추가 눌리지 않게(iOS 메일과 같음).

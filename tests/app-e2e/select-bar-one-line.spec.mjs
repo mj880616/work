@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { setup as libSetup, openLibrary } from './helpers/library-multi-delete-scenario.mjs';
 import { libraryTopMenu } from './helpers/library-tree.mjs';
+import { visibleText } from './helpers/visible-text.mjs';
 // UI-고르기막대(S69-85, 사용자 11/25 00:37~00:42 "두줄로 삐져나오지 않게 … 좀더 세련되게"): 파일·자료실 고르기 막대는 공용 모양 하나.
 // 폰 390·폴드 펼침 720·PC 1280에서 막대는 늘 한 줄(높이 = 목록 줄 하나 이하), 왼쪽 [✕] + 'N개', 오른쪽 테두리 없는 가벼운 단추,
 // 휴지통·삭제는 맨 끝·바탕 없이 글자색만 경고색. 폭이 모자라면 아이콘만 → 덜 쓰는 것부터 ⋯ 하나로 접고, ⋯ 메뉴 항목은 그 단추와 같은 일을 한다.
@@ -35,12 +36,14 @@ async function measure(bar) {
     };
   });
 }
-function checkOneLine(m, label) {
+// S70-64b: 자료실·노트·줄 고르기 막대는 [✕]·개수 글자가 없고 맨 왼쪽이 [전체 선택]. 파일 막대는 다음 차례(S70-64c)까지 ✕ 그대로.
+function checkOneLine(m, label, {close = true} = {}) {
   expect(m.height, `${label}: 막대 높이 = 목록 줄 하나 이하`).toBeLessThanOrEqual(40);
   expect(m.midSpread, `${label}: 칸이 모두 한 줄`).toBeLessThanOrEqual(2);
   expect(m.outside, `${label}: 막대 밖으로 나간 칸 없음`).toBe(0);
   expect(m.wraps, `${label}: 줄바꿈 없음`).toBe('nowrap');
-  expect(m.firstIsClose, `${label}: 맨 왼쪽은 ✕`).toBe(true);
+  if (close) expect(m.firstIsClose, `${label}: 맨 왼쪽은 ✕`).toBe(true);
+  else { expect(m.firstIsClose, `${label}: ✕ 없음`).toBe(false); expect(m.labels[0], `${label}: 맨 왼쪽은 [전체 선택]`).toBe('전체 선택'); }
   expect(m.borders.every(w => w === '0px'), `${label}: 단추에 테두리 상자 없음`).toBe(true);
 }
 
@@ -70,7 +73,7 @@ for (const width of WIDTHS) test(`UI-고르기막대 파일 ${width}px: 3개 고
   expect(errors).toEqual([]);
 });
 
-for (const width of WIDTHS) test(`UI-고르기막대 자료실 ${width}px: '✕ N개 선택됨 · 모두 선택 폴더로 옮기기 ⋯ 삭제' 한 줄, 사업영역·담당조직·분류 바꾸기는 ⋯ 안`, async ({ page }) => {
+for (const width of WIDTHS) test(`UI-고르기막대 자료실 ${width}px: '전체 선택 폴더로 옮기기 ⋯ 삭제' 한 줄(✕·개수 글자 없음), 사업영역·담당조직·분류 바꾸기는 ⋯ 안`, async ({ page }) => {
   test.setTimeout(60000);
   mkdirSync(DIR, { recursive: true });
   const state = await libSetup(page, width);
@@ -81,7 +84,8 @@ for (const width of WIDTHS) test(`UI-고르기막대 자료실 ${width}px: '✕ 
   await page.locator('[data-lu-pick="n1"]').click();
   await expect(page.locator('#librarySelectCount')).toHaveText('1개 선택됨');
   const m = await measure(bar);
-  checkOneLine(m, `자료실 ${width}`);
+  checkOneLine(m, `자료실 ${width}`, { close: false });
+  expect(await visibleText(bar), '보이는 글에 "선택됨" 없음').not.toContain('선택됨');
   expect(m.more, '⋯가 보인다(한꺼번에 바꾸기 셋)').toBe(true);
   expect(m.lastIsDanger, '삭제는 맨 끝').toBe(true);
   expect(m.dangerColor).not.toBe(m.ink);
@@ -96,8 +100,8 @@ for (const width of WIDTHS) test(`UI-고르기막대 자료실 ${width}px: '✕ 
   await expect(page.locator('#luBulkMenu')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.locator('#luBulkMenu')).toBeHidden();
-  // ✕ = 선택 끝내기.
-  await page.locator('#librarySelectCancel').click();
+  // S70-64b: [✕] 없음 — PC Esc = 선택 끝내기.
+  await page.keyboard.press('Escape');
   await expect(bar).toBeHidden();
   expect(state.deletes).toEqual([]);
   expect(state.errors).toEqual([]);
