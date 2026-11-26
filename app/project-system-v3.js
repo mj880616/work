@@ -431,7 +431,7 @@ const LINK_NOTE_KINDS=['basket','note'];
 function basketRecord(b,{open=false}={}){const text=recordShownText(b),note=isNoteRecord(b);return `<div class="ps3-rec ps3-rec-basket${note?' ps3-rec-note':''}" data-basket-link="${esc(b.id)}">${note?`<a class="ps3-rec-line" href="./?view=basket" data-ps3-basket-note="${esc(b.note_id)}">`:'<div class="ps3-rec-line">'}<time>${esc(day(keyOf(b.occurred_at)))}</time><span class="ps3-rec-text kptu-clamp">${note?`${noteMark('ps3-rec-mark')} `:''}${esc(text)}</span>${note?'</a>':'</div>'}<button type="button" class="ps3-rec-more" data-ps3-record-menu="basket:${esc(b.id)}" aria-label="기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>${recordFilesHtml(b,{open})}</div>`}
 // ORG-기록첨부(S50-22): 연결 줄 아래 그 업데이트의 그림(작게, 누르면 크게)·파일(이름 줄, 누르면 열기) — 담당조직 기록과 같은 부품(record-files.js).
 // UI-기록줄균일(S70-85): 기록 줄 = 본문 두 줄 높이 고정 + 펼칠 것이 있는 줄만 ⋯ 아래 꺾쇠, 본문 글자를 누르면 그 자리에서 펴고 접기(text-clamp.js 공용,
-// 조직 관리 기록과 같은 부품). 펼칠 것이 없는 줄의 글자를 누르면 지금처럼 그 기록을 연다. 그리기 뒤마다 ps3PaintFiles가 잰다.
+// 조직 관리 기록과 같은 부품). 펼칠 것이 없는 줄은 노트 줄만 노트를 열고 나머지는 아무 데도 가지 않는다(S71-57). 그리기 뒤마다 ps3PaintFiles가 잰다.
 const PS3_FOLD={row:'[data-ps3-records]>[data-basket-link]',text:'.ps3-rec-text',slot:row=>row};
 function ps3PaintFiles(){const host=$('#ps3Body');if(!host||!detail)return;paintRecordFiles(host,detail.basketLinks||[],rt);bindRecordFiles(host,()=>detail?.basketLinks||[],{rt,onError:text=>toast(text)});bindRecordFold(host,PS3_FOLD,{click:false});syncRecordFold(host,PS3_FOLD)}
 // MTG-프로젝트합치기 결정 ⑥(10/28 19:38 '지난 진행 기록 화면 없음'): 옛 진행 기록(app_project_progress_updates)·기록 없는 진행 항목

@@ -92,10 +92,12 @@ for(const width of [390,1280])for(const s of SCREENS){
   // 5) ⋯ 메뉴는 그대로 열린다
   const [trigger,menu]=s.menu['l-long'];await long.locator(trigger).click();await expect(page.locator(menu)).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.locator(menu)).toBeHidden();
-  // 6) 펼칠 것이 없는 줄의 글을 누르면 지금처럼 그 기록을 연다(폰 = 겹쳐 보기, PC = 잊지 말기)
+  // 6) 펼칠 것이 없는 줄(잘리지 않은 한 줄 글)의 글을 눌러도 펴지지 않고 어디로도 가지 않는다
+  //    (RECORD-잊지말기연결표시삭제 S71-57: 기록이 된 줄은 잊지 말기로 가는 길이 없다 — 노트 줄만 노트를 연다).
+  const before=await page.evaluate(()=>window.KPTURouter.current),oneH=await innerH(row('l-one'));
   await row('l-one').locator(s.name==='사업 관리 기록'?'.ps3-rec-text':'[data-link-summary-text]').click();
-  if(width<761)await expect(page.locator('#kptuRecordSheet')).toBeVisible();
-  else await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
+  await expect(page.locator('#kptuRecordSheet')).toBeHidden();
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe(before);expect(await innerH(row('l-one'))).toBe(oneH);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(f.errors).toEqual([]);
  });
