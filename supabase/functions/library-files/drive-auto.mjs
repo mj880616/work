@@ -25,13 +25,15 @@
 //   지우면 지금처럼 드라이브 파일도 휴지통으로 간다. 그래야 지운 자료가 다음 확인 때 다시 들어오지 않는다.
 // 순수 규칙 + 주입받은 입출력(admin·db·fetch)만. 시험: tests/security/library-files-drive-auto.test.mjs.
 import { folderNames, knownFolderNames } from '../_shared/brand-folders.mjs';
-import { ATTACH_FOLDER_NAMES, WAIT_FOLDER_NAME } from './top-files.mjs';
 import { fileKey, hashable, lookupKeys } from './same-content.mjs';
 import { FOLDER_MIME, appMarked, isSecretFolder, linkKind, skipReason } from './drive-skip.mjs';
 
 export const AUTO_NOTE = '자료실 드라이브 폴더에서 자동 등록 · 파일명 기반 자동분류';
 // 일정 첨부 폴더 이름(_shared/event-attach-file.ts EVENT_ATTACH_FOLDER와 같음 — 시험이 견준다).
 export const EVENT_FOLDER_NAME = '일정 첨부';
+// 옛 [맨 위 파일 정리](S69-40, S70-29에서 지움)가 자료실 아래 만든 폴더 이름. 폴더·파일은 드라이브에 남아 있을 수 있어 계속 들어가지 않는다.
+export const WAIT_FOLDER_NAME = '정리 대기';
+export const ATTACH_FOLDER_NAMES = Object.freeze({ task: '할 일 첨부', note: '노트 첨부' });
 // 자료실 나무 안에서 들어가지 않는 앱 폴더 이름.
 export const SKIP_FOLDER_NAMES = Object.freeze([
   WAIT_FOLDER_NAME, ATTACH_FOLDER_NAMES.task, ATTACH_FOLDER_NAMES.note, EVENT_FOLDER_NAME,
@@ -209,7 +211,7 @@ export function createDriveAuto(deps) {
       pages((a, b) => admin.from('app_documents').select('id,file_id,file_size,mime_type,previous_files').eq('workspace_id', workspaceId).order('id').range(a, b), 'docs'),
       pages((a, b) => db.from('app_library_folders').select('id,drive_folder_id,deleted_at').eq('workspace_id', workspaceId).order('id').range(a, b), 'folders'),
       pages((a, b) => db.from('app_task_attachments').select('drive_file_id').eq('workspace_id', workspaceId).order('drive_file_id').range(a, b), 'tasks'),
-      // 노트 첨부는 서버 키로 휴지통 노트까지 본다(top-files.mjs와 같은 까닭). 첨부 id만 쓴다.
+      // 노트 첨부는 서버 키로 휴지통 노트까지 본다(휴지통 노트가 되살아날 수 있으므로 그 첨부는 계속 지킨다). 첨부 id만 쓴다.
       pages((a, b) => admin.from('app_notes').select('id,attachments').eq('workspace_id', workspaceId).not('attachments', 'is', null).order('id').range(a, b), 'notes'),
     ]);
     const registered = registeredIds(docs);

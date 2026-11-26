@@ -1,5 +1,5 @@
 // UI-목록공용키(S70-18, docs/qa/folder-tree-audit-20261125.md N2·N3·N4): 목록 칸(자료실·노트·[파일]) 키 공용 부품.
-// 기준표 docs/design/standard-interactions.md S5·K1·K2: Ctrl(⌘)+A = 그 목록 전체 고르기, Delete = 그 화면의 [삭제](확인 창·되돌리기 알림은 화면 것 그대로),
+// 기준표 docs/design/standard-interactions.md S5·K1·K2: Ctrl(⌘)+A = 그 목록 전체 고르기, Delete = 그 화면의 [삭제](언제 묻나는 아래 confirmDelete 한 규칙),
 // F2 = 이름 바꾸기(고른 줄, 없으면 커서 줄), Esc = 고르기 풀기. 글 쓰는 칸(input·textarea·contenteditable)·열린 창에서는 건드리지 않는다(글자 동작 그대로).
 // 상태·그리기·서버 일은 부르는 화면이 한다. 이 부품은 '어느 키가 어떤 일인지'만 정하고, 화면 함수가 일을 했다고(true) 돌려주면 기본 동작을 막는다.
 
@@ -75,4 +75,14 @@ export function renameTarget(picked = [], cursor = null) {
   if (list.length === 1) return list[0];
   if (list.length > 1) return null;
   return cursor ?? null;
+}
+
+// K1 지우기 한 규칙(I-6, 2026-11-25 명진 결정 6 "추천대로"): 지운 뒤 [되돌리기]가 있으면 확인 없이 바로 지우고, 없으면 확인 창을 받는다.
+// Delete 키·선택 막대 [삭제]·⋯ [삭제]가 모두 이 함수 하나로 묻는다(화면마다 따로 '언제 묻나'를 정하지 않는다). 확인 창 글·모양은 부르는 화면 것(ask).
+// undo: 이 지우기 뒤에 [되돌리기] 알림이 뜨나(true/false). ask: () → Promise<boolean>(확인 창). 반환: 지워도 되면 true.
+export const deleteNeedsConfirm = ({undo = false} = {}) => !undo;
+export async function confirmDelete({undo = false, ask = null} = {}) {
+  if (!deleteNeedsConfirm({undo})) return true;
+  if (typeof ask !== 'function') return false; // 되돌리기도 확인 창도 없으면 지우지 않는다
+  return !!(await ask());
 }

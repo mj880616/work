@@ -3,9 +3,11 @@
 // 여기서는 그 앞뒤로 '파일이 아님'(폴더·바로가기 등)·0바이트·찌꺼기 이름·앱 표식만 더한다.
 // 순수 규칙(DOM·네트워크 없음). 시험: tests/security/library-files-drive-auto.test.mjs.
 import { hiddenReason, isSecretFolder } from '../_shared/drive-hidden-files.mjs';
-import { isJunkName } from './top-files.mjs';
 
 export { isSecretFolder };
+// 운영체제가 남기는 찌꺼기 파일(Thumbs.db·desktop.ini·.DS_Store·~$ 임시).
+const JUNK_RE = /^(thumbs\.db|ehthumbs\.db|desktop\.ini|\.ds_store)$|^~\$/i;
+export const isJunkName = name => JUNK_RE.test(String(name || '').trim());
 export const FOLDER_MIME = 'application/vnd.google-apps.folder';
 // 링크형으로 넣는 구글 형식(내려받기 대신 드라이브에서 열기). 나머지 구글 형식(바로가기·Apps Script·양식·사이트 등)은 넣지 않는다.
 export const LINK_MIMES = Object.freeze({

@@ -432,9 +432,6 @@
 #appView #libraryView .lu-node-body > .lu-node-empty{padding:2px 0 2px calc((var(--lu-depth,0) + 1) * 16px + 8px)}
 #appView #libraryView .lu-node-empty > .wait-empty{margin:0}
 #appView #libraryView .lu-node-out .lu-node-name{color:var(--kptu-muted)}
-/* SEARCH-선택옮기기 ⑦: 외줄 폴더는 접힌 줄에서만 '공공팀 › 회의 › 집행위'(뒤 경로는 엷게), 펼치면 맨 위 이름만 — 아래 단은 자기 줄로 보인다. */
-#appView #libraryView .lu-chain-rest{color:var(--kptu-muted)}
-#appView #libraryView .lu-node[open] > .lu-node-head .lu-chain-rest{display:none}
 
 /* LIB-후속1 ① PC 선택 오류: 줄(role=button)이 누르는 동안 공용 눌림 규칙(ui-standard.css UI-눌림느낌)으로 1.5~3% 작아지면서
    넓은 줄의 왼쪽 끝이 7~13px 오른쪽으로 밀려, 네모 칸 왼쪽·가운데를 누르면 손을 뗄 때 포인터가 줄 밖(목록)에 있어 클릭이 줄에 닿지 않았다.
@@ -645,32 +642,6 @@
 .lu-row-brief{flex:1 0 100%;order:9;min-width:0;margin-top:-2px;padding-left:2px;line-height:1.35;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #appView #libraryView #documentList .lu-row .lu-row-brief{grid-column:1/-1}
 /* S69-25 LIB-드라이브에서가져오기: 받는 폴더 나누기와 같은 창 모양 + 드라이브 폴더 경로 묶음·파일 한 줄(촘촘하게) */
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-card{max-width:600px;width:calc(100vw - 24px);display:flex;flex-direction:column;max-height:min(86vh,760px)}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-sub{margin:2px 0 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-from{display:flex;align-items:center;gap:8px;padding:4px 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-from select{flex:1 1 auto;min-width:0;max-width:340px}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-list{overflow:auto;min-height:60px;flex:1 1 auto;border-top:1px solid var(--kptu-border)}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-group>summary{display:flex;align-items:center;gap:6px;padding:5px 2px;border-bottom:1px solid var(--kptu-border);cursor:pointer;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-group>summary input,:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-row input{flex:none;width:16px;height:16px;margin:0}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-ink)}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-count{flex:none;font-variant-numeric:tabular-nums}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-row{display:flex;align-items:center;gap:6px;padding:4px 2px 4px 18px;border-bottom:1px solid var(--kptu-border);font-size:var(--ds-text-body,14px);cursor:pointer}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-meta{flex:none;color:var(--kptu-muted);font-size:11px;font-variant-numeric:tabular-nums}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-note{flex:none;padding:0 6px;border:1px solid var(--kptu-border);border-radius:999px;color:var(--kptu-muted);font-size:11px}
-:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-empty,:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-hint{margin:8px 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
-/* S69-40: [맨 위 파일 정리] 창은 가져오기 창 모양을 같이 쓴다. 정리 대기 줄 = 이름 · 크기 · 보낼 곳 고름 · [보내기] */
-#libraryTopFilesModal .lu-tf-row{cursor:default}
-#libraryTopFilesModal .lu-tf-row select{flex:0 1 150px;min-width:0;max-width:150px}
-#libraryTopFilesModal .lu-tf-row .row-act{flex:none}
-/* S69-52: [드라이브와 맞는지 보기] 창도 같은 모양. 줄 = 이름(아래 작은 한 줄 설명) · 맞추기 단추(이름·자리는 두 단추, 바뀐 쪽 단추를 진하게) */
-#libraryDriveCheckModal .lu-dc-row{cursor:default;padding-left:10px}
-#libraryDriveCheckModal .modal-action-footer [hidden]{display:none}
-#libraryDriveCheckModal .lu-dc-row .lu-di-name{white-space:normal}
-#libraryDriveCheckModal .lu-dc-sub{display:block;color:var(--kptu-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#libraryDriveCheckModal .lu-dc-acts{flex:none;display:flex;gap:4px}
-#libraryDriveCheckModal .lu-dc-acts .row-act.is-prefer{font-weight:600;border-color:var(--kptu-primary-ink)}
-@media (max-width:600px){:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-row{flex-wrap:wrap;padding-left:10px}:is(#libraryTopFilesModal,#libraryDriveCheckModal) .lu-di-meta{flex-basis:100%;padding-left:22px}}
 
 /* S69-28 LIB-한칸탐색기: 탐색기 칸(목록)의 하위 폴더 줄은 펼치지 않고 들어가는 줄 — 펼침 표시 없이 닫힌 폴더 그림만, 줄 모양은 폴더 줄 그대로.
    폰 '그 폴더만' 위치 줄 끝의 지금 폴더 이름(상자 머리 대신 한 번). */

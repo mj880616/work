@@ -58,7 +58,7 @@ test('나무 모델: 받는 폴더 줄에만 표시, 폴더 보기·프로젝트
   assert.deepEqual(marked(tree.buildTree({groupBy:'project',docs,folders,items,sortKey,tree:[],receiveId:ID})),['f:'+ID]);
   const html=tree.treeHtml(tree.buildTree({groupBy:'folder',docs,folders,items,sortKey,receiveId:ID}),{isOpen:()=>true,showAll:()=>true,fileHtml:()=>'',esc:s=>String(s),emoji:true});
   assert.equal((html.match(/class="lu-receive-mark">받는 폴더</g)||[]).length,1);
-  assert.match(html,/잡동사니(<span class="lu-chain-rest">[^<]*<\/span>)?<\/span><span class="lu-node-count"[^>]*>\d+<\/span><span class="lu-receive-mark">받는 폴더<\/span>/);
+  assert.match(html,/잡동사니<\/span><span class="lu-node-count"[^>]*>폴더 1<\/span><span class="lu-receive-mark">받는 폴더<\/span>/);
 });
 
 test('공용 폴더 줄: tag가 있으면 개수 뒤 작은 글자, 없으면 그대로(다른 화면 영향 없음)',()=>{
