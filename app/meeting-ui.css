@@ -458,9 +458,9 @@
 #appView #reportTop>.report-head-actions>#newMeetingBtn:is(:hover,[aria-expanded="true"]){background:var(--kptu-surface-subtle)}
 #appView #reportTop>.report-head-actions>#newMeetingBtn::after{content:"";position:absolute;inset:auto;left:0;right:0;min-width:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px);min-height:0}
 #appView #reportTop>.report-head-actions>#newMeetingBtn::before{content:"";display:block;width:18px;height:18px;background:currentColor;-webkit-mask:var(--ds-fab-plus) center / 18px 18px no-repeat;mask:var(--ds-fab-plus) center / 18px 18px no-repeat}
-.report-add-menu .report-add-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
-.report-add-menu button.row-act.report-add-quiet{color:var(--kptu-muted)}
-.report-add-menu button.row-act[data-report-rec][aria-pressed="true"]{color:var(--kptu-danger)}
+.biz-add-menu .biz-add-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.biz-add-menu button.row-act.biz-add-quiet{color:var(--kptu-muted)}
+.biz-add-menu button.row-act[data-report-rec][aria-pressed="true"]{color:var(--kptu-danger)}
 /* WEEKLY-메뉴짝짓기 P5 → BIZ-위쪽정돈: 사업 보고 위 늘 펼친 칸 '이번 주 주간보고'(전 [사업요약표 미리보기] 팝업). 주 고르기는 없고 위 주 고르기를 따르는 종이 모양 표. */
 .biz-week{margin:0 0 var(--kptu-space-2);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
 .biz-week-title{margin:0;padding:6px var(--kptu-space-3) 2px;font-size:var(--ds-text-section,13px);font-weight:var(--ds-weight-medium,500);color:var(--ds-section-ink,var(--kptu-ink))}

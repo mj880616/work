@@ -33,7 +33,7 @@ const weekLabel=page=>page.locator('#bizWeekBox .biz-week-nav .report-week-label
 const win=page=>page.locator('#areaWindow');
 async function openAreas(page){
   await page.locator('#newMeetingBtn:visible').click(); // BIZ-머리한줄: 사업영역 관리는 [+] 메뉴 구분선 아래
-  await page.locator('#reportAddMenu [data-report-areas]:visible').click();
+  await page.locator('#bizAddMenu [data-report-areas]:visible').click();
   await expect(win(page)).toBeVisible();
   await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="top-a"]')).toBeVisible();
 }

@@ -182,7 +182,7 @@ test('390: 추가 + › 새 사업 보고를 누르면 종류를 고른 뒤 사�
   await expect(add).toHaveAttribute('aria-label', '사업 관리 추가');
   // BIZ-머리한줄(S71-23): [+] › 새 사업 보고 → MTG-더하기늘고르기: 늘 종류 고르기 창부터.
   await add.click();
-  await page.locator('#reportAddMenu [data-report-new]').click();
+  await page.locator('#bizAddMenu [data-report-new]').click();
   await page.locator('#reportKindSheet [data-sheet-value="meeting"]').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
 });
@@ -195,13 +195,13 @@ for (const width of [884, 1280]) test(`${width}: [+] 메뉴 녹음 중 표시 ·
   await page.waitForFunction(() => !!window.KPTUMeetingRecorder); // 녹음기는 첫 화면 뒤에 붙는다(loader-v2.js)
   await page.evaluate(() => { window.KPTUMeetingRecorder.recordItem = () => ({shown: true, disabled: true, label: '녹음 중', pressed: true}); });
   await page.locator('#newMeetingBtn').click();
-  const rec = page.locator('#reportAddMenu [data-report-rec]');
+  const rec = page.locator('#bizAddMenu [data-report-rec]');
   await expect(rec).toHaveText('녹음 중');
   await expect(rec).toHaveAttribute('aria-pressed', 'true');
   await expect(rec).toBeDisabled();
-  expect(await rec.evaluate(b => getComputedStyle(b).color)).not.toBe(await page.locator('#reportAddMenu [data-report-new]').evaluate(b => getComputedStyle(b).color));
+  expect(await rec.evaluate(b => getComputedStyle(b).color)).not.toBe(await page.locator('#bizAddMenu [data-report-new]').evaluate(b => getComputedStyle(b).color));
   await page.keyboard.press('Escape');
-  await expect(page.locator('#reportAddMenu')).toBeHidden();
+  await expect(page.locator('#bizAddMenu')).toBeHidden();
   const lineMid = (await page.locator('#reportKindSelect').boundingBox());
   await page.locator('#reportPeriodPick select').selectOption('range');
   const panel = page.locator('#reportWeekFilter .report-period-panel');

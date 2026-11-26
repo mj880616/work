@@ -31,7 +31,7 @@ for(const width of [412,884,1280])test(`${width}: 처음은 [종류 전체], [�
   const s=state();await open(page,s,width);
   await expect(page.locator('#reportKindSelect')).toHaveValue('kind:all');
   await pickReportKind(page,'회의');
-  await page.locator('#newMeetingBtn').click();await page.locator('#reportAddMenu [data-report-new]').click();
+  await page.locator('#newMeetingBtn').click();await page.locator('#bizAddMenu [data-report-new]').click();
   const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();
   await expect(sheet.locator('h2')).toHaveText('어느 칸에 남길까요?');
   await expect(sheet.locator('[data-sheet-value="meeting"]')).toHaveAttribute('aria-pressed','true');

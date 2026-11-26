@@ -168,7 +168,7 @@ const ITEMS = el => [...el.querySelectorAll('button, hr')].filter(e => e.getClie
 test('1280: [+] 메뉴 = 새 사업 보고 · 녹음 / 구분선 / 사업영역 관리(옅은 글자) — 쓰는 법 없음, 녹음·사업영역 관리·새 사업 보고가 여기서 열림', async ({page}) => {
   await open(page, 1280);
   await page.waitForFunction(() => !!window.KPTUMeetingRecorder); // 녹음기는 첫 화면 뒤에 붙는다(loader-v2.js)
-  const add = page.locator('#newMeetingBtn'), menu = page.locator('#reportAddMenu');
+  const add = page.locator('#newMeetingBtn'), menu = page.locator('#bizAddMenu');
   await add.click();
   await expect(menu).toBeVisible();
   await expect(add).toHaveAttribute('aria-expanded', 'true');
@@ -197,7 +197,7 @@ test('1280: [+] 메뉴 = 새 사업 보고 · 녹음 / 구분선 / 사업영역 
 
 test('390: 폰 [+] 메뉴 — 녹음기가 없으면 두 줄(새 사업 보고 / 사업영역 관리), 폰 앱 녹음기가 있으면 녹음 줄이 생기고 그 녹음기를 시작', async ({page}) => {
   await open(page, 390);
-  const add = page.locator('#newMeetingBtn'), menu = page.locator('#reportAddMenu');
+  const add = page.locator('#newMeetingBtn'), menu = page.locator('#bizAddMenu');
   // 앱 머리 줄 안의 [+].
   await expect(page.locator('#appView > .mobile-shell-header #newMeetingBtn')).toBeVisible();
   await add.click();

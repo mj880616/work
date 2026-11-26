@@ -809,8 +809,8 @@ function bindReportAdd(){
   let menu=null,rec=null;
   add.addEventListener('click',async()=>{
     if(!menu){const {createAnchoredMenu}=await import('./anchored-menu.js');
-      menu=createAnchoredMenu({id:'reportAddMenu',className:'topline-add-menu report-add-menu',label:word('사업 관리 추가'),historyKey:'kptuReportAdd',key:()=>'report',
-        render:()=>{rec=recorderItem();return word('<button type="button" class="row-act" data-report-new>새 사업 보고</button>')+(rec?`<button type="button" class="row-act" data-report-rec${rec.disabled?' disabled':''} aria-pressed="${rec.pressed?'true':'false'}">${esc(rec.label||'녹음')}</button>`:'')+word('<hr class="report-add-sep" role="separator"><button type="button" class="row-act report-add-quiet" data-report-areas>사업영역 관리</button>')},
+      menu=createAnchoredMenu({id:'bizAddMenu',className:'topline-add-menu biz-add-menu',label:word('사업 관리 추가'),historyKey:'kptuBizAdd',key:()=>'report',
+        render:()=>{rec=recorderItem();return word('<button type="button" class="row-act" data-report-new>새 사업 보고</button>')+(rec?`<button type="button" class="row-act" data-report-rec${rec.disabled?' disabled':''} aria-pressed="${rec.pressed?'true':'false'}">${esc(rec.label||'녹음')}</button>`:'')+word('<hr class="biz-add-sep" role="separator"><button type="button" class="row-act biz-add-quiet" data-report-areas>사업영역 관리</button>')},
         onAction:(b,{trigger})=>{
           if(b.matches('[data-report-new]'))return void newReport(trigger);
           if(b.matches('[data-report-rec]'))return void rec?.start?.();

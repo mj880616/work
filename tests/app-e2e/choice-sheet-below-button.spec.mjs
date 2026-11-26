@@ -62,7 +62,7 @@ for(const width of WIDTHS)test(`${width}: 보고 [+] 종류 고르기 창이 누
  await signIn(page,testOrigin+'/app/?view=reports');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
  await expect(page.locator('#meetingsView')).toBeVisible();await showAllReportWeeks(page);
  await pickReportKind(page,'전체');
- const add=page.locator('#newMeetingBtn');await add.click();await page.locator('#reportAddMenu [data-report-new]').click(); // BIZ-머리한줄: [+] › 새 사업 보고 — 창은 [+] 아래
+ const add=page.locator('#newMeetingBtn');await add.click();await page.locator('#bizAddMenu [data-report-new]').click(); // BIZ-머리한줄: [+] › 새 사업 보고 — 창은 [+] 아래
  await expectChoiceAtButton(page,page.locator('#reportKindSheet'),add);
 });
 

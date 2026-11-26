@@ -133,9 +133,9 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['pc-1440', 1440,
     await page.evaluate(() => window.KPTURouter.go('meetings'));
     // BIZ-머리한줄(S71-23, 명진 11/26 "쓰는 법 여기 있을 필요 없고"): 사업 관리는 첫 줄 ⋯가 없고 [+] 메뉴에도 '쓰는 법'이 없다(계정 › 쓰는 법에서 사업 관리 글은 그대로).
     await page.locator('#newMeetingBtn').click();
-    await expect(page.locator('#reportAddMenu')).toBeVisible();
-    await expect(page.locator('#reportAddMenu')).not.toContainText('쓰는 법');
-    await expect(page.locator('#reportAddMenu [data-help-open]')).toHaveCount(0);
+    await expect(page.locator('#bizAddMenu')).toBeVisible();
+    await expect(page.locator('#bizAddMenu')).not.toContainText('쓰는 법');
+    await expect(page.locator('#bizAddMenu [data-help-open]')).toHaveCount(0);
     await page.keyboard.press('Escape');
   });
 }

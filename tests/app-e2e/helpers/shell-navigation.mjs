@@ -43,7 +43,7 @@ export async function clickView(page,view){
     // ⋯ 안 [사업영역 관리]의 처리기는 사업 보고 화면 모듈(team.js)이 붙이므로, 그 화면이 다 뜬 뒤에 누른다.
     await page.waitForFunction(()=>!document.querySelector('#meetingsView')?.classList.contains('hidden')&&window.KPTUViewLoader?.isLoaded?.('meetings')!==false);
     await page.locator('#newMeetingBtn:visible').click(); // BIZ-머리한줄: 사업영역 관리는 [+] 메뉴 구분선 아래
-    await page.locator('#reportAddMenu [data-report-areas]:visible').click();
+    await page.locator('#bizAddMenu [data-report-areas]:visible').click();
     return;
   }
   // Phone (8-9e-2): the [일정] tab always opens 달력 (UI-일정탭달력기본); [달력 | 할 일] on top switches.

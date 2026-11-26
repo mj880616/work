@@ -74,13 +74,13 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,width);
   await pickReportKind(page,'전체');
-  await page.locator('#newMeetingBtn').click();await page.locator('#reportAddMenu [data-report-new]').click();
+  await page.locator('#newMeetingBtn').click();await page.locator('#bizAddMenu [data-report-new]').click();
   const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();
   await expect(sheet.locator('h2')).toHaveText('어느 칸에 남길까요?');
   await expect(sheet.locator('[data-sheet-value]')).toHaveText(CHIPS.slice(1));
   // Esc는 고르기만 닫고 입력 창은 열지 않는다.
   await page.keyboard.press('Escape');await expect(sheet).toBeHidden();await expect(page.locator('#meetingModal')).toBeHidden();
-  await page.locator('#newMeetingBtn').click();await page.locator('#reportAddMenu [data-report-new]').click();await expect(sheet).toBeVisible();
+  await page.locator('#newMeetingBtn').click();await page.locator('#bizAddMenu [data-report-new]').click();await expect(sheet).toBeVisible();
   await sheet.locator('[data-sheet-value="press"]').click();
   await expect(sheet).toBeHidden();await expect(page.locator('#meetingModal')).toBeVisible();
   const pick=page.locator('#meetingKindPick');
@@ -110,7 +110,7 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 
   expect(s.meetingWrites.at(-1)).toMatchObject({series_name:'합성 의원실 면담',transcript_text:'합성 면담 결과'});
   await expect(page.locator('#meetingModal')).toBeHidden();
   // MTG-더하기늘고르기(11/14 명진): 칩을 고른 채여도 [+]는 늘 고르기 창, 고른 칩의 줄이 표시된다.
-  await pickReportKind(page,'교육');await page.locator('#newMeetingBtn').click();await page.locator('#reportAddMenu [data-report-new]').click();
+  await pickReportKind(page,'교육');await page.locator('#newMeetingBtn').click();await page.locator('#bizAddMenu [data-report-new]').click();
   await expect(sheet).toBeVisible();await expect(sheet.locator('[data-sheet-value="education"]')).toHaveAttribute('aria-pressed','true');
   await sheet.locator('[data-sheet-value="education"]').click();
   await expect(sheet).toBeHidden();await expect(page.locator('#meetingModal')).toBeVisible();

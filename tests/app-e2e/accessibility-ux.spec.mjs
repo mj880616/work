@@ -199,7 +199,7 @@ test('task detail stays inside a 390px mobile viewport',async({page})=>{
 for(const c of [
   {name:'event',view:'calendar',trigger:'#newEventBtn',modal:'#eventModal',initial:'#eventTitle'},
   {name:'document',view:'library',trigger:'#newDocumentBtn',modal:'#documentModal',initial:'#docTitle'},
-  {name:'meeting',view:'meetings',trigger:'#newMeetingBtn',modal:'#meetingModal',initial:'#meetingTitle',pick:['#reportAddMenu [data-report-new]','#reportKindSheet [data-sheet-value="meeting"]']} // MTG-더하기늘고르기: [+]는 늘 종류 고르기 창부터(BIZ-머리한줄: [+] 메뉴 › 새 사업 보고)
+  {name:'meeting',view:'meetings',trigger:'#newMeetingBtn',modal:'#meetingModal',initial:'#meetingTitle',pick:['#bizAddMenu [data-report-new]','#reportKindSheet [data-sheet-value="meeting"]']} // MTG-더하기늘고르기: [+]는 늘 종류 고르기 창부터(BIZ-머리한줄: [+] 메뉴 › 새 사업 보고)
 ]){
   test(`${c.name} dialog focuses its first field and restores its trigger`,async({page})=>{
     await boot(page,{width:1024,height:768});

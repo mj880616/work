@@ -9,7 +9,7 @@ async function openAreas(page,width){
   await page.setViewportSize({width,height:900});await mockApp(page,baseState());
   await signIn(page,testOrigin+'/app/?view=reports');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await page.locator('#newMeetingBtn:visible').click(); // BIZ-머리한줄: 사업영역 관리는 [+] 메뉴 구분선 아래
-  await page.locator('#reportAddMenu [data-report-areas]:visible').click();
+  await page.locator('#bizAddMenu [data-report-areas]:visible').click();
   await expect(page.locator('#areaWindow')).toBeVisible();
 }
 for(const width of [390,884,1280])test(`${width}: 사업영역 관리 추가 버튼이 잘리지 않는다`,async({page})=>{
