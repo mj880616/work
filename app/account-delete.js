@@ -11,7 +11,7 @@ const ENDPOINT = '/functions/v1/account-delete';
 export const CONFIRM_WORD = '삭제';
 export const REFUSAL_TEXT = {
   ACCOUNT_OPERATOR_KEEP: '운영자 계정은 여기서 삭제할 수 없어요.',
-  ACCOUNT_GROUP_ADMIN_MOVE: "내가 관리자인 묶음에 다른 사람이 있어요. 조직 관리 '내 묶음'에서 관리자를 넘기거나 묶음을 나간 뒤 다시 해 주세요.",
+  ACCOUNT_GROUP_ADMIN_MOVE: "내가 관리자인 묶음에 다른 사람이 있어요. '내 묶음'에서 관리자를 넘기거나 묶음을 나간 뒤 다시 해 주세요.",
   ACCOUNT_WORKSPACE_SHARED: '이 작업공간에 다른 관리자가 있어 여기서 삭제할 수 없어요. 운영자에게 문의해 주세요.',
   ACCOUNT_WORKSPACE_REQUIRED: '삭제할 작업공간이 없어요.',
   ACCOUNT_DELEGATED_REFUSED: '이 로그인으로는 삭제할 수 없어요. 앱에서 직접 로그인한 뒤 해 주세요.',
