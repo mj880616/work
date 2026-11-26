@@ -1491,6 +1491,31 @@ for (const [name, opener] of FILE_PICK_SCREENS) test.describe(`${name} PC 1280 �
     expect(s.moves()).toEqual([]);
     expect(s.errors).toEqual([]);
   });
+  // STAB-파일끌기회귀(S70-80, 명진 11/26 09:15 "이 종류 바깥부분부터 드래그해서 선택하려고하는데 이게 안돼"): 칸 너비를 줄여 종류 칸 오른쪽에 빈 자리가 생긴 표에서
+  // ① 줄의 종류 칸 오른쪽 빈 자리 ② [파일] 화면 아래 바탕(목록이 짧을 때) ③ 화면 오른쪽 바깥 여백 — 어디서 시작해도 사각형으로 고른다(자료실과 같은 규칙).
+  for (const [spot, from] of [
+    ['종류 칸 오른쪽 빈 자리', async (page, s) => { const last = await s.row('OD!12').boundingBox(), kind = await s.row('OD!12').locator('.fx-kind').boundingBox(); expect(last.x + last.width - (kind.x + kind.width)).toBeGreaterThan(40); return { x: kind.x + kind.width + 24, y: last.y + last.height / 2 }; }],
+    ['화면 아래 바탕', async page => { const v = await page.locator('#filesView').boundingBox(), l = await page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list]').boundingBox(); expect(v.y + v.height + 40).toBeLessThan(900); return { x: l.x + l.width * 0.6, y: v.y + v.height + 30 }; }],
+    ['화면 오른쪽 바깥 여백', async page => { const v = await page.locator('#filesView').boundingBox(); expect(1280 - (v.x + v.width)).toBeGreaterThan(8); return { x: Math.round(v.x + v.width + (1280 - v.x - v.width) / 2), y: v.y + Math.min(v.height - 20, 300) }; }],
+  ]) test(`S4 ${name} 1280: ${spot}에서 끌어도 사각형으로 여러 줄 고르기`, async ({ page }) => {
+    const s = await opener(1280)(page);
+    // 사람처럼 이름 칸 금(손잡이)을 줄여 종류 칸 오른쪽에 빈 자리를 만든다(서버 기억 col_widths와 같은 길).
+    const grip = page.locator('#filesRoot [data-fx-pane-i="0"] .fx-head .col-grip').first();
+    await grip.focus();
+    for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowLeft');
+    const p = await from(page, s), first = await s.row('OD!13').boundingBox();
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.down();
+    await page.mouse.move(first.x + first.width * 0.5, first.y + 4, { steps: 12 });
+    await expect(page.locator('.marquee-box')).toBeVisible();
+    await page.mouse.up();
+    await expect(page.locator('.marquee-box')).toHaveCount(0);
+    const got = await s.picked();
+    expect(got).toEqual(expect.arrayContaining(['od:OD!11', 'od:OD!12', 'od:OD!13']));
+    await expect(s.bar).toBeVisible();
+    expect(s.moves()).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
   test(`D ${name} 1280: 여러 줄 고르고 끌어 폴더 줄에 놓으면 고른 것 전부 옮김`, async ({ page }) => {
     const s = await opener(1280)(page);
     await s.row('OD!11').click({ modifiers: ['Control'] });

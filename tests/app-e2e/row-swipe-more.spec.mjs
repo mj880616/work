@@ -46,6 +46,17 @@ async function touchTap(locator) {
 }
 const ends = (root) => root.locator('[data-row-swipe-act="end"]');
 const cell = (root, key) => root.locator(`[data-row-swipe-key="${key}"]`);
+// S70-60 UI-스와이프메뉴만(명진 11/26): 오른쪽으로 끝까지 밀어도 [선택] 칸만 펼쳐진다 → 칸을 눌러야 선택이 시작된다.
+async function swipePick(page, locator, how = swipe) {
+  const b = page.locator('[data-row-swipe-key="select"]');
+  // 민 뒤 목록이 다시 그려지면 열린 칸도 닫히므로, 칸이 보일 때까지 다시 민다.
+  await expect(async () => {
+    await how(locator, 320);
+    await expect(b).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+  await expect(page.locator('.row-swipe-pickbar:visible')).toHaveCount(0);
+  await touchTap(b);
+}
 // 시험은 시계를 멈춰 두므로 실제처럼 1초 흐르게 한 뒤 다음 손동작을 한다(줄 밀기 시각보다 뒤에 시작한 손동작).
 const tick = async page => { try { await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000)); } catch { /* 시계를 멈추지 않은 시험 */ } };
 
@@ -142,10 +153,10 @@ test('읽을 거리 412: 왼쪽 밀기 [삭제] — ⋯ 삭제와 같이 묻고,
   expect(errors).toEqual([]);
 });
 
-test('읽을 거리 412: 오른쪽 밀기 [선택] → n개 선택됨 · [읽음][삭제], [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
+test('읽을 거리 412: 오른쪽 밀기 [선택] 칸 누르기 → n개 선택됨 · [읽음][삭제], [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors, list } = await openReading(page, 412);
-  await swipe(rdRow(list, RA), 320);
+  await swipePick(page, rdRow(list, RA));
   const bar = page.locator('#readingView .row-swipe-pickbar');
   await expect(bar).toBeVisible();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
@@ -161,7 +172,7 @@ test('읽을 거리 412: 오른쪽 밀기 [선택] → n개 선택됨 · [읽음
   await expect(bar).toBeHidden();
   // [그만]: 선택을 끝내면 선택 줄이 사라진다.
   await tick(page);
-  await swipe(rdRow(list, RB), 320);
+  await swipePick(page, rdRow(list, RB));
   await expect(bar).toBeVisible();
   await bar.locator('[data-row-pick-stop]').click();
   await expect(bar).toBeHidden();
@@ -172,7 +183,7 @@ test('읽을 거리 412: 오른쪽 밀기 [선택] → n개 선택됨 · [읽음
 test('읽을 거리 412: 고른 줄 [삭제] — 한 번만 묻고, 취소하면 그대로, 삭제하면 고른 줄만 지운다', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors, list } = await openReading(page, 412);
-  await swipe(rdRow(list, RA), 320);
+  await swipePick(page, rdRow(list, RA));
   const bar = page.locator('#readingView .row-swipe-pickbar');
   await expect(bar).toBeVisible();
   await rdRow(list, RB).click();
@@ -185,7 +196,7 @@ test('읽을 거리 412: 고른 줄 [삭제] — 한 번만 묻고, 취소하면
   await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(3);
   expect(s.deletes).toEqual([]);
   await tick(page);
-  await swipe(rdRow(list, RA), 320);
+  await swipePick(page, rdRow(list, RA));
   await expect(bar).toBeVisible();
   await rdRow(list, RB).click();
   await bar.locator('[data-row-pick-act="delete"]').click();
@@ -206,7 +217,7 @@ test('읽을 거리 412: 줄 위 좌우 밀기는 칩을 넘기지 않고, 줄 �
   await expect(ends(list)).toHaveCount(3);
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await tick(page);
-  await both(rdRow(list, RB), 320);
+  await swipePick(page, rdRow(list, RB), both);
   await expect(page.locator('#readingView .row-swipe-pickbar')).toBeVisible();
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await page.locator('#readingView [data-row-pick-stop]').click();
@@ -260,11 +271,11 @@ test('자료실 390: 왼쪽 밀기 [옮기기]·[삭제] 칸 — 끝까지 밀�
   expect(state.errors).toEqual([]);
 });
 
-test('자료실 390: 오른쪽 밀기 [선택] → 자료실 선택 모드가 그 줄이 골라진 채로 열림, 줄 위 밀기는 길게 누르기 메뉴를 열지 않음', async ({ page }) => {
+test('자료실 390: 오른쪽 밀기 [선택] 칸 누르기 → 자료실 선택 모드가 그 줄이 골라진 채로 열림, 줄 위 밀기는 길게 누르기 메뉴를 열지 않음', async ({ page }) => {
   test.setTimeout(90000);
   const state = await librarySetup(page, 390);
   await openLibrary(page, BASE);
-  await both(luRow(page, 'a2'), 320);
+  await swipePick(page, luRow(page, 'a2'), both);
   await expect(page.locator('#librarySelectBar')).toBeVisible();
   await expect(page.locator('#librarySelectCount')).toHaveText('1개 선택됨');
   await expect(page.locator('[data-lu-pick="a2"]')).toBeChecked();
@@ -341,7 +352,7 @@ test.describe('일정 목록', () => {
     await expect(ev(list, 'off1')).toBeVisible();
     // 오른쪽 밀기 [선택] → 고른 일정을 한 번에 보고할 일정으로.
     await tick(page);
-    await swipe(ev(list, 'todo2'), 320);
+    await swipePick(page, ev(list, 'todo2'));
     const bar = page.locator('#calendarView .row-swipe-pickbar, .row-swipe-pickbar:visible').first();
     await expect(bar).toBeVisible();
     await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');

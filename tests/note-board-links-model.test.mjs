@@ -54,6 +54,9 @@ test('곡선·직선 경로: 시작·끝은 변 가운데, 곡선 손잡이는 �
   const up = linkGeometry(b, a, {from_side:'left', to_side:'top', shape:'curve'});
   assert.match(up.d, /^M400 217C/); assert.match(up.d, /64 0$/);
   assert.match(dragPath(a, 'bottom', {x:300, y:300}), /^M64 34C64 \d+(\.\d)? 300 300 300 300$/);
+  // S70-77: 누른 연결점 동그라미 가운데(from)에서 시작한다. 이상한 값이면 변 가운데.
+  assert.match(dragPath(a, 'bottom', {x:300, y:300}, {x:64, y:60}), /^M64 60C64 \d+(\.\d)? 300 300 300 300$/);
+  assert.match(dragPath(a, 'bottom', {x:300, y:300}, {x:NaN, y:1}), /^M64 34C/);
   const box = linkBox(a, b); assert.ok(box.x < 0 && box.y < 0 && box.x + box.w > 400 + CARD_W && box.y + box.h > 200 + CARD_H);
 });
 test('뒤집기: 시작·끝과 변을 함께 바꾼다', () => {
