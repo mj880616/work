@@ -73,24 +73,20 @@ test('PC 1440: 우클릭 → [기한 바꾸기] → [내일] 저장 1번·내일
   expect(errors).toEqual([]);
 });
 
-test('폰 412: ⋯ → [기한 바꾸기] → [내일] 같은 동작, 끝낸 할 일 메뉴에는 없음',async({page})=>{
+test('폰 412: ⋯ → [기한 바꾸기] → [내일], 줄 밀기 칸은 [완료][수정][삭제](기한은 ⋯로만), 끝낸 할 일 메뉴에는 없음',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const calls=await open(page,412,[task('a','2026-10-08'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})]);
   await page.locator('#gtTaskBody [data-google-task="a"] [data-gt-menu]').click();
   await expect(page.locator('#gtTaskMenu')).toBeVisible();
   await pickTomorrowAndUndo(page,calls);
-  // 줄 밀기 왼쪽 칸 [완료][기한][삭제](3칸): [기한]은 ⋯ [기한 바꾸기]와 같은 날짜 칸.
+  // S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): 줄 밀기 왼쪽 칸은 [완료][수정][삭제] — [기한]은 밀기에서 빠지고 ⋯ [기한 바꾸기](위)로만.
   const line=page.locator('#gtTaskBody [data-google-task="a"]');
   await swipe(line,-90);
   const ends=page.locator('#gtTaskBody .row-swipe-acts [data-row-swipe-act="end"]'); // 칸은 줄 바로 앞 형제(row-swipe.js)
   await expect(ends).toHaveCount(3);
-  await expect(ends).toHaveText(['완료','기한','삭제']);
-  await expect(ends.nth(1)).toHaveAttribute('data-row-swipe-key','due');
-  await ends.nth(1).click();
-  await expect(page.locator('#taskDuePopup')).toBeVisible();
-  await page.locator('#taskDuePopup').getByRole('button',{name:'내일',exact:true}).click();
-  await expect.poll(()=>updates(calls).length).toBe(3);expect(updates(calls)[2].body).toMatchObject({task_id:'a',due:'2026-10-09'});
-  await expect(inTomorrow(page,'a')).toHaveCount(1);
+  await expect(ends).toHaveText(['완료','수정','삭제']);
+  await expect(page.locator('#gtTaskBody [data-row-swipe-key="due"]')).toHaveCount(0);
+  await swipe(line,60); await expect(ends).toHaveCount(0);
   await page.evaluate(()=>document.querySelectorAll('#gtTaskBody details').forEach(d=>{d.open=true}));
   await page.locator('#gtTaskBody [data-google-task="done"] [data-gt-menu]').click();
   await expect(page.locator('#gtTaskMenu button').first()).toHaveText('수정');

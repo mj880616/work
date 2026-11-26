@@ -20,7 +20,7 @@ import {dueLabel} from './task-due.mjs';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {copyText} from './copy-text.js';
 import {flashDone} from './press-feedback.js';
-import {bindRowSwipe, PICK} from './row-swipe.js';
+import {bindRowSwipe, PICK, MORE} from './row-swipe.js';
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
 const CHANGED = 'kptu:todo-radar-changed';
@@ -326,10 +326,17 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     status = ''; await toTask(c, draft);
   });
   // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 챙길 것 줄 — 왼쪽으로 밀기 [무시](위쪽 '무시했어요 [되돌리기]', 기존 [무시] 길, 끝까지 밀어도 칸만 — S70-60).
+  // S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안 표 그대로): [할 일로][⋯][무시]. [할 일로] = ⋯ '수정해서 할 일로'와 같은 고쳐 쓰기 칸(고친 뒤 할 일로),
+  // [⋯] = 그 줄 ⋯ 메뉴를 그 자리에서 연다.
   // 챙길 것은 지우는 길이 없어 [삭제] 칸은 없다. 오른쪽으로 밀기 [선택] → 'n개 선택됨 · [무시]'(하나씩 차례로 같은 길).
   bindRowSwipe(host, {row:'[data-inbox-todo-row]', enabled:() => state === 'ok',
-    actions:el => { const c = byId(el.dataset.inboxTodoRow); return c && c.status === 'open' && !busy.has(c.id) ? {start:PICK, end:[{key:'dismiss', label:'무시', tone:'muted'}]} : null; },
-    run:(key, el) => { const c = byId(el.dataset.inboxTodoRow); if (key === 'dismiss' && c && c.status === 'open' && !busy.has(c.id)) { status = ''; void dismiss(c); } },
+    actions:el => { const c = byId(el.dataset.inboxTodoRow); return c && c.status === 'open' && !busy.has(c.id) ? {start:PICK, end:[{key:'to-task', label:'할 일로', tone:'info', icon:'task'}, MORE, {key:'dismiss', label:'무시', tone:'muted'}]} : null; },
+    run:(key, el) => {
+      const c = byId(el.dataset.inboxTodoRow); if (!c || c.status !== 'open' || busy.has(c.id)) return;
+      if (key === 'dismiss') { status = ''; void dismiss(c); }
+      else if (key === 'to-task') menuLists.get(host)?.(c.id, 'edit');
+      else if (key === 'more') { const b = el.querySelector('[data-inbox-todo-more]'); if (b && !b.disabled) inboxRowMenu().open(b); }
+    },
     select:{attr:'data-inbox-todo-row', label:'선택한 챙길 것', acts:() => [{key:'dismiss', label:'무시'}],
       run:async (key, ids) => { if (key !== 'dismiss') return; status = ''; for (const id of ids) { const c = byId(id); if (c && c.status === 'open' && !busy.has(c.id)) await dismiss(c); } }}});
   chips?.addEventListener('click', event => {
