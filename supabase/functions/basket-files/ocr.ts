@@ -411,15 +411,36 @@ export function createOcrHandler(
           }
         }
       }
-      if (child) {
+      // S71-49: a photo put on a note board is in "보드 사진" inside the top app folder (handler.ts place=board). It is looked up
+      // only when the photo is not in "노트 첨부"; found only (existingOnly), never created, with the same private check.
+      const photo = file; // narrowed here; a closure would lose the narrowing (TS2345)
+      const inFolder = async (id: string) => {
         try {
-          source = await drive.source(file, child, token);
-          folder = child;
+          return await drive.source(photo, id, token);
         } catch (e) {
           if (!(e instanceof OcrError && e.code === "OCR_IDENTITY_INVALID")) throw e;
-          source = await drive.source(file, root, token);
+          return null;
         }
-      } else source = await drive.source(file, root, token);
+      };
+      const found = child ? await inFolder(child) : null;
+      if (found) {
+        source = found;
+        folder = child!;
+      } else {
+        let board: string | null = null;
+        if (note.kind === "note") {
+          try {
+            board = await upload.boardPhotoFolder(workspace, token, { existingOnly: true });
+          } catch {
+            throw new OcrError("OCR_FOLDER_UNAVAILABLE", 409);
+          }
+        }
+        const inBoard = board ? await inFolder(board) : null;
+        if (inBoard) {
+          source = inBoard;
+          folder = board!;
+        } else source = await drive.source(file, root, token);
+      }
       const sourceStamp = note.updated_at;
       let markers: Record<string, string>;
       if (action === "ocr-read") {

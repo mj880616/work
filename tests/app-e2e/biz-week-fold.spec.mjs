@@ -31,7 +31,7 @@ const foldBtn=box=>box.locator('.biz-week-title [data-bw-fold]');
 async function expectOpen(page,box,open){
   await expect(foldBtn(box)).toHaveAttribute('aria-expanded',String(open));
   if(open){await expect(box.locator('.biz-sum-table')).toBeVisible();await expect(page.locator('#areaUntaggedLine')).toBeVisible()}
-  else{await expect(box.locator('[data-bw-body]')).toBeHidden();await expect(page.locator('#areaUntaggedLine')).toBeHidden();await expect(foldBtn(box)).toHaveText(/이번 주 주간 보고\s*11\.9~11\.15/)}
+  else{await expect(box.locator('[data-bw-body]')).toBeHidden();await expect(page.locator('#areaUntaggedLine')).toBeHidden();await expect(foldBtn(box)).toHaveText('이번 주 주간 보고');await expect(box.locator('.biz-week-title')).toHaveText(/이번 주 주간 보고\s*‹\s*11\.9~11\.15\s*›/)} // BIZ-머리한줄: 주 단위면 날짜는 이름 옆 ‹ › 사이
 }
 
 for(const width of [884,1440])test(`PC ${width}: 처음 펼침 → 보고 하나 열면 접힘 → 제목으로 손으로 펴면 다른 보고를 열어도 펼침 → 손으로 접은 것은 다시 들어와도 접힘(기억)`,async({page})=>{

@@ -1,8 +1,8 @@
-// MTG-노트북녹음 2단계(요청함 10/29 14:26): 노트북(PC 761px~) 사업 보고 위쪽 줄 [녹음] → 화면 맨 위 녹음 띠 → [멈추고 저장] → 자료실 '회의 녹음' 폴더.
+// MTG-노트북녹음 2단계(요청함 10/29 14:26): 노트북(PC 761px~) 사업 보고 첫 줄 [+] › [녹음](BIZ-머리한줄 S71-23부터 메뉴 안) → 화면 맨 위 녹음 띠 → [멈추고 저장] → 자료실 '회의 녹음' 폴더.
 // 설계: docs/design/laptop-recording.md 8절. 서버: Edge meeting-transcribe의 rec_start·rec_piece·rec_finish·rec_save·rec_pending·rec_discard·rec_restore.
 // S61-5 REC-전사삭제(명진 11/13 '회의 전사 기능은 아예 웹2에서 삭제, 그냥 파일만 제공'): 전사·요약·회의 기록 초안은 하지 않는다.
 //   멈추면 녹음 파일(29분 구간마다 하나)을 자료실 '회의 녹음' 폴더에 저장하고, 띠에 파일 이름 · [내려받기] · [Drive에서 열기]를 바로 보인다.
-// - 주인: 이 모듈 하나가 녹음기·녹음 띠(#recBand)·[녹음](#reportRecordBtn)·'끝나지 않은 녹음' 줄(#recPendingLine)을 그린다(AGENTS.md 5절 one state owner).
+// - 주인: 이 모듈 하나가 녹음기·녹음 띠(#recBand)·[+] 메뉴 [녹음] 줄의 모양(recordItem)·'끝나지 않은 녹음' 줄(#recPendingLine)을 그린다(AGENTS.md 5절 one state owner).
 //   loader-v2.js가 첫 화면 뒤 한 번 불러오고, 화면 전환에 다시 그리지 않으므로 다른 메뉴로 옮겨도 녹음은 계속된다.
 // - 기기 저장 없음: 녹음 조각은 1분마다(서버가 rec_start로 알려 준 간격) 서버(명진 Drive)로 가고, 보내지 못한 조각은 메모리에만 두고 같은 번호로 다시 보낸다.
 //   브라우저 저장 공간을 쓰지 않는다(Browser storage audit). 창을 닫으면 마지막 1분 안쪽만 잃고, 다시 열면 '이어서 저장'(rec_pending).
@@ -117,13 +117,16 @@ function paint(){
   paintOldLine();
 }
 const escapeText=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
-// [녹음] 단추 둘의 모양은 이 모듈만 그린다: 사업 보고 위쪽 줄 #reportRecordBtn, 회의(사업 보고) 상세 머리 줄 #mrdRecordBtn(S61-36 REC-상세녹음).
+// [녹음]의 모양은 이 모듈만 정한다: 사업 관리 첫 줄 [+] 메뉴의 [녹음] 줄(team.js가 열 때 recordItem()을 읽어 그린다, BIZ-머리한줄 S71-23),
+// 회의(사업 보고) 상세 머리 줄 #mrdRecordBtn(S61-36 REC-상세녹음).
 // 상세 단추는 상세 화면이 data-rec-meeting에 지금 연 보고 id를 적어 두고(고칠 수 없는 보고면 빈칸) 누르면 start({meetingId})를 부른다.
 // 보이는 기기 조건은 둘이 같다(PC 761px~·녹음 가능 브라우저). 녹음 중·저장 중·버리는 중에는 둘 다 꺼져 두 번 시작하지 못한다.
+function recordItem(){
+  const off=state!=='idle'||discarding;
+  return {shown:!!(supported()&&PC?.matches),disabled:off,label:active()?'녹음 중':'녹음',pressed:active()};
+}
 function paintButton(){
-  const on=supported()&&PC?.matches,off=state!=='idle'||discarding;
-  const btn=$('#reportRecordBtn');
-  if(btn){btn.hidden=!on;btn.disabled=off;btn.textContent=active()?'녹음 중':'녹음';btn.setAttribute('aria-pressed',String(active()))}
+  const {shown:on,disabled:off}=recordItem();
   const mb=$('#mrdRecordBtn');
   if(mb){
     const id=mb.dataset.recMeeting||'',mine=active()&&!!id&&meetingId===id;
@@ -459,7 +462,6 @@ function resume(id){
 
 // ---- 연결 ----
 document.addEventListener('click',e=>{
-  if(e.target.closest('#reportRecordBtn')){e.preventDefault();void start();return}
   const t=e.target.closest('[data-rec-takeover]');
   if(t){e.preventDefault();const w=takeover;if(t.dataset.recTakeover==='go'&&w)runTakeOver(w.kind,w.id);else{takeover=null;paint()}return}
   const c=e.target.closest('[data-rec-continue]');
@@ -487,7 +489,7 @@ window.addEventListener('kptu:session-changed',e=>{
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){paintButton();void loadPending()}});
 PC?.addEventListener?.('change',()=>{paintButton();paint();if(PC.matches&&onMeetings())void loadPending()});
 
-window.KPTUMeetingRecorder={state:()=>state,mime:MIME,start:(opts={})=>start(null,opts),files:()=>savedFiles.map(f=>({...f})),meeting:()=>active()||state==='finishing'?meetingId:'',paintButtons:paintButton};
+window.KPTUMeetingRecorder={state:()=>state,mime:MIME,start:(opts={})=>start(null,opts),recordItem,startRecord:()=>start(),files:()=>savedFiles.map(f=>({...f})),meeting:()=>active()||state==='finishing'?meetingId:'',paintButtons:paintButton};
 paint();
 // 끝나지 않은 녹음 띠는 어느 화면에서든 보이므로(새로고침 직후 PC에서 바로 이어 녹음), 첫 화면 요청과 겹치지 않게 조금 뒤 한 번 묻는다. 폰 폭에서는 부르지 않는다.
 setTimeout(()=>void loadPending(),3500);

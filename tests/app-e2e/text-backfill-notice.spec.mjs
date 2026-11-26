@@ -25,7 +25,7 @@ async function fixture(page,{status=answer({done_at:'2026-10-05T18:25:00.000Z',c
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#homeView')).toBeVisible();
-  await page.evaluate(()=>window.KPTURouter.go('profile'));
+  await page.evaluate(()=>window.KPTURouter.go('profile',{sub:'status'}));
   await expect(page.locator('#profileView')).toBeVisible({timeout:15000});
   await expect(page.locator('#homeView [data-home-text-done]')).toHaveCount(0);
   return {calls,line:page.locator('#profileView [data-ps-text-done]')};

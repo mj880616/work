@@ -3,7 +3,7 @@
 import {expect} from '@playwright/test';
 const LABEL = {unclassified: '처리 전', open: '처리 전', classified: '연결 완료', linked: '연결 완료', archived: '무시', dismissed: '무시', tasked: '보냄', done: '이미 함'};
 const CURRENT = {unclassified: 'open', open: 'open', classified: 'linked', linked: 'linked', archived: 'dismissed', dismissed: 'dismissed', tasked: 'tasked', done: 'done'};
-export const forgetViewButton = page => page.locator('#basketView [data-forget-view-open]');
+export const forgetViewButton = page => page.locator('[data-sf-tools="forget"] [data-forget-view-open]');
 export async function pickBasketView(page, view) {
   const button = forgetViewButton(page);
   await expect(button).toBeVisible();

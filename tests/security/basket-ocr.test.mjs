@@ -123,3 +123,14 @@ test('note photo: OCR reads inside the private "노트 첨부" folder, never cre
  // A basket update keeps reading in the root folder (no child-folder lookup).
  const b=ocrHarness();assert.equal((await(await b.request()).json()).ok,true);assert.equal(b.calls.childLookups,undefined);
 });
+
+// S71-49 NOTE-보드사진: 보드에 넣은 사진은 맨 위 앱 폴더 안 '보드 사진'에 있다. OCR은 '노트 첨부'에 없을 때만 그 폴더를 찾고(만들지 않음), 거기서 읽는다.
+test('board photo: OCR reads a note photo inside "보드 사진" of the top app folder, never creates it',async()=>{
+ const h=ocrHarness({noteKind:true,appRoot:true,sourceMetadata:{parents:['boardpics']}}),got=await(await h.request()).json();
+ assert.equal(got.ok,true);assert.equal(h.note.attachments[0].ocr.text,'인식 글');assert.equal(h.calls.boardLookups,1);
+ assert.equal(h.calls.drive.some(c=>c.method==='POST'&&c.url.pathname==='/drive/v3/files'),false,'no folder is created');
+ // A photo found in "노트 첨부" never looks for the board folder.
+ const n=ocrHarness({noteKind:true,appRoot:true});assert.equal((await(await n.request()).json()).ok,true);assert.equal(n.calls.boardLookups,undefined);
+ // No top app folder known: the board folder is not looked up; a photo elsewhere is still refused.
+ const lost=ocrHarness({noteKind:true,sourceMetadata:{parents:['boardpics']}});assert.equal((await lost.request()).status,409);assert.equal(lost.calls.writes.length,0);assert.equal(lost.calls.boardLookups,undefined);
+});

@@ -190,7 +190,7 @@ test('정리함 [다시 찾기]: new candidates appear; a limit is one plain not
  const f=await fixture(page);
  await openInbox(page);
  await expect.poll(()=>f.calls.ai.length).toBe(1);
- const find=page.locator('#basketView [data-inbox-find]');await expect(find).toBeEnabled();
+ const find=page.locator('[data-sf-tools="forget"] [data-inbox-find]');await expect(find).toBeEnabled();
  f.queue.push({json:{ok:true,kind:'todo_radar',added:1,found:1,partial:false,checked_at:'2026-10-06T01:00:00Z',promises:[]}});
  f.db.rows.push(cand(9,{summary:'새로 찾은 가상 요청'}));f.db.state={last_success_at:'2026-10-06T01:00:00Z',last_partial:false};
  await find.click();

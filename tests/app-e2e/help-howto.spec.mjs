@@ -177,12 +177,12 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['pc-1440', 1440,
     if (width <= 760) await expect(help(page).locator('[data-hp-topic="team"]')).toHaveAttribute('open', '');
     else await expect(help(page).locator('[data-hp-toc] [aria-current="true"]')).toHaveText('조직 관리');
     await page.evaluate(() => window.KPTURouter.go('meetings'));
-    await page.locator('#reportMore').click();
-    await expect(page.locator('#reportMoreMenu button').last()).toHaveText('쓰는 법');
-    await page.locator('#reportMoreMenu [data-help-open="meetings"]').click();
-    await expect(page).toHaveURL(/topic=meetings/);
-    if (width <= 760) await expect(help(page).locator('[data-hp-topic="meetings"]')).toHaveAttribute('open', '');
-    else await expect(help(page).locator('[data-hp-detail] .hp-dt')).toHaveText('사업 관리');
+    // BIZ-머리한줄(S71-23, 사용자 11/26 "쓰는 법 여기 있을 필요 없고"): 사업 관리는 첫 줄 ⋯가 없고 [+] 메뉴에도 '쓰는 법'이 없다(계정 › 쓰는 법에서 사업 관리 글은 그대로).
+    await page.locator('#newMeetingBtn').click();
+    await expect(page.locator('#bizAddMenu')).toBeVisible();
+    await expect(page.locator('#bizAddMenu')).not.toContainText('쓰는 법');
+    await expect(page.locator('#bizAddMenu [data-help-open]')).toHaveCount(0);
+    await page.keyboard.press('Escape');
   });
 }
 
