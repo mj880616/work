@@ -61,7 +61,7 @@ for(const width of [1280,412])test(`organization ${width}: a note line's ⋯ [�
  const modal=page.locator('#wdModal'),row=modal.locator('[data-basket-link="l-note-o"]');await expect(row).toBeVisible();
  const menu=page.locator('#basketLinkMenu');
  // The update line keeps its menu; the note line now has the same [원문 삭제] at the bottom, in the danger color.
- await press(modal.locator('[data-basket-link="l-up"] [data-basket-link-menu]'),width);await expect(menu.getByRole('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정','원문 삭제']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ await press(modal.locator('[data-basket-link="l-up"] [data-basket-link-menu]'),width);await expect(menu.getByRole('button')).toHaveText(['연결 해제','요약 수정','원문 삭제']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  await press(row.locator('[data-basket-link-menu]'),width);await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정','원문 삭제']);
  const del=menu.getByRole('button',{name:'원문 삭제',exact:true});await expect(del).toHaveClass(/basket-link-danger/);
  if(SHOTS)await page.screenshot({path:`${SHOTS}org-note-menu-${width}.png`});
