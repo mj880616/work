@@ -92,7 +92,7 @@ import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {bindEdgeBack} from './edge-back-swipe.js';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {bindFolderPinch} from './folder-pinch.js';
-import {FOLDER_ENTER_LABEL, ftKeepPlace, ftExplorePress, ftBindTreeArrows} from './folder-tree-press.mjs';
+import {FOLDER_ENTER_LABEL, ftKeepPlace, ftExplorePress, ftBindTreeArrows, ftHoverExpander} from './folder-tree-press.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {originKey} from './diary-list-model.mjs';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, TABS, TAB_TEXT, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
@@ -3579,12 +3579,14 @@ body.addEventListener('dragstart', e => {
   e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(ids)); e.dataTransfer.setData('text/plain', `사진 ${ids.length}장`); e.dataTransfer.effectAllowed = 'move';
   b.classList.add('nx-dragging');
 });
-body.addEventListener('dragend', e => { e.target.closest?.('[data-photos-open]')?.classList.remove('nx-dragging'); body.querySelectorAll('.nx-drop').forEach(x => x.classList.remove('nx-drop')); });
+body.addEventListener('dragend', e => { photoTreeHover.stop(); e.target.closest?.('[data-photos-open]')?.classList.remove('nx-dragging'); body.querySelectorAll('.nx-drop').forEach(x => x.classList.remove('nx-drop')); });
 const dropRow = e => (e.dataTransfer?.types || []).includes(DRAG_TYPE) ? e.target.closest?.('[data-photos-fx-tree] [data-photos-folder]') : null;
-body.addEventListener('dragover', e => { const row = dropRow(e); if (!row) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; body.querySelectorAll('.nx-drop').forEach(x => { if (x !== row) x.classList.remove('nx-drop'); }); row.classList.add('nx-drop'); });
+// TREE-펼치기먼저 ④(S70-81): 끄는 중 왼쪽 나무의 닫힌 폴더 위에 0.6초 머무르면 저절로 펼친다(공용 ftHoverExpander, [파일]과 같은 값).
+const photoTreeHover = ftHoverExpander(id => { if (!openSet.has(id)) { openSet.add(id); renderFolders(); } });
+body.addEventListener('dragover', e => { const row = dropRow(e); const shut = row?.querySelector(':scope > [data-photos-fx-tog][aria-expanded="false"]'); photoTreeHover.over(shut ? shut.dataset.photosFxTog : '', !!shut); if (!row) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; body.querySelectorAll('.nx-drop').forEach(x => { if (x !== row) x.classList.remove('nx-drop'); }); row.classList.add('nx-drop'); });
 body.addEventListener('dragleave', e => { const row = dropRow(e); if (row && !row.contains(e.relatedTarget)) row.classList.remove('nx-drop'); });
 body.addEventListener('drop', e => {
-  const row = dropRow(e); if (!row) return;
+  const row = dropRow(e); photoTreeHover.stop(); if (!row) return;
   e.preventDefault(); row.classList.remove('nx-drop');
   let ids = [];
   try { ids = JSON.parse(e.dataTransfer.getData(DRAG_TYPE) || '[]').filter(x => typeof x === 'string'); } catch { /* 모양이 다르면 놓지 않음 */ }

@@ -19,6 +19,7 @@ import {writeMoves,undoMoves} from './library-move-write.mjs';
 import {createEdgeScroll,installDragEdgeScroll,followTouch} from './drag-edge-scroll.js';
 import {createDragGhost,setDragGhostImage} from './drag-ghost.js'; // S69-29 끄는 동안 따라오는 반투명 조각(노트 폴더 보기와 같은 공용 부품)
 import {openFolderAt} from './drop-open-folder.mjs';
+import {ftHoverExpander} from './folder-tree-press.mjs';
 import {askConfirm} from './small-notice.js';
 import {RECEIVE_MENU} from './library-receive.js';
 import {WEEKLY_FOLDER_TEXT} from './weekly-save-folder-model.mjs'; // S70-11 주간보고 저장 폴더 두 줄
@@ -27,7 +28,7 @@ import {word} from './brand/brand.mjs';
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],pickedFolders=()=>[],onPickedMoved=()=>{},touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,weekly=null,tidy=null,onDragState=()=>{},onHold=()=>false}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],pickedFolders=()=>[],onPickedMoved=()=>{},touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,weekly=null,tidy=null,onDragState=()=>{},onHold=()=>false,navOpen=()=>{}}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
   // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 눌러 끌기를 켤 화면인지. onHold(el): 폰에서 줄을 꾹 눌렀다 움직이지 않고 뗌(고르기).
@@ -484,7 +485,12 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // LIB-정리보충 10:42: 끄는 채 닫힌 폴더(또는 '폴더 밖'·프로젝트 토글) 위에 1초 머물면 저절로 열린다(탐색기 방식). 다른 곳으로 가거나 끌기가 끝나면 취소.
   // 여는 것은 details.open만 바꾼다(목록을 다시 그리지 않아 끌기가 끊기지 않음). 펼침 기억은 기존 toggle 이벤트가 맡는다.
   const HOVER_OPEN_MS=1000;let hoverKey='',hoverTimer=0;
+  // TREE-펼치기먼저 ④(S70-81): 왼쪽 나무(#libraryFolderNav)의 닫힌 폴더 위에 0.6초 머무르면 그 줄도 펼친다(공용 ftHoverExpander, [파일]·사진과 같은 값).
+  //  나무 칸만 다시 그린다(navOpen — 오른쪽 목록은 그대로라 끌기가 끊기지 않음). 오른쪽 목록 폴더(details)는 아래 원래 1초 그대로.
+  const navHover=ftHoverExpander(id=>{if(drag||touch?.grabbed||fileDrag)navOpen(id)});
   function hoverOpen(t){
+    const navTog=t?.nav&&t.head?.closest?.('#libraryFolderNav')?t.head.querySelector(':scope > [data-lu-nav-tog][aria-expanded="false"]'):null;
+    navHover.over(navTog?.dataset.luNavTog||'',!!navTog);
     if(t?.nav)t=null;
     const node=t?.head?.parentElement,key=node?.dataset?.luNode||'';
     // S69-28·S69-68: 탐색기 칸의 0단 폴더 줄(data-lu-enter)은 끄는 중 머물러도 열지 않는다(놓으면 그 폴더 안 — 끄는 동안 칸 모양이 바뀌지 않게).

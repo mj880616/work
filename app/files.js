@@ -15,7 +15,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   starWant, starLabel, applyStars, boxRows, MEDIA_PREVIEW_MAX, HWP_PREVIEW_MAX, HWP_PREVIEW_PAGES, mediaMime, stepFile, pathCopyText, treeAcrossBig, treeAcrossTooBigText, treeBigAsk, treeDoneText, TREE_MOVE_NOTE,
   TREE_DEV_MOVE_NOTE, treeDevKeptText, treeDevDoneText, LIB_TREE_MAX, LIB_TREE_BYTES, libTreeTooBigText, UPLOAD_MAX_BYTES} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자. 두 손가락은 줄 크기(folder-pinch.js).
-import {ftKeepPlace, ftBindTreeArrows, ftExplorePress, FOLDER_ENTER_LABEL} from './folder-tree-press.mjs';
+import {ftKeepPlace, ftBindTreeArrows, ftExplorePress, ftHoverExpander, FOLDER_ENTER_LABEL} from './folder-tree-press.mjs';
 import {destSheetHtml} from './folder-dest-sheet.mjs'; // S69-62 폴더 고르기 창 하나(모양 공용)
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, ftTrashRowHtml, ftEmptyRowHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
@@ -4334,6 +4334,13 @@ const markHit = hit => {
   head.classList.toggle('fx-drop-pane', head.matches('[data-fx-pane-i]'));
   head.classList.toggle('fx-drop-head', many);
 };
+// TREE-펼치기먼저 ④(S70-81): 끄는 중 왼쪽 나무의 닫힌 폴더 위에 0.6초 머무르면 저절로 펼친다(탐색기 방식, 공용 ftHoverExpander). 나무만 다시 그린다(paintTree).
+const treeHover = ftHoverExpander(key => { if (drag && !state.open.has(key)) toggle(key, root.querySelector('[data-fx-tree]')); });
+const hoverTree = el => {
+  const row = el?.closest?.('[data-fx-tree] .ft-row[data-fx-fold]');
+  const shut = row?.querySelector(':scope > [data-fx-twist][aria-expanded="false"]');
+  treeHover.over(shut ? row.dataset.fxFold : '', !!shut);
+};
 root?.addEventListener('dragover', event => {
   // 바탕화면 파일(시안 ⑦): 점선 '여기 놓으면 ○○에 올리기'.
   const upHit = upTarget(event);
@@ -4347,6 +4354,7 @@ root?.addEventListener('dragover', event => {
   }
   const hit = dropAt(event.target);
   markHit(hit);
+  hoverTree(hit ? event.target : null);
   if (!hit) return;
   event.preventDefault();
   if (event.dataTransfer) event.dataTransfer.dropEffect = hit.cross ? 'copy' : 'move';
@@ -4367,13 +4375,13 @@ root?.addEventListener('drop', event => {
   }
   const hit = dropAt(event.target);
   dropOff(null);
-  drag = null;
+  drag = null; treeHover.stop();
   if (!hit) return;
   event.preventDefault();
   if (hit.cross) { state.dropAsk = {rows: hit.rows, dest: hit.dest, x: event.clientX, y: event.clientY}; paintDropAsk(); root.querySelector('[data-fx-drop-go]:not([disabled])')?.focus({preventScroll: true}); return; }
   moveRows(hit.rows, hit.dest, hit.t);
 });
-root?.addEventListener('dragend', () => { drag = null; dropOff(null); });
+root?.addEventListener('dragend', () => { drag = null; treeHover.stop(); dropOff(null); });
 // S51-20 ③ 꾹 눌러 끌기(폰·폴드 터치, 공용 부품 touch-drag.js): 꾹 누르면 집어 들고 손가락을 따라 폴더(같은 칸·다른 칸·▾ 나무) 위에서 보라 점선,
 // 놓으면 [복사][옮기기] 고르기(fx-drop-ask, PC 칸 사이 놓기와 같은 고르기). 움직이지 않고 떼면 지금처럼 고르기. 고른 것이 있으면 고른 것 모두.
 // 끌다가 칸(폰 두 칸) 또는 화면 위·아래 끝이면 저절로 굴린다. 끄는 길만 새것이고 복사·옮기기는 xferRun·moveRows 그대로.
@@ -4395,15 +4403,15 @@ const touchDrag = bindTouchDrag(root, {
     return {key, pane: i, rows, label: rows.length > 1 ? `${rows.length}개` : rows[0].name};
   },
   hold: item => holdPickRow(item.key),
-  over: (item, el) => { drag = {pane: item.pane, rows: item.rows}; markHit(dropAt(el, {any: true})); },
+  over: (item, el) => { drag = {pane: item.pane, rows: item.rows}; const hit = dropAt(el, {any: true}); markHit(hit); hoverTree(hit ? el : null); },
   drop: (item, el, x, y) => {
     drag = {pane: item.pane, rows: item.rows};
     const hit = dropAt(el, {any: true});
-    dropOff(null); drag = null;
+    dropOff(null); drag = null; treeHover.stop();
     if (!hit) return;
     state.dropAsk = {rows: hit.rows, dest: hit.dest, x, y}; paintDropAsk();
   },
-  cancel: () => { drag = null; dropOff(null); },
+  cancel: () => { drag = null; treeHover.stop(); dropOff(null); },
   scroller: el => el?.closest?.('.fx[data-fx-two="phone"] .fx-listcol') || null,
 });
 // S52-41 ④: 고정한 폴더 순서 — ⠿ 손잡이 끌기(폰은 꾹 눌러), 키보드는 손잡이에서 ↑↓(공용 reorder-drag.js).

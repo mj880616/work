@@ -31,13 +31,11 @@ const togOf = row => row?.querySelector(':scope > button.ft-tog[aria-expanded]')
 export const FOLDER_ENTER_LABEL = '이 폴더로 들어가기';
 
 // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 이거는 모든곳 공통 노트 자료 파일'):
-//  왼쪽 나무 | 오른쪽 그 폴더 내용인 탐색기 화면(자료실·[파일]·노트 [폴더] 보기·사진 [폴더] — PC·펼친 폴드)의 나무 폴더 이름 누르기 한 곳.
-//  ① 어느 폴더를 누르든(하위 폴더가 있는 상위 폴더 포함) enter()로 오른쪽을 그 폴더로 바꾼다(하위 폴더 줄 → 파일·자료·노트 — 그리기는 그 화면 렌더러 하나).
-//  ② 이름 누르기도 펼치기·접기를 함께 한다(같은 줄의 아이콘 단추를 눌러 — 그 화면 상태 주인이 바꾼다): 접혀 있으면 펼치고, 이미 들어가 있는 펼친 폴더면 접는다
-//    (명진 11/24 15:42 '폴더명을 클릭해도 펼쳐지고 접혀지게'). 오른쪽은 늘 그 폴더.
-//  ③ 펼침 아이콘(.ft-tog) 누르기는 지금처럼 펼치기·접기만, ←/→도 그대로(ftTreeArrow).
-//  enter()가 Promise를 돌려주면(서버에서 목록 읽기) 끝난 뒤 다시 그려진 줄에서 ②를 한다. 처리했으면 true(호출한 쪽은 더 하지 않는다).
-//  이 규칙은 탐색기 나무에만 쓴다. 폰 나무(그 자리에서 안까지 들여 보이는 나무)와 두 칸 보기 칸 안 목록은 UI-폴더누르기한규칙 그대로.
+//  왼쪽 나무 | 오른쪽 그 폴더 내용인 탐색기 화면(자료실·[파일]·노트 [폴더] 보기·사진 [폴더] — PC·펼친 폴드)의 나무 폴더 이름 누르기 한 곳(ftExplorePress).
+//  어느 폴더든(하위 폴더가 있는 상위 폴더 포함) 오른쪽을 그 폴더로 바꿀 수 있다(하위 폴더 줄 → 파일·자료·노트 — 그리기는 그 화면 렌더러 하나).
+//  언제 바꾸는지는 아래 TREE-펼치기먼저(S70-81)가 정한다. 펼침 아이콘(.ft-tog) 누르기는 펼치기·접기만, ←/→도 그대로(ftTreeArrow).
+//  enter()가 Promise를 돌려주면(서버에서 목록 읽기) 끝난 뒤 다시 그려진 줄에 초점을 둔다. 처리했으면 true(호출한 쪽은 더 하지 않는다).
+//  이 규칙은 탐색기 나무에만 쓴다. 폰 나무(그 자리에서 안까지 들여 보이는 나무)와 두 칸 보기 칸 안 목록은 UI-폴더이름펼치기 그대로.
 const ROW_SEL = '.ft-row, .nx-row';
 function rowMainSelector(main) {
   const parts = [...(main?.attributes || [])].filter(a => a.name.startsWith('data-')).map(a => `[${a.name}="${CSS.escape(a.value)}"]`);
@@ -45,35 +43,59 @@ function rowMainSelector(main) {
   const cls = main.classList.contains('ft-main') ? '.ft-main' : main.classList.contains('nx-main') ? '.nx-main' : '';
   return ROW_SEL.split(', ').map(r => `${r} > ${main.tagName.toLowerCase()}${cls}${parts.join('')}`).join(', ');
 }
-// S69 명진 11/24 20:26 확정: 왼쪽 나무 폴더 이름 누르기 = 늘 오른쪽에 그 폴더 내용(들어가기) + 그 자리 펼치기·접기를 누른 그때 바로.
-//  접혀 있으면 펼치고, 펼쳐져 있으면 접는다(지금 폴더든 아니든). 펼칠 것이 없는 폴더(아이콘 없음)도 오른쪽에 내용이 보인다.
-//  펼치기·접기는 오른쪽 읽기를 기다리지 않는다("불러오는 동안 계속 딜레이", 20:25). current는 옛 호출과 맞추려고 받기만 한다.
-export function explorePressPlan({open = false, canOpen = true} = {}) {
-  return {enter: true, expand: !!canOpen && !open, collapse: !!canOpen && !!open};
+// TREE-펼치기먼저(S70-81, 명진 11/26 09:20 "어떤 폴더 안을 보다가 다른 폴더를 한번 누르면 폴더 트리만 펼쳐지고, 다시 한번 눌러야 비로소 그 폴더 안의 내용이
+//  보였으면 좋겠어 … 그래야 폴더 끌어서 옮길 때 편해"): 앞 확정(11/24 20:26 '누르면 늘 오른쪽에 그 폴더 + 펼치기·접기')을 대신한다.
+//  ① 오른쪽에 보이는 폴더(.ft-current)가 아닌 폴더를 처음 누르면 = 나무에서 펼치기만(오른쪽 그대로 — 끌어 옮길 대상이 화면에 남음).
+//     펼칠 것이 없는 폴더(아이콘 단추 없음)는 그 줄에 '골라짐' 표시(.ft-armed)만.
+//  ② 이미 펼쳐진 폴더나 방금 누른(골라진) 폴더를 누르면 = 오른쪽에 그 폴더 내용(enter). 나무 펼침은 그대로(접지 않음).
+//  ③ 오른쪽에 보이는 폴더 이름을 누르면 = 접혀 있으면 펼치기만, 펼쳐져 있으면 아무것도 안 함. 접기는 폴더 아이콘(.ft-tog)·키보드 ←만(오른쪽은 그대로).
+//  펼치기는 누른 그때 바로(오른쪽 읽기를 기다리지 않음, 11/24 20:25 "불러오는 동안 계속 딜레이"). 골라짐 기억은 화면 메모리 하나(서버에 남길 상태가 아님).
+let armedSel = '';
+const ARMED = 'ft-armed';
+function paintArmed() {
+  if (typeof document === 'undefined') return;
+  const want = armedSel ? document.querySelector(armedSel)?.closest(ROW_SEL) : null;
+  document.querySelectorAll(`.${ARMED}`).forEach(r => { if (r !== want) r.classList.remove(ARMED); });
+  want?.classList.add(ARMED);
+}
+export function explorePressPlan({open = false, canOpen = true, current = false, armed = false} = {}) {
+  const expand = !!canOpen && !open;
+  if (current) return {enter: false, expand, collapse: false, arm: false};
+  if (armed || (canOpen && open)) return {enter: true, expand: false, collapse: false, arm: false};
+  return {enter: false, expand, collapse: false, arm: true};
 }
 export function ftExplorePress(main, enter) {
   if (!main || typeof enter !== 'function') return false;
   const sel = rowMainSelector(main);
-  // 누르기 전의 펼침 상태로 판단한다(enter가 다시 그리며 펼침을 바꿔도 누른 그때 기준).
   const row0 = main.closest(ROW_SEL);
-  const wasOpen = row0?.querySelector(':scope > button.ft-tog[aria-expanded]')?.getAttribute('aria-expanded') === 'true';
-  const after = () => {
-    const now = (sel && document.querySelector(sel)) || (main.isConnected ? main : null);
-    if (!now) return;
-    const row = now.closest(ROW_SEL), tog = row?.querySelector(':scope > button.ft-tog[aria-expanded]') || null;
-    const plan = explorePressPlan({open: wasOpen, canOpen: !!tog});
-    // 목표 = 누르기 전과 반대. enter가 다시 그리며 이미 그렇게 됐으면 아이콘을 누르지 않는다.
-    const isOpen = tog?.getAttribute('aria-expanded') === 'true';
-    if ((plan.expand && !isOpen) || (plan.collapse && isOpen)) pressKeepFocus(tog, now);
-    else now.focus?.({preventScroll: true});
-  };
-  // 펼치기·접기는 누른 그때 바로(오른쪽 읽기를 기다리지 않음). enter가 다시 그린 뒤 after()는 이미 그렇게 돼 있으면 다시 누르지 않는다.
   const tog0 = row0?.querySelector(':scope > button.ft-tog[aria-expanded]') || null;
-  const plan0 = explorePressPlan({open: wasOpen, canOpen: !!tog0});
-  if ((plan0.expand || plan0.collapse) && tog0) pressKeepFocus(tog0, main);
+  const current = !!(row0?.classList?.contains('ft-current') || main.getAttribute?.('aria-current') === 'true');
+  const plan = explorePressPlan({open: tog0?.getAttribute('aria-expanded') === 'true', canOpen: !!tog0, current, armed: !!sel && sel === armedSel});
+  armedSel = plan.arm ? sel : '';
+  if (plan.expand && tog0) pressKeepFocus(tog0, main); else if (!plan.enter) main.focus?.({preventScroll: true});
+  paintArmed();
+  if (!plan.enter) return true;
   const out = enter();
+  const after = () => { const now = (sel && document.querySelector(sel)) || (main.isConnected ? main : null); now?.focus?.({preventScroll: true}); };
   if (out && typeof out.then === 'function') out.then(after, () => {}); else after();
   return true;
+}
+
+// TREE-펼치기먼저 ④: 끄는 중 나무의 닫힌 폴더 위에 잠깐(0.6초) 머무르면 저절로 펼친다(탐색기 방식). 자료실(1초)·노트(0.9초)는 화면 안 원래 부품 그대로.
+//  over(key, canOpen) = 지금 끄는 손이 머무는 폴더(없으면 ''), stop() = 끌기 끝. open(key)은 그 화면 상태 주인이 펼친다.
+export const HOVER_EXPAND_MS = 600;
+export function ftHoverExpander(open, ms = HOVER_EXPAND_MS) {
+  let key = '', timer = 0;
+  const stop = () => { clearTimeout(timer); key = ''; };
+  return {
+    over(k, canOpen = true) {
+      const want = canOpen && k ? k : '';
+      if (want === key) return;
+      stop(); key = want;
+      if (want) timer = setTimeout(() => { if (key === want) { key = ''; open(want); } }, ms);
+    },
+    stop,
+  };
 }
 
 // UI-폴더펼치면위로(S61-7, 요청함 11/13 04:24): 나무·목록을 다시 그리는 앞뒤를 감싸 '그 자리'를 지키는 공용 부품 한 곳.
@@ -111,6 +133,7 @@ export function ftKeepPlace(box, paint) {
   const out = paint();
   for (const s of spots) placeAgain(box, s);
   if (sel && !at.isConnected) box.querySelector(sel)?.focus?.({preventScroll: true});
+  if (armedSel) paintArmed();
   return out;
 }
 // ③-2 ↑/↓(STD-기본동작 K4, docs/design/standard-interactions.md): role="tree" 나무 안 이름 단추에서 보이는 앞·뒤 줄의 이름 단추로 커서를 옮긴다.
