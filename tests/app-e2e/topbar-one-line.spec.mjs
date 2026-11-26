@@ -90,10 +90,12 @@ for (const width of [390, 700]) {
         expect(add.left).toBeGreaterThan((await box(page.locator('#reportViewSelect'))).right);
       }
       if (s.key === 'home') {
-        // 홈: 오른쪽 끝 [하루|주간 보고]가 같은 줄.
-        const seg = await box(page.locator('#journalRoot .journal-mode-switch'));
+        // 홈: [하루|주간 보고] · 찾기(돋보기)가 같은 줄, 돋보기가 오른쪽 끝(S71-41 HOME-머리한줄).
+        const seg = await box(page.locator('#journalRoot .journal-mode-switch')), find = await box(page.locator('#journalRoot [data-journal-find]'));
         expect(Math.abs(seg.mid - n.mid)).toBeLessThanOrEqual(4);
-        expect(seg.right).toBeGreaterThan(width - 30);
+        expect(Math.abs(find.mid - n.mid)).toBeLessThanOrEqual(4);
+        expect(seg.right).toBeLessThanOrEqual(find.left + 1);
+        expect(find.right).toBeGreaterThan(width - 30);
       }
       if (s.key === 'team' && width < 600) {
         // 조직 관리: [⋯]는 같은 줄 오른쪽(S71-35: [+ 담당조직]은 ⋯ 안 '새 담당조직').
