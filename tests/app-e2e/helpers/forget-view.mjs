@@ -8,13 +8,15 @@ export async function pickBasketView(page, view) {
   await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();
 }
 export const expectBasketView = async (page, view) => pickBasketView(page, view);
-// 처리한(목록에 없는) 업데이트 하나를 연다: 다른 화면(조직·사업 기록 줄)이 여는 것과 같은 요청 길(basket-note-tasks.js) → 정리함.
+// 처리한(목록에 없는) 업데이트 하나를 연다: 다른 화면(조직·사업 기록 줄)이 여는 것과 같은 요청 길(basket-note-tasks.js) → 다른 화면을 거쳐 정리함.
+// 요청 넣기와 화면 옮기기는 따로 부른다(한 evaluate 안에서 화면이 바뀌는 동안 기다리지 않게).
 export async function openBasketUpdate(page, id) {
-  await page.evaluate(async noteId => {
-    const {requestBasketNote} = await import('./basket-note-tasks.js');
-    requestBasketNote(noteId);
-    if (window.KPTURouter.current === 'basket') window.KPTURouter.go('home');
-    window.KPTURouter.go('basket');
-  }, id);
+  await page.waitForFunction(() => !!window.KPTURouter?.go);
+  await page.evaluate(noteId => import('./basket-note-tasks.js').then(m => { m.requestBasketNote(noteId); }), id);
+  if (await page.evaluate(() => window.KPTURouter.current === 'basket')) {
+    await page.evaluate(() => { window.KPTURouter.go('calendar'); });
+    await expect(page.locator('#basketView')).toBeHidden();
+  }
+  await page.evaluate(() => { window.KPTURouter.go('basket'); });
   await expect(page.locator('[data-basket-detail]')).toBeVisible();
 }

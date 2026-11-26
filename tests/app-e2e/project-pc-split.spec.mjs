@@ -148,8 +148,9 @@ test('PC 1280: a 🧺 record opens the update with "‹ (project)" in the head; 
  await expect(page.locator('#basketView [data-basket-return]')).toHaveCount(0);
  // …and its back stays the basket list, as before.
  for(const how of ['back','browser']){
-  if(how==='browser'){await page.locator(`[data-basket-row="${note.id}"]`).click();await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text)}
-  await goBack(page,how);await expect(page.locator('[data-basket-text]')).toBeHidden();await expect(page.locator(`[data-basket-row="${note.id}"]`)).toBeVisible();
+  if(how==='browser'){await openBasketUpdate(page,note.id);await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text)}
+  // S71-58: the linked note is handled — the list under it holds only 처리 전 rows, so it is not there.
+  await goBack(page,how);await expect(page.locator('[data-basket-text]')).toBeHidden();await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();await expect(page.locator(`[data-basket-row="${note.id}"]`)).toHaveCount(0);
   expect(await page.evaluate(()=>KPTURouter.current)).toBe('basket');
  }
  expect(errors).toEqual([]);
@@ -240,7 +241,7 @@ for(const width of [412,884,1440])test(`UI-돌아가기머리줄 ${width}: 사�
  await clickView(page,'basket');await openBasketUpdate(page,note.id);await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
  await expect(page.locator('#basketView [data-basket-detail] [data-basket-return]')).toHaveCount(0);
  await expect(page.locator('#basketView [data-basket-detail] [data-basket-close]')).toHaveText(width>=600&&width<1200?'✕':'‹ 잊지 말기');
- await page.locator('#basketView [data-basket-close]').click();await expect(page.locator(`[data-basket-row="${note.id}"]`)).toBeVisible();
+ await page.locator('#basketView [data-basket-close]').click();await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();await expect(page.locator(`[data-basket-row="${note.id}"]`)).toHaveCount(0);
  // 담당조직.
  await clickView(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();
  const modal=page.locator('#wdModal'),line=modal.locator('[data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();

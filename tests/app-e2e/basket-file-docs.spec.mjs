@@ -203,6 +203,7 @@ for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미
  // S71-58 FORGET-처리전만: the filed memo is handled — not in the 처리 전 list; its detail (opened by its address) says where the files went.
  await openBasketUpdate(page,ONLY);
  await expect(filedChip(page.locator('[data-basket-detail] [data-basket-state]'))).toHaveText('사업영역 자료: 합성 임단협 · 자료');
+ await page.locator('[data-basket-detail] [data-basket-close]').click();await expect(page.locator('[data-basket-detail]')).toBeHidden();
  // A fresh load reads the same state from the documents alone (no stored flag).
  await page.reload();await page.waitForFunction(()=>!!window.KPTURouter?.go);await page.evaluate(()=>window.KPTURouter.go('basket'));
  await expect(page.locator(`[data-basket-row="${TEXT}"]`)).toBeVisible();
