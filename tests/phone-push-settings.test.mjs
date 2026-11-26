@@ -147,6 +147,28 @@ test('FAMILY-잊지말기: 잊지 말기 종류는 기본 켬이라 저장 값�
   assert.match(sql, /@\.key == "family"/);
 });
 
+// S69-97 노트 알림: 모두에게 보이는 칩. family·signup과 같은 방식 — 기본 켬이라 저장 값에 넣지 않고, 끌 때만 kinds.note=false.
+test('S69-97: 노트 알림 종류는 기본 켬, 끌 때만 kinds.note=false, 화면은 모두에게 칩을 보인다', async () => {
+  const {NOTE_KIND} = await import('../app/phone-push-model.mjs');
+  assert.deepEqual([...NOTE_KIND], ['note', '노트 알림']);
+  const p = parsePrefs(null);
+  assert.equal(p.note, true);
+  assert.equal('note' in serializePrefs(p).kinds, false, '켬이면 칸을 만들지 않는다(DB 변경 전에도 저장 통과)');
+  const off = toggleKind(p, 'note');
+  assert.equal(off.note, false);
+  assert.equal(serializePrefs(off).kinds.note, false);
+  assert.deepEqual(Object.keys(serializePrefs(off).kinds), [...KIND_KEYS, 'note']);
+  assert.equal(parsePrefs(serializePrefs(off)).note, false);
+  assert.equal(toggleKind(off, 'note').note, true);
+  assert.equal(onCount(off), 5, '기본 다섯 종류 수는 그대로');
+  const both = toggleKind(toggleKind(p, 'family'), 'note');
+  assert.deepEqual(serializePrefs(both).kinds, {...Object.fromEntries(KIND_KEYS.map(k => [k, true])), family: false, note: false});
+  const sql = read('supabase/migrations/20261125130000_note_alarm_push_kind.sql');
+  assert.match(sql, /@\.key == "note"/);
+  const ui = read('app/phone-push-settings.js');
+  assert.match(ui, /COLLECT_KINDS\.has\(key\)\), NOTE_KIND, \.\.\.\(state\.family/, '노트 알림 칩은 기능 확인 없이 모두에게');
+});
+
 // MULTI-처음쓰는사람 ⑤: 운영자(통화·텔레그램 수집) 계정에만 보이는 종류 셋. 저장 모양(KIND_KEYS)은 그대로.
 test('운영자 알림 종류는 수집 멈춤·아침 묶음·저녁 묶음이고 모두 아는 종류다', async () => {
   const {COLLECT_KINDS} = await import('../app/phone-push-model.mjs');

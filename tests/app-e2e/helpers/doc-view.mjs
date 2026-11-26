@@ -58,7 +58,8 @@ export async function openNewsDoc(page, width) {
   await first.click({ position: { x: 60, y: 12 } });
   const detail = page.locator('#outsideRoot [data-now-detail] .nd');
   await expect(detail.locator('.ds-doc-top')).toBeVisible();
-  return { errors, prefs, detail, firstLeft: page.locator('#outsideRoot [data-nw-top] [data-nw-find]') };
+  // 왼쪽 첫 줄: 옛 찾기 줄([data-nw-top])은 S70-54 UI-검색창하나로에서 맨 위 칸으로 옮겨 없어졌다 — 왼쪽 칸(#nowMain) 위 끝이 곧 첫 줄 위 끝.
+  return { errors, prefs, detail, firstLeft: page.locator('#outsideRoot #nowMain') };
 }
 export const DOC_SCREENS = [['저장한 글 글 보기', openSavedDoc], ['읽을 거리 글 보기', openNewsDoc]];
 // S70-58 READ-두칸보기: 두 글 보기 화면의 목록 | 글 칸(공용 split-resize.js). checkSplit(helpers/split-check.mjs)에 넘길 칸·서버 이름·기본 왼쪽 몫(폭별).

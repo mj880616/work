@@ -78,6 +78,13 @@
 .ft-offtag { flex:none; margin-left:auto; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 /* LIB-받는폴더(S59-11): 개수 뒤 작은 표시 글자(받는 폴더). 연한 테두리 한 줄, 굵지 않게. */
 .ft-tag { flex:none; font-size:11px; line-height:1.5; padding:0 6px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-sm,6px); color:var(--kptu-primary-ink,var(--kptu-muted)); white-space:nowrap; }
+/* LIB-나무이름잘림(S70-59, 폴드 펼침 자료실 왼쪽 나무에서 '05. 교육'이 빈칸·'잡동사니'가 '잡'으로 보임): 칸이 좁으면 개수·표시 글자(.ft-num·.ft-tag·.ft-offtag)는
+   flex:none이라 그대로이고 이름만 0까지 줄어 사라졌다. 이름 단추(.ft-main) 안쪽 폭을 기준(container)으로, 좁으면 표시 글자 → 개수 순으로 먼저 숨겨
+   이름이 몇 글자는 보이고 '…'로 끝나게 한다. 기준 폭은 글자 크기(em = 줄 크기 단계 --ft-font) 배수라 줄 크기를 바꿔도 같은 비율이다.
+   파일·자료실(한 칸 나무·두 칸)·노트·사진 폴더 줄이 모두 이 줄을 쓴다(화면 CSS는 따로 정하지 않는다). 끌어서 칸 폭 바꾸기는 그대로. */
+.ft-main { container:ft-main / inline-size; }
+@container ft-main (max-width:14em) { .ft-tag { display:none; } }
+@container ft-main (max-width:5.5em) { .ft-num, .ft-offtag { display:none; } }
 .ft-ico { flex:none; display:inline-flex; align-items:center; justify-content:center; width:var(--ft-ico); height:var(--ft-ico); color:var(--fl-ico,var(--ds-folder-0-ico)); }
 .ft-ico svg { display:block; width:var(--ft-ico-svg); height:var(--ft-ico-svg); fill:currentColor; }
 .ft-ico.ft-ico-trash { color:var(--kptu-faint); }
