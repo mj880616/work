@@ -351,7 +351,7 @@ test('S67-37 브리핑: 본문을 못 읽으면 미리보기 글자로 만들고
     assert.equal(row.brief.partial, undefined, '본문을 읽으면 미리보기를 쓰지 않는다'); assert.equal(partialLine(row.brief), ''); }
 });
 
-test('S67-37 화면 모델: 못 만든 줄만 ⋯ [다시 만들기](같은 brief-start 길), 다시 시작하면 새 작업으로 끝까지', async () => {
+test('S67-37 화면 모델: 못 만든 줄만 줄 안 [다시 만들기](같은 brief-start 길), 다시 시작하면 새 작업으로 끝까지', async () => {
   assert.equal(RETRY_LABEL, '다시 만들기');
   assert.equal(canRetry({ status: 'failed' }), true);
   for (const status of ['queued', 'running', 'done']) assert.equal(canRetry({ status }), false, status);
@@ -365,5 +365,5 @@ test('S67-37 화면 모델: 못 만든 줄만 ⋯ [다시 만들기](같은 brie
   for (let i = 0; i < 20 && (await x.runner.run(again.row.id, x.doc)) === 'paused'; i++);
   assert.equal(x.f.rows.find(r0 => r0.id === again.row.id).status, 'done');
   const ui = readFileSync(new URL('../app/brief-room.js', import.meta.url), 'utf8');
-  assert.match(ui, /canRetry\(state\.briefs\.get\(id\)\)/); assert.match(ui, /act==='retry'\)\{void start\(id,null\)/);
+  assert.match(ui, /canRetry\(state\.briefs\.get\(row\.doc\.id\)\)\)return btn\('br-start mini',RETRY_LABEL,\{brStart:row\.doc\.id\}\)/);
 });
