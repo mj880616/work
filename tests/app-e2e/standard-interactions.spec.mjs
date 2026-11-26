@@ -1511,10 +1511,11 @@ for (const [name, opener] of FILE_PICK_SCREENS) test.describe(`${name} PC 1280 �
     expect(s.errors).toEqual([]);
   });
   // STAB-파일끌기회귀(S70-80, 명진 11/26 09:15 "이 종류 바깥부분부터 드래그해서 선택하려고하는데 이게 안돼"): 칸 너비를 줄여 종류 칸 오른쪽에 빈 자리가 생긴 표에서
-  // ① 줄의 종류 칸 오른쪽 빈 자리 ② [파일] 화면 아래 바탕(목록이 짧을 때) ③ 화면 오른쪽 바깥 여백 — 어디서 시작해도 사각형으로 고른다(자료실과 같은 규칙).
+  // ① 줄의 종류 칸 오른쪽 빈 자리 ② [파일] 목록 아래 빈 자리(목록이 짧을 때 — 칸이 창 끝까지 차서 칸 안) ③ 화면 오른쪽 바깥 여백 — 어디서 시작해도 사각형으로 고른다(자료실과 같은 규칙).
   for (const [spot, from] of [
     ['종류 칸 오른쪽 빈 자리', async (page, s) => { const last = await s.row('OD!12').boundingBox(), kind = await s.row('OD!12').locator('.fx-kind').boundingBox(); expect(last.x + last.width - (kind.x + kind.width)).toBeGreaterThan(40); return { x: kind.x + kind.width + 24, y: last.y + last.height / 2 }; }],
-    ['화면 아래 바탕', async page => { const v = await page.locator('#filesView').boundingBox(), l = await page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list]').boundingBox(); expect(v.y + v.height + 40).toBeLessThan(900); return { x: l.x + l.width * 0.6, y: v.y + v.height + 30 }; }],
+    // UI-두칸높이(S71-60): 목록 칸이 창 아래 끝까지 차므로 '화면 아래 바탕'은 칸 안 마지막 줄 아래 빈 자리다.
+    ['목록 아래 빈 자리', async page => { const l = await page.locator('#filesRoot [data-fx-pane-i="0"]').boundingBox(), last = await page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row]').last().boundingBox(), y = last.y + last.height + 40; expect(y).toBeLessThan(page.viewportSize().height - 20); return { x: l.x + l.width * 0.6, y }; }],
     ['화면 오른쪽 바깥 여백', async page => { const v = await page.locator('#filesView').boundingBox(); expect(1280 - (v.x + v.width)).toBeGreaterThan(8); return { x: Math.round(v.x + v.width + (1280 - v.x - v.width) / 2), y: v.y + Math.min(v.height - 20, 300) }; }],
   ]) test(`S4 ${name} 1280: ${spot}에서 끌어도 사각형으로 여러 줄 고르기`, async ({ page }) => {
     const s = await opener(1280)(page);
@@ -2214,4 +2215,33 @@ for (const [name, width, open] of DRAG_SCROLL_SCREENS) test.describe(`D3 ${name}
     await s.done();
     expect(s.errors).toEqual([]);
   });
+});
+
+// ---------- B1 뒤로가기 = 직전 화면(S71-76 NAV-뒤로가기직전화면) ----------
+// 2026-11-26 23:42 사용자 보고(노트 › 저장한 글에서 연 글에서 폰 뒤로가기가 읽을 거리로 감 — 직전 화면 규칙 위반):
+// 한 화면 줄이 다른 화면 항목을 열면, 뒤로가기 한 번 = 그 줄이 있던 화면·같은 목록·같은 자리(스크롤). 도착 화면 목록에 멈추지 않는다.
+// 폰 390·PC 1280 모두 history.back(폰 앱·삼성 인터넷 뒤로 키와 같은 길). 길 표는 helpers/back-prev/index.mjs 하나.
+import { BACK_PATHS, backPress } from './helpers/back-prev/index.mjs';
+test.describe('B1 뒤로가기 = 직전 화면', () => {
+test.use({ hasTouch: true });
+for (const path of BACK_PATHS) for (const width of path.widths) test(`B1 ${path.name} ${width}: 뒤로가기 한 번 = 직전 화면 그 목록 그 자리`, async ({ page }) => {
+  const s = await path.boot(page, width);
+  const row = path.row(page);
+  await row.scrollIntoViewIfNeeded();
+  await expect(row).toBeInViewport();
+  const at = await page.evaluate(() => navigation.currentEntry.index), url = page.url();
+  const y = async () => Math.round((await row.boundingBox()).y);
+  const before = await y();
+  await backPress(row, width);
+  await path.arrived(page);
+  await page.evaluate(() => history.back());
+  await expect.poll(() => page.evaluate(() => window.KPTURouter.current)).toBe(path.view);
+  await expect(path.list(page)).toBeAttached();
+  await expect(row).toBeVisible();
+  expect(await page.evaluate(() => navigation.currentEntry.index)).toBe(at);
+  expect(page.url()).toBe(url);
+  await expect.poll(y).toBe(before);
+  expect(s.writes).toEqual([]);
+  expect(s.errors).toEqual([]);
+});
 });
