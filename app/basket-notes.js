@@ -50,7 +50,7 @@ import { createNoteTrash, NOTE_TRASH, isTrashAt } from './note-trash.js';
 import { ghostText, ghostCountText } from './drag-ghost.js';
 // NOTE-노트에서도밑줄(S62-17): 노트 읽기 본문에서도 글을 골라 [밑줄 저장](News·텔레그램 원문과 같은 고른 글 줄·밑줄 부품·같은 서버 표 app_news_highlights, 종류 note).
 import { bindSelectZone } from './text-select-bar.js';
-import { paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, revealMark, highlightById } from './text-highlights.js';
+import { paintMarks, bindMarks, sourceMarks, loadHighlights, onHighlights, saveFromSelection, revealMark, highlightById, markActions } from './text-highlights.js';
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
@@ -78,6 +78,7 @@ import { attachmentName } from './attachment-name.mjs';
 import { markRenameHost, openRenameEditor, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기 · FILE-이름고치기연필먹통: ✎ 대신 ⋯ 안 [이름 수정]
 import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
+import { holdMenu } from './menu-dismiss.js'; // STD-메뉴바깥닫기(S70-78): 바깥 누름·Esc·뒤로가기·스크롤·한 번에 하나
 import { bindRowSwipe, claimedSince, PICK, EDIT, DELETE } from './row-swipe.js';
 import { notePreview, noteCopyPayload } from './note-preview.mjs';
 // NOTE-보기3가지(요청함 10/29 15:05): [폴더|목록|보드](S68-38 옛 이름 포스트잇) 보기. 고른 보기는 서버(view_prefs.note_view, 값 'board' 그대로), 카드 자리는 노트 metadata.boards[보드 id](S69-83: 옛 [전체]의 metadata.board는 읽지 않음).
@@ -244,13 +245,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!selected || editing) return;
     const z = detail.querySelector('[data-basket-read-text]');
     if (!z || z.hidden || z.classList.contains('basket-read-empty')) return;
-    paintMarks(z, sourceHighlights('note', selected.id));
+    paintMarks(z, sourceMarks('note', selected.id)); // S70-80: 밑줄 + 형광펜
     if (!hlReveal || !highlightById(hlReveal)) return;
     if (!revealMark(z, hlReveal)) notify('원문이 바뀌었어요 · 밑줄은 노트 › 밑줄에 그대로 있어요', {record:false});
     hlReveal = null;
   }
   const hlSourceNow = () => (selected ? {type:'note', id:selected.id, title:selected.title || '제목 없음', media:'노트', date:selected.updated_at || selected.created_at || null, url:''} : null);
-  bindSelectZone(detail, {zone:'[data-basket-read-text]', source:hlSourceNow, onSave:saveFromSelection});
+  bindSelectZone(detail, {zone:'[data-basket-read-text]', source:hlSourceNow, onSave:saveFromSelection, marks:markActions}); // S70-80: 형광펜 켬
   bindMarks(detail);
   onHighlights(() => noteMarksNow());
   // NOTE-목록에파일놓기(S61-16 ①): PC 파일을 오른쪽 목록(노트 줄 위·빈 자리·포스트잇 보기)에 놓으면 그 파일을 붙인 새 노트 창(⤢와 같은 창).
@@ -1037,7 +1038,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   function closeMenu({focus = false} = {}) {
     if (!menu) return null;
-    const closed = menu, el = menuEl(); menu = null; closed.stop();
+    const closed = menu, el = menuEl(); menu = null; closed.stop(); closed.released = closed.release?.() || null; // 뒤로가기 겹 닫힘 약속(항목은 그 뒤 실행)
     // The items stay in the (hidden) menu until the next open: basket.js's own click handler runs after this one and must still see the pressed button inside this host.
     el.hidden = true; clearAnchored(el);
     closed.trigger.setAttribute('aria-expanded', 'false');
@@ -1059,6 +1060,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: window.innerHeight});
     place();
     menu = {noteId: note?.id ?? null, from, fileId, folderId, trigger, stop: followAnchor(el, trigger, {place, lost: () => closeMenu()})};
+    // 보드 빈 곳 우클릭 메뉴(from 'board')는 판(box) 자체가 주인 — 판 안 누름도 바깥이다(닫기만, 새 상자·고르기 없음).
+    menu.release = holdMenu(el, {close: reason => closeMenu({focus: reason === 'esc'}), keep: t => from !== 'board' && !!t && trigger.contains(t), back: 'note-doc-menu'});
     trigger.setAttribute('aria-expanded', 'true');
     el.querySelector('button')?.focus({preventScroll: true});
   }
@@ -2259,8 +2262,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
         return;
       }
       const picked = colorFromButton(b);
-      if (picked !== undefined) { const from = closeMenu({focus:true}); if (from?.folderId && !busy) void applyFolderColor(from.folderId, picked); return; }
-      const from = closeMenu({focus:true}); if (from && !busy) menuAction(b, from); return;
+      // 메뉴 겹의 뒤로가기가 도착한 뒤 항목을 실행한다(항목이 연 확인창·창이 그 뒤로가기에 닫히지 않게).
+      if (picked !== undefined) { const from = closeMenu({focus:true}); if (from?.folderId) void Promise.resolve(from.released).then(() => { if (!busy) void applyFolderColor(from.folderId, picked); }); return; }
+      const from = closeMenu({focus:true}); if (from) void Promise.resolve(from.released).then(() => { if (!busy) menuAction(b, from); }); return;
     }
     if (b.hasAttribute('data-note-more')) { if (!busy && selected && !editing) openMenu(b, selected, 'detail'); return; }
     if (b.hasAttribute('data-note-file-more')) { if (!busy && selected) openMenu(b, selected, 'file', b.dataset.noteFileMore); return; }
@@ -2488,8 +2492,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   bindEdgeBack(host.closest('.view-panel') || host, {enabled:() => !wideList.matches && at !== null && !selected && !pick.active && !busy, onBack:() => up()});
   // Leaving the menu by keyboard, or pressing anywhere outside it and its ⋯, closes it.
   host.addEventListener('focusout', e => { const el = menuEl(); if (menu && e.relatedTarget && !el.contains(e.relatedTarget) && e.relatedTarget !== menu.trigger) closeMenu(); });
-  // composedPath: [색 고르기…]가 메뉴 안 내용을 바꾸면 눌린 단추는 이미 떼어져 있어도 "메뉴 안에서 누름"으로 본다.
-  document.addEventListener('click', e => { if (menu && !e.composedPath().includes(menuEl()) && !menu.trigger.contains(e.target)) closeMenu(); });
 
   return {
     // openId: a note just moved here from the basket opens once the list is read.
