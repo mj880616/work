@@ -83,3 +83,40 @@ test('공용 칸을 쓰는 파일은 모두 auto-grow.js 를 불러온다', asyn
     if (/\b(fitHeight|fitAll|lineField)\(/.test(src)) assert.match(src, /from '\.\/auto-grow\.js'/, f);
   }
 });
+
+// UI-입력칸자동높이(STD-INPUT-01, 사용자 결정 2026-11-26): 앱의 여러 줄 입력칸은 모두 공용 늘어나는 칸이다 — 화면마다 따로 늘리지 않는다.
+// 빠지는 칸은 이유와 함께 아래 표에만 둔다.
+const OWN_HEIGHT = new Map([
+  ['home-quick.js', '홈 빠른 입력: 같은 공용 셈(fitHeight)을 5줄 상한으로 직접 부른다'],
+  ['copy-text.js', '복사용 숨은 칸(화면에 보이지 않음)'],
+  ['note-board.js', '보드 메모 칸: 메모 상자 크기를 그대로 따른다(보드 자리·크기는 그 화면 몫)'],
+  ['enter-save.js', '설명 주석 속 낱말'],
+  ['auto-grow.js', '공용 칸 자신'],
+]);
+test('앱의 여러 줄 입력칸(textarea)은 모두 공용 늘어나는 칸(data-autogrow)', async () => {
+  const {readdirSync} = await import('node:fs');
+  const misses = [];
+  for (const f of readdirSync(new URL('../app/', import.meta.url))) {
+    if (!/\.(js|mjs|html)$/.test(f) || OWN_HEIGHT.has(f)) continue;
+    const src = read(`app/${f}`);
+    for (const m of src.matchAll(/<textarea\b[^>]*>/g)) if (!/data-autogrow/.test(m[0])) misses.push(`${f}: ${m[0].slice(0, 80)}`);
+    // 마디로 만든 칸: 같은 파일에서 공용 칸 표시를 붙인다.
+    if (/(createElement|\bel)\(['"]textarea['"]/.test(src) && !/dataset\.autogrow\s*=|lineField\(/.test(src)) misses.push(`${f}: 마디로 만든 textarea`);
+  }
+  assert.deepEqual(misses, []);
+  // 화면마다 따로 늘리는 셈(scrollHeight 를 높이에 넣기)은 공용 칸 밖에 두지 않는다.
+  for (const f of readdirSync(new URL('../app/', import.meta.url))) {
+    if (!f.endsWith('.js') || f === 'auto-grow.js') continue;
+    assert.doesNotMatch(read(`app/${f}`), /style\.height\s*=\s*`\$\{[^}]*scrollHeight/, f);
+  }
+});
+
+test('홈 오늘 한 일·고치기 칸: 공용 칸 + 줄바꿈은 화면이 거절(바꾸지 않음), 칸이 늘면 쓰는 줄을 자판 위로', () => {
+  const journal = read('app/journal.js');
+  assert.match(journal, /<textarea id="journalLineInput" rows="2" data-journal-input data-autogrow data-keep-breaks data-enter-field="single"/);
+  assert.match(journal, /<textarea rows="2" data-journal-edit-input data-autogrow data-keep-breaks data-enter-field="single"/);
+  assert.match(read('app/auto-grow.js'), /hasAttribute\('data-keep-breaks'\)/);
+  assert.match(read('app/accessibility-dialog.js'), /addEventListener\('kptu:autogrow'/);
+  // 어느 화면을 먼저 열어도 공용 칸이 깔린다.
+  assert.match(read('app/loader-v2.js'), /import\('\.\/auto-grow\.js'\)/);
+});

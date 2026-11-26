@@ -47,7 +47,7 @@ export function openFeedback(trigger){
   }
   const modal=openFormModal({id:'feedbackModal',title:'의견 보내기',okLabel:'보내기',trigger,className:'fb-modal',foot:'운영팀만 봐요',
     fill(body){
-      area=el('textarea');area.setAttribute('aria-label','의견');area.placeholder='불편한 점·바라는 점을 적어 주세요';area.maxLength=2000;
+      area=el('textarea');area.dataset.autogrow='';area.setAttribute('aria-label','의견');area.placeholder='불편한 점·바라는 점을 적어 주세요';area.maxLength=2000;
       const drop=el('div','fb-drop');
       thumbs=el('div','fb-thumbs');
       pick=el('label','fb-pick mini');const input=el('input');input.type='file';input.accept='image/*';input.multiple=true;input.hidden=true;
