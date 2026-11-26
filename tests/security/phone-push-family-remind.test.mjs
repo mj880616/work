@@ -40,6 +40,7 @@ function harness({now, note = {id: NOTE_ID, doc: DOC, updated_at: '2026-11-10T01
     if (table === 'app_push_log' && method === 'DELETE') return reply(200, []);
     if (table === 'app_push_devices' && method === 'GET') return reply(200, [{id: 'c0000000-0000-4000-8000-0000000000a1', workspace_id: WS, fcm_token: 'devTokenAAAA_bbbb:cccc-000111'}]);
     if (table === H.FAMILY_TABLE) return reply(200, []); // 잊지 말기 새 제안(이 시험에서는 없음)
+    if (table === 'app_notes' && method === 'GET' && q.get('select') === 'id,workspace_id,alarm:metadata->alarm') return reply(200, []); // S69-97 노트 알림(이 시험에서는 없음)
     if (table === 'app_notes' && method === 'GET') {
       assert.equal(q.get('select'), 'id,doc,updated_at,metadata');
       assert.equal(q.get('metadata->>family_list'), 'eq.true');
@@ -124,7 +125,7 @@ test('월요일 08시 전·다른 요일·다른 예약이면 노트를 읽지�
     const h = harness({now});
     await h.cron(slot);
     assert.equal(h.state.fcm.length, 0, `${now} ${slot}`);
-    assert.ok(h.state.rest.every(c => c.table !== 'app_notes'), `${now} ${slot}`);
+    assert.ok(h.state.rest.every(c => c.table !== 'app_notes' || c.q.select === 'id,workspace_id,alarm:metadata->alarm'), `${now} ${slot}`); // 노트 알림 읽기(칸 셋)만
   }
 });
 
