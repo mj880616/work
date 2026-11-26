@@ -59,13 +59,13 @@ for (const width of [412, 884, 1440]) {
       await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree');
       await expect(roots(page)).toHaveCount(2);
     } else {
-      // S51-25 FOLDER-PC나무: PC·폴드 나무는 저장소마다 상자(머리 = 상자째 접기), 세모(▸▾) 없음 — 폴더 아이콘이 펼치기·접기 단추.
+      // S51-25 FOLDER-PC나무: PC·폴드 나무는 저장소마다 상자(머리 = 상자째 접기), 세모(▸▾) 없음 — 폴더 아이콘 왼쪽 작은 꺾쇠가 펼치기·접기 단추(T10).
       await expect(tree(page).locator('[data-fx-box-tog="od"]')).toHaveAttribute('aria-expanded', 'true');
       await expect(tree(page).locator('[data-fx-box-tog="gd"]')).toHaveAttribute('aria-expanded', 'true');
       await expect(tree(page)).not.toContainText(/[▸▾]/);
       // 펼치기 2단계: 원드라이브 → 가짜 문서함(아이콘) → 가짜 2026. 두 번째 드라이브도 같은 화면에 있다.
       await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!1"]')).toBeVisible();
-      await expect(twist(page, 'od:OD!1').locator('[data-ft-shape="closed"], svg')).not.toHaveCount(0);
+      await expect(twist(page, 'od:OD!1').locator('.kptu-chev')).toHaveCount(1);
       await twist(page, 'od:OD!1').click();
       await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!10"]')).toBeVisible();
       await expect(twist(page, 'od:OD!1')).toHaveAttribute('aria-expanded', 'true');
@@ -91,14 +91,14 @@ for (const width of [412, 884, 1440]) {
       expect((await twist(page, 'od:OD!1').boundingBox()).width).toBeGreaterThanOrEqual(24);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/files-tree-${width}.png` }); }
-      // S69-38 UI-탐색기나무누르기: 폴더 그림 = 그 자리에서 접힘·펼침(오른쪽 그대로), 이름 누르기 = 그 폴더 열기 + 펼침(우클릭·⋯ [이 폴더로 들어가기]와 같은 곳).
+      // TREE-탐색기꺾쇠(T10): 꺾쇠 = 그 자리에서 접힘·펼침(오른쪽 그대로), 이름 누르기 = 오른쪽에 그 폴더(나무 펼침 그대로 — 우클릭·⋯ [이 폴더로 들어가기]와 같은 곳).
       const nameBtn = tree(page).locator('[data-fx-go="od"][data-fx-id="OD!1"]');
       await twist(page, 'od:OD!1').click();
       await expect(twist(page, 'od:OD!1')).toHaveAttribute('aria-expanded', 'false');
       await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!1"]')).toBeVisible();
       await nameBtn.click();
-      await expect(twist(page, 'od:OD!1')).toHaveAttribute('aria-expanded', 'true');
       await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
+      await expect(twist(page, 'od:OD!1')).toHaveAttribute('aria-expanded', 'false');
     }
 
     // 구글 드라이브 끄기: 아이콘이 꺼짐으로, 나무·[별표]에서 구글 드라이브가 빠지고, 서버에 저장.

@@ -2258,7 +2258,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (splitOpen() && !close({focus:false})) return;
     const from = at;
     at = id === OUTSIDE || isPaneAt(id) ? id : id && folderById(id) ? id : null;
-    for (const f of at && at !== OUTSIDE ? folderPath(folders, at) : []) openSet.add(f.id);
+    // TREE-탐색기꺾쇠(T10): 넓은 화면 나무는 들어간 폴더의 위 폴더들만 펼친다(들어간 폴더 자신은 꺾쇠·두 번 누르기·→로). 폰은 그대로.
+    for (const f of at && at !== OUTSIDE ? folderPath(folders, at) : []) if (!(wideList.matches && f.id === at)) openSet.add(f.id);
     renderList();
     // NAV-새로고침제자리: the folder entered is written to the address (?folder=, no entry of its own) after the list is drawn, so on a
     // phone it lands on the folder screen's own layer entry and Back to the folder list leaves it out. A reload enters it again.

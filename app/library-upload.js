@@ -1192,7 +1192,8 @@ function luRenderFolderNav(tree){
   if(!on){if(nav)nav.remove();delete card.dataset.luSplit;size();return}
   if(!nav){nav=document.createElement('nav');nav.id='libraryFolderNav';nav.className='lu-fnav';nav.setAttribute('aria-label','자료실 폴더');card.prepend(nav)}
   card.dataset.luSplit='1';
-  const path=luNavPath(),rows=[];
+  // TREE-탐색기꺾쇠(T10): 들어간 폴더의 위 폴더들만 저절로 펼친다. 들어간 폴더 자신은 꺾쇠·두 번 누르기·→로만 펼친다(탐색기처럼).
+  const path=luNavPath(),rows=[];path.delete(luInFolder);
   const walk=(list,depth)=>{for(const n of list||[]){if(n.kind!=='folder')continue;const kids=(n.children||[]).filter(c=>c.kind==='folder'),open=kids.length>0&&!luNavShut.has(n.id)&&(path.has(n.id)||luNavOpen.has(n.id));
     const cnt=folderCountOf(n);rows.push(ftFolderRowHtml({name:n.label,count:cnt.text,countLabel:cnt.label,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,tag:n.rc?RECEIVE_MARK:'',mainAttrs:luCanDrag()?{'data-lu-nav':n.id,draggable:'true'}:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`},more:{attrs:{'data-lu-nav-more':n.id},label:`${n.label} 폴더 메뉴`}}));
     if(open)walk(kids,depth+1)}};
@@ -1244,8 +1245,9 @@ function luEnterFolder(id,{picked=true}={}){
   const from=luInFolder;
   // FILES-폰폴더위로 ⑤: 지금 폴더의 하위 폴더로 들어가면 한 단계 내려옴(길에 더함), 위 단계면 길을 거기까지.
   luWalk=walkTo(luWalk,id||'',{down:!!luInFolder&&!!id&&luFolders_.find(f=>f.id===id)?.parent_id===luInFolder});
-  // S69-28 LIB-한칸탐색기: 들어간 폴더와 그 위 폴더들은 왼쪽 나무에서 펼쳐 보이고, 나와도 펼친 채 남는다(탐색기처럼, 화면 메모리만).
-  luOutOnly=false;luInFolder=id||null;if(luInFolder){luOpened.add('f:'+luInFolder);for(const x of luNavPath()){luNavShut.delete(x);luNavOpen.add(x)}}luRenderLibrary();
+  // S69-28 LIB-한칸탐색기: 들어간 폴더의 위 폴더들은 왼쪽 나무에서 펼쳐 보이고, 나와도 펼친 채 남는다(탐색기처럼, 화면 메모리만).
+  // TREE-탐색기꺾쇠(T10): 들어간 폴더 자신은 펼치지 않는다(펼치기는 꺾쇠·두 번 누르기·→).
+  luOutOnly=false;luInFolder=id||null;if(luInFolder){luOpened.add('f:'+luInFolder);for(const x of luNavPath()){if(x===luInFolder)continue;luNavShut.delete(x);luNavOpen.add(x)}}luRenderLibrary();
   if(picked&&!luPhone()&&from!==luInFolder)window.KPTURouter?.pick?.record?.('library',luInFolder?{folder:luInFolder}:{},{fromNone:from===null});
   const list=document.querySelector('#documentList');list?.scrollIntoView?.({block:'nearest'});
   const head=luInFolder?[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode==='f:'+luInFolder):null;

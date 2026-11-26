@@ -3,7 +3,7 @@
 // 모양 규칙은 folder-tree.css의 'ft-' 묶음 한 곳이다.
 //  ① 둥근 상자(ftBoxHtml): '최근' 상자, 저장소마다 상자. 머리를 누르면 접기(접는 상자만).
 //  ② 줄(ftFolderRowHtml): 넉넉한 높이, 맨 위 단계만 구분선·굵은 이름, 하위는 선 없이 들여쓰기(--ft-depth), 이름 + 회색 개수, 오른쪽 ⋯.
-//  ③ 펼침 상태는 폴더 아이콘 열린/닫힌 모양(ftIconHtml). 작은 세모·꺽쇠 없음. 안에 아무것도 없는 폴더는 처음부터 닫힌 모양.
+//  ③ 펼침 상태는 폴더 아이콘 열린/닫힌 모양(ftIconHtml). 작은 세모 없음. 넓은 화면 탐색기 나무(toggle)만 아이콘 왼쪽 작은 회색 꺾쇠(T10). 안에 아무것도 없는 폴더는 처음부터 닫힌 모양.
 //     파일이 많으면 처음 FT_PREVIEW개 + 'n개 더 보기'(ftMoreRowHtml).
 //  ⑤ 휴지통은 상자 맨 아래 회색 줄(ftTrashRowHtml). ⑥ 색을 정한 폴더는 아이콘 색(data-fc, folder-look.css). ⑦ 꺼 둔 폴더는 흐리게 + '끔'.
 //  ⑨ 점(●)은 없다(종류 점·색 점을 그리지 않는다).
@@ -44,9 +44,9 @@ export function ftMoreButtonHtml({attrs = {}, label = '메뉴', className = ''} 
 //  color(1~8)·off(꺼 둔 폴더: 흐리게 + '끔')·current(지금 고른 폴더)·picked(선택 모드에서 고름)·lead(앞에 붙일 HTML, 선택 칸 등)
 //  rowAttrs: 줄 div의 속성, mainAttrs: 줄을 누르는 단추의 속성(펼치기·접기 data 이름), mainClass: 그 단추에 더할 class, more: ftMoreButtonHtml 인자(없으면 ⋯ 없음)
 //  tree: PC 왼쪽 나무처럼 role=tree 안에 있을 때(treeitem·aria-expanded).
-//  toggle(S51-25 FOLDER-PC나무): PC 나무처럼 '줄 누르기 = 그 폴더 열기 + 펼침, 아이콘만 누르기 = 접기·펼치기만'인 화면.
-//    {attrs: 아이콘 단추 data 이름과 값, label: 읽기 프로그램 이름}. 주면 폴더 아이콘이 줄 앞 따로인 단추가 되고(세모 없음),
-//    펼칠 것이 없는 폴더(hasContent false)는 단추 없이 닫힌 아이콘만 같은 자리에 둔다.
+//  toggle(S51-25 FOLDER-PC나무 → TREE-탐색기꺾쇠 S70-81b, T10): 넓은 화면 탐색기 나무('이름 = 오른쪽에 그 폴더, 꺾쇠 = 펼치기·접기만').
+//    {attrs: 꺾쇠 단추 data 이름과 값, label: 읽기 프로그램 이름}. 주면 폴더 아이콘 왼쪽에 작은 꺾쇠 단추(.ft-tog)가 붙고,
+//    펼칠 것이 없는 폴더(hasContent false)는 꺾쇠 없이 같은 폭 빈 자리만 둔다.
 //  tag(LIB-받는폴더 S59-11): 개수 뒤 작은 표시 글자(예: '받는 폴더'). 없으면 아무것도 붙지 않는다.
 //  top(S69-90): 맨 위 단계 모양(구분선·굵은 이름)을 depth와 따로 정할 때(사진 PC 나무는 맨 위 줄 아래 한 단계까지 굵게). 없으면 depth === 0.
 //  nameTail(S69-90): 이름 뒤 같은 칸에 붙일 작은 글자 HTML(사진 ' · 자리'·'백업 안 됨'). 부르는 쪽이 이미 이스케이프한 HTML만 넘긴다.
@@ -60,11 +60,13 @@ export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0,
   const num = count === null || count === undefined || count === '' ? '' : `<span class="ft-num"${countLabel ? ` aria-label="${esc(countLabel)}"` : ''}>${esc(count)}</span>`;
   const expand = tree || hasContent ? ` aria-expanded="${shown}"` : '';
   const ico = icon ?? ftIconHtml({color, open: shown});
+  // TREE-탐색기꺾쇠(S70-81b, T10): 펼치기·접기 단추는 폴더 아이콘 왼쪽 작은 회색 꺾쇠(접힘 › / 펼침 ⌄). 하위가 없으면 같은 폭 빈 자리(꺾쇠 없음).
+  //  폴더 아이콘은 이름 단추 안(아이콘·이름 누르기 = 오른쪽에 그 폴더).
   const tog = !toggle ? '' : hasContent
-    ? `<button type="button" class="ft-btn ft-tog"${attrsHtml(toggle.attrs)} aria-expanded="${shown}" aria-label="${esc(toggle.label || `${name} ${shown ? '접기' : '펼치기'}`)}">${ico}</button>`
-    : `<span class="ft-tog ft-tog-none">${ico}</span>`;
+    ? `<button type="button" class="ft-btn ft-tog"${attrsHtml(toggle.attrs)} aria-expanded="${shown}" aria-label="${esc(toggle.label || `${name} ${shown ? '접기' : '펼치기'}`)}">${chevHtml(false, 'ft-chev')}</button>`
+    : '<span class="ft-tog ft-tog-none" aria-hidden="true"></span>';
   return `<div class="${cls}"${attrsHtml(rowAttrs)} style="--ft-depth:${ftDepth(depth)}"${tree ? ' role="treeitem"' : ''}>${tog}`
-    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name" title="${esc(name)}">${esc(name)}${nameTail}</span>${num}${tag ? `<span class="ft-tag">${esc(tag)}</span>` : ''}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
+    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${ico}<span class="ft-name" title="${esc(name)}">${esc(name)}${nameTail}</span>${num}${tag ? `<span class="ft-tag">${esc(tag)}</span>` : ''}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
     + `${after}${more ? ftMoreButtonHtml(more) : ''}</div>`;
 }
 

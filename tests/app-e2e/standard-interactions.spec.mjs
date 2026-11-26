@@ -1576,3 +1576,204 @@ for (const [name, open] of CONFIRM_DRAG_SCREENS) test(`D7 ${name} PC 1280: 확�
   expect(s.writes()).toBe(0);
   expect(s.errors).toEqual([]);
 });
+
+// ---------- T10 TREE-탐색기꺾쇠(S70-81b, 명진 2026-11-26 09:25 최종 결정) ----------
+// 넓은 화면 왼쪽 폴더 나무 = 윈도 탐색기: 폴더 아이콘 왼쪽 작은 회색 꺾쇠(접힘 › / 펼침 ⌄, 하위 없으면 없음) 누르기 = 펼치기·접기만(오른쪽 그대로),
+// 폴더 이름 한 번 = 오른쪽에 그 폴더 내용(나무 펼침 그대로), 이름 두 번 누르기 = 펼치기/접기 + 내용, 끄는 중 접힌 폴더 위에 ~1초 머무르면 펼침,
+// 키보드 → 펼치기 · ← 접기 · ↑↓ 줄 옮기기 · Enter = 오른쪽에 그 폴더. 공용 부품 folder-tree-press.mjs ftExplorePress·ftHoverExpander + folder-tree-ui.mjs 꺾쇠.
+// 화면 표 T10_SCREENS: 각 화면은 {A: 처음 들어갈 폴더, B: 하위 폴더가 있는 닫힌 폴더, C: B 안 하위 폴더, L: 하위 없는 폴더}와
+// row(key) = 나무 줄, right(key) = '오른쪽에 그 폴더가 보인다' 확인을 돌려준다. 이름·id는 모두 지어낸 것. 서버 쓰기 없음.
+const fxNames = page => page.locator('#filesRoot [data-fx-pane-i="0"] [data-fx-list] [data-fx-row]').locator(':is(.fx-name, .ft-name)').allTextContents();
+async function t10Files(page, width, two) {
+  const { errors, server } = await startFiles(page, width);
+  const it = o => ({ parent_id: null, is_folder: false, mime: null, size_bytes: 1000, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null, ...o });
+  const dir = (source, item_id, name, parent_id = null) => it({ source, item_id, name, parent_id, is_folder: true, size_bytes: null });
+  server.items.push(
+    dir('gd', 'gdVoice', '가상 녹음 백업'), dir('gd', 'gdRaw', '가상 원본', 'gdVoice'),
+    dir('od', 'OD!D', '가상 문서'), dir('od', 'OD!PS', '가상 스크립트', 'OD!D'), dir('od', 'OD!PSM', '가상 모듈', 'OD!PS'),
+    it({ source: 'od', item_id: 'OD!DF', parent_id: 'OD!D', name: '가상 목록.txt', mime: 'text/plain' }),
+  );
+  await openFiles(page, width);
+  const fx = page.locator('#filesRoot');
+  if (two) {
+    await fx.locator('[data-fx-view-seg] [data-fx-two]').click();
+    await expect(fx.locator('[data-fx-pane-i="1"]')).toHaveCount(1);
+    if (await fx.locator('[data-fx-tree]').isHidden()) await fx.locator('[data-fx-tree-tog]').click();
+    await expect(fx.locator('[data-fx-tree]')).toBeVisible();
+  }
+  const want = { 'gd:gdVoice': ['가상 원본'], 'od:OD!D': ['가상 스크립트', '가상 목록.txt'], 'od:OD!PS': ['가상 모듈'] };
+  return {
+    errors, A: 'gd:gdVoice', B: 'od:OD!D', C: 'od:OD!PS',
+    row: k => fx.locator(`[data-fx-tree] .ft-row[data-fx-fold="${k}"]`),
+    right: k => expect.poll(() => fxNames(page)).toEqual(want[k]),
+    drag: { from: fx.locator('[data-fx-pane-i="0"] [data-fx-list] [data-fx-row]').first() },
+  };
+}
+async function t10Library(page, width) {
+  const folders = [
+    libFolder('s05', null, { name: '가상 교육', sort_order: 1 }),
+    libFolder('s06', null, { name: '가상 선전', sort_order: 2 }),
+    libFolder('s06b', null, { name: '가상 카드', parent_id: 's06', sort_order: 1 }),
+  ];
+  const docs = [libDoc('dA', null), libDoc('dB', null), libDoc('dC', null)];
+  const items = [{ document_id: 'dA', folder_id: 's06' }, { document_id: 'dB', folder_id: 's06b' }, { document_id: 'dC', folder_id: 's05' }];
+  const r = await bootLibrary(page, width, { folders, items, docs, init: { viewPrefs: { library_two: false } } });
+  await page.locator('#libraryGroupBy').selectOption({ label: '폴더' });
+  const doc = id => page.locator(`#documentList [data-lu-document="${id}"]`);
+  const show = { s05: 'dC', s06: 'dA', s06b: 'dB' };
+  return {
+    errors: r.errors, A: 's05', B: 's06', C: 's06b',
+    row: k => page.locator(`#libraryFolderNav .ft-row:has(> [data-lu-nav="${k}"])`),
+    // 위 폴더(s06)를 볼 때 하위 폴더(s06b) 안 자료는 따지지 않는다(하위 폴더 줄로 보일 수 있음).
+    right: async k => { await expect(doc(show[k])).toBeVisible(); for (const [f, d] of Object.entries(show)) if (f !== k && !(k === 's06' && f === 's06b')) await expect(doc(d)).toHaveCount(0); },
+    drag: { from: doc('dC') },
+  };
+}
+async function t10Notes(page, width) {
+  await page.setViewportSize({ width, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page);
+  await installViewPrefsServer(page);
+  const row = (id, title, updated_at, folder) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + ' 본문', occurred_at: updated_at, created_at: updated_at, updated_at, archived_at: null, ai_export_allowed: true, attachments: [], metadata: { folder_id: folder } });
+  const rows = [row('n1', '가상 상위 노트', '2026-10-16T01:00:00Z', U(1)), row('n2', '가상 하위 노트', '2026-10-12T01:00:00Z', U(2)), row('n3', '가상 다른 노트', '2026-10-10T01:00:00Z', U(3))];
+  const folders = [
+    { id: U(1), workspace_id: 'w', parent_id: null, name: '가상 회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' },
+    { id: U(2), workspace_id: 'w', parent_id: U(1), name: '가상 11월', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' },
+    { id: U(3), workspace_id: 'w', parent_id: null, name: '가상 기획', sort_order: 2048, created_at: '2026-10-01T00:00:00Z' },
+  ];
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: rows.map(x => structuredClone(x)) }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.request().method() === 'GET' ? r.fulfill({ json: structuredClone(folders) }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
+  await page.evaluate(() => window.KPTURouter.go('basket'));
+  await chooseBasketKind(page, 'note');
+  await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3');
+  const right = page.locator('#noteRows');
+  const show = { [U(1)]: 'n1', [U(2)]: 'n2', [U(3)]: 'n3' };
+  return {
+    errors, A: U(3), B: U(1), C: U(2),
+    row: k => page.locator(`[data-nx-tree] .ft-row[data-nx-folder="${k}"]`),
+    right: async k => { await expect(right.locator(`[data-note-row="${show[k]}"]`)).toBeVisible(); for (const [f, n] of Object.entries(show)) if (f !== k && !(k === U(1) && f === U(2))) await expect(right.locator(`[data-note-row="${n}"]`)).toHaveCount(0); },
+  };
+}
+async function t10Photos(page, width) {
+  const folders = [{ id: 'S1', name: '가상 여행', parent_id: 'T' }, { id: 'S2', name: '가상 가족', parent_id: 'T' }, { id: 'S21', name: '가상 생일', parent_id: 'S2' }, { id: 'S211', name: '가상 케이크', parent_id: 'S21' }];
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.setViewportSize({ width, height: 900 });
+  await openHome(page);
+  await installViewPrefsServer(page);
+  await page.route(u => u.origin === SB && ['/rest/v1/app_diary_stars', '/rest/v1/app_photo_tags', '/rest/v1/app_photo_tag_items'].includes(u.pathname), r => r.fulfill({ json: [] }));
+  await page.route(u => u.origin === SB && u.pathname === '/functions/v1/onedrive-photos', async r => {
+    const body = r.request().postDataJSON();
+    if (body.action === 'photo') return r.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+    if (body.action === 'status') return r.fulfill({ json: { configured: true, connected: true, folder: { name: '가상 카메라' }, can_delete: true } });
+    if (body.action === 'sync') return r.fulfill({ json: { more: false, indexing: false } });
+    if (body.action === 'months') return r.fulfill({ json: { months: {}, total: 0 } });
+    if (body.action === 'library') return r.fulfill({ json: { items: [], next_cursor: null, indexing: false } });
+    if (body.action === 'folders-tree') return r.fulfill({ json: { top: { id: 'T', name: '가상 카메라', count: 0, total: 0 }, folders: folders.map(f => ({ ...f, enabled: true, count: 0, total: 0 })), indexing: false } });
+    return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
+  });
+  await clickView(page, 'photos');
+  await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+  const pane = page.locator('#photosRoot .photos-fx-pane');
+  const kid = { S1: '', S2: 'S21', S21: 'S211' };
+  return {
+    errors, A: 'S1', B: 'S2', C: 'S21',
+    row: k => page.locator(`#photosRoot [data-photos-fx-tree] .ft-row[data-photos-folder="${k}"]`),
+    right: async k => { for (const [f, c] of Object.entries(kid)) if (c) await expect(pane.locator(`[data-photos-fx-open="${c}"]`)).toHaveCount(f === k ? 1 : 0); },
+  };
+}
+const T10_SCREENS = [
+  ['파일 한 칸', (page, w) => t10Files(page, w, false)],
+  ['파일 두 칸', (page, w) => t10Files(page, w, true)],
+  ['자료실', t10Library],
+  ['노트', t10Notes],
+  ['사진', t10Photos],
+];
+const t10Name = row => row.locator(':scope > .ft-main');
+const t10Tog = row => row.locator(':scope > button.ft-tog');
+const t10Shown = async (s, k) => { await expect(s.row(k)).toHaveClass(/ft-current/); await s.right(k); };
+for (const [name, open] of T10_SCREENS) test(`T10 ${name} PC 1280: 꺾쇠 = 펼치기·접기만(오른쪽 그대로), 이름 한 번 = 오른쪽 그 폴더, 두 번 = 펼치기/접기 + 그 폴더, 키보드 → ← ↓ Enter`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page, 1280);
+  const A = s.row(s.A), B = s.row(s.B), C = s.row(s.C);
+  await expect(B).toBeVisible();
+  // ① 꺾쇠 모양: 하위가 있는 B는 폴더 아이콘 왼쪽 작은 꺾쇠 단추, 닫혀 있음(›).
+  await expect(t10Tog(B).locator('.kptu-chev')).toHaveCount(1);
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
+  const chevX = (await t10Tog(B).boundingBox()).x, icoX = (await t10Name(B).locator('.ft-ico').boundingBox()).x;
+  expect(chevX).toBeLessThan(icoX);
+  // ② 이름 한 번 = 오른쪽에 A(나무 펼침은 바뀌지 않음).
+  await t10Name(A).click();
+  await t10Shown(s, s.A);
+  // ③ B 꺾쇠 = 펼치기만: C가 보이고, 오른쪽은 A 그대로, B는 지금 폴더가 아님.
+  await t10Tog(B).click();
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'true');
+  await expect(C).toBeVisible();
+  await expect(B).not.toHaveClass(/ft-current/);
+  await t10Shown(s, s.A);
+  // 다시 꺾쇠 = 접기만(오른쪽 그대로).
+  await t10Tog(B).click();
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
+  await expect(C).toHaveCount(0);
+  await t10Shown(s, s.A);
+  // ④ B 이름 한 번 = 오른쪽에 B, 나무는 접힌 그대로(펼치지 않음). 다시 한 번 눌러도 접힘·펼침 그대로.
+  await t10Name(B).click();
+  await t10Shown(s, s.B);
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
+  await page.waitForTimeout(700); // 두 번 누르기(더블클릭)로 세지 않게 사람처럼 띄어 누른다(브라우저 더블클릭 간격 ~500ms)
+  await t10Name(B).click();
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
+  await t10Shown(s, s.B);
+  // ⑤ 키보드: B 이름에서 → = 펼치기, ← = 접기(오른쪽 그대로), → 뒤 ↓ = C, Enter = 오른쪽에 C.
+  await t10Name(B).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('ArrowLeft');
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
+  await t10Shown(s, s.B);
+  await page.keyboard.press('ArrowRight');
+  await expect(C).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(t10Name(C)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await t10Shown(s, s.C);
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'true');
+  // ⑥ 두 번 누르기: A를 보는 중 닫힌 B 이름 두 번 = 오른쪽에 B + 펼침. 다시 두 번 = 접힘(오른쪽 B 그대로).
+  await t10Tog(B).click();
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
+  await t10Name(A).click();
+  await t10Shown(s, s.A);
+  await t10Name(B).dblclick();
+  await t10Shown(s, s.B);
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'true');
+  await expect(C).toBeVisible();
+  await t10Name(B).dblclick();
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
+  await t10Shown(s, s.B);
+  expect(s.errors).toEqual([]);
+});
+
+// T10 ⑤ 끄는 중 접힌 나무 폴더 위에 ~1초 머무르면 저절로 펼친다(오른쪽 그대로, 놓지 않으면 아무것도 안 옮김). 끄는 것이 있는 화면만(파일·자료실).
+for (const [name, open] of T10_SCREENS.slice(0, 3)) test(`T10 ${name} PC 1280: 끄는 중 접힌 나무 폴더 위에 머무르면 펼침`, async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await open(page, 1280);
+  await t10Name(s.row(s.A)).click();
+  await t10Shown(s, s.A);
+  const B = s.row(s.B);
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'false');
+  await expect(s.drag.from).toBeVisible();
+  await s.drag.from.hover();
+  await page.mouse.down();
+  const b = await t10Name(B).boundingBox();
+  await page.mouse.move(b.x + 40, b.y + b.height / 2, { steps: 8 });
+  await page.mouse.move(b.x + 44, b.y + b.height / 2, { steps: 2 });
+  await expect(s.row(s.C)).toBeVisible({ timeout: 4000 });
+  await expect(t10Tog(B)).toHaveAttribute('aria-expanded', 'true');
+  await expect(s.drag.from).toBeVisible(); // 오른쪽(끌던 줄)은 그대로
+  await page.mouse.move(5, 5, { steps: 4 });
+  await page.mouse.up();
+  await t10Shown(s, s.A);
+  expect(s.errors).toEqual([]);
+});

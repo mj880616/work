@@ -515,7 +515,8 @@ async function loadList(p, {quiet = false} = {}) {
       state.children.set(folderKey(where.source, where.parent), p.rows.filter(r => r.is_folder));
       state.files.set(folderKey(where.source, where.parent), p.rows.filter(r => !r.is_folder && !isLockedItem(r)));
       // 위치 줄의 폴더(맨 위부터 지금 폴더까지)는 나무에서 펼쳐 둔다(나무가 칠하는 지금 칸만).
-      if (p === P()) for (const id of [null, ...trailIds(p.trail)]) state.open.add(folderKey(where.source, id));
+      // TREE-탐색기꺾쇠(T10): 넓은 화면 나무는 지금 폴더 자신은 펼치지 않는다(위 폴더들만 — 펼치기는 꺾쇠·두 번 누르기·→). 폰은 그대로.
+      if (p === P()) for (const id of [null, ...trailIds(p.trail)]) if (PHONE.matches || !id || id !== where.parent) state.open.add(folderKey(where.source, id));
     }
   } catch (e) {
     if (seq !== p.seq || state.scope !== scope) return;
@@ -3965,7 +3966,8 @@ function goFolder(source, id, p = P(), {down = false} = {}) {
   if (!SOURCES.includes(source) && !(source === PH && phoneOn()) && !(source === PC && pcOn())) return;
   clearQuery(p);
   const parent = id || null;
-  state.open.add(folderKey(source, parent));
+  // TREE-탐색기꺾쇠(T10): 넓은 화면 나무는 들어간 폴더 자신을 펼치지 않는다(저장소 상자 = 맨 위는 연다). 폰은 그대로.
+  if (PHONE.matches || !parent) state.open.add(folderKey(source, parent));
   return setWhere(p, {source, parent}, {down});
 }
 function goShelf(shelf, p = P()) {
@@ -4213,6 +4215,8 @@ root?.addEventListener('keydown', event => {
     if (r?.is_folder && open === (event.key === 'ArrowLeft')) { event.preventDefault(); xToggle(p, r); }
     return;
   }
+  // TREE-탐색기꺾쇠(T10): 왼쪽 나무 안 ↑↓는 나무 줄 옮기기(공용 folder-tree-press.mjs ftTreeArrow) — 목록 칸 고르기로 넘기지 않는다.
+  if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && event.target.closest('[data-fx-tree]')) return;
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     if (!rows.length) return;
     event.preventDefault();

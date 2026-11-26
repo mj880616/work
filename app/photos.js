@@ -2586,7 +2586,8 @@ function goFolder(id, {picked = true} = {}) {
   const from = fxNow();
   if (!treeWide() && fxWalk.length) fxWalk = walkTo(fxWalk, fxKey('o', id), {down: pAt === null && gdAt === null && photoFolderById(tree, id)?.parent_id === at});
   select.stop(); at = id; pAt = null; gdAt = null; fxTopFocus = false;
-  for (const f of photoFolderTrail(tree, id)) openSet.add(f.id);
+  // TREE-탐색기꺾쇠(T10): 넓은 화면 나무는 들어간 폴더의 위 폴더들만 펼친다(들어간 폴더 자신은 꺾쇠·두 번 누르기·→로). 폰·폴드는 그대로.
+  for (const f of photoFolderTrail(tree, id)) if (!(treeWide() && f.id === id)) openSet.add(f.id);
   renderFolders();
   if (picked) pickFolder(from);
   window.scrollTo?.(0, 0);
