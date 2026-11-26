@@ -1,8 +1,7 @@
 // ORG-기록하나로 O-5(설계 docs/design/record-one.md 4절 '조직 상세'): 조직 상세 '날짜 | 기록' 한 표의 순수 규칙.
 // - 날짜 칸: 기록 날짜(occurred_at의 서울 날짜) 'M.D.', 기간 기록(end_day)은 'M.D.~M.D.', 올해가 아니면 'YY.M.D.'.
 // - 최근 RECENT 줄만 펼치고 그 앞(더 오래된) 줄은 '지난 기록 n'으로 접는다(줄은 날짜 내림차순 그대로).
-// - 원래 줄 보기: 통화·텔레그램(feed)·소식(memorable)·업데이트(update)에서 온 기록만 ⋯ [원래 글 보기]가 있다(옮긴 옛 줄·직접 쓴 줄은 없음).
-// 화면 그리기·서버 읽기는 workplace-detail.js·org-record-source.js. 브라우저 저장소를 쓰지 않는다.
+// 화면 그리기·서버 읽기는 workplace-detail.js. 브라우저 저장소를 쓰지 않는다.
 export const RECENT = 10;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const KST = 9 * 3600 * 1000;
@@ -35,7 +34,3 @@ export function splitRecent(rows, n = RECENT) {
   const list = Array.isArray(rows) ? rows : [];
   return {shown: list.slice(0, n), older: list.slice(n)};
 }
-
-export const SOURCE_KINDS = Object.freeze({feed: '원래 통화·글 보기', memorable: '원래 소식 보기', update: '원래 업데이트 보기'});
-export const hasSource = row => Object.hasOwn(SOURCE_KINDS, row?.source_kind ?? '') && typeof row?.source_id === 'string' && !!row.source_id;
-export const sourceLabel = row => hasSource(row) ? SOURCE_KINDS[row.source_kind] : '';
