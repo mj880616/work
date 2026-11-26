@@ -158,7 +158,7 @@ test('library ai classify: dry-run, apply, hand-set never overwritten, ids check
    assert.deepEqual(await apply(OWNER,randomUUID(),[await item(D5,{title:'글자로 본 제목',project_id:PROJECT_A},true)]),{documents:1,fields:2,moved:0});
    assert.deepEqual(await attempt(D5),{with_text:true,changed:2});
    assert.deepEqual(await row(D5).then(r=>[r.title,r.project_id,r.field_origin]),['글자로 본 제목',PROJECT_A,{title:'ai',project_id:'ai'}]);
-   await apply(OWNER,randomUUID(),[await item(D5,{source:'A노조'},false)]);
+   await apply(OWNER,randomUUID(),[await item(D5,{source:'공공운수노조'},false)]);
    assert.deepEqual(await attempt(D5),{with_text:true,changed:2},'a final attempt is not overwritten');
   });
   await t.test('owner only: a stranger cannot apply to, read or revert another workspace; anon has nothing',async()=>{

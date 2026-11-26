@@ -2,7 +2,7 @@
 // S62-11 MULTI-구글드라이브사진모두 ①(20261115120000_cloud_files_all_owners): [파일] 읽기를 '자기 작업공간 owner'로(운영자 기능 files 조건만 뺌).
 // - 승인형 DB workflow 확장 규칙(같은 이름·같은 표 정책 교체, 함수 재정의)을 통과하고, dry-run은 아무것도 안 바꾸며, apply 뒤 사후 확인이 모두 예.
 // - 적용 전: files 허용이 없는 작업공간 owner는 자기 줄도 0줄. 적용 뒤: 자기 줄만 보이고, 다른 작업공간 줄은 여전히 0줄, anon은 못 읽음.
-// - 운영자(files 허용) 작업공간의 결과는 적용 전후 같다(사용자 동작 고정).
+// - 운영자(files 허용) 작업공간의 결과는 적용 전후 같다(명진 동작 고정).
 // - 되돌리기는 정책 3개·찾기 함수·기록을 원래대로(snapshot 동일) 하고 다시 적용할 수 있다.
 import test from 'node:test';
 import assert from 'node:assert/strict';

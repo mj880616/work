@@ -131,7 +131,7 @@ test('profile custom words: dry-run, apply, own-row writes, CHECK, operator SQL 
    assert.deepEqual(await words(OWNER),NOJO_NAMES);
    assert.equal(await words(STRANGER),null);assert.equal(await words(OUTSIDER),null);
    await assert.rejects(oneShot(opApply),/CUSTOM_WORDS_OPERATOR_NOT_EMPTY_OR_NO_PROFILE/,'does not overwrite');
-   // 사용자가 화면에서 바꿨으면 되돌리기가 멈춘다.
+   // 명진이 화면에서 바꿨으면 되돌리기가 멈춘다.
    await write(OWNER,OWNER,{...NOJO_NAMES,area:'사업'});
    await assert.rejects(oneShot(opBack),/CUSTOM_WORDS_OPERATOR_CHANGED_SINCE_APPLY/);
    await write(OWNER,OWNER,NOJO_NAMES);

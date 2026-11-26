@@ -89,7 +89,7 @@ test('profile quick links: dry-run, apply, own-row writes, CHECK and guarded rol
    assert.equal((await pool.query("select relacl::text acl from pg_class where oid='public.app_profiles'::regclass")).rows[0].acl.match(/authenticated=[a-z]*/)[0],'authenticated=rw');
    assert.equal((await pool.query("select count(*)::int n from pg_policy where polrelid='public.app_profiles'::regclass")).rows[0].n,2);
   });
-  const good=[{group:'work',name:'조직관리시스템',url:'https://www.kptu.net:8000/main'},{group:'org',name:'한빛교통공사노조',url:'http://www.stlu.kr/'}];
+  const good=[{group:'work',name:'조직관리시스템',url:'https://www.kptu.net:8000/main'},{group:'org',name:'서울교통공사노조',url:'http://www.stlu.kr/'}];
   await t.test('the owner saves own links; other rows, outsiders and anon cannot',async()=>{
    assert.equal((await write(OWNER,OWNER,good)).rowCount,1);assert.deepEqual(await links(OWNER),good);
    assert.equal((await write(OWNER,STRANGER,good)).rowCount,0,'another profile row is not writable');

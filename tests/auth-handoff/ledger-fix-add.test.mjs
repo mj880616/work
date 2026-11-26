@@ -87,7 +87,7 @@ test('LEDGER-수정요청 DB: plan, apply, add (event/change/commitment/org link
   });
 
   let added;
-  await t.test('add: a new event with org link and topic; a change under it; a commitment — all current, marked "사용자가 직접 기록"',async()=>{
+  await t.test('add: a new event with org link and topic; a change under it; a commitment — all current, marked "명진이 직접 기록"',async()=>{
    const items=[
     {do:'add',kind:'event',set:{title:'가상 나 지부 2차 교섭',summary:'2차 교섭 진행.',date_start:'2026-11-05',date_precision:'day',topic:'TOP-0901'},reason:'직접 기록',links:[{target_organization:'ORG-0901'}]},
     {do:'add',kind:'change',belongs_to:'EVT-0901',set:{title:'가상 기존 사건 진전',date_start:'2026-10-24',date_precision:'day'}},
@@ -112,7 +112,7 @@ test('LEDGER-수정요청 DB: plan, apply, add (event/change/commitment/org link
    assert.deepEqual([com.commitment_status,com.counterparty,com.sensitivity],['waiting','가 사측','S2']);
    const notes=(await pool.query("select record_id,action,route,note from public.app_ledger_record_changes where fix_request_id=$1 order by created_at",[done.fix_request_id])).rows;
    assert.equal(notes.length,3);
-   for(const n of notes){assert.deepEqual([n.action,n.route],['created','correction']);assert.match(n.note,/^사용자가 직접 기록 · \d{4}-\d{2}-\d{2}$/);}
+   for(const n of notes){assert.deepEqual([n.action,n.route],['created','correction']);assert.match(n.note,/^명진이 직접 기록 · \d{4}-\d{2}-\d{2}$/);}
    // Existing records untouched.
    assert.equal((await rec('EVT-0901')).validity,'current');
    added={fix:done.fix_request_id,ev,chg,com};
@@ -160,7 +160,7 @@ test('LEDGER-수정요청 DB: plan, apply, add (event/change/commitment/org link
    // replace keeps working on the widened function.
    const r=await fix(req([{target:'DEC-0901',do:'replace',set:{decision_reason:'가상 이유'},reason:'이유 보충'}]));
    assert.equal((await rec('DEC-0901')).validity,'superseded');
-   assert.equal((await rec(r.items?.[0]?.target||'DEC-0901')).supersede_reason,'사용자 지적으로 수정: 이유 보충');
+   assert.equal((await rec(r.items?.[0]?.target||'DEC-0901')).supersede_reason,'명진 지적으로 수정: 이유 보충');
    // A record made by add and edited afterwards blocks the undo of that add (existing rule).
    const a2=await fix(req([{do:'add',kind:'decision',set:{title:'가상 직접 결정',decision_type:'adopted'}}]));
    const made=(await one('select result from public.app_ledger_fix_requests where id=$1',[a2.fix_request_id])).result.items[0].new;

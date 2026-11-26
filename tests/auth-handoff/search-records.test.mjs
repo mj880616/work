@@ -87,9 +87,9 @@ test('S-1 search: workflow plans, apply, owner-only results, diary excluded, inp
   // Synthetic owner data (workspace A) and a stranger's data (workspace B) that share the search words.
   const note=async(ws,kind,raw,extra={})=>(await pool.query(`insert into public.app_notes(workspace_id,kind,title,raw_text,journal_day,occurred_at,archived_at,attachments,ai_export_allowed)
     values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9) returning id`,[ws,kind,extra.title??null,raw,extra.day??null,extra.at??'2026-10-01T00:00:00Z',extra.archived??null,JSON.stringify(extra.attachments??[]),kind!=='diary'])).rows[0].id;
-  await pool.query(`update public.app_spaces set name='레일협의회 교섭' , status='active' where id='${PROJECT_A}';update public.app_spaces set name='끝난 궤도 사업', status='done', updated_at='2026-01-01' where id='${PROJECT_A2}';
+  await pool.query(`update public.app_spaces set name='궤도협의회 교섭' , status='active' where id='${PROJECT_A}';update public.app_spaces set name='끝난 궤도 사업', status='done', updated_at='2026-01-01' where id='${PROJECT_A2}';
     update public.app_spaces set name='남의 궤도 사업' where id='${PROJECT_B}';update public.app_suborganizations set name='가나지부' where id='${ORG_A}';update public.app_suborganizations set name='남의 지부' where id='${ORG_B}'`);
-  const upd1=await note(WS_A,'basket','첫 업데이트: 레일협의회 임금 교섭 일정 확인',{at:'2026-10-03T00:00:00Z'});
+  const upd1=await note(WS_A,'basket','첫 업데이트: 궤도협의회 임금 교섭 일정 확인',{at:'2026-10-03T00:00:00Z'});
   const upd2=await note(WS_A,'basket','보류한 궤도 메모',{at:'2026-10-05T00:00:00Z',archived:'2026-10-06T00:00:00Z'});
   const upd3=await note(WS_A,'basket','사진만 붙인 메모',{at:'2026-10-04T00:00:00Z',attachments:[{drive_file_id:'f1',file_name:'p.jpg',mime_type:'image/jpeg',size_bytes:1,
     ocr:{state:'done',text:'사진 속 단체협약 문구',attempt_id:randomUUID(),original_file_id:'f1',cleanup_state:'deleted',temp_document_id:'tmp-1'}}]});
@@ -166,15 +166,15 @@ test('S-1 search: workflow plans, apply, owner-only results, diary excluded, inp
    assert.equal(group(r,'work').items[0].id,work);assert.equal(group(r,'work').items[0].day,'2026-10-02');
    // Finished project shows state "done"; project progress is a project row with source "progress".
    const proj=group(r,'project').items;
-   assert.deepEqual(proj.map(i=>[i.source,i.title,i.state]),[['project','레일협의회 교섭',null],['progress','레일협의회 교섭',null],['project','끝난 궤도 사업','done']]);
+   assert.deepEqual(proj.map(i=>[i.source,i.title,i.state]),[['project','궤도협의회 교섭',null],['progress','궤도협의회 교섭',null],['project','끝난 궤도 사업','done']]);
    assert.deepEqual(group(r,'organization').items.map(i=>i.source),['org_update','org_timeline']);
    assert.equal(group(await search({q:'가나지부'}),'organization').items[0].source,'organization');
    assert.equal(group(r,'milestone').items[0].state,'done');
    // Linked names: confirmed note links only; documents carry their own project/organization.
    const u1=group(r,'update').items.find(i=>i.id===upd1);
-   assert.deepEqual([u1.project_name,u1.organization_name],['레일협의회 교섭','가나지부']);
+   assert.deepEqual([u1.project_name,u1.organization_name],['궤도협의회 교섭','가나지부']);
    assert.equal(group(r,'update').items.find(i=>i.id===upd2).project_id,null); // suggested link is not shown
-   assert.deepEqual([group(r,'document').items[0].project_name,group(r,'document').items[0].organization_name],['레일협의회 교섭','가나지부']);
+   assert.deepEqual([group(r,'document').items[0].project_name,group(r,'document').items[0].organization_name],['궤도협의회 교섭','가나지부']);
    // No row of workspace B anywhere.
    assert.doesNotMatch(JSON.stringify(r),/남의/);
    const s=await search({q:'궤도'},STRANGER);

@@ -230,7 +230,7 @@ test('news for all: plan, dry-run, apply, shared read, per-person marks, news ro
    await assert.rejects(owner(c=>c.query("select public.app_news_room_take($1,'ch1','[]'::jsonb)",[WS_A])),{code:'42501'});
    await assert.rejects(take('ch1',[]),/NEWSROOM_ARGS/);
    await assert.rejects(take('ch1',Array.from({length:51},(_,i)=>it('https://good.example.org/'+i))),/NEWSROOM_ARGS/);
-   // [뉴스방에서 빼기] 뒤에는 넣지 않지만 이미 들어간 기사는 그대로(사용자 결정 6).
+   // [뉴스방에서 빼기] 뒤에는 넣지 않지만 이미 들어간 기사는 그대로(명진 결정 6).
    await owner(c=>c.query("select public.app_feed_room_news('ch1',false)"));
    assert.equal((await take('ch1',[it('https://good.example.org/y')])).news,false);
    assert.equal((await pool.query("select count(*)::int n from public.app_news_articles where url_key='good.example.org/x'")).rows[0].n,1);

@@ -49,7 +49,7 @@ test('cron history trim: SQL Editor only, one job, deletes only finished rows ol
   const snap=async()=>(await pool.query(snapshot)).rows.map(r=>[r.kind,r.name,r.definition].join(' | ')).join('\n');
 
   await t.test('files: SQL Editor only, one begin/commit, one history row, nothing widened, summary 3 lines',()=>{
-   // S70-01(2026-11-25 사용자 결정): 승인형 DB workflow가 cron 예약 등록을 좁은 조건으로 받는다 → apply·dry-run 계획 통과(승인 한 번 흐름).
+   // S70-01(2026-11-25 명진 결정): 승인형 DB workflow가 cron 예약 등록을 좁은 조건으로 받는다 → apply·dry-run 계획 통과(승인 한 번 흐름).
    // rollback 모드는 엄격 규칙만이라 여전히 거절(되돌리기는 SQL Editor).
    for(const mode of ['apply','dry-run'])assert.equal(prepareMigration({mode,version,runId:'1',root}).flow,'full',mode);
    assert.throws(()=>prepareMigration({mode:'rollback',version,runId:'1',root}),undefined,'rollback');

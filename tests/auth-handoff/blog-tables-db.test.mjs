@@ -71,7 +71,7 @@ test('blog tables: guard, pair files, operator-only RLS, same-workspace posts, c
 
   let blog,board,board2,note,page,post;
   await t.test('operator owner: blog, boards and a post; keys made by the database',async()=>{
-   blog=await one(owner,"insert into public.app_blogs(workspace_id,title,intro) values($1,'사용자 블로그','한 줄') returning id,enabled,indexable",[WS_A]);
+   blog=await one(owner,"insert into public.app_blogs(workspace_id,title,intro) values($1,'명진 블로그','한 줄') returning id,enabled,indexable",[WS_A]);
    assert.equal(blog.enabled,false);assert.equal(blog.indexable,false);
    board=await one(owner,"insert into public.app_blog_boards(workspace_id,blog_id,name) values($1,$2,'생각') returning id,public_key",[WS_A,blog.id]);
    board2=await one(owner,"insert into public.app_blog_boards(workspace_id,blog_id,name,sort) values($1,$2,'기록',1) returning id,public_key",[WS_A,blog.id]);

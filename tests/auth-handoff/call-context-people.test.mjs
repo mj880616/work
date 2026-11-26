@@ -99,7 +99,7 @@ test('call context people: one service_role-only read function returns names of 
    await put('call:cp2',{counterpart:'가상노동조합 홍길동 위원장',organization_id:ORG_A,occurred_at:at(2)});
    const b=await put('call:cp3',{counterpart:'AI가 틀리게 쓴 이름',organization_id:ORG_A,occurred_at:at(3)});
    await put('call:cp4',{counterpart:'예시지부 김철수 과장',organization_id:ORG_C,occurred_at:at(4)});
-   await put('call:cp5',{counterpart:'A노조 이영희 팀장',organization_id:null,occurred_at:at(8)});
+   await put('call:cp5',{counterpart:'공공운수노조 이영희 팀장',organization_id:null,occurred_at:at(8)});
    await put('call:cp6',{counterpart:'쓰지않는지부 박민수',organization_id:ORG_OFF,occurred_at:at(7)});
    await put('call:cp7',{counterpart:'휴지통지부 최지우',organization_id:ORG_DEL,occurred_at:at(6)});
    await put('call:cp8',{counterpart:'지운 통화 상대',organization_id:ORG_A,occurred_at:at(9),hidden_at:'2026-10-25T00:00:00Z'});
@@ -112,7 +112,7 @@ test('call context people: one service_role-only read function returns names of 
    assert.deepEqual(Object.keys(rows[0]).sort(),['counterpart','organization_aliases','organization_name','user_edited']);
    assert.deepEqual(rows.map(r=>[r.organization_name,r.counterpart,r.user_edited]),[
     ['예시지부','예시지부 정수진 과장',true],
-    [null,'A노조 이영희 팀장',false],
+    [null,'공공운수노조 이영희 팀장',false],
     [null,'쓰지않는지부 박민수',false],
     [null,'휴지통지부 최지우',false],
     ['예시지부','예시지부 김철수 과장',false],
