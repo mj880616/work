@@ -46,6 +46,8 @@
 내 프로필 '기본 정보' 칸 바로 뒤에 '이름 바꾸기' 칸 하나(`app/custom-words-panel.js`가 유일한 주인). 접힌 한 줄(제목 · n개 바꿈) → 펼치면 칸마다 [이름표 · 기본 이름 · 내 이름 입력 · 기본으로], 아래 [저장]. 빈칸 = 기본 이름.
 
 ## 5. 사용자 계정 값
+> S71-32(2026-11-26 사용자 "이 이름 바꾸기도 없애고 차라리 메뉴 수정 여기에 기능을 넣든지"): 내 프로필 '이름 바꾸기' 칸은 없앴다. 고치는 곳은 메뉴 수정 창 하나(`app/menu-edit.js`) — 메뉴 이름(사업 관리·조직 관리)은 그 메뉴 줄에서 바로, 나머지 5칸과 활동 분류 8칸은 창 맨 아래 접힌 '다른 이름' 묶음. 저장은 [완료] 한 번에 함께(서버 칸·값 모양 그대로, `custom-words-store.js` `saveCustomWords`).
+
 
 코드에 계정·이름을 넣지 않는다(공개 저장소). `docs/ops/custom-words-operator.{precheck,apply,rollback}.sql`(SQL Editor, 실행은 CC)이 운영자 허용 표에 `calls`·`telegram`이 둘 다 켜진 작업공간 정확히 하나의 owner 한 명을 골라, 지금 노동조합+ 화면 이름 그대로(15칸)를 넣는다. 이미 값이 있으면 멈추고(덮어쓰지 않음), 되돌리기는 넣은 값과 같을 때만 비운다.
 
@@ -69,7 +71,7 @@
 - 고르는 길: 서버 운영자 허용 표 `public.app_operator_features`의 키 `nojo_words`(migration `20261121090000_nojo_words_feature`, 값은 `docs/ops/nojo-words-operator.*.sql`로만). 화면에서 고르는 메뉴는 없다(미리 만든 묶음을 다른 사람에게 보이지 않는다, 11/20 결정). 표는 RLS 켬·정책 없음·API 역할 권한 없음이라 본인도 못 바꾼다.
   - 다른 길을 고르지 않은 이유: `app_profiles` 칸이나 `custom_words` 안 예약 키는 owner RLS로 본인이 API로 바꿀 수 있어 'SQL로만'이 깨지고, 둘 다 DB 검사 변경이 따로 필요하다. 허용 표는 이미 '서버만 정하는 사람별 켜기'의 자리이고 화면이 읽는 길(`app_my_features`)도 있다. 키 목록이 검사(`app_operator_features_feature_check`)라 그 한 줄만 바꾼다.
 - 뜻: `app/brand/custom-words-model.mjs` `WORD_BASE_FEATURES`·`wordBaseOf`·`withWordBase`. 단어표만 바꾸고 이름·아이콘·메뉴 목록은 빌드 얼굴 그대로.
-- 시작 순서: `loader-v2.js`가 소유자 확인 뒤 `custom_words`와 함께 `app_my_features`를 한 번 읽는다(같은 약속, 3.5초·실패면 그쪽만 없음). 그 답은 `my-features.js`의 첫 물음이 그대로 쓴다(`window.__KPTU_BOOT_FEATURES__`, 두 번 묻지 않음). `brand.mjs` `BASE_FACE` = 빌드 얼굴 + 바탕 묶음, 그 위에 고친 이름. 이름 바꾸기 칸의 '기본 이름'도 `BASE_FACE`.
+- 시작 순서: `loader-v2.js`가 소유자 확인 뒤 `custom_words`와 함께 `app_my_features`를 한 번 읽는다(같은 약속, 실패면 그쪽만 없음. S71-32부터 기다림은 소속 확인과 같은 15초 — 3.5초에 끊겨 그 접속 내내 기본 이름으로 보이던 원인). 그 답은 `my-features.js`의 첫 물음이 그대로 쓴다(`window.__KPTU_BOOT_FEATURES__`, 두 번 묻지 않음). `brand.mjs` `BASE_FACE` = 빌드 얼굴 + 바탕 묶음, 그 위에 고친 이름. 이름 바꾸기 칸의 '기본 이름'도 `BASE_FACE`.
 - 앱 바탕: 빌드가 `app/index.html`에서 바꾼 글자는 **모두** 원래 글자를 남긴다(S67-56은 칸 열쇠가 든 글자만이었다). 바탕이 nojo면 `custom-words-shell.mjs`가 화면 공개 전 한 번 원래 글자로 되돌린다 → 앱 바탕이 nojo 빌드와 같다(`scripts/brand-face.test.mjs`가 되돌린 HTML = nojo 빌드 HTML을 본다).
 - 시험: `tests/custom-words.test.mjs`(app/의 `word()` 고정 글자 전부 = nojo), `tests/build-pages/girok-face-boot.spec.mjs`(두 빌드를 같은 흉내 서버로 띄워 화면 12개 글자·`word()` 고정 글자 전부가 같음, 바탕 없는 사람은 노조 색 글자 0), `tests/auth-handoff/nojo-words-feature-db.test.mjs`(PostgreSQL).
 - 적용 순서: 이 PR merge → 승인형 DB workflow `20261121090000` dry-run → apply → SQL Editor `nojo-words-operator.precheck.sql`(모두 예) → `nojo-words-operator.apply.sql`. 적용 전에는 사용자 화면도 WORK ON 낱말 + 15칸(#2828 그대로)이다.
