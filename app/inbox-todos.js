@@ -325,7 +325,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (problem) { rowStatus.set(c.id, problem); paint(); return; }
     status = ''; await toTask(c, draft);
   });
-  // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 챙길 것 줄 — 왼쪽으로 밀기 [무시](위쪽 '무시했어요 [되돌리기]', 기존 [무시] 길, 끝까지 밀면 바로).
+  // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 챙길 것 줄 — 왼쪽으로 밀기 [무시](위쪽 '무시했어요 [되돌리기]', 기존 [무시] 길, 끝까지 밀어도 칸만 — S70-60).
   // 챙길 것은 지우는 길이 없어 [삭제] 칸은 없다. 오른쪽으로 밀기 [선택] → 'n개 선택됨 · [무시]'(하나씩 차례로 같은 길).
   bindRowSwipe(host, {row:'[data-inbox-todo-row]', enabled:() => state === 'ok',
     actions:el => { const c = byId(el.dataset.inboxTodoRow); return c && c.status === 'open' && !busy.has(c.id) ? {start:PICK, end:[{key:'dismiss', label:'무시', tone:'muted'}]} : null; },
