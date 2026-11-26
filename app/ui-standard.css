@@ -1867,6 +1867,12 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
 .nbx-head button.row-act.nbx-title-btn{ display:flex; align-items:center; flex:1 1 auto; min-width:0; justify-content:flex-start; gap:6px; padding:0; color:inherit; font-size:inherit; text-align:left; }
 .nbx-list{ list-style:none; margin:0; padding:0; }
 .nbx-item{ padding:6px 0 4px; border-top:var(--ds-line-width) solid var(--ds-line); }
+/* S71-19(명진 11/26 '구분감이 없어 위에거랑'): 목록 맨 아래 '잠김' 묶음 줄(locked-line.mjs) — 위 줄과 사이 얇은 선(목록 줄 구분선 .nbx-item과 같은 선),
+   맨 앞 작은 통화·텔레그램 아이콘(메뉴 아이콘 그대로, 흐린 색). 목록 맨 위(첫 줄)면 선 없음. */
+.locked-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:0;padding-top:6px;border-top:var(--ds-line-width) solid var(--ds-line)}
+.locked-line:first-child{border-top:0}
+.locked-line-ic{display:inline-flex;flex:none;gap:2px;color:var(--kptu-faint)}
+.locked-line-ic svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .nbx-body{ margin:0; color:var(--kptu-ink); font-size:var(--ds-text-row); line-height:1.4; overflow-wrap:anywhere; }
 .nbx-tag{ color:var(--nbx-ink); font-size:var(--ds-text-meta); }
 .nbx-row2{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:3px; }
