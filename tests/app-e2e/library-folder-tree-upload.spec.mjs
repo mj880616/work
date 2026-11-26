@@ -70,7 +70,7 @@ test.describe('PC 1440 폴더째 올리기',()=>{
     expect(errors).toEqual([]);
   });
 
-  test('⋯ [폴더 업로드]로 고른 폴더도 들어가 있는 폴더 안에 같은 구조로',async({page})=>{
+  test('⋯ [폴더째 업로드]로 고른 폴더도 들어가 있는 폴더 안에 같은 구조로',async({page})=>{
     const root=mkdtempSync(join(tmpdir(),'lu-folder-')),base=join(root,'pack'); // Playwright는 한글 폴더 이름을 넣지 못해(멈춤) 영문 이름으로 고른다
     mkdirSync(join(base,'inner'),{recursive:true});writeFileSync(join(base,'a.pdf'),'PK a');writeFileSync(join(base,'inner','b.pdf'),'PK b');writeFileSync(join(base,'Thumbs.db'),'x');
     const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,group:'폴더'});

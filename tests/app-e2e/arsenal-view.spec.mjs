@@ -5,9 +5,10 @@ import { openHome } from './helpers/home-entry.mjs';
 import { innerScrollers, docScroll } from './helpers/one-scroll.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
+import { screenFind } from './helpers/screen-find.mjs';
 // 주소 개편 ② E1(docs/design/domain-move.md 2절): Web2 '아스날' 메뉴(?view=arsenal).
 // 메뉴 창 맨 아래(폰)·사이드바 맨 아래 묶음 끝(PC), 경기 자료 app/arsenal/matches.js는 이 화면을 처음 열 때만 한 번 불러온다.
-// 시즌·대회·상대 검색 거르기, 목록 → 리뷰(폰은 한 칸 + 뒤로가기 = 목록, PC는 두 칸), 바깥 링크는 https·새 탭.
+// 시즌·대회 거르기·상대 찾기(S70-57: 맨 위 칸 '아스날에서 찾기'), 목록 → 리뷰(폰은 한 칸 + 뒤로가기 = 목록, PC는 두 칸), 바깥 링크는 https·새 탭.
 const context = { window: {} };
 runInNewContext(readFileSync(new URL('../../app/arsenal/matches.js', import.meta.url), 'utf8'), context);
 // S46-26: 예정 경기 줄(upcoming:true)은 목록·개수에 안 들어가고 목록 위 작은 줄로만 보인다(오늘(한국) 이후만).
@@ -60,12 +61,12 @@ test('아스날 폰 390: 메뉴 창 맨 아래에서 열고, 자료는 그때 �
   await expect(page.locator('#arsenalRoot [data-ars-competition] option:checked')).toHaveText('프리미어리그');
   await page.locator('#arsenalRoot [data-ars-competition]').selectOption('UEFA Champions League');
   await expect(rows(page)).toHaveCount(15);
-  await page.locator('#arsenalRoot [data-ars-search]').fill('아틀레티코');
+  await (await screenFind(page)).fill('아틀레티코');
   await expect(rows(page)).toHaveCount(3);
-  await page.locator('#arsenalRoot [data-ars-search]').fill('없는팀');
+  await (await screenFind(page)).fill('없는팀');
   await expect(rows(page)).toHaveCount(0);
   await expect(page.locator('#arsenalRoot [data-wait-empty]')).toHaveText('맞는 경기 없음');
-  await page.locator('#arsenalRoot [data-ars-search]').fill('');
+  await (await screenFind(page)).fill('');
   await page.locator('#arsenalRoot [data-ars-competition]').selectOption('Premier League');
   // 줄을 누르면 리뷰 한 칸(목록 숨김), 득점·도움, 판정, 첫 묶음만 펼침.
   await page.getByRole('button', { name: '크리스털 팰리스 1-2 아스날 리뷰 보기' }).click();
@@ -119,7 +120,7 @@ test('아스날 PC 1280: 사이드바 맨 아래에서 열고, 목록·리뷰 �
   await expect(review(page).locator('.ars-score-num')).toHaveText('1–1');
   await expect(review(page).locator('[data-ars-media] a').first()).toHaveAttribute('href', /^https:\/\//);
   // 고른 경기가 거르기에서 빠지면 남은 목록의 맨 위.
-  await page.locator('#arsenalRoot [data-ars-search]').fill('아틀레티코');
+  await (await screenFind(page)).fill('아틀레티코');
   await expect(rows(page)).toHaveCount(3);
   await expect(rows(page).first()).toHaveAttribute('aria-pressed', 'true');
   await expect(review(page)).toContainText('아틀레티코');

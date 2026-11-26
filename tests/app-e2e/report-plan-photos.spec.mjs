@@ -71,7 +71,7 @@ function photoRoutes(state, {onedrive = true, phone = false} = {}) {
       if (body.action === 'media-url') return ok({url: `${CDN}/orig/${body.id}.png`, kind: 'photo', name: body.id, expires_in: 3000});
       return r.fulfill({status: 400, contentType: 'application/json', body: JSON.stringify({error: 'action_invalid'})});
     });
-    await page.route(`${SB}/functions/v1/library-files**`, async r => {
+    await page.route(`${SB}/functions/v1/library-files**`, async r => {if(/^\{"action":"drive-auto"\}$/.test(r.request().postData()||''))return r.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
       const req = r.request();
       if (req.method() !== 'POST') return r.fulfill({status: 200, contentType: 'image/png', body: PNG});
       const raw = (req.postDataBuffer() || Buffer.alloc(0)).toString('utf8'), name = raw.match(/filename="([^"]+)"/)?.[1] || '';

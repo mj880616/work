@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {libraryTopMenu} from './helpers/library-tree.mjs';
+import {treeEnter} from './helpers/tree-enter.mjs';
 // LIB-끌어옮기기저장실패 · LIB-두칸폴더밖 · LIB-끄는중막대 (S69, 명진 11/24 16:09·16:12·16:17).
 // ① 자료가 1000개를 넘으면 서버가 한 번에 1000줄까지만 준다(가짜 서버도 같게). 전에는 자료실이 한 번만 읽어 잡동사니에 든 자료가 '폴더 밖'으로 보이고,
 //    그것을 폴더로 끌면 겹침 거절(409)로 '저장하지 못했어요'. 지금은 끝까지 읽어 개수가 맞고, 여러 개 끌어 옮기기가 된다(드라이브에서 가져온 연결 원본 포함, 드라이브 요청 없음).
@@ -36,14 +37,14 @@ async function dragWithBar(page,from,to){
 
 test('PC 1440 한 칸: 자료 1140개 — 폴더 밖 개수가 맞고, 폴더 밖 자료 여럿을 끌어 옮기면 저장 · 끄는 동안 막대는 옮기는 중·취소만',async({page})=>{
   test.setTimeout(120000);
-  const fnCalls=[];page.on('request',r=>{if(/\/functions\/v1\/library-files/.test(r.url())&&r.method()==='POST')fnCalls.push(r.url())});
+  const fnCalls=[];page.on('request',r=>{if(/\/functions\/v1\/library-files/.test(r.url())&&r.method()==='POST'&&!/"action":"drive-auto"/.test(r.postData()||''))fnCalls.push(r.url())}); // S70-73: 자료실을 열 때 자동 등록 부탁은 뺌
   const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더',init:{viewPrefs:{library_two:false}}});
   // 개수: 잡동사니 1100, 폴더 밖 40(전에는 읽기가 1000줄에서 잘려 폴더 밖이 부풀었다).
   await expect(page.locator(`${nav('x:out')} .ft-num`)).toHaveText(String(N_OUT));
   await expect(page.locator(`${nav('junk')} .ft-num`)).toHaveText(String(N_JUNK));
   // 화면이 읽은 뒤에 연결 줄이 하나 생긴 자료(o0 → 잡동사니, 다른 기기에서 넣은 것처럼): 넣기가 겹쳐도 그 자료의 지금 폴더를 읽고 옮긴다.
   s.items.push({workspace_id:'workspace-1',document_id:'o0',folder_id:'junk'});
-  await page.locator(nav('x:out')).click();
+  await treeEnter(page.locator(nav('x:out')));
   // 가장 최근 자료(o8, 10.09)가 맨 위에 보인다.
   await expect(page.locator('#documentList [data-lu-document="o8"]')).toBeVisible();
   await libraryTopMenu(page,'select');

@@ -28,7 +28,7 @@ test.describe('PC 1440 두 칸',()=>{
     await page.locator(`${pane(1)} [data-lu-nav="fa"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
     await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('가상 A');
     await rightClick(page,pane(1));
-    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','파일 업로드','폴더 업로드','정돈 제안']);
+    await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','파일 업로드','폴더째 업로드','정돈 제안']);
     await page.locator('#luAreaMenu').getByRole('button',{name:'파일 업로드',exact:true}).click();
     await expect(page.locator('#documentModal')).toBeVisible();
     await expect(folderLabel(page)).toHaveText('‘가상 A’ 폴더에 넣어요');

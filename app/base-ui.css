@@ -249,6 +249,8 @@ body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-
 .kptu-clamp.is-open{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible}
 .kptu-clamp-more{display:inline-flex;align-items:center;min-height:44px;margin:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
 .kptu-clamp-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:var(--kptu-radius-md)}
+/* SEARCH-결과원문으로(S71-15): 전체 검색 결과를 눌러 연 원문 자리의 찾은 낱말(found-mark.js, 화면 찾기 kptu-find와 같은 색) */
+::highlight(kptu-found){color:var(--kptu-ink);background-color:color-mix(in srgb,var(--kptu-primary-ink) 18%,transparent);text-shadow:.35px 0 0 currentColor,-.35px 0 0 currentColor}
 /* CAL-저장본먼저: one small line on screens that show this device's saved copy first (data-freshness.js draws it):
    새로 불러오는 중 / 최신 아님 · 마지막 확인 HH:MM [다시 시도]. Muted while refreshing, danger ink when not the latest. */
 .data-freshness{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:4px 0;font-size:var(--ds-text-meta,13px);color:var(--kptu-muted)}
@@ -326,21 +328,23 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-selbar.kptu-sb-measure .kptu-sb-count{flex-shrink:0;max-width:55%}
 .kptu-selbar .kptu-sb-note{margin-left:4px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
 .kptu-selbar .kptu-actbar,.kptu-selbar .kptu-sb-acts{display:flex;flex:none;flex-wrap:nowrap;justify-content:flex-end;align-items:center;gap:2px;min-width:0;margin:0}
-#appView .kptu-selbar button.kptu-sb-act{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;width:auto;min-width:30px;max-width:none;height:30px;min-height:0;margin:0;padding:0 6px;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;box-shadow:none;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:400;line-height:1;white-space:nowrap;word-break:normal;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
-#appView .kptu-selbar button.kptu-sb-act::after{content:none}
-#appView .kptu-selbar button.kptu-sb-act[hidden]{display:none}
-#appView .kptu-selbar button.kptu-sb-act:hover:not(:disabled){background:color-mix(in srgb,var(--kptu-ink) 8%,transparent)}
-#appView .kptu-selbar button.kptu-sb-act:focus-visible{outline:2px solid var(--kptu-focus,currentColor);outline-offset:-2px}
-#appView .kptu-selbar button.kptu-sb-act:is(:disabled,[aria-disabled="true"]){opacity:.4;cursor:default}
-#appView .kptu-selbar button.kptu-sb-danger{color:var(--kptu-danger)}
-#appView .kptu-selbar button.kptu-sb-close{color:var(--kptu-muted);padding:0;width:30px}
-#appView .kptu-selbar button.kptu-sb-more{padding:0;width:30px;color:var(--kptu-muted)}
-#appView .kptu-selbar .kptu-act-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--kptu-muted)}
-#appView .kptu-selbar .kptu-sb-danger .kptu-act-ic{color:inherit}
-#appView .kptu-selbar button.kptu-sb-act svg{display:block;width:16px;height:16px}
-#appView .kptu-selbar.kptu-sb-icons button.kptu-sb-act:has(>.kptu-act-ic){padding:0 7px}
-#appView .kptu-selbar.kptu-sb-icons button.kptu-sb-act:has(>.kptu-act-ic)>.kptu-act-tx{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-#appView .kptu-selbar button.kptu-sb-act.kptu-sb-folded{position:absolute;top:0;right:0;visibility:hidden;pointer-events:none}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-act{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;width:auto;min-width:30px;max-width:none;height:30px;min-height:0;margin:0;padding:0 6px;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;box-shadow:none;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:400;line-height:1;white-space:nowrap;word-break:normal;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-act::after{content:none}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-act[hidden]{display:none}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-act:hover:not(:disabled){background:color-mix(in srgb,var(--kptu-ink) 8%,transparent)}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-act:focus-visible{outline:2px solid var(--kptu-focus,currentColor);outline-offset:-2px}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-act:is(:disabled,[aria-disabled="true"]){opacity:.4;cursor:default}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-danger{color:var(--kptu-danger)}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-close{color:var(--kptu-muted);padding:0;width:30px}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-more{padding:0;width:30px;color:var(--kptu-muted)}
+:is(#appView,.modal) .kptu-selbar .kptu-act-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--kptu-muted)}
+:is(#appView,.modal) .kptu-selbar .kptu-sb-danger .kptu-act-ic{color:inherit}
+/* S70-64 [전체 선택] 켜짐: 네모 안 체크 표시를 강조색으로(select-bar-model.mjs sbAllHtml) */
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-act[aria-checked="true"],:is(#appView,.modal) .kptu-selbar button.kptu-sb-act[aria-checked="true"] .kptu-act-ic{color:var(--kptu-primary-text)}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-act svg{display:block;width:16px;height:16px}
+:is(#appView,.modal) .kptu-selbar.kptu-sb-icons button.kptu-sb-act:has(>.kptu-act-ic){padding:0 7px}
+:is(#appView,.modal) .kptu-selbar.kptu-sb-icons button.kptu-sb-act:has(>.kptu-act-ic)>.kptu-act-tx{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+:is(#appView,.modal) .kptu-selbar button.kptu-sb-act.kptu-sb-folded{position:absolute;top:0;right:0;visibility:hidden;pointer-events:none}
 .kptu-notice-note{flex:1 0 100%;order:5;font-size:11px;opacity:.75}
 /* SHARE-바로넣기: 알림 안 한 줄 입력칸([메모 달기]). 알림 글처럼 촘촘하게, 눌러서 쓸 수 있게(바탕 알림은 누르기를 통과시킴). */
 .kptu-notice input.kptu-notice-input{pointer-events:auto;flex:1 1 160px;min-width:0;height:28px;box-sizing:border-box;margin:0;padding:0 8px;font:inherit;font-size:13px;color:var(--kptu-ink);background:var(--kptu-surface);border:0;border-radius:var(--kptu-radius-sm,6px)}
