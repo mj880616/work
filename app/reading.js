@@ -255,8 +255,11 @@ function folderBoxEl(entries) {
     mainAttrs: {'data-rd-folder': r.key, title: sel === r.key ? '다시 누르면 전체' : null},
     more: r.folder ? {attrs: {'data-rd-folder-more': r.key}, label: `${r.name} 폴더 메뉴`} : null})).join('');
   const add = state.foldersReady ? `<button type="button" class="icon-btn ft-box-add rd-folder-add" data-rd-folder-add="1" data-ctx-screen-item="새 폴더" aria-label="새 폴더" title="새 폴더">＋</button>` : '';
-  folderHost.innerHTML = ftBoxHtml({head: '폴더', collapsible: true, caret: true, open: state.boxOpen, toggleAttrs: {'data-rd-fbox': '1'}, tail: add, body,
+  // 폴더 이름은 ftFolderRowHtml이 이스케이프한다(공용 부품). 상자는 통째로 다시 그린다.
+  const boxHtml = ftBoxHtml({head: '폴더', collapsible: true, caret: true, open: state.boxOpen, toggleAttrs: {'data-rd-fbox': '1'}, tail: add, body,
     attrs: {'data-rd-fbox-wrap': ''}, label: '저장한 글 폴더'});
+  folderHost.replaceChildren();
+  folderHost.insertAdjacentHTML('beforeend', boxHtml);
   return folderHost;
 }
 function pickFolder(key) {

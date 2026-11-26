@@ -342,5 +342,5 @@ test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 머리 줄 [
   await page.evaluate(() => { window.__ctxBy = []; });
   await page.keyboard.press('Shift+F10');
   await expect(page.locator('#rowMenu')).toBeVisible();
-  expect(await page.evaluate(MENU_LABELS)).toEqual(['글 추가']);
+  expect(await page.evaluate(MENU_LABELS)).toEqual(['글 추가', '새 폴더']);
 });
