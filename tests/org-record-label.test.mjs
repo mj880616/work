@@ -22,6 +22,6 @@ test('기록 줄: 요약·글 없음 + 파일 → 파일 수, 요약이나 글�
   assert.equal(recordShownText(row({summary:'그림 1장 · 사진1.jpg',attachments:[img(1)]})),'그림 1장 · 사진1.jpg');
   assert.equal(recordShownText(row({})),'요약 없음');
   const html=linkRecordHtml(row({attachments:[img(1),img(2),img(3)]}));
-  assert.match(html,/data-link-summary-text>사진 3장<\/p>/);
+  assert.match(html,/data-link-summary-text>사진 3장<\/span>/);
   assert.doesNotMatch(html,/요약 없음/);
 });

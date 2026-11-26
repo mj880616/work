@@ -223,9 +223,9 @@ test('wiring: the organization record input uses the shared picker and the updat
   assert.match(wd,/id="wdInboxClip"/);assert.match(wd,/id="wdInboxFiles"/);
   assert.match(wd,/saveUpdateFilesBehind\(\{places:\[\{kind:'organization',id:orgId\}\],text,batch/);
   assert.match(wd,/fileLine:list=>recordLineFor\(list,wdRt\)/);
-  assert.match(wd,/withFiles:true/);assert.match(wd,/linkRecordHtml\(x,\{extra:recordFilesHtml\(x\)\}\)/);
+  assert.match(wd,/withFiles:true/);assert.match(wd,/linkRecordHtml\(x,\{extra:recordFilesHtml\(x,\{open:photos\}\)/);
   const ra=read('app/record-attach.js');assert.match(ra,/mountBasketPicker\(pickerHost, \{id, filesHost, dropTarget:box, pasteTarget:box/);
-  const ps=read('app/project-system-v3.js');assert.match(ps,/withFiles:true/);assert.match(ps,/\$\{recordFilesHtml\(b,\{open\}\)\}<\/div>`\}/);
+  const ps=read('app/project-system-v3.js');assert.match(ps,/withFiles:true/);assert.match(ps,/\$\{recordFilesHtml\(b,\{open:photos\}\)\}<\/div><\/div>`\}/);
   // The home and 정리함 saves do not pass fileLine (their rule is unchanged).
   for(const f of ['app/home-quick.js','app/basket.js'])assert.doesNotMatch(read(f),/fileLine/);
 });

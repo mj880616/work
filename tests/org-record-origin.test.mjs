@@ -18,7 +18,8 @@ test('linkRecordHtml: 노트가 아닌 연결은 만든 곳과 상관없이 날�
     assert.match(html,/aria-label="기록 메뉴"/);assert.match(html,/합성 기록 글/);
   }
   const note=linkRecordHtml(row({origin:'record_input',note_kind:'note',title:'합성 노트'}));
-  assert.match(note,/노트 연결<\/small>/);assert.match(note,/data-record-mark="note"/);assert.match(note,/<a class="basket-link-open" href="\.\/\?view=basket" data-basket-link-open="n">/);
+  // UI-기록줄높이통일(S70-66): 줄 머리는 누르면 그 자리에서 펼치는 단추(노트 열기는 ⋯ [노트 열기]) — 노트 줄만 data-basket-link-open(노트 id).
+  assert.match(note,/노트 연결<\/span><\/small>/);assert.match(note,/data-record-mark="note"/);assert.match(note,/<button type="button" class="row-act rec-fold-head basket-link-open" data-rec-fold-toggle="link:l" aria-expanded="false" data-basket-link-open="n">/);
   assert.match(note,/aria-label="기록 메뉴"/);
 });
 
@@ -48,9 +49,10 @@ test('저장 길마다 보내는 origin: 입력칸 record_input, 잊지 말기 b
 test('사업 관리 기록 줄·기록 창도 같은 규칙: 노트만 표시·이동, 잊지 말기 글자 없음',()=>{
   const src=f=>readFileSync(new URL('../app/'+f,import.meta.url),'utf8');
   const ps3=src('project-system-v3.js');
-  assert.match(ps3,/\$\{note\?`\$\{noteMark\('ps3-rec-mark'\)\} `:''\}/);
-  assert.match(ps3,/\$\{note\?`<a class="ps3-rec-line" href="\.\/\?view=basket" data-ps3-basket-note=/);
-  assert.match(ps3,/'<div class="ps3-rec-line">'/);
+  // UI-기록줄높이통일(S70-66): 공용 기록 줄(foldHeadHtml) — 노트 줄만 '노트 연결' 칩, 줄 누름은 펼침(링크 없음).
+  assert.match(ps3,/const chip=note\?`<small>\$\{noteMark\('ps3-rec-mark'\)\}<span class="rec-fold-chip-t">노트 연결<\/span><\/small>`:'';/);
+  assert.match(ps3,/foldHeadHtml\(\{key,day:/);
+  assert.doesNotMatch(ps3,/data-ps3-basket-note|class="ps3-rec-line" href=/);
   assert.doesNotMatch(ps3,/업데이트 열기|basketNoteHref|잊지 말기 기록 메뉴/);
   const sheet=src('record-sheet.js');
   assert.doesNotMatch(sheet,/'잊지 말기 연결'|'잊지 말기 업데이트'|'잊지 말기에서 열기'/);

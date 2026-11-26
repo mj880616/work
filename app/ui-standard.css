@@ -8,7 +8,7 @@
 /* 일정의 월간·주간 칸(#calendarGrid·#calendarWeek)은 이번 단계에서 모양을 바꾸지 않으므로 굵기도 그대로 둔다. */
 /* 목록 줄(행 버튼)과 그 안의 이름은 아래 '목록 글자' 규칙이 굵기를 정한다(3/3). */
 #appView :is(#basketView,#calendarView,#tasksView,#projectsView,#teamView,#libraryView,#meetingsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"],[aria-checked="true"]):not(.md-body *,#calendarGrid *,#calendarWeek *,.basket-row,.basket-row *,.nbx-body-btn,.nbx-meta-open,.kptu-list-name,.lu-row-title,.meeting-list-title h3,.gt-main b,.clv-title,.ds-seg-btn),
-#ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *,.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b,.ps3-rec-line,.ps3-rec-line *,.ps3-line-main b,.ps3-add-plus){ font-weight:var(--ds-weight-medium); }
+#ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *,.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b,.ps3-rec-line,.ps3-rec-line *,.rec-fold-head,.rec-fold-head *,.ps3-line-main b,.ps3-add-plus){ font-weight:var(--ds-weight-medium); }
 
 :where(#basketView) label{ font-weight:var(--ds-weight-medium); }
 /* HOME-업무일지홈: 홈 본문(업무일지)은 journal.css가 굵기를 정하고, 빠른 입력 버튼만 정리함과 같은 중간 굵기. */

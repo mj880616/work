@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
-// EDIT-번호모양보존: 담당조직 기록에 손으로 쓴 "1) 2)"·"(1)"·①·가.와 들여쓰기·빈 줄이 [펼치기]로 펼친 글에서 쓴 그대로 보인다(접힌 줄은 RECORD-한줄 한 줄)
+// EDIT-번호모양보존: 담당조직 기록에 손으로 쓴 "1) 2)"·"(1)"·①·가.와 들여쓰기·빈 줄이 줄을 눌러 펼친 글에서 쓴 그대로 보인다(접힌 줄은 요약 두 줄 — UI-기록줄높이통일)
 // ("1."로 바뀌거나 들여쓰기·빈 줄이 사라지지 않는다). 서식(doc)이 있는 기록은 저장된 번호 모양(1) 등)을 그대로 그린다. 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test';
 const org={id:'oa',workspace_id:'w',name:'합성 가 지부',active:true,created_by:owner,updated_at:stamp};
@@ -42,12 +42,12 @@ async function fixture(page){
 test('손으로 쓴 번호·들여쓰기·빈 줄은 접힌 줄에서도 펼친 글에서도 쓴 그대로 보인다',async({page})=>{
  const {errors}=await fixture(page);
  await clickView(page,'team');await expect(page.locator('#wdTitle')).toHaveText('합성 가 지부');
- const rec=page.locator('#wdUpdates [data-wd-up="u-old"]'),text=rec.locator('.wd-log-main p.kptu-clamp').first();
+ // UI-기록줄높이통일(S70-66): 접힌 줄은 요약 두 줄(본문 앞부분, 번호 모양 "2."은 그대로), 줄을 누르면 그 자리에서 쓴 그대로의 원문.
+ const rec=page.locator('#wdUpdates [data-wd-up="u-old"]'),sum=rec.locator('.rec-fold-text'),text=rec.locator('.wd-log-main .rec-fold-full');
+ await expect(sum).toBeVisible();
+ expect(await sum.evaluate(el=>el.textContent)).toMatch(/^2\. 노조 주요 요구안 1\) 임금교섭/);
+ await rec.locator('[data-rec-fold-toggle]').click();
  await expect(text).toBeVisible();
- // RECORD-한줄: 접힌 줄은 기록 한 줄(첫 줄 + …). 번호 모양 "2."은 그대로(목록 표시로 걷어내지 않음).
- expect(await text.evaluate(el=>el.textContent)).toBe('2. 노조 주요 요구안…');
- await rec.locator('.kptu-clamp-more').click();
- await expect(text).toHaveClass(/is-open/);
  // Opened: still the written letters, never read as a markdown list.
  await expect(text.locator('ol,ul,li')).toHaveCount(0);await expect(text).not.toHaveClass(/md-body/);
  expect(await text.evaluate(el=>el.textContent)).toBe(WRITTEN);

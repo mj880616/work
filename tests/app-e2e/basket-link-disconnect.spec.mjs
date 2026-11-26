@@ -95,7 +95,7 @@ test('project detail: [되돌리기] re-links the same project with its summary;
  await again.getByRole('button',{name:'기록 메뉴',exact:true}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  await page.locator('#ps3DetailModal [data-undo-notice]').getByRole('button',{name:'되돌리기'}).click();
  await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toContainText('보류한 업데이트라 연결을 되돌리지 못했어요.');await expect(host.locator('[data-basket-link]')).toHaveCount(1);
- await host.locator('[data-basket-link] .ps3-rec-text').first().click();await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(await page.evaluate(()=>window.__went)).toEqual([]);
+ await host.locator('[data-basket-link] .rec-fold-text').first().click();await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(await page.evaluate(()=>window.__went)).toEqual([]);
  expect(errors).toEqual([]);
 });
 

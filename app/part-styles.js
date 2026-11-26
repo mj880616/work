@@ -22,6 +22,7 @@ export const PART_STYLES = Object.freeze({
   'html-frame': ['./markdown-view.css'],
   'record-sheet': ['./record-sheet.css'],
   'record-files': ['./record-sheet.css'],
+  'record-fold': ['./record-sheet.css'],
   'filter-chips': ['./filter-chips.css'],
   'folder-tree-ui': ['./folder-tree.css'],
   'tree-icons': ['./folder-tree.css'],

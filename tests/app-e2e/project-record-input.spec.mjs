@@ -114,15 +114,15 @@ test('PRJ-기록입력 one list holds only basket links; old records and items a
   await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');
   await expect(lines(page)).toHaveCount(1);
   const texts=await lines(page).evaluateAll(xs=>xs.map(x=>x.innerText.replace(/\s+/g,' ').trim()));
-  expect(texts).toEqual(['9.20 현장 간부 면담 결과 정리 ⋯']);
+  expect(texts).toEqual(['9.20 현장 간부 면담 결과 정리 › ⋯']); // UI-기록줄높이통일: 줄 끝 › (누르면 그 자리 펼침)
   await expect(page.locator('#ps3-progress [data-ps3-record]')).toHaveCount(0);
   for(const text of ['토론회 발제자 확정','국토부 협의 시작','정책 대응','빈 옛 항목'])await expect(page.locator('#ps3-progress')).not.toContainText(text);
   // S71-57 RECORD-잊지말기연결표시삭제: 잊지 말기에서 온 줄은 그냥 기록 — 표시 아이콘·링크 없음, 눌러도 어디로도 가지 않는다. ⋯ 하나만.
   const basket=lines(page).first();
   await expect(basket.locator('a')).toHaveCount(0);await expect(basket.locator('[data-record-mark]')).toHaveCount(0);await expect(basket).not.toContainText('🧺');
-  await expect(basket.locator('button')).toHaveCount(1);await expect(basket.getByRole('button',{name:'기록 메뉴',exact:true})).toBeVisible();
+  await expect(basket.locator('button:not([data-rec-fold-toggle])')).toHaveCount(1);await expect(basket.getByRole('button',{name:'기록 메뉴',exact:true})).toBeVisible();
   await expect(page.locator('#ps3Body [data-link-summary-edit],#ps3Body [data-link-disconnect],#ps3Body [data-link-note-delete],#ps3BasketLinks')).toHaveCount(0);
-  await basket.locator('.ps3-rec-text').click();
+  await basket.locator('.rec-fold-text').click();await expect(basket.locator('[data-rec-fold-toggle]')).toHaveAttribute('aria-expanded','true'); // UI-기록줄높이통일: 누름 = 그 자리 펼침
   await expect(page.locator('#kptuRecordSheet:not(.hidden)')).toHaveCount(0);await expect(page.locator('#ps3DetailModal')).toBeVisible();
   expect(await page.evaluate(()=>window.KPTURouter.current)).not.toBe('basket');
   expect(state.calls('app_record_links','PATCH').length+state.calls('app_record_links','DELETE').length).toBe(0);

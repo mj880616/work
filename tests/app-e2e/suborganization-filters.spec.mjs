@@ -87,9 +87,9 @@ test('저장하면 날짜·시간과 함께 기록 맨 위에 쌓이고 입력�
   await expect(page.locator('#wdInboxText')).toHaveValue('');
   const rows=page.locator('#wdUpdates .wd-log-row');
   await expect(rows).toHaveCount(3);
-  await expect(rows.nth(0).locator('p')).toHaveText('다음주 화요일 교섭 예정');
-  await expect(rows.nth(1).locator('p')).toHaveText('오늘 지부장 통화. 사측 12명, 노조 20명 요구.');
-  await expect(rows.nth(2).locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
+  await expect(rows.nth(0).locator('.rec-fold-text')).toHaveText('다음주 화요일 교섭 예정');
+  await expect(rows.nth(1).locator('.rec-fold-text')).toHaveText('오늘 지부장 통화. 사측 12명, 노조 20명 요구.');
+  await expect(rows.nth(2).locator('.rec-fold-text')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
   await expect(rows.nth(0).locator('.wd-log-day')).toHaveText('9.26.'); // ORG-기록하나로 O-5: '날짜 | 기록' 한 표 — 왼쪽 날짜 칸(시각 없이)
   const posts=await page.evaluate(()=>window.__updatePosts);
   expect(posts).toEqual([
@@ -221,7 +221,7 @@ test('기록 삭제는 확인 후 해당 항목만 지우고, 취소하면 요�
   await deleteRecord(page,rows.nth(0));
   await answerAsk(page,true);
   await expect(rows).toHaveCount(1);
-  await expect(rows.nth(0).locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
+  await expect(rows.nth(0).locator('.rec-fold-text')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
   await expect(page.locator('#toast')).toHaveText('기록을 삭제했습니다.');
   const deletes=await page.evaluate(()=>window.__deletes);
   expect(deletes).toEqual([{path:'/rest/v1/app_suborganization_updates?id=eq.up-2&organization_id=eq.org-rail&select=id',prefer:'return=representation'}]);
@@ -262,7 +262,7 @@ test('삭제 요청이 실패하거나 지워진 행이 없으면 항목을 그�
   await answerAsk(page,true);
   await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했어요. 권한이 없거나 이미 없는 항목입니다.');
   await expect(row).toHaveCount(1);
-  await expect(row.locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
+  await expect(row.locator('.rec-fold-text')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
   await page.locator('#wdMore [data-wd-tab="recent"]').click();
   await page.locator('#wdItems').getByRole('button',{name:'메모 삭제'}).click();
   await answerAsk(page,true);
@@ -278,7 +278,8 @@ test('편집 권한이 없으면 기록·메모 삭제 버튼이 없고 삭제 �
   await expect(page.locator('#wdUpdates')).toContainText('지난주 지부장 통화');
   await page.locator('#wdMore [data-wd-tab="recent"]').click();
   await expect(page.locator('#wdItems')).toContainText('최근 교섭');
-  await expect(page.locator('#wdUpdates button,#wdItems button')).toHaveCount(0);
+  // UI-기록줄높이통일: 기록 줄 머리(누르면 펼침)는 읽기 버튼이라 권한과 상관없이 있다 — 그 밖의 버튼(⋯·삭제)은 없다.
+  await expect(page.locator('#wdUpdates button:not([data-rec-fold-toggle]),#wdItems button')).toHaveCount(0);
   await expect(page.locator('[data-wd-up-del],[data-wd-up-menu],[data-wd-memo-del]')).toHaveCount(0);
   let dialogs=0;
   page.on('dialog',d=>{dialogs++;d.accept()});

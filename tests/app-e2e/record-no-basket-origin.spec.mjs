@@ -30,7 +30,7 @@ for(const kind of ['organization','project'])for(const width of [390,1280])test(
   const row=rows.nth(i);
   await expect(row.getByRole('button',{name:'기록 메뉴',exact:true})).toHaveCount(1);
   // 줄을 눌러도 아무 데도 가지 않는다(창 그대로, 폰 기록 창 없음).
-  const text=kind==='organization'?row.locator('[data-link-summary-text]'):row.locator('.ps3-rec-text');
+  const text=kind==='organization'?row.locator('[data-link-summary-text]'):row.locator('.rec-fold-text');
   if(width<761)await text.tap();else await text.click();
   await expect(modal).toBeVisible();await expect(page.locator('#kptuRecordSheet:not(.hidden)')).toHaveCount(0);
   expect(await page.evaluate(()=>window.__went)).toEqual([]);

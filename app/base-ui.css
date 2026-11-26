@@ -243,11 +243,10 @@ body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-
 .kptu-title-line>:first-child{flex:1 1 auto;min-width:0;margin:0;overflow-wrap:anywhere}
 .kptu-title-line>:not(:first-child){flex:none;margin-top:-4px}
 
-/* PRJ-화면다듬기: one 4-line text clamp (text-clamp.js). Open = .is-open; the organization record list adds a [더보기]/[접기] button under the text. */
+/* PRJ-화면다듬기: one 4-line text clamp. Open = .is-open. (UI-기록줄높이통일 S70-66: 조직·사업 기록 줄은 record-fold.js 두 줄 줄로 바뀌어
+   text-clamp.js·[펼치기] 단추는 지웠다 — 남은 쓰임은 사업 상세의 옛 줄 그리기.) */
 .kptu-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}
 .kptu-clamp.is-open{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible}
-.kptu-clamp-more{display:inline-flex;align-items:center;min-height:44px;margin:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
-.kptu-clamp-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:var(--kptu-radius-md)}
 /* SEARCH-결과원문으로(S71-15): 전체 검색 결과를 눌러 연 원문 자리의 찾은 낱말(found-mark.js, 화면 찾기 kptu-find와 같은 색) */
 ::highlight(kptu-found){color:var(--kptu-ink);background-color:color-mix(in srgb,var(--kptu-primary-ink) 18%,transparent);text-shadow:.35px 0 0 currentColor,-.35px 0 0 currentColor}
 /* CAL-저장본먼저: one small line on screens that show this device's saved copy first (data-freshness.js draws it):

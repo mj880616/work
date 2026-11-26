@@ -33,7 +33,7 @@ for(const kind of ['organization','project'])for(const width of [390,1280])test(
  await expect(page.locator(`${host(kind)} [data-link-summary-form]`)).toHaveCount(0);
  if(kind==='project')await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('2');
  await release(page);await expect(page.locator(title(kind))).toHaveText(kind==='organization'?'다른 담당조직':'하위 프로젝트');await expect(page.locator(host(kind))).toContainText('B 최신 요약');await expect(page.locator(`${host(kind)} [data-basket-link]`)).toHaveCount(1);
- if(kind==='project'){await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');await expect(page.locator(`${host(kind)} [data-basket-link] .ps3-rec-text`)).toBeVisible();await expect(page.locator(`${host(kind)} [data-basket-link] a`)).toHaveCount(0);await expect(page.locator(`${host(kind)} button:not([data-ps3-record-menu^="basket:"])`)).toHaveCount(0);}
+ if(kind==='project'){await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');await expect(page.locator(`${host(kind)} [data-basket-link] .rec-fold-text`)).toBeVisible();await expect(page.locator(`${host(kind)} [data-basket-link] a`)).toHaveCount(0);await expect(page.locator(`${host(kind)} button:not([data-ps3-record-menu^="basket:"],[data-rec-fold-toggle])`)).toHaveCount(0);}
  else{await linkAction(page.locator(`${host(kind)} [data-basket-link]`).first(),'요약 수정',{tap:true});await expect(page.locator(`${host(kind)} textarea`)).toHaveValue('B 최신 요약');}expect(errors).toEqual([]);
 });
 for(const kind of ['organization'])test(`${kind} late summary save during transition refreshes the loaded destination`,async({page})=>{
